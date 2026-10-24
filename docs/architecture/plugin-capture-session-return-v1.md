@@ -1,8 +1,12 @@
 # Product capture: original-tab return across worker recreation
 
 Execution: [#927](https://github.com/qq550723504/shuomi-ai-commerce/issues/927).
-Design Basis: **Independent Architecture**. Admission: **NOT_READY**, awaiting
-the existing independent review before production code changes.
+Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY**
+after the existing `amazon_fix_review` independently reviewed design
+`ef185ffff61c573c15f0cbed6187f77a3d2fe8cf`, with no design BLOCKER. The #927
+review record precedes production changes. Shared initialization, interrupted
+writes, bounded handoff timing and return-only semantics are IMPLEMENTATION_TEST
+within this frozen design; final code/evidence review remains required.
 
 ## Product authority and outcome
 
@@ -91,6 +95,10 @@ reconstruct promises/locks, Handoff state, payload availability or saved outcome
 | Worker recreation with pending record, or tab creation/bind failure | Retain uncertain projection | No automatic create/extract/new key/POST |
 | Explicit confirmed new capture/reset while idle | Await deletion/replacement of this navigation item; then replace Controller/revision | Old application tab, key, request and data remain |
 | Read/write/reset failure | Latch unavailable/uncertain; retain whatever existing evidence is readable | No mutation retry or automatic reset |
+
+Bind the existing Handoff immediately after tabs.create returns, before awaiting
+the bound navigation write. The original receiver's bounded reads must not wait
+for a storage write; no external message or additional retry is introduced.
 
 If tabs.create succeeded but its ID was not recorded before termination, the
 pending record deliberately cannot recover that identity. It must not scan for a

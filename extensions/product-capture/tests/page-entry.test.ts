@@ -1,9 +1,10 @@
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mountPageEntry } from '../src/page-entry';
+import type { PageState } from '../src/page-messages';
 
 const source = 'https://www.amazon.com/dp/B0BDLGZCTY';
-const empty = { revision: crypto.randomUUID(), loading: false, captured: false, handed: false, sameProduct: false };
+const empty: PageState = { revision: crypto.randomUUID(), loading: false, captured: false, handed: false, sameProduct: false, returnState: 'none' };
 let state = { ...empty }, dom: JSDOM;
 const send = vi.fn<(message: unknown) => Promise<{ ok: boolean; state: typeof state }>>(async () => ({ ok: true, state: { ...state } }));
 beforeEach(() => { state = { ...empty }; vi.clearAllMocks(); send.mockImplementation(async () => ({ ok: true, state: { ...state } })); vi.stubGlobal('chrome', { runtime: { sendMessage: send } }); });
@@ -29,6 +30,21 @@ function mounted() {
   return { ...panel, button };
 }
 
+it('offers only original-tab navigation after return-only hydration, including prior uncertainty', async () => {
+  state = { ...empty, captured: true, handed: true, sameProduct: true, returnState: 'available' };
+  const panel = mounted(); await panel.refresh();
+  send.mockRejectedValueOnce(Error('response lost'));
+  trusted(panel.button('primary'));
+  await vi.waitFor(() => expect(panel.button('primary').disabled).toBe(true));
+  state = { ...empty, sameProduct: true, returnState: 'available' };
+  await panel.refresh();
+  expect(panel.button('primary').textContent).toBe('返回应用核实');
+  expect(panel.button('primary').disabled).toBe(false);
+  trusted(panel.button('primary'));
+  await vi.waitFor(() => expect(send).toHaveBeenLastCalledWith({ type: 'page.return', revision: empty.revision }));
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'page.capture' }));
+});
+
 it.each(['https://www.amazon.com/s?k=bed', 'https://www.amazon.com/dp/invalid', 'https://detail.1688.com/offer/01.html', 'http://detail.1688.com/offer/123.html', 'https://amazon.com/dp/B0BDLGZCTY', 'https://evil.example/dp/B0BDLGZCTY'])('does not mount on unsupported page %s', url => {
   expect(mount(url)).toBeUndefined(); expect(send).not.toHaveBeenCalled();
 });
@@ -50,7 +66,7 @@ it('ignores synthetic capture/reset/confirm/return clicks and uses revision-boun
   panel.button('primary').click(); expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'page.capture' }));
   trusted(panel.button('primary'));
   await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'page.capture', revision: empty.revision }));
-  state = { ...state, captured: true, handed: true, sameProduct: true }; await panel.refresh();
+  state = { ...state, captured: true, handed: true, sameProduct: true, returnState: 'available' }; await panel.refresh();
   expect(panel.button('primary').textContent).toBe('返回应用核实');
   trusted(panel.button('primary')); await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'page.return', revision: empty.revision }));
   panel.button('fresh').click(); expect(panel.button('confirm').closest<HTMLElement>('#confirmation')!.hidden).toBe(true);
@@ -61,7 +77,7 @@ it('ignores synthetic capture/reset/confirm/return clicks and uses revision-boun
   await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'page.newCapture', revision: empty.revision }));
 });
 it('distinguishes another product, invalidates stale confirmation and disables busy controls', async () => {
-  state = { ...state, captured: true, handed: true }; const panel = mounted(); await panel.refresh();
+  state = { ...state, captured: true, handed: true, returnState: 'available' }; const panel = mounted(); await panel.refresh();
   expect(panel.button('primary').textContent).toBe('返回已有采集');
   expect(panel.host.shadowRoot!.textContent).toContain('另一件商品');
   trusted(panel.button('fresh'));
@@ -71,7 +87,7 @@ it('distinguishes another product, invalidates stale confirmation and disables b
   trusted(panel.button('confirm')); expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'page.newCapture' }));
 });
 it('does not replay after transport loss and requires explicit confirmation after known worker state is lost', async () => {
-  state = { ...state, captured: true, handed: true }; const panel = mounted(); await panel.refresh();
+  state = { ...state, captured: true, handed: true, returnState: 'available' }; const panel = mounted(); await panel.refresh();
   send.mockRejectedValueOnce(Error('sensitive raw failure'));
   trusted(panel.button('primary'));
   await vi.waitFor(() => expect(panel.host.shadowRoot!.textContent).toContain('连接中断'));
@@ -81,7 +97,7 @@ it('does not replay after transport loss and requires explicit confirmation afte
   expect(panel.host.shadowRoot!.textContent).toContain('原应用');
 });
 it('removes the panel after unsupported navigation and rejects confirmation after product URL changes', async () => {
-  state = { ...state, captured: true, handed: true }; const panel = mounted(); await panel.refresh();
+  state = { ...state, captured: true, handed: true, returnState: 'available' }; const panel = mounted(); await panel.refresh();
   trusted(panel.button('fresh'));
   dom.reconfigure({ url: 'https://www.amazon.com/dp/B012345678' });
   trusted(panel.button('confirm'));
@@ -95,7 +111,7 @@ it('does not render a late response as current-product state after same-document
   send.mockImplementationOnce(() => new Promise(resolve => { respond = resolve; }));
   trusted(panel.button('primary'));
   dom.reconfigure({ url: 'https://www.amazon.com/dp/B012345678' });
-  respond({ ok: true, state: { ...state, captured: true, handed: true, sameProduct: true } });
+  respond({ ok: true, state: { ...state, captured: true, handed: true, sameProduct: true, returnState: 'available' } });
   await vi.waitFor(() => expect(panel.host.shadowRoot!.textContent).toContain('页面已变化'));
   expect(panel.button('primary').disabled).toBe(true);
   expect(send.mock.calls.filter(([message]) => (message as { type: string }).type === 'page.capture')).toHaveLength(1);

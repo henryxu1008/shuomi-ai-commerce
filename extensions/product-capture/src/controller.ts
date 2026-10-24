@@ -3,6 +3,11 @@ import { Handoff } from './handoff';
 import { validateCapture } from './validation';
 
 export type CaptureTab = Readonly<{ id?: number; url?: string; documentId?: string }>;
+export type ReturnNavigation = Readonly<{
+  prepare(sourceURL: string): Promise<void>;
+  bind(tabId: number): Promise<void>;
+  tabID(): number | undefined;
+}>;
 
 export class Controller {
   private payload?: PlatformCapturePayload;
@@ -17,7 +22,8 @@ export class Controller {
     private readonly createTab: (url: string) => Promise<number>, private readonly extensionID: () => string,
     private readonly validate: (value: unknown) => PlatformCapturePayload = validateCapture,
     private readonly receiver: (payload: PlatformCapturePayload) => string = () => app,
-    private readonly activateTab: (id: number) => Promise<void> = async () => { throw Error('ORIGINAL_TAB_UNAVAILABLE'); }) {
+    private readonly activateTab: (id: number) => Promise<void> = async () => { throw Error('ORIGINAL_TAB_UNAVAILABLE'); },
+    private readonly navigation?: ReturnNavigation) {
     this.flow = new Handoff(app);
   }
   capture(tab?: CaptureTab): Promise<void> {
@@ -36,8 +42,14 @@ export class Controller {
     if (!this.payload) return Promise.reject(new Error('CAPTURE_REQUIRED'));
     this.flow.prepare(this.payload, crypto.randomUUID(), crypto.randomUUID());
     this.handed = true;
-    this.delivering = this.createTab(this.flow.handoffURL(this.extensionID())).then(id => this.flow.bindTab(id))
-      .catch(() => { this.deliveryFailed = true; throw new Error('HANDOFF_UNAVAILABLE'); })
+    const payload = this.payload;
+    this.delivering = Promise.resolve().then(async () => {
+      await this.navigation?.prepare(payload.evidence.sourceURL);
+      const id = await this.createTab(this.flow.handoffURL(this.extensionID()));
+      // Keep the receiver's bounded payload reads independent of storage latency.
+      this.flow.bindTab(id);
+      await this.navigation?.bind(id);
+    }).catch(failure => { this.deliveryFailed = true; throw failure instanceof Error && failure.message === 'RETURN_STATE_UNAVAILABLE' ? failure : new Error('HANDOFF_UNAVAILABLE'); })
       .finally(() => { this.delivering = undefined; });
     return this.delivering;
   }
@@ -54,7 +66,7 @@ export class Controller {
   returnToApplication(): Promise<void> {
     if (this.returning) return this.returning;
     this.returning = Promise.resolve().then(async () => {
-      const id = this.flow.applicationTabID();
+      const id = this.navigation ? this.navigation.tabID() : this.flow.applicationTabID();
       if (id === undefined) throw Error('ORIGINAL_TAB_UNAVAILABLE');
       try { await this.activateTab(id); }
       catch { throw Error('ORIGINAL_TAB_UNAVAILABLE'); }

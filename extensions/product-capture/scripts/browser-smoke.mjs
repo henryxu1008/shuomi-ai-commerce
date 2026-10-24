@@ -81,7 +81,38 @@ try {
   const manifest = await worker.evaluate(() => chrome.runtime.getManifest());
   // The shipped build's grant must stay byte-identical to what the manifest test pins; a
   // smoke run that only checks "no host_permissions" would pass a widened grant silently.
-  if (JSON.stringify(manifest.permissions) !== JSON.stringify(['activeTab','scripting']) || JSON.stringify(manifest.host_permissions) !== JSON.stringify(['https://detail.1688.com/*','https://www.amazon.com/*','https://www.amazon.ca/*','https://www.amazon.co.uk/*','https://www.amazon.de/*','https://www.amazon.co.jp/*'])) throw Error('Unexpected permissions');
+  if (JSON.stringify(manifest.permissions) !== JSON.stringify(['activeTab','scripting','storage']) || JSON.stringify(manifest.host_permissions) !== JSON.stringify(['https://detail.1688.com/*','https://www.amazon.com/*','https://www.amazon.ca/*','https://www.amazon.co.uk/*','https://www.amazon.de/*','https://www.amazon.co.jp/*'])) throw Error('Unexpected permissions');
+  const recreatedReturns=[];
+  async function recreateAndReturn(sourcePage,receiver,capture,platform){
+    const originalURL=receiver.url(), pageCount=context.pages().length;
+    const control=await context.newCDPSession(sourcePage);
+    await control.send('ServiceWorker.enable');
+    await control.send('ServiceWorker.stopAllWorkers');
+    const afterStop=await receiver.evaluate(async ({id,capture})=>{
+      try { return await chrome.runtime.sendMessage(id,{version:1,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey}); }
+      catch(error){
+        if(error.message==='Could not establish connection. Receiving end does not exist.')return {code:'LISTENER_UNAVAILABLE'};
+        throw error;
+      }
+    },{id,capture});
+    if(!['CAPTURE_UNAVAILABLE','LISTENER_UNAVAILABLE'].includes(afterStop?.code))throw Error('Worker recreation retained stale payload');
+    await sourcePage.bringToFront();
+    await sourcePage.getByRole('button',{name:'刷新状态',exact:true}).click();
+    const button=sourcePage.getByRole('button',{name:'返回应用核实',exact:true});
+    await button.waitFor(); await button.click();
+    await receiver.waitForFunction(()=>document.visibilityState==='visible');
+    if(context.pages().length!==pageCount || receiver.url()!==originalURL)throw Error('Worker recreation replaced or navigated the original receiver');
+    const stateWorker=context.serviceWorkers().find(value=>value.url()===`chrome-extension://${id}/background.js`);
+    if(!stateWorker)throw Error('Source return did not revive the worker');
+    const stored=await stateWorker.evaluate(()=>chrome.storage.session.get(null));
+    const entries=Object.values(stored);
+    if(entries.length!==1 || entries[0].phase!=='bound' || !Number.isInteger(entries[0].tabId)
+      || JSON.stringify(Object.keys(entries[0]).sort())!==JSON.stringify(['phase','revision','sourceURL','tabId','version'])
+      || [capture.idempotencyKey,capture.handoffId].includes(entries[0].revision))throw Error('Unexpected session navigation contents');
+    const panel=await sourcePage.locator('#shuomi-product-capture').innerText();
+    if(panel.includes(capture.idempotencyKey)||panel.includes(capture.handoffId))throw Error('Private transport identity leaked into source entry');
+    recreatedReturns.push({platform,sameOriginalTab:true,sameOriginalURL:true,noExtraTabs:true,oldPayloadUnavailable:afterStop.code,sessionFields:Object.keys(entries[0]).sort()});
+  }
   await page.goto('https://detail.1688.com/offer/981645030344.html');
   console.log(JSON.stringify({ stage:'CLICK_SOURCE_PAGE_CAPTURE', id }));
   if (automated) {
@@ -116,8 +147,11 @@ try {
   const rejection = await wrong.evaluate(async ({id,capture})=>chrome.runtime.sendMessage(id,{version:1,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey}),{id,capture});
   if(rejection.code!=='CAPTURE_UNAVAILABLE')throw Error('Other application tab read accepted');
   await wrong.close();
+  if(automated)await recreateAndReturn(page,firstApp,firstCapture,'1688');
+  let amazonSource;
   if(automated){
     const amazon=await context.newPage(); await amazon.goto('https://www.amazon.com/dp/B0BDLGZCTY');
+    amazonSource=amazon;
     await amazon.getByRole('button',{name:'返回已有采集',exact:true}).waitFor();
     await amazon.getByRole('button',{name:'采集当前商品（新操作）',exact:true}).click();
     await amazon.getByRole('button',{name:'取消',exact:true}).click();
@@ -148,19 +182,8 @@ try {
   let workerRestartRejected=false;
   let workerStopOutcome=null;
   if(automated){
-    const control=await context.newCDPSession(page);
-    await control.send('ServiceWorker.enable');
-    await control.send('ServiceWorker.stopAllWorkers');
-    const afterStop=await app.evaluate(async ({id,capture})=>{
-      try {
-        return await chrome.runtime.sendMessage(id,{version:1,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey});
-      } catch(error) {
-        if(error.message==='Could not establish connection. Receiving end does not exist.')return {code:'LISTENER_UNAVAILABLE'};
-        throw error;
-      }
-    },{id,capture});
-    if(!['CAPTURE_UNAVAILABLE','LISTENER_UNAVAILABLE'].includes(afterStop?.code))throw Error('Worker restart retained stale handoff');
-    workerStopOutcome=afterStop.code;
+    await recreateAndReturn(amazonSource,app,capture,'amazon');
+    workerStopOutcome=recreatedReturns.at(-1).oldPayloadUnavailable;
     workerRestartRejected=true;
   }
   await app.reload();
@@ -170,7 +193,7 @@ try {
   const buildHashes={};
   for(const name of ['manifest.json','background.js','extractor.js','page.js','popup.js','popup.html','popup.css']) buildHashes[name]=createHash('sha256').update(await readFile(resolve(root,'dist-fixture',name))).digest('hex');
   await writeFile(resolve(artifacts,'receipt.json'),JSON.stringify({head,buildHashes,browserName,browserVersion:context.browser()?.version(),id,manifest,
-    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,reloadPreservedKey:true,
+    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,recreatedReturns,reloadPreservedKey:true,
     backendIntegration:'NOT_RUN',real1688:'NOT_RUN',realAmazon:'NOT_RUN'},null,2));
   console.log(JSON.stringify({stage:'TRANSPORT_FIXTURE_PASS',artifacts}));
 } finally {
