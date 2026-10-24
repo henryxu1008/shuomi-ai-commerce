@@ -229,8 +229,8 @@ func TestProductionLLMManagerAdapterCallersPassLogger(t *testing.T) {
 
 func TestOpenAIConfigsExposeExplicitNonSerializedLogger(t *testing.T) {
 	for _, config := range []any{
-		openaiclient.ClientConfig{}, openaiclient.PoolConfig{}, openaiclient.CachedClientConfig{},
-		openaiclient.ManagerConfig{}, openaiclient.ResilientClientConfig{},
+		openaiclient.ClientConfig{}, openaiclient.PoolConfig{},
+		openaiclient.ManagerConfig{},
 	} {
 		configType := reflect.TypeOf(config)
 		field, ok := configType.FieldByName("Logger")

@@ -1,3 +1,5 @@
+> #301 / #934 **USER_CONFIRMED**：[旧闲置 adapter/helper 完整退休闭包](legacy-idle-adapter-helper-closure-retirement-boundary.md) §1–§7（含 §6.1）已获用户确认，Reuse Existing Architecture / Ready 与 Issue/PR 读回先于源码修改。仅替代 UnmarshalBytes 的 KEEP/原正向保活行：#926 已退休最后旧 Amazon API 消费者，现仅删除该孤立泛型函数；UnmarshalString/CleanLLMResponse、严格 JSON/版本/hash/读取拒绝、原浏览器 Processor 与其它有效能力保持。只按准确矩阵替代本项旧 KEEP；以下原文/已有顶注/数字/勾选/批准/历史证据完整逐字保留。workflow/完整 inventory/依赖/保护及既有实例/数据/凭据/进程零改，保留独立 SHEIN 登录与 Store 同步，不增试用前置，#301 OPEN。
+
 # 旧闲置配置、并行管理与 JSON 辅助合同完整退休闭包设计
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
