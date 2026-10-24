@@ -2,8 +2,8 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。父 Issue 保持 OPEN，#29 不重开。
 
-- Status: **DESIGN_REVIEW_PENDING / IMPLEMENTATION_NOT_AUTHORIZED**。用户本轮仅批准先做完整设计，确认后再实施；本 PR 当前只修改本文、Architecture README 与 Legacy Register 三文档。
-- 本阶段 **Design Basis: N/A**：纯设计与当前索引，不改变生产路径、原检查、配置、持久化或平台调用。拟实施 **Independent Architecture / NOT_READY / Backlog**，以本文件精确替代前批 KEEP 和旧品牌响应 JSON 的保留边界；须完成适用设计复核、用户确认，并记录及读回 IMPLEMENTATION_READY / Ready 后才能改源码。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计912170ca0的§1–§7（含§4.2/§6.1），同一#929整批25工件已实施；准确实现HEAD、原CI与源码最终复核留PR，设计/自检不冒充运行或产品验收。
+- Design Basis: **Independent Architecture / IMPLEMENTATION_READY；Issue/PR Admission: Ready**。[实施接单6383108340](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6383108340)、用户确认、设计原CI40084906434 SUCCESS及独立设计/修复增量复核6382965118 PASS已核实；Issue/PR Ready记录与读回先于源码修改。设计N/A仅历史阶段。以下§1–§7的条件式计划保留冻结边界，实际授权与交付状态以本段和主要PR为准。
 - 调查基线：实际 main **8495b5d664b5f3cfb5e1426b2433e21b33fc25ce**，tree **29d1e61a25b96af99278e8b1f5d2414087323a8e**。#926 已正常合并，匹配 push/main CI40081911984 SUCCESS 只是前批事实，不当本设计或未来实现证据。
 - 唯一 Writer 原会话 `01a133ef-757c-73e3-b8f6-76958c642397`，复用独占 worktree，新分支 `codex/issue301-shein-brand-error-closure-design`；[接单及前批当前段归档6382724173](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6382724173)。开工已 fetch main；无同范围接单或 PR，独立 #692 Store schema 设计不接管。
 
@@ -11,7 +11,7 @@ Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。父 
 
 使用者为当前 SHEIN 草稿、文案清理及独立登录/Store 同步能力的维护者。旧平台客户端退出后，未装配的品牌查询 Resolver 仍保活错误分类及品牌列表 DTO；可见结果是将这条完整死链、专属测试、保活检查和历史建议一次退出，当前品牌值、清理与草稿行为沿原 owner 保留。当前没有被此残留阻塞的核心用户操作，不以父目标清零为由新增产品、平台、运行验收或内部试用前置。一个 Delivery Batch / 一个主要 PR，不按文件或测试数量机械拆批。
 
-Authority 为本轮用户“先做完整设计、确认后实施”的明确范围、[Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)及下文准确前批 KEEP 替代。UI/IA/Figma N/A：没有页面、菜单、交互或能力开放变化。原“Cookie 接口都可退休”提议已撤回，不作为依据。
+Authority 为用户明确确认冻结设计912170ca0并按25工件整批实施的直接决定（实施接单6383108340）、[Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)及下文准确前批 KEEP 替代。UI/IA/Figma N/A：没有页面、菜单、交互或能力开放变化。原“Cookie 接口都可退休”提议已撤回，不作为依据。
 
 Scope：旧 `authorizedbrand.ProductAPI/Resolver/Config`、全部查询/匹配 helper、专属 Resolver 测试；最后生产 consumer 退出后的 `internal/shein/sherr` 全包；仅该查询链使用的 `BrandItem/BrandListResponse`；§5/§6.1 的原 guard 和文档尾部。
 
@@ -25,7 +25,7 @@ Threat Model 限误删仍有调用者的品牌值/context/清理/草稿 JSON，�
 
 根因是把“存在包内引用”留作后续边界，却没有继续证明完整运行入口：#926 移除了真实品牌 API Client，Resolver 仍可通过窄接口和自身测试编译，但当前装配不构造它；它继续引用 `sherr` 和品牌响应 DTO。设计以 contract → implementation → injection → consumer 判定当前职责，不能只见 import 就永久保活，也不能只见零调用就越过用户已批准的 KEEP。
 
-拟实施采用 Independent Architecture，集中确认此前明确 KEEP 的品牌查询合同和响应 JSON 退出；当前品牌值合同及持久化/授权 owner 不变。没有新增框架或外部副作用，不为复核设计重开无关架构。以下替代只在用户确认后生效：
+拟实施采用 Independent Architecture，集中确认此前明确 KEEP 的品牌查询合同和响应 JSON 退出；当前品牌值合同及持久化/授权 owner 不变。没有新增框架或外部副作用，不为复核设计重开无关架构。以下准确替代已获用户确认，只在本矩阵范围生效：
 
 | 旧依据 | 精确替代对象 | 继续有效 |
 | --- | --- | --- |
@@ -94,7 +94,7 @@ Threat Model 限误删仍有调用者的品牌值/context/清理/草稿 JSON，�
 
 ### 5.3 十二份专属历史建议与三份当前文档
 
-未来实施只对以下原文增加准确 superseding 顶注；完整原文/顶注/数字/勾选/批准/链接/证据逐字保留为后缀。只替代 §2/§5 的旧 Resolver/Config/sherr/品牌列表 DTO 含义，不 blanket 撤销 authorizedbrand 或平台/JSON KEEP：
+本轮只对以下原文增加准确 superseding 顶注；完整原文/顶注/数字/勾选/批准/链接/证据逐字保留为后缀。只替代 §2/§5 的旧 Resolver/Config/sherr/品牌列表 DTO 含义，不 blanket 撤销 authorizedbrand 或平台/JSON KEEP：
 
 1. docs/architecture/legacy-platform-api-closure-retirement-boundary.md
 2. docs/architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md
@@ -111,7 +111,7 @@ Threat Model 限误删仍有调用者的品牌值/context/清理/草稿 JSON，�
 
 本文、Architecture README 和 Legacy Register 三份当前文档同步准确状态/边界，两个索引原完整正文保留为后缀。#923 Prompt 文档关于 WithResolved/合法品牌清理的 KEEP 继续有效，全文件零改。所有 inventory、历史 test-baseline.txt、依赖、锁、workflow、lint/保护规则均零改；历史文字或不存在路径的 allowlist 不要求无价值全仓清扫。
 
-实施合计 **8 整退 + 2 mixed + 12 历史顶注 + 3 当前文档 = 25 工件**，一个主要 PR，不机械拆批。当前设计实际只修改三文档，以上是未来获准实施的完整清单。
+实施合计 **8 整退 + 2 mixed + 12 历史顶注 + 3 当前文档 = 25 工件**，一个主要 PR，不机械拆批。设计阶段只三文档；本轮按用户确认的完整清单在同一PR实施。
 
 ```text
 Legacy decision: RETIRE
@@ -143,16 +143,16 @@ Cutover/deletion condition: 设计复核、用户确认§1–§7/§6.1、IMPLEME
 
 ### 7.1 设计准入与事实界限
 
-本轮授权只是纯设计三文档；设计原 CI/实际审核 SHA/结论记录在主要 PR。适用独立设计复核聚焦前批 KEEP 替代、真实运行入口、旧 JSON/持久化边界、完整25工件、§6.1 与当前保留能力。设计候选形成后用户确认，先在 Issue/PR 记录并读回 IMPLEMENTATION_READY / Ready，再由唯一原 Writer 继续同一 PR 整批实施。设计证据不冒充实现、自检或运行证据。
+设计阶段仅三文档；准确设计912170ca0的原CI及独立复核已通过并获用户确认，实施接单/Ready记录与读回已先于源码修改。准确实现HEAD/原CI/源码最终复核仍须留主要PR，不能用设计证据冒充实现。适用独立设计复核聚焦前批 KEEP 替代、真实运行入口、旧 JSON/持久化边界、完整25工件、§6.1 与当前保留能力。设计候选形成后用户确认，先在 Issue/PR 记录并读回 IMPLEMENTATION_READY / Ready，再由唯一原 Writer 继续同一 PR 整批实施。设计证据不冒充实现、自检或运行证据。
 
 finding 先按 AGENTS 分类，指出当前 Must/后果/阻塞层级；新事实确实命中 BLOCKER 才重开架构。普通实现/检查问题同一 PR 收敛，修复后只复核增量；最多两轮正常架构评审，不追求无限理论零 finding。
 
 ### 7.2 最终交付
 
-形成完整实施后一次只读最终检查真实 diff、24工件、全部保留能力和既有证据。未变化代码证据可明确复用，main 同步只处理真实组合风险，不为 unrelated 模块重复全量审核。实现者自检/CI/AI review 不等于产品验收。最终交付准确 HEAD、原 CI 和真实独立复核后，由用户另行授权 expected-head 正常合并；合并后仅核对实际 merge SHA 匹配 push/main 完整 CI。
+形成完整实施后一次只读最终检查真实 diff、25工件、全部保留能力和既有证据。未变化代码证据可明确复用，main 同步只处理真实组合风险，不为 unrelated 模块重复全量审核。实现者自检/CI/AI review 不等于产品验收。最终交付准确 HEAD、原 CI 和真实独立复核后，由用户另行授权 expected-head 正常合并；合并后仅核对实际 merge SHA 匹配 push/main 完整 CI。
 
 ### 7.3 本轮权限
 
-设计只提交/推送/维护同一主要 PR；生产实施、合并、部署、#301关闭和真实环境操作均 **NOT_AUTHORIZED**。未经用户本轮授权不默认新增 AI 互验线程；GitHub 复核同 SHA 已运行不重复触发。当前没有本轮子代理授权，不能复用 #926 的授权新增设计或源码复核者。
+用户已授权原Writer在同一主要PR整批实施25工件、必要自检/提交/推送与PR维护；合并、部署、#301关闭和真实环境操作仍 **NOT_AUTHORIZED**。未经用户本轮授权不默认新增 AI 互验线程；GitHub同SHA运行中不重复触发。此前只读子代理授权仅设计，未覆盖源码最终复核；当前实施阶段尚无新增子代理授权。
 
 保留当前能力、独立 SHEIN 登录与 Store 同步；不操作既有实例/数据/凭据/进程，不读取实际 .env，不增加内部试用前置，#301保持OPEN。没有旧数据迁移或停止既有环境的授权，UNKNOWN 不自动接管。
