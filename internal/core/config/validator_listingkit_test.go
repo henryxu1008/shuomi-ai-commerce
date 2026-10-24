@@ -16,7 +16,7 @@ func TestValidateConfigRejectsLegacyListingKitUsernameAllowlistWithoutExposingVa
 	cfg.OpenAI.APIKey = "test-openai-key"
 	cfg.ListingKit.Zitadel.AllowedUsernames = []string{configuredValue}
 
-	err := cfg.ValidateWithError()
+	err := ValidateConfigWithError(cfg)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "listingkit.zitadel.allowedUsernames")

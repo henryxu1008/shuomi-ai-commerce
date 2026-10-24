@@ -1,3 +1,5 @@
+> #301 / #917 精确替代：用户确认[旧配置加载与校验门面完整闭包 §1–§7/§6.1](legacy-config-facade-closure-retirement-boundary.md)后，本文 §3/§5.3 对旧 Config/Validator 校验方法及同文件闲置加载门面的具体形式 KEEP 仅为历史。两旧加载入口/专属 helper、Validator/NewValidator/全部方法、Config 三门面和 ValidateConfigAndLog 完整退休；四项聚合调用归现有 ValidateConfig。当前 Viper/文件/bytes/WithoutValidation/BuildConfig、defaults/env/scoped .env、六组有效规则/错误格式、认证关闭拒绝与初始化保护不变；独立 SHEIN 登录及 Store 同步保留，不操作已有资源或增加试用前置。
+
 # #301 旧宿主配置管理、功能开关与 tracing 完整退休设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 `77838dc493f08ed732f979069cfb27539c2f631d` §1–§7（含 §6.1），在 #878 同批实施。设计阶段 N/A；本轮 **Design Basis: Reuse Existing Architecture / Ready**，[用户确认/实施准入](https://github.com/qq550723504/task-processor/pull/878#issuecomment-6331364181)及 #301 当前正文读回先于正式源码修改。冻结调查基线 main `1f388af81c12c58b126460cd0d84538c84a50063` 的 Go 消费者在开工同步 main `6fc57226b3e2f928d1ff71832d860652f5fe412e` 后不变；后者仅带独立前端依赖清单/锁。以下完整矩阵与停止规则沿冻结设计，仅校准当前状态。准确实现 HEAD、RED/GREEN、CI/最终复核留主要 PR，不把设计或源码完成当作运行/用户验收。#301 OPEN，#29 不重开；一个 Writer、一个分支、一个主要 PR，三组不机械拆批。

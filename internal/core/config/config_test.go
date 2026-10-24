@@ -54,7 +54,7 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	}
 	for _, cfg := range []*Config{NewDefaultConfig(), BuildConfig(v)} {
 		cfg.OpenAI.APIKey = "fixture-key"
-		require.Empty(t, cfg.Validate(), "current defaults must not require retired worker/task inputs")
+		require.Empty(t, ValidateConfig(cfg), "current defaults must not require retired worker/task inputs")
 	}
 }
 
@@ -225,7 +225,7 @@ func TestConfigValidation(t *testing.T) {
 		},
 	}
 
-	errors := validConfig.Validate()
+	errors := ValidateConfig(validConfig)
 	assert.Empty(t, errors)
 
 	invalidConfig := &Config{
@@ -247,7 +247,7 @@ func TestConfigValidation(t *testing.T) {
 		},
 	}
 
-	errors = invalidConfig.Validate()
+	errors = ValidateConfig(invalidConfig)
 	assert.NotEmpty(t, errors)
 	assert.True(t, len(errors) >= 4)
 }

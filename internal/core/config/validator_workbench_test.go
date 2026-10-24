@@ -119,7 +119,7 @@ func TestConfigValidateWithErrorIncludesWorkbenchZitadelConfig(t *testing.T) {
 	cfg.ListingKit.Zitadel.IssuerURL = "https://issuer.example"
 	cfg.ListingKit.Zitadel.AuthorizationAPIURL = "https://issuer.example"
 
-	err := cfg.ValidateWithError()
+	err := ValidateConfigWithError(cfg)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "listingkit.zitadel.projectID")
