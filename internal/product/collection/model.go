@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	PermissionRead   = "workbench.collection.read"
-	PermissionManage = "workbench.collection.manage"
-	Timeout          = 10 * time.Second
-	MaxPayloadBytes  = 2 << 20
+	PermissionRead         = "workbench.collection.read"
+	PermissionManage       = "workbench.collection.manage"
+	Timeout                = 10 * time.Second
+	MaxPayloadBytes        = 2 << 20
+	MaxDetailResponseBytes = 3 << 20
 )
 
 var (
@@ -72,8 +73,21 @@ type Item struct {
 	ThumbnailURL string     `json:"thumbnailUrl,omitempty"`
 }
 type ItemDetail struct {
-	Item    Item                    `json:"item"`
-	Product catalog.ProductSnapshot `json:"product"`
+	Item         Item                    `json:"item"`
+	Product      catalog.ProductSnapshot `json:"product"`
+	SourceQuotes *SourceQuotes           `json:"sourceQuotes,omitempty"`
+}
+
+type SourcePrice = sourcing.SourcePrice
+type SourceQuotes struct {
+	State         string        `json:"state"`
+	PublicationID string        `json:"publicationId,omitempty"`
+	Version       uint64        `json:"version,omitempty,string"`
+	Prices        []SourcePrice `json:"prices,omitempty"`
+}
+
+type SourceQuoteReader interface {
+	ReadSourceQuotes(context.Context, Scope, Source) (SourceQuotes, error)
 }
 type Query struct {
 	After, Keyword string

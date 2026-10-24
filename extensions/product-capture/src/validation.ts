@@ -19,6 +19,7 @@ export function pageSource(input: string) {
 
 const text = z.string().max(8192).refine(v => byteLength(v) <= 8192 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\ud800-\udfff]/u.test(v));
 const decimal = text.regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/);
+export const validPriceAmount = (value: string) => decimal.safeParse(value).success;
 const sensitiveName = /(?:cookie|authorization|password|passwd|token|session|profile|localstorage|sessionstorage)/i;
 const attribute = z.strictObject({ name: text.min(1).refine(v => !sensitiveName.test(v)), value: text });
 const price = z.strictObject({ amount: decimal, currency: text.regex(/^[A-Z]{3}$/).nullable(), minQuantity: decimal.nullable().optional() });
