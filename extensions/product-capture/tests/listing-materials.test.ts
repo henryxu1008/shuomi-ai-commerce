@@ -88,6 +88,13 @@ describe('listing materials through existing v2 capture', () => {
     const doc=amazon('',`[]`);doc.querySelector('script')!.textContent='/*colorImages'+ ' '.repeat(2*1024*1024)+'*/';
     await expect(captureAmazonDocument(doc,amazonURL)).rejects.toThrow('CAPTURE_TOO_LARGE');
   });
+  it('bounds AST depth and accepts decoded JSON strings without executing the wrapper',async()=>{
+    const doubleQuoted=`A.$.parseJSON(${JSON.stringify(JSON.stringify(initial))})`;
+    expect((await captureAmazonDocument(amazon('',doubleQuoted),amazonURL)).evidence.images[1].url).toBe(side);
+    const doc=amazon('','[]');
+    doc.querySelector('script')!.textContent=`const nested=${'['.repeat(40)}"colorImages"${']'.repeat(40)};`;
+    await expect(captureAmazonDocument(doc,amazonURL)).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
   it.each(['description','images'])('bounds new Amazon %s before claiming complete material',async kind=>{
     const html=kind==='description'?`<p>${'界'.repeat(2800)}</p>`:Array.from({length:257},(_,i)=>`<img src="${cdn}detail-${i}.jpg">`).join('');
     await expect(captureAmazonDocument(amazon(`<div id="aplus"><div class="aplus-module">${html}</div></div>`),amazonURL)).rejects.toThrow('CAPTURE_TOO_LARGE');
@@ -109,10 +116,22 @@ describe('listing materials through existing v2 capture', () => {
     expect(e.description).toContain('Actual loaded description');
     expect(e.variants).toEqual([]);
   });
+  it('keeps a unit explicitly written in the 1688 weight value without conversion',async()=>{
+    const doc=alibaba('','"350 g"');
+    doc.querySelector('script')!.textContent=doc.querySelector('script')!.textContent!.replace('"shippingServices":{"fields":{"unitWeight":"0.4"}}','"shippingServices":{"fields":{}}');
+    const {evidence:e}=await captureDocument(doc,source1688,new Date());
+    expect(e.attributes).toContainEqual({name:'来源包装重量',value:'350 g'});
+    expect(e.missingFacts.some(f=>f.field==='attributes.weight.unit')).toBe(false);
+  });
   it('omits conflicting 1688 parameters and never replaces unknown weight with a default',async()=>{
     const doc=alibaba('<div id="desc-lazyload-container"><table><tr><td>材质</td><td>涤纶</td></tr></table></div>','null');
     const {evidence:e}=await captureDocument(doc,source1688,new Date());
     expect(e.attributes.some(a=>a.name==='材质'||a.name.includes('包装重量'))).toBe(false);
     expect(e.missingFacts.some(f=>f.field==='attributes'&&f.reason.includes('conflicting'))).toBe(true);
+  });
+  it.each(['parameters','images'])('bounds additional 1688 %s without truncation',async kind=>{
+    const html=Array.from({length:257},(_,i)=>kind==='parameters'?`<tr><th>Field ${i}</th><td>Value</td></tr>`:`<img src="https://cbu01.alicdn.com/detail-${i}.jpg">`).join('');
+    const content=kind==='parameters'?`<table>${html}</table>`:html;
+    await expect(captureDocument(alibaba(`<div id="desc-lazyload-container">${content}</div>`),source1688,new Date())).rejects.toThrow('CAPTURE_TOO_LARGE');
   });
 });

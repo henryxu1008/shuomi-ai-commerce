@@ -1,6 +1,7 @@
 import { parseTree, type Node, type ParseError } from 'jsonc-parser';
 import type { CapturePayload, EvidenceV2, Price, Image } from './wire';
 import { byteLength, fail, MAX_BYTES, pageSource, validateCapture, validPriceAmount } from './validation';
+import { detailImages, tableFacts, putFact } from './dom-materials';
 
 // Observed live payloads reach ~16.5k nodes, so the previous 16384 bound rejected
 // real pages. The 2MB candidate bound remains the primary resource guard.
@@ -196,7 +197,33 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   e.attributes = array(path(root, 'result', 'global', 'globalData', 'model', 'offerDetail', 'featureAttributes')).map(n => ({
     name: string(path(n, 'name')) ?? fail('UNSUPPORTED_PAGE'), value: string(path(n, 'value')) ?? fail('UNSUPPORTED_PAGE'),
   }));
+  const attributeFacts = new Map<string, {name:string;value:string}>(); const attributeConflicts = new Set<string>();
+  const materialCharge = () => { if (++nodes > MAX_NODES) fail('CAPTURE_TOO_LARGE'); if (performance.now()-started>8000) fail('CAPTURE_TIMEOUT'); };
+  for (const item of [...e.attributes, ...tableFacts(doc, '#desc-lazyload-container tr', materialCharge)]) putFact(attributeFacts,attributeConflicts,item.name,item.value);
+  let unknownWeightUnit = false;
+  for (const [component, label] of [['productPackInfo','来源包装重量'],['shippingServices','来源物流重量']]) {
+    const weight = string(path(data, component, 'fields', 'unitWeight'), true);
+    if (weight === null || !weight.trim()) continue;
+    const explicitUnit = /^\s*\d+(?:\.\d+)?\s*(?:kg|g|mg|lbs?|oz|千克|公斤|克|毫克|磅|盎司)\s*$/i.test(weight);
+    putFact(attributeFacts,attributeConflicts,explicitUnit ? label : `${label}（单位未提供）`,weight);
+    if (!explicitUnit) unknownWeightUnit = true;
+  }
+  e.attributes = [...attributeFacts.values()];
+  if (unknownWeightUnit) {
+    e.missingFacts.push({field:'attributes.weight.unit',reason:'source weight unit not explicit; original value retained without conversion'});
+    e.warnings.push({code:'MISSING_FACT',field:'attributes.weight.unit'});
+  }
+  if (attributeConflicts.size) {
+    e.missingFacts.push({field:'attributes',reason:'conflicting product attribute values were omitted'});
+    e.warnings.push({code:'MISSING_FACT',field:'attributes'});
+  }
   e.images = array(path(data, 'gallery', 'fields', 'offerImgList')).map(n => ({ url: string(n) ?? fail('UNSUPPORTED_PAGE'), role: 'source' }));
+  for (const url of detailImages(doc, '#desc-lazyload-container img', materialCharge)) {
+    if (!e.images.some(image=>image.url===url)) {
+      if (e.images.length >= 256) fail('CAPTURE_TOO_LARGE');
+      e.images.push({url,role:'detail'});
+    }
+  }
   const price = (node: Node, field: string, reportMissing = true): Price | null => {
     const amount = string(path(node, 'price'), true);
     if (amount === null || !reportMissing && !validPriceAmount(amount)) { if (reportMissing) missing(field); return null; }
