@@ -30,6 +30,8 @@ Status: IMPLEMENTATION_READY。Design Basis: Reuse Existing Architecture。独�
 
 Amazon 增补旧有效详情选择器 technicalSpecifications_section_1；已有三种表保留。仍仅当前商品表的两格 name/value，冲突同名值省略并提示，隐藏/脚本/表单节点排除。Item Weight/重量/产地/型号等保留来源原文，不推断单位、净重/毛重或目标枚举。
 
+2026-10-24，#916 用户批准修复 addToCart 表单祖先误伤：仅原已定位的价格 `.a-offscreen` 与 `#availability` 节点显式允许读取自身安全文字子树，忽略字段之外的 form 祖先；字段内部的 form、input/textarea/select/button、script、隐藏/推荐/其他商品子树仍排除。复用原有界文字 walker 和预算，不读取表单整体或控件值，不全局放开其他正文/参数/图片的表单排除。既有价格 root 内的 priceCurrency meta 校验沿同一受限祖先规则保留，继续排除隐藏/推荐元数据，不从表单其他位置取币种，避免恢复金额后漏掉原币种或冲突；不增加元数据来源。价格十进制、划线价、币种歧义与原 v2 保存/恢复合同不变。
+
 Amazon 正文追加旧有效 A+ 商品模块段落（#aplus .aplus-module p、#aplus_feature_div .celwidget p、.aplus-v2 .aplus-module-content p），按源顺序提取有界纯文本并去除重复段落，保留已有正文/卖点。详情图片仅当前 productDescription/A+ 根内已声明的有效 img URL，优先明确 data-old-hires 再 src；排除隐藏、视频/表单/推荐区。不读取整页 body、外链或 iframe，不抓富文本/执行脚本。
 
 1688 保留原 featureAttributes；补当前 #desc-lazyload-container 内两格参数表，与原参数按名称合并，同值去重、冲突省略并提示。该容器正文继续安全纯文本；增加该容器中有效 img，role=detail，图库已有 URL 不重复，不把详情图铺给所有 SKU。

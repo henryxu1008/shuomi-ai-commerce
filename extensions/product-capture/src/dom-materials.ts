@@ -2,8 +2,12 @@ import { byteLength, fail, publicImage } from './validation';
 import type { Attribute } from './wire';
 
 // Shared existing DOM admission rules; no HTML, page globals or external reads.
-export function excluded(element: Element): boolean {
-  if (element.closest('script,style,noscript,template,iframe,input,form,[hidden],[aria-hidden="true"]')) return true;
+export function excluded(element: Element, formTextRoot?: Element): boolean {
+  if (element.closest('script,style,noscript,template,iframe,input,[hidden],[aria-hidden="true"]')) return true;
+  const form = element.closest('form');
+  // Only a located field may ignore its enclosing form, never a nested form.
+  if (form && (!formTextRoot || form === formTextRoot || !form.contains(formTextRoot) || !formTextRoot.contains(element))) return true;
+  if (formTextRoot && element.closest('textarea,select,button')) return true;
   if (element.closest('#recommendations,.recommendations,.aplus-comparison-table,[data-cel-widget*="recommend" i],[data-cel-widget*="comparison" i]')) return true;
   const link = element.closest('a[href]');
   if (link) {
@@ -23,13 +27,14 @@ export function excluded(element: Element): boolean {
   return false;
 }
 
-export function productText(doc: Document, element: Element | null, charge: () => void, max = 8192): string | null {
-  if (!element || excluded(element)) return null;
+export function productText(doc: Document, element: Element | null, charge: () => void, max = 8192, allowAncestorForm = false): string | null {
+  const formTextRoot = allowAncestorForm && element ? element : undefined;
+  if (!element || excluded(element, formTextRoot)) return null;
   let result = ''; let bytes = 0;
   const walker = doc.createTreeWalker(element, 4); let node: Node | null;
   while ((node = walker.nextNode())) {
     charge();
-    if (node.parentElement && excluded(node.parentElement)) continue;
+    if (node.parentElement && excluded(node.parentElement, formTextRoot)) continue;
     const value = node.nodeValue ?? '';
     if (value.length > max) fail('CAPTURE_TOO_LARGE');
     bytes += byteLength(value);

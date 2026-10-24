@@ -12,6 +12,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   let examined=0; const started = performance.now();
   const charge=()=>{if(++examined>65536)fail('CAPTURE_TOO_LARGE');if(performance.now()-started>8000)fail('CAPTURE_TIMEOUT');};
   const text=(element:Element|null,max=8192)=>productText(doc,element,charge,max);
+  const fieldText=(element:Element|null)=>productText(doc,element,charge,8192,true);
   const value = (selector: string,max=8192) => text(doc.querySelector(selector),max);
   const title = value('#productTitle',2000); if (!title) fail('UNSUPPORTED_PAGE');
   const observedASIN = doc.querySelector<HTMLInputElement>('input#ASIN')?.value;
@@ -52,7 +53,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
     putFact(productFacts, factConflicts, name, value);
   };
   for (const item of tableFacts(doc, '#productOverview_feature_div tr,#productDetails_detailBullets_sections1 tr,#productDetails_techSpec_section_1 tr,#technicalSpecifications_section_1 tr', charge)) fact(item.name,item.value);
-  fact('Availability', value('#availability'));
+  fact('Availability', fieldText(doc.querySelector('#availability')));
   const dimensions = new Map<string, { name: string; value: string }>();
   const conflicts = new Set<string>();
   let incompleteDimension = false;
@@ -118,7 +119,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const priceRoots = new Set<Element>();
   for (const node of priceNodes) {
     if (node.closest('.a-text-price,s,del')) continue;
-    const amount = text(node); if (!amount) continue;
+    const amount = fieldText(node); if (!amount) continue;
     currentPrices.add(amount);
     const root = node.closest('#corePrice_feature_div,#corePriceDisplay_desktop_feature_div');
     if (!root || priceRoots.has(root)) continue;
@@ -126,7 +127,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
     const metadata = root.querySelectorAll('meta[itemprop=priceCurrency]');
     if (metadata.length > 256) fail('CAPTURE_TOO_LARGE');
     for (const meta of metadata) {
-      charge(); if (excluded(meta)) continue;
+      charge(); if (excluded(meta,root)) continue;
       const currency = meta.getAttribute('content');
       if (currency && /^[A-Z]{3}$/.test(currency)) currencies.add(currency);
     }
