@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -156,6 +157,86 @@ func TestExecutorFinalGateRechecksDeadlineAfterSlowAuthorization(t *testing.T) {
 	require.EqualValues(t, 2, authorizations.Load())
 	require.Len(t, ledger.records, 2)
 	require.Equal(t, aicapability.InvocationFailed, ledger.records[1].Outcome)
+}
+
+// A deadline can have elapsed before the context cancellation callback runs.
+// Keep the absolute deadline fixed while making that pending notification
+// deterministic; the standard-library scheduler probe reproduces this state.
+type pendingDeadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c pendingDeadlineContext) Deadline() (time.Time, bool) { return c.deadline, true }
+
+func TestExecutorRejectsDeadlineBeforeCancellationCallback(t *testing.T) {
+	for _, stage := range []string{"before_admission", "after_authorization", "after_consumer_gate"} {
+		t.Run(stage, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				deadline := time.Now().Add(time.Second)
+				pending, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				ctx := pendingDeadlineContext{Context: pending, deadline: deadline}
+				require.NotNil(t, ctx.Done(), "cancellation is deliverable but not yet notified")
+				expire := func() {
+					time.Sleep(time.Until(deadline))
+					require.False(t, time.Now().Before(deadline))
+					require.NoError(t, ctx.Err(), "the cancellation callback is still pending")
+				}
+				profile := testTextProfile("https://model.invalid")
+				input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1",
+					Operation: aicapability.OperationAIWorkbenchChatPlan, InvocationID: "pending-cancellation-" + stage,
+					System: "system", Prompt: "prompt", Profile: profile}
+				quote, err := aicapability.QuoteText(input)
+				require.NoError(t, err)
+				ledger := &recordingLedger{}
+				var sends, authorizations int
+				executor := Executor{Ledger: ledger, Admission: NewBoundedAdmission(),
+					Resolve: func(context.Context, aicapability.TextInputIdentity) (QualifiedRoute, error) {
+						return QualifiedRoute{Profile: profile, Endpoint: "https://model.invalid", APIKey: "synthetic-only"}, nil
+					},
+					Authorize: func(context.Context, aicapability.TextInputIdentity) error {
+						authorizations++
+						if stage == "after_authorization" && authorizations == 2 {
+							expire()
+						}
+						return nil
+					},
+					BaseTransport: diagnosticTransport(func(*http.Request) (*http.Response, error) {
+						sends++
+						return nil, errors.New("unexpected synthetic transport handoff")
+					})}
+				var beforeSend func(context.Context) (func(), error)
+				cleaned := false
+				if stage == "after_consumer_gate" {
+					beforeSend = func(context.Context) (func(), error) {
+						expire()
+						return func() { cleaned = true }, nil
+					}
+				}
+				if stage == "before_admission" {
+					expire()
+				}
+				_, err = executor.GenerateWithGate(ctx, input, quote, nil, beforeSend)
+				require.Zero(t, sends, "an elapsed absolute deadline forbids transport even before cancellation notification")
+				require.ErrorIs(t, err, ErrNotDispatched)
+				if stage == "before_admission" {
+					require.Empty(t, ledger.records, "an expired call cannot claim or reserve")
+					require.False(t, ledger.claimed)
+					require.False(t, ledger.reserved)
+				} else {
+					require.ErrorIs(t, err, ErrNoDispatchReleased)
+					require.Len(t, ledger.records, 2)
+					require.Equal(t, aicapability.InvocationFailed, ledger.records[1].Outcome)
+					require.True(t, ledger.records[1].UsageKnown)
+					require.Zero(t, ledger.records[1].TotalTokens)
+				}
+				if stage == "after_consumer_gate" {
+					require.True(t, cleaned, "the existing consumer permit must still be released")
+				}
+			})
+		})
+	}
 }
 
 func (l *recordingLedger) ClaimInvocation(_ context.Context, r aicapability.InvocationRecord) (bool, error) {
