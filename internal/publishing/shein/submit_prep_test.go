@@ -8,7 +8,6 @@ import (
 	openaiclient "task-processor/internal/integration/openai"
 	"task-processor/internal/product/catalog/canonical"
 	common "task-processor/internal/publishing/common"
-	sharedtenantctx "task-processor/internal/shared/tenantctx"
 	"task-processor/internal/shein/authorizedbrand"
 )
 
@@ -49,7 +48,7 @@ func TestPromptEntryPointsUseBasePromptWithoutLegacyPolicy(t *testing.T) {
 	ai.response.Choices[0].Message.Content = `{"addition":"Rock Typography Graphic Print"}`
 	ai.lastPrompt = ""
 	addition := extractListingTitleAdditionWithLLM(
-		sharedtenantctx.WithTenantID(context.Background(), "101"), "Door curtain",
+		context.Background(), "Door curtain",
 		&canonical.Product{Attributes: map[string]canonical.Attribute{
 			"picture_request": {Value: "Please design a rock style door curtain"},
 		}}, "Door curtain", ai,
@@ -78,7 +77,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansDraftTextFields(t *testing.T
 		},
 	}
 
-	changed := SanitizeDraftPayloadSensitiveContent(pkg, sharedtenantctx.WithTenantID(context.Background(), "101"), nil, nil)
+	changed := SanitizeDraftPayloadSensitiveContent(pkg, context.Background(), nil, nil)
 	if !changed {
 		t.Fatal("changed = false, want true")
 	}
@@ -94,11 +93,11 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansDraftTextFields(t *testing.T
 }
 
 func TestSanitizeDraftPayloadSensitiveContent_PreservesAuthorizedBrandFromRuntimeContext(t *testing.T) {
-	ctx := sharedtenantctx.WithTenantID(authorizedbrand.WithResolved(context.Background(), &authorizedbrand.Resolved{
+	ctx := authorizedbrand.WithResolved(context.Background(), &authorizedbrand.Resolved{
 		Enabled: true,
 		Name:    "Amazon Basics",
 		NameEn:  "Amazon Basics",
-	}), "101")
+	})
 	pkg := &Package{DraftPayload: &RequestDraft{
 		ProductAttributeList: []common.Attribute{{
 			Value: "Amazon Basics Trademark acrylic",
@@ -153,7 +152,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansFreeTextAttributesAndSKCName
 		}},
 	}}
 
-	if !SanitizeDraftPayloadSensitiveContent(pkg, sharedtenantctx.WithTenantID(context.Background(), "101"), nil, nil) {
+	if !SanitizeDraftPayloadSensitiveContent(pkg, context.Background(), nil, nil) {
 		t.Fatal("sensitive content was not sanitized")
 	}
 

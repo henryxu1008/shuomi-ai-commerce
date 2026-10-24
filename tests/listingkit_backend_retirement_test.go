@@ -3453,7 +3453,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
-				for _, retired := range []string{"task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
+				for _, retired := range []string{"task-processor/internal/prompt", "task-processor/internal/promptmgmt", "task-processor/internal/shared/tenantctx", "task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
 					if dependency == retired || (retired != "task-processor/internal/crawler/shared" && strings.HasPrefix(dependency, retired+"/")) {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
@@ -3687,18 +3687,29 @@ func TestTemuImageAPIAndVisionResourcesAreRetired(t *testing.T) {
 			}
 		}
 	}
-	for _, relative := range []string{"internal/prompt/keys.go", "internal/promptmgmt/catalog.go", "internal/promptmgmt/catalog_manifest.go"} {
-		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+	for _, relative := range []string{"internal/prompt", "internal/promptmgmt", "internal/shared/tenantctx", "prompts"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired tenant Prompt root %s must be absent: %v", relative, err)
+		}
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, retired := range []string{"KSheinCategorySelectorExtractCoreItemSystem", "shein.category_selector.extract_core_item_system", "KSheinCategorySelectorSelectCategorySystem", "shein.category_selector.select_category_system", "KSheinCategorySelectorSelectCategoryUser", "shein.category_selector.select_category_user", "KSheinCategorySelectorSemanticValidation", "shein.category_selector.semantic_validation", "KSheinContentOptimizerOptimizeTitleDescriptionSystem", "shein.content_optimizer.optimize_title_description_system", "KSheinContentOptimizerOptimizeTitleDescriptionUser", "shein.content_optimizer.optimize_title_description_user", "KSheinDisplayAttributeBatchInference", "shein.display_attribute.batch_inference", "KSheinDisplayAttributeFieldSelection", "shein.display_attribute.field_selection", "KSheinDisplayAttributeFieldSelectionBatch", "shein.display_attribute.field_selection_batch", "KSheinDisplayAttributeMissingText", "shein.display_attribute.missing_text", "KSheinDisplayAttributeMissingValue", "shein.display_attribute.missing_value", "KSheinDisplayAttributeRequiredRepair", "shein.display_attribute.required_repair", "KSheinDisplayAttributeValueMapping", "shein.display_attribute.value_mapping", "KSheinDisplayAttributeValueMappingBatch", "shein.display_attribute.value_mapping_batch", "KSheinSaleAttributeMapping", "shein.sale_attribute.mapping", "KSheinSaleAttributePromptValueExtraction", "shein.sale_attribute.prompt_value_extraction", "KSheinSaleAttributeSourceDimension", "shein.sale_attribute.source_dimension", "KSheinSaleAttributeValueBatchMapping", "shein.sale_attribute.value_batch_mapping", "KTemuAttributeMappingSystem", "KTemuContentRewriterSystem", "KTemuSkuVariantMappingSystem", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system", "KTemuVisionDetectorDetect", "temu.vision_detector.detect", "KSheinAttributeSelectorSystem", "KSheinAttributeValueFallbackSystem", "KSheinAttributeValueFallbackUser", "KSheinTranslationBatchOptimizeSystem", "shein.attribute_selector.system", "shein.attribute_value_fallback.system", "shein.attribute_value_fallback.user", "shein.translation.batch_optimize_system"} {
-			if strings.Contains(string(content), retired) {
-				t.Errorf("%s retains retired vision resource %s", relative, retired)
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
 			}
-		}
-		if relative == "internal/promptmgmt/catalog_manifest.go" && strings.Contains(string(content), `"Base64Image"`) {
-			t.Errorf("%s retains exclusive vision variable metadata", relative)
+			for _, retired := range []string{"internal/prompt", "internal/promptmgmt", "internal/shared/tenantctx"} {
+				if importMatchesPrefix(imported, "task-processor/"+retired) {
+					t.Errorf("%s imports retired tenant Prompt owner %s", relative, imported)
+				}
+			}
 		}
 	}
 }

@@ -1,3 +1,5 @@
+> #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。
+
 # #301 旧日志门面与全部消费接线完整退休设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED，待原实现 CI 与最终交付复核**。用户已确认冻结设计 cace5c1f4 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 已在 Issue/PR 读回后才改生产源码；授权/准入证据 [#301 / 6342053569](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6342053569)。本批在 #893 整批实施，#301 OPEN，#29 不重开。准确实现 HEAD、CI、独立复核及后续批准留 PR，不在本文滚动追加状态提交。

@@ -13,7 +13,6 @@ $fastTestPackages = @(
     "./internal/app/httpapi"
     "./internal/crawler/alibaba1688"
     "./internal/listingadmin"
-    "./internal/promptmgmt"
     "./internal/listingsubscription"
 )
 

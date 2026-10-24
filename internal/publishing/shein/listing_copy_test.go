@@ -8,7 +8,6 @@ import (
 
 	openaiclient "task-processor/internal/integration/openai"
 	"task-processor/internal/product/catalog/canonical"
-	sharedtenantctx "task-processor/internal/shared/tenantctx"
 )
 
 type stubTitleAIClient struct {
@@ -255,7 +254,7 @@ func TestBuildSheinListingCopyCleansSensitiveWords(t *testing.T) {
 		},
 	}
 
-	copy := buildSheinListingCopy(sharedtenantctx.WithTenantID(context.Background(), "101"), canonical, canonical.Title, nil, nil)
+	copy := buildSheinListingCopy(context.Background(), canonical, canonical.Title, nil, nil)
 
 	assertNoSensitivePhrase(t, copy.Title, "title")
 	assertNoSensitivePhrase(t, copy.Description, "description")
