@@ -9,6 +9,7 @@ const main = `${cdn}61Main._AC_SL1500_.jpg`;
 const thumb = `${cdn}41Thumb._AC_US40_.jpg`;
 const side = `${cdn}71Side._AC_SL1500_.jpg`;
 const sideThumb = `${cdn}51SideThumb._AC_US40_.jpg`;
+const placeholder = 'https://images-na.ssl-images-amazon.com/images/G/01/x-locale/common/grey-pixel.gif';
 const initial = [
   { large: `${cdn}41Thumb._AC_.jpg`, variant: 'MAIN', thumb, hiRes: main },
   { variant: 'PT01', thumb: sideThumb, large: `${cdn}51SideThumb._AC_.jpg`, hiRes: side },
@@ -102,6 +103,61 @@ describe('listing materials through existing v2 capture', () => {
     expect(e.description).toBe('Original description.\n\nActual product care.\nSafe text');
     expect(e.images.filter(i=>i.role==='detail')).toEqual([{url:`${cdn}detail.jpg`,role:'detail'},{url:`${cdn}aplus.jpg`,role:'detail'}]);
     expect(e.variants[0].images).toHaveLength(1);
+  });
+  it.each(['productDescription','aplus','aplus_feature_div','standalone'])('reads explicit lazy detail URLs in %s without admitting the placeholder',async root=>{
+    const image=`<img src="${placeholder}" data-src="${cdn}lazy-detail.jpg"><img data-src="${cdn}lazy-only.jpg">`;
+    const html=root==='standalone'?`<div class="aplus-v2"><div class="aplus-module-content">${image}</div></div>`:`<div id="${root}">${image}</div>`;
+    const {evidence:e}=await captureAmazonDocument(amazon(html),amazonURL);
+    expect(e.images.filter(i=>i.role==='detail')).toEqual([{url:`${cdn}lazy-detail.jpg`,role:'detail'},{url:`${cdn}lazy-only.jpg`,role:'detail'}]);
+    expect(e.images.some(i=>i.url===placeholder)).toBe(false);
+    expect(e.variants[0].images).toEqual([{url:main,role:'main'}]);
+  });
+  it('keeps explicit hires priority and deduplicates lazy detail images without changing album roles',async()=>{
+    const doc=amazon(`<div id="productDescription">
+      <img data-old-hires="${cdn}detail-hires.jpg" data-src="${cdn}detail-lazy.jpg" src="${cdn}detail-small.jpg">
+      <img data-src="${cdn}detail-lazy.jpg" src="${placeholder}"><img src="${cdn}detail-lazy.jpg">
+      <img data-src="${main}" src="${placeholder}"><img src="${cdn}animation.gif"></div>`);
+    const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
+    expect(e.images.filter(i=>i.role==='detail').map(i=>i.url)).toEqual([`${cdn}detail-hires.jpg`,`${cdn}detail-lazy.jpg`,`${cdn}animation.gif`]);
+    expect(e.images.filter(i=>i.url===main)).toEqual([{url:main,role:'main'}]);
+    expect(e.variants[0].images).toEqual([{url:main,role:'main'}]);
+  });
+  it('drops placeholder-only detail nodes and uses an explicit real src when other slots are placeholders',async()=>{
+    const doc=amazon(`<div id="aplus"><img src="${placeholder}"><img data-old-hires="${placeholder}" src="${placeholder}">
+      <img src="https://images-eu.ssl-images-amazon.com/images/G/01/x-locale/common/grey-pixel.gif">
+      <img data-src="${placeholder}" src="${cdn}real-detail.jpg"></div>`);
+    expect((await captureAmazonDocument(doc,amazonURL)).evidence.images.filter(i=>i.role==='detail')).toEqual([{url:`${cdn}real-detail.jpg`,role:'detail'}]);
+  });
+  it.each(['http://m.media-amazon.com/detail.jpg','https://127.0.0.1/detail.jpg','data:image/gif;base64,R0lGODlhAQAB','../relative.jpg','https://m.media-amazon.com/detail.jpg?q=1'])('does not admit or rewrite unsafe lazy detail URL %s',async url=>{
+    const doc=amazon(`<div id="aplus"><img src="${placeholder}" data-src="${url}"></div>`);
+    expect((await captureAmazonDocument(doc,amazonURL)).evidence.images.filter(i=>i.role==='detail')).toEqual([]);
+  });
+  it('keeps an admitted explicit src when the lazy URL does not pass admission',async()=>{
+    const doc=amazon(`<div id="aplus"><img data-src="https://127.0.0.1/detail.jpg" src="${cdn}real-detail.jpg"></div>`);
+    expect((await captureAmazonDocument(doc,amazonURL)).evidence.images.filter(i=>i.role==='detail')).toEqual([{url:`${cdn}real-detail.jpg`,role:'detail'}]);
+  });
+  it('applies existing subtree exclusions before reading lazy detail URLs',async()=>{
+    const bad=`<img src="${placeholder}" data-src="${cdn}EXCLUDED.jpg">`;
+    const doc=amazon(`<div id="aplus"><img src="${placeholder}" data-src="${cdn}current-detail.jpg">
+      <span hidden>${bad}</span><span aria-hidden="true">${bad}</span><span style="display:none">${bad}</span><span style="visibility:hidden">${bad}</span>
+      <form>${bad}</form><div class="recommendations">${bad}</div><div class="aplus-comparison-table">${bad}</div>
+      <a href="/dp/B012345678">${bad}</a><div class="videoThumbnail">${bad}</div><div data-video-id="video">${bad}</div>
+      </div><aside>${bad}</aside>`);
+    const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
+    expect(e.images.filter(i=>i.role==='detail')).toEqual([{url:`${cdn}current-detail.jpg`,role:'detail'}]);
+    expect(JSON.stringify(e.images)).not.toContain('EXCLUDED');
+  });
+  it('bounds lazy detail URL UTF-8 bytes before accepting another candidate',async()=>{
+    const doc=amazon(`<div id="aplus"><img src="${placeholder}" data-src="${cdn}${'界'.repeat(700)}.jpg"></div>`);
+    await expect(captureAmazonDocument(doc,amazonURL)).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
+  it.each([255,257])('retains collection and total image limits for %s lazy detail nodes',async count=>{
+    const html=Array.from({length:count},(_,i)=>`<img src="${placeholder}" data-src="${cdn}lazy-${i}.jpg">`).join('');
+    await expect(captureAmazonDocument(amazon(`<div id="aplus">${html}</div>`),amazonURL)).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
+  it('keeps 1688 default detail URL selection unchanged when lazy attributes are present',async()=>{
+    const doc=alibaba('<div id="desc-lazyload-container"><img src="https://cbu01.alicdn.com/current.jpg" data-src="https://cbu01.alicdn.com/lazy.jpg"><img data-src="https://cbu01.alicdn.com/lazy-only.jpg"></div>');
+    expect((await captureDocument(doc,source1688,new Date())).evidence.images).toEqual([{url:'https://cbu01.alicdn.com/album.jpg',role:'source'},{url:'https://cbu01.alicdn.com/current.jpg',role:'detail'}]);
   });
   it('retains a description and reports conflicting table parameters instead of choosing one',async()=>{
     const doc=amazon('<table id="technicalSpecifications_section_1"><tr><th>Material</th><td>Cotton</td></tr></table><table id="productDetails_techSpec_section_1"><tr><th>Material</th><td>Polyester</td></tr></table>');
