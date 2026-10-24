@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { captureAmazonDocument } from '../src/amazon/extractor';
+import { mountPageEntry } from '../src/page-entry';
 import { returnStorage } from './fixtures/return-storage';
 
 type State = { revision: string; loading: boolean; captured: boolean; handed: boolean; sameProduct: boolean; returnState: 'none' | 'available' | 'uncertain' };
@@ -15,7 +18,7 @@ const api = {
   storage,
   runtime: { id, getURL: (path: string) => `chrome-extension://${id}/${path}`,
     onMessage: { addListener: vi.fn((fn: Listener) => { listener = fn; }) }, onMessageExternal: { addListener: vi.fn() } },
-  tabs: { query: vi.fn(async () => [tab]), create: vi.fn(async () => ({ id: 42, windowId: 2 })),
+  tabs: { query: vi.fn(async () => [tab]), create: vi.fn<(options: { url: string }) => Promise<{ id: number; windowId: number }>>().mockResolvedValue({ id: 42, windowId: 2 }),
     update: vi.fn(async () => ({ id: 42, windowId: 2 })) }, windows: { update: vi.fn(async () => ({})) },
   scripting: { executeScript: vi.fn(async (options: { files?: string[] }) => [{ frameId: 0, documentId: 'doc-1', result: options.files ? { ok: true, payload } : url }]) },
   commands: { getAll: vi.fn(async () => []), onCommand: { addListener: vi.fn((fn: typeof command) => { command = fn; }) } },
@@ -36,6 +39,52 @@ beforeEach(async () => {
   await import('../src/background');
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+it.each(['1688', 'amazon'])('captures %s once on the first page click after an empty background is recreated', async platform => {
+  const targetURL = platform === 'amazon' ? 'https://www.amazon.com/dp/B0BDLGZCTY' : url;
+  const html = readFileSync(platform === 'amazon' ? 'tests/fixtures/amazon-inline-product.html' : 'tests/fixtures/product.html', 'utf8');
+  const dom = new JSDOM(html, { url: targetURL });
+  try {
+    const targetPayload = platform === 'amazon' ? await captureAmazonDocument(dom.window.document, targetURL) : payload;
+    const targetSender = { ...sender, url: targetURL, origin: new URL(targetURL).origin, tab: { ...tab, url: targetURL } };
+    const sendPage = vi.fn((message: unknown) => send(message, targetSender));
+    vi.stubGlobal('chrome', { ...api, runtime: { ...api.runtime, sendMessage: sendPage } });
+    api.scripting.executeScript.mockImplementation(async options => [{ frameId: 0, documentId: 'doc-1', result: options.files ? { ok: true, payload: targetPayload } : targetURL }]);
+    let primaryClick!: (event: Event) => void;
+    const prototype = dom.window.EventTarget.prototype, add = prototype.addEventListener;
+    vi.spyOn(prototype, 'addEventListener').mockImplementation(function (this: EventTarget, type, callback, options) {
+      if (this instanceof dom.window.HTMLButtonElement && this.id === 'primary' && type === 'click' && typeof callback === 'function') primaryClick = callback as (event: Event) => void;
+      return add.call(this, type, callback, options);
+    });
+    const panel = mountPageEntry(dom.window.document, dom.window as unknown as Window)!;
+    const primary = panel.host.shadowRoot!.querySelector<HTMLButtonElement>('#primary')!;
+    await vi.waitFor(() => expect(primary.disabled).toBe(false));
+    const initial = await sendPage.mock.results[0].value;
+    expect(storage.contents()).toEqual({});
+    vi.resetModules(); await import('../src/background');
+    const recreated = await send({ type: 'page.status' }, targetSender);
+    expect(recreated.state.revision).not.toBe(initial.state.revision);
+    expect(recreated.state).toMatchObject({ captured: false, handed: false, returnState: 'none' });
+    primaryClick({ isTrusted: true, preventDefault() {}, stopPropagation() {} } as Event);
+    await vi.waitFor(() => expect(primary.disabled).toBe(false));
+    expect((await sendPage.mock.results.at(-1)!.value).code).toBeUndefined();
+    expect(api.tabs.create).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(primary.textContent).toBe('返回应用核实'));
+    const captures = sendPage.mock.calls.filter(([message]) => (message as { type: string }).type === 'page.capture');
+    expect(captures).toEqual([[{ type: 'page.capture', revision: recreated.state.revision }]]);
+    expect(api.scripting.executeScript.mock.calls.filter(([options]) => options.files)).toHaveLength(1);
+    expect(api.tabs.create.mock.calls[0][0]).toMatchObject({ url: expect.stringContaining(`/capture/${platform}#`) });
+  } finally { dom.window.close(); }
+});
+
+it('still rejects a stale initial revision directly after recreation without capturing', async () => {
+  const initial = await status();
+  vi.resetModules(); await import('../src/background');
+  expect((await mutate('page.capture', initial.state.revision)).code).toBe('ENTRY_CHANGED');
+  expect(api.tabs.create).not.toHaveBeenCalled();
+  expect(api.scripting.executeScript.mock.calls.every(([options]) => !options.files)).toBe(true);
+  expect(storage.contents()).toEqual({});
+});
 
 it('restores return-only location and the same revision after background recreation', async () => {
   const initial = await status();
