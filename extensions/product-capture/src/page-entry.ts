@@ -29,6 +29,9 @@ export function mountPageEntry(doc: Document, view: Window) {
     catch { host.remove(); return; }
   }
   function closeConfirmation() { confirmation.hidden = true; confirmationRevision = undefined; confirmationSource = undefined; }
+  function isInitialEntry(value: PageState | undefined): value is PageState {
+    return Boolean(value && !value.loading && !value.captured && !value.handed && value.returnState === 'none');
+  }
   function render(code?: EntryError) {
     const canReturn = state?.returnState === 'available';
     primary.textContent = canReturn ? state?.sameProduct ? '返回应用核实' : '返回已有采集' : '采集并在应用确认';
@@ -49,13 +52,12 @@ export function mountPageEntry(doc: Document, view: Window) {
     if (pending || !requestSource) return;
     pending = true; render();
     let code: EntryError | undefined;
-    try {
-      const message: PageMessage = type === 'page.status' ? { type } : { type, revision: expectedRevision! };
+    async function exchange(message: PageMessage) {
       const response = await chrome.runtime.sendMessage(message);
-      if (!source()) return;
+      if (!source()) return false;
       if (source() !== requestSource) {
         lostKnownOperation = lostKnownOperation || Boolean(state?.captured) || type !== 'page.status';
-        state = undefined; closeConfirmation(); code = 'PAGE_CHANGED'; return;
+        state = undefined; closeConfirmation(); code = 'PAGE_CHANGED'; return false;
       }
       if (!response || typeof response.ok !== 'boolean' || !isPageState(response.state)
         || (!response.ok && (typeof response.code !== 'string' || !Object.hasOwn(entryMessages, response.code)))) throw Error('UNAVAILABLE');
@@ -66,7 +68,20 @@ export function mountPageEntry(doc: Document, view: Window) {
       }
       state = next; disconnected = false;
       if (next.captured) lostKnownOperation = false;
-      if (typeof response.code === 'string' && Object.hasOwn(entryMessages, response.code)) code = response.code as EntryError;
+      code = typeof response.code === 'string' && Object.hasOwn(entryMessages, response.code) ? response.code as EntryError : undefined;
+      return response.ok;
+    }
+    try {
+      if (type === 'page.capture') {
+        if (!isInitialEntry(state) || disconnected || lostKnownOperation) return;
+        // A pristine page can outlive an empty worker. Refresh before its one
+        // mutation; changed/unknown operations still require a new user choice.
+        if (!await exchange({ type: 'page.status' })) return;
+        if (!isInitialEntry(state) || disconnected || lostKnownOperation) return;
+        expectedRevision = state.revision;
+      }
+      const message: PageMessage = type === 'page.status' ? { type } : { type, revision: expectedRevision! };
+      await exchange(message);
     } catch {
       if (type !== 'page.status') lostKnownOperation = true;
       disconnected = true; closeConfirmation();
