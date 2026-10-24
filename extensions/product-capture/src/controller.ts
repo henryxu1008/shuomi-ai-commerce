@@ -2,7 +2,7 @@ import type { PlatformCapturePayload } from './wire';
 import { Handoff } from './handoff';
 import { validateCapture } from './validation';
 
-export type CaptureTab = Readonly<{ id?: number; url?: string }>;
+export type CaptureTab = Readonly<{ id?: number; url?: string; documentId?: string }>;
 
 export class Controller {
   private payload?: PlatformCapturePayload;

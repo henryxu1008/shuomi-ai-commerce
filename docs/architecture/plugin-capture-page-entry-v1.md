@@ -1,7 +1,7 @@
 # Product capture: source-page primary entry
 
 Execution: [#924](https://github.com/qq550723504/shuomi-ai-commerce/issues/924).
-Design Basis: **Independent Architecture**. Admission: **NOT_READY**, pending independent design review before production changes.
+Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY** after independent review of design SHA `0caff981fd015336afb0f7cdefc9a94a18c5945b` by the existing `amazon_fix_review`; no design BLOCKER. Document binding, three-entry revision/concurrency and trusted intent/narrow replies remain IMPLEMENTATION_TEST within this frozen design. Review evidence is maintained in #924 and its main PR.
 
 ## Product outcome and authority
 
@@ -148,3 +148,10 @@ Native APIs: [content scripts](https://developer.chrome.com/docs/extensions/deve
 [messaging](https://developer.chrome.com/docs/extensions/develop/concepts/messaging),
 [scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting).
 Reuse native extension/DOM APIs and existing esbuild/jsdom/Vitest; no new dependency.
+
+Packaging integration: include `page.js` in the existing release builder's archive.
+The current Tool Market LoadPackage still pins six files and the pre-Amazon name/
+single receiver, so current dual-platform package admission is an existing separate
+download limitation. #924 does not change that backend contract or retained release;
+unpacked/fixture success is not download acceptance. Resolve admission before any
+future Tool Market package rollout, with its own scoped decision/review.
