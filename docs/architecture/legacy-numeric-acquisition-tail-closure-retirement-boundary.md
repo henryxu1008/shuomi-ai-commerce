@@ -1,3 +1,5 @@
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。仅替代本文件 listingruntime.ProductImportMapping/原 types.go 必须存在、旧 MappingInfo 编码及 listingruntime 仍属当前依赖的准确保留含义；本轮最后值类型完整退休。SourceIdentity 四 JSON 零值槽位、六 Source*、原 trim/规范化/hash/读取拒绝/当前版本及 opaque metadata 继续保留，不删当前序列化字段或改变业务事实 owner。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
 > #301 / #914 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：[旧闲置配置与运行辅助合同完整退休边界](legacy-idle-support-contract-closure-retirement-boundary.md)冻结 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 读回先于源码修改。仅替代本旧依据对 core/config.CostCalculationConfig、DefaultCostCalculationConfig、CalculateTotalCost 及专属测试的 KEEP：当前无生产消费者，随四组闭包整退；不复制成本公式，不删除当前平台API/费用DTO/有效规则。 下方历史正文逐字保留，其它KEEP/计数/证据不改；workflow/inventory及既有资源零改，无新试用前置，独立SHEIN登录与Store同步保持，#301 OPEN。
 
 # #301 旧数字采集与平台身份尾链完整退休边界

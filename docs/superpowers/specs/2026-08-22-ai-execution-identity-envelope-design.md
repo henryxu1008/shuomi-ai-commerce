@@ -1,3 +1,5 @@
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](../../architecture/legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。仅替代旧 shared/aiidentity ExecutionEnvelope/PersistedExecutionEnvelope、capture/restore/context/分类/来源白名单、Task tenant 辅助和两专属测试的保留/实施含义；五工件闭包已在同一 PR 源码退休。当前 Identity/WithIdentity/FromContext/request roles、authidentity 与现役 ImageAgent/Commercetool 授权/隔离/恢复完整保留；不复建旧无 scope 放行或旧信封，不执行历史 plan 的派工/迁移/运行步骤。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
 # Unified Async AI Execution Identity/Envelope
 
 ## Status
