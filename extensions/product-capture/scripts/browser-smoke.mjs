@@ -122,6 +122,12 @@ try {
     // A site-script click must not create a capture. Real browser input follows.
     await button.evaluate(element=>element.click());
     if(context.pages().length!==1)throw Error('Synthetic source-page click opened an application');
+    // Retain the initial source DOM/revision while its still-empty worker dies.
+    // Do not focus/refresh the panel before the first trusted capture click.
+    const initialControl=await context.newCDPSession(page);
+    await initialControl.send('ServiceWorker.enable');
+    await initialControl.send('ServiceWorker.stopAllWorkers');
+    await initialControl.detach();
     await page.screenshot({path:resolve(artifacts,'source-page.png')});
     appPromise=context.waitForEvent('page',{timeout:20000});
     await button.click();
@@ -193,7 +199,7 @@ try {
   const buildHashes={};
   for(const name of ['manifest.json','background.js','extractor.js','page.js','popup.js','popup.html','popup.css']) buildHashes[name]=createHash('sha256').update(await readFile(resolve(root,'dist-fixture',name))).digest('hex');
   await writeFile(resolve(artifacts,'receipt.json'),JSON.stringify({head,buildHashes,browserName,browserVersion:context.browser()?.version(),id,manifest,
-    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,recreatedReturns,reloadPreservedKey:true,
+    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,initialCaptureAfterWorkerStop:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,recreatedReturns,reloadPreservedKey:true,
     backendIntegration:'NOT_RUN',real1688:'NOT_RUN',realAmazon:'NOT_RUN'},null,2));
   console.log(JSON.stringify({stage:'TRANSPORT_FIXTURE_PASS',artifacts}));
 } finally {

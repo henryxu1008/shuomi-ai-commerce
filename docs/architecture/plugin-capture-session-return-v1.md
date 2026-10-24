@@ -154,6 +154,16 @@ and application authorization boundaries retained. Storage/partial-binding,
 concurrent entry/reset and closed-tab cases are implementation tests within this
 design, not reasons to create a general lifecycle/verification framework.
 
+The #927 initial-entry correction reuses these owners: before a trusted initial
+source-page capture, read the existing `page.status` once inside the same local
+busy boundary. Only a previously pristine view that is still readable, idle,
+uncaptured, unhanded and navigation-free may send its single `page.capture` with
+the newly read revision. Changed, known or uncertain operations only update the
+view and require another user choice. Background revision/document checks stay
+strict; a race after that read is rejected without mutation retry. Return and
+new-operation confirmations retain their original revision binding. No empty
+entry revision or payload is added to session storage.
+
 Outside scope: browser/extension compromise, hostile source UI, challenge bypass,
 payload durability, automatic save recovery/retry, browser restart/extension
 reload/update identity recovery, reconstructing pre-fix lost location, arbitrary
