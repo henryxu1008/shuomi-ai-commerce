@@ -69,16 +69,22 @@ export function putFact(facts: Map<string, Attribute>, conflicts: Set<string>, n
   if (facts.size + conflicts.size > 256) fail('CAPTURE_TOO_LARGE');
 }
 
-export function detailImages(doc: Document, selector: string, charge: () => void): string[] {
+export function detailImages(doc: Document, selector: string, charge: () => void, resolveLazy = false): string[] {
   const images = doc.querySelectorAll<HTMLImageElement>(selector);
   if (images.length > 256) fail('CAPTURE_TOO_LARGE');
   const urls = new Set<string>();
   for (const image of images) {
     charge();
     if (excluded(image) || image.closest('.videoThumbnail,.video-block,[data-video-url],[data-video-id]')) continue;
-    const url = image.getAttribute('data-old-hires') || image.getAttribute('src');
-    if (url && byteLength(url) > 2048) fail('CAPTURE_TOO_LARGE');
-    if (url && publicImage(url)) urls.add(url);
+    const candidates = resolveLazy
+      ? ['data-old-hires','data-src','src'].map(name=>image.getAttribute(name))
+      : [image.getAttribute('data-old-hires') || image.getAttribute('src')];
+    for (const url of candidates) {
+      if (url && byteLength(url) > 2048) fail('CAPTURE_TOO_LARGE');
+      if (!url || !publicImage(url)) continue;
+      if (resolveLazy && new URL(url).pathname === '/images/G/01/x-locale/common/grey-pixel.gif') continue;
+      urls.add(url); break;
+    }
   }
   return [...urls];
 }
