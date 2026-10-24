@@ -5,6 +5,7 @@ Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301
 - Status: **PROPOSED / DESIGNING / NOT_READY**。本轮用户仅授权完整设计；本文待适用独立设计复核与用户确认，不授权正式源码删除。
 - Design Basis：设计交付 **N/A（仅三文档）**；拟实施 **Independent Architecture**。替代旧公共平台调用合同与显式 KEEP，跨平台且超过30工件，必须先明确 IMPLEMENTATION_READY / Issue/PR Ready，再改生产路径。
 - 基线 main **067ffafa01c91376ff53a5e10c83d65e1b476bb4**，tree **e16fe8fb7b4c2e4a5474626bf73f62f95c481478**；#923 已合并，只复用前批完成事实，不冒充本轮设计/实现/运行证据。
+- 形成设计候选前已同步实际 main **7d82be549f0aded91b57d9c3efee0b55d5da9c4f**（#925，tree **1514cde83b57243e222c4f77e5006481889164ef**）。该增量只涉及采集扩展/说明/脚本与共同索引，本批全部旧 API/配置/保留 owner 的调查代码未变化；共同 README 的 #925 项完整保留。本轮相对该 main 仍只有三文档，不重复实施 #925。
 - 唯一 Writer 原会话 `01a133ef-757c-73e3-b8f6-76958c642397`，独占原 worktree，分支 `codex/issue301-legacy-platform-api-closure-design`；[接单及前批当前段逐字归档6381325202](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6381325202)。已 fetch 并同步上述 main。#925 采集入口有独立 owner，本轮不重复派工或改其源码/文档，只给共同 Architecture README 加前缀索引。
 
 ## 1. 用户结果、范围与产品依据
