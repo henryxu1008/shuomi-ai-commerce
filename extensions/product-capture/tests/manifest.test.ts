@@ -16,6 +16,8 @@ it('builds only activeTab/scripting with exact app messaging, and rejects implic
   execFileSync(process.execPath,[build,'--fixture'],{env:{...env,CAPTURE_APP_URL:'http://127.0.0.1:4399/capture/1688'},stdio:'pipe'});
   const manifest=JSON.parse(readFileSync('dist-fixture/manifest.json','utf8'));
   expect(manifest.permissions).toEqual(['activeTab','scripting']);
+  expect(manifest.commands).toEqual({ 'capture-current-product': { suggested_key: { default: 'Alt+Shift+P' }, description: '采集当前商品并在应用确认' } });
+  expect(manifest.action.default_popup).toBe('popup.html');
   // Exact approved origins only; each source parser also validates the product
   // path before injection. No subdomain wildcard or implicit new destination.
   expect(manifest.host_permissions).toEqual(hosts);
@@ -28,6 +30,7 @@ it('builds only activeTab/scripting with exact app messaging, and rejects implic
   execFileSync(process.execPath,[build],{env:{...env,CAPTURE_APP_URL:'https://app.example.com/capture/1688'},stdio:'pipe'});
   const shipped=JSON.parse(readFileSync('dist/manifest.json','utf8'));
   expect(shipped.permissions).toEqual(manifest.permissions);
+  expect(shipped.commands).toEqual(manifest.commands);
   expect(shipped.host_permissions).toEqual(manifest.host_permissions);
   expect(shipped.externally_connectable).toEqual(receivers('https://app.example.com'));
   execFileSync(process.execPath,[build],{env:{...env,CAPTURE_APP_URL:'https://localhost:31544/capture/1688'},stdio:'pipe'});
