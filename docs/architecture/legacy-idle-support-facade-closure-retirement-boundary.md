@@ -1,3 +1,5 @@
+> #301 / #937 **SOURCE_IMPLEMENTED**。用户已确认冻结设计9d1f2cbe1的§1–§7（含§6.1）；Reuse Existing Architecture / Ready先写入并读回[接单6386195192](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6386195192)及[读回6386203704](https://github.com/qq550723504/shuomi-ai-commerce/pull/937#issuecomment-6386203704)。同一主要PR收齐3整退+8精确混合+6旧KEEP窄注+3当前文档，共20工件，无新生产EXTRACT/替代owner；DB两原测试仅改调用，全部有效安全断言保留。当前日志/Retry/AI/JSON/采集及独立SHEIN登录与Store同步保持，workflow/完整inventory/依赖/保护与既有资源不动，不增试用前置，#301 OPEN。准确实现HEAD/CI/最终复核留PR，合并另授权。以下9d1f2cbe1冻结设计完整保留；其设计阶段/待授权表述只作当时阶段记录，删除/保留/§6.1矩阵未改。
+
 # 五组闲置支持门面完整退休闭包
 
 ## 1. 用户结果、范围与 Design Basis
