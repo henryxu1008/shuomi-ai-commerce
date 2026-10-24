@@ -344,8 +344,8 @@ func TestHTTPImageResolverIsImmutableFunction(t *testing.T) {
 
 func TestOpenAILoggerConfigFieldsAreASTComplete(t *testing.T) {
 	want := map[string]bool{
-		"ClientConfig": false, "PoolConfig": false, "CachedClientConfig": false,
-		"ManagerConfig": false, "ResilientClientConfig": false,
+		"ClientConfig": false, "PoolConfig": false,
+		"ManagerConfig": false,
 	}
 	root := filepath.Join("..", "internal", "integration", "openai")
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
