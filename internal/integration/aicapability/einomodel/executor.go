@@ -59,8 +59,18 @@ func sameRoute(a, b QualifiedRoute) bool {
 	return subtle.ConstantTimeCompare(ah[:], bh[:]) == 1
 }
 
+// The cancellation callback may still be pending after the absolute deadline.
+// Dispatch must check the frozen bound as well as explicit cancellation.
+func dispatchContextActive(ctx context.Context) bool {
+	if ctx == nil || ctx.Err() != nil {
+		return false
+	}
+	deadline, bounded := ctx.Deadline()
+	return !bounded || time.Now().Before(deadline)
+}
+
 func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIdentity) (QualifiedRoute, error) {
-	if e == nil || e.Ledger == nil || e.Admission == nil || e.Resolve == nil || e.Authorize == nil || ctx == nil || ctx.Err() != nil {
+	if e == nil || e.Ledger == nil || e.Admission == nil || e.Resolve == nil || e.Authorize == nil || !dispatchContextActive(ctx) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
 	if err := e.Authorize(ctx, input); err != nil {
@@ -169,7 +179,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	guard, err := NewGuardedClient(guardCfg, e.BaseTransport, func(gateCtx context.Context) error {
 		// The SDK may construct its own request context. The frozen caller bound
 		// remains authoritative at the actual guarded network handoff.
-		if ctx.Err() != nil || gateCtx.Err() != nil {
+		if !dispatchContextActive(ctx) || !dispatchContextActive(gateCtx) {
 			return ErrNotDispatched
 		}
 		current, checkErr := e.admitted(ctx, input)
@@ -183,7 +193,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 				return permitErr
 			}
 		}
-		if ctx.Err() != nil || gateCtx.Err() != nil {
+		if !dispatchContextActive(ctx) || !dispatchContextActive(gateCtx) {
 			return ErrNotDispatched
 		}
 		return nil
