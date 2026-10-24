@@ -1,3 +1,5 @@
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](../architecture/legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
 # Code Health Decisions
 
 > #301 / #901 按[用户确认的完整 Amazon 来源适配层退休边界](../architecture/legacy-amazon-source-adapter-closure-retirement-boundary.md)整批退出 integration/crawler/amazon 旧包与专属测试/README、最后消费者退出后的 CreateProcessor 工厂和孤立 Scraper 接口。仅 supersede 这些准确对象的旧 retained/当前入口含义；原 crawler/amazon 的 NewAmazonProcessor、浏览器/池/规则、effectiveBrowserPoolSize 与 factory_test/debug 保持，当前采集由 acquisition/amazon 持有。原表格/状态/88与5等历史计数/失败正文逐字保留，不因历史台账制造消费者或改变检查/ceilings；共享合同、独立 SHEIN 登录/Store 同步保持，无真实实例/数据/凭据/进程操作。

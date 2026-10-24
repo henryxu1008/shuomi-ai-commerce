@@ -1,3 +1,5 @@
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
 # #301 旧 Amazon 来源适配层完整退休闭包设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认 §1–§7（含 §6.1），源码修改前已在 #301/主要 PR 记录并读回 **Reuse Existing Architecture / Ready**；七个准确工件及专属文档尾部在同一 PR 整批退休。当前采集、原浏览器/池/有效池大小测试与调试、共享合同及独立 SHEIN 登录/Store 同步保持；workflow/inventory/其它检查/依赖/保护不改，没有真实资源操作或新试用前置。下文设计阶段的“确认前/拟/待授权”描述保留为冻结设计依据，不撤回本次准确实施授权。准确源码 HEAD、RED/GREEN、原 CI、源码最终复核及另行合并批准留主要 PR，设计证据不替代实现或运行验收。接单及前当前段存档见 [#301 / 6357545307](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6357545307)，实施接单见 [#901 / 6358228880](https://github.com/qq550723504/shuomi-ai-commerce/pull/901#issuecomment-6358228880)。#301 保持 OPEN。

@@ -108,28 +108,10 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.proxyPool.proxyFile", a.ProxyPool.ProxyFile)
 	v.SetDefault("amazon.proxyPool.proxies", a.ProxyPool.Proxies)
 
-	sp := defaults.Amazon.SPAPI
-	v.SetDefault("amazon.spapi.enabled", sp.Enabled)
-	v.SetDefault("amazon.spapi.region", sp.Region)
-	v.SetDefault("amazon.spapi.defaultMarketplace", sp.DefaultMarketplace)
-	v.SetDefault("amazon.spapi.defaultFulfillmentType", sp.DefaultFulfillmentType)
-	v.SetDefault("amazon.spapi.defaultCondition", sp.DefaultCondition)
 }
 
 func setPlatformDefaults(v *viper.Viper, defaults *Config) {
-	setTemuDefaults(v, &defaults.Platforms.Temu)
-	setSheinDefaults(v, &defaults.Platforms.Shein)
 	setAlibaba1688Defaults(v, &defaults.Platforms.Alibaba1688)
-}
-
-func setTemuDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.temu.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
-
-}
-
-func setSheinDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.shein.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
-
 }
 
 func setAlibaba1688Defaults(v *viper.Viper, p *Alibaba1688Config) {

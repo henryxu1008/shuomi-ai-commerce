@@ -77,9 +77,8 @@ func TestCurrentSessionRetainsProviderEndpointHeaders(t *testing.T) {
 			})
 		}
 	}
-	// The retained platform client's self-operated distinction must stay intact.
-	b := &BaseAPIClient{shopType: "self_operated"}
-	h := b.createHeaders("https://sellerhub.shein.com" + GetSupplierOperateInfoEndpoint())
+	// Keep the current session header helper's self-operated distinction.
+	h := sessionHeaders("https://sellerhub.shein.com", GetSupplierOperateInfoEndpoint(), "self_operated")
 	if h["method"] != "POST" || h["scheme"] != "https" || h["x-sso-scene"] != "" || h["gmpsso-language"] != "" {
 		t.Fatal("self-operated platform contract changed")
 	}
