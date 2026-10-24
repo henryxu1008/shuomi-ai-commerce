@@ -30,7 +30,7 @@ Threat Model 限误删现役 DTO/JSON 字段或 worker 只读流程，旧 refres
 | --- | --- | --- |
 | [#822 Amazon 刊登闭包](legacy-amazon-listing-closure-retirement-boundary.md) 的整 API/SPAPI 配置 KEEP | 未装配的 amazon/api 全实现、专属 DTO/测试、SPAPI/市场解析与孤立 AttributeMapping 配置类型 | 当前 acquisition/amazon、原 crawler/amazon 浏览器 Processor/池、共享 Amazon product model、debug、当前配置中的浏览器风险/质量/超时/代理 |
 | [#819 TEMU 刊登闭包](legacy-temu-listing-closure-retirement-boundary.md)、批量重上架/保存提交/前置/类目模板/图片等旧 KEEP | temu/api 整根（含 re-export/同名 DTO），Temu/Shein 旧 PlatformConfig 的 HTTP 包装配置 | 当前 marketplace/temu/goods/rules、官方 integration/temu、通用 HTTPClientConfig/BuildHTTPClientConfig/Retry 与 Alibaba1688 |
-| [#912 SHEIN 策略合同闭包](legacy-shein-policy-contract-closure-retirement-boundary.md)、[#743](legacy-auto-pricing-retirement-boundary.md)、[#744](legacy-shein-activity-retirement-boundary.md)、[#817](legacy-shein-publishing-runtime-closure-retirement-boundary.md) | pricing_repo.go、api/product.PriceManager/manager/Client、营销等闲置 API 及通用 BaseAPIClient 的准确保留含义 | §5.2 当前 Product/SKC/SKU/属性/品牌/商户/仓库 DTO 与 JSON、清理/规则/草稿、SessionTransport/当前 Cookie 值解析、worker/Store |
+| [#912 SHEIN 策略合同闭包](legacy-shein-policy-contract-closure-retirement-boundary.md)、[#743](legacy-auto-pricing-retirement-boundary.md)、[#744](legacy-shein-activity-retirement-boundary.md)、[#817](legacy-shein-listing-closure-retirement-boundary.md)、[#827](legacy-shein-publishing-runtime-closure-retirement-boundary.md) | pricing_repo.go、api/product.PriceManager/manager/Client、营销等闲置 API 及通用 BaseAPIClient 的准确保留含义 | §5.2 当前 Product/SKC/SKU/属性/品牌/商户/仓库 DTO 与 JSON、清理/规则/草稿、SessionTransport/当前 Cookie 值解析、worker/Store |
 | [#836](legacy-runtime-config-closure-retirement-boundary.md)、[#885](legacy-sds-runtime-closure-retirement-boundary.md)、[#917](legacy-config-facade-closure-retirement-boundary.md) | SPAPI 与 TEMU/SHEIN 专属配置入口/default/env/分类/原校验测试，不再要求无消费者字段存在 | 六组现役 Validate* 聚合、顺序/错误格式、1688/浏览器/AI/身份/计费/DB/Redis/当前加载与通用 Retry |
 | #893 logger、#901 来源适配、#923 Prompt 等广泛 KEEP/目录与历史说明 | 仅本矩阵列出的旧调用 owner 与其保留建议 | 原已完成退休不复活；所有未列入的 owner、当前原检查与历史证据原样 |
 
@@ -63,7 +63,7 @@ Threat Model 限误删现役 DTO/JSON 字段或 worker 只读流程，旧 refres
 
 ### 4.2 JSON / schema /配置变化
 
-当前 Product/SKC/SKU/Extra、属性、品牌、商户/仓库 DTO 及其所有传递类型保持整个声明、字段、JSON tags/零值、FlexibleString.String/UnmarshalJSON 不变。不能仅因某字段未被 selector 读取就剪字段；SKU.CostPrice 仍使用 CostPrice，SiteInfo 仍使用 SubSite。草稿保存/读取/预览、严格解码、规范化/hash/版本、SourceIdentity 四槽位/读取拒绝不变。所有数据库模型、repository、migration/schema 注册零改；已有记录不读不写。
+当前 Product/SKC/SKU/Extra、属性、品牌、商户/仓库 DTO 及其所有传递类型保持整个声明、字段、JSON tags/零值、FlexibleString.String/UnmarshalJSON 不变。不能仅因某字段未被 selector 读取就剪字段；SKU.CostInfo 使用 *CostInfo，CostInfo.CostPrice 与 PriceInfo.SubSite 为 string，SiteInfo.SubSiteList 为 []string；这些完整声明原样保留。同名旧 CostPrice/SubSite 类型只服务将退的成本查询响应/上下架 DTO，没有现役类型依赖，随对应两文件整退。草稿保存/读取/预览、严格解码、规范化/hash/版本、SourceIdentity 四槽位/读取拒绝不变。所有数据库模型、repository、migration/schema 注册零改；已有记录不读不写。
 
 配置 public Go/YAML 面：确认后移除 amazon.spapi 整槽及市场类型、AmazonConfigPaths/唯一 AttributeMapping 槽，Platforms.Temu/Shein 和专属 PlatformConfig/BuildPlatformConfig；这是真实删除合同，不能宣称配置面零变化。受管 config-dev/prod/test YAML 中仅删除实际存在的 amazon.spapi、platforms.temu、platforms.shein 子树及专属相邻注释，不增补不存在的块、不改其它键值或样例。样例没有 amazon.configPaths，本轮不触碰私密 config/.env。新鲜/现有配置文件的通用 Viper unknown-key/AutomaticEnv 行为不重写、不添加旧键 fallback/映射，也不声称未知键必须严格拒绝；只是旧类型不再解析消费，显式绑定与默认值退出。
 
@@ -77,7 +77,7 @@ HTTPClientConfig/BuildHTTPClientConfig/默认 TLS/timeout 与通用 Retry 的合
 
 ## 5. 精确删除 / 保留 / 抽取矩阵
 
-### 5.1 九十四个整退 Go 工件
+### 5.1 九十六个整退 Go 工件
 
 下表为准确基线枚举；不把通用目录同名类型或现役子包扩大为整根删除。
 
@@ -85,14 +85,14 @@ HTTPClientConfig/BuildHTTPClientConfig/默认 TLS/timeout 与通用 Retry 的合
 | --- | --- | --- |
 | internal/amazon/api | auth.go、aws_signer.go、catalog.go、client.go、inventory.go、listing_details.go、listing_models.go、listing_operations.go、listing_postman_test.go、listings.go、logger_port.go、pricing.go、product_types.go、ratelimit.go、request.go、retry.go、seller.go、uploads.go | 18 |
 | internal/temu/api | api.go；category/category.go；client/auth.go、auth_config.go、auth_error_detector.go、auth_factory.go、auth_request_sender.go、auth_retry_handler.go、client.go、config.go、cookie_logging_test.go、errors.go、http.go、http_test.go、interfaces.go、logger_port.go；inventory/inventory.go；pricing/pricing.go；product/api.go、extension_types.go、goods_types.go、request_types.go、sku_list.go、sku_types.go；query/query.go、query_types.go；template/types.go；types/types.go | 28 |
-| internal/shein/api | 根 types.go；attribute/client.go；category/client.go、interface.go；image/client.go、client_test.go、interface.go；marketing/activity_types.go、client.go、client_test.go、interface.go、price_types.go、promotion_types.go、workflow_example.go；other/client.go；pricing/client.go、interface.go；translate/client.go、interface.go；warehouse/client.go、client_test.go（先抽§4.3）；product/client.go、client_test.go、cost_price_test.go、image_helpers.go、image_helpers_test.go、interface.go、inventory.go、inventory_manager.go、language_list.go、language_list_test.go、name_length_config.go、name_length_config_test.go、price.go、price_manager.go、product_manager.go、request.go、site_list.go、site_list_test.go、stock.go | 40 |
+| internal/shein/api | 根 types.go；attribute/client.go；category/client.go、interface.go；image/client.go、client_test.go、interface.go；marketing/activity_types.go、client.go、client_test.go、interface.go、price_types.go、promotion_types.go、workflow_example.go；other/client.go；pricing/client.go、interface.go；translate/client.go、interface.go；warehouse/client.go、client_test.go（先抽§4.3）；product/client.go、client_test.go、cost_price.go、cost_price_test.go、image_helpers.go、image_helpers_test.go、interface.go、inventory.go、inventory_manager.go、language_list.go、language_list_test.go、name_length_config.go、name_length_config_test.go、price.go、price_manager.go、product_manager.go、request.go、site_list.go、site_list_test.go、shelf.go、stock.go | 42 |
 | internal/shein/client | base_client.go、base_client_test.go、error_handler.go、logger_port.go | 4 |
 | internal/shein/pricing | pricing_repo.go | 1 |
 | internal/core/config | amazon_marketplace.go、amazon_marketplace_test.go、loader_platform.go | 3 |
 
 SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，不是当前 SessionTransport/DTO 的依赖，整退根 types.go；但 api 下的四个现役 DTO 子包保留，不能整根 ban prefix。product/CollectSizeMapImageURLs 只有自身测试消费者，随旧图片调用尾部整退，不复制无现役消费的纯 helper。旧市场解析、SPAPI 凭据、Cookie/auth/retry/营销/wire 专属测试随 owner 退出；当前有效平台/安全规则不随之退出。
 
-### 5.2 七个 mixed DTO 文件与一个全保留 DTO 文件
+### 5.2 五个 mixed DTO 文件与一个全保留 DTO 文件
 
 下列每个“保留”指整个原声明（含传递字段/方法/tag）逐字保留；仅删除同文件其它旧声明及失去使用的 import/comment。没有重命名/迁包/序列化替换。
 
@@ -102,16 +102,14 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 | api/other/interface.go | FlexibleString 及两方法、SupplierOperateInfo/Response | OtherAPI、SpuLimitCountResponse/InfoWrapper/Info、BatchCheckOnWayResponse、GetUserResponse/UserInfo、ShelfQuotaResponse/Info |
 | api/warehouse/interface.go | Warehouse/Response、StoreAddressListRequest、StoreAddress、StoreSiteInfo、StoreAddressListInfo | WarehouseAPI、StoreAddressAddRequest、StoreAddressCheckRequest/Info、CollectionOption、LatLng、CollectionJudgeRecord、ProviderInfo |
 | api/product/model.go | Product、Extra、LanguageContent、ProductAttribute、ProductVideo、SiteInfo、SizeAttribute | 仅 ProductListing |
-| api/product/cost_price.go | CostPrice | CostPriceQueryRequest/Response、CostPriceInfo、SkcCostData、CostSaleAttribute、SkuCostInfo、SaleAttributeItem、ChangeCostReason、IsCostPriceUnavailable |
 | api/product/response.go | BrandItem、BrandListResponse | 其它仅服务旧 Product Client 的响应声明 |
-| api/product/shelf.go | SubSite | ShelfOperateRequest/Response/Result、SkcSiteInfo |
 | api/product/skc_sku.go | **全文件 KEEP**，含 SKC/SKU、SkcExtra/SkuExtra、SaleAttribute、FieldDisabledInfo、Quantity/Cost/Price/StockInfo、ImageInfo/Detail、SiteDetailImageInfo、DetailImage | 零改，不剪任何 JSON 字段 |
 
 以上路径相对于 internal/shein。它们是当前领域消费者真实合同，不是保活旧 Service 的 compatibility 类别。其它全文件 KEEP 包括 client/session_transport.go、cookie_values.go、所有当前 publishing/marketplace/rules/content/authorizedbrand、sheinlogin、storecenter/official integrations、当前 acquisition/AI/images/身份/计费/schema 等。
 
 ### 5.3 十八个其它 mixed 工件与两个新纯值文件
 
-与 §5.2 七 mixed 合计 **25 mixed 工件**：
+与 §5.2 五 mixed 合计 **23 mixed 工件**：
 
 | 精确文件 | 唯一允许修改 |
 | --- | --- |
@@ -134,7 +132,7 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 
 新增仅 internal/shein/api/warehouse/address_conversion.go 与 address_conversion_test.go；先测试原纯值合同，再原样迁两函数，不新建平台 adapter/测试 runner。ConfigPaths 是未注入的属性映射路径槽，不是当前 browser profile/root/采集入口；不迁移其未知实际路径或内容。
 
-### 5.4 二十四份直接历史依据的窄顶注
+### 5.4 二十七份直接历史依据的窄顶注
 
 未来实施时只给以下每份原文增加准确 superseding 顶注；原完整正文/原顶注/链接/批准/历史数字/勾选/证据逐字后缀保留。只替代本文矩阵内的旧 API/manager/client/SPAPI/Temu/Shein 包装配置的 KEEP/当前 owner 含义，不 blanket 替代“平台 API”或其它有效能力。
 
@@ -162,16 +160,19 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 22. docs/refactoring/code-health-decisions.md
 23. docs/development/repository-structure.md
 24. docs/refactoring/module-target-mapping.md
+25. docs/architecture/legacy-shein-listing-closure-retirement-boundary.md
+26. docs/superpowers/specs/2026-08-08-shein-marketing-client-deduplication-design.md
+27. docs/superpowers/plans/2026-08-08-shein-marketing-client-deduplication.md
 
 当前本文、Architecture README 与 Legacy Register 三文档同步当前状态/边界，两个索引原历史后缀保留。dependency-baseline、phase2-runtime-inventory、external-client-boundary-inventory 等所有 inventory/历史计数文件**零改**；其历史行不构成重建旧 owner 义务，由本文/当前 Register说明，不静默校准计数。其它仅历史 API 名称不全仓扫改。
 
-实施拟定 **94整退 + 25 mixed + 2纯值文件 + 24窄顶注 + 3当前文档 = 148工件**，同一主要 PR 完成。设计阶段实际修改只有三当前文档。
+实施拟定 **96整退 + 23 mixed + 2纯值文件 + 27窄顶注 + 3当前文档 = 151工件**，同一主要 PR 完成。设计阶段实际修改只有三当前文档。
 
 ```text
 Legacy decision: EXTRACT | RETIRE
 Reusable behavior: worker仓库地址转换两项纯函数原样抽到同包；其余现役规则/JSON/SessionTransport/Store/采集直接保留原owner
 Current owner: 当前shein DTO/warehouse纯值包、sheinlogin/session transport、官方integration/Store与各当前领域owner
-Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6.1、记录并读回IMPLEMENTATION_READY/Ready；先抽纯函数再按148工件收齐；原有效检查及保留合同通过；合并另获授权
+Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6.1、记录并读回IMPLEMENTATION_READY/Ready；先抽纯函数再按151工件收齐；原有效检查及保留合同通过；合并另获授权
 ```
 
 ## 6. 实施顺序与必要验证
@@ -182,7 +183,7 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 
 必要自检限 core/config 原适用合成测试、现役 session/warehouse 纯值测试、当前 SHEIN DTO/草稿/预览/严格JSON/有效规则、独立登录/Store 原适用合成测试、原 retirement/import guards 与 Architecture README 四项检查。保留原八命令依赖检查；编译 current-application、image-agent-temporal-worker、shein-login-worker、source-account-registry-schema-init、product-listing-api-schema-migrate、listingkit-schema-migrate、1688-local-agent、1688-batch-import、1688-public-browser-collector 及 hack/debug/test-amazon 独立模块，产物仅任务 temp、不执行。不得读取现有 .env/私密配置以运行测试，不建数据库/Redis/真实浏览器/provider环境；原CI隔离fixture不是运行/产品验收。
 
-稳定候选用原完整 CI，不人工重复全量 CI 或加 runner/验收 session。最终严格核对148路径及 mixed允许范围、24原文历史后缀、两个索引后缀、全部 KEEP 和 workflow/inventory/依赖/锁/保护零差异；真实范围外新消费者/CI要改冻结项时，先报告准确原因与补丁，不能自行扩权。
+稳定候选用原完整 CI，不人工重复全量 CI 或加 runner/验收 session。最终严格核对151路径及 mixed允许范围、27原文历史后缀、两个索引后缀、全部 KEEP 和 workflow/inventory/依赖/锁/保护零差异；真实范围外新消费者/CI要改冻结项时，先报告准确原因与补丁，不能自行扩权。
 
 ### 6.1 原检查/测试精确转换矩阵
 
@@ -212,7 +213,7 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 
 ### 7.2 最终交付检查
 
-实现完成后一次集中只读最终检查完整真实diff、148工件/实际mixed范围、当前能力/JSON与SHEIN/Store保留及已有证据；不只采信作者报告。finding先分类，真正命中项目BLOCKER的新事实才重开冻结设计；普通实现或测试问题同PR修复，仅复核相关增量，理论hardening不阻止有界交付。实现/CI/AI复核均不等于用户或运行验收。
+实现完成后一次集中只读最终检查完整真实diff、151工件/实际mixed范围、当前能力/JSON与SHEIN/Store保留及已有证据；不只采信作者报告。finding先分类，真正命中项目BLOCKER的新事实才重开冻结设计；普通实现或测试问题同PR修复，仅复核相关增量，理论hardening不阻止有界交付。实现/CI/AI复核均不等于用户或运行验收。
 
 ### 7.3 评审与授权
 
