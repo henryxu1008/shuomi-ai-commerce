@@ -8,7 +8,7 @@ import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts
 import {agentEmptyRequestSchema,agentStartRequestSchema,contentAgentStartRequestSchema,ownContentStartRequestSchema,ownContentSourceSchema,ownAgentPath,agentResumeRequestSchema,agentResultSchema,contentAgentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
 import { aiWorkbenchPath, aiCreateBody, aiMessageBody, aiMetadataBody, aiResumeBody, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
 import { NextResponse } from "next/server";
-import { COLLECTION_MAX_BYTES, collectionPath, collectionCommandSchema, collectionSourceKindSchema, collectionVersion, parseCollectionResponse, type CollectionRoute } from "@/lib/contracts/product-collection";
+import { COLLECTION_MAX_BYTES, COLLECTION_DETAIL_RESPONSE_MAX_BYTES, collectionPath, collectionCommandSchema, collectionSourceKindSchema, collectionVersion, parseCollectionResponse, type CollectionRoute } from "@/lib/contracts/product-collection";
 import {
   findNodeAtLocation,
   parseTree,
@@ -1097,7 +1097,7 @@ export async function buildWorkbenchBrowserResponse(
       void upstream.body?.cancel().catch(() => undefined);
       throw new InvalidUpstreamBodyError();
     }
-    const responseLimit = imageSetContract ? 2*1024*1024 : supplyContract ? SUPPLY_MAX_BYTES : collectionContract ? COLLECTION_MAX_BYTES : aiContract ? 256 * 1024 : (acquisitionContract || imageContract || agentContract) ? ACQUISITION_RESPONSE_MAX_BYTES : sourceContract
+    const responseLimit = imageSetContract ? 2*1024*1024 : supplyContract ? SUPPLY_MAX_BYTES : collectionContract ? contract === "collection-detail" ? COLLECTION_DETAIL_RESPONSE_MAX_BYTES : COLLECTION_MAX_BYTES : aiContract ? 256 * 1024 : (acquisitionContract || imageContract || agentContract) ? ACQUISITION_RESPONSE_MAX_BYTES : sourceContract
       ? SOURCE_ACCOUNT_RESPONSE_MAX_BYTES
       : UPSTREAM_RESPONSE_MAX_BYTES;
     const contentLength = readContentLength(upstream.headers);

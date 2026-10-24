@@ -4,12 +4,41 @@ A Manifest V3 extension for an explicit capture of the current 1688 or Amazon si
 detail page. Chrome and Edge use the same build. This directory owns capture
 and ephemeral transport; it cannot publish a Product or authorize an import.
 
-Current increment: [execution #906](https://github.com/qq550723504/shuomi-ai-commerce/issues/906), based on the frozen [ingestion design](https://github.com/qq550723504/shuomi-ai-commerce/blob/dca554da18b8c126d25681bc75e34e37ccf61bcd/docs/architecture/plugin-capture-ingestion-v1.md).
+## Direct entry and return to the original application
+
+[Execution #920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920) follows
+the reviewed [entry design](../../docs/architecture/plugin-capture-entry-flow-v1.md).
+On the current supported product page, the named browser shortcut (suggested
+`Alt+Shift+P`) captures and immediately opens the fixed application confirmation
+page. The popup's **采集并在应用确认** button runs that same operation. Saving still
+requires confirmation in the existing application under its current account and
+enterprise; neither entry submits a backend save.
+
+The popup shows the shortcut actually assigned by the browser. A collision or
+user removal is shown as unassigned; it does not silently claim the suggested key
+works. Users can use the popup button or assign a key through their browser's
+extension shortcut settings. The command is browser-scoped, not global.
+
+Repeated entry after handoff and **返回原应用核实操作** activate the original
+own-created application tab/window, without navigation, a new recovery tab, key,
+capture or save. This preserves Amazon's original-tab session marker. A closed
+tab or lost worker is reported honestly; this change does not provide cross-tab
+or restart persistence. **开始新的采集** retains its explicit confirmation and is
+refused while capture, delivery or return is in flight. Keep an original possibly
+submitted operation's page/key; a transport failure is not proof of a failed save.
+
+These source changes do not update an existing installed extension or runtime.
+
+Field/quote increment: [execution #916](https://github.com/qq550723504/shuomi-ai-commerce/issues/916), based on the reviewed [source quote read design](../../docs/architecture/plugin-capture-source-quotes-v1.md) and existing [ingestion design](../../docs/architecture/plugin-capture-ingestion-v1.md). The original image relationship increment is #906.
 New 1688 captures use the exact `captureVersion=2 / schemaVersion=2 / browser_acquisition/v2 / src2b-browser-capture-v2 / 1688-browser-dom/v3` combination. Each variant carries its own `images: [{url, role}]`. Only an explicit image on the SKU entry or its exact property value (`skuProps[].value[].imageUrl`) establishes that relationship. A product album never supplies a guessed SKU image. Other DOM structures remain unsupported in this increment.
 
-The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's exact US/CA/UK/DE/JP product URLs and sends them only to the compiled sibling `/capture/amazon` at the same application origin; there is no second shell or runtime destination. Amazon's strict source/observation contract, selected-product extractor and receiver/save backend are owned by [execution #905](https://github.com/qq550723504/shuomi-ai-commerce/issues/905). Its platform module was consumed from commit `25e42f0edb7d2c729e0a29184fc7f396479744b7`. Amazon currently observes the selected product, explicit selected attributes and main image; it does not traverse or claim a complete variant family. Both source validators run before document-bound handoff.
+The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's exact US/CA/UK/DE/JP product URLs and sends them only to the compiled sibling `/capture/amazon` at the same application origin; there is no second shell or runtime destination. Amazon's strict source/observation contract and receiver/save backend originated in [execution #905](https://github.com/qq550723504/shuomi-ai-commerce/issues/905). Amazon observes the selected dimensions, rendered product overview/detail attributes, availability text and current product gallery. Only the main image is explicitly linked to the selected variant; gallery images remain at product level. It does not traverse or claim a complete variant family, infer inventory quantities or guess currency from a site. Both source validators run before document-bound handoff.
+
+1688 also reads existing `skuRangePrices` and `currentPrices` models when higher-priority `offerPriceRanges` has no amount. It retains decimal strings and reads safe, already-loaded description text while skipping executable, form, hidden and frame subtrees. It does not fetch external descriptions. The original confirmation/save path and wire versions are unchanged.
 
 The existing 1688 receiver is `/capture/1688`. After explicit confirmation under the current user and organization, the original save chain returns an operation receipt. Open **我的数据 → the saved batch → 商品详情 → 规格图片** to expand each source variant; **下载原始资料** keeps the exact version and nested image relationships. Images are source URL candidates, with the existing asset approval requirements.
+
+In that same detail, **来源报价（参考）** reads the existing SRC facts for the selected publication/version. Amounts retain their original strings; unknown currency and minimum quantity are labelled explicitly. Quotes are reference information, separate from the merchant's selling price and stock. A failed supplementary quote read leaves known product data visible. Empty quotes mean no product-level quote was recorded, not that the source page has no price. Variant quote facts use the same human-readable format; the JSON download retains the original attributes and fixed-version quote projection. This change does not recapture or backfill older records.
 
 The v1 wire fixture, canonical bytes and command hash remain frozen for historical recovery. New captures never fall back to v1. Capture records without a frozen command or with a mixed descriptor/contract/parser combination fail closed. No schema, image table or migration is added.
 
@@ -74,7 +103,7 @@ under `artifacts`. It uses the official CDP `Extensions.loadUnpacked` and
 `Extensions.triggerAction` testing methods, with the test-only extension
 debugging flag. Automated CDP runs use headless mode to prevent unrelated
 desktop focus changes from closing the popup; omit `--cdp` for the manual
-headed loader. It opens the actual action popup, clicks capture and handoff,
+headed loader. It opens the actual action popup, clicks the combined capture/handoff button,
 checks the other-tab rejection, interrupts the task's workers, and reloads the
 receiver with the same recovery key. The flag is never part of the extension
 or a user's regular browser configuration. The debugger uses an OS-assigned
@@ -97,7 +126,7 @@ only its closed disposable profiles after preserving the receipts.
 
 - Permissions are exactly `activeTab` and `scripting`, plus exact HTTPS host grants for `detail.1688.com`, `www.amazon.com`, `www.amazon.ca`, `www.amazon.co.uk`, `www.amazon.de`, and `www.amazon.co.jp`. No subdomain wildcard or `<all_urls>`, cookies, storage, tabs, history, webRequest, clipboard or downloads permissions.
 - Injection follows the user's explicit current-tab capture and validates the product path. No batch or background traversal is introduced. It remains main-frame and isolated-world only.
-- The popup's explicit capture action selects only the active tab. Injection
+- The named shortcut fixes its triggering tab; the popup selects its active tab once. Injection
   targets its main frame in the isolated world. The same document ID and
   canonical source are checked again after extraction.
 - Accepted 1688 pages have the exact `detail.1688.com/offer/<ID>.html` shape. IDs
@@ -127,8 +156,8 @@ mapper; SRC-1 and Catalog own durable publication and exact read-back.
 
 ## Application handoff contract
 
-The user sees a summary, then explicitly chooses to open the current app.
-The extension freezes one capture and UUID key, creates only its own app tab,
+An explicit shortcut or combined popup action captures and opens the current app,
+where the user reviews the summary and confirms saving. The extension freezes one capture and UUID key, creates only its own app tab,
 and includes `extensionId`, `handoffId`, `idempotencyKey` in the fragment.
 No payload, credentials or identity claims are put in the URL.
 

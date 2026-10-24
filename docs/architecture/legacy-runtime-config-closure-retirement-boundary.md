@@ -1,3 +1,5 @@
+> #301 / #917 精确替代：用户确认[旧配置加载与校验门面完整闭包 §1–§7/§6.1](legacy-config-facade-closure-retirement-boundary.md)后，本文 §5.2 对 loader.go 旧路径检查/日志、LoadConfigWithFallback、LoadAmazonCrawlerAPIConfigWithFallback/专属 helper、NewValidator/Validator 与 Config 校验方法形式的 KEEP 仅留作历史。四项有效聚合调用回到既有 ValidateConfig；LoadFromBytes/NewDefaultConfig、当前加载/env/scoped .env、六组规则/顺序/错误格式与身份/Workbench拒绝全部保留。只退休准确外壳，不改配置键值、其它 KEEP 或已有资源；独立 SHEIN 登录与 Store 同步保留，无新试用前置。
+
 # 旧数字任务与刊登专属配置：完整退休闭包设计
 
 > #872 后续精确收口：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)退休已失去最后消费者的 platform/queue/rabbitmq 包及 tests/test_config.yaml、数字 Store 代理两入口、四份 shein-listing-secret 源与 prod 专属装配，并清理 Updater 配置尾部。本文对此批准确对象的旧保留目标仅为历史；通用 RetryConfig、真实 workerpool、当前 config/采集/Store/独立 SHEIN 登录同步、共享 Namespace/base、middleware broker 声明及其它当前能力保持。没有实际实例/数据/Secret/队列操作；workflow、历史计数与原检查不改。

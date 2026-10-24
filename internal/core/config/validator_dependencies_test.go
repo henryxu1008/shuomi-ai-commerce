@@ -89,6 +89,45 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 		},
 	}
 
-	errors := cfg.Validate()
+	errors := ValidateConfig(cfg)
 	assert.NotEmpty(t, errors)
+}
+
+func TestValidateConfigPreservesValidationGroupOrder(t *testing.T) {
+	cfg := &Config{
+		OpenAI:    OpenAIConfig{Model: "synthetic-model"},
+		Browser:   BrowserConfig{Enabled: true},
+		Amazon:    AmazonConfig{Enabled: true},
+		Platforms: PlatformsConfig{Alibaba1688: Alibaba1688Config{Enabled: true}},
+		ListingKit: ListingKitConfig{Zitadel: ListingKitZitadelConfig{
+			AllowedUsernames: []string{"synthetic-obsolete-user"},
+		}},
+		Workbench: WorkbenchConfig{Enabled: true},
+	}
+
+	errors := ValidateConfig(cfg)
+	previous := -1
+	for _, field := range []string{
+		"openai.apiKey",
+		"browser.poolSize",
+		"amazon.crawlTimeout",
+		"platforms.alibaba1688.timeout",
+		"listingkit.zitadel.allowedUsernames",
+		"listingkit.zitadel.projectID",
+	} {
+		found := -1
+		for index, err := range errors {
+			if validationError, ok := err.(*ValidationError); ok && validationError.Field == field {
+				found = index
+				break
+			}
+		}
+		if found == -1 {
+			t.Fatalf("validation group field %s is missing from %v", field, errors)
+		}
+		if found <= previous {
+			t.Fatalf("validation group field %s at %d must follow index %d", field, found, previous)
+		}
+		previous = found
+	}
 }

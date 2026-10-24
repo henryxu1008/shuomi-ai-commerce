@@ -8,6 +8,14 @@ const request = (body: string, extra: Record<string, string> = {}) => new Reques
 });
 
 describe("private product collection proxy", () => {
+  it("retains known detail and supplementary quotes above the old response boundary only for detail",async()=>{
+    const detail={item:{id,batchId:id,source:{productKey:"product",publicationId:id,version:"1",kind:"acquisition"},revision:1,createdAt:"2026-10-14T00:00:00Z"},product:{description:"x".repeat(1024*1024),attributes:Array.from({length:128},(_,i)=>({name:String(i),value:"x".repeat(8192)}))},sourceQuotes:{state:"available",publicationId:id,version:"1",prices:[{amount:"27.00",currency:null,minQuantity:null}]}};
+    expect(new TextEncoder().encode(JSON.stringify(detail)).length).toBeGreaterThan(2*1024*1024);
+    const response=await buildWorkbenchBrowserResponse(Response.json(detail),"collection-detail",id);
+    expect(response.status).toBe(200);expect(await response.json()).toEqual(detail);
+    const over=await buildWorkbenchBrowserResponse(new Response(" ".repeat(3*1024*1024+1)),"collection-detail",id);expect(over.status).toBe(502);
+    const other=await buildWorkbenchBrowserResponse(Response.json(detail),"collection-command");expect(other.status).not.toBe(200);
+  });
   beforeEach(() => vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost"));
   it("reads the exact owner batch revision without accepting query or mutation inputs",async()=>{
     const path=["collections","batches",id];

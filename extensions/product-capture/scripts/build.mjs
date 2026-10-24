@@ -23,6 +23,7 @@ const manifest = {
   // still validates the product path before injection. No subdomain wildcard.
   host_permissions:['https://detail.1688.com/*', 'https://www.amazon.com/*', 'https://www.amazon.ca/*', 'https://www.amazon.co.uk/*', 'https://www.amazon.de/*', 'https://www.amazon.co.jp/*'],
   action:{default_popup:'popup.html'}, background:{service_worker:'background.js',type:'module'},
+  commands:{'capture-current-product':{suggested_key:{default:'Alt+Shift+P'},description:'采集当前商品并在应用确认'}},
   // Match patterns ignore ports: background additionally enforces exact origin.
   externally_connectable:{matches:[`${app.protocol}//${app.hostname}/capture/1688`, `${app.protocol}//${app.hostname}/capture/amazon`]},
   content_security_policy:{extension_pages:"default-src 'none'; script-src 'self'; style-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"},
