@@ -2958,7 +2958,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/goods/images.go": {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
 		},
-		"internal/shared/ptr/pointer.go":          {"func BoolPtr("},
+		"internal/shared/ptr/pointer.go":          {"func IntPtr(", "func Float32Ptr("},
 		"internal/storecenter/gorm_repository.go": {"type GormStoreRepository struct"},
 		"internal/pkg/appenv/apputil.go":          {"func ComponentLoggers(", "func SetupLoggerWithLevel(", "type VersionInfo struct", "func PrintVersionInfo("},
 		"internal/marketplace/temu/goods/builder.go": {
