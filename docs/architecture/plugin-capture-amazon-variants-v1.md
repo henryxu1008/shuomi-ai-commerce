@@ -1,7 +1,11 @@
 # Amazon 插件：可选采集同族其他变体
 
 Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)。
-Design Basis: **Independent Architecture**。Admission: **NOT_READY — 待独立评审**。
+Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
+独立Reviewer `1688_shadow_design_review` 已检查准确设计候选
+`c938459b0dae5546a3afccfd09e103d45b6665cc`，无设计BLOCKER；
+[评审及四组IMPLEMENTATION_TEST](https://github.com/qq550723504/shuomi-ai-commerce/issues/955#issuecomment-6398925548)
+保留为未来实现要求，未执行或冒充运行PASS。此后只收口准入标记，不改已审设计正文。
 本轮仅设计和评审；达到技术准入也不授权开发、合并、更新插件/实例、真实采集或部署。
 
 ## 1. 用户结果与依据
