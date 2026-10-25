@@ -3975,7 +3975,7 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 		if !ok {
 			t.Fatal("CleanupContext must be a narrow value struct")
 		}
-		expected := map[string]bool{"Context": true, "AuthorizedBrand": true, "SourceBrand": true, "ProductData": true}
+		expected := map[string]bool{"Context": true, "AuthorizedBrand": true, "SourceBrand": true}
 		for _, field := range shape.Fields.List {
 			if len(field.Names) != 1 || !expected[field.Names[0].Name] {
 				t.Errorf("CleanupContext must not embed or add old Task state: %v", field.Names)
