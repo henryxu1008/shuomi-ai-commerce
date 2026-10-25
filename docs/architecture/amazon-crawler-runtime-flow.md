@@ -9,9 +9,10 @@
 原浏览器调试入口 `hack/debug/test-amazon` 直接调用 `internal/crawler/amazon.NewAmazonProcessor` → `Process` → `Shutdown`。原处理器也保留单请求 `ProcessWithContext`、批请求 `ProcessBatchWithContext` → `BatchProcessor`，以及 `PoolManager` / `BrowserPool` 与 `InstanceProcessor` 的既有浏览器采集实现：
 
 - `AmazonProcessor`：处理器生命周期、初始化错误、单个与批量请求及取消。
-- `PoolManager` / `BrowserPool`：实例获取/归还、超时、风险阈值重建、代理、健康与池统计。
+- `PoolManager` / `BrowserPool`：实例获取/归还、超时、风险阈值重建、代理、周期健康统计与日志。
 - `InstanceProcessor` / extractor：页面导航、目标邮编与货币、产品提取、质量校验和有限质量重试、失败证据。
-- `qualityMetrics`：保留质量重试/恢复和目标上下文统计；既有 region normalization 与快照 map copy 归此消费者，旧 Service/数字 Task 指标不再存在。
+
+#946 已按[用户确认的完整退休边界](legacy-browser-management-tail-closure-retirement-boundary.md)退出无消费者的质量快照整链、代理快照和外层池统计及专属尾部；实际质量重试/目标上下文决策仍归原 InstanceProcessor，周期健康统计/日志仍归 HealthChecker，代理全部评分计数/时间戳仍归 ProxyPool。
 
 `effectiveBrowserPoolSize` 仍由原 processor.go 持有并使用，`factory_test.go` 的两个有效池大小测试保持；删除旧 factory 不删除其原有效规则。HTTP 平台 API、域名/URL/产品检查、SPAPI 配置及当前有效 Queue/Retry/Redis 保持原 owner。本轮没有新建服务、结果缓存、恢复协议、当前业务库 owner 或远程调用。
 

@@ -17,8 +17,6 @@ type BrowserManager struct {
 	loggerDependency
 
 	*sharedbrowser.Manager
-	config        *config.Config
-	configManager *ConfigManager
 }
 
 // NewBrowserManager 创建Amazon浏览器管理器（保持向后兼容）
@@ -32,40 +30,19 @@ func NewBrowserManagerWithConfig(cfg *config.Config, strategy string, presetName
 
 	var browserConfig *sharedbrowser.BrowserConfig
 
-	// 如果应该使用随机配置
-	if configManager.ShouldUseRandomConfig(&cfg.Amazon) || cfg.Browser.RandomConfig.Enabled {
-		// 优先使用主配置中的策略设置
-		if cfg.Browser.RandomConfig.Enabled {
-			strategy = cfg.Browser.RandomConfig.Strategy
-			presetName = cfg.Browser.RandomConfig.PresetName
-		}
-
-		browserConfig = configManager.GenerateBrowserConfig(cfg, strategy, presetName, instanceID)
-		configManager.LogConfigStrategy(strategy, presetName, instanceID)
-	} else {
-		// 使用传统配置方式
-		browserConfig = &sharedbrowser.BrowserConfig{
-			Headless:       cfg.Browser.Headless,
-			BrowserPath:    cfg.Browser.BrowserPath,
-			ProxyServer:    cfg.Browser.ProxyServer,
-			ViewportWidth:  cfg.Browser.ViewportWidth,
-			ViewportHeight: cfg.Browser.ViewportHeight,
-			UserAgent:      "", // 使用默认用户代理
-		}
-		componentLogger(logs, "crawler/amazon").Infof("实例 %d 使用传统浏览器配置", instanceID)
+	// 优先使用主配置中的策略设置
+	if cfg.Browser.RandomConfig.Enabled {
+		strategy = cfg.Browser.RandomConfig.Strategy
+		presetName = cfg.Browser.RandomConfig.PresetName
 	}
+
+	browserConfig = configManager.GenerateBrowserConfig(cfg, strategy, presetName, instanceID)
+	configManager.LogConfigStrategy(strategy, presetName, instanceID)
 
 	return &BrowserManager{
 		loggerDependency: loggerDependency{logFor: logs},
 		Manager:          sharedbrowser.NewManager(browserConfig, logs),
-		config:           cfg,
-		configManager:    configManager,
 	}
-}
-
-// GetConfigManager 获取配置管理器
-func (bm *BrowserManager) GetConfigManager() *ConfigManager {
-	return bm.configManager
 }
 
 // NavigateTo Amazon特定的导航方法，包含Cookie设置
