@@ -1,3 +1,5 @@
+> #301 / #939 **SOURCE_IMPLEMENTED / IN_REVIEW**：按[用户确认的旧全局配置与日志便利尾部完整闭包](legacy-global-config-logging-tail-closure-retirement-boundary.md) §1–§7/§4.1/§6.1整批退出旧core/config HTTP/Retry门面、根Logging/Redis/Prompts投影及其专属尾部，两个闲置日志方法及对应保活；仅准确替代本文涉及这些对象的广泛KEEP，不撤销整个Config/日志/Redis能力。有效加载/弃用日志仍消费platform/logging，完整inventory/CURRENT零改；RedisConfig类型、SHEIN私有配置/原生Redis/登录与Store同步、当前日志/Retry/HTTP/AI/图像/JSON/采集保持。port-forward仅去两条旧Redis建议输出，其余转发/参数/Pester和#357不改。原完整Git blob及历史/计数/批准/失败逐字保留为后缀；workflow/依赖/保护/既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。
+
 > #301 / #914 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：[旧闲置配置与运行辅助合同完整退休边界](legacy-idle-support-contract-closure-retirement-boundary.md)冻结 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 读回先于源码修改。仅替代 TimeoutConfig/DefaultTimeoutConfig、RateLimitConfig/DefaultRateLimitConfig 及四项专属测试的旧 KEEP；HTTPClientConfig/RetryConfig/default、Config/LoggingConfig、现役Registry路由与platform日志及原安全断言保持。 下方历史正文逐字保留，其它KEEP/计数/证据不改；workflow/inventory及既有资源零改，无新试用前置，独立SHEIN登录与Store同步保持，#301 OPEN。
 
 # #301 旧通用执行骨架与闲置宿主配置完整退休设计

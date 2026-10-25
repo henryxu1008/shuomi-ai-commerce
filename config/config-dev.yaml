@@ -1,22 +1,6 @@
 # 统一开发环境配置
 # 支持 TEMU 和 SHEIN 两个平台
 
-# 日志配置
-logging:
-  level: "DEBUG"  # 设置为 DEBUG 级别以显示详细调试信息
-  format: "text"  # text 或 json
-  file: ".local/logs/app.log"
-  split_by_level:
-    - levels: [error, fatal, panic]
-      file: .local/logs/error.log
-    - levels: [warn]
-      file: .local/logs/warn.log
-    - levels: [info]
-      file: .local/logs/info.log
-    - levels: [debug, trace]
-      file: .local/logs/debug.log
-
-
 # OpenAI配置
 openai:
   apiKey: ""
@@ -118,14 +102,6 @@ database:
   max_connections: 10
   max_idle_connections: 5
   connection_max_lifetime: "1h"  # 1小时
-
-# Redis配置（productenrich-api 使用）
-redis:
-  host: "localhost"
-  port: 6379
-  password: ""
-  db: 0
-  pool_size: 10
 
 imageagent:
   admission:

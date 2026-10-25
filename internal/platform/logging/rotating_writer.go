@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 )
@@ -227,25 +226,4 @@ func (w *rotatingFileWriter) cleanOldFiles() {
 // maxSizeBytes 返回最大文件大小（字节）
 func (w *rotatingFileWriter) maxSizeBytes() int64 {
 	return int64(w.config.MaxSize) * 1024 * 1024
-}
-
-// GetBackupFiles 获取所有备份文件列表
-func (w *rotatingFileWriter) GetBackupFiles() ([]string, error) {
-	dir := filepath.Dir(w.config.Filename)
-	baseName := filepath.Base(w.config.Filename)
-
-	files, err := filepath.Glob(filepath.Join(dir, baseName+".*"))
-	if err != nil {
-		return nil, err
-	}
-
-	// 过滤掉非备份文件
-	var backups []string
-	for _, file := range files {
-		if strings.HasSuffix(file, ".gz") || strings.Contains(file, ".20") {
-			backups = append(backups, file)
-		}
-	}
-
-	return backups, nil
 }

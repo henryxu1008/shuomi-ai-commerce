@@ -1,3 +1,5 @@
+> #301 / #939 **SOURCE_IMPLEMENTED / IN_REVIEW**：按[用户确认的旧全局配置与日志便利尾部完整闭包](legacy-global-config-logging-tail-closure-retirement-boundary.md) §1–§7/§4.1/§6.1整批退出旧core/config HTTP/Retry门面、根Logging/Redis/Prompts投影及其专属尾部，两个闲置日志方法及对应保活；仅准确替代本文涉及这些对象的广泛KEEP，不撤销整个Config/日志/Redis能力。有效加载/弃用日志仍消费platform/logging，完整inventory/CURRENT零改；RedisConfig类型、SHEIN私有配置/原生Redis/登录与Store同步、当前日志/Retry/HTTP/AI/图像/JSON/采集保持。port-forward仅去两条旧Redis建议输出，其余转发/参数/Pester和#357不改。原完整Git blob及历史/计数/批准/失败逐字保留为后缀；workflow/依赖/保护/既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。
+
 > #301 / #929 **SUPERSEDED，仅旧 SHEIN 品牌查询与错误分类闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-shein-brand-error-closure-retirement-boundary.md)。本文只有旧 authorizedbrand.ProductAPI/Resolver/Config、查询/匹配 helper、sherr 及 BrandItem/BrandListResponse 的保留或现役建议被准确替代；不重建已退的 Store/Task/API 调用。完整 Resolved/context、当前清理/草稿 JSON/有效规则、采集、独立 SHEIN 登录与 Store 同步及原 owner/claim/fence/UNKNOWN 保留。无生产 EXTRACT 或替代 Resolver，不改 workflow/完整 inventory，不操作既有实例/数据/凭据/进程，不增加试用前置；#301 OPEN。以下完整原文/顶注/历史数字/勾选/批准/证据逐字保留。
 
 # #301 旧平台 API 调用实现完整退休闭包设计
