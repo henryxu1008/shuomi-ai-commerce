@@ -1,6 +1,6 @@
-> **#301 DESIGN_ONLY / AWAITING_DESIGN_REVIEW**：[旧 OpenAI 调用适配整链完整退休设计](legacy-openai-adapter-closure-retirement-boundary.md)。Independent Architecture / DESIGNING，生产 SOURCE_NOT_STARTED / NOT_READY；当前仅三文档。三组29工件、35函数/13类型/2字段拟整批退休，当前Eino/受控文本、图像/审核/source edit/组织凭据及采集/SHEIN/Store保留；§1–§7/§6.1经适用设计复核、用户确认和准入读回后再同一PR实施，无workflow/inventory/既有资源操作或试用新前置，#301 OPEN。以下完整旧索引保留。
+#953 当前设计重做：旧生成链与审核候选合同完整退休闭包。**Independent Architecture / REDESIGNING / SOURCE_NOT_STARTED / NOT_READY**；当前只三文档，原旧范围复核不覆盖新范围。先抽取当前审核最小合同/纯规则到 `product/review/proposal`，再整退 `product/enrichment` 旧根、生成入口及 #953 原 OpenAI 专属尾部；未来同一149工件，不留兼容 alias、不机械拆批。保留 JSON/hash、当前采集、独立 SHEIN 登录与 Store 同步；workflow/完整inventory零改，既有实例/数据/凭据/进程不动，#301 OPEN。设计确认与 IMPLEMENTATION_READY 读回后再实施，以下原完整索引保留。
 
-- [`legacy-openai-adapter-closure-retirement-boundary.md`](legacy-openai-adapter-closure-retirement-boundary.md): #301 complete legacy OpenAI adapter closure, Independent Architecture / DESIGNING / DESIGN_ONLY. One 29-artifact batch retires 35 functions, 13 types and 2 default-selection fields; preserves current governed Eino text, image/review/source-edit, credential/JSON/domain contracts and SHEIN login/Store sync. Sections 1-7 including 6.1 bind actual consumers, earlier KEEP replacements and precise original-test transfers. Production remains NOT_READY until independent design review, user confirmation and admission readback.
+- [`legacy-openai-adapter-closure-retirement-boundary.md`](legacy-openai-adapter-closure-retirement-boundary.md)：本次 #953 重做设计，§1–§7/§6.1 与完整删除/抽取矩阵。
 
 > **#948 当前阶段：源码已按用户确认设计整批实施 / In Review。** [旧采集外观与诊断闭包设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md)覆盖四组40工件，公共1688有效配置已先抽取；最终源码 CI/独立交付复核以 PR 为准，合并另授权，#301 保持 OPEN。以下完整旧索引保留。
 
