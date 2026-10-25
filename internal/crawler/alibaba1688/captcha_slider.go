@@ -11,11 +11,6 @@ import (
 	"github.com/mxschmitt/playwright-go"
 )
 
-// handleSliderCaptchaWithResult 处理滑动验证码并返回结果
-func (ch *CaptchaHandler) handleSliderCaptchaWithResult(ctx context.Context, page playwright.Page) CaptchaResult {
-	return ch.handleSliderCaptchaWithManualOption(ctx, page, true)
-}
-
 func (ch *CaptchaHandler) handleSliderCaptchaWithManualOption(ctx context.Context, page playwright.Page, allowManual bool) CaptchaResult {
 	startTime := time.Now()
 	attempts := 0

@@ -27,7 +27,6 @@ type InstanceProcessor struct {
 	resultValidator      *ProductResultValidator
 	failureArtifactStore *FailureArtifactStore
 	qualityControl       qualityControlOptions
-	qualityMetrics       qualityMetricsRecorder
 	extractProduct       func(ctx context.Context, page playwright.Page, url, zipcode string) (*model.Product, error)
 	prepareRetry         func(ctx context.Context, page playwright.Page, waitTimeout time.Duration) error
 	matchTargetContext   func(page playwright.Page, targetURL string) (bool, error)
@@ -71,10 +70,6 @@ func (ip *InstanceProcessor) SetQualityControlOptions(retryOnValidationFailure b
 		retryOnValidationFailure: retryOnValidationFailure,
 		validationRetryAttempts:  validationRetryAttempts,
 	}
-}
-
-func (ip *InstanceProcessor) SetQualityMetricsRecorder(recorder qualityMetricsRecorder) {
-	ip.qualityMetrics = recorder
 }
 
 // ProcessWithInstance 使用指定浏览器实例处理产品，ctx 用于超时控制
@@ -246,24 +241,14 @@ func (ip *InstanceProcessor) resolveDefaultZipcodeForTargetContext(page playwrig
 
 	inTargetContext, err := ip.matchesTargetContext(page, targetURL)
 	if err != nil {
-		if ip != nil && ip.qualityMetrics != nil {
-			ip.qualityMetrics.RecordTargetContextCheckError(region)
-			ip.qualityMetrics.RecordTargetContextFallback(region)
-		}
 		ip.componentLogger("crawler/amazon").Warnf("判断目标配送上下文失败，继续使用默认美国邮编兜底: target_url=%s region=%s err=%v", targetURL, region, err)
 		return resolver.GetZipcodeByRegion(region)
 	}
 	if inTargetContext {
-		if ip != nil && ip.qualityMetrics != nil {
-			ip.qualityMetrics.RecordTargetContextSkip(region)
-		}
 		ip.componentLogger("crawler/amazon").Infof("当前配送上下文已命中目标站点，无需回退默认邮编: target_url=%s region=%s", targetURL, region)
 		return ""
 	}
 
-	if ip != nil && ip.qualityMetrics != nil {
-		ip.qualityMetrics.RecordTargetContextFallback(region)
-	}
 	ip.componentLogger("crawler/amazon").Infof("当前配送上下文未命中目标站点，回退默认邮编: target_url=%s region=%s zipcode=%s", targetURL, region, resolver.GetZipcodeByRegion(region))
 	return resolver.GetZipcodeByRegion(region)
 }
@@ -280,7 +265,6 @@ func (ip *InstanceProcessor) matchesTargetContext(page playwright.Page, targetUR
 
 func (ip *InstanceProcessor) extractWithQualityRetry(ctx context.Context, page playwright.Page, url, zipcode string, waitTimeout time.Duration) (*model.Product, error) {
 	attempts := 1
-	hadRetry := false
 	if ip.qualityControl.retryOnValidationFailure && ip.qualityControl.validationRetryAttempts > 1 {
 		attempts = ip.qualityControl.validationRetryAttempts
 	}
@@ -292,19 +276,12 @@ func (ip *InstanceProcessor) extractWithQualityRetry(ctx context.Context, page p
 
 		product, err := ip.extractAndValidateProduct(ctx, page, url, zipcode)
 		if err == nil {
-			if hadRetry && ip.qualityMetrics != nil {
-				ip.qualityMetrics.RecordValidationRetryRecovered()
-			}
 			return product, nil
 		}
 
 		var qualityErr *ProductQualityError
 		if !errors.As(err, &qualityErr) || attempt == attempts {
 			return nil, err
-		}
-		hadRetry = true
-		if ip.qualityMetrics != nil {
-			ip.qualityMetrics.RecordValidationRetryAttempt()
 		}
 
 		ip.componentLogger("crawler/amazon").Warnf("产品质量校验未通过，准备第 %d/%d 次重抓: %v", attempt+1, attempts, err)

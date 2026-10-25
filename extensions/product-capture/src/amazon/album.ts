@@ -56,8 +56,9 @@ function records(text: string, value: Syntax, charge: () => void): ImageRecord[]
 // EXTRACT: explicit hiRes -> original large, bound to this observed MAIN/thumb
 // set. Static parsing never invokes A.$.parseJSON or evaluates the source page.
 export function albumURLs(doc: Document, mainURL: string | undefined, thumbs: string[], charge: () => void) {
-  const urls = new Map<string, string>(); let reason: string | undefined;
-  if (!thumbs.length) return { urls, reason };
+  const urls = new Map<string, string>(); const extraURLs: string[] = []; const excludedThumbs = new Set<string>();
+  let reason: string | undefined; let group: string | undefined;
+  if (!mainURL) return { urls, extraURLs, excludedThumbs, reason: thumbs.length ? 'current-product high-resolution metadata not observed' : undefined };
   reason = 'current-product high-resolution metadata not observed';
   const scripts = doc.querySelectorAll('script:not([src])');
   let candidates = 0; let bytes = 0; let matched = false; let conflict = false;
@@ -85,14 +86,25 @@ export function albumURLs(doc: Document, mainURL: string | undefined, thumbs: st
         const initial = properties(property.value as Syntax, 'initial');
         if (initial.length !== 1) continue;
         const images = records(text, initial[0].value as Syntax, charge);
-        if (!mainURL || !images?.some(i => i.variant === 'MAIN' && (i.hiRes === mainURL || i.large === mainURL))) continue;
+        if (!images?.some(i => i.variant === 'MAIN' && (i.hiRes === mainURL || i.large === mainURL))) continue;
+        if (images.filter(i => i.variant === 'MAIN').length !== 1) { conflict = true; continue; }
         matched = true;
+        const signature = JSON.stringify(images);
+        if (group !== undefined && group !== signature) conflict = true;
+        group = signature;
         for (const image of images) {
-          if (!image.thumb || !thumbs.includes(image.thumb)) continue;
+          charge();
+          if (image.variant && image.variant !== 'MAIN' && !/^PT[0-9]+$/.test(image.variant)) {
+            if (image.thumb) excludedThumbs.add(image.thumb);
+            continue;
+          }
           const url = image.hiRes && publicImage(image.hiRes) ? image.hiRes : image.large && publicImage(image.large) ? image.large : undefined;
           if (!url) continue;
-          if (urls.has(image.thumb) && urls.get(image.thumb) !== url) conflict = true;
-          urls.set(image.thumb, url);
+          if (image.thumb && thumbs.includes(image.thumb)) {
+            if (urls.has(image.thumb) && urls.get(image.thumb) !== url) conflict = true;
+            urls.set(image.thumb, url);
+          }
+          if (image.variant && (image.variant === 'MAIN' || /^PT[0-9]+$/.test(image.variant)) && !extraURLs.includes(url)) extraURLs.push(url);
           if (url !== image.hiRes) reason = 'some album records provide large but no admissible hiRes';
         }
       }
@@ -101,7 +113,7 @@ export function albumURLs(doc: Document, mainURL: string | undefined, thumbs: st
       }
     }
   }
-  if (conflict) return { urls: new Map<string, string>(), reason: 'conflicting current-product image metadata' };
+  if (conflict) return { urls: new Map<string, string>(), extraURLs: [], excludedThumbs: new Set<string>(), reason: 'conflicting current-product image metadata' };
   if (matched && thumbs.every(t => urls.has(t)) && reason === 'current-product high-resolution metadata not observed') reason = undefined;
-  return { urls, reason };
+  return { urls, extraURLs, excludedThumbs, reason };
 }

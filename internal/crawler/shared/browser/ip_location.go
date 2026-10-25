@@ -63,30 +63,6 @@ func GetTimezoneForRegion(proxyServer string, logs func(string) *logrus.Entry) *
 	return &info.Timezone
 }
 
-// GetLocaleForRegion 根据代理IP地理位置返回对应语言环境
-func GetLocaleForRegion(proxyServer string) string {
-	ip := extractIPFromProxy(proxyServer)
-	if ip == "" {
-		return "en-US"
-	}
-
-	info, err := GetLocationInfoByIP(ip)
-	if err != nil {
-		return "en-US"
-	}
-
-	localeMap := map[string]string{
-		"US": "en-US", "GB": "en-GB", "DE": "de-DE", "FR": "fr-FR",
-		"IT": "it-IT", "ES": "es-ES", "JP": "ja-JP", "CN": "zh-CN",
-		"AU": "en-AU", "CA": "en-CA",
-	}
-
-	if locale, ok := localeMap[info.CountryCode]; ok {
-		return locale
-	}
-	return "en-US"
-}
-
 // extractIPFromProxy 从代理服务器地址中提取IP
 func extractIPFromProxy(proxyServer string) string {
 	if proxyServer == "" {

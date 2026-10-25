@@ -33,18 +33,6 @@ func NewExtractor(logs func(string) *logrus.Entry) *Extractor {
 	}
 }
 
-// NewExtractorWithConfig 使用自定义配置创建变体信息提取器实例
-func NewExtractorWithConfig(config *Config, logs func(string) *logrus.Entry) *Extractor {
-	return &Extractor{
-		loggerDependency: loggerDependency{logFor: logs},
-		config:           config,
-		parser:           NewParser(config, logs),
-		matcher:          NewMatcher(config),
-		combinator:       NewCombinator(config),
-		mapper:           NewMapper(config, logs),
-	}
-}
-
 // ExtractFromPage 从页面提取变体数据
 func (e *Extractor) ExtractFromPage(page playwright.Page) (*VariationsData, error) {
 	return e.parser.ParseVariationsData(page)
@@ -213,54 +201,4 @@ func parsePrice(priceStr string) (float64, error) {
 	cleanPrice = strings.TrimSpace(cleanPrice)
 
 	return strconv.ParseFloat(cleanPrice, 64)
-}
-
-// BuildVariationName 为产品构建变体名称
-func (e *Extractor) BuildVariationName(productDetails []ProductDetail) string {
-	var parts []string
-
-	for _, detail := range productDetails {
-		detailTypeLower := strings.ToLower(detail.Type)
-
-		for _, typeVariants := range e.config.AttributeTypeMapping {
-			for _, typeVariant := range typeVariants {
-				if detailTypeLower == strings.ToLower(typeVariant) {
-					if detail.Value != "" {
-						parts = append(parts, detail.Value)
-					}
-					goto nextDetail
-				}
-			}
-		}
-	nextDetail:
-	}
-
-	if len(parts) == 0 {
-		return "Default"
-	}
-
-	return strings.Join(parts, " ")
-}
-
-// ExtractCurrentAttributes 从产品详情中提取当前属性
-func (e *Extractor) ExtractCurrentAttributes(productDetails []ProductDetail) map[string]any {
-	attributes := make(map[string]any)
-
-	for _, detail := range productDetails {
-		detailTypeLower := strings.ToLower(detail.Type)
-
-		for attributeKey, typeVariants := range e.config.AttributeTypeMapping {
-			for _, typeVariant := range typeVariants {
-				if detailTypeLower == strings.ToLower(typeVariant) {
-					if detail.Value != "" {
-						attributes[attributeKey] = detail.Value
-					}
-					goto nextDetail
-				}
-			}
-		}
-	nextDetail:
-	}
-
-	return attributes
 }

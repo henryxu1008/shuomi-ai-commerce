@@ -3,6 +3,8 @@ import { amazonPageSource, validateAmazonCapture } from './validation';
 import type { AmazonCapturePayload, AmazonImage } from './wire';
 import { excluded, productText, tableFacts, putFact, detailImages } from '../dom-materials';
 import { albumURLs } from './album';
+import { amazonListFacts, amazonTableFacts, amazonVisibleTitle } from './product-details';
+import { amazonPrice } from './price';
 
 // Reads product DOM and statically bound album literals. No script execution,
 // page-global state, network, credentials or variant traversal.
@@ -14,9 +16,11 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const text=(element:Element|null,max=8192)=>productText(doc,element,charge,max);
   const fieldText=(element:Element|null)=>productText(doc,element,charge,8192,true);
   const value = (selector: string,max=8192) => text(doc.querySelector(selector),max);
-  const title = value('#productTitle',2000); if (!title) fail('UNSUPPORTED_PAGE');
+  const titleElement = doc.querySelector('#productTitle');
+  const primaryTitle = text(titleElement,2000); if (!primaryTitle) fail('UNSUPPORTED_PAGE');
   const observedASIN = doc.querySelector<HTMLInputElement>('input#ASIN')?.value;
   if (observedASIN && observedASIN !== identity.sourceID) fail('SOURCE_CHANGED');
+  const { title, reason: subtitleReason } = amazonVisibleTitle(doc, titleElement!, primaryTitle, charge);
   const images: AmazonImage[] = [];
   const main = doc.querySelector<HTMLImageElement>('#landingImage, #imgBlkFront');
   const mainURL = main?.getAttribute('data-old-hires') || main?.getAttribute('src');
@@ -35,7 +39,14 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   }
   const album = albumURLs(doc, images[0]?.url, thumbs, charge);
   for (const thumb of thumbs) {
+    if (album.excludedThumbs.has(thumb)) continue;
     const url = album.urls.get(thumb) ?? thumb;
+    if (!images.some(item => item.url === url)) {
+      if (images.length >= 256) fail('CAPTURE_TOO_LARGE');
+      images.push({ url, role: 'gallery' });
+    }
+  }
+  for (const url of album.extraURLs) {
     if (!images.some(item => item.url === url)) {
       if (images.length >= 256) fail('CAPTURE_TOO_LARGE');
       images.push({ url, role: 'gallery' });
@@ -53,6 +64,9 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
     putFact(productFacts, factConflicts, name, value);
   };
   for (const item of tableFacts(doc, '#productOverview_feature_div tr,#productDetails_detailBullets_sections1 tr,#productDetails_techSpec_section_1 tr,#technicalSpecifications_section_1 tr', charge)) fact(item.name,item.value);
+  for (const item of amazonListFacts(doc, charge)) fact(item.name,item.value);
+  const details = amazonTableFacts(doc, identity.sourceID, charge);
+  for (const item of details.facts) fact(item.name,item.value);
   fact('Availability', fieldText(doc.querySelector('#availability')));
   const dimensions = new Map<string, { name: string; value: string }>();
   const conflicts = new Set<string>();
@@ -112,40 +126,12 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
     description += separator + value; knownParagraphs.add(value); addedParagraphs++;
   }
   const attributes = [...dimensions.values()];
-  const priceNodes = doc.querySelectorAll('#corePrice_feature_div .a-price .a-offscreen,#corePriceDisplay_desktop_feature_div .a-price .a-offscreen');
-  if (priceNodes.length > 256) fail('CAPTURE_TOO_LARGE');
-  const currentPrices = new Set<string>();
-  const currencies = new Set<string>();
-  const priceRoots = new Set<Element>();
-  for (const node of priceNodes) {
-    if (node.closest('.a-text-price,s,del')) continue;
-    const amount = fieldText(node); if (!amount) continue;
-    currentPrices.add(amount);
-    const root = node.closest('#corePrice_feature_div,#corePriceDisplay_desktop_feature_div');
-    if (!root || priceRoots.has(root)) continue;
-    priceRoots.add(root);
-    const metadata = root.querySelectorAll('meta[itemprop=priceCurrency]');
-    if (metadata.length > 256) fail('CAPTURE_TOO_LARGE');
-    for (const meta of metadata) {
-      charge(); if (excluded(meta,root)) continue;
-      const currency = meta.getAttribute('content');
-      if (currency && /^[A-Z]{3}$/.test(currency)) currencies.add(currency);
-    }
-  }
-  const rawPrice = currentPrices.size === 1 ? [...currentPrices][0] : null;
-  let price: { amount: string; currency: string | null } | null = null;
-  let currencyConflict = false;
-  // Reject ambiguous ranges/locale grouping. Decimal strings never pass through Number.
-  if (rawPrice) {
-    const normalized = rawPrice.replace(/\s/g, '').replace(/^(?:US\$|CA\$|CDN\$|\$|£|€|￥|¥)/, '').replace(/(?:€|円)$/, '');
-    const amount = identity.site === 'de' ? normalized.replace(',', '.') : normalized;
-    const symbolCurrency = /^US\$/.test(rawPrice) ? 'USD' : /^(?:CA\$|CDN\$)/.test(rawPrice) ? 'CAD' : /£/.test(rawPrice) ? 'GBP' : /€/.test(rawPrice) ? 'EUR' : /円/.test(rawPrice) ? 'JPY' : null;
-    if (symbolCurrency) currencies.add(symbolCurrency);
-    currencyConflict = currencies.size > 1;
-    const currency = currencies.size === 1 ? [...currencies][0] : null;
-    if (/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(amount)) price = { amount, currency };
-  }
+  const quote = amazonPrice(doc, identity.site, identity.sourceID, charge);
+  const { price, currencyConflict } = quote;
+  for (const item of quote.attributes) fact(item.name,item.value);
   const missingFacts = [{ field: 'variants', reason: 'only selected product observed; variant family not traversed' }, { field: 'inventory', reason: 'source inventory quantity not observed' }];
+  if (subtitleReason) missingFacts.push({ field: 'title.subtitle', reason: subtitleReason });
+  if (details.reason) missingFacts.push({ field: 'attributes.details', reason: details.reason });
   if (album.reason) missingFacts.push({ field: 'images.hiRes', reason: album.reason });
   if (!attributes.length || incompleteDimension) missingFacts.push({ field: 'variants[0].attributes', reason: 'selected dimension label or value not observed' });
   if (conflicts.size) missingFacts.push({ field: 'variants[0].attributes', reason: 'conflicting selected dimension values were omitted' });

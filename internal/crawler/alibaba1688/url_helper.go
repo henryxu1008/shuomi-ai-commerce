@@ -112,15 +112,6 @@ func (h *URLHelper) BuildStandardURL(productID string) string {
 	return fmt.Sprintf("https://detail.1688.com/offer/%s.html", productID)
 }
 
-// GetMobileURL 获取移动版URL
-func (h *URLHelper) GetMobileURL(productID string) string {
-	if productID == "" {
-		return ""
-	}
-
-	return fmt.Sprintf("https://m.1688.com/offer/%s.html", productID)
-}
-
 // ValidateAndNormalizeURL 验证并标准化URL
 func (h *URLHelper) ValidateAndNormalizeURL(rawURL string) (string, error) {
 	if rawURL == "" {
@@ -143,28 +134,4 @@ func (h *URLHelper) ValidateAndNormalizeURL(rawURL string) (string, error) {
 
 	// 返回标准化的URL
 	return h.BuildStandardURL(productID), nil
-}
-
-// GetDomain 获取域名
-func (h *URLHelper) GetDomain() string {
-	return "1688.com"
-}
-
-// GetPlatformName 获取平台名称
-func (h *URLHelper) GetPlatformName() string {
-	return "阿里巴巴1688"
-}
-
-// IsProductPage 检查是否为商品详情页
-func (h *URLHelper) IsProductPage(rawURL string) bool {
-	return h.IsValid1688URL(rawURL)
-}
-
-// GetSupplierURL 根据供应商ID构建供应商页面URL
-func (h *URLHelper) GetSupplierURL(supplierID string) string {
-	if supplierID == "" {
-		return ""
-	}
-
-	return fmt.Sprintf("https://shop%s.1688.com", supplierID)
 }

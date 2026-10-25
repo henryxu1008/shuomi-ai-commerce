@@ -49,18 +49,8 @@ type BrowserPool struct {
 	errorDetector        *ErrorDetector
 	riskPolicy           *riskPolicy
 	proxyPool            *sharedbrowser.ProxyPool
-	stats                *poolStats
 	shutdownOnce         sync.Once // 确保只关闭一次
 	closed               bool      // 标记是否已关闭
-}
-
-type poolStats struct {
-	mu                   sync.RWMutex
-	initFailureTotal     int64
-	syncRecreateSuccess  int64
-	syncRecreateFailure  int64
-	asyncRecreateSuccess int64
-	asyncRecreateFailure int64
 }
 
 // BrowserPoolConfig 浏览器池配置
@@ -99,7 +89,6 @@ func NewBrowserPool(cfg *config.Config, poolConfig *BrowserPoolConfig, logs func
 		instances:            make([]*BrowserInstance, 0, poolConfig.Size),
 		available:            make(chan *BrowserInstance, poolConfig.Size),
 		useRandomFingerprint: poolConfig.UseRandomFingerprint,
-		stats:                &poolStats{},
 	}
 
 	// 如果启用随机指纹，初始化指纹生成器
@@ -132,7 +121,6 @@ func (bp *BrowserPool) Initialize() error {
 		instance, err := bp.instanceManager.CreateInstance(i)
 		if err != nil {
 			bp.componentLogger("crawler/amazon").Infof("创建浏览器实例 %d 失败: %v", i, err)
-			bp.recordInitFailure()
 			// 清理已创建的实例
 			bp.Shutdown()
 			return fmt.Errorf("初始化浏览器池失败: %w", err)
@@ -394,90 +382,6 @@ func (bp *BrowserPool) markProxyFailure(instance *BrowserInstance) {
 	}
 	bp.proxyPool.MarkFailure(instance.CurrentProxy)
 	logProxyCooldown(instance.CurrentProxy, bp.config.Amazon.ProxyPool.FailureCooldownSeconds, bp.logFor)
-}
-
-func (bp *BrowserPool) ProxyStats() map[string]any {
-	if bp == nil || bp.proxyPool == nil {
-		return nil
-	}
-	return bp.proxyPool.Snapshot()
-}
-
-func (bp *BrowserPool) PoolStats() map[string]any {
-	if bp == nil {
-		return nil
-	}
-
-	stats := map[string]any{}
-	if bp.healthChecker != nil {
-		for key, value := range bp.healthChecker.GetPoolStats() {
-			stats[key] = value
-		}
-	}
-	if len(stats) == 0 {
-		stats["total_instances"] = 0
-		stats["available_instances"] = 0
-		stats["in_use_instances"] = 0
-		stats["healthy_instances"] = 0
-	}
-
-	if bp.poolConfig != nil {
-		stats["configured_pool_size"] = bp.poolConfig.Size
-		stats["max_instance_uses"] = bp.poolConfig.MaxInstanceUses
-	}
-
-	if bp.stats != nil {
-		bp.stats.mu.RLock()
-		stats["pool_init_failure_total"] = bp.stats.initFailureTotal
-		stats["pool_sync_recreate_success_total"] = bp.stats.syncRecreateSuccess
-		stats["pool_sync_recreate_failure_total"] = bp.stats.syncRecreateFailure
-		stats["pool_async_recreate_success_total"] = bp.stats.asyncRecreateSuccess
-		stats["pool_async_recreate_failure_total"] = bp.stats.asyncRecreateFailure
-		bp.stats.mu.RUnlock()
-	}
-
-	if manager, ok := bp.instanceManager.(*InstanceManager); ok && manager != nil {
-		stats["pool_active_rebuild_total"] = manager.ActiveRebuildCount()
-	} else {
-		stats["pool_active_rebuild_total"] = 0
-	}
-
-	return stats
-}
-
-func (bp *BrowserPool) recordInitFailure() {
-	if bp == nil || bp.stats == nil {
-		return
-	}
-	bp.stats.mu.Lock()
-	defer bp.stats.mu.Unlock()
-	bp.stats.initFailureTotal++
-}
-
-func (bp *BrowserPool) recordSyncRecreateResult(success bool) {
-	if bp == nil || bp.stats == nil {
-		return
-	}
-	bp.stats.mu.Lock()
-	defer bp.stats.mu.Unlock()
-	if success {
-		bp.stats.syncRecreateSuccess++
-		return
-	}
-	bp.stats.syncRecreateFailure++
-}
-
-func (bp *BrowserPool) recordAsyncRecreateResult(success bool) {
-	if bp == nil || bp.stats == nil {
-		return
-	}
-	bp.stats.mu.Lock()
-	defer bp.stats.mu.Unlock()
-	if success {
-		bp.stats.asyncRecreateSuccess++
-		return
-	}
-	bp.stats.asyncRecreateFailure++
 }
 
 func (bp *BrowserPool) markInstanceUsed(instance *BrowserInstance) (bool, int) {

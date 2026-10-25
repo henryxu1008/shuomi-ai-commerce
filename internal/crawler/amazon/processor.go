@@ -26,8 +26,6 @@ type AmazonProcessor struct {
 	productChecker       *ProductChecker
 	resultValidator      *ProductResultValidator
 	failureArtifactStore *FailureArtifactStore
-	timeoutManager       *TimeoutManager
-	qualityMetrics       *qualityMetrics
 	initErr              error
 	initMu               sync.Mutex
 	retryInit            func(context.Context) error
@@ -95,9 +93,7 @@ func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Am
 	browserPool, poolManager, initErr := initializeAmazonBrowserPool(cfg, logs)
 
 	batchProcessor := NewBatchProcessor()
-	timeoutManager := NewTimeoutManager(5*time.Minute, logs) // 默认5分钟超时
 	failureArtifactStore := NewFailureArtifactStore(cfg, logs)
-	qualityMetrics := newQualityMetrics()
 
 	processor := &AmazonProcessor{
 		loggerDependency:     loggerDependency{logFor: logs},
@@ -109,8 +105,6 @@ func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Am
 		productChecker:       productChecker,
 		resultValidator:      NewProductResultValidator(),
 		failureArtifactStore: failureArtifactStore,
-		timeoutManager:       timeoutManager,
-		qualityMetrics:       qualityMetrics,
 		initErr:              initErr,
 		closed:               false,
 	}
@@ -212,44 +206,8 @@ func (ap *AmazonProcessor) processWithPoolManager(ctx context.Context, url strin
 	processor := NewInstanceProcessor(ap.urlHelper, ap.productChecker, ap.logFor, ap.resultValidator)
 	processor.SetFailureArtifactStore(ap.failureArtifactStore)
 	processor.SetQualityControlOptions(ap.config.Amazon.QualityControl.RetryOnValidationFailure, ap.config.Amazon.QualityControl.ValidationRetryMaxAttempts)
-	processor.SetQualityMetricsRecorder(ap.qualityMetrics)
 
 	return ap.poolManager.ProcessWithTimeout(ctx, url, zipcode, timeout, processor)
-}
-
-func (ap *AmazonProcessor) QualityStats() map[string]any {
-	if ap == nil || ap.qualityMetrics == nil {
-		return nil
-	}
-	return ap.qualityMetrics.Snapshot()
-}
-
-func (ap *AmazonProcessor) ProxyStats() map[string]any {
-	if ap == nil || ap.browserPool == nil {
-		return nil
-	}
-	return ap.browserPool.ProxyStats()
-}
-
-func (ap *AmazonProcessor) PoolStats() map[string]any {
-	stats := map[string]any{}
-	if ap != nil && ap.browserPool != nil {
-		for key, value := range ap.browserPool.PoolStats() {
-			stats[key] = value
-		}
-	}
-	if ap != nil && ap.initErr != nil {
-		stats["browser_pool_init_error"] = ap.initErr.Error()
-	}
-	if len(stats) == 0 {
-		return nil
-	}
-	return stats
-}
-
-// ProcessBatch 批量处理多个Amazon产品页面
-func (ap *AmazonProcessor) ProcessBatch(requests []model.ProductRequest) []model.ProductResult {
-	return ap.ProcessBatchWithContext(context.Background(), requests)
 }
 
 // ProcessBatchWithContext 批量处理多个Amazon产品页面，并传递调用方 context。
@@ -314,11 +272,6 @@ func (ap *AmazonProcessor) Shutdown() {
 		ap.mu.Lock()
 		ap.closed = true
 		ap.mu.Unlock()
-
-		// 取消所有超时管理器中的活跃任务
-		if ap.timeoutManager != nil {
-			ap.timeoutManager.CancelAll()
-		}
 
 		// 关闭池管理器
 		if ap.poolManager != nil {

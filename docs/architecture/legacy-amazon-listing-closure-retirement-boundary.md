@@ -1,3 +1,11 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 仅替代本批矩阵内闲置来源辅助：单数 FeatureExtractor、三个 text-validator 方法、变体便利合同/custom/debug 方法、旧错误构造/诊断及提示/邮编便利尾部；当前已注册提取器、有效规则、变体 JSON/转换及浏览器采集不变。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
+> #301 / #947 **SUPERSEDED，仅无消费者来源便利合同**：用户已确认[完整设计§1–§7/§6.1](legacy-source-url-timeout-closure-retirement-boundary.md)。本文crawler/amazon来源广泛KEEP，不再保活准确矩阵内闲置URL/地区便利、TimeoutManager及专属接线；Amazon-as-source和当前model/有效规则/原浏览器debug保持，不按Task/metrics/worker同名整退。实际URL/ASIN/币种/marketplace/地区邮编、真实PoolManager deadline/取消、当前采集及独立SHEIN登录/Store同步保留。workflow/完整inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
+
+> #301 / #946 **SUPERSEDED，仅无消费者的浏览器管理/统计准确矩阵**：用户已确认[完整退休设计§1–§7/§6.1](legacy-browser-management-tail-closure-retirement-boundary.md)。本文shared metrics不因同名删除的原则继续有效；本次仅按实际消费者退出质量快照整链、代理Snapshot/外层池投影及§5准确闲置声明/字段/测试尾部，不整体退休Task/metrics/worker。真实指纹/代理全部评分计数与时间戳/质量重试/周期健康日志、当前采集/原Amazon浏览器debug、独立SHEIN登录/Store同步和其它KEEP保持。无新生产EXTRACT/owner/兼容，workflow/完整inventory/既有资源不动；以下原完整Git blob/历史/数字/勾选逐字保留。
+
 > #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
 
 > #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。

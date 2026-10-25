@@ -31,6 +31,532 @@ var retiredSheinPolicyContractPackages = []string{
 	"internal/shein/generationtopics", "internal/shein/namelimit",
 }
 
+func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/crawler/amazon/extractor/feature_extractor.go",
+		"internal/crawler/amazon/browser/selectors.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired crawler source must be absent: %s: %v", relative, err)
+		}
+	}
+	retiredFunctions := map[string][]string{
+		"internal/crawler/alibaba1688":       strings.Fields("NewBrowserManager newAlibaba1688BrowserRuntimeConfig resolveAlibaba1688UserDataDir Alibaba1688Processor.ProcessBatch NewCaptchaHandlerWithConfig CaptchaHandler.GetStatistics CaptchaHandler.ResetStatistics CaptchaHandler.recordSuccess CaptchaHandler.recordFailure CaptchaHandler.recordManual CaptchaHandler.handleClickCaptchaWithResult CaptchaHandler.handleImageCaptchaWithResult CaptchaHandler.handleTextCaptchaWithResult CaptchaHandler.handleMathCaptchaWithResult CaptchaHandler.handleSliderCaptchaWithResult PageOperator.NavigateToProduct ProductChecker.IsProductAvailable ProductChecker.GetProductQualityScore"),
+		"internal/crawler/alibaba1688/model": strings.Fields(""),
+		"internal/crawler/shared/browser":    strings.Fields("GetDefaultUserDataDir"),
+		"internal/crawler/amazon/browser":    strings.Fields("NewBrowserManager logProxyFallback ContainsRegionalPromptText HandleContinueShoppingButtonInZipcode GetContinueShoppingSelectors"),
+		"internal/crawler/amazon":            strings.Fields("AmazonProcessor.ProcessBatch newInvalidRequestError newCrawlInProgressError newSystemBusyError"),
+		"internal/crawler/amazon/extractor":  strings.Fields("NewFeatureExtractor FeatureExtractor.ExtractFeatures FeatureExtractor.deduplicateFeatures TextValidator.IsAboutItemFeature TextValidator.containsInvalidFeaturePatterns TextValidator.containsFeatureKeywords GetDefaultVariationsConfig NewVariationsExtractorWithConfig VariationsExtractor.GenerateCombinations VariationsExtractor.AttributesMatchGeneric VariationsExtractor.ValuesMatchGeneric VariationsExtractor.MapAttributeNames VariationsExtractor.InferAttributeType VariationsExtractor.BuildVariationsFromValues ErrorDetector.IsRetryableError ErrorDetector.GetErrorMessage isCriticalErrorLegacy"),
+		"internal/crawler/amazon/variations": strings.Fields("NewExtractorWithConfig Extractor.BuildVariationName Extractor.ExtractCurrentAttributes"),
+	}
+	retiredTypes := map[string][]string{
+		"internal/crawler/alibaba1688/model": strings.Fields("Product1688Request Product1688Result"),
+		"internal/crawler/alibaba1688":       strings.Fields("CaptchaStatistics"),
+		"internal/crawler/amazon/extractor":  strings.Fields("FeatureExtractor VariationsConfig VariationsData"),
+		"internal/crawler/amazon/variations": strings.Fields("ProductDetail Product"),
+	}
+	retiredFields := map[string][]string{
+		"internal/crawler/alibaba1688:CaptchaHandler":           strings.Fields("statistics lastAttempt successStreak"),
+		"internal/crawler/amazon/extractor:VariationsExtractor": strings.Fields("config loggerDependency"),
+		"internal/crawler/amazon/variations:Config":             strings.Fields("AttributeTypeMapping"),
+	}
+	retained := map[string]bool{}
+	for owner, names := range map[string]string{
+		"internal/crawler/alibaba1688":       "NewPublicBrowserManager newAlibaba1688PublicBrowserRuntimeConfig newAlibaba1688BrowserManagerWithRuntimeConfig BrowserManager.CreateBrowser Alibaba1688Processor.Process NewCaptchaHandler CaptchaType CaptchaStatus CaptchaResult CaptchaHandler.handlePageCaptcha CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.handleClickCaptchaWithManualOption CaptchaHandler.handleImageCaptchaWithManualOption CaptchaHandler.handleTextCaptchaWithManualOption CaptchaHandler.handleMathCaptchaWithManualOption PageOperator.NavigateToProductWithoutManualCaptcha ProductChecker.ValidateProduct",
+		"internal/crawler/alibaba1688/model": "Product1688",
+		"internal/crawler/shared/browser":    "Manager.SetUserDataDir Manager.Launch Manager.Close",
+		"internal/crawler/amazon":            "AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown ClassifyFetchError newTypedFetchError newProcessorUnavailableError typedFetchError.Error typedFetchError.Unwrap",
+		"internal/crawler/amazon/browser":    "NewBrowserManagerWithConfig PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.releaseInstanceSafely PoolManager.Shutdown regionalPromptTextSelectors regionalPromptActionSelectors normalizedAmazonHost looksLikeRegionalPrompt DismissRegionalPrompt ExtractZipcode CheckIfPriceAvailable",
+		"internal/crawler/amazon/extractor":  "NewCompositeExtractor FeaturesExtractor FeatureParserExtractor DescriptionExtractor NewVariationsExtractor VariationsExtractor.Extract convertToVariationsValues convertToAmazonVariations TextValidator.IsValidDescription TextValidator.IsValidProductDescription ErrorDetector.DetectErrorType ErrorDetector.IsCriticalError",
+		"internal/crawler/amazon/variations": "NewExtractor Extractor.ExtractFromPage Extractor.BuildVariations GetDefaultConfig VariationsData VariationValue Variation",
+		"internal/model":                     "Product",
+		"internal/sheinlogin":                "Service.RunWorker Service.processAttempt Service.claimExecution Service.syncPending",
+	} {
+		for _, name := range strings.Fields(names) {
+			retained[owner+":"+name] = false
+		}
+	}
+	fragments := map[string][]string{
+		"internal/crawler/alibaba1688:newAlibaba1688PublicBrowserRuntimeConfig":      {"cfg != nil", "browserConfig.Headless = cfg.Browser.Headless", "browserConfig.BrowserPath = cfg.Browser.BrowserPath", "browserConfig.ProxyServer = cfg.Browser.ProxyServer", "browserConfig.ViewportWidth = cfg.Browser.ViewportWidth", "browserConfig.ViewportHeight = cfg.Browser.ViewportHeight", "userDataDir: \"\"", "Chrome/120.0.0.0"},
+		"internal/crawler/alibaba1688:newAlibaba1688BrowserManagerWithRuntimeConfig": {"sharedbrowser.NewManager(runtimeConfig.browser, logs)", "manager.SetUserDataDir(runtimeConfig.userDataDir)"},
+		"internal/crawler/alibaba1688:NewCaptchaHandler":                             {"maxRetries:", "3", "loggerDependency{logFor: logs}"},
+		"internal/crawler/alibaba1688:CaptchaHandler.handlePageCaptcha":              {"ctx.Err()", "result.Duration = time.Since(startTime)", "result.Status, result.Attempts, result.Duration", "return result.Error", "ch.handleSliderCaptchaWithManualOption(ctx, page, allowManual)"},
+		"internal/crawler/amazon/extractor:NewCompositeExtractor":                    {"&FeaturesExtractor{}", "NewFeatureParserExtractor()", "NewDescriptionExtractor(logs)", "NewVariationsExtractor(logs)"},
+		"internal/crawler/amazon/extractor:NewVariationsExtractor":                   {"variations.NewExtractor(logs)", "extractor: extractor"},
+		"internal/crawler/amazon:AmazonProcessor.ProcessBatchWithContext":            {"ap.batchProcessor.ProcessWithContext(ctx, requests, ap)"},
+		"internal/crawler/amazon/browser:PoolManager.ProcessWithTimeout":             {"context.WithTimeout(ctx, timeout)", "defer cancel()", "timeoutCtx.Done()"},
+		"internal/crawler/amazon/browser:PoolManager.processProduct":                 {"processor.ProcessWithInstance(ctx, instance, url, zipcode)", "pm.releaseInstanceSafely(instance, processErr)"},
+		"internal/sheinlogin:Service.processAttempt":                                 {"s.owner.CheckOwner("},
+		"internal/sheinlogin:Service.syncPending":                                    {"s.owner.RecordSheinLoginIdentity("},
+	}
+	// These are current wire/config shapes, scoped to their actual owners.
+	shapes := map[string]map[string]string{
+		"internal/crawler/alibaba1688:alibaba1688BrowserRuntimeConfig": {"browser": "*sharedbrowser.BrowserConfig", "userDataDir": "string"},
+		"internal/crawler/alibaba1688:CaptchaResult":                   {"Type": "CaptchaType", "Status": "CaptchaStatus", "Attempts": "int", "Error": "error", "UsedMethod": "string", "Duration": "time.Duration"},
+		"internal/crawler/amazon/extractor:VariationsExtractor":        {"extractor": "*variations.Extractor"},
+		"internal/crawler/amazon/variations:Config":                    {"AttributePriority": "[]string", "AttributeMapping": "map[string]string", "EnableSmartInference": "bool", "EnableDebugLogging": "bool"},
+		"internal/crawler/amazon/variations:VariationsData":            {"VariationsValues": "map[string][]string|variations_values", "ASINMapping": "map[string]map[string]string|asin_mapping", "PriceMapping": "map[string]any|price_mapping"},
+		"internal/crawler/amazon/variations:VariationValue":            {"VariantName": "string|variant_name", "Values": "[]string|values"},
+		"internal/crawler/amazon/variations:Variation":                 {"Name": "string|name", "Asin": "string|asin", "Currency": "string|currency", "Attributes": "map[string]any|attributes"},
+	}
+	for identity := range shapes {
+		retained[identity] = false
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			if _, err := decodeGoImportPath(spec.Path.Value); err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		_, crawlerOwner := retiredFunctions[owner]
+		if !crawlerOwner && owner != "internal/model" && owner != "internal/sheinlogin" {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					receiver, ok := shape.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported crawler receiver in %s: %T", relative, shape)
+					}
+					name = receiver.Name + "." + name
+				}
+				if slices.Contains(retiredFunctions[owner], name) {
+					t.Errorf("%s retains retired crawler function %s", relative, name)
+				}
+				identity := owner + ":" + name
+				if _, expected := retained[identity]; expected {
+					retained[identity] = true
+				}
+				if expected, relevant := fragments[identity]; relevant {
+					var body bytes.Buffer
+					if err := format.Node(&body, token.NewFileSet(), declaration); err != nil {
+						t.Fatal(err)
+					}
+					for _, fragment := range expected {
+						if !strings.Contains(body.String(), fragment) {
+							t.Errorf("current crawler path %s must retain %q", identity, fragment)
+						}
+					}
+					if name == "newAlibaba1688PublicBrowserRuntimeConfig" && strings.Contains(body.String(), "cfg.Browser.UserDataDir") {
+						t.Error("public 1688 config must not read the private profile directory")
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					spec, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if slices.Contains(retiredTypes[owner], spec.Name.Name) {
+						t.Errorf("%s retains retired crawler type/alias %s", relative, spec.Name.Name)
+					}
+					identity := owner + ":" + spec.Name.Name
+					if _, expected := retained[identity]; expected {
+						retained[identity] = true
+					}
+					shape, isStruct := spec.Type.(*ast.StructType)
+					if !isStruct {
+						if _, required := shapes[identity]; required {
+							t.Errorf("current crawler contract %s must remain a struct", identity)
+						}
+						continue
+					}
+					actual := map[string]string{}
+					for _, field := range shape.Fields.List {
+						var kind bytes.Buffer
+						if err := format.Node(&kind, token.NewFileSet(), field.Type); err != nil {
+							t.Fatal(err)
+						}
+						names := []string{}
+						for _, name := range field.Names {
+							names = append(names, name.Name)
+						}
+						if len(names) == 0 {
+							names = append(names, kind.String())
+						}
+						for _, name := range names {
+							if slices.Contains(retiredFields[identity], name) {
+								t.Errorf("%s retains retired crawler field %s.%s", relative, spec.Name.Name, name)
+							}
+							value := kind.String()
+							if field.Tag != nil {
+								value += "|" + reflect.StructTag(strings.Trim(field.Tag.Value, "`")).Get("json")
+							}
+							actual[name] = value
+						}
+					}
+					if expected, relevant := shapes[identity]; relevant && !reflect.DeepEqual(actual, expected) {
+						t.Errorf("current crawler contract %s fields/tags = %v, want %v", identity, actual, expected)
+					}
+				}
+			}
+		}
+		if owner == "internal/crawler/alibaba1688" {
+			ast.Inspect(file, func(node ast.Node) bool {
+				if call, ok := node.(*ast.CallExpr); ok {
+					if selector, ok := call.Fun.(*ast.SelectorExpr); ok && slices.Contains([]string{"recordSuccess", "recordFailure", "recordManual"}, selector.Sel.Name) {
+						t.Errorf("%s retains retired captcha bookkeeping call %s", relative, selector.Sel.Name)
+					}
+				}
+				return true
+			})
+		}
+	}
+	for identity, found := range retained {
+		if !found {
+			t.Errorf("current crawler capability must retain %s", identity)
+		}
+	}
+}
+
+func TestLegacySourceURLAndTimeoutClosureIsRetired(t *testing.T) {
+	if _, err := os.Stat(filepath.Join("..", "internal", "crawler", "amazon", "timeout_manager.go")); !os.IsNotExist(err) {
+		t.Errorf("retired TimeoutManager source must be absent: %v", err)
+	}
+	alibaba := "internal/crawler/alibaba1688"
+	amazon := "internal/crawler/amazon"
+	pool := amazon + "/browser"
+	retired := map[string][]string{
+		alibaba: strings.Fields("URLHelper.GetMobileURL URLHelper.GetDomain URLHelper.GetPlatformName URLHelper.IsProductPage URLHelper.GetSupplierURL"),
+		amazon:  strings.Fields("URLHelper.IsValidAmazonURL URLHelper.NormalizeURL DomainResolver.GetAmazonDomainByRegion DomainResolver.GetLanguageByRegion DomainResolver.ShouldUseDefaultZipcode DomainResolver.BuildAmazonProductURL GetDomainMap GetZipcodeMap GetDefaultDomain GetDefaultZipcode shouldUseDefaultZipcode NewTimeoutManager TimeoutManager.CreateTimeoutContext TimeoutManager.CancelAll TimeoutManager.GetActiveCount TimeoutManager.ProcessWithTimeout"),
+	}
+	retained := map[string]bool{}
+	for owner, names := range map[string]string{
+		alibaba: "URLHelper NewURLHelper URLHelper.IsValid1688URL URLHelper.ExtractProductID URLHelper.CleanURL URLHelper.BuildStandardURL URLHelper.ValidateAndNormalizeURL SingleProcessor.processWithBrowserManager",
+		amazon:  "URLHelper NewURLHelper URLHelper.AddLanguageParam URLHelper.AddNoRedirectParam URLHelper.ExtractASINFromURL URLHelper.getMarketplaceInfo URLHelper.GetCurrencyFromURL URLHelper.GetMarketplaceFromURL MarketplaceInfo DomainResolver NewDomainResolver DomainResolver.GetZipcodeByRegion DomainResolver.ExtractRegionFromURL NewAmazonProcessor AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.processWithPoolManager AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown BatchProcessor.ProcessWithContext InstanceProcessor.ProcessWithInstance InstanceProcessor.extractAndValidateProduct InstanceProcessor.resolveDefaultZipcodeForTargetContext ProductChecker.IsProductPage",
+		pool:    "PoolManager PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.acquireInstanceWithTimeout PoolManager.releaseInstanceSafely PoolManager.Shutdown",
+	} {
+		for _, name := range strings.Fields(names) {
+			retained[owner+":"+name] = false
+		}
+	}
+	maps := map[string]int{"marketplaceInfoMap": 15, "domainMap": 14, "zipcodeMap": 14}
+	for name := range maps {
+		retained[amazon+":"+name] = false
+	}
+	for _, name := range []string{"Marketplace", "Currency"} {
+		retained[amazon+":MarketplaceInfo."+name] = false
+	}
+	fragments := map[string][]string{
+		alibaba + ":SingleProcessor.processWithBrowserManager":              {"sp.urlHelper.ValidateAndNormalizeURL(url)"},
+		alibaba + ":URLHelper.ValidateAndNormalizeURL":                      {"h.CleanURL(rawURL)", "h.IsValid1688URL(cleanURL)", "h.ExtractProductID(cleanURL)", "h.BuildStandardURL(productID)"},
+		amazon + ":InstanceProcessor.ProcessWithInstance":                   {"ip.urlHelper.AddLanguageParam(url)", "ip.urlHelper.AddNoRedirectParam(urlWithParams)"},
+		amazon + ":InstanceProcessor.extractAndValidateProduct":             {"ip.urlHelper.GetMarketplaceFromURL(url)", "ip.urlHelper.GetCurrencyFromURL(url)", "ip.urlHelper.ExtractASINFromURL(url)"},
+		amazon + ":InstanceProcessor.resolveDefaultZipcodeForTargetContext": {"resolver.ExtractRegionFromURL(targetURL)", "resolver.GetZipcodeByRegion(region)", "ip.matchesTargetContext(page, targetURL)"},
+		amazon + ":AmazonProcessor.processWithPoolManager":                  {"timeout := 3 * time.Minute", "ap.poolManager.ProcessWithTimeout(ctx, url, zipcode, timeout, processor)"},
+		amazon + ":AmazonProcessor.ProcessWithContext":                      {"ap.processWithPoolManager(ctx, url, zipcode)"},
+		amazon + ":AmazonProcessor.ProcessBatchWithContext":                 {"ap.batchProcessor.ProcessWithContext(ctx, requests, ap)"},
+		amazon + ":AmazonProcessor.Shutdown":                                {"ap.shutdownOnce.Do(", "ap.closed = true", "ap.poolManager.Shutdown()", "ap.browserPool.Shutdown()"},
+		pool + ":PoolManager.ProcessWithTimeout":                            {"context.WithTimeout(ctx, timeout)", "defer cancel()", "timeoutCtx.Done()", "pm.processProduct(timeoutCtx, url, zipcode, processor, instanceChan)", "pm.pool.RecreateInstanceAsync(instance)"},
+		pool + ":PoolManager.processProduct":                                {"pm.acquireInstanceWithTimeout(ctx, 0, inferRegionFromURL(url))", "processor.ProcessWithInstance(ctx, instance, url, zipcode)", "pm.pool.RecreateInstanceSync(instance)", "pm.pool.RecreateInstanceAsync(instance)", "pm.releaseInstanceSafely(instance, processErr)"},
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			if _, err := decodeGoImportPath(spec.Path.Value); err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if (owner != alibaba && owner != amazon && owner != pool) || strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		if owner == amazon {
+			ast.Inspect(file, func(node ast.Node) bool {
+				if identifier, ok := node.(*ast.Ident); ok && slices.Contains([]string{"TimeoutManager", "NewTimeoutManager", "timeoutManager", "languageMap"}, identifier.Name) {
+					t.Errorf("%s retains retired source URL/timeout wiring %s", relative, identifier.Name)
+				}
+				return true
+			})
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					receiver, ok := shape.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported source URL/timeout receiver in %s: %T", relative, shape)
+					}
+					name = receiver.Name + "." + name
+				}
+				if slices.Contains(retired[owner], name) {
+					t.Errorf("%s retains retired source URL/timeout function %s", relative, name)
+				}
+				identity := owner + ":" + name
+				if _, expected := retained[identity]; expected {
+					retained[identity] = true
+				}
+				if expected, relevant := fragments[identity]; relevant {
+					var body bytes.Buffer
+					if err := format.Node(&body, token.NewFileSet(), declaration); err != nil {
+						t.Fatal(err)
+					}
+					for _, fragment := range expected {
+						if !strings.Contains(body.String(), fragment) {
+							t.Errorf("current source URL/timeout path %s must retain %q", identity, fragment)
+						}
+					}
+					if identity == amazon+":AmazonProcessor.Shutdown" && strings.Index(body.String(), "ap.poolManager.Shutdown()") >= strings.Index(body.String(), "ap.browserPool.Shutdown()") {
+						t.Error("AmazonProcessor must preserve PoolManager then BrowserPool shutdown order")
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						identity := owner + ":" + spec.Name.Name
+						if _, expected := retained[identity]; expected {
+							retained[identity] = true
+						}
+						if identity == amazon+":MarketplaceInfo" {
+							shape, ok := spec.Type.(*ast.StructType)
+							if !ok || len(shape.Fields.List) != 2 {
+								t.Fatal("MarketplaceInfo must retain exactly its two current fields")
+							}
+							for _, field := range shape.Fields.List {
+								kind, ok := field.Type.(*ast.Ident)
+								if len(field.Names) != 1 || !ok || kind.Name != "string" {
+									t.Fatal("MarketplaceInfo fields must retain their current string shape")
+								}
+								key := identity + "." + field.Names[0].Name
+								if _, expected := retained[key]; expected {
+									retained[key] = true
+								}
+							}
+						}
+					case *ast.ValueSpec:
+						if owner != amazon {
+							continue
+						}
+						for i, name := range spec.Names {
+							if count, expected := maps[name.Name]; expected {
+								if len(spec.Values) != len(spec.Names) {
+									t.Fatalf("current source map %s must retain its literal", name.Name)
+								}
+								literal, ok := spec.Values[i].(*ast.CompositeLit)
+								if !ok || len(literal.Elts) != count {
+									t.Fatalf("current source map %s must retain all %d entries", name.Name, count)
+								}
+								retained[amazon+":"+name.Name] = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for identity, found := range retained {
+		if !found {
+			t.Errorf("current source URL/timeout owner must retain %s", identity)
+		}
+	}
+}
+
+func TestLegacyBrowserManagementTailClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/crawler/amazon/quality_metrics.go", "internal/crawler/amazon/quality_metrics_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired browser statistics source %s must be absent: %v", relative, err)
+		}
+	}
+	shared := "internal/crawler/shared/browser"
+	pool := "internal/crawler/amazon/browser"
+	processor := "internal/crawler/amazon"
+	retiredFunctions := map[string][]string{
+		shared:    strings.Fields("Manager.GenerateRandomFingerprint Manager.GenerateStableFingerprint PrintConfigSummary TestRandomConfigPerformance GetLocaleForRegion ProxyPool.Snapshot"),
+		pool:      strings.Fields("BrowserManager.GetConfigManager ConfigManager.ShouldUseRandomConfig ConfigManager.GetPresetInfo InstanceManager.ActiveRebuildCount InstanceManager.CloseInstance InstanceManager.ValidateInstance InstanceManager.GetInstanceInfo InstanceManager.RestartInstance BrowserPool.ProxyStats BrowserPool.PoolStats BrowserPool.recordInitFailure BrowserPool.recordSyncRecreateResult BrowserPool.recordAsyncRecreateResult"),
+		processor: strings.Fields("AmazonProcessor.QualityStats AmazonProcessor.ProxyStats AmazonProcessor.PoolStats InstanceProcessor.SetQualityMetricsRecorder newQualityMetrics qualityMetrics.RecordValidationRetryAttempt qualityMetrics.RecordValidationRetryRecovered qualityMetrics.RecordTargetContextSkip qualityMetrics.RecordTargetContextFallback qualityMetrics.RecordTargetContextCheckError qualityMetrics.Snapshot copyInt64Map normalizeMetricsRegion"),
+	}
+	retiredTypes := map[string][]string{
+		pool: {"poolStats"}, processor: {"qualityMetrics", "qualityMetricsRecorder"},
+	}
+	retiredFields := map[string][]string{
+		shared + ":Manager": {"generator"}, pool + ":BrowserManager": {"config", "configManager"},
+		pool + ":BrowserPool": {"stats"}, processor + ":AmazonProcessor": {"qualityMetrics"},
+		processor + ":InstanceProcessor": {"qualityMetrics"},
+	}
+	retained := map[string]bool{}
+	for owner, names := range map[string]string{
+		shared:    "FingerprintConfig LanguageConfig FingerprintGenerator NewFingerprintGenerator FingerprintGenerator.GenerateRandomFingerprint FingerprintGenerator.GenerateStableFingerprint Manager.SetFingerprint Manager.Launch Manager.NewPage Manager.CloseWithResult ProxyPool.Acquire ProxyPool.MarkSuccess ProxyPool.MarkFailure ProxyPool.selectHealthiestAvailable calculateProxyHealthScore",
+		pool:      "NewBrowserManagerWithConfig ConfigManager.GenerateBrowserConfig ConfigManager.GetAvailablePresets ConfigManager.LogConfigStrategy InstanceManager.CreateInstance InstanceManager.RecreateInstanceSync InstanceManager.RecreateInstanceAsync closeManagerWithTimeout BrowserPool.GetInstancesSnapshot BrowserPool.Initialize BrowserPool.GetFingerprintGenerator HealthChecker.HealthCheck HealthChecker.GetPoolStats HealthChecker.LogPoolStats HealthChecker.StartHealthCheckRoutine HealthChecker.performHealthCheck",
+		processor: "NewAmazonProcessor AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.ensureReady AmazonProcessor.Shutdown InstanceProcessor.extractWithQualityRetry InstanceProcessor.extractAndValidateProduct InstanceProcessor.preparePageForQualityRetry InstanceProcessor.resolveDefaultZipcodeForTargetContext",
+	} {
+		for _, name := range strings.Fields(names) {
+			retained[owner+":"+name] = false
+		}
+	}
+	for identity, fields := range map[string]string{
+		shared + ":Manager":           "fingerprint config userAgents userDataDir closeErr installer",
+		shared + ":proxyAssignment":   "server assignments successes failures cooldowns lastSuccessAt lastFailureAt cooldownUntil",
+		shared + ":FingerprintConfig": "Enable GPU WebRTC Languages",
+		shared + ":LanguageConfig":    "HTTP JS",
+		pool + ":BrowserPool":         "fingerprintGen useRandomFingerprint instanceManager healthChecker proxyPool",
+		pool + ":InstanceManager":     "pool rebuildingMu rebuildingIDs",
+	} {
+		for _, field := range strings.Fields(fields) {
+			retained[identity+"."+field] = false
+		}
+	}
+	requiredCalls := map[string]map[string]bool{
+		shared + ":Manager.Launch":                                             {"NewContextLauncher": false},
+		shared + ":ProxyPool.Acquire":                                          {"selectHealthiestAvailable": false},
+		shared + ":ProxyPool.selectHealthiestAvailable":                        {"calculateProxyHealthScore": false},
+		pool + ":NewBrowserManagerWithConfig":                                  {"GenerateBrowserConfig": false, "LogConfigStrategy": false},
+		pool + ":InstanceManager.CreateInstance":                               {"GetFingerprintGenerator": false, "GenerateRandomFingerprint": false, "GenerateStableFingerprint": false, "SetFingerprint": false},
+		pool + ":BrowserPool.Initialize":                                       {"StartHealthCheckRoutine": false},
+		pool + ":HealthChecker.GetPoolStats":                                   {"GetInstancesSnapshot": false, "HealthCheck": false},
+		pool + ":HealthChecker.LogPoolStats":                                   {"GetPoolStats": false},
+		pool + ":HealthChecker.StartHealthCheckRoutine":                        {"performHealthCheck": false},
+		pool + ":HealthChecker.performHealthCheck":                             {"LogPoolStats": false, "GetInstancesSnapshot": false, "RecreateInstanceAsync": false},
+		processor + ":InstanceProcessor.extractWithQualityRetry":               {"alignTargetContext": false, "extractAndValidateProduct": false, "preparePageForQualityRetry": false},
+		processor + ":InstanceProcessor.resolveDefaultZipcodeForTargetContext": {"matchesTargetContext": false, "GetZipcodeByRegion": false},
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			if _, err := decodeGoImportPath(spec.Path.Value); err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if _, relevant := retiredFunctions[owner]; !relevant || strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					receiver, ok := shape.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported browser receiver in %s: %T", relative, shape)
+					}
+					name = receiver.Name + "." + name
+				}
+				if slices.Contains(retiredFunctions[owner], name) {
+					t.Errorf("%s retains retired browser function %s", relative, name)
+				}
+				identity := owner + ":" + name
+				if _, expected := retained[identity]; expected {
+					retained[identity] = true
+				}
+				if calls, expected := requiredCalls[identity]; expected {
+					ast.Inspect(declaration.Body, func(node ast.Node) bool {
+						call, ok := node.(*ast.CallExpr)
+						if !ok {
+							return true
+						}
+						called := ""
+						switch target := call.Fun.(type) {
+						case *ast.Ident:
+							called = target.Name
+						case *ast.SelectorExpr:
+							called = target.Sel.Name
+						}
+						if _, expected := calls[called]; expected {
+							calls[called] = true
+						}
+						return true
+					})
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if slices.Contains(retiredTypes[owner], typ.Name.Name) {
+						t.Errorf("%s retains retired browser type %s", relative, typ.Name.Name)
+					}
+					identity := owner + ":" + typ.Name.Name
+					if _, expected := retained[identity]; expected {
+						retained[identity] = true
+					}
+					if shape, ok := typ.Type.(*ast.StructType); ok {
+						for _, field := range shape.Fields.List {
+							for _, name := range field.Names {
+								if slices.Contains(retiredFields[identity], name.Name) {
+									t.Errorf("%s retains retired browser field %s.%s", relative, typ.Name.Name, name.Name)
+								}
+								if _, expected := retained[identity+"."+name.Name]; expected {
+									retained[identity+"."+name.Name] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for identity, found := range retained {
+		if !found {
+			t.Errorf("current browser owner must retain %s", identity)
+		}
+	}
+	for identity, calls := range requiredCalls {
+		for called, found := range calls {
+			if !found {
+				t.Errorf("current browser path %s must still call %s", identity, called)
+			}
+		}
+	}
+	for relative, tokens := range map[string][]string{
+		"internal/sheinlogin/automation.go":                  {"sharedbrowser.NewManager(managerCfg, a.logFor)", "manager.SetFingerprint(buildAutomationFingerprint(account, managerCfg))"},
+		"internal/app/runtime/currentapplication/runtime.go": {"\"task-processor/internal/integration/acquisition/amazon\"", "amazon.New(amazon.Options{"},
+		"hack/debug/test-amazon/main.go":                     {"amazon.NewAmazonProcessor(", "processor.Process(", "processor.Shutdown()"},
+	} {
+		body, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, expected := range tokens {
+			if !strings.Contains(string(body), expected) {
+				t.Errorf("current browser consumer %s must retain %q", relative, expected)
+			}
+		}
+	}
+}
+
 func TestLegacyAlibaba1688CaptchaExperimentClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/crawler/alibaba1688/captcha_fast_slider.go",
@@ -46,7 +572,7 @@ func TestLegacyAlibaba1688CaptchaExperimentClosureIsRetired(t *testing.T) {
 	retiredFunctions := strings.Fields("newFastSlider newHumanSlider generateAndExecutePath randomInt randomFloat")
 	retiredMethods := strings.Fields("checkAndHandleCaptcha handleSliderCaptchaWithRecording easeInOutCubic complexEasing simulateHumanTyping simulateHumanMouseMovement generateBezierCurvePoints simulateHumanScrolling simulateRandomMouseWiggling simulateTypingMistakes generateQuickDragPoints quickEaseFunction generateHumanDragPoints humanEaseFunction calculateHumanStepDelay calculateVerticalWobble calculateStepDuration complexEasingWithVariation")
 	retained := map[string]bool{}
-	for _, name := range strings.Fields("point CaptchaHandler.DetectCaptchaType CaptchaHandler.hasSliderCaptcha CaptchaHandler.hasClickCaptcha CaptchaHandler.hasImageCaptcha CaptchaHandler.hasTextCaptcha CaptchaHandler.hasMathCaptcha CaptchaHandler.HandlePageCaptcha CaptchaHandler.HandlePageCaptchaWithoutManual CaptchaHandler.handlePageCaptcha CaptchaHandler.fallbackCaptchaResult canceledCaptchaResult CaptchaHandler.HandleCaptchaWithRetry CaptchaHandler.randomDelay CaptchaHandler.optimizedSlideWithRealTrack CaptchaHandler.generateRealHumanTrackPoints CaptchaHandler.handleSliderCaptchaWithResult CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.fallbackSliderCaptchaResult CaptchaHandler.performSliderAction CaptchaHandler.calculateSlideDistance CaptchaHandler.checkSliderSuccess isProductPageReadyAfterCaptcha CaptchaHandler.waitForManualSliderWithResult CaptchaHandler.waitForPageRedirect CaptchaHandler.optimizedSlideWithHumanBehavior") {
+	for _, name := range strings.Fields("point CaptchaHandler.DetectCaptchaType CaptchaHandler.hasSliderCaptcha CaptchaHandler.hasClickCaptcha CaptchaHandler.hasImageCaptcha CaptchaHandler.hasTextCaptcha CaptchaHandler.hasMathCaptcha CaptchaHandler.HandlePageCaptcha CaptchaHandler.HandlePageCaptchaWithoutManual CaptchaHandler.handlePageCaptcha CaptchaHandler.fallbackCaptchaResult canceledCaptchaResult CaptchaHandler.HandleCaptchaWithRetry CaptchaHandler.randomDelay CaptchaHandler.optimizedSlideWithRealTrack CaptchaHandler.generateRealHumanTrackPoints CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.fallbackSliderCaptchaResult CaptchaHandler.performSliderAction CaptchaHandler.calculateSlideDistance CaptchaHandler.checkSliderSuccess isProductPageReadyAfterCaptcha CaptchaHandler.waitForManualSliderWithResult CaptchaHandler.waitForPageRedirect CaptchaHandler.optimizedSlideWithHumanBehavior") {
 		retained[name] = false
 	}
 	requiredCalls := map[string]map[string]bool{
@@ -198,7 +724,7 @@ func TestLegacyAmazonSourceAdapterClosureIsRetired(t *testing.T) {
 		}
 	}
 	retained := map[string]bool{}
-	for _, name := range strings.Fields("AmazonProcessor NewAmazonProcessor effectiveBrowserPoolSize AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatch AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown") {
+	for _, name := range strings.Fields("AmazonProcessor NewAmazonProcessor effectiveBrowserPoolSize AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown") {
 		retained[name] = false
 	}
 	for _, relative := range trackedFiles(t, ".") {

@@ -1,3 +1,11 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 仅退休本批矩阵内无消费者的验证码统计/custom 构造、单数 FeatureExtractor、变体调试方法/custom 构造及根 VariationsExtractor 的专属 loggerDependency 字段；当前实际日志注入、child variations.NewExtractor(logs)、规则与运行日志原样保留。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
+> #301 / #947 **SUPERSEDED，仅旧采集 URL/站点便利与闲置超时接线**：用户已确认[完整设计§1–§7/§6.1](legacy-source-url-timeout-closure-retirement-boundary.md)。本文 timeout_manager.go 保留行及1688 URL/Processor广泛KEEP，仅在本批21闲置函数方法、TimeoutManager/languageMap和专属字段/构造/Shutdown尾部内替代；不是删除当前采集日志。实际URL规范化/币种/ASIN/marketplace/地区邮编、真实PoolManager deadline/取消/释放/重建、Logrus与当前采集/原浏览器debug及独立SHEIN登录/Store同步保持。workflow/完整inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
+
+> #301 / #946 **SUPERSEDED，仅闲置浏览器管理/诊断/统计尾部**：用户已确认[完整退休设计§1–§7/§6.1](legacy-browser-management-tail-closure-retirement-boundary.md)，只在其§5精确声明/字段/注入/测试矩阵内替代本文browser/shared广泛KEEP；不改变现役Logrus依赖/注入及构造/导航/安装/关闭/健康/质量/失败日志。闲置PrintConfigSummary/性能试验无实际调用；真实指纹、代理全部评分状态、质量重试/周期健康、当前采集/原Amazon浏览器debug和独立SHEIN登录/Store同步保持。无新facade/生产EXTRACT，workflow/完整inventory/既有资源不动；以下原完整Git blob/历史/数字/勾选逐字保留。
+
 > #301 / #942 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧1688验证码试验与录制/回放完整闭包](legacy-1688-captcha-experiment-closure-retirement-boundary.md)§1–§7/§6.1，准确替代下方§5对test-recorder及本批三整退/18精确混合声明的继续保活含义。test-recorder只调用普通采集却宣称录制/回放，现与闲置slider/recorder/JSON文件链及专属工具同批退休；不是移除当前生成轨迹算法。test-1688、test-real-track-slider、test-amazon、共享debug模块/依赖/ignored状态、当前crawler/PageOperator/人工取消/日志/采集以及独立SHEIN登录/Store同步和全部其它保留条件保持。无新EXTRACT/兼容/事实owner，不读取/清理既有轨迹/资源，不改workflow/完整inventory，不增试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
 
 > #301 / #939 **SOURCE_IMPLEMENTED / IN_REVIEW**：按[用户确认的旧全局配置与日志便利尾部完整闭包](legacy-global-config-logging-tail-closure-retirement-boundary.md) §1–§7/§4.1/§6.1整批退出旧core/config HTTP/Retry门面、根Logging/Redis/Prompts投影及其专属尾部，两个闲置日志方法及对应保活；仅准确替代本文涉及这些对象的广泛KEEP，不撤销整个Config/日志/Redis能力。有效加载/弃用日志仍消费platform/logging，完整inventory/CURRENT零改；RedisConfig类型、SHEIN私有配置/原生Redis/登录与Store同步、当前日志/Retry/HTTP/AI/图像/JSON/采集保持。port-forward仅去两条旧Redis建议输出，其余转发/参数/Pester和#357不改。原完整Git blob及历史/计数/批准/失败逐字保留为后缀；workflow/依赖/保护/既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。
