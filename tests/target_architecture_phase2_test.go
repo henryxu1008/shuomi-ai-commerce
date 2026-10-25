@@ -758,8 +758,7 @@ func isAllowedIntegrationProviderAdapterImport(providerRoot string, hasLegacyPro
 	}
 	switch providerRoot {
 	case "openai":
-		return importPath == "task-processor/internal/product/enrichment" ||
-			importPath == "task-processor/internal/product/image"
+		return importPath == "task-processor/internal/product/image"
 	case "grsai", "httpimage":
 		return importPath == "task-processor/internal/product/image"
 	}
@@ -788,10 +787,11 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 				"task-processor/internal/ai",
 				"task-processor/internal/shared/ptr",
 				"task-processor/internal/integration/httpimage",
-				"task-processor/internal/product/enrichment",
 				"task-processor/internal/product/image",
 			},
 			forbidden: []string{
+				"task-processor/internal/product/enrichment",
+				"task-processor/internal/product/review/proposal",
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/image/runtime",
 				"task-processor/internal/product/catalog",
@@ -807,6 +807,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 			forbidden: []string{
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
+				"task-processor/internal/product/review/proposal",
 				"task-processor/internal/product/image",
 			},
 		},
@@ -816,6 +817,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 			forbidden: []string{
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
+				"task-processor/internal/product/review/proposal",
 				"task-processor/internal/product/image/runtime",
 			},
 		},
@@ -828,6 +830,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 				"task-processor/internal/integration/httpimage",
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
+				"task-processor/internal/product/review/proposal",
 			},
 		},
 	} {

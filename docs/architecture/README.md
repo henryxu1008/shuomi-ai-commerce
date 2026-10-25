@@ -1,3 +1,5 @@
+> #953 源码实施阶段：用户已确认冻结设计 §§1–7（含 §6.1）。旧生成链与 `internal/product/enrichment` 已整批退休；当前候选合同及纯规则归 `internal/product/review/proposal`，Review 仅接现成候选，沿原四个 HTTP 审核路由处理。必要自检、准确源码 CI 与最终复核分别记录在 [PR #953](https://github.com/qq550723504/shuomi-ai-commerce/pull/953)，当前尚未交付合并授权；运行/产品验收 NOT_RUN，#301 保持 OPEN。 以下冻结设计、索引和历史证据完整保留。
+
 #953 当前设计重做：旧生成链与审核候选合同完整退休闭包。**Independent Architecture / REDESIGNING / SOURCE_NOT_STARTED / NOT_READY**；当前只三文档，原旧范围复核不覆盖新范围。先抽取当前审核最小合同/纯规则到 `product/review/proposal`，再整退 `product/enrichment` 旧根、生成入口及 #953 原 OpenAI 专属尾部；未来同一149工件，不留兼容 alias、不机械拆批。保留 JSON/hash、当前采集、独立 SHEIN 登录与 Store 同步；workflow/完整inventory零改，既有实例/数据/凭据/进程不动，#301 OPEN。设计确认与 IMPLEMENTATION_READY 读回后再实施，以下原完整索引保留。
 
 - [`legacy-openai-adapter-closure-retirement-boundary.md`](legacy-openai-adapter-closure-retirement-boundary.md)：本次 #953 重做设计，§1–§7/§6.1 与完整删除/抽取矩阵。

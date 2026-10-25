@@ -1,6 +1,6 @@
 package agentconfig
 
-import "task-processor/internal/product/enrichment"
+import reviewproposal "task-processor/internal/product/review/proposal"
 
 const (
 	ContentAgentID          = "product.content.agent"
@@ -14,8 +14,8 @@ const (
 // Template preferences are data; the execution confirmation freezes the actual
 // selection separately in Request and never trusts a later template head.
 type ContentTemplate struct {
-	Schema    string                      `json:"schema"`
-	Selection enrichment.ContentSelection `json:"selection"`
+	Schema    string                          `json:"schema"`
+	Selection reviewproposal.ContentSelection `json:"selection"`
 }
 
 func (t ContentTemplate) Valid() bool {

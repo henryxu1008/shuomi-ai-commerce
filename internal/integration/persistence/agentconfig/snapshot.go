@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/commercetool"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 )
 
@@ -32,7 +32,7 @@ func validTextConfigurationRequest(id string, request agent.Request) bool {
 		return request.ContentSelection.Absent() && request.Binding.ContextKind == "listing-target-record" && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
 	}
 	if id == agentconfig.ContentAgentID {
-		return request.ContentSelection.Valid() && request.PolicyVersion == enrichment.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
+		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
 	}
 	return request.ContentSelection.Absent() && request.ValidContentSelection() && agentconfig.Platform(request.Binding.TargetPlatform)
 }
@@ -100,8 +100,8 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		KnowledgeBaseID                string
 		ExecutionModelProfile          aicapability.ModelProfile
 		MemberID, ExpectedModeRevision string
-		ContentSelection               enrichment.ContentSelection `json:",omitzero"`
-		SkillVersionRef                agent.SkillVersionRef       `json:",omitzero"`
+		ContentSelection               reviewproposal.ContentSelection `json:",omitzero"`
+		SkillVersionRef                agent.SkillVersionRef           `json:",omitzero"`
 	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision, c.Request.ContentSelection, c.Request.SkillVersionRef})
 	if e != nil {
 		return agentconfig.Snapshot{}, e
@@ -214,16 +214,16 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		GoalSummary      string
 		Template         *agentconfig.TemplateRef
 		Base             string
-		ContentSelection enrichment.ContentSelection `json:",omitzero"`
-		SkillVersionRef  agent.SkillVersionRef       `json:",omitzero"`
+		ContentSelection reviewproposal.ContentSelection `json:",omitzero"`
+		SkillVersionRef  agent.SkillVersionRef           `json:",omitzero"`
 	}{snap.Request.Binding, snap.Request.GoalSummary, snap.Template, snap.KnowledgeBaseID, snap.Request.ContentSelection, snap.Request.SkillVersionRef})
 	b, _ := hash(struct {
 		Binding          agent.Binding
 		GoalSummary      string
 		Template         *agentconfig.TemplateRef
 		Base             string
-		ContentSelection enrichment.ContentSelection `json:",omitzero"`
-		SkillVersionRef  agent.SkillVersionRef       `json:",omitzero"`
+		ContentSelection reviewproposal.ContentSelection `json:",omitzero"`
+		SkillVersionRef  agent.SkillVersionRef           `json:",omitzero"`
 	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.Request.ContentSelection, c.Request.SkillVersionRef})
 	if a != b || snap.AgentID != c.AgentID || snap.AgentVersion != c.AgentVersion || snap.Request.Key != c.Request.Key || snap.MemberID != c.MemberID || snap.ExpectedModeRevision != c.ExpectedModeRevision || !snap.Request.ModeSnapshotRef.Valid() {
 		return snap, agentconfig.ErrConflict

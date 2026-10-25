@@ -16,22 +16,22 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/integration/commercetoolauth"
 	"task-processor/internal/knowledge"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	skill "task-processor/internal/skill"
 )
 
 type productAgentRequestBody struct {
-	ManualReviewOnly     bool                         `json:"manualReviewOnly,omitempty"`
-	OwnSource            *ownSourceSelection          `json:"ownSource,omitempty"`
-	ContentSelection     *enrichment.ContentSelection `json:"contentSelection,omitempty"`
-	TemplateSelection    json.RawMessage              `json:"templateSelection,omitempty"`
-	Revision             string                       `json:"revision,omitempty"`
-	Feedback             string                       `json:"feedback,omitempty"`
-	TargetPlatform       string                       `json:"targetPlatform,omitempty"`
-	KnowledgeSelection   json.RawMessage              `json:"knowledgeSelection,omitempty"`
-	SkillSelection       json.RawMessage              `json:"skillSelection,omitempty"`
-	ExpectedModeRevision string                       `json:"expectedModeRevision,omitempty"`
+	ManualReviewOnly     bool                             `json:"manualReviewOnly,omitempty"`
+	OwnSource            *ownSourceSelection              `json:"ownSource,omitempty"`
+	ContentSelection     *reviewproposal.ContentSelection `json:"contentSelection,omitempty"`
+	TemplateSelection    json.RawMessage                  `json:"templateSelection,omitempty"`
+	Revision             string                           `json:"revision,omitempty"`
+	Feedback             string                           `json:"feedback,omitempty"`
+	TargetPlatform       string                           `json:"targetPlatform,omitempty"`
+	KnowledgeSelection   json.RawMessage                  `json:"knowledgeSelection,omitempty"`
+	SkillSelection       json.RawMessage                  `json:"skillSelection,omitempty"`
+	ExpectedModeRevision string                           `json:"expectedModeRevision,omitempty"`
 }
 
 type productSkillSelection struct {
@@ -106,13 +106,13 @@ func (a *productAgentApplication) startRequest(ctx context.Context, binding agen
 }
 
 func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string) (agent.Request, error) {
-	return a.startTextRequest(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, enrichment.ContentSelection{})
+	return a.startTextRequest(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, reviewproposal.ContentSelection{})
 }
 
-func (a *productAgentApplication) startTextRequest(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection) (agent.Request, error) {
+func (a *productAgentApplication) startTextRequest(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection reviewproposal.ContentSelection) (agent.Request, error) {
 	return a.startTextRequestWithSkill(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, selection, nil)
 }
-func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection, method *productSkillSelection, manualOnly ...bool) (agent.Request, error) {
+func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection reviewproposal.ContentSelection, method *productSkillSelection, manualOnly ...bool) (agent.Request, error) {
 	if len(manualOnly) > 1 || len(manualOnly) == 1 && manualOnly[0] && (a.definition.ID != agentconfig.ContentAgentID || goalSummary != "") {
 		return agent.Request{}, agent.ErrInvalid
 	}
@@ -132,7 +132,7 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		if !selection.Valid() {
 			return agent.Request{}, agent.ErrInvalid
 		}
-		request.ContentSelection, request.PolicyVersion, request.PromptVersion = selection, enrichment.ContentPolicyVersion, agentconfig.ContentPromptVersion
+		request.ContentSelection, request.PolicyVersion, request.PromptVersion = selection, reviewproposal.ContentPolicyVersion, agentconfig.ContentPromptVersion
 	} else if !selection.Absent() {
 		return agent.Request{}, agent.ErrInvalid
 	}
@@ -254,7 +254,7 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 	return request, nil
 }
 
-func (a *productAgentApplication) checkContentTitleSelection(selection enrichment.ContentSelection) error {
+func (a *productAgentApplication) checkContentTitleSelection(selection reviewproposal.ContentSelection) error {
 	if a.config.ContentTitleOnly && (a.definition.ID != agentconfig.ContentAgentID || !selection.TitleOnly()) {
 		return agent.ErrInvalid
 	}

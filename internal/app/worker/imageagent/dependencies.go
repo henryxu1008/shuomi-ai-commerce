@@ -553,8 +553,8 @@ func buildImageAgentWorkerAI(cfg *config.Config, db, commercialDB *gorm.DB, logg
 		componentLogger = logrus.NewEntry(logger).WithField("component", "image-agent-openai")
 	}
 	manager, err := openaiclient.NewManager(&openaiclient.ManagerConfig{
-		Clients: cfg.OpenAI.ToClientConfigs(), DefaultClient: "default",
-		Logger: openaiclient.AdaptLogrus(componentLogger),
+		Clients: cfg.OpenAI.ToClientConfigs(),
+		Logger:  openaiclient.AdaptLogrus(componentLogger),
 	})
 	if err != nil {
 		return nil, nil, nil, err

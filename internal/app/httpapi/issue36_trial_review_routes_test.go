@@ -12,7 +12,7 @@ import (
 )
 
 func TestIssue36ReviewOnlyRoutesKeepDecisionAndApplyWithoutGeneration(t *testing.T) {
-	routes := productReviewOnlyRoutes(nil, nil)
+	routes := productReviewRoutes(nil, nil)
 	want := map[currentApplicationRoute]struct{}{
 		{Method: http.MethodGet, Path: "/api/product/text-proposals"}:                         {},
 		{Method: http.MethodGet, Path: "/api/product/text-proposals/:proposal_id"}:            {},
@@ -40,8 +40,8 @@ func TestIssue36ReviewOnlyRoutesKeepDecisionAndApplyWithoutGeneration(t *testing
 
 func TestIssue36ReviewOnlyApplicationUsesExistingReviewOwner(t *testing.T) {
 	fixture := newTitleFixture(t)
-	writer := fixture.server(t)
-	created := titleCreate(t, writer, "seed-proposal")
+	fixture.server(t)
+	created := titleCreate(t, fixture, "seed-proposal")
 
 	authorizer, err := authz.NewListingKitAuthorizer([]string{"operator"}, nil)
 	require.NoError(t, err)

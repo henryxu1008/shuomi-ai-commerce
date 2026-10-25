@@ -16,22 +16,6 @@ type capturedOpenAIRequest struct {
 	Model string
 }
 
-func TestManagerReportsResolverWiring(t *testing.T) {
-	static, err := NewManager(&ManagerConfig{
-		Clients: map[string]*ClientConfig{"default": testClientConfig("key", "model", "https://example.test/v1")},
-	})
-	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
-	}
-	if static.HasConfigResolver() {
-		t.Fatal("static manager unexpectedly reports resolver wiring")
-	}
-	static.SetConfigResolver(fakeClientConfigResolver{})
-	if !static.HasConfigResolver() {
-		t.Fatal("resolver-backed manager does not report resolver wiring")
-	}
-}
-
 func newCaptureChatServer(t *testing.T, requests *[]capturedOpenAIRequest, mu *sync.Mutex) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +68,7 @@ func TestManagerRoutesChatClientByTenantOrUserContext(t *testing.T) {
 		Clients: map[string]*ClientConfig{
 			"default": testClientConfig("default-key", "default-model", defaultServer.URL),
 		},
-		DefaultClient: "default",
+
 		ConfigResolver: fakeClientConfigResolver{
 			tenantConfigs: map[string]*ClientConfig{
 				"tenant-a": testClientConfig("tenant-key", "tenant-model", tenantServer.URL),
@@ -97,14 +81,21 @@ func TestManagerRoutesChatClientByTenantOrUserContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewManager() error = %v", err)
 	}
-	client, err := mgr.GetClient("default")
-	if err != nil {
-		t.Fatalf("GetClient() error = %v", err)
+	for _, ctx := range []context.Context{
+		context.Background(),
+		WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}),
+		WithIdentity(context.Background(), Identity{TenantID: "tenant-a", UserID: "user-a"}),
+	} {
+		route, err := mgr.ResolveEffectiveClientRoute(ctx, "default")
+		if err != nil {
+			t.Fatalf("ResolveEffectiveClientRoute() error = %v", err)
+		}
+		client, err := mgr.GetClientWithRoute(ctx, "default", ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion})
+		if err != nil {
+			t.Fatalf("GetClientWithRoute() error = %v", err)
+		}
+		callChat(t, client, ctx)
 	}
-
-	callChat(t, client, context.Background())
-	callChat(t, client, WithTenantID(context.Background(), "tenant-a"))
-	callChat(t, client, WithIdentity(context.Background(), Identity{TenantID: "tenant-a", UserID: "user-a"}))
 
 	if len(defaultRequests) != 1 || defaultRequests[0].Auth != "Bearer default-key" || defaultRequests[0].Model != "default-model" {
 		t.Fatalf("default requests = %#v", defaultRequests)
@@ -142,7 +133,7 @@ func TestManagerRouteBoundImageClientRejectsCredentialConfigurationDrift(t *test
 		t.Fatal("image client does not expose route-bound edit")
 	}
 	_, err = routed.EditImageWithRoute(
-		WithTenantID(context.Background(), "tenant-a"),
+		WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}),
 		&ImageEditRequest{Model: "tenant-model"},
 		ImageRouteSelection{CredentialReference: "image", ConfigurationVersion: "stale-config"},
 	)
@@ -179,7 +170,7 @@ func TestManagerAllowsResolverBackedUnregisteredImageClient(t *testing.T) {
 		t.Fatal("resolver-backed image client does not expose route-bound edit")
 	}
 	_, err = routed.EditImageWithRoute(
-		WithTenantID(context.Background(), "tenant-a"),
+		WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}),
 		&ImageEditRequest{Model: "gpt-image-2"},
 		ImageRouteSelection{
 			CredentialReference:  "image_gpt_image_2",

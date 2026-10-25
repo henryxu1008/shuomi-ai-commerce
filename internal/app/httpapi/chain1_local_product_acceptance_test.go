@@ -49,7 +49,6 @@ import (
 	imagepolicy "task-processor/internal/marketplace/imagepolicy"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	productimage "task-processor/internal/product/image"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/storecenter"
@@ -145,13 +144,18 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	})
 	require.ErrorIs(t, err, sourcing.ErrSourcePublicationConflict)
 
-	// REV-1: actual HTTP create/accept/apply. The first committed Apply response
+	// REV-1: actual candidate intake followed by HTTP read/accept/apply. The first committed Apply response
 	// is deliberately discarded, then the application is rebuilt and replayed.
-	reviewGenerator := &chain1TitleGenerator{}
-	reviewApp, err := NewProductReviewApplication(db, verifier, resolver, authorizer, reviewGenerator)
+	reviewApp, candidateService, err := candidateReviewFixtureApplication(db, verifier, resolver, authorizer)
 	require.NoError(t, err)
 	reviewServer := chain1HTTPServer(t, reviewApp)
-	created := chain1ReviewRequest(t, reviewServer, http.MethodPost, "/api/product/text-proposals", "chain1-review-create", fmt.Sprintf(`{"product_key":%q,"base_version":%d}`, chain1ProductKey, sourceReceipt.CatalogVersion), http.StatusOK)
+	input, err := titleCandidateInput(catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: chain1Organization, ProductKey: chain1ProductKey}, Version: sourceReceipt.CatalogVersion, PublicationID: sourceReceipt.PublicationID}, envelope, "Reviewed chain product")
+	require.NoError(t, err)
+	candidateContext, err := candidateReviewFixtureContext(context.Background(), verifier, resolver, chain1UserToken, chain1Organization)
+	require.NoError(t, err)
+	admitted, err := candidateService.CreateFromCandidate(candidateContext, "chain1-review-create", input)
+	require.NoError(t, err)
+	created := chain1ReviewRequest(t, reviewServer, http.MethodGet, "/api/product/text-proposals/"+admitted.ID, "", "", http.StatusOK)
 	require.Equal(t, "pending", created.State)
 	revision := chain1Uint(t, created.Revision)
 	accepted := chain1ReviewRequest(t, reviewServer, http.MethodPost, "/api/product/text-proposals/"+created.ProposalID+"/decisions", "chain1-review-accept", fmt.Sprintf(`{"action":"accept","expected_revision":%d}`, revision), http.StatusOK)
@@ -174,7 +178,7 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Error(t, err, "the committed Apply response must be lost")
 	lostReview.Close()
 	reviewServer.Close()
-	rebuiltReviewApp, err := NewProductReviewApplication(db, verifier, resolver, authorizer, reviewGenerator)
+	rebuiltReviewApp, _, err := candidateReviewFixtureApplication(db, verifier, resolver, authorizer)
 	require.NoError(t, err)
 	rebuiltReview := chain1HTTPServer(t, rebuiltReviewApp)
 	applied := chain1ReviewRequest(t, rebuiltReview, http.MethodPost, "/api/product/text-proposals/"+created.ProposalID+"/apply", "chain1-review-apply", applyBody, http.StatusOK)
@@ -463,7 +467,8 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 		require.Equal(t, want, count, table)
 	}
 	require.Equal(t, tableCount, chain1TableCount(t, db), "requests must not perform DDL")
-	require.EqualValues(t, 1, reviewGenerator.calls.Load(), "review replay must not redispatch the title generator")
+	require.EqualValues(t, 1, chain1RowCount(t, db, "product_title_proposals"), "candidate replay must not create another proposal")
+	require.EqualValues(t, 3, chain1RowCount(t, db, "product_title_operations"), "intake, decision and Apply each have one committed receipt")
 	require.Positive(t, grants.userCalls.Load())
 	require.Positive(t, grants.workerCalls.Load())
 	require.Positive(t, grants.workerDenied.Load())
@@ -582,14 +587,6 @@ func (fixture *chain1GrantFixture) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	_, _ = fmt.Fprintf(w, `{"pagination":{"totalResult":"1"},"authorizations":[{"id":"chain1-authorization","project":{"id":%q},"organization":{"id":%q,"name":"CHAIN-1"},"user":{"id":%q},"state":"STATE_ACTIVE","roles":[{"key":"listingkit_admin"}]}]}`, chain1Project, chain1Organization, chain1Actor)
-}
-
-type chain1TitleGenerator struct{ calls atomic.Int32 }
-
-func (g *chain1TitleGenerator) Generate(_ context.Context, request enrichment.GenerationRequest) (enrichment.Candidate, error) {
-	g.calls.Add(1)
-	evidenceID, err := enrichment.CanonicalEvidenceID(request.Source)
-	return enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Reviewed chain product", EvidenceIDs: []string{evidenceID}}}}, err
 }
 
 func chain1HTTPServer(t *testing.T, application *http.Server) *httptest.Server {

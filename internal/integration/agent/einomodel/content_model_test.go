@@ -16,7 +16,7 @@ import (
 	"task-processor/internal/commercetool"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/product/contentagent"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 // This executor observes only the fixed request/quote and never calls a model.
@@ -40,20 +40,20 @@ func (e *contentTextFixture) GenerateWithGate(ctx context.Context, input aicapab
 func TestContentModelBindsFixedOperationAndFrozenSelection(t *testing.T) {
 	identity := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member", TokenExpiresAt: time.Now().Add(time.Hour)}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), identity)
-	selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"title", "description"})
 	require.NoError(t, err)
 	profile := aicapability.ModelProfile{ClientName: "content", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model", EndpointIdentityDigest: "endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "routing", AdapterPolicyVersion: "adapter", PromptVersion: agentconfig.ContentPromptVersion, OutputSchemaVersion: agentconfig.ContentActionVersion, UsageMappingVersion: "usage", CostPricingVersion: "cost", PointTariff: aicapability.ModelPointTariff{PriceVersion: "points", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000}, Currency: "CNY", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, MaximumPromptTokens: 16000, MaximumCompletionTokens: 100, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 4096, DeadlineBound: time.Minute}
 	modeRef := agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
 	binding := agent.Binding{ContextKind: "acquisition", ContextID: "context", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "product"}
-	snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: identity.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{ContentSelection: selection, ModeSnapshotRef: modeRef, Binding: binding, PolicyVersion: enrichment.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: agent.Limits{Steps: 4, ModelCalls: 2, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}}}
+	snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: identity.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{ContentSelection: selection, ModeSnapshotRef: modeRef, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: agent.Limits{Steps: 4, ModelCalls: 2, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}}}
 	executor := &contentTextFixture{}
 	definition, _ := contentagent.Registration()
 	model, err := NewContentAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, definition.AllowedTools, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
 	require.NoError(t, err)
-	input := agent.ModelInput{ContentSelection: selection, ModeSnapshotRef: modeRef, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, Binding: binding, PolicyVersion: enrichment.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
+	input := agent.ModelInput{ContentSelection: selection, ModeSnapshotRef: modeRef, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
 	quote, err := model.Quote(ctx, input)
 	require.NoError(t, err)
-	for _, changed := range []enrichment.ContentSelection{{TargetLanguage: "de", Title: true, Description: true}, {TargetLanguage: "en-US", Title: true}} {
+	for _, changed := range []reviewproposal.ContentSelection{{TargetLanguage: "de", Title: true, Description: true}, {TargetLanguage: "en-US", Title: true}} {
 		bad := input
 		bad.ContentSelection = changed
 		_, err = model.Quote(ctx, bad)

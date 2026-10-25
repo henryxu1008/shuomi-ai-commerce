@@ -16,11 +16,13 @@ import (
 	"sync/atomic"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
+	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
+	"task-processor/internal/httproute"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/workbenchcontext"
 	"testing"
@@ -36,7 +38,7 @@ import (
 func TestProductReviewHTTPCommittedResponseLost(t *testing.T) {
 	f := newTitleFixture(t)
 	normal := f.server(t)
-	v := titleDecision(t, normal, titleCreate(t, normal, "create"), "accept", "admin", "", 200)
+	v := titleDecision(t, normal, titleCreate(t, f, "create"), "accept", "admin", "", 200)
 	// Actual TCP close after the real handler commits but before response bytes.
 	lost := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := httptest.NewRecorder()
@@ -60,25 +62,31 @@ func TestProductReviewHTTPCommittedResponseLost(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, uint64(2), current.Version)
 }
+
 func TestProductReviewHTTPBodyDeadline(t *testing.T) {
 	f := newTitleFixture(t)
 	server := f.server(t)
+	v := titleCreate(t, f, "body-deadline-seed")
 	conn, e := net.Dial("tcp", server.Listener.Addr().String())
 	require.NoError(t, e)
 	defer conn.Close()
 	require.NoError(t, conn.SetDeadline(time.Now().Add(review.Timeout+4*time.Second)))
-	_, e = fmt.Fprintf(conn, "POST %s HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer operator\r\nX-Requested-Organization-ID: B\r\nIdempotency-Key: slow\r\nContent-Length: 100\r\n\r\n{", titleBasePath)
+	_, e = fmt.Fprintf(conn, "POST %s/%s/decisions HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer operator\r\nX-Requested-Organization-ID: B\r\nIdempotency-Key: slow\r\nContent-Length: 100\r\n\r\n{", titleBasePath, v.ID)
 	require.NoError(t, e)
 	response, e := http.ReadResponse(bufio.NewReader(conn), nil)
 	require.NoError(t, e)
 	defer response.Body.Close()
 	require.Equal(t, 504, response.StatusCode)
-	require.Zero(t, f.g.calls.Load())
+	stored := titleCall(t, server, "GET", titleBasePath+"/"+v.ID, "operator", "B", "", "", 200)
+	require.Equal(t, v, stored, "a body deadline must not mutate the candidate")
+	var operations int64
+	require.NoError(t, f.db.Table("product_title_operations").Where("operation_key = ?", "slow").Count(&operations).Error)
+	require.Zero(t, operations)
 }
 func TestProductReviewPostgresCanceledLock(t *testing.T) {
 	f := newTitleFixture(t)
 	s := f.server(t)
-	v := titleDecision(t, s, titleCreate(t, s, "create"), "accept", "admin", "", 200)
+	v := titleDecision(t, s, titleCreate(t, f, "create"), "accept", "admin", "", 200)
 	lock := f.db.Begin()
 	require.NoError(t, lock.Error)
 	defer lock.Rollback()
@@ -100,27 +108,10 @@ func TestProductReviewPostgresCanceledLock(t *testing.T) {
 	require.Equal(t, uint64(2), current.Version)
 }
 
-type titleGenerator struct {
-	calls         atomic.Int32
-	failed        atomic.Bool
-	afterGenerate func()
-}
-
-func (g *titleGenerator) Generate(_ context.Context, r enrichment.GenerationRequest) (enrichment.Candidate, error) {
-	g.calls.Add(1)
-	if g.failed.Load() {
-		return enrichment.Candidate{}, enrichment.ErrExternalCapabilityUnavailable
-	}
-	id, e := enrichment.CanonicalEvidenceID(r.Source)
-	if g.afterGenerate != nil {
-		g.afterGenerate()
-	}
-	return enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Suggested bottle title", EvidenceIDs: []string{id}}}}, e
-}
-
 type titleGrants struct {
 	revoked   atomic.Bool
 	failed    atomic.Bool
+	failAt    atomic.Int32
 	live      atomic.Int32
 	cached    atomic.Int32
 	revokeAt  atomic.Int32
@@ -150,7 +141,7 @@ func (g *titleGrants) Load(ctx context.Context, source workbenchcontext.GrantSou
 	} else {
 		g.cached.Add(1)
 	}
-	if g.failed.Load() {
+	if g.failed.Load() || g.failAt.Load() > 0 && liveCall >= g.failAt.Load() {
 		return workbenchcontext.GrantResult{}, fmt.Errorf("controlled grant dependency failure")
 	}
 	roles := []string{"listingkit_operator"}
@@ -192,14 +183,18 @@ func (verifier titleVerifier) Verify(_ context.Context, token string) (authident
 }
 
 type titleFixture struct {
-	db             *gorm.DB
-	source         sourcing.SourceEnvelope
-	sourceProducer *sourcing.InternalProducer
-	g              *titleGenerator
-	grants         *titleGrants
-	publisher      *catalog.Publisher
-	reader         catalog.Repository
-	base           catalog.PublishedSnapshot
+	candidateService *review.Service
+	resolver         *workbenchcontext.Resolver
+	verifier         zitadelruntime.Verifier
+	otherBase        catalog.PublishedSnapshot
+	otherSource      sourcing.SourceEnvelope
+	db               *gorm.DB
+	source           sourcing.SourceEnvelope
+	sourceProducer   *sourcing.InternalProducer
+	grants           *titleGrants
+	publisher        *catalog.Publisher
+	reader           catalog.Repository
+	base             catalog.PublishedSnapshot
 }
 
 type titleSetupLiveAccess struct{}
@@ -259,8 +254,8 @@ func newTitleFixture(t *testing.T) *titleFixture {
 	sourceA.Identity.SourceID = "source-a"
 	sourceA.RawReference.ReferenceID = "evidence-a"
 	sourceA.RawReference.SnapshotID = "capture-a"
-	_ = publish("A", "seed", "product-a", "controlled-initial-a", sourceA)
-	return &titleFixture{db: db, source: source, sourceProducer: sourceProducer, g: &titleGenerator{}, grants: &titleGrants{}, publisher: publisher, reader: repo, base: base}
+	otherBase := publish("A", "seed", "product-a", "controlled-initial-a", sourceA)
+	return &titleFixture{db: db, source: source, sourceProducer: sourceProducer, otherBase: otherBase, otherSource: sourceA, grants: &titleGrants{}, publisher: publisher, reader: repo, base: base}
 }
 
 func (f *titleFixture) publishSource(t *testing.T, org, key, publicationID string, source sourcing.SourceEnvelope) catalog.PublishedSnapshot {
@@ -288,9 +283,77 @@ func (f *titleFixture) application(t *testing.T, verifier titleVerifier) *http.S
 	t.Helper()
 	auth, err := authz.NewListingKitAuthorizer([]string{"operator"}, nil)
 	require.NoError(t, err)
-	app, err := NewProductReviewApplication(f.db, verifier, workbenchcontext.NewResolver(f.grants, "project", "v1", nil), auth, f.g)
+	resolver := workbenchcontext.NewResolver(f.grants, "project", "v1", nil)
+	app, service, err := candidateReviewFixtureApplication(f.db, verifier, resolver, auth)
 	require.NoError(t, err)
+	f.candidateService, f.resolver, f.verifier = service, resolver, verifier
 	return app
+}
+
+// Fixtures compose the existing candidate owner and four current HTTP routes.
+// There is no generator, seed endpoint, production factory or global registry.
+func candidateReviewFixtureApplication(db *gorm.DB, verifier zitadelruntime.Verifier, resolver *workbenchcontext.Resolver, auth *authz.ListingKitAuthorizer) (*http.Server, *review.Service, error) {
+	if verifier == nil {
+		return nil, nil, review.ErrUnavailable
+	}
+	core, err := buildProductReviewCore(db, resolver, auth)
+	if err != nil {
+		return nil, nil, err
+	}
+	service, err := review.NewCandidateService(core.reader, core.sourceReader, core.store, auth)
+	if err != nil {
+		return nil, nil, err
+	}
+	binder := productReviewCapabilityBinder{now: time.Now}
+	app := buildIsolatedApplicationHTTPServer(productReviewRoutes(service, binder.Bind), routeAuthDependencies{
+		workbenchVerifier: verifier, organizationResolver: resolver, authorizer: auth,
+	}, review.Timeout)
+	return app, service, nil
+}
+
+func candidateReviewFixtureContext(ctx context.Context, verifier zitadelruntime.Verifier, resolver *workbenchcontext.Resolver, actor, org string) (context.Context, error) {
+	identity, err := verifier.Verify(ctx, actor)
+	if err != nil {
+		return ctx, err
+	}
+	identity, err = resolver.Resolve(ctx, httproute.OrganizationAccessPolicyLiveWrite, workbenchcontext.ResolveInput{Identity: identity, BearerToken: actor, RequestedOrganizationID: org})
+	if err != nil {
+		return ctx, err
+	}
+	ctx = authidentity.WithAuthenticatedIdentity(ctx, identity)
+	return (productReviewCapabilityBinder{now: time.Now}).Bind(ctx, "Bearer "+actor)
+}
+
+func titleCandidateInput(published catalog.PublishedSnapshot, source sourcing.SourceEnvelope, title string) (review.CandidateInput, error) {
+	evidenceID, err := reviewproposal.CanonicalEvidenceID(source)
+	if err != nil {
+		return review.CandidateInput{}, err
+	}
+	return review.CandidateInput{Base: review.CreateInput{ProductKey: published.Identity.ProductKey, BaseVersion: published.Version}, PublicationID: published.PublicationID, PolicyVersion: "title-review-v1",
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: title, EvidenceIDs: []string{evidenceID}}}}}, nil
+}
+
+func (f *titleFixture) candidateInput(t *testing.T, org, product string) review.CandidateInput {
+	t.Helper()
+	base, source := f.base, f.source
+	if org == "A" && product == "product-a" {
+		base, source = f.otherBase, f.otherSource
+	}
+	require.Equal(t, org, base.Identity.TenantID)
+	require.Equal(t, product, base.Identity.ProductKey)
+	input, err := titleCandidateInput(base, source, "Suggested bottle title")
+	require.NoError(t, err)
+	return input
+}
+
+func (f *titleFixture) submitCandidate(ctx context.Context, key, actor, org string, input review.CandidateInput) (review.View, bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, review.Timeout)
+	defer cancel()
+	ctx, err := candidateReviewFixtureContext(ctx, f.verifier, f.resolver, actor, org)
+	if err != nil {
+		return review.View{}, false, err
+	}
+	return f.candidateService.CreateFromCandidateWithTransactionAttempt(ctx, key, input)
 }
 
 func (f *titleFixture) serverWithVerifier(t *testing.T, verifier titleVerifier) *httptest.Server {
@@ -353,7 +416,7 @@ func decodeTitleView(t *testing.T, raw []byte) review.View {
 	require.NoError(t, err)
 	revision, err := strconv.ParseUint(dto.Revision, 10, 64)
 	require.NoError(t, err)
-	view := review.View{ID: dto.ProposalID, Owner: dto.Owner, Input: review.CreateInput{ProductKey: dto.Input.ProductKey, BaseVersion: baseVersion}, Before: dto.Before, Title: dto.After, OriginalTitle: dto.OriginalTitle, Policy: dto.Policy, State: dto.State, Revision: revision, Evidence: dto.Evidence, Quality: enrichment.QualityScore{Overall: dto.Quality.Overall, EvidenceCoverage: dto.Quality.EvidenceCoverage, RequiredFieldCoverage: dto.Quality.RequiredFieldCoverage}, Unresolved: dto.Unresolved}
+	view := review.View{ID: dto.ProposalID, Owner: dto.Owner, Input: review.CreateInput{ProductKey: dto.Input.ProductKey, BaseVersion: baseVersion}, Before: dto.Before, Title: dto.After, OriginalTitle: dto.OriginalTitle, Policy: dto.Policy, State: dto.State, Revision: revision, Evidence: dto.Evidence, Quality: reviewproposal.QualityScore{Overall: dto.Quality.Overall, EvidenceCoverage: dto.Quality.EvidenceCoverage, RequiredFieldCoverage: dto.Quality.RequiredFieldCoverage}, Unresolved: dto.Unresolved}
 	view.PolicyAdoption = dto.PolicyAdoption
 	view.Content, view.Execution = dto.Content, dto.Execution
 	for _, decision := range dto.Decisions {
@@ -374,13 +437,18 @@ func decodeTitleView(t *testing.T, raw []byte) review.View {
 	}
 	return view
 }
-func titleCreate(t *testing.T, s *httptest.Server, key string) review.View {
-	return titleCall(t, s, "POST", titleBasePath, "operator", "B", key, `{"product_key":"product","base_version":1}`, 200)
+
+func titleCreate(t *testing.T, f *titleFixture, key string) review.View {
+	t.Helper()
+	return titleCreateFor(t, f, key, "operator", "B", "product")
 }
-func titleCreateFor(t *testing.T, s *httptest.Server, key, actor, org, productKey string) review.View {
-	body, err := json.Marshal(review.CreateInput{ProductKey: productKey, BaseVersion: 1})
+
+func titleCreateFor(t *testing.T, f *titleFixture, key, actor, org, productKey string) review.View {
+	t.Helper()
+	input := f.candidateInput(t, org, productKey)
+	view, _, err := f.submitCandidate(context.Background(), key, actor, org, input)
 	require.NoError(t, err)
-	return titleCall(t, s, "POST", titleBasePath, actor, org, key, string(body), 200)
+	return view
 }
 func titleDecision(t *testing.T, s *httptest.Server, v review.View, action, actor, title string, status int) review.View {
 	raw, e := json.Marshal(review.DecisionInput{Action: action, ExpectedRevision: v.Revision, Title: title})
@@ -394,8 +462,8 @@ func TestProductReviewHTTPPostgresLifecycle(t *testing.T) {
 	f := newTitleFixture(t)
 	s := f.server(t)
 	liveBeforeCreate := f.grants.live.Load()
-	v := titleCreate(t, s, "create")
-	require.Equal(t, liveBeforeCreate+3, f.grants.live.Load(), "create must resolve the route and recheck SRC-1 inside the Review UoW")
+	v := titleCreate(t, f, "create")
+	require.Equal(t, liveBeforeCreate+4, f.grants.live.Load(), "candidate intake retains caller, proof, source-read and pre-transaction authorization")
 	require.Equal(t, "Original bottle", v.Before)
 	require.Equal(t, "pending", v.State)
 	require.Len(t, v.Evidence, 1)
@@ -431,10 +499,13 @@ func TestProductReviewHTTPPostgresLifecycle(t *testing.T) {
 	require.Equal(t, applied, read)
 	titleApply(t, s2, v, "different-op", 409)
 	titleCall(t, s2, "POST", titleBasePath+"/"+v.ID+"/apply", "admin", "B", "apply", `{"expected_revision":1}`, 409)
-	f.g.failed.Store(true)
-	created := titleCreate(t, s2, "create")
+	var proposalsBefore int64
+	require.NoError(t, f.db.Table("product_title_proposals").Count(&proposalsBefore).Error)
+	created := titleCreate(t, f, "create")
 	require.Equal(t, uint64(1), created.Revision)
-	require.Equal(t, int32(1), f.g.calls.Load())
+	var proposalsAfter int64
+	require.NoError(t, f.db.Table("product_title_proposals").Count(&proposalsAfter).Error)
+	require.Equal(t, proposalsBefore, proposalsAfter, "committed candidate replay must not create another proposal")
 	f.grants.revoked.Store(true)
 	titleApply(t, s2, v, "apply", 403)
 	require.Positive(t, f.grants.live.Load())
@@ -483,7 +554,7 @@ func TestProductReviewHTTPCreateUsesOneDatabaseConnection(t *testing.T) {
 	raw.SetMaxIdleConns(1)
 
 	s := f.server(t)
-	v := titleCreate(t, s, "single-connection-create")
+	v := titleCreate(t, f, "single-connection-create")
 	require.Equal(t, "pending", v.State)
 	require.Equal(t, uint64(1), v.Revision)
 	v = titleDecision(t, s, v, "edit", "operator", "Single connection edit", 200)
@@ -498,7 +569,7 @@ func TestProductReviewHTTPCreateUsesOneDatabaseConnection(t *testing.T) {
 func TestProductReviewProviderRunsOutsideReviewLocksAndConnections(t *testing.T) {
 	f := newTitleFixture(t)
 	s := f.server(t)
-	v := titleDecision(t, s, titleCreate(t, s, "provider-lock-create"), "accept", "admin", "", 200)
+	v := titleDecision(t, s, titleCreate(t, f, "provider-lock-create"), "accept", "admin", "", 200)
 
 	blocked, release := f.grants.blockLiveCall(f.grants.live.Load() + 2)
 	released := false
@@ -538,27 +609,32 @@ func TestProductReviewProviderRunsOutsideReviewLocksAndConnections(t *testing.T)
 	require.Equal(t, http.StatusOK, result.status)
 }
 
-func TestProductReviewCommittedReplayAndConflictSkipSourcePreauthorization(t *testing.T) {
+func TestProductReviewCommittedReplayAndConflictSkipSourceRead(t *testing.T) {
 	f := newTitleFixture(t)
-	s := f.server(t)
-	created := titleCreate(t, s, "preflight-create")
+	f.application(t, titleVerifier{})
+	created := titleCreate(t, f, "preflight-create")
 	beforeLive := f.grants.live.Load()
-	beforeGeneration := f.g.calls.Load()
-	replayed := titleCreate(t, s, "preflight-create")
+	replayed := titleCreate(t, f, "preflight-create")
 	require.Equal(t, created, replayed)
-	require.Equal(t, beforeLive+1, f.grants.live.Load(), "committed replay needs only current Review route authorization")
-	require.Equal(t, beforeGeneration, f.g.calls.Load())
-
+	require.Equal(t, beforeLive+2, f.grants.live.Load(), "candidate replay retains caller and source-proof authorization before read-only preflight")
 	beforeLive = f.grants.live.Load()
-	titleCall(t, s, "POST", titleBasePath, "operator", "B", "preflight-create", `{"product_key":"product","base_version":2}`, 409)
-	require.Equal(t, beforeLive+1, f.grants.live.Load(), "changed payload must conflict before source authorization")
-	require.Equal(t, beforeGeneration, f.g.calls.Load())
+	changed := f.candidateInput(t, "B", "product")
+	changed.Base.BaseVersion = 2
+	_, attempted, err := f.submitCandidate(context.Background(), "preflight-create", "operator", "B", changed)
+	require.ErrorIs(t, err, review.ErrConflict)
+	require.False(t, attempted)
+	require.Equal(t, beforeLive+2, f.grants.live.Load(), "changed payload conflicts before source lookup or a transaction attempt")
+	var proposals, operations int64
+	require.NoError(t, f.db.Table("product_title_proposals").Count(&proposals).Error)
+	require.NoError(t, f.db.Table("product_title_operations").Count(&operations).Error)
+	require.EqualValues(t, 1, proposals)
+	require.EqualValues(t, 1, operations)
 }
 
 func TestProductReviewLockWaitRechecksIdentityAndProofExpiry(t *testing.T) {
 	f := newTitleFixture(t)
 	setup := f.server(t)
-	v := titleDecision(t, setup, titleCreate(t, setup, "proof-expiry-create"), "accept", "admin", "", 200)
+	v := titleDecision(t, setup, titleCreate(t, f, "proof-expiry-create"), "accept", "admin", "", 200)
 
 	blocked, releaseProvider := f.grants.blockLiveCall(f.grants.live.Load() + 2)
 	expiresAt := time.Now().Add(750 * time.Millisecond)
@@ -596,51 +672,52 @@ func TestProductReviewLockWaitRechecksIdentityAndProofExpiry(t *testing.T) {
 	require.Zero(t, operations)
 }
 
-func TestProductReviewHTTPBoundedPoolBurstDoesNotStarve(t *testing.T) {
+func TestProductReviewCandidateBoundedPoolBurstDoesNotStarve(t *testing.T) {
 	f := newTitleFixture(t)
 	raw, err := f.db.DB()
 	require.NoError(t, err)
 	raw.SetMaxOpenConns(2)
 	raw.SetMaxIdleConns(2)
-	s := f.server(t)
-
+	f.application(t, titleVerifier{})
 	const requests = 6
 	start := make(chan struct{})
-	statuses := make(chan int, requests)
+	views := make(chan review.View, requests)
 	errors := make(chan error, requests)
+	input := f.candidateInput(t, "B", "product")
 	for index := 0; index < requests; index++ {
 		go func(index int) {
 			<-start
-			status, _, requestErr := titleRequest(s, "POST", titleBasePath, "operator", "B", fmt.Sprintf("bounded-pool-%d", index), `{"product_key":"product","base_version":1}`)
-			statuses <- status
+			view, _, requestErr := f.submitCandidate(context.Background(), fmt.Sprintf("bounded-pool-%d", index), "operator", "B", input)
+			views <- view
 			errors <- requestErr
 		}(index)
 	}
 	close(start)
 	for range requests {
 		require.NoError(t, <-errors)
-		require.Equal(t, http.StatusOK, <-statuses)
+		require.Equal(t, "pending", (<-views).State)
 	}
 	var proposals int64
 	require.NoError(t, f.db.Table("product_title_proposals").Count(&proposals).Error)
 	require.Equal(t, int64(requests), proposals)
 }
 
-func TestProductReviewHTTPRevokedBetweenRouteAndSourceRead(t *testing.T) {
+func TestProductReviewCandidateRevokedBetweenCallerAndSourceRead(t *testing.T) {
 	f := newTitleFixture(t)
-	s := f.server(t)
+	f.application(t, titleVerifier{})
 	f.grants.revokeAt.Store(f.grants.live.Load() + 2)
-	titleCall(t, s, "POST", titleBasePath, "operator", "B", "revoked-second-check", `{"product_key":"product","base_version":1}`, 403)
-	require.Zero(t, f.g.calls.Load())
+	_, attempted, err := f.submitCandidate(context.Background(), "revoked-second-check", "operator", "B", f.candidateInput(t, "B", "product"))
+	require.ErrorIs(t, err, review.ErrForbidden)
+	require.False(t, attempted)
 }
 
-func TestProductReviewHTTPRevokedBeforeCreateCommitWritesNothing(t *testing.T) {
+func TestProductReviewCandidateRevokedAfterValidationWritesNothing(t *testing.T) {
 	f := newTitleFixture(t)
-	f.g.afterGenerate = func() {
-		f.grants.revokeAt.Store(f.grants.live.Load() + 1)
-	}
-	titleCall(t, f.server(t), "POST", titleBasePath, "operator", "B", "revoked-before-commit", `{"product_key":"product","base_version":1}`, 403)
-	require.Equal(t, int32(1), f.g.calls.Load())
+	f.application(t, titleVerifier{})
+	f.grants.revokeAt.Store(f.grants.live.Load() + 4)
+	_, attempted, err := f.submitCandidate(context.Background(), "revoked-before-commit", "operator", "B", f.candidateInput(t, "B", "product"))
+	require.ErrorIs(t, err, review.ErrForbidden)
+	require.False(t, attempted)
 	for _, table := range []string{"product_title_proposals", "product_title_operations"} {
 		var count int64
 		require.NoError(t, f.db.Table(table).Count(&count).Error)
@@ -648,13 +725,13 @@ func TestProductReviewHTTPRevokedBeforeCreateCommitWritesNothing(t *testing.T) {
 	}
 }
 
-func TestProductReviewHTTPGrantDependencyFailureAfterGenerationWritesNothing(t *testing.T) {
+func TestProductReviewCandidateGrantFailureAfterValidationWritesNothing(t *testing.T) {
 	f := newTitleFixture(t)
-	f.g.afterGenerate = func() {
-		f.grants.failed.Store(true)
-	}
-	titleCall(t, f.server(t), "POST", titleBasePath, "operator", "B", "dependency-before-commit", `{"product_key":"product","base_version":1}`, 503)
-	require.Equal(t, int32(1), f.g.calls.Load())
+	f.application(t, titleVerifier{})
+	f.grants.failAt.Store(f.grants.live.Load() + 4)
+	_, attempted, err := f.submitCandidate(context.Background(), "dependency-before-commit", "operator", "B", f.candidateInput(t, "B", "product"))
+	require.ErrorIs(t, err, review.ErrUnavailable)
+	require.False(t, attempted)
 	for _, table := range []string{"product_title_proposals", "product_title_operations"} {
 		var count int64
 		require.NoError(t, f.db.Table(table).Count(&count).Error)
@@ -672,8 +749,8 @@ func TestProductReviewHTTPEachEvidenceUseRefreshesSourceAuthorizationWithoutSour
 	require.NoError(t, f.db.Table("product_source_publications").Count(&sourceRowsBefore).Error)
 
 	before := f.grants.live.Load()
-	v := titleCreate(t, s, "fresh-create")
-	require.Equal(t, before+3, f.grants.live.Load())
+	v := titleCreate(t, f, "fresh-create")
+	require.Equal(t, before+4, f.grants.live.Load())
 	require.Equal(t, "pending", v.State)
 
 	before = f.grants.live.Load()
@@ -688,7 +765,7 @@ func TestProductReviewHTTPEachEvidenceUseRefreshesSourceAuthorizationWithoutSour
 	titleApply(t, s, v, "fresh-apply", 200)
 	require.Equal(t, before+2, f.grants.live.Load())
 
-	rejected := titleCreate(t, s, "reject-without-source-recheck")
+	rejected := titleCreate(t, f, "reject-without-source-recheck")
 	before = f.grants.live.Load()
 	titleDecision(t, s, rejected, "reject", "admin", "", 200)
 	require.Equal(t, before+1, f.grants.live.Load(), "Reject needs only the route resolution, without an SRC recheck")
@@ -698,14 +775,13 @@ func TestProductReviewHTTPEachEvidenceUseRefreshesSourceAuthorizationWithoutSour
 	require.Equal(t, sourceRowsBefore, sourceRowsAfter, "Review must never write SRC-1 publications")
 }
 
-func TestProductReviewHTTPCorruptSourceEvidenceFailsClosed(t *testing.T) {
+func TestProductReviewCandidateCorruptSourceEvidenceFailsClosed(t *testing.T) {
 	f := newTitleFixture(t)
-	require.NoError(t, f.db.Exec(
-		"UPDATE product_source_publications SET snapshot_json = ? WHERE organization_id = ? AND publication_id = ?",
-		[]byte(`{}`), "B", f.base.PublicationID,
-	).Error)
-	titleCall(t, f.server(t), "POST", titleBasePath, "operator", "B", "corrupt-source", `{"product_key":"product","base_version":1}`, 503)
-	require.Zero(t, f.g.calls.Load())
+	require.NoError(t, f.db.Exec("UPDATE product_source_publications SET snapshot_json = ? WHERE organization_id = ? AND publication_id = ?", []byte(`{}`), "B", f.base.PublicationID).Error)
+	f.application(t, titleVerifier{})
+	_, attempted, err := f.submitCandidate(context.Background(), "corrupt-source", "operator", "B", f.candidateInput(t, "B", "product"))
+	require.ErrorIs(t, err, review.ErrUnavailable)
+	require.False(t, attempted)
 }
 
 func TestProductReviewApplicationRequiresExplicitSchema(t *testing.T) {
@@ -729,10 +805,8 @@ func TestProductReviewApplicationRequiresExplicitSchema(t *testing.T) {
 	})
 	authorizer, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	generator := &titleGenerator{}
-	_, err = NewProductReviewApplication(db, titleVerifier{}, workbenchcontext.NewResolver(&titleGrants{}, "project", "v1", nil), authorizer, generator)
+	_, _, err = candidateReviewFixtureApplication(db, titleVerifier{}, workbenchcontext.NewResolver(&titleGrants{}, "project", "v1", nil), authorizer)
 	require.ErrorIs(t, err, review.ErrUnavailable)
-	require.Zero(t, generator.calls.Load(), "application construction must not invoke the provider")
 	rawDB, err := db.DB()
 	require.NoError(t, err)
 	require.NoError(t, rawDB.PingContext(context.Background()), "construction failure must not close the caller-owned database")
@@ -741,16 +815,17 @@ func TestProductReviewApplicationRequiresExplicitSchema(t *testing.T) {
 	require.Zero(t, tableCount, "application construction must not execute DDL")
 
 	require.NoError(t, InstallProductReviewSchema(db))
-	app, err := NewProductReviewApplication(db, titleVerifier{}, workbenchcontext.NewResolver(&titleGrants{}, "project", "v1", nil), authorizer, &titleGenerator{})
+	app, service, err := candidateReviewFixtureApplication(db, titleVerifier{}, workbenchcontext.NewResolver(&titleGrants{}, "project", "v1", nil), authorizer)
 	require.NoError(t, err)
 	require.NotNil(t, app)
+	require.NotNil(t, service)
 }
 func TestProductReviewRejectedStaleAndEvidence(t *testing.T) {
 	f := newTitleFixture(t)
 	s := f.server(t)
-	rejected := titleDecision(t, s, titleCreate(t, s, "reject"), "reject", "admin", "", 200)
+	rejected := titleDecision(t, s, titleCreate(t, f, "reject"), "reject", "admin", "", 200)
 	titleApply(t, s, rejected, "apply-reject", 409)
-	stale := titleDecision(t, s, titleCreate(t, s, "stale"), "accept", "admin", "", 200)
+	stale := titleDecision(t, s, titleCreate(t, f, "stale"), "accept", "admin", "", 200)
 	_, e := f.publisher.Publish(context.Background(), catalog.PublishRequest{Identity: f.base.Identity, PublicationID: "concurrent", Snapshot: catalog.ProductSnapshot{Title: "other change"}})
 	require.NoError(t, e)
 	titleApply(t, s, stale, "stale-apply", 409)
@@ -758,37 +833,60 @@ func TestProductReviewRejectedStaleAndEvidence(t *testing.T) {
 	titleDecision(t, s2, stale, "edit", "operator", "edit after stale Catalog head", 200)
 	// Version 2 was written directly through Catalog and has no SRC-1 evidence.
 	// The exact source publication is missing, with no process-memory fallback.
-	titleCall(t, s, "POST", titleBasePath, "operator", "B", "unbound", `{"product_key":"product","base_version":2}`, 404)
+	input := f.candidateInput(t, "B", "product")
+	input.Base.BaseVersion, input.PublicationID = 2, "concurrent"
+	_, attempted, err := f.submitCandidate(context.Background(), "unbound", "operator", "B", input)
+	require.ErrorIs(t, err, review.ErrNotFound)
+	require.False(t, attempted)
 	current, e := f.reader.GetCurrentSnapshot(context.Background(), f.base.Identity)
 	require.NoError(t, e)
 	require.Equal(t, uint64(2), current.Version)
 }
+
 func TestProductReviewHTTPStrictInputsAndScope(t *testing.T) {
 	f := newTitleFixture(t)
 	s := f.server(t)
-	for _, body := range []string{`{"product_key":"product","base_version":1,"actor":"admin"}`, `{"product_key":"product","base_version":1,"base_version":1}`, `{"product_key":"product","base_version":0}`, `{"product_key":"product","base_version":-1}`, `null`, `{"product_key":"product","base_version":9223372036854775808}`} {
-		titleCall(t, s, "POST", titleBasePath, "operator", "B", uuid.NewString(), body, 400)
+	v := titleCreate(t, f, "valid")
+	decisions := titleBasePath + "/" + v.ID + "/decisions"
+	for _, body := range []string{`{"action":"edit","expected_revision":1,"actor":"admin"}`, `{"action":"edit","expected_revision":1,"expected_revision":1}`, `{"action":"edit","expected_revision":-1}`, `{"action":"edit","expected_revision":18446744073709551616}`} {
+		titleCall(t, s, "POST", decisions, "operator", "B", uuid.NewString(), body, 400)
 	}
-	// A valid integer above JavaScript's safe range reaches domain lookup
-	// exactly; it is absent, not malformed or rounded.
-	titleCall(t, s, "POST", titleBasePath, "operator", "B", "large-valid-version", `{"product_key":"product","base_version":9007199254740993}`, 404)
-	titleCall(t, s, "POST", titleBasePath, "operator", "B", "large", strings.Repeat("x", 32769), 413)
-	titleCall(t, s, "POST", titleBasePath, "viewer", "B", "viewer", `{}`, 403)
-	titleCall(t, s, "POST", titleBasePath, "readonly", "B", "readonly", `{}`, 403)
-	titleCall(t, s, "POST", titleBasePath, "", "B", "anon", `{}`, 401)
-	v := titleCreate(t, s, "valid")
+	titleCall(t, s, "GET", titleBasePath, "operator", "B", "", `null`, 400)
+	for _, revision := range []uint64{0, 1 << 63} {
+		input := f.candidateInput(t, "B", "product")
+		input.Base.BaseVersion = revision
+		_, attempted, err := f.submitCandidate(context.Background(), uuid.NewString(), "operator", "B", input)
+		require.ErrorIs(t, err, review.ErrInvalid)
+		require.False(t, attempted)
+	}
+	// Exact integers above JavaScript's safe range reach the current owner.
+	large := f.candidateInput(t, "B", "product")
+	large.Base.BaseVersion = 9007199254740993
+	_, attempted, err := f.submitCandidate(context.Background(), "large-valid-version", "operator", "B", large)
+	require.ErrorIs(t, err, review.ErrNotFound)
+	require.False(t, attempted)
+	titleCall(t, s, "POST", decisions, "operator", "B", "large-valid-revision", `{"action":"edit","expected_revision":9007199254740993,"title":"exact revision"}`, 409)
+	titleCall(t, s, "POST", decisions, "operator", "B", "large", strings.Repeat("x", 32769), 413)
+	titleCall(t, s, "POST", decisions, "viewer", "B", "viewer", `{}`, 403)
+	titleCall(t, s, "POST", decisions, "readonly", "B", "readonly", `{}`, 403)
+	titleCall(t, s, "POST", decisions, "", "B", "anon", `{}`, 401)
 	for _, body := range []string{"{\"action\":\"edit\",\"expected_revision\":1,\"title\":\"bad" + string([]byte{255}) + "\"}", `{"action":"edit","expected_revision":1,"title":"bad\ud800"}`, `{"action":"edit","expected_revision":1,"title":"bad\udc00"}`} {
-		titleCall(t, s, "POST", titleBasePath+"/"+v.ID+"/decisions", "operator", "B", uuid.NewString(), body, 400)
+		titleCall(t, s, "POST", decisions, "operator", "B", uuid.NewString(), body, 400)
 	}
 	titleDecision(t, s, v, "edit", "operator", strings.Repeat("x", 4097), 413)
 	titleCall(t, s, "GET", titleBasePath+"/invalid", "operator", "B", "", "", 400)
 	titleCall(t, s, "GET", titleBasePath+"/"+v.ID+"?org=A", "operator", "B", "", "", 400)
-	titleCall(t, s, "POST", titleBasePath, "operator", "B", "valid", `{"product_key":"other","base_version":1}`, 409)
+	changed := f.candidateInput(t, "B", "product")
+	changed.Base.ProductKey = "other"
+	_, attempted, err = f.submitCandidate(context.Background(), "valid", "operator", "B", changed)
+	require.ErrorIs(t, err, review.ErrConflict)
+	require.False(t, attempted)
+	titleCall(t, s, "POST", titleBasePath, "operator", "B", "retired-generation", `{"product_key":"product","base_version":1}`, 404)
 }
 func TestProductReviewPostgresConcurrentApplyAndDecision(t *testing.T) {
 	f := newTitleFixture(t)
 	s1, s2 := f.server(t), f.server(t)
-	v := titleCreate(t, s1, "create")
+	v := titleCreate(t, f, "create")
 	path := titleBasePath + "/" + v.ID
 	run := func(action string, bodies []string, keys []string) []int {
 		statuses := make([]int, 2)
@@ -821,8 +919,8 @@ func TestProductReviewPostgresConcurrentApplyAndDecision(t *testing.T) {
 func TestProductReviewPostgresTwoProposalsCompete(t *testing.T) {
 	f := newTitleFixture(t)
 	s1, s2 := f.server(t), f.server(t)
-	a := titleDecision(t, s1, titleCreate(t, s1, "a"), "accept", "admin", "", 200)
-	b := titleDecision(t, s2, titleCreate(t, s2, "b"), "accept", "admin", "", 200)
+	a := titleDecision(t, s1, titleCreate(t, f, "a"), "accept", "admin", "", 200)
+	b := titleDecision(t, s2, titleCreate(t, f, "b"), "accept", "admin", "", 200)
 	statuses := make([]int, 2)
 	errs := make([]error, 2)
 	var wg sync.WaitGroup
@@ -853,9 +951,12 @@ func TestProductReviewPostgresBoundedSnapshotRead(t *testing.T) {
 	require.NoError(t, e)
 	_, e = f.publisher.Publish(context.Background(), catalog.PublishRequest{Identity: f.base.Identity, ExpectedBaseVersion: &f.base.Version, PublicationID: "large", Snapshot: snapshot})
 	require.NoError(t, e)
-	s := f.server(t)
-	titleCall(t, s, "POST", titleBasePath, "operator", "B", "bounded", `{"product_key":"product","base_version":2}`, 503)
-	require.Zero(t, f.g.calls.Load())
+	f.application(t, titleVerifier{})
+	input := f.candidateInput(t, "B", "product")
+	input.Base.BaseVersion, input.PublicationID = 2, "large"
+	_, attempted, err := f.submitCandidate(context.Background(), "bounded", "operator", "B", input)
+	require.ErrorIs(t, err, review.ErrUnavailable)
+	require.False(t, attempted)
 }
 
 func TestProductReviewPostgresCapacityLeavesAcceptedApplyable(t *testing.T) {
@@ -865,9 +966,12 @@ func TestProductReviewPostgresCapacityLeavesAcceptedApplyable(t *testing.T) {
 	for index := 0; index < 8; index++ {
 		source.RawReference.Metadata[fmt.Sprintf("controlled-large-metadata-%d", index)] = strings.Repeat("m", 7500)
 	}
-	f.publishSource(t, "B", "product", "large-evidence", source)
+	published := f.publishSource(t, "B", "product", "large-evidence", source)
 	s := f.server(t)
-	v := titleCall(t, s, "POST", titleBasePath, "operator", "B", "large-create", `{"product_key":"product","base_version":2}`, 200)
+	input, err := titleCandidateInput(published, source, "Suggested bottle title")
+	require.NoError(t, err)
+	v, _, err := f.submitCandidate(context.Background(), "large-create", "operator", "B", input)
+	require.NoError(t, err)
 	var size int
 	require.NoError(t, f.db.Raw("SELECT octet_length(payload) FROM product_title_proposals WHERE org = ? AND id = ?", "B", v.ID).Scan(&size).Error)
 	require.Greater(t, size, 60000)
@@ -892,7 +996,7 @@ func TestProductReviewPostgresPublisherRace(t *testing.T) {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			f := newTitleFixture(t)
 			s := f.server(t)
-			v := titleDecision(t, s, titleCreate(t, s, "create"), "accept", "admin", "", 200)
+			v := titleDecision(t, s, titleCreate(t, f, "create"), "accept", "admin", "", 200)
 			start := make(chan struct{})
 			done := make(chan error, 1)
 			go func() {
@@ -921,7 +1025,7 @@ func TestProductReviewPostgresAtomicFailuresAndLostResponse(t *testing.T) {
 		t.Run(table, func(t *testing.T) {
 			f := newTitleFixture(t)
 			s := f.server(t)
-			v := titleDecision(t, s, titleCreate(t, s, "create"), "accept", "admin", "", 200)
+			v := titleDecision(t, s, titleCreate(t, f, "create"), "accept", "admin", "", 200)
 			// Trigger fails only after Catalog's INSERT/head update have run.
 			require.NoError(t, f.db.Exec("CREATE FUNCTION reject_review_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'isolated injected failure'; END $$").Error)
 			require.NoError(t, f.db.Exec("CREATE TRIGGER fail_review BEFORE INSERT OR UPDATE ON "+table+" FOR EACH ROW EXECUTE FUNCTION reject_review_write()").Error)

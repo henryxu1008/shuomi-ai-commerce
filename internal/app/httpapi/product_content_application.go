@@ -16,8 +16,8 @@ import (
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/contentagent"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
 )
 
@@ -114,16 +114,16 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 			return nil, err
 		}
 	}
-	validator := contentagent.Validator{Authorization: a, Configuration: a.configuration, Identity: a.currentModeIdentity, Observed: contentCandidateEvidenceObserved, Review: func(ctx context.Context, input review.ContentValidationInput) (enrichment.Proposal, error) {
+	validator := contentagent.Validator{Authorization: a, Configuration: a.configuration, Identity: a.currentModeIdentity, Observed: contentCandidateEvidenceObserved, Review: func(ctx context.Context, input review.ContentValidationInput) (reviewproposal.Proposal, error) {
 		if supplyAgentContext(ctx) {
 			if a.executionReviews == nil {
-				return enrichment.Proposal{}, agent.ErrUnavailable
+				return reviewproposal.Proposal{}, agent.ErrUnavailable
 			}
 			return a.executionReviews.ValidateContentCandidate(ctx, input)
 		}
 		identity, err := a.freshIdentity(ctx)
 		if err != nil {
-			return enrichment.Proposal{}, err
+			return reviewproposal.Proposal{}, err
 		}
 		return a.reviews.ValidateContentCandidate(authidentity.WithAuthenticatedIdentity(ctx, identity), input)
 	}}

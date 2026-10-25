@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"task-processor/internal/shared/ptr"
-	"time"
 )
 
 // Client OpenAI API客户端 - 简化版本，专注于基本功能
@@ -57,15 +56,6 @@ func (c *Client) CreateChatCompletion(ctx context.Context, req *ChatCompletionRe
 	}
 
 	return c.pool.CreateChatCompletion(ctx, req)
-}
-
-// CreateChatCompletionWithTimeout 创建带自定义超时的聊天完成
-func (c *Client) CreateChatCompletionWithTimeout(ctx context.Context, req *ChatCompletionRequest, timeout time.Duration) (*ChatCompletionResponse, error) {
-	// 创建带超时的上下文
-	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	return c.CreateChatCompletion(timeoutCtx, req)
 }
 
 // GetDefaultModel 获取默认模型

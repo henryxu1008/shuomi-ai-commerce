@@ -7,8 +7,8 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/supplymarket"
 	"testing"
 	"time"
@@ -33,7 +33,7 @@ func TestChoiceReturnsNormalIneligibilityWithoutWeakeningPublication(t *testing.
 					current.PublicationID = "review:" + id
 					current.Snapshot.Title = "优化商品"
 				}
-				record := review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: "own", BaseVersion: 1}, BasePublicationID: original.PublicationID, Policy: "title-review-v1", Before: original.Snapshot.Title, Title: current.Snapshot.Title, State: "applied", Revision: 2, Original: enrichment.Proposal{Changes: []enrichment.FieldChange{{Field: "title"}}}, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: 2, PublicationID: current.PublicationID, Actor: scope.ActorID, At: time.Now()}}
+				record := review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: "own", BaseVersion: 1}, BasePublicationID: original.PublicationID, Policy: "title-review-v1", Before: original.Snapshot.Title, Title: current.Snapshot.Title, State: "applied", Revision: 2, Original: reviewproposal.Proposal{Changes: []reviewproposal.FieldChange{{Field: "title"}}}, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: 2, PublicationID: current.PublicationID, Actor: scope.ActorID, At: time.Now()}}
 				reader := EffectiveProductReader{Snapshots: snapshotFixture{original, current}, Applied: reviewFixture{record}}
 				item := collection.ItemDetail{Item: collection.Item{ID: uuid.NewString(), Revision: 1, Source: collection.Source{Kind: "own", ProductKey: "own", PublicationID: "original", Version: 1}}, Product: original.Snapshot}
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -103,7 +103,7 @@ func TestEffectiveProductRequiresExactOwnApplyLineage(t *testing.T) {
 	applied.PublicationID = "review:" + id
 	applied.Version = 2
 	applied.Snapshot.Title = "优化商品"
-	record := review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: identity.ProductKey, BaseVersion: 1}, BasePublicationID: original.PublicationID, Policy: "title-review-v1", Before: original.Snapshot.Title, Title: applied.Snapshot.Title, State: "applied", Revision: 2, Original: enrichment.Proposal{Changes: []enrichment.FieldChange{{Field: "title"}}}, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: 2, PublicationID: applied.PublicationID, Actor: scope.ActorID, At: time.Now()}}
+	record := review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: identity.ProductKey, BaseVersion: 1}, BasePublicationID: original.PublicationID, Policy: "title-review-v1", Before: original.Snapshot.Title, Title: applied.Snapshot.Title, State: "applied", Revision: 2, Original: reviewproposal.Proposal{Changes: []reviewproposal.FieldChange{{Field: "title"}}}, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: 2, PublicationID: applied.PublicationID, Actor: scope.ActorID, At: time.Now()}}
 	reader := EffectiveProductReader{Snapshots: snapshotFixture{original, applied}, Applied: reviewFixture{record}}
 	item := collection.ItemDetail{Item: collection.Item{ID: uuid.NewString(), Source: collection.Source{Kind: "own", ProductKey: identity.ProductKey, PublicationID: "original", Version: 1}}, Product: original.Snapshot}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

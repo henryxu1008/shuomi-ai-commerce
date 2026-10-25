@@ -14,8 +14,8 @@ import (
 	"task-processor/internal/authz"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -68,14 +68,14 @@ func contentPostgresFixture(t *testing.T) (*review.Service, *Repository, catalog
 	mode := agent.ModeDefault
 	_, resolve := contentPolicyFixture(t, repository, snapshots, &mode)
 	service.WithExecutionPolicy(resolve)
-	selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
 	require.NoError(t, err)
-	input := review.CandidateInput{ContentSelection: selection, Base: review.CreateInput{ProductKey: "product", BaseVersion: base.Version}, PublicationID: base.PublicationID, PolicyVersion: enrichment.ContentPolicyVersion,
+	input := review.CandidateInput{ContentSelection: selection, Base: review.CreateInput{ProductKey: "product", BaseVersion: base.Version}, PublicationID: base.PublicationID, PolicyVersion: reviewproposal.ContentPolicyVersion,
 		Execution: &review.ExecutionProvenance{ContentSelection: selection, Scope: agent.Scope{OrganizationID: "org", ActorID: "owner"}, RunID: uuid.NewString(), RequestKey: uuid.NewString(),
 			Binding:       agent.Binding{ContextKind: "acquisition", ContextID: "context", ProductKey: "product", CatalogVersion: "1", PublicationID: base.PublicationID, TargetPlatform: "product"},
 			Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 			Mode:          agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}},
-		Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "translated title", EvidenceIDs: []string{"source"}}, {Field: "description", Value: "translated description", EvidenceIDs: []string{"source"}}, {Field: "selling_points", Value: `["translated point"]`, EvidenceIDs: []string{"source"}}, {Field: "seo_keywords", Value: `["translated keyword"]`, EvidenceIDs: []string{"source"}}}}}
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "translated title", EvidenceIDs: []string{"source"}}, {Field: "description", Value: "translated description", EvidenceIDs: []string{"source"}}, {Field: "selling_points", Value: `["translated point"]`, EvidenceIDs: []string{"source"}}, {Field: "seo_keywords", Value: `["translated keyword"]`, EvidenceIDs: []string{"source"}}}}}
 	return service, repository, snapshots, db, ctx, base, input
 }
 
@@ -129,7 +129,7 @@ func contentPolicyFixture(t *testing.T, repository *Repository, snapshots catalo
 	require.NoError(t, err)
 	auth, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	resolve := func(_ context.Context, execution review.ExecutionProvenance, _ enrichment.Candidate, _ bool) (review.PolicyProvenance, error) {
+	resolve := func(_ context.Context, execution review.ExecutionProvenance, _ reviewproposal.Candidate, _ bool) (review.PolicyProvenance, error) {
 		return review.PolicyProvenance{Execution: execution, Identity: agent.ExecutionIdentity{OrganizationID: "org", ActorID: "owner", MemberID: "member"}, Mode: *mode, ModeRevision: "1", PolicyVersion: agent.ExecutionModePolicyVersion, ActionVersion: review.ContentPolicyAdoptionVersion}, nil
 	}
 	adopter, err := review.NewPolicyAdoptionService(snapshots, source.(review.SourcePublicationGateway), repository, auth, func(context.Context) (review.CandidateExecutionScope, error) {
@@ -155,7 +155,7 @@ func TestPostgresContentPolicyUsesWholeCandidateAndFourModes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			service, repository, snapshots, _, ctx, base, input := contentPostgresFixture(t)
 			if test.titleOnly {
-				selection, err := enrichment.NewContentSelection("en-US", []string{"title"})
+				selection, err := reviewproposal.NewContentSelection("en-US", []string{"title"})
 				require.NoError(t, err)
 				input.ContentSelection, input.Execution.ContentSelection = selection, selection
 				input.Candidate.Changes = input.Candidate.Changes[:1]
@@ -257,7 +257,7 @@ func TestPostgresContentAndTitleLineagePreservesSourceAndRejectsOtherChanges(t *
 	require.NoError(t, err)
 	titleService, err := review.NewCandidateService(snapshots, source.(review.SourcePublicationGateway), repository, auth)
 	require.NoError(t, err)
-	title, err := titleService.CreateFromCandidate(ctx, "next-title", review.CandidateInput{Base: review.CreateInput{ProductKey: "product", BaseVersion: applied.Receipt.ProductVersion}, PublicationID: applied.Receipt.PublicationID, PolicyVersion: "title-review-v1", Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "next reviewed title", EvidenceIDs: []string{"source"}}}}})
+	title, err := titleService.CreateFromCandidate(ctx, "next-title", review.CandidateInput{Base: review.CreateInput{ProductKey: "product", BaseVersion: applied.Receipt.ProductVersion}, PublicationID: applied.Receipt.PublicationID, PolicyVersion: "title-review-v1", Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "next reviewed title", EvidenceIDs: []string{"source"}}}}})
 	require.NoError(t, err, "a title consumer must read genuine content lineage")
 	accepted, err = titleService.Decide(ctx, "title-accept", title.ID, review.DecisionInput{Action: "accept", ExpectedRevision: 1})
 	require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestPostgresContentAndTitleLineagePreservesSourceAndRejectsOtherChanges(t *
 	require.Equal(t, base, lineage.Original)
 	require.Equal(t, base.Snapshot, lineage.Source.Snapshot)
 	require.Len(t, lineage.Applied, 3)
-	require.Equal(t, enrichment.ContentPolicyVersion, lineage.Applied[0].Policy)
+	require.Equal(t, reviewproposal.ContentPolicyVersion, lineage.Applied[0].Policy)
 	require.Equal(t, input.ContentSelection, lineage.Applied[0].ContentSelection)
 	require.Equal(t, "title-review-v1", lineage.Applied[1].Policy)
 	require.True(t, lineage.Applied[1].ContentSelection.Absent())
@@ -319,7 +319,7 @@ func TestPostgresContentNativeRejectsEditsAndPolicyChangeBeforeCommit(t *testing
 			mode := agent.ModeFullAccess
 			_, resolve := contentPolicyFixture(t, repository, snapshots, &mode)
 			calls := 0
-			changed := func(ctx context.Context, execution review.ExecutionProvenance, candidate enrichment.Candidate, human bool) (review.PolicyProvenance, error) {
+			changed := func(ctx context.Context, execution review.ExecutionProvenance, candidate reviewproposal.Candidate, human bool) (review.PolicyProvenance, error) {
 				proof, err := resolve(ctx, execution, candidate, human)
 				calls++
 				if calls == 2 {

@@ -14,7 +14,7 @@
 
 ## 现状与必须作出的装配决定
 
-PR #579 只完成严格 v2 投影并已合并；它不提供试用运行源。现有 `account-compose` 的 current-application manifest 没有当前 Product DB，UI 没有 `PRODUCT_REVIEW_API_ORIGIN`。`NewProductReviewApplication` 与 `NewSheinRecordApplication` 是独立、已有的当前 owner 组合；[模块映射](../refactoring/module-target-mapping.md)把两者的默认装配标为未交付。特别是 DRAFT-S1 构造器明确不允许靠一个默认布尔开关推断 Product/Asset/Store/Listing 的共同事实边界。现有 #344 fixture 的合成 Auth.js 身份与 29 分钟生命周期只证明受控代码路径，不交付正常登录/可保留实例。
+PR #579 只完成严格 v2 投影并已合并；它不提供试用运行源。现有 `account-compose` 的 current-application manifest 没有当前 Product DB，UI 没有 `PRODUCT_REVIEW_API_ORIGIN`。Product Review 当前由 `buildProductReviewCore` → `review.NewCandidateService` → 四个审核 HTTP 路由组合（#953 退休原闲置 `NewProductReviewApplication` 与生成 root POST）；`NewSheinRecordApplication` 仍是独立的当前 owner 组合；[模块映射](../refactoring/module-target-mapping.md)把两者的默认装配标为未交付。特别是 DRAFT-S1 构造器明确不允许靠一个默认布尔开关推断 Product/Asset/Store/Listing 的共同事实边界。现有 #344 fixture 的合成 Auth.js 身份与 29 分钟生命周期只证明受控代码路径，不交付正常登录/可保留实例。
 
 本片决定：**显式 opt-in 的本机试用组合**复用 `cmd/current-application`、现有 ZITADEL/Login V2、Auth.js/BFF、Product Review/Catalog 与 Listing Record 路由/服务；不得包裹旧 Task-first Service 或新建第二套事实源。试用配置缺失时，Review/Listing 路由一律不装配。试用配置只允许全新项目、loopback HTTPS、独立 Compose project/volumes；运行时不得执行 DDL、隐式授权或用超级用户连接。实现时从现有独立构造器抽取可复用的当前模块装配，保持原中间件、授权、deadline 和服务逻辑。当前应用中的 Review 准入须与 `productAgent.enabled` 解耦，用已有 `review.NewCandidateService` 装配无 generator 服务，只批准 GET list/detail 与 POST decision/apply；`productReviewRoutes` 中的 POST create 必须从本片路由集合中排除。不因打开审核而启用 Agent、模型、预算或提案生成入口。
 

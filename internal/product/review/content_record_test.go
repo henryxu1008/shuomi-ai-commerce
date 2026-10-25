@@ -8,12 +8,27 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
+
+func TestCandidateWireAndReviewHashesStayStableAcrossOwnerExtraction(t *testing.T) {
+	input := CandidateInput{Base: CreateInput{ProductKey: "product", BaseVersion: 1}, PublicationID: "publication", PolicyVersion: "title-review-v1",
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "new", EvidenceIDs: []string{"raw"}}}}}
+	const wire = `{"Base":{"product_key":"product","base_version":1},"PublicationID":"publication","PolicyVersion":"title-review-v1","Candidate":{"Changes":[{"Field":"title","Value":"new","EvidenceIDs":["raw"]}],"Warnings":null,"Rejections":null}}`
+	raw, err := json.Marshal(input)
+	require.NoError(t, err)
+	require.Equal(t, wire, string(raw), "zero selection/provenance must keep the original command encoding")
+	op, err := operation(Scope{Org: "org", Actor: "owner"}, "candidate", "create_candidate", "", &input)
+	require.NoError(t, err)
+	require.Equal(t, "b6a2ede8a75cc54bea91958d3d0d9f0a38e3e9b0ec4d2e17d2a2787f717be743", op.Fingerprint)
+	record := Record{Input: input.Base, BasePublicationID: "publication", Before: "old", Title: "new", Policy: input.PolicyVersion, Revision: 1,
+		Original: reviewproposal.Proposal{Changes: input.Candidate.Changes, Quality: reviewproposal.QualityScore{Overall: 100, EvidenceCoverage: 100, RequiredFieldCoverage: 100}, Validation: reviewproposal.ValidationResult{Valid: true, EvaluatedChanges: 1}}}
+	require.Equal(t, "a688e751ceb2835430cb25047cf53fba59664c2ba67be9b2cb7d83d61ce516c6", proposalDigest(record))
+}
 
 func contentRecordFixture(t *testing.T) Record {
 	t.Helper()
-	selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"title", "description"})
 	require.NoError(t, err)
 	return Record{ID: "00000000-0000-0000-0000-000000000001", Org: "org", Owner: "owner", Input: CreateInput{ProductKey: "product", BaseVersion: 1},
 		Execution: &ExecutionProvenance{ContentSelection: selection, Scope: agent.Scope{OrganizationID: "org", ActorID: "owner"},
@@ -21,10 +36,10 @@ func contentRecordFixture(t *testing.T) Record {
 			Binding:       agent.Binding{ContextKind: "acquisition", ContextID: "context", ProductKey: "product", CatalogVersion: "1", PublicationID: "source-publication", TargetPlatform: "product"},
 			Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "00000000-0000-0000-0000-000000000004", Digest: strings.Repeat("a", 64)},
 			Mode:          agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: "00000000-0000-0000-0000-000000000005", Digest: strings.Repeat("b", 64)}},
-		Policy: enrichment.ContentPolicyVersion, BasePublicationID: "source-publication", State: "pending", Revision: 1,
+		Policy: reviewproposal.ContentPolicyVersion, BasePublicationID: "source-publication", State: "pending", Revision: 1,
 		Content: &ContentPayload{Selection: selection, Before: []ContentValue{{Field: "title", Value: "source title"}, {Field: "description", Value: "source description"}},
 			After: []ContentValue{{Field: "title", Value: "suggested title"}, {Field: "description", Value: "suggested description"}}},
-		Original: enrichment.Proposal{Validation: enrichment.ValidationResult{Valid: true, EvaluatedChanges: 2}, Changes: []enrichment.FieldChange{{Field: "title", Value: "suggested title", EvidenceIDs: []string{"source"}}, {Field: "description", Value: "suggested description", EvidenceIDs: []string{"source"}}}}}
+		Original: reviewproposal.Proposal{Validation: reviewproposal.ValidationResult{Valid: true, EvaluatedChanges: 2}, Changes: []reviewproposal.FieldChange{{Field: "title", Value: "suggested title", EvidenceIDs: []string{"source"}}, {Field: "description", Value: "suggested description", EvidenceIDs: []string{"source"}}}}}
 }
 
 func TestContentRecordHasTypedDecisionAndWireInsteadOfEmptyTitleApproval(t *testing.T) {
@@ -163,11 +178,11 @@ func TestContentNativeProofBindsFullCandidateAndSelection(t *testing.T) {
 func TestContentNativeAdoptionRejectsDiagnosticsEvenWhenFieldValidationPassed(t *testing.T) {
 	for _, rejection := range []bool{false, true} {
 		r := contentRecordFixture(t)
-		warning := enrichment.Warning{Code: "missing_material", Message: "material specification is not confirmed"}
+		warning := reviewproposal.Warning{Code: "missing_material", Message: "material specification is not confirmed"}
 		if rejection {
-			r.Original.Rejections = []enrichment.Rejection{{Code: warning.Code, Message: warning.Message}}
+			r.Original.Rejections = []reviewproposal.Rejection{{Code: warning.Code, Message: warning.Message}}
 		} else {
-			r.Original.Warnings = []enrichment.Warning{warning}
+			r.Original.Warnings = []reviewproposal.Warning{warning}
 		}
 		require.True(t, r.Original.Validation.Valid, "a structurally valid fieldset is not permission to ignore diagnostic facts")
 		require.False(t, originalNativeCandidate(r))

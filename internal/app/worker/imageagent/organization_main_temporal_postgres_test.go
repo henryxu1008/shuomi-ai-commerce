@@ -46,7 +46,7 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{
 		"default":           openai.NewClientConfig("unused", "review-test", provider.URL+"/v1", 1),
 		"image_gpt_image_2": openai.NewClientConfig("unused", "image-test", provider.URL+"/v1", 1),
-	}, DefaultClient: "default"})
+	}})
 	require.NoError(t, err)
 	recorder := aistore.NewGormInvocationRecorder(db)
 	recorder.SetUsageSettler(listingsubscription.AIInvocationUsageAdapter{Repository: listingsubscription.NewGormRepository(db)})

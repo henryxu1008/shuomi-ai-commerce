@@ -2135,10 +2135,10 @@ func TestProductCatalogPersistenceGuardRejectsEverySiblingProductDomainFixture(t
 	want := []string{
 		"task-processor/internal/product/asset",
 		"task-processor/internal/product/asset/recipe",
-		"task-processor/internal/product/enrichment",
-		"task-processor/internal/product/enrichment/future",
 		"task-processor/internal/product/image",
 		"task-processor/internal/product/image/presets",
+		"task-processor/internal/product/review/proposal",
+		"task-processor/internal/product/review/proposal/future",
 		"task-processor/internal/product/sourcing",
 		"task-processor/internal/product/sourcing/future",
 	}

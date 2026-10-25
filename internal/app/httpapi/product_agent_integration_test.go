@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/shopdiagnosis"
 	"testing"
@@ -816,15 +816,15 @@ func testProductAgentOwners(t *testing.T, mode string) {
 				SchemaVersion int    `json:"schema_version"`
 				Coverage      string `json:"coverage"`
 				Items         []struct {
-					Policy    string                      `json:"policy"`
-					Selection enrichment.ContentSelection `json:"content_selection"`
+					Policy    string                          `json:"policy"`
+					Selection reviewproposal.ContentSelection `json:"content_selection"`
 				} `json:"items"`
 			}
 			require.NoError(t, json.Unmarshal(raw, &list))
 			require.Equal(t, 2, list.SchemaVersion)
 			require.Equal(t, "product-text-proposals", list.Coverage)
 			require.Len(t, list.Items, 1)
-			require.Equal(t, enrichment.ContentPolicyVersion, list.Items[0].Policy)
+			require.Equal(t, reviewproposal.ContentPolicyVersion, list.Items[0].Policy)
 			require.Equal(t, result.ContentSelection, list.Items[0].Selection)
 		}
 		if selectedMode == "full_access" {
