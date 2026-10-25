@@ -6,8 +6,6 @@ type Config struct {
 	AttributePriority []string
 	// 统一的属性名映射配置（合并了KeyNormalization和AttributeNameMapping）
 	AttributeMapping map[string]string
-	// 属性类型映射，用于智能推断
-	AttributeTypeMapping map[string][]string
 	// 是否启用智能推断
 	EnableSmartInference bool
 	// 是否启用详细日志
@@ -32,12 +30,6 @@ func GetDefaultConfig() *Config {
 			"attribute_5":   "pattern",
 			"variant_code":  "variant",
 			"variant_style": "style",
-		},
-		AttributeTypeMapping: map[string][]string{
-			"color":    {"color"},
-			"size":     {"size", "product dimensions"},
-			"material": {"material"},
-			"brand":    {"brand"},
 		},
 		EnableSmartInference: true,
 		EnableDebugLogging:   false,

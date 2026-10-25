@@ -32,13 +32,6 @@ func logProxyAssigned(instanceID int, proxyServer string, strategy string, logs 
 	componentLogger(logs, "crawler/amazon").Infof("实例 %d 分配代理: %s", instanceID, proxyServer)
 }
 
-func logProxyFallback(instanceID int, proxyServer string, logs func(string) *logrus.Entry) {
-	if proxyServer == "" {
-		return
-	}
-	componentLogger(logs, "crawler/amazon").Warnf("所有代理都在冷却中，实例 %d 继续复用代理: %s", instanceID, proxyServer)
-}
-
 func logProxyCooldown(proxyServer string, cooldownSeconds int, logs func(string) *logrus.Entry) {
 	if proxyServer == "" {
 		return

@@ -19,11 +19,6 @@ type BrowserManager struct {
 	*sharedbrowser.Manager
 }
 
-// NewBrowserManager 创建Amazon浏览器管理器（保持向后兼容）
-func NewBrowserManager(cfg *config.Config, logs func(string) *logrus.Entry) *BrowserManager {
-	return NewBrowserManagerWithConfig(cfg, "windows", "windows_high_end", 0, logs)
-}
-
 // NewBrowserManagerWithConfig 使用指定配置创建Amazon浏览器管理器
 func NewBrowserManagerWithConfig(cfg *config.Config, strategy string, presetName string, instanceID int, logs func(string) *logrus.Entry) *BrowserManager {
 	configManager := NewConfigManager(logs)

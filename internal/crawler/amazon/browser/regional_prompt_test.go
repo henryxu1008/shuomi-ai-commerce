@@ -1,8 +1,11 @@
 package browser
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-func TestContainsRegionalPromptText(t *testing.T) {
+func TestRegionalPromptTextSelectorsCoverExpectedPrompts(t *testing.T) {
 	cases := []struct {
 		text string
 		want bool
@@ -17,8 +20,16 @@ func TestContainsRegionalPromptText(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got := ContainsRegionalPromptText(tc.text); got != tc.want {
-			t.Fatalf("ContainsRegionalPromptText(%q)=%v want %v", tc.text, got, tc.want)
+		got := false
+		for _, selector := range regionalPromptTextSelectors() {
+			pattern := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(selector, "text=")))
+			if strings.Contains(strings.ToLower(strings.TrimSpace(tc.text)), pattern) {
+				got = true
+				break
+			}
+		}
+		if got != tc.want {
+			t.Fatalf("regionalPromptTextSelectors match(%q)=%v want %v", tc.text, got, tc.want)
 		}
 	}
 }

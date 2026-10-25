@@ -1,8 +1,6 @@
 package alibaba1688
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,26 +9,6 @@ import (
 
 	"github.com/mxschmitt/playwright-go"
 )
-
-func TestResolveAlibaba1688UserDataDirUsesConfiguredValue(t *testing.T) {
-	cfg := config.NewDefaultConfig()
-	cfg.Browser.UserDataDir = "./.local/tmp/browser-profiles/custom-1688"
-
-	got := resolveAlibaba1688UserDataDir(cfg)
-
-	if got != "./.local/tmp/browser-profiles/custom-1688" {
-		t.Fatalf("expected configured user data dir, got %q", got)
-	}
-}
-
-func TestResolveAlibaba1688UserDataDirUsesNamespacedDefault(t *testing.T) {
-	for _, cfg := range []*config.Config{nil, &config.Config{}} {
-		got := resolveAlibaba1688UserDataDir(cfg)
-		if !strings.HasPrefix(got, filepath.Join(os.TempDir(), "task-processor", "browser-profiles", "1688")) {
-			t.Fatalf("resolveAlibaba1688UserDataDir(%v) = %q, want a namespaced path under the system temp directory", cfg, got)
-		}
-	}
-}
 
 func TestAlibaba1688BrowserProfileNamespaceIsStableAcrossRestarts(t *testing.T) {
 	first := runtimepath.NamespaceForDirectory(`C:\checkout\one`)
@@ -48,7 +26,7 @@ func TestAlibaba1688BrowserProfileNamespaceIsStableAcrossRestarts(t *testing.T) 
 	}
 }
 
-func TestAlibaba1688BrowserRuntimeConfigPreservesSettingsWithoutMutatingConfig(t *testing.T) {
+func TestAlibaba1688PublicBrowserRuntimeConfigPreservesSettingsWithoutMutatingConfig(t *testing.T) {
 	cfg := config.NewDefaultConfig()
 	cfg.Browser.Headless = false
 	cfg.Browser.BrowserPath = "C:/browsers/chrome.exe"
@@ -57,10 +35,10 @@ func TestAlibaba1688BrowserRuntimeConfigPreservesSettingsWithoutMutatingConfig(t
 	cfg.Browser.ViewportWidth = 1600
 	cfg.Browser.ViewportHeight = 1000
 
-	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg)
+	runtimeConfig := newAlibaba1688PublicBrowserRuntimeConfig(cfg)
 
-	if runtimeConfig.userDataDir != cfg.Browser.UserDataDir {
-		t.Fatalf("user data dir = %q, want %q", runtimeConfig.userDataDir, cfg.Browser.UserDataDir)
+	if runtimeConfig.userDataDir != "" {
+		t.Fatalf("public user data dir = %q, want empty non-persistent context", runtimeConfig.userDataDir)
 	}
 	if runtimeConfig.browser.ProxyServer != cfg.Browser.ProxyServer {
 		t.Fatalf("proxy = %q, want configured proxy", runtimeConfig.browser.ProxyServer)
@@ -76,15 +54,15 @@ func TestAlibaba1688BrowserRuntimeConfigPreservesSettingsWithoutMutatingConfig(t
 	}
 }
 
-func TestAlibaba1688BrowserRuntimeConfigUsesConfiguredDirectoryAndProxy(t *testing.T) {
+func TestAlibaba1688PublicBrowserRuntimeConfigUsesConfiguredDirectoryAndProxy(t *testing.T) {
 	cfg := config.NewDefaultConfig()
 	cfg.Browser.UserDataDir = "C:/global-profile"
 	cfg.Browser.ProxyServer = "http://global-proxy:8080"
 
-	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg)
+	runtimeConfig := newAlibaba1688PublicBrowserRuntimeConfig(cfg)
 
-	if runtimeConfig.userDataDir != cfg.Browser.UserDataDir {
-		t.Fatalf("user data dir = %q, want configured directory %q", runtimeConfig.userDataDir, cfg.Browser.UserDataDir)
+	if runtimeConfig.userDataDir != "" {
+		t.Fatalf("public user data dir = %q, want empty non-persistent context", runtimeConfig.userDataDir)
 	}
 	if runtimeConfig.browser.ProxyServer != cfg.Browser.ProxyServer {
 		t.Fatalf("proxy = %q, want configured proxy %q", runtimeConfig.browser.ProxyServer, cfg.Browser.ProxyServer)
