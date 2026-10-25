@@ -1,3 +1,5 @@
+> #301 / #940 **SOURCE_IMPLEMENTED / IN_REVIEW**：用户已确认[完整退休设计](legacy-shein-sensitiveword-closure-retirement-boundary.md) §1–§7/§6.1，准确替代本文件中管理/反馈方法、LastUpdated/Version/更新helper及专属4槽JSON/mutation并发KEEP；旧入口失去生产消费者后整批退出。当前17清理函数、两词表map与原tags/默认字典、mutex读锁/防御复制、当前纯规则/品牌/平台JSON、独立SHEIN登录与Store同步继续原owner。仅补当前顶注，原完整正文/历史/数字/勾选保持；无文件数据处理、迁移或替代owner，workflow/inventory与既有资源不动，不增试用前置，#301 OPEN。
+
 # #301 旧工作池、SHEIN 敏感词文件尾部与恢复辅助层完整退休设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED；待原 CI 与准确源码最终交付复核**。用户已确认 §1–§7（含 §4.1/§4.2/§6.1），Issue/PR 的 Reuse Existing Architecture / Ready 在源码修改前读回；原唯一 Writer 在同一主要 PR 整批实施。准确 HEAD、原 CI、设计与源码复核、合并批准写主要 PR，不为滚动状态制造仓库提交。接单及前当前段存档见 [#301 / 6354620829](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6354620829)。
