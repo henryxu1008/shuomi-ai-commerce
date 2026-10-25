@@ -135,39 +135,3 @@ func (uh *URLHelper) GetCurrencyFromURL(productURL string) string {
 func (uh *URLHelper) GetMarketplaceFromURL(productURL string) string {
 	return uh.getMarketplaceInfo(productURL).Marketplace
 }
-
-// IsValidAmazonURL 检查是否为有效的Amazon URL
-func (uh *URLHelper) IsValidAmazonURL(productURL string) bool {
-	if productURL == "" {
-		return false
-	}
-
-	parsedURL, err := url.Parse(productURL)
-	if err != nil {
-		return false
-	}
-
-	host := strings.ToLower(parsedURL.Host)
-	return strings.Contains(host, "amazon.")
-}
-
-// NormalizeURL 标准化Amazon URL
-func (uh *URLHelper) NormalizeURL(productURL string) string {
-	if !uh.IsValidAmazonURL(productURL) {
-		return productURL
-	}
-
-	asin := uh.ExtractASINFromURL(productURL)
-	if asin == "" {
-		return productURL
-	}
-
-	parsedURL, err := url.Parse(productURL)
-	if err != nil {
-		return productURL
-	}
-
-	// 构建标准化的URL
-	normalizedURL := parsedURL.Scheme + "://" + parsedURL.Host + "/dp/" + asin
-	return normalizedURL
-}

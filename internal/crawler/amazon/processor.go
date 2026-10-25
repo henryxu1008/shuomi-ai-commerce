@@ -26,7 +26,6 @@ type AmazonProcessor struct {
 	productChecker       *ProductChecker
 	resultValidator      *ProductResultValidator
 	failureArtifactStore *FailureArtifactStore
-	timeoutManager       *TimeoutManager
 	initErr              error
 	initMu               sync.Mutex
 	retryInit            func(context.Context) error
@@ -94,7 +93,6 @@ func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Am
 	browserPool, poolManager, initErr := initializeAmazonBrowserPool(cfg, logs)
 
 	batchProcessor := NewBatchProcessor()
-	timeoutManager := NewTimeoutManager(5*time.Minute, logs) // 默认5分钟超时
 	failureArtifactStore := NewFailureArtifactStore(cfg, logs)
 
 	processor := &AmazonProcessor{
@@ -107,7 +105,6 @@ func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Am
 		productChecker:       productChecker,
 		resultValidator:      NewProductResultValidator(),
 		failureArtifactStore: failureArtifactStore,
-		timeoutManager:       timeoutManager,
 		initErr:              initErr,
 		closed:               false,
 	}
@@ -280,11 +277,6 @@ func (ap *AmazonProcessor) Shutdown() {
 		ap.mu.Lock()
 		ap.closed = true
 		ap.mu.Unlock()
-
-		// 取消所有超时管理器中的活跃任务
-		if ap.timeoutManager != nil {
-			ap.timeoutManager.CancelAll()
-		}
 
 		// 关闭池管理器
 		if ap.poolManager != nil {
