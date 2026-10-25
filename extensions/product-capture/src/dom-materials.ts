@@ -27,14 +27,19 @@ export function excluded(element: Element, formTextRoot?: Element): boolean {
   return false;
 }
 
-export function productText(doc: Document, element: Element | null, charge: () => void, max = 8192, allowAncestorForm = false): string | null {
+export function excludedDetail(element: Element): boolean {
+  return excluded(element) || !!element.closest('.videoThumbnail,.video-block,[data-video-url],[data-video-id]');
+}
+
+export function productText(doc: Document, element: Element | null, charge: () => void, max = 8192, allowAncestorForm = false, excludeElement?: (element: Element) => boolean): string | null {
   const formTextRoot = allowAncestorForm && element ? element : undefined;
-  if (!element || excluded(element, formTextRoot)) return null;
+  const reject = excludeElement ?? ((node: Element) => excluded(node, formTextRoot));
+  if (!element || reject(element)) return null;
   let result = ''; let bytes = 0;
   const walker = doc.createTreeWalker(element, 4); let node: Node | null;
   while ((node = walker.nextNode())) {
     charge();
-    if (node.parentElement && excluded(node.parentElement, formTextRoot)) continue;
+    if (node.parentElement && reject(node.parentElement)) continue;
     const value = node.nodeValue ?? '';
     if (value.length > max) fail('CAPTURE_TOO_LARGE');
     bytes += byteLength(value);
@@ -44,15 +49,16 @@ export function productText(doc: Document, element: Element | null, charge: () =
   return result.trim() || null;
 }
 
-export function tableFacts(doc: Document, selector: string, charge: () => void): Attribute[] {
+export function tableFacts(doc: Document | Element, selector: string, charge: () => void, reject: (element: Element) => boolean = excluded): Attribute[] {
   const rows = doc.querySelectorAll(selector);
   if (rows.length > 256) fail('CAPTURE_TOO_LARGE');
   const facts: Attribute[] = [];
   for (const row of rows) {
-    charge(); if (excluded(row)) continue;
+    charge(); if (reject(row)) continue;
     const cells = row.querySelectorAll('th,td');
     if (cells.length !== 2) continue;
-    const name = productText(doc, cells[0], charge); const value = productText(doc, cells[1], charge);
+    const name = productText(row.ownerDocument, cells[0], charge, 8192, false, reject);
+    const value = productText(row.ownerDocument, cells[1], charge, 8192, false, reject);
     if (name && value) facts.push({ name, value });
   }
   return facts;
@@ -69,19 +75,19 @@ export function putFact(facts: Map<string, Attribute>, conflicts: Set<string>, n
   if (facts.size + conflicts.size > 256) fail('CAPTURE_TOO_LARGE');
 }
 
-export function detailImages(doc: Document, selector: string, charge: () => void, resolveLazy = false): string[] {
+export function detailImages(doc: Document | Element, selector: string, charge: () => void, resolveLazy = false, admit: (url: string) => boolean = publicImage): string[] {
   const images = doc.querySelectorAll<HTMLImageElement>(selector);
   if (images.length > 256) fail('CAPTURE_TOO_LARGE');
   const urls = new Set<string>();
   for (const image of images) {
     charge();
-    if (excluded(image) || image.closest('.videoThumbnail,.video-block,[data-video-url],[data-video-id]')) continue;
+    if (excludedDetail(image)) continue;
     const candidates = resolveLazy
       ? ['data-old-hires','data-src','src'].map(name=>image.getAttribute(name))
       : [image.getAttribute('data-old-hires') || image.getAttribute('src')];
     for (const url of candidates) {
       if (url && byteLength(url) > 2048) fail('CAPTURE_TOO_LARGE');
-      if (!url || !publicImage(url)) continue;
+      if (!url || !admit(url)) continue;
       if (resolveLazy && new URL(url).pathname === '/images/G/01/x-locale/common/grey-pixel.gif') continue;
       urls.add(url); break;
     }
