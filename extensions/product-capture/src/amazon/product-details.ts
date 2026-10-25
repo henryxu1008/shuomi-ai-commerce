@@ -6,6 +6,13 @@ const detailsRoots = '#detailBulletsWrapper_feature_div,#detailBullets_feature_d
 const controls = 'button,input,textarea,select,[role="button"]';
 const visibleText = (value: string) => value.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim();
 
+function containsTitlePhrase(title: string, value: string): boolean {
+  const literal = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const left = /^[\p{L}\p{N}]/u.test(value) ? '(^|[^\\p{L}\\p{N}])' : '';
+  const right = /[\p{L}\p{N}]$/u.test(value) ? '(?=$|[^\\p{L}\\p{N}])' : '';
+  return new RegExp(`${left}${literal}${right}`, 'u').test(title);
+}
+
 function excludedTitle(node: Element) {
   return excluded(node) || !!node.closest(`${controls},a,[role="link"],#bylineInfo,#averageCustomerReviews,#acrCustomerReviewText,.a-offscreen,.aok-offscreen`);
 }
@@ -44,7 +51,7 @@ export function amazonVisibleTitle(doc: Document, primary: Element, title: strin
       if (raw && byteLength(raw) > 2000) fail('CAPTURE_TOO_LARGE');
     }
     const value = raw && visibleText(raw);
-    if (!value || value === visibleText(title)) continue;
+    if (!value || containsTitlePhrase(visibleText(title), value)) continue;
     candidates.add(value);
     if (candidates.size > 256) fail('CAPTURE_TOO_LARGE');
   }

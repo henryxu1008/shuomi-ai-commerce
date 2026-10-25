@@ -52,6 +52,25 @@ describe('Amazon visible product details through existing capture', () => {
     expect((await captureAmazonDocument(doc, source)).evidence.title).toBe(`${main} | ${subtitle}`);
   });
 
+  it.each(['element', 'direct text', 'normalized whitespace'])('keeps an already complete primary title for %s subtitles', async kind => {
+    const doc = page(); const complete = kind === 'normalized whitespace' ? `${main}\n|   ${subtitle}` : `${main} | ${subtitle}`;
+    doc.querySelector('#productTitle')!.textContent = complete;
+    if (kind === 'direct text') titlePart(doc).replaceWith(doc.createTextNode(subtitle));
+    expect((await captureAmazonDocument(doc, source)).evidence.title).toBe(complete);
+  });
+
+  it('does not discard a subtitle which is only a substring inside a different word', async () => {
+    const doc = page(); doc.querySelector('#productTitle')!.textContent = 'Redondo Dog Bed'; titlePart(doc).textContent = 'Red';
+    expect((await captureAmazonDocument(doc, source)).evidence.title).toBe('Redondo Dog Bed | Red');
+  });
+
+  it.each([true, false])('treats subtitle punctuation as literal text, already present=%s', async present => {
+    const doc = page(); const value = 'Cozy (XL) [Grey] + washable';
+    const primary = present ? `Current bed | ${value}` : 'Current bed';
+    doc.querySelector('#productTitle')!.textContent = primary; titlePart(doc).textContent = value;
+    expect((await captureAmazonDocument(doc, source)).evidence.title).toBe(present ? primary : `${primary} | ${value}`);
+  });
+
   it.each(['different subtitle', 'another title section', 'unbound primary'])('keeps the primary title and reports %s ambiguity', async kind => {
     const doc = page(); const root = doc.querySelector('#titleSection')!;
     if (kind === 'different subtitle') root.insertAdjacentHTML('beforeend', '<div>Different subtitle</div>');
