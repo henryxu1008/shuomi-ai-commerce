@@ -44,18 +44,18 @@ func titleList(t *testing.T, client *http.Client, origin, path, actor, org strin
 func TestProductReviewPostgresActionableCollectionScopePaginationAndState(t *testing.T) {
 	f := newTitleFixture(t)
 	server := f.server(t)
-	pending := titleCreateFor(t, server, "pending", "operator", "B", "product")
-	accepted := titleCreateFor(t, server, "accepted", "other", "B", "product")
+	pending := titleCreateFor(t, f, "pending", "operator", "B", "product")
+	accepted := titleCreateFor(t, f, "accepted", "other", "B", "product")
 	accepted = titleDecision(t, server, accepted, "accept", "admin", "", http.StatusOK)
-	rejected := titleCreateFor(t, server, "rejected", "operator", "B", "product")
+	rejected := titleCreateFor(t, f, "rejected", "operator", "B", "product")
 	rejected = titleDecision(t, server, rejected, "reject", "admin", "", http.StatusOK)
-	edited := titleCreateFor(t, server, "edited", "operator", "B", "product")
+	edited := titleCreateFor(t, f, "edited", "operator", "B", "product")
 	edited = titleDecision(t, server, edited, "accept", "admin", "", http.StatusOK)
 	edited = titleDecision(t, server, edited, "edit", "operator", "Human edit", http.StatusOK)
-	applied := titleCreateFor(t, server, "applied", "operator", "B", "product")
+	applied := titleCreateFor(t, f, "applied", "operator", "B", "product")
 	applied = titleDecision(t, server, applied, "accept", "admin", "", http.StatusOK)
 	applied = titleApply(t, server, applied, "apply-collection", http.StatusOK)
-	otherOrg := titleCreateFor(t, server, "other-org", "admin", "A", "product-a")
+	otherOrg := titleCreateFor(t, f, "other-org", "admin", "A", "product-a")
 
 	var proposalQueries atomic.Int32
 	callbackName := "issue343_count_" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -106,7 +106,7 @@ func TestProductReviewPostgresActionableCollectionScopePaginationAndState(t *tes
 func TestProductReviewCollectionStrictTransportAndErrors(t *testing.T) {
 	f := newTitleFixture(t)
 	server := f.server(t)
-	proposal := titleCreate(t, server, "transport")
+	proposal := titleCreate(t, f, "transport")
 	for _, path := range []string{titleBasePath, titleBasePath + "?view=other", titleBasePath + "?view=actionable&view=actionable", titleBasePath + "?view=actionable&limit=020", titleBasePath + "?view=actionable&unknown=x", titleBasePath + "?view=actionable&unknown=" + strings.Repeat("x", maxProductReviewQueryBytes), titleBasePath + "?view=actionable&" + strings.Repeat("a=b&", 300)} {
 		code, _, err := titleRequest(server, http.MethodGet, path, "admin", "B", "", "")
 		require.NoError(t, err)
@@ -148,15 +148,15 @@ func TestProductReviewCollectionStrictTransportAndErrors(t *testing.T) {
 func TestProductReviewCollectionCorruptionAndDependencyFailureAreNotEmpty(t *testing.T) {
 	t.Run("database prevents reverse state drift", func(t *testing.T) {
 		f := newTitleFixture(t)
-		server := f.server(t)
-		proposal := titleCreate(t, server, "drift")
+		f.application(t, titleVerifier{})
+		proposal := titleCreate(t, f, "drift")
 		err := f.db.Exec("UPDATE product_title_proposals SET state = 'rejected' WHERE org = ? AND id = ?", "B", proposal.ID).Error
 		require.Error(t, err)
 	})
 	t.Run("malformed actionable row fails closed", func(t *testing.T) {
 		f := newTitleFixture(t)
 		server := f.server(t)
-		proposal := titleCreate(t, server, "malformed")
+		proposal := titleCreate(t, f, "malformed")
 		require.NoError(t, f.db.Exec("ALTER TABLE product_title_proposals DROP CONSTRAINT ck_product_title_proposals_state_payload").Error)
 		require.NoError(t, f.db.Exec("UPDATE product_title_proposals SET payload = ? WHERE org = ? AND id = ?", []byte(`[]`), "B", proposal.ID).Error)
 		titleList(t, server.Client(), server.URL, titleBasePath+"?view=actionable", "admin", "B", http.StatusServiceUnavailable)
@@ -164,7 +164,7 @@ func TestProductReviewCollectionCorruptionAndDependencyFailureAreNotEmpty(t *tes
 	t.Run("oversized actionable row is selected then rejected", func(t *testing.T) {
 		f := newTitleFixture(t)
 		server := f.server(t)
-		proposal := titleCreate(t, server, "oversized")
+		proposal := titleCreate(t, f, "oversized")
 		require.NoError(t, f.db.Exec("ALTER TABLE product_title_proposals DROP CONSTRAINT ck_product_title_proposals_state_payload").Error)
 		require.NoError(t, f.db.Exec("ALTER TABLE product_title_proposals DROP CONSTRAINT ck_product_title_proposals_payload_size").Error)
 		require.NoError(t, f.db.Exec("UPDATE product_title_proposals SET payload = ? WHERE org = ? AND id = ?", bytes.Repeat([]byte{'x'}, review.MaxRecordBytes+1), "B", proposal.ID).Error)
@@ -181,7 +181,7 @@ func TestProductReviewCollectionCorruptionAndDependencyFailureAreNotEmpty(t *tes
 func TestProductReviewCollectionHonorsCancellationWhileWaitingForDatabase(t *testing.T) {
 	f := newTitleFixture(t)
 	server := f.server(t)
-	titleCreate(t, server, "cancel-list")
+	titleCreate(t, f, "cancel-list")
 	lock := f.db.Begin()
 	require.NoError(t, lock.Error)
 	defer lock.Rollback()

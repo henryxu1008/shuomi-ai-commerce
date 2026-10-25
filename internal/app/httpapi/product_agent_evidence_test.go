@@ -10,14 +10,14 @@ import (
 	"task-processor/internal/commercetool"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestAgentCandidateRequiresExactVisibleToolEvidence(t *testing.T) {
 	b := agent.Binding{ProductKey: "crawler:1688:123", CatalogVersion: "1", PublicationID: "publication"}
 	for _, mode := range []string{"exact", "no tool", "wrong tool", "wrong version", "missing call", "failed audit", "model observation", "wrong product", "wrong catalog", "wrong publication", "guessed ID", "extra ID", "omitted sources", "malformed output"} {
 		t.Run(mode, func(t *testing.T) {
-			candidate := enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Title", EvidenceIDs: []string{"123"}}}}
+			candidate := reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "Title", EvidenceIDs: []string{"123"}}}}
 			output := canonicalinspect.Output{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion, CatalogPublicationID: b.PublicationID, Snapshot: catalog.ProductSnapshot{Title: "Saved title", Sources: []catalog.SourceRecord{{Detail: "123"}}}}
 			item := agent.Observation{Tool: canonicalinspect.Definition().Ref, CallID: "run:step:2", AuditStatus: commercetool.AuditStatusRecorded}
 			switch mode {

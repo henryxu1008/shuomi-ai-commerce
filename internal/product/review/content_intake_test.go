@@ -9,7 +9,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -28,7 +28,7 @@ func TestContentIntakeRevalidatesFullSelectionAndExactSource(t *testing.T) {
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: r.Org, EffectiveOrganizationID: r.Org, UserID: r.Owner, Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)})
 	input := CandidateInput{ContentSelection: r.Content.Selection, Execution: r.Execution, Base: r.Input, PublicationID: r.BasePublicationID,
-		PolicyVersion: enrichment.ContentPolicyVersion, Candidate: enrichment.Candidate{Changes: r.Original.Changes}}
+		PolicyVersion: reviewproposal.ContentPolicyVersion, Candidate: reviewproposal.Candidate{Changes: r.Original.Changes}}
 	proposal, err := service.ValidateCandidate(ctx, input)
 	require.NoError(t, err)
 	require.True(t, proposal.Validation.Valid)
@@ -38,7 +38,7 @@ func TestContentIntakeRevalidatesFullSelectionAndExactSource(t *testing.T) {
 	require.NoError(t, err, "pure runtime validation must not fabricate an execution RunID")
 	require.Equal(t, proposal, validated)
 	wrong := pure
-	wrong.Candidate.Changes = append([]enrichment.FieldChange(nil), pure.Candidate.Changes...)
+	wrong.Candidate.Changes = append([]reviewproposal.FieldChange(nil), pure.Candidate.Changes...)
 	wrong.Candidate.Changes[1].Field = "price"
 	_, err = service.ValidateContentCandidate(ctx, wrong)
 	require.Error(t, err)
@@ -55,7 +55,7 @@ func TestContentIntakeRevalidatesFullSelectionAndExactSource(t *testing.T) {
 		func(in *CandidateInput) { in.PolicyVersion = "title-review-v1" },
 	} {
 		changed := input
-		changed.Candidate.Changes = append([]enrichment.FieldChange(nil), input.Candidate.Changes...)
+		changed.Candidate.Changes = append([]reviewproposal.FieldChange(nil), input.Candidate.Changes...)
 		mutate(&changed)
 		_, err := service.ValidateCandidate(ctx, changed)
 		require.Error(t, err)

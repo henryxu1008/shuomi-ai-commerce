@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"github.com/stretchr/testify/require"
-	"net/http"
 	"task-processor/internal/httproute"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
 	"testing"
@@ -12,11 +11,7 @@ func TestChatContentRoutesGlobalAdmission(t *testing.T) {
 	routes := append(agentAndPointRoutes(false, false), collectionhttp.Routes(nil, nil)...)
 	routes = append(routes, productAgentProfileRoutes(nil, true)...)
 	routes = append(routes, ownContentAgentRoutes(nil)...)
-	for _, r := range productReviewRoutes(nil, nil) {
-		if r.Method != http.MethodPost || r.Path != "/api/product/text-proposals" {
-			routes = append(routes, r)
-		}
-	}
+	routes = append(routes, productReviewRoutes(nil, nil)...)
 	routes = append(routes, aiWorkbenchRoutes(nil)...)
 	require.NoError(t, validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{ProductAgent: true, ContentOnly: true, Collections: true, AIWorkbench: true}))
 	for i, r := range routes {

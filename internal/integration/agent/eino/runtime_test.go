@@ -11,7 +11,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/commercetool"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 type fakeAuth struct{ denied bool }
@@ -105,7 +105,7 @@ type fakeValidator struct {
 	request    agent.Request
 }
 
-func (v *fakeValidator) Validate(_ context.Context, request agent.Request, c enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+func (v *fakeValidator) Validate(_ context.Context, request agent.Request, c reviewproposal.Candidate, history []agent.Observation) (agent.Validation, error) {
 	v.calls++
 	v.request = request
 	v.history = history
@@ -192,7 +192,7 @@ func fixture(t *testing.T, actions ...agent.Action) (*Runtime, agent.Request, *f
 	return runtime, r, m, tools, validator, auth, store
 }
 func proposal(value string) agent.Action {
-	return agent.Action{Kind: "propose", Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: value, EvidenceIDs: []string{"source-1"}}}}}
+	return agent.Action{Kind: "propose", Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: value, EvidenceIDs: []string{"source-1"}}}}}
 }
 
 func TestRuntimeReportsWhetherClaimWasAttempted(t *testing.T) {
@@ -241,11 +241,11 @@ func TestGraphReadsProposesRepairsAndStopsForHuman(t *testing.T) {
 
 func TestContentRuntimeKeepsOriginalSelectionThroughModelValidationAndReplay(t *testing.T) {
 	runtime, request, model, _, validator, _, _ := fixture(t, proposal("supported title"))
-	selection, err := enrichment.NewContentSelection("en-US", []string{"title"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"title"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	request.ContentSelection, request.PolicyVersion = selection, enrichment.ContentPolicyVersion
+	request.ContentSelection, request.PolicyVersion = selection, reviewproposal.ContentPolicyVersion
 	result, err := runtime.Start(context.Background(), request)
 	if err != nil || result.State.Phase != agent.HumanReviewRequired || validator.request != request || model.lastInput.ContentSelection != selection {
 		t.Fatalf("content selection was not frozen through the graph: result=%+v validator=%+v model=%+v err=%v", result.State, validator.request, model.lastInput, err)
@@ -264,7 +264,7 @@ func TestContentRuntimeKeepsOriginalSelectionThroughModelValidationAndReplay(t *
 
 func TestContentRuntimeRejectsAbsentSelectionBeforeClaim(t *testing.T) {
 	runtime, request, model, _, _, _, store := fixture(t)
-	request.PolicyVersion = enrichment.ContentPolicyVersion
+	request.PolicyVersion = reviewproposal.ContentPolicyVersion
 	_, attempted, err := runtime.StartWithClaimAttempt(context.Background(), request)
 	if !errors.Is(err, agent.ErrInvalid) || attempted || store.exists || model.calls != 0 {
 		t.Fatalf("missing content selection was admitted: attempted=%v exists=%v calls=%d err=%v", attempted, store.exists, model.calls, err)

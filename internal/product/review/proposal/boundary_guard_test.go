@@ -1,4 +1,4 @@
-package enrichment
+package proposal
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func TestProductEnrichmentRuntimeSemanticGuardCoversEveryDeclarationKind(t *testing.T) {
+func TestReviewProposalRuntimeSemanticGuardCoversEveryDeclarationKind(t *testing.T) {
 	t.Parallel()
 
 	fixture := filepath.Join(t.TempDir(), "runtime_semantics.go")
@@ -64,7 +64,7 @@ func local() {
 	}
 }
 
-func TestProductEnrichmentDependencyGuardRejectsCurrentRuntimeAndProviderSDKs(t *testing.T) {
+func TestReviewProposalDependencyGuardRejectsCurrentRuntimeAndProviderSDKs(t *testing.T) {
 	t.Parallel()
 
 	fixture := filepath.Join(t.TempDir(), "provider_imports.go")
@@ -84,7 +84,7 @@ import (
 		t.Fatal(err)
 	}
 
-	violations, err := enrichmentDependencyViolations([]string{fixture}, nil)
+	violations, err := proposalDependencyViolations([]string{fixture}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,14 +93,14 @@ import (
 	}
 }
 
-func TestProductEnrichmentHasOnlyPureDomainDependencies(t *testing.T) {
+func TestReviewProposalHasOnlyPureDomainDependencies(t *testing.T) {
 	t.Parallel()
 
 	allowedModuleImports := map[string]struct{}{
 		"task-processor/internal/product/catalog":  {},
 		"task-processor/internal/product/sourcing": {},
 	}
-	violations, err := enrichmentDependencyViolations(enrichmentProductionFiles(t), allowedModuleImports)
+	violations, err := proposalDependencyViolations(proposalProductionFiles(t), allowedModuleImports)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,10 +109,10 @@ func TestProductEnrichmentHasOnlyPureDomainDependencies(t *testing.T) {
 	}
 }
 
-func TestProductEnrichmentDeclaresNoRuntimeSemantics(t *testing.T) {
+func TestReviewProposalDeclaresNoRuntimeSemantics(t *testing.T) {
 	t.Parallel()
 
-	violations, err := runtimeSemanticViolations(enrichmentProductionFiles(t))
+	violations, err := runtimeSemanticViolations(proposalProductionFiles(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestProductEnrichmentDeclaresNoRuntimeSemantics(t *testing.T) {
 	}
 }
 
-func enrichmentDependencyViolations(files []string, allowedModuleImports map[string]struct{}) ([]string, error) {
+func proposalDependencyViolations(files []string, allowedModuleImports map[string]struct{}) ([]string, error) {
 	violations := []string{}
 	for _, file := range files {
 		parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ImportsOnly)
@@ -135,12 +135,12 @@ func enrichmentDependencyViolations(files []string, allowedModuleImports map[str
 			}
 			if !strings.HasPrefix(path, "task-processor/") {
 				if isBannedExternalImport(path) {
-					violations = append(violations, fmt.Sprintf("product enrichment file %s imports banned runtime/provider dependency %q", file, path))
+					violations = append(violations, fmt.Sprintf("review proposal file %s imports banned runtime/provider dependency %q", file, path))
 				}
 				continue
 			}
 			if _, ok := allowedModuleImports[path]; !ok {
-				violations = append(violations, fmt.Sprintf("product enrichment file %s imports non-domain dependency %q", file, path))
+				violations = append(violations, fmt.Sprintf("review proposal file %s imports non-domain dependency %q", file, path))
 			}
 		}
 	}
@@ -157,7 +157,7 @@ func runtimeSemanticViolations(files []string) ([]string, error) {
 		}
 		inspectRuntimeSemanticIdentifiers(parsed, func(identifier string) {
 			if isForbiddenRuntimeIdentifier(identifier) {
-				violations = append(violations, fmt.Sprintf("product enrichment file %s declares forbidden runtime identifier %s", file, identifier))
+				violations = append(violations, fmt.Sprintf("review proposal file %s declares forbidden runtime identifier %s", file, identifier))
 			}
 		})
 	}
@@ -222,17 +222,17 @@ func containsRuntimeSemanticViolation(violations []string, identifier string) bo
 	return false
 }
 
-func enrichmentProductionFiles(t *testing.T) []string {
+func proposalProductionFiles(t *testing.T) []string {
 	t.Helper()
 
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Fatal("cannot resolve product enrichment package directory")
+		t.Fatal("cannot resolve review proposal package directory")
 	}
 	directory := filepath.Dir(currentFile)
 	entries, err := os.ReadDir(directory)
 	if err != nil {
-		t.Fatalf("read product enrichment package: %v", err)
+		t.Fatalf("read review proposal package: %v", err)
 	}
 	files := make([]string, 0, len(entries))
 	for _, entry := range entries {

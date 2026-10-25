@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestManualReviewOnlyIsFrozenButAbsentOnHistoricalWire(t *testing.T) {
@@ -27,7 +27,7 @@ func TestManualReviewOnlyIsFrozenButAbsentOnHistoricalWire(t *testing.T) {
 }
 
 func TestManualReviewOnlyAllowsOnlyFrozenDefaultMode(t *testing.T) {
-	r := Request{ManualReviewOnly: true, PolicyVersion: enrichment.ContentPolicyVersion, ContentSelection: enrichment.ContentSelection{TargetLanguage: "en", Title: true, SellingPoints: true}}
+	r := Request{ManualReviewOnly: true, PolicyVersion: reviewproposal.ContentPolicyVersion, ContentSelection: reviewproposal.ContentSelection{TargetLanguage: "en", Title: true, SellingPoints: true}}
 	for _, mode := range []ExecutionMode{ModeDefault, ModeReadOnly, ModeAutoApprove, ModeFullAccess} {
 		require.Equal(t, mode == ModeDefault, r.AllowsManualReviewMode(mode), string(mode))
 	}

@@ -22,8 +22,8 @@ import (
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	contract "task-processor/internal/marketplace/validator"
 	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/storecenter"
 )
@@ -129,7 +129,7 @@ func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID str
 	proposal, err := reviews.CreateFromCandidate(ctx, sampleProposalKey, review.CandidateInput{
 		Base:          review.CreateInput{ProductKey: sampleProductKey, BaseVersion: publication.CatalogVersion},
 		PublicationID: publication.CatalogPublicationID, PolicyVersion: "title-review-v1",
-		Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Synthetic improved trial bottle", EvidenceIDs: []string{sampleEvidenceID}}}},
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "Synthetic improved trial bottle", EvidenceIDs: []string{sampleEvidenceID}}}},
 	})
 	if err != nil {
 		return Sample{}, err

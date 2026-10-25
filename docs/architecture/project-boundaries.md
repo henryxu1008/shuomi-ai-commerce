@@ -121,7 +121,7 @@ Current examples:
 - `internal/product/catalog` — `ProductSnapshot`, immutable versions and publication
 - `internal/product/sourcing` — neutral envelopes, normalization, lineage and warnings
 - `internal/product/asset` — `ApprovedAsset` and explicit approval contracts
-- `internal/product/enrichment` — side-effect-free Proposals
+- `internal/product/review/proposal` — current side-effect-free candidate contracts and pure validation/scoring; no generator
 - `internal/product/image` — image capability ports; ImageAgent owns execution/approval
 
 The old `internal/catalog`, `internal/asset`, `internal/productimage`,

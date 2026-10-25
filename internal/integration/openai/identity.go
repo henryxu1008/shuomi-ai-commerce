@@ -23,18 +23,6 @@ func WithIdentity(ctx context.Context, identity Identity) context.Context {
 	return aiidentity.WithIdentity(ctx, current)
 }
 
-func WithTenantID(ctx context.Context, tenantID string) context.Context {
-	identity := IdentityFromContext(ctx)
-	identity.TenantID = strings.TrimSpace(tenantID)
-	return WithIdentity(ctx, identity)
-}
-
-func WithUserID(ctx context.Context, userID string) context.Context {
-	identity := IdentityFromContext(ctx)
-	identity.UserID = strings.TrimSpace(userID)
-	return WithIdentity(ctx, identity)
-}
-
 func IdentityFromContext(ctx context.Context) Identity {
 	identity := aiidentity.FromContext(ctx)
 	return Identity{TenantID: identity.TenantID, UserID: identity.UserID}

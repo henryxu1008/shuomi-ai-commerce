@@ -1671,9 +1671,6 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		for _, r := range productReviewRoutes(nil, nil) {
-			if r.Method == http.MethodPost && r.Path == "/api/product/text-proposals" {
-				continue
-			}
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}

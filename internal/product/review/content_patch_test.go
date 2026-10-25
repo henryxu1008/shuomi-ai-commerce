@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestContentPatchIsAtomicAndPreservesWholeOtherProduct(t *testing.T) {
@@ -20,9 +20,9 @@ func TestContentPatchIsAtomicAndPreservesWholeOtherProduct(t *testing.T) {
 		Sources:        []catalog.SourceRecord{{SourceID: "source-1", Checksum: "source-checksum"}}}
 	before, err := json.Marshal(base)
 	require.NoError(t, err)
-	selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
 	require.NoError(t, err)
-	changes := []enrichment.FieldChange{{Field: "title", Value: "new title"}, {Field: "description", Value: "New description.\nSecond paragraph."},
+	changes := []reviewproposal.FieldChange{{Field: "title", Value: "new title"}, {Field: "description", Value: "New description.\nSecond paragraph."},
 		{Field: "selling_points", Value: `["Steel body","Portable"]`}, {Field: "seo_keywords", Value: `["steel bottle"]`}}
 	got, err := applyContentPatch(base, selection, changes)
 	require.NoError(t, err)
@@ -49,10 +49,10 @@ func TestContentPatchIsAtomicAndPreservesWholeOtherProduct(t *testing.T) {
 }
 
 func TestContentPatchRejectsIncompleteOrExpandedFieldSetAndErasure(t *testing.T) {
-	selection, err := enrichment.NewContentSelection("en", []string{"title", "description"})
+	selection, err := reviewproposal.NewContentSelection("en", []string{"title", "description"})
 	require.NoError(t, err)
 	base := catalog.ProductSnapshot{Title: "original title", Description: "original description"}
-	for _, changes := range [][]enrichment.FieldChange{
+	for _, changes := range [][]reviewproposal.FieldChange{
 		{{Field: "title", Value: "valid title"}},
 		{{Field: "title", Value: "valid title"}, {Field: "price", Value: "1"}},
 		{{Field: "title", Value: "valid title"}, {Field: "title", Value: "duplicate"}},
@@ -63,36 +63,36 @@ func TestContentPatchRejectsIncompleteOrExpandedFieldSetAndErasure(t *testing.T)
 		_, err := applyContentPatch(base, selection, changes)
 		require.Error(t, err)
 	}
-	_, err = applyContentPatch(base, enrichment.ContentSelection{}, []enrichment.FieldChange{{Field: "title", Value: "valid"}})
+	_, err = applyContentPatch(base, reviewproposal.ContentSelection{}, []reviewproposal.FieldChange{{Field: "title", Value: "valid"}})
 	require.Error(t, err)
 }
 
 func TestContentPatchArrayValuesHaveStrictBoundedStringSchema(t *testing.T) {
-	selection, err := enrichment.NewContentSelection("en", []string{"selling_points"})
+	selection, err := reviewproposal.NewContentSelection("en", []string{"selling_points"})
 	require.NoError(t, err)
 	base := catalog.ProductSnapshot{Title: "source title"}
 	for _, value := range []string{`null`, `[]`, `[""]`, `[" leading"]`, `[1]`, `[["nested"]]`, `["good",null]`, `["good"] {}`, ` ["good"]`, `[ "good" ]`, `["good\u0000"]`} {
-		_, err := applyContentPatch(base, selection, []enrichment.FieldChange{{Field: "selling_points", Value: value}})
+		_, err := applyContentPatch(base, selection, []reviewproposal.FieldChange{{Field: "selling_points", Value: value}})
 		require.Error(t, err, value)
 	}
-	_, err = applyContentPatch(base, selection, []enrichment.FieldChange{{Field: "selling_points", Value: `["` + strings.Repeat("x", MaxRecordBytes) + `"]`}})
+	_, err = applyContentPatch(base, selection, []reviewproposal.FieldChange{{Field: "selling_points", Value: `["` + strings.Repeat("x", MaxRecordBytes) + `"]`}})
 	require.ErrorIs(t, err, ErrTooLarge)
-	got, err := applyContentPatch(base, selection, []enrichment.FieldChange{{Field: "selling_points", Value: `["原有事实","Supported fact"]`}})
+	got, err := applyContentPatch(base, selection, []reviewproposal.FieldChange{{Field: "selling_points", Value: `["原有事实","Supported fact"]`}})
 	require.NoError(t, err)
 	require.Equal(t, []string{"原有事实", "Supported fact"}, got.SellingPoints)
 }
 
 func TestContentPatchPreservesRichDescriptionUnlessExplicitlyReplaced(t *testing.T) {
 	base := catalog.ProductSnapshot{Title: "title", Description: "<p><strong>cotton</strong></p>", DescriptionFormat: "html-v1"}
-	selection, err := enrichment.NewContentSelection("en", []string{"title"})
+	selection, err := reviewproposal.NewContentSelection("en", []string{"title"})
 	require.NoError(t, err)
-	got, err := applyContentPatch(base, selection, []enrichment.FieldChange{{Field: "title", Value: "new title"}})
+	got, err := applyContentPatch(base, selection, []reviewproposal.FieldChange{{Field: "title", Value: "new title"}})
 	require.NoError(t, err)
 	require.Equal(t, base.Description, got.Description)
 	require.Equal(t, "html-v1", got.DescriptionFormat)
-	selection, err = enrichment.NewContentSelection("en", []string{"description"})
+	selection, err = reviewproposal.NewContentSelection("en", []string{"description"})
 	require.NoError(t, err)
-	got, err = applyContentPatch(base, selection, []enrichment.FieldChange{{Field: "description", Value: "<b>literal output</b>"}})
+	got, err = applyContentPatch(base, selection, []reviewproposal.FieldChange{{Field: "description", Value: "<b>literal output</b>"}})
 	require.NoError(t, err)
 	require.Empty(t, got.DescriptionFormat)
 	require.Equal(t, "<b>literal output</b>", got.Description)

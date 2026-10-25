@@ -1,4 +1,4 @@
-package enrichment
+package proposal
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"task-processor/internal/product/catalog"
 )
 
-func TestProposeIsolatesInputsGeneratorRequestAndCandidateOutput(t *testing.T) {
+func TestValidateCandidateIsolatesInputsAndCandidateOutput(t *testing.T) {
 	t.Parallel()
 
 	request := validRequest()
@@ -22,7 +22,7 @@ func TestProposeIsolatesInputsGeneratorRequestAndCandidateOutput(t *testing.T) {
 	request.Policy.RequiredFields = []string{"description"}
 	before, err := json.Marshal(request)
 	if err != nil {
-		t.Fatalf("marshal request before Propose: %v", err)
+		t.Fatalf("marshal request before ValidateCandidate: %v", err)
 	}
 
 	returned := Candidate{
@@ -34,31 +34,24 @@ func TestProposeIsolatesInputsGeneratorRequestAndCandidateOutput(t *testing.T) {
 			Metadata: map[string]string{"source": "raw-1"},
 		}},
 	}
-	generator := candidateGeneratorFunc(func(_ context.Context, generated GenerationRequest) (Candidate, error) {
-		generated.Snapshot.Attributes[0].Value = "plastic"
-		generated.Snapshot.Specifications.Technical["grade"] = "unknown"
-		generated.Source.RawReference.Metadata["etag"] = "generator-mutated"
-		generated.Source.RawReference.ReferenceType = "generator-mutated"
-		generated.Source.ProductCandidate.Attributes["finish"] = "gloss"
-		generated.Policy.AllowedFields[0] = "title"
-		generated.Policy.RequiredFields[0] = "title"
-		return returned, nil
-	})
-	proposer, err := NewProposer(Dependencies{Generator: generator})
+	isolated := cloneRequest(request)
+	isolated.Snapshot.Attributes[0].Value = "plastic"
+	isolated.Snapshot.Specifications.Technical["grade"] = "unknown"
+	isolated.Source.RawReference.Metadata["etag"] = "copy-mutated"
+	isolated.Source.RawReference.ReferenceType = "copy-mutated"
+	isolated.Source.ProductCandidate.Attributes["finish"] = "gloss"
+	isolated.Policy.AllowedFields[0] = "title"
+	isolated.Policy.RequiredFields[0] = "title"
+	proposal, err := ValidateCandidate(context.Background(), request, returned)
 	if err != nil {
-		t.Fatalf("NewProposer() error = %v", err)
-	}
-
-	proposal, err := proposer.Propose(context.Background(), request)
-	if err != nil {
-		t.Fatalf("Propose() error = %v", err)
+		t.Fatalf("ValidateCandidate() error = %v", err)
 	}
 	after, err := json.Marshal(request)
 	if err != nil {
-		t.Fatalf("marshal request after Propose: %v", err)
+		t.Fatalf("marshal request after ValidateCandidate: %v", err)
 	}
 	if !reflect.DeepEqual(after, before) {
-		t.Fatalf("Propose() mutated request\nbefore: %s\nafter:  %s", before, after)
+		t.Fatalf("ValidateCandidate() mutated request\nbefore: %s\nafter:  %s", before, after)
 	}
 	if got := proposal.Evidence[0].Metadata["etag"]; got != "source-v1" {
 		t.Fatalf("proposal evidence metadata = %q, want source-v1", got)

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"net/http"
 	"strings"
 	"testing"
 
@@ -21,11 +20,7 @@ func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {
 	if agent {
 		routes = append(routes, productAgentRoutes(nil)...)
 		routes = append(routes, registeredProductAgentRoutes(nil, true)...)
-		for _, route := range productReviewRoutes(nil, nil) {
-			if route.Method != http.MethodPost || route.Path != "/api/product/text-proposals" {
-				routes = append(routes, route)
-			}
-		}
+		routes = append(routes, productReviewRoutes(nil, nil)...)
 	}
 	if points {
 		routes = append(routes, (memberPointLimitModule{}).routes()...)

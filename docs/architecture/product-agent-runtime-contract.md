@@ -45,12 +45,12 @@ Must：真实调用上下文、fresh 授权、精确商品版本、有限执行/
 | [Commerce Tool](../../internal/commercetool/invocation_contracts.go) / [Registry](../../internal/commercetool/registry.go) | AgentDefinition、精确 ToolRef、allowlist、审计、trace、错误分类 | 真实 AgentRun/step 调用者与注入；不重建 Registry |
 | [canonicalinspect](../../internal/product/catalog/tools/canonicalinspect/definition.go)、[sourceevidenceinspect](../../internal/product/sourcing/tools/sourceevidenceinspect/definition.go)、[assetinspect](../../internal/product/asset/tools/assetinspect/definition.go)、[readinessinspect](../../internal/listing/readiness/tools/readinessinspect/definition.go) | 精确版本下事实、来源、安全素材投影与输入诊断；已有 fresh org 组合 | 没有生产 Agent 调用方；source-evidence 不返回原始文本/任意 URL；不能当模型已获得完整来源正文 |
 | [AI Capability](../../internal/aicapability/invocation.go) / [路由](../../internal/aicapability/routing.go) | 当前组织策略、路由、调用记录与 usage/cost unknown 语义 | 文本决策/提案调用尚无经本批确认的受治理执行入口；ImageAgent Review 证据不能代替文本链 |
-| [文本传输](../../internal/integration/openai/text_completion.go) | 当前 Manager 配置精确绑定、GRSAI/OpenAI-compatible SDK 单次调用、完整 usage 存在性、deadline/大小限制 | 内部传输接口，不是 GovernedModel；真实 token/cost 上界、额度/dispatch ledger 与 Agent 调用方仍须组合 |
+| [旧文本传输（历史）](https://github.com/qq550723504/shuomi-ai-commerce/blob/ac54a11fed2ffdb72b3a5e8e2bd5c3575500830b/internal/integration/openai/text_completion.go) | #953 已退休的内部传输证据；当前文本执行沿既有受治理 Executor/Eino owner | 历史接口不再是入口；真实 token/cost 上界、额度/dispatch ledger 与 Agent 调用方仍须组合 |
 | [Agent PostgreSQL Store](../../internal/integration/persistence/agent/store.go) | 同一行原子保存 run/control/checkpoint；唯一运行身份、revision CAS 和重启后禁止 Running 自动重放 | 显式空安装 schema 接口；HTTP/worker composition 尚未挂载，不能绕过 fresh 授权 |
-| [ProductEnrichmentAdapter](../../internal/integration/openai/product_enrichment_adapter.go) | 有界 prompt/严格候选 JSON，调用窄 TextInvoker | TextInvoker 仅返回字符串/错误，没有单次调用的账本引用、可信 usage/cost 与 dispatch 状态；不能直接充当 Agent 模型门禁 |
-| [Enrichment Proposer](../../internal/product/enrichment/proposer.go) | 当前 Candidate、字段/证据/策略校验；ValidateCandidate 可对现成候选纯校验，原 Propose 复用同一路径 | Agent 组合仍需读取授权后的 exact base/source 与冻结策略；不能用模型提供的快照、质量或历史报告代替 |
+| [旧 ProductEnrichmentAdapter（历史）](https://github.com/qq550723504/shuomi-ai-commerce/blob/ac54a11fed2ffdb72b3a5e8e2bd5c3575500830b/internal/integration/openai/product_enrichment_adapter.go) | #953 整链退休，不再注入 TextInvoker 或旧生成器 | 历史 TextInvoker 不能充当 Agent 模型门禁；当前 AI 执行保留原治理与账本边界 |
+| [Review Proposal](../../internal/product/review/proposal/candidate.go) | 当前 Candidate、字段/证据/策略纯校验；ValidateCandidate 仅校验现成候选，旧 Proposer 已退休 | Agent 组合仍需读取授权后的 exact base/source 与冻结策略；不能用模型提供的快照、质量或历史报告代替 |
 | [Readiness Executor](../../internal/listing/readiness/tools/readinessinspect/executor.go) | 已保存 Product 版本与 ApprovedAsset 的输入检查 | 不接收 proposed patch；不能用原版本 ready 证明补丁有效，且 marketplace rules 仍 not_evaluated |
-| [Product Review](../../internal/product/review/service.go)、[现有 UI](../engineering/product-title-review-ui.md) | 标题 pending/accept/edit/reject、精确版本、显式 Apply、原子 Catalog 发布/receipt；内部 CreateFromCandidate 可接收现成候选并按同一规则重验 | 当前 Agent 可选组合已接入该内部入口和原审核端点；关闭时不挂载。原 Create 仍服务现有固定生成流程 |
+| [Product Review](../../internal/product/review/service.go)、[现有 UI](../engineering/product-title-review-ui.md) | 标题 pending/accept/edit/reject、精确版本、显式 Apply、原子 Catalog 发布/receipt；内部 CreateFromCandidate 可接收现成候选并按同一规则重验 | 当前 Agent 可选组合已接入该内部入口和四个审核端点；关闭时不挂载。旧 Create/固定生成 POST 已退休 |
 | [采集入口](../engineering/src2b-public-acquisition.md) / [当前 ImageAgent 绑定](../../internal/app/httpapi/imageagent_acquisition_catalog.go) | 真实 acquisition operation 与 Catalog 发布回执绑定，可作为首个 UI 消费场景 | 新诊断操作必须读取授权后的已发布 operation，不接入旧 ListingTask 或伪造 BusinessTask |
 
 这些是接线前必须补齐的接口，不是为理论场景扩建通用平台的依据。
@@ -87,7 +87,7 @@ principal 或历史 CachedRead 集成证据不能证明 fresh grant，需验证 
 
 `internal/agent` 只拥有运行合同、预算/停止语义和结构化结果，不导入 provider SDK、
 GORM、marketplace client、retired Task/ListingKit owner。框架适配放在 Integration，
-应用只做组装。具体 Product 规则仍在 enrichment/readiness/review 内。
+应用只做组装。具体 Product 规则仍在 review/proposal、readiness、review 内。
 
 只开放以下接口职责；具体 Go DTO 在实现时依据本合同确定：
 
@@ -96,7 +96,7 @@ GORM、marketplace client、retired Task/ListingKit owner。框架适配放在 I
 | Run / Resume / Interrupt | Agent runtime + 一个框架适配 | 运行状态、step、剩余预算、stop reason；不拥有业务生命周期 |
 | 调用已绑定工具 | 既有 BoundToolSet / Invoker | 原 Result.Output、AIInvocationID、AuditStatus 与错误均保留 |
 | 有界模型决策/文本生成 | AI Capability 治理的 Integration adapter | 冻结的 invocation ID、配置/prompt 引用、已知/未知 usage/cost、dispatch outcome；Agent 不选 provider、不处理 key |
-| 校验候选 | Product enrichment 的纯校验 | 精确 base/policy/candidate hash、字段证据、拒绝/未解决项；不调模型、不写 Catalog |
+| 校验候选 | Review Proposal 的纯校验 | 精确 base/policy/candidate hash、字段证据、拒绝/未解决项；不调模型、不写 Catalog |
 | 接收审核提案 | Product Review owner | 幂等 pending proposal 引用；复用原 owner/事务/校验，不重跑生成、不直接 Apply |
 
 模型选择的工具名/参数只是建议。适配层在 Registry 前核对 run 的精确资源绑定、
@@ -109,7 +109,7 @@ allowlist 和剩余预算，Registry/领域入口仍执行各自 fresh 授权与
 
 返回 `RunID/context ref/base binding/agent version`、ProposedProductPatch、字段证据引用、
 字段 confidence、unresolved issues、校验报告、调用引用与 stop reason。
-confidence 必须标出来源/是否已知；不把 enrichment.Quality 或任意固定数值当模型置信度。
+confidence 必须标出来源/是否已知；不把 reviewproposal.Quality 或任意固定数值当模型置信度。
 结果默认 `HumanReviewRequired=true`，不提供 Agent 可设的 approved/applied/publish-ready。
 校验报告绑定 exact base + candidate hash + rule/policy version；candidate 修改使原校验失效。
 禁止 raw provider body、secret、任意外链、隐藏推理内容进入 trace/UI。
@@ -184,7 +184,7 @@ repair 是得到确定性拒绝后的新 step，不是重试丢失响应的同�
 
 确定性 Validator 接收 runtime 克隆的本 run History。当前标题策略只接受准确 canonical
 工具版本、CallID、成功审计、精确商品/版本/publication 的工具输出中实际披露的 raw evidence
-字段，并继续执行原 Review/enrichment 规则。证据门槛使用与模型相同的有界 prompt 投影；
+字段，并继续执行原 Review/Proposal 规则。证据门槛使用与模型相同的有界 prompt 投影；
 被省略字段、source identity、ProductKey、资产或 readiness 不能替代 raw evidence。读取结果
 和提交 Review 共用该门槛。暂停恢复保留相同 History；具体 flow payload 使用 Go 标准 JSON
 编解码，避免框架反射序列化破坏嵌套 RawMessage，仍由 Eino 保存 checkpoint、Store 执行原 CAS。
@@ -224,7 +224,7 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 1. 本合同及真实缺口做一次独立边界检查。只对新状态/恢复、身份和有费用调用边界审查。
 2. #131 在同一主要 PR 落最小合同/单框架适配，fake model/tool 验证完整循环与全部预算停止。
    此时不开放 HTTP、数据库初始化或真实 provider；恢复/幂等使用测试替身不能宣称持久化完成。
-3. #130/#134 的当前消费者增量：受治理文本调用；抽取 enrichment 纯校验；受控 propose 工具。
+3. #130/#134 的当前消费者增量：受治理文本调用；复用 review/proposal 纯校验；受控 propose 工具。
    在原 owner 内补齐，不把图像、平台工具全集作为标题首片的前置，也不撤销父 Issue 原目标。
 4. #132 接入既有采集结果页和 Product Review，补齐当前组织 runtime 组装与持久执行合同；
    只在现有准入、隔离验证和明确真实调用授权满足后开放。用户能看到入口和不确定项，
@@ -233,7 +233,7 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 | 缺口 | 责任 / 解除条件 | 阻塞层级 |
 | --- | --- | --- |
 | 文本模型治理、可观测预算与未知结果防重复 | #130 / AI Capability：当前文本调用有真实 adapter、前置边界、调用结果/用量与不重放证据 | 真实模型接线；不阻塞 #131 fake 合同实现 |
-| proposed patch 校验及窄 propose tool | #134 / enrichment：无模型副作用的相同规则校验与精确证据绑定 | 补全/repair 功能实现与该功能合并 |
+| proposed patch 校验及窄 propose tool | #134 / review/proposal：无模型副作用的相同规则校验与精确证据绑定 | 补全/repair 功能实现与该功能合并 |
 | Agent 结果进入既有审核 | #132 消费 #36 / review：幂等接收可信内部结果、fresh 授权、校验、原 UoW；未修改部分复用现有测试 | 人工审核闭环；不阻塞只读工具 |
 | 当前调用上下文与运行状态持久化 | #131/#132：真实 operation 绑定、run 唯一性、checkpoint revision、restart/unknown 证据 | HTTP/worker 开放；禁止假 task ID 或伪持久化 |
 | 同样本的 Agent/fixed 对照 | #132 消费 #47：复用已有核心样本，补必要标注与实际测量 | PoC 结论/下一阶段；不是只读工具已合入证据 |
@@ -260,7 +260,7 @@ TDD 使用现有测试工具，不另建 runner/人工验收 session 平台。
 用户或其指定验证者完成；作者不得因代码评审或 CI 绿色自行宣布可上线。
 
 Legacy decision: RETIRE（设计约束，不在本文件中删除代码）。
-Reusable behavior: 当前 Catalog/Source/Asset/enrichment/review 与 #133 的合格合同。
+Reusable behavior: 当前 Catalog/Source/Asset/review/proposal 与 #133 的合格合同。
 Current owner: 各原领域 owner；Agent 仅推理运行状态。
 Cutover/deletion condition: 新消费者从开始即不依赖旧 Task/tenantbridge；无双协议或旧数据迁移。
 
@@ -296,7 +296,7 @@ checkpoint 编解码参与执行。另有 §8.2 的真实 PostgreSQL 组合验�
 
 ### 8.1 当前领域消费者接口
 
-`enrichment.ValidateCandidate(ctx, authorizedRequest, candidate)` 复用原提案规则，
+`reviewproposal.ValidateCandidate(ctx, authorizedRequest, candidate)` 复用原提案规则，
 重新检查字段、来源证据与当前冻结策略，返回 Proposal/Validation；无 generator、写入或
 模型调用。原 `Propose` 也调用同一入口，避免建立第二份规则。
 
@@ -304,9 +304,9 @@ checkpoint 编解码参与执行。另有 §8.2 的真实 PostgreSQL 组合验�
 Product key/version、publication、`title-review-v1` 与候选。它重新读取当前授权范围内的
 Catalog/SRC-1 并纯校验，再使用既有 Review UoW 保存 pending。完整候选进入幂等
 fingerprint，同键不同候选冲突；来源绑定、policy 或 evidence 不符不写入。不接受上游
-valid 标记，不调用 Proposer，不自动 accept/Apply。HTTP 消费者见 §8.5。
+valid 标记，不调用旧生成器，不自动 accept/Apply。HTTP 消费者见 §8.5。
 
-必要的领域回归为 `go test -race ./internal/product/enrichment ./internal/product/review -count=1`。
+必要的领域回归为 `go test -race ./internal/product/review/proposal ./internal/product/review -count=1`。
 使用现有 `ISSUE382_TEST_DSN` 的隔离 PostgreSQL fixture，可以执行
 `go test -race ./internal/app/httpapi -run '^TestProductAgentReview|^TestProductReview' -count=1`。
 前者不证明真实数据库，后者须提供任务专用数据库且不得把缺 DSN 的 SKIP 报为 PASS。
@@ -406,7 +406,7 @@ GET/Resume/Review 从持久运行恢复原平台，不允许在续跑时覆盖�
 当前成员权限；浏览器和模型不能设置这些边界。
 
 Review 提交再次确定性校验，并返回既有 proposal ID。原 Review GET、人工 decision 和
-Apply 端点复用原 owner/权限；没有配置固定 generator 时不挂载原生成 POST。页面在
+Apply 端点复用原 owner/权限；仅挂载四个当前审核路由，旧生成 POST 已退休。页面在
 采集详情内显示建议、证据、置信度、未解决项和调用摘要，通过原人工审核页面继续。
 请求编号保留在 URL；刷新后明确读取原运行，未知结果不自动重新调用模型。
 

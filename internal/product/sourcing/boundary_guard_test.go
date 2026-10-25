@@ -39,6 +39,7 @@ func TestProductSourcingDependsOnlyOnNeutralProductFacts(t *testing.T) {
 		"task-processor/internal/model",
 		"task-processor/internal/product/asset",
 		"task-processor/internal/product/enrichment",
+		"task-processor/internal/product/review/proposal",
 		"task-processor/internal/product/image",
 		"task-processor/internal/productenrich",
 	}

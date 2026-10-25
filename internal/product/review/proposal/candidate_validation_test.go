@@ -1,4 +1,4 @@
-package enrichment
+package proposal
 
 import (
 	"context"
@@ -35,20 +35,16 @@ func TestValidateCandidateRechecksRepairedFieldsEvidenceAndPolicy(t *testing.T) 
 	}
 }
 
-func TestValidateCandidatePreservesCallerInputsAndMatchesProposer(t *testing.T) {
+func TestValidateCandidatePreservesCallerInputsAndCanonicalProposal(t *testing.T) {
 	request := validRequest()
 	candidate := Candidate{Changes: []FieldChange{{Field: "description", Value: "Steel bottle", EvidenceIDs: []string{"raw-1", "raw-1"}}}}
 	before := cloneCandidate(candidate)
-	p, err := NewProposer(Dependencies{Generator: candidateGeneratorFunc(func(context.Context, GenerationRequest) (Candidate, error) { return candidate, nil })})
-	if err != nil {
-		t.Fatal(err)
-	}
-	generated, err := p.Propose(context.Background(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
+	want := Proposal{Changes: []FieldChange{{Field: "description", Value: "Steel bottle", EvidenceIDs: []string{"raw-1"}}},
+		Evidence:   []Evidence{{ID: "raw-1", ReferenceID: "raw-1"}},
+		Quality:    QualityScore{Overall: 100, EvidenceCoverage: 100, RequiredFieldCoverage: 100},
+		Validation: ValidationResult{Valid: true, EvaluatedChanges: 1}}
 	validated, err := ValidateCandidate(context.Background(), request, candidate)
-	if err != nil || !reflect.DeepEqual(validated, generated) || !reflect.DeepEqual(before, candidate) {
+	if err != nil || !reflect.DeepEqual(validated, want) || !reflect.DeepEqual(before, candidate) {
 		t.Fatal("pure validation diverged or mutated caller-owned candidate", err)
 	}
 	validated.Changes[0].EvidenceIDs[0] = "changed"

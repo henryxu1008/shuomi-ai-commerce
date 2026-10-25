@@ -20,7 +20,7 @@ func WithIssue36Trial(db *gorm.DB) CurrentApplicationOption {
 }
 
 func trialRouteDescriptorsForAdmission() []httproute.Descriptor {
-	routes := productReviewOnlyRoutes(nil, nil)
+	routes := productReviewRoutes(nil, nil)
 	for i := range routes {
 		routes[i].RequestTimeout = review.Timeout + 2*time.Second
 	}

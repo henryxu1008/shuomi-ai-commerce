@@ -2,7 +2,7 @@ package review
 
 import (
 	"context"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 const MaxPageSize = 100
@@ -27,7 +27,7 @@ func (r PageRequest) Validate() error {
 }
 
 type CollectionItem struct {
-	ContentSelection enrichment.ContentSelection
+	ContentSelection reviewproposal.ContentSelection
 	ID               string
 	ProductKey       string
 	BaseVersion      uint64

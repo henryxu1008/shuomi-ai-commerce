@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -60,9 +60,9 @@ func candidateGateFixture(t *testing.T, content bool) (*Service, *candidateGateS
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: r.Org, EffectiveOrganizationID: r.Org, UserID: r.Owner, EffectiveMemberID: "member", Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)})
 	input := CandidateInput{ContentSelection: r.Content.Selection, Execution: r.Execution, Base: r.Input, PublicationID: r.BasePublicationID,
-		PolicyVersion: enrichment.ContentPolicyVersion, Candidate: enrichment.Candidate{Changes: r.Original.Changes}}
+		PolicyVersion: reviewproposal.ContentPolicyVersion, Candidate: reviewproposal.Candidate{Changes: r.Original.Changes}}
 	if !content {
-		input.ContentSelection, input.Execution.ContentSelection = enrichment.ContentSelection{}, enrichment.ContentSelection{}
+		input.ContentSelection, input.Execution.ContentSelection = reviewproposal.ContentSelection{}, reviewproposal.ContentSelection{}
 		input.PolicyVersion = "title-review-v1"
 		input.Candidate.Changes = input.Candidate.Changes[:1]
 	}
@@ -86,23 +86,23 @@ func TestAgentCandidateNewSaveRequiresCurrentExecutionAuthority(t *testing.T) {
 			want    error
 		}{
 			{"missing resolver", nil, ErrForbidden},
-			{"changed mode or configuration", func(context.Context, ExecutionProvenance, enrichment.Candidate, bool) (PolicyProvenance, error) {
+			{"changed mode or configuration", func(context.Context, ExecutionProvenance, reviewproposal.Candidate, bool) (PolicyProvenance, error) {
 				return PolicyProvenance{}, ErrConflict
 			}, ErrConflict},
-			{"revoked member", func(context.Context, ExecutionProvenance, enrichment.Candidate, bool) (PolicyProvenance, error) {
+			{"revoked member", func(context.Context, ExecutionProvenance, reviewproposal.Candidate, bool) (PolicyProvenance, error) {
 				return PolicyProvenance{}, ErrForbidden
 			}, ErrForbidden},
-			{"foreign proof", func(_ context.Context, e ExecutionProvenance, _ enrichment.Candidate, _ bool) (PolicyProvenance, error) {
+			{"foreign proof", func(_ context.Context, e ExecutionProvenance, _ reviewproposal.Candidate, _ bool) (PolicyProvenance, error) {
 				p := candidateGateProof(e, agent.ModeDefault)
 				p.Identity.OrganizationID = "foreign"
 				return p, nil
 			}, ErrForbidden},
-			{"wrong run", func(_ context.Context, e ExecutionProvenance, _ enrichment.Candidate, _ bool) (PolicyProvenance, error) {
+			{"wrong run", func(_ context.Context, e ExecutionProvenance, _ reviewproposal.Candidate, _ bool) (PolicyProvenance, error) {
 				p := candidateGateProof(e, agent.ModeDefault)
 				p.Execution.RequestKey = "other"
 				return p, nil
 			}, ErrForbidden},
-			{"unknown mode", func(_ context.Context, e ExecutionProvenance, _ enrichment.Candidate, _ bool) (PolicyProvenance, error) {
+			{"unknown mode", func(_ context.Context, e ExecutionProvenance, _ reviewproposal.Candidate, _ bool) (PolicyProvenance, error) {
 				return candidateGateProof(e, "unrecognized"), nil
 			}, ErrForbidden},
 		} {
@@ -123,7 +123,7 @@ func TestAgentCandidateEveryModeCanSaveSuggestionWithoutAdoptionProof(t *testing
 		t.Run(string(mode), func(t *testing.T) {
 			service, store, ctx, input := candidateGateFixture(t, true)
 			checks := 0
-			service.WithExecutionPolicy(func(_ context.Context, e ExecutionProvenance, c enrichment.Candidate, human bool) (PolicyProvenance, error) {
+			service.WithExecutionPolicy(func(_ context.Context, e ExecutionProvenance, c reviewproposal.Candidate, human bool) (PolicyProvenance, error) {
 				checks++
 				require.True(t, human, "saving a suggestion does not require native adoption/admin authority")
 				require.Equal(t, input.Candidate, c)
@@ -146,7 +146,7 @@ func TestAgentCandidateCommittedReplaySkipsNewEffectModeCheck(t *testing.T) {
 		service, store, ctx, input := candidateGateFixture(t, true)
 		committed := contentRecordFixture(t).View()
 		store.replay, store.preflight = &committed, preflight
-		service.WithExecutionPolicy(func(context.Context, ExecutionProvenance, enrichment.Candidate, bool) (PolicyProvenance, error) {
+		service.WithExecutionPolicy(func(context.Context, ExecutionProvenance, reviewproposal.Candidate, bool) (PolicyProvenance, error) {
 			t.Fatal("a committed receipt replay must not perform a new effect mode check")
 			return PolicyProvenance{}, ErrForbidden
 		})
