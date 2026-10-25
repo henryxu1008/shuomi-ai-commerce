@@ -100,6 +100,18 @@ Increment status: **IMPLEMENTATION_READY**。独立 Reviewer `1688_shadow_design
 
 **规格族单独设计，暂不实现**：已有partial_family/parentASIN/variants合同可作为候选；只读取绑定当前子ASIN的明确父子/维度映射，不以9×19笛卡尔积造规格，不复制当前价/库存/主图到其它ASIN，不把厂家零件号当SKU。继续原256集合/1024总项等限制，不截断冒称完整；旧JSON的171ASIN不是逐规格价格、库存、图片已齐证明。此方向尚无该增量的设计准入，不进入本轮生产修改；视频、榜单/评价、新类目或供应商owner、新UI同样在本轮范围外。
 
+### 2026-10-25：Amazon 当前报价的明确币种字段
+
+Design Basis: **Reuse Existing Architecture / Ready**（#916 当前正文已先于生产修改记录）。用户已确认只实现 Amazon 币种补齐、补回归并提交一个主要 PR；不合并、不更新运行实例或现有插件、不重采/保存、不部署，保留所有旧版本、配置、加载目录和插件身份。ProductAgent/Chat/服务端采集继续关闭。SKU 和 1688 币种/重量单位仍待真实证据，本轮不猜补。UI/路由不变，沿用本文产品/Figma authority；现有 `plugin-capture-ingestion-v1`、`plugin-capture-source-quotes-v1` 和 v2 合同完整覆盖，无新事实 owner、schema、权限、状态机、事务或恢复协议。
+
+来源实证：用户只读确认 B0BDLGZCTY 的唯一 `form#addToCart` 中，`items[0.base][customerVisiblePrice][currencyCode]` 为 `USD`、同组 `[amount]` 为 `39.98`、`items[0.base][asin]` 与 `ASIN` 均为 `B0BDLGZCTY`。工具仅核对四字段各唯一及原两个价格根的同 ASIN 声明，没有绕过隐藏值脱敏。工具投影未显示 HTML `value` 属性，不能据此断言原 DOM 属性为空；实际值由用户确认。实现读取精确节点的实时 value，测试覆盖属性与实时值分离；新夹具须明确为该只读投影重建，不冒充完整原 HTML。旧 v8 的币种已在进入保存前为空，原保存没有丢失；不得回填旧版本。
+
+当前 owner 仍为 Amazon 纯解析的 `amazonPrice`。三入口继续同一提取→严格 v2/hash→原交接/receiver→SRC/Catalog/Collection 与来源报价。只在已取得唯一当前金额、且合格当前价根明确声明本 ASIN 时，读取唯一合格 `addToCart` 内这组精确命名的 hidden 产品字段；同组 ASIN 必须匹配，额外 `ASIN` 若存在也必须唯一并一致。表单及字段不得来自推荐、其它商品、脚本/template/iframe 或隐藏/aria-hidden 祖先；仅字段自身的 `type=hidden` 是这条窄读取的预期形态。原通用 `excluded`、正文/参数/图片过滤不变，不做全表单读取，不读 session/token/account/offer 等其它输入，不操作 DOM、触发事件或提交表单。
+
+隐藏金额仅与既有可见当前金额作精确十进制等值比较（不经 Number，允许尾随小数零），不能提供、替换或修复金额；仍使用原金额字面量。明确三字母币种只加入原币种候选集合，与原 ISO meta/无歧义符号冲突时保持 currency=null 和原冲突提示。不按站点、裸 `$`、currencyOfPreference 或参考原价猜币种。字段缺失/空/格式不符、重复 form/input、ASIN/金额不一致时省略这项可选币种，保留已知金额和原缺失语义。候选集合、字段字节、节点和时间沿原预算；不截断或全页兜底。
+
+TDD 与交付：复现绑定的 USD/39.98、实时 value 与属性分离；覆盖错 ASIN/旧金额/重复/空值、其它商品与排除祖先、无可见当前价、参考价/单位价不混入、明确币种冲突、精度/预算及不读取无关输入。复用 Vitest/JSDOM、typecheck/lint、fixture-only 构建及既有 v2 映射/来源报价能力；最终一次独立交付复核，不新增 runner 或运行验收系统。Legacy decision: EXTRACT，仅复用当前解析/币种冲突与保存合同，不导入旧 CurrencyManager/默认币种 owner。真实更新/采集/保存验收 NOT_RUN。
+
 ## Legacy decision
 
 Legacy decision: EXTRACT。
