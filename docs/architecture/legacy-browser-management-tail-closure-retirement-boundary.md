@@ -101,7 +101,7 @@ Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。本轮用户只授权设�
 | --- | --- |
 | `internal/crawler/amazon/browser/instance_manager_test.go` | 退两个 GetInstanceInfo map 形状测试；将 TestValidateInstanceRequiresActiveContext 转为 TestBrowserInstanceWithoutContextCannotCreatePage，沿原合成 Manager 调已存在 NewPage，必须返回 nil page 和“浏览器上下文未初始化”错误；不启动 browser/driver。有效 context 拒绝转接当前 owner，非删掉安全断言 |
 | `internal/crawler/shared/browser/proxy_pool_test.go` | 只退 TestProxyPoolSnapshotIncludesCounters；原 round-robin/cooldown 与 health-aware 两测试的 fixture/断言完整保持 |
-| `internal/crawler/amazon/browser/browser_pool_rotation_test.go` | 只退 TestPoolStatsIncludesRebuildAndInitCounters 及孤立 core/config import；原三项轮换/错误释放测试及 mock/计数/归还池断言原样 |
+| `internal/crawler/amazon/browser/browser_pool_rotation_test.go` | 只退 TestPoolStatsIncludesRebuildAndInitCounters；core/config import 仍被三个保留测试的 Config/AmazonConfig/AmazonProxyPoolConfig 使用，完整保留；原三项轮换/错误释放测试及 mock/计数/归还池断言原样 |
 | `internal/crawler/amazon/processor_test.go` | 只退 TestAmazonProcessorPoolStatsIncludesInitError；当前单批 init error 传播、缺 manager 拒绝和 ensureReady 重试恢复断言完整保留 |
 | `internal/crawler/amazon/instance_processor_test.go` | 三测试仅删 metrics 构造/setter/快照及 metric-only switch/断言；重试恢复的产品/attempts=2/reloads=1、重试上限的 nil/错误/attempts=2、四 target-context case/US值/JP 禁调用和 fixture 原样 |
 | `tests/listingkit_backend_retirement_test.go` | 只新增一个本闭包 guard，复用既有 trackedFiles/AST/decoded import/失败关闭；所有原函数/helper/import和其它断言不变，§6.1 给准确边界 |
