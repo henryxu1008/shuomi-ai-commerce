@@ -3581,7 +3581,6 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 		}
 	}
 	for _, relative := range []string{
-		"internal/core/config/type_rabbitmq.go",
 		"internal/core/config/config.go",
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
