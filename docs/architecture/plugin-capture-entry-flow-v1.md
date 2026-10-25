@@ -1,9 +1,9 @@
 # Product capture entry and original-tab return
 
-> 2026-10-25 design-only increment: [Amazon optional family capture](plugin-capture-amazon-variants-v1.md)
-> (#955) proposes an explicit source-button scope and a bounded extension progress page.
-> Its independent admission and separate implementation authorization are required before changing
-> the selected-only/no-other-source-tab baseline below; unchecked capture, original save and return remain unchanged.
+> 2026-10-25 increment: [Amazon optional family capture](plugin-capture-amazon-variants-v1.md)
+> (#955, IMPLEMENTATION_READY) adds an explicit source-button scope and a bounded extension progress page.
+> The user authorized implementation in #957 after independent design admission; this supersedes only
+> the selected-only/no-other-source-tab baseline for that opt-in. Unchecked capture, original save and return remain unchanged.
 
 > 2026-10-24: [#927 session return](plugin-capture-session-return-v1.md) supersedes
 > this baseline's no-storage/worker-loss return restriction only. A trusted

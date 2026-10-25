@@ -100,7 +100,7 @@ it('waits for one session hydration before page, shortcut and popup can return',
   expect((await returning).ok).toBe(true); expect((await pageReturn).ok).toBe(true);
   await vi.waitFor(() => expect(api.tabs.update).toHaveBeenCalled());
   expect(api.tabs.update.mock.calls.every(([tab, options]) => tab === 42 && Object.keys(options).length === 1 && options.active)).toBe(true);
-  expect(api.tabs.create).toHaveBeenCalledOnce(); expect(storage.session.get).toHaveBeenCalledTimes(2);
+  expect(api.tabs.create).toHaveBeenCalledOnce(); expect(storage.session.get.mock.calls.filter(([key])=>key==='product-capture:return-location:v1')).toHaveLength(2);
 });
 
 it('does not create a receiver before the pending location write completes', async () => {

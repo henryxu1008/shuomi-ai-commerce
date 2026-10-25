@@ -53,6 +53,41 @@ func TestAmazonCaptureDoesNotGuessVariantRelationship(t *testing.T) {
 	}
 }
 
+func TestAmazonPartialFamilyKeepsAnchorAndEachChildFacts(t *testing.T) {
+	for _, currency := range []any{"USD", nil} {
+		var input map[string]any
+		_ = json.Unmarshal(amazonFixture(), &input)
+		e := input["evidence"].(map[string]any)
+		e["observation"] = map[string]any{"scope": "partial_family", "parentASIN": "B012345679"}
+		anchor := e["variants"].([]any)[0]
+		child := map[string]any{"sourceID": "B012345680", "sku": nil, "title": nil,
+			"attributes": []any{map[string]any{"name": "Color", "value": "Beige"}},
+			"price":      map[string]any{"amount": "44.98", "currency": currency},
+			"images":     []any{map[string]any{"url": "https://m.media-amazon.com/images/I/beige.jpg", "role": "main"}}}
+		e["variants"] = []any{anchor, child}
+		raw, _ := json.Marshal(input)
+		capture, err := ParseAmazonBrowserCapture(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		env, err := capture.Envelope("capture")
+		if err != nil {
+			t.Fatal(err)
+		}
+		variants := env.ProductCandidate.Variants
+		if env.Identity.SourceID != "us:B012345678" || len(variants) != 2 || variants[0].Price != 19.99 || variants[1].SourceID != "B012345680" || variants[1].SKU != "" || variants[1].Images[0].URL != "https://m.media-amazon.com/images/I/beige.jpg" {
+			t.Fatalf("mixed anchor or child facts: %+v", env)
+		}
+		if currency == nil {
+			if variants[1].Currency != "" || variants[1].Price != 0 || variants[1].Attributes["source.price.amount"] != "44.98" {
+				t.Fatalf("missing currency inherited anchor facts: %+v", variants[1])
+			}
+		} else if variants[1].Price != 44.98 || variants[1].Currency != "USD" {
+			t.Fatalf("lost independent child price: %+v", variants[1])
+		}
+	}
+}
+
 func TestAmazonCaptureRejectsFactsOutsideExistingCollectionReadBounds(t *testing.T) {
 	badWarnings := map[string]any{}
 	_ = json.Unmarshal(amazonFixture(), &badWarnings)

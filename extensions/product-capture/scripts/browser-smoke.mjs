@@ -48,6 +48,9 @@ const server = createServer((req, res) => {
 });
 await new Promise((done, reject) => { server.once('error',reject); server.listen(4399,'127.0.0.1',done); });
 let context;
+let familyMode=false,releaseChild;
+const childGate=new Promise(resolve=>{releaseChild=resolve;});
+let familyChildRequests=0;
 try {
   context = await chromium.launchPersistentContext(profile, {
     executablePath, headless:automated, ignoreDefaultArgs:['--disable-extensions'], viewport:null,
@@ -58,7 +61,11 @@ try {
     if (url.origin === 'https://detail.1688.com' && url.pathname === '/offer/981645030344.html') {
       await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,'tests/fixtures/product.html'),'utf8') });
     } else if (url.origin === 'https://www.amazon.com' && url.pathname === '/dp/B0BDLGZCTY') {
-      await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,'tests/fixtures/amazon-inline-product.html'),'utf8') });
+      await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,`tests/fixtures/${familyMode?'amazon-family-product':'amazon-inline-product'}.html`),'utf8') });
+    } else if (familyMode && url.origin==='https://www.amazon.com' && url.pathname==='/dp/B0CC1YM6SJ') {
+      familyChildRequests++;
+      await childGate;
+      await route.fulfill({contentType:'text/html; charset=utf-8',body:await readFile(resolve(root,'tests/fixtures/amazon-family-child.html'),'utf8')});
     } else if (url.origin === 'http://127.0.0.1:4399' || url.protocol === 'chrome-extension:') await route.continue();
     else await route.abort();
   });
@@ -195,14 +202,63 @@ try {
   await app.reload();
   await app.locator('#status').filter({hasText:'恢复模式：只有原key，无自动POST'}).waitFor();
   if(app.url()!==recoveryURL)throw Error('Reload changed recovery identity');
+  let familyResult=null;
+  if(automated){
+    familyMode=true;
+    await amazonSource.reload();
+    await amazonSource.getByRole('button',{name:'采集当前商品（新操作）',exact:true}).click();
+    await amazonSource.getByRole('checkbox',{name:'同时采集其他颜色／尺寸（本次按钮）',exact:true}).check();
+    const progressPromise=context.waitForEvent('page',{timeout:20000}).catch(async error=>{
+      const live=context.serviceWorkers().find(w=>w.url()===`chrome-extension://${id}/background.js`);
+      const native=await live.evaluate(async()=>{
+        const [tab]=await chrome.tabs.query({url:'https://www.amazon.com/dp/B0BDLGZCTY'});
+        return {tabId:tab.id,documents:await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>null}),stored:await chrome.storage.session.get(null)};
+      });
+      console.log(JSON.stringify({stage:'FAMILY_ENTRY_FAILURE',status:await amazonSource.locator('#shuomi-product-capture').evaluate(e=>e.shadowRoot.querySelector('[role="status"]').textContent),native}));
+      throw error;
+    });
+    await amazonSource.getByRole('button',{name:'确认采集当前商品',exact:true}).click();
+    const progress=await progressPromise;
+    await progress.waitForURL(`chrome-extension://${id}/popup.html#amazon-family=*`);
+    await progress.getByRole('status').filter({hasText:'1/2 项已观察'}).waitFor();
+    const activeWorker=context.serviceWorkers().find(w=>w.url()===`chrome-extension://${id}/background.js`);
+    const nativeBinding=await activeWorker.evaluate(async()=>({contexts:await chrome.runtime.getContexts({contextTypes:['TAB']}),stored:await chrome.storage.session.get(null)}));
+    const nav=Object.values(nativeBinding.stored).find(v=>v.sourceDocumentId);
+    if(!nav || nav.phase!=='bound' || !nativeBinding.contexts.some(c=>c.documentId===nav.documentId&&c.documentUrl===progress.url()))throw Error('Native family document/fragment was not bound');
+    if(/family-grey|39\.98|customerVisiblePrice|idempotencyKey/.test(JSON.stringify(nativeBinding.stored)))throw Error('Family facts leaked into session navigation');
+    const beforeRestart=context.pages().length;
+    const control=await context.newCDPSession(amazonSource);
+    await control.send('ServiceWorker.enable');await control.send('ServiceWorker.stopAllWorkers');await control.detach();
+    await amazonSource.getByRole('button',{name:'刷新状态',exact:true}).click();
+    await amazonSource.getByRole('button',{name:'查看采集进度',exact:true}).click();
+    await progress.waitForFunction(()=>document.visibilityState==='visible');
+    if(context.pages().length!==beforeRestart || familyChildRequests!==1)throw Error('Family worker recovery duplicated a page or source read');
+    const familyAppPromise=context.waitForEvent('page',{timeout:20000});
+    releaseChild();
+    const familyApp=await familyAppPromise;
+    await familyApp.waitForURL('http://127.0.0.1:4399/capture/amazon**');
+    await familyApp.locator('#status').filter({hasText:'FIXTURE_CAPTURE_RECEIVED'}).waitFor();
+    const familyCapture=await familyApp.evaluate(()=>window.fixtureReceived);
+    const evidence=familyCapture?.payload?.evidence;
+    if(evidence?.observation?.scope!=='partial_family'||evidence.observation.parentASIN!=='B0D76YXPWZ'||evidence.variants.length!==2)throw Error('Family aggregation missing');
+    if(evidence.variants[1].sourceID!=='B0CC1YM6SJ'||evidence.variants[1].price?.amount!=='44.98'||evidence.variants[1].price.currency!=='USD'||!evidence.variants[1].images[0].url.includes('family-beige')||evidence.variants[0].price?.amount!=='39.98')throw Error('Family child facts mixed');
+    if(amazonSource.url()!=='https://www.amazon.com/dp/B0BDLGZCTY'||familyChildRequests!==1)throw Error('Family changed anchor or reread child');
+    const afterHandoff=context.pages().length, familyURL=familyApp.url();
+    await progress.getByRole('button',{name:'返回应用核实',exact:true}).click();
+    await familyApp.waitForFunction(()=>document.visibilityState==='visible');
+    if(context.pages().length!==afterHandoff||familyApp.url()!==familyURL)throw Error('Family return did not preserve receiver');
+    await writeFile(resolve(artifacts,'amazon-family-capture.json'),JSON.stringify(familyCapture.payload,null,2));
+    familyResult={nativeDocumentBound:true,workerRebuildSameProgress:true,oneChildRead:true,oneReceiver:true,independentChildFacts:true,originalAnchorUnchanged:true,sameReceiverReturn:true};
+  }
   await writeFile(resolve(artifacts,'capture.json'),JSON.stringify(firstCapture.payload,null,2));
   const buildHashes={};
   for(const name of ['manifest.json','background.js','extractor.js','page.js','popup.js','popup.html','popup.css']) buildHashes[name]=createHash('sha256').update(await readFile(resolve(root,'dist-fixture',name))).digest('hex');
   await writeFile(resolve(artifacts,'receipt.json'),JSON.stringify({head,buildHashes,browserName,browserVersion:context.browser()?.version(),id,manifest,
     result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,initialCaptureAfterWorkerStop:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,recreatedReturns,reloadPreservedKey:true,
-    backendIntegration:'NOT_RUN',real1688:'NOT_RUN',realAmazon:'NOT_RUN'},null,2));
+    familyResult,backendIntegration:'NOT_RUN',real1688:'NOT_RUN',realAmazon:'NOT_RUN'},null,2));
   console.log(JSON.stringify({stage:'TRANSPORT_FIXTURE_PASS',artifacts}));
 } finally {
+  releaseChild();
   if(context)await context.close();
   await new Promise(done=>server.close(done));
 }

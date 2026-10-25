@@ -5,8 +5,9 @@ Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**
 独立Reviewer `1688_shadow_design_review` 已检查准确设计候选
 `c938459b0dae5546a3afccfd09e103d45b6665cc`，无设计BLOCKER；
 [评审及四组IMPLEMENTATION_TEST](https://github.com/qq550723504/shuomi-ai-commerce/issues/955#issuecomment-6398925548)
-保留为未来实现要求，未执行或冒充运行PASS。此后只收口准入标记，不改已审设计正文。
-本轮仅设计和评审；达到技术准入也不授权开发、合并、更新插件/实例、真实采集或部署。
+保留为本批次实现要求，设计评审不冒充运行PASS；已审技术设计保持不变。
+用户后续明确“继续推进”，授权在同一主要PR内实现、必要测试和提交维护；
+仍不授权合并、更新插件/实例、真实采集、业务写入或部署。当前执行阶段以#955正文为准。
 
 ## 1. 用户结果与依据
 
@@ -185,7 +186,7 @@ manifest仍为 `activeTab,scripting,storage`、原六个源host，CSP/connect-sr
 
 ## 8. 实现验证与交付停止点
 
-未来开发先TDD，沿原测试工具，不建runner/验收平台：
+实现按TDD执行，沿原测试工具，不建runner/验收平台：
 
 1. 当前源页真实形状fixture：同一初始化对象的父/当前/组合绑定；混入推荐或视频parent、缺关系、重复组合、
    错站/错ASIN、并不存在的颜色尺码组合被拒；171项真实清单的有限解析。
@@ -196,6 +197,8 @@ manifest仍为 `activeTab,scripting,storage`、原六个源host，CSP/connect-sr
 5. 复用原partial_family TS/Go与保存回归：一个产品版本、每子ASIN规格图/报价保留、原键/原标签恢复；
    不重复运行未改变的全局矩阵，不以fixture代替真实站点与用户验收。
 
-本轮只做文档引用/差异检查和独立架构评审；**代码、fixture执行、真实多变体采集、实例/插件更新、部署均NOT_RUN**。
-独立Reviewer先读Must/Out of Scope，findings按仓库分类，最多两轮；技术IMPLEMENTATION_READY之后仍等用户的新开发授权。
-一个主要Draft PR承载本设计，未来若授权实现继续同一PR，不拆机械设计/实现PR；不合并或关闭Issue。
+设计阶段只完成文档检查和独立架构评审，当时的代码及fixture为NOT_RUN。后续用户已授权实现，
+实现与必要隔离测试继续同一主要PR #957，执行证据绑定实际代码记录在PR；真实多变体采集、
+实例/原插件更新、业务保存和部署仍为NOT_RUN / NOT_AUTHORIZED，不以fixture冒充用户验收。
+最终独立Reviewer检查实际差异、完整用户路径和四组IMPLEMENTATION_TEST；修复只复核相关增量。
+不拆机械设计/实现PR；不合并或关闭Issue。
