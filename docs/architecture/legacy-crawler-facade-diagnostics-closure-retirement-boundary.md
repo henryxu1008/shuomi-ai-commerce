@@ -118,12 +118,12 @@ Current owner 始终是现有 newAlibaba1688PublicBrowserRuntimeConfig。把旧 
 | `internal/crawler/alibaba1688/captcha_slider.go` | 仅handleSliderCaptchaWithResult转发 | WithManualOption、原轨迹/随机/滑块/人工/等待/取消/重试算法与字段读取 |
 | `internal/crawler/alibaba1688/page_operator.go` | 仅PageOperator.NavigateToProduct转发 | NavigateToProductWithoutManualCaptcha、navigateToProduct/handleCaptcha及其allowManual能力、导航/等待/滚动/ctx规则 |
 | `internal/crawler/alibaba1688/product_checker.go` | IsProductAvailable/GetProductQualityScore | ValidateProduct、requiredFieldsError和全部真实规则/检查/辅助/返回值 |
-| `internal/crawler/amazon/extractor/text_validator.go` | IsAboutItemFeature/containsInvalidFeaturePatterns/containsFeatureKeywords三方法 | IsValidDescription/IsValidProductDescription及其全部验证helper、imports/实际描述规则 |
+| `internal/crawler/amazon/extractor/text_validator.go` | IsAboutItemFeature/containsInvalidFeaturePatterns/containsFeatureKeywords三方法及失去最后消费者的strings import | IsValidDescription/IsValidProductDescription及其全部有效验证helper、regexp import和实际描述规则原样 |
 | `internal/crawler/amazon/extractor/variations_extractor.go` | VariationsConfig/VariationsData两alias；GetDefaultVariationsConfig/NewVariationsExtractorWithConfig、GenerateCombinations/AttributesMatchGeneric/ValuesMatchGeneric/MapAttributeNames/InferAttributeType/BuildVariationsFromValues六方法；config/loggerDependency两字段及构造赋值 | VariationsExtractor/extractor字段、NewVariationsExtractor向child传同一logs、Extract和convertToVariationsValues/convertToAmazonVariations原行为/JSON装配 |
 | `internal/crawler/amazon/variations/extractor.go` | NewExtractorWithConfig、BuildVariationName/ExtractCurrentAttributes | 默认NewExtractor、真实ExtractFromPage/BuildVariations、其全部私有命名/价格等算法/组件/配置字段 |
 | `internal/crawler/amazon/variations/config.go` | 仅AttributeTypeMapping字段及GetDefaultConfig该默认map | 其它四字段/全部原默认值及GetDefaultConfig其它实现 |
 | `internal/crawler/amazon/variations/types.go` | 仅ProductDetail及Product接口 | VariationsData/VariationValue/Variation、完整字段/JSON原样 |
-| `internal/crawler/amazon/extractor/error_detector.go` | IsRetryableError/GetErrorMessage/isCriticalErrorLegacy | ErrorDetector/New/DetectErrorType/IsCriticalError、全部枚举/正则/当前优先级/imports |
+| `internal/crawler/amazon/extractor/error_detector.go` | IsRetryableError/GetErrorMessage/isCriticalErrorLegacy及失去最后消费者的strings import | ErrorDetector/New/DetectErrorType/IsCriticalError、全部枚举/正则/当前优先级、regexp/model imports原样 |
 | `internal/crawler/amazon/fetch_error.go` | newInvalidRequestError/newCrawlInProgressError/newSystemBusyError | 全部常量/现役分类器/类型/返回合同、newTypedFetchError/newProcessorUnavailableError和其它实现 |
 | `internal/crawler/amazon/browser/proxy_pool.go` | 仅logProxyFallback | 真正pool构造、分配/冷却日志、评分/选择/冷却/重试状态原样 |
 | `internal/crawler/amazon/browser/regional_prompt.go` | 仅ContainsRegionalPromptText | regionalPromptTextSelectors/ActionSelectors、normalizedAmazonHost、looksLikeRegionalPrompt/handleRegionalPromptPopup和DOM/JS/等待原样 |
