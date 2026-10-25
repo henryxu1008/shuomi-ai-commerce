@@ -100,6 +100,18 @@ Increment status: **IMPLEMENTATION_READY**。独立 Reviewer `1688_shadow_design
 
 **规格族单独设计，暂不实现**：已有partial_family/parentASIN/variants合同可作为候选；只读取绑定当前子ASIN的明确父子/维度映射，不以9×19笛卡尔积造规格，不复制当前价/库存/主图到其它ASIN，不把厂家零件号当SKU。继续原256集合/1024总项等限制，不截断冒称完整；旧JSON的171ASIN不是逐规格价格、库存、图片已齐证明。此方向尚无该增量的设计准入，不进入本轮生产修改；视频、榜单/评价、新类目或供应商owner、新UI同样在本轮范围外。
 
+### 2026-10-25：Amazon 当前报价的明确币种字段
+
+Design Basis: **Reuse Existing Architecture / Ready**（#916 当前正文已先于生产修改记录）。用户已确认只实现 Amazon 币种补齐、补回归并提交一个主要 PR；不合并、不更新运行实例或现有插件、不重采/保存、不部署，保留所有旧版本、配置、加载目录和插件身份。ProductAgent/Chat/服务端采集继续关闭。SKU 和 1688 币种/重量单位仍待真实证据，本轮不猜补。UI/路由不变，沿用本文产品/Figma authority；现有 `plugin-capture-ingestion-v1`、`plugin-capture-source-quotes-v1` 和 v2 合同完整覆盖，无新事实 owner、schema、权限、状态机、事务或恢复协议。
+
+来源实证：用户只读确认 B0BDLGZCTY 的唯一 `form#addToCart` 中，`items[0.base][customerVisiblePrice][currencyCode]` 为 `USD`、同组 `[amount]` 为 `39.98`、`items[0.base][asin]` 与 `ASIN` 均为 `B0BDLGZCTY`。工具仅核对四字段各唯一及原两个价格根的同 ASIN 声明，没有绕过隐藏值脱敏。工具投影未显示 HTML `value` 属性，不能据此断言原 DOM 属性为空；实际值由用户确认。实现读取精确节点的实时 value，测试覆盖属性与实时值分离；新夹具须明确为该只读投影重建，不冒充完整原 HTML。旧 v8 的币种已在进入保存前为空，原保存没有丢失；不得回填旧版本。
+
+当前 owner 仍为 Amazon 纯解析的 `amazonPrice`。三入口继续同一提取→严格 v2/hash→原交接/receiver→SRC/Catalog/Collection 与来源报价。只在已取得唯一当前金额、且合格当前价根明确声明本 ASIN 时，读取唯一合格 `addToCart` 内这组精确命名的 hidden 产品字段；同组 ASIN 必须匹配，额外 `ASIN` 若存在也必须唯一并一致。表单及字段不得来自推荐、其它商品、脚本/template/iframe 或隐藏/aria-hidden 祖先；仅字段自身的 `type=hidden` 是这条窄读取的预期形态。原通用 `excluded`、正文/参数/图片过滤不变，不做全表单读取，不读 session/token/account/offer 等其它输入，不操作 DOM、触发事件或提交表单。
+
+隐藏金额仅与既有可见当前金额作精确十进制等值比较（不经 Number，允许尾随小数零），不能提供、替换或修复金额；仍使用原金额字面量。明确三字母币种只加入原币种候选集合，与原 ISO meta/无歧义符号冲突时保持 currency=null 和原冲突提示。不按站点、裸 `$`、currencyOfPreference 或参考原价猜币种。字段缺失/空/格式不符、重复 form/input、ASIN/金额不一致时省略这项可选币种，保留已知金额和原缺失语义。候选集合、字段字节、节点和时间沿原预算；不截断或全页兜底。
+
+TDD 与交付：复现绑定的 USD/39.98、实时 value 与属性分离；覆盖错 ASIN/旧金额/重复/空值、其它商品与排除祖先、无可见当前价、参考价/单位价不混入、明确币种冲突、精度/预算及不读取无关输入。复用 Vitest/JSDOM、typecheck/lint、fixture-only 构建及既有 v2 映射/来源报价能力；最终一次独立交付复核，不新增 runner 或运行验收系统。Legacy decision: EXTRACT，仅复用当前解析/币种冲突与保存合同，不导入旧 CurrencyManager/默认币种 owner。真实更新/采集/保存验收 NOT_RUN。
+
 ## Legacy decision
 
 Legacy decision: EXTRACT。
@@ -112,3 +124,32 @@ Cutover/deletion condition: 插件纯解析回归及原 v2 映射验证后使用
 TDD 先 RED：双平台原 v2 输出的高清映射、字段顺序变化和 JSON 字符串包装；当前商品绑定、冲突/视频/推荐排除、主图去重/规格归属；新增参数与 A+ 去重/安全正文；详情图与原始重量精度、单位未知、资源边界。再最小实现 GREEN。复用现有 Vitest/JSDOM、typecheck/lint、插件打包和原保存映射测试；不新建 runner/验收平台，不连接保留数据库/浏览器/实例或下载图片。
 
 稳定候选同步一次真实 main，集中最终独立复核实际 diff 和有效证据，准确 HEAD 必需 CI 留在同一主要 PR。真实高清资源可用性/像素、两商品重采保存、运行更新与用户验收均 NOT_RUN。Issue 保持 OPEN，不合并、不部署。
+
+## 1688 计价单位、商家名称、发货地及规格可订数量增量
+
+Design Basis: **Reuse Existing Architecture**。本增量由用户于 2026-10-25 明确批准，执行 Issue #916：先独立设计评审，再开发、测试和提交一个主要 PR。目标是经营者在原插件确认及已保存商品资料中查看这四项来源信息；不增加 UI、路由、供应商 owner 或库存合同。Product/Figma Authority 沿用本文及原 ingestion/source-quotes/listing-fields 设计；三个入口继续共用 `captureDocument`。该增量单独于 Amazon 币种 PR #949，历史交付和原运行实例不变。
+
+用户自行运行旧导出入口产生 `1688_product_917086279832_20261025_182717.json`，与插件 v4 的冻结 Envelope/Catalog snapshot 离线对照：计价单位为“件”，有公司名称、发货地及 35 个规格的可订数量；插件当前未读这四项。已有 6 个属性、46 个图片 URL/role 及 35 个规格的金额/图片关联保存前后一致，缺口不在保存链。两次采集时间不同，只借鉴有效字段规则，不把旧导出数量回填旧版本。旧端固定 CNY、生成 SCRAPED 编码、将未知单位重量标克等行为不得抽取。
+
+| 同一已核实 offer 的明确来源 | 现有 v2 保存位置 | 显示名称与边界 |
+| --- | --- | --- |
+| `result.data.productTitle.fields.unit` | 商品 `attributes` | `来源计价单位`；“件”只作计价/计数单位，不是重量单位 |
+| `result.data.productTitle.fields.shopInfo.companyName`；缺失/空时仅取同一 shopInfo 的 `authCompanyName` | 商品 `attributes` | `来源供应商名称`；公司显示名称优先，不读取 sellerLoginId/账号、联系人或新建 Supplier |
+| `result.data.shippingServices.fields.location` | 商品 `attributes` | `来源发货地`；只取明确位置，不抓整页地址或推断经营地址 |
+| 当前 `skuModel.skuInfoMap` 每项的 `canBookCount` | 商品 `attributes`，每个明确原 sourceID 一项 | `来源可订数量（规格ID <原sourceID>）`；绑定同项 `skuId`，不写规格维度或 Catalog `Stock`，不复制到其它规格、不从总量分摊 |
+
+当前 owner 是 `extensions/product-capture/src/extractor.ts` 的 1688 纯解析；只读取已有静态 AST/JSONC 树的精确字段，不执行脚本、读 globals、发网络请求或采集登录资料。已存在的 offerId 校验先于读取；无关组件、其它商品、推荐节点、顶层同名字段均不能作来源。
+
+商品文本为可选字符串，空白/缺失/null/非法类型不生成属性或默认值，其余按现有 `putFact` 规范化。商家名称只按表中明确的优先级选择，不能合并两个名称或用货号/品牌/登录名代替。数量只接受非负十进制整数字面量（包含明确 `0`）；数字节点从原文本切片读取，字符串规范化首尾空白后验证，保留精度、不经 `Number`/`parseInt`，不接受负数、小数、指数、单位词、布尔或对象。不把缺失/空/非法数量转成零；可选值不可用时仍保留该规格原有 ID、维度、报价和图片。
+
+评审核实当前 TS/Go v2 都以完整 `variants[].attributes` 判重复组合。可订数量是来源观察值，不能成为维度、帮助重复维度通过准入，或使 sourceID-only 规格因数量相同而被误判重复。因此数量按上表放到商品来源参数，`variants[].attributes` 完全保留原维度读取，不修改公共组合语义、不新增前后两套准入。只有同一 `skuInfoMap` 项的明确非空 `skuId` 可作为关联；缺 ID 不用下标、名称或笛卡尔积造关联，省略该数量并留下原 missingFacts/warnings 形态的诊断。原仅有 sourceID、无维度的合法规格仍可保留数量；数量值变化不改变规格维度或准入结果。当前 UI 仅在已有参数列表按原规格 ID 显示，不承诺新增规格库存列。
+
+所有新增来源属性复用 `putFact` 的同名去重和冲突省略规则，冲突沿原 `attributes` 诊断，不覆盖已有属性；数量标签包含对应原规格 ID，不影响其它规格数量。无新增字段时原 payload/golden 和维度读取不变。新增值计入原 v2 的单值 8192 UTF-8 字节、每集合 256、总项 1024、2 MiB 及原 65536 节点/深度 32/8 秒预算；不得截断绕限或扩大限制。256 个规格并不保证还有容量保存 256 个额外商品参数：若新增信息触及现有上限则按原规则拒绝，不截断冒称齐全。
+
+调用路径保持 contract → `captureDocument` → 原 `validateCapture`/canonical hash → 页内按钮、快捷键和弹窗共享交接 → 原 receiver → SRC/Catalog/Collection 同一 Product UoW → 原属性展示及原键/原标签恢复。商品/规格 attributes 原本即为来源事实；不新增 wire/schema/parserVersion/数据库或第二事实 owner，不改变来源报价、价格、SKU、权限/租户、幂等/UNKNOWN/retry、事务、浏览器存储或恢复协议。尤其规格可订数量只作带来源标签的参数，不是自有可用库存，不做库存写入/同步。
+
+Must：四项有证据且未触及原预算则读取并绑定正确层级；可订零值及大整数字面量不丢失；不可用可选值不影响已知资料；冲突不覆盖；原报价/规格图片/保存恢复保持；币种、真实商家 SKU、重量单位继续未知即缺失。Out of Scope：销量/评价/视频、供应商管理、物流承诺、其它平台改造、旧版本回填、实例或现有插件更新、真实重采/保存、部署及服务端采集。当前来源值为不可信页面资料，沿原纯文本展示和保存校验；不扩大现有 Threat Model 或另建治理/验收工具。
+
+验证先 TDD RED：按已证实字段重建有明确标记的 fixture（不是完整原页 DOM），逐规格不同数量、显式零/大整数、字段缺失/空/非法类型/整数格式、其它块/其它商品隔离、同名冲突及既有预算；再最小实现。复用 Vitest/JSDOM、原严格 v2/hash 与 Go 纯映射/ToSnapshot 测试，证明四项来源属性保留且 `Stock` 不变；原 Amazon/1688 sibling、typecheck/lint/fixture-only build 按风险检查。无新依赖、runner、真实浏览器/数据库/容器测试；最终稳定候选一次独立完整交付复核，准确 HEAD CI 和证据留主要 PR。
+
+Legacy decision: EXTRACT。Reusable behavior: 上表四个已存在的明确提取路径。Current owner: 当前插件纯解析及既有 Product/SRC/Catalog/Collection 保存 owner。Cutover/deletion condition: 纯解析和原映射验证后使用新提取；不导入旧 Go crawler/DTO/Service，不修改另一退休会话的代码。真实运行和用户验收 NOT_RUN，现有数据、配置、加载目录和插件身份保留；ProductAgent、Chat 和服务端采集不启动。

@@ -177,6 +177,14 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     if (numeric && node.type === 'number') return normalized.slice(node.offset, node.offset + node.length);
     return fail('UNSUPPORTED_PAGE');
   }
+  // New optional source facts must not loosen the required model/title guards.
+  function optionalPath(node: Node | undefined, ...keys: string[]): Node | undefined {
+    for (const key of keys) {
+      node = node?.type === 'object' ? node.children?.find(p => p.children?.[0].value === key)?.children?.[1] : undefined;
+    }
+    return node;
+  }
+  const sourceText = (node: Node | undefined): string | null => node?.type === 'string' ? node.value as string : null;
   function array(node: Node | undefined): Node[] {
     if (!node) return [];
     if (node.type !== 'array' || (node.children?.length ?? 0) > 256) fail('UNSUPPORTED_PAGE');
@@ -204,6 +212,15 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   if (detail.reason) missing('images.detail', detail.reason);
   const parameters = detail.root ? tableFacts(detail.root, 'tr', materialCharge, excludedDetail) : [];
   for (const item of [...e.attributes, ...parameters]) putFact(attributeFacts,attributeConflicts,item.name,item.value);
+  const company = sourceText(optionalPath(data, 'productTitle', 'fields', 'shopInfo', 'companyName'))?.trim()
+    || sourceText(optionalPath(data, 'productTitle', 'fields', 'shopInfo', 'authCompanyName'));
+  for (const [name, value] of [
+    ['来源计价单位', sourceText(optionalPath(data, 'productTitle', 'fields', 'unit'))],
+    ['来源供应商名称', company],
+    ['来源发货地', sourceText(optionalPath(data, 'shippingServices', 'fields', 'location'))],
+  ]) {
+    if (value) { materialCharge(); putFact(attributeFacts, attributeConflicts, name, value); }
+  }
   let unknownWeightUnit = false;
   for (const [component, label] of [['productPackInfo','来源包装重量'],['shippingServices','来源物流重量']]) {
     const weight = string(path(data, component, 'fields', 'unitWeight'), true);
@@ -278,6 +295,17 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   for (const pair of info?.children ?? []) {
     const key = pair.children![0].value as string; const item = pair.children![1];
     const id = string(path(item, 'skuId'), true);
+    const quantityNode = optionalPath(item, 'canBookCount');
+    const quantity = quantityNode?.type === 'number'
+      ? normalized.slice(quantityNode.offset, quantityNode.offset + quantityNode.length)
+      : sourceText(quantityNode)?.trim();
+    if (quantity !== undefined && quantity !== null && /^(0|[1-9][0-9]*)$/.test(quantity)) {
+      if (id?.trim()) {
+        materialCharge();
+        // Availability is source metadata, never a dimension or owned stock.
+        putFact(attributeFacts, attributeConflicts, `来源可订数量（规格ID ${id}）`, quantity);
+      } else missing(`variants[${e.variants.length}].canBookCount`, 'source variant identifier absent; quantity association not established');
+    }
     // skuId identifies the provider variant; it does not establish a seller SKU.
     missing(`variants[${e.variants.length}].sku`);
     const values = key.split('&gt;');
@@ -293,6 +321,10 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     e.variants.push({ sourceID: id, sku: null, title: null,
       attributes: props.map((name, i) => ({ name, value: values[i] })), price: price(item, `variants[${e.variants.length}].price`), images });
     if (!images.length) missing(`variants[${e.variants.length - 1}].images`);
+  }
+  e.attributes = [...attributeFacts.values()];
+  if (attributeConflicts.size && !e.missingFacts.some(fact => fact.field === 'attributes')) {
+    missing('attributes', 'conflicting product attribute values were omitted');
   }
   // Only explicitly identified, already rendered description text. Never frames
   // or external detailUrl fetches, and never whole-body text/HTML.
