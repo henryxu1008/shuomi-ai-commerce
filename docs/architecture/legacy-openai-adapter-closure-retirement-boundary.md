@@ -9,7 +9,7 @@
 
 给维护当前 AI、图像与商品路径的开发者，移除已经退出生产装配的第二套文本调用面和便利入口，保留正在使用的事实 owner、有效规则和安全边界。死入口不被包装成正在阻塞用户操作的故障，也不成为内部试用的新前置。
 
-一句话范围：**旧文本传输 + 未装配整商品富化适配器 + 旧客户端/身份便利入口，一次收齐专属类型、默认选择、调用、测试与文档尾部**，不机械拆批。预计同一 **28 工件**：7 生产、11 测试、1 原聚合、6 旧依据和3当前文档；拟 RETIRE **35 生产函数、13 类型、2 混合字段**。没有新增生产 EXTRACT：仍有效的能力已由现役 owner 承接，不复制旧 prompt、64 KiB 富化预算或旧 HTTP seam。
+一句话范围：**旧文本传输 + 未装配整商品富化适配器 + 旧客户端/身份便利入口，一次收齐专属类型、默认选择、调用、测试与文档尾部**，不机械拆批。预计同一 **29 工件**：7 生产、12 测试、1 原聚合、6 旧依据和3当前文档；拟 RETIRE **35 生产函数、13 类型、2 混合字段**。没有新增生产 EXTRACT：仍有效的能力已由现役 owner 承接，不复制旧 prompt、64 KiB 富化预算或旧 HTTP seam。
 
 设计采用 Independent Architecture：需要明确退休旧 provider 调用合同与公开内部 ManagerConfig 默认选择面，校准前批 KEEP，同时证明当前组织凭据/精确路由/发送后 UNKNOWN 与共享图像合同不被改变。不是以文件数拆批或要求重做全局架构。
 
@@ -64,7 +64,7 @@ Manager 的 `clients/dynamicClients/configResolver/logger/mu`、ManagerConfig �
 
 当前原测试 `TestExecutorFinalGateRechecksDeadlineAfterSlowAuthorization`、`TestExecutorPreservesUnknownClaimInsteadOfInventingNoDispatch`、`TestPinnedComponentsCannotRetryOrRedirectAfterHandoff`、`TestOrganizationRouteNeverBorrowsMemberCredential` 等在原 owner 原样保持。无新增 Threat Model/Accepted Risk，无额外真实provider探针或试用门禁。
 
-## 5. 完整删除 / 保留矩阵（28 工件，同一主要 PR）
+## 5. 完整删除 / 保留矩阵（29 工件，同一主要 PR）
 
 Legacy decision: **RETIRE**。Reusable behavior: 由既有当前owner承接的有效文本/图像/凭据/候选行为原样复用。Current owner: §3–§4。Cutover/deletion condition: 适用独立设计复核+用户确认+IMPLEMENTATION_READY读回后，完整实施与§6/§7交付；不新增EXTRACT/helper/兼容层。
 
@@ -80,7 +80,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 由既有当前owner承接的�
 | `internal/integration/openai/identity.go` | 仅WithTenantID/WithUserID | Identity两字段、WithIdentity/IdentityFromContext、strings/context/aiidentity imports原样 |
 | `internal/app/worker/imageagent/dependencies.go` | 仅buildImageAgentWorkerAI内ManagerConfig literal删除 `DefaultClient: "default"` 一项 | Clients/Logger原表达式、NewManager错误处理、resolver注入、worker全部其余字节 |
 
-### 5.2 十一个测试工件
+### 5.2 十二个测试工件
 
 | 工件 | 精确转换或退出 |
 | --- | --- |
@@ -91,12 +91,13 @@ Legacy decision: **RETIRE**。Reusable behavior: 由既有当前owner承接的�
 | `internal/integration/openai/effective_configuration_test.go` | 五函数各去一个DefaultClient赋值；两WithTenantID改同一WithIdentity。版本hash不含secret、配置漂移/空版本拒绝、DB override/真正不可用、原fixture/错误/调用次数全部保持 |
 | `internal/integration/openai/credential_store_test.go` | TestGormCredentialResolverPrefersUserThenTenantConfig两处、TestOrganizationOnlyCredentialResolverNeverUsesMemberOrGlobalCredential一处WithTenantID改同一WithIdentity；DB fixture/tenant-user优先级/组织only拒绝成员与全局、其它断言逐字保持 |
 | `internal/integration/openai/logger_test.go` | 仅TestManagerPropagatesLoggerToResolverCreatedDynamicClient的一WithTenantID改同一WithIdentity，日志隔离/不变输入/原断言全保留 |
+| `internal/app/runtime/currentapplication/title_credential_provision_test.go` | 仅TestTitleCredentialProvisionWritesOnlyTheAdmittedOrganizationRow中 `openai.WithTenantID(context.Background(), "org")` 改为 `openai.WithIdentity(context.Background(), openai.Identity{TenantID: "org"})`；原fixture、admitted组织写入范围、禁用后不借成员凭据/全局回退及所有其它断言逐字保持 |
 | `internal/app/worker/imageagent/capabilities_test.go` | TestBuildProductionImageCapabilitiesQuotesCurrentRouteAndRejectsStaleAuthorization、TestProductionSourceEditDoesNotResolveReviewRoute各只去一DefaultClient赋值 |
 | `internal/app/worker/imageagent/organization_main_temporal_postgres_test.go` | TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatch只去一DefaultClient赋值，全部真实Temporal/PG安全断言原样 |
 | `tests/imageagent_review_invocation_integration_test.go` | helper review334Manager只去一DefaultClient赋值，全部审核/计量/发送/重复/UNKNOWN原断言不动 |
 | `tests/imageagent_organization_integration_test.go` | TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver、scope339Fixture.verifyActivity各只去一DefaultClient赋值，全部身份/组织/持久化隔离断言不动 |
 
-八混合测试合计：**12个DefaultClient赋值、9个WithTenantID改接**；连同唯一生产赋值共13个默认选择写入退出。不是全局删除http.DefaultClient或其它包同名函数，不新增测试helper或公共运行seam。
+九混合测试合计：**12个DefaultClient赋值、10个WithTenantID改接**；连同唯一生产赋值共13个默认选择写入退出。不是全局删除http.DefaultClient或其它包同名函数，不新增测试helper或公共运行seam。
 
 ### 5.3 原聚合与九文档
 
@@ -117,7 +118,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 由既有当前owner承接的�
 
 ## 6. 验证、验收与原门禁
 
-**当前设计阶段**仅三文档：核对§1–§7/§6.1、35函数/13类型/2字段、28工件、消费者/前批KEEP、路径链接、原README/register完整blob后缀、diff --check及原文档/consumer检查。作者不跑业务测试/构造器/编译应用；未改原workflow的准确设计HEAD CI另列，不等于真实环境或用户验收。
+**当前设计阶段**仅三文档：核对§1–§7/§6.1、35函数/13类型/2字段、29工件、消费者/前批KEEP、路径链接、原README/register完整blob后缀、diff --check及原文档/consumer检查。作者不跑业务测试/构造器/编译应用；未改原workflow的准确设计HEAD CI另列，不等于真实环境或用户验收。
 
 未来用户确认和准入读回后：同一Writer/分支/PR形成原新增guard的真实RED→整批RETIRE与原测试改接→GREEN，运行与变更风险直接相关的原测试/导入/文档检查及原PR CI；不新增runner/故障矩阵/验证工具的验证工具。
 
@@ -134,7 +135,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 由既有当前owner承接的�
 ### 6.1 原检查与测试精确边界
 
 1. 原聚合只新增 **TestLegacyOpenAIAdapterClosureIsRetired** 一个函数，复用现有trackedFiles、AST/decoded import、失败关闭；原imports/helpers/其它函数完全不变。按精确包/receiver禁止35函数、13类型、2字段、DefaultClient literal/旧chat代理构造及专属引用；保护实际ManagerConfig.Logger/json:"-"、named client/logger/route/version/cache、contextualImageClient、当前AI/组织only/UNKNOWN/图像/审核/source edit及采集/SHEIN/Store。不得全局按Manager/Client/Generate/DefaultClient/WithTenantID等通用名字误杀。
-2. 原11测试文件只准§5.2列出的整退/函数退役、12默认赋值删除、9身份改接以及一个原tenant路由测试改接当前精确route API。原callChat/newCaptureChatServer等helper全保留，不新建测试接口；其它fixtures/断言/函数/import不变，只有实际失去用途的专属import可退出。
+2. 原12测试文件只准§5.2列出的整退/函数退役、12默认赋值删除、10身份改接以及一个原tenant路由测试改接当前精确route API。原callChat/newCaptureChatServer等helper全保留，不新建测试接口；其它fixtures/断言/函数/import不变，只有实际失去用途的专属import可退出。
 3. **完整inventory零改**：包和全部当前外部消费者仍有生产入口，现役worker/core-config/AI clients等incoming import保持，不需CURRENT校准。历史/计数/ceilings/检查逻辑、Code Health与其它原检查零改。
 4. 六旧文档中运行合同只准两行准确校正；其它五旧文档和三当前文档按§5.3前置/完整blob后缀处理。历史数字/旧勾选不改；#301只更新当前段，既定#726 marker后完整历史逐字保持且正文≤65536字符。
 5. 若原CI暴露遗漏，先查同根sibling与当前Must，提供具体冲突/精确最小补丁，再请用户准确例外；不能把本设计当任意删旧检查/安全断言、放宽算法、改workflow/inventory或扩范围的授权。
@@ -142,7 +143,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 由既有当前owner承接的�
 ## 7. 评审、确认与停止点
 
 1. 设计阶段先完成三文档、必要自检、准确设计HEAD原CI和适用独立Architecture Review；复核需亲读真实消费者/当前owner/§4持久化与默认选择、§5闭包/§6.1，不只采信作者。当前正式源码NOT_READY。
-2. 无未解决BLOCKER、适用设计复核与用户确认§1–§7（含§6.1）后，Issue/PR记录并读回IMPLEMENTATION_READY / Ready，再同一PR整批实施28工件。最多两轮正常架构复核；finding先按AGENTS分类，明确当前Must/具体后果/阻塞层级。非Blocker转IMPLEMENTATION_TEST或Backlog，不循环重开架构。
+2. 无未解决BLOCKER、适用设计复核与用户确认§1–§7（含§6.1）后，Issue/PR记录并读回IMPLEMENTATION_READY / Ready，再同一PR整批实施29工件。最多两轮正常架构复核；finding先按AGENTS分类，明确当前Must/具体后果/阻塞层级。非Blocker转IMPLEMENTATION_TEST或Backlog，不循环重开架构。
 3. 完整源码后一次集中独立最终交付复核；设计复核不替代源码复核，修复只复核对应增量。GitHub启动失败至多唯一重试；**未经用户本轮授权不默认新增AI互验线程**，旧批/设计授权不扩作源码授权，不新增实现者/runner/平台。
 4. 开始及最终候选前核对actual main真实增量，不为始终最新反复merge-main。源码准确HEAD的原CI整run与最终复核满足后，交用户另行授权普通expected-head合并；不得管理员绕过/强推/改保护。获准合并后只认实际merge SHA的event=push/main准确整run completed/SUCCESS。
 5. #301始终OPEN。当前采集/有效规则、PoolManager deadline取消、独立SHEIN登录/Store同步保持；不操作既有实例/数据/凭据/进程，不改workflow/完整inventory，不增加试用前置。源码完成、main CI、运行/产品验收分列，不自行宣称可上线或用户验收通过；部署/关单另授权。
