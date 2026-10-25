@@ -31,6 +31,160 @@ var retiredSheinPolicyContractPackages = []string{
 	"internal/shein/generationtopics", "internal/shein/namelimit",
 }
 
+func TestLegacySourceURLAndTimeoutClosureIsRetired(t *testing.T) {
+	if _, err := os.Stat(filepath.Join("..", "internal", "crawler", "amazon", "timeout_manager.go")); !os.IsNotExist(err) {
+		t.Errorf("retired TimeoutManager source must be absent: %v", err)
+	}
+	alibaba := "internal/crawler/alibaba1688"
+	amazon := "internal/crawler/amazon"
+	pool := amazon + "/browser"
+	retired := map[string][]string{
+		alibaba: strings.Fields("URLHelper.GetMobileURL URLHelper.GetDomain URLHelper.GetPlatformName URLHelper.IsProductPage URLHelper.GetSupplierURL"),
+		amazon:  strings.Fields("URLHelper.IsValidAmazonURL URLHelper.NormalizeURL DomainResolver.GetAmazonDomainByRegion DomainResolver.GetLanguageByRegion DomainResolver.ShouldUseDefaultZipcode DomainResolver.BuildAmazonProductURL GetDomainMap GetZipcodeMap GetDefaultDomain GetDefaultZipcode shouldUseDefaultZipcode NewTimeoutManager TimeoutManager.CreateTimeoutContext TimeoutManager.CancelAll TimeoutManager.GetActiveCount TimeoutManager.ProcessWithTimeout"),
+	}
+	retained := map[string]bool{}
+	for owner, names := range map[string]string{
+		alibaba: "URLHelper NewURLHelper URLHelper.IsValid1688URL URLHelper.ExtractProductID URLHelper.CleanURL URLHelper.BuildStandardURL URLHelper.ValidateAndNormalizeURL SingleProcessor.processWithBrowserManager",
+		amazon:  "URLHelper NewURLHelper URLHelper.AddLanguageParam URLHelper.AddNoRedirectParam URLHelper.ExtractASINFromURL URLHelper.getMarketplaceInfo URLHelper.GetCurrencyFromURL URLHelper.GetMarketplaceFromURL MarketplaceInfo DomainResolver NewDomainResolver DomainResolver.GetZipcodeByRegion DomainResolver.ExtractRegionFromURL NewAmazonProcessor AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.processWithPoolManager AmazonProcessor.ProcessBatch AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown BatchProcessor.ProcessWithContext InstanceProcessor.ProcessWithInstance InstanceProcessor.extractAndValidateProduct InstanceProcessor.resolveDefaultZipcodeForTargetContext ProductChecker.IsProductPage",
+		pool:    "PoolManager PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.acquireInstanceWithTimeout PoolManager.releaseInstanceSafely PoolManager.Shutdown",
+	} {
+		for _, name := range strings.Fields(names) {
+			retained[owner+":"+name] = false
+		}
+	}
+	maps := map[string]int{"marketplaceInfoMap": 15, "domainMap": 14, "zipcodeMap": 14}
+	for name := range maps {
+		retained[amazon+":"+name] = false
+	}
+	for _, name := range []string{"Marketplace", "Currency"} {
+		retained[amazon+":MarketplaceInfo."+name] = false
+	}
+	fragments := map[string][]string{
+		alibaba + ":SingleProcessor.processWithBrowserManager":              {"sp.urlHelper.ValidateAndNormalizeURL(url)"},
+		alibaba + ":URLHelper.ValidateAndNormalizeURL":                      {"h.CleanURL(rawURL)", "h.IsValid1688URL(cleanURL)", "h.ExtractProductID(cleanURL)", "h.BuildStandardURL(productID)"},
+		amazon + ":InstanceProcessor.ProcessWithInstance":                   {"ip.urlHelper.AddLanguageParam(url)", "ip.urlHelper.AddNoRedirectParam(urlWithParams)"},
+		amazon + ":InstanceProcessor.extractAndValidateProduct":             {"ip.urlHelper.GetMarketplaceFromURL(url)", "ip.urlHelper.GetCurrencyFromURL(url)", "ip.urlHelper.ExtractASINFromURL(url)"},
+		amazon + ":InstanceProcessor.resolveDefaultZipcodeForTargetContext": {"resolver.ExtractRegionFromURL(targetURL)", "resolver.GetZipcodeByRegion(region)", "ip.matchesTargetContext(page, targetURL)"},
+		amazon + ":AmazonProcessor.processWithPoolManager":                  {"timeout := 3 * time.Minute", "ap.poolManager.ProcessWithTimeout(ctx, url, zipcode, timeout, processor)"},
+		amazon + ":AmazonProcessor.ProcessWithContext":                      {"ap.processWithPoolManager(ctx, url, zipcode)"},
+		amazon + ":AmazonProcessor.ProcessBatchWithContext":                 {"ap.batchProcessor.ProcessWithContext(ctx, requests, ap)"},
+		amazon + ":AmazonProcessor.Shutdown":                                {"ap.shutdownOnce.Do(", "ap.closed = true", "ap.poolManager.Shutdown()", "ap.browserPool.Shutdown()"},
+		pool + ":PoolManager.ProcessWithTimeout":                            {"context.WithTimeout(ctx, timeout)", "defer cancel()", "timeoutCtx.Done()", "pm.processProduct(timeoutCtx, url, zipcode, processor, instanceChan)", "pm.pool.RecreateInstanceAsync(instance)"},
+		pool + ":PoolManager.processProduct":                                {"pm.acquireInstanceWithTimeout(ctx, 0, inferRegionFromURL(url))", "processor.ProcessWithInstance(ctx, instance, url, zipcode)", "pm.pool.RecreateInstanceSync(instance)", "pm.pool.RecreateInstanceAsync(instance)", "pm.releaseInstanceSafely(instance, processErr)"},
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			if _, err := decodeGoImportPath(spec.Path.Value); err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if (owner != alibaba && owner != amazon && owner != pool) || strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		if owner == amazon {
+			ast.Inspect(file, func(node ast.Node) bool {
+				if identifier, ok := node.(*ast.Ident); ok && slices.Contains([]string{"TimeoutManager", "NewTimeoutManager", "timeoutManager", "languageMap"}, identifier.Name) {
+					t.Errorf("%s retains retired source URL/timeout wiring %s", relative, identifier.Name)
+				}
+				return true
+			})
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					receiver, ok := shape.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported source URL/timeout receiver in %s: %T", relative, shape)
+					}
+					name = receiver.Name + "." + name
+				}
+				if slices.Contains(retired[owner], name) {
+					t.Errorf("%s retains retired source URL/timeout function %s", relative, name)
+				}
+				identity := owner + ":" + name
+				if _, expected := retained[identity]; expected {
+					retained[identity] = true
+				}
+				if expected, relevant := fragments[identity]; relevant {
+					var body bytes.Buffer
+					if err := format.Node(&body, token.NewFileSet(), declaration); err != nil {
+						t.Fatal(err)
+					}
+					for _, fragment := range expected {
+						if !strings.Contains(body.String(), fragment) {
+							t.Errorf("current source URL/timeout path %s must retain %q", identity, fragment)
+						}
+					}
+					if identity == amazon+":AmazonProcessor.Shutdown" && strings.Index(body.String(), "ap.poolManager.Shutdown()") >= strings.Index(body.String(), "ap.browserPool.Shutdown()") {
+						t.Error("AmazonProcessor must preserve PoolManager then BrowserPool shutdown order")
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						identity := owner + ":" + spec.Name.Name
+						if _, expected := retained[identity]; expected {
+							retained[identity] = true
+						}
+						if identity == amazon+":MarketplaceInfo" {
+							shape, ok := spec.Type.(*ast.StructType)
+							if !ok || len(shape.Fields.List) != 2 {
+								t.Fatal("MarketplaceInfo must retain exactly its two current fields")
+							}
+							for _, field := range shape.Fields.List {
+								kind, ok := field.Type.(*ast.Ident)
+								if len(field.Names) != 1 || !ok || kind.Name != "string" {
+									t.Fatal("MarketplaceInfo fields must retain their current string shape")
+								}
+								key := identity + "." + field.Names[0].Name
+								if _, expected := retained[key]; expected {
+									retained[key] = true
+								}
+							}
+						}
+					case *ast.ValueSpec:
+						if owner != amazon {
+							continue
+						}
+						for i, name := range spec.Names {
+							if count, expected := maps[name.Name]; expected {
+								if len(spec.Values) != len(spec.Names) {
+									t.Fatalf("current source map %s must retain its literal", name.Name)
+								}
+								literal, ok := spec.Values[i].(*ast.CompositeLit)
+								if !ok || len(literal.Elts) != count {
+									t.Fatalf("current source map %s must retain all %d entries", name.Name, count)
+								}
+								retained[amazon+":"+name.Name] = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for identity, found := range retained {
+		if !found {
+			t.Errorf("current source URL/timeout owner must retain %s", identity)
+		}
+	}
+}
+
 func TestLegacyBrowserManagementTailClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/crawler/amazon/quality_metrics.go", "internal/crawler/amazon/quality_metrics_test.go",

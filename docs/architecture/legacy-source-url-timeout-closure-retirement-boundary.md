@@ -1,3 +1,5 @@
+> #301 / #947 **USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结94fd91815的§1–§7（含§6.1）；Reuse Existing Architecture / Ready及Issue/PR读回先于生产修改（6395476141 / 6395476385）。同一PR整批收齐三组14工件，21闲置生产函数方法、TimeoutManager/languageMap及字段/构造/Shutdown/旧测试/四旧依据尾部退出，无生产EXTRACT/新owner；原聚合仅新增一个guard，目标真实RED→GREEN，其它原检查不改。1688实际规范化、Amazon marketplace两字段/完整15项map、币种/ASIN/地区邮编/有效规则、真实PoolManager parent deadline/取消/释放/重建/Batch/关闭、当前采集/原浏览器debug及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护和既有实例/数据/凭据/进程不动，无试用前置，#301 OPEN；准确源码HEAD/原CI/最终复核留同一PR，合并另授权。以下冻结设计原完整Git blob逐字保留，其DESIGN_ONLY/待确认措辞仅为原阶段证据。
+
 # #301 旧采集 URL／站点便利接口与闲置超时管理完整退休边界
 
 Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。用户本轮授权三组一起设计，尚未授权实施。设计阶段 **Design Basis: N/A / Ready**，仅本文、架构索引、Legacy Register 三文档；未来实施拟 **Reuse Existing Architecture / NOT_READY**。确认 §1–§7（含 §6.1）并在 Issue/PR 记录、读回 Ready 后，才可在同一主要 PR 修改源码和测试。#301 保持 OPEN，合并、部署、关单另行授权。
