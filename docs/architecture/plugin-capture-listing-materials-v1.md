@@ -58,6 +58,22 @@ Increment status: **IMPLEMENTATION_READY**。独立 Reviewer `1688_shadow_design
 
 ## 资源与失败边界
 
+### 2026-10-25：Amazon 当前商品的副标题与列表参数
+
+本增量状态：DESIGN_REVIEW_PENDING；Design Basis: Reuse Existing Architecture。#916 用户在缺口分析后明确同意先补当前选中 ASIN 的标题/副标题、列表参数与来源重量；先设计评审，再开发、测试、提交一个主要 PR。完整规格族另行设计。本增量不授权合并、原实例/插件更新、重采或部署。
+
+版本7采集前已观察的 B0BDLGZCTY 页面中，titleSection 内主标题之外还有明确副标题；detailBulletsWrapper_feature_div 下的列表包含 `Product Dimensions: 44 x 32 x 6 inches; 7.96 pounds`、`Item model number: XL`、制造商、首次上架日期等。已保存资料只有 overview 表格参数。这里引用已取得的 AX 容器/列表/文字证据；回归使用对应结构型夹具，不冒充重新取得的完整网页 HTML。本轮浏览器未保留可用的原标签连接，不为源码实现重采或另开真实采集任务。
+
+**标题**：保留原 productTitle 读取。仅当唯一、未被原规则排除的 titleSection 包含该主标题时，读取该区域中主标题 heading 之外的可见安全文字；排除链接、按钮/控件、隐藏、表单、推荐、其它商品及已知品牌/评论辅助区。按不包含主标题的相邻内容分支归组，只在有一个确定的、非重复副标题值时以 `主标题 | 副标题` 拼接；多个不同候选保留主标题并用 missingFacts 说明歧义，不任取一个。区域不存在则保留原行为。新增遍历计入原预算，完整标题仍最多2000 UTF-8字节，不截断。
+
+**列表参数与来源重量**：只读取上述明确 wrapper（及其已知 detailBullets_feature_div 子区域）的顶层 li。复用有界安全文字读取，按显式冒号/全角冒号分离名称和值，清理显示用双向控制符和空白；无明确名称/值的项省略。排除嵌套列表、链接/按钮/控件文字与原子树排除；排名/评论行不作为本轮参数。每个保留项名称使用 `Product details · 原名称`，该前缀标识来源区域，仍是原 attributes 的普通 name/value，不新增模型或事实owner。同来源同名同值去重、冲突按原 putFact 省略并提示。
+
+该来源前缀用于保留两个不同来源的原文：overview 中 `44L x 32W x 6.5Th` 不被 details 的 `44 x 32 x 6 inches; 7.96 pounds` 覆盖。后者完整作为来源参数保存，重量和单位仍可见；不拆成未经源标签明确的净重/毛重/包装重，不换算、不选优，也不据此填标准重量字段。已有两格表参数的名称、合并/冲突行为保持。
+
+当前 owner 仍为插件 Amazon 纯解析；新 helper 仅服务同一 captureAmazonDocument，三入口共用原提取→严格v2校验/hash→交接→receiver→SRC/Catalog/Collection保存链路。wire、parserVersion、schema、权限/租户、状态机、幂等/恢复、持久化与外部副作用均不改变；1688不调用该helper。只借鉴旧代码正确的具体wrapper定位，不引入旧包/DTO/Service、整页body兜底或排名逻辑。币种推断、SKU/库存编造、展开/遍历其它ASIN、完整规格族及新UI均不在范围。
+
+验收：先RED复现主副标题分段、可见列表参数/含重量原文及overview不同尺寸并存；再最小实现。覆盖排除/歧义、同来源冲突、空项/双向符号、集合/字节/节点/时间预算与旧标题/表格/Amazon相册和1688 sibling不变；原Go纯v2映射测试补证完整标题/来源参数保真。只用现有Vitest/JSDOM、原typecheck/lint/fixture构建与纯映射检查，不创建runner/验收系统。真实重采、保存、图片字节及运行验收NOT_RUN。
+
 沿用最终载荷 2 MiB、集合最多 256、总项 1024、描述 8192 UTF-8 字节、URL 2048 字节、8 秒等原限制。新增 DOM/AST 遍历使用现有级别的总节点预算 65536、深度 32；最多 256 个通过现有子树排除且包含 colorImages 的相册候选内联 script，候选文本累计最多 2 MiB，先限输入再解析。无关脚本仍计入原遍历节点与时间预算，不占相册候选名额；语法不支持的候选仍计数。此口径由 #916 的 2026-10-24 用户修复决定明确，纠正 #933 将整页内联脚本数量误作相册候选数量的阻断。参数/段落/图片均在累积前计数、限字节。超限按原 CAPTURE_TOO_LARGE/TIMEOUT 停止，不截断冒称完整。
 
 新图片元数据语法不支持可以明确保留原有相册；资源超限、来源变化和严格 payload 校验失败仍拒绝本次捕获。正文参数不执行页面脚本，不读账号/cookie/storage，也不调用来源网络。所有入口沿同一平台提取器，无额外按钮、持久缓存、重放或副作用 owner。
