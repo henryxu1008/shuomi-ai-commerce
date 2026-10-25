@@ -31,6 +31,182 @@ var retiredSheinPolicyContractPackages = []string{
 	"internal/shein/generationtopics", "internal/shein/namelimit",
 }
 
+func TestLegacyBrowserManagementTailClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/crawler/amazon/quality_metrics.go", "internal/crawler/amazon/quality_metrics_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired browser statistics source %s must be absent: %v", relative, err)
+		}
+	}
+	shared := "internal/crawler/shared/browser"
+	pool := "internal/crawler/amazon/browser"
+	processor := "internal/crawler/amazon"
+	retiredFunctions := map[string][]string{
+		shared:    strings.Fields("Manager.GenerateRandomFingerprint Manager.GenerateStableFingerprint PrintConfigSummary TestRandomConfigPerformance GetLocaleForRegion ProxyPool.Snapshot"),
+		pool:      strings.Fields("BrowserManager.GetConfigManager ConfigManager.ShouldUseRandomConfig ConfigManager.GetPresetInfo InstanceManager.ActiveRebuildCount InstanceManager.CloseInstance InstanceManager.ValidateInstance InstanceManager.GetInstanceInfo InstanceManager.RestartInstance BrowserPool.ProxyStats BrowserPool.PoolStats BrowserPool.recordInitFailure BrowserPool.recordSyncRecreateResult BrowserPool.recordAsyncRecreateResult"),
+		processor: strings.Fields("AmazonProcessor.QualityStats AmazonProcessor.ProxyStats AmazonProcessor.PoolStats InstanceProcessor.SetQualityMetricsRecorder newQualityMetrics qualityMetrics.RecordValidationRetryAttempt qualityMetrics.RecordValidationRetryRecovered qualityMetrics.RecordTargetContextSkip qualityMetrics.RecordTargetContextFallback qualityMetrics.RecordTargetContextCheckError qualityMetrics.Snapshot copyInt64Map normalizeMetricsRegion"),
+	}
+	retiredTypes := map[string][]string{
+		pool: {"poolStats"}, processor: {"qualityMetrics", "qualityMetricsRecorder"},
+	}
+	retiredFields := map[string][]string{
+		shared + ":Manager": {"generator"}, pool + ":BrowserManager": {"config", "configManager"},
+		pool + ":BrowserPool": {"stats"}, processor + ":AmazonProcessor": {"qualityMetrics"},
+		processor + ":InstanceProcessor": {"qualityMetrics"},
+	}
+	retained := map[string]bool{}
+	for owner, names := range map[string]string{
+		shared:    "FingerprintConfig LanguageConfig FingerprintGenerator NewFingerprintGenerator FingerprintGenerator.GenerateRandomFingerprint FingerprintGenerator.GenerateStableFingerprint Manager.SetFingerprint Manager.Launch Manager.NewPage Manager.CloseWithResult ProxyPool.Acquire ProxyPool.MarkSuccess ProxyPool.MarkFailure ProxyPool.selectHealthiestAvailable calculateProxyHealthScore",
+		pool:      "NewBrowserManager NewBrowserManagerWithConfig ConfigManager.GenerateBrowserConfig ConfigManager.GetAvailablePresets ConfigManager.LogConfigStrategy InstanceManager.CreateInstance InstanceManager.RecreateInstanceSync InstanceManager.RecreateInstanceAsync closeManagerWithTimeout BrowserPool.GetInstancesSnapshot BrowserPool.Initialize BrowserPool.GetFingerprintGenerator HealthChecker.HealthCheck HealthChecker.GetPoolStats HealthChecker.LogPoolStats HealthChecker.StartHealthCheckRoutine HealthChecker.performHealthCheck",
+		processor: "NewAmazonProcessor AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.ensureReady AmazonProcessor.Shutdown InstanceProcessor.extractWithQualityRetry InstanceProcessor.extractAndValidateProduct InstanceProcessor.preparePageForQualityRetry InstanceProcessor.resolveDefaultZipcodeForTargetContext",
+	} {
+		for _, name := range strings.Fields(names) {
+			retained[owner+":"+name] = false
+		}
+	}
+	for identity, fields := range map[string]string{
+		shared + ":Manager":           "fingerprint config userAgents userDataDir closeErr installer",
+		shared + ":proxyAssignment":   "server assignments successes failures cooldowns lastSuccessAt lastFailureAt cooldownUntil",
+		shared + ":FingerprintConfig": "Enable GPU WebRTC Languages",
+		shared + ":LanguageConfig":    "HTTP JS",
+		pool + ":BrowserPool":         "fingerprintGen useRandomFingerprint instanceManager healthChecker proxyPool",
+		pool + ":InstanceManager":     "pool rebuildingMu rebuildingIDs",
+	} {
+		for _, field := range strings.Fields(fields) {
+			retained[identity+"."+field] = false
+		}
+	}
+	requiredCalls := map[string]map[string]bool{
+		shared + ":Manager.Launch":                                             {"NewContextLauncher": false},
+		shared + ":ProxyPool.Acquire":                                          {"selectHealthiestAvailable": false},
+		shared + ":ProxyPool.selectHealthiestAvailable":                        {"calculateProxyHealthScore": false},
+		pool + ":NewBrowserManagerWithConfig":                                  {"GenerateBrowserConfig": false, "LogConfigStrategy": false},
+		pool + ":InstanceManager.CreateInstance":                               {"GetFingerprintGenerator": false, "GenerateRandomFingerprint": false, "GenerateStableFingerprint": false, "SetFingerprint": false},
+		pool + ":BrowserPool.Initialize":                                       {"StartHealthCheckRoutine": false},
+		pool + ":HealthChecker.GetPoolStats":                                   {"GetInstancesSnapshot": false, "HealthCheck": false},
+		pool + ":HealthChecker.LogPoolStats":                                   {"GetPoolStats": false},
+		pool + ":HealthChecker.StartHealthCheckRoutine":                        {"performHealthCheck": false},
+		pool + ":HealthChecker.performHealthCheck":                             {"LogPoolStats": false, "GetInstancesSnapshot": false, "RecreateInstanceAsync": false},
+		processor + ":InstanceProcessor.extractWithQualityRetry":               {"alignTargetContext": false, "extractAndValidateProduct": false, "preparePageForQualityRetry": false},
+		processor + ":InstanceProcessor.resolveDefaultZipcodeForTargetContext": {"matchesTargetContext": false, "GetZipcodeByRegion": false},
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			if _, err := decodeGoImportPath(spec.Path.Value); err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if _, relevant := retiredFunctions[owner]; !relevant || strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					receiver, ok := shape.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported browser receiver in %s: %T", relative, shape)
+					}
+					name = receiver.Name + "." + name
+				}
+				if slices.Contains(retiredFunctions[owner], name) {
+					t.Errorf("%s retains retired browser function %s", relative, name)
+				}
+				identity := owner + ":" + name
+				if _, expected := retained[identity]; expected {
+					retained[identity] = true
+				}
+				if calls, expected := requiredCalls[identity]; expected {
+					ast.Inspect(declaration.Body, func(node ast.Node) bool {
+						call, ok := node.(*ast.CallExpr)
+						if !ok {
+							return true
+						}
+						called := ""
+						switch target := call.Fun.(type) {
+						case *ast.Ident:
+							called = target.Name
+						case *ast.SelectorExpr:
+							called = target.Sel.Name
+						}
+						if _, expected := calls[called]; expected {
+							calls[called] = true
+						}
+						return true
+					})
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if slices.Contains(retiredTypes[owner], typ.Name.Name) {
+						t.Errorf("%s retains retired browser type %s", relative, typ.Name.Name)
+					}
+					identity := owner + ":" + typ.Name.Name
+					if _, expected := retained[identity]; expected {
+						retained[identity] = true
+					}
+					if shape, ok := typ.Type.(*ast.StructType); ok {
+						for _, field := range shape.Fields.List {
+							for _, name := range field.Names {
+								if slices.Contains(retiredFields[identity], name.Name) {
+									t.Errorf("%s retains retired browser field %s.%s", relative, typ.Name.Name, name.Name)
+								}
+								if _, expected := retained[identity+"."+name.Name]; expected {
+									retained[identity+"."+name.Name] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for identity, found := range retained {
+		if !found {
+			t.Errorf("current browser owner must retain %s", identity)
+		}
+	}
+	for identity, calls := range requiredCalls {
+		for called, found := range calls {
+			if !found {
+				t.Errorf("current browser path %s must still call %s", identity, called)
+			}
+		}
+	}
+	for relative, tokens := range map[string][]string{
+		"internal/sheinlogin/automation.go":                  {"sharedbrowser.NewManager(managerCfg, a.logFor)", "manager.SetFingerprint(buildAutomationFingerprint(account, managerCfg))"},
+		"internal/app/runtime/currentapplication/runtime.go": {"\"task-processor/internal/integration/acquisition/amazon\"", "amazon.New(amazon.Options{"},
+		"hack/debug/test-amazon/main.go":                     {"amazon.NewAmazonProcessor(", "processor.Process(", "processor.Shutdown()"},
+	} {
+		body, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, expected := range tokens {
+			if !strings.Contains(string(body), expected) {
+				t.Errorf("current browser consumer %s must retain %q", relative, expected)
+			}
+		}
+	}
+}
+
 func TestLegacyAlibaba1688CaptchaExperimentClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/crawler/alibaba1688/captcha_fast_slider.go",

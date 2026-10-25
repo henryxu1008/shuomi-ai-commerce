@@ -1,7 +1,6 @@
 package browser
 
 import (
-	"fmt"
 	"task-processor/internal/core/config"
 
 	sharedbrowser "task-processor/internal/crawler/shared/browser"
@@ -109,11 +108,6 @@ func (cm *ConfigManager) copyBrowserConfig(src *sharedbrowser.BrowserConfig) *sh
 	}
 }
 
-// ShouldUseRandomConfig 判断是否应该使用随机配置
-func (cm *ConfigManager) ShouldUseRandomConfig(cfg *config.AmazonConfig) bool {
-	return true
-}
-
 // GetAvailablePresets 获取可用的预设配置列表
 func (cm *ConfigManager) GetAvailablePresets() []string {
 	presets := make([]string, 0, len(cm.presets))
@@ -121,29 +115,6 @@ func (cm *ConfigManager) GetAvailablePresets() []string {
 		presets = append(presets, name)
 	}
 	return presets
-}
-
-// GetPresetInfo 获取预设配置信息
-func (cm *ConfigManager) GetPresetInfo(presetName string) (map[string]any, error) {
-	preset, exists := cm.presets[presetName]
-	if !exists {
-		return nil, fmt.Errorf("预设 %s 不存在", presetName)
-	}
-
-	return map[string]any{
-		"name":                    presetName,
-		"platform":                preset.FingerprintPlatform,
-		"platform_version":        preset.FingerprintPlatformVersion,
-		"brand":                   preset.FingerprintBrand,
-		"brand_version":           preset.FingerprintBrandVersion,
-		"hardware_concurrency":    preset.FingerprintHardwareConcurrency,
-		"gpu_vendor":              preset.FingerprintGPUVendor,
-		"gpu_renderer":            preset.FingerprintGPURenderer,
-		"language":                preset.Language,
-		"timezone":                preset.Timezone,
-		"disable_gpu_fingerprint": preset.DisableGPUFingerprint,
-		"viewport":                fmt.Sprintf("%dx%d", preset.ViewportWidth, preset.ViewportHeight),
-	}, nil
 }
 
 // LogConfigStrategy 记录配置策略信息

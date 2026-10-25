@@ -67,20 +67,6 @@ func TestAmazonProcessorProcessWithContextRequiresPoolManager(t *testing.T) {
 	}
 }
 
-func TestAmazonProcessorPoolStatsIncludesInitError(t *testing.T) {
-	ap := &AmazonProcessor{
-		initErr: errors.New("初始化浏览器池失败: chromium launch failed"),
-	}
-
-	stats := ap.PoolStats()
-	if stats == nil {
-		t.Fatal("expected pool stats")
-	}
-	if stats["browser_pool_init_error"] != "初始化浏览器池失败: chromium launch failed" {
-		t.Fatalf("unexpected browser_pool_init_error: %#v", stats["browser_pool_init_error"])
-	}
-}
-
 func TestAmazonProcessorEnsureReadyRetriesInitError(t *testing.T) {
 	ap := &AmazonProcessor{
 		initErr: errors.New("初始化浏览器池失败: browser target closed"),

@@ -1,8 +1,6 @@
 package browser
 
 import (
-	"github.com/sirupsen/logrus"
-
 	"math/rand"
 
 	"time"
@@ -268,21 +266,6 @@ func (rcg *RandomConfigGenerator) GenerateWindowsConfig() *BrowserConfig {
 	}
 }
 
-// PrintConfigSummary 打印配置摘要
-func PrintConfigSummary(config *BrowserConfig, logs func(string) *logrus.Entry) {
-	log := componentLogger(logs, "browser_config")
-	log.Infof("=== 浏览器配置摘要 === 平台: %s %s | 浏览器: %s %s | GPU: %s - %s | CPU核心数: %d | 语言: %s (%s) | 时区: %s | 指纹种子: %d | 禁用GPU指纹: %t",
-		config.FingerprintPlatform, config.FingerprintPlatformVersion,
-		config.FingerprintBrand, config.FingerprintBrandVersion,
-		config.FingerprintGPUVendor, config.FingerprintGPURenderer,
-		config.FingerprintHardwareConcurrency,
-		config.Language, config.AcceptLanguage,
-		config.Timezone,
-		config.FingerprintSeed,
-		config.DisableGPUFingerprint,
-	)
-}
-
 // GenerateConfigPresets 生成配置预设
 func GenerateConfigPresets() map[string]*BrowserConfig {
 	presets := make(map[string]*BrowserConfig)
@@ -376,18 +359,4 @@ func ValidateConfig(config *BrowserConfig) []string {
 	}
 
 	return issues
-}
-
-// TestRandomConfigPerformance 性能测试
-func TestRandomConfigPerformance(logs func(string) *logrus.Entry) {
-	log := componentLogger(logs, "browser_config")
-	generator := NewRandomConfigGenerator()
-
-	start := time.Now()
-	for i := 0; i < 1000; i++ {
-		_ = generator.GenerateRandomBrowserConfig()
-	}
-	duration := time.Since(start)
-
-	log.Infof("生成1000个随机配置耗时: %v，平均每个配置: %v", duration, duration/1000)
 }

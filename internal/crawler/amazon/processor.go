@@ -27,7 +27,6 @@ type AmazonProcessor struct {
 	resultValidator      *ProductResultValidator
 	failureArtifactStore *FailureArtifactStore
 	timeoutManager       *TimeoutManager
-	qualityMetrics       *qualityMetrics
 	initErr              error
 	initMu               sync.Mutex
 	retryInit            func(context.Context) error
@@ -97,7 +96,6 @@ func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Am
 	batchProcessor := NewBatchProcessor()
 	timeoutManager := NewTimeoutManager(5*time.Minute, logs) // 默认5分钟超时
 	failureArtifactStore := NewFailureArtifactStore(cfg, logs)
-	qualityMetrics := newQualityMetrics()
 
 	processor := &AmazonProcessor{
 		loggerDependency:     loggerDependency{logFor: logs},
@@ -110,7 +108,6 @@ func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Am
 		resultValidator:      NewProductResultValidator(),
 		failureArtifactStore: failureArtifactStore,
 		timeoutManager:       timeoutManager,
-		qualityMetrics:       qualityMetrics,
 		initErr:              initErr,
 		closed:               false,
 	}
@@ -212,39 +209,8 @@ func (ap *AmazonProcessor) processWithPoolManager(ctx context.Context, url strin
 	processor := NewInstanceProcessor(ap.urlHelper, ap.productChecker, ap.logFor, ap.resultValidator)
 	processor.SetFailureArtifactStore(ap.failureArtifactStore)
 	processor.SetQualityControlOptions(ap.config.Amazon.QualityControl.RetryOnValidationFailure, ap.config.Amazon.QualityControl.ValidationRetryMaxAttempts)
-	processor.SetQualityMetricsRecorder(ap.qualityMetrics)
 
 	return ap.poolManager.ProcessWithTimeout(ctx, url, zipcode, timeout, processor)
-}
-
-func (ap *AmazonProcessor) QualityStats() map[string]any {
-	if ap == nil || ap.qualityMetrics == nil {
-		return nil
-	}
-	return ap.qualityMetrics.Snapshot()
-}
-
-func (ap *AmazonProcessor) ProxyStats() map[string]any {
-	if ap == nil || ap.browserPool == nil {
-		return nil
-	}
-	return ap.browserPool.ProxyStats()
-}
-
-func (ap *AmazonProcessor) PoolStats() map[string]any {
-	stats := map[string]any{}
-	if ap != nil && ap.browserPool != nil {
-		for key, value := range ap.browserPool.PoolStats() {
-			stats[key] = value
-		}
-	}
-	if ap != nil && ap.initErr != nil {
-		stats["browser_pool_init_error"] = ap.initErr.Error()
-	}
-	if len(stats) == 0 {
-		return nil
-	}
-	return stats
 }
 
 // ProcessBatch 批量处理多个Amazon产品页面
