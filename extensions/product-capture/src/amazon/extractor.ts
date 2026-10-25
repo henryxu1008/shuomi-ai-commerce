@@ -3,6 +3,7 @@ import { amazonPageSource, validateAmazonCapture } from './validation';
 import type { AmazonCapturePayload, AmazonImage } from './wire';
 import { excluded, productText, tableFacts, putFact, detailImages } from '../dom-materials';
 import { albumURLs } from './album';
+import { amazonListFacts, amazonVisibleTitle } from './product-details';
 
 // Reads product DOM and statically bound album literals. No script execution,
 // page-global state, network, credentials or variant traversal.
@@ -14,9 +15,11 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const text=(element:Element|null,max=8192)=>productText(doc,element,charge,max);
   const fieldText=(element:Element|null)=>productText(doc,element,charge,8192,true);
   const value = (selector: string,max=8192) => text(doc.querySelector(selector),max);
-  const title = value('#productTitle',2000); if (!title) fail('UNSUPPORTED_PAGE');
+  const titleElement = doc.querySelector('#productTitle');
+  const primaryTitle = text(titleElement,2000); if (!primaryTitle) fail('UNSUPPORTED_PAGE');
   const observedASIN = doc.querySelector<HTMLInputElement>('input#ASIN')?.value;
   if (observedASIN && observedASIN !== identity.sourceID) fail('SOURCE_CHANGED');
+  const { title, reason: subtitleReason } = amazonVisibleTitle(doc, titleElement!, primaryTitle, charge);
   const images: AmazonImage[] = [];
   const main = doc.querySelector<HTMLImageElement>('#landingImage, #imgBlkFront');
   const mainURL = main?.getAttribute('data-old-hires') || main?.getAttribute('src');
@@ -53,6 +56,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
     putFact(productFacts, factConflicts, name, value);
   };
   for (const item of tableFacts(doc, '#productOverview_feature_div tr,#productDetails_detailBullets_sections1 tr,#productDetails_techSpec_section_1 tr,#technicalSpecifications_section_1 tr', charge)) fact(item.name,item.value);
+  for (const item of amazonListFacts(doc, charge)) fact(item.name,item.value);
   fact('Availability', fieldText(doc.querySelector('#availability')));
   const dimensions = new Map<string, { name: string; value: string }>();
   const conflicts = new Set<string>();
@@ -146,6 +150,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
     if (/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(amount)) price = { amount, currency };
   }
   const missingFacts = [{ field: 'variants', reason: 'only selected product observed; variant family not traversed' }, { field: 'inventory', reason: 'source inventory quantity not observed' }];
+  if (subtitleReason) missingFacts.push({ field: 'title.subtitle', reason: subtitleReason });
   if (album.reason) missingFacts.push({ field: 'images.hiRes', reason: album.reason });
   if (!attributes.length || incompleteDimension) missingFacts.push({ field: 'variants[0].attributes', reason: 'selected dimension label or value not observed' });
   if (conflicts.size) missingFacts.push({ field: 'variants[0].attributes', reason: 'conflicting selected dimension values were omitted' });
