@@ -51,6 +51,7 @@ let context;
 let familyMode=false,releaseChild;
 const childGate=new Promise(resolve=>{releaseChild=resolve;});
 let familyChildRequests=0;
+const familyReaders=new Set();
 try {
   context = await chromium.launchPersistentContext(profile, {
     executablePath, headless:automated, ignoreDefaultArgs:['--disable-extensions'], viewport:null,
@@ -62,10 +63,11 @@ try {
       await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,'tests/fixtures/product.html'),'utf8') });
     } else if (url.origin === 'https://www.amazon.com' && url.pathname === '/dp/B0BDLGZCTY') {
       await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,`tests/fixtures/${familyMode?'amazon-family-product':'amazon-inline-product'}.html`),'utf8') });
-    } else if (familyMode && url.origin==='https://www.amazon.com' && url.pathname==='/dp/B0CC1YM6SJ') {
+    } else if (familyMode && url.origin==='https://www.amazon.com' && ['/dp/B0CC1YM6SJ','/dp/B000000002'].includes(url.pathname)) {
       familyChildRequests++;
+      familyReaders.add(route.request().frame().page());
       await childGate;
-      await route.fulfill({contentType:'text/html; charset=utf-8',body:await readFile(resolve(root,'tests/fixtures/amazon-family-child.html'),'utf8')});
+      await route.fulfill({contentType:'text/html; charset=utf-8',body:await readFile(resolve(root,`tests/fixtures/${url.pathname.endsWith('B000000002')?'amazon-family-next-child':'amazon-family-child'}.html`),'utf8')});
     } else if (url.origin === 'http://127.0.0.1:4399' || url.protocol === 'chrome-extension:') await route.continue();
     else await route.abort();
   });
@@ -220,7 +222,7 @@ try {
     await amazonSource.getByRole('button',{name:'确认采集当前商品',exact:true}).click();
     const progress=await progressPromise;
     await progress.waitForURL(`chrome-extension://${id}/popup.html#amazon-family=*`);
-    await progress.getByRole('status').filter({hasText:'1/2 项已观察'}).waitFor();
+    await progress.getByRole('status').filter({hasText:'1/3 项已观察'}).waitFor();
     const activeWorker=context.serviceWorkers().find(w=>w.url()===`chrome-extension://${id}/background.js`);
     const nativeBinding=await activeWorker.evaluate(async()=>({contexts:await chrome.runtime.getContexts({contextTypes:['TAB']}),stored:await chrome.storage.session.get(null)}));
     const nav=Object.values(nativeBinding.stored).find(v=>v.sourceDocumentId);
@@ -240,15 +242,16 @@ try {
     await familyApp.locator('#status').filter({hasText:'FIXTURE_CAPTURE_RECEIVED'}).waitFor();
     const familyCapture=await familyApp.evaluate(()=>window.fixtureReceived);
     const evidence=familyCapture?.payload?.evidence;
-    if(evidence?.observation?.scope!=='partial_family'||evidence.observation.parentASIN!=='B0D76YXPWZ'||evidence.variants.length!==2)throw Error('Family aggregation missing');
+    if(evidence?.observation?.scope!=='partial_family'||evidence.observation.parentASIN!=='B0D76YXPWZ'||evidence.variants.length!==3)throw Error('Family aggregation missing');
     if(evidence.variants[1].sourceID!=='B0CC1YM6SJ'||evidence.variants[1].price?.amount!=='44.98'||evidence.variants[1].price.currency!=='USD'||!evidence.variants[1].images[0].url.includes('family-beige')||evidence.variants[0].price?.amount!=='39.98')throw Error('Family child facts mixed');
-    if(amazonSource.url()!=='https://www.amazon.com/dp/B0BDLGZCTY'||familyChildRequests!==1)throw Error('Family changed anchor or reread child');
+    if(evidence.variants[2].sourceID!=='B000000002'||evidence.variants[2].price?.amount!=='49.98'||!evidence.variants[2].images[0].url.includes('family-black'))throw Error('Next family child facts mixed');
+    if(amazonSource.url()!=='https://www.amazon.com/dp/B0BDLGZCTY'||familyChildRequests!==2||familyReaders.size!==1)throw Error('Family changed anchor or duplicated a child read/reader');
     const afterHandoff=context.pages().length, familyURL=familyApp.url();
     await progress.getByRole('button',{name:'返回应用核实',exact:true}).click();
     await familyApp.waitForFunction(()=>document.visibilityState==='visible');
     if(context.pages().length!==afterHandoff||familyApp.url()!==familyURL)throw Error('Family return did not preserve receiver');
     await writeFile(resolve(artifacts,'amazon-family-capture.json'),JSON.stringify(familyCapture.payload,null,2));
-    familyResult={nativeDocumentBound:true,workerRebuildSameProgress:true,oneChildRead:true,oneReceiver:true,independentChildFacts:true,originalAnchorUnchanged:true,sameReceiverReturn:true};
+    familyResult={nativeDocumentBound:true,workerRebuildSameProgress:true,eachChildReadOnce:true,oneReusedReader:true,oneReceiver:true,independentChildFacts:true,originalAnchorUnchanged:true,sameReceiverReturn:true};
   }
   await writeFile(resolve(artifacts,'capture.json'),JSON.stringify(firstCapture.payload,null,2));
   const buildHashes={};

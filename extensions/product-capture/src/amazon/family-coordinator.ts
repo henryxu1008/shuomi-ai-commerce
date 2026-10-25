@@ -47,7 +47,7 @@ export class FamilyCoordinator {
       }
       this.check(result.capture, expected);
       const variant = structuredClone(result.capture.evidence.variants[0]);
-      const missing = result.capture.evidence.missingFacts.filter(f => f.field==='price' || f.field==='price.currency' || f.field==='variants[0].attributes' || f.field==='images' && !variant.images.length).map(f => ({field:`variants[].${f.field}`,reason:`${f.reason} (${expected.sourceID})`}));
+      const missing = result.capture.evidence.missingFacts.filter(f => f.field==='price' || f.field==='price.currency' || f.field==='variants[0].attributes' || f.field==='images' && !variant.images.length).map(f => ({field:`variants.${this.variants.length}.${f.field.replace(/^variants\[0\]\./,'')}`,reason:f.reason}));
       const diagnostics = [...this.diagnostics, ...missing];
       // Project only one variant/diagnostic set; never retain every child product's album/body.
       try { this.project([...this.variants, variant], diagnostics); } catch { throw Error('FAMILY_LIMIT_REACHED'); }

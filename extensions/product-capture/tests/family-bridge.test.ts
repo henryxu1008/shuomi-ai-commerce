@@ -57,6 +57,19 @@ it('rejects a reader not created by this progress page and never closes a user-n
 it('does not treat a closed pending progress tab as still initializing',async()=>{
  await bridge.begin(source,revision);delete tabs[41];expect(await bridge.status()).toMatchObject({phase:'interrupted'});
 });
+it('retries the same second-child navigation after its locator response was lost and the worker rebuilt',async()=>{
+ await open();const first='https://www.amazon.com/dp/B0CC1YM6SJ',second='https://www.amazon.com/dp/B000000002';tabs[50]={id:50,url:'about:blank',openerTabId:41};
+ await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:first},sender());tabs[50].url=first;
+ await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender());
+ // The page did not receive that reply, so it has not navigated away from first.
+ const recreated=new FamilyBridge(()=>controller,app);await recreated.ready;
+ await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender())).resolves.toEqual({});
+ tabs[50].url='https://www.amazon.com/dp/B000000003';
+ await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ tabs[50].url=first;tabs[50].pendingUrl='https://example.com/';
+ await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ expect(api.tabs.create).toHaveBeenCalledOnce();
+});
 it('serializes cancellation behind an in-flight reader locator write without reviving the cancelled record',async()=>{
  await open();tabs[50]={id:50,url:'about:blank',openerTabId:41};
  let release!:()=>void;storage.session.set.mockImplementationOnce(async()=>new Promise<void>(r=>{release=r;}));

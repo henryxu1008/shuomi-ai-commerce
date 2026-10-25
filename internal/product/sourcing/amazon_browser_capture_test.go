@@ -88,6 +88,50 @@ func TestAmazonPartialFamilyKeepsAnchorAndEachChildFacts(t *testing.T) {
 	}
 }
 
+func TestAmazonPartialFamilyFolds171UnknownChildFactsWithinExistingReadBounds(t *testing.T) {
+	for _, field := range []string{"price.currency", "price"} {
+		var input map[string]any
+		_ = json.Unmarshal(amazonFixture(), &input)
+		e := input["evidence"].(map[string]any)
+		e["observation"] = map[string]any{"scope": "partial_family", "parentASIN": "B012345679"}
+		variants, missing := []any{}, []any{}
+		for i := 0; i < 171; i++ {
+			id := fmt.Sprintf("B%09d", i)
+			if i == 0 {
+				id = "B012345678"
+			}
+			var price any = map[string]any{"amount": "39.98", "currency": nil}
+			reason := "source currency not explicit"
+			if field == "price" {
+				price, reason = nil, "source price not observed"
+			}
+			variants = append(variants, map[string]any{"sourceID": id, "sku": nil, "title": nil,
+				"attributes": []any{map[string]any{"name": "Color", "value": fmt.Sprintf("c%d", i)}}, "price": price,
+				"images": []any{map[string]any{"url": "https://m.media-amazon.com/images/I/" + id + ".jpg", "role": "main"}}})
+			missing = append(missing, map[string]any{"field": fmt.Sprintf("variants.%d.%s", i, field), "reason": reason})
+		}
+		e["variants"], e["missingFacts"] = variants, missing
+		raw, _ := json.Marshal(input)
+		capture, err := ParseAmazonBrowserCapture(raw)
+		if err != nil {
+			t.Fatalf("%s family rejected: %v", field, err)
+		}
+		env, err := capture.Envelope("capture")
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot, err := ToSnapshot(env)
+		if err != nil || len(snapshot.Variants) != 171 || snapshot.Review == nil || len(snapshot.Review.Reasons) > 128 {
+			t.Fatalf("%s family unreadable: %v", field, err)
+		}
+		for _, variant := range env.ProductCandidate.Variants {
+			if variant.Price != 0 || variant.Currency != "" {
+				t.Fatalf("invented unknown %s: %+v", field, variant)
+			}
+		}
+	}
+}
+
 func TestAmazonCaptureRejectsFactsOutsideExistingCollectionReadBounds(t *testing.T) {
 	badWarnings := map[string]any{}
 	_ = json.Unmarshal(amazonFixture(), &badWarnings)

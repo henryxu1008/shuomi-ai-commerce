@@ -139,6 +139,10 @@ Legacy decision: **N/A**；不调用/包装旧Amazon service，也不重新启�
 - `pending`：尚未绑定进度页，不含伪造tab/document ID；
 - `bound`：浏览器确认的进度tab ID/documentId，及可选读取tab ID/documentId/期望规范URL。
 
+实现细节：读取定位可同时保留一个已核实的前驱规范URL（previousURL）。定位写成功但应答丢失、尚未导航时，
+同一owned tab/revision/期望目标的明确重试可幂等复用该定位；其它当前/待导航URL仍拒绝。
+这只补齐已审导航定位窗口，不保存商品事实、清单、游标或新的自动恢复任务。
+
 限制为TRUSTED_CONTEXTS。只有这些定位元数据，
 无商品事实、清单/游标、价格/图片、账号/企业、凭据、操作key/nonce、publication或保存结果。
 原ReturnSession schema/key/读写边界不改；这是新增的采集页面定位，不是修改原记录来冒充应用返回位置。

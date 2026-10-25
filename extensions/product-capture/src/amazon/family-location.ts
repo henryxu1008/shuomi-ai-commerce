@@ -8,7 +8,7 @@ const id = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const documentId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const source = z.string().max(2048).refine(v => { try { return amazonPageSource(v).sourceURL === v; } catch { return false; } });
 const common = {version:z.literal(1),revision:z.string().regex(UUID),sourceURL:source,sourceTabId:id,sourceDocumentId:documentId};
-const reader = z.strictObject({tabId:id,sourceURL:source});
+const reader = z.strictObject({tabId:id,sourceURL:source,previousURL:source.optional()});
 const schema = z.discriminatedUnion('phase',[
   z.strictObject({...common,phase:z.literal('pending'),tabId:id.optional()}),
   z.strictObject({...common,phase:z.literal('bound'),tabId:id,documentId,reader:reader.optional()}),
@@ -54,7 +54,8 @@ export class FamilyLocation {
   }
   async reader(tabId:number,sourceURL:string) {
     const r=this.current;if(!r || r.phase!=='bound' || new URL(sourceURL).origin!==new URL(r.sourceURL).origin)throw Error('ENTRY_CHANGED');
-    await this.write(schema.parse({...r,reader:{tabId,sourceURL}}));
+    if(r.reader?.tabId===tabId && r.reader.sourceURL===sourceURL)return;
+    await this.write(schema.parse({...r,reader:{tabId,sourceURL,...(r.reader?{previousURL:r.reader.sourceURL}:{})}}));
   }
   async forgetReader() {
     const r=this.current;if(!r || r.phase!=='bound')throw Error('ENTRY_CHANGED');

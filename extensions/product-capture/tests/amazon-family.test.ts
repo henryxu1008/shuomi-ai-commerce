@@ -88,3 +88,15 @@ it('pauses at the existing aggregate budget without truncating facts or handing 
  expect(c.snapshot()).toMatchObject({phase:'paused',reason:'FAMILY_LIMIT_REACHED'});expect(c.snapshot().observed).toBeLessThan(256);expect(handoff).not.toHaveBeenCalled();
  const calls=read.mock.calls.length;await c.resume();expect(read).toHaveBeenCalledTimes(calls);await c.useObserved();expect(handoff).toHaveBeenCalledOnce();
 });
+it.each(['currency','price'])('keeps 171 unknown %s facts attributable and foldable by the existing Go review mapper',async kind=>{
+ const initial=await seed(),reason=kind==='currency'?'source currency not explicit':'source price not observed',field=kind==='currency'?'price.currency':'price';
+ initial.anchor.evidence.variants[0].price=kind==='currency'?{amount:'39.98',currency:null}:null;
+ initial.anchor.evidence.missingFacts.push({field,reason});
+ initial.manifest.members=[initial.manifest.members[0],...Array.from({length:170},(_,n)=>({sourceID:`B${String(n).padStart(9,'0')}`,attributes:[{name:'Color',value:`c${n}`},{name:'Size',value:'XL'}]}))];
+ const handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
+ const c=new FamilyCoordinator({seed:async()=>initial,read:async m=>{const capture=structuredClone(initial.anchor);capture.evidence.sourceID=m.sourceID;capture.evidence.sourceURL=`https://www.amazon.com/dp/${m.sourceID}`;capture.evidence.variants[0].sourceID=m.sourceID;capture.evidence.variants[0].attributes=m.attributes;capture.evidence.missingFacts=[{field,reason}];return {capture,parentASIN:initial.manifest.parentASIN};},handoff,close:async()=>{}});
+ await c.start();expect(c.snapshot()).toMatchObject({phase:'transferred',observed:171});
+ const payload=handoff.mock.calls[0][0];expect(new Set(payload.evidence.missingFacts.map(f=>f.reason)).size).toBeLessThan(128);
+ expect(payload.evidence.missingFacts).toContainEqual({field:`variants.170.${field}`,reason});
+ expect(payload.evidence.variants.every(v=>kind==='currency'?v.price?.currency===null:v.price===null)).toBe(true);
+});

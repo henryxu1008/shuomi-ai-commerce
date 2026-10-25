@@ -98,8 +98,10 @@ export class FamilyBridge {
     const r=this.location.current;if(r?.phase!=='bound')throw Error('ENTRY_CHANGED');
     if(m.type==='family.reader'){
       const request=m as {tabId:number;sourceURL:string}; const tab=await chrome.tabs.get(request.tabId);
+      const retry=r.reader?.sourceURL===request.sourceURL;
       if(tab.openerTabId!==r.tabId || r.reader && r.reader.tabId!==request.tabId
-        || tab.url!=='about:blank' && tab.url!==r.reader?.sourceURL)throw Error('FAMILY_INTERRUPTED');
+        || tab.pendingUrl && tab.pendingUrl!==tab.url && tab.pendingUrl!==request.sourceURL
+        || tab.url!=='about:blank' && tab.url!==r.reader?.sourceURL && !(retry && tab.url===r.reader?.previousURL))throw Error('FAMILY_INTERRUPTED');
       await this.location.reader(request.tabId,request.sourceURL);return {};
     }
     if(m.type==='family.return'){if(this.application.state!=='available')throw Error('HANDOFF_UNAVAILABLE');await this.controller().returnToApplication();return {};}
@@ -123,7 +125,7 @@ export class FamilyBridge {
     const r=this.location.current;if(r?.phase!=='bound' || !r.reader)return;
     try {
       const tab=await chrome.tabs.get(r.reader.tabId);
-      if(tab.openerTabId===r.tabId && (tab.url===r.reader.sourceURL || tab.url==='about:blank') && (!tab.pendingUrl || tab.pendingUrl===r.reader.sourceURL))await chrome.tabs.remove(r.reader.tabId);
+      if(tab.openerTabId===r.tabId && (tab.url===r.reader.sourceURL || tab.url===r.reader.previousURL || tab.url==='about:blank') && (!tab.pendingUrl || tab.pendingUrl===r.reader.sourceURL))await chrome.tabs.remove(r.reader.tabId);
     }catch{ /* A closed or user-navigated tab is never replaced or guessed. */ }
     await this.location.forgetReader();
   }
