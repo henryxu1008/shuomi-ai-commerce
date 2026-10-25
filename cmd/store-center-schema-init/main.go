@@ -34,6 +34,7 @@ func main() {
 	shein := flag.Bool("shein-login-worker", false, "install optional current SHEIN login execution fence and narrow worker role on an authorized fresh Store")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
+	browserWorkbench := flag.Bool("browser-workbench", false, "explicitly install only Store browser operation/report tables and SELECT/INSERT grants on a confirmed current Store")
 	confirmed := flag.String("confirm-database", "", "exact existing database name required for --align-core-contract")
 	flag.Parse()
 	confirmationSet := false
@@ -47,13 +48,19 @@ func main() {
 			return errors.New("unexpected positional arguments")
 		}
 		if *align {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shein {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shein || *browserWorkbench {
 				return errors.New("core alignment cannot be combined with any installation or observation mode")
 			}
 			return alignCoreContract(*path, *confirmed)
 		}
+		if *browserWorkbench {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shein {
+				return errors.New("browser installation cannot be combined with another mode")
+			}
+			return installBrowserWorkbench(*path, *confirmed)
+		}
 		if confirmationSet {
-			return errors.New("--confirm-database requires --align-core-contract")
+			return errors.New("--confirm-database requires --align-core-contract or --browser-workbench")
 		}
 		if *shein && (*observationsOnly || *grantsOnly || *verify) {
 			return errors.New("SHEIN installation cannot be combined with observation maintenance")
@@ -67,7 +74,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *align {
+	if *browserWorkbench {
+		fmt.Println("Store browser schema version and immutable grants verified; existing facts retained")
+	} else if *align {
 		fmt.Println("Store core contract and schema version verified; existing facts and permissions retained")
 	} else if *verify {
 		fmt.Println("Store observation schema and serving privileges verified; no schema operation")
@@ -78,6 +87,21 @@ func main() {
 	} else {
 		fmt.Println("current Store schema installed and narrow runtime roles granted")
 	}
+}
+
+func installBrowserWorkbench(path, confirmed string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cfg, err := loadOwnerConfig(path, "store_center_owner")
+	if err != nil || confirmed == "" || cfg.Database != confirmed {
+		return errors.New("Store browser exact database confirmation required")
+	}
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
+	if err != nil {
+		return errors.New("Store browser owner database unavailable")
+	}
+	defer platformdatabase.Close(db)
+	return storeschema.InstallBrowserWorkbench(ctx, db, confirmed)
 }
 
 func alignCoreContract(path, confirmed string) error {

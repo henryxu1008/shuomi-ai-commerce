@@ -35,6 +35,7 @@ const (
 	PermissionImageAgentRead                    = "listingkit.image_agent.read"
 	PermissionImageAgentWrite                   = "listingkit.image_agent.write"
 	PermissionWorkbenchStoreRead                = "workbench.store.read"
+	PermissionWorkbenchStoreBrowserUse          = "workbench.store.browser.use"
 	PermissionWorkbenchStoreProductsRead        = "workbench.store.products.read"
 	PermissionWorkbenchStoreProductsSync        = "workbench.store.products.sync"
 	PermissionWorkbenchStoreOrdersRead          = "workbench.store.orders.read"
@@ -92,13 +93,14 @@ var workbenchCommercialPermissions = []string{
 
 // WorkbenchPermissions is a bounded display contract, never a policy source.
 func WorkbenchPermissions() []string {
+	// This capability is registered without inheriting any existing role policy.
 	result := []string{PermissionListingKitAdminRead, PermissionListingKitAdminWrite, PermissionListingKitPlatformAdm, PermissionProductSourcingWrite, PermissionLocalAgentWrite, PermissionImageAgentRead, PermissionImageAgentWrite, PermissionWorkbenchAgentRead, PermissionWorkbenchAgentUse, PermissionWorkbenchAgentConfigure}
 	result = append(result, workbenchReportPermissions...)
 	result = append(result, supplyMarketPermissions...)
 	for _, group := range [][]string{cockpitPermissions, []string{"workbench.project.read", "workbench.project.manage"}, workbenchToolPermissions, workbenchChatPermissions, workbenchKnowledgePermissions, workbenchEcoservicesPermissions, workbenchSupplyPermissions, workbenchStorePermissions, workbenchStoreObservationPermissions, workbenchSourceAccountPermissions, workbenchOrganizationMemberPermissions, workbenchCommercialPermissions} {
 		result = append(result, group...)
 	}
-	return result
+	return append(result, PermissionWorkbenchStoreBrowserUse)
 }
 
 const listingKitModel = `

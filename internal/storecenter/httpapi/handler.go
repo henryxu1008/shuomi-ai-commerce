@@ -49,6 +49,7 @@ type ServiceLifecycleService interface {
 }
 
 type Handler struct {
+	browser             BrowserOperationService
 	catalog             *storecenter.Catalog
 	metadata            *storecenter.MetadataRepository
 	service             StoreService
