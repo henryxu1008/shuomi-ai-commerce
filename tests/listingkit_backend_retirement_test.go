@@ -145,21 +145,21 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 		"internal/platform/workerpool/types.go", "internal/platform/workerpool/worker.go",
 		"internal/platform/workerpool/pool_lifecycle_test.go", "internal/platform/workerpool/worker_test.go",
 		"internal/pkg/recovery/panic_handler.go",
+		"internal/shein/content/validator.go",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired workerpool/recovery artifact %s must be absent: %v", relative, err)
 		}
 	}
-	retiredFunctions := strings.Fields("resolveConfigPath NewSensitiveWordService NewSensitiveWordServiceInMemoryWithPath NewSensitiveWordServiceWithPath")
-	retiredMethods := strings.Fields("loadConfig saveConfig saveConfigUnlocked ReloadConfig saveConfigAsync Close startSaveWorker logConfigLoadStats")
+	retiredFunctions := strings.Fields("resolveConfigPath NewSensitiveWordService NewSensitiveWordServiceInMemoryWithPath NewSensitiveWordServiceWithPath shouldSanitizeFreeTextAttributeValue")
+	retiredMethods := strings.Fields("loadConfig saveConfig saveConfigUnlocked ReloadConfig saveConfigAsync Close startSaveWorker logConfigLoadStats markConfigUpdatedLocked removeSensitiveWords removeSensitiveWordsAndBrandsWithContext SanitizeTextWithContext processMultiLanguageNames processMultiLanguageNamesWithBrandsAndContext processMultiLanguageDescs processSKCData processProductAttributes cleanTextForSheinPlatform removeAmazonBrandWords removeContextBrandWords TestEmojiFiltering classifyWordsByLanguage detectLanguage containsChinese containsKorean containsCyrillic containsArabic filterEmojis removeAllEmojisAggressively normalizeSpecialCharacters countWordsInConfig logSensitiveWordStats extractSensitiveWordsFromValidation ExtractSensitiveWordsFromValidationNotes extractWordsFromMessages splitWords addWordsByLanguageLocked addWordsToConfig ProcessProductData HandleValidationErrors GetStaticSensitiveWords GetDynamicSensitiveWords getWordsFromConfig GetSensitiveWordsByLanguage AddDynamicSensitiveWords AddStaticSensitiveWords AddStaticSensitiveWordsByLanguage addSensitiveWordsLocked AddDynamicSensitiveWordsByLanguage ClearDynamicSensitiveWords")
 	retiredFields := strings.Fields("configPath persistConfig ctx saveQueue stopSave wg")
 	retained := map[string]bool{}
-	for _, name := range strings.Fields("NewSensitiveWordServiceInMemory SensitiveWordConfig SensitiveWordService SensitiveWordService.config SensitiveWordService.mutex SensitiveWordService.logger createDefaultConfig ProcessProductData HandleValidationErrors GetSensitiveWordsByLanguage getWordsFromConfig classifyWordsByLanguage addWordsToConfig deduplicateWords") {
+	for _, name := range strings.Fields("NewSensitiveWordServiceInMemory SensitiveWordConfig SensitiveWordService SensitiveWordService.config SensitiveWordService.mutex SensitiveWordService.logger createDefaultConfig deduplicateWords componentLogger initDefaultConfig getAllSensitiveWords SanitizeDisplayTextWithContext authorizedBrandAllowlist removeSensitiveWordsExcept removeAmazonBrandWordsExcept removeContextBrandWordsExcept containsFoldedText normalizeBrandToken getAmazonBrandWords containsJapanese removeWordFromText cleanupText") {
 		retained[name] = false
 	}
 	wantConfig := map[string]string{
 		"StaticWords": "map[string][]string|static_words", "DynamicWords": "map[string][]string|dynamic_words",
-		"LastUpdated": "time.Time|last_updated", "Version": "string|version",
 	}
 	gotConfig := map[string]string{}
 	for _, relative := range trackedFiles(t, ".") {
@@ -226,6 +226,9 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 					if !ok {
 						continue
 					}
+					if slices.Contains([]string{"ValidationResult", "SKCValidationMessages"}, typ.Name.Name) {
+						t.Errorf("%s retains retired content type %s", relative, typ.Name.Name)
+					}
 					if _, exists := retained[typ.Name.Name]; exists {
 						retained[typ.Name.Name] = true
 					}
@@ -241,6 +244,9 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 							}
 							if typ.Name.Name == "SensitiveWordService" && slices.Contains(retiredFields, name.Name) {
 								t.Errorf("content retains retired lifecycle field %s", key)
+							}
+							if typ.Name.Name == "CleanupContext" && name.Name == "ProductData" {
+								t.Errorf("content retains retired whole-product input %s", key)
 							}
 							if typ.Name.Name == "SensitiveWordConfig" {
 								tag := ""
@@ -2983,7 +2989,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/rules/local_numbers.go":                      {"func (c *Catalog) CheckLocalNumbers("},
 		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
 		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
-		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "type ValidationResult struct", "type SKCValidationMessages struct", "SourceBrand", "other_language_message_map", "otherLanguageMessageMap"},
+		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "SourceBrand", "AuthorizedBrand", "Context"},
 		"internal/publishing/shein/submit_site_sku_policy.go":                   {"sheinmarketpub.DefaultSiteListByRegion("},
 		"internal/publishing/shein/sensitive_content_sanitizer.go":              {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
 

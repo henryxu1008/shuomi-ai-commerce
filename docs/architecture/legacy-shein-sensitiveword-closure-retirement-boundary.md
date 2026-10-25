@@ -1,3 +1,5 @@
+> #301 / #940 **SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结94eebe8b8的§1–§7/§6.1；Reuse Existing Architecture / Ready与[授权6393352471](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6393352471)、[源码前读回6393353460](https://github.com/qq550723504/shuomi-ai-commerce/pull/940#issuecomment-6393353460)先于生产修改。原唯一Writer同一PR收齐13工件；原guard已实测RED，43旧函数/专属DTO/ProductData/元数据退出，17实际清理函数与约定例外保持。当前平台JSON/有效规则及独立SHEIN登录/Store同步不动，workflow/完整inventory/依赖/保护和既有资源零改，无试用新前置，#301 OPEN。下方冻结设计完整Git blob保留；准确源码HEAD/CI/最终复核另记，合并另授权。
+
 # 旧 SHEIN 敏感词整商品处理、反馈学习与词表管理完整退休闭包
 
 ## 1. 用户结果、范围与 Design Basis

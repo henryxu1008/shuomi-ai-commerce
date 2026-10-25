@@ -3,7 +3,6 @@ package content
 
 import (
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -12,8 +11,6 @@ import (
 type SensitiveWordConfig struct {
 	StaticWords  map[string][]string `json:"static_words"`  // 按语言分类的静态敏感词
 	DynamicWords map[string][]string `json:"dynamic_words"` // 按语言分类的动态敏感词
-	LastUpdated  time.Time           `json:"last_updated"`
-	Version      string              `json:"version"`
 }
 
 // SensitiveWordService 仅在内存中维护词表与清理规则。
@@ -21,12 +18,6 @@ type SensitiveWordService struct {
 	config *SensitiveWordConfig
 	mutex  sync.RWMutex
 	logger *logrus.Entry
-}
-
-// markConfigUpdatedLocked updates metadata while the caller holds mutex's write lock.
-func (s *SensitiveWordService) markConfigUpdatedLocked() {
-	s.config.LastUpdated = time.Now()
-	s.config.Version = "1.0"
 }
 
 // createDefaultConfig 创建默认配置
@@ -51,7 +42,5 @@ func (s *SensitiveWordService) createDefaultConfig() *SensitiveWordConfig {
 			},
 		},
 		DynamicWords: make(map[string][]string),
-		LastUpdated:  time.Now(),
-		Version:      "1.0",
 	}
 }
