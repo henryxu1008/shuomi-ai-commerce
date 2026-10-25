@@ -49,7 +49,7 @@ Must：旧根/旧 import/旧生成服务完整退出；当前候选、JSON/hash�
 | 当前存储/hash | Review.Record.Original、ContentPayload/Selection，aiworkbench JSONB selection、agentconfig 冻结快照/fingerprint 均使用旧包类型；**换 Go owner，保持 wire 与全部原计算** |
 | UI/BFF | 已只有四条窄审核路由，集合 POST 明确 405；不改 TS/页面。浏览器 Go fixture 曾通过旧 POST 造候选，必须改接真实 Candidate owner，BFF/UI 脚本及其未发送/未知结果规则保持 |
 
-扫描中 73 个 Go 文件出现旧根路径，其中**真正 import 声明 68 文件：31 生产、36测试、1负例 fixture**；另五文件是检查用路径字面量，不能当业务消费者。精确路径见 §5.8；实现时 AST 解码 import，连负例 fixture 一并改接，最终不留旧 Go import。历史/禁入字符串可保留，不能设“跳过 testdata”来凑清零。
+扫描中 74 个 Go 文件出现旧根路径，其中**真正 import 声明 68 文件：31 生产、36测试、1负例 fixture**；另六文件是检查用路径字面量，不能当业务消费者。精确路径见 §5.8；实现时 AST 解码 import，连负例 fixture 一并改接，最终不留旧 Go import。历史/禁入字符串可保留，不能设“跳过 testdata”来凑清零。
 
 ## 4. 正确 owner、JSON/hash 与持久化边界
 
