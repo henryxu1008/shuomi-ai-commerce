@@ -1,3 +1,7 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 替代闲置 NewBrowserManager 便利构造；原有效 Windows 策略测试改接同参数的 NewBrowserManagerWithConfig，配置、指纹、代理评分、质量重试及生命周期不变。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
 > #301 / #947 **SUPERSEDED，仅本批闲置URL便利与第二超时owner**：用户已确认[完整设计§1–§7/§6.1](legacy-source-url-timeout-closure-retirement-boundary.md)。本文Processor其它字段/构造/Shutdown与辅助KEEP，仅例外退休timeoutManager字段、NewTimeoutManager局部/赋值和空表CancelAll段，以及本次准确闲置URL/地区方法。#946原四组闭包/guard结果不改；实际指纹/代理全部评分状态/质量重试/周期健康日志、真实PoolManager deadline/取消/释放/重建、URL/地区邮编、当前采集/原浏览器debug与独立SHEIN登录/Store同步保持。workflow/完整inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
 
 > #301 / #946 **USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计a306b024a的§1–§7（含§6.1）；Reuse Existing Architecture / Ready及Issue/PR读回先于生产修改（6394663649 / 6394679078）。新managed独立工作区issue301-browser-tail-946接续同一分支/PR，四组26工件完整收齐，不机械拆批；两整退、十生产混合、五测试混合、原聚合仅加一个guard、五旧依据/当前说明及三当前文档，无新生产EXTRACT/owner。32闲置生产函数/方法、3类型及字段/注入/计数/测试/文档尾部退出；实际指纹/JSON、代理全部评分状态、质量重试/有效断言、周期健康日志、当前采集/原Amazon浏览器debug及独立SHEIN登录/Store同步保留。原guard真实RED→GREEN，其它原检查不改；原历史/计数/勾选、四旧依据及本冻结设计原Git blob完整后缀保持。workflow/完整inventory/依赖/保护及既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。必要自检、准确最终HEAD/原CI/源码最终复核留同一PR，设计复核不替代源码复核，合并另授权。以下冻结设计全文逐字保留，其DESIGN_ONLY/待确认措辞仅为原阶段证据。

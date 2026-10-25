@@ -1,3 +1,14 @@
+## #948 当前实施状态（2026-10-25）
+
+- 用户已确认准确设计 `1c69a63a753eb78873a1cc3974b9ff91ac03bd37` 的 §1–§7（含 §6.1）。设计独立复核无未解决 BLOCKER，原设计 CI40183527567 SUCCESS。
+- 准入先于源码：#301 接单/归档评论 6396490541、#948 接单评论 6396490774；Issue/PR 的 `Independent Architecture / IMPLEMENTATION_READY / Ready` 均已写入并准确读回。
+- `SOURCE_IMPLEMENTED / IN_REVIEW`：同一 Writer/分支/PR 收齐40工件；先将公共1688配置投影抽取到既有 public helper，再退休48函数、8类型、6混合字段与专属尾部。临时合成 fixture 对比原公共行为通过；新增原聚合 guard 已真实 RED→GREEN。
+- 名称核对：§5.2 中区域提示处理的 `handleRegionalPromptPopup` 为设计名称笔误；源码实际 owner 是 `DismissRegionalPrompt`，未改其实现。新 guard 保护实际函数，删除/保留边界不变。
+- 九文档仅前置注记，原 blob 完整后缀保留；四原 KEEP 项准确转换，完整 workflow/inventory/依赖零改。源码准确 HEAD、原 PR CI 与独立最终交付复核以本 PR 后续证据为准，当前尚不宣称其完成。
+- #301 保持 OPEN；当前采集/有效规则、PoolManager deadline/取消及独立 SHEIN 登录/Store 同步保留。运行、平台、产品验收 `NOT_RUN / NOT_AUTHORIZED`，不操作既有资源、不增加试用前置；合并另授权。
+
+以下为用户已确认的原冻结设计完整历史后缀（其中 DESIGN_ONLY/未来时态属于设计时点）。
+
 # #301 旧采集外观、兼容适配与诊断统计尾部完整退休边界
 
 Status: **DESIGN_ONLY / DESIGNING / AWAITING_REVIEW_AND_USER_CONFIRMATION**。Design Basis: **Independent Architecture**。用户仅授权四组完整闭包设计；本轮只调查及本文、架构索引、Legacy Register 三文档，生产源码/测试零改。未来实施 **NOT_READY**：适用独立设计复核完成、无 BLOCKER 且用户确认 §1–§7（含 §6.1），在 Issue/PR 记录并读回 **IMPLEMENTATION_READY / Ready** 后，才在同一主要 PR 整批实施。#301 保持 OPEN，合并、部署、关单另授权。

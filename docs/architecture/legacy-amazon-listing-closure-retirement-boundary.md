@@ -1,3 +1,7 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 仅替代本批矩阵内闲置来源辅助：单数 FeatureExtractor、三个 text-validator 方法、变体便利合同/custom/debug 方法、旧错误构造/诊断及提示/邮编便利尾部；当前已注册提取器、有效规则、变体 JSON/转换及浏览器采集不变。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
 > #301 / #947 **SUPERSEDED，仅无消费者来源便利合同**：用户已确认[完整设计§1–§7/§6.1](legacy-source-url-timeout-closure-retirement-boundary.md)。本文crawler/amazon来源广泛KEEP，不再保活准确矩阵内闲置URL/地区便利、TimeoutManager及专属接线；Amazon-as-source和当前model/有效规则/原浏览器debug保持，不按Task/metrics/worker同名整退。实际URL/ASIN/币种/marketplace/地区邮编、真实PoolManager deadline/取消、当前采集及独立SHEIN登录/Store同步保留。workflow/完整inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
 
 > #301 / #946 **SUPERSEDED，仅无消费者的浏览器管理/统计准确矩阵**：用户已确认[完整退休设计§1–§7/§6.1](legacy-browser-management-tail-closure-retirement-boundary.md)。本文shared metrics不因同名删除的原则继续有效；本次仅按实际消费者退出质量快照整链、代理Snapshot/外层池投影及§5准确闲置声明/字段/测试尾部，不整体退休Task/metrics/worker。真实指纹/代理全部评分计数与时间戳/质量重试/周期健康日志、当前采集/原Amazon浏览器debug、独立SHEIN登录/Store同步和其它KEEP保持。无新生产EXTRACT/owner/兼容，workflow/完整inventory/既有资源不动；以下原完整Git blob/历史/数字/勾选逐字保留。

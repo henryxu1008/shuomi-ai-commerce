@@ -1,3 +1,7 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 替代本设计中闲置的 AmazonProcessor.ProcessBatch KEEP；当前 Process/ProcessWithContext/ProcessBatchWithContext、真实批量 owner 和关闭行为原样保留。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
 > #301 / #947 **SUPERSEDED，仅闲置URL/地区便利与空超时接线**：用户已确认[完整设计§1–§7/§6.1](legacy-source-url-timeout-closure-retirement-boundary.md)。本文原crawler/amazon Processor/浏览器/辅助的广泛KEEP，只替代本批URL两方法、DomainResolver九函数/languageMap、TimeoutManager及其字段/构造/赋值/Shutdown专属尾部；不混淆已退integration同名解析器。NewAmazonProcessor/当前单批/context/有效池大小、URL/ASIN/币种/marketplace/地区邮编/有效规则、真实PoolManager取消/生命周期、采集/原浏览器debug与独立SHEIN登录/Store同步保持。workflow/完整inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
 
 > #301 / #946 **SUPERSEDED，仅闲置浏览器便利/配置旁路/诊断/统计闭包**：用户已确认[完整退休设计§1–§7/§6.1](legacy-browser-management-tail-closure-retirement-boundary.md)，只替代本文原Processor全方法/池/诊断广泛KEEP中的无人调用三统计方法及§5专属尾部。原七工件退休、NewAmazonProcessor/Process/Batch/context/Shutdown/有效池大小/factory_test、真实指纹/代理评分/质量重试/周期健康日志、当前采集/原浏览器debug及独立SHEIN登录/Store同步保持，原恢复/关闭/UNKNOWN不变。workflow/完整inventory/既有资源不动，不增试用前置；以下原完整Git blob/历史/数字/勾选逐字保留。

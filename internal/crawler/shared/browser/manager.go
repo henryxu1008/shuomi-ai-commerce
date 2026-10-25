@@ -5,7 +5,6 @@ import (
 
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/mxschmitt/playwright-go"
@@ -160,15 +159,4 @@ func (m *Manager) GetContext() playwright.BrowserContext {
 // GetConfig 获取浏览器配置（供子类使用）
 func (m *Manager) GetConfig() *BrowserConfig {
 	return m.config
-}
-
-// GetDefaultUserDataDir 获取默认用户数据目录
-func GetDefaultUserDataDir(identifier string) string {
-	// 获取当前可执行文件目录
-	execPath, err := os.Executable()
-	if err != nil {
-		return filepath.Join(".", "chromeData", identifier)
-	}
-	execDir := filepath.Dir(execPath)
-	return filepath.Join(execDir, "chromeData", identifier)
 }
