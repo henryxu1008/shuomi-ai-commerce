@@ -936,8 +936,8 @@ func TestIntegrationProviderBoundaryDecodesAllowedAndForbiddenGoImportLiterals(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(violations) != 2 {
-		t.Fatalf("decoded forbidden import violations = %v, want 2", violations)
+	if len(violations) != 3 {
+		t.Fatalf("decoded forbidden import violations = %v, want 3", violations)
 	}
 }
 

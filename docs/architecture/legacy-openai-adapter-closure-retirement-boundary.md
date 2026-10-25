@@ -1,3 +1,5 @@
+> #953 获批 §6.1 准确例外（2026-10-25）：用户已批准[精确提案6398981963](https://github.com/qq550723504/shuomi-ai-commerce/pull/953#issuecomment-6398981963)。原 TestIntegrationProviderBoundaryDecodesAllowedAndForbiddenGoImportLiterals 仅将期望及报错两行 2→3；原 raw/escaped fixture、解码/遍历/失败处理、生产白名单和其它断言不变，当前正确拒绝 app/core/旧 enrichment、保留 image。原 CI40202695034 的 Architecture/Backend 同根失败已复现；该最小校准不恢复旧授权，不改 workflow/完整 inventory。以下源码阶段说明和冻结设计全文完整保留。
+
 > #953 源码实施阶段：用户已确认冻结设计 §§1–7（含 §6.1）。旧生成链与 `internal/product/enrichment` 已整批退休；当前候选合同及纯规则归 `internal/product/review/proposal`，Review 仅接现成候选，沿原四个 HTTP 审核路由处理。必要自检、准确源码 CI 与最终复核分别记录在 [PR #953](https://github.com/qq550723504/shuomi-ai-commerce/pull/953)，当前尚未交付合并授权；运行/产品验收 NOT_RUN，#301 保持 OPEN。 以下冻结设计、索引和历史证据完整保留。
 
 # #301 旧生成链与审核候选合同完整退休设计（#953）
