@@ -76,6 +76,9 @@ jobs:
       - name: Test CI policy evaluators
         run: node --test .github/scripts/pr-scope-guard.test.cjs .github/scripts/ci-change-classifier.test.cjs
 
+      - name: Test source-only ListingKit image builds
+        run: node --test scripts/build-listingkit-images.test.mjs
+
   architecture-contracts:
     name: Architecture Contract Guards
     if: ${{ github.event_name == 'pull_request' }}
