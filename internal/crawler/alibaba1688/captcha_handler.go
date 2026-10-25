@@ -265,37 +265,6 @@ func canceledCaptchaResult(ctx context.Context, captchaType CaptchaType) Captcha
 	}
 }
 
-// checkAndHandleCaptcha 检查并处理验证码，包括鼠标轨迹录制
-func (ch *CaptchaHandler) checkAndHandleCaptcha(page playwright.Page) error {
-	// 检查是否需要处理验证码
-	title, err := page.Title()
-	if err != nil {
-		return nil
-	}
-
-	titleLower := strings.ToLower(title)
-	if strings.Contains(titleLower, "验证码") || strings.Contains(titleLower, "captcha") {
-		ch.componentLogger("crawler/alibaba1688").Info("检测到验证码拦截页面")
-
-		// 检查滑块元素
-		captchaType := ch.DetectCaptchaType(page)
-		if captchaType == CaptchaTypeSlider {
-			ch.componentLogger("crawler/alibaba1688").Info("是否录制鼠标轨迹? (y/n)")
-			ch.componentLogger("crawler/alibaba1688").Info("提示: 录制一次后可自动回放")
-
-			// 尝试读取用户输入 (非阻塞)
-			var input string
-			fmt.Scanln(&input)
-
-			if strings.ToLower(input) == "y" || strings.ToLower(input) == "yes" {
-				ch.componentLogger("crawler/alibaba1688").Info("开始录制鼠标轨迹...")
-				// 录制功能将在后续实现
-			}
-		}
-	}
-	return nil
-}
-
 // HandleCaptchaWithRetry 带重试的验证码处理
 func (ch *CaptchaHandler) HandleCaptchaWithRetry(ctx context.Context, page playwright.Page, maxRetries int) error {
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -320,40 +289,4 @@ func (ch *CaptchaHandler) HandleCaptchaWithRetry(ctx context.Context, page playw
 	}
 
 	return nil
-}
-
-// handleSliderCaptchaWithRecording 处理滑动验证码（支持录制）
-func (ch *CaptchaHandler) handleSliderCaptchaWithRecording(page playwright.Page, box *playwright.Rect, slideDistance float64) error {
-	recorder := globalRecorder
-
-	// 如果有保存的轨迹，尝试使用
-	if recorder.HasTrack() {
-		ch.componentLogger("crawler/alibaba1688").Info("找到已保存的轨迹，尝试使用...")
-		if err := recorder.replayTrack(page, box, recorder.GetSavedTrack()); err != nil {
-			ch.componentLogger("crawler/alibaba1688").Warnf("回放轨迹失败: %v", err)
-		} else {
-			time.Sleep(2 * time.Second)
-			if !ch.hasSliderCaptcha(page) {
-				ch.componentLogger("crawler/alibaba1688").Info("轨迹回放成功！")
-				return nil
-			}
-			ch.componentLogger("crawler/alibaba1688").Warnf("轨迹回放后仍检测到验证码")
-		}
-	}
-
-	// 录制新轨迹
-	ch.componentLogger("crawler/alibaba1688").Info("准备录制新轨迹...")
-	ch.componentLogger("crawler/alibaba1688").Info("请在弹出的浏览器中手动滑动验证码")
-
-	if err := recorder.RecordAndPlay(page, box, 3); err != nil {
-		return fmt.Errorf("录制失败: %w", err)
-	}
-
-	time.Sleep(2 * time.Second)
-	if !ch.hasSliderCaptcha(page) {
-		ch.componentLogger("crawler/alibaba1688").Info("录制回放成功！")
-		return nil
-	}
-
-	return fmt.Errorf("录制回放后仍检测到验证码")
 }

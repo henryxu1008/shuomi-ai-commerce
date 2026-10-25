@@ -31,6 +31,160 @@ var retiredSheinPolicyContractPackages = []string{
 	"internal/shein/generationtopics", "internal/shein/namelimit",
 }
 
+func TestLegacyAlibaba1688CaptchaExperimentClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/crawler/alibaba1688/captcha_fast_slider.go",
+		"internal/crawler/alibaba1688/captcha_human_slider.go",
+		"internal/crawler/alibaba1688/captcha_recorder.go",
+		"hack/debug/record-only/main.go", "hack/debug/record-simple/main.go", "hack/debug/test-recorder/main.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired 1688 CAPTCHA experiment source %s must be absent: %v", relative, err)
+		}
+	}
+	retiredTypes := strings.Fields("fastSlider humanSlider mousePoint trackData trackRecorder")
+	retiredFunctions := strings.Fields("newFastSlider newHumanSlider generateAndExecutePath randomInt randomFloat")
+	retiredMethods := strings.Fields("checkAndHandleCaptcha handleSliderCaptchaWithRecording easeInOutCubic complexEasing simulateHumanTyping simulateHumanMouseMovement generateBezierCurvePoints simulateHumanScrolling simulateRandomMouseWiggling simulateTypingMistakes generateQuickDragPoints quickEaseFunction generateHumanDragPoints humanEaseFunction calculateHumanStepDelay calculateVerticalWobble calculateStepDuration complexEasingWithVariation")
+	retained := map[string]bool{}
+	for _, name := range strings.Fields("point CaptchaHandler.DetectCaptchaType CaptchaHandler.hasSliderCaptcha CaptchaHandler.hasClickCaptcha CaptchaHandler.hasImageCaptcha CaptchaHandler.hasTextCaptcha CaptchaHandler.hasMathCaptcha CaptchaHandler.HandlePageCaptcha CaptchaHandler.HandlePageCaptchaWithoutManual CaptchaHandler.handlePageCaptcha CaptchaHandler.fallbackCaptchaResult canceledCaptchaResult CaptchaHandler.HandleCaptchaWithRetry CaptchaHandler.randomDelay CaptchaHandler.optimizedSlideWithRealTrack CaptchaHandler.generateRealHumanTrackPoints CaptchaHandler.handleSliderCaptchaWithResult CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.fallbackSliderCaptchaResult CaptchaHandler.performSliderAction CaptchaHandler.calculateSlideDistance CaptchaHandler.checkSliderSuccess isProductPageReadyAfterCaptcha CaptchaHandler.waitForManualSliderWithResult CaptchaHandler.waitForPageRedirect CaptchaHandler.optimizedSlideWithHumanBehavior") {
+		retained[name] = false
+	}
+	requiredCalls := map[string]map[string]bool{
+		"PageOperator.handleCaptcha": {
+			"HandlePageCaptcha": false, "HandlePageCaptchaWithoutManual": false,
+		},
+		"CaptchaHandler.handlePageCaptcha": {"handleSliderCaptchaWithManualOption": false},
+		"CaptchaHandler.handleSliderCaptchaWithManualOption": {
+			"performSliderAction": false, "checkSliderSuccess": false,
+			"fallbackSliderCaptchaResult": false, "waitForPageRedirect": false,
+		},
+		"CaptchaHandler.performSliderAction":             {"optimizedSlideWithHumanBehavior": false},
+		"CaptchaHandler.optimizedSlideWithHumanBehavior": {"optimizedSlideWithRealTrack": false},
+		"CaptchaHandler.optimizedSlideWithRealTrack":     {"generateRealHumanTrackPoints": false, "waitForContext": false},
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if filepath.ToSlash(filepath.Dir(relative)) != "internal/crawler/alibaba1688" || strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				receiver := ""
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					identity, ok := shape.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported 1688 receiver in %s: %T", relative, shape)
+					}
+					receiver = identity.Name
+				}
+				if receiver == "" && slices.Contains(retiredFunctions, name) || receiver == "CaptchaHandler" && slices.Contains(retiredMethods, name) || slices.Contains([]string{"fastSlider", "humanSlider", "trackRecorder"}, receiver) {
+					t.Errorf("%s retains retired 1688 experiment function %s.%s", relative, receiver, name)
+				}
+				if receiver != "" {
+					name = receiver + "." + name
+				}
+				if _, expected := retained[name]; expected {
+					retained[name] = true
+				}
+				if calls, expected := requiredCalls[name]; expected {
+					ast.Inspect(declaration.Body, func(node ast.Node) bool {
+						call, ok := node.(*ast.CallExpr)
+						if !ok {
+							return true
+						}
+						called := ""
+						switch target := call.Fun.(type) {
+						case *ast.SelectorExpr:
+							called = target.Sel.Name
+						case *ast.Ident:
+							called = target.Name
+						}
+						if _, expected := calls[called]; expected {
+							calls[called] = true
+						}
+						return true
+					})
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						if slices.Contains(retiredTypes, spec.Name.Name) {
+							t.Errorf("%s retains retired 1688 experiment type %s", relative, spec.Name.Name)
+						}
+						if spec.Name.Name == "point" {
+							shape, ok := spec.Type.(*ast.StructType)
+							if !ok || len(shape.Fields.List) != 1 {
+								t.Fatalf("current 1688 point shape changed in %s", relative)
+							}
+							field := shape.Fields.List[0]
+							value, ok := field.Type.(*ast.Ident)
+							if !ok || value.Name != "float64" || len(field.Names) != 2 || field.Names[0].Name != "x" || field.Names[1].Name != "y" || field.Tag != nil {
+								t.Fatalf("current 1688 point fields changed in %s", relative)
+							}
+							retained["point"] = true
+						}
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							if name.Name == "globalRecorder" {
+								t.Errorf("%s retains retired globalRecorder", relative)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for name, found := range retained {
+		if !found {
+			t.Errorf("current 1688 crawler owner must retain %s", name)
+		}
+	}
+	for caller, calls := range requiredCalls {
+		for called, found := range calls {
+			if !found {
+				t.Errorf("current 1688 call %s -> %s must remain", caller, called)
+			}
+		}
+	}
+	for relative, tokens := range map[string][]string{
+		"hack/debug/test-1688/main.go": {
+			"\"task-processor/internal/crawler/alibaba1688\"", "alibaba1688.NewAlibaba1688Processor(", "processor.Process(",
+		},
+		"hack/debug/test-real-track-slider/main.go": {
+			"\"task-processor/internal/crawler/alibaba1688\"", "alibaba1688.NewAlibaba1688Processor(", "processor.Process(",
+		},
+		"internal/integration/crawler/a1688/processor.go": {
+			"\"task-processor/internal/crawler/alibaba1688\"", "legacy.NewAlibaba1688Processor(", "p.source.Process(ctx, url)",
+		},
+		"internal/localagent/runner.go": {
+			"\"task-processor/internal/crawler/alibaba1688\"", "Process(context.Context, string) (*model.Product1688, error)", "alibaba1688.PublicAccessError", "alibaba1688.PublicAccessFailureChallenge",
+		},
+	} {
+		body, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range tokens {
+			if !strings.Contains(string(body), token) {
+				t.Errorf("current 1688 consumer %s must retain %q", relative, token)
+			}
+		}
+	}
+}
+
 func TestLegacyAmazonSourceAdapterClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/integration/crawler/amazon",
