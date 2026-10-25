@@ -15,6 +15,17 @@ it('binds parent/current/real combinations within the twister initialization obj
   expect(manifest.members.map(v=>v.sourceID)).toEqual([anchor,sibling]);
   expect(manifest.members[1].attributes).toEqual([{name:'Color',value:'Beige'},{name:'Size',value:'XL'}]);
 });
+it.each(['absent','empty','conflicting'])('uses the same-object currentAsin when the optional ASIN input is %s',kind=>{
+ const doc=document(),input=doc.querySelector<HTMLInputElement>('#ASIN')!;
+ if(kind==='absent')input.remove();else input.value=kind==='empty'?'':sibling;
+ doc.body.insertAdjacentHTML('beforeend',`<script>P.register('twister-js-init-dpx-data',function(){return ${JSON.stringify(familyData())};});</script>`);
+ if(kind==='conflicting')expect(()=>discoverFamily(doc,doc.URL)).toThrow('SOURCE_CHANGED');else expect(discoverFamily(doc,doc.URL).members).toHaveLength(2);
+});
+it.each(['<div class="recommendations"></div>','<form></form>','<div hidden></div>','<div aria-hidden="true"></div>','<div style="display:none"></div>','<a href="/dp/B000000000"></a>','<div data-cel-widget="comparison"></div>'])('rejects candidate scripts with an excluded product ancestor: %s',wrapper=>{
+ const doc=document(),host=doc.createElement('div');host.innerHTML=wrapper;
+ const script=doc.createElement('script');script.textContent=`P.register('twister-js-init-dpx-data',function(){return ${JSON.stringify(familyData())};});`;
+ host.firstElementChild!.append(script);doc.body.append(host);expect(()=>discoverFamily(doc,doc.URL)).toThrow('FAMILY_NOT_AVAILABLE');
+});
 it.each(['recommendation','split','conflict','missing','dynamic','cartesian'])('refuses unproven family metadata: %s',kind=>{
   const doc=document(), data=familyData(); let source=JSON.stringify(data);
   if(kind==='missing')source=JSON.stringify({...data,parentAsin:null});

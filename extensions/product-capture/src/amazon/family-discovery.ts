@@ -2,6 +2,7 @@ import { parse, type Node } from 'acorn';
 import { byteLength, MAX_BYTES } from '../validation';
 import { amazonPageSource } from './validation';
 import type { Attribute } from '../wire';
+import { excluded } from '../dom-materials';
 
 type Syntax = Node & Record<string, unknown>;
 export type FamilyMember = { sourceID: string; attributes: Attribute[] };
@@ -33,7 +34,8 @@ function object(v: unknown): Record<string, unknown> {
 }
 export function discoverFamily(doc: Document, sourceURL: string): FamilyManifest {
   const source = amazonPageSource(sourceURL);
-  if (amazonPageSource(doc.URL).sourceURL !== source.sourceURL || doc.querySelector<HTMLInputElement>('#ASIN')?.value !== source.sourceID) throw Error('SOURCE_CHANGED');
+  const observedASIN=doc.querySelector<HTMLInputElement>('input#ASIN')?.value;
+  if (amazonPageSource(doc.URL).sourceURL !== source.sourceURL || observedASIN && observedASIN !== source.sourceID) throw Error('SOURCE_CHANGED');
   let nodes = 0, bytes = 0; const started = performance.now(); const found: FamilyManifest[] = [];
   const charge = () => { if (++nodes > 65536 || performance.now() - started > 8000) throw Error('CAPTURE_TOO_LARGE'); };
   function accept(n: Syntax) {
@@ -83,6 +85,7 @@ export function discoverFamily(doc: Document, sourceURL: string): FamilyManifest
     }
   }
   for (const script of doc.scripts) {
+    if(!script.parentElement || excluded(script.parentElement))continue;
     const text = script.textContent ?? '';
     if (!text.includes('twister-js-init-dpx-data') || !text.includes('dimensionToAsinMap')) continue;
     bytes += byteLength(text); if (bytes > MAX_BYTES) throw Error('CAPTURE_TOO_LARGE');
