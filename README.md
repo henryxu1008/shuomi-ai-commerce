@@ -47,8 +47,8 @@ AI 负责理解需求和生成候选；权限、商品事实、价格与平台�
 ### 准备依赖
 
 - Go：版本以 [go.mod](./go.mod) 为准，当前为 `1.26.0`。
-- Node.js：与 [CI](./.github/workflows/ci.yml) 保持一致，当前为 `22`。
-- pnpm：使用[前端 package.json](./web/listingkit-ui/package.json) 的 `packageManager` 指定版本。
+- Node.js：与 [CI](./.github/workflows/ci.yml) 对应模块保持一致；Web Console 当前使用 `22`，采集插件使用 `24`。
+- 包管理器：Web Console 使用[前端 package.json](./web/listingkit-ui/package.json) 的 `packageManager` 指定 pnpm 版本；采集插件使用 npm，构建步骤见[插件说明](./extensions/product-capture/README.md#build-and-local-checks)。
 - Docker Compose：使用上述本地环境时需要。数据库、身份服务、对象存储及其他依赖按启用模块准备。
 
 ```bash
