@@ -81,16 +81,17 @@ test('builds both canonical targets from committed source, excluding dirty and p
   assert.equal(receipt.images[0].sizeBytes, 1234);
 }));
 
-for (const [name, fault, source, error] of [
+for (const [name, fault, source, error, component = 'All'] of [
   ['unknown source', '', 'missing-ref', /SourceRef must resolve/],
   ['Docker failure', 'build', 'HEAD', /image build failed/],
   ['historical application layers', 'stacked', 'HEAD', /exactly one application COPY/],
+  ['historical UI layers', 'stacked', 'HEAD', /exactly one application COPY/, 'UI'],
 ]) {
   test(`rejects ${name} without writing a success receipt`, () => fixture(({ output, revision, invoke }) => {
-    const result = invoke(fault, source);
+    const result = invoke(fault, source, component);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, error);
-    assert.equal(existsSync(path.join(output, `build-${revision}-All.json`)), false);
+    assert.equal(existsSync(path.join(output, `build-${revision}-${component}.json`)), false);
   }));
 }
 
