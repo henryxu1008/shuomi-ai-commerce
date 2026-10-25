@@ -1,3 +1,7 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 仅退休本批矩阵内无消费者的验证码统计/custom 构造、单数 FeatureExtractor、变体调试方法/custom 构造及根 VariationsExtractor 的专属 loggerDependency 字段；当前实际日志注入、child variations.NewExtractor(logs)、规则与运行日志原样保留。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
 > #301 / #947 **SUPERSEDED，仅旧采集 URL/站点便利与闲置超时接线**：用户已确认[完整设计§1–§7/§6.1](legacy-source-url-timeout-closure-retirement-boundary.md)。本文 timeout_manager.go 保留行及1688 URL/Processor广泛KEEP，仅在本批21闲置函数方法、TimeoutManager/languageMap和专属字段/构造/Shutdown尾部内替代；不是删除当前采集日志。实际URL规范化/币种/ASIN/marketplace/地区邮编、真实PoolManager deadline/取消/释放/重建、Logrus与当前采集/原浏览器debug及独立SHEIN登录/Store同步保持。workflow/完整inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
 
 > #301 / #946 **SUPERSEDED，仅闲置浏览器管理/诊断/统计尾部**：用户已确认[完整退休设计§1–§7/§6.1](legacy-browser-management-tail-closure-retirement-boundary.md)，只在其§5精确声明/字段/注入/测试矩阵内替代本文browser/shared广泛KEEP；不改变现役Logrus依赖/注入及构造/导航/安装/关闭/健康/质量/失败日志。闲置PrintConfigSummary/性能试验无实际调用；真实指纹、代理全部评分状态、质量重试/周期健康、当前采集/原Amazon浏览器debug和独立SHEIN登录/Store同步保持。无新facade/生产EXTRACT，workflow/完整inventory/既有资源不动；以下原完整Git blob/历史/数字/勾选逐字保留。

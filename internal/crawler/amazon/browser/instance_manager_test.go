@@ -35,7 +35,7 @@ func TestBrowserManagerDisabledRandomConfigRetainsWindowsStrategy(t *testing.T) 
 	cfg.Browser.RandomConfig.Strategy = "preset"
 	cfg.Browser.RandomConfig.PresetName = "mac_high_end"
 
-	got := NewBrowserManager(cfg, nil).GetConfig()
+	got := NewBrowserManagerWithConfig(cfg, "windows", "windows_high_end", 0, nil).GetConfig()
 	if got.FingerprintPlatform != "windows" {
 		t.Fatalf("disabled override must retain the Windows strategy, got %q", got.FingerprintPlatform)
 	}

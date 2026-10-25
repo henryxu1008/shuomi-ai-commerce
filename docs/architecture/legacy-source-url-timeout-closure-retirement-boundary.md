@@ -1,3 +1,7 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 仅替代 AmazonProcessor.ProcessBatch 旧 KEEP；当前 URL/地区/邮编规则、Context 批量与 PoolManager deadline/取消/释放/重建/关闭边界不变。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
 > #301 / #947 **USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结94fd91815的§1–§7（含§6.1）；Reuse Existing Architecture / Ready及Issue/PR读回先于生产修改（6395476141 / 6395476385）。同一PR整批收齐三组14工件，21闲置生产函数方法、TimeoutManager/languageMap及字段/构造/Shutdown/旧测试/四旧依据尾部退出，无生产EXTRACT/新owner；原聚合仅新增一个guard，目标真实RED→GREEN，其它原检查不改。1688实际规范化、Amazon marketplace两字段/完整15项map、币种/ASIN/地区邮编/有效规则、真实PoolManager parent deadline/取消/释放/重建/Batch/关闭、当前采集/原浏览器debug及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护和既有实例/数据/凭据/进程不动，无试用前置，#301 OPEN；准确源码HEAD/原CI/最终复核留同一PR，合并另授权。以下冻结设计原完整Git blob逐字保留，其DESIGN_ONLY/待确认措辞仅为原阶段证据。
 
 # #301 旧采集 URL／站点便利接口与闲置超时管理完整退休边界

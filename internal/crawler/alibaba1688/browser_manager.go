@@ -5,11 +5,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"fmt"
-	"strings"
 	"task-processor/internal/core/config"
 
 	sharedbrowser "task-processor/internal/crawler/shared/browser"
-	"task-processor/internal/pkg/runtimepath"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -35,11 +33,6 @@ type alibaba1688BrowserRuntimeConfig struct {
 	userDataDir string
 }
 
-// NewBrowserManager 创建1688浏览器管理器
-func NewBrowserManager(cfg *config.Config, logs func(string) *logrus.Entry) *BrowserManager {
-	return newAlibaba1688BrowserManagerWithRuntimeConfig(cfg, newAlibaba1688BrowserRuntimeConfig(cfg), logs)
-}
-
 // NewPublicBrowserManager creates a clean, non-persistent browser manager for
 // public 1688 crawling. It intentionally does not reuse the process-wide
 // browser profile, whose cookies could make a public attempt account-backed.
@@ -60,11 +53,10 @@ func newAlibaba1688BrowserManagerWithRuntimeConfig(cfg *config.Config, runtimeCo
 	}
 }
 
-func newAlibaba1688BrowserRuntimeConfig(cfg *config.Config) alibaba1688BrowserRuntimeConfig {
+func newAlibaba1688PublicBrowserRuntimeConfig(cfg *config.Config) alibaba1688BrowserRuntimeConfig {
 	browserConfig := &sharedbrowser.BrowserConfig{
 		UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	}
-	userDataDir := resolveAlibaba1688UserDataDir(cfg)
 	if cfg != nil {
 		browserConfig.Headless = cfg.Browser.Headless
 		browserConfig.BrowserPath = cfg.Browser.BrowserPath
@@ -72,22 +64,7 @@ func newAlibaba1688BrowserRuntimeConfig(cfg *config.Config) alibaba1688BrowserRu
 		browserConfig.ViewportWidth = cfg.Browser.ViewportWidth
 		browserConfig.ViewportHeight = cfg.Browser.ViewportHeight
 	}
-	return alibaba1688BrowserRuntimeConfig{browser: browserConfig, userDataDir: userDataDir}
-}
-
-func newAlibaba1688PublicBrowserRuntimeConfig(cfg *config.Config) alibaba1688BrowserRuntimeConfig {
-	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg)
-	runtimeConfig.userDataDir = ""
-	return runtimeConfig
-}
-
-func resolveAlibaba1688UserDataDir(cfg *config.Config) string {
-	if cfg != nil {
-		if dir := strings.TrimSpace(cfg.Browser.UserDataDir); dir != "" {
-			return dir
-		}
-	}
-	return runtimepath.NamespacedTempPath("browser-profiles", "1688")
+	return alibaba1688BrowserRuntimeConfig{browser: browserConfig, userDataDir: ""}
 }
 
 // CreateBrowser 创建浏览器实例（保持向后兼容的API）

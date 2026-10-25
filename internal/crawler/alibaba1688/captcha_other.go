@@ -66,19 +66,9 @@ func (ch *CaptchaHandler) handleLoginPrompt(ctx context.Context, page playwright
 	return nil
 }
 
-// handleClickCaptchaWithResult 处理点击验证码并返回结果
-func (ch *CaptchaHandler) handleClickCaptchaWithResult(ctx context.Context, page playwright.Page) CaptchaResult {
-	return ch.handleClickCaptchaWithManualOption(ctx, page, true)
-}
-
 func (ch *CaptchaHandler) handleClickCaptchaWithManualOption(ctx context.Context, page playwright.Page, allowManual bool) CaptchaResult {
 	ch.componentLogger("crawler/alibaba1688").Warn("检测到点击验证码，需要手动处理")
 	return ch.fallbackCaptchaResult(ctx, page, CaptchaTypeClick, "点击验证码", allowManual)
-}
-
-// handleImageCaptchaWithResult 处理图片验证码并返回结果
-func (ch *CaptchaHandler) handleImageCaptchaWithResult(ctx context.Context, page playwright.Page) CaptchaResult {
-	return ch.handleImageCaptchaWithManualOption(ctx, page, true)
 }
 
 func (ch *CaptchaHandler) handleImageCaptchaWithManualOption(ctx context.Context, page playwright.Page, allowManual bool) CaptchaResult {
@@ -93,11 +83,6 @@ func (ch *CaptchaHandler) handleImageCaptchaWithManualOption(ctx context.Context
 	return ch.fallbackCaptchaResult(ctx, page, CaptchaTypeImage, "图片验证码", allowManual)
 }
 
-// handleTextCaptchaWithResult 处理文字验证码并返回结果
-func (ch *CaptchaHandler) handleTextCaptchaWithResult(ctx context.Context, page playwright.Page) CaptchaResult {
-	return ch.handleTextCaptchaWithManualOption(ctx, page, true)
-}
-
 func (ch *CaptchaHandler) handleTextCaptchaWithManualOption(ctx context.Context, page playwright.Page, allowManual bool) CaptchaResult {
 	startTime := time.Now()
 
@@ -108,11 +93,6 @@ func (ch *CaptchaHandler) handleTextCaptchaWithManualOption(ctx context.Context,
 
 	ch.componentLogger("crawler/alibaba1688").Warn("文字验证码自动填写失败，需要手动处理")
 	return ch.fallbackCaptchaResult(ctx, page, CaptchaTypeText, "文字验证码", allowManual)
-}
-
-// handleMathCaptchaWithResult 处理数学验证码并返回结果
-func (ch *CaptchaHandler) handleMathCaptchaWithResult(ctx context.Context, page playwright.Page) CaptchaResult {
-	return ch.handleMathCaptchaWithManualOption(ctx, page, true)
 }
 
 func (ch *CaptchaHandler) handleMathCaptchaWithManualOption(ctx context.Context, page playwright.Page, allowManual bool) CaptchaResult {

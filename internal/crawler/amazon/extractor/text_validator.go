@@ -3,7 +3,6 @@ package extractor
 
 import (
 	"regexp"
-	"strings"
 )
 
 // TextValidator 文本验证器
@@ -68,26 +67,6 @@ func (v *TextValidator) IsValidProductDescription(text string) bool {
 	}
 
 	return true
-}
-
-// IsAboutItemFeature 检查是否为"About this item"相关的特性描述
-func (v *TextValidator) IsAboutItemFeature(text string) bool {
-	if len(text) < 10 || len(text) > 500 {
-		return false
-	}
-
-	// 过滤掉一些无用的文本
-	if v.containsInvalidFeaturePatterns(text) {
-		return false
-	}
-
-	// 检查是否包含产品特性相关的关键词
-	if v.containsFeatureKeywords(text) {
-		return true
-	}
-
-	// 如果文本较长且不包含明显的无效模式，也认为是有效的特性
-	return len(text) > 20
 }
 
 // containsJavaScriptOrCSS 检查是否包含JavaScript或CSS内容
@@ -196,46 +175,4 @@ func (v *TextValidator) isNormalChar(char rune) bool {
 		char == ')' || char == '[' || char == ']' || char == '\'' ||
 		char == '"' || char == '&' || char == '+' || char == '/' ||
 		char == '\\' || char == '\n' || char == '\r' || char == '\t'
-}
-
-// containsInvalidFeaturePatterns 检查是否包含无效的特性模式
-func (v *TextValidator) containsInvalidFeaturePatterns(text string) bool {
-	invalidPatterns := []string{
-		"see more", "show more", "read more", "click here", "learn more",
-		"view details", "customer reviews", "product description",
-		"technical details", "additional information", "about this item",
-		"›", "‹", "»", "«", "$", "price", "add to cart", "buy now",
-		"quantity", "shipping", "return", "warranty", "free 30-day",
-		"refund", "replacement", "transaction is secure", "recycled",
-		"climate pledge", "certified", "supply chain", "independently verified",
-		"contains at least", "percent", "by weight", "4 star", "5 star",
-		"1 star", "2 star", "3 star",
-	}
-
-	lowerText := strings.ToLower(text)
-	for _, pattern := range invalidPatterns {
-		if strings.Contains(lowerText, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
-// containsFeatureKeywords 检查是否包含特性关键词
-func (v *TextValidator) containsFeatureKeywords(text string) bool {
-	featureKeywords := []string{
-		"design", "material", "quality", "durable", "comfortable",
-		"adjustable", "waterproof", "lightweight", "perfect", "ideal",
-		"suitable", "gift", "occasion", "style", "elegant", "classic",
-		"modern", "vintage", "handmade", "crafted", "premium", "luxury",
-		"service", "support", "guarantee", "satisfaction",
-	}
-
-	lowerText := strings.ToLower(text)
-	for _, keyword := range featureKeywords {
-		if strings.Contains(lowerText, keyword) {
-			return true
-		}
-	}
-	return false
 }

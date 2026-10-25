@@ -1,12 +1,28 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.26-alpine AS go-builder
+FROM golang:1.26-alpine AS go-modules
 
 WORKDIR /src
 RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+# Browser installation depends on the pinned SDK, not on application source.
+FROM go-modules AS playwright-installer-builder
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/playwright-install github.com/mxschmitt/playwright-go/cmd/playwright
+
+# Serving builds do not compile or ship schema/acceptance executables.
+FROM go-modules AS current-application-builder
+COPY cmd/current-application ./cmd/current-application
+COPY internal ./internal
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/current-application ./cmd/current-application
+
+FROM go-modules AS go-builder
 
 COPY cmd/store-center-schema-init ./cmd/store-center-schema-init
 COPY cmd/issue36-local-trial-init ./cmd/issue36-local-trial-init
@@ -19,7 +35,6 @@ COPY cmd/account-audit-ledger-schema-init ./cmd/account-audit-ledger-schema-init
 COPY cmd/notification-center-schema-init ./cmd/notification-center-schema-init
 COPY cmd/project-center-schema-init ./cmd/project-center-schema-init
 COPY cmd/report-center-schema-init ./cmd/report-center-schema-init
-COPY cmd/current-application ./cmd/current-application
 COPY cmd/referral-schema-init ./cmd/referral-schema-init
 COPY cmd/organization-membership-schema-init ./cmd/organization-membership-schema-init
 COPY cmd/source-account-registry-schema-init ./cmd/source-account-registry-schema-init
@@ -31,7 +46,9 @@ COPY cmd/product-listing-api-schema-migrate ./cmd/product-listing-api-schema-mig
 COPY cmd/image-agent-temporal-worker ./cmd/image-agent-temporal-worker
 COPY internal ./internal
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/store-center-schema-init ./cmd/store-center-schema-init && \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/store-center-schema-init ./cmd/store-center-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/issue36-local-trial-init ./cmd/issue36-local-trial-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/knowledge-schema-init ./cmd/knowledge-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/ecoservices-schema-init ./cmd/ecoservices-schema-init && \
@@ -42,7 +59,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/store-center-sche
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/notification-center-schema-init ./cmd/notification-center-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/project-center-schema-init ./cmd/project-center-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/report-center-schema-init ./cmd/report-center-schema-init && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/current-application ./cmd/current-application && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/referral-schema-init ./cmd/referral-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/organization-membership-schema-init ./cmd/organization-membership-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/source-account-registry-schema-init ./cmd/source-account-registry-schema-init && \
@@ -51,12 +67,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/store-center-sche
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/account-acceptance-fixture ./cmd/account-acceptance-fixture && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/product-acquisition-init ./cmd/product-acquisition-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/product-listing-api-schema-migrate ./cmd/product-listing-api-schema-migrate && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/image-agent-temporal-worker ./cmd/image-agent-temporal-worker && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/playwright-install github.com/mxschmitt/playwright-go/cmd/playwright
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/image-agent-temporal-worker ./cmd/image-agent-temporal-worker
 
 FROM alpine:3.22 AS runtime
 RUN apk add --no-cache ca-certificates tzdata
-COPY --from=go-builder /out/current-application /usr/local/bin/current-application
+COPY --from=current-application-builder /out/current-application /usr/local/bin/current-application
 ENTRYPOINT ["/usr/local/bin/current-application"]
 
 FROM alpine:3.22 AS bootstrap
@@ -113,14 +128,15 @@ ENTRYPOINT ["/usr/local/bin/image-agent-temporal-worker"]
 
 # The existing pinned Go SDK installs its matching driver and browser at build
 # time. The serving container never downloads or installs browser dependencies.
-FROM ubuntu:24.04 AS data-services-runtime
+FROM ubuntu:24.04 AS data-services-runtime-base
 ENV DEBIAN_FRONTEND=noninteractive PLAYWRIGHT_DRIVER_PATH=/opt/data-services/playwright PLAYWRIGHT_BROWSERS_PATH=/opt/data-services/browsers
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata wget && rm -rf /var/lib/apt/lists/*
-COPY --from=go-builder /out/playwright-install /usr/local/bin/playwright-install
+COPY --from=playwright-installer-builder /out/playwright-install /usr/local/bin/playwright-install
 RUN playwright-install install --with-deps chromium && \
     browser="$(find /opt/data-services/browsers -type f -name chrome)" && \
     test -n "$browser" && test "$(printf '%s\n' "$browser" | wc -l)" -eq 1 && \
     ln -s "$browser" /opt/data-services/chromium && \
     rm /usr/local/bin/playwright-install && rm -rf /var/lib/apt/lists/*
-COPY --from=go-builder /out/current-application /usr/local/bin/current-application
+FROM data-services-runtime-base AS data-services-runtime
+COPY --from=current-application-builder /out/current-application /usr/local/bin/current-application
 ENTRYPOINT ["/usr/local/bin/current-application"]

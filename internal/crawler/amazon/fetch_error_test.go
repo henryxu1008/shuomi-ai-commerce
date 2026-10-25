@@ -45,13 +45,13 @@ func TestClassifyFetchError(t *testing.T) {
 		},
 		{
 			name:      "typed system busy",
-			err:       newSystemBusyError("crawler concurrency acquire timeout: context deadline exceeded", context.DeadlineExceeded),
+			err:       newTypedFetchError(FetchErrorTypeSystemBusy, true, "crawler concurrency acquire timeout: context deadline exceeded", context.DeadlineExceeded),
 			wantType:  FetchErrorTypeSystemBusy,
 			retryable: true,
 		},
 		{
 			name:      "typed invalid request",
-			err:       newInvalidRequestError("url or asin is required"),
+			err:       newTypedFetchError(FetchErrorTypeInvalidRequest, false, "url or asin is required", nil),
 			wantType:  FetchErrorTypeInvalidRequest,
 			retryable: false,
 		},

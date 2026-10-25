@@ -1,3 +1,7 @@
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 替代本设计中闲置的 handleSliderCaptchaWithResult KEEP，并退休专属统计与 TestStatisticsReset；其余24个保留函数、point、当前算法及人工取消和六个原测试保留。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
 > #301 / #942 **USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计b78ae71ac的§1–§7（含§6.1），Reuse Existing Architecture / Ready及Issue/PR读回[6393895022](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6393895022)/[6393895515](https://github.com/qq550723504/shuomi-ai-commerce/pull/942#issuecomment-6393895515)先于生产修改。同一15工件整批收齐，无新生产EXTRACT/owner；六整退、18混合声明及两曲线专属旧测试退出，原聚合文件仅加一个闭包guard，真实RED→GREEN。25混合函数/point与7有效原测试、全部其它原guard精确保持；当前算法/人工取消/采集/有效debug/SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护与既有实例/数据/凭据/轨迹文件/进程不动，不增试用前置，#301 OPEN。准确实现HEAD、CI与最终交付复核留同一PR；设计复核不替代源码复核，合并另授权。以下b78ae71ac冻结设计完整Git blob逐字保留，其DESIGN_ONLY/待实施措辞仅为原阶段证据。
 
 # 旧1688验证码试验与轨迹录制/回放完整退休闭包

@@ -210,11 +210,6 @@ func (ap *AmazonProcessor) processWithPoolManager(ctx context.Context, url strin
 	return ap.poolManager.ProcessWithTimeout(ctx, url, zipcode, timeout, processor)
 }
 
-// ProcessBatch 批量处理多个Amazon产品页面
-func (ap *AmazonProcessor) ProcessBatch(requests []model.ProductRequest) []model.ProductResult {
-	return ap.ProcessBatchWithContext(context.Background(), requests)
-}
-
 // ProcessBatchWithContext 批量处理多个Amazon产品页面，并传递调用方 context。
 func (ap *AmazonProcessor) ProcessBatchWithContext(ctx context.Context, requests []model.ProductRequest) []model.ProductResult {
 	// 检查处理器是否已关闭

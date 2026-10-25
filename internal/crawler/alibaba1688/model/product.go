@@ -145,19 +145,3 @@ type PackageDimensions struct {
 	Height float64 `json:"height"` // 高度（厘米）
 	Unit   string  `json:"unit"`   // 单位
 }
-
-// Product1688Request 1688产品请求
-type Product1688Request struct {
-	URL       string            `json:"url"`       // 产品URL
-	Options   map[string]string `json:"options"`   // 额外选项
-	RequestID string            `json:"requestId"` // 请求ID
-}
-
-// Product1688Result 1688产品处理结果
-type Product1688Result struct {
-	Request   Product1688Request `json:"request"`   // 原始请求
-	Product   *Product1688       `json:"product"`   // 产品信息
-	Error     error              `json:"error"`     // 错误信息
-	Duration  time.Duration      `json:"duration"`  // 处理耗时
-	Timestamp time.Time          `json:"timestamp"` // 处理时间
-}

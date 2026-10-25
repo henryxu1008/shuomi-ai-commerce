@@ -6,6 +6,11 @@ paths and commands. Keep the original project name when operating an existing
 environment; changing it selects different Compose resources. See the
 [branding and repository rename inventory](../../../docs/development/branding-and-repository-rename.md).
 
+For local image updates, use the [source-based image build entry](../../../docs/operations/listingkit-image-build.md).
+It builds the backend/UI from the selected Git commit and clean runtime bases;
+do not inherit a previous application release image. Building does not deploy or
+change this environment, its configuration, or its data.
+
 Optional ZITADEL/Tencent SMS delivery configuration and the remaining local
 provider connection prerequisite are documented in [SMS.md](SMS.md).
 
