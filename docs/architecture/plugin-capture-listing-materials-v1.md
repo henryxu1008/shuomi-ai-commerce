@@ -78,6 +78,28 @@ Increment status: **IMPLEMENTATION_READY**。独立 Reviewer `1688_shadow_design
 
 新图片元数据语法不支持可以明确保留原有相册；资源超限、来源变化和严格 payload 校验失败仍拒绝本次捕获。正文参数不执行页面脚本，不读账号/cookie/storage，也不调用来源网络。所有入口沿同一平台提取器，无额外按钮、持久缓存、重放或副作用 owner。
 
+### 2026-10-25：同商品服务端对照后的参数、相册与报价文字增量
+
+本增量状态：**DESIGN_REVIEW_PENDING / NOT_IMPLEMENTATION_READY**；Design Basis: **Reuse Existing Architecture**。用户核对 B0BDLGZCTY 旧程序 JSON 与插件版本7的34字段/28参数后，明确决定“设计通过后开发并维护 #945”。继续由原唯一 Writer 和 worktree 连续交付，维护同一主要 PR；不合并、不更新实例或现有插件、不重采、不保存、不部署。ProductAgent、Chat、服务端采集不由本增量启动；已有版本、配置、加载目录和插件身份保留。产品依据为该决定及既定字段清单，UI/路由不变，原 Figma authority 保持。此前各增量的 Ready 不覆盖本段待审新增路径。
+
+**已取得实证**：原 Edge 商品标签1016968462可恢复只读访问；未刷新、点击、执行采集或更改其选择。`#productDetails_feature_div #prodDetails #productDetails_expanderSectionTables` 下五个可展开区域（Item details / Measurements / Features & Specs / Materials & Care / Style）的 `table.a-keyvalue.prodDetTable` 共28行，位于左右 depthSections 中。每个 `.a-expander-container` 有可见 `a.a-expander-header[role=button][data-action=a-expander-toggle][aria-expanded=false]` 及直接 `.a-expander-content.a-expander-extend-content` 子节点，后者仅以 `display:none` 折叠；ASIN行明确为当前 B0BDLGZCTY。当前 Item Weight 是7.94 pounds，旧导出为3.61 kg，不能跨时点换算或选择其一。相册 `colorImages.initial = A.$.parseJSON('…')` 的9条MAIN/PT记录绑定当前主图，PT06–PT08确实没有可见缩略图；另一个colorImages对象是其它规格集合，不可并入。主报价根仍绑定本ASIN，`.a-price .a-offscreen` 当前为空，`#apex-pricetopay-accessibility-label` 提供 `$39.98 with 15 percent savings`；同根 `.apex-basisprice-offscreen-label[data-basisprice-label]` 提供 `List Price: $46.99`，没有明确币种元数据。
+
+**参数**：仅新增上述唯一、结构匹配的详情根和左右 depthSections；不使用全页 `table.a-keyvalue`。先验证允许的展开结构、同根安全ASIN行与当前 sourceID 一致，缺少/冲突/重复根均省略该可选增量并在原 missingFacts 说明，仍保留已知资料。复用 `tableFacts/productText/putFact`；每行仍仅两个单元格，排除排名/评论、控件、脚本、推荐、其它商品及嵌套表。名称继续 `Product details · 原名称`，保留重量、承重、厂家零件号的原标签/单位，不把它们变成净毛重、仓库库存或商家SKU，不散布到规格。
+
+本增量明确区分展示折叠与内容禁读：只有上述已验证结构中、拥有安全可见展开头的直接内容节点，才允许局部忽略它自身的 `style.display=none`。`excluded` 的其它调用保持原行为；通过显式可选节点参数仅供新 Amazon 详情路径使用。父/子其它节点的display:none、visibility:hidden、hidden、aria-hidden、表单、控件、推荐和其它商品过滤全部保留；不忽略任意隐藏祖先，不修改源DOM或自动点展开。该局部扩展不能被笼统当作原可见规则已覆盖。
+
+**完整当前相册**：复用 Acorn/jsonc-parser 和既有字面量准入，仅当 `initial` 内有唯一MAIN记录与当前已观察主图的显式hiRes/large一致时，接收该同组声明的MAIN/PT图片记录；无需每条都有可见thumb，不能借此接受其它颜色组、VID或全页hiRes。显式hiRes优先，缺失时保留原large，绝不拼尺寸后缀。保留现有DOM缩略图顺序，再追加同组未出现图片并去重；已选规格仍只有原已绑定主图。多个绑定组的完整记录冲突时沿原提示/保留原图库语义，不任取组。没有缩略图但有明确主图绑定也可读取同组；没有主图绑定不补图。原解析/集合/字节/节点/时间超限仍拒绝，不截断。
+
+**主报价文字与参考原价**：仍限定原两个corePrice根，并拒绝其中明确声明不同ASIN的根。保留原当前价节点与划线价排除；只增加同根 `#apex-pricetopay-accessibility-label` 的安全文字候选，用已实证的 `data-pricetopay-savings-label="{priceToPay} with {savings} percent savings"` 识别并剥离其节省比例后缀；剩余金额仍走原十进制词法/歧义/币种规则，不计算折扣或读取整块报价/控件。旧文字与新标签冲突仍不选优。币种继续只用同一当前价根的原ISO元数据或无歧义符号，不增加来源、不按站点或裸$猜USD。
+
+参考原价只从同根已实证、未被过滤的 `.apex-basisprice-offscreen-label[data-basisprice-label="{label} {price}"]` 读取完整安全文字；仅明确List Price及有效原金额保留为通用属性 `Source reference price`，同名冲突沿putFact省略并提示。它不进入priceFacts、variants.price或只读sourceQuotes.prices，不覆盖现价，也不成为本店售价；不读取aria-hidden的视觉重复价、价格说明弹窗、其它卖家、单位价或推荐价格。当前报价无金额时，参考价也不得兜底成现价。
+
+**复用与不变量**：当前owner仍为扩展Amazon纯解析，三入口→captureAmazonDocument→原严格v2/hash→交接/receiver→原Product/SRC/Catalog/Collection事务与原键/原标签恢复不变。新增 helper 只在该提取器装配；wire/parserVersion/schema、权限/租户、事实owner、状态机、事务、幂等/恢复和外部副作用均不改。Legacy decision EXTRACT：只借鉴旧合法字段/相册来源和明确参考价信号，保留成熟解析组件；不引入旧Go包、全页正则/表格、默认币种或旧Service。
+
+**验收**：设计通过后先RED复现26非指标参数（含18个版本7缺项）、5个合法折叠组及ASIN绑定、任意隐藏/控件/推荐/错误ASIN/重复根拒绝；9记录/6缩略图及无缩略图、MAIN/PT/VID、冲突组/large原值/预算；空旧价格节点+当前价标签、同根List Price与未知币种、现价冲突/只有原价/其它ASIN及原表单过滤。再最小实现；改动原测试中“同组未观察thumb必排除”的旧断言，而非删除其它有效归属/过滤断言。复用现有Vitest/JSDOM、typecheck/lint、fixture-only build和原Go纯v2映射验证，不新建runner或连接保留实例。结构夹具须标明源自只读投影重建，不冒充完整原HTML；真实重采/保存/图片字节与产品验收仍NOT_RUN。最终同步一次实际main、集中独立交付复核及准确HEAD CI进入同一#945。
+
+**规格族单独设计，暂不实现**：已有partial_family/parentASIN/variants合同可作为候选；只读取绑定当前子ASIN的明确父子/维度映射，不以9×19笛卡尔积造规格，不复制当前价/库存/主图到其它ASIN，不把厂家零件号当SKU。继续原256集合/1024总项等限制，不截断冒称完整；旧JSON的171ASIN不是逐规格价格、库存、图片已齐证明。此方向尚无该增量的设计准入，不进入本轮生产修改；视频、榜单/评价、新类目或供应商owner、新UI同样在本轮范围外。
+
 ## Legacy decision
 
 Legacy decision: EXTRACT。
