@@ -124,17 +124,19 @@ Design Basis: **Reuse Existing Architecture**。本增量由用户于 2026-10-25
 | `result.data.productTitle.fields.unit` | 商品 `attributes` | `来源计价单位`；“件”只作计价/计数单位，不是重量单位 |
 | `result.data.productTitle.fields.shopInfo.companyName`；缺失/空时仅取同一 shopInfo 的 `authCompanyName` | 商品 `attributes` | `来源供应商名称`；公司显示名称优先，不读取 sellerLoginId/账号、联系人或新建 Supplier |
 | `result.data.shippingServices.fields.location` | 商品 `attributes` | `来源发货地`；只取明确位置，不抓整页地址或推断经营地址 |
-| 当前 `skuModel.skuInfoMap` 每项的 `canBookCount` | 该项对应 `variants[].attributes` | `来源可订数量`；绑定原 sourceID/维度，不写 Catalog `Stock`，不复制到其它规格、不从总量分摊 |
+| 当前 `skuModel.skuInfoMap` 每项的 `canBookCount` | 商品 `attributes`，每个明确原 sourceID 一项 | `来源可订数量（规格ID <原sourceID>）`；绑定同项 `skuId`，不写规格维度或 Catalog `Stock`，不复制到其它规格、不从总量分摊 |
 
 当前 owner 是 `extensions/product-capture/src/extractor.ts` 的 1688 纯解析；只读取已有静态 AST/JSONC 树的精确字段，不执行脚本、读 globals、发网络请求或采集登录资料。已存在的 offerId 校验先于读取；无关组件、其它商品、推荐节点、顶层同名字段均不能作来源。
 
 商品文本为可选字符串，空白/缺失/null/非法类型不生成属性或默认值，其余按现有 `putFact` 规范化。商家名称只按表中明确的优先级选择，不能合并两个名称或用货号/品牌/登录名代替。数量只接受非负十进制整数字面量（包含明确 `0`）；数字节点从原文本切片读取，字符串规范化首尾空白后验证，保留精度、不经 `Number`/`parseInt`，不接受负数、小数、指数、单位词、布尔或对象。不把缺失/空/非法数量转成零；可选值不可用时仍保留该规格原有 ID、维度、报价和图片。
 
-新增来源属性复用 `putFact` 的同名去重和冲突省略规则；商品冲突沿原 `attributes` 诊断，规格数量冲突限定到该规格并留原 missingFacts/warnings 形态，不影响其它规格。无新增字段时原 payload/golden 和维度读取不变。新增值计入原 v2 的单值 8192 UTF-8 字节、每集合 256、总项 1024、2 MiB 及原 65536 节点/深度 32/8 秒预算；不得截断绕限或扩大限制。
+评审核实当前 TS/Go v2 都以完整 `variants[].attributes` 判重复组合。可订数量是来源观察值，不能成为维度、帮助重复维度通过准入，或使 sourceID-only 规格因数量相同而被误判重复。因此数量按上表放到商品来源参数，`variants[].attributes` 完全保留原维度读取，不修改公共组合语义、不新增前后两套准入。只有同一 `skuInfoMap` 项的明确非空 `skuId` 可作为关联；缺 ID 不用下标、名称或笛卡尔积造关联，省略该数量并留下原 missingFacts/warnings 形态的诊断。原仅有 sourceID、无维度的合法规格仍可保留数量；数量值变化不改变规格维度或准入结果。当前 UI 仅在已有参数列表按原规格 ID 显示，不承诺新增规格库存列。
+
+所有新增来源属性复用 `putFact` 的同名去重和冲突省略规则，冲突沿原 `attributes` 诊断，不覆盖已有属性；数量标签包含对应原规格 ID，不影响其它规格数量。无新增字段时原 payload/golden 和维度读取不变。新增值计入原 v2 的单值 8192 UTF-8 字节、每集合 256、总项 1024、2 MiB 及原 65536 节点/深度 32/8 秒预算；不得截断绕限或扩大限制。256 个规格并不保证还有容量保存 256 个额外商品参数：若新增信息触及现有上限则按原规则拒绝，不截断冒称齐全。
 
 调用路径保持 contract → `captureDocument` → 原 `validateCapture`/canonical hash → 页内按钮、快捷键和弹窗共享交接 → 原 receiver → SRC/Catalog/Collection 同一 Product UoW → 原属性展示及原键/原标签恢复。商品/规格 attributes 原本即为来源事实；不新增 wire/schema/parserVersion/数据库或第二事实 owner，不改变来源报价、价格、SKU、权限/租户、幂等/UNKNOWN/retry、事务、浏览器存储或恢复协议。尤其规格可订数量只作带来源标签的参数，不是自有可用库存，不做库存写入/同步。
 
-Must：四项有证据则读取并绑定正确层级；可订零值及大整数字面量不丢失；不可用可选值不影响已知资料；冲突不覆盖；原报价/规格图片/保存恢复保持；币种、真实商家 SKU、重量单位继续未知即缺失。Out of Scope：销量/评价/视频、供应商管理、物流承诺、其它平台改造、旧版本回填、实例或现有插件更新、真实重采/保存、部署及服务端采集。当前来源值为不可信页面资料，沿原纯文本展示和保存校验；不扩大现有 Threat Model 或另建治理/验收工具。
+Must：四项有证据且未触及原预算则读取并绑定正确层级；可订零值及大整数字面量不丢失；不可用可选值不影响已知资料；冲突不覆盖；原报价/规格图片/保存恢复保持；币种、真实商家 SKU、重量单位继续未知即缺失。Out of Scope：销量/评价/视频、供应商管理、物流承诺、其它平台改造、旧版本回填、实例或现有插件更新、真实重采/保存、部署及服务端采集。当前来源值为不可信页面资料，沿原纯文本展示和保存校验；不扩大现有 Threat Model 或另建治理/验收工具。
 
 验证先 TDD RED：按已证实字段重建有明确标记的 fixture（不是完整原页 DOM），逐规格不同数量、显式零/大整数、字段缺失/空/非法类型/整数格式、其它块/其它商品隔离、同名冲突及既有预算；再最小实现。复用 Vitest/JSDOM、原严格 v2/hash 与 Go 纯映射/ToSnapshot 测试，证明四项来源属性保留且 `Stock` 不变；原 Amazon/1688 sibling、typecheck/lint/fixture-only build 按风险检查。无新依赖、runner、真实浏览器/数据库/容器测试；最终稳定候选一次独立完整交付复核，准确 HEAD CI 和证据留主要 PR。
 
