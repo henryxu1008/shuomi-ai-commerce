@@ -1,5 +1,10 @@
 # Product capture: original-tab return across worker recreation
 
+> 2026-10-25: [#955 optional Amazon family design](plugin-capture-amazon-variants-v1.md)
+> proposes a separate navigation-only FamilyLocation for a live collection page. It does not
+> change this ReturnSession record or authorize storing payload/business results in session storage.
+> The new collection lifecycle requires its own design admission and later implementation approval.
+
 Execution: [#927](https://github.com/qq550723504/shuomi-ai-commerce/issues/927).
 Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY**
 after the existing `amazon_fix_review` independently reviewed design
