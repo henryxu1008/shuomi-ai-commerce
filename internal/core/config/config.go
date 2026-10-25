@@ -26,7 +26,6 @@ var (
 type Config struct {
 	StorageCapacity bool            `yaml:"storageCapacity"`
 	Referrals       ReferralsConfig `yaml:"-"`
-	Logging         LoggingConfig   `yaml:"logging"`
 	OpenAI          OpenAIConfig    `yaml:"openai"`
 	Browser         BrowserConfig   `yaml:"browser"`
 	// BrowserCollector is the opt-in wiring to the standalone anonymous public
@@ -45,23 +44,9 @@ type Config struct {
 	// CommercialOwnerDatabase is the explicit resource-balance owner pool;
 	// it must not borrow the Token usage runtime role.
 	CommercialOwnerDatabase *DatabaseConfig    `yaml:"commercialOwnerDatabase"`
-	Redis                   *RedisConfig       `yaml:"redis"`
-	Prompts                 PromptsConfig      `yaml:"prompts"`
 	ListingKit              ListingKitConfig   `yaml:"listingkit"`
 	Workbench               WorkbenchConfig    `yaml:"workbench"`
 	WalletTopUp             topupconfig.Config `yaml:"walletTopUp"`
-}
-
-type PromptsConfig struct {
-	Dir       string `yaml:"dir"`
-	HotReload bool   `yaml:"hotReload"`
-}
-
-type LoggingConfig struct {
-	Level        string                   `yaml:"level"`
-	Format       string                   `yaml:"format"`
-	File         string                   `yaml:"file"`
-	SplitByLevel []logger.LevelFileConfig `yaml:"split_by_level"`
 }
 
 func newViper() *viper.Viper {
@@ -361,26 +346,6 @@ func knownEnvBindings() map[string]envBinding {
 		"commercialDatabase.max_idle_connections": {
 			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_MAX_IDLE_CONNECTIONS",
 		},
-		"redis.host": {
-			Primary:    "TASK_PROCESSOR_REDIS_HOST",
-			Deprecated: []string{"REDIS_HOST"},
-		},
-		"redis.port": {
-			Primary:    "TASK_PROCESSOR_REDIS_PORT",
-			Deprecated: []string{"REDIS_PORT"},
-		},
-		"redis.password": {
-			Primary:    "TASK_PROCESSOR_REDIS_PASSWORD",
-			Deprecated: []string{"REDIS_PASSWORD"},
-		},
-		"redis.db": {
-			Primary:    "TASK_PROCESSOR_REDIS_DB",
-			Deprecated: []string{"REDIS_DB"},
-		},
-		"redis.pool_size": {
-			Primary:    "TASK_PROCESSOR_REDIS_POOL_SIZE",
-			Deprecated: []string{"REDIS_POOL_SIZE"},
-		},
 		"listingkit.imageUpload.provider": {
 			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_PROVIDER",
 		},
@@ -491,7 +456,7 @@ func deprecatedEnvWarnings() []string {
 			if !deprecatedSet {
 				continue
 			}
-			// 已设置新名称时不再提示旧别名（避免系统环境仍带 REDIS_* 等与项目 TASK_PROCESSOR_* 并存时刷屏）
+			// 已设置新名称时不再提示旧别名（避免系统环境仍带 DB_* 等与项目 TASK_PROCESSOR_* 并存时刷屏）
 			if primarySet {
 				continue
 			}

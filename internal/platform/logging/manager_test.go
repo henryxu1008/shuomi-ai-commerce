@@ -341,23 +341,6 @@ func TestLazyLogManagerRegistryDoesNotCreateRuntimeFiles(t *testing.T) {
 	}
 }
 
-func TestLogManagerWithFields(t *testing.T) {
-	manager := NewLogManager(&LogConfig{
-		Level:   "debug",
-		Console: false,
-	})
-	defer manager.Close()
-
-	logger := manager.GetLoggerWithFields(logrus.Fields{
-		"service": "test",
-		"version": "1.0",
-	})
-
-	assert.NotNil(t, logger)
-	assert.Equal(t, "test", logger.Data["service"])
-	assert.Equal(t, "1.0", logger.Data["version"])
-}
-
 func TestParseLogLevel(t *testing.T) {
 	tests := []struct {
 		input    string

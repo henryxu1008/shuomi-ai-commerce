@@ -135,11 +135,6 @@ func (lm *LogManager) GetLogger(component string) *logrus.Entry {
 	return lm.logger.WithField("component", component)
 }
 
-// GetLoggerWithFields 获取带多个字段的日志记录器
-func (lm *LogManager) GetLoggerWithFields(fields logrus.Fields) *logrus.Entry {
-	return lm.logger.WithFields(fields)
-}
-
 // SetLevel 动态设置日志级别
 func (lm *LogManager) SetLevel(level string) error {
 	logLevel := parseLogLevel(level)

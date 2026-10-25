@@ -1,3 +1,5 @@
+> #301 / #939 **SOURCE_IMPLEMENTED / IN_REVIEW**：按[用户确认的旧全局配置与日志便利尾部完整闭包](legacy-global-config-logging-tail-closure-retirement-boundary.md) §1–§7/§4.1/§6.1整批退出旧core/config HTTP/Retry门面、根Logging/Redis/Prompts投影及其专属尾部，两个闲置日志方法及对应保活；仅准确替代本文涉及这些对象的广泛KEEP，不撤销整个Config/日志/Redis能力。有效加载/弃用日志仍消费platform/logging，完整inventory/CURRENT零改；RedisConfig类型、SHEIN私有配置/原生Redis/登录与Store同步、当前日志/Retry/HTTP/AI/图像/JSON/采集保持。port-forward仅去两条旧Redis建议输出，其余转发/参数/Pester和#357不改。原完整Git blob及历史/计数/批准/失败逐字保留为后缀；workflow/依赖/保护/既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。
+
 # 旧 ListingKit 本地启动与 ImageAgent 验收编排：完整退休闭包
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。

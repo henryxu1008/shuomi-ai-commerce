@@ -147,8 +147,6 @@ try {
     Write-Host "  `$env:TASK_PROCESSOR_DATABASE_USER='${DbUser}'"
     Write-Host "  `$env:TASK_PROCESSOR_DATABASE_NAME='${DbName}'"
     Write-Host "  `$env:TASK_PROCESSOR_DATABASE_PASSWORD='<fill-real-password>'"
-    Write-Host "  `$env:TASK_PROCESSOR_REDIS_HOST='127.0.0.1'"
-    Write-Host "  `$env:TASK_PROCESSOR_REDIS_PORT='${LocalRedisPort}'"
     if ($IncludeTemporal) {
         Write-Host "  `$env:LISTINGKIT_TEMPORAL_ENABLED='true'"
         Write-Host "  `$env:LISTINGKIT_TEMPORAL_ADDRESS='127.0.0.1:${LocalTemporalPort}'"
