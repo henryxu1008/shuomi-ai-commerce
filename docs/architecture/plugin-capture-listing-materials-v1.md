@@ -60,7 +60,7 @@ Increment status: **IMPLEMENTATION_READY**。独立 Reviewer `1688_shadow_design
 
 ### 2026-10-25：Amazon 当前商品的副标题与列表参数
 
-本增量状态：DESIGN_REVIEW_PENDING；Design Basis: Reuse Existing Architecture。#916 用户在缺口分析后明确同意先补当前选中 ASIN 的标题/副标题、列表参数与来源重量；先设计评审，再开发、测试、提交一个主要 PR。完整规格族另行设计。本增量不授权合并、原实例/插件更新、重采或部署。
+本增量状态：IMPLEMENTATION_READY；Design Basis: Reuse Existing Architecture。独立 Reviewer 1688_shadow_design_review 已核对设计提交3a4af62f5b44c32b110a35d9549cfa69edba80d5、#916、已有AX证据及TS/Go链路，无设计级BLOCKER。标题/列表不同链接准入、唯一分支/顶层li/首次冒号与冲突、原字节/节点/时间预算三项IMPLEMENTATION_TEST由本批回归收敛。#916 用户在缺口分析后明确同意先补当前选中 ASIN 的标题/副标题、列表参数与来源重量；先设计评审，再开发、测试、提交一个主要 PR。完整规格族另行设计。本增量不授权合并、原实例/插件更新、重采或部署。
 
 版本7采集前已观察的 B0BDLGZCTY 页面中，titleSection 内主标题之外还有明确副标题；detailBulletsWrapper_feature_div 下的列表包含 `Product Dimensions: 44 x 32 x 6 inches; 7.96 pounds`、`Item model number: XL`、制造商、首次上架日期等。已保存资料只有 overview 表格参数。这里引用已取得的 AX 容器/列表/文字证据；回归使用对应结构型夹具，不冒充重新取得的完整网页 HTML。本轮浏览器未保留可用的原标签连接，不为源码实现重采或另开真实采集任务。
 
