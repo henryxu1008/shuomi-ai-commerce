@@ -38,6 +38,24 @@ Amazon 正文追加旧有效 A+ 商品模块段落（#aplus .aplus-module p、#a
 
 1688 从原已解析 context 的 result.data.productPackInfo.fields.unitWeight、shippingServices.fields.unitWeight 分别读取来源包装/来源物流重量。只接收静态字符串或原始数值词法，精度不经过 Number；两种来源分开命名，不覆盖或互相替代。字段自身未提供单位时名称明确“单位未提供”，并记录 missingFacts；不默认克/千克，不换算、不假定标准包装。若参数表含明确重量单位则原文保留，与上述原始模型值不混同。
 
+### 2026-10-25：1688 开放 Shadow DOM 详情增量
+
+Increment status: **IMPLEMENTATION_READY**。独立 Reviewer `1688_shadow_design_review` 已核对设计 HEAD `e1e07ef48ac023357c6b67c26a5a6b3ce25a7164`、#916 当前范围、TS/BFF/Go/httpimage 链路及用户提供的三个离线工件，无设计 BLOCKER；宿主外层视频过滤、v2 顶层 detail 专属准入和直接载荷 2048 UTF-8 URL 限制作为 IMPLEMENTATION_TEST 落实。用户批准先独立设计评审，再开发、测试并提交一个主要 PR；不合并、不更新插件/实例、不重采、不部署。Design Basis: **Reuse Existing Architecture**，沿用上方当前 owner、v2 字段和保存/恢复链路；此准入先于正式生产代码修改，不代表真实商品或生产验收。
+
+用户指定 Pi 会话提供的商品 917086279832 离线 DOM 显示：`#description[data-module="od_product_description"] .module-od-product-description .html-description` 的 open `shadowRoot` 内 `#detail` 承载详情。宿主本次为 `v-detail-p`，标签名不作为契约。39 个 img 中 34 个声明 src、5 个为空；34 图均 `loading="lazy"`，没有 data-src，非空白文字节点为 0。其中 30 条仅含 `__r__=13位十进制数字`，原插件 query 限制会拒绝它们。此为用户提供存档的结构证据，不冒充本会话实时源站读取或历史采集时就绪状态。
+
+**详情根与过滤**：仅在当前已校验商品文档中定位上述明确宿主；先按现有主文档子树排除筛选宿主，合格现代宿主只有一个时，显式进入其 open root，且只接受其中唯一 `#detail`。有合格现代宿主但 root/内容未准备或根歧义时，保留已知图库/SKU 等事实并用现有 missingFacts 说明 `images.detail` 未就绪/不明确，不任取一个根。没有合格现代宿主时，已支持的当前页面 `#desc-lazyload-container` 形态仍使用同一解析 owner；多个候选不任取。两种页面形态不建立旧 Service、数据或状态兼容层。
+
+参数表、正文和详情图共用选定根，继续复用两格参数、纯文本 walker、图片去重和预算。候选宿主/图片集合在遍历前沿用 256 上限；新遍历计入原总节点、8 秒及载荷预算。必须同时检查宿主到主文档的祖先与 Shadow 根内候选的祖先，保持 hidden/form/推荐/其他商品/视频排除，不能因 parentElement 在 Shadow 边界结束而漏查宿主外层。禁止泛扫所有 ShadowRoot、读取 closed root/iframe、整页 body、页面 globals、Cookie/storage 或外链。不增加滚动、等待图片字节、固定睡眠、额外请求或新恢复状态。
+
+**URL 例外**：通用 `publicImage`、Amazon 和 1688 v1 保持原规则。仅 1688 v2 顶层 `images` 中 `role=detail` 的提取及 strict payload 校验共用窄准入：原无 query URL 按既有规则；带 query 仅接受 HTTPS 精确主机 `cbu01.alicdn.com`、路径 `/img/ibank/` 下且原始 query 严格为单一 `__r__=[0-9]{13}` 的地址。拒绝额外/重复/编码变体参数；userinfo/端口/fragment/敏感路径/控制字符、公网主机及 2048 UTF-8 字节限制不变。图片原始 URL 连同 query 完整保留，不删参数、改文件名或网络探测。图库、SKU 图片和其它 role 继续原 URL 准入，不能借 detail 标签扩展规格图片合同。
+
+接收 BFF、Go evidence 映射和现有 httpimage 已可承载这些原始 HTTPS URL，不改变后端、schema、下载器或 SSRF 防护。本轮不调用任何下载能力，不宣称真实图片预览成功。
+
+**事实与回归**：纯图片详情的 description 保持空，可在现有 missingFacts.reason 说明无文字节点，不用标题/meta/程序说明或 OCR 填充。新图仅追加 detail role，不铺给 SKU；保留原图库与规格关联、报价、参数和完整 URL 去重。三个入口继续共用 runCapture；交接、Product 事务、保存幂等、原键/原标签恢复不变，不回填 Amazon v5/v6 或 1688 v1/v2。
+
+获准开发后，先用受控 JSDOM 重建用户提供的结构与有界图片样本复现失败，再最小实现；覆盖 34 src 图/5 空图/纯图无文字、30 条合法 query、宿主外层及根内排除、歧义/未就绪、集合/字节/时间边界和图库/SKU/Amazon/v1 sibling paths。现有保存映射证据复用，源码测试不替代真实重采/保存验收，不新增验收平台。
+
 ## 资源与失败边界
 
 沿用最终载荷 2 MiB、集合最多 256、总项 1024、描述 8192 UTF-8 字节、URL 2048 字节、8 秒等原限制。新增 DOM/AST 遍历使用现有级别的总节点预算 65536、深度 32；最多 256 个通过现有子树排除且包含 colorImages 的相册候选内联 script，候选文本累计最多 2 MiB，先限输入再解析。无关脚本仍计入原遍历节点与时间预算，不占相册候选名额；语法不支持的候选仍计数。此口径由 #916 的 2026-10-24 用户修复决定明确，纠正 #933 将整页内联脚本数量误作相册候选数量的阻断。参数/段落/图片均在累积前计数、限字节。超限按原 CAPTURE_TOO_LARGE/TIMEOUT 停止，不截断冒称完整。

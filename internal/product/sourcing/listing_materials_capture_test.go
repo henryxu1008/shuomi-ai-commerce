@@ -16,7 +16,7 @@ func TestListingMaterialsRemainInExistingCaptureSnapshots(t *testing.T) {
 			image := "https://m.media-amazon.com/images/I/detail.jpg"
 			if platform == "1688" {
 				body = browserV2Fixture(t)
-				image = "https://cbu01.alicdn.com/detail.jpg"
+				image = "https://cbu01.alicdn.com/img/ibank/detail.jpg?__r__=1774849509105"
 			}
 			var payload map[string]any
 			require.NoError(t, json.Unmarshal(body, &payload))

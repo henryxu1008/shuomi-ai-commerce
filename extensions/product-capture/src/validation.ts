@@ -36,7 +36,24 @@ export function publicImage(value: string) {
       && !sensitiveName.test(url.pathname) && !/%(?:00|0a|0d)/i.test(value);
   } catch { return false; }
 }
+// Only the 1688 v2 top-level detail owner may use this exception. Validate a
+// queryless copy with the original guards; the captured URL is never rewritten.
+export function public1688DetailImage(value: string) {
+  if (byteLength(value) > 2048) return false;
+  if (publicImage(value)) return true;
+  try {
+    const url = new URL(value);
+    const query = value.indexOf('?');
+    const rawQuery = value.slice(query);
+    if (url.hostname !== 'cbu01.alicdn.com' || !url.pathname.startsWith('/img/ibank/')
+      || query < 0 || rawQuery.length !== 20 || !/^\?__r__=[0-9]{13}$/.test(rawQuery)) return false;
+    url.search = '';
+    return publicImage(url.href);
+  } catch { return false; }
+}
 const image = z.strictObject({ url: text.refine(publicImage), role: text });
+const v2Image = z.strictObject({ url: text, role: text }).refine(image =>
+  image.role === 'detail' ? public1688DetailImage(image.url) : publicImage(image.url));
 const variant = z.strictObject({ sourceID: text.nullable(), sku: text.nullable(), title: text.nullable(), attributes: attrs, price: price.nullable() });
 const evidence = z.strictObject({
   schemaVersion: z.literal(1), sourceURL: text, offerID: text.regex(/^[1-9][0-9]{0,19}$/),
@@ -49,6 +66,7 @@ const evidence = z.strictObject({
   missingFacts: z.array(z.strictObject({ field: text, reason: text })).max(256),
 });
 const evidenceV2 = evidence.extend({ schemaVersion: z.literal(2), parserVersion: z.literal('1688-browser-dom/v3'),
+  images: z.array(v2Image).max(256),
   variants: z.array(variant.extend({ images: z.array(image).max(256) })).max(256) });
 const schema = z.discriminatedUnion('captureVersion', [z.strictObject({ captureVersion: z.literal(1), evidence }), z.strictObject({ captureVersion: z.literal(2), evidence: evidenceV2 })]);
 export function validateCapture(value: unknown): CapturePayload {
