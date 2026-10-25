@@ -22,19 +22,3 @@ type Variation struct {
 	Currency   string         `json:"currency"`
 	Attributes map[string]any `json:"attributes"`
 }
-
-// ProductDetail 产品详情
-type ProductDetail struct {
-	Type  string `json:"type"`
-	Value string `json:"value"`
-}
-
-// Product 产品接口（避免循环依赖）
-type Product interface {
-	GetVariationsValues() []VariationValue
-	SetVariationsValues([]VariationValue)
-	GetVariations() []Variation
-	SetVariations([]Variation)
-	GetProductDetails() []ProductDetail
-	GetFinalPrice() float64
-}

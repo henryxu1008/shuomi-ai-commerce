@@ -9,42 +9,16 @@ import (
 	"github.com/mxschmitt/playwright-go"
 )
 
-// VariationsConfig 变体提取配置（向后兼容）
-type VariationsConfig = variations.Config
-
-// GetDefaultVariationsConfig 获取默认配置（向后兼容）
-func GetDefaultVariationsConfig() *VariationsConfig {
-	return variations.GetDefaultConfig()
-}
-
 // VariationsExtractor 变体信息提取器（向后兼容）
 type VariationsExtractor struct {
-	loggerDependency
-
 	extractor *variations.Extractor
-	config    *VariationsConfig
 }
-
-// VariationsData 保存变体数据和ASIN映射信息（向后兼容）
-type VariationsData = variations.VariationsData
 
 // NewVariationsExtractor 创建变体信息提取器实例
 func NewVariationsExtractor(logs func(string) *logrus.Entry) *VariationsExtractor {
 	extractor := variations.NewExtractor(logs)
 	return &VariationsExtractor{
-		loggerDependency: loggerDependency{logFor: logs},
-		extractor:        extractor,
-		config:           variations.GetDefaultConfig(),
-	}
-}
-
-// NewVariationsExtractorWithConfig 使用自定义配置创建变体信息提取器实例
-func NewVariationsExtractorWithConfig(config *VariationsConfig, logs func(string) *logrus.Entry) *VariationsExtractor {
-	extractor := variations.NewExtractorWithConfig(config, logs)
-	return &VariationsExtractor{
-		loggerDependency: loggerDependency{logFor: logs},
-		extractor:        extractor,
-		config:           config,
+		extractor: extractor,
 	}
 }
 
@@ -81,48 +55,6 @@ func (ve *VariationsExtractor) Extract(page playwright.Page, product *model.Prod
 	product.Variations = convertToAmazonVariations(varList)
 
 	return nil
-}
-
-// GenerateCombinations 公开的组合生成方法，用于调试
-func (ve *VariationsExtractor) GenerateCombinations(dimensions map[string][]string) []map[string]any {
-	combinator := variations.NewCombinator(ve.config)
-	return combinator.Generate(dimensions)
-}
-
-// AttributesMatchGeneric 公开的属性匹配方法，用于调试
-func (ve *VariationsExtractor) AttributesMatchGeneric(combo map[string]any, asinAttrs map[string]string) bool {
-	matcher := variations.NewMatcher(ve.config)
-	return matcher.AttributesMatch(combo, asinAttrs)
-}
-
-// ValuesMatchGeneric 公开的值匹配方法，用于调试
-func (ve *VariationsExtractor) ValuesMatchGeneric(value1, value2 string) bool {
-	matcher := variations.NewMatcher(ve.config)
-	return matcher.ValuesMatch(value1, value2)
-}
-
-// MapAttributeNames 将通用属性名映射为语义化名称
-func (ve *VariationsExtractor) MapAttributeNames(attributes map[string]any) map[string]any {
-	mapper := variations.NewMapper(ve.config, ve.logFor)
-	return mapper.MapAttributeNames(attributes)
-}
-
-// InferAttributeType 公开的属性类型推断方法，用于测试
-func (ve *VariationsExtractor) InferAttributeType(value any) string {
-	mapper := variations.NewMapper(ve.config, ve.logFor)
-	return mapper.InferAttributeType(value)
-}
-
-// BuildVariationsFromValues 公开的变体构建方法，用于测试
-func (ve *VariationsExtractor) BuildVariationsFromValues(product *model.Product, asinMapping map[string]map[string]string, priceMapping map[string]any) []model.Variation {
-	varList := ve.extractor.BuildVariations(
-		convertToVariationsValues(product.VariationsValues),
-		asinMapping,
-		priceMapping,
-		product.FinalPrice,
-		"USD",
-	)
-	return convertToAmazonVariations(varList)
 }
 
 // 辅助函数：转换类型

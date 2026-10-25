@@ -234,14 +234,6 @@ func (ch *CaptchaHandler) handlePageCaptcha(ctx context.Context, page playwright
 	ch.componentLogger("crawler/alibaba1688").Infof("验证码处理完成: 类型=%s, 状态=%d, 尝试次数=%d, 耗时=%v",
 		captchaType.String(), result.Status, result.Attempts, result.Duration)
 
-	if result.Status == CaptchaStatusSuccess {
-		ch.recordSuccess(captchaType)
-	} else if result.Status == CaptchaStatusManualRequired {
-		ch.recordManual(captchaType)
-	} else {
-		ch.recordFailure(captchaType)
-	}
-
 	return result.Error
 }
 

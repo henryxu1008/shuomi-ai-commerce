@@ -83,20 +83,8 @@ func newTypedFetchError(fetchType string, retryable bool, message string, cause 
 	}
 }
 
-func newInvalidRequestError(message string) error {
-	return newTypedFetchError(FetchErrorTypeInvalidRequest, false, message, nil)
-}
-
 func newProcessorUnavailableError(message string, cause error) error {
 	return newTypedFetchError(FetchErrorTypeProcessorUnavailable, true, message, cause)
-}
-
-func newCrawlInProgressError() error {
-	return newTypedFetchError(FetchErrorTypeCrawlInProgress, true, "crawl already in progress and shared result timed out", nil)
-}
-
-func newSystemBusyError(message string, cause error) error {
-	return newTypedFetchError(FetchErrorTypeSystemBusy, true, message, cause)
 }
 
 type FetchError struct {

@@ -28,11 +28,6 @@ func NewPageOperator(logs func(string) *logrus.Entry) *PageOperator {
 	}
 }
 
-// NavigateToProduct 导航到产品页面
-func (po *PageOperator) NavigateToProduct(ctx context.Context, page playwright.Page, url string) error {
-	return po.navigateToProduct(ctx, page, url, true)
-}
-
 // NavigateToProductWithoutManualCaptcha navigates a public-first attempt
 // without waiting for an interactive CAPTCHA operator.
 func (po *PageOperator) NavigateToProductWithoutManualCaptcha(ctx context.Context, page playwright.Page, url string) error {
