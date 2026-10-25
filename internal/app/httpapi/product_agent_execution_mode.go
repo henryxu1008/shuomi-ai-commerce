@@ -8,8 +8,8 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func (a *productAgentApplication) modeSubject() agentconfig.ResolvedModeSubject {
@@ -40,7 +40,7 @@ func (a *productAgentApplication) titlePolicyScope(ctx context.Context) (review.
 	identity, err := a.currentModeIdentity(ctx)
 	return review.CandidateExecutionScope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID, MemberID: identity.MemberID}, err
 }
-func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, provenance review.ExecutionProvenance, candidate enrichment.Candidate, human bool) (review.PolicyProvenance, error) {
+func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, provenance review.ExecutionProvenance, candidate reviewproposal.Candidate, human bool) (review.PolicyProvenance, error) {
 	var proof review.PolicyProvenance
 	if !provenance.Valid() || a.configuration == nil || a.store == nil {
 		return proof, review.ErrForbidden
@@ -80,7 +80,7 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 	actionVersion := review.TitlePolicyAdoptionVersion
 	content := config.AgentID == agentconfig.ContentAgentID
 	if content {
-		if config.AgentVersion != agentconfig.ContentAgentVersion || config.Request.PolicyVersion != enrichment.ContentPolicyVersion || config.Request.ContentSelection != provenance.ContentSelection || !provenance.ContentSelection.Valid() {
+		if config.AgentVersion != agentconfig.ContentAgentVersion || config.Request.PolicyVersion != reviewproposal.ContentPolicyVersion || config.Request.ContentSelection != provenance.ContentSelection || !provenance.ContentSelection.Valid() {
 			return proof, review.ErrConflict
 		}
 		actionVersion = review.ContentPolicyAdoptionVersion

@@ -7,23 +7,23 @@ import (
 	"task-processor/internal/commercetool"
 	texteino "task-processor/internal/integration/agent/einomodel"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 // Only canonical inspection discloses raw captured evidence fields for the
 // current title policy. Asset/source identity/readiness are not raw evidence.
-func agentCandidateEvidenceObserved(b agent.Binding, candidate enrichment.Candidate, history []agent.Observation) bool {
+func agentCandidateEvidenceObserved(b agent.Binding, candidate reviewproposal.Candidate, history []agent.Observation) bool {
 	return candidateEvidenceObserved(agent.Request{Binding: b}, candidate, history)
 }
 
-func contentCandidateEvidenceObserved(request agent.Request, candidate enrichment.Candidate, history []agent.Observation) bool {
+func contentCandidateEvidenceObserved(request agent.Request, candidate reviewproposal.Candidate, history []agent.Observation) bool {
 	if !request.ContentSelection.Valid() {
 		return false
 	}
 	return candidateEvidenceObserved(request, candidate, history)
 }
 
-func candidateEvidenceObserved(request agent.Request, candidate enrichment.Candidate, history []agent.Observation) bool {
+func candidateEvidenceObserved(request agent.Request, candidate reviewproposal.Candidate, history []agent.Observation) bool {
 	b := request.Binding
 	observed := make(map[string]bool)
 	for _, item := range history {

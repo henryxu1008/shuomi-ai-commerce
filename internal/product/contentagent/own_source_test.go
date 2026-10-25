@@ -10,8 +10,8 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 type ownSnapshots struct {
@@ -56,7 +56,7 @@ func TestOwnSourceRequiresExactOriginalAndGenuineApplyLineage(t *testing.T) {
 		id := uuid.NewString()
 		next.PublicationID = "review:" + id
 		next.Snapshot.Title = base.Snapshot.Title + "优化"
-		applies[next.PublicationID] = review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: root.Identity.ProductKey, BaseVersion: base.Version}, BasePublicationID: base.PublicationID, Policy: "title-review-v1", Before: base.Snapshot.Title, Title: next.Snapshot.Title, State: "applied", Revision: 2, Original: enrichment.Proposal{Changes: []enrichment.FieldChange{{Field: "title"}}}, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: v, PublicationID: next.PublicationID, Actor: scope.ActorID, At: time.Now()}}
+		applies[next.PublicationID] = review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: root.Identity.ProductKey, BaseVersion: base.Version}, BasePublicationID: base.PublicationID, Policy: "title-review-v1", Before: base.Snapshot.Title, Title: next.Snapshot.Title, State: "applied", Revision: 2, Original: reviewproposal.Proposal{Changes: []reviewproposal.FieldChange{{Field: "title"}}}, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: v, PublicationID: next.PublicationID, Actor: scope.ActorID, At: time.Now()}}
 		snapshots.versions[v] = next
 		snapshots.head = v
 	}

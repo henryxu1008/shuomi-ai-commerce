@@ -1,4 +1,4 @@
-package enrichment
+package proposal
 
 import (
 	"testing"

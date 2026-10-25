@@ -14,7 +14,7 @@ func TestManagerEffectiveConfigurationStaticVersionIsDeterministicNonSecretAndSe
 		t.Helper()
 		manager, err := NewManager(&ManagerConfig{Clients: map[string]*ClientConfig{
 			name: testClientConfig(key, model, baseURL),
-		}, DefaultClient: name})
+		}})
 		if err != nil {
 			t.Fatalf("NewManager: %v", err)
 		}
@@ -64,7 +64,7 @@ func TestManagerEffectiveConfigurationUsesDBOverrideAndBindsExactVersion(t *test
 	}}
 	manager, err := NewManager(&ManagerConfig{
 		Clients:        map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", "https://static.test/v1")},
-		ConfigResolver: resolver, DefaultClient: "default",
+		ConfigResolver: resolver,
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
@@ -96,8 +96,7 @@ func TestManagerStaticClientRejectsBlankSelectedConfigurationVersion(t *testing.
 	server := newCaptureChatServer(t, &requests, &mu)
 	defer server.Close()
 	manager, err := NewManager(&ManagerConfig{
-		Clients:       map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", server.URL)},
-		DefaultClient: "default",
+		Clients: map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", server.URL)},
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
@@ -125,13 +124,13 @@ func TestManagerBoundClientFailsClosedWhenEffectiveVersionRotates(t *testing.T) 
 	}}
 	manager, err := NewManager(&ManagerConfig{
 		Clients:        map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", server.URL)},
-		ConfigResolver: resolver, DefaultClient: "default",
+		ConfigResolver: resolver,
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
 	t.Cleanup(func() { _ = manager.Close() })
-	ctx := WithTenantID(context.Background(), "tenant-a")
+	ctx := WithIdentity(context.Background(), Identity{TenantID: "tenant-a"})
 	v1, err := manager.ResolveEffectiveClientRoute(ctx, "default")
 	if err != nil {
 		t.Fatalf("resolve v1: %v", err)
@@ -151,13 +150,13 @@ func TestManagerBoundClientFailsClosedWhenEffectiveVersionRotates(t *testing.T) 
 func TestManagerEffectiveConfigurationReportsGenuinelyUnavailableCandidate(t *testing.T) {
 	manager, err := NewManager(&ManagerConfig{
 		Clients:        map[string]*ClientConfig{"default": testClientConfig("secret", "model", "https://example.test/v1")},
-		ConfigResolver: &mutableEffectiveResolver{}, DefaultClient: "default",
+		ConfigResolver: &mutableEffectiveResolver{},
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
 	t.Cleanup(func() { _ = manager.Close() })
-	_, err = manager.ResolveEffectiveClientRoute(WithTenantID(context.Background(), "tenant-a"), "fast")
+	_, err = manager.ResolveEffectiveClientRoute(WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}), "fast")
 	if !errors.Is(err, ErrClientConfigurationUnavailable) {
 		t.Fatalf("missing candidate error = %v, want ErrClientConfigurationUnavailable", err)
 	}

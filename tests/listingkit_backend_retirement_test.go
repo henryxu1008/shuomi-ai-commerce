@@ -31,6 +31,190 @@ var retiredSheinPolicyContractPackages = []string{
 	"internal/shein/generationtopics", "internal/shein/namelimit",
 }
 
+func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
+	for _, path := range []string{
+		"internal/product/enrichment",
+		"internal/integration/openai/text_completion.go", "internal/integration/openai/text_completion_test.go",
+		"internal/integration/openai/text_knowledge_lease_test.go",
+		"internal/integration/openai/product_enrichment_adapter.go", "internal/integration/openai/product_enrichment_adapter_test.go",
+		"internal/integration/crawler/a1688/product_enrichment_input.go", "internal/integration/crawler/a1688/product_enrichment_input_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired generation artifact must be absent: %s: %v", path, err)
+		}
+	}
+	retired := map[string][]string{
+		"internal/integration/openai":        strings.Fields("Manager.UsesOrganizationCredentials Manager.UsesOrganizationOnlyCredentials Manager.ResolveTextRoute Manager.ResolveTextRouteDetails Manager.resolveTextConfiguration Manager.CompleteText completeTextOnce boundedTextHTTPClient.Do NewProductEnrichmentAdapter ProductEnrichmentAdapter.Generate canonicalContextError isNilTextInvoker canonicalRequestedFields buildProductEnrichmentPrompt buildProductEnrichmentPromptWithMarshal inspectProductEnrichmentPromptBudget productEnrichmentPromptBudgetWalker.visit productEnrichmentPromptBudgetWalker.visitReference parseProductEnrichmentResponse productEnrichmentPromptBudgetError.Error Manager.GetClient Manager.GetDefaultClient Manager.HasConfigResolver Manager.RegisterClient Manager.defaultClientNameLocked Manager.resolveStaticClient Manager.ListClients contextualChatClient.resolve contextualChatClient.CreateChatCompletion contextualChatClient.Generate contextualChatClient.AnalyzeImage contextualChatClient.GetDefaultModel Client.CreateChatCompletionWithTimeout WithTenantID WithUserID"),
+		"internal/product/review":            strings.Fields("NewService Service.Create"),
+		"internal/app/httpapi":               strings.Fields("NewProductReviewApplication productReviewOnlyRoutes"),
+		"internal/integration/crawler/a1688": strings.Fields("ProductEnrichmentRequest cloneEnrichmentSource cloneEnrichmentStringMap"),
+	}
+	retiredTypes := strings.Fields("TextCompletionRequest TextCompletionResult TextRouteDetails boundedTextHTTPClient TextInvocationRequest TextInvoker ProductEnrichmentAdapter productEnrichmentPromptBudget productEnrichmentPromptBudgetError productEnrichmentPromptBudgetKind productEnrichmentPromptBudgetReference productEnrichmentPromptBudgetWalker contextualChatClient")
+	retained := map[string]bool{}
+	for owner, names := range map[string]string{
+		"internal/integration/openai":      "Manager ManagerConfig NewManager Client NewClient Client.Generate Client.CreateChatCompletion Identity WithIdentity IdentityFromContext Manager.GetClientWithRoute Manager.ResolveEffectiveClientRoute Manager.GetImageClient contextualImageClient RequestPool BaseClient",
+		"internal/product/review":          "Service NewCandidateService Service.CreateFromCandidate Service.CreateFromCandidateWithTransactionAttempt Service.ValidateCandidate Service.Decide Service.Apply CreateInput CandidateInput Record View",
+		"internal/product/review/proposal": "Request PolicySnapshot Proposal Candidate FieldChange Evidence QualityScore ValidationResult Warning Rejection ContentSelection ContentPolicyVersion NewContentSelection ValidateCandidate CanonicalEvidenceID ContentSelection.Absent ContentSelection.Valid ContentSelection.Fields ContentSelection.TitleOnly",
+		"internal/app/httpapi":             "InstallProductReviewSchema buildProductReviewCore newProductReviewRepository productReviewRoutes buildLocalTrialReviewRoutes Issue36LocalTrialSourceWiring",
+		"internal/sheinlogin":              "Service.RunWorker Service.processAttempt Service.claimExecution Service.syncPending",
+	} {
+		for _, name := range strings.Fields(names) {
+			retained[owner+":"+name] = false
+		}
+	}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		openaiAlias := ""
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", path, err)
+			}
+			if importMatchesPrefix(imported, "task-processor/internal/product/enrichment") {
+				t.Errorf("%s retains retired generation import %s", path, imported)
+			}
+			if imported == "task-processor/internal/integration/openai" {
+				openaiAlias = "openai"
+				if spec.Name != nil {
+					openaiAlias = spec.Name.Name
+				}
+			}
+			if imported == "task-processor/internal/product/review/proposal" && spec.Name != nil && spec.Name.Name == "enrichment" {
+				t.Errorf("%s keeps the retired owner as an import alias", path)
+			}
+			if owner == "internal/product/review/proposal" && !strings.HasSuffix(path, "_test.go") {
+				if strings.Contains(strings.Split(imported, "/")[0], ".") && imported != "golang.org/x/text/language" || strings.HasPrefix(imported, "task-processor/") && imported != "task-processor/internal/product/catalog" && imported != "task-processor/internal/product/sourcing" {
+					t.Errorf("pure review proposal imports runtime or another owner: %s", imported)
+				}
+			}
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			literal, ok := node.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+			managerConfig := false
+			switch kind := literal.Type.(type) {
+			case *ast.Ident:
+				managerConfig = owner == "internal/integration/openai" && kind.Name == "ManagerConfig"
+			case *ast.SelectorExpr:
+				alias, ok := kind.X.(*ast.Ident)
+				managerConfig = ok && alias.Name == openaiAlias && kind.Sel.Name == "ManagerConfig"
+			}
+			if managerConfig {
+				for _, item := range literal.Elts {
+					if pair, ok := item.(*ast.KeyValueExpr); ok {
+						if key, ok := pair.Key.(*ast.Ident); ok && key.Name == "DefaultClient" {
+							t.Errorf("%s retains old ManagerConfig default selection", path)
+						}
+					}
+				}
+			}
+			return true
+		})
+		if strings.HasSuffix(path, "_test.go") || strings.HasPrefix(path, "tests/testdata/") {
+			continue
+		}
+		if _, relevant := retired[owner]; !relevant && owner != "internal/product/review/proposal" && owner != "internal/sheinlogin" {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			var names []string
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if declaration.Recv != nil {
+					kind := declaration.Recv.List[0].Type
+					if pointer, ok := kind.(*ast.StarExpr); ok {
+						kind = pointer.X
+					}
+					receiver, ok := kind.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported receiver in %s: %T", path, kind)
+					}
+					name = receiver.Name + "." + name
+				}
+				names = append(names, name)
+				if slices.Contains(retired[owner], name) {
+					t.Errorf("%s retains retired generation function %s", path, name)
+				}
+				if owner == "internal/app/httpapi" && name == "productReviewRoutes" || owner == "internal/product/review" && name == "Service.create" {
+					var body bytes.Buffer
+					if err := format.Node(&body, token.NewFileSet(), declaration); err != nil {
+						t.Fatal(err)
+					}
+					if strings.Contains(body.String(), `"create"`) || strings.Contains(body.String(), ".proposer") {
+						t.Errorf("%s keeps the fixed generation branch", name)
+					}
+					if name == "productReviewRoutes" {
+						for _, current := range []string{`"list"`, `"get"`, `"decision"`, `"apply"`} {
+							if !strings.Contains(body.String(), current) {
+								t.Errorf("current review route missing %s", current)
+							}
+						}
+					} else {
+						for _, current := range []string{`"create_candidate"`, "s.store.Preflight", "s.sourceReader.AuthorizeRead", "validateIntakeProposal", "s.acquireExecutionGate", "s.store.Run", "tx.Replay", "tx.Save", "tx.Complete"} {
+							if !strings.Contains(body.String(), current) {
+								t.Errorf("candidate review transaction missing %s", current)
+							}
+						}
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name.Name)
+						if owner == "internal/integration/openai" && slices.Contains(retiredTypes, spec.Name.Name) {
+							t.Errorf("%s retains retired type/alias %s", path, spec.Name.Name)
+						}
+						if owner == "internal/product/review/proposal" && spec.Assign.IsValid() {
+							t.Errorf("current proposal contract must not be a compatibility alias: %s", spec.Name.Name)
+						}
+						if shape, ok := spec.Type.(*ast.StructType); ok {
+							logger := false
+							for _, field := range shape.Fields.List {
+								for _, fieldName := range field.Names {
+									if owner == "internal/integration/openai" && (spec.Name.Name == "Manager" && fieldName.Name == "defaultClient" || spec.Name.Name == "ManagerConfig" && fieldName.Name == "DefaultClient") || owner == "internal/product/review" && spec.Name.Name == "Service" && fieldName.Name == "proposer" {
+										t.Errorf("%s retains retired field %s.%s", path, spec.Name.Name, fieldName.Name)
+									}
+									if fieldName.Name == "Logger" && field.Tag != nil {
+										logger = reflect.StructTag(strings.Trim(field.Tag.Value, "`")).Get("json") == "-"
+									}
+								}
+							}
+							if owner == "internal/integration/openai" && spec.Name.Name == "ManagerConfig" && !logger {
+								t.Error("current ManagerConfig must retain its non-serialized Logger")
+							}
+						}
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							names = append(names, name.Name)
+						}
+					}
+				}
+			}
+			for _, name := range names {
+				if _, relevant := retained[owner+":"+name]; relevant {
+					retained[owner+":"+name] = true
+				}
+			}
+		}
+	}
+	for identity, found := range retained {
+		if !found {
+			t.Errorf("current capability/contract must retain %s", identity)
+		}
+	}
+}
+
 func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/crawler/amazon/extractor/feature_extractor.go",

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"net/http"
 	"strings"
 	"testing"
 
@@ -20,11 +19,7 @@ func TestOwnContentAgentGlobalAdmissionPreservesTrustedProfiles(t *testing.T) {
 			routes := append(agentAndPointRoutes(false, false), collectionhttp.Routes(nil, nil)...)
 			routes = append(routes, productAgentProfileRoutes(nil, titleOnly)...)
 			routes = append(routes, ownContentAgentRoutes(nil)...)
-			for _, route := range productReviewRoutes(nil, nil) {
-				if route.Method != http.MethodPost || route.Path != "/api/product/text-proposals" {
-					routes = append(routes, route)
-				}
-			}
+			routes = append(routes, productReviewRoutes(nil, nil)...)
 			validate := func(bundle []httproute.Descriptor, profile bool) error {
 				return validateCurrentApplicationRoutesInternal(bundle, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{ProductAgent: true, ContentTitleOnly: profile, Collections: true})
 			}

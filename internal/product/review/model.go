@@ -4,7 +4,7 @@ package review
 import (
 	"errors"
 	"strings"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -30,12 +30,12 @@ type CreateInput struct {
 // CandidateInput is an internal caller contract, not an HTTP request body.
 // The owner re-reads the exact source and revalidates every proposed field.
 type CandidateInput struct {
-	ContentSelection             enrichment.ContentSelection `json:",omitzero"`
-	Execution                    *ExecutionProvenance        `json:",omitempty"`
-	ContextProvenance            *ContextProvenanceRef       `json:",omitempty"`
+	ContentSelection             reviewproposal.ContentSelection `json:",omitzero"`
+	Execution                    *ExecutionProvenance            `json:",omitempty"`
+	ContextProvenance            *ContextProvenanceRef           `json:",omitempty"`
 	Base                         CreateInput
 	PublicationID, PolicyVersion string
-	Candidate                    enrichment.Candidate
+	Candidate                    reviewproposal.Candidate
 }
 type DecisionInput struct {
 	Content          []ContentValue `json:"content,omitempty"`
@@ -71,31 +71,31 @@ type Record struct {
 	Input                                           CreateInput
 	BasePublicationID, Policy, Before, Title, State string
 	Revision                                        uint64
-	Original                                        enrichment.Proposal
+	Original                                        reviewproposal.Proposal
 	History                                         []Decision
 	Receipt                                         *Receipt
 }
 
 // View intentionally excludes provider metadata, complete Product and raw output.
 type View struct {
-	Content           *ContentPayload         `json:"content,omitempty"`
-	Execution         *ExecutionProvenance    `json:"execution,omitempty"`
-	PolicyAdoption    *PolicyProvenance       `json:"policy_adoption,omitempty"`
-	ContextProvenance *ContextProvenanceRef   `json:"context_provenance,omitempty"`
-	ID                string                  `json:"proposal_id"`
-	Owner             string                  `json:"owner"`
-	Input             CreateInput             `json:"input"`
-	Before            string                  `json:"before"`
-	Title             string                  `json:"after"`
-	OriginalTitle     string                  `json:"original_title"`
-	Policy            string                  `json:"policy"`
-	State             string                  `json:"state"`
-	Revision          uint64                  `json:"revision"`
-	Evidence          []Evidence              `json:"evidence"`
-	Quality           enrichment.QualityScore `json:"quality"`
-	Unresolved        []string                `json:"unresolved"`
-	History           []Decision              `json:"decisions"`
-	Receipt           *Receipt                `json:"apply_receipt,omitempty"`
+	Content           *ContentPayload             `json:"content,omitempty"`
+	Execution         *ExecutionProvenance        `json:"execution,omitempty"`
+	PolicyAdoption    *PolicyProvenance           `json:"policy_adoption,omitempty"`
+	ContextProvenance *ContextProvenanceRef       `json:"context_provenance,omitempty"`
+	ID                string                      `json:"proposal_id"`
+	Owner             string                      `json:"owner"`
+	Input             CreateInput                 `json:"input"`
+	Before            string                      `json:"before"`
+	Title             string                      `json:"after"`
+	OriginalTitle     string                      `json:"original_title"`
+	Policy            string                      `json:"policy"`
+	State             string                      `json:"state"`
+	Revision          uint64                      `json:"revision"`
+	Evidence          []Evidence                  `json:"evidence"`
+	Quality           reviewproposal.QualityScore `json:"quality"`
+	Unresolved        []string                    `json:"unresolved"`
+	History           []Decision                  `json:"decisions"`
+	Receipt           *Receipt                    `json:"apply_receipt,omitempty"`
 }
 type Evidence struct {
 	ID            string `json:"id"`
@@ -183,7 +183,7 @@ func ValidateView(v View) error {
 	if !v.ContextProvenance.Valid() {
 		return ErrUnavailable
 	}
-	if !validID(v.ID) || !ValidKey(v.Owner) || !ValidKey(v.Input.ProductKey) || v.Input.BaseVersion == 0 || v.Input.BaseVersion > 1<<63-1 || v.Revision == 0 || v.Revision > 1<<63-1 || !validState(v.State) || (v.Policy != "title-review-v1" && v.Policy != enrichment.ContentPolicyVersion) {
+	if !validID(v.ID) || !ValidKey(v.Owner) || !ValidKey(v.Input.ProductKey) || v.Input.BaseVersion == 0 || v.Input.BaseVersion > 1<<63-1 || v.Revision == 0 || v.Revision > 1<<63-1 || !validState(v.State) || (v.Policy != "title-review-v1" && v.Policy != reviewproposal.ContentPolicyVersion) {
 		return ErrUnavailable
 	}
 	for _, d := range v.History {
@@ -212,7 +212,7 @@ func ValidateTitle(s string) error {
 	return nil
 }
 func (r *Record) Decide(actor string, d DecisionInput) error {
-	if r.Policy == enrichment.ContentPolicyVersion || r.Content != nil {
+	if r.Policy == reviewproposal.ContentPolicyVersion || r.Content != nil {
 		return r.decideContent(actor, d)
 	}
 	if len(d.Content) != 0 {

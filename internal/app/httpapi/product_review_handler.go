@@ -20,7 +20,7 @@ import (
 
 func productReviewRoutes(s *review.Service, bind func(context.Context, string) (context.Context, error), projections ...productReviewContextProjector) []httproute.Descriptor {
 	base := "/api/product/text-proposals"
-	specs := []struct{ method, path, kind string }{{"POST", base, "create"}, {"GET", base, "list"}, {"GET", base + "/:proposal_id", "get"}, {"POST", base + "/:proposal_id/decisions", "decision"}, {"POST", base + "/:proposal_id/apply", "apply"}}
+	specs := []struct{ method, path, kind string }{{"GET", base, "list"}, {"GET", base + "/:proposal_id", "get"}, {"POST", base + "/:proposal_id/decisions", "decision"}, {"POST", base + "/:proposal_id/apply", "apply"}}
 	routes := make([]httproute.Descriptor, 0, len(specs))
 	for _, spec := range specs {
 		policy, permission := httproute.OrganizationAccessPolicyLiveWrite, authz.PermissionLocalAgentWrite
@@ -124,14 +124,17 @@ func productReviewRequest(c *gin.Context, s *review.Service, kind string) {
 		reviewResponse(c, v, err)
 		return
 	}
-	var create review.CreateInput
 	var decision review.DecisionInput
 	var apply review.ApplyInput
-	var input any = &create
-	if kind == "decision" {
+	var input any
+	switch kind {
+	case "decision":
 		input = &decision
-	} else if kind == "apply" {
+	case "apply":
 		input = &apply
+	default:
+		reviewResponse(c, v, review.ErrInvalid)
+		return
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 32<<10)
 	defer c.Request.Body.Close()
@@ -163,8 +166,6 @@ func productReviewRequest(c *gin.Context, s *review.Service, kind string) {
 		return
 	}
 	switch kind {
-	case "create":
-		v, err = s.Create(ctx, keys[0], create)
 	case "decision":
 		v, err = s.Decide(ctx, keys[0], c.Param("proposal_id"), decision)
 	case "apply":

@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 )
@@ -55,7 +55,7 @@ func TestEffectiveProductRequiresExactOriginalOwnerAndAppliedTitleOnlyReceipt(t 
 	applied.Snapshot.Title = "Reviewed title"
 	reviewOwner := &effectiveReviewFixture{record: review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: original.Identity.ProductKey, BaseVersion: original.Version}, BasePublicationID: original.PublicationID, Policy: "title-review-v1", Before: original.Snapshot.Title, Title: applied.Snapshot.Title, State: "applied", Revision: 2, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: 2, PublicationID: applied.PublicationID, Actor: scope.ActorID, At: time.Now()}}}
 	reader := EffectiveProductReader{Reviews: reviewOwner, Snapshots: uploadCatalog{applied}}
-	reviewOwner.record.Original = enrichment.Proposal{Changes: []enrichment.FieldChange{{Field: "title", Value: applied.Snapshot.Title}}}
+	reviewOwner.record.Original = reviewproposal.Proposal{Changes: []reviewproposal.FieldChange{{Field: "title", Value: applied.Snapshot.Title}}}
 	reader.Snapshots = effectiveVersions{original.Version: original, applied.Version: applied}
 	result, err := reader.ReadEffectiveTargetProduct(ctx, selected, 2, id)
 	require.NoError(t, err)

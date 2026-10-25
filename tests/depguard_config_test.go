@@ -83,7 +83,7 @@ func TestPhase3ProductDomainBoundaryDepguardRuleCoversOnlyTargetSubpackages(t *t
 	for _, glob := range []string{
 		"**/internal/product/catalog/**/*.go",
 		"**/internal/product/sourcing/**/*.go",
-		"**/internal/product/enrichment/**/*.go",
+		"**/internal/product/review/proposal/**/*.go",
 		"**/internal/product/asset/**/*.go",
 		"**/internal/product/image/**/*.go",
 	} {
@@ -612,7 +612,7 @@ func TestDomainAppHTTPAPIDepguardPatternCoversBusinessTrees(t *testing.T) {
 		"amazonlisting",
 		"product/asset",
 		"product/catalog",
-		"product/enrichment",
+		"product/review/proposal",
 		"product/image",
 		"product/sourcing",
 		"listing",
@@ -767,6 +767,7 @@ func TestProductCatalogPersistenceDepguardDeniesEverySiblingProductDomain(t *tes
 		"task-processor/internal/product/asset",
 		"task-processor/internal/product/sourcing",
 		"task-processor/internal/product/enrichment",
+		"task-processor/internal/product/review/proposal",
 		"task-processor/internal/product/image",
 	} {
 		for _, suffix := range []string{"$", "/"} {
@@ -805,7 +806,7 @@ func TestProjectBoundaryListingKitDepguardPatternCoversDomainTrees(t *testing.T)
 		"amazon",
 		"product/asset",
 		"product/catalog",
-		"product/enrichment",
+		"product/review/proposal",
 		"product/image",
 		"infra",
 		"integration",

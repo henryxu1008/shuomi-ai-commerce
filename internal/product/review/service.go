@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,22 +20,13 @@ type Service struct {
 	reader            catalog.VersionedSnapshotReader
 	sourceReader      SourcePublicationGateway
 	store             Store
-	proposer          enrichment.Proposer
 	auth              Authorizer
 	executionResolver func(context.Context) (CandidateExecutionScope, error)
 	executionPolicy   ExecutionPolicyResolver
 	executionGate     ExecutionGate
 }
 
-func NewService(reader catalog.VersionedSnapshotReader, sourceReader SourcePublicationGateway, store Store, proposer enrichment.Proposer, auth Authorizer) (*Service, error) {
-	if reader == nil || sourceReader == nil || store == nil || proposer == nil || auth == nil {
-		return nil, ErrUnavailable
-	}
-	return &Service{reader: reader, sourceReader: sourceReader, store: store, proposer: proposer, auth: auth}, nil
-}
-
-// NewCandidateService composes existing candidate intake and human review when
-// no fixed generator is configured. Create explicitly remains unavailable.
+// NewCandidateService composes current candidate intake and human review.
 func NewCandidateService(reader catalog.VersionedSnapshotReader, sourceReader SourcePublicationGateway, store Store, auth Authorizer) (*Service, error) {
 	if reader == nil || sourceReader == nil || store == nil || auth == nil {
 		return nil, ErrUnavailable
@@ -76,13 +67,6 @@ func operation(a Scope, key, kind, id string, input any) (Operation, error) {
 	sum := sha256.Sum256(raw)
 	return Operation{a, key, hex.EncodeToString(sum[:])}, nil
 }
-func (s *Service) Create(ctx context.Context, key string, in CreateInput) (View, error) {
-	if s == nil || s.proposer == nil {
-		return View{}, ErrUnavailable
-	}
-	view, _, err := s.create(ctx, key, in, nil)
-	return view, err
-}
 
 // CreateFromCandidate admits an already-generated candidate into the existing
 // pending review state. It cannot regenerate, approve, Apply or publish it.
@@ -120,31 +104,31 @@ func (s *Service) CreateFromCandidateWithTransactionAttempt(ctx context.Context,
 
 // ValidateCandidate uses the same exact source and fixed field policy as intake,
 // without generating or saving a proposal. Intake always repeats this check.
-func (s *Service) ValidateCandidate(ctx context.Context, in CandidateInput) (enrichment.Proposal, error) {
+func (s *Service) ValidateCandidate(ctx context.Context, in CandidateInput) (reviewproposal.Proposal, error) {
 	if !in.ContextProvenance.Valid() {
-		return enrichment.Proposal{}, ErrInvalid
+		return reviewproposal.Proposal{}, ErrInvalid
 	}
 	if ctx == nil || !ValidKey(in.PublicationID) {
-		return enrichment.Proposal{}, ErrInvalid
+		return reviewproposal.Proposal{}, ErrInvalid
 	}
 	if _, err := candidatePolicy(in); err != nil {
-		return enrichment.Proposal{}, err
+		return reviewproposal.Proposal{}, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
 	scope, err := s.authorize(ctx, true, false)
 	if err != nil {
-		return enrichment.Proposal{}, err
+		return reviewproposal.Proposal{}, err
 	}
 	if !contentScopeMatches(in, scope) {
-		return enrichment.Proposal{}, ErrForbidden
+		return reviewproposal.Proposal{}, ErrForbidden
 	}
 	base, source, err := s.source(ctx, s.reader, s.sourceReader, scope, in.Base)
 	if err != nil {
-		return enrichment.Proposal{}, err
+		return reviewproposal.Proposal{}, err
 	}
 	if base.PublicationID != in.PublicationID {
-		return enrichment.Proposal{}, ErrConflict
+		return reviewproposal.Proposal{}, ErrConflict
 	}
 	return validateIntakeProposal(ctx, base.Snapshot, source, in)
 }
@@ -159,14 +143,10 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 	if !ValidKey(in.ProductKey) || in.BaseVersion == 0 || in.BaseVersion > 1<<63-1 {
 		return View{}, false, ErrInvalid
 	}
-	kind, payload := "create", any(in)
-	if supplied != nil {
-		kind, payload = "create_candidate", supplied
-		if !contentScopeMatches(*supplied, a) {
-			return View{}, false, ErrForbidden
-		}
+	if !contentScopeMatches(*supplied, a) {
+		return View{}, false, ErrForbidden
 	}
-	op, err := operation(a, key, kind, "", payload)
+	op, err := operation(a, key, "create_candidate", "", supplied)
 	if err != nil {
 		return View{}, false, err
 	}
@@ -181,21 +161,14 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 	if err != nil {
 		return View{}, false, err
 	}
-	if supplied != nil && supplied.PublicationID != base.PublicationID {
+	if supplied.PublicationID != base.PublicationID {
 		return View{}, false, ErrConflict
 	}
-	policy := enrichment.PolicySnapshot{Version: "title-review-v1", AllowedFields: []string{"title"}, RequiredFields: []string{"title"}}
-	request := enrichment.Request{Snapshot: base.Snapshot, Source: source, Policy: policy}
-	var proposal enrichment.Proposal
-	if supplied != nil {
-		policy, err = candidatePolicy(*supplied)
-		if err != nil {
-			return View{}, false, err
-		}
-		proposal, err = validateIntakeProposal(ctx, base.Snapshot, source, *supplied)
-	} else {
-		proposal, err = s.proposer.Propose(ctx, request)
+	policy, err := candidatePolicy(*supplied)
+	if err != nil {
+		return View{}, false, err
 	}
+	proposal, err := validateIntakeProposal(ctx, base.Snapshot, source, *supplied)
 	if err != nil {
 		return View{}, false, err
 	}
@@ -212,22 +185,20 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 		return View{}, false, mapSourceReadError(err)
 	}
 	r := Record{ID: uuid.NewString(), Org: a.Org, Owner: a.Actor, Input: in, BasePublicationID: base.PublicationID, Policy: policy.Version, Before: base.Snapshot.Title, Title: proposal.Changes[0].Value, State: "pending", Revision: 1, Original: proposal}
-	if policy.Version == enrichment.ContentPolicyVersion {
+	if policy.Version == reviewproposal.ContentPolicyVersion {
 		r.Before, r.Title = "", ""
 		r.Content, err = contentPayload(base.Snapshot, supplied.ContentSelection, proposal)
 		if err != nil {
 			return View{}, false, err
 		}
 	}
-	if supplied != nil {
-		r.ContextProvenance = supplied.ContextProvenance.clone()
-		if !supplied.Execution.Valid() {
-			return View{}, false, ErrInvalid
-		}
-		if supplied.Execution != nil {
-			value := *supplied.Execution
-			r.Execution = &value
-		}
+	r.ContextProvenance = supplied.ContextProvenance.clone()
+	if !supplied.Execution.Valid() {
+		return View{}, false, ErrInvalid
+	}
+	if supplied.Execution != nil {
+		value := *supplied.Execution
+		r.Execution = &value
 	}
 	if err = r.ValidateStorage(); err != nil {
 		return View{}, false, err
@@ -249,10 +220,8 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 			rechecked.PublicationID != base.PublicationID || !reflect.DeepEqual(rechecked.Snapshot, base.Snapshot) {
 			return View{}, ErrConflict
 		}
-		if supplied != nil {
-			if _, e = validateIntakeProposal(ctx, rechecked.Snapshot, freshSource, *supplied); e != nil {
-				return View{}, e
-			}
+		if _, e = validateIntakeProposal(ctx, rechecked.Snapshot, freshSource, *supplied); e != nil {
+			return View{}, e
 		}
 		// A committed replay above remains a read. Creating a new Agent
 		// suggestion needs the original execution's current member/config/mode
@@ -376,7 +345,7 @@ func (s *Service) Decide(ctx context.Context, key, id string, in DecisionInput) 
 	})
 }
 func (s *Service) validatePatch(ctx context.Context, tx Tx, r *Record, a Scope) (catalog.PublishedSnapshot, error) {
-	if r.Policy == enrichment.ContentPolicyVersion {
+	if r.Policy == reviewproposal.ContentPolicyVersion {
 		base, source, err := s.source(ctx, tx.Reader(), tx.SourceReader(), Scope{Org: a.Org, Actor: r.Owner}, r.Input, appliedLookup(tx))
 		if err != nil {
 			return base, err
@@ -390,7 +359,7 @@ func (s *Service) validatePatch(ctx context.Context, tx Tx, r *Record, a Scope) 
 	if err != nil {
 		return base, err
 	}
-	evidence, err := enrichment.CanonicalEvidenceID(source)
+	evidence, err := reviewproposal.CanonicalEvidenceID(source)
 	if err != nil {
 		return base, err
 	}

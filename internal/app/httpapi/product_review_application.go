@@ -3,19 +3,16 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"net/http"
 	"time"
 
 	"task-processor/internal/app/localtrial"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
 	"task-processor/internal/httproute"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/workbenchcontext"
@@ -62,31 +59,6 @@ func productReviewSchemaReady(db *gorm.DB) bool {
 		}
 	}
 	return true
-}
-
-// NewProductReviewApplication is explicitly assembled only for an admitted
-// isolated current-product database. No default runtime registration, schema
-// migration, historical-data switch or provider fallback.
-func NewProductReviewApplication(db *gorm.DB, verifier zitadelruntime.Verifier, resolver *workbenchcontext.Resolver, auth *authz.ListingKitAuthorizer, generator enrichment.CandidateGenerator) (*http.Server, error) {
-	if verifier == nil {
-		return nil, review.ErrUnavailable
-	}
-	core, err := buildProductReviewCore(db, resolver, auth)
-	if err != nil {
-		return nil, err
-	}
-	proposer, err := enrichment.NewProposer(enrichment.Dependencies{Generator: generator})
-	if err != nil {
-		return nil, err
-	}
-	service, err := review.NewService(core.reader, core.sourceReader, core.store, proposer, auth)
-	if err != nil {
-		return nil, err
-	}
-	binder := productReviewCapabilityBinder{now: time.Now}
-	return buildIsolatedApplicationHTTPServer(productReviewRoutes(service, binder.Bind), routeAuthDependencies{
-		workbenchVerifier: verifier, organizationResolver: resolver, authorizer: auth,
-	}, review.Timeout), nil
 }
 
 type productReviewCore struct {

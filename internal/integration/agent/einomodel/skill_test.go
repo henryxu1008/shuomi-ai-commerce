@@ -9,7 +9,7 @@ import (
 	"task-processor/internal/aicapability"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/commercetool"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	d "task-processor/internal/skill"
 	"testing"
 	"time"
@@ -37,13 +37,13 @@ func TestSkillMaterialIsInsideTheOriginalQuoteAndDispatchGate(t *testing.T) {
 	ctx = authidentity.WithAuthenticatedIdentity(ctx, identity)
 	profile := aicapability.ModelProfile{ClientName: "content", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model", EndpointIdentityDigest: "endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "routing", AdapterPolicyVersion: "adapter", PromptVersion: agentconfig.ContentPromptVersion, OutputSchemaVersion: agentconfig.ContentActionVersion, UsageMappingVersion: "usage", CostPricingVersion: "cost", PointTariff: aicapability.ModelPointTariff{PriceVersion: "points", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000}, Currency: "CNY", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, MaximumPromptTokens: 16000, MaximumCompletionTokens: 100, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 4096, DeadlineBound: time.Minute}
 	binding := agent.Binding{ContextKind: "acquisition", ContextID: "context", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "product"}
-	selection := enrichment.ContentSelection{TargetLanguage: "en-US", Title: true}
+	selection := reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}
 	mode := agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
-	snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: "member", ExecutionModelProfile: profile, Request: agent.Request{ContentSelection: selection, ModeSnapshotRef: mode, Binding: binding, PolicyVersion: enrichment.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: agent.Limits{Steps: 4, ModelCalls: 2, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}}}
+	snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: "member", ExecutionModelProfile: profile, Request: agent.Request{ContentSelection: selection, ModeSnapshotRef: mode, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: agent.Limits{Steps: 4, ModelCalls: 2, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}}}
 	executor := &contentTextFixture{}
 	model, e := NewContentAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, []commercetool.ToolRef{{ID: "product.snapshot.read", Version: "v1"}}, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
 	require.NoError(t, e)
-	input := agent.ModelInput{ContentSelection: selection, ModeSnapshotRef: mode, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, Binding: binding, PolicyVersion: enrichment.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
+	input := agent.ModelInput{ContentSelection: selection, ModeSnapshotRef: mode, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
 	plain, e := model.Quote(ctx, input)
 	require.NoError(t, e)
 	pack, e := d.ValidatePackage([]d.File{{Path: "SKILL.md", Text: "---\nname: product-title-normalization\ndescription: Normalize titles.\n---\nNever add unverified certification.\n"}, {Path: "references/rules.txt", Text: "Preserve verified brand spelling."}})

@@ -7,8 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
+
+func TestContentParameterHashStaysStableAcrossOwnerExtraction(t *testing.T) {
+	parameters := agentconfig.ContentTemplate{Schema: agentconfig.ContentParameterSchema, Selection: reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true, Description: true}}
+	require.True(t, parameters.Valid())
+	fingerprint, err := hash(parameters)
+	require.NoError(t, err)
+	require.Equal(t, "599366d7d1624c6049357babf57483bac89c257337c4b14c31fa90c59d5c9626", fingerprint)
+}
 
 func TestContentTemplateRoundTripFreezesItsOwnRevision(t *testing.T) {
 	_, store, _ := fixture(t)
@@ -18,7 +26,7 @@ func TestContentTemplateRoundTripFreezesItsOwnRevision(t *testing.T) {
 	enable.AgentID, enable.Absent = agentconfig.ContentAgentID, true
 	_, err := store.Execute(ctx, enable)
 	require.NoError(t, err)
-	selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"title", "description"})
 	require.NoError(t, err)
 	create := command(scope, "create-template", 0)
 	create.AgentID = agentconfig.ContentAgentID

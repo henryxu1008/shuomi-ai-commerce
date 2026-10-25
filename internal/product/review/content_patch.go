@@ -8,13 +8,13 @@ import (
 	"unicode/utf8"
 
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 // applyContentPatch computes one complete patch on an isolated Catalog clone.
 // Evidence, base/version and authority are checked by Review intake and again
 // by its ProductDB transaction. This function never publishes a Product.
-func applyContentPatch(base catalog.ProductSnapshot, selection enrichment.ContentSelection, changes []enrichment.FieldChange) (catalog.ProductSnapshot, error) {
+func applyContentPatch(base catalog.ProductSnapshot, selection reviewproposal.ContentSelection, changes []reviewproposal.FieldChange) (catalog.ProductSnapshot, error) {
 	if !selection.Valid() || len(changes) != len(selection.Fields()) {
 		return catalog.ProductSnapshot{}, ErrInvalid
 	}

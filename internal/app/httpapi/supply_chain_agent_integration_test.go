@@ -41,8 +41,8 @@ import (
 	temumodel "task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
 )
@@ -388,7 +388,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 		executionCtx := context.WithValue(ctx, supplyAgentExecutionKey{}, supplyAgentCommand{owner: scope, record: target.Record, input: operation.Operation.Input})
 		current, err := bridge.current(executionCtx)
 		require.NoError(t, err)
-		selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
+		selection, err := reviewproposal.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
 		require.NoError(t, err)
 		request, err := content.startTextRequest(executionCtx, current.binding, uuid.NewString(), "", "", nil, aicapability.ModelProfile{}, "", "0", selection)
 		require.NoError(t, err)

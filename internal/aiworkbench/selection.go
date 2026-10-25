@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 const TitleTaskKind = "product.title.optimize"
@@ -20,9 +20,9 @@ type Subject struct {
 	PublicationID  string `json:"publicationId"`
 }
 type TaskSelection struct {
-	Subject    Subject                     `json:"subject"`
-	Capability string                      `json:"capability"`
-	Parameters enrichment.ContentSelection `json:"parameters"`
+	Subject    Subject                         `json:"subject"`
+	Capability string                          `json:"capability"`
+	Parameters reviewproposal.ContentSelection `json:"parameters"`
 }
 
 func (s TaskSelection) Valid() bool {
@@ -66,7 +66,7 @@ func (p ExecutionProposal) MatchesRequest(r agent.Request) bool {
 		return false
 	}
 	if p.Kind == ContentTaskKind {
-		return r.Binding.ContextKind == p.ContextKind && r.ContentSelection == p.ContentSelection && r.Limits == p.ExecutionLimits && r.PolicyVersion == enrichment.ContentPolicyVersion && r.PromptVersion == agentconfig.ContentPromptVersion
+		return r.Binding.ContextKind == p.ContextKind && r.ContentSelection == p.ContentSelection && r.Limits == p.ExecutionLimits && r.PolicyVersion == reviewproposal.ContentPolicyVersion && r.PromptVersion == agentconfig.ContentPromptVersion
 	}
 	prompt := "product-title-agent-v1"
 	if !r.ContextSnapshotRef.Absent() {
@@ -75,8 +75,8 @@ func (p ExecutionProposal) MatchesRequest(r agent.Request) bool {
 	return r.Binding.ContextKind == "acquisition" && r.ContentSelection.Absent() && r.PolicyVersion == "title-review-v1" && r.PromptVersion == prompt
 }
 
-func reviewableFields(r agent.Request, c enrichment.Candidate) bool {
-	if r.PolicyVersion != enrichment.ContentPolicyVersion {
+func reviewableFields(r agent.Request, c reviewproposal.Candidate) bool {
+	if r.PolicyVersion != reviewproposal.ContentPolicyVersion {
 		return r.ContentSelection.Absent() && len(c.Changes) == 1
 	}
 	if !r.ContentSelection.Valid() || len(c.Warnings) != 0 || len(c.Rejections) != 0 {

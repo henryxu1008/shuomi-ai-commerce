@@ -1,4 +1,4 @@
-package enrichment
+package proposal
 
 func scoreCandidate(candidate Candidate, policy PolicySnapshot) QualityScore {
 	quality := QualityScore{}
