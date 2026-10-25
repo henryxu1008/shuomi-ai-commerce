@@ -53,7 +53,7 @@ async function report(code?: EntryError) {
 }
 async function perform(type: string, tab?: CaptureTab) {
   if (type !== 'popup.status') {
-    if (resetting) throw Error('ACTION_IN_PROGRESS');
+    if (resetting || family.busy) throw Error('ACTION_IN_PROGRESS');
     location.assertReadable();
     family.location.assertReadable();
     if(family.active && location.state!=='available' && type!=='popup.new'){await family.focus();return;}

@@ -47,6 +47,23 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
+it.each(['popup.captureAndHandoff','shortcut'])('keeps %s out while a family start is awaiting its first navigation write',async entry=>{
+ const url='https://www.amazon.com/dp/B0BDLGZCTY',documentId='native-document';
+ const from:chrome.runtime.MessageSender={id,url,origin:new URL(url).origin,tab:{...source,url},frameId:0,documentId,documentLifecycle:'active'};
+ api.scripting.executeScript.mockImplementation(async options=>[{frameId:0,documentId,...(options.files?{result:{ok:true,payload}}:{result:url})}]);
+ const initial=await new Promise<Reply>(resolve=>popup({type:'page.status'},from,resolve));
+ const set=storage.session.set.getMockImplementation()!;let release!:()=>void;
+ storage.session.set.mockImplementationOnce(items=>new Promise<void>(resolve=>{release=()=>{void set(items).then(resolve);};}));
+ const familyStart=new Promise<Reply>(resolve=>popup({type:'page.capture',scope:'family',revision:initial.state.revision},from,resolve));
+ await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
+ try{
+  if(entry==='shortcut'){command('capture-current-product',{...source,url});await vi.waitFor(()=>expect(api.action.setBadgeText).toHaveBeenCalledWith({text:'!'}));}
+  else expect((await send(entry)).code).toBe('ACTION_IN_PROGRESS');
+  expect(api.scripting.executeScript.mock.calls.filter(([options])=>options.files)).toHaveLength(0);expect(api.tabs.create).not.toHaveBeenCalled();
+ }finally{release();await familyStart;}
+ expect(api.tabs.create).toHaveBeenCalledOnce();expect(api.tabs.create.mock.calls[0][0].url).toContain('popup.html#amazon-family=');
+});
+
 it.each(['popup.return', 'popup.captureAndHandoff', 'shortcut'])('restores original location for %s without fresh extraction or delivery', async entry => {
   await send('popup.captureAndHandoff');
   vi.resetModules(); await import('../src/background');
