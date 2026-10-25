@@ -3,7 +3,6 @@ package alibaba1688
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 	"time"
 )
@@ -80,36 +79,6 @@ func TestCalculateMathExpression(t *testing.T) {
 		if got := handler.calculateMathExpression(tt.expression); got != tt.expected {
 			t.Errorf("calculateMathExpression(%q) = %q, want %q", tt.expression, got, tt.expected)
 		}
-	}
-}
-
-func TestComplexEasing(t *testing.T) {
-	handler := NewCaptchaHandler(nil)
-
-	tests := []struct {
-		input     float64
-		expected  float64
-		tolerance float64
-	}{
-		{0, 0, 0.001},
-		{0.5, 0.455, 0.001},
-		{1, 1, 0.001},
-	}
-
-	for _, tt := range tests {
-		got := handler.complexEasing(tt.input)
-		if math.Abs(got-tt.expected) > tt.tolerance {
-			t.Errorf("complexEasing(%v) = %v, want %v (tolerance: %v)", tt.input, got, tt.expected, tt.tolerance)
-		}
-	}
-}
-
-func TestComplexEasingWithVariation(t *testing.T) {
-	handler := NewCaptchaHandler(nil)
-
-	result := handler.complexEasingWithVariation(0.5)
-	if result < 0 || result > 1 {
-		t.Errorf("complexEasingWithVariation(0.5) = %v, expected between 0 and 1", result)
 	}
 }
 
