@@ -32,7 +32,12 @@ func TestListingMaterialsRemainInExistingCaptureSnapshots(t *testing.T) {
 					map[string]any{"name": "Product Dimensions", "value": "44L x 32W x 6.5Th"},
 					map[string]any{"name": "Product details · Product Dimensions", "value": "44 x 32 x 6 inches; 7.96 pounds"},
 					map[string]any{"name": "Product details · Item model number", "value": "XL"},
+					map[string]any{"name": "Product details · Item Weight", "value": "7.94 pounds"},
+					map[string]any{"name": "Product details · Maximum Weight Recommendation", "value": "45.36 kg"},
+					map[string]any{"name": "Source reference price", "value": "List Price: $46.99"},
 				)
+				e["priceFacts"] = []any{map[string]any{"amount": "39.98", "currency": nil}}
+				e["variants"].([]any)[0].(map[string]any)["price"] = map[string]any{"amount": "39.98", "currency": nil}
 			}
 			e["images"] = []any{map[string]any{"url": image, "role": "detail"}}
 			raw, err := json.Marshal(payload)
@@ -62,6 +67,17 @@ func TestListingMaterialsRemainInExistingCaptureSnapshots(t *testing.T) {
 				require.Equal(t, "44L x 32W x 6.5Th", facts["Product Dimensions"])
 				require.Equal(t, "44 x 32 x 6 inches; 7.96 pounds", facts["Product details · Product Dimensions"])
 				require.Equal(t, "XL", facts["Product details · Item model number"])
+				require.Equal(t, "7.94 pounds", facts["Product details · Item Weight"])
+				require.Equal(t, "45.36 kg", facts["Product details · Maximum Weight Recommendation"])
+				require.Equal(t, "List Price: $46.99", facts["Source reference price"])
+				var quote struct {
+					Amount   string  `json:"amount"`
+					Currency *string `json:"currency"`
+				}
+				require.NoError(t, json.Unmarshal([]byte(envelope.SupplierOrCostFacts.Facts["price_fact.0"]), &quote))
+				require.Equal(t, "39.98", quote.Amount)
+				require.Nil(t, quote.Currency)
+				require.NotContains(t, envelope.SupplierOrCostFacts.Facts, "price_fact.1")
 			}
 			require.Len(t, snapshot.Images, 1)
 			require.Equal(t, image, snapshot.Images[0].URL)

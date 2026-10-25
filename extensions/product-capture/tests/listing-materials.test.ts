@@ -39,7 +39,7 @@ describe('listing materials through existing v2 capture', () => {
   it.each(['wrapped','array'])('uses explicit %s image data, deduplicates main and preserves selected variant image', async kind => {
     const doc = amazon('',kind === 'array' ? JSON.stringify(initial) : undefined);
     const {evidence:e} = await captureAmazonDocument(doc,amazonURL);
-    expect(e.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'}]);
+    expect(e.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'},{url:`${cdn}unobserved-hd.jpg`,role:'gallery'}]);
     expect(e.variants[0].images).toEqual([{url:main,role:'main'}]);
     expect(e.observation.scope).toBe('selected_product');
     expect(e.contentSHA256).toMatch(/^[a-f0-9]{64}$/);
@@ -49,7 +49,7 @@ describe('listing materials through existing v2 capture', () => {
     const doc=amazon(unrelated.slice(160).join('')+`<script>const duplicate={colorImages:{initial:${JSON.stringify(initial)}}};</script>`,kind==='array'?JSON.stringify(initial):undefined);
     doc.body.insertAdjacentHTML('afterbegin',unrelated.slice(0,160).join(''));
     const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
-    expect(e.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'}]);
+    expect(e.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'},{url:`${cdn}unobserved-hd.jpg`,role:'gallery'}]);
     expect(e.variants[0].images).toEqual([{url:main,role:'main'}]);
     expect(e.missingFacts.some(f=>f.field==='images.hiRes')).toBe(false);
   });
@@ -62,7 +62,7 @@ describe('listing materials through existing v2 capture', () => {
   it('accepts 256 album candidates without counting excluded form scripts',async()=>{
     const candidate=`<script>var album={colorImages:{initial:${JSON.stringify(initial)}}};</script>`;
     const doc=amazon(candidate.repeat(255)+`<form>${candidate.repeat(257)}</form>`);
-    expect((await captureAmazonDocument(doc,amazonURL)).evidence.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'}]);
+    expect((await captureAmazonDocument(doc,amazonURL)).evidence.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'},{url:`${cdn}unobserved-hd.jpg`,role:'gallery'}]);
   });
   it.each(['valid','unsupported'])('rejects a 257th %s album candidate before accepting an incomplete scan',async kind=>{
     const candidate=kind==='valid'?`var album={colorImages:{initial:${JSON.stringify(initial)}}};`:'colorImages = (';
