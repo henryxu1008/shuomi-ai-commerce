@@ -7,10 +7,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	sheinproduct "task-processor/internal/shein/api/product"
 	"task-processor/internal/shein/authorizedbrand"
 	"testing"
-	"time"
 )
 
 func TestCleanupContextPreservesAuthorizedAndSourceBrandRules(t *testing.T) {
@@ -20,52 +18,8 @@ func TestCleanupContextPreservesAuthorizedAndSourceBrandRules(t *testing.T) {
 	if !strings.Contains(got, "Logitech") || strings.Contains(strings.ToLower(got), "sony") || !strings.Contains(got, "Office") {
 		t.Fatalf("brand/case cleanup changed: %q", got)
 	}
-	if err := service.ProcessProductData(nil); err != nil {
-		t.Fatalf("nil payload: %v", err)
-	}
-	if err := service.ProcessProductData(&CleanupContext{}); err != nil {
-		t.Fatalf("empty payload: %v", err)
-	}
 	if got := service.SanitizeDisplayTextWithContext(nil, "Simple Office mouse"); got != "Simple Office mouse" {
 		t.Fatalf("nil context changed display text: %q", got)
-	}
-}
-
-func TestCleanupValidationResultPreservesLanguageAndSKCJSON(t *testing.T) {
-	raw := []byte(`{"form":"f","form_name":"name","module":"m","messages":["包含敏感词：[OuterForbidden]"],"other_language_message_map":{"en":["包含敏感词：[LanguageForbidden]"]},"skc_error_message_map":{"blue":{"messages":["包含敏感词：[SKCForbidden]"],"otherLanguageMessageMap":{"fr":["包含敏感词：[SKCLanguageForbidden]"]}}}}`)
-	var result ValidationResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		t.Fatal(err)
-	}
-	if result.Form != "f" || result.FormName != "name" || result.Module != "m" {
-		t.Fatalf("validation metadata lost: %+v", result)
-	}
-	service := NewSensitiveWordServiceInMemory(nil)
-	found := service.extractSensitiveWordsFromValidation([]ValidationResult{result})
-	for _, word := range []string{"OuterForbidden", "LanguageForbidden", "SKCForbidden", "SKCLanguageForbidden"} {
-		ok := false
-		for _, got := range found {
-			if got == strings.ToLower(word) {
-				ok = true
-			}
-		}
-		if !ok {
-			t.Fatalf("missing %q in %v", word, found)
-		}
-	}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(encoded), `"other_language_message_map"`) || !strings.Contains(string(encoded), `"otherLanguageMessageMap"`) {
-		t.Fatalf("wire keys changed: %s", encoded)
-	}
-	payload := &sheinproduct.Product{MultiLanguageNameList: []sheinproduct.LanguageContent{{Language: "en", Name: "OuterForbidden Office"}}}
-	if !service.HandleValidationErrors(&CleanupContext{ProductData: payload}, []ValidationResult{result}) {
-		t.Fatal("validation cleanup did not apply")
-	}
-	if strings.Contains(payload.MultiLanguageNameList[0].Name, "OuterForbidden") {
-		t.Fatalf("payload not cleaned: %+v", payload)
 	}
 }
 
@@ -76,7 +30,9 @@ func TestInMemoryCleanupUsesExplicitCustomPhrasesWithoutChangingDefaults(t *test
 	if got := service.SanitizeDisplayTextWithContext(ctx, input); got != input {
 		t.Fatalf("default cleanup = %q, want custom phrases retained before explicit configuration", got)
 	}
-	service.AddStaticSensitiveWordsByLanguage("en", []string{"bpa free", "whimsy"})
+	service.mutex.Lock()
+	service.config.StaticWords["en"] = append(service.config.StaticWords["en"], "bpa free", "whimsy")
+	service.mutex.Unlock()
 	got := service.SanitizeDisplayTextWithContext(ctx, input)
 	for _, phrase := range []string{"bpa free", "whimsy"} {
 		if strings.Contains(strings.ToLower(got), phrase) {
@@ -88,50 +44,6 @@ func TestInMemoryCleanupUsesExplicitCustomPhrasesWithoutChangingDefaults(t *test
 	}
 }
 
-func TestSensitiveWordMutationsCompleteMetadataSynchronously(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		mutate func(*SensitiveWordService)
-		touch  bool
-	}{
-		{"auto dynamic", func(s *SensitiveWordService) { s.AddDynamicSensitiveWords([]string{"OfficeForbidden"}) }, true},
-		{"auto static", func(s *SensitiveWordService) { s.AddStaticSensitiveWords([]string{"OfficeForbidden"}) }, true},
-		{"auto duplicate", func(s *SensitiveWordService) { s.AddStaticSensitiveWords([]string{"Existing"}) }, false},
-		{"auto empty", func(s *SensitiveWordService) { s.AddDynamicSensitiveWords(nil) }, false},
-		{"explicit static duplicate", func(s *SensitiveWordService) { s.AddStaticSensitiveWordsByLanguage("en", []string{"Existing"}) }, true},
-		{"explicit dynamic", func(s *SensitiveWordService) { s.AddDynamicSensitiveWordsByLanguage("fr", []string{"OfficeForbidden"}) }, true},
-		{"explicit empty", func(s *SensitiveWordService) { s.AddDynamicSensitiveWordsByLanguage("en", nil) }, false},
-		{"clear empty", func(s *SensitiveWordService) { s.ClearDynamicSensitiveWords() }, true},
-		{"validation duplicate", func(s *SensitiveWordService) {
-			if !s.HandleValidationErrors(nil, []ValidationResult{{Messages: []string{"包含敏感词：[Existing]"}}}) {
-				t.Error("validation cleanup must still request retry")
-			}
-		}, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			// Isolate the in-memory mutation contract from background lifecycle and IO.
-			before := time.Unix(1, 0).UTC()
-			s := &SensitiveWordService{
-				config: &SensitiveWordConfig{StaticWords: map[string][]string{"en": {"existing"}}, DynamicWords: map[string][]string{}, LastUpdated: before, Version: "before"},
-				logger: componentLogger(nil, "shein.sensitive_word"),
-			}
-			started := time.Now()
-			tc.mutate(s)
-			finished := time.Now()
-			s.mutex.RLock()
-			updated, version := s.config.LastUpdated, s.config.Version
-			s.mutex.RUnlock()
-			if tc.touch {
-				if updated.Before(started) || updated.After(finished) || version != "1.0" {
-					t.Fatalf("mutation returned before metadata was updated: %v / %q", updated, version)
-				}
-			} else if !updated.Equal(before) || version != "before" {
-				t.Fatalf("no-op mutation changed metadata: %v / %q", updated, version)
-			}
-		})
-	}
-}
-
 func TestSensitiveWordMemoryContractAndDefensiveCopies(t *testing.T) {
 	s := NewSensitiveWordServiceInMemory(nil)
 	wantDefaults := map[string][]string{
@@ -140,7 +52,7 @@ func TestSensitiveWordMemoryContractAndDefensiveCopies(t *testing.T) {
 		"ja": {"アマゾン", "楽天", "ヤフー", "ブランド", "商標", "著作権", "特許"},
 		"ko": {"아마존", "쿠팡", "네이버", "브랜드", "상표", "저작권", "특허"},
 	}
-	if !reflect.DeepEqual(s.config.StaticWords, wantDefaults) || len(s.config.DynamicWords) != 0 || s.config.Version != "1.0" || s.config.LastUpdated.IsZero() {
+	if !reflect.DeepEqual(s.config.StaticWords, wantDefaults) || len(s.config.DynamicWords) != 0 {
 		t.Fatalf("default in-memory contract changed: %+v", s.config)
 	}
 	raw, err := json.Marshal(s.config)
@@ -151,77 +63,68 @@ func TestSensitiveWordMemoryContractAndDefensiveCopies(t *testing.T) {
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		t.Fatal(err)
 	}
-	if len(wire) != 4 || wire["static_words"] == nil || wire["dynamic_words"] == nil || wire["last_updated"] == nil || wire["version"] == nil {
+	if len(wire) != 2 || wire["static_words"] == nil || wire["dynamic_words"] == nil {
 		t.Fatalf("configuration JSON contract changed: %s", raw)
 	}
 	var decoded SensitiveWordConfig
-	if err := json.Unmarshal(raw, &decoded); err != nil || !decoded.LastUpdated.Equal(s.config.LastUpdated) || decoded.Version != "1.0" {
-		t.Fatalf("metadata JSON round trip failed: %+v, %v", decoded, err)
+	if err := json.Unmarshal(raw, &decoded); err != nil || !reflect.DeepEqual(decoded.StaticWords, s.config.StaticWords) || !reflect.DeepEqual(decoded.DynamicWords, s.config.DynamicWords) {
+		t.Fatalf("word-map JSON round trip failed: %+v, %v", decoded, err)
 	}
-	s.AddDynamicSensitiveWords([]string{"  OfficeForbidden ", "officeforbidden", "запрещено"})
-	s.AddDynamicSensitiveWordsByLanguage("fr", []string{" Interdit ", "interdit"})
-	s.AddStaticSensitiveWordsByLanguage("en", []string{"CustomPhrase", "customphrase"})
-	static, dynamic := s.GetSensitiveWordsByLanguage("en")
-	if !slices.Contains(static, "customphrase") || !reflect.DeepEqual(dynamic, []string{"officeforbidden"}) {
-		t.Fatalf("language/normalization contract changed: %v / %v", static, dynamic)
+	s.mutex.Lock()
+	s.config.DynamicWords["en"] = []string{"  OfficeForbidden ", "officeforbidden"}
+	s.config.DynamicWords["ru"] = []string{"запрещено"}
+	s.config.DynamicWords["fr"] = []string{" Interdit ", "interdit"}
+	s.config.StaticWords["en"] = append(s.config.StaticWords["en"], "CustomPhrase", "customphrase")
+	s.mutex.Unlock()
+	words := s.getAllSensitiveWords()
+	for _, want := range []string{"officeforbidden", "запрещено", "interdit", "customphrase"} {
+		count := 0
+		for _, word := range words {
+			if word == want {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Fatalf("normalized multilingual word %q appeared %d times in %v", want, count, words)
+		}
 	}
-	_, russian := s.GetSensitiveWordsByLanguage("ru")
-	_, french := s.GetSensitiveWordsByLanguage("fr")
-	if !reflect.DeepEqual(russian, []string{"запрещено"}) || !reflect.DeepEqual(french, []string{"interdit"}) {
-		t.Fatalf("language routing changed: %v / %v", russian, french)
-	}
-	static[0], dynamic[0] = "changed", "changed"
-	allStatic, allDynamic := s.GetStaticSensitiveWords(), s.GetDynamicSensitiveWords()
-	allStatic[0], allDynamic[0] = "changed", "changed"
-	static, dynamic = s.GetSensitiveWordsByLanguage("en")
-	if static[0] != "amazon" || dynamic[0] != "officeforbidden" || slices.Contains(s.GetStaticSensitiveWords(), "changed") || slices.Contains(s.GetDynamicSensitiveWords(), "changed") {
+	words[0] = "changed"
+	if slices.Contains(s.getAllSensitiveWords(), "changed") || s.config.StaticWords["en"][0] != "amazon" || s.config.DynamicWords["en"][0] != "  OfficeForbidden " {
 		t.Fatal("query results must not expose mutable word storage")
-	}
-	s.ClearDynamicSensitiveWords()
-	if len(s.GetDynamicSensitiveWords()) != 0 || !slices.Contains(s.GetStaticSensitiveWords(), "customphrase") {
-		t.Fatal("clear must affect only dynamic words")
 	}
 }
 
-func TestSensitiveWordConcurrentAddGetClear(t *testing.T) {
+func TestSensitiveWordConcurrentCleanupReads(t *testing.T) {
 	s := NewSensitiveWordServiceInMemory(nil)
+	s.mutex.Lock()
+	s.config.DynamicWords["en"] = []string{"ConcurrentForbidden"}
+	s.mutex.Unlock()
+	ctx := &CleanupContext{SourceBrand: "Sony", AuthorizedBrand: &authorizedbrand.Resolved{Enabled: true, Name: "Logitech", NameEn: "Logitech"}}
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for worker := 0; worker < 5; worker++ {
 		wg.Add(1)
-		go func(worker int) {
+		go func() {
 			defer wg.Done()
 			<-start
 			for i := 0; i < 100; i++ {
-				switch worker {
-				case 0:
-					s.AddDynamicSensitiveWords([]string{"ConcurrentForbidden"})
-				case 1:
-					s.AddDynamicSensitiveWordsByLanguage("en", []string{"ExplicitForbidden"})
-				case 2:
-					s.ClearDynamicSensitiveWords()
-				case 3:
-					s.AddStaticSensitiveWords([]string{"StaticForbidden"})
-					s.AddStaticSensitiveWordsByLanguage("fr", []string{"Interdit"})
-				case 4:
-					s.GetSensitiveWordsByLanguage("en")
-					s.GetDynamicSensitiveWords()
-					s.GetStaticSensitiveWords()
-					s.mutex.RLock()
-					updated, version := s.config.LastUpdated, s.config.Version
-					s.mutex.RUnlock()
-					if updated.IsZero() || version != "1.0" {
-						t.Error("concurrent read observed invalid metadata")
-					}
+				if got := s.SanitizeDisplayTextWithContext(ctx, "Logitech Office Sony ConcurrentForbidden"); got != "Logitech Office" {
+					t.Errorf("concurrent cleanup changed current brand/word rules: %q", got)
+				}
+				words := s.getAllSensitiveWords()
+				if !slices.Contains(words, "concurrentforbidden") {
+					t.Error("concurrent cleanup lost configured words")
+				}
+				words[0] = "private-copy-only"
+				if slices.Contains(s.getAllSensitiveWords(), "private-copy-only") {
+					t.Error("concurrent reads must return independent copies")
 				}
 			}
-		}(worker)
+		}()
 	}
 	close(start)
 	wg.Wait()
-	s.ClearDynamicSensitiveWords()
-	s.AddDynamicSensitiveWords([]string{"FinalForbidden"})
-	if got := s.GetDynamicSensitiveWords(); !reflect.DeepEqual(got, []string{"finalforbidden"}) {
-		t.Fatalf("final update lost after concurrent clear: %v", got)
+	if !reflect.DeepEqual(s.config.DynamicWords["en"], []string{"ConcurrentForbidden"}) {
+		t.Fatalf("concurrent reads changed word storage: %v", s.config.DynamicWords)
 	}
 }

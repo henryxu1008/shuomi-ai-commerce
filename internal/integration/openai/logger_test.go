@@ -5,7 +5,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -72,27 +71,5 @@ func TestManagerPropagatesLoggerToResolverCreatedDynamicClient(t *testing.T) {
 	}
 	if client.logger != recorder || client.pool.logger != recorder || client.config.Logger != recorder {
 		t.Fatal("manager logger was not propagated to a resolver-created client")
-	}
-}
-
-func TestDecoratingConstructorsUseExplicitLogger(t *testing.T) {
-	recorder := &recordingLogger{}
-	client := NewClient(&ClientConfig{
-		APIKey: "key", Model: "model", BaseURL: "https://example.test/v1", Timeout: time.Second,
-		MaxRetries: 1, RetryDelay: time.Millisecond, Logger: recorder,
-	})
-	if client == nil {
-		t.Fatal("NewClient returned nil")
-	}
-	cached, err := NewCachedClient(&CachedClientConfig{Client: client, Logger: recorder})
-	if err != nil {
-		t.Fatal(err)
-	}
-	resilient, err := NewResilientClient(&ResilientClientConfig{Client: client, Logger: recorder})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cached.logger != recorder || resilient.logger != recorder {
-		t.Fatal("decorating constructor discarded explicit logger")
 	}
 }

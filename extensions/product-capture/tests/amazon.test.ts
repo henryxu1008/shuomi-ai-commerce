@@ -6,7 +6,77 @@ import { amazonPageSource, validateAmazonCapture } from '../src/amazon/validatio
 
 const page = (domain = 'www.amazon.com', price = 'US$19.99') => new JSDOM(`<span id="productTitle">Cotton bag</span><input id="ASIN" value="B012345678"><img id="landingImage" src="https://m.media-amazon.com/images/I/blue.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">Blue</span></div><div id="corePrice_feature_div"><span class="a-price"><span class="a-offscreen">${price}</span></span></div>`, { url: `https://${domain}/dp/B012345678` }).window.document;
 const inlinePage = () => new JSDOM(readFileSync(new URL('./fixtures/amazon-inline-product.html', import.meta.url), 'utf8'), { url: 'https://www.amazon.com/dp/B0BDLGZCTY' }).window.document;
+const formPage = (root = 'corePrice_feature_div', price = '$39.98') => {
+  const doc = page('www.amazon.com',price);
+  const form = doc.createElement('form');form.id='addToCart';
+  const priceRoot = doc.querySelector('#corePrice_feature_div')!;priceRoot.id=root;
+  form.append(priceRoot);
+  form.insertAdjacentHTML('beforeend','<div id="availability"><span>In Stock</span></div>');
+  doc.body.append(form);
+  return doc;
+};
 describe('Amazon single product module', () => {
+  it.each([
+    {root:'corePrice_feature_div',price:'$39.98',currency:null},
+    {root:'corePriceDisplay_desktop_feature_div',price:'US$39.98',currency:'USD'},
+  ])('reads only located price and availability text inside addToCart ($root)',async ({root,price,currency})=>{
+    const doc=formPage(root,price);
+    const {evidence:e}=await captureAmazonDocument(doc,doc.URL);
+    expect(e.priceFacts).toEqual([{amount:'39.98',currency}]);
+    expect(e.variants[0].price).toEqual(e.priceFacts[0]);
+    expect(e.attributes).toContainEqual({name:'Availability',value:'In Stock'});
+    expect(e.missingFacts.some(f=>f.field==='price'||f.field==='availability')).toBe(false);
+    expect(e.missingFacts.some(f=>f.field==='price.currency')).toBe(currency===null);
+  });
+  it('filters controls and excluded descendants without reading other addToCart content',async()=>{
+    const doc=formPage();
+    const excluded='<input value="PRIVATE_INPUT"><textarea>PRIVATE_TEXTAREA</textarea><select><option>PRIVATE_OPTION</option></select><button>PRIVATE_BUTTON</button><script>PRIVATE_SCRIPT()</script><span hidden>PRIVATE_HIDDEN</span><span aria-hidden="true">PRIVATE_ARIA</span><span style="display:none">PRIVATE_DISPLAY</span><span style="visibility:hidden">PRIVATE_VISIBILITY</span><span class="recommendations">PRIVATE_RECOMMENDATION</span><a href="/dp/B012345679">PRIVATE_OTHER_PRODUCT</a>';
+    doc.querySelector('.a-offscreen')!.insertAdjacentHTML('beforeend',excluded);
+    doc.querySelector('#availability')!.insertAdjacentHTML('beforeend',excluded);
+    for(const target of [doc.querySelector('.a-offscreen')!,doc.querySelector('#availability')!]){
+      const nested=doc.createElement('form');nested.textContent='PRIVATE_NESTED_FORM';target.append(nested);
+    }
+    doc.querySelector('form')!.insertAdjacentHTML('beforeend','PRIVATE_FORM_TEXT<input name="account" value="PRIVATE_ACCOUNT"><div id="productDescription">PRIVATE_DESCRIPTION</div><div id="aplus"><div class="aplus-module"><p>PRIVATE_APLUS</p><img src="https://m.media-amazon.com/PRIVATE_IMAGE.jpg"></div></div><table id="productOverview_feature_div"><tr><th>Private</th><td>PRIVATE_PARAMETER</td></tr></table>');
+    const {evidence:e}=await captureAmazonDocument(doc,doc.URL);
+    expect(e.priceFacts).toEqual([{amount:'39.98',currency:null}]);
+    expect(e.attributes).toEqual([{name:'Availability',value:'In Stock'}]);
+    expect(e.description).toBeNull();
+    expect(JSON.stringify(e)).not.toContain('PRIVATE_');
+  });
+  it.each([
+    {price:'$39.98',metadata:'USD',currency:'USD'},
+    {price:'US$39.98',metadata:'EUR',currency:null},
+  ])('preserves existing bound currency validation for addToCart $price / $metadata',async ({price,metadata,currency})=>{
+    const doc=formPage('corePrice_feature_div',price);
+    doc.querySelector('#corePrice_feature_div')!.insertAdjacentHTML('beforeend',`<meta itemprop="priceCurrency" content="${metadata}"><span hidden><meta itemprop="priceCurrency" content="CAD"></span><span class="recommendations"><meta itemprop="priceCurrency" content="GBP"></span>`);
+    doc.querySelector('form')!.insertAdjacentHTML('beforeend','<meta itemprop="priceCurrency" content="JPY">');
+    const {evidence:e}=await captureAmazonDocument(doc,doc.URL);
+    expect(e.priceFacts).toEqual([{amount:'39.98',currency}]);
+    if(currency===null)expect(e.missingFacts).toContainEqual({field:'price.currency',reason:'conflicting explicit source currencies were omitted'});
+  });
+  it.each(['hidden','aria-hidden="true"','style="display:none"','style="visibility:hidden"'])('keeps addToCart %s ancestors excluded',async attribute=>{
+    const doc=formPage();
+    const wrapper=doc.createElement('div');wrapper.innerHTML=`<div ${attribute}></div>`;
+    doc.body.append(wrapper);wrapper.firstElementChild!.append(doc.querySelector('form')!);
+    const {evidence:e}=await captureAmazonDocument(doc,doc.URL);
+    expect(e.priceFacts).toEqual([]);
+    expect(e.attributes.some(a=>a.name==='Availability')).toBe(false);
+  });
+  it.each(['recommendation','other-product'])('keeps addToCart fields in a %s context excluded',async kind=>{
+    const doc=formPage();
+    const wrapper=doc.createElement(kind==='recommendation'?'div':'a');
+    if(kind==='recommendation')wrapper.id='recommendations';else wrapper.setAttribute('href','/dp/B012345679');
+    doc.body.append(wrapper);wrapper.append(doc.querySelector('form')!);
+    const {evidence:e}=await captureAmazonDocument(doc,doc.URL);
+    expect(e.priceFacts).toEqual([]);
+    expect(e.attributes.some(a=>a.name==='Availability')).toBe(false);
+  });
+  it.each(['price','availability'])('retains the cumulative UTF-8 budget for addToCart %s text',async field=>{
+    const doc=formPage();
+    const target=doc.querySelector(field==='price'?'.a-offscreen':'#availability')!;
+    target.innerHTML=`<span>${'界'.repeat(1400)}</span><span>${'界'.repeat(1400)}</span>`;
+    await expect(captureAmazonDocument(doc,doc.URL)).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
   it('captures rendered product facts and gallery without assigning unbound gallery images to a variant', async () => {
     const doc = page();
     doc.body.insertAdjacentHTML('beforeend', `<div id="productOverview_feature_div"><table><tr><td><span>Brand</span></td><td><span>EHEYCIGA</span></td></tr><tr hidden><td>Private</td><td>hidden</td></tr></table></div>

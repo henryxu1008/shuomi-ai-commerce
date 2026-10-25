@@ -341,23 +341,6 @@ func TestLazyLogManagerRegistryDoesNotCreateRuntimeFiles(t *testing.T) {
 	}
 }
 
-func TestLogManagerWithFields(t *testing.T) {
-	manager := NewLogManager(&LogConfig{
-		Level:   "debug",
-		Console: false,
-	})
-	defer manager.Close()
-
-	logger := manager.GetLoggerWithFields(logrus.Fields{
-		"service": "test",
-		"version": "1.0",
-	})
-
-	assert.NotNil(t, logger)
-	assert.Equal(t, "test", logger.Data["service"])
-	assert.Equal(t, "1.0", logger.Data["version"])
-}
-
 func TestParseLogLevel(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -412,17 +395,6 @@ func TestDefaultLogConfig(t *testing.T) {
 	assert.Equal(t, 30, config.MaxAge)
 	assert.True(t, config.Compress)
 	assert.True(t, config.Console)
-}
-
-func TestSetGlobalLogLevel(t *testing.T) {
-	InitGlobalLogger(nil)
-
-	err := SetGlobalLogLevel("debug")
-	assert.NoError(t, err)
-
-	// 验证级别已更改
-	logger := GetGlobalLogger("test")
-	assert.Equal(t, logrus.DebugLevel, logger.Logger.Level)
 }
 
 func BenchmarkGetGlobalLogger(b *testing.B) {

@@ -105,18 +105,6 @@ func TestNewViper_BindsDatabaseEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "legacy-db", v.GetString("database.database"))
 }
 
-func TestNewViper_BindsRedisEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_REDIS_HOST", "redis.example")
-	t.Setenv("TASK_PROCESSOR_REDIS_PORT", "6380")
-	t.Setenv("REDIS_PASSWORD", "legacy-pass")
-
-	v := newViper()
-
-	assert.Equal(t, "redis.example", v.GetString("redis.host"))
-	assert.Equal(t, 6380, v.GetInt("redis.port"))
-	assert.Equal(t, "legacy-pass", v.GetString("redis.password"))
-}
-
 func TestNewViper_BindsListingKitEnvironmentVariables(t *testing.T) {
 	t.Setenv("LISTINGKIT_DEBUG_SUBMIT_DUMP_DIR", "D:/tmp/shein-submit-dumps")
 	t.Setenv("LISTINGKIT_PLATFORM_ADMIN_USERS", "user-a,user-b")
@@ -399,7 +387,6 @@ func TestLoadDotEnvFile_DoesNotOverrideExistingEnvironmentVariables(t *testing.T
 
 func TestLoadFromBytes_AppliesEnvironmentOverrides(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_OPENAI_API_KEY", "env-openai-key")
-	t.Setenv("TASK_PROCESSOR_REDIS_HOST", "redis.env.local")
 	cfg, err := LoadFromBytes([]byte(`
 openai:
   apiKey: file-key
@@ -410,21 +397,15 @@ openai:
     vision:
       model: gemini-2.5-flash
       timeout: 30
-redis:
-  host: redis.file.local
 `))
 	require.NoError(t, err)
 	assert.Equal(t, "env-openai-key", cfg.OpenAI.APIKey)
 	assert.Equal(t, "env-openai-key", cfg.OpenAI.ToClientConfigs()["vision"].APIKey)
-	require.NotNil(t, cfg.Redis)
-	assert.Equal(t, "redis.env.local", cfg.Redis.Host)
 }
 
 func TestLoadFromBytes_AppliesViperManagedEnvironmentOverrides(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_BROWSER_HEADLESS", "false")
 	t.Setenv("TASK_PROCESSOR_BROWSER_POOL_SIZE", "7")
-	t.Setenv("TASK_PROCESSOR_REDIS_HOST", "redis.env.local")
-	t.Setenv("TASK_PROCESSOR_REDIS_PORT", "6381")
 	cfg, err := LoadFromBytes([]byte(`
 openai:
   apiKey: test-openai-key
@@ -434,16 +415,10 @@ openai:
 browser:
   headless: true
   poolSize: 1
-redis:
-  host: redis.file.local
-  port: 6379
 `))
 	require.NoError(t, err)
 	assert.False(t, cfg.Browser.Headless)
 	assert.Equal(t, 7, cfg.Browser.PoolSize)
-	require.NotNil(t, cfg.Redis)
-	assert.Equal(t, "redis.env.local", cfg.Redis.Host)
-	assert.Equal(t, 6381, cfg.Redis.Port)
 }
 
 func TestConfigFixturesDoNotCarryRetiredManagementConfig(t *testing.T) {

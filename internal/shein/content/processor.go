@@ -2,25 +2,15 @@
 package content
 
 import (
-	"regexp"
 	"strings"
-	"unicode"
-
-	"task-processor/internal/shein/api/product"
 )
-
-// removeSensitiveWords 移除文本中的敏感词
-func (s *SensitiveWordService) removeSensitiveWords(text string) string {
-	return s.removeSensitiveWordsExcept(text, nil)
-}
 
 func (s *SensitiveWordService) removeSensitiveWordsExcept(text string, allowed []string) string {
 	if text == "" {
 		return text
 	}
 
-	// 不对原始文本做 preprocess，直接在原文上做大小写不敏感替换，
-	// 避免 normalizeSpecialCharacters 把连字符（如 Non-toxic）转成空格后导致匹配失败
+	// 保留原文大小写与标点，直接在原文上做大小写不敏感替换。
 	allWords := s.getAllSensitiveWords()
 
 	for _, word := range allWords {
@@ -32,33 +22,6 @@ func (s *SensitiveWordService) removeSensitiveWordsExcept(text string, allowed [
 
 	text = s.cleanupText(text)
 	return text
-}
-
-// removeSensitiveWordsAndBrandsWithContext 移除文本中的敏感词、Amazon品牌词和上下文中的品牌词
-func (s *SensitiveWordService) removeSensitiveWordsAndBrandsWithContext(ctx *CleanupContext, text string) string {
-	if text == "" {
-		return text
-	}
-
-	// 1. 移除敏感词
-	allowedBrands := s.authorizedBrandAllowlist(ctx)
-	text = s.removeSensitiveWordsExcept(text, allowedBrands)
-
-	// 2. 移除Amazon品牌词
-	text = s.removeAmazonBrandWordsExcept(text, allowedBrands)
-
-	// 3. 移除上下文中的品牌词
-	text = s.removeContextBrandWordsExcept(ctx, text, allowedBrands)
-
-	// 4. 为SHEIN平台清理文本
-	text = s.cleanTextForSheinPlatform(text)
-
-	return text
-}
-
-// SanitizeTextWithContext applies the full SHEIN-sensitive cleanup pipeline to a single text field.
-func (s *SensitiveWordService) SanitizeTextWithContext(ctx *CleanupContext, text string) string {
-	return s.removeSensitiveWordsAndBrandsWithContext(ctx, text)
 }
 
 // SanitizeDisplayTextWithContext removes sensitive and brand words while preserving
@@ -97,165 +60,6 @@ func (s *SensitiveWordService) authorizedBrandAllowlist(ctx *CleanupContext) []s
 	return allowed
 }
 
-// processMultiLanguageNames 处理多语言名称
-func (s *SensitiveWordService) processMultiLanguageNames(nameList []product.LanguageContent) int {
-	if nameList == nil {
-		return 0
-	}
-
-	processedCount := 0
-	for i, name := range nameList {
-		if cleaned := s.removeSensitiveWords(name.Name); cleaned != name.Name {
-			nameList[i].Name = cleaned
-			processedCount++
-		}
-	}
-	return processedCount
-}
-
-// processMultiLanguageNamesWithBrandsAndContext 处理多语言名称（包含Amazon品牌词和上下文品牌词移除）
-func (s *SensitiveWordService) processMultiLanguageNamesWithBrandsAndContext(ctx *CleanupContext, nameList []product.LanguageContent) int {
-	if nameList == nil {
-		return 0
-	}
-
-	processedCount := 0
-	for i, name := range nameList {
-		if cleaned := s.removeSensitiveWordsAndBrandsWithContext(ctx, name.Name); cleaned != name.Name {
-			nameList[i].Name = cleaned
-			processedCount++
-		}
-	}
-	return processedCount
-}
-
-// processMultiLanguageDescs 处理多语言描述
-func (s *SensitiveWordService) processMultiLanguageDescs(descList []product.LanguageContent) int {
-	if descList == nil {
-		return 0
-	}
-
-	processedCount := 0
-	for i, desc := range descList {
-		if cleaned := s.removeSensitiveWords(desc.Name); cleaned != desc.Name {
-			descList[i].Name = cleaned
-			processedCount++
-		}
-	}
-	return processedCount
-}
-
-// processSKCData 处理SKC数据
-func (s *SensitiveWordService) processSKCData(ctx *CleanupContext, skcList []product.SKC) int {
-	if skcList == nil {
-		return 0
-	}
-
-	processedCount := 0
-	for i, skc := range skcList {
-		// 处理SKC多语言名称（包含Amazon品牌词移除）
-		if cleaned := s.removeSensitiveWordsAndBrandsWithContext(ctx, skc.MultiLanguageName.Name); cleaned != skc.MultiLanguageName.Name {
-			skcList[i].MultiLanguageName.Name = cleaned
-			processedCount++
-		}
-
-		// 处理SKC多语言名称列表（包含Amazon品牌词移除）
-		if skc.MultiLanguageNameList != nil {
-			processedCount += s.processMultiLanguageNamesWithBrandsAndContext(ctx, skc.MultiLanguageNameList)
-		}
-	}
-	return processedCount
-}
-
-// processProductAttributes cleans only free-text attribute extra values and leaves structured values intact.
-func (s *SensitiveWordService) processProductAttributes(ctx *CleanupContext, attrs []product.ProductAttribute) int {
-	if attrs == nil {
-		return 0
-	}
-
-	processedCount := 0
-	for i := range attrs {
-		value := attrs[i].AttributeExtraValue
-		if !shouldSanitizeFreeTextAttributeValue(value) {
-			continue
-		}
-		if cleaned := s.removeSensitiveWordsAndBrandsWithContext(ctx, value); cleaned != value {
-			attrs[i].AttributeExtraValue = cleaned
-			processedCount++
-		}
-	}
-	return processedCount
-}
-
-func shouldSanitizeFreeTextAttributeValue(value string) bool {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return false
-	}
-	if len(value) >= 3 && strings.ContainsAny(value, " \t\r\n") {
-		return true
-	}
-	hasLetter := false
-	for _, r := range value {
-		if unicode.IsLetter(r) {
-			hasLetter = true
-			continue
-		}
-		if unicode.IsDigit(r) || unicode.IsSpace(r) {
-			continue
-		}
-		switch r {
-		case '.', ',', '-', '_', '/', '\\', '+', '%', 'x', 'X':
-			continue
-		default:
-			return hasLetter
-		}
-	}
-	return false
-}
-
-// cleanTextForSheinPlatform 为SHEIN平台清理文本
-func (s *SensitiveWordService) cleanTextForSheinPlatform(text string) string {
-	if text == "" {
-		return text
-	}
-
-	// 移除所有表情符号
-	text = s.removeAllEmojisAggressively(text)
-
-	// 移除特殊字符和符号
-	text = s.normalizeSpecialCharacters(text)
-
-	// 移除多余的空格和换行
-	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
-	text = strings.TrimSpace(text)
-
-	// 移除开头和结尾的标点符号
-	text = strings.Trim(text, ".,!?;:-_()[]{}\"'`~")
-
-	// 确保文本不为空
-	if strings.TrimSpace(text) == "" {
-		return "Product"
-	}
-
-	// 限制长度（SHEIN平台限制）
-	if len(text) > 200 {
-		text = text[:200]
-		// 确保不在单词中间截断
-		if lastSpace := strings.LastIndex(text, " "); lastSpace > 150 {
-			text = text[:lastSpace]
-		}
-		text = strings.TrimSpace(text)
-	}
-
-	return text
-}
-
-// removeAmazonBrandWords 移除Amazon品牌词
-func (s *SensitiveWordService) removeAmazonBrandWords(text string) string {
-	return s.removeAmazonBrandWordsExcept(text, nil)
-}
-
 func (s *SensitiveWordService) removeAmazonBrandWordsExcept(text string, allowed []string) string {
 	if text == "" {
 		return text
@@ -286,11 +90,6 @@ func (s *SensitiveWordService) removeAmazonBrandWordsExcept(text string, allowed
 	}
 
 	return cleanedText
-}
-
-// removeContextBrandWords 移除上下文中的品牌词（从SourceBrand值）
-func (s *SensitiveWordService) removeContextBrandWords(ctx *CleanupContext, text string) string {
-	return s.removeContextBrandWordsExcept(ctx, text, nil)
 }
 
 func (s *SensitiveWordService) removeContextBrandWordsExcept(ctx *CleanupContext, text string, allowed []string) string {
@@ -370,14 +169,4 @@ func (s *SensitiveWordService) getAmazonBrandWords() []string {
 		"Amazon's Choice",
 		"#1 Best Seller",
 	}
-}
-
-func (s *SensitiveWordService) TestEmojiFiltering(text string) string {
-	s.logger.Infof("🧪 测试表情符号过滤:")
-	s.logger.Infof("  原文: %s", text)
-	filtered := s.filterEmojis(text)
-	s.logger.Infof("  过滤后: %s", filtered)
-	aggressive := s.removeAllEmojisAggressively(text)
-	s.logger.Infof("  激进过滤: %s", aggressive)
-	return aggressive
 }

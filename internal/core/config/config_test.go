@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +44,7 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 		for _, prefix := range []string{"featureflags", "observability"} {
 			assert.False(t, normalized == prefix || strings.HasPrefix(normalized, prefix+"."), "retired host config default/env %s", key)
 		}
-		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger", "updater."} {
+		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger", "updater.", "logging.", "redis.", "prompts."} {
 			assert.False(t, strings.HasPrefix(normalized, strings.ToLower(prefix)), "retired default/env %s", key)
 		}
 		for _, field := range []string{"dataFreshnessDays", "productDedupe", "regionGuard", "concurrencyControl", "remoteAPI"} {
@@ -65,7 +64,7 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	}
 }
 
-func TestLoadFromBytesRetainsPlatformTransportLoginAndRetry(t *testing.T) {
+func TestLoadFromBytesRetains1688BrowserConfiguration(t *testing.T) {
 	cfg, err := LoadFromBytes([]byte(`
 openai:
   apiKey: fixture-key
@@ -77,13 +76,7 @@ platforms:
 	require.NoError(t, err)
 	assert.Equal(t, 42, cfg.Platforms.Alibaba1688.Timeout)
 	assert.Equal(t, 5, cfg.Platforms.Alibaba1688.PoolSize)
-	v := viper.New()
-	v.Set("currentTransport.timeout", 42)
-	v.Set("currentTransport.insecureSkipVerify", true)
-	transport := BuildHTTPClientConfig(v, "currentTransport")
-	assert.Equal(t, 42*time.Second, transport.Timeout)
-	assert.True(t, transport.InsecureSkipVerify)
-	assert.Equal(t, 3, DefaultRetryConfig().MaxRetries)
+
 }
 
 func TestBrowserConfigDefaults(t *testing.T) {

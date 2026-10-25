@@ -1,7 +1,8 @@
 import { parseTree, type Node, type ParseError } from 'jsonc-parser';
 import type { CapturePayload, EvidenceV2, Price, Image } from './wire';
-import { byteLength, fail, MAX_BYTES, pageSource, validateCapture, validPriceAmount } from './validation';
-import { detailImages, tableFacts, putFact, excluded } from './dom-materials';
+import { byteLength, fail, MAX_BYTES, pageSource, public1688DetailImage, validateCapture, validPriceAmount } from './validation';
+import { detailImages, tableFacts, putFact, excludedDetail } from './dom-materials';
+import { current1688Detail } from './1688-detail';
 
 // Observed live payloads reach ~16.5k nodes, so the previous 16384 bound rejected
 // real pages. The 2MB candidate bound remains the primary resource guard.
@@ -190,8 +191,8 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     schemaVersion: 2, ...identity, title, description: null, attributes: [], variants: [], priceFacts: [], images: [],
     capturedAt: now.toISOString(), contentSHA256: '0'.repeat(64), parserVersion: '1688-browser-dom/v3', warnings: [], missingFacts: [],
   };
-  const missing = (field: string) => {
-    e.missingFacts.push({ field, reason: 'not_observed' });
+  const missing = (field: string, reason = 'not_observed') => {
+    e.missingFacts.push({ field, reason });
     e.warnings.push({ code: 'MISSING_FACT', field });
   };
   e.attributes = array(path(root, 'result', 'global', 'globalData', 'model', 'offerDetail', 'featureAttributes')).map(n => ({
@@ -199,7 +200,10 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   }));
   const attributeFacts = new Map<string, {name:string;value:string}>(); const attributeConflicts = new Set<string>();
   const materialCharge = () => { if (++nodes > MAX_NODES) fail('CAPTURE_TOO_LARGE'); if (performance.now()-started>8000) fail('CAPTURE_TIMEOUT'); };
-  for (const item of [...e.attributes, ...tableFacts(doc, '#desc-lazyload-container tr', materialCharge)]) putFact(attributeFacts,attributeConflicts,item.name,item.value);
+  const detail = current1688Detail(doc, materialCharge);
+  if (detail.reason) missing('images.detail', detail.reason);
+  const parameters = detail.root ? tableFacts(detail.root, 'tr', materialCharge, excludedDetail) : [];
+  for (const item of [...e.attributes, ...parameters]) putFact(attributeFacts,attributeConflicts,item.name,item.value);
   let unknownWeightUnit = false;
   for (const [component, label] of [['productPackInfo','来源包装重量'],['shippingServices','来源物流重量']]) {
     const weight = string(path(data, component, 'fields', 'unitWeight'), true);
@@ -218,7 +222,8 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     e.warnings.push({code:'MISSING_FACT',field:'attributes'});
   }
   e.images = array(path(data, 'gallery', 'fields', 'offerImgList')).map(n => ({ url: string(n) ?? fail('UNSUPPORTED_PAGE'), role: 'source' }));
-  for (const url of detailImages(doc, '#desc-lazyload-container img', materialCharge)) {
+  const detailURLs = detail.root ? detailImages(detail.root, 'img', materialCharge, false, public1688DetailImage) : [];
+  for (const url of detailURLs) {
     if (!e.images.some(image=>image.url===url)) {
       if (e.images.length >= 256) fail('CAPTURE_TOO_LARGE');
       e.images.push({url,role:'detail'});
@@ -291,14 +296,14 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   }
   // Only explicitly identified, already rendered description text. Never frames
   // or external detailUrl fetches, and never whole-body text/HTML.
-  const description = doc.querySelector('#desc-lazyload-container');
+  const description = detail.root;
   if (description) {
     const texts = doc.createTreeWalker(description, 4); const parts: string[] = []; let length = 0;
     let block: Element | null = null;
     for (let n = texts.nextNode(); n; n = texts.nextNode()) {
-      if (++nodes > MAX_NODES) fail('CAPTURE_TOO_LARGE');
+      materialCharge();
       const parent = n.parentElement;
-      if (!parent || excluded(parent)) continue;
+      if (!parent || excludedDetail(parent)) continue;
       const value = n.nodeValue ?? '';
       const nextBlock = parent.closest('p,div,li,section,tr');
       const separator = block && block !== nextBlock && parts.length ? '\n' : '';
@@ -309,7 +314,8 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     e.description = parts.join('').trim() || null;
   }
   for (const field of ['description', 'attributes', 'variants', 'priceFacts', 'images'] as const) {
-    if (!e[field] || e[field].length === 0) missing(field);
+    if (!e[field] || e[field].length === 0) missing(field,
+      field === 'description' && detailURLs.length ? 'source detail contains images but no text nodes' : 'not_observed');
   }
   const payload = validateCapture({ captureVersion: 2, evidence: e });
   const projection = JSON.stringify({ sourceURL: e.sourceURL, offerID: e.offerID, title: e.title, description: e.description,

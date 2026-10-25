@@ -229,8 +229,8 @@ func TestProductionLLMManagerAdapterCallersPassLogger(t *testing.T) {
 
 func TestOpenAIConfigsExposeExplicitNonSerializedLogger(t *testing.T) {
 	for _, config := range []any{
-		openaiclient.ClientConfig{}, openaiclient.PoolConfig{}, openaiclient.CachedClientConfig{},
-		openaiclient.ManagerConfig{}, openaiclient.ResilientClientConfig{},
+		openaiclient.ClientConfig{}, openaiclient.PoolConfig{},
+		openaiclient.ManagerConfig{},
 	} {
 		configType := reflect.TypeOf(config)
 		field, ok := configType.FieldByName("Logger")
@@ -344,8 +344,8 @@ func TestHTTPImageResolverIsImmutableFunction(t *testing.T) {
 
 func TestOpenAILoggerConfigFieldsAreASTComplete(t *testing.T) {
 	want := map[string]bool{
-		"ClientConfig": false, "PoolConfig": false, "CachedClientConfig": false,
-		"ManagerConfig": false, "ResilientClientConfig": false,
+		"ClientConfig": false, "PoolConfig": false,
+		"ManagerConfig": false,
 	}
 	root := filepath.Join("..", "internal", "integration", "openai")
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {

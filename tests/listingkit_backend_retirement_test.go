@@ -145,21 +145,21 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 		"internal/platform/workerpool/types.go", "internal/platform/workerpool/worker.go",
 		"internal/platform/workerpool/pool_lifecycle_test.go", "internal/platform/workerpool/worker_test.go",
 		"internal/pkg/recovery/panic_handler.go",
+		"internal/shein/content/validator.go",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired workerpool/recovery artifact %s must be absent: %v", relative, err)
 		}
 	}
-	retiredFunctions := strings.Fields("resolveConfigPath NewSensitiveWordService NewSensitiveWordServiceInMemoryWithPath NewSensitiveWordServiceWithPath")
-	retiredMethods := strings.Fields("loadConfig saveConfig saveConfigUnlocked ReloadConfig saveConfigAsync Close startSaveWorker logConfigLoadStats")
+	retiredFunctions := strings.Fields("resolveConfigPath NewSensitiveWordService NewSensitiveWordServiceInMemoryWithPath NewSensitiveWordServiceWithPath shouldSanitizeFreeTextAttributeValue")
+	retiredMethods := strings.Fields("loadConfig saveConfig saveConfigUnlocked ReloadConfig saveConfigAsync Close startSaveWorker logConfigLoadStats markConfigUpdatedLocked removeSensitiveWords removeSensitiveWordsAndBrandsWithContext SanitizeTextWithContext processMultiLanguageNames processMultiLanguageNamesWithBrandsAndContext processMultiLanguageDescs processSKCData processProductAttributes cleanTextForSheinPlatform removeAmazonBrandWords removeContextBrandWords TestEmojiFiltering classifyWordsByLanguage detectLanguage containsChinese containsKorean containsCyrillic containsArabic filterEmojis removeAllEmojisAggressively normalizeSpecialCharacters countWordsInConfig logSensitiveWordStats extractSensitiveWordsFromValidation ExtractSensitiveWordsFromValidationNotes extractWordsFromMessages splitWords addWordsByLanguageLocked addWordsToConfig ProcessProductData HandleValidationErrors GetStaticSensitiveWords GetDynamicSensitiveWords getWordsFromConfig GetSensitiveWordsByLanguage AddDynamicSensitiveWords AddStaticSensitiveWords AddStaticSensitiveWordsByLanguage addSensitiveWordsLocked AddDynamicSensitiveWordsByLanguage ClearDynamicSensitiveWords")
 	retiredFields := strings.Fields("configPath persistConfig ctx saveQueue stopSave wg")
 	retained := map[string]bool{}
-	for _, name := range strings.Fields("NewSensitiveWordServiceInMemory SensitiveWordConfig SensitiveWordService SensitiveWordService.config SensitiveWordService.mutex SensitiveWordService.logger createDefaultConfig ProcessProductData HandleValidationErrors GetSensitiveWordsByLanguage getWordsFromConfig classifyWordsByLanguage addWordsToConfig deduplicateWords") {
+	for _, name := range strings.Fields("NewSensitiveWordServiceInMemory SensitiveWordConfig SensitiveWordService SensitiveWordService.config SensitiveWordService.mutex SensitiveWordService.logger createDefaultConfig deduplicateWords componentLogger initDefaultConfig getAllSensitiveWords SanitizeDisplayTextWithContext authorizedBrandAllowlist removeSensitiveWordsExcept removeAmazonBrandWordsExcept removeContextBrandWordsExcept containsFoldedText normalizeBrandToken getAmazonBrandWords containsJapanese removeWordFromText cleanupText") {
 		retained[name] = false
 	}
 	wantConfig := map[string]string{
 		"StaticWords": "map[string][]string|static_words", "DynamicWords": "map[string][]string|dynamic_words",
-		"LastUpdated": "time.Time|last_updated", "Version": "string|version",
 	}
 	gotConfig := map[string]string{}
 	for _, relative := range trackedFiles(t, ".") {
@@ -226,6 +226,9 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 					if !ok {
 						continue
 					}
+					if slices.Contains([]string{"ValidationResult", "SKCValidationMessages"}, typ.Name.Name) {
+						t.Errorf("%s retains retired content type %s", relative, typ.Name.Name)
+					}
 					if _, exists := retained[typ.Name.Name]; exists {
 						retained[typ.Name.Name] = true
 					}
@@ -241,6 +244,9 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 							}
 							if typ.Name.Name == "SensitiveWordService" && slices.Contains(retiredFields, name.Name) {
 								t.Errorf("content retains retired lifecycle field %s", key)
+							}
+							if typ.Name.Name == "CleanupContext" && name.Name == "ProductData" {
+								t.Errorf("content retains retired whole-product input %s", key)
 							}
 							if typ.Name.Name == "SensitiveWordConfig" {
 								tag := ""
@@ -275,7 +281,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			t.Errorf("retired Temporal module bundle %s must be absent: %v", relative, err)
 		}
 	}
-	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go", "internal/core/config/validator_validator.go", "internal/shared/aiidentity/envelope.go", "internal/shared/aiidentity/envelope_test.go", "internal/shared/aiidentity/tenant_scope.go", "internal/shared/aiidentity/tenant_scope_test.go"} {
+	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go", "internal/core/config/validator_validator.go", "internal/shared/aiidentity/envelope.go", "internal/shared/aiidentity/envelope_test.go", "internal/shared/aiidentity/tenant_scope.go", "internal/shared/aiidentity/tenant_scope_test.go", "internal/platform/logging/context.go", "internal/platform/logging/helpers.go", "internal/platform/logging/helpers_test.go", "internal/shared/resilience/breaker.go", "internal/shared/resilience/breaker_test.go", "internal/shared/resilience/ratelimit.go", "internal/shared/resilience/ratelimit_test.go", "internal/integration/openai/cached_client.go", "internal/integration/openai/resilient_client.go", "internal/pkg/httpclient/builder.go", "internal/pkg/httpclient/builder_test.go", "internal/shared/aiidentity/request_roles.go", "internal/core/config/common_types.go", "internal/core/config/common_types_test.go", "internal/core/config/type_rabbitmq.go"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired idle support file %s must be absent: %v", relative, err)
 		}
@@ -285,28 +291,37 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 	retiredRegistryFields := []string{"workerPools", "workerPoolNames", "temporalWorkers", "temporalWorkerNames", "taskHandlers", "workflowNames"}
 	retiredConfig := []string{"CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig", "CostCalculationConfig", "DefaultCostCalculationConfig", "TimeoutConfig", "DefaultTimeoutConfig", "RateLimitConfig", "DefaultRateLimitConfig", "ServerConfig"}
 	retiredSupport := map[string][]string{
-		"internal/shared/aiidentity": {"CurrentEnvelopeVersion", "ErrMissingIdentity", "ErrIdentityIntegrity", "ExecutionEnvelope", "PersistedExecutionEnvelope", "PersistedEnvelopeState", "PersistedEnvelopeAbsent", "PersistedEnvelopePartial", "PersistedEnvelopePresent", "envelopeContextKey", "ExecutionEnvelope.Validate", "CaptureExecutionEnvelope", "WithExecutionEnvelope", "ExecutionEnvelopeFromContext", "RestoreExecutionEnvelope", "EnsureExecutionEnvelopeContext", "PersistedExecutionEnvelopeFrom", "PersistedExecutionEnvelope.State", "PersistedExecutionEnvelope.ExecutionEnvelope", "PersistedExecutionEnvelope.executionEnvelope", "normalizePersistedEnvelope", "normalizeEnvelope", "validSource", "TenantIDFromContext", "NormalizePersistedTenantID", "TenantMatchesContext", "TenantCanCreateTask"},
-		"internal/core/config":       {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog"},
-		"internal/pkg/goroutine":     {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
-		"internal/pkg/timeout":       {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
-		"internal/pkg/jsonx":         {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile"},
-		"internal/pkg/appenv":        {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
-		"internal/pkg/httpclient":    {"DefaultConfig", "NewWithTransport"},
-		"internal/pkg/imagex":        {"Format", "FormatJPEG", "FormatPNG", "FormatAuto", "ToBase64", "ToBase64JPEG", "ToBase64PNG", "FromBase64", "FromBytes", "ToBytes", "FromReader", "Encode", "Size", "FormatFromBytes", "HasTransparency", "OptimalFormat"},
+		"internal/platform/database":  {"openExistingReadOnly", "OpenExistingReadOnly", "OpenExistingWritable"},
+		"internal/shared/ptr":         {"Int16Ptr", "Int32Ptr", "Int64Ptr", "StringPtr", "Float64Ptr", "BoolPtr"},
+		"internal/integration/openai": {"CachedClient", "Cache", "CachedClientConfig", "NewCachedClient", "CachedClient.CreateChatCompletion", "CachedClient.generateCacheKey", "CachedClient.Generate", "CachedClient.AnalyzeImage", "CachedClient.GetDefaultModel", "CachedClient.SupportsAsyncImageGeneration", "CachedClient.SubmitImageGeneration", "CachedClient.SubmitImageEdit", "CachedClient.QueryImageGeneration", "CachedClient.ClearCache", "CachedClient.SetTTL", "CachedClient.Enable", "CachedClient.Disable", "CachedClient.IsEnabled", "CachedClient.GetStats", "CachedClient.Close", "ResilientClient", "ResilientClientConfig", "CircuitBreakerConfig", "CircuitState", "StateClosed", "StateOpen", "StateHalfOpen", "CircuitBreaker", "Counts", "DefaultCircuitBreakerConfig", "NewCircuitBreaker", "CircuitBreaker.Execute", "CircuitBreaker.beforeRequest", "CircuitBreaker.afterRequest", "CircuitBreaker.onSuccess", "CircuitBreaker.onFailure", "CircuitBreaker.setState", "CircuitBreaker.State", "CircuitBreaker.Counts", "CircuitBreaker.Reset", "CircuitBreaker.OnStateChange", "NewResilientClient", "ResilientClient.CreateChatCompletion", "ResilientClient.Generate", "ResilientClient.AnalyzeImage", "ResilientClient.GetDefaultModel", "ResilientClient.SupportsAsyncImageGeneration", "ResilientClient.SubmitImageGeneration", "ResilientClient.SubmitImageEdit", "ResilientClient.QueryImageGeneration", "ResilientClient.GetCircuitBreakerState", "ResilientClient.GetCircuitBreakerCounts", "ResilientClient.ResetCircuitBreaker", "ResilientClient.GetStats", "ResilientClient.Close", "stateString"},
+		"internal/platform/logging":   {"contextKey", "loggerContextKey", "traceIDKey", "requestIDKey", "WithLogger", "FromContext", "WithTraceID", "GetTraceID", "WithRequestID", "GetRequestID", "WithFields", "WithField", "FieldComponent", "FieldPlatform", "FieldProductID", "FieldTraceID", "FieldRequestID", "FieldDurationMs", "FieldRetryCount", "FieldErrorCode", "FieldErrorType", "FieldOperation", "FieldStatus", "FieldUserID", "FieldSessionID", "LoggerHelper", "NewLoggerHelper", "LoggerHelper.LogOperation", "LoggerHelper.LogOperationWithResult", "LoggerHelper.LogProgress", "LoggerHelper.LogRetry", "LoggerHelper.LogAPICall", "LoggerHelper.LogCacheHit", "LoggerHelper.LogDatabaseQuery", "LoggerHelper.LogStateChange", "LoggerHelper.LogMetric", "WithComponent", "WithPlatform", "ShouldLog", "LoggerHelper.LogTaskStart", "LoggerHelper.LogTaskComplete", "LoggerHelper.LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID", "SetGlobalLogLevel", "LogManager.GetLoggerWithFields", "rotatingFileWriter.GetBackupFiles"},
+		"internal/shared/resilience":  {"ErrCircuitOpen", "ErrTooManyRequests", "CircuitState", "StateClosed", "StateHalfOpen", "StateOpen", "CircuitBreakerCounts", "CircuitBreakerConfig", "CircuitBreaker", "NewCircuitBreaker", "CircuitBreaker.Execute", "CircuitBreaker.State", "CircuitBreaker.Counts", "convertCounts", "convertState", "RateLimiter", "NewRateLimiter", "RateLimiter.Wait", "RateLimiter.Allow"},
+		"internal/shared/aiidentity":  {"CurrentEnvelopeVersion", "ErrMissingIdentity", "ErrIdentityIntegrity", "ExecutionEnvelope", "PersistedExecutionEnvelope", "PersistedEnvelopeState", "PersistedEnvelopeAbsent", "PersistedEnvelopePartial", "PersistedEnvelopePresent", "envelopeContextKey", "ExecutionEnvelope.Validate", "CaptureExecutionEnvelope", "WithExecutionEnvelope", "ExecutionEnvelopeFromContext", "RestoreExecutionEnvelope", "EnsureExecutionEnvelopeContext", "PersistedExecutionEnvelopeFrom", "PersistedExecutionEnvelope.State", "PersistedExecutionEnvelope.ExecutionEnvelope", "PersistedExecutionEnvelope.executionEnvelope", "normalizePersistedEnvelope", "normalizeEnvelope", "validSource", "TenantIDFromContext", "NormalizePersistedTenantID", "TenantMatchesContext", "TenantCanCreateTask", "requestRolesContextKey", "RequestUserIDFromContext", "WithRequestRoles", "RequestRolesFromContext", "normalizeRequestRoles"},
+		"internal/core/config":        {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog", "HTTPClientConfig", "DefaultHTTPClientConfig", "BuildHTTPClientConfig", "RetryConfig", "DefaultRetryConfig", "LoggingConfig", "PromptsConfig", "buildSplitByLevelConfig", "getStringFromMap"},
+		"internal/pkg/goroutine":      {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
+		"internal/pkg/timeout":        {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
+		"internal/pkg/jsonx":          {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile", "UnmarshalBytes"},
+		"internal/pkg/appenv":         {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
+		"internal/pkg/httpclient":     {"DefaultConfig", "NewWithTransport", "ClientConfig", "Build", "buildTLSConfig", "NewSimple"},
+		"internal/pkg/imagex":         {"Format", "FormatJPEG", "FormatPNG", "FormatAuto", "ToBase64", "ToBase64JPEG", "ToBase64PNG", "FromBase64", "FromBytes", "ToBytes", "FromReader", "Encode", "Size", "FormatFromBytes", "HasTransparency", "OptimalFormat"},
 	}
 	// Owner-qualified declarations avoid banning current same-name workflows,
 	// platform logging or real workerpool/Temporal dependencies.
 	retained := map[string]map[string]bool{
-		"internal/shared/aiidentity": {"Identity": false, "Identity.AgentRunID": false, "Identity.TenantID": false, "Identity.UserID": false, "Identity.BusinessTaskID": false, "Identity.TraceID": false, "WithIdentity": false, "FromContext": false, "RequestUserIDFromContext": false, "WithRequestRoles": false, "RequestRolesFromContext": false, "normalizeRequestRoles": false},
-		"internal/kernel/module":     {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
-		"internal/core/config":       {"Config": false, "LoggingConfig": false, "HTTPClientConfig": false, "DefaultHTTPClientConfig": false, "RetryConfig": false, "DefaultRetryConfig": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "LoadFromBytes": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false},
-		"internal/platform/logging":  {"LogConfig": false, "DefaultLogConfig": false},
-		"internal/pkg/goroutine":     {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
-		"internal/pkg/timeout":       {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
-		"internal/pkg/jsonx":         {"UnmarshalString": false, "UnmarshalBytes": false, "CleanLLMResponse": false},
-		"internal/pkg/appenv":        {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
-		"internal/pkg/httpclient":    {"Config": false, "Client": false, "New": false, "Client.Do": false, "NewSimple": false, "NewSimpleWithTimeout": false, "ClientConfig": false, "Build": false, "buildTLSConfig": false},
-		"internal/pkg/imagex":        {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
+		"internal/shared/ptr":         {"IntPtr": false, "Float32Ptr": false},
+		"internal/platform/database":  {"OpenExistingReadOnlyContext": false, "OpenExistingWritableContext": false, "Open": false, "OpenShared": false, "Close": false, "CloseShared": false, "openDatabase": false, "openDatabaseContext": false, "databaseDSN": false},
+		"internal/shared/resilience":  {"Retry": false, "RetryConfig": false, "RetryAttempt": false},
+		"internal/integration/openai": {"Client": false, "ClientConfig": false, "RequestPool": false, "PoolConfig": false, "BaseClient": false, "RateLimiter": false, "Manager": false, "ManagerConfig": false, "Logger": false, "AdaptLogrus": false},
+		"internal/shared/aiidentity":  {"Identity": false, "Identity.AgentRunID": false, "Identity.TenantID": false, "Identity.UserID": false, "Identity.BusinessTaskID": false, "Identity.TraceID": false, "WithIdentity": false, "FromContext": false},
+		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
+		"internal/core/config":        {"Config": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "LoadFromBytes": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "RedisConfig": false, "RedisConfig.Host": false, "RedisConfig.Port": false, "RedisConfig.Password": false, "RedisConfig.DB": false, "RedisConfig.PoolSize": false, "OpenAIConfig": false, "BrowserConfig": false, "PlatformsConfig": false, "Alibaba1688Config": false},
+		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false, "LevelFileConfig": false, "LogManager.SetLevel": false, "LogManager.GetLevel": false},
+		"internal/pkg/goroutine":      {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
+		"internal/pkg/timeout":        {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
+		"internal/pkg/jsonx":          {"UnmarshalString": false, "CleanLLMResponse": false},
+		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
+		"internal/pkg/httpclient":     {"Config": false, "Client": false, "New": false, "Client.Do": false, "NewSimpleWithTimeout": false},
+		"internal/pkg/imagex":         {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
 	}
 	decoders := map[string]bool{"image/jpeg": false, "image/png": false, "golang.org/x/image/webp": false}
 	for _, relative := range trackedFiles(t, ".") {
@@ -314,7 +329,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			continue
 		}
 		owner := filepath.ToSlash(filepath.Dir(relative))
-		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/goroutine" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" && owner != "internal/shared/aiidentity" {
+		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/goroutine" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" && owner != "internal/shared/aiidentity" && owner != "internal/shared/resilience" && owner != "internal/integration/openai" && owner != "internal/shared/ptr" && owner != "internal/platform/database" {
 			continue
 		}
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
@@ -418,7 +433,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 										}
 									}
 								}
-								if (owner == "internal/kernel/module" && name == "Registry" && slices.Contains(retiredRegistryFields, fieldName.Name)) || (owner == "internal/app/httpapi" && name == "runtimeBundle" && fieldName.Name == "workerPools") {
+								if (owner == "internal/kernel/module" && name == "Registry" && slices.Contains(retiredRegistryFields, fieldName.Name)) || (owner == "internal/app/httpapi" && name == "runtimeBundle" && fieldName.Name == "workerPools") || (owner == "internal/core/config" && name == "Config" && slices.Contains([]string{"Logging", "Redis", "Prompts"}, fieldName.Name)) {
 									t.Errorf("%s retains retired field %s.%s", relative, name, fieldName.Name)
 								}
 								key := name + "." + fieldName.Name
@@ -1128,13 +1143,15 @@ func TestOldHostRuntimeClosureStaysRetired(t *testing.T) {
 
 func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 	assertLegacyLoggerFacadeRetired(t)
+	if _, err := os.Lstat(filepath.Join("..", "internal", "platform", "logging", "helpers.go")); !os.IsNotExist(err) {
+		t.Errorf("retired logging helper file must be absent: %v", err)
+	}
 	for _, relative := range []string{"internal/listingruntime/rules.go", "internal/listingruntime/operation_strategy.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired rule owner %s must be absent: %v", relative, err)
 		}
 	}
 	for relative, retired := range map[string][]string{
-		"internal/platform/logging/helpers.go":         {"LogTaskStart", "LogTaskComplete", "LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
 		"internal/product/sourcing/source_identity.go": {"func (id SourceIdentity) Key()", "id.SourcePlatform = id.Platform", "id.Platform = id.SourcePlatform", "id.SourceID = id.ProductID", "id.ProductID = id.SourceID"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -1483,7 +1500,7 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 			t.Errorf("retired config artifact %s must be absent: %v", relative, err)
 		}
 	}
-	retiredRoots := []string{"processor", "worker", "listingControlPlane", "rabbitmq", "updater"}
+	retiredRoots := []string{"processor", "worker", "listingControlPlane", "rabbitmq", "updater", "logging", "redis", "prompts"}
 	retiredPlatform := []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths", "fetchMode"}
 	for _, relative := range []string{
 		"config/config-dev.yaml", "config/config-prod.yaml", "config/config-test.yaml",
@@ -1582,6 +1599,16 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 			t.Errorf("%s declares retired queue input", relative)
 		}
 	}
+	content, err := os.ReadFile(filepath.Join("..", "scripts", "start-listingkit-local-portforward.ps1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"TASK_PROCESSOR_REDIS_HOST", "TASK_PROCESSOR_REDIS_PORT"} {
+		if strings.Contains(string(content), name) {
+			t.Errorf("port-forward help must not recommend retired global input %s", name)
+		}
+	}
+
 }
 
 var retiredNumericListingSupportFiles = []string{
@@ -2947,7 +2974,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/goods/images.go": {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
 		},
-		"internal/shared/ptr/pointer.go":          {"func BoolPtr("},
+		"internal/shared/ptr/pointer.go":          {"func IntPtr(", "func Float32Ptr("},
 		"internal/storecenter/gorm_repository.go": {"type GormStoreRepository struct"},
 		"internal/pkg/appenv/apputil.go":          {"func ComponentLoggers(", "func SetupLoggerWithLevel(", "type VersionInfo struct", "func PrintVersionInfo("},
 		"internal/marketplace/temu/goods/builder.go": {
@@ -2962,7 +2989,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/rules/local_numbers.go":                      {"func (c *Catalog) CheckLocalNumbers("},
 		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
 		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
-		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "type ValidationResult struct", "type SKCValidationMessages struct", "SourceBrand", "other_language_message_map", "otherLanguageMessageMap"},
+		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "SourceBrand", "AuthorizedBrand", "Context"},
 		"internal/publishing/shein/submit_site_sku_policy.go":                   {"sheinmarketpub.DefaultSiteListByRegion("},
 		"internal/publishing/shein/sensitive_content_sanitizer.go":              {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
 
@@ -3560,7 +3587,6 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 		}
 	}
 	for _, relative := range []string{
-		"internal/core/config/type_rabbitmq.go",
 		"internal/core/config/config.go",
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -3949,7 +3975,7 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 		if !ok {
 			t.Fatal("CleanupContext must be a narrow value struct")
 		}
-		expected := map[string]bool{"Context": true, "AuthorizedBrand": true, "SourceBrand": true, "ProductData": true}
+		expected := map[string]bool{"Context": true, "AuthorizedBrand": true, "SourceBrand": true}
 		for _, field := range shape.Fields.List {
 			if len(field.Names) != 1 || !expected[field.Names[0].Name] {
 				t.Errorf("CleanupContext must not embed or add old Task state: %v", field.Names)
@@ -4107,7 +4133,7 @@ func TestSheinCanonicalDraftContractIsRetained(t *testing.T) {
 func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
 	t.Helper()
 	retiredRoots := []string{"internal/amazon/api", "internal/temu/api", "internal/shein/api/category", "internal/shein/api/image", "internal/shein/api/marketing", "internal/shein/api/pricing", "internal/shein/api/translate", "internal/shein/pricing", "internal/shein/sherr"}
-	for _, relative := range append(append([]string{}, retiredRoots...), []string{"internal/shein/authorizedbrand/resolver.go", "internal/shein/authorizedbrand/resolver_test.go", "internal/shein/api/product/response.go", "internal/core/config/amazon_marketplace.go", "internal/core/config/amazon_marketplace_test.go", "internal/core/config/loader_platform.go", "internal/shein/api/attribute/client.go", "internal/shein/api/other/client.go", "internal/shein/api/product/client.go", "internal/shein/api/product/client_test.go", "internal/shein/api/product/cost_price.go", "internal/shein/api/product/cost_price_test.go", "internal/shein/api/product/image_helpers.go", "internal/shein/api/product/image_helpers_test.go", "internal/shein/api/product/interface.go", "internal/shein/api/product/inventory.go", "internal/shein/api/product/inventory_manager.go", "internal/shein/api/product/language_list.go", "internal/shein/api/product/language_list_test.go", "internal/shein/api/product/name_length_config.go", "internal/shein/api/product/name_length_config_test.go", "internal/shein/api/product/price.go", "internal/shein/api/product/price_manager.go", "internal/shein/api/product/product_manager.go", "internal/shein/api/product/request.go", "internal/shein/api/product/shelf.go", "internal/shein/api/product/site_list.go", "internal/shein/api/product/site_list_test.go", "internal/shein/api/product/stock.go", "internal/shein/api/types.go", "internal/shein/api/warehouse/client.go", "internal/shein/api/warehouse/client_test.go", "internal/shein/client/base_client.go", "internal/shein/client/base_client_test.go", "internal/shein/client/error_handler.go", "internal/shein/client/logger_port.go"}...) {
+	for _, relative := range append(append([]string{}, retiredRoots...), []string{"internal/core/config/common_types.go", "internal/core/config/common_types_test.go", "internal/core/config/type_rabbitmq.go", "internal/shein/authorizedbrand/resolver.go", "internal/shein/authorizedbrand/resolver_test.go", "internal/shein/api/product/response.go", "internal/core/config/amazon_marketplace.go", "internal/core/config/amazon_marketplace_test.go", "internal/core/config/loader_platform.go", "internal/shein/api/attribute/client.go", "internal/shein/api/other/client.go", "internal/shein/api/product/client.go", "internal/shein/api/product/client_test.go", "internal/shein/api/product/cost_price.go", "internal/shein/api/product/cost_price_test.go", "internal/shein/api/product/image_helpers.go", "internal/shein/api/product/image_helpers_test.go", "internal/shein/api/product/interface.go", "internal/shein/api/product/inventory.go", "internal/shein/api/product/inventory_manager.go", "internal/shein/api/product/language_list.go", "internal/shein/api/product/language_list_test.go", "internal/shein/api/product/name_length_config.go", "internal/shein/api/product/name_length_config_test.go", "internal/shein/api/product/price.go", "internal/shein/api/product/price_manager.go", "internal/shein/api/product/product_manager.go", "internal/shein/api/product/request.go", "internal/shein/api/product/shelf.go", "internal/shein/api/product/site_list.go", "internal/shein/api/product/site_list_test.go", "internal/shein/api/product/stock.go", "internal/shein/api/types.go", "internal/shein/api/warehouse/client.go", "internal/shein/api/warehouse/client_test.go", "internal/shein/client/base_client.go", "internal/shein/client/base_client_test.go", "internal/shein/client/error_handler.go", "internal/shein/client/logger_port.go"}...) {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired platform API artifact %s must be absent: %v", relative, err)
 		}
@@ -4138,9 +4164,7 @@ func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
 	requiredByFile := map[string][]string{
 		"internal/shein/authorizedbrand/types.go":            {"Resolved"},
 		"internal/shein/authorizedbrand/context.go":          {"WithResolved", "FromContext"},
-		"internal/core/config/common_types.go":               {"HTTPClientConfig", "DefaultHTTPClientConfig"},
 		"internal/core/config/type_platform.go":              {"PlatformsConfig", "Alibaba1688Config"},
-		"internal/core/config/type_rabbitmq.go":              {"RetryConfig", "DefaultRetryConfig"},
 		"internal/shein/api/attribute/interface.go":          {"AttributeInfo", "AttributeValue", "AttributeValueGroup", "CustomAttributeRelation"},
 		"internal/shein/api/other/interface.go":              {"FlexibleString", "SupplierOperateInfo", "SupplierOperateInfoResponse"},
 		"internal/shein/api/product/model.go":                {"Product", "Extra", "LanguageContent", "ProductAttribute", "ProductVideo", "SiteInfo", "SizeAttribute"},

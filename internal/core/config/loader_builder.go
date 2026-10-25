@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	topupconfig "task-processor/internal/integration/wallettopup/config"
-	logger "task-processor/internal/platform/logging"
 	"time"
 
 	"github.com/spf13/viper"
@@ -169,31 +168,6 @@ func BuildConfig(v *viper.Viper) *Config {
 	cfg.CommercialDatabase = databaseConfigFromViper(v, "commercialDatabase")
 	cfg.CommercialOwnerDatabase = databaseConfigFromViper(v, "commercialOwnerDatabase")
 
-	if v.GetString("redis.host") != "" {
-		port := v.GetInt("redis.port")
-		if port == 0 {
-			port = 6379
-		}
-		poolSize := v.GetInt("redis.pool_size")
-		if poolSize == 0 {
-			poolSize = 10
-		}
-		cfg.Redis = &RedisConfig{
-			Host:     v.GetString("redis.host"),
-			Port:     port,
-			Password: v.GetString("redis.password"),
-			DB:       v.GetInt("redis.db"),
-			PoolSize: poolSize,
-		}
-	}
-
-	cfg.Logging = LoggingConfig{
-		Level:        v.GetString("logging.level"),
-		Format:       v.GetString("logging.format"),
-		File:         v.GetString("logging.file"),
-		SplitByLevel: buildSplitByLevelConfig(v),
-	}
-
 	return cfg
 }
 
@@ -229,19 +203,6 @@ func legacyListingKitUsernameAllowlistConfigured(v *viper.Viper) bool {
 		}
 	}
 	return false
-}
-
-func BuildHTTPClientConfig(v *viper.Viper, prefix string) HTTPClientConfig {
-	return HTTPClientConfig{
-		BaseURL:            v.GetString(prefix + ".baseURL"),
-		Timeout:            time.Duration(v.GetInt(prefix+".timeout")) * time.Second,
-		MaxRetries:         v.GetInt(prefix + ".maxRetries"),
-		RetryDelay:         time.Duration(v.GetInt(prefix+".retryDelay")) * time.Second,
-		MaxIdleConns:       v.GetInt(prefix + ".maxIdleConns"),
-		MaxConnsPerHost:    v.GetInt(prefix + ".maxConnsPerHost"),
-		InsecureSkipVerify: v.GetBool(prefix + ".insecureSkipVerify"),
-		Headers:            v.GetStringMapString(prefix + ".headers"),
-	}
 }
 
 func buildOpenAIClients(v *viper.Viper) map[string]OpenAIClientConfig {
@@ -297,49 +258,6 @@ func phoneVerificationExpiryMinutes(v *viper.Viper) int {
 		}
 	}
 	return -1
-}
-
-func buildSplitByLevelConfig(v *viper.Viper) []logger.LevelFileConfig {
-	raw := v.Get("logging.split_by_level")
-	if raw == nil {
-		return nil
-	}
-
-	list, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-
-	configs := make([]logger.LevelFileConfig, 0, len(list))
-	for _, item := range list {
-		m, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		cfg := logger.LevelFileConfig{
-			File: getStringFromMap(m, "file"),
-		}
-
-		if levelsRaw, ok := m["levels"]; ok {
-			switch values := levelsRaw.(type) {
-			case []any:
-				for _, level := range values {
-					if s, ok := level.(string); ok {
-						cfg.Levels = append(cfg.Levels, s)
-					}
-				}
-			case []string:
-				cfg.Levels = values
-			}
-		}
-
-		if cfg.File != "" && len(cfg.Levels) > 0 {
-			configs = append(configs, cfg)
-		}
-	}
-
-	return configs
 }
 
 func rolePolicyDatabase(v *viper.Viper) *DatabaseConfig {

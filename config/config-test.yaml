@@ -1,13 +1,6 @@
 # 统一开发环境配置
 # 支持 TEMU 和 SHEIN 两个平台
 
-# 日志配置
-logging:
-  level: "DEBUG"  # 设置为 DEBUG 级别以显示详细调试信息
-  format: "text"  # text 或 json
-  file: ".local/logs/app.log"
-
-
 # OpenAI配置
 openai:
   apiKey: ""
