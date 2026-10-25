@@ -73,7 +73,7 @@ Source/Catalog/Collection已有多规格、各自报价和图片，因此不需�
 | 边界 | 唯一职责/复用 |
 | --- | --- |
 | source `page-entry` / `page-messages` | 可信点击、严格本次范围、原tab/document/revision校验；不持有整批价格/图片 |
-| 新的窄FamilyCoordinator（普通扩展进度页） | 发现清单、游标、已观察结果、取消/暂停，均只在该页内存；原生tabs/scripting串行读取 |
+| 新的窄FamilyCoordinator（普通扩展进度页） | native绑定后自己读取原源tab；发现清单、游标、已观察结果、取消/暂停均只在该页内存；原生tabs/scripting串行读取 |
 | background入口适配 | 一次开始/最终转交的原子占位、定位进度页、返回/状态投影；不是遍历循环或商品事实owner |
 | 现有amazon解析器 | 每个已定位document中读取当前子商品；沿用高清相册、参数、价格/币种及资源过滤 |
 | 现有Controller/Handoff | 接收已冻结的合法v2聚合结果，一次创建原UUID/key/nonce和原Amazon receiver；外部read/status合同不扩展 |
@@ -128,14 +128,25 @@ Legacy decision: **N/A**；不调用/包装旧Amazon service，也不重新启�
 后台只按原生消息/标签事件定位仍活着的进度页。关闭/刷新/丢弃该页、禁用/重载扩展、浏览器重启后的完整payload恢复不在本版承诺内，
 必须显示中断，不能恢复空payload为“成功”或自动重新采集。
 
-仅新增一个受限 `chrome.storage.session` **FamilyLocation定位记录**：版本、revision、规范锚定URL、
-本次创建的进度tab ID/documentId及可选读取tab ID/documentId/期望规范URL；限制为TRUSTED_CONTEXTS。
+仅新增一个受限 `chrome.storage.session` **FamilyLocation定位记录**，使用严格union：
+
+- 公共定位字段：版本、revision、规范锚定URL、原sourceTabId/sourceDocumentId；
+- `pending`：尚未绑定进度页，不含伪造tab/document ID；
+- `bound`：浏览器确认的进度tab ID/documentId，及可选读取tab ID/documentId/期望规范URL。
+
+限制为TRUSTED_CONTEXTS。只有这些定位元数据，
 无商品事实、清单/游标、价格/图片、账号/企业、凭据、操作key/nonce、publication或保存结果。
 原ReturnSession schema/key/读写边界不改；这是新增的采集页面定位，不是修改原记录来冒充应用返回位置。
 [storage.session](https://developer.chrome.com/docs/extensions/reference/api/storage) 的生命周期也不被宣称为持久任务存储。
 
-开始先沿现有互斥/新操作revision门禁占位，再创建定位。所有入口先完成定位初始化；存储失败/坏记录/定位不明均可见uncertain，
+启动顺序固定：先沿原互斥/新操作revision占位并成功写入 `pending`，之后才调用 `tabs.create`；
+获得精确native进度tab/document并成功写入 `bound` 后，Coordinator才自己读取原sourceTab/document、发现清单并开启遍历。
+后台不读取/缓存后再传递初始商品payload，避免绑定前worker重建导致种子事实丢失或补采。
+初始化消息只幂等返回本次导航元数据，不创建第二个进度页，也不重复启动Coordinator的读取promise。
+所有入口先完成定位初始化；存储失败/坏记录/定位不明均可见uncertain，
 不当作空闲。重建后核实精确own-extension进度URL与revision，握手只投影阶段/计数；不能只凭tab存在认定任务成功。
+`pending`、绑定失败或此期间worker重建均不视为空闲、不自动再建/补采；只定位已存在的精确上下文或显示初始化中断，
+由用户明确取消/新操作后再开始。若旧tabs.create晚到，其旧revision无法绑定或开始读取。
 有活跃进度页时不建第二个协调器；页面已关闭只能处理已确认的中断/取消，不隐式重开。
 
 source消息仅增加严格的本次scope/状态投影；返回状态不暴露子页payload。内部family命令只允许浏览器确认的own-extension身份、
@@ -152,6 +163,7 @@ manifest仍为 `activeTab,scripting,storage`、原六个源host，CSP/connect-sr
 | 边界/事件 | 结果与唯一责任方 |
 | --- | --- |
 | 原生点击重复/快捷键/弹窗并发 | background先占位；回同一个进度页，不追加队列/新采集 |
+| pending写入/创建/绑定期间worker重建 | 不当空闲、不再建tab或补采；bound成立前无商品读取，仅定位或明确中断 |
 | 页内checkbox或源document在开始前变化 | revision/document验证失败；明确重新选择，不沿用旧意图 |
 | 子页错误/超时/验证码/冲突 | Coordinator暂停，保留该页内已观察事实；无自动重试、无自动保存 |
 | 用户继续/仅使用已采/取消 | 继续只重试明确失败项；部分使用冻结合法子集；取消不调用业务保存 |
