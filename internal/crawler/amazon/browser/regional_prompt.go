@@ -139,27 +139,6 @@ func DismissRegionalPrompt(page playwright.Page, targetURL string, logs func(str
 	return false
 }
 
-func ContainsRegionalPromptText(text string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(text))
-	if normalized == "" {
-		return false
-	}
-	patterns := []string{
-		"visiting from singapore",
-		"choosing your amazon website",
-		"visit amazon.sg",
-		"stay on amazon.sg",
-		"go to amazon.com",
-		"continue shopping on amazon.com",
-	}
-	for _, pattern := range patterns {
-		if strings.Contains(normalized, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
 func normalizedAmazonHost(rawURL string) string {
 	if rawURL == "" {
 		return ""
