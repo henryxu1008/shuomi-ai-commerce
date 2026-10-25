@@ -21,7 +21,6 @@ type Manager struct {
 	config      *BrowserConfig
 	fingerprint *FingerprintConfig
 	userAgents  []string
-	generator   *FingerprintGenerator
 	userDataDir string // 用户数据目录（用于持久化上下文）
 	closeErr    error
 	installer   *PlaywrightInstaller
@@ -33,7 +32,6 @@ func NewManager(cfg *BrowserConfig, logs func(string) *logrus.Entry) *Manager {
 		loggerDependency: loggerDependency{logFor: logs},
 		config:           cfg,
 		userAgents:       GetUserAgentPool(),
-		generator:        NewFingerprintGenerator(),
 		installer:        NewPlaywrightInstaller(logs),
 	}
 }
@@ -46,16 +44,6 @@ func (m *Manager) SetFingerprint(fingerprint *FingerprintConfig) {
 // SetUserDataDir 设置用户数据目录（用于持久化上下文，避免隐身模式检测）
 func (m *Manager) SetUserDataDir(dir string) {
 	m.userDataDir = dir
-}
-
-// GenerateRandomFingerprint 生成随机指纹
-func (m *Manager) GenerateRandomFingerprint(publicIP string) *FingerprintConfig {
-	return m.generator.GenerateRandomFingerprint(publicIP)
-}
-
-// GenerateStableFingerprint 生成稳定指纹
-func (m *Manager) GenerateStableFingerprint(userID string) *FingerprintConfig {
-	return m.generator.GenerateStableFingerprint(userID)
 }
 
 // Install 初始化Playwright（自动安装驱动）

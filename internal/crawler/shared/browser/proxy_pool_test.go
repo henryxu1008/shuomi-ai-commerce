@@ -32,40 +32,6 @@ func TestProxyPoolAcquireRoundRobinAndCooldown(t *testing.T) {
 	}
 }
 
-func TestProxyPoolSnapshotIncludesCounters(t *testing.T) {
-	pool := NewProxyPool(ProxyPoolConfig{
-		Enabled:                true,
-		Strategy:               "round_robin",
-		FailureCooldownSeconds: 60,
-		Proxies: []string{
-			"http://proxy-a:8000",
-		},
-	})
-	proxy := pool.Acquire()
-	pool.MarkSuccess(proxy)
-	pool.MarkFailure(proxy)
-
-	stats := pool.Snapshot()
-	if stats == nil {
-		t.Fatal("expected snapshot stats")
-	}
-
-	assignments, ok := stats["proxy_assignment_by_server"].(map[string]int64)
-	if !ok || assignments[proxy] != 1 {
-		t.Fatalf("expected assignment count for proxy, got %#v", stats["proxy_assignment_by_server"])
-	}
-
-	successes, ok := stats["proxy_success_by_server"].(map[string]int64)
-	if !ok || successes[proxy] != 1 {
-		t.Fatalf("expected success count for proxy, got %#v", stats["proxy_success_by_server"])
-	}
-
-	failures, ok := stats["proxy_failure_by_server"].(map[string]int64)
-	if !ok || failures[proxy] != 1 {
-		t.Fatalf("expected failure count for proxy, got %#v", stats["proxy_failure_by_server"])
-	}
-}
-
 func TestProxyPoolAcquireHealthAwarePrefersHealthierProxy(t *testing.T) {
 	pool := NewProxyPool(ProxyPoolConfig{
 		Enabled:                true,

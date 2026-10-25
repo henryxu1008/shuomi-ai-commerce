@@ -130,7 +130,6 @@ func (im *InstanceManager) RecreateInstanceSync(oldInstance *BrowserInstance) *B
 		newInstance, err = im.CreateInstance(oldInstance.ID)
 		if err != nil {
 			im.componentLogger("crawler/amazon").Errorf("第二次同步重新创建浏览器实例 %d 失败: %v", oldInstance.ID, err)
-			im.pool.recordSyncRecreateResult(false)
 			// 返回nil，让调用方处理
 			return nil
 		}
@@ -138,7 +137,6 @@ func (im *InstanceManager) RecreateInstanceSync(oldInstance *BrowserInstance) *B
 
 	// 更新实例列表
 	im.pool.UpdateInstance(oldInstance, newInstance)
-	im.pool.recordSyncRecreateResult(true)
 
 	im.componentLogger("crawler/amazon").Infof("✅ 成功同步重新创建浏览器实例 %d", oldInstance.ID)
 	return newInstance
@@ -191,7 +189,6 @@ func (im *InstanceManager) RecreateInstanceAsync(oldInstance *BrowserInstance) {
 		}
 
 		if newInstance == nil {
-			im.pool.recordAsyncRecreateResult(false)
 			log.Errorf("浏览器实例 %d 所有重建尝试均失败，池将永久缩容，请检查浏览器环境", oldInstance.ID)
 			return
 		}
@@ -211,103 +208,11 @@ func (im *InstanceManager) RecreateInstanceAsync(oldInstance *BrowserInstance) {
 		log.Infof("[重建] 准备放回实例 %d，当前通道: len=%d, cap=%d", newInstance.ID, chLen, chCap)
 		select {
 		case ch <- newInstance:
-			im.pool.recordAsyncRecreateResult(true)
 			log.Infof("✅ 成功异步重新创建浏览器实例 %d，通道: len=%d→%d", newInstance.ID, chLen, len(ch))
 		default:
 			// 通道满说明池已经有足够实例，不需要这个多余的实例
-			im.pool.recordAsyncRecreateResult(true)
 			log.Warnf("[重建] 浏览器池通道已满(len=%d/cap=%d)，关闭多余的重建实例 %d", chLen, chCap, newInstance.ID)
 			newInstance.Manager.Close()
 		}
 	}()
-}
-
-func (im *InstanceManager) ActiveRebuildCount() int {
-	if im == nil {
-		return 0
-	}
-	im.rebuildingMu.Lock()
-	defer im.rebuildingMu.Unlock()
-	return len(im.rebuildingIDs)
-}
-
-// CloseInstance 关闭浏览器实例（加超时保护，防止 WebSocket 断连时 hang）
-func (im *InstanceManager) CloseInstance(instance *BrowserInstance) {
-	if instance == nil {
-		return
-	}
-
-	if instance.Manager != nil {
-		closeManagerWithTimeout(instance.Manager, instance.ID, 10*time.Second, im.logFor)
-	}
-}
-
-// ValidateInstance 验证浏览器实例
-func (im *InstanceManager) ValidateInstance(instance *BrowserInstance) bool {
-	if instance == nil {
-		return false
-	}
-
-	if instance.Manager == nil {
-		im.componentLogger("crawler/amazon").Infof("浏览器实例 %d 管理器为空", instance.ID)
-		return false
-	}
-	if instance.Manager.GetContext() == nil {
-		im.componentLogger("crawler/amazon").Infof("浏览器实例 %d 上下文为空", instance.ID)
-		return false
-	}
-
-	return true
-}
-
-// GetInstanceInfo 获取实例信息
-func (im *InstanceManager) GetInstanceInfo(instance *BrowserInstance) map[string]any {
-	if instance == nil {
-		return map[string]any{
-			"valid": false,
-			"error": "instance is nil",
-		}
-	}
-
-	info := map[string]any{
-		"id":              instance.ID,
-		"in_use":          instance.InUse,
-		"current_region":  instance.CurrentRegion,
-		"current_zipcode": instance.CurrentZipcode,
-		"valid":           im.ValidateInstance(instance),
-	}
-
-	if instance.Manager != nil {
-		info["manager_exists"] = true
-		info["context_exists"] = instance.Manager.GetContext() != nil
-	} else {
-		info["manager_exists"] = false
-		info["context_exists"] = false
-	}
-
-	return info
-}
-
-// RestartInstance 重启浏览器实例
-func (im *InstanceManager) RestartInstance(instance *BrowserInstance) (*BrowserInstance, error) {
-	if instance == nil {
-		return nil, fmt.Errorf("实例为空")
-	}
-
-	im.componentLogger("crawler/amazon").Infof("重启浏览器实例 %d", instance.ID)
-
-	// 关闭旧实例
-	im.CloseInstance(instance)
-
-	// 等待资源释放
-	time.Sleep(1 * time.Second)
-
-	// 创建新实例
-	newInstance, err := im.CreateInstance(instance.ID)
-	if err != nil {
-		return nil, fmt.Errorf("重启实例失败: %w", err)
-	}
-
-	im.componentLogger("crawler/amazon").Infof("✅ 成功重启浏览器实例 %d", instance.ID)
-	return newInstance, nil
 }

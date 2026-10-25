@@ -1,3 +1,5 @@
+> #301 / #946 **USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计a306b024a的§1–§7（含§6.1）；Reuse Existing Architecture / Ready及Issue/PR读回先于生产修改（6394663649 / 6394679078）。新managed独立工作区issue301-browser-tail-946接续同一分支/PR，四组26工件完整收齐，不机械拆批；两整退、十生产混合、五测试混合、原聚合仅加一个guard、五旧依据/当前说明及三当前文档，无新生产EXTRACT/owner。32闲置生产函数/方法、3类型及字段/注入/计数/测试/文档尾部退出；实际指纹/JSON、代理全部评分状态、质量重试/有效断言、周期健康日志、当前采集/原Amazon浏览器debug及独立SHEIN登录/Store同步保留。原guard真实RED→GREEN，其它原检查不改；原历史/计数/勾选、四旧依据及本冻结设计原Git blob完整后缀保持。workflow/完整inventory/依赖/保护及既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。必要自检、准确最终HEAD/原CI/源码最终复核留同一PR，设计复核不替代源码复核，合并另授权。以下冻结设计全文逐字保留，其DESIGN_ONLY/待确认措辞仅为原阶段证据。
+
 # #301 旧浏览器管理便利入口、配置旁路、实例诊断与闲置统计完整退休边界
 
 Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。本轮用户只授权设计；设计阶段 **Design Basis: N/A / Ready**，仅调查及本文、架构索引、Legacy Register 三文档。未来实施拟 **Reuse Existing Architecture / NOT_READY**；确认 §1–§7（含 §6.1）并在 Issue/PR 记录、读回 Ready 后才可改生产/测试。#301 保持 OPEN，实施、合并、部署、关单分别授权。
