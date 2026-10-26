@@ -1,30 +1,12 @@
 package alibaba1688
 
 import (
-	"strings"
 	"testing"
 
 	"task-processor/internal/core/config"
-	"task-processor/internal/pkg/runtimepath"
 
 	"github.com/mxschmitt/playwright-go"
 )
-
-func TestAlibaba1688BrowserProfileNamespaceIsStableAcrossRestarts(t *testing.T) {
-	first := runtimepath.NamespaceForDirectory(`C:\checkout\one`)
-	restarted := runtimepath.NamespaceForDirectory(`C:\checkout\one`)
-	secondInstallation := runtimepath.NamespaceForDirectory(`C:\checkout\two`)
-
-	if first != restarted {
-		t.Fatalf("namespace changed across restarts: first=%q restarted=%q", first, restarted)
-	}
-	if first == secondInstallation {
-		t.Fatal("different installations must not share the default browser profile namespace")
-	}
-	if len(first) == 0 || strings.ContainsAny(first, `/\\:`) {
-		t.Fatalf("namespace = %q, want a non-empty path-safe value", first)
-	}
-}
 
 func TestAlibaba1688PublicBrowserRuntimeConfigPreservesSettingsWithoutMutatingConfig(t *testing.T) {
 	cfg := config.NewDefaultConfig()

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	geminiimage "task-processor/internal/integration/geminiimage"
 	grsai "task-processor/internal/integration/grsai"
 	openaiclient "task-processor/internal/integration/openai"
 	s3integration "task-processor/internal/integration/s3"
@@ -22,7 +21,6 @@ func TestIntegrationProviderLoggerMethodSetsMatch(t *testing.T) {
 		typeOf reflect.Type
 	}{
 		{"openai", reflect.TypeOf((*openaiclient.Logger)(nil)).Elem()},
-		{"geminiimage", reflect.TypeOf((*geminiimage.Logger)(nil)).Elem()},
 		{"grsai", reflect.TypeOf((*grsai.Logger)(nil)).Elem()},
 		{"s3", reflect.TypeOf((*s3integration.Logger)(nil)).Elem()},
 	}
@@ -246,14 +244,11 @@ func TestOpenAIConfigsExposeExplicitNonSerializedLogger(t *testing.T) {
 	if field, ok := grsaiType.FieldByName("Logger"); !ok || field.Type != reflect.TypeOf((*grsai.Logger)(nil)).Elem() {
 		t.Errorf("grsai.Config.Logger missing or wrong type")
 	}
-	if _, ok := reflect.TypeOf(geminiimage.Config{}).FieldByName("Logger"); ok {
-		t.Error("geminiimage.Config must not carry an unused Logger field")
-	}
 }
 
 func TestIntegrationProviderLoggingUsesOnlyLocalExplicitPorts(t *testing.T) {
 	providerRoot := filepath.Join("..", "internal", "integration")
-	for _, name := range []string{"openai", "geminiimage", "grsai"} {
+	for _, name := range []string{"openai", "grsai"} {
 		root := filepath.Join(providerRoot, name)
 		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {

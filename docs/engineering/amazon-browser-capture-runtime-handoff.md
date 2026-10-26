@@ -20,7 +20,7 @@ go run ./cmd/current-application -config C:\private\current-application.json
 
 ## 用户操作
 
-1. 在 us / ca / uk / de / jp 五站的一个商品详情页，明确点击插件采集。模块只观察当前选中商品，不遍历变体、分页或后台采集。
+1. 在 us / ca / uk / de / jp 五站的一个商品详情页，明确点击插件采集。默认只观察当前选中商品。[#955可选同族范围](../../extensions/product-capture/README.md) 仅在明确勾选页内选项后，沿有界进度页读取本页真实同族映射，最后仍交原应用一次确认保存；不分页或启动服务端采集。新候选尚未更新原插件或实例，真实验证须另行授权。
 2. 插件打开固定 `/capture/amazon`。正常登录、选择企业后，检查当前账号/企业与来源资料及缺失说明，点击“确认保存”。需 `product_sourcing.write` 与 `workbench.collection.manage`；确认时成员 ID 会作为一致性条件传至 native 接收方，再经现有实时授权核验。
 3. 服务端完整提交后显示原 capture ID 和固定版本。到“我的数据” `/workbench/data/mine` 查看/下载来源资料；明确关联的图片保持在各自来源规格下。图片是未批准候选，保存不等于资产批准、字段完整、可上架或已发布。
 4. 超时、停止等待或刷新后，点击“检查原操作”。只按原键读取原事实，不重取 DOM、不重新保存、不自动生成新键。归档/移动按当前状态显示，不重建引用。身份/企业/成员改变时返回原上下文。
@@ -36,7 +36,7 @@ Native base：`/api/v1/workbench/sourcing/amazon/browser-captures`；同源 BFF 
 - 同键异载荷冲突；COMMIT 未知保留 `OUTCOME_UNKNOWN`。SRC 同锁与 READ COMMITTED 新语句核实，SRC/Catalog/Collection 部分存在时拒绝修补。
 - 免费来自固定 `amazon_browser_capture/v1` producer 与无收费 port 的装配。不会创建收费 job、reservation 或 provider 调用。
 - 金额保留十进制原事实；模糊 `$` 不推断币种。缺少规格、父子关系、图片或库存不补造。超过当前详情可读长度/诊断数量的输入在保存前拒绝，不截断后报告完整。
-- 当前选中属性读取既有 `variation_*` 和新版 inline twister 标题中的维度/选中值；不读取其它选项或遍历变体。重复布局值相同只保留一次，冲突值省略并标明缺失，显式隐藏节点不作为选中事实。
+- 每页选中属性读取既有 `variation_*` 和新版 inline twister 标题中的维度/选中值；默认不读取其它变体。明确同族模式逐页复用这个解析器，不把未观察选项补成事实。重复布局值相同只保留一次，冲突值省略并标明缺失，显式隐藏节点不作为选中事实。
 - `#feature-bullets` 的商品要点按来源顺序写入现有纯文本 `description`；原 `#productDescription` 有值时保留在前，段间空行、要点间换行。脚本、显式隐藏内容、区块标题和区块外详情链接不带入。合并后仍受原 8 KiB UTF-8 上限，不截断保存；未观察到描述、要点或选中属性时由原 `missingFacts` 提示。此处没有新增卖点字段、富文本或保存 owner。
 - 富文本、批量、关键词、自动转入、真实来源采集、安装部署、保留环境保存/计费和用户验收均不在本次执行授权内，均为 **NOT_RUN**。
 

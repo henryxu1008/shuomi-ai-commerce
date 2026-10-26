@@ -1,3 +1,5 @@
+> #958 用户已确认本轮 [三组完整退休设计](legacy-idle-provider-bootstrap-closure-retirement-boundary.md) §1–§7（含 §6.1）：仅替代本文中 geminiimage 原生图片 SDK、runtimepath 安装命名辅助及 LoadFromBytes 正式入口的 KEEP。三组及专属尾部退出；19个有效配置测试改接现有 Viper/Build/Validate，当前 Google 文本/实际图像/采集及独立 SHEIN 登录与 Store 同步保持。无兼容入口，不操作历史运行资源；本文其余批准边界、原全文、计数与历史证据完整保留。
+
 ## #948 当前实施状态（2026-10-25）
 
 - 用户已确认准确设计 `1c69a63a753eb78873a1cc3974b9ff91ac03bd37` 的 §1–§7（含 §6.1）。设计独立复核无未解决 BLOCKER，原设计 CI40183527567 SUCCESS。

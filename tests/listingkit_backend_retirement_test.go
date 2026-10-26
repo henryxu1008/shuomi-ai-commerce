@@ -31,6 +31,98 @@ var retiredSheinPolicyContractPackages = []string{
 	"internal/shein/generationtopics", "internal/shein/namelimit",
 }
 
+func TestLegacyIdleProviderBootstrapClosureIsRetired(t *testing.T) {
+	retiredRoots := []string{"internal/integration/geminiimage", "internal/pkg/runtimepath"}
+	for _, path := range retiredRoots {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired provider/bootstrap root must be absent: %s: %v", path, err)
+		}
+	}
+	retained := map[string]map[string]bool{
+		"internal/core/config":         {"Config": false, "NewDefaultConfig": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "newViper": false, "loadWithViper": false, "BuildConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false},
+		"internal/ai":                  {"ImageGenerator": false},
+		"internal/pkg/imagex":          {"Inspect": false, "FromBytesWithFormat": false},
+		"internal/crawler/alibaba1688": {"NewPublicBrowserManager": false},
+		"internal/sheinlogin":          {"PrepareOwnedRoots": false, "prepareProfile": false, "resolveProfileDir": false, "Service.RunWorker": false, "Service.syncPending": false},
+	}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", path, err)
+			}
+			for _, root := range retiredRoots {
+				if importMatchesPrefix(imported, "task-processor/"+root) {
+					t.Errorf("%s imports retired provider/bootstrap owner %s", path, imported)
+				}
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		if _, relevant := retained[owner]; !relevant {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			var names []string
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if owner == "internal/core/config" && name == "LoadFromBytes" {
+					t.Errorf("%s retains retired byte-loader entry point", path)
+				}
+				if declaration.Recv != nil {
+					kind := declaration.Recv.List[0].Type
+					if pointer, ok := kind.(*ast.StarExpr); ok {
+						kind = pointer.X
+					}
+					receiver, ok := kind.(*ast.Ident)
+					if !ok {
+						t.Fatalf("unsupported receiver in %s: %T", path, kind)
+					}
+					name = receiver.Name + "." + name
+				}
+				names = append(names, name)
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						if owner == "internal/core/config" && spec.Name.Name == "LoadFromBytes" {
+							t.Errorf("%s retains retired byte-loader alias", path)
+						}
+						names = append(names, spec.Name.Name)
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							if owner == "internal/core/config" && name.Name == "LoadFromBytes" {
+								t.Errorf("%s retains retired byte-loader value", path)
+							}
+						}
+					}
+				}
+			}
+			if !strings.HasSuffix(path, "_test.go") {
+				for _, name := range names {
+					if _, required := retained[owner][name]; required {
+						retained[owner][name] = true
+					}
+				}
+			}
+		}
+	}
+	for owner, declarations := range retained {
+		for name, found := range declarations {
+			if !found {
+				t.Errorf("current capability must retain %s:%s", owner, name)
+			}
+		}
+	}
+}
+
 func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
 	for _, path := range []string{
 		"internal/product/enrichment",
@@ -1178,7 +1270,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/integration/openai": {"Client": false, "ClientConfig": false, "RequestPool": false, "PoolConfig": false, "BaseClient": false, "RateLimiter": false, "Manager": false, "ManagerConfig": false, "Logger": false, "AdaptLogrus": false},
 		"internal/shared/aiidentity":  {"Identity": false, "Identity.AgentRunID": false, "Identity.TenantID": false, "Identity.UserID": false, "Identity.BusinessTaskID": false, "Identity.TraceID": false, "WithIdentity": false, "FromContext": false},
 		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
-		"internal/core/config":        {"Config": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "LoadFromBytes": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "RedisConfig": false, "RedisConfig.Host": false, "RedisConfig.Port": false, "RedisConfig.Password": false, "RedisConfig.DB": false, "RedisConfig.PoolSize": false, "OpenAIConfig": false, "BrowserConfig": false, "PlatformsConfig": false, "Alibaba1688Config": false},
+		"internal/core/config":        {"Config": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "RedisConfig": false, "RedisConfig.Host": false, "RedisConfig.Port": false, "RedisConfig.Password": false, "RedisConfig.DB": false, "RedisConfig.PoolSize": false, "OpenAIConfig": false, "BrowserConfig": false, "PlatformsConfig": false, "Alibaba1688Config": false},
 		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false, "LevelFileConfig": false, "LogManager.SetLevel": false, "LogManager.GetLevel": false},
 		"internal/pkg/goroutine":      {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
 		"internal/pkg/timeout":        {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
