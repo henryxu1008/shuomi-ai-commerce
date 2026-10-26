@@ -211,7 +211,9 @@ manifest仍为 `activeTab,scripting,storage`、原六个源host，CSP/connect-sr
 
 Design Basis: **Reuse Existing Architecture**；本节复用第5、7节已审的目标绑定、暂停/明确继续及唯一交接，
 不改变状态机、持久化事实、权限、恢复协议或保存合同。用户已授权先评审再开发一个主要PR；
-本节评审前仅为 **PROPOSED**，不修改正式生产路径。执行阶段以#955当前正文为准。
+本节已由原独立Reviewer `1688_shadow_design_review` 对设计提交 `8dd2d8223` 完成评审：
+**PASS / IMPLEMENTATION_READY**，无设计BLOCKER；页面分类顺序、安全错误投影与同reader/目标门禁
+归IMPLEMENTATION_TEST，在本主要PR收敛。执行阶段以#955当前正文为准。
 
 用户场景：同族采集停在1/171，保留读取页已证实为`/checkpoint/continue`真人校验，
 readyState complete但无productTitle。此前错误码被两处统一为CAPTURE_REJECTED，不能重建原失败时序；
@@ -236,7 +238,8 @@ readyState complete但无productTitle。此前错误码被两处统一为CAPTURE
    “查看需处理的商品页”处理后再明确“继续采集”。不点击校验、不自动登录、不绕过或自动恢复。
 5. 明确继续只处理原失败项。读取标签仍在校验/登录时再次显示对应原因，不重导航、不前进。
    用户已回到正确待采ASIN时，核对原reader ID/opener、同源、规范目标及pendingUrl；
-   family.reader仅对**同一已登记目标的重试**接受经现有amazonPageSource规范化后相等的URL（如跟踪query），
+   family.reader仅接受经现有amazonPageSource规范化后等于**已登记当前子商品**的URL（如跟踪query），
+   以支持同一目标重试及读完后串行推进；待导航URL的query准入仍仅允许同一目标重试。
    不允许任意Amazon页、其他ASIN或校验URL成为定位记录。随后复用当前就绪文档解析，不再一律tabs.update。
    每次仍沿原native documentId注入、后复核以及Coordinator的ASIN/父关系/维度验证，换页或取消的迟到结果丢弃。
    尚在加载的原目标只在原30秒内等待；目标不符/用户导航其它页面拒绝，不擅自改回商品页。

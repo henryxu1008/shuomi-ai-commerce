@@ -22,6 +22,12 @@ original application. Keep the progress tab open: refreshing/closing it interrup
 facts, and browser restart/extension reload does not restore the batch. No automatic retry or
 business save is added. Installing or trying this candidate remains a separately authorized step.
 
+Amazon verification and sign-in pages pause with a specific reason. Use **查看需处理的商品页**,
+handle the source site's request yourself, return that reader to the original pending specification,
+then explicitly choose **继续采集**. A ready matching child is read in place without another navigation;
+an unresolved check remains paused. The extension does not handle verification, automatically retry,
+raise collection limits, or change the existing one-time handoff/save. Keep the progress page open.
+
 [Execution #924](https://github.com/qq550723504/shuomi-ai-commerce/issues/924) adds
 the reviewed [source-page primary entry](../../docs/architecture/plugin-capture-page-entry-v1.md).
 Supported Amazon/1688 detail pages show **硕米 · 商品采集** with **采集并在应用确认**.

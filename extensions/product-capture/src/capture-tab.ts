@@ -1,6 +1,7 @@
 import type { CaptureTab } from './controller';
 import { capturePageSource, validatePlatformCapture } from './platforms';
 import type { FamilyManifest } from './amazon/family-discovery';
+import { captureErrorCode } from './entry-errors';
 
 export async function extractTab(tab:CaptureTab,signal?:AbortSignal) {
   signal?.throwIfAborted();
@@ -11,9 +12,19 @@ export async function extractTab(tab:CaptureTab,signal?:AbortSignal) {
   try{results=await chrome.scripting.executeScript({target,world:'ISOLATED',files:['extractor.js']});}
   catch(e){if(tab.documentId)throw Error('PAGE_CHANGED');throw e;}
   signal?.throwIfAborted();
-  const result=results[0]?.result as {ok?:boolean;payload?:unknown}|undefined;
-  if(results.length!==1 || results[0].frameId!==0 || !results[0].documentId || !result?.ok)throw Error('CAPTURE_REJECTED');
+  const result=results[0]?.result as {ok?:boolean;payload?:unknown;code?:unknown}|undefined;
+  if(results.length!==1 || results[0].frameId!==0 || !results[0].documentId)throw Error('CAPTURE_REJECTED');
   if(tab.documentId && results[0].documentId!==tab.documentId)throw Error('PAGE_CHANGED');
+  if(result?.ok!==true){
+    // Even rejected documents must still be the native main-frame document
+    // that produced the result. This check emits no URL or verification token.
+    try {
+      const native=await chrome.scripting.executeScript({target:{tabId:tab.id,documentIds:[results[0].documentId]},world:'ISOLATED',func:()=>true});
+      if(native.length!==1 || native[0].frameId!==0 || native[0].documentId!==results[0].documentId)throw Error('changed');
+    }catch{throw Error('PAGE_CHANGED');}
+    signal?.throwIfAborted();
+    throw Error(captureErrorCode(result?.ok===false?result.code:undefined));
+  }
   const payload=validatePlatformCapture(result.payload);
   await verifyDocument({id:tab.id,url:source.sourceURL,documentId:results[0].documentId});
   if(payload.evidence.sourceURL!==source.sourceURL)throw Error('PAGE_CHANGED');
@@ -38,6 +49,6 @@ export async function extractFamilyTab(tab:CaptureTab,required:boolean,signal?:A
   signal?.throwIfAborted();
   if(result.length!==1 || result[0].frameId!==0 || result[0].documentId!==documentId)throw Error('PAGE_CHANGED');
   const value=result[0].result as {ok?:boolean;manifest?:FamilyManifest;code?:string}|undefined;
-  if(!value?.ok && (required || value?.code!=='FAMILY_NOT_AVAILABLE'))throw Error(value?.code||'FAMILY_INVALID');
+  if(!value?.ok && (required || value?.code!=='FAMILY_NOT_AVAILABLE'))throw Error(captureErrorCode(value?.code));
   return {capture:payload,manifest:value?.manifest};
 }

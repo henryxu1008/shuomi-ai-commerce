@@ -24,7 +24,7 @@ it('wires the ordinary progress document through two observed variants and one f
  });
  vi.stubGlobal('document',dom.window.document);vi.stubGlobal('location',dom.window.location);vi.stubGlobal('addEventListener',dom.window.addEventListener.bind(dom.window));
  vi.stubGlobal('chrome',{runtime:{id,getURL:(p:string)=>`chrome-extension://${id}/${p}`,sendMessage:send,onMessage:{addListener:vi.fn(),removeListener:vi.fn()}},
-  tabs:{create:vi.fn(async()=>({id:50})),get:vi.fn(async()=>({id:50,url:liveURL,openerTabId:41})),remove:vi.fn(async()=>{}),
+  tabs:{create:vi.fn(async()=>({id:50})),get:vi.fn(async()=>({id:50,url:liveURL,status:'complete',openerTabId:41})),remove:vi.fn(async()=>{}),
    update:vi.fn(async(n:number,o:{url?:string})=>{if(o.url)liveURL=o.url;queueMicrotask(()=>updated.forEach(fn=>fn(n,{status:'complete'})));return {id:n};}),
    onUpdated:{addListener:(fn:(id:number,info:{status:string})=>void)=>updated.add(fn),removeListener:(fn:(id:number,info:{status:string})=>void)=>updated.delete(fn)},
    onRemoved:{addListener:(fn:(id:number)=>void)=>removed.add(fn),removeListener:(fn:(id:number)=>void)=>removed.delete(fn)}},
