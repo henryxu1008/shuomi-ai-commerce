@@ -4,7 +4,7 @@ Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)�
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
 此准入结论适用于第1–10节已审范围。第11节后续续采归属修订已另行达到 **IMPLEMENTATION_READY**；
 用户后续明确“继续”，当前按本节已审设计实施和隔离测试；旧运行授权不恢复。当前阶段以 #955 正文为准。
-第12节是后续占位规格修订，当前 **IN_REVIEW**；前面已审准入不覆盖该修订，生产路径须在本节独立准入后才修改。
+第12节占位规格修订已独立达到 **IMPLEMENTATION_READY**，仅授权离线修复；前面的运行授权不恢复。
 独立Reviewer `1688_shadow_design_review` 已检查准确设计候选
 `c938459b0dae5546a3afccfd09e103d45b6665cc`，无设计BLOCKER；
 [评审及四组IMPLEMENTATION_TEST](https://github.com/qq550723504/shuomi-ai-commerce/issues/955#issuecomment-6398925548)
@@ -460,7 +460,9 @@ Legacy decision: **N/A**；只复用当前插件owner，不调用/包装旧服�
 ## 12. 同一子页的明确规格数据与占位控件（2026-10-26）
 
 Design Basis: **Independent Architecture（现有逐项规格接纳规则的局部修订）**。
-Admission: **IN_REVIEW**。用户在44/171暂停后明确要求“要处理暂停的问题”；本轮按设计评审→回归→最小实现
+Admission: **IMPLEMENTATION_READY**。独立Reviewer `1688_shadow_design_review` 对准确设计
+`b2e7fabf0da951a68d4e7b2d5e3745bf4804d8ce` 结论PASS，无设计BLOCKER。
+用户在44/171暂停后明确要求“要处理暂停的问题”；本轮按设计评审→回归→最小实现
 形成一个主要PR，保留原44项暂停，不部分交接/保存、不重采、不更新原插件/实例、不部署。
 涉及现有接纳规则明确“读取到的选择维度”的含义，不以局部bugfix免除独立准入。
 
@@ -548,6 +550,8 @@ Legacy decision: **N/A**；仅复用当前插件owner和Acorn解析，不包装�
   复用已有有效单规格/1688/保存合同证据，只验证本轮受影响组合，不建runner或验收平台。
 
 独立评审仅检查新增字段接纳规则及相邻路径，达到IMPLEMENTATION_READY后冻结；
+三组IMPLEMENTATION_TEST在实施中收敛：省略过的真实冲突及额外维度仍拒绝；当前文档/ASIN唯一绑定；
+摘要与可折叠来源诊断、异步摘要后的document/取消复核。缺/错/root manifest不得补齐，默认路径不触发发现。
 具体实现边界测试归IMPLEMENTATION_TEST，未满足Must不得交付。本轮一个主要PR，不拆设计/实现PR。
 实现和CI只证明该候选边界；真实页面验证待用户另行授权更新后进行。
 原44项只在当前进度页内存：源码修改不会让该页热更新，重新加载仍会丢弃未交接事实。
