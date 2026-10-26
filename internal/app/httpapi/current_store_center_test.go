@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -51,6 +52,9 @@ func TestCurrentStoreAdmissionUsesRegisteredOfficialRefresh(t *testing.T) {
 	m.(interface {
 		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
 	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	require.NoError(t, m.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
 	reg := kernelmodule.NewRegistry()
 	require.NoError(t, m.Register(reg))
 	var base []httproute.Descriptor
@@ -81,11 +85,27 @@ func TestCurrentStoreAdmissionUsesRegisteredOfficialRefresh(t *testing.T) {
 
 func currentStoreTestRoutes(t *testing.T) []httproute.Descriptor {
 	t.Helper()
-	var result []httproute.Descriptor
-	for _, r := range currentStoreCenterRoutes {
-		result = append(result, httproute.Descriptor{Method: r.method, Path: r.path, Module: storehttp.ModuleName, Permission: r.permission, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Handler: func(*gin.Context) {}})
-	}
-	return result
+	m := currentStoreNativeTestModule(t)
+	require.NoError(t, m.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, m.Register(registry))
+	return registry.Routes()
+}
+
+// Use the production HTTP module so buildCurrentApplication must perform its
+// ConfigureBrowser injection, instead of feeding the admission list back to it.
+func currentStoreNativeTestModule(t *testing.T) kernelmodule.Module {
+	t.Helper()
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	m := storehttp.NewModule(h)
+	m.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	return m
 }
 
 func TestCurrentStoreRouteAdmissionRejectsDrift(t *testing.T) {
@@ -121,6 +141,37 @@ func TestCurrentStoreRouteAdmissionRejectsDrift(t *testing.T) {
 	}
 }
 
+func TestCurrentStoreBrowserInventoryRejectsMissingOrDuplicateRoutes(t *testing.T) {
+	var routes []httproute.Descriptor
+	for _, route := range currentWorkbenchApplicationRoutes {
+		routes = append(routes, httproute.Descriptor{Method: route.Method, Path: route.Path})
+	}
+	routes = append(routes, currentStoreTestRoutes(t)...)
+	validate := func(got []httproute.Descriptor) error {
+		return validateCurrentApplicationRoutesInternal(got, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{StoreCenter: true})
+	}
+	require.NoError(t, validate(routes))
+	var browserIndexes []int
+	for _, expected := range currentStoreBrowserRoutes {
+		for index, route := range routes {
+			if route.Method == expected.method && route.Path == expected.path {
+				browserIndexes = append(browserIndexes, index)
+			}
+		}
+	}
+	require.Len(t, browserIndexes, 4)
+	for i, index := range browserIndexes {
+		t.Run(routes[index].Method+routes[index].Path, func(t *testing.T) {
+			missing := append([]httproute.Descriptor(nil), routes[:index]...)
+			missing = append(missing, routes[index+1:]...)
+			require.Error(t, validate(missing), "all four contracted routes are mandatory")
+			duplicate := append([]httproute.Descriptor(nil), routes...)
+			duplicate[index] = routes[browserIndexes[(i+1)%len(browserIndexes)]]
+			require.Error(t, validate(duplicate), "equal route count cannot hide a duplicate and missing route")
+		})
+	}
+}
+
 func TestCurrentStoreOptionalAssembly(t *testing.T) {
 	for _, mode := range []string{"disabled", "enabled", "nil-records", "shared", "missing-owner", "duplicate", "missing-factory"} {
 		t.Run(mode, func(t *testing.T) {
@@ -140,7 +191,7 @@ func TestCurrentStoreOptionalAssembly(t *testing.T) {
 					calls++
 					require.Same(t, records, r)
 					require.NotNil(t, charges)
-					return currentStoreRouteFixture{routes: currentStoreTestRoutes(t)}, nil
+					return currentStoreNativeTestModule(t), nil
 				},
 			}
 			options := []CurrentApplicationOption{WithCommercialOwnerDatabase(owner)}
@@ -160,10 +211,18 @@ func TestCurrentStoreOptionalAssembly(t *testing.T) {
 			if mode == "duplicate" {
 				options = append(options, WithStoreCenter(records))
 			}
-			server, err := buildCurrentApplication(context.Background(), source, currentApplicationTestConfig(), logrus.New(), factories, options...)
+			cfg := currentApplicationTestConfig()
+			cfg.ListingKit.Zitadel.IssuerURL = "https://issuer.example"
+			server, err := buildCurrentApplication(context.Background(), source, cfg, logrus.New(), factories, options...)
 			if mode == "enabled" || mode == "disabled" {
 				require.NoError(t, err)
 				require.NotNil(t, server)
+				if mode == "enabled" {
+					response := httptest.NewRecorder()
+					server.Handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/workbench/stores/11111111-1111-4111-8111-111111111111/browser-operations/22222222-2222-4222-8222-222222222222", nil))
+					require.Equal(t, http.StatusUnauthorized, response.Code)
+					require.Contains(t, response.Header().Get("Content-Type"), "application/json")
+				}
 			} else {
 				require.Error(t, err)
 				require.Nil(t, server)

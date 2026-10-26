@@ -149,6 +149,16 @@ var currentStoreCenterRoutes = []struct{ method, path, permission string }{
 	{http.MethodPost, "/api/v1/workbench/stores/:store_id/connection/disconnect", authz.PermissionWorkbenchStoreUpdate},
 }
 
+var currentStoreBrowserRoutes = []struct {
+	method, path, permission string
+	policy                   httproute.OrganizationAccessPolicy
+}{
+	{http.MethodPost, "/api/v1/workbench/stores/:store_id/browser-operations", authz.PermissionWorkbenchStoreBrowserUse, httproute.OrganizationAccessPolicyLiveWrite},
+	{http.MethodGet, "/api/v1/workbench/stores/:store_id/browser-operations/:operation_id", "", httproute.OrganizationAccessPolicyNone},
+	{http.MethodPost, "/api/v1/workbench/stores/:store_id/browser-operations/:operation_id/reports", "", httproute.OrganizationAccessPolicyNone},
+	{http.MethodGet, "/api/v1/workbench/stores/:store_id/audit", authz.PermissionWorkbenchStoreRead, httproute.OrganizationAccessPolicyLiveWrite},
+}
+
 func (a currentStoreMemberAuthorizer) AuthorizeStoreBrowser(ctx context.Context, org string) error {
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || identity.EffectiveOrganizationID != org || !authz.AllowedOrganization(ctx, a.authorizer, identity.UserID, org, identity.Roles, authz.PermissionWorkbenchStoreBrowserUse) {
@@ -167,15 +177,7 @@ func (a currentStoreMemberAuthorizer) ReceiptSubject(ctx context.Context) (strin
 }
 
 func validateCurrentStoreDescriptor(d httproute.Descriptor) error {
-	for _, expected := range []struct {
-		method, path, permission string
-		policy                   httproute.OrganizationAccessPolicy
-	}{
-		{http.MethodPost, "/api/v1/workbench/stores/:store_id/browser-operations", authz.PermissionWorkbenchStoreBrowserUse, httproute.OrganizationAccessPolicyLiveWrite},
-		{http.MethodGet, "/api/v1/workbench/stores/:store_id/browser-operations/:operation_id", "", httproute.OrganizationAccessPolicyNone},
-		{http.MethodPost, "/api/v1/workbench/stores/:store_id/browser-operations/:operation_id/reports", "", httproute.OrganizationAccessPolicyNone},
-		{http.MethodGet, "/api/v1/workbench/stores/:store_id/audit", authz.PermissionWorkbenchStoreRead, httproute.OrganizationAccessPolicyLiveWrite},
-	} {
+	for _, expected := range currentStoreBrowserRoutes {
 		if d.Method == expected.method && d.Path == expected.path && d.Permission == expected.permission && d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == expected.policy && d.OrganizationTargetResolver == nil && d.Module == storehttp.ModuleName && d.Handler != nil && d.RequestTimeout == 15*time.Second && d.RejectUnreadRequestBody == (d.Method == http.MethodGet) {
 			return nil
 		}

@@ -1571,6 +1571,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range currentStoreCenterRoutes {
 			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
 		}
+		for _, r := range currentStoreBrowserRoutes {
+			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
+		}
 	}
 	if optional.TikTokShop {
 		if !optional.StoreCenter {
