@@ -23,6 +23,12 @@
 
 既有 schema-owner CLI 提供显式模式：`--browser-workbench --confirm-database <精确库名> --config <私有 owner 配置>`。仅接受当前 Store 原版本历史，复用原 Goose version table 新增 2026102501；同一新版本事务添加两表及新表 SELECT/INSERT，并读回验证结构与 serving role 实际不可变权限。不得与其他安装/观测/对齐模式组合；不执行旧 schema 步骤，不改旧事实/授权，不放宽原 runtime privilege guard。此命令用于后续获授权维护，本批没有运行它。
 
+保留实例的前序 core 对齐仍由原 `--align-core-contract --confirm-database <精确库名> --config <私有 owner 配置>` 执行，只接受原 Goose 历史并事务修改既定四项 CHECK、追加 2026101601。若实例已安装 observations / operations cockpit，分别显式附加 `--retained-observations` / `--retained-operations-cockpit`；这两个声明仅可用于 core 对齐，不能与安装开关或 browser 模式组合，也不从现场自动推断能力。省略声明时保持原裸 core 边界。
+
+该维护入口复用 `RuntimeCapabilities` 和原 runtime 有效权限白名单，严格核对固定 public core、声明的可选 schema/owner、原生列/默认值/约束/索引及完整必需权限；未知 schema/对象、结构漂移、PUBLIC/列级额外权限、grant option 或非法历史均拒绝，不自动修复。两个可选结构 JSON 合同来自已有 persistence owner 的 `schema.sql`，隔离 PostgreSQL fixture 用原生 Install 创建后验证；不含 OID、业务数据或 ACL，不是第二套安装器。它们随原生结构有意变更时须一起审阅；本轮固定 PostgreSQL 17 原生表达式，不据离线 PASS 宣称现存库已兼容。
+
+原生顺序保持 **1601 → 2501**。browser 安装只要求已对齐的必需 core，不隐式要求未启用的 TikTok/Walmart 表；平台 serving guard 和新表实际 SELECT/INSERT 授权保持原语义。core 对齐不安装可选模块、不改现有 grants/事实/历史，也不扩为平台维护或 browser 权限回退工具。本轮仅以合成数据测试上述入口，未对保留环境执行维护命令。
+
 ## 验证与剩余条件
 
 离线回归覆盖首次/重复/冲突准入、read+use+Store grant 无 update、撤销后原主体报告、原子审计、本人查询和游标隔离、严格 HTTP 输入、可选表损坏关闭、目标 runtime ACL 读回及默认关闭模块。沿用当前组合与 route descriptor 白名单，不移除 guard。

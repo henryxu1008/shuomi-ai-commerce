@@ -30,6 +30,11 @@ func TestCoreAlignmentCommandIsExplicitAndExclusive(t *testing.T) {
 		{"confirmation without mode", []string{"--confirm-database", "retained_store"}, "requires --align-core-contract"},
 		{"empty confirmation without mode", []string{"--confirm-database="}, "requires --align-core-contract"},
 		{"positional arguments", []string{"--align-core-contract", "retained_store"}, "unexpected positional arguments"},
+		{"retained observations without alignment", []string{"--retained-observations"}, "require --align-core-contract"},
+		{"retained false without alignment", []string{"--retained-observations=false"}, "require --align-core-contract"},
+		{"retained cockpit without alignment", []string{"--retained-operations-cockpit"}, "require --align-core-contract"},
+		{"retained with browser mode", []string{"--browser-workbench", "--retained-operations-cockpit"}, "require --align-core-contract"},
+		{"explicit retained capabilities", []string{"--align-core-contract", "--retained-observations", "--retained-operations-cockpit", "--confirm-database", "retained_store", "--config", filepath.Join(t.TempDir(), "missing.json")}, "core contract alignment refused"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			output, err := exec.CommandContext(ctx, binary, tc.args...).CombinedOutput()

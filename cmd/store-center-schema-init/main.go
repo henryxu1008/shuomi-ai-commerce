@@ -34,24 +34,33 @@ func main() {
 	shein := flag.Bool("shein-login-worker", false, "install optional current SHEIN login execution fence and narrow worker role on an authorized fresh Store")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
+	retainedObservations := flag.Bool("retained-observations", false, "declare already installed observations for --align-core-contract; no installation or grants")
+	retainedCockpit := flag.Bool("retained-operations-cockpit", false, "declare already installed operations cockpit for --align-core-contract; no installation or grants")
 	browserWorkbench := flag.Bool("browser-workbench", false, "explicitly install only Store browser operation/report tables and SELECT/INSERT grants on a confirmed current Store")
 	confirmed := flag.String("confirm-database", "", "exact existing database name required for --align-core-contract")
 	flag.Parse()
 	confirmationSet := false
+	retainedSet := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "confirm-database" {
 			confirmationSet = true
+		}
+		if f.Name == "retained-observations" || f.Name == "retained-operations-cockpit" {
+			retainedSet = true
 		}
 	})
 	err := func() error {
 		if flag.NArg() != 0 {
 			return errors.New("unexpected positional arguments")
 		}
+		if retainedSet && !*align {
+			return errors.New("retained capability declarations require --align-core-contract")
+		}
 		if *align {
 			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shein || *browserWorkbench {
 				return errors.New("core alignment cannot be combined with any installation or observation mode")
 			}
-			return alignCoreContract(*path, *confirmed)
+			return alignCoreContract(*path, *confirmed, storecenter.RuntimeCapabilities{Observations: *retainedObservations, OperationsCockpit: *retainedCockpit})
 		}
 		if *browserWorkbench {
 			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shein {
@@ -104,7 +113,7 @@ func installBrowserWorkbench(path, confirmed string) error {
 	return storeschema.InstallBrowserWorkbench(ctx, db, confirmed)
 }
 
-func alignCoreContract(path, confirmed string) error {
+func alignCoreContract(path, confirmed string, capabilities storecenter.RuntimeCapabilities) error {
 	if confirmed == "" {
 		return errors.New("core contract alignment refused: exact database confirmation required")
 	}
@@ -119,7 +128,7 @@ func alignCoreContract(path, confirmed string) error {
 		return errors.New("core contract alignment refused: owner database unavailable")
 	}
 	defer platformdatabase.Close(db)
-	if err := storeschema.AlignCoreContract(ctx, db, confirmed); err != nil {
+	if err := storeschema.AlignCoreContract(ctx, db, confirmed, capabilities); err != nil {
 		return fmt.Errorf("core contract alignment refused: %w", err)
 	}
 	return nil

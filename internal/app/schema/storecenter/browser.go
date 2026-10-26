@@ -16,7 +16,10 @@ func InstallBrowserWorkbench(ctx context.Context, db *gorm.DB, database string) 
 	if db == nil || db.Dialector.Name() != "postgres" || database == "" {
 		return errors.New("explicit Store owner database required")
 	}
-	if err := storecenter.VerifyCurrentSchema(ctx, db); err != nil {
+	// Browser persistence depends on the aligned mandatory core, not on
+	// independently enabled TikTok/Walmart persistence. Their serving guards
+	// remain capability-specific and are not bypassed by this installer.
+	if err := storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{}); err != nil {
 		return err
 	}
 	pool, err := db.DB()

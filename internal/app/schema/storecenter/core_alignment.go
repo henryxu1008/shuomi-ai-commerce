@@ -14,7 +14,11 @@ const CoreAlignmentVersion int64 = 2026101601
 
 // AlignCoreContract is the explicit retained-database entry. It never installs
 // missing tables, grants privileges, changes business rows or rewrites history.
-func AlignCoreContract(ctx context.Context, db *gorm.DB, confirmedDatabase string) error {
+// Capabilities declare already installed modules; this entry never provisions them.
+func AlignCoreContract(ctx context.Context, db *gorm.DB, confirmedDatabase string, capabilities storecenter.RuntimeCapabilities) error {
+	if capabilities.TikTokShop || capabilities.WalmartUS || capabilities.SheinLogin {
+		return errors.New("core alignment only admits retained observations and operations cockpit")
+	}
 	if ctx == nil || db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" || confirmedDatabase == "" {
 		return errors.New("explicit Store owner database required")
 	}
@@ -23,7 +27,7 @@ func AlignCoreContract(ctx context.Context, db *gorm.DB, confirmedDatabase strin
 		return err
 	}
 	preflight := func(ctx context.Context, tx *sql.Tx) (bool, error) {
-		if err := storecenter.VerifyCoreAlignmentBoundary(ctx, tx, confirmedDatabase); err != nil {
+		if err := storecenter.VerifyCoreAlignmentBoundary(ctx, tx, confirmedDatabase, capabilities); err != nil {
 			return false, err
 		}
 		applied, err := verifyCoreAlignmentHistory(ctx, tx)
@@ -65,7 +69,7 @@ func AlignCoreContract(ctx context.Context, db *gorm.DB, confirmedDatabase strin
 		if err := storecenter.AlignCoreSchemaTx(ctx, tx); err != nil {
 			return err
 		}
-		return storecenter.VerifyCoreAlignmentBoundary(ctx, tx, confirmedDatabase)
+		return storecenter.VerifyCoreAlignmentBoundary(ctx, tx, confirmedDatabase, capabilities)
 	})
 	if err != nil {
 		return err
