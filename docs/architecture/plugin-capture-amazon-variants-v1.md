@@ -206,3 +206,54 @@ manifest仍为 `activeTab,scripting,storage`、原六个源host，CSP/connect-sr
 实例/原插件更新、业务保存和部署仍为NOT_RUN / NOT_AUTHORIZED，不以fixture冒充用户验收。
 最终独立Reviewer检查实际差异、完整用户路径和四组IMPLEMENTATION_TEST；修复只复核相关增量。
 不拆机械设计/实现PR；不合并或关闭Issue。
+
+## 9. 校验暂停与人工继续的局部补齐（2026-10-26）
+
+Design Basis: **Reuse Existing Architecture**；本节复用第5、7节已审的目标绑定、暂停/明确继续及唯一交接，
+不改变状态机、持久化事实、权限、恢复协议或保存合同。用户已授权先评审再开发一个主要PR；
+本节评审前仅为 **PROPOSED**，不修改正式生产路径。执行阶段以#955当前正文为准。
+
+用户场景：同族采集停在1/171，保留读取页已证实为`/checkpoint/continue`真人校验，
+readyState complete但无productTitle。此前错误码被两处统一为CAPTURE_REJECTED，不能重建原失败时序；
+没有资源触限或正常商品字段解析缺陷证据。Must是暂停原因准确且能沿原操作继续，不承诺所有171项均可访问。
+产品依据仍为本文件第1节的用户决定与当前Figma Authority；仅补原进度页提示，不增加页面或操作步骤。
+
+### 最小调用路径及不变量
+
+1. 原进度页拥有一个reader及当前待采目标。`tabs.onUpdated(status=complete)`后读取native tab当前状态；
+   忽略旧about:blank的完成事件，确认目标页或同站校验/登录页已完成后再沿原ISOLATED注入。
+   等待最多仍30秒；不靠增加延时猜页面就绪，不自动刷新/重试。
+2. 原injected入口在商品解析前作有界页面分类：仅现有Amazon精确host和HTTPS；
+   明确`/checkpoint/continue`、`/errors/validateCaptcha`或明确真人校验控件→AMAZON_VERIFICATION_REQUIRED；
+   `/ap/signin`或明确登录表单→AMAZON_SIGN_IN_REQUIRED；尚在loading或商品标题未就绪→PAGE_NOT_READY；
+   已完成的非商品文档仍拒绝，不能从推荐区猜商品。只查看固定路径/少量明确节点，不扫描正文、不执行网页JS。
+3. runCapture→extractTab→Coordinator→现有entryMessages只传闭合安全码白名单。
+   保留既有CAPTURE_TOO_LARGE/CAPTURE_TIMEOUT、UNSUPPORTED_PAGE、SOURCE_CHANGED/PAGE_CHANGED等本地确定性错误；
+   未知异常、任意字符串/对象均降为CAPTURE_REJECTED。familyInfo同根因错误也用安全投影。
+   原生主frame/documentId须先核实；错误结果也核对仍是同一native document后才能传播。
+   不转发异常文本、HTML、账号、密码、cookie、校验查询参数或token，不增加日志/诊断持久化。
+4. 校验/登录沿原paused状态，保留游标、已观察事实和本次reader，提示用户通过原
+   “查看需处理的商品页”处理后再明确“继续采集”。不点击校验、不自动登录、不绕过或自动恢复。
+5. 明确继续只处理原失败项。读取标签仍在校验/登录时再次显示对应原因，不重导航、不前进。
+   用户已回到正确待采ASIN时，核对原reader ID/opener、同源、规范目标及pendingUrl；
+   family.reader仅对**同一已登记目标的重试**接受经现有amazonPageSource规范化后相等的URL（如跟踪query），
+   不允许任意Amazon页、其他ASIN或校验URL成为定位记录。随后复用当前就绪文档解析，不再一律tabs.update。
+   每次仍沿原native documentId注入、后复核以及Coordinator的ASIN/父关系/维度验证，换页或取消的迟到结果丢弃。
+   尚在加载的原目标只在原30秒内等待；目标不符/用户导航其它页面拒绝，不擅自改回商品页。
+6. 下一规格仍沿原串行导航；一次冻结、一次handoff、原应用一次保存和COMMIT UNKNOWN原键核实均不变。
+   取消/仅用已采、worker重建仅定位、关闭进度页中断及保守reader清理规则不变。
+
+Owner保持：family-page管理native标签读取；injected/amazon解析器做页面分类与解析；
+capture-tab核原生结果和document；Coordinator只保留原暂停/继续/聚合；原应用仍唯一保存owner。
+不新增browser状态/schema、reader命令、持久队列、服务端worker或第二事实源。
+原30秒、65536节点/8秒、256数组/1024合计/2MiB限制、七安装文件、权限/host/CSP全部保持。
+Legacy decision: N/A；不调用旧服务端或新增抓取框架，复用原解析/交接/保存及Vitest/静态fixture。
+
+### 实现证据要求与停止点
+
+先RED后GREEN：固定checkpoint/signin/正常商品/未就绪fixture；同源识别及未知错误脱敏；
+错误主frame/document替换；旧about:blank complete不提前解析；30秒超时/取消清理；
+同reader人工处理后继续不再导航，仍校验时不重试、不交接；错误ASIN/外站/并发导航继续拒绝；
+报价/规格图归属、一次交接及原保存合同回归复用现有测试。
+仅跑受影响回归与既有必需检查，不建设runner或新验收平台。
+真实页面重采/保存、原插件或实例更新、部署与合并均NOT_AUTHORIZED，本批开发只交一个主要PR供复核。
