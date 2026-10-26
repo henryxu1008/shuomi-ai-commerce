@@ -21,5 +21,7 @@ export function amazonDocumentError(doc: Document) {
   try { amazonPageSource(doc.URL); } catch { return; }
   if (doc.querySelector('input#continueCheck[type="checkbox"], form#validateCaptcha')) return 'AMAZON_VERIFICATION_REQUIRED';
   if (doc.querySelector('form[name="signIn"] input[type="password"], form#signIn input[type="password"]')) return 'AMAZON_SIGN_IN_REQUIRED';
-  if (doc.readyState === 'loading' || !doc.querySelector('#productTitle')?.textContent?.trim()) return 'PAGE_NOT_READY';
+  // The original parser owns title text, visibility and its cumulative byte /
+  // node / time budget. Readiness must not concatenate the subtree first.
+  if (doc.readyState === 'loading' || !doc.querySelector('#productTitle')) return 'PAGE_NOT_READY';
 }

@@ -37,6 +37,21 @@ it('does not parse a document still loading', async () => {
   const parser = vi.spyOn(amazon, 'captureAmazonDocument');
   expect(await runCapture()).toEqual({ ok: false, code: 'PAGE_NOT_READY' }); expect(parser).not.toHaveBeenCalled();
 });
+it.each([' '.repeat(8193), '<span>'+' '.repeat(1100)+'</span><span>'+' '.repeat(1100)+'</span>'])('retains the existing title byte limit before declaring a blank title unready',async html=>{
+  page(source,`<h1 id="productTitle">${html}</h1>`);
+  expect(await runCapture()).toEqual({ok:false,code:'CAPTURE_TOO_LARGE'});
+});
+it('retains the existing title node budget without reading unbounded textContent',async()=>{
+  const doc=page(source,'<h1 id="productTitle"> </h1>'),title=doc.querySelector('#productTitle')!;
+  const walker=doc.createTreeWalker.bind(doc),empty=doc.createTextNode('');let remaining=65537;
+  vi.spyOn(doc,'createTreeWalker').mockImplementation((root,whatToShow,filter)=>root===title
+    ? {nextNode:()=>--remaining>=0?empty:null} as unknown as TreeWalker : walker(root,whatToShow,filter));
+  expect(await runCapture()).toEqual({ok:false,code:'CAPTURE_TOO_LARGE'});
+});
+it('reports an ordinary empty title as unready after bounded reading',async()=>{
+  page(source,'<h1 id="productTitle"> </h1>');
+  expect(await runCapture()).toEqual({ok:false,code:'PAGE_NOT_READY'});
+});
 it.each(['CAPTURE_TOO_LARGE', 'CAPTURE_TIMEOUT', 'SOURCE_CHANGED', 'UNSUPPORTED_PAGE', 'INVALID_CAPTURE'])('preserves safe parser code %s', async code => {
   page(); vi.spyOn(amazon, 'captureAmazonDocument').mockRejectedValueOnce(Error(code));
   expect(await runCapture()).toEqual({ ok: false, code }); expect(Object.hasOwn(entryMessages, code)).toBe(true);
