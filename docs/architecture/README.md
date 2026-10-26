@@ -686,4 +686,3 @@ it is treated as a long-lived review entrypoint.
 
 - [`chat-task-object-goal-design-brief.md`](./chat-task-object-goal-design-brief.md) — IMPLEMENTATION_READY；#808，多来源对象、任务目标、冻结内容执行合同与原审核采用。
 - [本机 TLS 撤销维护边界](local-tls-revocation-maintenance.md)：#965 独立 OpenSSL 维护、既有服务的精确 CRL 发布合同；真实凭据、信任及运行接线单独授权。
-
