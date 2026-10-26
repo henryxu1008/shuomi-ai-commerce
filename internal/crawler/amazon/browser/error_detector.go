@@ -4,7 +4,7 @@ package browser
 import (
 	"errors"
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 )
 
 var (
@@ -151,7 +151,7 @@ func (ed *ErrorDetector) IsProductNotFoundError(err error) bool {
 		return false
 	}
 
-	var notFoundErr *model.ProductNotFoundError
+	var notFoundErr *amazonresult.ProductNotFoundError
 	if errors.As(err, &notFoundErr) {
 		return true
 	}

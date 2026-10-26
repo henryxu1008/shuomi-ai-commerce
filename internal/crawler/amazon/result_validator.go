@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 )
 
 // ProductQualityError marks a crawl as structurally successful but unusable for downstream business flows.
@@ -31,7 +31,7 @@ func NewProductResultValidator() *ProductResultValidator {
 	return &ProductResultValidator{}
 }
 
-func (v *ProductResultValidator) Validate(product *model.Product) error {
+func (v *ProductResultValidator) Validate(product *amazonresult.Product) error {
 	if product == nil {
 		return &ProductQualityError{Reasons: []string{"product is nil"}}
 	}
@@ -61,7 +61,7 @@ func (v *ProductResultValidator) Validate(product *model.Product) error {
 	return nil
 }
 
-func hasPrimaryImage(product *model.Product) bool {
+func hasPrimaryImage(product *amazonresult.Product) bool {
 	if product == nil {
 		return false
 	}
@@ -76,7 +76,7 @@ func hasPrimaryImage(product *model.Product) bool {
 	return false
 }
 
-func requiresPrice(product *model.Product) bool {
+func requiresPrice(product *amazonresult.Product) bool {
 	if product == nil {
 		return false
 	}
@@ -86,7 +86,7 @@ func requiresPrice(product *model.Product) bool {
 	return strings.TrimSpace(product.Availability) != "Currently unavailable"
 }
 
-func hasUsablePrice(product *model.Product) bool {
+func hasUsablePrice(product *amazonresult.Product) bool {
 	if product == nil {
 		return false
 	}
@@ -96,7 +96,7 @@ func hasUsablePrice(product *model.Product) bool {
 	return product.BuyboxPrices != nil && product.BuyboxPrices.FinalPrice > 0
 }
 
-func hasBrokenVariationPayload(product *model.Product) bool {
+func hasBrokenVariationPayload(product *amazonresult.Product) bool {
 	if product == nil {
 		return false
 	}

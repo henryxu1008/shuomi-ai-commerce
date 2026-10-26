@@ -4,7 +4,7 @@ package extractor
 import (
 	"github.com/sirupsen/logrus"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -20,7 +20,7 @@ func NewImageExtractor(logs func(string) *logrus.Entry) *ImageExtractor {
 }
 
 // Extract 提取产品轮播图 - 从colorImages提取，优先hiRes，fallback到large
-func (ie *ImageExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (ie *ImageExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	ie.componentLogger("crawler/amazon").Infof("开始提取产品轮播图...")
 
 	// 从colorImages提取图片，优先hiRes，如果为null则使用large并转换为高分辨率

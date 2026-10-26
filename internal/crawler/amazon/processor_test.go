@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	amazonbrowser "task-processor/internal/crawler/amazon/browser"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 )
 
 func TestAmazonProcessorProcessWithContextReturnsInitError(t *testing.T) {
@@ -31,7 +31,7 @@ func TestAmazonProcessorProcessBatchReturnsInitErrorForEveryRequest(t *testing.T
 		initErr: errors.New("初始化浏览器池失败: chromium launch failed"),
 	}
 
-	results := ap.ProcessBatchWithContext(context.Background(), []model.ProductRequest{
+	results := ap.ProcessBatchWithContext(context.Background(), []amazonresult.ProductRequest{
 		{URL: "https://www.amazon.com/dp/B001234567"},
 		{URL: "https://www.amazon.com/dp/B009876543"},
 	})

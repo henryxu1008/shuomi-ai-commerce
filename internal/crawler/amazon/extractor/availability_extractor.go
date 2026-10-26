@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 
 	"github.com/mxschmitt/playwright-go"
 	"github.com/sirupsen/logrus"
@@ -15,7 +15,7 @@ type AvailabilityExtractor struct {
 	loggerDependency
 }
 
-func (e *AvailabilityExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *AvailabilityExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	availability := e.getAvailability(page)
 	product.Availability = availability
 

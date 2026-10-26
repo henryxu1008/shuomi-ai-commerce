@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -14,7 +14,7 @@ type TitleExtractor struct {
 	loggerDependency
 }
 
-func (e *TitleExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *TitleExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	// 尝试多个可能的标题选择器
 	titleSelectors := []string{
 		"#productTitle",

@@ -2,7 +2,7 @@ package extractor
 
 import (
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -14,7 +14,7 @@ func NewFeatureParserExtractor() *FeatureParserExtractor {
 	return &FeatureParserExtractor{}
 }
 
-func (e *FeatureParserExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *FeatureParserExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	// 这个提取器主要用于解析和标准化已提取的特性
 	// 在基础特性提取器之后运行，对特性进行进一步处理
 

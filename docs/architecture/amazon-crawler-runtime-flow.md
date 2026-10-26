@@ -16,6 +16,8 @@
 
 `effectiveBrowserPoolSize` 仍由原 processor.go 持有并使用，`factory_test.go` 的两个有效池大小测试保持；删除旧 factory 不删除其原有效规则。HTTP 平台 API、域名/URL/产品检查、SPAPI 配置及当前有效 Queue/Retry/Redis 保持原 owner。本轮没有新建服务、结果缓存、恢复协议、当前业务库 owner 或远程调用。
 
+#964 按[用户确认的结果合同边界](legacy-source-result-contract-closure-retirement-boundary.md)将17个原结果值与5个纯JSON/错误方法归 `internal/crawler/amazon/result`。原processor/browser/extractor和独立debug的36个import只改接新owner；全局 `internal/model` 整根退出，无alias/reexport/转发或新common层。原字段/tag/顺序/空值、typed错误/Unwrap、variations转换及质量/批量/PoolManager deadline取消/释放/重建行为保持；Go包/reflect类型元数据随owner正常变化。该纯叶子只依赖encoding/json、fmt、time，不拥有浏览器或业务持久化。debug仍使用原os.Create/Encoder/SetIndent输出JSON，本轮只编译、不执行入口或访问已有输出。当前application的固定站点业务路径不改走原浏览器。
+
 ## 持久化与运维边界
 
 当前业务商品/lineage由 sourcing/Catalog/SRC owner 保存，不能恢复旧数字 Task 结果到 Redis/RawJSON 的第二事实源。旧 Dockerfile、Compose、push 脚本及 Kubernetes API/LB/监控声明已退出；没有替代发布命令。旧镜像、endpoint、缓存或监控对象的现实状态 UNKNOWN，本轮不查询或操作。

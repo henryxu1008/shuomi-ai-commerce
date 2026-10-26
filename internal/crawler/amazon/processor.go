@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/core/config"
 
 	"task-processor/internal/crawler/amazon/browser"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 	"time"
 )
 
@@ -113,12 +113,12 @@ func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Am
 }
 
 // Process 处理Amazon产品页面
-func (ap *AmazonProcessor) Process(url string, zipcode string) (*model.Product, error) {
+func (ap *AmazonProcessor) Process(url string, zipcode string) (*amazonresult.Product, error) {
 	return ap.ProcessWithContext(context.Background(), url, zipcode)
 }
 
 // ProcessWithContext 处理Amazon产品页面（支持 context 传递）
-func (ap *AmazonProcessor) ProcessWithContext(ctx context.Context, url string, zipcode string) (*model.Product, error) {
+func (ap *AmazonProcessor) ProcessWithContext(ctx context.Context, url string, zipcode string) (*amazonresult.Product, error) {
 	if err := ap.ensureReady(ctx); err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (ap *AmazonProcessor) retryInitialize(ctx context.Context) error {
 }
 
 // processWithPoolManager 使用池管理器处理
-func (ap *AmazonProcessor) processWithPoolManager(ctx context.Context, url string, zipcode string) (*model.Product, error) {
+func (ap *AmazonProcessor) processWithPoolManager(ctx context.Context, url string, zipcode string) (*amazonresult.Product, error) {
 	timeout := 3 * time.Minute // 单个产品处理超时3分钟
 
 	// 创建实例处理器
@@ -211,15 +211,15 @@ func (ap *AmazonProcessor) processWithPoolManager(ctx context.Context, url strin
 }
 
 // ProcessBatchWithContext 批量处理多个Amazon产品页面，并传递调用方 context。
-func (ap *AmazonProcessor) ProcessBatchWithContext(ctx context.Context, requests []model.ProductRequest) []model.ProductResult {
+func (ap *AmazonProcessor) ProcessBatchWithContext(ctx context.Context, requests []amazonresult.ProductRequest) []amazonresult.ProductResult {
 	// 检查处理器是否已关闭
 	ap.mu.RLock()
 	if ap.closed {
 		ap.mu.RUnlock()
 		// 返回所有请求的错误结果
-		results := make([]model.ProductResult, len(requests))
+		results := make([]amazonresult.ProductResult, len(requests))
 		for i := range requests {
-			results[i] = model.ProductResult{
+			results[i] = amazonresult.ProductResult{
 				Product: nil,
 				Error:   fmt.Errorf("Amazon处理器已关闭"),
 			}
@@ -229,23 +229,23 @@ func (ap *AmazonProcessor) ProcessBatchWithContext(ctx context.Context, requests
 	ap.mu.RUnlock()
 
 	if len(requests) == 0 {
-		return []model.ProductResult{}
+		return []amazonresult.ProductResult{}
 	}
 
 	ap.componentLogger("crawler/amazon").Infof("开始批量处理 %d 个Amazon产品", len(requests))
 	startTime := time.Now()
 
 	if err := ap.ensureReady(ctx); err != nil {
-		results := make([]model.ProductResult, len(requests))
+		results := make([]amazonresult.ProductResult, len(requests))
 		for i := range requests {
-			results[i] = model.ProductResult{Error: err}
+			results[i] = amazonresult.ProductResult{Error: err}
 		}
 		return results
 	}
 	if ap.browserPool == nil {
-		results := make([]model.ProductResult, len(requests))
+		results := make([]amazonresult.ProductResult, len(requests))
 		for i := range requests {
-			results[i] = model.ProductResult{Error: newProcessorUnavailableError("Amazon处理器不可用: 浏览器池未初始化", nil)}
+			results[i] = amazonresult.ProductResult{Error: newProcessorUnavailableError("Amazon处理器不可用: 浏览器池未初始化", nil)}
 		}
 		return results
 	}

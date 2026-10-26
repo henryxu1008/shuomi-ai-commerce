@@ -1,7 +1,7 @@
 package extractor
 
 import (
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,9 +29,9 @@ func TestBuildScopedSelectorsWithoutScopes(t *testing.T) {
 func TestSyncInitialPriceWithListPrice(t *testing.T) {
 	extractor := NewPriceExtractor("UK", nil)
 	listPrice := 29.99
-	product := &model.Product{
+	product := &amazonresult.Product{
 		FinalPrice: 19.93,
-		PricesBreakdown: model.PriceBreakdown{
+		PricesBreakdown: amazonresult.PriceBreakdown{
 			ListPrice: &listPrice,
 		},
 	}
@@ -43,7 +43,7 @@ func TestSyncInitialPriceWithListPrice(t *testing.T) {
 
 func TestSyncInitialPriceWithListPriceClearsMissingOriginalPrice(t *testing.T) {
 	extractor := NewPriceExtractor("UK", nil)
-	product := &model.Product{
+	product := &amazonresult.Product{
 		FinalPrice:   19.93,
 		InitialPrice: 19.93,
 	}

@@ -11,7 +11,7 @@ import (
 
 	"task-processor/internal/crawler/amazon/browser"
 	"task-processor/internal/crawler/amazon/extractor"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -27,7 +27,7 @@ type InstanceProcessor struct {
 	resultValidator      *ProductResultValidator
 	failureArtifactStore *FailureArtifactStore
 	qualityControl       qualityControlOptions
-	extractProduct       func(ctx context.Context, page playwright.Page, url, zipcode string) (*model.Product, error)
+	extractProduct       func(ctx context.Context, page playwright.Page, url, zipcode string) (*amazonresult.Product, error)
 	prepareRetry         func(ctx context.Context, page playwright.Page, waitTimeout time.Duration) error
 	matchTargetContext   func(page playwright.Page, targetURL string) (bool, error)
 }
@@ -73,7 +73,7 @@ func (ip *InstanceProcessor) SetQualityControlOptions(retryOnValidationFailure b
 }
 
 // ProcessWithInstance 使用指定浏览器实例处理产品，ctx 用于超时控制
-func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *browser.BrowserInstance, url string, zipcode string) (product *model.Product, retErr error) {
+func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *browser.BrowserInstance, url string, zipcode string) (product *amazonresult.Product, retErr error) {
 	if instance == nil {
 		return nil, fmt.Errorf("浏览器实例为空")
 	}
@@ -263,7 +263,7 @@ func (ip *InstanceProcessor) matchesTargetContext(page playwright.Page, targetUR
 	return validator.MatchesTargetContext(page)
 }
 
-func (ip *InstanceProcessor) extractWithQualityRetry(ctx context.Context, page playwright.Page, url, zipcode string, waitTimeout time.Duration) (*model.Product, error) {
+func (ip *InstanceProcessor) extractWithQualityRetry(ctx context.Context, page playwright.Page, url, zipcode string, waitTimeout time.Duration) (*amazonresult.Product, error) {
 	attempts := 1
 	if ip.qualityControl.retryOnValidationFailure && ip.qualityControl.validationRetryAttempts > 1 {
 		attempts = ip.qualityControl.validationRetryAttempts
@@ -330,7 +330,7 @@ func (ip *InstanceProcessor) alignTargetContext(page playwright.Page, url string
 	return nil
 }
 
-func (ip *InstanceProcessor) extractAndValidateProduct(ctx context.Context, page playwright.Page, url, zipcode string) (*model.Product, error) {
+func (ip *InstanceProcessor) extractAndValidateProduct(ctx context.Context, page playwright.Page, url, zipcode string) (*amazonresult.Product, error) {
 	if customExtractor := ip.extractProduct; customExtractor != nil {
 		return customExtractor(ctx, page, url, zipcode)
 	}
@@ -339,12 +339,12 @@ func (ip *InstanceProcessor) extractAndValidateProduct(ctx context.Context, page
 	expectedCurrency := ip.urlHelper.GetCurrencyFromURL(url)
 
 	now := time.Now()
-	product := &model.Product{
+	product := &amazonresult.Product{
 		URL:       url,
 		Zipcode:   zipcode,
 		Asin:      ip.urlHelper.ExtractASINFromURL(url),
 		Currency:  expectedCurrency,
-		Timestamp: model.NullableTime{Time: &now},
+		Timestamp: amazonresult.NullableTime{Time: &now},
 	}
 
 	ext := extractor.NewCompositeExtractor(marketplace, ip.logFor)
@@ -391,7 +391,7 @@ func (ip *InstanceProcessor) preparePageForQualityRetry(ctx context.Context, pag
 }
 
 // validateProductData 验证产品数据
-func (ip *InstanceProcessor) validateProductData(product *model.Product) error {
+func (ip *InstanceProcessor) validateProductData(product *amazonresult.Product) error {
 	if product == nil {
 		return fmt.Errorf("产品对象为空")
 	}

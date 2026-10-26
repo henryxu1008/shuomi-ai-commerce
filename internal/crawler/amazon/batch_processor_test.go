@@ -5,16 +5,16 @@ import (
 	"errors"
 	"testing"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 )
 
 type stubBatchRequestProcessor struct {
 	calls   int
-	results []model.ProductResult
+	results []amazonresult.ProductResult
 	onCall  func(call int)
 }
 
-func (s *stubBatchRequestProcessor) ProcessWithContext(_ context.Context, _ string, _ string) (*model.Product, error) {
+func (s *stubBatchRequestProcessor) ProcessWithContext(_ context.Context, _ string, _ string) (*amazonresult.Product, error) {
 	call := s.calls
 	s.calls++
 	if s.onCall != nil {
@@ -23,20 +23,20 @@ func (s *stubBatchRequestProcessor) ProcessWithContext(_ context.Context, _ stri
 	if call < len(s.results) {
 		return s.results[call].Product, s.results[call].Error
 	}
-	return &model.Product{Asin: "DEFAULT"}, nil
+	return &amazonresult.Product{Asin: "DEFAULT"}, nil
 }
 
 func TestBatchProcessorProcessWithContextSequentiallyDelegates(t *testing.T) {
 	bp := NewBatchProcessor()
 	processor := &stubBatchRequestProcessor{
-		results: []model.ProductResult{
-			{Product: &model.Product{Asin: "B001"}},
+		results: []amazonresult.ProductResult{
+			{Product: &amazonresult.Product{Asin: "B001"}},
 			{Error: errors.New("temporary failure")},
-			{Product: &model.Product{Asin: "B003"}},
+			{Product: &amazonresult.Product{Asin: "B003"}},
 		},
 	}
 
-	results := bp.ProcessWithContext(context.Background(), []model.ProductRequest{
+	results := bp.ProcessWithContext(context.Background(), []amazonresult.ProductRequest{
 		{URL: "https://amazon.com/dp/B001"},
 		{URL: "https://amazon.com/dp/B002"},
 		{URL: "https://amazon.com/dp/B003"},
@@ -60,10 +60,10 @@ func TestBatchProcessorProcessWithContextStopsOnContextCancel(t *testing.T) {
 	bp := NewBatchProcessor()
 	ctx, cancel := context.WithCancel(context.Background())
 	processor := &stubBatchRequestProcessor{
-		results: []model.ProductResult{
-			{Product: &model.Product{Asin: "B001"}},
-			{Product: &model.Product{Asin: "B002"}},
-			{Product: &model.Product{Asin: "B003"}},
+		results: []amazonresult.ProductResult{
+			{Product: &amazonresult.Product{Asin: "B001"}},
+			{Product: &amazonresult.Product{Asin: "B002"}},
+			{Product: &amazonresult.Product{Asin: "B003"}},
 		},
 		onCall: func(call int) {
 			if call == 0 {
@@ -72,7 +72,7 @@ func TestBatchProcessorProcessWithContextStopsOnContextCancel(t *testing.T) {
 		},
 	}
 
-	results := bp.ProcessWithContext(ctx, []model.ProductRequest{
+	results := bp.ProcessWithContext(ctx, []amazonresult.ProductRequest{
 		{URL: "https://amazon.com/dp/B001"},
 		{URL: "https://amazon.com/dp/B002"},
 		{URL: "https://amazon.com/dp/B003"},

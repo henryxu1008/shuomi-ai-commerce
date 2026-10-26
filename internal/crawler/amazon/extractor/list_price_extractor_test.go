@@ -2,7 +2,7 @@
 package extractor
 
 import (
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -62,9 +62,9 @@ func TestListPriceExtractor_PriceBreakdownAssignment(t *testing.T) {
 	extractor := NewListPriceExtractor("US", nil)
 
 	// 测试价格解析和赋值逻辑
-	product := &model.Product{
+	product := &amazonresult.Product{
 		FinalPrice:      19.99,
-		PricesBreakdown: model.PriceBreakdown{},
+		PricesBreakdown: amazonresult.PriceBreakdown{},
 	}
 
 	// 模拟找到有效原价的情况
@@ -108,9 +108,9 @@ func TestListPriceExtractor_NoListPriceScenario(t *testing.T) {
 	extractor := NewListPriceExtractor("US", nil)
 
 	// 测试没有原价的情况
-	product := &model.Product{
+	product := &amazonresult.Product{
 		FinalPrice:      19.99,
-		PricesBreakdown: model.PriceBreakdown{},
+		PricesBreakdown: amazonresult.PriceBreakdown{},
 	}
 
 	// 模拟只有普通价格文本，没有原价标识

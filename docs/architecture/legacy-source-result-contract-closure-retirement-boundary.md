@@ -1,6 +1,6 @@
 # #301 旧全局 Amazon 结果合同与 SHEIN 孤立属性 DTO 完整退休设计
 
-> **Independent Architecture / DESIGN_ONLY / DESIGNING / SOURCE_NOT_STARTED / NOT_READY**。本阶段只有本文、架构 README、Legacy register 三文档。用户同意先做两组完整设计，设计与复核完成、用户确认 §1–§7（含 §4.2、§6.1）并在 Issue/PR 记录 IMPLEMENTATION_READY/Ready 读回后，才可同一主要 PR 整批实施。起始实际 main `bf27a31106cf7280b19c68681ec74af70e690e5f`；#961 已合并且实际 merge-SHA push/main CI40293854046 attempt1 SUCCESS。源码、测试、workflow、完整 inventory 和既有资源尚未修改。
+> **USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结 §1–§7（含 §4.2、§6.1）；Issue/PR 的 IMPLEMENTATION_READY / Ready 已在正式修改前写入并读回。同一 #964 完整53路径已实施：17真实值/5原方法归 Amazon result 纯叶子、36消费者改接、旧全局 model 根及三个孤立 SHEIN DTO 退出，无 alias。设计准确 HEAD f496b920b 的原 CI40301812628 与独立只读设计复核 PASS 仅作设计证据；源码必要自检、准确候选 CI 与最终交付复核见 [PR #964](https://github.com/qq550723504/shuomi-ai-commerce/pull/964)，分别记录，不冒充运行验收。#301 OPEN，合并/部署/关单另授权，运行/产品验收 NOT_RUN。
 
 稳定设计候选同步实际 main `6199063811dbb7904aa678735c1b7bb660b8d186`（#963）。唯一增量为另一 owner 的 Amazon capture 扩展三份TS、四份测试与其设计文档，共8文件；本批53路径/全部Go/AGENTS/workflow/依赖和架构索引/register零交集或零字节差异。原3184 Go/字段/消费者调查可复用，最新组合由本设计准确HEAD的原CI验证；不接管该扩展实现。
 
@@ -13,7 +13,7 @@
 
 使用者是维护原浏览器采集、批量结果、调试 JSON 和当前 SHEIN 离线合同的开发者。结果是原操作继续使用同样的采集/结果/错误/JSON，依赖不再穿过全局 catch-all；不是新增采集、平台提交或试用验收前置。当前业务来源入口仍是 `currentapplication → integration/acquisition/amazon → Product/dataacquisition → Sourcing/Catalog/SRC`，不改成走原浏览器。
 
-未来源码阶段完整 **53 唯一路径**：36个当前 import 文件、1旧模型、1混合属性文件、2新叶子文件、1原检查文件、5当前文档与7历史顶注。本阶段实际仅三文档。完整清单见 §5.3。
+本批源码阶段完整 **53 唯一路径**：36个当前 import 文件、1旧模型、1混合属性文件、2新叶子文件、1原检查文件、5当前文档与7历史顶注。设计阶段只有三文档；本次已按确认范围实施。完整清单见 §5.3。
 
 ## 2. Design Basis、Authority 与前批 KEEP 替代
 
@@ -31,7 +31,7 @@ Must：两个闭包完整切换/删除；所有当前字段/tag/顺序/数值/�
 | [#909 旧 Product 策略](legacy-product-policy-closure-retirement-boundary.md) | 共享 `internal/model.Product` 路径不动的旧 KEEP | 同一 Product 值/JSON归新叶子，不恢复旧 Product policy 机制 |
 | [模块目标映射](../refactoring/module-target-mapping.md) | 全局 model catch-all 的现状 | owning-domain 方向、其它历史/计数及全部当前业务 owner |
 
-仅上述准确范围被替代。7份旧依据在未来实施时只加顶注，原完整 Git blob/数字/勾选/证据保留；其它旧泛称 KEEP 不成为恢复全局模型的理由。当前三设计文档不将未来退休写成已完成。
+仅上述准确范围被替代。7份旧依据在本次实施中只加顶注，原完整 Git blob/数字/勾选/证据保留；其它旧泛称 KEEP 不成为恢复全局模型的理由。原三文档设计阶段未将未来退休写成完成；当前源码状态由本文顶部及 PR 证据说明。
 
 ## 3. 实际消费者与依赖方向
 
@@ -176,7 +176,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 
 实现前可在未来新model_test.go以原model类型运行合成固定wire/方法基线PASS，再在同一路径只改测试owner验证抽取后等价；这是冻结未变化合同，不为机械移动制造业务RED。完整退休guard必须在旧根/DTO存在时真实RED、切换删除后GREEN。现有时间/nullable和VariationValue的输出/错误以独立合成样例确认；不读取历史文件、修改原golden或跑真实入口。
 
-### 5.3 未来53唯一路径（当前未授权实施）
+### 5.3 用户确认并整批实施的53唯一路径
 
 <details><summary>完整清单：同一主要PR收齐</summary>
 
@@ -240,11 +240,11 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 
 ## 6. 必要验证与验收
 
-本阶段只进行源码/原AST/3184 Go消费者/字段/隐式方法/错误路径/原检查/历史依据/链接/清单的只读核对，运行适用既有文档/inventory元数据检查与准确设计HEAD原CI，不调用构造器、编解码业务路径、浏览器/provider、配置加载、数据库或已有资源。设计CI/设计评审不替代未来源码CI/用户验收。
+原设计阶段只进行源码/原AST/3184 Go消费者/字段/隐式方法/错误路径/原检查/历史依据/链接/清单的只读核对，运行适用既有文档/inventory元数据检查与准确设计HEAD原CI，不调用构造器、编解码业务路径、浏览器/provider、配置加载、数据库或已有资源。设计CI/设计评审不替代未来源码CI/用户验收。
 
 用户确认Ready后，完整guard RED→17类型/5方法抽取＋36消费者切换＋三DTO/旧根删除＋§6.1精确转换→GREEN。必要自检限新纯值合同、原 Amazon root/browser/extractor/variations mock/错误/批量/取消、当前有效SHEIN与Sourcing合同及原必需检查；新值叶子与debug/main只编译到任务TEMP，不执行产物。独立hack/debug模块保留当前go.mod/go.sum与root replace，原Amazon入口仅编译。当前命令视影响只编译，不自行扩成环境验收、故障矩阵或新平台。
 
-局部测试、compile-only、原PR CI、实际merge-SHA push/main CI、真实运行/用户验收分别记录；本阶段后两者NOT_RUN。既有本机CRLF等真实FAIL保留并分列环境证据，不改测试/黄金值求绿。源码缺席或另一个AI评审不是产品验收或部署授权。
+局部测试、compile-only、原PR CI、实际merge-SHA push/main CI、真实运行/用户验收分别记录；当前后两者NOT_RUN。既有本机CRLF等真实FAIL保留并分列环境证据，不改测试/黄金值求绿。源码缺席或另一个AI评审不是产品验收或部署授权。
 
 ### 6.1 原检查、当前文档及冻结边界的精确转换
 
@@ -260,9 +260,9 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 
 ## 7. Review、确认与停止点
 
-- 一个Writer、原独立managed工作区新分支、一个主要PR。先完成准确设计HEAD原CI与适用独立Architecture Review，交用户确认本§1–§7（明确含§4.2整个值codec/错误合同保持及§6.1）；记录并读回Independent Architecture / IMPLEMENTATION_READY / Ready后，才同一PR整批53路径实施。当前SOURCE_NOT_STARTED/NOT_READY。
+- 一个Writer、原独立managed工作区新分支、一个主要PR。先完成准确设计HEAD原CI与适用独立Architecture Review，交用户确认本§1–§7（明确含§4.2整个值codec/错误合同保持及§6.1）；记录并读回Independent Architecture / IMPLEMENTATION_READY / Ready后，才同一PR整批53路径实施。本轮准入已写入读回，当前SOURCE_IMPLEMENTED/IN_REVIEW。
 - 起始同步main；最终候选前核对实际main/其它owner组合，仅处理真实增量。未变化代码证据可明确复用，不冒充新SHA直接执行，不为无关main变化机械重复全量审查/CI。
 - 设计最多两轮正常review；finding按当前Must/具体后果/阻塞层分类，只有新BLOCKER重开冻结设计；非Blocker在实现测试或Backlog收敛，不追加全局平台、试用流程或验收矩阵。
 - GitHub启动失败至多一次重试，Running不重复触发；**未经用户本轮授权不默认新增AI互验线程**。旧#961的设计/源码复核授权不覆盖本批，不新增并行Writer、全局架构或工具项目。
 - 用户确认实施后一次集中源码最终交付复核，修复只复核相关增量；设计PASS/源码CI/另一AI都不签发用户/生产验收。合并另交最终准确HEAD授权，正常expected-head合并后仅认实际merge-SHA push/main整runcompleted SUCCESS，不管理员绕过/强推/改保护。
-- #301保持OPEN；当前能力/原Amazon浏览器/debug与独立SHEIN登录/Store同步保持。不读取/操作既有实例、数据、凭据、输出/轨迹/profile文件或进程；不改workflow/inventory/依赖/保护，不增加试用前置。当前无源码实施、合并、部署、关单或真实运行授权。
+- #301保持OPEN；当前能力/原Amazon浏览器/debug与独立SHEIN登录/Store同步保持。不读取/操作既有实例、数据、凭据、输出/轨迹/profile文件或进程；不改workflow/inventory/依赖/保护，不增加试用前置。本轮源码实施已获授权；合并、部署、关单或真实运行仍另需授权。

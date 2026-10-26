@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 	"task-processor/internal/pkg/goroutine"
 	"time"
 
@@ -14,7 +14,7 @@ import (
 
 // Extractor 提取器接口
 type Extractor interface {
-	Extract(page playwright.Page, product *model.Product) error
+	Extract(page playwright.Page, product *amazonresult.Product) error
 }
 
 // CompositeExtractor 组合提取器
@@ -57,12 +57,12 @@ func NewCompositeExtractor(marketplace string, logs func(string) *logrus.Entry) 
 }
 
 // Extract 提取所有信息（使用ParallelProcessor优化）
-func (ce *CompositeExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (ce *CompositeExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	return ce.ExtractWithContext(context.Background(), page, product)
 }
 
 // ExtractWithContext 提取所有信息，支持 ctx 超时控制
-func (ce *CompositeExtractor) ExtractWithContext(ctx context.Context, page playwright.Page, product *model.Product) error {
+func (ce *CompositeExtractor) ExtractWithContext(ctx context.Context, page playwright.Page, product *amazonresult.Product) error {
 	// 第一阶段：必须串行执行的提取器（有依赖关系）
 	serialExtractors := []Extractor{
 		&TitleExtractor{loggerDependency: loggerDependency{logFor: ce.logFor}},

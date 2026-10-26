@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 	"task-processor/internal/pkg/timeout"
 
 	"github.com/mxschmitt/playwright-go"
@@ -20,7 +20,7 @@ type RatingExtractor struct {
 }
 
 // Extract 提取评分和评论数据（并行优化版本）
-func (e *RatingExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *RatingExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	ctx, cancel := timeout.WithAIShortTimeout(context.Background())
 	defer cancel()
 
@@ -75,7 +75,7 @@ func (e *RatingExtractor) waitForPageLoad(ctx context.Context, page playwright.P
 }
 
 // extractRating 提取产品评分
-func (e *RatingExtractor) extractRating(_ context.Context, page playwright.Page, product *model.Product) error {
+func (e *RatingExtractor) extractRating(_ context.Context, page playwright.Page, product *amazonresult.Product) error {
 	// 2024年最新的Amazon评分选择器（按性能优化排序）
 	ratingSelectors := []string{
 		// 最快的选择器（0.0-0.1ms）
@@ -129,7 +129,7 @@ func (e *RatingExtractor) extractRating(_ context.Context, page playwright.Page,
 }
 
 // extractReviewsCount 提取评论数量
-func (e *RatingExtractor) extractReviewsCount(_ context.Context, page playwright.Page, product *model.Product) error {
+func (e *RatingExtractor) extractReviewsCount(_ context.Context, page playwright.Page, product *amazonresult.Product) error {
 	// 2024年最新的Amazon评论数选择器（按性能优化排序）
 	reviewSelectors := []string{
 		// 最快的选择器（0.1-0.3ms）

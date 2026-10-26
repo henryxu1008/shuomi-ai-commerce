@@ -13,7 +13,7 @@ import (
 
 	"task-processor/internal/core/config"
 	"task-processor/internal/crawler/amazon"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 )
 
 func main() {
@@ -89,7 +89,7 @@ func main() {
 	}
 }
 
-func saveProductToFile(product *model.Product, filename string) error {
+func saveProductToFile(product *amazonresult.Product, filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("创建文件失败: %w", err)

@@ -4,7 +4,7 @@ package extractor
 import (
 	"github.com/sirupsen/logrus"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -27,7 +27,7 @@ func NewDescriptionExtractor(logs func(string) *logrus.Entry) *DescriptionExtrac
 }
 
 // Extract 提取描述信息
-func (e *DescriptionExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *DescriptionExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	// 提取description
 	description := e.extractDescription(page)
 	if description != "" {
@@ -37,7 +37,7 @@ func (e *DescriptionExtractor) Extract(page playwright.Page, product *model.Prod
 	// 提取product_description
 	productDescription := e.extractProductDescription(page)
 	if productDescription != "" {
-		product.ProductDescription = []model.Description{
+		product.ProductDescription = []amazonresult.Description{
 			{
 				Text: productDescription,
 				Type: "text",

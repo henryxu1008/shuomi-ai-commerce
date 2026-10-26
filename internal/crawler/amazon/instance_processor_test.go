@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/result"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -17,12 +17,12 @@ func TestInstanceProcessorRetriesOnProductQualityFailure(t *testing.T) {
 
 	attempts := 0
 	reloads := 0
-	ip.extractProduct = func(ctx context.Context, page playwright.Page, url, zipcode string) (*model.Product, error) {
+	ip.extractProduct = func(ctx context.Context, page playwright.Page, url, zipcode string) (*amazonresult.Product, error) {
 		attempts++
 		if attempts == 1 {
 			return nil, &ProductQualityError{Reasons: []string{"title is empty"}}
 		}
-		return &model.Product{
+		return &amazonresult.Product{
 			Asin:         "B001234567",
 			Title:        "Demo Product",
 			ImageURL:     "https://example.com/1.jpg",
@@ -56,7 +56,7 @@ func TestInstanceProcessorStopsAfterQualityRetryLimit(t *testing.T) {
 	ip.SetQualityControlOptions(true, 2)
 
 	attempts := 0
-	ip.extractProduct = func(ctx context.Context, page playwright.Page, url, zipcode string) (*model.Product, error) {
+	ip.extractProduct = func(ctx context.Context, page playwright.Page, url, zipcode string) (*amazonresult.Product, error) {
 		attempts++
 		return nil, &ProductQualityError{Reasons: []string{"primary image is missing"}}
 	}

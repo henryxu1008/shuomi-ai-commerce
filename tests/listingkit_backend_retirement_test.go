@@ -17,6 +17,178 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacySourceResultContractClosureIsRetired(t *testing.T) {
+	const resultOwner = "internal/crawler/amazon/result"
+	const attributeOwner = "internal/shein/api/attribute"
+	if _, err := os.Lstat(filepath.Join("..", "internal", "model")); !os.IsNotExist(err) {
+		t.Errorf("retired global model root must be absent: %v", err)
+	}
+	consumers := map[string]bool{
+		"hack/debug/test-amazon/main.go":                                 false,
+		"internal/crawler/amazon/batch_processor.go":                     false,
+		"internal/crawler/amazon/batch_processor_test.go":                false,
+		"internal/crawler/amazon/browser/error_detector.go":              false,
+		"internal/crawler/amazon/browser/pool_manager.go":                false,
+		"internal/crawler/amazon/browser/pool_manager_test.go":           false,
+		"internal/crawler/amazon/extractor/availability_extractor.go":    false,
+		"internal/crawler/amazon/extractor/bestseller_extractor.go":      false,
+		"internal/crawler/amazon/extractor/brand_extractor.go":           false,
+		"internal/crawler/amazon/extractor/categories_extractor.go":      false,
+		"internal/crawler/amazon/extractor/delivery_extractor.go":        false,
+		"internal/crawler/amazon/extractor/description_extractor.go":     false,
+		"internal/crawler/amazon/extractor/error_detector.go":            false,
+		"internal/crawler/amazon/extractor/extractor.go":                 false,
+		"internal/crawler/amazon/extractor/feature_parser_extractor.go":  false,
+		"internal/crawler/amazon/extractor/features_extractor.go":        false,
+		"internal/crawler/amazon/extractor/image_extractor.go":           false,
+		"internal/crawler/amazon/extractor/list_price_extractor.go":      false,
+		"internal/crawler/amazon/extractor/list_price_extractor_test.go": false,
+		"internal/crawler/amazon/extractor/parent_asin_extractor.go":     false,
+		"internal/crawler/amazon/extractor/price_extractor.go":           false,
+		"internal/crawler/amazon/extractor/price_extractor_test.go":      false,
+		"internal/crawler/amazon/extractor/product_details_extractor.go": false,
+		"internal/crawler/amazon/extractor/rating_extractor.go":          false,
+		"internal/crawler/amazon/extractor/seller_extractor.go":          false,
+		"internal/crawler/amazon/extractor/ships_from_extractor.go":      false,
+		"internal/crawler/amazon/extractor/size_chart_extractor.go":      false,
+		"internal/crawler/amazon/extractor/title_extractor.go":           false,
+		"internal/crawler/amazon/extractor/variations_extractor.go":      false,
+		"internal/crawler/amazon/extractor/video_extractor.go":           false,
+		"internal/crawler/amazon/instance_processor.go":                  false,
+		"internal/crawler/amazon/instance_processor_test.go":             false,
+		"internal/crawler/amazon/processor.go":                           false,
+		"internal/crawler/amazon/processor_test.go":                      false,
+		"internal/crawler/amazon/result_validator.go":                    false,
+		"internal/crawler/amazon/result_validator_test.go":               false,
+	}
+	types := map[string]bool{}
+	for _, name := range strings.Fields("Product Description PriceBreakdown BuyboxPrices Subcategory CustomersSay CustomersKeywords InactiveBuyBox Variation VariationValue ProductDetail SizeChart VideoInfo ProductRequest ProductResult ProductNotFoundError NullableTime") {
+		types[name] = false
+	}
+	methods := map[string]bool{}
+	for _, name := range strings.Fields("VariationValue.UnmarshalJSON NullableTime.UnmarshalJSON NullableTime.MarshalJSON ProductNotFoundError.Error ProductNotFoundError.Unwrap") {
+		methods[name] = false
+	}
+	relationFound := false
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		production := !strings.HasSuffix(relative, "_test.go")
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if importMatchesPrefix(imported, "task-processor/internal/model") {
+				t.Errorf("%s imports retired global model: %s", relative, imported)
+			}
+			if imported == "task-processor/"+resultOwner {
+				if _, required := consumers[relative]; required {
+					consumers[relative] = true
+				}
+			}
+			if owner == resultOwner && production {
+				if !slices.Contains([]string{"encoding/json", "fmt", "time"}, imported) || spec.Name != nil {
+					t.Errorf("pure result leaf imports unexpected dependency: %s", imported)
+				}
+			}
+		}
+		if owner != resultOwner && owner != attributeOwner {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.GenDecl:
+				if d.Tok == token.IMPORT {
+					continue
+				}
+				for _, spec := range d.Specs {
+					s, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						if owner == resultOwner && production {
+							t.Errorf("pure result leaf must not own global state: %s", relative)
+						}
+						continue
+					}
+					if owner == attributeOwner {
+						if slices.Contains([]string{"AttributeInfo", "AttributeValue", "AttributeValueGroup"}, s.Name.Name) {
+							t.Errorf("%s retains retired attribute DTO %s", relative, s.Name.Name)
+						}
+						if s.Name.Name == "CustomAttributeRelation" && production {
+							_, realStruct := s.Type.(*ast.StructType)
+							relationFound = realStruct && !s.Assign.IsValid()
+						}
+					}
+					if owner == resultOwner && production {
+						_, realStruct := s.Type.(*ast.StructType)
+						if _, expected := types[s.Name.Name]; !expected || !realStruct || s.Assign.IsValid() {
+							t.Errorf("result contract must be a required real struct: %s", s.Name.Name)
+						} else {
+							types[s.Name.Name] = true
+						}
+					}
+				}
+			case *ast.FuncDecl:
+				if owner != resultOwner || !production {
+					continue
+				}
+				if d.Recv == nil || len(d.Recv.List) != 1 {
+					t.Errorf("pure result leaf must not add a runtime/forwarding function: %s", d.Name.Name)
+					continue
+				}
+				receiver := d.Recv.List[0].Type
+				if pointer, ok := receiver.(*ast.StarExpr); ok {
+					receiver = pointer.X
+				}
+				id, ok := receiver.(*ast.Ident)
+				if !ok {
+					t.Fatalf("unsupported result receiver: %T", receiver)
+				}
+				key := id.Name + "." + d.Name.Name
+				if _, expected := methods[key]; !expected {
+					t.Errorf("unexpected result method: %s", key)
+				} else {
+					methods[key] = true
+				}
+				ast.Inspect(d.Body, func(node ast.Node) bool {
+					call, ok := node.(*ast.CallExpr)
+					if !ok {
+						return true
+					}
+					if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
+						pkg, ok := selector.X.(*ast.Ident)
+						if !ok || !slices.Contains([]string{"json.Marshal", "json.Unmarshal", "fmt.Sprintf"}, pkg.Name+"."+selector.Sel.Name) {
+							t.Errorf("result leaf must retain only pure codec/error calls: %s", key)
+						}
+					}
+					return true
+				})
+			}
+		}
+	}
+	for path, found := range consumers {
+		if !found {
+			t.Errorf("current consumer must import Amazon result owner: %s", path)
+		}
+	}
+	for _, required := range []map[string]bool{types, methods} {
+		for name, found := range required {
+			if !found {
+				t.Errorf("required Amazon result contract missing: %s", name)
+			}
+		}
+	}
+	if !relationFound {
+		t.Error("current CustomAttributeRelation must remain a real struct")
+	}
+}
+
 func TestLegacyPublishingSupportPolicyClosureIsRetired(t *testing.T) {
 	for _, root := range []string{"internal/publishing", "internal/pkg/jsonx"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(root))); !os.IsNotExist(err) {
@@ -557,7 +729,7 @@ func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 		"internal/crawler/amazon/browser":    "NewBrowserManagerWithConfig PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.releaseInstanceSafely PoolManager.Shutdown regionalPromptTextSelectors regionalPromptActionSelectors normalizedAmazonHost looksLikeRegionalPrompt DismissRegionalPrompt ExtractZipcode CheckIfPriceAvailable",
 		"internal/crawler/amazon/extractor":  "NewCompositeExtractor FeaturesExtractor FeatureParserExtractor DescriptionExtractor NewVariationsExtractor VariationsExtractor.Extract convertToVariationsValues convertToAmazonVariations TextValidator.IsValidDescription TextValidator.IsValidProductDescription ErrorDetector.DetectErrorType ErrorDetector.IsCriticalError",
 		"internal/crawler/amazon/variations": "NewExtractor Extractor.ExtractFromPage Extractor.BuildVariations GetDefaultConfig VariationsData VariationValue Variation",
-		"internal/model":                     "Product",
+		"internal/crawler/amazon/result":     "Product",
 		"internal/sheinlogin":                "Service.RunWorker Service.processAttempt Service.claimExecution Service.syncPending",
 	} {
 		for _, name := range strings.Fields(names) {
@@ -608,7 +780,7 @@ func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 			continue
 		}
 		_, crawlerOwner := retiredFunctions[owner]
-		if !crawlerOwner && owner != "internal/model" && owner != "internal/sheinlogin" {
+		if !crawlerOwner && owner != "internal/crawler/amazon/result" && owner != "internal/sheinlogin" {
 			continue
 		}
 		for _, declaration := range file.Decls {
@@ -5331,7 +5503,7 @@ func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
 		"internal/shein/authorizedbrand/types.go":            {"Resolved"},
 		"internal/shein/authorizedbrand/context.go":          {"WithResolved", "FromContext"},
 		"internal/core/config/type_platform.go":              {"PlatformsConfig", "Alibaba1688Config"},
-		"internal/shein/api/attribute/interface.go":          {"AttributeInfo", "AttributeValue", "AttributeValueGroup", "CustomAttributeRelation"},
+		"internal/shein/api/attribute/interface.go":          {"CustomAttributeRelation"},
 		"internal/shein/api/other/interface.go":              {"FlexibleString", "SupplierOperateInfo", "SupplierOperateInfoResponse"},
 		"internal/shein/api/product/model.go":                {"Product", "Extra", "LanguageContent", "ProductAttribute", "ProductVideo", "SiteInfo", "SizeAttribute"},
 		"internal/shein/api/product/skc_sku.go":              {"SKC", "SkcExtra", "SaleAttribute", "SKU", "SkuExtra", "FieldDisabledInfo", "QuantityInfo", "CostInfo", "PriceInfo", "StockInfo", "ImageInfo", "ImageDetail", "SiteDetailImageInfo", "DetailImage"},
