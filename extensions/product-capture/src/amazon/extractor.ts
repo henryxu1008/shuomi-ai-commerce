@@ -5,6 +5,7 @@ import { excluded, productText, tableFacts, putFact, detailImages } from '../dom
 import { albumURLs } from './album';
 import { amazonListFacts, amazonTableFacts, amazonVisibleTitle } from './product-details';
 import { amazonPrice } from './price';
+import { DIMENSION_CONFLICT, DIMENSION_UNOBSERVED, placeholderDimension } from './dimensions';
 
 // Reads product DOM and statically bound album literals. No script execution,
 // page-global state, network, credentials or variant traversal.
@@ -75,7 +76,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const dimension = (label: Element | null, selection: Element | null) => {
     const name = text(label)?.replace(/\s+/g, ' ').replace(/[:：]$/, '').trim();
     const selected = text(selection)?.replace(/\s+/g, ' ');
-    if (!name || !selected) { incompleteDimension = true; return; }
+    if (!name || !selected || placeholderDimension(selected)) { incompleteDimension = true; return; }
     const key = name.toLowerCase();
     if (conflicts.has(key)) return;
     const previous = dimensions.get(key);
@@ -134,8 +135,8 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   if (subtitleReason) missingFacts.push({ field: 'title.subtitle', reason: subtitleReason });
   if (details.reason) missingFacts.push({ field: 'attributes.details', reason: details.reason });
   if (album.reason) missingFacts.push({ field: 'images.hiRes', reason: album.reason });
-  if (!attributes.length || incompleteDimension) missingFacts.push({ field: 'variants[0].attributes', reason: 'selected dimension label or value not observed' });
-  if (conflicts.size) missingFacts.push({ field: 'variants[0].attributes', reason: 'conflicting selected dimension values were omitted' });
+  if (!attributes.length || incompleteDimension) missingFacts.push({ field: 'variants[0].attributes', reason: DIMENSION_UNOBSERVED });
+  if (conflicts.size) missingFacts.push({ field: 'variants[0].attributes', reason: DIMENSION_CONFLICT });
   if (!observedBullets) missingFacts.push({ field: 'description.featureBullets', reason: 'feature bullet text not observed' });
   if (!description) missingFacts.push({ field: 'description', reason: 'product description and feature bullet text not observed' });
   if (!images.length) missingFacts.push({ field: 'images', reason: 'no admissible selected product image observed' });

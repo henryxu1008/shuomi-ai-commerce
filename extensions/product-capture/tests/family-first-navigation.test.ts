@@ -16,7 +16,7 @@ const checkpoint='https://www.amazon.com/checkpoint/continue?token=DO_NOT_FORWAR
 let dom:JSDOM;
 afterEach(()=>{dom?.window.dispatchEvent(new dom.window.Event('pagehide'));dom?.window.close();vi.unstubAllGlobals();});
 
-async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;pauseThird?:boolean;holdNavigation?:boolean;redirectAfterVerify?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
+async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;placeholderChild?:boolean;pauseThird?:boolean;holdNavigation?:boolean;redirectAfterVerify?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
  const original=new JSDOM(readFileSync('tests/fixtures/amazon-inline-product.html','utf8'),{url:source});
  const anchor=await captureAmazonDocument(original.window.document,source);original.window.close();
  const other=structuredClone(anchor);other.evidence.sourceID='B0CC1YM6SJ';other.evidence.sourceURL=target;other.evidence.variants[0].sourceID='B0CC1YM6SJ';
@@ -26,6 +26,7 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  third.evidence.variants[0].attributes=other.evidence.variants[0].attributes.map(a=>a.name==='Color'?{...a,value:'Blue'}:a);
  third.evidence.variants[0].price={amount:'54.98',currency:'USD'};third.evidence.variants[0].images=[{role:'main',url:'https://m.media-amazon.com/images/I/third.jpg'}];
  const manifest={sourceURL:source,parentASIN:'B0D76YXPWZ',members:[anchor,other,...(options.third?[third]:[])].map(p=>({sourceID:p.evidence.sourceID,attributes:p.evidence.variants[0].attributes}))};
+ if(options.placeholderChild){other.evidence.variants[0].attributes=[];other.evidence.missingFacts.push({field:'variants[0].attributes',reason:'selected dimension label or value not observed'});}
  if(options.memberID)manifest.members[1].sourceID=options.memberID;
  const revision=crypto.randomUUID(),progress=`chrome-extension://${id}/popup.html#amazon-family=${revision}`;
  dom=new JSDOM('<body/>',{url:progress});
@@ -215,4 +216,13 @@ it('rejects a replacement progress document even with the same registered reader
 it('does not accept a parsed child if the native reader returns to its predecessor after the final document check',async()=>{
  const s=await setup({third:true,redirectAfterVerify:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
  expect(s.status()).toContain('2/3');expect(s.receiver).not.toHaveBeenCalled();expect(s.payload()).toBeUndefined();
+});
+it('composes current-child static dimensions through the real page/bridge/read path and hands off once with attributed diagnostics',async()=>{
+ const s=await setup({third:true,placeholderChild:true});await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(1);
+ const output=s.payload()!;expect(output.evidence.variants).toHaveLength(3);
+ expect(output.evidence.variants[1].attributes).toContainEqual({name:'Color',value:'Beige'});
+ expect(output.evidence.variants[1].price?.amount).toBe('44.98');expect(output.evidence.variants[1].images[0].url).toContain('child.jpg');
+ expect(output.evidence.missingFacts).toContainEqual({field:'variants.1.attributes.rendered',reason:expect.stringContaining('current-ASIN static')});
+ expect(s.send.mock.calls.filter(([m])=>m.type==='family.finish')).toHaveLength(1);
 });
