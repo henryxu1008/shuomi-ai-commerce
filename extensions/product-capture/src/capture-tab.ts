@@ -2,6 +2,7 @@ import type { CaptureTab } from './controller';
 import { capturePageSource, validatePlatformCapture } from './platforms';
 import type { FamilyManifest } from './amazon/family-discovery';
 import { captureErrorCode } from './entry-errors';
+import { completeFamilyDimensions } from './amazon/dimensions';
 
 export async function extractTab(tab:CaptureTab,signal?:AbortSignal) {
   signal?.throwIfAborted();
@@ -50,5 +51,11 @@ export async function extractFamilyTab(tab:CaptureTab,required:boolean,signal?:A
   if(result.length!==1 || result[0].frameId!==0 || result[0].documentId!==documentId)throw Error('PAGE_CHANGED');
   const value=result[0].result as {ok?:boolean;manifest?:FamilyManifest;code?:string}|undefined;
   if(!value?.ok && (required || value?.code!=='FAMILY_NOT_AVAILABLE'))throw Error(captureErrorCode(value?.code));
-  return {capture:payload,manifest:value?.manifest};
+  const capture=await completeFamilyDimensions(payload,value?.manifest);
+  signal?.throwIfAborted();
+  // Composition may await WebCrypto. Its result still belongs only to the
+  // original native document, including same-URL replacement documents.
+  await verifyDocument({id:tab.id,url:payload.evidence.sourceURL,documentId});
+  signal?.throwIfAborted();
+  return {capture,manifest:value?.manifest};
 }

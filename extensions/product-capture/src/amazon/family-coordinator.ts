@@ -2,6 +2,7 @@ import type { AmazonCapturePayload, AmazonVariant } from './wire';
 import type { FamilyManifest, FamilyMember } from './family-discovery';
 import { validateAmazonCapture } from './validation';
 import { captureException } from '../entry-errors';
+import { RENDERED_DIMENSION_FIELD } from './dimensions';
 
 export type FamilyPhase = 'initializing' | 'collecting' | 'paused' | 'transferring' | 'transferred' | 'uncertain' | 'cancelled';
 export type FamilySummary = { phase: FamilyPhase; observed: number; total: number; reason: string };
@@ -48,7 +49,7 @@ export class FamilyCoordinator {
       }
       this.check(result.capture, expected);
       const variant = structuredClone(result.capture.evidence.variants[0]);
-      const missing = result.capture.evidence.missingFacts.filter(f => f.field==='price' || f.field==='price.currency' || f.field==='variants[0].attributes' || f.field==='images' && !variant.images.length).map(f => ({field:`variants.${this.variants.length}.${f.field.replace(/^variants\[0\]\./,'')}`,reason:f.reason}));
+      const missing = result.capture.evidence.missingFacts.filter(f => f.field==='price' || f.field==='price.currency' || f.field==='variants[0].attributes' || f.field===RENDERED_DIMENSION_FIELD || f.field==='images' && !variant.images.length).map(f => ({field:`variants.${this.variants.length}.${f.field.replace(/^variants\[0\]\./,'')}`,reason:f.reason}));
       const diagnostics = [...this.diagnostics, ...missing];
       // Project only one variant/diagnostic set; never retain every child product's album/body.
       try { this.project([...this.variants, variant], diagnostics); } catch { throw Error('FAMILY_LIMIT_REACHED'); }

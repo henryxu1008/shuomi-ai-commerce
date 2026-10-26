@@ -108,3 +108,12 @@ it.each(['currency','price'])('keeps 171 unknown %s facts attributable and folda
  expect(payload.evidence.missingFacts).toContainEqual({field:`variants.170.${field}`,reason});
  expect(payload.evidence.variants.every(v=>kind==='currency'?v.price?.currency===null:v.price===null)).toBe(true);
 });
+it('keeps 171 rendered-dimension provenance diagnostics attributable and foldable within unchanged limits',async()=>{
+ const initial=await seed(),reason='rendered dimension selection not observed; values supplied by current-ASIN static data';
+ initial.manifest.members=[initial.manifest.members[0],...Array.from({length:170},(_,n)=>({sourceID:`B${String(n).padStart(9,'0')}`,attributes:[{name:'Color',value:`c${n}`},{name:'Size',value:'XL'}]}))];
+ const handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
+ const c=new FamilyCoordinator({seed:async()=>initial,read:async m=>{const capture=structuredClone(initial.anchor);capture.evidence.sourceID=m.sourceID;capture.evidence.sourceURL=`https://www.amazon.com/dp/${m.sourceID}`;capture.evidence.variants[0].sourceID=m.sourceID;capture.evidence.variants[0].attributes=m.attributes;capture.evidence.missingFacts=[{field:'variants[0].attributes.rendered',reason}];return {capture,parentASIN:initial.manifest.parentASIN};},handoff,close:async()=>{}});
+ await c.start();expect(c.snapshot()).toMatchObject({phase:'transferred',observed:171});expect(handoff).toHaveBeenCalledOnce();
+ const output=handoff.mock.calls[0][0];expect(output.evidence.missingFacts).toContainEqual({field:'variants.170.attributes.rendered',reason});
+ expect(output.evidence.missingFacts.length).toBeLessThanOrEqual(256);expect(new Set(output.evidence.missingFacts.map(f=>f.reason)).size).toBeLessThan(128);
+});

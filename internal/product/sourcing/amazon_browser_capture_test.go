@@ -89,7 +89,7 @@ func TestAmazonPartialFamilyKeepsAnchorAndEachChildFacts(t *testing.T) {
 }
 
 func TestAmazonPartialFamilyFolds171UnknownChildFactsWithinExistingReadBounds(t *testing.T) {
-	for _, field := range []string{"price.currency", "price"} {
+	for _, field := range []string{"price.currency", "price", "attributes.rendered"} {
 		var input map[string]any
 		_ = json.Unmarshal(amazonFixture(), &input)
 		e := input["evidence"].(map[string]any)
@@ -104,6 +104,10 @@ func TestAmazonPartialFamilyFolds171UnknownChildFactsWithinExistingReadBounds(t 
 			reason := "source currency not explicit"
 			if field == "price" {
 				price, reason = nil, "source price not observed"
+			}
+			if field == "attributes.rendered" {
+				price = map[string]any{"amount": "39.98", "currency": "USD"}
+				reason = "rendered dimension selection not observed; values supplied by current-ASIN static data"
 			}
 			variants = append(variants, map[string]any{"sourceID": id, "sku": nil, "title": nil,
 				"attributes": []any{map[string]any{"name": "Color", "value": fmt.Sprintf("c%d", i)}}, "price": price,
@@ -125,6 +129,12 @@ func TestAmazonPartialFamilyFolds171UnknownChildFactsWithinExistingReadBounds(t 
 			t.Fatalf("%s family unreadable: %v", field, err)
 		}
 		for _, variant := range env.ProductCandidate.Variants {
+			if field == "attributes.rendered" {
+				if variant.Price != 39.98 || variant.Currency != "USD" {
+					t.Fatalf("changed observed quote: %+v", variant)
+				}
+				continue
+			}
 			if variant.Price != 0 || variant.Currency != "" {
 				t.Fatalf("invented unknown %s: %+v", field, variant)
 			}
