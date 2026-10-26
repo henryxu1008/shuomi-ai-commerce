@@ -4,6 +4,7 @@ import { validateAmazonCapture } from './validation';
 
 export const DIMENSION_CONFLICT = 'conflicting selected dimension values were omitted';
 export const DIMENSION_UNOBSERVED = 'selected dimension label or value not observed';
+export const DIMENSION_UNBOUND = 'real selected dimension value has no observed label';
 export const RENDERED_DIMENSION_FIELD = 'variants[0].attributes.rendered';
 const staticReason = 'rendered dimension selection not observed; values supplied by current-ASIN static data';
 
@@ -15,12 +16,12 @@ export function placeholderDimension(value: string) {
 // original family list is deliberately not an input to this composition.
 export async function completeFamilyDimensions(capture: AmazonCapturePayload, manifest?: FamilyManifest) {
   const checked = validateAmazonCapture(capture), e = checked.evidence;
+  if (e.missingFacts.some(f => f.field === 'variants[0].attributes' && (f.reason === DIMENSION_CONFLICT || f.reason === DIMENSION_UNBOUND))) throw Error('SOURCE_CHANGED');
   if (!manifest) return checked;
   if (manifest.sourceURL !== e.sourceURL || !/^[A-Z0-9]{10}$/.test(manifest.parentASIN) || manifest.parentASIN === e.sourceID
     || e.variants.length !== 1 || e.variants[0].sourceID !== e.sourceID) throw Error('SOURCE_CHANGED');
   const matches = manifest.members.filter(m => m.sourceID === e.sourceID);
-  if (matches.length !== 1 || !matches[0].attributes.length
-    || e.missingFacts.some(f => f.field === 'variants[0].attributes' && f.reason === DIMENSION_CONFLICT)) throw Error('SOURCE_CHANGED');
+  if (matches.length !== 1 || !matches[0].attributes.length) throw Error('SOURCE_CHANGED');
   const expected = matches[0].attributes, values = new Map(expected.map(a => [a.name,a.value]));
   if (values.size !== expected.length || expected.some(a => !a.name.trim() || !a.value.trim() || placeholderDimension(a.value))
     || e.variants[0].attributes.some(a => values.get(a.name) !== a.value)) throw Error('SOURCE_CHANGED');

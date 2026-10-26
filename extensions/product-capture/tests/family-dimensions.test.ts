@@ -71,6 +71,18 @@ it('leaves missing dimensions unfilled when no current-document family exists',a
  const result=await reader(page(),()=>null).read();expect(result.manifest).toBeUndefined();
  expect(result.capture.evidence.variants[0].attributes).toEqual([]);
 });
+it.each(['own','absent'] as const)('does not hide an unlabelled real selection with %s family metadata',async metadata=>{
+ const doc=page('Select Color','Select Size','<div id="variation_unknown"><span class="selection">Beige</span></div>');
+ const r=reader(doc,metadata==='absent'?()=>null:undefined);
+ const outcome=await r.read().then(()=> 'ACCEPTED',e=>(e as Error).message);
+ expect(outcome).toBe('SOURCE_CHANGED');
+});
+it('does not hide an omitted real conflict behind absent metadata',async()=>{
+ const extra='<div id="variation_style_a"><span class="a-form-label">Style:</span><span class="selection">A</span></div><div id="variation_style_b"><span class="a-form-label">Style:</span><span class="selection">B</span></div>';
+ const r=reader(page('Graige',expected[1].value,extra),()=>null);
+ const outcome=await r.read().then(()=> 'ACCEPTED',e=>(e as Error).message);
+ expect(outcome).toBe('SOURCE_CHANGED');
+});
 it.each(['document','cancel'])('rejects %s drift after asynchronous dimension digest calculation',async kind=>{
  const r=reader(page()),abort=new AbortController(),digest=crypto.subtle.digest.bind(crypto.subtle);let calls=0;
  vi.spyOn(crypto.subtle,'digest').mockImplementation(async(algorithm,data)=>{const value=await digest(algorithm,data);if(++calls===2){if(kind==='document')r.replaceDocument();else abort.abort();}return value;});
