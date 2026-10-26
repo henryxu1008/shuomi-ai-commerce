@@ -5,6 +5,7 @@ import { entryMessages, type EntryError } from '../entry-errors';
 import { UUID } from '../validation';
 import type { FamilyMember } from './family-discovery';
 import { sameAmazonProduct, sameSiteInterruption, waitForFamilyDocument } from './family-reader';
+import { amazonPageSource } from './validation';
 
 export function mountFamilyPage(revision:string) {
   if(!UUID.test(revision) || location.href!==familyURL(revision))throw Error('INVALID_MESSAGE');
@@ -19,6 +20,7 @@ export function mountFamilyPage(revision:string) {
     const button=document.createElement('button');button.textContent=text;buttons.set(id,button);document.body.append(button);
   }
   let readerId:number|undefined,coordinatorTabId:number|undefined,windowId:number|undefined;
+  let readerCreationAttempted=false,readerLocated=false;
   let initialized:Promise<{source:{id:number;url:string;documentId:string}}>|undefined;
   let sourceURL='',actionFailure='',pendingTarget='';
   const request=async(type:string,extra:Record<string,unknown>={})=>{
@@ -28,29 +30,44 @@ export function mountFamilyPage(revision:string) {
   const initialize=()=>initialized??=request('family.init').then(value=>{coordinatorTabId=value.coordinatorTabId;windowId=value.windowId;sourceURL=value.source.url;return value;});
   async function read(member:FamilyMember,signal:AbortSignal) {
     await initialize();signal.throwIfAborted();
-    if(readerId===undefined){const tab=await chrome.tabs.create({url:'about:blank',active:false,openerTabId:coordinatorTabId,windowId});if(tab.id===undefined)throw Error('FAMILY_INTERRUPTED');readerId=tab.id;if(signal.aborted){const owned=await chrome.tabs.get(readerId);if(owned.url==='about:blank'&&owned.openerTabId===coordinatorTabId)await chrome.tabs.remove(readerId);readerId=undefined;signal.throwIfAborted();}}
-    const target=new URL(`/dp/${member.sourceID}`,sourceURL).href;
+    const target=amazonPageSource(new URL(`/dp/${member.sourceID}`,sourceURL).href).sourceURL;
+    if(readerId===undefined){
+      if(readerCreationAttempted)throw Error('FAMILY_INTERRUPTED');
+      readerCreationAttempted=true;
+      const tab=await chrome.tabs.create({url:target,active:false,openerTabId:coordinatorTabId,windowId});
+      if(tab.id===undefined)throw Error('FAMILY_INTERRUPTED');
+      readerId=tab.id;pendingTarget=target;signal.throwIfAborted();
+    }
     const id=readerId;
     if(id===undefined)throw Error('FAMILY_INTERRUPTED');
     const current=await chrome.tabs.get(id);signal.throwIfAborted();
-    if(current.openerTabId!==coordinatorTabId || current.pendingUrl && current.pendingUrl!==current.url && !sameAmazonProduct(current.pendingUrl,target))throw Error('FAMILY_INTERRUPTED');
+    if(current.openerTabId!==coordinatorTabId || current.windowId!==windowId
+      || current.pendingUrl && current.pendingUrl!==current.url && !sameAmazonProduct(current.pendingUrl,target) && !sameSiteInterruption(current.pendingUrl,target))throw Error('FAMILY_INTERRUPTED');
     const retry=pendingTarget===target;
     const interruption=retry && sameSiteInterruption(current.url,target);
-    if(!interruption){
+    if(!readerLocated){
+      // tabs.create already navigated. Missing metadata is only a bounded wait,
+      // never proof of ownership or permission to overwrite an unknown page.
+      await waitForFamilyDocument(id,target,signal,false,true);
       await request('family.reader',{tabId:id,sourceURL:target});signal.throwIfAborted();
+      readerLocated=true;
+    }else{
+      if(!interruption){
+        await request('family.reader',{tabId:id,sourceURL:target});signal.throwIfAborted();
+      }
+      // A still-blocked owned reader is classified again only on explicit resume;
+      // the locator remains the expected product, never the verification URL.
+      const navigate=!retry || !sameAmazonProduct(current.url,target) && !interruption;
+      pendingTarget=target;
+      await waitForFamilyDocument(id,target,signal,navigate);
     }
-    // A still-blocked owned reader is only classified again on explicit resume.
-    // It is never registered as a product locator or navigated past the check.
-    const navigate=!retry || !sameAmazonProduct(current.url,target) && !interruption;
-    pendingTarget=target;
-    await waitForFamilyDocument(id,target,signal,navigate);
     const result=await extractFamilyTab({id,url:target},false,signal);
     return {...result,parentASIN:result.manifest?.parentASIN??null};
   }
   const coordinator=new FamilyCoordinator({
     seed:async(signal)=>{const context=await initialize();signal.throwIfAborted();const result=await extractFamilyTab(context.source,true,signal);if(!result.manifest)throw Error('FAMILY_NOT_AVAILABLE');return {anchor:result.capture,manifest:result.manifest};},
     read,
-    close:async()=>{await request('family.closeReader');readerId=undefined;},
+    close:async()=>{await request('family.closeReader');readerId=undefined;readerLocated=false;},
     handoff:async payload=>{await request('family.finish',{payload});},
   });
   const describe=(s:FamilySummary)=>`${s.observed}/${s.total} 项已观察（仅本页发现的规格） · ${s.phase==='paused'?'已暂停':s.phase==='collecting'?'正在采集':s.phase==='transferred'?'已交给应用，请在原应用确认保存':s.phase==='uncertain'?'交接待核实，请保留原应用，不要重采或重复保存':s.phase==='cancelled'?'本次采集已取消':s.phase==='transferring'?'正在交给原应用':'正在初始化'}${s.reason?' · '+(Object.hasOwn(entryMessages,s.reason)?entryMessages[s.reason as EntryError]:'该商品页暂不可读取，请查看后决定继续、使用已采数据或取消。'):''}`;
@@ -59,7 +76,7 @@ export function mountFamilyPage(revision:string) {
   buttons.get('resume')!.onclick=()=>void action(()=>{if(!coordinator.snapshot().observed)initialized=undefined;return coordinator.resume();});
   buttons.get('partial')!.onclick=()=>void action(()=>coordinator.useObserved());
   buttons.get('cancel')!.onclick=()=>void action(async()=>{await coordinator.cancel();await request('family.cancel');});
-  buttons.get('reader')!.onclick=()=>void action(async()=>{if(readerId===undefined)return;const tab=await chrome.tabs.get(readerId);if(tab.openerTabId!==coordinatorTabId)throw Error('FAMILY_INTERRUPTED');await chrome.tabs.update(readerId,{active:true});if(tab.windowId!==undefined)await chrome.windows.update(tab.windowId,{focused:true});});
+  buttons.get('reader')!.onclick=()=>void action(async()=>{if(readerId===undefined)return;const tab=await chrome.tabs.get(readerId);if(tab.openerTabId!==coordinatorTabId||tab.windowId!==windowId)throw Error('FAMILY_INTERRUPTED');await chrome.tabs.update(readerId,{active:true});if(tab.windowId!==undefined)await chrome.windows.update(tab.windowId,{focused:true});});
   buttons.get('return')!.onclick=()=>void action(()=>request('family.return'));
   const inspect=(m:unknown,sender:chrome.runtime.MessageSender,respond:(s:FamilySummary)=>void)=>{
     if(sender.id!==chrome.runtime.id || sender.tab || sender.url && sender.url!==chrome.runtime.getURL('background.js'))return false;

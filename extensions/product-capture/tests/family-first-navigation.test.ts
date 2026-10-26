@@ -16,13 +16,17 @@ const checkpoint='https://www.amazon.com/checkpoint/continue?token=DO_NOT_FORWAR
 let dom:JSDOM;
 afterEach(()=>{dom?.window.dispatchEvent(new dom.window.Event('pagehide'));dom?.window.close();vi.unstubAllGlobals();});
 
-async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
+async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
  const original=new JSDOM(readFileSync('tests/fixtures/amazon-inline-product.html','utf8'),{url:source});
  const anchor=await captureAmazonDocument(original.window.document,source);original.window.close();
  const other=structuredClone(anchor);other.evidence.sourceID='B0CC1YM6SJ';other.evidence.sourceURL=target;other.evidence.variants[0].sourceID='B0CC1YM6SJ';
  other.evidence.variants[0].attributes=anchor.evidence.variants[0].attributes.map(a=>a.name==='Color'?{...a,value:'Beige'}:a);
  other.evidence.variants[0].price={amount:'44.98',currency:'USD'};other.evidence.variants[0].images=[{role:'main',url:'https://m.media-amazon.com/images/I/child.jpg'}];
- const manifest={sourceURL:source,parentASIN:'B0D76YXPWZ',members:[anchor,other].map(p=>({sourceID:p.evidence.sourceID,attributes:p.evidence.variants[0].attributes}))};
+ const third=structuredClone(other);third.evidence.sourceID='B000000003';third.evidence.sourceURL='https://www.amazon.com/dp/B000000003';third.evidence.variants[0].sourceID='B000000003';
+ third.evidence.variants[0].attributes=other.evidence.variants[0].attributes.map(a=>a.name==='Color'?{...a,value:'Blue'}:a);
+ third.evidence.variants[0].price={amount:'54.98',currency:'USD'};third.evidence.variants[0].images=[{role:'main',url:'https://m.media-amazon.com/images/I/third.jpg'}];
+ const manifest={sourceURL:source,parentASIN:'B0D76YXPWZ',members:[anchor,other,...(options.third?[third]:[])].map(p=>({sourceID:p.evidence.sourceID,attributes:p.evidence.variants[0].attributes}))};
+ if(options.memberID)manifest.members[1].sourceID=options.memberID;
  const revision=crypto.randomUUID(),progress=`chrome-extension://${id}/popup.html#amazon-family=${revision}`;
  dom=new JSDOM('<body/>',{url:progress});
  const storage=returnStorage(),app=new ReturnSession(storage.session as unknown as chrome.storage.SessionStorageArea);await app.ready;
@@ -31,6 +35,7 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  const contexts=[{contextType:'TAB',documentId:'progress-doc',documentUrl:progress,tabId:41,frameId:0,windowId:1}];
  const updated=new Set<(tabId:number)=>void>(),removed=new Set<(tabId:number)=>void>();
  let live:Partial<chrome.tabs.Tab>={id:50,windowId:1,openerTabId:41,status:'complete'},bridge:FamilyBridge,lost=false,exists=false;
+ let releaseReply:(()=>void)|undefined,releaseCreate:(()=>void)|undefined;
  const emit=()=>updated.forEach(fn=>fn(50));
  const create=vi.fn(async(o:chrome.tabs.CreateProperties)=>{
   if(o.url===progress)return {id:41,url:progress,windowId:1};
@@ -43,13 +48,14 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
   if(options.first==='pending'){delete live.url;live.pendingUrl=target;live.status='loading';}
   if(options.first==='verification')live.url=checkpoint;
   if(options.first==='signin')live.url='https://www.amazon.com/ap/signin?private=DO_NOT_FORWARD';
+  if(options.holdCreate)await new Promise<void>(resolve=>{releaseCreate=resolve;});
   return {id:50,windowId:1}; // create responses need not expose URL metadata either.
  });
  const get=vi.fn(async(n:number)=>{if(n===41)return {id:41,url:progress,windowId:1};if(n!==50||!exists)throw Error('closed');return {...live};});
  const update=vi.fn(async(n:number,o:chrome.tabs.UpdateProperties)=>{if(o.url){live.url=o.url;live.pendingUrl=undefined;live.status='complete';queueMicrotask(emit);}return {id:n,...live};});
  const remove=vi.fn(async(n:number)=>{if(n===50){exists=false;removed.forEach(fn=>fn(n));}});
  const execute=vi.fn(async(o:{target:{tabId:number;documentIds?:string[]};files?:string[];func?:()=>unknown})=>{
-  const root=o.target.tabId===7,p=root?anchor:other,documentId=root?'anchor-doc':'child-doc';
+  const root=o.target.tabId===7,p=root?anchor:live.url?.includes(third.evidence.sourceID)?third:other,documentId=root?'anchor-doc':'child-doc';
   const code=!root&&live.url?amazonInterruptionURL(live.url):undefined;
   const result=o.files?(code?{ok:false,code}:{ok:true,payload:p}):String(o.func).includes('CaptureEntry')?{ok:true,manifest:{...manifest,sourceURL:p.evidence.sourceURL}}:String(o.func).includes('=>true')||String(o.func).includes('=> true')?true:root?source:live.url;
   return [{frameId:0,documentId,result}];
@@ -57,6 +63,7 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  const send=vi.fn(async(m:{type:string;revision:string;payload?:AmazonCapturePayload})=>{
   try{const result=await bridge.handle(m,{id,url:progress,documentId:'progress-doc'});
    if(m.type==='family.reader'&&options.loseReply&&!lost){lost=true;return {ok:false,code:'FAMILY_INTERRUPTED'};}
+   if(m.type==='family.reader'&&options.holdReply)await new Promise<void>(resolve=>{releaseReply=resolve;});
    return {ok:true,result};
   }catch(e){return {ok:false,code:e instanceof Error?e.message:'CAPTURE_REJECTED'};}
  });
@@ -67,7 +74,7 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  mountFamilyPage(revision);
  const button=(text:string)=>[...dom.window.document.querySelectorAll('button')].find(b=>b.textContent===text)!;
  const status=()=>dom.window.document.querySelector('[role="status"]')!.textContent!;
- return {create,get,update,remove,execute,send,receiver,activate,storage,app,button,status,updated,removed,
+ return {create,get,update,remove,execute,send,receiver,activate,storage,app,button,status,updated,removed,releaseReply:()=>releaseReply?.(),releaseCreate:()=>releaseCreate?.(),
   bridge:()=>bridge,live:()=>live,change:(value:Partial<chrome.tabs.Tab>)=>{Object.assign(live,value);emit();},
   rebuild:async()=>{bridge=new FamilyBridge(()=>controller,app);await bridge.ready;},
   readerCreates:()=>create.mock.calls.filter(([o])=>o.url!==progress),
@@ -92,7 +99,7 @@ it.each(['omitted','empty','pending'] as const)('waits for initially %s URL meta
 it.each(['verification','signin'] as const)('preserves first-page %s and only continues the same manually restored child',async first=>{
  const s=await setup({first});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
  expect(s.status()).toContain(first==='verification'?'真人校验':'要求登录');expect(s.status()).not.toContain('DO_NOT_FORWARD');
- expect(JSON.stringify(s.storage.contents())).not.toContain('DO_NOT_FORWARD');expect(s.bridge().location.current?.phase==='bound'&&s.bridge().location.current?.reader?.sourceURL).toBe(target);
+ expect(JSON.stringify(s.storage.contents())).not.toContain('DO_NOT_FORWARD');const location=s.bridge().location.current;expect(location?.phase==='bound'&&location.reader?.sourceURL).toBe(target);
  s.button('继续采集').click();await vi.waitFor(()=>expect(s.childReads()).toHaveLength(2));expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
  s.change({url:target+'?ref=manual'});s.button('继续采集').click();await vi.waitFor(()=>expect(s.receiver).toHaveBeenCalledOnce());
  expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(0);
@@ -118,4 +125,25 @@ it('cancels before first metadata arrives without parsing, guessed cleanup or a 
  s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));
  s.change({url:target});await new Promise(r=>setTimeout(r,25));expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
  expect(s.remove).not.toHaveBeenCalled();expect(s.updated.size).toBe(0);expect(s.removed.size).toBe(0);
+});
+it('keeps later children on the same reader with one explicit navigation and their own quote and image',async()=>{
+ const s=await setup({third:true});await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toEqual([[50,{url:'https://www.amazon.com/dp/B000000003',active:false}]]);
+ expect(s.payload()!.evidence.variants.map(v=>[v.sourceID,v.price?.amount,v.images[0].url])).toEqual([
+  ['B0BDLGZCTY','39.98',s.payload()!.evidence.variants[0].images[0].url],['B0CC1YM6SJ','44.98','https://m.media-amazon.com/images/I/child.jpg'],['B000000003','54.98','https://m.media-amazon.com/images/I/third.jpg']]);
+});
+it('cancellation wins over a late successful first registration reply',async()=>{
+ const s=await setup({holdReply:true});await vi.waitFor(()=>{const r=s.bridge().location.current;expect(r?.phase==='bound'&&r.reader?.tabId).toBe(50);});
+ s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));s.releaseReply();
+ await new Promise(r=>setTimeout(r,25));expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();expect(s.navigations()).toHaveLength(0);expect(s.remove).toHaveBeenCalledExactlyOnceWith(50);
+});
+it('a late creation result after cancellation never registers, reads or recreates a reader',async()=>{
+ const s=await setup({holdCreate:true});await vi.waitFor(()=>expect(s.readerCreates()).toHaveLength(1));
+ s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));s.releaseCreate();
+ await new Promise(r=>setTimeout(r,25));expect(s.send.mock.calls.filter(([m])=>m.type==='family.reader')).toHaveLength(0);expect(s.childReads()).toHaveLength(0);
+ expect(s.receiver).not.toHaveBeenCalled();expect(s.readerCreates()).toHaveLength(1);expect(s.remove).not.toHaveBeenCalled();
+});
+it('validates the first child path before creating any reader',async()=>{
+ const s=await setup({memberID:'not-an-asin'});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.readerCreates()).toHaveLength(0);expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
 });

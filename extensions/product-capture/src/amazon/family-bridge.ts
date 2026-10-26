@@ -5,6 +5,7 @@ import type { ReturnSession } from '../return-session';
 import { UUID } from '../validation';
 import { amazonPageSource, validateAmazonCapture } from './validation';
 import type { FamilySummary } from './family-coordinator';
+import { sameSiteInterruption } from './family-reader';
 
 const common={revision:z.string().regex(UUID)};
 const message=z.discriminatedUnion('type',[
@@ -102,9 +103,13 @@ export class FamilyBridge {
       const canonical=(url:string|undefined)=>{try{return url?amazonPageSource(url).sourceURL:undefined;}catch{return undefined;}};
       const sameTarget=(url:string|undefined)=>canonical(url)===request.sourceURL;
       const registered=!!r.reader && canonical(tab.url)===r.reader.sourceURL;
-      if(tab.openerTabId!==r.tabId || r.reader && r.reader.tabId!==request.tabId
-        || tab.pendingUrl && tab.pendingUrl!==tab.url && tab.pendingUrl!==request.sourceURL && !(retry && sameTarget(tab.pendingUrl))
-        || tab.url!=='about:blank' && !registered && !(retry && tab.url===r.reader?.previousURL))throw Error('FAMILY_INTERRUPTED');
+      const first=!r.reader;
+      const interruption=(url:string|undefined)=>sameSiteInterruption(url,request.sourceURL);
+      const initial=first && (sameTarget(tab.url) || interruption(tab.url)
+        || (!tab.url || tab.url==='about:blank') && (sameTarget(tab.pendingUrl) || interruption(tab.pendingUrl)));
+      if(tab.openerTabId!==r.tabId || tab.windowId!==context.windowId || r.reader && r.reader.tabId!==request.tabId
+        || tab.pendingUrl && tab.pendingUrl!==tab.url && tab.pendingUrl!==request.sourceURL && !((first||retry) && (sameTarget(tab.pendingUrl)||interruption(tab.pendingUrl)))
+        || !initial && !registered && !(retry && (tab.url===r.reader?.previousURL || interruption(tab.url))))throw Error('FAMILY_INTERRUPTED');
       await this.location.reader(request.tabId,request.sourceURL);return {};
     }
     if(m.type==='family.return'){if(this.application.state!=='available')throw Error('HANDOFF_UNAVAILABLE');await this.controller().returnToApplication();return {};}
@@ -128,7 +133,8 @@ export class FamilyBridge {
     const r=this.location.current;if(r?.phase!=='bound' || !r.reader)return;
     try {
       const tab=await chrome.tabs.get(r.reader.tabId);
-      if(tab.openerTabId===r.tabId && (tab.url===r.reader.sourceURL || tab.url===r.reader.previousURL || tab.url==='about:blank') && (!tab.pendingUrl || tab.pendingUrl===r.reader.sourceURL))await chrome.tabs.remove(r.reader.tabId);
+      const owner=await chrome.tabs.get(r.tabId);
+      if(tab.openerTabId===r.tabId && tab.windowId===owner.windowId && (tab.url===r.reader.sourceURL || tab.url===r.reader.previousURL || tab.url==='about:blank') && (!tab.pendingUrl || tab.pendingUrl===r.reader.sourceURL))await chrome.tabs.remove(r.reader.tabId);
     }catch{ /* A closed or user-navigated tab is never replaced or guessed. */ }
     await this.location.forgetReader();
   }
