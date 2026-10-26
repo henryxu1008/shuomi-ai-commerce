@@ -1,3 +1,5 @@
+> #961 当前owner校准：publishing/common及整个旧publishing根、jsonx与闲置SHEIN策略闭包退出。七源值归offlinepackage，Price归现有publishing，本地组装纯行为归draft；新多属性数组固定排序，原hash/版本/已存载荷保持。原检查按[冻结§6.1](legacy-publishing-support-policy-closure-retirement-boundary.md#61-原检查的准确转换未来实施)精确转换，新增TestLegacyPublishingSupportPolicyClosureIsRetired；旧depguard禁令仍保留。独立SHEIN登录/Store同步不动，以下带批次说明保留历史。
+
 > #960 当前 pure-owner 校准：`publishing/shein` 旧根完整退休，当前数据合同与离线纯规则归 `marketplace/shein/offlinepackage`，固定本地组装归 `marketplace/shein/draft`。新增 `TestLegacySheinDraftAssemblyClosureIsRetired` 保护完整闭包，原检查仅按[设计 §6.1](legacy-shein-draft-assembly-closure-retirement-boundary.md#61-原检查的准确转换)改接 owner；后文 #827 等带批次的旧路径说明保留为历史，本段及 §6 当前 owner 段取代其现状描述。独立 SHEIN 登录与 Store 同步及当前持久化 owner 不变，无运行操作。
 
 > #301 / #891 [confirmed complete preview/download retirement](legacy-listing-preview-download-closure-retirement-boundary.md): unused Task preview/platform assembly, listing downloader and unimplemented directory declarations are source-retired. Current Product/Catalog/Asset and real Listing contracts retain their owners. The original preview guard and its single depguard rule now enforce retired-package import bans/source absence across production and decoded test/debug/build-target imports. Other checks, workflows, dependencies, historical counts/ceilings and current capabilities remain; inventory only drops the approved logger-to-downloader CURRENT row. Independent SHEIN login and Store sync remain; no runtime/data/credential/process operation or new trial prerequisite.
@@ -579,6 +581,16 @@ and its persistence adapter retain record/payload/diagnostic facts, hashes and
 transactions. The old `internal/publishing/shein` root, resolver/AI/config ports,
 compatibility setters/aliases and four hidden assignment maps are retired; no
 migration, fallback or second source of truth is introduced.
+
+The last `internal/publishing/common` and `internal/pkg/jsonx` roots are also
+retired. Seven source value structs belong to `offlinepackage`; `Price` belongs
+to the existing `marketplace/shein/publishing` owner. Private draft helpers own
+local variant/image/attribute assembly, including raw-name attribute sorting.
+Existing stored bytes, hash/binding algorithms and versions remain unchanged.
+`TestLegacyPublishingSupportPolicyClosureIsRetired` protects the closure;
+original import/retirement checks retain their prohibitions after the exact
+owner and scan-root conversions in the approved design. No alias or common
+replacement package is introduced.
 
 ## 7. Review Checklist
 

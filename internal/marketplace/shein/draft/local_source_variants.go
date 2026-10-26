@@ -1,16 +1,55 @@
-package common
+package draft
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
 
+	"task-processor/internal/marketplace/shein/offlinepackage"
+	"task-processor/internal/marketplace/shein/publishing"
 	"task-processor/internal/product/catalog/canonical"
 )
 
+func buildSourceVariants(product *canonical.Product) []offlinepackage.Variant {
+	if product == nil {
+		return nil
+	}
+	if len(product.Variants) == 0 {
+		return buildFallbackVariant(product)
+	}
+	result := make([]offlinepackage.Variant, 0, len(product.Variants))
+	for _, variant := range product.Variants {
+		attributes := make(map[string]string, len(variant.Attributes))
+		for key, value := range variant.Attributes {
+			attributes[key] = value.Value
+		}
+		item := offlinepackage.Variant{
+			SKU:        variant.SKU,
+			Attributes: attributes,
+			Stock:      variant.Stock,
+			Barcode:    variant.Barcode,
+			IsDefault:  variant.IsDefault,
+			Dimensions: variant.Dimensions,
+			Weight:     variant.Weight,
+		}
+		if variant.Price != nil {
+			item.Price = &publishing.Price{
+				Currency:  variant.Price.Currency,
+				Amount:    variant.Price.Amount,
+				CostPrice: variant.Price.CostPrice,
+			}
+		}
+		if len(variant.Images) > 0 {
+			item.Image = variant.Images[0].URL
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
 const defaultVariantSKU = "DEFAULT-001"
 
-func buildFallbackVariant(product *canonical.Product) []Variant {
+func buildFallbackVariant(product *canonical.Product) []offlinepackage.Variant {
 	if product == nil {
 		return nil
 	}
@@ -19,7 +58,7 @@ func buildFallbackVariant(product *canonical.Product) []Variant {
 	colorKey, colorValues := resolveVariantAttributeOptions(attributes, []string{"color", "colour", "颜色"})
 	sizeKey, sizeValues := resolveVariantAttributeOptions(attributes, []string{"size", "尺寸", "尺码"})
 
-	var price *Price
+	var price *publishing.Price
 	if guessed := inferVariantPriceFromAttributes(product.Attributes); guessed != nil {
 		price = guessed
 	}
@@ -37,11 +76,11 @@ func buildFallbackVariant(product *canonical.Product) []Variant {
 	}
 
 	totalVariants := len(colorValues) * len(sizeValues)
-	variants := make([]Variant, 0, totalVariants)
+	variants := make([]offlinepackage.Variant, 0, totalVariants)
 	index := 0
 	for _, color := range colorValues {
 		for _, size := range sizeValues {
-			variantAttributes := CloneMap(attributes)
+			variantAttributes := cloneSourceMap(attributes)
 			if colorKey != "" && strings.TrimSpace(color) != "" {
 				variantAttributes[colorKey] = color
 			}
@@ -49,7 +88,7 @@ func buildFallbackVariant(product *canonical.Product) []Variant {
 				variantAttributes[sizeKey] = size
 			}
 
-			variants = append(variants, Variant{
+			variants = append(variants, offlinepackage.Variant{
 				SKU:        buildFallbackVariantSKU(index, totalVariants, color, size),
 				Attributes: variantAttributes,
 				Price:      clonePrice(price),
@@ -61,7 +100,7 @@ func buildFallbackVariant(product *canonical.Product) []Variant {
 		}
 	}
 	if len(variants) == 0 {
-		return []Variant{{
+		return []offlinepackage.Variant{{
 			SKU:        defaultVariantSKU,
 			Attributes: attributes,
 			Price:      clonePrice(price),
@@ -73,22 +112,22 @@ func buildFallbackVariant(product *canonical.Product) []Variant {
 	return variants
 }
 
-func inferVariantPriceFromAttributes(attributes map[string]canonical.Attribute) *Price {
+func inferVariantPriceFromAttributes(attributes map[string]canonical.Attribute) *publishing.Price {
 	if len(attributes) == 0 {
 		return nil
 	}
 
 	currency := firstAttributeValue(attributes, "currency", "price_currency")
-	amount := ParseFloatDefault(firstAttributeValue(attributes, "price", "sale_price", "amount"))
-	compareAt := ParseFloatDefault(firstAttributeValue(attributes, "compare_at", "market_price", "original_price"))
-	costPrice := ParseFloatDefault(firstAttributeValue(attributes, "cost_price", "purchase_price"))
+	amount := parseSourceFloatDefault(firstAttributeValue(attributes, "price", "sale_price", "amount"))
+	compareAt := parseSourceFloatDefault(firstAttributeValue(attributes, "compare_at", "market_price", "original_price"))
+	costPrice := parseSourceFloatDefault(firstAttributeValue(attributes, "cost_price", "purchase_price"))
 
 	if amount <= 0 && costPrice <= 0 && compareAt <= 0 {
 		return nil
 	}
 
-	return &Price{
-		Currency:  FirstNonEmpty(currency, "CNY"),
+	return &publishing.Price{
+		Currency:  firstNonEmpty(currency, "CNY"),
 		Amount:    amount,
 		CostPrice: costPrice,
 	}
@@ -201,7 +240,7 @@ func normalizeVariantToken(value string) string {
 	return token
 }
 
-func clonePrice(price *Price) *Price {
+func clonePrice(price *publishing.Price) *publishing.Price {
 	if price == nil {
 		return nil
 	}

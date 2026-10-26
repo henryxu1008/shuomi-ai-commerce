@@ -1,11 +1,9 @@
 package offlinepackage
 
 import (
-	"time"
-
-	"task-processor/internal/publishing/common"
 	sheinattribute "task-processor/internal/shein/api/attribute"
 	sheinproduct "task-processor/internal/shein/api/product"
+	"time"
 )
 
 type AttributeResolution struct {
@@ -17,7 +15,7 @@ type AttributeResolution struct {
 	UnresolvedCount                int                         `json:"unresolved_count,omitempty"`
 	ResolvedAttributes             []ResolvedAttribute         `json:"resolved_attributes,omitempty"`
 	SizeChartAttributes            []PendingAttributeCandidate `json:"size_chart_attributes,omitempty"`
-	PendingAttributes              []common.Attribute          `json:"pending_attributes,omitempty"`
+	PendingAttributes              []Attribute                 `json:"pending_attributes,omitempty"`
 	PendingAttributeCandidates     []PendingAttributeCandidate `json:"pending_attribute_candidates,omitempty"`
 	RecommendedAttributeCandidates []PendingAttributeCandidate `json:"recommended_attribute_candidates,omitempty"`
 	Cache                          *ResolutionCacheInfo        `json:"cache,omitempty"`
@@ -114,15 +112,15 @@ type Package struct {
 	Description             string                   `json:"description,omitempty"`
 	SellingPoints           []string                 `json:"selling_points,omitempty"`
 	Attributes              map[string]string        `json:"attributes,omitempty"`
-	ProductAttributes       []common.Attribute       `json:"product_attributes,omitempty"`
+	ProductAttributes       []Attribute              `json:"product_attributes,omitempty"`
 	ResolvedAttributes      []ResolvedAttribute      `json:"resolved_attributes,omitempty"`
-	SiteList                []common.Site            `json:"site_list,omitempty"`
+	SiteList                []Site                   `json:"site_list,omitempty"`
 	// SkcList is the current review/image summary of the SKC/SKU hierarchy.
 	// New draft writes must target DraftPayload; this summary remains because
 	// existing review and image paths still consume it.
-	SkcList     []SKCPackage               `json:"skc_list,omitempty"`
-	Images      *common.ImageSet           `json:"images,omitempty"`
-	ImageBundle *common.PublishImageBundle `json:"image_bundle,omitempty"`
+	SkcList     []SKCPackage        `json:"skc_list,omitempty"`
+	Images      *ImageSet           `json:"images,omitempty"`
+	ImageBundle *PublishImageBundle `json:"image_bundle,omitempty"`
 	// DraftPayload is the canonical SHEIN draft payload used by current business
 	// logic. It is the platform adapter output, not part of canonical.Product.
 	DraftPayload *RequestDraft `json:"draft_payload,omitempty"`
@@ -180,11 +178,11 @@ type RequestDraft struct {
 	SupplierCode            string                                   `json:"supplier_code,omitempty"`
 	MultiLanguageNameList   []LocalizedText                          `json:"multi_language_name_list,omitempty"`
 	MultiLanguageDescList   []LocalizedText                          `json:"multi_language_desc_list,omitempty"`
-	ProductAttributeList    []common.Attribute                       `json:"product_attribute_list,omitempty"`
+	ProductAttributeList    []Attribute                              `json:"product_attribute_list,omitempty"`
 	ResolvedAttributes      []ResolvedAttribute                      `json:"resolved_attributes,omitempty"`
 	SizeAttributeList       []sheinproduct.SizeAttribute             `json:"size_attribute_list,omitempty"`
 	ImageInfo               *ImageDraft                              `json:"image_info,omitempty"`
-	SiteList                []common.Site                            `json:"site_list,omitempty"`
+	SiteList                []Site                                   `json:"site_list,omitempty"`
 	SKCList                 []SKCRequestDraft                        `json:"skc_list,omitempty"`
 	CustomAttributeRelation []sheinattribute.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
 }
@@ -233,7 +231,7 @@ type SKCPackage struct {
 	SupplierCode string            `json:"supplier_code,omitempty"`
 	MainImageURL string            `json:"main_image_url,omitempty"`
 	Attributes   map[string]string `json:"attributes,omitempty"`
-	SKUs         []common.Variant  `json:"skus,omitempty"`
+	SKUs         []Variant         `json:"skus,omitempty"`
 }
 
 type SKCRequestDraft struct {

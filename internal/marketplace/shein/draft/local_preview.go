@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/publishing/common"
 	sheinattribute "task-processor/internal/shein/api/attribute"
 	sheinproduct "task-processor/internal/shein/api/product"
 )
@@ -248,7 +247,7 @@ func inferQuantityFromText(value string) string {
 func firstNumericToken(value string) string {
 	if match := numericTokenPattern.FindString(strings.TrimSpace(value)); match != "" {
 		if parsed, err := strconv.ParseFloat(match, 64); err == nil && parsed > 0 {
-			return common.FormatFloat(parsed)
+			return formatSourceFloat(parsed)
 		}
 	}
 	return ""
@@ -259,5 +258,5 @@ func parseResolvedCompositionPercent(value string) string {
 	if len(items) != 1 {
 		return ""
 	}
-	return common.FormatFloat(items[0].Percent)
+	return formatSourceFloat(items[0].Percent)
 }

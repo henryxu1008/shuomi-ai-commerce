@@ -10,7 +10,6 @@ import (
 	"task-processor/internal/marketplace/shein/offlinepackage"
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
 	"task-processor/internal/product/catalog/canonical"
-	"task-processor/internal/publishing/common"
 )
 
 func buildLocalPackage(product *canonical.Product, country, language string, logs func(string) *logrus.Entry) *offlinepackage.Package {
@@ -20,16 +19,16 @@ func buildLocalPackage(product *canonical.Product, country, language string, log
 	}
 	log := componentLogger(logs, "shein/assembler")
 
-	images := common.BuildImages(product)
-	spuName := common.WithBrandHint(product.Title, "")
+	images := buildSourceImages(product)
+	spuName := strings.TrimSpace(product.Title)
 	copy := buildLocalCopy(runtimeCtx, product, spuName, logs)
-	brand := common.ResolveBrand("", product)
+	brand := product.Brand
 	authorizedBrandCode := ""
 	authorizedBrandName := ""
-	variants := common.BuildVariants(product)
-	productAttributes := common.BuildAttributes(product.Attributes)
-	siteList := common.DefaultSites(country)
-	categoryName := common.LastCategory(product.CategoryPath)
+	variants := buildSourceVariants(product)
+	productAttributes := buildSourceAttributes(product.Attributes)
+	siteList := defaultSourceSites(country)
+	categoryName := lastSourceCategory(product.CategoryPath)
 
 	pkg := &offlinepackage.Package{
 		SpuName:           spuName,
@@ -41,7 +40,7 @@ func buildLocalPackage(product *canonical.Product, country, language string, log
 		CategoryPath:      append([]string(nil), product.CategoryPath...),
 		Description:       copy.Description,
 		SellingPoints:     append([]string(nil), product.SellingPoints...),
-		Attributes:        common.FlattenAttributes(product.Attributes),
+		Attributes:        flattenSourceAttributes(product.Attributes),
 		ProductAttributes: productAttributes,
 		SiteList:          siteList,
 		Images:            images,
@@ -178,14 +177,14 @@ func buildSKCs(groups []variantGroup) []offlinepackage.SKCPackage {
 			SaleName:     group.saleName,
 			SupplierCode: group.supplierCode,
 			MainImageURL: group.mainImageURL,
-			Attributes:   common.CloneMap(group.attributes),
-			SKUs:         append([]common.Variant(nil), group.skus...),
+			Attributes:   cloneSourceMap(group.attributes),
+			SKUs:         append([]offlinepackage.Variant(nil), group.skus...),
 		})
 	}
 	return result
 }
 
-func buildRequestSKCs(groups []variantGroup, images *common.ImageSet, siteList []common.Site, canonical *canonical.Product) []offlinepackage.SKCRequestDraft {
+func buildRequestSKCs(groups []variantGroup, images *offlinepackage.ImageSet, siteList []offlinepackage.Site, canonical *canonical.Product) []offlinepackage.SKCRequestDraft {
 	if len(groups) == 0 {
 		return nil
 	}
@@ -201,7 +200,7 @@ func buildRequestSKCs(groups []variantGroup, images *common.ImageSet, siteList [
 	for idx, group := range groups {
 		skus := make([]offlinepackage.SKUDraft, 0, len(group.skus))
 		for _, variant := range group.skus {
-			skus = append(skus, buildSKUDraft(variant, canonical, common.FirstNonEmpty(variant.Image, group.mainImageURL, imageMain), siteList))
+			skus = append(skus, buildSKUDraft(variant, canonical, firstNonEmpty(variant.Image, group.mainImageURL, imageMain), siteList))
 		}
 		result = append(result, offlinepackage.SKCRequestDraft{
 			SkcName:      group.skcName,
@@ -211,7 +210,7 @@ func buildRequestSKCs(groups []variantGroup, images *common.ImageSet, siteList [
 			MultiLanguageNameList: []offlinepackage.LocalizedText{
 				{Language: "en", Name: group.skcName},
 			},
-			ImageInfo: buildImageDraft(&common.ImageSet{
+			ImageInfo: buildImageDraft(&offlinepackage.ImageSet{
 				MainImage:    group.mainImageURL,
 				Gallery:      append([]string(nil), imageGallery...),
 				WhiteBgImage: whiteBackgroundImage,
@@ -222,10 +221,10 @@ func buildRequestSKCs(groups []variantGroup, images *common.ImageSet, siteList [
 	return result
 }
 
-func buildSKUDraft(variant common.Variant, canonical *canonical.Product, mainImage string, siteList []common.Site) offlinepackage.SKUDraft {
+func buildSKUDraft(variant offlinepackage.Variant, canonical *canonical.Product, mainImage string, siteList []offlinepackage.Site) offlinepackage.SKUDraft {
 	draft := offlinepackage.SKUDraft{
 		SupplierSKU: variant.SKU,
-		Attributes:  common.CloneMap(variant.Attributes),
+		Attributes:  cloneSourceMap(variant.Attributes),
 		StockCount:  variant.Stock,
 		MainImage:   mainImage,
 		Barcode:     variant.Barcode,
@@ -233,8 +232,8 @@ func buildSKUDraft(variant common.Variant, canonical *canonical.Product, mainIma
 	}
 	if price := (sheinmarketpub.PricingPolicy{}).Apply(variant.Price); price != nil {
 		draft.Currency = price.Currency
-		draft.CostPrice = common.FormatFloat(price.CostPrice)
-		draft.BasePrice = common.FormatFloat(price.Amount)
+		draft.CostPrice = formatSourceFloat(price.CostPrice)
+		draft.BasePrice = formatSourceFloat(price.Amount)
 		draft.SitePriceList = buildSitePrices(price, siteList)
 	}
 	if variant.Weight != nil {
@@ -245,21 +244,21 @@ func buildSKUDraft(variant common.Variant, canonical *canonical.Product, mainIma
 		draft.WeightUnit = canonical.Specifications.Weight.Unit
 	}
 	if variant.Dimensions != nil {
-		draft.Length = common.FormatFloat(variant.Dimensions.Length)
-		draft.Width = common.FormatFloat(variant.Dimensions.Width)
-		draft.Height = common.FormatFloat(variant.Dimensions.Height)
+		draft.Length = formatSourceFloat(variant.Dimensions.Length)
+		draft.Width = formatSourceFloat(variant.Dimensions.Width)
+		draft.Height = formatSourceFloat(variant.Dimensions.Height)
 		draft.LengthUnit = variant.Dimensions.Unit
 	} else if canonical != nil && canonical.Specifications != nil && canonical.Specifications.Dimensions != nil {
-		draft.Length = common.FormatFloat(canonical.Specifications.Dimensions.Length)
-		draft.Width = common.FormatFloat(canonical.Specifications.Dimensions.Width)
-		draft.Height = common.FormatFloat(canonical.Specifications.Dimensions.Height)
+		draft.Length = formatSourceFloat(canonical.Specifications.Dimensions.Length)
+		draft.Width = formatSourceFloat(canonical.Specifications.Dimensions.Width)
+		draft.Height = formatSourceFloat(canonical.Specifications.Dimensions.Height)
 		draft.LengthUnit = canonical.Specifications.Dimensions.Unit
 	}
 	draft.StockInfoList = []offlinepackage.StockInfo{{WarehouseCode: "DEFAULT", InventoryNum: variant.Stock}}
 	return draft
 }
 
-func buildSitePrices(price *common.Price, siteList []common.Site) []offlinepackage.SitePrice {
+func buildSitePrices(price *sheinmarketpub.Price, siteList []offlinepackage.Site) []offlinepackage.SitePrice {
 	if price == nil {
 		return nil
 	}
@@ -267,7 +266,7 @@ func buildSitePrices(price *common.Price, siteList []common.Site) []offlinepacka
 	if len(siteList) > 0 && len(siteList[0].SubSites) > 0 {
 		subSite = siteList[0].SubSites[0]
 	}
-	return []offlinepackage.SitePrice{{SubSite: subSite, BasePrice: common.FormatFloat(price.Amount), Currency: price.Currency}}
+	return []offlinepackage.SitePrice{{SubSite: subSite, BasePrice: formatSourceFloat(price.Amount), Currency: price.Currency}}
 }
 
 func firstSupplierCode(skcs []offlinepackage.SKCPackage) string {
@@ -288,7 +287,7 @@ func componentLogger(logs func(string) *logrus.Entry, component string) *logrus.
 	return disabled.WithField("component", component)
 }
 
-func buildImageDraft(images *common.ImageSet) *offlinepackage.ImageDraft {
+func buildImageDraft(images *offlinepackage.ImageSet) *offlinepackage.ImageDraft {
 	if images == nil {
 		return nil
 	}

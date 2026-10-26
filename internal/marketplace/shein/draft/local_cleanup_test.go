@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/publishing/common"
 	"task-processor/internal/shein/authorizedbrand"
 )
 
@@ -36,13 +35,13 @@ func TestSanitizeDraftPayloadSensitiveContentPreservesAuthorizedBrandFromRuntime
 	t.Parallel()
 
 	pkg := &offlinepackage.Package{
-		ProductAttributes: []common.Attribute{
+		ProductAttributes: []offlinepackage.Attribute{
 			{Name: "Material Detail", Value: "Amazon Basics acrylic"},
 		},
 		DraftPayload: &offlinepackage.RequestDraft{
 			MultiLanguageNameList: []offlinepackage.LocalizedText{{Language: "en", Name: "Amazon Basics Wireless Mouse"}},
 			MultiLanguageDescList: []offlinepackage.LocalizedText{{Language: "en", Name: "Amazon Basics office mouse"}},
-			ProductAttributeList:  []common.Attribute{{Name: "Material Detail", Value: "Amazon Basics acrylic"}},
+			ProductAttributeList:  []offlinepackage.Attribute{{Name: "Material Detail", Value: "Amazon Basics acrylic"}},
 			SKCList: []offlinepackage.SKCRequestDraft{{
 				SkcName:               "Amazon Basics Blue",
 				MultiLanguageNameList: []offlinepackage.LocalizedText{{Language: "en", Name: "Amazon Basics Blue"}},
@@ -73,7 +72,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansDraftTextFields(t *testing.T
 		DraftPayload: &offlinepackage.RequestDraft{
 			MultiLanguageNameList: []offlinepackage.LocalizedText{{Language: "en", Name: "Amazon Trademark Vase"}},
 			MultiLanguageDescList: []offlinepackage.LocalizedText{{Language: "en", Name: "Amazon Trademark vase for home decor."}},
-			ProductAttributeList: []common.Attribute{
+			ProductAttributeList: []offlinepackage.Attribute{
 				{Name: "Material Detail", Value: "Amazon Trademark acrylic"},
 				{Name: "Length", Value: "12"},
 			},
@@ -106,7 +105,7 @@ func TestSanitizeDraftPayloadSensitiveContent_PreservesAuthorizedBrandFromRuntim
 		NameEn:  "Amazon Basics",
 	})
 	pkg := &offlinepackage.Package{DraftPayload: &offlinepackage.RequestDraft{
-		ProductAttributeList: []common.Attribute{{
+		ProductAttributeList: []offlinepackage.Attribute{{
 			Value: "Amazon Basics Trademark acrylic",
 		}},
 		SKCList: []offlinepackage.SKCRequestDraft{{
@@ -146,7 +145,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansFreeTextAttributesAndSKCName
 			Language: "en",
 			Name:     "Amazon Trademark vase for home decor.",
 		}},
-		ProductAttributeList: []common.Attribute{
+		ProductAttributeList: []offlinepackage.Attribute{
 			{Value: "Amazon Trademark acrylic"},
 			{Value: "12"},
 		},

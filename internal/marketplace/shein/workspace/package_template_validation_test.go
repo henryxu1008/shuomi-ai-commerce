@@ -2,10 +2,8 @@ package workspace
 
 import (
 	"errors"
-	"testing"
-
-	common "task-processor/internal/publishing/common"
 	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
+	"testing"
 )
 
 func TestBuildPackageTemplateValidationReportsReadyPackage(t *testing.T) {
@@ -52,7 +50,7 @@ func TestBuildPackageTemplateValidationReportsBlockingInputs(t *testing.T) {
 		AttributeResolution: &sheinpub.AttributeResolution{
 			Status:            "resolved",
 			ResolvedCount:     1,
-			PendingAttributes: []common.Attribute{{Name: "Material"}},
+			PendingAttributes: []sheinpub.Attribute{{Name: "Material"}},
 		},
 		SaleAttributeResolution: &sheinpub.SaleAttributeResolution{
 			RecommendCategoryReview: true,

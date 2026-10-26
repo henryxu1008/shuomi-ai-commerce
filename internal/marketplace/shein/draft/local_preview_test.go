@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/publishing/common"
 	sheinproduct "task-processor/internal/shein/api/product"
 )
 
@@ -116,7 +115,7 @@ func TestToResolvedAttributesInfersQuantityExtraValueFromProductAttributes(t *te
 
 	valueID := 1002451
 	pkg := &offlinepackage.Package{
-		ProductAttributes: []common.Attribute{
+		ProductAttributes: []offlinepackage.Attribute{
 			{Name: "package_quantity", Value: "Pack of 5"},
 		},
 		ResolvedAttributes: []offlinepackage.ResolvedAttribute{

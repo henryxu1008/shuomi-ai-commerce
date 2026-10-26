@@ -14,7 +14,7 @@ import (
 // Keep this separate from the documentation tests owned by Issue #311.
 func TestValidatorContractImportBoundary(t *testing.T) {
 	roots := map[string]map[string]bool{
-		"internal/marketplace/shein/offlinepackage": {"bytes": true, "encoding/json": true, "errors": true, "fmt": true, "io": true, "math": true, "sort": true, "strconv": true, "strings": true, "time": true, "unicode/utf8": true, "sigs.k8s.io/json": true, "task-processor/internal/marketplace/shein/publishing": true, "task-processor/internal/publishing/common": true, "task-processor/internal/shein/api/product": true, "task-processor/internal/shein/api/attribute": true},
+		"internal/marketplace/shein/offlinepackage": {"bytes": true, "encoding/json": true, "errors": true, "fmt": true, "io": true, "math": true, "sort": true, "strconv": true, "strings": true, "time": true, "unicode/utf8": true, "sigs.k8s.io/json": true, "task-processor/internal/marketplace/shein/publishing": true, "task-processor/internal/product/catalog/canonical": true, "task-processor/internal/shein/api/product": true, "task-processor/internal/shein/api/attribute": true},
 		"internal/marketplace/validator":            {"cmp": true, "encoding/json": true, "slices": true, "strings": true, "time": true, "unicode/utf8": true},
 		"internal/marketplace/shein/validator": {
 			"crypto/sha256": true,

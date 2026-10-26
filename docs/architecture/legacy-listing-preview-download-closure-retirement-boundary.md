@@ -1,3 +1,5 @@
+> #301 / #961 精确替代顶注：按[legacy-publishing-support-policy-closure-retirement-boundary.md §1–§7（含§4.2/§6.1）](legacy-publishing-support-policy-closure-retirement-boundary.md)，旧 publishing/common 与 jsonx 根、十一闲置 SHEIN 策略族及三个混合策略尾部已在源码完整退出。当前八值合同分归已有 offlinepackage / publishing.Price，本地组装纯行为归 draft；本批表列 KEEP 由该设计矩阵精确替代，其它当前能力/JSON/hash算法/版本/事实owner及独立SHEIN登录与Store同步保持。仅未来新多属性数组固定按原始名排序，不重写已有载荷。以下原文、数字、勾选与历史证据逐字保留，不作为恢复旧owner或运行操作的授权。
+
 > #960 当前替代边界（仅本轮）：本文件历史 KEEP 中的旧 `internal/publishing/shein` 草稿 owner、扩展端口及私有赋值状态，现由[完整闭包设计](legacy-shein-draft-assembly-closure-retirement-boundary.md) §2/§4/§5 的矩阵精确替代。当前值/严格 codec/离线纯规则归 `internal/marketplace/shein/offlinepackage`，本地确定性组装归已有 `draft.Builder`，原平台规则/content/common 直接复用；旧 resolver、AI 扩展、可选注入、setter/alias 和四私有 map 不保留。当前 JSON/hash/绑定版本、有效规则及独立 SHEIN 登录与 Store 同步保持；无运行/数据/凭据操作或试用新前置。以下原完整正文、历史数字/勾选和证据逐字保留。
 
 > #958 用户已确认本轮 [三组完整退休设计](legacy-idle-provider-bootstrap-closure-retirement-boundary.md) §1–§7（含 §6.1）：仅替代本文中 geminiimage 原生图片 SDK、runtimepath 安装命名辅助及 LoadFromBytes 正式入口的 KEEP。三组及专属尾部退出；19个有效配置测试改接现有 Viper/Build/Validate，当前 Google 文本/实际图像/采集及独立 SHEIN 登录与 Store 同步保持。无兼容入口，不操作历史运行资源；本文其余批准边界、原全文、计数与历史证据完整保留。

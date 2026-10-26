@@ -1,6 +1,6 @@
 # #301 旧 Publishing 公共层、闲置 SHEIN 策略与 JSON 尾部完整退休设计
 
-> **Independent Architecture / DESIGN_ONLY / DESIGNING / SOURCE_NOT_STARTED / NOT_READY**。当前只修改本设计、架构索引、Legacy register 三文档；没有修改生产或测试源码。起始实际 main `dee5f3e4ed01f551b5e1852bfe0a7c461e24a941`（#960 合并及 push/main CI40271828134 attempt1 SUCCESS）。用户同意先做本完整设计；接单及 #960 当前段归档见 [#301 评论6409114754](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6409114754)。设计复核、用户确认本 §1–§7（含 §4.2、§6.1）及 IMPLEMENTATION_READY/Ready 记录读回后，才准在同一 PR 整批实施。
+> **Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认本§1–§7（明确含§4.2、§6.1）并授权同一#961整批78路径实施；[准入6409852021](https://github.com/qq550723504/shuomi-ai-commerce/pull/961#issuecomment-6409852021)与Issue/PR Ready记录已读回。设计准确HEAD `3e9371e87da82ae561403640a7dab06813030bfc` 的原CI40278175508 SUCCESS与独立只读设计复核PASS可追溯；开工正常同步main `0068545e6dd74d87323bdc8831680aa9f686b9ba`。本文件§1–§7为冻结设计与处置矩阵，文中“未来/拟/当前未实施”表述保留设计阶段原始语境，实施滚动证据以[#961](https://github.com/qq550723504/shuomi-ai-commerce/pull/961)为准；不将设计CI或源码自检当运行/产品验收。#301 OPEN，合并另授权。
 
 ## 1. 这次做什么
 

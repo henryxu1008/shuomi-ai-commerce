@@ -1,26 +1,20 @@
-package common
+package offlinepackage
 
 import (
-	productasset "task-processor/internal/product/asset"
+	"task-processor/internal/marketplace/shein/publishing"
 	"task-processor/internal/product/catalog/canonical"
 )
 
 type Variant struct {
 	SKU        string                `json:"sku,omitempty"`
 	Attributes map[string]string     `json:"attributes,omitempty"`
-	Price      *Price                `json:"price,omitempty"`
+	Price      *publishing.Price     `json:"price,omitempty"`
 	Stock      int                   `json:"stock,omitempty"`
 	Image      string                `json:"image,omitempty"`
 	Dimensions *canonical.Dimensions `json:"dimensions,omitempty"`
 	Weight     *canonical.Weight     `json:"weight,omitempty"`
 	Barcode    string                `json:"barcode,omitempty"`
 	IsDefault  bool                  `json:"is_default,omitempty"`
-}
-
-type Price struct {
-	Currency  string  `json:"currency,omitempty"`
-	Amount    float64 `json:"amount,omitempty"`
-	CostPrice float64 `json:"cost_price,omitempty"`
 }
 
 type ImageSet struct {
@@ -56,14 +50,6 @@ type BundleSlot struct {
 	FallbackFrom    string   `json:"fallback_from,omitempty"`
 	ExecutionStatus string   `json:"execution_status,omitempty"`
 	SourceAssetIDs  []string `json:"source_asset_ids,omitempty"`
-}
-
-type BundleSelectionRule struct {
-	Platform       string              `json:"platform,omitempty"`
-	Slot           string              `json:"slot,omitempty"`
-	Optional       bool                `json:"optional,omitempty"`
-	MaxItems       int                 `json:"max_items,omitempty"`
-	PreferredRoles []productasset.Role `json:"preferred_roles,omitempty"`
 }
 
 type MissingSlot struct {

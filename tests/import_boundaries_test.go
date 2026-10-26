@@ -733,7 +733,7 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 		`"task-processor/internal/shein/client"`:        {},
 		`"task-processor/internal/shein/managedclient"`: {},
 	}
-	managedIndex, err := loadGoFileIndex(filepath.Dir(managedRoot), "")
+	managedIndex, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -756,7 +756,7 @@ func TestPublishingSheinManagedAPIImportsStayAllowlisted(t *testing.T) {
 	managedRoot := filepath.Join("..", "internal", "publishing", "sheinmanaged")
 	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(filepath.Dir(managedRoot), "")
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -780,7 +780,7 @@ func TestPublishingSheinManagedRetiredManagementImportsStayBlocked(t *testing.T)
 	root := filepath.Join("..", "internal", "publishing", "sheinmanaged")
 	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -936,7 +936,9 @@ func TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets(t *testing.T
 		name string
 		root string
 	}{
-		{name: "publishing common", root: filepath.Join("..", "internal", "publishing", "common")},
+		{name: "offlinepackage", root: filepath.Join("..", "internal", "marketplace", "shein", "offlinepackage")},
+		{name: "draft", root: filepath.Join("..", "internal", "marketplace", "shein", "draft")},
+		{name: "publishing", root: filepath.Join("..", "internal", "marketplace", "shein", "publishing")},
 		{name: "catalog", root: filepath.Join("..", "internal", "product", "catalog")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1960,7 +1962,7 @@ func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
 	} {
 		t.Run(filepath.ToSlash(domainRoot), func(t *testing.T) {
 			if domainRoot == filepath.Join("..", "internal", "workspace") || domainRoot == filepath.Join("..", "internal", "infra") ||
-				domainRoot == filepath.Join("..", "internal", "amazon") || domainRoot == filepath.Join("..", "internal", "temu") {
+				domainRoot == filepath.Join("..", "internal", "amazon") || domainRoot == filepath.Join("..", "internal", "temu") || domainRoot == filepath.Join("..", "internal", "publishing") {
 				assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
 					"task-processor/internal/listingkit",
 				}, nil)

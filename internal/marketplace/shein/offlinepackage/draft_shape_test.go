@@ -2,8 +2,6 @@ package offlinepackage
 
 import (
 	"testing"
-
-	"task-processor/internal/publishing/common"
 )
 
 func TestDraftPayloadOfReadsCanonicalDraft(t *testing.T) {
@@ -45,7 +43,7 @@ func TestValidateDraftPayloadAcceptsStructurallyCompleteDraft(t *testing.T) {
 
 func TestHasAnySubmitSKUUsesDraftAsSourceWhenBothViewsExist(t *testing.T) {
 	pkg := &Package{
-		SkcList: []SKCPackage{{SKUs: []common.Variant{{SKU: "stale-package-sku"}}}},
+		SkcList: []SKCPackage{{SKUs: []Variant{{SKU: "stale-package-sku"}}}},
 		DraftPayload: &RequestDraft{SKCList: []SKCRequestDraft{{
 			SKUList: nil,
 		}}},

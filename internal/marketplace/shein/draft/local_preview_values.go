@@ -6,11 +6,10 @@ import (
 	"strings"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/publishing/common"
 	sheinproduct "task-processor/internal/shein/api/product"
 )
 
-func toProductAttributes(items []common.Attribute) []sheinproduct.ProductAttribute {
+func toProductAttributes(items []offlinepackage.Attribute) []sheinproduct.ProductAttribute {
 	if len(items) == 0 {
 		return nil
 	}
@@ -47,7 +46,7 @@ func toImageInfo(info *offlinepackage.ImageDraft) *sheinproduct.ImageInfo {
 	return &sheinproduct.ImageInfo{ImageInfoList: images}
 }
 
-func toSiteInfo(items []common.Site) []sheinproduct.SiteInfo {
+func toSiteInfo(items []offlinepackage.Site) []sheinproduct.SiteInfo {
 	if len(items) == 0 {
 		return nil
 	}
@@ -147,7 +146,7 @@ func toPriceInfoList(items []offlinepackage.SitePrice) []sheinproduct.PriceInfo 
 		}
 		result = append(result, sheinproduct.PriceInfo{
 			SubSite:   item.SubSite,
-			BasePrice: common.ParseFloatDefault(item.BasePrice),
+			BasePrice: parseSourceFloatDefault(item.BasePrice),
 			Currency:  item.Currency,
 		})
 	}
