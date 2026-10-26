@@ -260,3 +260,83 @@ Legacy decision: N/A；不调用旧服务端或新增抓取框架，复用原解
 报价/规格图归属、一次交接及原保存合同回归复用现有测试。
 仅跑受影响回归与既有必需检查，不建设runner或新验收平台。
 真实页面重采/保存、原插件或实例更新、部署与合并均NOT_AUTHORIZED，本批开发只交一个主要PR供复核。
+
+## 10. 首个读取标签直接导航（2026-10-26）
+
+Design Basis: **Independent Architecture（既有文档的有界修订）**。
+本节修改首次导航与定位登记的顺序和首次准入，须独立评审后达到 IMPLEMENTATION_READY 才能改生产代码；
+本节已由原独立Reviewer `1688_shadow_design_review` 评审准确设计提交
+`80da8b72d6d97a815926b03de9dc8ee935c5f527`：**PASS / IMPLEMENTATION_READY**，无设计BLOCKER。
+首次创建唯一性、校验页登记丢应答幂等、严格归属及取消/晚到结果归 IMPLEMENTATION_TEST，在本主要PR收敛。
+第1节产品/Figma依据、第5/7/9节未冲突的不变量继续适用；
+本节替代依赖 `about:blank` 可读URL的首次登记前提，不改变后续导航、保存或完整任务恢复范围。
+
+### 用户结果与根因
+
+用户批准：读取标签直接打开首个已校验子商品，保留严格归属校验及校验页恢复；
+先评审、补回归、实现与必要测试，只交一个主要PR。不合并、不更新实例/插件、不重采、不部署。
+当前阻碍是根商品1/171后出现空白读取页和FAMILY_INTERRUPTED。
+在现有无 `tabs` 权限、仅精确host grants下，`Tab.url` 可缺省或提交前为空；
+首次 `family.reader` 要求它等于 `about:blank`，而真正的 `tabs.update` 在该登记之后。
+未修改的page/bridge/coordinator离线复现URL缺省/为空时导航0次、child解析0次，
+与现场提示一致；现场原生Tab响应未留存，具体现场分支仍属高可信推断，不能当作已捕获原生调用轨迹。
+[Tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs#type-Tab) 是可选元数据的依据。
+
+根本问题是将URL可读性当作首次归属证明。不能放宽为“空URL都是本次空白页”，
+也不能恢复旧代码中两个undefined偶然相等的放行。维持原权限、六站host与七安装文件。
+
+### 首次调用顺序和唯一owner
+
+1. 原进度页仍是唯一临时事实/游标owner。沿原 `family.init` 核实native进度context后，
+   从已冻结、校验的同族成员生成当前站点规范 `/dp/<ASIN>`；只创建一个非活动reader，
+   `tabs.create` 直接带该目标、原进度 `openerTabId` 和 `windowId`。原商品标签不导航。
+2. 页面立即记住返回的原生reader ID和期望目标，首次定位尚未确认仅为该页内存标记。
+   无ID/创建拒绝立即暂停，不猜ID、不自动再建标签。后台重建不拥有或重启此创建动作。
+3. 登记前沿现有 `waitForFamilyDocument` 做有界首加载等待，不调用 `tabs.update`。
+   首加载的URL缺省/空/about:blank只是等待元数据，绝非归属放行；已知错误ASIN/外站/冲突pending立即拒绝。
+   每次检查原生opener及窗口，保持原30秒deadline、取消/关闭监听及清理。
+   只有当前目标或同站明确校验/登录文档已完成才能离开等待；旧空白complete不能授权解析。
+4. 随后复用 `family.reader` 和 FamilyLocation。后台继续校验精确sender/context/revision、
+   原生reader ID/opener/窗口、规范目标与同源。首次登记仅接受当前/待提交的同一目标，
+   或该目标同站的明确校验/登录路径；后者只保存**期望规范商品URL**，从不保存校验URL/query/token。
+   当前校验文档与pending存在冲突、其他ASIN、外站或不明URL均不放行。
+   已有reader时必须仍是同一个native ID；previousURL及同一目标重试保持原严格规则。
+5. 首次登记成功后直接沿现有capture-tab解析，不再第二次导航。若是校验/登录，
+   原页面分类、安全码、Coordinator paused及“查看需处理的商品页/继续采集”接管；不自动跳过。
+   未确认首次定位时，超时/后台响应丢失后的明确继续只等待并核实同一个reader/目标，
+   即使后台已经写成功也幂等复用，不重建或重新导航。校验仍在则保持原安全提示；
+   人工返回正确ASIN后沿同一document与规格校验继续，错误目标仍拒绝。
+6. 后续child保持原先“目标定位写成功→原单reader导航→等待→原生document/ASIN/父关系/维度校验”。
+   原每项报价/规格图、有限聚合、一次冻结/交接、原应用保存及原键/原标签恢复均不变。
+
+Owner/接线：family-page管理首次创建及内存定位确认，family-reader负责原生加载等待，
+FamilyBridge/FamilyLocation核验并记录session导航定位，现有injected/capture-tab分类及解析，
+Coordinator只保留原phase，Controller/Handoff与原应用仍为唯一交接/保存路径。
+没有新持久化字段、消息类型、状态机、跨系统事实owner或retry worker；原session schema、ReturnSession、
+业务wire/schema/事务、租户权限、key/digest及COMMIT UNKNOWN owner保持。
+Legacy decision: **N/A**；只复用当前owner与现有Vitest/JSDOM，无旧service包装或新抓取框架。
+
+### 失败、取消与资源边界
+
+| 窗口 | 结果 |
+| --- | --- |
+| 创建后元数据未出现、首加载超时 | 有界暂停，保留同一ID/目标；明确继续不创建或重复导航 |
+| 首次即跳校验/登录 | 记录期望商品定位后由原分类暂停；人工处理后只继续原规格 |
+| 定位写失败/应答丢失/worker重建 | 不解析或转交未确认结果；明确继续幂等核实同一reader，失败可见 |
+| 首次定位确认前取消/进度关闭 | 沿原命令处理；后台无已证实reader记录时不猜删，可能保留一个未登记临时页 |
+| 定位确认后取消/进度关闭 | 复用原保守清理；只有ID/opener/窗口/允许地址仍匹配才关闭，用户导航的页保留 |
+| 已取消的首加载/登记晚到 | 不解析、不转交；不追加事实或恢复Coordinator；沿原串行取消清理 |
+
+保留原30秒导航、65536节点/8秒解析、256数组/1024合计/2MiB限制。
+不增加延时猜测、不刷新、不自动重试、不读取隐藏账号/表单或校验token。
+初始网络导航早于session reader登记是本次顺序调整；只有该页已创建的native ID能继续，
+登记失败不触发第二个标签或第二次导航。无法核实归属时保留临时页符合第7节既有保守清理边界。
+
+### 验证与停止点
+
+先补RED：URL缺省/空/延迟pending、首次目标地址与native归属、旧空白complete、
+首次即校验/登录及人工处理后继续、错误opener/窗口/ASIN/外站、登记应答丢失或worker重建、
+超时/取消/晚到结果；断言首个 `tabs.create` 带规范子商品URL且首个 `tabs.update(url)` 为0。
+复用现有完整page→bridge→reader/capture→Coordinator回归，覆盖后续单reader复用、报价/图片归属与一次handoff。
+安装manifest及默认单规格/1688不变由现有检查覆盖；必要typecheck/lint/fixture build及PR CI不替代真实页面验收。
+设计评审及最终独立交付检查复用同一Reviewer，新增finding先分类；本批真实采集/保存/产品验收 NOT_RUN。

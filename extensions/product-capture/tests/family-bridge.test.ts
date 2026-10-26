@@ -50,7 +50,7 @@ it('one finalization preserves original return, and a rebuilt worker only naviga
  const rebuilt=new FamilyBridge(()=>controller,app);await rebuilt.ready;await rebuilt.handle({type:'family.return',revision},sender());expect(api.tabs.update).toHaveBeenLastCalledWith(42);
 });
 it('rejects a reader not created by this progress page and never closes a user-navigated tab',async()=>{
- await open();tabs[50]={id:50,url:'about:blank',openerTabId:7};await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow();
+ await open();tabs[50]={id:50,url:source.url,openerTabId:7,windowId:1};await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow();
  tabs[50].openerTabId=41;await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender());tabs[50].url='https://example.com/';
  await bridge.handle({type:'family.cancel',revision},sender());expect(api.tabs.remove).not.toHaveBeenCalled();expect(bridge.active).toBe(false);
 });
@@ -58,7 +58,7 @@ it('does not treat a closed pending progress tab as still initializing',async()=
  await bridge.begin(source,revision);delete tabs[41];expect(await bridge.status()).toMatchObject({phase:'interrupted'});
 });
 it('retries the same second-child navigation after its locator response was lost and the worker rebuilt',async()=>{
- await open();const first='https://www.amazon.com/dp/B0CC1YM6SJ',second='https://www.amazon.com/dp/B000000002';tabs[50]={id:50,url:'about:blank',openerTabId:41};
+ await open();const first='https://www.amazon.com/dp/B0CC1YM6SJ',second='https://www.amazon.com/dp/B000000002';tabs[50]={id:50,url:first,openerTabId:41,windowId:1};
  await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:first},sender());tabs[50].url=first;
  await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender());
  // The page did not receive that reply, so it has not navigated away from first.
@@ -71,7 +71,7 @@ it('retries the same second-child navigation after its locator response was lost
  expect(api.tabs.create).toHaveBeenCalledOnce();
 });
 it('serializes cancellation behind an in-flight reader locator write without reviving the cancelled record',async()=>{
- await open();tabs[50]={id:50,url:'about:blank',openerTabId:41};
+ await open();tabs[50]={id:50,url:source.url,openerTabId:41,windowId:1};
  let release!:()=>void;storage.session.set.mockImplementationOnce(async()=>new Promise<void>(r=>{release=r;}));
  const reader=bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender());
  await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
@@ -80,11 +80,11 @@ it('serializes cancellation behind an in-flight reader locator write without rev
  const reconstructed=new FamilyBridge(()=>controller,app);await reconstructed.ready;expect(reconstructed.active).toBe(false);
 });
 it('allows tracking queries only when retrying the same registered child after manual handling',async()=>{
- await open();const target='https://www.amazon.com/dp/B0CC1YM6SJ';tabs[50]={id:50,url:'about:blank',openerTabId:41};
+ await open();const target='https://www.amazon.com/dp/B0CC1YM6SJ';tabs[50]={id:50,url:target,openerTabId:41,windowId:1};
  await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:target},sender());
  tabs[50].url=target+'?ref=manual';
  await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:target},sender())).resolves.toEqual({});
- for(const url of ['https://www.amazon.com/checkpoint/continue','https://www.amazon.com/dp/B000000003','https://example.com/']){
+ for(const url of ['https://www.amazon.com/dp/B000000003','https://example.com/']){
   tabs[50].url=url;await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:target},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
  }
  tabs[50].url=target+'?ref=manual';tabs[50].pendingUrl='https://example.com/';
@@ -92,8 +92,34 @@ it('allows tracking queries only when retrying the same registered child after m
 });
 it('advances from an already registered child with tracking query without accepting a different current ASIN',async()=>{
  await open();const first='https://www.amazon.com/dp/B0CC1YM6SJ',next='https://www.amazon.com/dp/B000000002';
- tabs[50]={id:50,url:'about:blank',openerTabId:41};await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:first},sender());
+ tabs[50]={id:50,url:first,openerTabId:41,windowId:1};await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:first},sender());
  tabs[50].url=first+'?ref=manual';
  await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:next},sender())).resolves.toEqual({});
  expect(bridge.location.current?.phase==='bound' && bridge.location.current.reader?.sourceURL).toBe(next);
+});
+it.each([undefined,'','about:blank'])('never takes first %j URL metadata alone as ownership proof',async url=>{
+ await open();tabs[50]={id:50,url,openerTabId:41,windowId:1};
+ await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ expect(bridge.location.current?.phase==='bound'&&bridge.location.current.reader).toBeUndefined();
+});
+it('accepts a first matching pending product but refuses foreign current/pending pages and windows',async()=>{
+ await open();tabs[50]={id:50,openerTabId:41,windowId:2,pendingUrl:source.url};
+ await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ tabs[50].windowId=1;tabs[50].url='https://www.amazon.com/dp/B000000003';
+ await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ delete tabs[50].url;tabs[50].pendingUrl='https://example.com/';
+ await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ tabs[50].pendingUrl=source.url;await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).resolves.toEqual({});
+});
+it('keeps first interrupted registration idempotent without allowing a different reader or next target',async()=>{
+ await open();tabs[50]={id:50,url:'https://www.amazon.com/ap/signin?token=PRIVATE',openerTabId:41,windowId:1};
+ await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender());
+ const recreated=new FamilyBridge(()=>controller,app);await recreated.ready;
+ await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).resolves.toEqual({});
+ expect(JSON.stringify(storage.contents())).not.toContain('PRIVATE');
+ await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:'https://www.amazon.com/dp/B000000003'},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ tabs[51]={...tabs[50],id:51};
+ await expect(recreated.handle({type:'family.reader',revision,tabId:51,sourceURL:source.url},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ tabs[50].pendingUrl='https://example.com/';
+ await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
 });
