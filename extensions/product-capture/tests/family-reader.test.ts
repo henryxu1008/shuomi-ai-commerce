@@ -39,3 +39,23 @@ it('cancellation stops a pending load without navigation or a late completion',a
  const rejected=expect(read).rejects.toThrow('CAPTURE_CANCELLED');await tick();abort.abort();await rejected;
  live.status='complete';updated.forEach(f=>f(50));expect(update).not.toHaveBeenCalled();clean();
 });
+it.each([undefined,'','about:blank'])('bounds the first-load wait for %j metadata without a navigation',async url=>{
+ live.url=url;let complete=false;
+ const read=waitForFamilyDocument(50,target,new AbortController().signal,false,true).then(()=>{complete=true;});
+ const rejected=expect(read).rejects.toThrow('CAPTURE_TIMEOUT');await tick();expect(complete).toBe(false);
+ await vi.advanceTimersByTimeAsync(30000);await rejected;expect(update).not.toHaveBeenCalled();clean();
+});
+it('ignores stale first blank completion then observes the real target without navigating twice',async()=>{
+ live.url=undefined;let complete=false;
+ const read=waitForFamilyDocument(50,target,new AbortController().signal,false,true).then(()=>{complete=true;});
+ await tick();live.url='about:blank';updated.forEach(f=>f(50));await tick();expect(complete).toBe(false);
+ live.url=target;updated.forEach(f=>f(50));await read;expect(update).not.toHaveBeenCalled();clean();
+});
+it('rejects a conflicting pending destination during the first load',async()=>{
+ live.url=undefined;live.pendingUrl='https://example.com/';
+ await expect(waitForFamilyDocument(50,target,new AbortController().signal,false,true)).rejects.toThrow('PAGE_CHANGED');clean();
+});
+it('rejects a window change while waiting on the same native reader',async()=>{
+ live.windowId=1;live.status='loading';const read=waitForFamilyDocument(50,target,new AbortController().signal,false,true);
+ const rejected=expect(read).rejects.toThrow('FAMILY_INTERRUPTED');await tick();live.windowId=2;updated.forEach(f=>f(50));await rejected;clean();
+});
