@@ -3,7 +3,7 @@
 Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)。
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
 此准入结论适用于第1–10节已审范围。第11节后续续采归属修订已另行达到 **IMPLEMENTATION_READY**；
-当前仍仅设计评审，不沿用此前开发授权。本次阶段以 #955 当前正文及用户最新决定为准。
+用户后续明确“继续”，当前按本节已审设计实施和隔离测试；旧运行授权不恢复。当前阶段以 #955 正文为准。
 独立Reviewer `1688_shadow_design_review` 已检查准确设计候选
 `c938459b0dae5546a3afccfd09e103d45b6665cc`，无设计BLOCKER；
 [评审及四组IMPLEMENTATION_TEST](https://github.com/qq550723504/shuomi-ai-commerce/issues/955#issuecomment-6398925548)
@@ -346,8 +346,8 @@ Legacy decision: **N/A**；只复用当前owner与现有Vitest/JSDOM，无旧ser
 Design Basis: **Independent Architecture（既有恢复协议的局部修订）**。
 Admission: **IMPLEMENTATION_READY**。独立Reviewer `1688_shadow_design_review` 对准确设计
 `cb76b6ff5ab00d5a080ed50958d001361d29bc50` 结论PASS，无设计BLOCKER。
-本节当前只交付设计和独立评审，未授权正式开发、重采、部分交接、保存、
-插件/实例更新或部署。已有20/171临时结果保持原页暂停，不尝试热修复或刷新原页。
+本节先交付设计和独立评审；用户后续明确“继续”，授权最小实现、必要测试及一个主要PR。
+不授权重采、部分交接、保存、插件/实例更新、合并或部署。已有20/171临时结果保持原页暂停，不尝试热修复或刷新原页。
 
 ### 用户结果、依据与根因
 

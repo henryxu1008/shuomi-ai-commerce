@@ -4,7 +4,7 @@ import { familyURL } from './family-location';
 import { entryMessages, type EntryError } from '../entry-errors';
 import { UUID } from '../validation';
 import type { FamilyMember } from './family-discovery';
-import { sameAmazonProduct, sameSiteInterruption, waitForFamilyDocument } from './family-reader';
+import { assertFamilyReaderOwnership, assertLocatedFamilyReader, type FamilyReaderOwner, sameAmazonProduct, sameSiteInterruption, waitForFamilyDocument } from './family-reader';
 import { amazonPageSource } from './validation';
 
 export function mountFamilyPage(revision:string) {
@@ -28,6 +28,13 @@ export function mountFamilyPage(revision:string) {
     if(!response?.ok)throw Error(response?.code||'FAMILY_INTERRUPTED');return response.result;
   };
   const initialize=()=>initialized??=request('family.init').then(value=>{coordinatorTabId=value.coordinatorTabId;windowId=value.windowId;sourceURL=value.source.url;return value;});
+  async function readerOwner():Promise<FamilyReaderOwner> {
+    // Reconfirm the existing locator before applying local first/next-load
+    // guards: registration may have committed before its response was lost.
+    const owner=await request('family.init');
+    if(owner.coordinatorTabId!==coordinatorTabId || owner.windowId!==windowId)throw Error('FAMILY_INTERRUPTED');
+    return owner;
+  }
   async function read(member:FamilyMember,signal:AbortSignal) {
     await initialize();signal.throwIfAborted();
     const target=amazonPageSource(new URL(`/dp/${member.sourceID}`,sourceURL).href).sourceURL;
@@ -40,15 +47,22 @@ export function mountFamilyPage(revision:string) {
     }
     const id=readerId;
     if(id===undefined)throw Error('FAMILY_INTERRUPTED');
+    const owner=await readerOwner();signal.throwIfAborted();
     const current=await chrome.tabs.get(id);signal.throwIfAborted();
-    if(current.openerTabId!==coordinatorTabId || current.windowId!==windowId
-      || current.pendingUrl && current.pendingUrl!==current.url && !sameAmazonProduct(current.pendingUrl,target) && !sameSiteInterruption(current.pendingUrl,target))throw Error('FAMILY_INTERRUPTED');
+    assertFamilyReaderOwnership(current,id,owner);
+    if(readerLocated && !owner.reader)throw Error('FAMILY_INTERRUPTED');
+    if(owner.reader){
+      assertLocatedFamilyReader(current,id,owner);
+      if(!readerLocated && owner.reader.sourceURL!==target)throw Error('FAMILY_INTERRUPTED');
+      readerLocated=true;
+    }
+    if(current.pendingUrl && current.pendingUrl!==current.url && !sameAmazonProduct(current.pendingUrl,target) && !sameSiteInterruption(current.pendingUrl,target))throw Error('FAMILY_INTERRUPTED');
     const retry=pendingTarget===target;
     const interruption=retry && sameSiteInterruption(current.url,target);
     if(!readerLocated){
       // tabs.create already navigated. Missing metadata is only a bounded wait,
       // never proof of ownership or permission to overwrite an unknown page.
-      await waitForFamilyDocument(id,target,signal,false,true);
+      await waitForFamilyDocument(id,target,signal,false,true,owner);
       await request('family.reader',{tabId:id,sourceURL:target});signal.throwIfAborted();
       readerLocated=true;
     }else{
@@ -59,9 +73,16 @@ export function mountFamilyPage(revision:string) {
       // the locator remains the expected product, never the verification URL.
       const navigate=!retry || !sameAmazonProduct(current.url,target) && !interruption;
       pendingTarget=target;
-      await waitForFamilyDocument(id,target,signal,navigate);
+      await waitForFamilyDocument(id,target,signal,navigate,false,await readerOwner());
     }
+    const located=await readerOwner();signal.throwIfAborted();
+    const ready=await chrome.tabs.get(id);signal.throwIfAborted();
+    assertLocatedFamilyReader(ready,id,located);
+    if(located.reader?.sourceURL!==target || !sameAmazonProduct(ready.url,target) && !sameSiteInterruption(ready.url,target))throw Error('PAGE_CHANGED');
     const result=await extractFamilyTab({id,url:target},false,signal);
+    const after=await chrome.tabs.get(id);signal.throwIfAborted();
+    assertLocatedFamilyReader(after,id,located);
+    if(!sameAmazonProduct(after.url,target))throw Error('PAGE_CHANGED');
     return {...result,parentASIN:result.manifest?.parentASIN??null};
   }
   const coordinator=new FamilyCoordinator({
@@ -76,7 +97,7 @@ export function mountFamilyPage(revision:string) {
   buttons.get('resume')!.onclick=()=>void action(()=>{if(!coordinator.snapshot().observed)initialized=undefined;return coordinator.resume();});
   buttons.get('partial')!.onclick=()=>void action(()=>coordinator.useObserved());
   buttons.get('cancel')!.onclick=()=>void action(async()=>{await coordinator.cancel();await request('family.cancel');});
-  buttons.get('reader')!.onclick=()=>void action(async()=>{if(readerId===undefined)return;const tab=await chrome.tabs.get(readerId);if(tab.openerTabId!==coordinatorTabId||tab.windowId!==windowId)throw Error('FAMILY_INTERRUPTED');await chrome.tabs.update(readerId,{active:true});if(tab.windowId!==undefined)await chrome.windows.update(tab.windowId,{focused:true});});
+  buttons.get('reader')!.onclick=()=>void action(async()=>{if(readerId===undefined)return;const owner=await readerOwner();const tab=await chrome.tabs.get(readerId);assertLocatedFamilyReader(tab,readerId,owner);await chrome.tabs.update(readerId,{active:true});if(tab.windowId!==undefined)await chrome.windows.update(tab.windowId,{focused:true});});
   buttons.get('return')!.onclick=()=>void action(()=>request('family.return'));
   const inspect=(m:unknown,sender:chrome.runtime.MessageSender,respond:(s:FamilySummary)=>void)=>{
     if(sender.id!==chrome.runtime.id || sender.tab || sender.url && sender.url!==chrome.runtime.getURL('background.js'))return false;

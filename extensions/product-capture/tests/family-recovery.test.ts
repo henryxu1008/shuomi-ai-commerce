@@ -19,10 +19,12 @@ async function setup(staleComplete=false) {
  const updated=new Set<(id:number,info:{status:string})=>void>(), removed=new Set<(id:number)=>void>();
  const live={url:'about:blank',status:'complete',openerTabId:41,windowId:1,pendingUrl:undefined as string|undefined};
  let handed:AmazonCapturePayload|undefined,childParses=0;
- const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload})=>{
-  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:'anchor'},coordinatorTabId:41,windowId:1}};
+ let reader:{tabId:number;sourceURL:string}|undefined;
+ const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload;tabId?:number;sourceURL?:string})=>{
+  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:'anchor'},coordinatorTabId:41,windowId:1,reader}};
   if(m.type==='family.finish')handed=m.payload;
   if(m.type==='family.reader' && !live.url.startsWith(target) && !live.url.includes('/checkpoint/'))return {ok:false,code:'FAMILY_INTERRUPTED'};
+  if(m.type==='family.reader')reader={tabId:m.tabId!,sourceURL:m.sourceURL!};
   return {ok:true,result:{}};
  });
  const emit=()=>updated.forEach(fn=>fn(50,{status:'complete'}));
