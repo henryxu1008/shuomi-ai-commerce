@@ -1,6 +1,9 @@
 import { entryMessages, type EntryError } from './entry-errors';
+import { mountFamilyPage } from './amazon/family-page';
+import type { FamilyStatus } from './amazon/family-bridge';
 type State = { loading: boolean; captured: boolean; handed: boolean; title: string | null; sourceURL: string | null;
-  revision: string; returnState: 'none' | 'available' | 'uncertain'; outcome: string; recoveryURL: string | null; missingFacts: { field: string; reason: string }[]; shortcut: string | null; error?: EntryError };
+  revision: string; returnState: 'none' | 'available' | 'uncertain'; outcome: string; recoveryURL: string | null; missingFacts: { field: string; reason: string }[]; shortcut: string | null; error?: EntryError; family?: FamilyStatus };
+function mountPopup() {
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const capture = element<HTMLButtonElement>('capture');
 const fresh = element<HTMLButtonElement>('fresh'); const status = element('status');
@@ -16,6 +19,7 @@ const outcomes: Record<string, string> = {
 function render(state: State) {
   revision = state.revision;
   const canReturn = state.returnState === 'available';
+  const familyActive=!!state.family && !canReturn;
   element('title').textContent = state.title ?? '商品采集';
   element('source').textContent = state.sourceURL ?? '';
   status.textContent = state.loading ? '正在处理当前商品…' : state.error && Object.hasOwn(entryMessages, state.error) ? entryMessages[state.error]
@@ -23,9 +27,11 @@ function render(state: State) {
       : state.returnState === 'uncertain' ? '原标签定位待核实，请先保留原应用页面；新的采集需要明确确认。'
         : state.captured && !state.handed ? '资料已取得，正在交给应用。' : outcomes[state.outcome] ?? '请在应用中核实结果。';
   capture.hidden = state.handed || canReturn;
-  capture.disabled = state.loading || state.handed || state.returnState !== 'none';
-  fresh.hidden = !state.captured && state.returnState === 'none';
-  fresh.disabled = state.loading || state.error === 'RETURN_STATE_UNAVAILABLE';
+  capture.textContent=familyActive?'查看采集进度':'采集并在应用确认';
+  if(familyActive)status.textContent=`同族采集 ${state.family!.observed}/${state.family!.total}，请回进度页查看。`;
+  capture.disabled = state.loading || state.handed || state.returnState !== 'none' || state.family?.phase==='interrupted';
+  fresh.hidden = !state.captured && state.returnState === 'none' && !familyActive;
+  fresh.disabled = state.loading || state.error === 'RETURN_STATE_UNAVAILABLE' || (familyActive && state.family?.phase!=='interrupted');
   newConfirm.disabled = fresh.disabled;
   recovery.hidden = !canReturn;
   recovery.disabled = state.loading;
@@ -59,3 +65,8 @@ newConfirm.addEventListener('click', () => {
 });
 element('refresh').addEventListener('click', () => void action('popup.status'));
 void action('popup.status');
+
+}
+const mode = document.location?.hash;
+if(mode?.startsWith('#amazon-family='))mountFamilyPage(mode.slice(15));
+else mountPopup();

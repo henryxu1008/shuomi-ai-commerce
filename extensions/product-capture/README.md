@@ -1,10 +1,26 @@
 # 1688 / Amazon browser capture
 
-A Manifest V3 extension for an explicit capture of the current 1688 or Amazon single-product
-detail page. Chrome and Edge use the same build. This directory owns capture
+A Manifest V3 extension for explicit 1688 or Amazon product capture, with an optional
+Amazon same-family variant scope. Chrome and Edge use the same build. This directory owns capture
 and ephemeral transport; it cannot publish a Product or authorize an import.
 
 ## Direct entry and return to the original application
+
+[Execution #955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955) adds
+the reviewed [optional Amazon family scope](../../docs/architecture/plugin-capture-amazon-variants-v1.md).
+On an Amazon detail page, **同时采集其他颜色／尺寸（本次按钮）** is off by default.
+Choose it before the source-page capture button, or inside the existing new-operation
+confirmation. It applies only to that action; idle shortcut/popup capture remains selected-only.
+A normal extension tab shows observed/discovered counts and reuses one inactive reader tab;
+the original source tab stays in place. Only explicitly mapped same-family ASINs are read.
+Errors pause with **继续采集**, **仅使用已采数据** and **取消本次采集**; limits allow
+partial use or cancel. Completion sends one aggregate to the existing application for one
+confirmation/save. Every variant keeps its own observed price/currency and specification image;
+the anchor supplies common product text/gallery. Even N/N remains a partial-family observation.
+While active, all entries return to the same progress page; after handoff they return to the
+original application. Keep the progress tab open: refreshing/closing it interrupts unhanded
+facts, and browser restart/extension reload does not restore the batch. No automatic retry or
+business save is added. Installing or trying this candidate remains a separately authorized step.
 
 [Execution #924](https://github.com/qq550723504/shuomi-ai-commerce/issues/924) adds
 the reviewed [source-page primary entry](../../docs/architecture/plugin-capture-page-entry-v1.md).
@@ -67,7 +83,7 @@ These source changes do not update an existing installed extension or runtime.
 Field/quote increment: [execution #916](https://github.com/qq550723504/shuomi-ai-commerce/issues/916), based on the reviewed [source quote read design](../../docs/architecture/plugin-capture-source-quotes-v1.md) and existing [ingestion design](../../docs/architecture/plugin-capture-ingestion-v1.md). The original image relationship increment is #906.
 New 1688 captures use the exact `captureVersion=2 / schemaVersion=2 / browser_acquisition/v2 / src2b-browser-capture-v2 / 1688-browser-dom/v3` combination. Each variant carries its own `images: [{url, role}]`. Only an explicit image on the SKU entry or its exact property value (`skuProps[].value[].imageUrl`) establishes that relationship. A product album never supplies a guessed SKU image. Other DOM structures remain unsupported in this increment.
 
-The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's exact US/CA/UK/DE/JP product URLs and sends them only to the compiled sibling `/capture/amazon` at the same application origin; there is no second shell or runtime destination. Amazon's strict source/observation contract and receiver/save backend originated in [execution #905](https://github.com/qq550723504/shuomi-ai-commerce/issues/905). Amazon observes the selected dimensions, rendered product overview/detail attributes, availability text and current product gallery. Only the main image is explicitly linked to the selected variant; gallery images remain at product level. It does not traverse or claim a complete variant family, infer inventory quantities or guess currency from a site. Both source validators run before document-bound handoff.
+The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's exact US/CA/UK/DE/JP product URLs and sends them only to the compiled sibling `/capture/amazon` at the same application origin; there is no second shell or runtime destination. Amazon's strict source/observation contract and receiver/save backend originated in [execution #905](https://github.com/qq550723504/shuomi-ai-commerce/issues/905). Amazon observes the selected dimensions, rendered product overview/detail attributes, availability text and current product gallery. Only the main image is explicitly linked to the selected variant; gallery images remain at product level. Default capture does not traverse; the explicit family option above adds bounded mapped-child reads without claiming a complete family, inferring inventory quantities or guessing currency from a site. Both source validators run before document-bound handoff.
 
 1688 also reads existing `skuRangePrices` and `currentPrices` models when higher-priority `offerPriceRanges` has no amount. It retains decimal strings and reads safe, already-loaded description text while skipping executable, form, hidden and frame subtrees. It does not fetch external descriptions. The original confirmation/save path and wire versions are unchanged.
 

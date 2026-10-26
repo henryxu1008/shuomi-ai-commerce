@@ -1,4 +1,8 @@
 export const entryMessages = {
+  FAMILY_NOT_AVAILABLE: '未找到明确的同族规格关系，可取消后选择仅采当前规格。',
+  FAMILY_INVALID: '规格关系不明确或发生变化，本次已暂停；不会猜测组合。',
+  FAMILY_INTERRUPTED: '变体采集进度已中断，请保留原应用核实；不要重复保存。',
+  FAMILY_LIMIT_REACHED: '已达到本次采集资源上限，可明确使用已采数据或取消。',
   INVALID_PAGE: '请在受支持的 Amazon 或 1688 单商品详情页触发采集。',
   CAPTURE_REJECTED: '未取得可用商品资料，请检查页面是否加载完成或需要登录。',
   PAGE_CHANGED: '采集时商品页面已变化，本次没有交给应用，请在当前商品页重新触发。',
