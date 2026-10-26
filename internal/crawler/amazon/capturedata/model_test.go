@@ -1,4 +1,4 @@
-package result_test
+package capturedata_test
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	amazonresult "task-processor/internal/crawler/amazon/result"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 func TestResultWireContract(t *testing.T) {

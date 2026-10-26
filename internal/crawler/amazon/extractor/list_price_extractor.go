@@ -6,7 +6,7 @@ import (
 
 	"regexp"
 	"strings"
-	amazonresult "task-processor/internal/crawler/amazon/result"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )

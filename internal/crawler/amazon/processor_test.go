@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	amazonbrowser "task-processor/internal/crawler/amazon/browser"
-	amazonresult "task-processor/internal/crawler/amazon/result"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 func TestAmazonProcessorProcessWithContextReturnsInitError(t *testing.T) {

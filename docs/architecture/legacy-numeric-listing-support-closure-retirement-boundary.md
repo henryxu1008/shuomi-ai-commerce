@@ -1,4 +1,4 @@
-> #301 / #964 当前替代边界（[用户确认设计 §1–§7/§6.1](legacy-source-result-contract-closure-retirement-boundary.md)）：仅替代全局 Amazon model owner 的 KEEP；相同结果合同归 crawler/amazon/result，旧根/旧import整退。原数字支撑及Task禁令保持，当前值/JSON与采集不变。 当前能力、独立SHEIN登录/Store同步及持久化事实owner保持，workflow/完整inventory/依赖及既有资源不动，无试用前置，#301 OPEN。以下原完整Git正文/数字/勾选/证据逐字保留。
+> #301 / #964 当前替代边界（[用户确认设计 §1–§7/§6.1](legacy-source-result-contract-closure-retirement-boundary.md)）：仅替代全局 Amazon model owner 的 KEEP；相同结果合同归 crawler/amazon/capturedata，旧根/旧import整退。原数字支撑及Task禁令保持，当前值/JSON与采集不变。 当前能力、独立SHEIN登录/Store同步及持久化事实owner保持，workflow/完整inventory/依赖及既有资源不动，无试用前置，#301 OPEN。以下原完整Git正文/数字/勾选/证据逐字保留。
 
 > #301 / #961 精确替代顶注：按[legacy-publishing-support-policy-closure-retirement-boundary.md §1–§7（含§4.2/§6.1）](legacy-publishing-support-policy-closure-retirement-boundary.md)，旧 publishing/common 与 jsonx 根、十一闲置 SHEIN 策略族及三个混合策略尾部已在源码完整退出。当前八值合同分归已有 offlinepackage / publishing.Price，本地组装纯行为归 draft；本批表列 KEEP 由该设计矩阵精确替代，其它当前能力/JSON/hash算法/版本/事实owner及独立SHEIN登录与Store同步保持。仅未来新多属性数组固定按原始名排序，不重写已有载荷。以下原文、数字、勾选与历史证据逐字保留，不作为恢复旧owner或运行操作的授权。
 

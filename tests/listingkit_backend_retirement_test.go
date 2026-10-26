@@ -18,7 +18,7 @@ import (
 )
 
 func TestLegacySourceResultContractClosureIsRetired(t *testing.T) {
-	const resultOwner = "internal/crawler/amazon/result"
+	const resultOwner = "internal/crawler/amazon/capturedata"
 	const attributeOwner = "internal/shein/api/attribute"
 	if _, err := os.Lstat(filepath.Join("..", "internal", "model")); !os.IsNotExist(err) {
 		t.Errorf("retired global model root must be absent: %v", err)
@@ -722,15 +722,15 @@ func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 	}
 	retained := map[string]bool{}
 	for owner, names := range map[string]string{
-		"internal/crawler/alibaba1688":       "NewPublicBrowserManager newAlibaba1688PublicBrowserRuntimeConfig newAlibaba1688BrowserManagerWithRuntimeConfig BrowserManager.CreateBrowser Alibaba1688Processor.Process NewCaptchaHandler CaptchaType CaptchaStatus CaptchaResult CaptchaHandler.handlePageCaptcha CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.handleClickCaptchaWithManualOption CaptchaHandler.handleImageCaptchaWithManualOption CaptchaHandler.handleTextCaptchaWithManualOption CaptchaHandler.handleMathCaptchaWithManualOption PageOperator.NavigateToProductWithoutManualCaptcha ProductChecker.ValidateProduct",
-		"internal/crawler/alibaba1688/model": "Product1688",
-		"internal/crawler/shared/browser":    "Manager.SetUserDataDir Manager.Launch Manager.Close",
-		"internal/crawler/amazon":            "AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown ClassifyFetchError newTypedFetchError newProcessorUnavailableError typedFetchError.Error typedFetchError.Unwrap",
-		"internal/crawler/amazon/browser":    "NewBrowserManagerWithConfig PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.releaseInstanceSafely PoolManager.Shutdown regionalPromptTextSelectors regionalPromptActionSelectors normalizedAmazonHost looksLikeRegionalPrompt DismissRegionalPrompt ExtractZipcode CheckIfPriceAvailable",
-		"internal/crawler/amazon/extractor":  "NewCompositeExtractor FeaturesExtractor FeatureParserExtractor DescriptionExtractor NewVariationsExtractor VariationsExtractor.Extract convertToVariationsValues convertToAmazonVariations TextValidator.IsValidDescription TextValidator.IsValidProductDescription ErrorDetector.DetectErrorType ErrorDetector.IsCriticalError",
-		"internal/crawler/amazon/variations": "NewExtractor Extractor.ExtractFromPage Extractor.BuildVariations GetDefaultConfig VariationsData VariationValue Variation",
-		"internal/crawler/amazon/result":     "Product",
-		"internal/sheinlogin":                "Service.RunWorker Service.processAttempt Service.claimExecution Service.syncPending",
+		"internal/crawler/alibaba1688":        "NewPublicBrowserManager newAlibaba1688PublicBrowserRuntimeConfig newAlibaba1688BrowserManagerWithRuntimeConfig BrowserManager.CreateBrowser Alibaba1688Processor.Process NewCaptchaHandler CaptchaType CaptchaStatus CaptchaResult CaptchaHandler.handlePageCaptcha CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.handleClickCaptchaWithManualOption CaptchaHandler.handleImageCaptchaWithManualOption CaptchaHandler.handleTextCaptchaWithManualOption CaptchaHandler.handleMathCaptchaWithManualOption PageOperator.NavigateToProductWithoutManualCaptcha ProductChecker.ValidateProduct",
+		"internal/crawler/alibaba1688/model":  "Product1688",
+		"internal/crawler/shared/browser":     "Manager.SetUserDataDir Manager.Launch Manager.Close",
+		"internal/crawler/amazon":             "AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown ClassifyFetchError newTypedFetchError newProcessorUnavailableError typedFetchError.Error typedFetchError.Unwrap",
+		"internal/crawler/amazon/browser":     "NewBrowserManagerWithConfig PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.releaseInstanceSafely PoolManager.Shutdown regionalPromptTextSelectors regionalPromptActionSelectors normalizedAmazonHost looksLikeRegionalPrompt DismissRegionalPrompt ExtractZipcode CheckIfPriceAvailable",
+		"internal/crawler/amazon/extractor":   "NewCompositeExtractor FeaturesExtractor FeatureParserExtractor DescriptionExtractor NewVariationsExtractor VariationsExtractor.Extract convertToVariationsValues convertToAmazonVariations TextValidator.IsValidDescription TextValidator.IsValidProductDescription ErrorDetector.DetectErrorType ErrorDetector.IsCriticalError",
+		"internal/crawler/amazon/variations":  "NewExtractor Extractor.ExtractFromPage Extractor.BuildVariations GetDefaultConfig VariationsData VariationValue Variation",
+		"internal/crawler/amazon/capturedata": "Product",
+		"internal/sheinlogin":                 "Service.RunWorker Service.processAttempt Service.claimExecution Service.syncPending",
 	} {
 		for _, name := range strings.Fields(names) {
 			retained[owner+":"+name] = false
@@ -780,7 +780,7 @@ func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 			continue
 		}
 		_, crawlerOwner := retiredFunctions[owner]
-		if !crawlerOwner && owner != "internal/crawler/amazon/result" && owner != "internal/sheinlogin" {
+		if !crawlerOwner && owner != "internal/crawler/amazon/capturedata" && owner != "internal/sheinlogin" {
 			continue
 		}
 		for _, declaration := range file.Decls {

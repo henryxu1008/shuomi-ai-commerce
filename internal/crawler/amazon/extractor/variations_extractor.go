@@ -3,7 +3,7 @@ package extractor
 import (
 	"github.com/sirupsen/logrus"
 
-	amazonresult "task-processor/internal/crawler/amazon/result"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"task-processor/internal/crawler/amazon/variations"
 
 	"github.com/mxschmitt/playwright-go"

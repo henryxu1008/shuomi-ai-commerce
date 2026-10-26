@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	amazonresult "task-processor/internal/crawler/amazon/result"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 // ProductQualityError marks a crawl as structurally successful but unusable for downstream business flows.

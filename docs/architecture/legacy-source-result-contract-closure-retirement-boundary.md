@@ -1,14 +1,16 @@
 # #301 旧全局 Amazon 结果合同与 SHEIN 孤立属性 DTO 完整退休设计
 
-> **USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结 §1–§7（含 §4.2、§6.1）；Issue/PR 的 IMPLEMENTATION_READY / Ready 已在正式修改前写入并读回。同一 #964 完整53路径已实施：17真实值/5原方法归 Amazon result 纯叶子、36消费者改接、旧全局 model 根及三个孤立 SHEIN DTO 退出，无 alias。设计准确 HEAD f496b920b 的原 CI40301812628 与独立只读设计复核 PASS 仅作设计证据；源码必要自检、准确候选 CI 与最终交付复核见 [PR #964](https://github.com/qq550723504/shuomi-ai-commerce/pull/964)，分别记录，不冒充运行验收。#301 OPEN，合并/部署/关单另授权，运行/产品验收 NOT_RUN。
+> **USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结 §1–§7（含 §4.2、§6.1）；Issue/PR 的 IMPLEMENTATION_READY / Ready 已在正式修改前写入并读回。同一 #964 完整53路径已实施：17真实值/5原方法归 Amazon capturedata 纯叶子、36消费者改接、旧全局 model 根及三个孤立 SHEIN DTO 退出，无 alias。设计准确 HEAD f496b920b 的原 CI40301812628 与独立只读设计复核 PASS 仅作设计证据；源码必要自检、准确候选 CI 与最终交付复核见 [PR #964](https://github.com/qq550723504/shuomi-ai-commerce/pull/964)，分别记录，不冒充运行验收。#301 OPEN，合并/部署/关单另授权，运行/产品验收 NOT_RUN。
 
 稳定设计候选同步实际 main `6199063811dbb7904aa678735c1b7bb660b8d186`（#963）。唯一增量为另一 owner 的 Amazon capture 扩展三份TS、四份测试与其设计文档，共8文件；本批53路径/全部Go/AGENTS/workflow/依赖和架构索引/register零交集或零字节差异。原3184 Go/字段/消费者调查可复用，最新组合由本设计准确HEAD的原CI验证；不接管该扩展实现。
+
+> 用户已批准的准确命名修订：原CI40305890688证明仓库原artifact检查保留整个路径段`result`；仅将本批纯叶子命名改为`capturedata`，包括两个新文件、包名、36import和本轮guard/文档引用。领域归属、全部字段/五方法/JSON/错误/行为不变，不修改artifact检查或增白名单；完整清单仍53路径。用户已明确批准准确提案 #964/6413700926 后应用本修订；领域边界及全部原检查保持。
 
 ## 1. 这次清理什么、保留什么
 
 同一批完成两组，不按目录、文件或提交机械拆 PR：
 
-1. **退出旧全局 `internal/model` 根。** 该根只剩 `amazon_product.go`，实际合同全部服务原 Amazon 浏览器采集与调试。将17个真实值类型及5个现有纯方法放入 Amazon 域内的 `internal/crawler/amazon/result` 叶子 owner，36个当前 import 文件一次切换，不保留旧包、type alias、re-export、转发或第二模型。
+1. **退出旧全局 `internal/model` 根。** 该根只剩 `amazon_product.go`，实际合同全部服务原 Amazon 浏览器采集与调试。将17个真实值类型及5个现有纯方法放入 Amazon 域内的 `internal/crawler/amazon/capturedata` 叶子 owner，36个当前 import 文件一次切换，不保留旧包、type alias、re-export、转发或第二模型。
 2. **删除 SHEIN 三个孤立属性 DTO。** 只退 `api/attribute` 的 `AttributeInfo`、`AttributeValue`、`AttributeValueGroup`；保留该文件内实际使用的 `CustomAttributeRelation` 原字段与 JSON。
 
 使用者是维护原浏览器采集、批量结果、调试 JSON 和当前 SHEIN 离线合同的开发者。结果是原操作继续使用同样的采集/结果/错误/JSON，依赖不再穿过全局 catch-all；不是新增采集、平台提交或试用验收前置。当前业务来源入口仍是 `currentapplication → integration/acquisition/amazon → Product/dataacquisition → Sourcing/Catalog/SRC`，不改成走原浏览器。
@@ -44,7 +46,7 @@ Must：两个闭包完整切换/删除；所有当前字段/tag/顺序/数值/�
 | 现有 child variations.VariationValue / Variation | 不能作为结果类型替代：Variation 的 Currency、Image、Attributes字段/tag/omitempty与结果模型不同；该包还包含 parser/Playwright/logging，并非纯值 owner。原转换函数继续存在，只改其结果类型限定 |
 | 原 runtime 与原浏览器路径 | 当前 acquisition/amazon 保持自己的固定站点/解析/挑战合同；原 debug 仍 NewAmazonProcessor → Process → Shutdown，批量走 ProcessBatchWithContext → BatchProcessor，不插入新桥 |
 
-新 DAG：`AmazonProcessor / BatchProcessor / InstanceProcessor / browser / extractor / debug → crawler/amazon/result → encoding/json + fmt + time`。新叶子不导入父 amazon、browser、extractor、variations、Product/Store/App/provider/DB/文件/日志或时钟；唯一时间能力是既有 time.Time 值的编解码，不调用 time.Now。把值放进父包或 extractor 会迫使子包依赖运行层并带来循环风险，因此选最小域内叶子；不创建跨平台 common。
+新 DAG：`AmazonProcessor / BatchProcessor / InstanceProcessor / browser / extractor / debug → crawler/amazon/capturedata → encoding/json + fmt + time`。新叶子不导入父 amazon、browser、extractor、variations、Product/Store/App/provider/DB/文件/日志或时钟；唯一时间能力是既有 time.Time 值的编解码，不调用 time.Now。把值放进父包或 extractor 会迫使子包依赖运行层并带来循环风险，因此选最小域内叶子；不创建跨平台 common。
 
 新公开 Go 类型身份变为 result owner；所有消费者同批切换，旧类型不作为运行期桥。没有 gob/反射类型名注册、旧 Go 对象持久化或跨版本进程交换的当前消费者证据；不据此推定历史数据迁移义务，未知现存资源不读取。Sourcing 对 crawler/旧model 的现有导入禁令继续原样阻止新业务绕入原浏览器。
 
@@ -108,7 +110,7 @@ Go 包身份（包括 reflect 或标准库错误所携带的 Go 类型元数据�
 
 ### 4.1 最小结果 owner 与原字段合同
 
-新 `result/model.go` 定义17个真实 struct，原字段、字段类型、JSON tag/omitempty、声明顺序、指针/嵌入值/集合零值完全保持；只改 package 及本批消费者的 import/`model.` 为 `amazonresult.`。不留旧包 alias、顶层 type alias、重导出或 wrapper，不归并 child variations 的近似类型。
+新 `capturedata/model.go` 定义17个真实 struct，原字段、字段类型、JSON tag/omitempty、声明顺序、指针/嵌入值/集合零值完全保持；只改 package 及本批消费者的 import/`model.` 为 `amazonresult.`。不留旧包 alias、顶层 type alias、重导出或 wrapper，不归并 child variations 的近似类型。
 
 | 类型 | 原字段数 | 合同 |
 | --- | --- | --- |
@@ -158,7 +160,7 @@ Go 包身份（包括 reflect 或标准库错误所携带的 Go 类型元数据�
 
 ## 5. 删除、保留、抽取矩阵与完整清单
 
-Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类型、5个纯JSON/错误方法。Current owner：域内纯叶子 `internal/crawler/amazon/result`，原 browser/extractor/processor/debug 仅调用；CustomAttributeRelation留原API owner。Cutover/deletion condition：36消费者全切换、旧model整根/旧import缺席、三个孤立DTO缺席、原值/JSON/错误/当前行为保持、原检查准确转换与必要原CI/最终源码复核满足；不含既有运行资源退休。
+Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类型、5个纯JSON/错误方法。Current owner：域内纯叶子 `internal/crawler/amazon/capturedata`，原 browser/extractor/processor/debug 仅调用；CustomAttributeRelation留原API owner。Cutover/deletion condition：36消费者全切换、旧model整根/旧import缺席、三个孤立DTO缺席、原值/JSON/错误/当前行为保持、原检查准确转换与必要原CI/最终源码复核满足；不含既有运行资源退休。
 
 ### 5.1 准确处置
 
@@ -167,7 +169,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 | internal/model/amazon_product.go及整internal/model根 | 17类型/5方法一次抽取到result/model.go后整退旧文件与根 | 已退task/retry/status六文件不恢复；不创建空doc.go、旧alias或跨平台入口 |
 | 36原import文件 | 只改import/alias限定与相关类型引用 | 29生产＋7原测试（含独立debug），原算法/fixture/assertion/body不改，不将代码搬到新运行框架 |
 | internal/shein/api/attribute/interface.go | 精确删除AttributeInfo、AttributeValue、AttributeValueGroup及三项专属注释 | CustomAttributeRelation原两个int64字段/tag/无omitempty/声明顺序保持；四当前消费者/其它SHEIN DTO零改 |
-| 新result/model_test.go | 最小合成值合同回归：固定结果JSON/嵌套值/空值、五方法/原异常与错误链；复用原测试设施 | 独立手写期待与固定bytes，不以同一实现计算oracle；不新增runner/平台/数据库/真实浏览器验收 |
+| 新capturedata/model_test.go | 最小合成值合同回归：固定结果JSON/嵌套值/空值、五方法/原异常与错误链；复用原测试设施 | 独立手写期待与固定bytes，不以同一实现计算oracle；不新增runner/平台/数据库/真实浏览器验收 |
 | 原检查与文档 | 仅§6.1准确转换、§5.3文档 | workflow/完整inventory/.golangci/依赖/保护及其它检查零改 |
 
 ### 5.2 原测试与验证边界
@@ -228,8 +230,8 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 | `internal/crawler/amazon/instance_processor_test.go` | REWIRE_CURRENT_CONTRACT_ONLY |
 | `internal/crawler/amazon/processor.go` | REWIRE_CURRENT_CONTRACT_ONLY |
 | `internal/crawler/amazon/processor_test.go` | REWIRE_CURRENT_CONTRACT_ONLY |
-| `internal/crawler/amazon/result/model.go` | NEW_MINIMAL_PURE_VALUE_OWNER |
-| `internal/crawler/amazon/result/model_test.go` | NEW_SYNTHETIC_CONTRACT_REGRESSION |
+| `internal/crawler/amazon/capturedata/model.go` | NEW_MINIMAL_PURE_VALUE_OWNER |
+| `internal/crawler/amazon/capturedata/model_test.go` | NEW_SYNTHETIC_CONTRACT_REGRESSION |
 | `internal/crawler/amazon/result_validator.go` | REWIRE_CURRENT_CONTRACT_ONLY |
 | `internal/crawler/amazon/result_validator_test.go` | REWIRE_CURRENT_CONTRACT_ONLY |
 | `internal/model/amazon_product.go` | EXTRACT_AND_RETIRE_OLD_ROOT |
@@ -249,12 +251,14 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 ### 6.1 原检查、当前文档及冻结边界的精确转换
 
 1. `tests/listingkit_backend_retirement_test.go` 新增一个 `TestLegacySourceResultContractClosureIsRetired`：旧internal/model整根与decoded旧import缺席，API attribute原owner三DTO缺席，17真实struct/5纯方法及CustomAttributeRelation必需；新叶子只允许encoding/json/fmt/time、无provider/App/DB/文件/日志/隐式clock/父运行层依赖、无顶层alias/reexport/转发；明确各原生产消费者和debug都改接新owner。复用原trackedFiles/AST/decoded-import及错误即失败helper，按owner限定，不全局ban Product/AttributeValue同名声明，不新增工具/runner。
-2. 同文件 `TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired` **只改两处owner字符串**：retained表的 `internal/model:Product` → `internal/crawler/amazon/result:Product`；原过滤条件 `owner != "internal/model"` → `owner != "internal/crawler/amazon/result"`。原过滤是精确map owner，不是prefix；两处必须一起转换，否则新叶子Product不会被观察。其余retired全集、fragments、shapes、SHEIN/1688/池/变体/取消/AST/decoder/失败关闭断言与算法逐字保持。
+2. 同文件 `TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired` **只改两处owner字符串**：retained表的 `internal/model:Product` → `internal/crawler/amazon/capturedata:Product`；原过滤条件 `owner != "internal/model"` → `owner != "internal/crawler/amazon/capturedata"`。原过滤是精确map owner，不是prefix；两处必须一起转换，否则新叶子Product不会被观察。其余retired全集、fragments、shapes、SHEIN/1688/池/变体/取消/AST/decoder/失败关闭断言与算法逐字保持。
 3. 同文件 `assertLegacyPlatformAPICallClosureRetired` **只把requiredByFile的attribute/interface.go一行**由四声明缩为CustomAttributeRelation。全部其它KEEP行、retiredByOwner、decode/遍历/错误/正向断言保持；新guard负责三DTO确切缺席。原函数是helper，不能因为不以Test开头漏进矩阵。
 4. 除上述 **两个原函数（含helper）与一个新增guard**，所有原检查/helpers/原测试逻辑零改。`TestPhase3...`现有Sourcing对internal/model及crawler的永久导入禁止保持；旧internal/model Task路径和retired-owner禁令保持，即使旧根消失也不移除禁令。原guard已经扫描稳定根/tracked Go，未发现额外missing-root读取入口；不要加missing-skip、dummy root或删检查。
 5. 当前文档仅本文、架构README、Legacy register、project-boundaries、amazon-crawler-runtime-flow五项，说明新叶子归属、原debug和当前application的两条不同路径/事实边界、原检查转换；7旧依据只加准确顶注，原Git blob/数字/勾选/正文保留。README/register保留最终候选main完整索引后缀。dated inventory/历史观察/旧计划不是当前调用证据，不机械改其旧路径。
 6. workflow、完整phase2/external-client等inventory（CURRENT/历史/计数/ceilings）、.golangci、root与debug依赖/锁、部署/保护规则 **零diff**。本批两个合同不占四条CURRENT inventory行，无校准需要。#956 Store与#692样例当前只与本批架构README相交，无源码重叠，不接管其实现。
 7. #301更新前新读当前正文，保持OPEN；仅当前段/准确PR证据可更新，从“以下保留 #726 已合并批次与历史证据，不扩大本轮权限。”起的完整历史后缀及旧勾选逐字保留，正文≤65536字符，前当前段先归档评论。
+
+8. 原CI40305890688真实失败后，用户批准准确命名例外（#964/6413700926）：本批新叶子由result改名capturedata，两个新文件/36import与本批guard/文档同步；完整manifest仍53路径。原repository_structure的result产物禁令、architecture_docs显式索引算法及其余检查零改，不增加白名单/skip。README只恢复反引号文件名索引格式。17值/五方法body/JSON/hash/事实owner和所有保留能力不变，原失败与新准确CI分别记录。
 
 本节已核对root消失的同根source/requiredOwner观察及原helper。真实CI若证明还须矩阵外改动，先查齐同根sibling，按AGENTS分类、给精确最小提案并取得用户例外后再改；不能临时放宽原检查/inventory/版本或省略仍有效断言。
 

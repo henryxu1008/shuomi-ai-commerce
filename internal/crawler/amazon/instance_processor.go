@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"task-processor/internal/crawler/amazon/browser"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"task-processor/internal/crawler/amazon/extractor"
-	amazonresult "task-processor/internal/crawler/amazon/result"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"

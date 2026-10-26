@@ -1,4 +1,4 @@
-package result
+package capturedata
 
 import (
 	"encoding/json"
