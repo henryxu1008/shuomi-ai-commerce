@@ -79,3 +79,21 @@ it('serializes cancellation behind an in-flight reader locator write without rev
  expect(bridge.active).toBe(false);expect(bridge.location.current).toBeUndefined();expect(api.tabs.remove).toHaveBeenCalledExactlyOnceWith(50);
  const reconstructed=new FamilyBridge(()=>controller,app);await reconstructed.ready;expect(reconstructed.active).toBe(false);
 });
+it('allows tracking queries only when retrying the same registered child after manual handling',async()=>{
+ await open();const target='https://www.amazon.com/dp/B0CC1YM6SJ';tabs[50]={id:50,url:'about:blank',openerTabId:41};
+ await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:target},sender());
+ tabs[50].url=target+'?ref=manual';
+ await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:target},sender())).resolves.toEqual({});
+ for(const url of ['https://www.amazon.com/checkpoint/continue','https://www.amazon.com/dp/B000000003','https://example.com/']){
+  tabs[50].url=url;await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:target},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+ }
+ tabs[50].url=target+'?ref=manual';tabs[50].pendingUrl='https://example.com/';
+ await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:target},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
+});
+it('advances from an already registered child with tracking query without accepting a different current ASIN',async()=>{
+ await open();const first='https://www.amazon.com/dp/B0CC1YM6SJ',next='https://www.amazon.com/dp/B000000002';
+ tabs[50]={id:50,url:'about:blank',openerTabId:41};await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:first},sender());
+ tabs[50].url=first+'?ref=manual';
+ await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:next},sender())).resolves.toEqual({});
+ expect(bridge.location.current?.phase==='bound' && bridge.location.current.reader?.sourceURL).toBe(next);
+});

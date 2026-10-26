@@ -4,6 +4,7 @@ import { familyURL } from './family-location';
 import { entryMessages, type EntryError } from '../entry-errors';
 import { UUID } from '../validation';
 import type { FamilyMember } from './family-discovery';
+import { sameAmazonProduct, sameSiteInterruption, waitForFamilyDocument } from './family-reader';
 
 export function mountFamilyPage(revision:string) {
   if(!UUID.test(revision) || location.href!==familyURL(revision))throw Error('INVALID_MESSAGE');
@@ -19,7 +20,7 @@ export function mountFamilyPage(revision:string) {
   }
   let readerId:number|undefined,coordinatorTabId:number|undefined,windowId:number|undefined;
   let initialized:Promise<{source:{id:number;url:string;documentId:string}}>|undefined;
-  let sourceURL='',actionFailure='';
+  let sourceURL='',actionFailure='',pendingTarget='';
   const request=async(type:string,extra:Record<string,unknown>={})=>{
     const response=await chrome.runtime.sendMessage({type,revision,...extra});
     if(!response?.ok)throw Error(response?.code||'FAMILY_INTERRUPTED');return response.result;
@@ -29,19 +30,20 @@ export function mountFamilyPage(revision:string) {
     await initialize();signal.throwIfAborted();
     if(readerId===undefined){const tab=await chrome.tabs.create({url:'about:blank',active:false,openerTabId:coordinatorTabId,windowId});if(tab.id===undefined)throw Error('FAMILY_INTERRUPTED');readerId=tab.id;if(signal.aborted){const owned=await chrome.tabs.get(readerId);if(owned.url==='about:blank'&&owned.openerTabId===coordinatorTabId)await chrome.tabs.remove(readerId);readerId=undefined;signal.throwIfAborted();}}
     const target=new URL(`/dp/${member.sourceID}`,sourceURL).href;
-    await request('family.reader',{tabId:readerId,sourceURL:target});signal.throwIfAborted();
     const id=readerId;
-    await new Promise<void>((resolve,reject)=>{
-      let settled=false;
-      const timer=setTimeout(()=>done(Error('CAPTURE_TIMEOUT')),30000);
-      const updated=(tabId:number,info:chrome.tabs.OnUpdatedInfo)=>{if(tabId===id && info.status==='complete')done();};
-      const removed=(tabId:number)=>{if(tabId===id)done(Error('FAMILY_INTERRUPTED'));};
-      const aborted=()=>done(Error('CAPTURE_CANCELLED'));
-      signal.addEventListener('abort',aborted,{once:true});
-      function done(error?:Error){if(settled)return;settled=true;signal.removeEventListener('abort',aborted);clearTimeout(timer);chrome.tabs.onUpdated.removeListener(updated);chrome.tabs.onRemoved.removeListener(removed);if(error)reject(error);else resolve();}
-      chrome.tabs.onUpdated.addListener(updated);chrome.tabs.onRemoved.addListener(removed);
-      void chrome.tabs.update(id,{url:target,active:false}).catch(e=>done(e));
-    });
+    if(id===undefined)throw Error('FAMILY_INTERRUPTED');
+    const current=await chrome.tabs.get(id);signal.throwIfAborted();
+    if(current.openerTabId!==coordinatorTabId || current.pendingUrl && current.pendingUrl!==current.url && !sameAmazonProduct(current.pendingUrl,target))throw Error('FAMILY_INTERRUPTED');
+    const retry=pendingTarget===target;
+    const interruption=retry && sameSiteInterruption(current.url,target);
+    if(!interruption){
+      await request('family.reader',{tabId:id,sourceURL:target});signal.throwIfAborted();
+    }
+    // A still-blocked owned reader is only classified again on explicit resume.
+    // It is never registered as a product locator or navigated past the check.
+    const navigate=!retry || !sameAmazonProduct(current.url,target) && !interruption;
+    pendingTarget=target;
+    await waitForFamilyDocument(id,target,signal,navigate);
     const result=await extractFamilyTab({id,url:target},false,signal);
     return {...result,parentASIN:result.manifest?.parentASIN??null};
   }
