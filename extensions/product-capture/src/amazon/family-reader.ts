@@ -10,7 +10,7 @@ export function sameSiteInterruption(input: string | undefined, target: string):
 
 // Tab completion only describes loading. In particular, an old about:blank
 // complete event must not authorize parsing the new child document.
-export async function waitForFamilyDocument(id: number, target: string, signal: AbortSignal, navigate: boolean) {
+export async function waitForFamilyDocument(id: number, target: string, signal: AbortSignal, navigate: boolean, firstLoad = false) {
   signal.throwIfAborted();
   const before = await chrome.tabs.get(id); signal.throwIfAborted();
   await new Promise<void>((resolve, reject) => {
@@ -29,9 +29,11 @@ export async function waitForFamilyDocument(id: number, target: string, signal: 
       try {
         const tab = await chrome.tabs.get(id);
         if (settled) return;
-        if (tab.openerTabId !== before.openerTabId) return done(Error('FAMILY_INTERRUPTED'));
+        if (tab.openerTabId !== before.openerTabId || tab.windowId !== before.windowId) return done(Error('FAMILY_INTERRUPTED'));
+        if (tab.pendingUrl && tab.pendingUrl !== tab.url && !sameAmazonProduct(tab.pendingUrl, target) && !sameSiteInterruption(tab.pendingUrl, target)) return done(Error('PAGE_CHANGED'));
         if (tab.status !== 'complete' || tab.pendingUrl && tab.pendingUrl !== tab.url) return;
         if (sameAmazonProduct(tab.url, target) || sameSiteInterruption(tab.url, target)) return done();
+        if (firstLoad && (!tab.url || tab.url === 'about:blank')) return;
         if (navigate && (tab.url === 'about:blank' || tab.url === before.url)) return;
         done(Error('PAGE_CHANGED'));
       } catch { done(Error('FAMILY_INTERRUPTED')); }
