@@ -265,7 +265,10 @@ Legacy decision: N/A；不调用旧服务端或新增抓取框架，复用原解
 
 Design Basis: **Independent Architecture（既有文档的有界修订）**。
 本节修改首次导航与定位登记的顺序和首次准入，须独立评审后达到 IMPLEMENTATION_READY 才能改生产代码；
-当前本节 Admission: **DESIGN_REVIEW_PENDING**。第1节产品/Figma依据、第5/7/9节未冲突的不变量继续适用；
+本节已由原独立Reviewer `1688_shadow_design_review` 评审准确设计提交
+`80da8b72d6d97a815926b03de9dc8ee935c5f527`：**PASS / IMPLEMENTATION_READY**，无设计BLOCKER。
+首次创建唯一性、校验页登记丢应答幂等、严格归属及取消/晚到结果归 IMPLEMENTATION_TEST，在本主要PR收敛。
+第1节产品/Figma依据、第5/7/9节未冲突的不变量继续适用；
 本节替代依赖 `about:blank` 可读URL的首次登记前提，不改变后续导航、保存或完整任务恢复范围。
 
 ### 用户结果与根因
