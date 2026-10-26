@@ -1,4 +1,4 @@
-- [`legacy-idle-provider-bootstrap-closure-retirement-boundary.md`](legacy-idle-provider-bootstrap-closure-retirement-boundary.md): #301 / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。三组完整设计：闲置Gemini图片客户端、runtimepath与正式LoadFromBytes；19有效配置测试改接当前owner，35路径未来同批，准确KEEP替代与§6.1见设计。当前能力、独立SHEIN登录/Store同步和全部资源边界保持；本阶段仅三文档，确认/Ready后才实施。以下原完整索引/历史保留。
+- [`legacy-idle-provider-bootstrap-closure-retirement-boundary.md`](legacy-idle-provider-bootstrap-closure-retirement-boundary.md): #301 / IMPLEMENTATION_READY。用户已确认§1–§7（含§6.1）；三组35工件整批实施：闲置Gemini图片SDK、runtimepath与LoadFromBytes正式入口退出，19有效配置测试改接当前owner。当前能力、独立SHEIN登录与Store同步保持；验证/准确HEAD/源码CI与最终复核见#958，真实运行/产品验收NOT_RUN，#301 OPEN。以下原完整索引/历史保留。
 
 > #953 源码实施阶段：用户已确认冻结设计 §§1–7（含 §6.1）。旧生成链与 `internal/product/enrichment` 已整批退休；当前候选合同及纯规则归 `internal/product/review/proposal`，Review 仅接现成候选，沿原四个 HTTP 审核路由处理。必要自检、准确源码 CI 与最终复核分别记录在 [PR #953](https://github.com/qq550723504/shuomi-ai-commerce/pull/953)，当前尚未交付合并授权；运行/产品验收 NOT_RUN，#301 保持 OPEN。 以下冻结设计、索引和历史证据完整保留。
 

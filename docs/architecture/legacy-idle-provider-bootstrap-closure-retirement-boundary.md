@@ -1,3 +1,5 @@
+> #958 实施准入：用户已确认冻结设计 `378066fe91ce734d44c2ac95a1c707919e32ebdc` §1–§7（含 §6.1）。准确设计 CI 与一次授权独立设计复核已通过，Issue/PR 已记录并读回 **Independent Architecture / IMPLEMENTATION_READY / Ready → In Progress**。三组35工件在本 PR 整批实施；原有效配置规则与断言保留，workflow/完整 inventory 不改，独立 SHEIN 登录与 Store 同步保持。不操作既有实例、数据、凭据或进程，不增加试用前置，#301 OPEN。准确源码 HEAD、自检/CI/最终复核另在 PR 记录，运行/产品验收 NOT_RUN；以下冻结设计全文及其当时设计阶段状态保留。
+
 # #301 闲置 Gemini 客户端与宿主辅助入口完整退休设计
 
 > Design Basis: **Independent Architecture / DESIGN_ONLY / DESIGNING / NOT_READY**。本轮只交设计，生产源码尚未实施。

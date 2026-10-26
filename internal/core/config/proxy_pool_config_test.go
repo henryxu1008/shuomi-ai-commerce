@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func TestLoadFromBytesLoadsAmazonProxyPool(t *testing.T) {
-	cfg, err := LoadFromBytes([]byte(`
+func TestConfigFixtureLoadsAmazonProxyPool(t *testing.T) {
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: test-key
   model: test-model
@@ -65,7 +65,7 @@ func TestValidateAmazonConfigRejectsEnabledProxyPoolWithoutProxies(t *testing.T)
 	}
 }
 
-func TestLoadFromBytesLoadsAmazonProxyPoolFromFile(t *testing.T) {
+func TestConfigFixtureLoadsAmazonProxyPoolFromFile(t *testing.T) {
 	proxyFile := filepath.Join(t.TempDir(), "proxies.txt")
 	if err := os.WriteFile(proxyFile, []byte(`
 # local crawler proxies
@@ -77,7 +77,7 @@ http://127.0.0.1:31001
 		t.Fatalf("write proxy file: %v", err)
 	}
 
-	cfg, err := LoadFromBytes([]byte(`
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: test-key
   model: test-model
@@ -90,7 +90,7 @@ amazon:
     enabled: true
     strategy: round_robin
     failureCooldownSeconds: 300
-    proxyFile: ` + proxyFile + `
+    proxyFile: `+proxyFile+`
     proxies:
       - http://127.0.0.1:31000
 `))
