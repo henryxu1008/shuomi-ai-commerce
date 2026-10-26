@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	common "task-processor/internal/publishing/common"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 func TestBuildPackageTemplateValidationReportsReadyPackage(t *testing.T) {

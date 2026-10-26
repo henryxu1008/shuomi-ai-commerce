@@ -1,3 +1,5 @@
+> #960 实施状态：**USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结 §1–§7（含 §6.1），#301/#960 的 Ready → In Progress 已先于源码修改记录并读回。本批 119 路径整批实现：29 个当前值类型/16 个公开纯规则归 `offlinepackage`，唯一空配置本地组装归既有 `draft.Builder` 的私有函数，15 个消费者改接，60 个旧文件及未注入的扩展/四私有 map 退出，不留 alias。准确源码 HEAD、原 CI、最终源码复核及合并授权另记 [#960](https://github.com/qq550723504/shuomi-ai-commerce/pull/960)；设计复核不替代源码复核。当前 JSON/hash/版本/持久化 owner、采集与独立 SHEIN 登录/Store 同步保持；workflow/完整 inventory/既有资源零改，运行与产品验收 NOT_RUN，#301 OPEN。以下冻结设计和原历史完整保留。
+
 # #301 旧 SHEIN 草稿装配包及专属扩展尾部完整退休设计
 
 > Design Basis: **Independent Architecture / DESIGN_ONLY / DESIGNING / SOURCE_NOT_STARTED / NOT_READY**。当前只交设计、索引与登记三文档；用户确认本 §1–§7（含 §6.1）、适用独立设计复核及 Issue/PR 的 IMPLEMENTATION_READY/Ready 记录读回后，才在同一主要 PR 整批实施。调查基线 `6238d2a6670e75e05d49e71c3a33d6ae2cc0d65d`；接单与 #958 收尾归档 [#301 评论6407227866](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6407227866)。

@@ -41,7 +41,7 @@ import (
 	contract "task-processor/internal/marketplace/validator"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 type liveProvider struct {
