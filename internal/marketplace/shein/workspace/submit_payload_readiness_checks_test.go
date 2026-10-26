@@ -1,7 +1,6 @@
 package workspace
 
 import (
-	common "task-processor/internal/publishing/common"
 	"testing"
 
 	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
@@ -122,7 +121,7 @@ func findReadinessCheck(t *testing.T, checks []ReadinessCheckSpec, key string) R
 }
 
 func TestSummaryOnlySKUsDoNotMakeCanonicalDraftReady(t *testing.T) {
-	pkg := &sheinpub.Package{SkcList: []sheinpub.SKCPackage{{SKUs: []common.Variant{{SKU: "summary"}}}}}
+	pkg := &sheinpub.Package{SkcList: []sheinpub.SKCPackage{{SKUs: []sheinpub.Variant{{SKU: "summary"}}}}}
 	checks := BuildSubmitPayloadReadinessChecks(pkg, "publish")
 	assertReadinessCheck(t, checks, "request_draft", false)
 	assertReadinessCheck(t, checks, "variants", false)

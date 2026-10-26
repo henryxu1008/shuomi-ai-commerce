@@ -8,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/publishing/common"
 	"task-processor/internal/shein/authorizedbrand"
 	"task-processor/internal/shein/content"
 )
@@ -94,7 +93,7 @@ func sanitizeLocalizedTexts(service sheinSensitiveWordSanitizer, ctx *content.Cl
 	return changed
 }
 
-func sanitizeCommonAttributes(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, attrs []common.Attribute) bool {
+func sanitizeCommonAttributes(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, attrs []offlinepackage.Attribute) bool {
 	changed := false
 	for i := range attrs {
 		if !shouldSanitizeDraftAttributeValue(attrs[i].Value) {

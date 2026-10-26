@@ -1,4 +1,4 @@
-package common
+package draft
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ func TestBuildVariantsFallsBackToColorAndSizeMatrix(t *testing.T) {
 		Images: []canonical.Image{{URL: "main.jpg"}},
 	}
 
-	variants := BuildVariants(product)
+	variants := buildSourceVariants(product)
 	if len(variants) != 4 {
 		t.Fatalf("variant count = %d, want 4", len(variants))
 	}
@@ -41,7 +41,7 @@ func TestBuildVariantsFallsBackToSingleDefaultVariant(t *testing.T) {
 		},
 	}
 
-	variants := BuildVariants(product)
+	variants := buildSourceVariants(product)
 	if len(variants) != 1 {
 		t.Fatalf("variant count = %d, want 1", len(variants))
 	}

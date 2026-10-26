@@ -17,6 +17,104 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyPublishingSupportPolicyClosureIsRetired(t *testing.T) {
+	for _, root := range []string{"internal/publishing", "internal/pkg/jsonx"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(root))); !os.IsNotExist(err) {
+			t.Errorf("retired root must be absent: %s: %v", root, err)
+		}
+	}
+	for _, path := range []string{"internal/marketplace/shein/publishing/attribute_value_match_policy.go", "internal/marketplace/shein/publishing/attribute_value_match_policy_test.go", "internal/marketplace/shein/publishing/attribute_value_segment_policy.go", "internal/marketplace/shein/publishing/attribute_value_segment_policy_test.go", "internal/marketplace/shein/publishing/cost_pricing_policy.go", "internal/marketplace/shein/publishing/cost_pricing_policy_test.go", "internal/marketplace/shein/publishing/pod_submit_readiness_policy.go", "internal/marketplace/shein/publishing/pod_submit_readiness_policy_test.go", "internal/marketplace/shein/publishing/sds_image_policy.go", "internal/marketplace/shein/publishing/sds_image_policy_test.go", "internal/marketplace/shein/publishing/size_attribute_policy.go", "internal/marketplace/shein/publishing/size_attribute_policy_test.go", "internal/marketplace/shein/publishing/source_dimension_policy.go", "internal/marketplace/shein/publishing/source_dimension_policy_test.go", "internal/marketplace/shein/publishing/submit_mode_policy.go", "internal/marketplace/shein/publishing/submit_mode_policy_test.go", "internal/marketplace/shein/publishing/submit_prevalidation_policy.go", "internal/marketplace/shein/publishing/submit_prevalidation_policy_test.go", "internal/marketplace/shein/publishing/text_normalization_policy.go", "internal/marketplace/shein/publishing/text_normalization_policy_test.go", "internal/marketplace/shein/publishing/variant_image_policy.go", "internal/marketplace/shein/publishing/variant_image_policy_test.go", "internal/pkg/jsonx/llm.go", "internal/pkg/jsonx/unmarshal.go", "internal/publishing/common/helpers.go", "internal/publishing/common/image_set.go", "internal/publishing/common/image_set_test.go", "internal/publishing/common/types.go", "internal/publishing/common/variant_fallback.go", "internal/publishing/common/variant_fallback_test.go", "internal/publishing/common/warehouse.go", "internal/publishing/common/warehouse_test.go"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired file must be absent: %s: %v", path, err)
+		}
+	}
+	const dataRoot = "internal/marketplace/shein/offlinepackage"
+	const policyRoot = "internal/marketplace/shein/publishing"
+	const draftRoot = "internal/marketplace/shein/draft"
+	retired := strings.Fields("AppendUniqueSDSImageURLs BuildSizeAttributesFromProductSize BuildSizeAttributesFromProductSizeWithHeaderAttributeIDs BuildSizeAttributesFromProductSizeWithTemplates CalculateCostPrice CloneImageUploadCache ComparableAttributeSegments CostPriceRule DefaultSDSImageKey DistinctVariantImageMainImageCount EnforceVariantImageCoverage EvaluatePODSubmitReadiness FinalDraftImageInput FindVariantImageSet FirstNonEmptyImageURL FirstSDSImageSet GalleryWithoutMain ImageSetFromSDSMockups IsDescriptiveSourceDimension IsNumericLikeSourceDimensionValue IsNumericScaleSourceDimension IsOnlySheinAttributeSpecialChars IsSDSImageURL IsSizeChartTemplateAttribute IsSizeSourceDimension IsUploadedImageURL IsValidSheinAttributeText LookupSDSImagesBySKU MatchPlatformAttributeValue MergeSDSImageSet NormalizeFinalDraftSubmitMode NormalizeImageRoleOverride NormalizeImageRoleOverrides NormalizeSDSImageKey NormalizeSheinContentText NormalizeVariantImageKey NormalizeVariantImageSets OrderFinalDraftImages PODSubmitReadiness PreValidateSubmitProduct PreValidateSubmitProductWithOptions ProductImageDetailsCoverFinalDraft ProductImageInfoFromFinalDraft RegisterSDSVariantImageSet RemoveRemainingSheinAttributeSpecialChars ReorderFinalDraftProductImages ResolveSDSImages SDSImageLookupInput SanitizeSheinAttributeText SelectSourceDimensionsFallback SelectWarehouseCodeForSite SetVariantImageCoverageMetadata SizeChartTemplateAttribute SizeSaleAttributeRef SourceDimension SourceDimensionExists SourceDimensionPrimaryPriority SourceDimensionSecondaryPriority SourceDimensionSelection SourceSDSSKUFromSupplierSKU UniqueNonEmptySDSImageStrings UnmappedSDSSizeHeaders VariantImageCoverageState VariantImageGroupCount VariantImageGroupInput VariantImageGroupKey VariantImageMainImageInput VariantImageMainImageURL VariantImageSKCInput VariantImageSet WarehouseOption apparelSizeAttributeIDs cmValuePattern extractCentimeterValue finalDraftImageInputHasImage firstNonEmptyPODReadinessMessage indexSizeChartTemplateAttributeIDs indexSizeChartTemplateAttributes indexSizeHeaderAttributeIDOverrides indexSizeSaleAttributeRefs intSlicesEqual isKnownGarmentSizeChartAttributeName isLikelySourceDimensionCodePrefix isValidSizeHeaderAttributeID leadingNumericValuePattern normalizeSDSSizeHeader normalizeSizeText normalizeSourceDimensionText normalizeSourceDimensionValue parseSDSProductSizeTable preValidate saveDraftPODReadinessFallback sdsSizeAttributeID sdsSizeCell sheinAttributeFtRegex sheinAttributeInchRegex sheinAttributeReplacementTokens sheinAttributeSpecialCharRegex sheinEmojiPattern sheinHTMLTagPattern sheinSpecialCharPattern sheinWhitespacePattern sizeHeaderAliases sourceDimensionLeadingScalePattern sourceDimensionNoisePattern submitProductValidationInput submitProductValidator summarizeSubmitValidationIssues trimSourceDimensionCodePrefix uniqueNonEmptyImageStrings validateBasicProductInfo validateQuantityTypeAndValue validateResolvedAttributes validateResolvedMappings validateResolvedSaleAttribute validateResolvedSaleAttributes validateSKCAndSKUData validateSubmitQuantity variantImageCoverageBlockedMessage")
+	required := map[string]map[string]bool{
+		dataRoot:                  {"Variant": false, "ImageSet": false, "PublishImageBundle": false, "BundleSlot": false, "MissingSlot": false, "Attribute": false, "Site": false, "DecodePersistedPackageStrict": false, "ClonePackageForPersistence": false},
+		policyRoot:                {"Price": false, "PricingPolicy": false, "FinalSubmitImagesReady": false, "VariantImageCoverageStatus": false, "SubmitPreferredWarehouseCode": false},
+		draftRoot:                 {"Builder": false, "buildSourceVariants": false, "buildSourceImages": false, "buildSourceAttributes": false, "buildFallbackVariant": false, "variantOptionSplitter": false},
+		"internal/listing/record": {"Service": false},
+		"internal/sheinlogin":     {"RunWorker": false, "syncPending": false},
+	}
+	valueTypes := strings.Fields("Variant ImageSet PublishImageBundle BundleSlot MissingSlot Attribute Site Price")
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		production := !strings.HasSuffix(path, "_test.go")
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode %s: %v", path, err)
+			}
+			for _, old := range []string{"task-processor/internal/publishing", "task-processor/internal/pkg/jsonx"} {
+				if imported == old || strings.HasPrefix(imported, old+"/") {
+					t.Errorf("retired import in %s: %s", path, imported)
+				}
+			}
+			if path == dataRoot+"/source_values.go" && !slices.Contains([]string{"task-processor/internal/marketplace/shein/publishing", "task-processor/internal/product/catalog/canonical"}, imported) {
+				t.Errorf("value owner must stay pure: %s", imported)
+			}
+			if path == policyRoot+"/price.go" {
+				t.Errorf("Price must not depend on another owner: %s", imported)
+			}
+			if production && strings.HasPrefix(filepath.Base(path), "local_source_") && owner == draftRoot && !slices.Contains(strings.Fields("fmt regexp strings strconv sort maps task-processor/internal/product/asset task-processor/internal/product/catalog/canonical task-processor/internal/marketplace/shein/offlinepackage task-processor/internal/marketplace/shein/publishing"), imported) {
+				t.Errorf("source assembly must stay pure: %s: %s", path, imported)
+			}
+		}
+		if !production {
+			continue
+		}
+		observe := func(name string) {
+			if names := required[owner]; names != nil {
+				if _, ok := names[name]; ok {
+					names[name] = true
+				}
+			}
+			if owner == policyRoot && slices.Contains(retired, name) {
+				t.Errorf("retired policy declaration in %s: %s", path, name)
+			}
+		}
+		for _, decl := range file.Decls {
+			switch n := decl.(type) {
+			case *ast.FuncDecl:
+				observe(n.Name.Name)
+			case *ast.GenDecl:
+				for _, spec := range n.Specs {
+					switch n := spec.(type) {
+					case *ast.TypeSpec:
+						observe(n.Name.Name)
+						if ((owner == dataRoot && n.Name.Name != "Price") || (owner == policyRoot && n.Name.Name == "Price")) && slices.Contains(valueTypes, n.Name.Name) {
+							if _, ok := n.Type.(*ast.StructType); !ok || n.Assign.IsValid() {
+								t.Errorf("%s must be a real value struct", n.Name.Name)
+							}
+						}
+					case *ast.ValueSpec:
+						for _, name := range n.Names {
+							observe(name.Name)
+						}
+					}
+				}
+			}
+		}
+	}
+	for owner, names := range required {
+		for name, seen := range names {
+			if !seen {
+				t.Errorf("current declaration missing: %s.%s", owner, name)
+			}
+		}
+	}
+}
+
 func TestLegacySheinDraftAssemblyClosureIsRetired(t *testing.T) {
 	const oldRoot = "internal/publishing/shein"
 	if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(oldRoot))); !os.IsNotExist(err) {
@@ -33,7 +131,7 @@ func TestLegacySheinDraftAssemblyClosureIsRetired(t *testing.T) {
 		required[dataRoot][name] = false
 	}
 	retired := strings.Fields("Assembler AssemblerConfig assembler BuildRequest CategoryResolver AttributeResolver SaleAttributeResolver SizeAttributeHeaderResolver SizeAttributeHeaderResolution SizeAttributeHeaderResolutionInput TextGenerator PricingPolicy SubmitPayloadSettings SetDraftPayload SetPreviewPayload loggerDependency")
-	pureImports := strings.Fields("bytes encoding/json errors fmt io math sort strconv strings time unicode/utf8 sigs.k8s.io/json task-processor/internal/marketplace/shein/publishing task-processor/internal/publishing/common task-processor/internal/shein/api/product task-processor/internal/shein/api/attribute")
+	pureImports := strings.Fields("bytes encoding/json errors fmt io math sort strconv strings time unicode/utf8 sigs.k8s.io/json task-processor/internal/marketplace/shein/publishing task-processor/internal/product/catalog/canonical task-processor/internal/shein/api/product task-processor/internal/shein/api/attribute")
 	for _, path := range trackedFiles(t, ".") {
 		if !strings.HasSuffix(path, ".go") {
 			continue
@@ -1388,7 +1486,6 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false, "LevelFileConfig": false, "LogManager.SetLevel": false, "LogManager.GetLevel": false},
 		"internal/pkg/goroutine":      {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
 		"internal/pkg/timeout":        {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
-		"internal/pkg/jsonx":          {"UnmarshalString": false, "CleanLLMResponse": false},
 		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
 		"internal/pkg/httpclient":     {"Config": false, "Client": false, "New": false, "Client.Do": false, "NewSimpleWithTimeout": false},
 		"internal/pkg/imagex":         {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
@@ -4051,17 +4148,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
 		},
-		"internal/marketplace/temu/goods/supplier_category.go":                  {"func checkSupplierCategory(", "SelectableLeaf()"},
-		"internal/marketplace/temu/rules/local_variations.go":                   {"func CheckLocalVariations("},
-		"internal/marketplace/temu/goods/local_properties.go":                   {"func CheckLocalProperties("},
-		"internal/marketplace/temu/goods/supplier_properties.go":                {"func CheckSupplierProperties("},
-		"internal/marketplace/temu/goods/supplier_specs.go":                     {"func checkSupplierSpecifications("},
-		"internal/marketplace/temu/rules/local_numbers.go":                      {"func (c *Catalog) CheckLocalNumbers("},
-		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
-		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
-		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "SourceBrand", "AuthorizedBrand", "Context"},
-		"internal/marketplace/shein/offlinepackage/payload_defaults.go":         {"sheinmarketpub.DefaultSiteListByRegion("},
-		"internal/marketplace/shein/draft/local_cleanup.go":                     {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
+		"internal/marketplace/temu/goods/supplier_category.go":          {"func checkSupplierCategory(", "SelectableLeaf()"},
+		"internal/marketplace/temu/rules/local_variations.go":           {"func CheckLocalVariations("},
+		"internal/marketplace/temu/goods/local_properties.go":           {"func CheckLocalProperties("},
+		"internal/marketplace/temu/goods/supplier_properties.go":        {"func CheckSupplierProperties("},
+		"internal/marketplace/temu/goods/supplier_specs.go":             {"func checkSupplierSpecifications("},
+		"internal/marketplace/temu/rules/local_numbers.go":              {"func (c *Catalog) CheckLocalNumbers("},
+		"internal/marketplace/shein/publishing/site_policy.go":          {"func DefaultSiteListByRegion("},
+		"internal/shein/content/cleanup_context.go":                     {"type CleanupContext struct", "SourceBrand", "AuthorizedBrand", "Context"},
+		"internal/marketplace/shein/offlinepackage/payload_defaults.go": {"sheinmarketpub.DefaultSiteListByRegion("},
+		"internal/marketplace/shein/draft/local_cleanup.go":             {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
 
 		"internal/marketplace/shein/draft/sensitive_word_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
 	} {

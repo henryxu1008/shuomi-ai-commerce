@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	sheinpolicy "task-processor/internal/marketplace/shein/publishing"
-	"task-processor/internal/publishing/common"
 	sheinproduct "task-processor/internal/shein/api/product"
 )
 
@@ -108,7 +107,7 @@ func TestHasBlockingPendingAttributesReportsRequiredAndManualPendingAttributes(t
 		t.Fatal("HasBlockingPendingAttributes required candidate = false, want true")
 	}
 	if !HasBlockingPendingAttributes(&Package{AttributeResolution: &AttributeResolution{
-		PendingAttributes: []common.Attribute{{Name: "Material"}},
+		PendingAttributes: []Attribute{{Name: "Material"}},
 	}}) {
 		t.Fatal("HasBlockingPendingAttributes manual pending attribute = false, want true")
 	}
@@ -209,7 +208,7 @@ func TestFinalReviewReadyAllowsSaveDraft(t *testing.T) {
 func TestHasSubmitImageChecksPackageDraftAndPreviewImages(t *testing.T) {
 	t.Parallel()
 
-	if HasSubmitImage(&Package{Images: &common.ImageSet{WhiteBgImage: " https://cdn.example/white.jpg "}}) != true {
+	if HasSubmitImage(&Package{Images: &ImageSet{WhiteBgImage: " https://cdn.example/white.jpg "}}) != true {
 		t.Fatal("HasSubmitImage(package images) = false, want true")
 	}
 	if HasSubmitImage(&Package{DraftPayload: &RequestDraft{SKCList: []SKCRequestDraft{{
@@ -225,7 +224,7 @@ func TestHasSubmitImageChecksPackageDraftAndPreviewImages(t *testing.T) {
 }
 
 func TestHasAnySubmitSKURejectsSummaryWithoutDraft(t *testing.T) {
-	pkg := &Package{SkcList: []SKCPackage{{SKUs: []common.Variant{{SKU: "summary-only"}}}}}
+	pkg := &Package{SkcList: []SKCPackage{{SKUs: []Variant{{SKU: "summary-only"}}}}}
 	if HasAnySubmitSKU(pkg) {
 		t.Fatal("summary-only SKU must not be ready without canonical draft")
 	}

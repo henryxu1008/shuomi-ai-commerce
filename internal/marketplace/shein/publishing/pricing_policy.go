@@ -3,8 +3,6 @@ package publishing
 import (
 	"math"
 	"strings"
-
-	common "task-processor/internal/publishing/common"
 )
 
 const defaultPricingCurrency = "USD"
@@ -20,12 +18,12 @@ type PricingPolicy struct {
 	RoundTo        float64
 }
 
-func (p PricingPolicy) Apply(source *common.Price) *common.Price {
+func (p PricingPolicy) Apply(source *Price) *Price {
 	if source == nil {
 		return nil
 	}
 
-	result := &common.Price{
+	result := &Price{
 		Currency:  firstPricingCurrency(p.Currency, source.Currency),
 		Amount:    source.Amount,
 		CostPrice: source.CostPrice,

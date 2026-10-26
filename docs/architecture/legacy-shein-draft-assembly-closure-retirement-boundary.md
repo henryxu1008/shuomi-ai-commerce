@@ -1,3 +1,5 @@
+> #301 / #961 精确替代顶注：按[legacy-publishing-support-policy-closure-retirement-boundary.md §1–§7（含§4.2/§6.1）](legacy-publishing-support-policy-closure-retirement-boundary.md)，旧 publishing/common 与 jsonx 根、十一闲置 SHEIN 策略族及三个混合策略尾部已在源码完整退出。当前八值合同分归已有 offlinepackage / publishing.Price，本地组装纯行为归 draft；本批表列 KEEP 由该设计矩阵精确替代，其它当前能力/JSON/hash算法/版本/事实owner及独立SHEIN登录与Store同步保持。仅未来新多属性数组固定按原始名排序，不重写已有载荷。以下原文、数字、勾选与历史证据逐字保留，不作为恢复旧owner或运行操作的授权。
+
 > #960 实施状态：**USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结 §1–§7（含 §6.1），#301/#960 的 Ready → In Progress 已先于源码修改记录并读回。本批 119 路径整批实现：29 个当前值类型/16 个公开纯规则归 `offlinepackage`，唯一空配置本地组装归既有 `draft.Builder` 的私有函数，15 个消费者改接，60 个旧文件及未注入的扩展/四私有 map 退出，不留 alias。准确源码 HEAD、原 CI、最终源码复核及合并授权另记 [#960](https://github.com/qq550723504/shuomi-ai-commerce/pull/960)；设计复核不替代源码复核。当前 JSON/hash/版本/持久化 owner、采集与独立 SHEIN 登录/Store 同步保持；workflow/完整 inventory/既有资源零改，运行与产品验收 NOT_RUN，#301 OPEN。以下冻结设计和原历史完整保留。
 
 # #301 旧 SHEIN 草稿装配包及专属扩展尾部完整退休设计

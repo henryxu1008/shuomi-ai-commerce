@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	"task-processor/internal/listing/record"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 	contract "task-processor/internal/marketplace/validator"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
+	"task-processor/internal/product/catalog/canonical"
 
 	"github.com/stretchr/testify/require"
 )
@@ -52,6 +53,53 @@ func TestBuilderUsesOnlyControlledExactApprovedAssets(t *testing.T) {
 	require.Contains(t, pkg.Images.Gallery, "https://controlled.invalid/gallery.jpg")
 	require.NotContains(t, string(raw), "https://source.invalid/product.jpg")
 	require.NotContains(t, string(raw), "https://source.invalid/variant.jpg")
+}
+
+func TestBuilderOrdersRawProductAttributesDeterministically(t *testing.T) {
+	snapshot := catalog.ProductSnapshot{Title: "Synthetic attributes", Attributes: []catalog.Attribute{
+		{Name: "zeta", Value: "  raw z  "}, {Name: "材质", Value: "棉"},
+		{Name: "Alpha", Value: "A"}, {Name: " alpha", Value: " leading name "},
+		{Name: "alpha", Value: "lower"}, {Name: "Étage", Value: "é"},
+	}}
+	original := append([]catalog.Attribute(nil), snapshot.Attributes...)
+	want := []catalog.Attribute{
+		{Name: " alpha", Value: " leading name "}, {Name: "Alpha", Value: "A"},
+		{Name: "alpha", Value: "lower"}, {Name: "zeta", Value: "  raw z  "},
+		{Name: "Étage", Value: "é"}, {Name: "材质", Value: "棉"},
+	}
+	attributes := make(map[string]canonical.Attribute, len(original))
+	for _, attribute := range original {
+		attributes[attribute.Name] = canonical.Attribute{Value: attribute.Value}
+	}
+	for i, attribute := range buildSourceAttributes(attributes) {
+		require.Equal(t, want[i].Name, attribute.Name)
+		require.Equal(t, want[i].Value, attribute.Value, "source assembly must not normalize raw values")
+	}
+	for _, attribute := range original {
+		require.Equal(t, attribute.Value, attributes[attribute.Name].Value, "source assembly must not mutate its map")
+	}
+	require.Nil(t, buildSourceAttributes(nil))
+	require.Nil(t, buildSourceAttributes(map[string]canonical.Attribute{}))
+	// The existing draft cleanup trims values after source assembly; keep that behavior.
+	wantDraftValues := []string{"leading name", "A", "lower", "raw z", "é", "棉"}
+	var first []byte
+	for range 32 {
+		raw, err := (Builder{}).Build(context.Background(), snapshot, productasset.ApprovedAssetInventory{}, record.Input{})
+		require.NoError(t, err)
+		pkg, err := sheinpub.DecodePersistedPackageStrict(raw)
+		require.NoError(t, err)
+		require.Len(t, pkg.ProductAttributes, len(want))
+		for i, attribute := range want {
+			require.Equal(t, attribute.Name, pkg.ProductAttributes[i].Name, "original names must use Go string order")
+			require.Equal(t, wantDraftValues[i], pkg.ProductAttributes[i].Value, "existing draft cleanup must remain unchanged")
+		}
+		require.Equal(t, pkg.ProductAttributes, pkg.DraftPayload.ProductAttributeList)
+		if first == nil {
+			first = raw
+		}
+		require.Equal(t, first, raw, "multi-attribute draft bytes must be deterministic")
+		require.Equal(t, original, snapshot.Attributes, "building must not mutate source attributes")
+	}
 }
 
 // Frozen before the owner switch, using only synthetic catalog/approved assets.
