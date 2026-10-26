@@ -5,7 +5,7 @@ import type { ReturnSession } from '../return-session';
 import { UUID } from '../validation';
 import { amazonPageSource, validateAmazonCapture } from './validation';
 import type { FamilySummary } from './family-coordinator';
-import { sameSiteInterruption } from './family-reader';
+import { assertFamilyReaderOwnership, sameSiteInterruption } from './family-reader';
 
 const common={revision:z.string().regex(UUID)};
 const message=z.discriminatedUnion('type',[
@@ -94,7 +94,7 @@ export class FamilyBridge {
     if(m.type==='family.init'){
       await this.location.bind(context.tabId,context.documentId!);
       const r=this.location.current!;
-      return {source:{id:r.sourceTabId,url:r.sourceURL,documentId:r.sourceDocumentId},coordinatorTabId:context.tabId,windowId:context.windowId};
+      return {source:{id:r.sourceTabId,url:r.sourceURL,documentId:r.sourceDocumentId},coordinatorTabId:context.tabId,windowId:context.windowId,reader:r.phase==='bound'?r.reader:undefined};
     }
     const r=this.location.current;if(r?.phase!=='bound')throw Error('ENTRY_CHANGED');
     if(m.type==='family.reader'){
@@ -107,8 +107,8 @@ export class FamilyBridge {
       const interruption=(url:string|undefined)=>sameSiteInterruption(url,request.sourceURL);
       const initial=first && (sameTarget(tab.url) || interruption(tab.url)
         || (!tab.url || tab.url==='about:blank') && (sameTarget(tab.pendingUrl) || interruption(tab.pendingUrl)));
-      if(tab.openerTabId!==r.tabId || tab.windowId!==context.windowId || r.reader && r.reader.tabId!==request.tabId
-        || tab.pendingUrl && tab.pendingUrl!==tab.url && tab.pendingUrl!==request.sourceURL && !((first||retry) && (sameTarget(tab.pendingUrl)||interruption(tab.pendingUrl)))
+      assertFamilyReaderOwnership(tab,request.tabId,{coordinatorTabId:r.tabId,windowId:context.windowId,reader:r.reader});
+      if(tab.pendingUrl && tab.pendingUrl!==tab.url && tab.pendingUrl!==request.sourceURL && !((first||retry) && (sameTarget(tab.pendingUrl)||interruption(tab.pendingUrl)))
         || !initial && !registered && !(retry && (tab.url===r.reader?.previousURL || interruption(tab.url))))throw Error('FAMILY_INTERRUPTED');
       await this.location.reader(request.tabId,request.sourceURL);return {};
     }

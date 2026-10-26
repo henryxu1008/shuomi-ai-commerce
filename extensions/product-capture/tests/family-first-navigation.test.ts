@@ -16,7 +16,7 @@ const checkpoint='https://www.amazon.com/checkpoint/continue?token=DO_NOT_FORWAR
 let dom:JSDOM;
 afterEach(()=>{dom?.window.dispatchEvent(new dom.window.Event('pagehide'));dom?.window.close();vi.unstubAllGlobals();});
 
-async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
+async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;pauseThird?:boolean;holdNavigation?:boolean;redirectAfterVerify?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
  const original=new JSDOM(readFileSync('tests/fixtures/amazon-inline-product.html','utf8'),{url:source});
  const anchor=await captureAmazonDocument(original.window.document,source);original.window.close();
  const other=structuredClone(anchor);other.evidence.sourceID='B0CC1YM6SJ';other.evidence.sourceURL=target;other.evidence.variants[0].sourceID='B0CC1YM6SJ';
@@ -35,7 +35,7 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  const contexts=[{contextType:'TAB',documentId:'progress-doc',documentUrl:progress,tabId:41,frameId:0,windowId:1}];
  const updated=new Set<(tabId:number)=>void>(),removed=new Set<(tabId:number)=>void>();
  let live:Partial<chrome.tabs.Tab>={id:50,windowId:1,openerTabId:41,status:'complete'},bridge:FamilyBridge,lost=false,exists=false;
- let releaseReply:(()=>void)|undefined,releaseCreate:(()=>void)|undefined;
+ let releaseReply:(()=>void)|undefined,releaseCreate:(()=>void)|undefined,failThird=!!options.pauseThird,thirdURLChecks=0;
  const emit=()=>updated.forEach(fn=>fn(50));
  const create=vi.fn(async(o:chrome.tabs.CreateProperties)=>{
   if(o.url===progress)return {id:41,url:progress,windowId:1};
@@ -52,12 +52,13 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
   return {id:50,windowId:1}; // create responses need not expose URL metadata either.
  });
  const get=vi.fn(async(n:number)=>{if(n===41)return {id:41,url:progress,windowId:1};if(n!==50||!exists)throw Error('closed');return {...live};});
- const update=vi.fn(async(n:number,o:chrome.tabs.UpdateProperties)=>{if(o.url){live.url=o.url;live.pendingUrl=undefined;live.status='complete';queueMicrotask(emit);}return {id:n,...live};});
+ const update=vi.fn(async(n:number,o:chrome.tabs.UpdateProperties)=>{if(o.url){live.url=o.url;live.pendingUrl=undefined;live.status=options.holdNavigation?'loading':'complete';queueMicrotask(emit);}return {id:n,...live};});
  const remove=vi.fn(async(n:number)=>{if(n===50){exists=false;removed.forEach(fn=>fn(n));}});
  const execute=vi.fn(async(o:{target:{tabId:number;documentIds?:string[]};files?:string[];func?:()=>unknown})=>{
   const root=o.target.tabId===7,p=root?anchor:live.url?.includes(third.evidence.sourceID)?third:other,documentId=root?'anchor-doc':'child-doc';
-  const code=!root&&live.url?amazonInterruptionURL(live.url):undefined;
+  const code=!root&&live.url?(amazonInterruptionURL(live.url)||(p===third&&failThird?'CAPTURE_TIMEOUT':undefined)):undefined;
   const result=o.files?(code?{ok:false,code}:{ok:true,payload:p}):String(o.func).includes('CaptureEntry')?{ok:true,manifest:{...manifest,sourceURL:p.evidence.sourceURL}}:String(o.func).includes('=>true')||String(o.func).includes('=> true')?true:root?source:live.url;
+  if(options.redirectAfterVerify&&p===third&&!o.files&&typeof result==='string'&&++thirdURLChecks===2)live.url=target;
   return [{frameId:0,documentId,result}];
  });
  const send=vi.fn(async(m:{type:string;revision:string;payload?:AmazonCapturePayload})=>{
@@ -76,7 +77,7 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  const status=()=>dom.window.document.querySelector('[role="status"]')!.textContent!;
  return {create,get,update,remove,execute,send,receiver,activate,storage,app,button,status,updated,removed,releaseReply:()=>releaseReply?.(),releaseCreate:()=>releaseCreate?.(),
   bridge:()=>bridge,live:()=>live,change:(value:Partial<chrome.tabs.Tab>)=>{Object.assign(live,value);emit();},
-  rebuild:async()=>{bridge=new FamilyBridge(()=>controller,app);await bridge.ready;},
+  rebuild:async()=>{bridge=new FamilyBridge(()=>controller,app);await bridge.ready;},recover:()=>{failThird=false;},contexts,
   readerCreates:()=>create.mock.calls.filter(([o])=>o.url!==progress),
   navigations:()=>update.mock.calls.filter(([,o])=>o.url),
   childReads:()=>execute.mock.calls.filter(([o])=>o.target.tabId===50&&o.files),
@@ -146,4 +147,72 @@ it('a late creation result after cancellation never registers, reads or recreate
 it('validates the first child path before creating any reader',async()=>{
  const s=await setup({memberID:'not-an-asin'});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
  expect(s.readerCreates()).toHaveLength(0);expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+});
+
+it('resumes the failed item after opener removal without rereading observed children or creating a reader',async()=>{
+ const s=await setup({third:true,pauseThird:true});await vi.waitFor(()=>expect(s.status()).toContain('2/3'));
+ await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));expect(s.childReads()).toHaveLength(2);
+ s.change({openerTabId:undefined});s.recover();await s.rebuild();s.button('继续采集').click();
+ await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(1);expect(s.childReads()).toHaveLength(3);
+ expect(s.payload()!.evidence.variants.map(v=>[v.sourceID,v.price?.amount,v.images[0].url])).toEqual([
+  ['B0BDLGZCTY','39.98',s.payload()!.evidence.variants[0].images[0].url],['B0CC1YM6SJ','44.98','https://m.media-amazon.com/images/I/child.jpg'],['B000000003','54.98','https://m.media-amazon.com/images/I/third.jpg']]);
+ expect(s.send.mock.calls.filter(([m])=>m.type==='family.finish')).toHaveLength(1);
+ expect(s.remove).not.toHaveBeenCalled(); // Missing opener must not widen cleanup.
+});
+it('reconfirms an existing locator before the local first-reader guard after lost reply and worker rebuild',async()=>{
+ const s=await setup({first:'verification',loseReply:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.childReads()).toHaveLength(0);s.change({openerTabId:undefined});await s.rebuild();s.button('继续采集').click();
+ await vi.waitFor(()=>expect(s.status()).toContain('真人校验'));
+ const before=JSON.stringify(s.storage.contents());s.button('查看需处理的商品页').click();
+ await vi.waitFor(()=>expect(s.update).toHaveBeenCalledWith(50,{active:true}));
+ expect(JSON.stringify(s.storage.contents())).toBe(before);expect(s.navigations()).toHaveLength(0);
+ s.change({url:target});s.button('继续采集').click();await vi.waitFor(()=>expect(s.receiver).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(0);expect(s.remove).not.toHaveBeenCalled();
+});
+it('continues the same registered wait if opener disappears during a controlled next-child load',async()=>{
+ const s=await setup({third:true,holdNavigation:true});await vi.waitFor(()=>expect(s.navigations()).toHaveLength(1));
+ s.change({openerTabId:undefined,status:'complete'});await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(1);expect(s.updated.size).toBe(0);expect(s.removed.size).toBe(0);
+});
+it('never treats a locally created but unregistered reader with no opener as previously registered',async()=>{
+ const s=await setup({native:{openerTabId:undefined}});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+ const r=s.bridge().location.current;expect(r?.phase==='bound'&&r.reader).toBeUndefined();
+});
+it.each([
+ {openerTabId:7},{windowId:2},{id:51},{url:'https://www.amazon.com/dp/B000000004'},
+ {url:'https://example.com/'},{pendingUrl:'https://www.amazon.com/dp/B000000004'},
+])('does not read, navigate or focus a changed registered reader %j',async changed=>{
+ const s=await setup({first:'verification'});await vi.waitFor(()=>expect(s.status()).toContain('真人校验'));
+ const reads=s.childReads().length;s.change(changed);s.button('查看需处理的商品页').click();
+ await new Promise(r=>setTimeout(r,25));expect(s.update).not.toHaveBeenCalled();
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(reads);expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+});
+it.each(['missing','corrupt','unavailable','unregistered'] as const)('does not bootstrap registration from local state with a %s locator',async kind=>{
+ const s=await setup({first:'verification',loseReply:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ const key=Object.keys(s.storage.contents()).find(k=>k.includes('family-location'))!;
+ if(kind==='missing')await s.storage.session.remove(key);
+ if(kind==='corrupt')await s.storage.session.set({[key]:{version:'invalid'}});
+ if(kind==='unavailable')s.storage.session.get.mockRejectedValue(Error('storage unavailable'));
+ if(kind==='unregistered'){
+  const record=s.bridge().location.current!;if(record.phase!=='bound')throw Error('expected bound fixture');
+  const {reader:unused,...bound}=record;void unused;await s.storage.session.set({[key]:bound});
+ }
+ s.change({openerTabId:undefined});await s.rebuild();const writes=s.storage.session.set.mock.calls.length;
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();expect(s.navigations()).toHaveLength(0);
+ expect(s.storage.session.set.mock.calls).toHaveLength(writes);expect(s.readerCreates()).toHaveLength(1);
+});
+it('rejects a replacement progress document even with the same registered reader and URL',async()=>{
+ const s=await setup({first:'verification'});await vi.waitFor(()=>expect(s.status()).toContain('真人校验'));
+ s.change({openerTabId:undefined});s.contexts[0].documentId='replacement-doc';
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(1);expect(s.receiver).not.toHaveBeenCalled();expect(s.navigations()).toHaveLength(0);
+});
+it('does not accept a parsed child if the native reader returns to its predecessor after the final document check',async()=>{
+ const s=await setup({third:true,redirectAfterVerify:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.status()).toContain('2/3');expect(s.receiver).not.toHaveBeenCalled();expect(s.payload()).toBeUndefined();
 });

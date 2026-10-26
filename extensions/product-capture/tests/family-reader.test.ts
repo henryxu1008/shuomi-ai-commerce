@@ -6,7 +6,7 @@ let live:Partial<chrome.tabs.Tab>;
 let updated:Set<(id:number)=>void>,removed:Set<(id:number)=>void>;
 let update:ReturnType<typeof vi.fn>;
 beforeEach(()=>{
- vi.useFakeTimers();live={url:target,status:'complete',openerTabId:41};updated=new Set();removed=new Set();
+ vi.useFakeTimers();live={id:50,windowId:1,url:target,status:'complete',openerTabId:41};updated=new Set();removed=new Set();
  update=vi.fn(async()=>live);
  vi.stubGlobal('chrome',{tabs:{get:vi.fn(async()=>({...live})),update,
   onUpdated:{addListener:(f:(id:number)=>void)=>updated.add(f),removeListener:(f:(id:number)=>void)=>updated.delete(f)},
@@ -58,4 +58,16 @@ it('rejects a conflicting pending destination during the first load',async()=>{
 it('rejects a window change while waiting on the same native reader',async()=>{
  live.windowId=1;live.status='loading';const read=waitForFamilyDocument(50,target,new AbortController().signal,false,true);
  const rejected=expect(read).rejects.toThrow('FAMILY_INTERRUPTED');await tick();live.windowId=2;updated.forEach(f=>f(50));await rejected;clean();
+});
+const owner={coordinatorTabId:41,windowId:1,reader:{tabId:50,sourceURL:target}};
+it('keeps the original deadline if a registered reader loses its opener while waiting',async()=>{
+ live.status='loading';const read=waitForFamilyDocument(50,target,new AbortController().signal,false,false,owner);
+ const rejected=expect(read).rejects.toThrow('CAPTURE_TIMEOUT');await vi.advanceTimersByTimeAsync(20000);
+ delete live.openerTabId;updated.forEach(f=>f(50));await vi.advanceTimersByTimeAsync(9999);
+ expect(updated.size).toBe(1);await vi.advanceTimersByTimeAsync(1);await rejected;expect(update).not.toHaveBeenCalled();clean();
+});
+it.each([{openerTabId:7},{windowId:2},{id:51}])('rejects explicit ownership drift during a registered wait %j',async change=>{
+ live.status='loading';const read=waitForFamilyDocument(50,target,new AbortController().signal,false,false,owner);
+ const rejected=expect(read).rejects.toThrow('FAMILY_INTERRUPTED');await tick();Object.assign(live,change);updated.forEach(f=>f(50));
+ await rejected;expect(update).not.toHaveBeenCalled();clean();
 });

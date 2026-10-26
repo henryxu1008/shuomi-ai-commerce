@@ -17,8 +17,10 @@ it('wires the ordinary progress document through two observed variants and one f
  dom=new JSDOM('<body></body>',{url:`chrome-extension://${id}/popup.html#amazon-family=${revision}`});
  const updated=new Set<(id:number,info:{status:string})=>void>(),removed=new Set<(id:number)=>void>();
  let liveURL='about:blank';let handed:AmazonCapturePayload|undefined;
- const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload})=>{
-  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:docId},coordinatorTabId:41,windowId:1}};
+ let reader:{tabId:number;sourceURL:string}|undefined;
+ const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload;tabId?:number;sourceURL?:string})=>{
+  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:docId},coordinatorTabId:41,windowId:1,reader}};
+  if(m.type==='family.reader')reader={tabId:m.tabId!,sourceURL:m.sourceURL!};
   if(m.type==='family.finish')handed=m.payload;
   return {ok:true,result:{}};
  });

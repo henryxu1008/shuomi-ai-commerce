@@ -2,6 +2,8 @@
 
 Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)。
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
+此准入结论适用于第1–10节已审范围。第11节后续续采归属修订已另行达到 **IMPLEMENTATION_READY**；
+用户后续明确“继续”，当前按本节已审设计实施和隔离测试；旧运行授权不恢复。当前阶段以 #955 正文为准。
 独立Reviewer `1688_shadow_design_review` 已检查准确设计候选
 `c938459b0dae5546a3afccfd09e103d45b6665cc`，无设计BLOCKER；
 [评审及四组IMPLEMENTATION_TEST](https://github.com/qq550723504/shuomi-ai-commerce/issues/955#issuecomment-6398925548)
@@ -338,5 +340,118 @@ Legacy decision: **N/A**；只复用当前owner与现有Vitest/JSDOM，无旧ser
 首次即校验/登录及人工处理后继续、错误opener/窗口/ASIN/外站、登记应答丢失或worker重建、
 超时/取消/晚到结果；断言首个 `tabs.create` 带规范子商品URL且首个 `tabs.update(url)` 为0。
 复用现有完整page→bridge→reader/capture→Coordinator回归，覆盖后续单reader复用、报价/图片归属与一次handoff。
+
+## 11. 已登记读取标签的续采归属（2026-10-26）
+
+Design Basis: **Independent Architecture（既有恢复协议的局部修订）**。
+Admission: **IMPLEMENTATION_READY**。独立Reviewer `1688_shadow_design_review` 对准确设计
+`cb76b6ff5ab00d5a080ed50958d001361d29bc50` 结论PASS，无设计BLOCKER。
+本节先交付设计和独立评审；用户后续明确“继续”，授权最小实现、必要测试及一个主要PR。
+不授权重采、部分交接、保存、插件/实例更新、合并或部署。已有20/171临时结果保持原页暂停，不尝试热修复或刷新原页。
+
+### 用户结果、依据与根因
+
+使用者是已在原进度页暂停、处理网络或来源校验后点击“继续采集”的用户。
+可见结果：原进度页仍存活、同一已登记reader和待采商品仍可核实时，继续当前失败项；
+保留已有观察结果，不重新读取已完成项、不创建替代标签、不自动继续。
+产品/Figma依据沿用第1节及用户2026-10-26批准的最小修复方向；现有进度页、按钮和原应用确认保存不变。
+本节不增加Console导航、采集字段或人工前置步骤。
+
+本轮只读现场：进度20/171；原reader仍为同一native tab，和原进度页同一窗口；
+当前B0C5D5G2Z8商品文档complete、无pending导航，但原生 `openerTabId` 字段缺失。
+`family-page.read` 在登记、等待和解析前要求该字段始终等于进度tab ID，因此每次明确继续都立即
+`FAMILY_INTERRUPTED`。未追溯到清除关系的具体浏览器动作，不把网络断开直接写成已证实的清除触发者。
+原生只读证据、未修改生产代码的离线门禁探针和216表摘要保留在本会话
+`local-verification-962/native-ownership-after-network.json`、`network-recovery-offline-gate.json`、
+`network-resume-analysis.json`；分析未新增业务保存，旧Amazon v1–v9及1688 v1–v5保留。
+
+Chrome的opener是可选标签组织关系；Chromium会在部分正常导航/标签选择中清除它，
+Tabs API再由该关系派生 `openerTabId`，不能把它永久当作已登记reader的身份凭证。
+依据：[Tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs)、
+[TabStrip opener清除](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/chrome/browser/ui/tabs/tab_strip_model.cc)、
+[原生Tab字段投影](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/chrome/browser/extensions/extension_tab_util.cc)。
+这是既有持续归属条件与浏览器语义冲突，不通过强写opener、降低首次准入或另一套采集系统绕开。
+
+### Owner、合同与最小调用路径
+
+临时清单/游标/事实仍只归存活的FamilyCoordinator进度文档；FamilyBridge/FamilyLocation只归现有
+session定位记录；原生标签与文档归浏览器；解析、Controller/Handoff和应用保存owner沿第4/7节。
+不新增表、存储字段、定位key、权限、host、公共wire或内部命令；不把payload/游标写入session。
+只在原 `family.reader` 确认路径和既有等待函数内表达两种准入阶段，不增加通用任务/恢复框架。
+
+调用路径：原进度文档明确继续 → 校验原revision/context及已有reader登记 → 原生ID/窗口/地址门禁
+→ 同一待采项的有界等待/原document精确解析 → 原Coordinator校验和聚合 → 原一次交接及应用保存。
+
+| 阶段 | 必须成立的证据 | opener处理 |
+| --- | --- | --- |
+| 未登记reader的首次准入 | 原 `tabs.create` 返回的唯一ID；原进度document/revision/frame；创建窗口；第10节允许的首目标或同源校验地址 | 必须明确等于原进度tab；缺失或异主都拒绝 |
+| 已登记reader续采/下一项/幂等重试 | 原session记录中同一reader ID；原存活进度document/revision；reader与该原生context同窗口，且进度页内初始窗口约束成立；严格current/pending地址转换 | 缺失允许；存在但不是原进度tab仍拒绝 |
+| 查看需处理的商品页 | 同一已登记reader、同一进度身份/窗口，当前/待导航仍为本次目标或其同源校验地址 | 同上；不得借此激活无关/已被用户导航走的标签 |
+| 取消/结束时清理 | 继续沿现有ID/opener/窗口/允许地址的保守删除条件 | 缺失或异主不扩大删除；保留标签交给用户 |
+
+“已登记”必须由原FamilyLocation记录证明，不得仅由页面自报、local布尔、同URL或两个缺省值相等推定。
+首次写入成功但应答丢失、或worker重建后，复用原 `family.reader` 幂等确认重新核实已有记录；
+只有确认同一reader/进度/目标后才进入已登记分支。不重新创建、不重新绑定另一reader，
+没有可读记录或仍属首次时维持首次严格准入。已有命令应答可携带本次已核实定位确认，
+不能把正文自报的定位当作事实。后台sender/context严格校验不变。
+
+地址门禁沿第7/9/10节，必须区分当前失败项的明确重试与下一个已发现子ASIN的受控导航：
+
+- 进入新项前，原reader当前地址仍须是已登记的规范商品；定位更新后只允许原受控前驱地址，
+  复用 `previousURL` 处理写入成功但应答丢失的窗口，不能接受任意同站商品。
+- 本次目标只来自已验证同族清单。current/pending只接受该步骤允许的规范目标、受控前驱或同源已识别校验页；
+  错ASIN、外站、冲突pending、无可核实URL继续拒绝，不能仅凭 `status=complete` 读取。
+- 等待期间窗口变化、显式异主、关闭、错误目标仍中断；只有已登记reader的opener从本次ID变为缺失允许继续等待。
+  不把检查前后的两个缺省opener值相等当作首次归属证明。窗口/目标/取消在等待和解析前后仍复核。
+- 校验/登录只沿已有安全码暂停；人工回到本次目标后必须明确继续。不会自动点击校验、登录、刷新或重试。
+  仍使用准确document注入及前后复核，ASIN、父关系、维度和每项价图绑定验证不变。
+
+本节替代第9节人工继续及第10节“每次核对opener”中**已登记后**的永久相等要求；
+首次创建/登记准入、未变化的URL限制与所有保存边界继续有效。持续缺失与显式异主不可混为同一条件。
+
+### 失败、状态、资源与副作用
+
+不增加phase或自动恢复触发器；paused → 明确继续 → collecting仍由存活Coordinator负责。
+检查失败继续paused，复用现有闭合错误码；不将通用 `FAMILY_INTERRUPTED` 当作可自动跳过/重采许可。
+网络错误/超时的提示仍沿现有分类，此次不建设诊断平台，不输出账号、Cookie、校验query/token或商品payload。
+
+| 事件 | 结果 / owner |
+| --- | --- |
+| 已登记reader在同窗口正确目标，opener缺失 | 明确继续时复用同一reader，处理失败项；已有结果/计数不清空 |
+| opener在等待中正常缺失 | 其余归属/目标条件成立则继续原30秒等待；不增加导航或新deadline |
+| 明确异主、换ID/窗口、原进度文档刷新或关闭、错目标 | 继续中断，不接管替代标签或重建批次 |
+| worker重建或登记应答丢失 | 复用同session记录及原sender/context校验，幂等确认；失败留paused，不把未知当空闲 |
+| storage失败/坏记录 | 原uncertain/不可读取处理，不退回只凭页面内存放行 |
+| 取消、解析或定位晚到 | 原AbortSignal及串行处理；晚到不追加结果、不交接、不恢复已取消状态 |
+| 交接应答丢失 | 原uncertain/原应用核实；不重采、不重交接、不重复保存 |
+| 清理时opener缺失 | 不删除该标签；不为方便清理重设opener |
+
+原串行并发、256项上限、原每项30秒deadline、聚合大小和取消监听清理不变。
+本次仅修浏览器只读采集的归属门禁；不改变租户/账号、免费保存授权、CAS、原键/digest、COMMIT UNKNOWN，
+不新增provider/AI或不可重复业务写入。进度页关闭/刷新、扩展重载、浏览器重启后完整任务恢复仍在范围外。
+Legacy decision: **N/A**；只复用当前插件owner，不调用/包装旧服务端采集或启动其worker。
+
+### 回归与交付停止点
+
+以后获开发授权时，先用原Vitest/JSDOM fixture确认RED，再最小实现GREEN；不新建runner/验收平台：
+
+1. 原page→bridge→reader完整调用中，成功观察数项后暂停；删除原生opener，再明确继续，
+   同一reader/游标继续当前失败项，已观察项不重读，下一项仍用原reader，各自价图和一次handoff保留。
+2. 等待期间删除opener、同源校验人工返回后缺失opener、登记成功但应答丢失及worker重建后幂等确认。
+3. 首次无opener、显式异主、替换reader、窗口变化、错进度document/revision、错ASIN/外站/冲突pending及坏定位仍拒绝；
+   同根因覆盖继续、等待、查看读取页；清理缺失opener保留原标签。
+4. 复用取消/超时/晚到结果、资源上限、原单规格/1688路径与保存合同既有有效证据；只补本次受影响组合回归。
+
+独立评审确认三组 **IMPLEMENTATION_TEST**，以后实施必须收敛，未完成不能交付本修复：
+
+- 定位已写入但应答丢失、页面仍标记未定位、opener缺失且worker重建时，须先由原记录确认已有登记，
+  不能被本地首次门禁提前永久拒绝；不得因当前请求新写入记录而自举成已登记。
+- 无记录、坏记录及页面自报不能放行；显式异主、错ID/窗口/当前或pending目标继续拒绝。
+- 等待与查看共用已确认归属；查看只激活原允许标签，不推进定位、不发起商品导航；清理不扩大删除。
+
+独立架构评审只审此新增恢复边界及相邻调用，不重开未变化的整体架构。
+设计PASS只表示可按此依据实施，不授权开发或实机操作，也不等于产品验收。
+当前20项只在原进度页内存；本修复将来替换/重载插件不会被宣称能恢复这批事实。
+是否部分交接/保存当前20项、取消或另开验证，仍由用户决定；本轮不执行。
 安装manifest及默认单规格/1688不变由现有检查覆盖；必要typecheck/lint/fixture build及PR CI不替代真实页面验收。
 设计评审及最终独立交付检查复用同一Reviewer，新增finding先分类；本批真实采集/保存/产品验收 NOT_RUN。
