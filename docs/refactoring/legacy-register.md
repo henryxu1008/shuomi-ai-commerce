@@ -1,3 +1,5 @@
+> #301 当前设计登记：**EXTRACT + RETIRE / Independent Architecture / DESIGN_ONLY / NOT_READY**。[旧SHEIN草稿装配完整闭包](../architecture/legacy-shein-draft-assembly-closure-retirement-boundary.md)拟把当前29个wire值类型/严格codec/离线纯规则抽至offlinepackage、确定性组装归既有draft，再整退publishing/shein 60工件及专属扩展尾部，不留兼容alias、不机械拆批。119未来路径/15实际import与准确KEEP替代/JSON-hash-版本/持久化边界及§6.1已列；当前仅三文档，确认/Ready前不实施。保留当前能力/独立SHEIN登录与Store同步，workflow/完整inventory/既有资源零改，不增加试用前置，#301 OPEN。以下main完整历史/数字/勾选保留。
+
 > #301 当前实施登记：**RETIRE / Independent Architecture / IMPLEMENTATION_READY**。用户已确认[三组完整闭包§1–§7/§6.1](../architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md)，同一#958整批退出无生产注入的geminiimage、runtimepath与正式LoadFromBytes；19有效配置测试归当前Viper/Build/Validate。准确替代九批相关KEEP，历史全文/计数保持；当前能力与独立SHEIN登录/Store同步保留，workflow/完整inventory及既有资源不动，不增加试用前置，#301 OPEN。验证/交付证据见#958；原完整正文如下。
 
 > #953 源码实施阶段：用户已确认冻结设计 §§1–7（含 §6.1）。旧生成链与 `internal/product/enrichment` 已整批退休；当前候选合同及纯规则归 `internal/product/review/proposal`，Review 仅接现成候选，沿原四个 HTTP 审核路由处理。必要自检、准确源码 CI 与最终复核分别记录在 [PR #953](https://github.com/qq550723504/shuomi-ai-commerce/pull/953)，当前尚未交付合并授权；运行/产品验收 NOT_RUN，#301 保持 OPEN。 以下冻结设计、索引和历史证据完整保留。
