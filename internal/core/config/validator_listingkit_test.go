@@ -54,7 +54,7 @@ func TestListingKitLegacyUsernameAllowlistInputsFailClosed(t *testing.T) {
 			clearLegacyListingKitUsernameAllowlistEnv(t)
 			t.Setenv(envName, configuredValue)
 
-			_, err := LoadFromBytes([]byte(baseConfig))
+			_, err := loadConfigFixture(t, []byte(baseConfig))
 			requireLegacyUsernameAllowlistRejection(t, err, configuredValue)
 		})
 	}
@@ -78,7 +78,7 @@ func TestListingKitLegacyUsernameAllowlistInputsFailClosed(t *testing.T) {
 		t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES", "   ")
 		t.Setenv("LISTINGKIT_ZITADEL_ALLOWED_USERNAMES", configuredValue)
 
-		_, err := LoadFromBytes([]byte(baseConfig))
+		_, err := loadConfigFixture(t, []byte(baseConfig))
 		requireLegacyUsernameAllowlistRejection(t, err, configuredValue)
 	})
 }

@@ -1,24 +1,5 @@
 package config
 
-import (
-	"bytes"
-	"fmt"
-)
-
-func LoadFromBytes(data []byte) (*Config, error) {
-	tryLoadDotEnv()
-	logDeprecatedEnvUsage()
-
-	v := newViper()
-	if len(data) > 0 {
-		if err := v.ReadConfig(bytes.NewReader(data)); err != nil {
-			return nil, fmt.Errorf("parse yaml config: %w", err)
-		}
-	}
-
-	return loadWithViper(v)
-}
-
 func NewDefaultConfig() *Config {
 	return &Config{
 		OpenAI: OpenAIConfig{

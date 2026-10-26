@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadFromBytesBindsImageAgentArtifactStoreYAML(t *testing.T) {
-	cfg, err := LoadFromBytes([]byte(`
+func TestConfigFixtureBindsImageAgentArtifactStoreYAML(t *testing.T) {
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: test-key
 imageagent:
@@ -42,7 +42,7 @@ imageagent:
 	assert.True(t, store.S3.COSImmutableNonVersionedBucketPolicy)
 }
 
-func TestLoadFromBytesBindsImageAgentArtifactStoreEnvironment(t *testing.T) {
+func TestConfigFixtureBindsImageAgentArtifactStoreEnvironment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_ENABLED", "true")
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_PROVIDER", "s3")
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_PUBLIC_BASE", "https://env-cdn.example.test")
@@ -55,7 +55,7 @@ func TestLoadFromBytesBindsImageAgentArtifactStoreEnvironment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_S3_ARTIFACT_MODE", "aws")
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_S3_COS_IMMUTABLE_NON_VERSIONED_BUCKET_POLICY", "false")
 
-	cfg, err := LoadFromBytes([]byte("openai:\n  apiKey: test-key\n"))
+	cfg, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"))
 	require.NoError(t, err)
 
 	store := cfg.ImageAgent.ArtifactStore
@@ -72,19 +72,19 @@ func TestLoadFromBytesBindsImageAgentArtifactStoreEnvironment(t *testing.T) {
 	assert.False(t, store.S3.COSImmutableNonVersionedBucketPolicy)
 }
 
-func TestLoadFromBytesBindsImageAgentAdmissionEnvironment(t *testing.T) {
+func TestConfigFixtureBindsImageAgentAdmissionEnvironment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ENABLED", "true")
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ALLOWED_TENANT_IDS", "373211199677923496,1038")
 
-	cfg, err := LoadFromBytes([]byte("openai:\n  apiKey: test-key\nimageagent:\n  admission:\n    enabled: false\n    allowedTenantIDs: []\n"))
+	cfg, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\nimageagent:\n  admission:\n    enabled: false\n    allowedTenantIDs: []\n"))
 	require.NoError(t, err)
 
 	assert.True(t, cfg.ImageAgent.Admission.Enabled)
 	assert.Equal(t, []string{"373211199677923496", "1038"}, cfg.ImageAgent.Admission.AllowedTenantIDs)
 }
 
-func TestLoadFromBytesBindsListingKitOwnedImageUploadYAML(t *testing.T) {
-	cfg, err := LoadFromBytes([]byte(`
+func TestConfigFixtureBindsListingKitOwnedImageUploadYAML(t *testing.T) {
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: test-key
 listingkit:
@@ -122,18 +122,18 @@ func TestNewDefaultConfigDoesNotSelectListingKitImageUploadStorage(t *testing.T)
 	assert.Empty(t, cfg.ListingKit.ImageUpload.Local.RootDir)
 }
 
-func TestLoadFromBytesDoesNotDefaultListingKitImageUploadToLocal(t *testing.T) {
+func TestConfigFixtureDoesNotDefaultListingKitImageUploadToLocal(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_PROVIDER", "")
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_LOCAL_ROOT_DIR", "")
 
-	cfg, err := LoadFromBytes([]byte("openai:\n  apiKey: test-key\n"))
+	cfg, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"))
 	require.NoError(t, err)
 
 	assert.Empty(t, cfg.ListingKit.ImageUpload.Provider)
 	assert.Empty(t, cfg.ListingKit.ImageUpload.Local.RootDir)
 }
 
-func TestLoadFromBytesBindsListingKitImageUploadS3Environment(t *testing.T) {
+func TestConfigFixtureBindsListingKitImageUploadS3Environment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_PROVIDER", "s3")
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_BUCKET", "env-listingkit-inputs")
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_REGION", "ap-southeast-1")
@@ -143,7 +143,7 @@ func TestLoadFromBytesBindsListingKitImageUploadS3Environment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_USE_PATH_STYLE", "true")
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_PUBLIC_BASE", "https://env-listingkit-cdn.example.test")
 
-	cfg, err := LoadFromBytes([]byte("openai:\n  apiKey: test-key\n"))
+	cfg, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"))
 	require.NoError(t, err)
 
 	upload := cfg.ListingKit.ImageUpload

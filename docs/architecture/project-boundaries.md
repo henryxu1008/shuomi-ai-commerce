@@ -176,7 +176,6 @@ Current runtime-foundation owners:
 - `internal/platform/workerpool`
 - `internal/platform/temporal`
 - `internal/integration/openai`
-- `internal/integration/geminiimage`
 - `internal/integration/grsai`
 - `internal/integration/s3`
 - `internal/integration/httpimage`

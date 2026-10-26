@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadFromBytesRejectsRetiredProductRuntimeYAML(t *testing.T) {
+func TestConfigFixtureRejectsRetiredProductRuntimeYAML(t *testing.T) {
 	tests := []struct {
 		name string
 		yaml string
@@ -24,14 +24,14 @@ func TestLoadFromBytesRejectsRetiredProductRuntimeYAML(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := LoadFromBytes([]byte("openai:\n  apiKey: test-key\n" + test.yaml))
+			_, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"+test.yaml))
 			require.Error(t, err)
 			require.Contains(t, strings.ToLower(err.Error()), strings.ToLower(test.key))
 		})
 	}
 }
 
-func TestLoadFromBytesRejectsRetiredProductRuntimeEnvironment(t *testing.T) {
+func TestConfigFixtureRejectsRetiredProductRuntimeEnvironment(t *testing.T) {
 	variables := []string{
 		"TASK_PROCESSOR_PRODUCTIMAGE_PUBLISHER_PROVIDER",
 		"TASK_PROCESSOR_PRODUCT_IMAGE_PUBLISHER_PROVIDER",
@@ -51,7 +51,7 @@ func TestLoadFromBytesRejectsRetiredProductRuntimeEnvironment(t *testing.T) {
 	for _, variable := range variables {
 		t.Run(variable, func(t *testing.T) {
 			t.Setenv(variable, "retired-value")
-			_, err := LoadFromBytes([]byte("openai:\n  apiKey: test-key\n"))
+			_, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), variable)
 		})
