@@ -4,7 +4,7 @@ import (
 	common "task-processor/internal/publishing/common"
 	"testing"
 
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 	sheinproduct "task-processor/internal/shein/api/product"
 )
 

@@ -17,6 +17,120 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacySheinDraftAssemblyClosureIsRetired(t *testing.T) {
+	const oldRoot = "internal/publishing/shein"
+	if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(oldRoot))); !os.IsNotExist(err) {
+		t.Errorf("retired SHEIN assembly root must be absent: %v", err)
+	}
+	const dataRoot = "internal/marketplace/shein/offlinepackage"
+	const draftRoot = "internal/marketplace/shein/draft"
+	required := map[string]map[string]bool{
+		dataRoot:              {},
+		draftRoot:             {"Builder": false, "Build": false, "buildLocalPackage": false, "newSheinSensitiveWordSanitizer": false},
+		"internal/sheinlogin": {"Service": false, "RunWorker": false, "syncPending": false},
+	}
+	for _, name := range strings.Fields("AttributeResolution AttributeValueCandidate CategoryResolution CategorySemanticValidation CategorySuggestion DraftPayloadIssue FinalDraft ImageDraft LocalizedText Package PendingAttributeCandidate PricingReview PricingRule RequestDraft ResolutionCacheInfo ResolvedAttribute ResolvedSaleAttribute SKCPackage SKCRequestDraft SKUDraft SKUPriceReview SaleAttributeCandidateInfo SaleAttributeResolution SaleAttributeTemplateOption SitePrice SizeAttributeReview SourceVariantDimension StockInfo TitleDiagnostics ClonePackageForPersistence CloneProductForSubmit DecodePersistedPackageStrict DraftPayloadOf FinalReviewReady FinalSubmitImagesReady HasAnySubmitSKU HasBlockingPendingAttributes HasSubmitImage PrepareProductForValidation SaleAttributeReviewPending SaleAttributesReadyForSubmit SubmitPricingReady ValidateDraftPayload ValidatePreparedProductPublishPayloadWithSizeChartAttributes VariantImageCoverageStatus MaxPersistedPackageBytes MaxPersistedPackageDepth ErrInvalidPersistedPackage") {
+		required[dataRoot][name] = false
+	}
+	retired := strings.Fields("Assembler AssemblerConfig assembler BuildRequest CategoryResolver AttributeResolver SaleAttributeResolver SizeAttributeHeaderResolver SizeAttributeHeaderResolution SizeAttributeHeaderResolutionInput TextGenerator PricingPolicy SubmitPayloadSettings SetDraftPayload SetPreviewPayload loggerDependency")
+	pureImports := strings.Fields("bytes encoding/json errors fmt io math sort strconv strings time unicode/utf8 sigs.k8s.io/json task-processor/internal/marketplace/shein/publishing task-processor/internal/publishing/common task-processor/internal/shein/api/product task-processor/internal/shein/api/attribute")
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		production := !strings.HasSuffix(path, "_test.go")
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", path, err)
+			}
+			if imported == "task-processor/"+oldRoot || strings.HasPrefix(imported, "task-processor/"+oldRoot+"/") {
+				t.Errorf("retired SHEIN assembly import in %s: %s", path, imported)
+			}
+			if production && owner == dataRoot && !slices.Contains(pureImports, imported) {
+				t.Errorf("offlinepackage must remain pure: %s imports %s", path, imported)
+			}
+		}
+		if !production {
+			continue
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			name := ""
+			switch n := node.(type) {
+			case *ast.FuncDecl:
+				name = n.Name.Name
+			case *ast.TypeSpec:
+				name = n.Name.Name
+				if owner == dataRoot || owner == draftRoot {
+					if n.Assign.IsValid() {
+						t.Errorf("current owners must define values, not aliases: %s.%s", path, name)
+					}
+				}
+				if owner == dataRoot && name == "SaleAttributeResolution" {
+					shape, ok := n.Type.(*ast.StructType)
+					if !ok {
+						t.Fatal("SaleAttributeResolution must remain a value struct")
+					}
+					for _, field := range shape.Fields.List {
+						for _, f := range field.Names {
+							if slices.Contains([]string{"skcAssignments", "skuAssignments", "skcValueAssignments", "skuValueAssignments"}, f.Name) {
+								t.Errorf("retired hidden resolution state: %s", f.Name)
+							}
+						}
+					}
+				}
+			case *ast.ValueSpec:
+				for _, value := range n.Names {
+					if _, ok := required[owner][value.Name]; ok {
+						required[owner][value.Name] = true
+					}
+				}
+			case *ast.CallExpr:
+				if owner == dataRoot {
+					if call, ok := n.Fun.(*ast.SelectorExpr); ok {
+						if pkg, ok := call.X.(*ast.Ident); ok && pkg.Name == "time" && slices.Contains([]string{"Now", "After", "Sleep", "NewTimer", "NewTicker"}, call.Sel.Name) {
+							t.Errorf("implicit clock in pure owner: %s", path)
+						}
+					}
+				}
+			}
+			if _, ok := required[owner][name]; ok {
+				required[owner][name] = true
+			}
+			if (owner == dataRoot || owner == draftRoot) && slices.Contains(retired, name) {
+				t.Errorf("retired extension declaration in %s: %s", path, name)
+			}
+			return true
+		})
+	}
+	for owner, names := range required {
+		for name, found := range names {
+			if !found {
+				t.Errorf("current SHEIN owner declaration missing: %s.%s", owner, name)
+			}
+		}
+	}
+	for path, versions := range map[string][]string{
+		"internal/marketplace/shein/validator/validator.go":  {`"shein.offline_package.v1.2"`},
+		"internal/marketplace/shein/validator/diagnostic.go": {`"shein.offline_package.v2.2"`, `"shein.persisted-input.go-json.v2"`},
+	} {
+		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, version := range versions {
+			if !bytes.Contains(raw, []byte(version)) {
+				t.Errorf("current binding/version missing in %s: %s", path, version)
+			}
+		}
+	}
+}
+
 var retiredHostRuntimePackages = []string{
 	"internal/infra/httpx", "internal/infra/auth", "internal/app/monitoring",
 	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
@@ -1424,7 +1538,7 @@ func assertLegacyLoggerFacadeRetired(t *testing.T) {
 			t.Errorf("retired logger facade/helper %s must be absent: %v", relative, err)
 		}
 	}
-	businessRoots := []string{"internal/amazon/api", "internal/crawler", "internal/localagent", "internal/prompt", "internal/publishing/shein", "internal/shein/client", "internal/shein/content", "internal/sheinlogin", "internal/temu/api/client"}
+	businessRoots := []string{"internal/amazon/api", "internal/crawler", "internal/localagent", "internal/prompt", "internal/marketplace/shein/offlinepackage", "internal/marketplace/shein/draft", "internal/shein/client", "internal/shein/content", "internal/sheinlogin", "internal/temu/api/client"}
 	for _, relative := range trackedFiles(t, ".") {
 		if !strings.HasSuffix(relative, ".go") {
 			continue
@@ -3946,10 +4060,10 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
 		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
 		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "SourceBrand", "AuthorizedBrand", "Context"},
-		"internal/publishing/shein/submit_site_sku_policy.go":                   {"sheinmarketpub.DefaultSiteListByRegion("},
-		"internal/publishing/shein/sensitive_content_sanitizer.go":              {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
+		"internal/marketplace/shein/offlinepackage/payload_defaults.go":         {"sheinmarketpub.DefaultSiteListByRegion("},
+		"internal/marketplace/shein/draft/local_cleanup.go":                     {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
 
-		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
+		"internal/marketplace/shein/draft/sensitive_word_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -4983,7 +5097,7 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 		GenerationTopicOverride GenerationTopicOverrideQuery GenerationTopicOverridePage GenerationTopicOverrideRepository GormGenerationTopicOverrideRepository listingGenerationTopicOverride NewGormGenerationTopicOverrideRepository AutoMigrateGenerationTopicOverrides
 		requireOwnerUserID ErrOwnerUserIDRequired takeOwnedTenantRow updateOwnedTenantRow postgresColumnDefinition postgresColumnTypeMigration sensitiveWordLegacyColumnMigrations ensurePostgresColumnTypeMigrations lookupPostgresColumnDefinition postgresColumnDefinitionNeedsTypeMigration normalizePostgresColumnTypeName normalizeExpectedPostgresType ensureUniqueIndex
 		SetSensitiveWordRepository SetGenerationTopicPolicyRepository SetGenerationTopicOverrideRepository tenantGenerationTopicPolicyPromptBlock NewSensitiveWordServiceForContext`)
-	for _, relative := range []string{"internal/listingadmin", "internal/publishing/shein"} {
+	for _, relative := range []string{"internal/listingadmin", "internal/marketplace/shein/offlinepackage", "internal/marketplace/shein/draft"} {
 		paths, err := filepath.Glob(filepath.Join("..", filepath.FromSlash(relative), "*.go"))
 		if err != nil || len(paths) == 0 {
 			t.Fatalf("retained package is absent: %s (%v)", relative, err)
@@ -5024,7 +5138,7 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 		}
 	}
 	for relative, required := range map[string][]string{
-		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
+		"internal/marketplace/shein/draft/sensitive_word_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
 		"internal/shein/content/cleanup_context.go":                  {"type CleanupContext struct"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -5041,10 +5155,10 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 
 func TestSheinCanonicalDraftContractIsRetained(t *testing.T) {
 	required := map[string]bool{}
-	for _, name := range strings.Fields("Package Package.DraftPayload Package.PreviewPayload Package.FinalSubmissionDraft RequestDraft FinalDraft DraftPayloadOf SetDraftPayload SetPreviewPayload DecodePersistedPackageStrict ClonePackageForPersistence") {
+	for _, name := range strings.Fields("Package Package.DraftPayload Package.PreviewPayload Package.FinalSubmissionDraft RequestDraft FinalDraft DraftPayloadOf DecodePersistedPackageStrict ClonePackageForPersistence") {
 		required[name] = false
 	}
-	for _, source := range trackedProductionTextSources(t, []string{"internal/publishing/shein"}, func(path string) bool { return strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") }) {
+	for _, source := range trackedProductionTextSources(t, []string{"internal/marketplace/shein/offlinepackage"}, func(path string) bool { return strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") }) {
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(source.path)), nil, 0)
 		if err != nil {
 			t.Fatal(err)

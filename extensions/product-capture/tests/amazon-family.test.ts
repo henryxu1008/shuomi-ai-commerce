@@ -64,6 +64,14 @@ it('pauses on a child error, never skips or retries automatically, permits expli
   await c.useObserved();expect(handoff).toHaveBeenCalledTimes(1);expect(handoff.mock.calls[0][0].evidence.variants).toHaveLength(1);
   expect(handoff.mock.calls[0][0].evidence.missingFacts.some(f=>f.reason.includes(sibling))).toBe(true);
 });
+it('projects only closed safe errors from the coordinator, including unknown uppercase failures',async()=>{
+ for(const reason of ['AMAZON_VERIFICATION_REQUIRED','CAPTURE_TOO_LARGE','UNKNOWN_INTERNAL_ERROR','token=secret']){
+  const handoff=vi.fn(async()=>{}),read=vi.fn(async()=>{throw Error(reason);});
+  const c=new FamilyCoordinator({seed,read,handoff,close:async()=>{}});await c.start();
+  expect(c.snapshot()).toMatchObject({phase:'paused',observed:1,reason:reason.startsWith('AMAZON_')||reason==='CAPTURE_TOO_LARGE'?reason:'CAPTURE_REJECTED'});
+  expect(read).toHaveBeenCalledOnce();expect(handoff).not.toHaveBeenCalled();await c.cancel();
+ }
+});
 it('cancellation discards an in-flight child and prevents late handoff',async()=>{
   let finish!: (v: {capture: AmazonCapturePayload; parentASIN: string|null}) => void;
   const handoff=vi.fn<(payload: AmazonCapturePayload) => Promise<void>>(async()=>{});const c=new FamilyCoordinator({seed,read:()=>new Promise(resolve=>{finish=resolve;}),handoff,close:vi.fn(async()=>{})});

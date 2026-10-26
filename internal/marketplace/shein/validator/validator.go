@@ -6,7 +6,7 @@ import (
 	policy "task-processor/internal/marketplace/shein/publishing"
 	workspace "task-processor/internal/marketplace/shein/workspace"
 	contract "task-processor/internal/marketplace/validator"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 // RuleVersion pins this composition and the transitive existing rules it calls.

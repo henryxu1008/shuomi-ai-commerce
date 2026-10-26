@@ -17,7 +17,8 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const fieldText=(element:Element|null)=>productText(doc,element,charge,8192,true);
   const value = (selector: string,max=8192) => text(doc.querySelector(selector),max);
   const titleElement = doc.querySelector('#productTitle');
-  const primaryTitle = text(titleElement,2000); if (!primaryTitle) fail('UNSUPPORTED_PAGE');
+  const primaryTitle = text(titleElement,2000);
+  if (!primaryTitle) fail(titleElement && !excluded(titleElement) ? 'PAGE_NOT_READY' : 'UNSUPPORTED_PAGE');
   const observedASIN = doc.querySelector<HTMLInputElement>('input#ASIN')?.value;
   if (observedASIN && observedASIN !== identity.sourceID) fail('SOURCE_CHANGED');
   const { title, reason: subtitleReason } = amazonVisibleTitle(doc, titleElement!, primaryTitle, charge);

@@ -1,6 +1,6 @@
 package workspace
 
-import sheinpub "task-processor/internal/publishing/shein"
+import sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 
 var AutoReviewNotes = []string{
 	"SHEIN 资料包已贴近 SPU/SKC 结构，但类目 ID、销售属性 ID 仍需接 SHEIN 类目/属性中心二次映射",

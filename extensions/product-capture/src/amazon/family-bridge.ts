@@ -3,7 +3,7 @@ import { FamilyLocation, familyURL } from './family-location';
 import type { CaptureTab, Controller } from '../controller';
 import type { ReturnSession } from '../return-session';
 import { UUID } from '../validation';
-import { validateAmazonCapture } from './validation';
+import { amazonPageSource, validateAmazonCapture } from './validation';
 import type { FamilySummary } from './family-coordinator';
 
 const common={revision:z.string().regex(UUID)};
@@ -99,9 +99,12 @@ export class FamilyBridge {
     if(m.type==='family.reader'){
       const request=m as {tabId:number;sourceURL:string}; const tab=await chrome.tabs.get(request.tabId);
       const retry=r.reader?.sourceURL===request.sourceURL;
+      const canonical=(url:string|undefined)=>{try{return url?amazonPageSource(url).sourceURL:undefined;}catch{return undefined;}};
+      const sameTarget=(url:string|undefined)=>canonical(url)===request.sourceURL;
+      const registered=!!r.reader && canonical(tab.url)===r.reader.sourceURL;
       if(tab.openerTabId!==r.tabId || r.reader && r.reader.tabId!==request.tabId
-        || tab.pendingUrl && tab.pendingUrl!==tab.url && tab.pendingUrl!==request.sourceURL
-        || tab.url!=='about:blank' && tab.url!==r.reader?.sourceURL && !(retry && tab.url===r.reader?.previousURL))throw Error('FAMILY_INTERRUPTED');
+        || tab.pendingUrl && tab.pendingUrl!==tab.url && tab.pendingUrl!==request.sourceURL && !(retry && sameTarget(tab.pendingUrl))
+        || tab.url!=='about:blank' && !registered && !(retry && tab.url===r.reader?.previousURL))throw Error('FAMILY_INTERRUPTED');
       await this.location.reader(request.tabId,request.sourceURL);return {};
     }
     if(m.type==='family.return'){if(this.application.state!=='available')throw Error('HANDOFF_UNAVAILABLE');await this.controller().returnToApplication();return {};}
