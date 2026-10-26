@@ -1,7 +1,7 @@
 # #301 闲置 Gemini 客户端与宿主辅助入口完整退休设计
 
 > Design Basis: **Independent Architecture / DESIGN_ONLY / DESIGNING / NOT_READY**。本轮只交设计，生产源码尚未实施。
-> 用户同意三组同批设计，设计确认后再实施；接单与前一当前段归档见 [#301 评论6405893102](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6405893102)。调查基线 `8424696ea31eeb9f13931a2e1d1db675b549fd21`，复用已有独立工作区，单 Writer。
+> 用户同意三组同批设计，设计确认后再实施；接单与前一当前段归档见 [#301 评论6405893102](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6405893102)。调查基线 `8424696ea31eeb9f13931a2e1d1db675b549fd21`，复用已有独立工作区，单 Writer。 最终候选同步实际main `4ec492737e85dc4dca187b749219436eb8dc20c8`（#957）；三组生产源码/消费者未变化，README保留该main完整blob后缀。
 
 ## 1. 本轮做什么、保留什么
 
@@ -49,7 +49,7 @@ Gemini没有生产注入，不等于取消当前 Google 能力：`integration/go
 
 现有 `TestProductionProviderConstructorInventoryIsComplete` 列出的真实构造者为OpenAI/GRSAI，没有Gemini。其扫描器继续检测旧Gemini构造回流；不为删除包放宽构造计数或支持新的注入位置。
 
-已核对活跃 #956 Store浏览器、#957 Amazon变体、#931依赖与#692安装边界，无本批生产重叠 owner；不改它们的生产文件。共享README最终按实际main最小组合，原完整blob保留。调查只读，不运行构造器/应用/浏览器、不查询进程/实例、不读取现有凭据或.env。
+调查时已核对 #956 Store浏览器、#957 Amazon变体、#931依赖与#692安装边界，无本批生产重叠 owner；最终同步已合并#957，仅带入其既有插件/来源测试和README，不改它们的生产文件。三组目标未新增consumer，未变化调查证据复用；共享README采用实际main完整blob后缀。调查只读，不运行构造器/应用/浏览器、不查询进程/实例、不读取现有凭据或.env。
 
 ## 4. 有效行为、持久化及副作用边界
 
