@@ -166,7 +166,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 
 | 对象 | 处置 | 保留/禁止 |
 | --- | --- | --- |
-| internal/model/amazon_product.go及整internal/model根 | 17类型/5方法一次抽取到result/model.go后整退旧文件与根 | 已退task/retry/status六文件不恢复；不创建空doc.go、旧alias或跨平台入口 |
+| internal/model/amazon_product.go及整internal/model根 | 17类型/5方法一次抽取到capturedata/model.go后整退旧文件与根 | 已退task/retry/status六文件不恢复；不创建空doc.go、旧alias或跨平台入口 |
 | 36原import文件 | 只改import/alias限定与相关类型引用 | 29生产＋7原测试（含独立debug），原算法/fixture/assertion/body不改，不将代码搬到新运行框架 |
 | internal/shein/api/attribute/interface.go | 精确删除AttributeInfo、AttributeValue、AttributeValueGroup及三项专属注释 | CustomAttributeRelation原两个int64字段/tag/无omitempty/声明顺序保持；四当前消费者/其它SHEIN DTO零改 |
 | 新capturedata/model_test.go | 最小合成值合同回归：固定结果JSON/嵌套值/空值、五方法/原异常与错误链；复用原测试设施 | 独立手写期待与固定bytes，不以同一实现计算oracle；不新增runner/平台/数据库/真实浏览器验收 |
