@@ -4,7 +4,7 @@ import (
 	"context"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 )
 
@@ -29,11 +29,11 @@ func NewExecutionCandidateService(reader catalog.VersionedSnapshotReader, source
 	service.executionResolver = resolve
 	return &ExecutionCandidateService{service}, nil
 }
-func (s *ExecutionCandidateService) ValidateCandidate(ctx context.Context, in CandidateInput) (enrichment.Proposal, error) {
+func (s *ExecutionCandidateService) ValidateCandidate(ctx context.Context, in CandidateInput) (reviewproposal.Proposal, error) {
 	return s.service.ValidateCandidate(ctx, in)
 }
 
-func (s *ExecutionCandidateService) ValidateContentCandidate(ctx context.Context, in ContentValidationInput) (enrichment.Proposal, error) {
+func (s *ExecutionCandidateService) ValidateContentCandidate(ctx context.Context, in ContentValidationInput) (reviewproposal.Proposal, error) {
 	return s.service.ValidateContentCandidate(ctx, in)
 }
 func (s *ExecutionCandidateService) CreateFromCandidate(ctx context.Context, key string, in CandidateInput) (View, error) {

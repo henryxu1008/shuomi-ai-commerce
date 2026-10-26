@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 type ConfigurationReader interface {
@@ -19,13 +19,13 @@ type Validator struct {
 	Authorization agent.Authorizer
 	Configuration ConfigurationReader
 	Identity      func(context.Context) (agent.ExecutionIdentity, error)
-	Review        func(context.Context, review.ContentValidationInput) (enrichment.Proposal, error)
-	Observed      func(agent.Request, enrichment.Candidate, []agent.Observation) bool
+	Review        func(context.Context, review.ContentValidationInput) (reviewproposal.Proposal, error)
+	Observed      func(agent.Request, reviewproposal.Candidate, []agent.Observation) bool
 }
 
-func (v Validator) Validate(ctx context.Context, request agent.Request, candidate enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
-	result := agent.Validation{PolicyVersion: enrichment.ContentPolicyVersion}
-	if ctx == nil || !request.ContentSelection.Valid() || request.PolicyVersion != enrichment.ContentPolicyVersion || request.PromptVersion != agentconfig.ContentPromptVersion || !request.Binding.Valid() || request.ConfigurationSnapshotRef.Absent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() || !request.ModeSnapshotRef.Valid() || !agent.ValidGoalSummary(request.GoalSummary) {
+func (v Validator) Validate(ctx context.Context, request agent.Request, candidate reviewproposal.Candidate, history []agent.Observation) (agent.Validation, error) {
+	result := agent.Validation{PolicyVersion: reviewproposal.ContentPolicyVersion}
+	if ctx == nil || !request.ContentSelection.Valid() || request.PolicyVersion != reviewproposal.ContentPolicyVersion || request.PromptVersion != agentconfig.ContentPromptVersion || !request.Binding.Valid() || request.ConfigurationSnapshotRef.Absent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() || !request.ModeSnapshotRef.Valid() || !agent.ValidGoalSummary(request.GoalSummary) {
 		return result, agent.ErrInvalid
 	}
 	if v.Authorization == nil || v.Configuration == nil || v.Identity == nil || v.Review == nil || v.Observed == nil {
@@ -60,7 +60,7 @@ func (v Validator) Validate(ctx context.Context, request agent.Request, candidat
 	}
 	proposal, err := v.Review(ctx, review.ContentValidationInput{Selection: request.ContentSelection, Base: review.CreateInput{ProductKey: request.Binding.ProductKey, BaseVersion: version}, PublicationID: request.Binding.PublicationID, Candidate: candidate})
 	if err != nil {
-		if errors.Is(err, enrichment.ErrEvidenceInsufficient) || errors.Is(err, enrichment.ErrOutputValidation) || errors.Is(err, enrichment.ErrPolicyRejected) || errors.Is(err, review.ErrInvalid) {
+		if errors.Is(err, reviewproposal.ErrEvidenceInsufficient) || errors.Is(err, reviewproposal.ErrOutputValidation) || errors.Is(err, reviewproposal.ErrPolicyRejected) || errors.Is(err, review.ErrInvalid) {
 			result.Unresolved = []string{"content_or_evidence_invalid"}
 			return result, nil
 		}

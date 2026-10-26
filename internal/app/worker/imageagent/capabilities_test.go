@@ -122,7 +122,6 @@ func TestBuildProductionImageCapabilitiesQuotesCurrentRouteAndRejectsStaleAuthor
 			imageAgentOpenAIClientName: clientConfig,
 			"default":                  openaiclient.NewClientConfig("test-key", "gpt-vision-test", "https://provider.example.test/v1", 30),
 		},
-		DefaultClient: imageAgentOpenAIClientName,
 	})
 	require.NoError(t, err)
 	capabilities, err := buildProductionImageCapabilities(imageCapabilityRuntime{OpenAIManager: manager})
@@ -162,8 +161,7 @@ func completeProviderDependencies() providerDependencies {
 
 func TestProductionSourceEditDoesNotResolveReviewRoute(t *testing.T) {
 	manager, err := openaiclient.NewManager(&openaiclient.ManagerConfig{
-		Clients:       map[string]*openaiclient.ClientConfig{imageAgentOpenAIClientName: openaiclient.NewClientConfig("controlled-only", "controlled-image", "https://provider.example.test/v1", 30)},
-		DefaultClient: imageAgentOpenAIClientName,
+		Clients: map[string]*openaiclient.ClientConfig{imageAgentOpenAIClientName: openaiclient.NewClientConfig("controlled-only", "controlled-image", "https://provider.example.test/v1", 30)},
 	})
 	require.NoError(t, err)
 	resolver := &sourceOnlyRouteResolver{}

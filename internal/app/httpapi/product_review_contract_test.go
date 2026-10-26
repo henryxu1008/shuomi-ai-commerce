@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 
@@ -24,7 +24,7 @@ func TestProductReviewWireDTOIsExactAndVersionSafe(t *testing.T) {
 		Input:  review.CreateInput{ProductKey: "product", BaseVersion: 9007199254740993},
 		Before: "before", Title: "after", OriginalTitle: "suggested", Policy: "title-review-v1", State: "applied", Revision: 9007199254740994,
 		Evidence: []review.Evidence{{ID: "evidence", ReferenceType: "captured", ReferenceID: "ref", SnapshotID: "snapshot", Checksum: "checksum"}},
-		Quality:  enrichment.QualityScore{Overall: 0.75, EvidenceCoverage: 0.5, RequiredFieldCoverage: 1}, Unresolved: []string{"needs review"},
+		Quality:  reviewproposal.QualityScore{Overall: 0.75, EvidenceCoverage: 0.5, RequiredFieldCoverage: 1}, Unresolved: []string{"needs review"},
 		History: []review.Decision{{Action: "accept", Actor: "admin", Revision: 9007199254740994, Before: "before", After: "after", At: at}},
 		Receipt: &review.Receipt{ProposalID: "12345678-1234-4234-8234-123456789abc", Revision: 9007199254740994, ProductVersion: 9007199254740995, PublicationID: "publication", Actor: "admin", At: at},
 	})

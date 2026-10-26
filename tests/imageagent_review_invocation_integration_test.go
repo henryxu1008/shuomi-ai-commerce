@@ -48,7 +48,7 @@ func review334Manager(t *testing.T, db *gorm.DB, endpoint string, logger *logrus
 	cfg.MaxRetries = 3
 	cfg.RetryDelay = time.Millisecond
 	cfg.Logger = openai.AdaptLogrus(logrus.NewEntry(logger))
-	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}, DefaultClient: "default", Logger: cfg.Logger})
+	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}, Logger: cfg.Logger})
 	require.NoError(t, err)
 	return manager
 }

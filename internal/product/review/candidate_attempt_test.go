@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -33,7 +33,7 @@ func TestCandidateIntakeReportsTransactionAttempt(t *testing.T) {
 	require.NoError(t, err)
 	input := CandidateInput{Base: CreateInput{ProductKey: "product", BaseVersion: 7},
 		PublicationID: "source-publication", PolicyVersion: "title-review-v1",
-		Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Reviewed title", EvidenceIDs: []string{"evidence"}}}}}
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "Reviewed title", EvidenceIDs: []string{"evidence"}}}}}
 	published := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: "org", ProductKey: "product"},
 		Version: 7, PublicationID: "source-publication", Snapshot: catalog.ProductSnapshot{Title: "source title"}}
 	for _, test := range []struct {

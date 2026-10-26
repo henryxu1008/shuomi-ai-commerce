@@ -7,7 +7,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 
@@ -15,7 +15,7 @@ import (
 )
 
 func TestPendingRecordReservesDecisionAndReceipt(t *testing.T) {
-	r := Record{ID: "00000000-0000-0000-0000-000000000001", Org: "B", Owner: "owner", Revision: 1, State: "pending", Title: strings.Repeat("x", 4096), Original: enrichment.Proposal{Evidence: []enrichment.Evidence{{Metadata: map[string]string{"large": strings.Repeat("m", 54000)}}}}}
+	r := Record{ID: "00000000-0000-0000-0000-000000000001", Org: "B", Owner: "owner", Revision: 1, State: "pending", Title: strings.Repeat("x", 4096), Original: reviewproposal.Proposal{Evidence: []reviewproposal.Evidence{{Metadata: map[string]string{"large": strings.Repeat("m", 54000)}}}}}
 	raw, e := json.Marshal(r)
 	require.NoError(t, e)
 	require.Less(t, len(raw), MaxRecordBytes)

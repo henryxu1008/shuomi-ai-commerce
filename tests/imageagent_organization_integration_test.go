@@ -491,7 +491,7 @@ func TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver(t *tes
 	for _, name := range []string{"default", "image_gpt_image_2"} {
 		require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "B", UserID: "actor", ClientName: name, APIKey: "synthetic-B", BaseURL: provider.URL + "/v1", Model: "review-test", Enabled: true, TimeoutSecond: 1}))
 	}
-	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}, DefaultClient: "default"})
+	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}})
 	require.NoError(t, err)
 	_, err = imageworker.BuildOrganizationImageCapabilities(manager, f.db)
 	require.NoError(t, err)
@@ -587,7 +587,7 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 		}
 	}
 	cfg := openai.NewClientConfig("static-must-not-be-used", "review-test", provider.URL+"/v1", 1)
-	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}, DefaultClient: "default"})
+	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}})
 	require.NoError(t, err)
 	options := imageworker.OrganizationReviewOptions{Recorder: aistore.NewGormInvocationRecorder(f.db), Logger: logger}
 	if mode == "known_cost" {

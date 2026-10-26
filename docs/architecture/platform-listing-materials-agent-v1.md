@@ -17,7 +17,7 @@ Out of Scope：平台发布/改价/下架/删除/增额度、真实provider和�
 
 ## 当前边界及调用链
 
-现 `agent.Action/State/Validator` 的候选明确绑定 `product/enrichment.Candidate`。类目/属性/SKU不能伪装成 Catalog 内容补丁或进入 Product Review 的事实采用。这是本次复用必须处理的边界，不能直接复用标题 DTO 来表示完整平台资料。
+现 `agent.Action/State/Validator` 的候选明确绑定 `product/review/proposal.Candidate`。类目/属性/SKU不能伪装成 Catalog 内容补丁或进入 Product Review 的事实采用。这是本次复用必须处理的边界，不能直接复用标题 DTO 来表示完整平台资料。
 
 | 事实/职责 | 当前唯一 owner |
 | --- | --- |

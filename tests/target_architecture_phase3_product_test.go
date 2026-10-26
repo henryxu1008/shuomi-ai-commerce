@@ -141,12 +141,21 @@ func TestPhase3ConsumersCannotOrchestrateProductImage(t *testing.T) {
 }
 
 func TestPhase3ProductTargetDependencies(t *testing.T) {
-	for _, name := range []string{"catalog", "sourcing", "enrichment", "asset", "image"} {
+	for _, name := range []string{"catalog", "sourcing", "review/proposal", "asset", "image"} {
 		root := filepath.Join("..", "internal", "product", name)
 		if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
+			if name == "review/proposal" {
+				t.Fatalf("current Review Proposal owner must exist: %v", err)
+			}
 			continue
 		} else if err != nil {
 			t.Fatal(err)
+		}
+
+		if name == "review/proposal" {
+			files, err := phase3ProductProductionFiles(root)
+			require.NoError(t, err)
+			require.NotEmpty(t, files, "current Review Proposal owner must contain production files")
 		}
 
 		assertNoBannedImportPrefixes(t, root, []string{
@@ -170,12 +179,13 @@ func TestPhase3ProductTargetDependencies(t *testing.T) {
 		"task-processor/internal/model",
 		"task-processor/internal/product/asset",
 		"task-processor/internal/product/enrichment",
+		"task-processor/internal/product/review/proposal",
 		"task-processor/internal/product/image",
 		"task-processor/internal/productenrich",
 	}, nil)
 }
 
-func TestPhase3ProductEnrichmentRuntimeSemanticGuardCoversDeclarationIdentifiers(t *testing.T) {
+func TestPhase3ReviewProposalRuntimeSemanticGuardCoversDeclarationIdentifiers(t *testing.T) {
 	fixture := filepath.Join(t.TempDir(), "runtime_semantics.go")
 	source := `package fixture
 type QueueEnvelope struct{}
@@ -206,8 +216,8 @@ func local() {
 	}
 }
 
-func TestPhase3ProductEnrichmentHasNoRuntimeSemanticDeclarations(t *testing.T) {
-	files, err := phase3ProductProductionFiles(filepath.Join("..", "internal", "product", "enrichment"))
+func TestPhase3ReviewProposalHasNoRuntimeSemanticDeclarations(t *testing.T) {
+	files, err := phase3ProductProductionFiles(filepath.Join("..", "internal", "product", "review", "proposal"))
 	require.NoError(t, err)
 
 	violations, err := phase3ProductRuntimeSemanticViolations(files)

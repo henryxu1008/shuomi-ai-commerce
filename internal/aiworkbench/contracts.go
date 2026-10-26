@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"task-processor/internal/agent"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 var (
@@ -155,7 +155,7 @@ type PlanTerminal struct {
 // facts come from freshly authorized Product, AgentConfig and Knowledge owners.
 type ExecutionProposal struct {
 	ContextKind                string
-	ContentSelection           enrichment.ContentSelection
+	ContentSelection           reviewproposal.ContentSelection
 	ExecutionLimits            agent.Limits
 	ID                         string
 	Digest                     string

@@ -1,3 +1,5 @@
+> #953 当前 owner 校准：本文旧 OpenAI 文本门面/适配器、Proposer 与 `product/enrichment` KEEP 依据由[完整退休设计](legacy-openai-adapter-closure-retirement-boundary.md)替代。当前合同与纯规则归 `internal/product/review/proposal`；当前 AI、图像、身份、计量、UNKNOWN 与审核/Apply 保留。以下原设计、数值和历史证据全文保留，不构成恢复旧包或运行授权。
+
 > **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
 > #948 仅退休本批矩阵内无消费者的验证码统计/custom 构造、单数 FeatureExtractor、变体调试方法/custom 构造及根 VariationsExtractor 的专属 loggerDependency 字段；当前实际日志注入、child variations.NewExtractor(logs)、规则与运行日志原样保留。
 > 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。

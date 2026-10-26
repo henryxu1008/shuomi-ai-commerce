@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestContentPromptNeverSilentlyOmitsSelectedWholeValues(t *testing.T) {
-	selection, err := enrichment.NewContentSelection("en-US", []string{"description"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"description"})
 	require.NoError(t, err)
 	for _, description := range []string{"whole selected description", strings.Repeat("selected", 1500)} {
 		raw, err := json.Marshal(map[string]any{"product_key": "product", "catalog_version": "1", "catalog_publication_id": "publication", "snapshot": map[string]any{"sources": []any{map[string]string{"detail": "source"}}, "title": "source title", "description": description, "images": []any{map[string]string{"url": strings.Repeat("unselected", 3000)}}}})

@@ -1,3 +1,5 @@
+> #953 当前 owner 校准：本文旧 OpenAI 文本门面/适配器、Proposer 与 `product/enrichment` KEEP 依据由[完整退休设计](legacy-openai-adapter-closure-retirement-boundary.md)替代。当前合同与纯规则归 `internal/product/review/proposal`；当前 AI、图像、身份、计量、UNKNOWN 与审核/Apply 保留。以下原设计、数值和历史证据全文保留，不构成恢复旧包或运行授权。
+
 # Product Agent Google Interactions 标题路由增量合同
 
 > Status: **IMPLEMENTATION_READY**（2026-10-03 独立架构增量复核后）。Design Basis: **Independent Architecture**。

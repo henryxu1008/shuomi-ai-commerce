@@ -65,7 +65,7 @@ func TestManagerPropagatesLoggerToResolverCreatedDynamicClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := manager.resolveClient(WithTenantID(context.Background(), "tenant-a"), "image")
+	client, err := manager.resolveClient(WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}), "image")
 	if err != nil {
 		t.Fatal(err)
 	}

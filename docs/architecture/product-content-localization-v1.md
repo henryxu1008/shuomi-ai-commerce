@@ -16,7 +16,7 @@ UI依据 [当前Figma authority](../product/final-ui-ia-authority.md)，file tg4
 
 ## 2. 当前能力与必须补齐的边界
 
-Catalog.ProductSnapshot已经拥有四字段（internal/product/catalog/snapshot.go），Enrichment的Candidate/FieldChange/Policy是纯计算。Review当前仅允许title，记录/原子Apply及ResolveAppliedSource只证明title-only delta；不能直接令通用Agent改description，或把多字段修改投影成标题批准。
+Catalog.ProductSnapshot已经拥有四字段（internal/product/catalog/snapshot.go），Review Proposal（internal/product/review/proposal）的Candidate/FieldChange/Policy是纯计算。Review当前仅允许title，记录/原子Apply及ResolveAppliedSource只证明title-only delta；不能直接令通用Agent改description，或把多字段修改投影成标题批准。
 
 复用当前Review事实与事务，新增明确content policy/typed payload及准确lineage；保持合法现有标题产品路径，不加旧Service wrapper/fallback/双读双写或第二审核owner。四字段用户结果保持一个主要PR，内部切片不机械分PR。
 
@@ -27,7 +27,7 @@ Catalog.ProductSnapshot已经拥有四字段（internal/product/catalog/snapshot
 | agent的已有Request/ModelInput与agentconfig配置快照 | 原Eino及RunDB内当前Agent PostgreSQL Store | 一个运行/checkpoint/CAS，固定Definition，bounded repair；不是第二任务/重试owner |
 | 新registered product.content.agent/v1.0.0与固定content-config-v1参数 | 现企业市场/启用/模板/模式；新内容配置/确认组件 | code-owned注册及受限字段/语言默认值，不授权限，不开放用户Tool清单 |
 | internal/product/contentagent的窄消费者ports | app仅注入当前acquisition/collection source、配置、runtime、Review与model ports | 当前保存商品context和真实权限→冻结调用→原run/Review输出；不引入GORM/provider SDK/平台client |
-| Product Enrichment / Review content policy、typed补丁 | ProductDB内现Review Store/UoW / Catalog.Publisher及事务内source reader | 证据/字段重验、人工决定/策略采用、唯一原子版本和回执；不与RunDB跨池共用事务 |
+| Review Proposal / Review content policy、typed补丁 | ProductDB内现Review Store/UoW / Catalog.Publisher及事务内source reader | 证据/字段重验、人工决定/策略采用、唯一原子版本和回执；不与RunDB跨池共用事务 |
 | Review真实applied publication lineage | 当前source/Asset/草稿消费者 | 从原SRC版本逐项证明真实补丁，不制造新来源或把content当title-only |
 | 现AI Capability governed文本port / Commercial | 现provider-neutral integration与原route/dispatch/settlement ledger | 可信路由、token/cost上界、审计、计量、UNKNOWN原owner |
 

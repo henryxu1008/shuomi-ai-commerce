@@ -19,8 +19,8 @@ import (
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
 )
@@ -270,7 +270,7 @@ func (r productAgentSourceGateway) ReadEffectiveSource(ctx context.Context, prin
 	}
 	return out, nil
 }
-func (a *productAgentApplication) validateSupplyCandidate(ctx context.Context, b agent.Binding, policy string, candidate enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+func (a *productAgentApplication) validateSupplyCandidate(ctx context.Context, b agent.Binding, policy string, candidate reviewproposal.Candidate, history []agent.Observation) (agent.Validation, error) {
 	if a.executionReviews == nil {
 		return agent.Validation{}, agent.ErrUnavailable
 	}
@@ -279,7 +279,7 @@ func (a *productAgentApplication) validateSupplyCandidate(ctx context.Context, b
 	}
 	proposal, err := a.executionReviews.ValidateCandidate(ctx, agentReviewInput(b, policy, candidate))
 	if err != nil {
-		if errors.Is(err, enrichment.ErrEvidenceInsufficient) || errors.Is(err, enrichment.ErrOutputValidation) || errors.Is(err, enrichment.ErrPolicyRejected) || errors.Is(err, review.ErrInvalid) {
+		if errors.Is(err, reviewproposal.ErrEvidenceInsufficient) || errors.Is(err, reviewproposal.ErrOutputValidation) || errors.Is(err, reviewproposal.ErrPolicyRejected) || errors.Is(err, review.ErrInvalid) {
 			return agent.Validation{PolicyVersion: policy, Unresolved: []string{"title_or_evidence_invalid"}}, nil
 		}
 		return agent.Validation{}, err

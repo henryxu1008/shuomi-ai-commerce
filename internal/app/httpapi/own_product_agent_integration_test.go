@@ -24,7 +24,7 @@ import (
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/collection"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestOwnContentRunsThroughRealReviewApplyAndChoiceWithoutShop(t *testing.T) {
@@ -74,7 +74,7 @@ func ownContentFixtureProposal(t *testing.T, r *http.Request, fields ...string) 
 	if len(fields) == 0 {
 		fields = []string{"title"}
 	}
-	changes := []enrichment.FieldChange{}
+	changes := []reviewproposal.FieldChange{}
 	for _, field := range fields {
 		value := "Reviewed own product title"
 		if field == "description" {
@@ -83,9 +83,9 @@ func ownContentFixtureProposal(t *testing.T, r *http.Request, fields ...string) 
 		if field == "selling_points" {
 			value = `["Saved own product"]`
 		}
-		changes = append(changes, enrichment.FieldChange{Field: field, Value: value, EvidenceIDs: []string{evidence}})
+		changes = append(changes, reviewproposal.FieldChange{Field: field, Value: value, EvidenceIDs: []string{evidence}})
 	}
-	encoded, err := json.Marshal(agent.Action{Kind: "propose", Candidate: enrichment.Candidate{Changes: changes}})
+	encoded, err := json.Marshal(agent.Action{Kind: "propose", Candidate: reviewproposal.Candidate{Changes: changes}})
 	require.NoError(t, err)
 	return string(encoded)
 }

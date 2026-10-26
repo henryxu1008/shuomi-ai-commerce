@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 )
 
@@ -22,12 +22,12 @@ func (s skillTransactionProbe) Run(ctx context.Context, op Operation, fn func(Tx
 func skillCandidateInput(t *testing.T) (*Service, *candidateGateStore, context.Context, CandidateInput) {
 	t.Helper()
 	service, store, ctx, input := candidateGateFixture(t, true)
-	selection := enrichment.ContentSelection{TargetLanguage: "en-US", Title: true}
+	selection := reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}
 	input.ContentSelection = selection
 	input.Execution.ContentSelection = selection
 	input.Candidate.Changes = input.Candidate.Changes[:1]
 	input.Execution.SkillVersionRef = agent.SkillVersionRef{Kind: "skill-version-v1", ID: uuid.NewString(), OwnerKind: "USER", OwnerID: input.Execution.Scope.ActorID, Version: 1, Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PolicyVersion: "skill-method-v1"}
-	service.WithExecutionPolicy(func(_ context.Context, e ExecutionProvenance, _ enrichment.Candidate, _ bool) (PolicyProvenance, error) {
+	service.WithExecutionPolicy(func(_ context.Context, e ExecutionProvenance, _ reviewproposal.Candidate, _ bool) (PolicyProvenance, error) {
 		return candidateGateProof(e, agent.ModeDefault), nil
 	})
 	return service, store, ctx, input
