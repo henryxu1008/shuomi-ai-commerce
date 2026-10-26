@@ -1,3 +1,5 @@
+> #301 / #964 当前替代边界（[用户确认设计 §1–§7/§6.1](legacy-source-result-contract-closure-retirement-boundary.md)）：仅替代原 internal/model import/路径不动的 KEEP；原浏览器、提取器、批量/debug改接纯 result 叶子，同一17值5方法保持。原 CreateProcessor/Scraper/source adapter 退休不回流。 当前能力、独立SHEIN登录/Store同步及持久化事实owner保持，workflow/完整inventory/依赖及既有资源不动，无试用前置，#301 OPEN。以下原完整Git正文/数字/勾选/证据逐字保留。
+
 > **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
 > #948 替代本设计中闲置的 AmazonProcessor.ProcessBatch KEEP；当前 Process/ProcessWithContext/ProcessBatchWithContext、真实批量 owner 和关闭行为原样保留。
 > 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。

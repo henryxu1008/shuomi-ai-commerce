@@ -4,13 +4,13 @@ import (
 	"errors"
 	"testing"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 func TestProductResultValidatorValidateAcceptsCompleteProduct(t *testing.T) {
 	validator := NewProductResultValidator()
 
-	product := &model.Product{
+	product := &amazonresult.Product{
 		Asin:         "B001234567",
 		Title:        "Demo Product",
 		ImageURL:     "https://example.com/1.jpg",
@@ -27,7 +27,7 @@ func TestProductResultValidatorValidateAcceptsCompleteProduct(t *testing.T) {
 func TestProductResultValidatorValidateRejectsMissingCriticalFields(t *testing.T) {
 	validator := NewProductResultValidator()
 
-	product := &model.Product{
+	product := &amazonresult.Product{
 		Asin:         "B001234567",
 		Title:        "Demo Product",
 		IsAvailable:  true,
@@ -43,7 +43,7 @@ func TestProductResultValidatorValidateRejectsMissingCriticalFields(t *testing.T
 func TestProductResultValidatorValidateAllowsUnavailableProductWithoutPrice(t *testing.T) {
 	validator := NewProductResultValidator()
 
-	product := &model.Product{
+	product := &amazonresult.Product{
 		Asin:         "B001234567",
 		Title:        "Unavailable Product",
 		ImageURL:     "https://example.com/1.jpg",
@@ -59,14 +59,14 @@ func TestProductResultValidatorValidateAllowsUnavailableProductWithoutPrice(t *t
 func TestProductResultValidatorValidateRejectsBrokenVariationPayload(t *testing.T) {
 	validator := NewProductResultValidator()
 
-	product := &model.Product{
+	product := &amazonresult.Product{
 		Asin:         "B001234567",
 		Title:        "Variant Product",
 		ImageURL:     "https://example.com/1.jpg",
 		FinalPrice:   19.99,
 		IsAvailable:  true,
 		Availability: "In Stock",
-		Variations: []model.Variation{
+		Variations: []amazonresult.Variation{
 			{Name: "Color", Asin: "B001234568"},
 		},
 	}

@@ -3,7 +3,7 @@ package extractor
 import (
 	"regexp"
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -19,7 +19,7 @@ func NewSizeChartExtractor() *SizeChartExtractor {
 	return &SizeChartExtractor{}
 }
 
-func (e *SizeChartExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *SizeChartExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	bodyText, err := page.Evaluate(`() => document.body ? (document.body.innerText || "") : ""`)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (e *SizeChartExtractor) Extract(page playwright.Page, product *model.Produc
 	return nil
 }
 
-func parseSizeChartFromSources(bodyText, popoverText string) *model.SizeChart {
+func parseSizeChartFromSources(bodyText, popoverText string) *amazonresult.SizeChart {
 	if chart := parseSizeChartFromBodyText(bodyText); chart != nil {
 		return chart
 	}
@@ -51,7 +51,7 @@ func parseSizeChartFromSources(bodyText, popoverText string) *model.SizeChart {
 	return parseSizeChartFromBodyText(popoverText)
 }
 
-func parseSizeChartFromBodyText(bodyText string) *model.SizeChart {
+func parseSizeChartFromBodyText(bodyText string) *amazonresult.SizeChart {
 	if strings.TrimSpace(bodyText) == "" {
 		return nil
 	}
@@ -67,7 +67,7 @@ func parseSizeChartFromBodyText(bodyText string) *model.SizeChart {
 		return nil
 	}
 
-	chart := &model.SizeChart{
+	chart := &amazonresult.SizeChart{
 		Title:   section[0],
 		RawText: strings.Join(section, "\n"),
 	}

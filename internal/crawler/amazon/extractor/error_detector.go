@@ -3,7 +3,7 @@ package extractor
 
 import (
 	"regexp"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 // ErrorType 错误类型
@@ -59,7 +59,7 @@ func (ed *ErrorDetector) DetectErrorType(err error) ErrorType {
 	}
 
 	// 检查是否为产品不存在错误
-	if _, ok := err.(*model.ProductNotFoundError); ok {
+	if _, ok := err.(*amazonresult.ProductNotFoundError); ok {
 		return ErrorTypeProductNotFound
 	}
 

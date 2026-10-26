@@ -1,4 +1,4 @@
-package model
+package capturedata
 
 import (
 	"encoding/json"

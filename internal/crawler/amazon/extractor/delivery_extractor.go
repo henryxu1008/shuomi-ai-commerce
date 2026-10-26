@@ -3,7 +3,7 @@ package extractor
 import (
 	"regexp"
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -12,7 +12,7 @@ import (
 type DeliveryExtractor struct{}
 
 // Extract 提取配送信息
-func (e *DeliveryExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *DeliveryExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	// 使用 JavaScript 提取配送信息
 	result, err := page.Evaluate(`() => {
 		const deliveryTexts = [];

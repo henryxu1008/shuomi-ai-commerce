@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -24,7 +24,7 @@ func NewVideoExtractor(logs func(string) *logrus.Entry) *VideoExtractor {
 }
 
 // Extract 提取产品视频信息
-func (e *VideoExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *VideoExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	e.componentLogger("crawler/amazon").Debug("开始提取视频信息")
 
 	// 使用JavaScript提取视频URL
@@ -45,7 +45,7 @@ func (e *VideoExtractor) Extract(page playwright.Page, product *model.Product) e
 }
 
 // extractVideoURLs 从页面提取视频URL列表
-func (e *VideoExtractor) extractVideoURLs(page playwright.Page) ([]model.VideoInfo, error) {
+func (e *VideoExtractor) extractVideoURLs(page playwright.Page) ([]amazonresult.VideoInfo, error) {
 	// JavaScript代码：查找所有视频相关的网络请求
 	jsCode := `() => {
 		const videos = [];
@@ -136,8 +136,8 @@ func (e *VideoExtractor) extractVideoURLs(page playwright.Page) ([]model.VideoIn
 }
 
 // parseVideoResult 解析JavaScript返回的视频数据
-func (e *VideoExtractor) parseVideoResult(result any) []model.VideoInfo {
-	videos := make([]model.VideoInfo, 0)
+func (e *VideoExtractor) parseVideoResult(result any) []amazonresult.VideoInfo {
+	videos := make([]amazonresult.VideoInfo, 0)
 
 	if result == nil {
 		return videos
@@ -156,7 +156,7 @@ func (e *VideoExtractor) parseVideoResult(result any) []model.VideoInfo {
 			continue
 		}
 
-		video := model.VideoInfo{}
+		video := amazonresult.VideoInfo{}
 
 		if videoID, ok := videoMap["video_id"].(string); ok {
 			video.VideoID = videoID
@@ -184,8 +184,8 @@ func (e *VideoExtractor) parseVideoResult(result any) []model.VideoInfo {
 }
 
 // extractFromNetworkRequests 从页面源码中提取视频URL
-func (e *VideoExtractor) extractFromNetworkRequests(page playwright.Page) []model.VideoInfo {
-	videos := make([]model.VideoInfo, 0)
+func (e *VideoExtractor) extractFromNetworkRequests(page playwright.Page) []amazonresult.VideoInfo {
+	videos := make([]amazonresult.VideoInfo, 0)
 
 	content, err := page.Content()
 	if err != nil {
@@ -211,7 +211,7 @@ func (e *VideoExtractor) extractFromNetworkRequests(page playwright.Page) []mode
 				videoID = idMatches[1]
 			}
 
-			videos = append(videos, model.VideoInfo{
+			videos = append(videos, amazonresult.VideoInfo{
 				VideoID:  videoID,
 				VideoURL: e.cleanVideoURL(url),
 			})

@@ -3,8 +3,8 @@ package extractor
 import (
 	"github.com/sirupsen/logrus"
 
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"task-processor/internal/crawler/amazon/variations"
-	"task-processor/internal/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -23,7 +23,7 @@ func NewVariationsExtractor(logs func(string) *logrus.Entry) *VariationsExtracto
 }
 
 // Extract 提取产品变体信息
-func (ve *VariationsExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (ve *VariationsExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	// 提取变体数据
 	variationsData, err := ve.extractor.ExtractFromPage(page)
 	if err != nil {
@@ -31,10 +31,10 @@ func (ve *VariationsExtractor) Extract(page playwright.Page, product *model.Prod
 	}
 
 	// 转换为 VariationValue 格式
-	var variationsValues []model.VariationValue
+	var variationsValues []amazonresult.VariationValue
 	for variantName, values := range variationsData.VariationsValues {
 		if len(values) > 0 {
-			variationsValues = append(variationsValues, model.VariationValue{
+			variationsValues = append(variationsValues, amazonresult.VariationValue{
 				VariantName: variantName,
 				Values:      values,
 			})
@@ -58,7 +58,7 @@ func (ve *VariationsExtractor) Extract(page playwright.Page, product *model.Prod
 }
 
 // 辅助函数：转换类型
-func convertToVariationsValues(values []model.VariationValue) []variations.VariationValue {
+func convertToVariationsValues(values []amazonresult.VariationValue) []variations.VariationValue {
 	result := make([]variations.VariationValue, len(values))
 	for i, v := range values {
 		result[i] = variations.VariationValue{
@@ -69,10 +69,10 @@ func convertToVariationsValues(values []model.VariationValue) []variations.Varia
 	return result
 }
 
-func convertToAmazonVariations(varList []variations.Variation) []model.Variation {
-	result := make([]model.Variation, len(varList))
+func convertToAmazonVariations(varList []variations.Variation) []amazonresult.Variation {
+	result := make([]amazonresult.Variation, len(varList))
 	for i, v := range varList {
-		result[i] = model.Variation{
+		result[i] = amazonresult.Variation{
 			Name: v.Name,
 			Asin: v.Asin,
 			//Price:      v.Price,
