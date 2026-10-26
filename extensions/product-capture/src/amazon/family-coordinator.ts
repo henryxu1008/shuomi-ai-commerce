@@ -1,6 +1,7 @@
 import type { AmazonCapturePayload, AmazonVariant } from './wire';
 import type { FamilyManifest, FamilyMember } from './family-discovery';
 import { validateAmazonCapture } from './validation';
+import { captureException } from '../entry-errors';
 
 export type FamilyPhase = 'initializing' | 'collecting' | 'paused' | 'transferring' | 'transferred' | 'uncertain' | 'cancelled';
 export type FamilySummary = { phase: FamilyPhase; observed: number; total: number; reason: string };
@@ -26,7 +27,7 @@ export class FamilyCoordinator {
     this.state.phase = 'collecting'; this.state.reason = '';
     this.abort=new AbortController();
     this.running = this.collect(this.abort.signal).catch(e => {
-      if (this.state.phase === 'collecting') { this.state.phase = 'paused'; this.state.reason = e instanceof Error && /^[A-Z_]{1,60}$/.test(e.message) ? e.message : 'CAPTURE_REJECTED'; }
+      if (this.state.phase === 'collecting') { this.state.phase = 'paused'; this.state.reason = captureException(e); }
     }).finally(() => { this.running = undefined; });
     return this.running;
   }
