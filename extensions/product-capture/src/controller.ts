@@ -36,6 +36,11 @@ export class Controller {
     }).finally(() => { this.capturing = undefined; });
     return this.capturing;
   }
+  acceptPrepared(value:unknown) {
+    if(this.isBusy() || this.payload || this.handed)throw Error('ACTION_IN_PROGRESS');
+    const payload=this.validate(value);
+    this.flow=new Handoff(this.receiver(payload));this.payload=structuredClone(payload);
+  }
   handoff(): Promise<void> {
     if (this.delivering) return this.delivering;
     if (this.handed) return Promise.resolve();
