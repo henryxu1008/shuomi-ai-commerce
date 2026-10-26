@@ -2,6 +2,8 @@
 
 > Design Basis: **Independent Architecture / DESIGN_ONLY / DESIGNING / SOURCE_NOT_STARTED / NOT_READY**。当前只交设计、索引与登记三文档；用户确认本 §1–§7（含 §6.1）、适用独立设计复核及 Issue/PR 的 IMPLEMENTATION_READY/Ready 记录读回后，才在同一主要 PR 整批实施。调查基线 `6238d2a6670e75e05d49e71c3a33d6ae2cc0d65d`；接单与 #958 收尾归档 [#301 评论6407227866](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6407227866)。
 
+> 最终候选已正常同步实际 main `f50fd0fbe326f7f30990fd299fd41fea8c9038f0`（#959）。新增仅 Amazon 采集扩展 TS/原测试及其设计/README，与本轮 Go 消费者/codec/原检查无交集，3244 Go/15实际imports调查不变；当前设计 diff 仍仅三文档。#956 Store分支只与共享架构索引潜在相交，其业务/schema/授权未接管；索引/登记保留最终main完整blob后缀。
+
 ## 1. 这次做什么
 
 三件事作为一个完整闭包交付：
