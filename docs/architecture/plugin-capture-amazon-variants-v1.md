@@ -2,8 +2,8 @@
 
 Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)。
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
-此准入结论适用于第1–10节已审范围。第11节为后续续采归属修订，当前 **IN_REVIEW / 仅设计评审**；
-不能沿用此前准入或开发授权。本次阶段以 #955 当前正文及用户最新决定为准。
+此准入结论适用于第1–10节已审范围。第11节后续续采归属修订已另行达到 **IMPLEMENTATION_READY**；
+当前仍仅设计评审，不沿用此前开发授权。本次阶段以 #955 当前正文及用户最新决定为准。
 独立Reviewer `1688_shadow_design_review` 已检查准确设计候选
 `c938459b0dae5546a3afccfd09e103d45b6665cc`，无设计BLOCKER；
 [评审及四组IMPLEMENTATION_TEST](https://github.com/qq550723504/shuomi-ai-commerce/issues/955#issuecomment-6398925548)
@@ -344,7 +344,9 @@ Legacy decision: **N/A**；只复用当前owner与现有Vitest/JSDOM，无旧ser
 ## 11. 已登记读取标签的续采归属（2026-10-26）
 
 Design Basis: **Independent Architecture（既有恢复协议的局部修订）**。
-Admission: **IN_REVIEW**。本节当前只交付设计和独立评审，未授权正式开发、重采、部分交接、保存、
+Admission: **IMPLEMENTATION_READY**。独立Reviewer `1688_shadow_design_review` 对准确设计
+`cb76b6ff5ab00d5a080ed50958d001361d29bc50` 结论PASS，无设计BLOCKER。
+本节当前只交付设计和独立评审，未授权正式开发、重采、部分交接、保存、
 插件/实例更新或部署。已有20/171临时结果保持原页暂停，不尝试热修复或刷新原页。
 
 ### 用户结果、依据与根因
@@ -439,6 +441,13 @@ Legacy decision: **N/A**；只复用当前插件owner，不调用/包装旧服�
 3. 首次无opener、显式异主、替换reader、窗口变化、错进度document/revision、错ASIN/外站/冲突pending及坏定位仍拒绝；
    同根因覆盖继续、等待、查看读取页；清理缺失opener保留原标签。
 4. 复用取消/超时/晚到结果、资源上限、原单规格/1688路径与保存合同既有有效证据；只补本次受影响组合回归。
+
+独立评审确认三组 **IMPLEMENTATION_TEST**，以后实施必须收敛，未完成不能交付本修复：
+
+- 定位已写入但应答丢失、页面仍标记未定位、opener缺失且worker重建时，须先由原记录确认已有登记，
+  不能被本地首次门禁提前永久拒绝；不得因当前请求新写入记录而自举成已登记。
+- 无记录、坏记录及页面自报不能放行；显式异主、错ID/窗口/当前或pending目标继续拒绝。
+- 等待与查看共用已确认归属；查看只激活原允许标签，不推进定位、不发起商品导航；清理不扩大删除。
 
 独立架构评审只审此新增恢复边界及相邻调用，不重开未变化的整体架构。
 设计PASS只表示可按此依据实施，不授权开发或实机操作，也不等于产品验收。
