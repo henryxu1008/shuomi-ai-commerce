@@ -36,8 +36,8 @@ import (
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/contentagent"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
 	"task-processor/internal/workbenchcontext"
@@ -498,12 +498,12 @@ func (a *productAgentApplication) Invoke(ctx context.Context, ref commercetool.T
 	}
 }
 
-func agentReviewInput(b agent.Binding, policy string, candidate enrichment.Candidate) review.CandidateInput {
+func agentReviewInput(b agent.Binding, policy string, candidate reviewproposal.Candidate) review.CandidateInput {
 	version, _ := strconv.ParseUint(b.CatalogVersion, 10, 64)
 	return review.CandidateInput{Base: review.CreateInput{ProductKey: b.ProductKey, BaseVersion: version}, PublicationID: b.PublicationID, PolicyVersion: policy, Candidate: candidate}
 }
 
-func (a *productAgentApplication) Validate(ctx context.Context, request agent.Request, candidate enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+func (a *productAgentApplication) Validate(ctx context.Context, request agent.Request, candidate reviewproposal.Candidate, history []agent.Observation) (agent.Validation, error) {
 	// This consumer remains the current title definition. Content is admitted
 	// by its own fixed policy/consumer, never through this title validator.
 	if !request.ContentSelection.Absent() {
@@ -525,7 +525,7 @@ func (a *productAgentApplication) Validate(ctx context.Context, request agent.Re
 	}
 	proposal, err := a.reviews.ValidateCandidate(authidentity.WithAuthenticatedIdentity(ctx, i), agentReviewInput(b, policy, candidate))
 	if err != nil {
-		if errors.Is(err, enrichment.ErrEvidenceInsufficient) || errors.Is(err, enrichment.ErrOutputValidation) || errors.Is(err, enrichment.ErrPolicyRejected) || errors.Is(err, review.ErrInvalid) {
+		if errors.Is(err, reviewproposal.ErrEvidenceInsufficient) || errors.Is(err, reviewproposal.ErrOutputValidation) || errors.Is(err, reviewproposal.ErrPolicyRejected) || errors.Is(err, review.ErrInvalid) {
 			return agent.Validation{PolicyVersion: policy, Unresolved: []string{"title_or_evidence_invalid"}}, nil
 		}
 		return agent.Validation{}, err

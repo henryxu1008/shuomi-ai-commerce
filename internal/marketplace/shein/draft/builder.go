@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/canonical"
 	"task-processor/internal/product/description"
-	"task-processor/internal/publishing/shein"
+	shein "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 type Builder struct{ LogFor func(string) *logrus.Entry }
@@ -33,7 +33,7 @@ func (b Builder) Build(ctx context.Context, snapshot catalog.ProductSnapshot, in
 	}
 	// Background intentionally contains no brand authorization, resolver, or AI
 	// context values. Computation is synchronous/bounded; cancellation surrounds it.
-	pkg := shein.NewAssembler(shein.AssemblerConfig{}, b.LogFor).Build(&shein.BuildRequest{Context: context.Background(), Country: input.Country, Language: input.Language}, product)
+	pkg := buildLocalPackage(product, input.Country, input.Language, b.LogFor)
 	raw, err := json.Marshal(pkg)
 	if err != nil {
 		return nil, err

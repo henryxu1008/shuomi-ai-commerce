@@ -54,7 +54,7 @@ func TestGormCredentialResolverPrefersUserThenTenantConfig(t *testing.T) {
 		t.Fatalf("user resolved api_style = %q, want gemini", userResolved.Config.APIStyle)
 	}
 
-	tenantResolved, err := resolver.ResolveClientConfig(WithTenantID(context.Background(), "tenant-a"), "default", fallback)
+	tenantResolved, err := resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}), "default", fallback)
 	if err != nil {
 		t.Fatalf("resolve tenant: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestGormCredentialResolverPrefersUserThenTenantConfig(t *testing.T) {
 		t.Fatalf("tenant resolved api_style = %q, want openai", tenantResolved.Config.APIStyle)
 	}
 
-	missing, err := resolver.ResolveClientConfig(WithTenantID(context.Background(), "tenant-b"), "default", fallback)
+	missing, err := resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-b"}), "default", fallback)
 	if err != nil {
 		t.Fatalf("resolve missing: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestOrganizationOnlyCredentialResolverNeverUsesMemberOrGlobalCredential(t *
 	if err != nil || selected == nil || selected.Config.APIKey != "organization-key" || selected.Config.Model != "organization-model" {
 		t.Fatalf("organization resolution = %#v, %v", selected, err)
 	}
-	selected, err = resolver.ResolveClientConfig(WithTenantID(context.Background(), "tenant-a"), "text", fallback)
+	selected, err = resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}), "text", fallback)
 	if err != nil || selected == nil || selected.Config.APIKey != "organization-key" {
 		t.Fatalf("operator organization resolution = %#v, %v", selected, err)
 	}

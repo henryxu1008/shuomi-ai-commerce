@@ -696,26 +696,20 @@ func TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets(t *testing.T
 }
 
 func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "publishing", "shein")
+	root := filepath.Join("..", "internal", "marketplace", "shein")
 	allowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/shein/client"`: {
-			filepath.Clean(filepath.Join(root, "managed_api_factory.go")): {},
-		},
+		`"task-processor/internal/shein/client"`: {},
 		`"task-processor/internal/shein/content"`: {
-			filepath.Clean(filepath.Join(root, "sensitive_content_sanitizer.go")):   {},
-			filepath.Clean(filepath.Join(root, "submit_prep_sensitive_adapter.go")): {},
+			filepath.Clean(filepath.Join(root, "draft", "local_cleanup.go")):          {},
+			filepath.Clean(filepath.Join(root, "draft", "sensitive_word_adapter.go")): {},
+			filepath.Clean(filepath.Join(root, "draft", "local_cleanup_test.go")):     {},
 		},
-		`"task-processor/internal/shein/context"`:  {},
-		`"task-processor/internal/shein/product"`:  {},
-		`"task-processor/internal/shein/store"`:    {},
-		`"task-processor/internal/shein/category"`: {},
-		`"task-processor/internal/shein/submitprep"`: {
-			filepath.Clean(filepath.Join(root, "submit_prep_sensitive_adapter.go")):            {},
-			filepath.Clean(filepath.Join(root, "listing_copy_test.go")):                        {},
-			filepath.Clean(filepath.Join(root, "generation_topic_policy_integration_test.go")): {},
-			filepath.Clean(filepath.Join(root, "submit_prep_test.go")):                         {},
-		},
-		`"task-processor/internal/shein/publish"`: {},
+		`"task-processor/internal/shein/context"`:    {},
+		`"task-processor/internal/shein/product"`:    {},
+		`"task-processor/internal/shein/store"`:      {},
+		`"task-processor/internal/shein/category"`:   {},
+		`"task-processor/internal/shein/submitprep"`: {},
+		`"task-processor/internal/shein/publish"`:    {},
 	}
 
 	index, err := loadGoFileIndex(root, "")
@@ -808,7 +802,7 @@ func TestPublishingSheinManagedRetiredManagementImportsStayBlocked(t *testing.T)
 }
 
 func TestPublishingSheinRuntimeBaseAPIClientAliasStaysRetired(t *testing.T) {
-	root := filepath.Join("..", "internal", "publishing", "shein")
+	root := filepath.Join("..", "internal", "marketplace", "shein")
 	index, err := loadGoFileIndex(root, "")
 	if err != nil {
 		t.Fatal(err)
@@ -825,12 +819,8 @@ func TestPublishingSheinRuntimeBaseAPIClientAliasStaysRetired(t *testing.T) {
 }
 
 func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "publishing", "shein")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "generation_topic_policy_integration_test.go")): {},
-		filepath.Clean(filepath.Join(root, "listing_copy_test.go")):                        {},
-		filepath.Clean(filepath.Join(root, "submit_prep_test.go")):                         {},
-	}
+	root := filepath.Join("..", "internal", "marketplace", "shein")
+	allowedFiles := map[string]struct{}{}
 
 	index, err := loadGoFileIndex(root, "")
 	if err != nil {
@@ -848,7 +838,7 @@ func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 }
 
 func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
-	filePath := filepath.Join("..", "internal", "publishing", "shein", "submit_prep_sensitive_adapter.go")
+	filePath := filepath.Join("..", "internal", "marketplace", "shein", "draft", "sensitive_word_adapter.go")
 	file, err := parser.ParseFile(token.NewFileSet(), filePath, nil, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -2135,10 +2125,10 @@ func TestProductCatalogPersistenceGuardRejectsEverySiblingProductDomainFixture(t
 	want := []string{
 		"task-processor/internal/product/asset",
 		"task-processor/internal/product/asset/recipe",
-		"task-processor/internal/product/enrichment",
-		"task-processor/internal/product/enrichment/future",
 		"task-processor/internal/product/image",
 		"task-processor/internal/product/image/presets",
+		"task-processor/internal/product/review/proposal",
+		"task-processor/internal/product/review/proposal/future",
 		"task-processor/internal/product/sourcing",
 		"task-processor/internal/product/sourcing/future",
 	}

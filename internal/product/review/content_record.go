@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 type ContentValue struct {
@@ -27,10 +27,10 @@ type ContentDecision struct {
 // ContentPayload is part of the existing Review record, not another owner.
 // It cannot contain price/stock/paths or modify the frozen language/field set.
 type ContentPayload struct {
-	Selection enrichment.ContentSelection `json:"selection"`
-	Before    []ContentValue              `json:"before"`
-	After     []ContentValue              `json:"after"`
-	Decisions []ContentDecision           `json:"decisions"`
+	Selection reviewproposal.ContentSelection `json:"selection"`
+	Before    []ContentValue                  `json:"before"`
+	After     []ContentValue                  `json:"after"`
+	Decisions []ContentDecision               `json:"decisions"`
 }
 
 func cloneContentValues(values []ContentValue) []ContentValue {
@@ -51,7 +51,7 @@ func (p *ContentPayload) clone() *ContentPayload {
 	return &value
 }
 
-func orderedContentValues(selection enrichment.ContentSelection, values []ContentValue, after bool) ([]ContentValue, error) {
+func orderedContentValues(selection reviewproposal.ContentSelection, values []ContentValue, after bool) ([]ContentValue, error) {
 	fields := selection.Fields()
 	if !selection.Valid() || len(values) != len(fields) {
 		return nil, ErrInvalid
@@ -64,14 +64,14 @@ func orderedContentValues(selection enrichment.ContentSelection, values []Conten
 		byField[value.Field] = value.Value
 	}
 	ordered := make([]ContentValue, 0, len(fields))
-	var changes []enrichment.FieldChange
+	var changes []reviewproposal.FieldChange
 	for _, field := range fields {
 		value, found := byField[field]
 		if !found {
 			return nil, ErrInvalid
 		}
 		ordered = append(ordered, ContentValue{field, value})
-		changes = append(changes, enrichment.FieldChange{Field: field, Value: value})
+		changes = append(changes, reviewproposal.FieldChange{Field: field, Value: value})
 	}
 	if after {
 		if _, err := applyContentPatch(catalog.ProductSnapshot{Title: "validation"}, selection, changes); err != nil {
@@ -81,7 +81,7 @@ func orderedContentValues(selection enrichment.ContentSelection, values []Conten
 	return ordered, nil
 }
 
-func validContentValues(selection enrichment.ContentSelection, values []ContentValue, after bool) bool {
+func validContentValues(selection reviewproposal.ContentSelection, values []ContentValue, after bool) bool {
 	ordered, err := orderedContentValues(selection, values, after)
 	if err != nil {
 		return false
@@ -121,7 +121,7 @@ func (p *ContentPayload) valid(revision uint64, state string, native bool) bool 
 }
 
 func (r Record) validContentRecord() bool {
-	if r.Policy != enrichment.ContentPolicyVersion {
+	if r.Policy != reviewproposal.ContentPolicyVersion {
 		return r.Content == nil && (r.Execution == nil || r.Execution.ContentSelection.Absent())
 	}
 	if !r.Content.valid(r.Revision, r.State, r.PolicyAdoption != nil) || r.Execution == nil || r.Execution.ContentSelection != r.Content.Selection || len(r.History) != 0 || r.Before != "" || r.Title != "" || r.Execution.Scope.OrganizationID != r.Org || r.Execution.Scope.ActorID != r.Owner || r.Execution.Binding.ProductKey != r.Input.ProductKey || r.Execution.Binding.CatalogVersion != strconv.FormatUint(r.Input.BaseVersion, 10) || r.Execution.Binding.PublicationID != r.BasePublicationID {
@@ -142,7 +142,7 @@ func (r Record) validContentRecord() bool {
 }
 
 func (v View) validContentView() bool {
-	if v.Policy != enrichment.ContentPolicyVersion {
+	if v.Policy != reviewproposal.ContentPolicyVersion {
 		return v.Content == nil && (v.Execution == nil || v.Execution.ContentSelection.Absent())
 	}
 	if !v.Content.valid(v.Revision, v.State, v.PolicyAdoption != nil) || v.Execution == nil || v.Execution.ContentSelection != v.Content.Selection || len(v.History) != 0 || v.Before != "" || v.Title != "" || v.OriginalTitle != "" || v.Execution.Scope.ActorID != v.Owner || v.Execution.Binding.ProductKey != v.Input.ProductKey || v.Execution.Binding.CatalogVersion != strconv.FormatUint(v.Input.BaseVersion, 10) {

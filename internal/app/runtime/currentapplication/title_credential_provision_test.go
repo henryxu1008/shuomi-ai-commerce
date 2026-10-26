@@ -80,7 +80,7 @@ func TestTitleCredentialProvisionWritesOnlyTheAdmittedOrganizationRow(t *testing
 	if err != nil || org == nil || org.Enabled {
 		t.Fatalf("disable did not persist = %+v, %v", org, err)
 	}
-	selected, err := openai.NewOrganizationOnlyCredentialResolver(db).ResolveClientConfig(openai.WithTenantID(context.Background(), "org"), "text", nil)
+	selected, err := openai.NewOrganizationOnlyCredentialResolver(db).ResolveClientConfig(openai.WithIdentity(context.Background(), openai.Identity{TenantID: "org"}), "text", nil)
 	if selected != nil || !errors.Is(err, openai.ErrClientConfigurationUnavailable) {
 		t.Fatalf("disabled organization fell back to member: %+v, %v", selected, err)
 	}

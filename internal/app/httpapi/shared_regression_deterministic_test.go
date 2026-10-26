@@ -13,7 +13,7 @@ import (
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/sourcing"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 
 	"github.com/stretchr/testify/require"
 )

@@ -15,32 +15,39 @@ export function mountPageEntry(doc: Document, view: Window) {
     strong{display:block;font-size:13px}p{font-size:12px;margin:8px 0;overflow-wrap:anywhere}button{font:inherit;cursor:pointer;border:1px solid #78988e;border-radius:6px;padding:9px 10px;background:#fff;color:#284c40;min-height:40px;width:100%;margin-top:6px}
     #primary,#confirm{background:#315e50;color:#fff;border-color:#315e50}button:focus-visible{outline:3px solid #036ed2;outline-offset:2px}button:disabled{cursor:wait;opacity:.65}[hidden]{display:none!important}#refresh{font-size:12px;min-height:32px;padding:4px}#confirmation{border-top:1px solid #ccd8d3;margin-top:8px;padding-top:4px}
   </style><section><strong>硕米 · 商品采集</strong><p id="status" role="status" aria-live="polite">正在读取插件状态…</p>
-  <button id="primary" type="button" disabled>采集并在应用确认</button><button id="fresh" type="button" hidden>采集当前商品（新操作）</button>
+  <label id="family-scope" hidden><input id="family" type="checkbox"> 同时采集其他颜色／尺寸（本次按钮）</label><button id="primary" type="button" disabled>采集并在应用确认</button><button id="fresh" type="button" hidden>采集当前商品（新操作）</button>
   <div id="confirmation" hidden><p>开始新的采集？此前可能提交的操作请先在原应用页核实，原记录和页面会保留。</p><button id="confirm" type="button">确认采集当前商品</button><button id="cancel" type="button">取消</button></div>
   <button id="refresh" type="button">刷新状态</button></section>`;
   const element = <T extends HTMLElement>(id: string) => shadow.getElementById(id) as T;
   const primary = element<HTMLButtonElement>('primary'), fresh = element<HTMLButtonElement>('fresh');
   const confirm = element<HTMLButtonElement>('confirm'), cancel = element<HTMLButtonElement>('cancel');
+  const familyScope=element('family-scope'), familyOption=element<HTMLInputElement>('family');
   const confirmation = element('confirmation'), status = element('status'), refreshButton = element<HTMLButtonElement>('refresh');
+  let familySelected=false;
   let state: PageState | undefined, pending = false, disconnected = false, lostKnownOperation = false;
   let confirmationRevision: string | undefined, confirmationSource: string | undefined;
   function source() {
     try { return pageSource(doc.URL).sourceURL; }
     catch { host.remove(); return; }
   }
-  function closeConfirmation() { confirmation.hidden = true; confirmationRevision = undefined; confirmationSource = undefined; }
+  function closeConfirmation() { confirmation.hidden = true; confirmationRevision = undefined; confirmationSource = undefined; primary.before(familyScope); }
   function isInitialEntry(value: PageState | undefined): value is PageState {
-    return Boolean(value && !value.loading && !value.captured && !value.handed && value.returnState === 'none');
+    return Boolean(value && !value.loading && !value.captured && !value.handed && !value.family && value.returnState === 'none');
   }
+  const isAmazon=()=>{try{return pageSource(doc.URL).platform==='amazon';}catch{return false;}};
   function render(code?: EntryError) {
-    const canReturn = state?.returnState === 'available';
-    primary.textContent = canReturn ? state?.sameProduct ? '返回应用核实' : '返回已有采集' : '采集并在应用确认';
+    const activeFamily=!!state?.family && state.family.phase!=='interrupted';
+    const canReturn = state?.returnState === 'available' || activeFamily;
+    primary.textContent = activeFamily ? '查看采集进度' : canReturn ? state?.sameProduct ? '返回应用核实' : '返回已有采集' : '采集并在应用确认';
     const busy = pending || Boolean(state?.loading);
-    primary.disabled = busy || disconnected || !state || state.returnState === 'uncertain' || (lostKnownOperation && !canReturn);
-    fresh.hidden = !state || (!state.captured && state.returnState === 'none' && !lostKnownOperation);
-    fresh.disabled = busy || disconnected || code === 'RETURN_STATE_UNAVAILABLE'; confirm.disabled = fresh.disabled; cancel.disabled = busy;
+    primary.disabled = busy || disconnected || state?.family?.phase==='interrupted' || !state || state.returnState === 'uncertain' || (lostKnownOperation && !canReturn);
+    fresh.hidden = !state || (!state.family && !state.captured && state.returnState === 'none' && !lostKnownOperation);
+    fresh.disabled = busy || disconnected || code === 'RETURN_STATE_UNAVAILABLE' || activeFamily; confirm.disabled = fresh.disabled; cancel.disabled = busy;
     refreshButton.disabled = pending;
+    familyScope.hidden=!isAmazon() || activeFamily || (canReturn && confirmation.hidden);
+    familyOption.disabled=busy || disconnected;familyOption.checked=familySelected;
     status.textContent = disconnected ? '插件连接中断，请先在原应用页核实；可刷新状态，不要重复保存。'
+      : state?.family ? `同族采集 ${state.family.observed}/${state.family.total}，${state.family.phase==='interrupted'?'进度已中断，请明确新操作':'请回进度页查看；不会重复采集'}`
       : busy ? '正在处理当前采集…'
         : code ? entryMessages[code]
           : canReturn ? state?.sameProduct ? '可返回原应用核实保存结果。' : '已有另一件商品的采集，请先返回应用核实，或明确开始新操作。'
@@ -49,6 +56,7 @@ export function mountPageEntry(doc: Document, view: Window) {
   }
   async function action(type: PageMessage['type'], expectedRevision?: string) {
     const requestSource = source();
+    const scope=(type==='page.capture'||type==='page.newCapture') && familySelected && isAmazon() ? 'family' as const : undefined;
     if (pending || !requestSource) return;
     pending = true; render();
     let code: EntryError | undefined;
@@ -80,7 +88,7 @@ export function mountPageEntry(doc: Document, view: Window) {
         if (!isInitialEntry(state) || disconnected || lostKnownOperation) return;
         expectedRevision = state.revision;
       }
-      const message: PageMessage = type === 'page.status' ? { type } : { type, revision: expectedRevision! };
+      const message: PageMessage = type === 'page.status' ? { type } : { type, revision: expectedRevision!, ...(scope?{scope}:{}) };
       await exchange(message);
     } catch {
       if (type !== 'page.status') lostKnownOperation = true;
@@ -94,10 +102,11 @@ export function mountPageEntry(doc: Document, view: Window) {
       event.preventDefault(); event.stopPropagation(); callback();
     });
   }
-  onClick(primary, () => { if (state) void action(state.returnState === 'available' ? 'page.return' : 'page.capture', state.revision); });
+  familyOption.addEventListener('click',event=>{if(event.isTrusted && !familyOption.disabled)familySelected=familyOption.checked;else{event.preventDefault();familyOption.checked=familySelected;}});
+  onClick(primary, () => { if (state) void action(state.returnState === 'available' || state.family && state.family.phase!=='interrupted' ? 'page.return' : 'page.capture', state.revision); });
   onClick(fresh, () => {
     if (!state) return;
-    confirmationRevision = state.revision; confirmationSource = source(); confirmation.hidden = false; confirm.focus();
+    confirmationRevision = state.revision; confirmationSource = source(); familySelected=false;familyOption.checked=false; confirmation.hidden = false; confirmation.prepend(familyScope); render(); confirm.focus();
   });
   onClick(cancel, () => { closeConfirmation(); fresh.focus(); });
   onClick(confirm, () => {

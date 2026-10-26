@@ -711,10 +711,10 @@ func TestSharedPackageTargetsExist(t *testing.T) {
 
 func integrationProviderAdapterImportViolations(root string) ([]string, error) {
 	providerRoots := map[string]bool{
-		"openai": true, "geminiimage": true, "grsai": true,
+		"openai": true, "grsai": true,
 	}
 	var violations []string
-	for _, name := range []string{"openai", "geminiimage", "grsai", "httpimage"} {
+	for _, name := range []string{"openai", "grsai", "httpimage"} {
 		packageRoot := filepath.Join(root, name)
 		info, err := os.Stat(packageRoot)
 		if err != nil {
@@ -758,8 +758,7 @@ func isAllowedIntegrationProviderAdapterImport(providerRoot string, hasLegacyPro
 	}
 	switch providerRoot {
 	case "openai":
-		return importPath == "task-processor/internal/product/enrichment" ||
-			importPath == "task-processor/internal/product/image"
+		return importPath == "task-processor/internal/product/image"
 	case "grsai", "httpimage":
 		return importPath == "task-processor/internal/product/image"
 	}
@@ -788,26 +787,14 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 				"task-processor/internal/ai",
 				"task-processor/internal/shared/ptr",
 				"task-processor/internal/integration/httpimage",
-				"task-processor/internal/product/enrichment",
 				"task-processor/internal/product/image",
 			},
 			forbidden: []string{
+				"task-processor/internal/product/enrichment",
+				"task-processor/internal/product/review/proposal",
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/image/runtime",
 				"task-processor/internal/product/catalog",
-			},
-		},
-		{
-			name: "geminiimage",
-			allowed: []string{
-				"task-processor/internal/ai",
-				"task-processor/internal/shared/ptr",
-				"task-processor/internal/integration/httpimage",
-			},
-			forbidden: []string{
-				"task-processor/internal/integration/httpimage/child",
-				"task-processor/internal/product/enrichment",
-				"task-processor/internal/product/image",
 			},
 		},
 		{
@@ -816,6 +803,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 			forbidden: []string{
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
+				"task-processor/internal/product/review/proposal",
 				"task-processor/internal/product/image/runtime",
 			},
 		},
@@ -828,12 +816,13 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 				"task-processor/internal/integration/httpimage",
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
+				"task-processor/internal/product/review/proposal",
 			},
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			root := t.TempDir()
-			for _, providerRoot := range []string{"openai", "geminiimage", "grsai", "httpimage"} {
+			for _, providerRoot := range []string{"openai", "grsai", "httpimage"} {
 				if err := os.MkdirAll(filepath.Join(root, providerRoot), 0o755); err != nil {
 					t.Fatal(err)
 				}
@@ -882,7 +871,7 @@ func integrationProviderAdapterViolationMentionsImport(violation, importPath str
 
 func TestIntegrationProviderAdaptersRejectNonContractProductAndRuntimeDependencies(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range []string{"openai", "geminiimage", "grsai", "httpimage"} {
+	for _, name := range []string{"openai", "grsai", "httpimage"} {
 		if err := os.MkdirAll(filepath.Join(root, name), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -908,14 +897,14 @@ func TestIntegrationProviderAdaptersRejectNonContractProductAndRuntimeDependenci
 		t.Fatal(err)
 	}
 	const forbiddenImportsPerProviderRoot = 10
-	if want := 4 * forbiddenImportsPerProviderRoot; len(violations) != want {
+	if want := 3 * forbiddenImportsPerProviderRoot; len(violations) != want {
 		t.Fatalf("non-contract provider dependency violations = %v, want %d", violations, want)
 	}
 }
 
 func TestIntegrationProviderBoundaryDecodesAllowedAndForbiddenGoImportLiterals(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range []string{"openai", "geminiimage", "grsai", "httpimage"} {
+	for _, name := range []string{"openai", "grsai", "httpimage"} {
 		if err := os.MkdirAll(filepath.Join(root, name), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -933,8 +922,8 @@ func TestIntegrationProviderBoundaryDecodesAllowedAndForbiddenGoImportLiterals(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(violations) != 2 {
-		t.Fatalf("decoded forbidden import violations = %v, want 2", violations)
+	if len(violations) != 3 {
+		t.Fatalf("decoded forbidden import violations = %v, want 3", violations)
 	}
 }
 

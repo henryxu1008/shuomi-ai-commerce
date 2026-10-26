@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 	"testing"
 	"time"
@@ -63,7 +63,7 @@ func TestReviewSourceReadsTwoAppliedTitleVersionsWithoutFabricatingSource(t *tes
 	envelope := sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: sourcing.SourceTypeManualImport, SourcePlatform: "fixture", SourceID: "source", SourceVersion: "v1"}, RawReference: sourcing.RawSourceReference{ReferenceID: "source"}}
 	makeRecord := func(base, out catalog.PublishedSnapshot) Record {
 		id := uuid.NewString()
-		return Record{ID: id, Org: "org", Owner: "owner", Input: CreateInput{ProductKey: "product", BaseVersion: base.Version}, BasePublicationID: base.PublicationID, Policy: "title-review-v1", Before: base.Snapshot.Title, Title: out.Snapshot.Title, State: "applied", Revision: 2, Original: enrichment.Proposal{Changes: []enrichment.FieldChange{{Field: "title", Value: out.Snapshot.Title, EvidenceIDs: []string{"source"}}}}, Receipt: &Receipt{ProposalID: id, Revision: 2, ProductVersion: out.Version, PublicationID: out.PublicationID, Actor: "owner", At: time.Now().UTC()}}
+		return Record{ID: id, Org: "org", Owner: "owner", Input: CreateInput{ProductKey: "product", BaseVersion: base.Version}, BasePublicationID: base.PublicationID, Policy: "title-review-v1", Before: base.Snapshot.Title, Title: out.Snapshot.Title, State: "applied", Revision: 2, Original: reviewproposal.Proposal{Changes: []reviewproposal.FieldChange{{Field: "title", Value: out.Snapshot.Title, EvidenceIDs: []string{"source"}}}}, Receipt: &Receipt{ProposalID: id, Revision: 2, ProductVersion: out.Version, PublicationID: out.PublicationID, Actor: "owner", At: time.Now().UTC()}}
 	}
 	first, second := makeRecord(one, two), makeRecord(two, three)
 	snapshots := lineageCatalog{1: one, 2: two, 3: three}

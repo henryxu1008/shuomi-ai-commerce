@@ -15,7 +15,6 @@ type Manager struct {
 	clients        map[string]*Client
 	dynamicClients map[string]*Client
 	configResolver ClientConfigResolver
-	defaultClient  *Client
 	logger         Logger
 	mu             sync.RWMutex
 }
@@ -53,7 +52,6 @@ var (
 type ManagerConfig struct {
 	Clients        map[string]*ClientConfig
 	ConfigResolver ClientConfigResolver
-	DefaultClient  string
 	Logger         Logger `json:"-"`
 }
 
@@ -88,31 +86,7 @@ func NewManager(config *ManagerConfig) (*Manager, error) {
 		manager.logger.Info("OpenAI客户端已注册", map[string]any{"client": name})
 	}
 
-	// 设置默认客户端
-	if config.DefaultClient != "" {
-		defaultClient, exists := manager.clients[config.DefaultClient]
-		if !exists {
-			return nil, fmt.Errorf("default client not found")
-		}
-		manager.defaultClient = defaultClient
-	} else {
-		for _, client := range manager.clients {
-			manager.defaultClient = client
-			break
-		}
-	}
-
 	return manager, nil
-}
-
-// GetClient 获取指定名称的客户端
-func (m *Manager) GetClient(name string) (ChatCompleter, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if _, exists := m.clients[name]; !exists {
-		return nil, fmt.Errorf("client %s not found", name)
-	}
-	return &contextualChatClient{manager: m, name: name}, nil
 }
 
 // GetClientWithRoute returns the concrete client for the exact effective
@@ -132,54 +106,11 @@ func (m *Manager) GetImageClient(name string) (ImageGenerator, error) {
 	return &contextualImageClient{manager: m, name: name}, nil
 }
 
-// GetDefaultClient 获取默认客户端
-func (m *Manager) GetDefaultClient() ChatCompleter {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return &contextualChatClient{manager: m, name: m.defaultClientNameLocked()}
-}
-
 func (m *Manager) SetConfigResolver(resolver ClientConfigResolver) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.configResolver = resolver
 	m.dynamicClients = make(map[string]*Client)
-}
-
-// HasConfigResolver reports whether tenant-aware client configuration is wired.
-// Governance-enabled callers use this to fail closed instead of silently using
-// the manager's static API key and endpoint.
-func (m *Manager) HasConfigResolver() bool {
-	if m == nil {
-		return false
-	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.configResolver != nil
-}
-
-// RegisterClient 注册新的客户端
-func (m *Manager) RegisterClient(name string, client *Client) error {
-	if name == "" || client == nil {
-		return fmt.Errorf("invalid parameters")
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, exists := m.clients[name]; exists {
-		return fmt.Errorf("client already exists")
-	}
-	m.clients[name] = client
-	m.logger.Info("客户端已注册", map[string]any{"client": name})
-	return nil
-}
-
-func (m *Manager) defaultClientNameLocked() string {
-	for name, client := range m.clients {
-		if client == m.defaultClient {
-			return name
-		}
-	}
-	return "default"
 }
 
 func (m *Manager) resolveClient(ctx context.Context, name string) (*Client, error) {
@@ -336,26 +267,6 @@ func effectiveConfigurationVersion(name, credentialVersion string, config *Clien
 	)
 	digest := sha256.Sum256([]byte(canonical))
 	return fmt.Sprintf("effective:v1:%x", digest[:])
-}
-
-func (m *Manager) resolveStaticClient(name string) (*Client, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if client := m.clients[name]; client != nil {
-		return client, nil
-	}
-	return nil, fmt.Errorf("client %s not found", name)
-}
-
-// ListClients 列出所有已注册的客户端名称
-func (m *Manager) ListClients() []string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	names := make([]string, 0, len(m.clients))
-	for name := range m.clients {
-		names = append(names, name)
-	}
-	return names
 }
 
 // Close 关闭所有客户端

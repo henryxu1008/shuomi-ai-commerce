@@ -10,6 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// loadConfigFixture arranges synthetic YAML for the current configuration owner.
+func loadConfigFixture(t *testing.T, data []byte) (*Config, error) {
+	t.Helper()
+	v := newViper()
+	if len(data) > 0 {
+		if err := v.ReadConfig(strings.NewReader(string(data))); err != nil {
+			return nil, err
+		}
+	}
+	return loadWithViper(v)
+}
+
 func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	for _, name := range []string{"Processor", "Worker", "RabbitMQ", "Debug", "ListingControlPlane", "Updater", "Watermark", "FeatureFlags", "Observability"} {
 		_, exists := reflect.TypeOf(Config{}).FieldByName(name)
@@ -64,8 +76,8 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	}
 }
 
-func TestLoadFromBytesRetains1688BrowserConfiguration(t *testing.T) {
-	cfg, err := LoadFromBytes([]byte(`
+func TestConfigFixtureRetains1688BrowserConfiguration(t *testing.T) {
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: fixture-key
 platforms:

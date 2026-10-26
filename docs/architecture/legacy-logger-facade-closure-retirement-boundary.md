@@ -1,3 +1,7 @@
+> #960 当前替代边界（仅本轮）：本文件历史 KEEP 中的旧 `internal/publishing/shein` 草稿 owner、扩展端口及私有赋值状态，现由[完整闭包设计](legacy-shein-draft-assembly-closure-retirement-boundary.md) §2/§4/§5 的矩阵精确替代。当前值/严格 codec/离线纯规则归 `internal/marketplace/shein/offlinepackage`，本地确定性组装归已有 `draft.Builder`，原平台规则/content/common 直接复用；旧 resolver、AI 扩展、可选注入、setter/alias 和四私有 map 不保留。当前 JSON/hash/绑定版本、有效规则及独立 SHEIN 登录与 Store 同步保持；无运行/数据/凭据操作或试用新前置。以下原完整正文、历史数字/勾选和证据逐字保留。
+
+> #953 当前 owner 校准：本文旧 OpenAI 文本门面/适配器、Proposer 与 `product/enrichment` KEEP 依据由[完整退休设计](legacy-openai-adapter-closure-retirement-boundary.md)替代。当前合同与纯规则归 `internal/product/review/proposal`；当前 AI、图像、身份、计量、UNKNOWN 与审核/Apply 保留。以下原设计、数值和历史证据全文保留，不构成恢复旧包或运行授权。
+
 > **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
 > #948 仅退休本批矩阵内无消费者的验证码统计/custom 构造、单数 FeatureExtractor、变体调试方法/custom 构造及根 VariationsExtractor 的专属 loggerDependency 字段；当前实际日志注入、child variations.NewExtractor(logs)、规则与运行日志原样保留。
 > 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。

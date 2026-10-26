@@ -1,3 +1,5 @@
+> #958 用户已确认本轮 [三组完整退休设计](legacy-idle-provider-bootstrap-closure-retirement-boundary.md) §1–§7（含 §6.1）：仅替代本文中 geminiimage 原生图片 SDK、runtimepath 安装命名辅助及 LoadFromBytes 正式入口的 KEEP。三组及专属尾部退出；19个有效配置测试改接现有 Viper/Build/Validate，当前 Google 文本/实际图像/采集及独立 SHEIN 登录与 Store 同步保持。无兼容入口，不操作历史运行资源；本文其余批准边界、原全文、计数与历史证据完整保留。
+
 > #301 / #917 精确替代：用户确认[旧配置加载与校验门面完整闭包 §1–§7/§6.1](legacy-config-facade-closure-retirement-boundary.md)后，本文 §3/§5.3 对旧 Config/Validator 校验方法及同文件闲置加载门面的具体形式 KEEP 仅为历史。两旧加载入口/专属 helper、Validator/NewValidator/全部方法、Config 三门面和 ValidateConfigAndLog 完整退休；四项聚合调用归现有 ValidateConfig。当前 Viper/文件/bytes/WithoutValidation/BuildConfig、defaults/env/scoped .env、六组有效规则/错误格式、认证关闭拒绝与初始化保护不变；独立 SHEIN 登录及 Store 同步保留，不操作已有资源或增加试用前置。
 
 # #301 旧宿主配置管理、功能开关与 tracing 完整退休设计

@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestContentTemplateKeepsLanguageAndFieldsInItsOwnAgentSchema(t *testing.T) {
-	selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description"})
+	selection, err := reviewproposal.NewContentSelection("en-US", []string{"title", "description"})
 	require.NoError(t, err)
 	parameters := ContentTemplate{Schema: ContentParameterSchema, Selection: selection}
 	input := TemplateInput{Name: "English content", TargetPlatform: "product", Content: &parameters}

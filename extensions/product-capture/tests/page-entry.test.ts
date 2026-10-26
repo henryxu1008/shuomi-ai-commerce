@@ -31,6 +31,23 @@ async function mounted() {
   return { ...panel, button };
 }
 
+it('keeps family opt-in off and sends its scope only for an explicit Amazon button capture',async()=>{
+ const panel=await mounted();const option=panel.host.shadowRoot!.querySelector<HTMLInputElement>('#family')!;
+ expect(option).not.toBeNull();expect(option.checked).toBe(false);option.checked=true;trusted(option as unknown as HTMLButtonElement);
+ trusted(panel.button('primary'));await vi.waitFor(()=>expect(send).toHaveBeenCalledWith({type:'page.capture',revision:empty.revision,scope:'family'}));
+});
+it('returns to family progress without starting or resetting another capture',async()=>{
+ state={...empty,family:{phase:'collecting',observed:1,total:171,reason:''}} as PageState;
+ const panel=await mounted();expect(panel.button('primary').textContent).toBe('查看采集进度');
+ expect(panel.button('fresh').disabled).toBe(true);trusted(panel.button('primary'));
+ await vi.waitFor(()=>expect(send).toHaveBeenCalledWith({type:'page.return',revision:empty.revision}));
+});
+it('does not accept a page script setting the opt-in checkbox without a trusted input click',async()=>{
+ const panel=await mounted();panel.host.shadowRoot!.querySelector<HTMLInputElement>('#family')!.checked=true;
+ trusted(panel.button('primary'));await vi.waitFor(()=>expect(send).toHaveBeenCalledWith({type:'page.capture',revision:empty.revision}));
+ expect(send).not.toHaveBeenCalledWith(expect.objectContaining({scope:'family'}));
+});
+
 it('offers only original-tab navigation after return-only hydration, including prior uncertainty', async () => {
   state = { ...empty, captured: true, handed: true, sameProduct: true, returnState: 'available' };
   const panel = await mounted();

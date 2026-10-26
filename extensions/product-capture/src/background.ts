@@ -4,29 +4,15 @@ import { entryError, entryMessages, type EntryError } from './entry-errors';
 import { pageMessage, pageSender, type PageState } from './page-messages';
 import { ReturnSession } from './return-session';
 import { UUID } from './validation';
+import { extractTab } from './capture-tab';
+import { FamilyBridge, isFamilyCommand } from './amazon/family-bridge';
 declare const APP_CAPTURE_URL: string;
 declare const APP_AMAZON_CAPTURE_URL: string;
 
 async function extractCurrent(target?: CaptureTab) {
   const tabs: readonly CaptureTab[] = target ? [target] : await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tabs.length !== 1 || tabs[0].id === undefined || !tabs[0].url) throw Error('INVALID_PAGE');
-  const tab = tabs[0]; const source = capturePageSource(tab.url!);
-  const injectionTarget = tab.documentId ? { tabId: tab.id!, documentIds: [tab.documentId] } : { tabId: tab.id!, frameIds: [0] };
-  let results: chrome.scripting.InjectionResult[];
-  try { results = await chrome.scripting.executeScript({ target: injectionTarget, world: 'ISOLATED', files: ['extractor.js'] }); }
-  catch (failure) { if (tab.documentId) throw Error('PAGE_CHANGED'); throw failure; }
-  if (tab.documentId && results[0]?.documentId !== tab.documentId) throw Error('PAGE_CHANGED');
-  const result = results[0]?.result as { ok?: boolean; payload?: unknown } | undefined;
-  if (results.length !== 1 || results[0].frameId !== 0 || !results[0].documentId || !result?.ok) throw Error('CAPTURE_REJECTED');
-  const payload = validatePlatformCapture(result.payload);
-  // Verify the same document is still current without reading any other tab.
-  try {
-    const check = await chrome.scripting.executeScript({ target: { tabId: tab.id!, documentIds: [results[0].documentId] }, world: 'ISOLATED',
-      func: () => document.URL });
-    if (check.length !== 1 || check[0].documentId !== results[0].documentId || capturePageSource(check[0].result as string).sourceURL !== source.sourceURL
-      || payload.evidence.sourceURL !== source.sourceURL) throw Error('PAGE_CHANGED');
-  } catch { throw Error('PAGE_CHANGED'); }
-  return payload;
+  if (tabs.length !== 1) throw Error('INVALID_PAGE');
+  return (await extractTab(tabs[0])).payload;
 }
 const location = new ReturnSession(chrome.storage?.session);
 let revision: string = crypto.randomUUID();
@@ -42,11 +28,12 @@ const newController = () => new Controller(APP_CAPTURE_URL, extractCurrent, asyn
     await chrome.windows.update(tab.windowId, { focused: true });
   }, { prepare: source => location.prepare(source, revision), bind: id => location.bind(id, revision), tabID: () => location.tabID() });
 let controller = newController();
+const family = new FamilyBridge(() => controller, location);
 let resetting: Promise<void> | undefined;
-const ready = location.ready.then(() => { if (location.revision) revision = location.revision; });
+const ready = Promise.all([location.ready, family.ready]).then(() => { if (location.revision) revision = location.revision; else if(family.revision) revision = family.revision; });
 let error: EntryError | undefined;
 const commandName = 'capture-current-product';
-const isBusy = () => Boolean(resetting) || controller.isBusy();
+const isBusy = () => Boolean(resetting) || controller.isBusy() || family.busy;
 function entrySnapshot() {
   return { ...controller.snapshot(), revision, loading: isBusy(), sourceURL: controller.snapshot().sourceURL ?? location.sourceURL ?? null,
     returnState: location.state, error: location.unavailable ? 'RETURN_STATE_UNAVAILABLE' as const : error };
@@ -55,7 +42,7 @@ async function snapshot() {
   let shortcut: string | null = null;
   try { shortcut = (await chrome.commands.getAll()).find(command => command.name === commandName)?.shortcut ?? ''; }
   catch { /* Unknown assignment is different from an unassigned shortcut. */ }
-  return { ...entrySnapshot(), shortcut };
+  return { ...entrySnapshot(), shortcut, ...(location.state!=='available' && family.active ? {family:await family.status()} : {}) };
 }
 async function report(code?: EntryError) {
   error = code;
@@ -66,8 +53,10 @@ async function report(code?: EntryError) {
 }
 async function perform(type: string, tab?: CaptureTab) {
   if (type !== 'popup.status') {
-    if (resetting) throw Error('ACTION_IN_PROGRESS');
+    if (resetting || family.busy) throw Error('ACTION_IN_PROGRESS');
     location.assertReadable();
+    family.location.assertReadable();
+    if(family.active && location.state!=='available' && type!=='popup.new'){await family.focus();return;}
   }
   switch (type) {
     case 'popup.captureAndHandoff':
@@ -83,23 +72,28 @@ async function perform(type: string, tab?: CaptureTab) {
   }
   await report();
 }
-function reset(captureTab?: CaptureTab) {
+function reset(captureTab?: CaptureTab, scope?: 'family') {
   if (isBusy()) throw Error('ACTION_IN_PROGRESS');
   location.assertReadable();
   resetting = Promise.resolve().then(async () => {
+    if(family.active)await family.abandonInterrupted();
     await location.clear();
     controller = newController(); revision = crypto.randomUUID();
     // Reserve the new entry before releasing reset's async busy boundary.
-    if (captureTab) await controller.captureAndHandoff(captureTab);
+    if (captureTab) { if(scope==='family')await family.begin(captureTab,revision);else await controller.captureAndHandoff(captureTab); }
   }).finally(() => { resetting = undefined; });
   return resetting;
 }
-function pageSnapshot(sourceURL: string): PageState {
+async function pageSnapshot(sourceURL: string): Promise<PageState> {
   const state = entrySnapshot();
-  return { revision, loading: state.loading, captured: state.captured, handed: state.handed, sameProduct: state.sourceURL === sourceURL, returnState: state.returnState };
+  return { revision, loading: state.loading, captured: state.captured, handed: state.handed, sameProduct: state.sourceURL === sourceURL, returnState: state.returnState, ...(location.state!=='available' && family.active ? {family:await family.status()} : {}) };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  if(isFamilyCommand(message)) {
+    void (async()=>{await ready;try{respond({ok:true,result:await family.handle(message,sender)});}catch(e){respond({ok:false,code:entryError(e)});}})();
+    return true;
+  }
   if (pageMessage(message)) {
     const target = pageSender(sender);
     if (!target) return false;
@@ -109,21 +103,23 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         const check = await chrome.scripting.executeScript({ target: { tabId: target.id, documentIds: [target.documentId] }, world: 'ISOLATED', func: () => document.URL });
         if (check.length !== 1 || check[0].frameId !== 0 || check[0].documentId !== target.documentId
           || capturePageSource(check[0].result as string).sourceURL !== target.sourceURL) throw Error('PAGE_CHANGED');
-      } catch { respond({ ok: false, code: 'PAGE_CHANGED', state: pageSnapshot(target.sourceURL) }); return; }
+      } catch { respond({ ok: false, code: 'PAGE_CHANGED', state: await pageSnapshot(target.sourceURL) }); return; }
       try {
         if (message.type !== 'page.status') {
           // Compare and reserve/reset synchronously after document validation.
           if (message.revision !== revision) throw Error('ENTRY_CHANGED');
-          if (message.type === 'page.capture' && (isBusy() || controller.snapshot().captured || location.state !== 'none')) throw Error('ENTRY_CHANGED');
-          if (message.type === 'page.return' && location.state !== 'available') throw Error('ORIGINAL_TAB_UNAVAILABLE');
-          if (message.type === 'page.newCapture') { await reset(target); await report(); }
+          if (message.type === 'page.capture' && !family.active && (isBusy() || controller.snapshot().captured || location.state !== 'none')) throw Error('ENTRY_CHANGED');
+          if (message.type === 'page.return' && !family.active && location.state !== 'available') throw Error('ORIGINAL_TAB_UNAVAILABLE');
+          if (message.type === 'page.newCapture') { await reset(target, message.scope); await report(); }
+          else if(family.active && location.state!=='available'){await family.focus();}
+          else if(message.type==='page.capture' && message.scope==='family'){await family.begin(target,revision);await report();}
           else await perform(message.type === 'page.return' ? 'popup.return' : 'popup.captureAndHandoff', target);
         }
         const code = entrySnapshot().error;
-        respond({ ok: !location.unavailable, ...(code ? { code } : {}), state: pageSnapshot(target.sourceURL) });
+        respond({ ok: !location.unavailable, ...(code ? { code } : {}), state: await pageSnapshot(target.sourceURL) });
       } catch (failure) {
         const code = entryError(failure); await report(code);
-        respond({ ok: false, code, state: pageSnapshot(target.sourceURL) });
+        respond({ ok: false, code, state: await pageSnapshot(target.sourceURL) });
       }
     })();
     return true;
@@ -160,3 +156,5 @@ chrome.runtime.onMessageExternal.addListener((message, sender, respond) => {
   catch { respond({ version: 1, code: 'CAPTURE_UNAVAILABLE' }); }
   return false;
 });
+
+chrome.tabs.onRemoved?.addListener(id=>{void ready.then(()=>family.closed(id)).catch(()=>report('FAMILY_INTERRUPTED'));});

@@ -15,10 +15,10 @@ func TestNewViper_BindsBrowserUserDataDirEnvironmentVariable(t *testing.T) {
 	assert.Equal(t, "./.local/tmp/browser-profiles/env-1688", v.GetString("browser.userDataDir"))
 }
 
-func TestLoadFromBytes_AppliesBrowserUserDataDirEnvironmentOverride(t *testing.T) {
+func TestConfigFixture_AppliesBrowserUserDataDirEnvironmentOverride(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_BROWSER_USER_DATA_DIR", "./.local/tmp/browser-profiles/from-env")
 
-	cfg, err := LoadFromBytes([]byte(`
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: "test-key"
   model: "gemini-2.5-flash"

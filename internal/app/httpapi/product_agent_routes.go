@@ -21,8 +21,8 @@ import (
 	"task-processor/internal/knowledge"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/contentagent"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	skill "task-processor/internal/skill"
 
 	"github.com/gin-gonic/gin"
@@ -86,7 +86,7 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	// Candidate intake returns an ID understood by the existing review UI.
 	// Its original decision/Apply handlers retain their current permission checks.
 	binder := productReviewCapabilityBinder{now: time.Now}
-	for _, route := range productReviewOnlyRoutes(a.reviews, binder.Bind, a.projectKnowledge) {
+	for _, route := range productReviewRoutes(a.reviews, binder.Bind, a.projectKnowledge) {
 		previous := route.Handler
 		route.Handler = func(c *gin.Context) {
 			c.Set(productReviewModeProjectorKey, productReviewModeProjector(a.projectReviewMode))
@@ -105,37 +105,37 @@ type productAgentStepDTO struct {
 	AuditStatus  string `json:"auditStatus,omitempty"`
 }
 type productAgentResultDTO struct {
-	SkillVersionRef       agent.SkillVersionRef       `json:"skillVersionRef,omitzero"`
-	ContentSelection      enrichment.ContentSelection `json:"contentSelection,omitzero"`
-	ExecutionMode         agent.ExecutionMode         `json:"executionMode,omitempty"`
-	ModeRevision          string                      `json:"modeRevision,omitempty"`
-	ModeSnapshotRef       *agent.ModeSnapshotRef      `json:"modeSnapshotRef,omitempty"`
-	ModeUnavailableReason string                      `json:"modeUnavailableReason,omitempty"`
-	PolicyAdoption        *review.PolicyProvenance    `json:"policyAdoption,omitempty"`
-	ReviewID              string                      `json:"reviewId,omitempty"`
-	TemplateSelection     *agentconfig.TemplateRef    `json:"templateSelection,omitempty"`
-	Knowledge             *productKnowledgeDTO        `json:"knowledge,omitempty"`
-	RunID                 string                      `json:"runId"`
-	RequestKey            string                      `json:"requestKey"`
-	OperationID           string                      `json:"operationId"`
-	ContextKind           string                      `json:"contextKind,omitempty"`
-	ProductKey            string                      `json:"productKey"`
-	CatalogVersion        string                      `json:"catalogVersion"`
-	PublicationID         string                      `json:"publicationId"`
-	TargetPlatform        string                      `json:"targetPlatform"`
-	Phase                 agent.Phase                 `json:"phase"`
-	Revision              string                      `json:"revision"`
-	StopReason            agent.StopReason            `json:"stopReason,omitempty"`
-	HumanReviewRequired   bool                        `json:"humanReviewRequired"`
-	Candidate             enrichment.Candidate        `json:"candidate"`
-	Confidence            []agent.FieldConfidence     `json:"confidence"`
-	Unresolved            []string                    `json:"unresolved"`
-	Steps                 []productAgentStepDTO       `json:"steps"`
-	Tokens                int64                       `json:"tokens"`
-	EstimatedCostMicros   int64                       `json:"estimatedCostMicros"`
-	Currency              string                      `json:"currency"`
-	UsageStatus           string                      `json:"usageStatus"`
-	CanSubmitReview       bool                        `json:"canSubmitReview"`
+	SkillVersionRef       agent.SkillVersionRef           `json:"skillVersionRef,omitzero"`
+	ContentSelection      reviewproposal.ContentSelection `json:"contentSelection,omitzero"`
+	ExecutionMode         agent.ExecutionMode             `json:"executionMode,omitempty"`
+	ModeRevision          string                          `json:"modeRevision,omitempty"`
+	ModeSnapshotRef       *agent.ModeSnapshotRef          `json:"modeSnapshotRef,omitempty"`
+	ModeUnavailableReason string                          `json:"modeUnavailableReason,omitempty"`
+	PolicyAdoption        *review.PolicyProvenance        `json:"policyAdoption,omitempty"`
+	ReviewID              string                          `json:"reviewId,omitempty"`
+	TemplateSelection     *agentconfig.TemplateRef        `json:"templateSelection,omitempty"`
+	Knowledge             *productKnowledgeDTO            `json:"knowledge,omitempty"`
+	RunID                 string                          `json:"runId"`
+	RequestKey            string                          `json:"requestKey"`
+	OperationID           string                          `json:"operationId"`
+	ContextKind           string                          `json:"contextKind,omitempty"`
+	ProductKey            string                          `json:"productKey"`
+	CatalogVersion        string                          `json:"catalogVersion"`
+	PublicationID         string                          `json:"publicationId"`
+	TargetPlatform        string                          `json:"targetPlatform"`
+	Phase                 agent.Phase                     `json:"phase"`
+	Revision              string                          `json:"revision"`
+	StopReason            agent.StopReason                `json:"stopReason,omitempty"`
+	HumanReviewRequired   bool                            `json:"humanReviewRequired"`
+	Candidate             reviewproposal.Candidate        `json:"candidate"`
+	Confidence            []agent.FieldConfidence         `json:"confidence"`
+	Unresolved            []string                        `json:"unresolved"`
+	Steps                 []productAgentStepDTO           `json:"steps"`
+	Tokens                int64                           `json:"tokens"`
+	EstimatedCostMicros   int64                           `json:"estimatedCostMicros"`
+	Currency              string                          `json:"currency"`
+	UsageStatus           string                          `json:"usageStatus"`
+	CanSubmitReview       bool                            `json:"canSubmitReview"`
 }
 
 func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
@@ -299,7 +299,7 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 					binding = record.State.Request.Binding
 					_, err = a.Authorize(ctx, binding)
 				}
-				if err == nil && content != (record.State.Request.PolicyVersion == enrichment.ContentPolicyVersion) {
+				if err == nil && content != (record.State.Request.PolicyVersion == reviewproposal.ContentPolicyVersion) {
 					err = agent.ErrConflict
 				}
 				if err == nil && spec.action == "resume" {
@@ -432,7 +432,7 @@ func agentRunReviewable(s agent.State) bool {
 	if !agent.ValidContextCitations(s.Request.ContextSnapshotRef, s.ContextCitationRefs) || s.Phase != agent.HumanReviewRequired || s.Validation == nil || !s.Validation.Valid || s.StopReason != "" {
 		return false
 	}
-	if s.Request.PolicyVersion == enrichment.ContentPolicyVersion {
+	if s.Request.PolicyVersion == reviewproposal.ContentPolicyVersion {
 		return len(s.Unresolved) == 0 && len(s.Candidate.Warnings) == 0 && len(s.Candidate.Rejections) == 0 && s.Request.ContentSelection.Valid() && len(s.Candidate.Changes) == len(s.Request.ContentSelection.Fields()) && contentCandidateEvidenceObserved(s.Request, s.Candidate, s.History)
 	}
 	return s.Request.ContentSelection.Absent() && len(s.Candidate.Changes) == 1 && agentCandidateEvidenceObserved(s.Request.Binding, s.Candidate, s.History)

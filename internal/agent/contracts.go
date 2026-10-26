@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 
 	"task-processor/internal/commercetool"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 const MaxStateBytes = 2 << 20
@@ -91,12 +91,12 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
-	ManualReviewOnly             bool                        `json:",omitempty"`
-	SkillVersionRef              SkillVersionRef             `json:",omitzero"`
-	ContentSelection             enrichment.ContentSelection `json:",omitzero"`
-	ModeSnapshotRef              ModeSnapshotRef             `json:",omitzero"`
-	ConfigurationSnapshotRef     ConfigurationSnapshotRef    `json:",omitzero"`
-	ContextSnapshotRef           ContextSnapshotRef          `json:",omitzero"`
+	ManualReviewOnly             bool                            `json:",omitempty"`
+	SkillVersionRef              SkillVersionRef                 `json:",omitzero"`
+	ContentSelection             reviewproposal.ContentSelection `json:",omitzero"`
+	ModeSnapshotRef              ModeSnapshotRef                 `json:",omitzero"`
+	ConfigurationSnapshotRef     ConfigurationSnapshotRef        `json:",omitzero"`
+	ContextSnapshotRef           ContextSnapshotRef              `json:",omitzero"`
 	Key                          string
 	Binding                      Binding
 	GoalSummary                  string
@@ -105,10 +105,10 @@ type Request struct {
 }
 
 func (r Request) ValidContentSelection() bool {
-	if r.ManualReviewOnly && r.PolicyVersion != enrichment.ContentPolicyVersion {
+	if r.ManualReviewOnly && r.PolicyVersion != reviewproposal.ContentPolicyVersion {
 		return false
 	}
-	if r.PolicyVersion == enrichment.ContentPolicyVersion {
+	if r.PolicyVersion == reviewproposal.ContentPolicyVersion {
 		return r.ContentSelection.Valid()
 	}
 	return r.ContentSelection.Absent()
@@ -151,7 +151,7 @@ type Action struct {
 	// Kind is tool, propose or interrupt. No arbitrary next-node name is accepted.
 	Kind      string
 	Tool      commercetool.ToolRef
-	Candidate enrichment.Candidate
+	Candidate reviewproposal.Candidate
 	// DomainProposal is a bounded suggestion for the consumer selected by the
 	// trusted runtime configuration. It is mutually exclusive with Candidate.
 	DomainProposal *DomainProposal `json:",omitempty"`
@@ -192,11 +192,11 @@ var ErrModelNotDispatched = errors.New("model was not dispatched; reservation re
 var ErrModelInvalidOutput = errors.New("model returned invalid output with observed usage")
 
 type ModelInput struct {
-	SkillVersionRef                            SkillVersionRef             `json:",omitzero"`
-	ContentSelection                           enrichment.ContentSelection `json:",omitzero"`
-	ModeSnapshotRef                            ModeSnapshotRef             `json:",omitzero"`
-	ConfigurationSnapshotRef                   ConfigurationSnapshotRef    `json:",omitzero"`
-	ContextSnapshotRef                         ContextSnapshotRef          `json:",omitzero"`
+	SkillVersionRef                            SkillVersionRef                 `json:",omitzero"`
+	ContentSelection                           reviewproposal.ContentSelection `json:",omitzero"`
+	ModeSnapshotRef                            ModeSnapshotRef                 `json:",omitzero"`
+	ConfigurationSnapshotRef                   ConfigurationSnapshotRef        `json:",omitzero"`
+	ContextSnapshotRef                         ContextSnapshotRef              `json:",omitzero"`
 	Binding                                    Binding
 	GoalSummary                                string
 	PolicyVersion, PromptVersion, InvocationID string
@@ -246,7 +246,7 @@ type Validation struct {
 // and hashes the candidate itself. Validators must bind cited evidence to
 // successful tool observations actually disclosed to the model.
 type Validator interface {
-	Validate(context.Context, Request, enrichment.Candidate, []Observation) (Validation, error)
+	Validate(context.Context, Request, reviewproposal.Candidate, []Observation) (Validation, error)
 }
 
 // DomainValidator is the alternative to Product validation for an explicitly
@@ -281,7 +281,7 @@ type State struct {
 	Usage                 Usage
 	Repairs               int
 	History               []Observation
-	Candidate             enrichment.Candidate
+	Candidate             reviewproposal.Candidate
 	DomainProposal        *DomainProposal `json:",omitempty"`
 	Validation            *Validation
 	Unresolved            []string

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,11 +24,7 @@ func TestContentTitleOnlyAdmissionUsesExactTrustedProfile(t *testing.T) {
 				routes = append(routes, productAgentRoutes(nil)...)
 			}
 			routes = append(routes, registeredProductAgentRoutes(nil, true)...)
-			for _, route := range productReviewRoutes(nil, nil) {
-				if route.Method != http.MethodPost || route.Path != "/api/product/text-proposals" {
-					routes = append(routes, route)
-				}
-			}
+			routes = append(routes, productReviewRoutes(nil, nil)...)
 			require.NoError(t, validate(routes, titleOnly))
 			require.Error(t, validate(routes, !titleOnly), "the other profile must not be admitted")
 			missing := append([]httproute.Descriptor(nil), routes[:len(routes)-1]...)

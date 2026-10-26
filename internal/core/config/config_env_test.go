@@ -254,12 +254,12 @@ func TestWorkbenchZitadelConfigDefaultsDisabled(t *testing.T) {
 	assert.False(t, BuildConfig(newViper()).Workbench.Enabled)
 }
 
-func TestLoadFromBytesRejectsEnabledWorkbenchWithoutCompleteZitadelConfig(t *testing.T) {
+func TestConfigFixtureRejectsEnabledWorkbenchWithoutCompleteZitadelConfig(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_WORKBENCH_ENABLED", "true")
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID", "")
 	t.Setenv("ZITADEL_ISSUER_URL", "https://issuer.example")
 
-	_, err := LoadFromBytes([]byte(strings.Join([]string{
+	_, err := loadConfigFixture(t, []byte(strings.Join([]string{
 		"openai:",
 		"  apiKey: test-openai-key",
 		"  model: gemini-2.5-flash",
@@ -385,9 +385,9 @@ func TestLoadDotEnvFile_DoesNotOverrideExistingEnvironmentVariables(t *testing.T
 	assert.Equal(t, "from-process", os.Getenv("TASK_PROCESSOR_OPENAI_API_KEY"))
 }
 
-func TestLoadFromBytes_AppliesEnvironmentOverrides(t *testing.T) {
+func TestConfigFixture_AppliesEnvironmentOverrides(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_OPENAI_API_KEY", "env-openai-key")
-	cfg, err := LoadFromBytes([]byte(`
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: file-key
   model: gemini-2.5-flash
@@ -403,10 +403,10 @@ openai:
 	assert.Equal(t, "env-openai-key", cfg.OpenAI.ToClientConfigs()["vision"].APIKey)
 }
 
-func TestLoadFromBytes_AppliesViperManagedEnvironmentOverrides(t *testing.T) {
+func TestConfigFixture_AppliesViperManagedEnvironmentOverrides(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_BROWSER_HEADLESS", "false")
 	t.Setenv("TASK_PROCESSOR_BROWSER_POOL_SIZE", "7")
-	cfg, err := LoadFromBytes([]byte(`
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: test-openai-key
   model: gemini-2.5-flash

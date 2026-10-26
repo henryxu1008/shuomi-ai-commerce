@@ -2,7 +2,7 @@ package workspace
 
 import (
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 // BuildSubmitPayloadReadinessChecks builds SHEIN payload readiness checks from package state.

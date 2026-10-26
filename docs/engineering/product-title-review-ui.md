@@ -80,7 +80,7 @@ TDD 先失败：pending 入口/coverage、列表与详情、accept 不 Apply、e
 exact revision/冲突、双击、未知写显式核实、scope/撤权/卸载迟到响应。
 定向组件与导航/原已完成/诊断/provider 回归，typecheck/lint/build。
 真实浏览器从任务中心进入，使用 #344 专属 fixture 经实际 BFF→Go→隔离 PG，提案
-经真实 Publisher/Proposer/POST 创建；外部身份/生成器替身明确。记录非 title 与原 Listing
+经真实 Publisher → Candidate intake 创建；候选为受控 fixture，外部身份替身明确。四个 HTTP 审核路由继续通过真实 BFF/Go 执行。记录非 title 与原 Listing
 不变、重建后新版本/receipt。1440 对照、390 长文本、焦点/dialog/axe 证据。
 最终 SHA 的 CI/独立完整切片复核在 PR 维护；SKIP/NOT_RUN 不等于 PASS。
 
@@ -119,5 +119,5 @@ node scripts/product-title-review-ui-lifecycle.mjs <private-fixture.json> <evide
 
 证据目录中的旧 `regression-completed-*` 是历史只读回归；Product 主链与生命周期
 报告及 `regression-diagnostic-after-apply-*` 才来自本片真实组合。外部身份发行、
-grant provider、CandidateGenerator 是明确的受控替身，真实 IAM/生产/付费模型不在验收范围。
+grant provider 与 Candidate 输入是明确的受控替身/fixture，真实 IAM/生产/付费模型不在验收范围。
 Legacy decision: N/A，复用当前 Console owner；不消费 RETIRE 的 Task-first/Workspace。

@@ -1,3 +1,5 @@
+> #960 当前 pure-owner 校准：`publishing/shein` 旧根完整退休，当前数据合同与离线纯规则归 `marketplace/shein/offlinepackage`，固定本地组装归 `marketplace/shein/draft`。新增 `TestLegacySheinDraftAssemblyClosureIsRetired` 保护完整闭包，原检查仅按[设计 §6.1](legacy-shein-draft-assembly-closure-retirement-boundary.md#61-原检查的准确转换)改接 owner；后文 #827 等带批次的旧路径说明保留为历史，本段及 §6 当前 owner 段取代其现状描述。独立 SHEIN 登录与 Store 同步及当前持久化 owner 不变，无运行操作。
+
 > #301 / #891 [confirmed complete preview/download retirement](legacy-listing-preview-download-closure-retirement-boundary.md): unused Task preview/platform assembly, listing downloader and unimplemented directory declarations are source-retired. Current Product/Catalog/Asset and real Listing contracts retain their owners. The original preview guard and its single depguard rule now enforce retired-package import bans/source absence across production and decoded test/debug/build-target imports. Other checks, workflows, dependencies, historical counts/ceilings and current capabilities remain; inventory only drops the approved logger-to-downloader CURRENT row. Independent SHEIN login and Store sync remain; no runtime/data/credential/process operation or new trial prerequisite.
 
 # Project Boundary Rules
@@ -121,7 +123,7 @@ Current examples:
 - `internal/product/catalog` — `ProductSnapshot`, immutable versions and publication
 - `internal/product/sourcing` — neutral envelopes, normalization, lineage and warnings
 - `internal/product/asset` — `ApprovedAsset` and explicit approval contracts
-- `internal/product/enrichment` — side-effect-free Proposals
+- `internal/product/review/proposal` — current side-effect-free candidate contracts and pure validation/scoring; no generator
 - `internal/product/image` — image capability ports; ImageAgent owns execution/approval
 
 The old `internal/catalog`, `internal/asset`, `internal/productimage`,
@@ -176,7 +178,6 @@ Current runtime-foundation owners:
 - `internal/platform/workerpool`
 - `internal/platform/temporal`
 - `internal/integration/openai`
-- `internal/integration/geminiimage`
 - `internal/integration/grsai`
 - `internal/integration/s3`
 - `internal/integration/httpimage`
@@ -568,11 +569,16 @@ Use this table when adding new code:
 | S3/object storage adapter | `internal/integration/s3`; app wires a domain-local port |
 
 For product modeling, use `internal/product/catalog.ProductSnapshot` as the
-platform-neutral source of product facts. CURRENT STATE for the retained SHEIN shell: `internal/publishing/shein.Package`
-owns SHEIN workflow state, and its `DraftPayload` is the SHEIN draft contract
-for new reads and writes. `RequestDraft` and the package-level `SkcList` are
-compatibility/display surfaces during migration; they must not become a second
-source of truth.
+platform-neutral source of product facts. The current SHEIN persisted draft value
+and strict codec owner is `internal/marketplace/shein/offlinepackage.Package`;
+`DraftPayload` is its canonical draft field. These values do not own workflow or
+persisted record state. `internal/marketplace/shein/draft.Builder` performs fixed
+local assembly from the exact snapshot and approved assets. Current validators
+and workspace rules consume offlinepackage directly. `internal/listing/record`
+and its persistence adapter retain record/payload/diagnostic facts, hashes and
+transactions. The old `internal/publishing/shein` root, resolver/AI/config ports,
+compatibility setters/aliases and four hidden assignment maps are retired; no
+migration, fallback or second source of truth is introduced.
 
 ## 7. Review Checklist
 
