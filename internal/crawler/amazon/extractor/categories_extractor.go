@@ -2,7 +2,7 @@ package extractor
 
 import (
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -11,7 +11,7 @@ import (
 type CategoriesExtractor struct{}
 
 // Extract 提取分类信息
-func (ce *CategoriesExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (ce *CategoriesExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	categories := ce.getCategories(page)
 	product.Categories = categories
 	return nil

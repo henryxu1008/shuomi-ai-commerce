@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -14,7 +14,7 @@ import (
 
 // ProductProcessor 产品处理器接口
 type ProductProcessor interface {
-	ProcessWithInstance(ctx context.Context, instance *BrowserInstance, url string, zipcode string) (*model.Product, error)
+	ProcessWithInstance(ctx context.Context, instance *BrowserInstance, url string, zipcode string) (*amazonresult.Product, error)
 }
 
 // poolBehavior 定义 PoolManager 依赖的浏览器池行为，便于测试注入 mock
@@ -48,7 +48,7 @@ func NewPoolManager(pool *BrowserPool, logs func(string) *logrus.Entry) *PoolMan
 }
 
 // ProcessWithTimeout 带超时处理产品
-func (pm *PoolManager) ProcessWithTimeout(ctx context.Context, url, zipcode string, timeout time.Duration, processor ProductProcessor) (*model.Product, error) {
+func (pm *PoolManager) ProcessWithTimeout(ctx context.Context, url, zipcode string, timeout time.Duration, processor ProductProcessor) (*amazonresult.Product, error) {
 	if pm.isShutdown {
 		return nil, fmt.Errorf("浏览器池管理器已关闭")
 	}
@@ -525,6 +525,6 @@ func (pm *PoolManager) Shutdown() {
 
 // ProcessResult 处理结果
 type ProcessResult struct {
-	Product *model.Product
+	Product *amazonresult.Product
 	Error   error
 }

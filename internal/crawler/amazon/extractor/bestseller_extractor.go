@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -15,7 +15,7 @@ func NewBestsellerExtractor() *BestsellerExtractor {
 	return &BestsellerExtractor{}
 }
 
-func (e *BestsellerExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *BestsellerExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 
 	// 提取bestseller排名信息
 	bsRank, bsCategory, rootBsRank, rootBsCategory := e.extractBestsellerRank(page)
