@@ -1,4 +1,4 @@
-> #301 当前设计登记：**RETIRE / Independent Architecture / DESIGN_ONLY / NOT_READY**。[三组完整闭包§1–§7/§6.1](../architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md)拟整退无生产注入的geminiimage、runtimepath及LoadFromBytes正式入口，19有效配置测试继续归当前Viper/Build/Validate；准确替代#891/#939/#948/#878/#880/#917/#926/#872/#836的相关KEEP，其余历史/计数/全文不变。当前只设计三文档，34路径未来同批；当前能力/独立SHEIN登录/Store同步保持，workflow/完整inventory/依赖/保护及既有资源不动，不增试用前置，#301 OPEN。原完整正文如下。
+> #301 当前设计登记：**RETIRE / Independent Architecture / DESIGN_ONLY / NOT_READY**。[三组完整闭包§1–§7/§6.1](../architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md)拟整退无生产注入的geminiimage、runtimepath及LoadFromBytes正式入口，19有效配置测试继续归当前Viper/Build/Validate；准确替代#891/#939/#948/#878/#880/#917/#926/#872/#836的相关KEEP，其余历史/计数/全文不变。当前只设计三文档，35路径未来同批；当前能力/独立SHEIN登录/Store同步保持，workflow/完整inventory/依赖/保护及既有资源不动，不增试用前置，#301 OPEN。原完整正文如下。
 
 > #953 源码实施阶段：用户已确认冻结设计 §§1–7（含 §6.1）。旧生成链与 `internal/product/enrichment` 已整批退休；当前候选合同及纯规则归 `internal/product/review/proposal`，Review 仅接现成候选，沿原四个 HTTP 审核路由处理。必要自检、准确源码 CI 与最终复核分别记录在 [PR #953](https://github.com/qq550723504/shuomi-ai-commerce/pull/953)，当前尚未交付合并授权；运行/产品验收 NOT_RUN，#301 保持 OPEN。 以下冻结设计、索引和历史证据完整保留。
 
