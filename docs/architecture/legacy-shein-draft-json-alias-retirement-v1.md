@@ -1,3 +1,5 @@
+> #960 当前替代边界（仅本轮）：本文件历史 KEEP 中的旧 `internal/publishing/shein` 草稿 owner、扩展端口及私有赋值状态，现由[完整闭包设计](legacy-shein-draft-assembly-closure-retirement-boundary.md) §2/§4/§5 的矩阵精确替代。当前值/严格 codec/离线纯规则归 `internal/marketplace/shein/offlinepackage`，本地确定性组装归已有 `draft.Builder`，原平台规则/content/common 直接复用；旧 resolver、AI 扩展、可选注入、setter/alias 和四私有 map 不保留。当前 JSON/hash/绑定版本、有效规则及独立 SHEIN 登录与 Store 同步保持；无运行/数据/凭据操作或试用新前置。以下原完整正文、历史数字/勾选和证据逐字保留。
+
 # #301 旧 SHEIN 草稿 JSON 别名兼容整链退休设计
 
 Status: **IMPLEMENTATION_READY / USER_CONFIRMED / SOURCE_IMPLEMENTED；待准确实现 CI 与最终交付复核**。Design Basis: **Independent Architecture**。设计 HEAD `5770b8c0899600a6e576555c6d5ec9a6237b9382` 已独立复核 PASS、原 CI39914388170 SUCCESS，证据见 [#904 / 6359569239](https://github.com/qq550723504/shuomi-ai-commerce/pull/904#issuecomment-6359569239)。用户明确要求执行本设计并撤回扩大 Cookie 接口退休的提议；#301/PR Ready 已在源码修改前记录并读回。以下 §1–§7 为已确认的冻结边界，版本表“拟”指本批目标，不增加新范围；实施/最终 CI/复核证据留 PR，合并另授权。

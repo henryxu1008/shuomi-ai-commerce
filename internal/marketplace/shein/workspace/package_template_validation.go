@@ -1,6 +1,6 @@
 package workspace
 
-import sheinpub "task-processor/internal/publishing/shein"
+import sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 
 const (
 	categoryTemplateValidationMessage      = "类目、类目层级和 product_type_id 需要确认；如当前类目被建议复核，也不能直接进入提交态"

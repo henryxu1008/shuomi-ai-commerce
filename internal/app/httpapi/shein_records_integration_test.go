@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	contract "task-processor/internal/marketplace/validator"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 	"testing"
 	"time"
 
