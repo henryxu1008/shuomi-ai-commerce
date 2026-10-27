@@ -96,10 +96,6 @@ type activityRegistrar interface {
 	RegisterActivityWithOptions(interface{}, sdkactivity.RegisterOptions)
 }
 
-func RegisterActivities(registrar activityRegistrar, activities *Activities) error {
-	return RegisterActivitiesForMode(registrar, activities, WorkerWireModeV2)
-}
-
 func RegisterActivitiesForMode(registrar activityRegistrar, activities *Activities, mode WorkerWireMode) error {
 	if registrar == nil {
 		return fmt.Errorf("temporal activity registrar is required")

@@ -21,10 +21,9 @@ import (
 func TestEffectRecoveryWorkflowUsesDeterministicIDAndAttachesDuplicateStart(t *testing.T) {
 	_, input := initializedSlotEffectV3Activity(t, "run-v3-recovery-id")
 
-	duplicateKey := input.RunID + ":" + input.Slot.ID
-	first := EffectRecoveryWorkflowID(input.Identity, input.PlanRevision, duplicateKey, input.Attempt)
-	second := EffectRecoveryWorkflowID(input.Identity, input.PlanRevision, duplicateKey, input.Attempt)
-	nextAttempt := EffectRecoveryWorkflowID(input.Identity, input.PlanRevision, duplicateKey, input.Attempt+1)
+	first := EffectRecoveryWorkflowIDForSlot(input.Identity, input.PlanRevision, input.RunID, input.Slot.ID, input.Attempt, "")
+	second := EffectRecoveryWorkflowIDForSlot(input.Identity, input.PlanRevision, input.RunID, input.Slot.ID, input.Attempt, "")
+	nextAttempt := EffectRecoveryWorkflowIDForSlot(input.Identity, input.PlanRevision, input.RunID, input.Slot.ID, input.Attempt+1, "")
 
 	require.Equal(t, "image-agent-effect-recovery:tenant-a:user-a:run-v3-recovery-id:1:slot-1:1", first)
 	require.Equal(t, first, second, "duplicate starts must target the same deterministic recovery workflow ID")

@@ -1,3 +1,5 @@
+> #301 / #977 用户确认的[完整退休闭包](../../architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md)已在同一主要PR实施：旧HTTP预算DTO/测试保活限定退出；有效存在性/零值/负值、预算、取消、发送前释放及UNKNOWN断言改当前owner，生产算法不改。 此顶注只校准本批指定旧KEEP，以下实际开工main的完整原正文/批准/失败/数字/勾选逐字保留为历史。无新alias/替代旧宿主、workflow/inventory/运行/数据操作或内部试用前置；独立SHEIN登录与Store同步保留，#301 OPEN。
+
 # Image Agent Budget Authorization Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.

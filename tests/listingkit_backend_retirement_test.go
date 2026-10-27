@@ -6158,3 +6158,124 @@ func TestLegacySheinDraftSupportClosureIsRetired(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyImageAgentHTTPRuntimeClosureIsRetired(t *testing.T) {
+	for _, path := range []string{
+		"internal/imageagent/httpapi/dto.go",
+		"internal/imageagent/httpapi/handler.go",
+		"internal/imageagent/httpapi/handler_task_launch_test.go",
+		"internal/imageagent/httpapi/handler_test.go",
+		"internal/imageagent/httpapi/module.go",
+		"internal/imageagent/httpapi/routes.go",
+		"internal/imageagent/httpapi/routes_test.go",
+		"internal/app/httpapi/imageagent_organization_application.go",
+		"internal/imageagent/service_task_launch_test.go",
+		"internal/imageagent/httpapi",
+	} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired ImageAgent HTTP/Task path must be absent: %s: %v", path, err)
+		}
+	}
+	retired := map[string][]string{
+		"internal/app/runtime/image_agent_temporal_runtime.go":  {"StartImageAgentTemporalWorker", "StartImageAgentTemporalWorkerWithOptions", "DialImageAgentTemporalWorkflowClient", "RunImageAgentTemporalWorker", "RunImageAgentCompatibilityCanary", "startImageAgentTemporalWorkerWithDependencies", "startImageAgentTemporalWorkerWithOptionsAndDependencies", "runImageAgentCompatibilityCanaryWithDependencies", "imageAgentCompatibilityCanaryDependencies"},
+		"internal/app/worker/imageagent/dependencies.go":        {"ResolveImageAgentTemporalDependencies"},
+		"internal/app/worker/imageagent/image_set_runtime.go":   {"NewImageSetTemporalDependencies"},
+		"internal/imageagent/temporal/activity_registration.go": {"RegisterActivities"},
+		"internal/imageagent/temporal/worker.go":                {"RegisterWorker"},
+		"internal/imageagent/temporal/types.go":                 {"TaskQueueName", "EnvTaskQueue", "EffectRecoveryWorkflowID"},
+		"internal/imageagent/service.go":                        {"LaunchTaskRun", "PreflightTaskRunAssets", "taskLaunchRunIdentity", "normalizeTaskLaunchStyleIDs", "primaryTaskLaunchSource", "validateTaskLaunchStyleIDs"},
+		"internal/imageagent/ports.go":                          {"TaskRunLaunchInput", "TaskRunLaunchResult", "TaskRunAssetsInput", "TaskRunAssetPreflight"},
+	}
+	current := map[string][]string{
+		"internal/app/runtime/image_agent_temporal_runtime.go":  {"RunImageAgentTemporalWorkerWithOptions", "DialOrganizationImageAgentTemporalWorkflowClient", "NewOrganizationImageSetWorker", "RunImageAgentCompatibilityCanaryWithWorker", "runImageAgentCompatibilityCanaryWithWorkerDependencies", "startImageAgentTemporalWorkerWithOptionsAndDependenciesContext"},
+		"internal/app/worker/imageagent/dependencies.go":        {"ResolveImageAgentTemporalDependenciesForMode"},
+		"internal/app/worker/imageagent/image_set_runtime.go":   {"NewManagedImageSetTemporalDependencies"},
+		"internal/imageagent/temporal/activity_registration.go": {"RegisterActivitiesForMode"},
+		"internal/imageagent/temporal/worker.go":                {"RegisterWorkerForMode"},
+		"internal/imageagent/temporal/types.go":                 {"EffectRecoveryWorkflowIDForSlot"},
+		"internal/imageagent/service.go":                        {"Start", "Get", "RestartFailed", "ReplacePlan", "RetrySlot", "RecoverEffect", "ApproveResults", "Cancel", "Resume", "ListEvents"},
+		"internal/imageagent/ports.go":                          {"ImagePolicyAvailability", "StartRunInput", "WorkflowStart"},
+	}
+	found := map[string]map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imported := range file.Imports {
+			name, err := decodeGoImportPath(imported.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if importMatchesPrefix(name, "task-processor/internal/imageagent/httpapi") {
+				t.Errorf("%s imports retired ImageAgent HTTP owner %q", path, name)
+			}
+		}
+		if _, ok := current[path]; !ok {
+			continue
+		}
+		found[path] = map[string]bool{}
+		for _, declaration := range file.Decls {
+			names := []string{}
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				names = append(names, d.Name.Name)
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, s.Name.Name)
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							names = append(names, name.Name)
+						}
+					}
+				}
+			}
+			for _, name := range names {
+				found[path][name] = true
+				if slices.Contains(retired[path], name) {
+					t.Errorf("%s retains retired declaration %s", path, name)
+				}
+			}
+		}
+	}
+	for path, names := range current {
+		for _, name := range names {
+			if !found[path][name] {
+				t.Errorf("required current ImageAgent declaration missing: %s:%s", path, name)
+			}
+		}
+	}
+	for path, tokens := range map[string][]string{
+		"cmd/image-agent-temporal-worker/main.go":                           {"ResolveImageAgentTemporalDependenciesForMode", "RunImageAgentTemporalWorkerWithOptions", "RunImageAgentCompatibilityCanaryWithWorker"},
+		"internal/app/httpapi/imageagent_acquisition_module.go":             {"acquisitionImageRoutes", "service.Start(", "service.ApproveResults("},
+		"internal/app/httpapi/image_set_module.go":                          {"fullImageModule", "a.service.RecoverEffect(", "a.service.Resume("},
+		"tests/imageagent_organization_integration_test.go":                 {"authz.AuthorizeOrganization(", "TestOrganizationScopeServicePersistenceAndActivity", "TestServiceAuthorizationRequiresExactOrganization"},
+		"tests/imageagent_review_invocation_integration_test.go":            {"TestOrganizationReviewServiceActivityRecordFailureAndCancellation", "verifyActivity("},
+		"internal/app/httpapi/chain1_local_product_acceptance_test.go":      {"TestChain1LocalProductAcceptance", "imageagent.NewService(", "imageagent.WithOrganizationScope()", ".ApproveResults(", "authz.AuthorizeOrganization("},
+		"internal/app/httpapi/imageagent_completed_replay_postgres_test.go": {"TestAcquisitionCompletedApprovalHTTPReplaysFromExactOwnerFact", "Hijack()"},
+	} {
+		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, required := range tokens {
+			if !strings.Contains(string(raw), required) {
+				t.Errorf("%s must retain current owner/assertion %q", path, required)
+			}
+		}
+	}
+	for _, path := range []string{
+		"scripts/chain1-local-product-acceptance.ps1", "deployments/docker/chain1-acceptance/docker-compose.yml", "internal/imageagent/temporal/acceptancetest/driver.go",
+		"internal/app/httpapi/imageagent_acquisition_catalog.go", "internal/imageagent/generation_execution.go", "internal/imageagent/temporal/canary.go",
+		"cmd/shein-login-worker/main.go", "internal/sheinlogin/service.go", "internal/sheinlogin/store.go", "internal/app/httpapi/server_test.go", "internal/authz/httpapi/route_authorization_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current ImageAgent/collector/SHEIN/Store owner or safety artifact must remain: %s: %v", path, err)
+		}
+	}
+}

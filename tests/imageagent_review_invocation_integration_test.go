@@ -21,6 +21,8 @@ import (
 	aistore "task-processor/internal/aicapability/store"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/authz"
+	"task-processor/internal/imageagent"
 	openai "task-processor/internal/integration/openai"
 	"task-processor/internal/listingsubscription"
 	image "task-processor/internal/product/image"
@@ -389,16 +391,18 @@ func TestOrganizationReviewSDKRetryOverrideUsesExistingTransport(t *testing.T) {
 	require.EqualValues(t, 2, calls.Load())
 }
 
-func TestOrganizationReviewHTTPActivityRecordFailureAndCancellation(t *testing.T) {
+func TestOrganizationReviewServiceActivityRecordFailureAndCancellation(t *testing.T) {
 	for _, mode := range []string{"record_failure", "response_cancel", "known_cost", "unknown_cost"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newScope339Fixture(t)
-			server := f.server(t)
-			body := scope339Body
+			request := scope339StartInput()
 			if mode == "known_cost" || mode == "unknown_cost" {
-				body = strings.Replace(body, `"budget":{`, `"budget":{"max_cost_micros":100,`, 1)
+				request.Budget.MaxCostMicros = 100
+				request.Budget.EnabledLimits |= imageagent.BudgetLimitCostMicros
 			}
-			require.Equal(t, 202, scope339Request(t, server, "POST", scope339Path, "actor", "B", body))
+			ctx, err := f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
+			require.NoError(t, err)
+			require.NoError(t, f.service(t).Start(ctx, request))
 			f.verifyActivity(t, f.temporal.input(t), mode)
 		})
 	}

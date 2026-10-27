@@ -446,10 +446,6 @@ type workerRegistrar interface {
 	RegisterWorkflowWithOptions(interface{}, sdkworkflow.RegisterOptions)
 }
 
-func RegisterWorker(registrar workerRegistrar, activities *Activities) error {
-	return RegisterWorkerForMode(registrar, activities, WorkerWireModeV2)
-}
-
 func RegisterWorkerForMode(registrar workerRegistrar, activities *Activities, mode WorkerWireMode) error {
 	if registrar == nil {
 		return fmt.Errorf("temporal worker registrar is required")

@@ -30,11 +30,11 @@ import (
 	"gorm.io/gorm/logger"
 
 	aistore "task-processor/internal/aicapability/store"
-	apphttpapi "task-processor/internal/app/httpapi"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	"task-processor/internal/authidentity"
 	zitadel "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
+	"task-processor/internal/httproute"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/objectstore"
 	imagestore "task-processor/internal/imageagent/store"
@@ -48,7 +48,7 @@ import (
 )
 
 // Only identity issuance, the remote IAM response, Temporal's server boundary
-// and object/provider I/O are controlled external substitutes. HTTP admission,
+// and object/provider I/O are controlled external substitutes. Scoped admission,
 // grant parsing/resolution/authorization, Catalog/run/effect persistence,
 // Temporal Client/converter/Activities, Manager and Review adapter are real.
 type scope339TemporalServer struct {
@@ -161,7 +161,7 @@ type scope339Fixture struct {
 	authClient    *zitadel.AuthorizationClient
 	auth          *authz.ListingKitAuthorizer
 	temporal      *scope339TemporalServer
-	bindings      []apphttpapi.OrganizationImageBinding
+	catalogs      map[string]imageagent.AssetCatalog
 	providerCalls atomic.Int32
 }
 
@@ -189,7 +189,7 @@ func newScope339Fixture(t *testing.T) *scope339Fixture {
 	require.NoError(t, catalogstore.AutoMigrate(db))
 	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(db))
-	f := &scope339Fixture{db: db, iam: &scope339IAM{}, temporal: &scope339TemporalServer{}}
+	f := &scope339Fixture{db: db, iam: &scope339IAM{}, temporal: &scope339TemporalServer{}, catalogs: map[string]imageagent.AssetCatalog{}}
 	upstream := httptest.NewServer(f.iam)
 	t.Cleanup(upstream.Close)
 	f.authClient = zitadel.NewAuthorizationClient(upstream.URL, upstream.Client())
@@ -200,42 +200,86 @@ func newScope339Fixture(t *testing.T) *scope339Fixture {
 	for _, org := range []string{"B", "C"} {
 		published, err := repo.PublishSnapshot(context.Background(), catalog.PublishRequest{Identity: catalog.SnapshotIdentity{TenantID: org, ProductKey: "product"}, PublicationID: "scope339-publication", Snapshot: catalog.ProductSnapshot{Title: "Controlled shoes", Images: []catalog.Image{{URL: "https://source.example/" + org + ".png", Role: "source", Width: 1200, Height: 1200}}}})
 		require.NoError(t, err)
-		f.bindings = append(f.bindings, apphttpapi.OrganizationImageBinding{ContextID: "catalog-input", OwnerUserID: "actor", Identity: published.Identity, Version: published.Version, PublicationID: published.PublicationID})
+		url := published.Snapshot.Images[0].URL
+		value, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{
+			Assets:         []imageagent.AuthorizedAsset{{ID: "catalog-image-1", Type: imageagent.AuthorizedAssetSource, URL: url, SourceURL: url, DisplayURL: url, Label: "Product image", Width: 1200, Height: 1200}},
+			ProductContext: imageagent.ProductContextRef{ProductID: published.Identity.ProductKey, Title: published.Snapshot.Title, SourceSnapshotVersion: published.Version},
+		})
+		require.NoError(t, err)
+		value.Manifest.Hash = imageagent.CatalogSnapshotHash(value.Assets, value.ProductContext)
+		f.catalogs[org] = value
 	}
 	return f
 }
-func (f *scope339Fixture) server(t *testing.T) *httptest.Server {
+
+// service composes the current domain owner; it installs no HTTP routes.
+func (f *scope339Fixture) service(t *testing.T) *imageagent.Service {
 	t.Helper()
+	service, err := imageagent.NewService(imagestore.NewOrganizationRepository(f.db), imagetemporal.NewOrganizationClient(f.temporal), scope339Catalog{catalogs: f.catalogs}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"B", "C"}}))
+	require.NoError(t, err)
+	return service
+}
+
+// context uses the same verified identity, resolver and scoped permission owner
+// as current HTTP controls, with the original bounded request lifetime.
+func (f *scope339Fixture) context(t *testing.T, actor, organization, permission string) (context.Context, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	identity, err := (scope339Verifier{}).Verify(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	policy := httproute.OrganizationAccessPolicyLiveWrite
+	if permission == authz.PermissionImageAgentRead {
+		policy = httproute.OrganizationAccessPolicyCachedRead
+	}
 	resolver := workbenchcontext.NewResolver(workbenchcontext.NewGrantResolver(f.authClient, workbenchcontext.NewGrantCache(time.Now)), "project", "v1", nil)
-	app, err := apphttpapi.NewImageAgentOrganizationApplication(f.db, scope339Verifier{}, resolver, f.auth, imagetemporal.NewOrganizationClient(f.temporal), imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"B", "C"}}, f.bindings)
-	require.NoError(t, err)
-	server := httptest.NewServer(app.Handler)
-	t.Cleanup(server.Close)
-	return server
+	identity, err = resolver.Resolve(ctx, policy, workbenchcontext.ResolveInput{Identity: identity, BearerToken: actor, RequestedOrganizationID: organization})
+	if err != nil {
+		return nil, err
+	}
+	ctx = authidentity.WithAuthenticatedIdentity(ctx, identity)
+	allowed, err := authz.AuthorizeOrganization(ctx, f.auth, identity.UserID, identity.EffectiveOrganizationID, identity.Roles, permission)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, imageagent.ErrIdentityRequired
+	}
+	return ctx, nil
 }
 
-const scope339Body = `{"run_id":"run339","business_task_id":"catalog-input","target_platform":"shein","image_policy_context":{"country":"us","family":"default","scene_category":"shoes"},"mode":"manual","idempotency_key":"run-key339","max_concurrent_slots":1,"budget":{"max_images":12,"max_agent_steps":20,"max_model_calls":30,"max_repair_attempts_per_slot":2,"max_elapsed":500000000000},"plan":{"revision":1,"idempotency_key":"plan-key339","source_asset_ids":["catalog-image-1"],"slots":[{"id":"slot1","role":"main","status":"pending","source_asset_ids":["catalog-image-1"],"idempotency_key":"slot-key339"}]}}`
-const scope339Path = "/api/organization/image-agent/runs"
-
-func scope339Request(t *testing.T, server *httptest.Server, method, path, actor, org, body string) int {
-	t.Helper()
-	req, err := http.NewRequest(method, server.URL+path, strings.NewReader(body))
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+actor)
-	req.Header.Set("X-Requested-Organization-ID", org)
-	req.Header.Set("Content-Type", "application/json")
-	response, err := server.Client().Do(req)
-	require.NoError(t, err)
-	defer response.Body.Close()
-	data, err := io.ReadAll(response.Body)
-	require.NoError(t, err)
-	t.Logf("%s %s actor=%s selected=%s status=%d body=%s", method, path, actor, org, response.StatusCode, data)
-	return response.StatusCode
+// A fixed domain port supplies only the published synthetic values. Production
+// acquisition catalog selection/ownership remains tested at its current owner.
+type scope339Catalog struct {
+	catalogs map[string]imageagent.AssetCatalog
 }
-func TestOrganizationScopeHTTPPersistenceAndActivity(t *testing.T) {
+
+func (c scope339Catalog) Resolve(_ context.Context, scope imageagent.AssetCatalogScope) (imageagent.AssetCatalog, error) {
+	catalog, ok := c.catalogs[scope.TenantID]
+	if !ok {
+		return imageagent.AssetCatalog{}, imageagent.ErrIdentityRequired
+	}
+	return catalog, nil
+}
+
+func scope339StartInput() imageagent.StartRunInput {
+	return imageagent.StartRunInput{
+		RunID: "run339", BusinessTaskID: "catalog-input", TargetPlatform: "shein",
+		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
+		Mode:               imageagent.RunModeManual, IdempotencyKey: "run-key339", MaxConcurrentSlots: 1,
+		Budget: imageagent.Budget{MaxImages: 12, MaxAgentSteps: 20, MaxModelCalls: 30, MaxRepairAttemptsPerSlot: 2, MaxElapsed: 500 * time.Second,
+			EnabledLimits: imageagent.BudgetLimitImages | imageagent.BudgetLimitAgentSteps | imageagent.BudgetLimitModelCalls | imageagent.BudgetLimitRepairAttemptsPerSlot | imageagent.BudgetLimitElapsed},
+		Plan: imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key339", SourceAssetIDs: []string{"catalog-image-1"}, Slots: []imageagent.Slot{{ID: "slot1", Role: imageagent.SlotRoleMain, Status: imageagent.SlotStatusPending, SourceAssetIDs: []string{"catalog-image-1"}, IdempotencyKey: "slot-key339"}}},
+	}
+}
+
+func TestOrganizationScopeServicePersistenceAndActivity(t *testing.T) {
 	f := newScope339Fixture(t)
-	server := f.server(t)
-	require.Equal(t, 202, scope339Request(t, server, "POST", scope339Path, "actor", "B", scope339Body))
+	ctx, err := f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
+	require.NoError(t, err)
+	require.NoError(t, f.service(t).Start(ctx, scope339StartInput()))
 	input := f.temporal.input(t)
 	require.Equal(t, "B", input.Identity.TenantID)
 	require.Equal(t, "actor", input.Identity.UserID)
@@ -249,41 +293,72 @@ func TestOrganizationScopeHTTPPersistenceAndActivity(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, input.AssetCatalog, stored.AssetCatalog)
 	require.Contains(t, stored.AssetCatalog.Assets[0].URL, "/B.png")
-	// Rebuild HTTP resolver/service/repository, retry the actual command, then
-	// decode Temporal's serialized payload with a fresh converter call.
-	require.Equal(t, 202, scope339Request(t, f.server(t), "POST", scope339Path, "actor", "B", scope339Body))
+	// Rebuild the current service/repository and retry the typed command.
+	require.NoError(t, f.service(t).Start(ctx, scope339StartInput()))
 	restored := f.temporal.input(t)
 	require.Equal(t, input.Identity, restored.Identity)
-	require.Equal(t, 200, scope339Request(t, f.server(t), "GET", scope339Path+"/run339", "actor", "B", ""))
+	readContext, err := f.context(t, "actor", "B", authz.PermissionImageAgentRead)
+	require.NoError(t, err)
+	_, err = f.service(t).Get(readContext, "run339")
+	require.NoError(t, err)
 	starts := f.temporal.starts
-	for _, tc := range []struct{ name, actor, org, body string }{
-		{"missing organization", "actor", "", scope339Body},
-		{"cross organization identity", "actor", "C", scope339Body},
-		{"cross organization key", "actor", "C", strings.Replace(scope339Body, "run339", "other339", 1)},
-		{"changed payload", "actor", "B", strings.Replace(scope339Body, "slot-key339", "different", 1)},
-		{"body owner tamper", "actor", "B", strings.Replace(scope339Body, `"mode":"manual"`, `"mode":"manual","tenant_id":"C"`, 1)},
+	for _, tc := range []struct {
+		name, actor, org string
+		mutate           func(*imageagent.StartRunInput)
+	}{
+		{"missing organization", "actor", "", nil},
+		{"cross organization identity", "actor", "C", nil},
+		{"cross organization key", "actor", "C", func(i *imageagent.StartRunInput) { i.RunID = "other339" }},
+		{"changed payload", "actor", "B", func(i *imageagent.StartRunInput) { i.Plan.Slots[0].IdempotencyKey = "different" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			require.GreaterOrEqual(t, scope339Request(t, f.server(t), "POST", scope339Path, tc.actor, tc.org, tc.body), 400)
+			request := scope339StartInput()
+			if tc.mutate != nil {
+				tc.mutate(&request)
+			}
+			callContext, callErr := f.context(t, tc.actor, tc.org, authz.PermissionImageAgentWrite)
+			if callErr == nil && tc.org == "C" {
+				// C may create its own inputs. This negative case reuses B's
+				// captured transport owner under C's selected organization.
+				captured, ok := authidentity.AuthenticatedIdentityFromContext(callContext)
+				require.True(t, ok)
+				captured.TenantID = "B"
+				callContext = authidentity.WithAuthenticatedIdentity(callContext, captured)
+			}
+			if callErr == nil {
+				callErr = f.service(t).Start(callContext, request)
+			}
+			require.Error(t, callErr)
 			require.Equal(t, starts, f.temporal.starts)
 		})
 	}
+	tampered, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	require.True(t, ok)
+	tampered.TenantID = "C"
+	require.ErrorIs(t, f.service(t).Start(authidentity.WithAuthenticatedIdentity(ctx, tampered), scope339StartInput()), imageagent.ErrIdentityRequired)
+	require.Equal(t, starts, f.temporal.starts)
 	for _, actor := range []string{"actor", "admin"} {
 		org := "C"
 		if actor == "admin" {
 			org = "B"
 		}
-		require.Equal(t, 404, scope339Request(t, f.server(t), "GET", scope339Path+"/run339", actor, org, ""))
-		require.Equal(t, 404, scope339Request(t, f.server(t), "POST", scope339Path+"/run339/restart", actor, org, ""))
+		callContext, callErr := f.context(t, actor, org, authz.PermissionImageAgentRead)
+		require.NoError(t, callErr)
+		_, callErr = f.service(t).Get(callContext, "run339")
+		require.ErrorIs(t, callErr, imageagent.ErrRunNotFound)
+		callContext, callErr = f.context(t, actor, org, authz.PermissionImageAgentWrite)
+		require.NoError(t, callErr)
+		require.ErrorIs(t, f.service(t).RestartFailed(callContext, "run339"), imageagent.ErrRunNotFound)
 	}
 	f.iam.revoked.Store(true)
-	require.GreaterOrEqual(t, scope339Request(t, f.server(t), "POST", scope339Path, "actor", "B", scope339Body), 400)
+	_, err = f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
+	require.Error(t, err)
 	f.iam.revoked.Store(false)
 	f.iam.failed.Store(true)
-	require.GreaterOrEqual(t, scope339Request(t, f.server(t), "POST", scope339Path, "actor", "B", scope339Body), 400)
+	_, err = f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
+	require.Error(t, err)
 	f.iam.failed.Store(false)
 	require.Equal(t, starts, f.temporal.starts)
-	require.Equal(t, 404, scope339Request(t, server, "POST", "/api/v1/image-agent/task-runs", "actor", "B", `{}`))
 	legacy := imagestore.NewGormRepository(f.db)
 	_, err = legacy.GetProjection(context.Background(), scope)
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
@@ -306,8 +381,9 @@ func TestOrganizationScopeHTTPPersistenceAndActivity(t *testing.T) {
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	_, err = repo.ListEvents(context.Background(), oldScope, 0, 10)
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
-	oldBody := strings.ReplaceAll(scope339Body, "run339", "old339")
-	require.GreaterOrEqual(t, scope339Request(t, f.server(t), "POST", scope339Path, "actor", "B", oldBody), 400)
+	oldInput := scope339StartInput()
+	oldInput.RunID = "old339"
+	require.Error(t, f.service(t).Start(ctx, oldInput))
 	oldProjection, err := legacy.GetProjection(context.Background(), oldScope)
 	require.NoError(t, err)
 	require.Empty(t, oldProjection.Run.ScopeProtocol)
@@ -380,13 +456,14 @@ func TestOrganizationRealTemporalImageBudgetDeniesBeforeFirstProvider(t *testing
 	require.NoError(t, err)
 	require.NoError(t, worker.Start())
 	defer worker.Stop()
-	server := f.server(t)
-	body := strings.Replace(scope339Body, `"max_images":12`, `"max_images":1`, 1)
-	body = strings.ReplaceAll(body, "run339", "run487-"+uuid.NewString()[:8])
-	body = strings.Replace(body, `"target_platform":"shein"`, `"target_platform":"product"`, 1)
-	body = strings.Replace(body, `"country":"us"`, `"country":"zz"`, 1)
-	body = strings.Replace(body, `"scene_category":"shoes"`, `"scene_category":"general"`, 1)
-	require.Equal(t, 202, scope339Request(t, server, "POST", scope339Path, "actor", "B", body))
+	request := scope339StartInput()
+	request.Budget.MaxImages = 1
+	request.RunID = "run487-" + uuid.NewString()[:8]
+	request.TargetPlatform = "product"
+	request.ImagePolicyContext = imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}
+	requestContext, err := f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
+	require.NoError(t, err)
+	require.NoError(t, f.service(t).Start(requestContext, request))
 	input := f.temporal.input(t)
 	_, err = client.ExecuteWorkflow(ctx, f.temporal.options, "ImageAgentOrganizationWorkflowV1", input)
 	require.NoError(t, err)
@@ -456,12 +533,14 @@ func scope339AssertEffectMode(t *testing.T, owner, other imageagent.Repository, 
 
 func TestOrganizationScopeInitializationFailureAndStartResponseLoss(t *testing.T) {
 	f := newScope339Fixture(t)
+	ctx, err := f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
+	require.NoError(t, err)
 	require.NoError(t, f.db.Callback().Create().Before("gorm:create").Register("scope339:fail-event", func(tx *gorm.DB) {
 		if tx.Statement.Table == "image_agent_v2_events" {
 			tx.AddError(fmt.Errorf("controlled event write failure"))
 		}
 	}))
-	require.GreaterOrEqual(t, scope339Request(t, f.server(t), "POST", scope339Path, "actor", "B", scope339Body), 400)
+	require.Error(t, f.service(t).Start(ctx, scope339StartInput()))
 	for _, table := range []string{"image_agent_v2_runs", "image_agent_v2_plans", "image_agent_v2_asset_catalog_manifests", "image_agent_v2_projection_snapshots", "image_agent_v2_events"} {
 		var count int64
 		require.NoError(t, f.db.Table(table).Count(&count).Error)
@@ -470,9 +549,9 @@ func TestOrganizationScopeInitializationFailureAndStartResponseLoss(t *testing.T
 	require.Zero(t, f.temporal.starts)
 	require.NoError(t, f.db.Callback().Create().Remove("scope339:fail-event"))
 	f.temporal.failNext = true
-	require.GreaterOrEqual(t, scope339Request(t, f.server(t), "POST", scope339Path, "actor", "B", scope339Body), 400)
+	require.Error(t, f.service(t).Start(ctx, scope339StartInput()))
 	first := f.temporal.input(t)
-	require.Equal(t, 202, scope339Request(t, f.server(t), "POST", scope339Path, "actor", "B", scope339Body))
+	require.NoError(t, f.service(t).Start(ctx, scope339StartInput()))
 	require.Equal(t, first.Identity, f.temporal.input(t).Identity)
 	require.Equal(t, 2, f.temporal.starts)
 	require.Len(t, f.temporal.executions, 1)
@@ -529,7 +608,9 @@ func (f *scope339Fixture) verifyRecoveryCommand(t *testing.T) {
 	next.Slots[0].ErrorCode = imageagent.SlotReviewRequiredCode
 	_, err = repo.CommitProjection(context.Background(), imageagent.ProjectionCommit{Scope: scope, CommitID: "scope339-blocked", ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, EventType: "run.blocked", EventPayload: json.RawMessage(`{}`), RunMutation: &imageagent.RunMutation{Status: next.Run.Status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: next.Run.ActivePlanRevision, Block: next.Run.Block}, SlotMutation: &imageagent.SlotProjectionMutation{PlanRevision: 1, Projection: next.Slots[0], Result: imageagent.SlotResult{SlotID: "slot1", Attempt: 1, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotReviewRequiredCode}, Attempt: imageagent.StepAttempt{TenantID: "B", OwnerUserID: "actor", RunID: "run339", PlanRevision: 1, SlotID: "slot1", Attempt: 1, Node: "execute_slot", IdempotencyKey: "scope339-blocked-attempt", Outcome: "blocked", ErrorCategory: imageagent.SlotReviewRequiredCode}}})
 	require.NoError(t, err)
-	require.Equal(t, 202, scope339Request(t, f.server(t), "POST", scope339Path+"/run339/slots/slot1/attempts/1/recover", "actor", "B", `{"plan_revision":1,"action_id":"recover339"}`))
+	ctx, err := f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
+	require.NoError(t, err)
+	require.NoError(t, f.service(t).RecoverEffect(ctx, "run339", "slot1", 1, 1, "recover339"))
 	var recovery imagetemporal.EffectRecoveryWorkflowInput
 	require.NoError(t, converter.GetDefaultDataConverter().FromPayloads(f.temporal.payload, &recovery))
 	require.Equal(t, "run339", recovery.Identity.RunID)
@@ -731,7 +812,7 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 	_, err = env.ExecuteActivity(activities.ReviewStagedSlotV3, input)
 	require.Error(t, err)
 	require.EqualValues(t, 1, f.providerCalls.Load(), "persisted outcome prevents repeated provider execution")
-	t.Log("actual HTTP Home A / selected B -> persisted scope -> converter -> SDK Activity -> service authorization -> B credentials -> Manager / adapter: provider HTTP=1; no generation or approval")
+	t.Log("verified Home A / selected B -> persisted scope -> converter -> SDK Activity -> service authorization -> B credentials -> Manager / adapter: provider HTTP=1; no generation or approval")
 }
 
 func TestServiceAuthorizationRequiresExactOrganization(t *testing.T) {

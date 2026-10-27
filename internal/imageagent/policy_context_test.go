@@ -134,3 +134,13 @@ func withValidPolicy(input imageagent.StartRunInput) imageagent.StartRunInput {
 	input.ImagePolicyContext = imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"}
 	return input
 }
+
+type recordingImagePolicyAvailability struct {
+	err   error
+	calls []imageagent.ImagePolicyContext
+}
+
+func (a *recordingImagePolicyAvailability) ValidateAvailable(_ context.Context, _ string, policy imageagent.ImagePolicyContext) error {
+	a.calls = append(a.calls, policy)
+	return a.err
+}

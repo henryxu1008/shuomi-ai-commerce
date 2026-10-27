@@ -171,52 +171,12 @@ type StartRunInput struct {
 	MaxConcurrentSlots int
 }
 
-// TaskRunLaunchInput is the task-scoped launch contract for the workspace
-// entrypoint. The caller supplies the verified business task identity plus
-// the image policy context; ImageAgent owns the durable run identity, plan,
-// and budget shape so the browser never constructs plan payloads directly.
-type TaskRunLaunchInput struct {
-	// RequestID identifies one intentional browser launch. Transport retries
-	// reuse it; a later user-initiated regeneration supplies a fresh value.
-	RequestID          string
-	BusinessTaskID     string
-	TargetPlatform     string
-	ImagePolicyContext ImagePolicyContext
-	// SourceAssetID selects the single task-owned source asset for the
-	// run. It is required: crawler ordering never establishes intent,
-	// so the launcher must force an explicit choice via the preflight.
-	SourceAssetID string
-	// StyleAssetIDs optionally promotes task-owned style assets into the
-	// run-scoped authorization snapshot.
-	StyleAssetIDs []string
-}
-
-type TaskRunLaunchResult struct {
-	RunID string
-}
-
 // ImagePolicyAvailability is the command-boundary view of the configured
 // ProductImage policy catalog. Launchers use it before creating durable run
 // state so a syntactically valid but unsupported marketplace policy key cannot
 // become a run that the worker is guaranteed to reject later.
 type ImagePolicyAvailability interface {
 	ValidateAvailable(context.Context, string, ImagePolicyContext) error
-}
-
-// TaskRunAssetsInput is the preflight query for the task-scoped workspace
-// entrypoint: it resolves the selectable task-owned assets without
-// creating a run, so the launcher can require an explicit source
-// selection instead of trusting crawler ordering.
-type TaskRunAssetsInput struct {
-	BusinessTaskID string
-	TargetPlatform string
-}
-
-type TaskRunAssetPreflight struct {
-	BusinessTaskID string
-	TargetPlatform string
-	Sources        []AuthorizedAsset
-	Styles         []AuthorizedAsset
 }
 
 type WorkflowStart struct {

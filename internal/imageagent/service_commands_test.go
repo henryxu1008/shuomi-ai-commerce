@@ -924,3 +924,40 @@ func TestServiceResumeUsesVerifiedActorAndReturnsWorkflowAcknowledgement(t *test
 	_, err = service.Resume(verifiedContext("tenant-b", "user-a"), "run-1", "retry-pending")
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 }
+
+func TestServiceStartRequiresAnExplicitAuthorizedSourceRegardlessOfCatalogOrder(t *testing.T) {
+	for _, selected := range []string{"", "not-authorized", "source-1"} {
+		t.Run(selected, func(t *testing.T) {
+			repository, workflows := store.NewMemoryRepository(), &recordingWorkflowClient{}
+			catalog := authorizedCatalog()
+			catalog.Assets = append([]imageagent.AuthorizedAsset{{ID: "first-crawler-image", Type: imageagent.AuthorizedAssetSource, DisplayURL: "https://cdn.example.test/first.png"}}, catalog.Assets...)
+			service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{catalog: catalog})
+			require.NoError(t, err)
+			input := validPolicyStartInput("explicit-source")
+			input.Plan.SourceAssetIDs = []string{selected}
+			input.Plan.Slots[0].SourceAssetIDs = []string{selected}
+			err = service.Start(verifiedContext("tenant-a", "user-a"), input)
+			if selected != "source-1" {
+				require.Error(t, err)
+				require.Empty(t, workflows.starts)
+				_, readErr := repository.GetProjection(context.Background(), imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-a", RunID: input.RunID})
+				require.ErrorIs(t, readErr, imageagent.ErrRunNotFound)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, workflows.starts, 1)
+			require.Equal(t, []string{"source-1"}, workflows.starts[0].Plan.SourceAssetIDs)
+		})
+	}
+}
+
+func TestServiceStartDeniedAdmissionDoesNotResolveCurrentCatalog(t *testing.T) {
+	catalog := &countingPolicyCatalog{catalog: authorizedCatalog()}
+	workflows := &recordingWorkflowClient{}
+	service, err := imageagent.NewService(store.NewMemoryRepository(), workflows, catalog,
+		imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"another-organization"}}))
+	require.NoError(t, err)
+	require.ErrorIs(t, service.Start(verifiedContext("tenant-a", "user-a"), validPolicyStartInput("denied-start")), imageagent.ErrCommandBlocked)
+	require.Zero(t, catalog.calls)
+	require.Empty(t, workflows.starts)
+}
