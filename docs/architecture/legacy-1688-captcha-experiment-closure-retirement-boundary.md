@@ -1,3 +1,5 @@
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
 > **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
 > #948 替代本设计中闲置的 handleSliderCaptchaWithResult KEEP，并退休专属统计与 TestStatisticsReset；其余24个保留函数、point、当前算法及人工取消和六个原测试保留。
 > 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。

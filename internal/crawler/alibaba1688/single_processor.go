@@ -39,23 +39,6 @@ func NewSingleProcessor(cfg *config.Config, urlHelper *URLHelper, productChecker
 	}
 }
 
-// Prepare provisions the browser runtime without navigating to a product.
-func (sp *SingleProcessor) Prepare(ctx context.Context) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if sp == nil || sp.config == nil {
-		return errors.New("1688 single processor is not configured")
-	}
-	manager := sp.newPublicBrowserManager()
-	if _, _, _, cleanup, err := manager.CreateBrowser(); err != nil {
-		return err
-	} else {
-		defer closeOnContextDone(ctx, cleanup)()
-	}
-	return ctx.Err()
-}
-
 // ProcessWithSingleBrowser 使用单个浏览器处理产品
 func (sp *SingleProcessor) ProcessWithSingleBrowser(ctx context.Context, url string, startTime time.Time) (*model.Product1688, error) {
 	return sp.processWithBrowserManager(ctx, url, startTime, sp.newPublicBrowserManager())

@@ -1,3 +1,5 @@
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
 > #301 / #964 当前替代边界（[用户确认设计 §1–§7/§6.1](legacy-source-result-contract-closure-retirement-boundary.md)）：仅替代 internal/model.Product 路径不动的 KEEP；同一 Product值与JSON归Amazon域内result纯叶子，旧全局根退出。旧Product策略机制保持退休，不新建共享或兼容层。 当前能力、独立SHEIN登录/Store同步及持久化事实owner保持，workflow/完整inventory/依赖及既有资源不动，无试用前置，#301 OPEN。以下原完整Git正文/数字/勾选/证据逐字保留。
 
 > #301 / #961 精确替代顶注：按[legacy-publishing-support-policy-closure-retirement-boundary.md §1–§7（含§4.2/§6.1）](legacy-publishing-support-policy-closure-retirement-boundary.md)，旧 publishing/common 与 jsonx 根、十一闲置 SHEIN 策略族及三个混合策略尾部已在源码完整退出。当前八值合同分归已有 offlinepackage / publishing.Price，本地组装纯行为归 draft；本批表列 KEEP 由该设计矩阵精确替代，其它当前能力/JSON/hash算法/版本/事实owner及独立SHEIN登录与Store同步保持。仅未来新多属性数组固定按原始名排序，不重写已有载荷。以下原文、数字、勾选与历史证据逐字保留，不作为恢复旧owner或运行操作的授权。
