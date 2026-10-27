@@ -7,6 +7,7 @@ import {PassThrough,Writable} from 'node:stream';
 import {syncBuiltinESMExports} from 'node:module';
 import {join,resolve,relative} from 'node:path';
 import {tmpdir} from 'node:os';
+import {makeManifest} from '../contract.mjs';
 
 const scenario=process.env.FAILURE_FIXTURE,root=resolve(tmpdir());
 const receipt={writes:[]};let protectedDirectory=false;
@@ -28,6 +29,9 @@ childProcess.spawn=(command,args)=>{
  } else if(command==='git') {
   if(args[0]==='rev-parse')out='a'.repeat(40);
   else if(!['status','ls-files'].includes(args[0]))throw new Error('UNEXPECTED_COMMAND:git');
+ } else if(command.endsWith('runtime.test.exe')&&scenario.startsWith('snapshot')) {
+  if(!args.includes('-test.run=^TestIssue357Snapshot$'))throw new Error('UNEXPECTED_COMMAND:snapshot');
+  code=1;err='SYNTHETIC_PRIVATE_SNAPSHOT_STDERR\n';
  } else if(command==='go') {
   if(scenario.startsWith('build')){code=1;err='SYNTHETIC_PRIVATE_STDERR\n';}
  } else if(command==='powershell.exe')out=locked?'LOCKED\n':'fixture-sid';
@@ -57,7 +61,7 @@ fs.unlink=async path=>{
  owned(path);
  if(String(path).endsWith(join('ui','node_modules'))) {
   process.stdout.write('FIXTURE_CLEANUP\n');
-  if(!scenario.endsWith('cleanup-success'))throw Object.assign(new Error('SYNTHETIC_PRIVATE_UNLINK_FAILURE'),{code:'EPERM',errno:-4048,syscall:'unlink',path});
+  if(!scenario.endsWith('cleanup-success')&&!scenario.startsWith('snapshot'))throw Object.assign(new Error('SYNTHETIC_PRIVATE_UNLINK_FAILURE'),{code:'EPERM',errno:-4048,syscall:'unlink',path});
   return;
  }
  return unlink(path);
@@ -65,10 +69,17 @@ fs.unlink=async path=>{
 fs.writeFile=async(path,data,options)=>{
  owned(path);
  if(String(path).endsWith('failure-details.json.tmp')) {
-  if(scenario==='evidence-write-failure')throw Object.assign(new Error('SYNTHETIC_PRIVATE_WRITE_FAILURE'),{code:'EACCES'});
+  if(scenario.endsWith('evidence-write-failure'))throw Object.assign(new Error('SYNTHETIC_PRIVATE_WRITE_FAILURE'),{code:'EACCES'});
   receipt.writes.push({mode:options?.mode,protectedDirectory:process.platform==='win32'?protectedDirectory:true});
   await write(join(root,'protection-receipt.json'),JSON.stringify(receipt));
  }
  return write(path,data,options);
 };
 syncBuiltinESMExports();
+if(scenario.startsWith('snapshot')) {
+ const m=makeManifest('12345678-1234-4234-8234-123456789abc',{issuer:12001,web:12002,go:12003,database:12004},'a'.repeat(40),'a'.repeat(40));
+ m.runtimeMode='current-application';m.seeded=true;
+ const {privateDirectory,save}=await import('../io.mjs');
+ await privateDirectory(m.directory);await save(m);
+ process.stdout.write(`runId=${m.runId} manifest=${join(m.directory,'manifest.json')}\n`);
+}

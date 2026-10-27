@@ -124,7 +124,12 @@ async function cleanup(m) {
  if(!audit) {
   stage('snapshot');
   let zeroWrite={passed:false,reason:'setup_incomplete'};
-  if(m.seeded)try{if(currentMode(m))await json(join(m.directory,'snapshot.json'),{...baseConfig(m),databaseUser:'issue357',databasePassword:m.secrets.commercialDatabase});await go(m,'Snapshot',currentMode(m)?'snapshot.json':'runtime.json');zeroWrite=await readJSON(join(m.directory,'zero-write.json'))}catch{zeroWrite={passed:false,reason:'snapshot_failed'}}
+  if(m.seeded)try{
+   await withFailureEvidence(m,'cleanup',async snapshotStage=>{
+    snapshotStage('snapshot');
+    if(currentMode(m))await json(join(m.directory,'snapshot.json'),{...baseConfig(m),databaseUser:'issue357',databasePassword:m.secrets.commercialDatabase});await go(m,'Snapshot',currentMode(m)?'snapshot.json':'runtime.json');zeroWrite=await readJSON(join(m.directory,'zero-write.json'));
+   });
+  }catch{zeroWrite={passed:false,reason:'snapshot_failed'}}
   stage('save-audit');audit={applications,zeroWrite};await json(join(m.directory,'cleanup-audit.json'),audit);
  }
  const {zeroWrite}=audit;

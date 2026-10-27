@@ -70,3 +70,32 @@ for(const scenario of ['compose-cleanup-failure','compose-cleanup-success','buil
   if(process.platform!=='win32')assert.equal((await stat(file)).mode&0o777,0o600);
  });
 }
+
+for(const scenario of ['snapshot-cleanup-success','snapshot-evidence-write-failure']) {
+ test(`seeded cleanup retains the snapshot failure: ${scenario}`,{skip:process.platform!=='win32'},async()=>{
+  const root=await mkdtemp(join(tmpdir(),'issue357-snapshot-test-'));
+  const id='12345678-1234-4234-8234-123456789abc';
+  const result=await new Promise(resolveResult=>execFile(process.execPath,['--import',preload,cli,'destroy','--run',id],{
+   windowsHide:true,timeout:15000,env:{...process.env,TEMP:root,TMP:root,TMPDIR:root,FAILURE_FIXTURE:scenario},
+  },(error,stdout,stderr)=>resolveResult({code:error?.code??0,stdout,stderr})));
+  const output=result.stdout+result.stderr;
+  assert.equal(result.code,1,output);
+  assert.match(output,/FIXTURE_CLEANUP/,'snapshot failure must not stop the existing cleanup path');
+  assert.doesNotMatch(output,/SYNTHETIC_PRIVATE|UNEXPECTED_COMMAND/);
+  const directory=join(root,'task-processor-issue357',id);
+  const audit=JSON.parse(await readFile(join(directory,'cleanup.json'),'utf8'));
+  assert.equal(audit.passed,false);
+  assert.deepEqual(audit.zeroWrite,{passed:false,reason:'snapshot_failed'});
+  assert.equal(JSON.parse(await readFile(join(directory,'manifest.json'),'utf8')).status,'destroyed');
+  if(scenario.endsWith('evidence-write-failure')) {
+   assert.match(output,/FAILURE_EVIDENCE_INCOMPLETE/);
+  } else {
+   const evidence=JSON.parse(await readFile(join(directory,'failure-details.json'),'utf8'));
+   assert.equal(evidence.failures.length,1);
+   assert.equal(evidence.failures[0].phase,'cleanup');
+   assert.equal(evidence.failures[0].stage,'snapshot');
+   assert.match(evidence.failures[0].error.message,/PROCESS_FAILED/);
+   assert.equal(evidence.failures[0].error.privateOutput,'SYNTHETIC_PRIVATE_SNAPSHOT_STDERR\n');
+  }
+ });
+}

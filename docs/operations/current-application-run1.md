@@ -59,6 +59,8 @@ contain the phase, failing stage, timestamp and original error details, includin
 Docker stderr in `error.privateOutput` and cleanup error codes, paths and stacks.
 Initialization evidence is saved before the existing cleanup path runs; cleanup
 failures append a separate record. The file survives successful cleanup. It uses
+the same recording path for a failed cleanup snapshot, while retaining the
+existing `snapshot_failed` audit and continuing cleanup. The file uses
 the same current-user/SYSTEM directory ACL and atomic mode-0600 writer as private
 control files: treat it as secret-bearing and never attach its raw contents to
 public reports. The public manifest and console do not receive these raw details.
