@@ -340,7 +340,7 @@ func TestProjectBoundaryDocumentDefines1688SourceHandoffOwnership(t *testing.T) 
 	normalized := strings.Join(strings.Fields(string(content)), " ")
 	for _, phrase := range []string{
 		"internal/product must not import internal/listingkit, internal/compatibility, internal/crawler, or internal/integration",
-		"internal/integration/crawler/a1688 converts legacy crawler DTOs into adapter-local snapshots and internal/product/sourcing SourceEnvelope values",
+		"internal/integration/acquisition/a1688/browser and internal/integration/acquisition/browsercollector produce current internal/product/sourcing SourceEnvelope values",
 		"internal/compatibility/listingkit/sourcehandoff", "CURRENT STATE", "drain-only",
 		"internal/product/catalog", "internal/product/asset",
 		"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",

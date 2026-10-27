@@ -16,7 +16,6 @@ import (
 
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/assetpublication"
-	a1688 "task-processor/internal/integration/crawler/a1688"
 	assetdb "task-processor/internal/integration/persistence/product/asset"
 	catalogdb "task-processor/internal/integration/persistence/product/catalog"
 	"task-processor/internal/listing/readiness"
@@ -28,11 +27,26 @@ import (
 // These are controlled domain contracts, not an HTTP import or production
 // cutover: source-account authorization is deliberately absent from this fixture.
 func issue30Envelope() sourcing.SourceEnvelope {
-	return a1688.Alibaba1688SourceEnvelope(a1688.Alibaba1688SourceEnvelopeInput{
-		Request:     a1688.Alibaba1688CrawlRequestInput{URL: "https://detail.1688.com/offer/123.html"},
-		Product:     &a1688.Alibaba1688ProductSnapshot{ID: "123", URL: "https://detail.1688.com/offer/123.html", Title: "Bottle", Brand: "Source brand", MinPrice: 10, Currency: "CNY", Category: "Home > Drinkware", Images: []string{"https://source.example.test/bottle.jpg"}, CrawledAt: time.Date(2026, 9, 5, 1, 2, 3, 0, time.UTC)},
-		RawSnapshot: `{"offerId":"123","title":"Bottle"}`, SourceRunID: "source-run-1", RequestID: "request-1",
-	})
+	envelope := sourcing.SourceEnvelope{
+		Identity: sourcing.SourceIdentity{
+			SourceType: sourcing.SourceTypeCrawler, SourcePlatform: "1688", SourceID: "123",
+			SourceURL: "https://detail.1688.com/offer/123.html",
+		},
+		RawReference: sourcing.RawSourceReference{
+			ReferenceType: "1688_product", ReferenceID: "123", URL: "https://detail.1688.com/offer/123.html",
+			Checksum:   sourcing.RawSnapshotChecksum(`{"offerId":"123","title":"Bottle"}`),
+			CapturedAt: time.Date(2026, 9, 5, 1, 2, 3, 0, time.UTC),
+			Metadata:   map[string]string{"crawled_at": "2026-09-05T01:02:03Z"},
+		},
+		ProductCandidate: sourcing.ProductCandidate{
+			Title: "Bottle", Description: "Bottle", Brand: "Source brand", CategoryPath: []string{"Home", "Drinkware"},
+			Attributes: map[string]string{"brand": "Source brand", "category": "Home > Drinkware", "currency": "CNY", "min_price": "10", "source_product_id": "123"},
+		},
+		AssetCandidates:     []sourcing.AssetCandidate{{SourceID: "https://source.example.test/bottle.jpg", URL: "https://source.example.test/bottle.jpg", MediaType: "image", Role: "gallery"}},
+		SupplierOrCostFacts: sourcing.SupplierOrCostFacts{Currency: "CNY", Cost: "10", Price: "10"},
+		Trace:               sourcing.SourceTrace{SourceRunID: "source-run-1", RequestID: "request-1"},
+	}
+	return envelope.Normalize()
 }
 
 func issue30OpenDB(t *testing.T, path string) *gorm.DB {

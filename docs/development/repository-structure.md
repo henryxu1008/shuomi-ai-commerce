@@ -1,3 +1,5 @@
+> #301 / #972: the old LocalAgent PoC command and its dedicated acceptance script have retired together. Current public/extension/batch/original-browser acquisition and debug, SDS/POD, asset approval and independent SHEIN login/Store sync remain. Only the two obsolete current catalogue/maintenance rows are removed below; all other structure rules/history remain. The exact original catalogue is preserved by baseline commit 12f5b70fa72545b401f337f7ce4851104f8fa07d, not reintroduced as a current executable list.
+
 > #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](../architecture/legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
 
 > 当前说明（#301 / #912）：已确认并整批实施[旧 SHEIN 闲置策略与辅助合同完整退休闭包](../architecture/legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）。旧 pricing.PriceManager 包装接线、generationtopics/namelimit 与两种 productsync 属性/最后根 AmazonMonitorData 的暂留说明已按准确矩阵退休；pricing_repo.go 与 api/product 同名 PriceManager、有效子包和当前 JSON/共享合同仍保留；下方原历史段落/计数/链接保留。workflow/inventory 与既有实例/数据/凭据/进程不动，不增加试用前置，#301 OPEN。
@@ -152,7 +154,6 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `product-agent-runtime-prepare`
     - `local-ai-trial-grant`
     - `1688-batch-import`
-    - `1688-local-agent`
     - `commercial-owner-schema-migrate`
     - `ecoservices-schema-init`
     - `fingerprint-browser-installer`
@@ -170,7 +171,6 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `referral-schema-init`
   - `1688-public-browser-collector` 是匿名公开 1688 采集的**独立采集进程**（设计 D13）：无数据库凭据、无数据库网络可达、不做授权、不写操作行，只经内部 RPC 返回 untrusted evidence。缺少调用方准入凭据或出网白名单为空时**拒绝启动**。归 #514 src2b-public-browser-v1；列入清单**不授权**部署该服务或对真实 1688 执行网络验收。
   - `image-agent-temporal-worker` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`，运行装配归 `internal/app/worker/imageagent`。
-  - `1688-local-agent` 的维护入口为 `scripts/1688-local-agent-acceptance.ps1`；归 1688 source runtime。列入清单不授权连接真实账号或执行该脚本。
   - `1688-batch-import` 的维护入口为 `scripts/1688-batch-import.ps1`；属 #398 路线 B 的执行器本地队列切片 S1，只驱动本地队列中的单条商品并回读终态。已确认的 actor/组织必须由调用方显式提供，不从浏览器会话推断；退出码 3 表示结果未知，只允许人工核实，不允许重跑。列入清单不授权对真实 1688 账号执行批量采集。
   - 每个运维入口必须由 `.github/`、`deployments/` 或 `scripts/` 中的构建、部署或脚本引用明确其维护所有者；未归类或同时归类为两类的入口不允许保留在 `cmd/`。
   - `supply-asset-init` 由 `deployments/docker/account-compose/SUPPLY.md` 维护，仅通过私密 Asset owner DSN 和精确数据库确认初始化全新空库并授予既有 `supply_asset_runtime` 窄权限；运行进程不执行 DDL、不迁移历史数据。

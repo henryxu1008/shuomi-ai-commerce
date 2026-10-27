@@ -1,3 +1,5 @@
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
 > #301 / #969 按[用户确认设计](legacy-support-control-tail-closure-retirement-boundary.md)只进一步替代旧根 logging 退出后仍保留全部 LogConfig/Hook 的宽泛含义：EnableCaller/CallerSkip/SplitByLevel、CallerSkip 默认项、分级 Hook 与镜像控制尾部退出；九有效配置字段/原 Logrus/真实锁/轮转保留。根 logging/redis/prompts 继续退休，core/config 加载日志及 appenv 注入仍消费原 logging owner，CURRENT 不增删。18路径与 §6.1准确边界保持，独立 SHEIN 登录/Store 同步、workflow/完整 inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整 Git blob、数字/勾选/批准/失败逐字保留。
 
 > #958 用户已确认本轮 [三组完整退休设计](legacy-idle-provider-bootstrap-closure-retirement-boundary.md) §1–§7（含 §6.1）：仅替代本文中 geminiimage 原生图片 SDK、runtimepath 安装命名辅助及 LoadFromBytes 正式入口的 KEEP。三组及专属尾部退出；19个有效配置测试改接现有 Viper/Build/Validate，当前 Google 文本/实际图像/采集及独立 SHEIN 登录与 Store 同步保持。无兼容入口，不操作历史运行资源；本文其余批准边界、原全文、计数与历史证据完整保留。

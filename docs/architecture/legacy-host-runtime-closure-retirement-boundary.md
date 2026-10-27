@@ -1,3 +1,5 @@
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
 > #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。
 
 > #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，仅替代共享辅助暂留中的 appenv 旧宿主/日志配置/平台辅助、httpclient 两闲置 helper 及孤立 ServerConfig；保留当前日志/版本、HTTP server/health/ready、HTTP/TLS/retry/有效配置和其它当前能力。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。

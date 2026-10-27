@@ -68,8 +68,8 @@ Does not own:
 Concrete source adapters currently live in:
 
 - `internal/integration/acquisition/amazon`
-- `internal/integration/crawler/a1688`
-- `internal/sds/adapter/product_source`
+- `internal/integration/acquisition/a1688/browser`
+- `internal/integration/acquisition/browsercollector`
 
 Boundary guard:
 

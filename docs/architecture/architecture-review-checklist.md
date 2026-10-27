@@ -127,7 +127,7 @@ consider the applicable guards, including:
 - `TestAlibaba1688CrawlerDoesNotConfigureLegacyTenantThroughListingKitHTTPAPI`
 - `TestA1688ListingKitCompatibilityReadsIdentityFromNeutralContext`
 - `TestA1688ListingKitCommandReadsIdentityFromNeutralContext`
-- `TestLocalAgentHTTPAPIReadsIdentityFromNeutralContext`
+- `TestLegacyLocalAgentSourcePolicyClosureIsRetired`
 - `TestSheinLoginReadsIdentityFromNeutralContext`
 - `TestListingKitIdentityReadersUseNeutralContext`
 - `TestZitadelAuthMiddlewareWritesNeutralIdentityContext`
