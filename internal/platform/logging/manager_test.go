@@ -14,23 +14,19 @@ import (
 )
 
 type probeRWLocker struct {
-	delegate        sync.RWMutex
-	lockAttempt     chan struct{}
-	lockPermit      chan struct{}
-	unlockAttempt   chan struct{}
-	unlockPermit    chan struct{}
-	readLockAttempt chan struct{}
-	readLockPermit  chan struct{}
+	delegate      sync.RWMutex
+	lockAttempt   chan struct{}
+	lockPermit    chan struct{}
+	unlockAttempt chan struct{}
+	unlockPermit  chan struct{}
 }
 
 func newProbeRWLocker() *probeRWLocker {
 	return &probeRWLocker{
-		lockAttempt:     make(chan struct{}),
-		lockPermit:      make(chan struct{}),
-		unlockAttempt:   make(chan struct{}),
-		unlockPermit:    make(chan struct{}),
-		readLockAttempt: make(chan struct{}),
-		readLockPermit:  make(chan struct{}),
+		lockAttempt:   make(chan struct{}),
+		lockPermit:    make(chan struct{}),
+		unlockAttempt: make(chan struct{}),
+		unlockPermit:  make(chan struct{}),
 	}
 }
 
@@ -46,16 +42,6 @@ func (l *probeRWLocker) Unlock() {
 	l.delegate.Unlock()
 }
 
-func (l *probeRWLocker) RLock() {
-	l.readLockAttempt <- struct{}{}
-	<-l.readLockPermit
-	l.delegate.RLock()
-}
-
-func (l *probeRWLocker) RUnlock() {
-	l.delegate.RUnlock()
-}
-
 func TestNewLogManager(t *testing.T) {
 	config := &LogConfig{
 		Level:   "info",
@@ -65,7 +51,7 @@ func TestNewLogManager(t *testing.T) {
 
 	manager := NewLogManager(config)
 	assert.NotNil(t, manager)
-	assert.Equal(t, "info", manager.GetLevel())
+	assert.Equal(t, "info", manager.GetRawLogger().GetLevel().String())
 }
 
 func TestLogManagerWithFile(t *testing.T) {
@@ -106,76 +92,6 @@ func TestDefaultLogManagerDoesNotCreateRuntimeFiles(t *testing.T) {
 	if _, err := os.Stat("tmp"); !os.IsNotExist(err) {
 		t.Fatalf("default logger created a runtime directory: %v", err)
 	}
-}
-
-func TestLogManagerSetLevel(t *testing.T) {
-	manager := NewLogManager(nil)
-	defer manager.Close()
-
-	// 初始级别应该是info
-	assert.Equal(t, "info", manager.GetLevel())
-
-	// 修改级别
-	err := manager.SetLevel("debug")
-	assert.NoError(t, err)
-	assert.Equal(t, "debug", manager.GetLevel())
-
-	// 修改为error
-	err = manager.SetLevel("error")
-	assert.NoError(t, err)
-	assert.Equal(t, "error", manager.GetLevel())
-}
-
-func TestZeroValueLogManagerGetLevel(t *testing.T) {
-	var manager LogManager
-
-	assert.Equal(t, "panic", manager.GetLevel())
-}
-
-func TestLogManagerFallbackLockSupportsConcurrentSetAndGetLevel(t *testing.T) {
-	manager := &LogManager{logger: logrus.New()}
-	start := make(chan struct{})
-	panicValues := make(chan any, 2)
-	var workers sync.WaitGroup
-	workers.Add(2)
-
-	go func() {
-		defer workers.Done()
-		defer func() {
-			if recovered := recover(); recovered != nil {
-				panicValues <- recovered
-			}
-		}()
-		<-start
-		for i := 0; i < 100; i++ {
-			_ = manager.SetLevel("debug")
-		}
-	}()
-
-	go func() {
-		defer workers.Done()
-		defer func() {
-			if recovered := recover(); recovered != nil {
-				panicValues <- recovered
-			}
-		}()
-		<-start
-		for i := 0; i < 100; i++ {
-			level := manager.GetLevel()
-			if level != "panic" && level != "debug" {
-				t.Errorf("concurrent GetLevel returned unexpected level %q", level)
-				return
-			}
-		}
-	}()
-
-	close(start)
-	workers.Wait()
-	close(panicValues)
-	for recovered := range panicValues {
-		t.Errorf("fallback-lock level operation panicked: %v", recovered)
-	}
-	assert.Equal(t, "debug", manager.GetLevel())
 }
 
 func TestGetGlobalLogger(t *testing.T) {
@@ -285,49 +201,7 @@ func TestLogManagerRegistryGetWaitsForInitToPublishCompleteManager(t *testing.T)
 	assert.Equal(t, int32(1), factoryCalls.Load())
 	assert.Same(t, initialized, got)
 	require.NotNil(t, got.GetRawLogger())
-	assert.Equal(t, "error", got.GetLevel())
-}
-
-func TestLogManagerSetAndGetLevelWaitForManagerLock(t *testing.T) {
-	probe := newProbeRWLocker()
-	manager := newLogManager(&LogConfig{Level: "info", Console: false}, probe)
-	t.Cleanup(func() { _ = manager.Close() })
-
-	getReturned := make(chan string, 1)
-	go func() { getReturned <- manager.GetLevel() }()
-	select {
-	case <-probe.readLockAttempt:
-	case level := <-getReturned:
-		t.Fatalf("GetLevel returned before reaching the read-lock boundary: %q", level)
-	}
-	probe.readLockPermit <- struct{}{}
-	assert.Equal(t, "info", <-getReturned)
-
-	setReturned := make(chan error, 1)
-	go func() { setReturned <- manager.SetLevel("debug") }()
-	select {
-	case <-probe.lockAttempt:
-	case err := <-setReturned:
-		t.Fatalf("SetLevel returned before reaching the lock boundary: %v", err)
-	}
-	probe.lockPermit <- struct{}{}
-	select {
-	case <-probe.unlockAttempt:
-	case err := <-setReturned:
-		t.Fatalf("SetLevel returned before reaching the unlock boundary: %v", err)
-	}
-	probe.unlockPermit <- struct{}{}
-	require.NoError(t, <-setReturned)
-
-	finalLevel := make(chan string, 1)
-	go func() { finalLevel <- manager.GetLevel() }()
-	select {
-	case <-probe.readLockAttempt:
-	case level := <-finalLevel:
-		t.Fatalf("final GetLevel returned before reaching the read-lock boundary: %q", level)
-	}
-	probe.readLockPermit <- struct{}{}
-	assert.Equal(t, "debug", <-finalLevel)
+	assert.Equal(t, "error", got.GetRawLogger().GetLevel().String())
 }
 
 func TestLazyLogManagerRegistryDoesNotCreateRuntimeFiles(t *testing.T) {

@@ -1,3 +1,16 @@
+#301 / #969 当前实施：**RETIRE / Reuse Existing Architecture / USER_CONFIRMED / Ready / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `60bef6cf3d5d7d557477f69b4ea8c19d162e0d58` 的 §1–§7（含 §4.2、§6.1），同一18路径完整收齐。日志级别镜像/闲置控制/分级 Hook、无效配置与 Runner.Status 转发及专属尾部退出；有效构造留原公开 NewLogManager，registry 使用标准 sync.Locker，原真实锁/发布顺序/轮转保持。HTTP 实际 TLS/重试/取消、Goose Up/版本表/锁/幂等与状态断言不变。原 guard 仅删三旧保活项并新增一个完整 guard，其余原检查与 workflow/完整 inventory/依赖/保护零改。当前能力、采集及独立 SHEIN 登录/Store 同步保持；不操作既有实例/数据/凭据/进程，无试用前置，#301 OPEN。准确源码 HEAD、自检/CI/最终复核分别留同一 PR；实现不是运行/用户验收，合并/部署/关单另授权。
+
+## 本次确认与实施映射
+
+- 当前准入为用户确认后的 Reuse Existing Architecture / Ready，Issue/PR 已记录、读回后才修改生产；以下 NOT_READY / DESIGN_ONLY 只作完整冻结历史。
+- 4类型/8函数方法/6混合字段、原 Hook 文件、四专属级别测试和 probe 读锁尾部按 §5 退出；原 Logrus 初始级别/formatter/ReportCaller、真实全局 registry 协议和 writer 不变。
+- 两处日志级别观察改原生 logger，两处迁移状态观察改已有 provider；原并发/锁/完整发布及 Pending/Applied/幂等/版本表/安全断言保持。新 TestLegacyLoggingHTTPMigrationSupportClosureIsRetired 已记录旧代码真实 RED；GREEN 与必要自检结果留 PR，不把设计阶段 CI 当源码 CI。
+- 本批18路径矩阵、六份历史准确顶注与完整后缀、JSON/物理持久化边界及 §6.1 保持；没有 alias、替代门面、额外运行入口或第二事实源。源码最终复核/准确合并另行授权，当前不执行应用或迁移。
+
+以下冻结设计全文逐字保留。
+
+---
+
 # #301 旧日志控制、HTTP 无效选项与迁移状态尾部完整退休设计
 
 > **DESIGN_ONLY / SOURCE_NOT_STARTED / AWAITING_USER_CONFIRMATION**。本阶段只改本文、Architecture README、Legacy Register 三份文档。设计基线为实际 main `674d87c05253f77f02eebba20cb154cf9e294191`；#968 已正常合并，其准确 push/main CI40435620130 attempt1 整 run SUCCESS。本批未来实施为 **Reuse Existing Architecture / NOT_READY**，须先完成适用设计复核、用户确认 §1–§7（含 §4.2、§6.1），并在 Issue/PR 记录、读回 Ready；当前没有生产代码实施、合并、部署或关单授权。
