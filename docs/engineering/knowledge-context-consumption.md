@@ -96,9 +96,39 @@ go test ./internal/integration/openai -run '^TestTextRouteTimeoutFitsKnowledgeDi
 ```
 
 PostgreSQL tests use isolated containers and synthetic documents. Reconstructing a
-repository tests durable adoption; controlled expiry tests recovery. These do not
-claim an actual OS process crash, real enterprise document acceptance, paid model
-calls, full browser use, or production deployment. Those remain NOT_RUN here.
+repository tests durable adoption; controlled expiry tests recovery. The separate
+pre-claim regression below adds an OS-killed test process. Full application process
+restart, real enterprise document acceptance, paid model calls, full browser use,
+and production deployment remain NOT_RUN here.
+
+### Pre-claim interruption regression (#558)
+
+```powershell
+go test -tags integration ./internal/integration/persistence/knowledge -run '^TestKnowledgeContextPostgresPreclaimProcessCrashRecovery$' -count=1 -v
+```
+
+This test reuses the native Knowledge fixture in a disposable PostgreSQL container,
+with a separate database for the native Agent Store. It launches its own test binary,
+materializes through the live-grant/Casbin Knowledge adapter, acknowledges the committed
+ref and exact citations, and blocks before `Runtime.Start`. The parent verifies the
+child PID and the absence of Agent runs/permits, kills only that owned process, and
+waits for its unsuccessful exit. Connection settings travel over private stdin.
+
+After promoting a newer readable revision, a fresh child receives the same original
+scope/binding/key/selection/policy command, without the prior ref. It reopens both
+repositories, reauthorizes Knowledge access and adopts the same ref/digest/exact revision
+and citation. Eight concurrent calls to the existing Eino `Runtime.Start` exercise the
+native `Store.Claim`: exactly one acquisition and one run persist. The run stores only
+the opaque ref; the original PARTIAL content and warning remain in Knowledge.
+
+Agent authorization is a binding-checking test double. A local model double returns
+unavailable from Quote, before reservation or dispatch; Decide is counted and must
+remain zero. No provider transport, usage ledger or external business client is
+constructed, and no Knowledge dispatch permit is created. This verifies the
+commit → test-process kill → same-command adoption → Runtime/Claim boundary. It does
+not exercise the full HTTP/application process, browser recovery, successful model
+execution or Product Review. The original #565 repository-reconstruction evidence and
+its historical NOT_RUN results retain their original scope.
 
 ## Product title consumer (#559)
 
@@ -181,5 +211,5 @@ then failed Claim, pre-claim escaped-envelope rejection with no run/model accoun
 or dispatch, concurrent retry, exact version adoption after update, restart
 of handlers, Review handoff, revoked access and disabled content. Existing
 `TestProductAgentAcquisitionToReviewUsesRealOwners` covers the ordinary path.
-Real process crash, complete logged-in browser use, real documents, paid provider
+Full application process crash, complete logged-in browser use, real documents, paid provider
 calls and deployment remain NOT_RUN. Keep the original #557 trial untouched.
