@@ -3,6 +3,7 @@ import { memberId, MemberError, MemberScope, requestMembers } from "./members";
 
 import {
   enterpriseRoleKey,
+  enterpriseModuleCatalogLimit,
   moduleIds,
   roleDefinition,
 } from "./enterprise-role-schema";
@@ -40,7 +41,7 @@ const roleList = z
     userId: memberId,
     organizationId: memberId,
     items: z.array(roleDefinition).min(1).max(65),
-    catalog: z.array(catalogItem).max(32),
+    catalog: z.array(catalogItem).max(enterpriseModuleCatalogLimit),
     canManage: z.boolean(),
     canCreate: z.boolean(),
     remainingSlots: z.number().int().min(0).max(64),
