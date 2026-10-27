@@ -14,12 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// The current application supplies its existing source/rule and Asset owners.
-// This worker consumes only the set protocol and never assembles retired
-// Extract/Render/Review capabilities or another approval inventory.
-func NewImageSetTemporalDependencies(cfg *config.Config, imageDB, resourceDB *gorm.DB, authorizer imageagent.ExecutionAuthorizer, contexts imageagent.ImageSetContextReader, publisher imageagent.ApprovedImageSetPublisher, approvals productasset.ApprovalCommitReader, logger *logrus.Logger, methods ...imageagent.ImageMethodContext) (appruntime.ImageAgentTemporalDependencies, error) {
-	return NewManagedImageSetTemporalDependencies(cfg, imageDB, resourceDB, authorizer, contexts, publisher, approvals, logger, nil, methods...)
-}
 func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourceDB *gorm.DB, authorizer imageagent.ExecutionAuthorizer, contexts imageagent.ImageSetContextReader, publisher imageagent.ApprovedImageSetPublisher, approvals productasset.ApprovalCommitReader, logger *logrus.Logger, current d.CurrentReader, methods ...imageagent.ImageMethodContext) (appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(methods) > 1 || cfg == nil || imageDB == nil || resourceDB == nil || authorizer == nil || contexts == nil || publisher == nil || approvals == nil || !cfg.ImageAgent.Generation.Configured() {

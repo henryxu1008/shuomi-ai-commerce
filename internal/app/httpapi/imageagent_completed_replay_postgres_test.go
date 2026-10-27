@@ -107,6 +107,41 @@ func TestAcquisitionCompletedApprovalHTTPReplaysFromExactOwnerFact(t *testing.T)
 	require.NoError(t, db.Table("product_approved_assets").Count(&assetsBefore).Error)
 	require.NoError(t, db.Table("product_approval_receipts").Count(&receiptsBefore).Error)
 	require.Equal(t, http.StatusAccepted, request(memberID, actionID))
+	// This is completed-replay transport evidence, not a first-commit fixture.
+	// The current router finishes the reply, the socket loses it, and the
+	// original action replays without updating the closed Temporal execution.
+	completedReply := make(chan int, 1)
+	lostReply := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), authidentity.AuthenticatedIdentity{TenantID: tenantID, EffectiveOrganizationID: tenantID, UserID: actorID, EffectiveMemberID: memberID}))
+		recorded := httptest.NewRecorder()
+		router.ServeHTTP(recorded, r)
+		completedReply <- recorded.Code
+		if recorded.Code == http.StatusAccepted {
+			connection, _, hijackErr := w.(http.Hijacker).Hijack()
+			if hijackErr != nil {
+				t.Errorf("completed replay response hijack: %v", hijackErr)
+				return
+			}
+			_ = connection.Close()
+			return
+		}
+		w.WriteHeader(recorded.Code)
+		_, _ = w.Write(recorded.Body.Bytes())
+	}))
+	t.Cleanup(lostReply.Close)
+	lostReply.Client().Timeout = 5 * time.Second
+	response, lostErr := lostReply.Client().Post(lostReply.URL+"/api/v1/workbench/sourcing/1688/acquisitions/"+operationID+"/main-image/runs/"+runID+"/approve", "application/json", strings.NewReader(`{"planRevision":1,"resultDigest":"`+digest+`","actionId":"`+actionID+`"}`))
+	if response != nil {
+		_ = response.Body.Close()
+	}
+	require.Error(t, lostErr, "the completed replay response must be lost after the real route returns")
+	select {
+	case code := <-completedReply:
+		require.Equal(t, http.StatusAccepted, code)
+	case <-time.After(5 * time.Second):
+		t.Fatal("current route never completed the response being lost")
+	}
+	require.Equal(t, http.StatusAccepted, request(memberID, actionID))
 	require.Equal(t, http.StatusConflict, request(memberID, uuid.NewString()))
 	require.Equal(t, http.StatusForbidden, request("new-member", actionID), "Service rejects a replacement canonical member before receipt read")
 	require.Zero(t, tracked.approvals.Load(), "completed replay must not update closed Temporal or dispatch providers")

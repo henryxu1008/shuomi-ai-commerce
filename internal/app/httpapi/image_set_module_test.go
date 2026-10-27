@@ -359,3 +359,77 @@ func TestFullImageRestartRejectsChangedPlanSourceAndMemberBeforeWorkflowStart(t 
 		})
 	}
 }
+
+func TestFullImageJSONKeepsCurrentStrictBoundary(t *testing.T) {
+	const limit = 131072
+	prefix, suffix := `{"value":"`, `"}`
+	exact := prefix + strings.Repeat("x", limit-len(prefix)-len(suffix)) + suffix
+	for _, tc := range []struct {
+		name, body string
+		valid      bool
+	}{
+		{"exact limit", exact, true},
+		{"hidden overflow", `{"value":"ok"}` + strings.Repeat(" ", limit), false},
+		{"one over limit", prefix + strings.Repeat("x", limit-len(prefix)-len(suffix)+1) + suffix, false},
+		{"owner field", `{"value":"ok","tenant_id":"other"}`, false},
+		{"duplicate field", `{"value":"a","value":"b"}`, false},
+		{"invalid utf8", prefix + string([]byte{0xff}) + suffix, false},
+		{"trailing json", `{"value":"ok"}{}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.body))
+			r.Header.Set("Content-Type", "application/json")
+			var target struct {
+				Value string `json:"value"`
+			}
+			err := readFullImageJSON(r, &target)
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, imageagent.ErrValidation)
+			}
+		})
+	}
+}
+
+func TestFullImageCurrentRouteRejectsRetiredControlsBeforeSourceRead(t *testing.T) {
+	const operationID = "d1abe8da-b381-4924-8d15-d79bdbfacf70"
+	for _, tc := range []struct {
+		name, query, body string
+		invalidIdentity   bool
+		status            int
+	}{
+		{"owner field", "", `{"target":{"Platform":"product"},"tenant_id":"other"}`, false, 400},
+		{"old mode", "", `{"target":{"Platform":"product"},"mode":"manual"}`, false, 400},
+		{"duplicate target", "", `{"target":{"Platform":"product"},"target":{"Platform":"product"}}`, false, 400},
+		{"query owner", "?tenant_id=other", `{"target":{"Platform":"product"}}`, false, 400},
+		{"missing original member", "", `{"target":{"Platform":"product"}}`, true, 403},
+		{"current input", "", `{"target":{"Platform":"product"}}`, false, 200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service, err := imageagent.NewService(imageSetHTTPRepository{}, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope())
+			require.NoError(t, err)
+			sources := &imageSetHTTPSource{}
+			module := fullImageModule{application: &fullImageApplication{service: service, readSources: sources}, bind: func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }}
+			router := gin.New()
+			for _, route := range module.routes() {
+				router.Handle(route.Method, route.Path, route.Handler)
+			}
+			r := httptest.NewRequest(http.MethodPost, "/api/v1/workbench/sourcing/1688/acquisitions/"+operationID+"/images/requirements"+tc.query, strings.NewReader(tc.body))
+			id := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
+			if tc.invalidIdentity {
+				id.EffectiveMemberID = ""
+			}
+			r = r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), id))
+			r.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r)
+			require.Equal(t, tc.status, w.Code, w.Body.String())
+			if tc.status != 200 {
+				require.Empty(t, sources.input.ContextID)
+			} else {
+				require.Equal(t, operationID, sources.input.ContextID)
+			}
+		})
+	}
+}

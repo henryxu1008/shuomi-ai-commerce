@@ -147,13 +147,6 @@ func defaultImageAgentWorkerDependencyResolver() imageAgentWorkerDependencyResol
 	}
 }
 
-// ResolveImageAgentTemporalDependencies builds the dedicated production worker
-// from the same database, ImageAgent artifact storage, and ListingKit result
-// ownership adapters used by the API runtime.
-func ResolveImageAgentTemporalDependencies(configPath string, logger *logrus.Logger) (appruntime.ImageAgentTemporalDependencies, func() error, error) {
-	return ResolveImageAgentTemporalDependenciesForMode(configPath, logger, imageagenttemporal.WorkerWireModeV3)
-}
-
 // ResolveImageAgentTemporalDependenciesForMode composes only the capabilities
 // registered by the selected worker process. The legacy public resolver above
 // remains v3-compatible for existing callers.

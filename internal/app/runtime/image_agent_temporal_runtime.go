@@ -93,23 +93,10 @@ type imageAgentTemporalRuntimeDependencies struct {
 	NewWorker func(imageagenttemporal.WorkerConfig) (imageAgentWorker, error)
 }
 
-type imageAgentCompatibilityCanaryDependencies struct {
-	Dial      func(context.Context, string, string) (sdkclient.Client, func() error, error)
-	RunCanary func(context.Context, sdkclient.Client, string) error
-}
-
 type imageAgentCompatibilityCanaryWorkerDependencies struct {
 	Dial      func(context.Context, string, string) (sdkclient.Client, func() error, error)
 	NewWorker func(sdkclient.Client, string) (imageAgentWorker, error)
 	RunCanary func(context.Context, sdkclient.Client, string) error
-}
-
-func StartImageAgentTemporalWorker(dependencies ImageAgentTemporalDependencies, logger *logrus.Logger) (func() error, error) {
-	return StartImageAgentTemporalWorkerWithOptions(dependencies, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, logger)
-}
-
-func StartImageAgentTemporalWorkerWithOptions(dependencies ImageAgentTemporalDependencies, options ImageAgentTemporalWorkerOptions, logger *logrus.Logger) (func() error, error) {
-	return startImageAgentTemporalWorkerWithOptionsAndRuntimeDependencies(context.Background(), dependencies, options, logger, defaultImageAgentTemporalRuntimeDependencies())
 }
 
 func startImageAgentTemporalWorkerWithOptionsAndRuntimeDependencies(ctx context.Context, dependencies ImageAgentTemporalDependencies, options ImageAgentTemporalWorkerOptions, logger *logrus.Logger, runtimeDependencies imageAgentTemporalRuntimeDependencies) (func() error, error) {
@@ -132,22 +119,6 @@ func startImageAgentTemporalWorkerWithOptionsAndRuntimeDependencies(ctx context.
 	return closeFn, nil
 }
 
-func DialImageAgentTemporalWorkflowClient(logger *logrus.Logger) (imageagent.WorkflowClient, func() error, error) {
-	if !envBool(envImageAgentTemporalEnabled) {
-		return nil, nil, nil
-	}
-	address := envOrDefault(envImageAgentTemporalAddress, "localhost:7233")
-	namespace := envOrDefault(envImageAgentTemporalNamespace, "default")
-	client, closeFn, err := dialImageAgentTemporal(context.Background(), address, namespace)
-	if err != nil {
-		return nil, nil, fmt.Errorf("dial image agent temporal: %w", err)
-	}
-	if logger != nil {
-		logger.WithFields(logrus.Fields{"address": address, "namespace": namespace, "taskQueue": imageagenttemporal.TaskQueueV3}).Info("connected image agent temporal client")
-	}
-	return imageagenttemporal.NewClient(client), closeFn, nil
-}
-
 // DialOrganizationImageAgentTemporalWorkflowClient is the explicit current
 // acquisition control plane connection. It cannot silently select the legacy
 // v3 queue or be disabled by the older ambient feature flag.
@@ -157,10 +128,6 @@ func DialOrganizationImageAgentTemporalWorkflowClient(ctx context.Context, addre
 		return nil, nil, err
 	}
 	return imageagenttemporal.NewOrganizationClient(client), closeFn, nil
-}
-
-func RunImageAgentTemporalWorker(ctx context.Context, dependencies ImageAgentTemporalDependencies, logger *logrus.Logger) error {
-	return RunImageAgentTemporalWorkerWithOptions(ctx, dependencies, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, logger)
 }
 
 func RunImageAgentTemporalWorkerWithOptions(ctx context.Context, dependencies ImageAgentTemporalDependencies, options ImageAgentTemporalWorkerOptions, logger *logrus.Logger) error {
@@ -177,14 +144,6 @@ func runImageAgentTemporalWorkerWithOptionsAndDependencies(ctx context.Context, 
 	}
 	<-ctx.Done()
 	return closeFn()
-}
-
-func startImageAgentTemporalWorkerWithDependencies(dependencies ImageAgentTemporalDependencies, runtimeDependencies imageAgentTemporalRuntimeDependencies) (func() error, error) {
-	return startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), dependencies, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, runtimeDependencies)
-}
-
-func startImageAgentTemporalWorkerWithOptionsAndDependencies(dependencies ImageAgentTemporalDependencies, options ImageAgentTemporalWorkerOptions, runtimeDependencies imageAgentTemporalRuntimeDependencies) (func() error, error) {
-	return startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), dependencies, options, runtimeDependencies)
 }
 
 func startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(ctx context.Context, dependencies ImageAgentTemporalDependencies, options ImageAgentTemporalWorkerOptions, runtimeDependencies imageAgentTemporalRuntimeDependencies) (func() error, error) {
@@ -246,12 +205,6 @@ func startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(ctx context.
 	}, nil
 }
 
-func RunImageAgentCompatibilityCanary(ctx context.Context, logger *logrus.Logger, taskQueue string) error {
-	return runImageAgentCompatibilityCanaryWithDependencies(ctx, logger, taskQueue, imageAgentCompatibilityCanaryDependencies{
-		Dial: dialImageAgentTemporal, RunCanary: imageagenttemporal.RunImageAgentCompatibilityCanary,
-	})
-}
-
 // RunImageAgentCompatibilityCanaryWithWorker starts a minimal worker on the
 // requested queue before submitting the canary workflow. This keeps the
 // isolated release-gate queue executable without requiring product databases
@@ -306,29 +259,6 @@ func runImageAgentCompatibilityCanaryWithWorkerDependencies(ctx context.Context,
 	defer worker.Stop()
 	if logger != nil {
 		logger.WithFields(logrus.Fields{"address": address, "namespace": namespace, "taskQueue": taskQueue}).Info("running image agent compatibility canary with isolated worker")
-	}
-	return dependencies.RunCanary(ctx, client, taskQueue)
-}
-
-func runImageAgentCompatibilityCanaryWithDependencies(ctx context.Context, logger *logrus.Logger, taskQueue string, dependencies imageAgentCompatibilityCanaryDependencies) error {
-	if strings.TrimSpace(taskQueue) == "" {
-		taskQueue = imageagenttemporal.TaskQueueV3
-	}
-	if dependencies.Dial == nil {
-		dependencies.Dial = dialImageAgentTemporal
-	}
-	if dependencies.RunCanary == nil {
-		dependencies.RunCanary = imageagenttemporal.RunImageAgentCompatibilityCanary
-	}
-	address := envOrDefault(envImageAgentTemporalAddress, "localhost:7233")
-	namespace := envOrDefault(envImageAgentTemporalNamespace, "default")
-	client, closeClient, err := validateTemporalDialResult(dependencies.Dial(ctx, address, namespace))
-	if err != nil {
-		return fmt.Errorf("dial image agent temporal for compatibility canary: %w", err)
-	}
-	defer closeClient()
-	if logger != nil {
-		logger.WithFields(logrus.Fields{"address": address, "namespace": namespace, "taskQueue": taskQueue}).Info("running image agent compatibility canary")
 	}
 	return dependencies.RunCanary(ctx, client, taskQueue)
 }

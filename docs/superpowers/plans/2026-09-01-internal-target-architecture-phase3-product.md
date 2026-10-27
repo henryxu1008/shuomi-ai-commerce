@@ -1,3 +1,5 @@
+> #301 / #977 用户确认的[完整退休闭包](../../architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md)已在同一主要PR实施：指定默认启动/依赖/注册转发及旧HTTP/Task装配退出；显式WithOptions/ForMode、真实Organization worker/client与WithWorker canary保持。 此顶注只校准本批指定旧KEEP，以下实际开工main的完整原正文/批准/失败/数字/勾选逐字保留为历史。无新alias/替代旧宿主、workflow/inventory/运行/数据操作或内部试用前置；独立SHEIN登录与Store同步保留，#301 OPEN。
+
 > #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
 
 # 阶段三产品域目标架构实施计划

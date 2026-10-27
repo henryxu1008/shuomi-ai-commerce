@@ -1,3 +1,5 @@
+#301 / #977 当前整批实施：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `6285dd4a850351407c987445e3a519a7b7f0b2f4` 的§1–§7（含§4.2/§6.1），同一49路径闭包：旧ImageAgent HTTP宿主/静态binding、Task启动预检四合同/六函数、闲置默认装配/queue/字符串recovery-ID门面退出，无alias或替代旧宿主。有效断言改当前Service/HTTP/真实授权owner；Chain1真实领域首次批准/丢返回与当前HTTP已完成批准socket重放分层保留，不新增generic运行装配。现役worker/WithWorker canary、通用域命令/Temporal/JSON/hash/版本/恢复、采集/图像/SDS/POD/资产审批及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/进程，无新增试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI及最终交付复核分别记录同PR；不等于运行/用户验收，合并/部署/关单另授权。 以下冻结设计全文逐字保留。
+
 # #301 旧 ImageAgent 隔离 HTTP 与闲置启动装配完整退休设计
 
 > **DESIGN_ONLY / SOURCE_NOT_STARTED / AWAITING_USER_CONFIRMATION**。本阶段仅本文、Architecture README、Legacy Register 三文档，Design Basis: N/A / Ready。未来源码为 **Independent Architecture / DESIGNING / NOT_READY**；适用设计复核、用户确认 §1–§7（含 §4.2、§6.1）及 Issue/PR 记录、读回 IMPLEMENTATION_READY / Ready 后才实施。设计基线为实际 main `730d16a0100f5929d88f83a28cad6f76986d66c0`；其 push/main Task Processor CI40464764246 attempt1 整 run SUCCESS，只是基线证据，不是本设计或未来源码的结果。#972 已完成，源码收口证据见其 PR；本轮不复做。
