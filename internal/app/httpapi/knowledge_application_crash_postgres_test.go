@@ -52,7 +52,8 @@ func TestCurrentApplicationKnowledgePreclaimCrashRecovery(t *testing.T) {
 			return false
 		}
 		// A separate committed DB read is the barrier evidence. This live grant
-		// lookup is inside Quote's Knowledge read, before Runtime.Start/Claim.
+		// lookup is in preflight Quote (identity or Knowledge authorization),
+		// before Runtime.Start/Claim.
 		barrier <- knowledge.ContextSnapshotRef{Kind: knowledge.ContextKind, ID: row.ID, Digest: row.Digest}
 		select {
 		case <-barrierReleased:

@@ -147,8 +147,10 @@ loopback fixtures. It does not consume a supplied database or provider credentia
 Initialization belongs only to the newly created disposable cluster.
 
 A synthetic identity-service grant handler observes the committed target bundle
-and zero Agent runs through separate owner connections, then holds the preflight
-Quote authorization read. The parent checks zero runs, invocations and dispatch
+and zero Agent runs through separate owner connections, then holds a fresh grant
+read in preflight Quote. Quote can first recheck Agent identity before Knowledge
+authorization; the barrier does not distinguish these two checks. The parent
+checks zero runs, invocations and dispatch
 permits, kills only the exact application process it spawned, and waits for its
 nonzero exit. There is no production fault-injection switch or test child entrypoint.
 
