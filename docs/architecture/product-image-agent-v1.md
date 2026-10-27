@@ -1,3 +1,5 @@
+> #301 / #980 当前源级退休边界：用户确认的[三组完整闭包](legacy-ai-routing-image-policy-closure-retirement-boundary.md)仅退出无生产接线的旧通用路由/HTTP图片adapter、本地场景模板/布局及白底/IP启发式。当前本设计的真实生成/Review/确定性校验/平台规则/预算/UNKNOWN/恢复/显式批准及UI原样；httpimage保留公共安全下载与原InspectGeneratedArtifact，product/image保留SceneOptions/ProfileName与metadata合同和纯规则。旧本地YAML不是当前Marketplace policycatalog，不能用删除它推定平台合规或取消当前质量阈值。本批不操作运行实例/数据/凭据/进程，不增试用前置；以下原合同全文保留，独立SHEIN登录/Store同步和#301 OPEN保持。
+
 # 商品图片智能体 V1 — 完整图片能力设计
 
 > Status: **IMPLEMENTATION_READY**。2026-10-09 独立 Architecture Review R2 已解除唯一设计 BLOCKER；用户随后确认本线程统一完成本批必要共享接口与启动接线，正式开工依赖已满足。

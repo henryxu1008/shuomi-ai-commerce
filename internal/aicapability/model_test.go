@@ -1,36 +1,24 @@
 package aicapability
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestProductEnrichTextCapabilityContracts(t *testing.T) {
 	if CapabilityProductEnrichText != "productenrich.text_understanding" {
 		t.Fatalf("capability = %q", CapabilityProductEnrichText)
 	}
-	if OperationProductEnrichTextExtract != "productenrich_text_extract_attributes" {
-		t.Fatalf("operation = %q", OperationProductEnrichTextExtract)
+}
+
+func TestCategoryOf(t *testing.T) {
+	if got := CategoryOf(nil); got != "" {
+		t.Fatalf("CategoryOf(nil) = %q", got)
 	}
-	if FeatureTextGenerate != "text_generate" {
-		t.Fatalf("feature = %q", FeatureTextGenerate)
+	if got := CategoryOf(errors.New("plain")); got != ErrorUnknown {
+		t.Fatalf("CategoryOf(plain) = %q, want %q", got, ErrorUnknown)
 	}
-	if CapabilityProductEnrichVision != "productenrich.vision_understanding" {
-		t.Fatalf("vision capability = %q", CapabilityProductEnrichVision)
-	}
-	if OperationProductEnrichImageAnalyze != "productenrich_image_analyze" {
-		t.Fatalf("image operation = %q", OperationProductEnrichImageAnalyze)
-	}
-	if FeatureVisionAnalyze != "vision_analyze" {
-		t.Fatalf("vision feature = %q", FeatureVisionAnalyze)
-	}
-	if CapabilityProductEnrichListing != "productenrich.listing_generation" {
-		t.Fatalf("listing capability = %q", CapabilityProductEnrichListing)
-	}
-	if OperationProductEnrichJSONGenerate != "productenrich_json_generate" {
-		t.Fatalf("json operation = %q", OperationProductEnrichJSONGenerate)
-	}
-	if OperationProductEnrichSpecsGenerate != "productenrich_specs_generate" {
-		t.Fatalf("specs operation = %q", OperationProductEnrichSpecsGenerate)
-	}
-	if OperationProductEnrichVariantsGenerate != "productenrich_variants_generate" {
-		t.Fatalf("variants operation = %q", OperationProductEnrichVariantsGenerate)
+	if got := CategoryOf(NewError(ErrorProviderTimeout, "image_generate", errors.New("timeout"))); got != ErrorProviderTimeout {
+		t.Fatalf("CategoryOf(capability error) = %q", got)
 	}
 }

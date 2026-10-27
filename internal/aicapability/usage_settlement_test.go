@@ -51,7 +51,7 @@ func TestObservedFailedReviewSettlesActualTokensWithoutChangingOrdinaryFailure(t
 		t.Fatalf("observed failed review was not settled: %+v", settler)
 	}
 	settler.invocation = ""
-	record.Operation = OperationProductImageSceneGenerate
+	record.Operation = Operation("productimage_scene_generate")
 	if err := SettleSuccessfulInvocation(context.Background(), record, settler); err == nil {
 		t.Fatal("non-review observed-failed outcome must be rejected")
 	}

@@ -6279,3 +6279,162 @@ func TestLegacyImageAgentHTTPRuntimeClosureIsRetired(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyAIRoutingImagePolicyClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/aicapability/routing.go", "internal/aicapability/routing_test.go", "internal/aicapability/route_request_contract.go", "internal/aicapability/execution_plan.go", "internal/aicapability/execution_plan_test.go", "internal/aicapability/routing_mode.go", "internal/aicapability/routing_mode_test.go", "internal/integration/httpimage/product_image_adapter.go", "internal/integration/httpimage/product_image_adapter_test.go", "internal/product/image/scene.go", "internal/product/image/scene_test.go", "internal/product/image/presets/scene_profiles.yaml", "internal/product/image/heuristics.go", "internal/product/image/heuristics_test.go"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired AI routing/image policy artifact must be absent: %s: %v", path, err)
+		}
+	}
+	banned := map[string][]string{
+		"internal/aicapability":          []string{"CapabilityProductEnrichFusion", "CapabilityProductEnrichListing", "CapabilityProductEnrichVision", "ExecutionPlan", "ExecutionPlan.Validate", "ExecutionPlanner", "FeatureTextGenerate", "FeatureVisionAnalyze", "ModelCatalog", "ModelDefinition", "ModelDefinition.Supports", "ModelFeature", "ModelPricing", "NewPolicyRouter", "OperationProductEnrichImageAnalyze", "OperationProductEnrichJSONGenerate", "OperationProductEnrichMultimodalFuse", "OperationProductEnrichSpecsGenerate", "OperationProductEnrichTextExtract", "OperationProductEnrichTextQualityScore", "OperationProductEnrichVariantsGenerate", "OperationProductEnrichVisionQualityScore", "OperationProductImageSceneGenerate", "OperationProductImageSubjectExtract", "OperationProductImageWhiteBackground", "ParseRoutingMode", "PolicyResolver", "PolicyRouter", "PolicyRouter.Decide", "RouteDecision", "RouteOutcomeLegacy", "RouteOutcomeShadowDecided", "RouteOutcomeShadowRouteError", "RouteRequest", "RouteRequestContract", "RouteRequestContract.Validate", "Router", "RoutingModeLegacy", "RoutingModeShadow", "TenantModelPolicy", "candidatesFromPreferred", "contains", "containsFeature", "containsOperation", "isBoundDecision", "normalizedFeatures", "normalizedKeys", "normalizedOperations", "routingCandidates", "sameFeatures", "supportsAll", "supportsTags", "validateModel"},
+		"internal/integration/httpimage": []string{"NewProductImageAdapter", "ProductImageAdapter", "ProductImageAdapter.Extract", "ProductImageAdapter.QuoteUsage", "ProductImageAdapter.RenderScene", "ProductImageAdapter.RenderWhiteBackground", "ProductImageAdapter.invoke", "ProductImageAdapterConfig", "ProductImageEndpointConfig", "authorizeProductImageEndpoint", "canonicalProductImageHTTPString", "cloneProductImageEndpoint", "decodeProductImageHTTPItem", "newProductImageHTTPProduct", "newProductImageHTTPSceneOptions", "productImageHTTPCandidate", "productImageHTTPProduct", "productImageHTTPRequest", "productImageHTTPResponse", "productImageHTTPResponseImage", "productImageHTTPSceneOptions", "singleProductImageCandidate", "validateProductImageEndpoint"},
+		"internal/product/image":         []string{"AssessIPRisk", "BuildSceneLayout", "BuildScenePlan", "IPRiskAssessment", "ImageAudit", "IsWhiteBackground", "MaxSceneCanvasSize", "MinSceneCanvasSize", "ResolveSceneProfile", "RiskHigh", "RiskLevel", "RiskLow", "RiskMedium", "SceneBounds", "SceneColor", "SceneContent", "SceneLayer", "SceneLayout", "SceneLayoutInput", "ScenePixelBounds", "ScenePlan", "ScenePlanRequest", "ScenePoint", "SceneProfile", "appendAssignedSceneContent", "buildPresetSceneLayout", "buildSceneContent", "buildSceneLayers", "buildSellingPointSceneLayout", "clampSceneInt", "clampSceneSubject", "classifySceneAttributes", "cloneSceneProfile", "containSceneDimension", "containsAnyFold", "imageRiskReason", "inferSceneCategory", "isNilImage", "maxAuditIssues", "maxIPAudits", "maxIPReasons", "maxRiskLevel", "maxSceneInt", "minInteger", "minSceneInt", "newSceneLayout", "normalizeSceneProfile", "normalizedProfileSlots", "normalizedSceneBounds", "sceneColorYAML", "sceneContentCandidate", "sceneLayerAlignment", "sceneLayerBounds", "sceneLayerKind", "sceneProfileFile", "sceneProfileFiles", "sceneProfileYAML", "sceneRegionForContent", "sceneStyleToken", "sceneTextStyle", "sceneVisualRole", "sortedSceneAttributes", "uniqueSceneCandidates", "validateIPRiskInput", "validateSceneLayoutInput"},
+	}
+	required := map[string][]string{
+		"internal/aicapability/model.go":                        []string{"Capability", "CapabilityAIWorkbenchChatPlanning", "CapabilityProductEnrichText", "CapabilityProductImageScene", "Operation", "OperationAIWorkbenchChatPlan", "OperationListingMaterialsDecision", "OperationProductAgentDecision", "OperationProductContentDecision", "OperationProductImageReview", "OperationProductSelectionDecision", "OperationShopDiagnosisDecision"},
+		"internal/aicapability/ledger_contract.go":              []string{"CacheStatus", "CacheStatusHit", "CacheStatusMiss", "CacheStatusNotApplicable", "RoutingMode", "RoutingModeActive"},
+		"internal/aicapability/invocation.go":                   []string{"InvocationDispatchClaimer", "InvocationRecord", "InvocationRecorder", "InvocationUsageReservation", "RouteOutcome", "RouteOutcomeActive"},
+		"internal/integration/httpimage/artifact_inspection.go": []string{"InspectGeneratedArtifact"},
+		"internal/product/image/scene_options.go":               []string{"MergeSceneOptions", "SceneOptions", "mergeSceneOptionValue", "normalizedSceneOptions", "preflightSceneOptions", "validateSceneOptions"},
+		"internal/product/image/generation_metadata.go":         []string{"NormalizeGenerationMetadata", "preflightGenerationMetadata"},
+		"internal/product/image/model.go":                       []string{"Asset", "GenerationMetadata", "Review", "SceneRequest"},
+		"internal/aicapability/model_test.go":                   []string{"TestCategoryOf", "TestProductEnrichTextCapabilityContracts"},
+	}
+	imports := map[string][]string{
+		"internal/aicapability/ledger_contract.go":              []string{},
+		"internal/integration/httpimage/artifact_inspection.go": []string{"bytes", "golang.org/x/image/webp", "image", "image/jpeg", "image/png", "task-processor/internal/product/image"},
+		"internal/product/image/scene_options.go":               []string{"strings"},
+		"internal/product/image/generation_metadata.go":         []string{"sort", "strings"},
+	}
+	shapes := map[string]string{"internal/aicapability/invocation.go:InvocationRecord": "type InvocationRecord struct {\n\tPointTariff             ModelPointTariff\n\tMaximumPromptTokens     int64\n\tMaximumCompletionTokens int64\n\tInvocationID            string\n\tParentInvocationID      string\n\tAgentRunID              string\n\tTenantID                string\n\tUserID                  string\n\t// MemberID is the canonical membership-grant identity used by commercial\n\t// allocation. It is intentionally distinct from the identity-provider user\n\t// subject.\n\tMemberID             string\n\tBusinessTaskID       string\n\tTraceID              string\n\tCapability           Capability\n\tOperation            Operation\n\tRouteMode            RoutingMode\n\tRouteOutcome         RouteOutcome\n\tCacheStatus          CacheStatus\n\tProviderID           string\n\tModelID              string\n\tRequestedRoutingKey  string\n\tRoutingKey           string\n\tCredentialReference  string\n\tPolicyVersion        string\n\tConfigurationVersion string\n\tPromptKey            string\n\tPromptVersion        string\n\tPromptScope          string\n\tPromptHash           string\n\tStartedAt            time.Time\n\tFinishedAt           time.Time\n\tLatencyMilliseconds  int64\n\tAttempt              int\n\tFallbackIndex        int\n\tPromptTokens         int\n\tCompletionTokens     int\n\tTotalTokens          int\n\tImageCount           int\n\tEstimatedCostMicros  int64\n\tEstimatedCostKnown   bool\n\tUsageKnown           bool\n\tCurrency             string\n\tOutcome              InvocationOutcome\n\tErrorCategory        ErrorCategory\n\tRouteErrorCategory   ErrorCategory\n\tErrorCode            string\n\tProviderRequestID    string\n\tUpstreamJobID        string\n\tInputHash            string\n\tOutputHash           string\n\t// Review result is kept as a small, typed replay envelope so a Temporal\n\t// retry can return a completed review without dispatching the provider a\n\t// second time. It is not a prompt or provider response payload.\n\tReviewScore            float64\n\tReviewNeedsHumanReview bool\n\tReviewReasons          []string\n}", "internal/product/image/scene_options.go:SceneOptions": "type SceneOptions struct {\n\tSceneCategory     string\n\tSceneStyle        string\n\tBackgroundTone    string\n\tComposition       string\n\tPropsLevel        string\n\tAudienceHint      string\n\tCustomSceneHint   string\n\tSlotRole          string\n\tSlotBrief         string\n\tStyleReferenceIDs []string\n}", "internal/product/image/model.go:GenerationMetadata": "type GenerationMetadata struct {\n\tCapability      string\n\tModelFamily     string\n\tInvocationID    string\n\tPromptReference string\n\tPromptVersion   string\n\tValues          map[string]string\n}"}
+	values := map[string]string{"internal/aicapability/model.go:CapabilityProductImageScene": "\"productimage.scene_generation\"", "internal/aicapability/model.go:CapabilityProductEnrichText": "\"productenrich.text_understanding\"", "internal/aicapability/model.go:CapabilityAIWorkbenchChatPlanning": "\"aiworkbench.chat_planning\"", "internal/aicapability/model.go:OperationProductImageReview": "\"productimage_review\"", "internal/aicapability/model.go:OperationProductAgentDecision": "\"product_agent_decision\"", "internal/aicapability/model.go:OperationProductContentDecision": "\"product.content.decision\"", "internal/aicapability/model.go:OperationListingMaterialsDecision": "\"listing.materials.decision\"", "internal/aicapability/model.go:OperationProductSelectionDecision": "\"product.selection.decision\"", "internal/aicapability/model.go:OperationShopDiagnosisDecision": "\"shop.operations-diagnosis.decision\"", "internal/aicapability/model.go:OperationAIWorkbenchChatPlan": "\"aiworkbench_chat_plan\"", "internal/aicapability/ledger_contract.go:RoutingModeActive": "\"active\"", "internal/aicapability/ledger_contract.go:CacheStatusNotApplicable": "\"not_applicable\"", "internal/aicapability/ledger_contract.go:CacheStatusHit": "\"hit\"", "internal/aicapability/ledger_contract.go:CacheStatusMiss": "\"miss\""}
+	found := map[string]map[string]bool{}
+	shapeFound, valueFound := map[string]bool{}, map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		if _, current := required[path]; !current && len(banned[owner]) == 0 {
+			continue
+		}
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, filepath.Join("..", filepath.FromSlash(path)), nil, parser.ParseComments)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found[path] = map[string]bool{}
+		if allowed, limited := imports[path]; limited {
+			seen := map[string]bool{}
+			for _, imp := range file.Imports {
+				name, err := decodeGoImportPath(imp.Path.Value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !slices.Contains(allowed, name) {
+					t.Errorf("current pure leaf %s imports %s", path, name)
+				}
+				seen[name] = true
+				if slices.Contains([]string{"image/jpeg", "image/png", "golang.org/x/image/webp"}, name) && (imp.Name == nil || imp.Name.Name != "_") {
+					t.Errorf("production decoder must register in inspection leaf: %s", name)
+				}
+			}
+			for _, name := range allowed {
+				if !seen[name] {
+					t.Errorf("current pure leaf %s requires import %s", path, name)
+				}
+			}
+		}
+		check := func(name string) {
+			found[path][name] = true
+			if !strings.HasSuffix(path, "_test.go") && slices.Contains(banned[owner], name) {
+				t.Errorf("retired declaration in current owner: %s:%s", path, name)
+			}
+		}
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					var receiver bytes.Buffer
+					if err := format.Node(&receiver, fset, d.Recv.List[0].Type); err != nil {
+						t.Fatal(err)
+					}
+					name = strings.TrimPrefix(receiver.String(), "*") + "." + name
+				}
+				check(name)
+				if path == "internal/aicapability/model_test.go" && name == "TestCategoryOf" {
+					var text bytes.Buffer
+					if err := format.Node(&text, fset, d); err != nil {
+						t.Fatal(err)
+					}
+					for _, required := range []string{"CategoryOf(nil)", "CategoryOf(errors.New(\"plain\"))", "NewError(ErrorProviderTimeout, \"image_generate\", errors.New(\"timeout\"))", "got != ErrorUnknown", "got != ErrorProviderTimeout"} {
+						if !strings.Contains(text.String(), required) {
+							t.Errorf("current error classification assertion missing: %s", required)
+						}
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name)
+						if slices.Contains(required[path], s.Name.Name) && s.Assign.IsValid() {
+							t.Errorf("current contract must be a real definition, not alias: %s:%s", path, s.Name.Name)
+						}
+						key := path + ":" + s.Name.Name
+						if want, ok := shapes[key]; ok {
+							var text bytes.Buffer
+							if err := format.Node(&text, fset, d); err != nil {
+								t.Fatal(err)
+							}
+							if text.String() != want {
+								t.Errorf("current JSON/ledger contract shape changed: %s", key)
+							}
+							shapeFound[key] = true
+						}
+					case *ast.ValueSpec:
+						for i, name := range s.Names {
+							check(name.Name)
+							key := path + ":" + name.Name
+							if want, ok := values[key]; ok {
+								if i >= len(s.Values) {
+									t.Errorf("current wire value requires explicit literal: %s", key)
+									continue
+								}
+								literal, ok := s.Values[i].(*ast.BasicLit)
+								if !ok || literal.Kind != token.STRING || literal.Value != want {
+									t.Errorf("current wire value changed or forwarded: %s", key)
+								}
+								valueFound[key] = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for path, names := range required {
+		for _, name := range names {
+			if !found[path][name] {
+				t.Errorf("required current declaration missing: %s:%s", path, name)
+			}
+		}
+	}
+	for key := range shapes {
+		if !shapeFound[key] {
+			t.Errorf("required current contract missing: %s", key)
+		}
+	}
+	for key := range values {
+		if !valueFound[key] {
+			t.Errorf("required current wire value missing: %s", key)
+		}
+	}
+	for _, path := range []string{"internal/integration/httpimage/client.go", "internal/aicapability/errors.go", "internal/aicapability/routeconfig/config.go", "internal/integration/aicapability/einomodel/executor.go", "internal/product/image/ports.go", "internal/app/worker/imageagent/generation_provider.go", "internal/imageagent/temporal/worker.go", "cmd/shein-login-worker/main.go", "internal/sheinlogin/store.go", "internal/crawler/shared/browser/manager.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current AI/image/acquisition/SHEIN owner must remain: %s:%v", path, err)
+		}
+	}
+}

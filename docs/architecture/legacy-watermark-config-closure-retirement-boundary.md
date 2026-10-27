@@ -1,3 +1,5 @@
+> #301 / #980 用户确认的[完整退休闭包](legacy-ai-routing-image-policy-closure-retirement-boundary.md)已在同一PR实施：本文涉及旧AI PolicyRouter/Legacy-Shadow/Planner、闲置通用HTTP图片生成adapter、旧本地模板/排版/白底或IP启发式的KEEP/开工要求，仅在该设计§5/§6.1明列范围被替代。有效账本值、图片字节检查、SceneOptions/metadata原规则及通用TestCategoryOf断言明确保留；当前AI/图像审核/JSON/hash/计费/UNKNOWN、采集和独立SHEIN登录/Store同步不变。以下实际起始main完整原Git blob、批准/失败/历史/数字/勾选逐字保留；无compat alias/新运行装配、workflow/完整inventory/既有资源操作或试用前置，#301 OPEN。
+
 > #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，将 imagex 整体暂留中的闲置编码/格式辅助按新矩阵精确退休；当前解码/metadata、JPEG/PNG/WebP 注册、成熟图像库、风险/provider 参数、ImageAgent 及共享基础层保持。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
 
 # #301 旧水印检测/去除与专属配置完整退休设计

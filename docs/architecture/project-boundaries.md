@@ -298,13 +298,23 @@ cutover, real-environment operation, or deletion of existing data.
 
 ### 3.8 `internal/aicapability`
 
-Current role: neutral platform and integration module for AI capability
-selection.
+Current role: neutral AI execution-profile, published route-configuration,
+invocation, usage and settlement contracts under the existing current owners.
 
 Owns:
 
-- Model catalog, policy, routing, and invocation contracts.
-- Provider-neutral routing decisions and invocation observability records.
+- Current ModelProfile/text-input/quote contracts and the published routeconfig
+  boundary; actual organization credential resolution and provider dispatch
+  remain at their existing integration/application owners.
+- Provider-neutral invocation records, ledger value vocabulary and existing
+  usage/settlement ports. Public fields, wire values and persistence are unchanged.
+
+The user-confirmed [#301 / #980 retirement boundary](legacy-ai-routing-image-policy-closure-retirement-boundary.md)
+retires the unconsumed PolicyRouter/ModelDefinition/TenantModelPolicy,
+Legacy/Shadow selection and ExecutionPlan branches. It does not create another
+router, planner, fallback, credential owner or invocation ledger. RoutingMode and
+CacheStatus retain their real definitions in ledger_contract.go; current text,
+image Review, pricing, billing, authorization and UNKNOWN behavior stay in place.
 
 Does not own:
 

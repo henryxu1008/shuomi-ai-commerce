@@ -1,3 +1,5 @@
+> #301 / #980 当前整批实施：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `63118885b4c3b5137078871588af86e9a7b1160b` 的§1–§7（含§4.2/§6.1），同一44路径完整闭包：旧PolicyRouter/Legacy-Shadow/Planner、未接线HTTP图片adapter、旧本地场景/布局与白底/IP启发式退出；账本值、图片字节检查及场景参数/metadata原规则归当前owner，无alias/转发/fallback。TestCategoryOf原整函数及三分支断言保留到model_test.go；两计费负例只换同值typed string，原断言保留。当前AI/图像/JSON/hash/版本/计费/发送UNKNOWN、采集/PoolManager取消及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，无新试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI/最终复核记同PR，不等于运行/产品验收；合并/部署/关单另授权。 本顶注记录当前实施准入/源码状态；以下用户确认的冻结设计全文逐字保留，历史设计阶段的NOT_READY/SOURCE_NOT_STARTED不恢复为当前权限。
+
 # #301 旧 AI 路由与图像策略支线完整退休边界
 
 > Design Basis: **Independent Architecture**。状态：**DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**；只允许设计交付，适用独立设计复核及用户确认完成后才可标记 IMPLEMENTATION_READY。<br>
