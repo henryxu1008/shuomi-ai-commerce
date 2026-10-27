@@ -130,6 +130,50 @@ not exercise the full HTTP/application process, browser recovery, successful mod
 execution or Product Review. The original #565 repository-reconstruction evidence and
 its historical NOT_RUN results retain their original scope.
 
+## Normal application binary preclaim crash regression (#558)
+
+`TestCurrentApplicationKnowledgePreclaimCrashRecovery` extends that evidence to
+the ordinary `cmd/current-application` binary and its production HTTP Start,
+identity, Knowledge, Eino, native Agent Claim and invocation-accounting wiring:
+
+```powershell
+go test -race -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationKnowledgePreclaimCrashRecovery$' -count=1 -v -timeout 8m
+```
+
+It reuses the existing disposable PostgreSQL, acquisition/Product, Knowledge,
+identity and private-manifest fixtures. Serving connections use separate native
+fact-owner databases and bounded runtime roles; all HTTP peers are task-owned
+loopback fixtures. It does not consume a supplied database or provider credential.
+Initialization belongs only to the newly created disposable cluster.
+
+A synthetic identity-service grant handler observes the committed target bundle
+and zero Agent runs through separate owner connections, then holds a fresh grant
+read in preflight Quote. Quote can first recheck Agent identity before Knowledge
+authorization; the barrier does not distinguish these two checks. The parent
+checks zero runs, invocations and dispatch
+permits, kills only the exact application process it spawned, and waits for its
+nonzero exit. There is no production fault-injection switch or test child entrypoint.
+
+After a native Knowledge revision update, the same binary and private manifest
+restart over the same databases. Two concurrent identical Start requests and a
+later replay keep the original actor/Organization, operation, selection, body and
+idempotency key; the client supplies no bundle ref. They return one RunID. Native
+records and the synthetic request verify the original ref/digest, PARTIAL revision,
+warning, citation and text despite the changed current-readable revision.
+
+The scenario permits exactly one loopback synthetic model response, an
+`interrupt` with 20 input + 10 output tokens. It creates one synthetic invocation
+and one RELEASED Knowledge permit, with no active permit, tool call or Product
+Review/Apply. The run/checkpoint contains opaque references, without Knowledge
+text. These are synthetic accounting effects, not zero-usage evidence. The
+interrupt produces an uncited public projection; citation identity is checked in
+the original bundle, not invented as a proposal. Both owned process lifecycles
+and the disposable cluster are cleaned up through their existing test ownership.
+
+This bounded process-crash regression is separate from complete product/browser
+acceptance, real-model behavior and other crash windows. Product acceptance stays
+NOT_RUN; existing instances, data and sessions are not recovery-test targets.
+
 ## Product title consumer (#559)
 
 Use the normal [Product Agent startup and Console entry](../operations/product-agent-trial.md).
@@ -211,5 +255,6 @@ then failed Claim, pre-claim escaped-envelope rejection with no run/model accoun
 or dispatch, concurrent retry, exact version adoption after update, restart
 of handlers, Review handoff, revoked access and disabled content. Existing
 `TestProductAgentAcquisitionToReviewUsesRealOwners` covers the ordinary path.
-Full application process crash, complete logged-in browser use, real documents, paid provider
-calls and deployment remain NOT_RUN. Keep the original #557 trial untouched.
+The normal-binary preclaim crash boundary is covered by the #558 regression above.
+Complete logged-in browser/product acceptance, real documents, paid provider calls
+and deployment remain NOT_RUN. Keep the original #557 trial untouched.

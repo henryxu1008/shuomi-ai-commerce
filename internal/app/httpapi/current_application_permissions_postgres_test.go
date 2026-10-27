@@ -341,11 +341,7 @@ func run1PermissionBinary(t *testing.T, owner *gorm.DB, cfg *currentapplication.
 	copyConfig.Identity.IssuerURL = origin
 	copyConfig.Identity.AuthorizationAPIURL = origin
 	dir := t.TempDir()
-	binary := filepath.Join(dir, "current-application.exe")
-	build := exec.Command("go", "build", "-o", binary, "./cmd/current-application")
-	build.Dir = filepath.Join("..", "..", "..")
-	output, err := build.CombinedOutput()
-	require.NoError(t, err, string(output))
+	binary := buildCurrentApplicationTestBinary(t)
 	run := func(rejected bool) {
 		t.Helper()
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -399,4 +395,14 @@ func run1PermissionBinary(t *testing.T, owner *gorm.DB, cfg *currentapplication.
 		run(false)
 	}
 	t.Log("PASS normal binary: minimal roles listen; each role with migration UPDATE rejected; REVOKE restores listen; all processes/listeners stopped")
+}
+
+func buildCurrentApplicationTestBinary(t *testing.T) string {
+	t.Helper()
+	binary := filepath.Join(t.TempDir(), "current-application.exe")
+	build := exec.Command("go", "build", "-o", binary, "./cmd/current-application")
+	build.Dir = filepath.Join("..", "..", "..")
+	output, err := build.CombinedOutput()
+	require.NoError(t, err, string(output))
+	return binary
 }

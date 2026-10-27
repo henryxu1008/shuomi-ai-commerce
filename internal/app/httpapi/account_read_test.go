@@ -42,7 +42,9 @@ func newAccountFixture(t *testing.T) *accountFixture {
 	return newAccountFixtureWithIssuerPath(t, "")
 }
 
-func newAccountFixtureWithIssuerPath(t *testing.T, issuerPath string) *accountFixture {
+// The provider can also serve an actual current-application binary. The hook
+// belongs to the synthetic HTTP peer, never production authorization.
+func newAccountProviderFixture(t *testing.T, issuerPath string, beforeGrant func(*http.Request) bool) *accountFixture {
 	t.Helper()
 	f := &accountFixture{}
 	f.role.Store("listingkit_viewer")
@@ -52,7 +54,13 @@ func newAccountFixtureWithIssuerPath(t *testing.T, issuerPath string) *accountFi
 		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		switch r.URL.Path {
 		case issuerPath + "/.well-known/openid-configuration":
-			_ = json.NewEncoder(w).Encode(map[string]string{"introspection_endpoint": f.provider.URL + "/oauth/v2/introspect"})
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"issuer":                 f.provider.URL + issuerPath,
+				"authorization_endpoint": f.provider.URL + "/authorize",
+				"token_endpoint":         f.provider.URL + "/token",
+				"userinfo_endpoint":      f.provider.URL + issuerPath + "/oidc/v1/userinfo",
+				"introspection_endpoint": f.provider.URL + "/oauth/v2/introspect",
+			})
 		case "/oauth/v2/introspect":
 			f.authReads.Add(1)
 			require.Equal(t, "POST", r.Method)
@@ -86,6 +94,9 @@ func newAccountFixtureWithIssuerPath(t *testing.T, issuerPath string) *accountFi
 			_ = json.NewEncoder(w).Encode(map[string]any{"sub": sub, "name": "Fixture " + token, "email": "U-OPAQUE@PHONE.INVALID", "email_verified": true})
 		case "/zitadel.authorization.v2.AuthorizationService/ListAuthorizations":
 			f.grantReads.Add(1)
+			if beforeGrant != nil && beforeGrant(r) {
+				return
+			}
 			require.Equal(t, "POST", r.Method)
 			if f.unavailable.Load() || token == "grant-down" {
 				w.WriteHeader(503)
@@ -118,6 +129,12 @@ func newAccountFixtureWithIssuerPath(t *testing.T, issuerPath string) *accountFi
 		}
 	}))
 	t.Cleanup(f.provider.Close)
+	return f
+}
+
+func newAccountFixtureWithIssuerPath(t *testing.T, issuerPath string) *accountFixture {
+	t.Helper()
+	f := newAccountProviderFixture(t, issuerPath, nil)
 	factories := defaultWorkbenchContextFactories()
 	factories.newGrantCache = func() *workbenchcontext.GrantCache {
 		return workbenchcontext.NewGrantCache(func() time.Time { return time.Unix(f.clock.Load(), 0) })
