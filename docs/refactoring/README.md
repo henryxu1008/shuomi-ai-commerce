@@ -15,6 +15,7 @@ The current product baseline is [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](.
 - [listingkit-boundary-checkpoint.md](./listingkit-boundary-checkpoint.md) - historical reference, not a current implementation authority for greenfield work.
 - [../product/product-sourcing-mvp-plan.md](../product/product-sourcing-mvp-plan.md) - Product Sourcing implementation and closeout plan.
 - [../product/product-sourcing-handoff.md](../product/product-sourcing-handoff.md) - Product Sourcing ownership boundaries and handoff expectations.
+- [../architecture/legacy-listing-preview-download-closure-retirement-boundary.md](../architecture/legacy-listing-preview-download-closure-retirement-boundary.md) - confirmed source retirement of old Task preview/platform and listing downloader (#301 / #891); current Product/Catalog/Asset and real Listing owners remain authoritative.
 
 ### Long-term architecture authority
 
@@ -96,15 +97,14 @@ The current active direction is:
 - [project-migration-roadmap.md](./project-migration-roadmap.md) - historical reference, not a current implementation authority for greenfield work.
 - [module-target-mapping.md](./module-target-mapping.md) - working map from current package areas to target domains.
 - [product-sourcing-inventory.md](./product-sourcing-inventory.md) - Amazon / 1688 source-flow inventory and first migration slices for `product/sourcing` plus crawler adapters.
-- [listing-preview-migration-map.md](./listing-preview-migration-map.md) - first detailed migration inventory for moving preview ownership out of legacy ListingKit.
+- [listing-preview-migration-map.md](./listing-preview-migration-map.md) - historical, superseded preview migration inventory; use the confirmed source-retirement boundary above, not its old owner/compatibility proposals.
 - [dependency-baseline.md](./dependency-baseline.md) - baseline worksheet for dependency scans and legacy exception tracking.
-- [preview-subpackage-feasibility.md](./preview-subpackage-feasibility.md) - current decision note explaining why preview stays inside `package listingkit` before a real subpackage extraction.
+- [preview-subpackage-feasibility.md](./preview-subpackage-feasibility.md) - historical, superseded feasibility note; its keep-in-root and future extraction proposals are not current implementation authority.
 - [submission-inventory.md](./submission-inventory.md) - historical submission consolidation inventory; useful for file grouping history, but current submission target direction is governed by the boundary checkpoint plus current status docs.
 - [service-slimming-checkpoint.md](./service-slimming-checkpoint.md) - Phase 4 first checkpoint for root service object file-group slimming.
 - [checkpoint-validation-2026-06-17.md](./checkpoint-validation-2026-06-17.md) - focused next-phase validation run covering ListingKit, HTTPAPI, boundary tests, dependency scan, and blocker classification.
 - [listingkit-refactoring-plan.md](./listingkit-refactoring-plan.md) - detailed ListingKit root-directory reduction plan.
 - [studio-migration-plan.md](./studio-migration-plan.md) - Studio migration planning.
-- [architecture-improvement-plan.md](./architecture-improvement-plan.md) - earlier architecture quality improvement notes.
 
 ## Refactoring principles
 
