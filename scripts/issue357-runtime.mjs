@@ -12,6 +12,7 @@ import {discoverRunProcesses} from './issue357/processes.mjs';
 import {restartRuntime} from './issue357/restart.mjs';
 import {waitForProvider} from './issue357/readiness.mjs';
 import {startCurrentApplications as runCurrentApplicationStart,requireSuccessfulApplicationStop} from './issue357/current_application_lifecycle.mjs';
+import {withFailureEvidence} from './issue357/failure.mjs';
 
 const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const argv=process.argv.slice(2),action=argv[0];
@@ -111,37 +112,45 @@ async function stopApplications(m) {
  return await readJSON(join(m.directory,'services-stopped.json')).catch(()=>({passed:false,reason:'abrupt_application_exit'}));
 }
 async function cleanup(m) {
- validateManifest(m);await inventory(m);m.status='stopping';await save(m);
+ validateManifest(m);
+ return withFailureEvidence(m,'cleanup',async stage=>{
+ stage('inventory');await inventory(m);
+ stage('save-stopping');m.status='stopping';await save(m);
+ stage('read-audit');
  let audit=await readJSON(join(m.directory,'cleanup-audit.json')).catch(e=>{if(e.code!=='ENOENT')throw e;return null});
  // Every retry must recheck processes even after an earlier successful snapshot.
  let applications={passed:true};
- if(m.supervisor||m.processSpec)applications=await stopApplications(m);
+ if(m.supervisor||m.processSpec){stage('stop-applications');applications=await stopApplications(m)}
  if(!audit) {
+  stage('snapshot');
   let zeroWrite={passed:false,reason:'setup_incomplete'};
   if(m.seeded)try{if(currentMode(m))await json(join(m.directory,'snapshot.json'),{...baseConfig(m),databaseUser:'issue357',databasePassword:m.secrets.commercialDatabase});await go(m,'Snapshot',currentMode(m)?'snapshot.json':'runtime.json');zeroWrite=await readJSON(join(m.directory,'zero-write.json'))}catch{zeroWrite={passed:false,reason:'snapshot_failed'}}
-  audit={applications,zeroWrite};await json(join(m.directory,'cleanup-audit.json'),audit);
+  stage('save-audit');audit={applications,zeroWrite};await json(join(m.directory,'cleanup-audit.json'),audit);
  }
  const {zeroWrite}=audit;
  applications={...applications,passed:applications.passed&&audit.applications.passed};
  // Cleanup continues after audit failure. Ownership is rechecked for every delete.
+ stage('remove-resources');
  for(const name of [...services.map(s=>`${m.project}-${s}`),...volumes.map(v=>`${m.project}-${v}`),`${m.project}-network`]){
   const record=m.resources[name];if(!record)continue;const r=await inspect(record.kind,name);if(!r)continue;ownedResource(m,r,name,record.id);
   if(record.kind==='container') {await run('docker',['container','stop','--time','10',record.id]);await run('docker',['container','rm',record.id])}
   else await run('docker',[record.kind,'rm',record.id]);
  }
- for(const record of Object.values(m.resources))assert.equal(await inspect(record.kind,record.name),null,'RESOURCE_NOT_RELEASED');
- for(const p of Object.values(m.ports))await port(p);
+ stage('verify-resources');for(const record of Object.values(m.resources))assert.equal(await inspect(record.kind,record.name),null,'RESOURCE_NOT_RELEASED');
+ stage('verify-ports');for(const p of Object.values(m.ports))await port(p);
  const passed=applications.passed&&(!m.seeded||zeroWrite.passed);
  const evidence={schemaVersion:'issue357-cleanup-v1',runId:m.runId,sourceSha:m.sourceSha,webSha:m.webSha,passed,resourcesReleased:true,portsReleased:true,applications,zeroWrite,at:new Date().toISOString()};
  // Remove secrets only after all owned resources are confirmed absent. Do not
  // recursively remove the UI dependency junction (it points to the checkout).
- const ui=join(m.directory,'ui');await unlink(join(ui,'node_modules')).catch(e=>{if(e.code!=='ENOENT')throw e});
+ stage('unlink-ui-dependencies');const ui=join(m.directory,'ui');await unlink(join(ui,'node_modules')).catch(e=>{if(e.code!=='ENOENT')throw e});
+ stage('remove-ui');
  assert.equal(resolve(ui),resolve(runDirectory(m.runId),'ui'));
  await rm(ui,{recursive:true,force:true});
- await unlink(join(m.directory,'schema-init','source-account-schema.yaml')).catch(e=>{if(e.code!=='ENOENT')throw e});
+ stage('remove-schema-config');await unlink(join(m.directory,'schema-init','source-account-schema.yaml')).catch(e=>{if(e.code!=='ENOENT')throw e});
  const privateFiles=['bootstrap.pat','applications.json','provision.json','seed.json','runtime.json','snapshot.json','services.json','compose.json','admin.credentials.json','viewer.credentials.json','no-org.credentials.json','owner-secrets.json','current-application.json','source-account-schema.yaml','grant-source.json','source-snapshot-input.json','source-permission-input.json','issue390-chain.json'];
- for(const name of privateFiles.flatMap(name=>[name,`${name}.tmp`]))await unlink(join(m.directory,name)).catch(e=>{if(e.code!=='ENOENT')throw e});
- delete m.secrets;await json(join(m.directory,'cleanup.json'),evidence);m.status=currentMode(m)?'destroyed':'stopped';await save(m);return evidence;
+ stage('remove-private-files');for(const name of privateFiles.flatMap(name=>[name,`${name}.tmp`]))await unlink(join(m.directory,name)).catch(e=>{if(e.code!=='ENOENT')throw e});
+ stage('save-cleanup-evidence');delete m.secrets;await json(join(m.directory,'cleanup.json'),evidence);m.status=currentMode(m)?'destroyed':'stopped';await save(m);return evidence;
+ });
 }
 async function initializeCurrentApplication(m) {
  const schemaWork=join(m.directory,'schema-init'),schemaConfig=join(schemaWork,'source-account-schema.yaml');await mkdir(schemaWork,{recursive:true});
@@ -183,22 +192,25 @@ async function fresh() {
  await privateDirectory(m.directory);await save(m);console.log(`runId=${m.runId} manifest=${join(m.directory,'manifest.json')}`);
  return lock(m,async()=>{
   try {
+   return await withFailureEvidence(m,'initialize',async stage=>{
    // Before create, every expected name must be absent. No adopt-by-name.
+   stage('resource-preflight');
    for(const [kind,names]of [['container',services],['volume',volumes],['network',['network']]])for(const suffix of names)assert.equal(await inspect(kind,`${m.project}-${suffix}`),null,'RESOURCE_CONFLICT');
-   await copyUI(m,web);
-   await run('go',['test','-tags','issue357','-c','-o',binary(m),'./internal/app/httpapi'],{cwd:repo});
-   if(currentMode(m)){await mkdir(dirname(schemaBinary(m)),{recursive:true});await run('go',['build','-o',applicationBinary(m),'./cmd/current-application'],{cwd:repo});await run('go',['build','-o',schemaBinary(m),'./cmd/source-account-registry-schema-init'],{cwd:repo})}
-   await json(join(m.directory,'compose.json'),composeConfiguration(m));await json(join(m.directory,'proxy.json'),proxyConfiguration());await writeFile(join(m.directory,'empty.env'),'');
-   await run('docker',['compose','--env-file',join(m.directory,'empty.env'),'-f',join(m.directory,'compose.json'),'-p',m.project,'up','-d','--wait','--wait-timeout','300'],{cwd:m.directory});
-   await inventory(m,true);m.status='provider-ready';await save(m);
-   m.imageDigests={};for(const [key,image]of Object.entries(images)){const info=JSON.parse(await run('docker',['image','inspect',image]))[0];m.imageDigests[key]={image,id:info.Id,digests:info.RepoDigests}}await save(m);
-   await run('docker',['cp',`${m.project}-zitadel-api:/setup/bootstrap.pat`,join(m.directory,'bootstrap.pat')]);
-   await createSubjects(m);
-   await json(join(m.directory,'provision.json'),{...baseConfig(m),managementToken:(await readFile(join(m.directory,'bootstrap.pat'),'utf8')).trim()});await go(m,'Provision','provision.json');await unlink(join(m.directory,'provision.json'));
-   const apps=await readJSON(join(m.directory,'applications.json'));m.projectId=apps.ProjectID;m.apiClientId=apps.APIClientID;m.oidcClientId=apps.OIDCClientID;await save(m);await grantSubjects(m);
-   await json(join(m.directory,'seed.json'),{...baseConfig(m),databaseUser:'issue357',databasePassword:m.secrets.commercialDatabase,readerPassword:m.secrets.reader});await go(m,'Seed','seed.json');await unlink(join(m.directory,'seed.json'));m.seeded=true;m.status='seeded';await save(m);
-   if(currentMode(m))await initializeCurrentApplication(m);
-   await startApplications(m);await health(m);m.status='ready';await save(m);console.log(`READY ${m.origins.web} manifest=${join(m.directory,'manifest.json')}`);return m;
+   stage('copy-ui');await copyUI(m,web);
+   stage('compile-runtime');await run('go',['test','-tags','issue357','-c','-o',binary(m),'./internal/app/httpapi'],{cwd:repo});
+   if(currentMode(m)){stage('compile-current-application');await mkdir(dirname(schemaBinary(m)),{recursive:true});await run('go',['build','-o',applicationBinary(m),'./cmd/current-application'],{cwd:repo});stage('compile-schema-initializer');await run('go',['build','-o',schemaBinary(m),'./cmd/source-account-registry-schema-init'],{cwd:repo})}
+   stage('write-runtime-config');await json(join(m.directory,'compose.json'),composeConfiguration(m));await json(join(m.directory,'proxy.json'),proxyConfiguration());await writeFile(join(m.directory,'empty.env'),'');
+   stage('docker-compose-up');await run('docker',['compose','--env-file',join(m.directory,'empty.env'),'-f',join(m.directory,'compose.json'),'-p',m.project,'up','-d','--wait','--wait-timeout','300'],{cwd:m.directory});
+   stage('inventory');await inventory(m,true);m.status='provider-ready';await save(m);
+   stage('inspect-images');m.imageDigests={};for(const [key,image]of Object.entries(images)){const info=JSON.parse(await run('docker',['image','inspect',image]))[0];m.imageDigests[key]={image,id:info.Id,digests:info.RepoDigests}}await save(m);
+   stage('read-bootstrap');await run('docker',['cp',`${m.project}-zitadel-api:/setup/bootstrap.pat`,join(m.directory,'bootstrap.pat')]);
+   stage('create-subjects');await createSubjects(m);
+   stage('provision');await json(join(m.directory,'provision.json'),{...baseConfig(m),managementToken:(await readFile(join(m.directory,'bootstrap.pat'),'utf8')).trim()});await go(m,'Provision','provision.json');await unlink(join(m.directory,'provision.json'));
+   stage('grant-subjects');const apps=await readJSON(join(m.directory,'applications.json'));m.projectId=apps.ProjectID;m.apiClientId=apps.APIClientID;m.oidcClientId=apps.OIDCClientID;await save(m);await grantSubjects(m);
+   stage('seed');await json(join(m.directory,'seed.json'),{...baseConfig(m),databaseUser:'issue357',databasePassword:m.secrets.commercialDatabase,readerPassword:m.secrets.reader});await go(m,'Seed','seed.json');await unlink(join(m.directory,'seed.json'));m.seeded=true;m.status='seeded';await save(m);
+   if(currentMode(m)){stage('initialize-current-application');await initializeCurrentApplication(m)}
+   stage('start-applications');await startApplications(m);stage('health');await health(m);stage('save-ready');m.status='ready';await save(m);console.log(`READY ${m.origins.web} manifest=${join(m.directory,'manifest.json')}`);return m;
+   });
   } catch(e) {
    m.status='failed';m.failure=e.message;await save(m);console.error(`FAILED ${e.message}; run=${m.runId}`);
    try{await cleanup(m)}catch{console.error(`CLEANUP_INCOMPLETE: retry ${currentMode(m)?'destroy':'stop'} --run ${m.runId}`)}throw e;
