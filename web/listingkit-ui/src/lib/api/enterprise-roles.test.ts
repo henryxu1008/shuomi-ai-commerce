@@ -113,7 +113,7 @@ it("keeps custom role definitions and create/save inputs limited to 32 modules",
   expect(createRoleInput.safeParse({ name: "浏览器", modules: ["store-browser"] }).success).toBe(true);
 });
 
-it("still rejects duplicate modules and roles, unavailable modules and missing catalog entries", () => {
+it("still rejects duplicate or malformed modules, duplicate roles and invalid catalog references", () => {
   const duplicateModules = roleCatalogPayload(33);
   duplicateModules.items[0].modules[32] = duplicateModules.items[0].modules[0];
   expect(() => parseEnterpriseRoles(duplicateModules)).toThrow();
@@ -126,4 +126,10 @@ it("still rejects duplicate modules and roles, unavailable modules and missing c
   const missing = roleCatalogPayload(33);
   missing.items[0].modules[0] = "missing-module";
   expect(() => parseEnterpriseRoles(missing)).toThrow();
+  const malformed = roleCatalogPayload(33);
+  malformed.items[0].modules[0] = "store_browser";
+  malformed.catalog[0].id = "store_browser";
+  expect(() => parseEnterpriseRoles(malformed)).toThrow();
+  expect(createRoleInput.safeParse({ name: "角色", modules: ["store_browser"] }).success).toBe(false);
+  expect(saveRoleInput.safeParse({ modules: ["store_browser"], expectedVersion: 1 }).success).toBe(false);
 });
