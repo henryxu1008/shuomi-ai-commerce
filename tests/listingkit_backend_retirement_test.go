@@ -17,6 +17,181 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
+	const logging = "internal/platform/logging"
+	const httpclient = "internal/pkg/httpclient"
+	const migration = "internal/platform/database/migration"
+	if _, err := os.Lstat(filepath.Join("..", logging, "level_split_hook.go")); !os.IsNotExist(err) {
+		t.Errorf("retired level split hook file must be absent: %v", err)
+	}
+	retired := map[string][]string{
+		logging:   strings.Fields("rwLocker logLevelState LevelSplitHook LevelFileConfig logLevelState.locking newLogManager LogManager.SetLevel LogManager.GetLevel NewLevelSplitHook LevelSplitHook.Levels LevelSplitHook.Fire"),
+		migration: strings.Fields("Runner.Status"),
+	}
+	retiredFields := map[string][]string{
+		logging + ":LogManager": strings.Fields("levelState formatter"),
+		logging + ":LogConfig":  strings.Fields("EnableCaller CallerSkip SplitByLevel"),
+		httpclient + ":Config":  strings.Fields("SkipTLSVerify"),
+	}
+	shapes := map[string][]string{
+		logging + ":LogConfig": {
+			"Level:string:`yaml:\"level\" json:\"level\"`", "Format:string:`yaml:\"format\" json:\"format\"`",
+			"OutputFile:string:`yaml:\"output_file\" json:\"output_file\"`", "MaxSize:int:`yaml:\"max_size\" json:\"max_size\"`",
+			"MaxBackups:int:`yaml:\"max_backups\" json:\"max_backups\"`", "MaxAge:int:`yaml:\"max_age\" json:\"max_age\"`",
+			"Compress:bool:`yaml:\"compress\" json:\"compress\"`", "Console:bool:`yaml:\"console\" json:\"console\"`",
+			"ReportCaller:bool:`yaml:\"report_caller\" json:\"report_caller\"`",
+		},
+		logging + ":LogManager":         {"logger:*logrus.Logger:", "outputs:[]io.Writer:", "config:*LogConfig:", "fileWriter:*rotatingFileWriter:", "mutex:sync.RWMutex:"},
+		logging + ":logManagerRegistry": {"locker:sync.Locker:", "manager:*LogManager:", "factory:logManagerFactory:"},
+		httpclient + ":Config":          {"Timeout:time.Duration:", "MaxRetries:int:", "RetryDelay:time.Duration:", "EnableLogging:bool:"},
+		migration + ":Runner":           {"provider:*goose.Provider:", "upMu:sync.Locker:"},
+	}
+	fragments := map[string][]string{
+		logging + ":NewLogManager":                                       {"config = DefaultLogConfig()", "logger := logrus.New()", "level := parseLogLevel(config.Level)", "logger.SetLevel(level)", "formatter := createFormatter(config.Format, config.ReportCaller)", "logger.SetFormatter(formatter)", "logger.SetReportCaller(config.ReportCaller)", "outputs := lm.createOutputs()", "lm.outputs = outputs", "logger.SetOutput(io.MultiWriter(outputs...))"},
+		logging + ":DefaultLogConfig":                                    {`Level:`, `"info"`, `ReportCaller: false`},
+		logging + ":LogManager.GetLogger":                                {`lm.logger.WithField("component", component)`},
+		logging + ":LogManager.GetRawLogger":                             {"return lm.logger"},
+		logging + ":LogManager.Close":                                    {"lm.mutex.Lock()", "defer lm.mutex.Unlock()", "lm.fileWriter.Close()"},
+		logging + ":parseLogLevel":                                       nil,
+		logging + ":createFormatter":                                     nil,
+		logging + ":LogManager.createOutputs":                            {"os.Stdout", "newRotatingFileWriter("},
+		logging + ":newLogManagerRegistry":                               {"locker sync.Locker"},
+		logging + ":logManagerRegistry.init":                             {"r.locker.Lock()", "defer r.locker.Unlock()", "r.manager = r.factory(config)"},
+		logging + ":logManagerRegistry.get":                              {"r.locker.Lock()", "defer r.locker.Unlock()", "if r.manager == nil", "r.manager = r.factory(nil)"},
+		logging + ":InitGlobalLogger":                                    {"globalLogManagerRegistry.init(config)"},
+		logging + ":GetGlobalLogManager":                                 {"globalLogManagerRegistry.get()"},
+		logging + ":GetGlobalLogger":                                     {"GetGlobalLogManager().GetLogger(component)"},
+		httpclient + ":New":                                              {"&http.Client{Timeout: config.Timeout}"},
+		httpclient + ":Client.Do":                                        {"case <-ctx.Done():", "req.WithContext(ctx)", "_ = resp.Body.Close()"},
+		httpclient + ":NewSimpleWithTimeout":                             {"&http.Client{Timeout: timeout}"},
+		migration + ":New":                                               nil,
+		migration + ":NewWithVersionTable":                               {"validVersionTableName(dialect, versionTable)"},
+		migration + ":validVersionTableName":                             nil,
+		migration + ":newRunner":                                         {"lock.NewPostgresSessionLocker()", "goose.WithSessionLocker(sessionLocker)", "goose.WithTableName(versionTable)", "upMu = &sqliteUpMu", "goose.NewProvider("},
+		migration + ":Runner.Up":                                         {"r.upMu.Lock()", "defer r.upMu.Unlock()", "r.provider.Up(ctx)"},
+		"internal/crawler/shared/browser:NewChromeDownloaderWithTimeout": {"httpclient.Config{", "httpclient.New(httpConfig,"},
+	}
+	formatNode := func(node ast.Node) string {
+		var b bytes.Buffer
+		if err := format.Node(&b, token.NewFileSet(), node); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	found := map[string]bool{}
+	for _, relative := range trackedFiles(t, ".") {
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if !strings.HasSuffix(relative, ".go") || (owner != logging && owner != httpclient && owner != migration && relative != "internal/crawler/shared/browser/chrome_downloader.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil && len(d.Recv.List) > 0 {
+					shape := d.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					if receiver, ok := shape.(*ast.Ident); ok {
+						name = receiver.Name + "." + name
+					}
+				}
+				if slices.Contains(retired[owner], name) {
+					t.Errorf("%s retains retired declaration %s", relative, name)
+				}
+				identity := owner + ":" + name
+				if wanted, relevant := fragments[identity]; relevant {
+					found[identity] = true
+					body := formatNode(d)
+					for _, fragment := range wanted {
+						if !strings.Contains(body, fragment) {
+							t.Errorf("%s must retain %s fragment %q", relative, name, fragment)
+						}
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if slices.Contains(retired[owner], typ.Name.Name) {
+						t.Errorf("%s retains retired type %s", relative, typ.Name.Name)
+					}
+					identity := owner + ":" + typ.Name.Name
+					shape, ok := typ.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					var actual []string
+					for _, field := range shape.Fields.List {
+						if len(field.Names) == 0 {
+							actual = append(actual, "embedded:"+formatNode(field.Type))
+						}
+						tag := ""
+						if field.Tag != nil {
+							tag = field.Tag.Value
+						}
+						for _, name := range field.Names {
+							if slices.Contains(retiredFields[identity], name.Name) {
+								t.Errorf("%s retains retired field %s.%s", relative, typ.Name.Name, name.Name)
+							}
+							actual = append(actual, name.Name+":"+formatNode(field.Type)+":"+tag)
+						}
+					}
+					if wanted, relevant := shapes[identity]; relevant {
+						found[identity] = true
+						if typ.Assign.IsValid() || !reflect.DeepEqual(actual, wanted) {
+							t.Errorf("%s must retain exact %s fields/types/tags/order: got %v, want %v", relative, typ.Name.Name, actual, wanted)
+						}
+					}
+				}
+			}
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			if call, ok := node.(*ast.CallExpr); ok && owner == logging {
+				if name, ok := call.Fun.(*ast.Ident); ok && slices.Contains([]string{"newLogManager", "NewLevelSplitHook"}, name.Name) {
+					t.Errorf("%s retains retired logging construction %s", relative, name.Name)
+				}
+			}
+			if literal, ok := node.(*ast.CompositeLit); ok {
+				typeName := ""
+				if name, ok := literal.Type.(*ast.Ident); ok {
+					typeName = owner + ":" + name.Name
+				}
+				if name, ok := literal.Type.(*ast.SelectorExpr); ok && relative == "internal/crawler/shared/browser/chrome_downloader.go" && name.Sel.Name == "Config" {
+					if alias, ok := name.X.(*ast.Ident); ok && alias.Name == "httpclient" {
+						typeName = httpclient + ":Config"
+					}
+				}
+				for _, entry := range literal.Elts {
+					if pair, ok := entry.(*ast.KeyValueExpr); ok {
+						if key, ok := pair.Key.(*ast.Ident); ok && slices.Contains(retiredFields[typeName], key.Name) {
+							t.Errorf("%s retains retired configuration/constructor field %s", relative, key.Name)
+						}
+					}
+				}
+			}
+			return true
+		})
+	}
+	for identity := range shapes {
+		if !found[identity] {
+			t.Errorf("current struct must remain: %s", identity)
+		}
+	}
+	for identity := range fragments {
+		if !found[identity] {
+			t.Errorf("current function must remain: %s", identity)
+		}
+	}
+}
+
 func TestLegacySourceResultContractClosureIsRetired(t *testing.T) {
 	const resultOwner = "internal/crawler/amazon/capturedata"
 	const attributeOwner = "internal/marketplace/shein/offlinepackage/previewdata"
@@ -1649,7 +1824,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/shared/aiidentity":  {"Identity": false, "Identity.AgentRunID": false, "Identity.TenantID": false, "Identity.UserID": false, "Identity.BusinessTaskID": false, "Identity.TraceID": false, "WithIdentity": false, "FromContext": false},
 		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
 		"internal/core/config":        {"Config": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "RedisConfig": false, "RedisConfig.Host": false, "RedisConfig.Port": false, "RedisConfig.Password": false, "RedisConfig.DB": false, "RedisConfig.PoolSize": false, "OpenAIConfig": false, "BrowserConfig": false, "PlatformsConfig": false, "Alibaba1688Config": false},
-		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false, "LevelFileConfig": false, "LogManager.SetLevel": false, "LogManager.GetLevel": false},
+		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false},
 		"internal/pkg/goroutine":      {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
 		"internal/pkg/timeout":        {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
 		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},

@@ -72,7 +72,3 @@ func (r *Runner) Up(ctx context.Context) ([]*goose.MigrationResult, error) {
 	}
 	return r.provider.Up(ctx)
 }
-
-func (r *Runner) Status(ctx context.Context) ([]*goose.MigrationStatus, error) {
-	return r.provider.Status(ctx)
-}

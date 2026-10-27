@@ -16,7 +16,6 @@ type Config struct {
 	MaxRetries    int
 	RetryDelay    time.Duration
 	EnableLogging bool
-	SkipTLSVerify bool
 }
 
 // Client 增强的 HTTP 客户端
