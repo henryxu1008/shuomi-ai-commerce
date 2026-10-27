@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — #301 / #891.** This migration inventory is historical evidence, not current implementation authority. Use [project boundaries](../architecture/project-boundaries.md) and the [confirmed source-retirement boundary](../architecture/legacy-listing-preview-download-closure-retirement-boundary.md): old Task preview/platform and listing downloader owners are source-retired. Product facts and approved assets remain with `internal/product/catalog` / `internal/product/asset`; [current Listing contracts](../../internal/listing/README.md) retain their real owners.
+>
+> The original body below is preserved. Its preview extraction and compatibility-bridge proposals do not authorize keeping or restoring retired owners, fallback paths or a second fact source.
+
 # Listing Preview Migration Map
 
 > Status: first migration inventory for moving preview ownership from `internal/listingkit` toward `internal/listing/preview` and related target domains.

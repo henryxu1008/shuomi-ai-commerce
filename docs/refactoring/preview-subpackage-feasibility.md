@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — #301 / #891.** The package-retention and extraction proposals below are historical evidence, not current implementation authority. Use [project boundaries](../architecture/project-boundaries.md) and the [confirmed source-retirement boundary](../architecture/legacy-listing-preview-download-closure-retirement-boundary.md): old `internal/listing/preview`, `internal/listing/platform` and the listing downloader are source-retired. Product facts and approved assets remain with `internal/product/catalog` / `internal/product/asset`; [current Listing contracts](../../internal/listing/README.md) retain their real owners.
+>
+> The original body below is preserved. Its keep-in-root, compatibility-facade and future-subpackage directions do not authorize keeping or restoring retired Preview owners.
+
 # Preview Subpackage Feasibility Note
 
 > Status: keep preview refactoring inside `package listingkit` for now. Do not move to `internal/listingkit/preview` until the dependencies below are reduced or explicitly bridged.

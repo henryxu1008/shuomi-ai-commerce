@@ -386,8 +386,10 @@ Use these as the main source of truth for structural work:
 - `compatibility-retirement.md`
   - retired compatibility paths, replacement owners, and guard tests
 - `listing-preview-boundaries.md`
-  - platform-neutral preview ownership, ListingKit facade limits, and guard
-    tests for preview extraction
+  - superseded historical boundary; current authority is the
+    [confirmed source-retirement boundary](legacy-listing-preview-download-closure-retirement-boundary.md)
+    and current Product/Catalog/Asset/Listing owners. The original preview guards
+    enforce retired-package import bans and source absence, not a living preview seam.
 - `architecture-review-checklist.md`
   - repeatable PR review checklist for boundary-sensitive changes
 
