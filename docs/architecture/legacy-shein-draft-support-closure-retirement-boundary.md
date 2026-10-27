@@ -2,7 +2,7 @@
 
 > **Independent Architecture / DESIGN_ONLY / DESIGNING / SOURCE_NOT_STARTED / NOT_READY**。本阶段仅本文、架构 README、Legacy register 三文档。用户同意先做四旧包完整设计，不机械拆批；适用设计复核完成、用户确认 §1–§7（含 §4.2、§6.1）并在 Issue/PR 写入读回 IMPLEMENTATION_READY / Ready 后，才在同一主要 PR 整批实施。起始实际 main `5306d3f58212ed0a92575b985aa9c730894bea64`；#964 正常合并，准确 push/main CI40312717064 attempt1 SUCCESS。当前无生产/测试源码修改。
 
-稳定设计基线更新为实际 main f5a1faa65ae27d65b3ba3c1abd07a1e95729024（#967）。相对起始5306唯一新增为Amazon扩展四TS、三测试、一份扩展文档及一份来源测试共9文件；四旧包/68路径/全部原检查/README-register/依赖零交集。原字段/消费者/规则调查可复用，最新组合由准确设计HEAD原CI另行验证，不接管该owner。
+稳定设计基线更新为实际 main `af5a1faa65ae27d65b3ba3c1abd07a1e95729024`（#967）。相对起始5306唯一新增为Amazon扩展四TS、三测试、一份扩展文档及一份来源测试共9文件；四旧包/68路径/全部原检查/README-register/依赖零交集。原字段/消费者/规则调查可复用，最新组合由准确设计HEAD原CI另行验证，不接管该owner。
 
 ## 1. 用户结果与本批范围
 
