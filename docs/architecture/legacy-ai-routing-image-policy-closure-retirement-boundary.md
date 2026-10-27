@@ -82,7 +82,7 @@ Must：当前能力与原授权/企业隔离/凭据保护；一次发送和 UNKN
 | aicapability/model.go | ModelFeature/两个 feature 常量、ModelPricing/ModelDefinition/Supports、TenantModelPolicy；三旧 Enrich Vision/Listing/Fusion capability；旧 ProductImage SceneGenerate/SubjectExtract/WhiteBackground 三 operation 与八个 ProductEnrich operation；仅因此无用 time import | Capability/Operation 基础类型，三个现役 capability、六个当前文本 operation 与 ProductImageReview 的名称/原值 |
 | aicapability/invocation.go | 只删 RouteOutcomeLegacy/ShadowDecided/ShadowRouteError 三闲置常量 | 全部原类型、字段、tag、函数/方法、接口和 active 常量原样 |
 | product/image/model.go | 只删 ImageAudit、RiskLevel/Low/Medium/High、IPRiskAssessment 整声明 | 所有其它字段/类型/常量/注释，包括 SceneRequest/ProfileName 与 Review |
-| aicapability/model_test.go | 原函数只保留实际 CapabilityProductEnrichText 值断言，删退休 operation/feature/capability 的保活断言 | 原现役 capability 原始字符串断言 |
+| aicapability/model_test.go | 原函数只保留实际 CapabilityProductEnrichText 值断言，删退休 operation/feature/capability 的保活断言；从 routing_test.go 原样迁入 TestCategoryOf 整函数，仅补标准 errors import | 原现役 capability 原始字符串断言，以及 TestCategoryOf 的 nil/普通错误/CapabilityError 三分支全部原断言 |
 | aicapability/productimage_scene_test.go | Scene 合同测试删 SceneGenerate 一项；ModelOperation 合同测试删 SubjectExtract/WhiteBackground 两项 | 两原测试及 CapabilityProductImageScene/OperationProductImageReview 原值与失败断言 |
 | aicapability/usage_settlement_test.go | TestObservedFailedReviewSettlesActualTokensWithoutChangingOrdinaryFailure 中旧 SceneGenerate 符号改为 `Operation("productimage_scene_generate")` | 同一负例原 string、settle/不 settle、错误和其它函数逐字保持 |
 | aicapability/store/gorm_invocation_recorder_test.go | TestObservedFailedReviewRequiresExistingDispatchedReview 中同一符号改为 `aicapability.Operation("productimage_scene_generate")` | 原 dispatched/身份冲突/无结算/原行数等全部断言及其它函数逐字保持 |
@@ -169,7 +169,8 @@ Must：当前能力与原授权/企业隔离/凭据保护；一次发送和 UNKN
 
 | 原检查 | 本批转换 | 保持的实际 Must |
 | --- | --- | --- |
-| routing_test.go 五 PolicyRouter 测试及专属 stub；routing_mode_test.go parser 测试；execution_plan_test.go 三测试 | 随旧执行链整退 | 现役 routeconfig/einomodel 的组织授权、准入/一次发送/无发送释放/UNKNOWN/deadline 及计费测试零改，旧测试不再指定另一套路由 owner |
+| routing_test.go 五 PolicyRouter 测试及专属 stub；routing_mode_test.go parser 测试；execution_plan_test.go 三测试 | 随旧执行链整退；routing_test.go 内的通用 TestCategoryOf 不属于该退休项，按下行迁到原矩阵内 model_test.go | 现役 routeconfig/einomodel 的组织授权、准入/一次发送/无发送释放/UNKNOWN/deadline 及计费测试零改，旧测试不再指定另一套路由 owner |
+| routing_test.go / TestCategoryOf | 原整函数迁入已在44路径内的 aicapability/model_test.go，仅补标准 errors import，不新增路径 | nil→空类别、普通错误→ErrorUnknown、CapabilityError→原类别三项断言和输入字面量逐字保留；生产 errors.go/CategoryOf 及全部其它错误合同不变 |
 | model_test.go / TestProductEnrichTextCapabilityContracts | 仅删 §5.1 明列退出值的保活断言 | 当前 capability 字符串不改；无全文件跳过 |
 | productimage_scene_test.go 两原函数 | 精确按 §5.1 减去三旧 operation | 当前 Review/Scene capability 原值仍显式校验 |
 | usage_settlement_test.go / TestObservedFailedReviewSettlesActualTokensWithoutChangingOrdinaryFailure | 仅替换一个符号为相同 typed string | 原非 Review usage-observed-failed 不结算/错误断言逐字保留 |
