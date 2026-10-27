@@ -13,9 +13,21 @@ const app=next({dev:true,dir:cfg.uiDirectory,hostname:'localhost',port:cfg.webPo
 await app.prepare();
 const handler=app.getRequestHandler();
 const server=createServer((req,res)=>handler(req,res));
+// Track TCP connections without changing Next's upgrade routing. HTTP's
+// closeAllConnections deliberately excludes upgraded HMR WebSockets.
+const sockets=new Set();
+server.on('connection',socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket))});
 await new Promise((r,reject)=>{server.once('error',reject);server.listen(cfg.webPort,'127.0.0.1',r)});
 await json(join(dir,'next-ready.json'),{port:cfg.webPort});
 let closing=false;
-async function stop(){if(closing)return;closing=true;clearInterval(timer);server.closeAllConnections();await new Promise(r=>server.close(r));await app.close();process.exit(0)}
+async function stop(){
+ if(closing)return;closing=true;clearInterval(timer);
+ // Stop accepting first, then release this server's HTTP and upgraded sockets
+ // before waiting for close. Otherwise app.close is unreachable with open HMR.
+ const closed=new Promise(r=>server.close(r));
+ server.closeAllConnections();
+ for(const socket of sockets)socket.destroy();
+ await closed;await app.close();process.exit(0);
+}
 const timer=setInterval(()=>{if(existsSync(join(dir,'stop-next')))void stop()},200);
 process.on('SIGINT',()=>void stop());process.on('SIGTERM',()=>void stop());

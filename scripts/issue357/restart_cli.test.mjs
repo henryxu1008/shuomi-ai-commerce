@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFile,spawn} from 'node:child_process';
 import {promisify} from 'node:util';
+import {once} from 'node:events';
 import {randomUUID} from 'node:crypto';
-import {mkdir,rm,writeFile} from 'node:fs/promises';
+import {copyFile,mkdir,readFile,rm,unlink,writeFile} from 'node:fs/promises';
 import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {childEnvironment,makeManifest} from './contract.mjs';
@@ -40,7 +41,10 @@ async function scenario(plan,verify) {
  let failure;
  try{
   let stopReport;
-  if(plan.ownedChildExit!==undefined){stopReport=await ownedSupervisorStop(m,plan.ownedChildExit,plan.injectLiveRecord);await json(planPath,{...plan,stopResult:stopReport})}
+  if(plan.ownedChildExit!==undefined){
+   for(let cycle=0;cycle<(plan.cycles??1);cycle++)stopReport=await ownedSupervisorStop(m,plan.ownedChildExit,plan.injectLiveRecord,plan.keepWebSocket);
+   await json(planPath,{...plan,stopResult:stopReport});
+  }
   const result=await invoke(m,planPath);await verify({m,result,manifest:await readJSON(join(m.directory,'manifest.json')),trace:await readJSON(join(m.directory,'restart-test-trace.json')).catch(()=>[]),planPath,stopReport});
  }catch(error){failure=error;throw error}
  finally{
@@ -52,15 +56,17 @@ async function scenario(plan,verify) {
 // Real production supervisor/next launcher, OS children, stop files, exit report
 // and released loopback ports. The Go child and Next app are deliberately tiny
 // fixtures: this is process-result propagation, not Go/Next/IAM acceptance.
-async function ownedSupervisorStop(m,exitCode,injectLiveRecord=false) {
+async function ownedSupervisorStop(m,exitCode,injectLiveRecord=false,keepWebSocket=false) {
+ // Reuse the same synthetic run and ports without touching retained real runs.
+ for(const name of ['stop-services','stop-go','stop-next','next-ready.json','services-stopped.json','next-closed','fixture-go-listening'])await unlink(join(m.directory,name)).catch(error=>{if(error.code!=='ENOENT')throw error});
  const ui=join(m.directory,'fixture-ui'),nextModule=join(ui,'node_modules','next');
  await mkdir(nextModule,{recursive:true});
  await json(join(ui,'package.json'),{private:true});
  await json(join(nextModule,'package.json'),{name:'next',main:'index.cjs'});
- await writeFile(join(nextModule,'index.cjs'),`module.exports=()=>({prepare:async()=>{},getRequestHandler:()=>((_req,res)=>res.end('fixture')),close:async()=>{}});`);
+ await copyFile(new URL('./fixtures/next.cjs',import.meta.url),join(nextModule,'index.cjs'));
  const child=join(m.directory,'fixture-go.cjs');
  await writeFile(child,`const {existsSync,writeFileSync}=require('node:fs');const {join}=require('node:path');const server=require('node:http').createServer((_req,res)=>{res.statusCode=401;res.end()});server.listen(Number(process.argv[3]),'127.0.0.1',()=>writeFileSync(join(process.argv[2],'fixture-go-listening'),'true'));const timer=setInterval(()=>{if(existsSync(join(process.argv[2],'stop-go'))){clearInterval(timer);server.close(()=>process.exit(Number(process.argv[4]))) }},25);`);
- await json(join(m.directory,'services.json'),{binary:process.execPath,goArgs:[child,m.directory,String(m.ports.go),String(exitCode)],goEnvironment:{},uiDirectory:ui,webPort:m.ports.web,nextEnvironment:{}});
+ await json(join(m.directory,'services.json'),{binary:process.execPath,goArgs:[child,m.directory,String(m.ports.go),String(exitCode)],goEnvironment:{},uiDirectory:ui,webPort:m.ports.web,nextEnvironment:{ISSUE357_NEXT_CLOSE_FILE:join(m.directory,'next-closed')}});
  const supervisor=spawn(process.execPath,[join(repo,'scripts','issue357','serve.mjs'),m.directory],{cwd:m.directory,env:childEnvironment(),windowsHide:true,stdio:['ignore','ignore','pipe']});
  let stderr='';supervisor.stderr.on('data',chunk=>{stderr=(stderr+String(chunk)).slice(-4096)});
  const finished=new Promise((resolve,reject)=>{supervisor.once('error',reject);supervisor.once('close',(code,signal)=>resolve({code,signal}))});
@@ -69,7 +75,7 @@ async function ownedSupervisorStop(m,exitCode,injectLiveRecord=false) {
   try{return await Promise.race([finished.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),milliseconds)})])}
   finally{clearTimeout(timer)}
  }
- const faultChildren=[];
+ const faultChildren=[],sockets=[];
  let failure,verifiedStop=false;
  try {
   // Match startApplications' existing until default (300s). This test measures
@@ -90,12 +96,25 @@ async function ownedSupervisorStop(m,exitCode,injectLiveRecord=false) {
    if(ready&&records.go&&records.next)break;
    await pause(100);
   }
+  const response=await fetch(`http://127.0.0.1:${m.ports.web}`,{signal:AbortSignal.timeout(5000)});
+  assert.equal(await response.text(),'fixture');
+  if(keepWebSocket){
+   for(let connection=0;connection<2;connection++){
+    const socket=new WebSocket(`ws://127.0.0.1:${m.ports.web}/_next/hmr`);sockets.push(socket);
+    await once(socket,'open',{signal:AbortSignal.timeout(5000)});
+    assert.equal(socket.readyState,WebSocket.OPEN);
+   }
+  }
+  // Repeated stop requests must not change the receipt or run application cleanup twice.
+  await writeFile(join(m.directory,'stop-services'),'stop');
   await writeFile(join(m.directory,'stop-services'),'stop');
   assert.equal(await waitForSupervisor(45000),true,'OWNED_SUPERVISOR_STOP_TIMEOUT');
   const ended=await finished;
   assert.equal(ended.signal,null);assert.equal(ended.code,exitCode===0?0:1);
   const report=await readJSON(join(m.directory,'services-stopped.json'));
   assert.equal(report.goExit,exitCode);assert.equal(report.nextExit,0);assert.equal(report.passed,exitCode===0);
+  assert.equal(await readFile(join(m.directory,'next-closed'),'utf8'),'closed\n','Next application cleanup must complete exactly once');
+  for(const socket of sockets)assert.notEqual(socket.readyState,WebSocket.OPEN,'stop must release upgraded connections without client assistance');
   if(injectLiveRecord){
    const records=await readJSON(join(m.directory,'processes.json'));
    await startChildren([{name:'unreleased-fixture',command:process.execPath,args:['-e','setInterval(()=>{},1000)'],cwd:m.directory}],async(name,identity)=>{records[name]=identity;await json(join(m.directory,'processes.json'),records)},faultChildren);
@@ -107,6 +126,7 @@ async function ownedSupervisorStop(m,exitCode,injectLiveRecord=false) {
   return report;
  } catch(error){failure=error;throw error
  } finally {
+  for(const socket of sockets)if(socket.readyState===WebSocket.OPEN)socket.close();
   try {
    await terminateChildren(faultChildren);
    if(!verifiedStop){
@@ -194,3 +214,9 @@ for(const exitCode of [0,7])test(`current lifecycle consumes real supervisor sto
 test('owned supervisor fixture keeps live-process verification failed after successful cleanup',{skip:process.platform!=='win32'},async()=>{
  await assert.rejects(scenario({currentApplication:true,ownedChildExit:0,injectLiveRecord:true},()=>assert.fail('invalid stop reached CLI')),/RECORDED_PROCESS_STILL_RUNNING/);
 });
+
+test('current lifecycle stops with open HMR WebSockets and reuses the same run and ports',{skip:process.platform!=='win32',timeout:180000},()=>scenario({currentApplication:true,ownedChildExit:0,keepWebSocket:true,cycles:2},async({m,result,manifest,stopReport})=>{
+ assert.equal(stopReport.passed,true);assert.equal(stopReport.nextExit,0);
+ assert.equal(result.code,0);assert.equal(manifest.status,'ready');assert.match(result.stdout,/READY/);
+ assert.equal(manifest.runId,m.runId);assert.deepEqual(manifest.ports,m.ports);
+}));
