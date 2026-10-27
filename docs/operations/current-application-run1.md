@@ -60,6 +60,12 @@ after a failed start cannot confirm successful shutdown, the retained state is
 `stop-failed`, with both start and stop failures recorded; another start is denied.
 These failures do not automatically destroy retained resources or facts.
 
+The browser may stay open during stop. The run-private Next adapter stops
+accepting connections, closes its HTTP and HMR WebSocket connections, then waits
+for server and application cleanup. A successful stop still requires normal
+child exits and released ports within the existing deadlines. Failed or
+unconfirmed stops continue to block the next start.
+
 A rejected current-application startup still exits nonzero and never publishes
 READY. Its supervisor confirms child shutdown before writing the stop receipt.
 If every spawned child exited without forced termination, the receipt records
