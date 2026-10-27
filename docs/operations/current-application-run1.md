@@ -53,6 +53,21 @@ is the separate destructive boundary: it verifies recorded ownership, stops
 applications if needed, removes only resources carrying the run's exact ID and
 label, deletes private credentials, and retains bounded evidence files.
 
+After the protected run directory is created, initialization and destructive
+cleanup failures append to `failure-details.json` in that directory. Records
+contain the phase, failing stage, timestamp and original error details, including
+Docker stderr in `error.privateOutput` and cleanup error codes, paths and stacks.
+Initialization evidence is saved before the existing cleanup path runs; cleanup
+failures append a separate record. The file survives successful cleanup. It uses
+the same recording path for a failed cleanup snapshot, while retaining the
+existing `snapshot_failed` audit and continuing cleanup. The file uses
+the same current-user/SYSTEM directory ACL and atomic mode-0600 writer as private
+control files: treat it as secret-bearing and never attach its raw contents to
+public reports. The public manifest and console do not receive these raw details.
+`FAILURE_EVIDENCE_INCOMPLETE` means diagnostic storage failed; the original
+operation still fails and the existing cleanup handling continues. This evidence
+does not authorize a retry, cleanup, deployment or changes to retained instances.
+
 Current-application restart requires an explicit successful stop report before
 starting anything again. Failed or unconfirmed shutdown records `restart-failed`
 at `stopping-applications`, exits nonzero and never prints `READY`. If cleanup
