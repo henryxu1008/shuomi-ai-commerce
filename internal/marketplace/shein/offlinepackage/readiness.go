@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 // SecondarySaleAttributeRequired reports whether SKU-level sale attributes are required for submit.
@@ -421,7 +421,7 @@ func imageDraftHasImage(info *ImageDraft) bool {
 }
 
 // ProductImageInfoHasImage reports whether a SHEIN product image info contains any image URL.
-func productImageInfoHasImage(info *sheinproduct.ImageInfo) bool {
+func productImageInfoHasImage(info *previewdata.ImageInfo) bool {
 	return sheinmarketpub.ProductImageInfoHasImage(info)
 }
 

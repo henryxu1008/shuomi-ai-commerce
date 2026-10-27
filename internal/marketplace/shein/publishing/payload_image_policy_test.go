@@ -1,15 +1,14 @@
 package publishing
 
 import (
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
-
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 func TestDedupeImagesByURLKeepsFirstNonEmptyURL(t *testing.T) {
 	t.Parallel()
 
-	images := []sheinproduct.ImageDetail{
+	images := []previewdata.ImageDetail{
 		{ImageURL: " https://img.example.com/main.jpg ", ImageType: 1},
 		{ImageURL: "https://img.example.com/detail.jpg", ImageType: 2},
 		{ImageURL: "https://img.example.com/detail.jpg", ImageType: 6},
@@ -31,7 +30,7 @@ func TestDedupeImagesByURLKeepsFirstNonEmptyURL(t *testing.T) {
 func TestNormalizeSubmitSKUImageDetailResetsSubmitFields(t *testing.T) {
 	t.Parallel()
 
-	image := NormalizeSubmitSKUImageDetail(sheinproduct.ImageDetail{
+	image := NormalizeSubmitSKUImageDetail(previewdata.ImageDetail{
 		ImageURL:             "https://img.example.com/sku.jpg",
 		ImageType:            6,
 		ImageSort:            9,
@@ -54,7 +53,7 @@ func TestNormalizeSubmitSKUImageDetailResetsSubmitFields(t *testing.T) {
 func TestNormalizeSubmitGalleryImagesAddsSquareAndOptionalColorBlock(t *testing.T) {
 	t.Parallel()
 
-	images := []sheinproduct.ImageDetail{
+	images := []previewdata.ImageDetail{
 		{ImageType: 1, ImageSort: 9, ImageURL: "https://img.example.com/main.jpg", MarketingMainImage: true, SizeImgFlag: true, TransformCVSizeImage: true},
 		{ImageType: 2, ImageSort: 8, ImageURL: "https://img.example.com/detail.jpg"},
 		{ImageType: 6, ImageSort: 7, ImageURL: "https://img.example.com/color.jpg"},
@@ -89,7 +88,7 @@ func TestNormalizeSubmitGalleryImagesAddsSquareAndOptionalColorBlock(t *testing.
 func TestBuildSubmitSiteDetailImageInfoListPrefersDetailImages(t *testing.T) {
 	t.Parallel()
 
-	items := BuildSubmitSiteDetailImageInfoList([]sheinproduct.ImageDetail{
+	items := BuildSubmitSiteDetailImageInfoList([]previewdata.ImageDetail{
 		{ImageType: 1, ImageURL: "https://img.example.com/main.jpg"},
 		{ImageType: 2, ImageURL: "https://img.example.com/detail-1.jpg"},
 		{ImageType: 2, ImageURL: "https://img.example.com/detail-2.jpg"},

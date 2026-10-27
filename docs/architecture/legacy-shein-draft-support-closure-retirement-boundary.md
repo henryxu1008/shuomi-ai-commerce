@@ -1,3 +1,18 @@
+> #301 / #968 当前实施归属：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY**。本批68路径一次切换：22真实 wire 值归 `marketplace/shein/offlinepackage/previewdata` 纯叶包，有效文本/品牌规则归当前 `marketplace/shein/publishing`；旧 api/product、api/attribute、content、authorizedbrand 及 adapter/私有空 Context 链退出，无兼容 alias。生产明确传默认词和空品牌值，metadata BrandCode 不签发清理授权。§6.1的11个原函数准确转换，新增 `TestLegacySheinDraftSupportClosureIsRetired` 保护完整闭包，其余原检查/负例/永久禁令保持。JSON/hash/版本、Builder取消与当前采集、独立SHEIN登录/Store同步保持；workflow/完整inventory/依赖/保护零改，无既有资源操作或试用前置。执行证据与最终源码状态见 [PR #968](https://github.com/qq550723504/shuomi-ai-commerce/pull/968)，#301 OPEN；以下冻结设计及历史完整保留。
+
+## 已确认设计与实施映射
+
+冻结依据为 `23066e2e7540a58d259c1a3ac9813f23c7c6b227` 的下方完整 §1–§7（含 §4.2、§6.1），已完成独立设计复核并由用户明确确认；Issue/PR 的 IMPLEMENTATION_READY / Ready 已写入读回，之后才开始源码。
+
+- 新值 owner：`offlinepackage/previewdata/model.go`，仅22个真实struct，零import/方法/全局状态；24个当前消费者仅改import/限定名。原字段、tag、顺序及可选/空值槽保留，不保活旧Go类型身份。
+- 新规则 owner：`publishing/display_text_cleanup_policy.go`，五字段显式输入与默认词/清理纯函数，只依赖strings/regexp；沿原顺序、去重、副本、CJK/regexp与品牌算法，不排序或改词。内部Service/Config JSON、锁、Context存取、专属debug日志随旧包退出。
+- draft五文件仅改纯值接线/私有参数，原输出/changed与结构化属性断言保留；local_copy六测试调用一并改接。Builder.Build、严格codec、hash与版本及既有载荷不改。独立登录/Store仍用原client/other/warehouse读取owner。
+- 必要开发自检、准确源码CI与最终源码独立复核在PR分别记录；下方设计阶段及先前NOT_READY状态只作冻结历史。运行/用户验收未执行，合并另行授权。
+
+以下冻结设计全文逐字保留。
+
+---
+
 # #301 旧 SHEIN 草稿支撑层完整退休设计
 
 > **Independent Architecture / DESIGN_ONLY / DESIGNING / SOURCE_NOT_STARTED / NOT_READY**。本阶段仅本文、架构 README、Legacy register 三文档。用户同意先做四旧包完整设计，不机械拆批；适用设计复核完成、用户确认 §1–§7（含 §4.2、§6.1）并在 Issue/PR 写入读回 IMPLEMENTATION_READY / Ready 后，才在同一主要 PR 整批实施。起始实际 main `5306d3f58212ed0a92575b985aa9c730894bea64`；#964 正常合并，准确 push/main CI40312717064 attempt1 SUCCESS。当前无生产/测试源码修改。

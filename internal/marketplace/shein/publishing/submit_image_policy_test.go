@@ -1,7 +1,7 @@
 package publishing
 
 import (
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
 )
 
@@ -104,10 +104,10 @@ func TestProductImageInfoHasImageChecksImageInfoList(t *testing.T) {
 	if ProductImageInfoHasImage(nil) {
 		t.Fatal("ProductImageInfoHasImage(nil) = true, want false")
 	}
-	if ProductImageInfoHasImage(&sheinproduct.ImageInfo{ImageInfoList: []sheinproduct.ImageDetail{{ImageURL: " "}}}) {
+	if ProductImageInfoHasImage(&previewdata.ImageInfo{ImageInfoList: []previewdata.ImageDetail{{ImageURL: " "}}}) {
 		t.Fatal("ProductImageInfoHasImage(blank URL) = true, want false")
 	}
-	if !ProductImageInfoHasImage(&sheinproduct.ImageInfo{ImageInfoList: []sheinproduct.ImageDetail{{ImageURL: " https://cdn.example/image.jpg "}}}) {
+	if !ProductImageInfoHasImage(&previewdata.ImageInfo{ImageInfoList: []previewdata.ImageDetail{{ImageURL: " https://cdn.example/image.jpg "}}}) {
 		t.Fatal("ProductImageInfoHasImage(image URL) = false, want true")
 	}
 }

@@ -3,8 +3,7 @@ package offlinepackage
 import (
 	"encoding/json"
 	"fmt"
-
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // ClonePackageForPersistence copies a SHEIN package using its persisted JSON
@@ -25,7 +24,7 @@ func ClonePackageForPersistence(pkg *Package) (*Package, error) {
 	return &cloned, nil
 }
 
-func CloneProductForSubmit(product *sheinproduct.Product) (*sheinproduct.Product, error) {
+func CloneProductForSubmit(product *previewdata.Product) (*previewdata.Product, error) {
 	if product == nil {
 		return nil, nil
 	}
@@ -33,7 +32,7 @@ func CloneProductForSubmit(product *sheinproduct.Product) (*sheinproduct.Product
 	if err != nil {
 		return nil, fmt.Errorf("clone shein product: %w", err)
 	}
-	var cloned sheinproduct.Product
+	var cloned previewdata.Product
 	if err := json.Unmarshal(data, &cloned); err != nil {
 		return nil, fmt.Errorf("clone shein product: %w", err)
 	}

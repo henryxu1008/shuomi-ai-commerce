@@ -1,3 +1,5 @@
+> #301 / #968 当前 owner 校准（[本批确认设计](legacy-shein-draft-support-closure-retirement-boundary.md) §1–§7，含 §4.2/§6.1）：四个旧包 `internal/shein/api/product`、`api/attribute`、`content`、`authorizedbrand` 及专属 adapter/Context 尾部完整退出。当前22个真实 wire 值归域内 `internal/marketplace/shein/offlinepackage/previewdata`，有效默认/custom文本与品牌清理归现有 `marketplace/shein/publishing` 纯规则，draft 显式传值；无 alias、Service 包装、品牌查询或新事实源。当前字段/JSON/hash/版本、严格解码、Builder取消/ApprovedAsset、采集及独立SHEIN登录/Store同步保持。历史 KEEP 仅在本批准确范围内被此说明替代；以下原全文/计数/勾选/证据完整保留，不恢复旧 owner，不授权运行或数据操作。
+
 > #301 / #940 **SOURCE_IMPLEMENTED / IN_REVIEW**：用户已确认[完整退休设计](legacy-shein-sensitiveword-closure-retirement-boundary.md) §1–§7/§6.1，准确替代本文件中管理/反馈方法、LastUpdated/Version/更新helper及专属4槽JSON/mutation并发KEEP；旧入口失去生产消费者后整批退出。当前17清理函数、两词表map与原tags/默认字典、mutex读锁/防御复制、当前纯规则/品牌/平台JSON、独立SHEIN登录与Store同步继续原owner。仅补当前顶注，原完整正文/历史/数字/勾选保持；无文件数据处理、迁移或替代owner，workflow/inventory与既有资源不动，不增试用前置，#301 OPEN。
 
 # #301 旧工作池、SHEIN 敏感词文件尾部与恢复辅助层完整退休设计

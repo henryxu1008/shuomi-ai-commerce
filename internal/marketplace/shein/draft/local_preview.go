@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	sheinattribute "task-processor/internal/shein/api/attribute"
-	sheinproduct "task-processor/internal/shein/api/product"
+
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 	quantityOfPattern     = regexp.MustCompile(`(?i)\b(pack|set|bundle|collection)\s+of\s+(\d+)\b`)
 )
 
-func buildLocalPreview(pkg *offlinepackage.Package) *sheinproduct.Product {
+func buildLocalPreview(pkg *offlinepackage.Package) *previewdata.Product {
 	if pkg == nil || pkg.DraftPayload == nil {
 		return nil
 	}
@@ -24,7 +24,7 @@ func buildLocalPreview(pkg *offlinepackage.Package) *sheinproduct.Product {
 	if value := strings.TrimSpace(pkg.Metadata["authorized_brand_code"]); value != "" {
 		brandCode = &value
 	}
-	return &sheinproduct.Product{
+	return &previewdata.Product{
 		BrandCode:               brandCode,
 		SPUName:                 pkg.DraftPayload.SpuName,
 		SupplierCode:            pkg.DraftPayload.SupplierCode,
@@ -36,26 +36,26 @@ func buildLocalPreview(pkg *offlinepackage.Package) *sheinproduct.Product {
 		MultiLanguageNameList:   toLanguageContents(pkg.DraftPayload.MultiLanguageNameList),
 		MultiLanguageDescList:   toLanguageContents(pkg.DraftPayload.MultiLanguageDescList),
 		ProductAttributeList:    buildProductAttributes(pkg),
-		SizeAttributeList:       append([]sheinproduct.SizeAttribute(nil), pkg.DraftPayload.SizeAttributeList...),
+		SizeAttributeList:       append([]previewdata.SizeAttribute(nil), pkg.DraftPayload.SizeAttributeList...),
 		ImageInfo:               toImageInfo(pkg.DraftPayload.ImageInfo),
 		SiteList:                toSiteInfo(pkg.DraftPayload.SiteList),
 		SKCList:                 toSKCs(pkg.DraftPayload.SKCList),
-		CustomAttributeRelation: append([]sheinattribute.CustomAttributeRelation(nil), pkg.CustomAttributeRelation...),
-		Extra:                   sheinproduct.Extra{SwitchToSPUPic: true, UseCVTransformImage: true},
+		CustomAttributeRelation: append([]previewdata.CustomAttributeRelation(nil), pkg.CustomAttributeRelation...),
+		Extra:                   previewdata.Extra{SwitchToSPUPic: true, UseCVTransformImage: true},
 		ProductCertificateList:  []int{},
 		CertificateList:         []int{},
 	}
 }
 
-func buildProductAttributes(pkg *offlinepackage.Package) []sheinproduct.ProductAttribute {
+func buildProductAttributes(pkg *offlinepackage.Package) []previewdata.ProductAttribute {
 	return toResolvedAttributes(pkg)
 }
 
-func toLanguageContents(items []offlinepackage.LocalizedText) []sheinproduct.LanguageContent {
+func toLanguageContents(items []offlinepackage.LocalizedText) []previewdata.LanguageContent {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.LanguageContent, 0, len(items))
+	result := make([]previewdata.LanguageContent, 0, len(items))
 	for _, item := range items {
 		if strings.TrimSpace(item.Name) == "" {
 			continue
@@ -64,14 +64,14 @@ func toLanguageContents(items []offlinepackage.LocalizedText) []sheinproduct.Lan
 		if lang == "" {
 			lang = "en"
 		}
-		result = append(result, sheinproduct.LanguageContent{Language: lang, Name: item.Name})
+		result = append(result, previewdata.LanguageContent{Language: lang, Name: item.Name})
 	}
 	return result
 }
 
-func toResolvedAttributes(pkg *offlinepackage.Package) []sheinproduct.ProductAttribute {
+func toResolvedAttributes(pkg *offlinepackage.Package) []previewdata.ProductAttribute {
 	if pkg != nil && len(pkg.ResolvedAttributes) > 0 {
-		result := make([]sheinproduct.ProductAttribute, 0, len(pkg.ResolvedAttributes))
+		result := make([]previewdata.ProductAttribute, 0, len(pkg.ResolvedAttributes))
 		compositionCount := countResolvedCompositionAttributes(pkg.ResolvedAttributes)
 		seenAttributeKeys := make(map[string]struct{}, len(pkg.ResolvedAttributes))
 		for _, item := range pkg.ResolvedAttributes {
@@ -91,7 +91,7 @@ func toResolvedAttributes(pkg *offlinepackage.Package) []sheinproduct.ProductAtt
 				continue
 			}
 			seenAttributeKeys[dedupKey] = struct{}{}
-			result = append(result, sheinproduct.ProductAttribute{
+			result = append(result, previewdata.ProductAttribute{
 				AttributeID:         item.AttributeID,
 				AttributeValueID:    item.AttributeValueID,
 				AttributeExtraValue: extraValue,

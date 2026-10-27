@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 func TestBuildSubmitPayloadReadinessChecksReportsMissingPayloadParts(t *testing.T) {
@@ -38,9 +38,9 @@ func TestBuildSubmitPayloadReadinessChecksUsesPackagePredicates(t *testing.T) {
 				}},
 			}},
 		},
-		PreviewPayload: &sheinproduct.Product{
-			ImageInfo: &sheinproduct.ImageInfo{
-				ImageInfoList: []sheinproduct.ImageDetail{{ImageURL: "https://img.example/main.jpg"}},
+		PreviewPayload: &previewdata.Product{
+			ImageInfo: &previewdata.ImageInfo{
+				ImageInfoList: []previewdata.ImageDetail{{ImageURL: "https://img.example/main.jpg"}},
 			},
 		},
 		Pricing: &sheinpub.PricingReview{Ready: true},

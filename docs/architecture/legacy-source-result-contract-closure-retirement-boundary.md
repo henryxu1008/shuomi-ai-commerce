@@ -1,3 +1,5 @@
+> #301 / #968 当前 owner 校准（[本批确认设计](legacy-shein-draft-support-closure-retirement-boundary.md) §1–§7，含 §4.2/§6.1）：四个旧包 `internal/shein/api/product`、`api/attribute`、`content`、`authorizedbrand` 及专属 adapter/Context 尾部完整退出。当前22个真实 wire 值归域内 `internal/marketplace/shein/offlinepackage/previewdata`，有效默认/custom文本与品牌清理归现有 `marketplace/shein/publishing` 纯规则，draft 显式传值；无 alias、Service 包装、品牌查询或新事实源。当前字段/JSON/hash/版本、严格解码、Builder取消/ApprovedAsset、采集及独立SHEIN登录/Store同步保持。历史 KEEP 仅在本批准确范围内被此说明替代；以下原全文/计数/勾选/证据完整保留，不恢复旧 owner，不授权运行或数据操作。
+
 # #301 旧全局 Amazon 结果合同与 SHEIN 孤立属性 DTO 完整退休设计
 
 > **USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结 §1–§7（含 §4.2、§6.1）；Issue/PR 的 IMPLEMENTATION_READY / Ready 已在正式修改前写入并读回。同一 #964 完整53路径已实施：17真实值/5原方法归 Amazon capturedata 纯叶子、36消费者改接、旧全局 model 根及三个孤立 SHEIN DTO 退出，无 alias。设计准确 HEAD f496b920b 的原 CI40301812628 与独立只读设计复核 PASS 仅作设计证据；源码必要自检、准确候选 CI 与最终交付复核见 [PR #964](https://github.com/qq550723504/shuomi-ai-commerce/pull/964)，分别记录，不冒充运行验收。#301 OPEN，合并/部署/关单另授权，运行/产品验收 NOT_RUN。
