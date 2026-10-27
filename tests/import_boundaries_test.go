@@ -136,44 +136,6 @@ func TestAlibaba1688CrawlerDoesNotImportListingKitHTTPAPIForSourceAccountBuilder
 	}
 }
 
-func TestLocalAgentHTTPAPIReadsIdentityFromNeutralContext(t *testing.T) {
-	path := filepath.Join("..", "internal", "localagent", "httpapi", "handler.go")
-	source, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	file, err := parser.ParseFile(token.NewFileSet(), path, source, parser.ImportsOnly)
-	if err != nil {
-		t.Fatal(err)
-	}
-	importsAuthIdentity := false
-	for _, imp := range file.Imports {
-		if imp.Path.Value == `"task-processor/internal/authidentity"` {
-			importsAuthIdentity = true
-			break
-		}
-	}
-	if !importsAuthIdentity {
-		t.Errorf("%s must import internal/authidentity for verified identity context", path)
-	}
-
-	file, err = parser.ParseFile(token.NewFileSet(), path, source, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ast.Inspect(file, func(node ast.Node) bool {
-		selector, ok := node.(*ast.SelectorExpr)
-		if !ok || selector.Sel == nil || selector.Sel.Name != "AuthenticatedIdentityFromContext" {
-			return true
-		}
-		ident, ok := selector.X.(*ast.Ident)
-		if ok && ident.Name == "listingkit" {
-			t.Errorf("%s reads verified identity through listingkit; use internal/authidentity", path)
-		}
-		return true
-	})
-}
-
 func TestSheinLoginReadsIdentityFromNeutralContext(t *testing.T) {
 	root := filepath.Join("..", "internal", "sheinlogin")
 	// Current execution authorization uses the neutral verified identity context.
@@ -1893,7 +1855,7 @@ func TestInfraProductCrawlerAdapterIsRetired(t *testing.T) {
 func TestAppCrawlerFetcherCompatibilityLayerIsRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "crawler", "fetcher")
 	if _, err := os.Stat(path); err == nil {
-		t.Fatalf("%s still exists; use current Product sourcing ports and integration/crawler adapters", path)
+		t.Fatalf("%s still exists; use current Product sourcing ports and integration/acquisition adapters", path)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat %s: %v", path, err)
 	}
@@ -2271,7 +2233,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "listingsubscription", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "workbenchcontext", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 
-	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "localagent", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "organization", "membership", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "accountallocation", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "commercial", "billing", "httpapi"))+string(os.PathSeparator)] = struct{}{}

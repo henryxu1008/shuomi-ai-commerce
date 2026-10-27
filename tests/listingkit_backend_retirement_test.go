@@ -17,6 +17,172 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyLocalAgentSourcePolicyClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"cmd/1688-local-agent/main.go",
+		"cmd/1688-local-agent/main_test.go",
+		"internal/integration/crawler/README.md",
+		"internal/integration/crawler/a1688/README.md",
+		"internal/integration/crawler/a1688/legacy_product_snapshot.go",
+		"internal/integration/crawler/a1688/legacy_product_snapshot_test.go",
+		"internal/integration/crawler/a1688/processor.go",
+		"internal/integration/crawler/a1688/processor_test.go",
+		"internal/integration/crawler/a1688/product_source.go",
+		"internal/integration/crawler/a1688/product_source_test.go",
+		"internal/integration/crawler/boundary_guard_test.go",
+		"internal/integration/crawler/doc.go",
+		"internal/localagent/client/client.go",
+		"internal/localagent/client/client_test.go",
+		"internal/localagent/deviceauth/client.go",
+		"internal/localagent/deviceauth/client_test.go",
+		"internal/localagent/httpapi/handler.go",
+		"internal/localagent/httpapi/handler_test.go",
+		"internal/localagent/httpapi/http_module.go",
+		"internal/localagent/httpapi/http_module_test.go",
+		"internal/localagent/httpapi/routes.go",
+		"internal/localagent/httpapi/routes_test.go",
+		"internal/localagent/local_agent_e2e_test.go",
+		"internal/localagent/logger_port.go",
+		"internal/localagent/runner.go",
+		"internal/localagent/runner_test.go",
+		"internal/localagent/service.go",
+		"internal/localagent/service_test.go",
+		"internal/localagent/types.go",
+		"internal/product/asset/policy/base_selection.go",
+		"internal/product/asset/policy/base_selection_test.go",
+		"internal/sds/adapter/product_source/apply.go",
+		"internal/sds/adapter/product_source/apply_test.go",
+		"internal/sds/adapter/product_source/baseline.go",
+		"internal/sds/adapter/product_source/baseline_test.go",
+		"internal/sds/adapter/product_source/boundary_guard_test.go",
+		"internal/sds/adapter/product_source/execution.go",
+		"internal/sds/adapter/product_source/execution_test.go",
+		"internal/sds/adapter/product_source/images.go",
+		"internal/sds/adapter/product_source/images_test.go",
+		"internal/sds/adapter/product_source/model.go",
+		"scripts/1688-local-agent-acceptance.Tests.ps1",
+		"scripts/1688-local-agent-acceptance.ps1",
+		"internal/localagent", "internal/integration/crawler",
+		"internal/sds/adapter/product_source", "internal/product/asset/policy", "cmd/1688-local-agent",
+	} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired LocalAgent/source/policy path must be absent: %s: %v", relative, err)
+		}
+	}
+	banned := []string{
+		"task-processor/internal/localagent", "task-processor/internal/integration/crawler",
+		"task-processor/internal/sds/adapter/product_source", "task-processor/internal/product/asset/policy",
+	}
+	retained := map[string][]string{
+		"cmd/1688-public-browser-collector/main.go:main":                                             nil,
+		"cmd/1688-batch-import/main.go:main":                                                         nil,
+		"internal/crawler/alibaba1688/processor.go:NewAlibaba1688Processor":                          nil,
+		"internal/crawler/alibaba1688/processor.go:Alibaba1688Processor.Process":                     {"ap.singleProcessor.ProcessWithSingleBrowser(ctx, url, startTime)"},
+		"internal/crawler/alibaba1688/processor.go:Alibaba1688Processor.Shutdown":                    nil,
+		"internal/crawler/alibaba1688/single_processor.go:SingleProcessor.ProcessWithSingleBrowser":  {"sp.processWithBrowserManager(ctx, url, startTime, sp.newPublicBrowserManager())"},
+		"internal/crawler/alibaba1688/single_processor.go:SingleProcessor.newPublicBrowserManager":   {"NewPublicBrowserManager(sp.config, sp.logFor)"},
+		"internal/crawler/alibaba1688/single_processor.go:SingleProcessor.processWithBrowserManager": {"browserManager.CreateBrowser()", "closeOnContextDone(ctx, cleanup)", "ctx.Err()"},
+		"internal/crawler/alibaba1688/single_processor.go:closeOnContextDone":                        {"sync.OnceFunc(close)", "context.AfterFunc(ctx, closeOnce)", "closeOnce()"},
+		"internal/product/sourcing/source_identity.go:NormalizeSourceIdentity":                       nil,
+		"internal/product/sourcing/source_identity.go:SourceIdentity.SourceKey":                      nil,
+		"internal/product/sourcing/normalize.go:NormalizePublicationEnvelope":                        {"identity.Platform", "identity.Region", "identity.ProductID", "identity.StoreID"},
+		"tests/issue30_sourcing_contract_test.go:issue30Envelope":                                    {"sourcing.SourceEnvelope{", "sourcing.RawSnapshotChecksum(", ".Normalize()"},
+		"internal/integration/sds/templates.go:NewTemplateClient":                                    nil,
+		"internal/app/pod/application.go:NewApplication":                                             {"sds.NewTemplateClient(", "sds.NewMutationClient(", "sds.NewReadbackClient("},
+		"internal/app/pod/service.go:Service.Create":                                                 nil,
+		"internal/sheinlogin/service.go:NewService":                                                  {"NewPlaywrightAutomation(logs)", "NewSessionIdentityReader()"},
+		"internal/sheinlogin/service.go:Service.Execute":                                             {"s.owner.Activate(", "s.owner.ReadBinding("},
+	}
+	requiredFiles := []string{
+		"internal/integration/acquisition/a1688/browser", "internal/integration/acquisition/browsercollector",
+		"internal/product/asset/approval.go", "internal/product/asset/image_set_policy.go",
+		"internal/imageagent/assetpublication/publisher.go", "internal/sheinlogin/store.go",
+		"cmd/shein-login-worker/main.go", "internal/authz/listingkit.go",
+	}
+	for _, relative := range requiredFiles {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
+			t.Fatalf("current acquisition/asset/SHEIN/identity owner must remain: %s: %v", relative, err)
+		}
+	}
+	found := map[string]bool{}
+	permissionFound := false
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imported := range file.Imports {
+			path, err := decodeGoImportPath(imported.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, prefix := range banned {
+				if importMatchesPrefix(path, prefix) {
+					t.Errorf("%s imports retired LocalAgent/source/policy owner %q", relative, path)
+				}
+			}
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil && len(d.Recv.List) > 0 {
+					receiver := d.Recv.List[0].Type
+					if pointer, ok := receiver.(*ast.StarExpr); ok {
+						receiver = pointer.X
+					}
+					if receiver, ok := receiver.(*ast.Ident); ok {
+						name = receiver.Name + "." + name
+					}
+				}
+				if strings.HasPrefix(relative, "internal/crawler/alibaba1688/") && (name == "Alibaba1688Processor.Prepare" || name == "SingleProcessor.Prepare") {
+					t.Errorf("%s retains retired LocalAgent-only preclaim warmup %s", relative, name)
+				}
+				key := relative + ":" + name
+				if fragments, wanted := retained[key]; wanted {
+					found[key] = true
+					var body bytes.Buffer
+					if err := format.Node(&body, token.NewFileSet(), d); err != nil {
+						t.Fatal(err)
+					}
+					for _, fragment := range fragments {
+						if !strings.Contains(body.String(), fragment) {
+							t.Errorf("current %s must retain %q", key, fragment)
+						}
+					}
+				}
+			case *ast.GenDecl:
+				if relative != "internal/authz/listingkit.go" {
+					continue
+				}
+				for _, spec := range d.Specs {
+					value, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for i, name := range value.Names {
+						if name.Name == "PermissionLocalAgentWrite" && i < len(value.Values) {
+							literal, ok := value.Values[i].(*ast.BasicLit)
+							permissionFound = ok && literal.Value == `"local_agent.write"`
+						}
+					}
+				}
+			}
+		}
+	}
+	for key := range retained {
+		if !found[key] {
+			t.Errorf("current owner declaration must remain: %s", key)
+		}
+	}
+	if !permissionFound {
+		t.Error("current shared PermissionLocalAgentWrite must remain unchanged")
+	}
+}
+
 func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
 	const logging = "internal/platform/logging"
 	const httpclient = "internal/pkg/httpclient"
@@ -1527,12 +1693,6 @@ func TestLegacyAlibaba1688CaptchaExperimentClosureIsRetired(t *testing.T) {
 		"hack/debug/test-real-track-slider/main.go": {
 			"\"task-processor/internal/crawler/alibaba1688\"", "alibaba1688.NewAlibaba1688Processor(", "processor.Process(",
 		},
-		"internal/integration/crawler/a1688/processor.go": {
-			"\"task-processor/internal/crawler/alibaba1688\"", "legacy.NewAlibaba1688Processor(", "p.source.Process(ctx, url)",
-		},
-		"internal/localagent/runner.go": {
-			"\"task-processor/internal/crawler/alibaba1688\"", "Process(context.Context, string) (*model.Product1688, error)", "alibaba1688.PublicAccessError", "alibaba1688.PublicAccessFailureChallenge",
-		},
 	} {
 		body, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -2115,9 +2275,6 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 		"internal/sds/httpapi", "internal/sds/httpbootstrap", "internal/sdslogin",
 	}
 	isRetired := func(path string) bool {
-		if importMatchesPrefix(path, "internal/sds/adapter/product_source") {
-			return false
-		}
 		for _, retired := range retiredPackages {
 			if importMatchesPrefix(path, retired) {
 				return true
@@ -4883,7 +5040,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 			}
 		}
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "product-listing-api-schema-migrate", "1688-local-agent", "1688-batch-import", "1688-public-browser-collector"} {
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "product-listing-api-schema-migrate", "1688-batch-import", "1688-public-browser-collector"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."

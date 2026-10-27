@@ -1,3 +1,5 @@
+> #301 / #972 当前整批实施：**RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `a2b39bd82fc8713c2ed54dea208afe47c5cd8248` 的 §1–§7（含 §4.2、§6.1），同一 PR 收齐102路径：旧1688 LocalAgent整链及父crawler空壳、两个专属Prepare、孤立SDS商品源与底图策略退出。有效来源夹具改现有中立合同，原完整JSON/规范化/hash/发布身份前后等价；原安全与领域断言按§6.1精确转换。保留当前采集、SDS/POD、资产审批/recipe/共享身份权限及独立SHEIN登录与Store同步；workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，不增加试用前置，#301 OPEN。实施/自检/原CI/最终复核分别记录于 [PR #972](https://github.com/qq550723504/shuomi-ai-commerce/pull/972)，不等于运行/产品验收；合并/部署/关单另授权。以下冻结设计及历史完整保留。
+
 # #301 旧 LocalAgent、SDS 商品源与孤立资产策略完整退休设计
 
 > **DESIGN_ONLY / SOURCE_NOT_STARTED / AWAITING_DESIGN_REVIEW / NOT_READY**。当前仅本文、Architecture README、Legacy Register 三文档；只读复核发现的三项同根闭包遗漏已在本稿集中校准，待相关增量复核；未来同一主要 PR 的 **Independent Architecture** 实施必须先完成适用独立设计复核、用户确认 §1–§7（含 §4.2、§6.1），并在 Issue/PR 记录、读回 IMPLEMENTATION_READY / Ready。起始实际 main 为 `12f5b70fa72545b401f337f7ce4851104f8fa07d`；#969 已正常合并且其准确 push/main CI40449857063 SUCCESS。新 main 仅另含 #971 三份 Knowledge 测试/文档，与本批目标无交集；本基线 push/main CI40451781597 attempt1 整run SUCCESS。不接管其 owner，不拿前批/基线CI当本批设计证据。

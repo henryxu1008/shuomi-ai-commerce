@@ -1,3 +1,5 @@
+> #301 / #972 current owner update: current acquisition uses integration/acquisition/a1688/browser, integration/acquisition/browsercollector and the current Amazon acquisition owner. Current SDS/POD stays with integration/sds and app/pod; current asset approval/recipe remain. The old LocalAgent/legacy crawler adapter and SDS product_source rows below are historical observations, not current entrypoints or compatibility obligations. SourceEnvelope/SourceIdentity JSON/hash/publication/lineage and organization isolation remain unchanged; independent SHEIN login and Store synchronization are retained. No existing data, instances or credentials are accessed.
+
 # Product Sourcing Handoff
 
 > ACTIVE: owner and handoff guide under the current Product Domain contract and
