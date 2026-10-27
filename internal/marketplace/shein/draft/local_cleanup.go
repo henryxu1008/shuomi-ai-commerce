@@ -1,115 +1,86 @@
 package draft
 
 import (
-	"context"
 	"strings"
 	"unicode"
 
-	"github.com/sirupsen/logrus"
-
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/shein/authorizedbrand"
-	"task-processor/internal/shein/content"
+	"task-processor/internal/marketplace/shein/publishing"
 )
 
-func sanitizeSheinListingCopy(copy *localCopy, runtimeCtx context.Context, ctx *content.CleanupContext, logs func(string) *logrus.Entry) bool {
+func sanitizeSheinListingCopy(copy *localCopy, input publishing.DisplayTextCleanupInput) bool {
 	if copy == nil {
 		return false
 	}
-	ctx = ensureSanitizerContext(runtimeCtx, ctx)
-	service := newSheinSensitiveWordSanitizer(logs)
 	changed := false
-	changed = sanitizeStringField(service, ctx, &copy.Title) || changed
-	changed = sanitizeStringField(service, ctx, &copy.Description) || changed
-	changed = sanitizeStringField(service, ctx, &copy.SKCTitleBase) || changed
+	changed = sanitizeStringField(input, &copy.Title) || changed
+	changed = sanitizeStringField(input, &copy.Description) || changed
+	changed = sanitizeStringField(input, &copy.SKCTitleBase) || changed
 	if copy.TitleDiagnostics != nil {
 		copy.TitleDiagnostics.SKCBaseTitle = copy.SKCTitleBase
 	}
 	return changed
 }
 
-func sanitizeLocalDraft(pkg *offlinepackage.Package, runtimeCtx context.Context, ctx *content.CleanupContext, logs func(string) *logrus.Entry) bool {
+func sanitizeLocalDraft(pkg *offlinepackage.Package, input publishing.DisplayTextCleanupInput) bool {
 	if pkg == nil || pkg.DraftPayload == nil {
 		return false
 	}
-	ctx = ensureSanitizerContext(runtimeCtx, ctx)
-	service := newSheinSensitiveWordSanitizer(logs)
 	changed := false
 
-	changed = sanitizeCommonAttributes(service, ctx, pkg.ProductAttributes) || changed
-	changed = sanitizeLocalizedTexts(service, ctx, pkg.DraftPayload.MultiLanguageNameList) || changed
-	changed = sanitizeLocalizedTexts(service, ctx, pkg.DraftPayload.MultiLanguageDescList) || changed
-	changed = sanitizeCommonAttributes(service, ctx, pkg.DraftPayload.ProductAttributeList) || changed
-	changed = sanitizeResolvedAttributes(service, ctx, pkg.ResolvedAttributes) || changed
+	changed = sanitizeCommonAttributes(input, pkg.ProductAttributes) || changed
+	changed = sanitizeLocalizedTexts(input, pkg.DraftPayload.MultiLanguageNameList) || changed
+	changed = sanitizeLocalizedTexts(input, pkg.DraftPayload.MultiLanguageDescList) || changed
+	changed = sanitizeCommonAttributes(input, pkg.DraftPayload.ProductAttributeList) || changed
+	changed = sanitizeResolvedAttributes(input, pkg.ResolvedAttributes) || changed
 
 	for i := range pkg.DraftPayload.SKCList {
 		skc := &pkg.DraftPayload.SKCList[i]
-		changed = sanitizeStringField(service, ctx, &skc.SkcName) || changed
-		changed = sanitizeLocalizedTexts(service, ctx, skc.MultiLanguageNameList) || changed
+		changed = sanitizeStringField(input, &skc.SkcName) || changed
+		changed = sanitizeLocalizedTexts(input, skc.MultiLanguageNameList) || changed
 	}
 
 	return changed
 }
 
-func ensureSanitizerContext(runtimeCtx context.Context, ctx *content.CleanupContext) *content.CleanupContext {
-	if ctx == nil {
-		if resolved, ok := authorizedbrand.FromContext(runtimeCtx); ok {
-			return &content.CleanupContext{
-				Context:         runtimeCtx,
-				AuthorizedBrand: resolved,
-			}
-		}
-		return nil
-	}
-	if ctx.Context == nil {
-		ctx.Context = runtimeCtx
-	}
-	if ctx.AuthorizedBrand == nil {
-		if resolved, ok := authorizedbrand.FromContext(runtimeCtx); ok {
-			ctx.AuthorizedBrand = resolved
-		}
-	}
-	return ctx
-}
-
-func sanitizeResolvedAttributes(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, attrs []offlinepackage.ResolvedAttribute) bool {
+func sanitizeResolvedAttributes(input publishing.DisplayTextCleanupInput, attrs []offlinepackage.ResolvedAttribute) bool {
 	changed := false
 	for i := range attrs {
 		if attrs[i].AttributeValueID == nil && shouldSanitizeDraftAttributeValue(attrs[i].Value) {
-			changed = sanitizeStringField(service, ctx, &attrs[i].Value) || changed
+			changed = sanitizeStringField(input, &attrs[i].Value) || changed
 		}
 		if shouldSanitizeDraftAttributeValue(attrs[i].AttributeExtraValue) {
-			changed = sanitizeStringField(service, ctx, &attrs[i].AttributeExtraValue) || changed
+			changed = sanitizeStringField(input, &attrs[i].AttributeExtraValue) || changed
 		}
 	}
 	return changed
 }
 
-func sanitizeLocalizedTexts(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, items []offlinepackage.LocalizedText) bool {
+func sanitizeLocalizedTexts(input publishing.DisplayTextCleanupInput, items []offlinepackage.LocalizedText) bool {
 	changed := false
 	for i := range items {
-		changed = sanitizeStringField(service, ctx, &items[i].Name) || changed
+		changed = sanitizeStringField(input, &items[i].Name) || changed
 	}
 	return changed
 }
 
-func sanitizeCommonAttributes(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, attrs []offlinepackage.Attribute) bool {
+func sanitizeCommonAttributes(input publishing.DisplayTextCleanupInput, attrs []offlinepackage.Attribute) bool {
 	changed := false
 	for i := range attrs {
 		if !shouldSanitizeDraftAttributeValue(attrs[i].Value) {
 			continue
 		}
-		changed = sanitizeStringField(service, ctx, &attrs[i].Value) || changed
+		changed = sanitizeStringField(input, &attrs[i].Value) || changed
 	}
 	return changed
 }
 
-func sanitizeStringField(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, value *string) bool {
-	if service == nil || value == nil {
+func sanitizeStringField(input publishing.DisplayTextCleanupInput, value *string) bool {
+	if value == nil {
 		return false
 	}
 	original := *value
-	cleaned := service.SanitizeDisplayTextWithContext(ctx, original)
+	cleaned := publishing.SanitizeDisplayText(original, input)
 	if cleaned == original {
 		return false
 	}

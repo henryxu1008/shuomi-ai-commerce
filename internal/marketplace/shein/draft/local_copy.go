@@ -1,15 +1,13 @@
 package draft
 
 import (
-	"context"
 	"errors"
 	"regexp"
 	"strings"
 	"unicode"
 
-	"github.com/sirupsen/logrus"
-
 	"task-processor/internal/marketplace/shein/offlinepackage"
+	"task-processor/internal/marketplace/shein/publishing"
 	"task-processor/internal/product/catalog/canonical"
 )
 
@@ -21,7 +19,7 @@ type localCopy struct {
 	DescriptionError error
 }
 
-func buildLocalCopy(runtimeCtx context.Context, canonical *canonical.Product, fallbackTitle string, logs func(string) *logrus.Entry) localCopy {
+func buildLocalCopy(canonical *canonical.Product, fallbackTitle string) localCopy {
 	titleResolution := resolveListingTitle(canonical, fallbackTitle)
 	title := titleResolution.title
 	description, descriptionErr := resolveListingDescription(canonical)
@@ -37,15 +35,15 @@ func buildLocalCopy(runtimeCtx context.Context, canonical *canonical.Product, fa
 		},
 		DescriptionError: descriptionErr,
 	}
-	sanitizeSheinListingCopy(&copy, runtimeCtx, nil, logs)
+	sanitizeSheinListingCopy(&copy, publishing.DisplayTextCleanupInput{Words: publishing.DefaultDisplayTextWords()})
 	return copy
 }
 
-func normalizeLocalCopy(runtimeCtx context.Context, pkg *offlinepackage.Package, canonical *canonical.Product, language string, logs func(string) *logrus.Entry) bool {
+func normalizeLocalCopy(pkg *offlinepackage.Package, canonical *canonical.Product, language string) bool {
 	if pkg == nil {
 		return false
 	}
-	copy := buildLocalCopy(runtimeCtx, canonical, firstNonEmpty(pkg.ProductNameEn, pkg.SpuName), logs)
+	copy := buildLocalCopy(canonical, firstNonEmpty(pkg.ProductNameEn, pkg.SpuName))
 	changed := false
 	if copy.Title != "" && (strings.TrimSpace(pkg.ProductNameEn) == "" || containsCJK(pkg.ProductNameEn)) {
 		pkg.ProductNameEn = copy.Title

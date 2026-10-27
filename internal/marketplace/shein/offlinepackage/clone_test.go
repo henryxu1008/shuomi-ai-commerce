@@ -3,14 +3,13 @@ package offlinepackage
 import (
 	"reflect"
 	"sort"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
-
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 func TestClonePackageForPersistencePreservesCanonicalFieldsAndPrivateAssignmentsWithoutSharingState(t *testing.T) {
 	draft := &RequestDraft{SpuName: "original-draft"}
-	preview := &sheinproduct.Product{SPUName: "original-preview"}
+	preview := &previewdata.Product{SPUName: "original-preview"}
 	finalDraft := &FinalDraft{MainImageURL: "https://img.example/original.jpg"}
 	valueID := 701
 	resolution := &SaleAttributeResolution{
@@ -89,10 +88,10 @@ func TestSaleAttributeResolutionPrivateCloneSchemaIsExplicit(t *testing.T) {
 func TestCloneProductForSubmitDeepCopiesProduct(t *testing.T) {
 	t.Parallel()
 
-	product := &sheinproduct.Product{
+	product := &previewdata.Product{
 		SupplierCode: "SUP-1",
-		ImageInfo: &sheinproduct.ImageInfo{
-			ImageInfoList: []sheinproduct.ImageDetail{{ImageURL: "https://cdn.example.com/1.jpg"}},
+		ImageInfo: &previewdata.ImageInfo{
+			ImageInfoList: []previewdata.ImageDetail{{ImageURL: "https://cdn.example.com/1.jpg"}},
 		},
 	}
 

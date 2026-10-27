@@ -1,7 +1,6 @@
 package draft
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -16,7 +15,7 @@ func TestBuildSheinListingCopyKeepsStructuredEnglishTitle(t *testing.T) {
 		},
 	}
 
-	copy := buildLocalCopy(nil, canonical, canonical.Title, nil)
+	copy := buildLocalCopy(canonical, canonical.Title)
 	if copy.Title != "Flannel Non-slip Floor Mat" {
 		t.Fatalf("title = %q, want clean structured title", copy.Title)
 	}
@@ -33,7 +32,7 @@ func TestBuildSheinListingCopySanitizesPromptLikeTitleWithRules(t *testing.T) {
 		},
 	}
 
-	copy := buildLocalCopy(nil, canonical, canonical.Title, nil)
+	copy := buildLocalCopy(canonical, canonical.Title)
 	if copy.Title != "Flannel non-slip floor mat" {
 		t.Fatalf("title = %q, want sanitized base title", copy.Title)
 	}
@@ -54,7 +53,7 @@ func TestBuildSheinListingCopyDoesNotFallbackWhenPromptTitleNeedsLLMButLLMUnavai
 		},
 	}
 
-	copy := buildLocalCopy(nil, canonical, canonical.Title, nil)
+	copy := buildLocalCopy(canonical, canonical.Title)
 	if copy.Title != "" {
 		t.Fatalf("title = %q, want empty when prompt-like title cannot be safely resolved", copy.Title)
 	}
@@ -84,7 +83,7 @@ func TestBuildSheinListingCopyKeepsLongStructuredTitleWithoutLLMAddition(t *test
 		},
 	}
 
-	copy := buildLocalCopy(nil, canonical, canonical.Title, nil)
+	copy := buildLocalCopy(canonical, canonical.Title)
 	if copy.Title != "Flannel Non-slip Floor Mat" {
 		t.Fatalf("title = %q, want original long structured title", copy.Title)
 	}
@@ -99,7 +98,7 @@ func TestBuildSheinListingCopyCleansSensitiveWords(t *testing.T) {
 		},
 	}
 
-	copy := buildLocalCopy(context.Background(), canonical, canonical.Title, nil)
+	copy := buildLocalCopy(canonical, canonical.Title)
 
 	assertNoSensitivePhrase(t, copy.Title, "title")
 	assertNoSensitivePhrase(t, copy.Description, "description")
@@ -115,7 +114,7 @@ func TestBuildSheinListingCopyDoesNotFallbackToSyntheticCustomTitle(t *testing.T
 		},
 	}
 
-	copy := buildLocalCopy(nil, canonical, canonical.Title, nil)
+	copy := buildLocalCopy(canonical, canonical.Title)
 	if copy.Title != "" {
 		t.Fatalf("title = %q, want empty instead of synthetic custom fallback", copy.Title)
 	}

@@ -1,8 +1,7 @@
 package offlinepackage
 
 import (
-	sheinattribute "task-processor/internal/shein/api/attribute"
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"time"
 )
 
@@ -125,14 +124,14 @@ type Package struct {
 	// logic. It is the platform adapter output, not part of canonical.Product.
 	DraftPayload *RequestDraft `json:"draft_payload,omitempty"`
 	// PreviewPayload is the canonical SHEIN preview payload used by current business logic.
-	PreviewPayload *sheinproduct.Product `json:"preview_payload,omitempty"`
-	Pricing        *PricingReview        `json:"pricing,omitempty"`
-	SizeAttributes *SizeAttributeReview  `json:"size_attributes,omitempty"`
+	PreviewPayload *previewdata.Product `json:"preview_payload,omitempty"`
+	Pricing        *PricingReview       `json:"pricing,omitempty"`
+	SizeAttributes *SizeAttributeReview `json:"size_attributes,omitempty"`
 	// FinalSubmissionDraft is the canonical SHEIN final submission draft used by current business logic.
-	FinalSubmissionDraft    *FinalDraft                              `json:"final_submission_draft,omitempty"`
-	CustomAttributeRelation []sheinattribute.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
-	Metadata                map[string]string                        `json:"metadata,omitempty"`
-	ReviewNotes             []string                                 `json:"review_notes,omitempty"`
+	FinalSubmissionDraft    *FinalDraft                           `json:"final_submission_draft,omitempty"`
+	CustomAttributeRelation []previewdata.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
+	Metadata                map[string]string                     `json:"metadata,omitempty"`
+	ReviewNotes             []string                              `json:"review_notes,omitempty"`
 }
 
 type PendingAttributeCandidate struct {
@@ -174,17 +173,17 @@ type PricingRule struct {
 }
 
 type RequestDraft struct {
-	SpuName                 string                                   `json:"spu_name,omitempty"`
-	SupplierCode            string                                   `json:"supplier_code,omitempty"`
-	MultiLanguageNameList   []LocalizedText                          `json:"multi_language_name_list,omitempty"`
-	MultiLanguageDescList   []LocalizedText                          `json:"multi_language_desc_list,omitempty"`
-	ProductAttributeList    []Attribute                              `json:"product_attribute_list,omitempty"`
-	ResolvedAttributes      []ResolvedAttribute                      `json:"resolved_attributes,omitempty"`
-	SizeAttributeList       []sheinproduct.SizeAttribute             `json:"size_attribute_list,omitempty"`
-	ImageInfo               *ImageDraft                              `json:"image_info,omitempty"`
-	SiteList                []Site                                   `json:"site_list,omitempty"`
-	SKCList                 []SKCRequestDraft                        `json:"skc_list,omitempty"`
-	CustomAttributeRelation []sheinattribute.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
+	SpuName                 string                                `json:"spu_name,omitempty"`
+	SupplierCode            string                                `json:"supplier_code,omitempty"`
+	MultiLanguageNameList   []LocalizedText                       `json:"multi_language_name_list,omitempty"`
+	MultiLanguageDescList   []LocalizedText                       `json:"multi_language_desc_list,omitempty"`
+	ProductAttributeList    []Attribute                           `json:"product_attribute_list,omitempty"`
+	ResolvedAttributes      []ResolvedAttribute                   `json:"resolved_attributes,omitempty"`
+	SizeAttributeList       []previewdata.SizeAttribute           `json:"size_attribute_list,omitempty"`
+	ImageInfo               *ImageDraft                           `json:"image_info,omitempty"`
+	SiteList                []Site                                `json:"site_list,omitempty"`
+	SKCList                 []SKCRequestDraft                     `json:"skc_list,omitempty"`
+	CustomAttributeRelation []previewdata.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
 }
 
 type ResolutionCacheInfo struct {
@@ -295,31 +294,31 @@ type SaleAttributeCandidateInfo struct {
 }
 
 type SaleAttributeResolution struct {
-	Status                   string                                   `json:"status,omitempty"`
-	Source                   string                                   `json:"source,omitempty"`
-	CategoryID               int                                      `json:"category_id,omitempty"`
-	RecommendCategoryReview  bool                                     `json:"recommend_category_review,omitempty"`
-	CategoryReviewReason     string                                   `json:"category_review_reason,omitempty"`
-	PrimaryAttributeID       int                                      `json:"primary_attribute_id,omitempty"`
-	SecondaryAttributeID     int                                      `json:"secondary_attribute_id,omitempty"`
-	PrimarySourceDimension   string                                   `json:"primary_source_dimension,omitempty"`
-	SecondarySourceDimension string                                   `json:"secondary_source_dimension,omitempty"`
-	SourceDimensions         []SourceVariantDimension                 `json:"source_dimensions,omitempty"`
-	TemplateOptions          []SaleAttributeTemplateOption            `json:"template_options,omitempty"`
-	SKCAttributes            []ResolvedSaleAttribute                  `json:"skc_attributes,omitempty"`
-	SKUAttributes            []ResolvedSaleAttribute                  `json:"sku_attributes,omitempty"`
-	Candidates               []SaleAttributeCandidateInfo             `json:"candidates,omitempty"`
-	SelectionSummary         []string                                 `json:"selection_summary,omitempty"`
-	ReviewNotes              []string                                 `json:"review_notes,omitempty"`
-	CustomAttributeRelation  []sheinattribute.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
-	Cache                    *ResolutionCacheInfo                     `json:"cache,omitempty"`
-	ValueSanitized           bool                                     `json:"value_sanitized,omitempty"`
-	ValueSanitizationSource  string                                   `json:"value_sanitization_source,omitempty"`
-	ValuePromptContaminated  bool                                     `json:"value_prompt_contaminated,omitempty"`
-	ValueResolutionNote      string                                   `json:"value_resolution_note,omitempty"`
-	CacheRejectedReason      string                                   `json:"cache_rejected_reason,omitempty"`
-	SKCValueAssignments      map[string]ResolvedSaleAttribute         `json:"skc_value_assignments,omitempty"`
-	SKUValueAssignments      map[string]ResolvedSaleAttribute         `json:"sku_value_assignments,omitempty"`
+	Status                   string                                `json:"status,omitempty"`
+	Source                   string                                `json:"source,omitempty"`
+	CategoryID               int                                   `json:"category_id,omitempty"`
+	RecommendCategoryReview  bool                                  `json:"recommend_category_review,omitempty"`
+	CategoryReviewReason     string                                `json:"category_review_reason,omitempty"`
+	PrimaryAttributeID       int                                   `json:"primary_attribute_id,omitempty"`
+	SecondaryAttributeID     int                                   `json:"secondary_attribute_id,omitempty"`
+	PrimarySourceDimension   string                                `json:"primary_source_dimension,omitempty"`
+	SecondarySourceDimension string                                `json:"secondary_source_dimension,omitempty"`
+	SourceDimensions         []SourceVariantDimension              `json:"source_dimensions,omitempty"`
+	TemplateOptions          []SaleAttributeTemplateOption         `json:"template_options,omitempty"`
+	SKCAttributes            []ResolvedSaleAttribute               `json:"skc_attributes,omitempty"`
+	SKUAttributes            []ResolvedSaleAttribute               `json:"sku_attributes,omitempty"`
+	Candidates               []SaleAttributeCandidateInfo          `json:"candidates,omitempty"`
+	SelectionSummary         []string                              `json:"selection_summary,omitempty"`
+	ReviewNotes              []string                              `json:"review_notes,omitempty"`
+	CustomAttributeRelation  []previewdata.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
+	Cache                    *ResolutionCacheInfo                  `json:"cache,omitempty"`
+	ValueSanitized           bool                                  `json:"value_sanitized,omitempty"`
+	ValueSanitizationSource  string                                `json:"value_sanitization_source,omitempty"`
+	ValuePromptContaminated  bool                                  `json:"value_prompt_contaminated,omitempty"`
+	ValueResolutionNote      string                                `json:"value_resolution_note,omitempty"`
+	CacheRejectedReason      string                                `json:"cache_rejected_reason,omitempty"`
+	SKCValueAssignments      map[string]ResolvedSaleAttribute      `json:"skc_value_assignments,omitempty"`
+	SKUValueAssignments      map[string]ResolvedSaleAttribute      `json:"sku_value_assignments,omitempty"`
 }
 
 type SaleAttributeTemplateOption struct {
@@ -339,11 +338,11 @@ type SitePrice struct {
 }
 
 type SizeAttributeReview struct {
-	Attributes      []sheinproduct.SizeAttribute `json:"attributes,omitempty"`
-	ManualOverrides map[string]string            `json:"manual_overrides,omitempty"`
-	Cache           *ResolutionCacheInfo         `json:"cache,omitempty"`
-	Ready           bool                         `json:"ready"`
-	UpdatedAt       *time.Time                   `json:"updated_at,omitempty"`
+	Attributes      []previewdata.SizeAttribute `json:"attributes,omitempty"`
+	ManualOverrides map[string]string           `json:"manual_overrides,omitempty"`
+	Cache           *ResolutionCacheInfo        `json:"cache,omitempty"`
+	Ready           bool                        `json:"ready"`
+	UpdatedAt       *time.Time                  `json:"updated_at,omitempty"`
 }
 
 type SourceVariantDimension struct {

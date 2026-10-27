@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 func TestToResolvedAttributesSetsSingleCompositionPercentToHundred(t *testing.T) {
@@ -237,7 +237,7 @@ func TestBuildPreviewProductIncludesSizeAttributeList(t *testing.T) {
 		DraftPayload: &offlinepackage.RequestDraft{
 			SpuName:      "Oversized Tee",
 			SupplierCode: "SKU",
-			SizeAttributeList: []sheinproduct.SizeAttribute{{
+			SizeAttributeList: []previewdata.SizeAttribute{{
 				AttributeID:                10,
 				AttributeExtraValue:        "55",
 				RelateSaleAttributeID:      87,

@@ -3,9 +3,8 @@ package offlinepackage
 import (
 	"encoding/json"
 	"strings"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
-
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 func TestPackageSemanticFieldNamesRemainUsable(t *testing.T) {
@@ -15,7 +14,7 @@ func TestPackageSemanticFieldNamesRemainUsable(t *testing.T) {
 		},
 	}
 
-	pkg.PreviewPayload = &sheinproduct.Product{SPUName: pkg.DraftPayload.SpuName}
+	pkg.PreviewPayload = &previewdata.Product{SPUName: pkg.DraftPayload.SpuName}
 	pkg.FinalSubmissionDraft = &FinalDraft{Confirmed: true}
 
 	if pkg.DraftPayload == nil || pkg.DraftPayload.SpuName != "Semantic Field Product" {
@@ -34,7 +33,7 @@ func TestPackageJSONIncludesOnlyCanonicalFieldNames(t *testing.T) {
 		DraftPayload:         &RequestDraft{SpuName: "Semantic Field Product"},
 		FinalSubmissionDraft: &FinalDraft{Confirmed: true},
 	}
-	pkg.PreviewPayload = &sheinproduct.Product{SPUName: pkg.DraftPayload.SpuName}
+	pkg.PreviewPayload = &previewdata.Product{SPUName: pkg.DraftPayload.SpuName}
 
 	data, err := json.Marshal(pkg)
 	if err != nil {

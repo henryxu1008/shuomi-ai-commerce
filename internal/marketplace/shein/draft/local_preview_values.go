@@ -6,80 +6,80 @@ import (
 	"strings"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
-func toProductAttributes(items []offlinepackage.Attribute) []sheinproduct.ProductAttribute {
+func toProductAttributes(items []offlinepackage.Attribute) []previewdata.ProductAttribute {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.ProductAttribute, 0, len(items))
+	result := make([]previewdata.ProductAttribute, 0, len(items))
 	for _, item := range items {
 		if strings.TrimSpace(item.Value) == "" {
 			continue
 		}
-		result = append(result, sheinproduct.ProductAttribute{AttributeExtraValue: item.Value})
+		result = append(result, previewdata.ProductAttribute{AttributeExtraValue: item.Value})
 	}
 	return result
 }
 
-func toImageInfo(info *offlinepackage.ImageDraft) *sheinproduct.ImageInfo {
+func toImageInfo(info *offlinepackage.ImageDraft) *previewdata.ImageInfo {
 	if info == nil {
 		return nil
 	}
-	images := make([]sheinproduct.ImageDetail, 0, 1+len(info.Gallery))
+	images := make([]previewdata.ImageDetail, 0, 1+len(info.Gallery))
 	if strings.TrimSpace(info.MainImage) != "" {
-		images = append(images, sheinproduct.ImageDetail{ImageType: 1, ImageSort: 1, ImageURL: info.MainImage, MarketingMainImage: true})
+		images = append(images, previewdata.ImageDetail{ImageType: 1, ImageSort: 1, ImageURL: info.MainImage, MarketingMainImage: true})
 	}
 	for idx, imageURL := range info.Gallery {
 		if strings.TrimSpace(imageURL) == "" {
 			continue
 		}
-		images = append(images, sheinproduct.ImageDetail{ImageType: 2, ImageSort: idx + 2, ImageURL: imageURL})
+		images = append(images, previewdata.ImageDetail{ImageType: 2, ImageSort: idx + 2, ImageURL: imageURL})
 	}
 	if strings.TrimSpace(info.WhiteBg) != "" {
-		images = append(images, sheinproduct.ImageDetail{ImageType: 2, ImageSort: len(images) + 1, ImageURL: info.WhiteBg})
+		images = append(images, previewdata.ImageDetail{ImageType: 2, ImageSort: len(images) + 1, ImageURL: info.WhiteBg})
 	}
 	if len(images) == 0 {
 		return nil
 	}
-	return &sheinproduct.ImageInfo{ImageInfoList: images}
+	return &previewdata.ImageInfo{ImageInfoList: images}
 }
 
-func toSiteInfo(items []offlinepackage.Site) []sheinproduct.SiteInfo {
+func toSiteInfo(items []offlinepackage.Site) []previewdata.SiteInfo {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.SiteInfo, 0, len(items))
+	result := make([]previewdata.SiteInfo, 0, len(items))
 	for _, item := range items {
 		if strings.TrimSpace(item.MainSite) == "" {
 			continue
 		}
-		result = append(result, sheinproduct.SiteInfo{MainSite: item.MainSite, SubSiteList: append([]string(nil), item.SubSites...)})
+		result = append(result, previewdata.SiteInfo{MainSite: item.MainSite, SubSiteList: append([]string(nil), item.SubSites...)})
 	}
 	return result
 }
 
-func toSKCs(items []offlinepackage.SKCRequestDraft) []sheinproduct.SKC {
+func toSKCs(items []offlinepackage.SKCRequestDraft) []previewdata.SKC {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.SKC, 0, len(items))
+	result := make([]previewdata.SKC, 0, len(items))
 	for _, item := range items {
 		supplierCode := item.SupplierCode
-		saleAttribute := sheinproduct.SaleAttribute{PreFillSpec: true}
+		saleAttribute := previewdata.SaleAttribute{PreFillSpec: true}
 		if item.SaleAttribute != nil && item.SaleAttribute.AttributeID > 0 && item.SaleAttribute.AttributeValueID != nil {
-			saleAttribute = sheinproduct.SaleAttribute{
+			saleAttribute = previewdata.SaleAttribute{
 				AttributeID:      item.SaleAttribute.AttributeID,
 				AttributeValueID: *item.SaleAttribute.AttributeValueID,
 				PreFillSpec:      true,
 			}
 		}
-		result = append(result, sheinproduct.SKC{
+		result = append(result, previewdata.SKC{
 			SaleAttribute:         saleAttribute,
 			SKUS:                  toSKUs(item.SKUList),
 			ImageInfo:             derefImageInfo(toImageInfo(item.ImageInfo)),
-			MultiLanguageName:     sheinproduct.LanguageContent{Language: "en", Name: item.SkcName},
+			MultiLanguageName:     previewdata.LanguageContent{Language: "en", Name: item.SkcName},
 			MultiLanguageNameList: toLanguageContents(item.MultiLanguageNameList),
 			Sort:                  item.Sort,
 			SupplierCode:          &supplierCode,
@@ -89,16 +89,16 @@ func toSKCs(items []offlinepackage.SKCRequestDraft) []sheinproduct.SKC {
 	return result
 }
 
-func toSKUs(items []offlinepackage.SKUDraft) []sheinproduct.SKU {
+func toSKUs(items []offlinepackage.SKUDraft) []previewdata.SKU {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.SKU, 0, len(items))
+	result := make([]previewdata.SKU, 0, len(items))
 	for _, item := range items {
 		stockCount := item.StockCount
-		result = append(result, sheinproduct.SKU{
+		result = append(result, previewdata.SKU{
 			SaleAttributeList: toSaleAttributes(item.SaleAttributes),
-			CostInfo:          &sheinproduct.CostInfo{CostPrice: item.CostPrice, Currency: item.Currency},
+			CostInfo:          &previewdata.CostInfo{CostPrice: item.CostPrice, Currency: item.Currency},
 			Height:            item.Height,
 			Length:            item.Length,
 			Width:             item.Width,
@@ -118,16 +118,16 @@ func toSKUs(items []offlinepackage.SKUDraft) []sheinproduct.SKU {
 	return result
 }
 
-func toSaleAttributes(items []offlinepackage.ResolvedSaleAttribute) []sheinproduct.SaleAttribute {
+func toSaleAttributes(items []offlinepackage.ResolvedSaleAttribute) []previewdata.SaleAttribute {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.SaleAttribute, 0, len(items))
+	result := make([]previewdata.SaleAttribute, 0, len(items))
 	for _, item := range items {
 		if item.AttributeID <= 0 || item.AttributeValueID == nil {
 			continue
 		}
-		result = append(result, sheinproduct.SaleAttribute{
+		result = append(result, previewdata.SaleAttribute{
 			AttributeID:      item.AttributeID,
 			AttributeValueID: *item.AttributeValueID,
 		})
@@ -135,16 +135,16 @@ func toSaleAttributes(items []offlinepackage.ResolvedSaleAttribute) []sheinprodu
 	return result
 }
 
-func toPriceInfoList(items []offlinepackage.SitePrice) []sheinproduct.PriceInfo {
+func toPriceInfoList(items []offlinepackage.SitePrice) []previewdata.PriceInfo {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.PriceInfo, 0, len(items))
+	result := make([]previewdata.PriceInfo, 0, len(items))
 	for _, item := range items {
 		if strings.TrimSpace(item.BasePrice) == "" {
 			continue
 		}
-		result = append(result, sheinproduct.PriceInfo{
+		result = append(result, previewdata.PriceInfo{
 			SubSite:   item.SubSite,
 			BasePrice: parseSourceFloatDefault(item.BasePrice),
 			Currency:  item.Currency,
@@ -153,13 +153,13 @@ func toPriceInfoList(items []offlinepackage.SitePrice) []sheinproduct.PriceInfo 
 	return result
 }
 
-func toStockInfoList(items []offlinepackage.StockInfo) []sheinproduct.StockInfo {
+func toStockInfoList(items []offlinepackage.StockInfo) []previewdata.StockInfo {
 	if len(items) == 0 {
 		return nil
 	}
-	result := make([]sheinproduct.StockInfo, 0, len(items))
+	result := make([]previewdata.StockInfo, 0, len(items))
 	for _, item := range items {
-		result = append(result, sheinproduct.StockInfo{
+		result = append(result, previewdata.StockInfo{
 			InventoryNum:          item.InventoryNum,
 			MerchantWarehouseCode: item.WarehouseCode,
 		})
@@ -167,12 +167,12 @@ func toStockInfoList(items []offlinepackage.StockInfo) []sheinproduct.StockInfo 
 	return result
 }
 
-func toSKUImageInfo(image string) *sheinproduct.ImageInfo {
+func toSKUImageInfo(image string) *previewdata.ImageInfo {
 	if strings.TrimSpace(image) == "" {
 		return nil
 	}
-	return &sheinproduct.ImageInfo{
-		ImageInfoList: []sheinproduct.ImageDetail{{
+	return &previewdata.ImageInfo{
+		ImageInfoList: []previewdata.ImageDetail{{
 			ImageType: 1,
 			ImageSort: 1,
 			ImageURL:  image,
@@ -180,7 +180,7 @@ func toSKUImageInfo(image string) *sheinproduct.ImageInfo {
 	}
 }
 
-func toSKUImageInfoFromDraft(item offlinepackage.SKUDraft) *sheinproduct.ImageInfo {
+func toSKUImageInfoFromDraft(item offlinepackage.SKUDraft) *previewdata.ImageInfo {
 	if item.ImageInfo == nil {
 		return toSKUImageInfo(item.MainImage)
 	}
@@ -188,28 +188,28 @@ func toSKUImageInfoFromDraft(item offlinepackage.SKUDraft) *sheinproduct.ImageIn
 	if main == "" {
 		main = strings.TrimSpace(item.MainImage)
 	}
-	images := make([]sheinproduct.ImageDetail, 0, 1+len(item.ImageInfo.Gallery))
+	images := make([]previewdata.ImageDetail, 0, 1+len(item.ImageInfo.Gallery))
 	if main != "" {
-		images = append(images, sheinproduct.ImageDetail{ImageType: 1, ImageSort: 1, ImageURL: main})
+		images = append(images, previewdata.ImageDetail{ImageType: 1, ImageSort: 1, ImageURL: main})
 	}
 	for _, imageURL := range item.ImageInfo.Gallery {
 		if strings.TrimSpace(imageURL) == "" {
 			continue
 		}
-		images = append(images, sheinproduct.ImageDetail{ImageType: 2, ImageSort: len(images) + 1, ImageURL: imageURL})
+		images = append(images, previewdata.ImageDetail{ImageType: 2, ImageSort: len(images) + 1, ImageURL: imageURL})
 	}
 	if strings.TrimSpace(item.ImageInfo.WhiteBg) != "" {
-		images = append(images, sheinproduct.ImageDetail{ImageType: 2, ImageSort: len(images) + 1, ImageURL: item.ImageInfo.WhiteBg})
+		images = append(images, previewdata.ImageDetail{ImageType: 2, ImageSort: len(images) + 1, ImageURL: item.ImageInfo.WhiteBg})
 	}
 	if len(images) == 0 {
 		return nil
 	}
-	return &sheinproduct.ImageInfo{ImageInfoList: images}
+	return &previewdata.ImageInfo{ImageInfoList: images}
 }
 
-func derefImageInfo(info *sheinproduct.ImageInfo) sheinproduct.ImageInfo {
+func derefImageInfo(info *previewdata.ImageInfo) previewdata.ImageInfo {
 	if info == nil {
-		return sheinproduct.ImageInfo{}
+		return previewdata.ImageInfo{}
 	}
 	return *info
 }

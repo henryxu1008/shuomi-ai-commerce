@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	sheinpolicy "task-processor/internal/marketplace/shein/publishing"
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 func TestSecondarySaleAttributeRequiredRequiresMultiSKUSecondarySourceAndTemplate(t *testing.T) {
@@ -216,8 +216,8 @@ func TestHasSubmitImageChecksPackageDraftAndPreviewImages(t *testing.T) {
 	}}}}) != true {
 		t.Fatal("HasSubmitImage(draft sku image) = false, want true")
 	}
-	if HasSubmitImage(&Package{PreviewPayload: &sheinproduct.Product{SKCList: []sheinproduct.SKC{{
-		ImageInfo: sheinproduct.ImageInfo{ImageInfoList: []sheinproduct.ImageDetail{{ImageURL: "https://cdn.example/skc.jpg"}}},
+	if HasSubmitImage(&Package{PreviewPayload: &previewdata.Product{SKCList: []previewdata.SKC{{
+		ImageInfo: previewdata.ImageInfo{ImageInfoList: []previewdata.ImageDetail{{ImageURL: "https://cdn.example/skc.jpg"}}},
 	}}}}) != true {
 		t.Fatal("HasSubmitImage(preview skc image) = false, want true")
 	}

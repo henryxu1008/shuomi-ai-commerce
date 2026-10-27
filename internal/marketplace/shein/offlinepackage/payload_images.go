@@ -3,12 +3,12 @@ package offlinepackage
 import (
 	"strings"
 
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 // NormalizeSubmitImages normalizes SHEIN submit product, SKC, and SKU image payload fields.
-func normalizeSubmitImages(product *sheinproduct.Product) {
+func normalizeSubmitImages(product *previewdata.Product) {
 	if product == nil {
 		return
 	}
@@ -28,7 +28,7 @@ func normalizeSubmitImages(product *sheinproduct.Product) {
 }
 
 // NormalizeSubmitSPUImages normalizes top-level SPU gallery images for SHEIN submit.
-func normalizeSubmitSPUImages(images []sheinproduct.ImageDetail) []sheinproduct.ImageDetail {
+func normalizeSubmitSPUImages(images []previewdata.ImageDetail) []previewdata.ImageDetail {
 	normalized := normalizeSubmitGalleryImages(images, false)
 	if len(normalized) == 0 {
 		return nil
@@ -37,11 +37,11 @@ func normalizeSubmitSPUImages(images []sheinproduct.ImageDetail) []sheinproduct.
 }
 
 // NormalizeSubmitSKUImages normalizes SKU image payloads and repairs missing SKU images from SKC fallback.
-func normalizeSubmitSKUImages(skc *sheinproduct.SKC) {
+func normalizeSubmitSKUImages(skc *previewdata.SKC) {
 	if skc == nil {
 		return
 	}
-	var fallback sheinproduct.ImageDetail
+	var fallback previewdata.ImageDetail
 	hasFallback := false
 	if len(skc.ImageInfo.ImageInfoList) > 0 {
 		fallback = skc.ImageInfo.ImageInfoList[0]
@@ -53,8 +53,8 @@ func normalizeSubmitSKUImages(skc *sheinproduct.SKC) {
 			if !hasFallback {
 				continue
 			}
-			skc.SKUS[skuIndex].ImageInfo = &sheinproduct.ImageInfo{
-				ImageInfoList: []sheinproduct.ImageDetail{normalizeSubmitSKUImageDetail(fallback)},
+			skc.SKUS[skuIndex].ImageInfo = &previewdata.ImageInfo{
+				ImageInfoList: []previewdata.ImageDetail{normalizeSubmitSKUImageDetail(fallback)},
 			}
 			empty := []any{}
 			skc.SKUS[skuIndex].ImageInfo.OriginalImageInfoList = &empty
@@ -62,7 +62,7 @@ func normalizeSubmitSKUImages(skc *sheinproduct.SKC) {
 		}
 		info.ImageInfoList = dedupeImagesByURL(info.ImageInfoList)
 		if len(info.ImageInfoList) > 0 {
-			info.ImageInfoList = []sheinproduct.ImageDetail{normalizeSubmitSKUImageDetail(info.ImageInfoList[0])}
+			info.ImageInfoList = []previewdata.ImageDetail{normalizeSubmitSKUImageDetail(info.ImageInfoList[0])}
 		}
 		if info.OriginalImageInfoList == nil {
 			empty := []any{}
@@ -72,17 +72,17 @@ func normalizeSubmitSKUImages(skc *sheinproduct.SKC) {
 }
 
 // NormalizeSubmitSKUImageDetail normalizes one SKU image detail for SHEIN submit.
-func normalizeSubmitSKUImageDetail(image sheinproduct.ImageDetail) sheinproduct.ImageDetail {
+func normalizeSubmitSKUImageDetail(image previewdata.ImageDetail) previewdata.ImageDetail {
 	return sheinmarketpub.NormalizeSubmitSKUImageDetail(image)
 }
 
 // NormalizeSubmitSKCImages normalizes SKC gallery and site detail images for SHEIN submit.
-func normalizeSubmitSKCImages(skc *sheinproduct.SKC) {
+func normalizeSubmitSKCImages(skc *previewdata.SKC) {
 	if skc == nil {
 		return
 	}
 	if len(skc.ImageInfo.ImageInfoList) == 0 {
-		skc.SiteDetailImageInfoList = []sheinproduct.SiteDetailImageInfo{}
+		skc.SiteDetailImageInfoList = []previewdata.SiteDetailImageInfo{}
 		return
 	}
 	skc.ImageInfo.ImageInfoList = normalizeSubmitGalleryImages(skc.ImageInfo.ImageInfoList, true)
@@ -94,16 +94,16 @@ func normalizeSubmitSKCImages(skc *sheinproduct.SKC) {
 }
 
 // BuildSubmitSiteDetailImageInfoList builds SHEIN site detail image groups from normalized images.
-func buildSubmitSiteDetailImageInfoList(images []sheinproduct.ImageDetail) []sheinproduct.SiteDetailImageInfo {
+func buildSubmitSiteDetailImageInfoList(images []previewdata.ImageDetail) []previewdata.SiteDetailImageInfo {
 	return sheinmarketpub.BuildSubmitSiteDetailImageInfoList(images)
 }
 
 // NormalizeSubmitGalleryImages normalizes gallery image types, ordering, square image, and optional color block.
-func normalizeSubmitGalleryImages(images []sheinproduct.ImageDetail, includeColorBlock bool) []sheinproduct.ImageDetail {
+func normalizeSubmitGalleryImages(images []previewdata.ImageDetail, includeColorBlock bool) []previewdata.ImageDetail {
 	return sheinmarketpub.NormalizeSubmitGalleryImages(images, includeColorBlock)
 }
 
 // DedupeImagesByURL keeps the first non-empty image for each image URL.
-func dedupeImagesByURL(images []sheinproduct.ImageDetail) []sheinproduct.ImageDetail {
+func dedupeImagesByURL(images []previewdata.ImageDetail) []previewdata.ImageDetail {
 	return sheinmarketpub.DedupeImagesByURL(images)
 }

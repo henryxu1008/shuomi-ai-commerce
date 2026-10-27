@@ -1,15 +1,14 @@
 package draft
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/shein/authorizedbrand"
+	"task-processor/internal/marketplace/shein/publishing"
 )
 
-func TestSanitizeSheinListingCopyPreservesAuthorizedBrandFromRuntimeContext(t *testing.T) {
+func TestSanitizeSheinListingCopyPreservesAuthorizedBrandFromExplicitValues(t *testing.T) {
 	t.Parallel()
 
 	copy := &localCopy{
@@ -18,11 +17,11 @@ func TestSanitizeSheinListingCopyPreservesAuthorizedBrandFromRuntimeContext(t *t
 		SKCTitleBase: "Amazon Basics Mouse",
 	}
 
-	changed := sanitizeSheinListingCopy(copy, authorizedbrand.WithResolved(context.Background(), &authorizedbrand.Resolved{
-		Enabled: true,
-		Name:    "Amazon Basics",
-		NameEn:  "Amazon Basics",
-	}), nil, nil)
+	changed := sanitizeSheinListingCopy(copy, publishing.DisplayTextCleanupInput{Words: publishing.DefaultDisplayTextWords(),
+		BrandEnabled: true,
+		BrandName:    "Amazon Basics",
+		BrandNameEn:  "Amazon Basics",
+	})
 	if changed {
 		t.Fatalf("changed = true, want authorized brand preserved without cleanup")
 	}
@@ -31,7 +30,7 @@ func TestSanitizeSheinListingCopyPreservesAuthorizedBrandFromRuntimeContext(t *t
 	}
 }
 
-func TestSanitizeDraftPayloadSensitiveContentPreservesAuthorizedBrandFromRuntimeContext(t *testing.T) {
+func TestSanitizeDraftPayloadSensitiveContentPreservesAuthorizedBrandFromExplicitValues(t *testing.T) {
 	t.Parallel()
 
 	pkg := &offlinepackage.Package{
@@ -49,13 +48,13 @@ func TestSanitizeDraftPayloadSensitiveContentPreservesAuthorizedBrandFromRuntime
 		},
 	}
 
-	runtimeCtx := authorizedbrand.WithResolved(context.Background(), &authorizedbrand.Resolved{
-		Enabled: true,
-		Name:    "Amazon Basics",
-		NameEn:  "Amazon Basics",
-	})
+	input := publishing.DisplayTextCleanupInput{Words: publishing.DefaultDisplayTextWords(),
+		BrandEnabled: true,
+		BrandName:    "Amazon Basics",
+		BrandNameEn:  "Amazon Basics",
+	}
 
-	changed := sanitizeLocalDraft(pkg, runtimeCtx, nil, nil)
+	changed := sanitizeLocalDraft(pkg, input)
 	if changed {
 		t.Fatalf("changed = true, want authorized brand preserved without cleanup")
 	}
@@ -83,7 +82,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansDraftTextFields(t *testing.T
 		},
 	}
 
-	changed := sanitizeLocalDraft(pkg, context.Background(), nil, nil)
+	changed := sanitizeLocalDraft(pkg, publishing.DisplayTextCleanupInput{Words: publishing.DefaultDisplayTextWords()})
 	if !changed {
 		t.Fatal("changed = false, want true")
 	}
@@ -98,12 +97,12 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansDraftTextFields(t *testing.T
 	}
 }
 
-func TestSanitizeDraftPayloadSensitiveContent_PreservesAuthorizedBrandFromRuntimeContext(t *testing.T) {
-	ctx := authorizedbrand.WithResolved(context.Background(), &authorizedbrand.Resolved{
-		Enabled: true,
-		Name:    "Amazon Basics",
-		NameEn:  "Amazon Basics",
-	})
+func TestSanitizeDraftPayloadSensitiveContent_PreservesAuthorizedBrandFromExplicitValues(t *testing.T) {
+	input := publishing.DisplayTextCleanupInput{Words: publishing.DefaultDisplayTextWords(),
+		BrandEnabled: true,
+		BrandName:    "Amazon Basics",
+		BrandNameEn:  "Amazon Basics",
+	}
 	pkg := &offlinepackage.Package{DraftPayload: &offlinepackage.RequestDraft{
 		ProductAttributeList: []offlinepackage.Attribute{{
 			Value: "Amazon Basics Trademark acrylic",
@@ -117,7 +116,7 @@ func TestSanitizeDraftPayloadSensitiveContent_PreservesAuthorizedBrandFromRuntim
 		}},
 	}}
 
-	if !sanitizeLocalDraft(pkg, ctx, nil, nil) {
+	if !sanitizeLocalDraft(pkg, input) {
 		t.Fatal("sensitive content was not sanitized")
 	}
 
@@ -158,7 +157,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansFreeTextAttributesAndSKCName
 		}},
 	}}
 
-	if !sanitizeLocalDraft(pkg, context.Background(), nil, nil) {
+	if !sanitizeLocalDraft(pkg, publishing.DisplayTextCleanupInput{Words: publishing.DefaultDisplayTextWords()}) {
 		t.Fatal("sensitive content was not sanitized")
 	}
 

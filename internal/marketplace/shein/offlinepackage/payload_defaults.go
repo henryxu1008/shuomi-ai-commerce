@@ -3,8 +3,8 @@ package offlinepackage
 import (
 	"strings"
 
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 const (
@@ -21,7 +21,7 @@ type payloadDefaults struct {
 }
 
 // EnsureSubmitSites normalizes SHEIN submit site fields for a product payload.
-func ensureSubmitSites(product *sheinproduct.Product, settings payloadDefaults) {
+func ensureSubmitSites(product *previewdata.Product, settings payloadDefaults) {
 	if product == nil {
 		return
 	}
@@ -46,7 +46,7 @@ func ensureSubmitSites(product *sheinproduct.Product, settings payloadDefaults) 
 }
 
 // EnsureSubmitSKUs normalizes SKU, stock, quantity, and dimensional fields for submit.
-func ensureSubmitSKUs(product *sheinproduct.Product, settings payloadDefaults) {
+func ensureSubmitSKUs(product *previewdata.Product, settings payloadDefaults) {
 	if product == nil {
 		return
 	}
@@ -54,7 +54,7 @@ func ensureSubmitSKUs(product *sheinproduct.Product, settings payloadDefaults) {
 	for skcIndex := range product.SKCList {
 		skc := &product.SKCList[skcIndex]
 		if skc.SiteDetailImageInfoList == nil {
-			skc.SiteDetailImageInfoList = []sheinproduct.SiteDetailImageInfo{}
+			skc.SiteDetailImageInfoList = []previewdata.SiteDetailImageInfo{}
 		}
 		if skc.SiteSpecImageInfoList == nil {
 			skc.SiteSpecImageInfoList = []any{}
@@ -71,7 +71,7 @@ func ensureSubmitSKUs(product *sheinproduct.Product, settings payloadDefaults) {
 		for skuIndex := range skc.SKUS {
 			sku := &skc.SKUS[skuIndex]
 			if sku.SaleAttributeList == nil {
-				sku.SaleAttributeList = []sheinproduct.SaleAttribute{}
+				sku.SaleAttributeList = []previewdata.SaleAttribute{}
 			}
 			ensureSubmitStockInfo(sku, preferredWarehouseCode)
 			ensureSubmitQuantityInfo(sku)
@@ -98,7 +98,7 @@ func submitPreferredWarehouseCode(settings payloadDefaults) string {
 }
 
 // NormalizeSubmitWeight converts SKU weight to grams and clamps it to SHEIN submit bounds.
-func normalizeSubmitWeight(sku *sheinproduct.SKU) {
+func normalizeSubmitWeight(sku *previewdata.SKU) {
 	if sku == nil {
 		return
 	}
@@ -106,7 +106,7 @@ func normalizeSubmitWeight(sku *sheinproduct.SKU) {
 	sku.WeightUnit = "g"
 }
 
-func submitDefaultSites(settings payloadDefaults) []sheinproduct.SiteInfo {
+func submitDefaultSites(settings payloadDefaults) []previewdata.SiteInfo {
 	region := strings.ToUpper(strings.TrimSpace(settings.Site))
 	if region == "" {
 		region = "US"
@@ -114,13 +114,13 @@ func submitDefaultSites(settings payloadDefaults) []sheinproduct.SiteInfo {
 	return sheinmarketpub.DefaultSiteListByRegion(region)
 }
 
-func ensureSubmitStockInfo(sku *sheinproduct.SKU, preferredWarehouseCode string) {
+func ensureSubmitStockInfo(sku *previewdata.SKU, preferredWarehouseCode string) {
 	if len(sku.StockInfoList) == 0 {
 		inventory := defaultSubmitInventory
 		if sku.StockCount != nil && *sku.StockCount > 0 {
 			inventory = *sku.StockCount
 		}
-		sku.StockInfoList = []sheinproduct.StockInfo{{
+		sku.StockInfoList = []previewdata.StockInfo{{
 			InventoryNum:          inventory,
 			MerchantWarehouseCode: preferredWarehouseCode,
 		}}
@@ -140,21 +140,21 @@ func ensureSubmitStockInfo(sku *sheinproduct.SKU, preferredWarehouseCode string)
 	sku.StockCount = nil
 }
 
-func ensureSubmitQuantityInfo(sku *sheinproduct.SKU) {
+func ensureSubmitQuantityInfo(sku *previewdata.SKU) {
 	if sku.QuantityInfo != nil && sku.QuantityInfo.Quantity != nil && sku.QuantityInfo.QuantityType != nil && sku.QuantityInfo.QuantityUnit != nil {
 		return
 	}
 	quantity := 1
 	quantityType := 1
 	quantityUnit := 1
-	sku.QuantityInfo = &sheinproduct.QuantityInfo{
+	sku.QuantityInfo = &previewdata.QuantityInfo{
 		Quantity:     &quantity,
 		QuantityType: &quantityType,
 		QuantityUnit: &quantityUnit,
 	}
 }
 
-func ensureSubmitDimensions(sku *sheinproduct.SKU) {
+func ensureSubmitDimensions(sku *previewdata.SKU) {
 	if sku == nil {
 		return
 	}
@@ -176,14 +176,14 @@ func ensureSubmitDimensions(sku *sheinproduct.SKU) {
 	normalizeSubmitWeight(sku)
 }
 
-func normalizeSubmitCollections(product *sheinproduct.Product) {
+func normalizeSubmitCollections(product *previewdata.Product) {
 	sheinmarketpub.NormalizeSubmitCollections(product)
 }
 
-func normalizeSubmitExtra(product *sheinproduct.Product) {
+func normalizeSubmitExtra(product *previewdata.Product) {
 	sheinmarketpub.NormalizeSubmitExtra(product)
 }
 
-func finalizeSubmitTransportFields(product *sheinproduct.Product) {
+func finalizeSubmitTransportFields(product *previewdata.Product) {
 	sheinmarketpub.FinalizeSubmitTransportFields(product)
 }

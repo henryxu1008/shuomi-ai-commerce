@@ -3,15 +3,14 @@ package publishing
 import (
 	"encoding/json"
 	"strings"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
-
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 func TestNormalizeSubmitCollectionsAndExtra(t *testing.T) {
 	t.Parallel()
 
-	product := &sheinproduct.Product{}
+	product := &previewdata.Product{}
 
 	NormalizeSubmitCollections(product)
 	NormalizeSubmitExtra(product)
@@ -40,9 +39,9 @@ func TestNormalizeSubmitCollectionsAndExtra(t *testing.T) {
 func TestFinalizeSubmitTransportFieldsSerializesEmptyCollections(t *testing.T) {
 	t.Parallel()
 
-	product := &sheinproduct.Product{
-		SKCList: []sheinproduct.SKC{{
-			SKUS: []sheinproduct.SKU{{SupplierSKU: "SKU-1"}},
+	product := &previewdata.Product{
+		SKCList: []previewdata.SKC{{
+			SKUS: []previewdata.SKU{{SupplierSKU: "SKU-1"}},
 		}},
 	}
 

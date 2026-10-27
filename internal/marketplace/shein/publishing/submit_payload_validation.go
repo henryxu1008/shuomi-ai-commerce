@@ -3,12 +3,11 @@ package publishing
 import (
 	"fmt"
 	"strings"
-
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // ValidateProductPublishPayload validates required SKC image fields for SHEIN publish submit payloads.
-func ValidateProductPublishPayload(product *sheinproduct.Product) error {
+func ValidateProductPublishPayload(product *previewdata.Product) error {
 	if product == nil {
 		return fmt.Errorf("SHEIN publish payload is empty")
 	}
@@ -37,7 +36,7 @@ func ValidateProductPublishPayload(product *sheinproduct.Product) error {
 }
 
 // ValidatePreparedProductPublishPayload validates a submit product after submit normalization has run.
-func ValidatePreparedProductPublishPayload(product *sheinproduct.Product) error {
+func ValidatePreparedProductPublishPayload(product *previewdata.Product) error {
 	if err := ValidateProductPublishPayload(product); err != nil {
 		return err
 	}

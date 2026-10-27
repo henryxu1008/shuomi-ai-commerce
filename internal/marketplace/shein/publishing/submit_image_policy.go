@@ -2,8 +2,7 @@ package publishing
 
 import (
 	"strings"
-
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // FinalSubmitImagesRequireSKC reports whether final submit image readiness must
@@ -77,7 +76,7 @@ func SubmitImageURLsHaveImage(values ...string) bool {
 }
 
 // ProductImageInfoHasImage reports whether SHEIN product image info contains any image URL.
-func ProductImageInfoHasImage(info *sheinproduct.ImageInfo) bool {
+func ProductImageInfoHasImage(info *previewdata.ImageInfo) bool {
 	if info == nil {
 		return false
 	}
