@@ -1,3 +1,5 @@
+> #301 / #981 用户确认[旧商品来源归一化与中间事实合同完整设计](../../architecture/legacy-source-normalization-facts-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1），冻结设计 `4e74dfec9` / Independent Architecture / IMPLEMENTATION_READY 后整批实施。仅替代其中 catalog.Normalize、四项旧置信度判断、catalog.ProductFacts/asset.Facts 与 sourcing.SourceRequest/SourceResult 的准确旧KEEP/后续开工含义；对应无消费者源码和专属测试退出，无alias/转发/替代owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog、canonical13值/六常量/草稿投影、SourceIdentity四JSON零值槽位及规范化/hash/拒绝、当前规则/采集与独立SHEIN登录/Store同步保持。原有效身份断言改接当前owner，唯一旧必读转Lstat缺席，其余检查原样。以下起始main完整正文/历史/数字/勾选逐字保留；workflow/完整inventory/依赖/保护及既有实例/数据/凭据/文件/进程零改，无新试用前置，#301 OPEN。
+
 # Source Lineage Read Model
 
 ## Status
