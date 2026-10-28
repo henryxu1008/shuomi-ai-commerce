@@ -96,7 +96,7 @@ worker BuildAI移除旧CommercialDatabase Token pool、无用commercialDB参数�
 
 - 旧 plans/modules/plan_modules/subscriptions/entitlements/counters/counter adjustments、usage events/buckets/outbox、subscription audit、purchased activation fence/decision、Store quota allocation/bucket、account_member_token_* 及专属 Goose version 的 DDL/安装/grant/verify 源码随 owner 退出。全新安装不再创建它们；现有表、行、版本表、角色和权限一律不操作，不提供 Drop/迁移/回填或兼容 reader。
 - 移除 Studio→ListingKit entitlement 迁移、legacy counter mirror、old usage reconcile 和恢复者；不转交新 scanner、不自动接管旧 UNKNOWN。当前 money/Resource/AI/Store 的既有事务、锁、幂等/不同载荷冲突、revocation、不可逆外部副作用和恢复继续由原 owner 负责。
-- `workbench/schema` 留当前 Store/audit/Resource 初始化，只删旧 quota 两调用；listingkit-schema-migrate 保留当前 Workbench 操作，退出仅供旧商业 schema 的 commercial scope/依赖和拒绝路径的错误说明。当前显式 commercial-owner schema CLI、money owner、storagecapacity、source account 等各自 installer/roles 保留。已退出 scope 由原 flag/validation 明确拒绝，不重定向到另一 owner。
+- `workbench/schema` 留当前 Store/audit/Resource 初始化，只删旧 quota 两调用；listingkit-schema-migrate 保留当前 Workbench 操作，退出仅供旧商业 schema 的 commercial scope/依赖和拒绝路径的错误说明；flags.go只把-scope帮助中的commercial or workbench改为剩余Workbench scope，不改当前默认值或其它flag。当前显式 commercial-owner schema CLI、money owner、storagecapacity、source account 等各自 installer/roles 保留。已退出 scope 由原 flag/validation 明确拒绝，不重定向到另一 owner。
 - 旧订阅购买服务、orders/effect-admission/recovery 和专属 port/type 从混合 billing 源码清除。共用 Offer/Quote/Order/row、现有资源/服务/存储/钱包购买、实际订单查询/分页、server-owned quote、整数金额、订单与 resource/money proof 保留；只为已有当前 JSON/既有 shared row layout服务的字段按当前 wire 合同保留，不能再签发 SUBSCRIPTION_PURCHASE/PLAN、激活或查询入口。原字段/hash/版本不因删除一个 handler 重算。
 - 当前商品/来源/草稿/资产/模型原始 Token、Resource points、Store/binding/observations 的 JSON/hash/版本、SourceIdentity 四零值槽位和已有载荷不改。历史旧订阅订单没有新恢复/迁移承诺；不清数据，不把历史证据改为已完成当前验收。
 - 仅对 Resource.ReadBalances 两张表与 Store.ReadServiceSummary 单表的 PostgreSQL 查询显式绑定 public，在原 read owner 内完成；SQLite 原表名路径保持，仅适配已支持 dialect，不对 PostgreSQL missing/denied 退回 search_path。所有组织谓词、聚合公式/UTC窗口、数字编码/unknown/not_recorded 语义不改，不设置全局 search_path 或提升 runtime 角色。
@@ -105,7 +105,7 @@ worker BuildAI移除旧CommercialDatabase Token pool、无用commercialDB参数�
 
 ## 5. 完整删除、抽取与保留矩阵
 
-本轮未来源码候选清单为下方 77 个整退文件、69 个有界混合工件、1 个新增完整 guard，共 147 路径；不是必须制造 143 个 diff，也不是以文件数拆批。只改实际闭包，清单外新消费者、schema/费用/权限变化先报告，不在实现中自创方案。设计阶段仍只三文档。
+本轮未来源码候选清单为下方 77 个整退文件、70 个有界混合工件、1 个新增完整 guard，共 148 路径；不是必须制造 148 个 diff，也不是以文件数拆批。只改实际闭包，清单外新消费者、schema/费用/权限变化先报告，不在实现中自创方案。设计阶段仍只三文档。
 
 ### 5.1 整退集
 
@@ -239,6 +239,7 @@ internal/app/httpapi/referral_registration_browser_fixture_test.go
 internal/app/httpapi/unified_commercial_read.go
 internal/app/runtime/currentapplication/config_test.go
 internal/app/runtime/currentapplication/unified_config_test.go
+internal/app/runtime/listingkitschemamigrate/flags.go
 internal/app/runtime/listingkitschemamigrate/runtime.go
 internal/app/runtime/listingkitschemamigrate/runtime_test.go
 internal/app/worker/imageagent/capabilities.go
