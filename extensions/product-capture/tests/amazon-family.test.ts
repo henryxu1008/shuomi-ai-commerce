@@ -4,11 +4,27 @@ import { discoverFamily } from '../src/amazon/family-discovery';
 import { FamilyCoordinator } from '../src/amazon/family-coordinator';
 import type { AmazonCapturePayload } from '../src/amazon/wire';
 import { captureAmazonDocument } from '../src/amazon/extractor';
+import { validateAmazonCapture } from '../src/amazon/validation';
 
 const anchor = 'B0BDLGZCTY', sibling = 'B0CC1YM6SJ', parent = 'B0D76YXPWZ';
 export const familyData = () => ({ currentAsin: anchor, parentAsin: parent, dimensions: ['color_name','size_name'], variationDisplayLabels: { color_name:'Color',size_name:'Size' }, variationValues: { color_name:['Grey','Beige'],size_name:['XL'] }, dimensionToAsinMap: { '0_0':anchor,'1_0':sibling }, dimensionValuesDisplayData: { [anchor]:['Grey','XL'],[sibling]:['Beige','XL'] } });
-const document = (id=anchor, color='Grey', amount='39.98', currency='US$') => new JSDOM(`<span id="productTitle">Dog bed</span><input id="ASIN" value="${id}"><img id="landingImage" src="https://m.media-amazon.com/images/I/${id}.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">${color}</span></div><div id="variation_size"><span class="a-form-label">Size:</span><span class="selection">XL</span></div><div id="corePrice_feature_div"><span class="a-price"><span class="a-offscreen">${currency}${amount}</span></span></div>`,{url:`https://www.amazon.com/dp/${id}`}).window.document;
+const document = (id=anchor, color='Grey', amount='39.98', currency='US$') => new JSDOM(`<span id="productTitle">Dog bed</span><input id="ASIN" value="${id}"><img id="landingImage" src="https://m.media-amazon.com/images/I/${id}.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">${color}</span></div><div id="variation_size"><span class="a-form-label">Size:</span><span class="selection">XL</span></div><div id="corePrice_feature_div" data-csa-c-asin="${id}"><span class="a-price"><span class="a-offscreen">${currency}${amount}</span></span></div>`,{url:`https://www.amazon.com/dp/${id}`}).window.document;
 const seed = async () => { const doc=document(); doc.body.insertAdjacentHTML('beforeend',`<script>P.register('twister-js-init-dpx-data',function(){return ${JSON.stringify(familyData())};});</script>`); return { manifest:discoverFamily(doc,doc.URL),anchor:await captureAmazonDocument(doc,doc.URL) }; };
+
+it('keeps each child used-offer diagnostic and quote together',async()=>{
+ const handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
+ const c=new FamilyCoordinator({seed,read:async()=>{const doc=document(sibling,'Beige');const capture=await captureAmazonDocument(doc,doc.URL);capture.evidence.variants[0].price={amount:'44.98',currency:'USD',condition:'new',alternative:{amount:'40.00',currency:null,condition:'used'}};capture.evidence.missingFacts.push({field:'price.used.currency',reason:'source currency not explicit'});return {capture,parentASIN:parent};},handoff,close:async()=>{}});
+ await c.start();const result=handoff.mock.calls[0][0];
+ expect(result.evidence.variants[1].price?.alternative?.amount).toBe('40.00');expect(result.evidence.missingFacts).toContainEqual({field:'variants.1.price.used.currency',reason:'source currency not explicit'});
+});
+it('counts each additional offer in the existing family aggregate limit',async()=>{
+ const payload=structuredClone((await seed()).anchor),e=payload.evidence;e.observation={scope:'partial_family',parentASIN:parent};
+ e.variants=Array.from({length:171},(_,i)=>({sourceID:`B${String(i).padStart(9,'0')}`,sku:null,title:null,attributes:[{name:'Color',value:`c${i}`}],images:[],price:{amount:'35.98',currency:'USD',condition:'new' as const,alternative:{amount:'31.99',currency:'USD',condition:'used' as const}}}));
+ e.attributes=[];e.priceFacts=[];e.images=[];e.warnings=[];e.missingFacts=[];
+ expect(validateAmazonCapture(payload).evidence.variants).toHaveLength(171);
+ e.attributes=Array.from({length:256},(_,i)=>({name:`a${i}`,value:'x'}));e.images=Array.from({length:256},()=>({url:'https://m.media-amazon.com/images/I/fixture.jpg',role:'gallery' as const}));
+ expect(()=>validateAmazonCapture(payload)).toThrow('CAPTURE_TOO_LARGE');
+});
 
 it('binds parent/current/real combinations within the twister initialization object',async()=>{
   const {manifest}=await seed(); expect(manifest.parentASIN).toBe(parent);

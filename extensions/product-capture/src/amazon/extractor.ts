@@ -134,6 +134,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const { price, currencyConflict } = quote;
   for (const item of quote.attributes) fact(item.name,item.value);
   const missingFacts = [{ field: 'variants', reason: 'only selected product observed; variant family not traversed' }, { field: 'inventory', reason: 'source inventory quantity not observed' }];
+  missingFacts.push(...quote.diagnostics);
   if (subtitleReason) missingFacts.push({ field: 'title.subtitle', reason: subtitleReason });
   if (details.reason) missingFacts.push({ field: 'attributes.details', reason: details.reason });
   if (album.reason) missingFacts.push({ field: 'images.hiRes', reason: album.reason });

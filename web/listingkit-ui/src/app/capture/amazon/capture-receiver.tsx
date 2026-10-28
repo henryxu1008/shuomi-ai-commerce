@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { amazonCaptureSchema,freezeAmazonCapture,type AmazonCapturePayload,type AmazonCaptureResult } from "@/lib/contracts/amazon-browser-capture";
+import { PriceText } from "@/components/workbench/collections/source-quotes";
 import { amazonCaptureRequest,AmazonCaptureError } from "@/lib/api/amazon-browser-capture";
 import { parseCaptureEntry,readCaptureHandoff,notifyCaptureStatus,type CaptureEntry } from "../1688/capture-handoff";
 import { loadAmazonMarker,saveAmazonMarker,sameAmazonScope,type AmazonScope,type AmazonMarker } from "./capture-marker";
@@ -57,7 +58,7 @@ export function AmazonCaptureReceiver(){
  return <section className="mx-auto max-w-3xl space-y-5 py-6">
   <header><p className="text-sm text-muted-foreground">Amazon / 插件单商品采集</p><h1 className="text-2xl font-semibold">确认并保存来源资料</h1><p className="mt-2 text-sm text-muted-foreground">仅保存已观察的商品资料。未观察的规格、库存和图片仍保留缺失提示。</p></header>
   <div className="rounded-xl border p-4 text-sm"><p>账号：{ready?scope.userId:"请先登录"}</p><p>企业：{ready?context.effectiveOrganization?.name:"请选择企业"}</p><p>此插件保存免费。</p></div>
-  {view.payload&&!view.started?<div className="space-y-2 rounded-xl border p-4"><h2 className="font-medium">{view.payload.evidence.title}</h2><p className="break-all text-sm">{view.payload.evidence.sourceURL}</p><ul className="text-sm text-muted-foreground">{view.payload.evidence.missingFacts.map((m,i)=><li key={i}>{m.field}：{m.reason}</li>)}</ul></div>:null}
+  {view.payload&&!view.started?<div className="space-y-2 rounded-xl border p-4"><h2 className="font-medium">{view.payload.evidence.title}</h2><p className="break-all text-sm">{view.payload.evidence.sourceURL}</p><ul className="text-sm">{view.payload.evidence.variants.map((v,i)=>v.price?<li key={i}>{v.sourceID??`规格 ${i+1}`}：<PriceText price={v.price} showUnknown/></li>:null)}</ul><ul className="text-sm text-muted-foreground">{view.payload.evidence.missingFacts.map((m,i)=><li key={i}>{m.field}：{m.reason}</li>)}</ul></div>:null}
   <p role="status">{scoped?view.message:"当前上下文不可用或已改变，请返回原账号、企业与成员。"}</p>
   <div className="flex gap-3">{view.payload&&!view.started?<Button disabled={!scoped||view.busy} onClick={()=>void run(true)}>确认保存</Button>:null}{view.started?<Button variant="outline" disabled={!scoped||view.busy} onClick={()=>void run(false)}>检查原操作</Button>:null}{view.busy?<Button variant="outline" onClick={()=>{active.current?.abort();setView(v=>({...v,message:unknown}));}}>停止等待</Button>:null}</div>
   {result?<div className="space-y-2 rounded-xl border p-4 text-sm"><p>已保存：{result.snapshot.title} · 版本 {result.catalogVersion}</p><p className="break-all">{result.captureID}</p>{result.currentBatchID!==result.batchID?<p>原引用已移动到其它批次。</p>:null}<ul>{result.snapshot.warnings?.map((w,i)=><li key={i}>{w.field}：{w.message}</li>)}</ul><Link href="/workbench/data/mine">打开我的数据</Link></div>:null}
