@@ -5,7 +5,7 @@ import { CaptureReceiver } from "./capture-receiver";
 const fixture = vi.hoisted(() => ({
   capture: vi.fn(), byKey: vi.fn(), byId: vi.fn(), entry: vi.fn(),
   context: { isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null,
-    user: { id: "actor" }, effectiveOrganization: { id: "B", name: "Fixture B" }, retry: vi.fn() },
+    user: { id: "actor" }, effectiveOrganization: { id: "B", name: "Fixture B" }, effectiveMemberId:"member",retry: vi.fn() },
 }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 vi.mock("@/lib/api/browser-capture", () => ({ capture1688: fixture.capture, readBrowserCaptureByKey: fixture.byKey, readBrowserCapture: fixture.byId }));
@@ -18,7 +18,7 @@ beforeEach(() => {
   window.history.replaceState(null, "", `/capture/1688#operationKey=${key}`);
   fixture.entry.mockReturnValue({ kind: "recovery", key });
   fixture.context.effectiveOrganization = { id: "B", name: "Fixture B" };
-  fixture.context.retry.mockResolvedValue({ selectionRequired: false, user: { id: "actor" }, effectiveOrganizationId: "B" });
+  fixture.context.retry.mockResolvedValue({ selectionRequired: false, user: { id: "actor" }, effectiveOrganizationId: "B",effectiveMemberId:"member" });
   fixture.byKey.mockResolvedValue(receipt);
   fixture.byId.mockResolvedValue(receipt);
 });

@@ -19,7 +19,7 @@ const api = {
   runtime: { id, getURL: (path: string) => `chrome-extension://${id}/${path}`,
     onMessage: { addListener: vi.fn((fn: Listener) => { listener = fn; }) }, onMessageExternal: { addListener: vi.fn() } },
   tabs: { query: vi.fn(async () => [tab]), create: vi.fn<(options: { url: string }) => Promise<{ id: number; windowId: number }>>().mockResolvedValue({ id: 42, windowId: 2 }),
-    update: vi.fn(async () => ({ id: 42, windowId: 2 })) }, windows: { update: vi.fn(async () => ({})) },
+    get: vi.fn(async () => ({id:42,windowId:2,url:api.tabs.create.mock.calls.at(-1)?.[0].url})),update: vi.fn(async () => ({ id: 42, windowId: 2 })) }, windows: { update: vi.fn(async () => ({})) },
   scripting: { executeScript: vi.fn(async (options: { files?: string[] }) => [{ frameId: 0, documentId: 'doc-1', result: options.files ? { ok: true, payload } : url }]) },
   commands: { getAll: vi.fn(async () => []), onCommand: { addListener: vi.fn((fn: typeof command) => { command = fn; }) } },
   action: { setBadgeText: vi.fn(async () => {}), setTitle: vi.fn(async () => {}) },
@@ -86,15 +86,15 @@ it('still rejects a stale initial revision directly after recreation without cap
   expect(storage.contents()).toEqual({});
 });
 
-it('restores return-only location and the same revision after background recreation', async () => {
+it('restores the full durable draft and the same revision after background recreation', async () => {
   const initial = await status();
   const handed = await mutate('page.capture', initial.state.revision);
   expect(handed.ok).toBe(true);
   vi.resetModules(); await import('../src/background');
   const restored = await status();
-  expect(restored.state).toMatchObject({ revision: handed.state.revision, returnState: 'available', captured: false, handed: false, sameProduct: true });
+  expect(restored.state).toMatchObject({ revision: handed.state.revision, returnState: 'available', captured: true, handed: false, sameProduct: true });
   expect((await mutate('page.return', handed.state.revision)).ok).toBe(true);
-  expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(42, { active: true });
+  expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(42, { url:expect.stringContaining('idempotencyKey='),active: true });
   expect(api.tabs.create).toHaveBeenCalledOnce();
   expect(api.scripting.executeScript.mock.calls.filter(([options]) => options.files)).toHaveLength(1);
 });
@@ -145,7 +145,7 @@ it('does not turn stale capture into return; explicit return preserves the own t
   expect(api.tabs.update).not.toHaveBeenCalled();
   expect((await mutate('page.return', current.state.revision)).ok).toBe(true);
   expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(42, { active: true });
-  expect(api.windows.update).toHaveBeenCalledExactlyOnceWith(2, { focused: true });
+  expect(api.windows.update).toHaveBeenLastCalledWith(2, { focused: true });
   expect(api.tabs.create).toHaveBeenCalledOnce();
 });
 

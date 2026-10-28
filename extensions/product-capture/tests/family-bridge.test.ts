@@ -1,3 +1,4 @@
+import { testDrafts } from './fixtures/drafts';
 import { beforeEach,afterEach,expect,it,vi } from 'vitest';
 import { FamilyBridge } from '../src/amazon/family-bridge';
 import { familyURL } from '../src/amazon/family-location';
@@ -13,15 +14,16 @@ let contexts:chrome.runtime.ExtensionContext[]=[];
 let tabs:Record<number,Partial<chrome.tabs.Tab>>;
 const api={storage:{session:storage.session},runtime:{id,getURL:(p:string)=>`chrome-extension://${id}/${p}`,getContexts:vi.fn(async()=>contexts),sendMessage:vi.fn(async()=>({phase:'collecting',observed:1,total:171,reason:''}))},
  tabs:{create:vi.fn(async(o:{url:string})=>{tabs[41]={id:41,url:o.url,windowId:1};return tabs[41];}),get:vi.fn(async(n:number)=>{if(!tabs[n])throw Error('gone');return tabs[n];}),update:vi.fn(async(n:number)=>tabs[n]),remove:vi.fn(async(n:number)=>{delete tabs[n];})},windows:{update:vi.fn(async()=>({}))}};
-let app:ReturnSession,controller:Controller,bridge:FamilyBridge;
+let app:ReturnSession,controller:Controller,bridge:FamilyBridge,drafts:ReturnType<typeof testDrafts>;
 const sender=()=>({id,url:familyURL(revision),documentId} as chrome.runtime.MessageSender);
 const context=()=>({contextType:'TAB',documentId,documentUrl:familyURL(revision),tabId:41,frameId:0,windowId:1} as chrome.runtime.ExtensionContext);
 beforeEach(async()=>{storage.reset();vi.clearAllMocks();tabs={};contexts=[];vi.stubGlobal('chrome',api);
+ drafts=testDrafts();
  app=new ReturnSession(storage.session as unknown as chrome.storage.SessionStorageArea);await app.ready;
  // Use the platform validator, just as production assembly does.
  const {validatePlatformCapture}=await import('../src/platforms');
- controller=new Controller('https://app.example.com/capture/amazon',async()=>{throw Error('must not extract');},async()=>42,()=>id,validatePlatformCapture,()=> 'https://app.example.com/capture/amazon',async n=>{await api.tabs.update(n);},{prepare:s=>app.prepare(s,revision),bind:n=>app.bind(n,revision),tabID:()=>app.tabID()});
- bridge=new FamilyBridge(()=>controller,app);await bridge.ready;
+ controller=new Controller(drafts,async()=>source,'https://app.example.com/capture/amazon',async()=>{throw Error('must not extract');},async()=>42,()=>id,validatePlatformCapture,()=> 'https://app.example.com/capture/amazon',async n=>{await api.tabs.update(n);},{prepare:s=>app.prepare(s,revision),bind:n=>app.bind(n,revision),tabID:()=>app.tabID()});
+ bridge=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await bridge.ready;
 });
 afterEach(()=>vi.unstubAllGlobals());
 async function open(){await bridge.begin(source,revision);contexts=[context()];await bridge.handle({type:'family.init',revision},sender());}
@@ -37,32 +39,33 @@ it.each(['popup','source','document','tab'])('refuses a forged %s finalization w
  await expect(bridge.handle({type:'family.finish',revision,payload:await capture()},bad)).rejects.toThrow();expect(app.state).toBe('none');
 });
 it('recovers the same live progress after a worker rebuild without creating or reading another source',async()=>{
- await open();const recreated=new FamilyBridge(()=>controller,app);await recreated.ready;expect(await recreated.status()).toMatchObject({phase:'collecting',total:171});await recreated.focus();
+ await open();const recreated=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await recreated.ready;expect(await recreated.status()).toMatchObject({phase:'collecting',total:171});await recreated.focus();
  expect(api.tabs.create).toHaveBeenCalledOnce();expect(api.tabs.update).toHaveBeenCalledWith(41,{active:true});
 });
-it('rejects a same-url replacement progress document and allows only explicit interrupted reset',async()=>{
+it('fences the old document and restores the same draft paused after a progress page refresh',async()=>{
  await open();contexts=[{...context(),documentId:crypto.randomUUID()}];expect(await bridge.status()).toMatchObject({phase:'interrupted'});
- await expect(bridge.handle({type:'family.init',revision},{...sender(),documentId:contexts[0].documentId})).rejects.toThrow();
+ const restored=await bridge.handle({type:'family.init',revision},{...sender(),documentId:contexts[0].documentId});expect(restored).toMatchObject({draft:{phase:'paused'}});
+ await expect(bridge.handle({type:'family.init',revision},sender())).rejects.toThrow();
  await bridge.abandonInterrupted();expect(bridge.active).toBe(false);
 });
 it('one finalization preserves original return, and a rebuilt worker only navigates to that app',async()=>{
- await open();await bridge.handle({type:'family.finish',revision,payload:await capture()},sender());expect(app.tabID()).toBe(42);expect(bridge.active).toBe(false);
- const rebuilt=new FamilyBridge(()=>controller,app);await rebuilt.ready;await rebuilt.handle({type:'family.return',revision},sender());expect(api.tabs.update).toHaveBeenLastCalledWith(42);
+ await open();const anchor=await capture();anchor.evidence.observation={scope:'selected_product',parentASIN:null};const manifest={sourceURL:source.url,parentASIN:'B0D76YXPWZ',members:[{sourceID:anchor.evidence.sourceID,attributes:anchor.evidence.variants[0].attributes}]};let d=(await drafts.get(revision))!;d=await drafts.seed(d.id,d.revision,d.generation,{anchor,manifest});await bridge.handle({type:'family.finish',revision,expectedRevision:d.revision,generation:d.generation},sender());expect(app.tabID()).toBe(42);expect(bridge.active).toBe(false);
+ const rebuilt=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await rebuilt.ready;await rebuilt.handle({type:'family.return',revision},sender());expect(api.tabs.update).toHaveBeenLastCalledWith(42);
 });
 it('rejects a reader not created by this progress page and never closes a user-navigated tab',async()=>{
  await open();tabs[50]={id:50,url:source.url,openerTabId:7,windowId:1};await expect(bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).rejects.toThrow();
  tabs[50].openerTabId=41;await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender());tabs[50].url='https://example.com/';
- await bridge.handle({type:'family.cancel',revision},sender());expect(api.tabs.remove).not.toHaveBeenCalled();expect(bridge.active).toBe(false);
+ await drafts.get(revision).then(d=>bridge.handle({type:'family.cancel',revision,expectedRevision:d!.revision,generation:d!.generation},sender()));expect(api.tabs.remove).not.toHaveBeenCalled();expect(bridge.active).toBe(true);expect((await drafts.get(revision))?.phase).toBe('paused');
 });
 it('does not treat a closed pending progress tab as still initializing',async()=>{
- await bridge.begin(source,revision);delete tabs[41];expect(await bridge.status()).toMatchObject({phase:'interrupted'});
+ await bridge.begin(source,revision);delete tabs[41];expect(await bridge.status()).toMatchObject({phase:'paused'});
 });
 it('retries the same second-child navigation after its locator response was lost and the worker rebuilt',async()=>{
  await open();const first='https://www.amazon.com/dp/B0CC1YM6SJ',second='https://www.amazon.com/dp/B000000002';tabs[50]={id:50,url:first,openerTabId:41,windowId:1};
  await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:first},sender());tabs[50].url=first;
  await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender());
  // The page did not receive that reply, so it has not navigated away from first.
- const recreated=new FamilyBridge(()=>controller,app);await recreated.ready;
+ const recreated=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await recreated.ready;
  await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender())).resolves.toEqual({});
  tabs[50].url='https://www.amazon.com/dp/B000000003';
  await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:second},sender())).rejects.toThrow('FAMILY_INTERRUPTED');
@@ -75,9 +78,9 @@ it('serializes cancellation behind an in-flight reader locator write without rev
  let release!:()=>void;storage.session.set.mockImplementationOnce(async()=>new Promise<void>(r=>{release=r;}));
  const reader=bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender());
  await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
- const cancel=bridge.handle({type:'family.cancel',revision},sender());release();await reader;await cancel;
- expect(bridge.active).toBe(false);expect(bridge.location.current).toBeUndefined();expect(api.tabs.remove).toHaveBeenCalledExactlyOnceWith(50);
- const reconstructed=new FamilyBridge(()=>controller,app);await reconstructed.ready;expect(reconstructed.active).toBe(false);
+ const cancel=drafts.get(revision).then(d=>bridge.handle({type:'family.cancel',revision,expectedRevision:d!.revision,generation:d!.generation},sender()));release();await reader;await cancel;
+ expect(bridge.active).toBe(true);expect((await drafts.get(revision))?.phase).toBe('paused');expect(api.tabs.remove).toHaveBeenCalledExactlyOnceWith(50);
+ const reconstructed=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await reconstructed.ready;expect(reconstructed.active).toBe(true);
 });
 it('allows tracking queries only when retrying the same registered child after manual handling',async()=>{
  await open();const target='https://www.amazon.com/dp/B0CC1YM6SJ';tabs[50]={id:50,url:target,openerTabId:41,windowId:1};
@@ -114,7 +117,7 @@ it('accepts a first matching pending product but refuses foreign current/pending
 it('keeps first interrupted registration idempotent without allowing a different reader or next target',async()=>{
  await open();tabs[50]={id:50,url:'https://www.amazon.com/ap/signin?token=PRIVATE',openerTabId:41,windowId:1};
  await bridge.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender());
- const recreated=new FamilyBridge(()=>controller,app);await recreated.ready;
+ const recreated=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await recreated.ready;
  await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:source.url},sender())).resolves.toEqual({});
  expect(JSON.stringify(storage.contents())).not.toContain('PRIVATE');
  await expect(recreated.handle({type:'family.reader',revision,tabId:50,sourceURL:'https://www.amazon.com/dp/B000000003'},sender())).rejects.toThrow('FAMILY_INTERRUPTED');

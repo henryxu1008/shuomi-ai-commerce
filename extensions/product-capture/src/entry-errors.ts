@@ -1,4 +1,10 @@
 export const entryMessages = {
+  DRAFT_CHANGED: '本机草稿已变化，请刷新状态后恢复；已保全资料未删除。',
+  DRAFT_STORAGE_FULL: '本机草稿空间不足，采集已暂停；此前已保全资料仍在。请先核实并清理不再需要的本地副本。',
+  DRAFT_CORRUPT: '本机草稿未通过完整性检查，已停止恢复，不会覆盖原资料。',
+  DRAFT_SCOPE_CHANGED: '请回到原账号、企业和成员恢复本机资料。',
+  DRAFT_BODY_MISMATCH: '资料与原发送内容不一致，已停止保存，本机原资料保留。',
+  DRAFT_INTERRUPTED: '采集已暂停，已保全的进度仍在本机；可明确继续。',
   AMAZON_VERIFICATION_REQUIRED: 'Amazon 要求真人校验。本次已暂停，请查看需处理的商品页，处理后回到原规格，再明确继续采集。',
   AMAZON_SIGN_IN_REQUIRED: 'Amazon 要求登录。本次已暂停，请在需处理的商品页登录并回到原规格，再明确继续采集。',
   PAGE_NOT_READY: '商品页面尚未就绪，本次已暂停；页面显示完整后可明确继续。',
@@ -36,6 +42,7 @@ const captureCodes = new Set<string>([
   'PAGE_CHANGED', 'INVALID_PAGE', 'INVALID_CAPTURE', 'CAPTURE_REJECTED',
   'FAMILY_NOT_AVAILABLE', 'FAMILY_INVALID', 'FAMILY_INTERRUPTED', 'FAMILY_LIMIT_REACHED',
   'RETURN_STATE_UNAVAILABLE', 'ENTRY_CHANGED',
+  'DRAFT_CHANGED', 'DRAFT_STORAGE_FULL', 'DRAFT_CORRUPT', 'DRAFT_INTERRUPTED',
 ]);
 export function captureErrorCode(code: unknown): EntryError {
   return typeof code === 'string' && captureCodes.has(code) ? code as EntryError : 'CAPTURE_REJECTED';

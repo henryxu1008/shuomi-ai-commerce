@@ -1,3 +1,4 @@
+import { familyJournal } from './fixtures/family-journal';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -20,9 +21,12 @@ async function setup(staleComplete=false) {
  const live={url:'about:blank',status:'complete',openerTabId:41,windowId:1,pendingUrl:undefined as string|undefined};
  let handed:AmazonCapturePayload|undefined,childParses=0;
  let reader:{tabId:number;sourceURL:string}|undefined;
- const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload;tabId?:number;sourceURL?:string})=>{
-  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:'anchor'},coordinatorTabId:41,windowId:1,reader}};
-  if(m.type==='family.finish')handed=m.payload;
+ const journal=await familyJournal(revision,source);
+ const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload;tabId?:number;sourceURL?:string;[key:string]:unknown})=>{
+  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:'anchor'},coordinatorTabId:41,windowId:1,reader,...await journal.current()}};
+  if(['family.resume','family.seed','family.observe','family.pause','family.finish'].includes(m.type)){
+   const result=await journal.handle(m);if(m.type==='family.finish')handed=result.payload as AmazonCapturePayload;return {ok:true,result};
+  }
   if(m.type==='family.reader' && !live.url.startsWith(target) && !live.url.includes('/checkpoint/'))return {ok:false,code:'FAMILY_INTERRUPTED'};
   if(m.type==='family.reader')reader={tabId:m.tabId!,sourceURL:m.sourceURL!};
   return {ok:true,result:{}};
@@ -46,7 +50,7 @@ async function setup(staleComplete=false) {
  mountFamilyPage(revision);
  const button=(text:string)=>[...dom.window.document.querySelectorAll('button')].find(b=>b.textContent===text)!;
  const status=()=>dom.window.document.querySelector('[role="status"]')!.textContent!;
- return {live,emit,update,send,execute,button,status,handed:()=>handed,childParses:()=>childParses,updated,removed};
+ return {live,emit,update,send,execute,button,status,handed:()=>handed,childParses:()=>childParses,updated,removed,journal};
 }
 it('pauses on verification and only explicitly resumes the same ready child without navigating again',async()=>{
  const s=await setup();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
@@ -63,7 +67,7 @@ it('pauses on verification and only explicitly resumes the same ready child with
 it('ignores an old blank complete event, waits for the actual target and preserves cancellation',async()=>{
  const s=await setup(true);await vi.waitFor(()=>expect(s.live.status).toBe('loading'));
  expect(s.childParses()).toBe(0);expect(s.handed()).toBeUndefined();
- s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
  s.live.url=target;s.live.status='complete';s.live.pendingUrl=undefined;s.emit();
  expect(s.childParses()).toBe(0);expect(s.handed()).toBeUndefined();expect(s.updated.size).toBe(0);expect(s.removed.size).toBe(0);
 });
@@ -72,4 +76,11 @@ it('waits for a manually restored target still loading without a second navigati
  s.live.url=target;s.live.status='loading';s.button('继续采集').click();
  await new Promise(r=>setTimeout(r,30));expect(s.childParses()).toBe(1);expect(s.update.mock.calls.filter(([,o])=>o.url)).toHaveLength(0);
  s.live.status='complete';s.emit();await vi.waitFor(()=>expect(s.handed()?.evidence.variants).toHaveLength(2));
+});
+it('restores a paused checkpoint after a worker rebuild and never reads until explicit resume',async()=>{
+ const s=await setup();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ const before=s.childParses();await s.journal.restart();
+ dom.window.dispatchEvent(new dom.window.Event('pagehide'));mountFamilyPage(new URL(dom.window.location.href).hash.slice(15));
+ await vi.waitFor(()=>expect(s.status()).toContain('1/2 项已保全'));expect(s.childParses()).toBe(before);expect(s.handed()).toBeUndefined();
+ s.live.url=target;s.button('继续采集').click();await vi.waitFor(()=>expect(s.handed()?.evidence.variants).toHaveLength(2));expect(s.childParses()).toBe(before+1);
 });

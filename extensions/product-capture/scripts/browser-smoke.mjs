@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { amazonCaptureBody } from '../../../web/listingkit-ui/src/lib/contracts/amazon-capture-body.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const head = execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
@@ -22,22 +23,30 @@ const receiver = `<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8">
 const params = new URLSearchParams(location.hash.slice(1));
 const extensionId=params.get('extensionId'),handoffId=params.get('handoffId'),idempotencyKey=params.get('idempotencyKey');
 window.fixtureReceived=null;
+const scope={userId:'fixture-actor',organizationId:'fixture-org',memberId:'fixture-member'};
+const canonicalAmazon=${amazonCaptureBody.toString()};
 async function readCapture(){
   if(!extensionId){document.querySelector('#status').textContent='恢复模式：只有原key，无自动POST';return;}
   let response;
   for(let attempt=0;attempt<3;attempt++){
-    response=await chrome.runtime.sendMessage(extensionId,{version:1,type:'capture.read',handoffId,idempotencyKey});
-    if(response?.type==='capture.payload')break;
+    const meta=await chrome.runtime.sendMessage(extensionId,{version:2,type:'capture.meta',handoffId,idempotencyKey,scope});
+    response=meta;
+    if(meta?.type==='capture.metadata')response=await chrome.runtime.sendMessage(extensionId,{version:2,type:'capture.read',handoffId,idempotencyKey,scope});
+    if(response?.type==='capture.draft')break;
     await new Promise(resolve=>setTimeout(resolve,250));
   }
-  if(response?.type!=='capture.payload'){document.querySelector('#status').textContent='CAPTURE_UNAVAILABLE';return;}
-  window.fixtureReceived=response;
+  if(response?.type!=='capture.draft'){document.querySelector('#status').textContent='CAPTURE_UNAVAILABLE:'+String(response?.code??'NO_RESPONSE');return;}
+  window.fixtureReceived={...response,handoffId};
   history.replaceState(null,'','#operationKey='+idempotencyKey);
   document.querySelector('#summary').textContent=JSON.stringify(response.payload,null,2);
   document.querySelector('#status').textContent='FIXTURE_CAPTURE_RECEIVED';document.querySelector('#unknown').disabled=false;
 }
 document.querySelector('#unknown').onclick=async()=>{
-  await chrome.runtime.sendMessage(extensionId,{version:1,type:'capture.status',handoffId,idempotencyKey,outcome:'outcome_unknown'});
+  const common={version:2,handoffId,idempotencyKey,scope};
+  const p=window.fixtureReceived.payload,body=p.source==='amazon'?canonicalAmazon(p):JSON.stringify(p);
+  await chrome.runtime.sendMessage(extensionId,{...common,type:'capture.bind',body});
+  await chrome.runtime.sendMessage(extensionId,{...common,type:'capture.send'});
+  await chrome.runtime.sendMessage(extensionId,{...common,type:'capture.status',phase:'unknown'});
   document.querySelector('#status').textContent='FIXTURE_OUTCOME_UNKNOWN';
 };
 readCapture().catch(()=>document.querySelector('#status').textContent='CAPTURE_UNAVAILABLE');
@@ -48,14 +57,15 @@ const server = createServer((req, res) => {
 });
 await new Promise((done, reject) => { server.once('error',reject); server.listen(4399,'127.0.0.1',done); });
 let context;
-let familyMode=false,releaseChild;
+let familyMode=false,releaseChild,notifyChild;
 const childGate=new Promise(resolve=>{releaseChild=resolve;});
+const firstChild=new Promise(resolve=>{notifyChild=resolve;});
 let familyChildRequests=0;
 const familyReaders=new Set();
 try {
   context = await chromium.launchPersistentContext(profile, {
     executablePath, headless:automated, ignoreDefaultArgs:['--disable-extensions'], viewport:null,
-    args:['--no-first-run','--no-default-browser-check','--disable-background-networking', ...(automated ? ['--enable-unsafe-extension-debugging','--remote-debugging-port=0'] : [])],
+    args:['--no-first-run','--no-default-browser-check','--disable-background-networking','--proxy-server=http://127.0.0.1:9','--proxy-bypass-list=127.0.0.1', ...(automated ? ['--enable-unsafe-extension-debugging','--remote-debugging-port=0'] : [])],
   });
   await context.route('**/*', async route => {
     const url = new URL(route.request().url());
@@ -65,6 +75,7 @@ try {
       await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,`tests/fixtures/${familyMode?'amazon-family-product':'amazon-inline-product'}.html`),'utf8') });
     } else if (familyMode && url.origin==='https://www.amazon.com' && ['/dp/B0CC1YM6SJ','/dp/B000000002'].includes(url.pathname)) {
       familyChildRequests++;
+      notifyChild();
       familyReaders.add(route.request().frame().page());
       await childGate;
       await route.fulfill({contentType:'text/html; charset=utf-8',body:await readFile(resolve(root,`tests/fixtures/${url.pathname.endsWith('B000000002')?'amazon-family-next-child':'amazon-family-child'}.html`),'utf8')});
@@ -90,27 +101,34 @@ try {
   const manifest = await worker.evaluate(() => chrome.runtime.getManifest());
   // The shipped build's grant must stay byte-identical to what the manifest test pins; a
   // smoke run that only checks "no host_permissions" would pass a widened grant silently.
-  if (JSON.stringify(manifest.permissions) !== JSON.stringify(['activeTab','scripting','storage']) || JSON.stringify(manifest.host_permissions) !== JSON.stringify(['https://detail.1688.com/*','https://www.amazon.com/*','https://www.amazon.ca/*','https://www.amazon.co.uk/*','https://www.amazon.de/*','https://www.amazon.co.jp/*'])) throw Error('Unexpected permissions');
+  if (JSON.stringify(manifest.permissions) !== JSON.stringify(['activeTab','scripting','storage','unlimitedStorage']) || JSON.stringify(manifest.host_permissions) !== JSON.stringify(['https://detail.1688.com/*','https://www.amazon.com/*','https://www.amazon.ca/*','https://www.amazon.co.uk/*','https://www.amazon.de/*','https://www.amazon.co.jp/*'])) throw Error('Unexpected permissions');
   const recreatedReturns=[];
   async function recreateAndReturn(sourcePage,receiver,capture,platform){
-    const originalURL=receiver.url(), pageCount=context.pages().length;
+    const originalReceiver=receiver, originalURL=receiver.url(), pageCount=context.pages().length;
     const control=await context.newCDPSession(sourcePage);
     await control.send('ServiceWorker.enable');
     await control.send('ServiceWorker.stopAllWorkers');
     const afterStop=await receiver.evaluate(async ({id,capture})=>{
-      try { return await chrome.runtime.sendMessage(id,{version:1,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey}); }
+      try { return await chrome.runtime.sendMessage(id,{version:2,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey,scope:{userId:'fixture-actor',organizationId:'fixture-org',memberId:'fixture-member'}}); }
       catch(error){
         if(error.message==='Could not establish connection. Receiving end does not exist.')return {code:'LISTENER_UNAVAILABLE'};
         throw error;
       }
     },{id,capture});
-    if(!['CAPTURE_UNAVAILABLE','LISTENER_UNAVAILABLE'].includes(afterStop?.code))throw Error('Worker recreation retained stale payload');
+    if(!['CAPTURE_EXPIRED','LISTENER_UNAVAILABLE'].includes(afterStop?.code))throw Error('Worker recreation accepted an expired transport capability');
     await sourcePage.bringToFront();
     await sourcePage.getByRole('button',{name:'刷新状态',exact:true}).click();
     const button=sourcePage.getByRole('button',{name:'返回应用核实',exact:true});
-    await button.waitFor(); await button.click();
+    await button.waitFor();
+    const replacement=context.waitForEvent('page',{timeout:3000}).catch(()=>undefined);
+    await button.click();
+    const fresh=await replacement;if(fresh)receiver=fresh;
     await receiver.waitForFunction(()=>document.visibilityState==='visible');
-    if(context.pages().length!==pageCount || receiver.url()!==originalURL)throw Error('Worker recreation replaced or navigated the original receiver');
+    await receiver.locator('#status').filter({hasText:'FIXTURE_CAPTURE_RECEIVED'}).waitFor().catch(async error=>{console.log({stage:'RECEIVER_RESTORE_FAILURE',status:await receiver.locator('#status').innerText()});throw error;});
+    await receiver.waitForFunction(old=>window.fixtureReceived?.handoffId && window.fixtureReceived.handoffId!==old,capture.handoffId);
+    if(context.pages().length!==pageCount+(fresh?1:0) || receiver.url()!==originalURL || originalReceiver.url()!==originalURL)throw Error('Worker restore changed the original key or navigated an unverified tab');
+    const restored=await receiver.evaluate(()=>window.fixtureReceived);
+    if(JSON.stringify(restored.payload)!==JSON.stringify(capture.payload)||restored.idempotencyKey!==capture.idempotencyKey||restored.handoffId===capture.handoffId)throw Error('Durable restore changed facts/key or reused an old nonce');
     const stateWorker=context.serviceWorkers().find(value=>value.url()===`chrome-extension://${id}/background.js`);
     if(!stateWorker)throw Error('Source return did not revive the worker');
     const stored=await stateWorker.evaluate(()=>chrome.storage.session.get(null));
@@ -120,7 +138,8 @@ try {
       || [capture.idempotencyKey,capture.handoffId].includes(entries[0].revision))throw Error('Unexpected session navigation contents');
     const panel=await sourcePage.locator('#shuomi-product-capture').innerText();
     if(panel.includes(capture.idempotencyKey)||panel.includes(capture.handoffId))throw Error('Private transport identity leaked into source entry');
-    recreatedReturns.push({platform,sameOriginalTab:true,sameOriginalURL:true,noExtraTabs:true,oldPayloadUnavailable:afterStop.code,sessionFields:Object.keys(entries[0]).sort()});
+    recreatedReturns.push({platform,sameOriginalTab:!fresh,explicitNewReceiver:!!fresh,sameOriginalURL:true,oldPayloadUnavailable:afterStop.code,sessionFields:Object.keys(entries[0]).sort()});
+    return receiver;
   }
   await page.goto('https://detail.1688.com/offer/981645030344.html');
   console.log(JSON.stringify({ stage:'CLICK_SOURCE_PAGE_CAPTURE', id }));
@@ -159,10 +178,10 @@ try {
   await firstApp.waitForFunction(()=>document.visibilityState==='visible');
   if(context.pages().length!==pagesBeforeReturn || firstApp.url()!==firstURL)throw Error('Source return replaced or navigated the original app tab');
   const wrong = await context.newPage(); await wrong.goto(app.url());
-  const rejection = await wrong.evaluate(async ({id,capture})=>chrome.runtime.sendMessage(id,{version:1,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey}),{id,capture});
-  if(rejection.code!=='CAPTURE_UNAVAILABLE')throw Error('Other application tab read accepted');
+  const rejection = await wrong.evaluate(async ({id,capture})=>chrome.runtime.sendMessage(id,{version:2,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey,scope:{userId:'fixture-actor',organizationId:'fixture-org',memberId:'fixture-member'}}),{id,capture});
+  if(rejection.code!=='ACTION_UNAVAILABLE')throw Error('Other application tab read accepted');
   await wrong.close();
-  if(automated)await recreateAndReturn(page,firstApp,firstCapture,'1688');
+  if(automated){app=await recreateAndReturn(page,firstApp,firstCapture,'1688');if(app!==firstApp)await app.close();}
   let amazonSource;
   if(automated){
     const amazon=await context.newPage(); await amazon.goto('https://www.amazon.com/dp/B0BDLGZCTY');
@@ -192,15 +211,16 @@ try {
   await app.locator('#unknown').click();
   await app.locator('#status').filter({hasText:'FIXTURE_OUTCOME_UNKNOWN'}).waitFor();
   await app.screenshot({path:resolve(artifacts,'receiver.png')});
-  const recoveryURL=app.url();
+  let recoveryURL=app.url();
   if(!recoveryURL.endsWith(`#operationKey=${capture.idempotencyKey}`))throw Error('Original recovery key was lost');
   let workerRestartRejected=false;
   let workerStopOutcome=null;
   if(automated){
-    await recreateAndReturn(amazonSource,app,capture,'amazon');
+    app=await recreateAndReturn(amazonSource,app,capture,'amazon');
     workerStopOutcome=recreatedReturns.at(-1).oldPayloadUnavailable;
     workerRestartRejected=true;
   }
+  recoveryURL=app.url();
   await app.reload();
   await app.locator('#status').filter({hasText:'恢复模式：只有原key，无自动POST'}).waitFor();
   if(app.url()!==recoveryURL)throw Error('Reload changed recovery identity');
@@ -210,6 +230,7 @@ try {
     await amazonSource.reload();
     await amazonSource.getByRole('button',{name:'采集当前商品（新操作）',exact:true}).click();
     await amazonSource.getByRole('checkbox',{name:'同时采集其他颜色／尺寸（本次按钮）',exact:true}).check();
+    const beforeFamilyPages=new Set(context.pages());
     const progressPromise=context.waitForEvent('page',{timeout:20000}).catch(async error=>{
       const live=context.serviceWorkers().find(w=>w.url()===`chrome-extension://${id}/background.js`);
       const native=await live.evaluate(async()=>{
@@ -222,7 +243,21 @@ try {
     await amazonSource.getByRole('button',{name:'确认采集当前商品',exact:true}).click();
     const progress=await progressPromise;
     await progress.waitForURL(`chrome-extension://${id}/popup.html#amazon-family=*`);
-    await progress.getByRole('status').filter({hasText:'1/3 项已观察'}).waitFor();
+    await progress.getByRole('status').filter({hasText:'1/3 项已保全'}).waitFor();
+    // Chrome-created first navigations can precede Playwright's attachment to
+    // the new page. The task proxy blocks external traffic in that case. Only
+    // the single new error page may be navigated into our intercepted fixture;
+    // this is a harness limitation, not a successful direct-first-read claim.
+    let initialReadFixtureNavigationRequired=false,fixtureNavigation;
+    const routed=await Promise.race([firstChild.then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),3000))]);
+    if(!routed){
+      await progress.getByRole('status').filter({hasText:'已暂停'}).waitFor();
+      const fresh=context.pages().filter(p=>!beforeFamilyPages.has(p)&&p!==progress);
+      if(fresh.length!==1 || !fresh[0].url().startsWith('chrome-error://'))throw Error('Unrecognized fixture first-navigation failure');
+      initialReadFixtureNavigationRequired=true;
+      fixtureNavigation=fresh[0].goto('https://www.amazon.com/dp/B0CC1YM6SJ',{waitUntil:'commit'});void fixtureNavigation.catch(()=>{});
+      await firstChild;
+    }
     const activeWorker=context.serviceWorkers().find(w=>w.url()===`chrome-extension://${id}/background.js`);
     const nativeBinding=await activeWorker.evaluate(async()=>({contexts:await chrome.runtime.getContexts({contextTypes:['TAB']}),stored:await chrome.storage.session.get(null)}));
     const nav=Object.values(nativeBinding.stored).find(v=>v.sourceDocumentId);
@@ -236,7 +271,9 @@ try {
     await progress.waitForFunction(()=>document.visibilityState==='visible');
     if(context.pages().length!==beforeRestart || familyChildRequests!==1)throw Error('Family worker recovery duplicated a page or source read');
     const familyAppPromise=context.waitForEvent('page',{timeout:20000});
-    releaseChild();
+    releaseChild();if(fixtureNavigation)await fixtureNavigation;
+    await progress.getByRole('status').filter({hasText:'已暂停'}).waitFor();
+    await progress.getByRole('button',{name:'继续采集',exact:true}).click();
     const familyApp=await familyAppPromise;
     await familyApp.waitForURL('http://127.0.0.1:4399/capture/amazon**');
     await familyApp.locator('#status').filter({hasText:'FIXTURE_CAPTURE_RECEIVED'}).waitFor();
@@ -251,7 +288,7 @@ try {
     await familyApp.waitForFunction(()=>document.visibilityState==='visible');
     if(context.pages().length!==afterHandoff||familyApp.url()!==familyURL)throw Error('Family return did not preserve receiver');
     await writeFile(resolve(artifacts,'amazon-family-capture.json'),JSON.stringify(familyCapture.payload,null,2));
-    familyResult={nativeDocumentBound:true,workerRebuildSameProgress:true,eachChildReadOnce:true,oneReusedReader:true,oneReceiver:true,independentChildFacts:true,originalAnchorUnchanged:true,sameReceiverReturn:true};
+    familyResult={initialReadFixtureNavigationRequired,directFirstRead:initialReadFixtureNavigationRequired?'NOT_RUN_HARNESS_ATTACH_LIMITATION':'PASS',nativeDocumentBound:true,workerRebuildSameProgress:true,eachChildReadOnce:true,oneReusedReader:true,oneReceiver:true,independentChildFacts:true,originalAnchorUnchanged:true,sameReceiverReturn:true};
   }
   await writeFile(resolve(artifacts,'capture.json'),JSON.stringify(firstCapture.payload,null,2));
   const buildHashes={};

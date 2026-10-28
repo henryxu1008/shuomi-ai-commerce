@@ -180,3 +180,17 @@ Legacy decision：EXTRACT + RETIRE。复用当前合法解析、严格 sender �
 ## 13. 执行授权与准备状态
 
 用户在原协调会话 01a16741-448c-78a0-8f3e-fa4d39b17516 明确回复“开始开发并提交 PR”，覆盖独立工作区实现、必要隔离测试、提交、推送和一个主要 PR 维护。独立工作区 codex/capture-durable-drafts 已成功 fetch，核实 origin/main 为 0aab8d5ebe03140e05c2a9c9716d3665da0a0ace；现有采集路径与已审代码无业务差异。执行 Issue #989 已发布并接单；独立设计评审三项 BLOCKER 闭合，无新 BLOCKER，IMPLEMENTATION_TEST 在同一交付收敛。npm 元数据已核实 idb 8.0.4（ISC）和 fake-indexeddb 6.2.6（Apache-2.0），不自行实现事务引擎。局部恢复交互及候选 unlimitedStorage 随已审方案获准；本记录先于正式生产代码提交。已有验证实例、原插件与当前未保存页面保持原样。
+
+## 14. 离线实现与交付边界（2026-10-28）
+
+本节更新第12节的设计阶段状态，不回写历史结论。单 Writer 已实现 IndexedDB DraftStore、逐项检查点、完整 envelope CAS/generation fence、先核身份再读取、冻结 body/key/scope、Amazon 显式原键重试、1688 原 operation 核实及现有入口的恢复接线。使用成熟 idb，不新增后端业务 schema 或第二套保存 owner。
+
+损坏记录逐条隔离并原样保留，不能使其他完整草稿无法恢复；不能通过新写入“修复”或覆盖损坏原件。最终组装 quota 失败保持暂停和原检查点，即使记录暂停原因的写入也失败，进度页仍允许明确恢复/部分交接。同毫秒新操作的排序使用单调 createdAt，避免重建后选错原操作。
+
+独立最终交付检查发现并闭合损坏草稿阻塞完整草稿恢复的 BLOCKER；重建扫描期间旧写入迟到、外层 revision 单独损坏、最终组装容量失败按 IMPLEMENTATION_TEST 补回归。复核基于实际 diff 和调用路径；增量复核未发现新 BLOCKER，不等于用户验收。
+
+已执行：fake-indexeddb 原事务/配额/重建测试，真实 DraftStore 与同族进度页恢复组合测试，receiver 的身份切换/迟到资料/冻结提交/未知结果显式核实测试；UI 类型检查、lint 与生产构建；既有隔离 PostgreSQL 测试和新增原请求/手动重试两种到达顺序、同键异 body、撤权测试。数据库测试只用本任务临时容器和 tmpfs，不访问保留实例。
+
+现有浏览器 fixture 使用独立 Chrome 任务 profile、动态端点、合成页面和无业务后端 receiver。任务代理阻止外网；Chrome 扩展创建的首个读取页可能先于 Playwright 接管，夹具只允许该新建错误页显式进入拦截 fixture，再测暂停/重建/继续，直接首读在这种运行中标为 NOT_RUN_HARNESS_ATTACH_LIMITATION，不能写成真实首读 PASS。后台重建后，若浏览器未提供足够 URL 归属证据，新建接收页并保留旧页符合第7节；这种结果只证明安全回退，不证明原标签复用。
+
+真实 Amazon/1688、保留 Edge、正常浏览器整进程重启、现有插件更新、用户试用及旧171项恢复均 NOT_RUN。开发测试与 CI 只支撑提交评审，不能签发可上线或已验收结论。交付仍不合并、不更新实例/插件、不重采、不部署；最终准确 HEAD、检查结果和运行入口在主要 PR 中维护。
