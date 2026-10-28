@@ -165,7 +165,6 @@ func BuildConfig(v *viper.Viper) *Config {
 	}
 
 	cfg.Database = databaseConfigFromViper(v, "database")
-	cfg.CommercialDatabase = databaseConfigFromViper(v, "commercialDatabase")
 	cfg.CommercialOwnerDatabase = databaseConfigFromViper(v, "commercialOwnerDatabase")
 
 	return cfg

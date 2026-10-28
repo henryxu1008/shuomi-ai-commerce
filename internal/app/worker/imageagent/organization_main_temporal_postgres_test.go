@@ -7,24 +7,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
-	"task-processor/internal/aicapability"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	imagestore "task-processor/internal/imageagent/store"
 	imagetemporal "task-processor/internal/imageagent/temporal"
 	openai "task-processor/internal/integration/openai"
-	"task-processor/internal/listingsubscription"
 	platformtemporal "task-processor/internal/platform/temporal"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatch(t *testing.T) {
@@ -32,7 +30,7 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 	if address == "" {
 		t.Skip("requires isolated Temporal ISSUE487_TEMPORAL_ADDRESS")
 	}
-	db := admissionPostgres(t, "org-1", "member-1", 1000)
+	db := admissionPostgres(t)
 	require.NoError(t, imagestore.AutoMigrateOrganizationScope(db))
 	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(db))
@@ -48,10 +46,7 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 		"image_gpt_image_2": openai.NewClientConfig("unused", "image-test", provider.URL+"/v1", 1),
 	}})
 	require.NoError(t, err)
-	recorder := aistore.NewGormInvocationRecorder(db)
-	recorder.SetUsageSettler(listingsubscription.AIInvocationUsageAdapter{Repository: listingsubscription.NewGormRepository(db)})
-	tracked := &trackedCommercialReservation{GormInvocationRecorder: recorder}
-	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialDatabase: &config.DatabaseConfig{Host: "isolated-fixture", Port: 5432, Database: "commercial", User: "commercial_runtime"}, CommercialOwnerDatabase: &config.DatabaseConfig{Host: "isolated-fixture", Port: 5432, Database: "commercial", User: "commercial_owner_runtime"}}
+	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialOwnerDatabase: &config.DatabaseConfig{Host: "isolated-fixture", Port: 5432, Database: "commercial", User: "commercial_owner_runtime"}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 	resolver := imageAgentWorkerDependencyResolver{
 		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
@@ -60,8 +55,8 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 		VerifyResourceRuntime: func(context.Context, *gorm.DB) error { return nil },
 		OpenDB:                func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
 		CloseDB:               func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openai.Manager, openai.ClientConfigResolver, aicapability.InvocationRecorder, error) {
-			return manager, nil, tracked, nil
+		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openai.Manager, openai.ClientConfigResolver, error) {
+			return manager, nil, nil
 		},
 		BuildOrganizationCapabilities: buildOrganizationWorkerCapabilities,
 		BuildOrganizationAuthorizer: func(*config.Config) (imageagent.ExecutionAuthorizer, error) {
@@ -117,26 +112,9 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 		}
 	}
 	require.Zero(t, providerCalls.Load(), "no generation or retired Review dispatch without generation admission")
-	tracked.mu.Lock()
-	require.Zero(t, tracked.reserveCalls, "retired future-Review reservation must not be called")
-	tracked.mu.Unlock()
 	var reservations int64
-	require.NoError(t, db.Table("saas_usage_events").Where("source_type = ?", "ai_invocation_reservation").Count(&reservations).Error)
+	require.NoError(t, db.Table("saas_organization_resource_reservations").Count(&reservations).Error)
 	require.Zero(t, reservations)
-}
-
-type trackedCommercialReservation struct {
-	*aistore.GormInvocationRecorder
-	mu           sync.Mutex
-	reserveCalls int
-}
-
-func (r *trackedCommercialReservation) ReserveAIInvocationUsage(ctx context.Context, tenantID, memberID, invocationID string, maximumTokens int64, occurredAt time.Time) error {
-	err := r.GormInvocationRecorder.ReserveAIInvocationUsage(ctx, tenantID, memberID, invocationID, maximumTokens, occurredAt)
-	r.mu.Lock()
-	r.reserveCalls++
-	r.mu.Unlock()
-	return err
 }
 
 type admissionExactAuthorizer struct{}

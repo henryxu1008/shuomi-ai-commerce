@@ -8,22 +8,25 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
+
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
 	"task-processor/internal/app/runtime/currentapplication"
-	accountallocationSchema "task-processor/internal/app/schema/accountallocation"
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	resourceadapter "task-processor/internal/integration/orgresource"
 	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/listingsubscription"
+	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/storecenter"
+
 	platformdatabase "task-processor/internal/platform/database"
 )
 
@@ -31,16 +34,20 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	owner, connection := commercialPostgres(t) // Never accepts an external DSN.
 	ctx := context.Background()
-	require.NoError(t, listingsubscription.AutoMigrateRepository(owner))
-	require.NoError(t, accountallocationSchema.Migrate(ctx, owner))
+	require.NoError(t, resourceadapter.AutoMigrate(owner))
+	require.NoError(t, storecenter.AutoMigrateStoreRepository(owner))
 	require.NoError(t, registrySchema.Migrate(ctx, owner))
 	require.NoError(t, owner.Exec(`REVOKE CREATE ON SCHEMA public FROM PUBLIC`).Error)
 	require.NoError(t, owner.Exec(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC`).Error)
-	for _, role := range []string{"commercial_reader", "commercial_runtime", "source_account_runtime"} {
+	for _, role := range []string{"commercial_reader", "source_account_runtime"} {
 		require.NoError(t, owner.Exec(`CREATE ROLE `+role+` LOGIN PASSWORD 'synthetic-run1-password'`).Error)
 		require.NoError(t, owner.Exec(`GRANT CONNECT ON DATABASE issue347 TO `+role).Error)
 		require.NoError(t, owner.Exec(`GRANT USAGE ON SCHEMA public TO `+role).Error)
-		for table, privileges := range run1AllowedPrivileges[role] {
+		privilegeSet := run1AllowedPrivileges[role]
+		if role == "commercial_reader" {
+			privilegeSet = map[string][]string{"saas_organization_resource_buckets": {"SELECT"}, "saas_organization_resource_debts": {"SELECT"}, "workbench_stores": {"SELECT"}}
+		}
+		for table, privileges := range privilegeSet {
 			require.NoError(t, owner.Exec(`GRANT `+strings.Join(privileges, ",")+` ON `+pgx.Identifier{"public", table}.Sanitize()+` TO `+role).Error)
 		}
 		if role == "source_account_runtime" {
@@ -48,12 +55,24 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		}
 	}
 	require.NoError(t, owner.Exec(`ALTER ROLE commercial_reader SET default_transaction_read_only=on`).Error)
-	require.NoError(t, owner.Exec(`ALTER ROLE commercial_runtime SET default_transaction_read_only=on`).Error)
-	require.NoError(t, owner.Exec(`INSERT INTO public.saas_plans(code,name,active,created_at,updated_at) VALUES ('public-plan','Public plan',true,now(),now()),('shadow-plan','Public alternate plan',true,now(),now())`).Error)
-	require.NoError(t, owner.Exec(`INSERT INTO public.saas_tenant_subscriptions(tenant_id,plan_code,status,created_at,updated_at) VALUES ('org-B','public-plan','active',now(),now())`).Error)
-	require.NoError(t, owner.Exec(`INSERT INTO public.saas_tenant_entitlements(tenant_id,module_code,status,limits,created_at,updated_at) VALUES ('org-B','listingkit','active','{"listingkit_generations_succeeded":17}',now(),now())`).Error)
-	require.NoError(t, owner.Exec(`INSERT INTO public.saas_usage_buckets(tenant_id,module_code,metric,period_key,committed,reserved,updated_at) VALUES ('org-B','listingkit','listingkit_generations_succeeded',?,7,2,now())`, time.Now().UTC().Format("2006-01")).Error)
-	tables := []string{"saas_tenant_subscriptions", "saas_plans", "saas_tenant_entitlements", "saas_usage_buckets"}
+	now := time.Now().UTC()
+	for _, seed := range []struct {
+		org      string
+		quantity int64
+	}{{"org-B", 17}, {"org-A", 31}} {
+		require.NoError(t, owner.Exec(`INSERT INTO public.saas_organization_resource_buckets(organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?, 'ai_point', ?,0,2,7,?,?)`, seed.org, seed.quantity, now, now).Error)
+	}
+	require.NoError(t, owner.Exec(`INSERT INTO public.saas_organization_resource_debts(organization_id,resource_type,amount,created_at,updated_at) VALUES ('org-B','ai_point',0,?,?)`, now, now).Error)
+	repo, err := storecenter.NewGormStoreRepository(owner)
+	require.NoError(t, err)
+	for _, org := range []string{"org-B", "org-A"} {
+		id := uuid.NewString()
+		value, err := storecenter.NewStore(storecenter.CreateStoreInput{ID: id, OrganizationID: org, ActorSubject: "fixture", Name: "Synthetic", Platform: "shein", Region: "SG", ExternalStoreID: id, CreateIdempotencyKey: uuid.NewString(), OccurredAt: now})
+		require.NoError(t, err)
+		_, _, err = repo.CreateOrReplay(ctx, org, value)
+		require.NoError(t, err)
+	}
+	tables := []string{"saas_organization_resource_buckets", "saas_organization_resource_debts", "workbench_stores"}
 	var publicTables []string
 	require.NoError(t, owner.Raw(`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`).Scan(&publicTables).Error)
 	beforePublic := run1PermissionFacts(t, owner, publicTables)
@@ -66,8 +85,8 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 	db := open()
 	build := func(t *testing.T, pool *gorm.DB) http.Handler {
 		t.Helper()
-		module, err := buildCommercialReadModuleFromDatabase(ctx, pool, currentRoleTestAuthorizer())
-		require.NoError(t, err, "actual public preflight must pass before returning the commercial module")
+		module, err := buildUnifiedCommercialRead(ctx, pool, pool, currentRoleTestAuthorizer())
+		require.NoError(t, err, "current read composition must not write or repair")
 		registry := kernelmodule.NewRegistry()
 		require.NoError(t, module.Register(registry))
 		require.Len(t, registry.Routes(), 1)
@@ -85,23 +104,33 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 	assertPublic := func(t *testing.T, response *httptest.ResponseRecorder) {
 		t.Helper()
 		require.Equal(t, 200, response.Code, response.Body.String())
-		var result listingsubscription.CommercialOverview
+		var result struct {
+			SchemaVersion string `json:"schema_version"`
+			Resources     struct {
+				State string               `json:"state"`
+				Value orgresource.Balances `json:"value"`
+			} `json:"resources"`
+			Stores struct {
+				State string                     `json:"state"`
+				Value storecenter.ServiceSummary `json:"value"`
+			} `json:"store_services"`
+		}
 		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
-		require.NotNil(t, result.Subscription)
-		require.Equal(t, "public-plan", result.Subscription.PlanCode)
-		require.NotNil(t, result.Subscription.PlanName)
-		require.Equal(t, "Public plan", *result.Subscription.PlanName)
-		require.Len(t, result.Entitlements, 1)
-		require.Len(t, result.Entitlements[0].Limits, 1)
-		require.Equal(t, "17", result.Entitlements[0].Limits[0].RawValue)
-		require.Equal(t, "7", *result.Usage[0].Committed)
-		require.Equal(t, "2", *result.Usage[0].Reserved)
+		require.Equal(t, "unified-base-prepaid-v1", result.SchemaVersion)
+		require.Equal(t, "available", result.Resources.State)
+		require.Equal(t, "available", result.Stores.State)
+		require.Equal(t, "org-B", result.Resources.Value.OrganizationID)
+		require.Len(t, result.Resources.Value.Resources, 3)
+		require.Equal(t, "17", *result.Resources.Value.Resources[1].Available)
+		require.Equal(t, "2", *result.Resources.Value.Resources[1].Reserved)
+		require.Equal(t, "7", *result.Resources.Value.Resources[1].Consumed)
+		require.Equal(t, int64(1), result.Stores.Value.Records)
 	}
 	t.Run("default_public", func(t *testing.T) { assertPublic(t, read(build(t, db), ctx)) })
 	// The test owner alone installs accessible shadows. The application has no
 	// DDL, grants or repair authority, and retains the default "$user", public path.
 	require.NoError(t, owner.Exec(`CREATE SCHEMA commercial_reader; GRANT USAGE ON SCHEMA commercial_reader TO commercial_reader`).Error)
-	changes := []string{`UPDATE commercial_reader.saas_tenant_subscriptions SET plan_code='shadow-plan'`, `UPDATE commercial_reader.saas_plans SET name='Shadow plan'`, `UPDATE commercial_reader.saas_tenant_entitlements SET limits='{"listingkit_generations_succeeded":999}'`, `UPDATE commercial_reader.saas_usage_buckets SET committed=999,reserved=888`}
+	changes := []string{`UPDATE commercial_reader.saas_organization_resource_buckets SET available=999,reserved=888`, `UPDATE commercial_reader.saas_organization_resource_debts SET amount=999`, `DELETE FROM commercial_reader.workbench_stores`}
 	for index, table := range tables {
 		t.Run("shadow/"+table, func(t *testing.T) {
 			target := pgx.Identifier{"commercial_reader", table}.Sanitize()
@@ -141,7 +170,7 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		require.NoError(t, lock.Error)
 		defer lock.Rollback()
 		// Lock both possible resolutions so RED also proves distinct backends.
-		require.NoError(t, lock.Exec(`LOCK public.saas_tenant_subscriptions, commercial_reader.saas_tenant_subscriptions IN ACCESS EXCLUSIVE MODE`).Error)
+		require.NoError(t, lock.Exec(`LOCK public.saas_organization_resource_buckets, commercial_reader.saas_organization_resource_buckets IN ACCESS EXCLUSIVE MODE`).Error)
 		responses := make(chan *httptest.ResponseRecorder, 4)
 		for range 4 {
 			go func() { responses <- read(handler, ctx) }()
@@ -177,51 +206,70 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 						require.NoError(t, owner.Exec(`ALTER TABLE public.`+table+`_unavailable RENAME TO `+table).Error)
 					}()
 				}
-				module, err := buildCommercialReadModuleFromDatabase(ctx, db, currentRoleTestAuthorizer())
-				require.Error(t, err)
-				require.Nil(t, module, "must reject before serving, no shadow fallback")
-				response := read(handler, ctx) // Previously built reader also fails closed.
-				require.Equal(t, 503, response.Code)
-				require.NotContains(t, response.Body.String(), "synthetic-run1-password")
-				require.NotContains(t, response.Body.String(), "Shadow")
+				module, err := buildUnifiedCommercialRead(ctx, db, db, currentRoleTestAuthorizer())
+				require.NoError(t, err)
+				require.NotNil(t, module)
+				response := read(handler, ctx)
+				require.Equal(t, 200, response.Code)
+				var result map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+				failed, healthy := "resources", "store_services"
+				if table == "workbench_stores" {
+					failed, healthy = healthy, failed
+				}
+				var unavailable struct {
+					State string `json:"state"`
+					Value any    `json:"value"`
+				}
+				require.NoError(t, json.Unmarshal(result[failed], &unavailable))
+				require.Equal(t, "unavailable", unavailable.State)
+				require.Nil(t, unavailable.Value)
+				require.Contains(t, string(result[healthy]), `"state":"available"`)
+				for _, secret := range []string{"synthetic-run1-password", "Shadow", table, "permission denied", "does not exist"} {
+					require.NotContains(t, response.Body.String(), secret)
+				}
 			})
 		}
 	}
-	t.Run("transaction_and_cancellation", func(t *testing.T) {
-		var mu sync.Mutex
-		var settings []string
-		require.NoError(t, db.Callback().Query().After("gorm:query").Register("test:commercial_transaction", func(tx *gorm.DB) {
-			if tx.Error != nil {
-				return
-			}
-			var setting string
-			err := tx.Statement.ConnPool.QueryRowContext(tx.Statement.Context, `SELECT current_setting('transaction_read_only') || '/' || current_setting('transaction_isolation') || '/' || current_setting('statement_timeout')`).Scan(&setting)
-			tx.AddError(err)
-			mu.Lock()
-			settings = append(settings, setting)
-			mu.Unlock()
-		}))
-		defer db.Callback().Query().Remove("test:commercial_transaction")
-		assertPublic(t, read(handler, ctx))
-		require.NotEmpty(t, settings)
-		for _, setting := range settings {
-			require.Equal(t, "on/repeatable read/10s", setting)
+	t.Run("organization_and_auth_scope", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/commercial/overview", nil)
+		out := httptest.NewRecorder()
+		handler.ServeHTTP(out, req)
+		require.Equal(t, 401, out.Code)
+		bad := authidentity.AuthenticatedIdentity{UserID: "fixture", TenantID: "org-A", EffectiveOrganizationID: "org-B"}
+		out = httptest.NewRecorder()
+		handler.ServeHTTP(out, req.WithContext(authidentity.WithAuthenticatedIdentity(ctx, bad)))
+		require.Equal(t, 403, out.Code)
+		other := authidentity.AuthenticatedIdentity{UserID: "fixture", TenantID: "org-A", EffectiveOrganizationID: "org-A"}
+		out = httptest.NewRecorder()
+		handler.ServeHTTP(out, req.WithContext(authidentity.WithAuthenticatedIdentity(ctx, other)))
+		require.Equal(t, 200, out.Code)
+		require.Contains(t, out.Body.String(), `"available":"31"`)
+		require.NotContains(t, out.Body.String(), `"available":"17"`)
+	})
+	t.Run("cancellation_and_timeout", func(t *testing.T) {
+		assertUnavailable := func(response *httptest.ResponseRecorder) {
+			require.Equal(t, 200, response.Code)
+			require.NotContains(t, response.Body.String(), `"state":"available"`)
+			require.Contains(t, response.Body.String(), `"value":null`)
 		}
 		canceled, cancel := context.WithCancel(ctx)
 		cancel()
-		require.Equal(t, 504, read(handler, canceled).Code)
+		assertUnavailable(read(handler, canceled))
 		lock := owner.Begin()
 		require.NoError(t, lock.Error)
 		defer lock.Rollback()
-		require.NoError(t, lock.Exec(`LOCK public.saas_tenant_subscriptions IN ACCESS EXCLUSIVE MODE`).Error)
+		require.NoError(t, lock.Exec(`LOCK public.saas_organization_resource_buckets IN ACCESS EXCLUSIVE MODE`).Error)
 		deadline, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 		defer cancel()
 		started := time.Now()
-		require.Equal(t, 504, read(handler, deadline).Code)
+		response := read(handler, deadline)
+		require.Equal(t, 200, response.Code)
+		require.Contains(t, response.Body.String(), `"resources":{"state":"unavailable","value":null}`)
 		require.Less(t, time.Since(started), 2*time.Second)
 	})
 	t.Run("normal_binary_restarts_with_shadows", func(t *testing.T) {
-		config := currentapplication.DatabaseConfig{Host: connection.Host, Port: connection.Port, User: "commercial_runtime", Password: "synthetic-run1-password", Database: connection.Database, MaxConnections: 4}
+		config := currentapplication.DatabaseConfig{Host: connection.Host, Port: connection.Port, User: "source_account_runtime", Password: "synthetic-run1-password", Database: connection.Database, MaxConnections: 4}
 		source := config
 		source.User = "source_account_runtime"
 		run1PermissionBinary(t, owner, &currentapplication.Config{SchemaVersion: 1, Listen: currentapplication.ListenConfig{Host: "127.0.0.1", Port: 18443}, Identity: currentapplication.IdentityConfig{IssuerURL: "http://127.0.0.1:18080", AuthorizationAPIURL: "http://127.0.0.1:18080", ClientID: "run1", ClientSecret: "synthetic-identity", ProjectID: "run1"}, SourceAccountDatabase: source})
@@ -229,6 +277,6 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 	require.Equal(t, beforePublic, run1PermissionFacts(t, owner, publicTables))
 	require.Equal(t, beforeShadow, snapshot(), "reads or preflight changed shadow facts")
 	if !t.Failed() {
-		t.Log("PASS actual preflight -> module handler -> commercial service/repository: all four public owners, real pooled backends, recreated pool/module, binary restarts, fail-closed public absence, read-only/timeouts/cancel, public/shadow rows+xmin unchanged")
+		t.Log("PASS current unified handler -> Resource/Store readers: all three public tables, real pooled backends, recreated pool/module, binary restarts, fail-closed public absence, read-only/timeouts/cancel, public/shadow rows+xmin unchanged")
 	}
 }

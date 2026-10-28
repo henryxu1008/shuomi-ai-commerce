@@ -15,21 +15,18 @@ import (
 const CurrencyCNY = money.WalletCurrencyCNY
 
 var (
-	ErrInvalid                        = errors.New("commercial billing input is invalid")
-	ErrOfferUnavailable               = errors.New("commercial offer is unavailable")
-	ErrQuoteExpired                   = errors.New("commercial quote is expired")
-	ErrInsufficientFunds              = errors.New("commercial wallet funds are insufficient")
-	ErrConflict                       = errors.New("commercial billing operation conflict")
-	ErrNotFound                       = errors.New("commercial billing resource not found")
-	ErrOrderCancelled                 = errors.New("commercial order was cancelled")
-	ErrResourceGrantRejected          = errors.New("commercial resource grant was rejected")
-	ErrReconciliationRequired         = errors.New("commercial billing reconciliation is required")
-	ErrFeatureUnavailable             = errors.New("commercial billing feature is unavailable")
-	ErrPaymentMethodUnavailable       = errors.New("commercial payment method is unavailable")
-	ErrActiveSubscriptionExists       = errors.New("an active subscription already exists")
-	ErrPlanChanged                    = errors.New("the quoted subscription plan changed")
-	ErrAuthorizationRevoked           = errors.New("commercial purchase authorization was revoked")
-	ErrSubscriptionActivationNotFound = errors.New("subscription activation decision is not found")
+	ErrInvalid                  = errors.New("commercial billing input is invalid")
+	ErrOfferUnavailable         = errors.New("commercial offer is unavailable")
+	ErrQuoteExpired             = errors.New("commercial quote is expired")
+	ErrInsufficientFunds        = errors.New("commercial wallet funds are insufficient")
+	ErrConflict                 = errors.New("commercial billing operation conflict")
+	ErrNotFound                 = errors.New("commercial billing resource not found")
+	ErrOrderCancelled           = errors.New("commercial order was cancelled")
+	ErrResourceGrantRejected    = errors.New("commercial resource grant was rejected")
+	ErrReconciliationRequired   = errors.New("commercial billing reconciliation is required")
+	ErrFeatureUnavailable       = errors.New("commercial billing feature is unavailable")
+	ErrPaymentMethodUnavailable = errors.New("commercial payment method is unavailable")
+	ErrAuthorizationRevoked     = errors.New("commercial purchase authorization was revoked")
 )
 
 type ProductKind string
@@ -38,14 +35,12 @@ const (
 	ProductStoreRenewalPeriod  ProductKind = "STORE_RENEWAL_PERIOD"
 	ProductAIPoint             ProductKind = "AI_POINT"
 	ProductDataRow             ProductKind = "DATA_ROW"
-	ProductSubscriptionPlan    ProductKind = "SUBSCRIPTION_PLAN"
 	ProductStorageCapacityPack ProductKind = "STORAGE_CAPACITY_PACK"
 )
 
 type SettlementMode string
 
 const (
-	SettlementZeroPrice       SettlementMode = "ZERO_PRICE"
 	SettlementWallet          SettlementMode = "WALLET"
 	SettlementExternalPayment SettlementMode = "EXTERNAL_PAYMENT"
 )
@@ -101,27 +96,7 @@ func (offer Offer) Validate() error {
 	if offer.StorageUnitBytes != 0 || offer.StorageDurationSeconds != 0 {
 		return ErrInvalid
 	}
-	if offer.ProductKind == ProductSubscriptionPlan {
-		if strings.TrimSpace(offer.OfferID) == "" || offer.ResourceType != "" || offer.Currency != CurrencyCNY || strings.TrimSpace(offer.PricingVersion) == "" || strings.TrimSpace(offer.PlanCode) == "" || len(offer.PlanCode) > 64 || offer.TermMonths < 1 || offer.TermMonths > 120 || offer.MinQuantity != 0 || offer.MaxQuantity != 0 || (offer.Status != OfferActive && offer.Status != OfferDisabled) {
-			return ErrInvalid
-		}
-		switch offer.SettlementMode {
-		case SettlementZeroPrice:
-			if offer.UnitPriceMinor != 0 {
-				return ErrInvalid
-			}
-		case SettlementWallet, SettlementExternalPayment:
-			if offer.UnitPriceMinor <= 0 {
-				return ErrInvalid
-			}
-		default:
-			return ErrInvalid
-		}
-		if offer.StartsAt != nil && offer.ExpiresAt != nil && !offer.StartsAt.Before(*offer.ExpiresAt) {
-			return ErrInvalid
-		}
-		return nil
-	}
+
 	resourceType, ok := ResourceTypeForProduct(offer.ProductKind)
 	if strings.TrimSpace(offer.OfferID) == "" ||
 		!ok ||
@@ -173,18 +148,7 @@ func (quote Quote) Validate() error {
 	if quote.StorageUnitBytes != 0 || quote.StorageDurationSeconds != 0 {
 		return ErrInvalid
 	}
-	if quote.ProductKind == ProductSubscriptionPlan {
-		if strings.TrimSpace(quote.QuoteID) == "" || strings.TrimSpace(quote.OrganizationID) == "" || strings.TrimSpace(quote.OfferID) == "" || quote.ResourceType != "" || quote.ResourceQuantity != 0 || quote.Currency != CurrencyCNY || quote.TotalMinor < 0 || strings.TrimSpace(quote.PricingVersion) == "" || strings.TrimSpace(quote.PlanCode) == "" || strings.TrimSpace(quote.PlanFingerprint) == "" || quote.TermMonths < 1 || quote.TermMonths > 120 || quote.ExpiresAt.IsZero() || quote.CreatedAt.IsZero() || !quote.CreatedAt.Before(quote.ExpiresAt) || strings.TrimSpace(quote.Fingerprint) == "" {
-			return ErrInvalid
-		}
-		if quote.SettlementMode == SettlementZeroPrice && quote.TotalMinor != 0 || (quote.SettlementMode == SettlementWallet || quote.SettlementMode == SettlementExternalPayment) && quote.TotalMinor <= 0 {
-			return ErrInvalid
-		}
-		if quote.SettlementMode != SettlementZeroPrice && quote.SettlementMode != SettlementWallet && quote.SettlementMode != SettlementExternalPayment {
-			return ErrInvalid
-		}
-		return nil
-	}
+
 	resourceType, ok := ResourceTypeForProduct(quote.ProductKind)
 	if strings.TrimSpace(quote.QuoteID) == "" ||
 		strings.TrimSpace(quote.OrganizationID) == "" ||
@@ -212,7 +176,6 @@ type OrderKind string
 const (
 	OrderWalletTopUp             OrderKind = "WALLET_TOP_UP"
 	OrderResourcePurchase        OrderKind = "RESOURCE_PURCHASE"
-	OrderSubscriptionPurchase    OrderKind = "SUBSCRIPTION_PURCHASE"
 	OrderStorageCapacityPurchase OrderKind = "STORAGE_CAPACITY_PURCHASE"
 )
 
@@ -230,26 +193,9 @@ const (
 )
 
 const (
-	OrderFailureInsufficientFunds        OrderFailureCode = "INSUFFICIENT_FUNDS"
-	OrderFailureGrantRejected            OrderFailureCode = "RESOURCE_GRANT_REJECTED"
-	OrderFailureActiveSubscriptionExists OrderFailureCode = "ACTIVE_SUBSCRIPTION_EXISTS"
-	OrderFailurePlanChanged              OrderFailureCode = "PLAN_CHANGED"
-	OrderFailureAuthorizationRevoked     OrderFailureCode = "AUTHORIZATION_REVOKED"
-)
-
-type PendingSubscriptionOrderEffect string
-
-const (
-	PendingSubscriptionOrderEffectNone     PendingSubscriptionOrderEffect = ""
-	PendingSubscriptionOrderEffectReserve  PendingSubscriptionOrderEffect = "RESERVE"
-	PendingSubscriptionOrderEffectActivate PendingSubscriptionOrderEffect = "ACTIVATE"
-)
-
-type SubscriptionOrderTerminalIntent string
-
-const (
-	SubscriptionOrderTerminalIntentNone   SubscriptionOrderTerminalIntent = ""
-	SubscriptionOrderTerminalIntentCancel SubscriptionOrderTerminalIntent = "CANCEL"
+	OrderFailureInsufficientFunds    OrderFailureCode = "INSUFFICIENT_FUNDS"
+	OrderFailureGrantRejected        OrderFailureCode = "RESOURCE_GRANT_REJECTED"
+	OrderFailureAuthorizationRevoked OrderFailureCode = "AUTHORIZATION_REVOKED"
 )
 
 type OrderItem struct {
@@ -314,16 +260,16 @@ type Order struct {
 	SettlementMode                      SettlementMode
 	ActivationOperationID               string
 	ActivationRequestFingerprint        string
-	ActivationOutcome                   SubscriptionActivationOutcome
-	ActivationFailureCode               SubscriptionActivationFailureCode
+	ActivationOutcome                   string
+	ActivationFailureCode               string
 	ActivationSubscriptionID            string
 	ActivationStartsAt                  *time.Time
 	ActivationExpiresAt                 *time.Time
 	ActivationEntitlementSetFingerprint string
 	ActivationDecidedAt                 *time.Time
-	PendingEffect                       PendingSubscriptionOrderEffect
+	PendingEffect                       string
 	PendingEffectAdmittedAt             *time.Time
-	TerminalIntent                      SubscriptionOrderTerminalIntent
+	TerminalIntent                      string
 	TerminalIntentReason                OrderFailureCode
 	TerminalIntentAt                    *time.Time
 }
@@ -360,9 +306,9 @@ func (order Order) Validate() error {
 	}
 	if !isCanonicalIdentifier(order.OrderID) ||
 		!isCanonicalIdentifier(order.OrganizationID) ||
-		(order.Kind != OrderWalletTopUp && order.Kind != OrderResourcePurchase && order.Kind != OrderSubscriptionPurchase && order.Kind != OrderStorageCapacityPurchase) ||
+		(order.Kind != OrderWalletTopUp && order.Kind != OrderResourcePurchase && order.Kind != OrderStorageCapacityPurchase) ||
 		order.Currency != CurrencyCNY ||
-		(order.Kind != OrderSubscriptionPurchase && order.AmountMinor <= 0) ||
+		order.AmountMinor <= 0 ||
 		order.AmountMinor < 0 ||
 		!validOrderStatus(order.Status) ||
 		strings.TrimSpace(order.IdempotencyKey) == "" ||
@@ -391,90 +337,8 @@ func (order Order) Validate() error {
 		if order.QuoteID != "" || len(order.Items) != 0 || hasWalletReservationEvidence(order) || hasResourceGrantEvidence(order) || topUpUsesResourcePurchaseLifecycle(order.Status) || (order.Status == OrderFulfilled && strings.TrimSpace(order.PaymentID) == "") || (order.Status != OrderFulfilled && strings.TrimSpace(order.PaymentID) != "") {
 			return ErrInvalid
 		}
-	case OrderSubscriptionPurchase:
-		if !validSubscriptionOrder(order) {
-			return ErrInvalid
-		}
 	}
 	return nil
-}
-
-func validSubscriptionOrder(order Order) bool {
-	if !isCanonicalIdentifier(order.ActorID) || order.ProductKind != ProductSubscriptionPlan || strings.TrimSpace(order.QuoteID) == "" || strings.TrimSpace(order.PlanCode) == "" || strings.TrimSpace(order.PlanFingerprint) == "" || order.TermMonths < 1 || order.TermMonths > 120 || len(order.Items) != 0 || order.PaymentID != "" || hasResourceGrantEvidence(order) {
-		return false
-	}
-	if order.PendingEffect != PendingSubscriptionOrderEffectNone && order.PendingEffect != PendingSubscriptionOrderEffectReserve && order.PendingEffect != PendingSubscriptionOrderEffectActivate {
-		return false
-	}
-	if (order.PendingEffect == PendingSubscriptionOrderEffectNone) != (order.PendingEffectAdmittedAt == nil) {
-		return false
-	}
-	if order.TerminalIntent == SubscriptionOrderTerminalIntentNone {
-		if order.TerminalIntentAt != nil || order.TerminalIntentReason != "" {
-			return false
-		}
-	} else if order.TerminalIntent != SubscriptionOrderTerminalIntentCancel || order.TerminalIntentAt == nil || order.TerminalIntentReason != OrderFailureAuthorizationRevoked || order.PendingEffect != PendingSubscriptionOrderEffectNone || order.ActivationOutcome != "" || (order.Status != OrderCancelled && order.Status != OrderReconciliationRequired) {
-		return false
-	}
-	if (order.Status == OrderFulfilled || order.Status == OrderCancelled) && order.PendingEffect != PendingSubscriptionOrderEffectNone {
-		return false
-	}
-	switch order.SettlementMode {
-	case SettlementZeroPrice:
-		if order.AmountMinor != 0 || hasWalletReservationEvidence(order) || order.PendingEffect == PendingSubscriptionOrderEffectReserve {
-			return false
-		}
-	case SettlementWallet:
-		if order.AmountMinor <= 0 {
-			return false
-		}
-	case SettlementExternalPayment:
-		return false
-	default:
-		return false
-	}
-	if !validSubscriptionActivationProof(order) {
-		return false
-	}
-	switch order.Status {
-	case OrderPending, OrderFundsReserved:
-		if order.ActivationOutcome != "" {
-			return false
-		}
-	case OrderFulfilling, OrderFulfilled:
-		if order.ActivationOutcome != SubscriptionActivationActivated {
-			return false
-		}
-	case OrderCancelled:
-		if order.FailureCode == "" || order.ActivationOutcome == SubscriptionActivationActivated {
-			return false
-		}
-	}
-	if order.SettlementMode == SettlementWallet {
-		switch order.Status {
-		case OrderPending:
-			if hasWalletReservationEvidence(order) {
-				return false
-			}
-		case OrderFundsReserved, OrderFulfilling:
-			if order.WalletReservationID == "" || order.WalletReservationState != money.WalletReservationReserved {
-				return false
-			}
-		case OrderFulfilled:
-			if order.WalletReservationID == "" || order.WalletReservationState != money.WalletReservationCommitted {
-				return false
-			}
-		case OrderCancelled:
-			if hasWalletReservationEvidence(order) {
-				return false
-			}
-		case OrderReconciliationRequired:
-			if hasWalletReservationEvidence(order) && order.WalletReservationState != money.WalletReservationReserved && order.WalletReservationState != money.WalletReservationCommitted {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func validOrderFailureCode(order Order) bool {
@@ -486,24 +350,6 @@ func validOrderFailureCode(order Order) bool {
 		return order.FailureCode == OrderFailureInsufficientFunds || order.FailureCode == OrderFailureGrantRejected
 	case OrderStorageCapacityPurchase:
 		return order.FailureCode == OrderFailureInsufficientFunds
-	case OrderSubscriptionPurchase:
-		return order.FailureCode == OrderFailureInsufficientFunds ||
-			order.FailureCode == OrderFailureActiveSubscriptionExists ||
-			order.FailureCode == OrderFailurePlanChanged ||
-			order.FailureCode == OrderFailureAuthorizationRevoked
-	default:
-		return false
-	}
-}
-
-func validSubscriptionActivationProof(order Order) bool {
-	switch order.ActivationOutcome {
-	case "":
-		return order.ActivationOperationID == "" && order.ActivationRequestFingerprint == "" && order.ActivationFailureCode == "" && order.ActivationSubscriptionID == "" && order.ActivationStartsAt == nil && order.ActivationExpiresAt == nil && order.ActivationEntitlementSetFingerprint == "" && order.ActivationDecidedAt == nil
-	case SubscriptionActivationActivated:
-		return order.ActivationOperationID != "" && order.ActivationRequestFingerprint != "" && order.ActivationFailureCode == "" && order.ActivationSubscriptionID != "" && order.ActivationStartsAt != nil && order.ActivationExpiresAt != nil && order.ActivationEntitlementSetFingerprint != "" && order.ActivationDecidedAt != nil
-	case SubscriptionActivationRejected:
-		return order.ActivationOperationID != "" && order.ActivationRequestFingerprint != "" && (order.ActivationFailureCode == SubscriptionActivationActiveSubscriptionExists || order.ActivationFailureCode == SubscriptionActivationPlanChanged) && order.ActivationSubscriptionID == "" && order.ActivationStartsAt == nil && order.ActivationExpiresAt == nil && order.ActivationEntitlementSetFingerprint == "" && order.ActivationDecidedAt != nil
 	default:
 		return false
 	}
@@ -601,86 +447,7 @@ type CreateWalletTopUpOrderRequest struct {
 	IdempotencyKey string
 }
 
-type CreateSubscriptionOrderRequest struct {
-	OrganizationID string
-	ActorID        string
-	QuoteID        string
-	IdempotencyKey string
-}
-
-type SubscriptionQuoteRequest struct {
-	OrganizationID string
-	OfferID        string
-}
-
-type SubscriptionOfferAvailability string
-
-const (
-	SubscriptionOfferAvailable          SubscriptionOfferAvailability = "available"
-	SubscriptionOfferCurrentPlan        SubscriptionOfferAvailability = "current_plan"
-	SubscriptionOfferActiveConflict     SubscriptionOfferAvailability = "active_subscription_conflict"
-	SubscriptionOfferPaymentUnavailable SubscriptionOfferAvailability = "payment_unavailable"
-	SubscriptionOfferUnavailable        SubscriptionOfferAvailability = "offer_unavailable"
-)
-
-type SubscriptionOfferView struct {
-	Offer        Offer
-	PlanName     string
-	Availability SubscriptionOfferAvailability
-}
-
-type SubscriptionPlanSnapshot struct {
-	PlanCode    string
-	DisplayName string
-	Fingerprint string
-}
-
-type SubscriptionPurchaseState struct {
-	PlanCode       string
-	BlocksPurchase bool
-}
-
-type SubscriptionActivationOutcome string
-
-const (
-	SubscriptionActivationActivated SubscriptionActivationOutcome = "ACTIVATED"
-	SubscriptionActivationRejected  SubscriptionActivationOutcome = "REJECTED"
-)
-
-type SubscriptionActivationFailureCode string
-
-const (
-	SubscriptionActivationActiveSubscriptionExists SubscriptionActivationFailureCode = "ACTIVE_SUBSCRIPTION_EXISTS"
-	SubscriptionActivationPlanChanged              SubscriptionActivationFailureCode = "PLAN_CHANGED"
-)
-
-type SubscriptionActivationRequest struct {
-	OperationID       string
-	OrganizationID    string
-	ActorID           string
-	CommercialOrderID string
-	PlanCode          string
-	PlanFingerprint   string
-	TermMonths        int
-}
-
-type SubscriptionActivationResult struct {
-	OperationID                  string
-	OrganizationID               string
-	CommercialOrderID            string
-	PlanCode                     string
-	PlanFingerprint              string
-	ActivationRequestFingerprint string
-	Outcome                      SubscriptionActivationOutcome
-	FailureCode                  SubscriptionActivationFailureCode
-	SubscriptionID               string
-	StartsAt                     *time.Time
-	ExpiresAt                    *time.Time
-	EntitlementSetFingerprint    string
-	DecidedAt                    time.Time
-	Existing                     bool
-}
-
+// CommercialPurchaseAuthorization is shared by current wallet/resource recovery.
 type CommercialPurchaseAuthorization struct {
 	OrganizationID string
 	ActorID        string
@@ -723,15 +490,6 @@ type OfferCatalog interface {
 	ReadOffer(context.Context, string) (Offer, error)
 }
 
-type SubscriptionOfferCatalog interface {
-	OfferCatalog
-	ListSubscriptionOffers(context.Context) ([]Offer, error)
-}
-
-type SubscriptionQuoteStore interface {
-	CreateSubscriptionQuote(context.Context, SubscriptionQuoteRequest, Offer, SubscriptionPlanSnapshot) (Quote, error)
-}
-
 type QuoteEngine interface {
 	CreateQuote(context.Context, QuoteRequest) (Quote, error)
 	ReadQuote(context.Context, string, string) (Quote, error)
@@ -748,14 +506,6 @@ type OrderCommander interface {
 	CreateWalletTopUpOrder(context.Context, CreateWalletTopUpOrderRequest) (Order, error)
 }
 
-type SubscriptionOrderStore interface {
-	CreatePendingSubscriptionOrder(context.Context, CreateSubscriptionOrderRequest, Quote) (Order, error)
-	FindSubscriptionOrderByIdempotency(context.Context, string, string) (Order, bool, error)
-	AdmitSubscriptionOrderEffect(context.Context, string, string, int64, PendingSubscriptionOrderEffect, time.Time) (Order, bool, error)
-	PersistSubscriptionOrder(context.Context, Order) error
-	ListRecoverableSubscriptionOrders(context.Context, int) ([]Order, error)
-}
-
 // WalletPort is the commercial owner's only money dependency. It consumes the
 // canonical money owner instead of duplicating balance or settlement logic.
 type WalletPort interface {
@@ -767,15 +517,4 @@ type WalletPort interface {
 // acquisition use case, never a generic positive-mint interface.
 type PurchasedResourceGrantPort interface {
 	GrantPurchasedResource(context.Context, orgresource.PurchasedResourceGrantInput) (orgresource.PurchasedResourceGrantResult, error)
-}
-
-type SubscriptionPurchasePort interface {
-	ResolvePurchasablePlan(context.Context, string) (SubscriptionPlanSnapshot, error)
-	ReadPurchasedSubscriptionState(context.Context, string) (SubscriptionPurchaseState, error)
-	ActivatePurchasedSubscription(context.Context, SubscriptionActivationRequest) (SubscriptionActivationResult, error)
-	ReadPurchasedSubscriptionActivation(context.Context, string, string) (SubscriptionActivationResult, error)
-}
-
-type SubscriptionPurchaseRecoveryAuthorizer interface {
-	ReauthorizeCommercialPurchase(context.Context, string, string) (CommercialPurchaseAuthorization, error)
 }

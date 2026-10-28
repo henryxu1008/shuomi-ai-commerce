@@ -12,7 +12,6 @@ Owned external adapters:
 - marketplace API clients
 - crawler adapters
 - Dub affiliate attribution
-- OpenMeter usage projection
 - ZITADEL
 - Casbin
 - domain persistence adapters

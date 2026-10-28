@@ -27,11 +27,9 @@ import (
 	"gorm.io/gorm"
 
 	"task-processor/internal/app/runtime/currentapplication"
-	accountallocationSchema "task-processor/internal/app/schema/accountallocation"
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
 	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/core/config"
-	"task-processor/internal/listingsubscription"
 	platformdatabase "task-processor/internal/platform/database"
 	"task-processor/internal/workbenchcontext"
 )
@@ -47,35 +45,16 @@ var run1AllowedPrivileges = map[string]map[string][]string{
 		"subject_verification_messages":         {"SELECT", "INSERT", "UPDATE"},
 		"personal_verification_applications":    {"SELECT", "INSERT", "UPDATE"},
 	},
-	"commercial_runtime": {
-		"saas_tenant_subscriptions": {"SELECT"}, "saas_plans": {"SELECT"},
-		"saas_tenant_entitlements":          {"SELECT"},
-		"saas_usage_buckets":                {"SELECT", "INSERT", "UPDATE"},
-		"saas_usage_events":                 {"SELECT", "INSERT", "UPDATE"},
-		"saas_usage_event_outbox":           {"SELECT", "INSERT", "UPDATE"},
-		"saas_subscription_audit_logs":      {"SELECT", "INSERT", "UPDATE"},
-		"account_member_token_locks":        {"SELECT", "INSERT", "UPDATE"},
-		"account_member_token_allocations":  {"SELECT", "INSERT", "UPDATE"},
-		"account_member_token_operations":   {"SELECT", "INSERT", "UPDATE"},
-		"account_member_token_audit_events": {"SELECT", "INSERT", "UPDATE"},
-	},
-	"commercial_reader": {
-		"saas_tenant_subscriptions": {"SELECT"}, "saas_plans": {"SELECT"},
-		"saas_tenant_entitlements": {"SELECT"}, "saas_usage_buckets": {"SELECT"},
-	},
 }
 
 func TestCurrentApplicationPermissionInventoryPostgres(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	owner, connection := commercialPostgres(t) // New disposable PG17, never a supplied DSN.
 	ctx := context.Background()
-	require.NoError(t, listingsubscription.AutoMigrateRepository(owner))
-	require.NoError(t, accountallocationSchema.Migrate(ctx, owner))
 	require.NoError(t, registrySchema.Migrate(ctx, owner))
 	require.NoError(t, owner.Exec(`REVOKE CREATE ON SCHEMA public FROM PUBLIC`).Error)
 	require.NoError(t, owner.Exec(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC`).Error)
 	require.NoError(t, owner.Exec(`CREATE TABLE public.run1_additional_fact (id integer PRIMARY KEY, value text); INSERT INTO public.run1_additional_fact VALUES (1, 'unchanged')`).Error)
-	require.NoError(t, owner.Exec(`INSERT INTO public.saas_plans (code, name, active, created_at, updated_at) VALUES ('run1-test', 'unchanged', true, now(), now())`).Error)
 	require.NoError(t, owner.Exec(`INSERT INTO public.source_account_resources (organization_id,id,platform,display_name,management_status,connection_status,version,created_by,updated_by,created_at,updated_at) VALUES ('run1-org','01991e24-1009-7009-8009-000000000009','1688','unchanged','disabled','pending_connection',1,'fixture','fixture',now(),now())`).Error)
 	cfg := &currentapplication.Config{SchemaVersion: 1, Listen: currentapplication.ListenConfig{Host: "127.0.0.1", Port: 18443}, Identity: currentapplication.IdentityConfig{IssuerURL: "http://127.0.0.1:18080", AuthorizationAPIURL: "http://127.0.0.1:18080", ClientID: "run1", ClientSecret: "synthetic-identity", ProjectID: "run1"}}
 	for _, role := range []string{"source_account_runtime"} {
@@ -110,7 +89,7 @@ func TestCurrentApplicationPermissionInventoryPostgres(t *testing.T) {
 	var tables, privileges []string
 	require.NoError(t, owner.Raw(`SELECT c.relname FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f') ORDER BY c.relname`).Scan(&tables).Error)
 	require.NoError(t, owner.Raw(`SELECT privilege_type FROM aclexplode(acldefault('r', (SELECT oid FROM pg_roles WHERE rolname=current_user))) ORDER BY privilege_type`).Scan(&privileges).Error)
-	for _, must := range []string{"saas_usage_events", "saas_subscription_audit_logs", registrySchema.VersionTableName, "run1_additional_fact"} {
+	for _, must := range []string{registrySchema.VersionTableName, "run1_additional_fact"} {
 		require.Contains(t, tables, must)
 	}
 	require.Contains(t, privileges, "TRUNCATE")

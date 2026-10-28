@@ -25,7 +25,6 @@ if [ -f "$marker" ]; then
     "$source_db_owner_secret/source-db-password" \
     "$source_runtime_secret/source-runtime-password" \
     "$commercial_db_owner_secret/commercial-db-password" \
-    "$commercial_runtime_secret/commercial-reader-password" \
     "$referral_db_owner_secret/referral-db-password" \
     "$referral_runtime_secret/referral-runtime-password" \
     "$zitadel_api_secrets/zitadel-masterkey" \
@@ -64,7 +63,7 @@ write_random 24 "$identity_db_secret/identity-db-password"
 write_random 24 "$source_db_owner_secret/source-db-password"
 write_random 24 "$source_runtime_secret/source-runtime-password"
 write_random 24 "$commercial_db_owner_secret/commercial-db-password"
-write_random 24 "$commercial_runtime_secret/commercial-reader-password"
+
 write_random 24 "$referral_db_owner_secret/referral-db-password"
 write_random 24 "$referral_runtime_secret/referral-runtime-password"
 write_random 32 "$frontend_secrets/auth-secret"

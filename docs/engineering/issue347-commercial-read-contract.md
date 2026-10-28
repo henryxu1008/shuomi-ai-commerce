@@ -1,3 +1,5 @@
+> SUPERSEDED / RETIRED — #988 / #301 source retirement. Current authority: [unified-base-prepaid-resources-v1](../architecture/unified-base-prepaid-resources-v1.md) and [retirement boundary](../architecture/legacy-subscription-metering-closure-retirement-boundary.md). The following text is preserved historical evidence; it does not authorize subscription, Token allocation, OpenMeter or retired review runtime. Current Resource/money/Store owners and their valid safety contracts remain. No existing tables, records or credentials are changed.
+
 # #347 Commercial read contract
 
 Status: implemented against the frozen IMPLEMENTATION_READY baseline accepted by two narrow independent reviews. The PR records the current implementation HEAD, validation results and final independent review. #350 consumes the single exported contract below after the implemented handoff.

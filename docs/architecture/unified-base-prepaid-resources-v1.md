@@ -1,3 +1,5 @@
+> #988 source owner update: old subscriptions, Token allocation, OpenMeter and idle recorded Review are retired per [closure design](legacy-subscription-metering-closure-retirement-boundary.md). Current `internal/ledger/orgresource`, `internal/integration/orgresource`, `internal/commercial/billing`, `internal/ledger/money`, Store services and raw AI Token audit retain their existing contracts. Public PostgreSQL resource/store reads bind explicitly to `public`; no shadow fallback. Existing records are untouched.
+
 # 统一基础方案与预付资源 V1
 
 Issue: #478 · Delivery Batch: 账户中心与套餐权益统一模型

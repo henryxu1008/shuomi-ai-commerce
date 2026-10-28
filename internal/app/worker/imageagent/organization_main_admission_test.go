@@ -2,15 +2,13 @@ package imageagentworker
 
 import (
 	"context"
-	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/imageagent"
-	productimage "task-processor/internal/product/image"
 	"task-processor/internal/shared/aiidentity"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestOrganizationMainRetiredReviewAdmissionCannotReserveAcrossGeneration(t *testing.T) {
@@ -45,30 +43,6 @@ func TestOrganizationMainRetiredReviewAdmissionCannotReserveAcrossGeneration(t *
 			require.Zero(t, delegate.reviewCalls)
 		})
 	}
-}
-
-func TestStandaloneReviewIdentityRemainsPayloadBoundWithoutPreReservationOverride(t *testing.T) {
-	identity := aiidentity.FromContext(mainAdmissionContext())
-	request := productimage.ReviewRequest{Sources: []productimage.Asset{{SourceAssetID: "source-1", URL: "https://example.com/source.jpg"}}, Candidates: []productimage.Candidate{{Asset: productimage.Asset{SourceAssetID: "source-1", Bytes: []byte("first")}}}}
-	id, hash := stableReviewInvocationIdentity(identity, request, "quote-1")
-	replayID, replayHash := stableReviewInvocationIdentity(identity, request, "quote-1")
-	require.Equal(t, id, replayID)
-	require.Equal(t, hash, replayHash)
-	changedID, changedHash := stableReviewInvocationIdentity(identity, request, "quote-2")
-	require.NotEqual(t, id, changedID)
-	require.NotEqual(t, hash, changedHash)
-	request.Candidates[0].Asset.Bytes = []byte("changed")
-	changedID, changedHash = stableReviewInvocationIdentity(identity, request, "quote-1")
-	require.NotEqual(t, id, changedID)
-	require.NotEqual(t, hash, changedHash)
-}
-
-func TestReviewOutcomeDistinguishesUnknownFromObservedInvalidOutput(t *testing.T) {
-	require.Equal(t, aicapability.InvocationDispatched, reviewInvocationTerminalOutcome(errors.New("timeout"), false))
-	require.Equal(t, aicapability.InvocationDispatched, reviewInvocationTerminalOutcome(errors.New("timeout"), true))
-	require.Equal(t, aicapability.InvocationDispatched, reviewInvocationTerminalOutcome(nil, false))
-	require.Equal(t, aicapability.InvocationUsageObservedFailed, reviewInvocationTerminalOutcome(productimage.ErrOutputValidation, true))
-	require.Equal(t, aicapability.InvocationSucceeded, reviewInvocationTerminalOutcome(nil, true))
 }
 
 func mainAdmissionContext() context.Context {

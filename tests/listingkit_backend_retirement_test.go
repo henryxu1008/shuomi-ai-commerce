@@ -6348,7 +6348,6 @@ func TestLegacyImageAgentHTTPRuntimeClosureIsRetired(t *testing.T) {
 		"internal/app/httpapi/imageagent_acquisition_module.go":             {"acquisitionImageRoutes", "service.Start(", "service.ApproveResults("},
 		"internal/app/httpapi/image_set_module.go":                          {"fullImageModule", "a.service.RecoverEffect(", "a.service.Resume("},
 		"tests/imageagent_organization_integration_test.go":                 {"authz.AuthorizeOrganization(", "TestOrganizationScopeServicePersistenceAndActivity", "TestServiceAuthorizationRequiresExactOrganization"},
-		"tests/imageagent_review_invocation_integration_test.go":            {"TestOrganizationReviewServiceActivityRecordFailureAndCancellation", "verifyActivity("},
 		"internal/app/httpapi/chain1_local_product_acceptance_test.go":      {"TestChain1LocalProductAcceptance", "imageagent.NewService(", "imageagent.WithOrganizationScope()", ".ApproveResults(", "authz.AuthorizeOrganization("},
 		"internal/app/httpapi/imageagent_completed_replay_postgres_test.go": {"TestAcquisitionCompletedApprovalHTTPReplaysFromExactOwnerFact", "Hijack()"},
 	} {

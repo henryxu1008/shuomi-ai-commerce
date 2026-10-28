@@ -24,13 +24,11 @@ import (
 	"gorm.io/gorm/logger"
 
 	"task-processor/internal/app/runtime/currentapplication"
-	accountallocationSchema "task-processor/internal/app/schema/accountallocation"
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
 	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/listingsubscription"
 )
 
 type startupPermissionTraceKey struct{}
@@ -69,8 +67,6 @@ func TestCurrentApplicationStartupSchemaContextPostgres(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	owner, connection := commercialPostgres(t)
 	ctx := context.Background()
-	require.NoError(t, listingsubscription.AutoMigrateRepository(owner))
-	require.NoError(t, accountallocationSchema.Migrate(ctx, owner))
 	require.NoError(t, registrySchema.Migrate(ctx, owner))
 	require.NoError(t, owner.Exec(`REVOKE CREATE ON SCHEMA public FROM PUBLIC`).Error)
 	for _, role := range []string{"source_account_runtime", "commercial_runtime"} {

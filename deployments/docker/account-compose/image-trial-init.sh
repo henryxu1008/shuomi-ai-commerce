@@ -18,7 +18,7 @@ commercial_database=${ACCOUNT_COMMERCIAL_DATABASE:-commercial}
 case "$application_port:$identity_port" in *[!0-9:]*|'') echo 'invalid isolated trial ports' >&2; exit 1;; esac
 case "$commercial_database" in ''|[!a-z]*|*[!a-z0-9_]*) echo 'invalid commercial database name' >&2; exit 1;; esac
 case "$commercial_database" in *trial*|*isolated*) ;; *) echo 'isolated trial requires an isolated commercial database' >&2; exit 1;; esac
-for path in "$fixture" "$image_owner" "$image_runtime" "$image_worker" "$acquisition_owner" "$acquisition_runtime" "$minio_password" "$runtime/current-application.json" "$runtime/project-id" "$runtime/bootstrap-user-id" "$runtime/membership-read.pat" /secrets/commercial-runtime/commercial-reader-password "$worker_secrets/config.yaml"; do
+for path in "$fixture" "$image_owner" "$image_runtime" "$image_worker" "$acquisition_owner" "$acquisition_runtime" "$minio_password" "$runtime/current-application.json" "$runtime/project-id" "$runtime/bootstrap-user-id" "$runtime/membership-read.pat" /secrets/commercial-runtime/commercial-owner-password "$worker_secrets/config.yaml"; do
   if [ "$path" = "$worker_secrets/config.yaml" ] && [ ! -f "$state/.init-complete" ]; then continue; fi
   test -s "$path" || { echo 'isolated image trial prerequisite missing' >&2; exit 1; }
 done
@@ -28,8 +28,6 @@ org_id=$(jq -er '.organizations[0].id' "$fixture")
 case "$project_id:$operator_id:$org_id" in *[!0-9:]*|'') echo 'invalid isolated trial identity' >&2; exit 1;; esac
 jq -e --arg issuer "https://localhost:${identity_port}" --arg project "$project_id" --arg operator "$operator_id" \
   '.schemaVersion == 1 and .status == "ready" and .issuerUrl == $issuer and .projectId == $project and .operatorUserId == $operator and (.organizations | length) == 2' "$fixture" >/dev/null
-commercial_dsn="postgresql://commercial_runtime:$(tr -d '\r\n' < /secrets/commercial-runtime/commercial-reader-password)@127.0.0.1:5433/${commercial_database}?sslmode=disable"
-test "$(psql "$commercial_dsn" -At -v ON_ERROR_STOP=1 -c "SELECT EXISTS(SELECT 1 FROM saas_plans WHERE code='paid_pilot') AND has_table_privilege(current_user,'saas_usage_events','SELECT,INSERT,UPDATE') AND has_table_privilege(current_user,'account_member_token_allocations','SELECT,INSERT,UPDATE')")" = t || { echo 'isolated trial plan or commercial runtime rights unavailable' >&2; exit 1; }
 trial_base="https://localhost:${application_port}/image-agent-assets/image-agent-trial"
 mc alias set local http://127.0.0.1:9000 issue487_local "$(tr -d '\r\n' < "$minio_password")" >/dev/null
 if [ -f "$state/.init-complete" ]; then
@@ -96,18 +94,11 @@ database:
   password: "$(tr -d '\r\n' < "$image_worker")"
   database: image_agent
   max_connections: 4
-commercialDatabase:
-  host: 127.0.0.1
-  port: 5433
-  user: commercial_runtime
-  password: "$(tr -d '\r\n' < /secrets/commercial-runtime/commercial-reader-password)"
-  database: ${commercial_database}
-  max_connections: 4
 commercialOwnerDatabase:
   host: 127.0.0.1
-  port: 5434
+  port: 5433
   user: commercial_owner_runtime
-  password: "$(tr -d '\r\n' < /secrets/commercial-runtime/commercial-reader-password)"
+  password: "$(tr -d '\r\n' < /secrets/commercial-runtime/commercial-owner-password)"
   database: ${commercial_database}
   max_connections: 4
 openai:

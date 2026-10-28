@@ -73,7 +73,7 @@ if [ -f "$marker" ]; then
     "$trusted_ca/root-ca.pem" "$traefik_tls/localhost.crt" "$traefik_tls/localhost.key" \
     "$identity_db_secret/identity-db-password" "$source_db_owner_secret/source-db-password" \
     "$source_runtime_secret/source-runtime-password" "$commercial_db_owner_secret/commercial-db-password" \
-    "$commercial_runtime_secret/commercial-reader-password" "$referral_db_owner_secret/referral-db-password" \
+    "$referral_db_owner_secret/referral-db-password" \
     "$referral_runtime_secret/referral-runtime-password" "$membership_db_owner_secret/membership-db-password" \
     "$membership_runtime_secret/membership-runtime-password" "$zitadel_api_secrets/zitadel-masterkey" \
     "$zitadel_api_secrets/runtime-config.yaml" "$tofu_inputs/operator-password" "$tofu_inputs/viewer-password" \
@@ -129,7 +129,7 @@ write_random 24 "$identity_db_secret/identity-db-password"
 write_random 24 "$source_db_owner_secret/source-db-password"
 write_random 24 "$source_runtime_secret/source-runtime-password"
 write_random 24 "$commercial_db_owner_secret/commercial-db-password"
-write_random 24 "$commercial_runtime_secret/commercial-reader-password"
+
 write_random 24 "$commercial_runtime_secret/commercial-owner-password"
 write_random 24 "$commercial_runtime_secret/money-owner-password"
 write_random 24 "$referral_db_owner_secret/referral-db-password"
@@ -166,7 +166,7 @@ write_random 24 "$acquisition_runtime_secret/acquisition-runtime-password"
 # root schema installers can also read them, serving containers never mount them.
 chown 70:70 "$source_db_owner_secret/source-db-password" "$source_runtime_secret/source-runtime-password" \
   "$commercial_runtime_secret/money-owner-password" \
-  "$commercial_db_owner_secret/commercial-db-password" "$commercial_runtime_secret/commercial-reader-password" \
+  "$commercial_db_owner_secret/commercial-db-password" \
   "$commercial_runtime_secret/commercial-owner-password" "$referral_db_owner_secret/referral-db-password" \
   "$referral_runtime_secret/referral-runtime-password" "$membership_db_owner_secret/membership-db-password" \
   "$membership_runtime_secret/membership-runtime-password" "$image_db_owner_secret/image-db-password" \
