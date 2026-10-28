@@ -334,7 +334,7 @@ func TestObservedFailedReviewRequiresExistingDispatchedReview(t *testing.T) {
 	require.NoError(t, db.Model(&invocationRow{}).Where("invocation_id = ?", terminal.InvocationID).Count(&count).Error)
 	require.Zero(t, count)
 	terminal.Outcome = aicapability.InvocationDispatched
-	terminal.Operation = aicapability.OperationProductImageSceneGenerate
+	terminal.Operation = aicapability.Operation("productimage_scene_generate")
 	terminal.FinishedAt = time.Time{}
 	terminal.UsageKnown = false
 	terminal.PromptTokens, terminal.CompletionTokens, terminal.TotalTokens = 0, 0, 0
