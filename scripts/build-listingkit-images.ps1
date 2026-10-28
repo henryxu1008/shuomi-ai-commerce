@@ -3,7 +3,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$SourceRef,
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
-    [ValidateSet('Backend', 'UI', 'All')][string]$Component = 'All'
+    [ValidateSet('Backend', 'UI', 'All')][string]$Component = 'All',
+    [ValidateSet('data-services-runtime', 'runtime')][string]$BackendTarget = 'data-services-runtime'
 )
 $ErrorActionPreference = 'Stop'
 $repository = Split-Path -Parent $PSScriptRoot
@@ -12,7 +13,8 @@ if ($LASTEXITCODE -ne 0 -or $revision -notmatch '^[0-9a-f]{40}$') { throw 'Sourc
 $tree = & git -C $repository rev-parse "${revision}^{tree}"
 if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve source tree.' }
 $destination = [IO.Path]::GetFullPath($OutputDirectory)
-$receiptPath = Join-Path $destination "build-$revision-$Component.json"
+$targetSuffix = if ($Component -ne 'UI' -and $BackendTarget -ne 'data-services-runtime') { "-$BackendTarget" } else { '' }
+$receiptPath = Join-Path $destination "build-$revision-$Component$targetSuffix.json"
 if (Test-Path -LiteralPath $receiptPath) { throw 'Build receipt already exists; choose a fresh output directory.' }
 $tempParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $staging = Join-Path $tempParent ('listingkit-build-' + [guid]::NewGuid().ToString('N'))
@@ -29,12 +31,12 @@ try {
     $components = if ($Component -eq 'All') { @('Backend', 'UI') } else { @($Component) }
     foreach ($item in $components) {
         $backend = $item -eq 'Backend'
-        $image = if ($backend) { "local/current-application:git-$revision" } else { "local/listingkit-ui:git-$revision" }
+        $image = if ($backend) { "local/current-application:git-$revision$targetSuffix" } else { "local/listingkit-ui:git-$revision" }
         $dockerfile = if ($backend) { 'deployments/docker/Dockerfile.account-compose' } else { 'deployments/docker/Dockerfile.listingkit-ui' }
         $buildArguments = @('build', '--platform', 'linux/amd64', '--file', (Join-Path $context $dockerfile),
             '--tag', $image, '--label', "org.opencontainers.image.revision=$revision",
             '--label', "org.opencontainers.image.tree=$tree")
-        if ($backend) { $buildArguments += @('--target', 'data-services-runtime') }
+        if ($backend) { $buildArguments += @('--target', $BackendTarget, '--label', "io.shuomi.build.backend-target=$BackendTarget") }
         & docker @buildArguments $context | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "$item image build failed." }
         $rawImage = & docker image inspect $image
@@ -42,6 +44,9 @@ try {
         $inspection = @($rawImage | ConvertFrom-Json)[0]
         if ($inspection.Config.Labels.'org.opencontainers.image.revision' -ne $revision -or
             $inspection.Config.Labels.'org.opencontainers.image.tree' -ne $tree) { throw 'Image source labels do not match.' }
+        if ($backend -and $inspection.Config.Labels.'io.shuomi.build.backend-target' -ne $BackendTarget) {
+            throw 'Backend image target label does not match.'
+        }
         $rawHistory = & docker history --no-trunc --format '{{json .}}' $inspection.Id
         if ($LASTEXITCODE -ne 0) { throw "$item image history inspection failed." }
         $history = @($rawHistory | ForEach-Object { $_ | ConvertFrom-Json })
@@ -52,8 +57,10 @@ try {
         if ($backend -and @($history | Where-Object { $_.CreatedBy -match '^COPY .* /app/current-application(?:\s|$)' }).Count) {
             throw 'Backend must use only /usr/local/bin/current-application.'
         }
-        $artifacts += [ordered]@{component=$item;tag=$image;imageId=$inspection.Id;sizeBytes=$inspection.Size;
+        $artifact = [ordered]@{component=$item;tag=$image;imageId=$inspection.Id;sizeBytes=$inspection.Size;
             filesystemLayers=@($inspection.RootFS.Layers).Count;dockerfile=$dockerfile}
+        if ($backend) { $artifact.target = $BackendTarget }
+        $artifacts += $artifact
     }
     New-Item -ItemType Directory -Path $destination -Force | Out-Null
     $receipt = [ordered]@{schemaVersion=1;sourceCommit=$revision;sourceTree=$tree;platform='linux/amd64';

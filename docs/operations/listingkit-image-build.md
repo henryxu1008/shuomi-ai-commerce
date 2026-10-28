@@ -34,6 +34,24 @@ changes reuse the browser dependency layers. The serving target copies one
 stripped current-application binary to `/usr/local/bin/current-application`.
 Schema/acceptance executables are built only by their separate targets.
 
+For an explicitly approved historical commit whose standard Dockerfile has the
+`runtime` serving target, select it with `-BackendTarget runtime`. For example:
+
+```powershell
+pwsh -NoProfile -File scripts/build-listingkit-images.ps1 `
+  -SourceRef 8478800e31bf2e126bd03fae5ec45536056d823e -Component All `
+  -BackendTarget runtime -OutputDirectory <fresh-receipt-directory>
+```
+
+The default remains `data-services-runtime`; a missing selected target fails the
+build without auto-detection or fallback. A non-default backend target adds
+`-runtime` to the backend image tag and receipt filename, keeping it separate
+from the default target's artifacts. The backend image label
+`io.shuomi.build.backend-target` and receipt image entry's `target` record the
+selection. UI tags and builds are unchanged. This option only builds the selected
+commit's serving image; it does not authorize deployment or adapt application,
+database, authentication or session contracts.
+
 The UI uses the existing `Dockerfile.listingkit-ui`: a clean Node runtime and
 only Next standalone/static/public output. Both paths reuse Docker's dependency
 cache; compiler, module and package caches stay outside serving image layers.
