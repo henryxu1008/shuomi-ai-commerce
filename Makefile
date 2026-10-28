@@ -1,6 +1,6 @@
 # Makefile for Task Processor / ListingKit
 .PHONY: all build-all clean test test-fast test-all test-coverage help \
-	build-current-application build-shein-login-worker \
+	build-current-application \
 	run-current-application lint fmt code-health-audit code-health-verify
 
 # 版本信息
@@ -12,7 +12,7 @@ LDFLAGS := -X main.appVersion=$(VERSION) -X main.buildTime=$(BUILD_TIME)
 BIN_DIR := bin
 
 # 当前维护的测试包
-FAST_TEST_PACKAGES := ./cmd/current-application ./cmd/shein-login-worker ./internal/app/httpapi ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
+FAST_TEST_PACKAGES := ./cmd/current-application ./internal/app/httpapi ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
 BOUNDARY_TEST_PACKAGES := ./tests/...
 ALL_TEST_PACKAGES := ./cmd/... ./internal/... ./tests/... ./tools/... ./hack/debug/...
 
@@ -25,7 +25,6 @@ help:
 	@echo "使用方法:"
 	@echo "  make build-all                 - 构建当前受维护的服务入口"
 	@echo "  make build-current-application - 构建Current Application"
-	@echo "  make build-shein-login-worker   - 构建独立 SHEIN 登录 worker"
 	@echo "  make clean                     - 清理构建文件"
 	@echo "  make test                      - 运行常用快速测试"
 	@echo "  make test-fast                 - 运行常用快速测试"
@@ -37,7 +36,7 @@ help:
 all: build-all
 
 # 构建所有当前受维护服务
-build-all: build-current-application build-shein-login-worker
+build-all: build-current-application
 	@echo "✅ 所有当前受维护服务构建完成"
 
 # Current Application
@@ -46,11 +45,6 @@ build-current-application:
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/current-application ./cmd/current-application
 	@echo "✅ Current Application 构建完成: $(BIN_DIR)/current-application"
-
-# Standalone SHEIN login worker
-build-shein-login-worker:
-	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/shein-login-worker ./cmd/shein-login-worker
 
 # 清理构建文件
 clean:

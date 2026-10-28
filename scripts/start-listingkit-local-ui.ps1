@@ -104,7 +104,6 @@ function Set-UiApiBases {
         $normalizedServiceApiBase = $ServiceApiBase.TrimEnd("/")
         [Environment]::SetEnvironmentVariable("LISTINGKIT_API_BASE", $ApiBase)
         [Environment]::SetEnvironmentVariable("LISTINGKIT_SERVICE_API_BASE", $ServiceApiBase)
-        [Environment]::SetEnvironmentVariable("SHEIN_LOGIN_API_BASE", "${normalizedServiceApiBase}/shein-login")
         [Environment]::SetEnvironmentVariable("NEXT_PUBLIC_LISTINGKIT_API_BASE", "/api/listing-kits")
         return
     }

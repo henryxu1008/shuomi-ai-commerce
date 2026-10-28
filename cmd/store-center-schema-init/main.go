@@ -31,7 +31,6 @@ func main() {
 	verify := flag.Bool("observations-verify", false, "read-only verification using the private store_center_runtime config")
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
-	shein := flag.Bool("shein-login-worker", false, "install optional current SHEIN login execution fence and narrow worker role on an authorized fresh Store")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
 	confirmed := flag.String("confirm-database", "", "exact existing database name required for --align-core-contract")
@@ -47,19 +46,13 @@ func main() {
 			return errors.New("unexpected positional arguments")
 		}
 		if *align {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shein {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart {
 				return errors.New("core alignment cannot be combined with any installation or observation mode")
 			}
 			return alignCoreContract(*path, *confirmed)
 		}
 		if confirmationSet {
 			return errors.New("--confirm-database requires --align-core-contract")
-		}
-		if *shein && (*observationsOnly || *grantsOnly || *verify) {
-			return errors.New("SHEIN installation cannot be combined with observation maintenance")
-		}
-		if *shein {
-			return runWithCapabilities(*path, *observations, *cockpit, *tiktok, *walmart, true)
 		}
 		return runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart)
 	}()
@@ -179,27 +172,6 @@ func runWithTikTok(storePath string, observations, cockpit, observationsOnly, gr
 		}
 	}
 	return nil
-}
-
-func runWithCapabilities(path string, observations, cockpit, tiktok, walmart, shein bool) error {
-	if err := runWithTikTok(path, observations, cockpit, false, false, false, tiktok, walmart); err != nil {
-		return err
-	}
-	if !shein {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	cfg, err := loadOwnerConfig(path, "store_center_owner")
-	if err != nil {
-		return err
-	}
-	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
-	if err != nil {
-		return errors.New("Store schema-owner unavailable")
-	}
-	defer platformdatabase.Close(db)
-	return storecenter.InstallSheinLoginCapability(ctx, db)
 }
 
 func grantStoreRuntime(ctx context.Context, db *gorm.DB) error {

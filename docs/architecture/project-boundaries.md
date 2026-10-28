@@ -1,3 +1,5 @@
+> #301 / #985 当前边界：独立 SHEIN 登录 worker、登录后 Store ID 回写及其专属持久化/构建部署入口已从源码退休。此前批次中这些对象的 KEEP/装配描述仅为历史，由[本批已确认设计](legacy-shein-login-identity-sync-closure-retirement-boundary.md)准确替代；Store 观察同步、官方授权、当前采集/图像/共享能力继续保留。相关原 guard 的稳定名称继续存在，含义已转换为完整退休禁入，不恢复旧 owner。既有资源/真实运行/数据/凭据/进程不操作，不增加试用前置，#301 OPEN。
+
 > #301 / #983 当前owner校准：按[legacy-asset-source-openai-tail-closure-retirement-boundary.md](legacy-asset-source-openai-tail-closure-retirement-boundary.md)精确退休product/asset/recipe旧静态配方和sourcing.Publisher包装，17个AI合同别名/错误转发与Manager旧resolver版本接受尾部退出。现役ImageSlotRecipe/资产批准、InternalProducer/SRC事务、catalog.Publisher、internal/ai及integration/openai实际配置/Client/Pool/Manager分工保持；Manager版本沿既有effective:v1算法，不改其它provider的独立绑定。当前JSON/hash/版本、能力与独立SHEIN登录/Store同步保持；不操作既有资源，不增试用前置，#301 OPEN。以下原边界/历史正文保留。
 
 > #301 / #981 当前整批实施：**RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `4e74dfec9f7bdb919ee8f983d5e3cfc5879bc578` 的§1–§7（含§4.2/§6.1），同一26路径完整闭包：catalog.Normalize及17helper、canonical四项旧推断评分、两组旧Facts、SourceRequest/SourceResult及专属尾部已退出，无alias/转发/替代归一化owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog保存读取、canonical13值/六常量/草稿投影、JSON/hash/SourceIdentity四零值槽位与拒绝、采集及独立SHEIN登录/Store同步保持。有效身份断言改接当前owner，旧必读精确转Lstat整源缺席，其余检查保留。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，无新试用前置，#301 OPEN；必要自检、准确源码HEAD/原CI/最终复核分别记同PR，不等于运行/产品验收。合并/部署/关单另授权；源码最终子代理复核与设计复核分开，不默认新增线程。[完整冻结设计](legacy-source-normalization-facts-closure-retirement-boundary.md)；以下冻结设计或起始正文/索引/历史完整保留，旧阶段状态由本条当前实施状态替代。
@@ -206,8 +208,8 @@ below; it introduces no replacement runtime or plural featureflags alias.
 The dormant platform Redis wrapper/adapter, database ConnectionProxy and
 hashx/mathx/strx helpers are source-retired under the
 [confirmed #301 boundary](legacy-redis-proxy-shared-closure-retirement-boundary.md).
-Current Redis configuration/native clients stay with their existing owners,
-including standalone SHEIN login/Store sync. Database bootstrap and the shared
+Current Redis configuration/native clients stay with their retained owners; the
+SHEIN-only configuration/login chain has retired under #985. Database bootstrap and the shared
 OpenShared/CloseShared lifecycle remain in `internal/platform/database`.
 Only this exact closure supersedes the dated Phase 2 retention below;
 it introduces no replacement runtime or pool.

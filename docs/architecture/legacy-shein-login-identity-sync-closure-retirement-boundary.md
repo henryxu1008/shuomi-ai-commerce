@@ -1,3 +1,5 @@
+> #301 / #985 **USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**：用户已确认冻结设计 `8fd07fd3af2a90a314ff7fdc8f0410a507895d34` 的 §1–§7（含§4.2/§6.1）。独立 SHEIN 登录及登录后 Store ID 回写、专属 Cookie/Profile/Redis/执行控制表源码和旧 session API 整批退休；保留 Store 观察同步、官方授权与当前能力。原安全/并发断言按§6.1改接，CI仅去旧worker build一行并删其专属deploy workflow，其余 workflow/inventory/保护规则保持。实施期单行 core_alignment 尾部例外已单独获用户批准并列入矩阵。无既有实例/数据/凭据/进程操作，无试用新前置，#301 OPEN。准确源码HEAD/必要自检/原CI/最终复核留同PR，不等于运行或产品验收，合并/部署/关单另授权。以下冻结设计正文保留，阶段标签由本段替代。
+
 # 独立 SHEIN 登录与身份回写完整退休设计
 
 本批只做一件事：**删除已不再需要的独立 SHEIN 浏览器登录及登录后 Store 身份回写；保留 Store 观察同步。** 当前是设计交付，尚未删除代码，也不关闭或清理任何既有运行资源。
@@ -149,6 +151,7 @@ deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.y
 | --- | --- | --- |
 | `cmd/store-center-schema-init/main.go` | §4.2 的 flag、组合条件和专属 wrapper | 其余模式、配置读取防护、权限/事务/deadline/观测安装原行为 |
 | `internal/storecenter/current_schema.go` | §4.2 四处专属 capability/schema 项 | 所有当前 Store/official/observations/Cockpit 表和安全验证 |
+| `internal/storecenter/core_alignment.go`（实施期用户准确例外） | 仅从 verifyUnchangedCoreContract 的 coreTable 条件删除 `&& table != sheinLoginTable`；退出表已不在 currentColumnNames，冗余排除项失去常量 | 原表筛选、所有约束/index drift/权限/SQL/版本/事务及其它行为保持；[准确提案与根因](https://github.com/qq550723504/shuomi-ai-commerce/pull/985#issuecomment-6462215161)，用户已明确批准 |
 | `internal/storecenter/audit.go` | §4.1 三常量、三个 action 分支、allowlist 三项及失用 import | 通用审计所有其它语义/shape、作用域、幂等与敏感字段拒绝 |
 | `Makefile` | `.PHONY`、FAST_TEST_PACKAGES、help、build-all 中 worker 项及 build-shein-login-worker rule | 当前应用/原有效测试/race/health/lint 构建规则；不运行 clean |
 | `.github/workflows/ci.yml` | 只删 `go build ./cmd/shein-login-worker` 一行 | 当前应用 build 和完整原测试/集成/权限/race/Required Gate/触发/permissions |
@@ -208,6 +211,10 @@ docs/superpowers/plans/2026-08-02-cookie-availability-fix.md
 1. `ci.yml` 删除 §5.2 的一个旧 build 行；
 2. 删除专属 `shein-login-worker-deploy.yml` 整文件；
 3. **`commercial-readiness.yml` 全文零改**，保留 `make build-all`、完整测试及 `go test -race ./internal/listingadmin`；其余 workflow 零改。两套通用 workflow 的必需/安全检查均保留，不改保护规则，不触发任何部署。
+
+实施期准确例外：用户已批准仅删除 `internal/storecenter/core_alignment.go` 中唯一的 `&& table != sheinLoginTable`。该表已从 currentColumnNames 退出，保留其余 coreTable/SQL/权限/约束/索引/版本断言，不恢复旧常量；具体根因和未应用提案见 [PR 评论](https://github.com/qq550723504/shuomi-ai-commerce/pull/985#issuecomment-6462215161)。此项不改变上述 workflow 两项边界。
+
+实施期第二项准确检查例外（用户已批准）：仅在原 `tests/import_boundaries_test.go` 的 TestProjectBoundaryDomainsDoNotImportListingKitFacade 增加旧 SHEIN 根缺席断言并从域列表删该旧根；TestSheinRetiredManagementImportsStayBlocked / TestSheinOpenAIImportsStayAllowlisted 改为根缺席 + 原 assertNoBannedImportPrefixesBelow 从保留 internal 根检查，旧专属 allowlist 随根退出。其余当前域/原禁令/算法不变，不加 missing-skip；[完整提案与真实失败证据](https://github.com/qq550723504/shuomi-ai-commerce/pull/985#issuecomment-6462341589)。此项仅校准本表遗漏的三函数，不改变生产、workflow/inventory 或其它检查。
 
 六个 root 测试文件的准确边界：
 
