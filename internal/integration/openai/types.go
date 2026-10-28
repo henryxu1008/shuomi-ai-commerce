@@ -4,30 +4,7 @@ package openai
 import (
 	"net/http"
 	"time"
-
-	"task-processor/internal/ai"
 )
-
-// Shared contracts remain aliases for one migration cycle. Provider-neutral
-// adapters should import task-processor/internal/ai directly.
-type ChatCompletionMessage = ai.ChatCompletionMessage
-type ChatCompletionContentPart = ai.ChatCompletionContentPart
-type ChatCompletionContentPartImage = ai.ChatCompletionContentPartImage
-type ChatCompletionRequest = ai.ChatCompletionRequest
-type ChatCompletionChoice = ai.ChatCompletionChoice
-type Usage = ai.Usage
-type ChatCompletionResponse = ai.ChatCompletionResponse
-type ChatCompleter = ai.ChatCompleter
-type TextChatCompleter = ai.TextChatCompleter
-type ImageGenerateRequest = ai.ImageGenerateRequest
-type ImageEditRequest = ai.ImageEditRequest
-type ImageData = ai.ImageData
-type ImageResponse = ai.ImageResponse
-type ImageAsyncSubmitResponse = ai.ImageAsyncSubmitResponse
-type ImageAsyncQueryResponse = ai.ImageAsyncQueryResponse
-type ImageGenerator = ai.ImageGenerator
-
-var ErrAsyncImageGenerationNotSupported = ai.ErrAsyncImageGenerationNotSupported
 
 // ClientConfig OpenAI客户端配置
 type ClientConfig struct {
@@ -70,5 +47,3 @@ type PoolConfig struct {
 	ClientConfigs []*ClientConfig `json:"client_configs"`
 	MaxConcurrent int             `json:"max_concurrent"`
 }
-
-type ImageRouteSelection = ai.ImageRouteSelection

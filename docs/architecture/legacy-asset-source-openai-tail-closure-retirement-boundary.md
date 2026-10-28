@@ -1,3 +1,5 @@
+> #301 / #983 当前整批实施：**RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结[设计18a955e22 §1–§7（含§4.2/§6.1）](https://github.com/qq550723504/shuomi-ai-commerce/blob/18a955e225285c5f1068f7e6ea07e9f8ba1e5a9e/docs/architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)；同一39路径收齐资产静态recipe、来源Publisher包装和17合同alias/错误转发/旧resolver版本尾部，不机械拆批。有效行为复用现有internal/ai/ToSnapshot/catalog.Publisher，原断言仅按冻结§6.1精确改接；JSON/hash/版本/已保存载荷、当前能力、独立SHEIN登录与Store同步保持，无兼容/新owner。workflow/完整inventory/依赖/保护与既有实例/数据/凭据/进程零改，不增试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI/最终复核留同PR；不等于运行/产品验收，合并/部署/关单另授权。以下冻结正文完整保留。
+
 # 旧资产配方、来源发布包装与 OpenAI 迁移尾部完整退休边界
 
 状态：**DESIGN_ONLY / AWAITING_REVIEW_AND_USER_CONFIRMATION / SOURCE_NOT_STARTED**。父 Issue [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301) 保持 OPEN。调查基线为 main `2505dd76676f452a85e91c07e43fac3eadcd4de9`；以下是未来同一主要 PR 的完整边界，不是已完成的源码退休声明。

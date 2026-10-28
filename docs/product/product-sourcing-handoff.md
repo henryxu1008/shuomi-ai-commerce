@@ -1,3 +1,5 @@
+> #301 / #983 当前owner更新：旧sourcing.Publisher包装已按[完整设计](../architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)退休；当前正式发布沿已授权InternalProducer/SRC事务到catalog.Publisher，测试的ToSnapshot→Catalog组合仍只为受控领域fixture。仅本批旧静态asset/recipe KEEP被取代，当前ImageSlotRecipe/显式批准/readiness不变；全部原身份/JSON/hash/版本/组织规则及SHEIN登录/Store同步保持，无运行验收或既有数据操作。以下仅两处准确owner节点校准，其余历史正文保持。
+
 > #301 / #972 current owner update: current acquisition uses integration/acquisition/a1688/browser, integration/acquisition/browsercollector and the current Amazon acquisition owner. Current SDS/POD stays with integration/sds and app/pod; current asset approval/recipe remain. The old LocalAgent/legacy crawler adapter and SDS product_source rows below are historical observations, not current entrypoints or compatibility obligations. SourceEnvelope/SourceIdentity JSON/hash/publication/lineage and organization isolation remain unchanged; independent SHEIN login and Store synchronization are retained. No existing data, instances or credentials are accessed.
 
 # Product Sourcing Handoff
@@ -32,7 +34,7 @@ facts do not require a top-level Listing Center or a platform Workbench.
 | Fetching, parsing, provider DTOs | `internal/integration/crawler/a1688`, `internal/integration/acquisition/amazon` | Adapter-local snapshots become neutral `SourceEnvelope`; no Product service/workflow ownership |
 | POD/design evidence | `internal/sds/adapter/product_source` | Preserve SDS specialization; not generic source onboarding |
 | Identity, normalization, provenance, warnings | `internal/product/sourcing` | `SourceIdentity`, `SourceEnvelope`, `Normalize`, `ToSnapshot`; no crawler/integration/runtime imports |
-| Canonical publication | `internal/product/sourcing.Publisher` → `internal/product/catalog.Publisher` | Explicit tenant/product/publication identity; Catalog owns `ProductSnapshot`, immutable versions and replay/conflict semantics |
+| Canonical publication | current application `sourcing.InternalProducer` / SRC transaction → `internal/product/catalog.Publisher` | Explicit tenant/product/publication identity; Catalog owns `ProductSnapshot`, immutable versions and replay/conflict semantics |
 | Approved assets | `internal/product/asset` | `ApprovedAsset`, approval provenance and repository ports; source images remain candidates |
 | Image capabilities and execution | `internal/product/image` + `internal/imageagent` | Capability ports return candidates; ImageAgent owns image workflow/budget/retry/recovery/approval |
 | Access and orchestration | Current application + Organization/Store/source-account owners | Verified effective Organization and actor; recheck access before publication, including replay |
@@ -67,7 +69,7 @@ The approved target is:
 ```text
 explicit new import with verified effective Organization / actor / access
   -> source adapter -> SourceEnvelope
-  -> sourcing.Publisher -> catalog.Publisher -> ProductSnapshot
+  -> authorized InternalProducer / SRC transaction -> catalog.Publisher -> ProductSnapshot
   -> explicit asset approval -> ApprovedAsset
   -> deterministic marketplace/listing readiness
 ```

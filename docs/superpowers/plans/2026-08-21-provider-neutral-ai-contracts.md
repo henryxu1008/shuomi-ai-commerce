@@ -1,3 +1,5 @@
+> #301 / #983 本批准确替代：[已确认完整闭包](../../architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)。仅取代继续保留OpenAI别名/re-export及其兼容测试要求；现役合同引用改ai，原请求/错误/安全断言保持，不恢复历史Gemini/ListingKit入口。只按冻结§1–§7/§4.2/§6.1整批实施，无兼容alias/转发/双读/迁移或第二owner；workflow/完整inventory/计数/勾选/检查不改，既有资源不动，无试用前置。独立SHEIN登录/Store同步保持，#301 OPEN。以下起始main原文及历史证据完整保留。
+
 # Provider-Neutral AI Contracts Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

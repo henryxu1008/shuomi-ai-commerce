@@ -4,14 +4,16 @@ import (
 	"testing"
 
 	goopenai "github.com/sashabaranov/go-openai"
+
+	"task-processor/internal/ai"
 )
 
 func TestBuildOpenAIChatCompletionRequest_MapsJSONObjectResponseFormat(t *testing.T) {
 	t.Parallel()
 
-	req := &ChatCompletionRequest{
+	req := &ai.ChatCompletionRequest{
 		Model:          "test-model",
-		Messages:       []ChatCompletionMessage{{Role: "user", Content: "hello"}},
+		Messages:       []ai.ChatCompletionMessage{{Role: "user", Content: "hello"}},
 		ResponseFormat: "json_object",
 	}
 
