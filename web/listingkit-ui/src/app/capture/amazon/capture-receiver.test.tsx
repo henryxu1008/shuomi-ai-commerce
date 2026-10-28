@@ -11,6 +11,11 @@ const source=JSON.parse(readFileSync("../../internal/product/sourcing/testdata/a
 const receipt=JSON.parse(readFileSync("../../internal/product/sourcing/testdata/amazon-capture-result-v1.json","utf8"));
 beforeEach(()=>{sessionStorage.clear();mocks.entry.mockReturnValue({kind:"handoff",extensionId:"a".repeat(32),handoffId:"11111111-1111-4111-8111-11111111111a",key:receipt.key});mocks.handoff.mockResolvedValue(source);mocks.request.mockResolvedValue(receipt);mocks.context={user:{id:"amazon-actor"},effectiveOrganization:{id:"amazon-org",name:"Test enterprise"},effectiveMemberId:"amazon-member",retry:vi.fn(async()=>({user:{id:"amazon-actor"},effectiveOrganizationId:"amazon-org",effectiveMemberId:"amazon-member"}))};});
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.clearAllMocks();});
+it('shows new and used prices and condition before saving',async()=>{
+ const input=structuredClone(source);input.evidence.variants[0].price={amount:'35.98',currency:'USD',condition:'new',alternative:{amount:'31.99',currency:null,condition:'used',conditionNote:'Very Good'}};mocks.handoff.mockResolvedValue(input);
+ render(<AmazonCaptureReceiver/>);await screen.findByRole('button',{name:'确认保存'});
+ const row=screen.getByText(/35\.98/);expect(row).toHaveTextContent('新品');expect(row).toHaveTextContent('31.99');expect(row).toHaveTextContent('二手');expect(row).toHaveTextContent('Very Good');expect(mocks.request).not.toHaveBeenCalled();
+});
 it("requires explicit consent and refresh only checks the retained original key",async()=>{
  const user=userEvent.setup();const mounted=render(<AmazonCaptureReceiver/>);await screen.findByRole("button",{name:"确认保存"});expect(mocks.request).not.toHaveBeenCalled();
  await user.click(screen.getByRole("button",{name:"确认保存"}));await waitFor(()=>expect(mocks.request).toHaveBeenCalledOnce());await screen.findByText(/已保存：Cotton bag/);

@@ -15,9 +15,12 @@ const MaxSourceQuoteBytes = 64 << 10
 
 // SourcePrice is a read projection of source evidence, never a selling price.
 type SourcePrice struct {
-	Amount      string  `json:"amount"`
-	Currency    *string `json:"currency"`
-	MinQuantity *string `json:"minQuantity"`
+	Amount        string           `json:"amount"`
+	Currency      *string          `json:"currency"`
+	MinQuantity   *string          `json:"minQuantity"`
+	Condition     *string          `json:"condition,omitempty"`
+	ConditionNote *string          `json:"conditionNote,omitempty"`
+	Alternative   *amazonOfferWire `json:"alternative,omitempty"`
 }
 
 // ProjectSourceQuotes reads only the existing sourcing owner's price facts.
@@ -49,20 +52,20 @@ func ProjectSourceQuotes(facts map[string]string) ([]SourcePrice, error) {
 		decoder := json.NewDecoder(bytes.NewReader(raw))
 		decoder.UseNumber()
 		aggregate := 0
-		if checkBrowserWire(decoder, reflect.TypeFor[browserPriceWire](), &aggregate) != nil {
+		if checkBrowserWire(decoder, reflect.TypeFor[amazonPriceWire](), &aggregate) != nil {
 			return nil, ErrInvalidAcquisition
 		}
 		if _, err := decoder.Token(); err != io.EOF {
 			return nil, ErrInvalidAcquisition
 		}
-		var price AcquisitionPrice
+		var price amazonPriceWire
 		if json.Unmarshal(raw, &price) != nil {
 			return nil, ErrInvalidAcquisition
 		}
-		if _, err := validateAcquisitionPrice(price); err != nil {
+		if err := price.validate(); err != nil {
 			return nil, err
 		}
-		prices = append(prices, SourcePrice{price.Amount, price.Currency, price.MinQuantity})
+		prices = append(prices, SourcePrice{Amount: price.Amount, Currency: price.Currency, MinQuantity: price.MinQuantity, Condition: price.Condition, ConditionNote: price.ConditionNote, Alternative: price.Alternative})
 	}
 	encoded, err := json.Marshal(prices)
 	if err != nil || len(encoded) > MaxSourceQuoteBytes {

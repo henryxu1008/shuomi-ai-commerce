@@ -9,6 +9,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -348,12 +349,19 @@ func (p browserPriceWire) domain() AcquisitionPrice {
 // exact-case/duplicate/required-field checks and budgets that Unmarshal lacks.
 // Recursion follows only the finite private wire types, never arbitrary JSON.
 func checkBrowserWire(decoder *json.Decoder, shape reflect.Type, aggregate *int) error {
+	return checkBrowserWireValue(decoder, shape, aggregate, false)
+}
+
+func checkBrowserWireValue(decoder *json.Decoder, shape reflect.Type, aggregate *int, nonnull bool) error {
 	token, err := decoder.Token()
 	if err != nil {
 		return ErrInvalidBrowserCapture
 	}
 	if shape.Kind() == reflect.Pointer {
 		if token == nil {
+			if nonnull {
+				return ErrInvalidBrowserCapture
+			}
 			return nil
 		}
 		shape = shape.Elem()
@@ -366,7 +374,7 @@ func checkBrowserWire(decoder *json.Decoder, shape reflect.Type, aggregate *int)
 		fields := make(map[string]reflect.StructField, shape.NumField())
 		for i := 0; i < shape.NumField(); i++ {
 			field := shape.Field(i)
-			fields[field.Tag.Get("json")] = field
+			fields[strings.Split(field.Tag.Get("json"), ",")[0]] = field
 		}
 		seen := make(map[string]bool, len(fields))
 		for decoder.More() {
@@ -383,7 +391,14 @@ func checkBrowserWire(decoder *json.Decoder, shape reflect.Type, aggregate *int)
 				return ErrInvalidBrowserCapture
 			}
 			seen[key] = true
-			if err := checkBrowserWire(decoder, field.Type, aggregate); err != nil {
+			option := field.Tag.Get("browser")
+			if option == "optional_nonnull_count" {
+				*aggregate++
+				if *aggregate > browserCaptureMaxAggregate {
+					return ErrInvalidBrowserCapture
+				}
+			}
+			if err := checkBrowserWireValue(decoder, field.Type, aggregate, strings.HasPrefix(option, "optional_nonnull")); err != nil {
 				return err
 			}
 		}
@@ -391,7 +406,7 @@ func checkBrowserWire(decoder *json.Decoder, shape reflect.Type, aggregate *int)
 			return ErrInvalidBrowserCapture
 		}
 		for key, field := range fields {
-			if !seen[key] && field.Tag.Get("browser") != "optional" {
+			if !seen[key] && !strings.HasPrefix(field.Tag.Get("browser"), "optional") {
 				return ErrInvalidBrowserCapture
 			}
 		}
