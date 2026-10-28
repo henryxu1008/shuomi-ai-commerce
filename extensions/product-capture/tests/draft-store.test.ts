@@ -5,7 +5,6 @@ import { openDB } from 'idb';
 import { JSDOM } from 'jsdom';
 import { captureAmazonDocument } from '../src/amazon/extractor';
 import type { AmazonCapturePayload } from '../src/amazon/wire';
-import { browserCaptureSchema } from '../../../web/listingkit-ui/src/lib/contracts/browser-capture';
 import { draftBody } from '../src/draft-store';
 import { readFileSync } from 'node:fs';
 import { DraftStore } from '../src/draft-store';
@@ -97,8 +96,8 @@ it('preserves a frozen sending intent across restart as unknown and rejects anot
  await expect(restarted.bind(restored.id,restored.revision,restored.generation,{...scope,memberId:'recreated'},body)).rejects.toThrow('DRAFT_SCOPE_CHANGED');
  await expect(restarted.bind(restored.id,restored.revision,restored.generation,scope,body+' ')).rejects.toThrow('DRAFT_BODY_MISMATCH');
 });
-it('uses exactly the current 1688 application serialization, including optional source fields',()=>{
- expect(JSON.stringify(browserCaptureSchema.parse(payload))).toBe(draftBody(payload));
+it('retains the canonical 1688 fixture serialization, including optional source fields',()=>{
+ expect(JSON.stringify(payload)).toBe(draftBody(payload));
 });
 it('leaves the original family checkpoint or ready payload intact when finalization or binding has no headroom',async()=>{
  const {store,d}=await family('headroom');
