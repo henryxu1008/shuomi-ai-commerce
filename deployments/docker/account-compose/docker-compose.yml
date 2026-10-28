@@ -144,6 +144,8 @@ services:
     image: ghcr.io/zitadel/zitadel-login:v4.17.1
     user: "0"
     network_mode: service:runtime-network
+    # Accept retained localhost cookies while preserving the image wrapper and NODE_OPTIONS.
+    entrypoint: ["/app/entrypoint.sh", "node", "--max-http-header-size=32768", "apps/login/server.js"]
     environment:
       ZITADEL_API_URL: http://127.0.0.1:8080
       NEXT_PUBLIC_BASE_PATH: /ui/v2/login

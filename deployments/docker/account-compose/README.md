@@ -14,6 +14,26 @@ change this environment, its configuration, or its data.
 Optional ZITADEL/Tencent SMS delivery configuration and the remaining local
 provider connection prerequisite are documented in [SMS.md](SMS.md).
 
+## Local Login HTTP header budget (#539)
+
+This local Compose starts ZITADEL Login with a **32 KiB** HTTP header limit.
+Retained cookies from multiple localhost ports can exceed Node's default 16 KiB
+limit and cause HTTP 431. The setting stays in the rendered Login entrypoint when
+the container is recreated from this Compose. It preserves the image's original
+entrypoint wrapper and inherited CA/preload `NODE_OPTIONS`.
+
+This setting is local to Account Compose. The shared images, production defaults,
+private configuration, named volumes and browser sessions are not changed.
+Applying a checkout to an existing instance still requires its own runtime
+authorization; editing this file does not restart or recreate containers.
+
+From the repository root, check the effective startup configuration without
+starting services or sending SMS:
+
+```powershell
+pwsh -NoProfile -File scripts/tests/account-compose-login-header-test.ps1
+```
+
 The opt-in Data Market / API Management profile and admitted native authorization
 are documented in [DATA_SERVICES.md](DATA_SERVICES.md). The unified new-empty
 program combining the completed native modules is documented in
