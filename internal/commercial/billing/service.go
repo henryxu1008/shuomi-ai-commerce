@@ -21,22 +21,17 @@ type OrderStore interface {
 }
 
 type Service struct {
-	storage                StoragePurchaseStore
-	resourceRecoveryLock   sync.Mutex
-	resourceRecoveryAfter  *ResourceRecoveryPosition
-	topups                 *walletTopUps
-	offers                 OfferCatalog
-	quotes                 QuoteEngine
-	orders                 OrderStore
-	reader                 OrderReader
-	wallet                 WalletPort
-	grants                 PurchasedResourceGrantPort
-	subscriptionOffers     SubscriptionOfferCatalog
-	subscriptionQuotes     SubscriptionQuoteStore
-	subscriptionOrders     SubscriptionOrderStore
-	subscriptions          SubscriptionPurchasePort
-	subscriptionAuthorizer SubscriptionPurchaseRecoveryAuthorizer
-	now                    func() time.Time
+	storage               StoragePurchaseStore
+	resourceRecoveryLock  sync.Mutex
+	resourceRecoveryAfter *ResourceRecoveryPosition
+	topups                *walletTopUps
+	offers                OfferCatalog
+	quotes                QuoteEngine
+	orders                OrderStore
+	reader                OrderReader
+	wallet                WalletPort
+	grants                PurchasedResourceGrantPort
+	now                   func() time.Time
 }
 
 func NewService(offers OfferCatalog, quotes QuoteEngine, orders OrderStore, reader OrderReader, wallet WalletPort, grants PurchasedResourceGrantPort) (*Service, error) {
@@ -44,9 +39,6 @@ func NewService(offers OfferCatalog, quotes QuoteEngine, orders OrderStore, read
 		return nil, ErrFeatureUnavailable
 	}
 	service := &Service{offers: offers, quotes: quotes, orders: orders, reader: reader, wallet: wallet, grants: grants, now: func() time.Time { return time.Now().UTC() }}
-	service.subscriptionOffers, _ = offers.(SubscriptionOfferCatalog)
-	service.subscriptionQuotes, _ = quotes.(SubscriptionQuoteStore)
-	service.subscriptionOrders, _ = orders.(SubscriptionOrderStore)
 	return service, nil
 }
 

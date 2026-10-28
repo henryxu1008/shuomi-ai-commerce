@@ -18,7 +18,11 @@ func (r *GormStoreRepository) ReadServiceSummary(ctx context.Context, organizati
 		return ServiceSummary{}, ErrNotFound
 	}
 	var result ServiceSummary
-	err := r.db.WithContext(ctx).Model(&workbenchStoreRecord{}).
+	table := "workbench_stores"
+	if r.db.Dialector.Name() == "postgres" {
+		table = "public." + table
+	}
+	err := r.db.WithContext(ctx).Table(table).
 		Where("organization_id=? AND record_status IN ('active','disabled') AND deleted_at IS NULL", organization).
 		Select(`count(*) AS records,
 		coalesce(sum(CASE WHEN record_status='active' AND service_status='active' AND service_started_at<=? AND service_expires_at>? THEN 1 ELSE 0 END),0) AS active,

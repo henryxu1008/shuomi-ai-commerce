@@ -50,7 +50,6 @@ create_role product_agent_owner /secrets/product-agent-owner/product-agent-db-pa
 create_role account_audit_image_reader /secrets/image-audit-reader/password
 create_role account_audit_product_reader /secrets/product-audit-reader/password
 create_role source_account_runtime /secrets/source-runtime/source-runtime-password
-create_role commercial_runtime /secrets/commercial-runtime/commercial-reader-password
 create_role commercial_owner_runtime /secrets/commercial-runtime/commercial-owner-password
 create_role money_owner_runtime /secrets/commercial-runtime/money-owner-password
 create_role referral_runtime /secrets/referral-runtime/referral-runtime-password

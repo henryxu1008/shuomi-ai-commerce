@@ -10,8 +10,6 @@ import (
 	"testing"
 )
 
-const openMeterSDKImportPrefix = "github.com/openmeterio/openmeter/api/v3/client"
-
 func TestOpenMeterImportsStayInsideIsolatedAdapter(t *testing.T) {
 	for _, path := range trackedOpenMeterGoFiles(t) {
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, parser.ImportsOnly)
@@ -19,11 +17,12 @@ func TestOpenMeterImportsStayInsideIsolatedAdapter(t *testing.T) {
 			t.Fatalf("parse imports in %s: %v", path, err)
 		}
 		for _, imported := range file.Imports {
-			if imported.Path.Value != `"`+openMeterSDKImportPrefix+`"` {
-				continue
+			importedPath, err := decodeGoImportPath(imported.Path.Value)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if !strings.HasPrefix(path, "internal/integration/openmeter/") {
-				t.Errorf("%s imports %s; keep the OpenMeter SDK inside internal/integration/openmeter", path, openMeterSDKImportPrefix)
+			if importMatchesPrefix(importedPath, "github.com/openmeterio/openmeter") {
+				t.Errorf("%s imports retired OpenMeter SDK %s", path, imported.Path.Value)
 			}
 		}
 	}

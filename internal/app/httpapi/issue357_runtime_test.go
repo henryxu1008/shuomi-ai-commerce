@@ -22,16 +22,19 @@ import (
 	"testing"
 	"time"
 
+	"task-processor/internal/authz"
+	"task-processor/internal/core/config"
+	resourceadapter "task-processor/internal/integration/orgresource"
+	kernelmodule "task-processor/internal/kernel/module"
+	"task-processor/internal/storecenter"
+	"task-processor/internal/zitadelprovision"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/core/config"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/listingsubscription"
-	"task-processor/internal/zitadelprovision"
 )
 
 type issue357Config struct {
@@ -84,7 +87,7 @@ func (c issue357Config) validate() error {
 	if err != nil || id.String() != c.RunID || id.Version() != 4 {
 		return errors.New("INVALID_RUN")
 	}
-	if c.Issuer != fmt.Sprintf("http://localhost:%d", c.IssuerPort) || c.DatabaseHost != "127.0.0.1" || c.DatabaseName != "issue357" || (c.DatabaseUser != "issue357" && c.DatabaseUser != "commercial_runtime" &&
+	if c.Issuer != fmt.Sprintf("http://localhost:%d", c.IssuerPort) || c.DatabaseHost != "127.0.0.1" || c.DatabaseName != "issue357" || (c.DatabaseUser != "issue357" &&
 		c.DatabaseUser != "commercial_reader" && c.DatabaseUser != "source_account_runtime") || (c.RuntimeMode != "" && c.RuntimeMode != "current-application") {
 		return errors.New("INVALID_RUN")
 	}
@@ -164,56 +167,19 @@ func TestIssue357Seed(t *testing.T) {
 	var existing int64
 	require.NoError(t, db.Raw("SELECT count(*) FROM pg_tables WHERE schemaname='public'").Scan(&existing).Error)
 	require.Zero(t, existing, "partial or existing database must never be reseeded")
-	require.NoError(t, listingsubscription.AutoMigrateRepository(db))
-	repo := listingsubscription.NewGormRepository(db)
-	service, err := listingsubscription.NewService(repo)
-	require.NoError(t, err)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	_, err = service.UpsertPlan(ctx, listingsubscription.PlanInput{Code: "paid_pilot", Name: "Issue357 synthetic pilot", Active: true, Modules: []listingsubscription.PlanModuleInput{{ModuleCode: listingsubscription.ModuleListingKit, Limits: map[string]int{"listingkit_generations_succeeded": 0}}}}, "issue357-setup")
-	require.NoError(t, err)
-	ledger := listingsubscription.NewGormUsageLedger(repo)
+	require.NoError(t, resourceadapter.AutoMigrate(db))
+	require.NoError(t, storecenter.AutoMigrateStoreRepository(db))
 	now := time.Now().UTC()
 	for i, org := range []string{c.OrganizationB, c.OrganizationC} {
 		require.NotEmpty(t, org)
-		_, err = service.ApplyPlan(ctx, org, listingsubscription.PlanApplyInput{PlanCode: "paid_pilot", Status: listingsubscription.StatusActive}, "issue357-setup")
-		require.NoError(t, err)
-		for n := 0; n <= i; n++ {
-			key := uuid.NewString()
-			reservation, e := ledger.Reserve(ctx, listingsubscription.ReserveUsageInput{TenantID: org, ModuleCode: listingsubscription.ModuleListingKit, Metric: "listingkit_generations_succeeded", Quantity: 1, PeriodKey: now.Format("2006-01"), SourceType: "issue357_setup", SourceID: key, IdempotencyKey: key, OccurredAt: now})
-			require.NoError(t, e)
-			_, e = ledger.Commit(ctx, reservation.Event.EventID)
-			require.NoError(t, e)
-		}
+		require.NoError(t, db.Exec(`INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,'ai_point',?,0,0,0,?,?)`, org, i+1, now, now).Error)
 	}
 	require.NotContains(t, c.ReaderPassword, "'")
-	// Both commercial roles are provisioned, each with the boundary its own mode is
-	// verified against. Selecting one role by mode is not enough on its own: the
-	// role the unused mode points at still has to exist, or that launch aborts
-	// before READY.
-	//
-	//  - commercial_reader  : the legacy/default composition, read-only.
-	//  - commercial_runtime : what the current composition verifies - SELECT on the
-	//    commercial tables plus INSERT/UPDATE on the usage and audit writers.
-	for _, role := range []string{"commercial_reader", "commercial_runtime"} {
-		require.NoError(t, db.Exec("CREATE ROLE "+role+" LOGIN PASSWORD '"+c.ReaderPassword+"'").Error)
-		require.NoError(t, db.Exec("GRANT USAGE ON SCHEMA public TO "+role).Error)
-	}
-	if c.RuntimeMode == "current-application" {
-		// The commercial boundary grew beyond the four read-only tables the
-		// runbook used to describe: the current code also records usage events,
-		// their outbox and the subscription audit trail through this same pool.
-		// Grant exactly what listingsubscription verifies, no more.
-		require.NoError(t, db.Exec("GRANT SELECT ON TABLE public.saas_tenant_subscriptions, public.saas_plans, public.saas_tenant_entitlements, public.saas_usage_buckets, public.saas_usage_events, public.saas_usage_event_outbox, public.saas_subscription_audit_logs TO commercial_runtime").Error)
-		require.NoError(t, db.Exec("GRANT INSERT, UPDATE ON TABLE public.saas_usage_buckets, public.saas_usage_events, public.saas_usage_event_outbox, public.saas_subscription_audit_logs TO commercial_runtime").Error)
-		require.NoError(t, db.Exec("ALTER ROLE commercial_runtime SET statement_timeout='10s'").Error)
-	} else {
-		require.NoError(t, db.Exec("GRANT SELECT ON ALL TABLES IN SCHEMA public TO commercial_runtime, commercial_reader").Error)
-		for _, role := range []string{"commercial_reader", "commercial_runtime"} {
-			require.NoError(t, db.Exec("ALTER ROLE "+role+" SET default_transaction_read_only=on").Error)
-			require.NoError(t, db.Exec("ALTER ROLE "+role+" SET statement_timeout='10s'").Error)
-		}
-	}
+	require.NoError(t, db.Exec("CREATE ROLE commercial_reader LOGIN PASSWORD '"+c.ReaderPassword+"'").Error)
+	require.NoError(t, db.Exec("GRANT USAGE ON SCHEMA public TO commercial_reader").Error)
+	require.NoError(t, db.Exec("GRANT SELECT ON saas_organization_resource_buckets,saas_organization_resource_debts,workbench_stores TO commercial_reader").Error)
+	require.NoError(t, db.Exec("ALTER ROLE commercial_reader SET default_transaction_read_only=on").Error)
+	require.NoError(t, db.Exec("ALTER ROLE commercial_reader SET statement_timeout='10s'").Error)
 	snapshot := issue357Snapshot(t, db)
 	issue357Write(t, filepath.Join(dir, "baseline.json"), map[string]any{"digest": snapshot, "setupWrites": true})
 	t.Log("synthetic setup complete; baseline captured")
@@ -278,10 +244,10 @@ func TestIssue357SourceAccountPermission(t *testing.T) {
 	statements := map[string]string{
 		"revoke":                   "REVOKE INSERT ON TABLE public.source_account_resources FROM source_account_runtime",
 		"restore":                  "GRANT INSERT ON TABLE public.source_account_resources TO source_account_runtime",
-		"source-cross-grant":       "GRANT TRUNCATE ON TABLE public.saas_plans TO source_account_runtime",
-		"source-cross-restore":     "REVOKE TRUNCATE ON TABLE public.saas_plans FROM source_account_runtime",
-		"commercial-cross-grant":   "GRANT TRUNCATE ON TABLE public.source_account_resources TO commercial_runtime",
-		"commercial-cross-restore": "REVOKE TRUNCATE ON TABLE public.source_account_resources FROM commercial_runtime",
+		"source-cross-grant":       "GRANT TRUNCATE ON TABLE public.saas_organization_resource_buckets TO source_account_runtime",
+		"source-cross-restore":     "REVOKE TRUNCATE ON TABLE public.saas_organization_resource_buckets FROM source_account_runtime",
+		"commercial-cross-grant":   "GRANT TRUNCATE ON TABLE public.source_account_resources TO commercial_reader",
+		"commercial-cross-restore": "REVOKE TRUNCATE ON TABLE public.source_account_resources FROM commercial_reader",
 	}
 	require.NoError(t, db.Exec(statements[c.PermissionAction]).Error)
 }
@@ -305,7 +271,7 @@ func TestIssue357Snapshot(t *testing.T) {
 	if c.RuntimeMode == "current-application" {
 		require.Equal(t, "issue357", c.DatabaseUser)
 	} else {
-		require.Equal(t, "commercial_runtime", c.DatabaseUser)
+		require.Equal(t, "commercial_reader", c.DatabaseUser)
 	}
 	db := issue357Database(t, c)
 	snapshot := issue357Snapshot(t, db)
@@ -321,7 +287,7 @@ func TestIssue357Snapshot(t *testing.T) {
 }
 func TestIssue357Serve(t *testing.T) {
 	c, dir := issue357ReadConfig(t)
-	require.Equal(t, "commercial_runtime", c.DatabaseUser)
+	require.Equal(t, "commercial_reader", c.DatabaseUser)
 	require.Empty(t, c.ManagementToken)
 	require.Empty(t, c.ReaderPassword)
 	cfg := &config.Config{Workbench: config.WorkbenchConfig{Enabled: true}, Database: &config.DatabaseConfig{Host: c.DatabaseHost, Port: c.DatabasePort, User: c.DatabaseUser, Password: c.DatabasePassword, Database: c.DatabaseName, MaxConnections: 4, MaxIdleConnections: 2}}
@@ -330,12 +296,12 @@ func TestIssue357Serve(t *testing.T) {
 	log.SetOutput(io.Discard)
 	wb, err := buildDefaultWorkbenchContextModule(cfg, log)
 	require.NoError(t, err)
-	commercial, err := buildCommercialReadModule(cfg, log)
+	pool := issue357Database(t, c)
+	commercial, err := buildUnifiedCommercialRead(context.Background(), pool, pool, authz.DefaultListingKitAuthorizer())
 	require.NoError(t, err)
-	defer func() { require.NoError(t, commercial.closer()) }()
 	reg := kernelmodule.NewRegistry()
 	require.NoError(t, wb.module.Register(reg))
-	require.NoError(t, commercial.module.Register(reg))
+	require.NoError(t, commercial.Register(reg))
 	require.Len(t, reg.Routes(), 5, "only current account, organization context and commercial routes")
 	server := buildHTTPServerFromRoutesAtWithAuthDependencies("127.0.0.1", c.GoPort, reg.Routes(), *wb.authDependencies)
 	server.ReadHeaderTimeout = 5 * time.Second

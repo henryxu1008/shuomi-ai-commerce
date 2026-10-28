@@ -33,7 +33,6 @@ require (
 	github.com/mxschmitt/playwright-go v0.6100.0
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/open-feature/go-sdk v1.18.0
-	github.com/openmeterio/openmeter/api/v3/client v1.0.0-beta.231
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/rabbitmq/amqp091-go v1.14.0
 	github.com/redis/go-redis/v9 v9.18.0

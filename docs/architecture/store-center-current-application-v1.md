@@ -1,3 +1,5 @@
+> SUPERSEDED / RETIRED — #988 / #301 source retirement. Current authority: [unified-base-prepaid-resources-v1](./unified-base-prepaid-resources-v1.md) and [retirement boundary](./legacy-subscription-metering-closure-retirement-boundary.md). The following text is preserved historical evidence; it does not authorize subscription, Token allocation, OpenMeter or retired review runtime. Current Resource/money/Store owners and their valid safety contracts remain. No existing tables, records or credentials are changed.
+
 # Store Center 接入 current application v1
 
 状态：`IMPLEMENTATION_READY`（2026-09-28 独立 Architecture Review，无未解决 BLOCKER）。本文是 #552 的设计依据，不是实现或运行验收；正式 Writer 授权仍须满足 Issue「权限与责任」。

@@ -1,3 +1,9 @@
+> 用户已批准的第二项准确实施例外（§5 / §6.1）：`tests/commercial_readiness_workflow_test.go` 仅从 sharedSecrets 精确 expected 集合删除五个已退休 `TASK_PROCESSOR_COMMERCIAL_DATABASE_*` 项；原 allowlist、其它 Secret/ConfigMap、隔离/canary断言与算法不变。`tests/commerce_tool_canonical_inspection_conformance_test.go` 仅显式 blank-import 已有 `modernc.org/sqlite`，使当前测试自己拥有驱动注册，原逻辑和依赖版本不变。合计153候选；第一文件此前 KEEP 的零改限制由本准确例外替代，旧订阅拒绝负例与其它检查继续保留。
+
+> 用户已批准的准确实施例外（§4.1 / §5 / §6.1）：共享 `startCommercialRecoveryLoop` 仍为当前资源购买、钱包充值、ecoservices 与退款提供取消/定时恢复。函数体从已退休订阅文件逐字移到既有 `internal/app/httpapi/financial_recovery_authorizer.go`；订阅 wrapper 退休。`commercial_read_module_test.go` 改接当前 unified read 的 nil 拒绝，并直接复用原两个共享循环取消/关闭测试。`tests/listingkit_backend_retirement_test.go` 的 `TestLegacyImageAgentHTTPRuntimeClosureIsRetired` 仅删除旧 Review 专属测试文件 KEEP 一行，其余断言保持；完整新 guard 强制旧文件缺席。三新增有界路径共151候选（不是必须制造151个diff）。共享 `CommercialPurchaseAuthorization` 按 §5.2 保留原字段供当前 financial authorizer 使用，无新协议、费用或权限。下方冻结正文保留，唯一日志抽取限制由本准确例外补充。
+
+> 当前实施：用户已确认 §1–§7（含 §4.1/§4.2/§6.1）；Independent Architecture / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。冻结设计 HEAD `620168100245ad714aa4d940d06d2eae25b39656`，设计复核与设计 CI 成功；#301 保持 OPEN。下方冻结设计正文按历史基线保留，源码最终复核及合并另授权。
+
 # 旧订阅、额度与影子计量完整退休设计
 
 这批清理三件事：**旧套餐/订阅管理与购买、旧 Token/Store 数量额度、旧 OpenMeter 影子计量。当前预付资源、AI 点数/月限、Token 审计、图像与 Store 观察同步继续使用现有 owner。** 旧包不能靠换名继续存在。

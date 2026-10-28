@@ -1,3 +1,5 @@
+> SUPERSEDED / RETIRED — #988 / #301 source retirement. Current authority: [unified-base-prepaid-resources-v1](../../architecture/unified-base-prepaid-resources-v1.md) and [retirement boundary](../../architecture/legacy-subscription-metering-closure-retirement-boundary.md). The following text is preserved historical evidence; it does not authorize subscription, Token allocation, OpenMeter or retired review runtime. Current Resource/money/Store owners and their valid safety contracts remain. No existing tables, records or credentials are changed.
+
 # OpenMeter Shadow Metering PoC Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:test-driven-development for every behavior change, superpowers:systematic-debugging for any unexpected failure, and superpowers:verification-before-completion before claiming the PoC complete.

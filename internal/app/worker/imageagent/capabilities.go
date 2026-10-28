@@ -84,8 +84,7 @@ const imageAgentOpenAIClientName = "image_gpt_image_2"
 const imageAgentReviewOpenAIClientName = "default"
 
 type routedOpenAIProductImageProvider struct {
-	manager          *openaiclient.Manager
-	reviewGovernance *OrganizationReviewOptions
+	manager *openaiclient.Manager
 }
 
 func newRoutedOpenAIProductImageProvider(manager *openaiclient.Manager) (*routedOpenAIProductImageProvider, error) {
@@ -124,9 +123,7 @@ func (p *routedOpenAIProductImageProvider) RenderScene(ctx context.Context, requ
 }
 
 func (p *routedOpenAIProductImageProvider) Review(ctx context.Context, request productimage.ReviewRequest) (productimage.Review, error) {
-	if p != nil && p.reviewGovernance != nil {
-		return p.recordedReview(ctx, request)
-	}
+
 	adapter, err := p.adapter(ctx, "review", request.Authorization)
 	if err != nil {
 		return productimage.Review{}, err
@@ -197,11 +194,7 @@ func (p *routedOpenAIProductImageProvider) adapter(ctx context.Context, operatio
 		PricingVersion:      "unpriced-v1",
 		MaximumSceneOutputs: 1, CostUpperBoundKnown: false,
 	}
-	if operation == "review" && p.reviewGovernance != nil && p.reviewGovernance.Pricing != nil {
-		config.PricingVersion = p.reviewGovernance.Pricing.Version
-		config.ReviewCostMicros = p.reviewGovernance.Pricing.MaximumCostMicros
-		config.CostUpperBoundKnown = operation == "review"
-	}
+
 	for _, option := range options {
 		option(&config)
 	}

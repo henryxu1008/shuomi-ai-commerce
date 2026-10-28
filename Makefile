@@ -12,7 +12,7 @@ LDFLAGS := -X main.appVersion=$(VERSION) -X main.buildTime=$(BUILD_TIME)
 BIN_DIR := bin
 
 # 当前维护的测试包
-FAST_TEST_PACKAGES := ./cmd/current-application ./internal/app/httpapi ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
+FAST_TEST_PACKAGES := ./cmd/current-application ./internal/app/httpapi ./internal/listingadmin ./internal/promptmgmt ./internal/integration/orgresource
 BOUNDARY_TEST_PACKAGES := ./tests/...
 ALL_TEST_PACKAGES := ./cmd/... ./internal/... ./tests/... ./tools/... ./hack/debug/...
 

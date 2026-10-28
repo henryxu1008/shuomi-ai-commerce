@@ -45,7 +45,6 @@ import (
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	"task-processor/internal/listing/record"
 	listingtask "task-processor/internal/listing/task"
-	"task-processor/internal/listingsubscription"
 	imagepolicy "task-processor/internal/marketplace/imagepolicy"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
@@ -195,11 +194,6 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 
 	// Store Center: use current Subscription, quota, audit and Store creation
 	// state machine. No final Store or entitlement row is inserted by the test.
-	subscriptionRepository := listingsubscription.NewGormRepository(db)
-	subscriptionService, err := listingsubscription.NewService(subscriptionRepository)
-	require.NoError(t, err)
-	_, err = subscriptionService.ApplyPlan(context.Background(), chain1Organization, listingsubscription.PlanApplyInput{PlanCode: listingsubscription.PlanProfessional, Status: listingsubscription.StatusActive}, chain1Actor)
-	require.NoError(t, err)
 	storeRepository, err := storecenter.NewGormStoreRepository(db)
 	require.NoError(t, err)
 	auditRepository, err := storecenter.NewGormAuditRepository(db)
@@ -504,7 +498,6 @@ func chain1InstallSchemas(t *testing.T, db *gorm.DB) {
 	require.NoError(t, InstallProductReviewSchema(db))
 	require.NoError(t, assetstore.AutoMigrate(db))
 	require.NoError(t, imagestore.AutoMigrateOrganizationScope(db))
-	require.NoError(t, listingsubscription.AutoMigrateRepository(db))
 	require.NoError(t, storecenter.AutoMigrateStoreRepository(db))
 	require.NoError(t, storecenter.AutoMigrateAuditRepository(db))
 	schema, err := os.ReadFile("../listingrecordstore/schema.sql")

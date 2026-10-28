@@ -1,3 +1,5 @@
+> SUPERSEDED / RETIRED — #988 / #301 source retirement. Current authority: [unified-base-prepaid-resources-v1](./unified-base-prepaid-resources-v1.md) and [retirement boundary](./legacy-subscription-metering-closure-retirement-boundary.md). The following text is preserved historical evidence; it does not authorize subscription, Token allocation, OpenMeter or retired review runtime. Current Resource/money/Store owners and their valid safety contracts remain. No existing tables, records or credentials are changed.
+
 # Self-Service Subscription Purchase Contract
 
 > 2026-09-29 产品决定：当前新系统改用 [统一基础方案与预付资源 V1](unified-base-prepaid-resources-v1.md)。
