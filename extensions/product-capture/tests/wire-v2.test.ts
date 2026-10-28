@@ -1,3 +1,6 @@
+import { testDrafts } from './fixtures/drafts';
+import { captureAmazonDocument } from '../src/amazon/extractor';
+import { JSDOM } from 'jsdom';
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { validateCapture } from '../src/validation';
@@ -18,9 +21,9 @@ it('admits only the exact v2 combination, preserving variant images and the v1 f
 });
 
 it('uses the platform owner validator and a fixed receiver without stripping platform facts', async () => {
- const payload = {captureVersion:2 as const,source:'amazon',evidence:{sourceURL:'https://www.amazon.com/dp/B000000001',title:'Selected',missingFacts:[],site:'us',sourceID:'B000000001'}};
+ const dom=new JSDOM(readFileSync('tests/fixtures/amazon-inline-product.html','utf8'),{url:'https://www.amazon.com/dp/B0BDLGZCTY'});const payload=await captureAmazonDocument(dom.window.document,dom.window.document.URL);dom.window.close();
  let opened = '';
- const control = new Controller('https://app.example.com/capture/1688',async()=>payload,async url=>{opened=url;return 42;},()=>'extension-id',value=>{
+ const control = new Controller(testDrafts(),async()=>({url:payload.evidence.sourceURL}),'https://app.example.com/capture/1688',async()=>payload,async url=>{opened=url;return 42;},()=>'extension-id',value=>{
    if(value!==payload) throw Error('INVALID_CAPTURE'); return payload;
  },()=> 'https://app.example.com/capture/amazon');
  await control.capture(); await control.handoff();

@@ -31,7 +31,7 @@ function render(state: State) {
   if(familyActive)status.textContent=`同族采集 ${state.family!.observed}/${state.family!.total}，请回进度页查看。`;
   capture.disabled = state.loading || state.handed || state.returnState !== 'none' || state.family?.phase==='interrupted';
   fresh.hidden = !state.captured && state.returnState === 'none' && !familyActive;
-  fresh.disabled = state.loading || state.error === 'RETURN_STATE_UNAVAILABLE' || (familyActive && state.family?.phase!=='interrupted');
+  fresh.disabled = state.loading || state.error === 'RETURN_STATE_UNAVAILABLE' || (familyActive && !['interrupted','paused'].includes(state.family!.phase));
   newConfirm.disabled = fresh.disabled;
   recovery.hidden = !canReturn;
   recovery.disabled = state.loading;
@@ -64,6 +64,26 @@ newConfirm.addEventListener('click', () => {
   element('new-confirm').hidden = true; void action('popup.new', expected);
 });
 element('refresh').addEventListener('click', () => void action('popup.status'));
+type LocalDraft={id:string;revision:number;sourceURL:string;phase:string;observed:number;total:number;createdAt:number;restorable:boolean};
+const phaseLabel:Record<string,string>={capturing:'采集中',paused:'已暂停',ready:'待交接',bound:'待确认',sending:'发送中',unknown:'结果待核实',saved_reported:'应用报告已保存',rejected:'应用报告未保存',corrupt:'资料校验失败'};
+async function draftAction(type:string,draft?:LocalDraft){
+  const message=draft?{type,id:draft.id,expectedRevision:draft.revision}:{type};
+  try{
+    const response=await chrome.runtime.sendMessage(message);
+    if(!response?.ok)throw Error(response?.code??'ACTION_UNAVAILABLE');
+    element('drafts').hidden=false;const items=element('draft-items');items.replaceChildren();
+    for(const d of response.drafts as LocalDraft[]){
+      const row=document.createElement('section'),label=document.createElement('p');
+      label.textContent=`${d.sourceURL||'无法读取的本机资料'} · ${phaseLabel[d.phase]??'待核实'}${d.total?` · ${d.observed}/${d.total} 项已保全`:''}`;row.append(label);
+      const busy=['capturing','sending'].includes(d.phase);
+      if(d.restorable){const restore=document.createElement('button');restore.textContent='恢复原操作';restore.disabled=busy;restore.onclick=()=>void draftAction('popup.restoreDraft',d);row.append(restore);}
+      const remove=document.createElement('button');remove.textContent='清理本机副本';remove.disabled=busy;
+      remove.onclick=()=>{if(window.confirm(`${['unknown','corrupt'].includes(d.phase)?'保存结果或资料完整性尚未确认，清理后可能无法恢复未保存内容。':'清理后将无法从本机恢复这份资料。'}只删除本机副本，应用数据不变。确定清理？`))void draftAction('popup.removeDraft',d);};row.append(remove);items.append(row);
+    }
+    element('draft-status').textContent=response.reloadRequired?'损坏资料已清理，请重新加载扩展；不会自动采集或保存。':response.drafts.length?'资料保留在当前浏览器配置中，清理浏览器扩展存储或卸载扩展仍会删除本机副本。':'暂无本机保全资料。';
+  }catch(e){element('draft-status').textContent=e instanceof Error&&Object.hasOwn(entryMessages,e.message)?entryMessages[e.message as EntryError]:'本机资料暂不可读，请保留现有页面。';}
+}
+element('draft-list').addEventListener('click',()=>void draftAction('popup.drafts'));
 void action('popup.status');
 
 }

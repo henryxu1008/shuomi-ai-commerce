@@ -37,7 +37,6 @@ export const browserCaptureSchema = z.discriminatedUnion("captureVersion",[z.obj
   const count = e.attributes.length + e.variants.length + e.variants.reduce((n, v) => n + v.attributes.length + ("images" in v ? v.images.length : 0), 0) + e.priceFacts.length + e.images.length + e.warnings.length + e.missingFacts.length;
   return source === `https://detail.1688.com/offer/${e.offerID}.html` && count <= 1024;
 }).refine((v) => new TextEncoder().encode(JSON.stringify(v)).byteLength <= BROWSER_CAPTURE_MAX_BYTES);
-export type BrowserCapturePayload = z.infer<typeof browserCaptureSchema>;
 export function isBrowserCapturePath(method: string, path: string[]) {
   if (path[0] !== "sourcing" || path[1] !== "1688" || path[2] !== "browser-captures") return false;
   if (method === "POST") return path.length === 3 || (path.length === 4 && path[3] === "verify");

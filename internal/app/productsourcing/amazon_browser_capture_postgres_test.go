@@ -21,8 +21,82 @@ import (
 
 type amazonTestAuthority struct{ scope collection.Scope }
 
+type amazonDraftRetryAuthority func(context.Context, bool) (collection.Scope, error)
+
+func (f amazonDraftRetryAuthority) Authorize(ctx context.Context, write bool) (collection.Scope, error) {
+	return f(ctx, write)
+}
+
 func (a amazonTestAuthority) Authorize(context.Context, bool) (collection.Scope, error) {
 	return a.scope, nil
+}
+
+// A ByKey not-found can precede a delayed original POST. A local draft retry
+// must still publish one fixed version whichever request reaches SRC first.
+func TestAmazonDraftRetryArrivalOrderAndRevocation(t *testing.T) {
+	for _, first := range []string{"original", "retry"} {
+		t.Run(first+" arrives first", func(t *testing.T) {
+			db := acquisitionDatabase(t)
+			require.NoError(t, InstallSchema(db))
+			require.NoError(t, collectionstore.InstallSchema(db))
+			scope := collection.Scope{OrganizationID: "draft-org", ActorID: "draft-actor", MemberID: "draft-member"}
+			entered, release := make(chan struct{}), make(chan struct{})
+			var once sync.Once
+			second := "retry"
+			if first == "retry" {
+				second = "original"
+			}
+			type attemptKey struct{}
+			auth := amazonDraftRetryAuthority(func(ctx context.Context, write bool) (collection.Scope, error) {
+				if write && ctx.Value(attemptKey{}) == second {
+					once.Do(func() { close(entered); <-release })
+				}
+				return scope, nil
+			})
+			service, err := NewAmazonBrowserCapture(db, auth)
+			require.NoError(t, err)
+			body, err := os.ReadFile("../../product/sourcing/testdata/amazon-capture-v2.json")
+			require.NoError(t, err)
+			key := uuid.NewString()
+			type result struct {
+				capture AmazonCaptureResult
+				err     error
+			}
+			delayed := make(chan result, 1)
+			go func() {
+				r, e := service.Capture(context.WithValue(context.Background(), attemptKey{}, second), key, body)
+				delayed <- result{r, e}
+			}()
+			select {
+			case <-entered:
+			case <-time.After(5 * time.Second):
+				t.Fatal("delayed request did not reach authority")
+			}
+			_, err = service.ByKey(context.Background(), key)
+			require.ErrorIs(t, err, sourcing.ErrSourcePublicationNotFound)
+			winner, err := service.Capture(context.WithValue(context.Background(), attemptKey{}, first), key, body)
+			close(release)
+			require.NoError(t, err)
+			late := <-delayed
+			require.NoError(t, late.err)
+			require.True(t, late.capture.Replayed)
+			require.Equal(t, winner.CaptureID, late.capture.CaptureID)
+			require.Equal(t, winner.ItemID, late.capture.ItemID)
+			require.EqualValues(t, 1, late.capture.CatalogVersion)
+			for _, table := range []string{"product_source_publications", "product_source_publication_receipts", "product_snapshot_versions", "product_collection_batches", "product_collection_items"} {
+				var count int64
+				require.NoError(t, db.Table(table).Count(&count).Error)
+				require.EqualValues(t, 1, count, table)
+			}
+			_, err = service.Capture(context.Background(), key, []byte(strings.Replace(string(body), "Cotton bag", "changed body", 1)))
+			require.ErrorIs(t, err, sourcing.ErrSourcePublicationConflict)
+			denied, _ := NewAmazonBrowserCapture(db, amazonDraftRetryAuthority(func(context.Context, bool) (collection.Scope, error) {
+				return collection.Scope{}, sourcing.ErrPublicationForbidden
+			}))
+			_, err = denied.Capture(context.Background(), key, body)
+			require.ErrorIs(t, err, sourcing.ErrPublicationForbidden)
+		})
+	}
 }
 
 func TestAmazonCaptureRollbackPartialStateAndUnknown(t *testing.T) {

@@ -2,7 +2,37 @@
 
 A Manifest V3 extension for explicit 1688 or Amazon product capture, with an optional
 Amazon same-family variant scope. Chrome and Edge use the same build. This directory owns capture
-and ephemeral transport; it cannot publish a Product or authorize an import.
+and local unpublished drafts plus ephemeral transport; it cannot publish a Product or authorize an import.
+
+## Durable drafts (execution #989)
+
+Current recovery authority: [durable draft design](../../docs/architecture/plugin-capture-durable-drafts-v1.md).
+The service worker uses `idb` / IndexedDB as the single durable owner. A single
+capture is committed before handoff; every Amazon family observation is committed
+before the progress count advances. The popup lists retained local drafts and
+offers explicit restore or confirmed local-only cleanup. Stop, new operation,
+worker reconstruction and page closure do not delete committed facts. Recovery
+starts paused and never resumes source reads or business saves automatically.
+
+The app reads metadata after its trusted account/organization/member context is
+ready, then reads the draft, verifies its frozen body and original key, and asks
+for save confirmation. An unknown save stays available for original-key checking.
+Amazon permits a manual identical-key/body retry only after an explicit original
+lookup reports absence; the existing backend transaction remains the authority.
+Known 1688 pre-admission rejection can be retried explicitly without changing
+the original operation. Saved reports retain the local copy until explicit cleanup.
+
+The candidate adds `unlimitedStorage` but retains an 8 MiB logical draft budget
+and all existing capture limits. Quota failure retains the last committed data;
+corrupt drafts stay stored and are isolated from healthy recovery. Clearing the
+extension's browser data, removing it or disk failure can still lose local drafts.
+No historical in-memory capture is migrated or claimed recovered. Development
+tests and fixture-browser checks are not acceptance on the user's retained Edge.
+Installing/updating/reloading a candidate still requires separate authorization.
+
+The following older entry notes remain useful for supported sites and explicit
+user actions. Their memory-only loss, no-replacement-tab and no-retry descriptions
+are superseded by #989's design and current recovery implementation.
 
 ## Direct entry and return to the original application
 
