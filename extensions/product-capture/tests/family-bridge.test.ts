@@ -13,7 +13,7 @@ const storage=returnStorage();
 let contexts:chrome.runtime.ExtensionContext[]=[];
 let tabs:Record<number,Partial<chrome.tabs.Tab>>;
 const api={storage:{session:storage.session},runtime:{id,getURL:(p:string)=>`chrome-extension://${id}/${p}`,getContexts:vi.fn(async()=>contexts),sendMessage:vi.fn(async()=>({phase:'collecting',observed:1,total:171,reason:''}))},
- tabs:{create:vi.fn(async(o:{url:string})=>{tabs[41]={id:41,url:o.url,windowId:1};return tabs[41];}),get:vi.fn(async(n:number)=>{if(!tabs[n])throw Error('gone');return tabs[n];}),update:vi.fn(async(n:number)=>tabs[n]),remove:vi.fn(async(n:number)=>{delete tabs[n];})},windows:{update:vi.fn(async()=>({}))}};
+ tabs:{create:vi.fn(async(o:{url:string})=>{tabs[41]={id:41,url:o.url,windowId:1};return tabs[41];}),get:vi.fn(async(n:number)=>{if(!tabs[n])throw Error('gone');return tabs[n];}),update:vi.fn(async(n:number)=>tabs[n]),reload:vi.fn<(n:number)=>Promise<void>>(async()=>{}),remove:vi.fn(async(n:number)=>{delete tabs[n];})},windows:{update:vi.fn(async()=>({}))}};
 let app:ReturnSession,controller:Controller,bridge:FamilyBridge,drafts:ReturnType<typeof testDrafts>;
 const sender=()=>({id,url:familyURL(revision),documentId} as chrome.runtime.MessageSender);
 const context=()=>({contextType:'TAB',documentId,documentUrl:familyURL(revision),tabId:41,frameId:0,windowId:1} as chrome.runtime.ExtensionContext);
@@ -47,6 +47,18 @@ it('fences the old document and restores the same draft paused after a progress 
  const restored=await bridge.handle({type:'family.init',revision},{...sender(),documentId:contexts[0].documentId});expect(restored).toMatchObject({draft:{phase:'paused'}});
  await expect(bridge.handle({type:'family.init',revision},sender())).rejects.toThrow();
  await bridge.abandonInterrupted();expect(bridge.active).toBe(false);
+});
+it('reinitializes a browser-restored progress document only after explicit restore when its session locator is gone',async()=>{
+ await open();const current=(await drafts.get(revision))!;await drafts.pause(current.id,current.revision,current.generation);
+ storage.reset();const restored=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await restored.ready;
+ // The browser can restore this document before the user restores its locator.
+ await expect(restored.handle({type:'family.init',revision},sender())).rejects.toThrow();
+ expect(api.tabs.reload).not.toHaveBeenCalled();
+ await restored.focus();
+ expect(api.tabs.reload).toHaveBeenCalledWith(41);expect(api.tabs.create).toHaveBeenCalledOnce();
+ contexts=[{...context(),documentId:crypto.randomUUID()}];
+ const result=await restored.handle({type:'family.init',revision},{...sender(),documentId:contexts[0].documentId});
+ expect(result).toMatchObject({draft:{phase:'paused'}});expect(restored.location.current?.phase).toBe('bound');
 });
 it('one finalization preserves original return, and a rebuilt worker only navigates to that app',async()=>{
  await open();const anchor=await capture();anchor.evidence.observation={scope:'selected_product',parentASIN:null};const manifest={sourceURL:source.url,parentASIN:'B0D76YXPWZ',members:[{sourceID:anchor.evidence.sourceID,attributes:anchor.evidence.variants[0].attributes}]};let d=(await drafts.get(revision))!;d=await drafts.seed(d.id,d.revision,d.generation,{anchor,manifest});await bridge.handle({type:'family.finish',revision,expectedRevision:d.revision,generation:d.generation},sender());expect(app.tabID()).toBe(42);expect(bridge.active).toBe(false);

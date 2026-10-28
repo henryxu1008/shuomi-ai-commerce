@@ -194,3 +194,5 @@ Legacy decision：EXTRACT + RETIRE。复用当前合法解析、严格 sender �
 现有浏览器 fixture 使用独立 Chrome 任务 profile、动态端点、合成页面和无业务后端 receiver。任务代理阻止外网；Chrome 扩展创建的首个读取页可能先于 Playwright 接管，夹具只允许该新建错误页显式进入拦截 fixture，再测暂停/重建/继续，直接首读在这种运行中标为 NOT_RUN_HARNESS_ATTACH_LIMITATION，不能写成真实首读 PASS。后台重建后，若浏览器未提供足够 URL 归属证据，新建接收页并保留旧页符合第7节；这种结果只证明安全回退，不证明原标签复用。
 
 真实 Amazon/1688、保留 Edge、正常浏览器整进程重启、现有插件更新、用户试用及旧171项恢复均 NOT_RUN。开发测试与 CI 只支撑提交评审，不能签发可上线或已验收结论。交付仍不合并、不更新实例/插件、不重采、不部署；最终准确 HEAD、检查结果和运行入口在主要 PR 中维护。
+
+恢复入口增量：浏览器可能先恢复旧进度 document，而 session locator 已消失，导致其首次初始化失败。用户明确恢复时，仅在唯一原生扩展上下文和精确 URL 证明归属、locator 为尚未绑定的 pending 时重载该进度页，随后从 durable paused 状态初始化；已绑定进度页只激活，不自动重载，不读源页或保存。回归已 RED→GREEN，相关59项测试及浏览器 transport fixture通过；独立增量复核归 IMPLEMENTATION_TEST，既有恢复协议内的接线缺陷闭合，无新 BLOCKER，不代替真实整浏览器重启验收。

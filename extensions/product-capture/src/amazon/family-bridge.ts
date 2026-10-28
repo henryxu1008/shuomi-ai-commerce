@@ -96,6 +96,12 @@ export class FamilyBridge {
     if(context && id!==undefined){
       const tab=await chrome.tabs.get(id);
       if(tab.url!==familyURL(r.revision) && tab.pendingUrl!==familyURL(r.revision))throw Error('FAMILY_INTERRUPTED');
+      if(r.phase==='pending' && r.tabId===undefined){
+        // A browser-restored document may have initialized before its session
+        // locator existed. Explicit restore reinitializes that proven native
+        // extension document; the durable draft remains paused.
+        await this.location.noteTab(id);await chrome.tabs.reload(id);
+      }
       await chrome.tabs.update(id,{active:true});if(tab.windowId!==undefined)await chrome.windows.update(tab.windowId,{focused:true});return;
     }
     // Browser-restored old IDs are not authority. An explicit restore creates a
