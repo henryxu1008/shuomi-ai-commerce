@@ -2119,7 +2119,7 @@ func TestProductCatalogPersistenceGuardRejectsEverySiblingProductDomainFixture(t
 	violations := findNonCatalogProductDomainImports(t, fixtureRoot)
 	want := []string{
 		"task-processor/internal/product/asset",
-		"task-processor/internal/product/asset/recipe",
+		"task-processor/internal/product/asset/future",
 		"task-processor/internal/product/image",
 		"task-processor/internal/product/image/presets",
 		"task-processor/internal/product/review/proposal",

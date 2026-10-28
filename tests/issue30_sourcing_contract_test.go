@@ -59,21 +59,21 @@ func issue30OpenDB(t *testing.T, path string) *gorm.DB {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	return db
 }
-func issue30Publisher(t *testing.T, db *gorm.DB) (*sourcing.Publisher, catalog.Repository) {
+func issue30Publisher(t *testing.T, db *gorm.DB) (*catalog.Publisher, catalog.Repository) {
 	t.Helper()
 	repo, err := catalogdb.NewRepository(db)
 	require.NoError(t, err)
 	catalogPublisher, err := catalog.NewPublisher(repo)
 	require.NoError(t, err)
-	publisher, err := sourcing.NewPublisher(catalogPublisher)
-	require.NoError(t, err)
-	return publisher, repo
+	return catalogPublisher, repo
 }
-func issue30Request(t *testing.T, envelope sourcing.SourceEnvelope) sourcing.PublishRequest {
+func issue30Request(t *testing.T, envelope sourcing.SourceEnvelope) catalog.PublishRequest {
 	t.Helper()
 	key, id, err := sourcing.PublicationIdentity(envelope)
 	require.NoError(t, err)
-	return sourcing.PublishRequest{TenantID: "org-a", ProductKey: key, PublicationID: id, Envelope: envelope}
+	snapshot, err := sourcing.ToSnapshot(envelope)
+	require.NoError(t, err)
+	return catalog.PublishRequest{Identity: catalog.SnapshotIdentity{TenantID: "org-a", ProductKey: key}, PublicationID: id, Snapshot: snapshot}
 }
 
 func TestIssue30CatalogReplayConflictAndDurableLineage(t *testing.T) {
@@ -133,10 +133,10 @@ func TestIssue30CatalogReplayConflictAndDurableLineage(t *testing.T) {
 	_, err = publisher.Publish(ctx, issue30Request(t, changed))
 	require.ErrorIs(t, err, catalog.ErrPublicationConflict)
 	// Organization identity scopes both replay and current reads.
-	_, err = repo.GetCurrentSnapshot(ctx, catalog.SnapshotIdentity{TenantID: "org-b", ProductKey: request.ProductKey})
+	_, err = repo.GetCurrentSnapshot(ctx, catalog.SnapshotIdentity{TenantID: "org-b", ProductKey: request.Identity.ProductKey})
 	require.ErrorIs(t, err, catalog.ErrSnapshotNotReady)
 	other := request
-	other.TenantID = "org-b"
+	other.Identity.TenantID = "org-b"
 	otherResult, err := publisher.Publish(ctx, other)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), otherResult.Version)
@@ -178,7 +178,7 @@ func TestIssue30ContentPublicationPreservesProductAcrossSourceVersions(t *testin
 	envelope.Identity.SourceVersion = "v2"
 	envelope.RawReference.ReferenceID = "evidence-v2"
 	secondRequest := issue30Request(t, envelope)
-	require.Equal(t, firstRequest.ProductKey, secondRequest.ProductKey)
+	require.Equal(t, firstRequest.Identity.ProductKey, secondRequest.Identity.ProductKey)
 	require.NotEqual(t, firstRequest.PublicationID, secondRequest.PublicationID)
 	second, err := publisher.Publish(context.Background(), secondRequest)
 	require.NoError(t, err)

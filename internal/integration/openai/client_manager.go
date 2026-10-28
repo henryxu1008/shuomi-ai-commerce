@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"task-processor/internal/ai"
 )
 
 // Manager OpenAI客户端管理器
@@ -36,10 +38,6 @@ type EffectiveClientRoute struct {
 	ModelID              string
 	CredentialReference  string
 	ConfigurationVersion string
-}
-
-type EffectiveClientRouteResolver interface {
-	ResolveEffectiveClientRoute(ctx context.Context, clientName string) (EffectiveClientRoute, error)
 }
 
 var (
@@ -93,11 +91,11 @@ func NewManager(config *ManagerConfig) (*Manager, error) {
 // configuration selected by the caller. Resolution and version validation
 // happen before the provider client is returned, so later rotation cannot run
 // under stale route metadata.
-func (m *Manager) GetClientWithRoute(ctx context.Context, name string, selection ImageRouteSelection) (ChatCompleter, error) {
+func (m *Manager) GetClientWithRoute(ctx context.Context, name string, selection ai.ImageRouteSelection) (ai.ChatCompleter, error) {
 	return m.resolveClientWithSelection(ctx, name, &selection)
 }
 
-func (m *Manager) GetImageClient(name string) (ImageGenerator, error) {
+func (m *Manager) GetImageClient(name string) (ai.ImageGenerator, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if _, exists := m.clients[name]; !exists && m.configResolver == nil {
@@ -117,7 +115,7 @@ func (m *Manager) resolveClient(ctx context.Context, name string) (*Client, erro
 	return m.resolveClientWithSelection(ctx, name, nil)
 }
 
-func (m *Manager) resolveClientWithSelection(ctx context.Context, name string, selection *ImageRouteSelection) (*Client, error) {
+func (m *Manager) resolveClientWithSelection(ctx context.Context, name string, selection *ai.ImageRouteSelection) (*Client, error) {
 	if selection != nil {
 		if reference := normalizeClientName(selection.CredentialReference); reference != normalizeClientName(name) {
 			return nil, fmt.Errorf("%w: route credential reference %q does not match client %q", ErrClientConfigurationChanged, selection.CredentialReference, name)
@@ -130,8 +128,7 @@ func (m *Manager) resolveClientWithSelection(ctx context.Context, name string, s
 	selectedVersion := strings.TrimSpace(selectionVersion(selection))
 	if selection != nil {
 		matchesEffectiveVersion := selectedVersion != "" && selectedVersion == resolved.route.ConfigurationVersion
-		matchesLegacyResolverVersion := resolved.resolverVersion != "" && selectedVersion == resolved.resolverVersion
-		if !matchesEffectiveVersion && !matchesLegacyResolverVersion {
+		if !matchesEffectiveVersion {
 			return nil, fmt.Errorf("%w: selected version does not match current effective version", ErrClientConfigurationChanged)
 		}
 	}
@@ -159,10 +156,6 @@ type effectiveClientConfiguration struct {
 	config       *ClientConfig
 	staticClient *Client
 	route        EffectiveClientRoute
-	// resolverVersion is retained only as a compatibility binding for existing
-	// provider consumers that still receive the resolver's non-secret version.
-	// New manager-authority callers use route.ConfigurationVersion.
-	resolverVersion string
 }
 
 // ResolveEffectiveClientRoute is the single manager-owned authority for route
@@ -221,16 +214,13 @@ func (m *Manager) resolveEffectiveClientConfiguration(ctx context.Context, name 
 		ConfigurationVersion: effectiveConfigurationVersion(name, credentialVersion, effectiveConfig),
 	}
 	result := effectiveClientConfiguration{config: effectiveConfig, route: route}
-	if !usesStatic {
-		result.resolverVersion = strings.TrimPrefix(credentialVersion, "resolved:")
-	}
 	if usesStatic {
 		result.staticClient = staticClient
 	}
 	return result, nil
 }
 
-func selectionVersion(selection *ImageRouteSelection) string {
+func selectionVersion(selection *ai.ImageRouteSelection) string {
 	if selection == nil {
 		return ""
 	}

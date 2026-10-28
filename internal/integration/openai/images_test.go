@@ -13,11 +13,13 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"task-processor/internal/ai"
 )
 
 func TestImageResponseDecodesExplicitTokenUsage(t *testing.T) {
-	var chat ChatCompletionResponse
-	if err := json.Unmarshal([]byte(`{"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`), &chat); err != nil || chat.Usage != (Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3}) {
+	var chat ai.ChatCompletionResponse
+	if err := json.Unmarshal([]byte(`{"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`), &chat); err != nil || chat.Usage != (ai.Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3}) {
 		t.Fatalf("chat usage schema changed: %+v, %v", chat.Usage, err)
 	}
 	for _, test := range []struct {
@@ -51,13 +53,13 @@ func TestImageResponseDecodesExplicitTokenUsage(t *testing.T) {
 				}))
 				defer server.Close()
 				client := NewClient(&ClientConfig{BaseURL: server.URL, Model: "gpt-image-2.5", Timeout: time.Second, MaxRetries: 0})
-				var response *ImageResponse
+				var response *ai.ImageResponse
 				var err error
 				if edit {
 					zero := 0
-					response, err = client.EditImage(context.Background(), &ImageEditRequest{Prompt: "white background", Image: []byte("source"), MaxRetries: &zero})
+					response, err = client.EditImage(context.Background(), &ai.ImageEditRequest{Prompt: "white background", Image: []byte("source"), MaxRetries: &zero})
 				} else {
-					response, err = client.GenerateImage(context.Background(), &ImageGenerateRequest{Prompt: "white background"})
+					response, err = client.GenerateImage(context.Background(), &ai.ImageGenerateRequest{Prompt: "white background"})
 				}
 				if err != nil || response == nil {
 					t.Fatalf("image response lost: %v", err)
@@ -70,10 +72,10 @@ func TestImageResponseDecodesExplicitTokenUsage(t *testing.T) {
 					if test.name == "zero_input" {
 						wantInput = 0
 					}
-					if response.Usage != (Usage{PromptTokens: wantInput, CompletionTokens: 3569 - wantInput, TotalTokens: 3569}) {
+					if response.Usage != (ai.Usage{PromptTokens: wantInput, CompletionTokens: 3569 - wantInput, TotalTokens: 3569}) {
 						t.Errorf("image counters not mapped: %+v", response.Usage)
 					}
-				} else if response.Usage != (Usage{}) {
+				} else if response.Usage != (ai.Usage{}) {
 					t.Errorf("untrusted counters exposed as normalized usage: %+v", response.Usage)
 				}
 				if calls != 1 || len(response.Data) != 1 {
@@ -89,7 +91,7 @@ func TestClientGenerateImageUsesOpenAICompatibleEndpoint(t *testing.T) {
 		if r.URL.Path != "/images/generations" {
 			t.Fatalf("path = %q", r.URL.Path)
 		}
-		var req ImageGenerateRequest
+		var req ai.ImageGenerateRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -99,7 +101,7 @@ func TestClientGenerateImageUsesOpenAICompatibleEndpoint(t *testing.T) {
 		w.Header().Set("X-Request-Id", "req-openai-1")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"usage": map[string]int{"input_tokens": 1, "output_tokens": 320, "total_tokens": 321},
-			"data":  []ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("pngdata"))}},
+			"data":  []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("pngdata"))}},
 		})
 	}))
 	defer server.Close()
@@ -112,7 +114,7 @@ func TestClientGenerateImageUsesOpenAICompatibleEndpoint(t *testing.T) {
 		MaxRetries:               0,
 		ImageReferenceHTTPClient: server.Client(),
 	})
-	resp, err := client.GenerateImage(context.Background(), &ImageGenerateRequest{
+	resp, err := client.GenerateImage(context.Background(), &ai.ImageGenerateRequest{
 		Prompt: "generate scene",
 	})
 	if err != nil {
@@ -146,7 +148,7 @@ func TestClientCapsAggregateReferenceMaterialization(t *testing.T) {
 			case <-r.Context().Done():
 			}
 		case "/images/edits":
-			_ = json.NewEncoder(w).Encode(ImageResponse{Data: []ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}}})
+			_ = json.NewEncoder(w).Encode(ai.ImageResponse{Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}}})
 		default:
 			t.Fatalf("unexpected path = %q", r.URL.Path)
 		}
@@ -167,7 +169,7 @@ func TestClientCapsAggregateReferenceMaterialization(t *testing.T) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			_, err := client.EditImage(ctx, &ImageEditRequest{
+			_, err := client.EditImage(ctx, &ai.ImageEditRequest{
 				Image: []byte("primary-image"), ImageContentType: "image/png",
 				ImageURLs: []string{server.URL + "/reference.png"},
 			})
@@ -230,8 +232,8 @@ func TestClientEditImageUsesOpenAICompatibleEndpoint(t *testing.T) {
 		if !sawPrompt || !sawImage {
 			t.Fatalf("multipart request missing expected fields")
 		}
-		_ = json.NewEncoder(w).Encode(ImageResponse{
-			Data: []ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}},
+		_ = json.NewEncoder(w).Encode(ai.ImageResponse{
+			Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}},
 		})
 	}))
 	defer server.Close()
@@ -244,7 +246,7 @@ func TestClientEditImageUsesOpenAICompatibleEndpoint(t *testing.T) {
 		MaxRetries:               0,
 		ImageReferenceHTTPClient: server.Client(),
 	})
-	resp, err := client.EditImage(context.Background(), &ImageEditRequest{
+	resp, err := client.EditImage(context.Background(), &ai.ImageEditRequest{
 		Prompt:           "edit faithfully",
 		Image:            []byte("source"),
 		ImageContentType: "image/webp",
@@ -289,7 +291,7 @@ func TestClientEditImageIncludesSecondaryURLsAsMultipartImages(t *testing.T) {
 			if imageParts != 2 {
 				t.Fatalf("image parts = %d, want primary and secondary", imageParts)
 			}
-			_ = json.NewEncoder(w).Encode(ImageResponse{Data: []ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}}})
+			_ = json.NewEncoder(w).Encode(ai.ImageResponse{Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}}})
 		default:
 			t.Fatalf("unexpected path = %q", r.URL.Path)
 		}
@@ -304,7 +306,7 @@ func TestClientEditImageIncludesSecondaryURLsAsMultipartImages(t *testing.T) {
 		MaxRetries:               0,
 		ImageReferenceHTTPClient: server.Client(),
 	})
-	if _, err := client.EditImage(context.Background(), &ImageEditRequest{
+	if _, err := client.EditImage(context.Background(), &ai.ImageEditRequest{
 		Image:            []byte("primary-image"),
 		ImageContentType: "image/png",
 		ImageURLs:        []string{server.URL + "/secondary.png"},
@@ -351,7 +353,7 @@ func TestClientEditImageMaterializesPrimaryURLWhenBytesAreAbsent(t *testing.T) {
 			if len(images) != 2 || string(images[0]) != "primary-image" || string(images[1]) != "secondary-image" {
 				t.Fatalf("multipart images = %q, want [primary-image secondary-image]", images)
 			}
-			_ = json.NewEncoder(w).Encode(ImageResponse{Data: []ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}}})
+			_ = json.NewEncoder(w).Encode(ai.ImageResponse{Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString([]byte("edited"))}}})
 		default:
 			t.Fatalf("unexpected path = %q", r.URL.Path)
 		}
@@ -367,7 +369,7 @@ func TestClientEditImageMaterializesPrimaryURLWhenBytesAreAbsent(t *testing.T) {
 		ImageReferenceHTTPClient: server.Client(),
 	})
 	primaryURL := server.URL + "/primary.png"
-	if _, err := client.EditImage(context.Background(), &ImageEditRequest{
+	if _, err := client.EditImage(context.Background(), &ai.ImageEditRequest{
 		ImageURL:  primaryURL,
 		ImageURLs: []string{primaryURL, server.URL + "/secondary.png"},
 	}); err != nil {
@@ -402,7 +404,7 @@ func TestClientEditImageBoundsSecondaryReferenceDownloadByClientTimeout(t *testi
 		ImageReferenceHTTPClient: server.Client(),
 	})
 	startedAt := time.Now()
-	_, err := client.EditImage(context.Background(), &ImageEditRequest{
+	_, err := client.EditImage(context.Background(), &ai.ImageEditRequest{
 		Image:     []byte("primary-image"),
 		ImageURLs: []string{server.URL + "/secondary.png"},
 	})
@@ -434,7 +436,7 @@ func TestClientEditImageRejectsOversizedSecondaryReference(t *testing.T) {
 			}, nil
 		})},
 	})
-	_, err := client.EditImage(context.Background(), &ImageEditRequest{
+	_, err := client.EditImage(context.Background(), &ai.ImageEditRequest{
 		Image:     []byte("primary-image"),
 		ImageURLs: []string{"https://example.test/secondary.png"},
 	})
@@ -476,7 +478,7 @@ func TestClientEditImageRejectsUnsafeSecondaryURL(t *testing.T) {
 		Timeout:    time.Second,
 		MaxRetries: 0,
 	})
-	_, err := client.EditImage(context.Background(), &ImageEditRequest{
+	_, err := client.EditImage(context.Background(), &ai.ImageEditRequest{
 		Image:     []byte("primary-image"),
 		ImageURLs: []string{"http://127.0.0.1/internal.png"},
 	})
@@ -505,10 +507,10 @@ func TestClientDoesNotSupportAsyncImageGenerationByDefault(t *testing.T) {
 		t.Fatal("SupportsAsyncImageGeneration() = true, want false")
 	}
 
-	_, err := client.SubmitImageGeneration(context.Background(), &ImageGenerateRequest{
+	_, err := client.SubmitImageGeneration(context.Background(), &ai.ImageGenerateRequest{
 		Prompt: "flat artwork",
 	})
-	if !errors.Is(err, ErrAsyncImageGenerationNotSupported) {
+	if !errors.Is(err, ai.ErrAsyncImageGenerationNotSupported) {
 		t.Fatalf("SubmitImageGeneration() error = %v, want ErrAsyncImageGenerationNotSupported", err)
 	}
 }

@@ -12,6 +12,8 @@ import (
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
+
+	"task-processor/internal/ai"
 )
 
 // RequestPool OpenAI请求池，负责并发控制、速率限制和负载均衡
@@ -96,7 +98,7 @@ func newBaseClient(config *ClientConfig, referenceMaterialization *referenceMate
 }
 
 // CreateChatCompletion 通过请求池创建聊天完成
-func (p *RequestPool) CreateChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
+func (p *RequestPool) CreateChatCompletion(ctx context.Context, req *ai.ChatCompletionRequest) (*ai.ChatCompletionResponse, error) {
 	// 1. 等待速率限制
 	if err := p.waitForRateLimit(ctx); err != nil {
 		return nil, fmt.Errorf("速率限制等待失败: %w", err)
@@ -125,7 +127,7 @@ func (p *RequestPool) CreateChatCompletion(ctx context.Context, req *ChatComplet
 }
 
 // createChatCompletion 基础客户端的聊天完成实现
-func (bc *BaseClient) createChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
+func (bc *BaseClient) createChatCompletion(ctx context.Context, req *ai.ChatCompletionRequest) (*ai.ChatCompletionResponse, error) {
 	var lastErr error
 	maxRetries := bc.config.MaxRetries
 	if req != nil && req.MaxRetries != nil {
@@ -225,7 +227,7 @@ func (p *RequestPool) getNextClient() *BaseClient {
 }
 
 // logMetrics 记录请求指标，包含耗时和 token 用量
-func (p *RequestPool) logMetrics(duration time.Duration, resp *ChatCompletionResponse, err error) {
+func (p *RequestPool) logMetrics(duration time.Duration, resp *ai.ChatCompletionResponse, err error) {
 	if err != nil {
 		p.logger.Warn("OpenAI API请求失败", map[string]any{
 			"duration_ms": duration.Milliseconds(),
@@ -272,7 +274,7 @@ func (p *RequestPool) Close() error {
 }
 
 // convertMessages 转换消息格式，支持纯文本和多模态（vision）消息
-func convertMessages(messages []ChatCompletionMessage) []openai.ChatCompletionMessage {
+func convertMessages(messages []ai.ChatCompletionMessage) []openai.ChatCompletionMessage {
 	result := make([]openai.ChatCompletionMessage, len(messages))
 	for i, msg := range messages {
 		if len(msg.MultiContent) > 0 {
@@ -318,12 +320,12 @@ func convertMessages(messages []ChatCompletionMessage) []openai.ChatCompletionMe
 }
 
 // convertResponse 转换响应格式
-func convertResponse(resp *openai.ChatCompletionResponse) *ChatCompletionResponse {
-	choices := make([]ChatCompletionChoice, len(resp.Choices))
+func convertResponse(resp *openai.ChatCompletionResponse) *ai.ChatCompletionResponse {
+	choices := make([]ai.ChatCompletionChoice, len(resp.Choices))
 	for i, choice := range resp.Choices {
-		choices[i] = ChatCompletionChoice{
+		choices[i] = ai.ChatCompletionChoice{
 			Index: choice.Index,
-			Message: ChatCompletionMessage{
+			Message: ai.ChatCompletionMessage{
 				Role:    choice.Message.Role,
 				Content: choice.Message.Content,
 			},
@@ -331,13 +333,13 @@ func convertResponse(resp *openai.ChatCompletionResponse) *ChatCompletionRespons
 		}
 	}
 
-	return &ChatCompletionResponse{
+	return &ai.ChatCompletionResponse{
 		ID:      resp.ID,
 		Object:  resp.Object,
 		Created: resp.Created,
 		Model:   resp.Model,
 		Choices: choices,
-		Usage: Usage{
+		Usage: ai.Usage{
 			PromptTokens:     resp.Usage.PromptTokens,
 			CompletionTokens: resp.Usage.CompletionTokens,
 			TotalTokens:      resp.Usage.TotalTokens,
@@ -383,7 +385,7 @@ func shouldRetryWithContext(parentCtx context.Context, err error) bool {
 	return true
 }
 
-func buildOpenAIChatCompletionRequest(req *ChatCompletionRequest) openai.ChatCompletionRequest {
+func buildOpenAIChatCompletionRequest(req *ai.ChatCompletionRequest) openai.ChatCompletionRequest {
 	openaiReq := openai.ChatCompletionRequest{
 		Model:    req.Model,
 		Messages: convertMessages(req.Messages),

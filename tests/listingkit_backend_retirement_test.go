@@ -6594,3 +6594,136 @@ func TestLegacySourceNormalizationFactsClosureIsRetired(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyAssetSourceOpenAITailClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/product/asset/recipe", "internal/product/sourcing/publish.go"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired asset/source tail must be absent: %s: %v", path, err)
+		}
+	}
+	banned := map[string][]string{
+		"internal/product/sourcing":   {"PublishRequest", "Publisher", "NewPublisher", "Publisher.Publish"},
+		"internal/integration/openai": {"ChatCompletionMessage", "ChatCompletionContentPart", "ChatCompletionContentPartImage", "ChatCompletionRequest", "ChatCompletionChoice", "Usage", "ChatCompletionResponse", "ChatCompleter", "TextChatCompleter", "ImageGenerateRequest", "ImageEditRequest", "ImageData", "ImageResponse", "ImageAsyncSubmitResponse", "ImageAsyncQueryResponse", "ImageGenerator", "ImageRouteSelection", "ErrAsyncImageGenerationNotSupported", "EffectiveClientRouteResolver"},
+	}
+	shapes := map[string]string{
+		"internal/ai/contracts.go:ChatCompleter":                                      "ChatCompleter interface {\n\tTextChatCompleter\n\tAnalyzeImage(ctx context.Context, imageURL string, prompt string) (string, error)\n}",
+		"internal/ai/contracts.go:ChatCompletionChoice":                               "ChatCompletionChoice struct {\n\tMessage      ChatCompletionMessage `json:\"message\"`\n\tFinishReason string                `json:\"finish_reason\"`\n\tIndex        int                   `json:\"index\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionContentPart":                          "ChatCompletionContentPart struct {\n\tType     string                          `json:\"type\"`\n\tText     string                          `json:\"text,omitempty\"`\n\tImageURL *ChatCompletionContentPartImage `json:\"image_url,omitempty\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionContentPartImage":                     "ChatCompletionContentPartImage struct {\n\tURL    string `json:\"url\"`\n\tDetail string `json:\"detail,omitempty\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionMessage":                              "ChatCompletionMessage struct {\n\tRole         string                      `json:\"role\"`\n\tContent      string                      `json:\"content\"`\n\tMultiContent []ChatCompletionContentPart `json:\"multi_content,omitempty\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionRequest":                              "ChatCompletionRequest struct {\n\tTemperature    *float32                `json:\"temperature,omitempty\"`\n\tSeed           *int                    `json:\"seed,omitempty\"`\n\tMaxTokens      *int                    `json:\"max_tokens,omitempty\"`\n\tResponseFormat string                  `json:\"response_format,omitempty\"`\n\tModel          string                  `json:\"model\"`\n\tMessages       []ChatCompletionMessage `json:\"messages\"`\n\tTimeout        *time.Duration          `json:\"-\"`\n\tMaxRetries     *int                    `json:\"-\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionResponse":                             "ChatCompletionResponse struct {\n\tID      string                 `json:\"id\"`\n\tObject  string                 `json:\"object\"`\n\tModel   string                 `json:\"model\"`\n\tChoices []ChatCompletionChoice `json:\"choices\"`\n\tCreated int64                  `json:\"created\"`\n\tUsage   Usage                  `json:\"usage\"`\n}",
+		"internal/ai/contracts.go:ErrAsyncImageGenerationNotSupported":                "ErrAsyncImageGenerationNotSupported = errors.New(\"async image generation is not supported\")",
+		"internal/ai/contracts.go:ImageAsyncQueryResponse":                            "ImageAsyncQueryResponse struct {\n\tJobID             string      `json:\"job_id,omitempty\"`\n\tRequestID         string      `json:\"request_id,omitempty\"`\n\tProvider          string      `json:\"provider,omitempty\"`\n\tStatus            string      `json:\"status,omitempty\"`\n\tRawResultResponse string      `json:\"raw_result_response,omitempty\"`\n\tError             string      `json:\"error,omitempty\"`\n\tUsage             Usage       `json:\"usage\"`\n\tData              []ImageData `json:\"data,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageAsyncSubmitResponse":                           "ImageAsyncSubmitResponse struct {\n\tJobID             string         `json:\"job_id,omitempty\"`\n\tRequestID         string         `json:\"request_id,omitempty\"`\n\tProvider          string         `json:\"provider,omitempty\"`\n\tStatus            string         `json:\"status,omitempty\"`\n\tRawSubmitResponse string         `json:\"raw_submit_response,omitempty\"`\n\tAcceptedAt        time.Time      `json:\"accepted_at,omitempty\"`\n\tResponse          *ImageResponse `json:\"response,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageData":                                          "ImageData struct {\n\tB64JSON       string `json:\"b64_json,omitempty\"`\n\tURL           string `json:\"url,omitempty\"`\n\tRevisedPrompt string `json:\"revised_prompt,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageEditRequest":                                   "ImageEditRequest struct {\n\tMaxRetries       *int `json:\"-\"`\n\tModel            string\n\tPrompt           string\n\tImage            []byte\n\tImageContentType string\n\n\tReferenceImages []ImageInlineReference `json:\"-\"`\n\tImageURL        string\n\tImageURLs       []string\n\tMask            []byte\n\tSize            string\n\tQuality         string\n\tResponseFormat  string\n\tN               int\n}",
+		"internal/ai/contracts.go:ImageGenerateRequest":                               "ImageGenerateRequest struct {\n\tModel          string `json:\"model,omitempty\"`\n\tPrompt         string `json:\"prompt\"`\n\tSize           string `json:\"size,omitempty\"`\n\tQuality        string `json:\"quality,omitempty\"`\n\tResponseFormat string `json:\"response_format,omitempty\"`\n\tN              int    `json:\"n,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageGenerator":                                     "ImageGenerator interface {\n\tGenerateImage(ctx context.Context, req *ImageGenerateRequest) (*ImageResponse, error)\n\tEditImage(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error)\n\tGetDefaultModel() string\n\tSupportsAsyncImageGeneration() bool\n\tSubmitImageGeneration(ctx context.Context, req *ImageGenerateRequest) (*ImageAsyncSubmitResponse, error)\n\tSubmitImageEdit(ctx context.Context, req *ImageEditRequest) (*ImageAsyncSubmitResponse, error)\n\tQueryImageGeneration(ctx context.Context, jobID string) (*ImageAsyncQueryResponse, error)\n}",
+		"internal/ai/contracts.go:ImageInlineReference":                               "ImageInlineReference struct {\n\tBytes     []byte `json:\"-\"`\n\tMediaType string\n}",
+		"internal/ai/contracts.go:ImageResponse":                                      "ImageResponse struct {\n\tCreated int64       `json:\"created\"`\n\tData    []ImageData `json:\"data\"`\n\tUsage   Usage       `json:\"usage\"`\n\n\tUsageKnown    bool   `json:\"-\"`\n\tRequestID     string `json:\"request_id,omitempty\"`\n\tUpstreamJobID string `json:\"upstream_job_id,omitempty\"`\n\tRawResponse   string `json:\"raw_response,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageRouteSelection":                                "ImageRouteSelection struct {\n\tCredentialReference  string\n\tConfigurationVersion string\n}",
+		"internal/ai/contracts.go:RouteBoundImageGenerator":                           "RouteBoundImageGenerator interface {\n\tImageGenerator\n\tEditImageWithRoute(context.Context, *ImageEditRequest, ImageRouteSelection) (*ImageResponse, error)\n}",
+		"internal/ai/contracts.go:TextChatCompleter":                                  "TextChatCompleter interface {\n\tCreateChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error)\n\tGenerate(ctx context.Context, prompt string) (string, error)\n\tGetDefaultModel() string\n}",
+		"internal/ai/contracts.go:Usage":                                              "Usage struct {\n\tPromptTokens     int `json:\"prompt_tokens\"`\n\tCompletionTokens int `json:\"completion_tokens\"`\n\tTotalTokens      int `json:\"total_tokens\"`\n}",
+		"internal/integration/openai/client_manager.go:effectiveConfigurationVersion": "func effectiveConfigurationVersion(name, credentialVersion string, config *ClientConfig) string {\n\n\tcanonical := fmt.Sprintf(\"v1|%s|%s|%s|%s|%s|%d|%d|%d|%d|%d\",\n\t\tnormalizeClientName(name), credentialVersion, strings.ToLower(strings.TrimSpace(config.APIStyle)),\n\t\tstrings.TrimSpace(config.Model), strings.TrimSpace(config.BaseURL), config.Timeout,\n\t\tconfig.MaxRetries, config.RetryDelay, config.MaxReferenceMaterializedBytes, config.MaxReferenceMaterializationConcurrency,\n\t)\n\tdigest := sha256.Sum256([]byte(canonical))\n\treturn fmt.Sprintf(\"effective:v1:%x\", digest[:])\n}",
+		"internal/integration/openai/types.go:ClientConfig":                           "ClientConfig struct {\n\tLogger     Logger        `json:\"-\"`\n\tAPIKey     string        `json:\"api_key\"`\n\tModel      string        `json:\"model\"`\n\tBaseURL    string        `json:\"base_url\"`\n\tAPIStyle   string        `json:\"api_style,omitempty\"`\n\tTimeout    time.Duration `json:\"timeout\"`\n\tMaxRetries int           `json:\"max_retries\"`\n\tRetryDelay time.Duration `json:\"retry_delay\"`\n\n\tImageReferenceHTTPClient *http.Client `json:\"-\"`\n\n\tMaxReferenceMaterializedBytes int64 `json:\"max_reference_materialized_bytes,omitempty\"`\n\n\tMaxReferenceMaterializationConcurrency int `json:\"max_reference_materialization_concurrency,omitempty\"`\n}",
+		"internal/integration/openai/types.go:NewClientConfig":                        "func NewClientConfig(apiKey, model, baseURL string, timeout int) *ClientConfig {\n\treturn &ClientConfig{\n\t\tAPIKey:     apiKey,\n\t\tModel:      model,\n\t\tBaseURL:    baseURL,\n\t\tTimeout:    time.Duration(timeout) * time.Second,\n\t\tMaxRetries: 3,\n\t\tRetryDelay: 1 * time.Second,\n\t}\n}",
+		"internal/integration/openai/types.go:PoolConfig":                             "PoolConfig struct {\n\tLogger        Logger          `json:\"-\"`\n\tRateLimit     float64         `json:\"rate_limit\"`\n\tBurstLimit    float64         `json:\"burst_limit\"`\n\tClientConfigs []*ClientConfig `json:\"client_configs\"`\n\tMaxConcurrent int             `json:\"max_concurrent\"`\n}",
+	}
+	required := map[string][]string{
+		"internal/product/catalog/publisher.go":              {"Publisher", "NewPublisher", "Publisher.Publish"},
+		"internal/product/sourcing/publication.go":           {"InternalProducer", "NewInternalProducer", "InternalProducer.Publish"},
+		"internal/product/sourcing/catalog_asset_handoff.go": {"ToSnapshot"},
+		"internal/integration/openai/client_manager.go":      {"Manager", "EffectiveClientRoute", "Manager.ResolveEffectiveClientRoute", "Manager.GetClientWithRoute", "Manager.GetImageClient"},
+		"internal/sheinlogin/service.go":                     {"Service.Execute"},
+	}
+	found := map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatalf("parse current asset/source/AI contract %s: %v", path, err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode asset/source/AI import in %s: %v", path, err)
+			}
+			if imported == "task-processor/internal/product/asset/recipe" || strings.HasPrefix(imported, "task-processor/internal/product/asset/recipe/") {
+				t.Errorf("retired asset recipe import in %s: %s", path, imported)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		production := !strings.HasSuffix(path, "_test.go")
+		if owner == "internal/integration/openai" && production {
+			ast.Inspect(file, func(node ast.Node) bool {
+				if id, ok := node.(*ast.Ident); ok && (id.Name == "resolverVersion" || id.Name == "matchesLegacyResolverVersion") {
+					t.Errorf("retired resolver-version compatibility identifier in %s: %s", path, id.Name)
+				}
+				return true
+			})
+		}
+		check := func(name string, node ast.Node) {
+			key := path + ":" + name
+			found[key] = true
+			if production && slices.Contains(banned[owner], name) {
+				t.Errorf("retired asset/source/AI declaration: %s", key)
+			}
+			if want, ok := shapes[key]; ok {
+				var text bytes.Buffer
+				if err := format.Node(&text, fset, node); err != nil {
+					t.Fatal(err)
+				}
+				if text.String() != want {
+					t.Errorf("current AI contract/configuration/version shape changed: %s", key)
+				}
+			}
+		}
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					var receiver bytes.Buffer
+					if err := format.Node(&receiver, fset, d.Recv.List[0].Type); err != nil {
+						t.Fatal(err)
+					}
+					name = strings.TrimPrefix(receiver.String(), "*") + "." + name
+				}
+				check(name, d)
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name, s)
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							check(name.Name, s)
+						}
+					}
+				}
+			}
+		}
+	}
+	for key := range shapes {
+		if !found[key] {
+			t.Errorf("current AI contract/configuration/version missing: %s", key)
+		}
+	}
+	for path, names := range required {
+		for _, name := range names {
+			if !found[path+":"+name] {
+				t.Errorf("current asset/source/AI/SHEIN declaration missing: %s:%s", path, name)
+			}
+		}
+	}
+	for _, path := range []string{"cmd/current-application/main.go", "cmd/shein-login-worker/main.go", "internal/sheinlogin/store.go", "internal/product/asset/approval.go", "internal/imageagent/image_set.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current asset/source/AI/SHEIN owner must remain: %s: %v", path, err)
+		}
+	}
+}

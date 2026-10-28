@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"task-processor/internal/ai"
 	"task-processor/internal/integration/httpimage"
 
 	"golang.org/x/sync/semaphore"
@@ -79,14 +80,14 @@ func extractImageRequestID(header http.Header) string {
 	return strings.TrimSpace(header.Get("X-Request-Id"))
 }
 
-func (c *Client) GenerateImage(ctx context.Context, req *ImageGenerateRequest) (*ImageResponse, error) {
+func (c *Client) GenerateImage(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
 	if c.pool == nil {
 		return nil, fmt.Errorf("请求池未初始化")
 	}
 	return c.pool.GenerateImage(ctx, req)
 }
 
-func (c *Client) EditImage(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error) {
+func (c *Client) EditImage(ctx context.Context, req *ai.ImageEditRequest) (*ai.ImageResponse, error) {
 	if c.pool == nil {
 		return nil, fmt.Errorf("请求池未初始化")
 	}
@@ -97,19 +98,19 @@ func (c *Client) SupportsAsyncImageGeneration() bool {
 	return false
 }
 
-func (c *Client) SubmitImageGeneration(context.Context, *ImageGenerateRequest) (*ImageAsyncSubmitResponse, error) {
-	return nil, ErrAsyncImageGenerationNotSupported
+func (c *Client) SubmitImageGeneration(context.Context, *ai.ImageGenerateRequest) (*ai.ImageAsyncSubmitResponse, error) {
+	return nil, ai.ErrAsyncImageGenerationNotSupported
 }
 
-func (c *Client) SubmitImageEdit(context.Context, *ImageEditRequest) (*ImageAsyncSubmitResponse, error) {
-	return nil, ErrAsyncImageGenerationNotSupported
+func (c *Client) SubmitImageEdit(context.Context, *ai.ImageEditRequest) (*ai.ImageAsyncSubmitResponse, error) {
+	return nil, ai.ErrAsyncImageGenerationNotSupported
 }
 
-func (c *Client) QueryImageGeneration(context.Context, string) (*ImageAsyncQueryResponse, error) {
-	return nil, ErrAsyncImageGenerationNotSupported
+func (c *Client) QueryImageGeneration(context.Context, string) (*ai.ImageAsyncQueryResponse, error) {
+	return nil, ai.ErrAsyncImageGenerationNotSupported
 }
 
-func (p *RequestPool) GenerateImage(ctx context.Context, req *ImageGenerateRequest) (*ImageResponse, error) {
+func (p *RequestPool) GenerateImage(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
 	if err := p.waitForRateLimit(ctx); err != nil {
 		return nil, fmt.Errorf("速率限制等待失败: %w", err)
 	}
@@ -123,7 +124,7 @@ func (p *RequestPool) GenerateImage(ctx context.Context, req *ImageGenerateReque
 	return client.generateImage(ctx, req)
 }
 
-func (p *RequestPool) EditImage(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error) {
+func (p *RequestPool) EditImage(ctx context.Context, req *ai.ImageEditRequest) (*ai.ImageResponse, error) {
 	if err := p.waitForRateLimit(ctx); err != nil {
 		return nil, fmt.Errorf("速率限制等待失败: %w", err)
 	}
@@ -137,7 +138,7 @@ func (p *RequestPool) EditImage(ctx context.Context, req *ImageEditRequest) (*Im
 	return client.editImage(ctx, req)
 }
 
-func (bc *BaseClient) generateImage(ctx context.Context, req *ImageGenerateRequest) (*ImageResponse, error) {
+func (bc *BaseClient) generateImage(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("image generate request cannot be nil")
 	}
@@ -154,7 +155,7 @@ func (bc *BaseClient) generateImage(ctx context.Context, req *ImageGenerateReque
 	return bc.doJSONImageRequest(ctx, http.MethodPost, "/images/generations", payload)
 }
 
-func (bc *BaseClient) editImage(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error) {
+func (bc *BaseClient) editImage(ctx context.Context, req *ai.ImageEditRequest) (*ai.ImageResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("image edit request cannot be nil")
 	}
@@ -341,9 +342,9 @@ func imageEditFilename(contentType string) string {
 	}
 }
 
-func (bc *BaseClient) doJSONImageRequest(ctx context.Context, method string, apiPath string, payload any) (*ImageResponse, error) {
+func (bc *BaseClient) doJSONImageRequest(ctx context.Context, method string, apiPath string, payload any) (*ai.ImageResponse, error) {
 	var lastErr error
-	var lastResp *ImageResponse
+	var lastResp *ai.ImageResponse
 	for attempt := 0; attempt <= bc.config.MaxRetries; attempt++ {
 		if attempt > 0 {
 			delay := bc.config.RetryDelay * time.Duration(1<<uint(attempt-1))
@@ -402,9 +403,9 @@ func (bc *BaseClient) doJSONImageRequest(ctx context.Context, method string, api
 	return nil, fmt.Errorf("调用 OpenAI image API 失败，已重试%d次: %w", bc.config.MaxRetries, lastErr)
 }
 
-func (bc *BaseClient) doMultipartImageRequest(ctx context.Context, apiPath string, body *bytes.Buffer, contentType string, maxRetries int, noReplay bool) (*ImageResponse, error) {
+func (bc *BaseClient) doMultipartImageRequest(ctx context.Context, apiPath string, body *bytes.Buffer, contentType string, maxRetries int, noReplay bool) (*ai.ImageResponse, error) {
 	var lastErr error
-	var lastResp *ImageResponse
+	var lastResp *ai.ImageResponse
 	client := http.DefaultClient
 	if noReplay {
 		// Redirects can replay the POST outside the explicit retry loop. Keep
@@ -473,9 +474,9 @@ func (bc *BaseClient) doMultipartImageRequest(ctx context.Context, apiPath strin
 // decodeImageResponse consumes only the image usage schema. Invalid or absent
 // counters leave usage explicitly unknown without discarding the image result.
 // Chat's prompt/completion wire fields are intentionally not a fallback.
-func decodeImageResponse(body []byte) (*ImageResponse, error) {
-	type imageResponseFields ImageResponse
-	response := &ImageResponse{}
+func decodeImageResponse(body []byte) (*ai.ImageResponse, error) {
+	type imageResponseFields ai.ImageResponse
+	response := &ai.ImageResponse{}
 	wire := struct {
 		*imageResponseFields
 		Usage json.RawMessage `json:"usage"`
@@ -496,7 +497,7 @@ func decodeImageResponse(body []byte) (*ImageResponse, error) {
 	if input < 0 || output < 0 || total <= 0 || input > total || output != total-input {
 		return response, nil
 	}
-	response.Usage = Usage{PromptTokens: input, CompletionTokens: output, TotalTokens: total}
+	response.Usage = ai.Usage{PromptTokens: input, CompletionTokens: output, TotalTokens: total}
 	response.UsageKnown = true
 	return response, nil
 }
