@@ -25,6 +25,7 @@
 | --- | --- | --- |
 | #722 的 SHEIN worker 身份/持久化设计、#863 当前身份重接与可选执行控制表 | 独立 CLI、登录服务、Store 身份回写及其控制表源码整退；不再新增 fresh worker 安装 | 当前身份/组织/成员、Store 主事实和官方连接继续由原 owner 负责；旧数字账号不恢复 |
 | #926 的 SessionTransport、商家/仓库查询及合同 KEEP；#968 的 worker/API 尾部 KEEP | 最后消费者随 worker 退出，`internal/shein` 剩余整根退休，不另建 transport/DTO 兼容层 | `internal/integration/shein` 的官方 API、marketplace 当前值合同/规则/草稿与 JSON 保留 |
+| #939 的 RedisConfig KEEP | 仅独立 SHEIN 私有配置使用的 `core/config/type_redis.go` 随最后消费者退出 | 当前 Redis 驱动/实际消费者和其自有配置不改，不将类型搬入新公共门面 |
 | #946/#947/#948 等保留实际浏览器行为并列出的 SHEIN 调用点 | 仅删 SHEIN 专属调用、配置和断言 | 共享浏览器管理、实际指纹、代理评分、采集、PoolManager deadline/取消不改 |
 | #854 源级收口、历次 #301 批次和索引/Register 中泛称“保留独立 SHEIN 登录/Store 同步” | 本文仅对独立登录及其身份回写两项拥有新的当前决定；其余历史范围不重写 | Store 观察同步和其他当前能力继续保留；历史勾选、计数、失败证据不改 |
 
@@ -55,6 +56,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 当前 Store、官方连接、�
 | `sheinlogin` | 生产包外只有 CLI/runtime/bootstrap；runtime 的 health 是本 worker 健康端口，不是当前 Store API | 全部登录、验证码、取消、私有配置、Redis stream/Lua/attempt、Profile/automation 及专属测试退出 |
 | `storecenter.SheinLoginRepository` | 唯一生产装配在 worker runtime；`RecordSheinLoginIdentity` 唯一生产调用在 worker 的 pending/replay 路径 | 独立 repository、控制表/安装器/验权、三 audit action 及其专属分支退出 |
 | `internal/shein/client`、`api/other`、`api/warehouse` | 所有包外 import 均来自 `sheinlogin/session_identity.go`，没有当前官方 API/草稿 consumer | CookieData、SessionTransport、三个读 endpoint、supplier DTO、warehouse DTO/转换及专属测试整退 |
+| `core/config.RedisConfig` | 包外只被 SHEIN Config/Store 生产与专属测试消费；本包无引用 | `type_redis.go` 整退；同名通用 Redis 能力不因此退出 |
 | shared browser、config、ZITADEL、authidentity/authz、membership、database、appenv、workbenchcontext | 都有其他现役生产消费者 | 保留原 owner；不借本批清理通用 helper、依赖或权限 |
 | schema-init/Makefile/CI/部署声明/原 guard | 仍声明可安装、编译或必须保留 worker，属于闭包的一部分 | §5/§6.1 精确替换，不能靠缺文件 skip 通过 |
 
@@ -85,7 +87,7 @@ worker 专属 `shein_login_identity_sync / shein_login_activate / shein_login_qu
 
 ### 5.1 整根和整文件退休
 
-以下 50 个已跟踪工件是准确整退集，不按文件数拆批；根目录退出后不得留 alias、占位 Go 包、注释-only facade 或重新命名副本：
+以下 51 个已跟踪工件是准确整退集，不按文件数拆批；根目录退出后不得留 alias、占位 Go 包、注释-only facade 或重新命名副本：
 
 ```text
 cmd/shein-login-worker/main.go
@@ -130,6 +132,7 @@ internal/sheinlogin/session_identity.go
 internal/sheinlogin/store.go
 internal/sheinlogin/types.go
 internal/sheinlogin/worker.go
+internal/core/config/type_redis.go
 internal/storecenter/shein_login.go
 internal/storecenter/shein_login_schema.go
 internal/storecenter/shein_login_test.go
@@ -180,6 +183,7 @@ deployments/kubernetes/shein-listing/README.md
 docs/architecture/shein-worker-identity-persistence-boundary.md
 docs/architecture/shein-worker-numeric-persistence-retirement-v1.md
 docs/architecture/legacy-platform-api-closure-retirement-boundary.md
+docs/architecture/legacy-global-config-logging-tail-closure-retirement-boundary.md
 docs/architecture/legacy-shein-draft-support-closure-retirement-boundary.md
 docs/architecture/legacy-retirement-parent-closure-boundary.md
 docs/architecture/release-identity-preflight-retirement.md
@@ -226,6 +230,7 @@ backend 文件逐项冻结：
 - `TestLegacyBrowserManagementTailClosureIsRetired`：只删 automation.go 的 NewManager/SetFingerprint 必需项，真实采集指纹/代理评分/质量重试的原检查不变。
 - `assertLegacyLoggerFacadeRetired`：businessRoots 可删已经整退的 shein/client、shein/content、sheinlogin 三项，其余边界扫描保持；旧日志禁令不得取消。
 - `TestLegacyLoggerFacadeClosureIsRetired`、`TestLegacyListingPreviewDownloadClosureIsRetired`、`TestLegacySDSRuntimeClosureIsRetired`、`TestLegacyRedisProxyAndSharedClosureIsRetired`、`TestLegacyHostConfigFeatureFlagTracingClosureIsRetired`、`TestLegacyWatermarkClosureIsRetired`、`TestCurrentCommandsDoNotCompileLegacyBusinessBackends`：各自命令列表只删 shein-login-worker；原 retained 命令必须成功 go list，全部旧依赖禁令保持，并纳入本次退出根。
+- `TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired`：只从 core/config 的 retained 表删 RedisConfig 及 Host/Port/Password/DB/PoolSize 六项，将类型/专属文件加入退休禁入；其余配置校验/原字段/加载、JSON/图像解码和所有安全断言不变。
 - `TestRetiredListingOperationsClosure`：只删 worker manifest 必需 map 项，原 storage 告警/namespace 窄路由、现役资源和负向断言不变。
 - `TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication`：保留测试名；从编译已退 CLI 改为精确根缺席及保留入口的旧依赖禁入；原共享 HTTP worker/旧 HTTP DTO 缺席检查继续执行。
 - `TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints`：CI 必需 build 表只剩当前应用；把 worker 加入旧 CLI/Makefile/构建禁入集合，原其它 CLI/config/auto-shard 禁令全留。
