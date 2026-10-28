@@ -108,6 +108,7 @@ services:
   schema-init:
     build: { context: ../../.., dockerfile: deployments/docker/Dockerfile.acquisition-compose, target: schema-init }
     network_mode: service:runtime-network
+    volumes: [schema-state:/schema-state, source-db-owner-secret:/secrets/source-owner:ro, source-runtime-secret:/secrets/source-runtime:ro, commercial-db-owner-secret:/secrets/commercial-owner:ro, commercial-runtime-secret:/secrets/commercial-runtime:ro, product-db-owner-secret:/secrets/product-owner:ro, product-runtime-secret:/secrets/product-runtime:ro, runtime-secrets:/runtime, frontend-secrets:/frontend]
     depends_on: { tofu-init: { condition: service_completed_successfully }, source-db: { condition: service_healthy }, commercial-db: { condition: service_healthy }, product-db: { condition: service_healthy } }
   current-application:
     build: { context: ../../.., dockerfile: deployments/docker/Dockerfile.acquisition-compose, target: runtime }

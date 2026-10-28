@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestLegacySubscriptionMeteringClosureIsRetired(t *testing.T) {
@@ -74,6 +76,36 @@ func TestLegacySubscriptionMeteringClosureIsRetired(t *testing.T) {
 	for _, path := range []string{"internal/integration/orgresource/balance_read.go", "internal/storecenter/service_summary.go", "internal/app/httpapi/unified_commercial_read.go", "internal/app/worker/imageagent/organization_main_admission.go", "internal/aicapability/store/gorm_invocation_recorder.go", "internal/app/runtime/currentapplication/store_observations.go", "internal/integration/shein/official_observations.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
 			t.Errorf("current owner missing %s: %v", path, err)
+		}
+	}
+	// Removing the old SQL mount must preserve the current initializer's
+	// credential, generated configuration, and completion-state mounts.
+	data, err := os.ReadFile(filepath.Join("..", "deployments", "docker", "acquisition-compose", "docker-compose.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var compose struct {
+		Services map[string]struct {
+			Volumes []string `yaml:"volumes"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(data, &compose); err != nil {
+		t.Fatal(err)
+	}
+	volumes := compose.Services["schema-init"].Volumes
+	expected := []string{"schema-state:/schema-state", "source-db-owner-secret:/secrets/source-owner:ro", "source-runtime-secret:/secrets/source-runtime:ro", "commercial-db-owner-secret:/secrets/commercial-owner:ro", "commercial-runtime-secret:/secrets/commercial-runtime:ro", "product-db-owner-secret:/secrets/product-owner:ro", "product-runtime-secret:/secrets/product-runtime:ro", "runtime-secrets:/runtime", "frontend-secrets:/frontend"}
+	if len(volumes) != len(expected) {
+		t.Errorf("acquisition schema-init current mounts changed: got %v", volumes)
+	}
+	for _, want := range expected {
+		count := 0
+		for _, volume := range volumes {
+			if volume == want {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("acquisition schema-init must retain exactly one %q mount, got %d", want, count)
 		}
 	}
 }
