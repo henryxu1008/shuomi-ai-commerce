@@ -177,6 +177,9 @@ func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabi
 	if err := verifyCoreSchema(ctx, sqlDB, capabilities, currentConstraintDefinitions); err != nil {
 		return err
 	}
+	if _, err := VerifyBrowserSchemaIfPresent(ctx, sqlDB); err != nil {
+		return err
+	}
 	if capabilities.TikTokShop {
 		if err := verifyTikTokSchema(ctx, sqlDB); err != nil {
 			return err
@@ -347,6 +350,7 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  AND CASE WHEN p.privilege_type IN ('SELECT','INSERT','UPDATE','REFERENCES') THEN pg_catalog.has_any_column_privilege(subject.runtime_role,r.oid,p.privilege_type) ELSE pg_catalog.has_table_privilege(subject.runtime_role,r.oid,p.privilege_type) END
  AND NOT (
  (n.nspname='public' AND (r.relname,p.privilege_type) IN (('workbench_store_groups','SELECT'),('workbench_store_groups','INSERT'),('workbench_store_groups','UPDATE'),('workbench_store_profiles','SELECT'),('workbench_store_profiles','INSERT'),('workbench_store_profiles','UPDATE'),('workbench_store_metadata_operations','SELECT'),('workbench_store_metadata_operations','INSERT'),('workbench_stores','SELECT'),('workbench_stores','INSERT'),('workbench_stores','UPDATE'),('workbench_store_audit_logs','SELECT'),('workbench_store_audit_logs','INSERT'),('workbench_store_member_grants','SELECT'),('workbench_store_member_grants','INSERT'),('workbench_store_member_grants','UPDATE'),('workbench_store_member_grant_operations','SELECT'),('workbench_store_member_grant_operations','INSERT'),('workbench_store_service_operations','SELECT'),('workbench_store_service_operations','INSERT'),('workbench_store_service_operations','UPDATE'),('workbench_store_connections','SELECT'),('workbench_store_connections','INSERT'),('workbench_store_connections','UPDATE'),('workbench_store_connection_attempts','SELECT'),('workbench_store_connection_attempts','INSERT'),('workbench_store_connection_attempts','UPDATE'),('workbench_store_merchant_bindings','SELECT'),('workbench_store_merchant_bindings','INSERT')))
+ OR (n.nspname='public' AND r.relname IN ('workbench_store_browser_operations','workbench_store_browser_reports') AND p.privilege_type IN ('SELECT','INSERT'))
  OR ($1 AND n.nspname='store_observations' AND ((r.relname='commands' AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('syncs','records','heads') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))
  OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))
  OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
@@ -374,6 +378,16 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	}
 	if role != "store_center_runtime" || !required || forbidden {
 		return errors.New("store runtime permissions do not match the admitted boundary")
+	}
+	installed, err := VerifyBrowserSchemaIfPresent(ctx, sqlDB)
+	if err != nil {
+		return err
+	}
+	if installed {
+		var complete bool
+		if err := sqlDB.QueryRowContext(ctx, `SELECT bool_and(coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT'),false)) FROM (VALUES ('workbench_store_browser_operations'),('workbench_store_browser_reports')) t(name)`).Scan(&complete); err != nil || !complete {
+			return errors.New("Store browser immutable runtime grants unavailable")
+		}
 	}
 	if capabilities.TikTokShop {
 		var complete bool

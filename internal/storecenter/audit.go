@@ -20,6 +20,10 @@ var ErrAuditIdentityMismatch = errors.New("store audit identity mismatch")
 type AuditAction string
 
 const (
+	AuditActionBrowserAdmitted       AuditAction = "browser_operation_admitted"
+	AuditActionBrowserConfigured     AuditAction = "browser_configuration_reported"
+	AuditActionBrowserOpenReported   AuditAction = "browser_open_reported"
+	AuditActionBrowserClosed         AuditAction = "browser_close_reported"
 	AuditActionStoreCreated          AuditAction = "store_created"
 	AuditActionStoreUpdateStarted    AuditAction = "store_update_started"
 	AuditActionStoreUpdated          AuditAction = "store_updated"
@@ -289,6 +293,8 @@ func normalizeSafeFieldNames(fields []string) ([]string, error) {
 
 func validAuditAction(action AuditAction) bool {
 	switch action {
+	case AuditActionBrowserAdmitted, AuditActionBrowserConfigured, AuditActionBrowserOpenReported, AuditActionBrowserClosed:
+		return true
 	case AuditActionStoreCreated, AuditActionStoreUpdateStarted, AuditActionStoreUpdated, AuditActionStoreUpdateNoOp, AuditActionStoreLifecycleStarted, AuditActionStoreDisabled, AuditActionStoreEnabled, AuditActionDeleteStarted, AuditActionDeleteComplete:
 		return true
 	}

@@ -675,6 +675,18 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, stores)
 		storeCatalogModule = stores
+		if configurable, ok := stores.(interface {
+			ConfigureBrowser(*storecenter.BrowserOperations) error
+		}); ok {
+			access := currentStoreMemberAuthorizer{authorizer: authorizer}
+			operations, err := storecenter.NewBrowserOperations(supplied.storeCenterDB, access, access, cfg.ListingKit.Zitadel.IssuerURL, time.Now)
+			if err != nil {
+				return nil, fmt.Errorf("build Store browser operations: %w", err)
+			}
+			if err := configurable.ConfigureBrowser(operations); err != nil {
+				return nil, err
+			}
+		}
 	}
 	var savedObservations *o.Service
 	if supplied.storeObservations > 0 {
@@ -1557,6 +1569,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.StoreCenter {
 		for _, r := range currentStoreCenterRoutes {
+			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
+		}
+		for _, r := range currentStoreBrowserRoutes {
 			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
 		}
 	}

@@ -24,6 +24,8 @@ import (
 	"gorm.io/gorm/logger"
 
 	storeschema "task-processor/internal/app/schema/storecenter"
+	cockpit "task-processor/internal/integration/persistence/operationscockpit"
+	observations "task-processor/internal/integration/persistence/storeobservations"
 	platformmigration "task-processor/internal/platform/database/migration"
 	"task-processor/internal/storecenter"
 )
@@ -34,7 +36,7 @@ type coreAlignmentFixture struct {
 }
 
 func TestCoreAlignmentPreservesRetainedStore(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	c, err := pg.Run(ctx, "postgres:17.2-alpine", pg.WithDatabase("isolated_store_tests"), pg.WithUsername("test_admin"), pg.WithPassword("isolated-admin"), pg.BasicWaitStrategies())
 	require.NoError(t, err)
@@ -87,15 +89,111 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		return coreAlignmentFixture{owner, openCoreAlignmentDB(t, u.String()), name, config}
 	}
 
+	installCapabilities := func(t *testing.T, f coreAlignmentFixture, caps storecenter.RuntimeCapabilities) {
+		t.Helper()
+		// Reuse the native capability owners on synthetic data. The retained
+		// maintenance path under test must never call either installer or GRANT.
+		if caps.Observations {
+			require.NoError(t, observations.Install(ctx, f.owner))
+			require.NoError(t, observations.GrantRuntime(ctx, f.owner, "store_center_runtime"))
+			require.NoError(t, f.owner.Exec(`INSERT INTO store_observations.commands VALUES('org','00000000-0000-4000-8000-000000000010','actor','member','00000000-0000-4000-8000-000000000011',repeat('a',64),'{}',now())`).Error)
+		}
+		if caps.OperationsCockpit {
+			require.NoError(t, cockpit.Install(ctx, f.owner))
+			require.NoError(t, cockpit.GrantRuntime(ctx, f.owner, "store_center_runtime"))
+			require.NoError(t, f.owner.Exec(`INSERT INTO operations_cockpit.facts VALUES('org','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000001',1,'2026-01-01','2026-01-31','{}','retained','actor',now())`).Error)
+		}
+	}
+	for _, caps := range []storecenter.RuntimeCapabilities{{}, {Observations: true}, {OperationsCockpit: true}, {Observations: true, OperationsCockpit: true}} {
+		t.Run(fmt.Sprintf("installed observations=%t cockpit=%t", caps.Observations, caps.OperationsCockpit), func(t *testing.T) {
+			f := newFixture(t)
+			installCapabilities(t, f, caps)
+			require.Error(t, storeschema.InstallBrowserWorkbench(ctx, f.owner, f.name), "2501 cannot precede core alignment")
+			before := coreAlignmentFullSnapshot(t, f.owner)
+			if caps.Observations || caps.OperationsCockpit {
+				require.Error(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}), "capabilities must be explicit")
+			}
+			require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner))
+			before = coreAlignmentSnapshot(t, f.owner)
+			require.NoError(t, alignCoreContract(f.config, f.name, caps))
+			require.Equal(t, before, coreAlignmentSnapshot(t, f.owner))
+			require.NoError(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, f.serving, caps))
+			after := coreAlignmentFullSnapshot(t, f.owner)
+			require.NoError(t, alignCoreContract(f.config, f.name, caps))
+			require.Equal(t, after, coreAlignmentFullSnapshot(t, f.owner))
+			// The next native owner still requires 1601 before browser 2501.
+			require.NoError(t, storeschema.InstallBrowserWorkbench(ctx, f.owner, f.name))
+			var versions []int64
+			require.NoError(t, f.owner.Raw(`SELECT version_id FROM goose_store_center_version ORDER BY id`).Scan(&versions).Error)
+			require.Equal(t, []int64{0, 2026092801, 2026101101, 2026101601, 2026102501}, versions)
+		})
+	}
+	for _, tc := range []struct{ name, drift string }{
+		{"unknown empty schema", `CREATE SCHEMA unexpected`},
+		{"unknown schema table", `CREATE SCHEMA unexpected; CREATE TABLE unexpected.facts(id integer)`},
+		{"unknown optional table", `CREATE TABLE operations_cockpit.unexpected(id integer)`},
+		{"optional view", `CREATE VIEW store_observations.unexpected AS SELECT 1 AS id`},
+		{"optional sequence", `CREATE SEQUENCE store_observations.unexpected`},
+		{"optional function", `CREATE FUNCTION operations_cockpit.unexpected() RETURNS int LANGUAGE sql AS 'SELECT 1'`},
+		{"optional type", `CREATE TYPE operations_cockpit.unexpected AS ENUM ('x')`},
+		{"same count wrong table", `ALTER TABLE operations_cockpit.fact_versions RENAME TO unexpected`},
+		{"missing optional table", `DROP TABLE operations_cockpit.fact_versions`},
+		{"missing required privilege", `REVOKE INSERT ON operations_cockpit.fact_versions FROM store_center_runtime`},
+		{"PUBLIC extra effective privilege", `GRANT DELETE ON operations_cockpit.facts TO PUBLIC`},
+		{"column extra effective privilege", `GRANT UPDATE(receipt) ON operations_cockpit.commands TO store_center_runtime`},
+		{"optional grant option", `GRANT SELECT ON store_observations.records TO store_center_runtime WITH GRANT OPTION`},
+		{"column type drift", `ALTER TABLE operations_cockpit.facts ALTER COLUMN note TYPE varchar(1000)`},
+		{"column nullability drift", `ALTER TABLE store_observations.records ALTER COLUMN payload DROP NOT NULL`},
+		{"default drift", `ALTER TABLE store_observations.records ALTER COLUMN window_key SET DEFAULT 'changed'`},
+		{"check drift", `ALTER TABLE operations_cockpit.facts DROP CONSTRAINT facts_revision_check, ADD CONSTRAINT facts_revision_check CHECK(revision>=0)`},
+		{"index drift", `DROP INDEX operations_cockpit.facts_scope_period`},
+		{"extra optional check", `ALTER TABLE operations_cockpit.facts ADD CONSTRAINT unexpected CHECK(note<>'')`},
+		{"extra optional index", `CREATE INDEX unexpected ON operations_cockpit.facts(note)`},
+		{"foreign key drift", `ALTER TABLE operations_cockpit.goal_versions DROP CONSTRAINT goal_versions_organization_id_goal_id_fkey`},
+		{"unknown history with capabilities", `INSERT INTO goose_store_center_version(version_id,is_applied) VALUES(2026101501,true)`},
+		{"2501 before 1601", `INSERT INTO goose_store_center_version(version_id,is_applied) VALUES(2026102501,true)`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			caps := storecenter.RuntimeCapabilities{Observations: true, OperationsCockpit: true}
+			installCapabilities(t, f, caps)
+			require.NoError(t, f.owner.Exec(tc.drift).Error)
+			before := coreAlignmentFullSnapshot(t, f.owner)
+			require.Error(t, alignCoreContract(f.config, f.name, caps))
+			require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner), "refusal preserves optional objects, facts and ACLs too")
+		})
+	}
+	t.Run("declared but missing capability", func(t *testing.T) {
+		f := newFixture(t)
+		before := coreAlignmentFullSnapshot(t, f.owner)
+		require.Error(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{Observations: true}))
+		require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner))
+	})
+	t.Run("browser still requires the aligned core and exact history", func(t *testing.T) {
+		f := newFixture(t)
+		require.NoError(t, f.owner.Exec(coreAlignmentTargetChecks).Error)
+		before := coreAlignmentFullSnapshot(t, f.owner)
+		require.Error(t, storeschema.InstallBrowserWorkbench(ctx, f.owner, f.name), "missing 1601")
+		require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner))
+		require.NoError(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}))
+		require.NoError(t, f.owner.Exec(`ALTER TABLE workbench_stores ALTER COLUMN name TYPE varchar(100)`).Error)
+		before = coreAlignmentFullSnapshot(t, f.owner)
+		require.Error(t, storeschema.InstallBrowserWorkbench(ctx, f.owner, f.name), "core drift")
+		require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner))
+	})
+
 	t.Run("two concurrent entries, preserved facts and ACLs, verified replay", func(t *testing.T) {
 		f := newFixture(t)
 		before := coreAlignmentSnapshot(t, f.owner)
-		require.Error(t, alignCoreContract(f.config, "wrong_database"))
+		require.Error(t, alignCoreContract(f.config, "wrong_database", storecenter.RuntimeCapabilities{}))
 		var wg sync.WaitGroup
 		errs := make(chan error, 2)
 		for range 2 {
 			wg.Add(1)
-			go func() { defer wg.Done(); errs <- alignCoreContract(f.config, f.name) }()
+			go func() {
+				defer wg.Done()
+				errs <- alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{})
+			}()
 		}
 		wg.Wait()
 		close(errs)
@@ -110,7 +208,7 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		require.NoError(t, f.owner.Raw(`SELECT count(*) FROM goose_store_center_version WHERE version_id=2026101601 AND is_applied`).Scan(&count).Error)
 		require.EqualValues(t, 1, count)
 		complete := coreAlignmentFullSnapshot(t, f.owner)
-		require.NoError(t, alignCoreContract(f.config, f.name), "a lost success response is resolved by verified replay")
+		require.NoError(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}), "a lost success response is resolved by verified replay")
 		require.Equal(t, complete, coreAlignmentFullSnapshot(t, f.owner))
 	})
 
@@ -120,7 +218,7 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		before := coreAlignmentSnapshot(t, f.owner)
 		var definitions string
 		require.NoError(t, f.owner.Raw(`SELECT string_agg(oid::text||':'||pg_get_constraintdef(oid),',' ORDER BY conname) FROM pg_constraint WHERE connamespace='public'::regnamespace`).Scan(&definitions).Error)
-		require.NoError(t, alignCoreContract(f.config, f.name))
+		require.NoError(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}))
 		require.Equal(t, before, coreAlignmentSnapshot(t, f.owner))
 		var after string
 		require.NoError(t, f.owner.Raw(`SELECT string_agg(oid::text||':'||pg_get_constraintdef(oid),',' ORDER BY conname) FROM pg_constraint WHERE connamespace='public'::regnamespace`).Scan(&after).Error)
@@ -154,7 +252,7 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 			f := newFixture(t)
 			require.NoError(t, f.owner.Exec(tc.drift).Error)
 			before := coreAlignmentFullSnapshot(t, f.owner)
-			require.Error(t, alignCoreContract(f.config, f.name))
+			require.Error(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}))
 			require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner), "refusal cannot repair schema, facts, history or privileges")
 		})
 	}
@@ -162,11 +260,11 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 	t.Run("only original owner may maintain and runtime cannot inherit a role", func(t *testing.T) {
 		f := newFixture(t)
 		before := coreAlignmentFullSnapshot(t, f.owner)
-		require.Error(t, storeschema.AlignCoreContract(ctx, f.serving, f.name))
+		require.Error(t, storeschema.AlignCoreContract(ctx, f.serving, f.name, storecenter.RuntimeCapabilities{}))
 		require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner))
 		require.NoError(t, admin.Exec(`GRANT retained_reader TO store_center_runtime`).Error)
 		t.Cleanup(func() { require.NoError(t, admin.Exec(`REVOKE retained_reader FROM store_center_runtime`).Error) })
-		require.Error(t, alignCoreContract(f.config, f.name))
+		require.Error(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}))
 		require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner))
 	})
 
@@ -181,7 +279,7 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		require.NoError(t, f.owner.Raw(`SELECT version_id FROM goose_store_center_version ORDER BY id`).Scan(&versions).Error)
 		require.Equal(t, []int64{0, 2026092801, 2026101101, 2026101601}, versions)
 		require.NoError(t, storecenter.VerifyCurrentSchema(ctx, f.owner))
-		require.Error(t, alignCoreContract(f.config, f.name), "core maintenance cannot broaden into optional platform tables")
+		require.Error(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}), "core maintenance cannot broaden into optional platform tables")
 	})
 
 	t.Run("default fresh mode refuses retained core A and B", func(t *testing.T) {
@@ -198,10 +296,10 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		f := newFixture(t)
 		require.NoError(t, f.owner.Exec(`CREATE FUNCTION reject_alignment_record() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.version_id=2026101601 THEN RAISE EXCEPTION 'isolated late failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_alignment_record BEFORE INSERT ON goose_store_center_version FOR EACH ROW EXECUTE FUNCTION reject_alignment_record()`).Error)
 		before := coreAlignmentFullSnapshot(t, f.owner)
-		require.Error(t, alignCoreContract(f.config, f.name))
+		require.Error(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}))
 		require.Equal(t, before, coreAlignmentFullSnapshot(t, f.owner))
 		require.NoError(t, f.owner.Exec(`DROP TRIGGER reject_alignment_record ON goose_store_center_version; DROP FUNCTION reject_alignment_record()`).Error)
-		require.NoError(t, alignCoreContract(f.config, f.name))
+		require.NoError(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}))
 	})
 
 	t.Run("cancelled lock wait does not change retained database", func(t *testing.T) {
@@ -215,10 +313,10 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 			return err
 		}())
 		short, stop := context.WithTimeout(ctx, 200*time.Millisecond)
-		require.Error(t, storeschema.AlignCoreContract(short, f.owner, f.name))
+		require.Error(t, storeschema.AlignCoreContract(short, f.owner, f.name, storecenter.RuntimeCapabilities{}))
 		stop()
 		require.NoError(t, lock.Rollback())
-		require.NoError(t, alignCoreContract(f.config, f.name))
+		require.NoError(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}))
 	})
 }
 
@@ -272,19 +370,25 @@ INSERT INTO workbench_store_metadata_operations VALUES('org','%[1]s','actor','me
 // original business row, history row, other schema object and ACL is compared.
 func coreAlignmentSnapshot(t *testing.T, db *gorm.DB) string {
 	t.Helper()
-	var tables []string
-	require.NoError(t, db.Raw(`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`).Scan(&tables).Error)
+	var tables []struct{ Schema, Name string }
+	require.NoError(t, db.Raw(`SELECT schemaname AS schema,tablename AS name FROM pg_tables WHERE schemaname !~ '^pg_' AND schemaname<>'information_schema' ORDER BY schemaname,tablename`).Scan(&tables).Error)
 	parts := []string{}
 	for _, table := range tables {
 		where := ""
-		if table == "goose_store_center_version" {
+		if table.Schema == "public" && table.Name == "goose_store_center_version" {
 			where = " WHERE version_id<>2026101601"
 		}
 		var data string
-		require.NoError(t, db.Raw(`SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]')::text FROM public.`+table+` t`+where).Scan(&data).Error)
-		parts = append(parts, table+":"+data)
+		qualified := `"` + strings.ReplaceAll(table.Schema, `"`, `""`) + `"."` + strings.ReplaceAll(table.Name, `"`, `""`) + `"`
+		require.NoError(t, db.Raw(`SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]')::text FROM `+qualified+` t`+where).Scan(&data).Error)
+		parts = append(parts, qualified+":"+data)
 	}
 	for _, query := range []string{
+		`SELECT coalesce(jsonb_agg(jsonb_build_array(n.nspname,n.nspowner,n.nspacl) ORDER BY n.nspname),'[]')::text FROM pg_namespace n WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'`,
+		`SELECT coalesce(jsonb_agg(jsonb_build_array(n.nspname,c.relname,c.relkind,c.relowner,c.relacl,c.relrowsecurity,c.relforcerowsecurity) ORDER BY n.nspname,c.relname),'[]')::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('store_observations','operations_cockpit')`,
+		`SELECT coalesce(jsonb_agg(jsonb_build_array(c.oid::regclass::text,a.attname,a.attacl,a.atttypid,a.atttypmod,a.attnotnull,pg_get_expr(d.adbin,d.adrelid)) ORDER BY c.oid,a.attnum),'[]')::text FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE n.nspname IN ('store_observations','operations_cockpit') AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped`,
+		`SELECT coalesce(jsonb_agg(jsonb_build_array(conrelid::regclass::text,conname,pg_get_constraintdef(k.oid),convalidated) ORDER BY conrelid::regclass::text,conname),'[]')::text FROM pg_constraint k JOIN pg_namespace n ON n.oid=k.connamespace WHERE n.nspname IN ('store_observations','operations_cockpit')`,
+		`SELECT coalesce(jsonb_agg(jsonb_build_array(indexrelid::regclass::text,pg_get_indexdef(indexrelid),indisvalid,indisready) ORDER BY indexrelid::regclass::text),'[]')::text FROM pg_index WHERE indrelid IN(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('store_observations','operations_cockpit'))`,
 		`SELECT coalesce(jsonb_agg(jsonb_build_array(c.relname,c.relkind,c.relowner,c.relacl,c.relrowsecurity,c.relforcerowsecurity) ORDER BY c.relname),'[]')::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p')`,
 		`SELECT jsonb_agg(jsonb_build_array(c.relname,a.attname,a.attacl,a.atttypid,a.atttypmod,a.attnotnull,pg_get_expr(d.adbin,d.adrelid)) ORDER BY c.relname,a.attnum)::text FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE c.relnamespace='public'::regnamespace AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped`,
 		`SELECT jsonb_agg(jsonb_build_array(conrelid::regclass::text,conname,pg_get_constraintdef(oid),convalidated) ORDER BY conrelid::regclass::text,conname)::text FROM pg_constraint WHERE connamespace='public'::regnamespace AND conname NOT IN ('store_platform','store_tiktok_identity','store_walmart_market','store_merchant_binding_shape')`,
