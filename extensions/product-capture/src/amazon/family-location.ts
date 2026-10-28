@@ -7,7 +7,7 @@ const id = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 // Native documentId is opaque (Edge emits 32 uppercase hex characters), not our transport UUID.
 const documentId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const source = z.string().max(2048).refine(v => { try { return amazonPageSource(v).sourceURL === v; } catch { return false; } });
-const common = {version:z.literal(1),revision:z.string().regex(UUID),sourceURL:source,sourceTabId:id,sourceDocumentId:documentId};
+const common = {version:z.literal(1),revision:z.string().regex(UUID),sourceURL:source,sourceTabId:id.optional(),sourceDocumentId:documentId.optional()};
 const reader = z.strictObject({tabId:id,sourceURL:source,previousURL:source.optional()});
 const schema = z.discriminatedUnion('phase',[
   z.strictObject({...common,phase:z.literal('pending'),tabId:id.optional()}),
@@ -46,6 +46,14 @@ export class FamilyLocation {
   async noteTab(tabId:number) {
     const r=this.current;if(!r || r.phase!=='pending')throw Error('ENTRY_CHANGED');
     await this.write(schema.parse({...r,tabId}));
+  }
+  async restore(sourceURL:string,revision:string) {
+    this.assertReadable(); if(this.record)throw Error('ENTRY_CHANGED');
+    await this.write(schema.parse({version:1,revision,sourceURL,phase:'pending'}));
+  }
+  async rebind(tabId:number,documentId:string) {
+    const r=this.current; if(!r || r.tabId!==tabId)throw Error('ENTRY_CHANGED');
+    await this.write(schema.parse({...r,phase:'bound',tabId,documentId}));
   }
   async bind(tabId:number,documentId:string) {
     const r=this.current;if(!r || r.tabId!==undefined && r.tabId!==tabId || r.phase==='bound' && r.documentId!==documentId)throw Error('ENTRY_CHANGED');

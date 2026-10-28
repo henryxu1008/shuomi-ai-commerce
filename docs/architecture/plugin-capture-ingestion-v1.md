@@ -1,5 +1,7 @@
 # 插件采集增量架构：规格图片与 Amazon 接收保存 V1
 
+> #989 当前恢复增量：[持久草稿与可靠交接](plugin-capture-durable-drafts-v1.md) 已达到 IMPLEMENTATION_READY 并获准离线实现。本文中“内存是未保存资料唯一 owner”、旧交接协议及 UNKNOWN 不可重试的限制由该增量替代；原后端身份授权、固定 key/body、事务保存和原键核实继续复用。不迁移旧内存现场，不改变已有保存版本，也不授权更新实例或插件。
+
 > 2026-10-23 命名更新：当前源码/操作入口为 `extensions/product-capture`，私有 npm 包为 `@shuomi/product-capture`。下文原设计中的旧目录名保留为冻结依据的历史路径；本次不改变平台路由、合同或运行实例。
 
 Refs [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)，主要文档 PR #903。字段依据：[插件上架字段设计](../product/plugin-capture-listing-fields-v1.md)。

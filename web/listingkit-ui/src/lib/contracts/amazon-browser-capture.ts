@@ -2,6 +2,7 @@ import { z } from "zod";
 import { collectionDetailSchema } from "./product-collection";
 import { isAcquisitionUUID } from "./product-acquisition";
 import { parseTree, getNodeValue, type Node, type ParseError } from "jsonc-parser";
+import { amazonCaptureBody } from "./amazon-capture-body";
 
 export const AMAZON_CAPTURE_BASE="/api/workbench/sourcing/amazon/browser-captures";
 export const AMAZON_CAPTURE_MAX_BYTES=2*1024*1024;
@@ -13,15 +14,9 @@ const price=offer.extend({alternative:offer.optional()}).refine(p=>(!p.condition
 const images=z.array(z.strictObject({url:text,role:z.enum(["main","gallery","detail","variant"])})).max(256);
 const variant=z.strictObject({sourceID:text.nullable(),sku:text.nullable(),title:text.nullable(),attributes:z.array(attr).max(256),price:price.nullable(),images});
 export const amazonCaptureSchema=z.strictObject({captureVersion:z.literal(2),source:z.literal("amazon"),evidence:z.strictObject({schemaVersion:z.literal(2),site:z.enum(["us","ca","uk","de","jp"]),sourceID:text.regex(/^[A-Z0-9]{10}$/),sourceURL:text,title:text.nullable(),description:text.nullable(),attributes:z.array(attr).max(256),variants:z.array(variant).max(256),priceFacts:z.array(price).max(256),images,observation:z.strictObject({scope:z.enum(["selected_product","partial_family"]),parentASIN:text.nullable()}),capturedAt:text,contentSHA256:text.regex(/^[a-f0-9]{64}$/),parserVersion:z.literal("amazon-browser-dom/v1"),warnings:z.array(z.strictObject({code:text,field:text})).max(256),missingFacts:z.array(z.strictObject({field:text,reason:text})).max(256)})}).refine(({evidence:e})=>e.attributes.length+e.variants.length+e.variants.reduce((n,v)=>n+v.attributes.length+v.images.length+(v.price?.alternative?1:0),0)+e.priceFacts.length+e.priceFacts.filter(p=>p.alternative).length+e.images.length+e.warnings.length+e.missingFacts.length<=1024);
-export type AmazonCapturePayload=z.infer<typeof amazonCaptureSchema>;
 export async function freezeAmazonCapture(input:unknown){
- const value=amazonCaptureSchema.parse(input),e=value.evidence;
- const canonicalOffer=(p:z.infer<typeof offer>)=>({amount:p.amount,currency:p.currency,minQuantity:p.minQuantity??null,...(p.condition?{condition:p.condition}:{}),...(p.conditionNote?{conditionNote:p.conditionNote}:{})});
- const canonicalPrice=(p:z.infer<typeof price>)=>({...canonicalOffer(p),...(p.alternative?{alternative:canonicalOffer(p.alternative)}:{})});
- for(const v of e.variants)if(v.price)v.price=canonicalPrice(v.price);
- e.priceFacts=e.priceFacts.map(canonicalPrice);
- // Match the versioned Go typed JSON encoding, including its HTML escapes.
- const body=JSON.stringify(value).replace(/[<>&\u2028\u2029]/g,c=>`\\u${c.charCodeAt(0).toString(16).padStart(4,"0")}`);
+ const value=amazonCaptureSchema.parse(input);
+ const body=amazonCaptureBody(value);
  const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(body));
  return {payload:value,body,digest:Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,"0")).join("")};
 }

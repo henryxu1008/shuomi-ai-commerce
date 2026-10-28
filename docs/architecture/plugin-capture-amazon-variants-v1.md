@@ -1,5 +1,7 @@
 # Amazon 插件：可选采集同族其他变体
 
+> #989 当前恢复增量：[持久草稿与可靠交接](plugin-capture-durable-drafts-v1.md) 替代本文中“进度页内存是唯一事实 owner、重载/重启不可恢复”的历史限制。当前候选逐项提交 IndexedDB，重建后暂停，由用户明确继续；来源发现、严格父族/规格归属、人工校验和原资源限制不变。旧页的未保全资料不作迁移，本设计更新不授权真实重采或更新运行实例。
+
 Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)。
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
 此准入结论适用于第1–10节已审范围。第11节后续续采归属修订已另行达到 **IMPLEMENTATION_READY**；

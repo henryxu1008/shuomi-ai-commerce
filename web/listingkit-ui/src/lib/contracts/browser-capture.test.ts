@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { browserCaptureSchema, BROWSER_CAPTURE_MAX_BYTES } from "./browser-capture";
 import { browserCaptureFixture } from "./browser-capture.fixture";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 type MutablePayload = { [key: string]: unknown; evidence: Record<string, unknown> & { priceFacts: Array<Record<string, unknown>> } };
 
 describe("Browser transport contract", () => {
+  it("keeps the extension's canonical fixture bytes through receiver validation",()=>{
+    const input=JSON.parse(readFileSync(resolve(process.cwd(),"../../extensions/product-capture/tests/fixtures/capture-v2.json"),"utf8"));
+    expect(JSON.stringify(browserCaptureSchema.parse(input))).toBe(JSON.stringify(input));
+  });
   it("preserves strict v2 variant images without accepting a mixed version", () => {
     const original = browserCaptureFixture();
     const input = {captureVersion:2, evidence:{...original.evidence,schemaVersion:2,parserVersion:"1688-browser-dom/v3",variants:[{sourceID:"blue",sku:null,title:null,attributes:[{name:"颜色",value:"蓝色"}],price:null,images:[{url:"https://cbu01.alicdn.com/blue.jpg",role:"source"}]}]}};

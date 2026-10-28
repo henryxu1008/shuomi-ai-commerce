@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { captureAmazonDocument } from '../src/amazon/extractor';
 import { returnStorage } from './fixtures/return-storage';
+import { openDB } from 'idb';
 
 type Reply = { ok: boolean; code?: string; state: { revision: string; captured: boolean; handed: boolean; returnState: string; recoveryURL: string | null; shortcut: string | null; error?: string } };
 type PopupListener = (message: unknown, sender: chrome.runtime.MessageSender, reply: (value: Reply) => void) => boolean;
@@ -19,6 +20,7 @@ const api = {
     onMessage: { addListener: vi.fn((fn: PopupListener) => { popup = fn; }) },
     onMessageExternal: { addListener: vi.fn((fn: ExternalListener) => { external = fn; }) } },
   tabs: { query: vi.fn(async () => [source]), create: vi.fn<(options: { url: string }) => Promise<{ id: number; windowId: number }>>().mockResolvedValue({ id: 42, windowId: 2 }),
+    get:vi.fn(async()=>({id:42,windowId:2,url:api.tabs.create.mock.calls.at(-1)?.[0].url})),
     update: vi.fn<(id: number, options: { active: boolean }) => Promise<{ id: number; windowId: number }>>().mockResolvedValue({ id: 42, windowId: 3 }) },
   windows: { update: vi.fn<(id: number, options: { focused: boolean }) => Promise<{ id: number }>>().mockResolvedValue({ id: 3 }) },
   scripting: { executeScript: vi.fn(async (options: { files?: string[] }) => [{ frameId: 0, documentId: 'source-document', ...(options.files ? { result: { ok: true, payload } } : { result: source.url }) }]) },
@@ -33,7 +35,7 @@ async function send(type: string, expectedRevision?: string): Promise<Reply> {
 }
 function envelope() {
   const url = new URL(api.tabs.create.mock.calls[0][0].url), p = new URLSearchParams(url.hash.slice(1));
-  return { version: 1, type: 'capture.read', handoffId: p.get('handoffId'), idempotencyKey: p.get('idempotencyKey') };
+  return { version: 2, scope:{userId:'actor',organizationId:'org',memberId:'member'},type: 'capture.meta', handoffId: p.get('handoffId'), idempotencyKey: p.get('idempotencyKey') };
 }
 beforeEach(async () => {
   vi.resetModules(); vi.clearAllMocks();
@@ -64,19 +66,19 @@ it.each(['popup.captureAndHandoff','shortcut'])('keeps %s out while a family sta
  expect(api.tabs.create).toHaveBeenCalledOnce();expect(api.tabs.create.mock.calls[0][0].url).toContain('popup.html#amazon-family=');
 });
 
-it.each(['popup.return', 'popup.captureAndHandoff', 'shortcut'])('restores original location for %s without fresh extraction or delivery', async entry => {
+it.each(['popup.return', 'popup.captureAndHandoff', 'shortcut'])('restores durable payload for %s with a fresh capability and no new extraction', async entry => {
   await send('popup.captureAndHandoff');
   vi.resetModules(); await import('../src/background');
   const restored = await send('popup.status');
-  expect(restored.state).toMatchObject({ returnState: 'available', captured: false, handed: false });
+  expect(restored.state).toMatchObject({ returnState: 'available', captured: true, handed: false });
   if (entry === 'shortcut') command('capture-current-product', source);
   else expect((await send(entry)).ok).toBe(true);
-  await vi.waitFor(() => expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(42, { active: true }));
+  await vi.waitFor(() => expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(42, { url:expect.stringContaining('handoffId='),active: true }));
   expect(api.tabs.create).toHaveBeenCalledOnce();
   expect(api.scripting.executeScript.mock.calls.filter(([options]) => options.files)).toHaveLength(1);
 });
 
-it.each(['1688', 'amazon'])('retains only navigation for %s while its old transport stays unavailable after recreation', async platform => {
+it.each(['1688', 'amazon'])('retains the %s draft while rejecting its old expired capability after recreation', async platform => {
   let target = source;
   if (platform === 'amazon') {
     const url = 'https://www.amazon.com/dp/B0BDLGZCTY';
@@ -91,10 +93,10 @@ it.each(['1688', 'amazon'])('retains only navigation for %s while its old transp
   expect(originalURL).toContain(`/capture/${platform}#`);
   vi.resetModules(); await import('../src/background');
   const recreated = await send('popup.status');
-  expect(recreated.state).toMatchObject({ captured: false, handed: false, recoveryURL: null, returnState: 'available' });
+  expect(recreated.state).toMatchObject({ captured: true, handed: false, recoveryURL: null, returnState: 'available' });
   const reply = vi.fn();
-  external(old, { origin: 'https://app.example.com', url: `https://app.example.com/capture/${platform}`, frameId: 0, tab: { id: 42 } as chrome.tabs.Tab }, reply);
-  expect(reply).toHaveBeenCalledWith({ version: 1, code: 'CAPTURE_UNAVAILABLE' });
+  external(old, { origin: 'https://app.example.com', url: `https://app.example.com/capture/${platform}`, frameId: 0, documentId:'app-document',tab: { id: 42 } as chrome.tabs.Tab }, reply);
+  await vi.waitFor(()=>expect(reply).toHaveBeenCalledWith({ version: 2, code: 'CAPTURE_EXPIRED' }));
   expect((await send('popup.return')).ok).toBe(true);
   expect(api.tabs.create).toHaveBeenCalledOnce(); expect(api.tabs.create.mock.calls[0][0].url).toBe(originalURL);
   expect(Object.values(storage.contents())).toEqual([{ version: 1, revision: recreated.state.revision, sourceURL: target.url, phase: 'bound', tabId: 42 }]);
@@ -116,7 +118,7 @@ it('waits for one session hydration before page, shortcut and popup can return',
   finish();
   expect((await returning).ok).toBe(true); expect((await pageReturn).ok).toBe(true);
   await vi.waitFor(() => expect(api.tabs.update).toHaveBeenCalled());
-  expect(api.tabs.update.mock.calls.every(([tab, options]) => tab === 42 && Object.keys(options).length === 1 && options.active)).toBe(true);
+  expect(api.tabs.update.mock.calls.every(([tab, options]) => tab === 42 && options.active)).toBe(true);
   expect(api.tabs.create).toHaveBeenCalledOnce(); expect(storage.session.get.mock.calls.filter(([key])=>key==='product-capture:return-location:v1')).toHaveLength(2);
 });
 
@@ -131,15 +133,15 @@ it('does not create a receiver before the pending location write completes', asy
   finish(); expect((await capture).ok).toBe(true); expect(api.tabs.create).toHaveBeenCalledOnce();
 });
 
-it('binds the original handoff before awaiting a delayed bound write, retaining busy/reset protection', async () => {
+it('waits for the native locator binding before releasing the receiver capability, retaining busy/reset protection', async () => {
   const write = storage.session.set.getMockImplementation()!;
   let finish!: () => void;
   storage.session.set.mockImplementationOnce(write).mockImplementationOnce(items => new Promise(resolve => { finish = () => { void write(items).then(resolve); }; }));
   const capture = send('popup.captureAndHandoff');
   await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
   const reply = vi.fn();
-  external(envelope(), { origin: 'https://app.example.com', url: app, frameId: 0, tab: { id: 42 } as chrome.tabs.Tab }, reply);
-  expect(reply).toHaveBeenCalledWith(expect.objectContaining({ type: 'capture.payload', payload }));
+  external(envelope(), { origin: 'https://app.example.com', url: app, frameId: 0, documentId:'app-document',tab: { id: 42 } as chrome.tabs.Tab }, reply);
+  await vi.waitFor(()=>expect(reply).toHaveBeenCalledWith(expect.objectContaining({code:'ACTION_UNAVAILABLE'})));
   expect((await send('popup.new')).code).toBe('ACTION_IN_PROGRESS');
   command('capture-current-product', source);
   expect(api.tabs.create).toHaveBeenCalledOnce();
@@ -151,11 +153,11 @@ it('keeps interrupted receiver creation uncertain across recreation instead of r
   api.tabs.create.mockRejectedValueOnce(Error('creation response lost'));
   expect((await send('popup.captureAndHandoff')).code).toBe('HANDOFF_UNAVAILABLE');
   vi.resetModules(); await import('../src/background');
-  expect((await send('popup.status')).state).toMatchObject({ returnState: 'uncertain', captured: false, handed: false });
-  expect((await send('popup.captureAndHandoff')).code).toBe('HANDOFF_UNAVAILABLE');
+  expect((await send('popup.status')).state).toMatchObject({ returnState: 'available', captured: true, handed: false });
+  expect((await send('popup.captureAndHandoff')).ok).toBe(true);
   command('capture-current-product', source);
-  await vi.waitFor(() => expect(api.action.setBadgeText).toHaveBeenCalledWith({ text: '!' }));
-  expect(api.tabs.create).toHaveBeenCalledOnce();
+  await vi.waitFor(() => expect(api.tabs.update).toHaveBeenCalled());
+  expect(api.tabs.create).toHaveBeenCalledTimes(2);
   expect(api.scripting.executeScript.mock.calls.filter(([options]) => options.files)).toHaveLength(1);
 });
 
@@ -227,8 +229,9 @@ it('routes a named Amazon capture to the fixed sibling receiver using its origin
   expect(api.tabs.create.mock.calls[0][0].url).toMatch(/^https:\/\/app.example.com\/capture\/amazon#/);
   expect(api.tabs.query).not.toHaveBeenCalled();
   const reply = vi.fn();
-  external(envelope(), { origin: 'https://app.example.com', url: 'https://app.example.com/capture/amazon', frameId: 0, tab: { id: 42 } as chrome.tabs.Tab }, reply);
-  expect(reply).toHaveBeenCalledWith(expect.objectContaining({ type: 'capture.payload', payload: amazon }));
+  external(envelope(), { origin: 'https://app.example.com', url: 'https://app.example.com/capture/amazon', frameId: 0, documentId:'app-document',tab: { id: 42 } as chrome.tabs.Tab }, reply);
+  await vi.waitFor(()=>expect(reply).toHaveBeenCalledWith(expect.objectContaining({ type: 'capture.metadata' })));
+  const read=vi.fn();external({...envelope(),type:'capture.read'},{origin:'https://app.example.com',url:'https://app.example.com/capture/amazon',frameId:0,documentId:'app-document',tab:{id:42} as chrome.tabs.Tab},read);await vi.waitFor(()=>expect(read).toHaveBeenCalledWith(expect.objectContaining({payload:amazon})));
 });
 
 it('returns to the original tab/current window without navigating, creating or extracting again', async () => {
@@ -236,7 +239,7 @@ it('returns to the original tab/current window without navigating, creating or e
   const result = await send('popup.return');
   expect(result.ok).toBe(true); expect(result.state.recoveryURL).toBe(initial.state.recoveryURL);
   expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(42, { active: true });
-  expect(api.windows.update).toHaveBeenCalledExactlyOnceWith(3, { focused: true });
+  expect(api.windows.update).toHaveBeenLastCalledWith(3, { focused: true });
   expect(api.tabs.create).toHaveBeenCalledOnce(); expect(api.scripting.executeScript).toHaveBeenCalledTimes(2);
 });
 
@@ -248,6 +251,20 @@ it.each(['tab', 'window'])('preserves the original key when its %s cannot be act
   expect(result.ok).toBe(false); expect(result.code).toBe('ORIGINAL_TAB_UNAVAILABLE');
   expect(result.state.recoveryURL).toBe(initial.state.recoveryURL);
   expect(api.tabs.create).toHaveBeenCalledOnce(); expect(api.scripting.executeScript).toHaveBeenCalledTimes(2);
+});
+
+it('restores a healthy capture after reconstruction without deleting a corrupt sibling',async()=>{
+  await send('popup.captureAndHandoff');const old=envelope();
+  await send('popup.new');api.tabs.create.mockResolvedValueOnce({id:43,windowId:2});await send('popup.captureAndHandoff');
+  const currentURL=api.tabs.create.mock.calls.at(-1)![0].url,params=new URLSearchParams(new URL(currentURL).hash.slice(1));
+  const db=await openDB('product-capture-drafts-v1');const rows=await db.getAll('drafts');
+  const bad=rows.find(row=>JSON.parse(row.json).key===old.idempotencyKey)!;bad.json='{corrupt';await db.put('drafts',bad);
+  vi.resetModules();await import('../src/background');
+  expect((await send('popup.status')).state).toMatchObject({captured:true,handed:false});
+  expect((await send('popup.return')).ok).toBe(true);
+  const restoredURL=api.tabs.create.mock.calls.at(-1)![0].url;
+  expect(new URLSearchParams(new URL(restoredURL).hash.slice(1)).get('idempotencyKey')).toBe(params.get('idempotencyKey'));
+  expect(await db.get('drafts',bad.id)).toEqual(bad);db.close();
 });
 
 it('rejects an unsupported source before injection with an actionable failure', async () => {
@@ -283,8 +300,8 @@ it('accepts explicit settled reset and refuses old handoff messages afterwards',
   const next = await send('popup.captureAndHandoff');
   expect(next.ok).toBe(true); expect(api.tabs.create).toHaveBeenCalledTimes(2);
   const reply = vi.fn();
-  external(old, { origin: 'https://app.example.com', url: app, frameId: 0, tab: { id: 42 } as chrome.tabs.Tab }, reply);
-  expect(reply).toHaveBeenCalledWith({ version: 1, code: 'CAPTURE_UNAVAILABLE' });
+  external(old, { origin: 'https://app.example.com', url: app, frameId: 0, documentId:'app-document',tab: { id: 42 } as chrome.tabs.Tab }, reply);
+  await vi.waitFor(()=>expect(reply).toHaveBeenCalledWith({ version: 2, code: 'ACTION_UNAVAILABLE' }));
 });
 
 it('rejects reset during delivery and keeps popup/shortcut on one operation', async () => {
@@ -314,8 +331,8 @@ it('retires split messages, refuses tab senders and retains the external own-tab
   expect(popup({ type: 'popup.captureAndHandoff' }, { ...sender, tab: source }, vi.fn())).toBe(false);
   await send('popup.captureAndHandoff');
   const message = envelope(), reply = vi.fn();
-  external(message, { origin: 'https://app.example.com', url: app, frameId: 0, tab: { id: 43 } as chrome.tabs.Tab }, reply);
-  expect(reply).toHaveBeenLastCalledWith({ version: 1, code: 'CAPTURE_UNAVAILABLE' });
-  external(message, { origin: 'https://app.example.com', url: app, frameId: 0, tab: { id: 42 } as chrome.tabs.Tab }, reply);
-  expect(reply).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'capture.payload', payload }));
+  external(message, { origin: 'https://app.example.com', url: app, frameId: 0, documentId:'app-document',tab: { id: 43 } as chrome.tabs.Tab }, reply);
+  await vi.waitFor(()=>expect(reply).toHaveBeenLastCalledWith({ version: 2, code: 'ACTION_UNAVAILABLE' }));
+  external(message, { origin: 'https://app.example.com', url: app, frameId: 0, documentId:'app-document',tab: { id: 42 } as chrome.tabs.Tab }, reply);
+  await vi.waitFor(()=>expect(reply).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'capture.metadata' })));
 });
