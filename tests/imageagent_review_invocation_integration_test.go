@@ -383,7 +383,7 @@ func TestOrganizationReviewSDKRetryOverrideUsesExistingTransport(t *testing.T) {
 	ctx := review334Context("B")
 	route, err := manager.ResolveEffectiveClientRoute(ctx, "default")
 	require.NoError(t, err)
-	client, err := manager.GetClientWithRoute(ctx, "default", openai.ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion})
+	client, err := manager.GetClientWithRoute(ctx, "default", ai.ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion})
 	require.NoError(t, err)
 	retries := 1
 	_, err = client.CreateChatCompletion(ctx, &ai.ChatCompletionRequest{Model: "review-test", Messages: []ai.ChatCompletionMessage{{Role: "user", Content: "controlled"}}, MaxRetries: &retries})

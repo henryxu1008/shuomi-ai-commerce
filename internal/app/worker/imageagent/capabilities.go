@@ -176,7 +176,7 @@ func (p *routedOpenAIProductImageProvider) adapter(ctx context.Context, operatio
 	if err != nil {
 		return nil, fmt.Errorf("resolve image agent image client: %w", err)
 	}
-	reviewSelection := openaiclient.ImageRouteSelection{
+	reviewSelection := ai.ImageRouteSelection{
 		CredentialReference: reviewRoute.CredentialReference, ConfigurationVersion: reviewRoute.ConfigurationVersion,
 	}
 	var reviewer ai.ChatCompleter

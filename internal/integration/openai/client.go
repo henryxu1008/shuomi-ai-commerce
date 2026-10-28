@@ -4,6 +4,7 @@ package openai
 import (
 	"context"
 	"fmt"
+	"task-processor/internal/ai"
 	"task-processor/internal/shared/ptr"
 )
 
@@ -45,7 +46,7 @@ func NewClient(config *ClientConfig) *Client {
 }
 
 // CreateChatCompletion 创建聊天完成
-func (c *Client) CreateChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
+func (c *Client) CreateChatCompletion(ctx context.Context, req *ai.ChatCompletionRequest) (*ai.ChatCompletionResponse, error) {
 	if c.pool == nil {
 		return nil, fmt.Errorf("请求池未初始化")
 	}
@@ -81,8 +82,8 @@ func (c *Client) Close() error {
 
 // Generate 简单的文本生成（将 prompt 转换为 ChatCompletionRequest）
 func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
-	req := &ChatCompletionRequest{
-		Messages: []ChatCompletionMessage{
+	req := &ai.ChatCompletionRequest{
+		Messages: []ai.ChatCompletionMessage{
 			{Role: "user", Content: prompt},
 		},
 		MaxTokens:   ptr.IntPtr(1000),
@@ -104,14 +105,14 @@ func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
 // AnalyzeImage 使用 vision 模型分析图片。
 // imageURL 必须是可公开访问的 HTTPS URL。
 func (c *Client) AnalyzeImage(ctx context.Context, imageURL string, prompt string) (string, error) {
-	req := &ChatCompletionRequest{
-		Messages: []ChatCompletionMessage{
+	req := &ai.ChatCompletionRequest{
+		Messages: []ai.ChatCompletionMessage{
 			{
 				Role: "user",
-				MultiContent: []ChatCompletionContentPart{
+				MultiContent: []ai.ChatCompletionContentPart{
 					{
 						Type: "image_url",
-						ImageURL: &ChatCompletionContentPartImage{
+						ImageURL: &ai.ChatCompletionContentPartImage{
 							URL:    imageURL,
 							Detail: "auto",
 						},

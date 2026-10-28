@@ -44,7 +44,7 @@ func TestProductImageAdapterUsesTypedPortsAndKeepsGeneratedArtifactsInline(t *te
 	require.Nil(t, images.lastEdit.Image)
 	require.Equal(t, "image/png", images.lastEdit.ImageContentType)
 	require.Equal(t, 1, images.lastEdit.N)
-	require.Equal(t, ImageRouteSelection{CredentialReference: "credential-a", ConfigurationVersion: "config-v1"}, images.lastRoute)
+	require.Equal(t, ai.ImageRouteSelection{CredentialReference: "credential-a", ConfigurationVersion: "config-v1"}, images.lastRoute)
 	require.Contains(t, images.lastEdit.Prompt, "isolate the exact product")
 	require.Contains(t, images.lastEdit.Prompt, `"product_key":"product-1"`)
 	require.Empty(t, result.Asset.URL)
@@ -88,7 +88,7 @@ func TestProductImageAdapterRendersWhiteBackgroundFromInlineSubjectWithOriginalP
 
 type sourceEditTransportClient struct{ *Client }
 
-func (c sourceEditTransportClient) EditImageWithRoute(ctx context.Context, request *ai.ImageEditRequest, _ ImageRouteSelection) (*ai.ImageResponse, error) {
+func (c sourceEditTransportClient) EditImageWithRoute(ctx context.Context, request *ai.ImageEditRequest, _ ai.ImageRouteSelection) (*ai.ImageResponse, error) {
 	return c.EditImage(ctx, request)
 }
 
@@ -438,7 +438,7 @@ type productImageGeneratorStub struct {
 	response  *ai.ImageResponse
 	err       error
 	lastEdit  *ai.ImageEditRequest
-	lastRoute ImageRouteSelection
+	lastRoute ai.ImageRouteSelection
 }
 
 func (s *productImageGeneratorStub) GenerateImage(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
@@ -452,7 +452,7 @@ func (s *productImageGeneratorStub) EditImage(_ context.Context, request *ai.Ima
 	s.lastEdit = &cloned
 	return s.response, s.err
 }
-func (s *productImageGeneratorStub) EditImageWithRoute(ctx context.Context, request *ai.ImageEditRequest, route ImageRouteSelection) (*ai.ImageResponse, error) {
+func (s *productImageGeneratorStub) EditImageWithRoute(ctx context.Context, request *ai.ImageEditRequest, route ai.ImageRouteSelection) (*ai.ImageResponse, error) {
 	s.lastRoute = route
 	return s.EditImage(ctx, request)
 }
