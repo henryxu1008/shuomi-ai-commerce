@@ -115,7 +115,7 @@ asset.Facts 的“Items 非空”不是当前批准或 readiness 门禁；保留
 - `internal/product/catalog/canonical/doc.go`
 - `internal/product/sourcing/source_identity_test.go`
 
-**原 guard 只追加一函数（1）：**
+**原 guard 追加一函数并转换一项旧 KEEP（1）：**
 
 - `tests/listingkit_backend_retirement_test.go`
 
@@ -149,7 +149,7 @@ asset.Facts 的“Items 非空”不是当前批准或 readiness 门禁；保留
 
 ## 6. 实施顺序与验证
 
-设计及适用复核完成、用户确认后，在同一主要 PR：①重新核对实际 main/消费者并冻结原保留声明/函数/断言；②在原聚合测试只追加本批 guard，旧对象仍在时取得真实 RED；③按矩阵整退四组、准确改接身份测试、收齐包注释和文档尾部；④guard GREEN，必要原测试/入口仅编译，稳定准确 HEAD 的原 CI 和一次源码最终复核。不建新验证工具/runner/运行宿主，不为阶段证据拆 PR。
+设计及适用复核完成、用户确认后，在同一主要 PR：①重新核对实际 main/消费者并冻结原保留声明/函数/断言；②在原聚合测试追加本批 guard，并按 §6.1 将一项旧必读要求转换为明确源缺席，旧对象仍在时取得真实 RED；③按矩阵整退四组、准确改接身份测试、收齐包注释和文档尾部；④guard GREEN，必要原测试/入口仅编译，稳定准确 HEAD 的原 CI 和一次源码最终复核。不建新验证工具/runner/运行宿主，不为阶段证据拆 PR。
 
 ### 6.1 原检查与断言的精确处置
 
@@ -160,9 +160,12 @@ asset.Facts 的“Items 非空”不是当前批准或 readiness 门禁；保留
 | sourcing/source_request_test.go 三测试 | 随旧请求正常化/继承/Identity wrapper 整退 | 其中有当前意义的身份正常化/key/四槽位断言已由下两行当前 owner 覆盖；不改四槽位非零拒绝与持久化测试 |
 | source_identity_test.go / TestSourceIdentityDoesNotDeriveOrBackfillRetiredAliases | 仅移除末尾 `request := (SourceRequest{...}).Identity()` 及 `if request != id` 比较块；这是旧 wrapper 与当前身份等价的旧实现断言 | 前面完整 table/循环、缺值不得互填、Normalize(SourceEnvelope) 拒绝和当前 id.SourceKey/四槽位检查逐字保留；不得删除该函数或缩减任何 table entry |
 | source_identity_test.go / TestSourceRequestIdentityUsesCanonicalKey | 函数改名为 TestCanonicalSourceIdentityUsesCanonicalKey；只将 id 输入构造换为 `NormalizeSourceIdentity(SourceIdentity{SourceType: " CRAWLER ", SourcePlatform: " Amazon ", SourceID: " B001 "})` | 原函数从第一个 SourceType 断言起至末尾的所有断言/错误字面量逐字保持：SourceType、SourcePlatform、SourceID、四零值槽位、SourceKey 全保留；其它测试函数零改 |
-| tests/listingkit_backend_retirement_test.go | 仅追加 TestLegacySourceNormalizationFactsClosureIsRetired，复用原 trackedFiles/AST/decl/import/error helper；不改任何原函数/表项/期望/算法 | 精确八路径缺席；各 owner 内旧声明/alias/转发禁入；canonical 13 值/六常量、SourceIdentity 十字段与当前 ToSnapshot/ProjectCanonical 必须存在；保留原解码 import/缺失及解析错误失败，不加 skip，不全局 ban Facts/Normalize/SourceRequest 同名 |
+| 原聚合 guard / TestNumericAcquisitionAndPlatformTailClosureIsRetired | 仅从其 mandatory os.ReadFile 表删除 `internal/product/sourcing/source_request.go: {"TenantID"}` 一项，改为同函数明确 `os.Lstat` + `os.IsNotExist` 检查该完整源文件必须缺席；不能在读取失败时忽略或 skip | 原 TenantID 禁入由整源缺席作更强替代；type_amazon.go/type_platform.go 两项必读表与 token、所有其它路径禁入、trackedFiles/decoded import/parser、错误处理及原逻辑逐字保持 |
+| tests/listingkit_backend_retirement_test.go 新 guard | 仅追加 TestLegacySourceNormalizationFactsClosureIsRetired，复用原 trackedFiles/AST/decl/import/error helper；除上行准确旧 KEEP 转换外，不改其它原函数/表项/期望/算法 | 精确八路径缺席；各 owner 内旧声明/alias/转发禁入；canonical 13 值/六常量、SourceIdentity 十字段与当前 ToSnapshot/ProjectCanonical 必须存在；保留原解码 import/缺失及解析错误失败，不加 skip，不全局 ban Facts/Normalize/SourceRequest 同名 |
 
-新增 guard 对 canonical 原 type/常量形状作准确正向约束；对 SourceIdentity 四槽位及当前合同检查只读原文件，不更改它们。新 guard 保护本批删除边界；原永久 guard 全部保留，尤其 #868 身份拒绝、#964 capturedata、#968/#972/#977/#980 当前合同，Phase3/import/Architecture/Admission/depguard/inventory 逻辑均不变。
+新增 guard 对 canonical 原 type/常量形状作准确正向约束；对 SourceIdentity 四槽位及当前合同检查只读原文件，不更改它们。新 guard 保护本批删除边界；除上表一项旧必读转换，原永久 guard 全部保留，尤其 #868 身份拒绝、#964 capturedata、#968/#972/#977/#980 当前合同，Phase3/import/Architecture/Admission/depguard/inventory 逻辑均不变。
+
+本项来自独立设计复核的唯一 finding，分类 IMPLEMENTATION_TEST：整退 source_request.go 却保留其必读要求，会使原检查必然失败；准确转换保留并加强原 TenantID 禁入含义，不改变产品/安全边界，不是新全局架构 BLOCKER。已逐项核对八个退休路径在 tracked tests/check 脚本中的强制读取，仅此一项；生产/测试尚未修改，当前补齐的是设计矩阵。
 
 未来必要自检：上述 guard；当前 catalog/sourcing/asset 包原测试及 SHEIN draft/offlinepackage/validator 原回归；原架构/准入/import 检查；current-application、image-agent-temporal-worker、shein-login-worker、1688-public-browser-collector 及现役 Amazon/1688 debug 六入口仅编译。debug 按已有嵌套模块/单文件入口核对，不改 go.mod，不启动。原 PR CI 绑定准确 HEAD 完整 run；部署、真实 provider/浏览器/运行产品验收保持 NOT_RUN。
 
