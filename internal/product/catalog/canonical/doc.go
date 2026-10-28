@@ -1,8 +1,7 @@
-// Package canonical defines the platform-neutral product contract shared by
-// enrichment, ListingKit workflows, SDS adapters, and marketplace publishers.
+// Package canonical defines the pure value contract used by Catalog projection
+// and current SHEIN draft and offline-package consumers.
 //
-// This package should stay free of product-enrichment runtime dependencies,
-// platform API clients, and persistence concerns. Source traces live here so
-// downstream publishing packages can distinguish scraped, user-provided,
-// derived, and LLM-generated facts before submission.
+// These values preserve their existing JSON and source-trace fields. Source
+// normalization and publication belong to product/sourcing and product/catalog;
+// this package does not infer confidence, approve assets, or own runtime state.
 package canonical

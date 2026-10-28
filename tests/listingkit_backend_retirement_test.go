@@ -2834,6 +2834,9 @@ func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 }
 
 func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "product", "sourcing", "source_request.go")); !os.IsNotExist(err) {
+		t.Errorf("retired numeric source request must be absent: %v", err)
+	}
 	if _, err := os.Lstat(filepath.Join("..", "internal", "listingruntime")); !os.IsNotExist(err) {
 		t.Errorf("retired numeric mapping owner internal/listingruntime must be absent: %v", err)
 	}
@@ -2856,9 +2859,8 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 		}
 	}
 	for relative, retired := range map[string][]string{
-		"internal/product/sourcing/source_request.go": {"TenantID"},
-		"internal/core/config/type_amazon.go":         {"DataFreshnessDays", "ProductDedupe", "RegionGuard", "ConcurrencyControl", "RemoteAPI"},
-		"internal/core/config/type_platform.go":       {"FetchMode"},
+		"internal/core/config/type_amazon.go":   {"DataFreshnessDays", "ProductDedupe", "RegionGuard", "ConcurrencyControl", "RemoteAPI"},
+		"internal/core/config/type_platform.go": {"FetchMode"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -6435,6 +6437,160 @@ func TestLegacyAIRoutingImagePolicyClosureIsRetired(t *testing.T) {
 	for _, path := range []string{"internal/integration/httpimage/client.go", "internal/aicapability/errors.go", "internal/aicapability/routeconfig/config.go", "internal/integration/aicapability/einomodel/executor.go", "internal/product/image/ports.go", "internal/app/worker/imageagent/generation_provider.go", "internal/imageagent/temporal/worker.go", "cmd/shein-login-worker/main.go", "internal/sheinlogin/store.go", "internal/crawler/shared/browser/manager.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
 			t.Errorf("current AI/image/acquisition/SHEIN owner must remain: %s:%v", path, err)
+		}
+	}
+}
+
+func TestLegacySourceNormalizationFactsClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/product/catalog/normalize.go", "internal/product/catalog/normalize_test.go", "internal/product/catalog/facts.go", "internal/product/asset/facts.go", "internal/product/asset/facts_test.go", "internal/product/sourcing/source_request.go", "internal/product/sourcing/source_request_test.go", "internal/product/sourcing/source_result.go"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired source normalization/facts artifact must be absent: %s: %v", path, err)
+		}
+	}
+	banned := map[string][]string{
+		"internal/product/catalog":           []string{"Normalize", "buildAttributes", "buildDimensions", "buildImages", "buildPackage", "buildPrice", "buildReviewState", "buildSpecifications", "buildTrace", "buildVariants", "buildWeight", "cloneStrings", "collectReviewReasons", "collectSources", "firstNonEmpty", "sortedAttributeKeys", "uniqueSourceRecords", "uniqueStrings", "ProductFacts", "VariantFacts", "FactWarning", "ProductFacts.HasIdentity"},
+		"internal/product/catalog/canonical": []string{"HasSourceType", "BuildFieldTrace", "ProductNeedsReview", "ShouldReviewLLMOnlySourceFact"},
+		"internal/product/asset":             []string{"Facts", "ItemFacts", "FactWarning", "Facts.HasAssets"},
+		"internal/product/sourcing":          []string{"SourceRequest", "NormalizeSourceRequest", "SourceRequest.Identity", "VariantSourceRequest", "SourceResult"},
+	}
+	required := map[string][]string{
+		"internal/product/catalog/canonical/types.go":        []string{"Attribute", "Dimensions", "FieldTrace", "Image", "PackageInfo", "PriceInfo", "Product", "ProductSpecs", "ScrapedVariantDimension", "Source", "SourceType", "Variant", "Weight", "SourceUserText", "SourceUserImage", "SourceProductURL", "SourceScrapedData", "SourceLLM", "SourceDerived"},
+		"internal/product/sourcing/source_identity.go":       []string{"SourceIdentity", "NormalizeSourceIdentity", "SourceIdentity.SourceKey"},
+		"internal/product/sourcing/source_envelope.go":       []string{"SourceEnvelope"},
+		"internal/product/sourcing/normalize.go":             []string{"Normalize", "NormalizePublicationEnvelope"},
+		"internal/product/sourcing/catalog_asset_handoff.go": []string{"ToSnapshot"},
+		"internal/product/catalog/projection.go":             []string{"ProjectCanonical"},
+		"internal/product/catalog/snapshot.go":               []string{"ProductSnapshot"},
+	}
+	shapes := map[string]string{
+		"internal/product/catalog/canonical/types.go:Attribute":               "type Attribute struct {\n\tValue string     `json:\"value\"`\n\tTrace FieldTrace `json:\"trace\"`\n}",
+		"internal/product/catalog/canonical/types.go:Dimensions":              "type Dimensions struct {\n\tLength float64 `json:\"length\"`\n\tWidth  float64 `json:\"width\"`\n\tHeight float64 `json:\"height\"`\n\tUnit   string  `json:\"unit\"`\n}",
+		"internal/product/catalog/canonical/types.go:FieldTrace":              "type FieldTrace struct {\n\tSources     []Source `json:\"sources,omitempty\"`\n\tConfidence  float64  `json:\"confidence,omitempty\"`\n\tIsInferred  bool     `json:\"is_inferred,omitempty\"`\n\tNeedsReview bool     `json:\"needs_review,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:Image":                   "type Image struct {\n\tURL   string     `json:\"url\"`\n\tRole  string     `json:\"role,omitempty\"`\n\tTrace FieldTrace `json:\"trace\"`\n}",
+		"internal/product/catalog/canonical/types.go:PackageInfo":             "type PackageInfo struct {\n\tDimensions *Dimensions `json:\"dimensions,omitempty\"`\n\tWeight     *Weight     `json:\"weight,omitempty\"`\n\tQuantity   int         `json:\"quantity\"`\n}",
+		"internal/product/catalog/canonical/types.go:PriceInfo":               "type PriceInfo struct {\n\tCurrency     string  `json:\"currency\"`\n\tAmount       float64 `json:\"amount\"`\n\tCompareAt    float64 `json:\"compare_at,omitempty\"`\n\tCostPrice    float64 `json:\"cost_price,omitempty\"`\n\tWholesaleMin int     `json:\"wholesale_min,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:Product":                 "type Product struct {\n\tTitle             string                    `json:\"title,omitempty\"`\n\tBrand             string                    `json:\"brand,omitempty\"`\n\tCategoryPath      []string                  `json:\"category_path,omitempty\"`\n\tDescription       string                    `json:\"description,omitempty\"`\n\tDescriptionFormat string                    `json:\"description_format,omitempty\"`\n\tSellingPoints     []string                  `json:\"selling_points,omitempty\"`\n\tSEOKeywords       []string                  `json:\"seo_keywords,omitempty\"`\n\tAttributes        map[string]Attribute      `json:\"attributes,omitempty\"`\n\tSpecifications    *ProductSpecs             `json:\"specifications,omitempty\"`\n\tVariantDimensions []ScrapedVariantDimension `json:\"variant_dimensions,omitempty\"`\n\tVariants          []Variant                 `json:\"variants,omitempty\"`\n\tImages            []Image                   `json:\"images,omitempty\"`\n\tFieldTraces       map[string]FieldTrace     `json:\"field_traces,omitempty\"`\n\tNeedsReview       bool                      `json:\"needs_review,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:ProductSpecs":            "type ProductSpecs struct {\n\tDimensions *Dimensions       `json:\"dimensions,omitempty\"`\n\tWeight     *Weight           `json:\"weight,omitempty\"`\n\tPackage    *PackageInfo      `json:\"package,omitempty\"`\n\tTechnical  map[string]string `json:\"technical,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:ScrapedVariantDimension": "type ScrapedVariantDimension struct {\n\tName   string   `json:\"name\"`\n\tValues []string `json:\"values\"`\n}",
+		"internal/product/catalog/canonical/types.go:Source":                  "type Source struct {\n\tType   SourceType `json:\"type\"`\n\tDetail string     `json:\"detail,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:SourceType":              "type SourceType string",
+		"internal/product/catalog/canonical/types.go:Variant":                 "type Variant struct {\n\tSKU        string               `json:\"sku\"`\n\tAttributes map[string]Attribute `json:\"attributes,omitempty\"`\n\tPrice      *PriceInfo           `json:\"price,omitempty\"`\n\tStock      int                  `json:\"stock,omitempty\"`\n\tImages     []Image              `json:\"images,omitempty\"`\n\tDimensions *Dimensions          `json:\"dimensions,omitempty\"`\n\tWeight     *Weight              `json:\"weight,omitempty\"`\n\tBarcode    string               `json:\"barcode,omitempty\"`\n\tIsDefault  bool                 `json:\"is_default,omitempty\"`\n\tTrace      FieldTrace           `json:\"trace\"`\n}",
+		"internal/product/catalog/canonical/types.go:Weight":                  "type Weight struct {\n\tValue float64 `json:\"value\"`\n\tUnit  string  `json:\"unit\"`\n}",
+		"internal/product/sourcing/source_identity.go:SourceIdentity":         "// SourceIdentity is the stable identity for a sourced product/design record.\n//\n// The six Source* fields are the identity inputs. Platform, Region, ProductID,\n// and StoreID retain the existing zero-value JSON layout and rejection checks;\n// they do not supply identity values.\ntype SourceIdentity struct {\n\tSourceType        string\n\tSourcePlatform    string\n\tSourceID          string\n\tSourceURL         string\n\tSourceVersion     string\n\tSourceFingerprint string\n\n\t// Zero-value slots in the current source evidence encoding contract.\n\tPlatform  string\n\tRegion    string\n\tProductID string\n\tStoreID   int64\n}",
+	}
+	values := map[string]string{
+		"SourceUserText":    "\"user_text\"",
+		"SourceUserImage":   "\"user_image\"",
+		"SourceProductURL":  "\"product_url\"",
+		"SourceScrapedData": "\"scraped_data\"",
+		"SourceLLM":         "\"llm\"",
+		"SourceDerived":     "\"derived\"",
+	}
+	found := map[string]map[string]bool{}
+	shapeFound, valueFound := map[string]bool{}, map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		if _, current := required[path]; !current && len(banned[owner]) == 0 {
+			continue
+		}
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, filepath.Join("..", filepath.FromSlash(path)), nil, parser.ParseComments)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			if _, err := decodeGoImportPath(spec.Path.Value); err != nil {
+				t.Fatalf("decode source contract import in %s: %v", path, err)
+			}
+		}
+		found[path] = map[string]bool{}
+		check := func(name string) {
+			found[path][name] = true
+			if !strings.HasSuffix(path, "_test.go") && slices.Contains(banned[owner], name) {
+				t.Errorf("retired source normalization/facts declaration: %s:%s", path, name)
+			}
+		}
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					var receiver bytes.Buffer
+					if err := format.Node(&receiver, fset, d.Recv.List[0].Type); err != nil {
+						t.Fatal(err)
+					}
+					name = strings.TrimPrefix(receiver.String(), "*") + "." + name
+				}
+				check(name)
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name)
+						if slices.Contains(required[path], s.Name.Name) && s.Assign.IsValid() {
+							t.Errorf("current source contract must be a real definition, not alias: %s:%s", path, s.Name.Name)
+						}
+						key := path + ":" + s.Name.Name
+						if want, ok := shapes[key]; ok {
+							var text bytes.Buffer
+							if err := format.Node(&text, fset, d); err != nil {
+								t.Fatal(err)
+							}
+							if text.String() != want {
+								t.Errorf("current source JSON/value shape changed: %s", key)
+							}
+							shapeFound[key] = true
+						}
+					case *ast.ValueSpec:
+						for i, name := range s.Names {
+							check(name.Name)
+							if path == "internal/product/catalog/canonical/types.go" {
+								if want, ok := values[name.Name]; ok {
+									if i >= len(s.Values) {
+										t.Errorf("current source constant requires original explicit value: %s", name.Name)
+										continue
+									}
+									literal, ok := s.Values[i].(*ast.BasicLit)
+									if !ok || literal.Kind != token.STRING || literal.Value != want {
+										t.Errorf("current source constant changed or forwarded: %s", name.Name)
+									}
+									valueFound[name.Name] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for path, names := range required {
+		for _, name := range names {
+			if !found[path][name] {
+				t.Errorf("required current source contract missing: %s:%s", path, name)
+			}
+		}
+	}
+	for key := range shapes {
+		if !shapeFound[key] {
+			t.Errorf("required current source JSON/value shape missing: %s", key)
+		}
+	}
+	for name := range values {
+		if !valueFound[name] {
+			t.Errorf("required current source constant missing: %s", name)
+		}
+	}
+	for _, path := range []string{
+		"internal/integration/persistence/product/sourcing/repository.go", "internal/product/pod/template.go", "internal/product/supplymarket/publication.go",
+		"internal/marketplace/shein/draft/builder.go", "internal/product/asset/approval.go", "internal/product/asset/source_approval.go",
+		"cmd/current-application/main.go", "cmd/shein-login-worker/main.go", "internal/sheinlogin/service.go", "internal/sheinlogin/store.go",
+		"internal/crawler/amazon/browser/pool_manager.go", "cmd/1688-public-browser-collector/main.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current source/asset/acquisition/SHEIN owner must remain: %s: %v", path, err)
 		}
 	}
 }

@@ -21,19 +21,10 @@ func TestSourceIdentityDoesNotDeriveOrBackfillRetiredAliases(t *testing.T) {
 	if id.SourceKey() != "crawler:amazon:B001" || id.Platform != "" || id.Region != "" || id.ProductID != "" || id.StoreID != 0 {
 		t.Fatalf("canonical identity changed or backfilled aliases: %+v", id)
 	}
-	request := (SourceRequest{Platform: "amazon", Region: "uk", ProductID: "B001", StoreID: 42}).Identity()
-	if request != id {
-		t.Fatalf("request identity = %+v, want %+v", request, id)
-	}
 }
 
-func TestSourceRequestIdentityUsesCanonicalKey(t *testing.T) {
-	id := SourceRequest{
-		Platform:  " Amazon ",
-		Region:    " UK ",
-		ProductID: " B001 ",
-		StoreID:   42,
-	}.Identity()
+func TestCanonicalSourceIdentityUsesCanonicalKey(t *testing.T) {
+	id := NormalizeSourceIdentity(SourceIdentity{SourceType: " CRAWLER ", SourcePlatform: " Amazon ", SourceID: " B001 "})
 
 	if id.SourceType != SourceTypeCrawler {
 		t.Fatalf("SourceType = %q, want %q", id.SourceType, SourceTypeCrawler)
