@@ -270,7 +270,6 @@ func TestListingKitRetainedWorkloadsExcludeInvitationCredentials(t *testing.T) {
 	for _, name := range []string{
 		"listingkit-ui-deployment.yaml",
 		"imgproxy-deployment.yaml",
-		"shein-login-worker-deployment.yaml",
 		"image-agent-temporal-worker-deployment.yaml",
 		"image-agent-temporal-worker-v3-deployment.yaml",
 	} {
@@ -338,7 +337,6 @@ func TestRetiredTencentSMSCredentialsAndRouteAreAbsent(t *testing.T) {
 	for _, name := range []string{
 		"listingkit-ui-deployment.yaml",
 		"imgproxy-deployment.yaml",
-		"shein-login-worker-deployment.yaml",
 		"image-agent-temporal-worker-deployment.yaml",
 		"image-agent-temporal-worker-v3-deployment.yaml",
 	} {

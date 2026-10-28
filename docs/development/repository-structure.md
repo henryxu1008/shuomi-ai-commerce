@@ -1,3 +1,5 @@
+> #301 / #985 当前边界：独立 SHEIN 登录 worker、登录后 Store ID 回写及其专属持久化/构建部署入口已从源码退休。此前批次中这些对象的 KEEP/装配描述仅为历史，由[本批已确认设计](../architecture/legacy-shein-login-identity-sync-closure-retirement-boundary.md)准确替代；Store 观察同步、官方授权、当前采集/图像/共享能力继续保留。相关原 guard 的稳定名称继续存在，含义已转换为完整退休禁入，不恢复旧 owner。既有资源/真实运行/数据/凭据/进程不操作，不增加试用前置，#301 OPEN。
+
 > #301 / #972: the old LocalAgent PoC command and its dedicated acceptance script have retired together. Current public/extension/batch/original-browser acquisition and debug, SDS/POD, asset approval and independent SHEIN login/Store sync remain. Only the two obsolete current catalogue/maintenance rows are removed below; all other structure rules/history remain. The exact original catalogue is preserved by baseline commit 12f5b70fa72545b401f337f7ce4851104f8fa07d, not reintroduced as a current executable list.
 
 > #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](../architecture/legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
@@ -164,7 +166,6 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `product-listing-api-schema-migrate`
     - `supply-asset-init`
     - `product-acquisition-init`
-    - `shein-login-worker`
     - `store-center-schema-init`
     - `source-account-registry-schema-init`
     - `organization-membership-schema-init`
@@ -184,7 +185,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - `local-ai-trial-grant` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`，装配归 `internal/app/localaitrial`、资源事实归 `ledger/orgresource`。沿私密配置和既有 `commercial_owner_runtime`，默认 inspect 只读；明确获准并开启 grant 后仅一次10000非现金ai_point，复用来源幂等/事务/债务/审计，未知结果原键读回。它不安装 schema/权限、不改钱包/成员限额、不启模型或调用 provider；依据 [#724 专用来源设计](../architecture/local-ai-trial-v1.md) 和[待确认执行清单](../operations/local-ai-trial-v1.md)。列入维护清单不授权真实发点或部署。
   - 不再新增临时调试可执行程序。
   - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
-  - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。旧发布身份预检、独占共享reader与tenantbridge已按批准设计退休；schema工具与独立SHEIN worker保持。
+  - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。旧发布身份预检、独占共享reader与tenantbridge已按批准设计退休；schema工具与当前Store观察同步保持。
   - `source-account-registry-schema-init` 由 `scripts/source-account-registry-local-acceptance.ps1` 维护，初始化当前 SourceAccountRegistry 空库 schema 及 RUN-1 在同一 source-account pool 上的账户资料、个人/企业认证 schema；不读取、迁移或兼容旧 Source Account 数据。
   - `organization-membership-schema-init` 由 `deployments/docker/account-compose` 维护，只初始化本账户中心实例的组织成员回执 schema；不读取、迁移或兼容旧成员数据。
   - `commercial-owner-schema-migrate` 由 `scripts/commercial-owner-schema-migrate.ps1` 维护；分别针对私有 schema-owner manifests 初始化 canonical money 数据库的钱包/结算 schema，以及 commercial-owner 数据库的订单与 orgresource schema，不自动切换数据库或操作生产数据。
@@ -243,7 +244,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - 运行装配层，负责当前httpapi、worker、采集及其它有效命令的组装与协调；旧listing bootstrap/consumer/scheduler/control-plane装配已退休。
   - 不承载具体平台业务规则。
   - 其中 `internal/app/httpapi` 当前只负责共享 HTTP runtime 协调；各业务 HTTP builder 已下沉到 `internal/*/httpapi`。
-  - 当前独立登录装配归`internal/app/runtime/sheinloginworker`，其它正式入口按本文件命令清单及各自runtime/owner维护；不恢复旧listing/control-plane runtime。
+  - 当前 Store 观察同步装配归 `internal/app/runtime/storeobservations`；旧独立登录 runtime 已退休，其它正式入口按本文件命令清单及各自 owner 维护，不恢复旧 listing/control-plane runtime。
 - `internal/*`
   - 不放本地 `.local`、`logs`、`tmp` 等运行态产物；业务包、基础设施包和平台包都应保持源码可审查。
   - SDS 登录态、浏览器状态和 auth/cookie JSON 必须放在仓库根 `.local/sds/` 或其他明确忽略的运行态目录，不能放在 `internal/sdslogin/data/`。

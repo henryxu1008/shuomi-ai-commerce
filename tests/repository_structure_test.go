@@ -36,7 +36,6 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"product-agent-runtime-prepare":       {},
 		"local-ai-trial-grant":                {},
 		"product-acquisition-init":            {},
-		"shein-login-worker":                  {},
 		"store-center-schema-init":            {},
 		"source-account-registry-schema-init": {},
 		"organization-membership-schema-init": {},

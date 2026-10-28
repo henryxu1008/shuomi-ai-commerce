@@ -76,7 +76,6 @@ func TestListingKitWorkloadsUseLeastPrivilegeSharedSecretKeys(t *testing.T) {
 			"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES":      "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES",
 			"LISTINGKIT_DEMO_WEBHOOK_URL":                          "LISTINGKIT_DEMO_WEBHOOK_URL",
 		},
-		"base/shein-login-worker-deployment.yaml": {},
 		"base/imgproxy-deployment.yaml": {
 			"IMGPROXY_KEY":          "IMGPROXY_KEY",
 			"IMGPROXY_SALT":         "IMGPROXY_SALT",
@@ -176,65 +175,12 @@ func loadOnlyContainer(t *testing.T, relativePath string) workloadContainer {
 }
 
 func TestSheinWorkerUsesOnlyFreshPrivateFileInputs(t *testing.T) {
-	c := loadOnlyContainer(t, "base/shein-login-worker-deployment.yaml")
-	if c.StartupProbe.HTTPGet.Path != "/livez" || c.LivenessProbe.HTTPGet.Path != "/livez" || c.ReadinessProbe.HTTPGet.Path != "/healthz" {
-		t.Fatal("dependency readiness must not restart an owned executor")
-	}
-	if len(c.Env) != 0 || len(c.EnvFrom) != 0 {
-		t.Fatal("worker must not import numeric environment or shared ConfigMap")
-	}
-	if len(c.Args) < 2 || c.Args[0] != "-config" || c.Args[1] != "/run/shein-login-worker/current.json" {
-		t.Fatal("explicit current config missing")
-	}
-	required := map[string]bool{"current.json": false, "client-secret": false, "service-token": false, "login.json": false}
-	for _, m := range c.VolumeMounts {
-		if m.Name != "worker-current" {
-			continue
+	for _, relative := range []string{
+		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml",
+		"deployments/docker/Dockerfile.shein-login-worker", ".github/workflows/shein-login-worker-deploy.yml",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Fatalf("retired standalone worker deployment remains: %s: %v", relative, err)
 		}
-		if _, ok := required[m.SubPath]; !ok || !m.ReadOnly || m.MountPath != "/run/shein-login-worker/"+m.SubPath {
-			t.Fatal("private regular-file mount mismatch")
-		}
-		required[m.SubPath] = true
-	}
-	for key, present := range required {
-		if !present {
-			t.Fatal("missing private file", key)
-		}
-	}
-	path := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base", "shein-login-worker-deployment.yaml")
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var manifest struct {
-		Spec struct {
-			Template struct {
-				Spec struct {
-					Volumes []struct {
-						Name   string
-						Secret *struct {
-							SecretName  string `yaml:"secretName"`
-							DefaultMode int    `yaml:"defaultMode"`
-							Optional    bool
-						}
-					}
-				}
-			}
-		}
-	}
-	if err = yaml.Unmarshal(contents, &manifest); err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, v := range manifest.Spec.Template.Spec.Volumes {
-		if v.Name == "worker-current" {
-			found = true
-			if v.Secret == nil || v.Secret.SecretName != "shein-login-worker-current" || v.Secret.DefaultMode != 0400 || v.Secret.Optional {
-				t.Fatal("private current Secret boundary mismatch")
-			}
-		}
-	}
-	if !found {
-		t.Fatal("current private Secret missing")
 	}
 }

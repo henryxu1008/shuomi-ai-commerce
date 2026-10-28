@@ -137,45 +137,27 @@ func TestAlibaba1688CrawlerDoesNotImportListingKitHTTPAPIForSourceAccountBuilder
 }
 
 func TestSheinLoginReadsIdentityFromNeutralContext(t *testing.T) {
-	root := filepath.Join("..", "internal", "sheinlogin")
-	// Current execution authorization uses the neutral verified identity context.
-	for _, name := range []string{"authorization.go"} {
-		path := filepath.Join(root, name)
-		source, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
+	for _, relative := range []string{"internal/sheinlogin", "internal/app/runtime/sheinloginworker"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Fatalf("retired login owner remains: %s: %v", relative, err)
 		}
-		file, err := parser.ParseFile(token.NewFileSet(), path, source, parser.ImportsOnly)
-		if err != nil {
-			t.Fatal(err)
-		}
-		importsAuthIdentity := false
-		for _, imp := range file.Imports {
-			if imp.Path.Value == `"task-processor/internal/authidentity"` {
-				importsAuthIdentity = true
-				break
+	}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, facts := range index.files {
+		for quoted := range facts.imports {
+			imported, err := decodeGoImportPath(quoted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+				if importMatchesPrefix(imported, retired) {
+					t.Errorf("%s imports retired login/management owner %s", path, imported)
+				}
 			}
 		}
-		if !importsAuthIdentity {
-			t.Errorf("%s must import internal/authidentity for verified identity context", path)
-		}
-
-		file, err = parser.ParseFile(token.NewFileSet(), path, source, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		ast.Inspect(file, func(node ast.Node) bool {
-			selector, ok := node.(*ast.SelectorExpr)
-			if !ok || selector.Sel == nil ||
-				(selector.Sel.Name != "AuthenticatedIdentityFromContext" && selector.Sel.Name != "AuthenticatedIdentity") {
-				return true
-			}
-			ident, ok := selector.X.(*ast.Ident)
-			if ok && ident.Name == "listingkit" {
-				t.Errorf("%s reads verified identity through listingkit; use internal/authidentity", path)
-			}
-			return true
-		})
 	}
 }
 
@@ -577,22 +559,6 @@ func TestAppTaskStatusDTOAdapterIsRetired(t *testing.T) {
 func TestListingKitNonAPISheinImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "listingkit")
 	allowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/shein/client"`: {
-			filepath.Clean(filepath.Join(root, "service_shein_categories.go")):              {},
-			filepath.Clean(filepath.Join(root, "service_shein_category_api_helpers.go")):    {},
-			filepath.Clean(filepath.Join(root, "service_submit_remote_context_helpers.go")): {},
-			filepath.Clean(filepath.Join(root, "service_submit_store_context.go")):          {},
-			filepath.Clean(filepath.Join(root, "shein_runtime.go")):                         {},
-			filepath.Clean(filepath.Join(root, "service_preview_test.go")):                  {},
-			filepath.Clean(filepath.Join(root, "service_revision_test.go")):                 {},
-			filepath.Clean(filepath.Join(root, "service_shein_store_client.go")):            {},
-			filepath.Clean(filepath.Join(root, "service_shein_store_client_test.go")):       {},
-			filepath.Clean(filepath.Join(root, "shein_admin_service.go")):                   {},
-			filepath.Clean(filepath.Join(root, "shein_admin_service_support.go")):           {},
-			filepath.Clean(filepath.Join(root, "service_admin_wiring_support.go")):          {},
-			filepath.Clean(filepath.Join(root, "httpapi", "bootstrap_test.go")):             {},
-			filepath.Clean(filepath.Join(root, "service_submit_context_resolver.go")):       {},
-		},
 		`"task-processor/internal/shein/store"`: {
 			filepath.Clean(filepath.Join(root, "shein_submit_payload.go")):              {},
 			filepath.Clean(filepath.Join(root, "shein_submit_payload_site_support.go")): {},
@@ -660,7 +626,6 @@ func TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets(t *testing.T
 func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "marketplace", "shein")
 	allowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/shein/client"`:     {},
 		`"task-processor/internal/shein/content"`:    {},
 		`"task-processor/internal/shein/context"`:    {},
 		`"task-processor/internal/shein/product"`:    {},
@@ -688,7 +653,6 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 	managedRoot := filepath.Join("..", "internal", "publishing", "sheinmanaged")
 	managedAllowedImports := map[string]map[string]struct{}{
 		`"task-processor/internal/shein/category"`:      {},
-		`"task-processor/internal/shein/client"`:        {},
 		`"task-processor/internal/shein/managedclient"`: {},
 	}
 	managedIndex, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
@@ -1939,6 +1903,10 @@ func TestBusinessDomainsDoNotImportAppHTTPAPI(t *testing.T) {
 }
 
 func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
+	if _, err := os.Stat(filepath.Join("..", "internal", "shein")); !os.IsNotExist(err) {
+		t.Errorf("retired SHEIN root remains: %v", err)
+	}
+
 	for _, domainRoot := range []string{
 		filepath.Join("..", "internal", "amazon"),
 		filepath.Join("..", "internal", "product", "asset"),
@@ -1949,7 +1917,6 @@ func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
 		filepath.Join("..", "internal", "platform"),
 		filepath.Join("..", "internal", "product", "sourcing"),
 		filepath.Join("..", "internal", "publishing"),
-		filepath.Join("..", "internal", "shein"),
 		filepath.Join("..", "internal", "temu"),
 		filepath.Join("..", "internal", "workspace"),
 	} {
@@ -2209,7 +2176,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "imageagent", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "kernel", "module")) + string(os.PathSeparator):                 {},
 		filepath.Clean(filepath.Join(root, "sourceaccountregistry", "httpapi")) + string(os.PathSeparator): {},
-		filepath.Clean(filepath.Join(root, "sheinlogin")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "taskrpcapi")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "listingkit", "studio_session_handler.go")):                     {},
 		filepath.Clean(filepath.Join(root, "listingsubscription", "handler.go")):                           {},
@@ -2508,64 +2474,20 @@ func TestSheinBridgeExternalClientImportsStayAllowlisted(t *testing.T) {
 
 func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "shein")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "api", "image", "client.go")):                   {},
-		filepath.Clean(filepath.Join(root, "authorizedbrand", "context_test.go")):          {},
-		filepath.Clean(filepath.Join(root, "authorizedbrand", "types.go")):                 {},
-		filepath.Clean(filepath.Join(root, "pipeline", "processor.go")):                    {},
-		filepath.Clean(filepath.Join(root, "pipeline", "task.go")):                         {},
-		filepath.Clean(filepath.Join(root, "pipeline", "task_authorized_brand_test.go")):   {},
-		filepath.Clean(filepath.Join(root, "scheduler", "activity_task.go")):               {},
-		filepath.Clean(filepath.Join(root, "scheduler", "factory.go")):                     {},
-		filepath.Clean(filepath.Join(root, "scheduler", "inventory_sync_adapter.go")):      {},
-		filepath.Clean(filepath.Join(root, "scheduler", "inventory_sync_adapter_test.go")): {},
-		filepath.Clean(filepath.Join(root, "scheduler", "inventory_task.go")):              {},
-		filepath.Clean(filepath.Join(root, "scheduler", "pricing_task.go")):                {},
-		filepath.Clean(filepath.Join(root, "scheduler", "product_sync_adapter.go")):        {},
-		filepath.Clean(filepath.Join(root, "scheduler", "product_sync_adapter_test.go")):   {},
-		filepath.Clean(filepath.Join(root, "scheduler", "product_task.go")):                {},
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Errorf("retired SHEIN root remains: %v", err)
 	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep SHEIN retired management service dependencies limited to current inventory, scheduler, publish, validation, activity, mapping, and product seams", path, importPath)
-			}
-		}
-	}
+	assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), root,
+		[]string{"task-processor/internal/infra/clients/management"}, nil)
 }
 
 func TestSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "shein")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "pipeline", "pipeline.go")): {},
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Errorf("retired SHEIN root remains: %v", err)
 	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/integration/openai") {
-				t.Errorf("%s imports %s; keep SHEIN concrete OpenAI client dependencies limited to current category, content, pipeline, product, submit-prep, and translate seams", path, importPath)
-			}
-		}
-	}
+	assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), root,
+		[]string{"task-processor/internal/integration/openai"}, nil)
 }
 
 func TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted(t *testing.T) {
@@ -2720,22 +2642,25 @@ func TestSDSClientRetiredManagementImportsStayBlocked(t *testing.T) {
 }
 
 func TestSheinLoginBootstrapRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "sheinlogin", "bootstrap")
-	allowedFiles := map[string]struct{}{}
-
-	index, err := loadGoFileIndex(root, "")
+	for _, relative := range []string{"internal/sheinlogin", "internal/app/runtime/sheinloginworker"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Fatalf("retired login owner remains: %s: %v", relative, err)
+		}
+	}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep sheinlogin/bootstrap management dependencies limited to current login bootstrap retirement seams and prefer in-repository database/repository access for new login bootstrap data", path, importPath)
+		for quoted := range facts.imports {
+			imported, err := decodeGoImportPath(quoted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+				if importMatchesPrefix(imported, retired) {
+					t.Errorf("%s imports retired login/management owner %s", path, imported)
+				}
 			}
 		}
 	}
@@ -2754,39 +2679,50 @@ func TestSheinLoginManagedRetiredManagementImportsStayBlocked(t *testing.T) {
 }
 
 func TestSheinLoginUsesManagementAPIPortAliases(t *testing.T) {
-	roots := []string{
-		filepath.Join("..", "internal", "sheinlogin"),
-	}
-	for _, root := range roots {
-		index, err := loadGoFileIndex(root, "")
-		if err != nil {
-			t.Fatal(err)
+	for _, relative := range []string{"internal/sheinlogin", "internal/app/runtime/sheinloginworker"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Fatalf("retired login owner remains: %s: %v", relative, err)
 		}
-		for path, facts := range index.files {
-			if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
-				t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
+	}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, facts := range index.files {
+		for quoted := range facts.imports {
+			imported, err := decodeGoImportPath(quoted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+				if importMatchesPrefix(imported, retired) {
+					t.Errorf("%s imports retired login/management owner %s", path, imported)
+				}
 			}
 		}
 	}
 }
 
 func TestSheinLoginServiceRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "sheinlogin")
-	allowedFiles := map[string]struct{}{}
-
-	index, err := loadGoFileIndex(root, "")
+	for _, relative := range []string{"internal/sheinlogin", "internal/app/runtime/sheinloginworker"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Fatalf("retired login owner remains: %s: %v", relative, err)
+		}
+	}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep sheinlogin management dependencies limited to current login-service retirement seams and prefer in-repository database/repository access for new login service data", path, importPath)
+		for quoted := range facts.imports {
+			imported, err := decodeGoImportPath(quoted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+				if importMatchesPrefix(imported, retired) {
+					t.Errorf("%s imports retired login/management owner %s", path, imported)
+				}
 			}
 		}
 	}
@@ -3400,7 +3336,6 @@ func TestAppHTTPAPIListingKitSupportImportsStayAllowlisted(t *testing.T) {
 		`"task-processor/internal/listingkit/store"`:       {},
 		`"task-processor/internal/listingsubscription"`:    {},
 		`"task-processor/internal/publishing/shein"`:       {},
-		`"task-processor/internal/sheinlogin"`:             {},
 		`"task-processor/internal/tenantbridge"`:           {},
 	}
 

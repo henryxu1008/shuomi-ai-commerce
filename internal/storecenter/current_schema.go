@@ -140,7 +140,6 @@ func InstallCoreSchemaTx(ctx context.Context, tx *sql.Tx) error {
 }
 
 var currentColumnNames = map[string][]string{
-	"workbench_store_shein_login_bindings":            strings.Fields("organization_id store_id installation_id binding_revision config_fingerprint generation state active_attempt_id owner_nonce closed_confirmed"),
 	"workbench_store_walmart_oauth_attempts":          strings.Fields("organization_id attempt_id store_id actor_id member_id app_id app_revision environment callback_url state_hash nonce store_version connection_version grant_id grant_generation grant_version seller_id state key_id ciphertext expires_at created_at updated_at"),
 	"workbench_store_walmart_oauth_grants":            strings.Fields("organization_id id store_id app_id app_revision environment merchant_identity_hash seller_id merchant_name generation version status key_id ciphertext scopes_hash access_expires_at refresh_expires_at refresh_operation_id refresh_input_hash refresh_actor_id refresh_member_id refresh_generation claim_expires_at created_at updated_at"),
 	"workbench_store_groups":                          strings.Fields("organization_id id name version updated_by updated_at deleted_at"),
@@ -183,11 +182,6 @@ func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabi
 			return err
 		}
 	}
-	if capabilities.SheinLogin {
-		if err := verifySheinLoginSchema(ctx, sqlDB); err != nil {
-			return err
-		}
-	}
 	if capabilities.WalmartUS {
 		return verifyWalmartSchema(ctx, sqlDB)
 	}
@@ -203,9 +197,6 @@ type coreSchemaQueryer interface {
 
 func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities, definitions map[string]string) error {
 	for table, want := range currentColumnNames {
-		if table == sheinLoginTable && !capabilities.SheinLogin {
-			continue
-		}
 		if !capabilities.TikTokShop && isTikTokSchemaTable(table) {
 			continue
 		}
@@ -362,7 +353,7 @@ const storeRuntimePermissionQuery = `SELECT current_user,
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, SheinLogin bool }
+type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS bool }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 	return VerifyRuntimePermissionsForCapabilities(ctx, db, RuntimeCapabilities{})

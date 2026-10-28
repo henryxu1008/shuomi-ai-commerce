@@ -1,3 +1,5 @@
+> #301 / #985 **SUPERSEDED：独立 SHEIN 登录与身份回写完整退休**。按[用户已确认的完整边界](legacy-shein-login-identity-sync-closure-retirement-boundary.md) §1–§7/§4.2/§6.1，本文件涉及独立登录 CLI/runtime/service、Cookie/Profile/RedisConfig、Store 执行归属/身份回写及旧 session transport/商家仓库查询的 KEEP、安装或运行指引仅为历史；这些专属闭包已从源码退出，不留 alias/fallback/替代 owner。当前 Store 观察同步、官方授权及其它当前能力保留。既有表/记录/权限/Redis/Profile/凭据/进程无操作，运行停用 NOT_RUN/NOT_AUTHORIZED；不增加试用前置，#301 OPEN。以下起点 main 完整原正文、历史、批准、失败、数字与勾选逐字保留。
+
 > #301 / #968 当前实施归属：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY**。本批68路径一次切换：22真实 wire 值归 `marketplace/shein/offlinepackage/previewdata` 纯叶包，有效文本/品牌规则归当前 `marketplace/shein/publishing`；旧 api/product、api/attribute、content、authorizedbrand 及 adapter/私有空 Context 链退出，无兼容 alias。生产明确传默认词和空品牌值，metadata BrandCode 不签发清理授权。§6.1的11个原函数准确转换，新增 `TestLegacySheinDraftSupportClosureIsRetired` 保护完整闭包，其余原检查/负例/永久禁令保持。JSON/hash/版本、Builder取消与当前采集、独立SHEIN登录/Store同步保持；workflow/完整inventory/依赖/保护零改，无既有资源操作或试用前置。执行证据与最终源码状态见 [PR #968](https://github.com/qq550723504/shuomi-ai-commerce/pull/968)，#301 OPEN；以下冻结设计及历史完整保留。
 
 ## 已确认设计与实施映射

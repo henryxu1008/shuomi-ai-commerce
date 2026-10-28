@@ -131,7 +131,7 @@ func verifyUnchangedCoreContract(ctx context.Context, q coreSchemaQueryer) error
 	// Enumerate the fixed core objects as well as checking required definitions;
 	// an extra constraint/index is drift rather than permission to repair it.
 	coreTable := func(table string) bool {
-		return table == "goose_store_center_version" || currentColumnNames[table] != nil && table != sheinLoginTable && !isTikTokSchemaTable(table) && !strings.HasPrefix(table, "workbench_store_walmart_")
+		return table == "goose_store_center_version" || currentColumnNames[table] != nil && !isTikTokSchemaTable(table) && !strings.HasPrefix(table, "workbench_store_walmart_")
 	}
 	constraints, err := q.QueryContext(ctx, `SELECT c.relname,k.conname FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid WHERE c.relnamespace='public'::regnamespace`)
 	if err != nil {

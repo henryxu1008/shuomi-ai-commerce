@@ -14,6 +14,10 @@ import (
 )
 
 func TestSheinWorkerNumericPersistenceClosureStaysRetired(t *testing.T) {
+	for _, relative := range []string{"internal/sheinlogin", "internal/app/runtime/sheinloginworker"} {
+		_, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative)))
+		require.True(t, os.IsNotExist(err), "retired login owner %s", relative)
+	}
 	// Walk source text, including inactive build-tag files. A test-only historical
 	// CI target cannot become a production facade under another filename.
 	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
@@ -28,7 +32,7 @@ func TestSheinWorkerNumericPersistenceClosureStaysRetired(t *testing.T) {
 		}
 		for quoted := range facts.imports {
 			imported := strings.Trim(quoted, `"`)
-			if importMatchesPrefix(imported, "task-processor/internal/listingadmin") || importMatchesPrefix(imported, "task-processor/internal/sheinloginmanaged") {
+			if importMatchesPrefix(imported, "task-processor/internal/listingadmin") || importMatchesPrefix(imported, "task-processor/internal/sheinloginmanaged") || importMatchesPrefix(imported, "task-processor/internal/sheinlogin") || importMatchesPrefix(imported, "task-processor/internal/app/runtime/sheinloginworker") {
 				t.Errorf("%s imports retired owner %s", path, imported)
 			}
 		}
@@ -297,6 +301,8 @@ func TestLegacy1688SharedAccountDTOStaysRetired(t *testing.T) {
 
 func TestUnusedSheinManagedProviderAndVerifyDTOStayRetired(t *testing.T) {
 	for _, scope := range []string{"internal/sheinloginmanaged", "internal/sheinlogin"} {
+		_, err := os.Stat(filepath.Join("..", filepath.FromSlash(scope)))
+		require.True(t, os.IsNotExist(err), "retired login provider %s", scope)
 		for _, source := range trackedProductionTextSources(t, []string{scope}, func(path string) bool {
 			return strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go")
 		}) {
