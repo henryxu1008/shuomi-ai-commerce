@@ -53,7 +53,7 @@ func (d *actionDirectory) ReadAuthorizationRevision(ctx context.Context, org, id
 }
 
 func TestDetailBusinessRoleActionsUseNativeStateAndCommandEligibility(t *testing.T) {
-	for _, scenario := range []string{"ready", "read-only", "stale-native", "unavailable", "ordinary", "unknown-role", "inactive"} {
+	for _, scenario := range []string{"ready", "builtin-platform-role", "read-only", "stale-native", "unavailable", "ordinary", "unknown-role", "inactive"} {
 		t.Run(scenario, func(t *testing.T) {
 			add, remove := authz.EnterpriseRoleKey("effective-b", 3), authz.EnterpriseRoleKey("effective-b", 4)
 			member := Member{ID: "grant", UserID: "target", OrganizationID: "effective-b", ProjectID: "project", Roles: []string{"listingkit_admin", "platform_admin", remove}, State: "active", ChangedAt: "2026-10-29T00:00:00Z"}
@@ -75,6 +75,10 @@ func TestDetailBusinessRoleActionsUseNativeStateAndCommandEligibility(t *testing
 			}
 			a, _ := authz.NewListingKitAuthorizer(nil, []string{"platform_admin"})
 			s := testService(d, a, "project", "platform_admin")
+			if scenario == "builtin-platform-role" {
+				a, _ = authz.NewListingKitAuthorizer(nil, nil)
+				s = testService(d, a, "project")
+			}
 			definitions := roleStoreFixture{[]RoleDefinition{{ID: testReadRole, Modules: []string{"members"}, Version: 1}, {ID: add, Modules: []string{"store-browser"}, Version: 1}, {ID: remove, Modules: []string{"members"}, Version: 2}}}
 			s.SetRoleStore(definitions)
 			a.SetRolePolicyReader(definitions)
@@ -94,7 +98,7 @@ func TestDetailBusinessRoleActionsUseNativeStateAndCommandEligibility(t *testing
 			}
 			require.NoError(t, json.Unmarshal(data, &wire))
 			require.NotNil(t, wire.Actions, "detail must explicitly project business-role availability")
-			if scenario == "ready" {
+			if scenario == "ready" || scenario == "builtin-platform-role" {
 				require.Equal(t, []string{add}, wire.Actions.Grantable)
 				require.Equal(t, []string{remove}, wire.Actions.Revocable, "a changed business role can still be revoked")
 				require.True(t, s.businessRoleEligible(scopedContext(actorRole), member, CommandBusinessRoleGrant, add))

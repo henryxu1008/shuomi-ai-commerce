@@ -29,7 +29,7 @@ func (s *Service) businessRoleEligibleWithDefinitions(member Member, kind Comman
 	if !businessRoleKind(kind) || member.State != "active" || !authz.IsEnterpriseRoleKey(member.OrganizationID, key) || member.ProjectID != s.projectID || len(member.Roles) == 0 || len(member.Roles) > 32 {
 		return false
 	}
-	known := map[string]bool{"listingkit_admin": true}
+	known := map[string]bool{"listingkit_admin": true, "platform_admin": true}
 	for role, protected := range s.protectedRoles {
 		if protected {
 			known[role] = true
