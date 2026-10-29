@@ -19,7 +19,7 @@ import (
 
 func TestGenerationFactGormFencePreservesKnownSuccess(t *testing.T) {
 	db := generationTestDatabase(t)
-	base := NewGormRepository(db)
+	base := NewOrganizationRepository(db)
 	initializeSlotEffectRun(t, base, "run-slot-effect-v3-generation")
 	require.NoError(t, db.Model(&runRecord{}).Where("id = ?", "run-slot-effect-v3-generation").Updates(map[string]any{"scope_protocol": imageagent.OrganizationScopeProtocol, "member_id": "grant-1"}).Error)
 	repository := NewOrganizationRepository(db).(*gormRepository)

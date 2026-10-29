@@ -29,31 +29,15 @@ type Dependencies struct {
 	Reviewer                productimage.Reviewer
 	UsageQuoter             productimage.UsageQuoter
 	ProfileResolver         ProfileResolver
-	LegacyAssetMaterializer LegacyAssetMaterializer
 	GeneratedURLTrial       *imageagent.IsolatedTrialGeneratedURLPolicy
-}
-
-// LegacyAssetMaterializer bridges byte-producing providers to the frozen v2
-// URL contract. It is intentionally absent from the v3 path, which has its
-// own persisted staging protocol.
-type LegacyAssetMaterializer interface {
-	Materialize(context.Context, imageagent.SlotExecutionInput, int, imageagent.GeneratedAsset) (string, error)
 }
 
 type ProductImageSlotExecutor struct {
 	dependencies Dependencies
-	legacyV2     bool
 }
 
 func NewProductImageSlotExecutor(dependencies Dependencies) *ProductImageSlotExecutor {
 	return &ProductImageSlotExecutor{dependencies: dependencies}
-}
-
-// NewFrozenV2ProductImageSlotExecutor preserves the historical V2 activity
-// input contract. It deliberately does not require V3 policy fields or the
-// V3 reviewer gate; new runs must use NewProductImageSlotExecutor instead.
-func NewFrozenV2ProductImageSlotExecutor(dependencies Dependencies) *ProductImageSlotExecutor {
-	return &ProductImageSlotExecutor{dependencies: dependencies, legacyV2: true}
 }
 
 type resolvedSlotInput struct {
@@ -65,7 +49,6 @@ type resolvedSlotInput struct {
 	profile         imagepolicy.ProductImageProfile
 	sourceAssetID   string
 	styleReferences []string
-	legacyPolicy    bool
 	sourceBytes     []byte
 	sourceDigest    string
 	sources         []productimage.Asset
@@ -103,7 +86,7 @@ func (e *ProductImageSlotExecutor) quoteSlot(ctx context.Context, input imageage
 	if e == nil || e.dependencies.UsageQuoter == nil {
 		return quotedSlotExecution{}, fmt.Errorf("%w: image usage quoter is required", imageagent.ErrBudgetQuoteUnavailable)
 	}
-	operations, err := slotOperations(resolved.slot.Role, e.legacyV2 || resolved.legacyPolicy)
+	operations, err := slotOperations(resolved.slot.Role)
 	if err != nil {
 		return quotedSlotExecution{}, err
 	}
@@ -228,10 +211,10 @@ func (e *ProductImageSlotExecutor) generateSlot(ctx context.Context, input image
 		Assets: assets, UsageReceipt: receipt,
 	}
 	if err := e.reviewGeneratedCandidates(ctx, resolved, candidates, quoted); err != nil {
-		if e != nil && !e.legacyV2 && !resolved.legacyPolicy && errors.Is(err, imageagent.ErrReviewDecision) {
+		if e != nil && errors.Is(err, imageagent.ErrReviewDecision) {
 			return output, &imageagent.SlotReviewRequiredError{Output: output, Reason: err.Error(), Cause: err}
 		}
-		if e != nil && !resolved.legacyPolicy && imageagent.ProviderDispatchStateOf(err) == imageagent.ProviderDispatchedUnknown {
+		if e != nil && imageagent.ProviderDispatchStateOf(err) == imageagent.ProviderDispatchedUnknown {
 			// Generation has already dispatched and produced durable candidate
 			// material. Preserve it across reviewer transport failures so the
 			// activity can stage it and retry only the read-only review step.
@@ -246,9 +229,7 @@ func (e *ProductImageSlotExecutor) reviewGeneratedCandidates(ctx context.Context
 	if e.sourceOnlyMain(input) || input.slot.Recipe != nil {
 		return nil
 	}
-	if e != nil && (e.legacyV2 || input.legacyPolicy) {
-		return nil
-	}
+
 	if e == nil || e.dependencies.Reviewer == nil {
 		return fmt.Errorf("%w: image reviewer is required", imageagent.ErrValidation)
 	}
@@ -468,7 +449,7 @@ func (e *ProductImageSlotExecutor) generateMain(ctx context.Context, input resol
 }
 
 func (e *ProductImageSlotExecutor) sourceOnlyMain(input resolvedSlotInput) bool {
-	return e != nil && !e.legacyV2 && !input.legacyPolicy && input.slot.Role == imageagent.SlotRoleMain &&
+	return e != nil && input.slot.Role == imageagent.SlotRoleMain &&
 		input.profile.Key == (imagepolicy.PolicyKey{Marketplace: "product", Country: "zz", Family: "default", SceneCategory: "general"})
 }
 
@@ -511,49 +492,6 @@ func capabilityAuthorization(quoted *quotedSlotExecution, operation string) *pro
 	return nil
 }
 
-func (e *ProductImageSlotExecutor) ExecuteSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	generated, err := e.GenerateSlot(ctx, input)
-	if err != nil {
-		return imageagent.SlotExecutionResult{}, err
-	}
-	return e.PublishSlot(ctx, input, generated)
-}
-
-// PublishSlot is retained only for the frozen v2 activity contract. Inline
-// artifacts use the injected compatibility materializer; v3 uses its separate
-// durable staging protocol.
-func (e *ProductImageSlotExecutor) PublishSlot(ctx context.Context, input imageagent.SlotExecutionInput, generated imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	resolved, err := e.resolveInput(input)
-	if err != nil {
-		return imageagent.SlotExecutionResult{}, err
-	}
-	if generated.SlotID != resolved.slot.ID || generated.Attempt != input.Attempt || generated.SourceAssetID != resolved.sourceAssetID || len(generated.Assets) == 0 {
-		return imageagent.SlotExecutionResult{}, imageagent.ErrRevisionConflict
-	}
-	candidates := make([]imageagent.AssetCandidate, len(generated.Assets))
-	for index, asset := range generated.Assets {
-		url := strings.TrimSpace(asset.URL)
-		if len(asset.Bytes) != 0 {
-			if url != "" || e.dependencies.LegacyAssetMaterializer == nil {
-				return imageagent.SlotExecutionResult{}, imageagent.ErrValidation
-			}
-			var materializeErr error
-			url, materializeErr = e.dependencies.LegacyAssetMaterializer.Materialize(ctx, input, index, asset)
-			if materializeErr != nil {
-				return imageagent.SlotExecutionResult{}, fmt.Errorf("materialize v2 slot %q asset %d: %w", resolved.slot.ID, index, materializeErr)
-			}
-		}
-		if _, err := imageagent.ValidateSafeImageURL(url); err != nil {
-			return imageagent.SlotExecutionResult{}, err
-		}
-		candidates[index] = imageagent.AssetCandidate{
-			AssetID: candidateAssetID(input, resolved.slot, index), URL: url,
-			SourceAssetID: resolved.sourceAssetID, Metadata: cloneStringMap(asset.Metadata),
-		}
-	}
-	return imageagent.SlotExecutionResult{SlotID: resolved.slot.ID, Attempt: input.Attempt, Candidates: candidates}, nil
-}
-
 func (e *ProductImageSlotExecutor) BuildSlotResult(_ context.Context, input imageagent.SlotExecutionInput, published imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {
 	resolved, err := e.resolveInput(input)
 	if err != nil {
@@ -587,8 +525,7 @@ func (e *ProductImageSlotExecutor) resolveInput(input imageagent.SlotExecutionIn
 	if input.ImageSet != nil || input.Slot.Recipe != nil {
 		return e.resolveImageSetInput(input)
 	}
-	legacyPolicy := !e.legacyV2 && strings.TrimSpace(input.TargetPlatform) == "" && input.ImagePolicyContext == nil
-	if !e.legacyV2 && !legacyPolicy && e.dependencies.ProfileResolver == nil {
+	if e.dependencies.ProfileResolver == nil {
 		return resolvedSlotInput{}, fmt.Errorf("%w: image policy resolver is required", imageagent.ErrValidation)
 	}
 	if strings.TrimSpace(input.RunID) == "" || strings.TrimSpace(input.TenantID) == "" || strings.TrimSpace(input.UserID) == "" ||
@@ -599,7 +536,7 @@ func (e *ProductImageSlotExecutor) resolveInput(input imageagent.SlotExecutionIn
 	if strings.TrimSpace(slot.ID) == "" || strings.TrimSpace(slot.IdempotencyKey) == "" || len(slot.SourceAssetIDs) != 1 {
 		return resolvedSlotInput{}, imageagent.ErrValidation
 	}
-	if !e.legacyV2 && !legacyPolicy && input.ImagePolicyContext == nil {
+	if input.ImagePolicyContext == nil {
 		return resolvedSlotInput{}, imageagent.ErrValidation
 	}
 	var profile imagepolicy.ProductImageProfile
@@ -655,7 +592,7 @@ func (e *ProductImageSlotExecutor) resolveInput(input imageagent.SlotExecutionIn
 	}
 	return resolvedSlotInput{
 		slot: slot, source: source, styles: styles, product: product, profile: profile,
-		sourceAssetID: sourceID, styleReferences: styleIDs, legacyPolicy: legacyPolicy,
+		sourceAssetID: sourceID, styleReferences: styleIDs,
 		sourceBytes: append([]byte(nil), input.SourceBytes...), sourceDigest: input.SourceDigest,
 	}, nil
 }
@@ -731,20 +668,12 @@ func generatedAsset(candidate productimage.Candidate, source productimage.Asset,
 	}, nil
 }
 
-func slotOperations(role imageagent.SlotRole, legacyV2 bool) ([]string, error) {
+func slotOperations(role imageagent.SlotRole) ([]string, error) {
 	switch role {
 	case imageagent.SlotRoleMain:
-		operations := []string{"extract_subject", "render_white_background"}
-		if !legacyV2 {
-			operations = append(operations, "review")
-		}
-		return operations, nil
+		return []string{"extract_subject", "render_white_background", "review"}, nil
 	case imageagent.SlotRoleScene, imageagent.SlotRoleDetail, imageagent.SlotRoleSellingPoint, imageagent.SlotRoleSize:
-		operations := []string{"render_scene"}
-		if !legacyV2 {
-			operations = append(operations, "review")
-		}
-		return operations, nil
+		return []string{"render_scene", "review"}, nil
 	default:
 		return nil, fmt.Errorf("%w: unsupported slot role %q", imageagent.ErrValidation, role)
 	}
@@ -822,7 +751,5 @@ func durableCandidateAssetID(input imageagent.SlotExecutionInput, slot imageagen
 	return "imgcand_" + hex.EncodeToString(digest[:16])
 }
 
-var _ imageagent.SlotExecutor = (*ProductImageSlotExecutor)(nil)
-var _ imageagent.RecoverableSlotExecutor = (*ProductImageSlotExecutor)(nil)
 var _ imageagent.StagedSlotExecutor = (*ProductImageSlotExecutor)(nil)
 var _ imageagent.BudgetedStagedSlotExecutor = (*ProductImageSlotExecutor)(nil)

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	client "go.temporal.io/sdk/client"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	sdkactivity "go.temporal.io/sdk/activity"
@@ -25,7 +27,7 @@ func TestEffectRecoveryWorkflowUsesDeterministicIDAndAttachesDuplicateStart(t *t
 	second := EffectRecoveryWorkflowIDForSlot(input.Identity, input.PlanRevision, input.RunID, input.Slot.ID, input.Attempt, "")
 	nextAttempt := EffectRecoveryWorkflowIDForSlot(input.Identity, input.PlanRevision, input.RunID, input.Slot.ID, input.Attempt+1, "")
 
-	require.Equal(t, "image-agent-effect-recovery:tenant-a:user-a:run-v3-recovery-id:1:slot-1:1", first)
+	require.Equal(t, "organization-v1:image-agent-effect-recovery:tenant-a:user-a:run-v3-recovery-id:1:slot-1:1", first)
 	require.Equal(t, first, second, "duplicate starts must target the same deterministic recovery workflow ID")
 	require.NotEqual(t, first, nextAttempt)
 }
@@ -81,6 +83,7 @@ func TestEffectRecoveryWorkflowSignalsParentAfterDurableReconciliation(t *testin
 	}
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(ImageAgentEffectRecoveryWorkflow)
 	env.RegisterActivityWithOptions(func(context.Context, EffectRecoveryWorkflowInput) (EffectRecoveryResult, error) {
 		return expected, nil
@@ -88,7 +91,7 @@ func TestEffectRecoveryWorkflowSignalsParentAfterDurableReconciliation(t *testin
 	env.RegisterActivityWithOptions(func(context.Context, EffectRecoveryWorkflowInput) (EffectRecoveryResult, error) {
 		return expected, nil
 	}, sdkactivity.RegisterOptions{Name: activityReconcileEffectRecoveryV3})
-	env.OnSignalExternalWorkflow(mock.Anything, WorkflowID(input.Identity.TenantID, input.Identity.UserID, input.RunID), "", signalEffectRecoveryCompleted,
+	env.OnSignalExternalWorkflow(mock.Anything, scopedWorkflowID(input.Identity, input.RunID), "", signalEffectRecoveryCompleted,
 		mock.MatchedBy(func(value interface{}) bool {
 			signal, ok := value.(EffectRecoveryCompletedSignal)
 			return ok && signal.RunID == input.RunID && signal.PlanRevision == input.PlanRevision && signal.SlotID == input.Slot.ID && signal.Attempt == input.Attempt && signal.Result.Outcome == expected.Outcome && signal.Result.EffectPhase == expected.EffectPhase
@@ -498,9 +501,9 @@ func TestEffectRecoveryWorkflowPersistsRecoveryBlockedAfterBoundedExhaustion(t *
 		},
 	}
 	activities, err := NewActivities(ActivityDependencies{
-		Repository: repository, SlotEffects: repository.(imageagent.SlotExternalEffectRepository), SlotExecutor: &recordingStagedExecutor{},
+		Repository: repository, ExecutionAuthorizer: allowGenerationExecution{},
 		SlotEffectsV3: effects, StagedSlotExecutor: &recordingStagedExecutor{}, ArtifactStore: &recordingArtifactStore{},
-		Publisher: &identityCheckingPublisher{t: t}, PublisherV3: &identityCheckingPublisher{t: t},
+		PublisherV3:              &identityCheckingPublisher{t: t},
 		PublicationOwner:         func(context.Context) (string, error) { return "workflow-run/activity/1", nil },
 		PublicationLeaseDuration: 10 * time.Millisecond,
 	})
@@ -562,6 +565,7 @@ func newEffectRecoveryWorkflowEnvWithActivities(t *testing.T, recover func(conte
 	t.Helper()
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(ImageAgentEffectRecoveryWorkflow)
 	env.RegisterActivityWithOptions(recover, sdkactivity.RegisterOptions{Name: activityRecoverEffectV3})
 	env.RegisterActivityWithOptions(persist, sdkactivity.RegisterOptions{Name: activityPersistRecoveryBlockedV3})
@@ -608,13 +612,13 @@ func (r *corruptRecoveryV3Repository) BlockCorruptSlotEffectV3(_ context.Context
 
 func initializeEffectRecoveryV3Activity(t *testing.T, repository imageagent.Repository, runID string) ExecuteSlotV3ActivityInput {
 	t.Helper()
-	run := imageagent.Run{ID: runID, BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + runID, Status: imageagent.RunStatusPlanning, CurrentNode: "plan", Version: 1, ActivePlanRevision: 1, MaxConcurrentSlots: 1}
+	run := imageagent.Run{ID: runID, BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + runID, Status: imageagent.RunStatusPlanning, CurrentNode: "plan", Version: 1, ActivePlanRevision: 1, MaxConcurrentSlots: 1, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"}
 	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a", Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1"}}}
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png"}}})
 	require.NoError(t, err)
 	_, err = repository.InitializeRun(context.Background(), imageagent.ProjectionInitialization{Scope: imageagent.ScopeForRun(run), Run: run, Plan: plan, Catalog: catalog, Snapshot: imageagent.RunProjection{Run: run, Plan: plan}, CommitID: "start:" + runID, EventType: "run.initialized", EventPayload: []byte(`{}`)})
 	require.NoError(t, err)
-	return ExecuteSlotV3ActivityInput{RunID: runID, Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-key-1:plan:1:attempt:1", AssetCatalog: catalog}
+	return ExecuteSlotV3ActivityInput{RunID: runID, Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: runID, MemberID: "member-" + "user-a", BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-key-1:plan:1:attempt:1", AssetCatalog: catalog}
 }
 
 func initializedBlockedEffectRecoveryProjection(t *testing.T, runID string, slotCount int) (imageagent.Repository, []ExecuteSlotV3ActivityInput) {
@@ -636,7 +640,7 @@ func initializedBlockedEffectRecoveryProjection(t *testing.T, runID string, slot
 		ID: runID, BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a",
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + runID, Status: imageagent.RunStatusPlanning,
 		CurrentNode: "plan", Version: 1, ActivePlanRevision: 1, MaxConcurrentSlots: 1,
-	}
+		ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"}
 	plan := imageagent.Plan{
 		Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"},
 		CreatedBy: "user-a", Slots: slots,
@@ -653,7 +657,7 @@ func initializedBlockedEffectRecoveryProjection(t *testing.T, runID string, slot
 	require.NoError(t, err)
 	executor := &recordingStagedExecutor{}
 	activities := newV3Activities(t, repository, repository.(imageagent.SlotExternalEffectV3Repository), executor, &recordingArtifactStore{})
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: runID, MemberID: "member-" + "user-a", BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a"}
 	inputs := make([]ExecuteSlotV3ActivityInput, 0, slotCount)
 	owners := make([]imageagent.RecoverableEffect, 0, slotCount)
 	for _, slot := range slots {

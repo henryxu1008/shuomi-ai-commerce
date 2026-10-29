@@ -35,7 +35,7 @@ func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourc
 		return empty, err
 	}
 	slots := imageSetSlotExecutor{generation: executor, builder: imagetools.NewImageSetResultBuilder()}
-	return appruntime.ImageAgentTemporalDependencies{Repository: repository, ExecutionAuthorizer: authorizer, SlotExecutor: slots, StagedSlotExecutor: slots, ArtifactStore: artifacts, ImageSetPublisher: publisher, ImageSetApprovals: approvals, GenerationRecovery: recovery, GenerationOutputRecovery: generationOutputRecovery(nil, logger), PublicationLeaseDuration: defaultImageAgentArtifactTiming.PublicationLeaseDuration}, nil
+	return appruntime.ImageAgentTemporalDependencies{Repository: repository, ExecutionAuthorizer: authorizer, StagedSlotExecutor: slots, ArtifactStore: artifacts, ImageSetPublisher: publisher, ImageSetApprovals: approvals, GenerationRecovery: recovery, GenerationOutputRecovery: generationOutputRecovery(nil, logger), PublicationLeaseDuration: defaultImageAgentArtifactTiming.PublicationLeaseDuration}, nil
 }
 
 type imageSetSlotExecutor struct {
@@ -43,9 +43,6 @@ type imageSetSlotExecutor struct {
 	builder    *imagetools.ProductImageSlotExecutor
 }
 
-func (e imageSetSlotExecutor) ExecuteSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	return imageagent.SlotExecutionResult{}, imageagent.ErrCommandBlocked
-}
 func (e imageSetSlotExecutor) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	return imageagent.SlotGeneratedOutput{}, imageagent.ErrCommandBlocked
 }

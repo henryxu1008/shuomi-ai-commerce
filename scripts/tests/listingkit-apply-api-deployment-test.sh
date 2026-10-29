@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 driver="$repo_root/scripts/listingkit-apply-api-deployment.sh"
-manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-deployment.yaml"
+manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/listingkit-ui-deployment.yaml"
 ui_driver="$repo_root/scripts/listingkit-apply-ui-deployment.sh"
 ui_manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/listingkit-ui-deployment.yaml"
 
@@ -113,7 +113,7 @@ run_success_case() {
     "$driver" \
       --manifest "$manifest" \
       --namespace test-namespace \
-      --container image-agent-temporal-worker \
+      --container listingkit-ui \
       --image "$immutable_image"
 
   assert_file_equals '-n|test-namespace|apply|-f|<rendered-manifest>' "$command_log"
@@ -159,7 +159,7 @@ run_apply_failure_case() {
     "$driver" \
       --manifest "$manifest" \
       --namespace test-namespace \
-      --container image-agent-temporal-worker \
+      --container listingkit-ui \
       --image docker.io/xuwei190/task-processor-product-listing-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
       >/dev/null 2>&1
   status=$?
@@ -190,7 +190,7 @@ run_invalid_image_case() {
       "$driver" \
         --manifest "$manifest" \
         --namespace test-namespace \
-        --container image-agent-temporal-worker \
+        --container listingkit-ui \
         --image "$image"
   } 2>&1)"
   status=$?

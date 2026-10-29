@@ -45,6 +45,9 @@ func TestOrganizationImageWorkerRuntimeRoleHasOnlyCurrentWorkerGrants(t *testing
 	require.NoError(t, owner.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, aicapabilitystore.AutoMigrateInvocationLedger(owner))
 	require.NoError(t, AutoMigrateOrganizationScope(owner))
+	require.False(t, owner.Migrator().HasTable("image_agent_v2_slot_external_effects"), "new installs must not create the retired ledger")
+	// Synthetic forbidden relation keeps the original excess-grant and access-denial assertions meaningful.
+	require.NoError(t, owner.Exec(`CREATE TABLE image_agent_v2_slot_external_effects(value text)`).Error)
 	require.NoError(t, assetpersistence.AutoMigrate(owner))
 	require.NoError(t, owner.Exec(`CREATE TABLE unrelated_secret(value text)`).Error)
 	require.NoError(t, owner.Exec("CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS").Error)

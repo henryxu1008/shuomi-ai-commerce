@@ -14,31 +14,29 @@ import (
 func TestRegisterWorkerIncludesEffectRecoveryWorkflowAndActivity(t *testing.T) {
 	input := EffectRecoveryWorkflowInput{
 		RunID:        "run-1",
-		Identity:     imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		Identity:     imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"},
 		PlanRevision: 1,
 		Slot:         sevenSlotPlan().Slots[0],
 		Attempt:      1,
 	}
 	raw := &recordingSDKClient{}
-	starter := newRecoveryWorkflowStarter(raw, TaskQueueV3)
+	starter := newRecoveryWorkflowStarter(raw, OrganizationTaskQueue)
 
 	require.NoError(t, starter(context.Background(), input))
-	require.Equal(t, "image-agent-effect-recovery:tenant-a:user-a:run-1:1:slot-1:1", raw.startOptions.ID)
-	require.Equal(t, TaskQueueV3, raw.startOptions.TaskQueue)
+	require.Equal(t, EffectRecoveryWorkflowIDForSlot(input.Identity, 1, input.RunID, input.Slot.ID, 1, ""), raw.startOptions.ID)
+	require.Equal(t, OrganizationTaskQueue, raw.startOptions.TaskQueue)
 	require.Equal(t, enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING, raw.startOptions.WorkflowIDConflictPolicy)
 	require.Equal(t, enumspb.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY, raw.startOptions.WorkflowIDReusePolicy)
 	require.Equal(t, EffectRecoveryWorkflowName, raw.workflowName)
 	require.Equal(t, input, raw.effectRecoveryInput)
 
-	activities, err := NewActivities(ActivityDependencies{
-		Repository:   store.NewMemoryRepository(),
-		SlotExecutor: &identityCheckingExecutor{t: t},
-		Publisher:    &identityCheckingPublisher{t: t},
+	activities, err := NewActivities(ActivityDependencies{ExecutionAuthorizer: allowGenerationExecution{}, PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{},
+		Repository: store.NewMemoryRepository(),
 	})
 	require.NoError(t, err)
 	registrar := &recordingWorkerRegistrar{}
 
-	require.NoError(t, RegisterWorkerForMode(registrar, activities, WorkerWireModeV3))
+	require.NoError(t, RegisterWorkerForMode(registrar, activities, WorkerWireModeOrganization))
 	require.Contains(t, registrar.workflows, EffectRecoveryWorkflowName)
 	require.Contains(t, registrar.activities, activityStartEffectRecoveryV3)
 	require.Contains(t, registrar.activities, activityRecoverEffectV3)
@@ -46,26 +44,28 @@ func TestRegisterWorkerIncludesEffectRecoveryWorkflowAndActivity(t *testing.T) {
 }
 
 func TestRecoveryStarterUsesInjectiveWorkflowIDsForColonContainingRunAndSlotIDs(t *testing.T) {
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"}
 	base := EffectRecoveryWorkflowInput{Identity: identity, PlanRevision: 1, Attempt: 1}
 
 	first := base
 	first.RunID = "run:a"
+	first.Identity.RunID = first.RunID
 	first.Slot = imageagent.Slot{ID: "slot"}
 	second := base
 	second.RunID = "run"
+	second.Identity.RunID = second.RunID
 	second.Slot = imageagent.Slot{ID: "a:slot"}
 
 	firstClient := &recordingSDKClient{}
 	secondClient := &recordingSDKClient{}
-	require.NoError(t, newRecoveryWorkflowStarter(firstClient, TaskQueueV3)(context.Background(), first))
-	require.NoError(t, newRecoveryWorkflowStarter(secondClient, TaskQueueV3)(context.Background(), second))
+	require.NoError(t, newRecoveryWorkflowStarter(firstClient, OrganizationTaskQueue)(context.Background(), first))
+	require.NoError(t, newRecoveryWorkflowStarter(secondClient, OrganizationTaskQueue)(context.Background(), second))
 
 	require.NotEqual(t, firstClient.startOptions.ID, secondClient.startOptions.ID)
 }
 
 func TestRecoveryStarterUsesActionIDToStartNewExecutionAfterClosedRun(t *testing.T) {
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"}
 	input := EffectRecoveryWorkflowInput{
 		RunID: "run-1", Identity: identity, PlanRevision: 1,
 		Slot: imageagent.Slot{ID: "slot-1"}, Attempt: 1,
@@ -74,12 +74,12 @@ func TestRecoveryStarterUsesActionIDToStartNewExecutionAfterClosedRun(t *testing
 	firstClient := &recordingSDKClient{}
 	first := input
 	first.ActionID = "recover-1"
-	require.NoError(t, newRecoveryWorkflowStarter(firstClient, TaskQueueV3)(context.Background(), first))
+	require.NoError(t, newRecoveryWorkflowStarter(firstClient, OrganizationTaskQueue)(context.Background(), first))
 
 	secondClient := &recordingSDKClient{}
 	second := input
 	second.ActionID = "recover-2"
-	require.NoError(t, newRecoveryWorkflowStarter(secondClient, TaskQueueV3)(context.Background(), second))
+	require.NoError(t, newRecoveryWorkflowStarter(secondClient, OrganizationTaskQueue)(context.Background(), second))
 
 	require.NotEqual(t, firstClient.startOptions.ID, secondClient.startOptions.ID)
 	require.Equal(t, first.ActionID, firstClient.effectRecoveryInput.ActionID)
@@ -87,23 +87,23 @@ func TestRecoveryStarterUsesActionIDToStartNewExecutionAfterClosedRun(t *testing
 }
 
 func TestRecoveryStarterKeepsSameActionIDIdempotent(t *testing.T) {
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"}
 	input := EffectRecoveryWorkflowInput{
 		RunID: "run-1", Identity: identity, PlanRevision: 1,
 		Slot: imageagent.Slot{ID: "slot-1"}, Attempt: 1, ActionID: "recover-1",
 	}
 	firstClient := &recordingSDKClient{}
 	secondClient := &recordingSDKClient{}
-	require.NoError(t, newRecoveryWorkflowStarter(firstClient, TaskQueueV3)(context.Background(), input))
-	require.NoError(t, newRecoveryWorkflowStarter(secondClient, TaskQueueV3)(context.Background(), input))
+	require.NoError(t, newRecoveryWorkflowStarter(firstClient, OrganizationTaskQueue)(context.Background(), input))
+	require.NoError(t, newRecoveryWorkflowStarter(secondClient, OrganizationTaskQueue)(context.Background(), input))
 	require.Equal(t, firstClient.startOptions.ID, secondClient.startOptions.ID)
 }
 
 func TestTemporalClientRecoverEffectUsesDeterministicWorkflowID(t *testing.T) {
 	raw := &recordingSDKClient{}
-	client := NewClient(raw)
+	client := NewOrganizationClient(raw)
 	projection := imageagent.RunProjection{
-		Run:  imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}},
+		Run:  imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
 		Plan: sevenSlotPlan(),
 		Slots: []imageagent.SlotProjection{{
 			Slot:    imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1", Status: imageagent.SlotStatusBlocked},
@@ -116,12 +116,12 @@ func TestTemporalClientRecoverEffectUsesDeterministicWorkflowID(t *testing.T) {
 
 	err := client.RecoverEffect(context.Background(), imageagent.RecoverEffectCommand{
 		RunID: "run-1", PlanRevision: 1, SlotID: "slot-1", Attempt: 1, ActionID: "recover-1",
-		Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, Projection: projection,
+		Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"}, Projection: projection,
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, EffectRecoveryWorkflowIDForSlot(imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, 1, "run-1", "slot-1", 1, "recover-1"), raw.startOptions.ID)
-	require.Equal(t, TaskQueueV3, raw.startOptions.TaskQueue)
+	require.Equal(t, EffectRecoveryWorkflowIDForSlot(imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"}, 1, "run-1", "slot-1", 1, "recover-1"), raw.startOptions.ID)
+	require.Equal(t, OrganizationTaskQueue, raw.startOptions.TaskQueue)
 	require.Equal(t, enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING, raw.startOptions.WorkflowIDConflictPolicy)
 	require.Equal(t, enumspb.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY, raw.startOptions.WorkflowIDReusePolicy)
 	require.Equal(t, EffectRecoveryWorkflowName, raw.workflowName)
@@ -140,9 +140,9 @@ func TestTemporalClientRecoverEffectRejectsMismatchedProjectionBeforeStartingWor
 			name: "non blocked status",
 			command: imageagent.RecoverEffectCommand{
 				RunID: "run-1", PlanRevision: 1, SlotID: "slot-1", Attempt: 1, ActionID: "recover-1",
-				Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+				Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"},
 				Projection: imageagent.RunProjection{
-					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusExecuting, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}},
+					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusExecuting, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
 					Plan:  sevenSlotPlan(),
 					Slots: []imageagent.SlotProjection{{Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1", Status: imageagent.SlotStatusBlocked}, Attempt: 1, ErrorCode: "recovery_start_failed"}},
 				},
@@ -153,9 +153,9 @@ func TestTemporalClientRecoverEffectRejectsMismatchedProjectionBeforeStartingWor
 			name: "stale revision",
 			command: imageagent.RecoverEffectCommand{
 				RunID: "run-1", PlanRevision: 1, SlotID: "slot-1", Attempt: 1, ActionID: "recover-1",
-				Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+				Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"},
 				Projection: imageagent.RunProjection{
-					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}},
+					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
 					Plan:  imageagent.Plan{Revision: 2, IdempotencyKey: sevenSlotPlan().IdempotencyKey, SourceAssetIDs: sevenSlotPlan().SourceAssetIDs, Slots: sevenSlotPlan().Slots},
 					Slots: []imageagent.SlotProjection{{Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1", Status: imageagent.SlotStatusBlocked}, Attempt: 1, ErrorCode: "recovery_start_failed"}},
 				},
@@ -166,9 +166,9 @@ func TestTemporalClientRecoverEffectRejectsMismatchedProjectionBeforeStartingWor
 			name: "wrong attempt projection",
 			command: imageagent.RecoverEffectCommand{
 				RunID: "run-1", PlanRevision: 1, SlotID: "slot-1", Attempt: 1, ActionID: "recover-1",
-				Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+				Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"},
 				Projection: imageagent.RunProjection{
-					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}},
+					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "recovery_start_failed", SlotID: "slot-1"}, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
 					Plan:  sevenSlotPlan(),
 					Slots: []imageagent.SlotProjection{{Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1", Status: imageagent.SlotStatusBlocked}, Attempt: 2, ErrorCode: "recovery_start_failed"}},
 				},
@@ -179,9 +179,9 @@ func TestTemporalClientRecoverEffectRejectsMismatchedProjectionBeforeStartingWor
 			name: "non recovery block code",
 			command: imageagent.RecoverEffectCommand{
 				RunID: "run-1", PlanRevision: 1, SlotID: "slot-1", Attempt: 1, ActionID: "recover-1",
-				Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+				Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"},
 				Projection: imageagent.RunProjection{
-					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "slot_failed", SlotID: "slot-1"}},
+					Run:   imageagent.Run{ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "slot_failed", SlotID: "slot-1"}, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
 					Plan:  sevenSlotPlan(),
 					Slots: []imageagent.SlotProjection{{Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1", Status: imageagent.SlotStatusBlocked}, Attempt: 1, ErrorCode: "slot_failed"}},
 				},
@@ -192,7 +192,7 @@ func TestTemporalClientRecoverEffectRejectsMismatchedProjectionBeforeStartingWor
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			raw := &recordingSDKClient{}
-			client := NewClient(raw)
+			client := NewOrganizationClient(raw)
 
 			err := client.RecoverEffect(context.Background(), tt.command)
 
@@ -205,12 +205,12 @@ func TestTemporalClientRecoverEffectRejectsMismatchedProjectionBeforeStartingWor
 
 func TestTemporalClientRecoverEffectAcceptsSecondaryRecoverableEffectOwner(t *testing.T) {
 	raw := &recordingSDKClient{}
-	client := NewClient(raw)
+	client := NewOrganizationClient(raw)
 	projection := imageagent.RunProjection{
 		Run: imageagent.Run{
 			ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual,
 			Status: imageagent.RunStatusBlocked, Block: &imageagent.Block{Code: "recovery_requested", SlotID: "slot-1"},
-		},
+			ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
 		Plan: imageagent.Plan{
 			Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1", "source-2"},
 			Slots: []imageagent.Slot{
@@ -234,7 +234,7 @@ func TestTemporalClientRecoverEffectAcceptsSecondaryRecoverableEffectOwner(t *te
 
 	err := client.RecoverEffect(context.Background(), imageagent.RecoverEffectCommand{
 		RunID: "run-1", PlanRevision: 1, SlotID: "slot-2", Attempt: 2, ActionID: "recover-2",
-		Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, Projection: projection,
+		Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-1", TenantID: "tenant-a", UserID: "user-a"}, Projection: projection,
 	})
 
 	require.NoError(t, err)

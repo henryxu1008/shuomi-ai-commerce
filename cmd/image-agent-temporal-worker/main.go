@@ -46,6 +46,9 @@ func validateProcessWorkerOptions(options appruntime.ImageAgentTemporalWorkerOpt
 	if strings.TrimSpace(options.TaskQueue) == "" {
 		return fmt.Errorf("image agent temporal task queue is required")
 	}
+	if options.TaskQueue != imageagenttemporal.OrganizationTaskQueue {
+		return fmt.Errorf("organization image agent task queue is required")
+	}
 	return nil
 }
 
@@ -65,7 +68,7 @@ func main() {
 	logLevel := flag.String("log-level", "info", "log level")
 	canary := flag.Bool("canary", false, "run the side-effect-free v3 Temporal compatibility canary and exit")
 	canaryTaskQueue := flag.String("canary-task-queue", imageagenttemporal.TaskQueueV3Canary, "isolated v3 Temporal task queue for -canary")
-	wireMode := flag.String("wire-mode", "", "worker wire mode: v2 or v3 (required unless -canary)")
+	wireMode := flag.String("wire-mode", "", "worker wire mode: organization-v1 (required unless -canary)")
 	taskQueue := flag.String("task-queue", "", "Temporal task queue polled by the worker (required unless -canary)")
 	flag.Parse()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

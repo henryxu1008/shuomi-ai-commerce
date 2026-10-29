@@ -22,15 +22,18 @@ type renderedObjectIdentity struct {
 func TestListingKitImageAgentSteadyStateRendersNoFiniteCanary(t *testing.T) {
 	root := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench")
 	for _, test := range []struct {
-		name        string
-		path        string
-		wantWorkers []string
+		name             string
+		path             string
+		forbiddenWorkers []string
 	}{
-		{name: "base", path: filepath.Join(root, "base"), wantWorkers: []string{"image-agent-temporal-worker", "image-agent-temporal-worker-v3"}},
-		{name: "prod", path: filepath.Join(root, "overlays", "prod"), wantWorkers: []string{"image-agent-temporal-worker", "image-agent-temporal-worker-v3"}},
+		{name: "base", path: filepath.Join(root, "base"), forbiddenWorkers: []string{"image-agent-temporal-worker", "image-agent-temporal-worker-v3"}},
+		{name: "prod", path: filepath.Join(root, "overlays", "prod"), forbiddenWorkers: []string{"image-agent-temporal-worker", "image-agent-temporal-worker-v3"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			objects := renderKustomizeObjects(t, test.path)
+			if len(objects) == 0 {
+				t.Fatal("current steady-state render must not be empty")
+			}
 			workers := map[string]bool{}
 			canaries := 0
 			for _, object := range objects {
@@ -41,9 +44,9 @@ func TestListingKitImageAgentSteadyStateRendersNoFiniteCanary(t *testing.T) {
 					canaries++
 				}
 			}
-			for _, worker := range test.wantWorkers {
-				if !workers[worker] {
-					t.Errorf("%s render is missing long-lived worker %s", test.name, worker)
+			for _, worker := range test.forbiddenWorkers {
+				if workers[worker] {
+					t.Errorf("%s render contains retired worker %s", test.name, worker)
 				}
 			}
 			if canaries != 0 {

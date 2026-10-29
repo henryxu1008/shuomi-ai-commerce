@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
+
+	"github.com/stretchr/testify/require"
 )
 
 func imageSetPlanForStore(t *testing.T) imageagent.Plan {
@@ -33,7 +34,7 @@ func TestSetSlotClosurePreservesUnstartedWorkInNormalizedAndProjectedState(t *te
 			var repo repositoryContract = NewMemoryRepository().(repositoryContract)
 			var sqlRepo *gormRepository
 			if kind == "gorm" {
-				sqlRepo = NewGormRepository(newConcurrentSQLite(t)).(*gormRepository)
+				sqlRepo = NewOrganizationRepository(newConcurrentSQLite(t)).(*gormRepository)
 				repo = sqlRepo
 			}
 			ctx := context.Background()
@@ -77,7 +78,7 @@ func TestSetPlanReplayBindsNormalizedRecipeAndConfiguration(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			var repository repositoryContract = NewMemoryRepository().(repositoryContract)
 			if kind == "gorm" {
-				repository = NewGormRepository(newConcurrentSQLite(t)).(repositoryContract)
+				repository = NewOrganizationRepository(newConcurrentSQLite(t)).(repositoryContract)
 			}
 			ctx := context.Background()
 			scope := imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-1", RunID: "run-1"}
