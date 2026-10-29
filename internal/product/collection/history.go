@@ -162,7 +162,8 @@ func (s *Service) ListOwnHistory(ctx context.Context, id string, before uint64, 
 			result.NextBefore = strconv.FormatUint(result.Versions[len(result.Versions)-1].Version, 10)
 		}
 	}
-	result.Item, err = s.finishHistory(ctx, scope, item)
+	// Recheck live authority without mixing a newer item into the queried page.
+	_, err = s.finishHistory(ctx, scope, item)
 	if err != nil {
 		return OwnHistoryPage{}, err
 	}

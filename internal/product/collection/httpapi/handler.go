@@ -198,7 +198,7 @@ func Routes(service Service, bind func(context.Context, string) (context.Context
 			}
 			raw, err := json.Marshal(value)
 			responseLimit := collection.MaxPayloadBytes
-			if spec.action == "detail" {
+			if spec.action == "detail" || spec.action == "history-detail" {
 				responseLimit = collection.MaxDetailResponseBytes
 			}
 			if err != nil || len(raw) > responseLimit {

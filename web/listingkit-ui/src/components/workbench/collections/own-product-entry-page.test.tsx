@@ -21,16 +21,28 @@ it("prefills a saved product and appends with exact base while preserving SKU fa
  state.item.mockResolvedValue(savedDetail);state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:4,replayed:false});
  render(<OwnProductEditPage itemId={itemId}/>);
  expect(await screen.findByDisplayValue("已有商品")).toBeInTheDocument();expect(screen.getByLabelText("库存 1")).toHaveValue(0);
+ expect(screen.getByLabelText("公共图片 1")).toBeChecked();expect(screen.getAllByRole("checkbox")).toHaveLength(1);
  await userEvent.clear(screen.getByLabelText("商品名称"));await userEvent.type(screen.getByLabelText("商品名称"),"编辑后的商品");
  await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
  await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
  expect(state.mutate.mock.calls[0][0].command).toMatchObject({action:"revise_product",itemId,expectedRevision:3,expectedSourceVersion:"5",expectedPublicationId:itemId,product:{title:"编辑后的商品",variants:[{sourceId:"stable-sku",title:"原SKU标题",price:0,stock:0,images:["https://images.example.org/red.png","https://images.example.org/red-detail.png"]}]}});
+ expect(state.mutate.mock.calls[0][0].command.product.images).toEqual(["https://images.example.org/public.png"]);
  await waitFor(()=>expect(state.push).toHaveBeenCalledWith(`/workbench/data/mine/own/${itemId}`));expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it("shows a read error instead of a blank editable form for another source",async()=>{
  state.item.mockResolvedValue({...savedDetail,item:{...savedDetail.item,source:{...savedDetail.item.source,kind:"acquisition"}}});
  render(<OwnProductEditPage itemId={itemId}/>);
  expect(await screen.findByText(/未找到当前身份下的记录/)).toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存新版本"})).not.toBeInTheDocument();
+});
+it("keeps an existing SKU-only image exclusive when its URL is added to the picker pool again",async()=>{
+ state.item.mockResolvedValue(savedDetail);state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:4,replayed:false});
+ render(<OwnProductEditPage itemId={itemId}/>);await screen.findByDisplayValue("已有商品");
+ await userEvent.type(screen.getByLabelText("图片链接"),"https://images.example.org/red.png");await userEvent.click(screen.getByRole("button",{name:"添加图片链接"}));
+ expect(screen.getByLabelText("公共图片 2")).not.toBeChecked();
+ await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
+ expect(state.mutate.mock.calls[0][0].command.product.images).toEqual(["https://images.example.org/public.png"]);
+ expect(state.mutate.mock.calls[0][0].command.product.variants[0].images).toEqual(["https://images.example.org/red.png","https://images.example.org/red-detail.png"]);
 });
 it("keeps a pending revision's original content and key when current source has advanced",async()=>{
  const product={title:"原待核实资料",description:"",images:[]};
@@ -105,11 +117,14 @@ it("saves six user-declared combinations and their images in a single original i
  await userEvent.click(screen.getByRole("button",{name:"应用到全部变体"}));
  await userEvent.selectOptions(screen.getByLabelText("变体图片 1"),"https://images.example.org/red.png");
  await userEvent.selectOptions(screen.getByLabelText("变体图片 4"),"https://images.example.org/blue.png");
+ expect(screen.getByLabelText("公共图片 1")).toBeChecked();expect(screen.getByLabelText("公共图片 2")).toBeChecked();
+ await userEvent.click(screen.getByLabelText("公共图片 2"));
  await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
  await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
  const intent=state.mutate.mock.calls[0][0] as CollectionIntent;
  if(intent.command.action!=="create_product")throw new Error("wrong command");
  const variants=intent.command.product.variants!;expect(variants).toHaveLength(6);expect(new Set(variants.map(v=>v.sourceId)).size).toBe(6);
+ expect(intent.command.product.images).toEqual(["https://images.example.org/red.png"]);
  expect(variants[0]).toMatchObject({attributes:{颜色:"红色",尺码:"S"},price:0,stock:0,images:["https://images.example.org/red.png"]});
  expect(variants[3].images).toEqual(["https://images.example.org/blue.png"]);
  expect(state.push).toHaveBeenCalledWith(`/workbench/data/mine?view=own&saved=${itemId}`);
@@ -122,6 +137,40 @@ it("keeps the exact unknown request locked and retries only its original key aft
  await screen.findByRole("button",{name:"重试原请求"});state.mutate.mockResolvedValueOnce({operationId:itemId,itemId,revision:1,replayed:true});
  await userEvent.click(screen.getByRole("button",{name:"重试原请求"}));await waitFor(()=>expect(state.push).toHaveBeenCalledOnce());
  expect(state.mutate.mock.calls[1][0]).toBe(original);expect(state.read.mock.calls[0][0]).toBe(original);
+});
+it("keeps partial single-SKU input local until SKU is completed, then submits the original zero values",async()=>{
+ state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:1,replayed:false});
+ render(<OwnProductEntryPage/>);
+ await userEvent.type(screen.getByLabelText("商品名称"),"单规格商品");
+ await userEvent.type(screen.getByLabelText("币种 1"),"CNY");
+ await userEvent.type(screen.getByLabelText("价格 1"),"0");
+ await userEvent.type(screen.getByLabelText("库存 1"),"0");
+ await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
+ expect(await screen.findByRole("alert")).toHaveTextContent("请填写SKU、币种、价格和库存");
+ expect(state.mutate).not.toHaveBeenCalled();expect(state.context.pendingCollectionIntent).toBeNull();expect(state.push).not.toHaveBeenCalled();
+ expect(screen.getByLabelText("币种 1")).toHaveValue("CNY");expect(screen.getByLabelText("价格 1")).toHaveValue(0);expect(screen.getByLabelText("库存 1")).toHaveValue(0);
+ await userEvent.type(screen.getByLabelText("SKU 1"),"SINGLE");
+ await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
+ expect(state.mutate.mock.calls[0][0].command.product.variants).toEqual([expect.objectContaining({sku:"SINGLE",currency:"CNY",price:0,stock:0})]);
+});
+it("does not silently drop a single row's image-only selection",async()=>{
+ render(<OwnProductEntryPage/>);
+ await userEvent.type(screen.getByLabelText("商品名称"),"只选图片的商品");
+ act(()=>state.upload!("https://images.example.org/red.png"));
+ await userEvent.selectOptions(screen.getByLabelText("变体图片 1"),"https://images.example.org/red.png");
+ await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
+ expect(await screen.findByRole("alert")).toHaveTextContent("请填写SKU、币种、价格和库存");
+ expect(screen.getByLabelText("变体图片 1")).toHaveValue("https://images.example.org/red.png");
+ expect(state.mutate).not.toHaveBeenCalled();expect(state.context.pendingCollectionIntent).toBeNull();expect(state.push).not.toHaveBeenCalled();
+});
+it("requires an explicit SKU binding for exclusive images and does not reclassify a duplicate upload",async()=>{
+ render(<OwnProductEntryPage/>);await userEvent.type(screen.getByLabelText("商品名称"),"专属图片商品");
+ const image="https://images.example.org/exclusive.png";act(()=>state.upload!(image));
+ await userEvent.click(screen.getByLabelText("公共图片 1"));
+ act(()=>state.upload!(image));expect(screen.getByLabelText("公共图片 1")).not.toBeChecked();
+ await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
+ expect(await screen.findByRole("alert")).toHaveTextContent("专属图片");expect(state.mutate).not.toHaveBeenCalled();expect(state.context.pendingCollectionIntent).toBeNull();
 });
 it("does not navigate if the confirmed intent cannot be cleared from browser storage",async()=>{
  state.context.setPendingCollectionIntent=(intent:CollectionIntent|null)=>{if(!intent)return false;state.context.pendingCollectionIntent=intent;return true};

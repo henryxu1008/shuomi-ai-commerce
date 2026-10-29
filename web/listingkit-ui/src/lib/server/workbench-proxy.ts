@@ -1097,7 +1097,7 @@ export async function buildWorkbenchBrowserResponse(
       void upstream.body?.cancel().catch(() => undefined);
       throw new InvalidUpstreamBodyError();
     }
-    const responseLimit = imageSetContract ? 2*1024*1024 : supplyContract ? SUPPLY_MAX_BYTES : collectionContract ? contract === "collection-detail" ? COLLECTION_DETAIL_RESPONSE_MAX_BYTES : COLLECTION_MAX_BYTES : aiContract ? 256 * 1024 : (acquisitionContract || imageContract || agentContract) ? ACQUISITION_RESPONSE_MAX_BYTES : sourceContract
+    const responseLimit = imageSetContract ? 2*1024*1024 : supplyContract ? SUPPLY_MAX_BYTES : collectionContract ? contract === "collection-detail" || contract === "collection-history-detail" ? COLLECTION_DETAIL_RESPONSE_MAX_BYTES : COLLECTION_MAX_BYTES : aiContract ? 256 * 1024 : (acquisitionContract || imageContract || agentContract) ? ACQUISITION_RESPONSE_MAX_BYTES : sourceContract
       ? SOURCE_ACCOUNT_RESPONSE_MAX_BYTES
       : UPSTREAM_RESPONSE_MAX_BYTES;
     const contentLength = readContentLength(upstream.headers);

@@ -1,8 +1,36 @@
 package sourcing
 
 import (
+	"encoding/json"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
+
+func TestToSnapshotDoesNotInferADeclaredPriceFromSupplierCost(t *testing.T) {
+	for _, own := range []bool{false, true} {
+		t.Run(map[bool]string{false: "unknown non-own price", true: "declared own zero"}[own], func(t *testing.T) {
+			identity := SourceIdentity{SourceType: SourceTypeManualImport, SourcePlatform: "controlled", SourceID: "source"}
+			if own {
+				identity.SourceType, identity.SourcePlatform = "user_input", "own_product"
+			}
+			envelope := SourceEnvelope{Identity: identity, ProductCandidate: ProductCandidate{Title: "Product", Variants: []ProductVariantCandidate{{SourceID: "sku", Currency: "CNY"}}}, SupplierOrCostFacts: SupplierOrCostFacts{Currency: "CNY", Cost: "12.50"}}
+			snapshot, err := ToSnapshot(envelope)
+			require.NoError(t, err)
+			raw, err := json.Marshal(snapshot)
+			require.NoError(t, err)
+			if own {
+				require.NotNil(t, snapshot.Variants[0].Price)
+				require.Zero(t, snapshot.Variants[0].Price.Amount)
+				require.Equal(t, 12.5, snapshot.Variants[0].Price.CostPrice)
+				require.Contains(t, string(raw), `"amount":0`)
+			} else {
+				require.Nil(t, snapshot.Variants[0].Price)
+				require.NotContains(t, string(raw), `"amount"`)
+			}
+			require.Equal(t, "12.50", envelope.SupplierOrCostFacts.Cost)
+		})
+	}
+}
 
 func TestToSnapshotPersistsImageAssetCandidates(t *testing.T) {
 	snapshot, err := ToSnapshot(SourceEnvelope{
