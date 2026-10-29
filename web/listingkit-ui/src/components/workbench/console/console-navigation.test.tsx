@@ -7,6 +7,21 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("removes closing menu links from keyboard and accessibility access and supports immediate reopening", async () => {
+  const user = userEvent.setup();
+  render(<ConsoleNavigation pathname="/workbench/stores" ariaLabel="主导航" />);
+  const close = screen.getByRole("button", { name: "收起店铺中心" });
+  const group = document.getElementById(close.getAttribute("aria-controls")!)!;
+  await user.click(close);
+  expect(group).toHaveAttribute("inert");
+  expect(group).toHaveAttribute("aria-hidden", "true");
+  expect(screen.queryByRole("link", { name: "店铺商品" })).not.toBeInTheDocument();
+  expect(close).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "展开店铺中心" }));
+  expect(screen.getAllByRole("link", { name: "店铺商品" })).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "店铺商品" }).closest("ul")).not.toHaveAttribute("inert");
+});
+
 it("shows task status navigation independently of Chat using the existing run read permissions",()=>{
  render(<ConsoleNavigation pathname="/workbench/ai/tasks" ariaLabel="主导航" nativeRunsAvailable cockpitPermissions={["workbench.agent.read","workbench.agent.use"]}/>);
  expect(screen.getByRole("link",{name:"任务中心"})).toBeVisible();
