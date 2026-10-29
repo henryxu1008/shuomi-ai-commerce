@@ -2,7 +2,7 @@ import type { PlatformCapturePayload } from './wire';
 import { Handoff } from './handoff';
 import { validateCapture } from './validation';
 import { capturePageSource } from './platforms';
-import { DraftStore, type Draft } from './draft-store';
+import { DraftStore, needsSendRecovery, type Draft } from './draft-store';
 
 export type CaptureTab = Readonly<{ id?: number; url?: string; documentId?: string }>;
 export type ReturnNavigation = Readonly<{
@@ -71,7 +71,7 @@ export class Controller {
       await this.ready;
       let d = this.draft && await this.drafts.get(this.draft.id);
       if (!d?.payload) throw Error('CAPTURE_REQUIRED');
-      if(d.phase==='sending')d=await this.drafts.interrupt(d.id,d.revision,d.generation);
+      if(needsSendRecovery(d))d=await this.drafts.interrupt(d.id,d.revision,d.generation);
       this.flow = new Handoff(d.app, this.drafts);
       this.flow.prepare(d, crypto.randomUUID()); this.handed = true;
       try {

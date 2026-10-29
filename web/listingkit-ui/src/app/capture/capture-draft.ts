@@ -4,6 +4,8 @@ export type CaptureDraftScope = Readonly<{ userId:string; organizationId:string;
 const phase = z.enum(['capturing','paused','ready','bound','sending','unknown','saved_reported','rejected']);
 const intent = z.strictObject({body:z.string().max(2*1024*1024),digest:z.string().regex(/^[a-f0-9]{64}$/),bytes:z.number().int().min(1).max(2*1024*1024)});
 export type CaptureDraft<T> = { payload:T; phase:z.infer<typeof phase>; canSubmit:boolean;intent?:z.infer<typeof intent> };
+export const captureHandoffExpiredMessage='交接已过期（CAPTURE_EXPIRED）。请打开原商品采集插件的「本机保全资料」，找到本次商品并点击「恢复原操作」。恢复沿用原资料和原键，无需重新采集；恢复不会自动保存，请按原操作状态核实或确认。';
+export const isCaptureHandoffExpired=(error:unknown)=>error instanceof Error&&error.message==='CAPTURE_EXPIRED';
 export class CaptureDraftClient {
   constructor(readonly entry:CaptureHandoff,readonly scope:CaptureDraftScope,private readonly signal:AbortSignal,private readonly stillCurrent:()=>boolean) {}
   private check() { this.signal.throwIfAborted(); if(!this.stillCurrent())throw Error('IDENTITY_CONTEXT_CHANGED'); }
