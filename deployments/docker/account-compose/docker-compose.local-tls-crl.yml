@@ -1,0 +1,11 @@
+# Opt-in public-artifact mount only; not included by the default stack.
+# The approved source must contain root.crl before listingkit-ui starts.
+services:
+  listingkit-ui:
+    volumes:
+      - type: bind
+        source: ${LOCAL_TLS_PUBLIC_DIR:?set the explicitly approved public CRL directory}
+        target: /app/public/.well-known/local-tls
+        read_only: true
+        bind:
+          create_host_path: false

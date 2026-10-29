@@ -732,3 +732,4 @@ it is treated as a long-lived review entrypoint.
 - [`own-product-existing-drafts-v1.md`](./own-product-existing-drafts-v1.md): #699 按准确自有商品有界查询已保存草稿、固定来源与保存版本、独立继续编辑及返回上下文；IMPLEMENTATION_READY，独立R1限定新读合同准入。
 
 - [`chat-task-object-goal-design-brief.md`](./chat-task-object-goal-design-brief.md) — IMPLEMENTATION_READY；#808，多来源对象、任务目标、冻结内容执行合同与原审核采用。
+- [`local-tls-revocation-maintenance.md`](./local-tls-revocation-maintenance.md)：#965 本机 TLS 独立 OpenSSL 维护、既有服务的精确 CRL 发布合同；真实凭据、信任及运行接线单独授权。
