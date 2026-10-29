@@ -69,6 +69,36 @@ async function family(name:string,budget?:number){
   const store=new DraftStore(name,budget);let d=await store.create(anchor.evidence.sourceURL,'family','https://app.example.com/capture/amazon');d=await store.seed(d.id,d.revision,d.generation,{anchor,manifest});
   return {store,d,anchor,child,manifest};
 }
+it.each([false,true])('commits an equivalent native-order family without rewriting the manifest or key (restarted: %s)',async restarted=>{
+ const name=`native-order-${restarted}`,initial=await family(name);
+ const store=restarted?new DraftStore(name):initial.store;await store.ready;
+ let current=(await store.get(initial.d.id))!;
+ if(restarted)current=await store.resume(current.id,current.revision,current.generation);
+ const manifest={...initial.manifest,sourceURL:initial.child.evidence.sourceURL,members:[...initial.manifest.members].reverse().map(m=>({
+   attributes:[...m.attributes].reverse().map(a=>({value:a.value,name:a.name})),sourceID:m.sourceID,
+ }))};
+ const originalManifest=JSON.stringify(current.family!.manifest),originalDigest=current.family!.digest;
+ const result=await store.observe(current.id,current.revision,current.generation,{capture:initial.child,parentASIN:manifest.parentASIN,manifest});
+ expect(result.family?.count).toBe(2);expect(result.key).toBe(initial.d.key);
+ expect(JSON.stringify(result.family?.manifest)).toBe(originalManifest);expect(result.family?.digest).toBe(originalDigest);
+ expect((await store.checkpoint(current.id))?.variants).toEqual([initial.anchor.evidence.variants[0],initial.child.evidence.variants[0]]);
+});
+it.each(['parent','member','attribute name','attribute value','duplicate member','duplicate attribute','selected ASIN','selected attributes'])('preserves the last durable checkpoint after a real %s change',async kind=>{
+ const {store,d,child,manifest:original}=await family(`changed-${kind}`),manifest=structuredClone(original);
+ manifest.sourceURL=child.evidence.sourceURL;
+ if(kind==='parent')manifest.parentASIN='B000000003';
+ if(kind==='member')manifest.members[1].sourceID='B000000003';
+ if(kind==='attribute name')manifest.members[1].attributes[0].name='Style';
+ if(kind==='attribute value')manifest.members[1].attributes[0].value='Black';
+ if(kind==='duplicate member')manifest.members.push(structuredClone(manifest.members[1]));
+ if(kind==='duplicate attribute')manifest.members[1].attributes.push(structuredClone(manifest.members[1].attributes[0]));
+ if(kind==='selected ASIN'){
+   child.evidence.sourceID='B000000003';child.evidence.sourceURL='https://www.amazon.com/dp/B000000003';child.evidence.variants[0].sourceID='B000000003';
+ }
+ if(kind==='selected attributes')child.evidence.variants[0].attributes[0].value='Black';
+ await expect(store.observe(d.id,d.revision,d.generation,{capture:child,parentASIN:manifest.parentASIN,manifest})).rejects.toThrow('SOURCE_CHANGED');
+ expect(await store.get(d.id)).toEqual(d);expect((await store.checkpoint(d.id))?.variants).toHaveLength(1);
+});
 it('rebuilds the full root and ordered manifest after restart without counting an uncommitted child',async()=>{
  const {store,d,anchor,child,manifest}=await family('family');
  const restarted=new DraftStore('family');await restarted.ready;

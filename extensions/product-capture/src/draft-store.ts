@@ -6,7 +6,7 @@ import type { PlatformCapturePayload } from './wire';
 import type { FamilyManifest } from './amazon/family-discovery';
 import type { AmazonCapturePayload, AmazonVariant } from './amazon/wire';
 import { amazonCaptureBody } from '../../../web/listingkit-ui/src/lib/contracts/amazon-capture-body';
-import { checkFamilyCapture, familyDiagnostics, projectFamily, validateFamilySeed, type FamilyCheckpoint, type FamilySeed } from './amazon/family-checkpoint';
+import { checkFamilyCapture, familyDiagnostics, projectFamily, sameFamilyManifest, validateFamilySeed, type FamilyCheckpoint, type FamilySeed } from './amazon/family-checkpoint';
 
 export type DraftScope = { userId: string; organizationId: string; memberId: string };
 export const sameDraftScope = (a: DraftScope, b: DraftScope) => a.userId === b.userId && a.organizationId === b.organizationId && a.memberId === b.memberId;
@@ -180,10 +180,7 @@ export class DraftStore {
     if (!d?.family || !checkpoint || d.phase !== 'capturing' || d.revision !== revision || d.generation !== generation) throw Error('DRAFT_CHANGED');
     const member = checkpoint.manifest.members[checkpoint.variants.length]; if (!member) throw Error('DRAFT_CHANGED');
     if (result.parentASIN && result.parentASIN !== checkpoint.manifest.parentASIN) throw Error('SOURCE_CHANGED');
-    if (result.manifest) {
-      const normalize = (m: FamilyManifest) => JSON.stringify([...m.members].sort((a,b) => a.sourceID.localeCompare(b.sourceID)));
-      if (normalize(result.manifest) !== normalize(checkpoint.manifest)) throw Error('SOURCE_CHANGED');
-    }
+    if (result.manifest && !sameFamilyManifest(result.manifest, checkpoint.manifest)) throw Error('SOURCE_CHANGED');
     checkFamilyCapture(result.capture, member, checkpoint);
     const observation: Observation = { draftId: id, sourceID: member.sourceID, variant: result.capture.evidence.variants[0], diagnostics: familyDiagnostics(result.capture, checkpoint.variants.length), observedAt: result.capture.evidence.capturedAt };
     try { projectFamily({ ...checkpoint, variants: [...checkpoint.variants, observation.variant], diagnostics: [...checkpoint.diagnostics, ...observation.diagnostics] }); } catch { throw Error('FAMILY_LIMIT_REACHED'); }

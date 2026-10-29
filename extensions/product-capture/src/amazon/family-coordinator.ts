@@ -2,7 +2,7 @@ import type { AmazonCapturePayload } from './wire';
 import type { FamilyManifest, FamilyMember } from './family-discovery';
 import { validateAmazonCapture } from './validation';
 import { captureException } from '../entry-errors';
-import { checkFamilyCapture, familyDiagnostics, projectFamily, validateFamilySeed, type FamilyCheckpoint, type FamilySeed } from './family-checkpoint';
+import { checkFamilyCapture, familyDiagnostics, projectFamily, sameFamilyManifest, validateFamilySeed, type FamilyCheckpoint, type FamilySeed } from './family-checkpoint';
 
 export type FamilyPhase = 'initializing' | 'collecting' | 'paused' | 'transferring' | 'transferred' | 'uncertain';
 export type FamilySummary = { phase: FamilyPhase; observed: number; total: number; reason: string };
@@ -56,10 +56,7 @@ export class FamilyCoordinator {
       const checkpoint:FamilyCheckpoint = this.checkpoint, expected = checkpoint.manifest.members[checkpoint.variants.length];
       const result = await this.ports.read(expected,signal); if (this.state.phase !== 'collecting') return;
       if (result.parentASIN && result.parentASIN !== checkpoint.manifest.parentASIN) throw Error('SOURCE_CHANGED');
-      if (result.manifest) {
-        const normalize = (m: FamilyManifest) => JSON.stringify([...m.members].sort((a,b) => a.sourceID.localeCompare(b.sourceID)));
-        if (normalize(result.manifest) !== normalize(checkpoint.manifest)) throw Error('SOURCE_CHANGED');
-      }
+      if (result.manifest && !sameFamilyManifest(result.manifest, checkpoint.manifest)) throw Error('SOURCE_CHANGED');
       checkFamilyCapture(result.capture, expected, checkpoint);
       const variant = structuredClone(result.capture.evidence.variants[0]);
       const diagnostics = [...checkpoint.diagnostics, ...familyDiagnostics(result.capture, checkpoint.variants.length)];

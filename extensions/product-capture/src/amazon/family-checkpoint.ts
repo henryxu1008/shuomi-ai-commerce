@@ -9,6 +9,16 @@ export type FamilyCheckpoint = FamilySeed & { variants: AmazonVariant[]; diagnos
 const text = z.string().min(1).max(2000);
 const manifestSchema = z.strictObject({ sourceURL: z.string().max(2048), parentASIN: z.string().regex(/^[A-Z0-9]{10}$/), members: z.array(z.strictObject({ sourceID: z.string().regex(/^[A-Z0-9]{10}$/), attributes: z.array(z.strictObject({ name: text, value: text })).min(1).max(8) })).min(1).max(256) });
 const combination = (v: { attributes: { name: string; value: string }[] }) => JSON.stringify([...v.attributes].sort((a,b) => a.name.localeCompare(b.name)));
+export function sameFamilyManifest(left: FamilyManifest, right: FamilyManifest) {
+  // Source URLs differ for each child. Compare exact identity values, not
+  // dictionary key order from the browser or the persisted observation order.
+  const members = (manifest: FamilyManifest) => manifest.members.map(m => [
+    m.sourceID,
+    m.attributes.map(a => [a.name, a.value] as const)
+      .sort(([an,av],[bn,bv]) => an.localeCompare(bn) || av.localeCompare(bv)),
+  ] as const).sort(([a],[b]) => a.localeCompare(b));
+  return left.parentASIN === right.parentASIN && JSON.stringify(members(left)) === JSON.stringify(members(right));
+}
 export function checkFamilyCapture(capture: AmazonCapturePayload, member: FamilyMember, seed?: FamilySeed) {
   const e = validateAmazonCapture(capture).evidence;
   if (seed && e.site !== seed.anchor.evidence.site || e.sourceID !== member.sourceID || e.variants.length !== 1 || e.variants[0].sourceID !== member.sourceID || combination(e.variants[0]) !== combination(member)) throw Error('SOURCE_CHANGED');
