@@ -5,14 +5,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"task-processor/internal/aicapability"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/objectstore"
@@ -30,14 +30,14 @@ func TestResolveImageAgentTemporalDependenciesComposesRealRepositoryExecutorPubl
 	resolver := imageAgentWorkerDependencyResolver{
 		LoadConfig: func(path string) (*config.Config, error) {
 			require.Equal(t, "config/worker.yaml", path)
-			cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialDatabase: &config.DatabaseConfig{}}
+			cfg := &config.Config{Database: &config.DatabaseConfig{}}
 			cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 			return cfg, nil
 		},
 		OpenDB:  func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
 		CloseDB: func(*config.DatabaseConfig, *gorm.DB) error { closed++; return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error) {
-			return nil, nil, nil, nil
+		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
+			return nil, nil, nil
 		},
 		BuildCapabilities: func(input imageCapabilityRuntime) (ImageCapabilities, error) {
 			capabilityInput = input
@@ -57,16 +57,15 @@ func TestResolveImageAgentTemporalDependenciesComposesRealRepositoryExecutorPubl
 	require.NotNil(t, dependencies.Publisher)
 	require.Nil(t, capabilityInput.OpenAIManager)
 	require.NoError(t, closeFn())
-	require.Equal(t, 2, closed)
+	require.Equal(t, 1, closed)
 }
 
 func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorizer(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-org?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, commercialstore.AutoMigrate(db))
-	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialDatabase: &config.DatabaseConfig{Host: "commercial", Port: 5434, Database: "commercial", User: "commercial_runtime"}}
+	cfg := &config.Config{Database: &config.DatabaseConfig{}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
-	governance := &testOrganizationInvocationRecorder{}
 	var builtOrganization bool
 	var opened []*config.DatabaseConfig
 	providerBuilds, closes := 0, 0
@@ -75,9 +74,9 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 		VerifyResourceRuntime: func(context.Context, *gorm.DB) error { return nil },
 		OpenDB:                func(c *config.DatabaseConfig) (*gorm.DB, error) { opened = append(opened, c); return db, nil },
 		CloseDB:               func(*config.DatabaseConfig, *gorm.DB) error { closes++; return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error) {
+		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
 			providerBuilds++
-			return nil, nil, governance, nil
+			return nil, nil, nil
 		},
 		BuildCapabilities: func(imageCapabilityRuntime) (ImageCapabilities, error) {
 			t.Fatal("v3 capability builder must not serve organization worker")
@@ -101,9 +100,9 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 	for _, change := range []func(*config.DatabaseConfig){
 		func(c *config.DatabaseConfig) { c.User = "commercial_runtime" },
 		func(c *config.DatabaseConfig) { c.User = "postgres" },
-		func(c *config.DatabaseConfig) { c.Host = "other" },
-		func(c *config.DatabaseConfig) { c.Port++ },
-		func(c *config.DatabaseConfig) { c.Database = "other" },
+		func(c *config.DatabaseConfig) { c.Host = "" },
+		func(c *config.DatabaseConfig) { c.Port = 0 },
+		func(c *config.DatabaseConfig) { c.Database = "" },
 	} {
 		valid := *cfg.CommercialOwnerDatabase
 		change(cfg.CommercialOwnerDatabase)
@@ -115,8 +114,8 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 	resolver.VerifyResourceRuntime = func(context.Context, *gorm.DB) error { return errors.New("missing resource grants") }
 	_, _, err = resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", logrus.New(), imageagenttemporal.WorkerWireModeOrganization, resolver)
 	require.ErrorContains(t, err, "missing resource grants")
-	require.Equal(t, []*config.DatabaseConfig{cfg.Database, cfg.CommercialDatabase, cfg.CommercialOwnerDatabase}, opened)
-	require.Equal(t, 3, closes)
+	require.Equal(t, []*config.DatabaseConfig{cfg.Database, cfg.CommercialOwnerDatabase}, opened)
+	require.Equal(t, 2, closes)
 	require.Zero(t, providerBuilds, "verify happens before providers/polling")
 	resolver.VerifyResourceRuntime = func(context.Context, *gorm.DB) error { return nil }
 	dependencies, closeFn, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", logrus.New(), imageagenttemporal.WorkerWireModeOrganization, resolver)
@@ -141,7 +140,7 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 func TestTrialOrganizationWorkerVerifiesDedicatedRoleBeforeProviderConstruction(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-trial-role?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	cfg := &config.Config{Database: &config.DatabaseConfig{User: "image_agent_worker_runtime"}, CommercialDatabase: &config.DatabaseConfig{Host: "commercial", Port: 5434, Database: "commercial", User: "commercial_runtime"}, CommercialOwnerDatabase: &config.DatabaseConfig{Host: "commercial", Port: 5434, Database: "commercial", User: "commercial_owner_runtime"}}
+	cfg := &config.Config{Database: &config.DatabaseConfig{User: "image_agent_worker_runtime"}, CommercialOwnerDatabase: &config.DatabaseConfig{Host: "commercial", Port: 5434, Database: "commercial", User: "commercial_owner_runtime"}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 	cfg.ImageAgent.ArtifactStore.IsolatedTrialGeneratedURLs = true
 	cfg.ImageAgent.ArtifactStore.PublicBase = "https://localhost:24544/image-agent-assets/image-agent-trial"
@@ -156,9 +155,9 @@ func TestTrialOrganizationWorkerVerifiesDedicatedRoleBeforeProviderConstruction(
 			return stubWorkerArtifactStore{}, nil
 		},
 		VerifyOrganizationWorkerRuntime: func(context.Context, *gorm.DB) error { verified++; return errors.New("role refused") },
-		BuildAI: func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error) {
+		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
 			providerBuilt++
-			return nil, nil, nil, nil
+			return nil, nil, nil
 		},
 	}
 	_, _, err = resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, resolver)
@@ -178,32 +177,18 @@ func (acceptingOrganizationExecutionAuthorizer) AuthorizeExecution(context.Conte
 	return nil
 }
 
-type testOrganizationInvocationRecorder struct{}
-
-func (*testOrganizationInvocationRecorder) RecordInvocation(context.Context, aicapability.InvocationRecord) error {
-	return nil
-}
-
-func (*testOrganizationInvocationRecorder) ReserveAIInvocationUsage(context.Context, string, string, string, int64, time.Time) error {
-	return nil
-}
-
-func (*testOrganizationInvocationRecorder) ReleaseAIInvocationUsage(context.Context, string, string) error {
-	return nil
-}
-
 func TestResolveImageAgentTemporalDependenciesForV2BuildsCompatibilityArtifactStore(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-v2-runtime?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialDatabase: &config.DatabaseConfig{}}
+	cfg := &config.Config{Database: &config.DatabaseConfig{}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("invalid-v3-mode", false)
 	storeBuilds := 0
 	resolver := imageAgentWorkerDependencyResolver{
 		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 		OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
 		CloseDB:    func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error) {
-			return nil, nil, nil, nil
+		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
+			return nil, nil, nil
 		},
 		BuildCapabilities: func(imageCapabilityRuntime) (ImageCapabilities, error) {
 			return completeWorkerImageCapabilities(), nil
@@ -231,15 +216,15 @@ func TestResolveImageAgentTemporalDependenciesForV2BuildsCompatibilityArtifactSt
 func TestResolveImageAgentTemporalDependenciesForV2UsesCompatibilityArtifactStoreEvenWhenV3TimingIsDefaulted(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-v2-no-v3-fields?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialDatabase: &config.DatabaseConfig{}}
+	cfg := &config.Config{Database: &config.DatabaseConfig{}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("", false)
 	storeBuilds := 0
 	dependencies, closeFn, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeV2, imageAgentWorkerDependencyResolver{
 		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 		OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
 		CloseDB:    func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error) {
-			return nil, nil, nil, nil
+		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
+			return nil, nil, nil
 		},
 		BuildCapabilities: func(imageCapabilityRuntime) (ImageCapabilities, error) {
 			return completeWorkerImageCapabilities(), nil
@@ -416,8 +401,8 @@ func TestResolveImageAgentTemporalDependenciesRejectsOperationTimeoutOutsidePubl
 				},
 				OpenDB:  func(*config.DatabaseConfig) (*gorm.DB, error) { databaseOpens++; return &gorm.DB{}, nil },
 				CloseDB: func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-				BuildAI: func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error) {
-					return nil, nil, nil, errors.New("test must stop before AI composition")
+				BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
+					return nil, nil, errors.New("test must stop before AI composition")
 				},
 			})
 			require.ErrorContains(t, err, "operation timeout")

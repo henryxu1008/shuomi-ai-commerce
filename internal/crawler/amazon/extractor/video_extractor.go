@@ -2,46 +2,50 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"regexp"
 	"strings"
-	"task-processor/internal/core/logger"
-	"task-processor/internal/model"
+
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // VideoExtractor 视频信息提取器
-type VideoExtractor struct{}
+type VideoExtractor struct {
+	loggerDependency
+}
 
 // NewVideoExtractor 创建视频提取器实例
-func NewVideoExtractor() *VideoExtractor {
-	return &VideoExtractor{}
+func NewVideoExtractor(logs func(string) *logrus.Entry) *VideoExtractor {
+	return &VideoExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取产品视频信息
-func (e *VideoExtractor) Extract(page playwright.Page, product *model.Product) error {
-	logger.GetGlobalLogger("crawler/amazon").Debug("开始提取视频信息")
+func (e *VideoExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
+	e.componentLogger("crawler/amazon").Debug("开始提取视频信息")
 
 	// 使用JavaScript提取视频URL
 	videos, err := e.extractVideoURLs(page)
 	if err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Debugf("提取视频URL失败: %v", err)
+		e.componentLogger("crawler/amazon").Debugf("提取视频URL失败: %v", err)
 		return nil // 视频不是必需的，不返回错误
 	}
 
 	if len(videos) > 0 {
 		product.VideoURLs = videos
-		logger.GetGlobalLogger("crawler/amazon").Infof("成功提取 %d 个视频", len(videos))
+		e.componentLogger("crawler/amazon").Infof("成功提取 %d 个视频", len(videos))
 	} else {
-		logger.GetGlobalLogger("crawler/amazon").Debug("未找到产品视频")
+		e.componentLogger("crawler/amazon").Debug("未找到产品视频")
 	}
 
 	return nil
 }
 
 // extractVideoURLs 从页面提取视频URL列表
-func (e *VideoExtractor) extractVideoURLs(page playwright.Page) ([]model.VideoInfo, error) {
+func (e *VideoExtractor) extractVideoURLs(page playwright.Page) ([]amazonresult.VideoInfo, error) {
 	// JavaScript代码：查找所有视频相关的网络请求
 	jsCode := `() => {
 		const videos = [];
@@ -132,8 +136,8 @@ func (e *VideoExtractor) extractVideoURLs(page playwright.Page) ([]model.VideoIn
 }
 
 // parseVideoResult 解析JavaScript返回的视频数据
-func (e *VideoExtractor) parseVideoResult(result any) []model.VideoInfo {
-	videos := make([]model.VideoInfo, 0)
+func (e *VideoExtractor) parseVideoResult(result any) []amazonresult.VideoInfo {
+	videos := make([]amazonresult.VideoInfo, 0)
 
 	if result == nil {
 		return videos
@@ -142,7 +146,7 @@ func (e *VideoExtractor) parseVideoResult(result any) []model.VideoInfo {
 	// 尝试转换为数组
 	videoArray, ok := result.([]any)
 	if !ok {
-		logger.GetGlobalLogger("crawler/amazon").Debug("视频数据格式不正确")
+		e.componentLogger("crawler/amazon").Debug("视频数据格式不正确")
 		return videos
 	}
 
@@ -152,7 +156,7 @@ func (e *VideoExtractor) parseVideoResult(result any) []model.VideoInfo {
 			continue
 		}
 
-		video := model.VideoInfo{}
+		video := amazonresult.VideoInfo{}
 
 		if videoID, ok := videoMap["video_id"].(string); ok {
 			video.VideoID = videoID
@@ -180,8 +184,8 @@ func (e *VideoExtractor) parseVideoResult(result any) []model.VideoInfo {
 }
 
 // extractFromNetworkRequests 从页面源码中提取视频URL
-func (e *VideoExtractor) extractFromNetworkRequests(page playwright.Page) []model.VideoInfo {
-	videos := make([]model.VideoInfo, 0)
+func (e *VideoExtractor) extractFromNetworkRequests(page playwright.Page) []amazonresult.VideoInfo {
+	videos := make([]amazonresult.VideoInfo, 0)
 
 	content, err := page.Content()
 	if err != nil {
@@ -207,7 +211,7 @@ func (e *VideoExtractor) extractFromNetworkRequests(page playwright.Page) []mode
 				videoID = idMatches[1]
 			}
 
-			videos = append(videos, model.VideoInfo{
+			videos = append(videos, amazonresult.VideoInfo{
 				VideoID:  videoID,
 				VideoURL: e.cleanVideoURL(url),
 			})

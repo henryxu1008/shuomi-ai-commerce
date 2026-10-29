@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"task-processor/internal/core/config"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/sirupsen/logrus"
 )
@@ -22,11 +22,11 @@ type mockProcessor struct {
 }
 
 type mockCallResult struct {
-	product *model.Product
+	product *amazonresult.Product
 	err     error
 }
 
-func (m *mockProcessor) ProcessWithInstance(_ context.Context, _ *BrowserInstance, _, _ string) (*model.Product, error) {
+func (m *mockProcessor) ProcessWithInstance(_ context.Context, _ *BrowserInstance, _, _ string) (*amazonresult.Product, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	idx := m.calls
@@ -34,7 +34,7 @@ func (m *mockProcessor) ProcessWithInstance(_ context.Context, _ *BrowserInstanc
 	if idx < len(m.results) {
 		return m.results[idx].product, m.results[idx].err
 	}
-	return &model.Product{}, nil
+	return &amazonresult.Product{}, nil
 }
 
 // ---- mock: poolBehavior ----
@@ -174,7 +174,7 @@ func TestProcessProduct_NormalSuccess(t *testing.T) {
 	mp := newMockPool(1)
 	pm := newPoolManagerWithMock(mp)
 
-	proc := &mockProcessor{results: []mockCallResult{{product: &model.Product{}}}}
+	proc := &mockProcessor{results: []mockCallResult{{product: &amazonresult.Product{}}}}
 	result := pm.processProduct(context.Background(), "http://example.com", "10001", proc, make(chan *BrowserInstance, 1))
 
 	if result.Error != nil {
@@ -224,7 +224,7 @@ func TestProcessProduct_RecreateSync_Success_RetryAndRelease(t *testing.T) {
 	wsErr := errors.New("websocket connection closed")
 	proc := &mockProcessor{results: []mockCallResult{
 		{err: wsErr},
-		{product: &model.Product{}},
+		{product: &amazonresult.Product{}},
 	}}
 
 	result := pm.processProduct(context.Background(), "http://example.com", "10001", proc, make(chan *BrowserInstance, 1))
@@ -388,7 +388,7 @@ func TestConcurrentProcessProduct(t *testing.T) {
 
 	proc := &mockProcessor{}
 	for i := 0; i < goroutines*iterations; i++ {
-		proc.results = append(proc.results, mockCallResult{product: &model.Product{}})
+		proc.results = append(proc.results, mockCallResult{product: &amazonresult.Product{}})
 	}
 
 	var wg sync.WaitGroup
@@ -445,7 +445,7 @@ func TestHealthChecker_DrainBeforeRecreate(t *testing.T) {
 		},
 	}
 
-	hc := NewHealthChecker(bp)
+	hc := NewHealthChecker(bp, nil)
 
 	// 模拟两个实例都不健康：直接调用 performHealthCheck，
 	// 但 HealthCheck 依赖真实页面，所以我们绕过它，直接测试 drain 逻辑。

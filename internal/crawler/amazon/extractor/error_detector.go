@@ -3,8 +3,7 @@ package extractor
 
 import (
 	"regexp"
-	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 // ErrorType 错误类型
@@ -60,7 +59,7 @@ func (ed *ErrorDetector) DetectErrorType(err error) ErrorType {
 	}
 
 	// 检查是否为产品不存在错误
-	if _, ok := err.(*model.ProductNotFoundError); ok {
+	if _, ok := err.(*amazonresult.ProductNotFoundError); ok {
 		return ErrorTypeProductNotFound
 	}
 
@@ -113,100 +112,6 @@ func (ed *ErrorDetector) IsCriticalError(err error) bool {
 
 	for _, criticalType := range criticalTypes {
 		if errorType == criticalType {
-			return true
-		}
-	}
-
-	return false
-}
-
-// IsRetryableError 检测是否为可重试错误
-func (ed *ErrorDetector) IsRetryableError(err error) bool {
-	errorType := ed.DetectErrorType(err)
-
-	// 以下错误类型可以重试
-	retryableTypes := []ErrorType{
-		ErrorTypeTimeout,
-		ErrorTypeNetwork,
-		ErrorTypeServer,
-	}
-
-	for _, retryableType := range retryableTypes {
-		if errorType == retryableType {
-			return true
-		}
-	}
-
-	return false
-}
-
-// GetErrorMessage 获取友好的错误消息
-func (ed *ErrorDetector) GetErrorMessage(err error) string {
-	if err == nil {
-		return "无错误"
-	}
-
-	errorType := ed.DetectErrorType(err)
-
-	switch errorType {
-	case ErrorTypeProductNotFound:
-		return "产品不存在或页面缺少必要元素"
-	case ErrorTypeTimeout:
-		return "请求超时"
-	case ErrorTypeBlocked:
-		return "访问被阻止或拒绝"
-	case ErrorTypeCaptcha:
-		return "需要验证码验证"
-	case ErrorTypeNetwork:
-		return "网络连接错误"
-	case ErrorTypeBrowser:
-		return "浏览器实例错误"
-	case ErrorTypeServer:
-		return "服务器错误"
-	default:
-		return err.Error()
-	}
-}
-
-// isCriticalErrorLegacy 旧版本的关键错误检测（保持向后兼容）
-// 已弃用：请使用 ErrorDetector.IsCriticalError
-func isCriticalErrorLegacy(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// 检查是否为产品不存在错误（不是关键错误）
-	if _, ok := err.(*model.ProductNotFoundError); ok {
-		return false
-	}
-
-	errorStr := err.Error()
-
-	// 如果错误信息包含"产品页面不存在"，不是关键错误
-	if strings.Contains(errorStr, "产品页面不存在") || strings.Contains(errorStr, "产品页面缺少必要元素") {
-		return false
-	}
-
-	// 检测关键错误模式
-	criticalPatterns := []string{
-		"timeout", "Timeout", "TIMEOUT",
-		"Timeout 30000ms exceeded",
-		"blocked", "Blocked", "BLOCKED",
-		"captcha", "CAPTCHA", "Captcha",
-		"robot", "Robot", "ROBOT",
-		"access denied", "Access Denied", "ACCESS DENIED",
-		"forbidden", "Forbidden", "FORBIDDEN",
-		"503", "502", "504",
-		"connection refused", "Connection refused",
-		"network error", "Network error",
-		"page crashed", "Page crashed",
-		"browser disconnected", "Browser disconnected",
-		"context closed", "Context closed",
-		"navigation failed", "Navigation failed",
-	}
-
-	for _, pattern := range criticalPatterns {
-		if strings.Contains(errorStr, pattern) {
 			return true
 		}
 	}

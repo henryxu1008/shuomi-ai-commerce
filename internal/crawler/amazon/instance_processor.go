@@ -2,14 +2,16 @@
 package amazon
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"errors"
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/amazon/browser"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"task-processor/internal/crawler/amazon/extractor"
-	"task-processor/internal/model"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -17,14 +19,15 @@ import (
 
 // InstanceProcessor 实例处理器
 type InstanceProcessor struct {
+	loggerDependency
+
 	urlHelper            *URLHelper
 	domainResolver       *DomainResolver
 	productChecker       *ProductChecker
 	resultValidator      *ProductResultValidator
 	failureArtifactStore *FailureArtifactStore
 	qualityControl       qualityControlOptions
-	qualityMetrics       qualityMetricsRecorder
-	extractProduct       func(ctx context.Context, page playwright.Page, url, zipcode string) (*model.Product, error)
+	extractProduct       func(ctx context.Context, page playwright.Page, url, zipcode string) (*amazonresult.Product, error)
 	prepareRetry         func(ctx context.Context, page playwright.Page, waitTimeout time.Duration) error
 	matchTargetContext   func(page playwright.Page, targetURL string) (bool, error)
 }
@@ -36,12 +39,13 @@ type qualityControlOptions struct {
 
 // NewInstanceProcessor 创建实例处理器。
 // resultValidator 可选，省略时使用默认验证器，兼容旧调用点。
-func NewInstanceProcessor(urlHelper *URLHelper, productChecker *ProductChecker, resultValidator ...*ProductResultValidator) *InstanceProcessor {
+func NewInstanceProcessor(urlHelper *URLHelper, productChecker *ProductChecker, logs func(string) *logrus.Entry, resultValidator ...*ProductResultValidator) *InstanceProcessor {
 	validator := NewProductResultValidator()
 	if len(resultValidator) > 0 && resultValidator[0] != nil {
 		validator = resultValidator[0]
 	}
 	return &InstanceProcessor{
+		loggerDependency:     loggerDependency{logFor: logs},
 		urlHelper:            urlHelper,
 		domainResolver:       NewDomainResolver(),
 		productChecker:       productChecker,
@@ -68,17 +72,13 @@ func (ip *InstanceProcessor) SetQualityControlOptions(retryOnValidationFailure b
 	}
 }
 
-func (ip *InstanceProcessor) SetQualityMetricsRecorder(recorder qualityMetricsRecorder) {
-	ip.qualityMetrics = recorder
-}
-
 // ProcessWithInstance 使用指定浏览器实例处理产品，ctx 用于超时控制
-func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *browser.BrowserInstance, url string, zipcode string) (product *model.Product, retErr error) {
+func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *browser.BrowserInstance, url string, zipcode string) (product *amazonresult.Product, retErr error) {
 	if instance == nil {
 		return nil, fmt.Errorf("浏览器实例为空")
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("使用浏览器实例 %d 处理产品: %s", instance.ID, url)
+	ip.componentLogger("crawler/amazon").Infof("使用浏览器实例 %d 处理产品: %s", instance.ID, url)
 
 	// 计算 ctx 剩余超时，用于 Playwright 各操作的 Timeout 参数
 	playwrightTimeout := func() float64 {
@@ -123,10 +123,10 @@ func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *
 		select {
 		case closeErr := <-done:
 			if closeErr != nil {
-				logger.GetGlobalLogger("crawler/amazon").Warnf("关闭页面失败: %v", closeErr)
+				ip.componentLogger("crawler/amazon").Warnf("关闭页面失败: %v", closeErr)
 			}
 		case <-time.After(5 * time.Second):
-			logger.GetGlobalLogger("crawler/amazon").Warnf("关闭页面超时（5s），WebSocket 可能已断连")
+			ip.componentLogger("crawler/amazon").Warnf("关闭页面超时（5s），WebSocket 可能已断连")
 		}
 	}()
 	defer func() {
@@ -167,7 +167,7 @@ func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *
 
 	// 优先处理可能出现的"Continue shopping"按钮
 	if err := ip.productChecker.HandleContinueShoppingButton(page); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("处理Continue shopping按钮时出错: %v", err)
+		ip.componentLogger("crawler/amazon").Warnf("处理Continue shopping按钮时出错: %v", err)
 	}
 
 	// 等待页面准备就绪，超时取 ctx 剩余时间与 15s 的较小值
@@ -191,17 +191,17 @@ func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *
 	if zipcodeToSet == "" {
 		if fallbackZipcode := ip.resolveDefaultZipcodeForTargetContext(page, urlWithParams); fallbackZipcode != "" {
 			zipcodeToSet = fallbackZipcode
-			logger.GetGlobalLogger("crawler/amazon").Infof("当前不在目标配送上下文，回退使用默认邮编切换目标站点上下文: %s", zipcodeToSet)
+			ip.componentLogger("crawler/amazon").Infof("当前不在目标配送上下文，回退使用默认邮编切换目标站点上下文: %s", zipcodeToSet)
 		} else {
-			logger.GetGlobalLogger("crawler/amazon").Info("当前配送上下文已满足目标站点要求，跳过默认邮编设置")
+			ip.componentLogger("crawler/amazon").Info("当前配送上下文已满足目标站点要求，跳过默认邮编设置")
 		}
 	}
 
 	if zipcodeToSet != "" {
-		zipcodeSetter := browser.NewZipcodeSetter(instance.Manager)
+		zipcodeSetter := browser.NewZipcodeSetter(instance.Manager, ip.logFor)
 		zipcodeSetter.SetTargetURL(urlWithParams)
 		if err := zipcodeSetter.SetAndVerifyZipcode(page, zipcodeToSet); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Errorf("设置邮编失败: %v", err)
+			ip.componentLogger("crawler/amazon").Errorf("设置邮编失败: %v", err)
 			// 严重错误（WebSocket 断连、需要登录等）交由上层重建实例
 			return nil, fmt.Errorf("邮编设置失败，终止数据抓取: %w", err)
 		}
@@ -217,7 +217,7 @@ func (ip *InstanceProcessor) ProcessWithInstance(ctx context.Context, instance *
 		return nil, retErr
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("成功处理产品: (ASIN: %s)", product.Asin)
+	ip.componentLogger("crawler/amazon").Infof("成功处理产品: (ASIN: %s)", product.Asin)
 	return product, nil
 }
 
@@ -235,31 +235,21 @@ func (ip *InstanceProcessor) resolveDefaultZipcodeForTargetContext(page playwrig
 	}
 	region := strings.ToLower(strings.TrimSpace(resolver.ExtractRegionFromURL(targetURL)))
 	if region != "us" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("目标站点 %s(region=%s) 不启用默认邮编回退，仅使用当前配送上下文", targetURL, region)
+		ip.componentLogger("crawler/amazon").Infof("目标站点 %s(region=%s) 不启用默认邮编回退，仅使用当前配送上下文", targetURL, region)
 		return ""
 	}
 
 	inTargetContext, err := ip.matchesTargetContext(page, targetURL)
 	if err != nil {
-		if ip != nil && ip.qualityMetrics != nil {
-			ip.qualityMetrics.RecordTargetContextCheckError(region)
-			ip.qualityMetrics.RecordTargetContextFallback(region)
-		}
-		logger.GetGlobalLogger("crawler/amazon").Warnf("判断目标配送上下文失败，继续使用默认美国邮编兜底: target_url=%s region=%s err=%v", targetURL, region, err)
+		ip.componentLogger("crawler/amazon").Warnf("判断目标配送上下文失败，继续使用默认美国邮编兜底: target_url=%s region=%s err=%v", targetURL, region, err)
 		return resolver.GetZipcodeByRegion(region)
 	}
 	if inTargetContext {
-		if ip != nil && ip.qualityMetrics != nil {
-			ip.qualityMetrics.RecordTargetContextSkip(region)
-		}
-		logger.GetGlobalLogger("crawler/amazon").Infof("当前配送上下文已命中目标站点，无需回退默认邮编: target_url=%s region=%s", targetURL, region)
+		ip.componentLogger("crawler/amazon").Infof("当前配送上下文已命中目标站点，无需回退默认邮编: target_url=%s region=%s", targetURL, region)
 		return ""
 	}
 
-	if ip != nil && ip.qualityMetrics != nil {
-		ip.qualityMetrics.RecordTargetContextFallback(region)
-	}
-	logger.GetGlobalLogger("crawler/amazon").Infof("当前配送上下文未命中目标站点，回退默认邮编: target_url=%s region=%s zipcode=%s", targetURL, region, resolver.GetZipcodeByRegion(region))
+	ip.componentLogger("crawler/amazon").Infof("当前配送上下文未命中目标站点，回退默认邮编: target_url=%s region=%s zipcode=%s", targetURL, region, resolver.GetZipcodeByRegion(region))
 	return resolver.GetZipcodeByRegion(region)
 }
 
@@ -268,28 +258,24 @@ func (ip *InstanceProcessor) matchesTargetContext(page playwright.Page, targetUR
 		return ip.matchTargetContext(page, targetURL)
 	}
 
-	validator := browser.NewZipcodeValidator()
+	validator := browser.NewZipcodeValidator(ip.logFor)
 	validator.SetTargetURL(targetURL)
 	return validator.MatchesTargetContext(page)
 }
 
-func (ip *InstanceProcessor) extractWithQualityRetry(ctx context.Context, page playwright.Page, url, zipcode string, waitTimeout time.Duration) (*model.Product, error) {
+func (ip *InstanceProcessor) extractWithQualityRetry(ctx context.Context, page playwright.Page, url, zipcode string, waitTimeout time.Duration) (*amazonresult.Product, error) {
 	attempts := 1
-	hadRetry := false
 	if ip.qualityControl.retryOnValidationFailure && ip.qualityControl.validationRetryAttempts > 1 {
 		attempts = ip.qualityControl.validationRetryAttempts
 	}
 
 	for attempt := 1; attempt <= attempts; attempt++ {
 		if err := ip.alignTargetContext(page, url, waitTimeout); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("目标站点上下文对齐失败，继续提取: %v", err)
+			ip.componentLogger("crawler/amazon").Warnf("目标站点上下文对齐失败，继续提取: %v", err)
 		}
 
 		product, err := ip.extractAndValidateProduct(ctx, page, url, zipcode)
 		if err == nil {
-			if hadRetry && ip.qualityMetrics != nil {
-				ip.qualityMetrics.RecordValidationRetryRecovered()
-			}
 			return product, nil
 		}
 
@@ -297,12 +283,8 @@ func (ip *InstanceProcessor) extractWithQualityRetry(ctx context.Context, page p
 		if !errors.As(err, &qualityErr) || attempt == attempts {
 			return nil, err
 		}
-		hadRetry = true
-		if ip.qualityMetrics != nil {
-			ip.qualityMetrics.RecordValidationRetryAttempt()
-		}
 
-		logger.GetGlobalLogger("crawler/amazon").Warnf("产品质量校验未通过，准备第 %d/%d 次重抓: %v", attempt+1, attempts, err)
+		ip.componentLogger("crawler/amazon").Warnf("产品质量校验未通过，准备第 %d/%d 次重抓: %v", attempt+1, attempts, err)
 		if retryErr := ip.preparePageForQualityRetry(ctx, page, waitTimeout); retryErr != nil {
 			return nil, fmt.Errorf("产品质量校验失败且页面重试准备失败: %w", retryErr)
 		}
@@ -321,13 +303,13 @@ func (ip *InstanceProcessor) alignTargetContext(page playwright.Page, url string
 		return nil
 	}
 
-	currencySetter := browser.NewCurrencySetter(nil)
+	currencySetter := browser.NewCurrencySetter(nil, ip.logFor)
 	if err := currencySetter.SetAndVerifyCurrency(page, expectedCurrency); err != nil {
 		return err
 	}
 
 	if err := ip.productChecker.HandleContinueShoppingButton(page); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("货币对齐后处理Continue shopping按钮时出错: %v", err)
+		ip.componentLogger("crawler/amazon").Warnf("货币对齐后处理Continue shopping按钮时出错: %v", err)
 	}
 	if waitTimeout > 0 {
 		renderableTimeout := waitTimeout / 3
@@ -348,7 +330,7 @@ func (ip *InstanceProcessor) alignTargetContext(page playwright.Page, url string
 	return nil
 }
 
-func (ip *InstanceProcessor) extractAndValidateProduct(ctx context.Context, page playwright.Page, url, zipcode string) (*model.Product, error) {
+func (ip *InstanceProcessor) extractAndValidateProduct(ctx context.Context, page playwright.Page, url, zipcode string) (*amazonresult.Product, error) {
 	if customExtractor := ip.extractProduct; customExtractor != nil {
 		return customExtractor(ctx, page, url, zipcode)
 	}
@@ -357,15 +339,15 @@ func (ip *InstanceProcessor) extractAndValidateProduct(ctx context.Context, page
 	expectedCurrency := ip.urlHelper.GetCurrencyFromURL(url)
 
 	now := time.Now()
-	product := &model.Product{
+	product := &amazonresult.Product{
 		URL:       url,
 		Zipcode:   zipcode,
 		Asin:      ip.urlHelper.ExtractASINFromURL(url),
 		Currency:  expectedCurrency,
-		Timestamp: model.NullableTime{Time: &now},
+		Timestamp: amazonresult.NullableTime{Time: &now},
 	}
 
-	ext := extractor.NewCompositeExtractor(marketplace)
+	ext := extractor.NewCompositeExtractor(marketplace, ip.logFor)
 	if err := ext.ExtractWithContext(ctx, page, product); err != nil {
 		return nil, fmt.Errorf("提取产品信息失败: %w", err)
 	}
@@ -399,7 +381,7 @@ func (ip *InstanceProcessor) preparePageForQualityRetry(ctx context.Context, pag
 	}
 
 	if err := ip.productChecker.HandleContinueShoppingButton(page); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("重试前处理Continue shopping按钮时出错: %v", err)
+		ip.componentLogger("crawler/amazon").Warnf("重试前处理Continue shopping按钮时出错: %v", err)
 	}
 	if err := ip.productChecker.WaitForPageReady(page, waitTimeout); err != nil {
 		return fmt.Errorf("重试后页面未准备就绪: %w", err)
@@ -409,7 +391,7 @@ func (ip *InstanceProcessor) preparePageForQualityRetry(ctx context.Context, pag
 }
 
 // validateProductData 验证产品数据
-func (ip *InstanceProcessor) validateProductData(product *model.Product) error {
+func (ip *InstanceProcessor) validateProductData(product *amazonresult.Product) error {
 	if product == nil {
 		return fmt.Errorf("产品对象为空")
 	}
@@ -461,7 +443,7 @@ func (ip *InstanceProcessor) captureFailureArtifacts(page playwright.Page, insta
 		Retryable:  fetchErr.RetryableError(),
 		InstanceID: instanceID,
 	}); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("保存失败样本失败: %v", err)
+		ip.componentLogger("crawler/amazon").Warnf("保存失败样本失败: %v", err)
 	}
 }
 

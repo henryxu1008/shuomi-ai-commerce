@@ -1,8 +1,10 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/core/config"
-	"task-processor/internal/core/logger"
+
 	sharedbrowser "task-processor/internal/crawler/shared/browser"
 )
 
@@ -19,27 +21,20 @@ func newProxyPool(cfg *config.Config) *sharedbrowser.ProxyPool {
 	})
 }
 
-func logProxyAssigned(instanceID int, proxyServer string, strategy string) {
+func logProxyAssigned(instanceID int, proxyServer string, strategy string, logs func(string) *logrus.Entry) {
 	if proxyServer == "" {
 		return
 	}
 	if strategy == "health_aware" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("实例 %d 按健康度分配代理: %s", instanceID, proxyServer)
+		componentLogger(logs, "crawler/amazon").Infof("实例 %d 按健康度分配代理: %s", instanceID, proxyServer)
 		return
 	}
-	logger.GetGlobalLogger("crawler/amazon").Infof("实例 %d 分配代理: %s", instanceID, proxyServer)
+	componentLogger(logs, "crawler/amazon").Infof("实例 %d 分配代理: %s", instanceID, proxyServer)
 }
 
-func logProxyFallback(instanceID int, proxyServer string) {
+func logProxyCooldown(proxyServer string, cooldownSeconds int, logs func(string) *logrus.Entry) {
 	if proxyServer == "" {
 		return
 	}
-	logger.GetGlobalLogger("crawler/amazon").Warnf("所有代理都在冷却中，实例 %d 继续复用代理: %s", instanceID, proxyServer)
-}
-
-func logProxyCooldown(proxyServer string, cooldownSeconds int) {
-	if proxyServer == "" {
-		return
-	}
-	logger.GetGlobalLogger("crawler/amazon").Warnf("代理进入冷却: %s (冷却=%ds)", proxyServer, cooldownSeconds)
+	componentLogger(logs, "crawler/amazon").Warnf("代理进入冷却: %s (冷却=%ds)", proxyServer, cooldownSeconds)
 }

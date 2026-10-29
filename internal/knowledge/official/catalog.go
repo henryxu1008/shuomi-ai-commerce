@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -45,7 +44,6 @@ type Summary struct {
 }
 type Source struct {
 	Title string `json:"title"`
-	URL   string `json:"url"`
 }
 type Article struct {
 	Summary
@@ -76,8 +74,7 @@ func NewCatalog(articles []Article) (*Catalog, error) {
 			return nil, ErrInvalid
 		}
 		for _, s := range a.Sources {
-			u, err := url.Parse(s.URL)
-			if err != nil || !validText(s.Title, 512) || len(s.URL) > 2048 || u.Scheme != "https" || u.Host != "github.com" || u.User != nil || u.RawQuery != "" || !strings.HasPrefix(u.Path, "/qq550723504/task-processor/blob/") {
+			if !validText(s.Title, 512) {
 				return nil, ErrInvalid
 			}
 		}
@@ -121,18 +118,17 @@ func (c *Catalog) Get(id, revision string) (Article, error) {
 	return copyArticle(a), nil
 }
 
-//go:embed content/ai-commerce-guide-v1.txt
+//go:embed content/ai-commerce-guide-v2.txt
 var guide string
 
 func NewEmbeddedCatalog() (*Catalog, error) {
 	// Canonical LF bytes give the same revision digest on Windows and Linux builds.
 	body := strings.ReplaceAll(guide, "\r\n", "\n")
-	const sourceRoot = "https://github.com/qq550723504/task-processor/blob/60d432aa8b9391491278912e4268950ba65b58f0/"
 	// Keep the published revision's digest fixed; edits require a new revision.
-	const guideV1Digest = "5a2f3e79a15eda61d916de19ad9774913983c73b75c779da518dcf7bda1400a0"
-	return NewCatalog([]Article{{Summary: Summary{ID: "ai-commerce-guide", Revision: "1", Title: "AI电商应用指南", Summary: "了解企业知识选择、商品标题建议、Human Review 与显式应用的真实使用路径。", Category: "AI电商应用指南", UpdatedAt: "2026-10-11", MaintainedBy: "硕米", Digest: guideV1Digest}, Body: body, Sources: []Source{
-		{Title: "企业知识与引用规则", URL: sourceRoot + "docs/architecture/agent-knowledge-context-v1.md"},
-		{Title: "知识选择与版本出处", URL: sourceRoot + "docs/engineering/knowledge-context-consumption.md"},
-		{Title: "商品标题建议与审核操作", URL: sourceRoot + "docs/operations/product-agent-trial.md"},
+	const guideV2Digest = "bd3cabcac27e3d0ca8f569afd646a1f2c7416f15e8d8f16e43da636f589ca3ec"
+	return NewCatalog([]Article{{Summary: Summary{ID: "ai-commerce-guide", Revision: "2", Title: "AI电商应用指南", Summary: "了解企业知识选择、商品标题建议、Human Review 与显式应用的真实使用路径。", Category: "AI电商应用指南", UpdatedAt: "2026-10-22", MaintainedBy: "硕米", Digest: guideV2Digest}, Body: body, Sources: []Source{
+		{Title: "企业知识与引用规则"},
+		{Title: "知识选择与版本依据"},
+		{Title: "商品标题建议与审核操作"},
 	}}})
 }

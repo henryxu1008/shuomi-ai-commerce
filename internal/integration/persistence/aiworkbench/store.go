@@ -20,7 +20,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 //go:embed schema.sql
@@ -100,9 +100,9 @@ type commandRow struct {
 func (commandRow) TableName() string { return "ai_workbench.commands" }
 
 type proposalRow struct {
-	ContextKind           *string                      `json:",omitempty"`
-	ContentSelection      *enrichment.ContentSelection `gorm:"serializer:json;type:jsonb" json:",omitempty"`
-	ExecutionLimits       *agent.Limits                `gorm:"serializer:json;type:jsonb" json:",omitempty"`
+	ContextKind           *string                          `json:",omitempty"`
+	ContentSelection      *reviewproposal.ContentSelection `gorm:"serializer:json;type:jsonb" json:",omitempty"`
+	ExecutionLimits       *agent.Limits                    `gorm:"serializer:json;type:jsonb" json:",omitempty"`
 	ID                    string
 	Digest                string
 	OrganizationID        string

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"os"
@@ -36,8 +37,8 @@ func (m zitadelSMSModule) Register(reg *kernelmodule.Registry) error {
 
 // The provider authenticates its bounded raw request with HMAC. No bearer
 // identity, organization, code store or application retry loop is involved.
-func buildZitadelSMSModule(ctx context.Context) (kernelmodule.Module, error) {
-	m := zitadelSMSModule{}
+func buildZitadelSMSModule(ctx context.Context, log *logrus.Entry) (kernelmodule.Module, error) {
+	m := zitadelSMSModule{handler: zitadelSMSHandler{Log: log}}
 	path := strings.TrimSpace(os.Getenv("ZITADEL_SMS_CONFIG_FILE"))
 	if path == "" {
 		return m, nil

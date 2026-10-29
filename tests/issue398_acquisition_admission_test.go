@@ -52,6 +52,9 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableSupplyChain"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
 		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
+		// #902/#903 frozen plugin design: only the free capture composition and
+		// its receipt/authorizer constructors, without charge or initializer APIs.
+		{"internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/amazon_browser_capture_application.go": {"NewAmazonBrowserCapture", "NewAmazonCaptureContextAuthorizer", "AmazonCaptureResult"}}},
 		// #399/#561 constructor edges; #605 adds only current Collection publication.
 		// #612 frozen full-image design adds only its explicitly authorized read-only receipt constructor.
 		{"internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_acquisition_application.go": {"NewPublicAcquisition", "NewBrowserAcquisition", "NewBrowserPublicAcquisition", "PublishedAcquisition", "NewPublishedAcquisitionReader", "NewScopedPublishedAcquisitionReader", "NewAcquisitionChargeOwner", "AcquisitionPublicationOption", "WithCollectionPublication"}}},
@@ -85,7 +88,9 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		{"internal/integration/sds", issue398HTTP, map[string][]string{"internal/integration/sds/mutations.go": {"InspectGeneratedArtifact"}}},
 		// #675 frozen source-only local URL policy; no sibling or download admission.
 		{"internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/collection_source_media.go": {"SourceMedia", "SourceMediaStorage", "IsolatedTrialSourceMediaURLPolicy", "NewIsolatedTrialSourceMediaURLPolicy"}}},
-		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader", "NewOwnHistoryReader"}}},
+		// #916 reviewed fixed-publication quote read: exact constructor at the
+		// existing Collection composition only; no provider/charge/write admission.
+		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader", "NewOwnHistoryReader", "NewCollectionSourceQuoteReader"}}},
 		{"internal/app/httpapi/supply_chain_agents.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/supply_chain_agents.go": {"NewExecutionPublicationGateway", "NewTransactionReader"}}},
 		{"internal/app/runtime/currentapplication", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"SourceMediaStorage", "NewIsolatedTrialSourceMediaURLPolicy"}, "internal/app/runtime/currentapplication/runtime.go": {"SourceMediaStorage"}}},
 	}
@@ -255,6 +260,12 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"plan cannot open database", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
 		{"initializer target subpackage", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing/httpapi", "InitializeAcquisitionDatabase", false},
 		{"module build", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewPublicAcquisition", true},
+		{"Amazon capture constructor", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAmazonBrowserCapture", true},
+		{"Amazon capture authorizer", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAmazonCaptureContextAuthorizer", true},
+		{"Amazon capture receipt", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "AmazonCaptureResult", true},
+		{"Amazon capture cannot charge", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionChargeOwner", false},
+		{"Amazon capture cannot initialize", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
+		{"Amazon capture target subpackage", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewAmazonBrowserCapture", false},
 		{"Browser module build", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewBrowserAcquisition", true},
 		{"module cannot publish", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "Publish", false},
 		{"Browser module target subpackage", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewBrowserAcquisition", false},
@@ -263,6 +274,10 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"module exact published reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewPublishedAcquisitionReader", true},
 		{"image module exact scoped receipt reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", true},
 		{"Collection cannot consume image scoped constructor", "internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", false},
+		{"Collection exact quote reader", "internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", "NewCollectionSourceQuoteReader", true},
+		{"acquisition cannot consume Collection quote reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewCollectionSourceQuoteReader", false},
+		{"runtime cannot consume Collection quote reader", "internal/app/runtime/currentapplication/runtime.go", "task-processor/internal/app/productsourcing", "NewCollectionSourceQuoteReader", false},
+		{"quote reader target subpackage denied", "internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewCollectionSourceQuoteReader", false},
 		{"source module exact trial URL policy", "internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", true},
 		{"trial policy cannot reach acquisition module", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},
 		{"trial policy cannot reach runtime sibling", "internal/app/runtime/currentapplication/runtime.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},

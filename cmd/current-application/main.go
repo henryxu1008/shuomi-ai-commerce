@@ -229,6 +229,9 @@ func execute() error {
 				}, Worker: features.DataServicesWorker, TrustedProxyCIDRs: d.TrustedProxyCIDRs}))
 			}
 			if features.ProductCollections {
+				if features.ProductAcquisitionDB != nil {
+					options = append(options, httpapi.WithAmazonBrowserCapture())
+				}
 				options = append(options, httpapi.WithProductCollections())
 			}
 			if features.SourceMaterials {

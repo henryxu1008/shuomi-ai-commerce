@@ -1,8 +1,22 @@
 import { z } from "zod";
+import {parseTree,type ParseError} from "jsonc-parser";
 import {descriptionFormatSchema} from "./product-description";
 import { isAcquisitionUUID } from "./product-acquisition";
 
 export const COLLECTION_MAX_BYTES = 2 * 1024 * 1024;
+export const COLLECTION_DETAIL_RESPONSE_MAX_BYTES = 3 * 1024 * 1024;
+const sourceOfferSchema = z.object({amount:z.string().regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/),currency:z.string().regex(/^[A-Z]{3}$/).nullable(),minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable().optional(),condition:z.enum(['new','used']).optional(),conditionNote:z.string().refine(v=>!!v.trim()&&new TextEncoder().encode(v).length<=256).optional()}).strict();
+const sourcePriceSchema = sourceOfferSchema.extend({alternative:sourceOfferSchema.optional()}).refine(p=>(!p.conditionNote||p.condition==='used')&&(!p.alternative||p.condition==='new'&&p.alternative.condition==='used')&&(!p.alternative?.conditionNote||p.alternative.condition==='used'));
+export function parseSourcePriceFact(raw:string|undefined){
+  if(!raw||new TextEncoder().encode(raw).length>8192)return null;
+  try{
+    const errors:ParseError[]=[];const root=parseTree(raw,errors,{disallowComments:true,allowTrailingComma:false});
+    if(!root||root.type!=="object"||errors.length)return null;
+    const unique=(node:NonNullable<typeof root>):boolean=>{if(node.type==='object'){const names=(node.children??[]).map(property=>property.children?.[0]?.value);if(new Set(names).size!==names.length)return false;}return (node.children??[]).every(unique);};
+    if(!unique(root))return null;
+    const parsed=sourcePriceSchema.safeParse(JSON.parse(raw));return parsed.success?parsed.data:null;
+  }catch{return null;}
+}
 export type CollectionRoute = "batches" | "batch" | "items" | "own" | "detail" | "history" | "history-detail" | "operation" | "command" | "import-preview" | "import-template" | "media-upload" | "media-read";
 export const collectionID = z.string().refine(isAcquisitionUUID);
 const bytes = (max: number) => z.string().refine(value => new TextEncoder().encode(value).length <= max && !value.includes("\0"));
@@ -61,6 +75,10 @@ const image = z.object({ url: bytes(2048), role: bytes(128).optional(), width: c
 const price = z.object({ currency: bytes(16).optional(), amount: z.number().finite().optional(), compare_at: z.number().finite().optional(), cost_price: z.number().finite().optional(), wholesale_min: count.optional() });
 const dimensions = z.object({ length: z.number().finite().optional(), width: z.number().finite().optional(), height: z.number().finite().optional(), unit: bytes(128).optional() });
 const weight = z.object({ value: z.number().finite().optional(), unit: bytes(128).optional() });
+const sourceQuotesSchema=z.discriminatedUnion("state",[
+  z.object({state:z.literal("available"),publicationId:bytes(128).min(1),version,prices:z.array(sourcePriceSchema.safeExtend({minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable()})).max(256)}).strict(),
+  z.object({state:z.literal("unavailable")}).strict(),z.object({state:z.literal("not_applicable")}).strict(),
+]).refine(value=>new TextEncoder().encode(JSON.stringify(value)).length<=64*1024);
 export const collectionDetailSchema = z.object({ item: collectionItemSchema, product: z.object({
   title: bytes(2000).optional(), description: bytes(1024 * 1024).optional(), description_format:descriptionFormatSchema, brand: bytes(2000).optional(), category_path: z.array(bytes(8192)).max(256).optional(),
   selling_points: z.array(bytes(8192)).max(256).optional(), seo_keywords: z.array(bytes(8192)).max(256).optional(), attributes: z.array(attribute).max(4096).optional(),
@@ -69,8 +87,8 @@ export const collectionDetailSchema = z.object({ item: collectionItemSchema, pro
   specifications: z.object({ dimensions: dimensions.optional(), weight: weight.optional(), package: z.object({ dimensions: dimensions.optional(), weight: weight.optional(), quantity: count.optional() }).optional(), technical: z.record(bytes(8192), bytes(8192)).optional() }).optional(),
   warnings: z.array(z.object({ code: bytes(128), field: bytes(8192).optional(), message: bytes(8192) })).max(256).optional(),
   review: z.object({needs_review:z.boolean(),reasons:z.array(bytes(8192)).max(128).optional()}).optional(),
-  sources: z.array(z.object({ type: bytes(128).optional(), platform: bytes(128).optional(), source_id: bytes(128).optional(), url: bytes(2048).optional(), reference_type: bytes(128).optional(), source_version:bytes(128).optional(), snapshot_id:bytes(128).optional(), checksum:bytes(128).optional(), captured_at:timestamp.optional() })).max(4096).optional(),
-}) });
+  sources: z.array(z.object({ type: bytes(128).optional(), detail:bytes(8192).optional(), platform: bytes(128).optional(), source_id: bytes(128).optional(), url: bytes(2048).optional(), reference_type: bytes(128).optional(), source_version:bytes(128).optional(), snapshot_id:bytes(128).optional(), checksum:bytes(128).optional(), captured_at:timestamp.optional(), metadata:z.record(bytes(8192),bytes(8192)).refine(value=>Object.keys(value).length<=256).optional(), source_run_id:bytes(8192).optional(), request_id:bytes(8192).optional(), notes:z.array(bytes(8192)).max(256).optional() })).max(4096).optional(),
+}), sourceQuotes:sourceQuotesSchema.optional() }).refine(value=>value.sourceQuotes?.state!=="available"||(value.sourceQuotes.publicationId===value.item.source.publicationId&&value.sourceQuotes.version===value.item.source.version));
 export type CollectionBatch = z.infer<typeof collectionBatchSchema>;
 export type CollectionItem = z.infer<typeof collectionItemSchema>;
 export type CollectionDetail = z.infer<typeof collectionDetailSchema>;

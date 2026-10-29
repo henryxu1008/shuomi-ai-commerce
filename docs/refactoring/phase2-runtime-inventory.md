@@ -324,32 +324,10 @@ internal wiring is intentionally excluded; no other package class is excluded.
 
 | Target import path | Exact consumer package | Class | Explicit later owner / phase |
 | --- | --- | --- | --- |
-| `task-processor/internal/core/logger` | `task-processor/internal/amazon/api` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/crawler/alibaba1688` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/crawler/alibaba1688/extractor` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/crawler/amazon` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/crawler/amazon/browser` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/crawler/amazon/extractor` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/crawler/amazon/variations` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/crawler/shared/browser` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/localagent` | agent business consumer | agent owner / Phase 6 |
-| `task-processor/internal/core/logger` | `task-processor/internal/pkg/appenv` | runtime-support debt | app retirement / Phase 8 |
-| `task-processor/internal/core/logger` | `task-processor/internal/pkg/downloader` | mixed business helper | product + marketplace / Phases 3-4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/prompt` | agent business consumer | agent owner / Phase 6 |
-| `task-processor/internal/core/logger` | `task-processor/internal/publishing/shein` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/sds/client` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/sds/design` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/sdslogin` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/shein/client` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/shein/content` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/sheinlogin` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/api/client` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
-| `task-processor/internal/platform/logging` | `task-processor/internal/core/logger` | compatibility facade | owning domains / Phases 3-8 |
-| `task-processor/internal/platform/workerpool` | `task-processor/internal/kernel/module` | runtime-support debt | app retirement / Phase 8 |
+| `task-processor/internal/platform/logging` | `task-processor/internal/pkg/appenv` | runtime-support wiring | app runtime / current logging owner |
 | `task-processor/internal/integration/openai` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/integration/httpimage` | `task-processor/internal/imageagent` | agent business consumer | agent owner / Phase 6 |
-| `task-processor/internal/integration/httpimage` | `task-processor/internal/sds/design` | marketplace business consumer | marketplace owner / Phase 4 |
 
 ## Historical pre-migration snapshot
 

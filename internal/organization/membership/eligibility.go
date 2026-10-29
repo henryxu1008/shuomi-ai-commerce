@@ -47,7 +47,7 @@ func (s *Service) editable(ctx context.Context, organization string, member Memb
 
 func (s *Service) project(ctx context.Context, identity authidentity.AuthenticatedIdentity, items []Member, total int) (Result, error) {
 	manage := authz.AllowedOrganization(ctx, s.authorizer, identity.UserID, identity.EffectiveOrganizationID, identity.Roles, authz.PermissionWorkbenchOrganizationMemberManage)
-	definitions := []RoleDefinition{{ID: "listingkit_admin", Name: "管理员", Modules: []string{}, System: true}}
+	definitions := []RoleDefinition{administratorRole()}
 	if s.roleStore != nil {
 		custom, _, err := s.roleStore.Roles(ctx, identity.EffectiveOrganizationID)
 		if err != nil {

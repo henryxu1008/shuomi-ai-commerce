@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="referrer" content="no-referrer"><title>商品采集</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><span class="eyebrow">商品来源 · 1688 / Amazon</span><h1 id="title">商品采集</h1></header>
+  <p id="source" class="source"></p>
+  <p id="status" role="status" aria-live="polite">打开商品详情页后采集。</p>
+  <p id="missing" class="muted"></p>
+  <button id="capture">采集并在应用确认</button>
+  <button id="recovery" hidden>返回原应用核实操作</button>
+  <p id="shortcut" class="muted"></p>
+  <div class="secondary"><button id="refresh">刷新状态</button><button id="fresh" hidden>开始新的采集</button></div>
+  <section id="new-confirm" hidden><p>新采集会建立另一笔操作。已交给应用的操作请先在原页面核实。</p><button id="new-confirm-button">确认开始新采集</button><button id="new-cancel">返回</button></section>
+  <button id="draft-list">本机保全资料</button>
+  <section id="drafts" hidden aria-label="本机保全资料"><p>恢复不会自动续采或保存。清理仅删除本机副本，不删除应用里的商品。</p><div id="draft-items"></div><p id="draft-status" role="status"></p></section>
+  <footer>仅采集当前页面商品资料。来源图片尚未获批准。</footer>
+  <script type="module" src="popup.js"></script>
+</body></html>

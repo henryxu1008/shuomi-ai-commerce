@@ -1,3 +1,7 @@
+> #301 / #980 用户确认的[完整退休闭包](legacy-ai-routing-image-policy-closure-retirement-boundary.md)已在同一PR实施：本文涉及旧AI PolicyRouter/Legacy-Shadow/Planner、闲置通用HTTP图片生成adapter、旧本地模板/排版/白底或IP启发式的KEEP/开工要求，仅在该设计§5/§6.1明列范围被替代。有效账本值、图片字节检查、SceneOptions/metadata原规则及通用TestCategoryOf断言明确保留；当前AI/图像审核/JSON/hash/计费/UNKNOWN、采集和独立SHEIN登录/Store同步不变。以下实际起始main完整原Git blob、批准/失败/历史/数字/勾选逐字保留；无compat alias/新运行装配、workflow/完整inventory/既有资源操作或试用前置，#301 OPEN。
+
+> #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，将 imagex 整体暂留中的闲置编码/格式辅助按新矩阵精确退休；当前解码/metadata、JPEG/PNG/WebP 注册、成熟图像库、风险/provider 参数、ImageAgent 及共享基础层保持。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
+
 # #301 旧水印检测/去除与专属配置完整退休设计
 
 Status: **CONFIRMED / Reuse Existing Architecture / Ready → In Progress**。用户已确认冻结设计 `e7ebd1d8dbecb92b78ce5b2b23aeae3eda1768d1` 的 §1–§7（含 §6.1），授权在 #874 整批实施；[实施准入](https://github.com/qq550723504/task-processor/pull/874#issuecomment-6329871523)和 #301 Ready 已在生产修改前读回。下列设计阶段时态保留为历史，当前权限以本状态取代；准确删除/保留矩阵不变。11 个生产源与 1 个示例、Config.Watermark import/字段和开发 YAML 专属根同批 RETIRE，无新 EXTRACT/兼容/替代 owner。原 guard/config 检查先捕获 RED 后校准至 GREEN；准确实现 HEAD、原 CI 与最终独立检查留 PR。调查基线 main `398ee52a7caa9769f0197c67f46f17947b7cbcfd`，其 push/main CI39625847629 SUCCESS 仅为基线证据。#301 保持 OPEN，#29 不重开；一个 Writer、一个分支、一个主要 PR，不机械拆批。workflow/inventory/依赖/ceilings/保护零改，当前能力及独立 SHEIN 登录/Store 同步保留，无既有实例/数据/凭据/进程操作或新试用前置。

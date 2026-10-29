@@ -13,8 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"task-processor/internal/aicapability"
-	aicapabilitystore "task-processor/internal/aicapability/store"
 	"task-processor/internal/app/configadapter"
 	imageapp "task-processor/internal/app/imageagent"
 	appruntime "task-processor/internal/app/runtime"
@@ -33,14 +31,12 @@ import (
 	memberstore "task-processor/internal/integration/persistence/organization/membership"
 	productassetpersistence "task-processor/internal/integration/persistence/product/asset"
 	s3integration "task-processor/internal/integration/s3"
-	"task-processor/internal/listingsubscription"
 	platformdatabase "task-processor/internal/platform/database"
 )
 
 type imageCapabilityRuntime struct {
 	OpenAIManager      *openaiclient.Manager
 	CredentialResolver openaiclient.ClientConfigResolver
-	InvocationRecorder aicapability.InvocationRecorder
 	Logger             *logrus.Logger
 }
 
@@ -48,7 +44,7 @@ type imageAgentWorkerDependencyResolver struct {
 	LoadConfig                      func(string) (*config.Config, error)
 	OpenDB                          func(*config.DatabaseConfig) (*gorm.DB, error)
 	CloseDB                         func(*config.DatabaseConfig, *gorm.DB) error
-	BuildAI                         func(*config.Config, *gorm.DB, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error)
+	BuildAI                         func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error)
 	BuildCapabilities               func(imageCapabilityRuntime) (ImageCapabilities, error)
 	BuildOrganizationCapabilities   func(imageCapabilityRuntime, *gorm.DB) (ImageCapabilities, error)
 	BuildOrganizationAuthorizer     func(*config.Config) (domainimageagent.ExecutionAuthorizer, error)
@@ -147,13 +143,6 @@ func defaultImageAgentWorkerDependencyResolver() imageAgentWorkerDependencyResol
 	}
 }
 
-// ResolveImageAgentTemporalDependencies builds the dedicated production worker
-// from the same database, ImageAgent artifact storage, and ListingKit result
-// ownership adapters used by the API runtime.
-func ResolveImageAgentTemporalDependencies(configPath string, logger *logrus.Logger) (appruntime.ImageAgentTemporalDependencies, func() error, error) {
-	return ResolveImageAgentTemporalDependenciesForMode(configPath, logger, imageagenttemporal.WorkerWireModeV3)
-}
-
 // ResolveImageAgentTemporalDependenciesForMode composes only the capabilities
 // registered by the selected worker process. The legacy public resolver above
 // remains v3-compatible for existing callers.
@@ -218,29 +207,21 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent durable artifact store: %w", err)
 		}
 	}
-	if cfg.CommercialDatabase == nil {
-		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("image agent commercial database configuration is required for token accounting")
-	}
+
 	if mode == imageagenttemporal.WorkerWireModeOrganization {
-		owner, usage := cfg.CommercialOwnerDatabase, cfg.CommercialDatabase
-		if owner == nil || owner.User != resourceadapter.RuntimeRole || owner.Host == "" || owner.Port <= 0 || owner.Database == "" || owner.Host != usage.Host || owner.Port != usage.Port || owner.Database != usage.Database {
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent requires the explicit same-database commercial resource owner runtime")
+		owner := cfg.CommercialOwnerDatabase
+		if owner == nil || owner.User != resourceadapter.RuntimeRole || owner.Host == "" || owner.Port <= 0 || owner.Database == "" {
+			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent requires the explicit commercial resource owner runtime")
 		}
 	}
 	db, err := resolver.OpenDB(cfg.Database)
 	if err != nil {
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("open image agent worker database: %w", err)
 	}
-	commercialDB, err := resolver.OpenDB(cfg.CommercialDatabase)
-	if err != nil {
-		_ = resolver.CloseDB(cfg.Database, db)
-		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("open commercial usage database: %w", err)
-	}
 	var resourceDB *gorm.DB
 	var rolePolicyDB *gorm.DB
 	closeDB := func() error {
 		closeErr := resolver.CloseDB(cfg.Database, db)
-		closeErr = errors.Join(closeErr, resolver.CloseDB(cfg.CommercialDatabase, commercialDB))
 		if resourceDB != nil {
 			closeErr = errors.Join(closeErr, resolver.CloseDB(cfg.CommercialOwnerDatabase, resourceDB))
 		}
@@ -277,13 +258,13 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("verify commercial resource owner runtime: %w", err)
 		}
 	}
-	manager, credentialResolver, recorder, err := resolver.BuildAI(cfg, db, commercialDB, logger)
+	manager, credentialResolver, err := resolver.BuildAI(cfg, db, logger)
 	if err != nil {
 		_ = closeDB()
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent provider runtime: %w", err)
 	}
 	runtime := imageCapabilityRuntime{
-		OpenAIManager: manager, CredentialResolver: credentialResolver, InvocationRecorder: recorder, Logger: logger,
+		OpenAIManager: manager, CredentialResolver: credentialResolver, Logger: logger,
 	}
 	var capabilities ImageCapabilities
 	if mode == imageagenttemporal.WorkerWireModeOrganization {
@@ -406,10 +387,10 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 }
 
 func buildOrganizationWorkerCapabilities(runtime imageCapabilityRuntime, db *gorm.DB) (ImageCapabilities, error) {
-	if runtime.Logger == nil || nilDependency(runtime.InvocationRecorder) {
-		return ImageCapabilities{}, fmt.Errorf("organization image agent invocation recorder and logger are required")
+	if runtime.Logger == nil {
+		return ImageCapabilities{}, fmt.Errorf("organization image agent logger is required")
 	}
-	return BuildOrganizationImageCapabilities(runtime.OpenAIManager, db, OrganizationReviewOptions{Recorder: runtime.InvocationRecorder, Logger: runtime.Logger})
+	return BuildOrganizationImageCapabilities(runtime.OpenAIManager, db, runtime.Logger)
 }
 
 func buildOrganizationWorkerAuthorizer(cfg *config.Config) (domainimageagent.ExecutionAuthorizer, error) {
@@ -541,27 +522,23 @@ func (timing imageAgentArtifactTiming) validate() error {
 	return nil
 }
 
-func buildImageAgentWorkerAI(cfg *config.Config, db, commercialDB *gorm.DB, logger *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, aicapability.InvocationRecorder, error) {
+func buildImageAgentWorkerAI(cfg *config.Config, db *gorm.DB, logger *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
 	if cfg == nil || db == nil {
-		return nil, nil, nil, fmt.Errorf("image agent provider configuration and database are required")
+		return nil, nil, fmt.Errorf("image agent provider configuration and database are required")
 	}
-	if cfg.CommercialDatabase == nil || commercialDB == nil {
-		return nil, nil, nil, fmt.Errorf("image agent commercial database configuration is required for token accounting")
-	}
+
 	var componentLogger *logrus.Entry
 	if logger != nil {
 		componentLogger = logrus.NewEntry(logger).WithField("component", "image-agent-openai")
 	}
 	manager, err := openaiclient.NewManager(&openaiclient.ManagerConfig{
-		Clients: cfg.OpenAI.ToClientConfigs(), DefaultClient: "default",
-		Logger: openaiclient.AdaptLogrus(componentLogger),
+		Clients: cfg.OpenAI.ToClientConfigs(),
+		Logger:  openaiclient.AdaptLogrus(componentLogger),
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	credentials := openaiclient.NewGormCredentialResolver(db)
 	manager.SetConfigResolver(credentials)
-	recorder := aicapabilitystore.NewGormInvocationRecorder(db)
-	recorder.SetUsageSettler(listingsubscription.AIInvocationUsageAdapter{Repository: listingsubscription.NewGormRepository(commercialDB)})
-	return manager, credentials, recorder, nil
+	return manager, credentials, nil
 }

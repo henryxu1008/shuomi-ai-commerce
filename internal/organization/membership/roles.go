@@ -67,6 +67,12 @@ func (input RoleMutation) Normalize(organization string) (RoleMutation, error) {
 
 func (s *Service) SetRoleStore(store RoleStore) { s.roleStore = store }
 
+// administratorRole describes the fixed system role, independently of the
+// requesting actor, configured protected subjects and enterprise role grants.
+func administratorRole() RoleDefinition {
+	return RoleDefinition{ID: "listingkit_admin", Name: "管理员", Modules: authz.AdministratorModules(), Version: 0, System: true}
+}
+
 func (s *Service) Roles(ctx context.Context) (RolesResult, error) {
 	identity, err := s.authorize(ctx, authz.PermissionWorkbenchOrganizationMemberRead)
 	if err != nil {
@@ -79,13 +85,7 @@ func (s *Service) Roles(ctx context.Context) (RolesResult, error) {
 	if err != nil {
 		return RolesResult{}, err
 	}
-	modules := []string{}
-	for _, m := range authz.MenuModules() {
-		if m.Available {
-			modules = append(modules, m.ID)
-		}
-	}
-	items = append([]RoleDefinition{{ID: "listingkit_admin", Name: "管理员", Modules: modules, Version: 0, System: true}}, items...)
+	items = append([]RoleDefinition{administratorRole()}, items...)
 	manage := authz.AllowedOrganization(ctx, s.authorizer, identity.UserID, identity.EffectiveOrganizationID, identity.Roles, authz.PermissionWorkbenchOrganizationMemberManage)
 	return RolesResult{SchemaVersion: "enterprise-roles-v1", UserID: identity.UserID, OrganizationID: identity.EffectiveOrganizationID, Items: items, Catalog: authz.MenuModules(), CanManage: manage, CanCreate: manage && remaining > 0, RemainingSlots: remaining}, nil
 }

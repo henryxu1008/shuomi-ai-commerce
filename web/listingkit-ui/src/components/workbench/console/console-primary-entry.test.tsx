@@ -11,9 +11,11 @@ const fixture = vi.hoisted(() => ({
     isLoading: false, isSwitching: false, selectionRequired: false,
     effectiveOrganization: { id: "org-a" } as { id: string } | null, error: null, blockingError: null },
 }));
-it("links the intelligent market introduction to the skill library", () => {
+it("removes the duplicate skill library entry from the intelligent market introduction", () => {
   render(<AgentsPage/>);
-  expect(screen.getByRole("link", {name: /进入技能库/})).toHaveAttribute("href", "/workbench/agents/skills");
+  expect(screen.queryByRole("link", {name: /进入技能库/})).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", {name: "技能库"})).not.toBeInTheDocument();
+  expect(screen.getByRole("link", {name: /提交定制需求/})).toBeVisible();
 });
 vi.mock("next/navigation", () => ({ redirect: fixture.redirect }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));

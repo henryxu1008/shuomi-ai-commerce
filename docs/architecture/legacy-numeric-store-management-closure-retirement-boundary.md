@@ -1,3 +1,11 @@
+> #301 / #929 **SUPERSEDED，仅旧 SHEIN 品牌查询与错误分类闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-shein-brand-error-closure-retirement-boundary.md)。本文只有旧 authorizedbrand.ProductAPI/Resolver/Config、查询/匹配 helper、sherr 及 BrandItem/BrandListResponse 的保留或现役建议被准确替代；不重建已退的 Store/Task/API 调用。完整 Resolved/context、当前清理/草稿 JSON/有效规则、采集、独立 SHEIN 登录与 Store 同步及原 owner/claim/fence/UNKNOWN 保留。无生产 EXTRACT 或替代 Resolver，不改 workflow/完整 inventory，不操作既有实例/数据/凭据/进程，不增加试用前置；#301 OPEN。以下完整原文/顶注/历史数字/勾选/批准/证据逐字保留。
+
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。仅替代本文件 listingruntime.ProductImportMapping/原 types.go 必须存在、旧 MappingInfo 编码及 listingruntime 仍属当前依赖的准确保留含义；本轮最后值类型完整退休。SourceIdentity 四 JSON 零值槽位、六 Source*、原 trim/规范化/hash/读取拒绝/当前版本及 opaque metadata 继续保留，不删当前序列化字段或改变业务事实 owner。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中旧 productsync Attributes 及其成本策略的 KEEP；当前 Store observations 与独立登录/Store同步仍归原 owner及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # 旧数字 Store 管理与刊登配置：完整退休闭包
 
 > #833 [旧数字内容配置完整闭包](legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。

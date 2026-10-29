@@ -3,38 +3,11 @@ package alibaba1688
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
 )
-
-// easeInOutCubic 缓动函数
-func (ch *CaptchaHandler) easeInOutCubic(t float64) float64 {
-	if t < 0.5 {
-		return 4 * t * t * t
-	}
-	return 1 - math.Pow(-2*t+2, 3)/2
-}
-
-// complexEasing 复杂的缓动函数，模拟人类滑动的速度变化
-func (ch *CaptchaHandler) complexEasing(t float64) float64 {
-	if t < 0.1 {
-		return 0.5 * t * t
-	} else if t < 0.3 {
-		adjusted := (t - 0.1) / 0.2
-		return 0.005 + 0.1*adjusted*adjusted
-	} else if t < 0.7 {
-		return 0.105 + 0.7*(t-0.3)/0.4
-	} else if t < 0.9 {
-		adjusted := (t - 0.7) / 0.2
-		return 0.805 + 0.15*(1-(1-adjusted)*(1-adjusted))
-	} else {
-		adjusted := (t - 0.9) / 0.1
-		return 0.955 + 0.045*adjusted*adjusted
-	}
-}
 
 // randomDelay 生成随机延迟（毫秒）
 func (ch *CaptchaHandler) randomDelay(maxMs int) int {
@@ -225,136 +198,6 @@ func (ch *CaptchaHandler) generateRealHumanTrackPoints(startX, startY, endX, end
 	return points
 }
 
-// simulateHumanTyping 模拟人类打字行为
-func (ch *CaptchaHandler) simulateHumanTyping(page playwright.Page, input playwright.ElementHandle, text string) error {
-	for i, char := range text {
-		if err := input.Type(string(char)); err != nil {
-			return err
-		}
-
-		baseDelay := 50
-		if i == 0 || i == len(text)-1 {
-			baseDelay = 100
-		}
-
-		delay := baseDelay + ch.randomDelay(100)
-		time.Sleep(time.Duration(delay) * time.Millisecond)
-	}
-	return nil
-}
-
-// simulateHumanMouseMovement 模拟人类鼠标移动
-func (ch *CaptchaHandler) simulateHumanMouseMovement(page playwright.Page, startX, startY, endX, endY float64) error {
-	points := ch.generateBezierCurvePoints(startX, startY, endX, endY, 50)
-
-	for i, point := range points {
-		if err := page.Mouse().Move(point.x, point.y); err != nil {
-			return err
-		}
-
-		if i < len(points)-1 {
-			delay := 10 + ch.randomDelay(20)
-			time.Sleep(time.Duration(delay) * time.Millisecond)
-		}
-	}
-	return nil
-}
-
 type point struct {
 	x, y float64
-}
-
-// generateBezierCurvePoints 生成贝塞尔曲线点
-func (ch *CaptchaHandler) generateBezierCurvePoints(startX, startY, endX, endY float64, numPoints int) []point {
-	points := make([]point, numPoints)
-
-	controlX1 := startX + (endX-startX)*0.3 + float64(ch.randomDelay(100)-50)
-	controlY1 := startY + float64(ch.randomDelay(200)-100)
-	controlX2 := startX + (endX-startX)*0.7 + float64(ch.randomDelay(100)-50)
-	controlY2 := endY + float64(ch.randomDelay(200)-100)
-
-	for i := 0; i < numPoints; i++ {
-		t := float64(i) / float64(numPoints-1)
-		oneMinusT := 1 - t
-
-		x := math.Pow(oneMinusT, 3)*startX +
-			3*math.Pow(oneMinusT, 2)*t*controlX1 +
-			3*oneMinusT*math.Pow(t, 2)*controlX2 +
-			math.Pow(t, 3)*endX
-
-		y := math.Pow(oneMinusT, 3)*startY +
-			3*math.Pow(oneMinusT, 2)*t*controlY1 +
-			3*oneMinusT*math.Pow(t, 2)*controlY2 +
-			math.Pow(t, 3)*endY
-
-		points[i] = point{x, y}
-	}
-
-	return points
-}
-
-// simulateHumanScrolling 模拟人类滚动行为
-func (ch *CaptchaHandler) simulateHumanScrolling(page playwright.Page, targetY int) error {
-	currentY := 0
-	stepSize := 50 + ch.randomDelay(100)
-
-	for currentY < targetY {
-		scrollAmount := stepSize
-		if currentY+scrollAmount > targetY {
-			scrollAmount = targetY - currentY
-		}
-
-		if _, err := page.Evaluate(fmt.Sprintf("window.scrollBy(0, %d)", scrollAmount)); err != nil {
-			return err
-		}
-
-		currentY += scrollAmount
-
-		delay := 100 + ch.randomDelay(200)
-		time.Sleep(time.Duration(delay) * time.Millisecond)
-	}
-	return nil
-}
-
-// simulateRandomMouseWiggling 模拟随机鼠标抖动
-func (ch *CaptchaHandler) simulateRandomMouseWiggling(page playwright.Page, centerX, centerY float64, durationMs int) error {
-	startTime := time.Now()
-
-	for time.Since(startTime) < time.Duration(durationMs)*time.Millisecond {
-		offsetX := float64(ch.randomDelay(20) - 10)
-		offsetY := float64(ch.randomDelay(20) - 10)
-
-		if err := page.Mouse().Move(centerX+offsetX, centerY+offsetY); err != nil {
-			return err
-		}
-
-		time.Sleep(time.Duration(50+ch.randomDelay(100)) * time.Millisecond)
-	}
-
-	return page.Mouse().Move(centerX, centerY)
-}
-
-// simulateTypingMistakes 模拟打字错误和修正
-func (ch *CaptchaHandler) simulateTypingMistakes(page playwright.Page, input playwright.ElementHandle, text string, mistakeProbability float64) error {
-	for _, char := range text {
-		if math.Float64frombits(uint64(ch.randomDelay(1000)))/1000.0 < mistakeProbability {
-			mistakeChar := rune('a' + ch.randomDelay(26))
-			if err := input.Type(string(mistakeChar)); err != nil {
-				return err
-			}
-			time.Sleep(time.Duration(200+ch.randomDelay(100)) * time.Millisecond)
-			if err := input.Press("Backspace"); err != nil {
-				return err
-			}
-			time.Sleep(time.Duration(100+ch.randomDelay(100)) * time.Millisecond)
-		}
-
-		if err := input.Type(string(char)); err != nil {
-			return err
-		}
-
-		delay := 50 + ch.randomDelay(100)
-		time.Sleep(time.Duration(delay) * time.Millisecond)
-	}
-	return nil
 }

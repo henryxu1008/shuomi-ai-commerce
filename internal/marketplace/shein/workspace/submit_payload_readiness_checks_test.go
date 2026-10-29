@@ -3,8 +3,8 @@ package workspace
 import (
 	"testing"
 
-	sheinpub "task-processor/internal/publishing/shein"
-	sheinproduct "task-processor/internal/shein/api/product"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 func TestBuildSubmitPayloadReadinessChecksReportsMissingPayloadParts(t *testing.T) {
@@ -38,9 +38,9 @@ func TestBuildSubmitPayloadReadinessChecksUsesPackagePredicates(t *testing.T) {
 				}},
 			}},
 		},
-		PreviewPayload: &sheinproduct.Product{
-			ImageInfo: &sheinproduct.ImageInfo{
-				ImageInfoList: []sheinproduct.ImageDetail{{ImageURL: "https://img.example/main.jpg"}},
+		PreviewPayload: &previewdata.Product{
+			ImageInfo: &previewdata.ImageInfo{
+				ImageInfoList: []previewdata.ImageDetail{{ImageURL: "https://img.example/main.jpg"}},
 			},
 		},
 		Pricing: &sheinpub.PricingReview{Ready: true},
@@ -118,4 +118,11 @@ func findReadinessCheck(t *testing.T, checks []ReadinessCheckSpec, key string) R
 	}
 	t.Fatalf("missing readiness check %q in %+v", key, checks)
 	return ReadinessCheckSpec{}
+}
+
+func TestSummaryOnlySKUsDoNotMakeCanonicalDraftReady(t *testing.T) {
+	pkg := &sheinpub.Package{SkcList: []sheinpub.SKCPackage{{SKUs: []sheinpub.Variant{{SKU: "summary"}}}}}
+	checks := BuildSubmitPayloadReadinessChecks(pkg, "publish")
+	assertReadinessCheck(t, checks, "request_draft", false)
+	assertReadinessCheck(t, checks, "variants", false)
 }

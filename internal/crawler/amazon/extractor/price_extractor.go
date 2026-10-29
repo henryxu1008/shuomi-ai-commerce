@@ -3,8 +3,8 @@ package extractor
 
 import (
 	"strings"
-	"task-processor/internal/core/logger"
-	"task-processor/internal/model"
+
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -19,6 +19,8 @@ var primaryPriceContainers = []string{
 
 // PriceExtractor 价格提取器
 type PriceExtractor struct {
+	loggerDependency
+
 	// Marketplace 用于区分不同站点 (US, JP, UK, DE, FR, IT, ES, etc.)
 	Marketplace string
 
@@ -30,13 +32,14 @@ type PriceExtractor struct {
 }
 
 // NewPriceExtractor 创建价格提取器
-func NewPriceExtractor(marketplace string) *PriceExtractor {
+func NewPriceExtractor(marketplace string, logs func(string) *logrus.Entry) *PriceExtractor {
 	return &PriceExtractor{
-		Marketplace:  marketplace,
-		validator:    NewPriceValidator(marketplace),
-		parser:       NewPriceParser(marketplace),
-		currencyMgr:  NewCurrencyManager(marketplace),
-		listPriceExt: NewListPriceExtractor(marketplace),
+		loggerDependency: loggerDependency{logFor: logs},
+		Marketplace:      marketplace,
+		validator:        NewPriceValidator(marketplace, logs),
+		parser:           NewPriceParser(marketplace, logs),
+		currencyMgr:      NewCurrencyManager(marketplace),
+		listPriceExt:     NewListPriceExtractor(marketplace, logs),
 	}
 }
 
@@ -46,14 +49,14 @@ func (e *PriceExtractor) HasValidPrice(page playwright.Page) bool {
 }
 
 // Extract 提取价格信息
-func (e *PriceExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *PriceExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 
 	// 站点默认货币，用于无价格/不可用时的兜底
 	defaultCurrency := e.currencyMgr.GetDefaultCurrencyByMarketplace()
 
 	// 检查产品可用性（仅在明确不可用时才跳过价格提取）
 	if product.Availability != "" && e.validator.IsUnavailableText(product.Availability) {
-		logger.GetGlobalLogger("crawler/amazon").WithFields(logrus.Fields{
+		e.componentLogger("crawler/amazon").WithFields(logrus.Fields{
 			"asin":         product.Asin,
 			"availability": product.Availability,
 		}).Warn("❌ 产品不可用（根据Availability字段），跳过价格提取并设置 IsAvailable=false")
@@ -67,9 +70,9 @@ func (e *PriceExtractor) Extract(page playwright.Page, product *model.Product) e
 	// 提取价格文本
 	priceTextStartedAt := time.Now()
 	priceText := e.extractPriceText(page)
-	logger.GetGlobalLogger("crawler/amazon").Infof("价格文本提取完成 (耗时=%s)", time.Since(priceTextStartedAt).Round(time.Millisecond))
+	e.componentLogger("crawler/amazon").Infof("价格文本提取完成 (耗时=%s)", time.Since(priceTextStartedAt).Round(time.Millisecond))
 	if priceText == "" {
-		logger.GetGlobalLogger("crawler/amazon").Warn("未找到价格信息，使用默认值")
+		e.componentLogger("crawler/amazon").Warn("未找到价格信息，使用默认值")
 		product.FinalPrice = 0
 		product.InitialPrice = 0
 		product.Currency = defaultCurrency
@@ -90,18 +93,18 @@ func (e *PriceExtractor) Extract(page playwright.Page, product *model.Product) e
 
 		// 验证货币是否匹配
 		if extractedCurrency != expectedCurrency {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("⚠️ 货币不匹配 - 页面显示: %s, 站点期望: %s",
+			e.componentLogger("crawler/amazon").Warnf("⚠️ 货币不匹配 - 页面显示: %s, 站点期望: %s",
 				extractedCurrency, expectedCurrency)
-			logger.GetGlobalLogger("crawler/amazon").Warnf("💡 提示: 货币设置可能失败，请检查货币设置器的日志")
+			e.componentLogger("crawler/amazon").Warnf("💡 提示: 货币设置可能失败，请检查货币设置器的日志")
 			// 使用页面显示的货币（因为这是实际显示的价格）
 			product.Currency = extractedCurrency
 		} else {
 			product.Currency = extractedCurrency
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("解析到价格: %.2f %s", price, product.Currency)
+		e.componentLogger("crawler/amazon").Infof("解析到价格: %.2f %s", price, product.Currency)
 	} else {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("价格解析失败: %s", priceText)
+		e.componentLogger("crawler/amazon").Warnf("价格解析失败: %s", priceText)
 		product.FinalPrice = 0
 		product.InitialPrice = 0
 		product.Currency = defaultCurrency
@@ -113,12 +116,12 @@ func (e *PriceExtractor) Extract(page playwright.Page, product *model.Product) e
 		e.listPriceExt.ExtractListPrice(page, product)
 	}
 	e.syncInitialPriceWithListPrice(product)
-	logger.GetGlobalLogger("crawler/amazon").Infof("原价提取完成 (耗时=%s)", time.Since(listPriceStartedAt).Round(time.Millisecond))
+	e.componentLogger("crawler/amazon").Infof("原价提取完成 (耗时=%s)", time.Since(listPriceStartedAt).Round(time.Millisecond))
 
 	return nil
 }
 
-func (e *PriceExtractor) syncInitialPriceWithListPrice(product *model.Product) {
+func (e *PriceExtractor) syncInitialPriceWithListPrice(product *amazonresult.Product) {
 	if product == nil {
 		return
 	}
@@ -144,7 +147,7 @@ func (e *PriceExtractor) extractPriceText(page playwright.Page) string {
 	}
 
 	if priceText := e.parser.ExtractCombinedPriceInScopes(page, primaryPriceContainers); priceText != "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("主价格容器组合价格提取成功: %s", priceText)
+		e.componentLogger("crawler/amazon").Infof("主价格容器组合价格提取成功: %s", priceText)
 		return priceText
 	}
 
@@ -164,7 +167,7 @@ func (e *PriceExtractor) extractPriceText(page playwright.Page) string {
 	}
 
 	if priceText := e.parser.ExtractCombinedPrice(page); priceText != "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("组合价格提取成功: %s", priceText)
+		e.componentLogger("crawler/amazon").Infof("组合价格提取成功: %s", priceText)
 		return priceText
 	}
 

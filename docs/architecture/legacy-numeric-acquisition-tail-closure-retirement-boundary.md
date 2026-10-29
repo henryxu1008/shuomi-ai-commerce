@@ -1,4 +1,18 @@
+> #301 / #981 用户确认[旧商品来源归一化与中间事实合同完整设计](legacy-source-normalization-facts-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1），冻结设计 `4e74dfec9` / Independent Architecture / IMPLEMENTATION_READY 后整批实施。仅替代其中 catalog.Normalize、四项旧置信度判断、catalog.ProductFacts/asset.Facts 与 sourcing.SourceRequest/SourceResult 的准确旧KEEP/后续开工含义；对应无消费者源码和专属测试退出，无alias/转发/替代owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog、canonical13值/六常量/草稿投影、SourceIdentity四JSON零值槽位及规范化/hash/拒绝、当前规则/采集与独立SHEIN登录/Store同步保持。原有效身份断言改接当前owner，唯一旧必读转Lstat缺席，其余检查原样。以下起始main完整正文/历史/数字/勾选逐字保留；workflow/完整inventory/依赖/保护及既有实例/数据/凭据/文件/进程零改，无新试用前置，#301 OPEN。
+
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
+> #301 / #946 **SUPERSEDED，仅闲置浏览器统计闭包**：用户已确认[完整退休设计§1–§7/§6.1](legacy-browser-management-tail-closure-retirement-boundary.md)。本文qualityMetrics及从旧service_metrics原样抽出的normalizeMetricsRegion/copyInt64Map之KEEP，仅因最终快照无当前读取者而在该准确矩阵中整退，不回滚当时有效抽取或改写历史结果。CookieData/buildCookiesFromJSON、SessionTransport/当前JSON、实际指纹/代理健康评分/质量重试/周期健康日志、当前采集/原浏览器debug及独立SHEIN登录/Store同步保留。无新生产EXTRACT/owner/兼容，workflow/完整inventory/既有资源不动；以下原完整Git blob/历史/数字/勾选逐字保留。
+
+> #301 / #929 **SUPERSEDED，仅旧 SHEIN 品牌查询与错误分类闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-shein-brand-error-closure-retirement-boundary.md)。本文只有旧 authorizedbrand.ProductAPI/Resolver/Config、查询/匹配 helper、sherr 及 BrandItem/BrandListResponse 的保留或现役建议被准确替代；不重建已退的 Store/Task/API 调用。完整 Resolved/context、当前清理/草稿 JSON/有效规则、采集、独立 SHEIN 登录与 Store 同步及原 owner/claim/fence/UNKNOWN 保留。无生产 EXTRACT 或替代 Resolver，不改 workflow/完整 inventory，不操作既有实例/数据/凭据/进程，不增加试用前置；#301 OPEN。以下完整原文/顶注/历史数字/勾选/批准/证据逐字保留。
+
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。仅替代本文件 listingruntime.ProductImportMapping/原 types.go 必须存在、旧 MappingInfo 编码及 listingruntime 仍属当前依赖的准确保留含义；本轮最后值类型完整退休。SourceIdentity 四 JSON 零值槽位、六 Source*、原 trim/规范化/hash/读取拒绝/当前版本及 opaque metadata 继续保留，不删当前序列化字段或改变业务事实 owner。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
+> #301 / #914 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：[旧闲置配置与运行辅助合同完整退休边界](legacy-idle-support-contract-closure-retirement-boundary.md)冻结 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 读回先于源码修改。仅替代本旧依据对 core/config.CostCalculationConfig、DefaultCostCalculationConfig、CalculateTotalCost 及专属测试的 KEEP：当前无生产消费者，随四组闭包整退；不复制成本公式，不删除当前平台API/费用DTO/有效规则。 下方历史正文逐字保留，其它KEEP/计数/证据不改；workflow/inventory及既有资源零改，无新试用前置，独立SHEIN登录与Store同步保持，#301 OPEN。
+
 # #301 旧数字采集与平台身份尾链完整退休边界
+
+> 用户已确认 [#909 productpolicy 完整退休边界](legacy-product-policy-closure-retirement-boundary.md) §1–§7（含 §6.1）。本文件对 `internal/marketplace/productpolicy` 六工件（doc/filter_rule/rule_checker/price_helper/fulfillment 及专属测试）和四项 KEEP 检查的保留含义已由该边界精确替代为 RETIRE；其余有效规则/API/采集、共享合同及独立 SHEIN 登录与 Store 同步不变。以下原正文、历史数字与验收证据保留，不恢复旧策略或授权既有实例/数据/凭据/进程操作。
 
 当前后续决定：#868 用户确认[数字上下文与共享值合同完整退休矩阵](legacy-numeric-value-contract-closure-retirement-boundary.md) §1–§7（含§6.1），精确替代本文 §4/§5 对完整旧 PricingRule/OperationStrategy 输入类型与 SourceIdentity 别名行为的保留结论。5/8 有效规则值归原 pricing/activity owner；MappingInfo/两属性、四 JSON 零值槽位与当前规范化/hash/拒绝合同继续保持。本文其余边界、执行和历史证据不改。
 

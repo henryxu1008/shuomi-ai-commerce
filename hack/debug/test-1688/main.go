@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"task-processor/internal/pkg/appenv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -47,7 +48,7 @@ func main() {
 	fmt.Printf("使用临时用户数据目录: %s\n", cfg.Browser.UserDataDir)
 	fmt.Println()
 
-	processor := alibaba1688.NewAlibaba1688Processor(cfg)
+	processor := alibaba1688.NewAlibaba1688Processor(cfg, appenv.ComponentLoggers())
 	defer processor.Shutdown()
 
 	testURL := "https://detail.1688.com/offer/722899324071.html"

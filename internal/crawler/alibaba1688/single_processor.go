@@ -2,13 +2,15 @@
 package alibaba1688
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"task-processor/internal/core/config"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/extractor"
 	"task-processor/internal/crawler/alibaba1688/model"
 	"time"
@@ -16,6 +18,8 @@ import (
 
 // SingleProcessor 单个产品处理器
 type SingleProcessor struct {
+	loggerDependency
+
 	config         *config.Config
 	urlHelper      *URLHelper
 	productChecker *ProductChecker
@@ -24,31 +28,15 @@ type SingleProcessor struct {
 }
 
 // NewSingleProcessor 创建新的单个产品处理器
-func NewSingleProcessor(cfg *config.Config, urlHelper *URLHelper, productChecker *ProductChecker) *SingleProcessor {
+func NewSingleProcessor(cfg *config.Config, urlHelper *URLHelper, productChecker *ProductChecker, logs func(string) *logrus.Entry) *SingleProcessor {
 	return &SingleProcessor{
-		config:         cfg,
-		urlHelper:      urlHelper,
-		productChecker: productChecker,
-		extractor:      extractor.NewProductExtractor(),
-		pageOperator:   NewPageOperator(),
+		loggerDependency: loggerDependency{logFor: logs},
+		config:           cfg,
+		urlHelper:        urlHelper,
+		productChecker:   productChecker,
+		extractor:        extractor.NewProductExtractor(logs),
+		pageOperator:     NewPageOperator(logs),
 	}
-}
-
-// Prepare provisions the browser runtime without navigating to a product.
-func (sp *SingleProcessor) Prepare(ctx context.Context) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if sp == nil || sp.config == nil {
-		return errors.New("1688 single processor is not configured")
-	}
-	manager := sp.newPublicBrowserManager()
-	if _, _, _, cleanup, err := manager.CreateBrowser(); err != nil {
-		return err
-	} else {
-		defer closeOnContextDone(ctx, cleanup)()
-	}
-	return ctx.Err()
 }
 
 // ProcessWithSingleBrowser 使用单个浏览器处理产品
@@ -57,11 +45,11 @@ func (sp *SingleProcessor) ProcessWithSingleBrowser(ctx context.Context, url str
 }
 
 func (sp *SingleProcessor) newPublicBrowserManager() *BrowserManager {
-	return NewPublicBrowserManager(sp.config)
+	return NewPublicBrowserManager(sp.config, sp.logFor)
 }
 
 func (sp *SingleProcessor) processWithBrowserManager(ctx context.Context, url string, startTime time.Time, browserManager *BrowserManager) (*model.Product1688, error) {
-	logger.GetGlobalLogger("crawler/alibaba1688").Infof("使用单浏览器模式处理1688产品: %s", url)
+	sp.componentLogger("crawler/alibaba1688").Infof("使用单浏览器模式处理1688产品: %s", url)
 
 	// 验证和标准化URL
 	normalizedURL, err := sp.urlHelper.ValidateAndNormalizeURL(url)
@@ -114,7 +102,7 @@ func (sp *SingleProcessor) processWithBrowserManager(ctx context.Context, url st
 	}
 
 	duration := time.Since(startTime)
-	logger.GetGlobalLogger("crawler/alibaba1688").Infof("单浏览器模式处理完成: %s, 耗时: %v", product.Title, duration)
+	sp.componentLogger("crawler/alibaba1688").Infof("单浏览器模式处理完成: %s, 耗时: %v", product.Title, duration)
 
 	return product, nil
 }

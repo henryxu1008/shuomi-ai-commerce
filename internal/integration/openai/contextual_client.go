@@ -2,59 +2,16 @@ package openai
 
 import (
 	"context"
+
+	"task-processor/internal/ai"
 )
-
-type contextualChatClient struct {
-	manager   *Manager
-	name      string
-	selection *ImageRouteSelection
-}
-
-func (c *contextualChatClient) resolve(ctx context.Context) (*Client, error) {
-	if c.selection != nil {
-		return c.manager.resolveClientWithSelection(ctx, c.name, c.selection)
-	}
-	return c.manager.resolveClient(ctx, c.name)
-}
-
-func (c *contextualChatClient) CreateChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
-	client, err := c.resolve(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return client.CreateChatCompletion(ctx, req)
-}
-
-func (c *contextualChatClient) Generate(ctx context.Context, prompt string) (string, error) {
-	client, err := c.resolve(ctx)
-	if err != nil {
-		return "", err
-	}
-	return client.Generate(ctx, prompt)
-}
-
-func (c *contextualChatClient) AnalyzeImage(ctx context.Context, imageURL string, prompt string) (string, error) {
-	client, err := c.resolve(ctx)
-	if err != nil {
-		return "", err
-	}
-	return client.AnalyzeImage(ctx, imageURL, prompt)
-}
-
-func (c *contextualChatClient) GetDefaultModel() string {
-	client, err := c.resolve(context.Background())
-	if err != nil {
-		return ""
-	}
-	return client.GetDefaultModel()
-}
 
 type contextualImageClient struct {
 	manager *Manager
 	name    string
 }
 
-func (c *contextualImageClient) GenerateImage(ctx context.Context, req *ImageGenerateRequest) (*ImageResponse, error) {
+func (c *contextualImageClient) GenerateImage(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
 	client, err := c.manager.resolveClient(ctx, c.name)
 	if err != nil {
 		return nil, err
@@ -62,7 +19,7 @@ func (c *contextualImageClient) GenerateImage(ctx context.Context, req *ImageGen
 	return client.GenerateImage(ctx, req)
 }
 
-func (c *contextualImageClient) EditImage(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error) {
+func (c *contextualImageClient) EditImage(ctx context.Context, req *ai.ImageEditRequest) (*ai.ImageResponse, error) {
 	client, err := c.manager.resolveClient(ctx, c.name)
 	if err != nil {
 		return nil, err
@@ -70,7 +27,7 @@ func (c *contextualImageClient) EditImage(ctx context.Context, req *ImageEditReq
 	return client.EditImage(ctx, req)
 }
 
-func (c *contextualImageClient) EditImageWithRoute(ctx context.Context, req *ImageEditRequest, selection ImageRouteSelection) (*ImageResponse, error) {
+func (c *contextualImageClient) EditImageWithRoute(ctx context.Context, req *ai.ImageEditRequest, selection ai.ImageRouteSelection) (*ai.ImageResponse, error) {
 	client, err := c.manager.resolveClientWithSelection(ctx, c.name, &selection)
 	if err != nil {
 		return nil, err
@@ -94,7 +51,7 @@ func (c *contextualImageClient) SupportsAsyncImageGeneration() bool {
 	return client.SupportsAsyncImageGeneration()
 }
 
-func (c *contextualImageClient) SubmitImageGeneration(ctx context.Context, req *ImageGenerateRequest) (*ImageAsyncSubmitResponse, error) {
+func (c *contextualImageClient) SubmitImageGeneration(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageAsyncSubmitResponse, error) {
 	client, err := c.manager.resolveClient(ctx, c.name)
 	if err != nil {
 		return nil, err
@@ -102,7 +59,7 @@ func (c *contextualImageClient) SubmitImageGeneration(ctx context.Context, req *
 	return client.SubmitImageGeneration(ctx, req)
 }
 
-func (c *contextualImageClient) SubmitImageEdit(ctx context.Context, req *ImageEditRequest) (*ImageAsyncSubmitResponse, error) {
+func (c *contextualImageClient) SubmitImageEdit(ctx context.Context, req *ai.ImageEditRequest) (*ai.ImageAsyncSubmitResponse, error) {
 	client, err := c.manager.resolveClient(ctx, c.name)
 	if err != nil {
 		return nil, err
@@ -110,7 +67,7 @@ func (c *contextualImageClient) SubmitImageEdit(ctx context.Context, req *ImageE
 	return client.SubmitImageEdit(ctx, req)
 }
 
-func (c *contextualImageClient) QueryImageGeneration(ctx context.Context, jobID string) (*ImageAsyncQueryResponse, error) {
+func (c *contextualImageClient) QueryImageGeneration(ctx context.Context, jobID string) (*ai.ImageAsyncQueryResponse, error) {
 	client, err := c.manager.resolveClient(ctx, c.name)
 	if err != nil {
 		return nil, err

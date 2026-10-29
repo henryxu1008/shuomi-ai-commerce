@@ -1,3 +1,13 @@
+> #301 / #981 用户确认[旧商品来源归一化与中间事实合同完整设计](legacy-source-normalization-facts-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1），冻结设计 `4e74dfec9` / Independent Architecture / IMPLEMENTATION_READY 后整批实施。仅替代其中 catalog.Normalize、四项旧置信度判断、catalog.ProductFacts/asset.Facts 与 sourcing.SourceRequest/SourceResult 的准确旧KEEP/后续开工含义；对应无消费者源码和专属测试退出，无alias/转发/替代owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog、canonical13值/六常量/草稿投影、SourceIdentity四JSON零值槽位及规范化/hash/拒绝、当前规则/采集与独立SHEIN登录/Store同步保持。原有效身份断言改接当前owner，唯一旧必读转Lstat缺席，其余检查原样。以下起始main完整正文/历史/数字/勾选逐字保留；workflow/完整inventory/依赖/保护及既有实例/数据/凭据/文件/进程零改，无新试用前置，#301 OPEN。
+
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
+> #301 / #934 **USER_CONFIRMED**：[旧闲置 adapter/helper 完整退休闭包](legacy-idle-adapter-helper-closure-retirement-boundary.md) §1–§7（含 §6.1）已获用户确认，Reuse Existing Architecture / Ready 与 Issue/PR 读回先于源码修改。仅替代旧 LoggerHelper 其余方法、通用字段与 context/trace/request helper 的 KEEP。两个闲置源文件和专属测试整退，原八项数字 Task/Store 日志禁入转入原 owner-qualified AST 检查；实际 LogManager/singleton/配置/hook/writer、当前身份与 trace 合同保持。只按准确矩阵替代本项旧 KEEP；以下原文/已有顶注/数字/勾选/批准/历史证据完整逐字保留。workflow/完整 inventory/依赖/保护及既有实例/数据/凭据/进程零改，保留独立 SHEIN 登录与 Store 同步，不增试用前置，#301 OPEN。
+
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。仅替代本文件 listingruntime.ProductImportMapping/原 types.go 必须存在、旧 MappingInfo 编码及 listingruntime 仍属当前依赖的准确保留含义；本轮最后值类型完整退休。SourceIdentity 四 JSON 零值槽位、六 Source*、原 trim/规范化/hash/读取拒绝/当前版本及 opaque metadata 继续保留，不删当前序列化字段或改变业务事实 owner。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中抽取到旧 pricing/activity 的5/8字段规则及两种 Attributes 的 KEEP；ProductImportMapping、SourceIdentity 四JSON零槽位及规范化/hash/读取拒绝完整保留及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # #301 旧数字上下文与共享值合同完整退休设计
 
 Status: **Independent Architecture / IMPLEMENTATION_READY / 用户已确认 / 实施中**。冻结设计 HEAD `01d8b8a5087486849d2b883f6c4f554164713857` 的原 CI 与适用独立设计复核均已完成，用户明确确认 §1–§7（含 §6.1）；[实施准入](https://github.com/qq550723504/task-processor/pull/868#issuecomment-6312908855) 已先于生产代码记录 Ready → In Progress。下文设计阶段的权限与待确认表述保留为历史阶段条件，由本状态和该授权精确替代；同一 Writer、分支和 PR 整批实施 §5，workflow/inventory 零改，合并/部署/关单仍未授权。

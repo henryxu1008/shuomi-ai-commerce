@@ -1,4 +1,26 @@
+> #301 / #985 当前边界：独立 SHEIN 登录 worker、登录后 Store ID 回写及其专属持久化/构建部署入口已从源码退休。此前批次中这些对象的 KEEP/装配描述仅为历史，由[本批已确认设计](legacy-shein-login-identity-sync-closure-retirement-boundary.md)准确替代；Store 观察同步、官方授权、当前采集/图像/共享能力继续保留。相关原 guard 的稳定名称继续存在，含义已转换为完整退休禁入，不恢复旧 owner。既有资源/真实运行/数据/凭据/进程不操作，不增加试用前置，#301 OPEN。
+
+> #301 / #983 当前owner校准：按[legacy-asset-source-openai-tail-closure-retirement-boundary.md](legacy-asset-source-openai-tail-closure-retirement-boundary.md)精确退休product/asset/recipe旧静态配方和sourcing.Publisher包装，17个AI合同别名/错误转发与Manager旧resolver版本接受尾部退出。现役ImageSlotRecipe/资产批准、InternalProducer/SRC事务、catalog.Publisher、internal/ai及integration/openai实际配置/Client/Pool/Manager分工保持；Manager版本沿既有effective:v1算法，不改其它provider的独立绑定。当前JSON/hash/版本、能力与独立SHEIN登录/Store同步保持；不操作既有资源，不增试用前置，#301 OPEN。以下原边界/历史正文保留。
+
+> #301 / #981 当前整批实施：**RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `4e74dfec9f7bdb919ee8f983d5e3cfc5879bc578` 的§1–§7（含§4.2/§6.1），同一26路径完整闭包：catalog.Normalize及17helper、canonical四项旧推断评分、两组旧Facts、SourceRequest/SourceResult及专属尾部已退出，无alias/转发/替代归一化owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog保存读取、canonical13值/六常量/草稿投影、JSON/hash/SourceIdentity四零值槽位与拒绝、采集及独立SHEIN登录/Store同步保持。有效身份断言改接当前owner，旧必读精确转Lstat整源缺席，其余检查保留。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，无新试用前置，#301 OPEN；必要自检、准确源码HEAD/原CI/最终复核分别记同PR，不等于运行/产品验收。合并/部署/关单另授权；源码最终子代理复核与设计复核分开，不默认新增线程。[完整冻结设计](legacy-source-normalization-facts-closure-retirement-boundary.md)；以下冻结设计或起始正文/索引/历史完整保留，旧阶段状态由本条当前实施状态替代。
+
+> #301 / #972 CURRENT STATE: internal/integration/acquisition/a1688/browser and internal/integration/acquisition/browsercollector produce current internal/product/sourcing SourceEnvelope values. Current POD stays with integration/sds and app/pod; asset approval/recipe remain with their current owners. The old LocalAgent CLI/HTTP/Job, integration/crawler root, sds/adapter/product_source and asset/policy are retired as one complete closure. The original adapter mapping below is historical only; current identity/JSON/hash/publication/tenant contracts, original browser acquisition/debug, independent SHEIN login and Store synchronization remain. No migration or runtime action is authorized.
+
+> #301 / #969 当前支持边界：仅退闲置日志控制/级别镜像/分级 Hook 与三个内部配置槽、HTTP SkipTLSVerify 空选项及 migration.Runner.Status 门面。日志原构造有效正文归已有 NewLogManager，真实 registry 锁与发布流程保持，只用标准 sync.Locker 代替自建 rwLocker。实际 Logrus/轮转、http.Client TLS/重试/取消及 Goose Up/各 schema owner/锁/幂等状态断言不变，无新事实 owner/权限/schema/恢复协议。准确18路径与原检查三项转换见[用户确认设计](legacy-support-control-tail-closure-retirement-boundary.md) §1–§7/§4.2/§6.1；当前能力、采集、独立 SHEIN 登录/Store 同步保持，workflow/完整 inventory/既有资源零操作，无试用前置，#301 OPEN。以下原边界全文带批次保留。
+
+> #301 / #968 当前实施归属：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY**。[本批完整设计](legacy-shein-draft-support-closure-retirement-boundary.md)确认68路径一次切换：22真实 wire 值归 `marketplace/shein/offlinepackage/previewdata` 纯叶包，有效文本/品牌规则归当前 `marketplace/shein/publishing`；旧 api/product、api/attribute、content、authorizedbrand 及 adapter/私有空 Context 链退出，无兼容 alias。生产明确传默认词和空品牌值，metadata BrandCode 不签发清理授权。§6.1的11个原函数准确转换，新增 `TestLegacySheinDraftSupportClosureIsRetired` 保护完整闭包，其余原检查/负例/永久禁令保持。JSON/hash/版本、Builder取消与当前采集、独立SHEIN登录/Store同步保持；workflow/完整inventory/依赖/保护零改，无既有资源操作或试用前置。执行证据与最终源码状态见 [PR #968](https://github.com/qq550723504/shuomi-ai-commerce/pull/968)，#301 OPEN；以下冻结设计及历史完整保留。
+
+> #964 当前结果合同 owner：原全局 `internal/model` 整根退出，17个真实Amazon值/5个既有纯JSON与错误方法归 `internal/crawler/amazon/capturedata`。依赖方向仅原processor/browser/extractor/debug → result → encoding/json、fmt、time；不依赖父运行层、provider、DB、文件或隐式时钟，不留alias/reexport/转发。当前业务仍 acquisition/amazon → Product/Sourcing，永久crawler/model导入禁令不变。SHEIN三孤立属性DTO退出，CustomAttributeRelation及四消费者保持；原两guard按[§6.1](legacy-source-result-contract-closure-retirement-boundary.md#61-原检查当前文档及冻结边界的精确转换)准确转换，完整新guard保护闭包。JSON/hash/事实owner、独立SHEIN登录/Store同步不动，#301 OPEN。以下带批次说明保留历史。
+
+> #961 当前owner校准：publishing/common及整个旧publishing根、jsonx与闲置SHEIN策略闭包退出。七源值归offlinepackage，Price归现有publishing，本地组装纯行为归draft；新多属性数组固定排序，原hash/版本/已存载荷保持。原检查按[冻结§6.1](legacy-publishing-support-policy-closure-retirement-boundary.md#61-原检查的准确转换未来实施)精确转换，新增TestLegacyPublishingSupportPolicyClosureIsRetired；旧depguard禁令仍保留。独立SHEIN登录/Store同步不动，以下带批次说明保留历史。
+
+> #960 当前 pure-owner 校准：`publishing/shein` 旧根完整退休，当前数据合同与离线纯规则归 `marketplace/shein/offlinepackage`，固定本地组装归 `marketplace/shein/draft`。新增 `TestLegacySheinDraftAssemblyClosureIsRetired` 保护完整闭包，原检查仅按[设计 §6.1](legacy-shein-draft-assembly-closure-retirement-boundary.md#61-原检查的准确转换)改接 owner；后文 #827 等带批次的旧路径说明保留为历史，本段及 §6 当前 owner 段取代其现状描述。独立 SHEIN 登录与 Store 同步及当前持久化 owner 不变，无运行操作。
+
+> #301 / #891 [confirmed complete preview/download retirement](legacy-listing-preview-download-closure-retirement-boundary.md): unused Task preview/platform assembly, listing downloader and unimplemented directory declarations are source-retired. Current Product/Catalog/Asset and real Listing contracts retain their owners. The original preview guard and its single depguard rule now enforce retired-package import bans/source absence across production and decoded test/debug/build-target imports. Other checks, workflows, dependencies, historical counts/ceilings and current capabilities remain; inventory only drops the approved logger-to-downloader CURRENT row. Independent SHEIN login and Store sync remain; no runtime/data/credential/process operation or new trial prerequisite.
+
 # Project Boundary Rules
+
+> #301 / #885：按用户确认的[完整旧 SDS 退休边界](legacy-sds-runtime-closure-retirement-boundary.md)退出旧登录、catalog/design/sync、BFF、配置/工具及 SDS 专属授权尾部。`TestSDSClientRetiredManagementImportsStayBlocked` 现在保护整旧 client 的源缺席/禁入，原管理 seam 不再保留；现役 `sds/adapter/product_source`、当前 `integration/sds`/POD/Submission/Asset 和独立 SHEIN 登录/Store 同步保持原 owner。旧 HTTP 允许项和准确策略声明删除不改变显式 AuthPolicy/Permission、组织授权、SHEIN/SMS规则或其它必需检查。历史设计/计数、workflow/保护不改，inventory只删用户授权的四条CURRENT行；无运行/数据/凭据/进程操作或新试用前置。
 
 > #872 当前校准：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)源退无当前消费者的 platform/queue/rabbitmq、数字 Store 代理及专属声明、Updater 配置和 cache/perf/types/fileio。queue/rabbitmq 不再是当前 runtime owner；不把旧表中的队列迁移目标恢复为新机制。当前 workerpool/Retry/Temporal/config/logger/共享基础层、采集/Store和独立 SHEIN 登录同步保持，原历史计数及其它边界不改。
 
@@ -117,7 +139,7 @@ Current examples:
 - `internal/product/catalog` — `ProductSnapshot`, immutable versions and publication
 - `internal/product/sourcing` — neutral envelopes, normalization, lineage and warnings
 - `internal/product/asset` — `ApprovedAsset` and explicit approval contracts
-- `internal/product/enrichment` — side-effect-free Proposals
+- `internal/product/review/proposal` — current side-effect-free candidate contracts and pure validation/scoring; no generator
 - `internal/product/image` — image capability ports; ImageAgent owns execution/approval
 
 The old `internal/catalog`, `internal/asset`, `internal/productimage`,
@@ -163,21 +185,34 @@ Must not depend on:
 
 ### 3.6 Platform and integration modules
 
+Current #301/#893 supersession: the user-confirmed [complete logger facade retirement](legacy-logger-facade-closure-retirement-boundary.md) removes `internal/core/logger` and its consumer wiring. Current runtime composition injects Logrus entries/local component callbacks; Platform retains logging state/configuration/output. The historical forwarding facade and 82-importer ceiling below remain historical evidence, not permission to recreate the facade or import Platform from business packages. No other owner, ceiling, runtime capability or trial requirement changes.
+
 Current runtime-foundation owners:
 
-- `internal/platform/config`
 - `internal/platform/logging`
 - `internal/platform/database`
-- `internal/platform/redis`
 - `internal/platform/workerpool`
 - `internal/platform/temporal`
-- `internal/platform/featureflags`
-- `internal/platform/observability`
 - `internal/integration/openai`
-- `internal/integration/geminiimage`
 - `internal/integration/grsai`
 - `internal/integration/s3`
 - `internal/integration/httpimage`
+
+Current configuration loading, environment overrides and validation remain at
+the existing `internal/core/config` entry points. The dormant platform config,
+feature-flag and tracing owners are source-retired under the
+[confirmed #301 boundary](legacy-host-config-featureflag-tracing-retirement-boundary.md).
+This exact boundary supersedes their retention in the dated Phase 2 observations
+below; it introduces no replacement runtime or plural featureflags alias.
+
+The dormant platform Redis wrapper/adapter, database ConnectionProxy and
+hashx/mathx/strx helpers are source-retired under the
+[confirmed #301 boundary](legacy-redis-proxy-shared-closure-retirement-boundary.md).
+Current Redis configuration/native clients stay with their retained owners; the
+SHEIN-only configuration/login chain has retired under #985. Database bootstrap and the shared
+OpenShared/CloseShared lifecycle remain in `internal/platform/database`.
+Only this exact closure supersedes the dated Phase 2 retention below;
+it introduces no replacement runtime or pool.
 
 Own:
 
@@ -269,13 +304,23 @@ cutover, real-environment operation, or deletion of existing data.
 
 ### 3.8 `internal/aicapability`
 
-Current role: neutral platform and integration module for AI capability
-selection.
+Current role: neutral AI execution-profile, published route-configuration,
+invocation, usage and settlement contracts under the existing current owners.
 
 Owns:
 
-- Model catalog, policy, routing, and invocation contracts.
-- Provider-neutral routing decisions and invocation observability records.
+- Current ModelProfile/text-input/quote contracts and the published routeconfig
+  boundary; actual organization credential resolution and provider dispatch
+  remain at their existing integration/application owners.
+- Provider-neutral invocation records, ledger value vocabulary and existing
+  usage/settlement ports. Public fields, wire values and persistence are unchanged.
+
+The user-confirmed [#301 / #980 retirement boundary](legacy-ai-routing-image-policy-closure-retirement-boundary.md)
+retires the unconsumed PolicyRouter/ModelDefinition/TenantModelPolicy,
+Legacy/Shadow selection and ExecutionPlan branches. It does not create another
+router, planner, fallback, credential owner or invocation ledger. RoutingMode and
+CacheStatus retain their real definitions in ledger_contract.go; current text,
+image Review, pricing, billing, authorization and UNKNOWN behavior stay in place.
 
 Does not own:
 
@@ -532,7 +577,7 @@ Use this table when adding new code:
 | Request parsing / response writing | API package owned by the current module |
 | Internal task lifecycle / workflow orchestration | existing runtime owner (Temporal/queue) and `internal/listing/*` contracts; no new legacy Task owner |
 | User-visible BusinessTask | #298 Product Projection; never a renamed internal Task |
-| Platform-neutral preview rules | `internal/listing/preview`; see `listing-preview-boundaries.md` |
+| Platform-neutral preview rules | Current Product/Catalog/Asset and Listing owners; old Task preview/platform are RETIRED; see `legacy-listing-preview-download-closure-retirement-boundary.md` |
 | Legacy preview facade / task-result aggregation | EXTRACT valid behavior to the current Listing owner, then RETIRE the facade |
 | Export aggregation / revision history | current Listing/domain owner; extract valid behavior, do not extend legacy shells |
 | Submission state / retry / recovery | `internal/listing/submission`; do not recreate `internal/listingkit/submission` |
@@ -550,11 +595,26 @@ Use this table when adding new code:
 | S3/object storage adapter | `internal/integration/s3`; app wires a domain-local port |
 
 For product modeling, use `internal/product/catalog.ProductSnapshot` as the
-platform-neutral source of product facts. CURRENT STATE for the retained SHEIN shell: `internal/publishing/shein.Package`
-owns SHEIN workflow state, and its `DraftPayload` is the SHEIN draft contract
-for new reads and writes. `RequestDraft` and the package-level `SkcList` are
-compatibility/display surfaces during migration; they must not become a second
-source of truth.
+platform-neutral source of product facts. The current SHEIN persisted draft value
+and strict codec owner is `internal/marketplace/shein/offlinepackage.Package`;
+`DraftPayload` is its canonical draft field. These values do not own workflow or
+persisted record state. `internal/marketplace/shein/draft.Builder` performs fixed
+local assembly from the exact snapshot and approved assets. Current validators
+and workspace rules consume offlinepackage directly. `internal/listing/record`
+and its persistence adapter retain record/payload/diagnostic facts, hashes and
+transactions. The old `internal/publishing/shein` root, resolver/AI/config ports,
+compatibility setters/aliases and four hidden assignment maps are retired; no
+migration, fallback or second source of truth is introduced.
+
+The last `internal/publishing/common` and `internal/pkg/jsonx` roots are also
+retired. Seven source value structs belong to `offlinepackage`; `Price` belongs
+to the existing `marketplace/shein/publishing` owner. Private draft helpers own
+local variant/image/attribute assembly, including raw-name attribute sorting.
+Existing stored bytes, hash/binding algorithms and versions remain unchanged.
+`TestLegacyPublishingSupportPolicyClosureIsRetired` protects the closure;
+original import/retirement checks retain their prohibitions after the exact
+owner and scan-root conversions in the approved design. No alias or common
+replacement package is introduced.
 
 ## 7. Review Checklist
 

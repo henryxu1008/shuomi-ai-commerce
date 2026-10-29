@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"task-processor/internal/pkg/appenv"
 	"time"
 
 	"task-processor/internal/crawler/shared/browser"
@@ -70,7 +71,7 @@ func run() error {
 		return err
 	}
 
-	downloader := browser.NewChromeDownloaderWithTimeout(cfg.Version, cfg.DownloadDir, cfg.DownloadTimeout)
+	downloader := browser.NewChromeDownloaderWithTimeout(cfg.Version, cfg.DownloadDir, cfg.DownloadTimeout, appenv.ComponentLoggers())
 	chromePath, err := downloader.CheckAndDownload("")
 	if err != nil {
 		return fmt.Errorf("install fingerprint chrome: %w", err)

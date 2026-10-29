@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewChromeDownloaderWithTimeoutUsesProvidedTimeout(t *testing.T) {
-	downloader := NewChromeDownloaderWithTimeout("144", t.TempDir(), timeout.DownloadLongTimeout)
+	downloader := NewChromeDownloaderWithTimeout("144", t.TempDir(), timeout.DownloadLongTimeout, nil)
 
 	if downloader.downloadTimeout != timeout.DownloadLongTimeout {
 		t.Fatalf("downloadTimeout = %v, want %v", downloader.downloadTimeout, timeout.DownloadLongTimeout)
@@ -20,7 +20,7 @@ func TestNewChromeDownloaderWithTimeoutUsesProvidedTimeout(t *testing.T) {
 }
 
 func TestNewChromeDownloaderWithTimeoutFallsBackToDefault(t *testing.T) {
-	downloader := NewChromeDownloaderWithTimeout("144", t.TempDir(), 0)
+	downloader := NewChromeDownloaderWithTimeout("144", t.TempDir(), 0, nil)
 
 	if downloader.downloadTimeout != 10*time.Minute {
 		t.Fatalf("downloadTimeout = %v, want %v", downloader.downloadTimeout, 10*time.Minute)

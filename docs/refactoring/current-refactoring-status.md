@@ -123,7 +123,7 @@ Current target ownership includes:
 
 - `internal/product/catalog` — canonical `ProductSnapshot` and normalization
 - `internal/product/sourcing` — source identity, envelope, lineage/warnings contract
-- `internal/product/enrichment` — side-effect-free Proposal generation/validation/scoring boundary
+- `internal/product/review/proposal` — current candidate contracts and pure validation/scoring boundary; #953 retires the old generation package
 - `internal/product/asset` — approved asset facts and approval persistence contract
 - `internal/product/image` — provider-neutral image capability boundary
 - ImageAgent — the single owner of product-image workflow, budget/retry/recovery/approval execution

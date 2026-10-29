@@ -12,5 +12,4 @@
 ```bash
 cd hack/debug
 go run ./test-amazon --help
-go run ./test-sds --help
 ```

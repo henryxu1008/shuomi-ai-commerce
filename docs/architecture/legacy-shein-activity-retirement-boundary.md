@@ -1,3 +1,7 @@
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中activity 剩余六个纯策略生产文件和四个专属测试的 KEEP；不复制旧活动算法或新增营销产品及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # 旧 SHEIN 活动报名、促销与限时折扣编排退休边界
 
 > 当前校准：#867 用户确认的[数字采集与平台尾链完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)仅替代本文对旧 fetch/cache/数字 Task HTTP、SHEIN 数字 Cookie/StoreInfo 及专属 Amazon 运维源的广泛保留表述；本文其余平台 API/规则、两种 SHEIN 属性、价格、当前采集/共享浏览器、Store 与独立 SHEIN 登录/同步的保留决定继续有效。历史执行证据不改，不授权运行资源操作。

@@ -198,7 +198,7 @@ export async function proxyToolMarket(
           ...safe,
           "Content-Type": "application/zip",
           "Content-Disposition":
-            'attachment; filename="shuomi-1688-capture.zip"',
+            'attachment; filename="shuomi-product-capture.zip"',
         },
       });
     }

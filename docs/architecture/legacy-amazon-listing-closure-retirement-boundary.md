@@ -1,4 +1,26 @@
+> #301 / #964 当前替代边界（[用户确认设计 §1–§7/§6.1](legacy-source-result-contract-closure-retirement-boundary.md)）：仅替代原 internal/model / amazon_product.go 的 owner KEEP；17结果值/5方法改归域内 result 纯叶子，36当前消费者同批切换，旧全局根退出。旧Task文件及禁令仍退休，原浏览器采集/JSON/错误与批量取消保持。 当前能力、独立SHEIN登录/Store同步及持久化事实owner保持，workflow/完整inventory/依赖及既有资源不动，无试用前置，#301 OPEN。以下原完整Git正文/数字/勾选/证据逐字保留。
+
+> **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
+> #948 仅替代本批矩阵内闲置来源辅助：单数 FeatureExtractor、三个 text-validator 方法、变体便利合同/custom/debug 方法、旧错误构造/诊断及提示/邮编便利尾部；当前已注册提取器、有效规则、变体 JSON/转换及浏览器采集不变。
+> 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。
+
+> #301 / #947 **SUPERSEDED，仅无消费者来源便利合同**：用户已确认[完整设计§1–§7/§6.1](legacy-source-url-timeout-closure-retirement-boundary.md)。本文crawler/amazon来源广泛KEEP，不再保活准确矩阵内闲置URL/地区便利、TimeoutManager及专属接线；Amazon-as-source和当前model/有效规则/原浏览器debug保持，不按Task/metrics/worker同名整退。实际URL/ASIN/币种/marketplace/地区邮编、真实PoolManager deadline/取消、当前采集及独立SHEIN登录/Store同步保留。workflow/完整inventory及既有资源不动，无试用前置，#301 OPEN。以下原完整Git blob/历史/数字/勾选逐字保留。
+
+> #301 / #946 **SUPERSEDED，仅无消费者的浏览器管理/统计准确矩阵**：用户已确认[完整退休设计§1–§7/§6.1](legacy-browser-management-tail-closure-retirement-boundary.md)。本文shared metrics不因同名删除的原则继续有效；本次仅按实际消费者退出质量快照整链、代理Snapshot/外层池投影及§5准确闲置声明/字段/测试尾部，不整体退休Task/metrics/worker。真实指纹/代理全部评分计数与时间戳/质量重试/周期健康日志、当前采集/原Amazon浏览器debug、独立SHEIN登录/Store同步和其它KEEP保持。无新生产EXTRACT/owner/兼容，workflow/完整inventory/既有资源不动；以下原完整Git blob/历史/数字/勾选逐字保留。
+
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
+> #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。
+
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。仅替代旧 shared/aiidentity ExecutionEnvelope/PersistedExecutionEnvelope、capture/restore/context/分类/来源白名单、Task tenant 辅助和两专属测试的保留/实施含义；五工件闭包已在同一 PR 源码退休。当前 Identity/WithIdentity/FromContext/request roles、authidentity 与现役 ImageAgent/Commercetool 授权/隔离/恢复完整保留；不复建旧无 scope 放行或旧信封，不执行历史 plan 的派工/迁移/运行步骤。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
+> #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，仅替代 imagex/httpclient 广泛 KEEP 中的准确孤立声明：旧编码/格式辅助和 DefaultConfig/NewWithTransport；保留当前解码/metadata/注册、HTTP/TLS/retry、Amazon API/原浏览器/debug 与共享合同。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
+
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中两种 SHEIN 属性/最后 AmazonMonitorData 及旧价格辅助的广泛 KEEP；当前 Amazon 来源采集与原浏览器/debug 不变及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # 旧 Amazon 刊登整链与专属闭包退休边界
+
+> 用户已确认 [#909 productpolicy 完整退休边界](legacy-product-policy-closure-retirement-boundary.md) §1–§7（含 §6.1）。本文件对 `internal/marketplace/productpolicy` 六工件（doc/filter_rule/rule_checker/price_helper/fulfillment 及专属测试）和四项 KEEP 检查的保留含义已由该边界精确替代为 RETIRE；其余有效规则/API/采集、共享合同及独立 SHEIN 登录与 Store 同步不变。以下原正文、历史数字与验收证据保留，不恢复旧策略或授权既有实例/数据/凭据/进程操作。
 
 > 当前校准：#867 用户确认的[数字采集与平台尾链完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)仅替代本文对旧 fetch/cache/数字 Task HTTP、SHEIN 数字 Cookie/StoreInfo 及专属 Amazon 运维源的广泛保留表述；本文其余平台 API/规则、两种 SHEIN 属性、价格、当前采集/共享浏览器、Store 与独立 SHEIN 登录/同步的保留决定继续有效。历史执行证据不改，不授权运行资源操作。
 

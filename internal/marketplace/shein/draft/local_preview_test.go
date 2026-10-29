@@ -1,0 +1,282 @@
+package draft
+
+import (
+	"testing"
+
+	"task-processor/internal/marketplace/shein/offlinepackage"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
+)
+
+func TestToResolvedAttributesSetsSingleCompositionPercentToHundred(t *testing.T) {
+	t.Parallel()
+
+	valueID := 526
+	materialID := 160
+	pkg := &offlinepackage.Package{
+		ResolvedAttributes: []offlinepackage.ResolvedAttribute{
+			{
+				Name:             "Composition",
+				Value:            "Polyester",
+				AttributeID:      62,
+				AttributeValueID: &valueID,
+				AttributeType:    3,
+			},
+			{
+				Name:             "Material",
+				Value:            "Polyester",
+				AttributeID:      materialID,
+				AttributeValueID: &valueID,
+				AttributeType:    4,
+			},
+			{
+				Name:             "Material",
+				Value:            "Polyester from description",
+				AttributeID:      materialID,
+				AttributeValueID: &valueID,
+				AttributeType:    4,
+			},
+		},
+		DraftPayload: &offlinepackage.RequestDraft{},
+	}
+
+	got := toResolvedAttributes(pkg)
+	if len(got) != 2 {
+		t.Fatalf("product attributes = %#v, want 2 unique attributes", got)
+	}
+	if got[0].AttributeExtraValue != "100" {
+		t.Fatalf("composition attribute_extra_value = %q, want 100", got[0].AttributeExtraValue)
+	}
+}
+
+func TestToResolvedAttributesSkipsNumericDisplayAttributes(t *testing.T) {
+	t.Parallel()
+
+	widthID := 118
+	materialID := 160
+	valueID := 526
+	pkg := &offlinepackage.Package{
+		ResolvedAttributes: []offlinepackage.ResolvedAttribute{
+			{
+				Name:                "Width (cm)",
+				Value:               "25",
+				AttributeID:         widthID,
+				AttributeExtraValue: "25",
+				AttributeType:       2,
+			},
+			{
+				Name:             "Material",
+				Value:            "Polyester",
+				AttributeID:      materialID,
+				AttributeValueID: &valueID,
+				AttributeType:    4,
+			},
+		},
+		DraftPayload: &offlinepackage.RequestDraft{},
+	}
+
+	got := toResolvedAttributes(pkg)
+	if len(got) != 1 {
+		t.Fatalf("product attributes = %#v, want only non-numeric attributes", got)
+	}
+	if got[0].AttributeID != materialID {
+		t.Fatalf("attribute id = %d, want %d", got[0].AttributeID, materialID)
+	}
+}
+
+func TestToResolvedAttributesInfersQuantityExtraValueFromProductTitle(t *testing.T) {
+	t.Parallel()
+
+	valueID := 1002451
+	pkg := &offlinepackage.Package{
+		ProductNameEn: "3-Piece Framed Canvas Wall Art Set",
+		ResolvedAttributes: []offlinepackage.ResolvedAttribute{
+			{
+				Name:             "Quantity",
+				Value:            "piece(s)",
+				AttributeID:      1000411,
+				AttributeValueID: &valueID,
+				AttributeType:    4,
+			},
+		},
+		DraftPayload: &offlinepackage.RequestDraft{},
+	}
+
+	got := toResolvedAttributes(pkg)
+	if len(got) != 1 {
+		t.Fatalf("product attributes = %#v, want 1 attribute", got)
+	}
+	if got[0].AttributeExtraValue != "3" {
+		t.Fatalf("quantity attribute_extra_value = %q, want 3", got[0].AttributeExtraValue)
+	}
+}
+
+func TestToResolvedAttributesInfersQuantityExtraValueFromProductAttributes(t *testing.T) {
+	t.Parallel()
+
+	valueID := 1002451
+	pkg := &offlinepackage.Package{
+		ProductAttributes: []offlinepackage.Attribute{
+			{Name: "package_quantity", Value: "Pack of 5"},
+		},
+		ResolvedAttributes: []offlinepackage.ResolvedAttribute{
+			{
+				Name:             "Quantity",
+				Value:            "piece(s)",
+				AttributeID:      1000411,
+				AttributeValueID: &valueID,
+				AttributeType:    4,
+			},
+		},
+		DraftPayload: &offlinepackage.RequestDraft{},
+	}
+
+	got := toResolvedAttributes(pkg)
+	if len(got) != 1 {
+		t.Fatalf("product attributes = %#v, want 1 attribute", got)
+	}
+	if got[0].AttributeExtraValue != "5" {
+		t.Fatalf("quantity attribute_extra_value = %q, want 5", got[0].AttributeExtraValue)
+	}
+}
+
+func TestToResolvedAttributesFallsBackQuantityExtraValueToOne(t *testing.T) {
+	t.Parallel()
+
+	valueID := 1002451
+	pkg := &offlinepackage.Package{
+		ProductNameEn: "Framed Canvas Wall Art",
+		ResolvedAttributes: []offlinepackage.ResolvedAttribute{
+			{
+				Name:             "Quantity",
+				Value:            "piece(s)",
+				AttributeID:      1000411,
+				AttributeValueID: &valueID,
+				AttributeType:    4,
+			},
+		},
+		DraftPayload: &offlinepackage.RequestDraft{},
+	}
+
+	got := toResolvedAttributes(pkg)
+	if len(got) != 1 {
+		t.Fatalf("product attributes = %#v, want 1 attribute", got)
+	}
+	if got[0].AttributeExtraValue != "1" {
+		t.Fatalf("quantity attribute_extra_value = %q, want fallback 1", got[0].AttributeExtraValue)
+	}
+}
+
+func TestToResolvedAttributesExtractsNumericExtraValueFromResolvedValue(t *testing.T) {
+	t.Parallel()
+
+	valueID := 7001
+	pkg := &offlinepackage.Package{
+		ResolvedAttributes: []offlinepackage.ResolvedAttribute{
+			{
+				Name:             "Capacity",
+				Value:            "500ml",
+				AttributeID:      7001,
+				AttributeValueID: &valueID,
+				AttributeType:    4,
+			},
+		},
+		DraftPayload: &offlinepackage.RequestDraft{},
+	}
+
+	got := toResolvedAttributes(pkg)
+	if len(got) != 1 {
+		t.Fatalf("product attributes = %#v, want 1 attribute", got)
+	}
+	if got[0].AttributeExtraValue != "500" {
+		t.Fatalf("capacity attribute_extra_value = %q, want 500", got[0].AttributeExtraValue)
+	}
+}
+
+func TestToResolvedAttributesKeepsMultipleValuesForSameAttribute(t *testing.T) {
+	t.Parallel()
+
+	firstValueID := 2001
+	secondValueID := 2002
+	pkg := &offlinepackage.Package{
+		ResolvedAttributes: []offlinepackage.ResolvedAttribute{
+			{
+				Name:             "Applicable Space",
+				Value:            "Living Room",
+				AttributeID:      2000,
+				AttributeValueID: &firstValueID,
+				AttributeType:    4,
+			},
+			{
+				Name:             "Applicable Space",
+				Value:            "Bedroom",
+				AttributeID:      2000,
+				AttributeValueID: &secondValueID,
+				AttributeType:    4,
+			},
+		},
+		DraftPayload: &offlinepackage.RequestDraft{},
+	}
+
+	got := toResolvedAttributes(pkg)
+	if len(got) != 2 {
+		t.Fatalf("product attributes = %#v, want 2 values for the same attribute", got)
+	}
+	if got[0].AttributeValueID == nil || *got[0].AttributeValueID != firstValueID {
+		t.Fatalf("first attribute value id = %#v, want %d", got[0].AttributeValueID, firstValueID)
+	}
+	if got[1].AttributeValueID == nil || *got[1].AttributeValueID != secondValueID {
+		t.Fatalf("second attribute value id = %#v, want %d", got[1].AttributeValueID, secondValueID)
+	}
+}
+
+func TestBuildPreviewProductIncludesSizeAttributeList(t *testing.T) {
+	t.Parallel()
+
+	valueID := 417
+	pkg := &offlinepackage.Package{
+		DraftPayload: &offlinepackage.RequestDraft{
+			SpuName:      "Oversized Tee",
+			SupplierCode: "SKU",
+			SizeAttributeList: []previewdata.SizeAttribute{{
+				AttributeID:                10,
+				AttributeExtraValue:        "55",
+				RelateSaleAttributeID:      87,
+				RelateSaleAttributeValueID: valueID,
+			}},
+		},
+	}
+
+	got := buildLocalPreview(pkg)
+
+	if got == nil {
+		t.Fatal("BuildPreviewProduct() = nil")
+	}
+	if len(got.SizeAttributeList) != 1 {
+		t.Fatalf("size_attribute_list = %#v, want 1 item", got.SizeAttributeList)
+	}
+	if got.SizeAttributeList[0].AttributeID != 10 || got.SizeAttributeList[0].RelateSaleAttributeValueID != valueID {
+		t.Fatalf("size_attribute_list[0] = %#v", got.SizeAttributeList[0])
+	}
+}
+
+func TestBuildPreviewProductUsesAuthorizedBrandCode(t *testing.T) {
+	t.Parallel()
+
+	pkg := &offlinepackage.Package{
+		Metadata: map[string]string{
+			"authorized_brand_code": "2fd1n",
+		},
+		DraftPayload: &offlinepackage.RequestDraft{
+			SpuName:      "Authorized Brand Product",
+			SupplierCode: "SUP-1",
+		},
+	}
+
+	got := buildLocalPreview(pkg)
+	if got == nil {
+		t.Fatal("BuildPreviewProduct() = nil, want product")
+	}
+	if got.BrandCode == nil || *got.BrandCode != "2fd1n" {
+		t.Fatalf("BrandCode = %#v, want 2fd1n", got.BrandCode)
+	}
+}

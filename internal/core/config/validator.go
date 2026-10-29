@@ -4,48 +4,17 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
-func (c *Config) Validate() []error {
-	return ValidateConfig(c)
-}
-
 func ValidateConfig(c *Config) []error {
-	validator := NewValidator(
-		&c.OpenAI,
-		&c.Browser,
-		&c.Amazon,
-		&c.Platforms,
-	)
-	errors := validator.Validate()
+	var errors []error
+	errors = append(errors, ValidateOpenAIConfig(&c.OpenAI)...)
+	errors = append(errors, ValidateBrowserConfig(&c.Browser)...)
+	errors = append(errors, ValidateAmazonConfig(&c.Amazon)...)
+	errors = append(errors, ValidatePlatformsConfig(&c.Platforms)...)
 	errors = append(errors, ValidateListingKitConfig(&c.ListingKit)...)
 	errors = append(errors, ValidateWorkbenchConfig(&c.Workbench, &c.ListingKit.Zitadel)...)
 	return errors
-}
-
-func (c *Config) ValidateAndLog(logger *logrus.Logger) bool {
-	return ValidateConfigAndLog(c, logger)
-}
-
-func ValidateConfigAndLog(c *Config, logger *logrus.Logger) bool {
-	errors := ValidateConfig(c)
-	if len(errors) == 0 {
-		logger.Info("configuration validation passed")
-		return true
-	}
-
-	logger.Error("configuration validation failed:")
-	for _, line := range formatValidationErrors(errors) {
-		logger.Error(line)
-	}
-
-	return false
-}
-
-func (c *Config) ValidateWithError() error {
-	return ValidateConfigWithError(c)
 }
 
 func ValidateConfigWithError(c *Config) error {
@@ -101,14 +70,8 @@ func moduleFromField(field string) string {
 		return "OpenAI"
 	case strings.HasPrefix(field, "browser."):
 		return "Browser"
-	case strings.HasPrefix(field, "amazon.spapi."):
-		return "Amazon SP-API"
 	case strings.HasPrefix(field, "amazon."):
 		return "Amazon"
-	case strings.HasPrefix(field, "platforms.temu."):
-		return "Platforms.TEMU"
-	case strings.HasPrefix(field, "platforms.shein."):
-		return "Platforms.SHEIN"
 	case strings.HasPrefix(field, "platforms.alibaba1688."):
 		return "Platforms.1688"
 	default:
@@ -122,14 +85,8 @@ func validationModuleRank(module string) int {
 		return 1
 	case "Browser":
 		return 2
-	case "Amazon SP-API":
-		return 3
 	case "Amazon":
 		return 4
-	case "Platforms.TEMU":
-		return 6
-	case "Platforms.SHEIN":
-		return 7
 	case "Platforms.1688":
 		return 8
 	default:

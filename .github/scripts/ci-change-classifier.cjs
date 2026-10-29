@@ -95,7 +95,7 @@ function classifyChangedPaths(paths, { full = false } = {}) {
     result.code_health ||= codeHealth;
     result.release_authority ||= releaseAuthority;
     result.capture_extension ||=
-      matchesPrefix(path, "extensions/1688-capture") ||
+      matchesPrefix(path, "extensions/product-capture") ||
       path === ".github/workflows/ci.yml" ||
       path === ".github/scripts/ci-change-classifier.cjs" ||
       path === ".github/scripts/ci-change-classifier.test.cjs";

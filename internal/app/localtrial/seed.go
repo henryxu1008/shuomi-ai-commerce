@@ -6,6 +6,7 @@ package localtrial
 import (
 	"context"
 	"errors"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,8 +22,8 @@ import (
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	contract "task-processor/internal/marketplace/validator"
 	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/storecenter"
 )
@@ -79,7 +80,7 @@ func (r storeReference) GetStoreReference(ctx context.Context, organizationID, s
 	return record.StoreReference{OrganizationID: organizationID, StoreID: storeID, Platform: string(stored.Platform())}, nil
 }
 
-func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID string, sourceWiring SourceWiring) (Sample, error) {
+func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID string, sourceWiring SourceWiring, logs func(string) *logrus.Entry) (Sample, error) {
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" || !authidentity.IsBoundedIdentifier(organizationID) || !authidentity.IsBoundedIdentifier(actorID) || sourceWiring.NewProducer == nil || sourceWiring.NewTransactionReader == nil {
 		return Sample{}, errors.New("local trial sample dependencies unavailable")
 	}
@@ -128,7 +129,7 @@ func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID str
 	proposal, err := reviews.CreateFromCandidate(ctx, sampleProposalKey, review.CandidateInput{
 		Base:          review.CreateInput{ProductKey: sampleProductKey, BaseVersion: publication.CatalogVersion},
 		PublicationID: publication.CatalogPublicationID, PolicyVersion: "title-review-v1",
-		Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Synthetic improved trial bottle", EvidenceIDs: []string{sampleEvidenceID}}}},
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "Synthetic improved trial bottle", EvidenceIDs: []string{sampleEvidenceID}}}},
 	})
 	if err != nil {
 		return Sample{}, err
@@ -168,7 +169,7 @@ func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID str
 	}
 	listing, err := record.NewService(record.ServiceDependencies{
 		Products: reader, Assets: approved, Stores: storeReference{repository: storeRepository}, Records: records,
-		Builder: draft.Builder{}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: authorizer,
+		Builder: draft.Builder{LogFor: logs}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: authorizer,
 		Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion,
 	})
 	if err != nil {

@@ -1,10 +1,12 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"strings"
 	"task-processor/internal/core/config"
-	"task-processor/internal/core/logger"
+
 	sharedbrowser "task-processor/internal/crawler/shared/browser"
 
 	"github.com/mxschmitt/playwright-go"
@@ -12,62 +14,37 @@ import (
 
 // BrowserManager Amazon专用的浏览器管理器，继承shared的功能
 type BrowserManager struct {
-	*sharedbrowser.Manager
-	config        *config.Config
-	configManager *ConfigManager
-}
+	loggerDependency
 
-// NewBrowserManager 创建Amazon浏览器管理器（保持向后兼容）
-func NewBrowserManager(cfg *config.Config) *BrowserManager {
-	return NewBrowserManagerWithConfig(cfg, "windows", "windows_high_end", 0)
+	*sharedbrowser.Manager
 }
 
 // NewBrowserManagerWithConfig 使用指定配置创建Amazon浏览器管理器
-func NewBrowserManagerWithConfig(cfg *config.Config, strategy string, presetName string, instanceID int) *BrowserManager {
-	configManager := NewConfigManager()
+func NewBrowserManagerWithConfig(cfg *config.Config, strategy string, presetName string, instanceID int, logs func(string) *logrus.Entry) *BrowserManager {
+	configManager := NewConfigManager(logs)
 
 	var browserConfig *sharedbrowser.BrowserConfig
 
-	// 如果应该使用随机配置
-	if configManager.ShouldUseRandomConfig(&cfg.Amazon) || cfg.Browser.RandomConfig.Enabled {
-		// 优先使用主配置中的策略设置
-		if cfg.Browser.RandomConfig.Enabled {
-			strategy = cfg.Browser.RandomConfig.Strategy
-			presetName = cfg.Browser.RandomConfig.PresetName
-		}
-
-		browserConfig = configManager.GenerateBrowserConfig(cfg, strategy, presetName, instanceID)
-		configManager.LogConfigStrategy(strategy, presetName, instanceID)
-	} else {
-		// 使用传统配置方式
-		browserConfig = &sharedbrowser.BrowserConfig{
-			Headless:       cfg.Browser.Headless,
-			BrowserPath:    cfg.Browser.BrowserPath,
-			ProxyServer:    cfg.Browser.ProxyServer,
-			ViewportWidth:  cfg.Browser.ViewportWidth,
-			ViewportHeight: cfg.Browser.ViewportHeight,
-			UserAgent:      "", // 使用默认用户代理
-		}
-		logger.GetGlobalLogger("crawler/amazon").Infof("实例 %d 使用传统浏览器配置", instanceID)
+	// 优先使用主配置中的策略设置
+	if cfg.Browser.RandomConfig.Enabled {
+		strategy = cfg.Browser.RandomConfig.Strategy
+		presetName = cfg.Browser.RandomConfig.PresetName
 	}
+
+	browserConfig = configManager.GenerateBrowserConfig(cfg, strategy, presetName, instanceID)
+	configManager.LogConfigStrategy(strategy, presetName, instanceID)
 
 	return &BrowserManager{
-		Manager:       sharedbrowser.NewManager(browserConfig),
-		config:        cfg,
-		configManager: configManager,
+		loggerDependency: loggerDependency{logFor: logs},
+		Manager:          sharedbrowser.NewManager(browserConfig, logs),
 	}
-}
-
-// GetConfigManager 获取配置管理器
-func (bm *BrowserManager) GetConfigManager() *ConfigManager {
-	return bm.configManager
 }
 
 // NavigateTo Amazon特定的导航方法，包含Cookie设置
 func (bm *BrowserManager) NavigateTo(page playwright.Page, url string) error {
 	// Set language preference cookies before navigation
 	if err := bm.setLanguageCookies(url); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("设置语言Cookie失败: %v", err)
+		bm.componentLogger("crawler/amazon").Infof("设置语言Cookie失败: %v", err)
 	}
 
 	// 使用父类的导航方法

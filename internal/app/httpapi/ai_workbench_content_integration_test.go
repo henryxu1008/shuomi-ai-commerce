@@ -29,7 +29,7 @@ import (
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/product/collection"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
@@ -80,7 +80,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		binding, err = a.currentAcquisitionBinding(actor, authidentity.AuthenticatedIdentity{TenantID: "B", EffectiveOrganizationID: "B", UserID: "admin", EffectiveMemberID: "member-B-admin", Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)}, operationID, "product")
 		require.NoError(t, err)
 	}
-	selection := enrichment.ContentSelection{TargetLanguage: "en-US", Description: true, SellingPoints: true}
+	selection := reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true, SellingPoints: true}
 	if !own {
 		selection.Title = true
 		selection.SEOKeywords = true

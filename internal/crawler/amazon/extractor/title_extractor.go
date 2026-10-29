@@ -3,16 +3,18 @@ package extractor
 import (
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
-	"task-processor/internal/model"
+
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // TitleExtractor 标题提取器
-type TitleExtractor struct{}
+type TitleExtractor struct {
+	loggerDependency
+}
 
-func (e *TitleExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *TitleExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	// 尝试多个可能的标题选择器
 	titleSelectors := []string{
 		"#productTitle",
@@ -28,7 +30,7 @@ func (e *TitleExtractor) Extract(page playwright.Page, product *model.Product) e
 		title, err := page.TextContent(selector)
 		if err == nil && strings.TrimSpace(title) != "" {
 			product.Title = strings.TrimSpace(title)
-			logger.GetGlobalLogger("crawler/amazon").Debugf("成功提取标题: selector=%s, title=%s", selector, product.Title)
+			e.componentLogger("crawler/amazon").Debugf("成功提取标题: selector=%s, title=%s", selector, product.Title)
 			return nil
 		}
 	}

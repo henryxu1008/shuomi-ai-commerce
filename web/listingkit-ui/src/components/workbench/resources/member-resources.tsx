@@ -71,6 +71,12 @@ function ScopedMemberResources({
     !response.isFetching &&
     !response.isError &&
     response.data?.organizationId === organizationId;
+  const currentMember =
+    available && selected
+      ? response.data!.members.find(
+          (member) => member.memberId === selected.member.memberId,
+        )
+      : undefined;
   const members = available
     ? response.data!.members.filter(
         (member) =>
@@ -259,7 +265,8 @@ function ScopedMemberResources({
           />
         ) : (
           <TransferDialog
-            member={selected.member}
+            member={currentMember ?? selected.member}
+            memberAvailable={currentMember !== undefined}
             action={selected.action}
             scope={scope}
             onClose={() => setSelected(null)}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"task-processor/internal/ai"
 	"task-processor/internal/core/config"
 	openaiclient "task-processor/internal/integration/openai"
 )
@@ -116,9 +117,9 @@ func main() {
 	}
 	defer func() { _ = client.Close() }()
 
-	req := &openaiclient.ChatCompletionRequest{
+	req := &ai.ChatCompletionRequest{
 		Model: clientCfg.Model,
-		Messages: []openaiclient.ChatCompletionMessage{
+		Messages: []ai.ChatCompletionMessage{
 			{Role: "system", Content: debugData.SystemPrompt},
 			{Role: "user", Content: debugData.UserPrompt},
 		},

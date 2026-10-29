@@ -129,39 +129,73 @@ func TestAutoMigrateRuntimeLeavesLegacyProductTaskTablesRetired(t *testing.T) {
 		t.Fatalf("AutoMigrateRuntime: %v", err)
 	}
 
-	for _, table := range []string{"product_enrich_tasks", "product_image_tasks", "amazon_listing_tasks"} {
+	for _, table := range []string{"product_enrich_tasks", "product_image_tasks", "amazon_listing_tasks", "tenant_prompt_templates"} {
 		if db.Migrator().HasTable(table) {
 			t.Errorf("AutoMigrateRuntime created retired table %s", table)
 		}
 	}
 }
 
-func TestAutoMigrateRuntimeLeavesExistingAmazonTaskTableUntouched(t *testing.T) {
-	db := openProductListingSchemaTestDB(t)
-	const originalSchema = `CREATE TABLE amazon_listing_tasks (id TEXT PRIMARY KEY, sentinel TEXT NOT NULL)`
-	if err := db.Exec(originalSchema).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec(`INSERT INTO amazon_listing_tasks (id, sentinel) VALUES (?, ?)`, "existing-task", "preserved").Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := AutoMigrateRuntime(db); err != nil {
-		t.Fatalf("AutoMigrateRuntime: %v", err)
-	}
-	var schema string
-	if err := db.Raw(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'amazon_listing_tasks'`).Scan(&schema).Error; err != nil {
-		t.Fatal(err)
-	}
-	if schema != originalSchema {
-		t.Fatalf("retired table schema changed: %s", schema)
-	}
-	var sentinel string
-	if err := db.Raw(`SELECT sentinel FROM amazon_listing_tasks WHERE id = ?`, "existing-task").Scan(&sentinel).Error; err != nil {
-		t.Fatal(err)
-	}
-	if sentinel != "preserved" {
-		t.Fatalf("retired table row changed: %q", sentinel)
-	}
+func TestAutoMigrateRuntimeLeavesExistingRetiredTablesUntouched(t *testing.T) {
+	t.Run("amazon_listing_tasks", func(t *testing.T) {
+		db := openProductListingSchemaTestDB(t)
+		const originalSchema = `CREATE TABLE amazon_listing_tasks (id TEXT PRIMARY KEY, sentinel TEXT NOT NULL)`
+		if err := db.Exec(originalSchema).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(`INSERT INTO amazon_listing_tasks (id, sentinel) VALUES (?, ?)`, "existing-task", "preserved").Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := AutoMigrateRuntime(db); err != nil {
+			t.Fatalf("AutoMigrateRuntime: %v", err)
+		}
+		var schema string
+		if err := db.Raw(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'amazon_listing_tasks'`).Scan(&schema).Error; err != nil {
+			t.Fatal(err)
+		}
+		if schema != originalSchema {
+			t.Fatalf("retired table schema changed: %s", schema)
+		}
+		var sentinel string
+		if err := db.Raw(`SELECT sentinel FROM amazon_listing_tasks WHERE id = ?`, "existing-task").Scan(&sentinel).Error; err != nil {
+			t.Fatal(err)
+		}
+		if sentinel != "preserved" {
+			t.Fatalf("retired table row changed: %q", sentinel)
+		}
+	})
+	t.Run("tenant_prompt_templates", func(t *testing.T) {
+		db := openProductListingSchemaTestDB(t)
+		const originalSchema = `CREATE TABLE tenant_prompt_templates (id TEXT PRIMARY KEY, sentinel TEXT NOT NULL)`
+		const originalID = "synthetic-prompt"
+		const originalContent = "preserved\n{\"enabled\":false}"
+		if err := db.Exec(originalSchema).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(`INSERT INTO tenant_prompt_templates (id, sentinel) VALUES (?, ?)`, originalID, originalContent).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := AutoMigrateRuntime(db); err != nil {
+			t.Fatalf("AutoMigrateRuntime: %v", err)
+		}
+		var schema string
+		if err := db.Raw(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tenant_prompt_templates'`).Scan(&schema).Error; err != nil {
+			t.Fatal(err)
+		}
+		if schema != originalSchema {
+			t.Fatalf("retired table schema changed: %s", schema)
+		}
+		var records []struct {
+			ID       string
+			Sentinel string
+		}
+		if err := db.Raw(`SELECT id, sentinel FROM tenant_prompt_templates ORDER BY id`).Scan(&records).Error; err != nil {
+			t.Fatal(err)
+		}
+		if len(records) != 1 || records[0].ID != originalID || records[0].Sentinel != originalContent {
+			t.Fatalf("retired table rows changed: %#v", records)
+		}
+	})
 }
 
 func openProductListingSchemaTestDB(t *testing.T) *gorm.DB {

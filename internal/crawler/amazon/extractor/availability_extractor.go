@@ -3,17 +3,19 @@ package extractor
 import (
 	"regexp"
 	"strings"
-	"task-processor/internal/core/logger"
-	"task-processor/internal/model"
+
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 	"github.com/sirupsen/logrus"
 )
 
 // AvailabilityExtractor 可用性提取器
-type AvailabilityExtractor struct{}
+type AvailabilityExtractor struct {
+	loggerDependency
+}
 
-func (e *AvailabilityExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *AvailabilityExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	availability := e.getAvailability(page)
 	product.Availability = availability
 
@@ -70,14 +72,14 @@ func (e *AvailabilityExtractor) getAvailability(page playwright.Page) string {
 	pageText, err := page.TextContent("body")
 	if err == nil {
 		if availability := e.extractAvailabilityFromText(pageText); availability != "" {
-			logger.GetGlobalLogger("crawler/amazon").WithFields(logrus.Fields{
+			e.componentLogger("crawler/amazon").WithFields(logrus.Fields{
 				"text": availability,
 			}).Info("✅ 从页面文本中提取到库存信息")
 			return availability
 		}
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Warn("⚠️ 未找到库存信息，返回 Unknown")
+	e.componentLogger("crawler/amazon").Warn("⚠️ 未找到库存信息，返回 Unknown")
 	return "Unknown"
 }
 
@@ -267,7 +269,7 @@ func (e *AvailabilityExtractor) isAvailable(availabilityText string) bool {
 
 	for _, keyword := range unavailableKeywords {
 		if containsAvailabilityKeyword(lowerText, keyword) {
-			logger.GetGlobalLogger("crawler/amazon").WithFields(logrus.Fields{
+			e.componentLogger("crawler/amazon").WithFields(logrus.Fields{
 				"keyword": keyword,
 				"result":  "不可用",
 			}).Info("❌ 匹配到不可用关键词")
@@ -341,7 +343,7 @@ func (e *AvailabilityExtractor) isAvailable(availabilityText string) bool {
 	}
 
 	// 如果没有明确的关键词，默认为不可用
-	logger.GetGlobalLogger("crawler/amazon").WithFields(logrus.Fields{
+	e.componentLogger("crawler/amazon").WithFields(logrus.Fields{
 		"text": availabilityText,
 	}).Warn("⚠️ 未匹配到任何关键词，默认判断为不可用")
 	return false

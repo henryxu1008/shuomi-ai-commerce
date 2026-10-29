@@ -24,13 +24,10 @@ var (
 )
 
 type Config struct {
-	StorageCapacity bool                `yaml:"storageCapacity"`
-	Referrals       ReferralsConfig     `yaml:"-"`
-	FeatureFlags    FeatureFlagsConfig  `yaml:"featureFlags"`
-	Observability   ObservabilityConfig `yaml:"observability"`
-	Logging         LoggingConfig       `yaml:"logging"`
-	OpenAI          OpenAIConfig        `yaml:"openai"`
-	Browser         BrowserConfig       `yaml:"browser"`
+	StorageCapacity bool            `yaml:"storageCapacity"`
+	Referrals       ReferralsConfig `yaml:"-"`
+	OpenAI          OpenAIConfig    `yaml:"openai"`
+	Browser         BrowserConfig   `yaml:"browser"`
 	// BrowserCollector is the opt-in wiring to the standalone anonymous public
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
@@ -41,44 +38,12 @@ type Config struct {
 	ProductCollectionSourceMediaIsolatedTrial             bool                          `yaml:"productCollectionSourceMediaIsolatedTrial"`
 	ProductCollectionSourceMediaIsolatedTrialDeploymentID string                        `yaml:"productCollectionSourceMediaIsolatedTrialDeploymentID"`
 	Database                                              *DatabaseConfig               `yaml:"database"`
-	// CommercialDatabase is optional for workers that settle observed AI
-	// usage into the commercial owner.
-	CommercialDatabase *DatabaseConfig `yaml:"commercialDatabase"`
 	// CommercialOwnerDatabase is the explicit resource-balance owner pool;
 	// it must not borrow the Token usage runtime role.
 	CommercialOwnerDatabase *DatabaseConfig    `yaml:"commercialOwnerDatabase"`
-	Redis                   *RedisConfig       `yaml:"redis"`
-	Prompts                 PromptsConfig      `yaml:"prompts"`
 	ListingKit              ListingKitConfig   `yaml:"listingkit"`
 	Workbench               WorkbenchConfig    `yaml:"workbench"`
 	WalletTopUp             topupconfig.Config `yaml:"walletTopUp"`
-}
-
-type FeatureFlagsConfig struct {
-	Flags map[string]bool `yaml:"flags"`
-}
-
-type ObservabilityConfig struct {
-	Tracing TracingConfig `yaml:"tracing"`
-}
-
-type TracingConfig struct {
-	Enabled     bool   `yaml:"enabled"`
-	ServiceName string `yaml:"serviceName"`
-	Endpoint    string `yaml:"endpoint"`
-	Insecure    bool   `yaml:"insecure"`
-}
-
-type PromptsConfig struct {
-	Dir       string `yaml:"dir"`
-	HotReload bool   `yaml:"hotReload"`
-}
-
-type LoggingConfig struct {
-	Level        string                   `yaml:"level"`
-	Format       string                   `yaml:"format"`
-	File         string                   `yaml:"file"`
-	SplitByLevel []logger.LevelFileConfig `yaml:"split_by_level"`
 }
 
 func newViper() *viper.Viper {
@@ -238,21 +203,6 @@ func bindKnownEnvs(v *viper.Viper) {
 
 func knownEnvBindings() map[string]envBinding {
 	return map[string]envBinding{
-		"observability.tracing.enabled": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_ENABLED",
-		},
-		"observability.tracing.serviceName": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_SERVICE_NAME",
-		},
-		"observability.tracing.endpoint": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_ENDPOINT",
-		},
-		"observability.tracing.insecure": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_INSECURE",
-		},
-		"featureFlags.flags.product-listing-runtime-auto-migrate": {
-			Primary: "TASK_PROCESSOR_API_RUNTIME_AUTOMIGRATE",
-		},
 		"imageagent.admission.enabled": {
 			Primary: "TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ENABLED",
 		},
@@ -324,34 +274,6 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_TIMEOUT",
 			Deprecated: nil,
 		},
-		"amazon.spapi.clientID": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_CLIENT_ID",
-			Deprecated: []string{"AMAZON_SPAPI_CLIENT_ID"},
-		},
-		"amazon.spapi.clientSecret": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_CLIENT_SECRET",
-			Deprecated: []string{"AMAZON_SPAPI_CLIENT_SECRET"},
-		},
-		"amazon.spapi.refreshToken": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_REFRESH_TOKEN",
-			Deprecated: []string{"AMAZON_SPAPI_REFRESH_TOKEN"},
-		},
-		"amazon.spapi.region": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_REGION",
-			Deprecated: []string{"AMAZON_SPAPI_REGION"},
-		},
-		"amazon.spapi.defaultMarketplace": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_MARKETPLACE",
-			Deprecated: []string{"TASK_PROCESSOR_AMAZON_SPAPI_MARKETPLACE_ID", "AMAZON_SPAPI_DEFAULT_MARKETPLACE", "AMAZON_SPAPI_MARKETPLACE_ID"},
-		},
-		"amazon.spapi.defaultFulfillmentType": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_FULFILLMENT_TYPE",
-			Deprecated: []string{"AMAZON_SPAPI_DEFAULT_FULFILLMENT_TYPE"},
-		},
-		"amazon.spapi.defaultCondition": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_CONDITION",
-			Deprecated: []string{"AMAZON_SPAPI_DEFAULT_CONDITION"},
-		},
 		"browser.browserPath": {
 			Primary:    "TASK_PROCESSOR_BROWSER_PATH",
 			Deprecated: []string{"BROWSER_PATH"},
@@ -400,113 +322,7 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_DATABASE_MAX_IDLE_CONNECTIONS",
 			Deprecated: []string{"DB_MAX_IDLE_CONNECTIONS"},
 		},
-		"commercialDatabase.host": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_HOST",
-		},
-		"commercialDatabase.port": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_PORT",
-		},
-		"commercialDatabase.user": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_USER",
-		},
-		"commercialDatabase.password": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_PASSWORD",
-		},
-		"commercialDatabase.database": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_NAME",
-		},
-		"commercialDatabase.max_connections": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_MAX_CONNECTIONS",
-		},
-		"commercialDatabase.max_idle_connections": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_MAX_IDLE_CONNECTIONS",
-		},
-		"redis.host": {
-			Primary:    "TASK_PROCESSOR_REDIS_HOST",
-			Deprecated: []string{"REDIS_HOST"},
-		},
-		"redis.port": {
-			Primary:    "TASK_PROCESSOR_REDIS_PORT",
-			Deprecated: []string{"REDIS_PORT"},
-		},
-		"redis.password": {
-			Primary:    "TASK_PROCESSOR_REDIS_PASSWORD",
-			Deprecated: []string{"REDIS_PASSWORD"},
-		},
-		"redis.db": {
-			Primary:    "TASK_PROCESSOR_REDIS_DB",
-			Deprecated: []string{"REDIS_DB"},
-		},
-		"redis.pool_size": {
-			Primary:    "TASK_PROCESSOR_REDIS_POOL_SIZE",
-			Deprecated: []string{"REDIS_POOL_SIZE"},
-		},
-		"platforms.sds.loginService.baseURL": {
-			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_BASE_URL",
-		},
-		"platforms.sds.loginService.sharedKey": {
-			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_SHARED_KEY",
-		},
-		"platforms.sds.loginService.tenantID": {
-			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_TENANT_ID",
-		},
-		"platforms.sds.loginService.identifier": {
-			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_IDENTIFIER",
-		},
-		"platforms.sds.loginService.merchantName": {
-			Primary: "TASK_PROCESSOR_SDS_MERCHANT_NAME",
-		},
-		"platforms.sds.loginService.username": {
-			Primary: "TASK_PROCESSOR_SDS_USERNAME",
-		},
-		"platforms.sds.loginService.password": {
-			Primary: "TASK_PROCESSOR_SDS_PASSWORD",
-		},
-		"platforms.sds.loginService.defaultHeadless": {
-			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_DEFAULT_HEADLESS",
-		},
-		"platforms.sds.loginService.cloakBrowserEnabled": {
-			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_CLOAKBROWSER_ENABLED",
-		},
-		"platforms.sds.loginService.cloakBrowserPath": {
-			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_CLOAKBROWSER_PATH",
-		},
-		"platforms.sds.authRedis.host": {
-			Primary: "TASK_PROCESSOR_SDS_AUTH_REDIS_HOST",
-		},
-		"platforms.sds.authRedis.port": {
-			Primary: "TASK_PROCESSOR_SDS_AUTH_REDIS_PORT",
-		},
-		"platforms.sds.authRedis.password": {
-			Primary: "TASK_PROCESSOR_SDS_AUTH_REDIS_PASSWORD",
-		},
-		"platforms.sds.authRedis.db": {
-			Primary: "TASK_PROCESSOR_SDS_AUTH_REDIS_DB",
-		},
-		"platforms.sds.authRedis.pool_size": {
-			Primary: "TASK_PROCESSOR_SDS_AUTH_REDIS_POOL_SIZE",
-		},
-		"platforms.sds.authBootstrap.staticAccessToken": {
-			Primary: "TASK_PROCESSOR_SDS_ACCESS_TOKEN",
-		},
-		"platforms.sds.authBootstrap.staticOutToken": {
-			Primary: "TASK_PROCESSOR_SDS_OUT_ACCESS_TOKEN",
-		},
-		"platforms.sds.authBootstrap.staticMerchantID": {
-			Primary: "TASK_PROCESSOR_SDS_MERCHANT_ID",
-		},
-		"platforms.sds.authBootstrap.staticCookie": {
-			Primary: "TASK_PROCESSOR_SDS_COOKIE",
-		},
-		"platforms.sds.authBootstrap.loginDomainName": {
-			Primary: "TASK_PROCESSOR_SDS_DOMAIN_NAME",
-		},
-		"platforms.sds.authBootstrap.loginVerifyCaptchaParam": {
-			Primary: "TASK_PROCESSOR_SDS_VERIFY_CAPTCHA_PARAM",
-		},
-		"platforms.sds.authBootstrap.loginExtraInfo": {
-			Primary: "TASK_PROCESSOR_SDS_EXTRA_INFO",
-		},
+
 		"listingkit.imageUpload.provider": {
 			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_PROVIDER",
 		},
@@ -617,7 +433,7 @@ func deprecatedEnvWarnings() []string {
 			if !deprecatedSet {
 				continue
 			}
-			// 已设置新名称时不再提示旧别名（避免系统环境仍带 REDIS_* 等与项目 TASK_PROCESSOR_* 并存时刷屏）
+			// 已设置新名称时不再提示旧别名（避免系统环境仍带 DB_* 等与项目 TASK_PROCESSOR_* 并存时刷屏）
 			if primarySet {
 				continue
 			}
@@ -642,7 +458,7 @@ func loadWithViper(v *viper.Viper) (*Config, error) {
 		return nil, err
 	}
 	cfg := BuildConfig(v)
-	if err := cfg.ValidateWithError(); err != nil {
+	if err := ValidateConfigWithError(cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil

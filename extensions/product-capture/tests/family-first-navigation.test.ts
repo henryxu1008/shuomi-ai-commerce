@@ -1,0 +1,230 @@
+import { testDrafts } from './fixtures/drafts';
+import { readFileSync } from 'node:fs';
+import { JSDOM } from 'jsdom';
+import { afterEach, expect, it, vi } from 'vitest';
+import { mountFamilyPage } from '../src/amazon/family-page';
+import { FamilyBridge } from '../src/amazon/family-bridge';
+import { captureAmazonDocument } from '../src/amazon/extractor';
+import { amazonInterruptionURL } from '../src/amazon/page-state';
+import { Controller } from '../src/controller';
+import { ReturnSession } from '../src/return-session';
+import { validatePlatformCapture } from '../src/platforms';
+import { returnStorage } from './fixtures/return-storage';
+import type { AmazonCapturePayload } from '../src/amazon/wire';
+
+const id='a'.repeat(32),source='https://www.amazon.com/dp/B0BDLGZCTY',target='https://www.amazon.com/dp/B0CC1YM6SJ';
+const checkpoint='https://www.amazon.com/checkpoint/continue?token=DO_NOT_FORWARD';
+let dom:JSDOM;
+afterEach(()=>{dom?.window.dispatchEvent(new dom.window.Event('pagehide'));dom?.window.close();vi.unstubAllGlobals();});
+
+async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;placeholderChild?:boolean;pauseThird?:boolean;holdNavigation?:boolean;redirectAfterVerify?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
+ const original=new JSDOM(readFileSync('tests/fixtures/amazon-inline-product.html','utf8'),{url:source});
+ const anchor=await captureAmazonDocument(original.window.document,source);original.window.close();
+ const other=structuredClone(anchor);other.evidence.sourceID='B0CC1YM6SJ';other.evidence.sourceURL=target;other.evidence.variants[0].sourceID='B0CC1YM6SJ';
+ other.evidence.variants[0].attributes=anchor.evidence.variants[0].attributes.map(a=>a.name==='Color'?{...a,value:'Beige'}:a);
+ other.evidence.variants[0].price={amount:'44.98',currency:'USD'};other.evidence.variants[0].images=[{role:'main',url:'https://m.media-amazon.com/images/I/child.jpg'}];
+ const third=structuredClone(other);third.evidence.sourceID='B000000003';third.evidence.sourceURL='https://www.amazon.com/dp/B000000003';third.evidence.variants[0].sourceID='B000000003';
+ third.evidence.variants[0].attributes=other.evidence.variants[0].attributes.map(a=>a.name==='Color'?{...a,value:'Blue'}:a);
+ third.evidence.variants[0].price={amount:'54.98',currency:'USD'};third.evidence.variants[0].images=[{role:'main',url:'https://m.media-amazon.com/images/I/third.jpg'}];
+ const manifest={sourceURL:source,parentASIN:'B0D76YXPWZ',members:[anchor,other,...(options.third?[third]:[])].map(p=>({sourceID:p.evidence.sourceID,attributes:p.evidence.variants[0].attributes}))};
+ if(options.placeholderChild){other.evidence.variants[0].attributes=[];other.evidence.missingFacts.push({field:'variants[0].attributes',reason:'selected dimension label or value not observed'});}
+ if(options.memberID)manifest.members[1].sourceID=options.memberID;
+ const revision=crypto.randomUUID(),progress=`chrome-extension://${id}/popup.html#amazon-family=${revision}`;
+ dom=new JSDOM('<body/>',{url:progress});
+ const storage=returnStorage(),app=new ReturnSession(storage.session as unknown as chrome.storage.SessionStorageArea);await app.ready;
+ const receiver=vi.fn(async()=>42),activate=vi.fn(async()=>{});
+ const drafts=testDrafts();const controller=new Controller(drafts,async()=>({url:source}),'https://app.example.com/capture/amazon',async()=>{throw Error('must not extract through ordinary entry');},receiver,()=>id,validatePlatformCapture,()=> 'https://app.example.com/capture/amazon',activate,{prepare:s=>app.prepare(s,revision),bind:n=>app.bind(n,revision),tabID:()=>app.tabID()});
+ const contexts=[{contextType:'TAB',documentId:'progress-doc',documentUrl:progress,tabId:41,frameId:0,windowId:1}];
+ const updated=new Set<(tabId:number)=>void>(),removed=new Set<(tabId:number)=>void>();
+ let draftPayload:AmazonCapturePayload|undefined;
+ let live:Partial<chrome.tabs.Tab>={id:50,windowId:1,openerTabId:41,status:'complete'},bridge:FamilyBridge,lost=false,exists=false;
+ let releaseReply:(()=>void)|undefined,releaseCreate:(()=>void)|undefined,failThird=!!options.pauseThird,thirdURLChecks=0;
+ const emit=()=>updated.forEach(fn=>fn(50));
+ const create=vi.fn(async(o:chrome.tabs.CreateProperties)=>{
+  if(o.url===progress)return {id:41,url:progress,windowId:1};
+  exists=true;
+  if(options.creation==='reject')throw Error('native creation result unavailable');
+  if(options.creation==='no-id')return {windowId:1};
+  live={...live,url:o.url,openerTabId:o.openerTabId,windowId:o.windowId,...options.native};
+  if(options.first==='omitted')delete live.url;
+  if(options.first==='empty')live.url='';
+  if(options.first==='pending'){delete live.url;live.pendingUrl=target;live.status='loading';}
+  if(options.first==='verification')live.url=checkpoint;
+  if(options.first==='signin')live.url='https://www.amazon.com/ap/signin?private=DO_NOT_FORWARD';
+  if(options.holdCreate)await new Promise<void>(resolve=>{releaseCreate=resolve;});
+  return {id:50,windowId:1}; // create responses need not expose URL metadata either.
+ });
+ const get=vi.fn(async(n:number)=>{if(n===41)return {id:41,url:progress,windowId:1};if(n!==50||!exists)throw Error('closed');return {...live};});
+ const update=vi.fn(async(n:number,o:chrome.tabs.UpdateProperties)=>{if(o.url){live.url=o.url;live.pendingUrl=undefined;live.status=options.holdNavigation?'loading':'complete';queueMicrotask(emit);}return {id:n,...live};});
+ const remove=vi.fn(async(n:number)=>{if(n===50){exists=false;removed.forEach(fn=>fn(n));}});
+ const execute=vi.fn(async(o:{target:{tabId:number;documentIds?:string[]};files?:string[];func?:()=>unknown})=>{
+  const root=o.target.tabId===7,p=root?anchor:live.url?.includes(third.evidence.sourceID)?third:other,documentId=root?'anchor-doc':'child-doc';
+  const code=!root&&live.url?(amazonInterruptionURL(live.url)||(p===third&&failThird?'CAPTURE_TIMEOUT':undefined)):undefined;
+  const result=o.files?(code?{ok:false,code}:{ok:true,payload:p}):String(o.func).includes('CaptureEntry')?{ok:true,manifest:{...manifest,sourceURL:p.evidence.sourceURL}}:String(o.func).includes('=>true')||String(o.func).includes('=> true')?true:root?source:live.url;
+  if(options.redirectAfterVerify&&p===third&&!o.files&&typeof result==='string'&&++thirdURLChecks===2)live.url=target;
+  return [{frameId:0,documentId,result}];
+ });
+ const send=vi.fn(async(m:{type:string;revision:string;payload?:AmazonCapturePayload})=>{
+  try{const result=await bridge.handle(m,{id,url:progress,documentId:'progress-doc'});if(m.type==='family.finish')draftPayload=(await drafts.get(revision))?.payload as AmazonCapturePayload;
+   if(m.type==='family.reader'&&options.loseReply&&!lost){lost=true;return {ok:false,code:'FAMILY_INTERRUPTED'};}
+   if(m.type==='family.reader'&&options.holdReply)await new Promise<void>(resolve=>{releaseReply=resolve;});
+   return {ok:true,result};
+  }catch(e){return {ok:false,code:e instanceof Error?e.message:'CAPTURE_REJECTED'};}
+ });
+ vi.stubGlobal('document',dom.window.document);vi.stubGlobal('location',dom.window.location);vi.stubGlobal('addEventListener',dom.window.addEventListener.bind(dom.window));
+ vi.stubGlobal('chrome',{storage:{session:storage.session},runtime:{id,getURL:(p:string)=>`chrome-extension://${id}/${p}`,getContexts:vi.fn(async()=>contexts),sendMessage:send,onMessage:{addListener:vi.fn(),removeListener:vi.fn()}},
+  tabs:{create,get,update,remove,onUpdated:{addListener:(f:(n:number)=>void)=>updated.add(f),removeListener:(f:(n:number)=>void)=>updated.delete(f)},onRemoved:{addListener:(f:(n:number)=>void)=>removed.add(f),removeListener:(f:(n:number)=>void)=>removed.delete(f)}},scripting:{executeScript:execute},windows:{update:vi.fn(async()=>({}))}});
+ bridge=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await bridge.ready;await bridge.begin({id:7,url:source,documentId:'anchor-doc'},revision);
+ mountFamilyPage(revision);
+ const button=(text:string)=>[...dom.window.document.querySelectorAll('button')].find(b=>b.textContent===text)!;
+ const status=()=>dom.window.document.querySelector('[role="status"]')!.textContent!;
+ return {create,get,update,remove,execute,send,receiver,activate,storage,app,button,status,updated,removed,releaseReply:()=>releaseReply?.(),releaseCreate:()=>releaseCreate?.(),
+  bridge:()=>bridge,live:()=>live,change:(value:Partial<chrome.tabs.Tab>)=>{Object.assign(live,value);emit();},
+  rebuild:async()=>{bridge=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await bridge.ready;},recover:()=>{failThird=false;},contexts,
+  readerCreates:()=>create.mock.calls.filter(([o])=>o.url!==progress),
+  navigations:()=>update.mock.calls.filter(([,o])=>o.url),
+  childReads:()=>execute.mock.calls.filter(([o])=>o.target.tabId===50&&o.files),
+  payload:()=>draftPayload};
+}
+
+it('opens the validated first child directly, hands off once and returns to the same receiver',async()=>{
+ const s=await setup();await vi.waitFor(()=>expect(s.payload()?.evidence.variants).toHaveLength(2));
+ expect(s.readerCreates()).toEqual([[{url:target,active:false,openerTabId:41,windowId:1}]]);expect(s.navigations()).toHaveLength(0);
+ expect(s.payload()?.evidence.variants).toHaveLength(2);expect(s.payload()!.evidence.variants[1].price?.amount).toBe('44.98');
+ expect(s.payload()!.evidence.variants[1].images[0].url).toContain('child.jpg');
+ s.button('返回应用核实').click();await vi.waitFor(()=>expect(s.activate).toHaveBeenCalledWith(42));expect(s.receiver).toHaveBeenCalledOnce();
+});
+it.each(['omitted','empty','pending'] as const)('waits for initially %s URL metadata instead of navigating a blank reader',async first=>{
+ const s=await setup({first});await vi.waitFor(()=>expect(s.readerCreates()).toHaveLength(1));
+ await new Promise(r=>setTimeout(r,25));expect(s.status()).not.toContain('已暂停');expect(s.childReads()).toHaveLength(0);expect(s.navigations()).toHaveLength(0);
+ s.change({url:target,status:'complete',pendingUrl:undefined});await vi.waitFor(()=>expect(s.receiver).toHaveBeenCalledOnce());expect(s.readerCreates()[0][0].url).toBe(target);
+ expect(s.navigations()).toHaveLength(0);expect(s.updated.size).toBe(0);expect(s.removed.size).toBe(0);
+});
+it.each(['verification','signin'] as const)('preserves first-page %s and only continues the same manually restored child',async first=>{
+ const s=await setup({first});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.status()).toContain(first==='verification'?'真人校验':'要求登录');expect(s.status()).not.toContain('DO_NOT_FORWARD');
+ expect(JSON.stringify(s.storage.contents())).not.toContain('DO_NOT_FORWARD');const location=s.bridge().location.current;expect(location?.phase==='bound'&&location.reader?.sourceURL).toBe(target);
+ s.button('继续采集').click();await vi.waitFor(()=>expect(s.childReads()).toHaveLength(2));expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+ s.change({url:target+'?ref=manual'});s.button('继续采集').click();await vi.waitFor(()=>expect(s.receiver).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(0);
+});
+it('reconfirms a committed first checkpoint locator after a lost reply and worker rebuild',async()=>{
+ const s=await setup({first:'verification',loseReply:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));expect(s.childReads()).toHaveLength(0);
+ await s.rebuild();s.button('继续采集').click();await vi.waitFor(()=>expect(s.status()).toContain('真人校验'));
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(0);
+ s.change({url:target});s.button('继续采集').click();await vi.waitFor(()=>expect(s.receiver).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(0);
+});
+it.each(['reject','no-id'] as const)('does not create another reader after creation result is %s',async creation=>{
+ const s=await setup({creation});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));expect(s.readerCreates()).toHaveLength(1);expect(s.receiver).not.toHaveBeenCalled();
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));expect(s.remove).not.toHaveBeenCalled();
+});
+it.each([{openerTabId:7},{windowId:2},{url:'https://www.amazon.com/dp/B000000003'},{pendingUrl:'https://example.com/'}])('refuses changed native reader ownership or target %j',async native=>{
+ const s=await setup({native});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.childReads()).toHaveLength(0);expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+});
+it('cancels before first metadata arrives without parsing, guessed cleanup or a late handoff',async()=>{
+ const s=await setup({first:'omitted'});await vi.waitFor(()=>expect(s.readerCreates()).toHaveLength(1));
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ s.change({url:target});await new Promise(r=>setTimeout(r,25));expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+ expect(s.remove).not.toHaveBeenCalled();expect(s.updated.size).toBe(0);expect(s.removed.size).toBe(0);
+});
+it('keeps later children on the same reader with one explicit navigation and their own quote and image',async()=>{
+ const s=await setup({third:true});await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toEqual([[50,{url:'https://www.amazon.com/dp/B000000003',active:false}]]);
+ expect(s.payload()!.evidence.variants.map(v=>[v.sourceID,v.price?.amount,v.images[0].url])).toEqual([
+  ['B0BDLGZCTY','39.98',s.payload()!.evidence.variants[0].images[0].url],['B0CC1YM6SJ','44.98','https://m.media-amazon.com/images/I/child.jpg'],['B000000003','54.98','https://m.media-amazon.com/images/I/third.jpg']]);
+});
+it('cancellation wins over a late successful first registration reply',async()=>{
+ const s=await setup({holdReply:true});await vi.waitFor(()=>{const r=s.bridge().location.current;expect(r?.phase==='bound'&&r.reader?.tabId).toBe(50);});
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));s.releaseReply();
+ await new Promise(r=>setTimeout(r,25));expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();expect(s.navigations()).toHaveLength(0);expect(s.remove).toHaveBeenCalledExactlyOnceWith(50);
+});
+it('a late creation result after cancellation never registers, reads or recreates a reader',async()=>{
+ const s=await setup({holdCreate:true});await vi.waitFor(()=>expect(s.readerCreates()).toHaveLength(1));
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));s.releaseCreate();
+ await new Promise(r=>setTimeout(r,25));expect(s.send.mock.calls.filter(([m])=>m.type==='family.reader')).toHaveLength(0);expect(s.childReads()).toHaveLength(0);
+ expect(s.receiver).not.toHaveBeenCalled();expect(s.readerCreates()).toHaveLength(1);expect(s.remove).not.toHaveBeenCalled();
+});
+it('validates the first child path before creating any reader',async()=>{
+ const s=await setup({memberID:'not-an-asin'});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.readerCreates()).toHaveLength(0);expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+});
+
+it('resumes the failed item after opener removal without rereading observed children or creating a reader',async()=>{
+ const s=await setup({third:true,pauseThird:true});await vi.waitFor(()=>expect(s.status()).toContain('2/3'));
+ await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));expect(s.childReads()).toHaveLength(2);
+ s.change({openerTabId:undefined});s.recover();await s.rebuild();s.button('继续采集').click();
+ await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(1);expect(s.childReads()).toHaveLength(3);
+ expect(s.payload()!.evidence.variants.map(v=>[v.sourceID,v.price?.amount,v.images[0].url])).toEqual([
+  ['B0BDLGZCTY','39.98',s.payload()!.evidence.variants[0].images[0].url],['B0CC1YM6SJ','44.98','https://m.media-amazon.com/images/I/child.jpg'],['B000000003','54.98','https://m.media-amazon.com/images/I/third.jpg']]);
+ expect(s.send.mock.calls.filter(([m])=>m.type==='family.finish')).toHaveLength(1);
+ expect(s.remove).not.toHaveBeenCalled(); // Missing opener must not widen cleanup.
+});
+it('reconfirms an existing locator before the local first-reader guard after lost reply and worker rebuild',async()=>{
+ const s=await setup({first:'verification',loseReply:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.childReads()).toHaveLength(0);s.change({openerTabId:undefined});await s.rebuild();s.button('继续采集').click();
+ await vi.waitFor(()=>expect(s.status()).toContain('真人校验'));
+ const before=JSON.stringify(s.storage.contents());s.button('查看需处理的商品页').click();
+ await vi.waitFor(()=>expect(s.update).toHaveBeenCalledWith(50,{active:true}));
+ expect(JSON.stringify(s.storage.contents())).toBe(before);expect(s.navigations()).toHaveLength(0);
+ s.change({url:target});s.button('继续采集').click();await vi.waitFor(()=>expect(s.receiver).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(0);expect(s.remove).not.toHaveBeenCalled();
+});
+it('continues the same registered wait if opener disappears during a controlled next-child load',async()=>{
+ const s=await setup({third:true,holdNavigation:true});await vi.waitFor(()=>expect(s.navigations()).toHaveLength(1));
+ s.change({openerTabId:undefined,status:'complete'});await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(1);expect(s.updated.size).toBe(0);expect(s.removed.size).toBe(0);
+});
+it('never treats a locally created but unregistered reader with no opener as previously registered',async()=>{
+ const s=await setup({native:{openerTabId:undefined}});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+ const r=s.bridge().location.current;expect(r?.phase==='bound'&&r.reader).toBeUndefined();
+});
+it.each([
+ {openerTabId:7},{windowId:2},{id:51},{url:'https://www.amazon.com/dp/B000000004'},
+ {url:'https://example.com/'},{pendingUrl:'https://www.amazon.com/dp/B000000004'},
+])('does not read, navigate or focus a changed registered reader %j',async changed=>{
+ const s=await setup({first:'verification'});await vi.waitFor(()=>expect(s.status()).toContain('真人校验'));
+ const reads=s.childReads().length;s.change(changed);s.button('查看需处理的商品页').click();
+ await new Promise(r=>setTimeout(r,25));expect(s.update).not.toHaveBeenCalled();
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(reads);expect(s.navigations()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
+});
+it.each(['missing','corrupt','unavailable','unregistered'] as const)('does not bootstrap registration from local state with a %s locator',async kind=>{
+ const s=await setup({first:'verification',loseReply:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ const key=Object.keys(s.storage.contents()).find(k=>k.includes('family-location'))!;
+ if(kind==='missing')await s.storage.session.remove(key);
+ if(kind==='corrupt')await s.storage.session.set({[key]:{version:'invalid'}});
+ if(kind==='unavailable')s.storage.session.get.mockRejectedValue(Error('storage unavailable'));
+ if(kind==='unregistered'){
+  const record=s.bridge().location.current!;if(record.phase!=='bound')throw Error('expected bound fixture');
+  const {reader:unused,...bound}=record;void unused;await s.storage.session.set({[key]:bound});
+ }
+ s.change({openerTabId:undefined});await s.rebuild();const writes=s.storage.session.set.mock.calls.length;
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();expect(s.navigations()).toHaveLength(0);
+ expect(s.storage.session.set.mock.calls).toHaveLength(writes);expect(s.readerCreates()).toHaveLength(1);
+});
+it('rejects a replacement progress document even with the same registered reader and URL',async()=>{
+ const s=await setup({first:'verification'});await vi.waitFor(()=>expect(s.status()).toContain('真人校验'));
+ s.change({openerTabId:undefined});s.contexts[0].documentId='replacement-doc';
+ s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));
+ expect(s.childReads()).toHaveLength(1);expect(s.receiver).not.toHaveBeenCalled();expect(s.navigations()).toHaveLength(0);
+});
+it('does not accept a parsed child if the native reader returns to its predecessor after the final document check',async()=>{
+ const s=await setup({third:true,redirectAfterVerify:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
+ expect(s.status()).toContain('2/3');expect(s.receiver).not.toHaveBeenCalled();expect(s.payload()).toBeUndefined();
+});
+it('composes current-child static dimensions through the real page/bridge/read path and hands off once with attributed diagnostics',async()=>{
+ const s=await setup({third:true,placeholderChild:true});await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(1);
+ const output=s.payload()!;expect(output.evidence.variants).toHaveLength(3);
+ expect(output.evidence.variants[1].attributes).toContainEqual({name:'Color',value:'Beige'});
+ expect(output.evidence.variants[1].price?.amount).toBe('44.98');expect(output.evidence.variants[1].images[0].url).toContain('child.jpg');
+ expect(output.evidence.missingFacts).toContainEqual({field:'variants.1.attributes.rendered',reason:expect.stringContaining('current-ASIN static')});
+ expect(s.send.mock.calls.filter(([m])=>m.type==='family.finish')).toHaveLength(1);
+});

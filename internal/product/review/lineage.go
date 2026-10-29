@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -17,13 +17,13 @@ type AppliedPublicationLookup interface {
 	ReadAppliedPublication(context.Context, Scope, string, uint64, string) (Record, error)
 }
 type AppliedPublicationReference struct {
-	Policy            string                      `json:"policy"`
-	ContentSelection  enrichment.ContentSelection `json:"contentSelection,omitzero"`
-	ProposalID        string                      `json:"proposalId"`
-	BaseVersion       uint64                      `json:"baseVersion,string"`
-	BasePublicationID string                      `json:"basePublicationId"`
-	Version           uint64                      `json:"version,string"`
-	PublicationID     string                      `json:"publicationId"`
+	Policy            string                          `json:"policy"`
+	ContentSelection  reviewproposal.ContentSelection `json:"contentSelection,omitzero"`
+	ProposalID        string                          `json:"proposalId"`
+	BaseVersion       uint64                          `json:"baseVersion,string"`
+	BasePublicationID string                          `json:"basePublicationId"`
+	Version           uint64                          `json:"version,string"`
+	PublicationID     string                          `json:"publicationId"`
 }
 type SourceLineage struct {
 	Original catalog.PublishedSnapshot
@@ -61,7 +61,7 @@ func ResolveAppliedSource(ctx context.Context, scope Scope, published catalog.Pu
 		return result, ErrConflict
 	}
 	if len(applied) > 0 {
-		evidence, err := enrichment.CanonicalEvidenceID(persisted.Envelope)
+		evidence, err := reviewproposal.CanonicalEvidenceID(persisted.Envelope)
 		if err != nil {
 			return result, err
 		}
@@ -125,7 +125,7 @@ func resolveAppliedSnapshot(ctx context.Context, scope Scope, published catalog.
 }
 
 func replayReviewedPatch(base catalog.ProductSnapshot, r Record) (catalog.ProductSnapshot, error) {
-	if r.Policy == enrichment.ContentPolicyVersion {
+	if r.Policy == reviewproposal.ContentPolicyVersion {
 		before, err := snapshotContentValues(base, r.Content.Selection)
 		if err != nil || !reflect.DeepEqual(before, r.Content.Before) {
 			return catalog.ProductSnapshot{}, ErrConflict

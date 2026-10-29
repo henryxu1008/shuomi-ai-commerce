@@ -3,7 +3,7 @@ package workspace
 import (
 	"testing"
 
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 func TestBuildManualNotesReadinessCheckWarnsForManualNotes(t *testing.T) {

@@ -22,6 +22,8 @@ const allowOwnedHMR = process.argv.includes("--allow-owned-hmr");
 // The extension revision this chain freezes and validates. It is the main merge that
 // put the host grant below into the shipped build, so the revision under test and the
 // manifest expectation can only drift apart if one is changed without the other.
+// This frozen revision predates extensions/product-capture; its archive path below
+// intentionally remains extensions/1688-capture to reproduce the historical evidence.
 const pluginHead = "231875c085b9d2c4c390d446f84d971e62e3bd04";
 const children = [];
 let container, containerName, pgPort, webPort, stage = "source", passed = false;

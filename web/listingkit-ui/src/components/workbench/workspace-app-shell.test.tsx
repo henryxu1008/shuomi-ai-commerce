@@ -148,17 +148,17 @@ describe("WorkspaceAppShell", () => {
     navigation.pathname = path; injectProfileContext(); render(<WorkspaceAppShell><p>protected child</p></WorkspaceAppShell>);
     expect(screen.queryByText("protected child")).not.toBeInTheDocument(); expect(navigation.replace).toHaveBeenCalledWith("/workbench/no-organization");
   });
-  it("preserves the browser recovery URL when the account has no organizations", () => {
-    navigation.pathname = "/capture/1688";
-    window.history.replaceState(null, "", "/capture/1688#operationKey=22222222-2222-4222-8222-22222222222b");
+  it.each(["/capture/1688", "/capture/amazon"])("preserves %s recovery URL when the account has no organizations", (path) => {
+    navigation.pathname = path;
+    window.history.replaceState(null, "", `${path}#operationKey=22222222-2222-4222-8222-22222222222b`);
     injectProfileContext();
     render(<WorkspaceAppShell><p>capture child</p></WorkspaceAppShell>);
     expect(screen.getByText("capture child")).toBeVisible();
     expect(navigation.replace).not.toHaveBeenCalled();
   });
-  it("preserves a valid extension handoff while the user logs in in a new tab", () => {
-    navigation.pathname = "/capture/1688";
-    window.history.replaceState(null, "", `/capture/1688#extensionId=${"a".repeat(32)}&handoffId=11111111-1111-4111-8111-11111111111a&idempotencyKey=22222222-2222-4222-8222-22222222222b`);
+  it.each(["/capture/1688", "/capture/amazon"])("preserves %s handoff while the user logs in in a new tab", (path) => {
+    navigation.pathname = path;
+    window.history.replaceState(null, "", `${path}#extensionId=${"a".repeat(32)}&handoffId=11111111-1111-4111-8111-11111111111a&idempotencyKey=22222222-2222-4222-8222-22222222222b`);
     injectProfileContext({ error: { code: "AUTHENTICATION_REQUIRED" } });
 
     render(<WorkspaceAppShell><p>capture child</p></WorkspaceAppShell>);

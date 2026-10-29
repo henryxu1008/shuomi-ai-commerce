@@ -1,3 +1,5 @@
+> #301 / #983 本批准确替代：[已确认完整闭包](../../architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)。one-cycle aliases及保留错误re-export的阶段要求结束；当前internal/ai是原唯一合同owner，OpenAI真实客户端/配置保留，ImageRouteSelection直接复用现有ai定义，不造新owner。只按冻结§1–§7/§4.2/§6.1整批实施，无兼容alias/转发/双读/迁移或第二owner；workflow/完整inventory/计数/勾选/检查不改，既有资源不动，无试用前置。独立SHEIN登录/Store同步保持，#301 OPEN。以下起始main原文及历史证据完整保留。
+
 # Provider-Neutral AI Contracts Design
 
 ## Context

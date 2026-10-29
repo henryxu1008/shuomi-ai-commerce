@@ -2,9 +2,11 @@
 package amazon
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -12,6 +14,8 @@ import (
 
 // ProductChecker 产品检查器
 type ProductChecker struct {
+	loggerDependency
+
 	captchaHandler *CaptchaHandler
 }
 
@@ -22,9 +26,10 @@ const (
 )
 
 // NewProductChecker 创建产品检查器
-func NewProductChecker() *ProductChecker {
+func NewProductChecker(logs func(string) *logrus.Entry) *ProductChecker {
 	return &ProductChecker{
-		captchaHandler: NewCaptchaHandler(),
+		loggerDependency: loggerDependency{logFor: logs},
+		captchaHandler:   NewCaptchaHandler(logs),
 	}
 }
 
@@ -54,19 +59,19 @@ func (pc *ProductChecker) HandleContinueShoppingButton(page playwright.Page) err
 				continue
 			}
 
-			logger.GetGlobalLogger("crawler/amazon").Infof("发现Continue shopping按钮 (选择器: %s)，尝试点击", selector)
+			pc.componentLogger("crawler/amazon").Infof("发现Continue shopping按钮 (选择器: %s)，尝试点击", selector)
 
 			// 尝试点击按钮，设置短超时避免长时间等待
 			err = continueButton.Click(playwright.LocatorClickOptions{
 				Timeout: playwright.Float(5000), // 5秒超时
 			})
 			if err != nil {
-				logger.GetGlobalLogger("crawler/amazon").Warnf("点击Continue shopping按钮失败: %v", err)
+				pc.componentLogger("crawler/amazon").Warnf("点击Continue shopping按钮失败: %v", err)
 				continue // 尝试下一个选择器
 			}
 
 			pc.waitForPostActionSettle(page, pageReadyMaxSettle)
-			logger.GetGlobalLogger("crawler/amazon").Info("已成功点击Continue shopping按钮")
+			pc.componentLogger("crawler/amazon").Info("已成功点击Continue shopping按钮")
 			return nil
 		}
 	}
@@ -258,12 +263,12 @@ func (pc *ProductChecker) CheckPageLoadStatus(page playwright.Page) error {
 	}
 	if hasCaptcha {
 		// 尝试处理验证码
-		logger.GetGlobalLogger("crawler/amazon").Info("检测到验证码，尝试处理")
+		pc.componentLogger("crawler/amazon").Info("检测到验证码，尝试处理")
 		captchaErr := pc.captchaHandler.HandleCaptchaWithRetry(page, 2)
 		if captchaErr != nil {
 			return fmt.Errorf("遇到验证码: %w", captchaErr)
 		}
-		logger.GetGlobalLogger("crawler/amazon").Info("验证码处理成功")
+		pc.componentLogger("crawler/amazon").Info("验证码处理成功")
 	}
 
 	// 检查是否被阻止

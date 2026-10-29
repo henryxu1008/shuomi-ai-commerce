@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	recordstore "task-processor/internal/app/listingrecordstore"
 	zitadelruntime "task-processor/internal/authruntime/zitadel"
@@ -27,11 +28,11 @@ import (
 // there is no boolean that admits the shared historical Catalog, no implicit
 // database opening and no migration. Production source binding requires a
 // separate rollout decision. Both domains share this single database boundary.
-func NewSheinRecordApplication(currentProductDB *gorm.DB, verifier zitadelruntime.Verifier, resolver *workbenchcontext.Resolver, authorizer *authz.ListingKitAuthorizer) (*http.Server, record.Reader, error) {
+func NewSheinRecordApplication(currentProductDB *gorm.DB, verifier zitadelruntime.Verifier, resolver *workbenchcontext.Resolver, authorizer *authz.ListingKitAuthorizer, logs func(string) *logrus.Entry) (*http.Server, record.Reader, error) {
 	if currentProductDB == nil || verifier == nil || resolver == nil || authorizer == nil {
 		return nil, nil, record.ErrUnavailable
 	}
-	routes, repository, err := buildLocalTrialListingRoutes(currentProductDB, authorizer)
+	routes, repository, err := buildLocalTrialListingRoutes(currentProductDB, authorizer, logs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -53,7 +54,7 @@ func NewSheinRecordApplication(currentProductDB *gorm.DB, verifier zitadelruntim
 	return server, repository, nil
 }
 
-func buildLocalTrialListingRoutes(currentProductDB *gorm.DB, authorizer *authz.ListingKitAuthorizer) ([]httproute.Descriptor, record.Reader, error) {
+func buildLocalTrialListingRoutes(currentProductDB *gorm.DB, authorizer *authz.ListingKitAuthorizer, logs func(string) *logrus.Entry) ([]httproute.Descriptor, record.Reader, error) {
 	if currentProductDB == nil || authorizer == nil {
 		return nil, nil, record.ErrUnavailable
 	}
@@ -75,7 +76,7 @@ func buildLocalTrialListingRoutes(currentProductDB *gorm.DB, authorizer *authz.L
 	}
 	service, err := record.NewService(record.ServiceDependencies{
 		Products: source, Assets: assets, Stores: sheinRecordStoreReader{repository: stores}, Records: repository,
-		Builder: draft.Builder{}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: authorizer,
+		Builder: draft.Builder{LogFor: logs}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: authorizer,
 		Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion,
 	})
 	if err != nil {

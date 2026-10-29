@@ -7,11 +7,11 @@ import (
 
 	policy "task-processor/internal/marketplace/shein/publishing"
 	contract "task-processor/internal/marketplace/validator"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
-const DiagnosticRuleVersion = "shein.offline_package.v2.1"
-const BindingVersion = "shein.persisted-input.go-json.v1"
+const DiagnosticRuleVersion = "shein.offline_package.v2.2"
+const BindingVersion = "shein.persisted-input.go-json.v2"
 const MaxDiagnosticBytes = 2 << 20
 
 type DiagnosticValidator struct{}

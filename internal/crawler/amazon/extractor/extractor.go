@@ -3,8 +3,8 @@ package extractor
 import (
 	"context"
 	"fmt"
-	"task-processor/internal/core/logger"
-	"task-processor/internal/model"
+
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"task-processor/internal/pkg/goroutine"
 	"time"
 
@@ -14,71 +14,74 @@ import (
 
 // Extractor 提取器接口
 type Extractor interface {
-	Extract(page playwright.Page, product *model.Product) error
+	Extract(page playwright.Page, product *amazonresult.Product) error
 }
 
 // CompositeExtractor 组合提取器
 type CompositeExtractor struct {
+	loggerDependency
+
 	extractors    []Extractor
 	errorDetector *ErrorDetector
 	logger        *logrus.Entry
 }
 
 // NewCompositeExtractor 创建组合提取器
-func NewCompositeExtractor(marketplace string) *CompositeExtractor {
+func NewCompositeExtractor(marketplace string, logs func(string) *logrus.Entry) *CompositeExtractor {
 	return &CompositeExtractor{
+		loggerDependency: loggerDependency{logFor: logs},
 		extractors: []Extractor{
-			&TitleExtractor{},
-			&AvailabilityExtractor{},       // 先提取可用性，价格提取器需要依赖这个信息
-			NewPriceExtractor(marketplace), // 使用构造函数正确初始化
+			&TitleExtractor{loggerDependency: loggerDependency{logFor: logs}},
+			&AvailabilityExtractor{loggerDependency: loggerDependency{logFor: logs}}, // 先提取可用性，价格提取器需要依赖这个信息
+			NewPriceExtractor(marketplace, logs),                                     // 使用构造函数正确初始化
 			&BrandExtractor{},
-			&RatingExtractor{}, // 包含评分和评论数量提取
-			&ImageExtractor{},
-			NewVideoExtractor(),         // 视频提取器
-			&CategoriesExtractor{},      // 分类提取器
-			NewParentAsinExtractor(),    // Parent ASIN提取器
-			&SellerExtractor{},          // 卖家提取器
-			&ShipsFromExtractor{},       // 发货地提取器
-			&DeliveryExtractor{},        // 配送信息提取器
-			NewDescriptionExtractor(),   // 使用构造函数正确初始化
-			NewSizeChartExtractor(),     // 尺码表提取器
-			&ProductDetailsExtractor{},  // 产品详情提取器
-			NewVariationsExtractor(),    // 变体提取器
-			NewBestsellerExtractor(),    // 畅销排名提取器
-			NewFeatureParserExtractor(), // 特性解析提取器
-			&FeaturesExtractor{},        // 基础特性提取器
+			&RatingExtractor{loggerDependency: loggerDependency{logFor: logs}}, // 包含评分和评论数量提取
+			&ImageExtractor{loggerDependency: loggerDependency{logFor: logs}},
+			NewVideoExtractor(logs),       // 视频提取器
+			&CategoriesExtractor{},        // 分类提取器
+			NewParentAsinExtractor(logs),  // Parent ASIN提取器
+			&SellerExtractor{},            // 卖家提取器
+			&ShipsFromExtractor{},         // 发货地提取器
+			&DeliveryExtractor{},          // 配送信息提取器
+			NewDescriptionExtractor(logs), // 使用构造函数正确初始化
+			NewSizeChartExtractor(),       // 尺码表提取器
+			&ProductDetailsExtractor{},    // 产品详情提取器
+			NewVariationsExtractor(logs),  // 变体提取器
+			NewBestsellerExtractor(),      // 畅销排名提取器
+			NewFeatureParserExtractor(),   // 特性解析提取器
+			&FeaturesExtractor{},          // 基础特性提取器
 		},
 		errorDetector: NewErrorDetector(),
-		logger:        logger.GetGlobalLogger("CompositeExtractor"),
+		logger:        componentLogger(logs, "CompositeExtractor"),
 	}
 }
 
 // Extract 提取所有信息（使用ParallelProcessor优化）
-func (ce *CompositeExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (ce *CompositeExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	return ce.ExtractWithContext(context.Background(), page, product)
 }
 
 // ExtractWithContext 提取所有信息，支持 ctx 超时控制
-func (ce *CompositeExtractor) ExtractWithContext(ctx context.Context, page playwright.Page, product *model.Product) error {
+func (ce *CompositeExtractor) ExtractWithContext(ctx context.Context, page playwright.Page, product *amazonresult.Product) error {
 	// 第一阶段：必须串行执行的提取器（有依赖关系）
 	serialExtractors := []Extractor{
-		&TitleExtractor{},
-		&AvailabilityExtractor{},
+		&TitleExtractor{loggerDependency: loggerDependency{logFor: ce.logFor}},
+		&AvailabilityExtractor{loggerDependency: loggerDependency{logFor: ce.logFor}},
 		ce.extractors[2], // PriceExtractor（依赖Availability）
 	}
 
 	for _, extractor := range serialExtractors {
 		extractorName := getExtractorName(extractor)
 		startedAt := time.Now()
-		logger.GetGlobalLogger("crawler/amazon").Infof("提取器开始执行: %s", extractorName)
+		ce.componentLogger("crawler/amazon").Infof("提取器开始执行: %s", extractorName)
 		if err := extractor.Extract(page, product); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Infof("提取器执行失败 (%s): %v (耗时=%s)", extractorName, err, time.Since(startedAt).Round(time.Millisecond))
+			ce.componentLogger("crawler/amazon").Infof("提取器执行失败 (%s): %v (耗时=%s)", extractorName, err, time.Since(startedAt).Round(time.Millisecond))
 			if ce.errorDetector.IsCriticalError(err) {
-				logger.GetGlobalLogger("crawler/amazon").Infof("检测到关键错误，停止后续提取器执行: %v", err)
+				ce.componentLogger("crawler/amazon").Infof("检测到关键错误，停止后续提取器执行: %v", err)
 				return err
 			}
 		} else {
-			logger.GetGlobalLogger("crawler/amazon").Infof("提取器执行完成: %s (耗时=%s)", extractorName, time.Since(startedAt).Round(time.Millisecond))
+			ce.componentLogger("crawler/amazon").Infof("提取器执行完成: %s (耗时=%s)", extractorName, time.Since(startedAt).Round(time.Millisecond))
 		}
 	}
 
@@ -102,9 +105,7 @@ func (ce *CompositeExtractor) ExtractWithContext(ctx context.Context, page playw
 	processFunc := func(ctx context.Context, task *goroutine.Task) (any, error) {
 		extractor := task.Data.(Extractor)
 		// startedAt := time.Now()
-		// logger.GetGlobalLogger("crawler/amazon").Infof("并行提取器开始执行: %s", task.ID)
 		// defer func() {
-		// 	logger.GetGlobalLogger("crawler/amazon").Infof("并行提取器执行结束: %s (耗时=%s)", task.ID, time.Since(startedAt).Round(time.Millisecond))
 		// }()
 		return nil, extractor.Extract(page, product)
 	}
@@ -116,10 +117,10 @@ func (ce *CompositeExtractor) ExtractWithContext(ctx context.Context, page playw
 	var criticalErr error
 	for _, result := range results {
 		if result.Error != nil {
-			logger.GetGlobalLogger("crawler/amazon").Infof("提取器执行失败 (%s): %v", result.ID, result.Error)
+			ce.componentLogger("crawler/amazon").Infof("提取器执行失败 (%s): %v", result.ID, result.Error)
 			if ce.errorDetector.IsCriticalError(result.Error) && criticalErr == nil {
 				criticalErr = result.Error
-				logger.GetGlobalLogger("crawler/amazon").Infof("检测到关键错误: %v", result.Error)
+				ce.componentLogger("crawler/amazon").Infof("检测到关键错误: %v", result.Error)
 			}
 		}
 	}

@@ -4,11 +4,11 @@ package amazon
 import (
 	"context"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 type batchRequestProcessor interface {
-	ProcessWithContext(ctx context.Context, url, zipcode string) (*model.Product, error)
+	ProcessWithContext(ctx context.Context, url, zipcode string) (*amazonresult.Product, error)
 }
 
 // BatchProcessor 批量处理器。
@@ -21,20 +21,20 @@ func NewBatchProcessor() *BatchProcessor {
 }
 
 // Process 兼容不传 context 的旧调用方。
-func (bp *BatchProcessor) Process(requests []model.ProductRequest, processor batchRequestProcessor) []model.ProductResult {
+func (bp *BatchProcessor) Process(requests []amazonresult.ProductRequest, processor batchRequestProcessor) []amazonresult.ProductResult {
 	return bp.ProcessWithContext(context.Background(), requests, processor)
 }
 
 // ProcessWithContext 顺序处理批量请求，复用单请求处理链路。
-func (bp *BatchProcessor) ProcessWithContext(ctx context.Context, requests []model.ProductRequest, processor batchRequestProcessor) []model.ProductResult {
+func (bp *BatchProcessor) ProcessWithContext(ctx context.Context, requests []amazonresult.ProductRequest, processor batchRequestProcessor) []amazonresult.ProductResult {
 	if len(requests) == 0 {
-		return []model.ProductResult{}
+		return []amazonresult.ProductResult{}
 	}
 
-	results := make([]model.ProductResult, len(requests))
+	results := make([]amazonresult.ProductResult, len(requests))
 	if processor == nil {
 		for i := range requests {
-			results[i] = model.ProductResult{Error: context.Canceled}
+			results[i] = amazonresult.ProductResult{Error: context.Canceled}
 		}
 		return results
 	}
@@ -42,13 +42,13 @@ func (bp *BatchProcessor) ProcessWithContext(ctx context.Context, requests []mod
 	for i, req := range requests {
 		if err := ctx.Err(); err != nil {
 			for j := i; j < len(requests); j++ {
-				results[j] = model.ProductResult{Error: err}
+				results[j] = amazonresult.ProductResult{Error: err}
 			}
 			return results
 		}
 
 		product, err := processor.ProcessWithContext(ctx, req.URL, req.Zipcode)
-		results[i] = model.ProductResult{
+		results[i] = amazonresult.ProductResult{
 			Product: product,
 			Error:   err,
 		}

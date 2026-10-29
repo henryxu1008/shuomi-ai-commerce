@@ -13,31 +13,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type rwLocker interface {
-	Lock()
-	Unlock()
-	RLock()
-	RUnlock()
-}
-
-type logLevelState struct {
-	defaultLocker sync.RWMutex
-	locker        rwLocker
-	value         logrus.Level
-}
-
-func (s *logLevelState) locking() rwLocker {
-	if s.locker != nil {
-		return s.locker
-	}
-	return &s.defaultLocker
-}
-
 // LogManager 统一日志管理器
 type LogManager struct {
 	logger     *logrus.Logger
-	levelState logLevelState
-	formatter  logrus.Formatter
 	outputs    []io.Writer
 	config     *LogConfig
 	fileWriter *rotatingFileWriter
@@ -46,18 +24,15 @@ type LogManager struct {
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level        string            `yaml:"level" json:"level"`                   // 日志级别: debug, info, warn, error
-	Format       string            `yaml:"format" json:"format"`                 // 日志格式: json, text
-	OutputFile   string            `yaml:"output_file" json:"output_file"`       // 输出文件路径
-	MaxSize      int               `yaml:"max_size" json:"max_size"`             // 最大文件大小(MB)
-	MaxBackups   int               `yaml:"max_backups" json:"max_backups"`       // 保留的旧日志文件数量
-	MaxAge       int               `yaml:"max_age" json:"max_age"`               // 保留的旧日志文件天数
-	Compress     bool              `yaml:"compress" json:"compress"`             // 是否压缩旧日志文件
-	Console      bool              `yaml:"console" json:"console"`               // 是否输出到控制台
-	EnableCaller bool              `yaml:"enable_caller" json:"enable_caller"`   // 是否记录调用者信息
-	CallerSkip   int               `yaml:"caller_skip" json:"caller_skip"`       // 调用栈跳过层数
-	ReportCaller bool              `yaml:"report_caller" json:"report_caller"`   // 是否在日志中包含文件名和行号
-	SplitByLevel []LevelFileConfig `yaml:"split_by_level" json:"split_by_level"` // 按级别分文件输出
+	Level        string `yaml:"level" json:"level"`                 // 日志级别: debug, info, warn, error
+	Format       string `yaml:"format" json:"format"`               // 日志格式: json, text
+	OutputFile   string `yaml:"output_file" json:"output_file"`     // 输出文件路径
+	MaxSize      int    `yaml:"max_size" json:"max_size"`           // 最大文件大小(MB)
+	MaxBackups   int    `yaml:"max_backups" json:"max_backups"`     // 保留的旧日志文件数量
+	MaxAge       int    `yaml:"max_age" json:"max_age"`             // 保留的旧日志文件天数
+	Compress     bool   `yaml:"compress" json:"compress"`           // 是否压缩旧日志文件
+	Console      bool   `yaml:"console" json:"console"`             // 是否输出到控制台
+	ReportCaller bool   `yaml:"report_caller" json:"report_caller"` // 是否在日志中包含文件名和行号
 }
 
 // DefaultLogConfig 默认日志配置
@@ -72,16 +47,11 @@ func DefaultLogConfig() *LogConfig {
 		Compress:     true,
 		Console:      true,
 		ReportCaller: false,
-		CallerSkip:   0,
 	}
 }
 
 // NewLogManager 创建日志管理器
 func NewLogManager(config *LogConfig) *LogManager {
-	return newLogManager(config, &sync.RWMutex{})
-}
-
-func newLogManager(config *LogConfig, levelLocker rwLocker) *LogManager {
 	if config == nil {
 		config = DefaultLogConfig()
 	}
@@ -102,12 +72,7 @@ func newLogManager(config *LogConfig, levelLocker rwLocker) *LogManager {
 	// 创建日志管理器
 	lm := &LogManager{
 		logger: logger,
-		levelState: logLevelState{
-			locker: levelLocker,
-			value:  level,
-		},
-		formatter: formatter,
-		config:    config,
+		config: config,
 	}
 
 	// 设置输出
@@ -115,16 +80,6 @@ func newLogManager(config *LogConfig, levelLocker rwLocker) *LogManager {
 	lm.outputs = outputs
 	if len(outputs) > 0 {
 		logger.SetOutput(io.MultiWriter(outputs...))
-	}
-
-	// 按级别分文件输出
-	if len(config.SplitByLevel) > 0 {
-		hook, err := NewLevelSplitHook(config.SplitByLevel, formatter)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "创建级别分文件 Hook 失败: %v\n", err)
-		} else {
-			logger.AddHook(hook)
-		}
 	}
 
 	return lm
@@ -135,35 +90,9 @@ func (lm *LogManager) GetLogger(component string) *logrus.Entry {
 	return lm.logger.WithField("component", component)
 }
 
-// GetLoggerWithFields 获取带多个字段的日志记录器
-func (lm *LogManager) GetLoggerWithFields(fields logrus.Fields) *logrus.Entry {
-	return lm.logger.WithFields(fields)
-}
-
-// SetLevel 动态设置日志级别
-func (lm *LogManager) SetLevel(level string) error {
-	logLevel := parseLogLevel(level)
-	locker := lm.levelState.locking()
-	locker.Lock()
-	defer locker.Unlock()
-
-	lm.logger.SetLevel(logLevel)
-	lm.levelState.value = logLevel
-	return nil
-}
-
 // GetRawLogger 获取底层 *logrus.Logger 实例，供需要直接操作 logger 的场景使用
 func (lm *LogManager) GetRawLogger() *logrus.Logger {
 	return lm.logger
-}
-
-// GetLevel 获取当前日志级别
-func (lm *LogManager) GetLevel() string {
-	locker := lm.levelState.locking()
-	locker.RLock()
-	defer locker.RUnlock()
-
-	return lm.levelState.value.String()
 }
 
 // Close 关闭日志管理器
@@ -290,12 +219,12 @@ func (lm *LogManager) createOutputs() []io.Writer {
 type logManagerFactory func(*LogConfig) *LogManager
 
 type logManagerRegistry struct {
-	locker  rwLocker
+	locker  sync.Locker
 	manager *LogManager
 	factory logManagerFactory
 }
 
-func newLogManagerRegistry(factory logManagerFactory, locker rwLocker) *logManagerRegistry {
+func newLogManagerRegistry(factory logManagerFactory, locker sync.Locker) *logManagerRegistry {
 	return &logManagerRegistry{
 		locker:  locker,
 		factory: factory,
@@ -335,9 +264,4 @@ func GetGlobalLogManager() *LogManager {
 // GetGlobalLogger 获取全局日志记录器
 func GetGlobalLogger(component string) *logrus.Entry {
 	return GetGlobalLogManager().GetLogger(component)
-}
-
-// SetGlobalLogLevel 设置全局日志级别
-func SetGlobalLogLevel(level string) error {
-	return GetGlobalLogManager().SetLevel(level)
 }

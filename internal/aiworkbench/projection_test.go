@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestTaskProjectionUsesExactAgentAndReviewFacts(t *testing.T) {
@@ -48,7 +48,7 @@ func TestTaskProjectionDoesNotOfferActionsForInvalidReviewOrExpiredInterruption(
 	run := agent.Record{State: agent.State{Scope: agent.Scope{OrganizationID: "org-1", ActorID: "actor-1"},
 		Request: agent.Request{Key: "key-1", Binding: agent.Binding{ContextKind: "acquisition", ContextID: "operation-1", ProductKey: "product-1", TargetPlatform: "shein"}},
 		Phase:   agent.HumanReviewRequired, StopReason: agent.StopRepairLimit, Validation: &agent.Validation{Valid: false},
-		Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "candidate"}}}}}
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "candidate"}}}}}
 	invalid, err := ProjectTask(task, &run, "", now)
 	require.NoError(t, err)
 	require.Equal(t, TaskWaitingConfirmation, invalid.State)

@@ -2,20 +2,24 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strconv"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // BasicInfoExtractor 基础信息提取器
-type BasicInfoExtractor struct{}
+type BasicInfoExtractor struct {
+	loggerDependency
+}
 
 // NewBasicInfoExtractor 创建基础信息提取器
-func NewBasicInfoExtractor() *BasicInfoExtractor {
-	return &BasicInfoExtractor{}
+func NewBasicInfoExtractor(logs func(string) *logrus.Entry) *BasicInfoExtractor {
+	return &BasicInfoExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取商品基础信息 - 支持两种数据结构
@@ -144,7 +148,7 @@ func (bie *BasicInfoExtractor) Extract(page playwright.Page, product *model.Prod
 				product.IsCustomized = isCustomized
 			}
 
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到基础信息: 标题=%s, ID=%s", product.Title, product.ID)
+			bie.componentLogger("crawler/alibaba1688").Debugf("提取到基础信息: 标题=%s, ID=%s", product.Title, product.ID)
 		}
 	}
 

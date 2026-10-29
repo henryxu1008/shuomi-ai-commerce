@@ -10,6 +10,15 @@ import (
 	"testing"
 )
 
+func TestPluginCaptureSessionReturnDocumentKeepsNavigationOnlyOwner(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "plugin-capture-session-return-v1.md"), []string{
+		"Independent Architecture", "IMPLEMENTATION_READY", "chrome.storage.session", "TRUSTED_CONTEXTS",
+		"ReturnSession", "pending | bound", "returnState: none | available |", "application's publication authority",
+		"No payload/title/images/prices", "No storage read error or", "before awaiting",
+		"never proof", "browser restart", "No merge, retained instance/plugin update",
+	})
+}
+
 func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollout(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-unbound-completion-drafts.md"), []string{
 		"IMPLEMENTATION_READY", "PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12", "2667:1948",
@@ -308,7 +317,7 @@ func TestProjectBoundaryDocumentKeepsPreviewPlacementAlignedWithStablePreviewBou
 	}
 
 	required := []string{
-		"| Platform-neutral preview rules | `internal/listing/preview`; see `listing-preview-boundaries.md` |",
+		"| Platform-neutral preview rules | Current Product/Catalog/Asset and Listing owners; old Task preview/platform are RETIRED; see `legacy-listing-preview-download-closure-retirement-boundary.md` |",
 		"| Legacy preview facade / task-result aggregation | EXTRACT valid behavior to the current Listing owner, then RETIRE the facade |",
 		"legacy-hard-cut-policy.md",
 		"depguard: listing_preview_platform_neutral",
@@ -331,7 +340,7 @@ func TestProjectBoundaryDocumentDefines1688SourceHandoffOwnership(t *testing.T) 
 	normalized := strings.Join(strings.Fields(string(content)), " ")
 	for _, phrase := range []string{
 		"internal/product must not import internal/listingkit, internal/compatibility, internal/crawler, or internal/integration",
-		"internal/integration/crawler/a1688 converts legacy crawler DTOs into adapter-local snapshots and internal/product/sourcing SourceEnvelope values",
+		"internal/integration/acquisition/a1688/browser and internal/integration/acquisition/browsercollector produce current internal/product/sourcing SourceEnvelope values",
 		"internal/compatibility/listingkit/sourcehandoff", "CURRENT STATE", "drain-only",
 		"internal/product/catalog", "internal/product/asset",
 		"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
@@ -1943,6 +1952,20 @@ func TestListingPreviewBoundaryDocumentTracksPlatformNeutralGuard(t *testing.T) 
 		t.Fatalf("read %s: %v", path, err)
 	}
 
+	current := strings.SplitN(string(content), "# Listing Preview Boundaries", 2)[0]
+	for _, phrase := range []string{
+		"SOURCE_RETIRED / SUPERSEDED EXECUTION AUTHORITY",
+		"legacy-listing-preview-download-closure-retirement-boundary.md",
+		"internal/product/catalog", "internal/product/asset", "internal/listing/record",
+		"retired-package import bans and source absence",
+		"depguard: listing_preview_platform_neutral",
+		"TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets",
+	} {
+		if !strings.Contains(current, phrase) {
+			t.Errorf("%s current supersession must mention %q", path, phrase)
+		}
+	}
+
 	required := []string{
 		"# Listing Preview Boundaries",
 		"project-boundaries.md",
@@ -1956,84 +1979,14 @@ func TestListingPreviewBoundaryDocumentTracksPlatformNeutralGuard(t *testing.T) 
 	}
 	for _, phrase := range required {
 		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so preview extraction keeps a stable platform-neutral boundary", path, phrase)
+			t.Errorf("%s must mention %q so the historical boundary and current retirement protection remain traceable", path, phrase)
 		}
 	}
 }
 
 func TestSelfServiceSubscriptionPurchaseContractLocksHardCutAndRecovery(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "self-service-subscription-purchase-contract.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	text := string(content)
-
-	for _, required := range []string{
-		"SUBSCRIPTION_PURCHASE",
-		"ZERO_PRICE",
-		"WALLET",
-		"Organization activation fence",
-		"RECONCILIATION_REQUIRED",
-		"ACTIVE_SUBSCRIPTION_EXISTS",
-		"PLAN_CHANGED",
-		"ReserveCommercialPurchase",
-		"release:<order_id>",
-		"commit:<order_id>",
-		"Hard-cut of the old subscription-management runtime",
-		"/api/v1/listing-kits/platform/subscriptions",
-		"/api/v1/listing-kits/platform/subscription-plans",
-		"PUT /api/v1/listing-kits/admin/subscription/entitlements/:module_code",
-	} {
-		if !strings.Contains(text, required) {
-			t.Errorf("%s must lock %q", path, required)
-		}
-	}
-
-	for _, required := range []string{
-		"browser never submits a term",
-		"runtime catalog is read-only",
-		"SyncDefaultCatalog",
-		"REJECTED_INSUFFICIENT_FUNDS",
-		"WalletReserveDecision",
-		"SubscriptionPurchaseRecoveryAuthorizer",
-		"pending_effect",
-		"terminal_intent",
-		"terminal_intent=CANCEL",
-		"`pending_effect` is empty; neither `RESERVE` nor `ACTIVATE` may already be",
-		"must also require `terminal_intent` to still be empty",
-		"even if the actor later regains",
-		"inUserIds     = [actor_id]",
-		"projectId     = configured project id",
-		"organizationId = order.organization_id",
-		"no offset-pagination fallback exists",
-		"Every not-yet-admitted `RESERVE` and every",
-		"a new exact provider-backed actor grant query",
-		"the earlier RESERVE admission or request-start LiveWrite identity cannot satisfy this check",
-		"### ZERO_PRICE execution",
-		"complete the live-reauth + order-CAS admission protocol for `pending_effect=ACTIVATE`",
-		"zero matching assignments -> authorization denied/revoked",
-		"provider state `STATE_ACTIVE`",
-		"known provider state `STATE_INACTIVE`",
-		"more than one matching assignment -> invalid/unavailable",
-		"wrong Organization/project/user, unknown/unsupported state, malformed roles",
-		"deactivate-then-restore does not revive an order",
-		"pending_effect=RESERVE",
-		"pending_effect=ACTIVATE",
-		"terminal_intent=CANCEL / AUTHORIZATION_REVOKED",
-		"ActivationRequestFingerprint",
-		"canonical activation request fingerprint",
-		"including actor",
-		"including actor and term",
-		"run one recovery sweep immediately after successful application assembly",
-		"repeat a bounded sweep every",
-		"long-lived",
-		"workbench.commercial.purchase",
-	} {
-		if !strings.Contains(text, required) {
-			t.Errorf("%s must retain self-service hard-cut boundary %q", path, required)
-		}
-	}
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "self-service-subscription-purchase-contract.md"), []string{"SUPERSEDED / RETIRED", "preserved historical evidence", "unified-base-prepaid-resources-v1", "legacy-subscription-metering-closure-retirement-boundary", "SUBSCRIPTION_PURCHASE", "RECONCILIATION_REQUIRED", "workbench.commercial.purchase"})
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "unified-base-prepaid-resources-v1.md"), []string{"server-owned offer", "immutable quote", "RESOURCE_PURCHASE", "CommercialPurchase", "internal/ledger/orgresource", "Store"})
 }
 func TestCommercialWalletBillingContractLocksCanonicalOwners(t *testing.T) {
 	path := filepath.Join("..", "docs", "architecture", "commercial-wallet-billing-contract.md")
@@ -2047,7 +2000,9 @@ func TestCommercialWalletBillingContractLocksCanonicalOwners(t *testing.T) {
 		"internal/ledger/money",
 		"internal/commercial/billing",
 		"internal/ledger/orgresource",
-		"internal/listingsubscription",
+		"SUPERSEDED / RETIRED",
+		"unified-base-prepaid-resources-v1",
+		"server-owned",
 		"commercial_order_item",
 		"Idempotency-Key",
 		"RECONCILIATION_REQUIRED",

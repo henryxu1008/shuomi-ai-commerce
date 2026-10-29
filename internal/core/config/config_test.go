@@ -4,15 +4,26 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// loadConfigFixture arranges synthetic YAML for the current configuration owner.
+func loadConfigFixture(t *testing.T, data []byte) (*Config, error) {
+	t.Helper()
+	v := newViper()
+	if len(data) > 0 {
+		if err := v.ReadConfig(strings.NewReader(string(data))); err != nil {
+			return nil, err
+		}
+	}
+	return loadWithViper(v)
+}
+
 func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
-	for _, name := range []string{"Processor", "Worker", "RabbitMQ", "Debug", "ListingControlPlane", "Updater", "Watermark"} {
+	for _, name := range []string{"Processor", "Worker", "RabbitMQ", "Debug", "ListingControlPlane", "Updater", "Watermark", "FeatureFlags", "Observability"} {
 		_, exists := reflect.TypeOf(Config{}).FieldByName(name)
 		assert.False(t, exists, "retired root %s", name)
 	}
@@ -20,12 +31,16 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 		_, exists := reflect.TypeOf(ListingKitConfig{}).FieldByName(name)
 		assert.False(t, exists, "retired ListingKit field %s", name)
 	}
-	platformType := reflect.TypeOf(PlatformConfig{})
+	platformType := reflect.TypeOf(PlatformsConfig{})
 	var names []string
 	for i := 0; i < platformType.NumField(); i++ {
 		names = append(names, platformType.Field(i).Name)
 	}
-	assert.ElementsMatch(t, []string{"HTTPClient"}, names)
+	assert.ElementsMatch(t, []string{"Alibaba1688"}, names)
+	for _, name := range []string{"SPAPI", "ConfigPaths"} {
+		_, exists := reflect.TypeOf(AmazonConfig{}).FieldByName(name)
+		assert.False(t, exists, "retired Amazon field %s", name)
+	}
 	v := viper.New()
 	setDefaults(v)
 	keys := v.AllKeys()
@@ -34,8 +49,14 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	}
 	for _, key := range keys {
 		normalized := strings.ToLower(key)
+		for _, prefix := range []string{"amazon.spapi", "amazon.configpaths", "platforms.temu", "platforms.shein"} {
+			assert.False(t, normalized == prefix || strings.HasPrefix(normalized, prefix+"."), "retired platform API default/env %s", key)
+		}
 		assert.False(t, normalized == "watermark" || strings.HasPrefix(normalized, "watermark."), "retired watermark default/env %s", key)
-		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger", "updater."} {
+		for _, prefix := range []string{"featureflags", "observability"} {
+			assert.False(t, normalized == prefix || strings.HasPrefix(normalized, prefix+"."), "retired host config default/env %s", key)
+		}
+		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger", "updater.", "logging.", "redis.", "prompts."} {
 			assert.False(t, strings.HasPrefix(normalized, strings.ToLower(prefix)), "retired default/env %s", key)
 		}
 		for _, field := range []string{"dataFreshnessDays", "productDedupe", "regionGuard", "concurrencyControl", "remoteAPI"} {
@@ -51,24 +72,23 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	}
 	for _, cfg := range []*Config{NewDefaultConfig(), BuildConfig(v)} {
 		cfg.OpenAI.APIKey = "fixture-key"
-		require.Empty(t, cfg.Validate(), "current defaults must not require retired worker/task inputs")
+		require.Empty(t, ValidateConfig(cfg), "current defaults must not require retired worker/task inputs")
 	}
 }
 
-func TestLoadFromBytesRetainsPlatformTransportLoginAndRetry(t *testing.T) {
-	cfg, err := LoadFromBytes([]byte(`
+func TestConfigFixtureRetains1688BrowserConfiguration(t *testing.T) {
+	cfg, err := loadConfigFixture(t, []byte(`
 openai:
   apiKey: fixture-key
 platforms:
-  shein:
-    httpClient:
-      timeout: 42
-      insecureSkipVerify: true
+  alibaba1688:
+    timeout: 42
+    poolSize: 5
 `))
 	require.NoError(t, err)
-	assert.Equal(t, 42*time.Second, cfg.Platforms.Shein.HTTPClient.Timeout)
-	assert.True(t, cfg.Platforms.Shein.HTTPClient.InsecureSkipVerify)
-	assert.Equal(t, 3, DefaultRetryConfig().MaxRetries)
+	assert.Equal(t, 42, cfg.Platforms.Alibaba1688.Timeout)
+	assert.Equal(t, 5, cfg.Platforms.Alibaba1688.PoolSize)
+
 }
 
 func TestBrowserConfigDefaults(t *testing.T) {
@@ -103,11 +123,6 @@ func TestAmazonConfigDefaults(t *testing.T) {
 	assert.Equal(t, 3, v.GetInt("amazon.riskControl.timeoutRecreateThreshold"))
 	assert.True(t, v.GetBool("amazon.qualityControl.retryOnValidationFailure"))
 	assert.Equal(t, 2, v.GetInt("amazon.qualityControl.validationRetryMaxAttempts"))
-	assert.False(t, v.GetBool("amazon.spapi.enabled"))
-	assert.Equal(t, "us-east-1", v.GetString("amazon.spapi.region"))
-	assert.Equal(t, "ATVPDKIKX0DER", v.GetString("amazon.spapi.defaultMarketplace"))
-	assert.Equal(t, "FBM", v.GetString("amazon.spapi.defaultFulfillmentType"))
-	assert.Equal(t, "New", v.GetString("amazon.spapi.defaultCondition"))
 }
 
 func TestAlibaba1688ConfigDefaults(t *testing.T) {
@@ -130,17 +145,6 @@ func TestConfigBuild(t *testing.T) {
 	v.Set("browser.randomConfig.presetName", "mac_high_end")
 	v.Set("amazon.enabled", true)
 	v.Set("platforms.alibaba1688.profileRootDir", "C:/task-processor-test/1688-profiles")
-	v.Set("platforms.temu.httpClient.insecureSkipVerify", true)
-	v.Set("platforms.sds.loginService.baseURL", "http://login:8000")
-	v.Set("platforms.sds.loginService.sharedKey", "sds-key")
-	v.Set("platforms.sds.loginService.tenantID", "1")
-	v.Set("platforms.sds.loginService.identifier", "869")
-	v.Set("platforms.sds.loginService.merchantName", "merchant")
-	v.Set("platforms.sds.loginService.username", "user")
-	v.Set("platforms.sds.loginService.password", "secret")
-	v.Set("platforms.sds.authRedis.host", "sds.redis")
-	v.Set("platforms.sds.authRedis.port", 6381)
-	v.Set("platforms.sds.authRedis.db", 9)
 	v.Set("openai.clients.image.model", "nanobanana")
 	v.Set("openai.clients.image.timeout", 180)
 	v.Set("openai.clients.image.apiStyle", "nanobanana")
@@ -154,18 +158,7 @@ func TestConfigBuild(t *testing.T) {
 	assert.Equal(t, "stable", cfg.Browser.RandomConfig.Strategy)
 	assert.Equal(t, "mac_high_end", cfg.Browser.RandomConfig.PresetName)
 	assert.True(t, cfg.Amazon.Enabled)
-	assert.True(t, cfg.Platforms.Temu.HTTPClient.InsecureSkipVerify)
 	assert.Equal(t, "C:/task-processor-test/1688-profiles", cfg.Platforms.Alibaba1688.ProfileRootDir)
-	assert.Equal(t, "http://login:8000", cfg.Platforms.SDS.LoginService.BaseURL)
-	assert.Equal(t, "sds-key", cfg.Platforms.SDS.LoginService.SharedKey)
-	assert.Equal(t, "1", cfg.Platforms.SDS.LoginService.TenantID)
-	assert.Equal(t, "869", cfg.Platforms.SDS.LoginService.Identifier)
-	assert.Equal(t, "merchant", cfg.Platforms.SDS.LoginService.MerchantName)
-	assert.Equal(t, "user", cfg.Platforms.SDS.LoginService.Username)
-	assert.Equal(t, "secret", cfg.Platforms.SDS.LoginService.Password)
-	assert.Equal(t, "sds.redis", cfg.Platforms.SDS.AuthRedis.Host)
-	assert.Equal(t, 6381, cfg.Platforms.SDS.AuthRedis.Port)
-	assert.Equal(t, 9, cfg.Platforms.SDS.AuthRedis.DB)
 	assert.Equal(t, "nanobanana", cfg.OpenAI.Clients["image"].Model)
 	assert.Equal(t, 180, cfg.OpenAI.Clients["image"].Timeout)
 	assert.Equal(t, "nanobanana", cfg.OpenAI.Clients["image"].APIStyle)
@@ -242,7 +235,7 @@ func TestConfigValidation(t *testing.T) {
 		},
 	}
 
-	errors := validConfig.Validate()
+	errors := ValidateConfig(validConfig)
 	assert.Empty(t, errors)
 
 	invalidConfig := &Config{
@@ -264,7 +257,7 @@ func TestConfigValidation(t *testing.T) {
 		},
 	}
 
-	errors = invalidConfig.Validate()
+	errors = ValidateConfig(invalidConfig)
 	assert.NotEmpty(t, errors)
 	assert.True(t, len(errors) >= 4)
 }

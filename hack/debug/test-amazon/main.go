@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"task-processor/internal/pkg/appenv"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/core/config"
 	"task-processor/internal/crawler/amazon"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 func main() {
@@ -32,7 +33,7 @@ func main() {
 		log.Fatalf("load config failed: %v", err)
 	}
 
-	processor := amazon.NewAmazonProcessor(cfg)
+	processor := amazon.NewAmazonProcessor(cfg, appenv.ComponentLoggers())
 	defer processor.Shutdown()
 
 	testURL := "https://www.amazon.com/dp/B0FHVPK4SL"
@@ -88,7 +89,7 @@ func main() {
 	}
 }
 
-func saveProductToFile(product *model.Product, filename string) error {
+func saveProductToFile(product *amazonresult.Product, filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("创建文件失败: %w", err)

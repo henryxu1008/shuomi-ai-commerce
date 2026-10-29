@@ -1,21 +1,24 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"encoding/json"
 	"sort"
 	"strings"
 
-	"task-processor/internal/core/logger"
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // CategoryExtractor 提取1688商品类目路径。
-type CategoryExtractor struct{}
+type CategoryExtractor struct {
+	loggerDependency
+}
 
-func NewCategoryExtractor() *CategoryExtractor {
-	return &CategoryExtractor{}
+func NewCategoryExtractor(logs func(string) *logrus.Entry) *CategoryExtractor {
+	return &CategoryExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 func (ce *CategoryExtractor) Extract(page playwright.Page, product *model.Product1688) error {
@@ -130,7 +133,7 @@ func (ce *CategoryExtractor) Extract(page playwright.Page, product *model.Produc
 		return candidates;
 	}`, nil)
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取商品类目失败: %v", err)
+		ce.componentLogger("crawler/alibaba1688").Debugf("提取商品类目失败: %v", err)
 		return err
 	}
 
@@ -139,7 +142,7 @@ func (ce *CategoryExtractor) Extract(page playwright.Page, product *model.Produc
 		return nil
 	}
 	product.Category = path
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到商品类目: %s", product.Category)
+	ce.componentLogger("crawler/alibaba1688").Debugf("提取到商品类目: %s", product.Category)
 	return nil
 }
 

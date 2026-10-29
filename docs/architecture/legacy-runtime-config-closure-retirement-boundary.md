@@ -1,3 +1,13 @@
+> #958 用户已确认本轮 [三组完整退休设计](legacy-idle-provider-bootstrap-closure-retirement-boundary.md) §1–§7（含 §6.1）：仅替代本文中 geminiimage 原生图片 SDK、runtimepath 安装命名辅助及 LoadFromBytes 正式入口的 KEEP。三组及专属尾部退出；19个有效配置测试改接现有 Viper/Build/Validate，当前 Google 文本/实际图像/采集及独立 SHEIN 登录与 Store 同步保持。无兼容入口，不操作历史运行资源；本文其余批准边界、原全文、计数与历史证据完整保留。
+
+> #301 / #939 **SOURCE_IMPLEMENTED / IN_REVIEW**：按[用户确认的旧全局配置与日志便利尾部完整闭包](legacy-global-config-logging-tail-closure-retirement-boundary.md) §1–§7/§4.1/§6.1整批退出旧core/config HTTP/Retry门面、根Logging/Redis/Prompts投影及其专属尾部，两个闲置日志方法及对应保活；仅准确替代本文涉及这些对象的广泛KEEP，不撤销整个Config/日志/Redis能力。有效加载/弃用日志仍消费platform/logging，完整inventory/CURRENT零改；RedisConfig类型、SHEIN私有配置/原生Redis/登录与Store同步、当前日志/Retry/HTTP/AI/图像/JSON/采集保持。port-forward仅去两条旧Redis建议输出，其余转发/参数/Pester和#357不改。原完整Git blob及历史/计数/批准/失败逐字保留为后缀；workflow/依赖/保护/既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。
+
+> #301 / #929 **SUPERSEDED，仅旧 SHEIN 品牌查询与错误分类闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-shein-brand-error-closure-retirement-boundary.md)。本文只有旧 authorizedbrand.ProductAPI/Resolver/Config、查询/匹配 helper、sherr 及 BrandItem/BrandListResponse 的保留或现役建议被准确替代；不重建已退的 Store/Task/API 调用。完整 Resolved/context、当前清理/草稿 JSON/有效规则、采集、独立 SHEIN 登录与 Store 同步及原 owner/claim/fence/UNKNOWN 保留。无生产 EXTRACT 或替代 Resolver，不改 workflow/完整 inventory，不操作既有实例/数据/凭据/进程，不增加试用前置；#301 OPEN。以下完整原文/顶注/历史数字/勾选/批准/证据逐字保留。
+
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
+> #301 / #917 精确替代：用户确认[旧配置加载与校验门面完整闭包 §1–§7/§6.1](legacy-config-facade-closure-retirement-boundary.md)后，本文 §5.2 对 loader.go 旧路径检查/日志、LoadConfigWithFallback、LoadAmazonCrawlerAPIConfigWithFallback/专属 helper、NewValidator/Validator 与 Config 校验方法形式的 KEEP 仅留作历史。四项有效聚合调用回到既有 ValidateConfig；LoadFromBytes/NewDefaultConfig、当前加载/env/scoped .env、六组规则/顺序/错误格式与身份/Workbench拒绝全部保留。只退休准确外壳，不改配置键值、其它 KEEP 或已有资源；独立 SHEIN 登录与 Store 同步保留，无新试用前置。
+
 # 旧数字任务与刊登专属配置：完整退休闭包设计
 
 > #872 后续精确收口：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)退休已失去最后消费者的 platform/queue/rabbitmq 包及 tests/test_config.yaml、数字 Store 代理两入口、四份 shein-listing-secret 源与 prod 专属装配，并清理 Updater 配置尾部。本文对此批准确对象的旧保留目标仅为历史；通用 RetryConfig、真实 workerpool、当前 config/采集/Store/独立 SHEIN 登录同步、共享 Namespace/base、middleware broker 声明及其它当前能力保持。没有实际实例/数据/Secret/队列操作；workflow、历史计数与原检查不改。

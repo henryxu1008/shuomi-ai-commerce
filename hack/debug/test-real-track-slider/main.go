@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"task-processor/internal/core/config"
 	alibaba1688 "task-processor/internal/crawler/alibaba1688"
+	"task-processor/internal/pkg/appenv"
 
 	"github.com/sirupsen/logrus"
 )
@@ -25,7 +26,7 @@ func main() {
 	cfg.Browser.Headless = false
 	fmt.Println()
 
-	processor := alibaba1688.NewAlibaba1688Processor(cfg)
+	processor := alibaba1688.NewAlibaba1688Processor(cfg, appenv.ComponentLoggers())
 	defer processor.Shutdown()
 
 	fmt.Println("测试URL: https://detail.1688.com/offer/722899324071.html")

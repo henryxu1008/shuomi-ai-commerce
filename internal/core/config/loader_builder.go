@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	topupconfig "task-processor/internal/integration/wallettopup/config"
-	logger "task-processor/internal/platform/logging"
 	"time"
 
 	"github.com/spf13/viper"
@@ -25,15 +24,6 @@ func BuildConfig(v *viper.Viper) *Config {
 
 	cfg := &Config{
 		StorageCapacity: v.GetBool("storageCapacity"),
-		FeatureFlags:    buildFeatureFlagsConfig(v),
-		Observability: ObservabilityConfig{
-			Tracing: TracingConfig{
-				Enabled:     v.GetBool("observability.tracing.enabled"),
-				ServiceName: v.GetString("observability.tracing.serviceName"),
-				Endpoint:    v.GetString("observability.tracing.endpoint"),
-				Insecure:    v.GetBool("observability.tracing.insecure"),
-			},
-		},
 		OpenAI: OpenAIConfig{
 			APIKey:  v.GetString("openai.apiKey"),
 			Model:   v.GetString("openai.model"),
@@ -42,19 +32,6 @@ func BuildConfig(v *viper.Viper) *Config {
 			Clients: buildOpenAIClients(v),
 		},
 		Platforms: PlatformsConfig{
-			Temu:  BuildPlatformConfig(v, "platforms.temu"),
-			Shein: BuildPlatformConfig(v, "platforms.shein"),
-			SDS: SDSPlatformConfig{
-				LoginService: BuildLoginServiceConfig(v, "platforms.sds.loginService"),
-				AuthRedis: RedisConfig{
-					Host:     v.GetString("platforms.sds.authRedis.host"),
-					Port:     v.GetInt("platforms.sds.authRedis.port"),
-					Password: v.GetString("platforms.sds.authRedis.password"),
-					DB:       v.GetInt("platforms.sds.authRedis.db"),
-					PoolSize: v.GetInt("platforms.sds.authRedis.pool_size"),
-				},
-				AuthBootstrap: BuildSDSAuthBootstrapConfig(v, "platforms.sds.authBootstrap"),
-			},
 			Alibaba1688: Alibaba1688Config{
 				Enabled:        v.GetBool("platforms.alibaba1688.enabled"),
 				Timeout:        v.GetInt("platforms.alibaba1688.timeout"),
@@ -188,33 +165,7 @@ func BuildConfig(v *viper.Viper) *Config {
 	}
 
 	cfg.Database = databaseConfigFromViper(v, "database")
-	cfg.CommercialDatabase = databaseConfigFromViper(v, "commercialDatabase")
 	cfg.CommercialOwnerDatabase = databaseConfigFromViper(v, "commercialOwnerDatabase")
-
-	if v.GetString("redis.host") != "" {
-		port := v.GetInt("redis.port")
-		if port == 0 {
-			port = 6379
-		}
-		poolSize := v.GetInt("redis.pool_size")
-		if poolSize == 0 {
-			poolSize = 10
-		}
-		cfg.Redis = &RedisConfig{
-			Host:     v.GetString("redis.host"),
-			Port:     port,
-			Password: v.GetString("redis.password"),
-			DB:       v.GetInt("redis.db"),
-			PoolSize: poolSize,
-		}
-	}
-
-	cfg.Logging = LoggingConfig{
-		Level:        v.GetString("logging.level"),
-		Format:       v.GetString("logging.format"),
-		File:         v.GetString("logging.file"),
-		SplitByLevel: buildSplitByLevelConfig(v),
-	}
 
 	return cfg
 }
@@ -235,22 +186,6 @@ func databaseConfigFromViper(v *viper.Viper, prefix string) *DatabaseConfig {
 	}
 }
 
-func buildFeatureFlagsConfig(v *viper.Viper) FeatureFlagsConfig {
-	const (
-		flagsConfigKey = "featureFlags.flags"
-		autoMigrateKey = "product-listing-runtime-auto-migrate"
-	)
-
-	rawFlags := v.GetStringMap(flagsConfigKey)
-	flags := make(map[string]bool, len(rawFlags)+1)
-	for key := range rawFlags {
-		flags[key] = v.GetBool(flagsConfigKey + "." + key)
-	}
-	flags[autoMigrateKey] = v.GetBool(flagsConfigKey + "." + autoMigrateKey)
-
-	return FeatureFlagsConfig{Flags: flags}
-}
-
 func legacyListingKitUsernameAllowlistConfigured(v *viper.Viper) bool {
 	const key = "listingkit.zitadel.allowedUsernames"
 	if v == nil {
@@ -267,19 +202,6 @@ func legacyListingKitUsernameAllowlistConfigured(v *viper.Viper) bool {
 		}
 	}
 	return false
-}
-
-func BuildHTTPClientConfig(v *viper.Viper, prefix string) HTTPClientConfig {
-	return HTTPClientConfig{
-		BaseURL:            v.GetString(prefix + ".baseURL"),
-		Timeout:            time.Duration(v.GetInt(prefix+".timeout")) * time.Second,
-		MaxRetries:         v.GetInt(prefix + ".maxRetries"),
-		RetryDelay:         time.Duration(v.GetInt(prefix+".retryDelay")) * time.Second,
-		MaxIdleConns:       v.GetInt(prefix + ".maxIdleConns"),
-		MaxConnsPerHost:    v.GetInt(prefix + ".maxConnsPerHost"),
-		InsecureSkipVerify: v.GetBool(prefix + ".insecureSkipVerify"),
-		Headers:            v.GetStringMapString(prefix + ".headers"),
-	}
 }
 
 func buildOpenAIClients(v *viper.Viper) map[string]OpenAIClientConfig {
@@ -335,49 +257,6 @@ func phoneVerificationExpiryMinutes(v *viper.Viper) int {
 		}
 	}
 	return -1
-}
-
-func buildSplitByLevelConfig(v *viper.Viper) []logger.LevelFileConfig {
-	raw := v.Get("logging.split_by_level")
-	if raw == nil {
-		return nil
-	}
-
-	list, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-
-	configs := make([]logger.LevelFileConfig, 0, len(list))
-	for _, item := range list {
-		m, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		cfg := logger.LevelFileConfig{
-			File: getStringFromMap(m, "file"),
-		}
-
-		if levelsRaw, ok := m["levels"]; ok {
-			switch values := levelsRaw.(type) {
-			case []any:
-				for _, level := range values {
-					if s, ok := level.(string); ok {
-						cfg.Levels = append(cfg.Levels, s)
-					}
-				}
-			case []string:
-				cfg.Levels = values
-			}
-		}
-
-		if cfg.File != "" && len(cfg.Levels) > 0 {
-			configs = append(configs, cfg)
-		}
-	}
-
-	return configs
 }
 
 func rolePolicyDatabase(v *viper.Viper) *DatabaseConfig {

@@ -3,7 +3,7 @@ package browser
 import "testing"
 
 func TestShouldRefreshAfterValidationFailure(t *testing.T) {
-	zs := NewZipcodeSetter(nil)
+	zs := NewZipcodeSetter(nil, nil)
 
 	if !zs.shouldRefreshAfterValidationFailure(assertionErr("temporary getter failure"), "") {
 		t.Fatal("验证报错时应触发下一轮刷新")

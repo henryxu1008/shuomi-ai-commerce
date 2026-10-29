@@ -2,7 +2,7 @@ package extractor
 
 import (
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -11,7 +11,7 @@ import (
 // BrandExtractor 品牌提取器
 type BrandExtractor struct{}
 
-func (e *BrandExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *BrandExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	if page != nil {
 		_, _ = page.WaitForSelector(strings.Join(brandSelectors(), ", "), playwright.PageWaitForSelectorOptions{
 			State:   playwright.WaitForSelectorStateAttached,

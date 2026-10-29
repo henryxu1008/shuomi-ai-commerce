@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	"task-processor/internal/agent"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 // ContentEvidenceForPrompt reuses the existing bounded, whole-field model view.
 // Unlike title-only input, it refuses to silently omit any selected value.
-func ContentEvidenceForPrompt(raw json.RawMessage, selection enrichment.ContentSelection) (json.RawMessage, error) {
+func ContentEvidenceForPrompt(raw json.RawMessage, selection reviewproposal.ContentSelection) (json.RawMessage, error) {
 	if !selection.Valid() {
 		return nil, agent.ErrInvalid
 	}

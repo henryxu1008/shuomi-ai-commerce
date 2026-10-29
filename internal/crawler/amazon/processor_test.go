@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	amazonbrowser "task-processor/internal/crawler/amazon/browser"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 )
 
 func TestAmazonProcessorProcessWithContextReturnsInitError(t *testing.T) {
@@ -31,7 +31,7 @@ func TestAmazonProcessorProcessBatchReturnsInitErrorForEveryRequest(t *testing.T
 		initErr: errors.New("初始化浏览器池失败: chromium launch failed"),
 	}
 
-	results := ap.ProcessBatch([]model.ProductRequest{
+	results := ap.ProcessBatchWithContext(context.Background(), []amazonresult.ProductRequest{
 		{URL: "https://www.amazon.com/dp/B001234567"},
 		{URL: "https://www.amazon.com/dp/B009876543"},
 	})
@@ -64,20 +64,6 @@ func TestAmazonProcessorProcessWithContextRequiresPoolManager(t *testing.T) {
 	}
 	if product != nil {
 		t.Fatalf("expected nil product, got %+v", product)
-	}
-}
-
-func TestAmazonProcessorPoolStatsIncludesInitError(t *testing.T) {
-	ap := &AmazonProcessor{
-		initErr: errors.New("初始化浏览器池失败: chromium launch failed"),
-	}
-
-	stats := ap.PoolStats()
-	if stats == nil {
-		t.Fatal("expected pool stats")
-	}
-	if stats["browser_pool_init_error"] != "初始化浏览器池失败: chromium launch failed" {
-		t.Fatalf("unexpected browser_pool_init_error: %#v", stats["browser_pool_init_error"])
 	}
 }
 

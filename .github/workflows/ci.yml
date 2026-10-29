@@ -76,6 +76,9 @@ jobs:
       - name: Test CI policy evaluators
         run: node --test .github/scripts/pr-scope-guard.test.cjs .github/scripts/ci-change-classifier.test.cjs
 
+      - name: Test source-only ListingKit image builds
+        run: node --test scripts/build-listingkit-images.test.mjs
+
   architecture-contracts:
     name: Architecture Contract Guards
     if: ${{ github.event_name == 'pull_request' }}
@@ -183,6 +186,9 @@ jobs:
       - name: Verify startup schema cancellation and request context isolation
         run: go test -race -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationStartupSchemaContextPostgres$' -count=1 -v
 
+      - name: Verify normal application Knowledge preclaim crash recovery
+        run: go test -race -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationKnowledgePreclaimCrashRecovery$' -count=1 -v -timeout 8m
+
       - name: Verify immutable settlement reversal concurrency
         run: go test -race -tags integration ./internal/integration/persistence/money -run '^(TestOrdinaryReversalPostgresRuntime|TestProviderTopUpPostgresConcurrentReceiptsAndZeroEarnings)$' -count=1 -v
 
@@ -193,7 +199,6 @@ jobs:
       - name: Build runtime commands
         run: |
           go build ./cmd/current-application
-          go build ./cmd/shein-login-worker
 
   frontend:
     name: Frontend Checks
@@ -242,14 +247,14 @@ jobs:
         run: pnpm build
 
   capture-extension:
-    name: 1688 Capture Extension Checks
+    name: Product Capture Extension Checks
     needs: changes
     if: ${{ github.event_name == 'push' || needs.changes.outputs.capture_extension == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: extensions/1688-capture
+        working-directory: extensions/product-capture
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -261,7 +266,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: extensions/1688-capture/package-lock.json
+          cache-dependency-path: extensions/product-capture/package-lock.json
 
       - name: Install extension dependencies
         run: npm ci
@@ -489,7 +494,7 @@ jobs:
               f"> Release Authority：`{os.environ.get('RELEASE_AUTHORITY_RESULT', 'unknown')}`",
               f"> Backend：`{backend}`",
               f"> Frontend：`{frontend}`",
-              f"> 1688 Capture Extension：`{os.environ.get('CAPTURE_EXTENSION_RESULT', 'unknown')}`",
+              f"> Product Capture Extension：`{os.environ.get('CAPTURE_EXTENSION_RESULT', 'unknown')}`",
               f"> Code Health：`{code_health}`",
               f"> Required CI Gate：`{required_gate}`",
               f"> 提交：`{sha[:7] if sha else '-'}`",

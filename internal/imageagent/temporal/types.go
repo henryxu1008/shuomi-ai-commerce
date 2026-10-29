@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -27,7 +26,6 @@ const (
 	TaskQueue                             = "image-agent-manual"
 	TaskQueueV3                           = "image-agent-manual-v3"
 	TaskQueueV3Canary                     = "image-agent-manual-v3-canary"
-	EnvTaskQueue                          = "IMAGE_AGENT_TEMPORAL_TASK_QUEUE"
 	workflowNameImageAgent                = "ImageAgentWorkflow"
 	workflowNameImageSlot                 = "ImageSlotWorkflow"
 	activityExecuteSlotLegacy             = "imageagent.execute_slot"
@@ -452,13 +450,6 @@ type ResumeCommandInput struct {
 
 type CommandAcknowledgement = imageagent.CommandAcknowledgement
 
-func TaskQueueName() string {
-	if configured := strings.TrimSpace(os.Getenv(EnvTaskQueue)); configured != "" {
-		return configured
-	}
-	return TaskQueue
-}
-
 func WorkflowID(tenantID, ownerUserID, runID string) string {
 	return fmt.Sprintf("image-agent:%s:%s:%s", strings.TrimSpace(tenantID), strings.TrimSpace(ownerUserID), strings.TrimSpace(runID))
 }
@@ -473,27 +464,6 @@ func publicationKey(runID string, revision int64) string {
 
 func childWorkflowID(input SlotWorkflowInput) string {
 	return fmt.Sprintf("%s:plan:%d:slot:%s:attempt:%d", scopedWorkflowID(input.Identity, input.RunID), input.PlanRevision, input.Slot.ID, input.Attempt)
-}
-
-// EffectRecoveryWorkflowID keeps the required Task 1 signature while still
-// encoding the spec-mandated run and slot identity. The combined string is
-// expected to be "<run-id>:<slot-id>" and is split on the last colon.
-func EffectRecoveryWorkflowID(identity imageagent.ExecutionIdentity, planRevision int64, runSlot string, attempt int) string {
-	runSlot = strings.TrimSpace(runSlot)
-	runID, slotID := runSlot, ""
-	if separator := strings.LastIndex(runSlot, ":"); separator >= 0 {
-		runID = strings.TrimSpace(runSlot[:separator])
-		slotID = strings.TrimSpace(runSlot[separator+1:])
-	}
-	return fmt.Sprintf(
-		"image-agent-effect-recovery:%s:%s:%s:%d:%s:%d",
-		strings.TrimSpace(identity.TenantID),
-		strings.TrimSpace(identity.UserID),
-		runID,
-		planRevision,
-		slotID,
-		attempt,
-	)
 }
 
 // EffectRecoveryWorkflowIDForSlot builds an ID from structured fields. Empty

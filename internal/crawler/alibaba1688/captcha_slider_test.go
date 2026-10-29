@@ -3,7 +3,6 @@ package alibaba1688
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 	"time"
 )
@@ -51,7 +50,7 @@ func TestWaitForManualSliderReturnsCancellationPromptly(t *testing.T) {
 	cancel()
 
 	started := time.Now()
-	result := NewCaptchaHandler().waitForManualSliderWithResult(ctx, nil)
+	result := NewCaptchaHandler(nil).waitForManualSliderWithResult(ctx, nil)
 
 	if !errors.Is(result.Error, context.Canceled) {
 		t.Fatalf("manual slider error = %v, want context.Canceled", result.Error)
@@ -62,7 +61,7 @@ func TestWaitForManualSliderReturnsCancellationPromptly(t *testing.T) {
 }
 
 func TestCalculateMathExpression(t *testing.T) {
-	handler := NewCaptchaHandler()
+	handler := NewCaptchaHandler(nil)
 
 	tests := []struct {
 		expression string
@@ -80,55 +79,5 @@ func TestCalculateMathExpression(t *testing.T) {
 		if got := handler.calculateMathExpression(tt.expression); got != tt.expected {
 			t.Errorf("calculateMathExpression(%q) = %q, want %q", tt.expression, got, tt.expected)
 		}
-	}
-}
-
-func TestComplexEasing(t *testing.T) {
-	handler := NewCaptchaHandler()
-
-	tests := []struct {
-		input     float64
-		expected  float64
-		tolerance float64
-	}{
-		{0, 0, 0.001},
-		{0.5, 0.455, 0.001},
-		{1, 1, 0.001},
-	}
-
-	for _, tt := range tests {
-		got := handler.complexEasing(tt.input)
-		if math.Abs(got-tt.expected) > tt.tolerance {
-			t.Errorf("complexEasing(%v) = %v, want %v (tolerance: %v)", tt.input, got, tt.expected, tt.tolerance)
-		}
-	}
-}
-
-func TestComplexEasingWithVariation(t *testing.T) {
-	handler := NewCaptchaHandler()
-
-	result := handler.complexEasingWithVariation(0.5)
-	if result < 0 || result > 1 {
-		t.Errorf("complexEasingWithVariation(0.5) = %v, expected between 0 and 1", result)
-	}
-}
-
-func TestStatisticsReset(t *testing.T) {
-	handler := NewCaptchaHandler()
-
-	handler.recordSuccess(CaptchaTypeSlider)
-	handler.recordFailure(CaptchaTypeImage)
-	handler.recordManual(CaptchaTypeText)
-
-	stats := handler.GetStatistics()
-	if stats.TotalCount == 0 {
-		t.Error("Expected TotalCount > 0 after recording events")
-	}
-
-	handler.ResetStatistics()
-	stats = handler.GetStatistics()
-
-	if stats.TotalCount != 0 || stats.SuccessCount != 0 || stats.FailedCount != 0 || stats.ManualCount != 0 {
-		t.Error("Expected all statistics to be reset to 0")
 	}
 }

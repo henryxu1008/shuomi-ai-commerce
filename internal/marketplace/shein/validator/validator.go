@@ -6,12 +6,12 @@ import (
 	policy "task-processor/internal/marketplace/shein/publishing"
 	workspace "task-processor/internal/marketplace/shein/workspace"
 	contract "task-processor/internal/marketplace/validator"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 // RuleVersion pins this composition and the transitive existing rules it calls.
 // Changes to those rules require re-evaluating and bumping this version.
-const RuleVersion = "shein.offline_package.v1.1"
+const RuleVersion = "shein.offline_package.v1.2"
 
 type Validator struct{}
 

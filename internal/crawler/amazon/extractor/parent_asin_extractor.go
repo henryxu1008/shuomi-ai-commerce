@@ -1,23 +1,27 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"regexp"
-	"task-processor/internal/core/logger"
-	"task-processor/internal/model"
+
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // ParentAsinExtractor 父级ASIN提取器
-type ParentAsinExtractor struct{}
+type ParentAsinExtractor struct {
+	loggerDependency
+}
 
 // NewParentAsinExtractor 创建父级ASIN提取器实例
-func NewParentAsinExtractor() *ParentAsinExtractor {
-	return &ParentAsinExtractor{}
+func NewParentAsinExtractor(logs func(string) *logrus.Entry) *ParentAsinExtractor {
+	return &ParentAsinExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取父级ASIN
-func (pae *ParentAsinExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (pae *ParentAsinExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	parentAsin := pae.getParentAsin(page)
 	product.ParentAsin = parentAsin
 	return nil
@@ -28,23 +32,23 @@ func (pae *ParentAsinExtractor) getParentAsin(page playwright.Page) string {
 	// 尝试从各种位置提取父级ASIN
 	parentAsin := pae.extractFromVariations(page)
 	if parentAsin != "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("从变体信息中找到父级ASIN: %s", parentAsin)
+		pae.componentLogger("crawler/amazon").Infof("从变体信息中找到父级ASIN: %s", parentAsin)
 		return parentAsin
 	}
 
 	parentAsin = pae.extractFromPageSource(page)
 	if parentAsin != "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("从页面源码中找到父级ASIN: %s", parentAsin)
+		pae.componentLogger("crawler/amazon").Infof("从页面源码中找到父级ASIN: %s", parentAsin)
 		return parentAsin
 	}
 
 	parentAsin = pae.extractFromMetadata(page)
 	if parentAsin != "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("从元数据中找到父级ASIN: %s", parentAsin)
+		pae.componentLogger("crawler/amazon").Infof("从元数据中找到父级ASIN: %s", parentAsin)
 		return parentAsin
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("未找到父级ASIN")
+	pae.componentLogger("crawler/amazon").Infof("未找到父级ASIN")
 	return ""
 }
 

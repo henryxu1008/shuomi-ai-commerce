@@ -2,10 +2,12 @@
 package alibaba1688
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"math"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 )
 
@@ -33,6 +35,8 @@ func newRequiredFieldsError(format string, args ...any) error {
 
 // ProductChecker 1688产品检查器
 type ProductChecker struct {
+	loggerDependency
+
 	// 敏感词列表
 	sensitiveWords []string
 	// 必需字段列表
@@ -40,8 +44,9 @@ type ProductChecker struct {
 }
 
 // NewProductChecker 创建新的产品检查器
-func NewProductChecker() *ProductChecker {
+func NewProductChecker(logs func(string) *logrus.Entry) *ProductChecker {
 	return &ProductChecker{
+		loggerDependency: loggerDependency{logFor: logs},
 		sensitiveWords: []string{
 			// 违禁词示例
 			"假货", "仿品", "高仿", "A货", "山寨",
@@ -92,7 +97,7 @@ func (pc *ProductChecker) ValidateProduct(product *model.Product1688) error {
 		return fmt.Errorf("图片验证失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("产品验证通过: %s", product.Title)
+	pc.componentLogger("crawler/alibaba1688").Debugf("产品验证通过: %s", product.Title)
 	return nil
 }
 
@@ -325,62 +330,4 @@ func (pc *ProductChecker) isValidImageURL(imageURL string) bool {
 	}
 
 	return false
-}
-
-// IsProductAvailable 检查产品是否可用（未下架、有库存等）
-func (pc *ProductChecker) IsProductAvailable(product *model.Product1688) bool {
-	// 检查基本信息是否完整
-	if product.Title == "" || product.MinPrice <= 0 {
-		return false
-	}
-
-	// 检查供应商信息
-	if product.Supplier.Name == "" {
-		return false
-	}
-
-	return true
-}
-
-// GetProductQualityScore 获取产品质量评分（0-100）
-func (pc *ProductChecker) GetProductQualityScore(product *model.Product1688) int {
-	score := 0
-
-	// 基础信息完整性 (30分)
-	if product.Title != "" {
-		score += 10
-	}
-
-	if len(product.Images) > 0 {
-		score += 10
-	}
-
-	// 价格信息完整性 (20分)
-	if product.MinPrice > 0 {
-		score += 10
-	}
-	if len(product.PriceRanges) > 0 {
-		score += 10
-	}
-
-	// 供应商信息质量 (30分)
-	if product.Supplier.Name != "" {
-		score += 10
-	}
-	if product.Supplier.IsGoldSupplier {
-		score += 10
-	}
-	if product.Supplier.IsVerified {
-		score += 10
-	}
-
-	// 商品详细信息 (20分)
-	if len(product.Specifications) > 0 {
-		score += 10
-	}
-	if product.SalesVolume > 0 {
-		score += 10
-	}
-
-	return score
 }

@@ -1,0 +1,10 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { buildAmazonCaptureRequest } from "./amazon-browser-capture";
+const key="22222222-2222-4222-8222-22222222222b";
+const body=readFileSync("../../internal/product/sourcing/testdata/amazon-capture-v2.json","utf8");
+beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));afterEach(()=>vi.unstubAllEnvs());
+function request(change?: (h:Headers)=>void,raw=body){const h=new Headers({origin:"http://localhost","sec-fetch-site":"same-origin",cookie:"shuomi_effective_organization=org-A","X-Expected-Organization-ID":"org-A","X-Expected-User-ID":"actor","X-Expected-Member-ID":"member-original","Idempotency-Key":key,"content-type":"application/json"});change?.(h);return new Request("http://localhost/api/workbench/sourcing/amazon/browser-captures",{method:"POST",headers:h,body:raw});}
+it("uses only the fixed receiver and server token",async()=>{const result=await buildAmazonCaptureRequest(request(),"private-token","actor");expect(result).not.toBeInstanceOf(Response);if(result instanceof Response)return;expect(result.url).toContain("/api/v1/workbench/sourcing/amazon/browser-captures");expect(new Headers(result.init.headers).get("Authorization")).toBe("Bearer private-token");expect(result.init.body).toBe(body);});
+it.each([(h:Headers)=>h.set("origin","https://evil.invalid"),(h:Headers)=>h.set("X-Expected-User-ID","other"),(h:Headers)=>h.set("X-Expected-Organization-ID","other"),(h:Headers)=>h.set("cookie","shuomi_effective_organization=org-A; shuomi_effective_organization=org-B")])("rejects context substitution",async change=>expect(await buildAmazonCaptureRequest(request(change),"token","actor")).toBeInstanceOf(Response));
+it("rejects duplicate fields before upstream",async()=>{expect(await buildAmazonCaptureRequest(request(undefined,body.replace('"captureVersion":2','"captureVersion":2,"captureVersion":2')),"token","actor")).toBeInstanceOf(Response);});

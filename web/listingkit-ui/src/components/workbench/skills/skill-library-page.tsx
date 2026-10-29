@@ -52,7 +52,7 @@ export function SkillLibraryPage({expectedUserId, category}: {expectedUserId: st
       presentation="page"/>;
   }
   return <ConsolePage className={`${introStyles.page} ${homeStyles.page} ${styles.libraryPage}`} title={current.label} description={<>{current.description}{category === "team" && organization && <span className={styles.organization}>当前企业：{organization.name}</span>}</>}
-    breadcrumbs={[{label: "智能市场", href: "/workbench/agents"}, {label: "技能库", href: root}, {label: current.label}]}>
+    breadcrumbs={[{label: "AI工作台", href: "/workbench/ai"}, {label: "技能库", href: root}, {label: current.label}]}>
     <nav className={styles.categories} aria-label="技能库分类">{categories.map(item => <Link key={item.id} href={item.path} prefetch={false} aria-label={item.label} aria-current={item.id === category ? "page" : undefined}>{item.label}</Link>)}</nav>
     {content}
     <aside className={styles.notes} aria-label={`${current.label}使用说明`}>{current.notes.map(([title, description]) => <Card key={title}><h2>{title}</h2><p>{description}</p></Card>)}</aside>

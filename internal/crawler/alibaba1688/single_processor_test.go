@@ -27,7 +27,7 @@ func TestSingleProcessorCreatesFreshPublicBrowserManagerPerAttempt(t *testing.T)
 }
 
 func TestClassifyProductValidationFailurePreservesMissingFieldsAndValidationKinds(t *testing.T) {
-	checker := NewProductChecker()
+	checker := NewProductChecker(nil)
 
 	tests := []struct {
 		name    string

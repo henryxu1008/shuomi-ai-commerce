@@ -25,7 +25,7 @@ database/Temporal history for each ordinary run and removes those resources in
 without that switch still starts from empty resources.
 
 Internal behavior is real: SRC-1 publication, REV-1 HTTP review/apply, the
-Organization ImageAgent PostgreSQL repository, Temporal workflow/activities,
+Organization ImageAgent typed Service commands, PostgreSQL repository, Temporal workflow/activities,
 current embedded ImagePolicy resolver, worker authorization, durable
 staging/publication, Product Asset,
 Store Center subscription/quota/audit/create, and DRAFT-S1 HTTP persistence.
@@ -34,8 +34,20 @@ loopback ZITADEL Authorization API, image capabilities, and immutable object
 storage. Material outputs plus authorization and image-capability invocation
 counts are asserted; no external network or provider call is made.
 
+The ImageAgent segment uses its current typed Start/Get/ApproveResults business
+commands with the actual published/applied Catalog values. Each control first
+uses the existing verifier, organization resolver and scoped read/write permission
+owner; the worker separately rechecks its grant. The old isolated HTTP application,
+Task launch/preflight and static binding map are retired. Concurrent first approvals
+lose their successful returns only after the durable command completes, then the
+original identity is rebuilt and replayed to prove one receipt and no duplicate
+provider/object publication. Review Apply and DRAFT keep their original HTTP loss
+cases. The separate current acquisition HTTP PostgreSQL test covers socket loss
+of an already-completed approval replay; that seeded Completed case is not proof
+of first commit, and the two layers are not a new full-HTTP acceptance claim.
+
 The recovery cases lose committed Review Apply, ImageAgent approval, and DRAFT
-responses. ImageAgent HTTP/worker and DRAFT are rebuilt after their respective
+returns/responses. ImageAgent Service/worker and DRAFT are rebuilt after their respective
 response losses before durable projection/receipt verification. Compose native
 command failures produce a non-zero process result and cannot emit final PASS.
 A Windows execution-level matrix covers a clean run, staged/unstaged/untracked

@@ -403,3 +403,77 @@ func TestAcquisitionMainImageBudgetAdmitsRealMainQuoteBeforeProvider(t *testing.
 	require.True(t, claimed)
 	require.Equal(t, imageagent.SlotBudgetReserved, attempt.BudgetStatus)
 }
+
+func TestAcquisitionImageJSONKeepsCurrentStrictBoundary(t *testing.T) {
+	const limit = 8192
+	prefix, suffix := `{"value":"`, `"}`
+	exact := prefix + strings.Repeat("x", limit-len(prefix)-len(suffix)) + suffix
+	for _, tc := range []struct {
+		name, body string
+		valid      bool
+	}{
+		{"exact limit", exact, true},
+		{"hidden overflow", `{"value":"ok"}` + strings.Repeat(" ", limit), false},
+		{"one over limit", prefix + strings.Repeat("x", limit-len(prefix)-len(suffix)+1) + suffix, false},
+		{"owner field", `{"value":"ok","tenant_id":"other"}`, false},
+		{"duplicate field", `{"value":"a","value":"b"}`, false},
+		{"invalid utf8", prefix + string([]byte{0xff}) + suffix, false},
+		{"trailing json", `{"value":"ok"}{}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.body))
+			r.Header.Set("Content-Type", "application/json")
+			var target struct {
+				Value string `json:"value"`
+			}
+			err := readAcquisitionImageJSON(r, &target)
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, imageagent.ErrValidation)
+			}
+		})
+	}
+}
+
+func TestAcquisitionImageCurrentRouteRejectsRetiredControlsBeforeStart(t *testing.T) {
+	const operationID = "d1abe8da-b381-4924-8d15-d79bdbfacf70"
+	identity := authidentity.AuthenticatedIdentity{TenantID: "org-a", EffectiveOrganizationID: "org-a", UserID: "actor-a", EffectiveMemberID: "member-a"}
+	for _, tc := range []struct {
+		name, query, body string
+		invalidIdentity   bool
+		status            int
+	}{
+		{"owner field", "", `{"sourceImageId":"catalog-image-3","tenant_id":"other"}`, false, 400},
+		{"old plan", "", `{"sourceImageId":"catalog-image-3","plan":{"revision":1}}`, false, 400},
+		{"duplicate source", "", `{"sourceImageId":"catalog-image-3","sourceImageId":"catalog-image-1"}`, false, 400},
+		{"query owner", "?tenant_id=other", `{"sourceImageId":"catalog-image-3"}`, false, 400},
+		{"missing original member", "", `{"sourceImageId":"catalog-image-3"}`, true, 403},
+		{"current input", "", `{"sourceImageId":"catalog-image-3"}`, false, 202},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service, sources := &acquisitionImageServiceSpy{}, &acquisitionImageCandidatesSpy{}
+			router := gin.New()
+			for _, route := range acquisitionImageRoutes(service, sources, &acquisitionImageApprovalReaderSpy{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }, acquisitionImagePublicURLs{}, acquisitionImageRouteOptions{Price: config.ImageAgentGenerationConfig{PriceVersion: "price-1", PointsPerImage: 12}}) {
+				router.Handle(route.Method, route.Path, route.Handler)
+			}
+			r := httptest.NewRequest(http.MethodPost, "/api/v1/workbench/sourcing/1688/acquisitions/"+operationID+"/main-image"+tc.query, strings.NewReader(tc.body))
+			id := identity
+			if tc.invalidIdentity {
+				id.EffectiveMemberID = ""
+			}
+			r = r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), id))
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Idempotency-Key", "30d26689-30b6-4358-b0f5-c310d7ab2e58")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r)
+			require.Equal(t, tc.status, w.Code, w.Body.String())
+			if tc.status != 202 {
+				require.Empty(t, service.starts)
+				require.Zero(t, sources.calls)
+			} else {
+				require.Len(t, service.starts, 1)
+			}
+		})
+	}
+}

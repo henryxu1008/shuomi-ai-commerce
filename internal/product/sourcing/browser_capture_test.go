@@ -19,6 +19,18 @@ func browserFixture(t *testing.T) []byte {
 	return body
 }
 
+func Test1688WireRejectsAmazonConditionFields(t *testing.T) {
+	var input map[string]any
+	if err := json.Unmarshal(browserFixture(t), &input); err != nil {
+		t.Fatal(err)
+	}
+	input["evidence"].(map[string]any)["variants"].([]any)[0].(map[string]any)["price"].(map[string]any)["condition"] = "used"
+	raw, _ := json.Marshal(input)
+	if _, err := ParseBrowserCapture(raw); err == nil {
+		t.Fatal("1688 accepted Amazon condition field")
+	}
+}
+
 const browserGoldenCanonical = `{"captureVersion":1,"evidence":{"schemaVersion":1,"sourceURL":"https://detail.1688.com/offer/981645030344.html","offerID":"981645030344","title":"棉质收纳袋","description":"可重复使用的棉质收纳袋。","attributes":[{"name":"材质","value":"棉"}],"variants":[{"sourceID":"99999999999999999999","sku":null,"title":null,"attributes":[{"name":"颜色","value":"蓝色"}],"price":{"amount":"1.23000001","currency":null,"minQuantity":null}}],"priceFacts":[{"amount":"12.34000001","currency":null,"minQuantity":"2"}],"images":[{"url":"https://cbu01.alicdn.com/img/ibank/fixture.jpg","role":"source"}],"capturedAt":"2026-09-12T00:00:00Z","contentSHA256":"69ea755f45b92880d8041c706dbd3fa77cff5b8143e021987faf0f1bdacdb6db","parserVersion":"1688-browser-dom/v2","warnings":[{"code":"MISSING_FACT","field":"priceFacts[0].currency"},{"code":"MISSING_FACT","field":"variants[0].sku"},{"code":"MISSING_FACT","field":"variants[0].price.currency"}],"missingFacts":[{"field":"priceFacts[0].currency","reason":"not_observed"},{"field":"variants[0].sku","reason":"not_observed"},{"field":"variants[0].price.currency","reason":"not_observed"}]}}`
 
 func TestBrowserCaptureCanonicalGolden(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
+	"task-processor/internal/pkg/appenv"
 	"task-processor/internal/product/collection"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
 	"task-processor/internal/shopdiagnosis"
@@ -203,6 +204,7 @@ type currentApplicationOptions struct {
 	imageAgents                  int
 	memberships                  int
 	browserCaptures              int
+	amazonBrowserCaptures        int
 	productAgent                 *ProductAgentDependencies
 	productAgents                int
 	aiWorkbench                  *AIWorkbenchDependencies
@@ -336,7 +338,7 @@ func defaultCurrentApplicationFactories(ctx context.Context, projectIDs ...strin
 			if !ok || resolver == nil {
 				return nil, errors.New("#36 local trial requires current workbench resolver")
 			}
-			return buildIssue36TrialModule(ctx, db, resolver, authorizer)
+			return buildIssue36TrialModule(ctx, db, resolver, authorizer, appenv.ComponentLoggers())
 		},
 		buildSourceAccount: func(db *gorm.DB, authorizer *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {
 			if err := sourceaccountstore.VerifyRuntimePermissions(ctx, db); err != nil {
@@ -673,6 +675,18 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, stores)
 		storeCatalogModule = stores
+		if configurable, ok := stores.(interface {
+			ConfigureBrowser(*storecenter.BrowserOperations) error
+		}); ok {
+			access := currentStoreMemberAuthorizer{authorizer: authorizer}
+			operations, err := storecenter.NewBrowserOperations(supplied.storeCenterDB, access, access, cfg.ListingKit.Zitadel.IssuerURL, time.Now)
+			if err != nil {
+				return nil, fmt.Errorf("build Store browser operations: %w", err)
+			}
+			if err := configurable.ConfigureBrowser(operations); err != nil {
+				return nil, err
+			}
+		}
 	}
 	var savedObservations *o.Service
 	if supplied.storeObservations > 0 {
@@ -722,7 +736,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetOperationsCockpitAvailable(true)
 		}
 	}
-	sms, err := buildZitadelSMSModule(ctx)
+	sms, err := buildZitadelSMSModule(ctx, appenv.ComponentLoggers()("zitadel-sms"))
 	if err != nil {
 		return nil, err
 	}
@@ -1126,6 +1140,20 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetProjectCenterAvailable(true)
 		}
 	}
+	if supplied.amazonBrowserCaptures > 1 || supplied.amazonBrowserCaptures > 0 && (supplied.productAcquisitionDB == nil || supplied.productCollections != 1) {
+		return nil, errors.New("amazon capture requires Product pool and Collection capability")
+	}
+	if supplied.amazonBrowserCaptures == 1 {
+		capabilities, _, err := collectionAcquisitionOptions([]bool{true, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0})
+		if err != nil {
+			return nil, err
+		}
+		amazon, err := buildAmazonCaptureModule(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, capabilities)
+		if err != nil {
+			return nil, err
+		}
+		modules = append(modules, amazon)
+	}
 	if factories.buildBrowserCapture != nil {
 		browser, err := factories.buildBrowserCapture(authorizer, *workbench.authDependencies)
 		if err != nil {
@@ -1214,44 +1242,45 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	fullSupply, privateDraftTrial := supplied.supplyRouteFeatures()
 	routeFeatures := currentApplicationOptionalRoutes{
-		StorageCapacity:     cfg.StorageCapacity,
-		ReportCenter:        supplied.reportCenterDB != nil,
-		OperationsCockpit:   supplied.operationsCockpits > 0,
-		AgentCustomization:  supplied.agentCustomizations > 0,
-		PrivateDraftTrial:   privateDraftTrial,
-		ToolMarket:          supplied.toolMarket != nil,
-		DataServices:        supplied.dataServices != nil,
-		Ecoservices:         supplied.ecoservices != nil,
-		SupplyChain:         fullSupply,
-		SourceMaterials:     supplied.sourceMaterials > 0,
-		AcquisitionPlans:    supplied.acquisitionPlans > 0,
-		CompletionDrafts:    supplied.supplyCompletionDrafts > 0,
-		SupplyMarket:        supplied.supplyMarkets > 0,
-		POD:                 supplied.pods > 0,
-		Collections:         supplied.productCollections > 0,
-		ProductSelection:    selectionRuntime != nil,
-		ShopDiagnosis:       diagnosisRuntime != nil,
-		NotificationCenter:  supplied.notifications > 0,
-		ZitadelSMS:          true,
-		StoreCenter:         supplied.storeCenters > 0,
-		TikTokShop:          supplied.officialStoreApplications.TikTokConfigured(),
-		StoreObservations:   supplied.storeObservations > 0,
-		LocalTrial:          supplied.localTrials > 0,
-		Knowledge:           supplied.knowledgeServices > 0,
-		OfficialKnowledge:   cfg.Workbench.Enabled,
-		AcquisitionImage:    factories.buildAcquisitionImage != nil,
-		FullImageSet:        imageRuntime != nil,
-		ProductAgent:        supplied.productAgent != nil,
-		ContentTitleOnly:    supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
-		ContentOnly:         supplied.productAgent != nil && supplied.productAgent.ContentOnly,
-		AIWorkbench:         supplied.aiWorkbench != nil,
-		ProjectCenter:       supplied.projectCenterDB != nil,
-		AgentConfiguration:  supplied.agentConfigurationDB != nil,
-		ModelRoutePricing:   supplied.modelRoutePricing != nil,
-		MemberPoints:        includeMemberPoints,
-		MemberResources:     includeMemberResources,
-		Resources:           includeResources,
-		SubjectVerification: factories.buildSubjectVerification != nil,
+		StorageCapacity:      cfg.StorageCapacity,
+		AmazonBrowserCapture: supplied.amazonBrowserCaptures == 1,
+		ReportCenter:         supplied.reportCenterDB != nil,
+		OperationsCockpit:    supplied.operationsCockpits > 0,
+		AgentCustomization:   supplied.agentCustomizations > 0,
+		PrivateDraftTrial:    privateDraftTrial,
+		ToolMarket:           supplied.toolMarket != nil,
+		DataServices:         supplied.dataServices != nil,
+		Ecoservices:          supplied.ecoservices != nil,
+		SupplyChain:          fullSupply,
+		SourceMaterials:      supplied.sourceMaterials > 0,
+		AcquisitionPlans:     supplied.acquisitionPlans > 0,
+		CompletionDrafts:     supplied.supplyCompletionDrafts > 0,
+		SupplyMarket:         supplied.supplyMarkets > 0,
+		POD:                  supplied.pods > 0,
+		Collections:          supplied.productCollections > 0,
+		ProductSelection:     selectionRuntime != nil,
+		ShopDiagnosis:        diagnosisRuntime != nil,
+		NotificationCenter:   supplied.notifications > 0,
+		ZitadelSMS:           true,
+		StoreCenter:          supplied.storeCenters > 0,
+		TikTokShop:           supplied.officialStoreApplications.TikTokConfigured(),
+		StoreObservations:    supplied.storeObservations > 0,
+		LocalTrial:           supplied.localTrials > 0,
+		Knowledge:            supplied.knowledgeServices > 0,
+		OfficialKnowledge:    cfg.Workbench.Enabled,
+		AcquisitionImage:     factories.buildAcquisitionImage != nil,
+		FullImageSet:         imageRuntime != nil,
+		ProductAgent:         supplied.productAgent != nil,
+		ContentTitleOnly:     supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
+		ContentOnly:          supplied.productAgent != nil && supplied.productAgent.ContentOnly,
+		AIWorkbench:          supplied.aiWorkbench != nil,
+		ProjectCenter:        supplied.projectCenterDB != nil,
+		AgentConfiguration:   supplied.agentConfigurationDB != nil,
+		ModelRoutePricing:    supplied.modelRoutePricing != nil,
+		MemberPoints:         includeMemberPoints,
+		MemberResources:      includeMemberResources,
+		Resources:            includeResources,
+		SubjectVerification:  factories.buildSubjectVerification != nil,
 	}
 	if err := validateCurrentApplicationRoutesInternal(bundle.routes, factories.buildAccountAudit != nil, factories.buildAcquisition != nil, cfg.Referrals.Enabled, factories.buildMembership != nil, includeAccountProfile, includeAccountAllocation, factories.buildBrowserCapture != nil, routeFeatures); err != nil {
 		return nil, err
@@ -1344,44 +1373,45 @@ func validateCurrentApplicationRoutesWithBrowserFeatures(routes []httproute.Desc
 }
 
 type currentApplicationOptionalRoutes struct {
-	StorageCapacity     bool
-	DataServices        bool
-	ReportCenter        bool
-	SupplyMarket        bool
-	POD                 bool
-	OperationsCockpit   bool
-	PrivateDraftTrial   bool
-	AgentCustomization  bool
-	ToolMarket          bool
-	Ecoservices         bool
-	SupplyChain         bool
-	SourceMaterials     bool
-	AcquisitionPlans    bool
-	CompletionDrafts    bool
-	Collections         bool
-	ProductSelection    bool
-	ShopDiagnosis       bool
-	NotificationCenter  bool
-	AgentConfiguration  bool
-	ModelRoutePricing   bool
-	Knowledge           bool
-	OfficialKnowledge   bool
-	StoreCenter         bool
-	TikTokShop          bool
-	StoreObservations   bool
-	LocalTrial          bool
-	Resources           bool
-	ZitadelSMS          bool
-	SubjectVerification bool
-	AcquisitionImage    bool
-	FullImageSet        bool
-	ProductAgent        bool
-	ContentTitleOnly    bool
-	ContentOnly         bool
-	AIWorkbench         bool
-	ProjectCenter       bool
-	MemberPoints        bool
-	MemberResources     bool
+	StorageCapacity      bool
+	AmazonBrowserCapture bool
+	DataServices         bool
+	ReportCenter         bool
+	SupplyMarket         bool
+	POD                  bool
+	OperationsCockpit    bool
+	PrivateDraftTrial    bool
+	AgentCustomization   bool
+	ToolMarket           bool
+	Ecoservices          bool
+	SupplyChain          bool
+	SourceMaterials      bool
+	AcquisitionPlans     bool
+	CompletionDrafts     bool
+	Collections          bool
+	ProductSelection     bool
+	ShopDiagnosis        bool
+	NotificationCenter   bool
+	AgentConfiguration   bool
+	ModelRoutePricing    bool
+	Knowledge            bool
+	OfficialKnowledge    bool
+	StoreCenter          bool
+	TikTokShop           bool
+	StoreObservations    bool
+	LocalTrial           bool
+	Resources            bool
+	ZitadelSMS           bool
+	SubjectVerification  bool
+	AcquisitionImage     bool
+	FullImageSet         bool
+	ProductAgent         bool
+	ContentTitleOnly     bool
+	ContentOnly          bool
+	AIWorkbench          bool
+	ProjectCenter        bool
+	MemberPoints         bool
+	MemberResources      bool
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
@@ -1541,6 +1571,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range currentStoreCenterRoutes {
 			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
 		}
+		for _, r := range currentStoreBrowserRoutes {
+			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
+		}
 	}
 	if optional.TikTokShop {
 		if !optional.StoreCenter {
@@ -1584,6 +1617,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			currentApplicationRoute{Method: http.MethodGet, Path: productAcquisitionBase + "/:operation_id"},
 			currentApplicationRoute{Method: http.MethodGet, Path: productAcquisitionBase + "/:operation_id/product"},
 		)
+	}
+	if optional.AmazonBrowserCapture {
+		for _, route := range amazonCaptureRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
+		}
 	}
 	if includeBrowser {
 		admitted = append(admitted,
@@ -1636,9 +1674,6 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		for _, r := range productReviewRoutes(nil, nil) {
-			if r.Method == http.MethodPost && r.Path == "/api/product/text-proposals" {
-				continue
-			}
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}

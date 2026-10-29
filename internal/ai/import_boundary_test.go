@@ -8,14 +8,12 @@ import (
 	"testing"
 
 	"task-processor/internal/ai"
-	"task-processor/internal/integration/geminiimage"
 	"task-processor/internal/integration/grsai"
 	"task-processor/internal/integration/openai"
 )
 
 var (
 	_ ai.ImageGenerator = (*openai.Client)(nil)
-	_ ai.ImageGenerator = (*geminiimage.Client)(nil)
 	_ ai.ImageGenerator = (*grsai.Client)(nil)
 )
 
@@ -26,7 +24,6 @@ func TestProviderAdaptersDoNotImportOpenAIForSharedContracts(t *testing.T) {
 	}
 	root := filepath.Dir(currentFile)
 	for _, relative := range []string{
-		filepath.Join("..", "integration", "geminiimage", "client.go"),
 		filepath.Join("..", "integration", "grsai", "client.go"),
 	} {
 		path := filepath.Join(root, relative)

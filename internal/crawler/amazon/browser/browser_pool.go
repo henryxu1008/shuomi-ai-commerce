@@ -2,11 +2,13 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"fmt"
 	"sync"
 	"task-processor/internal/core/config"
-	"task-processor/internal/core/logger"
+
 	sharedbrowser "task-processor/internal/crawler/shared/browser"
 )
 
@@ -33,6 +35,8 @@ type instanceRebuilder interface {
 
 // BrowserPool 浏览器池
 type BrowserPool struct {
+	loggerDependency
+
 	config               *config.Config
 	poolConfig           *BrowserPoolConfig
 	instances            []*BrowserInstance
@@ -45,18 +49,8 @@ type BrowserPool struct {
 	errorDetector        *ErrorDetector
 	riskPolicy           *riskPolicy
 	proxyPool            *sharedbrowser.ProxyPool
-	stats                *poolStats
 	shutdownOnce         sync.Once // 确保只关闭一次
 	closed               bool      // 标记是否已关闭
-}
-
-type poolStats struct {
-	mu                   sync.RWMutex
-	initFailureTotal     int64
-	syncRecreateSuccess  int64
-	syncRecreateFailure  int64
-	asyncRecreateSuccess int64
-	asyncRecreateFailure int64
 }
 
 // BrowserPoolConfig 浏览器池配置
@@ -82,30 +76,30 @@ func DefaultBrowserPoolConfig() *BrowserPoolConfig {
 }
 
 // NewBrowserPool 创建浏览器池
-func NewBrowserPool(cfg *config.Config, poolConfig *BrowserPoolConfig) *BrowserPool {
+func NewBrowserPool(cfg *config.Config, poolConfig *BrowserPoolConfig, logs func(string) *logrus.Entry) *BrowserPool {
 
 	if poolConfig.Size == 0 {
 		poolConfig.Size = 1 // 默认值
 	}
 
 	bp := &BrowserPool{
+		loggerDependency:     loggerDependency{logFor: logs},
 		config:               cfg,
 		poolConfig:           poolConfig,
 		instances:            make([]*BrowserInstance, 0, poolConfig.Size),
 		available:            make(chan *BrowserInstance, poolConfig.Size),
 		useRandomFingerprint: poolConfig.UseRandomFingerprint,
-		stats:                &poolStats{},
 	}
 
 	// 如果启用随机指纹，初始化指纹生成器
 	if bp.useRandomFingerprint {
 		bp.fingerprintGen = sharedbrowser.NewFingerprintGenerator()
-		logger.GetGlobalLogger("crawler/amazon").Info("浏览器池启用随机指纹生成")
+		componentLogger(logs, "crawler/amazon").Info("浏览器池启用随机指纹生成")
 	}
 
 	// 初始化各个管理器
-	bp.instanceManager = NewInstanceManager(bp)
-	bp.healthChecker = NewHealthChecker(bp)
+	bp.instanceManager = NewInstanceManager(bp, logs)
+	bp.healthChecker = NewHealthChecker(bp, logs)
 	bp.errorDetector = NewErrorDetector()
 	bp.riskPolicy = newRiskPolicy(cfg, bp.errorDetector)
 	bp.proxyPool = newProxyPool(cfg)
@@ -121,13 +115,12 @@ func (bp *BrowserPool) Initialize() error {
 		poolSize = 1 // 默认值
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("初始化浏览器池，大小: %d", poolSize)
+	bp.componentLogger("crawler/amazon").Infof("初始化浏览器池，大小: %d", poolSize)
 
 	for i := 0; i < poolSize; i++ {
 		instance, err := bp.instanceManager.CreateInstance(i)
 		if err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Infof("创建浏览器实例 %d 失败: %v", i, err)
-			bp.recordInitFailure()
+			bp.componentLogger("crawler/amazon").Infof("创建浏览器实例 %d 失败: %v", i, err)
 			// 清理已创建的实例
 			bp.Shutdown()
 			return fmt.Errorf("初始化浏览器池失败: %w", err)
@@ -136,10 +129,10 @@ func (bp *BrowserPool) Initialize() error {
 		bp.instances = append(bp.instances, instance)
 		bp.available <- instance
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("浏览器实例 %d 创建成功", i)
+		bp.componentLogger("crawler/amazon").Infof("浏览器实例 %d 创建成功", i)
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("浏览器池初始化完成，共 %d 个实例", len(bp.instances))
+	bp.componentLogger("crawler/amazon").Infof("浏览器池初始化完成，共 %d 个实例", len(bp.instances))
 
 	// 启动健康检查例程 - 使用长期运行的context
 	if bp.poolConfig.HealthCheckEnabled {
@@ -166,7 +159,7 @@ func (bp *BrowserPool) Acquire() (*BrowserInstance, error) {
 	instance.Mu.Lock()
 	instance.InUse = true
 	instance.Mu.Unlock()
-	logger.GetGlobalLogger("crawler/amazon").Infof("获取浏览器实例 %d", instance.ID)
+	bp.componentLogger("crawler/amazon").Infof("获取浏览器实例 %d", instance.ID)
 	return instance, nil
 }
 
@@ -190,15 +183,15 @@ func (bp *BrowserPool) Release(instance *BrowserInstance) {
 	bp.Mu.Lock()
 	if bp.closed || bp.available == nil {
 		bp.Mu.Unlock()
-		logger.GetGlobalLogger("crawler/amazon").Infof("浏览器池已关闭，无法释放实例 %d", instance.ID)
+		bp.componentLogger("crawler/amazon").Infof("浏览器池已关闭，无法释放实例 %d", instance.ID)
 		return
 	}
 	bp.Mu.Unlock()
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("释放浏览器实例 %d", instance.ID)
+	bp.componentLogger("crawler/amazon").Infof("释放浏览器实例 %d", instance.ID)
 
 	if rotateAfterUse {
-		logger.GetGlobalLogger("crawler/amazon").Infof("浏览器实例 %d 已完成 %d 次任务，触发轮换重建", instance.ID, usageCount)
+		bp.componentLogger("crawler/amazon").Infof("浏览器实例 %d 已完成 %d 次任务，触发轮换重建", instance.ID, usageCount)
 		bp.instanceManager.RecreateInstanceAsync(instance)
 		return
 	}
@@ -209,7 +202,7 @@ func (bp *BrowserPool) Release(instance *BrowserInstance) {
 		// 成功释放
 	default:
 		// 通道已满或已关闭，忽略
-		logger.GetGlobalLogger("crawler/amazon").Warnf("无法释放浏览器实例 %d，通道可能已满或已关闭", instance.ID)
+		bp.componentLogger("crawler/amazon").Warnf("无法释放浏览器实例 %d，通道可能已满或已关闭", instance.ID)
 	}
 }
 
@@ -231,20 +224,20 @@ func (bp *BrowserPool) ReleaseWithError(instance *BrowserInstance, err error) {
 	bp.Mu.Lock()
 	if bp.closed {
 		bp.Mu.Unlock()
-		logger.GetGlobalLogger("crawler/amazon").Infof("浏览器池已关闭，无法释放实例 %d", instance.ID)
+		bp.componentLogger("crawler/amazon").Infof("浏览器池已关闭，无法释放实例 %d", instance.ID)
 		return
 	}
 	bp.Mu.Unlock()
 
 	// 检测是否为风控或严重错误
 	if bp.ShouldRecreateAfterFailure(instance, err) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("检测到浏览器实例 %d 被风控或出现严重错误: %v", instance.ID, err)
+		bp.componentLogger("crawler/amazon").Infof("检测到浏览器实例 %d 被风控或出现严重错误: %v", instance.ID, err)
 		bp.instanceManager.RecreateInstanceAsync(instance)
 		return
 	}
 
 	if rotateAfterUse {
-		logger.GetGlobalLogger("crawler/amazon").Infof("浏览器实例 %d 已完成 %d 次任务，错误释放后触发轮换重建", instance.ID, usageCount)
+		bp.componentLogger("crawler/amazon").Infof("浏览器实例 %d 已完成 %d 次任务，错误释放后触发轮换重建", instance.ID, usageCount)
 		bp.instanceManager.RecreateInstanceAsync(instance)
 		return
 	}
@@ -254,7 +247,7 @@ func (bp *BrowserPool) ReleaseWithError(instance *BrowserInstance, err error) {
 	case bp.available <- instance:
 		// 成功释放
 	default:
-		logger.GetGlobalLogger("crawler/amazon").Warnf("无法释放浏览器实例 %d，通道可能已满或已关闭", instance.ID)
+		bp.componentLogger("crawler/amazon").Warnf("无法释放浏览器实例 %d，通道可能已满或已关闭", instance.ID)
 	}
 }
 
@@ -292,7 +285,7 @@ func (bp *BrowserPool) RecreateInstanceAsync(oldInstance *BrowserInstance) {
 // Shutdown 关闭浏览器池
 func (bp *BrowserPool) Shutdown() {
 	bp.shutdownOnce.Do(func() {
-		logger.GetGlobalLogger("crawler/amazon").Info("关闭浏览器池...")
+		bp.componentLogger("crawler/amazon").Info("关闭浏览器池...")
 
 		bp.Mu.Lock()
 		defer bp.Mu.Unlock()
@@ -316,7 +309,7 @@ func (bp *BrowserPool) Shutdown() {
 			bp.available = nil
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Info("浏览器池已关闭")
+		bp.componentLogger("crawler/amazon").Info("浏览器池已关闭")
 	})
 }
 
@@ -376,7 +369,7 @@ func (bp *BrowserPool) AcquireProxy(instanceID int) string {
 	if proxyServer == "" {
 		return ""
 	}
-	logProxyAssigned(instanceID, proxyServer, bp.config.Amazon.ProxyPool.Strategy)
+	logProxyAssigned(instanceID, proxyServer, bp.config.Amazon.ProxyPool.Strategy, bp.logFor)
 	return proxyServer
 }
 
@@ -388,91 +381,7 @@ func (bp *BrowserPool) markProxyFailure(instance *BrowserInstance) {
 		return
 	}
 	bp.proxyPool.MarkFailure(instance.CurrentProxy)
-	logProxyCooldown(instance.CurrentProxy, bp.config.Amazon.ProxyPool.FailureCooldownSeconds)
-}
-
-func (bp *BrowserPool) ProxyStats() map[string]any {
-	if bp == nil || bp.proxyPool == nil {
-		return nil
-	}
-	return bp.proxyPool.Snapshot()
-}
-
-func (bp *BrowserPool) PoolStats() map[string]any {
-	if bp == nil {
-		return nil
-	}
-
-	stats := map[string]any{}
-	if bp.healthChecker != nil {
-		for key, value := range bp.healthChecker.GetPoolStats() {
-			stats[key] = value
-		}
-	}
-	if len(stats) == 0 {
-		stats["total_instances"] = 0
-		stats["available_instances"] = 0
-		stats["in_use_instances"] = 0
-		stats["healthy_instances"] = 0
-	}
-
-	if bp.poolConfig != nil {
-		stats["configured_pool_size"] = bp.poolConfig.Size
-		stats["max_instance_uses"] = bp.poolConfig.MaxInstanceUses
-	}
-
-	if bp.stats != nil {
-		bp.stats.mu.RLock()
-		stats["pool_init_failure_total"] = bp.stats.initFailureTotal
-		stats["pool_sync_recreate_success_total"] = bp.stats.syncRecreateSuccess
-		stats["pool_sync_recreate_failure_total"] = bp.stats.syncRecreateFailure
-		stats["pool_async_recreate_success_total"] = bp.stats.asyncRecreateSuccess
-		stats["pool_async_recreate_failure_total"] = bp.stats.asyncRecreateFailure
-		bp.stats.mu.RUnlock()
-	}
-
-	if manager, ok := bp.instanceManager.(*InstanceManager); ok && manager != nil {
-		stats["pool_active_rebuild_total"] = manager.ActiveRebuildCount()
-	} else {
-		stats["pool_active_rebuild_total"] = 0
-	}
-
-	return stats
-}
-
-func (bp *BrowserPool) recordInitFailure() {
-	if bp == nil || bp.stats == nil {
-		return
-	}
-	bp.stats.mu.Lock()
-	defer bp.stats.mu.Unlock()
-	bp.stats.initFailureTotal++
-}
-
-func (bp *BrowserPool) recordSyncRecreateResult(success bool) {
-	if bp == nil || bp.stats == nil {
-		return
-	}
-	bp.stats.mu.Lock()
-	defer bp.stats.mu.Unlock()
-	if success {
-		bp.stats.syncRecreateSuccess++
-		return
-	}
-	bp.stats.syncRecreateFailure++
-}
-
-func (bp *BrowserPool) recordAsyncRecreateResult(success bool) {
-	if bp == nil || bp.stats == nil {
-		return
-	}
-	bp.stats.mu.Lock()
-	defer bp.stats.mu.Unlock()
-	if success {
-		bp.stats.asyncRecreateSuccess++
-		return
-	}
-	bp.stats.asyncRecreateFailure++
+	logProxyCooldown(instance.CurrentProxy, bp.config.Amazon.ProxyPool.FailureCooldownSeconds, bp.logFor)
 }
 
 func (bp *BrowserPool) markInstanceUsed(instance *BrowserInstance) (bool, int) {

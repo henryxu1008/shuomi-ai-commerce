@@ -136,3 +136,86 @@ func TestCancelReplayKeepsOriginal(t *testing.T) {
 		t.Fatalf("replay %v %v", replay, err)
 	}
 }
+
+type createDeliveryConflictStore struct {
+	*testStore
+	persisted, rejectCreate bool
+	conflict                string
+	creates, claims         int
+}
+
+func (s *createDeliveryConflictStore) Read(ctx context.Context, id string) (Invitation, error) {
+	if !s.persisted {
+		return Invitation{}, ErrNotFound
+	}
+	return s.testStore.Read(ctx, id)
+}
+func (s *createDeliveryConflictStore) Create(_ context.Context, inv Invitation) (Invitation, bool, error) {
+	s.creates++
+	if s.rejectCreate {
+		return Invitation{}, false, ErrConflict
+	}
+	s.inv = inv
+	s.persisted = true
+	return inv, false, nil
+}
+func (s *createDeliveryConflictStore) ClaimDelivery(_ context.Context, _ string, attempt string, now time.Time) (Invitation, error) {
+	s.claims++
+	if s.conflict == "cancelled" {
+		s.inv.State = Cancelled
+		s.inv.Revision++
+	} else {
+		s.inv.DeliveryState = "sending"
+		s.inv.DeliveryAttempt = attempt
+		s.inv.DeliveryAttempts++
+		s.inv.DeliveryUpdatedAt = &now
+	}
+	return s.inv, ErrConflict
+}
+
+func TestCreatePersistedDeliveryConflictKeepsOriginalRecovery(t *testing.T) {
+	for _, conflict := range []string{"cancelled", "sending"} {
+		t.Run(conflict, func(t *testing.T) {
+			s, ctx, base, _ := fixture()
+			store := &createDeliveryConflictStore{testStore: base, conflict: conflict}
+			s.Store = store
+			notices := 0
+			s.Notify = func(context.Context, Invitation) error { notices++; return nil }
+			key := uuid.NewString()
+			_, err := s.Create(ctx, key, "new@example.test", "listingkit_viewer")
+			if !errors.Is(err, ErrUnavailable) || errors.Is(err, ErrConflict) {
+				t.Fatalf("persisted invitation must remain unconfirmed, not rejected: %v", err)
+			}
+			stored := store.inv
+			recovered, err := s.Create(ctx, key, "new@example.test", "listingkit_viewer")
+			if err != nil || recovered.ID != key || recovered.Fingerprint != stored.Fingerprint || recovered.State != stored.State || recovered.DeliveryState != stored.DeliveryState || recovered.Revision != stored.Revision {
+				t.Fatalf("original receipt was not recovered: got=%+v stored=%+v err=%v", recovered, stored, err)
+			}
+			if store.creates != 1 || store.claims != 1 || notices != 0 {
+				t.Fatalf("recovery redispatched: creates=%d claims=%d notices=%d", store.creates, store.claims, notices)
+			}
+		})
+	}
+}
+
+func TestCreatePrePersistenceConflictRemainsRejected(t *testing.T) {
+	s, ctx, base, _ := fixture()
+	store := &createDeliveryConflictStore{testStore: base, rejectCreate: true}
+	s.Store = store
+	s.Notify = func(context.Context, Invitation) error { t.Fatal("rejected create sent mail"); return nil }
+	_, err := s.Create(ctx, uuid.NewString(), "duplicate@example.test", "listingkit_viewer")
+	if !errors.Is(err, ErrConflict) || store.persisted || store.claims != 0 {
+		t.Fatalf("pre-persistence refusal changed: err=%v persisted=%v claims=%d", err, store.persisted, store.claims)
+	}
+}
+
+func TestResendDeliveryConflictRemainsConflict(t *testing.T) {
+	s, ctx, base, _ := fixture()
+	store := &createDeliveryConflictStore{testStore: base, persisted: true, conflict: "sending"}
+	s.Store = store
+	s.Notify = func(context.Context, Invitation) error { t.Fatal("conflicting resend sent mail"); return nil }
+	_, err := s.Resend(ctx, store.inv.ID)
+	if !errors.Is(err, ErrConflict) || store.creates != 0 || store.claims != 1 {
+		t.Fatalf("resend contract changed: err=%v creates=%d claims=%d", err, store.creates, store.claims)
+	}
+}

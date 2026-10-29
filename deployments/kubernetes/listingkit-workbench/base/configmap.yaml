@@ -17,18 +17,6 @@ data:
   # ImageAgent runs, so tasks blocked on approved assets can recover.
   TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ENABLED: "true"
   TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ALLOWED_TENANT_IDS: "373211199677923496"
-  # Kubernetes Pods do not have an X server. SDS browser login must run
-  # headlessly unless a dedicated interactive browser environment is provided.
-  TASK_PROCESSOR_SDS_LOGIN_SERVICE_DEFAULT_HEADLESS: "true"
-  # SHEIN has a dedicated login runtime. Keep its browser mode explicit rather
-  # than inheriting an image-level default.
-  TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_DEFAULT_HEADLESS: "true"
-  # Kubernetes login workers do not run an X server. Reject headed overrides
-  # from stale clients and keep browser startup deterministic.
-  TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_FORCE_HEADLESS: "true"
-  # Run SHEIN browser sessions in the dedicated Worker so the API process does
-  # not own long-lived browser profiles or verification-code waits.
-  TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_EXECUTION_MODE: "worker"
   # ImageAgent durable artifacts and ListingKit manual uploads have separate
   # typed owners even when this deployment deliberately points both at one bucket.
   TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_PROVIDER: "s3"

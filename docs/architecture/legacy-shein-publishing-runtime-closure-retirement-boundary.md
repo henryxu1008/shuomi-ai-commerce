@@ -1,3 +1,17 @@
+> #301 / #968 当前 owner 校准（[本批确认设计](legacy-shein-draft-support-closure-retirement-boundary.md) §1–§7，含 §4.2/§6.1）：四个旧包 `internal/shein/api/product`、`api/attribute`、`content`、`authorizedbrand` 及专属 adapter/Context 尾部完整退出。当前22个真实 wire 值归域内 `internal/marketplace/shein/offlinepackage/previewdata`，有效默认/custom文本与品牌清理归现有 `marketplace/shein/publishing` 纯规则，draft 显式传值；无 alias、Service 包装、品牌查询或新事实源。当前字段/JSON/hash/版本、严格解码、Builder取消/ApprovedAsset、采集及独立SHEIN登录/Store同步保持。历史 KEEP 仅在本批准确范围内被此说明替代；以下原全文/计数/勾选/证据完整保留，不恢复旧 owner，不授权运行或数据操作。
+
+> #301 / #961 精确替代顶注：按[legacy-publishing-support-policy-closure-retirement-boundary.md §1–§7（含§4.2/§6.1）](legacy-publishing-support-policy-closure-retirement-boundary.md)，旧 publishing/common 与 jsonx 根、十一闲置 SHEIN 策略族及三个混合策略尾部已在源码完整退出。当前八值合同分归已有 offlinepackage / publishing.Price，本地组装纯行为归 draft；本批表列 KEEP 由该设计矩阵精确替代，其它当前能力/JSON/hash算法/版本/事实owner及独立SHEIN登录与Store同步保持。仅未来新多属性数组固定按原始名排序，不重写已有载荷。以下原文、数字、勾选与历史证据逐字保留，不作为恢复旧owner或运行操作的授权。
+
+> #960 当前替代边界（仅本轮）：本文件历史 KEEP 中的旧 `internal/publishing/shein` 草稿 owner、扩展端口及私有赋值状态，现由[完整闭包设计](legacy-shein-draft-assembly-closure-retirement-boundary.md) §2/§4/§5 的矩阵精确替代。当前值/严格 codec/离线纯规则归 `internal/marketplace/shein/offlinepackage`，本地确定性组装归已有 `draft.Builder`，原平台规则/content/common 直接复用；旧 resolver、AI 扩展、可选注入、setter/alias 和四私有 map 不保留。当前 JSON/hash/绑定版本、有效规则及独立 SHEIN 登录与 Store 同步保持；无运行/数据/凭据操作或试用新前置。以下原完整正文、历史数字/勾选和证据逐字保留。
+
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
+> #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。
+
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中generationtopics/namelimit 与本批价格/活动/属性辅助的 KEEP；当前草稿严格解码、版本及有效规则保持及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
+> #301 / #904 用户确认的[完整 JSON 别名退休设计](legacy-shein-draft-json-alias-retirement-v1.md) §5/§6.1 仅替代本文三旧 Package 字段、回填/镜像/custom JSON、summary-only SKU 就绪回退及旧绑定/规则版本的 KEEP 或双输出要求。当前仅 canonical 字段，typed v1.2 / diagnostic v2.2 / binding go-json.v2；当前类型、有效规则、严格解码、原持久化 owner、独立 SHEIN 登录与 Store 同步保留。不迁移已有记录、不改 workflow/inventory、不增加试用前置。以下历史正文原样保留。
+
 # 旧 SHEIN Publishing 运行适配、解析器与提交恢复完整闭包退休边界
 
 > #833 [旧数字内容配置完整闭包](legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。

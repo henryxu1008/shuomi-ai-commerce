@@ -20,7 +20,7 @@ func TestIssue36ListingRoutesUseExistingSharedStoreBoundary(t *testing.T) {
 	require.NoError(t, fixture.db.Exec(string(schema)).Error)
 	authorizer, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	routes, reader, err := buildLocalTrialListingRoutes(fixture.db, authorizer)
+	routes, reader, err := buildLocalTrialListingRoutes(fixture.db, authorizer, nil)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 	want := map[currentApplicationRoute]struct{}{

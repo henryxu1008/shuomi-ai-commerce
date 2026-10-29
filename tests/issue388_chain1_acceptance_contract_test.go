@@ -26,8 +26,12 @@ func TestIssue388Chain1AcceptanceAssemblyContract(t *testing.T) {
 	assembly := harness + orchestrationDriver
 	for _, required := range []string{
 		"productsourcing.NewInternalProducer",
-		"NewProductReviewApplication",
-		"NewImageAgentOrganizationApplication",
+		"candidateReviewFixtureApplication",
+		"imageagent.NewService(",
+		"imageagent.WithOrganizationScope()",
+		"imageService.Start(",
+		"imageService.ApproveResults(",
+		"authz.AuthorizeOrganization(",
 		"imageagenttemporal.NewOrganizationClient",
 		"imageagenttemporal.NewWorker",
 		"WorkerWireModeOrganization",
@@ -38,6 +42,18 @@ func TestIssue388Chain1AcceptanceAssemblyContract(t *testing.T) {
 	} {
 		require.Contains(t, assembly, required, "#388 must compose the current owner %s", required)
 	}
+	for _, retired := range []string{"NewImageAgentOrganizationApplication", "internal/imageagent/httpapi"} {
+		require.NotContains(t, harness, retired, "retired ImageAgent host must not return")
+	}
+	fixtureSource := read("internal/app/httpapi/product_review_integration_test.go")
+	fixtureStart := strings.Index(fixtureSource, "func candidateReviewFixtureApplication(")
+	require.GreaterOrEqual(t, fixtureStart, 0, "candidate fixture must be a real composition function")
+	fixtureBody := fixtureSource[fixtureStart:]
+	fixtureEnd := strings.Index(fixtureBody[1:], "\nfunc ")
+	require.GreaterOrEqual(t, fixtureEnd, 0)
+	fixtureBody = fixtureBody[:fixtureEnd+1]
+	require.Contains(t, fixtureBody, "buildProductReviewCore(")
+	require.Contains(t, fixtureBody, "review.NewCandidateService(")
 	for _, forbidden := range []string{
 		"CommitApproval(",
 		"INSERT INTO product_approved_assets",

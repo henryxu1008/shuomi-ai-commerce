@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 
 	"github.com/google/uuid"
@@ -206,13 +206,13 @@ func parseProductReviewCollectionQuery(query url.Values) (review.PageRequest, er
 }
 
 type productReviewCollectionItemDTO struct {
-	Policy           string                       `json:"policy,omitempty"`
-	ContentSelection *enrichment.ContentSelection `json:"content_selection,omitempty"`
-	ProposalID       string                       `json:"proposal_id"`
-	ProductKey       string                       `json:"product_key"`
-	BaseVersion      string                       `json:"base_version"`
-	ProposalRevision string                       `json:"proposal_revision"`
-	State            string                       `json:"state"`
+	Policy           string                           `json:"policy,omitempty"`
+	ContentSelection *reviewproposal.ContentSelection `json:"content_selection,omitempty"`
+	ProposalID       string                           `json:"proposal_id"`
+	ProductKey       string                           `json:"product_key"`
+	BaseVersion      string                           `json:"base_version"`
+	ProposalRevision string                           `json:"proposal_revision"`
+	State            string                           `json:"state"`
 }
 
 type productReviewPageDTO struct {
@@ -252,7 +252,7 @@ func marshalProductReviewPage(page review.Page) ([]byte, error) {
 		version, coverage = productContentReviewSchemaVersion, "product-text-proposals"
 		for i := range items {
 			if items[i].ContentSelection != nil {
-				items[i].Policy = enrichment.ContentPolicyVersion
+				items[i].Policy = reviewproposal.ContentPolicyVersion
 			} else {
 				items[i].Policy = "title-review-v1"
 			}

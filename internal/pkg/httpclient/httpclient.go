@@ -16,7 +16,6 @@ type Config struct {
 	MaxRetries    int
 	RetryDelay    time.Duration
 	EnableLogging bool
-	SkipTLSVerify bool
 }
 
 // Client 增强的 HTTP 客户端
@@ -42,17 +41,6 @@ func New(config Config, logger *logrus.Logger) *Client {
 		client: &http.Client{Timeout: config.Timeout},
 		config: config,
 		logger: logger,
-	}
-}
-
-// DefaultConfig 返回默认配置
-func DefaultConfig() Config {
-	return Config{
-		Timeout:       30 * time.Second,
-		MaxRetries:    3,
-		RetryDelay:    time.Second,
-		EnableLogging: true,
-		SkipTLSVerify: false,
 	}
 }
 
@@ -101,17 +89,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	return nil, fmt.Errorf("HTTP请求失败，已重试 %d 次: %w", c.config.MaxRetries, lastErr)
 }
 
-// NewSimple 创建简单的 http.Client（30s 超时）
-func NewSimple() *http.Client {
-	return &http.Client{Timeout: 30 * time.Second}
-}
-
 // NewSimpleWithTimeout 创建指定超时的 http.Client
 func NewSimpleWithTimeout(timeout time.Duration) *http.Client {
 	return &http.Client{Timeout: timeout}
-}
-
-// NewWithTransport 创建带自定义 Transport 的 http.Client
-func NewWithTransport(timeout time.Duration, transport *http.Transport) *http.Client {
-	return &http.Client{Timeout: timeout, Transport: transport}
 }

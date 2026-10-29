@@ -2,20 +2,23 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // StandardZipcodeStrategy 标准单一输入框策略（美国、欧洲等大部分站点）
 type StandardZipcodeStrategy struct {
+	loggerDependency
+
 	BaseZipcodeStrategy
 }
 
 // NewStandardZipcodeStrategy 创建标准邮编策略
-func NewStandardZipcodeStrategy() *StandardZipcodeStrategy {
-	return &StandardZipcodeStrategy{}
+func NewStandardZipcodeStrategy(logs func(string) *logrus.Entry) *StandardZipcodeStrategy {
+	return &StandardZipcodeStrategy{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // GetName 获取策略名称
@@ -55,7 +58,7 @@ func (s *StandardZipcodeStrategy) Handle(page playwright.Page, zipcode string) e
 
 	zipInput := s.findVisibleElement(page, zipInputSelectors)
 	if zipInput == nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[%s] 所有邮编输入框选择器都未找到元素", s.GetName())
+		s.componentLogger("crawler/amazon").Infof("[%s] 所有邮编输入框选择器都未找到元素", s.GetName())
 		return fmt.Errorf("未找到邮编输入框")
 	}
 
@@ -63,7 +66,7 @@ func (s *StandardZipcodeStrategy) Handle(page playwright.Page, zipcode string) e
 	if err := zipInput.Clear(playwright.LocatorClearOptions{
 		Timeout: playwright.Float(5000), // 5s 超时
 	}); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[%s] 清空输入框失败: %v", s.GetName(), err)
+		s.componentLogger("crawler/amazon").Infof("[%s] 清空输入框失败: %v", s.GetName(), err)
 	}
 
 	// 填写邮编 - 使用 Type 而不是 Fill,模拟真实用户输入
@@ -79,9 +82,9 @@ func (s *StandardZipcodeStrategy) Handle(page playwright.Page, zipcode string) e
 
 	// 触发 input 和 change 事件,确保 Amazon 识别到输入
 	if _, err := zipInput.Evaluate("el => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }", nil); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[%s] 触发事件失败: %v", s.GetName(), err)
+		s.componentLogger("crawler/amazon").Infof("[%s] 触发事件失败: %v", s.GetName(), err)
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("[%s] 成功填写标准邮编: %s", s.GetName(), zipcode)
+	s.componentLogger("crawler/amazon").Infof("[%s] 成功填写标准邮编: %s", s.GetName(), zipcode)
 	return nil
 }

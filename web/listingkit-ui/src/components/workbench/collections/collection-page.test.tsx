@@ -22,6 +22,65 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("shows source amounts with unknown currency and keeps raw price JSON out of product text",async()=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"acquisition",productKey:"source",version:"1",publicationId:item}},sourceQuotes:{state:"available",publicationId:item,version:"1",prices:[{amount:"27.00",currency:null,minQuantity:"2"}]},product:{title:"来源资料",variants:[{source_id:"blue",attributes:[{name:"颜色",value:"蓝色"},{name:"source.price.fact",value:'{"amount":"28.00","currency":null}'},{name:"source.price.amount",value:"28.00"}]}]}});
+ render(<CollectionPage initialItemId={item}/>);
+ expect(await screen.findByRole("region",{name:"来源报价（参考）"})).toHaveTextContent("27.00 · 币种待确认 · 起订数量 2");
+ const variant=screen.getByRole("group",{name:"规格 blue"});expect(variant).toHaveTextContent("来源金额 28.00 · 币种待确认");expect(variant).not.toHaveTextContent("source.price");
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+it.each(["unavailable","empty"])("keeps known product when quotes are %s",async stateValue=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"acquisition",productKey:"source",version:"1",publicationId:item}},sourceQuotes:stateValue==="empty"?{state:"available",publicationId:item,version:"1",prices:[]}:{state:"unavailable"},product:{title:"已保存商品"}});
+ render(<CollectionPage initialItemId={item}/>);expect(await screen.findByText("已保存商品")).toBeInTheDocument();expect(screen.getByText(stateValue==="empty"?"本次未记录商品级报价，规格报价见规格资料。":"来源报价暂未能读取。")).toBeInTheDocument();expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("shows original images grouped by their exact saved source variant", async () => {
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"acquisition",productKey:"source",version:"7",publicationId:"saved-publication"}},product:{title:"两规格商品",variants:[
+  {source_id:"blue-s",attributes:[{name:"颜色",value:"蓝色"},{name:"尺码",value:"S"}],images:[{url:"https://cbu01.alicdn.com/blue.jpg",role:"source"}]},
+  {source_id:"red-m",attributes:[{name:"颜色",value:"红色"}],images:[{url:"https://cbu01.alicdn.com/red.jpg",role:"source"}]},
+  {source_id:"empty",attributes:[],images:[]},
+ ]}});
+ render(<CollectionPage initialItemId={item} />);
+ const blue = await screen.findByRole("group",{name:/blue-s/});
+ const red = screen.getByRole("group",{name:/red-m/});
+ await userEvent.click(blue.querySelector('summary')!); await userEvent.click(red.querySelector('summary')!);
+ expect(blue).toHaveTextContent("颜色：蓝色"); expect(blue).toHaveTextContent("尺码：S");
+ expect(blue.querySelector('img')).toHaveAttribute("src",`/api/image-proxy?url=${encodeURIComponent("https://cbu01.alicdn.com/blue.jpg")}`);
+ expect(red.querySelector('img')).toHaveAttribute("src",`/api/image-proxy?url=${encodeURIComponent("https://cbu01.alicdn.com/red.jpg")}`);
+ const empty = screen.getByRole("group",{name:/empty/}); await userEvent.click(empty.querySelector('summary')!);
+ await waitFor(()=>expect(empty).toHaveTextContent("未记录规格图片"));
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("shows the observed Amazon scope and explicit parent without claiming the complete family",async()=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"amazon_data",productKey:"amazon-private",version:"1",publicationId:item}},product:{title:"Amazon selected product",sources:[{platform:"amazon",source_id:"B012345678",metadata:{observation:JSON.stringify({scope:"partial_family",parentASIN:"B012345679"})}}]}});
+ render(<CollectionPage initialItemId={item}/>);
+ expect(await screen.findByText(/仅观察到部分规格/)).toBeInTheDocument();
+ expect(screen.getByText(/来源父 ASIN：B012345679/)).toBeInTheDocument();
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+it.each([
+ [JSON.stringify({scope:"selected_product",parentASIN:null}),"仅观察到当前已选商品，不代表完整规格族。"],
+ [JSON.stringify({scope:"complete_family",parentASIN:null}),"来源观察范围无法识别，可下载原始资料查看。"],
+ ["not JSON","来源观察范围无法识别，可下载原始资料查看。"],
+])("limits the saved Amazon observation display for %s",async(observation,message)=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"amazon_data",productKey:"amazon-private",version:"1",publicationId:item}},product:{sources:[{platform:"amazon",source_id:"B012345678",metadata:{observation}}]}});
+ render(<CollectionPage initialItemId={item}/>);
+ expect(await screen.findByText(message)).toBeInTheDocument();
+ expect(screen.queryByText(/来源父 ASIN/)).not.toBeInTheDocument();
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+
 it.each(["batches", "own", "batch-items"])("completes empty and repeated keyword searches in %s without mutations", async view => {
   const batch = "550e8400-e29b-41d4-a716-446655440000";
   const entry = { id: batch, name: "可读取的批次", kind: "manual", revision: 1, count: 1, createdAt: "2026-10-08T00:00:00Z" };

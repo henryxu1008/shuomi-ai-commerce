@@ -83,7 +83,7 @@ export async function downloadTool(scope: ToolScope) {
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = "shuomi-1688-capture.zip";
+  link.download = "shuomi-product-capture.zip";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

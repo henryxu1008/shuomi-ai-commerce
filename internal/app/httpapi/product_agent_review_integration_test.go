@@ -16,8 +16,8 @@ import (
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func agentReviewFixture(t *testing.T) (*titleFixture, *review.Service, context.Context, review.CandidateInput) {
@@ -29,18 +29,16 @@ func agentReviewFixture(t *testing.T) (*titleFixture, *review.Service, context.C
 		return productsourcing.NewTransactionReader(tx)
 	})
 	require.NoError(t, err)
-	proposer, err := enrichment.NewProposer(enrichment.Dependencies{Generator: f.g})
-	require.NoError(t, err)
 	reader, err := catalogstore.NewBoundedSnapshotReader(f.db, 2<<20)
 	require.NoError(t, err)
-	service, err := review.NewService(reader, f.sourceProducer, store, proposer, auth)
+	service, err := review.NewCandidateService(reader, f.sourceProducer, store, auth)
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{
 		TenantID: "B", EffectiveOrganizationID: "B", UserID: "operator", Roles: []string{"listingkit_operator"}, TokenExpiresAt: time.Now().Add(time.Hour),
 	})
 	in := review.CandidateInput{
 		Base: review.CreateInput{ProductKey: "product", BaseVersion: 1}, PublicationID: f.base.PublicationID, PolicyVersion: "title-review-v1",
-		Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Agent suggested title", EvidenceIDs: []string{"evidence1"}}}},
+		Candidate: reviewproposal.Candidate{Changes: []reviewproposal.FieldChange{{Field: "title", Value: "Agent suggested title", EvidenceIDs: []string{"evidence1"}}}},
 	}
 	return f, service, ctx, in
 }
@@ -87,12 +85,10 @@ func TestProductAgentReviewPreservesOpaqueContextThroughReloadAndHumanEdit(t *te
 
 func TestProductAgentReviewIntakeReusesPendingAndIdempotencyWithoutModel(t *testing.T) {
 	f, service, ctx, in := agentReviewFixture(t)
-	f.g.failed.Store(true) // Any accidental regeneration fails this path.
 	v, err := service.CreateFromCandidate(ctx, "agent-run:step:4", in)
 	require.NoError(t, err)
 	require.Equal(t, "pending", v.State)
 	require.Equal(t, "Agent suggested title", v.Title)
-	require.Zero(t, f.g.calls.Load())
 	replayed, err := service.CreateFromCandidate(ctx, "agent-run:step:4", in)
 	require.NoError(t, err)
 	require.Equal(t, v, replayed)
@@ -102,6 +98,11 @@ func TestProductAgentReviewIntakeReusesPendingAndIdempotencyWithoutModel(t *test
 	base, err := f.reader.GetCurrentSnapshot(ctx, catalog.SnapshotIdentity{TenantID: "B", ProductKey: "product"})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), base.Version, "intake must not Apply")
+	var proposals, operations int64
+	require.NoError(t, f.db.Table("product_title_proposals").Count(&proposals).Error)
+	require.NoError(t, f.db.Table("product_title_operations").Count(&operations).Error)
+	require.EqualValues(t, 1, proposals)
+	require.EqualValues(t, 1, operations)
 }
 
 func TestProductAgentReviewIntakeRevalidatesExactBindingAndEvidence(t *testing.T) {
@@ -125,7 +126,9 @@ func TestProductAgentReviewIntakeRevalidatesExactBindingAndEvidence(t *testing.T
 			var count int64
 			require.NoError(t, f.db.Table("product_title_proposals").Count(&count).Error)
 			require.Zero(t, count)
-			require.Zero(t, f.g.calls.Load())
+			var operations int64
+			require.NoError(t, f.db.Table("product_title_operations").Count(&operations).Error)
+			require.Zero(t, operations)
 		})
 	}
 }
@@ -141,5 +144,7 @@ func TestProductAgentValidationUsesSameReviewRulesWithoutSaving(t *testing.T) {
 	var count int64
 	require.NoError(t, f.db.Table("product_title_proposals").Count(&count).Error)
 	require.Zero(t, count)
-	require.Zero(t, f.g.calls.Load())
+	var operations int64
+	require.NoError(t, f.db.Table("product_title_operations").Count(&operations).Error)
+	require.Zero(t, operations)
 }

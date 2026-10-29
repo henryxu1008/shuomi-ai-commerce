@@ -117,7 +117,7 @@ them merely as preference alternatives without a newly demonstrated blocker.
 | Product facts | `internal/product/catalog` | canonical; knowledge cannot override |
 | Source evidence | `internal/product/sourcing` | canonical source evidence; separate from enterprise knowledge |
 | Approved assets | `internal/product/asset` | canonical; knowledge files are not Product assets |
-| Candidate validation | `internal/product/enrichment` / current Agent validator | reuse |
+| Candidate validation | `internal/product/review/proposal` / current Agent validator | reuse |
 | Human Review / Apply | `internal/product/review` | reuse; knowledge does not create a second approval system |
 | Current Product Agent | `internal/app/httpapi/product_agent_application.go` / routes | first consumer to extend, not a universal Chat backend |
 
@@ -320,7 +320,7 @@ model-directed retrieval is explicitly deferred from V1.
 A Knowledge citation is a validated reference to an entry inside one exact
 KnowledgeContextBundle.
 
-It is **supplemental provenance**, not `enrichment.Evidence`, not a Product fact and not a
+It is **supplemental provenance**, not `reviewproposal.Evidence`, not a Product fact and not a
 permission grant.
 
 ### Processing state
@@ -783,7 +783,7 @@ Knowledge types or retrieve documents.
 
 ### 8.2 Knowledge citation is separate from canonical evidence
 
-Current `enrichment.validateEvidence` intentionally permits only the canonical Product
+Current `reviewproposal.validateEvidence` intentionally permits only the canonical Product
 source evidence ID. V1 preserves that invariant.
 
 Therefore:
@@ -805,7 +805,7 @@ revalidate the candidate.
 Its minimal additive input is a bounded `ContextProvenanceRef` from the validated Agent
 state, containing the exact bundle ref/digest and validated citation IDs. Product Review
 persists/projects that provenance for explanation but does not treat it as
-`enrichment.Evidence` and does not call the model.
+`reviewproposal.Evidence` and does not call the model.
 
 This is an explicit V1 contract change; the previous statement that Product Review could
 remain completely unchanged was incorrect.
@@ -904,8 +904,8 @@ admission still succeeds, the UI may display:
 
 ### 11.1 Citations survive the Review transition
 
-Current Product Review only projects `enrichment.Proposal.Evidence`, and current
-`enrichment.validateEvidence` accepts only the canonical Product source evidence.
+Current Product Review only projects `reviewproposal.Proposal.Evidence`, and current
+`reviewproposal.validateEvidence` accepts only the canonical Product source evidence.
 
 V1 therefore adds **supplemental context provenance** to the internal Review intake/record
 and user projection. It must not overload `EvidenceIDs`.

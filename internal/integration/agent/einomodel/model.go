@@ -19,7 +19,7 @@ import (
 	"task-processor/internal/commercetool"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	k "task-processor/internal/knowledge"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	skill "task-processor/internal/skill"
 )
 
@@ -144,7 +144,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 			return p, agent.ErrInvalid
 		}
 	} else if m.content {
-		if in.AgentID != agentconfig.ContentAgentID || in.AgentVersion != agentconfig.ContentAgentVersion || !in.ContentSelection.Valid() || in.PolicyVersion != enrichment.ContentPolicyVersion || in.PromptVersion != agentconfig.ContentPromptVersion {
+		if in.AgentID != agentconfig.ContentAgentID || in.AgentVersion != agentconfig.ContentAgentVersion || !in.ContentSelection.Valid() || in.PolicyVersion != reviewproposal.ContentPolicyVersion || in.PromptVersion != agentconfig.ContentPromptVersion {
 			return p, agent.ErrInvalid
 		}
 	} else if !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID || in.AgentID == agentconfig.MaterialsAgentID || in.AgentID == agentconfig.SelectionAgentID || in.Binding.ContextKind == agent.SelectionContextKind || in.AgentID == agentconfig.DiagnosisAgentID || in.Binding.ContextKind == agent.StoreDiagnosisContextKind {

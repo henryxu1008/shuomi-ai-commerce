@@ -2,18 +2,17 @@ package workspace
 
 import (
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	sheinpub "task-processor/internal/publishing/shein"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 // BuildSubmitPayloadReadinessChecks builds SHEIN payload readiness checks from package state.
 func BuildSubmitPayloadReadinessChecks(pkg *sheinpub.Package, action string) []ReadinessCheckSpec {
-	pkg = sheinpub.NormalizePackageSemanticFields(pkg)
 	checks := make([]ReadinessCheckSpec, 0, 11)
 
 	draft := sheinpub.DraftPayloadOf(pkg)
 	draftIssues := sheinpub.ValidateDraftPayload(draft)
 	requestDraftReady := len(draftIssues) == 0
-	requestDraftMessage := "request_draft 尚未生成，当前无法作为提交草稿继续流转"
+	requestDraftMessage := "draft_payload 尚未生成，当前无法作为提交草稿继续流转"
 	requestDraftPaths := []string{"shein.draft_payload"}
 	if len(draftIssues) > 0 {
 		requestDraftMessage = draftIssues[0].Message
@@ -34,8 +33,8 @@ func BuildSubmitPayloadReadinessChecks(pkg *sheinpub.Package, action string) []R
 		"preview_product",
 		"预览载荷",
 		previewProductReady,
-		"preview_product 尚未生成，当前还不能进入提交前预览校验",
-		[]string{"shein.preview_product"},
+		"preview_payload 尚未生成，当前还不能进入提交前预览校验",
+		[]string{"shein.preview_payload"},
 		"重建预览载荷",
 		false,
 	))
@@ -56,7 +55,7 @@ func BuildSubmitPayloadReadinessChecks(pkg *sheinpub.Package, action string) []R
 		"最终图片",
 		finalImagesReady,
 		finalImagesMessage,
-		[]string{"shein.final_draft.main_image_url", "shein.final_draft.image_role_overrides", "shein.preview_product.image_info"},
+		[]string{"shein.final_submission_draft.main_image_url", "shein.final_submission_draft.image_role_overrides", "shein.preview_payload.image_info"},
 		"确认图片",
 		false,
 	))
@@ -98,7 +97,7 @@ func BuildSubmitPayloadReadinessChecks(pkg *sheinpub.Package, action string) []R
 		"最终确认",
 		sheinpub.FinalReviewReady(pkg, action),
 		sheinmarketpub.FinalReviewMessage(action),
-		[]string{"shein.final_draft", "shein.final_review"},
+		[]string{"shein.final_submission_draft", "shein.final_review"},
 		"最终确认",
 		false,
 	))
@@ -116,5 +115,5 @@ func submitVariantStructureReady(pkg *sheinpub.Package) bool {
 	if draft != nil {
 		return len(draft.SKCList) > 0 && sheinpub.HasAnySubmitSKU(pkg)
 	}
-	return len(pkg.SkcList) > 0 && sheinpub.HasAnySubmitSKU(pkg)
+	return false
 }

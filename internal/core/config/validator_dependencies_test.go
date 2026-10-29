@@ -24,32 +24,6 @@ func TestValidateOpenAIConfig_ClientsMustBeComplete(t *testing.T) {
 	assert.Contains(t, errors[len(errors)-1].Error(), "openai.clients.vision.apiKey")
 }
 
-func TestValidateAmazonConfig_SPAPIRequiresCredentials(t *testing.T) {
-	cfg := AmazonConfig{
-		Enabled:      true,
-		CrawlTimeout: 30,
-		RiskControl: AmazonRiskControlConfig{
-			CaptchaRecreateThreshold:        1,
-			AuthenticationRecreateThreshold: 1,
-			BrowserCrashRecreateThreshold:   1,
-			TimeoutRecreateThreshold:        3,
-			NetworkRecreateThreshold:        2,
-			ServerErrorRecreateThreshold:    3,
-		},
-		QualityControl: AmazonQualityControlConfig{
-			RetryOnValidationFailure:   true,
-			ValidationRetryMaxAttempts: 2,
-		},
-		SPAPI: SPAPIConfig{
-			Enabled: true,
-			Region:  "us-east-1",
-		},
-	}
-
-	errors := ValidateAmazonConfig(&cfg)
-	assert.NotEmpty(t, errors)
-}
-
 func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 	cfg := &Config{
 		OpenAI: OpenAIConfig{
@@ -82,13 +56,48 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 				RetryOnValidationFailure:   true,
 				ValidationRetryMaxAttempts: 2,
 			},
-			SPAPI: SPAPIConfig{
-				Enabled: true,
-				Region:  "us-east-1",
-			},
 		},
 	}
 
-	errors := cfg.Validate()
+	errors := ValidateConfig(cfg)
 	assert.NotEmpty(t, errors)
+}
+
+func TestValidateConfigPreservesValidationGroupOrder(t *testing.T) {
+	cfg := &Config{
+		OpenAI:    OpenAIConfig{Model: "synthetic-model"},
+		Browser:   BrowserConfig{Enabled: true},
+		Amazon:    AmazonConfig{Enabled: true},
+		Platforms: PlatformsConfig{Alibaba1688: Alibaba1688Config{Enabled: true}},
+		ListingKit: ListingKitConfig{Zitadel: ListingKitZitadelConfig{
+			AllowedUsernames: []string{"synthetic-obsolete-user"},
+		}},
+		Workbench: WorkbenchConfig{Enabled: true},
+	}
+
+	errors := ValidateConfig(cfg)
+	previous := -1
+	for _, field := range []string{
+		"openai.apiKey",
+		"browser.poolSize",
+		"amazon.crawlTimeout",
+		"platforms.alibaba1688.timeout",
+		"listingkit.zitadel.allowedUsernames",
+		"listingkit.zitadel.projectID",
+	} {
+		found := -1
+		for index, err := range errors {
+			if validationError, ok := err.(*ValidationError); ok && validationError.Field == field {
+				found = index
+				break
+			}
+		}
+		if found == -1 {
+			t.Fatalf("validation group field %s is missing from %v", field, errors)
+		}
+		if found <= previous {
+			t.Fatalf("validation group field %s at %d must follow index %d", field, found, previous)
+		}
+		previous = found
+	}
 }

@@ -1,3 +1,5 @@
+> #301 / #985 当前边界：独立 SHEIN 登录 worker、登录后 Store ID 回写及其专属持久化/构建部署入口已从源码退休。此前批次中这些对象的 KEEP/装配描述仅为历史，由[本批已确认设计](legacy-shein-login-identity-sync-closure-retirement-boundary.md)准确替代；Store 观察同步、官方授权、当前采集/图像/共享能力继续保留。相关原 guard 的稳定名称继续存在，含义已转换为完整退休禁入，不恢复旧 owner。既有资源/真实运行/数据/凭据/进程不操作，不增加试用前置，#301 OPEN。
+
 # Architecture Review Checklist
 
 ## Goal
@@ -33,9 +35,12 @@ Before merging a structural or feature PR, verify:
    keeps SDK types out of domain-facing contracts.
 6. New platform-specific rules do not grow the root `internal/listingkit`
    facade when a marketplace, publishing, or product module owns the behavior.
-7. Preview extraction follows `docs/architecture/listing-preview-boundaries.md`:
-   platform-neutral preview behavior belongs in `internal/listing/preview`, not
-   in marketplace-specific implementation packages.
+7. Old Task preview/platform and listing downloader owners are source-retired
+   under `docs/architecture/legacy-listing-preview-download-closure-retirement-boundary.md`.
+   Product/Catalog/Asset and current Listing contracts retain their owners;
+   the original preview guard/depguard now enforce source absence and retired-package
+   import bans. The historical `docs/architecture/listing-preview-boundaries.md`
+   migration instructions do not authorize a replacement legacy preview seam.
 8. New remote-service behavior follows
    `docs/architecture/external-client-boundary-inventory.md`: prefer a local
    interface and avoid leaking a concrete external client adapter into
@@ -124,7 +129,7 @@ consider the applicable guards, including:
 - `TestAlibaba1688CrawlerDoesNotConfigureLegacyTenantThroughListingKitHTTPAPI`
 - `TestA1688ListingKitCompatibilityReadsIdentityFromNeutralContext`
 - `TestA1688ListingKitCommandReadsIdentityFromNeutralContext`
-- `TestLocalAgentHTTPAPIReadsIdentityFromNeutralContext`
+- `TestLegacyLocalAgentSourcePolicyClosureIsRetired`
 - `TestSheinLoginReadsIdentityFromNeutralContext`
 - `TestListingKitIdentityReadersUseNeutralContext`
 - `TestZitadelAuthMiddlewareWritesNeutralIdentityContext`

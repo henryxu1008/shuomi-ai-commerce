@@ -2,16 +2,19 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"net/url"
 	"strings"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // ZipcodeValidator 邮编验证器
 type ZipcodeValidator struct {
+	loggerDependency
+
 	getter    *ZipcodeGetter
 	targetURL string
 }
@@ -25,9 +28,10 @@ type targetContextState struct {
 }
 
 // NewZipcodeValidator 创建邮编验证器实例
-func NewZipcodeValidator() *ZipcodeValidator {
+func NewZipcodeValidator(logs func(string) *logrus.Entry) *ZipcodeValidator {
 	return &ZipcodeValidator{
-		getter: NewZipcodeGetter(),
+		loggerDependency: loggerDependency{logFor: logs},
+		getter:           NewZipcodeGetter(logs),
 	}
 }
 
@@ -46,7 +50,7 @@ func (zv *ZipcodeValidator) MatchesTargetContext(page playwright.Page) (bool, er
 		return false, err
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof(
+	zv.componentLogger("crawler/amazon").Infof(
 		"配送上下文判断: current_text=%q extracted_zipcode=%q inferred_country=%q target_country=%q matched=%t",
 		state.CurrentText,
 		state.ExtractedZipcode,
@@ -100,12 +104,12 @@ func (zv *ZipcodeValidator) VerifyZipcode(page playwright.Page, expectedZipcode 
 	cleanCurrent := cleanZipcodeText(currentZipcode)
 	cleanExpected := cleanZipcodeText(expectedZipcode)
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("验证邮编 - 期望: '%s' (清理后: '%s'), 当前: '%s' (清理后: '%s')",
+	zv.componentLogger("crawler/amazon").Infof("验证邮编 - 期望: '%s' (清理后: '%s'), 当前: '%s' (清理后: '%s')",
 		expectedZipcode, cleanExpected, currentZipcode, cleanCurrent)
 
 	// 1. 完全匹配（清理后）
 	if cleanCurrent == cleanExpected {
-		logger.GetGlobalLogger("crawler/amazon").Infof("邮编完全匹配")
+		zv.componentLogger("crawler/amazon").Infof("邮编完全匹配")
 		return true, nil
 	}
 
@@ -114,32 +118,32 @@ func (zv *ZipcodeValidator) VerifyZipcode(page playwright.Page, expectedZipcode 
 	// 例如: 期望 "SW1A1AA"，页面显示 "LondonSW1A1"
 	expectedCore := extractZipcodeCore(cleanExpected)
 	if expectedCore != "" && strings.Contains(cleanCurrent, expectedCore) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("邮编核心部分匹配: '%s' 包含在 '%s' 中", expectedCore, cleanCurrent)
+		zv.componentLogger("crawler/amazon").Infof("邮编核心部分匹配: '%s' 包含在 '%s' 中", expectedCore, cleanCurrent)
 		return true, nil
 	}
 
 	// 3. 加拿大邮编：页面可能显示实际配送地址的 FSA（前3位），与设置的邮编不同
 	// 只要当前显示的是合法的加拿大 FSA 格式，就认为邮编设置成功
 	if isCanadianZipcode(cleanExpected) && isValidCanadianFSA(cleanCurrent) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("加拿大邮编 FSA 验证通过: 期望 '%s'，页面显示 '%s'（配送地址 FSA）", cleanExpected, cleanCurrent)
+		zv.componentLogger("crawler/amazon").Infof("加拿大邮编 FSA 验证通过: 期望 '%s'，页面显示 '%s'（配送地址 FSA）", cleanExpected, cleanCurrent)
 		return true, nil
 	}
 
 	// 4. 对于某些站点(如沙特),页面显示的是城市名称而非邮编
 	expectedCity := mapZipcodeToCity(expectedZipcode)
 	if expectedCity != "" && strings.Contains(cleanCurrent, strings.ReplaceAll(expectedCity, " ", "")) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("邮编映射到城市名称匹配: %s", expectedCity)
+		zv.componentLogger("crawler/amazon").Infof("邮编映射到城市名称匹配: %s", expectedCity)
 		return true, nil
 	}
 
 	// 5. 如果当前位置文本已经明确显示目标国家/目标配送上下文，则无需再次设置邮编。
 	targetCountry := inferTargetCountry(zv.targetURL, expectedZipcode)
 	if targetCountry != "" && locationMatchesTargetCountry(currentZipcode, targetCountry) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("当前位置已命中目标国家/配送上下文，跳过邮编设置: target=%s current=%s", targetCountry, currentZipcode)
+		zv.componentLogger("crawler/amazon").Infof("当前位置已命中目标国家/配送上下文，跳过邮编设置: target=%s current=%s", targetCountry, currentZipcode)
 		return true, nil
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Warnf("邮编验证失败 - 期望: '%s', 当前: '%s'", cleanExpected, cleanCurrent)
+	zv.componentLogger("crawler/amazon").Warnf("邮编验证失败 - 期望: '%s', 当前: '%s'", cleanExpected, cleanCurrent)
 	return false, nil
 }
 

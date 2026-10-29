@@ -13,7 +13,7 @@ import "./knowledge.css";
 
 const root = "/workbench/ai/knowledge/official";
 const breadcrumbs = [{label: "AI工作台", href: "/workbench/ai"}, {label: "知识库", href: "/workbench/ai/knowledge"}, {label: "官方知识库", href: root}];
-const description = "由硕米维护的应用指南，查看正文、版本和出处。AI 引用尚未开放。";
+const description = "由硕米维护的应用指南，查看正文、版本和内容依据。AI 引用尚未开放。";
 export function OfficialKnowledgePage({articleId, revision}: {articleId?: string; revision?: string}) {
   const context = useWorkbenchContext();
   if (context.error || context.blockingError) return <ConsoleState kind="error" title="企业上下文不可用"><Button onClick={() => void context.retry()}>重新确认</Button></ConsoleState>;
@@ -50,7 +50,7 @@ function OfficialContent({scope, articleId, revision}: {scope: KnowledgeScope; a
     {error ? <ConsoleState kind="error" title={message(error)}><Button onClick={() => void (authorityError ? refresh() : articleId ? detail.refetch() : list.refetch())}>{authorityError ? "重新确认" : "重新读取"}</Button></ConsoleState> : articleId ? detail.isPending ? <ConsoleState kind="loading" title="正在读取资料版本"/> : detail.data ? <>
       <Card className="official-knowledge-metadata"><p>{detail.data.maintainedBy}维护 · v{detail.data.revision} · 更新于 {detail.data.updatedAt}</p><p className="console-description">{detail.data.summary}</p><p className="official-knowledge-digest">SHA-256：{detail.data.digest}</p></Card>
       <Card className="knowledge-preview official-knowledge-article" role="region" aria-label="官方资料正文"><pre>{detail.data.body}</pre></Card>
-      <Card className="official-knowledge-sources"><h2>内容出处</h2><ul>{detail.data.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a></li>)}</ul></Card>
+      <Card className="official-knowledge-sources"><h2>内容依据</h2><ul>{detail.data.sources.map((source, index) => <li key={`${index}:${source.title}`}>{source.title}</li>)}</ul></Card>
     </> : null : list.isPending ? <ConsoleState kind="loading" title="正在读取官方资料"/> : list.data?.items.length === 0 ? <ConsoleState kind="empty" title="暂无已发布的官方资料"/> : <div className="knowledge-grid">{list.data?.items.map(item => <Card className="knowledge-entry-card" data-kind="official" key={item.id}>
       <span className="knowledge-status">{item.category}</span><h2>{item.title}</h2><p className="console-description">{item.summary}</p><p className="console-description">{item.maintainedBy}维护 · v{item.revision} · 更新于 {item.updatedAt}</p>
       <div className="knowledge-entry-actions"><Button asChild><Link href={`${root}/${item.id}/revisions/${item.revision}`} prefetch={false}>查看内容</Link></Button></div>

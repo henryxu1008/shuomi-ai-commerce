@@ -20,6 +20,7 @@ import (
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/catalog"
+	"task-processor/internal/product/review"
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
 	contextapi "task-processor/internal/workbenchcontext/httpapi"
@@ -89,12 +90,14 @@ func TestProductTitleReviewBrowserFixture(t *testing.T) {
 			}
 		}
 	}
+	var candidateService *review.Service
 	application := func() *http.Server {
-		app, e := NewProductReviewApplication(f.db, identity, resolver, authorizer, f.g)
+		app, service, e := candidateReviewFixtureApplication(f.db, identity, resolver, authorizer)
 		require.NoError(t, e)
+		candidateService = service
 		return app
 	}
-	listing, _, err := NewSheinRecordApplication(f.db, identity, resolver, authorizer)
+	listing, _, err := NewSheinRecordApplication(f.db, identity, resolver, authorizer, nil)
 	require.NoError(t, err)
 	var current atomic.Pointer[http.Server]
 	current.Store(application())
@@ -142,7 +145,21 @@ func TestProductTitleReviewBrowserFixture(t *testing.T) {
 	listingBefore := diagnosticBusinessState(t, f.db)["listing_shein_records"]
 	created := map[string]string{}
 	create := func(name, org, key, label string) {
-		code, body, e := titleRequest(server, "POST", titleBasePath, tokens[name], org, "create-"+label, fmt.Sprintf(`{"product_key":%q,"base_version":1}`, key))
+		var published catalog.PublishedSnapshot
+		for _, base := range bases {
+			if base.Identity.TenantID == org && base.Identity.ProductKey == key {
+				published = base
+				break
+			}
+		}
+		require.NotEmpty(t, published.PublicationID)
+		input, e := titleCandidateInput(published, f.source, "Suggested bottle title")
+		require.NoError(t, e)
+		ctx, e := candidateReviewFixtureContext(context.Background(), identity, resolver, tokens[name], org)
+		require.NoError(t, e)
+		admitted, e := candidateService.CreateFromCandidate(ctx, "create-"+label, input)
+		require.NoError(t, e)
+		code, body, e := titleRequest(server, "GET", titleBasePath+"/"+admitted.ID, tokens[name], org, "", "")
 		require.NoError(t, e)
 		require.Equal(t, 200, code, string(body))
 		var result struct {

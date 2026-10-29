@@ -2,10 +2,12 @@
 package alibaba1688
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -13,19 +15,17 @@ import (
 
 // PageOperator 页面操作器
 type PageOperator struct {
+	loggerDependency
+
 	captchaHandler *CaptchaHandler
 }
 
 // NewPageOperator 创建页面操作器
-func NewPageOperator() *PageOperator {
+func NewPageOperator(logs func(string) *logrus.Entry) *PageOperator {
 	return &PageOperator{
-		captchaHandler: NewCaptchaHandler(),
+		loggerDependency: loggerDependency{logFor: logs},
+		captchaHandler:   NewCaptchaHandler(logs),
 	}
-}
-
-// NavigateToProduct 导航到产品页面
-func (po *PageOperator) NavigateToProduct(ctx context.Context, page playwright.Page, url string) error {
-	return po.navigateToProduct(ctx, page, url, true)
 }
 
 // NavigateToProductWithoutManualCaptcha navigates a public-first attempt
@@ -35,7 +35,7 @@ func (po *PageOperator) NavigateToProductWithoutManualCaptcha(ctx context.Contex
 }
 
 func (po *PageOperator) navigateToProduct(ctx context.Context, page playwright.Page, url string, allowManualCaptcha bool) error {
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("导航到1688产品页面: %s", url)
+	po.componentLogger("crawler/alibaba1688").Debugf("导航到1688产品页面: %s", url)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (po *PageOperator) navigateToProduct(ctx context.Context, page playwright.P
 
 	// 滚动页面以触发懒加载
 	if err := po.ScrollPage(ctx, page); err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Warnf("滚动页面失败: %v", err)
+		po.componentLogger("crawler/alibaba1688").Warnf("滚动页面失败: %v", err)
 	}
 
 	return nil
@@ -119,7 +119,7 @@ func (po *PageOperator) waitForPageReady(ctx context.Context, page playwright.Pa
 			Timeout: playwright.Float(10000),
 		})
 		if err != nil {
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("等待元素 %s 失败: %v", selector, err)
+			po.componentLogger("crawler/alibaba1688").Debugf("等待元素 %s 失败: %v", selector, err)
 			continue
 		}
 		break
@@ -140,7 +140,7 @@ func (po *PageOperator) waitForPageReady(ctx context.Context, page playwright.Pa
 		return fmt.Errorf("页面加载异常，标题: %s", title)
 	}
 
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("页面加载完成，标题: %s", title)
+	po.componentLogger("crawler/alibaba1688").Debugf("页面加载完成，标题: %s", title)
 	return nil
 }
 
@@ -164,7 +164,7 @@ func (po *PageOperator) ScrollPage(ctx context.Context, page playwright.Page) er
 	for i := 1; i <= scrollSteps; i++ {
 		scrollY := stepHeight * i
 		if _, scrollErr := page.Evaluate(fmt.Sprintf("window.scrollTo(0, %d)", scrollY)); scrollErr != nil {
-			logger.GetGlobalLogger("crawler/alibaba1688").Warnf("滚动到位置 %d 失败: %v", scrollY, scrollErr)
+			po.componentLogger("crawler/alibaba1688").Warnf("滚动到位置 %d 失败: %v", scrollY, scrollErr)
 		}
 
 		if err := waitForContext(ctx, 500*time.Millisecond); err != nil {
@@ -175,7 +175,7 @@ func (po *PageOperator) ScrollPage(ctx context.Context, page playwright.Page) er
 	// 滚动回顶部
 	_, err = page.Evaluate("window.scrollTo(0, 0)")
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Warnf("滚动回顶部失败: %v", err)
+		po.componentLogger("crawler/alibaba1688").Warnf("滚动回顶部失败: %v", err)
 	}
 
 	return nil

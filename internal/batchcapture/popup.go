@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// Selectors from extensions/1688-capture/src/popup.html. They are the popup's
+// Selectors from extensions/product-capture/src/popup.html. They are the popup's
 // public surface: the extension's own tests and the design both refer to them.
 const (
 	selTitle      = "#title"

@@ -2,12 +2,10 @@ package publishing
 
 import (
 	"testing"
-
-	common "task-processor/internal/publishing/common"
 )
 
 func TestPricingPolicyDisabledPreservesSourcePrice(t *testing.T) {
-	source := &common.Price{Currency: "usd", Amount: 12.8, CostPrice: 9.5}
+	source := &Price{Currency: "usd", Amount: 12.8, CostPrice: 9.5}
 
 	price := (PricingPolicy{}).Apply(source)
 
@@ -26,7 +24,7 @@ func TestPricingPolicyDisabledPreservesSourcePrice(t *testing.T) {
 }
 
 func TestPricingPolicyEnabledAppliesListingFormula(t *testing.T) {
-	source := &common.Price{Currency: "USD", Amount: 10, CostPrice: 8}
+	source := &Price{Currency: "USD", Amount: 10, CostPrice: 8}
 	policy := PricingPolicy{
 		Enabled:        true,
 		MarkupRate:     0.25,
@@ -50,7 +48,7 @@ func TestPricingPolicyEnabledAppliesListingFormula(t *testing.T) {
 }
 
 func TestPricingPolicyAppliesMinimumPrice(t *testing.T) {
-	source := &common.Price{Currency: "USD", Amount: 2}
+	source := &Price{Currency: "USD", Amount: 2}
 
 	price := (PricingPolicy{Enabled: true, MinimumPrice: 9.99}).Apply(source)
 

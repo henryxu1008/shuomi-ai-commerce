@@ -258,6 +258,13 @@ type acquisitionProductSpecificationDTO struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
+type acquisitionProductVariantDTO struct {
+	SourceID   string                               `json:"sourceId,omitempty"`
+	SKU        string                               `json:"sku,omitempty"`
+	Title      string                               `json:"title,omitempty"`
+	Attributes []acquisitionProductSpecificationDTO `json:"attributes"`
+	Images     []acquisitionProductImageDTO         `json:"images"`
+}
 type acquisitionProductDTO struct {
 	SchemaVersion  int                                  `json:"schemaVersion"`
 	OperationID    string                               `json:"operationId"`
@@ -268,6 +275,7 @@ type acquisitionProductDTO struct {
 	Sources        []acquisitionProvenanceDTO           `json:"sources"`
 	Images         []acquisitionProductImageDTO         `json:"images"`
 	Specifications []acquisitionProductSpecificationDTO `json:"specifications"`
+	Variants       []acquisitionProductVariantDTO       `json:"variants,omitempty"`
 	Warnings       []acquisitionWarningDTO              `json:"warnings"`
 	MissingFacts   []acquisitionMissingDTO              `json:"missingFacts"`
 }
@@ -330,6 +338,16 @@ func writeAcquisitionProduct(c *gin.Context, published sourcing.PublishedAcquisi
 	}
 	for _, specification := range published.Snapshot.Snapshot.Attributes {
 		dto.Specifications = append(dto.Specifications, acquisitionProductSpecificationDTO{Name: specification.Name, Value: specification.Value})
+	}
+	for _, variant := range published.Snapshot.Snapshot.Variants {
+		value := acquisitionProductVariantDTO{SourceID: variant.SourceID, SKU: variant.SKU, Title: variant.Title, Attributes: []acquisitionProductSpecificationDTO{}, Images: []acquisitionProductImageDTO{}}
+		for _, attribute := range variant.Attributes {
+			value.Attributes = append(value.Attributes, acquisitionProductSpecificationDTO{Name: attribute.Name, Value: attribute.Value})
+		}
+		for _, image := range variant.Images {
+			value.Images = append(value.Images, acquisitionProductImageDTO{URL: image.URL, Role: image.Role, Width: image.Width, Height: image.Height})
+		}
+		dto.Variants = append(dto.Variants, value)
 	}
 	for _, warning := range result.Publication.Envelope.Warnings {
 		dto.Warnings = append(dto.Warnings, acquisitionWarningDTO{Code: warning.Code, Field: warning.Field, Count: warning.Count})

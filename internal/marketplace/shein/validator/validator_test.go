@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	workspace "task-processor/internal/marketplace/shein/workspace"
 	contract "task-processor/internal/marketplace/validator"
-	sheinpub "task-processor/internal/publishing/shein"
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 func request(pkg *sheinpub.Package) contract.Request[*sheinpub.Package] {
@@ -30,7 +30,7 @@ func readyPackage() *sheinpub.Package {
 		ResolvedAttributes:      []sheinpub.ResolvedAttribute{{Name: "material", AttributeID: 7001}},
 		SaleAttributeResolution: &sheinpub.SaleAttributeResolution{Status: "resolved", PrimaryAttributeID: 1001184},
 		DraftPayload:            &sheinpub.RequestDraft{ImageInfo: &sheinpub.ImageDraft{MainImage: "https://example.test/main.jpg"}, SKCList: []sheinpub.SKCRequestDraft{{SupplierCode: "SKC-1", SaleAttribute: &sheinpub.ResolvedSaleAttribute{AttributeID: 1001184, AttributeValueID: &valueID}, SKUList: []sheinpub.SKUDraft{{SupplierSKU: "SKU-1", BasePrice: "22.50", SitePriceList: []sheinpub.SitePrice{{SubSite: "us", BasePrice: "22.50"}}}}}}},
-		PreviewPayload:          &sheinproduct.Product{},
+		PreviewPayload:          &previewdata.Product{},
 		FinalSubmissionDraft:    &sheinpub.FinalDraft{Confirmed: true, MainImageURL: "https://example.test/main.jpg", SubmitMode: "publish", FinalImageOrder: []string{"https://example.test/main.jpg"}},
 	}
 }
@@ -82,7 +82,7 @@ func TestValidateRequiredOptionalAndPreparedPayload(t *testing.T) {
 	}
 	pkg := readyPackage()
 	pkg.DraftPayload.SKCList = nil
-	pkg.PreviewPayload.SKCList = []sheinproduct.SKC{{}}
+	pkg.PreviewPayload.SKCList = []previewdata.SKC{{}}
 	result, err := (Validator{}).Validate(request(pkg))
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestValidateRejectsInvalidRequestWithZeroResult(t *testing.T) {
 	}
 }
 
-func TestValidateDeterministicConcurrentAndDoesNotNormalizeCaller(t *testing.T) {
+func TestValidateDeterministicConcurrentAndDoesNotMutateCaller(t *testing.T) {
 	pkg := readyPackage()
 	r := request(pkg)
 	baseline, err := (Validator{}).Validate(r)
@@ -145,9 +145,6 @@ func TestValidateDeterministicConcurrentAndDoesNotNormalizeCaller(t *testing.T) 
 		})
 	}
 	group.Wait()
-	if pkg.RequestDraft != nil || pkg.PreviewProduct != nil || pkg.FinalDraft != nil {
-		t.Fatal("validator normalized caller aliases")
-	}
 	if !reflect.DeepEqual(pkg, readyPackage()) {
 		t.Fatal("validator mutated caller facts")
 	}
@@ -209,7 +206,7 @@ func TestValidateDoesNotReadRandomEntropy(t *testing.T) {
 
 func TestValidateCopyFailureReturnsTypedErrorAndZeroResult(t *testing.T) {
 	pkg := readyPackage()
-	pkg.PreviewPayload.SKCList = []sheinproduct.SKC{{SKUS: []sheinproduct.SKU{{Weight: math.NaN()}}}}
+	pkg.PreviewPayload.SKCList = []previewdata.SKC{{SKUS: []previewdata.SKU{{Weight: math.NaN()}}}}
 	result, err := (Validator{}).Validate(request(pkg))
 	var typed *contract.Error
 	if !errors.As(err, &typed) || typed.Code != contract.EvaluationFailed || !reflect.DeepEqual(result, contract.Result{}) {
@@ -221,7 +218,7 @@ func TestValidateDoesNotMutateNestedPayloadDuringPreparation(t *testing.T) {
 	fixture := func() *sheinpub.Package {
 		pkg := readyPackage()
 		stock := 7
-		pkg.PreviewPayload.SKCList = []sheinproduct.SKC{{SKUS: []sheinproduct.SKU{{StockCount: &stock, SupplierSKU: "sku"}}}}
+		pkg.PreviewPayload.SKCList = []previewdata.SKC{{SKUS: []previewdata.SKU{{StockCount: &stock, SupplierSKU: "sku"}}}}
 		return pkg
 	}
 	pkg := fixture()

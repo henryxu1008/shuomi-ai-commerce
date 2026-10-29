@@ -2,8 +2,7 @@
 package browser
 
 import (
-	"task-processor/internal/core/logger"
-	"time"
+	"github.com/sirupsen/logrus"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -57,7 +56,7 @@ func ExtractZipcode(text string) string {
 }
 
 // CheckIfPriceAvailable 检查页面是否已经显示价格信息
-func CheckIfPriceAvailable(page playwright.Page) bool {
+func CheckIfPriceAvailable(page playwright.Page, logs func(string) *logrus.Entry) bool {
 	priceSelectors := []string{
 		".a-price-whole",
 		".a-price",
@@ -70,42 +69,11 @@ func CheckIfPriceAvailable(page playwright.Page) bool {
 		locator := page.Locator(selector)
 		if count, err := locator.Count(); err == nil && count > 0 {
 			if isVisible, err := locator.First().IsVisible(); err == nil && isVisible {
-				logger.GetGlobalLogger("crawler/amazon").Infof("检测到价格元素: %s", selector)
+				componentLogger(logs, "crawler/amazon").Infof("检测到价格元素: %s", selector)
 				return true
 			}
 		}
 	}
 
 	return false
-}
-
-// HandleContinueShoppingButtonInZipcode 处理"继续购物"按钮（在zipcode设置流程中使用）
-func HandleContinueShoppingButtonInZipcode(page playwright.Page) {
-	if page.IsClosed() {
-		return
-	}
-
-	continueShoppingSelectors := GetContinueShoppingSelectors()
-
-	for _, selector := range continueShoppingSelectors {
-		if page.IsClosed() {
-			break
-		}
-
-		locator := page.Locator(selector)
-		if count, err := locator.Count(); err == nil && count > 0 {
-			if isVisible, err := locator.IsVisible(); err == nil && isVisible {
-				logger.GetGlobalLogger("crawler/amazon").Infof("发现 Continue Shopping 按钮，尝试点击")
-				if err := locator.Click(playwright.LocatorClickOptions{
-					Timeout: playwright.Float(5000), // 5秒超时
-				}); err != nil {
-					logger.GetGlobalLogger("crawler/amazon").Infof("点击 Continue Shopping 按钮失败: %v", err)
-				} else {
-					logger.GetGlobalLogger("crawler/amazon").Infof("成功点击 Continue Shopping 按钮")
-					time.Sleep(1 * time.Second)
-					break
-				}
-			}
-		}
-	}
 }

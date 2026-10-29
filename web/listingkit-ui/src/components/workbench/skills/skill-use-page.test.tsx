@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {SkillUsePage} from "./skill-use-page";
 import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
 const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.collection.read","workbench.supply.read","workbench.supply.manage","listingkit.image_agent.read","listingkit.image_agent.write","local_agent.write","workbench.agent.use"]},products:vi.fn(),skills:vi.fn()}));
@@ -12,6 +12,7 @@ beforeEach(()=>{vi.clearAllMocks();f.context.effectiveOrganization.id="org";f.co
 afterEach(cleanup);
 it("reads existing products and carries exact image choice to explicit transfer without writing",async()=>{
  render(<SkillUsePage launch={launch} titleAvailable imageAvailable/>);
+ const crumb=within(screen.getByRole("navigation",{name:"面包屑"}));expect(crumb.getByRole("link",{name:"AI工作台"})).toHaveAttribute("href","/workbench/ai");expect(crumb.getByRole("link",{name:"技能库"})).toHaveAttribute("href","/workbench/agents/skills");
  const link=await screen.findByRole("link",{name:"选择此商品"});const url=new URL(link.getAttribute("href")!,"https://test");expect(url.pathname).toBe(`/workbench/data/mine/own/${item}/prepare`);expect(parseSkillLaunch(url.searchParams)).toEqual(launch);
  expect(f.products).toHaveBeenCalledWith({userId:"actor",organizationId:"org"},{keyword:"",limit:20,after:undefined},expect.any(AbortSignal));
  expect(f.skills.mock.calls.every(([,path])=>path==="organization/image-candidates")).toBe(true);

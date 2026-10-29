@@ -2,24 +2,28 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // DetailExtractor 商品详情提取器
-type DetailExtractor struct{}
+type DetailExtractor struct {
+	loggerDependency
+}
 
 // NewDetailExtractor 创建商品详情提取器
-func NewDetailExtractor() *DetailExtractor {
-	return &DetailExtractor{}
+func NewDetailExtractor(logs func(string) *logrus.Entry) *DetailExtractor {
+	return &DetailExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取商品详情信息 - 支持两种数据结构
 func (de *DetailExtractor) Extract(page playwright.Page, product *model.Product1688) error {
-	logger.GetGlobalLogger("crawler/alibaba1688").Debug("开始提取商品详情信息")
+	de.componentLogger("crawler/alibaba1688").Debug("开始提取商品详情信息")
 
 	// 从结构化数据中获取详情信息，支持两种数据结构
 	detailResult, err := page.Evaluate(`() => {
@@ -117,7 +121,7 @@ func (de *DetailExtractor) Extract(page playwright.Page, product *model.Product1
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取商品详情失败: %v", err)
+		de.componentLogger("crawler/alibaba1688").Debugf("提取商品详情失败: %v", err)
 		return err
 	}
 
@@ -156,7 +160,7 @@ func (de *DetailExtractor) Extract(page playwright.Page, product *model.Product1
 
 				if len(videoList) > 0 {
 					product.Videos = videoList
-					logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到 %d 个商品视频", len(videoList))
+					de.componentLogger("crawler/alibaba1688").Debugf("提取到 %d 个商品视频", len(videoList))
 				}
 			}
 
@@ -193,12 +197,12 @@ func (de *DetailExtractor) Extract(page playwright.Page, product *model.Product1
 						Content: fmt.Sprintf("包含 %d 张详情图片", len(imageUrls)),
 						Images:  imageUrls,
 					})
-					logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到 %d 张详情图片", len(imageUrls))
+					de.componentLogger("crawler/alibaba1688").Debugf("提取到 %d 张详情图片", len(imageUrls))
 				}
 			}
 
 			product.ProductDetails = productDetails
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("商品详情提取完成，共 %d 个部分", len(productDetails))
+			de.componentLogger("crawler/alibaba1688").Debugf("商品详情提取完成，共 %d 个部分", len(productDetails))
 		}
 	}
 

@@ -1,3 +1,5 @@
+> **SOURCE_RETIRED / SUPERSEDED EXECUTION AUTHORITY — #301 / #891.** Under the [user-confirmed complete retirement boundary](legacy-listing-preview-download-closure-retirement-boundary.md), unused `internal/listing/preview`, `internal/listing/platform` and the listing downloader are retired. Current facts/approved assets remain with `internal/product/catalog` / `internal/product/asset`; current `internal/listing/record` and other real Listing contracts retain their owners. `depguard: listing_preview_platform_neutral` and `TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets` now enforce retired-package import bans and source absence, rather than a living preview seam. The historical platform-neutral migration/facade instructions below no longer authorize keeping or restoring these packages. The complete original body is preserved; no runtime/data/credential/process operation or new trial prerequisite, and standalone SHEIN login/Store sync remain.
+
 # Listing Preview Boundaries
 
 This note captures the current preview-related boundary for the project-wide refactor.

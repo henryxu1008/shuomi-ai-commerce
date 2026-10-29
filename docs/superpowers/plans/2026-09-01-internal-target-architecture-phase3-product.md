@@ -1,3 +1,13 @@
+> #301 / #983 本批准确替代：[已确认完整闭包](../../architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)。仅结束旧sourcing.Publisher包装和asset/recipe静态配方；当前Catalog Publisher、现役ImageSlotRecipe/批准及全部有效断言保持，历史Task/Workflow规划不恢复。只按冻结§1–§7/§4.2/§6.1整批实施，无兼容alias/转发/双读/迁移或第二owner；workflow/完整inventory/计数/勾选/检查不改，既有资源不动，无试用前置。独立SHEIN登录/Store同步保持，#301 OPEN。以下起始main原文及历史证据完整保留。
+
+> #301 / #981 用户确认[旧商品来源归一化与中间事实合同完整设计](../../architecture/legacy-source-normalization-facts-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1），冻结设计 `4e74dfec9` / Independent Architecture / IMPLEMENTATION_READY 后整批实施。仅替代其中 catalog.Normalize、四项旧置信度判断、catalog.ProductFacts/asset.Facts 与 sourcing.SourceRequest/SourceResult 的准确旧KEEP/后续开工含义；对应无消费者源码和专属测试退出，无alias/转发/替代owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog、canonical13值/六常量/草稿投影、SourceIdentity四JSON零值槽位及规范化/hash/拒绝、当前规则/采集与独立SHEIN登录/Store同步保持。原有效身份断言改接当前owner，唯一旧必读转Lstat缺席，其余检查原样。以下起始main完整正文/历史/数字/勾选逐字保留；workflow/完整inventory/依赖/保护及既有实例/数据/凭据/文件/进程零改，无新试用前置，#301 OPEN。
+
+> #301 / #980 用户确认的[完整退休闭包](../../architecture/legacy-ai-routing-image-policy-closure-retirement-boundary.md)已在同一PR实施：本文涉及旧AI PolicyRouter/Legacy-Shadow/Planner、闲置通用HTTP图片生成adapter、旧本地模板/排版/白底或IP启发式的KEEP/开工要求，仅在该设计§5/§6.1明列范围被替代。有效账本值、图片字节检查、SceneOptions/metadata原规则及通用TestCategoryOf断言明确保留；当前AI/图像审核/JSON/hash/计费/UNKNOWN、采集和独立SHEIN登录/Store同步不变。以下实际起始main完整原Git blob、批准/失败/历史/数字/勾选逐字保留；无compat alias/新运行装配、workflow/完整inventory/既有资源操作或试用前置，#301 OPEN。
+
+> #301 / #977 用户确认的[完整退休闭包](../../architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md)已在同一主要PR实施：指定默认启动/依赖/注册转发及旧HTTP/Task装配退出；显式WithOptions/ForMode、真实Organization worker/client与WithWorker canary保持。 此顶注只校准本批指定旧KEEP，以下实际开工main的完整原正文/批准/失败/数字/勾选逐字保留为历史。无新alias/替代旧宿主、workflow/inventory/运行/数据操作或内部试用前置；独立SHEIN登录与Store同步保留，#301 OPEN。
+
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
 # 阶段三产品域目标架构实施计划
 
 **状态：** 已完成（2026-09-04）

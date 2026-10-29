@@ -1,7 +1,38 @@
-# Local account center Compose
+# Shuomi AI Commerce / 硕米智能引擎 — Local account center Compose
+
+This is the local account environment for **Shuomi AI Commerce** (AI Commerce
+Agent Platform). The engineering name `task-processor` remains in project names,
+paths and commands. Keep the original project name when operating an existing
+environment; changing it selects different Compose resources. See the
+[branding and repository rename inventory](../../../docs/development/branding-and-repository-rename.md).
+
+For local image updates, use the [source-based image build entry](../../../docs/operations/listingkit-image-build.md).
+It builds the backend/UI from the selected Git commit and clean runtime bases;
+do not inherit a previous application release image. Building does not deploy or
+change this environment, its configuration, or its data.
 
 Optional ZITADEL/Tencent SMS delivery configuration and the remaining local
 provider connection prerequisite are documented in [SMS.md](SMS.md).
+
+## Local Login HTTP header budget (#539)
+
+This local Compose starts ZITADEL Login with a **32 KiB** HTTP header limit.
+Retained cookies from multiple localhost ports can exceed Node's default 16 KiB
+limit and cause HTTP 431. The setting stays in the rendered Login entrypoint when
+the container is recreated from this Compose. It preserves the image's original
+entrypoint wrapper and inherited CA/preload `NODE_OPTIONS`.
+
+This setting is local to Account Compose. The shared images, production defaults,
+private configuration, named volumes and browser sessions are not changed.
+Applying a checkout to an existing instance still requires its own runtime
+authorization; editing this file does not restart or recreate containers.
+
+From the repository root, check the effective startup configuration without
+starting services or sending SMS:
+
+```powershell
+pwsh -NoProfile -File scripts/tests/account-compose-login-header-test.ps1
+```
 
 The opt-in Data Market / API Management profile and admitted native authorization
 are documented in [DATA_SERVICES.md](DATA_SERVICES.md). The unified new-empty
@@ -19,6 +50,11 @@ drawer. The administrator role is read-only; protected subjects and native roles
 cannot be changed or removed through this page.
 
 The module catalog binds existing permissions. Unopened modules are disabled.
+The read-only catalog and system administrator projection accept up to 64 modules;
+this is separate from the 32-module limit on each custom role and its create/save
+inputs. The database limit and authorization rules are unchanged. When a backend
+adds a catalog module, pair it with a UI that supports the full catalog rather
+than truncating the response or granting the module to existing custom roles.
 Enterprise membership management, finance writes, Agent configuration, platform
 administration, Store deletion and optional SHEIN diagnostics are not granted
 by custom roles. Module availability does not imply that provider credentials,
@@ -531,10 +567,10 @@ UI remains pending its exact Figma node. Product/browser and image-quality
 acceptance remain unavailable. The local Python OpenAI-protocol stub's
 deterministic white 2×2 PNG is not image-quality evidence. Its seven-token Review
 usage belongs only to historical Review tests, not the current one-edit,
-zero-Extract, zero-model-Review flow or its generation metering. The `paid_pilot`
-isolated catalog is only a purchasable local trial offer; subscription activation
-or member token allocation does not supply an image price/member point limit or
-unlock dispatch. No paid or external AI key is installed.
+zero-Extract, zero-model-Review flow or its generation metering. The retired
+subscription catalog and Token allocation are no longer installed or checked.
+Image dispatch requires the current explicit price and member point limit.
+No paid or external AI key is installed.
 
 For a separately authorized configured runtime, the current manifest's
 `imageAgent.generation.priceVersion` and `pointsPerImage` must match the worker's
@@ -551,7 +587,7 @@ these privileges alone do not enable the unpriced HTTP Start route. The
 organization-v1 worker connects to the same database as
 `image_agent_worker_runtime`, with exactly its 16 current tables' required
 read/insert/update privileges; startup verifies and refuses extra privileges.
-Its existing token/review connection remains `commercial_runtime`. The explicit
+The retired Token/review pool is absent. The explicit
 `commercialOwnerDatabase` pool uses `commercial_owner_runtime` for image AI point
 reservations, original-month counters and settlement; neither uses a schema-owner
 role. Startup verifies the existing resource owner's exact required rights,

@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -179,7 +179,7 @@ func (ch *CaptchaHandler) HandlePageCaptchaWithoutManual(ctx context.Context, pa
 
 func (ch *CaptchaHandler) handlePageCaptcha(ctx context.Context, page playwright.Page, allowManual bool) error {
 	startTime := time.Now()
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("开始处理页面验证码")
+	ch.componentLogger("crawler/alibaba1688").Debugf("开始处理页面验证码")
 
 	if err := waitForContext(ctx, 2*time.Second); err != nil {
 		return err
@@ -188,26 +188,26 @@ func (ch *CaptchaHandler) handlePageCaptcha(ctx context.Context, page playwright
 	currentURL := page.URL()
 	title, _ := page.Title()
 
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("当前页面URL: %s, 标题: %s", currentURL, title)
+	ch.componentLogger("crawler/alibaba1688").Debugf("当前页面URL: %s, 标题: %s", currentURL, title)
 
 	if strings.Contains(strings.ToLower(title), "captcha") ||
 		strings.Contains(strings.ToLower(title), "验证") ||
 		strings.Contains(currentURL, "captcha") {
-		logger.GetGlobalLogger("crawler/alibaba1688").Info("检测到验证码拦截页面")
+		ch.componentLogger("crawler/alibaba1688").Info("检测到验证码拦截页面")
 	}
 
 	if err := ch.handleLoginPrompt(ctx, page); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
-		logger.GetGlobalLogger("crawler/alibaba1688").Warnf("处理登录提示失败: %v", err)
+		ch.componentLogger("crawler/alibaba1688").Warnf("处理登录提示失败: %v", err)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
 	captchaType := ch.DetectCaptchaType(page)
-	logger.GetGlobalLogger("crawler/alibaba1688").Infof("检测到验证码类型: %s", captchaType.String())
+	ch.componentLogger("crawler/alibaba1688").Infof("检测到验证码类型: %s", captchaType.String())
 
 	var result CaptchaResult
 
@@ -223,7 +223,7 @@ func (ch *CaptchaHandler) handlePageCaptcha(ctx context.Context, page playwright
 	case CaptchaTypeMath:
 		result = ch.handleMathCaptchaWithManualOption(ctx, page, allowManual)
 	case CaptchaTypeUnknown:
-		logger.GetGlobalLogger("crawler/alibaba1688").Info("未检测到验证码")
+		ch.componentLogger("crawler/alibaba1688").Info("未检测到验证码")
 		return nil
 	}
 	if err := ctx.Err(); err != nil {
@@ -231,16 +231,8 @@ func (ch *CaptchaHandler) handlePageCaptcha(ctx context.Context, page playwright
 	}
 
 	result.Duration = time.Since(startTime)
-	logger.GetGlobalLogger("crawler/alibaba1688").Infof("验证码处理完成: 类型=%s, 状态=%d, 尝试次数=%d, 耗时=%v",
+	ch.componentLogger("crawler/alibaba1688").Infof("验证码处理完成: 类型=%s, 状态=%d, 尝试次数=%d, 耗时=%v",
 		captchaType.String(), result.Status, result.Attempts, result.Duration)
-
-	if result.Status == CaptchaStatusSuccess {
-		ch.recordSuccess(captchaType)
-	} else if result.Status == CaptchaStatusManualRequired {
-		ch.recordManual(captchaType)
-	} else {
-		ch.recordFailure(captchaType)
-	}
 
 	return result.Error
 }
@@ -265,41 +257,10 @@ func canceledCaptchaResult(ctx context.Context, captchaType CaptchaType) Captcha
 	}
 }
 
-// checkAndHandleCaptcha 检查并处理验证码，包括鼠标轨迹录制
-func (ch *CaptchaHandler) checkAndHandleCaptcha(page playwright.Page) error {
-	// 检查是否需要处理验证码
-	title, err := page.Title()
-	if err != nil {
-		return nil
-	}
-
-	titleLower := strings.ToLower(title)
-	if strings.Contains(titleLower, "验证码") || strings.Contains(titleLower, "captcha") {
-		logger.GetGlobalLogger("crawler/alibaba1688").Info("检测到验证码拦截页面")
-
-		// 检查滑块元素
-		captchaType := ch.DetectCaptchaType(page)
-		if captchaType == CaptchaTypeSlider {
-			logger.GetGlobalLogger("crawler/alibaba1688").Info("是否录制鼠标轨迹? (y/n)")
-			logger.GetGlobalLogger("crawler/alibaba1688").Info("提示: 录制一次后可自动回放")
-
-			// 尝试读取用户输入 (非阻塞)
-			var input string
-			fmt.Scanln(&input)
-
-			if strings.ToLower(input) == "y" || strings.ToLower(input) == "yes" {
-				logger.GetGlobalLogger("crawler/alibaba1688").Info("开始录制鼠标轨迹...")
-				// 录制功能将在后续实现
-			}
-		}
-	}
-	return nil
-}
-
 // HandleCaptchaWithRetry 带重试的验证码处理
 func (ch *CaptchaHandler) HandleCaptchaWithRetry(ctx context.Context, page playwright.Page, maxRetries int) error {
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		logger.GetGlobalLogger("crawler/alibaba1688").Infof("验证码处理尝试 %d/%d", attempt+1, maxRetries)
+		ch.componentLogger("crawler/alibaba1688").Infof("验证码处理尝试 %d/%d", attempt+1, maxRetries)
 
 		err := ch.HandlePageCaptcha(ctx, page)
 		if err == nil {
@@ -307,10 +268,10 @@ func (ch *CaptchaHandler) HandleCaptchaWithRetry(ctx context.Context, page playw
 		}
 
 		if attempt < maxRetries-1 {
-			logger.GetGlobalLogger("crawler/alibaba1688").Infof("第 %d 次尝试失败，等待后重试", attempt+1)
+			ch.componentLogger("crawler/alibaba1688").Infof("第 %d 次尝试失败，等待后重试", attempt+1)
 
 			if _, err := page.Reload(); err != nil {
-				logger.GetGlobalLogger("crawler/alibaba1688").Warnf("刷新页面失败: %v", err)
+				ch.componentLogger("crawler/alibaba1688").Warnf("刷新页面失败: %v", err)
 			} else {
 				if err := waitForContext(ctx, 3*time.Second); err != nil {
 					return err
@@ -320,40 +281,4 @@ func (ch *CaptchaHandler) HandleCaptchaWithRetry(ctx context.Context, page playw
 	}
 
 	return nil
-}
-
-// handleSliderCaptchaWithRecording 处理滑动验证码（支持录制）
-func (ch *CaptchaHandler) handleSliderCaptchaWithRecording(page playwright.Page, box *playwright.Rect, slideDistance float64) error {
-	recorder := globalRecorder
-
-	// 如果有保存的轨迹，尝试使用
-	if recorder.HasTrack() {
-		logger.GetGlobalLogger("crawler/alibaba1688").Info("找到已保存的轨迹，尝试使用...")
-		if err := recorder.replayTrack(page, box, recorder.GetSavedTrack()); err != nil {
-			logger.GetGlobalLogger("crawler/alibaba1688").Warnf("回放轨迹失败: %v", err)
-		} else {
-			time.Sleep(2 * time.Second)
-			if !ch.hasSliderCaptcha(page) {
-				logger.GetGlobalLogger("crawler/alibaba1688").Info("轨迹回放成功！")
-				return nil
-			}
-			logger.GetGlobalLogger("crawler/alibaba1688").Warnf("轨迹回放后仍检测到验证码")
-		}
-	}
-
-	// 录制新轨迹
-	logger.GetGlobalLogger("crawler/alibaba1688").Info("准备录制新轨迹...")
-	logger.GetGlobalLogger("crawler/alibaba1688").Info("请在弹出的浏览器中手动滑动验证码")
-
-	if err := recorder.RecordAndPlay(page, box, 3); err != nil {
-		return fmt.Errorf("录制失败: %w", err)
-	}
-
-	time.Sleep(2 * time.Second)
-	if !ch.hasSliderCaptcha(page) {
-		logger.GetGlobalLogger("crawler/alibaba1688").Info("录制回放成功！")
-		return nil
-	}
-
-	return fmt.Errorf("录制回放后仍检测到验证码")
 }

@@ -1,20 +1,24 @@
 package variations
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"regexp"
 	"strings"
-	"task-processor/internal/core/logger"
 )
 
 // Mapper 属性映射器
 type Mapper struct {
+	loggerDependency
+
 	config *Config
 }
 
 // NewMapper 创建属性映射器
-func NewMapper(config *Config) *Mapper {
-	return &Mapper{config: config}
+func NewMapper(config *Config, logs func(string) *logrus.Entry) *Mapper {
+	return &Mapper{loggerDependency: loggerDependency{logFor: logs},
+		config: config}
 }
 
 // MapAttributeNames 将通用属性名映射为语义化名称
@@ -28,7 +32,7 @@ func (m *Mapper) MapAttributeNames(attributes map[string]any) map[string]any {
 		if mappedName, exists := m.config.AttributeMapping[key]; exists {
 			finalKey = mappedName
 			if m.config.EnableDebugLogging {
-				logger.GetGlobalLogger("crawler/amazon").Infof("Mapped attribute: %s -> %s", key, finalKey)
+				m.componentLogger("crawler/amazon").Infof("Mapped attribute: %s -> %s", key, finalKey)
 			}
 		} else if m.config.EnableSmartInference {
 			// 如果启用了智能推断，尝试基于值推断属性类型
@@ -38,7 +42,7 @@ func (m *Mapper) MapAttributeNames(attributes map[string]any) map[string]any {
 			if strings.HasPrefix(key, "attribute_") || strings.HasPrefix(key, "variant_") {
 				finalKey = inferredType
 				if m.config.EnableDebugLogging {
-					logger.GetGlobalLogger("crawler/amazon").Infof("Inferred attribute type: %s -> %s (value: %v)", key, finalKey, value)
+					m.componentLogger("crawler/amazon").Infof("Inferred attribute type: %s -> %s (value: %v)", key, finalKey, value)
 				}
 			} else {
 				// 对于其他键名，保持原样

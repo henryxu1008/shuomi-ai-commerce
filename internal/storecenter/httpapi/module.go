@@ -27,6 +27,10 @@ func (m routeModule) ConfigureCatalog(catalog *storecenter.Catalog, metadata *st
 	m.handler.catalog, m.handler.metadata = catalog, metadata
 }
 
+func (m routeModule) ConfigureBrowser(service *storecenter.BrowserOperations) error {
+	return m.handler.SetBrowserOperations(service)
+}
+
 func (routeModule) Name() string { return ModuleName }
 
 func (m routeModule) Enabled(cfg *config.Config) bool {
@@ -34,6 +38,9 @@ func (m routeModule) Enabled(cfg *config.Config) bool {
 }
 
 func (m routeModule) Register(registry *kernelmodule.Registry) error {
+	if m.handler.browser != nil {
+		registry.AddRoutes(m.handler.browserRoutes()...)
+	}
 	if lifecycle := m.handler.tikTokLifecycleRoute(); lifecycle != nil {
 		registry.AddRoutes(*lifecycle)
 	}

@@ -31,35 +31,44 @@ func main() {
 	verify := flag.Bool("observations-verify", false, "read-only verification using the private store_center_runtime config")
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
-	shein := flag.Bool("shein-login-worker", false, "install optional current SHEIN login execution fence and narrow worker role on an authorized fresh Store")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
+	retainedObservations := flag.Bool("retained-observations", false, "declare already installed observations for --align-core-contract; no installation or grants")
+	retainedCockpit := flag.Bool("retained-operations-cockpit", false, "declare already installed operations cockpit for --align-core-contract; no installation or grants")
+	browserWorkbench := flag.Bool("browser-workbench", false, "explicitly install only Store browser operation/report tables and SELECT/INSERT grants on a confirmed current Store")
 	confirmed := flag.String("confirm-database", "", "exact existing database name required for --align-core-contract")
 	flag.Parse()
 	confirmationSet := false
+	retainedSet := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "confirm-database" {
 			confirmationSet = true
+		}
+		if f.Name == "retained-observations" || f.Name == "retained-operations-cockpit" {
+			retainedSet = true
 		}
 	})
 	err := func() error {
 		if flag.NArg() != 0 {
 			return errors.New("unexpected positional arguments")
 		}
+		if retainedSet && !*align {
+			return errors.New("retained capability declarations require --align-core-contract")
+		}
 		if *align {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shein {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench {
 				return errors.New("core alignment cannot be combined with any installation or observation mode")
 			}
-			return alignCoreContract(*path, *confirmed)
+			return alignCoreContract(*path, *confirmed, storecenter.RuntimeCapabilities{Observations: *retainedObservations, OperationsCockpit: *retainedCockpit})
+		}
+		if *browserWorkbench {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart {
+				return errors.New("browser installation cannot be combined with another mode")
+			}
+			return installBrowserWorkbench(*path, *confirmed)
 		}
 		if confirmationSet {
-			return errors.New("--confirm-database requires --align-core-contract")
-		}
-		if *shein && (*observationsOnly || *grantsOnly || *verify) {
-			return errors.New("SHEIN installation cannot be combined with observation maintenance")
-		}
-		if *shein {
-			return runWithCapabilities(*path, *observations, *cockpit, *tiktok, *walmart, true)
+			return errors.New("--confirm-database requires --align-core-contract or --browser-workbench")
 		}
 		return runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart)
 	}()
@@ -67,7 +76,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *align {
+	if *browserWorkbench {
+		fmt.Println("Store browser schema version and immutable grants verified; existing facts retained")
+	} else if *align {
 		fmt.Println("Store core contract and schema version verified; existing facts and permissions retained")
 	} else if *verify {
 		fmt.Println("Store observation schema and serving privileges verified; no schema operation")
@@ -80,7 +91,22 @@ func main() {
 	}
 }
 
-func alignCoreContract(path, confirmed string) error {
+func installBrowserWorkbench(path, confirmed string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cfg, err := loadOwnerConfig(path, "store_center_owner")
+	if err != nil || confirmed == "" || cfg.Database != confirmed {
+		return errors.New("Store browser exact database confirmation required")
+	}
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
+	if err != nil {
+		return errors.New("Store browser owner database unavailable")
+	}
+	defer platformdatabase.Close(db)
+	return storeschema.InstallBrowserWorkbench(ctx, db, confirmed)
+}
+
+func alignCoreContract(path, confirmed string, capabilities storecenter.RuntimeCapabilities) error {
 	if confirmed == "" {
 		return errors.New("core contract alignment refused: exact database confirmation required")
 	}
@@ -95,7 +121,7 @@ func alignCoreContract(path, confirmed string) error {
 		return errors.New("core contract alignment refused: owner database unavailable")
 	}
 	defer platformdatabase.Close(db)
-	if err := storeschema.AlignCoreContract(ctx, db, confirmed); err != nil {
+	if err := storeschema.AlignCoreContract(ctx, db, confirmed, capabilities); err != nil {
 		return fmt.Errorf("core contract alignment refused: %w", err)
 	}
 	return nil
@@ -179,27 +205,6 @@ func runWithTikTok(storePath string, observations, cockpit, observationsOnly, gr
 		}
 	}
 	return nil
-}
-
-func runWithCapabilities(path string, observations, cockpit, tiktok, walmart, shein bool) error {
-	if err := runWithTikTok(path, observations, cockpit, false, false, false, tiktok, walmart); err != nil {
-		return err
-	}
-	if !shein {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	cfg, err := loadOwnerConfig(path, "store_center_owner")
-	if err != nil {
-		return err
-	}
-	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
-	if err != nil {
-		return errors.New("Store schema-owner unavailable")
-	}
-	defer platformdatabase.Close(db)
-	return storecenter.InstallSheinLoginCapability(ctx, db)
 }
 
 func grantStoreRuntime(ctx context.Context, db *gorm.DB) error {

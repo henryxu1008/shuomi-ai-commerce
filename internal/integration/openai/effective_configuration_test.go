@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"task-processor/internal/ai"
 )
 
 func TestManagerEffectiveConfigurationStaticVersionIsDeterministicNonSecretAndSensitive(t *testing.T) {
@@ -14,7 +16,7 @@ func TestManagerEffectiveConfigurationStaticVersionIsDeterministicNonSecretAndSe
 		t.Helper()
 		manager, err := NewManager(&ManagerConfig{Clients: map[string]*ClientConfig{
 			name: testClientConfig(key, model, baseURL),
-		}, DefaultClient: name})
+		}})
 		if err != nil {
 			t.Fatalf("NewManager: %v", err)
 		}
@@ -64,7 +66,7 @@ func TestManagerEffectiveConfigurationUsesDBOverrideAndBindsExactVersion(t *test
 	}}
 	manager, err := NewManager(&ManagerConfig{
 		Clients:        map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", "https://static.test/v1")},
-		ConfigResolver: resolver, DefaultClient: "default",
+		ConfigResolver: resolver,
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
@@ -78,7 +80,7 @@ func TestManagerEffectiveConfigurationUsesDBOverrideAndBindsExactVersion(t *test
 	if route.ModelID != "db-model" || route.ConfigurationVersion == "" || strings.Contains(route.ConfigurationVersion, "db-secret") {
 		t.Fatalf("DB effective route = %+v", route)
 	}
-	client, err := manager.GetClientWithRoute(ctx, "default", ImageRouteSelection{
+	client, err := manager.GetClientWithRoute(ctx, "default", ai.ImageRouteSelection{
 		CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion,
 	})
 	if err != nil {
@@ -96,15 +98,14 @@ func TestManagerStaticClientRejectsBlankSelectedConfigurationVersion(t *testing.
 	server := newCaptureChatServer(t, &requests, &mu)
 	defer server.Close()
 	manager, err := NewManager(&ManagerConfig{
-		Clients:       map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", server.URL)},
-		DefaultClient: "default",
+		Clients: map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", server.URL)},
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
 	t.Cleanup(func() { _ = manager.Close() })
 
-	_, err = manager.GetClientWithRoute(context.Background(), "default", ImageRouteSelection{
+	_, err = manager.GetClientWithRoute(context.Background(), "default", ai.ImageRouteSelection{
 		CredentialReference: "default",
 	})
 	if !errors.Is(err, ErrClientConfigurationChanged) {
@@ -125,19 +126,19 @@ func TestManagerBoundClientFailsClosedWhenEffectiveVersionRotates(t *testing.T) 
 	}}
 	manager, err := NewManager(&ManagerConfig{
 		Clients:        map[string]*ClientConfig{"default": testClientConfig("static-secret", "static-model", server.URL)},
-		ConfigResolver: resolver, DefaultClient: "default",
+		ConfigResolver: resolver,
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
 	t.Cleanup(func() { _ = manager.Close() })
-	ctx := WithTenantID(context.Background(), "tenant-a")
+	ctx := WithIdentity(context.Background(), Identity{TenantID: "tenant-a"})
 	v1, err := manager.ResolveEffectiveClientRoute(ctx, "default")
 	if err != nil {
 		t.Fatalf("resolve v1: %v", err)
 	}
 	resolver.set(&ResolvedClientConfig{CacheKey: "db:v2", Config: testClientConfig("secret-v2", "model-v2", server.URL)})
-	_, err = manager.GetClientWithRoute(ctx, "default", ImageRouteSelection{
+	_, err = manager.GetClientWithRoute(ctx, "default", ai.ImageRouteSelection{
 		CredentialReference: v1.CredentialReference, ConfigurationVersion: v1.ConfigurationVersion,
 	})
 	if !errors.Is(err, ErrClientConfigurationChanged) {
@@ -151,13 +152,13 @@ func TestManagerBoundClientFailsClosedWhenEffectiveVersionRotates(t *testing.T) 
 func TestManagerEffectiveConfigurationReportsGenuinelyUnavailableCandidate(t *testing.T) {
 	manager, err := NewManager(&ManagerConfig{
 		Clients:        map[string]*ClientConfig{"default": testClientConfig("secret", "model", "https://example.test/v1")},
-		ConfigResolver: &mutableEffectiveResolver{}, DefaultClient: "default",
+		ConfigResolver: &mutableEffectiveResolver{},
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
 	t.Cleanup(func() { _ = manager.Close() })
-	_, err = manager.ResolveEffectiveClientRoute(WithTenantID(context.Background(), "tenant-a"), "fast")
+	_, err = manager.ResolveEffectiveClientRoute(WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}), "fast")
 	if !errors.Is(err, ErrClientConfigurationUnavailable) {
 		t.Fatalf("missing candidate error = %v, want ErrClientConfigurationUnavailable", err)
 	}
@@ -181,4 +182,61 @@ func (r *mutableEffectiveResolver) set(resolved *ResolvedClientConfig) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.resolved = resolved
+}
+
+func TestManagerRejectsLegacyResolverVersionBeforeDispatch(t *testing.T) {
+	for _, changedField := range []string{"model", "endpoint"} {
+		t.Run(changedField, func(t *testing.T) {
+			var mu sync.Mutex
+			var requests []capturedOpenAIRequest
+			server := newCaptureChatServer(t, &requests, &mu)
+			defer server.Close()
+			resolver := &mutableEffectiveResolver{resolved: &ResolvedClientConfig{CacheKey: "db:v1", Config: testClientConfig("test-key", "model-v1", server.URL)}}
+			manager, err := NewManager(&ManagerConfig{Clients: map[string]*ClientConfig{"default": testClientConfig("static-test-key", "static-model", server.URL)}, ConfigResolver: resolver})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = manager.Close() })
+			ctx := WithIdentity(context.Background(), Identity{TenantID: "tenant-a"})
+			route, err := manager.ResolveEffectiveClientRoute(ctx, "default")
+			if err != nil {
+				t.Fatal(err)
+			}
+			legacy, err := manager.GetClientWithRoute(ctx, "default", ai.ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: "db:v1"})
+			if err == nil && legacy != nil {
+				callChat(t, legacy, ctx)
+			}
+			if !errors.Is(err, ErrClientConfigurationChanged) {
+				t.Errorf("legacy resolver binding error = %v, want ErrClientConfigurationChanged", err)
+			}
+			if len(requests) != 0 {
+				t.Errorf("legacy resolver binding sent %d provider requests, want 0", len(requests))
+			}
+			client, err := manager.GetClientWithRoute(ctx, "default", ai.ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion})
+			if err != nil {
+				t.Fatal(err)
+			}
+			callChat(t, client, ctx)
+			if len(requests) != 1 || requests[0].Model != "model-v1" || requests[0].Auth != "Bearer test-key" {
+				t.Fatal("current effective configuration did not dispatch exactly once with its bound model and credential")
+			}
+			changed := testClientConfig("test-key", "model-v1", server.URL)
+			if changedField == "model" {
+				changed.Model = "model-v2"
+			} else {
+				changed.BaseURL = server.URL + "/changed"
+			}
+			resolver.set(&ResolvedClientConfig{CacheKey: "db:v1", Config: changed})
+			stale, err := manager.GetClientWithRoute(ctx, "default", ai.ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion})
+			if err == nil && stale != nil {
+				callChat(t, stale, ctx)
+			}
+			if !errors.Is(err, ErrClientConfigurationChanged) {
+				t.Errorf("same resolver key after %s drift error = %v, want ErrClientConfigurationChanged", changedField, err)
+			}
+			if len(requests) != 1 {
+				t.Errorf("%s drift sent additional provider requests: %d", changedField, len(requests))
+			}
+		})
+	}
 }

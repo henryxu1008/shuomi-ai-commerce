@@ -85,7 +85,7 @@ type ProductImageAdapter struct {
 }
 
 type routeBoundProductImageGenerator interface {
-	EditImageWithRoute(context.Context, *ai.ImageEditRequest, ImageRouteSelection) (*ai.ImageResponse, error)
+	EditImageWithRoute(context.Context, *ai.ImageEditRequest, ai.ImageRouteSelection) (*ai.ImageResponse, error)
 }
 
 func NewProductImageAdapter(config ProductImageAdapterConfig) (*ProductImageAdapter, error) {
@@ -511,7 +511,7 @@ func (a *ProductImageAdapter) editOne(ctx context.Context, input, source product
 
 func (a *ProductImageAdapter) editImage(ctx context.Context, request *ai.ImageEditRequest) (*ai.ImageResponse, error) {
 	client := a.config.ImageClient.(routeBoundProductImageGenerator)
-	return client.EditImageWithRoute(ctx, request, ImageRouteSelection{
+	return client.EditImageWithRoute(ctx, request, ai.ImageRouteSelection{
 		CredentialReference: a.config.CredentialReference, ConfigurationVersion: a.config.ConfigurationVersion,
 	})
 }

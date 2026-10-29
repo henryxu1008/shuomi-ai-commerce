@@ -38,6 +38,7 @@ var enterpriseModules = []MenuModule{
 	{"data-api", "数据服务", "API管理", true, DataServicesModulePermissions("data-api")},
 	{"data-mine", "数据服务", "我的数据", true, []string{PermissionWorkbenchCollectionRead, PermissionWorkbenchCollectionManage}},
 	{"stores", "店铺中心", "我的店铺", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreCreate, PermissionWorkbenchStoreUpdate, PermissionWorkbenchStoreLifecycle}},
+	{"store-browser", "店铺中心", "店铺浏览器使用", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreBrowserUse}},
 	{"store-products", "店铺中心", "店铺商品", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreProductsRead, PermissionWorkbenchStoreProductsSync}},
 	{"store-orders", "店铺中心", "订单履约", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreOrdersRead, PermissionWorkbenchStoreOrdersSync}},
 	{"plans", "套餐与权益", "套餐与权益（查看）", true, []string{PermissionWorkbenchCommercialRead}},

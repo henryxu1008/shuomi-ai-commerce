@@ -7,12 +7,10 @@ import (
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
-	worker "task-processor/internal/platform/workerpool"
 )
 
 type runtimeBundle struct {
 	routes           []httproute.Descriptor
-	workerPools      []kernelmodule.NamedWorkerPool
 	authDependencies *routeAuthDependencies
 }
 
@@ -32,8 +30,7 @@ func buildRuntimeBundleFromModules(cfg *config.Config, modules []kernelmodule.Mo
 	}
 
 	return runtimeBundle{
-		routes:      reg.Routes(),
-		workerPools: reg.WorkerPools(),
+		routes: reg.Routes(),
 	}, nil
 }
 
@@ -42,15 +39,4 @@ func (b runtimeBundle) buildServerBundle(port int, authorization routeAuthorizat
 		authorization = authorization.withWorkbench(*b.authDependencies)
 	}
 	return buildHTTPServerFromRoutes(port, b.routes, authorization), b.routes
-}
-
-func (b runtimeBundle) pools() []worker.WorkerPool {
-	pools := make([]worker.WorkerPool, 0, len(b.workerPools))
-	for _, item := range b.workerPools {
-		if item.Pool == nil {
-			continue
-		}
-		pools = append(pools, item.Pool)
-	}
-	return pools
 }

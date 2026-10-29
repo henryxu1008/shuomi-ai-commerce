@@ -1,23 +1,5 @@
-featureFlags:
-  flags:
-    product-listing-runtime-auto-migrate: true
-
-observability:
-  tracing:
-    enabled: false
-    serviceName: "task-processor"
-    endpoint: ""
-    insecure: false
-
 # 统一开发环境配置
 # 支持 TEMU 和 SHEIN 两个平台
-
-# 日志配置
-logging:
-  level: "DEBUG"  # 设置为 DEBUG 级别以显示详细调试信息
-  format: "text"  # text 或 json
-  file: ".local/logs/app.log"
-
 
 # OpenAI配置
 openai:
@@ -89,45 +71,6 @@ amazon:
   # Amazon SP-API 配置（用于上架）
   # 注意：以下凭证仅为示例，请替换为你自己的真实凭证
   # 获取方法：登录 Amazon Seller Central > 设置 > 用户权限 > 开发者中心
-  # 详细步骤：config/amazon-spapi-setup.md
-  spapi:
-    enabled: false
-    region: "us-east-1"
-    clientID: ""  # 请填写你的 Client ID
-    clientSecret: ""  # 请填写你的 Client Secret
-    refreshToken: ""  # 请填写你的 Refresh Token
-    # AWS凭证（可选，用于API签名，某些操作可能需要）
-    awsAccessKeyID: ""    # AWS Access Key ID（可选）
-    awsSecretKey: ""      # AWS Secret Access Key（可选）
-    defaultFulfillmentType: "FBM"
-    defaultCondition: "New"
-
-    # 多市场配置（可选，用于切换不同市场）
-    defaultMarketplace: "ATVPDKIKX0DER"
-    markets:
-      us:
-        name: "Amazon.com"
-        marketplaceID: "ATVPDKIKX0DER"
-        currency: "USD"
-        sellerID: ""  # 与主配置保持一致
-        enabled: true
-      ca:
-        name: "Amazon.ca"
-        marketplaceID: "A2EUQ1WTGCTBG2"
-        currency: "CAD"
-        sellerID: ""
-        enabled: true
-      mx:
-        name: "Amazon.com.mx"
-        marketplaceID: "A1AM78C64UM0Y8"
-        currency: "MXN"
-        sellerID: ""
-      br:
-        name: "Amazon.com.br"
-        marketplaceID: "A2Q3Y263D00KWC"
-        currency: "BRL"
-        sellerID: ""
-
 imageagent:
   admission:
     enabled: false

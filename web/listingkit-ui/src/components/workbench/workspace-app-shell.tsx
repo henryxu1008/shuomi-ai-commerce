@@ -38,7 +38,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
     "/workbench/agents/skills/official",
     "/workbench/agents/skills/mine",
   ].includes(pathname) || /^\/workbench\/notifications\/(official|business)\/[A-Za-z0-9_-]{1,2048}$/.test(pathname);
-  const isBrowserCaptureRoute = pathname === "/capture/1688";
+  const isBrowserCaptureRoute = pathname === "/capture/1688" || pathname === "/capture/amazon";
   const marketOperatorRoute = pathname === "/workbench/supply/operator" || pathname.startsWith("/workbench/supply/operator/") && isAcquisitionUUID(pathname.slice("/workbench/supply/operator/".length));
   const hasIndependentIdentityRoute=isPersonalAccountRoute || dataServicesAvailable && pathname === "/workbench/admin/data-customization" || ecoservicesAvailable&&pathname==="/workbench/services/review" || toolMarketAvailable&&pathname==="/workbench/tools/custom/review" || supplyMarketAvailable && marketOperatorRoute;
   const authenticationError = [context.blockingError, context.error].find(error => error?.code === "AUTHENTICATION_REQUIRED");
@@ -72,8 +72,8 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
   }, [router, shouldLeaveNoOrganization, shouldRedirectToNoOrganization]);
 
   if (authenticationError) {
-    const browserEntry = pathname === "/capture/1688" && typeof window !== "undefined"
-      ? parseCaptureEntry(window.location.href) : null;
+    const browserEntry = isBrowserCaptureRoute && typeof window !== "undefined"
+      ? parseCaptureEntry(window.location.href, pathname === "/capture/amazon" ? "amazon" : "1688") : null;
     const browserRecovery = browserEntry?.kind === "recovery" || browserEntry?.kind === "handoff";
     return <AccessState action={browserRecovery ? () => window.location.reload() : redirectToLogin} code={authenticationError.code} browserRecovery={browserRecovery} />;
   }

@@ -45,11 +45,9 @@ import (
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	"task-processor/internal/listing/record"
 	listingtask "task-processor/internal/listing/task"
-	"task-processor/internal/listingsubscription"
 	imagepolicy "task-processor/internal/marketplace/imagepolicy"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	productimage "task-processor/internal/product/image"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/storecenter"
@@ -145,13 +143,18 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	})
 	require.ErrorIs(t, err, sourcing.ErrSourcePublicationConflict)
 
-	// REV-1: actual HTTP create/accept/apply. The first committed Apply response
+	// REV-1: actual candidate intake followed by HTTP read/accept/apply. The first committed Apply response
 	// is deliberately discarded, then the application is rebuilt and replayed.
-	reviewGenerator := &chain1TitleGenerator{}
-	reviewApp, err := NewProductReviewApplication(db, verifier, resolver, authorizer, reviewGenerator)
+	reviewApp, candidateService, err := candidateReviewFixtureApplication(db, verifier, resolver, authorizer)
 	require.NoError(t, err)
 	reviewServer := chain1HTTPServer(t, reviewApp)
-	created := chain1ReviewRequest(t, reviewServer, http.MethodPost, "/api/product/text-proposals", "chain1-review-create", fmt.Sprintf(`{"product_key":%q,"base_version":%d}`, chain1ProductKey, sourceReceipt.CatalogVersion), http.StatusOK)
+	input, err := titleCandidateInput(catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: chain1Organization, ProductKey: chain1ProductKey}, Version: sourceReceipt.CatalogVersion, PublicationID: sourceReceipt.PublicationID}, envelope, "Reviewed chain product")
+	require.NoError(t, err)
+	candidateContext, err := candidateReviewFixtureContext(context.Background(), verifier, resolver, chain1UserToken, chain1Organization)
+	require.NoError(t, err)
+	admitted, err := candidateService.CreateFromCandidate(candidateContext, "chain1-review-create", input)
+	require.NoError(t, err)
+	created := chain1ReviewRequest(t, reviewServer, http.MethodGet, "/api/product/text-proposals/"+admitted.ID, "", "", http.StatusOK)
 	require.Equal(t, "pending", created.State)
 	revision := chain1Uint(t, created.Revision)
 	accepted := chain1ReviewRequest(t, reviewServer, http.MethodPost, "/api/product/text-proposals/"+created.ProposalID+"/decisions", "chain1-review-accept", fmt.Sprintf(`{"action":"accept","expected_revision":%d}`, revision), http.StatusOK)
@@ -174,7 +177,7 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Error(t, err, "the committed Apply response must be lost")
 	lostReview.Close()
 	reviewServer.Close()
-	rebuiltReviewApp, err := NewProductReviewApplication(db, verifier, resolver, authorizer, reviewGenerator)
+	rebuiltReviewApp, _, err := candidateReviewFixtureApplication(db, verifier, resolver, authorizer)
 	require.NoError(t, err)
 	rebuiltReview := chain1HTTPServer(t, rebuiltReviewApp)
 	applied := chain1ReviewRequest(t, rebuiltReview, http.MethodPost, "/api/product/text-proposals/"+created.ProposalID+"/apply", "chain1-review-apply", applyBody, http.StatusOK)
@@ -191,11 +194,6 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 
 	// Store Center: use current Subscription, quota, audit and Store creation
 	// state machine. No final Store or entitlement row is inserted by the test.
-	subscriptionRepository := listingsubscription.NewGormRepository(db)
-	subscriptionService, err := listingsubscription.NewService(subscriptionRepository)
-	require.NoError(t, err)
-	_, err = subscriptionService.ApplyPlan(context.Background(), chain1Organization, listingsubscription.PlanApplyInput{PlanCode: listingsubscription.PlanProfessional, Status: listingsubscription.StatusActive}, chain1Actor)
-	require.NoError(t, err)
 	storeRepository, err := storecenter.NewGormStoreRepository(db)
 	require.NoError(t, err)
 	auditRepository, err := storecenter.NewGormAuditRepository(db)
@@ -216,7 +214,7 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Equal(t, storeID, storeReplay.Store.ID())
 
 	// DRAFT-S1 is not ready for the exact applied version before approval.
-	draftApp, _, err := NewSheinRecordApplication(db, verifier, resolver, authorizer)
+	draftApp, _, err := NewSheinRecordApplication(db, verifier, resolver, authorizer, nil)
 	require.NoError(t, err)
 	draftServer := chain1HTTPServer(t, draftApp)
 	draftBody := chain1DraftBody(chain1ProductKey, appliedVersion, storeID)
@@ -258,23 +256,32 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.NoError(t, err)
 	chain1StartWorker(t, temporalDriver, activities)
 	workflowClient := temporalDriver.OrganizationClient()
-	imageApp := chain1ImageApplication(t, db, verifier, resolver, authorizer, workflowClient, exactProduct)
-	imageServer := chain1HTTPServer(t, imageApp)
+	imageService := chain1ImageService(t, db, workflowClient, exactProduct)
+	imageReadContext := func() (context.Context, error) {
+		return chain1ImageContext(t, resolver, verifier, authorizer, authz.PermissionImageAgentRead)
+	}
+	imageWriteContext := func() (context.Context, error) {
+		return chain1ImageContext(t, resolver, verifier, authorizer, authz.PermissionImageAgentWrite)
+	}
 	runID, actionID := "chain1-run-388", "chain1-approve-388"
-	createRun := fmt.Sprintf(`{"run_id":%q,"business_task_id":"chain1-context-388","target_platform":"shein","image_policy_context":{"country":"us","family":"default","scene_category":"shoes"},"mode":"manual","idempotency_key":"chain1-run-key-388","plan":{"revision":1,"idempotency_key":"chain1-plan-key-388","source_asset_ids":["catalog-image-1"],"slots":[{"id":"main","role":"main","source_asset_ids":["catalog-image-1"],"idempotency_key":"chain1-main-key-388","status":"pending"}]},"budget":{},"max_concurrent_slots":1}`, runID)
-	status, raw, err := chain1RawRequest(imageServer.Client(), http.MethodPost, imageServer.URL+"/api/organization/image-agent/runs", "", createRun, chain1Organization)
+	createRun := imageagent.StartRunInput{
+		RunID: runID, BusinessTaskID: "chain1-context-388", TargetPlatform: "shein",
+		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
+		Mode:               imageagent.RunModeManual, IdempotencyKey: "chain1-run-key-388", MaxConcurrentSlots: 1,
+		Plan: imageagent.Plan{Revision: 1, IdempotencyKey: "chain1-plan-key-388", SourceAssetIDs: []string{"catalog-image-1"}, Slots: []imageagent.Slot{{ID: "main", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"catalog-image-1"}, IdempotencyKey: "chain1-main-key-388", Status: imageagent.SlotStatusPending}}},
+	}
+	imageContext, err := imageWriteContext()
 	require.NoError(t, err)
-	require.Equal(t, http.StatusAccepted, status, string(raw))
-	status, raw, err = chain1RawRequest(imageServer.Client(), http.MethodPost, imageServer.URL+"/api/organization/image-agent/runs", "", createRun, chain1Organization)
+	require.NoError(t, imageService.Start(imageContext, createRun))
+	imageContext, err = imageWriteContext()
 	require.NoError(t, err)
-	require.Equal(t, http.StatusAccepted, status, string(raw))
-	awaiting := chain1WaitRun(t, imageServer, runID, imageagent.RunStatusAwaitingFinalApproval, 45*time.Second)
+	require.NoError(t, imageService.Start(imageContext, createRun))
+	awaiting := chain1WaitRun(t, imageService, imageReadContext, runID, imageagent.RunStatusAwaitingFinalApproval, 45*time.Second)
 	require.NotEmpty(t, awaiting.ResultDigest)
 	require.EqualValues(t, 1, awaiting.Plan.Revision)
 
 	// Persisted workflow history survives both worker and Temporal server restart.
 	temporalDriver.StopWorker()
-	imageServer.Close()
 	_ = temporalDriver.Close()
 	chain1RestartTemporal(t)
 	temporalDriver = chain1TemporalDriver(t, temporalAddress)
@@ -282,49 +289,42 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.NoError(t, err)
 	chain1StartWorker(t, temporalDriver, activities)
 	workflowClient = temporalDriver.OrganizationClient()
-	imageApp = chain1ImageApplication(t, db, verifier, resolver, authorizer, workflowClient, exactProduct)
-	imageServer = chain1HTTPServer(t, imageApp)
+	imageService = chain1ImageService(t, db, workflowClient, exactProduct)
 
-	wrongApproval := fmt.Sprintf(`{"plan_revision":1,"result_digest":"sha256:%s","action_id":"chain1-wrong-approve-388"}`, strings.Repeat("0", 64))
-	status, _, err = chain1RawRequest(imageServer.Client(), http.MethodPost, imageServer.URL+"/api/organization/image-agent/runs/"+runID+"/results/approve", "", wrongApproval, chain1Organization)
+	imageContext, err = imageWriteContext()
 	require.NoError(t, err)
-	require.Equal(t, http.StatusConflict, status)
+	err = imageService.ApproveResults(imageContext, runID, 1, "sha256:"+strings.Repeat("0", 64), "chain1-wrong-approve-388")
+	require.True(t, errors.Is(err, imageagent.ErrCommandBlocked) || errors.Is(err, imageagent.ErrRevisionConflict), "wrong digest must conflict: %v", err)
 	grants.userAllowed.Store(false)
-	approvalBody := fmt.Sprintf(`{"plan_revision":1,"result_digest":%q,"action_id":%q}`, awaiting.ResultDigest, actionID)
-	status, _, err = chain1RawRequest(imageServer.Client(), http.MethodPost, imageServer.URL+"/api/organization/image-agent/runs/"+runID+"/results/approve", "", approvalBody, chain1Organization)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusForbidden, status)
+	_, err = imageWriteContext()
+	require.Error(t, err, "a revoked user cannot enter the approval command")
 	grants.userAllowed.Store(true)
 
-	// The HTTP update is accepted under current user auth, but its publication
-	// activity cannot cross the separately revoked worker grant. Race two copies
-	// of the same action while losing both HTTP responses, restore the grant,
-	// then rebuild the application and worker from durable owners.
+	// A live user command cannot publish across a revoked worker grant. Two
+	// same-action calls lose their successful returns only after durable commit.
 	grants.workerAllowed.Store(false)
 	workerDeniedBeforeRevoke := grants.workerDenied.Load()
 	approvalRowsBeforeRevoke := chain1RowCount(t, db, "product_approval_receipts")
 	assetRowsBeforeRevoke := chain1RowCount(t, db, "product_approved_assets")
 	publicObjectsBeforeRevoke := objects.countPrefix("image-agent/public/")
 	imageCallsAfterGeneration := imagePorts.calls.Load()
-	lostApprovalStatuses := make(chan int, 2)
-	lostApproval := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		recorder := httptest.NewRecorder()
-		imageApp.Handler.ServeHTTP(recorder, r)
-		lostApprovalStatuses <- recorder.Code
-		if connection, _, hijackErr := w.(http.Hijacker).Hijack(); hijackErr == nil {
-			_ = connection.Close()
-			return
-		}
-		w.WriteHeader(recorder.Code)
-		_, _ = w.Write(recorder.Body.Bytes())
-	}))
+	committedApprovalReturns := make(chan error, 2)
+	lostApprovalResponse := errors.New("controlled committed approval response lost")
 	lostDone := make(chan error, 2)
 	startCompetingApprovals := make(chan struct{})
 	for range 2 {
 		go func() {
 			<-startCompetingApprovals
-			_, _, requestErr := chain1RawRequest(lostApproval.Client(), http.MethodPost, lostApproval.URL+"/api/organization/image-agent/runs/"+runID+"/results/approve", "", approvalBody, chain1Organization)
-			lostDone <- requestErr
+			callContext, commandErr := imageWriteContext()
+			if commandErr == nil {
+				commandErr = imageService.ApproveResults(callContext, runID, 1, awaiting.ResultDigest, actionID)
+			}
+			committedApprovalReturns <- commandErr
+			if commandErr == nil {
+				lostDone <- lostApprovalResponse
+			} else {
+				lostDone <- commandErr
+			}
 		}()
 	}
 	close(startCompetingApprovals)
@@ -335,28 +335,26 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Equal(t, imageCallsAfterGeneration, imagePorts.calls.Load(), "denied approval must not dispatch image capabilities")
 	_, err = assetRepository.GetApprovedInventory(context.Background(), productasset.InventoryScope{TenantID: chain1Organization, ProductKey: chain1ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: appliedVersion})
 	require.ErrorIs(t, err, productasset.ErrApprovedAssetsNotReady)
-	conflictingApproval := fmt.Sprintf(`{"plan_revision":1,"result_digest":"sha256:%s","action_id":%q}`, strings.Repeat("f", 64), actionID)
-	status, _, err = chain1RawRequest(imageServer.Client(), http.MethodPost, imageServer.URL+"/api/organization/image-agent/runs/"+runID+"/results/approve", "", conflictingApproval, chain1Organization)
+	imageContext, err = imageWriteContext()
 	require.NoError(t, err)
-	require.Equal(t, http.StatusConflict, status, "same pending action with a different payload must conflict")
+	err = imageService.ApproveResults(imageContext, runID, 1, "sha256:"+strings.Repeat("f", 64), actionID)
+	require.True(t, errors.Is(err, imageagent.ErrCommandBlocked) || errors.Is(err, imageagent.ErrRevisionConflict), "same pending action with a different payload must conflict: %v", err)
 	grants.workerAllowed.Store(true)
 	for range 2 {
 		select {
 		case lostErr := <-lostDone:
-			require.Error(t, lostErr, "competing approval response must be lost after the durable command completes")
+			require.ErrorIs(t, lostErr, lostApprovalResponse, "competing approval return must be lost only after durable commit")
 		case <-time.After(45 * time.Second):
 			t.Fatal("approval command did not complete after worker authorization was restored")
 		}
 		select {
-		case acceptedStatus := <-lostApprovalStatuses:
-			require.Equal(t, http.StatusAccepted, acceptedStatus, "same-action competitors must attach to one accepted command")
+		case committedErr := <-committedApprovalReturns:
+			require.NoError(t, committedErr, "same-action competitors must attach to one committed command")
 		case <-time.After(time.Second):
-			t.Fatal("lost approval proxy did not record the committed response status")
+			t.Fatal("approval caller did not record the committed command result")
 		}
 	}
-	lostApproval.Close()
 
-	imageServer.Close()
 	temporalDriver.StopWorker()
 	_ = temporalDriver.Close()
 	temporalDriver = chain1TemporalDriver(t, temporalAddress)
@@ -364,15 +362,14 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.NoError(t, err)
 	chain1StartWorker(t, temporalDriver, activities)
 	workflowClient = temporalDriver.OrganizationClient()
-	imageApp = chain1ImageApplication(t, db, verifier, resolver, authorizer, workflowClient, exactProduct)
-	imageServer = chain1HTTPServer(t, imageApp)
+	imageService = chain1ImageService(t, db, workflowClient, exactProduct)
 
 	inventory := chain1WaitInventory(t, assetRepository, appliedVersion, 45*time.Second)
 	require.Len(t, inventory.Assets, 1)
 	require.Equal(t, runID, inventory.Assets[0].RunID)
 	require.EqualValues(t, 1, inventory.Assets[0].PlanRevision)
 	require.Equal(t, productasset.RoleMain, inventory.Assets[0].Role)
-	completed := chain1WaitRun(t, imageServer, runID, imageagent.RunStatusCompleted, 45*time.Second)
+	completed := chain1WaitRun(t, imageService, imageReadContext, runID, imageagent.RunStatusCompleted, 45*time.Second)
 	require.Equal(t, awaiting.ResultDigest, completed.ResultDigest)
 	var approvalAction string
 	require.NoError(t, db.Raw("SELECT action_id FROM product_approval_receipts WHERE tenant_id = ?", chain1Organization).Row().Scan(&approvalAction))
@@ -383,7 +380,7 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	// Commit DRAFT-S1 while losing the response, rebuild it, then replay the
 	// original key and prove a newer Catalog version does not inherit approval.
 	draftServer.Close()
-	draftApp, _, err = NewSheinRecordApplication(db, verifier, resolver, authorizer)
+	draftApp, _, err = NewSheinRecordApplication(db, verifier, resolver, authorizer, nil)
 	require.NoError(t, err)
 	draftServer = chain1HTTPServer(t, draftApp)
 	lostDraft := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -402,7 +399,7 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Error(t, err, "the committed DRAFT response must be lost")
 	lostDraft.Close()
 	draftServer.Close()
-	draftApp, reader, err := NewSheinRecordApplication(db, verifier, resolver, authorizer)
+	draftApp, reader, err := NewSheinRecordApplication(db, verifier, resolver, authorizer, nil)
 	require.NoError(t, err)
 	draftServer = chain1HTTPServer(t, draftApp)
 	status, draftRaw, err := chain1RawRequest(draftServer.Client(), http.MethodPost, draftServer.URL+"/api/listing/shein-records", "chain1-draft-save", draftBody, chain1Organization)
@@ -463,7 +460,8 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 		require.Equal(t, want, count, table)
 	}
 	require.Equal(t, tableCount, chain1TableCount(t, db), "requests must not perform DDL")
-	require.EqualValues(t, 1, reviewGenerator.calls.Load(), "review replay must not redispatch the title generator")
+	require.EqualValues(t, 1, chain1RowCount(t, db, "product_title_proposals"), "candidate replay must not create another proposal")
+	require.EqualValues(t, 3, chain1RowCount(t, db, "product_title_operations"), "intake, decision and Apply each have one committed receipt")
 	require.Positive(t, grants.userCalls.Load())
 	require.Positive(t, grants.workerCalls.Load())
 	require.Positive(t, grants.workerDenied.Load())
@@ -500,7 +498,6 @@ func chain1InstallSchemas(t *testing.T, db *gorm.DB) {
 	require.NoError(t, InstallProductReviewSchema(db))
 	require.NoError(t, assetstore.AutoMigrate(db))
 	require.NoError(t, imagestore.AutoMigrateOrganizationScope(db))
-	require.NoError(t, listingsubscription.AutoMigrateRepository(db))
 	require.NoError(t, storecenter.AutoMigrateStoreRepository(db))
 	require.NoError(t, storecenter.AutoMigrateAuditRepository(db))
 	schema, err := os.ReadFile("../listingrecordstore/schema.sql")
@@ -582,14 +579,6 @@ func (fixture *chain1GrantFixture) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	_, _ = fmt.Fprintf(w, `{"pagination":{"totalResult":"1"},"authorizations":[{"id":"chain1-authorization","project":{"id":%q},"organization":{"id":%q,"name":"CHAIN-1"},"user":{"id":%q},"state":"STATE_ACTIVE","roles":[{"key":"listingkit_admin"}]}]}`, chain1Project, chain1Organization, chain1Actor)
-}
-
-type chain1TitleGenerator struct{ calls atomic.Int32 }
-
-func (g *chain1TitleGenerator) Generate(_ context.Context, request enrichment.GenerationRequest) (enrichment.Candidate, error) {
-	g.calls.Add(1)
-	evidenceID, err := enrichment.CanonicalEvidenceID(request.Source)
-	return enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Reviewed chain product", EvidenceIDs: []string{evidenceID}}}}, err
 }
 
 func chain1HTTPServer(t *testing.T, application *http.Server) *httptest.Server {
@@ -676,14 +665,53 @@ func chain1StartWorker(t *testing.T, driver *chain1temporal.Driver, activities *
 	require.NoError(t, driver.StartOrganizationWorker(activities))
 }
 
-func chain1ImageApplication(t *testing.T, db *gorm.DB, verifier chain1TokenVerifier, resolver *workbenchcontext.Resolver, authorizer *authz.ListingKitAuthorizer, workflows imageagent.WorkflowClient, product catalog.PublishedSnapshot) *http.Server {
+func chain1ImageService(t *testing.T, db *gorm.DB, workflows imageagent.WorkflowClient, product catalog.PublishedSnapshot) *imageagent.Service {
 	t.Helper()
-	application, err := NewImageAgentOrganizationApplication(db, verifier, resolver, authorizer, workflows,
-		imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{chain1Organization}},
-		[]OrganizationImageBinding{{ContextID: "chain1-context-388", OwnerUserID: chain1Actor, Identity: product.Identity, Version: product.Version, PublicationID: product.PublicationID}},
-	)
+	assets, err := selectAuthorizedAssets(buildAuthorizedAssetsFromCatalogImages(product.Snapshot.Images), "catalog-image-1", nil, true)
 	require.NoError(t, err)
-	return application
+	value, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{
+		Assets: assets, ProductContext: imageagent.ProductContextRef{ProductID: product.Identity.ProductKey, Title: product.Snapshot.Title, ProductType: strings.Join(product.Snapshot.CategoryPath, " / "), SourceSnapshotVersion: product.Version, Attributes: catalogAttributes(product.Snapshot.Attributes)},
+	})
+	require.NoError(t, err)
+	value.Manifest.Hash = imageagent.CatalogSnapshotHash(value.Assets, value.ProductContext)
+	service, err := imageagent.NewService(imagestore.NewOrganizationRepository(db), workflows, chain1ImageCatalog{value: value}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{chain1Organization}}))
+	require.NoError(t, err)
+	return service
+}
+
+// This domain test port returns the already-applied immutable Catalog values;
+// it is not an HTTP host or a production binding/selection owner.
+type chain1ImageCatalog struct{ value imageagent.AssetCatalog }
+
+func (c chain1ImageCatalog) Resolve(context.Context, imageagent.AssetCatalogScope) (imageagent.AssetCatalog, error) {
+	return c.value, nil
+}
+
+func chain1ImageContext(t *testing.T, resolver *workbenchcontext.Resolver, verifier chain1TokenVerifier, authorizer *authz.ListingKitAuthorizer, permission string) (context.Context, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	identity, err := verifier.Verify(ctx, chain1UserToken)
+	if err != nil {
+		return nil, err
+	}
+	policy := httproute.OrganizationAccessPolicyLiveWrite
+	if permission == authz.PermissionImageAgentRead {
+		policy = httproute.OrganizationAccessPolicyCachedRead
+	}
+	identity, err = resolver.Resolve(ctx, policy, workbenchcontext.ResolveInput{Identity: identity, BearerToken: chain1UserToken, RequestedOrganizationID: chain1Organization})
+	if err != nil {
+		return nil, err
+	}
+	ctx = authidentity.WithAuthenticatedIdentity(ctx, identity)
+	allowed, err := authz.AuthorizeOrganization(ctx, authorizer, identity.UserID, identity.EffectiveOrganizationID, identity.Roles, permission)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, imageagent.ErrIdentityRequired
+	}
+	return ctx, nil
 }
 
 func chain1EmbeddedImagePolicy(t *testing.T) *imagepolicy.Resolver {
@@ -819,23 +847,16 @@ func chain1CloneMetadata(input map[string]string) map[string]string {
 	return output
 }
 
-type chain1RunView struct {
-	Run struct {
-		Status imageagent.RunStatus `json:"status"`
-	} `json:"run"`
-	Plan struct {
-		Revision int64 `json:"revision"`
-	} `json:"plan"`
-	ResultDigest string `json:"result_digest"`
-}
-
-func chain1WaitRun(t *testing.T, server *httptest.Server, runID string, want imageagent.RunStatus, timeout time.Duration) chain1RunView {
+func chain1WaitRun(t *testing.T, service *imageagent.Service, readContext func() (context.Context, error), runID string, want imageagent.RunStatus, timeout time.Duration) imageagent.RunProjection {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
-	var last chain1RunView
+	var last imageagent.RunProjection
 	for time.Now().Before(deadline) {
-		status, raw, err := chain1RawRequest(server.Client(), http.MethodGet, server.URL+"/api/organization/image-agent/runs/"+runID, "", "", chain1Organization)
-		if err == nil && status == http.StatusOK && json.Unmarshal(raw, &last) == nil && last.Run.Status == want {
+		ctx, err := readContext()
+		if err == nil {
+			last, err = service.Get(ctx, runID)
+		}
+		if err == nil && last.Run.Status == want {
 			return last
 		}
 		time.Sleep(200 * time.Millisecond)

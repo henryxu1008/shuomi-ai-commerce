@@ -1,9 +1,10 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/mxschmitt/playwright-go"
@@ -11,25 +12,26 @@ import (
 
 // Manager 通用浏览器管理器
 type Manager struct {
+	loggerDependency
+
 	pw          *playwright.Playwright
 	browser     playwright.Browser
 	context     playwright.BrowserContext
 	config      *BrowserConfig
 	fingerprint *FingerprintConfig
 	userAgents  []string
-	generator   *FingerprintGenerator
 	userDataDir string // 用户数据目录（用于持久化上下文）
 	closeErr    error
 	installer   *PlaywrightInstaller
 }
 
 // NewManager 创建浏览器管理器
-func NewManager(cfg *BrowserConfig) *Manager {
+func NewManager(cfg *BrowserConfig, logs func(string) *logrus.Entry) *Manager {
 	return &Manager{
-		config:     cfg,
-		userAgents: GetUserAgentPool(),
-		generator:  NewFingerprintGenerator(),
-		installer:  NewPlaywrightInstaller(),
+		loggerDependency: loggerDependency{logFor: logs},
+		config:           cfg,
+		userAgents:       GetUserAgentPool(),
+		installer:        NewPlaywrightInstaller(logs),
 	}
 }
 
@@ -41,16 +43,6 @@ func (m *Manager) SetFingerprint(fingerprint *FingerprintConfig) {
 // SetUserDataDir 设置用户数据目录（用于持久化上下文，避免隐身模式检测）
 func (m *Manager) SetUserDataDir(dir string) {
 	m.userDataDir = dir
-}
-
-// GenerateRandomFingerprint 生成随机指纹
-func (m *Manager) GenerateRandomFingerprint(publicIP string) *FingerprintConfig {
-	return m.generator.GenerateRandomFingerprint(publicIP)
-}
-
-// GenerateStableFingerprint 生成稳定指纹
-func (m *Manager) GenerateStableFingerprint(userID string) *FingerprintConfig {
-	return m.generator.GenerateStableFingerprint(userID)
 }
 
 // Install 初始化Playwright（自动安装驱动）
@@ -73,7 +65,7 @@ func (m *Manager) Launch() error {
 	userAgent := GenerateUserAgent(m.config.UserAgent, m.userAgents)
 
 	// 创建上下文启动器
-	launcher := NewContextLauncher(m.pw, m.config, m.fingerprint, m.userDataDir)
+	launcher := NewContextLauncher(m.pw, m.config, m.fingerprint, m.userDataDir, m.logFor)
 
 	// 启动浏览器上下文
 	browser, context, err := launcher.Launch(userAgent)
@@ -167,15 +159,4 @@ func (m *Manager) GetContext() playwright.BrowserContext {
 // GetConfig 获取浏览器配置（供子类使用）
 func (m *Manager) GetConfig() *BrowserConfig {
 	return m.config
-}
-
-// GetDefaultUserDataDir 获取默认用户数据目录
-func GetDefaultUserDataDir(identifier string) string {
-	// 获取当前可执行文件目录
-	execPath, err := os.Executable()
-	if err != nil {
-		return filepath.Join(".", "chromeData", identifier)
-	}
-	execDir := filepath.Dir(execPath)
-	return filepath.Join(execDir, "chromeData", identifier)
 }

@@ -19,11 +19,6 @@ func TestListingKitCommercialImageAgentWorkersUseExactSecretAndConfigScope(t *te
 		"TASK_PROCESSOR_DATABASE_USER":                  "TASK_PROCESSOR_DATABASE_USER",
 		"TASK_PROCESSOR_DATABASE_PASSWORD":              "TASK_PROCESSOR_DATABASE_PASSWORD",
 		"TASK_PROCESSOR_DATABASE_NAME":                  "TASK_PROCESSOR_DATABASE_NAME",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_HOST":       "TASK_PROCESSOR_COMMERCIAL_DATABASE_HOST",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_PORT":       "TASK_PROCESSOR_COMMERCIAL_DATABASE_PORT",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_USER":       "TASK_PROCESSOR_COMMERCIAL_DATABASE_USER",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_PASSWORD":   "TASK_PROCESSOR_COMMERCIAL_DATABASE_PASSWORD",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_NAME":       "TASK_PROCESSOR_COMMERCIAL_DATABASE_NAME",
 		"TASK_PROCESSOR_OPENAI_API_KEY":                 "TASK_PROCESSOR_OPENAI_API_KEY",
 		"TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY":   "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY",
 		"TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE": "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE",
@@ -270,7 +265,6 @@ func TestListingKitRetainedWorkloadsExcludeInvitationCredentials(t *testing.T) {
 	for _, name := range []string{
 		"listingkit-ui-deployment.yaml",
 		"imgproxy-deployment.yaml",
-		"shein-login-worker-deployment.yaml",
 		"image-agent-temporal-worker-deployment.yaml",
 		"image-agent-temporal-worker-v3-deployment.yaml",
 	} {
@@ -338,7 +332,6 @@ func TestRetiredTencentSMSCredentialsAndRouteAreAbsent(t *testing.T) {
 	for _, name := range []string{
 		"listingkit-ui-deployment.yaml",
 		"imgproxy-deployment.yaml",
-		"shein-login-worker-deployment.yaml",
 		"image-agent-temporal-worker-deployment.yaml",
 		"image-agent-temporal-worker-v3-deployment.yaml",
 	} {

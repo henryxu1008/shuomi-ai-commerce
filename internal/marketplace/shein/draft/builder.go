@@ -4,17 +4,18 @@ package draft
 import (
 	"context"
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"task-processor/internal/listing/record"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/canonical"
 	"task-processor/internal/product/description"
-	"task-processor/internal/publishing/shein"
+	shein "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
-type Builder struct{}
+type Builder struct{ LogFor func(string) *logrus.Entry }
 
-func (Builder) Build(ctx context.Context, snapshot catalog.ProductSnapshot, inventory productasset.ApprovedAssetInventory, input record.Input) ([]byte, error) {
+func (b Builder) Build(ctx context.Context, snapshot catalog.ProductSnapshot, inventory productasset.ApprovedAssetInventory, input record.Input) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -32,7 +33,7 @@ func (Builder) Build(ctx context.Context, snapshot catalog.ProductSnapshot, inve
 	}
 	// Background intentionally contains no brand authorization, resolver, or AI
 	// context values. Computation is synchronous/bounded; cancellation surrounds it.
-	pkg := shein.NewAssembler(shein.AssemblerConfig{}).Build(&shein.BuildRequest{Context: context.Background(), Country: input.Country, Language: input.Language}, product)
+	pkg := buildLocalPackage(product, input.Country, input.Language, b.LogFor)
 	raw, err := json.Marshal(pkg)
 	if err != nil {
 		return nil, err

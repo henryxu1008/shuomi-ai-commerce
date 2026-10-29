@@ -26,14 +26,18 @@ func (r *GormRepository) ReadBalances(ctx context.Context, organization string) 
 		Amount                                   *int64
 		UpdatedAt                                *time.Time
 	}
+	buckets, debts := "saas_organization_resource_buckets", "saas_organization_resource_debts"
+	if r.db.Dialector.Name() == "postgres" {
+		buckets, debts = "public."+buckets, "public."+debts
+	}
 	err := r.db.WithContext(ctx).Raw(`
  WITH resource_types(resource_type) AS (VALUES ('store_renewal_period'),('ai_point'),('data_row'))
  SELECT t.resource_type, b.organization_id AS bucket_organization,
  b.available, b.allocated, b.reserved, b.consumed, b.updated_at,
  d.organization_id AS debt_organization, d.amount
  FROM resource_types t
- LEFT JOIN saas_organization_resource_buckets b ON b.organization_id = ? AND b.resource_type = t.resource_type
- LEFT JOIN saas_organization_resource_debts d ON d.organization_id = ? AND d.resource_type = t.resource_type`, organization, organization).Scan(&rows).Error
+ LEFT JOIN `+buckets+` b ON b.organization_id = ? AND b.resource_type = t.resource_type
+ LEFT JOIN `+debts+` d ON d.organization_id = ? AND d.resource_type = t.resource_type`, organization, organization).Scan(&rows).Error
 	if err != nil {
 		return orgresource.Balances{}, fmt.Errorf("%w: %w", orgresource.ErrBalanceUnavailable, err)
 	}

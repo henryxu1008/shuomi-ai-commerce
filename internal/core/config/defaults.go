@@ -6,11 +6,6 @@ import (
 
 func setDefaults(v *viper.Viper) {
 	defaults := NewDefaultConfig()
-	v.SetDefault("featureFlags.flags.product-listing-runtime-auto-migrate", defaults.FeatureFlags.Flags["product-listing-runtime-auto-migrate"])
-	v.SetDefault("observability.tracing.enabled", defaults.Observability.Tracing.Enabled)
-	v.SetDefault("observability.tracing.serviceName", defaults.Observability.Tracing.ServiceName)
-	v.SetDefault("observability.tracing.endpoint", defaults.Observability.Tracing.Endpoint)
-	v.SetDefault("observability.tracing.insecure", defaults.Observability.Tracing.Insecure)
 
 	v.SetDefault("openai.apiKey", defaults.OpenAI.APIKey)
 	v.SetDefault("openai.model", defaults.OpenAI.Model)
@@ -113,55 +108,10 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.proxyPool.proxyFile", a.ProxyPool.ProxyFile)
 	v.SetDefault("amazon.proxyPool.proxies", a.ProxyPool.Proxies)
 
-	sp := defaults.Amazon.SPAPI
-	v.SetDefault("amazon.spapi.enabled", sp.Enabled)
-	v.SetDefault("amazon.spapi.region", sp.Region)
-	v.SetDefault("amazon.spapi.defaultMarketplace", sp.DefaultMarketplace)
-	v.SetDefault("amazon.spapi.defaultFulfillmentType", sp.DefaultFulfillmentType)
-	v.SetDefault("amazon.spapi.defaultCondition", sp.DefaultCondition)
 }
 
 func setPlatformDefaults(v *viper.Viper, defaults *Config) {
-	setTemuDefaults(v, &defaults.Platforms.Temu)
-	setSheinDefaults(v, &defaults.Platforms.Shein)
-	setSDSDefaults(v, &defaults.Platforms.SDS)
 	setAlibaba1688Defaults(v, &defaults.Platforms.Alibaba1688)
-}
-
-func setSDSDefaults(v *viper.Viper, p *SDSPlatformConfig) {
-	v.SetDefault("platforms.sds.loginService.baseURL", p.LoginService.BaseURL)
-	v.SetDefault("platforms.sds.loginService.sharedKey", p.LoginService.SharedKey)
-	v.SetDefault("platforms.sds.loginService.tenantID", p.LoginService.TenantID)
-	v.SetDefault("platforms.sds.loginService.identifier", p.LoginService.Identifier)
-	v.SetDefault("platforms.sds.loginService.merchantName", p.LoginService.MerchantName)
-	v.SetDefault("platforms.sds.loginService.username", p.LoginService.Username)
-	v.SetDefault("platforms.sds.loginService.password", p.LoginService.Password)
-	v.SetDefault("platforms.sds.loginService.maxConcurrentLogins", p.LoginService.MaxConcurrentLogins)
-	v.SetDefault("platforms.sds.loginService.profileRootDir", p.LoginService.ProfileRootDir)
-	v.SetDefault("platforms.sds.loginService.artifactDir", p.LoginService.ArtifactDir)
-	v.SetDefault("platforms.sds.loginService.defaultHeadless", p.LoginService.DefaultHeadless)
-	v.SetDefault("platforms.sds.authRedis.host", p.AuthRedis.Host)
-	v.SetDefault("platforms.sds.authRedis.port", p.AuthRedis.Port)
-	v.SetDefault("platforms.sds.authRedis.password", p.AuthRedis.Password)
-	v.SetDefault("platforms.sds.authRedis.db", p.AuthRedis.DB)
-	v.SetDefault("platforms.sds.authRedis.pool_size", p.AuthRedis.PoolSize)
-	v.SetDefault("platforms.sds.authBootstrap.staticAccessToken", p.AuthBootstrap.StaticAccessToken)
-	v.SetDefault("platforms.sds.authBootstrap.staticOutToken", p.AuthBootstrap.StaticOutToken)
-	v.SetDefault("platforms.sds.authBootstrap.staticMerchantID", p.AuthBootstrap.StaticMerchantID)
-	v.SetDefault("platforms.sds.authBootstrap.staticCookie", p.AuthBootstrap.StaticCookie)
-	v.SetDefault("platforms.sds.authBootstrap.loginDomainName", p.AuthBootstrap.LoginDomainName)
-	v.SetDefault("platforms.sds.authBootstrap.loginVerifyCaptchaParam", p.AuthBootstrap.LoginVerifyCaptchaParam)
-	v.SetDefault("platforms.sds.authBootstrap.loginExtraInfo", p.AuthBootstrap.LoginExtraInfo)
-}
-
-func setTemuDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.temu.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
-
-}
-
-func setSheinDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.shein.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
-
 }
 
 func setAlibaba1688Defaults(v *viper.Viper, p *Alibaba1688Config) {

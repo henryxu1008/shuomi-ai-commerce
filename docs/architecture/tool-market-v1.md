@@ -50,7 +50,7 @@ Figma tg48P46SSXl6TBy9lZwg63 / 31:463 当前可见原型：
 市场只管理企业选择和人工需求；Product/SRC/Catalog、Asset、Listing、Agent、
 Commercial和Resource保留事实、执行、授权、计量及恢复owner。
 
-当前商品采集插件可复用extensions/1688-capture及/capture/1688接收端，
+当前商品采集插件可复用extensions/product-capture及/capture/1688接收端，
 在线采集复用/workbench/supply/acquisition，结果复用当前“我的数据”入口。
 扩展release必须由已有build.mjs使用明确CAPTURE_APP_URL构建，
 没有默认生产地址；dist-fixture绝不作为正式下载。

@@ -1,15 +1,18 @@
 package variations
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strconv"
 	"strings"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // Extractor 变体信息提取器
 type Extractor struct {
+	loggerDependency
+
 	config     *Config
 	parser     *Parser
 	matcher    *Matcher
@@ -18,25 +21,15 @@ type Extractor struct {
 }
 
 // NewExtractor 创建变体信息提取器实例
-func NewExtractor() *Extractor {
+func NewExtractor(logs func(string) *logrus.Entry) *Extractor {
 	config := GetDefaultConfig()
 	return &Extractor{
-		config:     config,
-		parser:     NewParser(config),
-		matcher:    NewMatcher(config),
-		combinator: NewCombinator(config),
-		mapper:     NewMapper(config),
-	}
-}
-
-// NewExtractorWithConfig 使用自定义配置创建变体信息提取器实例
-func NewExtractorWithConfig(config *Config) *Extractor {
-	return &Extractor{
-		config:     config,
-		parser:     NewParser(config),
-		matcher:    NewMatcher(config),
-		combinator: NewCombinator(config),
-		mapper:     NewMapper(config),
+		loggerDependency: loggerDependency{logFor: logs},
+		config:           config,
+		parser:           NewParser(config, logs),
+		matcher:          NewMatcher(config),
+		combinator:       NewCombinator(config),
+		mapper:           NewMapper(config, logs),
 	}
 }
 
@@ -56,7 +49,7 @@ func (e *Extractor) BuildVariations(
 	var variations []Variation
 
 	if e.config.EnableDebugLogging {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[DEBUG] Building variations from %d variation values", len(variationsValues))
+		e.componentLogger("crawler/amazon").Infof("[DEBUG] Building variations from %d variation values", len(variationsValues))
 	}
 
 	// 获取所有变体维度
@@ -81,7 +74,7 @@ func (e *Extractor) BuildVariations(
 	}
 
 	if e.config.EnableDebugLogging {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[DEBUG] Generated %d combinations", len(combinations))
+		e.componentLogger("crawler/amazon").Infof("[DEBUG] Generated %d combinations", len(combinations))
 	}
 
 	successCount := 0
@@ -113,7 +106,7 @@ func (e *Extractor) BuildVariations(
 	}
 
 	if e.config.EnableDebugLogging {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[DEBUG] Successfully created %d variations out of %d combinations", successCount, len(combinations))
+		e.componentLogger("crawler/amazon").Infof("[DEBUG] Successfully created %d variations out of %d combinations", successCount, len(combinations))
 	}
 
 	return variations
@@ -208,54 +201,4 @@ func parsePrice(priceStr string) (float64, error) {
 	cleanPrice = strings.TrimSpace(cleanPrice)
 
 	return strconv.ParseFloat(cleanPrice, 64)
-}
-
-// BuildVariationName 为产品构建变体名称
-func (e *Extractor) BuildVariationName(productDetails []ProductDetail) string {
-	var parts []string
-
-	for _, detail := range productDetails {
-		detailTypeLower := strings.ToLower(detail.Type)
-
-		for _, typeVariants := range e.config.AttributeTypeMapping {
-			for _, typeVariant := range typeVariants {
-				if detailTypeLower == strings.ToLower(typeVariant) {
-					if detail.Value != "" {
-						parts = append(parts, detail.Value)
-					}
-					goto nextDetail
-				}
-			}
-		}
-	nextDetail:
-	}
-
-	if len(parts) == 0 {
-		return "Default"
-	}
-
-	return strings.Join(parts, " ")
-}
-
-// ExtractCurrentAttributes 从产品详情中提取当前属性
-func (e *Extractor) ExtractCurrentAttributes(productDetails []ProductDetail) map[string]any {
-	attributes := make(map[string]any)
-
-	for _, detail := range productDetails {
-		detailTypeLower := strings.ToLower(detail.Type)
-
-		for attributeKey, typeVariants := range e.config.AttributeTypeMapping {
-			for _, typeVariant := range typeVariants {
-				if detailTypeLower == strings.ToLower(typeVariant) {
-					if detail.Value != "" {
-						attributes[attributeKey] = detail.Value
-					}
-					goto nextDetail
-				}
-			}
-		}
-	nextDetail:
-	}
-
-	return attributes
 }

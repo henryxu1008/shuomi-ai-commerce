@@ -1,7 +1,7 @@
 package extractor
 
 import (
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -10,7 +10,7 @@ import (
 type ShipsFromExtractor struct{}
 
 // Extract 提取发货地信息
-func (e *ShipsFromExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *ShipsFromExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	// 使用 JavaScript 提取 Ships from 信息
 	// 支持多语言：通过查找包含关键词的标签，而不是精确匹配
 	result, err := page.Evaluate(`() => {

@@ -16,10 +16,8 @@ import (
 
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/assetpublication"
-	a1688 "task-processor/internal/integration/crawler/a1688"
 	assetdb "task-processor/internal/integration/persistence/product/asset"
 	catalogdb "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/listing/preview"
 	"task-processor/internal/listing/readiness"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
@@ -29,11 +27,26 @@ import (
 // These are controlled domain contracts, not an HTTP import or production
 // cutover: source-account authorization is deliberately absent from this fixture.
 func issue30Envelope() sourcing.SourceEnvelope {
-	return a1688.Alibaba1688SourceEnvelope(a1688.Alibaba1688SourceEnvelopeInput{
-		Request:     a1688.Alibaba1688CrawlRequestInput{URL: "https://detail.1688.com/offer/123.html"},
-		Product:     &a1688.Alibaba1688ProductSnapshot{ID: "123", URL: "https://detail.1688.com/offer/123.html", Title: "Bottle", Brand: "Source brand", MinPrice: 10, Currency: "CNY", Category: "Home > Drinkware", Images: []string{"https://source.example.test/bottle.jpg"}, CrawledAt: time.Date(2026, 9, 5, 1, 2, 3, 0, time.UTC)},
-		RawSnapshot: `{"offerId":"123","title":"Bottle"}`, SourceRunID: "source-run-1", RequestID: "request-1",
-	})
+	envelope := sourcing.SourceEnvelope{
+		Identity: sourcing.SourceIdentity{
+			SourceType: sourcing.SourceTypeCrawler, SourcePlatform: "1688", SourceID: "123",
+			SourceURL: "https://detail.1688.com/offer/123.html",
+		},
+		RawReference: sourcing.RawSourceReference{
+			ReferenceType: "1688_product", ReferenceID: "123", URL: "https://detail.1688.com/offer/123.html",
+			Checksum:   sourcing.RawSnapshotChecksum(`{"offerId":"123","title":"Bottle"}`),
+			CapturedAt: time.Date(2026, 9, 5, 1, 2, 3, 0, time.UTC),
+			Metadata:   map[string]string{"crawled_at": "2026-09-05T01:02:03Z"},
+		},
+		ProductCandidate: sourcing.ProductCandidate{
+			Title: "Bottle", Description: "Bottle", Brand: "Source brand", CategoryPath: []string{"Home", "Drinkware"},
+			Attributes: map[string]string{"brand": "Source brand", "category": "Home > Drinkware", "currency": "CNY", "min_price": "10", "source_product_id": "123"},
+		},
+		AssetCandidates:     []sourcing.AssetCandidate{{SourceID: "https://source.example.test/bottle.jpg", URL: "https://source.example.test/bottle.jpg", MediaType: "image", Role: "gallery"}},
+		SupplierOrCostFacts: sourcing.SupplierOrCostFacts{Currency: "CNY", Cost: "10", Price: "10"},
+		Trace:               sourcing.SourceTrace{SourceRunID: "source-run-1", RequestID: "request-1"},
+	}
+	return envelope.Normalize()
 }
 
 func issue30OpenDB(t *testing.T, path string) *gorm.DB {
@@ -46,21 +59,21 @@ func issue30OpenDB(t *testing.T, path string) *gorm.DB {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	return db
 }
-func issue30Publisher(t *testing.T, db *gorm.DB) (*sourcing.Publisher, catalog.Repository) {
+func issue30Publisher(t *testing.T, db *gorm.DB) (*catalog.Publisher, catalog.Repository) {
 	t.Helper()
 	repo, err := catalogdb.NewRepository(db)
 	require.NoError(t, err)
 	catalogPublisher, err := catalog.NewPublisher(repo)
 	require.NoError(t, err)
-	publisher, err := sourcing.NewPublisher(catalogPublisher)
-	require.NoError(t, err)
-	return publisher, repo
+	return catalogPublisher, repo
 }
-func issue30Request(t *testing.T, envelope sourcing.SourceEnvelope) sourcing.PublishRequest {
+func issue30Request(t *testing.T, envelope sourcing.SourceEnvelope) catalog.PublishRequest {
 	t.Helper()
 	key, id, err := sourcing.PublicationIdentity(envelope)
 	require.NoError(t, err)
-	return sourcing.PublishRequest{TenantID: "org-a", ProductKey: key, PublicationID: id, Envelope: envelope}
+	snapshot, err := sourcing.ToSnapshot(envelope)
+	require.NoError(t, err)
+	return catalog.PublishRequest{Identity: catalog.SnapshotIdentity{TenantID: "org-a", ProductKey: key}, PublicationID: id, Snapshot: snapshot}
 }
 
 func TestIssue30CatalogReplayConflictAndDurableLineage(t *testing.T) {
@@ -120,10 +133,10 @@ func TestIssue30CatalogReplayConflictAndDurableLineage(t *testing.T) {
 	_, err = publisher.Publish(ctx, issue30Request(t, changed))
 	require.ErrorIs(t, err, catalog.ErrPublicationConflict)
 	// Organization identity scopes both replay and current reads.
-	_, err = repo.GetCurrentSnapshot(ctx, catalog.SnapshotIdentity{TenantID: "org-b", ProductKey: request.ProductKey})
+	_, err = repo.GetCurrentSnapshot(ctx, catalog.SnapshotIdentity{TenantID: "org-b", ProductKey: request.Identity.ProductKey})
 	require.ErrorIs(t, err, catalog.ErrSnapshotNotReady)
 	other := request
-	other.TenantID = "org-b"
+	other.Identity.TenantID = "org-b"
 	otherResult, err := publisher.Publish(ctx, other)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), otherResult.Version)
@@ -165,7 +178,7 @@ func TestIssue30ContentPublicationPreservesProductAcrossSourceVersions(t *testin
 	envelope.Identity.SourceVersion = "v2"
 	envelope.RawReference.ReferenceID = "evidence-v2"
 	secondRequest := issue30Request(t, envelope)
-	require.Equal(t, firstRequest.ProductKey, secondRequest.ProductKey)
+	require.Equal(t, firstRequest.Identity.ProductKey, secondRequest.Identity.ProductKey)
 	require.NotEqual(t, firstRequest.PublicationID, secondRequest.PublicationID)
 	second, err := publisher.Publish(context.Background(), secondRequest)
 	require.NoError(t, err)
@@ -249,9 +262,9 @@ func TestIssue30ProductApprovalAndReadinessUseDurableCurrentOwners(t *testing.T)
 	require.Equal(t, envelope.AssetCandidates[0].SourceID, inventory.Assets[0].SourceAssetID)
 	require.NotEqual(t, persisted.Snapshot.Images[0].URL, inventory.Assets[0].URL)
 	require.True(t, readiness.ProductInputs(persisted, &inventory, "shein").Ready)
-	attachment := preview.BuildAttachment(preview.AttachmentInput{CatalogProduct: &persisted.Snapshot, ApprovedAssetInventory: &inventory})
-	require.Equal(t, persisted.Snapshot.Sources, attachment.CatalogProduct.Sources)
-	require.Equal(t, inventory.Assets, attachment.ApprovedAssetInventory.Assets)
+	require.Equal(t, envelope.Identity.SourceID, persisted.Snapshot.Sources[0].SourceID)
+	require.Equal(t, envelope.RawReference.ReferenceID, persisted.Snapshot.Sources[0].Detail)
+	require.Equal(t, scope, inventory.Scope)
 	for _, other := range []asset.InventoryScope{
 		{TenantID: "org-b", ProductKey: scope.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: 1},
 		{TenantID: "org-a", ProductKey: "other-product", TargetPlatform: "shein", SourceSnapshotVersion: 1},

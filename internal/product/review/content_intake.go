@@ -10,37 +10,37 @@ import (
 	"task-processor/internal/product/description"
 
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
+	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/sourcing"
 )
 
-func candidatePolicy(in CandidateInput) (enrichment.PolicySnapshot, error) {
+func candidatePolicy(in CandidateInput) (reviewproposal.PolicySnapshot, error) {
 	fields := []string{"title"}
 	switch in.PolicyVersion {
 	case "title-review-v1":
 		if !in.ContentSelection.Absent() || in.Execution != nil && !in.Execution.ContentSelection.Absent() {
-			return enrichment.PolicySnapshot{}, ErrInvalid
+			return reviewproposal.PolicySnapshot{}, ErrInvalid
 		}
-	case enrichment.ContentPolicyVersion:
+	case reviewproposal.ContentPolicyVersion:
 		if !in.ContentSelection.Valid() || in.Execution == nil || !in.Execution.Valid() || in.Execution.ContentSelection != in.ContentSelection || in.Execution.Binding.ProductKey != in.Base.ProductKey || in.Execution.Binding.CatalogVersion != strconv.FormatUint(in.Base.BaseVersion, 10) || in.Execution.Binding.PublicationID != in.PublicationID {
-			return enrichment.PolicySnapshot{}, ErrInvalid
+			return reviewproposal.PolicySnapshot{}, ErrInvalid
 		}
 		fields = in.ContentSelection.Fields()
 	default:
-		return enrichment.PolicySnapshot{}, ErrInvalid
+		return reviewproposal.PolicySnapshot{}, ErrInvalid
 	}
-	return enrichment.PolicySnapshot{Version: in.PolicyVersion, AllowedFields: fields, RequiredFields: fields}, nil
+	return reviewproposal.PolicySnapshot{Version: in.PolicyVersion, AllowedFields: fields, RequiredFields: fields}, nil
 }
 
-func validateIntakeProposal(ctx context.Context, base catalog.ProductSnapshot, source sourcing.SourceEnvelope, in CandidateInput) (enrichment.Proposal, error) {
+func validateIntakeProposal(ctx context.Context, base catalog.ProductSnapshot, source sourcing.SourceEnvelope, in CandidateInput) (reviewproposal.Proposal, error) {
 	policy, err := candidatePolicy(in)
 	if err != nil {
-		return enrichment.Proposal{}, err
+		return reviewproposal.Proposal{}, err
 	}
-	if in.PolicyVersion == enrichment.ContentPolicyVersion {
+	if in.PolicyVersion == reviewproposal.ContentPolicyVersion {
 		return validateContentProposal(ctx, base, source, in.ContentSelection, in.Candidate)
 	}
-	proposal, err := enrichment.ValidateCandidate(ctx, enrichment.Request{Snapshot: base, Source: source, Policy: policy}, in.Candidate)
+	proposal, err := reviewproposal.ValidateCandidate(ctx, reviewproposal.Request{Snapshot: base, Source: source, Policy: policy}, in.Candidate)
 	if err != nil {
 		return proposal, err
 	}
@@ -50,7 +50,7 @@ func validateIntakeProposal(ctx context.Context, base catalog.ProductSnapshot, s
 	return proposal, ValidateTitle(proposal.Changes[0].Value)
 }
 
-func snapshotContentValues(base catalog.ProductSnapshot, selection enrichment.ContentSelection) ([]ContentValue, error) {
+func snapshotContentValues(base catalog.ProductSnapshot, selection reviewproposal.ContentSelection) ([]ContentValue, error) {
 	values := make([]ContentValue, 0, 4)
 	for _, field := range selection.Fields() {
 		value := base.Title
@@ -75,7 +75,7 @@ func snapshotContentValues(base catalog.ProductSnapshot, selection enrichment.Co
 	return orderedContentValues(selection, values, false)
 }
 
-func contentPayload(base catalog.ProductSnapshot, selection enrichment.ContentSelection, proposal enrichment.Proposal) (*ContentPayload, error) {
+func contentPayload(base catalog.ProductSnapshot, selection reviewproposal.ContentSelection, proposal reviewproposal.Proposal) (*ContentPayload, error) {
 	before, err := snapshotContentValues(base, selection)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func contentPayload(base catalog.ProductSnapshot, selection enrichment.ContentSe
 }
 
 func contentScopeMatches(in CandidateInput, scope Scope) bool {
-	return in.PolicyVersion != enrichment.ContentPolicyVersion || in.Execution != nil && in.Execution.Scope.OrganizationID == scope.Org && in.Execution.Scope.ActorID == scope.Actor
+	return in.PolicyVersion != reviewproposal.ContentPolicyVersion || in.Execution != nil && in.Execution.Scope.OrganizationID == scope.Org && in.Execution.Scope.ActorID == scope.Actor
 }
 
 func validateContentPatch(ctx context.Context, base catalog.PublishedSnapshot, source sourcing.SourceEnvelope, r Record) error {
@@ -103,7 +103,7 @@ func validateContentPatch(ctx context.Context, base catalog.PublishedSnapshot, s
 	if err != nil || !reflect.DeepEqual(before, r.Content.Before) {
 		return ErrConflict
 	}
-	in := CandidateInput{ContentSelection: r.Content.Selection, Execution: r.Execution, Base: r.Input, PublicationID: r.BasePublicationID, PolicyVersion: r.Policy, Candidate: enrichment.Candidate{Changes: r.Original.Changes}}
+	in := CandidateInput{ContentSelection: r.Content.Selection, Execution: r.Execution, Base: r.Input, PublicationID: r.BasePublicationID, PolicyVersion: r.Policy, Candidate: reviewproposal.Candidate{Changes: r.Original.Changes}}
 	if _, err := validateIntakeProposal(ctx, base.Snapshot, source, in); err != nil {
 		return err
 	}
@@ -111,10 +111,10 @@ func validateContentPatch(ctx context.Context, base catalog.PublishedSnapshot, s
 	return err
 }
 
-func contentChanges(values []ContentValue) []enrichment.FieldChange {
-	changes := make([]enrichment.FieldChange, 0, len(values))
+func contentChanges(values []ContentValue) []reviewproposal.FieldChange {
+	changes := make([]reviewproposal.FieldChange, 0, len(values))
 	for _, value := range values {
-		changes = append(changes, enrichment.FieldChange{Field: value.Field, Value: value.Value})
+		changes = append(changes, reviewproposal.FieldChange{Field: value.Field, Value: value.Value})
 	}
 	return changes
 }
