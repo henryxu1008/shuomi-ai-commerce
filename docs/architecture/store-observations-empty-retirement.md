@@ -1,11 +1,22 @@
 # Authorized empty Store observation retirement
 
-Design Basis: Independent Architecture. Admission: IMPLEMENTATION_READY.
-The existing independent reviewer approved design commit
+Historical Design Basis: Independent Architecture. Admission: IMPLEMENTATION_READY.
+The independent reviewer approved design commit
 `c851bffa1bff9758955f9b99186234babf2a58e3` without a current Must blocker.
-This freezes the design; the actual private operation and fixture evidence still
-need the final review before retained-instance execution.
-Execution: [#691](https://github.com/qq550723504/task-processor/issues/691).
+The [final operation review](https://github.com/qq550723504/shuomi-ai-commerce/issues/691#issuecomment-6165974511)
+and [2026-10-15 execution record](https://github.com/qq550723504/shuomi-ai-commerce/issues/691#issuecomment-6181913097)
+record completion of this exact empty-object retirement, native installation and
+runtime-role verification. The later application startup failure was handed to
+the separate Store core work; this is not evidence of complete product acceptance.
+
+This document preserves that completed, specifically authorized operation.
+The frozen original design below is historical evidence, not a reusable installer,
+a current pending DDL instruction, or authorization to repeat the operation.
+The current [greenfield product baseline](../product/greenfield-no-legacy-migration.md)
+remains applicable; this past exception grants no migration or compatibility path.
+Execution: [#691](https://github.com/qq550723504/shuomi-ai-commerce/issues/691).
+
+## Frozen original design (historical)
 
 ## Product outcome and authority
 
