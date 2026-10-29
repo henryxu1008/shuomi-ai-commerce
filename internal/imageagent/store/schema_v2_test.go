@@ -40,16 +40,16 @@ func TestAutoMigrateCreatesOwnerScopedV2TablesWithoutTouchingLegacySchema(t *tes
 		"image_agent_v2_asset_catalog_manifests",
 		"image_agent_v2_projection_snapshots",
 		"image_agent_v2_projection_commits",
-		"image_agent_v2_slot_external_effects",
 		"image_agent_v3_slot_external_effects",
 	} {
 		require.True(t, db.Migrator().HasTable(table), table)
 	}
+	require.False(t, db.Migrator().HasTable("image_agent_v2_slot_external_effects"))
 	var legacyCount int64
 	require.NoError(t, db.Raw(`SELECT count(*) FROM image_agent_runs WHERE id = 'legacy-run'`).Scan(&legacyCount).Error)
 	require.EqualValues(t, 1, legacyCount, "v1 rows must remain untouched")
 
-	repository := NewGormRepository(db)
+	repository := NewOrganizationRepository(db)
 	for _, owner := range []string{"user-a", "user-b"} {
 		run := manualRun("same-run", "tenant-a")
 		run.UserID = owner
@@ -76,7 +76,7 @@ func TestRunTargetPlatformRoundTripsThroughV2Schema(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:image-agent-target-platform-%d?mode=memory&cache=shared", concurrentSQLiteSequence.Add(1))), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 	require.NoError(t, AutoMigrate(db))
-	repository := NewGormRepository(db)
+	repository := NewOrganizationRepository(db)
 	run := manualRun("run-target-platform", "tenant-a")
 	run.TargetPlatform = "shein"
 	run.ImagePolicyContext = imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"}

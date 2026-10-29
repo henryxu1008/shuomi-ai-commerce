@@ -371,7 +371,7 @@ func TestOrganizationScopeServicePersistenceAndActivity(t *testing.T) {
 	require.Error(t, err)
 	f.iam.failed.Store(false)
 	require.Equal(t, starts, f.temporal.starts)
-	legacy := imagestore.NewGormRepository(f.db)
+	legacy := imagestore.NewOrganizationRepository(f.db)
 	_, err = legacy.GetProjection(context.Background(), scope)
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	_, err = legacy.GetAssetCatalog(context.Background(), scope)
@@ -454,8 +454,8 @@ func TestOrganizationRealTemporalImageBudgetDeniesBeforeFirstProvider(t *testing
 	repository := imagestore.NewOrganizationRepository(f.db)
 	authorizer := imageworker.OrganizationExecutionAuthorizer{Client: f.authClient, ServiceToken: func(context.Context) (string, error) { return "service339", nil }, ProjectID: "project", Authorizer: f.auth}
 	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{
-		Repository: repository, SlotExecutor: executor, StagedSlotExecutor: executor,
-		Publisher: scope339NoPublication{}, PublisherV3: scope339NoPublication{}, ArtifactStore: &scope339Artifacts{},
+		Repository: repository, StagedSlotExecutor: executor,
+		PublisherV3: scope339NoPublication{}, ArtifactStore: &scope339Artifacts{},
 		ExecutionAuthorizer: authorizer,
 	})
 	require.NoError(t, err)
@@ -528,19 +528,7 @@ func scope339AssertEffectMode(t *testing.T, owner, other imageagent.Repository, 
 	unchanged, err := proper.GetSlotExternalEffectV3(ctx, id)
 	require.NoError(t, err)
 	require.Equal(t, imageagent.SlotEffectV3ProviderClaimed, unchanged.Phase)
-	oldReservation := imageagent.SlotExternalEffectReservation{Identity: id, IdempotencyKey: "protocol-v2-effect339", InputFingerprint: "controlled-v2-effect339"}
-	properV2 := owner.(imageagent.SlotExternalEffectRepository)
-	wrongV2 := other.(imageagent.SlotExternalEffectRepository)
-	_, claimed, err = properV2.ReserveSlotExternalEffect(ctx, oldReservation)
-	require.NoError(t, err)
-	require.True(t, claimed)
-	_, err = wrongV2.StoreSlotGeneratedOutput(ctx, oldReservation, imageagent.SlotGeneratedOutput{SlotID: id.SlotID, Attempt: id.Attempt, SourceAssetID: projection.Plan.SourceAssetIDs[0], Assets: []imageagent.GeneratedAsset{{URL: "https://synthetic.example/existing.png", Width: 1, Height: 1}}})
-	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
-	_, err = wrongV2.CompleteSlotPublication(ctx, oldReservation, imageagent.SlotExecutionResult{SlotID: id.SlotID, Attempt: id.Attempt, Candidates: []imageagent.AssetCandidate{{AssetID: "controlled-existing", URL: "https://synthetic.example/existing.png"}}})
-	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
-	v2Unchanged, err := properV2.GetSlotExternalEffect(ctx, id)
-	require.NoError(t, err)
-	require.Equal(t, imageagent.SlotExternalEffectProviderStarted, v2Unchanged.Phase)
+
 }
 
 func TestOrganizationScopeInitializationFailureAndStartResponseLoss(t *testing.T) {
@@ -650,7 +638,6 @@ func (s *scope339Artifacts) EnsureStaged(context.Context, objectstore.PreparedSl
 }
 
 type scope339NoPublication struct {
-	imageagent.ApprovedAssetPublisher
 	imageagent.ApprovedAssetPublisherV3
 }
 
@@ -685,7 +672,7 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 	effects := repo.(imageagent.SlotExternalEffectV3Repository)
 	artifacts := &scope339Artifacts{}
 	authorizer := imageworker.OrganizationExecutionAuthorizer{Client: f.authClient, ServiceToken: func(context.Context) (string, error) { return "service339", nil }, ProjectID: "project", Authorizer: f.auth}
-	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repo, SlotExecutor: executor, Publisher: scope339NoPublication{}, PublisherV3: scope339NoPublication{}, StagedSlotExecutor: executor, ArtifactStore: artifacts, ExecutionAuthorizer: authorizer})
+	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repo, PublisherV3: scope339NoPublication{}, StagedSlotExecutor: executor, ArtifactStore: artifacts, ExecutionAuthorizer: authorizer})
 	require.NoError(t, err)
 	input := imagetemporal.ExecuteSlotV3ActivityInput{RunID: wf.RunID, Identity: wf.Identity, PlanRevision: wf.Plan.Revision, Slot: wf.Plan.Slots[0], Attempt: 1, IdempotencyKey: "review339", BudgetAuthorization: true, BudgetPolicy: wf.BudgetPolicy, ReviewActionID: "review-action339", TargetPlatform: wf.TargetPlatform, ImagePolicyContext: wf.ImagePolicyContext, AssetCatalog: wf.AssetCatalog}
 	// Capture and decode the actual Activity envelope too; no authidentity or

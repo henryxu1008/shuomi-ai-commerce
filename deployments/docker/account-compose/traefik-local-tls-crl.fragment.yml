@@ -1,0 +1,18 @@
+# MERGE FRAGMENT ONLY. Never replace the existing dynamic file with this file.
+# Apply only after explicit approval; existing file-provider watch is disabled.
+http:
+  routers:
+    local-tls-crl:
+      entryPoints: [application]
+      rule: Host(`localhost`) && (Method(`GET`) || Method(`HEAD`)) && Path(`/.well-known/local-tls/root.crl`)
+      priority: 200
+      service: listingkit-ui
+      middlewares: [local-tls-crl-headers]
+      # Intentionally HTTP: revocation retrieval must not depend on this TLS chain.
+  middlewares:
+    local-tls-crl-headers:
+      headers:
+        customResponseHeaders:
+          Content-Type: application/pkix-crl
+          X-Content-Type-Options: nosniff
+          Cache-Control: public, max-age=0, must-revalidate

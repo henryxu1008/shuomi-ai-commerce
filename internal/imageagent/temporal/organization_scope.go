@@ -41,9 +41,7 @@ func (a *Activities) reconcileGenerationBeforeExecution(ctx context.Context, run
 }
 
 func (a *Activities) restoreExecutionIdentity(ctx context.Context, runID string, identity imageagent.ExecutionIdentity) (context.Context, error) {
-	if a.executionAuthorizer == nil {
-		return restoreActivityIdentity(ctx, identity)
-	}
+
 	projection, err := a.loadOrganizationExecution(ctx, runID, identity)
 	if err != nil {
 		return nil, err
@@ -84,22 +82,16 @@ func withOrganizationActivityIdentity(ctx context.Context, run imageagent.Run, t
 }
 
 func validateWorkflowScope(ctx workflow.Context, identity imageagent.ExecutionIdentity, runID string) error {
-	scoped := workflow.GetInfo(ctx).TaskQueueName == OrganizationTaskQueue
-	if scoped {
-		return imageagent.ValidateOrganizationExecution(identity, runID)
-	}
-	if identity.ScopeProtocol != "" || identity.RunID != "" {
+	if workflow.GetInfo(ctx).TaskQueueName != OrganizationTaskQueue {
 		return imageagent.ErrIdentityRequired
 	}
-	return nil
+	return imageagent.ValidateOrganizationExecution(identity, runID)
 }
 
 // The catalog is immutable run-owned input, not an authority supplied by a
 // deserialized Activity argument. Compare the complete snapshot before I/O.
 func (a *Activities) validateOrganizationCatalog(ctx context.Context, identity imageagent.ExecutionIdentity, runID string, catalog imageagent.AssetCatalog) error {
-	if a.executionAuthorizer == nil {
-		return nil
-	}
+
 	persisted, err := a.repository.GetAssetCatalog(ctx, imageagent.RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: runID})
 	if err != nil {
 		return err
@@ -117,17 +109,14 @@ func (a *Activities) validateOrganizationCatalog(ctx context.Context, identity i
 }
 
 func NewOrganizationClient(client sdkWorkflowClient) *Client {
-	return &Client{client: client, organizationScope: true}
+	return &Client{client: client}
 }
 func (c *Client) validateIdentityScope(identity imageagent.ExecutionIdentity) error {
 	if c == nil {
 		return imageagent.ErrIdentityRequired
 	}
-	if c.organizationScope {
-		if identity.ScopeProtocol != imageagent.OrganizationScopeProtocol {
-			return imageagent.ErrIdentityRequired
-		}
-	} else if identity.ScopeProtocol != "" || identity.RunID != "" {
+
+	if identity.ScopeProtocol != imageagent.OrganizationScopeProtocol {
 		return imageagent.ErrIdentityRequired
 	}
 	return nil
@@ -137,31 +126,16 @@ func (c *Client) validateCommandScope(identity imageagent.ExecutionIdentity, run
 	if err := c.validateIdentityScope(identity); err != nil {
 		return err
 	}
-	if c.organizationScope {
-		return imageagent.ValidateOrganizationExecution(identity, runID)
-	}
-	return validateCommandIdentity(identity, runID)
+
+	return imageagent.ValidateOrganizationExecution(identity, runID)
+
 }
-func (c *Client) taskQueue() string {
-	if c.organizationScope {
-		return OrganizationTaskQueue
-	}
-	return TaskQueueV3
-}
+func (c *Client) taskQueue() string { return OrganizationTaskQueue }
 func scopedWorkflowID(identity imageagent.ExecutionIdentity, runID string) string {
-	id := WorkflowID(identity.TenantID, identity.UserID, runID)
-	if identity.ScopeProtocol == imageagent.OrganizationScopeProtocol {
-		encode := func(value string) string { return base64.RawURLEncoding.EncodeToString([]byte(value)) }
-		return "organization-v1:" + encode(identity.TenantID) + ":" + encode(identity.UserID) + ":" + encode(runID)
-	}
-	return id
+	encode := func(value string) string { return base64.RawURLEncoding.EncodeToString([]byte(value)) }
+	return "organization-v1:" + encode(identity.TenantID) + ":" + encode(identity.UserID) + ":" + encode(runID)
 }
-func (c *Client) workflowName() string {
-	if c.organizationScope {
-		return organizationWorkflowName
-	}
-	return workflowNameImageAgent
-}
+func (c *Client) workflowName() string { return organizationWorkflowName }
 
 func validateActivityMode(activities *Activities, mode WorkerWireMode) error {
 	if (mode == WorkerWireModeOrganization) != (activities.executionAuthorizer != nil) {

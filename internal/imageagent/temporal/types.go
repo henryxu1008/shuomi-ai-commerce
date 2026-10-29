@@ -26,16 +26,6 @@ const (
 	TaskQueue                             = "image-agent-manual"
 	TaskQueueV3                           = "image-agent-manual-v3"
 	TaskQueueV3Canary                     = "image-agent-manual-v3-canary"
-	workflowNameImageAgent                = "ImageAgentWorkflow"
-	workflowNameImageSlot                 = "ImageSlotWorkflow"
-	activityExecuteSlotLegacy             = "imageagent.execute_slot"
-	activityPersistSlotResultLegacy       = "imageagent.persist_slot_result"
-	activityPersistRunStateLegacy         = "imageagent.persist_run_state"
-	activityPersistPlanRevisionLegacy     = "imageagent.persist_plan_revision"
-	activityPersistPendingCommandLegacy   = "imageagent.persist_pending_command"
-	activityPublishApprovedLegacy         = "imageagent.publish_approved"
-	activityExecuteSlot                   = "imageagent.execute_slot.v2"
-	activityPersistSlotResult             = "imageagent.persist_slot_result.v2"
 	activityPersistSlotResultV3           = "imageagent.persist_slot_result.v3"
 	activityPersistImageSetSlotResult     = "imageagent.persist_image_set_slot_result.v1"
 	activityPersistRunState               = "imageagent.persist_run_state.v2"
@@ -43,7 +33,6 @@ const (
 	activityPersistWorkflowFailureV2      = "imageagent.persist_workflow_failure.v2"
 	activityPersistPlanRevision           = "imageagent.persist_plan_revision.v2"
 	activityPersistPendingCommand         = "imageagent.persist_pending_command.v2"
-	activityPublishApproved               = "imageagent.publish_approved.v2"
 	activityExecuteSlotV3                 = "imageagent.execute_slot.v3"
 	activityReviewStagedSlotV3            = "imageagent.review_staged_slot.v3"
 	activityStartEffectRecoveryV3         = "imageagent.start_effect_recovery.v3"
@@ -63,7 +52,6 @@ const (
 	updateErrorRevisionConflict           = "imageagent_revision_conflict"
 	updateErrorCommandBlocked             = "imageagent_command_blocked"
 	updateErrorRunNotFound                = "imageagent_run_not_found"
-	updateErrorLegacyMigrationRequired    = "imageagent_legacy_migration_required"
 	defaultMaxConcurrentSlots             = 4
 	QueryWorkflowProjection               = "image_agent_projection"
 	EffectRecoveryWorkflowName            = "ImageAgentEffectRecoveryWorkflow"
@@ -73,23 +61,17 @@ const (
 type WorkerWireMode string
 
 const (
-	WorkerWireModeV2 WorkerWireMode = "v2"
 	WorkerWireModeV3 WorkerWireMode = "v3"
 )
 
 func (mode WorkerWireMode) DefaultTaskQueue() (string, error) {
-	switch mode {
-	case WorkerWireModeOrganization:
+	if mode == WorkerWireModeOrganization {
 		return OrganizationTaskQueue, nil
-	case WorkerWireModeV2:
-		return TaskQueue, nil
-	case WorkerWireModeV3:
-		return TaskQueueV3, nil
-	case "":
-		return "", fmt.Errorf("image agent temporal wire mode is required")
-	default:
-		return "", fmt.Errorf("unsupported image agent temporal wire mode %q", mode)
 	}
+	if mode == "" {
+		return "", fmt.Errorf("image agent temporal wire mode is required")
+	}
+	return "", fmt.Errorf("unsupported image agent temporal wire mode %q; organization-v1 is required", mode)
 }
 
 type WorkflowInput struct {
@@ -131,7 +113,7 @@ type WorkflowResult struct {
 	CommandIngress     imageagent.CommandIngress
 }
 
-type SlotWorkflowInput struct {
+type slotChildIdentity struct {
 	RunID        string
 	Identity     imageagent.ExecutionIdentity
 	PlanRevision int64
@@ -230,16 +212,6 @@ type EffectRecoveryCompletedSignal struct {
 	Result       EffectRecoveryResult
 }
 
-type ExecuteSlotActivityInput struct {
-	RunID          string
-	Identity       imageagent.ExecutionIdentity
-	PlanRevision   int64
-	Slot           imageagent.Slot
-	Attempt        int
-	IdempotencyKey string
-	AssetCatalog   imageagent.AssetCatalog
-}
-
 // ExecuteSlotV3ActivityInput is additive until Task 6 selects the v3 wire.
 // Keep ExecuteSlotActivityInput frozen for imageagent.execute_slot.v2 replay.
 type ExecuteSlotV3ActivityInput struct {
@@ -274,14 +246,6 @@ type DurableArtifactStore interface {
 	EnsureStaged(context.Context, objectstore.PreparedSlotArtifacts) error
 	Finalize(context.Context, imageagent.StagingManifest) (imageagent.FinalManifest, error)
 	FinalizeWithProgress(context.Context, imageagent.StagingManifest, func(context.Context, int) error) (imageagent.FinalManifest, error)
-}
-
-type PersistSlotResultActivityInput struct {
-	RunID        string
-	Identity     imageagent.ExecutionIdentity
-	PlanRevision int64
-	Result       SlotWorkflowResult
-	AttemptKey   string
 }
 
 // PersistSlotResultV3ActivityInput is an additive durable-result contract. It
@@ -335,62 +299,6 @@ type PersistPendingCommandActivityInput struct {
 
 // Legacy activity payloads are frozen wire contracts. Their handlers never
 // write owner-scoped v2 state; they fail with an explicit migration error.
-type LegacyExecuteSlotActivityInput struct {
-	RunID          string
-	Identity       imageagent.ExecutionIdentity
-	PlanRevision   int64
-	Slot           imageagent.Slot
-	Attempt        int
-	IdempotencyKey string
-	AssetCatalog   imageagent.AssetCatalog
-}
-
-type LegacyPersistSlotResultActivityInput struct {
-	RunID        string
-	Identity     imageagent.ExecutionIdentity
-	PlanRevision int64
-	Result       SlotWorkflowResult
-	AttemptKey   string
-}
-
-type LegacyPersistRunStateActivityInput struct {
-	RunID        string
-	Identity     imageagent.ExecutionIdentity
-	PlanRevision int64
-	Status       imageagent.RunStatus
-	CurrentNode  string
-	Block        *imageagent.Block
-}
-
-type LegacyPersistPlanRevisionActivityInput struct {
-	RunID            string
-	Identity         imageagent.ExecutionIdentity
-	ExpectedRevision int64
-	Plan             imageagent.Plan
-}
-
-type LegacyPersistPendingCommandActivityInput struct {
-	RunID    string
-	Identity imageagent.ExecutionIdentity
-	Receipt  *imageagent.PendingCommandReceipt
-	CommitID string
-}
-
-type LegacyPublishApprovedActivityInput struct {
-	RunID             string
-	Identity          imageagent.ExecutionIdentity
-	PlanRevision      int64
-	CandidateAssetIDs []string
-	IdempotencyKey    string
-}
-
-type PublishApprovedActivityInput struct {
-	RunID             string
-	Identity          imageagent.ExecutionIdentity
-	PlanRevision      int64
-	CandidateAssetIDs []string
-	IdempotencyKey    string
-}
 
 // PublishApprovedV3ActivityInput is a distinct durable-approval wire payload.
 // Task 6 owns its Temporal registration and workflow routing.
@@ -450,10 +358,6 @@ type ResumeCommandInput struct {
 
 type CommandAcknowledgement = imageagent.CommandAcknowledgement
 
-func WorkflowID(tenantID, ownerUserID, runID string) string {
-	return fmt.Sprintf("image-agent:%s:%s:%s", strings.TrimSpace(tenantID), strings.TrimSpace(ownerUserID), strings.TrimSpace(runID))
-}
-
 func slotAttemptKey(planRevision int64, slot imageagent.Slot, attempt int) string {
 	return imageagent.SlotAttemptKey(planRevision, slot, attempt)
 }
@@ -462,7 +366,7 @@ func publicationKey(runID string, revision int64) string {
 	return fmt.Sprintf("image-agent:%s:plan:%d:publication", strings.TrimSpace(runID), revision)
 }
 
-func childWorkflowID(input SlotWorkflowInput) string {
+func childWorkflowID(input slotChildIdentity) string {
 	return fmt.Sprintf("%s:plan:%d:slot:%s:attempt:%d", scopedWorkflowID(input.Identity, input.RunID), input.PlanRevision, input.Slot.ID, input.Attempt)
 }
 
@@ -483,14 +387,9 @@ func EffectRecoveryWorkflowIDForSlot(identity imageagent.ExecutionIdentity, plan
 	} else {
 		base = fmt.Sprintf("image-agent-effect-recovery:%s:%s:%s:%d:%s:%d", tenantID, userID, runID, planRevision, slotID, attempt)
 	}
+	base = "organization-v1:" + base
 	if strings.TrimSpace(actionID) == "" {
-		if identity.ScopeProtocol == imageagent.OrganizationScopeProtocol {
-			return "organization-v1:" + base
-		}
 		return base
-	}
-	if identity.ScopeProtocol == imageagent.OrganizationScopeProtocol {
-		base = "organization-v1:" + base
 	}
 	return base + ":action:" + base64.RawURLEncoding.EncodeToString([]byte(actionID))
 }

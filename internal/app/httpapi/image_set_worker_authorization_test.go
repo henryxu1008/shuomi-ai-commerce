@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	imageapp "task-processor/internal/app/imageagent"
 	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/authidentity"
@@ -18,13 +17,14 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/imageagent"
 	imagetemporal "task-processor/internal/imageagent/temporal"
+
+	"github.com/stretchr/testify/require"
 )
 
 var errWorkerSourceGrantReached = errors.New("controlled activity stops after live source authorization, before reservation")
 
 type fullImageWorkerRepository struct {
 	imageSetHTTPRepository
-	imageagent.SlotExternalEffectRepository
 	imageagent.SlotExternalEffectV3Repository
 	catalog imageagent.AssetCatalog
 }
@@ -87,7 +87,7 @@ func TestFullImageTemporalV3AuthorizesDurableSubjectAndOriginalSourceWithoutBrow
 	require.NoError(t, err)
 	repo := fullImageWorkerRepository{imageSetHTTPRepository: imageSetHTTPRepository{projection: imageagent.RunProjection{Run: imageagent.Run{ID: id.RunID, ScopeProtocol: id.ScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.MemberID, BusinessTaskID: id.BusinessTaskID}}}, catalog: catalog}
 	probe := &fullImageWorkerSourceProbe{live: live}
-	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repo, SlotExecutor: probe, ExecutionAuthorizer: newFullImageWorkerAuthorizer(live), ImageSetPublisher: &fullImageWorkerPublisher{}, StagedSlotExecutor: probe, ArtifactStore: &fullImageWorkerArtifacts{}})
+	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repo, ExecutionAuthorizer: newFullImageWorkerAuthorizer(live), ImageSetPublisher: &fullImageWorkerPublisher{}, StagedSlotExecutor: probe, ArtifactStore: &fullImageWorkerArtifacts{}})
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()

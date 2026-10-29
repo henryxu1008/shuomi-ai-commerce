@@ -12,60 +12,7 @@ import (
 	"task-processor/internal/imageagent"
 )
 
-func ImageSlotWorkflow(ctx workflow.Context, input SlotWorkflowInput) (SlotWorkflowResult, error) {
-	if input.Identity.ScopeProtocol != "" || input.Identity.RunID != "" {
-		return SlotWorkflowResult{}, imageagent.ErrIdentityRequired
-	}
-	activityName := activityWireForFrozenSlotWorkflow(ctx)
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		StartToCloseTimeout: 10 * time.Minute,
-		RetryPolicy: &sdktemporal.RetryPolicy{
-			InitialInterval:    time.Second,
-			BackoffCoefficient: 2,
-			MaximumInterval:    30 * time.Second,
-			MaximumAttempts:    3,
-		},
-	})
-	activityInput := ExecuteSlotActivityInput{
-		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision,
-		Slot: input.Slot, Attempt: input.Attempt,
-		IdempotencyKey: slotAttemptKey(input.PlanRevision, input.Slot, input.Attempt),
-		AssetCatalog:   input.AssetCatalog,
-	}
-	var execution imageagent.SlotExecutionResult
-	if err := workflow.ExecuteActivity(ctx, activityName, activityInput).Get(ctx, &execution); err != nil {
-		return SlotWorkflowResult{
-			Execution: imageagent.SlotExecutionResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
-			Status:    imageagent.SlotStatusBlocked, ErrorCode: slotExecutionErrorCode(err),
-		}, nil
-	}
-	if execution.SlotID != input.Slot.ID || execution.Attempt != input.Attempt || !hasCandidateAsset(execution.Candidates) {
-		return SlotWorkflowResult{
-			Execution: imageagent.SlotExecutionResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
-			Status:    imageagent.SlotStatusBlocked, ErrorCode: "invalid_slot_result",
-		}, nil
-	}
-	return SlotWorkflowResult{Execution: execution, Status: imageagent.SlotStatusAccepted}, nil
-}
-
-func activityWireForFrozenSlotWorkflow(ctx workflow.Context) string {
-	if workflow.GetVersion(ctx, activityWireV2Patch, workflow.DefaultVersion, 1) == workflow.DefaultVersion {
-		return activityExecuteSlotLegacy
-	}
-	return activityExecuteSlot
-}
-
-func slotExecutionErrorCode(err error) string {
-	var applicationError *sdktemporal.ApplicationError
-	if errors.As(err, &applicationError) && applicationError.Type() == slotProviderOutcomeUnknownErrorType {
-		return "slot_provider_outcome_unknown"
-	}
-	return "slot_execution_failed"
-}
-
-// ImageSlotWorkflowV3 is additive and intentionally not registered by Task 4.
-// The v2 child workflow above remains byte-for-byte compatible with histories
-// that execute imageagent.execute_slot.v2.
+// ImageSlotWorkflowV3 executes the current organization-scoped V3 protocol.
 func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 	if err := validateWorkflowScope(ctx, input.Identity, input.RunID); err != nil {
 		return SlotWorkflowV3Result{}, err

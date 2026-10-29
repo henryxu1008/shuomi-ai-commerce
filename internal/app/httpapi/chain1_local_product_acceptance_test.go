@@ -240,8 +240,6 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 		SubjectExtractor: imagePorts, WhiteBackgroundRenderer: imagePorts, SceneRenderer: imagePorts,
 		Reviewer: imagePorts, UsageQuoter: imagePorts, ProfileResolver: policyResolver,
 	})
-	publisherV2, err := assetpublication.NewV2Publisher(imageRepository, assetRepository)
-	require.NoError(t, err)
 	publisherV3, err := assetpublication.NewPublisher(imageRepository, assetRepository, durableArtifacts)
 	require.NoError(t, err)
 	executionAuthorizer := imageagentworker.OrganizationExecutionAuthorizer{
@@ -249,8 +247,8 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 		ProjectID: chain1Project, Authorizer: authorizer,
 	}
 	activityDependencies := imageagenttemporal.ActivityDependencies{
-		ExecutionAuthorizer: executionAuthorizer, Repository: imageRepository, SlotExecutor: executor,
-		Publisher: publisherV2, PublisherV3: publisherV3, StagedSlotExecutor: executor, ArtifactStore: durableArtifacts,
+		ExecutionAuthorizer: executionAuthorizer, Repository: imageRepository,
+		PublisherV3: publisherV3, StagedSlotExecutor: executor, ArtifactStore: durableArtifacts,
 	}
 	activities, err := imageagenttemporal.NewActivities(activityDependencies)
 	require.NoError(t, err)

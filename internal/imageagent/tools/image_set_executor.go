@@ -14,7 +14,7 @@ func NewImageSetResultBuilder() *ProductImageSlotExecutor {
 }
 
 func (e *ProductImageSlotExecutor) resolveImageSetInput(input imageagent.SlotExecutionInput) (resolvedSlotInput, error) {
-	if e.legacyV2 || input.RunID == "" || input.TenantID == "" || input.UserID == "" || input.PlanRevision <= 0 || input.Attempt <= 0 || input.IdempotencyKey == "" || input.Slot.IdempotencyKey == "" {
+	if input.RunID == "" || input.TenantID == "" || input.UserID == "" || input.PlanRevision <= 0 || input.Attempt <= 0 || input.IdempotencyKey == "" || input.Slot.IdempotencyKey == "" {
 		return resolvedSlotInput{}, imageagent.ErrValidation
 	}
 	if err := imageagent.ValidateImageSetExecution(input); err != nil {

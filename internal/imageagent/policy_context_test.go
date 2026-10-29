@@ -27,7 +27,7 @@ func TestServiceRejectsInvalidImagePolicyKeyBeforeResolvingAssets(t *testing.T) 
 			t.Parallel()
 
 			catalog := &countingPolicyCatalog{catalog: authorizedCatalog()}
-			service, err := imageagent.NewService(store.NewMemoryRepository(), &recordingWorkflowClient{}, catalog)
+			service, err := imageagent.NewService(store.NewMemoryRepository(), &recordingWorkflowClient{}, catalog, imageagent.WithOrganizationScope())
 			require.NoError(t, err)
 			input := validPolicyStartInput("run-invalid-policy")
 			mutate(&input)
@@ -46,7 +46,7 @@ func TestServiceRejectsUnavailableValidPolicyBeforeCreatingRun(t *testing.T) {
 	catalog := &countingPolicyCatalog{catalog: authorizedCatalog()}
 	availability := &recordingImagePolicyAvailability{err: imageagent.ErrValidation}
 	service, err := imageagent.NewService(store.NewMemoryRepository(), &recordingWorkflowClient{}, catalog,
-		imageagent.WithImagePolicyAvailability(availability))
+		imageagent.WithImagePolicyAvailability(availability), imageagent.WithOrganizationScope())
 	require.NoError(t, err)
 	input := validPolicyStartInput("run-unavailable-policy")
 	input.ImagePolicyContext.Country = "gb"
@@ -63,7 +63,7 @@ func TestServicePersistsImmutableImagePolicyContextAndUsesItForStartIdempotency(
 	repository := store.NewMemoryRepository()
 	workflows := &recordingWorkflowClient{}
 	catalog := &countingPolicyCatalog{catalog: authorizedCatalog()}
-	service, err := imageagent.NewService(repository, workflows, catalog)
+	service, err := imageagent.NewService(repository, workflows, catalog, imageagent.WithOrganizationScope())
 	require.NoError(t, err)
 	input := validPolicyStartInput("run-policy")
 	ctx := verifiedContext("tenant-a", "user-a")

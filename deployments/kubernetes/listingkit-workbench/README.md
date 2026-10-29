@@ -1,3 +1,5 @@
+> #994 源级退休注记：旧 `image-agent-temporal-worker-deployment.yaml`、`image-agent-temporal-worker-v3-deployment.yaml` 和专属 `listingkit-apply-image-agent-worker-deployment.sh` 已退出当前源码；下文针对这两旧声明的 drain/rollout 仅为历史操作记录，不再是当前执行入口。当前显式 `organization-v1` worker、图组/Artwork/采集单主图及隔离 canary 保留；旧生产发布仍 **NOT_READY**。本批未执行部署、排空或任何既有资源/数据/凭据/进程操作，未声明旧任务已结束。以下原 README 全文保持。
+
 > **#985 current source boundary:** the standalone SHEIN login worker and post-login Store identity writeback, including their manifest/Dockerfile/private-config example and dedicated deploy workflow, are retired. Store observations and official authorization remain. See [the retirement entry](../../../docs/operations/shein-login-worker-current.md); there is no current worker installation procedure. The older retention/deployment statements below are historical, not authority to install, stop, revoke or mutate any retained resource. No new internal-trial prerequisite.
 
 # Legacy ListingKit K3S Deployment Reference

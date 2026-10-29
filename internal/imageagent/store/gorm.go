@@ -20,10 +20,6 @@ type gormRepository struct {
 	scopeProtocol string
 }
 
-func NewGormRepository(db *gorm.DB) imageagent.Repository {
-	return &gormRepository{db: db}
-}
-
 // NewOrganizationRepository is only for an explicitly admitted current scope
 // database. It never upgrades a historical run or supplies a missing protocol.
 func NewOrganizationRepository(db *gorm.DB) imageagent.Repository {
@@ -49,7 +45,7 @@ func AutoMigrate(db *gorm.DB) error {
 	if db == nil {
 		return errors.New("database is nil")
 	}
-	return db.AutoMigrate(&runRecord{}, &planRecord{}, &slotRecord{}, &attemptRecord{}, &eventRecord{}, &assetCatalogManifestRecord{}, &assetCatalogRecord{}, &projectionRecord{}, &projectionCommitRecord{}, &slotExternalEffectRecord{}, &slotExternalEffectV3Record{})
+	return db.AutoMigrate(&runRecord{}, &planRecord{}, &slotRecord{}, &attemptRecord{}, &eventRecord{}, &assetCatalogManifestRecord{}, &assetCatalogRecord{}, &projectionRecord{}, &projectionCommitRecord{}, &slotExternalEffectV3Record{})
 }
 
 func (r *gormRepository) CreateRun(ctx context.Context, run *imageagent.Run) error {

@@ -62,7 +62,7 @@ func TestLegacySubscriptionMeteringClosureIsRetired(t *testing.T) {
 			return true
 		})
 	}
-	for _, path := range []string{"Makefile", "scripts/test-fast.ps1", "internal/core/config/loader_builder.go", "deployments/docker/account-compose/bootstrap.sh", "deployments/docker/account-compose/init.sh", "deployments/docker/account-compose/business-db-init.sh", "deployments/docker/account-compose/image-trial-init.sh", "deployments/docker/acquisition-compose/bootstrap.sh", "deployments/docker/acquisition-compose/init.sh", "deployments/docker/referrals-compose/bootstrap.sh", "deployments/docker/referrals-compose/init.sh", "deployments/docker/acquisition-compose/docker-compose.yml", "deployments/kubernetes/listingkit-workbench/base/secret.example.yaml", "deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-deployment.yaml", "deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-v3-deployment.yaml", "go.mod"} {
+	for _, path := range []string{"Makefile", "scripts/test-fast.ps1", "internal/core/config/loader_builder.go", "deployments/docker/account-compose/bootstrap.sh", "deployments/docker/account-compose/init.sh", "deployments/docker/account-compose/business-db-init.sh", "deployments/docker/account-compose/image-trial-init.sh", "deployments/docker/acquisition-compose/bootstrap.sh", "deployments/docker/acquisition-compose/init.sh", "deployments/docker/referrals-compose/bootstrap.sh", "deployments/docker/referrals-compose/init.sh", "deployments/docker/acquisition-compose/docker-compose.yml", "deployments/kubernetes/listingkit-workbench/base/secret.example.yaml", "go.mod"} {
 		data, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
 		if err != nil {
 			t.Fatal(err)
