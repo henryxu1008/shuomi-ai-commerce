@@ -7,31 +7,6 @@ import (
 	"strings"
 )
 
-// ResultDigestV2 is the frozen candidate-ID-only approval digest. Its JSON
-// payload deliberately preserves the historical wire algorithm byte-for-byte.
-func ResultDigestV2(plan Plan, slots []SlotProjection) (string, error) {
-	if len(slots) != len(plan.Slots) {
-		return "", ErrRevisionConflict
-	}
-	type digestSlot struct {
-		SlotID            string   `json:"slot_id"`
-		CandidateAssetIDs []string `json:"candidate_asset_ids"`
-	}
-	payload := make([]digestSlot, 0, len(plan.Slots))
-	for index, slot := range plan.Slots {
-		candidateIDs := make([]string, 0, len(slots[index].Candidates))
-		for _, candidate := range slots[index].Candidates {
-			id := strings.TrimSpace(candidate.AssetID)
-			if id == "" {
-				return "", ErrRevisionConflict
-			}
-			candidateIDs = append(candidateIDs, id)
-		}
-		payload = append(payload, digestSlot{SlotID: strings.TrimSpace(slot.ID), CandidateAssetIDs: candidateIDs})
-	}
-	return resultDigestSHA256(payload)
-}
-
 // ResultDigestV3 binds approval to the declared revision, ordered slot roles,
 // candidate order, and durable final object identities.
 func ResultDigestV3(plan Plan, slots []SlotProjection) (string, error) {

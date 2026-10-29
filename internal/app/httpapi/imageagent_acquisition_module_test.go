@@ -150,10 +150,9 @@ func TestAcquisitionImageTrialResultDerivesOnlyExactPublishedAssetURL(t *testing
 	require.Equal(t, base+"/"+asset.ObjectKey, result["imageUrl"])
 	_, err = acquisitionImageResult(projection, trialAcquisitionImagePublicURLs{"https://localhost:19445/image-agent-assets/issue487-images"}, policy)
 	require.Error(t, err)
-	projection.Slots[0].Candidates[0].URL = base + "/" + asset.ObjectKey
+	projection.Slots[0].Candidates[0].DurableAsset.ObjectKey = base + "/" + asset.ObjectKey
 	_, err = acquisitionImageResult(projection, trialAcquisitionImagePublicURLs{base}, policy)
-	require.ErrorIs(t, err, imageagent.ErrCommandBlocked, "even an exact-looking stored URL cannot replace durable identity resolution")
-	projection.Slots[0].Candidates[0].URL = ""
+	require.ErrorIs(t, err, imageagent.ErrValidation, "even an exact-looking URL cannot replace a scoped durable object key")
 	projection.Slots[0].Candidates[0].DurableAsset.ObjectKey = strings.Replace(asset.ObjectKey, "/org-a/", "/org-b/", 1)
 	_, err = acquisitionImageResult(projection, trialAcquisitionImagePublicURLs{base}, policy)
 	require.Error(t, err)
@@ -170,9 +169,9 @@ func TestAcquisitionImageRoutesRejectForgedURLCandidateOnReadAndCompletedReplay(
 		Run:  imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, ID: runID, TenantID: identity.TenantID, UserID: identity.UserID, MemberID: identity.EffectiveMemberID, BusinessTaskID: operationID, TargetPlatform: "product", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}, Status: imageagent.RunStatusCompleted, ActivePlanRevision: 1},
 		Plan: imageagent.Plan{Revision: 1, IdempotencyKey: "plan-1", SourceAssetIDs: []string{"catalog-image-1"}, Slots: []imageagent.Slot{slot}}, ResultDigest: "digest-1",
 		AssetCatalog: imageagent.AssetCatalog{ProductContext: imageagent.ProductContextRef{ProductID: "product-a", SourceSnapshotVersion: 1}},
-		Slots:        []imageagent.SlotProjection{{Slot: slot, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "generated-1", URL: forgedURL}}}},
+		Slots:        []imageagent.SlotProjection{{Slot: slot, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "generated-1", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: forgedURL}}}}},
 	}}
-	require.NoError(t, imageagent.ValidateProjectionSnapshot(imageagent.ScopeForRun(service.projection.Run), service.projection), "URL-only representation must be readable by the current projection store")
+	require.Error(t, imageagent.ValidateProjectionSnapshot(imageagent.ScopeForRun(service.projection.Run), service.projection), "a URL cannot replace the current scoped durable object identity")
 	approvalReader := &acquisitionImageApprovalReaderSpy{commit: productasset.ApprovalCommit{
 		TenantID: identity.TenantID, ProductKey: "product-a", TargetPlatform: "product", SourceSnapshotVersion: 1,
 		ActionID: imagetemporal.ApprovalActionPublicationKey(actionID, runID, 1),
@@ -197,7 +196,7 @@ func TestAcquisitionImageRoutesRejectForgedURLCandidateOnReadAndCompletedReplay(
 	}
 	t.Run("read", func(t *testing.T) {
 		response := call(http.MethodGet, base, "")
-		require.Equal(t, http.StatusConflict, response.Code, "current organization read must not project a persisted arbitrary URL")
+		require.Equal(t, http.StatusBadRequest, response.Code, "current organization read must not project a persisted arbitrary URL")
 		require.NotContains(t, response.Body.String(), forgedURL)
 	})
 	t.Run("completed_replay", func(t *testing.T) {

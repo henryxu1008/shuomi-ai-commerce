@@ -127,13 +127,12 @@ type SlotWorkflowResult struct {
 	Execution imageagent.SlotExecutionResult
 	Status    imageagent.SlotStatus
 	ErrorCode string
-	// EffectPhase is additive v3 evidence used only by the versioned parent
-	// cancellation gate. Frozen v2 and old-history results leave it empty.
+	// EffectPhase is current v3 evidence used by the versioned parent
+	// cancellation gate.
 	EffectPhase imageagent.SlotEffectV3Phase
 }
 
-// SlotWorkflowV3Input is additive and is not registered by the Task 4 worker.
-// Task 6 owns selecting this child workflow on the production wire.
+// SlotWorkflowV3Input is the current durable execution child input.
 type SlotWorkflowV3Input struct {
 	Artwork            *imageagent.ArtworkPlan  `json:",omitempty"`
 	ImageSet           *imageagent.ImageSetPlan `json:",omitempty"`
@@ -360,10 +359,6 @@ type CommandAcknowledgement = imageagent.CommandAcknowledgement
 
 func slotAttemptKey(planRevision int64, slot imageagent.Slot, attempt int) string {
 	return imageagent.SlotAttemptKey(planRevision, slot, attempt)
-}
-
-func publicationKey(runID string, revision int64) string {
-	return fmt.Sprintf("image-agent:%s:plan:%d:publication", strings.TrimSpace(runID), revision)
 }
 
 func childWorkflowID(input slotChildIdentity) string {

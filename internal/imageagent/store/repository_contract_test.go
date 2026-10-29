@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -364,7 +365,10 @@ func testProjectionCommitRejectsMismatchedSlotAttemptIdentityAtomically(t *testi
 			})
 			require.NoError(t, err)
 			updated := initial
-			candidate := imageagent.AssetCandidate{AssetID: "candidate-1", URL: "https://generated.example/candidate-1.png", SourceAssetID: "source-1"}
+			owner, err := imageagent.ArtifactOwnerKey(scope.OwnerUserID)
+			require.NoError(t, err)
+			hash := strings.Repeat("a", 64)
+			candidate := imageagent.AssetCandidate{AssetID: "candidate-1", SourceAssetID: "source-1", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: fmt.Sprintf("image-agent/public/%s/%s/%s/1/%s/1/0-%s.png", scope.TenantID, owner, scope.RunID, updated.Slots[0].Slot.ID, hash), SHA256: hash}}
 			updated.Slots[0] = imageagent.SlotProjection{Slot: updated.Slots[0].Slot, Attempt: 1, Candidates: []imageagent.AssetCandidate{candidate}}
 			updated.Slots[0].Slot.Status = imageagent.SlotStatusAccepted
 			mutation := imageagent.SlotProjectionMutation{
@@ -543,7 +547,7 @@ func testProjectionCommitRollbackHidesEventSnapshotAndNormalizedWrites(t *testin
 	bad.Slots[0] = imageagent.SlotProjection{
 		Slot:       bad.Slots[0].Slot,
 		Attempt:    1,
-		Candidates: []imageagent.AssetCandidate{{AssetID: "candidate-unsafe", URL: "javascript:alert(1)"}},
+		Candidates: []imageagent.AssetCandidate{{AssetID: "candidate-unsafe", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "javascript:alert(1)"}}},
 	}
 	bad.Slots[0].Slot.Status = imageagent.SlotStatusAccepted
 	attempt := imageagent.StepAttempt{

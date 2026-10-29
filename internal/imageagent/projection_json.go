@@ -1,11 +1,13 @@
 package imageagent
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
 
-// SlotProjection has its own JSON representation because AssetCandidate is a
-// frozen v2 wire type. The v3 durable identity belongs in persisted
-// projections, but it must never become part of SlotExecutionResult's v2 JSON
-// payload.
+// SlotProjection owns the persisted durable-candidate JSON representation,
+// separately from the executor's in-process result.
 func (value SlotProjection) MarshalJSON() ([]byte, error) {
 	var candidates []slotProjectionJSONCandidate
 	if value.Candidates != nil {
@@ -21,15 +23,8 @@ func (value SlotProjection) MarshalJSON() ([]byte, error) {
 			Height:          candidate.Height,
 			Operations:      append([]string(nil), candidate.Operations...),
 		}
-		if candidate.DurableAsset.ObjectKey != "" || candidate.DurableAsset.SHA256 != "" {
-			identity := candidate.DurableAsset
-			candidates[index].DurableAsset = &identity
-			continue
-		}
-		url := candidate.URL
-		metadata := candidate.Metadata
-		candidates[index].URL = &url
-		candidates[index].Metadata = &metadata
+		identity := candidate.DurableAsset
+		candidates[index].DurableAsset = &identity
 	}
 	return json.Marshal(slotProjectionJSON{
 		Closure:    value.Closure,
@@ -59,12 +54,6 @@ func (value *SlotProjection) UnmarshalJSON(raw []byte) error {
 			Height:          candidate.Height,
 			Operations:      append([]string(nil), candidate.Operations...),
 		}
-		if candidate.URL != nil {
-			candidates[index].URL = *candidate.URL
-		}
-		if candidate.Metadata != nil {
-			candidates[index].Metadata = *candidate.Metadata
-		}
 		if candidate.DurableAsset != nil {
 			candidates[index].DurableAsset = *candidate.DurableAsset
 		}
@@ -85,11 +74,28 @@ type slotProjectionJSONCandidate struct {
 	Artwork         *ArtworkProvenance    `json:",omitempty"`
 	GenerationProof *ImageGenerationProof `json:",omitempty"`
 	AssetID         string
-	URL             *string `json:"URL,omitempty"`
 	SourceAssetID   string
-	Metadata        *map[string]string    `json:"Metadata,omitempty"`
 	DurableAsset    *DurableAssetIdentity `json:"DurableAsset,omitempty"`
 	Width           int                   `json:"Width,omitempty"`
 	Height          int                   `json:"Height,omitempty"`
 	Operations      []string              `json:"Operations,omitempty"`
+}
+
+func (value *slotProjectionJSONCandidate) UnmarshalJSON(raw []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return err
+	}
+	for name := range fields {
+		if strings.EqualFold(name, "URL") || strings.EqualFold(name, "Metadata") {
+			return fmt.Errorf("%w: retired projection candidate field %q", ErrValidation, name)
+		}
+	}
+	type durableCandidate slotProjectionJSONCandidate
+	var decoded durableCandidate
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return err
+	}
+	*value = slotProjectionJSONCandidate(decoded)
+	return nil
 }

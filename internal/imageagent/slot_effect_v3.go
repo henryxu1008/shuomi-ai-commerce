@@ -225,7 +225,7 @@ type SlotEffectV3BlockTransition struct {
 }
 
 // SlotEffectV3PublishedResult is the allowlisted persisted v3 result. It is
-// separate from the frozen v2 SlotExecutionResult wire contract.
+// separate from the executor's in-process SlotExecutionResult.
 type SlotEffectV3PublishedResult struct {
 	SlotID     string                       `json:"slot_id"`
 	Attempt    int                          `json:"attempt"`
@@ -243,14 +243,10 @@ type SlotEffectV3AssetCandidate struct {
 }
 
 // NewSlotEffectV3PublishedResult is the explicit adapter from an in-process
-// executor result. Legacy URL and arbitrary metadata are not eligible for v3
-// persistence and therefore fail closed.
+// executor result to the current durable persistence contract.
 func NewSlotEffectV3PublishedResult(result SlotExecutionResult) (SlotEffectV3PublishedResult, error) {
 	candidates := make([]SlotEffectV3AssetCandidate, len(result.Candidates))
 	for index, candidate := range result.Candidates {
-		if candidate.URL != "" || len(candidate.Metadata) != 0 {
-			return SlotEffectV3PublishedResult{}, ErrValidation
-		}
 		candidates[index] = SlotEffectV3AssetCandidate{
 			AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset,
 			Artwork: cloneArtworkProvenance(candidate.Artwork),

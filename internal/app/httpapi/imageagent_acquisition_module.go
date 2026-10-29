@@ -337,9 +337,6 @@ func acquisitionImageResult(projection imageagent.RunProjection, publicURLs imag
 }
 
 func acquisitionImagePublishedURL(projection imageagent.RunProjection, slot imageagent.Slot, attempt int, candidate imageagent.AssetCandidate, index int, publicURLs imageagent.DurableAssetPublicURLResolver, trial ...*imageagent.IsolatedTrialGeneratedURLPolicy) (string, error) {
-	if candidate.URL != "" {
-		return "", imageagent.ErrCommandBlocked
-	}
 	var policy *imageagent.IsolatedTrialGeneratedURLPolicy
 	if len(trial) == 1 {
 		policy = trial[0]

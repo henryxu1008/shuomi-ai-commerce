@@ -45,7 +45,6 @@ type imageAgentWorkerDependencyResolver struct {
 	OpenDB                          func(*config.DatabaseConfig) (*gorm.DB, error)
 	CloseDB                         func(*config.DatabaseConfig, *gorm.DB) error
 	BuildAI                         func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error)
-	BuildCapabilities               func(imageCapabilityRuntime) (ImageCapabilities, error)
 	BuildOrganizationCapabilities   func(imageCapabilityRuntime, *gorm.DB) (ImageCapabilities, error)
 	BuildOrganizationAuthorizer     func(*config.Config) (domainimageagent.ExecutionAuthorizer, error)
 	BuildArtifactStore              func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error)
@@ -89,7 +88,7 @@ func defaultImageAgentWorkerDependencyResolver() imageAgentWorkerDependencyResol
 			}
 			return platformdatabase.CloseShared(configadapter.Database(cfg), db)
 		},
-		BuildAI: buildImageAgentWorkerAI, BuildCapabilities: buildProductionImageCapabilities,
+		BuildAI:                         buildImageAgentWorkerAI,
 		BuildOrganizationCapabilities:   buildOrganizationWorkerCapabilities,
 		BuildOrganizationAuthorizer:     buildOrganizationWorkerAuthorizer,
 		BuildArtifactStore:              buildImageAgentDurableArtifactStore,

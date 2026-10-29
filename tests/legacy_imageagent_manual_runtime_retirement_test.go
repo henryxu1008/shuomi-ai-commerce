@@ -57,3 +57,71 @@ func TestLegacyImageAgentManualRuntimeClosureIsRetired(t *testing.T) {
 		})
 	}
 }
+
+func TestLegacyImageAgentV2ContractClosureIsRetired(t *testing.T) {
+	for path, banned := range map[string][]string{
+		"internal/imageagent/result_digest.go":           {"ResultDigestV2"},
+		"internal/imageagent/temporal/workflow.go":       {"resultDigest"},
+		"internal/imageagent/temporal/types.go":          {"publicationKey"},
+		"internal/imageagent/temporal/slot_workflow.go":  {"hasCandidateAsset"},
+		"internal/app/worker/imageagent/capabilities.go": {"buildProductionImageCapabilities"},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			if function, ok := declaration.(*ast.FuncDecl); ok && slices.Contains(banned, function.Name.Name) {
+				t.Errorf("%s retains retired function %s", path, function.Name.Name)
+			}
+		}
+	}
+	for path, contracts := range map[string]map[string][]string{
+		"internal/imageagent/model.go":                   {"AssetCandidate": {"Artwork", "GenerationProof", "AssetID", "SourceAssetID", "Width", "Height", "Operations", "DurableAsset"}},
+		"internal/imageagent/ports.go":                   {"SlotExecutionResult": {"SlotID", "Attempt", "Candidates"}},
+		"internal/app/worker/imageagent/dependencies.go": {"imageAgentWorkerDependencyResolver": nil},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := map[string]bool{}
+		ast.Inspect(file, func(n ast.Node) bool {
+			declaration, ok := n.(*ast.TypeSpec)
+			if !ok {
+				return true
+			}
+			want, required := contracts[declaration.Name.Name]
+			if !required {
+				return true
+			}
+			found[declaration.Name.Name] = true
+			shape, ok := declaration.Type.(*ast.StructType)
+			if !ok {
+				t.Errorf("%s must remain a struct", declaration.Name.Name)
+				return false
+			}
+			var names []string
+			for _, field := range shape.Fields.List {
+				if len(field.Names) == 0 {
+					t.Errorf("%s must not embed another contract", declaration.Name.Name)
+				}
+				for _, name := range field.Names {
+					names = append(names, name.Name)
+				}
+			}
+			if want != nil && !slices.Equal(names, want) {
+				t.Errorf("%s fields = %v; want %v", declaration.Name.Name, names, want)
+			}
+			if slices.Contains(names, "BuildCapabilities") {
+				t.Error("idle default BuildCapabilities must be retired")
+			}
+			return false
+		})
+		for name := range contracts {
+			if !found[name] {
+				t.Errorf("current contract %s must exist in %s", name, path)
+			}
+		}
+	}
+}

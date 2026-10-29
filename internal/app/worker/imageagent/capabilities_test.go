@@ -124,7 +124,11 @@ func TestBuildProductionImageCapabilitiesQuotesCurrentRouteAndRejectsStaleAuthor
 		},
 	})
 	require.NoError(t, err)
-	capabilities, err := buildProductionImageCapabilities(imageCapabilityRuntime{OpenAIManager: manager})
+	routedProvider, err := newRoutedOpenAIProductImageProvider(manager)
+	require.NoError(t, err)
+	profileResolver, err := loadEmbeddedImagePolicyResolver()
+	require.NoError(t, err)
+	capabilities, err := buildImageCapabilities(providerDependencies{Subject: routedProvider, WhiteBackground: routedProvider, Scene: routedProvider, Review: routedProvider}, profileResolver)
 	require.NoError(t, err)
 
 	quote, err := capabilities.UsageQuoter.QuoteUsage(context.Background(), productimage.UsageQuoteRequest{
@@ -166,7 +170,11 @@ func TestProductionSourceEditDoesNotResolveReviewRoute(t *testing.T) {
 	require.NoError(t, err)
 	resolver := &sourceOnlyRouteResolver{}
 	manager.SetConfigResolver(resolver)
-	capabilities, err := buildProductionImageCapabilities(imageCapabilityRuntime{OpenAIManager: manager})
+	routedProvider, err := newRoutedOpenAIProductImageProvider(manager)
+	require.NoError(t, err)
+	profileResolver, err := loadEmbeddedImagePolicyResolver()
+	require.NoError(t, err)
+	capabilities, err := buildImageCapabilities(providerDependencies{Subject: routedProvider, WhiteBackground: routedProvider, Scene: routedProvider, Review: routedProvider}, profileResolver)
 	require.NoError(t, err)
 	quote, err := capabilities.UsageQuoter.QuoteUsage(context.Background(), productimage.UsageQuoteRequest{Operation: productimage.SourceWhiteBackgroundOperation, InputFingerprint: "source-flow-v1", MaximumOutputs: 1})
 	require.NoError(t, err)

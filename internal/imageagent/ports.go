@@ -21,9 +21,6 @@ type ExecutionIdentity struct {
 // and durable candidate construction. GenerateSlot may return transient
 // provider material, while BuildSlotResult accepts only final, durable object
 // references supplied by the artifact store.
-//
-// SlotExecutor remains the frozen v2 one-shot contract. Callers must select a
-// wire version explicitly; this interface does not make v2 use v3 persistence.
 type StagedSlotExecutor interface {
 	GenerateSlot(context.Context, SlotExecutionInput) (SlotGeneratedOutput, error)
 	BuildSlotResult(context.Context, SlotExecutionInput, PublishedSlotOutput) (SlotExecutionResult, error)
@@ -45,16 +42,14 @@ type BudgetedStagedSlotReviewer interface {
 	ReviewStagedSlotQuoted(context.Context, SlotExecutionInput, SlotGeneratedOutput, SlotUsageQuote) (SlotUsageReceipt, error)
 }
 
-// BudgetedStagedSlotExecutor is additive so frozen v2 and legacy uncapped v3
-// executors keep their historical wire behavior.
+// BudgetedStagedSlotExecutor quotes and accounts for admitted staged work.
 type BudgetedStagedSlotExecutor interface {
 	StagedSlotExecutor
 	QuoteSlot(context.Context, SlotExecutionInput, BudgetPolicy) (SlotUsageQuote, error)
 	GenerateQuotedSlot(context.Context, SlotExecutionInput, SlotUsageQuote) (SlotGeneratedOutput, error)
 }
 
-// ApprovedAssetPublisherV3 is deliberately separate from the frozen v2
-// publication port so Temporal can select its wire contract explicitly.
+// ApprovedAssetPublisherV3 publishes the current durable approval payload.
 type ApprovedAssetPublisherV3 interface {
 	PublishApprovedV3(context.Context, PublishApprovedV3Input) (PublicationAcknowledgement, error)
 }
@@ -131,8 +126,7 @@ type PublishedSlotOutput struct {
 	Assets  []PublishedAssetRef
 }
 
-// PublishApprovedV3Input is the additive durable-approval payload. Keep the
-// v2 input above unchanged for frozen Temporal histories.
+// PublishApprovedV3Input is the current durable-approval payload.
 type PublishApprovedV3Input struct {
 	RunID             string
 	TenantID          string

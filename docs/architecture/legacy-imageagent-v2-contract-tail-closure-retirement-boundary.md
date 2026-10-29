@@ -1,3 +1,7 @@
+> 本轮用户批准的准确尾部例外（§5.2/§6.1）：按 [PR 提案6488918931](https://github.com/qq550723504/shuomi-ai-commerce/pull/996#issuecomment-6488918931) 将遗漏 `store/slot_effect_v3_repository_test.go` 纳入，删除 V2 JSON-only 保活测试、两项旧字段拒绝改接当前 decoder；HTTP 仅两行 expected 对齐原 durable ErrValidation/GET400，完成回放409与无泄露/无副作用断言保留。生产映射、workflow/inventory及其余检查不改。原33路径精确补为34（14生产/15测试/5文档），不扩大产品范围、不新增兼容层。
+
+> #301 / #996 当前实施：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户确认冻结设计25258f5eb的§1–§7（含§4.2、§6.1），同一主要PR收齐34路径；旧V2候选/批准/默认装配与专属尾部按本设计退休。当前durable JSON/hash/有效V3回放恢复、真实组织worker/provider、图像/采集和Store观察同步保留；GitHub workflow/完整inventory/依赖/保护及既有实例/数据/凭据/进程零改，无新试用前置，#301 OPEN。实施/原CI/源码最终复核证据写PR，设计复核不替代源码复核；合并/部署/关单另授权。
+
 # 旧 ImageAgent V2 合同、批准链与默认装配残留完整退休设计
 
 本批收净 #994 退出旧手工任务后留下的三组源码：**V2 候选/投影合同、旧批准摘要与发布键、无人调用的默认能力装配**。当前图组、Artwork、采集单主图和 Store 观察同步继续使用当前 owner；不是删除当前 ImageAgent 或 V3 恢复。
@@ -67,7 +71,7 @@ Must：不降低组织/原始 member/业务任务归属；不把未验证 URL �
 
 ## 5. 完整删除 / 保留矩阵
 
-未来源码一次收齐下列 **33 路径**；不是本轮文档交付的已执行清单。14 个混合生产文件、14 个测试文件、5 份文档；没有整包删除，也不增加运行工具。
+未来源码一次收齐下列 **34 路径**；不是本轮文档交付的已执行清单。14 个混合生产文件、15 个测试文件、5 份文档；没有整包删除，也不增加运行工具。
 
 ### 5.1 混合生产文件（14）
 
@@ -88,9 +92,9 @@ Must：不降低组织/原始 member/业务任务归属；不把未验证 URL �
 | internal/app/worker/imageagent/capabilities.go | 仅删 buildProductionImageCapabilities；实际 typed/provider/policy/quote 实现保持 |
 | internal/app/httpapi/imageagent_acquisition_module.go | 删除不可构造旧 candidate.URL 读取；scoped durable→URL、trial policy、HTTP/批准/UNKNOWN 行为不变 |
 
-### 5.2 测试与文档（19）
+### 5.2 测试与文档（20）
 
-测试 14 文件：`internal/imageagent/{projection,result_digest}_test.go`；`internal/imageagent/temporal/{history_replay,slot_effect_activity,slot_effect_v3_activity,workflow}_test.go`；`internal/imageagent/store/{repository_contract,image_set}_test.go`；`internal/app/worker/imageagent/{capabilities,dependencies}_test.go`；`internal/app/httpapi/{imageagent_acquisition_module,image_set_worker_authorization}_test.go`；`internal/app/runtime/image_agent_temporal_runtime_test.go`；`tests/legacy_imageagent_manual_runtime_retirement_test.go`。每项允许转换在 §6.1，不能以文件在矩阵内为由改其它函数。后三组额外尾部来自全仓旧 ExecuteSlot/PublishSlot 方法反查，不为已退出接口保留无人调用的测试实现。
+测试 15 文件：`internal/imageagent/{projection,result_digest}_test.go`；`internal/imageagent/temporal/{history_replay,slot_effect_activity,slot_effect_v3_activity,workflow}_test.go`；`internal/imageagent/store/{repository_contract,image_set,slot_effect_v3_repository}_test.go`；`internal/app/worker/imageagent/{capabilities,dependencies}_test.go`；`internal/app/httpapi/{imageagent_acquisition_module,image_set_worker_authorization}_test.go`；`internal/app/runtime/image_agent_temporal_runtime_test.go`；`tests/legacy_imageagent_manual_runtime_retirement_test.go`。每项允许转换在 §6.1，不能以文件在矩阵内为由改其它函数。后三组额外尾部来自全仓旧 ExecuteSlot/PublishSlot 方法反查，不为已退出接口保留无人调用的测试实现。
 
 文档 5 文件：本设计、`docs/architecture/README.md`、`docs/refactoring/legacy-register.md`、`docs/superpowers/specs/2026-08-27-image-agent-recovery-compatibility-design.md`、`docs/superpowers/plans/2026-08-27-image-agent-recovery-compatibility.md`。后两份未来仅追加准确的 V2 执行要求 superseded 顶注，保留历史正文/数字/勾选，明确有效 V3 仍归当前 owner。已整体 superseded 的本地验收文档不重复改写。
 
@@ -111,11 +115,12 @@ Must：不降低组织/原始 member/业务任务归属；不把未验证 URL �
 | workflow_test.go | 仅新增本批 ForWire/完整入口无旧 fallback 的回归；删除 revisionFailingExecutor、identityCheckingExecutor 的四个无调用 ExecuteSlot/PublishSlot 方法，保留当前 GenerateSlot/BuildSlotResult；原 `TestRetiredActivityWireFailsBeforeAnyActivity` 原样保留 | 全部原授权、身份断言、预算、绝对 deadline/取消、响应丢失、UNKNOWN、projection/recovery/approve 断言原样；不删当前 publisher 的委托逻辑 |
 | store/repository_contract_test.go：`testProjectionCommitRejectsMismatchedSlotAttemptIdentityAtomically`、`testProjectionCommitRollbackHidesEventSnapshotAndNormalizedWrites` | 前者 URL 成功 fixture 改当前 scoped durable；后者危险 URL fixture 改缺失/非法 durable；仍触发原被测错误层 | 原错误分类、事务回滚、event/snapshot/normalized writes 不可见和每项 identity 拒绝，不以提前失败掩盖原测试目标 |
 | store/image_set_test.go：`TestSetSlotClosurePreservesUnstartedWorkInNormalizedAndProjectedState` | unverified URL fixture 改当前缺失/错误 durable，不增加新持久化字段 | 原未派发 work、normalized/projected 一致性和拒绝无验证资产断言 |
+| store/slot_effect_v3_repository_test.go：`TestSlotExecutionResultV2JSONRemainsFrozen`、`TestSlotEffectV3PublishedResultRejectsLegacyCandidateFields` | 用户批准准确例外：删除旧 V2-only JSON 保活测试；两项 URL/Metadata 拒绝改接当前 projection 原始 JSON decoder，仍断言 ErrValidation | 该文件其余 V3 ledger、原并发/fence/权限/恢复/allowlist 全部逐字保持 |
 | temporal/slot_effect_activity_test.go：`recordingRecoverableSlotExecutor`、`activityGeneratedOutput` | 删除完全无消费者的旧 recoverable executor 结构、五方法及其专属 generated helper/import；不造新的 staged 替身保活它 | 原六个当前 V3 测试及全部断言保持；其余仍被当前消费者使用的 GeneratedAsset 临时材料/过滤行为不动 |
 | temporal/slot_effect_v3_activity_test.go：`recordingStagedExecutor`；runtime/image_agent_temporal_runtime_test.go：`runtimeSlotExecutor`；httpapi/image_set_worker_authorization_test.go：`fullImageWorkerSourceProbe` | 仅删除对应零调用的旧 ExecuteSlot/PublishSlot 方法（分别2/2/1）；不删共享结构或当前 staged 方法 | 所有原测试/计数/身份/失败/取消/权限断言保持；当前生成/构建接口断言继续有效 |
 | worker/capabilities_test.go：`TestBuildProductionImageCapabilitiesQuotesCurrentRouteAndRejectsStaleAuthorization`、`TestProductionSourceEditDoesNotResolveReviewRoute` | 两 setup 直接使用已有 routed provider + embedded resolver + buildImageCapabilities，替代闲置 wrapper；不新增替代 wrapper | 原准确路由/配置版本/stale authorization/quote/reviewCalls=0 全部断言 |
 | worker/dependencies_test.go | 仅删除 BuildCapabilities 的旧 t.Fatal stub | 真实 BuildOrganizationCapabilities 的调用、mode拒绝、open/dial/provider=0、context/close/权限/资源断言保持 |
-| httpapi/imageagent_acquisition_module_test.go：`TestAcquisitionImageTrialResultDerivesOnlyExactPublishedAssetURL`、`TestAcquisitionImageRoutesRejectForgedURLCandidateOnReadAndCompletedReplay` | typed 旧 URL 赋值改缺失/伪造 durable；旧 URL 可被 store 读取的正向 require 取消，退休 JSON 拒绝由 domain 原始输入测试承担 | 原 URL 不泄露、409、approve=0、immutable owner read=0、精确 resolver/组织作用域/trial/不可重解释批准响应。其它 HTTP/JSON/授权/计量断言保持 |
+| httpapi/imageagent_acquisition_module_test.go：`TestAcquisitionImageTrialResultDerivesOnlyExactPublishedAssetURL`、`TestAcquisitionImageRoutesRejectForgedURLCandidateOnReadAndCompletedReplay` | typed 旧 URL 赋值改缺失/伪造 durable；旧 URL 可被 store 读取的正向 require 取消，退休 JSON 拒绝由 domain 原始输入测试承担 | 用户批准两行 expected：伪造 durable 返回原 ErrValidation/GET400；完成回放仍409。原 URL 不泄露、approve=0、immutable owner read=0、精确 resolver/组织作用域/trial/不可重解释批准响应。其它 HTTP/JSON/授权/计量断言保持 |
 | tests/legacy_imageagent_manual_runtime_retirement_test.go | 原函数全保持；同文件增加本批 AST 缺席/现合同形状检查，覆盖两字段/五闲置函数/BuildCapabilities 和旧 probe fallback | 原 #994 文件/声明禁入、parser 失败关闭；保留当前文件必须存在，不加 missing-skip、不降低检查逻辑 |
 | 其它原检查、两套 GitHub workflow、完整 inventory | 零改；本批不预授任何 CURRENT 行例外 | 历史、计数、ceilings、lint/ratchet/安全和必需检查全部保持 |
 

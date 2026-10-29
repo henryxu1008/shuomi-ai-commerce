@@ -87,17 +87,8 @@ func ValidateProjectionSnapshot(scope RunScope, snapshot RunProjection) error {
 	return nil
 }
 
-// validateProjectionCandidate keeps the legacy URL projection representation
-// valid for frozen v2 histories while allowing the v3 durable-identity
-// representation. A candidate may use exactly one representation.
+// validateProjectionCandidate binds every candidate to its durable slot identity.
 func validateProjectionCandidate(scope RunScope, planRevision int64, slot SlotProjection, index int, candidate AssetCandidate) error {
-	if candidate.DurableAsset.ObjectKey == "" && candidate.DurableAsset.SHA256 == "" {
-		if _, err := ValidateSafeImageURL(candidate.URL); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	published, err := NewSlotEffectV3PublishedResult(SlotExecutionResult{SlotID: slot.Slot.ID, Attempt: slot.Attempt, Candidates: []AssetCandidate{candidate}})
 	if err != nil {
 		return err

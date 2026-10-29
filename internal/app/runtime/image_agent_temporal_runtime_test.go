@@ -383,16 +383,8 @@ func (w *recordingImageAgentWorker) Stop()        { w.stopped = true }
 
 type runtimeSlotExecutor struct{}
 
-func (runtimeSlotExecutor) ExecuteSlot(_ context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	return imageagent.SlotExecutionResult{SlotID: input.Slot.ID, Attempt: input.Attempt}, nil
-}
-
 func (runtimeSlotExecutor) GenerateSlot(_ context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	return imageagent.SlotGeneratedOutput{SlotID: input.Slot.ID, Attempt: input.Attempt, SourceAssetID: "source-1", Assets: []imageagent.GeneratedAsset{{URL: "C:/generated.png"}}}, nil
-}
-
-func (runtimeSlotExecutor) PublishSlot(_ context.Context, input imageagent.SlotExecutionInput, _ imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	return imageagent.SlotExecutionResult{SlotID: input.Slot.ID, Attempt: input.Attempt}, nil
 }
 
 func (runtimeSlotExecutor) BuildSlotResult(_ context.Context, input imageagent.SlotExecutionInput, _ imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {

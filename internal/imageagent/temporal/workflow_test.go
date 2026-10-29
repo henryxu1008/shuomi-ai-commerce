@@ -4556,15 +4556,6 @@ type revisionFailingExecutor struct {
 	successCalls   atomic.Int64
 }
 
-func (e *revisionFailingExecutor) ExecuteSlot(_ context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	if input.PlanRevision == e.failedRevision && input.Slot.ID == e.failedSlotID {
-		e.failedCalls.Add(1)
-		return imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)
-	}
-	e.successCalls.Add(1)
-	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
-}
-
 func (e *revisionFailingExecutor) GenerateSlot(_ context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	if input.PlanRevision == e.failedRevision && input.Slot.ID == e.failedSlotID {
 		e.failedCalls.Add(1)
@@ -4579,19 +4570,6 @@ func (e *revisionFailingExecutor) GenerateSlot(_ context.Context, input imageage
 	return out, nil
 }
 
-func (e *revisionFailingExecutor) PublishSlot(_ context.Context, input imageagent.SlotExecutionInput, _ imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
-}
-
-func (e *identityCheckingExecutor) ExecuteSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	e.calls++
-	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	require.True(e.t, ok)
-	require.Equal(e.t, input.TenantID, identity.TenantID)
-	require.Equal(e.t, input.UserID, identity.UserID)
-	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
-}
-
 func (e *identityCheckingExecutor) GenerateSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	e.calls++
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
@@ -4604,10 +4582,6 @@ func (e *identityCheckingExecutor) GenerateSlot(ctx context.Context, input image
 	output.Assets[0].Width = 1
 	output.Assets[0].Height = 1
 	return output, nil
-}
-
-func (e *identityCheckingExecutor) PublishSlot(_ context.Context, input imageagent.SlotExecutionInput, _ imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
 }
 
 func testGeneratedOutput(input imageagent.SlotExecutionInput) imageagent.SlotGeneratedOutput {
@@ -4920,5 +4894,15 @@ func TestRetiredActivityWireFailsBeforeAnyActivity(t *testing.T) {
 			require.ErrorContains(t, env.GetWorkflowError(), "retired image agent activity wire")
 			require.Zero(t, activities)
 		})
+	}
+}
+
+func TestRetiredApprovalWireHasNoDigestOrPublicationKeyFallback(t *testing.T) {
+	plan, results := wireProbePlanAndResults()
+	for _, wire := range []workflowActivityWire{{}, {useV3Slot: true}, {useV3Approval: true}} {
+		digest, err := resultDigestForWire(plan, results, wire)
+		require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
+		require.Empty(t, digest)
+		require.Empty(t, approvalPublicationKeyForWire("action-a", "run-a", 1, wire))
 	}
 }

@@ -2536,7 +2536,7 @@ func summarizeResultsForWire(plan imageagent.Plan, results []SlotWorkflowResult,
 		}
 		return result
 	}
-	if !activityWire.useV3Slot || result.Block == nil {
+	if result.Block == nil {
 		return result
 	}
 	code := imageagent.NormalizeSlotEffectV3BlockCode(result.Block.Message)
@@ -2644,39 +2644,28 @@ func candidateAssetIDs(plan imageagent.Plan, results []SlotWorkflowResult) []str
 	return ids
 }
 
-func resultDigest(plan imageagent.Plan, results []SlotWorkflowResult) (string, error) {
-	slots := make([]imageagent.SlotProjection, len(results))
-	for index := range results {
-		slots[index].Candidates = append([]imageagent.AssetCandidate(nil), results[index].Execution.Candidates...)
-	}
-	return imageagent.ResultDigestV2(plan, slots)
-}
-
 func resultDigestForWire(plan imageagent.Plan, results []SlotWorkflowResult, activityWire workflowActivityWire) (string, error) {
+	if !activityWire.useV3Slot || !activityWire.useV3Approval {
+		return "", imageagent.ErrRevisionConflict
+	}
 	slots := slotProjections(plan, results)
 	if plan.Set != nil || plan.Artwork != nil {
-		if !activityWire.useV3Slot || !activityWire.useV3Approval {
-			return "", imageagent.ErrRevisionConflict
-		}
 		return imageagent.VisualResultDigest(plan, slots, nil)
 	}
-	if activityWire.useV3Approval {
-		return imageagent.ResultDigestV3(plan, slots)
-	}
-	return imageagent.ResultDigestV2(plan, slots)
+	return imageagent.ResultDigestV3(plan, slots)
 }
 
 func approvalPublicationKeyForWire(actionID, runID string, revision int64, activityWire workflowActivityWire) string {
-	if activityWire.useV3Approval {
-		if activityWire.useRunScopedApprovalKey {
-			if activityWire.useBoundedApprovalKey {
-				return approvalActionPublicationKey(actionID, runID, revision)
-			}
-			return legacyApprovalActionPublicationKey(actionID, runID, revision)
-		}
-		return actionID
+	if !activityWire.useV3Slot || !activityWire.useV3Approval {
+		return ""
 	}
-	return publicationKey(runID, revision)
+	if activityWire.useRunScopedApprovalKey {
+		if activityWire.useBoundedApprovalKey {
+			return approvalActionPublicationKey(actionID, runID, revision)
+		}
+		return legacyApprovalActionPublicationKey(actionID, runID, revision)
+	}
+	return actionID
 }
 
 func approvalActionPublicationKey(actionID, runID string, revision int64) string {

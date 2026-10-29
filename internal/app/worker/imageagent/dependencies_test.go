@@ -40,10 +40,6 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 			providerBuilds++
 			return nil, nil, nil
 		},
-		BuildCapabilities: func(imageCapabilityRuntime) (ImageCapabilities, error) {
-			t.Fatal("v3 capability builder must not serve organization worker")
-			return ImageCapabilities{}, nil
-		},
 		BuildOrganizationCapabilities: func(imageCapabilityRuntime, *gorm.DB) (ImageCapabilities, error) {
 			builtOrganization = true
 			return completeWorkerImageCapabilities(), nil
