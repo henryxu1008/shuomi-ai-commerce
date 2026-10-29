@@ -51,33 +51,38 @@ type Invitation struct {
 
 // Operation contains protocol facts only. Member state remains provider-owned.
 type Operation struct {
-	Scope              OperationScope  `json:"scope"`
-	Key                string          `json:"key"`
-	Fingerprint        string          `json:"fingerprint"`
-	Kind               CommandKind     `json:"kind"`
-	TargetUserID       string          `json:"targetUserId"`
-	AuthorizationID    string          `json:"authorizationId"`
-	ExpectedVersion    string          `json:"expectedVersion"`
-	Role               string          `json:"role"`
-	Invitation         *Invitation     `json:"invitation,omitempty"`
-	Step               OperationStep   `json:"step"`
-	Phase              OperationPhase  `json:"phase"`
-	Revision           int64           `json:"revision"`
-	DispatchID         string          `json:"dispatchId"`
-	UserEvidence       string          `json:"userEvidence"`
-	Acknowledgment     *Acknowledgment `json:"acknowledgment,omitempty"`
-	UserAcknowledgment *Acknowledgment `json:"userAcknowledgment,omitempty"`
+	Scope              OperationScope       `json:"scope"`
+	Key                string               `json:"key"`
+	Fingerprint        string               `json:"fingerprint"`
+	Kind               CommandKind          `json:"kind"`
+	TargetUserID       string               `json:"targetUserId"`
+	AuthorizationID    string               `json:"authorizationId"`
+	ExpectedVersion    string               `json:"expectedVersion"`
+	Role               string               `json:"role"`
+	Invitation         *Invitation          `json:"invitation,omitempty"`
+	Step               OperationStep        `json:"step"`
+	Phase              OperationPhase       `json:"phase"`
+	Revision           int64                `json:"revision"`
+	DispatchID         string               `json:"dispatchId"`
+	UserEvidence       string               `json:"userEvidence"`
+	Acknowledgment     *Acknowledgment      `json:"acknowledgment,omitempty"`
+	UserAcknowledgment *Acknowledgment      `json:"userAcknowledgment,omitempty"`
+	ConditionalRole    *ConditionalRolePlan `json:"conditionalRole,omitempty"`
+	ProviderRoleResult *RoleWriteEvidence   `json:"providerRoleResult,omitempty"`
 }
 
 type Acknowledgment struct {
-	ID string `json:"id"`
-	At string `json:"at"`
+	ID              string             `json:"id"`
+	At              string             `json:"at"`
+	ConditionalRole *RoleWriteEvidence `json:"conditionalRole,omitempty"`
 }
 
 type OperationChange struct {
-	Event          OperationEvent
-	DispatchID     string
-	Acknowledgment *Acknowledgment
+	Event           OperationEvent
+	DispatchID      string
+	Acknowledgment  *Acknowledgment
+	NoEffect        *RoleWriteEvidence   `json:"noEffect,omitempty"`
+	ConditionalRole *ConditionalRolePlan `json:"conditionalRole,omitempty"`
 }
 
 type AuditEvent struct {
@@ -118,6 +123,39 @@ type ReceiptStore interface {
 }
 
 func Transition(op Operation, change OperationChange) (Operation, error) {
+	if businessRoleKind(op.Kind) && change.Event == EventDispatch && change.ConditionalRole != nil {
+		if op.ConditionalRole != nil {
+			return Operation{}, ErrConflict
+		}
+		plan := *change.ConditionalRole
+		plan.Native.Roles = append([]string(nil), plan.Native.Roles...)
+		plan.AfterRoles = append([]string(nil), plan.AfterRoles...)
+		op.ConditionalRole = &plan
+	}
+	if businessRoleKind(op.Kind) && change.Event == EventDispatch && !validConditionalPlan(op) {
+		return Operation{}, ErrConflict
+	}
+	if change.Event == EventProviderNoEffect {
+		if op.Phase != PhaseDispatched || change.DispatchID != op.DispatchID || change.NoEffect == nil || change.NoEffect.Result != RoleWriteNoEffect || !change.NoEffect.matches(op) || change.NoEffect.NativeSequence != "" {
+			return Operation{}, ErrConflict
+		}
+		evidence := *change.NoEffect
+		op.ProviderRoleResult = &evidence
+		op.Phase = PhaseRejected
+		op.Revision++
+		return op, nil
+	}
+	if businessRoleKind(op.Kind) && change.Event == EventAcknowledge {
+		if change.Acknowledgment == nil || change.Acknowledgment.ConditionalRole == nil {
+			return Operation{}, ErrConflict
+		}
+		evidence := change.Acknowledgment.ConditionalRole
+		before, _ := nativeSequence(evidence.ExpectedSequence)
+		after, valid := nativeSequence(evidence.NativeSequence)
+		if evidence.Result != RoleWriteApplied || !evidence.matches(op) || !valid || after <= before {
+			return Operation{}, ErrConflict
+		}
+	}
 	next, err := transition(op, change.Event, change.DispatchID)
 	if err != nil {
 		return Operation{}, err
@@ -128,6 +166,10 @@ func Transition(op Operation, change OperationChange) (Operation, error) {
 		}
 		ack := *change.Acknowledgment
 		next.Acknowledgment = &ack
+		if businessRoleKind(op.Kind) {
+			evidence := *ack.ConditionalRole
+			next.ProviderRoleResult = &evidence
+		}
 		if op.Kind == CommandInvite && op.Step == StepUser {
 			next.UserAcknowledgment = &ack
 		}

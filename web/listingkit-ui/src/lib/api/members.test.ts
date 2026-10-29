@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMembers, parseMembers, invitationInput, getMemberOperations, parseMemberOperations, getMemberOperation, verifyMemberOperation, changeMemberRole, removeMember } from "./members";
+import { getMembers, parseMembers, parseMemberOperation, invitationInput, getMemberOperations, parseMemberOperations, getMemberOperation, verifyMemberOperation, changeMemberRole, removeMember } from "./members";
 
 const empty = { schemaVersion: "membership-v1", userId: "actor", organizationId: "org", items: [], total: 0, canManage: false, assignableRoles:[],roleDefinitions:[] };
+it("reads conditional role receipts without discarding original UNKNOWN or native evidence",()=>{
+  const receipt={schemaVersion:"membership-operation-v1",userId:"actor",organizationId:"org",id:"ea0390e6-6fd0-4834-8e9c-277caf59c122",kind:"business_role_grant",step:"conditional_role",status:"unknown",targetUserId:"target",authorizationId:"grant",userEvidence:"",userAcknowledgment:null,acknowledgment:null,observation:"unavailable",observed:null};
+  expect(parseMemberOperation(receipt).status).toBe("unknown");
+  const conditionalRole={result:"APPLIED",instanceId:"instance",organizationId:"org",projectId:"project",projectGrantId:"",authorizationId:"grant",userId:"target",expectedSequence:"7",nativeSequence:"8",roleKey:"sumi_role_e87cb45c05ad389dff6dea6e7bf581ee_02",direction:"ADD",dispatchId:"attempt"};
+  const acknowledged={...receipt,status:"acknowledged",acknowledgment:{id:"grant",at:"2026-10-29T00:00:00Z",conditionalRole}};
+  expect(parseMemberOperation(acknowledged).status).toBe("acknowledged");
+  expect(()=>parseMemberOperation({...acknowledged,acknowledgment:{...acknowledged.acknowledgment,conditionalRole:{...conditionalRole,organizationId:"foreign"}}})).toThrow();
+});
 afterEach(() => vi.unstubAllGlobals());
 describe("membership read boundary", () => {
   it("sends encoded directory filters and resets only the requested page",async()=>{

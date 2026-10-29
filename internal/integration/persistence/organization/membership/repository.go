@@ -236,8 +236,8 @@ func (r *Repository) Apply(ctx context.Context, scope domain.OperationScope, key
 	if err != nil {
 		return domain.Operation{}, domain.ErrUnavailable
 	}
-	if next.Phase == domain.PhaseCompleted {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO `+auditTable+` (project_id,organization_id,actor_id,target_user_id,operation_key,operation,revision,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`, scope.ProjectID, scope.OrganizationID, scope.ActorID, next.TargetUserID, key, string(next.Kind), next.Revision, time.Now().UTC()); err != nil {
+	if next.Phase == domain.PhaseCompleted || (change.Event == domain.EventProviderNoEffect && next.Phase == domain.PhaseRejected) {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO `+auditTable+` (project_id,organization_id,actor_id,target_user_id,operation_key,operation,revision,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`, scope.ProjectID, scope.OrganizationID, scope.ActorID, next.TargetUserID, key, domain.AuditOperation(next.Kind), next.Revision, time.Now().UTC()); err != nil {
 			return domain.Operation{}, domain.ErrUnavailable
 		}
 	}

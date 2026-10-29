@@ -37,6 +37,8 @@ func (w *Writer) Write(ctx context.Context, op domain.Operation) (domain.Acknowl
 	var path, dateField, id string
 	var body any
 	switch op.Step {
+	case domain.StepConditionalRole:
+		return w.writeConditionalRole(ctx, op)
 	case domain.StepUser:
 		if op.Invitation == nil || !authidentity.IsBoundedIdentifier(op.TargetUserID) {
 			return domain.Acknowledgment{}, domain.ErrInvalidRequest

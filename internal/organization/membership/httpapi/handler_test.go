@@ -47,7 +47,7 @@ func TestCommandRoutesHaveExactManagePermission(t *testing.T) {
 		t.Fatal(err)
 	}
 	routes := reg.Routes()
-	if len(routes) != 11 {
+	if len(routes) != 13 {
 		t.Fatalf("routes=%d", len(routes))
 	}
 	for _, route := range routes {
