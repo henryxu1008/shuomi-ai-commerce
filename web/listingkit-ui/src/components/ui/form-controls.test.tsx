@@ -11,7 +11,7 @@ describe("form controls", () => {
     render(<Input aria-label="Name" placeholder="Name" />);
 
     expect(screen.getByLabelText("Name")).toHaveClass("border-input");
-    expect(screen.getByLabelText("Name")).toHaveClass("rounded-md");
+    expect(screen.getByLabelText("Name")).toHaveClass("rounded-[var(--control-radius,0.375rem)]");
   });
 
   it("renders textarea and select controls with the same field contract", () => {
