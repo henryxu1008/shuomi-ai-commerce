@@ -38,18 +38,22 @@ export function prepareProductAttributes(rows:ProductAttributeRow[]){
  if(!ownProductSchema.shape.attributes.safeParse(attributes).success)throw new Error("商品属性超过保存限制，请减少属性数量或文字长度。");
  return attributes;
 }
-export function prepareOwnProduct(input:{title:string;brand:string;description:string;descriptionFormat?:"html-v1";images:string[];mode:"single"|"multiple";rows:VariantRow[];attributes?:ProductAttributeRow[]}){
+export function prepareOwnProduct(input:{title:string;brand:string;description:string;descriptionFormat?:"html-v1";images:string[];imagePool?:string[];mode:"single"|"multiple";rows:VariantRow[];attributes?:ProductAttributeRow[]}){
  const {title,brand,description,images,mode,rows}=input;
  if(mode==="multiple"&&!rows.length)throw new Error("请生成至少一个变体。");
- const active=mode==="single"&&!rows[0]?.sku.trim()&&!rows[0]?.existing?undefined:rows;
+ const single=rows[0];
+ const emptySingle=!single||!single.existing&&!Object.keys(single.attributes).length&&
+  ![single.sku,single.currency,single.price,single.stock,single.image,single.title??""].some(value=>value.trim());
+ const active=mode==="single"&&emptySingle?undefined:rows;
  const variants=active?.map((row,index)=>{
   if(!row.sku.trim()&&!row.existing||!row.price.trim()||!row.stock.trim()||!row.currency.trim())throw new Error(`第 ${index+1} 个变体：请填写SKU、币种、价格和库存。`);
-  if(row.image&&!images.includes(row.image)&&!row.originalImages?.includes(row.image))throw new Error(`第 ${index+1} 个变体的图片已从商品图片中移除，请重新选择。`);
+  if(row.image&&!images.includes(row.image)&&!input.imagePool?.includes(row.image)&&!row.originalImages?.includes(row.image))throw new Error(`第 ${index+1} 个变体的图片已从商品图片中移除，请重新选择。`);
   const skuImages=variantImages(row);
   return {sourceId:row.id,title:row.title??(Object.values(row.attributes).join(" / ")||title),sku:row.existing?row.sku:row.sku.trim(),attributes:row.attributes,currency:row.currency.trim(),price:Number(row.price),stock:Number(row.stock),...(skuImages.length?{images:skuImages}:{})};
  });
  const attributes=prepareProductAttributes(input.attributes??[]);
  const allowed=[...images,...(variants??[]).flatMap(v=>v.images??[])];
+ if(input.imagePool?.some(url=>!allowed.includes(url)))throw new Error("SKU专属图片尚未绑定变体，请选择对应SKU、设为公共图片或显式移除。");
  if(descriptionReferences(description,input.descriptionFormat).some(url=>!allowed.includes(url)))throw new Error("描述中仍有已移除的图片，请先移除描述内引用或重新加入商品图片。");
  const result=ownProductSchema.safeParse({title:title.trim(),brand:brand.trim(),description,...(input.descriptionFormat?{descriptionFormat:input.descriptionFormat}:{}),images,...(Object.keys(attributes).length?{attributes}:{}),...(variants?{variants}:{})});
  if(!result.success){const issue=result.error.issues[0];throw new Error(issue.code==="custom"?issue.message:"请检查商品名称、图片链接、币种、数值和资料长度。")}

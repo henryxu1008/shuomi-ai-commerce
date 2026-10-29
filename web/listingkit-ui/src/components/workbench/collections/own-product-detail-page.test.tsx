@@ -42,6 +42,10 @@ it("shows common attributes and previews the selected SKU with its own image and
  expect(screen.getByRole("link",{name:"编辑商品"})).toHaveAttribute("href",`/workbench/data/mine/own/${itemId}/edit`);
  await userEvent.selectOptions(screen.getByLabelText("当前SKU"),screen.getByRole("option",{name:"BLUE · 颜色：蓝色"}));
  expect(screen.getByRole("img",{name:"商品大图"})).toHaveAttribute("src",expect.stringContaining(encodeURIComponent("https://images.example.org/blue.png")));
+ const gallery=screen.getByRole("region",{name:"商品图片"});
+ expect(within(gallery).getByRole("button",{name:"查看图片 2"})).toBeVisible();
+ expect(within(gallery).queryByRole("button",{name:"查看图片 3"})).not.toBeInTheDocument();
+ expect([...gallery.querySelectorAll("img")].some(img=>img.src.includes("red.png"))).toBe(false);
  expect(within(screen.getByRole("region",{name:"选中SKU资料"})).getByText("CNY 0")).toBeVisible();
  expect(within(screen.getByRole("region",{name:"选中SKU资料"})).getByText("0 件")).toBeVisible();
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(state.read).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},itemId,expect.any(AbortSignal));
