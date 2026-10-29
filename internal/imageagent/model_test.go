@@ -77,7 +77,7 @@ func TestNormalizeAssetCatalogBindsCanonicalProductContextToManifest(t *testing.
 	require.Equal(t, CatalogHash(legacy.Assets), legacy.Manifest.Hash)
 }
 
-func TestValidateSubmittedPlanAgainstCatalogRequiresReliableDimensionsForSizeSlotFirstSource(t *testing.T) {
+func TestValidatePlanAgainstCatalogRequiresReliableDimensionsForSizeSlotFirstSource(t *testing.T) {
 	plan := Plan{
 		SourceAssetIDs: []string{"source-unmeasured", "source-measured"},
 		Slots: []Slot{{
@@ -90,10 +90,9 @@ func TestValidateSubmittedPlanAgainstCatalogRequiresReliableDimensionsForSizeSlo
 		{ID: "source-measured", Type: AuthorizedAssetSource, Width: 1200, Height: 900},
 	}}
 
-	require.NoError(t, ValidatePlanAgainstCatalog(plan, catalog), "historical workflow snapshots retain the pre-ingress compatibility contract")
-	require.ErrorContains(t, ValidateSubmittedPlanAgainstCatalog(plan, catalog), "reliable dimensions")
+	require.ErrorContains(t, ValidatePlanAgainstCatalog(plan, catalog), "reliable dimensions")
 	plan.Slots[0].SourceAssetIDs = []string{"source-measured", "source-unmeasured"}
-	require.NoError(t, ValidateSubmittedPlanAgainstCatalog(plan, catalog), "the executor deterministically uses the first selected source")
+	require.NoError(t, ValidatePlanAgainstCatalog(plan, catalog), "the executor deterministically uses the first selected source")
 }
 
 func TestValidatePlanAllowsMoreThanTenIndependentSlots(t *testing.T) {
@@ -109,7 +108,7 @@ func TestValidatePlanAllowsMoreThanTenIndependentSlots(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestValidateSubmittedPlanCapsTotalSlotsWithoutBreakingHistoricalReads(t *testing.T) {
+func TestValidatePlanCapsTotalSlots(t *testing.T) {
 	slots := make([]Slot, MaxPlanSlots+1)
 	for i := range slots {
 		role := SlotRoleScene
@@ -120,8 +119,7 @@ func TestValidateSubmittedPlanCapsTotalSlotsWithoutBreakingHistoricalReads(t *te
 	}
 	plan := Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, Slots: slots}
 
-	require.NoError(t, ValidatePlan(plan), "historical workflow plans retain their original readable contract")
-	require.ErrorContains(t, ValidateSubmittedPlan(plan), "at most")
+	require.ErrorContains(t, ValidatePlan(plan), "at most")
 }
 
 func TestSubmittedPlanRevisionContractIsJSONSafeAndSingleStep(t *testing.T) {
@@ -133,8 +131,7 @@ func TestSubmittedPlanRevisionContractIsJSONSafeAndSingleStep(t *testing.T) {
 
 	unsafe := plan
 	unsafe.Revision = MaxJSONSafePlanRevision + 1
-	require.NoError(t, ValidatePlan(unsafe), "historical workflow plans retain their original readable contract")
-	require.ErrorContains(t, ValidateSubmittedPlan(unsafe), "JSON-safe")
+	require.ErrorContains(t, ValidatePlan(unsafe), "JSON-safe")
 
 	nonInitial := plan
 	nonInitial.Revision = 2
@@ -301,24 +298,23 @@ func TestValidatePlanBoundsPersistedIdempotencyKeys(t *testing.T) {
 		Revision: 1, IdempotencyKey: strings.Repeat("p", MaxIdempotencyKeyLength), SourceAssetIDs: []string{"source-1"},
 		Slots: []Slot{{ID: "main-1", Role: SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: strings.Repeat("s", MaxIdempotencyKeyLength), Status: SlotStatusPending}},
 	}
-	require.NoError(t, ValidateSubmittedPlan(plan))
+	require.NoError(t, ValidatePlan(plan))
 
 	tooLongPlan := plan
 	tooLongPlan.IdempotencyKey += "p"
-	require.ErrorContains(t, ValidateSubmittedPlan(tooLongPlan), "plan idempotency key")
+	require.ErrorContains(t, ValidatePlan(tooLongPlan), "plan idempotency key")
 
 	tooLongSlot := plan
 	tooLongSlot.Slots = append([]Slot(nil), plan.Slots...)
 	tooLongSlot.Slots[0].IdempotencyKey += "s"
-	require.ErrorContains(t, ValidateSubmittedPlan(tooLongSlot), "slot idempotency key")
+	require.ErrorContains(t, ValidatePlan(tooLongSlot), "slot idempotency key")
 }
 
-func TestValidateSubmittedPlanRequiresExplicitPendingSlotStatus(t *testing.T) {
+func TestValidatePlanRequiresExplicitPendingSlotStatus(t *testing.T) {
 	plan := Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, Slots: []Slot{{ID: "main-1", Role: SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1"}}}
-	require.NoError(t, ValidatePlan(plan), "legacy histories may omit the formerly implicit pending status")
-	require.ErrorContains(t, ValidateSubmittedPlan(plan), "slot status must be pending")
+	require.ErrorContains(t, ValidatePlan(plan), "slot status must be pending")
 	plan.Slots[0].Status = SlotStatusPending
-	require.NoError(t, ValidateSubmittedPlan(plan))
+	require.NoError(t, ValidatePlan(plan))
 }
 
 func TestValidatePlanRejectsInvalidPlanInvariants(t *testing.T) {

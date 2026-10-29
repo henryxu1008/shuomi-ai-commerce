@@ -108,6 +108,21 @@ func readHistoryFixture(t *testing.T, name string) *historypb.History {
 	require.NoError(t, err)
 	history := &historypb.History{}
 	require.NoError(t, protojson.Unmarshal(raw, history))
+	// Calibrate only the task-owned current input to the current size contract.
+	// The two saved prefix files, Version markers, schedule and all SDK assertions stay unchanged.
+	if name == "current-organization-parent-prefix.json" {
+		start := history.Events[0].GetWorkflowExecutionStartedEventAttributes()
+		require.NotNil(t, start)
+		var input WorkflowInput
+		require.NoError(t, sdkconverter.GetDefaultDataConverter().FromPayloads(start.Input, &input))
+		for i := range input.AssetCatalog.Assets {
+			if input.AssetCatalog.Assets[i].ID == "source-1" {
+				input.AssetCatalog.Assets[i].Width, input.AssetCatalog.Assets[i].Height = 1200, 900
+			}
+		}
+		start.Input, err = sdkconverter.GetDefaultDataConverter().ToPayloads(input)
+		require.NoError(t, err)
+	}
 	return history
 }
 

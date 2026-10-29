@@ -1,3 +1,5 @@
+> #301 / #1005 当前源码阶段：USER_CONFIRMED / IMPLEMENTED / SOURCE_REVIEW_PENDING / CI_PENDING。已按冻结设计 f93f7834cf32b5b1b64a87e0fbeba9142eb796c6 的 §1–§7（含 §4.2、§6.1）在同一PR整批实现20生产对象及同根测试/文档尾部。旧策略、无Text计划与宽松历史计划退出；当前JSON/hash、资金/UNKNOWN、采集/Store保留。本地真实RED→GREEN、相关原测试/race、前端179项/类型检查及四入口仅编译已有证据。两SDK prefix文件与原marker/SDK断言保持；读取测试helper仅校准任务自有current输入的合成尺寸，不冒充原始缺尺寸载荷回放或真实历史验收。原root四函数、workflow/inventory/依赖不改。下文冻结正文保留，最终准确源码HEAD/原CI/独立结论以PR为准；无合并/部署/真实资源/关单授权，#301 OPEN。
+
 # 旧 ImageAgent 方法策略与历史快照兼容链完整退休设计
 
 > #301 · Independent Architecture · DESIGN_ONLY / DESIGN_REVIEW_PENDING / SOURCE_NOT_STARTED / NOT_READY。当前仅交付本文、架构索引和 Legacy Register 三文档；生产源码尚未获准。用户确认本设计并完成适用独立复核后，在同一主要 PR 整批实施，不机械拆批。

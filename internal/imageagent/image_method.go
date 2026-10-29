@@ -7,9 +7,6 @@ import (
 	"task-processor/internal/agentconfig"
 )
 
-const HistoricalImageMethodPolicyVersion = "image-method-prompt-v1"
-const FrozenVisualBriefPolicyVersion = "image-method-visual-brief-v2"
-const FrozenLiteralCopyPolicyVersion = "image-method-visual-brief-v3"
 const ImageMethodPolicyVersion = "image-method-visual-brief-v4"
 
 type ImageMethodBinding struct {
@@ -18,15 +15,11 @@ type ImageMethodBinding struct {
 }
 
 func (m ImageMethodBinding) Valid() bool {
-	return (m.PolicyVersion == ImageMethodPolicyVersion || m.PolicyVersion == FrozenLiteralCopyPolicyVersion || m.PolicyVersion == FrozenVisualBriefPolicyVersion || m.PolicyVersion == HistoricalImageMethodPolicyVersion) && m.Skill.Valid() && (m.Skill.OwnerKind == "PLATFORM" || m.Skill.OwnerKind == "ORGANIZATION")
-}
-
-func (m ImageMethodBinding) Executable() bool {
-	return m.Valid() && m.PolicyVersion != HistoricalImageMethodPolicyVersion
+	return (m.PolicyVersion == ImageMethodPolicyVersion) && m.Skill.Valid() && (m.Skill.OwnerKind == "PLATFORM" || m.Skill.OwnerKind == "ORGANIZATION")
 }
 
 func ValidateImageMethodDispatch(method *ImageMethodBinding) error {
-	if method != nil && !method.Executable() {
+	if method != nil && !method.Valid() {
 		return ErrCommandBlocked
 	}
 	return nil
@@ -61,9 +54,6 @@ func AcquireImageMethod(ctx context.Context, methods ImageMethodContext, id Exec
 	}
 	if release == nil {
 		return "", nil, ErrCommandBlocked
-	}
-	if binding.PolicyVersion == HistoricalImageMethodPolicyVersion {
-		return "", release, nil
 	}
 	if strings.TrimSpace(text) == "" || !agentconfig.ValidSetText(text, 4<<10) {
 		release()

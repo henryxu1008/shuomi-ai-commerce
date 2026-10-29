@@ -72,6 +72,58 @@ func TestRepositoryContract(t *testing.T) {
 	}
 }
 
+func TestRepositoryReadRejectsFrozenSizePlanWithoutDimensions(t *testing.T) {
+	for _, backend := range []string{"memory", "gorm sqlite"} {
+		t.Run(backend, func(t *testing.T) {
+			var repo imageagent.Repository
+			var replaceSnapshot func(imageagent.RunScope, imageagent.RunProjection)
+			if backend == "memory" {
+				memory := NewMemoryRepository().(*memoryRepository)
+				repo = memory
+				replaceSnapshot = func(scope imageagent.RunScope, snapshot imageagent.RunProjection) {
+					memory.mu.Lock()
+					defer memory.mu.Unlock()
+					memory.projections[scopeKey(scope)] = cloneProjection(snapshot)
+				}
+			} else {
+				db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+				require.NoError(t, err)
+				require.NoError(t, AutoMigrate(db))
+				repo = NewOrganizationRepository(db)
+				replaceSnapshot = func(scope imageagent.RunScope, snapshot imageagent.RunProjection) {
+					raw, err := json.Marshal(snapshot)
+					require.NoError(t, err)
+					require.NoError(t, scopedWhere(db.Model(&projectionRecord{}), scope).Update("snapshot_json", raw).Error)
+				}
+			}
+			ctx := context.Background()
+			run := manualRun("frozen-size-read", "tenant-a")
+			plan := planRevision(1)
+			plan.StyleReferenceIDs = nil
+			plan.Slots[0].StyleReferenceIDs = nil
+			plan.Slots = append(plan.Slots, imageagent.Slot{ID: "size", Role: imageagent.SlotRoleSize,
+				IdempotencyKey: "size", SourceAssetIDs: []string{"source-1"}, Status: imageagent.SlotStatusPending})
+			scope := imageagent.ScopeForRun(*run)
+			_, err := repo.InitializeRun(ctx, imageagent.ProjectionInitialization{Scope: scope, Run: *run, Plan: plan,
+				Catalog: imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource,
+					URL: "https://source.example/source.png", Width: 1200, Height: 900}}},
+				Snapshot: imageagent.RunProjection{Run: *run, Plan: plan}, CommitID: "start", EventType: "run.initialized", EventPayload: []byte(`{}`)})
+			require.NoError(t, err)
+			snapshot, err := repo.GetProjection(ctx, scope)
+			require.NoError(t, err, "a measured current plan remains readable")
+			// Simulate an already stored legacy snapshot only in this test-owned
+			// repository. Its directory has its own correct immutable hash.
+			snapshot.AssetCatalog.Assets[0].Width = 0
+			snapshot.AssetCatalog.Manifest.Hash = ""
+			snapshot.AssetCatalog, err = imageagent.NormalizeAssetCatalog(snapshot.AssetCatalog)
+			require.NoError(t, err)
+			replaceSnapshot(scope, snapshot)
+			_, err = repo.GetProjection(ctx, scope)
+			require.ErrorContains(t, err, "reliable dimensions")
+		})
+	}
+}
+
 func testProjectionCommitAfterIndependentEvidenceEvent(t *testing.T, repo repositoryContract) {
 	t.Helper()
 	ctx := context.Background()

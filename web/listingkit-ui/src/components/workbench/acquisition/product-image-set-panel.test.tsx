@@ -35,7 +35,7 @@ function genericEntry(index:number,{hasDefault=false,failDefault=false,pending=f
  return {selection,exact,storage,raw};
 }
 function projection(status="awaiting_plan_approval",confirmationActionId=""){
- return {executionModeAvailable:true,generationAllowed:true,executionMode:"default",modeRevision:"0",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},runId,status,template:{templateId,revision:"1"},confirmationActionId,generationAdmitted:!!confirmationActionId,planRevision:1,planDigest:sha,quoteDigest:digest,images:2,points:20,settledPoints:status==="awaiting_plan_approval"?0:20,resultDigest:status==="awaiting_plan_approval"?"":sha,approvalAvailable:status==="awaiting_final_approval",candidateSelectionAvailable:["awaiting_final_approval","completed","failed","blocked","cancelled"].includes(status),regenerationAvailable:status==="awaiting_final_approval",plan:{Source:source,Target:{Platform:"product",StoreID:"",Site:"",CategoryID:0}},slots:["main","detail"].map((slotId,i)=>({slotId,status:status==="awaiting_plan_approval"?"pending":"accepted",attempt:status==="awaiting_plan_approval"?0:1,errorCode:"",recipe:{Purpose:i?"detail_closeup":"product_identity",Background:"white",Language:"en",Placement:{Group:i?"detail":"carousel",Order:1},References:[{AssetID:"original"}],Quote:{Points:10}},candidates:status==="awaiting_plan_approval"?[]:[{assetId:`generated-${i}`,url:`https://images.test/generated-${i}.png`,width:1024,height:1024}],closure:status==="awaiting_plan_approval"?null:{Kind:"generated",Points:10}})),originals:[{ID:"original",DisplayURL:"https://images.test/original.png",Width:1024,Height:1024}],recoverableEffects:null,pendingCommand:null,block:null};
+ return {executionModeAvailable:true,generationAllowed:true,executionMode:"default",modeRevision:"0",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},runId,status,template:{templateId,revision:"1"},confirmationActionId,generationAdmitted:!!confirmationActionId,planRevision:1,planDigest:sha,quoteDigest:digest,images:2,points:20,settledPoints:status==="awaiting_plan_approval"?0:20,resultDigest:status==="awaiting_plan_approval"?"":sha,approvalAvailable:status==="awaiting_final_approval",candidateSelectionAvailable:["awaiting_final_approval","completed","failed","blocked","cancelled"].includes(status),regenerationAvailable:status==="awaiting_final_approval",plan:{Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"none",Language:"en"},Source:source,Target:{Platform:"product",StoreID:"",Site:"",CategoryID:0}},slots:["main","detail"].map((slotId,i)=>({slotId,status:status==="awaiting_plan_approval"?"pending":"accepted",attempt:status==="awaiting_plan_approval"?0:1,errorCode:"",recipe:{Purpose:i?"detail_closeup":"product_identity",Background:"white",Language:"en",Placement:{Group:i?"detail":"carousel",Order:1},References:[{AssetID:"original"}],Quote:{Points:10}},candidates:status==="awaiting_plan_approval"?[]:[{assetId:`generated-${i}`,url:`https://images.test/generated-${i}.png`,width:1024,height:1024}],closure:status==="awaiting_plan_approval"?null:{Kind:"generated",Points:10}})),originals:[{ID:"original",DisplayURL:"https://images.test/original.png",Width:1024,Height:1024}],recoverableEffects:null,pendingCommand:null,block:null};
 }
 let state:ReturnType<typeof projection>,approved:boolean,fetch:ReturnType<typeof vi.fn<(input:unknown,init?:RequestInit)=>Promise<Response>>>;
 beforeEach(()=>{
@@ -308,42 +308,18 @@ it("shows frozen translated copy and language on restored plans without translat
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 
-it("shows frozen literal detail copy before confirmation without allowing edits or generation",async()=>{
- Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v3"}});
- state.slots[1].recipe.Purpose="key_benefits";
- Object.assign(state.slots[1].recipe,{VisibleText:["IKEA DRÖNA 深灰色布艺收纳盒","产品尺寸：宽33厘米，深38厘米，高33厘米"]});
+it.each(["image-method-prompt-v1","image-method-visual-brief-v2","image-method-visual-brief-v3",null])("rejects retired image plans without offering a mutation: %s",async policy=>{
+ if(policy)Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:policy}});
+ else delete (state.plan as {Text?:unknown}).Text;
+ expect(imageSetRunSchema.safeParse(state).success).toBe(false);
  render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
- const copy=await screen.findByRole("region",{name:"本次详情图文案"});
- expect(within(copy).getByText("IKEA DRÖNA 深灰色布艺收纳盒")).toBeVisible();
- expect(within(copy).getByText("产品尺寸：宽33厘米，深38厘米，高33厘米")).toBeVisible();
- expect(within(copy).queryByRole("textbox")).toBeNull();
- expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
- expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
-});
-
-it("explains a text-free detail plan when no whole short fact is available",async()=>{
- Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v3"}});
- state.slots[1].recipe.Purpose="key_benefits";
- render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
- const copy=await screen.findByRole("region",{name:"本次详情图文案"});
- expect(within(copy).getByText("没有合适的已确认短文案，本图不加字。")).toBeVisible();
-});
-
-it("retains literal copy in read-only historical details without an execution or adoption action",async()=>{
- state=projection("awaiting_final_approval",templateId);
- Object.assign(state,{generationAllowed:false,approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false});
- Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v3"}});
- state.slots[1].recipe.Purpose="key_benefits";
- Object.assign(state.slots[1].recipe,{VisibleText:["已确认原文"]});
- calls.context={...calls.context,permissions:["listingkit.image_agent.read"]};
- render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
- expect(within(await screen.findByRole("region",{name:"本次详情图文案"})).getByText("已确认原文")).toBeVisible();
+ await waitFor(()=>expect(fetch.mock.calls.some(([url])=>String(url).endsWith(`/runs/${runId}`))).toBe(true));
  expect(screen.queryByRole("button",{name:"确认点数并生成"})).toBeNull();
  expect(screen.queryByRole("button",{name:"人工批准并保存素材"})).toBeNull();
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 
-it("bounds literal copy by two labels and Unicode code points while parsing old omitted fields",()=>{
+it("bounds current copy by two labels and Unicode code points",()=>{
  const p=projection();
  expect(imageSetRunSchema.safeParse(p).success).toBe(true);
  Object.assign(p.slots[1].recipe,{VisibleText:["🟢".repeat(32)]});
@@ -645,7 +621,7 @@ it("does not mount image readers or show an unavailable card without image read 
  expect(calls.mode).not.toHaveBeenCalled();
 });
 
-it.each([["image-method-prompt-v1",1],["image-method-visual-brief-v2",2],["image-method-visual-brief-v3",2]] as const)("displays the exact selected image method under %s",async(policy,version)=>{
+it.each([["image-method-visual-brief-v4",1],["image-method-visual-brief-v4",2]] as const)("displays the exact selected image method under %s",async(policy,version)=>{
  const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",skillDigest="f".repeat(64),date="2026-10-18T00:00:00Z";
  const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:version,revision:3,createdAt:date,updatedAt:date},version,package:{name:"product-image-standard",displayName:"标准商品套图",description:"围绕已选任务组织表达",target:"product-image",digest:skillDigest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
  const binding={Skill:{kind:"skill-version-v1",id:skillId,ownerKind:"PLATFORM",ownerId:"official",version,digest:skillDigest,policyVersion:"skill-method-v1"},PolicyVersion:policy};
@@ -655,7 +631,7 @@ it.each([["image-method-prompt-v1",1],["image-method-visual-brief-v2",2],["image
  await screen.findByRole("option",{name:/标准商品套图/});fireEvent.change(screen.getByLabelText("使用的方法/技能（可选）"),{target:{value:`${skillId}:${version}`}});
  await prepare();await screen.findByText(/计划使用的方法：标准商品套图/);
  const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"));expect(JSON.parse(String(request?.[1]?.body)).skill).toEqual({skillId,version,digest:skillDigest});
- if(policy==="image-method-prompt-v1"){expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();expect(screen.getByText(/该计划保留历史图片方法/)).toBeInTheDocument()}else expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
 });
 it("preselects the library image version and passes it with explicitly selected existing originals",async()=>{
  const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",date="2026-10-18T00:00:00Z",selection={skillId,version:2,digest:"f".repeat(64)};
@@ -1163,7 +1139,7 @@ const sheinTarget={Platform:"shein",StoreID:"saved-store",Site:"US",CategoryID:1
 const officialPlacement={Group:"spu",SKC:0,SKU:0,Type:1,Sort:1,Site:"US"};
 
 it.each(["target","generic"] as const)("reselects %s version assets with their own approval identity and the global CAS head",async(poolKind)=>{
- state=poolKind==="generic"?sheinProjection():{...projection("awaiting_final_approval",templateId),plan:{Source:{...source,EffectiveVersion:"2"},Target:projection().plan.Target}};
+ state=poolKind==="generic"?sheinProjection():{...projection("awaiting_final_approval",templateId),plan:{Text:projection().plan.Text,Source:{...source,EffectiveVersion:"2"},Target:projection().plan.Target}};
  const approvalAction="44444444-4444-4444-8444-444444444444",globalHead={action_id:"55555555-5555-4555-8555-555555555555",payload_hash:digest};
  const pool={approval_action_id:approvalAction,head:globalHead,assets:[{id:"formal-version-two",role:"gallery",url:"https://images.test/formal-version-two.png",presentation:{group:"carousel",order:1}}]},empty={approval_action_id:"",head:globalHead,assets:[]};
  const real=fetch.getMockImplementation()!;

@@ -664,7 +664,7 @@ func (r *corruptRecoveryV3Repository) BlockCorruptSlotEffectV3(_ context.Context
 func initializeEffectRecoveryV3Activity(t *testing.T, repository imageagent.Repository, runID string) ExecuteSlotV3ActivityInput {
 	t.Helper()
 	run := imageagent.Run{ID: runID, BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + runID, Status: imageagent.RunStatusPlanning, CurrentNode: "plan", Version: 1, ActivePlanRevision: 1, MaxConcurrentSlots: 1, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"}
-	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a", Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1"}}}
+	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a", Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1", Status: imageagent.SlotStatusPending}}}
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png"}}})
 	require.NoError(t, err)
 	_, err = repository.InitializeRun(context.Background(), imageagent.ProjectionInitialization{Scope: imageagent.ScopeForRun(run), Run: run, Plan: plan, Catalog: catalog, Snapshot: imageagent.RunProjection{Run: run, Plan: plan}, CommitID: "start:" + runID, EventType: "run.initialized", EventPayload: []byte(`{}`)})
@@ -684,7 +684,7 @@ func initializedBlockedEffectRecoveryProjection(t *testing.T, runID string, slot
 		}
 		slots = append(slots, imageagent.Slot{
 			ID: fmt.Sprintf("slot-%d", index+1), Role: role,
-			SourceAssetIDs: []string{"source-1"}, IdempotencyKey: fmt.Sprintf("slot-key-%d", index+1),
+			SourceAssetIDs: []string{"source-1"}, IdempotencyKey: fmt.Sprintf("slot-key-%d", index+1), Status: imageagent.SlotStatusPending,
 		})
 	}
 	run := imageagent.Run{

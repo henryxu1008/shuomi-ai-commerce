@@ -57,7 +57,7 @@ func (c *Client) ReplacePlan(ctx context.Context, command imageagent.ReplacePlan
 	if command.Plan.ParentRevision != command.ExpectedRevision || command.Plan.Revision <= command.ExpectedRevision {
 		return fmt.Errorf("image agent replacement plan must advance expected revision")
 	}
-	if err := imageagent.ValidateSubmittedPlan(command.Plan); err != nil {
+	if err := imageagent.ValidatePlan(command.Plan); err != nil {
 		return fmt.Errorf("validate image agent replacement plan: %w", err)
 	}
 	return c.executeCommandUpdate(ctx, command.Identity, command.RunID, signalReplacePlan, command.ActionID, ReplacePlanSignal{
@@ -100,7 +100,7 @@ func (c *Client) StartManual(ctx context.Context, start imageagent.WorkflowStart
 	} else if err := imageagent.ValidateImagePolicyContext(start.Run.TargetPlatform, start.Run.ImagePolicyContext); err != nil {
 		return err
 	}
-	if err := imageagent.ValidateSubmittedPlan(start.Plan); err != nil {
+	if err := imageagent.ValidatePlan(start.Plan); err != nil {
 		return fmt.Errorf("validate image agent workflow plan: %w", err)
 	}
 	if err := validateCommandIdentity(start.Identity, start.Run.ID); err != nil {

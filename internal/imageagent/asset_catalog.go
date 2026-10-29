@@ -122,12 +122,12 @@ func ProductContextRefIsZero(value ProductContextRef) bool {
 }
 
 func ValidatePlanAgainstCatalog(plan Plan, catalog AssetCatalog) error {
-	allowedSources := map[string]struct{}{}
+	allowedSources := map[string]AuthorizedAsset{}
 	allowedStyles := map[string]struct{}{}
 	for _, asset := range catalog.Assets {
 		switch asset.Type {
 		case AuthorizedAssetSource:
-			allowedSources[asset.ID] = struct{}{}
+			allowedSources[asset.ID] = asset
 		case AuthorizedAssetStyle:
 			allowedStyles[asset.ID] = struct{}{}
 		}
@@ -143,7 +143,7 @@ func ValidatePlanAgainstCatalog(plan Plan, catalog AssetCatalog) error {
 		}
 	}
 	for _, slot := range plan.Slots {
-		if err := validateLiteralDetailRecipe(plan.Set, slot, catalog.ProductContext); err != nil {
+		if err := validateReviewedImageText(plan.Set, slot, &catalog.ProductContext); err != nil {
 			return err
 		}
 		for _, id := range slot.SourceAssetIDs {
@@ -155,21 +155,6 @@ func ValidatePlanAgainstCatalog(plan Plan, catalog AssetCatalog) error {
 			if _, ok := allowedStyles[strings.TrimSpace(id)]; !ok {
 				return fmt.Errorf("slot %q style reference %q is not authorized", slot.ID, id)
 			}
-		}
-	}
-	return nil
-}
-
-// ValidateSubmittedPlanAgainstCatalog adds ingress-only execution prerequisites
-// without changing replay validation for historical workflow snapshots.
-func ValidateSubmittedPlanAgainstCatalog(plan Plan, catalog AssetCatalog) error {
-	if err := ValidatePlanAgainstCatalog(plan, catalog); err != nil {
-		return err
-	}
-	allowedSources := make(map[string]AuthorizedAsset, len(catalog.Assets))
-	for _, asset := range catalog.Assets {
-		if asset.Type == AuthorizedAssetSource {
-			allowedSources[strings.TrimSpace(asset.ID)] = asset
 		}
 	}
 	for _, slot := range plan.Slots {

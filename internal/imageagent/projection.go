@@ -63,6 +63,9 @@ func ValidateProjectionSnapshot(scope RunScope, snapshot RunProjection) error {
 	if snapshot.Plan.Revision != snapshot.Run.ActivePlanRevision {
 		return ErrRevisionConflict
 	}
+	if err := ValidatePlanAgainstCatalog(snapshot.Plan, snapshot.AssetCatalog); err != nil {
+		return fmt.Errorf("validate projection catalog: %w", err)
+	}
 	if snapshot.Run.ImageAdmission != nil {
 		if err := ValidateVisualAdmission(snapshot.Run, snapshot.Plan); err != nil {
 			return err
