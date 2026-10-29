@@ -29,6 +29,8 @@
   --caption-text-size: 13px; --metric-text-size: 28px;
   --page-gutter: 24px; --section-gap: 20px; --card-padding: 20px;
   --control-height: 40px; --control-height-sm: 32px; --control-radius: 10px;
+  --motion-fast: 120ms; --motion-normal: 200ms; --motion-ease: cubic-bezier(.2,.8,.2,1);
+  --console-surface-animation: console-surface-enter 160ms var(--motion-ease);
   --text-xs: var(--label-text-size); --text-xs--line-height: 20px;
   --text-sm: var(--body-text-size); --text-sm--line-height: 22px;
   --text-base: 14px; --text-base--line-height: 24px;
@@ -205,6 +207,30 @@
   .console-store-card-header, .console-store-card-footer { flex-wrap: wrap; }
   .console-store-card { padding: 16px; }
   .console-store-badges > span { padding: 4px 10px; }
+}
+
+/* Short interaction feedback. Business content is never delayed or remounted. */
+.console-sidebar { transition: width var(--motion-normal) var(--motion-ease), flex-basis var(--motion-normal) var(--motion-ease), padding-inline var(--motion-normal) var(--motion-ease); }
+.console-brand-label, .console-sidebar .console-nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.console-nav-row { transition: background-color var(--motion-fast) ease-out, color var(--motion-fast) ease-out; }
+.console-nav-chevron { transition: rotate var(--motion-normal) var(--motion-ease); }
+.console-nav-row > button[aria-expanded="true"] .console-nav-chevron { rotate: 180deg; }
+.console-theme [data-slot="button"] { transition: background-color var(--motion-fast) ease-out, color var(--motion-fast) ease-out, border-color var(--motion-fast) ease-out, box-shadow var(--motion-fast) ease-out, translate var(--motion-fast) var(--motion-ease); }
+.console-theme [data-slot="button"]:active:not(:disabled):not([aria-disabled="true"]) { translate: 0 1px; }
+.console-theme-toggle > span::after { margin-left: 0; transition: translate var(--motion-normal) var(--motion-ease); }
+.console-theme-toggle[aria-checked="true"] > span::after { margin-left: 0; translate: 14px 0; }
+.console-page { animation: console-page-enter 180ms var(--motion-ease); }
+.console-mobile-nav, .console-user[open] > div, :root:has(.console-theme) dialog[open] { animation: console-surface-enter 160ms var(--motion-ease); }
+:root:has(.console-theme) dialog[open]::backdrop { animation: console-backdrop-enter 160ms ease-out; }
+@keyframes console-page-enter { from { opacity: .65; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
+@keyframes console-surface-enter { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+@keyframes console-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .console-sidebar, .console-nav-row, .console-nav-chevron,
+  .console-theme [data-slot="button"], .console-theme-toggle > span::after { transition: none; }
+  .console-theme [data-slot="button"]:active:not(:disabled):not([aria-disabled="true"]) { translate: none; }
+  .console-page, .console-mobile-nav, .console-user[open] > div,
+  :root:has(.console-theme) dialog[open], :root:has(.console-theme) dialog[open]::backdrop { animation: none; }
 }
 
 /* V1.3 navigation rail: retain the same page and permission-filtered tree. */
