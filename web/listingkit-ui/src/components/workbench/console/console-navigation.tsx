@@ -2,6 +2,13 @@
 import {canDiscoverNativeRuns} from "../ai-workbench/native-run-records";
 
 import Link from "next/link";
+import { Gauge, PanelsTopLeft, Package, Bot, Wrench, Network, Database, Store, Ticket, UserRound, Circle, ChevronDown, ChevronUp, type LucideIcon } from "lucide-react";
+
+const navigationIcons: Record<string, LucideIcon> = {
+  "/workbench": Gauge, "/workbench/ai": PanelsTopLeft, "/workbench/supply": Package,
+  "/workbench/agents": Bot, "/workbench/tools": Wrench, "/workbench/services": Network,
+  "/workbench/data": Database, "/workbench/store-center": Store, "/workbench/plans": Ticket, "/workbench/account": UserRound,
+};
 import {useSearchParams} from "next/navigation";
 import {collectionID} from "@/lib/contracts/product-collection";
 import {supplyStageHref} from "@/lib/workbench/supply-navigation";
@@ -79,12 +86,13 @@ function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "" 
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
   const [expanded, setExpanded] = useState(active);
   const id = useId();
+  const Icon = navigationIcons[node.href] ?? Circle;
   return <li className={`console-nav-level-${depth}`}>
     <div className="console-nav-row" data-active={active || undefined}>
       <Link href={href} prefetch={false} aria-current={pathname === node.href || (!node.children && active) ? "page" : undefined} onClick={onNavigate} title={node.availability === "unavailable" ? `${node.label}：业务暂未启用` : node.label}>
-        <span className="console-nav-dot" aria-hidden="true" /><span>{node.label}</span>
+        {depth === 1 ? <Icon className="console-nav-icon" size={20} aria-hidden="true" /> : null}<span className="console-nav-label">{node.label}</span>
       </Link>
-      {node.children ? <button type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "⌃" : "⌄"}</button> : null}
+      {node.children ? <button type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</button> : null}
     </div>
     {node.children && expanded ? <ul id={id}>{node.children.map((child) => <NavBranch key={child.href} node={child} pathname={pathname} trail={trail} depth={depth + 1} onNavigate={onNavigate} supplyQuery={supplyQuery} />)}</ul> : null}
   </li>;

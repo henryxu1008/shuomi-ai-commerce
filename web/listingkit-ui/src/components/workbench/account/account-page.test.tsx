@@ -19,6 +19,16 @@ function mount(page: "profile" | "profile-settings" | "profile-business" | "prof
 }
 afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.unstubAllGlobals(); state.context = { user: { id: "u1" }, homeOrganizationId: "A", effectiveOrganization: { id: "B", name: "企业乙", roles: ["viewer"], permissions: [] }, roles: ["viewer"], permissions: [], isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null }; });
 describe("AccountPage read-only projection", () => {
+  it("shows a profile summary and links to the existing edit routes without an inline business form", async () => {
+    const business = {schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "跨境卖家", shopSituation: "已有店铺", factorySituation: "", platforms: ["Amazon"], sites: ["美国站"], shopType: "自营店", services: [], source: "account_profile", updatedAt: null, readAt: profile.readAt};
+    vi.stubGlobal("fetch", withSelfReads(vi.fn((url: string) => Promise.resolve(Response.json(url === "/api/account/business-profile" ? business : profile)))));
+    mount();
+    expect(await screen.findByRole("heading", { name: "本人甲" })).toBeVisible();
+    expect(screen.getByText("跨境卖家")).toBeVisible();
+    expect(screen.getByRole("link", { name: "编辑经营画像" })).toHaveAttribute("href", "/workbench/account/profile/business");
+    expect(screen.getByRole("link", { name: "前往账户设置" })).toHaveAttribute("href", "/workbench/account/profile/settings");
+    expect(screen.queryByRole("button", { name: "保存修改" })).not.toBeInTheDocument();
+  });
   it.each(["profile", "profile-business", "profile-verification"] as const)("removes the duplicate personal skill manager from %s", async page => {
     const business = {schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "", shopSituation: "", factorySituation: "", platforms: [], sites: [], shopType: "", services: [], source: "account_profile", updatedAt: null, readAt: profile.readAt};
     const fetcher = vi.fn((url: string) => Promise.resolve(url === "/api/account/profile" ? Response.json(profile) : url === "/api/account/business-profile" ? Response.json(business) : url === "/api/account/organization" ? Response.json(organization) : Response.json({code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: []}, {status: 503})));
@@ -234,6 +244,7 @@ describe("AccountPage read-only projection", () => {
   it("distinguishes undisclosed optional claims from a failed read", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...profile, displayName: null, phoneNumber: null, phoneNumberVerified: null }))); mount();
     expect(await screen.findByRole("heading", { name: "暂未提供个人资料" })).toBeVisible();
+    await userEvent.click(screen.getByText("查看账户编号与登录信息"));
     expect(screen.getByText("账户 ID：u1")).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -387,7 +398,7 @@ describe("AccountPage read-only projection", () => {
   it.each([true, false, null])("renders nullable verification without inventing binding state: %s", async verified => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...profile, phoneNumberVerified: verified }))); mount();
     expect(await screen.findByRole("heading", { name: "本人甲" })).toBeVisible();
-    const field = screen.getByText("手机验证").parentElement!;
+    const field = screen.getByText("手机号码").parentElement!;
     expect(field).toHaveTextContent(verified === true ? "已验证" : verified === false ? "未验证" : "未提供");
     expect(screen.queryByText("未绑定")).not.toBeInTheDocument();
   });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTheme } from "next-themes";
-import { Menu, X } from "lucide-react";
+import { Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { OrganizationSwitcher, workbenchErrorMessage } from "@/components/workbench/organization-switcher";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ const subscribeToHydration = () => () => {};
 const getClientHydrationSnapshot = () => true;
 const getServerHydrationSnapshot = () => false;
 export function WorkspaceAppShell({ children, dataServicesAvailable = false, reportCenterAvailable = false, toolMarketAvailable = false, supplyMarketAvailable = false, productAcquisitionAvailable = false, productCollectionsAvailable = false, supplyChainAvailable = false, supplyPreparationAvailable = false, supplyCompletionDraftsAvailable = false, knowledgeAvailable = false, nativeRunsAvailable = false, productReviewAvailable = false, ecoservicesAvailable = false, sheinRecordsAvailable = false, notificationCenterAvailable = false, supportAvailable = false }: { children: ReactNode; dataServicesAvailable?: boolean; reportCenterAvailable?: boolean; toolMarketAvailable?: boolean; supplyMarketAvailable?: boolean; productAcquisitionAvailable?: boolean; productCollectionsAvailable?: boolean; supplyChainAvailable?: boolean; supplyPreparationAvailable?: boolean; supplyCompletionDraftsAvailable?: boolean; knowledgeAvailable?: boolean; nativeRunsAvailable?: boolean; productReviewAvailable?: boolean; ecoservicesAvailable?: boolean; sheinRecordsAvailable?: boolean; notificationCenterAvailable?: boolean; supportAvailable?: boolean }) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname() ?? "/workbench";
   const router = useRouter();
   const context = useWorkbenchContext();
@@ -125,7 +126,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
   }
 
   return (
-    <WorkbenchFrame supportAvailable={supportAvailable} dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} key={pathname} pathname={pathname} productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} supplyPreparationAvailable={supplyPreparationAvailable} supplyCompletionDraftsAvailable={supplyCompletionDraftsAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} nativeRunsAvailable={nativeRunsAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} notificationCenterAvailable={notificationCenterAvailable}>
+    <WorkbenchFrame sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed(value => !value)} supportAvailable={supportAvailable} dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} key={pathname} pathname={pathname} productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} supplyPreparationAvailable={supplyPreparationAvailable} supplyCompletionDraftsAvailable={supplyCompletionDraftsAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} nativeRunsAvailable={nativeRunsAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} notificationCenterAvailable={notificationCenterAvailable}>
       {context.selectionRequired && !hasIndependentIdentityRoute && !isBrowserCaptureRoute ? (
         <section
           className="flex min-h-[40vh] items-center justify-center px-6 text-center"
@@ -145,7 +146,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
   );
 }
 
-function WorkbenchFrame({ children, pathname, dataServicesAvailable, reportCenterAvailable, toolMarketAvailable, supplyMarketAvailable, productAcquisitionAvailable, productCollectionsAvailable, supplyChainAvailable, supplyPreparationAvailable, supplyCompletionDraftsAvailable, knowledgeAvailable, nativeRunsAvailable, productReviewAvailable, ecoservicesAvailable, sheinRecordsAvailable, notificationCenterAvailable, supportAvailable }: { children: ReactNode; pathname: string; dataServicesAvailable: boolean; reportCenterAvailable: boolean; toolMarketAvailable: boolean; supplyMarketAvailable: boolean; productAcquisitionAvailable: boolean; productCollectionsAvailable: boolean; supplyChainAvailable: boolean; supplyPreparationAvailable: boolean; supplyCompletionDraftsAvailable: boolean; knowledgeAvailable: boolean; nativeRunsAvailable: boolean; productReviewAvailable: boolean; ecoservicesAvailable: boolean; sheinRecordsAvailable: boolean; notificationCenterAvailable: boolean; supportAvailable: boolean }) {
+function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname, dataServicesAvailable, reportCenterAvailable, toolMarketAvailable, supplyMarketAvailable, productAcquisitionAvailable, productCollectionsAvailable, supplyChainAvailable, supplyPreparationAvailable, supplyCompletionDraftsAvailable, knowledgeAvailable, nativeRunsAvailable, productReviewAvailable, ecoservicesAvailable, sheinRecordsAvailable, notificationCenterAvailable, supportAvailable }: { sidebarCollapsed: boolean; onToggleSidebar: () => void; children: ReactNode; pathname: string; dataServicesAvailable: boolean; reportCenterAvailable: boolean; toolMarketAvailable: boolean; supplyMarketAvailable: boolean; productAcquisitionAvailable: boolean; productCollectionsAvailable: boolean; supplyChainAvailable: boolean; supplyPreparationAvailable: boolean; supplyCompletionDraftsAvailable: boolean; knowledgeAvailable: boolean; nativeRunsAvailable: boolean; productReviewAvailable: boolean; ecoservicesAvailable: boolean; sheinRecordsAvailable: boolean; notificationCenterAvailable: boolean; supportAvailable: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const context = useWorkbenchContext();
@@ -156,11 +157,11 @@ function WorkbenchFrame({ children, pathname, dataServicesAvailable, reportCente
   function closeNavigation() { setMobileOpen(false); trigger.current?.focus(); }
   return <div onKeyDown={(event) => { if (mobileOpen && event.key === "Escape") { event.preventDefault(); closeNavigation(); } }}>
     <a className="sr-only focus:not-sr-only" href="#console-main">跳到页面内容</a>
-    <div className="console-frame">
-      <aside className="console-sidebar">
-        <Link href="/workbench" className="console-brand" prefetch={false}><Image src="/console/sumi-logo.png" alt="" width={42} height={42} unoptimized /><span><strong>硕米智能引擎</strong><small>SUMI AI ENGINE</small></span></Link>
+    <div className="console-frame" data-sidebar-collapsed={sidebarCollapsed || undefined}>
+      <aside className="console-sidebar" id="workbench-desktop-navigation">
+        <div className="console-sidebar-head"><Link href="/workbench" className="console-brand" aria-label="硕米智能引擎首页" prefetch={false}><Image src="/console/sumi-logo.png" alt="" width={42} height={42} unoptimized /><span className="console-brand-label"><strong>硕米智能引擎</strong><small>SUMI AI ENGINE</small></span></Link><Button className="console-sidebar-toggle" variant="ghost" size="icon" aria-label={sidebarCollapsed ? "展开侧栏" : "收窄侧栏"} title={sidebarCollapsed ? "展开侧栏" : "收窄侧栏"} aria-expanded={!sidebarCollapsed} aria-controls="workbench-desktop-navigation" onClick={onToggleSidebar}>{sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" size={20} /> : <PanelLeftClose aria-hidden="true" size={20} />}</Button></div>
         <Suspense fallback={null}><ConsoleNavigation projectCenterAvailable={context.projectCenterAvailable} operationsCockpitAvailable={context.operationsCockpitAvailable} cockpitPermissions={context.permissions} dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} key={pathname} pathname={pathname} ariaLabel="工作台导航" productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} supplyPreparationAvailable={supplyPreparationAvailable} supplyCompletionDraftsAvailable={supplyCompletionDraftsAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} storeProductsAvailable={context.storeObservationsAvailable && context.effectiveOrganization?.permissions.includes("workbench.store.read") === true && context.effectiveOrganization.permissions.includes("workbench.store.products.read")} storeOrdersAvailable={context.storeObservationsAvailable && context.effectiveOrganization?.permissions.includes("workbench.store.read") === true && context.effectiveOrganization.permissions.includes("workbench.store.orders.read")} aiWorkbenchAvailable={context.aiWorkbenchAvailable} nativeRunsAvailable={nativeRunsAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} userId={context.user?.id} /></Suspense>
-        <p className="console-sidebar-footer">SUMI AI ENGINE</p>
+
       </aside>
       <div className="console-body">
         <header className="console-topbar">
