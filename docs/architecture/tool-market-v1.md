@@ -32,7 +32,9 @@ Figma tg48P46SSXl6TBy9lZwg63 / 31:463 当前可见原型：
 原型只有“商品采集插件”为已开放；其余七张卡片保持真实未开放状态，分类筛选可用。
 本批不开发指纹浏览器、批量刊登、ERP、库存/订单引擎或动态插件平台。
 新决定覆盖三个菜单，不据此扩大为全部卡片能力实现。
-当前采集支持1688，不能照原型宣称Amazon、按关键词/页采集已可用。
+采集能力由当前已批准的插件/receiver合同决定，不以本市场目录或下载成功证明实际可用；
+原2026-10-09仅1688基线已由#905/#906及后续插件批次扩展为双平台源码交付，
+真实来源/安装/采集和产品验收仍单独记录，按关键词/页采集不在本批范围。
 当前价格和渠道规则复用 [采集计价合同](2026-10-03-acquisition-channel-pricing.md)：
 插件/本地免费；服务端成功采集消耗1 DATA_ROW；额度资源购买价格由Commercial读取，
 不在市场清单新建收费事实。原已批准的计价/UNKNOWN/recovery不变。
@@ -185,6 +187,20 @@ manifest match忽略端口，不能仅凭hostname证明接收地址绑定；下�
 与可信部署构建记录中的sha256、完整CAPTURE_APP_URL为同一个绑定，
 复用既有编译地址/exact origin+path/tab交接检查。配置缺失或绑定不符则不可用。
 没有包或接收能力时下载按钮显示不可用。不能通过当前浏览器origin临时生成任意可信包。
+
+2026-10-29 #613有界修复（Design Basis: Reuse Existing Architecture / Ready）：
+消费#924/#927/#989已批准的当前插件构建，不改变上述可信构建记录/授权/下载owner。
+当前唯一正式布局为manifest.json、background.js、popup.js、extractor.js、page.js、
+popup.html、popup.css七个文件；manifest名为“1688 / Amazon 商品采集”，两个
+externally_connectable matches精确为同一配置hostname的/capture/1688和/capture/amazon。
+manifest的匹配不含端口，background.js必须同时含配置的完整HTTPS /capture/1688 URL
+及同origin/port的/capture/amazon URL，且archive SHA256与原可信release.json一致。
+旧单平台六文件布局退休，不加双轨或fallback；已安装的旧包/实例本轮不操作。
+继续拒绝fixture、缺失/额外/重复/非白名单文件、symlink、超限和错误散列/接收绑定。
+复用既有archive/zip、builder及TestDeploymentBuildPackage验证正式构建字节，
+补当前布局和失败路径回归；不开发安装机制、通用校验平台、第二事实源或新依赖。
+不改公开配置/API、schema、授权、保存/计费/provider或恢复协议。源码自检不等于
+保留实例已更新或真实下载/产品验收；本轮只允许修复、自检、提交和PR维护，不合并/部署/关单。
 客户端未知响应保留原actor+organization+key+请求意图，切换组织/账号不自动重发；
 恢复原上下文后原key查回执或重放同命令。成功后从服务端重读，不能前端假保存。
 
