@@ -57,10 +57,6 @@ type UsageVector struct {
 	CostMicros int64
 }
 
-func (policy BudgetPolicy) HasProviderLimits() bool {
-	return policy.Images.Enabled || policy.AgentSteps.Enabled || policy.ModelCalls.Enabled || policy.CostMicros.Enabled
-}
-
 func (budget Budget) Policy() (BudgetPolicy, error) {
 	if budget.EnabledLimits&^allBudgetLimits != 0 {
 		return BudgetPolicy{}, fmt.Errorf("%w: budget contains unknown enabled limits", ErrValidation)
@@ -93,30 +89,6 @@ func (budget Budget) Policy() (BudgetPolicy, error) {
 		item.set(&policy, Limit{Enabled: enabled, Value: item.value})
 	}
 	return policy, nil
-}
-
-func (budget Budget) EnabledLimitNames() ([]string, error) {
-	policy, err := budget.Policy()
-	if err != nil {
-		return nil, err
-	}
-	names := make([]string, 0, 6)
-	for _, item := range []struct {
-		name  string
-		limit Limit
-	}{
-		{BudgetLimitNameImages, policy.Images},
-		{BudgetLimitNameAgentSteps, policy.AgentSteps},
-		{BudgetLimitNameModelCalls, policy.ModelCalls},
-		{BudgetLimitNameRepairAttemptsPerSlot, policy.RepairAttemptsPerSlot},
-		{BudgetLimitNameCostMicros, policy.CostMicros},
-		{BudgetLimitNameElapsed, policy.MaxElapsed},
-	} {
-		if item.limit.Enabled {
-			names = append(names, item.name)
-		}
-	}
-	return names, nil
 }
 
 func (policy BudgetPolicy) Allows(committed, reserved, quote UsageVector) error {

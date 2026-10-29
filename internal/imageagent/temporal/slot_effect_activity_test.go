@@ -51,7 +51,7 @@ func TestImageSlotWorkflowV3PreservesInvalidPersistedPolicyClassification(t *tes
 			env.RegisterActivityWithOptions(func(context.Context, ExecuteSlotV3ActivityInput) (imageagent.SlotEffectV3PublishedResult, error) {
 				return imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("invalid persisted effect", tc.activityType, nil)
 			}, sdkactivity.RegisterOptions{Name: testExecuteSlotV3ActivityName})
-			input := SlotWorkflowV3Input{
+			input := SlotWorkflowV3Input{ExternalEffectFinalization: true,
 				RunID: "run-invalid-policy", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-invalid-policy", MemberID: "member-user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1,
 				Slot:    imageagent.Slot{ID: "scene-1", Role: imageagent.SlotRoleScene, IdempotencyKey: "scene-key", SourceAssetIDs: []string{"source-1"}},
 				Attempt: 1, ExecuteActivityName: testExecuteSlotV3ActivityName,
@@ -84,7 +84,7 @@ func TestImageSlotWorkflowV3RejectsInvalidMainCandidateCount(t *testing.T) {
 				}
 				return imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt, Candidates: candidates}, nil
 			}, sdkactivity.RegisterOptions{Name: testExecuteSlotV3ActivityName})
-			input := SlotWorkflowV3Input{RunID: "run-main-count", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-main-count", MemberID: "member-user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: imageagent.Slot{ID: "main-1", Role: imageagent.SlotRoleMain, IdempotencyKey: "main-key", SourceAssetIDs: []string{"source-1"}}, Attempt: 1, ExecuteActivityName: testExecuteSlotV3ActivityName}
+			input := SlotWorkflowV3Input{ExternalEffectFinalization: true, RunID: "run-main-count", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-main-count", MemberID: "member-user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: imageagent.Slot{ID: "main-1", Role: imageagent.SlotRoleMain, IdempotencyKey: "main-key", SourceAssetIDs: []string{"source-1"}}, Attempt: 1, ExecuteActivityName: testExecuteSlotV3ActivityName}
 
 			env.ExecuteWorkflow(ImageSlotWorkflowV3, input)
 			require.NoError(t, env.GetWorkflowError())
@@ -111,7 +111,9 @@ func TestImageSlotWorkflowV3ThreadsExternalEffectFinalizationToActivityInput(t *
 			env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 			env.RegisterWorkflow(ImageSlotWorkflowV3)
 			observed := false
+			activityCalls := 0
 			env.RegisterActivityWithOptions(func(_ context.Context, input ExecuteSlotV3ActivityInput) (imageagent.SlotEffectV3PublishedResult, error) {
+				activityCalls++
 				observed = input.ExternalEffectFinalization
 				return imageagent.SlotEffectV3PublishedResult{
 					SlotID: input.Slot.ID, Attempt: input.Attempt,
@@ -131,6 +133,11 @@ func TestImageSlotWorkflowV3ThreadsExternalEffectFinalizationToActivityInput(t *
 			}
 
 			env.ExecuteWorkflow(ImageSlotWorkflowV3, input)
+			if !tc.flag {
+				require.ErrorContains(t, env.GetWorkflowError(), imageagent.ErrValidation.Error())
+				require.Zero(t, activityCalls)
+				return
+			}
 			require.NoError(t, env.GetWorkflowError())
 			var result SlotWorkflowV3Result
 			require.NoError(t, env.GetWorkflowResult(&result))

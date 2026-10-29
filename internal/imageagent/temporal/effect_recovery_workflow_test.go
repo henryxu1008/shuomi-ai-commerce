@@ -13,12 +13,63 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	historypb "go.temporal.io/api/history/v1"
 	sdkactivity "go.temporal.io/sdk/activity"
+	sdkconverter "go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/worker"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/store"
 )
+
+func TestEffectRecoveryWorkflowRejectsRetiredParentSignalVersionAfterReconciliation(t *testing.T) {
+	// Ordinary synthetic replay, with two completed Activities before the late
+	// version read. This neither calls an Activity nor reads a running workflow.
+	parent := manualWorkflowInput(sevenSlotPlan())
+	input := EffectRecoveryWorkflowInput{RunID: parent.RunID, Identity: parent.Identity, PlanRevision: 1, Slot: parent.Plan.Slots[0], Attempt: 1}
+	result := effectRecoveryBlockedResult(input)
+	dc := sdkconverter.GetDefaultDataConverter()
+	args, err := dc.ToPayloads(input)
+	require.NoError(t, err)
+	encodedInput, err := protojson.Marshal(args)
+	require.NoError(t, err)
+	output, err := dc.ToPayloads(result)
+	require.NoError(t, err)
+	encodedResult, err := protojson.Marshal(output)
+	require.NoError(t, err)
+	history := &historypb.History{}
+	err = protojson.Unmarshal([]byte(fmt.Sprintf(`{"events":[
+ {"eventId":"1","eventType":"EVENT_TYPE_WORKFLOW_EXECUTION_STARTED","workflowExecutionStartedEventAttributes":{"workflowType":{"name":%q},"taskQueue":{"name":%q},"input":%s,"originalExecutionRunId":"synthetic-recovery-run"}},
+ {"eventId":"2","eventType":"EVENT_TYPE_WORKFLOW_TASK_SCHEDULED","workflowTaskScheduledEventAttributes":{}},
+ {"eventId":"3","eventType":"EVENT_TYPE_WORKFLOW_TASK_STARTED","workflowTaskStartedEventAttributes":{"scheduledEventId":"2"}},
+ {"eventId":"4","eventType":"EVENT_TYPE_WORKFLOW_TASK_COMPLETED","workflowTaskCompletedEventAttributes":{"scheduledEventId":"2","startedEventId":"3"}},
+ {"eventId":"5","eventType":"EVENT_TYPE_ACTIVITY_TASK_SCHEDULED","activityTaskScheduledEventAttributes":{"activityId":"5","activityType":{"name":%q},"taskQueue":{"name":%q},"workflowTaskCompletedEventId":"4"}},
+ {"eventId":"6","eventType":"EVENT_TYPE_ACTIVITY_TASK_STARTED","activityTaskStartedEventAttributes":{"scheduledEventId":"5"}},
+ {"eventId":"7","eventType":"EVENT_TYPE_ACTIVITY_TASK_COMPLETED","activityTaskCompletedEventAttributes":{"scheduledEventId":"5","startedEventId":"6","result":%s}},
+ {"eventId":"8","eventType":"EVENT_TYPE_WORKFLOW_TASK_SCHEDULED","workflowTaskScheduledEventAttributes":{}},
+ {"eventId":"9","eventType":"EVENT_TYPE_WORKFLOW_TASK_STARTED","workflowTaskStartedEventAttributes":{"scheduledEventId":"8"}},
+ {"eventId":"10","eventType":"EVENT_TYPE_WORKFLOW_TASK_COMPLETED","workflowTaskCompletedEventAttributes":{"scheduledEventId":"8","startedEventId":"9"}},
+ {"eventId":"11","eventType":"EVENT_TYPE_ACTIVITY_TASK_SCHEDULED","activityTaskScheduledEventAttributes":{"activityId":"11","activityType":{"name":%q},"taskQueue":{"name":%q},"workflowTaskCompletedEventId":"10"}},
+ {"eventId":"12","eventType":"EVENT_TYPE_ACTIVITY_TASK_STARTED","activityTaskStartedEventAttributes":{"scheduledEventId":"11"}},
+ {"eventId":"13","eventType":"EVENT_TYPE_ACTIVITY_TASK_COMPLETED","activityTaskCompletedEventAttributes":{"scheduledEventId":"11","startedEventId":"12","result":%s}},
+ {"eventId":"14","eventType":"EVENT_TYPE_WORKFLOW_TASK_SCHEDULED","workflowTaskScheduledEventAttributes":{}},
+ {"eventId":"15","eventType":"EVENT_TYPE_WORKFLOW_TASK_STARTED","workflowTaskStartedEventAttributes":{"scheduledEventId":"14"}},
+ {"eventId":"16","eventType":"EVENT_TYPE_WORKFLOW_TASK_COMPLETED","workflowTaskCompletedEventAttributes":{"scheduledEventId":"14","startedEventId":"15"}},
+ {"eventId":"17","eventType":"EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED","workflowExecutionCompletedEventAttributes":{"workflowTaskCompletedEventId":"16","result":%s}}
+ ]}`, EffectRecoveryWorkflowName, OrganizationTaskQueue, encodedInput,
+		activityRecoverEffectV3, OrganizationTaskQueue, encodedResult,
+		activityReconcileEffectRecoveryV3, OrganizationTaskQueue, encodedResult, encodedResult)), history)
+	require.NoError(t, err)
+	require.Equal(t, []string{activityRecoverEffectV3, activityReconcileEffectRecoveryV3}, scheduledActivityNames(history))
+	require.Empty(t, historyVersionChangeIDs(t, history))
+	r := worker.NewWorkflowReplayer()
+	r.RegisterWorkflow(ImageAgentEffectRecoveryWorkflow)
+	err = r.ReplayWorkflowHistory(nil, history)
+	require.ErrorContains(t, err, "[TMPRL1100] Workflow code removed support of version -1")
+	require.ErrorContains(t, err, effectRecoveryParentSignalPatch)
+}
 
 func TestEffectRecoveryWorkflowUsesDeterministicIDAndAttachesDuplicateStart(t *testing.T) {
 	_, input := initializedSlotEffectV3Activity(t, "run-v3-recovery-id")

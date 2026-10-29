@@ -113,11 +113,6 @@ const (
 	maxArtifactOperationLength = 64
 )
 
-func ValidateStagingManifest(manifest StagingManifest) error {
-	_, err := NormalizeStagingManifest(manifest)
-	return err
-}
-
 func NormalizeStagingManifest(manifest StagingManifest) (StagingManifest, error) {
 	if len(manifest.ProviderMetadata) != 0 {
 		return StagingManifest{}, ErrValidation
@@ -127,11 +122,6 @@ func NormalizeStagingManifest(manifest StagingManifest) (StagingManifest, error)
 		return StagingManifest{}, err
 	}
 	return StagingManifest{Assets: assets}, nil
-}
-
-func ValidateFinalManifest(manifest FinalManifest) error {
-	_, err := NormalizeFinalManifest(manifest)
-	return err
 }
 
 func NormalizeFinalManifest(manifest FinalManifest) (FinalManifest, error) {

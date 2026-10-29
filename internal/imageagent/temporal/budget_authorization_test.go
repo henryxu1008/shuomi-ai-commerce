@@ -209,7 +209,7 @@ func TestImageSlotWorkflowV3BudgetDeadlineBlocksWithoutActivity(t *testing.T) {
 		activityCalls++
 		return imageagent.SlotEffectV3PublishedResult{}, nil
 	}, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
-	input := SlotWorkflowV3Input{RunID: "run-deadline", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-deadline", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-deadline", TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1, ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true, DeadlineAt: env.Now().Add(-time.Second)}
+	input := SlotWorkflowV3Input{ExternalEffectFinalization: true, RunID: "run-deadline", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-deadline", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-deadline", TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1, ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true, DeadlineAt: env.Now().Add(-time.Second)}
 
 	env.ExecuteWorkflow(ImageSlotWorkflowV3, input)
 	require.NoError(t, env.GetWorkflowError())
@@ -279,27 +279,15 @@ func TestImageSlotWorkflowV3SaturatesProviderWindowPlusGraceOnDurationOverflow(t
 }
 
 func TestImageSlotWorkflowV3VersionsCancellationDrainActivityOptions(t *testing.T) {
-	for _, test := range []struct {
-		name                       string
-		externalEffectFinalization bool
-		wantHeartbeatTimeout       time.Duration
-		wantWaitForCancellation    bool
-	}{
-		{name: "legacy history", externalEffectFinalization: false},
-		{name: "new history", externalEffectFinalization: true, wantHeartbeatTimeout: externalEffectHeartbeatTimeout, wantWaitForCancellation: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			options := slotWorkflowV3ActivityOptions(10*time.Minute, test.externalEffectFinalization)
-			require.Equal(t, test.wantHeartbeatTimeout, options.HeartbeatTimeout)
-			require.Equal(t, test.wantWaitForCancellation, options.WaitForCancellation)
-		})
-	}
+	options := slotWorkflowV3ActivityOptions(10 * time.Minute)
+	require.Equal(t, externalEffectHeartbeatTimeout, options.HeartbeatTimeout)
+	require.True(t, options.WaitForCancellation)
 }
 
 func TestImageAgentWorkflowBudgetDeniesRepairBeforeChild(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(budgetAuthorizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(budgetAuthorizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot

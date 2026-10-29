@@ -1195,7 +1195,8 @@ func (acceptanceDurableArtifactStore) RecoverSlotArtifacts(_ context.Context, _ 
 }
 
 func (acceptanceDurableArtifactStore) EnsureStaged(_ context.Context, prepared objectstore.PreparedSlotArtifacts) error {
-	return imageagent.ValidateStagingManifest(prepared.Manifest)
+	_, err := imageagent.NormalizeStagingManifest(prepared.Manifest)
+	return err
 }
 
 func (acceptanceDurableArtifactStore) Finalize(ctx context.Context, manifest imageagent.StagingManifest) (imageagent.FinalManifest, error) {

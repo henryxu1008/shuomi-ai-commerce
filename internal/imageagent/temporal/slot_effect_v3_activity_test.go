@@ -711,7 +711,7 @@ func TestImageSlotWorkflowV3StartsFreshActivityAfterFinalInnerAttemptLosesPublic
 	env.RegisterActivityWithOptions(activities.ExecuteSlotV3, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
 	startedAt := env.Now()
 
-	env.ExecuteWorkflow(ImageSlotWorkflowV3, SlotWorkflowV3Input{
+	env.ExecuteWorkflow(ImageSlotWorkflowV3, SlotWorkflowV3Input{ExternalEffectFinalization: true,
 		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision, Slot: input.Slot,
 		Attempt: input.Attempt, AssetCatalog: input.AssetCatalog, ExecuteActivityName: activityExecuteSlotV3,
 	})
