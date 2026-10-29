@@ -103,6 +103,7 @@ Must：当前图组/Artwork、采集单主图、组织隔离、真实授权、JS
 | internal/imageagent/store/gorm.go、memory.go、records.go | NewGormRepository 无组织构造、旧 scope 默认生产路径；slotEffects map；slotExternalEffectRecord 和 AutoMigrate 创建项 | NewOrganizationRepository、组织 scope fail-closed、所有当前表/字段/JSON/CAS/事务，V3 map/records 不变。Memory 仍为当前测试 double，不成为默认生产 owner |
 | deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-deployment.yaml、image-agent-temporal-worker-v3-deployment.yaml | 两文件删除 | 不 kubectl apply/delete，不清理已部署对象 |
 | 同 base/kustomization.yaml | 仅删除上述两个 resources 项 | 其它资源、ConfigMap/Secret/overlay、canary release-authority/policy 均不改 |
+| scripts/listingkit-apply-image-agent-worker-deployment.sh | 整退闲置 worker 专属 apply wrapper；仓库脚本、workflow、测试和当前说明无调用，不能用未来 Kubernetes 发布需要保活 | 原通用 listingkit-apply-api-deployment.sh/UI driver 及其全部适用安全断言保留；不重建 wrapper，不执行部署 |
 
 这些是一个完整 Delivery Batch；合同/构造去耦与删除是同一分支的实现顺序，不分成机械小 PR。只有矩阵所指的符号闭包允许变化，不能以“同目录”为由改无关能力。
 
@@ -120,7 +121,7 @@ Must：当前图组/Artwork、采集单主图、组织隔离、真实授权、JS
 | tests/imageagent_organization_integration_test.go；internal/app/httpapi/chain1_local_product_acceptance_test.go、image_set_worker_authorization_test.go | 删除 ActivityDependencies 的旧字段和仅实现旧端口的 stub method；现有 current/CHAIN-1 的真实授权、Source/Review/图像/Asset/Store/Draft 全链、丢响应/重建/异载荷冲突保留 |
 | internal/app/runtime/productlistingschemamigrate/organization_image_agent_postgres_test.go | TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres 精确 expected 仅减 image_agent_v2_slot_external_effects；旧表缺席、当前表/权限/失败关闭全部验证 |
 | tests/listingkit_deploy_workflow_test.go、listingkit_release_boundary_test.go、commercial_readiness_workflow_test.go、legacy_subscription_metering_retirement_test.go；两个 shell guard | 按 §6.1 精确转换旧 Deployment 保活；当前 Secret/Config/canary、NOT_READY、原检查算法保持 |
-| deployments/kubernetes/listingkit-workbench/README.md | 仅前置本批退休注记：两个旧业务声明退出、当前组织 worker/canary 保留、旧 drain/rollout 不再是当前命令；旧发布 NOT_READY 与历史全文保留 |
+| deployments/kubernetes/listingkit-workbench/README.md | 仅前置本批退休注记：两个旧业务声明及闲置专属 apply wrapper 退出、当前组织 worker/canary 保留、旧 drain/rollout 不再是当前命令；旧发布 NOT_READY 与历史全文保留 |
 | docs/architecture/README.md、docs/refactoring/legacy-register.md、本设计 | 当前索引/登记和设计状态最小更新；前批文档/历史不追写成当前 PASS，不抹掉历史 KEEP |
 | 新 tests/legacy_imageagent_manual_runtime_retirement_test.go | 复用原 AST/import/path 检查 helper，检查 §5 的关闭/缺席与当前 owner 保留，不另建验证工具或替换原必需检查 |
 
