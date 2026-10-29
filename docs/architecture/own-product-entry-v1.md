@@ -31,11 +31,13 @@ Collection 持操作、分组和来源引用；Sourcing 持用户提供的证据
 唯一正式合同扩展：`OwnVariant.images?: string[]`，最多40个HTTPS图片链接，限制与公共图一致；转换成现有 `ProductVariantCandidate.Images`。复用现有 Catalog 变体图片能力，无新媒体 owner。
 每张变体图片 SourceID 用 `StableID(productID, variant.SourceID, URL)`，Role 按变体内顺序 main/detail。公共图片仍用原 `StableID(productID, URL)`；变体图留在变体内，不扩散到每个其他变体。图片永远只是候选，保存不批准、不下载、不调用平台。
 
-新增页只挂一个原 SourceImageUploader：先上传到公共图片池，再逐变体选择已填/上传的图片，避免多个 uploader 竞争同一既有全局 pending-media key。不修改媒体恢复合同。
+新增页只挂一个原 SourceImageUploader：先上传到表单图片选择池，再逐变体选择已填/上传的图片，避免多个 uploader 竞争同一既有全局 pending-media key。不修改媒体恢复合同。2026-10-29 用户明确图片归属：选择池与公共图片声明分开，新图默认公共；可显式取消公共归属而仅用于已绑定的 SKU，绑定 SKU 不自动取消公共归属。没有绑定 SKU 的专属图须在发送前提示，不得静默丢弃。保存仍只投影现有 product.images / variants[].images；编辑保留已保存公共声明和原 SKU 图组，不自动重新分类。
 
 每个变体 sourceId 在新表单生成一次（UUID），与可编辑 SKU 分离；相同组合再生成保留该ID。保存合同拒绝同一商品内重复 sourceId、重复非空 SKU；检查字符串、属性数量、有限非负价格、整数非负库存、币种格式及HTTPS图片。未填数值不自动成为0；用户显式填0可保存。单规格未填SKU可沿现合同保存基础资料，不伪造变体。
 
 只读评审发现现 `sourcing.snapshotVariants` 仅正价格/成本时生成Price，导致自有录入显式0价丢失币种；这是当前Must的实现缺陷。最小局部修复限定已校验自有来源（SourceType=user_input、SourcePlatform=own_product）保留其声明的0价，不让未知来源缺失价格成为0。Catalog非nil Price编码明确amount（包括0）；自有详情按原OwnVariant必填stock合同显示0。通过OwnEnvelope及准确PG/JSON读回测试收敛，不新建事实owner/schema或通用presence协议。
+
+2026-10-29 #675 有界修复（Reuse Existing Architecture，用户已授权）：成本存在不是售价已声明的证据。只有正售价或已校验 own 的显式0价创建 Catalog Price；仅成本且售价缺失时不创建 Price，原成本仍完整保留在不可变 Source.Envelope.SupplierOrCostFacts，并沿原发布/hash保存。有已知售价时保留原 CostPrice 投影；不修改公共 Price DTO、金额类型或0编码，不新增 presence/兼容协议。
 
 HTTP严格结构解析之后，在同一有界raw request内检查product/products的每个variant必填price/stock：缺少或null拒绝，显式数字0保留。不能让Go值类型的默认0替代用户声明。未知/重复字段仍由原sigjson严格解析拒绝，不用自定义解码绕过现严格解析。
 
