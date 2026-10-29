@@ -50,6 +50,11 @@ drawer. The administrator role is read-only; protected subjects and native roles
 cannot be changed or removed through this page.
 
 The module catalog binds existing permissions. Unopened modules are disabled.
+The read-only catalog and system administrator projection accept up to 64 modules;
+this is separate from the 32-module limit on each custom role and its create/save
+inputs. The database limit and authorization rules are unchanged. When a backend
+adds a catalog module, pair it with a UI that supports the full catalog rather
+than truncating the response or granting the module to existing custom roles.
 Enterprise membership management, finance writes, Agent configuration, platform
 administration, Store deletion and optional SHEIN diagnostics are not granted
 by custom roles. Module availability does not imply that provider credentials,
