@@ -1,26 +1,26 @@
 # 旧 ImageAgent 业务 Signal 控制链完整退休设计
 
-> #301：DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。本 PR 当前只改本设计、architecture README 和 legacy-register 三文档；适用独立设计复核和用户确认前不改生产或测试源码。#301 保持 OPEN。
+> #301 / #998：USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认冻结设计 b3054a3a46e5e44586988a2e06199f8ff63b3848 §1–§7（含§4.2/§6.1），按15路径在同一PR整批实施；[准入及开工记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/998#issuecomment-6492262601)。源码最终复核/原CI待本批准确候选证据，设计复核不替代源码复核；#301保持OPEN，既有资源不动，无新试用前置。
 
 这批删除四个旧业务 Signal 入口及其专属排队、分派和测试尾部。当前四个业务命令通过带身份校验与回执的 **Temporal Update** 执行；恢复工作流使用的 **`effect_recovery_completed` Signal** 继续保留。名称带 `Signal` 的四个共享载荷仍是当前 Update 合同，不删除、不改名。
 
-**待用户确认的回放边界：含四个旧业务 Signal 投递的历史不再承诺续跑，包括标为 V3 的这类历史；未含这些旧业务 Signal 的当前 Update 驱动有效 V3、恢复通知及其版本/幂等合同继续保留。** 没有读取或清空任何运行历史。本提案不是已生效的产品决定，设计确认前不得据此删代码。
+**用户已确认的回放边界：含四个旧业务 Signal 投递的历史不再承诺续跑，包括标为 V3 的这类历史；未含这些旧业务 Signal 的当前 Update 驱动有效 V3、恢复通知及其版本/幂等合同继续保留。** 没有读取或清空任何运行历史。用户本次确认包含这一准确hard-cut；没有授权读取或操作实际历史。
 
 ## 1. 用户结果、范围与 Design Basis
 
 - 父目标：[Issue #301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)，保持 OPEN。
 - 使用者与场景：维护当前组织图组、Artwork 和采集单主图的用户及开发者；相同业务操作只经当前可确认、可恢复的命令入口，移除无仓库生产发送者的旧旁路和专属排队，不新增操作步骤。
-- 用户授权：先设计完整闭包，不机械拆批；设计确认后再实施。不改 workflow/inventory，不操作既有实例、数据、凭据或进程，不增加内部试用前置。
+- 用户授权：已确认冻结设计 §1–§7（含§4.2/§6.1），同一PR整批实施，不机械拆批。不改 workflow/inventory，不操作既有实例、数据、凭据或进程，不增加内部试用前置。
 - 调查基线：main `de55cf5f205f91fae246429be33eebf5bfee70e7`（已含 #996）；单 Writer、独立 worktree、一个主要分支/PR。
-- 未来源码 **Design Basis: Independent Architecture**：改变 Temporal 命令接收与历史续跑边界，并精确替代前批 KEEP。现有 Update 和恢复事实 owner 不变，不能因代码看似闲置而省略这一决定。
-- 当前三文档交付 **Design Basis: N/A / Ready**，不改变运行语义。适用独立 Architecture Review、用户确认 §1–§7（含 §4.2/§6.1）及 Issue 读回 `IMPLEMENTATION_READY` 前，正式源码保持 NOT_READY。
+- 本批源码 **Design Basis: Independent Architecture**：改变 Temporal 命令接收与历史续跑边界，并精确替代前批 KEEP。现有 Update 和恢复事实 owner 不变，不能因代码看似闲置而省略这一决定。
+- 设计阶段三文档为 **Design Basis: N/A / Ready**，准确设计原CI及获用户授权的独立只读设计复核已完成，无需修改设计的finding。用户已确认 §1–§7（含§4.2/§6.1），#301已读回 `USER_CONFIRMED / IMPLEMENTATION_READY`，现在仅实施冻结范围；设计证据不替代新源码CI或最终交付复核。
 - 不做：新 API/UI、通用调度器、兼容 worker/alias、迁移/双读双写、Temporal 版本分叉、运行队列排空、读取或重写 history、数据库/权限/SQL/schema 变更、provider/canary 真执行、部署、上线或关单。GitHub workflow、完整 inventory、依赖、保护规则零改。
 
 ## 2. Authority、前批 KEEP 替代与 Must
 
 适用 [AGENTS.md](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md) 和当前 [图像产品](product-image-agent-v1.md)。无 UI/IA/交互变化，Figma 增量 N/A。当前范围没有允许续跑旧 Signal 历史的兼容例外；本设计也不自行签发该历史的运行验收。
 
-| 前批依据 | 本批提议替代的 KEEP | 仍保留 |
+| 前批依据 | 本批已确认替代的 KEEP | 仍保留 |
 | --- | --- | --- |
 | [#994 手工运行链](legacy-imageagent-manual-runtime-closure-retirement-boundary.md)、[#996 V2 合同尾部](legacy-imageagent-v2-contract-tail-closure-retirement-boundary.md) | “有效 V3 回放”不再笼统包含由四个旧业务 Signal 进入动作、触发持久化或 effect 的历史。完整退出这条 ingress，不保留版本化旧执行分支 | 当前 Update/Resume、Update 驱动的有效 V3、有效 recovery Signal、GetVersion marker/ID/取值、当前 JSON/hash/事务/恢复 |
 | [2026-08-26 原设计](../superpowers/specs/2026-08-26-image-agent-workflow-design.md)、[原实施计划](../superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md) | app 翻译为四个业务 Signal、正向重发/排队后执行的现行要求 | 当前业务不变量；原文、历史勾选和证据保留，只加限定失效注记 |
@@ -61,7 +61,7 @@ Must：组织/原始 member/业务任务/actor 归属不降低；当前同 Actio
 | 当前 Update 输入 | `ApproveResultsSignal/RetrySlotSignal/ReplacePlanSignal/CancelSignal` 名称与声明不变；`approve_results/retry_slot/replace_plan/cancel` 继续是当前 Update 名称、kind 和 fingerprint 输入，保留常量和值。不得做字段改名、DTO 迁移、兼容 alias 或默认序列化调整 |
 | 当前 JSON/hash | 保留原 payload 默认 Go 键、`Selection` 省略规则、嵌套值、nil/空、字段顺序、当前 hash 算法和既有有效值；原 `TestTemporalPayloadEncodingPreservesLegacyDefaultGoKeys` 不改。当前 plan/projection/commit/receipt 的保存与读取合同不变 |
 | 私有 ingress 状态 | deferred 是 workflow 内存动作状态，不在 `CommandIngress` 的 Used/Limit/Exhausted/Reason 或 `PendingCommandReceipt.Status="pending"` 中持久化；队列无数据库 owner。删其源码重建路径会切断旧 Signal 驱动的历史续跑，不能据此声称没有历史影响 |
-| **旧 Signal 历史** | **提请用户确认 hard-cut：** 含四业务 Signal 投递的历史不再承诺由本程序续跑，即使标为 V3。包含旧处理器只写内存账本/拒绝墓碑或排队而未发 effect 的情况，不能只按是否产生 Activity 判断。不给旧历史双执行分支、不新加 GetVersion fallback、不重写历史或迁移；不读取、终止、清理实际历史 |
+| **旧 Signal 历史** | **用户已确认 hard-cut：** 含四业务 Signal 投递的历史不再承诺由本程序续跑，即使标为 V3。包含旧处理器只写内存账本/拒绝墓碑或排队而未发 effect 的情况，不能只按是否产生 Activity 判断。不给旧历史双执行分支、不新加 GetVersion fallback、不重写历史或迁移；不读取、终止、清理实际历史 |
 | 当前 V3 回放 | 未含四旧业务 Signal 的 Update 驱动有效 V3、当前恢复通知、原 GetVersion change ID/顺序/有效取值、Activity/workflow/task queue/child/recovery IDs 不变。当前 actionID-only/run-scoped/bounded V3 发布键与有效 marker 保留；禁止把旧 Signal 改成重放时伪造 Update。现有版本 probe/fixture 只证明其覆盖的路径，不作为所有真实历史已验证的声明 |
 | 实际持久化 | 当前组织 Repository 继续拥有 run/plan/slot/projection/commit；V3 ledger 继续拥有 effect/receipt/fence；Asset 事务继续拥有批准结果。schema/grants/SQL/迁移不改，不新增事实 owner，不访问现有表或记录 |
 | 失败、并发与副作用 | 当前 CAS/commit fingerprint、绝对 deadline/取消、single pending owner、ActionID 同键异载荷、ack、UNKNOWN/响应丢失、Resume/finalization/恢复唯一责任方均保持；不新建重试、自动接管或 provider 补偿 |
@@ -70,7 +70,7 @@ Temporal 传输层仍可能接受一个无人消费的旧 Signal 并写入 histo
 
 ## 5. 完整删除 / 保留 / 抽取矩阵
 
-未来一次实施覆盖 **15 路径：3 生产、6 测试、6 文档**。当前 PR 只交三文档；不是已完成以下源码修改。没有整文件生产包删除，也不因此扩大到所有 Temporal Signal。
+本批一次实施覆盖 **15 路径：3 生产、6 测试、6 文档**。设计阶段三文档已交付；当前按冻结矩阵实施，完成状态与准确候选证据维护在PR。没有整文件生产包删除，也不因此扩大到所有 Temporal Signal。
 
 | 路径 | 决定与边界 |
 | --- | --- |
@@ -100,7 +100,7 @@ Temporal 传输层仍可能接受一个无人消费的旧 Signal 并写入 histo
 
 ## 6. 验证与验收
 
-当前三文档只做适用 diff/链接/路径/索引核对及原 CI，不为文档制造业务 RED。后续获准实现先在现有测试 owner 加退休 guard/负例，确认旧源码真实 RED，再最小删除/抽取和改接；不新建 runner、验收平台或通用 callback 框架。
+设计阶段三文档已完成适用 diff/链接/路径/索引核对及原 CI，未为文档制造业务 RED。本轮已先在现有测试 owner 加退休 guard/四种Signal负例，确认旧源码真实 RED，再最小删除/抽取和改接；不新建 runner、验收平台或通用 callback 框架。
 
 ### 6.1 原检查精确转换
 
@@ -138,10 +138,10 @@ Temporal 传输层仍可能接受一个无人消费的旧 Signal 并写入 histo
 
 ## 7. 复核、冻结、交付与停止点
 
-1. 本阶段交三文档和准确设计 HEAD 的原 CI/适用独立设计复核。GitHub 原复核运行时不重复触发；确实启动失败最多一次同范围重试。未经用户本轮授权不默认新增 AI 互验线程，设计与源码最终复核授权分开。
-2. finding 先按 AGENTS 分类，说明当前 Must、实际后果和阻塞层级。最多两轮正常架构复核；非 Blocker 不无限重开设计。§4.2 的旧 Signal 历史取舍必须向用户明确交接，不能以 review/CI 代签用户产品决定。
-3. 适用复核完成、用户确认本设计且 #301 当前段读回 IMPLEMENTATION_READY 后，单 Writer 在同一主要 PR 整批实施15路径；不机械拆小批，不默认派生新任务。
-4. 完整实现后一次集中源码最终复核，修复只复核相关增量；准确 HEAD、真实 diff、CI run/attempt 和批准证据写 PR。CI/AI 复核不是产品验收。当前阶段不签发 SOURCE_COMPLETE/可上线。
+1. 设计阶段已交三文档和准确设计 HEAD 的原 CI/适用独立设计复核。GitHub 原复核运行时不重复触发；确实启动失败最多一次同范围重试。未经用户本轮授权不默认新增 AI 互验线程，设计与源码最终复核授权分开。
+2. finding 先按 AGENTS 分类，说明当前 Must、实际后果和阻塞层级。最多两轮正常架构复核；非 Blocker 不无限重开设计。§4.2 的旧 Signal 历史取舍已明确向用户交接并获本次确认，不能以 review/CI 代签该决定或扩大为运行操作授权。
+3. 适用设计复核、用户确认及 #301 当前段 IMPLEMENTATION_READY 读回均已满足；单 Writer 在同一主要 PR 整批实施15路径；不机械拆小批，不默认派生新任务。
+4. 完整实现后一次集中源码最终复核，修复只复核相关增量；准确 HEAD、真实 diff、CI run/attempt 和批准证据写 PR。CI/AI 复核不是产品验收。本设计不签发产品验收或可上线。
 5. 合并、实际 merge SHA 的完整 push/main CI、部署/运行验收和 Issue 关闭分别授权。正常 expected-head 合并，不绕过门禁或改变保护；HEAD 改变依规则重新确认。
 6. #301 始终 OPEN；只维护当前段和准确 PR 证据。既有历史后缀/勾选逐字保留。当前图像/AI/采集/Store 观察同步与官方授权继续保留，既有实例/数据/凭据/进程不动，没有新的内部试用前置。
 

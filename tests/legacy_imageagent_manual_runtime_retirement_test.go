@@ -125,3 +125,91 @@ func TestLegacyImageAgentV2ContractClosureIsRetired(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyImageAgentBusinessSignalClosureIsRetired(t *testing.T) {
+	retired := []string{
+		"startSignalHandlers", "dispatchReplaceSignal", "dispatchRetrySignal", "dispatchApprovalSignal", "dispatchCancelSignal",
+		"signalCanEnter", "signalCanEnterWithFingerprint", "dispatchDeferredRetries", "deferredRetries", "legacyRetryPending", "signalIngressDeferred",
+	}
+	businessNames := []string{"signalApproveResults", "signalRetrySlot", "signalReplacePlan", "signalCancel"}
+	requiredFunctions := map[string]bool{}
+	requiredUpdates := map[string]bool{}
+	recoveryChannel, recoveryProducer, sdkPort := false, false, false
+	for _, path := range []string{
+		"internal/imageagent/temporal/workflow.go", "internal/imageagent/temporal/worker.go",
+		"internal/imageagent/temporal/effect_recovery_workflow.go",
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch node := n.(type) {
+			case *ast.Ident:
+				if slices.Contains(retired, node.Name) {
+					t.Errorf("%s retains retired business Signal declaration/reference %s", path, node.Name)
+				}
+			case *ast.FuncDecl:
+				requiredFunctions[node.Name.Name] = true
+			case *ast.TypeSpec:
+				if path != "internal/imageagent/temporal/worker.go" || node.Name.Name != "sdkWorkflowClient" {
+					break
+				}
+				sdkPort = true
+				shape, ok := node.Type.(*ast.InterfaceType)
+				if !ok {
+					t.Fatal("current Temporal SDK port must remain an interface")
+				}
+				var methods []string
+				for _, method := range shape.Methods.List {
+					if len(method.Names) != 1 {
+						t.Fatal("current Temporal SDK port must not embed a broader client")
+					}
+					methods = append(methods, method.Names[0].Name)
+				}
+				if !slices.Equal(methods, []string{"ExecuteWorkflow", "QueryWorkflow", "UpdateWorkflow"}) {
+					t.Errorf("current SDK port must retain Start/Query/Update only: %v", methods)
+				}
+			case *ast.CallExpr:
+				selector, ok := node.Fun.(*ast.SelectorExpr)
+				if !ok {
+					break
+				}
+				if selector.Sel.Name == "GetSignalChannel" && len(node.Args) == 2 {
+					if name, ok := node.Args[1].(*ast.Ident); ok {
+						if slices.Contains(businessNames, name.Name) {
+							t.Errorf("retired business Signal channel %s remains", name.Name)
+						}
+						if name.Name == "signalEffectRecoveryCompleted" {
+							recoveryChannel = true
+						}
+					}
+				}
+				if selector.Sel.Name == "SetUpdateHandlerWithOptions" && len(node.Args) == 4 {
+					if name, ok := node.Args[1].(*ast.Ident); ok {
+						requiredUpdates[name.Name] = true
+					}
+				}
+				if selector.Sel.Name == "SignalExternalWorkflow" && len(node.Args) == 5 {
+					if name, ok := node.Args[3].(*ast.Ident); ok && name.Name == "signalEffectRecoveryCompleted" {
+						recoveryProducer = true
+					}
+				}
+			}
+			return true
+		})
+	}
+	for _, name := range append(businessNames, "updateResumeCommand") {
+		if !requiredUpdates[name] {
+			t.Errorf("current Update registration %s must remain", name)
+		}
+	}
+	for _, name := range []string{"handleReplacePlan", "handleRetrySlot", "handleApproveResults", "handleCancel", "handleResume", "GetProjection", "dispatchEffectRecoveryCompleted", "applyEffectRecoveryCompleted", "signalEffectRecoveryCompletion"} {
+		if !requiredFunctions[name] {
+			t.Errorf("current command/recovery function %s must remain", name)
+		}
+	}
+	if !sdkPort || !recoveryChannel || !recoveryProducer {
+		t.Errorf("current SDK port and recovery Signal producer/receiver must remain: port=%t receiver=%t producer=%t", sdkPort, recoveryChannel, recoveryProducer)
+	}
+}

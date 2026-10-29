@@ -195,10 +195,6 @@ func runImageAgentWorkflow(ctx workflow.Context, input WorkflowInput) (WorkflowR
 		}
 		return result, true, nil
 	}
-	cancelChannel := workflow.GetSignalChannel(ctx, signalCancel)
-	retryChannel := workflow.GetSignalChannel(ctx, signalRetrySlot)
-	replaceChannel := workflow.GetSignalChannel(ctx, signalReplacePlan)
-	approveChannel := workflow.GetSignalChannel(ctx, signalApproveResults)
 	recoveryCompletedChannel := workflow.GetSignalChannel(ctx, signalEffectRecoveryCompleted)
 	var results []SlotWorkflowResult
 	updates = newWorkflowUpdateState(ctx, &input, &projection, &results, effects)
@@ -210,7 +206,7 @@ func runImageAgentWorkflow(ctx workflow.Context, input WorkflowInput) (WorkflowR
 	if err := updates.register(ctx); err != nil {
 		return WorkflowResult{}, fmt.Errorf("register image agent update handlers: %w", err)
 	}
-	updates.startSignalHandlers(ctx, cancelChannel, retryChannel, replaceChannel, approveChannel, recoveryCompletedChannel)
+	updates.startEffectRecoveryHandler(ctx, recoveryCompletedChannel)
 	awaitTerminalIntent := func(results []SlotWorkflowResult) (WorkflowResult, error) {
 		if err := workflow.Await(ctx, func() bool {
 			return updates.cancelCommitted || isTerminalRunStatus(projection.Status)
@@ -322,9 +318,8 @@ runPlan:
 				}
 			}
 			projection = result
-			legacyRetryPending := updates.dispatchDeferredRetries(ctx)
 			for result.Block != nil {
-				if !input.WaitForCommands && !legacyRetryPending && !cancellationBlocked {
+				if !input.WaitForCommands && !cancellationBlocked {
 					return result, nil
 				}
 				wait := workflow.NewSelector(ctx)
@@ -336,7 +331,6 @@ runPlan:
 				if lifecycleElapsed() {
 					return persistLifecycleDeadlineBlock(result)
 				}
-				legacyRetryPending = false
 				if updates.cancelRequested {
 					cancelResult, terminal, cancelErr := cancelAndProject(results)
 					if cancelErr != nil || terminal {
@@ -764,7 +758,6 @@ type signalIngressState string
 
 const (
 	signalIngressRejected   signalIngressState = "rejected"
-	signalIngressDeferred   signalIngressState = "deferred"
 	signalIngressAccepted   signalIngressState = "accepted"
 	signalIngressSuperseded signalIngressState = "superseded"
 )
@@ -779,7 +772,6 @@ type workflowUpdateState struct {
 	wake                            workflow.Channel
 	actions                         map[string]*workflowUpdateRecord
 	pendingActionID                 string
-	deferredRetries                 []RetrySlotSignal
 	restartPlan                     bool
 	executingHandoffRevision        int64
 	awaitingApprovalHandoffRevision int64
@@ -824,38 +816,7 @@ func (s *workflowUpdateState) register(ctx workflow.Context) error {
 	return workflow.SetUpdateHandlerWithOptions(ctx, updateResumeCommand, s.handleResume, workflow.UpdateHandlerOptions{Validator: s.validateResume})
 }
 
-func (s *workflowUpdateState) startSignalHandlers(
-	ctx workflow.Context,
-	cancelChannel, retryChannel, replaceChannel, approveChannel, recoveryCompletedChannel workflow.ReceiveChannel,
-) {
-	workflow.Go(ctx, func(signalCtx workflow.Context) {
-		for {
-			var signal CancelSignal
-			cancelChannel.Receive(signalCtx, &signal)
-			s.dispatchCancelSignal(signalCtx, signal)
-		}
-	})
-	workflow.Go(ctx, func(signalCtx workflow.Context) {
-		for {
-			var signal RetrySlotSignal
-			retryChannel.Receive(signalCtx, &signal)
-			s.dispatchRetrySignal(signalCtx, signal)
-		}
-	})
-	workflow.Go(ctx, func(signalCtx workflow.Context) {
-		for {
-			var signal ReplacePlanSignal
-			replaceChannel.Receive(signalCtx, &signal)
-			s.dispatchReplaceSignal(signalCtx, signal)
-		}
-	})
-	workflow.Go(ctx, func(signalCtx workflow.Context) {
-		for {
-			var signal ApproveResultsSignal
-			approveChannel.Receive(signalCtx, &signal)
-			s.dispatchApprovalSignal(signalCtx, signal)
-		}
-	})
+func (s *workflowUpdateState) startEffectRecoveryHandler(ctx workflow.Context, recoveryCompletedChannel workflow.ReceiveChannel) {
 	workflow.Go(ctx, func(signalCtx workflow.Context) {
 		for {
 			var signal EffectRecoveryCompletedSignal
@@ -987,69 +948,6 @@ func (s *workflowUpdateState) applyEffectRecoveryCompleted(signal EffectRecovery
 	return true
 }
 
-func (s *workflowUpdateState) dispatchReplaceSignal(ctx workflow.Context, signal ReplacePlanSignal) {
-	if !s.signalCanEnter(signalReplacePlan, signal.RunID, signal.ActorID, signal.ActionID, signal) {
-		return
-	}
-	_, _ = s.handleReplacePlan(ctx, signal)
-}
-
-func (s *workflowUpdateState) dispatchRetrySignal(ctx workflow.Context, signal RetrySlotSignal) {
-	fingerprint, err := updateFingerprint(signalRetrySlot, signal)
-	if err != nil || strings.TrimSpace(signal.ActionID) == "" {
-		return
-	}
-	if !s.signalCanEnterWithFingerprint(signal.RunID, signal.ActorID, signal.ActionID, fingerprint) {
-		return
-	}
-	if validateCommandOwner(*s.input, signal.RunID, signal.ActorID, signal.ActionID) == nil {
-		if _, exists := s.actions[signal.ActionID]; !exists && s.pendingActionID == "" && len(s.actions) < maxActionLedgerEntries &&
-			(s.projection.Status == imageagent.RunStatusPlanning || s.projection.Status == imageagent.RunStatusExecuting) {
-			record := &workflowUpdateRecord{fingerprint: fingerprint, kind: signalRetrySlot, command: signal, phase: updatePhaseRetryExecuteChild, ingressState: signalIngressDeferred}
-			s.actions[signal.ActionID] = record
-			s.deferredRetries = append(s.deferredRetries, signal)
-			return
-		}
-	}
-	_, _ = s.handleRetrySlot(ctx, signal)
-}
-
-func (s *workflowUpdateState) dispatchApprovalSignal(ctx workflow.Context, signal ApproveResultsSignal) {
-	if !s.signalCanEnter(signalApproveResults, signal.RunID, signal.ActorID, signal.ActionID, signal) {
-		return
-	}
-	_, _ = s.handleApproveResults(ctx, signal)
-}
-
-func (s *workflowUpdateState) dispatchCancelSignal(ctx workflow.Context, signal CancelSignal) {
-	if !s.signalCanEnter(signalCancel, signal.RunID, signal.ActorID, signal.ActionID, signal) {
-		return
-	}
-	_, _ = s.handleCancel(ctx, signal)
-}
-
-func (s *workflowUpdateState) signalCanEnter(kind, runID, actorID, actionID string, command interface{}) bool {
-	fingerprint, err := updateFingerprint(kind, command)
-	if err != nil {
-		return false
-	}
-	return s.signalCanEnterWithFingerprint(runID, actorID, actionID, fingerprint)
-}
-
-func (s *workflowUpdateState) signalCanEnterWithFingerprint(runID, actorID, actionID, fingerprint string) bool {
-	if validateCommandOwner(*s.input, runID, actorID, actionID) != nil {
-		return false
-	}
-	if existing := s.actions[actionID]; existing != nil {
-		// Compatibility Signals are ingress-only. An exact pending action can only
-		// be retried through the authenticated resume Update; Signals never resume
-		// a saga or replace its canonical payload.
-		_ = fingerprint
-		return false
-	}
-	return true
-}
-
 func initialActionPhase(kind string) workflowUpdatePhase {
 	switch kind {
 	case signalReplacePlan:
@@ -1063,45 +961,6 @@ func initialActionPhase(kind string) workflowUpdatePhase {
 	default:
 		return ""
 	}
-}
-
-func (s *workflowUpdateState) dispatchDeferredRetries(ctx workflow.Context) bool {
-	deferred := s.deferredRetries
-	s.deferredRetries = nil
-	started := false
-	for _, signal := range deferred {
-		fingerprint, err := updateFingerprint(signalRetrySlot, signal)
-		if err != nil {
-			continue
-		}
-		ingress := s.actions[signal.ActionID]
-		if ingress == nil || ingress.fingerprint != fingerprint || ingress.ingressState != signalIngressDeferred {
-			continue
-		}
-		if s.pendingActionID != "" {
-			ingress.ingressState = signalIngressRejected
-			ingress.command = nil
-			continue
-		}
-		ingress.ingressState = signalIngressAccepted
-		ingress.attempt = 1
-		s.pendingActionID = signal.ActionID
-		if err := s.validateRetrySlotBusiness(signal); err != nil {
-			s.rejectPreparedAction(signal.ActionID, ingress)
-			continue
-		}
-		ingress.businessValidated = true
-		if err := s.startReservedAction(ctx, signal.ActionID, ingress, "promote"); err != nil {
-			started = true // The exact pending action can be resumed after the persistence failure.
-			continue
-		}
-		command := signal
-		workflow.Go(ctx, func(commandCtx workflow.Context) {
-			_, _ = s.handleRetrySlot(commandCtx, command)
-		})
-		started = true
-	}
-	return started
 }
 
 func (s *workflowUpdateState) consumeExecutingHandoff(revision int64) bool {
@@ -1702,7 +1561,7 @@ func (s *workflowUpdateState) prepareAction(ctx workflow.Context, actionID, fing
 		if existing.fingerprint != fingerprint {
 			return nil, false, updateBlockedError("action ID was reused for a different command")
 		}
-		if existing.ingressState == signalIngressRejected || existing.ingressState == signalIngressDeferred || existing.ingressState == signalIngressSuperseded {
+		if existing.ingressState == signalIngressRejected || existing.ingressState == signalIngressSuperseded {
 			return nil, false, updateBlockedError("action ID was already consumed by rejected ingress")
 		}
 		if existing.completed {
@@ -1905,7 +1764,7 @@ func (s *workflowUpdateState) runActionAttempt(ctx workflow.Context, actionID st
 		var acknowledgement CommandAcknowledgement
 		return acknowledgement, record.future.Get(ctx, &acknowledgement)
 	}
-	if record.ingressState == signalIngressRejected || record.ingressState == signalIngressDeferred || record.ingressState == signalIngressSuperseded {
+	if record.ingressState == signalIngressRejected || record.ingressState == signalIngressSuperseded {
 		return CommandAcknowledgement{}, updateBlockedError("action ID is a rejected workflow tombstone")
 	}
 	if s.pendingActionID != actionID {
@@ -2013,7 +1872,7 @@ func (s *workflowUpdateState) validateAction(actionID, fingerprint string) (bool
 		return true, updateBlockedError("action ID was reused for a different command")
 	}
 	if ok {
-		if record.ingressState == signalIngressRejected || record.ingressState == signalIngressDeferred || record.ingressState == signalIngressSuperseded {
+		if record.ingressState == signalIngressRejected || record.ingressState == signalIngressSuperseded {
 			return true, updateBlockedError("action ID was already consumed by rejected ingress")
 		}
 		return true, nil

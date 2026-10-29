@@ -296,9 +296,6 @@ type PersistPendingCommandActivityInput struct {
 	CommandIngress imageagent.CommandIngress
 }
 
-// Legacy activity payloads are frozen wire contracts. Their handlers never
-// write owner-scoped v2 state; they fail with an explicit migration error.
-
 // PublishApprovedV3ActivityInput is a distinct durable-approval wire payload.
 // Task 6 owns its Temporal registration and workflow routing.
 type PublishApprovedV3ActivityInput struct {
@@ -309,6 +306,8 @@ type PublishApprovedV3ActivityInput struct {
 	IdempotencyKey    string
 }
 
+// The four business *Signal values below are current Update wire payloads.
+// Their names, fields and default JSON encoding also define action fingerprints.
 type ApproveResultsSignal struct {
 	Selection    *productasset.ImageSetCommand `json:",omitempty"`
 	RunID        string

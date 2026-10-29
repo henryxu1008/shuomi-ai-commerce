@@ -56,7 +56,7 @@ func TestManualWorkflowExecutesEverySlotIndependently(t *testing.T) {
 	}
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1"))
 	}, time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -163,7 +163,7 @@ func TestManualWorkflowReplacesBlockedPlanAtExactRevision(t *testing.T) {
 	})).Return(nil).Once()
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalReplacePlan, ReplacePlanSignal{
+		requireWorkflowUpdate(t, env, signalReplacePlan, ReplacePlanSignal{
 			RunID: "run-1", ExpectedRevision: 1, Plan: replacement,
 			ActorID: "user-a", ActionID: "replace-1",
 		})
@@ -175,7 +175,7 @@ func TestManualWorkflowReplacesBlockedPlanAtExactRevision(t *testing.T) {
 		require.NoError(t, encoded.Get(&projection))
 		require.EqualValues(t, 2, projection.Plan.Revision)
 		require.Equal(t, imageagent.RunStatusAwaitingFinalApproval, projection.Status)
-		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
+		requireWorkflowUpdate(t, env, signalApproveResults, ApproveResultsSignal{
 			RunID: "run-1", PlanRevision: 2, ResultDigest: projection.ResultDigest,
 			ActorID: "user-a", ActionID: "approve-replacement",
 		})
@@ -249,12 +249,12 @@ func TestManualWorkflowReplaceUpdatesRejectLostCommandWindowAndAckAfterPersisten
 		}, second)
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
+		requireWorkflowUpdate(t, env, signalApproveResults, ApproveResultsSignal{
 			RunID: "run-1", PlanRevision: 2, ResultDigest: successfulPlanDigest(replacement), ActorID: "user-a", ActionID: "approve-replacement-update",
 		})
 	}, 3*time.Minute)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "red-cleanup"})
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "red-cleanup"})
 	}, 4*time.Minute)
 	input := manualWorkflowInput(initial)
 	input.WaitForCommands = true
@@ -342,15 +342,7 @@ func TestManualWorkflowReplaceUpdateResumesAfterRunTransitionFailure(t *testing.
 			OnComplete: func(_ interface{}, err error) { competingErr = err },
 		}, competing)
 	}, 2*time.Second)
-	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalReplacePlan, command)
-		conflictingReuse := command
-		conflictingReuse.Plan.IdempotencyKey = "signal-conflicting-plan-key"
-		env.SignalWorkflow(signalReplacePlan, conflictingReuse)
-		competing := command
-		competing.ActionID = "replace-signal-competing"
-		env.SignalWorkflow(signalReplacePlan, competing)
-	}, 2500*time.Millisecond)
+
 	env.RegisterDelayedCallback(func() {
 		env.UpdateWorkflow(updateResumeCommand, "replace-resume-second", &testsuite.TestUpdateCallback{
 			OnReject: func(err error) { resumedErr = err }, OnAccept: func() {},
@@ -366,7 +358,7 @@ func TestManualWorkflowReplaceUpdateResumesAfterRunTransitionFailure(t *testing.
 		}, ResumeCommandInput{RunID: "run-1", ActorID: "user-a", ActionID: command.ActionID})
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
+		requireWorkflowUpdate(t, env, signalApproveResults, ApproveResultsSignal{
 			RunID: "run-1", PlanRevision: 2, ResultDigest: successfulPlanDigest(replacement),
 			ActorID: "user-a", ActionID: "approve-replaced-plan",
 		})
@@ -450,10 +442,10 @@ func TestManualWorkflowRetryUpdatesRejectLostCommandWindowAndAckAfterProjectionP
 		}, second)
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-update", successfulRetryDigest()))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-after-retry-update", successfulRetryDigest()))
 	}, 3*time.Minute)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "retry-red-cleanup"})
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "retry-red-cleanup"})
 	}, 4*time.Minute)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -559,15 +551,7 @@ func TestManualWorkflowRetryUpdateResumesWithoutRerunningProviderAfterPersistenc
 			OnReject: func(err error) { wrongActionErr = err }, OnAccept: func() {}, OnComplete: func(_ interface{}, err error) { wrongActionErr = err },
 		}, ResumeCommandInput{RunID: "run-1", ActorID: "user-a", ActionID: "unknown-action"})
 	}, 2200*time.Millisecond)
-	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalRetrySlot, command)
-		conflictingReuse := command
-		conflictingReuse.SlotID = "slot-1"
-		env.SignalWorkflow(signalRetrySlot, conflictingReuse)
-		competing := command
-		competing.ActionID = "retry-signal-competing"
-		env.SignalWorkflow(signalRetrySlot, competing)
-	}, 2500*time.Millisecond)
+
 	env.RegisterDelayedCallback(func() {
 		env.UpdateWorkflow(updateResumeCommand, "retry-resume-new-client", &testsuite.TestUpdateCallback{
 			OnReject: func(err error) { resumedErr = err }, OnAccept: func() {},
@@ -584,7 +568,7 @@ func TestManualWorkflowRetryUpdateResumesWithoutRerunningProviderAfterPersistenc
 		}, ResumeCommandInput{RunID: "run-1", ActorID: "user-a", ActionID: "retry-resume"})
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-resume", successfulRetryDigest()))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-after-retry-resume", successfulRetryDigest()))
 	}, 4*time.Second)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -646,10 +630,9 @@ func TestManualWorkflowMixedCommandsAtOneTickReserveExactlyOnePendingOwner(t *te
 		env.UpdateWorkflow(signalCancel, "cancel-competing-update", &testsuite.TestUpdateCallback{
 			OnReject: func(err error) { cancelErr = err }, OnAccept: func() {}, OnComplete: func(_ interface{}, err error) { cancelErr = err },
 		}, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-competing"})
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-competing-signal", successfulRetryDigest()))
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-single-owner", successfulRetryDigest()))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-after-single-owner", successfulRetryDigest()))
 	}, 3*time.Minute)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -719,7 +702,7 @@ func TestManualWorkflowUpdateActionIDIsIdempotentAndRejectsConflictingReuse(t *t
 		}, conflict)
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "idempotency-cleanup"})
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "idempotency-cleanup"})
 	}, 4*time.Second)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -1138,7 +1121,7 @@ func TestV3ProviderUnknownDeniesDirectRetry(t *testing.T) {
 		}, retry)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-v3-retry-test"})
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-v3-retry-test"})
 	}, 2*time.Second)
 	input := manualWorkflowInput(sevenSlotPlan())
 	input.WaitForCommands = true
@@ -1533,7 +1516,7 @@ func TestManualWorkflowWaitsForFinalApprovalBeforePublishing(t *testing.T) {
 		Once()
 	env.RegisterDelayedCallback(func() {
 		require.Equal(t, 0, publishedCalls)
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1"))
 	}, time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -1591,7 +1574,7 @@ func TestManualWorkflowApprovalUpdateRequiresCanonicalDigestAndAcksAfterPublicat
 		}, validApproval("approve-update-1"))
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approval-red-cleanup"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approval-red-cleanup"))
 	}, 4*time.Minute)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -1655,15 +1638,7 @@ func TestManualWorkflowApprovalUpdateResumesAfterCompletedStateFailureWithoutRep
 			OnComplete: func(_ interface{}, err error) { conflictingErr = err },
 		}, conflict)
 	}, 2*time.Second)
-	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, command)
-		conflictingReuse := command
-		conflictingReuse.ResultDigest = "different-digest"
-		env.SignalWorkflow(signalApproveResults, conflictingReuse)
-		competing := command
-		competing.ActionID = "approve-signal-competing"
-		env.SignalWorkflow(signalApproveResults, competing)
-	}, 2500*time.Millisecond)
+
 	env.RegisterDelayedCallback(func() {
 		env.UpdateWorkflow(updateResumeCommand, "approve-resume-second", &testsuite.TestUpdateCallback{
 			OnReject: func(err error) { resumedErr = err }, OnAccept: func() {},
@@ -1810,8 +1785,8 @@ func TestManualWorkflowDuplicateApprovalPublishesOnceWithStableKey(t *testing.T)
 			requireCandidateIDs(in.CandidateAssetIDs, plan)
 	})).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1"))
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1"))
 	}, time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -1833,21 +1808,21 @@ func TestManualWorkflowIgnoresApprovalForStaleRevision(t *testing.T) {
 	stale := validApproval("approve-stale")
 	stale.PlanRevision = 2
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, stale)
+		requireFailedWorkflowUpdate(t, env, signalApproveResults, stale)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-stale"))
+		requireFailedWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-stale"))
 	}, 1500*time.Millisecond)
 	env.RegisterDelayedCallback(func() {
 		require.Zero(t, published)
 		freshSent = true
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1"))
 	}, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
 
 	require.NoError(t, env.GetWorkflowError())
-	require.True(t, freshSent, "a stale legacy approval action ID must remain consumed after its revision is corrected")
+	require.True(t, freshSent, "a handler-rejected approval action ID must remain consumed after its revision is corrected")
 	require.Equal(t, 1, published)
 }
 
@@ -1863,55 +1838,97 @@ func TestManualWorkflowRejectsEarlyApprovalEvenWhenLaterResent(t *testing.T) {
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 	early := validApproval("approve-too-early")
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, early)
+		requireFailedWorkflowUpdate(t, env, signalApproveResults, early)
 	}, 0)
 	env.RegisterDelayedCallback(func() {
 		require.Zero(t, published)
-		env.SignalWorkflow(signalApproveResults, early)
+		requireFailedWorkflowUpdate(t, env, signalApproveResults, early)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
 		require.Zero(t, published)
 		freshSent = true
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-review"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-after-review"))
 	}, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
 
 	require.NoError(t, env.GetWorkflowError())
-	require.True(t, freshSent, "the rejected legacy action ID must not complete the workflow before the fresh approval")
+	require.True(t, freshSent, "the handler-rejected action ID must not complete the workflow before the fresh approval")
 	require.Equal(t, 1, published)
 }
 
-func TestManualWorkflowRejectedLegacySignalTombstonesWorkflowUpdateActionID(t *testing.T) {
-	env := newWorkflowEnv(t)
-	plan := sevenSlotPlan()
-	for _, slot := range plan.Slots {
-		slot := slot
-		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+func TestRetiredBusinessSignalsCannotActOrConsumeUpdateActionID(t *testing.T) {
+	const actionID = "retired-signal-shared-action"
+	replacement := sevenSlotPlan()
+	replacement.Revision, replacement.ParentRevision = 2, 1
+	replacement.IdempotencyKey = "retired-replacement"
+	for _, tt := range []struct {
+		name    string
+		command interface{}
+	}{
+		{signalApproveResults, validApproval(actionID)},
+		{signalRetrySlot, RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: actionID}},
+		{signalReplacePlan, ReplacePlanSignal{RunID: "run-1", ExpectedRevision: 1, Plan: replacement, ActorID: "user-a", ActionID: actionID}},
+		{signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: actionID}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newWorkflowEnv(t)
+			plan := sevenSlotPlan()
+			for _, slot := range plan.Slots {
+				env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+			}
+			published, planWrites, commandWrites := 0, 0, 0
+			env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+			env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).Run(func(mock.Arguments) { planWrites++ }).Return(nil).Maybe()
+			env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.Anything).Run(func(mock.Arguments) { commandWrites++ }).Return(nil)
+			var before WorkflowResult
+			var beforeJSON []byte
+			accepted, completed := false, false
+			env.RegisterDelayedCallback(func() { env.SignalWorkflow(tt.name, tt.command) }, 0)
+			env.RegisterDelayedCallback(func() {
+				encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
+				require.NoError(t, err)
+				require.NoError(t, encoded.Get(&before))
+				require.Equal(t, imageagent.RunStatusAwaitingFinalApproval, before.Status)
+				require.EqualValues(t, 1, before.Plan.Revision)
+				require.Zero(t, before.CommandIngress.Used)
+				require.Nil(t, before.PendingCommand)
+				beforeJSON, err = json.Marshal(before)
+				require.NoError(t, err)
+				env.SignalWorkflow(tt.name, tt.command)
+			}, time.Second)
+			env.RegisterDelayedCallback(func() {
+				encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
+				require.NoError(t, err)
+				var after WorkflowResult
+				require.NoError(t, encoded.Get(&after))
+				afterJSON, err := json.Marshal(after)
+				require.NoError(t, err)
+				require.Equal(t, string(beforeJSON), string(afterJSON), "retired Signals must not change current state after a phase change")
+				require.Zero(t, published)
+				require.Zero(t, planWrites)
+				require.Zero(t, commandWrites)
+				env.UpdateWorkflow(signalApproveResults, "current-update-after-retired-signal", &testsuite.TestUpdateCallback{
+					OnReject:   func(err error) { require.NoError(t, err) },
+					OnAccept:   func() { accepted = true },
+					OnComplete: func(_ interface{}, err error) { require.NoError(t, err); completed = true },
+				}, validApproval(actionID))
+			}, 2*time.Second)
+			input := manualWorkflowInput(plan)
+			input.WaitForCommands = true
+			env.ExecuteWorkflow(ImageAgentWorkflow, input)
+			require.NoError(t, env.GetWorkflowError())
+			require.True(t, accepted)
+			require.True(t, completed)
+			require.Equal(t, 1, published)
+			require.Zero(t, planWrites)
+			var result WorkflowResult
+			require.NoError(t, env.GetWorkflowResult(&result))
+			require.Equal(t, imageagent.RunStatusCompleted, result.Status)
+			require.Len(t, result.CompletedSlotIDs, len(plan.Slots))
+			env.AssertExpectations(t)
+		})
 	}
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
-	command := validApproval("approval-shared-with-update")
-	var rejected error
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, command) }, 0)
-	env.RegisterDelayedCallback(func() {
-		env.UpdateWorkflow(signalApproveResults, "approval-after-rejected-signal", &testsuite.TestUpdateCallback{
-			OnReject:   func(err error) { rejected = err },
-			OnAccept:   func() {},
-			OnComplete: func(_ interface{}, err error) { rejected = err },
-		}, command)
-	}, time.Second)
-	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approval-fresh-after-tombstone"))
-	}, 2*time.Second)
-
-	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
-
-	require.NoError(t, env.GetWorkflowError())
-	require.Error(t, rejected)
-	var result WorkflowResult
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, imageagent.RunStatusCompleted, result.Status)
-	env.AssertExpectations(t)
 }
 
 func TestManualWorkflowRejectsApprovalQueuedWhileBlocked(t *testing.T) {
@@ -1934,30 +1951,30 @@ func TestManualWorkflowRejectsApprovalQueuedWhileBlocked(t *testing.T) {
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 	blockedApproval := validApproval("approve-while-blocked", successfulRetryDigest())
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, blockedApproval)
+		requireFailedWorkflowUpdate(t, env, signalApproveResults, blockedApproval)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalRetrySlot, RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-after-blocked-approval"})
+		requireWorkflowUpdate(t, env, signalRetrySlot, RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-after-blocked-approval"})
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
 		require.Zero(t, published)
-		env.SignalWorkflow(signalApproveResults, blockedApproval)
+		requireFailedWorkflowUpdate(t, env, signalApproveResults, blockedApproval)
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
 		require.Zero(t, published)
 		freshSent = true
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-review", successfulRetryDigest()))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-after-review", successfulRetryDigest()))
 	}, 4*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
 
 	require.NoError(t, env.GetWorkflowError())
-	require.True(t, freshSent, "the blocked legacy action ID must not complete the workflow before the fresh approval")
+	require.True(t, freshSent, "the handler-rejected blocked approval action ID must not complete the workflow before the fresh approval")
 	require.Equal(t, 1, published)
 	env.AssertExpectations(t)
 }
 
-func TestManualWorkflowConsumesRejectedReplaceSignalActionID(t *testing.T) {
+func TestManualWorkflowConsumesHandlerRejectedReplaceUpdateActionID(t *testing.T) {
 	env := newWorkflowEnv(t)
 	initial := sevenSlotPlan()
 	replacement := sevenSlotPlan()
@@ -1985,8 +2002,8 @@ func TestManualWorkflowConsumesRejectedReplaceSignalActionID(t *testing.T) {
 	}
 	oldActionApplied := false
 	freshSent := false
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalReplacePlan, rejected) }, 0)
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalReplacePlan, rejected) }, time.Second)
+	env.RegisterDelayedCallback(func() { requireFailedWorkflowUpdate(t, env, signalReplacePlan, rejected) }, 0)
+	env.RegisterDelayedCallback(func() { requireFailedWorkflowUpdate(t, env, signalReplacePlan, rejected) }, time.Second)
 	env.RegisterDelayedCallback(func() {
 		encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
 		require.NoError(t, err)
@@ -1996,14 +2013,14 @@ func TestManualWorkflowConsumesRejectedReplaceSignalActionID(t *testing.T) {
 		fresh := rejected
 		fresh.ActionID = "replace-after-block"
 		freshSent = true
-		env.SignalWorkflow(signalReplacePlan, fresh)
+		requireWorkflowUpdate(t, env, signalReplacePlan, fresh)
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
 		encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
 		require.NoError(t, err)
 		var projection WorkflowResult
 		require.NoError(t, encoded.Get(&projection))
-		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
+		requireWorkflowUpdate(t, env, signalApproveResults, ApproveResultsSignal{
 			RunID: "run-1", PlanRevision: 2, ResultDigest: projection.ResultDigest,
 			ActorID: "user-a", ActionID: "approve-replacement-after-tombstone",
 		})
@@ -2015,7 +2032,7 @@ func TestManualWorkflowConsumesRejectedReplaceSignalActionID(t *testing.T) {
 
 	require.NoError(t, env.GetWorkflowError())
 	require.True(t, freshSent)
-	require.False(t, oldActionApplied, "a replacement Signal rejected before blocked must remain consumed")
+	require.False(t, oldActionApplied, "a replacement Update rejected by its handler before blocked must remain consumed")
 	require.Equal(t, 1, planWrites)
 	var result WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
@@ -2024,7 +2041,7 @@ func TestManualWorkflowConsumesRejectedReplaceSignalActionID(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
-func TestManualWorkflowWrongActorRetrySignalDoesNotPoisonActionID(t *testing.T) {
+func TestManualWorkflowWrongActorRetryUpdateDoesNotPoisonActionID(t *testing.T) {
 	env := newWorkflowEnv(t)
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
@@ -2045,11 +2062,11 @@ func TestManualWorkflowWrongActorRetrySignalDoesNotPoisonActionID(t *testing.T) 
 	}
 	oldActionApplied := false
 	freshSent := false
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalRetrySlot, rejected) }, time.Second)
+	env.RegisterDelayedCallback(func() { requireRejectedWorkflowUpdate(t, env, signalRetrySlot, rejected) }, time.Second)
 	env.RegisterDelayedCallback(func() {
 		corrected := rejected
 		corrected.ActorID = "user-a"
-		env.SignalWorkflow(signalRetrySlot, corrected)
+		requireWorkflowUpdate(t, env, signalRetrySlot, corrected)
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
 		oldActionApplied = providerRetryCalls != 0
@@ -2057,10 +2074,10 @@ func TestManualWorkflowWrongActorRetrySignalDoesNotPoisonActionID(t *testing.T) 
 		fresh.ActorID = "user-a"
 		fresh.ActionID = "retry-fresh-action"
 		freshSent = true
-		env.SignalWorkflow(signalRetrySlot, fresh)
+		requireRejectedWorkflowUpdate(t, env, signalRetrySlot, fresh)
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-tombstone", successfulRetryDigest()))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-after-retry-tombstone", successfulRetryDigest()))
 	}, 4*time.Second)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -2104,20 +2121,20 @@ func TestManualWorkflowReplacementRejectsAssetsOutsideImmutableCatalogAndConsume
 	command := ReplacePlanSignal{
 		RunID: "run-1", ExpectedRevision: 1, Plan: unauthorized, ActorID: "user-a", ActionID: "replace-unauthorized",
 	}
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalReplacePlan, command) }, time.Second)
+	env.RegisterDelayedCallback(func() { requireFailedWorkflowUpdate(t, env, signalReplacePlan, command) }, time.Second)
 	env.RegisterDelayedCallback(func() {
 		correctedSameID := command
 		correctedSameID.Plan = validReplacement
-		env.SignalWorkflow(signalReplacePlan, correctedSameID)
+		requireFailedWorkflowUpdate(t, env, signalReplacePlan, correctedSameID)
 	}, 1500*time.Millisecond)
 	env.RegisterDelayedCallback(func() {
 		fresh := command
 		fresh.ActionID = "replace-authorized"
 		fresh.Plan = validReplacement
-		env.SignalWorkflow(signalReplacePlan, fresh)
+		requireWorkflowUpdate(t, env, signalReplacePlan, fresh)
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
+		requireWorkflowUpdate(t, env, signalApproveResults, ApproveResultsSignal{
 			RunID: "run-1", PlanRevision: 2, ResultDigest: successfulPlanDigest(validReplacement), ActorID: "user-a", ActionID: "approve-authorized-replacement",
 		})
 	}, 3*time.Second)
@@ -2214,15 +2231,19 @@ func TestManualWorkflowRejectsApprovalWithWrongActorOrDigest(t *testing.T) {
 			invalid := validApproval("approve-invalid")
 			test.mutate(&invalid)
 			env.RegisterDelayedCallback(func() {
-				env.SignalWorkflow(signalApproveResults, invalid)
+				requireFailedWorkflowUpdate(t, env, signalApproveResults, invalid)
 			}, time.Second)
 			env.RegisterDelayedCallback(func() {
-				env.SignalWorkflow(signalApproveResults, validApproval("approve-invalid"))
+				if test.expectTombstoned {
+					requireFailedWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-invalid"))
+				} else {
+					requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-invalid"))
+				}
 			}, 1500*time.Millisecond)
 			env.RegisterDelayedCallback(func() {
 				require.Zero(t, published)
 				freshSent = true
-				env.SignalWorkflow(signalApproveResults, validApproval("approve-valid"))
+				requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-valid"))
 			}, 2*time.Second)
 
 			env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -2252,7 +2273,7 @@ func TestManualWorkflowExposesFinalResultDigestWhileAwaitingApproval(t *testing.
 		require.Equal(t, sevenSlotResultDigest, projection.ResultDigest)
 		require.Equal(t, plan, projection.Plan)
 		require.Len(t, projection.Slots, len(plan.Slots))
-		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
+		requireWorkflowUpdate(t, env, signalApproveResults, ApproveResultsSignal{
 			RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "approve-query-result", ResultDigest: projection.ResultDigest,
 		})
 	}, time.Second)
@@ -2265,7 +2286,7 @@ func TestManualWorkflowExposesFinalResultDigestWhileAwaitingApproval(t *testing.
 	require.Equal(t, sevenSlotResultDigest, result.ResultDigest)
 }
 
-func TestManualWorkflowDuplicateRetrySignalCreatesOneNewAttempt(t *testing.T) {
+func TestManualWorkflowDuplicateRetryUpdateCreatesOneNewAttempt(t *testing.T) {
 	env := newWorkflowEnv(t)
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
@@ -2284,15 +2305,28 @@ func TestManualWorkflowDuplicateRetrySignalCreatesOneNewAttempt(t *testing.T) {
 	}
 	retry := RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-scene-2-1"}
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalRetrySlot, retry)
-		env.SignalWorkflow(signalRetrySlot, retry)
+		requireRejectedWorkflowUpdate(t, env, signalRetrySlot, retry)
+		requireRejectedWorkflowUpdate(t, env, signalRetrySlot, retry)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
+		encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
+		require.NoError(t, err)
+		var projection WorkflowResult
+		require.NoError(t, encoded.Get(&projection))
+		require.Equal(t, imageagent.RunStatusBlocked, projection.Status)
+		require.Zero(t, projection.CommandIngress.Used, "early Update rejection must neither queue work nor consume the business action ID")
+		require.Nil(t, projection.PendingCommand)
+		requireWorkflowUpdate(t, env, signalRetrySlot, retry)
+		requireWorkflowUpdate(t, env, signalRetrySlot, retry)
+	}, 61*time.Second)
+	env.RegisterDelayedCallback(func() {
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
 	}, 3*time.Minute)
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 
-	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
+	input := manualWorkflowInput(plan)
+	input.WaitForCommands = true
+	env.ExecuteWorkflow(ImageAgentWorkflow, input)
 
 	require.NoError(t, env.GetWorkflowError())
 	var result WorkflowResult
@@ -2301,7 +2335,7 @@ func TestManualWorkflowDuplicateRetrySignalCreatesOneNewAttempt(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
-func TestManualWorkflowRemainsDurableWhileBlockedForLaterRetrySignal(t *testing.T) {
+func TestManualWorkflowRemainsDurableWhileBlockedForLaterRetryUpdate(t *testing.T) {
 	env := newWorkflowEnv(t)
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
@@ -2318,10 +2352,10 @@ func TestManualWorkflowRemainsDurableWhileBlockedForLaterRetrySignal(t *testing.
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalRetrySlot, RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-after-block"})
+		requireWorkflowUpdate(t, env, signalRetrySlot, RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-after-block"})
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
 	}, 2*time.Second)
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -2334,7 +2368,7 @@ func TestManualWorkflowRemainsDurableWhileBlockedForLaterRetrySignal(t *testing.
 	env.AssertExpectations(t)
 }
 
-func TestManualWorkflowRejectsRetrySignalFromDifferentActor(t *testing.T) {
+func TestManualWorkflowRejectsRetryUpdateFromDifferentActor(t *testing.T) {
 	env := newWorkflowEnv(t)
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
@@ -2350,7 +2384,7 @@ func TestManualWorkflowRejectsRetrySignalFromDifferentActor(t *testing.T) {
 		}
 	}
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalRetrySlot, RetrySlotSignal{
+		requireRejectedWorkflowUpdate(t, env, signalRetrySlot, RetrySlotSignal{
 			RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "attacker", ActionID: "spoofed-retry",
 		})
 	}, time.Second)
@@ -2365,7 +2399,7 @@ func TestManualWorkflowRejectsRetrySignalFromDifferentActor(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
-func TestManualWorkflowRejectsCancelSignalFromDifferentActor(t *testing.T) {
+func TestManualWorkflowRejectsCancelUpdateFromDifferentActor(t *testing.T) {
 	env := newWorkflowEnv(t)
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
@@ -2374,10 +2408,10 @@ func TestManualWorkflowRejectsCancelSignalFromDifferentActor(t *testing.T) {
 	}
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "attacker", ActionID: "spoofed-cancel"})
+		requireFailedWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "attacker", ActionID: "spoofed-cancel"})
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-spoofed-cancel"))
+		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-after-spoofed-cancel"))
 	}, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -2389,7 +2423,7 @@ func TestManualWorkflowRejectsCancelSignalFromDifferentActor(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
-func TestManualWorkflowWrongActorCancelSignalDoesNotPoisonActionID(t *testing.T) {
+func TestManualWorkflowWrongActorCancelUpdateDoesNotPoisonActionID(t *testing.T) {
 	env := newWorkflowEnv(t)
 	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	plan := sevenSlotPlan()
@@ -2399,18 +2433,18 @@ func TestManualWorkflowWrongActorCancelSignalDoesNotPoisonActionID(t *testing.T)
 		After(10*time.Minute).Return(successfulSlotResult("slot-1", 1), nil).Once()
 	rejected := CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "attacker", ActionID: "cancel-rejected-actor"}
 	freshSent := false
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalCancel, rejected) }, 0)
+	env.RegisterDelayedCallback(func() { requireFailedWorkflowUpdate(t, env, signalCancel, rejected) }, 0)
 	env.RegisterDelayedCallback(func() {
 		corrected := rejected
 		corrected.ActorID = "user-a"
-		env.SignalWorkflow(signalCancel, corrected)
+		requireWorkflowUpdate(t, env, signalCancel, corrected)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
 		fresh := rejected
 		fresh.ActorID = "user-a"
 		fresh.ActionID = "cancel-fresh-action"
 		freshSent = true
-		env.SignalWorkflow(signalCancel, fresh)
+		requireWorkflowUpdate(t, env, signalCancel, fresh)
 	}, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -2423,7 +2457,7 @@ func TestManualWorkflowWrongActorCancelSignalDoesNotPoisonActionID(t *testing.T)
 	env.AssertExpectations(t)
 }
 
-func TestManualWorkflowDrainsQueuedDuplicateCancelBeforeStartingChildren(t *testing.T) {
+func TestManualWorkflowAcceptsDuplicateCancelUpdatesBeforeStartingChildren(t *testing.T) {
 	env := newWorkflowEnv(t)
 	input := manualWorkflowInput(sevenSlotPlan())
 	started := 0
@@ -2436,8 +2470,8 @@ func TestManualWorkflowDrainsQueuedDuplicateCancelBeforeStartingChildren(t *test
 	}).Return(nil)
 	cancel := CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-before-start"}
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, cancel)
-		env.SignalWorkflow(signalCancel, cancel)
+		requireWorkflowUpdate(t, env, signalCancel, cancel)
+		requireWorkflowUpdate(t, env, signalCancel, cancel)
 	}, 0)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -2479,7 +2513,7 @@ func TestManualWorkflowSerializesCancelAfterInFlightParentTransition(t *testing.
 		persisted = append(persisted, imageagent.RunStatusCancelled)
 	}).Return(nil).Once()
 	cancel := CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-during-executing-persist"}
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalCancel, cancel) }, 0)
+	env.RegisterDelayedCallback(func() { requireWorkflowUpdate(t, env, signalCancel, cancel) }, 0)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
 
@@ -2526,7 +2560,7 @@ func TestManualWorkflowCancellationStartsNoThirdChildAndKeepsCompletedSibling(t 
 		}).
 		Return(nil)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-1"})
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-1"})
 	}, 61*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -2606,7 +2640,7 @@ func TestManualWorkflowV3CancellationWaitsForStartedSlotFinalization(t *testing.
 	)
 	env.RegisterDelayedCallback(func() {
 		require.True(t, childStarted.Load())
-		env.SignalWorkflow(signalCancel, CancelSignal{
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{
 			RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-after-provider-dispatch",
 		})
 	}, time.Second)
@@ -3279,7 +3313,7 @@ func TestManualWorkflowCancelUpdateAcksAfterCancelledProjectionPersistence(t *te
 		}, cancelUpdate)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-red-cleanup"})
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-red-cleanup"})
 	}, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -3386,14 +3420,7 @@ func TestManualWorkflowCancelUpdateResumesAfterTerminalPersistenceFailure(t *tes
 			OnComplete: func(_ interface{}, err error) { conflictingErr = err },
 		}, conflict)
 	}, 2100*time.Millisecond)
-	env.RegisterDelayedCallback(func() {
-		conflictingReuse := command
-		conflictingReuse.PlanRevision = 2
-		env.SignalWorkflow(signalCancel, conflictingReuse)
-		competing := command
-		competing.ActionID = "cancel-signal-competing"
-		env.SignalWorkflow(signalCancel, competing)
-	}, 2200*time.Millisecond)
+
 	env.RegisterDelayedCallback(func() {
 		env.UpdateWorkflow(signalCancel, "cancel-resume-second", &testsuite.TestUpdateCallback{
 			OnReject: func(err error) { resumedErr = err }, OnAccept: func() {},
@@ -3541,7 +3568,7 @@ func TestSlotWorkflowUsesTemporalTechnicalRetryWithoutChangingSemanticAttempt(t 
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1")) }, 2*time.Second)
+	env.RegisterDelayedCallback(func() { requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1")) }, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
 
@@ -3604,7 +3631,7 @@ func TestManualWorkflowQueryRecoversPersistedPartialSlotProgress(t *testing.T) {
 		require.Equal(t, imageagent.SlotStatusPending, projection.Slots[1].Slot.Status)
 	}, 61*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{
 			RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-after-query",
 		})
 	}, 62*time.Second)
@@ -3653,7 +3680,7 @@ func TestManualWorkflowBoundsConcurrentSlotChildren(t *testing.T) {
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).After(time.Minute).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1")) }, 5*time.Minute)
+	env.RegisterDelayedCallback(func() { requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1")) }, 5*time.Minute)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
 
@@ -3917,7 +3944,7 @@ func TestManualWorkflowReplacePathUsesRealProjectionActivityAndRepository(t *tes
 	replacement.ParentRevision = 1
 	replacement.IdempotencyKey = "plan-key-real-replace-2"
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalReplacePlan, ReplacePlanSignal{
+		requireWorkflowUpdate(t, env, signalReplacePlan, ReplacePlanSignal{
 			RunID: run.ID, ExpectedRevision: 1, Plan: replacement, ActorID: identity.UserID, ActionID: "replace-real-activity",
 		})
 	}, time.Second)
@@ -3926,7 +3953,7 @@ func TestManualWorkflowReplacePathUsesRealProjectionActivityAndRepository(t *tes
 		require.NoError(t, queryErr)
 		var projection WorkflowResult
 		require.NoError(t, encoded.Get(&projection))
-		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
+		requireWorkflowUpdate(t, env, signalApproveResults, ApproveResultsSignal{
 			RunID: run.ID, PlanRevision: 2, ResultDigest: projection.ResultDigest, ActorID: identity.UserID, ActionID: "approve-real-replacement",
 		})
 	}, 2*time.Second)
@@ -4234,7 +4261,6 @@ func TestTemporalClientRetryWaitsForAcceptedWhileOtherCommandsWaitForCompleted(t
 		require.Len(t, options.Args, 1)
 	}
 	require.Equal(t, 3, raw.updateGetCalls)
-	require.Empty(t, raw.signalName)
 }
 
 func TestTemporalClientUsesUniqueTransportUpdateIDForEachResumeAttempt(t *testing.T) {
@@ -4399,6 +4425,47 @@ func workflowTestErrorString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+var testCommandUpdateSequence atomic.Uint64
+
+func requireWorkflowUpdate(t *testing.T, env *testsuite.TestWorkflowEnvironment, name string, command interface{}) {
+	t.Helper()
+	accepted, completed := false, false
+	env.UpdateWorkflow(name, fmt.Sprintf("test-command-%d", testCommandUpdateSequence.Add(1)), &testsuite.TestUpdateCallback{
+		OnReject:   func(err error) { require.NoError(t, err, "current command must be accepted") },
+		OnAccept:   func() { accepted = true },
+		OnComplete: func(_ interface{}, err error) { require.NoError(t, err); completed = true },
+	}, command)
+	t.Cleanup(func() {
+		require.True(t, accepted, "Update must be accepted")
+		require.True(t, completed, "Update must complete")
+	})
+}
+
+func requireFailedWorkflowUpdate(t *testing.T, env *testsuite.TestWorkflowEnvironment, name string, command interface{}) {
+	t.Helper()
+	accepted, completed := false, false
+	env.UpdateWorkflow(name, fmt.Sprintf("test-command-%d", testCommandUpdateSequence.Add(1)), &testsuite.TestUpdateCallback{
+		OnReject:   func(err error) { require.NoError(t, err, "shape-valid command must reach its handler") },
+		OnAccept:   func() { accepted = true },
+		OnComplete: func(_ interface{}, err error) { require.Error(t, err); completed = true },
+	}, command)
+	t.Cleanup(func() {
+		require.True(t, accepted, "handler rejection must follow acceptance")
+		require.True(t, completed, "handler must return the rejection")
+	})
+}
+
+func requireRejectedWorkflowUpdate(t *testing.T, env *testsuite.TestWorkflowEnvironment, name string, command interface{}) {
+	t.Helper()
+	rejected := false
+	env.UpdateWorkflow(name, fmt.Sprintf("test-command-%d", testCommandUpdateSequence.Add(1)), &testsuite.TestUpdateCallback{
+		OnReject:   func(err error) { require.Error(t, err); rejected = true },
+		OnAccept:   func() { t.Error("invalid command must be rejected before acceptance") },
+		OnComplete: func(_ interface{}, _ error) { t.Error("validator-rejected command must not run a handler") },
+	}, command)
+	t.Cleanup(func() { require.True(t, rejected, "validator rejection must be observed") })
 }
 
 func newWorkflowEnv(t *testing.T) *testsuite.TestWorkflowEnvironment {
@@ -4661,9 +4728,6 @@ type recordingSDKClient struct {
 	workflowName        string
 	workflowInput       WorkflowInput
 	effectRecoveryInput EffectRecoveryWorkflowInput
-	signalWorkflowID    string
-	signalName          string
-	signalArg           interface{}
 	queryWorkflowID     string
 	queryType           string
 	queryValue          imageagent.WorkflowProjection
@@ -4687,13 +4751,6 @@ func (c *recordingSDKClient) ExecuteWorkflow(_ context.Context, options sdkclien
 		}
 	}
 	return nil, nil
-}
-
-func (c *recordingSDKClient) SignalWorkflow(_ context.Context, workflowID, _ string, signalName string, arg interface{}) error {
-	c.signalWorkflowID = workflowID
-	c.signalName = signalName
-	c.signalArg = arg
-	return nil
 }
 
 func (c *recordingSDKClient) QueryWorkflow(_ context.Context, workflowID, _ string, queryType string, _ ...interface{}) (sdkconverter.EncodedValue, error) {

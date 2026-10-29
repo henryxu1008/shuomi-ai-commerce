@@ -23,7 +23,6 @@ import (
 type sdkWorkflowClient interface {
 	ExecuteWorkflow(context.Context, sdkclient.StartWorkflowOptions, interface{}, ...interface{}) (sdkclient.WorkflowRun, error)
 	QueryWorkflow(context.Context, string, string, string, ...interface{}) (sdkconverter.EncodedValue, error)
-	SignalWorkflow(context.Context, string, string, string, interface{}) error
 	UpdateWorkflow(context.Context, sdkclient.UpdateWorkflowOptions) (sdkclient.WorkflowUpdateHandle, error)
 }
 
