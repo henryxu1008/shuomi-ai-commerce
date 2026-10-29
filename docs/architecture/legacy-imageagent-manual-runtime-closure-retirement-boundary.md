@@ -48,6 +48,8 @@ Must：当前图组/Artwork、采集单主图、组织隔离、真实授权、JS
 
 **根因不是某个 v2 字符串。** 同一个 resolver/Activities 构造器混合旧执行、组织生成和 canary；NewActivities 甚至在当前 V3 路径强制要求旧 SlotExternalEffectRepository / one-shot SlotExecutor / Publisher。只删入口会留下失去最后消费者的 ledger/DTO，直接删整包则破坏当前业务。实施应先解除当前构造对旧端口的强制依赖，再按闭包删除；不得用空实现、兼容 alias 或 wrapper 补回旧端口。
 
+同根尾部还包括 ProductImageSlotExecutor.resolveInput 的 legacyPolicy：在 TargetPlatform 为空且 ImagePolicyContext 为 nil 时绕过当前 ProfileResolver，并选择旧操作/审核分支。生产调用中，当前采集单主图明确写入 product/zz/default/general 策略；图组走 resolveImageSetInput，Artwork 走专属 executor。无策略正例仅为 TestExecutorAcceptsHistoricalV3InputWithoutPolicyFields 等历史 fixture，不能据此把这条兼容旁路当有效 V3 协议保留。该 flag/分支及只为其保活的默认操作同批退休；当前明确策略、图组/Artwork 的字段/结果和有效 V3 wire 不变。
+
 保留现有 Temporal SDK、GORM、对象存储、现行 Resource/Generation/Asset owner；不建设第二个任务系统、runner、调度器或持久化事实源。
 
 ## 4. Owner、协议与持久化边界
@@ -95,7 +97,7 @@ Must：当前图组/Artwork、采集单主图、组织隔离、真实授权、JS
 | internal/imageagent/temporal/activities.go、activities_execution_v3.go、activities_persistence.go | SlotEffects(v2)/SlotExecutor/Publisher 端口与强制构造依赖，ExecuteSlot(v2)、PersistSlotResult(v2)、restoreActivityIdentity 旧分支 | 当前构造必须要求组织 authorizer、V3 Repository/staged/artifact 和适用的真实 publisher；V3 persist、catalog/scope/预算/真实权限、publication recovery 原行为 |
 | internal/imageagent/temporal/workflow.go、slot_workflow.go | 旧 v2 child 函数/选择、旧 Activity dispatch/persist/publish；旧历史选择改明确关闭 | 当前父工作流/V3 child 与当前有效 GetVersion marker/命令/计费/取消/UNKNOWN/恢复；不是全文件删除或重写。非组织输入在业务效果前关闭 |
 | internal/imageagent/ports.go、slot_effect.go → slot_execution.go | v2 SlotExecutor/RecoverableSlotExecutor/ApprovedAssetPublisher/PublishApprovedInput、旧 phase/reservation/attempt/repository；§4.1 抽取 | Staged/Budgeted/Reviewer/V3 publication、当前 WorkflowClient、SlotExecutionInput/Result、生成/usage/identity/hash 原合同 |
-| internal/imageagent/tools/product_image_executor.go | NewFrozenV2ProductImageSlotExecutor、legacyV2 flag/materializer/分支、ExecuteSlot/PublishSlot(v2) 和仅服务它们的接口断言/无消费者 helper | NewProductImageSlotExecutor、当前 quote/generate/review/BuildSlotResult、NewImageSetResultBuilder；artwork_executor.go 当前行为原样保持，不包装旧执行器 |
+| internal/imageagent/tools/product_image_executor.go | NewFrozenV2ProductImageSlotExecutor、legacyV2 flag/materializer/分支、ExecuteSlot/PublishSlot(v2)、resolvedSlotInput.legacyPolicy/缺策略旁路及对应旧 slotOperations 分支、仅服务它们的接口断言/无消费者 helper | NewProductImageSlotExecutor、当前明确策略的 quote/generate/review/BuildSlotResult、NewImageSetResultBuilder；artwork_executor.go 当前行为原样保持，不包装旧执行器 |
 | internal/imageagent/assetpublication/publisher.go | NewV2Publisher、PublishApproved/approvalCommitV2 及仅 v2 的接口断言 | 当前组织单主图 NewPublisher/PublishApprovedV3、scope/source/version/digest 校验及原 Asset transaction；ImageSet/Artwork publisher 不改 |
 | internal/imageagent/store/slot_effect.go → slot_effect_identity.go | v2 repository 全实现及仅 v2 helper；§4.1 原样抽取三 helper 后整退旧文件 | 当前 V3 的 validate/key/scope 不改变，不能通过删 helper 绕过校验 |
 | internal/imageagent/store/gorm.go、memory.go、records.go | NewGormRepository 无组织构造、旧 scope 默认生产路径；slotEffects map；slotExternalEffectRecord 和 AutoMigrate 创建项 | NewOrganizationRepository、组织 scope fail-closed、所有当前表/字段/JSON/CAS/事务，V3 map/records 不变。Memory 仍为当前测试 double，不成为默认生产 owner |
@@ -144,6 +146,7 @@ Must：当前图组/Artwork、采集单主图、组织隔离、真实授权、JS
 | TestAutoMigrateCreatesOwnerScopedV2TablesWithoutTouchingLegacySchema；TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres | 当前新安装 expected 表清单仅减旧 v2 effect；补显式缺席 | 当前组织 schema 精确集合、无权限升级、空库/ledger-only installer 安全边界、其它表和存量不动断言 |
 | §5.2 的域/Temporal/worker 旧 lane fixture | v2/raw v3 可执行正例变缺席/拒绝；旧 one-shot stub 退出；同输入业务断言接 staged/组织 owner，补当前 identity/member/authorizer | 原有效权限/幂等/同异载荷/计费/取消/绝对 deadline/UNKNOWN/fence/腐坏/批准/响应丢失断言，不能删测试整体掩盖故障 |
 | history_replay_test.go | 删除仅指向三 v2 fixture/旧 v2 handler 的 replay、v2 child/旧批准 wire 正例；共享 probe 如混合则改到组织 scope | 当前 V3 pre-finalization、recovery-start、approval-key、result digest、budget/deadline 等有效版本证据；不是取消版本/恢复义务 |
+| TestExecutorAcceptsHistoricalV3InputWithoutPolicyFields 及 product_image_executor_contract_test.go 的同根默认 fixture | 无 TargetPlatform/ImagePolicyContext 的旧 v3 正例改为拒绝，断言 quote/provider/review 计数为0；仍有效的规则测试 fixture 改为现有 product/zz/default/general 明确策略 | 当前准确 ProfileResolver key/version、有效政策/主图/场景/审核规则、图组/Artwork staged 和 JSON/hash；不把缺策略 fallback 留作兼容 |
 
 tests/listingkit_backend_retirement_test.go 的 TestLegacyImageAgentHTTPRuntimeClosureIsRetired 现役 ForMode/WithOptions/Service/CHAIN-1/canary 保活项不需删除，整函数保持；其它 root checks、.golangci.yml、Makefile、两套 workflow/其它 .github/workflows、完整 inventory、历史/计数/ceilings/检查逻辑、依赖和保护规则零改。若原 CI 发现本表遗漏的真实冲突，先给根因、同根核对和准确补丁；不能自动放宽 guard 或以重跑代替修复。
 
