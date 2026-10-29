@@ -1,3 +1,4 @@
+import { familyJournal } from './fixtures/family-journal';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { afterEach,expect,it,vi } from 'vitest';
@@ -18,10 +19,13 @@ it('wires the ordinary progress document through two observed variants and one f
  const updated=new Set<(id:number,info:{status:string})=>void>(),removed=new Set<(id:number)=>void>();
  let liveURL='about:blank';let handed:AmazonCapturePayload|undefined;
  let reader:{tabId:number;sourceURL:string}|undefined;
- const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload;tabId?:number;sourceURL?:string})=>{
-  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:docId},coordinatorTabId:41,windowId:1,reader}};
+ const journal=await familyJournal(revision,source);
+ const send=vi.fn(async(m:{type:string;payload?:AmazonCapturePayload;tabId?:number;sourceURL?:string;[key:string]:unknown})=>{
+  if(m.type==='family.init')return {ok:true,result:{source:{id:7,url:source,documentId:docId},coordinatorTabId:41,windowId:1,reader,...await journal.current()}};
   if(m.type==='family.reader')reader={tabId:m.tabId!,sourceURL:m.sourceURL!};
-  if(m.type==='family.finish')handed=m.payload;
+  if(['family.resume','family.seed','family.observe','family.pause','family.finish'].includes(m.type)){
+   const result=await journal.handle(m);if(m.type==='family.finish')handed=result.payload as AmazonCapturePayload;return {ok:true,result};
+  }
   return {ok:true,result:{}};
  });
  vi.stubGlobal('document',dom.window.document);vi.stubGlobal('location',dom.window.location);vi.stubGlobal('addEventListener',dom.window.addEventListener.bind(dom.window));

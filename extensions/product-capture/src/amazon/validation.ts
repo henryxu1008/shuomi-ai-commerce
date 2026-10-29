@@ -16,7 +16,8 @@ const text = z.string().refine(v => byteLength(v) <= 8192 && !/[\u0000-\u0008\u0
 const sensitive = /(?:cookie|authorization|password|passwd|token|session|profile|localstorage|sessionstorage)/i;
 const attr = z.strictObject({ name: text.min(1).refine(v => !sensitive.test(v) && !v.startsWith('source.')), value: text });
 const attrs = z.array(attr).max(256).refine(a => new Set(a.map(v => v.name.trim())).size === a.length);
-const price = z.strictObject({ amount: text.regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/), currency: text.regex(/^[A-Z]{3}$/).nullable(), minQuantity: text.regex(/^[1-9][0-9]{0,19}$/).nullable().optional() });
+const offer = z.strictObject({ amount: text.regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/), currency: text.regex(/^[A-Z]{3}$/).nullable(), minQuantity: text.regex(/^[1-9][0-9]{0,19}$/).nullable().optional(), condition: z.enum(['new','used']).optional(), conditionNote: text.refine(v => !!v.trim() && byteLength(v) <= 256).optional() });
+const price = offer.extend({alternative:offer.optional()}).refine(p => (!p.conditionNote || p.condition === 'used') && (!p.alternative || p.condition === 'new' && p.alternative.condition === 'used') && (!p.alternative?.conditionNote || p.alternative.condition === 'used'));
 const image = z.strictObject({ url: text.refine(v => byteLength(v) <= 2048 && publicImage(v)), role: z.enum(['main', 'detail', 'variant', 'gallery']) });
 const images = z.array(image).max(256);
 const variant = z.strictObject({ sourceID: text.regex(/^[A-Z0-9]{10}$/).nullable(), sku: text.refine(v=>byteLength(v)<=200).nullable(), title: text.refine(v=>byteLength(v)<=2000).nullable(), attributes: attrs, price: price.nullable(), images });
@@ -33,10 +34,10 @@ export function validateAmazonCapture(value: unknown): AmazonCapturePayload {
   const result = parsed.data; const e = result.evidence; const source = amazonPageSource(e.sourceURL);
   if (!e.title.trim() || e.site !== source.site || e.sourceID !== source.sourceID || e.sourceURL !== source.sourceURL) fail('INVALID_CAPTURE');
   if (e.observation.scope === 'selected_product' ? e.observation.parentASIN !== null || e.variants.length > 1 || e.variants.some(v => v.sourceID !== null && v.sourceID !== e.sourceID) : !e.observation.parentASIN || e.observation.parentASIN === e.sourceID) fail('INVALID_CAPTURE');
-  let items = e.attributes.length + e.variants.length + e.priceFacts.length + e.images.length + e.warnings.length + e.missingFacts.length;
+  let items = e.attributes.length + e.variants.length + e.priceFacts.length + e.images.length + e.warnings.length + e.missingFacts.length + e.priceFacts.filter(p=>p.alternative).length;
   const ids = new Set<string>(); const combinations = new Set<string>(); const skus = new Set<string>();
   for (const v of e.variants) {
-    items += v.attributes.length + v.images.length;
+    items += v.attributes.length + v.images.length + (v.price?.alternative ? 1 : 0);
     const combo = JSON.stringify([...v.attributes].sort((a, b) => a.name.localeCompare(b.name)));
     if (v.sourceID && ids.has(v.sourceID) || v.sku && skus.has(v.sku) || e.variants.length > 1 && (!v.attributes.length || combinations.has(combo)) || !v.sourceID && !v.attributes.length) fail('INVALID_CAPTURE');
     if (v.sourceID) ids.add(v.sourceID); if (v.sku) skus.add(v.sku); combinations.add(combo);

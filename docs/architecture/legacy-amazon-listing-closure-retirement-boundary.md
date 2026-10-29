@@ -1,3 +1,5 @@
+> #301 / #964 当前替代边界（[用户确认设计 §1–§7/§6.1](legacy-source-result-contract-closure-retirement-boundary.md)）：仅替代原 internal/model / amazon_product.go 的 owner KEEP；17结果值/5方法改归域内 result 纯叶子，36当前消费者同批切换，旧全局根退出。旧Task文件及禁令仍退休，原浏览器采集/JSON/错误与批量取消保持。 当前能力、独立SHEIN登录/Store同步及持久化事实owner保持，workflow/完整inventory/依赖及既有资源不动，无试用前置，#301 OPEN。以下原完整Git正文/数字/勾选/证据逐字保留。
+
 > **#948 窄替代注记（已获用户实施确认，源码已实施 / In Review）**
 > #948 仅替代本批矩阵内闲置来源辅助：单数 FeatureExtractor、三个 text-validator 方法、变体便利合同/custom/debug 方法、旧错误构造/诊断及提示/邮编便利尾部；当前已注册提取器、有效规则、变体 JSON/转换及浏览器采集不变。
 > 唯一准确范围见 [#948 冻结设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) §1–§7（含 §6.1）；以下原全文为历史证据，原数字、勾选及其它 KEEP 不变。

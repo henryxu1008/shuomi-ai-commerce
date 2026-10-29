@@ -14,10 +14,11 @@ import (
 	"testing"
 	"time"
 
+	"task-processor/internal/authidentity"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
 )
 
 // This optional lifecycle surrounds the same PostgreSQL fixture and owner path.
@@ -78,9 +79,9 @@ func (f *commercialBrowserFixture) control(db *gorm.DB, grants *commercialGrantF
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		statement := "GRANT SELECT ON saas_usage_buckets TO commercial_reader"
+		statement := "GRANT SELECT ON saas_organization_resource_buckets TO commercial_reader"
 		if request.Scenario == "database-unavailable" {
-			statement = "REVOKE SELECT ON saas_usage_buckets FROM commercial_reader"
+			statement = "REVOKE SELECT ON saas_organization_resource_buckets FROM commercial_reader"
 		}
 		if db.Exec(statement).Error != nil {
 			w.WriteHeader(http.StatusInternalServerError)

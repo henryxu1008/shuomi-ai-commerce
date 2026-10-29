@@ -12,13 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	storeschema "task-processor/internal/app/schema/storecenter"
 	storeapp "task-processor/internal/app/storecenter"
 	"task-processor/internal/authz"
@@ -27,9 +20,16 @@ import (
 	"task-processor/internal/integration/temu"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/listingsubscription"
 	temumodel "task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/storecenter"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // Synthetic development checks use a newly allocated container, never an
@@ -60,7 +60,6 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 	for _, q := range []string{
 		`CREATE ROLE store_center_owner LOGIN PASSWORD 'synthetic-store-test'`,
 		`CREATE ROLE store_center_runtime LOGIN PASSWORD 'synthetic-store-test'`,
-		`CREATE ROLE store_quota_runtime LOGIN PASSWORD 'synthetic-store-test'`,
 		`CREATE DATABASE store_center OWNER store_center_owner`,
 		`REVOKE CREATE ON SCHEMA public FROM PUBLIC`,
 		`REVOKE ALL ON DATABASE commercial FROM PUBLIC`,
@@ -73,15 +72,10 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 	for _, q := range []string{`REVOKE CREATE ON SCHEMA public FROM PUBLIC`, `REVOKE ALL ON DATABASE store_center FROM PUBLIC`, `GRANT CONNECT ON DATABASE store_center TO store_center_runtime`, `GRANT USAGE ON SCHEMA public TO store_center_runtime`, `GRANT SELECT,INSERT,UPDATE ON workbench_stores TO store_center_runtime`, `GRANT SELECT,INSERT ON workbench_store_audit_logs TO store_center_runtime`, `GRANT SELECT,INSERT,UPDATE ON workbench_store_member_grants TO store_center_runtime`, `GRANT SELECT,INSERT ON workbench_store_member_grant_operations TO store_center_runtime`, `GRANT SELECT,INSERT,UPDATE ON workbench_store_service_operations TO store_center_runtime`} {
 		require.NoError(t, recordsOwner.Exec(q).Error)
 	}
-	require.NoError(t, listingsubscription.AutoMigrateRepository(commercial))
 	for _, statement := range []string{`GRANT SELECT,INSERT,UPDATE ON workbench_store_connections,workbench_store_connection_attempts TO store_center_runtime`, `GRANT SELECT,INSERT ON workbench_store_merchant_bindings TO store_center_runtime`, `GRANT SELECT,INSERT,UPDATE ON workbench_store_groups,workbench_store_profiles TO store_center_runtime`, `GRANT SELECT,INSERT ON workbench_store_metadata_operations TO store_center_runtime`} {
 		require.NoError(t, recordsOwner.Exec(statement).Error)
 	}
-	require.NoError(t, listingsubscription.GrantStoreQuotaRuntimeAccess(ctx, commercial))
-	entitlement, err := listingsubscription.NewGormRepository(commercial).UpsertEntitlement(ctx, &listingsubscription.Entitlement{TenantID: "B", ModuleCode: listingsubscription.ModuleStoreManagement, Status: listingsubscription.StatusActive, Limits: map[string]int{"store_count": 2}})
-	require.NoError(t, err)
-	require.NotNil(t, entitlement)
-	records, quota := open("store_center", "store_center_runtime"), open("commercial", "store_quota_runtime")
+	records := open("store_center", "store_center_runtime")
 	t.Run("optional TikTok persistence does not admit extra runtime access", func(t *testing.T) {
 		require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, recordsOwner, storecenter.RuntimeCapabilities{TikTokShop: true}))
 		require.Error(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, records, storecenter.RuntimeCapabilities{TikTokShop: true}), "configured TikTok requires its exact grants")
@@ -330,18 +324,13 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 			})
 		}
 	})
-	// Serving credentials cannot mutate entitlements, delete audit or install DDL.
-	require.Error(t, quota.Exec(`UPDATE saas_tenant_entitlements SET status='inactive'`).Error)
+	// Current serving credentials cannot delete audit or install persistent/temporary DDL.
 	require.Error(t, records.Exec(`DELETE FROM workbench_store_audit_logs`).Error)
 	require.Error(t, records.Exec(`CREATE TABLE forbidden(id int)`).Error)
 	require.Error(t, records.Exec(`CREATE TEMP TABLE workbench_stores(id text)`).Error)
-	require.Error(t, quota.Exec(`CREATE TEMP TABLE saas_store_quota_buckets(organization_id text)`).Error)
 	require.NoError(t, recordsOwner.Exec(`GRANT UPDATE ON workbench_store_audit_logs TO store_center_runtime`).Error)
 	require.Error(t, storecenter.VerifyRuntimePermissions(ctx, records))
 	require.NoError(t, recordsOwner.Exec(`REVOKE UPDATE ON workbench_store_audit_logs FROM store_center_runtime`).Error)
-	require.NoError(t, commercial.Exec(`GRANT UPDATE(status) ON saas_tenant_entitlements TO store_quota_runtime`).Error)
-	require.Error(t, listingsubscription.VerifyStoreQuotaRuntime(ctx, quota))
-	require.NoError(t, commercial.Exec(`REVOKE UPDATE(status) ON saas_tenant_entitlements FROM store_quota_runtime`).Error)
 
 	for _, target := range []struct {
 		name, role     string
@@ -349,7 +338,6 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 		verify         func(context.Context, *gorm.DB) error
 	}{
 		{"records", "store_center_runtime", recordsOwner, records, storecenter.VerifyRuntimePermissions},
-		{"quota", "store_quota_runtime", commercial, quota, listingsubscription.VerifyStoreQuotaRuntime},
 	} {
 		t.Run("extra-schema-permissions-"+target.name, func(t *testing.T) {
 			require.NoError(t, target.owner.Exec(`CREATE SCHEMA pgx_store_shadow`).Error)
@@ -370,28 +358,12 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 		defer func() { require.NoError(t, records.Exec(`RESET search_path`).Error) }()
 		require.Error(t, storecenter.VerifyRuntimePermissions(ctx, records), "catalog preflight must match the unqualified repository target")
 	})
-	t.Run("wrong-quota-search-path", func(t *testing.T) {
-		require.NoError(t, quota.Exec(`SET search_path TO pg_catalog`).Error)
-		defer func() { require.NoError(t, quota.Exec(`RESET search_path`).Error) }()
-		require.Error(t, listingsubscription.VerifyStoreQuotaRuntime(ctx, quota), "quota must resolve the inspected canonical public facts")
-	})
 	t.Run("missing-store-primary-identity", func(t *testing.T) {
 		require.NoError(t, recordsOwner.Exec(`ALTER TABLE workbench_stores DROP CONSTRAINT workbench_stores_pkey`).Error)
 		require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, records, storecenter.RuntimeCapabilities{}))
 		require.NoError(t, recordsOwner.Exec(`ALTER TABLE workbench_stores ADD PRIMARY KEY(id)`).Error)
 	})
-	t.Run("missing-quota-bucket-primary", func(t *testing.T) {
-		require.NoError(t, commercial.Exec(`ALTER TABLE saas_store_quota_buckets DROP CONSTRAINT saas_store_quota_buckets_pkey`).Error)
-		require.Error(t, listingsubscription.VerifyStoreQuotaRuntime(ctx, quota))
-		require.NoError(t, commercial.Exec(`ALTER TABLE saas_store_quota_buckets ADD PRIMARY KEY(organization_id)`).Error)
-	})
-	t.Run("missing-quota-uniqueness", func(t *testing.T) {
-		require.NoError(t, commercial.Exec(`DROP INDEX idx_saas_store_quota_org_request`).Error)
-		require.Error(t, listingsubscription.VerifyStoreQuotaRuntime(ctx, quota), "replay requires the installed canonical uniqueness boundary")
-		require.NoError(t, commercial.Exec(`CREATE UNIQUE INDEX idx_saas_store_quota_org_request ON saas_store_quota_allocations(organization_id,request_key)`).Error)
-	})
 	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, records, storecenter.RuntimeCapabilities{}))
-	require.NoError(t, listingsubscription.VerifyStoreQuotaRuntime(ctx, quota))
 	t.Run("official-credential-shape-on-narrow-postgres", func(t *testing.T) {
 		repo, err := storecenter.NewMemberScopedStoreRepository(records, postgresConnectionAccess{})
 		require.NoError(t, err)

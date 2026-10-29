@@ -1,9 +1,12 @@
 # Amazon 插件：可选采集同族其他变体
 
+> #989 当前恢复增量：[持久草稿与可靠交接](plugin-capture-durable-drafts-v1.md) 替代本文中“进度页内存是唯一事实 owner、重载/重启不可恢复”的历史限制。当前候选逐项提交 IndexedDB，重建后暂停，由用户明确继续；来源发现、严格父族/规格归属、人工校验和原资源限制不变。旧页的未保全资料不作迁移，本设计更新不授权真实重采或更新运行实例。
+
 Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)。
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
 此准入结论适用于第1–10节已审范围。第11节后续续采归属修订已另行达到 **IMPLEMENTATION_READY**；
 用户后续明确“继续”，当前按本节已审设计实施和隔离测试；旧运行授权不恢复。当前阶段以 #955 正文为准。
+第12节占位规格修订已独立达到 **IMPLEMENTATION_READY**，仅授权离线修复；前面的运行授权不恢复。
 独立Reviewer `1688_shadow_design_review` 已检查准确设计候选
 `c938459b0dae5546a3afccfd09e103d45b6665cc`，无设计BLOCKER；
 [评审及四组IMPLEMENTATION_TEST](https://github.com/qq550723504/shuomi-ai-commerce/issues/955#issuecomment-6398925548)
@@ -455,3 +458,103 @@ Legacy decision: **N/A**；只复用当前插件owner，不调用/包装旧服�
 是否部分交接/保存当前20项、取消或另开验证，仍由用户决定；本轮不执行。
 安装manifest及默认单规格/1688不变由现有检查覆盖；必要typecheck/lint/fixture build及PR CI不替代真实页面验收。
 设计评审及最终独立交付检查复用同一Reviewer，新增finding先分类；本批真实采集/保存/产品验收 NOT_RUN。
+
+## 12. 同一子页的明确规格数据与占位控件（2026-10-26）
+
+Design Basis: **Independent Architecture（现有逐项规格接纳规则的局部修订）**。
+Admission: **IMPLEMENTATION_READY**。独立Reviewer `1688_shadow_design_review` 对准确设计
+`b2e7fabf0da951a68d4e7b2d5e3745bf4804d8ce` 结论PASS，无设计BLOCKER。
+用户在44/171暂停后明确要求“要处理暂停的问题”；本轮按设计评审→回归→最小实现
+形成一个主要PR，保留原44项暂停，不部分交接/保存、不重采、不更新原插件/实例、不部署。
+涉及现有接纳规则明确“读取到的选择维度”的含义，不以局部bugfix免除独立准入。
+
+### 用户结果、依据和真实证据
+
+使用者是选择采集同族颜色/尺寸、当前商品能明确识别但规格控件暂未选中的用户。
+可见结果：同一子页已明确绑定当前ASIN的静态规格数据可补齐控件未观察的维度，继续原有严格同族校验；
+真正的ASIN、父关系或维度冲突仍暂停，不用占位文字生成规格，也不根据原清单猜选项。
+本节沿第1节用户/Figma Authority，原页内入口、进度页、按钮和确认保存页面不变；
+不新增人工操作步骤、Console导航、采集范围或新的UI流程。
+
+#963实机已验证：同一reader的opener缺失后，从29项推进到38项。
+随后44/171在B0D4DGJ47V以 `SOURCE_CHANGED` 暂停。原页和子页均为父ASIN B0D76YXPWZ，
+171项映射、维度顺序、值、标签、展示数据逐项一致，当前子ASIN明确对应
+`Color=Graige`、`Size=52.0"l X 41.0"w X 8.0"th`。
+但子页渲染控件持续显示 `Select Color / Select Size`；现有extractor把它们当作真实属性，
+Coordinator的严格比较因此拒绝。两页都有 `deletedLandingAsinInfo`，不能单凭该字段宣称商品删除或跳过。
+证据：本会话 `local-verification-963/source-changed-44-readonly-analysis.json`；没有重新触发采集以获取本证据。
+
+只在DOM完成后等更久不足以解决当前稳定占位控件；本轮不新增轮询/重载/自动重试。
+既有 `discoverFamily` 已能用Acorn静态AST核实当前ASIN、父ASIN、标签/索引/展示值和唯一组合，
+应复用它在**这个子页**取得的结果，而非另造脚本解析器、抓取框架或套用根清单。
+
+### Owner、路径和数据规则
+
+Owner不变：Amazon extractor负责渲染事实；`discoverFamily`负责当前文档内的绑定静态数据；
+`extractFamilyTab`负责同一document的采集/元数据组合；Coordinator负责与原清单逐项比对、聚合和唯一交接；
+Controller/Handoff和应用保留原保存/UNKNOWN owner。
+
+调用路径：原生tab/目标定位 → 准确document提取 → 原同一document的 `familyInfo/discoverFamily`
+→ 校验当前ASIN的明确维度 → 原前后document复核 → 原Coordinator接纳 → 原一次聚合交接/应用保存。
+不新增脚本注入入口或消息命令，不访问page globals，不执行来源JS，不改变session定位/schema或外部wire。
+
+1. **渲染占位值不是商品属性。** 只在已有选中维度节点内识别本次真实观察到的英文占位串
+   `Select Color`、`Select Size`、`Please Select`（仅大小写和空白归一），不拿选项列表/标题/推荐区判定当前选择。
+   默认单规格路径遗漏这些属性并保留原missingFacts提示，不因此扫描同族清单或新增网络访问。
+   其他语言或未观察的模板不在本修复中猜测识别。
+2. **补齐只发生在原family读取路径。** 已由 `familyInfo` 返回的当前文档manifest必须与采集结果的规范sourceURL
+   一致；唯一成员ASIN须等于这个子页的sourceID/variant sourceID。仍以该文档 `currentAsin` 绑定对象为依据，
+   拒绝另一个ASIN初始化对象、根页manifest、重复/不完整/冲突映射及不明确父关系。
+   无有效当前文档manifest时不补齐，沿原缺失/暂停行为，不退回原清单或猜值。
+3. **真实渲染值优先并约束静态数据。** 已观察的真实属性名称和值必须与当前成员一一一致；
+   真实值冲突、重复维度冲突、额外/不明维度继续 `SOURCE_CHANGED`。
+   不能因为extractor已省略冲突值，就把该维度视为普通缺失再补入；现有冲突诊断必须保留并参与拒绝。
+4. 满足以上前提时，只补齐缺失/占位的维度，保留该子ASIN自己的价格/币种/图片；
+   不改sku、库存、报价、相册或其他字段，不替换已经观察到的真实不同值。
+   两个页面同族清单相同不单独构成补齐授权；当前文档、ASIN和真实值一致性缺一不可。
+5. 补齐后仍执行原Coordinator的站点、当前ASIN、父ASIN、完整成员清单和精确组合检查，
+   不降低这些门禁，不自动跳过失败项，不放宽为“缺失都接受”。
+6. 用既有missingFacts保留“渲染选择未观察、维度来自当前ASIN静态数据”的准确来源诊断，
+   按对应子ASIN投影到聚合诊断；不宣称这些值来自已选中控件。
+   沿原校验和WebCrypto摘要模式重新计算受改动capture的contentSHA256，最终聚合仍沿原摘要/一次交接。
+
+### 边界、失败与副作用
+
+本节不新增phase、持久化事实、游标/清单存储、后台自动恢复、provider/AI或业务写入。
+manifest来自本来就执行的同一document读取，不增加第二次全页解析或额外抓取；
+复用原2MiB、AST节点/深度/时间上限、256项上限、单reader串行和30秒deadline，不以补齐之名放宽资源限制。
+未勾同族的默认采集不调用新增的同族组合逻辑；1688、报价和保存边界不变。
+
+| 事件/输入 | 必须结果 |
+| --- | --- |
+| 占位/缺失 + 同一document、同ASIN的有效完整映射 | 仅补缺项，保留来源诊断，再交原Coordinator核验 |
+| 一部分真实值 + 其余占位，真实值与映射一致 | 保留真实值，仅补缺项 |
+| 真实值或已记录的冲突与映射不一致 | 暂停SOURCE_CHANGED，不覆盖、不跳过 |
+| 只有根清单、另一个ASIN对象、无当前成员或无manifest | 不补齐，不把未知当成功 |
+| 父关系或子页完整清单变化 | 原门禁暂停，不因当前项可补而放行 |
+| 同URL不同document、取消或解析晚到 | 原document复核及AbortSignal拒绝，不追加结果/交接 |
+| `deletedLandingAsinInfo` 存在 | 不把它当作删除、补齐或跳过的充分依据 |
+| 摘要/校验/聚合大小失败 | 原失败/上限暂停，不转交不完整或旧摘要载荷 |
+
+登录/租户、免费保存、CAS、key/digest、COMMIT UNKNOWN、原键/原标签恢复不变。
+Legacy decision: **N/A**；仅复用当前插件owner和Acorn解析，不包装或启动旧服务端采集。
+不新增理论安全框架，不把网页静态数据当作商家保证；源数据本身的可信范围沿第1节。
+
+### 验证和交付停止点
+
+准入后先用现有Vitest/JSDOM回归确认RED，再最小实现：
+
+- 真实形状：当前子ASIN、两占位控件、同文档绑定171式映射；补齐后可通过原严格逐项检查，
+  使用自己的价图、保留来源诊断、摘要匹配，一次handoff。默认单规格只省略占位并提示缺失。
+- 部分真实值、缺失/占位、当前成员唯一性；root/错ASIN对象、无manifest、重复/冲突、
+  真值冲突、父或清单变化仍拒绝，不能借缺失名义绕过真实冲突。
+- 实际page→bridge→capture/manifest→Coordinator链路，含同reader复用、取消/晚到、opener缺失继续和原资源边界；
+  复用已有有效单规格/1688/保存合同证据，只验证本轮受影响组合，不建runner或验收平台。
+
+独立评审仅检查新增字段接纳规则及相邻路径，达到IMPLEMENTATION_READY后冻结；
+三组IMPLEMENTATION_TEST在实施中收敛：省略过的真实冲突及额外维度仍拒绝；当前文档/ASIN唯一绑定；
+摘要与可折叠来源诊断、异步摘要后的document/取消复核。缺/错/root manifest不得补齐，默认路径不触发发现。
+具体实现边界测试归IMPLEMENTATION_TEST，未满足Must不得交付。本轮一个主要PR，不拆设计/实现PR。
+实现和CI只证明该候选边界；真实页面验证待用户另行授权更新后进行。
+原44项只在当前进度页内存：源码修改不会让该页热更新，重新加载仍会丢弃未交接事实。
+本轮保持其暂停，不擅自部分保存、重载、重采，也不承诺跨重载恢复；其处置由用户以后决定。

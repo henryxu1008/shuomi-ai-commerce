@@ -51,12 +51,20 @@ func TestPlatformPermissionReadbackDoesNotGrantEnterpriseModulesOrFailedPolicy(t
 	for _, module := range enterpriseModules {
 		modules = append(modules, module.ID)
 	}
+	// A persisted enterprise role retains its existing 32-module bound. Test
+	// both valid batches when the public catalog grows beyond that bound.
+	batches := [][]string{modules}
+	if len(modules) > 32 {
+		batches = [][]string{modules[:32], modules[32:]}
+	}
 	key := EnterpriseRoleKey("org-a", 1)
-	authorizer.SetRolePolicyReader(rolePolicyFixture{"org-a": {key: modules}})
-	for _, organization := range []string{"org-a", "org-b"} {
-		permissions, err := PermissionsInOrganization(context.Background(), authorizer, "member", organization, []string{key})
-		require.NoError(t, err)
-		require.NotContains(t, permissions, PermissionListingKitPlatformAdm, "all enterprise modules still cannot grant platform maintenance")
+	for _, modules := range batches {
+		authorizer.SetRolePolicyReader(rolePolicyFixture{"org-a": {key: modules}})
+		for _, organization := range []string{"org-a", "org-b"} {
+			permissions, err := PermissionsInOrganization(context.Background(), authorizer, "member", organization, []string{key})
+			require.NoError(t, err)
+			require.NotContains(t, permissions, PermissionListingKitPlatformAdm, "all enterprise modules still cannot grant platform maintenance")
+		}
 	}
 	authorizer.SetRolePolicyReader(failedRolePolicy{})
 	permissions, err := PermissionsInOrganization(context.Background(), authorizer, "member", "org-a", []string{key})

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -12,7 +12,7 @@ import (
 // FeaturesExtractor 特性提取器
 type FeaturesExtractor struct{}
 
-func (e *FeaturesExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *FeaturesExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	var features []string
 
 	// 首先尝试从"About this item"部分提取特性

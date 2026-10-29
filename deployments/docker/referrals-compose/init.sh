@@ -51,7 +51,6 @@ cat > "$runtime/current-application.json.tmp" <<EOF
     "projectID": "$(tr -d '\r\n' < "$runtime/project-id")"
   },
   "sourceAccountDatabase": {"host": "127.0.0.1", "port": 5433, "user": "source_account_runtime", "password": "$(tr -d '\r\n' < "$source_runtime_secret/source-runtime-password")", "database": "source_accounts", "maxConnections": 4},
-  "commercialDatabase": {"host": "127.0.0.1", "port": 5434, "user": "commercial_runtime", "password": "$(tr -d '\r\n' < "$commercial_runtime_secret/commercial-reader-password")", "database": "commercial", "maxConnections": 4},
   "referrals": {
     "enabled": true,
     "issuer": "https://localhost:18443",
@@ -103,7 +102,6 @@ GRANT USAGE, SELECT ON SEQUENCE public.account_business_profile_audit_events_id_
 ALTER ROLE source_account_runtime SET statement_timeout='10s';
 SQL
 
-psql "postgresql://postgres:$(tr -d '\r\n' < "$commercial_db_owner_secret/commercial-db-password")@127.0.0.1:5434/commercial?sslmode=disable" -v ON_ERROR_STOP=1 -v "commercial_password=$(tr -d '\r\n' < "$commercial_runtime_secret/commercial-reader-password")" -f "$terraform_source/commercial-schema.sql"
 psql "postgresql://postgres:$(tr -d '\r\n' < "$referral_db_owner_secret/referral-db-password")@127.0.0.1:5435/referrals?sslmode=disable" -v ON_ERROR_STOP=1 <<SQL
 CREATE ROLE referral_runtime LOGIN PASSWORD '$(tr -d '\r\n' < "$referral_runtime_secret/referral-runtime-password")';
 SQL

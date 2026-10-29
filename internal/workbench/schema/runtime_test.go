@@ -45,11 +45,6 @@ func TestWorkbenchAutoMigrateCreatesOwnedTablesAndIsRepeatable(t *testing.T) {
 		"saas_organization_resource_operations",
 		"saas_organization_resource_reservations",
 		"saas_organization_resource_source_claims",
-		"saas_plan_modules",
-		"saas_store_quota_allocations",
-		"saas_store_quota_buckets",
-		"saas_tenant_entitlements",
-		"saas_tenant_subscriptions",
 		"workbench_store_audit_logs",
 		"workbench_store_connection_attempts",
 		"workbench_store_connections",
@@ -84,7 +79,7 @@ func TestWorkbenchAutoMigrateUsesNonNullStringOrganizationColumns(t *testing.T) 
 		t.Fatalf("AutoMigrateRuntime() error = %v", err)
 	}
 
-	for _, table := range []string{"workbench_stores", "workbench_store_audit_logs", "workbench_store_groups", "workbench_store_profiles", "workbench_store_metadata_operations", "saas_store_quota_allocations", "saas_store_quota_buckets", "saas_organization_resource_buckets", "saas_organization_resource_debts", "saas_organization_resource_reservations"} {
+	for _, table := range []string{"workbench_stores", "workbench_store_audit_logs", "workbench_store_groups", "workbench_store_profiles", "workbench_store_metadata_operations", "saas_organization_resource_buckets", "saas_organization_resource_debts", "saas_organization_resource_reservations"} {
 		columns := sqliteTableColumns(t, db, table)
 		var organizationColumn *sqliteColumnInfo
 		for index := range columns {
@@ -106,14 +101,14 @@ func TestWorkbenchAutoMigrateUsesNonNullStringOrganizationColumns(t *testing.T) 
 	}
 }
 
-func TestWorkbenchAutoMigrateRejectsNullStoreQuotaBucketOrganization(t *testing.T) {
+func TestWorkbenchAutoMigrateRejectsNullResourceBucketOrganization(t *testing.T) {
 	db := openWorkbenchSchemaTestDB(t)
 	if err := AutoMigrateRuntime(db); err != nil {
 		t.Fatalf("AutoMigrateRuntime() error = %v", err)
 	}
 
-	if err := db.Exec(`INSERT INTO saas_store_quota_buckets (organization_id) VALUES (NULL)`).Error; err == nil {
-		t.Fatal("Store quota bucket accepted a NULL organization_id")
+	if err := db.Exec(`INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (NULL,'ai_point',0,0,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`).Error; err == nil {
+		t.Fatal("Resource bucket accepted a NULL organization_id")
 	}
 }
 

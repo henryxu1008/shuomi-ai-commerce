@@ -1,63 +1,88 @@
-import { byteLength, fail, MAX_BYTES, UUID } from './validation';
+import { z } from 'zod';
+import { UUID } from './validation';
+import { DraftStore, draftScope, sameDraftScope, type Draft, type DraftScope } from './draft-store';
 
-type Sender = { origin?: string; url?: string; frameId?: number; tab?: { id?: number }; id?: string };
-type Outcome = 'awaiting_confirmation' | 'processing' | 'published' | 'failed' | 'outcome_unknown';
-type Pending = { payload: unknown; idempotencyKey: string; handoffId: string; expires: number; tabId?: number; outcome: Outcome; operationId?: string };
-// An ephemeral transport only. It neither calls the API nor persists facts.
+type Sender = { origin?: string; url?: string; frameId?: number; tab?: { id?: number }; id?: string; documentId?: string };
+type Capability = { draftId: string; key: string; nonce: string; expires: number; tabId?: number; documentId?: string };
+const common = { version: z.literal(2), handoffId: z.string().regex(UUID), idempotencyKey: z.string().regex(UUID), scope: z.unknown() };
+const schema = z.discriminatedUnion('type', [
+  z.strictObject({ ...common, type: z.literal('capture.meta') }),
+  z.strictObject({ ...common, type: z.literal('capture.read') }),
+  z.strictObject({ ...common, type: z.literal('capture.bind'), body: z.string().max(2 * 1024 * 1024) }),
+  z.strictObject({ ...common, type: z.literal('capture.send') }),
+  z.strictObject({ ...common, type: z.literal('capture.armRetry') }),
+  z.strictObject({ ...common, type: z.literal('capture.retry') }),
+  z.strictObject({ ...common, type: z.literal('capture.status'), phase: z.enum(['unknown','rejected','saved_reported']), operationId: z.string().regex(UUID).optional(),code:z.enum(['ACQUISITION_CAPACITY','DEADLINE_EXCEEDED','INVALID_ACQUISITION','SOURCE_TOO_LARGE']).optional() }),
+]);
+// Short-lived receiver capability only. Full payload, bytes and original key are
+// owned by DraftStore and survive expiry/reconstruction of this transport.
 export class Handoff {
-  private pending?: Pending;
-  constructor(private readonly app: string, private readonly clock: () => number = Date.now) {}
-  prepare(payload: unknown, key: string, nonce: string) {
-    if (this.pending) fail('HANDOFF_ACTIVE');
-    if (!UUID.test(key) || !UUID.test(nonce)) fail('INVALID_MESSAGE');
-    const json = JSON.stringify(payload);
-    if (byteLength(json) > MAX_BYTES) fail('CAPTURE_TOO_LARGE');
-    this.pending = { payload: JSON.parse(json), idempotencyKey: key, handoffId: nonce, expires: this.clock() + 300000, outcome: 'awaiting_confirmation' };
+  private capability?: Capability;
+  private last?: Draft;
+  private retryPermit?: { revision: number; scope: DraftScope; until: number };
+  private invalidated=false;
+  private queue: Promise<unknown> = Promise.resolve();
+  constructor(private readonly app: string, private readonly drafts: DraftStore, private readonly clock: () => number = Date.now) {}
+  prepare(draft: Draft, nonce: string) {
+    if (this.capability) throw Error('HANDOFF_ACTIVE');
+    if (!draft.payload || draft.app !== this.app || !UUID.test(nonce)) throw Error('INVALID_MESSAGE');
+    this.last = draft;
+    this.capability = { draftId: draft.id, key: draft.key, nonce, expires: this.clock() + 300000 };
   }
   bindTab(id: number) {
-    if (!this.pending || this.pending.tabId !== undefined || !Number.isInteger(id) || id < 0) fail('INVALID_SENDER');
-    this.pending.tabId = id;
+    if (!this.capability || this.capability.tabId !== undefined || !Number.isInteger(id) || id < 0) throw Error('INVALID_SENDER');
+    this.capability.tabId = id;
   }
   private current() {
-    if (!this.pending || this.clock() >= this.pending.expires) fail('CAPTURE_EXPIRED');
-    return this.pending;
+    if (!this.capability || this.clock() >= this.capability.expires) throw Error('CAPTURE_EXPIRED');
+    return this.capability;
   }
-  message(value: unknown, sender: Sender): unknown {
-    const p = this.current();
-    let url: URL;
-    try { url = new URL(sender.url ?? ''); } catch { return fail('INVALID_SENDER'); }
-    const app = new URL(this.app);
-    if (sender.id !== undefined || p.tabId === undefined || sender.tab?.id !== p.tabId || sender.frameId !== 0
-      || sender.origin !== app.origin || url.origin !== app.origin || url.pathname !== app.pathname || url.username || url.password || url.search) fail('INVALID_SENDER');
-    if (!value || typeof value !== 'object' || Array.isArray(value)) fail('INVALID_MESSAGE');
-    const m = value as Record<string, unknown>;
-    if (m.version !== 1 || m.handoffId !== p.handoffId || m.idempotencyKey !== p.idempotencyKey) fail('INVALID_MESSAGE');
-    const allowed = m.type === 'capture.read' ? ['version','type','handoffId','idempotencyKey'] : ['version','type','handoffId','idempotencyKey','outcome','operationId'];
-    if (Object.keys(m).some(k => !allowed.includes(k))) fail('INVALID_MESSAGE');
-    if (m.type === 'capture.read') return { version: 1, type: 'capture.payload', handoffId: p.handoffId, idempotencyKey: p.idempotencyKey, payload: structuredClone(p.payload) };
-    if (m.type !== 'capture.status' || !['processing','published','failed','outcome_unknown'].includes(String(m.outcome))
-      || (m.operationId !== undefined && (typeof m.operationId !== 'string' || !UUID.test(m.operationId)))) fail('INVALID_MESSAGE');
-    // The page is a projection of the backend receipt, never a publication proof.
-    if (m.outcome === 'published' && !m.operationId) fail('INVALID_MESSAGE');
-    if (p.operationId && m.operationId !== undefined && p.operationId !== m.operationId) fail('INVALID_MESSAGE');
-    if (p.outcome === 'published' || p.outcome === 'failed') return { version: 1, received: true };
-    if (p.outcome === 'outcome_unknown' && m.outcome === 'processing') return { version: 1, received: true };
-    p.outcome = m.outcome as Outcome;
-    if (typeof m.operationId === 'string') p.operationId = m.operationId;
-    return { version: 1, received: true };
+  message(value: unknown, sender: Sender): Promise<unknown> {
+    const next = this.queue.then(() => this.handle(value, sender)); this.queue = next.catch(() => {}); return next;
+  }
+  private async handle(value: unknown, sender: Sender) {
+    const p = this.current(), app = new URL(this.app);
+    let url: URL; try { url = new URL(sender.url ?? ''); } catch { throw Error('INVALID_SENDER'); }
+    if (sender.id !== undefined || p.tabId === undefined || sender.tab?.id !== p.tabId || sender.frameId !== 0 || !sender.documentId
+      || sender.origin !== app.origin || url.origin !== app.origin || url.pathname !== app.pathname || url.username || url.password || url.search) throw Error('INVALID_SENDER');
+    const m = schema.parse(value), scope = draftScope(m.scope);
+    if (m.handoffId !== p.nonce || m.idempotencyKey !== p.key) throw Error('INVALID_MESSAGE');
+    if (p.documentId ? p.documentId !== sender.documentId : m.type !== 'capture.meta') {if(p.documentId)this.invalidated=true;throw Error('INVALID_SENDER');}
+    const d = await this.drafts.get(p.draftId);
+    if (!d || d.key !== p.key || d.app !== this.app) throw Error('DRAFT_CHANGED');
+    if (d.scope && !sameDraftScope(d.scope, scope)) throw Error('DRAFT_SCOPE_CHANGED');
+    p.documentId ??= sender.documentId;
+    let result = d;
+    switch (m.type) {
+      case 'capture.meta': break;
+      case 'capture.read':
+        this.last = d;
+        return { version: 2, type: 'capture.draft', idempotencyKey: d.key, phase: d.phase, canSubmit:['ready','bound'].includes(d.phase)||d.phase==='rejected'&&['ACQUISITION_CAPACITY','DEADLINE_EXCEEDED'].includes(d.reason),payload: d.payload, ...(d.intent ? { intent: d.intent } : {}) };
+      case 'capture.bind': result = await this.drafts.bind(d.id, d.revision, d.generation, scope, m.body); break;
+      case 'capture.send': result = await this.drafts.beginSend(d.id, d.revision, d.generation, scope); this.retryPermit = undefined; break;
+      case 'capture.status': result = await this.drafts.report(d.id, d.revision, d.generation, scope, m.phase, m.operationId,m.code); break;
+      case 'capture.armRetry':
+        if (d.phase !== 'unknown' || !d.intent) throw Error('DRAFT_CHANGED');
+        this.retryPermit = { revision: d.revision, scope, until: this.clock() + 30000 }; break;
+      case 'capture.retry': {
+        const permit = this.retryPermit; this.retryPermit = undefined;
+        if (!permit || permit.until <= this.clock() || permit.revision !== d.revision || !sameDraftScope(permit.scope, scope)) throw Error('DRAFT_CHANGED');
+        result = await this.drafts.retry(d.id, d.revision, d.generation, scope); break;
+      }
+    }
+    this.last = result;
+    return { version: 2, type: 'capture.metadata', phase: result.phase, idempotencyKey: result.key };
   }
   snapshot() {
-    const p = this.pending;
-    if (!p) return { outcome: 'empty' as const };
-    return { outcome: this.clock() >= p.expires ? 'outcome_unknown' : p.outcome, idempotencyKey: p.idempotencyKey, operationId: p.operationId };
+    const d = this.last;
+    const outcomes: Record<string,string> = { ready:'awaiting_confirmation',bound:'awaiting_confirmation',sending:'processing',unknown:'outcome_unknown',saved_reported:'published',rejected:'failed' };
+    return d ? { outcome: outcomes[d.phase] ?? 'empty', idempotencyKey: d.key, operationId: d.operationId } : { outcome: 'empty' };
   }
   handoffURL(extensionId: string) {
-    const p = this.current(); const url = new URL(this.app);
-    url.hash = new URLSearchParams({ extensionId, handoffId: p.handoffId, idempotencyKey: p.idempotencyKey }).toString();
-    return url.href;
+    const p = this.current(), url = new URL(this.app);
+    url.hash = new URLSearchParams({ extensionId, handoffId: p.nonce, idempotencyKey: p.key }).toString(); return url.href;
   }
-  recoveryURL(): string | null {
-    return this.pending ? `${this.app}#operationKey=${this.pending.idempotencyKey}` : null;
-  }
-  applicationTabID(): number | undefined { return this.pending?.tabId; }
+  recoveryURL(): string | null { return this.last ? this.app + '#operationKey=' + this.last.key : null; }
+  applicationTabID() { return this.capability?.tabId; }
+  canReturn() { return !this.invalidated&&this.capability?.tabId!==undefined&&this.clock()<this.capability.expires; }
 }

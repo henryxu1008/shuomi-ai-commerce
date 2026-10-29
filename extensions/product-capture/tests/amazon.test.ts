@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { captureAmazonDocument } from '../src/amazon/extractor';
 import { amazonPageSource, validateAmazonCapture } from '../src/amazon/validation';
 
-const page = (domain = 'www.amazon.com', price = 'US$19.99') => new JSDOM(`<span id="productTitle">Cotton bag</span><input id="ASIN" value="B012345678"><img id="landingImage" src="https://m.media-amazon.com/images/I/blue.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">Blue</span></div><div id="corePrice_feature_div"><span class="a-price"><span class="a-offscreen">${price}</span></span></div>`, { url: `https://${domain}/dp/B012345678` }).window.document;
+const page = (domain = 'www.amazon.com', price = 'US$19.99') => new JSDOM(`<span id="productTitle">Cotton bag</span><input id="ASIN" value="B012345678"><img id="landingImage" src="https://m.media-amazon.com/images/I/blue.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">Blue</span></div><div id="corePrice_feature_div" data-csa-c-asin="B012345678"><span class="a-price"><span class="a-offscreen">${price}</span></span></div>`, { url: `https://${domain}/dp/B012345678` }).window.document;
 const inlinePage = () => new JSDOM(readFileSync(new URL('./fixtures/amazon-inline-product.html', import.meta.url), 'utf8'), { url: 'https://www.amazon.com/dp/B0BDLGZCTY' }).window.document;
 const formPage = (root = 'corePrice_feature_div', price = '$39.98') => {
   const doc = page('www.amazon.com',price);

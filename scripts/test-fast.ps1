@@ -13,7 +13,7 @@ $fastTestPackages = @(
     "./internal/app/httpapi"
     "./internal/crawler/alibaba1688"
     "./internal/listingadmin"
-    "./internal/listingsubscription"
+    "./internal/integration/orgresource"
 )
 
 $boundaryTestPackages = @("./tests/...")

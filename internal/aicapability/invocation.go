@@ -8,10 +8,7 @@ import (
 type RouteOutcome string
 
 const (
-	RouteOutcomeLegacy           RouteOutcome = "legacy"
-	RouteOutcomeShadowDecided    RouteOutcome = "shadow_decided"
-	RouteOutcomeShadowRouteError RouteOutcome = "shadow_route_error"
-	RouteOutcomeActive           RouteOutcome = "active"
+	RouteOutcomeActive RouteOutcome = "active"
 )
 
 type InvocationOutcome string

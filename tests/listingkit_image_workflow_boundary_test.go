@@ -486,12 +486,8 @@ func listingKitImageBoundaryRules() []listingKitImageBoundaryRule {
 			strings.HasPrefix(path, "config/")
 	}
 	listingKit := func(path string) bool { return strings.HasPrefix(path, "internal/listingkit/") }
-	notRetiredSubscriptionMigration := func(path string) bool {
-		return path != "internal/listingsubscription/gorm_retired_module.go"
-	}
 	subscriptionWiring := func(path string) bool {
-		return (strings.HasPrefix(path, "internal/listingsubscription/") && notRetiredSubscriptionMigration(path)) ||
-			strings.HasPrefix(path, "internal/listingkit/api/") ||
+		return strings.HasPrefix(path, "internal/listingkit/api/") ||
 			strings.HasPrefix(path, "internal/listingkit/httpapi/") ||
 			path == "internal/listingkit/usage_settlement.go" ||
 			strings.HasPrefix(path, "web/listingkit-ui/src/components/listingkit/subscription/") ||
@@ -506,7 +502,7 @@ func listingKitImageBoundaryRules() []listingKitImageBoundaryRule {
 		{name: "retired Studio route", paths: all, match: regexp.MustCompile(`(?i)(?:/api/v1/listing-kits/studio(?:[/\s?"']|$)|/api/listing-kits/studio(?:[/\s?"']|$)|path\s*\[\s*0\s*\]\s*===?\s*["']studio["'])`)},
 		{name: "retired Studio data ownership", paths: all, match: regexp.MustCompile(`(?i)\b(?:listingkit_studio_[a-z0-9_]*|shein_studio_(?:sessions?|designs?)|SheinStudio[A-Za-z0-9_]*|shein_studio)\b`)},
 		{name: "retired ListingKit image runtime", paths: notRetiredConfigRegistry, match: regexp.MustCompile(`\b(?:AIImageGenerator|AIAsyncImage[A-Za-z0-9_]*|StudioBackgroundRemover|CapabilityListingKitStudioImage|studioImageRoutingMode)\b`)},
-		{name: "retired subscription module", paths: notRetiredSubscriptionMigration, match: regexp.MustCompile(`(?i)\b(?:ModuleStudio|studio_design_jobs_succeeded)\b|\b[A-Z0-9_]*module(?:_code|Code)?\b[^\r\n]{0,40}[:=]\s*["']?studio\b`)},
+		{name: "retired subscription module", paths: all, match: regexp.MustCompile(`(?i)\b(?:ModuleStudio|studio_design_jobs_succeeded)\b|\b[A-Z0-9_]*module(?:_code|Code)?\b[^\r\n]{0,40}[:=]\s*["']?studio\b`)},
 		{name: "retired subscription module", paths: subscriptionWiring, match: regexp.MustCompile(`["']studio["']`)},
 		{name: "ListingKit to ImageAgent bridge", paths: listingKit, match: regexp.MustCompile(`["']task-processor/internal/imageagent(?:/[^"']*)?["']|\b(?:ImageAgentWorkspace|NewImageAgentAuthorizedAssetCatalog|imageAgentCatalogFromTask)[A-Za-z0-9_]*\b|/(?:api/v1/)?image-agent/runs\b|/image-agent-runs\b`)},
 		{name: "ListingKit to ImageAgent bridge", paths: frontend, match: regexp.MustCompile(`\b(?:ImageAgentLaunchPanel|createImageAgentWorkspaceRun|getImageAgentWorkspaceAssets)\b|/image-agent-(?:runs|assets)\b`)},

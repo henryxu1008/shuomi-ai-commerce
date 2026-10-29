@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { collectionCommandSchema,collectionDetailSchema,parseCollectionResponse,parseSourcePriceFact } from "./product-collection";
+it('preserves new and used quote evidence and rejects nested duplicate fields',()=>{
+ const fact='{"amount":"35.98","currency":"USD","condition":"new","alternative":{"amount":"31.99","currency":null,"condition":"used","conditionNote":"Very Good"}}';
+ expect(parseSourcePriceFact(fact)?.alternative?.conditionNote).toBe('Very Good');
+ expect(parseSourcePriceFact(fact.replace('"condition":"used"','"condition":"used","condition":"used"'))).toBeNull();
+});
 
 describe("data-service original collection references", () => {
   const id = "0511e1d2-b555-4970-b323-3b629a901901";
@@ -11,7 +16,7 @@ describe("data-service original collection references", () => {
   it("preserves fixed-version source quotes and refuses mismatched or guessed fields",()=>{
     const input={item:{id,batchId:id,source:{productKey:"product",publicationId:id,version:"1",kind:"acquisition"},revision:1,createdAt},product:{title:"known"},sourceQuotes:{state:"available",publicationId:id,version:"1",prices:[{amount:"27.00000001",currency:null,minQuantity:null}]}};
     expect(collectionDetailSchema.parse(input)).toHaveProperty("sourceQuotes",input.sourceQuotes);
-    for(const quotes of [{...input.sourceQuotes,version:"2"},{...input.sourceQuotes,publicationId:"foreign"},{...input.sourceQuotes,prices:[{amount:"27",currency:"$",minQuantity:null}]},{state:"unavailable",prices:input.sourceQuotes.prices}])expect(collectionDetailSchema.safeParse({...input,sourceQuotes:quotes}).success).toBe(false);
+    for(const quotes of [{...input.sourceQuotes,version:"2"},{...input.sourceQuotes,publicationId:"foreign"},{...input.sourceQuotes,prices:[{amount:"27",currency:"$",minQuantity:null}]},{...input.sourceQuotes,prices:[{amount:"27",currency:null}]},{state:"unavailable",prices:input.sourceQuotes.prices}])expect(collectionDetailSchema.safeParse({...input,sourceQuotes:quotes}).success).toBe(false);
     expect(collectionDetailSchema.parse({...input,sourceQuotes:{state:"unavailable"}}).product.title).toBe("known");
   });
   it("preserves bounded persisted lineage metadata as source data",()=>{

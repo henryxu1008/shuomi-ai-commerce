@@ -19,7 +19,7 @@ import (
 )
 
 func TestRetiredTaskSchemaScopesRejectBeforeConfigurationOrDatabaseAccess(t *testing.T) {
-	for _, scope := range []string{"", "all", "shein-sync"} {
+	for _, scope := range []string{"", "all", "shein-sync", "commercial"} {
 		t.Run(scope, func(t *testing.T) {
 			loaded := false
 			err := runWithDependencies(context.Background(), Options{Scope: scope}, runtimeDependencies{
@@ -67,44 +67,6 @@ func TestResolveConfigPathAndParseFlags(t *testing.T) {
 	)
 	if opts.Config != "config/runtime.yaml" || opts.LogLevel != "debug" || opts.Scope != "workbench" {
 		t.Fatalf("unexpected parsed options: %+v", opts)
-	}
-}
-
-func TestRunDispatchesCommercialScopeToCommercialDatabase(t *testing.T) {
-	commercial := &gorm.DB{}
-	openedCommercial, migratedCommercial, closedCommercial := false, false, false
-	err := runWithDependencies(context.Background(), Options{Config: "config/test.yaml", LogLevel: "error", Scope: "commercial"}, runtimeDependencies{
-		LoadConfig: func(string) (*config.Config, error) {
-			return &config.Config{CommercialDatabase: &config.DatabaseConfig{}}, nil
-		},
-		OpenDB: func(*config.DatabaseConfig) (*gorm.DB, error) {
-			t.Fatal("primary database must not be opened for commercial scope")
-			return nil, nil
-		},
-		OpenCommercial: func(*config.DatabaseConfig) (*gorm.DB, error) {
-			openedCommercial = true
-			return commercial, nil
-		},
-		CloseDB: func(got *gorm.DB) error {
-			if got != commercial {
-				t.Fatal("closed unexpected database")
-			}
-			closedCommercial = true
-			return nil
-		},
-		MigrateCommercial: func(got *gorm.DB) error {
-			if got != commercial {
-				t.Fatal("migrated unexpected database")
-			}
-			migratedCommercial = true
-			return nil
-		},
-	})
-	if err != nil {
-		t.Fatalf("runWithDependencies returned error: %v", err)
-	}
-	if !openedCommercial || !migratedCommercial || !closedCommercial {
-		t.Fatalf("expected commercial open/migrate/close, got open=%v migrate=%v close=%v", openedCommercial, migratedCommercial, closedCommercial)
 	}
 }
 
@@ -223,7 +185,7 @@ func TestMigrationScopeFlagHelpAdvertisesAllSupportedScopes(t *testing.T) {
 	fs.SetOutput(&output)
 	ParseFlagsFrom(fs, "--help")
 	fs.PrintDefaults()
-	for _, scope := range []string{"commercial", "workbench"} {
+	for _, scope := range []string{"workbench"} {
 		if !strings.Contains(output.String(), scope) {
 			t.Fatalf("scope help does not advertise %q: %s", scope, output.String())
 		}

@@ -2,7 +2,7 @@ package extractor
 
 import (
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -10,8 +10,8 @@ import (
 // ProductDetailsExtractor 产品详情提取器
 type ProductDetailsExtractor struct{}
 
-func (e *ProductDetailsExtractor) Extract(page playwright.Page, product *model.Product) error {
-	var details []model.ProductDetail
+func (e *ProductDetailsExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
+	var details []amazonresult.ProductDetail
 
 	// 产品详情表格选择器
 	tableSelectors := []string{
@@ -49,7 +49,7 @@ func (e *ProductDetailsExtractor) Extract(page playwright.Page, product *model.P
 			value = cleanProductDetailValue(value)
 
 			if key != "" && value != "" {
-				details = append(details, model.ProductDetail{
+				details = append(details, amazonresult.ProductDetail{
 					Type:  key,
 					Value: value,
 				})

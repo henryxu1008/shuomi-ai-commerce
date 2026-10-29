@@ -2,23 +2,22 @@ package offlinepackage
 
 import (
 	"strings"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
-
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 func TestNormalizeSubmitImagesRepairsMissingSKUImageFromSKC(t *testing.T) {
 	t.Parallel()
 
-	product := &sheinproduct.Product{
-		SKCList: []sheinproduct.SKC{{
-			ImageInfo: sheinproduct.ImageInfo{
-				ImageInfoList: []sheinproduct.ImageDetail{
+	product := &previewdata.Product{
+		SKCList: []previewdata.SKC{{
+			ImageInfo: previewdata.ImageInfo{
+				ImageInfoList: []previewdata.ImageDetail{
 					{ImageType: 1, ImageSort: 1, ImageURL: "https://img.example.com/skc-main.jpg"},
 					{ImageType: 2, ImageSort: 2, ImageURL: "https://img.example.com/skc-gallery.jpg"},
 				},
 			},
-			SKUS: []sheinproduct.SKU{{SupplierSKU: "SKU-1"}},
+			SKUS: []previewdata.SKU{{SupplierSKU: "SKU-1"}},
 		}},
 	}
 
@@ -42,7 +41,7 @@ func TestNormalizeSubmitImagesRepairsMissingSKUImageFromSKC(t *testing.T) {
 func TestNormalizeSubmitGalleryImagesAddsSquareAndOptionalColorBlock(t *testing.T) {
 	t.Parallel()
 
-	images := []sheinproduct.ImageDetail{
+	images := []previewdata.ImageDetail{
 		{ImageType: 1, ImageSort: 9, ImageURL: "https://img.example.com/main.jpg", MarketingMainImage: true, SizeImgFlag: true, TransformCVSizeImage: true},
 		{ImageType: 2, ImageSort: 8, ImageURL: "https://img.example.com/detail.jpg"},
 		{ImageType: 6, ImageSort: 7, ImageURL: "https://img.example.com/color.jpg"},
@@ -77,7 +76,7 @@ func TestNormalizeSubmitGalleryImagesAddsSquareAndOptionalColorBlock(t *testing.
 func TestBuildSubmitSiteDetailImageInfoListPrefersDetailImages(t *testing.T) {
 	t.Parallel()
 
-	items := buildSubmitSiteDetailImageInfoList([]sheinproduct.ImageDetail{
+	items := buildSubmitSiteDetailImageInfoList([]previewdata.ImageDetail{
 		{ImageType: 1, ImageURL: "https://img.example.com/main.jpg"},
 		{ImageType: 2, ImageURL: "https://img.example.com/detail-1.jpg"},
 		{ImageType: 2, ImageURL: "https://img.example.com/detail-2.jpg"},
@@ -101,8 +100,8 @@ type ProductAttributeLike struct {
 	AttributeExtraValue string
 }
 
-func (a ProductAttributeLike) toShein() sheinproduct.ProductAttribute {
-	return sheinproduct.ProductAttribute{
+func (a ProductAttributeLike) toShein() previewdata.ProductAttribute {
+	return previewdata.ProductAttribute{
 		AttributeID:         a.AttributeID,
 		AttributeValueID:    a.AttributeValueID,
 		AttributeExtraValue: a.AttributeExtraValue,
@@ -112,11 +111,11 @@ func (a ProductAttributeLike) toShein() sheinproduct.ProductAttribute {
 func TestDeriveSubmitProductSupplierCode(t *testing.T) {
 	t.Parallel()
 
-	product := &sheinproduct.Product{
+	product := &previewdata.Product{
 		SupplierCode: "MG8089003001",
-		SKCList: []sheinproduct.SKC{
+		SKCList: []previewdata.SKC{
 			{
-				SKUS: []sheinproduct.SKU{
+				SKUS: []previewdata.SKU{
 					{SupplierSKU: "MG8089003001-V295977-TEEC9CE8E-RCODEX-4F2669C9"},
 				},
 			},
@@ -184,7 +183,7 @@ func TestValidatePreparedProductPublishPayloadRequiresTemplateSizeChartAttribute
 		t.Fatalf("ValidatePreparedProductPublishPayloadWithSizeChartAttributes(missing required size attrs) error = %v", err)
 	}
 
-	product.SizeAttributeList = []sheinproduct.SizeAttribute{
+	product.SizeAttributeList = []previewdata.SizeAttribute{
 		{AttributeID: 55, AttributeExtraValue: "88", RelateSaleAttributeID: 87, RelateSaleAttributeValueID: 568},
 		{AttributeID: 20, AttributeExtraValue: "96", RelateSaleAttributeID: 87, RelateSaleAttributeValueID: 568},
 	}
@@ -193,23 +192,23 @@ func TestValidatePreparedProductPublishPayloadRequiresTemplateSizeChartAttribute
 	}
 }
 
-func preparedPublishProduct() *sheinproduct.Product {
+func preparedPublishProduct() *previewdata.Product {
 	quantity := 1
 	quantityType := 1
 	quantityUnit := 1
-	return &sheinproduct.Product{
-		SKCList: []sheinproduct.SKC{{
-			ImageInfo: sheinproduct.ImageInfo{
-				ImageInfoList: []sheinproduct.ImageDetail{{ImageType: 5}, {ImageType: 6}},
+	return &previewdata.Product{
+		SKCList: []previewdata.SKC{{
+			ImageInfo: previewdata.ImageInfo{
+				ImageInfoList: []previewdata.ImageDetail{{ImageType: 5}, {ImageType: 6}},
 			},
-			SKUS: []sheinproduct.SKU{{
-				QuantityInfo: &sheinproduct.QuantityInfo{
+			SKUS: []previewdata.SKU{{
+				QuantityInfo: &previewdata.QuantityInfo{
 					Quantity:     &quantity,
 					QuantityType: &quantityType,
 					QuantityUnit: &quantityUnit,
 				},
 				PackageType: 3,
-				StockInfoList: []sheinproduct.StockInfo{{
+				StockInfoList: []previewdata.StockInfo{{
 					MerchantWarehouseCode: "DEFAULT",
 					InventoryNum:          1,
 				}},
@@ -223,8 +222,8 @@ func preparedPublishProduct() *sheinproduct.Product {
 }
 
 func TestPrepareProductForValidationPreservesIdentityAndNormalizesTransport(t *testing.T) {
-	makeProduct := func() *sheinproduct.Product {
-		return &sheinproduct.Product{SPUName: "title", SKCList: []sheinproduct.SKC{{SKUS: []sheinproduct.SKU{{SupplierSKU: "sku"}}}}}
+	makeProduct := func() *previewdata.Product {
+		return &previewdata.Product{SPUName: "title", SKCList: []previewdata.SKC{{SKUS: []previewdata.SKU{{SupplierSKU: "sku"}}}}}
 	}
 	for _, identity := range []string{"", "given-identity"} {
 		product := makeProduct()
@@ -250,8 +249,8 @@ func TestPrepareProductForValidationPreservesIdentityAndNormalizesTransport(t *t
 func TestEnsureSubmitSitesNormalizesUSDefaults(t *testing.T) {
 	t.Parallel()
 
-	product := &sheinproduct.Product{
-		SiteList: []sheinproduct.SiteInfo{{
+	product := &previewdata.Product{
+		SiteList: []previewdata.SiteInfo{{
 			MainSite:    "US",
 			SubSiteList: []string{"US"},
 		}},
@@ -275,18 +274,18 @@ func TestEnsureSubmitSKUsNormalizesStockQuantityDimensionsAndPriceSite(t *testin
 
 	stockCount := 7
 	supplierCode := "SKC-1"
-	product := &sheinproduct.Product{
-		SKCList: []sheinproduct.SKC{{
+	product := &previewdata.Product{
+		SKCList: []previewdata.SKC{{
 			SupplierCode: &supplierCode,
-			SaleAttribute: sheinproduct.SaleAttribute{
+			SaleAttribute: previewdata.SaleAttribute{
 				PreFillSpec:        true,
 				IsSPPSaleAttribute: true,
 			},
-			SKUS: []sheinproduct.SKU{{
+			SKUS: []previewdata.SKU{{
 				StockCount:    &stockCount,
 				Weight:        1,
 				WeightUnit:    "lb",
-				PriceInfoList: []sheinproduct.PriceInfo{{SubSite: "US"}},
+				PriceInfoList: []previewdata.PriceInfo{{SubSite: "US"}},
 			}},
 		}},
 	}
@@ -334,13 +333,13 @@ func TestEnsureSubmitSKUsNormalizesStockQuantityDimensionsAndPriceSite(t *testin
 func TestNormalizeSubmitWeightClampsAndConvertsUnits(t *testing.T) {
 	t.Parallel()
 
-	sku := &sheinproduct.SKU{Weight: 2, WeightUnit: "kg"}
+	sku := &previewdata.SKU{Weight: 2, WeightUnit: "kg"}
 	normalizeSubmitWeight(sku)
 	if sku.Weight != 2000 || sku.WeightUnit != "g" {
 		t.Fatalf("weight = %.2f %s, want 2000 g", sku.Weight, sku.WeightUnit)
 	}
 
-	sku = &sheinproduct.SKU{Weight: 0, WeightUnit: "g"}
+	sku = &previewdata.SKU{Weight: 0, WeightUnit: "g"}
 	normalizeSubmitWeight(sku)
 	if sku.Weight != 0.01 || sku.WeightUnit != "g" {
 		t.Fatalf("min weight = %.2f %s, want %.2f g", sku.Weight, sku.WeightUnit, 0.01)

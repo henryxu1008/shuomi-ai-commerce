@@ -4406,7 +4406,7 @@ func TestRegisterWorkerPreservesFrozenV2Compatibility(t *testing.T) {
 	require.NoError(t, err)
 	registrar := &recordingWorkerRegistrar{}
 
-	require.NoError(t, RegisterWorker(registrar, activities))
+	require.NoError(t, RegisterWorkerForMode(registrar, activities, WorkerWireModeV2))
 
 	require.Equal(t, []string{workflowNameImageAgent, workflowNameImageSlot}, registrar.workflows)
 	require.Equal(t, []string{

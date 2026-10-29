@@ -26,7 +26,7 @@ func TestRunnerUpIsIdempotentAndStatusReflectsAppliedMigration(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	before, err := runner.Status(context.Background())
+	before, err := runner.provider.Status(context.Background())
 	if err != nil {
 		t.Fatalf("Status() before Up error = %v", err)
 	}
@@ -50,7 +50,7 @@ func TestRunnerUpIsIdempotentAndStatusReflectsAppliedMigration(t *testing.T) {
 		t.Fatalf("migration runs = %d, want 1", got)
 	}
 
-	after, err := runner.Status(context.Background())
+	after, err := runner.provider.Status(context.Background())
 	if err != nil {
 		t.Fatalf("Status() after Up error = %v", err)
 	}

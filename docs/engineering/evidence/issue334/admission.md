@@ -1,3 +1,5 @@
+> #301 / #977 用户确认的[完整退休闭包](../../../architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md)已在同一主要PR实施：旧隔离HTTP constructor/binding与其测试保活限定退出；当前review capability/记账/发送/取消/UNKNOWN、原组织及凭据准入断言沿现有Domain/Activity与当前HTTP owner保持。 此顶注只校准本批指定旧KEEP，以下实际开工main的完整原正文/批准/失败/数字/勾选逐字保留为历史。无新alias/替代旧宿主、workflow/inventory/运行/数据操作或内部试用前置；独立SHEIN登录与Store同步保留，#301 OPEN。
+
 # Image Review invocation admission evidence
 
 Refs #334 / #130 / #126. This is a bounded admission report, **not an implementation or acceptance of governed Review**. Production code is unchanged. Rolling HEAD, CI and independent review evidence belong in the associated PR.

@@ -1,7 +1,6 @@
 package draft
 
 import (
-	"context"
 	"io"
 	"strings"
 
@@ -13,7 +12,6 @@ import (
 )
 
 func buildLocalPackage(product *canonical.Product, country, language string, logs func(string) *logrus.Entry) *offlinepackage.Package {
-	runtimeCtx := context.Background()
 	if product == nil {
 		return &offlinepackage.Package{ReviewNotes: []string{"canonical product is empty"}}
 	}
@@ -21,7 +19,7 @@ func buildLocalPackage(product *canonical.Product, country, language string, log
 
 	images := buildSourceImages(product)
 	spuName := strings.TrimSpace(product.Title)
-	copy := buildLocalCopy(runtimeCtx, product, spuName, logs)
+	copy := buildLocalCopy(product, spuName)
 	brand := product.Brand
 	authorizedBrandCode := ""
 	authorizedBrandName := ""
@@ -79,13 +77,13 @@ func buildLocalPackage(product *canonical.Product, country, language string, log
 		}
 	}
 	attachSourceFactReviewMetadata(pkg, product)
-	normalizeLocalCopy(runtimeCtx, pkg, product, language, logs)
+	normalizeLocalCopy(pkg, product, language)
 	groups := buildLocalVariantGroups(variants, images)
 	pkg.SkcList = buildSKCs(groups)
 	supplierCode := firstSupplierCode(pkg.SkcList)
 	pkg.DraftPayload.SupplierCode = supplierCode
 	pkg.DraftPayload.SKCList = buildRequestSKCs(groups, images, siteList, product)
-	sanitizeLocalDraft(pkg, runtimeCtx, nil, logs)
+	sanitizeLocalDraft(pkg, sheinmarketpub.DisplayTextCleanupInput{Words: sheinmarketpub.DefaultDisplayTextWords()})
 	pkg.PreviewPayload = buildLocalPreview(pkg)
 	log.WithFields(logrus.Fields{
 		"category_id": pkg.CategoryID,

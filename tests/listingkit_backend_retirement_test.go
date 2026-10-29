@@ -17,6 +17,634 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacySheinLoginIdentitySyncClosureIsRetired(t *testing.T) {
+	retiredRoots := []string{
+		"cmd/shein-login-worker", "internal/app/runtime/sheinloginworker",
+		"internal/sheinlogin", "internal/shein",
+	}
+	for _, relative := range append(append([]string{}, retiredRoots...), []string{
+		"internal/core/config/type_redis.go",
+		"internal/storecenter/shein_login.go", "internal/storecenter/shein_login_schema.go",
+		"internal/storecenter/shein_login_test.go", "internal/storecenter/shein_login_postgres_test.go",
+		"config/shein-login-worker.current.example.json",
+		"deployments/docker/Dockerfile.shein-login-worker",
+		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml",
+		".github/workflows/shein-login-worker-deploy.yml",
+	}...) {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired SHEIN login artifact remains: %s: %v", relative, err)
+		}
+	}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imp := range file.Imports {
+			imported, err := decodeGoImportPath(imp.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", path, err)
+			}
+			for _, root := range retiredRoots {
+				if importMatchesPrefix(imported, "task-processor/"+root) {
+					t.Errorf("%s imports retired SHEIN login owner %s", path, imported)
+				}
+			}
+		}
+		if strings.HasSuffix(path, "_test.go") || strings.HasPrefix(path, "tests/testdata/") {
+			continue
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		check := func(name string) {
+			if owner == "internal/storecenter" && (strings.HasPrefix(name, "SheinLogin") || strings.HasPrefix(name, "SheinBinding") || strings.HasPrefix(name, "SheinIdentity") || strings.HasPrefix(name, "AuditActionShein") || slices.Contains([]string{"NewSheinLoginRepository", "AutoMigrateSheinLoginForTests", "InstallSheinLoginCapability", "VerifySheinLoginRuntime", "sheinLoginTable", "sheinLoginDDL", "verifySheinLoginSchema"}, name)) || owner == "internal/core/config" && name == "RedisConfig" {
+				t.Errorf("%s recreates retired login declaration %s", path, name)
+			}
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch d := node.(type) {
+			case *ast.FuncDecl:
+				check(d.Name.Name)
+			case *ast.TypeSpec:
+				check(d.Name.Name)
+				if owner == "internal/storecenter" && d.Name.Name == "RuntimeCapabilities" {
+					shape, ok := d.Type.(*ast.StructType)
+					if !ok {
+						t.Fatal("RuntimeCapabilities must remain a struct")
+					}
+					for _, field := range shape.Fields.List {
+						for _, name := range field.Names {
+							if name.Name == "SheinLogin" {
+								t.Errorf("%s retains retired login capability", path)
+							}
+						}
+					}
+				}
+			case *ast.ValueSpec:
+				for _, name := range d.Names {
+					check(name.Name)
+				}
+			case *ast.BasicLit:
+				if d.Kind == token.STRING {
+					value, err := decodeGoImportPath(d.Value)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, old := range []string{"workbench_store_shein_login_bindings", "shein_login_identity_sync", "shein_login_activate", "shein_login_quiesce", "shein-login-worker"} {
+						if strings.Contains(value, old) {
+							t.Errorf("%s retains retired login capability literal %s", path, old)
+						}
+					}
+				}
+			}
+			return true
+		})
+	}
+	for _, path := range []string{
+		"Makefile", ".github/workflows/ci.yml", ".github/workflows/commercial-readiness.yml",
+		"deployments/kubernetes/listingkit-workbench/base/kustomization.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/configmap.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/secret.example.yaml",
+		"scripts/start-listingkit-local-ui.ps1",
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, retired := range []string{"shein-login-worker", "SHEIN_LOGIN_API_BASE", "TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_", "TASK_PROCESSOR_SHEIN_APP_ID", "TASK_PROCESSOR_SHEIN_APP_SECRET"} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s retains retired login entry %s", path, retired)
+			}
+		}
+	}
+	for _, path := range []string{
+		"cmd/current-application/main.go", "cmd/image-agent-temporal-worker/main.go", "cmd/store-center-schema-init/main.go",
+		"cmd/1688-public-browser-collector/main.go", "cmd/1688-batch-import/main.go",
+		"internal/app/runtime/currentapplication/store_observations.go",
+		"internal/app/runtime/storeobservations/workflow.go", "internal/app/storeobservations/application.go",
+		"internal/integration/shein/official_observations.go", "internal/integration/shein/official_client.go",
+		"internal/marketplace/shein/draft/builder.go", "internal/marketplace/shein/offlinepackage/decode.go",
+		"internal/marketplace/shein/publishing/display_text_cleanup_policy.go", "internal/crawler/shared/browser/manager.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current capability must remain: %s: %v", path, err)
+		}
+	}
+}
+
+func TestLegacyLocalAgentSourcePolicyClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"cmd/1688-local-agent/main.go",
+		"cmd/1688-local-agent/main_test.go",
+		"internal/integration/crawler/README.md",
+		"internal/integration/crawler/a1688/README.md",
+		"internal/integration/crawler/a1688/legacy_product_snapshot.go",
+		"internal/integration/crawler/a1688/legacy_product_snapshot_test.go",
+		"internal/integration/crawler/a1688/processor.go",
+		"internal/integration/crawler/a1688/processor_test.go",
+		"internal/integration/crawler/a1688/product_source.go",
+		"internal/integration/crawler/a1688/product_source_test.go",
+		"internal/integration/crawler/boundary_guard_test.go",
+		"internal/integration/crawler/doc.go",
+		"internal/localagent/client/client.go",
+		"internal/localagent/client/client_test.go",
+		"internal/localagent/deviceauth/client.go",
+		"internal/localagent/deviceauth/client_test.go",
+		"internal/localagent/httpapi/handler.go",
+		"internal/localagent/httpapi/handler_test.go",
+		"internal/localagent/httpapi/http_module.go",
+		"internal/localagent/httpapi/http_module_test.go",
+		"internal/localagent/httpapi/routes.go",
+		"internal/localagent/httpapi/routes_test.go",
+		"internal/localagent/local_agent_e2e_test.go",
+		"internal/localagent/logger_port.go",
+		"internal/localagent/runner.go",
+		"internal/localagent/runner_test.go",
+		"internal/localagent/service.go",
+		"internal/localagent/service_test.go",
+		"internal/localagent/types.go",
+		"internal/product/asset/policy/base_selection.go",
+		"internal/product/asset/policy/base_selection_test.go",
+		"internal/sds/adapter/product_source/apply.go",
+		"internal/sds/adapter/product_source/apply_test.go",
+		"internal/sds/adapter/product_source/baseline.go",
+		"internal/sds/adapter/product_source/baseline_test.go",
+		"internal/sds/adapter/product_source/boundary_guard_test.go",
+		"internal/sds/adapter/product_source/execution.go",
+		"internal/sds/adapter/product_source/execution_test.go",
+		"internal/sds/adapter/product_source/images.go",
+		"internal/sds/adapter/product_source/images_test.go",
+		"internal/sds/adapter/product_source/model.go",
+		"scripts/1688-local-agent-acceptance.Tests.ps1",
+		"scripts/1688-local-agent-acceptance.ps1",
+		"internal/localagent", "internal/integration/crawler",
+		"internal/sds/adapter/product_source", "internal/product/asset/policy", "cmd/1688-local-agent",
+	} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired LocalAgent/source/policy path must be absent: %s: %v", relative, err)
+		}
+	}
+	banned := []string{
+		"task-processor/internal/localagent", "task-processor/internal/integration/crawler",
+		"task-processor/internal/sds/adapter/product_source", "task-processor/internal/product/asset/policy",
+	}
+	retained := map[string][]string{
+		"cmd/1688-public-browser-collector/main.go:main":                                             nil,
+		"cmd/1688-batch-import/main.go:main":                                                         nil,
+		"internal/crawler/alibaba1688/processor.go:NewAlibaba1688Processor":                          nil,
+		"internal/crawler/alibaba1688/processor.go:Alibaba1688Processor.Process":                     {"ap.singleProcessor.ProcessWithSingleBrowser(ctx, url, startTime)"},
+		"internal/crawler/alibaba1688/processor.go:Alibaba1688Processor.Shutdown":                    nil,
+		"internal/crawler/alibaba1688/single_processor.go:SingleProcessor.ProcessWithSingleBrowser":  {"sp.processWithBrowserManager(ctx, url, startTime, sp.newPublicBrowserManager())"},
+		"internal/crawler/alibaba1688/single_processor.go:SingleProcessor.newPublicBrowserManager":   {"NewPublicBrowserManager(sp.config, sp.logFor)"},
+		"internal/crawler/alibaba1688/single_processor.go:SingleProcessor.processWithBrowserManager": {"browserManager.CreateBrowser()", "closeOnContextDone(ctx, cleanup)", "ctx.Err()"},
+		"internal/crawler/alibaba1688/single_processor.go:closeOnContextDone":                        {"sync.OnceFunc(close)", "context.AfterFunc(ctx, closeOnce)", "closeOnce()"},
+		"internal/product/sourcing/source_identity.go:NormalizeSourceIdentity":                       nil,
+		"internal/product/sourcing/source_identity.go:SourceIdentity.SourceKey":                      nil,
+		"internal/product/sourcing/normalize.go:NormalizePublicationEnvelope":                        {"identity.Platform", "identity.Region", "identity.ProductID", "identity.StoreID"},
+		"tests/issue30_sourcing_contract_test.go:issue30Envelope":                                    {"sourcing.SourceEnvelope{", "sourcing.RawSnapshotChecksum(", ".Normalize()"},
+		"internal/integration/sds/templates.go:NewTemplateClient":                                    nil,
+		"internal/app/pod/application.go:NewApplication":                                             {"sds.NewTemplateClient(", "sds.NewMutationClient(", "sds.NewReadbackClient("},
+		"internal/app/pod/service.go:Service.Create":                                                 nil,
+	}
+	requiredFiles := []string{
+		"internal/integration/acquisition/a1688/browser", "internal/integration/acquisition/browsercollector",
+		"internal/product/asset/approval.go", "internal/product/asset/image_set_policy.go",
+		"internal/imageagent/assetpublication/publisher.go",
+		"internal/authz/listingkit.go",
+	}
+	for _, relative := range requiredFiles {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
+			t.Fatalf("current acquisition/asset/SHEIN/identity owner must remain: %s: %v", relative, err)
+		}
+	}
+	found := map[string]bool{}
+	permissionFound := false
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imported := range file.Imports {
+			path, err := decodeGoImportPath(imported.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, prefix := range banned {
+				if importMatchesPrefix(path, prefix) {
+					t.Errorf("%s imports retired LocalAgent/source/policy owner %q", relative, path)
+				}
+			}
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil && len(d.Recv.List) > 0 {
+					receiver := d.Recv.List[0].Type
+					if pointer, ok := receiver.(*ast.StarExpr); ok {
+						receiver = pointer.X
+					}
+					if receiver, ok := receiver.(*ast.Ident); ok {
+						name = receiver.Name + "." + name
+					}
+				}
+				if strings.HasPrefix(relative, "internal/crawler/alibaba1688/") && (name == "Alibaba1688Processor.Prepare" || name == "SingleProcessor.Prepare") {
+					t.Errorf("%s retains retired LocalAgent-only preclaim warmup %s", relative, name)
+				}
+				key := relative + ":" + name
+				if fragments, wanted := retained[key]; wanted {
+					found[key] = true
+					var body bytes.Buffer
+					if err := format.Node(&body, token.NewFileSet(), d); err != nil {
+						t.Fatal(err)
+					}
+					for _, fragment := range fragments {
+						if !strings.Contains(body.String(), fragment) {
+							t.Errorf("current %s must retain %q", key, fragment)
+						}
+					}
+				}
+			case *ast.GenDecl:
+				if relative != "internal/authz/listingkit.go" {
+					continue
+				}
+				for _, spec := range d.Specs {
+					value, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for i, name := range value.Names {
+						if name.Name == "PermissionLocalAgentWrite" && i < len(value.Values) {
+							literal, ok := value.Values[i].(*ast.BasicLit)
+							permissionFound = ok && literal.Value == `"local_agent.write"`
+						}
+					}
+				}
+			}
+		}
+	}
+	for key := range retained {
+		if !found[key] {
+			t.Errorf("current owner declaration must remain: %s", key)
+		}
+	}
+	if !permissionFound {
+		t.Error("current shared PermissionLocalAgentWrite must remain unchanged")
+	}
+}
+
+func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
+	const logging = "internal/platform/logging"
+	const httpclient = "internal/pkg/httpclient"
+	const migration = "internal/platform/database/migration"
+	if _, err := os.Lstat(filepath.Join("..", logging, "level_split_hook.go")); !os.IsNotExist(err) {
+		t.Errorf("retired level split hook file must be absent: %v", err)
+	}
+	retired := map[string][]string{
+		logging:   strings.Fields("rwLocker logLevelState LevelSplitHook LevelFileConfig logLevelState.locking newLogManager LogManager.SetLevel LogManager.GetLevel NewLevelSplitHook LevelSplitHook.Levels LevelSplitHook.Fire"),
+		migration: strings.Fields("Runner.Status"),
+	}
+	retiredFields := map[string][]string{
+		logging + ":LogManager": strings.Fields("levelState formatter"),
+		logging + ":LogConfig":  strings.Fields("EnableCaller CallerSkip SplitByLevel"),
+		httpclient + ":Config":  strings.Fields("SkipTLSVerify"),
+	}
+	shapes := map[string][]string{
+		logging + ":LogConfig": {
+			"Level:string:`yaml:\"level\" json:\"level\"`", "Format:string:`yaml:\"format\" json:\"format\"`",
+			"OutputFile:string:`yaml:\"output_file\" json:\"output_file\"`", "MaxSize:int:`yaml:\"max_size\" json:\"max_size\"`",
+			"MaxBackups:int:`yaml:\"max_backups\" json:\"max_backups\"`", "MaxAge:int:`yaml:\"max_age\" json:\"max_age\"`",
+			"Compress:bool:`yaml:\"compress\" json:\"compress\"`", "Console:bool:`yaml:\"console\" json:\"console\"`",
+			"ReportCaller:bool:`yaml:\"report_caller\" json:\"report_caller\"`",
+		},
+		logging + ":LogManager":         {"logger:*logrus.Logger:", "outputs:[]io.Writer:", "config:*LogConfig:", "fileWriter:*rotatingFileWriter:", "mutex:sync.RWMutex:"},
+		logging + ":logManagerRegistry": {"locker:sync.Locker:", "manager:*LogManager:", "factory:logManagerFactory:"},
+		httpclient + ":Config":          {"Timeout:time.Duration:", "MaxRetries:int:", "RetryDelay:time.Duration:", "EnableLogging:bool:"},
+		migration + ":Runner":           {"provider:*goose.Provider:", "upMu:sync.Locker:"},
+	}
+	fragments := map[string][]string{
+		logging + ":NewLogManager":                                       {"config = DefaultLogConfig()", "logger := logrus.New()", "level := parseLogLevel(config.Level)", "logger.SetLevel(level)", "formatter := createFormatter(config.Format, config.ReportCaller)", "logger.SetFormatter(formatter)", "logger.SetReportCaller(config.ReportCaller)", "outputs := lm.createOutputs()", "lm.outputs = outputs", "logger.SetOutput(io.MultiWriter(outputs...))"},
+		logging + ":DefaultLogConfig":                                    {`Level:`, `"info"`, `ReportCaller: false`},
+		logging + ":LogManager.GetLogger":                                {`lm.logger.WithField("component", component)`},
+		logging + ":LogManager.GetRawLogger":                             {"return lm.logger"},
+		logging + ":LogManager.Close":                                    {"lm.mutex.Lock()", "defer lm.mutex.Unlock()", "lm.fileWriter.Close()"},
+		logging + ":parseLogLevel":                                       nil,
+		logging + ":createFormatter":                                     nil,
+		logging + ":LogManager.createOutputs":                            {"os.Stdout", "newRotatingFileWriter("},
+		logging + ":newLogManagerRegistry":                               {"locker sync.Locker"},
+		logging + ":logManagerRegistry.init":                             {"r.locker.Lock()", "defer r.locker.Unlock()", "r.manager = r.factory(config)"},
+		logging + ":logManagerRegistry.get":                              {"r.locker.Lock()", "defer r.locker.Unlock()", "if r.manager == nil", "r.manager = r.factory(nil)"},
+		logging + ":InitGlobalLogger":                                    {"globalLogManagerRegistry.init(config)"},
+		logging + ":GetGlobalLogManager":                                 {"globalLogManagerRegistry.get()"},
+		logging + ":GetGlobalLogger":                                     {"GetGlobalLogManager().GetLogger(component)"},
+		httpclient + ":New":                                              {"&http.Client{Timeout: config.Timeout}"},
+		httpclient + ":Client.Do":                                        {"case <-ctx.Done():", "req.WithContext(ctx)", "_ = resp.Body.Close()"},
+		httpclient + ":NewSimpleWithTimeout":                             {"&http.Client{Timeout: timeout}"},
+		migration + ":New":                                               nil,
+		migration + ":NewWithVersionTable":                               {"validVersionTableName(dialect, versionTable)"},
+		migration + ":validVersionTableName":                             nil,
+		migration + ":newRunner":                                         {"lock.NewPostgresSessionLocker()", "goose.WithSessionLocker(sessionLocker)", "goose.WithTableName(versionTable)", "upMu = &sqliteUpMu", "goose.NewProvider("},
+		migration + ":Runner.Up":                                         {"r.upMu.Lock()", "defer r.upMu.Unlock()", "r.provider.Up(ctx)"},
+		"internal/crawler/shared/browser:NewChromeDownloaderWithTimeout": {"httpclient.Config{", "httpclient.New(httpConfig,"},
+	}
+	formatNode := func(node ast.Node) string {
+		var b bytes.Buffer
+		if err := format.Node(&b, token.NewFileSet(), node); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	found := map[string]bool{}
+	for _, relative := range trackedFiles(t, ".") {
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if !strings.HasSuffix(relative, ".go") || (owner != logging && owner != httpclient && owner != migration && relative != "internal/crawler/shared/browser/chrome_downloader.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil && len(d.Recv.List) > 0 {
+					shape := d.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					if receiver, ok := shape.(*ast.Ident); ok {
+						name = receiver.Name + "." + name
+					}
+				}
+				if slices.Contains(retired[owner], name) {
+					t.Errorf("%s retains retired declaration %s", relative, name)
+				}
+				identity := owner + ":" + name
+				if wanted, relevant := fragments[identity]; relevant {
+					found[identity] = true
+					body := formatNode(d)
+					for _, fragment := range wanted {
+						if !strings.Contains(body, fragment) {
+							t.Errorf("%s must retain %s fragment %q", relative, name, fragment)
+						}
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if slices.Contains(retired[owner], typ.Name.Name) {
+						t.Errorf("%s retains retired type %s", relative, typ.Name.Name)
+					}
+					identity := owner + ":" + typ.Name.Name
+					shape, ok := typ.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					var actual []string
+					for _, field := range shape.Fields.List {
+						if len(field.Names) == 0 {
+							actual = append(actual, "embedded:"+formatNode(field.Type))
+						}
+						tag := ""
+						if field.Tag != nil {
+							tag = field.Tag.Value
+						}
+						for _, name := range field.Names {
+							if slices.Contains(retiredFields[identity], name.Name) {
+								t.Errorf("%s retains retired field %s.%s", relative, typ.Name.Name, name.Name)
+							}
+							actual = append(actual, name.Name+":"+formatNode(field.Type)+":"+tag)
+						}
+					}
+					if wanted, relevant := shapes[identity]; relevant {
+						found[identity] = true
+						if typ.Assign.IsValid() || !reflect.DeepEqual(actual, wanted) {
+							t.Errorf("%s must retain exact %s fields/types/tags/order: got %v, want %v", relative, typ.Name.Name, actual, wanted)
+						}
+					}
+				}
+			}
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			if call, ok := node.(*ast.CallExpr); ok && owner == logging {
+				if name, ok := call.Fun.(*ast.Ident); ok && slices.Contains([]string{"newLogManager", "NewLevelSplitHook"}, name.Name) {
+					t.Errorf("%s retains retired logging construction %s", relative, name.Name)
+				}
+			}
+			if literal, ok := node.(*ast.CompositeLit); ok {
+				typeName := ""
+				if name, ok := literal.Type.(*ast.Ident); ok {
+					typeName = owner + ":" + name.Name
+				}
+				if name, ok := literal.Type.(*ast.SelectorExpr); ok && relative == "internal/crawler/shared/browser/chrome_downloader.go" && name.Sel.Name == "Config" {
+					if alias, ok := name.X.(*ast.Ident); ok && alias.Name == "httpclient" {
+						typeName = httpclient + ":Config"
+					}
+				}
+				for _, entry := range literal.Elts {
+					if pair, ok := entry.(*ast.KeyValueExpr); ok {
+						if key, ok := pair.Key.(*ast.Ident); ok && slices.Contains(retiredFields[typeName], key.Name) {
+							t.Errorf("%s retains retired configuration/constructor field %s", relative, key.Name)
+						}
+					}
+				}
+			}
+			return true
+		})
+	}
+	for identity := range shapes {
+		if !found[identity] {
+			t.Errorf("current struct must remain: %s", identity)
+		}
+	}
+	for identity := range fragments {
+		if !found[identity] {
+			t.Errorf("current function must remain: %s", identity)
+		}
+	}
+}
+
+func TestLegacySourceResultContractClosureIsRetired(t *testing.T) {
+	const resultOwner = "internal/crawler/amazon/capturedata"
+	const attributeOwner = "internal/marketplace/shein/offlinepackage/previewdata"
+	if _, err := os.Lstat(filepath.Join("..", "internal", "model")); !os.IsNotExist(err) {
+		t.Errorf("retired global model root must be absent: %v", err)
+	}
+	consumers := map[string]bool{
+		"hack/debug/test-amazon/main.go":                                 false,
+		"internal/crawler/amazon/batch_processor.go":                     false,
+		"internal/crawler/amazon/batch_processor_test.go":                false,
+		"internal/crawler/amazon/browser/error_detector.go":              false,
+		"internal/crawler/amazon/browser/pool_manager.go":                false,
+		"internal/crawler/amazon/browser/pool_manager_test.go":           false,
+		"internal/crawler/amazon/extractor/availability_extractor.go":    false,
+		"internal/crawler/amazon/extractor/bestseller_extractor.go":      false,
+		"internal/crawler/amazon/extractor/brand_extractor.go":           false,
+		"internal/crawler/amazon/extractor/categories_extractor.go":      false,
+		"internal/crawler/amazon/extractor/delivery_extractor.go":        false,
+		"internal/crawler/amazon/extractor/description_extractor.go":     false,
+		"internal/crawler/amazon/extractor/error_detector.go":            false,
+		"internal/crawler/amazon/extractor/extractor.go":                 false,
+		"internal/crawler/amazon/extractor/feature_parser_extractor.go":  false,
+		"internal/crawler/amazon/extractor/features_extractor.go":        false,
+		"internal/crawler/amazon/extractor/image_extractor.go":           false,
+		"internal/crawler/amazon/extractor/list_price_extractor.go":      false,
+		"internal/crawler/amazon/extractor/list_price_extractor_test.go": false,
+		"internal/crawler/amazon/extractor/parent_asin_extractor.go":     false,
+		"internal/crawler/amazon/extractor/price_extractor.go":           false,
+		"internal/crawler/amazon/extractor/price_extractor_test.go":      false,
+		"internal/crawler/amazon/extractor/product_details_extractor.go": false,
+		"internal/crawler/amazon/extractor/rating_extractor.go":          false,
+		"internal/crawler/amazon/extractor/seller_extractor.go":          false,
+		"internal/crawler/amazon/extractor/ships_from_extractor.go":      false,
+		"internal/crawler/amazon/extractor/size_chart_extractor.go":      false,
+		"internal/crawler/amazon/extractor/title_extractor.go":           false,
+		"internal/crawler/amazon/extractor/variations_extractor.go":      false,
+		"internal/crawler/amazon/extractor/video_extractor.go":           false,
+		"internal/crawler/amazon/instance_processor.go":                  false,
+		"internal/crawler/amazon/instance_processor_test.go":             false,
+		"internal/crawler/amazon/processor.go":                           false,
+		"internal/crawler/amazon/processor_test.go":                      false,
+		"internal/crawler/amazon/result_validator.go":                    false,
+		"internal/crawler/amazon/result_validator_test.go":               false,
+	}
+	types := map[string]bool{}
+	for _, name := range strings.Fields("Product Description PriceBreakdown BuyboxPrices Subcategory CustomersSay CustomersKeywords InactiveBuyBox Variation VariationValue ProductDetail SizeChart VideoInfo ProductRequest ProductResult ProductNotFoundError NullableTime") {
+		types[name] = false
+	}
+	methods := map[string]bool{}
+	for _, name := range strings.Fields("VariationValue.UnmarshalJSON NullableTime.UnmarshalJSON NullableTime.MarshalJSON ProductNotFoundError.Error ProductNotFoundError.Unwrap") {
+		methods[name] = false
+	}
+	relationFound := false
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		production := !strings.HasSuffix(relative, "_test.go")
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if importMatchesPrefix(imported, "task-processor/internal/model") {
+				t.Errorf("%s imports retired global model: %s", relative, imported)
+			}
+			if imported == "task-processor/"+resultOwner {
+				if _, required := consumers[relative]; required {
+					consumers[relative] = true
+				}
+			}
+			if owner == resultOwner && production {
+				if !slices.Contains([]string{"encoding/json", "fmt", "time"}, imported) || spec.Name != nil {
+					t.Errorf("pure result leaf imports unexpected dependency: %s", imported)
+				}
+			}
+		}
+		if owner != resultOwner && owner != attributeOwner {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.GenDecl:
+				if d.Tok == token.IMPORT {
+					continue
+				}
+				for _, spec := range d.Specs {
+					s, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						if owner == resultOwner && production {
+							t.Errorf("pure result leaf must not own global state: %s", relative)
+						}
+						continue
+					}
+					if owner == attributeOwner {
+						if slices.Contains([]string{"AttributeInfo", "AttributeValue", "AttributeValueGroup"}, s.Name.Name) {
+							t.Errorf("%s retains retired attribute DTO %s", relative, s.Name.Name)
+						}
+						if s.Name.Name == "CustomAttributeRelation" && production {
+							_, realStruct := s.Type.(*ast.StructType)
+							relationFound = realStruct && !s.Assign.IsValid()
+						}
+					}
+					if owner == resultOwner && production {
+						_, realStruct := s.Type.(*ast.StructType)
+						if _, expected := types[s.Name.Name]; !expected || !realStruct || s.Assign.IsValid() {
+							t.Errorf("result contract must be a required real struct: %s", s.Name.Name)
+						} else {
+							types[s.Name.Name] = true
+						}
+					}
+				}
+			case *ast.FuncDecl:
+				if owner != resultOwner || !production {
+					continue
+				}
+				if d.Recv == nil || len(d.Recv.List) != 1 {
+					t.Errorf("pure result leaf must not add a runtime/forwarding function: %s", d.Name.Name)
+					continue
+				}
+				receiver := d.Recv.List[0].Type
+				if pointer, ok := receiver.(*ast.StarExpr); ok {
+					receiver = pointer.X
+				}
+				id, ok := receiver.(*ast.Ident)
+				if !ok {
+					t.Fatalf("unsupported result receiver: %T", receiver)
+				}
+				key := id.Name + "." + d.Name.Name
+				if _, expected := methods[key]; !expected {
+					t.Errorf("unexpected result method: %s", key)
+				} else {
+					methods[key] = true
+				}
+				ast.Inspect(d.Body, func(node ast.Node) bool {
+					call, ok := node.(*ast.CallExpr)
+					if !ok {
+						return true
+					}
+					if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
+						pkg, ok := selector.X.(*ast.Ident)
+						if !ok || !slices.Contains([]string{"json.Marshal", "json.Unmarshal", "fmt.Sprintf"}, pkg.Name+"."+selector.Sel.Name) {
+							t.Errorf("result leaf must retain only pure codec/error calls: %s", key)
+						}
+					}
+					return true
+				})
+			}
+		}
+	}
+	for path, found := range consumers {
+		if !found {
+			t.Errorf("current consumer must import Amazon result owner: %s", path)
+		}
+	}
+	for _, required := range []map[string]bool{types, methods} {
+		for name, found := range required {
+			if !found {
+				t.Errorf("required Amazon result contract missing: %s", name)
+			}
+		}
+	}
+	if !relationFound {
+		t.Error("current CustomAttributeRelation must remain a real struct")
+	}
+}
+
 func TestLegacyPublishingSupportPolicyClosureIsRetired(t *testing.T) {
 	for _, root := range []string{"internal/publishing", "internal/pkg/jsonx"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(root))); !os.IsNotExist(err) {
@@ -37,7 +665,6 @@ func TestLegacyPublishingSupportPolicyClosureIsRetired(t *testing.T) {
 		policyRoot:                {"Price": false, "PricingPolicy": false, "FinalSubmitImagesReady": false, "VariantImageCoverageStatus": false, "SubmitPreferredWarehouseCode": false},
 		draftRoot:                 {"Builder": false, "buildSourceVariants": false, "buildSourceImages": false, "buildSourceAttributes": false, "buildFallbackVariant": false, "variantOptionSplitter": false},
 		"internal/listing/record": {"Service": false},
-		"internal/sheinlogin":     {"RunWorker": false, "syncPending": false},
 	}
 	valueTypes := strings.Fields("Variant ImageSet PublishImageBundle BundleSlot MissingSlot Attribute Site Price")
 	for _, path := range trackedFiles(t, ".") {
@@ -123,15 +750,14 @@ func TestLegacySheinDraftAssemblyClosureIsRetired(t *testing.T) {
 	const dataRoot = "internal/marketplace/shein/offlinepackage"
 	const draftRoot = "internal/marketplace/shein/draft"
 	required := map[string]map[string]bool{
-		dataRoot:              {},
-		draftRoot:             {"Builder": false, "Build": false, "buildLocalPackage": false, "newSheinSensitiveWordSanitizer": false},
-		"internal/sheinlogin": {"Service": false, "RunWorker": false, "syncPending": false},
+		dataRoot:  {},
+		draftRoot: {"Builder": false, "Build": false, "buildLocalPackage": false},
 	}
 	for _, name := range strings.Fields("AttributeResolution AttributeValueCandidate CategoryResolution CategorySemanticValidation CategorySuggestion DraftPayloadIssue FinalDraft ImageDraft LocalizedText Package PendingAttributeCandidate PricingReview PricingRule RequestDraft ResolutionCacheInfo ResolvedAttribute ResolvedSaleAttribute SKCPackage SKCRequestDraft SKUDraft SKUPriceReview SaleAttributeCandidateInfo SaleAttributeResolution SaleAttributeTemplateOption SitePrice SizeAttributeReview SourceVariantDimension StockInfo TitleDiagnostics ClonePackageForPersistence CloneProductForSubmit DecodePersistedPackageStrict DraftPayloadOf FinalReviewReady FinalSubmitImagesReady HasAnySubmitSKU HasBlockingPendingAttributes HasSubmitImage PrepareProductForValidation SaleAttributeReviewPending SaleAttributesReadyForSubmit SubmitPricingReady ValidateDraftPayload ValidatePreparedProductPublishPayloadWithSizeChartAttributes VariantImageCoverageStatus MaxPersistedPackageBytes MaxPersistedPackageDepth ErrInvalidPersistedPackage") {
 		required[dataRoot][name] = false
 	}
 	retired := strings.Fields("Assembler AssemblerConfig assembler BuildRequest CategoryResolver AttributeResolver SaleAttributeResolver SizeAttributeHeaderResolver SizeAttributeHeaderResolution SizeAttributeHeaderResolutionInput TextGenerator PricingPolicy SubmitPayloadSettings SetDraftPayload SetPreviewPayload loggerDependency")
-	pureImports := strings.Fields("bytes encoding/json errors fmt io math sort strconv strings time unicode/utf8 sigs.k8s.io/json task-processor/internal/marketplace/shein/publishing task-processor/internal/product/catalog/canonical task-processor/internal/shein/api/product task-processor/internal/shein/api/attribute")
+	pureImports := strings.Fields("bytes encoding/json errors fmt io math sort strconv strings time unicode/utf8 sigs.k8s.io/json task-processor/internal/marketplace/shein/publishing task-processor/internal/product/catalog/canonical task-processor/internal/marketplace/shein/offlinepackage/previewdata")
 	for _, path := range trackedFiles(t, ".") {
 		if !strings.HasSuffix(path, ".go") {
 			continue
@@ -255,7 +881,6 @@ func TestLegacyIdleProviderBootstrapClosureIsRetired(t *testing.T) {
 		"internal/ai":                  {"ImageGenerator": false},
 		"internal/pkg/imagex":          {"Inspect": false, "FromBytesWithFormat": false},
 		"internal/crawler/alibaba1688": {"NewPublicBrowserManager": false},
-		"internal/sheinlogin":          {"PrepareOwnedRoots": false, "prepareProfile": false, "resolveProfileDir": false, "Service.RunWorker": false, "Service.syncPending": false},
 	}
 	for _, path := range trackedFiles(t, ".") {
 		if !strings.HasSuffix(path, ".go") {
@@ -360,7 +985,6 @@ func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
 		"internal/product/review":          "Service NewCandidateService Service.CreateFromCandidate Service.CreateFromCandidateWithTransactionAttempt Service.ValidateCandidate Service.Decide Service.Apply CreateInput CandidateInput Record View",
 		"internal/product/review/proposal": "Request PolicySnapshot Proposal Candidate FieldChange Evidence QualityScore ValidationResult Warning Rejection ContentSelection ContentPolicyVersion NewContentSelection ValidateCandidate CanonicalEvidenceID ContentSelection.Absent ContentSelection.Valid ContentSelection.Fields ContentSelection.TitleOnly",
 		"internal/app/httpapi":             "InstallProductReviewSchema buildProductReviewCore newProductReviewRepository productReviewRoutes buildLocalTrialReviewRoutes Issue36LocalTrialSourceWiring",
-		"internal/sheinlogin":              "Service.RunWorker Service.processAttempt Service.claimExecution Service.syncPending",
 	} {
 		for _, name := range strings.Fields(names) {
 			retained[owner+":"+name] = false
@@ -426,7 +1050,7 @@ func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
 		if strings.HasSuffix(path, "_test.go") || strings.HasPrefix(path, "tests/testdata/") {
 			continue
 		}
-		if _, relevant := retired[owner]; !relevant && owner != "internal/product/review/proposal" && owner != "internal/sheinlogin" {
+		if _, relevant := retired[owner]; !relevant && owner != "internal/product/review/proposal" {
 			continue
 		}
 		for _, declaration := range file.Decls {
@@ -550,15 +1174,14 @@ func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 	}
 	retained := map[string]bool{}
 	for owner, names := range map[string]string{
-		"internal/crawler/alibaba1688":       "NewPublicBrowserManager newAlibaba1688PublicBrowserRuntimeConfig newAlibaba1688BrowserManagerWithRuntimeConfig BrowserManager.CreateBrowser Alibaba1688Processor.Process NewCaptchaHandler CaptchaType CaptchaStatus CaptchaResult CaptchaHandler.handlePageCaptcha CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.handleClickCaptchaWithManualOption CaptchaHandler.handleImageCaptchaWithManualOption CaptchaHandler.handleTextCaptchaWithManualOption CaptchaHandler.handleMathCaptchaWithManualOption PageOperator.NavigateToProductWithoutManualCaptcha ProductChecker.ValidateProduct",
-		"internal/crawler/alibaba1688/model": "Product1688",
-		"internal/crawler/shared/browser":    "Manager.SetUserDataDir Manager.Launch Manager.Close",
-		"internal/crawler/amazon":            "AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown ClassifyFetchError newTypedFetchError newProcessorUnavailableError typedFetchError.Error typedFetchError.Unwrap",
-		"internal/crawler/amazon/browser":    "NewBrowserManagerWithConfig PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.releaseInstanceSafely PoolManager.Shutdown regionalPromptTextSelectors regionalPromptActionSelectors normalizedAmazonHost looksLikeRegionalPrompt DismissRegionalPrompt ExtractZipcode CheckIfPriceAvailable",
-		"internal/crawler/amazon/extractor":  "NewCompositeExtractor FeaturesExtractor FeatureParserExtractor DescriptionExtractor NewVariationsExtractor VariationsExtractor.Extract convertToVariationsValues convertToAmazonVariations TextValidator.IsValidDescription TextValidator.IsValidProductDescription ErrorDetector.DetectErrorType ErrorDetector.IsCriticalError",
-		"internal/crawler/amazon/variations": "NewExtractor Extractor.ExtractFromPage Extractor.BuildVariations GetDefaultConfig VariationsData VariationValue Variation",
-		"internal/model":                     "Product",
-		"internal/sheinlogin":                "Service.RunWorker Service.processAttempt Service.claimExecution Service.syncPending",
+		"internal/crawler/alibaba1688":        "NewPublicBrowserManager newAlibaba1688PublicBrowserRuntimeConfig newAlibaba1688BrowserManagerWithRuntimeConfig BrowserManager.CreateBrowser Alibaba1688Processor.Process NewCaptchaHandler CaptchaType CaptchaStatus CaptchaResult CaptchaHandler.handlePageCaptcha CaptchaHandler.handleSliderCaptchaWithManualOption CaptchaHandler.handleClickCaptchaWithManualOption CaptchaHandler.handleImageCaptchaWithManualOption CaptchaHandler.handleTextCaptchaWithManualOption CaptchaHandler.handleMathCaptchaWithManualOption PageOperator.NavigateToProductWithoutManualCaptcha ProductChecker.ValidateProduct",
+		"internal/crawler/alibaba1688/model":  "Product1688",
+		"internal/crawler/shared/browser":     "Manager.SetUserDataDir Manager.Launch Manager.Close",
+		"internal/crawler/amazon":             "AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown ClassifyFetchError newTypedFetchError newProcessorUnavailableError typedFetchError.Error typedFetchError.Unwrap",
+		"internal/crawler/amazon/browser":     "NewBrowserManagerWithConfig PoolManager.ProcessWithTimeout PoolManager.processProduct PoolManager.releaseInstanceSafely PoolManager.Shutdown regionalPromptTextSelectors regionalPromptActionSelectors normalizedAmazonHost looksLikeRegionalPrompt DismissRegionalPrompt ExtractZipcode CheckIfPriceAvailable",
+		"internal/crawler/amazon/extractor":   "NewCompositeExtractor FeaturesExtractor FeatureParserExtractor DescriptionExtractor NewVariationsExtractor VariationsExtractor.Extract convertToVariationsValues convertToAmazonVariations TextValidator.IsValidDescription TextValidator.IsValidProductDescription ErrorDetector.DetectErrorType ErrorDetector.IsCriticalError",
+		"internal/crawler/amazon/variations":  "NewExtractor Extractor.ExtractFromPage Extractor.BuildVariations GetDefaultConfig VariationsData VariationValue Variation",
+		"internal/crawler/amazon/capturedata": "Product",
 	} {
 		for _, name := range strings.Fields(names) {
 			retained[owner+":"+name] = false
@@ -574,8 +1197,6 @@ func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 		"internal/crawler/amazon:AmazonProcessor.ProcessBatchWithContext":            {"ap.batchProcessor.ProcessWithContext(ctx, requests, ap)"},
 		"internal/crawler/amazon/browser:PoolManager.ProcessWithTimeout":             {"context.WithTimeout(ctx, timeout)", "defer cancel()", "timeoutCtx.Done()"},
 		"internal/crawler/amazon/browser:PoolManager.processProduct":                 {"processor.ProcessWithInstance(ctx, instance, url, zipcode)", "pm.releaseInstanceSafely(instance, processErr)"},
-		"internal/sheinlogin:Service.processAttempt":                                 {"s.owner.CheckOwner("},
-		"internal/sheinlogin:Service.syncPending":                                    {"s.owner.RecordSheinLoginIdentity("},
 	}
 	// These are current wire/config shapes, scoped to their actual owners.
 	shapes := map[string]map[string]string{
@@ -608,7 +1229,7 @@ func TestLegacyCrawlerFacadeDiagnosticsClosureIsRetired(t *testing.T) {
 			continue
 		}
 		_, crawlerOwner := retiredFunctions[owner]
-		if !crawlerOwner && owner != "internal/model" && owner != "internal/sheinlogin" {
+		if !crawlerOwner && owner != "internal/crawler/amazon/capturedata" {
 			continue
 		}
 		for _, declaration := range file.Decls {
@@ -1029,7 +1650,6 @@ func TestLegacyBrowserManagementTailClosureIsRetired(t *testing.T) {
 		}
 	}
 	for relative, tokens := range map[string][]string{
-		"internal/sheinlogin/automation.go":                  {"sharedbrowser.NewManager(managerCfg, a.logFor)", "manager.SetFingerprint(buildAutomationFingerprint(account, managerCfg))"},
 		"internal/app/runtime/currentapplication/runtime.go": {"\"task-processor/internal/integration/acquisition/amazon\"", "amazon.New(amazon.Options{"},
 		"hack/debug/test-amazon/main.go":                     {"amazon.NewAmazonProcessor(", "processor.Process(", "processor.Shutdown()"},
 	} {
@@ -1180,12 +1800,6 @@ func TestLegacyAlibaba1688CaptchaExperimentClosureIsRetired(t *testing.T) {
 		"hack/debug/test-real-track-slider/main.go": {
 			"\"task-processor/internal/crawler/alibaba1688\"", "alibaba1688.NewAlibaba1688Processor(", "processor.Process(",
 		},
-		"internal/integration/crawler/a1688/processor.go": {
-			"\"task-processor/internal/crawler/alibaba1688\"", "legacy.NewAlibaba1688Processor(", "p.source.Process(ctx, url)",
-		},
-		"internal/localagent/runner.go": {
-			"\"task-processor/internal/crawler/alibaba1688\"", "Process(context.Context, string) (*model.Product1688, error)", "alibaba1688.PublicAccessError", "alibaba1688.PublicAccessFailureChallenge",
-		},
 	} {
 		body, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -1323,11 +1937,11 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 	retiredMethods := strings.Fields("loadConfig saveConfig saveConfigUnlocked ReloadConfig saveConfigAsync Close startSaveWorker logConfigLoadStats markConfigUpdatedLocked removeSensitiveWords removeSensitiveWordsAndBrandsWithContext SanitizeTextWithContext processMultiLanguageNames processMultiLanguageNamesWithBrandsAndContext processMultiLanguageDescs processSKCData processProductAttributes cleanTextForSheinPlatform removeAmazonBrandWords removeContextBrandWords TestEmojiFiltering classifyWordsByLanguage detectLanguage containsChinese containsKorean containsCyrillic containsArabic filterEmojis removeAllEmojisAggressively normalizeSpecialCharacters countWordsInConfig logSensitiveWordStats extractSensitiveWordsFromValidation ExtractSensitiveWordsFromValidationNotes extractWordsFromMessages splitWords addWordsByLanguageLocked addWordsToConfig ProcessProductData HandleValidationErrors GetStaticSensitiveWords GetDynamicSensitiveWords getWordsFromConfig GetSensitiveWordsByLanguage AddDynamicSensitiveWords AddStaticSensitiveWords AddStaticSensitiveWordsByLanguage addSensitiveWordsLocked AddDynamicSensitiveWordsByLanguage ClearDynamicSensitiveWords")
 	retiredFields := strings.Fields("configPath persistConfig ctx saveQueue stopSave wg")
 	retained := map[string]bool{}
-	for _, name := range strings.Fields("NewSensitiveWordServiceInMemory SensitiveWordConfig SensitiveWordService SensitiveWordService.config SensitiveWordService.mutex SensitiveWordService.logger createDefaultConfig deduplicateWords componentLogger initDefaultConfig getAllSensitiveWords SanitizeDisplayTextWithContext authorizedBrandAllowlist removeSensitiveWordsExcept removeAmazonBrandWordsExcept removeContextBrandWordsExcept containsFoldedText normalizeBrandToken getAmazonBrandWords containsJapanese removeWordFromText cleanupText") {
+	for _, name := range strings.Fields("DefaultDisplayTextWords DisplayTextCleanupInput SanitizeDisplayText") {
 		retained[name] = false
 	}
 	wantConfig := map[string]string{
-		"StaticWords": "map[string][]string|static_words", "DynamicWords": "map[string][]string|dynamic_words",
+		"Words": "[]string|", "SourceBrand": "string|", "BrandEnabled": "bool|", "BrandName": "string|", "BrandNameEn": "string|",
 	}
 	gotConfig := map[string]string{}
 	for _, relative := range trackedFiles(t, ".") {
@@ -1338,7 +1952,7 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		content := filepath.ToSlash(filepath.Dir(relative)) == "internal/shein/content" && !strings.HasSuffix(relative, "_test.go")
+		content := (filepath.ToSlash(filepath.Dir(relative)) == "internal/shein/content" || relative == "internal/marketplace/shein/publishing/display_text_cleanup_policy.go") && !strings.HasSuffix(relative, "_test.go")
 		for _, spec := range file.Imports {
 			imported, err := decodeGoImportPath(spec.Path.Value)
 			if err != nil {
@@ -1382,12 +1996,6 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 				if _, exists := retained[name]; exists && (receiver == "SensitiveWordService" || receiver == "") {
 					retained[name] = true
 				}
-				if receiver == "" && name == "NewSensitiveWordServiceInMemory" {
-					params := declaration.Type.Params.List
-					if len(params) != 1 || len(params[0].Names) != 1 || params[0].Names[0].Name != "logs" || exprString(params[0].Type) != "func(string) *logrus.Entry" {
-						t.Errorf("current in-memory factory must retain its explicit logs callback")
-					}
-				}
 			case *ast.GenDecl:
 				for _, spec := range declaration.Specs {
 					typ, ok := spec.(*ast.TypeSpec)
@@ -1416,7 +2024,7 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 							if typ.Name.Name == "CleanupContext" && name.Name == "ProductData" {
 								t.Errorf("content retains retired whole-product input %s", key)
 							}
-							if typ.Name.Name == "SensitiveWordConfig" {
+							if typ.Name.Name == "DisplayTextCleanupInput" {
 								tag := ""
 								if field.Tag != nil {
 									decoded, err := decodeGoImportPath(field.Tag.Value)
@@ -1439,7 +2047,7 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 		}
 	}
 	if !reflect.DeepEqual(gotConfig, wantConfig) {
-		t.Errorf("sensitive-word configuration contract changed: got %v, want %v", gotConfig, wantConfig)
+		t.Errorf("explicit display-text cleanup input contract changed: got %v, want %v", gotConfig, wantConfig)
 	}
 }
 
@@ -1449,7 +2057,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			t.Errorf("retired Temporal module bundle %s must be absent: %v", relative, err)
 		}
 	}
-	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go", "internal/core/config/validator_validator.go", "internal/shared/aiidentity/envelope.go", "internal/shared/aiidentity/envelope_test.go", "internal/shared/aiidentity/tenant_scope.go", "internal/shared/aiidentity/tenant_scope_test.go", "internal/platform/logging/context.go", "internal/platform/logging/helpers.go", "internal/platform/logging/helpers_test.go", "internal/shared/resilience/breaker.go", "internal/shared/resilience/breaker_test.go", "internal/shared/resilience/ratelimit.go", "internal/shared/resilience/ratelimit_test.go", "internal/integration/openai/cached_client.go", "internal/integration/openai/resilient_client.go", "internal/pkg/httpclient/builder.go", "internal/pkg/httpclient/builder_test.go", "internal/shared/aiidentity/request_roles.go", "internal/core/config/common_types.go", "internal/core/config/common_types_test.go", "internal/core/config/type_rabbitmq.go"} {
+	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go", "internal/core/config/validator_validator.go", "internal/shared/aiidentity/envelope.go", "internal/shared/aiidentity/envelope_test.go", "internal/shared/aiidentity/tenant_scope.go", "internal/shared/aiidentity/tenant_scope_test.go", "internal/platform/logging/context.go", "internal/platform/logging/helpers.go", "internal/platform/logging/helpers_test.go", "internal/shared/resilience/breaker.go", "internal/shared/resilience/breaker_test.go", "internal/shared/resilience/ratelimit.go", "internal/shared/resilience/ratelimit_test.go", "internal/integration/openai/cached_client.go", "internal/integration/openai/resilient_client.go", "internal/pkg/httpclient/builder.go", "internal/pkg/httpclient/builder_test.go", "internal/shared/aiidentity/request_roles.go", "internal/core/config/common_types.go", "internal/core/config/common_types_test.go", "internal/core/config/type_rabbitmq.go", "internal/core/config/type_redis.go"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired idle support file %s must be absent: %v", relative, err)
 		}
@@ -1457,7 +2065,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 	retiredKernelTypes := []string{"TaskHandler", "WorkflowHandler", "TemporalWorkerStarter", "NamedWorkerPool", "NamedTemporalWorker", "WorkflowRegistry"}
 	retiredRegistryMethods := []string{"AddWorkerPool", "WorkerPools", "AddTemporalWorker", "TemporalWorkers", "RegisterTaskHandler", "RegisterWorkflowHandler"}
 	retiredRegistryFields := []string{"workerPools", "workerPoolNames", "temporalWorkers", "temporalWorkerNames", "taskHandlers", "workflowNames"}
-	retiredConfig := []string{"CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig", "CostCalculationConfig", "DefaultCostCalculationConfig", "TimeoutConfig", "DefaultTimeoutConfig", "RateLimitConfig", "DefaultRateLimitConfig", "ServerConfig"}
+	retiredConfig := []string{"RedisConfig", "CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig", "CostCalculationConfig", "DefaultCostCalculationConfig", "TimeoutConfig", "DefaultTimeoutConfig", "RateLimitConfig", "DefaultRateLimitConfig", "ServerConfig"}
 	retiredSupport := map[string][]string{
 		"internal/platform/database":  {"openExistingReadOnly", "OpenExistingReadOnly", "OpenExistingWritable"},
 		"internal/shared/ptr":         {"Int16Ptr", "Int32Ptr", "Int64Ptr", "StringPtr", "Float64Ptr", "BoolPtr"},
@@ -1482,8 +2090,8 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/integration/openai": {"Client": false, "ClientConfig": false, "RequestPool": false, "PoolConfig": false, "BaseClient": false, "RateLimiter": false, "Manager": false, "ManagerConfig": false, "Logger": false, "AdaptLogrus": false},
 		"internal/shared/aiidentity":  {"Identity": false, "Identity.AgentRunID": false, "Identity.TenantID": false, "Identity.UserID": false, "Identity.BusinessTaskID": false, "Identity.TraceID": false, "WithIdentity": false, "FromContext": false},
 		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
-		"internal/core/config":        {"Config": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "RedisConfig": false, "RedisConfig.Host": false, "RedisConfig.Port": false, "RedisConfig.Password": false, "RedisConfig.DB": false, "RedisConfig.PoolSize": false, "OpenAIConfig": false, "BrowserConfig": false, "PlatformsConfig": false, "Alibaba1688Config": false},
-		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false, "LevelFileConfig": false, "LogManager.SetLevel": false, "LogManager.GetLevel": false},
+		"internal/core/config":        {"Config": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "OpenAIConfig": false, "BrowserConfig": false, "PlatformsConfig": false, "Alibaba1688Config": false},
+		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false},
 		"internal/pkg/goroutine":      {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
 		"internal/pkg/timeout":        {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
 		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
@@ -1635,7 +2243,7 @@ func assertLegacyLoggerFacadeRetired(t *testing.T) {
 			t.Errorf("retired logger facade/helper %s must be absent: %v", relative, err)
 		}
 	}
-	businessRoots := []string{"internal/amazon/api", "internal/crawler", "internal/localagent", "internal/prompt", "internal/marketplace/shein/offlinepackage", "internal/marketplace/shein/draft", "internal/shein/client", "internal/shein/content", "internal/sheinlogin", "internal/temu/api/client"}
+	businessRoots := []string{"internal/amazon/api", "internal/crawler", "internal/localagent", "internal/prompt", "internal/marketplace/shein/offlinepackage", "internal/marketplace/shein/draft", "internal/temu/api/client"}
 	for _, relative := range trackedFiles(t, ".") {
 		if !strings.HasSuffix(relative, ".go") {
 			continue
@@ -1682,7 +2290,7 @@ func assertLegacyLoggerFacadeRetired(t *testing.T) {
 
 func TestLegacyLoggerFacadeClosureIsRetired(t *testing.T) {
 	assertLegacyLoggerFacadeRetired(t)
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
 		cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 		cmd.Dir = ".."
 		output, err := cmd.CombinedOutput()
@@ -1748,7 +2356,7 @@ func TestLegacyListingPreviewDownloadClosureIsRetired(t *testing.T) {
 			t.Errorf("retired preview/download depguard must deny %s", imported)
 		}
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -1774,9 +2382,6 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 		"internal/sds/httpapi", "internal/sds/httpbootstrap", "internal/sdslogin",
 	}
 	isRetired := func(path string) bool {
-		if importMatchesPrefix(path, "internal/sds/adapter/product_source") {
-			return false
-		}
 		for _, retired := range retiredPackages {
 			if importMatchesPrefix(path, retired) {
 				return true
@@ -1972,7 +2577,7 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 			}
 		}
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -2069,7 +2674,7 @@ func TestLegacyRedisProxyAndSharedClosureIsRetired(t *testing.T) {
 			}
 		}
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -2170,7 +2775,7 @@ func TestLegacyHostConfigFeatureFlagTracingClosureIsRetired(t *testing.T) {
 			}
 		}
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -2223,7 +2828,7 @@ func TestLegacyWatermarkClosureIsRetired(t *testing.T) {
 	if _, exists := document["watermark"]; exists {
 		t.Error("retired watermark sample root must be absent")
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -2336,6 +2941,9 @@ func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 }
 
 func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "product", "sourcing", "source_request.go")); !os.IsNotExist(err) {
+		t.Errorf("retired numeric source request must be absent: %v", err)
+	}
 	if _, err := os.Lstat(filepath.Join("..", "internal", "listingruntime")); !os.IsNotExist(err) {
 		t.Errorf("retired numeric mapping owner internal/listingruntime must be absent: %v", err)
 	}
@@ -2358,10 +2966,8 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 		}
 	}
 	for relative, retired := range map[string][]string{
-		"internal/shein/authorizedbrand/types.go":     {"ConfigFromStore", "listingruntime"},
-		"internal/product/sourcing/source_request.go": {"TenantID"},
-		"internal/core/config/type_amazon.go":         {"DataFreshnessDays", "ProductDedupe", "RegionGuard", "ConcurrencyControl", "RemoteAPI"},
-		"internal/core/config/type_platform.go":       {"FetchMode"},
+		"internal/core/config/type_amazon.go":   {"DataFreshnessDays", "ProductDedupe", "RegionGuard", "ConcurrencyControl", "RemoteAPI"},
+		"internal/core/config/type_platform.go": {"FetchMode"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -2576,9 +3182,7 @@ func TestRetiredListingOperationsClosure(t *testing.T) {
 			t.Error("shared task-processor namespace must remain")
 		}
 	}
-	for relative, tokens := range map[string][]string{
-		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml": {"shein-login-worker-current", "app: shein-login-worker", "/healthz"},
-	} {
+	for relative, tokens := range map[string][]string{} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
 			t.Fatal(err)
@@ -4148,18 +4752,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
 		},
-		"internal/marketplace/temu/goods/supplier_category.go":          {"func checkSupplierCategory(", "SelectableLeaf()"},
-		"internal/marketplace/temu/rules/local_variations.go":           {"func CheckLocalVariations("},
-		"internal/marketplace/temu/goods/local_properties.go":           {"func CheckLocalProperties("},
-		"internal/marketplace/temu/goods/supplier_properties.go":        {"func CheckSupplierProperties("},
-		"internal/marketplace/temu/goods/supplier_specs.go":             {"func checkSupplierSpecifications("},
-		"internal/marketplace/temu/rules/local_numbers.go":              {"func (c *Catalog) CheckLocalNumbers("},
-		"internal/marketplace/shein/publishing/site_policy.go":          {"func DefaultSiteListByRegion("},
-		"internal/shein/content/cleanup_context.go":                     {"type CleanupContext struct", "SourceBrand", "AuthorizedBrand", "Context"},
-		"internal/marketplace/shein/offlinepackage/payload_defaults.go": {"sheinmarketpub.DefaultSiteListByRegion("},
-		"internal/marketplace/shein/draft/local_cleanup.go":             {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
-
-		"internal/marketplace/shein/draft/sensitive_word_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
+		"internal/marketplace/temu/goods/supplier_category.go":                 {"func checkSupplierCategory(", "SelectableLeaf()"},
+		"internal/marketplace/temu/rules/local_variations.go":                  {"func CheckLocalVariations("},
+		"internal/marketplace/temu/goods/local_properties.go":                  {"func CheckLocalProperties("},
+		"internal/marketplace/temu/goods/supplier_properties.go":               {"func CheckSupplierProperties("},
+		"internal/marketplace/temu/goods/supplier_specs.go":                    {"func checkSupplierSpecifications("},
+		"internal/marketplace/temu/rules/local_numbers.go":                     {"func (c *Catalog) CheckLocalNumbers("},
+		"internal/marketplace/shein/publishing/site_policy.go":                 {"func DefaultSiteListByRegion("},
+		"internal/marketplace/shein/offlinepackage/payload_defaults.go":        {"sheinmarketpub.DefaultSiteListByRegion("},
+		"internal/marketplace/shein/publishing/display_text_cleanup_policy.go": {"type DisplayTextCleanupInput struct", "func DefaultDisplayTextWords(", "func SanitizeDisplayText("},
+		"internal/marketplace/shein/draft/local_cleanup.go":                    {"publishing.SanitizeDisplayText("},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -4545,7 +5147,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 			}
 		}
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "product-listing-api-schema-migrate", "1688-local-agent", "1688-batch-import", "1688-public-browser-collector"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker", "source-account-registry-schema-init", "product-listing-api-schema-migrate", "1688-batch-import", "1688-public-browser-collector"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -4577,7 +5179,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
-				for _, retired := range []string{"task-processor/internal/prompt", "task-processor/internal/promptmgmt", "task-processor/internal/shared/tenantctx", "task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
+				for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/shein", "task-processor/internal/prompt", "task-processor/internal/promptmgmt", "task-processor/internal/shared/tenantctx", "task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
 					if dependency == retired || (retired != "task-processor/internal/crawler/shared" && strings.HasPrefix(dependency, retired+"/")) {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
@@ -4588,21 +5190,24 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 }
 
 func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./cmd/shein-login-worker")
-	cmd.Dir = ".."
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go list standalone SHEIN worker: %v\n%s", err, output)
+	for _, root := range []string{"cmd/shein-login-worker", "internal/app/runtime/sheinloginworker", "internal/sheinlogin"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(root))); !os.IsNotExist(err) {
+			t.Fatalf("retired standalone SHEIN owner remains: %s: %v", root, err)
+		}
 	}
-	for _, dependency := range strings.Fields(string(output)) {
-		if dependency == "task-processor/internal/sourceaccount" || strings.HasPrefix(dependency, "task-processor/internal/sourceaccount/") {
-			t.Errorf("standalone SHEIN worker still compiles retired source-account persistence %s", dependency)
+	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
+		cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
+		cmd.Dir = ".."
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("go list retained command %s: %v\n%s", command, err, output)
 		}
-		if dependency == "task-processor/internal/app/httpapi" {
-			t.Fatal("standalone SHEIN worker must use its own command runtime, not the current HTTP application assembly")
-		}
-		if dependency == "task-processor/internal/tenantbridge" || strings.HasPrefix(dependency, "task-processor/internal/tenantbridge/") {
-			t.Errorf("standalone SHEIN worker still compiles legacy numeric tenant transport %s", dependency)
+		for _, dependency := range strings.Fields(string(output)) {
+			for _, retired := range []string{"task-processor/internal/sourceaccount", "task-processor/internal/tenantbridge", "task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/shein"} {
+				if importMatchesPrefix(dependency, retired) {
+					t.Errorf("%s compiles retired SHEIN/identity owner %s", command, dependency)
+				}
+			}
 		}
 	}
 	for _, name := range []string{"shein_login_worker.go", "shein_login_worker_test.go"} {
@@ -4612,7 +5217,7 @@ func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T)
 	}
 	for _, name := range []string{"api.go", "api_test.go", "http_module.go", "http_module_test.go", "tenant_context.go", "tenant_context_test.go"} {
 		if _, err := os.Stat(filepath.Join("..", "internal", "sheinlogin", name)); !os.IsNotExist(err) {
-			t.Errorf("unused SHEIN login HTTP source %s must be retired; the standalone worker retains its service and health endpoint", name)
+			t.Errorf("unused SHEIN login HTTP source %s must be retired", name)
 		}
 	}
 }
@@ -4732,7 +5337,7 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, command := range []string{"listing-scheduler", "shein-listing", "temu-listing", "listing-control-plane", "shein-import-platform-recovery"} {
+		for _, command := range []string{"listing-scheduler", "shein-listing", "temu-listing", "listing-control-plane", "shein-import-platform-recovery", "shein-login-worker"} {
 			if strings.Contains(string(content), "./cmd/"+command) {
 				t.Errorf("%s still invokes retired CLI %s", relative, command)
 			}
@@ -4747,7 +5352,7 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []string{"current-application", "shein-login-worker"} {
+	for _, command := range []string{"current-application"} {
 		if !strings.Contains(string(content), "go build ./cmd/"+command) {
 			t.Errorf("CI must compile retained command %s", command)
 		}
@@ -5072,7 +5677,7 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 		"internal/shein/content":  {"SensitiveWordsFilter", "SensitiveWordsMode", "ModeBlock", "ModeClean", "ModeWarn", "SensitiveWordsProcessor", "NewSensitiveWordsProcessor", "NewSensitiveWordsBlockHandler", "NewSensitiveWordsCleanHandler", "NewSensitiveWordsWarnHandler"},
 		"internal/shein/aicache":  {"TypeAttribute", "TypeSaleAttr", "TypeSKCTranslate", "TypeAttrValueFallback"},
 	} {
-		if relative == "internal/shein/category" || relative == "internal/shein/aicache" {
+		if relative == "internal/shein/category" || relative == "internal/shein/aicache" || relative == "internal/shein/content" {
 			if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 				t.Errorf("retired SHEIN implementation root remains: %s (%v)", relative, err)
 			}
@@ -5128,23 +5733,23 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 			}
 		}
 	}
-	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", "internal", "shein", "content", "cleanup_context.go"), nil, 0)
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash("internal/marketplace/shein/publishing/display_text_cleanup_policy.go")), nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ast.Inspect(file, func(node ast.Node) bool {
 		typ, ok := node.(*ast.TypeSpec)
-		if !ok || typ.Name.Name != "CleanupContext" {
+		if !ok || typ.Name.Name != "DisplayTextCleanupInput" {
 			return true
 		}
 		shape, ok := typ.Type.(*ast.StructType)
 		if !ok {
-			t.Fatal("CleanupContext must be a narrow value struct")
+			t.Fatal("DisplayTextCleanupInput must be a narrow value struct")
 		}
-		expected := map[string]bool{"Context": true, "AuthorizedBrand": true, "SourceBrand": true}
+		expected := map[string]bool{"Words": true, "SourceBrand": true, "BrandEnabled": true, "BrandName": true, "BrandNameEn": true}
 		for _, field := range shape.Fields.List {
 			if len(field.Names) != 1 || !expected[field.Names[0].Name] {
-				t.Errorf("CleanupContext must not embed or add old Task state: %v", field.Names)
+				t.Errorf("DisplayTextCleanupInput must not embed or add old Task state: %v", field.Names)
 				continue
 			}
 			delete(expected, field.Names[0].Name)
@@ -5234,8 +5839,8 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 		}
 	}
 	for relative, required := range map[string][]string{
-		"internal/marketplace/shein/draft/sensitive_word_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
-		"internal/shein/content/cleanup_context.go":                  {"type CleanupContext struct"},
+		"internal/marketplace/shein/publishing/display_text_cleanup_policy.go": {"type DisplayTextCleanupInput struct", "func DefaultDisplayTextWords(", "func SanitizeDisplayText("},
+		"internal/marketplace/shein/draft/local_cleanup.go":                    {"publishing.SanitizeDisplayText("},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -5298,7 +5903,7 @@ func TestSheinCanonicalDraftContractIsRetained(t *testing.T) {
 
 func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
 	t.Helper()
-	retiredRoots := []string{"internal/amazon/api", "internal/temu/api", "internal/shein/api/category", "internal/shein/api/image", "internal/shein/api/marketing", "internal/shein/api/pricing", "internal/shein/api/translate", "internal/shein/pricing", "internal/shein/sherr"}
+	retiredRoots := []string{"internal/shein/api/other", "internal/shein/api/warehouse", "internal/shein/client", "internal/amazon/api", "internal/temu/api", "internal/shein/api/category", "internal/shein/api/image", "internal/shein/api/marketing", "internal/shein/api/pricing", "internal/shein/api/translate", "internal/shein/pricing", "internal/shein/sherr"}
 	for _, relative := range append(append([]string{}, retiredRoots...), []string{"internal/core/config/common_types.go", "internal/core/config/common_types_test.go", "internal/core/config/type_rabbitmq.go", "internal/shein/authorizedbrand/resolver.go", "internal/shein/authorizedbrand/resolver_test.go", "internal/shein/api/product/response.go", "internal/core/config/amazon_marketplace.go", "internal/core/config/amazon_marketplace_test.go", "internal/core/config/loader_platform.go", "internal/shein/api/attribute/client.go", "internal/shein/api/other/client.go", "internal/shein/api/product/client.go", "internal/shein/api/product/client_test.go", "internal/shein/api/product/cost_price.go", "internal/shein/api/product/cost_price_test.go", "internal/shein/api/product/image_helpers.go", "internal/shein/api/product/image_helpers_test.go", "internal/shein/api/product/interface.go", "internal/shein/api/product/inventory.go", "internal/shein/api/product/inventory_manager.go", "internal/shein/api/product/language_list.go", "internal/shein/api/product/language_list_test.go", "internal/shein/api/product/name_length_config.go", "internal/shein/api/product/name_length_config_test.go", "internal/shein/api/product/price.go", "internal/shein/api/product/price_manager.go", "internal/shein/api/product/product_manager.go", "internal/shein/api/product/request.go", "internal/shein/api/product/shelf.go", "internal/shein/api/product/site_list.go", "internal/shein/api/product/site_list_test.go", "internal/shein/api/product/stock.go", "internal/shein/api/types.go", "internal/shein/api/warehouse/client.go", "internal/shein/api/warehouse/client_test.go", "internal/shein/client/base_client.go", "internal/shein/client/base_client_test.go", "internal/shein/client/error_handler.go", "internal/shein/client/logger_port.go"}...) {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired platform API artifact %s must be absent: %v", relative, err)
@@ -5328,17 +5933,9 @@ func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
 		"internal/shein/pricing":         {"PricingAPI", "NewPricingAPI"},
 	}
 	requiredByFile := map[string][]string{
-		"internal/shein/authorizedbrand/types.go":            {"Resolved"},
-		"internal/shein/authorizedbrand/context.go":          {"WithResolved", "FromContext"},
-		"internal/core/config/type_platform.go":              {"PlatformsConfig", "Alibaba1688Config"},
-		"internal/shein/api/attribute/interface.go":          {"AttributeInfo", "AttributeValue", "AttributeValueGroup", "CustomAttributeRelation"},
-		"internal/shein/api/other/interface.go":              {"FlexibleString", "SupplierOperateInfo", "SupplierOperateInfoResponse"},
-		"internal/shein/api/product/model.go":                {"Product", "Extra", "LanguageContent", "ProductAttribute", "ProductVideo", "SiteInfo", "SizeAttribute"},
-		"internal/shein/api/product/skc_sku.go":              {"SKC", "SkcExtra", "SaleAttribute", "SKU", "SkuExtra", "FieldDisabledInfo", "QuantityInfo", "CostInfo", "PriceInfo", "StockInfo", "ImageInfo", "ImageDetail", "SiteDetailImageInfo", "DetailImage"},
-		"internal/shein/api/warehouse/address_conversion.go": {"WarehousesFromStoreAddresses", "collectSaleCountries"},
-		"internal/shein/api/warehouse/interface.go":          {"Warehouse", "WarehouseResponse", "StoreAddressListRequest", "StoreAddress", "StoreSiteInfo", "StoreAddressListInfo"},
-		"internal/shein/client/cookie_values.go":             {"CookieData", "buildCookiesFromJSON"},
-		"internal/shein/client/session_transport.go":         {"SessionTransport", "NewSessionTransport", "CookiesFromBrowserState", "sessionHeaders"},
+		"internal/marketplace/shein/offlinepackage/previewdata/model.go":       {"Extra", "LanguageContent", "Product", "ProductAttribute", "ProductVideo", "SiteInfo", "SizeAttribute", "CostInfo", "DetailImage", "FieldDisabledInfo", "ImageDetail", "ImageInfo", "PriceInfo", "QuantityInfo", "SKC", "SKU", "SaleAttribute", "SiteDetailImageInfo", "SkcExtra", "SkuExtra", "StockInfo", "CustomAttributeRelation"},
+		"internal/marketplace/shein/publishing/display_text_cleanup_policy.go": {"DisplayTextCleanupInput", "DefaultDisplayTextWords", "SanitizeDisplayText"},
+		"internal/core/config/type_platform.go":                                {"PlatformsConfig", "Alibaba1688Config"},
 	}
 	for relative, names := range requiredByFile {
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
@@ -5433,19 +6030,789 @@ func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
 			}
 		}
 	}
-	endpointSources := map[string][]string{
-		"internal/shein/client/endpoint.go":  {`apiPrefix`, `"/spmp-api-prefix/spmp"`, `getSupplierOperateInfoEndpoint`, `"/sso/public/account/supplier/getSupplierOperateInfo"`, `getWarehousesEndpoint`, `"/inventory/query_merchant_warehouse"`, `storeAddressListEndpoint`, `"/gsp/store/address/list"`},
-		"internal/shein/client/endpoints.go": {`func GetSupplierOperateInfoEndpoint() string`, `return getSupplierOperateInfoEndpoint`, `func GetWarehousesEndpoint() string`, `return getWarehousesEndpoint`, `func GetStoreAddressListEndpoint() string`, `return storeAddressListEndpoint`},
+	for _, relative := range []string{"internal/shein/client/endpoint.go", "internal/shein/client/endpoints.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired session endpoint source remains: %s: %v", relative, err)
+		}
 	}
-	for relative, required := range endpointSources {
-		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+}
+
+func TestLegacySheinDraftSupportClosureIsRetired(t *testing.T) {
+	const leaf = "internal/marketplace/shein/offlinepackage/previewdata"
+	const policy = "internal/marketplace/shein/publishing/display_text_cleanup_policy.go"
+	retiredRoots := []string{
+		"internal/shein/api/product", "internal/shein/api/attribute",
+		"internal/shein/content", "internal/shein/authorizedbrand",
+	}
+	for _, path := range append(append([]string{}, retiredRoots...), []string{
+		"internal/shein/api/attribute/interface.go",
+		"internal/shein/api/product/model.go",
+		"internal/shein/api/product/skc_sku.go",
+		"internal/shein/authorizedbrand/context.go",
+		"internal/shein/authorizedbrand/context_test.go",
+		"internal/shein/authorizedbrand/types.go",
+		"internal/shein/content/cleanup_context.go",
+		"internal/shein/content/cleanup_context_test.go",
+		"internal/shein/content/config.go",
+		"internal/shein/content/logger_port.go",
+		"internal/shein/content/processor.go",
+		"internal/shein/content/processor_authorized_brand_test.go",
+		"internal/shein/content/utils.go",
+		"internal/shein/content/word.go",
+		"internal/marketplace/shein/draft/sensitive_word_adapter.go",
+	}...) {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired SHEIN draft support artifact must be absent: %s: %v", path, err)
+		}
+	}
+	consumers := map[string]bool{
+		"internal/marketplace/shein/draft/local_preview.go":                             false,
+		"internal/marketplace/shein/draft/local_preview_test.go":                        false,
+		"internal/marketplace/shein/draft/local_preview_values.go":                      false,
+		"internal/marketplace/shein/offlinepackage/clone.go":                            false,
+		"internal/marketplace/shein/offlinepackage/clone_test.go":                       false,
+		"internal/marketplace/shein/offlinepackage/model.go":                            false,
+		"internal/marketplace/shein/offlinepackage/model_test.go":                       false,
+		"internal/marketplace/shein/offlinepackage/payload.go":                          false,
+		"internal/marketplace/shein/offlinepackage/payload_defaults.go":                 false,
+		"internal/marketplace/shein/offlinepackage/payload_images.go":                   false,
+		"internal/marketplace/shein/offlinepackage/payload_test.go":                     false,
+		"internal/marketplace/shein/offlinepackage/readiness.go":                        false,
+		"internal/marketplace/shein/offlinepackage/readiness_test.go":                   false,
+		"internal/marketplace/shein/publishing/payload_image_policy.go":                 false,
+		"internal/marketplace/shein/publishing/payload_image_policy_test.go":            false,
+		"internal/marketplace/shein/publishing/site_policy.go":                          false,
+		"internal/marketplace/shein/publishing/submit_image_policy.go":                  false,
+		"internal/marketplace/shein/publishing/submit_image_policy_test.go":             false,
+		"internal/marketplace/shein/publishing/submit_payload_normalize_policy.go":      false,
+		"internal/marketplace/shein/publishing/submit_payload_normalize_policy_test.go": false,
+		"internal/marketplace/shein/publishing/submit_payload_validation.go":            false,
+		"internal/marketplace/shein/publishing/submit_payload_validation_test.go":       false,
+		"internal/marketplace/shein/validator/validator_test.go":                        false,
+		"internal/marketplace/shein/workspace/submit_payload_readiness_checks_test.go":  false,
+	}
+	values := map[string]int{
+		"Extra":                   23,
+		"LanguageContent":         2,
+		"Product":                 38,
+		"ProductAttribute":        4,
+		"ProductVideo":            3,
+		"SiteInfo":                2,
+		"SizeAttribute":           4,
+		"CostInfo":                2,
+		"DetailImage":             3,
+		"FieldDisabledInfo":       3,
+		"ImageDetail":             10,
+		"ImageInfo":               3,
+		"PriceInfo":               4,
+		"QuantityInfo":            3,
+		"SKC":                     26,
+		"SKU":                     22,
+		"SaleAttribute":           4,
+		"SiteDetailImageInfo":     3,
+		"SkcExtra":                3,
+		"SkuExtra":                1,
+		"StockInfo":               2,
+		"CustomAttributeRelation": 2,
+	}
+	foundValues := map[string]bool{}
+	requiredPolicy := map[string]bool{"DefaultDisplayTextWords": false, "SanitizeDisplayText": false, "DisplayTextCleanupInput": false}
+	inputFields := map[string]string{}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", relative, err)
+		}
+		production := !strings.HasSuffix(relative, "_test.go")
+		dataFile := filepath.ToSlash(filepath.Dir(relative)) == leaf && production
+		policyFile := relative == policy
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			for _, root := range retiredRoots {
+				if importMatchesPrefix(imported, "task-processor/"+root) {
+					t.Errorf("%s imports retired SHEIN draft support %s", relative, imported)
+				}
+			}
+			if imported == "task-processor/"+leaf {
+				if spec.Name != nil {
+					t.Errorf("preview data consumer must use its current owner name: %s", relative)
+				}
+				if _, required := consumers[relative]; required {
+					consumers[relative] = true
+				}
+			}
+			if dataFile {
+				t.Errorf("preview data leaf must have zero imports: %s: %s", relative, imported)
+			}
+			if policyFile && (spec.Name != nil || !slices.Contains([]string{"strings", "regexp"}, imported)) {
+				t.Errorf("display cleanup policy may only import strings/regexp: %s", imported)
+			}
+		}
+		if !dataFile && !policyFile {
+			continue
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			if _, ok := node.(*ast.GoStmt); ok {
+				t.Errorf("pure owner must not start goroutines: %s", relative)
+			}
+			return true
+		})
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				if dataFile {
+					t.Errorf("preview data leaf must not define functions/methods: %s", d.Name.Name)
+				}
+				if policyFile {
+					if d.Recv != nil || d.Name.Name == "init" {
+						t.Errorf("pure cleanup must not define a service/lifecycle: %s", d.Name.Name)
+					}
+					if _, required := requiredPolicy[d.Name.Name]; required {
+						requiredPolicy[d.Name.Name] = true
+					}
+				}
+			case *ast.GenDecl:
+				if d.Tok == token.IMPORT {
+					continue
+				}
+				if d.Tok != token.TYPE {
+					t.Errorf("pure owner must not retain global state: %s", relative)
+					continue
+				}
+				for _, spec := range d.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						t.Fatalf("expected real type in %s", relative)
+					}
+					shape, real := typ.Type.(*ast.StructType)
+					if !real || typ.Assign.IsValid() {
+						t.Errorf("pure value must be a real struct, not alias: %s", typ.Name.Name)
+						continue
+					}
+					if dataFile {
+						count, expected := values[typ.Name.Name]
+						if !expected || foundValues[typ.Name.Name] || shape.Fields.NumFields() != count {
+							t.Errorf("unexpected/changed preview value %s", typ.Name.Name)
+						}
+						foundValues[typ.Name.Name] = true
+					}
+					if policyFile {
+						if typ.Name.Name != "DisplayTextCleanupInput" {
+							t.Errorf("cleanup must not retain config/service/context: %s", typ.Name.Name)
+							continue
+						}
+						requiredPolicy[typ.Name.Name] = true
+						for _, field := range shape.Fields.List {
+							if len(field.Names) != 1 || field.Tag != nil {
+								t.Fatal("cleanup input must have only explicit untagged value fields")
+							}
+							var formatted bytes.Buffer
+							if err := format.Node(&formatted, token.NewFileSet(), field.Type); err != nil {
+								t.Fatal(err)
+							}
+							inputFields[field.Names[0].Name] = formatted.String()
+						}
+					}
+				}
+			}
+		}
+	}
+	for path, found := range consumers {
+		if !found {
+			t.Errorf("current consumer must import previewdata: %s", path)
+		}
+	}
+	for name := range values {
+		if !foundValues[name] {
+			t.Errorf("current real preview struct missing: %s", name)
+		}
+	}
+	for name, found := range requiredPolicy {
+		if !found {
+			t.Errorf("current pure cleanup declaration missing: %s", name)
+		}
+	}
+	wantInput := map[string]string{"Words": "[]string", "SourceBrand": "string", "BrandEnabled": "bool", "BrandName": "string", "BrandNameEn": "string"}
+	if !reflect.DeepEqual(inputFields, wantInput) {
+		t.Errorf("explicit cleanup input changed: got %v, want %v", inputFields, wantInput)
+	}
+	for _, path := range []string{
+
+		"internal/marketplace/shein/draft/builder.go", "internal/marketplace/shein/offlinepackage/decode.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current SHEIN/Store/codec owner must remain: %s: %v", path, err)
+		}
+	}
+}
+
+func TestLegacyImageAgentHTTPRuntimeClosureIsRetired(t *testing.T) {
+	for _, path := range []string{
+		"internal/imageagent/httpapi/dto.go",
+		"internal/imageagent/httpapi/handler.go",
+		"internal/imageagent/httpapi/handler_task_launch_test.go",
+		"internal/imageagent/httpapi/handler_test.go",
+		"internal/imageagent/httpapi/module.go",
+		"internal/imageagent/httpapi/routes.go",
+		"internal/imageagent/httpapi/routes_test.go",
+		"internal/app/httpapi/imageagent_organization_application.go",
+		"internal/imageagent/service_task_launch_test.go",
+		"internal/imageagent/httpapi",
+	} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired ImageAgent HTTP/Task path must be absent: %s: %v", path, err)
+		}
+	}
+	retired := map[string][]string{
+		"internal/app/runtime/image_agent_temporal_runtime.go":  {"StartImageAgentTemporalWorker", "StartImageAgentTemporalWorkerWithOptions", "DialImageAgentTemporalWorkflowClient", "RunImageAgentTemporalWorker", "RunImageAgentCompatibilityCanary", "startImageAgentTemporalWorkerWithDependencies", "startImageAgentTemporalWorkerWithOptionsAndDependencies", "runImageAgentCompatibilityCanaryWithDependencies", "imageAgentCompatibilityCanaryDependencies"},
+		"internal/app/worker/imageagent/dependencies.go":        {"ResolveImageAgentTemporalDependencies"},
+		"internal/app/worker/imageagent/image_set_runtime.go":   {"NewImageSetTemporalDependencies"},
+		"internal/imageagent/temporal/activity_registration.go": {"RegisterActivities"},
+		"internal/imageagent/temporal/worker.go":                {"RegisterWorker"},
+		"internal/imageagent/temporal/types.go":                 {"TaskQueueName", "EnvTaskQueue", "EffectRecoveryWorkflowID"},
+		"internal/imageagent/service.go":                        {"LaunchTaskRun", "PreflightTaskRunAssets", "taskLaunchRunIdentity", "normalizeTaskLaunchStyleIDs", "primaryTaskLaunchSource", "validateTaskLaunchStyleIDs"},
+		"internal/imageagent/ports.go":                          {"TaskRunLaunchInput", "TaskRunLaunchResult", "TaskRunAssetsInput", "TaskRunAssetPreflight"},
+	}
+	current := map[string][]string{
+		"internal/app/runtime/image_agent_temporal_runtime.go":  {"RunImageAgentTemporalWorkerWithOptions", "DialOrganizationImageAgentTemporalWorkflowClient", "NewOrganizationImageSetWorker", "RunImageAgentCompatibilityCanaryWithWorker", "runImageAgentCompatibilityCanaryWithWorkerDependencies", "startImageAgentTemporalWorkerWithOptionsAndDependenciesContext"},
+		"internal/app/worker/imageagent/dependencies.go":        {"ResolveImageAgentTemporalDependenciesForMode"},
+		"internal/app/worker/imageagent/image_set_runtime.go":   {"NewManagedImageSetTemporalDependencies"},
+		"internal/imageagent/temporal/activity_registration.go": {"RegisterActivitiesForMode"},
+		"internal/imageagent/temporal/worker.go":                {"RegisterWorkerForMode"},
+		"internal/imageagent/temporal/types.go":                 {"EffectRecoveryWorkflowIDForSlot"},
+		"internal/imageagent/service.go":                        {"Start", "Get", "RestartFailed", "ReplacePlan", "RetrySlot", "RecoverEffect", "ApproveResults", "Cancel", "Resume", "ListEvents"},
+		"internal/imageagent/ports.go":                          {"ImagePolicyAvailability", "StartRunInput", "WorkflowStart"},
+	}
+	found := map[string]map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, value := range required {
-			if !strings.Contains(string(content), value) {
-				t.Errorf("%s must retain endpoint contract %s", relative, value)
+		for _, imported := range file.Imports {
+			name, err := decodeGoImportPath(imported.Path.Value)
+			if err != nil {
+				t.Fatal(err)
 			}
+			if importMatchesPrefix(name, "task-processor/internal/imageagent/httpapi") {
+				t.Errorf("%s imports retired ImageAgent HTTP owner %q", path, name)
+			}
+		}
+		if _, ok := current[path]; !ok {
+			continue
+		}
+		found[path] = map[string]bool{}
+		for _, declaration := range file.Decls {
+			names := []string{}
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				names = append(names, d.Name.Name)
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, s.Name.Name)
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							names = append(names, name.Name)
+						}
+					}
+				}
+			}
+			for _, name := range names {
+				found[path][name] = true
+				if slices.Contains(retired[path], name) {
+					t.Errorf("%s retains retired declaration %s", path, name)
+				}
+			}
+		}
+	}
+	for path, names := range current {
+		for _, name := range names {
+			if !found[path][name] {
+				t.Errorf("required current ImageAgent declaration missing: %s:%s", path, name)
+			}
+		}
+	}
+	for path, tokens := range map[string][]string{
+		"cmd/image-agent-temporal-worker/main.go":                           {"ResolveImageAgentTemporalDependenciesForMode", "RunImageAgentTemporalWorkerWithOptions", "RunImageAgentCompatibilityCanaryWithWorker"},
+		"internal/app/httpapi/imageagent_acquisition_module.go":             {"acquisitionImageRoutes", "service.Start(", "service.ApproveResults("},
+		"internal/app/httpapi/image_set_module.go":                          {"fullImageModule", "a.service.RecoverEffect(", "a.service.Resume("},
+		"tests/imageagent_organization_integration_test.go":                 {"authz.AuthorizeOrganization(", "TestOrganizationScopeServicePersistenceAndActivity", "TestServiceAuthorizationRequiresExactOrganization"},
+		"internal/app/httpapi/chain1_local_product_acceptance_test.go":      {"TestChain1LocalProductAcceptance", "imageagent.NewService(", "imageagent.WithOrganizationScope()", ".ApproveResults(", "authz.AuthorizeOrganization("},
+		"internal/app/httpapi/imageagent_completed_replay_postgres_test.go": {"TestAcquisitionCompletedApprovalHTTPReplaysFromExactOwnerFact", "Hijack()"},
+	} {
+		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, required := range tokens {
+			if !strings.Contains(string(raw), required) {
+				t.Errorf("%s must retain current owner/assertion %q", path, required)
+			}
+		}
+	}
+	for _, path := range []string{
+		"scripts/chain1-local-product-acceptance.ps1", "deployments/docker/chain1-acceptance/docker-compose.yml", "internal/imageagent/temporal/acceptancetest/driver.go",
+		"internal/app/httpapi/imageagent_acquisition_catalog.go", "internal/imageagent/generation_execution.go", "internal/imageagent/temporal/canary.go",
+		"internal/app/httpapi/server_test.go", "internal/authz/httpapi/route_authorization_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current ImageAgent/collector/SHEIN/Store owner or safety artifact must remain: %s: %v", path, err)
+		}
+	}
+}
+
+func TestLegacyAIRoutingImagePolicyClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/aicapability/routing.go", "internal/aicapability/routing_test.go", "internal/aicapability/route_request_contract.go", "internal/aicapability/execution_plan.go", "internal/aicapability/execution_plan_test.go", "internal/aicapability/routing_mode.go", "internal/aicapability/routing_mode_test.go", "internal/integration/httpimage/product_image_adapter.go", "internal/integration/httpimage/product_image_adapter_test.go", "internal/product/image/scene.go", "internal/product/image/scene_test.go", "internal/product/image/presets/scene_profiles.yaml", "internal/product/image/heuristics.go", "internal/product/image/heuristics_test.go"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired AI routing/image policy artifact must be absent: %s: %v", path, err)
+		}
+	}
+	banned := map[string][]string{
+		"internal/aicapability":          []string{"CapabilityProductEnrichFusion", "CapabilityProductEnrichListing", "CapabilityProductEnrichVision", "ExecutionPlan", "ExecutionPlan.Validate", "ExecutionPlanner", "FeatureTextGenerate", "FeatureVisionAnalyze", "ModelCatalog", "ModelDefinition", "ModelDefinition.Supports", "ModelFeature", "ModelPricing", "NewPolicyRouter", "OperationProductEnrichImageAnalyze", "OperationProductEnrichJSONGenerate", "OperationProductEnrichMultimodalFuse", "OperationProductEnrichSpecsGenerate", "OperationProductEnrichTextExtract", "OperationProductEnrichTextQualityScore", "OperationProductEnrichVariantsGenerate", "OperationProductEnrichVisionQualityScore", "OperationProductImageSceneGenerate", "OperationProductImageSubjectExtract", "OperationProductImageWhiteBackground", "ParseRoutingMode", "PolicyResolver", "PolicyRouter", "PolicyRouter.Decide", "RouteDecision", "RouteOutcomeLegacy", "RouteOutcomeShadowDecided", "RouteOutcomeShadowRouteError", "RouteRequest", "RouteRequestContract", "RouteRequestContract.Validate", "Router", "RoutingModeLegacy", "RoutingModeShadow", "TenantModelPolicy", "candidatesFromPreferred", "contains", "containsFeature", "containsOperation", "isBoundDecision", "normalizedFeatures", "normalizedKeys", "normalizedOperations", "routingCandidates", "sameFeatures", "supportsAll", "supportsTags", "validateModel"},
+		"internal/integration/httpimage": []string{"NewProductImageAdapter", "ProductImageAdapter", "ProductImageAdapter.Extract", "ProductImageAdapter.QuoteUsage", "ProductImageAdapter.RenderScene", "ProductImageAdapter.RenderWhiteBackground", "ProductImageAdapter.invoke", "ProductImageAdapterConfig", "ProductImageEndpointConfig", "authorizeProductImageEndpoint", "canonicalProductImageHTTPString", "cloneProductImageEndpoint", "decodeProductImageHTTPItem", "newProductImageHTTPProduct", "newProductImageHTTPSceneOptions", "productImageHTTPCandidate", "productImageHTTPProduct", "productImageHTTPRequest", "productImageHTTPResponse", "productImageHTTPResponseImage", "productImageHTTPSceneOptions", "singleProductImageCandidate", "validateProductImageEndpoint"},
+		"internal/product/image":         []string{"AssessIPRisk", "BuildSceneLayout", "BuildScenePlan", "IPRiskAssessment", "ImageAudit", "IsWhiteBackground", "MaxSceneCanvasSize", "MinSceneCanvasSize", "ResolveSceneProfile", "RiskHigh", "RiskLevel", "RiskLow", "RiskMedium", "SceneBounds", "SceneColor", "SceneContent", "SceneLayer", "SceneLayout", "SceneLayoutInput", "ScenePixelBounds", "ScenePlan", "ScenePlanRequest", "ScenePoint", "SceneProfile", "appendAssignedSceneContent", "buildPresetSceneLayout", "buildSceneContent", "buildSceneLayers", "buildSellingPointSceneLayout", "clampSceneInt", "clampSceneSubject", "classifySceneAttributes", "cloneSceneProfile", "containSceneDimension", "containsAnyFold", "imageRiskReason", "inferSceneCategory", "isNilImage", "maxAuditIssues", "maxIPAudits", "maxIPReasons", "maxRiskLevel", "maxSceneInt", "minInteger", "minSceneInt", "newSceneLayout", "normalizeSceneProfile", "normalizedProfileSlots", "normalizedSceneBounds", "sceneColorYAML", "sceneContentCandidate", "sceneLayerAlignment", "sceneLayerBounds", "sceneLayerKind", "sceneProfileFile", "sceneProfileFiles", "sceneProfileYAML", "sceneRegionForContent", "sceneStyleToken", "sceneTextStyle", "sceneVisualRole", "sortedSceneAttributes", "uniqueSceneCandidates", "validateIPRiskInput", "validateSceneLayoutInput"},
+	}
+	required := map[string][]string{
+		"internal/aicapability/model.go":                        []string{"Capability", "CapabilityAIWorkbenchChatPlanning", "CapabilityProductEnrichText", "CapabilityProductImageScene", "Operation", "OperationAIWorkbenchChatPlan", "OperationListingMaterialsDecision", "OperationProductAgentDecision", "OperationProductContentDecision", "OperationProductImageReview", "OperationProductSelectionDecision", "OperationShopDiagnosisDecision"},
+		"internal/aicapability/ledger_contract.go":              []string{"CacheStatus", "CacheStatusHit", "CacheStatusMiss", "CacheStatusNotApplicable", "RoutingMode", "RoutingModeActive"},
+		"internal/aicapability/invocation.go":                   []string{"InvocationDispatchClaimer", "InvocationRecord", "InvocationRecorder", "InvocationUsageReservation", "RouteOutcome", "RouteOutcomeActive"},
+		"internal/integration/httpimage/artifact_inspection.go": []string{"InspectGeneratedArtifact"},
+		"internal/product/image/scene_options.go":               []string{"MergeSceneOptions", "SceneOptions", "mergeSceneOptionValue", "normalizedSceneOptions", "preflightSceneOptions", "validateSceneOptions"},
+		"internal/product/image/generation_metadata.go":         []string{"NormalizeGenerationMetadata", "preflightGenerationMetadata"},
+		"internal/product/image/model.go":                       []string{"Asset", "GenerationMetadata", "Review", "SceneRequest"},
+		"internal/aicapability/model_test.go":                   []string{"TestCategoryOf", "TestProductEnrichTextCapabilityContracts"},
+	}
+	imports := map[string][]string{
+		"internal/aicapability/ledger_contract.go":              []string{},
+		"internal/integration/httpimage/artifact_inspection.go": []string{"bytes", "golang.org/x/image/webp", "image", "image/jpeg", "image/png", "task-processor/internal/product/image"},
+		"internal/product/image/scene_options.go":               []string{"strings"},
+		"internal/product/image/generation_metadata.go":         []string{"sort", "strings"},
+	}
+	shapes := map[string]string{"internal/aicapability/invocation.go:InvocationRecord": "type InvocationRecord struct {\n\tPointTariff             ModelPointTariff\n\tMaximumPromptTokens     int64\n\tMaximumCompletionTokens int64\n\tInvocationID            string\n\tParentInvocationID      string\n\tAgentRunID              string\n\tTenantID                string\n\tUserID                  string\n\t// MemberID is the canonical membership-grant identity used by commercial\n\t// allocation. It is intentionally distinct from the identity-provider user\n\t// subject.\n\tMemberID             string\n\tBusinessTaskID       string\n\tTraceID              string\n\tCapability           Capability\n\tOperation            Operation\n\tRouteMode            RoutingMode\n\tRouteOutcome         RouteOutcome\n\tCacheStatus          CacheStatus\n\tProviderID           string\n\tModelID              string\n\tRequestedRoutingKey  string\n\tRoutingKey           string\n\tCredentialReference  string\n\tPolicyVersion        string\n\tConfigurationVersion string\n\tPromptKey            string\n\tPromptVersion        string\n\tPromptScope          string\n\tPromptHash           string\n\tStartedAt            time.Time\n\tFinishedAt           time.Time\n\tLatencyMilliseconds  int64\n\tAttempt              int\n\tFallbackIndex        int\n\tPromptTokens         int\n\tCompletionTokens     int\n\tTotalTokens          int\n\tImageCount           int\n\tEstimatedCostMicros  int64\n\tEstimatedCostKnown   bool\n\tUsageKnown           bool\n\tCurrency             string\n\tOutcome              InvocationOutcome\n\tErrorCategory        ErrorCategory\n\tRouteErrorCategory   ErrorCategory\n\tErrorCode            string\n\tProviderRequestID    string\n\tUpstreamJobID        string\n\tInputHash            string\n\tOutputHash           string\n\t// Review result is kept as a small, typed replay envelope so a Temporal\n\t// retry can return a completed review without dispatching the provider a\n\t// second time. It is not a prompt or provider response payload.\n\tReviewScore            float64\n\tReviewNeedsHumanReview bool\n\tReviewReasons          []string\n}", "internal/product/image/scene_options.go:SceneOptions": "type SceneOptions struct {\n\tSceneCategory     string\n\tSceneStyle        string\n\tBackgroundTone    string\n\tComposition       string\n\tPropsLevel        string\n\tAudienceHint      string\n\tCustomSceneHint   string\n\tSlotRole          string\n\tSlotBrief         string\n\tStyleReferenceIDs []string\n}", "internal/product/image/model.go:GenerationMetadata": "type GenerationMetadata struct {\n\tCapability      string\n\tModelFamily     string\n\tInvocationID    string\n\tPromptReference string\n\tPromptVersion   string\n\tValues          map[string]string\n}"}
+	values := map[string]string{"internal/aicapability/model.go:CapabilityProductImageScene": "\"productimage.scene_generation\"", "internal/aicapability/model.go:CapabilityProductEnrichText": "\"productenrich.text_understanding\"", "internal/aicapability/model.go:CapabilityAIWorkbenchChatPlanning": "\"aiworkbench.chat_planning\"", "internal/aicapability/model.go:OperationProductImageReview": "\"productimage_review\"", "internal/aicapability/model.go:OperationProductAgentDecision": "\"product_agent_decision\"", "internal/aicapability/model.go:OperationProductContentDecision": "\"product.content.decision\"", "internal/aicapability/model.go:OperationListingMaterialsDecision": "\"listing.materials.decision\"", "internal/aicapability/model.go:OperationProductSelectionDecision": "\"product.selection.decision\"", "internal/aicapability/model.go:OperationShopDiagnosisDecision": "\"shop.operations-diagnosis.decision\"", "internal/aicapability/model.go:OperationAIWorkbenchChatPlan": "\"aiworkbench_chat_plan\"", "internal/aicapability/ledger_contract.go:RoutingModeActive": "\"active\"", "internal/aicapability/ledger_contract.go:CacheStatusNotApplicable": "\"not_applicable\"", "internal/aicapability/ledger_contract.go:CacheStatusHit": "\"hit\"", "internal/aicapability/ledger_contract.go:CacheStatusMiss": "\"miss\""}
+	found := map[string]map[string]bool{}
+	shapeFound, valueFound := map[string]bool{}, map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		if _, current := required[path]; !current && len(banned[owner]) == 0 {
+			continue
+		}
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, filepath.Join("..", filepath.FromSlash(path)), nil, parser.ParseComments)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found[path] = map[string]bool{}
+		if allowed, limited := imports[path]; limited {
+			seen := map[string]bool{}
+			for _, imp := range file.Imports {
+				name, err := decodeGoImportPath(imp.Path.Value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !slices.Contains(allowed, name) {
+					t.Errorf("current pure leaf %s imports %s", path, name)
+				}
+				seen[name] = true
+				if slices.Contains([]string{"image/jpeg", "image/png", "golang.org/x/image/webp"}, name) && (imp.Name == nil || imp.Name.Name != "_") {
+					t.Errorf("production decoder must register in inspection leaf: %s", name)
+				}
+			}
+			for _, name := range allowed {
+				if !seen[name] {
+					t.Errorf("current pure leaf %s requires import %s", path, name)
+				}
+			}
+		}
+		check := func(name string) {
+			found[path][name] = true
+			if !strings.HasSuffix(path, "_test.go") && slices.Contains(banned[owner], name) {
+				t.Errorf("retired declaration in current owner: %s:%s", path, name)
+			}
+		}
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					var receiver bytes.Buffer
+					if err := format.Node(&receiver, fset, d.Recv.List[0].Type); err != nil {
+						t.Fatal(err)
+					}
+					name = strings.TrimPrefix(receiver.String(), "*") + "." + name
+				}
+				check(name)
+				if path == "internal/aicapability/model_test.go" && name == "TestCategoryOf" {
+					var text bytes.Buffer
+					if err := format.Node(&text, fset, d); err != nil {
+						t.Fatal(err)
+					}
+					for _, required := range []string{"CategoryOf(nil)", "CategoryOf(errors.New(\"plain\"))", "NewError(ErrorProviderTimeout, \"image_generate\", errors.New(\"timeout\"))", "got != ErrorUnknown", "got != ErrorProviderTimeout"} {
+						if !strings.Contains(text.String(), required) {
+							t.Errorf("current error classification assertion missing: %s", required)
+						}
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name)
+						if slices.Contains(required[path], s.Name.Name) && s.Assign.IsValid() {
+							t.Errorf("current contract must be a real definition, not alias: %s:%s", path, s.Name.Name)
+						}
+						key := path + ":" + s.Name.Name
+						if want, ok := shapes[key]; ok {
+							var text bytes.Buffer
+							if err := format.Node(&text, fset, d); err != nil {
+								t.Fatal(err)
+							}
+							if text.String() != want {
+								t.Errorf("current JSON/ledger contract shape changed: %s", key)
+							}
+							shapeFound[key] = true
+						}
+					case *ast.ValueSpec:
+						for i, name := range s.Names {
+							check(name.Name)
+							key := path + ":" + name.Name
+							if want, ok := values[key]; ok {
+								if i >= len(s.Values) {
+									t.Errorf("current wire value requires explicit literal: %s", key)
+									continue
+								}
+								literal, ok := s.Values[i].(*ast.BasicLit)
+								if !ok || literal.Kind != token.STRING || literal.Value != want {
+									t.Errorf("current wire value changed or forwarded: %s", key)
+								}
+								valueFound[key] = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for path, names := range required {
+		for _, name := range names {
+			if !found[path][name] {
+				t.Errorf("required current declaration missing: %s:%s", path, name)
+			}
+		}
+	}
+	for key := range shapes {
+		if !shapeFound[key] {
+			t.Errorf("required current contract missing: %s", key)
+		}
+	}
+	for key := range values {
+		if !valueFound[key] {
+			t.Errorf("required current wire value missing: %s", key)
+		}
+	}
+	for _, path := range []string{"internal/integration/httpimage/client.go", "internal/aicapability/errors.go", "internal/aicapability/routeconfig/config.go", "internal/integration/aicapability/einomodel/executor.go", "internal/product/image/ports.go", "internal/app/worker/imageagent/generation_provider.go", "internal/imageagent/temporal/worker.go", "internal/crawler/shared/browser/manager.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current AI/image/acquisition/SHEIN owner must remain: %s:%v", path, err)
+		}
+	}
+}
+
+func TestLegacySourceNormalizationFactsClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/product/catalog/normalize.go", "internal/product/catalog/normalize_test.go", "internal/product/catalog/facts.go", "internal/product/asset/facts.go", "internal/product/asset/facts_test.go", "internal/product/sourcing/source_request.go", "internal/product/sourcing/source_request_test.go", "internal/product/sourcing/source_result.go"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired source normalization/facts artifact must be absent: %s: %v", path, err)
+		}
+	}
+	banned := map[string][]string{
+		"internal/product/catalog":           []string{"Normalize", "buildAttributes", "buildDimensions", "buildImages", "buildPackage", "buildPrice", "buildReviewState", "buildSpecifications", "buildTrace", "buildVariants", "buildWeight", "cloneStrings", "collectReviewReasons", "collectSources", "firstNonEmpty", "sortedAttributeKeys", "uniqueSourceRecords", "uniqueStrings", "ProductFacts", "VariantFacts", "FactWarning", "ProductFacts.HasIdentity"},
+		"internal/product/catalog/canonical": []string{"HasSourceType", "BuildFieldTrace", "ProductNeedsReview", "ShouldReviewLLMOnlySourceFact"},
+		"internal/product/asset":             []string{"Facts", "ItemFacts", "FactWarning", "Facts.HasAssets"},
+		"internal/product/sourcing":          []string{"SourceRequest", "NormalizeSourceRequest", "SourceRequest.Identity", "VariantSourceRequest", "SourceResult"},
+	}
+	required := map[string][]string{
+		"internal/product/catalog/canonical/types.go":        []string{"Attribute", "Dimensions", "FieldTrace", "Image", "PackageInfo", "PriceInfo", "Product", "ProductSpecs", "ScrapedVariantDimension", "Source", "SourceType", "Variant", "Weight", "SourceUserText", "SourceUserImage", "SourceProductURL", "SourceScrapedData", "SourceLLM", "SourceDerived"},
+		"internal/product/sourcing/source_identity.go":       []string{"SourceIdentity", "NormalizeSourceIdentity", "SourceIdentity.SourceKey"},
+		"internal/product/sourcing/source_envelope.go":       []string{"SourceEnvelope"},
+		"internal/product/sourcing/normalize.go":             []string{"Normalize", "NormalizePublicationEnvelope"},
+		"internal/product/sourcing/catalog_asset_handoff.go": []string{"ToSnapshot"},
+		"internal/product/catalog/projection.go":             []string{"ProjectCanonical"},
+		"internal/product/catalog/snapshot.go":               []string{"ProductSnapshot"},
+	}
+	shapes := map[string]string{
+		"internal/product/catalog/canonical/types.go:Attribute":               "type Attribute struct {\n\tValue string     `json:\"value\"`\n\tTrace FieldTrace `json:\"trace\"`\n}",
+		"internal/product/catalog/canonical/types.go:Dimensions":              "type Dimensions struct {\n\tLength float64 `json:\"length\"`\n\tWidth  float64 `json:\"width\"`\n\tHeight float64 `json:\"height\"`\n\tUnit   string  `json:\"unit\"`\n}",
+		"internal/product/catalog/canonical/types.go:FieldTrace":              "type FieldTrace struct {\n\tSources     []Source `json:\"sources,omitempty\"`\n\tConfidence  float64  `json:\"confidence,omitempty\"`\n\tIsInferred  bool     `json:\"is_inferred,omitempty\"`\n\tNeedsReview bool     `json:\"needs_review,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:Image":                   "type Image struct {\n\tURL   string     `json:\"url\"`\n\tRole  string     `json:\"role,omitempty\"`\n\tTrace FieldTrace `json:\"trace\"`\n}",
+		"internal/product/catalog/canonical/types.go:PackageInfo":             "type PackageInfo struct {\n\tDimensions *Dimensions `json:\"dimensions,omitempty\"`\n\tWeight     *Weight     `json:\"weight,omitempty\"`\n\tQuantity   int         `json:\"quantity\"`\n}",
+		"internal/product/catalog/canonical/types.go:PriceInfo":               "type PriceInfo struct {\n\tCurrency     string  `json:\"currency\"`\n\tAmount       float64 `json:\"amount\"`\n\tCompareAt    float64 `json:\"compare_at,omitempty\"`\n\tCostPrice    float64 `json:\"cost_price,omitempty\"`\n\tWholesaleMin int     `json:\"wholesale_min,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:Product":                 "type Product struct {\n\tTitle             string                    `json:\"title,omitempty\"`\n\tBrand             string                    `json:\"brand,omitempty\"`\n\tCategoryPath      []string                  `json:\"category_path,omitempty\"`\n\tDescription       string                    `json:\"description,omitempty\"`\n\tDescriptionFormat string                    `json:\"description_format,omitempty\"`\n\tSellingPoints     []string                  `json:\"selling_points,omitempty\"`\n\tSEOKeywords       []string                  `json:\"seo_keywords,omitempty\"`\n\tAttributes        map[string]Attribute      `json:\"attributes,omitempty\"`\n\tSpecifications    *ProductSpecs             `json:\"specifications,omitempty\"`\n\tVariantDimensions []ScrapedVariantDimension `json:\"variant_dimensions,omitempty\"`\n\tVariants          []Variant                 `json:\"variants,omitempty\"`\n\tImages            []Image                   `json:\"images,omitempty\"`\n\tFieldTraces       map[string]FieldTrace     `json:\"field_traces,omitempty\"`\n\tNeedsReview       bool                      `json:\"needs_review,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:ProductSpecs":            "type ProductSpecs struct {\n\tDimensions *Dimensions       `json:\"dimensions,omitempty\"`\n\tWeight     *Weight           `json:\"weight,omitempty\"`\n\tPackage    *PackageInfo      `json:\"package,omitempty\"`\n\tTechnical  map[string]string `json:\"technical,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:ScrapedVariantDimension": "type ScrapedVariantDimension struct {\n\tName   string   `json:\"name\"`\n\tValues []string `json:\"values\"`\n}",
+		"internal/product/catalog/canonical/types.go:Source":                  "type Source struct {\n\tType   SourceType `json:\"type\"`\n\tDetail string     `json:\"detail,omitempty\"`\n}",
+		"internal/product/catalog/canonical/types.go:SourceType":              "type SourceType string",
+		"internal/product/catalog/canonical/types.go:Variant":                 "type Variant struct {\n\tSKU        string               `json:\"sku\"`\n\tAttributes map[string]Attribute `json:\"attributes,omitempty\"`\n\tPrice      *PriceInfo           `json:\"price,omitempty\"`\n\tStock      int                  `json:\"stock,omitempty\"`\n\tImages     []Image              `json:\"images,omitempty\"`\n\tDimensions *Dimensions          `json:\"dimensions,omitempty\"`\n\tWeight     *Weight              `json:\"weight,omitempty\"`\n\tBarcode    string               `json:\"barcode,omitempty\"`\n\tIsDefault  bool                 `json:\"is_default,omitempty\"`\n\tTrace      FieldTrace           `json:\"trace\"`\n}",
+		"internal/product/catalog/canonical/types.go:Weight":                  "type Weight struct {\n\tValue float64 `json:\"value\"`\n\tUnit  string  `json:\"unit\"`\n}",
+		"internal/product/sourcing/source_identity.go:SourceIdentity":         "// SourceIdentity is the stable identity for a sourced product/design record.\n//\n// The six Source* fields are the identity inputs. Platform, Region, ProductID,\n// and StoreID retain the existing zero-value JSON layout and rejection checks;\n// they do not supply identity values.\ntype SourceIdentity struct {\n\tSourceType        string\n\tSourcePlatform    string\n\tSourceID          string\n\tSourceURL         string\n\tSourceVersion     string\n\tSourceFingerprint string\n\n\t// Zero-value slots in the current source evidence encoding contract.\n\tPlatform  string\n\tRegion    string\n\tProductID string\n\tStoreID   int64\n}",
+	}
+	values := map[string]string{
+		"SourceUserText":    "\"user_text\"",
+		"SourceUserImage":   "\"user_image\"",
+		"SourceProductURL":  "\"product_url\"",
+		"SourceScrapedData": "\"scraped_data\"",
+		"SourceLLM":         "\"llm\"",
+		"SourceDerived":     "\"derived\"",
+	}
+	found := map[string]map[string]bool{}
+	shapeFound, valueFound := map[string]bool{}, map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		if _, current := required[path]; !current && len(banned[owner]) == 0 {
+			continue
+		}
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, filepath.Join("..", filepath.FromSlash(path)), nil, parser.ParseComments)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			if _, err := decodeGoImportPath(spec.Path.Value); err != nil {
+				t.Fatalf("decode source contract import in %s: %v", path, err)
+			}
+		}
+		found[path] = map[string]bool{}
+		check := func(name string) {
+			found[path][name] = true
+			if !strings.HasSuffix(path, "_test.go") && slices.Contains(banned[owner], name) {
+				t.Errorf("retired source normalization/facts declaration: %s:%s", path, name)
+			}
+		}
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					var receiver bytes.Buffer
+					if err := format.Node(&receiver, fset, d.Recv.List[0].Type); err != nil {
+						t.Fatal(err)
+					}
+					name = strings.TrimPrefix(receiver.String(), "*") + "." + name
+				}
+				check(name)
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name)
+						if slices.Contains(required[path], s.Name.Name) && s.Assign.IsValid() {
+							t.Errorf("current source contract must be a real definition, not alias: %s:%s", path, s.Name.Name)
+						}
+						key := path + ":" + s.Name.Name
+						if want, ok := shapes[key]; ok {
+							var text bytes.Buffer
+							if err := format.Node(&text, fset, d); err != nil {
+								t.Fatal(err)
+							}
+							if text.String() != want {
+								t.Errorf("current source JSON/value shape changed: %s", key)
+							}
+							shapeFound[key] = true
+						}
+					case *ast.ValueSpec:
+						for i, name := range s.Names {
+							check(name.Name)
+							if path == "internal/product/catalog/canonical/types.go" {
+								if want, ok := values[name.Name]; ok {
+									if i >= len(s.Values) {
+										t.Errorf("current source constant requires original explicit value: %s", name.Name)
+										continue
+									}
+									literal, ok := s.Values[i].(*ast.BasicLit)
+									if !ok || literal.Kind != token.STRING || literal.Value != want {
+										t.Errorf("current source constant changed or forwarded: %s", name.Name)
+									}
+									valueFound[name.Name] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for path, names := range required {
+		for _, name := range names {
+			if !found[path][name] {
+				t.Errorf("required current source contract missing: %s:%s", path, name)
+			}
+		}
+	}
+	for key := range shapes {
+		if !shapeFound[key] {
+			t.Errorf("required current source JSON/value shape missing: %s", key)
+		}
+	}
+	for name := range values {
+		if !valueFound[name] {
+			t.Errorf("required current source constant missing: %s", name)
+		}
+	}
+	for _, path := range []string{
+		"internal/integration/persistence/product/sourcing/repository.go", "internal/product/pod/template.go", "internal/product/supplymarket/publication.go",
+		"internal/marketplace/shein/draft/builder.go", "internal/product/asset/approval.go", "internal/product/asset/source_approval.go",
+		"cmd/current-application/main.go",
+		"internal/crawler/amazon/browser/pool_manager.go", "cmd/1688-public-browser-collector/main.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current source/asset/acquisition/SHEIN owner must remain: %s: %v", path, err)
+		}
+	}
+}
+
+func TestLegacyAssetSourceOpenAITailClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/product/asset/recipe", "internal/product/sourcing/publish.go"} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired asset/source tail must be absent: %s: %v", path, err)
+		}
+	}
+	banned := map[string][]string{
+		"internal/product/sourcing":   {"PublishRequest", "Publisher", "NewPublisher", "Publisher.Publish"},
+		"internal/integration/openai": {"ChatCompletionMessage", "ChatCompletionContentPart", "ChatCompletionContentPartImage", "ChatCompletionRequest", "ChatCompletionChoice", "Usage", "ChatCompletionResponse", "ChatCompleter", "TextChatCompleter", "ImageGenerateRequest", "ImageEditRequest", "ImageData", "ImageResponse", "ImageAsyncSubmitResponse", "ImageAsyncQueryResponse", "ImageGenerator", "ImageRouteSelection", "ErrAsyncImageGenerationNotSupported", "EffectiveClientRouteResolver"},
+	}
+	shapes := map[string]string{
+		"internal/ai/contracts.go:ChatCompleter":                                      "ChatCompleter interface {\n\tTextChatCompleter\n\tAnalyzeImage(ctx context.Context, imageURL string, prompt string) (string, error)\n}",
+		"internal/ai/contracts.go:ChatCompletionChoice":                               "ChatCompletionChoice struct {\n\tMessage      ChatCompletionMessage `json:\"message\"`\n\tFinishReason string                `json:\"finish_reason\"`\n\tIndex        int                   `json:\"index\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionContentPart":                          "ChatCompletionContentPart struct {\n\tType     string                          `json:\"type\"`\n\tText     string                          `json:\"text,omitempty\"`\n\tImageURL *ChatCompletionContentPartImage `json:\"image_url,omitempty\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionContentPartImage":                     "ChatCompletionContentPartImage struct {\n\tURL    string `json:\"url\"`\n\tDetail string `json:\"detail,omitempty\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionMessage":                              "ChatCompletionMessage struct {\n\tRole         string                      `json:\"role\"`\n\tContent      string                      `json:\"content\"`\n\tMultiContent []ChatCompletionContentPart `json:\"multi_content,omitempty\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionRequest":                              "ChatCompletionRequest struct {\n\tTemperature    *float32                `json:\"temperature,omitempty\"`\n\tSeed           *int                    `json:\"seed,omitempty\"`\n\tMaxTokens      *int                    `json:\"max_tokens,omitempty\"`\n\tResponseFormat string                  `json:\"response_format,omitempty\"`\n\tModel          string                  `json:\"model\"`\n\tMessages       []ChatCompletionMessage `json:\"messages\"`\n\tTimeout        *time.Duration          `json:\"-\"`\n\tMaxRetries     *int                    `json:\"-\"`\n}",
+		"internal/ai/contracts.go:ChatCompletionResponse":                             "ChatCompletionResponse struct {\n\tID      string                 `json:\"id\"`\n\tObject  string                 `json:\"object\"`\n\tModel   string                 `json:\"model\"`\n\tChoices []ChatCompletionChoice `json:\"choices\"`\n\tCreated int64                  `json:\"created\"`\n\tUsage   Usage                  `json:\"usage\"`\n}",
+		"internal/ai/contracts.go:ErrAsyncImageGenerationNotSupported":                "ErrAsyncImageGenerationNotSupported = errors.New(\"async image generation is not supported\")",
+		"internal/ai/contracts.go:ImageAsyncQueryResponse":                            "ImageAsyncQueryResponse struct {\n\tJobID             string      `json:\"job_id,omitempty\"`\n\tRequestID         string      `json:\"request_id,omitempty\"`\n\tProvider          string      `json:\"provider,omitempty\"`\n\tStatus            string      `json:\"status,omitempty\"`\n\tRawResultResponse string      `json:\"raw_result_response,omitempty\"`\n\tError             string      `json:\"error,omitempty\"`\n\tUsage             Usage       `json:\"usage\"`\n\tData              []ImageData `json:\"data,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageAsyncSubmitResponse":                           "ImageAsyncSubmitResponse struct {\n\tJobID             string         `json:\"job_id,omitempty\"`\n\tRequestID         string         `json:\"request_id,omitempty\"`\n\tProvider          string         `json:\"provider,omitempty\"`\n\tStatus            string         `json:\"status,omitempty\"`\n\tRawSubmitResponse string         `json:\"raw_submit_response,omitempty\"`\n\tAcceptedAt        time.Time      `json:\"accepted_at,omitempty\"`\n\tResponse          *ImageResponse `json:\"response,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageData":                                          "ImageData struct {\n\tB64JSON       string `json:\"b64_json,omitempty\"`\n\tURL           string `json:\"url,omitempty\"`\n\tRevisedPrompt string `json:\"revised_prompt,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageEditRequest":                                   "ImageEditRequest struct {\n\tMaxRetries       *int `json:\"-\"`\n\tModel            string\n\tPrompt           string\n\tImage            []byte\n\tImageContentType string\n\n\tReferenceImages []ImageInlineReference `json:\"-\"`\n\tImageURL        string\n\tImageURLs       []string\n\tMask            []byte\n\tSize            string\n\tQuality         string\n\tResponseFormat  string\n\tN               int\n}",
+		"internal/ai/contracts.go:ImageGenerateRequest":                               "ImageGenerateRequest struct {\n\tModel          string `json:\"model,omitempty\"`\n\tPrompt         string `json:\"prompt\"`\n\tSize           string `json:\"size,omitempty\"`\n\tQuality        string `json:\"quality,omitempty\"`\n\tResponseFormat string `json:\"response_format,omitempty\"`\n\tN              int    `json:\"n,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageGenerator":                                     "ImageGenerator interface {\n\tGenerateImage(ctx context.Context, req *ImageGenerateRequest) (*ImageResponse, error)\n\tEditImage(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error)\n\tGetDefaultModel() string\n\tSupportsAsyncImageGeneration() bool\n\tSubmitImageGeneration(ctx context.Context, req *ImageGenerateRequest) (*ImageAsyncSubmitResponse, error)\n\tSubmitImageEdit(ctx context.Context, req *ImageEditRequest) (*ImageAsyncSubmitResponse, error)\n\tQueryImageGeneration(ctx context.Context, jobID string) (*ImageAsyncQueryResponse, error)\n}",
+		"internal/ai/contracts.go:ImageInlineReference":                               "ImageInlineReference struct {\n\tBytes     []byte `json:\"-\"`\n\tMediaType string\n}",
+		"internal/ai/contracts.go:ImageResponse":                                      "ImageResponse struct {\n\tCreated int64       `json:\"created\"`\n\tData    []ImageData `json:\"data\"`\n\tUsage   Usage       `json:\"usage\"`\n\n\tUsageKnown    bool   `json:\"-\"`\n\tRequestID     string `json:\"request_id,omitempty\"`\n\tUpstreamJobID string `json:\"upstream_job_id,omitempty\"`\n\tRawResponse   string `json:\"raw_response,omitempty\"`\n}",
+		"internal/ai/contracts.go:ImageRouteSelection":                                "ImageRouteSelection struct {\n\tCredentialReference  string\n\tConfigurationVersion string\n}",
+		"internal/ai/contracts.go:RouteBoundImageGenerator":                           "RouteBoundImageGenerator interface {\n\tImageGenerator\n\tEditImageWithRoute(context.Context, *ImageEditRequest, ImageRouteSelection) (*ImageResponse, error)\n}",
+		"internal/ai/contracts.go:TextChatCompleter":                                  "TextChatCompleter interface {\n\tCreateChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error)\n\tGenerate(ctx context.Context, prompt string) (string, error)\n\tGetDefaultModel() string\n}",
+		"internal/ai/contracts.go:Usage":                                              "Usage struct {\n\tPromptTokens     int `json:\"prompt_tokens\"`\n\tCompletionTokens int `json:\"completion_tokens\"`\n\tTotalTokens      int `json:\"total_tokens\"`\n}",
+		"internal/integration/openai/client_manager.go:effectiveConfigurationVersion": "func effectiveConfigurationVersion(name, credentialVersion string, config *ClientConfig) string {\n\n\tcanonical := fmt.Sprintf(\"v1|%s|%s|%s|%s|%s|%d|%d|%d|%d|%d\",\n\t\tnormalizeClientName(name), credentialVersion, strings.ToLower(strings.TrimSpace(config.APIStyle)),\n\t\tstrings.TrimSpace(config.Model), strings.TrimSpace(config.BaseURL), config.Timeout,\n\t\tconfig.MaxRetries, config.RetryDelay, config.MaxReferenceMaterializedBytes, config.MaxReferenceMaterializationConcurrency,\n\t)\n\tdigest := sha256.Sum256([]byte(canonical))\n\treturn fmt.Sprintf(\"effective:v1:%x\", digest[:])\n}",
+		"internal/integration/openai/types.go:ClientConfig":                           "ClientConfig struct {\n\tLogger     Logger        `json:\"-\"`\n\tAPIKey     string        `json:\"api_key\"`\n\tModel      string        `json:\"model\"`\n\tBaseURL    string        `json:\"base_url\"`\n\tAPIStyle   string        `json:\"api_style,omitempty\"`\n\tTimeout    time.Duration `json:\"timeout\"`\n\tMaxRetries int           `json:\"max_retries\"`\n\tRetryDelay time.Duration `json:\"retry_delay\"`\n\n\tImageReferenceHTTPClient *http.Client `json:\"-\"`\n\n\tMaxReferenceMaterializedBytes int64 `json:\"max_reference_materialized_bytes,omitempty\"`\n\n\tMaxReferenceMaterializationConcurrency int `json:\"max_reference_materialization_concurrency,omitempty\"`\n}",
+		"internal/integration/openai/types.go:NewClientConfig":                        "func NewClientConfig(apiKey, model, baseURL string, timeout int) *ClientConfig {\n\treturn &ClientConfig{\n\t\tAPIKey:     apiKey,\n\t\tModel:      model,\n\t\tBaseURL:    baseURL,\n\t\tTimeout:    time.Duration(timeout) * time.Second,\n\t\tMaxRetries: 3,\n\t\tRetryDelay: 1 * time.Second,\n\t}\n}",
+		"internal/integration/openai/types.go:PoolConfig":                             "PoolConfig struct {\n\tLogger        Logger          `json:\"-\"`\n\tRateLimit     float64         `json:\"rate_limit\"`\n\tBurstLimit    float64         `json:\"burst_limit\"`\n\tClientConfigs []*ClientConfig `json:\"client_configs\"`\n\tMaxConcurrent int             `json:\"max_concurrent\"`\n}",
+	}
+	required := map[string][]string{
+		"internal/product/catalog/publisher.go":              {"Publisher", "NewPublisher", "Publisher.Publish"},
+		"internal/product/sourcing/publication.go":           {"InternalProducer", "NewInternalProducer", "InternalProducer.Publish"},
+		"internal/product/sourcing/catalog_asset_handoff.go": {"ToSnapshot"},
+		"internal/integration/openai/client_manager.go":      {"Manager", "EffectiveClientRoute", "Manager.ResolveEffectiveClientRoute", "Manager.GetClientWithRoute", "Manager.GetImageClient"},
+	}
+	found := map[string]bool{}
+	for _, path := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatalf("parse current asset/source/AI contract %s: %v", path, err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode asset/source/AI import in %s: %v", path, err)
+			}
+			if imported == "task-processor/internal/product/asset/recipe" || strings.HasPrefix(imported, "task-processor/internal/product/asset/recipe/") {
+				t.Errorf("retired asset recipe import in %s: %s", path, imported)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(path))
+		production := !strings.HasSuffix(path, "_test.go")
+		if owner == "internal/integration/openai" && production {
+			ast.Inspect(file, func(node ast.Node) bool {
+				if id, ok := node.(*ast.Ident); ok && (id.Name == "resolverVersion" || id.Name == "matchesLegacyResolverVersion") {
+					t.Errorf("retired resolver-version compatibility identifier in %s: %s", path, id.Name)
+				}
+				return true
+			})
+		}
+		check := func(name string, node ast.Node) {
+			key := path + ":" + name
+			found[key] = true
+			if production && slices.Contains(banned[owner], name) {
+				t.Errorf("retired asset/source/AI declaration: %s", key)
+			}
+			if want, ok := shapes[key]; ok {
+				var text bytes.Buffer
+				if err := format.Node(&text, fset, node); err != nil {
+					t.Fatal(err)
+				}
+				if text.String() != want {
+					t.Errorf("current AI contract/configuration/version shape changed: %s", key)
+				}
+			}
+		}
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					var receiver bytes.Buffer
+					if err := format.Node(&receiver, fset, d.Recv.List[0].Type); err != nil {
+						t.Fatal(err)
+					}
+					name = strings.TrimPrefix(receiver.String(), "*") + "." + name
+				}
+				check(name, d)
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name, s)
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							check(name.Name, s)
+						}
+					}
+				}
+			}
+		}
+	}
+	for key := range shapes {
+		if !found[key] {
+			t.Errorf("current AI contract/configuration/version missing: %s", key)
+		}
+	}
+	for path, names := range required {
+		for _, name := range names {
+			if !found[path+":"+name] {
+				t.Errorf("current asset/source/AI/SHEIN declaration missing: %s:%s", path, name)
+			}
+		}
+	}
+	for _, path := range []string{"cmd/current-application/main.go", "internal/product/asset/approval.go", "internal/imageagent/image_set.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Errorf("current asset/source/AI/SHEIN owner must remain: %s: %v", path, err)
 		}
 	}
 }

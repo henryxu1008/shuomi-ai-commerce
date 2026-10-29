@@ -1,3 +1,5 @@
+> #301 / #968 当前 owner 校准（[本批确认设计](legacy-shein-draft-support-closure-retirement-boundary.md) §1–§7，含 §4.2/§6.1）：四个旧包 `internal/shein/api/product`、`api/attribute`、`content`、`authorizedbrand` 及专属 adapter/Context 尾部完整退出。当前22个真实 wire 值归域内 `internal/marketplace/shein/offlinepackage/previewdata`，有效默认/custom文本与品牌清理归现有 `marketplace/shein/publishing` 纯规则，draft 显式传值；无 alias、Service 包装、品牌查询或新事实源。当前字段/JSON/hash/版本、严格解码、Builder取消/ApprovedAsset、采集及独立SHEIN登录/Store同步保持。历史 KEEP 仅在本批准确范围内被此说明替代；以下原全文/计数/勾选/证据完整保留，不恢复旧 owner，不授权运行或数据操作。
+
 # #301 旧 SHEIN 品牌查询与错误分类整链退休设计
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。父 Issue 保持 OPEN，#29 不重开。

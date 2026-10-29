@@ -112,26 +112,3 @@ type UsageQuote struct {
 	MaximumCostMicros   int64
 	CostUpperBoundKnown bool
 }
-
-type ImageAudit struct {
-	ImageURL       string
-	HasOverlayText bool
-	HasPromoBadge  bool
-	HasLogo        bool
-	PrimaryObject  string
-	Issues         []string
-}
-
-type RiskLevel string
-
-const (
-	RiskLow    RiskLevel = "low"
-	RiskMedium RiskLevel = "medium"
-	RiskHigh   RiskLevel = "high"
-)
-
-type IPRiskAssessment struct {
-	Level   RiskLevel
-	Score   float64
-	Reasons []string
-}

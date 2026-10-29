@@ -2,16 +2,15 @@ package publishing
 
 import (
 	"strings"
-
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // DefaultSiteListByRegion returns a fresh SHEIN site list for the configured region.
-func DefaultSiteListByRegion(region string) []sheinproduct.SiteInfo {
+func DefaultSiteListByRegion(region string) []previewdata.SiteInfo {
 	subSite := "shein-us"
 	switch region {
 	case "US", "FR", "DE", "IT", "ES", "UK", "AU", "JP", "MX", "SA", "AE", "CA":
 		subSite = "shein-" + strings.ToLower(region)
 	}
-	return []sheinproduct.SiteInfo{{MainSite: "shein", SubSiteList: []string{subSite}}}
+	return []previewdata.SiteInfo{{MainSite: "shein", SubSiteList: []string{subSite}}}
 }

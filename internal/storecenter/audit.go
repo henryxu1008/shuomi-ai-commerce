@@ -20,9 +20,10 @@ var ErrAuditIdentityMismatch = errors.New("store audit identity mismatch")
 type AuditAction string
 
 const (
-	AuditActionSheinIdentitySync     AuditAction = "shein_login_identity_sync"
-	AuditActionSheinActivate         AuditAction = "shein_login_activate"
-	AuditActionSheinQuiesce          AuditAction = "shein_login_quiesce"
+	AuditActionBrowserAdmitted       AuditAction = "browser_operation_admitted"
+	AuditActionBrowserConfigured     AuditAction = "browser_configuration_reported"
+	AuditActionBrowserOpenReported   AuditAction = "browser_open_reported"
+	AuditActionBrowserClosed         AuditAction = "browser_close_reported"
 	AuditActionStoreCreated          AuditAction = "store_created"
 	AuditActionStoreUpdateStarted    AuditAction = "store_update_started"
 	AuditActionStoreUpdated          AuditAction = "store_updated"
@@ -252,12 +253,6 @@ func validTaskFiveAuditCombination(event AuditEvent) bool {
 		profileFields = profileFields && (field == "name" || field == "region")
 	}
 	switch event.Action {
-	case AuditActionSheinIdentitySync:
-		return event.PreviousState == RecordStatusActive && event.NewState == RecordStatusActive && exactSafeFields(event.SafeFieldNames, "external_store_id") && len(event.PayloadFingerprint) == 64 && event.StoreVersion > 0 && (succeeded || event.Outcome == AuditOutcomeFailed && event.FailureCode == AuditFailureAlreadyExists)
-	case AuditActionSheinActivate:
-		return succeeded && event.PreviousState == RecordStatusActive && event.NewState == RecordStatusActive && len(event.SafeFieldNames) == 0 && len(event.PayloadFingerprint) == 64
-	case AuditActionSheinQuiesce:
-		return (succeeded || unknown) && event.PreviousState == RecordStatusActive && event.NewState == RecordStatusActive && len(event.SafeFieldNames) == 0 && len(event.PayloadFingerprint) == 64
 	case AuditActionStoreUpdateStarted:
 		return unknown && sameMutableState && profileFields
 	case AuditActionStoreUpdated:
@@ -298,7 +293,9 @@ func normalizeSafeFieldNames(fields []string) ([]string, error) {
 
 func validAuditAction(action AuditAction) bool {
 	switch action {
-	case AuditActionSheinIdentitySync, AuditActionSheinActivate, AuditActionSheinQuiesce, AuditActionStoreCreated, AuditActionStoreUpdateStarted, AuditActionStoreUpdated, AuditActionStoreUpdateNoOp, AuditActionStoreLifecycleStarted, AuditActionStoreDisabled, AuditActionStoreEnabled, AuditActionDeleteStarted, AuditActionDeleteComplete:
+	case AuditActionBrowserAdmitted, AuditActionBrowserConfigured, AuditActionBrowserOpenReported, AuditActionBrowserClosed:
+		return true
+	case AuditActionStoreCreated, AuditActionStoreUpdateStarted, AuditActionStoreUpdated, AuditActionStoreUpdateNoOp, AuditActionStoreLifecycleStarted, AuditActionStoreDisabled, AuditActionStoreEnabled, AuditActionDeleteStarted, AuditActionDeleteComplete:
 		return true
 	}
 	return false

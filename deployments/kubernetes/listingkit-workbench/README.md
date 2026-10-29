@@ -1,8 +1,9 @@
+> **#985 current source boundary:** the standalone SHEIN login worker and post-login Store identity writeback, including their manifest/Dockerfile/private-config example and dedicated deploy workflow, are retired. Store observations and official authorization remain. See [the retirement entry](../../../docs/operations/shein-login-worker-current.md); there is no current worker installation procedure. The older retention/deployment statements below are historical, not authority to install, stop, revoke or mutate any retained resource. No new internal-trial prerequisite.
+
 # Legacy ListingKit K3S Deployment Reference
 
 > **#885 SDS source supersession:** the old SDS login/client/catalog BFF and six exclusive SDS sample configuration keys have retired under the [confirmed boundary](../../../docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md). The old `/api/sds/*` BFF and SDS login/provisioning references in the unchanged historical body below are no longer current configuration or execution guidance. Current SDS/POD and standalone SHEIN login/Store sync retain their owners; all other sample keys remain. Production stays NOT_READY; this source-only change grants no cluster, Secret, credential or runtime operation and adds no trial prerequisite.
 
-> **#863 SHEIN input supersession:** the standalone worker source now requires an explicit private current-scope JSON configuration, optional Store login capability, and fresh Redis/Profile ownership. Its old shared numeric DB/Redis environment instructions below are historical. Use [the current worker entry](../../../docs/operations/shein-login-worker-current.md) only for a separately authorized fresh installation; this does not authorize applying over retained resources, opening a publisher, or changing internal-trial prerequisites.
 
 > **Narrow source supersession — #850 / #29 / #301.** The [confirmed principal retirement](../../../docs/architecture/legacy-kubernetes-release-principal-retirement-boundary.md) now retires the old API/UI Roles/Bindings, authentication example and GitHub OIDC configure/refresh helpers. The source assembly retains only the current canary; static fixed-failure, UI-isolation and canary safety checks remain. The original body below, including old IAM/credential/provisioning/drain/receipt guidance, is historical evidence, not current configuration/execution or live-revocation authority. Source removal proves no physical IAM/resource/data change. Current UI/native identity/schema/ImageAgent/Store and standalone SHEIN login/sync keep their owners; no new trial prerequisite.
 
@@ -83,8 +84,6 @@ configuration. Every other manifest has an explicit key allowlist:
 - `listingkit-ui`: Auth.js secret, ZITADEL issuer/client credentials, role
   allowlist, and demo webhook only. Public origins and redirect URIs come from
   `listingkit-workbench-config`.
-- `shein-login-worker`: the five database keys and four SHEIN cookie Redis
-  keys only. Each queued account already supplies its tenant and store id.
 - `imgproxy`: signing key/salt and the two ProductImage S3 credential keys.
 - both schema migration runner init containers: the five database keys only.
 

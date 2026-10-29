@@ -1,3 +1,4 @@
+import { testDrafts } from './fixtures/drafts';
 import { readFileSync } from 'node:fs';
 import { afterEach, expect, it, vi } from 'vitest';
 import { Controller } from '../src/controller';
@@ -6,7 +7,7 @@ import type { PlatformCapturePayload } from '../src/wire';
 const payload = JSON.parse(readFileSync('tests/fixtures/capture-v2.json', 'utf8')) as PlatformCapturePayload;
 const target = { id: 7, url: payload.evidence.sourceURL };
 function fixture(extract = vi.fn(async () => payload), create = vi.fn(async () => 42), focus = vi.fn<(id: number) => Promise<void>>(async () => {})) {
-  return { extract, create, focus, control: new Controller('https://app.example.com/capture/1688', extract, create, () => 'a'.repeat(32), undefined, undefined, focus) };
+  return { extract, create, focus, control: new Controller(testDrafts(),async()=>target,'https://app.example.com/capture/1688', extract, create, () => 'a'.repeat(32), undefined, undefined, focus) };
 }
 afterEach(() => vi.restoreAllMocks());
 
@@ -69,12 +70,12 @@ it('preserves the original operation when the original tab/window cannot be acti
   expect(f.extract).toHaveBeenCalledOnce(); expect(f.create).toHaveBeenCalledOnce();
 });
 
-it('does not replace an application tab after its original creation failed', async () => {
+it('explicitly retries opening the retained draft after its first tab creation failed, without another extraction', async () => {
   const f = fixture(undefined, vi.fn(async () => { throw Error('creation unavailable'); }));
   await expect(f.control.captureAndHandoff(target)).rejects.toThrow('HANDOFF_UNAVAILABLE');
   const key = f.control.recoveryURL();
-  await expect(f.control.captureAndHandoff(target)).rejects.toThrow('ORIGINAL_TAB_UNAVAILABLE');
+  await expect(f.control.captureAndHandoff(target)).rejects.toThrow('HANDOFF_UNAVAILABLE');
   expect(f.control.recoveryURL()).toBe(key);
   expect(f.control.snapshot().outcome).toBe('outcome_unknown');
-  expect(f.extract).toHaveBeenCalledOnce(); expect(f.create).toHaveBeenCalledOnce(); expect(f.focus).not.toHaveBeenCalled();
+  expect(f.extract).toHaveBeenCalledOnce(); expect(f.create).toHaveBeenCalledTimes(2); expect(f.focus).not.toHaveBeenCalled();
 });

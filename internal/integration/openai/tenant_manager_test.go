@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"task-processor/internal/ai"
 )
 
 type capturedOpenAIRequest struct {
@@ -90,7 +92,7 @@ func TestManagerRoutesChatClientByTenantOrUserContext(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveEffectiveClientRoute() error = %v", err)
 		}
-		client, err := mgr.GetClientWithRoute(ctx, "default", ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion})
+		client, err := mgr.GetClientWithRoute(ctx, "default", ai.ImageRouteSelection{CredentialReference: route.CredentialReference, ConfigurationVersion: route.ConfigurationVersion})
 		if err != nil {
 			t.Fatalf("GetClientWithRoute() error = %v", err)
 		}
@@ -127,15 +129,15 @@ func TestManagerRouteBoundImageClientRejectsCredentialConfigurationDrift(t *test
 		t.Fatalf("GetImageClient() error = %v", err)
 	}
 	routed, ok := client.(interface {
-		EditImageWithRoute(context.Context, *ImageEditRequest, ImageRouteSelection) (*ImageResponse, error)
+		EditImageWithRoute(context.Context, *ai.ImageEditRequest, ai.ImageRouteSelection) (*ai.ImageResponse, error)
 	})
 	if !ok {
 		t.Fatal("image client does not expose route-bound edit")
 	}
 	_, err = routed.EditImageWithRoute(
 		WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}),
-		&ImageEditRequest{Model: "tenant-model"},
-		ImageRouteSelection{CredentialReference: "image", ConfigurationVersion: "stale-config"},
+		&ai.ImageEditRequest{Model: "tenant-model"},
+		ai.ImageRouteSelection{CredentialReference: "image", ConfigurationVersion: "stale-config"},
 	)
 	if err == nil {
 		t.Fatal("expected configuration drift to reject route-bound image call")
@@ -164,17 +166,22 @@ func TestManagerAllowsResolverBackedUnregisteredImageClient(t *testing.T) {
 		t.Fatalf("resolver-only image client default model = %q, want empty without identity-bound configuration", got)
 	}
 	routed, ok := client.(interface {
-		EditImageWithRoute(context.Context, *ImageEditRequest, ImageRouteSelection) (*ImageResponse, error)
+		EditImageWithRoute(context.Context, *ai.ImageEditRequest, ai.ImageRouteSelection) (*ai.ImageResponse, error)
 	})
 	if !ok {
 		t.Fatal("resolver-backed image client does not expose route-bound edit")
 	}
+	ctx := WithIdentity(context.Background(), Identity{TenantID: "tenant-a"})
+	route, err := mgr.ResolveEffectiveClientRoute(ctx, "image_gpt_image_2")
+	if err != nil {
+		t.Fatalf("ResolveEffectiveClientRoute() error = %v", err)
+	}
 	_, err = routed.EditImageWithRoute(
-		WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}),
-		&ImageEditRequest{Model: "gpt-image-2"},
-		ImageRouteSelection{
-			CredentialReference:  "image_gpt_image_2",
-			ConfigurationVersion: "tenant:tenant-a:image_gpt_image_2",
+		ctx,
+		&ai.ImageEditRequest{Model: "gpt-image-2"},
+		ai.ImageRouteSelection{
+			CredentialReference:  route.CredentialReference,
+			ConfigurationVersion: route.ConfigurationVersion,
 		},
 	)
 	if err == nil || !strings.Contains(err.Error(), "image edit request requires image bytes") {
@@ -200,7 +207,7 @@ func TestManagerFailsClosedForResolverOnlyImageWithoutIdentityConfiguration(t *t
 	if err != nil {
 		t.Fatalf("GetImageClient() error = %v", err)
 	}
-	_, err = client.EditImage(context.Background(), &ImageEditRequest{Image: []byte("image")})
+	_, err = client.EditImage(context.Background(), &ai.ImageEditRequest{Image: []byte("image")})
 	if err == nil || !strings.Contains(err.Error(), "image credential configuration is unavailable") {
 		t.Fatalf("resolver-only image call error = %v, want missing identity configuration", err)
 	}
@@ -237,10 +244,10 @@ func testClientConfig(apiKey, model, baseURL string) *ClientConfig {
 	}
 }
 
-func callChat(t *testing.T, client ChatCompleter, ctx context.Context) {
+func callChat(t *testing.T, client ai.ChatCompleter, ctx context.Context) {
 	t.Helper()
-	_, err := client.CreateChatCompletion(ctx, &ChatCompletionRequest{
-		Messages: []ChatCompletionMessage{{Role: "user", Content: "hello"}},
+	_, err := client.CreateChatCompletion(ctx, &ai.ChatCompletionRequest{
+		Messages: []ai.ChatCompletionMessage{{Role: "user", Content: "hello"}},
 	})
 	if err != nil {
 		t.Fatalf("CreateChatCompletion() error = %v", err)

@@ -1,14 +1,79 @@
+import { coordinator } from './fixtures/drafts';
 import { JSDOM } from 'jsdom';
 import { expect, it, vi } from 'vitest';
 import { discoverFamily } from '../src/amazon/family-discovery';
-import { FamilyCoordinator } from '../src/amazon/family-coordinator';
 import type { AmazonCapturePayload } from '../src/amazon/wire';
 import { captureAmazonDocument } from '../src/amazon/extractor';
+import { validateAmazonCapture } from '../src/amazon/validation';
+import { FamilyCoordinator } from '../src/amazon/family-coordinator';
 
 const anchor = 'B0BDLGZCTY', sibling = 'B0CC1YM6SJ', parent = 'B0D76YXPWZ';
 export const familyData = () => ({ currentAsin: anchor, parentAsin: parent, dimensions: ['color_name','size_name'], variationDisplayLabels: { color_name:'Color',size_name:'Size' }, variationValues: { color_name:['Grey','Beige'],size_name:['XL'] }, dimensionToAsinMap: { '0_0':anchor,'1_0':sibling }, dimensionValuesDisplayData: { [anchor]:['Grey','XL'],[sibling]:['Beige','XL'] } });
-const document = (id=anchor, color='Grey', amount='39.98', currency='US$') => new JSDOM(`<span id="productTitle">Dog bed</span><input id="ASIN" value="${id}"><img id="landingImage" src="https://m.media-amazon.com/images/I/${id}.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">${color}</span></div><div id="variation_size"><span class="a-form-label">Size:</span><span class="selection">XL</span></div><div id="corePrice_feature_div"><span class="a-price"><span class="a-offscreen">${currency}${amount}</span></span></div>`,{url:`https://www.amazon.com/dp/${id}`}).window.document;
+const document = (id=anchor, color='Grey', amount='39.98', currency='US$') => new JSDOM(`<span id="productTitle">Dog bed</span><input id="ASIN" value="${id}"><img id="landingImage" src="https://m.media-amazon.com/images/I/${id}.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">${color}</span></div><div id="variation_size"><span class="a-form-label">Size:</span><span class="selection">XL</span></div><div id="corePrice_feature_div" data-csa-c-asin="${id}"><span class="a-price"><span class="a-offscreen">${currency}${amount}</span></span></div>`,{url:`https://www.amazon.com/dp/${id}`}).window.document;
 const seed = async () => { const doc=document(); doc.body.insertAdjacentHTML('beforeend',`<script>P.register('twister-js-init-dpx-data',function(){return ${JSON.stringify(familyData())};});</script>`); return { manifest:discoverFamily(doc,doc.URL),anchor:await captureAmazonDocument(doc,doc.URL) }; };
+
+it.each([false,true])('accepts native dictionary member keys without treating attribute order as identity (reordered: %s)',async reordered=>{
+  const first=await seed(),doc=document(sibling,'Beige');
+  const capture=await captureAmazonDocument(doc,doc.URL);
+  const manifest={...first.manifest,sourceURL:doc.URL,members:[...first.manifest.members].reverse().map(m=>({
+    attributes:reordered?[...m.attributes].reverse():structuredClone(m.attributes),sourceID:m.sourceID,
+  }))};
+  const original=JSON.stringify(manifest),handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
+  const c=coordinator({seed:async()=>first,read:async()=>({capture,parentASIN:parent,manifest}),handoff,close:async()=>{}});
+  await c.start();
+  expect(c.snapshot()).toMatchObject({phase:'transferred',observed:2,total:2});
+  expect(handoff).toHaveBeenCalledOnce();
+  expect(handoff.mock.calls[0][0].evidence.variants[1]).toEqual(capture.evidence.variants[0]);
+  expect(JSON.stringify(manifest)).toBe(original);
+});
+
+it.each(['parent','member','attribute name','attribute value','duplicate member','duplicate attribute','selected ASIN','selected attributes'])('still pauses without committing a child after a real %s change',async kind=>{
+  const first=await seed(),doc=document(sibling,'Beige'),capture=await captureAmazonDocument(doc,doc.URL);
+  const manifest=structuredClone(first.manifest);manifest.sourceURL=doc.URL;
+  if(kind==='parent')manifest.parentASIN='B000000003';
+  if(kind==='member')manifest.members[1].sourceID='B000000003';
+  if(kind==='attribute name')manifest.members[1].attributes[0].name='Style';
+  if(kind==='attribute value')manifest.members[1].attributes[0].value='Black';
+  if(kind==='duplicate member')manifest.members.push(structuredClone(manifest.members[1]));
+  if(kind==='duplicate attribute')manifest.members[1].attributes.push(structuredClone(manifest.members[1].attributes[0]));
+  if(kind==='selected ASIN'){
+    capture.evidence.sourceID='B000000003';capture.evidence.sourceURL='https://www.amazon.com/dp/B000000003';capture.evidence.variants[0].sourceID='B000000003';
+  }
+  if(kind==='selected attributes')capture.evidence.variants[0].attributes[0].value='Black';
+  const handoff=vi.fn(async()=>{}),observe=vi.fn(async()=>{});
+  const c=new FamilyCoordinator({seed:async()=>first,read:async()=>({capture,parentASIN:manifest.parentASIN,manifest}),handoff,close:async()=>{}},
+    {resume:async()=>{},seed:async()=>{},observe,pause:async()=>{}});
+  await c.start();
+  expect(c.snapshot()).toMatchObject({phase:'paused',observed:1,reason:'SOURCE_CHANGED'});
+  expect(observe).not.toHaveBeenCalled();expect(handoff).not.toHaveBeenCalled();
+});
+
+it.each([false,true])('retains actionable progress after final assembly quota failure (pause write fails: %s)',async pauseFails=>{
+  const read=vi.fn(async()=>{const doc=document(sibling,'Beige');return {capture:await captureAmazonDocument(doc,doc.URL),parentASIN:parent};});
+  const handoff=vi.fn().mockRejectedValueOnce(Error('DRAFT_STORAGE_FULL')).mockResolvedValue(undefined);
+  const pause=vi.fn(async()=>{if(pauseFails)throw Error('DRAFT_STORAGE_FULL');});
+  const c=new FamilyCoordinator({seed,read,handoff,close:async()=>{}},{resume:async()=>{},seed:async()=>{},observe:async()=>{},pause});
+  await c.start();
+  expect(c.snapshot()).toMatchObject({phase:'paused',observed:2,total:2,reason:'DRAFT_STORAGE_FULL'});
+  expect(pause).toHaveBeenCalledWith('DRAFT_STORAGE_FULL');
+  await c.useObserved();
+  expect(c.snapshot().phase).toBe('transferred');expect(read).toHaveBeenCalledOnce();expect(handoff).toHaveBeenCalledTimes(2);
+});
+
+it('keeps each child used-offer diagnostic and quote together',async()=>{
+ const handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
+ const c=coordinator({seed,read:async()=>{const doc=document(sibling,'Beige');const capture=await captureAmazonDocument(doc,doc.URL);capture.evidence.variants[0].price={amount:'44.98',currency:'USD',condition:'new',alternative:{amount:'40.00',currency:null,condition:'used'}};capture.evidence.missingFacts.push({field:'price.used.currency',reason:'source currency not explicit'});return {capture,parentASIN:parent};},handoff,close:async()=>{}});
+ await c.start();const result=handoff.mock.calls[0][0];
+ expect(result.evidence.variants[1].price?.alternative?.amount).toBe('40.00');expect(result.evidence.missingFacts).toContainEqual({field:'variants.1.price.used.currency',reason:'source currency not explicit'});
+});
+it('counts each additional offer in the existing family aggregate limit',async()=>{
+ const payload=structuredClone((await seed()).anchor),e=payload.evidence;e.observation={scope:'partial_family',parentASIN:parent};
+ e.variants=Array.from({length:171},(_,i)=>({sourceID:`B${String(i).padStart(9,'0')}`,sku:null,title:null,attributes:[{name:'Color',value:`c${i}`}],images:[],price:{amount:'35.98',currency:'USD',condition:'new' as const,alternative:{amount:'31.99',currency:'USD',condition:'used' as const}}}));
+ e.attributes=[];e.priceFacts=[];e.images=[];e.warnings=[];e.missingFacts=[];
+ expect(validateAmazonCapture(payload).evidence.variants).toHaveLength(171);
+ e.attributes=Array.from({length:256},(_,i)=>({name:`a${i}`,value:'x'}));e.images=Array.from({length:256},()=>({url:'https://m.media-amazon.com/images/I/fixture.jpg',role:'gallery' as const}));
+ expect(()=>validateAmazonCapture(payload)).toThrow('CAPTURE_TOO_LARGE');
+});
 
 it('binds parent/current/real combinations within the twister initialization object',async()=>{
   const {manifest}=await seed(); expect(manifest.parentASIN).toBe(parent);
@@ -50,7 +115,7 @@ it('parses a bounded 171-member source map with the observed 19-color/9-size sha
 });
 it('reads each child once and freezes one partial-family handoff with its own price and image',async()=>{
   const first=await seed(), read=vi.fn(async()=>{const doc=document(sibling,'Beige','44.98');return {capture:await captureAmazonDocument(doc,doc.URL),parentASIN:parent};});
-  const handoff=vi.fn<(payload: AmazonCapturePayload) => Promise<void>>(async()=>{});const c=new FamilyCoordinator({seed:async()=>first,read,handoff,close:vi.fn(async()=>{})});
+  const handoff=vi.fn<(payload: AmazonCapturePayload) => Promise<void>>(async()=>{});const c=coordinator({seed:async()=>first,read,handoff,close:vi.fn(async()=>{})});
   await Promise.all([c.start(),c.start()]);expect(read).toHaveBeenCalledTimes(1);expect(handoff).toHaveBeenCalledTimes(1);
   const output=handoff.mock.calls[0][0];expect(output.evidence.observation).toEqual({scope:'partial_family',parentASIN:parent});
   expect(output.evidence.variants[1].price?.amount).toBe('44.98');expect(output.evidence.variants[1].images[0].url).toContain(sibling);
@@ -59,7 +124,7 @@ it('reads each child once and freezes one partial-family handoff with its own pr
 });
 it('pauses on a child error, never skips or retries automatically, permits explicit partial use',async()=>{
   const handoff=vi.fn<(payload: AmazonCapturePayload) => Promise<void>>(async()=>{}),read=vi.fn(async()=>{throw Error('CAPTURE_REJECTED');});
-  const c=new FamilyCoordinator({seed,read,handoff,close:vi.fn(async()=>{})});await c.start();
+  const c=coordinator({seed,read,handoff,close:vi.fn(async()=>{})});await c.start();
   expect(c.snapshot().phase).toBe('paused');expect(read).toHaveBeenCalledTimes(1);expect(handoff).not.toHaveBeenCalled();
   await c.useObserved();expect(handoff).toHaveBeenCalledTimes(1);expect(handoff.mock.calls[0][0].evidence.variants).toHaveLength(1);
   expect(handoff.mock.calls[0][0].evidence.missingFacts.some(f=>f.reason.includes(sibling))).toBe(true);
@@ -67,32 +132,32 @@ it('pauses on a child error, never skips or retries automatically, permits expli
 it('projects only closed safe errors from the coordinator, including unknown uppercase failures',async()=>{
  for(const reason of ['AMAZON_VERIFICATION_REQUIRED','CAPTURE_TOO_LARGE','UNKNOWN_INTERNAL_ERROR','token=secret']){
   const handoff=vi.fn(async()=>{}),read=vi.fn(async()=>{throw Error(reason);});
-  const c=new FamilyCoordinator({seed,read,handoff,close:async()=>{}});await c.start();
+  const c=coordinator({seed,read,handoff,close:async()=>{}});await c.start();
   expect(c.snapshot()).toMatchObject({phase:'paused',observed:1,reason:reason.startsWith('AMAZON_')||reason==='CAPTURE_TOO_LARGE'?reason:'CAPTURE_REJECTED'});
   expect(read).toHaveBeenCalledOnce();expect(handoff).not.toHaveBeenCalled();await c.cancel();
  }
 });
 it('cancellation discards an in-flight child and prevents late handoff',async()=>{
   let finish!: (v: {capture: AmazonCapturePayload; parentASIN: string|null}) => void;
-  const handoff=vi.fn<(payload: AmazonCapturePayload) => Promise<void>>(async()=>{});const c=new FamilyCoordinator({seed,read:()=>new Promise(resolve=>{finish=resolve;}),handoff,close:vi.fn(async()=>{})});
+  const handoff=vi.fn<(payload: AmazonCapturePayload) => Promise<void>>(async()=>{});const c=coordinator({seed,read:()=>new Promise(resolve=>{finish=resolve;}),handoff,close:vi.fn(async()=>{})});
   const running=c.start();await vi.waitFor(()=>expect(finish).toBeTypeOf('function'));await c.cancel();
   const doc=document(sibling,'Beige');finish({capture:await captureAmazonDocument(doc,doc.URL),parentASIN:parent});await running;
-  expect(c.snapshot().phase).toBe('cancelled');expect(handoff).not.toHaveBeenCalled();
+  expect(c.snapshot().phase).toBe('paused');expect(handoff).not.toHaveBeenCalled();
 });
 it('locks forever after a lost handoff response, without resubmission',async()=>{
-  const handoff=vi.fn(async()=>{throw Error('HANDOFF_UNAVAILABLE');});const c=new FamilyCoordinator({seed,read:async()=>{const doc=document(sibling,'Beige');return {capture:await captureAmazonDocument(doc,doc.URL),parentASIN:parent};},handoff,close:vi.fn(async()=>{})});
+  const handoff=vi.fn(async()=>{throw Error('HANDOFF_UNAVAILABLE');});const c=coordinator({seed,read:async()=>{const doc=document(sibling,'Beige');return {capture:await captureAmazonDocument(doc,doc.URL),parentASIN:parent};},handoff,close:vi.fn(async()=>{})});
   await c.start();expect(c.snapshot().phase).toBe('uncertain');await c.resume();await c.useObserved();await c.cancel();expect(handoff).toHaveBeenCalledTimes(1);
 });
 it('aborts the reader before cancellation cleanup and never continues it afterwards',async()=>{
  let readerSignal:AbortSignal|undefined;let entered!:()=>void;const started=new Promise<void>(r=>{entered=r;});
- const c=new FamilyCoordinator({seed,read:async(_member,signal)=>{readerSignal=signal;entered();await new Promise<void>((_resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('cancelled'))));throw Error('unreachable');},handoff:vi.fn(async()=>{}),close:async()=>{expect(readerSignal?.aborted).toBe(true);}});
- const running=c.start();await started;await c.cancel();await running;expect(c.snapshot().phase).toBe('cancelled');
+ const c=coordinator({seed,read:async(_member,signal)=>{readerSignal=signal;entered();await new Promise<void>((_resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('paused'))));throw Error('unreachable');},handoff:vi.fn(async()=>{}),close:async()=>{expect(readerSignal?.aborted).toBe(true);}});
+ const running=c.start();await started;await c.cancel();await running;expect(c.snapshot().phase).toBe('paused');
 });
 it('pauses at the existing aggregate budget without truncating facts or handing off automatically',async()=>{
  const initial=await seed();initial.manifest.members=[initial.manifest.members[0],...Array.from({length:255},(_,n)=>({sourceID:`B0${String(n).padStart(8,'0')}`,attributes:[{name:'Color',value:`c${n}`},{name:'Size',value:'XL'}]}))];
  const handoff=vi.fn<(payload:AmazonCapturePayload)=>Promise<void>>(async()=>{});
  const read=vi.fn(async(m:{sourceID:string;attributes:{name:string;value:string}[]})=>{const capture=structuredClone(initial.anchor);capture.evidence.sourceID=m.sourceID;capture.evidence.sourceURL=`https://www.amazon.com/dp/${m.sourceID}`;capture.evidence.variants[0]={...capture.evidence.variants[0],sourceID:m.sourceID,attributes:m.attributes,images:[{role:'main',url:`https://m.media-amazon.com/images/I/${m.sourceID}.jpg`}]};return {capture,parentASIN:initial.manifest.parentASIN};});
- const c=new FamilyCoordinator({seed:async()=>initial,read,handoff,close:vi.fn(async()=>{})});await c.start();
+ const c=coordinator({seed:async()=>initial,read,handoff,close:vi.fn(async()=>{})});await c.start();
  expect(c.snapshot()).toMatchObject({phase:'paused',reason:'FAMILY_LIMIT_REACHED'});expect(c.snapshot().observed).toBeLessThan(256);expect(handoff).not.toHaveBeenCalled();
  const calls=read.mock.calls.length;await c.resume();expect(read).toHaveBeenCalledTimes(calls);await c.useObserved();expect(handoff).toHaveBeenCalledOnce();
 });
@@ -102,9 +167,18 @@ it.each(['currency','price'])('keeps 171 unknown %s facts attributable and folda
  initial.anchor.evidence.missingFacts.push({field,reason});
  initial.manifest.members=[initial.manifest.members[0],...Array.from({length:170},(_,n)=>({sourceID:`B${String(n).padStart(9,'0')}`,attributes:[{name:'Color',value:`c${n}`},{name:'Size',value:'XL'}]}))];
  const handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
- const c=new FamilyCoordinator({seed:async()=>initial,read:async m=>{const capture=structuredClone(initial.anchor);capture.evidence.sourceID=m.sourceID;capture.evidence.sourceURL=`https://www.amazon.com/dp/${m.sourceID}`;capture.evidence.variants[0].sourceID=m.sourceID;capture.evidence.variants[0].attributes=m.attributes;capture.evidence.missingFacts=[{field,reason}];return {capture,parentASIN:initial.manifest.parentASIN};},handoff,close:async()=>{}});
+ const c=coordinator({seed:async()=>initial,read:async m=>{const capture=structuredClone(initial.anchor);capture.evidence.sourceID=m.sourceID;capture.evidence.sourceURL=`https://www.amazon.com/dp/${m.sourceID}`;capture.evidence.variants[0].sourceID=m.sourceID;capture.evidence.variants[0].attributes=m.attributes;capture.evidence.missingFacts=[{field,reason}];return {capture,parentASIN:initial.manifest.parentASIN};},handoff,close:async()=>{}});
  await c.start();expect(c.snapshot()).toMatchObject({phase:'transferred',observed:171});
  const payload=handoff.mock.calls[0][0];expect(new Set(payload.evidence.missingFacts.map(f=>f.reason)).size).toBeLessThan(128);
  expect(payload.evidence.missingFacts).toContainEqual({field:`variants.170.${field}`,reason});
  expect(payload.evidence.variants.every(v=>kind==='currency'?v.price?.currency===null:v.price===null)).toBe(true);
+});
+it('keeps 171 rendered-dimension provenance diagnostics attributable and foldable within unchanged limits',async()=>{
+ const initial=await seed(),reason='rendered dimension selection not observed; values supplied by current-ASIN static data';
+ initial.manifest.members=[initial.manifest.members[0],...Array.from({length:170},(_,n)=>({sourceID:`B${String(n).padStart(9,'0')}`,attributes:[{name:'Color',value:`c${n}`},{name:'Size',value:'XL'}]}))];
+ const handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
+ const c=coordinator({seed:async()=>initial,read:async m=>{const capture=structuredClone(initial.anchor);capture.evidence.sourceID=m.sourceID;capture.evidence.sourceURL=`https://www.amazon.com/dp/${m.sourceID}`;capture.evidence.variants[0].sourceID=m.sourceID;capture.evidence.variants[0].attributes=m.attributes;capture.evidence.missingFacts=[{field:'variants[0].attributes.rendered',reason}];return {capture,parentASIN:initial.manifest.parentASIN};},handoff,close:async()=>{}});
+ await c.start();expect(c.snapshot()).toMatchObject({phase:'transferred',observed:171});expect(handoff).toHaveBeenCalledOnce();
+ const output=handoff.mock.calls[0][0];expect(output.evidence.missingFacts).toContainEqual({field:'variants.170.attributes.rendered',reason});
+ expect(output.evidence.missingFacts.length).toBeLessThanOrEqual(256);expect(new Set(output.evidence.missingFacts.map(f=>f.reason)).size).toBeLessThan(128);
 });

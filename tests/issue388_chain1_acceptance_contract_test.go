@@ -27,7 +27,11 @@ func TestIssue388Chain1AcceptanceAssemblyContract(t *testing.T) {
 	for _, required := range []string{
 		"productsourcing.NewInternalProducer",
 		"candidateReviewFixtureApplication",
-		"NewImageAgentOrganizationApplication",
+		"imageagent.NewService(",
+		"imageagent.WithOrganizationScope()",
+		"imageService.Start(",
+		"imageService.ApproveResults(",
+		"authz.AuthorizeOrganization(",
 		"imageagenttemporal.NewOrganizationClient",
 		"imageagenttemporal.NewWorker",
 		"WorkerWireModeOrganization",
@@ -37,6 +41,9 @@ func TestIssue388Chain1AcceptanceAssemblyContract(t *testing.T) {
 		"NewSheinRecordApplication",
 	} {
 		require.Contains(t, assembly, required, "#388 must compose the current owner %s", required)
+	}
+	for _, retired := range []string{"NewImageAgentOrganizationApplication", "internal/imageagent/httpapi"} {
+		require.NotContains(t, harness, retired, "retired ImageAgent host must not return")
 	}
 	fixtureSource := read("internal/app/httpapi/product_review_integration_test.go")
 	fixtureStart := strings.Index(fixtureSource, "func candidateReviewFixtureApplication(")

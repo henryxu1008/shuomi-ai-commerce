@@ -36,7 +36,7 @@ type amazonEvidenceWire struct {
 	Description   *string                `json:"description"`
 	Attributes    []browserAttributeWire `json:"attributes"`
 	Variants      []amazonVariantWire    `json:"variants"`
-	PriceFacts    []browserPriceWire     `json:"priceFacts"`
+	PriceFacts    []amazonPriceWire      `json:"priceFacts"`
 	Images        []browserImageWire     `json:"images"`
 	Observation   amazonObservationWire  `json:"observation"`
 	CapturedAt    string                 `json:"capturedAt"`
@@ -50,9 +50,64 @@ type amazonVariantWire struct {
 	SKU        *string                `json:"sku"`
 	Title      *string                `json:"title"`
 	Attributes []browserAttributeWire `json:"attributes"`
-	Price      *browserPriceWire      `json:"price"`
+	Price      *amazonPriceWire       `json:"price"`
 	Images     []browserImageWire     `json:"images"`
 }
+type amazonOfferWire struct {
+	Amount        string  `json:"amount"`
+	Currency      *string `json:"currency"`
+	MinQuantity   *string `json:"minQuantity" browser:"optional"`
+	Condition     *string `json:"condition,omitempty" browser:"optional_nonnull"`
+	ConditionNote *string `json:"conditionNote,omitempty" browser:"optional_nonnull"`
+}
+type amazonPriceWire struct {
+	Amount        string           `json:"amount"`
+	Currency      *string          `json:"currency"`
+	MinQuantity   *string          `json:"minQuantity" browser:"optional"`
+	Condition     *string          `json:"condition,omitempty" browser:"optional_nonnull"`
+	ConditionNote *string          `json:"conditionNote,omitempty" browser:"optional_nonnull"`
+	Alternative   *amazonOfferWire `json:"alternative,omitempty" browser:"optional_nonnull_count"`
+}
+type amazonPriceFact struct {
+	Amount        string           `json:"amount"`
+	Currency      *string          `json:"currency"`
+	MinQuantity   *string          `json:"minQuantity,omitempty"`
+	Condition     *string          `json:"condition,omitempty"`
+	ConditionNote *string          `json:"conditionNote,omitempty"`
+	Alternative   *amazonOfferWire `json:"alternative,omitempty"`
+}
+
+func (p amazonPriceWire) domain() AcquisitionPrice {
+	return AcquisitionPrice{Amount: p.Amount, Currency: p.Currency, MinQuantity: p.MinQuantity}
+}
+func (p amazonPriceWire) validate() error {
+	if _, err := validateAcquisitionPrice(p.domain()); err != nil {
+		return err
+	}
+	if p.Condition != nil && *p.Condition != "new" && *p.Condition != "used" {
+		return ErrInvalidBrowserCapture
+	}
+	validNote := func(note *string, condition *string) bool {
+		return note == nil || condition != nil && *condition == "used" && len(*note) <= 256 && strings.TrimSpace(*note) != ""
+	}
+	if !validNote(p.ConditionNote, p.Condition) {
+		return ErrInvalidBrowserCapture
+	}
+	if p.Alternative != nil {
+		a := p.Alternative
+		if p.Condition == nil || *p.Condition != "new" || a.Condition == nil || *a.Condition != "used" || !validNote(a.ConditionNote, a.Condition) {
+			return ErrInvalidBrowserCapture
+		}
+		if _, err := validateAcquisitionPrice(AcquisitionPrice{Amount: a.Amount, Currency: a.Currency, MinQuantity: a.MinQuantity}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (p amazonPriceWire) fact() amazonPriceFact {
+	return amazonPriceFact{p.Amount, p.Currency, p.MinQuantity, p.Condition, p.ConditionNote, p.Alternative}
+}
+
 type amazonObservationWire struct {
 	Scope      string  `json:"scope"`
 	ParentASIN *string `json:"parentASIN"`
@@ -239,10 +294,13 @@ func (c AmazonBrowserCapture) Envelope(captureID string) (SourceEnvelope, error)
 		if v.Price != nil {
 			p := v.Price.domain()
 			value, err := validateAcquisitionPrice(p)
+			if v.Price.validate() != nil {
+				return SourceEnvelope{}, ErrInvalidBrowserCapture
+			}
 			if err != nil {
 				return SourceEnvelope{}, err
 			}
-			raw, _ := json.Marshal(p)
+			raw, _ := json.Marshal(v.Price.fact())
 			a["source.price.fact"] = string(raw)
 			a["source.price.amount"] = p.Amount
 			original, ok := new(big.Rat).SetString(p.Amount)
@@ -250,11 +308,11 @@ func (c AmazonBrowserCapture) Envelope(captureID string) (SourceEnvelope, error)
 			if !ok || !ok2 || original.Cmp(projected) != 0 {
 				missing(fmt.Sprintf("variants.%d.price", i), "exact source decimal cannot be projected as a Catalog price")
 				env.Warnings = append(env.Warnings, SourceWarning{Code: "source_price_precision", Field: fmt.Sprintf("variants.%d.price", i), Message: "original decimal retained"})
-			} else if p.Currency != nil && value > 0 {
+			} else if v.Price.Condition != nil && *v.Price.Condition == "new" && p.Currency != nil && value > 0 {
 				candidate.Price = value
 				candidate.Currency = *p.Currency
 			} else {
-				missing(fmt.Sprintf("variants.%d.price", i), "price currency or positive amount absent")
+				missing(fmt.Sprintf("variants.%d.price", i), "new condition, price currency or positive amount absent")
 			}
 		} else {
 			missing(fmt.Sprintf("variants.%d.price", i), "source price absent")
@@ -273,11 +331,10 @@ func (c AmazonBrowserCapture) Envelope(captureID string) (SourceEnvelope, error)
 	missing("observation", "observed scope: "+e.Observation.Scope)
 	env.SupplierOrCostFacts.Facts = map[string]string{}
 	for i, p := range e.PriceFacts {
-		price := p.domain()
-		if _, err := validateAcquisitionPrice(price); err != nil {
+		if err := p.validate(); err != nil {
 			return SourceEnvelope{}, err
 		}
-		raw, _ := json.Marshal(price)
+		raw, _ := json.Marshal(p.fact())
 		env.SupplierOrCostFacts.Facts[fmt.Sprintf("price_fact.%d", i)] = string(raw)
 	}
 	for _, m := range e.MissingFacts {

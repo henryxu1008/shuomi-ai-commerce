@@ -6,7 +6,7 @@ import (
 
 	"regexp"
 	"strings"
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -50,7 +50,7 @@ func NewListPriceExtractor(marketplace string, logs func(string) *logrus.Entry) 
 }
 
 // ShouldExtract 判断当前页面是否值得执行原价提取。
-func (l *ListPriceExtractor) ShouldExtract(page playwright.Page, product *model.Product) bool {
+func (l *ListPriceExtractor) ShouldExtract(page playwright.Page, product *amazonresult.Product) bool {
 	if page == nil || product == nil || product.FinalPrice <= 0 {
 		return false
 	}
@@ -80,7 +80,7 @@ func (l *ListPriceExtractor) ShouldExtract(page playwright.Page, product *model.
 }
 
 // ExtractListPrice 提取原价（list price）
-func (l *ListPriceExtractor) ExtractListPrice(page playwright.Page, product *model.Product) {
+func (l *ListPriceExtractor) ExtractListPrice(page playwright.Page, product *amazonresult.Product) {
 	if !l.ShouldExtract(page, product) {
 		return
 	}
@@ -128,7 +128,7 @@ func (l *ListPriceExtractor) ExtractListPrice(page playwright.Page, product *mod
 }
 
 // extractFromSelector 从指定选择器提取原价
-func (l *ListPriceExtractor) extractFromSelector(page playwright.Page, selector string, product *model.Product, isPriority bool) bool {
+func (l *ListPriceExtractor) extractFromSelector(page playwright.Page, selector string, product *amazonresult.Product, isPriority bool) bool {
 	locator := page.Locator(selector)
 	count, err := locator.Count()
 	if err != nil || count == 0 {

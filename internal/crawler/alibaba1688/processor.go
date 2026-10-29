@@ -5,7 +5,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"context"
-	"errors"
 	"task-processor/internal/core/config"
 
 	"task-processor/internal/crawler/alibaba1688/model"
@@ -38,18 +37,6 @@ func NewAlibaba1688Processor(cfg *config.Config, logs func(string) *logrus.Entry
 		urlHelper:        urlHelper,
 		productChecker:   productChecker,
 	}
-}
-
-// Prepare provisions the public browser dependencies before a local-agent job
-// is claimed, so setup time does not consume the execution lease.
-func (ap *Alibaba1688Processor) Prepare(ctx context.Context) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if ap == nil || ap.singleProcessor == nil {
-		return errors.New("1688 crawler processor is not configured")
-	}
-	return ap.singleProcessor.Prepare(ctx)
 }
 
 // Process 处理1688产品页面

@@ -11,6 +11,109 @@ func amazonFixture() []byte {
 	return []byte(`{"captureVersion":2,"source":"amazon","evidence":{"schemaVersion":2,"site":"us","sourceID":"B012345678","sourceURL":"https://www.amazon.com/dp/B012345678","title":"Cotton bag","description":null,"attributes":[],"variants":[{"sourceID":"B012345678","sku":null,"title":null,"attributes":[{"name":"Color","value":"Blue"}],"price":{"amount":"19.99","currency":"USD"},"images":[{"url":"https://m.media-amazon.com/images/I/blue.jpg","role":"main"}]}],"priceFacts":[],"images":[],"observation":{"scope":"selected_product","parentASIN":null},"capturedAt":"2026-10-23T00:00:00Z","contentSHA256":"` + strings.Repeat("a", 64) + `","parserVersion":"amazon-browser-dom/v1","warnings":[],"missingFacts":[{"field":"variants","reason":"only selected product observed"}]}}`)
 }
 
+func TestAmazonConditionQuotesPreserveSourceWithoutProjectingUnknownOrUsed(t *testing.T) {
+	for _, tc := range []struct {
+		name, price string
+		want        float64
+	}{
+		{"unknown", `{"amount":"19.99","currency":"USD"}`, 0},
+		{"used", `{"amount":"19.99","currency":"USD","condition":"used","conditionNote":"Very Good"}`, 0},
+		{"new with used", `{"amount":"19.99","currency":"USD","condition":"new","alternative":{"amount":"15.99","currency":null,"condition":"used"}}`, 19.99},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := strings.Replace(string(amazonFixture()), `{"amount":"19.99","currency":"USD"}`, tc.price, 1)
+			capture, err := ParseAmazonBrowserCapture([]byte(raw))
+			if err != nil {
+				t.Fatal(err)
+			}
+			env, err := capture.Envelope("capture")
+			if err != nil {
+				t.Fatal(err)
+			}
+			v := env.ProductCandidate.Variants[0]
+			if v.Price != tc.want || !strings.Contains(v.Attributes["source.price.fact"], `"amount":"19.99"`) {
+				t.Fatalf("lost or misprojected price: %+v", v)
+			}
+			if tc.name == "new with used" && !strings.Contains(v.Attributes["source.price.fact"], `"condition":"used"`) {
+				t.Fatal("lost used quote")
+			}
+			if tc.name == "new with used" {
+				quotes, err := ProjectSourceQuotes(map[string]string{"price_fact.0": v.Attributes["source.price.fact"]})
+				if err != nil || len(quotes) != 1 || quotes[0].Alternative == nil || quotes[0].Alternative.Amount != "15.99" {
+					t.Fatalf("lost source quote readback: %+v %v", quotes, err)
+				}
+			}
+		})
+	}
+}
+
+func TestAmazonConditionQuoteStrictContractAndOldDigest(t *testing.T) {
+	old, err := ParseAmazonBrowserCapture(amazonFixture())
+	if err != nil || old.PayloadSHA256 != "e26f59b6e15c97bd6f44bef8afb029ef4d7fca8c09715a7fd26631f84ecbacb1" {
+		t.Fatalf("old digest changed: %s %v", old.PayloadSHA256, err)
+	}
+	rawNew := strings.Replace(string(amazonFixture()), `{"amount":"19.99","currency":"USD"}`, `{"amount":"35.98","currency":"USD","condition":"new","alternative":{"amount":"31.99","currency":null,"condition":"used","conditionNote":"Very Good"}}`, 1)
+	newCapture, err := ParseAmazonBrowserCapture([]byte(rawNew))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newCapture.PayloadSHA256 != "da9e2e942f912cc06c7b124676149456b602739e98d3243ae1ebc14f504eb3f9" {
+		t.Fatalf("new digest changed: %s", newCapture.PayloadSHA256)
+	}
+	for _, bad := range []string{
+		`{"amount":"19.99","currency":"USD","condition":null}`,
+		`{"amount":"19.99","currency":"USD","condition":"new","conditionNote":"Good"}`,
+		`{"amount":"19.99","currency":"USD","condition":"new","alternative":{"amount":"15.00","currency":"USD","condition":"used","condition":"used"}}`,
+		`{"amount":"19.99","currency":"USD","condition":"new","alternative":{"amount":"15.00","currency":"USD","condition":"new"}}`,
+		`{"amount":"19.99","currency":"USD","condition":"used","alternative":{"amount":"15.00","currency":"USD","condition":"used"}}`,
+	} {
+		raw := strings.Replace(string(amazonFixture()), `{"amount":"19.99","currency":"USD"}`, bad, 1)
+		if _, err := ParseAmazonBrowserCapture([]byte(raw)); err == nil {
+			t.Fatalf("accepted invalid quote %s", bad)
+		}
+	}
+}
+
+func TestAmazon171DualOffersRespectAggregateBudget(t *testing.T) {
+	var input map[string]any
+	if err := json.Unmarshal(amazonFixture(), &input); err != nil {
+		t.Fatal(err)
+	}
+	e := input["evidence"].(map[string]any)
+	e["observation"] = map[string]any{"scope": "partial_family", "parentASIN": "B012345679"}
+	variants := make([]any, 0, 171)
+	for i := 0; i < 171; i++ {
+		id := fmt.Sprintf("B%09d", i)
+		if i == 0 {
+			id = "B012345678"
+		}
+		variants = append(variants, map[string]any{"sourceID": id, "sku": nil, "title": nil, "attributes": []any{map[string]any{"name": "Color", "value": fmt.Sprintf("c%d", i)}}, "images": []any{map[string]any{"url": "https://m.media-amazon.com/images/I/blue.jpg", "role": "main"}}, "price": map[string]any{"amount": "35.98", "currency": "USD", "condition": "new", "alternative": map[string]any{"amount": "31.99", "currency": "USD", "condition": "used"}}})
+	}
+	e["variants"] = variants
+	e["missingFacts"] = []any{}
+	raw, _ := json.Marshal(input)
+	capture, err := ParseAmazonBrowserCapture(raw)
+	if err != nil {
+		t.Fatalf("171 offers rejected: %v", err)
+	}
+	env, err := capture.Envelope("capture")
+	if err != nil || len(env.ProductCandidate.Variants) != 171 {
+		t.Fatalf("lost offers: %v", err)
+	}
+	attributes := make([]any, 256)
+	for i := range attributes {
+		attributes[i] = map[string]any{"name": fmt.Sprintf("a%d", i), "value": "x"}
+	}
+	e["attributes"] = attributes
+	for i := 0; i < 85; i++ {
+		variants[i].(map[string]any)["attributes"] = append(variants[i].(map[string]any)["attributes"].([]any), map[string]any{"name": "Size", "value": fmt.Sprint(i)})
+	}
+	raw, _ = json.Marshal(input)
+	if _, err = ParseAmazonBrowserCapture(raw); err == nil {
+		t.Fatal("accepted aggregate over limit")
+	}
+}
+
 func TestAmazonCaptureStrictMappingAndDigest(t *testing.T) {
 	capture, err := ParseAmazonBrowserCapture(amazonFixture())
 	if err != nil {
@@ -60,9 +163,10 @@ func TestAmazonPartialFamilyKeepsAnchorAndEachChildFacts(t *testing.T) {
 		e := input["evidence"].(map[string]any)
 		e["observation"] = map[string]any{"scope": "partial_family", "parentASIN": "B012345679"}
 		anchor := e["variants"].([]any)[0]
+		anchor.(map[string]any)["price"].(map[string]any)["condition"] = "new"
 		child := map[string]any{"sourceID": "B012345680", "sku": nil, "title": nil,
 			"attributes": []any{map[string]any{"name": "Color", "value": "Beige"}},
-			"price":      map[string]any{"amount": "44.98", "currency": currency},
+			"price":      map[string]any{"amount": "44.98", "currency": currency, "condition": "new"},
 			"images":     []any{map[string]any{"url": "https://m.media-amazon.com/images/I/beige.jpg", "role": "main"}}}
 		e["variants"] = []any{anchor, child}
 		raw, _ := json.Marshal(input)
@@ -89,7 +193,7 @@ func TestAmazonPartialFamilyKeepsAnchorAndEachChildFacts(t *testing.T) {
 }
 
 func TestAmazonPartialFamilyFolds171UnknownChildFactsWithinExistingReadBounds(t *testing.T) {
-	for _, field := range []string{"price.currency", "price"} {
+	for _, field := range []string{"price.currency", "price", "attributes.rendered"} {
 		var input map[string]any
 		_ = json.Unmarshal(amazonFixture(), &input)
 		e := input["evidence"].(map[string]any)
@@ -104,6 +208,10 @@ func TestAmazonPartialFamilyFolds171UnknownChildFactsWithinExistingReadBounds(t 
 			reason := "source currency not explicit"
 			if field == "price" {
 				price, reason = nil, "source price not observed"
+			}
+			if field == "attributes.rendered" {
+				price = map[string]any{"amount": "39.98", "currency": "USD", "condition": "new"}
+				reason = "rendered dimension selection not observed; values supplied by current-ASIN static data"
 			}
 			variants = append(variants, map[string]any{"sourceID": id, "sku": nil, "title": nil,
 				"attributes": []any{map[string]any{"name": "Color", "value": fmt.Sprintf("c%d", i)}}, "price": price,
@@ -125,6 +233,12 @@ func TestAmazonPartialFamilyFolds171UnknownChildFactsWithinExistingReadBounds(t 
 			t.Fatalf("%s family unreadable: %v", field, err)
 		}
 		for _, variant := range env.ProductCandidate.Variants {
+			if field == "attributes.rendered" {
+				if variant.Price != 39.98 || variant.Currency != "USD" {
+					t.Fatalf("changed observed quote: %+v", variant)
+				}
+				continue
+			}
 			if variant.Price != 0 || variant.Currency != "" {
 				t.Fatalf("invented unknown %s: %+v", field, variant)
 			}

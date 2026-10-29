@@ -4,7 +4,7 @@ package extractor
 import (
 	"strings"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -49,7 +49,7 @@ func (e *PriceExtractor) HasValidPrice(page playwright.Page) bool {
 }
 
 // Extract 提取价格信息
-func (e *PriceExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (e *PriceExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 
 	// 站点默认货币，用于无价格/不可用时的兜底
 	defaultCurrency := e.currencyMgr.GetDefaultCurrencyByMarketplace()
@@ -121,7 +121,7 @@ func (e *PriceExtractor) Extract(page playwright.Page, product *model.Product) e
 	return nil
 }
 
-func (e *PriceExtractor) syncInitialPriceWithListPrice(product *model.Product) {
+func (e *PriceExtractor) syncInitialPriceWithListPrice(product *amazonresult.Product) {
 	if product == nil {
 		return
 	}

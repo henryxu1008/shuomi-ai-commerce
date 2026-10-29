@@ -153,7 +153,7 @@ func AutoMigrate(db *gorm.DB) error {
 }
 
 func (r *Repository) SaveOffer(ctx context.Context, offer billing.Offer) error {
-	if r == nil || r.db == nil || offer.Validate() != nil || (offer.ProductKind != billing.ProductSubscriptionPlan && offer.UnitPriceMinor <= 0) {
+	if r == nil || r.db == nil || offer.Validate() != nil || offer.UnitPriceMinor <= 0 {
 		return billing.ErrInvalid
 	}
 	row := offerToRow(offer)
@@ -163,7 +163,7 @@ func (r *Repository) SaveOffer(ctx context.Context, offer billing.Offer) error {
 // CreateOffer inserts a controlled catalog offer without replacing an existing
 // commercial fact. Serving purchase traffic only reads these offers.
 func (r *Repository) CreateOffer(ctx context.Context, offer billing.Offer) error {
-	if r == nil || r.db == nil || offer.Validate() != nil || (offer.ProductKind != billing.ProductSubscriptionPlan && offer.UnitPriceMinor <= 0) {
+	if r == nil || r.db == nil || offer.Validate() != nil || offer.UnitPriceMinor <= 0 {
 		return billing.ErrInvalid
 	}
 	row := offerToRow(offer)
@@ -173,7 +173,7 @@ func (r *Repository) CreateOffer(ctx context.Context, offer billing.Offer) error
 // CreateOfferIfAbsent installs a server-owned catalog entry once. Re-running
 // schema initialization must never replace a later owner-managed price.
 func (r *Repository) CreateOfferIfAbsent(ctx context.Context, offer billing.Offer) error {
-	if r == nil || r.db == nil || offer.Validate() != nil || (offer.ProductKind != billing.ProductSubscriptionPlan && offer.UnitPriceMinor <= 0) {
+	if r == nil || r.db == nil || offer.Validate() != nil || offer.UnitPriceMinor <= 0 {
 		return billing.ErrInvalid
 	}
 	row := offerToRow(offer)
@@ -204,7 +204,7 @@ func (r *Repository) ReadOffer(ctx context.Context, offerID string) (billing.Off
 		return billing.Offer{}, billing.ErrFeatureUnavailable
 	}
 	offer := offerFromRow(row)
-	if offer.Validate() != nil || offer.Status != billing.OfferActive || (offer.ProductKind != billing.ProductSubscriptionPlan && offer.UnitPriceMinor <= 0) {
+	if offer.Validate() != nil || offer.Status != billing.OfferActive || offer.UnitPriceMinor <= 0 {
 		return billing.Offer{}, billing.ErrOfferUnavailable
 	}
 	now := r.now()
@@ -212,57 +212,6 @@ func (r *Repository) ReadOffer(ctx context.Context, offerID string) (billing.Off
 		return billing.Offer{}, billing.ErrOfferUnavailable
 	}
 	return offer, nil
-}
-
-func (r *Repository) ListSubscriptionOffers(ctx context.Context) ([]billing.Offer, error) {
-	if r == nil || r.db == nil {
-		return nil, billing.ErrFeatureUnavailable
-	}
-	var rows []offerRow
-	if err := r.db.WithContext(ctx).Where("product_kind = ? AND status = ?", string(billing.ProductSubscriptionPlan), string(billing.OfferActive)).Order("offer_id asc").Find(&rows).Error; err != nil {
-		return nil, billing.ErrFeatureUnavailable
-	}
-	now := r.now().UTC()
-	offers := make([]billing.Offer, 0, len(rows))
-	for _, row := range rows {
-		offer := offerFromRow(row)
-		if offer.Validate() != nil || offer.StartsAt != nil && now.Before(*offer.StartsAt) || offer.ExpiresAt != nil && !now.Before(*offer.ExpiresAt) {
-			continue
-		}
-		offers = append(offers, offer)
-	}
-	return offers, nil
-}
-
-func (r *Repository) CreateSubscriptionQuote(ctx context.Context, request billing.SubscriptionQuoteRequest, offer billing.Offer, plan billing.SubscriptionPlanSnapshot) (billing.Quote, error) {
-	request.OrganizationID = strings.TrimSpace(request.OrganizationID)
-	request.OfferID = strings.TrimSpace(request.OfferID)
-	if r == nil || r.db == nil || request.OrganizationID == "" || offer.Validate() != nil || offer.ProductKind != billing.ProductSubscriptionPlan || offer.OfferID != request.OfferID || strings.TrimSpace(plan.PlanCode) == "" || plan.PlanCode != offer.PlanCode || strings.TrimSpace(plan.Fingerprint) == "" {
-		return billing.Quote{}, billing.ErrInvalid
-	}
-	now := r.now().UTC()
-	quote := billing.Quote{QuoteID: uuid.NewString(), OrganizationID: request.OrganizationID, OfferID: offer.OfferID, ProductKind: offer.ProductKind, Currency: offer.Currency, TotalMinor: offer.UnitPriceMinor, PricingVersion: offer.PricingVersion, CreatedAt: now, ExpiresAt: now.Add(15 * time.Minute), PlanCode: offer.PlanCode, PlanFingerprint: plan.Fingerprint, TermMonths: offer.TermMonths, SettlementMode: offer.SettlementMode}
-	quote.Fingerprint = fingerprint(struct {
-		Version         string                 `json:"version"`
-		OrganizationID  string                 `json:"organization_id"`
-		OfferID         string                 `json:"offer_id"`
-		ProductKind     billing.ProductKind    `json:"product_kind"`
-		PlanCode        string                 `json:"plan_code"`
-		PlanFingerprint string                 `json:"plan_fingerprint"`
-		TermMonths      int                    `json:"term_months"`
-		SettlementMode  billing.SettlementMode `json:"settlement_mode"`
-		Currency        string                 `json:"currency"`
-		TotalMinor      int64                  `json:"total_minor"`
-		PricingVersion  string                 `json:"pricing_version"`
-	}{"subscription-quote-v1", quote.OrganizationID, quote.OfferID, quote.ProductKind, quote.PlanCode, quote.PlanFingerprint, quote.TermMonths, quote.SettlementMode, quote.Currency, quote.TotalMinor, quote.PricingVersion})
-	if quote.Validate() != nil {
-		return billing.Quote{}, billing.ErrInvalid
-	}
-	row := quoteToRow(quote)
-	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
-		return billing.Quote{}, billing.ErrFeatureUnavailable
-	}
-	return quote, nil
 }
 
 func (r *Repository) CreateQuote(ctx context.Context, request billing.QuoteRequest) (billing.Quote, error) {
@@ -326,7 +275,7 @@ func (r *Repository) ReadQuote(ctx context.Context, organizationID, quoteID stri
 }
 
 func (r *Repository) CreatePendingResourceOrder(ctx context.Context, request billing.CreateResourceOrderRequest, quote billing.Quote) (billing.Order, error) {
-	if r == nil || r.db == nil || quote.Validate() != nil || quote.ProductKind == billing.ProductSubscriptionPlan || quote.OrganizationID != request.OrganizationID || request.ActorID == "" || strings.TrimSpace(request.ActorID) != request.ActorID || len(request.ActorID) > 128 || strings.TrimSpace(request.IdempotencyKey) == "" {
+	if r == nil || r.db == nil || quote.Validate() != nil || quote.OrganizationID != request.OrganizationID || request.ActorID == "" || strings.TrimSpace(request.ActorID) != request.ActorID || len(request.ActorID) > 128 || strings.TrimSpace(request.IdempotencyKey) == "" {
 		return billing.Order{}, billing.ErrInvalid
 	}
 	fingerprint := fingerprint(struct {
@@ -407,149 +356,6 @@ func (r *Repository) FindResourceOrderByIdempotency(ctx context.Context, organiz
 		return billing.Order{}, false, billing.ErrFeatureUnavailable
 	}
 	return orderFromRows(row, item), true, nil
-}
-
-func (r *Repository) CreatePendingSubscriptionOrder(ctx context.Context, request billing.CreateSubscriptionOrderRequest, quote billing.Quote) (billing.Order, error) {
-	request.OrganizationID = strings.TrimSpace(request.OrganizationID)
-	request.ActorID = strings.TrimSpace(request.ActorID)
-	request.QuoteID = strings.TrimSpace(request.QuoteID)
-	request.IdempotencyKey = strings.TrimSpace(request.IdempotencyKey)
-	if r == nil || r.db == nil || quote.Validate() != nil || quote.ProductKind != billing.ProductSubscriptionPlan || quote.OrganizationID != request.OrganizationID || quote.QuoteID != request.QuoteID || request.ActorID == "" || request.IdempotencyKey == "" {
-		return billing.Order{}, billing.ErrInvalid
-	}
-	requestFingerprint := fingerprint(struct {
-		Version          string `json:"version"`
-		OrganizationID   string `json:"organization_id"`
-		ActorID          string `json:"actor_id"`
-		QuoteID          string `json:"quote_id"`
-		QuoteFingerprint string `json:"quote_fingerprint"`
-	}{"subscription-order-v1", request.OrganizationID, request.ActorID, request.QuoteID, quote.Fingerprint})
-	var out billing.Order
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var existing orderRow
-		if err := tx.Where("organization_id = ? AND idempotency_key = ?", request.OrganizationID, request.IdempotencyKey).Take(&existing).Error; err == nil {
-			if existing.Kind != string(billing.OrderSubscriptionPurchase) || existing.RequestFingerprint != requestFingerprint {
-				return billing.ErrConflict
-			}
-			out = orderFromRows(existing, orderItemRow{})
-			return nil
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return billing.ErrFeatureUnavailable
-		}
-		now := r.now().UTC()
-		row := orderRow{
-			OrderID: uuid.NewString(), OrganizationID: request.OrganizationID, ActorID: request.ActorID, Kind: string(billing.OrderSubscriptionPurchase), ProductKind: string(billing.ProductSubscriptionPlan),
-			QuoteID: quote.QuoteID, Description: quote.PlanCode, Currency: quote.Currency, AmountMinor: quote.TotalMinor, Status: string(billing.OrderPending), PlanCode: quote.PlanCode,
-			PlanFingerprint: quote.PlanFingerprint, TermMonths: quote.TermMonths, SettlementMode: string(quote.SettlementMode), IdempotencyKey: request.IdempotencyKey,
-			RequestFingerprint: requestFingerprint, Version: 1, CreatedAt: now, UpdatedAt: now,
-		}
-		result := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "organization_id"}, {Name: "idempotency_key"}}, DoNothing: true}).Create(&row)
-		if result.Error != nil {
-			return billing.ErrFeatureUnavailable
-		}
-		if result.RowsAffected == 0 {
-			if err := tx.Where("organization_id = ? AND idempotency_key = ?", request.OrganizationID, request.IdempotencyKey).Take(&existing).Error; err != nil {
-				return billing.ErrFeatureUnavailable
-			}
-			if existing.Kind != string(billing.OrderSubscriptionPurchase) || existing.RequestFingerprint != requestFingerprint {
-				return billing.ErrConflict
-			}
-			out = orderFromRows(existing, orderItemRow{})
-			return nil
-		}
-		out = orderFromRows(row, orderItemRow{})
-		return nil
-	})
-	return out, err
-}
-
-func (r *Repository) FindSubscriptionOrderByIdempotency(ctx context.Context, organizationID, idempotencyKey string) (billing.Order, bool, error) {
-	if r == nil || r.db == nil || strings.TrimSpace(organizationID) == "" || strings.TrimSpace(idempotencyKey) == "" {
-		return billing.Order{}, false, billing.ErrInvalid
-	}
-	var row orderRow
-	if err := r.db.WithContext(ctx).Where("organization_id = ? AND idempotency_key = ?", organizationID, idempotencyKey).Take(&row).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return billing.Order{}, false, nil
-		}
-		return billing.Order{}, false, billing.ErrFeatureUnavailable
-	}
-	if row.Kind != string(billing.OrderSubscriptionPurchase) {
-		return billing.Order{}, false, billing.ErrConflict
-	}
-	return orderFromRows(row, orderItemRow{}), true, nil
-}
-
-func (r *Repository) AdmitSubscriptionOrderEffect(ctx context.Context, organizationID, orderID string, expectedVersion int64, effect billing.PendingSubscriptionOrderEffect, admittedAt time.Time) (billing.Order, bool, error) {
-	if r == nil || r.db == nil || organizationID == "" || orderID == "" || expectedVersion < 1 || (effect != billing.PendingSubscriptionOrderEffectReserve && effect != billing.PendingSubscriptionOrderEffectActivate) || admittedAt.IsZero() {
-		return billing.Order{}, false, billing.ErrInvalid
-	}
-	var out billing.Order
-	won := false
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var row orderRow
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND order_id = ?", organizationID, orderID).Take(&row).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return billing.ErrNotFound
-			}
-			return billing.ErrFeatureUnavailable
-		}
-		out = orderFromRows(row, orderItemRow{})
-		if row.Kind != string(billing.OrderSubscriptionPurchase) || row.Version != expectedVersion || row.PendingEffect != "" || row.TerminalIntent != "" || row.Status == string(billing.OrderFulfilled) || row.Status == string(billing.OrderCancelled) {
-			return nil
-		}
-		row.PendingEffect = string(effect)
-		at := admittedAt.UTC()
-		row.PendingEffectAdmittedAt = &at
-		row.Version++
-		row.UpdatedAt = at
-		if err := tx.Save(&row).Error; err != nil {
-			return billing.ErrFeatureUnavailable
-		}
-		out = orderFromRows(row, orderItemRow{})
-		won = true
-		return nil
-	})
-	return out, won, err
-}
-
-func (r *Repository) PersistSubscriptionOrder(ctx context.Context, order billing.Order) error {
-	if r == nil || r.db == nil || order.Kind != billing.OrderSubscriptionPurchase || order.Validate() != nil {
-		return billing.ErrInvalid
-	}
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var row orderRow
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND order_id = ?", order.OrganizationID, order.OrderID).Take(&row).Error; err != nil {
-			return billing.ErrFeatureUnavailable
-		}
-		if row.Version != order.Version {
-			return billing.ErrConflict
-		}
-		if row.Kind == string(billing.OrderWalletTopUp) || order.Kind == billing.OrderWalletTopUp {
-			return billing.ErrConflict
-		}
-		applySubscriptionOrderToRow(&row, order)
-		row.Version++
-		if err := tx.Save(&row).Error; err != nil {
-			return billing.ErrFeatureUnavailable
-		}
-		return nil
-	})
-}
-
-func (r *Repository) ListRecoverableSubscriptionOrders(ctx context.Context, limit int) ([]billing.Order, error) {
-	if r == nil || r.db == nil || limit < 1 || limit > 50 {
-		return nil, billing.ErrInvalid
-	}
-	var rows []orderRow
-	if err := r.db.WithContext(ctx).Where("kind = ? AND status IN ?", string(billing.OrderSubscriptionPurchase), []string{string(billing.OrderPending), string(billing.OrderFundsReserved), string(billing.OrderFulfilling), string(billing.OrderReconciliationRequired)}).Order("updated_at asc, order_id asc").Limit(limit).Find(&rows).Error; err != nil {
-		return nil, billing.ErrFeatureUnavailable
-	}
-	orders := make([]billing.Order, 0, len(rows))
-	for _, row := range rows {
-		orders = append(orders, orderFromRows(row, orderItemRow{}))
-	}
-	return orders, nil
 }
 
 func (r *Repository) UpdateOrder(ctx context.Context, order billing.Order) error {
@@ -669,7 +475,7 @@ func (r *Repository) ReadOrderSummary(ctx context.Context, organizationID string
 	// Fulfilled orders receive their terminal timestamp in updated_at when the
 	// fulfillment/reconciliation path commits. Spend windows follow that event,
 	// not when the order was originally created.
-	if err := r.db.WithContext(ctx).Table("commercial_orders").Select("commercial_orders.product_kind AS product_kind, SUM(commercial_orders.amount_minor) AS spend_minor").Where("commercial_orders.organization_id = ? AND commercial_orders.kind IN ? AND commercial_orders.status = ? AND commercial_orders.updated_at >= ? AND commercial_orders.updated_at < ?", organizationID, []string{string(billing.OrderResourcePurchase), string(billing.OrderSubscriptionPurchase), string(billing.OrderStorageCapacityPurchase)}, string(billing.OrderFulfilled), from.UTC(), until.UTC()).Group("commercial_orders.product_kind").Scan(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("commercial_orders").Select("commercial_orders.product_kind AS product_kind, SUM(commercial_orders.amount_minor) AS spend_minor").Where("commercial_orders.organization_id = ? AND commercial_orders.kind IN ? AND commercial_orders.status = ? AND commercial_orders.updated_at >= ? AND commercial_orders.updated_at < ?", organizationID, []string{string(billing.OrderResourcePurchase), string(billing.OrderStorageCapacityPurchase)}, string(billing.OrderFulfilled), from.UTC(), until.UTC()).Group("commercial_orders.product_kind").Scan(&rows).Error; err != nil {
 		return billing.OrderSummary{}, billing.ErrFeatureUnavailable
 	}
 	for _, row := range rows {
@@ -725,30 +531,9 @@ func orderFromRows(row orderRow, item orderItemRow) billing.Order {
 	if item.OrderItemID != "" {
 		items = []billing.OrderItem{{OrderItemID: item.OrderItemID, ProductKind: billing.ProductKind(item.ProductKind), ResourceType: orgresource.ResourceType(item.ResourceType), ResourceQuantity: item.ResourceQuantity, AmountMinor: item.AmountMinor, StorageUnitBytes: item.StorageUnitBytes, StorageDurationSeconds: item.StorageDurationSeconds}}
 	}
-	return billing.Order{StorageActivationReceipt: row.StorageActivationReceipt, OrderID: row.OrderID, OrganizationID: row.OrganizationID, Kind: billing.OrderKind(row.Kind), Description: row.Description, QuoteID: row.QuoteID, Currency: row.Currency, AmountMinor: row.AmountMinor, Status: billing.OrderStatus(row.Status), FailureCode: billing.OrderFailureCode(row.FailureCode), WalletReservationID: row.WalletReservationID, WalletReservationState: money.WalletReservationState(row.WalletReservationState), PaymentID: row.PaymentID, ResourceGrantOperationID: row.ResourceGrantOperationID, ResourceGrantSourceType: row.ResourceGrantSourceType, ResourceGrantSourceIdentity: row.ResourceGrantSourceIdentity, Items: items, IdempotencyKey: row.IdempotencyKey, RequestFingerprint: row.RequestFingerprint, Version: row.Version, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, ActorID: row.ActorID, ProductKind: billing.ProductKind(row.ProductKind), PlanCode: row.PlanCode, PlanFingerprint: row.PlanFingerprint, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode), ActivationOperationID: row.ActivationOperationID, ActivationRequestFingerprint: row.ActivationRequestFingerprint, ActivationOutcome: billing.SubscriptionActivationOutcome(row.ActivationOutcome), ActivationFailureCode: billing.SubscriptionActivationFailureCode(row.ActivationFailureCode), ActivationSubscriptionID: row.ActivationSubscriptionID, ActivationStartsAt: row.ActivationStartsAt, ActivationExpiresAt: row.ActivationExpiresAt, ActivationEntitlementSetFingerprint: row.ActivationEntitlementSetFingerprint, ActivationDecidedAt: row.ActivationDecidedAt, PendingEffect: billing.PendingSubscriptionOrderEffect(row.PendingEffect), PendingEffectAdmittedAt: row.PendingEffectAdmittedAt, TerminalIntent: billing.SubscriptionOrderTerminalIntent(row.TerminalIntent), TerminalIntentReason: billing.OrderFailureCode(row.TerminalIntentReason), TerminalIntentAt: row.TerminalIntentAt}
+	return billing.Order{StorageActivationReceipt: row.StorageActivationReceipt, OrderID: row.OrderID, OrganizationID: row.OrganizationID, Kind: billing.OrderKind(row.Kind), Description: row.Description, QuoteID: row.QuoteID, Currency: row.Currency, AmountMinor: row.AmountMinor, Status: billing.OrderStatus(row.Status), FailureCode: billing.OrderFailureCode(row.FailureCode), WalletReservationID: row.WalletReservationID, WalletReservationState: money.WalletReservationState(row.WalletReservationState), PaymentID: row.PaymentID, ResourceGrantOperationID: row.ResourceGrantOperationID, ResourceGrantSourceType: row.ResourceGrantSourceType, ResourceGrantSourceIdentity: row.ResourceGrantSourceIdentity, Items: items, IdempotencyKey: row.IdempotencyKey, RequestFingerprint: row.RequestFingerprint, Version: row.Version, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, ActorID: row.ActorID, ProductKind: billing.ProductKind(row.ProductKind), PlanCode: row.PlanCode, PlanFingerprint: row.PlanFingerprint, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode), ActivationOperationID: row.ActivationOperationID, ActivationRequestFingerprint: row.ActivationRequestFingerprint, ActivationOutcome: row.ActivationOutcome, ActivationFailureCode: row.ActivationFailureCode, ActivationSubscriptionID: row.ActivationSubscriptionID, ActivationStartsAt: row.ActivationStartsAt, ActivationExpiresAt: row.ActivationExpiresAt, ActivationEntitlementSetFingerprint: row.ActivationEntitlementSetFingerprint, ActivationDecidedAt: row.ActivationDecidedAt, PendingEffect: row.PendingEffect, PendingEffectAdmittedAt: row.PendingEffectAdmittedAt, TerminalIntent: row.TerminalIntent, TerminalIntentReason: billing.OrderFailureCode(row.TerminalIntentReason), TerminalIntentAt: row.TerminalIntentAt}
 }
 
-func applySubscriptionOrderToRow(row *orderRow, order billing.Order) {
-	row.Status = string(order.Status)
-	row.FailureCode = string(order.FailureCode)
-	row.WalletReservationID = order.WalletReservationID
-	row.WalletReservationState = string(order.WalletReservationState)
-	row.ActivationOperationID = order.ActivationOperationID
-	row.ActivationRequestFingerprint = order.ActivationRequestFingerprint
-	row.ActivationOutcome = string(order.ActivationOutcome)
-	row.ActivationFailureCode = string(order.ActivationFailureCode)
-	row.ActivationSubscriptionID = order.ActivationSubscriptionID
-	row.ActivationStartsAt = order.ActivationStartsAt
-	row.ActivationExpiresAt = order.ActivationExpiresAt
-	row.ActivationEntitlementSetFingerprint = order.ActivationEntitlementSetFingerprint
-	row.ActivationDecidedAt = order.ActivationDecidedAt
-	row.PendingEffect = string(order.PendingEffect)
-	row.PendingEffectAdmittedAt = order.PendingEffectAdmittedAt
-	row.TerminalIntent = string(order.TerminalIntent)
-	row.TerminalIntentReason = string(order.TerminalIntentReason)
-	row.TerminalIntentAt = order.TerminalIntentAt
-	row.UpdatedAt = order.UpdatedAt.UTC()
-}
 func fingerprint(value any) string {
 	encoded, _ := json.Marshal(value)
 	sum := sha256.Sum256(encoded)

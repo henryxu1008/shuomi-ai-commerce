@@ -1,3 +1,7 @@
+> #301 / #983 窄范围校准：按[完整设计](../architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)仅将Canonical facts行的旧sourcing.Publisher包装改为当前InternalProducer/SRC事务→catalog.Publisher。旧静态asset/recipe退出不改变当前图像/资产批准；新来源输入/保存/lineage/刷新/显式批准/readiness及其owner、JSON/hash/版本保持，不改变#30验收或增加试用前置。当前能力及独立SHEIN登录/Store同步保留，既有资源不动，#301 OPEN。
+
+> #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
+
 # Product Sourcing MVP Status and Closeout Plan
 
 > ACTIVE: acceptance guide under the current Product contracts and
@@ -29,7 +33,7 @@ enable an unvalidated capability.
 | --- | --- | --- |
 | Neutral sourcing | Envelope, normalization, deterministic identity, lineage/warnings and `ToSnapshot` exist | Exact-candidate tests and controlled new import evidence |
 | Source adapters | Amazon/1688 mappings are adapter-owned under `internal/integration/crawler/*`; SDS remains specialized | Does not open Amazon target listing or new source expansion |
-| Canonical facts | `sourcing.Publisher` → `catalog.Publisher` and durable Catalog composition exist | New-system replay/conflict, immutable history and authorized publication |
+| Canonical facts | Current authorized `InternalProducer` / SRC transaction → `catalog.Publisher` and durable Catalog composition exist | New-system replay/conflict, immutable history and authorized publication |
 | Old 1688 route | Historical compatibility task handoff is legacy evidence | RETIRE it; it is not a current acceptance gate or a source for new dependencies |
 | Current import entrypoints | #301 retires the unregistered numeric-account `internal/app/productsourcing/httpapi` contract; current acquisition, Browser Capture and local-agent owners remain | Use their admitted authorization/orchestration contracts; retirement does not establish deployment or provider acceptance |
 | Source-account ownership | #303 preflight is historical evidence | New source access must use current authorization; legacy profile reuse is not a prerequisite |

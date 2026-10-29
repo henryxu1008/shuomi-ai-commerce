@@ -102,11 +102,11 @@ func (g *commercialGrantFixture) ListOwnProjectAuthorizations(ctx context.Contex
 		}
 	}
 	grants := []authidentity.OrganizationGrant{}
-	role := "listingkit_operator"
-	if subject == "viewer" || mode == 4 {
-		role = "listingkit_viewer"
-	}
 	for _, org := range []string{"org-B", "org-C", "org-custom", "org-empty", "org-expired", "org-disabled", "org-future"} {
+		role := authz.EnterpriseRoleKey(org, 1)
+		if subject == "viewer" || mode == 4 {
+			role = "listingkit_viewer"
+		}
 		grants = append(grants, authidentity.OrganizationGrant{OrganizationID: org, OrganizationName: org, ProjectID: project, Roles: []string{role}})
 	}
 	grants = append(grants, authidentity.OrganizationGrant{OrganizationID: "org-viewer", OrganizationName: "org-viewer", ProjectID: project, Roles: []string{"listingkit_viewer"}})
@@ -225,19 +225,20 @@ func TestCommercialHTTPPostgresBFFClientZeroWrites(t *testing.T) {
 		return tx.Commit()
 	})
 	storeBefore := commercialOwnerTableSnapshot(t, storeOwner)
-	module, err := buildUnifiedCommercialRead(ctx, openCommercialFixtureReader(t, dbConfig), openCommercialFixtureReader(t, storeConfig), authz.DefaultListingKitAuthorizer())
+	authorizer := currentRoleTestAuthorizer()
+	module, err := buildUnifiedCommercialRead(ctx, openCommercialFixtureReader(t, dbConfig), openCommercialFixtureReader(t, storeConfig), authorizer)
 	require.NoError(t, err)
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, module.Register(registry))
-	billingModule, err := buildCommercialBillingModule(ctx, openCommercialFixtureReader(t, billingConfig), openCommercialFixtureReader(t, moneyConfig), authz.DefaultListingKitAuthorizer(), appCfg)
+	billingModule, err := buildCommercialBillingModule(ctx, openCommercialFixtureReader(t, billingConfig), openCommercialFixtureReader(t, moneyConfig), authorizer, appCfg)
 	require.NoError(t, err)
 	require.NoError(t, billingModule.Register(registry))
 	require.Greater(t, len(registry.Routes()), 1)
-	require.NoError(t, contextapi.NewModule(contextapi.NewHandlerWithWorkbenchAuthorizer(authz.DefaultListingKitAuthorizer())).Register(registry))
+	require.NoError(t, contextapi.NewModule(contextapi.NewHandlerWithWorkbenchAuthorizer(authorizer)).Register(registry))
 	grants := &commercialGrantFixture{}
 	var verifier zitadel.Verifier = mountedVerifierStub{identity: authidentity.AuthenticatedIdentity{UserID: "fixture-user", HomeOrganizationID: "home-A", TokenExpiresAt: now.Add(time.Hour)}}
 	resolver := workbenchcontext.NewResolver(workbenchcontext.NewGrantResolver(grants, workbenchcontext.NewGrantCache(nil)), "fixture-project", "fixture-contract", nil)
-	auth := routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authz.DefaultListingKitAuthorizer(), auditRecorder: workbenchcontext.NewStructuredAuditRecorder(log), auditNow: time.Now}
+	auth := routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authorizer, auditRecorder: workbenchcontext.NewStructuredAuditRecorder(log), auditNow: time.Now}
 	appServer := buildHTTPServerFromRoutes(0, registry.Routes(), auth)
 	mux := http.NewServeMux()
 	mux.Handle("/", appServer.Handler)

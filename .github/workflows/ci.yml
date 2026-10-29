@@ -186,6 +186,9 @@ jobs:
       - name: Verify startup schema cancellation and request context isolation
         run: go test -race -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationStartupSchemaContextPostgres$' -count=1 -v
 
+      - name: Verify normal application Knowledge preclaim crash recovery
+        run: go test -race -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationKnowledgePreclaimCrashRecovery$' -count=1 -v -timeout 8m
+
       - name: Verify immutable settlement reversal concurrency
         run: go test -race -tags integration ./internal/integration/persistence/money -run '^(TestOrdinaryReversalPostgresRuntime|TestProviderTopUpPostgresConcurrentReceiptsAndZeroEarnings)$' -count=1 -v
 
@@ -196,7 +199,6 @@ jobs:
       - name: Build runtime commands
         run: |
           go build ./cmd/current-application
-          go build ./cmd/shein-login-worker
 
   frontend:
     name: Frontend Checks

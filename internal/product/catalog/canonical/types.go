@@ -1,7 +1,5 @@
 package canonical
 
-import "strings"
-
 type SourceType string
 
 const (
@@ -102,64 +100,4 @@ type PriceInfo struct {
 type ScrapedVariantDimension struct {
 	Name   string   `json:"name"`
 	Values []string `json:"values"`
-}
-
-func HasSourceType(sources []Source, want SourceType) bool {
-	for _, source := range sources {
-		if source.Type == want {
-			return true
-		}
-	}
-	return false
-}
-
-func BuildFieldTrace(base []Source, inferred bool) FieldTrace {
-	sources := append([]Source(nil), base...)
-	if inferred {
-		sources = append(sources, Source{Type: SourceLLM, Detail: "LLM-generated product normalization"})
-	}
-
-	confidence := 0.6
-	if HasSourceType(base, SourceProductURL) {
-		confidence = 0.9
-	} else if HasSourceType(base, SourceUserText) && HasSourceType(base, SourceUserImage) {
-		confidence = 0.82
-	} else if HasSourceType(base, SourceUserText) || HasSourceType(base, SourceUserImage) {
-		confidence = 0.72
-	}
-	if inferred {
-		confidence -= 0.08
-	}
-	if confidence < 0.1 {
-		confidence = 0.1
-	}
-
-	return FieldTrace{
-		Sources:     sources,
-		Confidence:  confidence,
-		IsInferred:  inferred,
-		NeedsReview: confidence < 0.75,
-	}
-}
-
-func ProductNeedsReview(product *Product) bool {
-	if product == nil {
-		return true
-	}
-	if strings.TrimSpace(product.Title) == "" || strings.TrimSpace(product.Description) == "" {
-		return true
-	}
-	for _, trace := range product.FieldTraces {
-		if trace.NeedsReview {
-			return true
-		}
-	}
-	return false
-}
-
-func ShouldReviewLLMOnlySourceFact(base []Source, inferred bool, fieldEvidence []Source) bool {
-	return inferred &&
-		HasSourceType(base, SourceProductURL) &&
-		HasSourceType(base, SourceScrapedData) &&
-		!HasSourceType(fieldEvidence, SourceScrapedData)
 }

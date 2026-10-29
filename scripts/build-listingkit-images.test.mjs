@@ -8,18 +8,19 @@ import { fileURLToPath } from 'node:url';
 
 const scripts = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.dirname(scripts);
-const wrapper = `param([string]$BuildScript,[string]$OutputDirectory,[string]$SourceRef='HEAD',[string]$Component='All')
-$global:revision=''; $global:tree=''; $global:builtImage=''
+const wrapper = `param([string]$BuildScript,[string]$OutputDirectory,[string]$SourceRef='HEAD',[string]$Component='All',[string]$BackendTarget='')
+$global:revision=''; $global:tree=''; $global:builtImage=''; $global:builtTargetLabel=''
 function global:docker {
  $a=@($args); $global:LASTEXITCODE=0
  if($a[0] -eq 'build') {
-  $context=$a[-1]; $global:builtImage=$a[[array]::IndexOf($a,'--tag')+1]
-  foreach($v in $a) {if($v -like 'org.opencontainers.image.revision=*'){$global:revision=$v.Split('=')[1]};if($v -like 'org.opencontainers.image.tree=*'){$global:tree=$v.Split('=')[1]}}
+  $context=$a[-1]; $global:builtImage=$a[[array]::IndexOf($a,'--tag')+1]; $global:builtTargetLabel=''
+  foreach($v in $a) {if($v -like 'org.opencontainers.image.revision=*'){$global:revision=$v.Split('=')[1]};if($v -like 'org.opencontainers.image.tree=*'){$global:tree=$v.Split('=')[1]};if($v -like 'io.shuomi.build.backend-target=*'){$global:builtTargetLabel=$v.Split('=')[1]}}
   [ordered]@{arguments=$a;tracked=(Get-Content -LiteralPath (Join-Path $context 'marker') -Raw);privatePresent=(Test-Path -LiteralPath (Join-Path $context 'private.json'))} | ConvertTo-Json -Compress -Depth 5 | Add-Content -LiteralPath $env:FIXTURE_CALLS
   if($env:FIXTURE_FAULT -eq 'build'){$global:LASTEXITCODE=23}; return
  }
  if($a[0] -eq 'image') {
-  @([ordered]@{Id=('sha256:' + ('1'*64));Size=1234;RootFS=@{Layers=@('base','app')};Config=@{Labels=@{'org.opencontainers.image.revision'=$global:revision;'org.opencontainers.image.tree'=$global:tree}}}) | ConvertTo-Json -Depth 6 -Compress; return
+  $targetLabel=if($env:FIXTURE_FAULT -eq 'target'){'incorrect-target'}else{$global:builtTargetLabel}
+  @([ordered]@{Id=('sha256:' + ('1'*64));Size=1234;RootFS=@{Layers=@('base','app')};Config=@{Labels=@{'org.opencontainers.image.revision'=$global:revision;'org.opencontainers.image.tree'=$global:tree;'io.shuomi.build.backend-target'=$targetLabel}}}) | ConvertTo-Json -Depth 6 -Compress; return
  }
  if($a[0] -eq 'history') {
   $copy=if($global:builtImage -like '*current-application*'){'COPY /out/current-application /usr/local/bin/current-application # buildkit'}else{'COPY /app/.next/standalone ./ # buildkit'}
@@ -28,7 +29,8 @@ function global:docker {
  }
  throw ('Unexpected Docker operation: '+($a -join ' '))
 }
-& $BuildScript -SourceRef $SourceRef -Component $Component -OutputDirectory $OutputDirectory
+$selection=@{}; if($BackendTarget){$selection.BackendTarget=$BackendTarget}
+& $BuildScript -SourceRef $SourceRef -Component $Component -OutputDirectory $OutputDirectory @selection
 `;
 
 function fixture(run) {
@@ -50,9 +52,9 @@ function fixture(run) {
     writeFileSync(path.join(dir, 'invoke.ps1'), wrapper);
     const output = path.join(dir, 'receipts');
     const calls = path.join(dir, 'calls.jsonl');
-    const invoke = (fault = '', source = 'HEAD', component = 'All') => spawnSync('pwsh', [
+    const invoke = (fault = '', source = 'HEAD', component = 'All', backendTarget = '') => spawnSync('pwsh', [
       '-NoProfile', '-File', path.join(dir, 'invoke.ps1'), '-BuildScript', path.join(dir, 'scripts/build.ps1'),
-      '-OutputDirectory', output, '-SourceRef', source, '-Component', component,
+      '-OutputDirectory', output, '-SourceRef', source, '-Component', component, '-BackendTarget', backendTarget,
     ], { encoding: 'utf8', env: { ...process.env, FIXTURE_CALLS: calls, FIXTURE_FAULT: fault } });
     run({ dir, output, calls, revision, invoke });
   } finally {
@@ -79,11 +81,56 @@ test('builds both canonical targets from committed source, excluding dirty and p
   assert.equal(receipt.sourceCommit, revision);
   assert.equal(receipt.images.length, 2);
   assert.equal(receipt.images[0].sizeBytes, 1234);
+  assert.equal(receipt.images[0].target, 'data-services-runtime');
+  assert.equal(receipt.images[0].tag, `local/current-application:git-${revision}`);
+}));
+
+test('explicit runtime has separate backend artifacts while retaining the same UI', () => fixture(({ output, calls, revision, invoke }) => {
+  assert.equal(invoke().status, 0);
+  const defaultPath = path.join(output, `build-${revision}-All.json`);
+  const previous = readFileSync(defaultPath, 'utf8');
+  const result = invoke('', 'HEAD', 'All', 'runtime');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(defaultPath, 'utf8'), previous);
+  const defaults = JSON.parse(previous);
+  const receipt = JSON.parse(readFileSync(path.join(output, `build-${revision}-All-runtime.json`)));
+  assert.equal(receipt.images[0].target, 'runtime');
+  assert.equal(receipt.images[0].tag, `local/current-application:git-${revision}-runtime`);
+  assert.equal(receipt.images[1].tag, defaults.images[1].tag);
+  const operations = readFileSync(calls, 'utf8').trim().split(/\r?\n/).map(JSON.parse);
+  assert.equal(operations.length, 4);
+  const args = operations[2].arguments;
+  assert.equal(args[args.indexOf('--target') + 1], 'runtime');
+  assert.ok(args.includes('io.shuomi.build.backend-target=runtime'));
+  assert.equal(operations[3].arguments.includes('--target'), false);
+}));
+
+test('explicit target failure stops without fallback or a success receipt', () => fixture(({ output, calls, revision, invoke }) => {
+  const result = invoke('build', 'HEAD', 'All', 'runtime');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /image build failed/);
+  const operations = readFileSync(calls, 'utf8').trim().split(/\r?\n/).map(JSON.parse);
+  assert.equal(operations.length, 1);
+  assert.equal(operations[0].arguments[operations[0].arguments.indexOf('--target') + 1], 'runtime');
+  assert.equal(existsSync(path.join(output, `build-${revision}-All-runtime.json`)), false);
+  assert.equal(existsSync(path.join(output, `build-${revision}-All.json`)), false);
+}));
+
+test('UI-only build ignores the backend selection for tags and receipts', () => fixture(({ output, calls, revision, invoke }) => {
+  const result = invoke('', 'HEAD', 'UI', 'runtime');
+  assert.equal(result.status, 0, result.stderr);
+  const operations = readFileSync(calls, 'utf8').trim().split(/\r?\n/).map(JSON.parse);
+  assert.equal(operations.length, 1);
+  assert.equal(operations[0].arguments.includes('--target'), false);
+  const receipt = JSON.parse(readFileSync(path.join(output, `build-${revision}-UI.json`)));
+  assert.equal(receipt.images[0].tag, `local/listingkit-ui:git-${revision}`);
+  assert.equal(receipt.images[0].target, undefined);
 }));
 
 for (const [name, fault, source, error, component = 'All'] of [
   ['unknown source', '', 'missing-ref', /SourceRef must resolve/],
   ['Docker failure', 'build', 'HEAD', /image build failed/],
+  ['incorrect backend target label', 'target', 'HEAD', /Backend image target label does not match/],
   ['historical application layers', 'stacked', 'HEAD', /exactly one application COPY/],
   ['historical UI layers', 'stacked', 'HEAD', /exactly one application COPY/, 'UI'],
 ]) {

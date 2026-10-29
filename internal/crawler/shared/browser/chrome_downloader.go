@@ -53,7 +53,6 @@ func NewChromeDownloaderWithTimeout(version, downloadDir string, downloadTimeout
 		MaxRetries:    3,
 		RetryDelay:    2 * time.Second,
 		EnableLogging: true,
-		SkipTLSVerify: false,
 	}
 
 	return &ChromeDownloader{

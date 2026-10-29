@@ -13,23 +13,27 @@ const coreRuntimeSubject = "(SELECT current_user::text AS runtime_role) subject"
 
 // VerifyCoreAlignmentBoundary is read-only. Maintenance checks the fixed
 // runtime role's catalogs, never its secret or SET ROLE, using serving's query.
-func VerifyCoreAlignmentBoundary(ctx context.Context, q coreSchemaQueryer, database string) error {
+func VerifyCoreAlignmentBoundary(ctx context.Context, q coreSchemaQueryer, database string, capabilities RuntimeCapabilities) error {
+	if capabilities.TikTokShop || capabilities.WalmartUS {
+		return errors.New("unsupported retained Store maintenance capability")
+	}
 	var admitted bool
 	err := q.QueryRowContext(ctx, `SELECT current_database()=$1 AND current_database() NOT IN ('postgres','template0','template1')
 AND current_user='store_center_owner' AND session_user=current_user
 AND current_schema()='public' AND current_schemas(false)=ARRAY['public']::name[]
 AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
 AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member IN (SELECT oid FROM pg_roles WHERE rolname IN ('store_center_owner','store_center_runtime')))
-AND (SELECT count(*)=12 AND bool_and(c.relowner=(SELECT oid FROM pg_roles WHERE rolname='store_center_owner') AND c.relkind='r' AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity)
+AND (SELECT count(*)=12 AND bool_and(c.relname IN ('goose_store_center_version','workbench_stores','workbench_store_audit_logs','workbench_store_member_grants','workbench_store_member_grant_operations','workbench_store_service_operations','workbench_store_connections','workbench_store_connection_attempts','workbench_store_merchant_bindings','workbench_store_groups','workbench_store_profiles','workbench_store_metadata_operations') AND c.relowner=(SELECT oid FROM pg_roles WHERE rolname='store_center_owner') AND c.relkind='r' AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity)
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f'))
-AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('public','information_schema') AND n.nspname !~ '^pg_' AND c.relkind IN ('r','p','v','m','f'))`, database).Scan(&admitted)
+AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT IN ('public','information_schema') AND n.nspname !~ '^pg_' AND NOT (($2 AND n.nspname='store_observations') OR ($3 AND n.nspname='operations_cockpit')))
+AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('store_observations','operations_cockpit') AND n.nspowner<>(SELECT oid FROM pg_roles WHERE rolname='store_center_owner'))`, database, capabilities.Observations, capabilities.OperationsCockpit).Scan(&admitted)
 	if err != nil || !admitted {
-		return errors.New("retained Store database, original owner or twelve-table boundary mismatch")
+		return errors.New("retained Store database, original owner or declared object boundary mismatch")
 	}
 	query := strings.Replace(storeRuntimePermissionQuery, coreRuntimeSubject, "(SELECT 'store_center_runtime'::text AS runtime_role) subject", 1)
 	var role string
 	var required, forbidden bool
-	if err := q.QueryRowContext(ctx, query, false, false, false, false).Scan(&role, &required, &forbidden); err != nil {
+	if err := q.QueryRowContext(ctx, query, capabilities.Observations, capabilities.OperationsCockpit, false, false).Scan(&role, &required, &forbidden); err != nil {
 		return errors.New("retained Store runtime privileges unavailable")
 	}
 	if role != "store_center_owner" || !required || forbidden {
@@ -45,7 +49,7 @@ AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamesp
 	if err != nil || grantable {
 		return errors.New("retained Store runtime grant options mismatch")
 	}
-	return nil
+	return verifyRetainedCapabilityContracts(ctx, q, capabilities)
 }
 
 // VerifyCoreAlignmentState accepts only the confirmed two-platform baseline A
@@ -131,7 +135,7 @@ func verifyUnchangedCoreContract(ctx context.Context, q coreSchemaQueryer) error
 	// Enumerate the fixed core objects as well as checking required definitions;
 	// an extra constraint/index is drift rather than permission to repair it.
 	coreTable := func(table string) bool {
-		return table == "goose_store_center_version" || currentColumnNames[table] != nil && table != sheinLoginTable && !isTikTokSchemaTable(table) && !strings.HasPrefix(table, "workbench_store_walmart_")
+		return table == "goose_store_center_version" || currentColumnNames[table] != nil && !isTikTokSchemaTable(table) && !strings.HasPrefix(table, "workbench_store_walmart_")
 	}
 	constraints, err := q.QueryContext(ctx, `SELECT c.relname,k.conname FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid WHERE c.relnamespace='public'::regnamespace`)
 	if err != nil {

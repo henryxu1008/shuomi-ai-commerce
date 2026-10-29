@@ -1,12 +1,11 @@
 package publishing
 
 import (
-	sheinattribute "task-processor/internal/shein/api/attribute"
-	sheinproduct "task-processor/internal/shein/api/product"
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // NormalizeSubmitCollections ensures SHEIN submit payload collection fields serialize as empty arrays instead of null.
-func NormalizeSubmitCollections(product *sheinproduct.Product) {
+func NormalizeSubmitCollections(product *previewdata.Product) {
 	if product == nil {
 		return
 	}
@@ -17,7 +16,7 @@ func NormalizeSubmitCollections(product *sheinproduct.Product) {
 		product.MultiLanguageMakeupIngredientList = []any{}
 	}
 	if product.ProductVideoList == nil {
-		product.ProductVideoList = []sheinproduct.ProductVideo{}
+		product.ProductVideoList = []previewdata.ProductVideo{}
 	}
 	if product.PartInfoList == nil {
 		product.PartInfoList = []any{}
@@ -26,7 +25,7 @@ func NormalizeSubmitCollections(product *sheinproduct.Product) {
 		product.PLMPatternIDList = []any{}
 	}
 	if product.SizeAttributeList == nil {
-		product.SizeAttributeList = []sheinproduct.SizeAttribute{}
+		product.SizeAttributeList = []previewdata.SizeAttribute{}
 	}
 	if product.BackSizeAttributeList == nil {
 		product.BackSizeAttributeList = []any{}
@@ -41,12 +40,12 @@ func NormalizeSubmitCollections(product *sheinproduct.Product) {
 		product.DelOtherCertificateSNList = []string{}
 	}
 	if product.CustomAttributeRelation == nil {
-		product.CustomAttributeRelation = []sheinattribute.CustomAttributeRelation{}
+		product.CustomAttributeRelation = []previewdata.CustomAttributeRelation{}
 	}
 }
 
 // NormalizeSubmitExtra ensures SHEIN submit extra fields use publish-page defaults.
-func NormalizeSubmitExtra(product *sheinproduct.Product) {
+func NormalizeSubmitExtra(product *previewdata.Product) {
 	if product == nil {
 		return
 	}
@@ -58,7 +57,7 @@ func NormalizeSubmitExtra(product *sheinproduct.Product) {
 }
 
 // FinalizeSubmitTransportFields ensures submit-only transport collections serialize as empty values.
-func FinalizeSubmitTransportFields(product *sheinproduct.Product) {
+func FinalizeSubmitTransportFields(product *previewdata.Product) {
 	if product == nil {
 		return
 	}
@@ -77,7 +76,7 @@ func FinalizeSubmitTransportFields(product *sheinproduct.Product) {
 	for skcIndex := range product.SKCList {
 		skc := &product.SKCList[skcIndex]
 		if skc.SiteDetailImageInfoList == nil {
-			skc.SiteDetailImageInfoList = []sheinproduct.SiteDetailImageInfo{}
+			skc.SiteDetailImageInfoList = []previewdata.SiteDetailImageInfo{}
 		}
 		if skc.SiteSpecImageInfoList == nil {
 			skc.SiteSpecImageInfoList = []any{}

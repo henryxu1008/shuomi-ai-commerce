@@ -5,7 +5,7 @@ import (
 
 	"regexp"
 
-	"task-processor/internal/model"
+	amazonresult "task-processor/internal/crawler/amazon/capturedata"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -21,7 +21,7 @@ func NewParentAsinExtractor(logs func(string) *logrus.Entry) *ParentAsinExtracto
 }
 
 // Extract 提取父级ASIN
-func (pae *ParentAsinExtractor) Extract(page playwright.Page, product *model.Product) error {
+func (pae *ParentAsinExtractor) Extract(page playwright.Page, product *amazonresult.Product) error {
 	parentAsin := pae.getParentAsin(page)
 	product.ParentAsin = parentAsin
 	return nil

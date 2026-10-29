@@ -14,8 +14,7 @@ Status: **RETIRED legacy listing and numeric proxy operational sources / retaine
 - #872 按[完整尾部边界](../../../docs/architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)同批退休旧数字 Store 代理脚本/CronJob/专属 RBAC、失去最后源码消费者的四份 shein-listing-secret 源模板及 prod 装配。没有替代凭据模板或部署入口，没有读取/删除真实 Secret、远端属性、旧数据库、实例或进程；物理状态保持 UNKNOWN。
 - control-plane专属Dockerfile及build/push/deploy脚本已退出，历史操作不可按当前源码执行；
   参见[源码退休与运行态边界](../../../docs/operations/listing-control-plane-runbook.md)。
-- 独立 SHEIN 登录 worker 使用原 `cmd/shein-login-worker` 和 Dockerfile.shein-login-worker，
-  当前组织/UUID Store、私密 Binding/ProxyFile、Redis/Profile、Cookie/attempt、健康及关闭合同保持；以[#863 当前所有权边界](../../../docs/architecture/shein-worker-numeric-persistence-retirement-v1.md)为准，不依赖已退 listing_store/shop_proxy_map 代理链。
+- 独立 SHEIN 登录及登录后 Store 身份回写已按 [#985 完整边界](../../../docs/architecture/legacy-shein-login-identity-sync-closure-retirement-boundary.md)从源码退休；旧 CLI/Dockerfile/配置/专属部署入口不再可用。Store 观察同步与官方授权保持。
 
 当前采集、Store 观察同步和当前应用入口见[仓库入口地图](../../../docs/development/repository-structure.md)。
 配置对象存在或 apply 成功不表示旧刊登 runtime 可用；不得用旧 YAML 替代当前应用私密 manifest。

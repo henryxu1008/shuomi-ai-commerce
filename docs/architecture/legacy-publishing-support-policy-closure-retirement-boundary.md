@@ -1,3 +1,5 @@
+> #301 / #968 当前 owner 校准（[本批确认设计](legacy-shein-draft-support-closure-retirement-boundary.md) §1–§7，含 §4.2/§6.1）：四个旧包 `internal/shein/api/product`、`api/attribute`、`content`、`authorizedbrand` 及专属 adapter/Context 尾部完整退出。当前22个真实 wire 值归域内 `internal/marketplace/shein/offlinepackage/previewdata`，有效默认/custom文本与品牌清理归现有 `marketplace/shein/publishing` 纯规则，draft 显式传值；无 alias、Service 包装、品牌查询或新事实源。当前字段/JSON/hash/版本、严格解码、Builder取消/ApprovedAsset、采集及独立SHEIN登录/Store同步保持。历史 KEEP 仅在本批准确范围内被此说明替代；以下原全文/计数/勾选/证据完整保留，不恢复旧 owner，不授权运行或数据操作。
+
 # #301 旧 Publishing 公共层、闲置 SHEIN 策略与 JSON 尾部完整退休设计
 
 > **Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认本§1–§7（明确含§4.2、§6.1）并授权同一#961整批78路径实施；[准入6409852021](https://github.com/qq550723504/shuomi-ai-commerce/pull/961#issuecomment-6409852021)与Issue/PR Ready记录已读回。设计准确HEAD `3e9371e87da82ae561403640a7dab06813030bfc` 的原CI40278175508 SUCCESS与独立只读设计复核PASS可追溯；开工正常同步main `0068545e6dd74d87323bdc8831680aa9f686b9ba`。本文件§1–§7为冻结设计与处置矩阵，文中“未来/拟/当前未实施”表述保留设计阶段原始语境，实施滚动证据以[#961](https://github.com/qq550723504/shuomi-ai-commerce/pull/961)为准；不将设计CI或源码自检当运行/产品验收。#301 OPEN，合并另授权。

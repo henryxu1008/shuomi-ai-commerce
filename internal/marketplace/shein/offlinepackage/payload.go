@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"strings"
 
+	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	sheinproduct "task-processor/internal/shein/api/product"
 )
 
 // PrepareProductForValidation applies the same offline defaults as new submit
 // without creating a submission identity or reading randomness. It mutates only
 // the supplied product; validators must pass an owned copy.
-func PrepareProductForValidation(product *sheinproduct.Product) {
+func PrepareProductForValidation(product *previewdata.Product) {
 	normalizeProductForSubmit(product, payloadDefaults{
 		Site:          "US",
 		WarehouseCode: defaultSubmitWarehouseCode,
 	})
 }
 
-func normalizeProductForSubmit(product *sheinproduct.Product, settings payloadDefaults) {
+func normalizeProductForSubmit(product *previewdata.Product, settings payloadDefaults) {
 	if product == nil {
 		return
 	}
@@ -35,7 +35,7 @@ func normalizeProductForSubmit(product *sheinproduct.Product, settings payloadDe
 	finalizeSubmitTransportFields(product)
 }
 
-func deriveSubmitProductSupplierCode(product *sheinproduct.Product) string {
+func deriveSubmitProductSupplierCode(product *previewdata.Product) string {
 	if product == nil {
 		return ""
 	}
@@ -49,18 +49,18 @@ func deriveSubmitProductSupplierCode(product *sheinproduct.Product) string {
 }
 
 // ValidatePreparedProductPublishPayload validates a submit product after submit normalization has run.
-func validatePreparedProductPublishPayload(product *sheinproduct.Product) error {
+func validatePreparedProductPublishPayload(product *previewdata.Product) error {
 	return sheinmarketpub.ValidatePreparedProductPublishPayload(product)
 }
 
-func ValidatePreparedProductPublishPayloadWithSizeChartAttributes(product *sheinproduct.Product, sizeChartAttributes []PendingAttributeCandidate) error {
+func ValidatePreparedProductPublishPayloadWithSizeChartAttributes(product *previewdata.Product, sizeChartAttributes []PendingAttributeCandidate) error {
 	if err := validatePreparedProductPublishPayload(product); err != nil {
 		return err
 	}
 	return validateRequiredSizeChartAttributesForSubmit(product, sizeChartAttributes)
 }
 
-func validateRequiredSizeChartAttributesForSubmit(product *sheinproduct.Product, candidates []PendingAttributeCandidate) error {
+func validateRequiredSizeChartAttributesForSubmit(product *previewdata.Product, candidates []PendingAttributeCandidate) error {
 	if product == nil || len(candidates) == 0 {
 		return nil
 	}

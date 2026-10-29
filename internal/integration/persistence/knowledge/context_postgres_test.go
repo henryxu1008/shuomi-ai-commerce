@@ -30,6 +30,7 @@ import (
 type contextFixture struct {
 	t     *testing.T
 	db    *gorm.DB
+	dsn   string
 	repo  *store.Repository
 	scope k.Scope
 	base  k.Base
@@ -51,6 +52,20 @@ func (c *contextGrantClient) ListOwnProjectAuthorizations(context.Context, strin
 
 type contextUnusedObjects struct{ k.KnowledgeObjectStore }
 
+// Organization-scoped reads use current enterprise module roles, not the
+// retired static listingkit_operator grant (see knowledgeauth's auth fixture).
+type contextRolePolicy struct{}
+
+func (contextRolePolicy) RoleModules(_ context.Context, org string, keys []string) (map[string][]string, error) {
+	result := map[string][]string{}
+	for _, key := range keys {
+		if key == authz.EnterpriseRoleKey(org, 1) {
+			result[key] = []string{"knowledge"}
+		}
+	}
+	return result, nil
+}
+
 func TestKnowledgeContextPostgresLivePermissionCitationAndUnavailableSources(t *testing.T) {
 	f := newContextFixture(t)
 	ctx := context.Background()
@@ -63,10 +78,11 @@ func TestKnowledgeContextPostgresLivePermissionCitationAndUnavailableSources(t *
 	for range 3 {
 		f.source("another eligible source", "")
 	}
-	client := &contextGrantClient{roles: []string{"listingkit_operator"}}
+	client := &contextGrantClient{roles: []string{authz.EnterpriseRoleKey(f.scope.OrganizationID, 1)}}
 	resolver := workbenchcontext.NewResolver(workbenchcontext.NewGrantResolver(client, nil), "project", "v1", nil)
 	policy, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
+	policy.SetRolePolicyReader(contextRolePolicy{})
 	auth, err := knowledgeauth.NewAuthorizer(resolver, policy)
 	require.NoError(t, err)
 	owner, err := k.NewService(f.repo, contextUnusedObjects{})
@@ -149,7 +165,7 @@ func newContextFixture(t *testing.T) *contextFixture {
 	require.NoError(t, store.Install(ctx, db))
 	repo, err := store.NewRepository(ctx, db)
 	require.NoError(t, err)
-	f := &contextFixture{t: t, db: db, repo: repo, scope: k.Scope{OrganizationID: "org-a", ActorID: "actor-a"}}
+	f := &contextFixture{t: t, db: db, dsn: dsn, repo: repo, scope: k.Scope{OrganizationID: "org-a", ActorID: "actor-a"}}
 	f.base = *f.apply(k.Command{Kind: "base_create", Name: "Brand"}).Base
 	return f
 }

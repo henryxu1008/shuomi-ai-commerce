@@ -5,14 +5,15 @@ import { isAcquisitionUUID } from "./product-acquisition";
 
 export const COLLECTION_MAX_BYTES = 2 * 1024 * 1024;
 export const COLLECTION_DETAIL_RESPONSE_MAX_BYTES = 3 * 1024 * 1024;
-const sourcePriceSchema = z.object({amount:z.string().regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/),currency:z.string().regex(/^[A-Z]{3}$/).nullable(),minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable().optional()}).strict();
+const sourceOfferSchema = z.object({amount:z.string().regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/),currency:z.string().regex(/^[A-Z]{3}$/).nullable(),minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable().optional(),condition:z.enum(['new','used']).optional(),conditionNote:z.string().refine(v=>!!v.trim()&&new TextEncoder().encode(v).length<=256).optional()}).strict();
+const sourcePriceSchema = sourceOfferSchema.extend({alternative:sourceOfferSchema.optional()}).refine(p=>(!p.conditionNote||p.condition==='used')&&(!p.alternative||p.condition==='new'&&p.alternative.condition==='used')&&(!p.alternative?.conditionNote||p.alternative.condition==='used'));
 export function parseSourcePriceFact(raw:string|undefined){
   if(!raw||new TextEncoder().encode(raw).length>8192)return null;
   try{
     const errors:ParseError[]=[];const root=parseTree(raw,errors,{disallowComments:true,allowTrailingComma:false});
     if(!root||root.type!=="object"||errors.length)return null;
-    const names=(root.children??[]).map(property=>property.children?.[0]?.value);
-    if(new Set(names).size!==names.length)return null;
+    const unique=(node:NonNullable<typeof root>):boolean=>{if(node.type==='object'){const names=(node.children??[]).map(property=>property.children?.[0]?.value);if(new Set(names).size!==names.length)return false;}return (node.children??[]).every(unique);};
+    if(!unique(root))return null;
     const parsed=sourcePriceSchema.safeParse(JSON.parse(raw));return parsed.success?parsed.data:null;
   }catch{return null;}
 }
@@ -75,7 +76,7 @@ const price = z.object({ currency: bytes(16).optional(), amount: z.number().fini
 const dimensions = z.object({ length: z.number().finite().optional(), width: z.number().finite().optional(), height: z.number().finite().optional(), unit: bytes(128).optional() });
 const weight = z.object({ value: z.number().finite().optional(), unit: bytes(128).optional() });
 const sourceQuotesSchema=z.discriminatedUnion("state",[
-  z.object({state:z.literal("available"),publicationId:bytes(128).min(1),version,prices:z.array(sourcePriceSchema.extend({minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable()})).max(256)}).strict(),
+  z.object({state:z.literal("available"),publicationId:bytes(128).min(1),version,prices:z.array(sourcePriceSchema.safeExtend({minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable()})).max(256)}).strict(),
   z.object({state:z.literal("unavailable")}).strict(),z.object({state:z.literal("not_applicable")}).strict(),
 ]).refine(value=>new TextEncoder().encode(JSON.stringify(value)).length<=64*1024);
 export const collectionDetailSchema = z.object({ item: collectionItemSchema, product: z.object({

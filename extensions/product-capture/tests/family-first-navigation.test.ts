@@ -1,3 +1,4 @@
+import { testDrafts } from './fixtures/drafts';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -16,7 +17,7 @@ const checkpoint='https://www.amazon.com/checkpoint/continue?token=DO_NOT_FORWAR
 let dom:JSDOM;
 afterEach(()=>{dom?.window.dispatchEvent(new dom.window.Event('pagehide'));dom?.window.close();vi.unstubAllGlobals();});
 
-async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;pauseThird?:boolean;holdNavigation?:boolean;redirectAfterVerify?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
+async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verification'|'signin';loseReply?:boolean;holdReply?:boolean;holdCreate?:boolean;third?:boolean;placeholderChild?:boolean;pauseThird?:boolean;holdNavigation?:boolean;redirectAfterVerify?:boolean;memberID?:string;creation?:'reject'|'no-id';native?:Partial<chrome.tabs.Tab>}={}) {
  const original=new JSDOM(readFileSync('tests/fixtures/amazon-inline-product.html','utf8'),{url:source});
  const anchor=await captureAmazonDocument(original.window.document,source);original.window.close();
  const other=structuredClone(anchor);other.evidence.sourceID='B0CC1YM6SJ';other.evidence.sourceURL=target;other.evidence.variants[0].sourceID='B0CC1YM6SJ';
@@ -26,14 +27,16 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  third.evidence.variants[0].attributes=other.evidence.variants[0].attributes.map(a=>a.name==='Color'?{...a,value:'Blue'}:a);
  third.evidence.variants[0].price={amount:'54.98',currency:'USD'};third.evidence.variants[0].images=[{role:'main',url:'https://m.media-amazon.com/images/I/third.jpg'}];
  const manifest={sourceURL:source,parentASIN:'B0D76YXPWZ',members:[anchor,other,...(options.third?[third]:[])].map(p=>({sourceID:p.evidence.sourceID,attributes:p.evidence.variants[0].attributes}))};
+ if(options.placeholderChild){other.evidence.variants[0].attributes=[];other.evidence.missingFacts.push({field:'variants[0].attributes',reason:'selected dimension label or value not observed'});}
  if(options.memberID)manifest.members[1].sourceID=options.memberID;
  const revision=crypto.randomUUID(),progress=`chrome-extension://${id}/popup.html#amazon-family=${revision}`;
  dom=new JSDOM('<body/>',{url:progress});
  const storage=returnStorage(),app=new ReturnSession(storage.session as unknown as chrome.storage.SessionStorageArea);await app.ready;
  const receiver=vi.fn(async()=>42),activate=vi.fn(async()=>{});
- const controller=new Controller('https://app.example.com/capture/amazon',async()=>{throw Error('must not extract through ordinary entry');},receiver,()=>id,validatePlatformCapture,()=> 'https://app.example.com/capture/amazon',activate,{prepare:s=>app.prepare(s,revision),bind:n=>app.bind(n,revision),tabID:()=>app.tabID()});
+ const drafts=testDrafts();const controller=new Controller(drafts,async()=>({url:source}),'https://app.example.com/capture/amazon',async()=>{throw Error('must not extract through ordinary entry');},receiver,()=>id,validatePlatformCapture,()=> 'https://app.example.com/capture/amazon',activate,{prepare:s=>app.prepare(s,revision),bind:n=>app.bind(n,revision),tabID:()=>app.tabID()});
  const contexts=[{contextType:'TAB',documentId:'progress-doc',documentUrl:progress,tabId:41,frameId:0,windowId:1}];
  const updated=new Set<(tabId:number)=>void>(),removed=new Set<(tabId:number)=>void>();
+ let draftPayload:AmazonCapturePayload|undefined;
  let live:Partial<chrome.tabs.Tab>={id:50,windowId:1,openerTabId:41,status:'complete'},bridge:FamilyBridge,lost=false,exists=false;
  let releaseReply:(()=>void)|undefined,releaseCreate:(()=>void)|undefined,failThird=!!options.pauseThird,thirdURLChecks=0;
  const emit=()=>updated.forEach(fn=>fn(50));
@@ -62,7 +65,7 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
   return [{frameId:0,documentId,result}];
  });
  const send=vi.fn(async(m:{type:string;revision:string;payload?:AmazonCapturePayload})=>{
-  try{const result=await bridge.handle(m,{id,url:progress,documentId:'progress-doc'});
+  try{const result=await bridge.handle(m,{id,url:progress,documentId:'progress-doc'});if(m.type==='family.finish')draftPayload=(await drafts.get(revision))?.payload as AmazonCapturePayload;
    if(m.type==='family.reader'&&options.loseReply&&!lost){lost=true;return {ok:false,code:'FAMILY_INTERRUPTED'};}
    if(m.type==='family.reader'&&options.holdReply)await new Promise<void>(resolve=>{releaseReply=resolve;});
    return {ok:true,result};
@@ -71,21 +74,21 @@ async function setup(options:{first?:'ready'|'omitted'|'empty'|'pending'|'verifi
  vi.stubGlobal('document',dom.window.document);vi.stubGlobal('location',dom.window.location);vi.stubGlobal('addEventListener',dom.window.addEventListener.bind(dom.window));
  vi.stubGlobal('chrome',{storage:{session:storage.session},runtime:{id,getURL:(p:string)=>`chrome-extension://${id}/${p}`,getContexts:vi.fn(async()=>contexts),sendMessage:send,onMessage:{addListener:vi.fn(),removeListener:vi.fn()}},
   tabs:{create,get,update,remove,onUpdated:{addListener:(f:(n:number)=>void)=>updated.add(f),removeListener:(f:(n:number)=>void)=>updated.delete(f)},onRemoved:{addListener:(f:(n:number)=>void)=>removed.add(f),removeListener:(f:(n:number)=>void)=>removed.delete(f)}},scripting:{executeScript:execute},windows:{update:vi.fn(async()=>({}))}});
- bridge=new FamilyBridge(()=>controller,app);await bridge.ready;await bridge.begin({id:7,url:source,documentId:'anchor-doc'},revision);
+ bridge=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await bridge.ready;await bridge.begin({id:7,url:source,documentId:'anchor-doc'},revision);
  mountFamilyPage(revision);
  const button=(text:string)=>[...dom.window.document.querySelectorAll('button')].find(b=>b.textContent===text)!;
  const status=()=>dom.window.document.querySelector('[role="status"]')!.textContent!;
  return {create,get,update,remove,execute,send,receiver,activate,storage,app,button,status,updated,removed,releaseReply:()=>releaseReply?.(),releaseCreate:()=>releaseCreate?.(),
   bridge:()=>bridge,live:()=>live,change:(value:Partial<chrome.tabs.Tab>)=>{Object.assign(live,value);emit();},
-  rebuild:async()=>{bridge=new FamilyBridge(()=>controller,app);await bridge.ready;},recover:()=>{failThird=false;},contexts,
+  rebuild:async()=>{bridge=new FamilyBridge(()=>controller,app,drafts,'https://app.example.com/capture/amazon');await bridge.ready;},recover:()=>{failThird=false;},contexts,
   readerCreates:()=>create.mock.calls.filter(([o])=>o.url!==progress),
   navigations:()=>update.mock.calls.filter(([,o])=>o.url),
   childReads:()=>execute.mock.calls.filter(([o])=>o.target.tabId===50&&o.files),
-  payload:()=>send.mock.calls.find(([m])=>m.type==='family.finish')?.[0].payload};
+  payload:()=>draftPayload};
 }
 
 it('opens the validated first child directly, hands off once and returns to the same receiver',async()=>{
- const s=await setup();await vi.waitFor(()=>expect(s.receiver).toHaveBeenCalledOnce());
+ const s=await setup();await vi.waitFor(()=>expect(s.payload()?.evidence.variants).toHaveLength(2));
  expect(s.readerCreates()).toEqual([[{url:target,active:false,openerTabId:41,windowId:1}]]);expect(s.navigations()).toHaveLength(0);
  expect(s.payload()?.evidence.variants).toHaveLength(2);expect(s.payload()!.evidence.variants[1].price?.amount).toBe('44.98');
  expect(s.payload()!.evidence.variants[1].images[0].url).toContain('child.jpg');
@@ -115,7 +118,7 @@ it('reconfirms a committed first checkpoint locator after a lost reply and worke
 it.each(['reject','no-id'] as const)('does not create another reader after creation result is %s',async creation=>{
  const s=await setup({creation});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
  s.button('继续采集').click();await new Promise(r=>setTimeout(r,25));expect(s.readerCreates()).toHaveLength(1);expect(s.receiver).not.toHaveBeenCalled();
- s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));expect(s.remove).not.toHaveBeenCalled();
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));expect(s.remove).not.toHaveBeenCalled();
 });
 it.each([{openerTabId:7},{windowId:2},{url:'https://www.amazon.com/dp/B000000003'},{pendingUrl:'https://example.com/'}])('refuses changed native reader ownership or target %j',async native=>{
  const s=await setup({native});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
@@ -123,7 +126,7 @@ it.each([{openerTabId:7},{windowId:2},{url:'https://www.amazon.com/dp/B000000003
 });
 it('cancels before first metadata arrives without parsing, guessed cleanup or a late handoff',async()=>{
  const s=await setup({first:'omitted'});await vi.waitFor(()=>expect(s.readerCreates()).toHaveLength(1));
- s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
  s.change({url:target});await new Promise(r=>setTimeout(r,25));expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();
  expect(s.remove).not.toHaveBeenCalled();expect(s.updated.size).toBe(0);expect(s.removed.size).toBe(0);
 });
@@ -135,12 +138,12 @@ it('keeps later children on the same reader with one explicit navigation and the
 });
 it('cancellation wins over a late successful first registration reply',async()=>{
  const s=await setup({holdReply:true});await vi.waitFor(()=>{const r=s.bridge().location.current;expect(r?.phase==='bound'&&r.reader?.tabId).toBe(50);});
- s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));s.releaseReply();
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));s.releaseReply();
  await new Promise(r=>setTimeout(r,25));expect(s.childReads()).toHaveLength(0);expect(s.receiver).not.toHaveBeenCalled();expect(s.navigations()).toHaveLength(0);expect(s.remove).toHaveBeenCalledExactlyOnceWith(50);
 });
 it('a late creation result after cancellation never registers, reads or recreates a reader',async()=>{
  const s=await setup({holdCreate:true});await vi.waitFor(()=>expect(s.readerCreates()).toHaveLength(1));
- s.button('取消本次采集').click();await vi.waitFor(()=>expect(s.status()).toContain('已取消'));s.releaseCreate();
+ s.button('停止采集并保留进度').click();await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));s.releaseCreate();
  await new Promise(r=>setTimeout(r,25));expect(s.send.mock.calls.filter(([m])=>m.type==='family.reader')).toHaveLength(0);expect(s.childReads()).toHaveLength(0);
  expect(s.receiver).not.toHaveBeenCalled();expect(s.readerCreates()).toHaveLength(1);expect(s.remove).not.toHaveBeenCalled();
 });
@@ -215,4 +218,13 @@ it('rejects a replacement progress document even with the same registered reader
 it('does not accept a parsed child if the native reader returns to its predecessor after the final document check',async()=>{
  const s=await setup({third:true,redirectAfterVerify:true});await vi.waitFor(()=>expect(s.status()).toContain('已暂停'));
  expect(s.status()).toContain('2/3');expect(s.receiver).not.toHaveBeenCalled();expect(s.payload()).toBeUndefined();
+});
+it('composes current-child static dimensions through the real page/bridge/read path and hands off once with attributed diagnostics',async()=>{
+ const s=await setup({third:true,placeholderChild:true});await vi.waitFor(()=>expect(s.receiver,s.status()).toHaveBeenCalledOnce());
+ expect(s.readerCreates()).toHaveLength(1);expect(s.navigations()).toHaveLength(1);
+ const output=s.payload()!;expect(output.evidence.variants).toHaveLength(3);
+ expect(output.evidence.variants[1].attributes).toContainEqual({name:'Color',value:'Beige'});
+ expect(output.evidence.variants[1].price?.amount).toBe('44.98');expect(output.evidence.variants[1].images[0].url).toContain('child.jpg');
+ expect(output.evidence.missingFacts).toContainEqual({field:'variants.1.attributes.rendered',reason:expect.stringContaining('current-ASIN static')});
+ expect(s.send.mock.calls.filter(([m])=>m.type==='family.finish')).toHaveLength(1);
 });

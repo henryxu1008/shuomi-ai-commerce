@@ -29,6 +29,55 @@ function page(amount = '39.98') {
 const input = (doc: Document, key: keyof typeof names) => Array.from(doc.querySelectorAll('form input')).find(n => n.getAttribute('name') === names[key]) as HTMLInputElement;
 const quote = (doc: Document) => amazonPrice(doc, 'us', asin, () => {});
 
+it('separates explicitly labelled new and used offers for the current ASIN', () => {
+  const doc = new JSDOM(`<div id="newAccordionRow_0" class="a-accordion-active"><div id="corePrice_feature_div" data-csa-c-asin="${asin}"><span class="a-price"><span class="a-offscreen">$35.98</span></span></div></div>
+    <div id="usedAccordionRow"><div id="corePrice_feature_div" data-csa-c-asin="${asin}"><span class="a-price"><span class="a-offscreen">$31.99</span></span></div></div>`, { url: `https://www.amazon.com/dp/${asin}` }).window.document;
+  expect(quote(doc).price).toEqual({amount:'35.98',currency:null,condition:'new',alternative:{amount:'31.99',currency:null,condition:'used'}});
+});
+it('preserves an explicitly labelled used condition from the same offer', () => {
+  const doc = new JSDOM(`<div id="usedAccordionRow"><span>Used - Very Good</span><div id="corePrice_feature_div" data-csa-c-asin="${asin}"><span class="a-price"><span class="a-offscreen">$31.99</span></span></div></div>`, {url:`https://www.amazon.com/dp/${asin}`}).window.document;
+  expect(quote(doc).price).toEqual({amount:'31.99',currency:null,condition:'used',conditionNote:'Very Good'});
+});
+it.each(['new','used'] as const)('rejects %s offer when its own form contradicts the product or amount', condition=>{
+ const row=condition==='new'?'newAccordionRow_0':'usedAccordionRow';
+ const doc=page('35.98');const root=doc.querySelector('#corePriceDisplay_desktop_feature_div')!;const form=doc.querySelector('form')!;
+ const wrapper=doc.createElement('div');wrapper.id=row;doc.body.append(wrapper);wrapper.append(root,form);
+ input(doc,'asin').value='B012345678';expect(quote(doc).price).toBeNull();
+ input(doc,'asin').value=asin;input(doc,'amount').value='30.00';expect(quote(doc).price).toBeNull();
+ form.remove();expect(quote(doc).price).toMatchObject({amount:'35.98',currency:null,condition});
+});
+it('rejects unbound amounts but keeps a bound price whose condition is unknown',()=>{
+ const doc=page();doc.querySelector('#corePriceDisplay_desktop_feature_div')!.removeAttribute('data-csa-c-asin');
+ expect(quote(doc).price).toBeNull();
+ doc.querySelector('#corePriceDisplay_desktop_feature_div')!.setAttribute('data-csa-c-asin',asin);
+ expect(quote(doc).price).toEqual({amount:'39.98',currency:'USD'});
+});
+it('does not mix metadata from an unbound sibling price root',()=>{
+ const doc=page();input(doc,'currency').remove();
+ doc.body.insertAdjacentHTML('beforeend','<div id="corePrice_feature_div"><span class="a-price"><span class="a-offscreen">$39.98</span></span><meta itemprop="priceCurrency" content="EUR"></div>');
+ expect(quote(doc).price).toEqual({amount:'39.98',currency:null});
+});
+it('does not relabel a rejected explicit offer as an unknown-status price',()=>{
+ const doc=page();const root=doc.querySelector('#corePriceDisplay_desktop_feature_div')!;const form=doc.querySelector('form')!;
+ const row=doc.createElement('div');row.id='newAccordionRow_0';doc.body.append(row);row.append(root,form);input(doc,'asin').value='B012345678';
+ doc.body.insertAdjacentHTML('beforeend',`<div id="corePrice_feature_div" data-csa-c-asin="${asin}"><span class="a-price"><span class="a-offscreen">$39.98</span></span></div>`);
+ doc.body.insertAdjacentHTML('beforeend','<form id="addToCart"></form>');
+ expect(quote(doc).price).toBeNull();
+});
+it.each(['asin','amount'] as const)('rejects contradictory duplicate %s fields in an otherwise bound offer',key=>{
+ const doc=page();const inputNode=input(doc,key);const duplicate=inputNode.cloneNode() as HTMLInputElement;duplicate.value=key==='asin'?'B012345678':'44.00';inputNode.after(duplicate);
+ expect(quote(doc).price).toBeNull();
+});
+it('keeps currency unknown when duplicate currency fields conflict with an explicit symbol',()=>{
+ const doc=page();doc.querySelector('.a-offscreen')!.textContent='US$39.98';const node=input(doc,'currency');const duplicate=node.cloneNode() as HTMLInputElement;duplicate.value='EUR';node.after(duplicate);
+ expect(quote(doc).price).toEqual({amount:'39.98',currency:null});
+});
+it('reports the conflicting offer without dropping the other condition',()=>{
+ const doc=new JSDOM(`<div id="newAccordionRow_0"><div id="corePrice_feature_div" data-csa-c-asin="${asin}"><span class="a-price"><span class="a-offscreen">$35.98</span></span><span class="a-price"><span class="a-offscreen">$36.98</span></span></div></div><div id="usedAccordionRow"><div id="corePrice_feature_div" data-csa-c-asin="${asin}"><span class="a-price"><span class="a-offscreen">$31.99</span></span></div></div>`,{url:`https://www.amazon.com/dp/${asin}`}).window.document;
+ const result=quote(doc);expect(result.price).toMatchObject({amount:'31.99',condition:'used'});
+ expect(result.diagnostics).toContainEqual({field:'price.new',reason:'conflicting or unbound source offer'});
+});
+
 describe('Amazon explicitly bound product currency', () => {
   it('uses the confirmed current-product currency for both existing price slots', async () => {
     const { evidence } = await captureAmazonDocument(page(), `https://www.amazon.com/dp/${asin}`);
@@ -57,7 +106,7 @@ describe('Amazon explicitly bound product currency', () => {
     const precise = page('9999999999999999.12345678');
     expect(quote(precise).price?.currency).toBe('USD');
     input(precise, 'amount').value = '9999999999999999.12345679';
-    expect(quote(precise).price).toEqual({ amount: '9999999999999999.12345678', currency: null });
+    expect(quote(precise).price).toBeNull();
   });
   it.each(['currency', 'amount', 'asin'] as const)('retains unknown currency when required %s is absent', key => {
     const doc = page(); input(doc, key).remove();
@@ -69,15 +118,17 @@ describe('Amazon explicitly bound product currency', () => {
     ['asin', ''], ['asin', 'B012345678'], ['extraASIN', ''], ['extraASIN', 'B012345678'],
   ] as const)('does not use invalid/stale %s=%s', (key, value) => {
     const doc = page(); input(doc, key).value = value;
-    expect(quote(doc).price).toEqual({ amount: '39.98', currency: null });
+    if (key === 'amount' && value === '46.99' || (key === 'asin' || key === 'extraASIN') && value === 'B012345678') expect(quote(doc).price).toBeNull();
+    else expect(quote(doc).price).toEqual({ amount: '39.98', currency: null });
   });
   it.each(Object.keys(names) as (keyof typeof names)[])('rejects duplicate %s fields even when equal', key => {
     const doc = page(); input(doc, key).after(input(doc, key).cloneNode());
-    expect(quote(doc).price?.currency).toBeNull();
+    if(key==='currency') expect(quote(doc).price?.currency).toBeNull();
+    else expect(quote(doc).price).toBeNull();
   });
   it('does not choose between duplicate addToCart forms', () => {
     const doc = page(); doc.body.append(doc.querySelector('form')!.cloneNode(true));
-    expect(quote(doc).price?.currency).toBeNull();
+    expect(quote(doc).price).toBeNull();
   });
   it.each(['missing-asin', 'other-asin', 'no-current-price', 'reference-only', 'unit-only'])('requires a current-price binding: %s', kind => {
     const doc = page(); const root = doc.querySelector('#corePriceDisplay_desktop_feature_div')!;
@@ -111,10 +162,10 @@ describe('Amazon explicitly bound product currency', () => {
     const doc = page(); doc.querySelector('.a-offscreen')!.textContent = 'CA$39.98';
     expect(quote(doc)).toMatchObject({ price: { amount: '39.98', currency: null }, currencyConflict: true });
   });
-  it('preserves independently observed currency when the tuple is unusable', () => {
+  it('rejects a conflicting tuple even with independently observed currency', () => {
     const doc = page(); input(doc, 'amount').value = '46.99';
     doc.querySelector('.a-offscreen')!.textContent = 'US$39.98';
-    expect(quote(doc).price).toEqual({ amount: '39.98', currency: 'USD' });
+    expect(quote(doc).price).toBeNull();
   });
   it('does not read malformed unbounded values without the original resource failure', () => {
     const doc = page(); input(doc, 'currency').value = '界'.repeat(3000);
