@@ -12,6 +12,42 @@ export const familyData = () => ({ currentAsin: anchor, parentAsin: parent, dime
 const document = (id=anchor, color='Grey', amount='39.98', currency='US$') => new JSDOM(`<span id="productTitle">Dog bed</span><input id="ASIN" value="${id}"><img id="landingImage" src="https://m.media-amazon.com/images/I/${id}.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">${color}</span></div><div id="variation_size"><span class="a-form-label">Size:</span><span class="selection">XL</span></div><div id="corePrice_feature_div" data-csa-c-asin="${id}"><span class="a-price"><span class="a-offscreen">${currency}${amount}</span></span></div>`,{url:`https://www.amazon.com/dp/${id}`}).window.document;
 const seed = async () => { const doc=document(); doc.body.insertAdjacentHTML('beforeend',`<script>P.register('twister-js-init-dpx-data',function(){return ${JSON.stringify(familyData())};});</script>`); return { manifest:discoverFamily(doc,doc.URL),anchor:await captureAmazonDocument(doc,doc.URL) }; };
 
+it.each([false,true])('accepts native dictionary member keys without treating attribute order as identity (reordered: %s)',async reordered=>{
+  const first=await seed(),doc=document(sibling,'Beige');
+  const capture=await captureAmazonDocument(doc,doc.URL);
+  const manifest={...first.manifest,sourceURL:doc.URL,members:[...first.manifest.members].reverse().map(m=>({
+    attributes:reordered?[...m.attributes].reverse():structuredClone(m.attributes),sourceID:m.sourceID,
+  }))};
+  const original=JSON.stringify(manifest),handoff=vi.fn<(p:AmazonCapturePayload)=>Promise<void>>(async()=>{});
+  const c=coordinator({seed:async()=>first,read:async()=>({capture,parentASIN:parent,manifest}),handoff,close:async()=>{}});
+  await c.start();
+  expect(c.snapshot()).toMatchObject({phase:'transferred',observed:2,total:2});
+  expect(handoff).toHaveBeenCalledOnce();
+  expect(handoff.mock.calls[0][0].evidence.variants[1]).toEqual(capture.evidence.variants[0]);
+  expect(JSON.stringify(manifest)).toBe(original);
+});
+
+it.each(['parent','member','attribute name','attribute value','duplicate member','duplicate attribute','selected ASIN','selected attributes'])('still pauses without committing a child after a real %s change',async kind=>{
+  const first=await seed(),doc=document(sibling,'Beige'),capture=await captureAmazonDocument(doc,doc.URL);
+  const manifest=structuredClone(first.manifest);manifest.sourceURL=doc.URL;
+  if(kind==='parent')manifest.parentASIN='B000000003';
+  if(kind==='member')manifest.members[1].sourceID='B000000003';
+  if(kind==='attribute name')manifest.members[1].attributes[0].name='Style';
+  if(kind==='attribute value')manifest.members[1].attributes[0].value='Black';
+  if(kind==='duplicate member')manifest.members.push(structuredClone(manifest.members[1]));
+  if(kind==='duplicate attribute')manifest.members[1].attributes.push(structuredClone(manifest.members[1].attributes[0]));
+  if(kind==='selected ASIN'){
+    capture.evidence.sourceID='B000000003';capture.evidence.sourceURL='https://www.amazon.com/dp/B000000003';capture.evidence.variants[0].sourceID='B000000003';
+  }
+  if(kind==='selected attributes')capture.evidence.variants[0].attributes[0].value='Black';
+  const handoff=vi.fn(async()=>{}),observe=vi.fn(async()=>{});
+  const c=new FamilyCoordinator({seed:async()=>first,read:async()=>({capture,parentASIN:manifest.parentASIN,manifest}),handoff,close:async()=>{}},
+    {resume:async()=>{},seed:async()=>{},observe,pause:async()=>{}});
+  await c.start();
+  expect(c.snapshot()).toMatchObject({phase:'paused',observed:1,reason:'SOURCE_CHANGED'});
+  expect(observe).not.toHaveBeenCalled();expect(handoff).not.toHaveBeenCalled();
+});
+
 it.each([false,true])('retains actionable progress after final assembly quota failure (pause write fails: %s)',async pauseFails=>{
   const read=vi.fn(async()=>{const doc=document(sibling,'Beige');return {capture:await captureAmazonDocument(doc,doc.URL),parentASIN:parent};});
   const handoff=vi.fn().mockRejectedValueOnce(Error('DRAFT_STORAGE_FULL')).mockResolvedValue(undefined);
