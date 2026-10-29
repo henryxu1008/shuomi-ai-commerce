@@ -9,8 +9,6 @@ resources:
   - listingkit-ui-auth-config.yaml
   - imgproxy-deployment.yaml
   - imgproxy-service.yaml
-  - image-agent-temporal-worker-deployment.yaml
-  - image-agent-temporal-worker-v3-deployment.yaml
   - listingkit-ui-deployment.yaml
   - listingkit-ui-service.yaml
   - listingkit-ui-traefik-network-policy.yaml

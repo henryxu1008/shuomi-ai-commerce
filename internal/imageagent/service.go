@@ -96,6 +96,9 @@ func NewService(repository Repository, workflows WorkflowClient, catalogs Author
 			return nil, err
 		}
 	}
+	if !service.organizationScope {
+		return nil, ErrIdentityRequired
+	}
 	return service, nil
 }
 
@@ -283,11 +286,11 @@ func (s *Service) Get(ctx context.Context, runID string) (RunProjection, error) 
 	if err != nil {
 		return RunProjection{}, err
 	}
-	if s.organizationScope {
-		if _, err := s.identityForRun(identity, projection.Run); err != nil {
-			return RunProjection{}, err
-		}
+
+	if _, err := s.identityForRun(identity, projection.Run); err != nil {
+		return RunProjection{}, err
 	}
+
 	return projection, nil
 }
 
@@ -425,12 +428,12 @@ func (s *Service) Resume(ctx context.Context, runID, actionID string) (CommandAc
 	if err != nil {
 		return CommandAcknowledgement{}, err
 	}
-	if s.organizationScope {
-		identity, err = s.identityForRun(identity, projection.Run)
-		if err != nil {
-			return CommandAcknowledgement{}, err
-		}
+
+	identity, err = s.identityForRun(identity, projection.Run)
+	if err != nil {
+		return CommandAcknowledgement{}, err
 	}
+
 	return s.workflows.Resume(ctx, ResumeCommand{RunID: runID, ActorID: identity.UserID, ActionID: actionID, Identity: identity})
 }
 
@@ -443,15 +446,15 @@ func (s *Service) ListEvents(ctx context.Context, runID string, afterCursor int6
 		return nil, fmt.Errorf("%w: event cursor and limit are invalid", ErrValidation)
 	}
 	scope := RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: strings.TrimSpace(runID)}
-	if s.organizationScope {
-		projection, err := s.repository.GetProjection(ctx, scope)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := s.identityForRun(identity, projection.Run); err != nil {
-			return nil, err
-		}
+
+	projection, err := s.repository.GetProjection(ctx, scope)
+	if err != nil {
+		return nil, err
 	}
+	if _, err := s.identityForRun(identity, projection.Run); err != nil {
+		return nil, err
+	}
+
 	events, err := s.repository.ListEvents(ctx, scope, afterCursor, limit)
 	if err != nil {
 		return nil, err
@@ -514,15 +517,15 @@ const OrganizationScopeProtocol = "image-agent.organization.v1"
 
 func (s *Service) identityForRun(identity ExecutionIdentity, run Run) (ExecutionIdentity, error) {
 	identity.BusinessTaskID = run.BusinessTaskID
-	if s.organizationScope {
-		if run.ScopeProtocol != OrganizationScopeProtocol || run.TenantID != identity.TenantID || run.UserID != identity.UserID || run.MemberID == "" || run.MemberID != identity.MemberID {
-			return ExecutionIdentity{}, ErrIdentityRequired
-		}
-		identity.RunID = run.ID
-		if err := ValidateOrganizationExecution(identity, run.ID); err != nil {
-			return ExecutionIdentity{}, err
-		}
+
+	if run.ScopeProtocol != OrganizationScopeProtocol || run.TenantID != identity.TenantID || run.UserID != identity.UserID || run.MemberID == "" || run.MemberID != identity.MemberID {
+		return ExecutionIdentity{}, ErrIdentityRequired
 	}
+	identity.RunID = run.ID
+	if err := ValidateOrganizationExecution(identity, run.ID); err != nil {
+		return ExecutionIdentity{}, err
+	}
+
 	return identity, nil
 }
 
@@ -538,7 +541,7 @@ func WithOrganizationScope() ServiceOption {
 
 func (s *Service) executionIdentity(ctx context.Context) (ExecutionIdentity, error) {
 	identity, err := verifiedExecutionIdentity(ctx)
-	if err != nil || !s.organizationScope {
+	if err != nil {
 		return identity, err
 	}
 	verified, ok := authidentity.AuthenticatedIdentityFromContext(ctx)

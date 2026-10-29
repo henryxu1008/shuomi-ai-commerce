@@ -20,7 +20,7 @@ func TestRunImageAgentCompatibilityCanaryUsesConfiguredQueueAndExactAcknowledgem
 }
 
 func TestRunImageAgentCompatibilityCanaryRejectsWrongAcknowledgement(t *testing.T) {
-	client := &recordingCanaryClient{acknowledgement: CompatibilityCanaryAcknowledgement{Build: compatibilityCanaryBuild, WireMode: WorkerWireModeV2}}
+	client := &recordingCanaryClient{acknowledgement: CompatibilityCanaryAcknowledgement{Build: compatibilityCanaryBuild, WireMode: WorkerWireMode("v2")}}
 
 	err := runImageAgentCompatibilityCanary(context.Background(), client, TaskQueueV3)
 	require.ErrorContains(t, err, "unexpected image agent compatibility canary acknowledgement")

@@ -13,7 +13,7 @@ import (
 )
 
 func TestSlotEffectV3BudgetConcurrentLastUnitHasOneOwner(t *testing.T) {
-	repository := NewGormRepository(newConcurrentSQLite(t))
+	repository := NewOrganizationRepository(newConcurrentSQLite(t))
 	scope, policy := initializeBudgetedSlotEffectRun(t, repository, "run-budget-concurrent")
 	effects := repository.(imageagent.SlotExternalEffectV3Repository)
 	var group sync.WaitGroup
@@ -79,7 +79,7 @@ func TestSlotEffectV3BudgetReservationLifecycle(t *testing.T) {
 		new  func(*testing.T) imageagent.Repository
 	}{
 		{"memory", func(*testing.T) imageagent.Repository { return NewMemoryRepository() }},
-		{"gorm", func(t *testing.T) imageagent.Repository { return NewGormRepository(newConcurrentSQLite(t)) }},
+		{"gorm", func(t *testing.T) imageagent.Repository { return NewOrganizationRepository(newConcurrentSQLite(t)) }},
 	}
 	for _, factory := range factories {
 		t.Run(factory.name, func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestSlotEffectV3BudgetReleaseAndUnknownAdmission(t *testing.T) {
 	for _, factory := range []struct {
 		name string
 		new  func(*testing.T) imageagent.Repository
-	}{{"memory", func(*testing.T) imageagent.Repository { return NewMemoryRepository() }}, {"gorm", func(t *testing.T) imageagent.Repository { return NewGormRepository(newConcurrentSQLite(t)) }}} {
+	}{{"memory", func(*testing.T) imageagent.Repository { return NewMemoryRepository() }}, {"gorm", func(t *testing.T) imageagent.Repository { return NewOrganizationRepository(newConcurrentSQLite(t)) }}} {
 		t.Run(factory.name, func(t *testing.T) {
 			ctx := context.Background()
 			repository := factory.new(t)
@@ -169,7 +169,7 @@ func TestSlotEffectV3ProviderNotDispatchedReclaimsOnlyAfterProvenNoEffect(t *tes
 	for _, factory := range []struct {
 		name string
 		new  func(*testing.T) imageagent.Repository
-	}{{"memory", func(*testing.T) imageagent.Repository { return NewMemoryRepository() }}, {"gorm", func(t *testing.T) imageagent.Repository { return NewGormRepository(newConcurrentSQLite(t)) }}} {
+	}{{"memory", func(*testing.T) imageagent.Repository { return NewMemoryRepository() }}, {"gorm", func(t *testing.T) imageagent.Repository { return NewOrganizationRepository(newConcurrentSQLite(t)) }}} {
 		t.Run(factory.name, func(t *testing.T) {
 			ctx := context.Background()
 			repository := factory.new(t)
@@ -200,7 +200,7 @@ func TestSlotEffectV3PolicyDriftOnlyBlocksAdditionalBudgetAdmission(t *testing.T
 		new  func(*testing.T) imageagent.Repository
 	}{
 		{"memory", func(*testing.T) imageagent.Repository { return NewMemoryRepository() }},
-		{"gorm", func(t *testing.T) imageagent.Repository { return NewGormRepository(newConcurrentSQLite(t)) }},
+		{"gorm", func(t *testing.T) imageagent.Repository { return NewOrganizationRepository(newConcurrentSQLite(t)) }},
 	}
 	for _, factory := range factories {
 		factory := factory

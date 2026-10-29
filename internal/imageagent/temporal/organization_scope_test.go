@@ -2,23 +2,21 @@ package temporal
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
-	sdkclient "go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/testsuite"
 	"strings"
 	"task-processor/internal/imageagent"
 	"testing"
-)
 
-func TestLegacyActivityRejectsOrganizationIdentity(t *testing.T) {
-	_, err := restoreActivityIdentity(context.Background(), imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org-b", UserID: "actor", RunID: "run", BusinessTaskID: "context"})
-	require.Error(t, err)
-}
+	"github.com/stretchr/testify/require"
+	sdkclient "go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/testsuite"
+)
 
 func TestOrganizationClientAndWorkflowModeIsolation(t *testing.T) {
 	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org-b", UserID: "actor", RunID: "run", BusinessTaskID: "context"}
 	raw := &recordingSDKClient{}
-	_, err := NewClient(raw).Resume(context.Background(), imageagent.ResumeCommand{RunID: "run", ActorID: "actor", ActionID: "resume", Identity: identity})
+	legacy := identity
+	legacy.ScopeProtocol = ""
+	_, err := NewOrganizationClient(raw).Resume(context.Background(), imageagent.ResumeCommand{RunID: "run", ActorID: "actor", ActionID: "resume", Identity: legacy})
 	require.Error(t, err)
 	require.Empty(t, raw.updateOptions)
 	_, err = NewOrganizationClient(raw).Resume(context.Background(), imageagent.ResumeCommand{RunID: "run", ActorID: "actor", ActionID: "resume", Identity: imageagent.ExecutionIdentity{TenantID: "org-b", UserID: "actor"}})

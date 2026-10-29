@@ -5,9 +5,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 workflow="$repo_root/.github/workflows/listingkit-deploy.yml"
 runner_manifest="$repo_root/deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml"
-worker_manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-v3-deployment.yaml"
+worker_v2_manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-deployment.yaml"
+worker_v3_manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-v3-deployment.yaml"
 
-[[ -f "$workflow" && -f "$runner_manifest" && -f "$worker_manifest" ]] || {
+[[ -f "$workflow" && -f "$runner_manifest" ]] || {
   printf 'image-agent canary order guard inputs are missing\n' >&2
   exit 1
 }
@@ -42,8 +43,8 @@ if grep -q -- '-canary-task-queue", "image-agent-manual-v3"' "$runner_manifest";
   printf 'v3 canary runner must not share the production worker queue\n' >&2
   exit 1
 fi
-grep -q '"image-agent-manual-v3"' "$worker_manifest" || {
-  printf 'v3 production worker queue contract is missing\n' >&2
+[[ ! -e "$worker_v2_manifest" && ! -e "$worker_v3_manifest" ]] || {
+  printf 'retired raw image-agent worker manifests must be absent\n' >&2
   exit 1
 }
 

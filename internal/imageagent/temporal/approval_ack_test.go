@@ -20,19 +20,19 @@ func TestManualWorkflowApprovalLostACKCannotBeSupersededByCancel(t *testing.T) {
 	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	publications, receiptReads := 0, 0
 	var originalKey string
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			publications++
-			originalKey = activityInputFromArgs[PublishApprovedActivityInput](t, args).IdempotencyKey
+			originalKey = activityInputFromArgs[PublishApprovedV3ActivityInput](t, args).IdempotencyKey
 		}).Return(sdktemporal.NewNonRetryableApplicationError("Asset committed, acknowledgement lost", "publication_ack_unknown", nil)).Once()
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			receiptReads++
-			require.Equal(t, originalKey, activityInputFromArgs[PublishApprovedActivityInput](t, args).IdempotencyKey)
+			require.Equal(t, originalKey, activityInputFromArgs[PublishApprovedV3ActivityInput](t, args).IdempotencyKey)
 		}).Return(nil).Once()
 	cancelledWrites := 0
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {

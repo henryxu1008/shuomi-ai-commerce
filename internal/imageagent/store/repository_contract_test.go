@@ -36,7 +36,7 @@ func TestRepositoryContract(t *testing.T) {
 				db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 				require.NoError(t, err)
 				require.NoError(t, AutoMigrate(db))
-				return NewGormRepository(db).(repositoryContract)
+				return NewOrganizationRepository(db).(repositoryContract)
 			},
 		},
 	}
@@ -858,7 +858,7 @@ func manualRun(runID, tenantID string) *imageagent.Run {
 		Mode:           imageagent.RunModeManual,
 		IdempotencyKey: "run-key-" + runID,
 		Status:         imageagent.RunStatusPlanning,
-	}
+		ScopeProtocol:  imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-1"}
 }
 
 func planRevision(revision int64) imageagent.Plan {

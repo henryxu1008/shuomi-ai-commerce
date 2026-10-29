@@ -18,7 +18,7 @@ import (
 func TestImageAgentTemporalRuntimeDisabledDoesNotDial(t *testing.T) {
 	t.Setenv(envImageAgentTemporalEnabled, "false")
 	dialed := false
-	closeFn, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, imageAgentTemporalRuntimeDependencies{
+	closeFn, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{
 		Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
 			dialed = true
 			return nil, nil, errors.New("must not dial")
@@ -44,7 +44,7 @@ func TestImageAgentOrganizationWorkerRequiresLiveExecutionAuthorizerBeforeDial(t
 	t.Setenv(envImageAgentTemporalEnabled, "true")
 	dialed := false
 	_, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
-		Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
+		Repository: store.NewMemoryRepository(), PublisherV3: runtimePublisher{},
 		StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
 	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{
 		Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
@@ -64,7 +64,7 @@ func TestImageAgentOrganizationWorkerRegistersAuthorizedActivities(t *testing.T)
 	registered := false
 	closeFn, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
 		ExecutionAuthorizer: runtimeOrganizationAuthorizer{},
-		Repository:          store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
+		Repository:          store.NewMemoryRepository(), PublisherV3: runtimePublisher{},
 		StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
 	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{
 		Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
@@ -92,9 +92,9 @@ func TestImageAgentTemporalRuntimeComposesAndClosesWorker(t *testing.T) {
 	var gotAddress, gotNamespace string
 	var gotConfig imageagenttemporal.WorkerConfig
 	closeFn, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
-		Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
+		ExecutionAuthorizer: runtimeOrganizationAuthorizer{}, Repository: store.NewMemoryRepository(), PublisherV3: runtimePublisher{},
 		StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
-	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, imageAgentTemporalRuntimeDependencies{
+	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{
 		Dial: func(_ context.Context, address, namespace string) (sdkclient.Client, func() error, error) {
 			gotAddress, gotNamespace = address, namespace
 			return nil, func() error { clientCloses++; return nil }, nil
@@ -109,8 +109,8 @@ func TestImageAgentTemporalRuntimeComposesAndClosesWorker(t *testing.T) {
 	require.Equal(t, "temporal.internal:7233", gotAddress)
 	require.Equal(t, "listingkit", gotNamespace)
 	require.NotNil(t, gotConfig.Activities)
-	require.Equal(t, imageagenttemporal.WorkerWireModeV3, gotConfig.WireMode)
-	require.Empty(t, gotConfig.TaskQueue)
+	require.Equal(t, imageagenttemporal.WorkerWireModeOrganization, gotConfig.WireMode)
+	require.Equal(t, imageagenttemporal.OrganizationTaskQueue, gotConfig.TaskQueue)
 	require.True(t, worker.started)
 
 	require.NoError(t, closeFn())
@@ -127,9 +127,9 @@ func TestRunImageAgentTemporalWorkerForwardsExistingContextToDial(t *testing.T) 
 	var gotContext context.Context
 	closed := false
 	err := runImageAgentTemporalWorkerWithOptionsAndDependencies(ctx, ImageAgentTemporalDependencies{
-		Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
+		ExecutionAuthorizer: runtimeOrganizationAuthorizer{}, Repository: store.NewMemoryRepository(), PublisherV3: runtimePublisher{},
 		StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
-	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, nil, imageAgentTemporalRuntimeDependencies{
+	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, nil, imageAgentTemporalRuntimeDependencies{
 		Dial: func(callContext context.Context, _, _ string) (sdkclient.Client, func() error, error) {
 			gotContext = callContext
 			return nil, func() error { closed = true; return nil }, nil
@@ -151,14 +151,13 @@ func TestImageAgentTemporalRuntimeForwardsExplicitWorkerModeAndQueue(t *testing.
 		mode  imageagenttemporal.WorkerWireMode
 		queue string
 	}{
-		{name: "v2 compatibility", mode: imageagenttemporal.WorkerWireModeV2, queue: imageagenttemporal.TaskQueue},
-		{name: "v3 recovery", mode: imageagenttemporal.WorkerWireModeV3, queue: imageagenttemporal.TaskQueueV3},
+		{name: "organization", mode: imageagenttemporal.WorkerWireModeOrganization, queue: imageagenttemporal.OrganizationTaskQueue},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			worker := &recordingImageAgentWorker{}
 			var got imageagenttemporal.WorkerConfig
 			closeFn, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
-				Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
+				ExecutionAuthorizer: runtimeOrganizationAuthorizer{}, Repository: store.NewMemoryRepository(), PublisherV3: runtimePublisher{},
 				StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
 			}, ImageAgentTemporalWorkerOptions{WireMode: test.mode, TaskQueue: test.queue}, imageAgentTemporalRuntimeDependencies{
 				Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
@@ -179,25 +178,25 @@ func TestImageAgentTemporalRuntimeForwardsExplicitWorkerModeAndQueue(t *testing.
 
 func TestImageAgentTemporalRuntimeDoesNotReplaceInvalidExplicitWorkerConfiguration(t *testing.T) {
 	t.Setenv(envImageAgentTemporalEnabled, "true")
-	want := errors.New("NewWorker rejected opposite/default mismatch")
-	var got imageagenttemporal.WorkerConfig
-	closed := 0
-	_, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
-		Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
-		StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
-	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV2, TaskQueue: imageagenttemporal.TaskQueueV3}, imageAgentTemporalRuntimeDependencies{
-		Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
-			return nil, func() error { closed++; return nil }, nil
-		},
-		NewWorker: func(config imageagenttemporal.WorkerConfig) (imageAgentWorker, error) {
-			got = config
-			return nil, want
-		},
-	})
-	require.ErrorIs(t, err, want)
-	require.Equal(t, imageagenttemporal.WorkerWireModeV2, got.WireMode)
-	require.Equal(t, imageagenttemporal.TaskQueueV3, got.TaskQueue)
-	require.Equal(t, 1, closed)
+	for _, mode := range []imageagenttemporal.WorkerWireMode{"", "v2", imageagenttemporal.WorkerWireModeV3} {
+		t.Run(string(mode), func(t *testing.T) {
+			dials, builds := 0, 0
+			closeFn, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{}, ImageAgentTemporalWorkerOptions{WireMode: mode, TaskQueue: imageagenttemporal.TaskQueueV3}, imageAgentTemporalRuntimeDependencies{
+				Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
+					dials++
+					return nil, nil, errors.New("must not dial")
+				},
+				NewWorker: func(imageagenttemporal.WorkerConfig) (imageAgentWorker, error) {
+					builds++
+					return nil, errors.New("must not build")
+				},
+			})
+			require.Error(t, err)
+			require.Nil(t, closeFn)
+			require.Zero(t, dials)
+			require.Zero(t, builds)
+		})
+	}
 }
 
 func TestImageAgentTemporalRuntimeClosesClientWhenWorkerStartFails(t *testing.T) {
@@ -206,9 +205,9 @@ func TestImageAgentTemporalRuntimeClosesClientWhenWorkerStartFails(t *testing.T)
 	closed := 0
 	worker := &recordingImageAgentWorker{startErr: want}
 	_, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
-		Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
+		ExecutionAuthorizer: runtimeOrganizationAuthorizer{}, Repository: store.NewMemoryRepository(), PublisherV3: runtimePublisher{},
 		StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
-	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, imageAgentTemporalRuntimeDependencies{
+	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{
 		Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
 			return nil, func() error { closed++; return nil }, nil
 		},
@@ -229,9 +228,9 @@ func TestImageAgentTemporalRuntimeRejectsMissingCloseOwnerBeforeWorkerActions(t 
 			}
 			builds := 0
 			closeFn, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
-				Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{}, PublisherV3: runtimePublisher{},
+				ExecutionAuthorizer: runtimeOrganizationAuthorizer{}, Repository: store.NewMemoryRepository(), PublisherV3: runtimePublisher{},
 				StagedSlotExecutor: runtimeSlotExecutor{}, ArtifactStore: runtimeArtifactStore{},
-			}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, imageAgentTemporalRuntimeDependencies{
+			}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{
 				Dial: func(context.Context, string, string) (sdkclient.Client, func() error, error) {
 					return nil, nil, nil
 				},
@@ -254,16 +253,16 @@ func TestImageAgentTemporalRuntimeRejectsMissingCloseOwnerBeforeWorkerActions(t 
 
 func TestImageAgentTemporalRuntimeFailsClosedWithoutProductPorts(t *testing.T) {
 	t.Setenv(envImageAgentTemporalEnabled, "true")
-	_, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{Repository: store.NewMemoryRepository()}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, imageAgentTemporalRuntimeDependencies{})
+	_, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{ExecutionAuthorizer: runtimeOrganizationAuthorizer{}, Repository: store.NewMemoryRepository()}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{})
 	require.ErrorContains(t, err, "slot executor")
 }
 
 func TestImageAgentTemporalRuntimeFailsClosedWithPartialV3Ports(t *testing.T) {
 	t.Setenv(envImageAgentTemporalEnabled, "true")
 	_, err := startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(context.Background(), ImageAgentTemporalDependencies{
-		Repository: store.NewMemoryRepository(), SlotExecutor: runtimeSlotExecutor{}, Publisher: runtimePublisher{},
+		ExecutionAuthorizer: runtimeOrganizationAuthorizer{}, Repository: store.NewMemoryRepository(),
 		StagedSlotExecutor: runtimeSlotExecutor{},
-	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeV3}, imageAgentTemporalRuntimeDependencies{})
+	}, ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue}, imageAgentTemporalRuntimeDependencies{})
 	require.ErrorContains(t, err, "durable artifact store")
 }
 
@@ -424,10 +423,6 @@ func (runtimeArtifactStore) FinalizeWithProgress(context.Context, imageagent.Sta
 }
 
 type runtimePublisher struct{}
-
-func (runtimePublisher) PublishApproved(context.Context, imageagent.PublishApprovedInput) (imageagent.PublicationAcknowledgement, error) {
-	return imageagent.PublicationAcknowledgement{}, nil
-}
 
 func (runtimePublisher) PublishApprovedV3(context.Context, imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
 	return imageagent.PublicationAcknowledgement{}, nil

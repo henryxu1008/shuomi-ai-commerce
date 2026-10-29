@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	client "go.temporal.io/sdk/client"
+
 	"github.com/stretchr/testify/require"
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdktemporal "go.temporal.io/sdk/temporal"
@@ -30,7 +32,6 @@ import (
 
 func TestExecuteSlotV3RestoresProductImageBusinessIdentity(t *testing.T) {
 	repository, input := initializedSlotEffectV3Activity(t, "run-v3-product-image-identity")
-	input.Identity.BusinessTaskID = "task-product-image"
 	input.Identity.TraceID = "trace-product-image"
 	executor := &recordingStagedExecutor{generated: generatedV3Output(input, writeTinyPNG(t))}
 	activities := newV3Activities(t, repository, repository.(imageagent.SlotExternalEffectV3Repository), executor, &recordingArtifactStore{})
@@ -39,7 +40,7 @@ func TestExecuteSlotV3RestoresProductImageBusinessIdentity(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, aiidentity.Identity{
-		TenantID: "tenant-a", UserID: "user-a", BusinessTaskID: "task-product-image", TraceID: "trace-product-image",
+		AgentRunID: input.RunID, TenantID: "tenant-a", UserID: "user-a", BusinessTaskID: input.Identity.BusinessTaskID, TraceID: "trace-product-image",
 	}, executor.AIIdentity())
 }
 
@@ -182,9 +183,9 @@ func TestExecuteSlotV3PersistsDispatchedOutcomeAfterCallerCancellation(t *testin
 	provider := &budgetedRecordingExecutor{recordingStagedExecutor: baseProvider, quote: budgetActivityQuote("quote-cancelled-after-dispatch")}
 	effects := &cancellationRejectingV3Repository{SlotExternalEffectV3Repository: repository.(imageagent.SlotExternalEffectV3Repository)}
 	activities, newErr := NewActivities(ActivityDependencies{
-		Repository: repository, SlotEffects: repository.(imageagent.SlotExternalEffectRepository), SlotExecutor: provider,
+		Repository: repository, ExecutionAuthorizer: allowGenerationExecution{},
 		SlotEffectsV3: effects, StagedSlotExecutor: provider, ArtifactStore: &recordingArtifactStore{},
-		Publisher: &identityCheckingPublisher{t: t}, PublisherV3: &identityCheckingPublisher{t: t}, PublicationOwner: func(context.Context) (string, error) { return "workflow-run/activity/1", nil },
+		PublisherV3: &identityCheckingPublisher{t: t}, PublicationOwner: func(context.Context) (string, error) { return "workflow-run/activity/1", nil },
 	})
 	require.NoError(t, newErr)
 
@@ -385,10 +386,12 @@ func TestReviewStagedSlotV3ReleasesOnlyConfirmedPreDispatchBudget(t *testing.T) 
 		t.Run(tc.name, func(t *testing.T) {
 			repository, input, policy := initializedBudgetedV3Activity(t, "run-review-budget-"+tc.name, 3)
 			input.BudgetAuthorization, input.BudgetPolicy, input.ReviewActionID = true, policy, "retry-review"
-			input.AssetCatalog.Assets = append(input.AssetCatalog.Assets, imageagent.AuthorizedAsset{ID: "source-1", Type: imageagent.AuthorizedAssetSource, SourceURL: "https://source.example/original.png"})
+			// The initialized organization catalog already contains the captured source.
 			effects := repository.(imageagent.SlotExternalEffectV3Repository)
-			seedV3StagingPrepared(t, effects, input, v3StagingManifest(input, tinyPNGBytes(t)))
-			executor := &budgetedReviewFailureExecutor{budgetedRecordingExecutor: &budgetedRecordingExecutor{recordingStagedExecutor: &recordingStagedExecutor{}, quote: budgetActivityQuote("review-budget-" + tc.name)}, state: tc.state}
+			reviewQuote := budgetActivityQuote("review-budget-" + tc.name)
+			reviewQuote.Operations[0].Name = "review"
+			seedV3StagingPrepared(t, effects, input, v3StagingManifest(input, tinyPNGBytes(t)), reviewQuote)
+			executor := &budgetedReviewFailureExecutor{budgetedRecordingExecutor: &budgetedRecordingExecutor{recordingStagedExecutor: &recordingStagedExecutor{}, quote: reviewQuote}, state: tc.state}
 			activities := newBudgetV3Activities(t, repository, executor, &recordingArtifactStore{})
 			_, err := activities.ReviewStagedSlotV3(context.Background(), input)
 			require.Error(t, err)
@@ -449,7 +452,7 @@ func TestReviewStagedSlotV3ReplaysPersistedHumanReviewBlock(t *testing.T) {
 func TestReviewStagedSlotV3CompletesHumanBlockAfterOutcomeBeforePhaseTransition(t *testing.T) {
 	repository, input, policy := initializedBudgetedV3Activity(t, "run-v3-review-human-phase-replay", 2)
 	input.BudgetAuthorization, input.BudgetPolicy, input.ReviewActionID = true, policy, "review-action"
-	input.AssetCatalog.Assets = append(input.AssetCatalog.Assets, imageagent.AuthorizedAsset{ID: "source-1", Type: imageagent.AuthorizedAssetSource, SourceURL: "https://source.example/original.png"})
+	// The initialized organization catalog already contains the captured source.
 	effects := repository.(imageagent.SlotExternalEffectV3Repository)
 	manifest := v3StagingManifest(input, tinyPNGBytes(t))
 	providerReservation := v3Reservation(input)
@@ -685,22 +688,23 @@ func TestExecuteSlotV3CancellationReconcilesLostPublicationResponsesWithinFinali
 func TestImageSlotWorkflowV3StartsFreshActivityAfterFinalInnerAttemptLosesPublicationResponse(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	leaseDuration := 30 * time.Second
 	repository := store.NewMemoryRepositoryWithClock(func() time.Time { return env.Now().UTC() })
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
-	run := imageagent.Run{ID: "run-v3-delayed-takeover", BusinessTaskID: "task-delayed-takeover", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-delayed-takeover", Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-v3-delayed-takeover", MemberID: "member-" + "user-a", BusinessTaskID: "task-delayed-takeover", TenantID: "tenant-a", UserID: "user-a"}
+	run := imageagent.Run{ID: "run-v3-delayed-takeover", BusinessTaskID: "task-delayed-takeover", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-delayed-takeover", Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-delayed-takeover", SourceAssetIDs: []string{"source-1"}, CreatedBy: identity.UserID, Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-delayed-takeover"}}}
 	initializeActivityProjection(t, repository, run, plan)
-	input := ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-delayed-takeover:plan:1:attempt:1"}
+	input := ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-delayed-takeover:plan:1:attempt:1", AssetCatalog: activityFixtureCatalog(t, repository, run.ID)}
 	baseEffects := repository.(imageagent.SlotExternalEffectV3Repository)
 	seedV3ArtifactStaged(t, baseEffects, input, v3StagingManifest(input, tinyPNGBytes(t)))
 	effects := &delayedTakeoverV3Repository{SlotExternalEffectV3Repository: baseEffects, reserveFailures: 4}
 	executor := &recordingStagedExecutor{}
 	artifacts := &lostPublicationResponseArtifactStore{recordingArtifactStore: &recordingArtifactStore{}, loseFirstResponse: true}
 	activities, err := NewActivities(ActivityDependencies{
-		Repository: repository, SlotEffects: repository.(imageagent.SlotExternalEffectRepository), SlotExecutor: executor,
+		Repository: repository, ExecutionAuthorizer: allowGenerationExecution{},
 		SlotEffectsV3: effects, StagedSlotExecutor: executor, ArtifactStore: artifacts,
-		Publisher: &identityCheckingPublisher{t: t}, PublisherV3: &identityCheckingPublisher{t: t}, PublicationLeaseDuration: leaseDuration,
+		PublisherV3: &identityCheckingPublisher{t: t}, PublicationLeaseDuration: leaseDuration,
 	})
 	require.NoError(t, err)
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
@@ -981,11 +985,11 @@ func TestExecuteSlotV3RejectsFaultyExecutorCompletionBijection(t *testing.T) {
 func TestExecuteSlotV3RenewsLeaseBetweenAssetsToPreventTakeover(t *testing.T) {
 	clock := time.Date(2026, time.August, 27, 12, 0, 0, 0, time.UTC)
 	repository := store.NewMemoryRepositoryWithClock(func() time.Time { return clock })
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
-	run := imageagent.Run{ID: "run-v3-progress-renewal", BusinessTaskID: "task-progress", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-progress", Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-v3-progress-renewal", MemberID: "member-" + "user-a", BusinessTaskID: "task-progress", TenantID: "tenant-a", UserID: "user-a"}
+	run := imageagent.Run{ID: "run-v3-progress-renewal", BusinessTaskID: "task-progress", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-progress", Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-progress", SourceAssetIDs: []string{"source-1"}, CreatedBy: identity.UserID, Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-progress"}}}
 	initializeActivityProjection(t, repository, run, plan)
-	input := ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-progress:plan:1:attempt:1"}
+	input := ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-progress:plan:1:attempt:1", AssetCatalog: activityFixtureCatalog(t, repository, run.ID)}
 	effects := repository.(imageagent.SlotExternalEffectV3Repository)
 	manifest := v3StagingManifest(input, tinyPNGBytes(t))
 	second := manifest.Assets[0]
@@ -1140,11 +1144,11 @@ func TestExecuteSlotV3ProductionStoreReconcilesMultiAssetAfterLocalBytesVanish(t
 func TestExecuteSlotV3ProductionStoreCompletionCrashTakesOverWithoutRecopy(t *testing.T) {
 	clock := time.Date(2026, time.August, 27, 15, 0, 0, 0, time.UTC)
 	repository := store.NewMemoryRepositoryWithClock(func() time.Time { return clock })
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
-	run := imageagent.Run{ID: "run-v3-completion-crash", BusinessTaskID: "task-crash", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-crash", Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-v3-completion-crash", MemberID: "member-" + "user-a", BusinessTaskID: "task-crash", TenantID: "tenant-a", UserID: "user-a"}
+	run := imageagent.Run{ID: "run-v3-completion-crash", BusinessTaskID: "task-crash", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-crash", Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-crash", SourceAssetIDs: []string{"source-1"}, CreatedBy: identity.UserID, Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-crash"}}}
 	initializeActivityProjection(t, repository, run, plan)
-	input := ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-crash:plan:1:attempt:1"}
+	input := ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-crash:plan:1:attempt:1", AssetCatalog: activityFixtureCatalog(t, repository, run.ID)}
 	baseEffects := repository.(imageagent.SlotExternalEffectV3Repository)
 	effects := &failOnceCompletionRepository{SlotExternalEffectV3Repository: baseEffects, fail: true}
 	api := &statefulActivityObjectStore{objects: map[string]activityS3Object{}}
@@ -1185,9 +1189,9 @@ func newV3Activities(t *testing.T, repository imageagent.Repository, effects ima
 func newV3ActivitiesWithOwner(t *testing.T, repository imageagent.Repository, effects imageagent.SlotExternalEffectV3Repository, executor *recordingStagedExecutor, artifacts DurableArtifactStore, owner string) *Activities {
 	t.Helper()
 	activities, err := NewActivities(ActivityDependencies{
-		Repository: repository, SlotEffects: repository.(imageagent.SlotExternalEffectRepository), SlotExecutor: executor,
+		Repository: repository, ExecutionAuthorizer: allowGenerationExecution{},
 		SlotEffectsV3: effects, StagedSlotExecutor: executor, ArtifactStore: artifacts,
-		Publisher: &identityCheckingPublisher{t: t}, PublisherV3: &identityCheckingPublisher{t: t}, PublicationOwner: func(context.Context) (string, error) { return owner, nil },
+		PublisherV3: &identityCheckingPublisher{t: t}, PublicationOwner: func(context.Context) (string, error) { return owner, nil },
 	})
 	require.NoError(t, err)
 	return activities
@@ -1212,12 +1216,17 @@ func v3Reservation(input ExecuteSlotV3ActivityInput) imageagent.SlotEffectV3Rese
 	}
 }
 
-func seedV3StagingPrepared(t *testing.T, effects imageagent.SlotExternalEffectV3Repository, input ExecuteSlotV3ActivityInput, manifest imageagent.StagingManifest) {
+func seedV3StagingPrepared(t *testing.T, effects imageagent.SlotExternalEffectV3Repository, input ExecuteSlotV3ActivityInput, manifest imageagent.StagingManifest, quotes ...imageagent.SlotUsageQuote) {
+	reservation := v3Reservation(input)
+	if len(quotes) > 0 {
+		reservation.Policy = input.BudgetPolicy
+		reservation.Quote = quotes[0]
+	}
 	t.Helper()
-	_, claimed, err := effects.ReserveSlotProviderV3(context.Background(), v3Reservation(input))
+	_, claimed, err := effects.ReserveSlotProviderV3(context.Background(), reservation)
 	require.NoError(t, err)
 	require.True(t, claimed)
-	_, err = effects.PrepareSlotStagingV3(context.Background(), v3Reservation(input), manifest)
+	_, err = effects.PrepareSlotStagingV3(context.Background(), reservation, manifest)
 	require.NoError(t, err)
 }
 
@@ -2110,5 +2119,5 @@ func (r *lostResponseV3Repository) RenewCalls() int {
 }
 
 var _ imageagent.StagedSlotExecutor = (*recordingStagedExecutor)(nil)
-var _ imageagent.RecoverableSlotExecutor = (*recordingStagedExecutor)(nil)
+
 var _ DurableArtifactStore = (*recordingArtifactStore)(nil)

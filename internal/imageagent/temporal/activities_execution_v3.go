@@ -15,8 +15,6 @@ import (
 	"task-processor/internal/ledger/storagecapacity"
 )
 
-const slotProviderOutcomeUnknownErrorType = "imageagent_slot_provider_outcome_unknown"
-
 const (
 	slotProviderOutcomeUnknownCode        = imageagent.SlotProviderOutcomeUnknownCode
 	slotStagingOutcomeUnknownCode         = imageagent.SlotStagingOutcomeUnknownCode
@@ -69,20 +67,6 @@ type slotPublicationRecoveryDetails struct {
 	LeaseExpiresAt time.Time     `json:"lease_expires_at"`
 	Owner          string        `json:"owner"`
 	Fence          int64         `json:"fence"`
-}
-
-func (a *Activities) ExecuteSlot(ctx context.Context, input ExecuteSlotActivityInput) (imageagent.SlotExecutionResult, error) {
-	ctx, err := a.restoreExecutionIdentity(ctx, input.RunID, input.Identity)
-	if err != nil {
-		return imageagent.SlotExecutionResult{}, err
-	}
-	return a.slotExecutor.ExecuteSlot(ctx, imageagent.SlotExecutionInput{
-		RunID: input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
-		PlanRevision: input.PlanRevision, Slot: input.Slot, Attempt: input.Attempt,
-		IdempotencyKey: input.IdempotencyKey,
-		AssetCatalog:   input.AssetCatalog,
-		ProductContext: input.AssetCatalog.ProductContext,
-	})
 }
 
 func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3ActivityInput) (v3Result imageagent.SlotEffectV3PublishedResult, err error) {

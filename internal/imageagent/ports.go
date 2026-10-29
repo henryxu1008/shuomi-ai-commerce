@@ -17,10 +17,6 @@ type ExecutionIdentity struct {
 	TraceID        string
 }
 
-type SlotExecutor interface {
-	ExecuteSlot(context.Context, SlotExecutionInput) (SlotExecutionResult, error)
-}
-
 // StagedSlotExecutor is the v3 boundary between transient provider generation
 // and durable candidate construction. GenerateSlot may return transient
 // provider material, while BuildSlotResult accepts only final, durable object
@@ -55,10 +51,6 @@ type BudgetedStagedSlotExecutor interface {
 	StagedSlotExecutor
 	QuoteSlot(context.Context, SlotExecutionInput, BudgetPolicy) (SlotUsageQuote, error)
 	GenerateQuotedSlot(context.Context, SlotExecutionInput, SlotUsageQuote) (SlotGeneratedOutput, error)
-}
-
-type ApprovedAssetPublisher interface {
-	PublishApproved(context.Context, PublishApprovedInput) (PublicationAcknowledgement, error)
 }
 
 // ApprovedAssetPublisherV3 is deliberately separate from the frozen v2
@@ -137,15 +129,6 @@ type PublishedSlotOutput struct {
 	SlotID  string
 	Attempt int
 	Assets  []PublishedAssetRef
-}
-
-type PublishApprovedInput struct {
-	RunID             string
-	TenantID          string
-	UserID            string
-	PlanRevision      int64
-	CandidateAssetIDs []string
-	IdempotencyKey    string
 }
 
 // PublishApprovedV3Input is the additive durable-approval payload. Keep the

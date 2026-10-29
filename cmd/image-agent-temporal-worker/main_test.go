@@ -21,7 +21,7 @@ func TestRunFailsClosedWhenProductDependenciesAreUnavailable(t *testing.T) {
 	}, func(context.Context, appruntime.ImageAgentTemporalDependencies, appruntime.ImageAgentTemporalWorkerOptions, *logrus.Logger) error {
 		started = true
 		return nil
-	}, appruntime.ImageAgentTemporalWorkerOptions{WireMode: "v3", TaskQueue: "image-agent-manual-v3"}, logrus.New())
+	}, appruntime.ImageAgentTemporalWorkerOptions{WireMode: "organization-v1", TaskQueue: "image-agent-organization-v1"}, logrus.New())
 	require.ErrorIs(t, err, want)
 	require.False(t, started)
 }
@@ -31,26 +31,25 @@ func TestRunPassesResolvedDependenciesToTemporalRuntime(t *testing.T) {
 	called := false
 	closed := false
 	err := run(context.Background(), func(mode imageagenttemporal.WorkerWireMode) (resolvedDependencies, error) {
-		require.Equal(t, imageagenttemporal.WorkerWireModeV2, mode)
+		require.Equal(t, imageagenttemporal.WorkerWireModeOrganization, mode)
 		return resolvedDependencies{dependencies: want, close: func() error { closed = true; return nil }}, nil
 	}, func(_ context.Context, got appruntime.ImageAgentTemporalDependencies, options appruntime.ImageAgentTemporalWorkerOptions, _ *logrus.Logger) error {
 		called = true
 		require.Equal(t, want.Repository, got.Repository)
-		require.Equal(t, appruntime.ImageAgentTemporalWorkerOptions{WireMode: "v2", TaskQueue: "image-agent-manual"}, options)
+		require.Equal(t, appruntime.ImageAgentTemporalWorkerOptions{WireMode: "organization-v1", TaskQueue: "image-agent-organization-v1"}, options)
 		return errors.New("worker stopped")
-	}, appruntime.ImageAgentTemporalWorkerOptions{WireMode: "v2", TaskQueue: "image-agent-manual"}, logrus.New())
+	}, appruntime.ImageAgentTemporalWorkerOptions{WireMode: "organization-v1", TaskQueue: "image-agent-organization-v1"}, logrus.New())
 	require.EqualError(t, err, "worker stopped")
 	require.True(t, called)
 	require.True(t, closed)
 }
 
-func TestRunForwardsV2AndV3ProcessConfigurationWithoutAmbientDefaults(t *testing.T) {
+func TestRunForwardsOrganizationConfigurationWithoutAmbientDefaults(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		options appruntime.ImageAgentTemporalWorkerOptions
 	}{
-		{name: "v2", options: appruntime.ImageAgentTemporalWorkerOptions{WireMode: "v2", TaskQueue: "image-agent-manual"}},
-		{name: "v3", options: appruntime.ImageAgentTemporalWorkerOptions{WireMode: "v3", TaskQueue: "image-agent-manual-v3"}},
+		{name: "organization-v1", options: appruntime.ImageAgentTemporalWorkerOptions{WireMode: "organization-v1", TaskQueue: "image-agent-organization-v1"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			called := false
@@ -74,8 +73,8 @@ func TestRunRejectsMissingExplicitProcessWorkerConfigurationBeforeResolvingDepen
 		options appruntime.ImageAgentTemporalWorkerOptions
 		want    string
 	}{
-		{name: "missing mode", options: appruntime.ImageAgentTemporalWorkerOptions{TaskQueue: "image-agent-manual-v3"}, want: "wire mode is required"},
-		{name: "missing queue", options: appruntime.ImageAgentTemporalWorkerOptions{WireMode: "v3"}, want: "task queue is required"},
+		{name: "missing mode", options: appruntime.ImageAgentTemporalWorkerOptions{TaskQueue: "image-agent-organization-v1"}, want: "wire mode is required"},
+		{name: "missing queue", options: appruntime.ImageAgentTemporalWorkerOptions{WireMode: "organization-v1"}, want: "task queue is required"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resolved := false
@@ -118,4 +117,20 @@ func (commandRepository) GetAssetCatalog(context.Context, imageagent.RunScope) (
 }
 func (commandRepository) ListEvents(context.Context, imageagent.RunScope, int64, int) ([]imageagent.RunEvent, error) {
 	return nil, nil
+}
+
+func TestRetiredManualModesRejectBeforeResolving(t *testing.T) {
+	for _, mode := range []imageagenttemporal.WorkerWireMode{"v2", "v3"} {
+		resolved, started := 0, 0
+		err := run(context.Background(), func(imageagenttemporal.WorkerWireMode) (resolvedDependencies, error) {
+			resolved++
+			return resolvedDependencies{}, nil
+		}, func(context.Context, appruntime.ImageAgentTemporalDependencies, appruntime.ImageAgentTemporalWorkerOptions, *logrus.Logger) error {
+			started++
+			return nil
+		}, appruntime.ImageAgentTemporalWorkerOptions{WireMode: mode, TaskQueue: "image-agent-manual-v3"}, logrus.New())
+		require.Error(t, err)
+		require.Zero(t, resolved)
+		require.Zero(t, started)
+	}
 }

@@ -22,44 +22,6 @@ import (
 	s3integration "task-processor/internal/integration/s3"
 )
 
-func TestResolveImageAgentTemporalDependenciesComposesRealRepositoryExecutorPublisherAndCloser(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-runtime?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	closed := 0
-	var capabilityInput imageCapabilityRuntime
-	resolver := imageAgentWorkerDependencyResolver{
-		LoadConfig: func(path string) (*config.Config, error) {
-			require.Equal(t, "config/worker.yaml", path)
-			cfg := &config.Config{Database: &config.DatabaseConfig{}}
-			cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
-			return cfg, nil
-		},
-		OpenDB:  func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
-		CloseDB: func(*config.DatabaseConfig, *gorm.DB) error { closed++; return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
-			return nil, nil, nil
-		},
-		BuildCapabilities: func(input imageCapabilityRuntime) (ImageCapabilities, error) {
-			capabilityInput = input
-			return completeWorkerImageCapabilities(), nil
-		},
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
-			return stubWorkerArtifactStore{}, nil
-		},
-	}
-
-	dependencies, closeFn, err := resolveImageAgentTemporalDependencies("config/worker.yaml", nil, resolver)
-	require.NoError(t, err)
-	require.NotNil(t, dependencies.Repository)
-	require.NotNil(t, dependencies.SlotExecutor)
-	require.NotNil(t, dependencies.StagedSlotExecutor)
-	require.NotNil(t, dependencies.ArtifactStore)
-	require.NotNil(t, dependencies.Publisher)
-	require.Nil(t, capabilityInput.OpenAIManager)
-	require.NoError(t, closeFn())
-	require.Equal(t, 1, closed)
-}
-
 func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorizer(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-org?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
@@ -177,81 +139,11 @@ func (acceptingOrganizationExecutionAuthorizer) AuthorizeExecution(context.Conte
 	return nil
 }
 
-func TestResolveImageAgentTemporalDependenciesForV2BuildsCompatibilityArtifactStore(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-v2-runtime?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	cfg := &config.Config{Database: &config.DatabaseConfig{}}
-	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("invalid-v3-mode", false)
-	storeBuilds := 0
-	resolver := imageAgentWorkerDependencyResolver{
-		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
-		OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
-		CloseDB:    func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
-			return nil, nil, nil
-		},
-		BuildCapabilities: func(imageCapabilityRuntime) (ImageCapabilities, error) {
-			return completeWorkerImageCapabilities(), nil
-		},
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
-			storeBuilds++
-			return stubWorkerArtifactStore{}, nil
-		},
-		ArtifactTiming: imageAgentArtifactTiming{OperationTimeout: 2 * time.Minute, PublicationLeaseDuration: time.Minute},
-	}
-
-	dependencies, closeFn, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeV2, resolver)
-	require.NoError(t, err)
-	require.NotNil(t, closeFn)
-	require.NotNil(t, dependencies.Repository)
-	require.NotNil(t, dependencies.SlotExecutor)
-	require.NotNil(t, dependencies.Publisher)
-	require.Nil(t, dependencies.StagedSlotExecutor)
-	require.Nil(t, dependencies.ArtifactStore)
-	require.Nil(t, dependencies.PublisherV3)
-	require.Zero(t, dependencies.PublicationLeaseDuration)
-	require.Equal(t, 1, storeBuilds)
-}
-
-func TestResolveImageAgentTemporalDependenciesForV2UsesCompatibilityArtifactStoreEvenWhenV3TimingIsDefaulted(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-v2-no-v3-fields?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	cfg := &config.Config{Database: &config.DatabaseConfig{}}
-	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("", false)
-	storeBuilds := 0
-	dependencies, closeFn, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeV2, imageAgentWorkerDependencyResolver{
-		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
-		OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
-		CloseDB:    func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
-			return nil, nil, nil
-		},
-		BuildCapabilities: func(imageCapabilityRuntime) (ImageCapabilities, error) {
-			return completeWorkerImageCapabilities(), nil
-		},
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
-			storeBuilds++
-			return stubWorkerArtifactStore{}, nil
-		},
-		ArtifactTiming: imageAgentArtifactTiming{},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, closeFn)
-	require.NotNil(t, dependencies.Repository)
-	require.NotNil(t, dependencies.SlotExecutor)
-	require.NotNil(t, dependencies.Publisher)
-	require.Nil(t, dependencies.StagedSlotExecutor)
-	require.Nil(t, dependencies.ArtifactStore)
-	require.Nil(t, dependencies.PublisherV3)
-	require.Zero(t, dependencies.PublicationLeaseDuration)
-	require.Equal(t, 1, storeBuilds)
-}
-
-func TestResolveImageAgentTemporalDependenciesForV3FailsBeforeDatabaseOnInvalidPolicy(t *testing.T) {
+func TestResolveImageAgentTemporalDependenciesForOrganizationFailsBeforeDatabaseOnInvalidPolicy(t *testing.T) {
 	cfg := &config.Config{Database: &config.DatabaseConfig{}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("cos", false)
 	databaseOpens, storeBuilds := 0, 0
-	_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeV3, imageAgentWorkerDependencyResolver{
+	_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, imageAgentWorkerDependencyResolver{
 		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 		OpenDB: func(*config.DatabaseConfig) (*gorm.DB, error) {
 			databaseOpens++
@@ -267,11 +159,11 @@ func TestResolveImageAgentTemporalDependenciesForV3FailsBeforeDatabaseOnInvalidP
 	require.Zero(t, storeBuilds)
 }
 
-func TestResolveImageAgentTemporalDependenciesForV3FailsBeforeDatabaseWhenArtifactModeIsAbsent(t *testing.T) {
+func TestResolveImageAgentTemporalDependenciesForOrganizationFailsBeforeDatabaseWhenArtifactModeIsAbsent(t *testing.T) {
 	cfg := &config.Config{Database: &config.DatabaseConfig{}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("", false)
 	databaseOpens, storeBuilds := 0, 0
-	_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeV3, imageAgentWorkerDependencyResolver{
+	_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, imageAgentWorkerDependencyResolver{
 		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 		OpenDB: func(*config.DatabaseConfig) (*gorm.DB, error) {
 			databaseOpens++
@@ -357,7 +249,7 @@ func TestResolveImageAgentTemporalDependenciesRejectsCredentialsBeforeDatabaseOp
 			cfg.ImageAgent.ArtifactStore.S3.AccessKeyID = tc.access
 			cfg.ImageAgent.ArtifactStore.S3.SecretAccessKey = tc.secret
 			dbOpens, storeBuilds := 0, 0
-			_, _, err := resolveImageAgentTemporalDependencies("config/worker.yaml", nil, imageAgentWorkerDependencyResolver{
+			_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, imageAgentWorkerDependencyResolver{
 				LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 				OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { dbOpens++; return &gorm.DB{}, nil },
 				BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
@@ -392,7 +284,7 @@ func TestResolveImageAgentTemporalDependenciesRejectsOperationTimeoutOutsidePubl
 			cfg := &config.Config{Database: &config.DatabaseConfig{}}
 			cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 			storeBuilds, databaseOpens := 0, 0
-			_, _, err := resolveImageAgentTemporalDependencies("config/worker.yaml", nil, imageAgentWorkerDependencyResolver{
+			_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, imageAgentWorkerDependencyResolver{
 				ArtifactTiming: tc.timing,
 				LoadConfig:     func(string) (*config.Config, error) { return cfg, nil },
 				BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
