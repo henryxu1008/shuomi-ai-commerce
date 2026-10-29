@@ -24,7 +24,29 @@ it("keeps explicit zero and rejects empty numbers or duplicate SKU before submis
  expect(prepareOwnProduct(base).variants?.[0]).toMatchObject({price:0,stock:0,sourceId:row.id});
  expect(()=>prepareOwnProduct({...base,rows:[{...row,price:""}]})).toThrow();
  expect(()=>prepareOwnProduct({...base,rows:[row,{...row,id:"other"}]})).toThrow();
- expect(prepareOwnProduct({...base,mode:"single",rows:[{...row,sku:""}]}).variants).toBeUndefined();
+ expect(()=>prepareOwnProduct({...base,mode:"single",rows:[{...row,sku:""}]})).toThrow("请填写SKU、币种、价格和库存");
+});
+it.each([
+ {currency:"CNY"}, {price:"0"}, {stock:"0"},
+ {currency:"CNY",price:"12.5",stock:"8"},
+ {image:"https://images.example.org/red.png"},
+ {title:"已填写的SKU名称"}, {attributes:{颜色:"红色"}},
+])("rejects a partially populated single row instead of dropping its facts: %j",patch=>{
+ const row={...newVariantRow(),...patch,sku:"   "};
+ expect(()=>prepareOwnProduct({title:"衣服",brand:"",description:"",images:["https://images.example.org/red.png"],mode:"single",rows:[row]})).toThrow("请填写SKU、币种、价格和库存");
+});
+it("allows a completely blank single row while retaining the common product facts",()=>{
+ const base={title:"衣服",brand:"品牌",description:"基础资料",images:["https://images.example.org/common.png"],mode:"single" as const};
+ for(const row of [newVariantRow(),{...newVariantRow(),sku:"  ",currency:" ",price:" ",stock:" ",image:" ",title:" "}]){
+  expect(prepareOwnProduct({...base,rows:[row]})).toMatchObject({title:base.title,brand:base.brand,description:base.description,images:base.images});
+  expect(prepareOwnProduct({...base,rows:[row]}).variants).toBeUndefined();
+ }
+});
+it("keeps explicit zero and the stable identity of a complete single row, including an existing row without SKU",()=>{
+ const row={...newVariantRow(),sku:"SINGLE",currency:"CNY",price:"0",stock:"0"};
+ const base={title:"衣服",brand:"",description:"",images:[],mode:"single" as const};
+ expect(prepareOwnProduct({...base,rows:[row]}).variants?.[0]).toMatchObject({sourceId:row.id,sku:"SINGLE",price:0,stock:0,currency:"CNY"});
+ expect(prepareOwnProduct({...base,rows:[{...row,existing:true,sku:"",title:"原SKU名称"}]}).variants?.[0]).toMatchObject({sourceId:row.id,sku:"",title:"原SKU名称",price:0,stock:0,currency:"CNY"});
 });
 it("preserves common attributes separately from SKU specifications and rejects incomplete or repeated names",()=>{
  const base={title:"衣服",brand:"",description:"",images:[],mode:"single" as const,rows:[newVariantRow()]};

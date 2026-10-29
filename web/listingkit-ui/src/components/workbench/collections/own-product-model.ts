@@ -41,7 +41,10 @@ export function prepareProductAttributes(rows:ProductAttributeRow[]){
 export function prepareOwnProduct(input:{title:string;brand:string;description:string;descriptionFormat?:"html-v1";images:string[];mode:"single"|"multiple";rows:VariantRow[];attributes?:ProductAttributeRow[]}){
  const {title,brand,description,images,mode,rows}=input;
  if(mode==="multiple"&&!rows.length)throw new Error("请生成至少一个变体。");
- const active=mode==="single"&&!rows[0]?.sku.trim()&&!rows[0]?.existing?undefined:rows;
+ const single=rows[0];
+ const emptySingle=!single||!single.existing&&!Object.keys(single.attributes).length&&
+  ![single.sku,single.currency,single.price,single.stock,single.image,single.title??""].some(value=>value.trim());
+ const active=mode==="single"&&emptySingle?undefined:rows;
  const variants=active?.map((row,index)=>{
   if(!row.sku.trim()&&!row.existing||!row.price.trim()||!row.stock.trim()||!row.currency.trim())throw new Error(`第 ${index+1} 个变体：请填写SKU、币种、价格和库存。`);
   if(row.image&&!images.includes(row.image)&&!row.originalImages?.includes(row.image))throw new Error(`第 ${index+1} 个变体的图片已从商品图片中移除，请重新选择。`);
