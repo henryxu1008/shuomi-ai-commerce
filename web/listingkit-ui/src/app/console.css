@@ -89,8 +89,8 @@
 .console-nav li + li { margin-top: 4px; }
 .console-nav-level-2 > .console-nav-row { min-height: 36px; border-radius: 7px; }
 .console-nav-level-2 > .console-nav-row > button { display: grid; place-items: center; min-height: 36px; }
-.console-nav-level-2 > .console-nav-row > a { padding: 8px 12px; font-size: var(--label-text-size); gap: 9px; }
-.console-nav-level-2 > ul { margin: 4px 0 4px 12px; padding-left: 6px; border-left: 1px solid var(--border); }
+.console-nav-level-2 > .console-nav-row > a { padding: 8px 12px; font-size: var(--label-text-size); gap: 8px; }
+.console-nav-level-2 > ul { margin: 4px 0 4px 20px; padding-left: 18px; border-left: 1px solid var(--border); }
 .console-nav-level-3 .console-nav-row { min-height: 32px; border-radius: 6px; }
 .console-nav-level-3 .console-nav-row > a { padding: 7px 8px; font-size: var(--label-text-size); gap: 6px; }
 .console-nav a:focus-visible, .console-nav button:focus-visible, .console-theme a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
