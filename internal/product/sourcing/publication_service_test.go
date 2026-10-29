@@ -90,6 +90,25 @@ func validPublicationCommand() PublicationCommand {
 	}
 }
 
+func TestInternalProducerRetainsCostOnlyEvidenceWithoutInventingPrice(t *testing.T) {
+	store := &publicationStoreStub{}
+	producer, err := NewInternalProducer(admissionFunc(func(context.Context) (PublicationScope, error) {
+		return PublicationScope{OrganizationID: "org-a", ActorID: "actor-a"}, nil
+	}), store, ProducerDescriptor{Kind: "controlled_snapshot", Version: "v1"})
+	require.NoError(t, err)
+	command := validPublicationCommand()
+	command.Envelope.SupplierOrCostFacts = SupplierOrCostFacts{Currency: "CNY", Cost: "12.50"}
+	command.Envelope.ProductCandidate.Variants = []ProductVariantCandidate{{SourceID: "sku"}}
+	receipt, err := producer.Publish(context.Background(), command)
+	require.NoError(t, err)
+	require.Equal(t, encodedDigest(store.last.EnvelopeJSON), receipt.EnvelopeHash)
+	require.Equal(t, encodedDigest(store.last.SnapshotJSON), receipt.SnapshotHash)
+	var retained SourceEnvelope
+	require.NoError(t, json.Unmarshal(store.last.EnvelopeJSON, &retained))
+	require.Equal(t, command.Envelope.SupplierOrCostFacts, retained.SupplierOrCostFacts)
+	require.NotContains(t, string(store.last.SnapshotJSON), `"amount"`)
+}
+
 func TestInternalProducerPreservesCanonicalEncodingBaseline(t *testing.T) {
 	store := &publicationStoreStub{}
 	producer, err := NewInternalProducer(admissionFunc(func(context.Context) (PublicationScope, error) {

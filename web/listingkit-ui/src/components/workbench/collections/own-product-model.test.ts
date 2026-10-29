@@ -60,3 +60,15 @@ it("counts common attributes before allocating specification combinations",()=>{
  const specs=[{id:"a",name:"a",values:"1,2,3"},{id:"b",name:"b",values:"1,2,3,4,5"},{id:"c",name:"c",values:Array.from({length:17},(_,i)=>String(i)).join(",")}];
  expect(()=>buildVariantRows(specs,[],1,4)).toThrow("保存限制");
 });
+it("serializes declared common images separately from the SKU image picker pool",()=>{
+ const [common,red,blue]=["common","red","blue"].map(name=>`https://images.example.org/${name}.png`);
+ const rows=[red!,blue!].map((image,index)=>({...newVariantRow(),sku:`SKU-${index}`,currency:"CNY",price:"0",stock:"0",image}));
+ const base={title:"两种颜色",brand:"",description:"",mode:"multiple" as const,rows,images:[common!],imagePool:[common!,red!,blue!]};
+ const result=prepareOwnProduct(base);
+ expect(result.images).toEqual([common]);expect(result.variants?.map(v=>v.images)).toEqual([[red],[blue]]);
+ expect(prepareOwnProduct({...base,images:[common!,red!]}).images).toEqual([common,red]);
+});
+it("refuses to silently discard an unassigned SKU-only image",()=>{
+ const image="https://images.example.org/unassigned.png";
+ expect(()=>prepareOwnProduct({title:"基础商品",brand:"",description:"",mode:"single",rows:[newVariantRow()],images:[],imagePool:[image]})).toThrow("专属图片");
+});

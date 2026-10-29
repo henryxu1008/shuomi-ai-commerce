@@ -38,6 +38,41 @@ type historyEvidence struct {
 	after        func()
 }
 
+func TestOwnHistoryPageKeepsItsQueriedItemDuringConcurrentSave(t *testing.T) {
+	scope := Scope{"org", "actor", "member"}
+	p1, p2 := uuid.NewString(), uuid.NewString()
+	key := "own-" + p1
+	initial := Item{ID: uuid.NewString(), BatchID: uuid.NewString(), Revision: 1, Source: Source{Kind: "own", ProductKey: key, Version: 1, PublicationID: p1}}
+	store := &historyFixture{scope: scope, item: initial}
+	auth := &testAuth{scope: scope}
+	service, err := NewService(store, auth, testSources{})
+	require.NoError(t, err)
+	evidence := &historyEvidence{publications: map[string]sourcing.PersistedPublication{p1: historyPublication(t, scope, p1, key, 1, "")}, refs: []sourcing.OwnHistoryReference{{PublicationID: p1, Version: 1}}}
+	evidence.after = func() {
+		store.item.Source.Version, store.item.Source.PublicationID = 2, p2
+		store.item.Revision = 2
+		store.item.BatchID = uuid.NewString()
+	}
+	service.WithOwnHistory(evidence)
+	page, err := service.ListOwnHistory(context.Background(), initial.ID, 0, 20)
+	require.NoError(t, err)
+	require.Equal(t, initial, page.Item)
+	require.Equal(t, page.Item.Source.Version, page.Versions[0].Version)
+	require.Equal(t, page.Item.Source.PublicationID, page.Versions[0].PublicationID)
+	// Selected immutable detail still returns the rechecked current item.
+	store.item = initial
+	detail, err := service.ReadOwnVersion(context.Background(), initial.ID, 1)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, detail.Item.Source.Version)
+	require.EqualValues(t, 1, detail.Version.Version)
+	for _, invalidate := range []func(){func() { auth.err = ErrForbidden }, func() { store.archived = true }, func() { store.item.Source.ProductKey = "foreign" }, func() { store.item.Source.Version = 0 }} {
+		store.item, store.archived, auth.err = initial, false, nil
+		evidence.after = invalidate
+		_, err = service.ListOwnHistory(context.Background(), initial.ID, 0, 20)
+		require.Error(t, err)
+	}
+}
+
 func (s *historyEvidence) Read(_ context.Context, org, id string) (sourcing.PersistedPublication, error) {
 	p, ok := s.publications[id]
 	if !ok || p.Receipt.OrganizationID != org {

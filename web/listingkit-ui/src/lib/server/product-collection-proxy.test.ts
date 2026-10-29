@@ -8,6 +8,19 @@ const request = (body: string, extra: Record<string, string> = {}) => new Reques
 });
 
 describe("private product collection proxy", () => {
+  it("retains a legal near-limit history snapshot with wrapper only on the exact history-detail route",async()=>{
+    const product={title:"Near limit",attributes:Array.from({length:256},(_,i)=>({name:String(i),value:"x"}))};
+    let remaining=2*1024*1024-32-JSON.stringify(product).length;
+    for(const attr of product.attributes){const added=Math.min(remaining,8191);attr.value+="x".repeat(added);remaining-=added}
+    expect(remaining).toBe(0);expect(JSON.stringify(product).length).toBeLessThan(2*1024*1024);
+    const detail={item:{id,batchId:id,source:{productKey:"own-product",publicationId:id,version:"1",kind:"own"},revision:1,createdAt:"2026-10-14T00:00:00Z"},version:{version:"1",publicationId:id,savedAt:"2026-10-14T00:00:00Z",title:product.title},product};
+    expect(JSON.stringify(detail).length).toBeGreaterThan(2*1024*1024);
+    const response=await buildWorkbenchBrowserResponse(Response.json(detail),"collection-history-detail",`${id}:1`);
+    expect(response.status).toBe(200);expect(await response.json()).toEqual(detail);
+    expect((await buildWorkbenchBrowserResponse(Response.json(detail),"collection-history-detail",`${id}:2`)).status).toBe(502);
+    expect((await buildWorkbenchBrowserResponse(new Response(" ".repeat(3*1024*1024+1)),"collection-history-detail",`${id}:1`)).status).toBe(502);
+    expect((await buildWorkbenchBrowserResponse(new Response(" ".repeat(2*1024*1024+1)),"collection-history",id)).status).toBe(502);
+  });
   it("retains known detail and supplementary quotes above the old response boundary only for detail",async()=>{
     const detail={item:{id,batchId:id,source:{productKey:"product",publicationId:id,version:"1",kind:"acquisition"},revision:1,createdAt:"2026-10-14T00:00:00Z"},product:{description:"x".repeat(1024*1024),attributes:Array.from({length:128},(_,i)=>({name:String(i),value:"x".repeat(8192)}))},sourceQuotes:{state:"available",publicationId:id,version:"1",prices:[{amount:"27.00",currency:null,minQuantity:null}]}};
     expect(new TextEncoder().encode(JSON.stringify(detail)).length).toBeGreaterThan(2*1024*1024);
