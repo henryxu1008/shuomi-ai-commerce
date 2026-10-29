@@ -2,6 +2,11 @@
 
 Status: IMPLEMENTATION_READY. Independent architecture review round 1 completed before production implementation; 0 BLOCKER, two IMPLEMENTATION_TEST findings below.
 
+2026-10-29 状态说明：以下第 1–7 节保留最初设计准入时点的范围和证据。
+随后另行授权的隔离实测及 2026-10-27 本机 TLS/CRL/正常 Schannel 检查已记录在
+[#965](https://github.com/qq550723504/shuomi-ai-commerce/issues/965)；当时的 NOT_RUN/NOT_AUTHORIZED 不能覆盖后来的准确执行记录。
+冻结的维护、安全、失败停止和每次现场动作授权边界不变；本次仅同步 main 和整理文档，不重复现场操作，也不代表 Store 产品验收通过。
+
 ## 1. 用户结果与依据
 
 硕米用户使用安装好的浏览器，经既有本机 HTTPS 入口访问店铺工作台。维护操作由部署操作者负责，不成为浏览器用户必须执行的脚本步骤。Refs [#965](https://github.com/qq550723504/shuomi-ai-commerce/issues/965)、[#954](https://github.com/qq550723504/shuomi-ai-commerce/issues/954)、[#956](https://github.com/qq550723504/shuomi-ai-commerce/pull/956)。用户已表示没有现成域名/可信证书方案；没有因此授权生成或安装任何真实凭据。

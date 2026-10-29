@@ -4,7 +4,7 @@ Refs [#965](https://github.com/qq550723504/shuomi-ai-commerce/issues/965)；[冻
 
 ## 当前交付边界
 
-本 PR 仅提供源码、无凭据离线 fixture 与 opt-in 接线模板。没有生成真实 CA/key/certificate/CRL，没有读取现有私钥、安装信任、接线、重启或请求现场。旧 #956/浏览器源码和已有证据保持。不得将以下命令直接当成已授权现场操作。
+本入口提供独立维护脚本、无凭据离线 fixture 与 opt-in 接线模板。2026-10-27 另行授权的本机接线与正常 Schannel 检查记录见 [#965](https://github.com/qq550723504/shuomi-ai-commerce/issues/965)；该记录只证明当时准确版本和现场，不自动授权再次签发、接线、重启或请求。以下命令是操作合同，每次现场维护仍须获得准确动作授权。
 
 ## 显式命令合同
 
@@ -29,10 +29,10 @@ Refs [#965](https://github.com/qq550723504/shuomi-ai-commerce/issues/965)；[冻
 4. 将 `traefik-local-tls-crl.fragment.yml` 的唯一 router/middleware **合并**进准确当前 dynamic file，不能用 fragment 替换全文件。保留所有原 router/service/middleware/TLS；没有新的 service 定义。业务仍为 HTTPS，只有 localhost 的精确 GET/HEAD CRL 路径允许 HTTP。现有 file-provider watch=false，需要单独批准准确一次加载/重启。
 5. 单独核对实际 CRL 获取、有效期和正常 Windows Schannel HTTPS 的状态/头/正文/退出码。任何异常或未知立即停止留证，不自动重试/回退。内部 401 或本 PR CI 不能代替外部入口验证。
 
-以上现场步骤均未执行。本机 TLS 修复不代表公开 Internet 部署、Native 身份交互、Store 授权或产品业务验收完成。撤销负例必须是另行授权的隔离证书，不能撤销现场使用的 leaf。
+以上为另行授权后的操作顺序，具体执行结果记录在对应 Issue/PR，不从文档或源码 CI 推断现场状态。本机 TLS 修复不代表公开 Internet 部署、Native 身份交互、Store 授权或产品业务验收完成。撤销负例必须是另行授权的隔离证书，不能撤销现场使用的 leaf。
 
 ## 离线测试
 
 `go test ./tests -run '^TestAccountComposeLocalTLS' -count=1 -v`
 
-Linux 执行真实 shell、以临时 PATH 中的文本 fixture 替代 OpenSSL，不产生实际密码学材料或网络请求。Windows 仅做入口/语法与模板检查，Linux 编排案例明确 SKIP，待准确 HEAD 的原 CI 执行。实际 OpenSSL/Schannel 兼容性保持 NOT_RUN，不把 fake runner 结果写成密码学验证。
+Linux 执行真实 shell、以临时 PATH 中的文本 fixture 替代 OpenSSL，不产生实际密码学材料或网络请求。Windows 仅做入口/语法与模板检查，Linux 编排案例明确 SKIP，由准确 HEAD 的原 CI 执行。此 fixture 不验证实际 OpenSSL/Schannel 兼容性；另行授权的隔离实测和现场检查按 #965 的准确版本记录，不把 fake runner 结果写成密码学验证。
