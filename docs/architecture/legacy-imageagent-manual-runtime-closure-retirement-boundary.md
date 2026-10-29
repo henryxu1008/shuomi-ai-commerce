@@ -2,6 +2,8 @@
 
 > 本轮用户批准的准确尾部例外（适用 §5.2 / §6.1）：`internal/imageagent/tools/image_set_executor.go` 的 `resolveImageSetInput` 仅删除条件中的 `e.legacyV2 ||`，解除已退休字段的编译引用；其它身份、图组、策略和安全校验逐字保留。该文件是冻结矩阵遗漏的当前消费者，补丁先撤回并报告，获得用户明确批准后才重新应用。本例外不授权其它生产、workflow/inventory 或检查变化。
 
+> 本轮用户批准的准确检查尾部例外（§5.2 / §6.1）：`TestAutoMigrateRuntimeCreatesCurrentOwnerSchemas` 仅把旧 v2 effect 表从必须存在清单移到禁止创建清单；`TestOrganizationImageWorkerRuntimeRoleHasOnlyCurrentWorkerGrants` 在自己的临时数据库中先断言 installer 未创建旧表，再显式创建一个同名空的合成禁访关系，保留原 excess-grant/REVOKE/verify/SELECT 拒绝断言。生产 schema、grants/权限验证、所有其它断言、workflow/inventory 均不变；不操作既有资源。
+
 # 旧 ImageAgent v2/v3 手工图像任务运行链完整退休设计
 
 这批删除**旧 v2/v3 业务启动模式、未绑定组织身份的任务执行链、v2 一次性生成/发布和专属持久化尾部**。当前图组、Artwork 和采集页单主图继续走组织协议；隔离 canary 保留。版本名带 v2/v3 的代码和表不能据此整包删除。
