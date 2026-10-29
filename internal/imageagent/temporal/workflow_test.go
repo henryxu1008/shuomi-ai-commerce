@@ -655,7 +655,7 @@ func TestManualWorkflowMixedCommandsAtOneTickReserveExactlyOnePendingOwner(t *te
 
 func TestManualWorkflowUpdateActionIDIsIdempotentAndRejectsConflictingReuse(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
@@ -1064,16 +1064,16 @@ func TestV3InitialChildFailurePersistsRecoverableBlockedSlotIdentity(t *testing.
 		return nil
 	}, sdkactivity.RegisterOptions{Name: activityPersistSlotResultV3})
 	env.RegisterActivityWithOptions(func(context.Context, PersistRunStateActivityInput) error { return nil }, sdkactivity.RegisterOptions{Name: activityPersistRunState})
-	env.RegisterActivityWithOptions(func(context.Context, PersistWorkflowFailureActivityInput) error { return nil }, sdkactivity.RegisterOptions{Name: activityPersistWorkflowFailure})
 	env.RegisterActivityWithOptions(func(context.Context, PersistWorkflowFailureV2ActivityInput) error { return nil }, sdkactivity.RegisterOptions{Name: activityPersistWorkflowFailureV2})
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationScopePatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationKeyLengthPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(commandIngressPlanPolicyPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.RegisterActivityWithOptions(func(context.Context, PersistWorkflowFailureV2ActivityInput) error { return nil }, sdkactivity.RegisterOptions{Name: activityPersistWorkflowFailureV2})
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalActionIDV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(resultDigestV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationScopePatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationKeyLengthPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(commandIngressPlanPolicyPatch, 1, 1).Return(workflow.Version(1))
 
 	plan := imageagent.Plan{
 		Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a",
@@ -1145,14 +1145,14 @@ func newV3BlockWorkflowEnv(t *testing.T, blocked func(ExecuteSlotV3ActivityInput
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
 	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationScopePatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationKeyLengthPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(commandIngressPlanPolicyPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalActionIDV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(resultDigestV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationScopePatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationKeyLengthPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(commandIngressPlanPolicyPatch, 1, 1).Return(workflow.Version(1))
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	env.RegisterActivityWithOptions(func(_ context.Context, input ExecuteSlotV3ActivityInput) (imageagent.SlotEffectV3PublishedResult, error) {
 		if err := blocked(input); err != nil {
@@ -1375,6 +1375,13 @@ func cancelAtFullLedgerWorkflow(ctx workflow.Context, withFailedPending bool) (c
 	for index := 0; len(state.actions) < maxActionLedgerEntries; index++ {
 		state.actions[fmt.Sprintf("tombstone-%d", index)] = &workflowUpdateRecord{fingerprint: "rejected", ingressState: signalIngressRejected}
 	}
+	// Drive the current cancellation saga, just as the parent workflow does.
+	workflow.Go(ctx, func(cancelCtx workflow.Context) {
+		if err := workflow.Await(cancelCtx, func() bool { return state.cancelPending }); err != nil {
+			return
+		}
+		state.commitPendingCancellation(cancelCtx, results)
+	})
 	signal := CancelSignal{RunID: input.RunID, PlanRevision: 1, ActorID: input.Identity.UserID, ActionID: "cancel-at-cap"}
 	acknowledgement, err := state.handleCancel(ctx, signal)
 	return cancelAtFullLedgerResult{
@@ -1669,7 +1676,7 @@ func TestManualWorkflowApprovalUpdateResumesAfterCompletedStateFailureWithoutRep
 
 func TestManualWorkflowRejectsCancelAfterApprovalPublicationBeforeProjection(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
@@ -1731,15 +1738,21 @@ func TestManualWorkflowRejectsCancelAfterApprovalPublicationBeforeProjection(t *
 
 func TestManualWorkflowCancelSupersedesFailedApprovalCommand(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
+	// Failure is before the durable publish-start boundary; no Asset call occurred.
+	publishCalls := 0
 	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
-		Return(sdktemporal.NewNonRetryableApplicationError("publication permanently rejected", "publication_permanent", nil)).Once()
+		Run(func(mock.Arguments) { publishCalls++ }).Return(nil).Maybe()
+	env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.MatchedBy(func(input PersistPendingCommandActivityInput) bool {
+		return input.Receipt != nil && input.Receipt.Phase == string(updatePhaseApprovalPublishStarted)
+	})).Return(sdktemporal.NewNonRetryableApplicationError("publish-start receipt rejected", "receipt_test_failure", nil)).Once()
+	env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.Anything).Return(nil)
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.Anything).Return(nil)
 
 	var approvalErr, cancelRejected, cancelErr error
@@ -1768,6 +1781,7 @@ func TestManualWorkflowCancelSupersedesFailedApprovalCommand(t *testing.T) {
 	var result WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, imageagent.RunStatusCancelled, result.Status)
+	require.Zero(t, publishCalls, "cancellation may supersede only an approval that never reached Asset")
 	env.AssertExpectations(t)
 }
 
@@ -2165,11 +2179,9 @@ func TestReplacementBusinessValidationEnforcesBlockedActionPolicyForNewHistories
 	replacement.ParentRevision = 1
 	replacement.IdempotencyKey = "plan-key-2"
 	signal := ReplacePlanSignal{RunID: input.RunID, ExpectedRevision: 1, Plan: replacement, ActorID: input.Identity.UserID, ActionID: "replace-cancel-only"}
-	state := workflowUpdateState{input: &input, projection: &projection, results: &results, enforceIngressPlanPolicy: true}
+	state := workflowUpdateState{input: &input, projection: &projection, results: &results}
 
 	require.Error(t, state.validateReplacePlanBusiness(signal))
-	state.enforceIngressPlanPolicy = false
-	require.NoError(t, state.validateReplacePlanBusiness(signal), "historical workflows retain their recorded validation contract")
 }
 
 func TestRecoveryHandoffBlocksRejectReplaceAndRetryForNewHistories(t *testing.T) {
@@ -2193,7 +2205,7 @@ func TestRecoveryHandoffBlocksRejectReplaceAndRetryForNewHistories(t *testing.T)
 			replacement.Revision = 2
 			replacement.ParentRevision = 1
 			replacement.IdempotencyKey = "plan-key-2"
-			state := workflowUpdateState{input: &input, projection: &projection, results: &results, enforceIngressPlanPolicy: true}
+			state := workflowUpdateState{input: &input, projection: &projection, results: &results}
 
 			require.Error(t, state.validateReplacePlanBusiness(ReplacePlanSignal{
 				RunID: input.RunID, ExpectedRevision: 1, Plan: replacement, ActorID: input.Identity.UserID, ActionID: "replace-recovery-blocked",
@@ -2425,12 +2437,11 @@ func TestManualWorkflowRejectsCancelUpdateFromDifferentActor(t *testing.T) {
 
 func TestManualWorkflowWrongActorCancelUpdateDoesNotPoisonActionID(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	registerUndispatchedCancellationChild(env, false, 1500*time.Millisecond)
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = 1
-	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-1", 1)).
-		After(10*time.Minute).Return(successfulSlotResult("slot-1", 1), nil).Once()
 	rejected := CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "attacker", ActionID: "cancel-rejected-actor"}
 	freshSent := false
 	env.RegisterDelayedCallback(func() { requireFailedWorkflowUpdate(t, env, signalCancel, rejected) }, 0)
@@ -2531,7 +2542,8 @@ func TestManualWorkflowSerializesCancelAfterInFlightParentTransition(t *testing.
 
 func TestManualWorkflowCancellationStartsNoThirdChildAndKeepsCompletedSibling(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	registerUndispatchedCancellationChild(env, true, time.Minute)
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = 1
@@ -2545,17 +2557,16 @@ func TestManualWorkflowCancellationStartsNoThirdChildAndKeepsCompletedSibling(t 
 		started = append(started, childInput.Slot.ID)
 		mu.Unlock()
 	})
-	for _, slotID := range []string{"slot-1", "slot-2"} {
-		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slotID, 1)).
-			After(time.Minute).
-			Return(successfulSlotResult(slotID, 1), nil).
-			Once()
-	}
 	env.OnActivity(activityPersistSlotResultV3, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			in := activityInputFromArgs[PersistSlotResultV3ActivityInput](t, args)
 			mu.Lock()
 			persisted = append(persisted, in.Result.Published.SlotID)
+			if in.Result.Published.SlotID == "slot-2" {
+				require.Equal(t, imageagent.SlotStatusBlocked, in.Result.Status)
+				require.Equal(t, imageagent.SlotProviderNotDispatchedCode, in.Result.ErrorCode)
+				require.Equal(t, imageagent.SlotEffectV3ProviderNotDispatched, in.Result.EffectPhase)
+			}
 			mu.Unlock()
 		}).
 		Return(nil)
@@ -2574,7 +2585,7 @@ func TestManualWorkflowCancellationStartsNoThirdChildAndKeepsCompletedSibling(t 
 	mu.Lock()
 	defer mu.Unlock()
 	require.Equal(t, []string{"slot-1", "slot-2"}, started)
-	require.Equal(t, []string{"slot-1"}, persisted)
+	require.Equal(t, []string{"slot-1", "slot-2"}, persisted, "current cancellation also persists the second child terminalization proof")
 	encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
 	require.NoError(t, err)
 	var projection WorkflowResult
@@ -2614,9 +2625,9 @@ func TestManualWorkflowV3CancellationWaitsForStartedSlotFinalization(t *testing.
 		},
 		workflow.RegisterOptions{Name: "ImageSlotWorkflowV3"},
 	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	var terminalMu sync.Mutex
 	var terminalStatuses []imageagent.RunStatus
 	env.RegisterActivityWithOptions(func(_ context.Context, input PersistRunStateActivityInput) error {
@@ -2689,10 +2700,10 @@ func TestManualWorkflowStartsExternalRecoveryForUnterminalizedEffect(t *testing.
 		},
 		workflow.RegisterOptions{Name: "ImageSlotWorkflowV3"},
 	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(effectRecoveryStartWireV1Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(effectRecoveryStartWireV1Patch, 1, 1).Return(workflow.Version(1))
 	var persisted []PersistRunStateActivityInput
 	env.RegisterActivityWithOptions(func(_ context.Context, input PersistRunStateActivityInput) error {
 		persisted = append(persisted, input)
@@ -2773,10 +2784,10 @@ func TestManualWorkflowKeepsBlockedWhenRecoveryStartFails(t *testing.T) {
 		},
 		workflow.RegisterOptions{Name: "ImageSlotWorkflowV3"},
 	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(effectRecoveryStartWireV1Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(effectRecoveryStartWireV1Patch, 1, 1).Return(workflow.Version(1))
 	var blockedStates []PersistRunStateActivityInput
 	var cancelledStates []PersistRunStateActivityInput
 	env.RegisterActivityWithOptions(func(_ context.Context, input PersistRunStateActivityInput) error {
@@ -2883,10 +2894,10 @@ func TestManualWorkflowPersistsSecondaryRecoveryStartFailureWithRealRepository(t
 		},
 		workflow.RegisterOptions{Name: "ImageSlotWorkflowV3"},
 	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(effectRecoveryStartWireV1Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(effectRecoveryStartWireV1Patch, 1, 1).Return(workflow.Version(1))
 	env.RegisterActivityWithOptions(activities.PersistRunState, sdkactivity.RegisterOptions{Name: activityPersistRunState})
 	env.RegisterActivityWithOptions(activities.PersistSlotResultV3, sdkactivity.RegisterOptions{Name: activityPersistSlotResultV3})
 	env.RegisterActivityWithOptions(
@@ -2956,10 +2967,10 @@ func TestManualWorkflowStartsIndependentRecoveryOwnersForEachBlockedEffect(t *te
 		},
 		workflow.RegisterOptions{Name: "ImageSlotWorkflowV3"},
 	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(effectRecoveryStartWireV1Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(effectRecoveryStartWireV1Patch, 1, 1).Return(workflow.Version(1))
 	var blocked PersistRunStateActivityInput
 	env.RegisterActivityWithOptions(func(_ context.Context, input PersistRunStateActivityInput) error {
 		if input.Projection.Status == imageagent.RunStatusBlocked {
@@ -3044,10 +3055,10 @@ func TestManualWorkflowKeepsBlockedCancellationOpenWithAccurateReceipt(t *testin
 		},
 		workflow.RegisterOptions{Name: "ImageSlotWorkflowV3"},
 	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(effectRecoveryStartWireV1Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(effectRecoveryStartWireV1Patch, 1, 1).Return(workflow.Version(1))
 	var persistedStatuses []imageagent.RunStatus
 	env.RegisterActivityWithOptions(func(_ context.Context, input PersistRunStateActivityInput) error {
 		persistedStatuses = append(persistedStatuses, input.Projection.Status)
@@ -3135,10 +3146,10 @@ func TestManualWorkflowDoesNotProjectCancelledForUnterminalizedEffect(t *testing
 		},
 		workflow.RegisterOptions{Name: "ImageSlotWorkflowV3"},
 	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(effectRecoveryStartWireV1Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(effectRecoveryStartWireV1Patch, 1, 1).Return(workflow.Version(1))
 	env.RegisterActivityWithOptions(func(_ context.Context, input PersistRunStateActivityInput) error {
 		if input.Projection.Status == imageagent.RunStatusBlocked {
 			blockedMu.Lock()
@@ -3278,14 +3289,11 @@ func TestImageSlotWorkflowV3RealActivityHeartbeatsWhileProviderIsInFlight(t *tes
 
 func TestManualWorkflowCancelUpdateAcksAfterCancelledProjectionPersistence(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	registerUndispatchedCancellationChild(env, false, 1500*time.Millisecond)
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = 1
-	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-1", 1)).
-		After(10*time.Minute).
-		Return(successfulSlotResult("slot-1", 1), nil).
-		Once()
 	cancelledPersisted := false
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.MatchedBy(func(input PersistRunStateActivityInput) bool {
 		return input.Projection.Status == imageagent.RunStatusCancelled
@@ -3330,7 +3338,8 @@ func TestManualWorkflowCancelUpdateAcksAfterCancelledProjectionPersistence(t *te
 
 func TestManualWorkflowCancelUpdateResumesAfterTerminalPersistenceFailure(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	registerUndispatchedCancellationChild(env, false, time.Second)
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = len(plan.Slots)
@@ -3341,12 +3350,7 @@ func TestManualWorkflowCancelUpdateResumesAfterTerminalPersistenceFailure(t *tes
 		defer mu.Unlock()
 		childCompletions++
 	})
-	for _, slot := range plan.Slots {
-		slot := slot
-		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
-			After(time.Second).
-			Return(successfulSlotResult(slot.ID, 1), nil).Once()
-	}
+
 	cancelled := mock.MatchedBy(func(input PersistRunStateActivityInput) bool {
 		return input.Projection.Status == imageagent.RunStatusCancelled
 	})
@@ -3467,9 +3471,9 @@ func TestWorkflowEffectOwnerFencesEveryTerminalRunStatusBeforeExecution(t *testi
 	} {
 		t.Run(string(status), func(t *testing.T) {
 			env := newWorkflowEnv(t)
-			env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+			env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 			terminalCalls := 0
-			forbiddenCalls := 0
+			nonTerminalCalls := 0
 			env.OnActivity(activityPersistRunState, mock.Anything, mock.MatchedBy(func(input PersistRunStateActivityInput) bool {
 				return input.Projection.Status == status
 			})).Run(func(mock.Arguments) { terminalCalls++ }).
@@ -3479,7 +3483,7 @@ func TestWorkflowEffectOwnerFencesEveryTerminalRunStatusBeforeExecution(t *testi
 				return input.Projection.Status == status
 			})).Run(func(mock.Arguments) { terminalCalls++ }).Return(nil).Once()
 			env.OnActivity(activityPersistRunState, mock.Anything, mock.Anything).
-				Run(func(mock.Arguments) { forbiddenCalls++ }).Return(nil)
+				Run(func(mock.Arguments) { nonTerminalCalls++ }).Return(nil)
 
 			env.ExecuteWorkflow(workflowEffectOwnerFenceWorkflow, status)
 
@@ -3487,13 +3491,13 @@ func TestWorkflowEffectOwnerFencesEveryTerminalRunStatusBeforeExecution(t *testi
 			var result workflowEffectOwnerFenceResult
 			require.NoError(t, env.GetWorkflowResult(&result))
 			require.ErrorContains(t, errors.New(result.FirstError), "ambiguous error")
-			require.ErrorContains(t, errors.New(result.NonTerminalError), "terminal effect fence")
+			require.Empty(t, result.NonTerminalError, "a failed terminal write must not prematurely fence the owner")
 			require.ErrorContains(t, errors.New(result.DifferentActionError), "terminal effect fence")
 			require.ErrorContains(t, errors.New(result.DifferentTerminalError), "terminal effect fence")
 			require.Empty(t, result.ExactRetryError)
 			require.ErrorContains(t, errors.New(result.AfterSuccessError), "terminal effect fence")
 			require.Equal(t, 2, terminalCalls)
-			require.Zero(t, forbiddenCalls)
+			require.Equal(t, 1, nonTerminalCalls, "only the pre-commit nonterminal write may run")
 			env.AssertExpectations(t)
 		})
 	}
@@ -3501,7 +3505,7 @@ func TestWorkflowEffectOwnerFencesEveryTerminalRunStatusBeforeExecution(t *testi
 
 func TestWorkflowEffectOwnerDoesNotFenceFailedTerminalPersistence(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	terminalCalls := 0
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { terminalCalls++ }).
@@ -3593,7 +3597,7 @@ func TestImageSlotWorkflowFailsClosedForMismatchedOrEmptyExecutorResult(t *testi
 			slot.Role = imageagent.SlotRoleScene
 			env.OnActivity(activityExecuteSlotV3, mock.Anything, mock.Anything).Return(test.result, nil).Once()
 
-			env.ExecuteWorkflow(ImageSlotWorkflowV3, SlotWorkflowV3Input{ExecuteActivityName: activityExecuteSlotV3, RunID: "run-1", Identity: manualWorkflowInput(sevenSlotPlan()).Identity, PlanRevision: 1, Slot: slot, Attempt: 1})
+			env.ExecuteWorkflow(ImageSlotWorkflowV3, SlotWorkflowV3Input{ExternalEffectFinalization: true, ExecuteActivityName: activityExecuteSlotV3, RunID: "run-1", Identity: manualWorkflowInput(sevenSlotPlan()).Identity, PlanRevision: 1, Slot: slot, Attempt: 1})
 
 			require.NoError(t, env.GetWorkflowError())
 			var result SlotWorkflowV3Result
@@ -3608,18 +3612,11 @@ func TestImageSlotWorkflowFailsClosedForMismatchedOrEmptyExecutorResult(t *testi
 
 func TestManualWorkflowQueryRecoversPersistedPartialSlotProgress(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	registerUndispatchedCancellationChild(env, true, 10*time.Minute)
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = 1
-	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-1", 1)).
-		After(time.Minute).
-		Return(successfulSlotResult("slot-1", 1), nil).
-		Once()
-	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-2", 1)).
-		After(10*time.Minute).
-		Return(successfulSlotResult("slot-2", 1), nil).
-		Once()
 	env.RegisterDelayedCallback(func() {
 		encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
 		require.NoError(t, err)
@@ -3725,13 +3722,17 @@ func TestPersistWorkflowFailureProjectsTerminalStateIdempotently(t *testing.T) {
 	initializeActivityProjection(t, repository, run, plan)
 	activities, err := NewActivities(ActivityDependencies{PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{}, ExecutionAuthorizer: allowGenerationExecution{}, Repository: repository})
 	require.NoError(t, err)
-	input := PersistWorkflowFailureActivityInput{
+	failureInput := manualWorkflowInput(plan)
+	failureInput.projectionExecutionID = "synthetic-terminal-execution"
+	commitID, err := workflowFailureCommitID(failureInput)
+	require.NoError(t, err)
+	input := PersistWorkflowFailureV2ActivityInput{CommitID: commitID,
 		RunID: "run-1", Identity: identity, FailureCode: "workflow_failed",
 		FailureMessage: "图像任务执行失败，可使用相同请求重试",
 	}
 
-	require.NoError(t, activities.PersistWorkflowFailure(context.Background(), input))
-	require.NoError(t, activities.PersistWorkflowFailure(context.Background(), input))
+	require.NoError(t, activities.PersistWorkflowFailureV2(context.Background(), input))
+	require.NoError(t, activities.PersistWorkflowFailureV2(context.Background(), input))
 
 	projection, err := repository.GetProjection(context.Background(), imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-a", RunID: "run-1"})
 	require.NoError(t, err)
@@ -3924,14 +3925,14 @@ func TestManualWorkflowReplacePathUsesRealProjectionActivityAndRepository(t *tes
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
 	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(projectionExecutionCommitPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationScopePatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(budgetAuthorizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(projectionExecutionCommitPatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalActionIDV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(resultDigestV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationScopePatch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(budgetAuthorizationPatch, 1, 1).Return(workflow.Version(1))
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	env.RegisterActivityWithOptions(activities.ExecuteSlotV3, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
 	env.RegisterActivityWithOptions(activities.PersistSlotResultV3, sdkactivity.RegisterOptions{Name: activityPersistSlotResultV3})
@@ -3958,6 +3959,8 @@ func TestManualWorkflowReplacePathUsesRealProjectionActivityAndRepository(t *tes
 		})
 	}, 2*time.Second)
 	input := manualWorkflowInput(plan1)
+	// This fixture verifies replacement persistence, not concurrent budget writers.
+	input.MaxConcurrentSlots = 1
 	input.RunID = run.ID
 	input.Identity = identity
 	input.AssetCatalog = activityFixtureCatalog(t, repository, run.ID)
@@ -4169,6 +4172,11 @@ func TestRunProjectionCommitIDIsScopedToTemporalExecution(t *testing.T) {
 
 	require.NotEqual(t, first, second, "a failed workflow restart must not replay the prior execution's projection commit")
 	require.NotEqual(t, firstFailure, secondFailure, "each failed execution must own its terminal failure projection")
+	input.projectionExecutionID = ""
+	_, err = runProjectionCommitID(input, projection, "execute_slots")
+	require.Error(t, err)
+	_, err = workflowFailureCommitID(input)
+	require.Error(t, err)
 }
 
 func TestMaximumSlotIdempotencyKeyFitsDerivedAttemptAndProjectionCommitColumns(t *testing.T) {
@@ -4389,6 +4397,7 @@ func workflowEffectOwnerFenceWorkflow(ctx workflow.Context, status imageagent.Ru
 	ctx = imageAgentActivityContext(ctx)
 	owner := newWorkflowEffectOwner(ctx)
 	input := manualWorkflowInput(sevenSlotPlan())
+	input.projectionExecutionID = workflow.GetInfo(ctx).WorkflowExecution.RunID
 	node := string(status)
 	firstDone := workflow.NewBufferedChannel(ctx, 1)
 	workflow.Go(ctx, func(effectCtx workflow.Context) {
@@ -4402,13 +4411,13 @@ func workflowEffectOwnerFenceWorkflow(ctx workflow.Context, status imageagent.Ru
 	nonTerminalErr := owner.persistRunState(ctx, input, WorkflowResult{Status: imageagent.RunStatusBlocked, Plan: input.Plan}, "retry_slot")
 	var firstErr string
 	firstDone.Receive(ctx, &firstErr)
+	exactRetryErr := owner.persistTerminalRunState(ctx, input, WorkflowResult{Status: status, Plan: input.Plan}, node, "action-a")
 	differentActionErr := owner.persistTerminalRunState(ctx, input, WorkflowResult{Status: status, Plan: input.Plan}, node, "action-b")
 	differentStatus := imageagent.RunStatusCancelled
 	if status == imageagent.RunStatusCancelled {
 		differentStatus = imageagent.RunStatusCompleted
 	}
 	differentTerminalErr := owner.persistTerminalRunState(ctx, input, WorkflowResult{Status: differentStatus, Plan: input.Plan}, string(differentStatus), "action-a")
-	exactRetryErr := owner.persistTerminalRunState(ctx, input, WorkflowResult{Status: status, Plan: input.Plan}, node, "action-a")
 	afterSuccessErr := owner.persistRunState(ctx, input, WorkflowResult{Status: imageagent.RunStatusAwaitingFinalApproval, Plan: input.Plan}, "approve_results")
 	return workflowEffectOwnerFenceResult{
 		FirstError:             firstErr,
@@ -4474,12 +4483,12 @@ func newWorkflowEnv(t *testing.T) *testsuite.TestWorkflowEnvironment {
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
 	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalPublicationScopePatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(activityWireV2Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(slotExecutionWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalActionIDV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationWireV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(resultDigestV3Patch, 1, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationScopePatch, 1, 1).Return(workflow.Version(1))
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	env.RegisterActivityWithOptions(
 		func(context.Context, ExecuteSlotV3ActivityInput) (imageagent.SlotEffectV3PublishedResult, error) {
@@ -4855,7 +4864,7 @@ func TestRegisterWorkerUsesExactModeBoundWorkflowAndActivitySets(t *testing.T) {
 	registrar := &recordingWorkerRegistrar{}
 	require.NoError(t, RegisterWorkerForMode(registrar, activities, WorkerWireModeOrganization))
 	require.Equal(t, []string{organizationWorkflowName, "ImageSlotWorkflowV3", EffectRecoveryWorkflowName}, registrar.workflows)
-	require.Equal(t, []string{activityPersistRunState, activityPersistWorkflowFailure, activityPersistWorkflowFailureV2, activityPersistPlanRevision, activityPersistPendingCommand, activityExecuteSlotV3, activityReviewStagedSlotV3, activityStartEffectRecoveryV3, activityRecoverEffectV3, activityPersistRecoveryBlockedV3, activityReconcileEffectRecoveryV3, activityPersistSlotResultV3, activityPrepareImageSetPolicyAdoption, activityPublishApprovedImageSet, activityPersistImageSetSlotResult, activityPublishApprovedV3}, registrar.activities)
+	require.Equal(t, []string{activityPersistRunState, activityPersistWorkflowFailureV2, activityPersistPlanRevision, activityPersistPendingCommand, activityExecuteSlotV3, activityReviewStagedSlotV3, activityStartEffectRecoveryV3, activityRecoverEffectV3, activityPersistRecoveryBlockedV3, activityReconcileEffectRecoveryV3, activityPersistSlotResultV3, activityPrepareImageSetPolicyAdoption, activityPublishApprovedImageSet, activityPersistImageSetSlotResult, activityPublishApprovedV3}, registrar.activities)
 	for _, mode := range []WorkerWireMode{"v2", "v3", ""} {
 		r := &recordingWorkerRegistrar{}
 		require.Error(t, RegisterWorkerForMode(r, activities, mode))
@@ -4933,33 +4942,51 @@ func successfulRetryDigest() string {
 }
 
 func TestRetiredActivityWireFailsBeforeAnyActivity(t *testing.T) {
-	for _, retired := range []string{activityWireV2Patch, slotExecutionWireV3Patch, approvalActionIDV3Patch, approvalPublicationWireV3Patch, resultDigestV3Patch} {
-		t.Run(retired, func(t *testing.T) {
-			var suite testsuite.WorkflowTestSuite
-			env := suite.NewTestWorkflowEnvironment()
-			env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
-			for _, marker := range []string{activityWireV2Patch, slotExecutionWireV3Patch, approvalActionIDV3Patch, approvalPublicationWireV3Patch, resultDigestV3Patch, workflowFailureProjectionPatch} {
-				version := workflow.Version(1)
-				if marker == retired {
-					version = workflow.DefaultVersion
-				}
-				env.OnGetVersion(marker, workflow.DefaultVersion, 1).Return(version)
-			}
-			activities := 0
-			env.SetOnActivityStartedListener(func(*sdkactivity.Info, context.Context, sdkconverter.EncodedValues) { activities++ })
-			env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(sevenSlotPlan()))
-			require.ErrorContains(t, env.GetWorkflowError(), "retired image agent activity wire")
-			require.Zero(t, activities)
-		})
+	for _, id := range []string{activityWireV2Patch, slotExecutionWireV3Patch, approvalActionIDV3Patch, approvalPublicationWireV3Patch, resultDigestV3Patch} {
+		t.Run(id, func(t *testing.T) { assertParentVersionRejected(t, id) })
 	}
 }
 
 func TestRetiredApprovalWireHasNoDigestOrPublicationKeyFallback(t *testing.T) {
-	plan, results := wireProbePlanAndResults()
-	for _, wire := range []workflowActivityWire{{}, {useV3Slot: true}, {useV3Approval: true}} {
-		digest, err := resultDigestForWire(plan, results, wire)
-		require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
-		require.Empty(t, digest)
-		require.Empty(t, approvalPublicationKeyForWire("action-a", "run-a", 1, wire))
+	for _, id := range []string{commandIngressPlanPolicyPatch, budgetAuthorizationPatch, externalEffectFinalizationPatch, projectionExecutionCommitPatch, approvalPublicationScopePatch, approvalPublicationKeyLengthPatch, effectRecoveryStartWireV1Patch} {
+		t.Run(id, func(t *testing.T) { assertParentVersionRejected(t, id) })
 	}
+	plan, results := wireProbePlanAndResults()
+	digest, err := projectionResultDigest(plan, results)
+	require.NoError(t, err)
+	want, err := imageagent.ResultDigestV3(plan, slotProjections(plan, results))
+	require.NoError(t, err)
+	require.Equal(t, want, digest)
+	require.NotEqual(t, approvalActionPublicationKey("a", "run-a", 1), approvalActionPublicationKey("a", "run-b", 1))
+}
+
+// This fixture never dispatches a provider. Cancellation therefore returns an
+// explicit not-dispatched proof, rather than dropping a paid successful result.
+func registerUndispatchedCancellationChild(env *testsuite.TestWorkflowEnvironment, successfulFirst bool, delay time.Duration) {
+	env.OnWorkflow(ImageSlotWorkflowV3, mock.Anything, mock.Anything).Return(func(ctx workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
+		if successfulFirst && input.Slot.ID == "slot-1" {
+			if err := workflow.Sleep(ctx, time.Minute); err != nil {
+				return SlotWorkflowV3Result{}, err
+			}
+			return SlotWorkflowV3Result{Published: successfulSlotResult(input.Slot.ID, input.Attempt), Status: imageagent.SlotStatusAccepted, EffectPhase: imageagent.SlotEffectV3PublicationComplete}, nil
+		}
+		_ = workflow.Sleep(ctx, delay)
+		return SlotWorkflowV3Result{
+			Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
+			Status:    imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotProviderNotDispatchedCode,
+			EffectPhase: imageagent.SlotEffectV3ProviderNotDispatched,
+		}, nil
+	})
+}
+
+func (e *revisionFailingExecutor) QuoteSlot(ctx context.Context, input imageagent.SlotExecutionInput, policy imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
+	return (&recordingStagedExecutor{}).QuoteSlot(ctx, input, policy)
+}
+
+func (e *revisionFailingExecutor) GenerateQuotedSlot(ctx context.Context, input imageagent.SlotExecutionInput, _ imageagent.SlotUsageQuote) (imageagent.SlotGeneratedOutput, error) {
+	generated, err := e.GenerateSlot(ctx, input)
+	if err == nil {
+		generated.UsageReceipt = imageagent.SlotUsageReceipt{Actual: imageagent.UsageVector{Images: int64(len(generated.Assets)), AgentSteps: 1}, CostBasis: imageagent.UsageCostReservedUpperBound}
+	}
+	return generated, err
 }

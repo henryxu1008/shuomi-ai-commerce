@@ -1,25 +1,25 @@
 # 旧 ImageAgent 历史执行协议与便利合同完整退休设计
 
-> #301：DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。本次仅提交本文、架构索引和 Legacy 登记三文档。源码 Design Basis 为 Independent Architecture；准确设计候选的适用复核和用户确认完成前，不修改正式生产路径。#301 保持 OPEN。
+> #301 / #1001：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户已确认冻结设计 `ea04b837656bf42972159bb7cf2a68a43d17c80a` §1–§7（含§4.2/§6.1），按33路径在同一PR整批实施；[准入和接单记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1001#issuecomment-6496604488)。设计原CI/独立设计复核已完成；准确源码CI及最终交付复核另记PR，设计证据不替代源码证据。#301 保持 OPEN。
 
 这批清理的是 **当前 ImageAgent 内部为了续跑旧执行历史而留下的版本分支**，不是删除当前图像功能。提案保留当前版本 1，把已到达版本读取点、却只能得到旧 `DefaultVersion` 的历史排除出续跑支持范围；同时删除旧失败投影 Activity、旧摘要/发布键选择和四个无实际业务消费者的便利方法。当前图组、Artwork、采集单主图、Update/Resume、恢复通知、Store 观察同步继续保留。
 
-**需要用户确认的准确取舍：历史标为 V3、甚至属于组织模式，也不自动代表本批继续支持。若回放在本批任一原版本读取点得到旧默认版本，当前程序将不再承诺它能继续推进。** 本文不声称已证明没有这些历史，也不授权读取、停止、重置、终止或迁移实际历史。
+**用户已确认的准确取舍：历史标为 V3、甚至属于组织模式，也不自动代表本批继续支持。若回放在本批任一原版本读取点得到旧默认版本，当前程序将不再承诺它能继续推进。** 本文不声称已证明没有这些历史，也不授权读取、停止、重置、终止或迁移实际历史。
 
 ## 1. 用户结果、范围与 Design Basis
 
 - 父目标：[#301](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301)，保持 OPEN。使用者是维护当前图像、采集和审核能力的开发者；交付结果是当前执行只走一套协议，不再靠旧历史选择器决定安全、摘要、发布和投影行为，不增加用户操作。
-- 当前用户授权只覆盖完整闭包调查、设计、必要文档检查、提交/推送和设计 PR；不包含源码实施、合并、运行验收、部署或关单。单 Writer、一个主要分支/PR，不机械拆批。
+- 当前用户已授权按冻结 §1–§7 整批源码实施、必要开发自检、提交/推送及维护原 #1001；不包含合并、运行验收、部署或关单。单 Writer、一个主要分支/PR，不机械拆批。
 - 调查基线：main `46a817ef1b872f69515669942d18435216c2e4b7`，已含 #998。接单、真实消费者及 owner 核对：[记录](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301#issuecomment-6495206627)。
-- **源码 Design Basis: Independent Architecture。** 本批改变 Temporal 历史可续跑边界，精确替代前批 KEEP；即使不新增表或用户入口，也不能按死代码机械删除。本文是待确认设计，不是已成立的新产品决定。
-- 当前三文档：**Design Basis: N/A / Ready**，仅设计交付。源码必须在适用独立设计复核、准确例外处置及用户确认 §1–§7 后显式进入 `IMPLEMENTATION_READY`，才可开工。
+- **源码 Design Basis: Independent Architecture。** 本批改变 Temporal 历史可续跑边界，精确替代前批 KEEP；即使不新增表或用户入口，也不能按死代码机械删除。适用独立设计复核和用户确认已完成，当前为冻结实施依据。
+- 设计阶段三文档按 N/A / Ready 交付，准确设计原CI和独立设计复核已完成，唯一设计 finding 已收齐。用户确认后 #301 已读回 `IMPLEMENTATION_READY / IMPLEMENTING`；现在按冻结范围实施，源码最终复核不复用成设计结论。
 - 不做：新图像能力、协议迁移/兼容 worker、别名/fallback、版本平台、第二事实源、通用验收工具、运行队列清理、历史抓取、provider/canary 真执行、数据库/schema/SQL/权限/计费改造。GitHub workflow、inventory、依赖和保护规则零改；不操作既有实例、数据、凭据或进程，不增加内部试用前置。
 
 ## 2. Authority、前批 KEEP 替代与 Must
 
 适用 [AGENTS.md](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md) 和 [图像产品架构](product-image-agent-v1.md)。无 UI/IA/交互变化，Figma 增量 N/A。当前 Product/Threat Model 不因此扩张；不把生产历史调查或专项运行验收变成内部试用前置。
 
-| 原依据 | 本批待确认替代 | 仍然有效 |
+| 原依据 | 本批已确认替代 | 仍然有效 |
 | --- | --- | --- |
 | [#994 手工运行链](legacy-imageagent-manual-runtime-closure-retirement-boundary.md)、[#996 V2 合同尾部](legacy-imageagent-v2-contract-tail-closure-retirement-boundary.md)、[#998 业务 Signal](legacy-imageagent-business-signal-closure-retirement-boundary.md) | 广义“有效 V3 回放”不再包括在本批原版本读取点落入旧默认分支的历史；ActionID-only、旧 run-scoped 发布键、无 execution identity 投影、旧失败投影及非 finalization 子协议退出 | 当前版本 1 的 Update/Resume、组织身份/租户、有效 JSON/hash、execution-scoped commit、当前有界发布键和当前恢复通知；#998 已退出的四旧业务 Signal 不恢复 |
 | 2026-08-27 recovery、08-28 budget、08-29 finalization/recovery 的 spec/plan（§5 列出八文件） | 旧版本双分支、默认关闭预算/恢复、旧终态 fence 时点和旧回放要求的现行地位 | 当前 durable effect、quote、绝对 deadline、取消/finalization、UNKNOWN、恢复唯一 owner、安全及幂等要求；原文和历史勾选保留，只追加窄失效注记 |
@@ -82,7 +82,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 
 ## 5. 完整删除 / 保留 / 抽取矩阵
 
-未来同一批一次覆盖 **33 路径：8 生产、12 Go 测试、2 普通合成 JSON fixture、11 文档**。本设计 PR 只含其中三文档；下列是待确认的完整实施边界，不是已执行状态。无新生产文件/表/owner。独立初审发现遗漏的 direct-child 测试，分类 `IMPLEMENTATION_TEST`，在设计确认前收齐同根调用与原安全断言改接，不增加生产机制。
+同一批一次覆盖 **33 路径：8 生产、12 Go 测试、2 普通合成 JSON fixture、11 文档**。设计阶段仅三文档，现按用户确认的完整矩阵实施；准确完成状态及候选证据维护在PR。无新生产文件/表/owner。独立初审发现遗漏的 direct-child 测试，分类 `IMPLEMENTATION_TEST`，已在设计确认前收齐同根调用与原安全断言改接，不增加生产机制。
 
 | 路径 | 决定及准确边界 |
 | --- | --- |
@@ -150,7 +150,16 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 | `TestImageSlotWorkflowV3StartsFreshActivityAfterFinalInnerAttemptLosesPublicationResponse` | direct child 只补 `ExternalEffectFinalization:true`；BudgetAuthorization=false 与原持久化 fixture 保留 | 原零 GenerateCalls、Finalize/Completion/claim-owner 数量、lease/retry 身份、无重新生成不变；下层 “WithoutWire” Activity 取消安全测试零改 |
 | recovery 新测试与本批追加 guard | 检查 late marker 保持 reconcile 后、旧版本不再通知；覆盖 14ID/15点/顺序、旧声明/注册/四便利方法缺席、当前公共载荷与安全路径保留 | 不改变原三个退休批次 guard，不加 missing-skip，不改 workflow/inventory/其它检查 |
 
-上述表允许为明确当前场景建立准确的 mock/proof，不授权放宽业务断言或扩大状态机。未列函数、测试框架和原检查逻辑零改；公共 DTO/JSON 原检查不改。发现表外的真实同根失败必须先报告准确例外。
+用户已批准[准确测试例外](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1001#issuecomment-6497095624)：原33路径内仅测试/本文两文件补齐以下遗漏。分类 IMPLEMENTATION_TEST，不改变生产或其它检查：
+
+| 原 fixture / 断言 | 准确校准 | 保留 |
+| --- | --- | --- |
+| `cancelAtFullLedgerWorkflow` | 驱动原当前取消 saga 的 Await/commit，不再依赖旧同步取消支路 | 满账本/墓碑/取消豁免/原测试断言 |
+| `workflowEffectOwnerFenceWorkflow` | 补当前执行身份，先完成原身份精确 retry，再检查成功后的不同 action/终态拒绝 | 失败不提前 fence、成功后 fence、同键 retry、不同身份拒绝 |
+| `revisionFailingExecutor.GenerateSlot` | 获批提案中的函数体修改最终未采用：进一步复现证明缺的是当前预算 quote，原 storage block 仍允许 edit。原函数逐字保留；在同一已列 replacement fixture 内复用既有 recording quote、补 QuoteSlot/GenerateQuotedSlot 两纯测试方法和 usage receipt，不关闭预算 | 原存储拒绝/发送前边界、失败/成功调用数量、真实 Repository/替换与批准断言；该测试串行验证替换持久化，不声称验证并行预算写者 |
+| `TestManualWorkflowCancellationStartsNoThirdChildAndKeepsCompletedSibling` | 原“仅写slot-1”校准为成功slot-1及slot-2未发送终结证明两写，追加slot-2 blocked/code/provider_not_dispatched精确断言；此项准确替代上表保留旧写次数的要求 | no-third-child、成功sibling、投影/身份和无重复副作用断言 |
+
+上述表允许为明确当前场景建立准确的 mock/proof，不授权放宽业务断言或扩大状态机。除上述获批准确例外，未列原函数、测试框架和原检查逻辑零改；公共 DTO/JSON 原检查不改。发现表外的真实同根失败必须先报告准确例外。
 
 ### 6.2 回放、故障与证据
 
@@ -162,7 +171,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 
 ## 7. 交付、复核与停止点
 
-1. 当前先交付三文档、准确设计 HEAD、原 CI 与适用独立设计结论。新范围只有 design，源码状态 `SOURCE_NOT_STARTED / NOT_READY`。用户确认必须包含 §4.2 的历史 hard-cut/旧 child 取舍，不能把设计 PR CI 绿色当确认。
+1. 三文档、准确设计 HEAD、原 CI 与适用独立设计结论已交付；用户已确认 §1–§7，包含 §4.2 的历史 hard-cut/旧 child 取舍，现进入整批实施。设计 PR CI 没有替代用户确认，也不作为源码CI或运行验收。
 2. GitHub 自动复核若启动失败且没有正在运行的复核，可唯一重试；有适用复核正在运行不重复触发。**未经用户本轮授权不默认新增 AI 互验线程；设计与源码最终复核授权分开。** 无有效适用结论则如实待复核，不把 Completed/空 reviews 当通过。
 3. 用户确认及适用准入后，同一主要 PR 将状态改为 `IMPLEMENTATION_READY / IMPLEMENTING`，按33路径整批实施。设计冻结后不重开无关架构；finding 先分类，真实 Must 缺陷才阻止交付，准确清单外例外先报告。
 4. 源码形成稳定候选后一次完整最终交付检查：实际完整 diff、SDK 当前/拒绝边界、调用顺序、共享预算 false、JSON/hash、原有效断言、所有当前能力和已有证据；修复后只查增量。开发自检/另一 AI 复核均不等于用户产品验收。

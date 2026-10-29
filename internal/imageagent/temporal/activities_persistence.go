@@ -201,10 +201,6 @@ func recoverySlotCodeMutations(current, updated []imageagent.SlotProjection, sco
 	return mutations, nil
 }
 
-func (a *Activities) PersistWorkflowFailure(ctx context.Context, input PersistWorkflowFailureActivityInput) error {
-	return a.persistWorkflowFailure(ctx, input.RunID, input.Identity, input.FailureCode, input.FailureMessage, "workflow-failed")
-}
-
 func (a *Activities) PersistWorkflowFailureV2(ctx context.Context, input PersistWorkflowFailureV2ActivityInput) error {
 	commitID := strings.TrimSpace(input.CommitID)
 	if commitID == "" {

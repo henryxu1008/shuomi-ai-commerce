@@ -61,7 +61,6 @@ func RegisterActivitiesForMode(registrar activityRegistrar, activities *Activiti
 	}
 
 	registrar.RegisterActivityWithOptions(activities.PersistRunState, sdkactivity.RegisterOptions{Name: activityPersistRunState})
-	registrar.RegisterActivityWithOptions(activities.PersistWorkflowFailure, sdkactivity.RegisterOptions{Name: activityPersistWorkflowFailure})
 	registrar.RegisterActivityWithOptions(activities.PersistWorkflowFailureV2, sdkactivity.RegisterOptions{Name: activityPersistWorkflowFailureV2})
 	registrar.RegisterActivityWithOptions(activities.PersistPlanRevision, sdkactivity.RegisterOptions{Name: activityPersistPlanRevision})
 	registrar.RegisterActivityWithOptions(activities.PersistPendingCommand, sdkactivity.RegisterOptions{Name: activityPersistPendingCommand})

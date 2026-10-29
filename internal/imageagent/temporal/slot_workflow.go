@@ -17,6 +17,9 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 	if err := validateWorkflowScope(ctx, input.Identity, input.RunID); err != nil {
 		return SlotWorkflowV3Result{}, err
 	}
+	if !input.ExternalEffectFinalization {
+		return SlotWorkflowV3Result{}, fmt.Errorf("current effect finalization protocol is required: %w", imageagent.ErrValidation)
+	}
 	activityName := strings.TrimSpace(input.ExecuteActivityName)
 	if activityName == "" {
 		return SlotWorkflowV3Result{}, fmt.Errorf("v3 execute activity name is required")
@@ -28,7 +31,7 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 			return SlotWorkflowV3Result{
 				Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
 				Status:    imageagent.SlotStatusBlocked, ErrorCode: imageagent.WorkflowLifecycleElapsedCode,
-				EffectPhase: effectPhaseForFinalizationWire(input.ExternalEffectFinalization, imageagent.SlotEffectV3ProviderNotDispatched),
+				EffectPhase: imageagent.SlotEffectV3ProviderNotDispatched,
 			}, nil
 		}
 		startToClose = min(startToClose, providerWindow)
@@ -39,16 +42,14 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 			return SlotWorkflowV3Result{
 				Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
 				Status:    imageagent.SlotStatusBlocked, ErrorCode: imageagent.BudgetElapsedCode,
-				EffectPhase: effectPhaseForFinalizationWire(input.ExternalEffectFinalization, imageagent.SlotEffectV3ProviderNotDispatched),
+				EffectPhase: imageagent.SlotEffectV3ProviderNotDispatched,
 			}, nil
 		}
-		if input.ExternalEffectFinalization {
-			startToClose = addFinalizationGrace(providerWindow)
-		} else if providerWindow < startToClose {
-			startToClose = providerWindow
-		}
+
+		startToClose = addFinalizationGrace(providerWindow)
+
 	}
-	ctx = workflow.WithActivityOptions(ctx, slotWorkflowV3ActivityOptions(startToClose, input.ExternalEffectFinalization))
+	ctx = workflow.WithActivityOptions(ctx, slotWorkflowV3ActivityOptions(startToClose))
 	activityInput := ExecuteSlotV3ActivityInput{
 		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
 		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision,
@@ -56,7 +57,7 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 		Slot: input.Slot, Attempt: input.Attempt,
 		IdempotencyKey:             slotAttemptKey(input.PlanRevision, input.Slot, input.Attempt),
 		AssetCatalog:               input.AssetCatalog,
-		ExternalEffectFinalization: input.ExternalEffectFinalization,
+		ExternalEffectFinalization: true,
 		BudgetAuthorization:        input.BudgetAuthorization, BudgetPolicy: input.BudgetPolicy, DeadlineAt: input.DeadlineAt, LifecycleDeadlineAt: input.LifecycleDeadlineAt,
 	}
 	var published imageagent.SlotEffectV3PublishedResult
@@ -71,25 +72,24 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 			return SlotWorkflowV3Result{
 				Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
 				Status:    imageagent.SlotStatusBlocked, ErrorCode: code,
-				EffectPhase: effectPhaseForFinalizationWire(input.ExternalEffectFinalization, terminalEffectPhaseForErrorCode(code)),
+				EffectPhase: terminalEffectPhaseForErrorCode(code),
 			}, nil
 		}
 		if err := workflow.Sleep(ctx, retryDelay); err != nil {
-			if input.ExternalEffectFinalization {
-				return SlotWorkflowV3Result{
-					Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
-					Status:    imageagent.SlotStatusBlocked, ErrorCode: "slot_execution_failed",
-					EffectPhase: imageagent.SlotEffectV3PublicationClaimed,
-				}, nil
-			}
-			return SlotWorkflowV3Result{}, err
+
+			return SlotWorkflowV3Result{
+				Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
+				Status:    imageagent.SlotStatusBlocked, ErrorCode: "slot_execution_failed",
+				EffectPhase: imageagent.SlotEffectV3PublicationClaimed,
+			}, nil
+
 		}
 	}
 	if input.Slot.Role == imageagent.SlotRoleMain && len(published.Candidates) != 1 {
 		return SlotWorkflowV3Result{
 			Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
 			Status:    imageagent.SlotStatusBlocked, ErrorCode: invalidMainCandidateCountCode,
-			EffectPhase: effectPhaseForFinalizationWire(input.ExternalEffectFinalization, imageagent.SlotEffectV3PublicationComplete),
+			EffectPhase: imageagent.SlotEffectV3PublicationComplete,
 		}, nil
 	}
 	normalized, err := imageagent.NormalizeSlotEffectV3PublishedResult(published)
@@ -97,20 +97,13 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 		return SlotWorkflowV3Result{
 			Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: input.Attempt},
 			Status:    imageagent.SlotStatusBlocked, ErrorCode: "invalid_slot_result",
-			EffectPhase: effectPhaseForFinalizationWire(input.ExternalEffectFinalization, imageagent.SlotEffectV3PublicationComplete),
+			EffectPhase: imageagent.SlotEffectV3PublicationComplete,
 		}, nil
 	}
 	return SlotWorkflowV3Result{
 		Published: normalized, Status: imageagent.SlotStatusAccepted,
-		EffectPhase: effectPhaseForFinalizationWire(input.ExternalEffectFinalization, imageagent.SlotEffectV3PublicationComplete),
+		EffectPhase: imageagent.SlotEffectV3PublicationComplete,
 	}, nil
-}
-
-func effectPhaseForFinalizationWire(enabled bool, phase imageagent.SlotEffectV3Phase) imageagent.SlotEffectV3Phase {
-	if !enabled {
-		return ""
-	}
-	return phase
 }
 
 func terminalEffectPhaseForErrorCode(code string) imageagent.SlotEffectV3Phase {
@@ -140,7 +133,7 @@ func addFinalizationGrace(providerWindow time.Duration) time.Duration {
 	return providerWindow + providerFinalizationTimeout
 }
 
-func slotWorkflowV3ActivityOptions(startToClose time.Duration, externalEffectFinalization bool) workflow.ActivityOptions {
+func slotWorkflowV3ActivityOptions(startToClose time.Duration) workflow.ActivityOptions {
 	options := workflow.ActivityOptions{
 		StartToCloseTimeout: startToClose,
 		RetryPolicy: &sdktemporal.RetryPolicy{
@@ -149,10 +142,10 @@ func slotWorkflowV3ActivityOptions(startToClose time.Duration, externalEffectFin
 			NonRetryableErrorTypes: []string{slotPublicationRecoveryErrorType},
 		},
 	}
-	if externalEffectFinalization {
-		options.HeartbeatTimeout = externalEffectHeartbeatTimeout
-		options.WaitForCancellation = true
-	}
+
+	options.HeartbeatTimeout = externalEffectHeartbeatTimeout
+	options.WaitForCancellation = true
+
 	return options
 }
 

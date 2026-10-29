@@ -16,7 +16,6 @@ import (
 
 func nativePolicyAdoptionWorkflow(ctx workflow.Context, input WorkflowInput, selection asset.ImageSetCommand) (imageagent.RunStatus, error) {
 	ctx = imageAgentActivityContext(ctx)
-	input.externalEffectFinalization = true
 	projection := WorkflowResult{Status: imageagent.RunStatusAwaitingFinalApproval, Plan: input.Plan, ResultDigest: selection.ApprovingResult.ResultDigest}
 	results := []SlotWorkflowResult{}
 	state := newWorkflowUpdateState(ctx, &input, &projection, &results, newWorkflowEffectOwner(ctx))

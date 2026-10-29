@@ -1,0 +1,443 @@
+{
+  "events":  [
+    {
+      "eventId":  "1",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
+      "workflowExecutionStartedEventAttributes":  {
+        "workflowType":  {
+          "name":  "ImageAgentOrganizationWorkflowV1"
+        },
+        "taskQueue":  {
+          "name":  "image-agent-organization-v1"
+        },
+        "input":  {
+          "payloads":  [
+            {
+              "metadata":  {
+                "encoding":  "anNvbi9wbGFpbg=="
+              },
+              "data":  "eyJSdW5JRCI6InJ1bi0xIiwiVGFyZ2V0UGxhdGZvcm0iOiJwcm9kdWN0IiwiSW1hZ2VQb2xpY3lDb250ZXh0Ijp7IkNvdW50cnkiOiJ6eiIsIkZhbWlseSI6ImRlZmF1bHQiLCJTY2VuZUNhdGVnb3J5IjoiZ2VuZXJhbCJ9LCJNb2RlIjoibWFudWFsIiwiSWRlbnRpdHkiOnsiU2NvcGVQcm90b2NvbCI6ImltYWdlLWFnZW50Lm9yZ2FuaXphdGlvbi52MSIsIlJ1bklEIjoicnVuLTEiLCJUZW5hbnRJRCI6InRlbmFudC1hIiwiVXNlcklEIjoidXNlci1hIiwiTWVtYmVySUQiOiJtZW1iZXItYSIsIkJ1c2luZXNzVGFza0lEIjoidGFzay0xIiwiVHJhY2VJRCI6IiJ9LCJQbGFuIjp7IlJldmlzaW9uIjoxLCJQYXJlbnRSZXZpc2lvbiI6MCwiSWRlbXBvdGVuY3lLZXkiOiJwbGFuLWtleS0xIiwiU291cmNlQXNzZXRJRHMiOlsic291cmNlLTEiXSwiU3R5bGVSZWZlcmVuY2VJRHMiOm51bGwsIlNsb3RzIjpbeyJJRCI6InNsb3QtMSIsIlJvbGUiOiJtYWluIiwiU291cmNlQXNzZXRJRHMiOlsic291cmNlLTEiXSwiU3R5bGVSZWZlcmVuY2VJRHMiOm51bGwsIkJyaWVmIjoiIiwiSWRlbXBvdGVuY3lLZXkiOiJzbG90LWtleS1zbG90LTEiLCJTdGF0dXMiOiJwZW5kaW5nIn0seyJJRCI6InNsb3QtMiIsIlJvbGUiOiJzY2VuZSIsIlNvdXJjZUFzc2V0SURzIjpbInNvdXJjZS0xIl0sIlN0eWxlUmVmZXJlbmNlSURzIjpudWxsLCJCcmllZiI6IiIsIklkZW1wb3RlbmN5S2V5Ijoic2xvdC1rZXktc2xvdC0yIiwiU3RhdHVzIjoicGVuZGluZyJ9LHsiSUQiOiJzY2VuZS0yIiwiUm9sZSI6InNjZW5lIiwiU291cmNlQXNzZXRJRHMiOlsic291cmNlLTEiXSwiU3R5bGVSZWZlcmVuY2VJRHMiOm51bGwsIkJyaWVmIjoiIiwiSWRlbXBvdGVuY3lLZXkiOiJzbG90LWtleS1zY2VuZS0yIiwiU3RhdHVzIjoicGVuZGluZyJ9LHsiSUQiOiJzbG90LTQiLCJSb2xlIjoic2NlbmUiLCJTb3VyY2VBc3NldElEcyI6WyJzb3VyY2UtMSJdLCJTdHlsZVJlZmVyZW5jZUlEcyI6bnVsbCwiQnJpZWYiOiIiLCJJZGVtcG90ZW5jeUtleSI6InNsb3Qta2V5LXNsb3QtNCIsIlN0YXR1cyI6InBlbmRpbmcifSx7IklEIjoic2xvdC01IiwiUm9sZSI6ImRldGFpbCIsIlNvdXJjZUFzc2V0SURzIjpbInNvdXJjZS0xIl0sIlN0eWxlUmVmZXJlbmNlSURzIjpudWxsLCJCcmllZiI6IiIsIklkZW1wb3RlbmN5S2V5Ijoic2xvdC1rZXktc2xvdC01IiwiU3RhdHVzIjoicGVuZGluZyJ9LHsiSUQiOiJzbG90LTYiLCJSb2xlIjoic2VsbGluZ19wb2ludCIsIlNvdXJjZUFzc2V0SURzIjpbInNvdXJjZS0xIl0sIlN0eWxlUmVmZXJlbmNlSURzIjpudWxsLCJCcmllZiI6IiIsIklkZW1wb3RlbmN5S2V5Ijoic2xvdC1rZXktc2xvdC02IiwiU3RhdHVzIjoicGVuZGluZyJ9LHsiSUQiOiJzbG90LTciLCJSb2xlIjoic2l6ZSIsIlNvdXJjZUFzc2V0SURzIjpbInNvdXJjZS0xIl0sIlN0eWxlUmVmZXJlbmNlSURzIjpudWxsLCJCcmllZiI6IiIsIklkZW1wb3RlbmN5S2V5Ijoic2xvdC1rZXktc2xvdC03IiwiU3RhdHVzIjoicGVuZGluZyJ9XSwiQ3JlYXRlZEJ5IjoidXNlci1hIn0sIk1heENvbmN1cnJlbnRTbG90cyI6MywiV2FpdEZvckNvbW1hbmRzIjpmYWxzZSwiQXNzZXRDYXRhbG9nIjp7Ik1hbmlmZXN0Ijp7IlZlcnNpb24iOjAsIkhhc2giOiIiLCJDcmVhdGVkQXQiOiIwMDAxLTAxLTAxVDAwOjAwOjAwWiJ9LCJBc3NldHMiOlt7IklEIjoic291cmNlLTEiLCJUeXBlIjoic291cmNlIiwiVVJMIjoiaHR0cHM6Ly9zb3VyY2UuZXhhbXBsZS9zb3VyY2UucG5nIiwiU291cmNlVVJMIjoiIiwiRGlzcGxheVVSTCI6IiIsIkxhYmVsIjoiIiwiV2lkdGgiOjAsIkhlaWdodCI6MCwiTWV0YWRhdGEiOm51bGx9XSwiUHJvZHVjdENvbnRleHQiOnsiUHJvZHVjdElEIjoiIiwiVGl0bGUiOiIiLCJQcm9kdWN0VHlwZSI6IiIsIlNvdXJjZVNuYXBzaG90VmVyc2lvbiI6MCwiQXR0cmlidXRlcyI6bnVsbH19LCJCdWRnZXRQb2xpY3kiOnsiSW1hZ2VzIjp7IkVuYWJsZWQiOmZhbHNlLCJWYWx1ZSI6MH0sIkFnZW50U3RlcHMiOnsiRW5hYmxlZCI6ZmFsc2UsIlZhbHVlIjowfSwiTW9kZWxDYWxscyI6eyJFbmFibGVkIjpmYWxzZSwiVmFsdWUiOjB9LCJSZXBhaXJBdHRlbXB0c1BlclNsb3QiOnsiRW5hYmxlZCI6ZmFsc2UsIlZhbHVlIjowfSwiQ29zdE1pY3JvcyI6eyJFbmFibGVkIjpmYWxzZSwiVmFsdWUiOjB9LCJNYXhFbGFwc2VkIjp7IkVuYWJsZWQiOmZhbHNlLCJWYWx1ZSI6MH19LCJTdGFydGVkQXQiOiIwMDAxLTAxLTAxVDAwOjAwOjAwWiIsIkRlYWRsaW5lQXQiOiIwMDAxLTAxLTAxVDAwOjAwOjAwWiIsIkxpZmVjeWNsZURlYWRsaW5lQXQiOiIwMDAxLTAxLTAxVDAwOjAwOjAwWiIsIkJ1ZGdldEF1dGhvcml6YXRpb24iOmZhbHNlfQ=="
+            }
+          ]
+        },
+        "originalExecutionRunId":  "synthetic-parent-run",
+        "firstExecutionRunId":  "synthetic-parent-run"
+      }
+    },
+    {
+      "eventId":  "2",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes":  {
+        "taskQueue":  {
+          "name":  "image-agent-organization-v1"
+        }
+      }
+    },
+    {
+      "eventId":  "3",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes":  {
+        "scheduledEventId":  "2"
+      }
+    },
+    {
+      "eventId":  "4",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes":  {
+        "scheduledEventId":  "2",
+        "startedEventId":  "3"
+      }
+    },
+    {
+      "eventId":  "5",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWNvbW1hbmQtaW5ncmVzcy1wbGFuLXBvbGljeS12MSI="
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "6",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWJ1ZGdldC1hdXRob3JpemF0aW9uLXYxIg=="
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "7",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWV4dGVybmFsLWVmZmVjdC1maW5hbGl6YXRpb24tdjEi"
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "8",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LXByb2plY3Rpb24tZXhlY3V0aW9uLWNvbW1pdC12MSI="
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "9",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LXNsb3QtZXhlY3V0aW9uLXdpcmUtdjMi"
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "10",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWFwcHJvdmFsLWFjdGlvbi1pZC12MyI="
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "11",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWFwcHJvdmFsLXB1YmxpY2F0aW9uLXdpcmUtdjMi"
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "12",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LXJlc3VsdC1kaWdlc3QtdjMi"
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "13",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWFwcHJvdmFsLXB1YmxpY2F0aW9uLXNjb3BlLXYxIg=="
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "14",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWFwcHJvdmFsLXB1YmxpY2F0aW9uLWtleS1sZW5ndGgtdjEi"
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "15",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWF0b21pYy1jb21tYW5kLWJvdW5kYXJpZXMtdjIi"
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "16",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_MARKER_RECORDED",
+      "markerRecordedEventAttributes":  {
+        "markerName":  "Version",
+        "details":  {
+          "change-id":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "ImltYWdlLWFnZW50LWVmZmVjdC1yZWNvdmVyeS1zdGFydC13aXJlLXYxIg=="
+              }
+            ]
+          },
+          "version":  {
+            "payloads":  [
+              {
+                "metadata":  {
+                  "encoding":  "anNvbi9wbGFpbg=="
+                },
+                "data":  "MQ=="
+              }
+            ]
+          }
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    },
+    {
+      "eventId":  "17",
+      "eventTime":  "2026-10-29T00:00:00Z",
+      "eventType":  "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes":  {
+        "activityId":  "17",
+        "activityType":  {
+          "name":  "imageagent.persist_run_state.v2"
+        },
+        "taskQueue":  {
+          "name":  "image-agent-organization-v1"
+        },
+        "workflowTaskCompletedEventId":  "4"
+      }
+    }
+  ]
+}
