@@ -3,7 +3,7 @@ import { useEffect,useLayoutEffect,useMemo,useRef,useState } from 'react';
 import type { z } from 'zod';
 import { useWorkbenchContext } from '@/components/providers/workbench-context-provider';
 import { parseCaptureEntry,type CaptureEntry } from './1688/capture-handoff';
-import { CaptureDraftClient,type CaptureDraft } from './capture-draft';
+import { CaptureDraftClient,captureHandoffExpiredMessage,isCaptureHandoffExpired,type CaptureDraft } from './capture-draft';
 export function useCaptureDraft<T>(platform:'amazon'|'1688',schema:z.ZodType<T>) {
   const context=useWorkbenchContext(),current=useRef(context);
   const scope=useMemo(()=>({userId:context.user?.id??'',organizationId:context.effectiveOrganization?.id??'',memberId:context.effectiveMemberId??''}),[context.user?.id,context.effectiveOrganization?.id,context.effectiveMemberId]);
@@ -23,8 +23,8 @@ export function useCaptureDraft<T>(platform:'amazon'|'1688',schema:z.ZodType<T>)
         const client=new CaptureDraftClient(entry,scope,abort.signal,()=>live.current===expected);
         const draft=await client.read(schema);
         if(!abort.signal.aborted&&live.current===expected)setLoaded({scopeKey:expected,draft,client});
-      }catch{
-        if(!abort.signal.aborted&&live.current===expected)setLoaded({scopeKey:expected,error:'本机资料尚未读取，请从原插件恢复资料；已保全内容不会因交接失效而删除。'});
+      }catch(error){
+        if(!abort.signal.aborted&&live.current===expected)setLoaded({scopeKey:expected,error:isCaptureHandoffExpired(error)?captureHandoffExpiredMessage:'本机资料尚未读取，请从原插件恢复资料；已保全内容不会因交接失效而删除。'});
       }
     })();
     return()=>abort.abort();

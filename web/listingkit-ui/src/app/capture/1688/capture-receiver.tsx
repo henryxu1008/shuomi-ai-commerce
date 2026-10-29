@@ -6,18 +6,20 @@ import { WorkbenchContextError } from "@/lib/api/workbench-context";
 import { browserCaptureSchema } from "@/lib/contracts/browser-capture";
 import type { AcquisitionResult } from "@/lib/contracts/product-acquisition";
 import { useCaptureDraft } from "../use-capture-draft";
+import { captureHandoffExpiredMessage,isCaptureHandoffExpired } from "../capture-draft";
 
-type View={attempted:boolean;busy:boolean;scopeKey?:string;result?:AcquisitionResult;message:string;refusal?:string};
+type View={attempted:boolean;busy:boolean;scopeKey?:string;result?:AcquisitionResult;message:string;refusal?:string;handoffExpired?:boolean};
 const unknown="Outcome is unknown. Local capture data is retained. Check the original operation.";
 export function CaptureReceiver(){
  const capture=useCaptureDraft("1688",browserCaptureSchema),{context,scope,ready,entry,draft,client}=capture;
  const [view,setView]=useState<View>({attempted:false,busy:false,message:"Confirm the current account and enterprise before submitting."});
  const active=useRef<AbortController|null>(null),busy=useRef(false),latest=useRef(capture);useLayoutEffect(()=>{latest.current=capture;});
  const scopeKey=JSON.stringify(scope),started=view.attempted||entry?.kind==="recovery"||!!draft&&!draft.canSubmit;
+ const handoffExpired=view.scopeKey===scopeKey&&view.handoffExpired;
  const stillCurrent=()=>latest.current.stillCurrent()&&JSON.stringify(latest.current.scope)===scopeKey;
  useEffect(()=>{if(!ready)active.current?.abort();return()=>active.current?.abort();},[ready,scopeKey]);
  async function run(submit:boolean){
-  if(!entry||!ready||view.scopeKey&&view.scopeKey!==scopeKey||busy.current||submit&&(started||!draft||!client))return;
+  if(!entry||!ready||view.scopeKey&&view.scopeKey!==scopeKey||busy.current||submit&&(started||!draft||!client||handoffExpired))return;
   busy.current=true;const controller=new AbortController();active.current=controller;
   const original=view.result?.operationId;
   setView(v=>({...v,busy:true,result:undefined,refusal:undefined,scopeKey}));
@@ -43,6 +45,9 @@ export function CaptureReceiver(){
    setView(v=>({...v,result,scopeKey,message:result.outcome==="published"?"Published version "+result.catalogVersion:result.outcome==="failed"?"The backend recorded this operation as failed.":unknown}));
   }catch(failure){
    if(!stillCurrent())return;
+   if(!dispatched&&isCaptureHandoffExpired(failure)){
+    setView(v=>({...v,handoffExpired:true,refusal:"NOT_DISPATCHED",message:captureHandoffExpiredMessage}));return;
+   }
    const code=failure instanceof WorkbenchContextError?failure.code:failure instanceof Error&&/^(DRAFT_|IDENTITY_|OPERATION_KEY_)/.test(failure.message)?failure.message:"OUTCOME_UNKNOWN";
    const preAdmission=["ACQUISITION_CAPACITY","DEADLINE_EXCEEDED","INVALID_ACQUISITION","SOURCE_TOO_LARGE"].includes(code);
    if(client&&sendIntent)await client.report(preAdmission?"rejected":"unknown",undefined,preAdmission?code:undefined).catch(()=>{});
@@ -62,7 +67,7 @@ export function CaptureReceiver(){
   <div hidden data-batch-submit-result={terminal?terminal.outcome:""} data-batch-operation-id={terminal?.operationId}></div>
   <div hidden data-batch-submit-refusal>{view.refusal??(capture.error?"HANDOFF_UNREADABLE":"")}</div>
   {receipt?.outcome==="published"?<dl className="space-y-2 rounded-xl border border-border bg-card p-5 text-sm"><dt>Product</dt><dd>{receipt.productKey}</dd><dt>Original publication</dt><dd>{receipt.publicationId}</dd><dt>Warnings / missing facts</dt><dd>{receipt.warnings.length} / {receipt.missingFacts.length}</dd></dl>:null}
-  <div className="flex flex-wrap gap-3">{!started&&payload?<Button data-batch-confirm-submit="" disabled={!ready||view.busy} onClick={()=>void run(true)}>Confirm and submit</Button>:null}{started&&entry?<Button disabled={!ready||view.busy} variant="outline" onClick={()=>void run(false)}>Check original operation</Button>:null}{view.busy?<Button variant="outline" onClick={()=>{active.current?.abort();setView(v=>({...v,message:unknown}));}}>Stop waiting</Button>:null}</div>
+  <div className="flex flex-wrap gap-3">{!started&&payload&&!handoffExpired?<Button data-batch-confirm-submit="" disabled={!ready||view.busy} onClick={()=>void run(true)}>Confirm and submit</Button>:null}{started&&entry?<Button disabled={!ready||view.busy} variant="outline" onClick={()=>void run(false)}>Check original operation</Button>:null}{view.busy?<Button variant="outline" onClick={()=>{active.current?.abort();setView(v=>({...v,message:unknown}));}}>Stop waiting</Button>:null}</div>
   <p className="text-xs text-muted-foreground">Use the original extension to restore after expiry. Do not share this page’s private address. Removing extension storage deletes local drafts.</p>
  </section>;
 }

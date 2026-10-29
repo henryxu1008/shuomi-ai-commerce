@@ -18,6 +18,9 @@ export type Draft = {
   scope?: DraftScope; intent?: { body: string; digest: string; bytes: number }; attemptId?: string; operationId?: string;
 };
 export type Observation = { draftId: string; sourceID: string; variant: AmazonVariant; diagnostics: { field: string; reason: string }[]; observedAt: string; digest?: string };
+// A retry returns to bound while retaining the earlier attempt. Reconstructing
+// its transport must not turn that earlier UNKNOWN into first-send consent.
+export const needsSendRecovery = (draft: Draft) => draft.phase === 'sending' || draft.phase === 'bound' && !!draft.attemptId;
 type Envelope = { id: string; revision: number; json: string; digest: string };
 interface CaptureDB extends DBSchema {
   drafts: { key: string; value: Envelope };
@@ -64,8 +67,8 @@ export class DraftStore {
       const values=await db.getAll('drafts'),changes:{before:Envelope;after:Envelope}[]=[];
       for(const value of values){
         let d:Draft;try{d=await decode(value);}catch{continue;}
-        if(d.phase==='capturing'||d.phase==='sending'){
-          d.phase=d.phase==='sending'?'unknown':'paused';d.reason='DRAFT_INTERRUPTED';d.revision++;d.generation=crypto.randomUUID();d.updatedAt=Date.now();
+        if(d.phase==='capturing'||needsSendRecovery(d)){
+          d.phase=d.phase==='capturing'?'paused':'unknown';d.reason='DRAFT_INTERRUPTED';d.revision++;d.generation=crypto.randomUUID();d.updatedAt=Date.now();
           changes.push({before:value,after:await envelope(d)});
         }
       }
@@ -228,7 +231,7 @@ export class DraftStore {
     });
   }
   interrupt(id: string, revision: number, generation: string) {
-    return this.update(id, revision, generation, d => { if(d.phase!=='sending')throw Error('DRAFT_CHANGED');d.phase='unknown'; });
+    return this.update(id, revision, generation, d => { if(!needsSendRecovery(d))throw Error('DRAFT_CHANGED');d.phase='unknown'; });
   }
   async remove(id: string, revision: number) {
     await this.ready;
