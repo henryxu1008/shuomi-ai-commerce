@@ -1,4 +1,4 @@
-> #301 当前提案：[旧 ImageAgent 历史协议完整退休设计](../architecture/legacy-imageagent-history-protocol-closure-retirement-boundary.md)。RETIRE + SELECTIVE EXTRACTION / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。未来32路径完整闭包：旧默认版本续跑/选择器、V1失败投影、四便利方法及测试/fixture/文档尾部；当前版本1、预算事实false、JSON/hash、当前图像/采集/Store观察与恢复owner保留。更广历史边界待本轮独立复核和用户确认；不操作既有资源，不改workflow/inventory，不增加试用前置，#301 OPEN。本次仅三文档；原历史、计数与勾选逐字保留。
+> #301 当前提案：[旧 ImageAgent 历史协议完整退休设计](../architecture/legacy-imageagent-history-protocol-closure-retirement-boundary.md)。RETIRE + SELECTIVE EXTRACTION / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。未来33路径完整闭包：旧默认版本续跑/选择器、V1失败投影、四便利方法及测试/fixture/文档尾部；当前版本1、预算事实false、JSON/hash、当前图像/采集/Store观察与恢复owner保留。更广历史边界待本轮独立复核和用户确认；不操作既有资源，不改workflow/inventory，不增加试用前置，#301 OPEN。本次仅三文档；原历史、计数与勾选逐字保留。
 
 > #301 / #998 当前实施：RETIRE + SELECTIVE EXTRACTION / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。按[冻结业务Signal设计](../architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md)整批实施15路径；删四旧入口及分派/deferred尾部，原恢复接收循环留当前owner。Update/Resume/四共享输入/JSON/hash及Store观察保持；旧Signal历史（含这类V3）停止续跑已获用户确认。workflow/inventory/既有资源零改，无新试用前置，#301 OPEN。以下历史、计数和勾选保留。
 

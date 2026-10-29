@@ -72,7 +72,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 | 旧历史判定 | **在已到达的原 GetVersion 点**，旧默认版本不在支持区间，SDK 拒绝该次回放/Workflow Task 继续推进。可能表现为版本错误和重复任务失败，不承诺自动转成业务 terminal failure，也不加 catch 后写 `run.failed` 的补偿 |
 | 未到达 marker | 不要求一份历史已经包含所有 14 个 marker。条件/晚到点尚未发生，不等于 legacy；新执行首次正常到达时由 SDK 记录当前值。不能按“缺 marker”扫描历史并统一拒绝 |
 | 检测与副作用时点 | 不承诺所有旧历史都在所有 effect 之前拒绝。失败 marker 在内层执行之后，恢复 marker 在 durable reconcile 之后；先前已完成/已调度的共享当前 Activities 仍由原 lease/deadline/UNKNOWN owner 处理事实，源码切换不会神奇撤回它们 |
-| 旧子协议 | `SlotWorkflowV3Input.ExternalEffectFinalization=false` 不再支持。保留公共字段/JSON，在 child 入口、安排新 Activity 之前以现有 validation error 拒绝。当前 parent 始终传 true；不新加 child marker、兼容 wrapper 或 state owner。只拒绝这一旧协议位，不能同时要求 BudgetAuthorization=true |
+| 旧子协议 | `SlotWorkflowV3Input.ExternalEffectFinalization=false` 不再支持。保留公共字段/JSON，在 child 原 `validateWorkflowScope` 之后、安排新 Activity 之前以现有 validation error 拒绝，组织/queue/租户拒绝优先级不变。当前 parent 始终传 true；不新加 child marker、兼容 wrapper 或 state owner。只拒绝这一旧协议位，不能同时要求 BudgetAuthorization=true |
 | 当前预算数据 | 公共 `WorkflowInput` 的初始 false 仍接受，在原 budget marker 后设置当前父值。child/共享 `ExecuteSlotV3` 的 BudgetAuthorization 及其校验分支继续保留，尤其 recovery 依据已保存 quote 的 false；不修改 `activities_execution_v3.go`、`activities_review_v3.go` 或 `activities_recovery_v3.go` |
 | 当前 JSON/hash/版本 | 公共 WorkflowInput、child、ExecuteSlotV3、EffectRecovery、四个共享 `*Signal`、Update/Resume 载荷的声明顺序/tag/默认 JSON/nil空值不变；当前 Activity/child/task queue/恢复 IDs、hash、版本常量和值不变。私有运行位不进入序列化；V1 failure 专属 DTO/name 退出，不加 alias |
 | 当前持久化 | 组织 Repository 继续拥有 run/plan/slot/projection/commit；V3 ledger 拥有 effect/receipt/fence，Asset/Resource/钱包仍由当前事务 owner 持有。V2 failure wrapper 与共享私有事务保持。无 schema/SQL/migration、旧记录改写或数据清理 |
@@ -82,7 +82,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 
 ## 5. 完整删除 / 保留 / 抽取矩阵
 
-未来同一批一次覆盖 **32 路径：8 生产、11 Go 测试、2 普通合成 JSON fixture、11 文档**。本设计 PR 只含其中三文档；下列是待确认的完整实施边界，不是已执行状态。无新生产文件/表/owner。
+未来同一批一次覆盖 **33 路径：8 生产、12 Go 测试、2 普通合成 JSON fixture、11 文档**。本设计 PR 只含其中三文档；下列是待确认的完整实施边界，不是已执行状态。无新生产文件/表/owner。独立初审发现遗漏的 direct-child 测试，分类 `IMPLEMENTATION_TEST`，在设计确认前收齐同根调用与原安全断言改接，不增加生产机制。
 
 | 路径 | 决定及准确边界 |
 | --- | --- |
@@ -104,6 +104,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 | `internal/imageagent/temporal/manual_acceptance_test.go` | `EnsureStaged` fixture 改现有 Normalize 并原样传错；原验收断言不变 |
 | `internal/imageagent/temporal/effect_recovery_workflow_test.go` | 追加 late marker 旧版本拒绝测试；原当前成功通知/UNKNOWN/无重复派发/fence 断言零改 |
 | `internal/imageagent/temporal/slot_effect_v3_activity_test.go` | 仅一个 direct-child fixture 显式 true finalization，原 BudgetAuthorization=false 保留；其它函数零改 |
+| `internal/imageagent/temporal/slot_effect_activity_test.go` | 两个当前安全测试仅 child fixture 补 true；旧 false 成功/空 phase 正向模式改入口拒绝且零 Activity，原 true 传播/终结 phase 断言保留，见 §6.1 |
 | `tests/legacy_imageagent_manual_runtime_retirement_test.go` | 追加本批完整闭包 AST/调用顺序/保留 guard；#994/#996/#998 原函数零改，不减安全断言 |
 | `internal/imageagent/temporal/testdata/current-organization-parent-prefix.json` | 新增普通单测合成 SDK history prefix；baseline/candidate 都必须回放成功，非真实历史 |
 | `internal/imageagent/temporal/testdata/retired-default-version-parent-prefix.json` | 新增普通单测合成旧默认 prefix；baseline 成功、candidate 必须在预计 SDK 版本点失败，不接受解析错误冒充拒绝 |
@@ -123,7 +124,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 
 ## 6. 实施与必要验证
 
-设计阶段只检查文档路径/索引、32路径分类及 diff，不运行真实 workflow/provider/服务。源码获准后先建立能捕获目标缺口的测试，再做最小删除/抽取；范围内在同一主要 PR 连续完成，不以测试文件数拆批。
+设计阶段只检查文档路径/索引、33路径分类及 diff，不运行真实 workflow/provider/服务。源码获准后先建立能捕获目标缺口的测试，再做最小删除/抽取；范围内在同一主要 PR 连续完成，不以测试文件数拆批。
 
 ### 6.1 原检查处置与有效断言保留
 
@@ -137,9 +138,13 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 | `TestWorkflowEffectOwnerFencesEveryTerminalRunStatusBeforeExecution` | 该旧默认协议的“持久化成功前就 fence”正向要求退休；转换为当前成功后 fence 的验证，并保留 `TestWorkflowEffectOwnerDoesNotFenceFailedTerminalPersistence` | 不能因持久化失败提前封死当前 owner，当前 terminal fence 必须有效 |
 | `TestPersistWorkflowFailureProjectsTerminalStateIdempotently`、`TestRestartedExecutionCanRepersistProjectionAndReplayedSlotResult`、`TestRunProjectionCommitIDIsScopedToTemporalExecution` | V1 调用改 V2 + execution-scoped commit，去无执行身份 fallback 的正向断言，补缺身份失败 | tenant/terminal/idempotency/重启执行身份隔离和已保存结果可重投影 |
 | `TestRegisterWorkerUsesExactModeBoundWorkflowAndActivitySets` | 仅从 expected 删除 V1 failure 注册；断言其缺席 | 其它精确注册集/模式隔离原样保持 |
+| `workflow_test.go` 的 `TestImageSlotWorkflowFailsClosedForMismatchedOrEmptyExecutorResult` | direct child fixture 仅补 `ExternalEffectFinalization:true` | 四类非法返回、`invalid_slot_result`、结果 slot/attempt 原断言全部保持 |
 | `TestRetiredActivityWireFailsBeforeAnyActivity`、`TestRetiredApprovalWireHasNoDigestOrPublicationKeyFallback` | 退不可再构造的私有 selector，用实际 SDK 版本边界和当前 key/digest guard 接替 | 不能保留已删类型只供测试；真实 SDK 错误需辨因，无静默 fallback/新 Activity |
 | `history_replay_test.go` 的旧 `*Probe`、`markerVersion`、marker组合/PreFinalization/LegacyScoped/RecoveryStart 默认关闭等正向测试 | 退休旧支持要求；当前 V3/digest/bounded-key 有效断言改接当前 helper/SDK fixture。复用 `readHistoryFixture`、`historyVersionChangeIDs`、`scheduledActivityNames` 等通用解析能力 | 当前 key 长度/算法、SDK 顺序、当前1回放；普通 mock/probe 不能声称真实 history 回放 |
-| `TestImageSlotWorkflowV3VersionsCancellationDrainActivityOptions`、`TestImageAgentWorkflowBudgetDeniesRepairBeforeChild` | 去旧 options 模式；current1 + 原预算拒绝场景；新 false-finalization child 入口拒绝 | heartbeat/WaitForCancellation、预算拒绝无派发、原 deadline/grace/溢出测试逐字保留 |
+| `TestImageSlotWorkflowV3VersionsCancellationDrainActivityOptions`、`TestImageAgentWorkflowBudgetDeniesRepairBeforeChild` | 去旧 options 模式；current1 + 原预算拒绝场景；新 false-finalization child 入口拒绝 | heartbeat/WaitForCancellation、预算拒绝无派发、原 deadline/grace/溢出安全断言逐字保留 |
+| `budget_authorization_test.go` 的 `TestImageSlotWorkflowV3BudgetDeadlineBlocksWithoutActivity` | 仅 child fixture 补 `ExternalEffectFinalization:true` | `BudgetElapsedCode` 和零 Activity 原断言保持，不调整 deadline/预算值 |
+| `slot_effect_activity_test.go` 的 `TestImageSlotWorkflowV3PreservesInvalidPersistedPolicyClassification`、`TestImageSlotWorkflowV3RejectsInvalidMainCandidateCount` | 仅 child fixture 补 `ExternalEffectFinalization:true`，不改 BudgetAuthorization | 原错误分类、候选数、blocked/result 断言全部保持 |
+| 同文件 `TestImageSlotWorkflowV3ThreadsExternalEffectFinalizationToActivityInput` | 退旧 false 成功/空 phase 正向要求；false 改验证入口拒绝且 Activity 零调用 | 当前 true 传播、accepted 与 `PublicationComplete` 原断言保持 |
 | `TestManualWorkflowApprovalLostACKCannotBeSupersededByCancel` | 仅既有 marker mock 的范围校准 | 全部 lost ACK/已批准后取消不得 supersede 原断言 |
 | `TestSetWorkflowOffersKnownPartialResultsOnlyAfterEveryEffectCloses`、`nativePolicyAdoptionWorkflow`、`selectedSetApprovalWorkflow`、`EnsureStaged` | §5 纯 helper/fixture 改接 | 原所有有效断言不变 |
 | `TestImageSlotWorkflowV3StartsFreshActivityAfterFinalInnerAttemptLosesPublicationResponse` | direct child 只补 `ExternalEffectFinalization:true`；BudgetAuthorization=false 与原持久化 fixture 保留 | 原零 GenerateCalls、Finalize/Completion/claim-owner 数量、lease/retry 身份、无重新生成不变；下层 “WithoutWire” Activity 取消安全测试零改 |
@@ -159,7 +164,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 
 1. 当前先交付三文档、准确设计 HEAD、原 CI 与适用独立设计结论。新范围只有 design，源码状态 `SOURCE_NOT_STARTED / NOT_READY`。用户确认必须包含 §4.2 的历史 hard-cut/旧 child 取舍，不能把设计 PR CI 绿色当确认。
 2. GitHub 自动复核若启动失败且没有正在运行的复核，可唯一重试；有适用复核正在运行不重复触发。**未经用户本轮授权不默认新增 AI 互验线程；设计与源码最终复核授权分开。** 无有效适用结论则如实待复核，不把 Completed/空 reviews 当通过。
-3. 用户确认及适用准入后，同一主要 PR 将状态改为 `IMPLEMENTATION_READY / IMPLEMENTING`，按32路径整批实施。设计冻结后不重开无关架构；finding 先分类，真实 Must 缺陷才阻止交付，准确清单外例外先报告。
+3. 用户确认及适用准入后，同一主要 PR 将状态改为 `IMPLEMENTATION_READY / IMPLEMENTING`，按33路径整批实施。设计冻结后不重开无关架构；finding 先分类，真实 Must 缺陷才阻止交付，准确清单外例外先报告。
 4. 源码形成稳定候选后一次完整最终交付检查：实际完整 diff、SDK 当前/拒绝边界、调用顺序、共享预算 false、JSON/hash、原有效断言、所有当前能力和已有证据；修复后只查增量。开发自检/另一 AI 复核均不等于用户产品验收。
 5. 当前没有 merge/runtime/关单授权；若用户后续授权正常合并，绑定最终准确 HEAD/expected-head，遵守保护规则，再确认实际 merge SHA 的 push/main **整 run** 成功。变化 HEAD 按现行准确授权规则办理，不 bypass/强推/改保护。
 6. #301 当前段最小更新，历史后缀从“以下保留 #726 已合并批次与历史证据，不扩大本轮权限。”起逐字保持，历史勾选不动、正文 ≤65536 字符、始终 OPEN。运行/真实历史处置和关单另行授权，不在本批附带。
