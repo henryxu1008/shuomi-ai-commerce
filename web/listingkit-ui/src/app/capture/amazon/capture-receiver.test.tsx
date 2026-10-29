@@ -88,6 +88,15 @@ it("retains unknown-outcome semantics when the retry capability has expired afte
  expect(screen.getByRole("status")).toHaveTextContent("原请求仍可能完成");expect(screen.getByRole("status")).toHaveTextContent("恢复原操作");
  expect(screen.queryByRole("button",{name:"用原键重试同一份资料"})).toBeNull();expect(mocks.request).toHaveBeenCalledTimes(2);expect(mocks.request.mock.calls[1][2]).toBeUndefined();
 });
+it.each(["capture.retry","capture.send"])("retains the original unknown result when %s expires during a permitted retry",async stage=>{
+ mocks.request.mockRejectedValueOnce(new AmazonCaptureError("OUTCOME_UNKNOWN"));render(<AmazonCaptureReceiver/>);await loaded();submit();await screen.findByText(/保存结果待核实/);
+ mocks.request.mockRejectedValueOnce(new AmazonCaptureError("CAPTURE_NOT_FOUND"));fireEvent.click(screen.getByRole("button",{name:"检查原操作"}));
+ const retry=await screen.findByRole("button",{name:"用原键重试同一份资料"}),message=mocks.message.getMockImplementation()!;
+ mocks.message.mockImplementation(async m=>m.type===stage?{version:2,code:"CAPTURE_EXPIRED"}:message(m));fireEvent.click(retry);
+ await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("CAPTURE_EXPIRED"));
+ expect(screen.getByRole("status")).toHaveTextContent("原请求仍可能完成");expect(screen.getByRole("status")).toHaveTextContent("检查原操作");
+ expect(screen.queryByRole("button",{name:"用原键重试同一份资料"})).toBeNull();expect(mocks.request).toHaveBeenCalledTimes(2);
+});
 it("does not offer resend for an original key without a recoverable local draft",async()=>{
  window.history.replaceState(null,"",`/capture/amazon#operationKey=${receipt.key}`);render(<AmazonCaptureReceiver/>);fireEvent.click(await screen.findByRole("button",{name:"检查原操作"}));await screen.findByText(/没有原恢复标记/);expect(mocks.request).not.toHaveBeenCalled();expect(screen.queryByRole("button",{name:"用原键重试同一份资料"})).toBeNull();
 });

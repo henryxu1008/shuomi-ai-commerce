@@ -60,7 +60,7 @@ export function AmazonCaptureReceiver(){
   }catch(error){
    if(!stillCurrent())return;
    if(!dispatched&&isCaptureHandoffExpired(error)){
-    setView(v=>({...v,handoffExpired:true,message:captureHandoffExpiredMessage}));return;
+    setView(v=>({...v,handoffExpired:true,message:(action==="retry"?"原请求仍可能完成，请先检查原操作，不要重复保存。":"")+captureHandoffExpiredMessage}));return;
    }
    const code=error instanceof AmazonCaptureError?error.code:error instanceof Error&&error.message.startsWith("DRAFT_")?error.message:"OUTCOME_UNKNOWN";
    if(action==="verify"&&code==="CAPTURE_NOT_FOUND"){

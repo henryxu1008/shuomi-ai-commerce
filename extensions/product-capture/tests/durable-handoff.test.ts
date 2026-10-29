@@ -35,6 +35,31 @@ it.each([
 ])('rejects a mismatched native sender',async bad => {
   const { message } = await setup(); await expect(message('capture.meta',{},bad)).rejects.toThrow('INVALID_SENDER');
 });
+it.each([false,true])('requires a new original-key check after retry-send expiry (worker rebuilt=%s)',async rebuilt=>{
+  let now=Date.now();vi.spyOn(Date,'now').mockImplementation(()=>now);
+  const value=JSON.parse(readFileSync('../../internal/product/sourcing/testdata/amazon-capture-v2.json','utf8')) as PlatformCapturePayload;
+  const destination='https://app.example.com/capture/amazon',name=crypto.randomUUID(),store=new DraftStore(name);await store.ready;
+  let draft=await store.create(value.evidence.sourceURL,'single',destination);draft=await store.complete(draft.id,draft.revision,draft.generation,value);
+  const extract=vi.fn(async()=>value),create=vi.fn<(url:string)=>Promise<number>>(async()=>42);
+  const control=(drafts:DraftStore)=>new Controller(drafts,async()=>({url:value.evidence.sourceURL}),destination,extract,create,()=> 'a'.repeat(32));
+  let owner=control(store);await owner.restore(draft.id);await owner.handoff();
+  const first=new URL(create.mock.calls[0][0]),from={...sender,url:destination} as chrome.runtime.MessageSender;
+  const message=(url:URL,type:string,extra={})=>owner.message({version:2,type,handoffId:new URLSearchParams(url.hash.slice(1)).get('handoffId'),idempotencyKey:draft.key,scope,...extra},from);
+  await message(first,'capture.meta');await message(first,'capture.bind',{body:draftBody(value)});await message(first,'capture.send');await message(first,'capture.status',{phase:'unknown'});
+  const original=await store.get(draft.id);
+  await message(first,'capture.armRetry');await message(first,'capture.retry');now+=300001;
+  await expect(message(first,'capture.send')).rejects.toThrow('CAPTURE_EXPIRED');
+  const restoredStore=rebuilt?new DraftStore(name):store;await restoredStore.ready;
+  if(rebuilt)owner=control(restoredStore);
+  await owner.restore(draft.id);await owner.handoff();
+  const fresh=new URL(create.mock.calls[1][0]);await message(fresh,'capture.meta');
+  expect(await message(fresh,'capture.read')).toMatchObject({phase:'unknown',canSubmit:false,intent:original!.intent});
+  expect(await restoredStore.get(draft.id)).toMatchObject({key:original!.key,attemptId:original!.attemptId,intent:original!.intent,scope:original!.scope});
+  await expect(message(fresh,'capture.send')).rejects.toThrow('DRAFT_CHANGED');
+  await expect(message(fresh,'capture.retry')).rejects.toThrow('DRAFT_CHANGED');
+  await message(fresh,'capture.armRetry');await message(fresh,'capture.retry');await message(fresh,'capture.send');
+  expect((await restoredStore.get(draft.id))?.attemptId).not.toBe(original!.attemptId);expect(extract).not.toHaveBeenCalled();
+});
 it('binds all bytes, isolates changed identity, and never deletes on a page receipt',async () => {
   const { message,store,draft } = await setup(); await message('capture.meta');
   await expect(message('capture.bind',{ body: JSON.stringify({...payload,evidence:{...payload.evidence,title:'wrong'}}) })).rejects.toThrow('DRAFT_BODY_MISMATCH');
