@@ -47,10 +47,19 @@ export function SupportLauncher({ available }: { available: boolean }) {
     const { controller, signal, attempt } = request(); if (focus) setPhase("checking");
     try {
       await api<{ subject: string }>("session", signal, subject);
-      if (conversationId) {
-        const history = await api<SupportHistory>(`conversations/${conversationId}/messages`, signal, subject);
+      if (generation.current !== attempt) return;
+      let selected = conversationId;
+      if (!selected) {
+        const collection = await api<SupportCollection>("conversations", signal, subject);
+        if (generation.current !== attempt) return;
+        selected = collection.conversations[0]?.id ?? null;
+        setConversations(collection.conversations); setConversationId(selected);
+      }
+      if (selected) {
+        const history = await api<SupportHistory>(`conversations/${selected}/messages`, signal, subject);
         if (generation.current !== attempt) return;
         setMessages(previous => mergeMessages(previous, history.messages));
+        if (!conversationId) setBefore(history.nextBefore);
       }
       if (generation.current === attempt) setPhase("open");
     } catch (cause) { fail(attempt, cause); } finally { if (pending.current === controller) pending.current = null; }
