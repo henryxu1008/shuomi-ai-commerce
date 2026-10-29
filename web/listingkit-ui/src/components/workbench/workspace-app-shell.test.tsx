@@ -62,6 +62,20 @@ function renderShell(child = <p>organization child</p>) {
 }
 
 describe("WorkspaceAppShell", () => {
+  it("narrows desktop navigation without remounting the page or losing draft input", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(ACTIVE_CONTEXT)));
+    const user = userEvent.setup();
+    renderShell(<input aria-label="未保存内容" defaultValue="" />);
+    const input = await screen.findByLabelText("未保存内容");
+    await user.type(input, "保留输入");
+    await user.click(screen.getByRole("button", { name: "收窄侧栏" }));
+    expect(screen.getByRole("button", { name: "展开侧栏" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByLabelText("未保存内容")).toBe(input);
+    expect(input).toHaveValue("保留输入");
+    expect(screen.getByRole("navigation", { name: "工作台导航" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "展开侧栏" }));
+    expect(input).toHaveValue("保留输入");
+  });
   it.each(["/workbench/agents/skills", "/workbench/agents/skills/official", "/workbench/agents/skills/mine"])("allows the identity-only skill route %s without enterprise selection", pathname => {
     navigation.pathname = pathname;
     injectProfileContext({error: {code: "ORGANIZATION_ACCESS_REVOKED"}});
