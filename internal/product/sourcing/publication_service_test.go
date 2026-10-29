@@ -107,6 +107,15 @@ func TestInternalProducerRetainsCostOnlyEvidenceWithoutInventingPrice(t *testing
 	require.NoError(t, json.Unmarshal(store.last.EnvelopeJSON, &retained))
 	require.Equal(t, command.Envelope.SupplierOrCostFacts, retained.SupplierOrCostFacts)
 	require.NotContains(t, string(store.last.SnapshotJSON), `"amount"`)
+	store.persisted = PersistedPublication{Envelope: store.last.Envelope, Snapshot: store.last.Snapshot, Receipt: receipt}
+	reader, err := NewInternalReader(admissionFunc(func(context.Context) (PublicationScope, error) {
+		return PublicationScope{OrganizationID: "org-a", ActorID: "actor-a"}, nil
+	}), store)
+	require.NoError(t, err)
+	read, err := reader.Read(context.Background(), receipt.PublicationID)
+	require.NoError(t, err)
+	require.Equal(t, retained.SupplierOrCostFacts, read.Envelope.SupplierOrCostFacts)
+	require.Nil(t, read.Snapshot.Variants[0].Price)
 }
 
 func TestInternalProducerPreservesCanonicalEncodingBaseline(t *testing.T) {

@@ -39,6 +39,8 @@ Collection 持操作、分组和来源引用；Sourcing 持用户提供的证据
 
 2026-10-29 #675 有界修复（Reuse Existing Architecture，用户已授权）：成本存在不是售价已声明的证据。只有正售价或已校验 own 的显式0价创建 Catalog Price；仅成本且售价缺失时不创建 Price，原成本仍完整保留在不可变 Source.Envelope.SupplierOrCostFacts，并沿原发布/hash保存。有已知售价时保留原 CostPrice 投影；不修改公共 Price DTO、金额类型或0编码，不新增 presence/兼容协议。
 
+原 Source reader 仍按当前投影重算并核对不可变快照。若存在旧缺陷生成的 cost-only / amount=0 快照，新投影与旧快照将不一致并被原校验拒绝；本轮不改写它、不放宽校验、不加旧投影 fallback。保留实例是否存在此类资料为 UNKNOWN，尚未部署/升级或读取保留数据；不能用当前新发布的隔离回归冒充保留资料验收。沿 greenfield 基线修复当前合同，不推定历史迁移/兼容授权。
+
 HTTP严格结构解析之后，在同一有界raw request内检查product/products的每个variant必填price/stock：缺少或null拒绝，显式数字0保留。不能让Go值类型的默认0替代用户声明。未知/重复字段仍由原sigjson严格解析拒绝，不用自定义解码绕过现严格解析。
 
 实际 source publication 单集合上限256、aggregate items上限1024、单字符串8192 bytes、编码2MiB。现 collection/UI 标称1000变体、1MiB描述高于真实下游合同，不能将其当作真实保存能力。本轮对自有输入统一到真实上限：最大256变体，description最大8192 bytes，并计算属性+变体+公共图+变体图合计预算；过大输入在正式写入前拒绝。生成先计算笛卡尔积及预算，再分配行，不放宽底层限制。
