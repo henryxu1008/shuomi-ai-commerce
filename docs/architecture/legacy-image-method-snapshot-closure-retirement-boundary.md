@@ -51,7 +51,7 @@ owner 不变：组织 Repository 拥有 run/plan/slot/projection/commit；Skill 
 2. **ImageSet 必须有当前有效 Text**，包括显式 `none`；旧 Text=nil 即使 Method=nil 也退出。当前 `reviewed` 的准确审核副本、语言、TaskIDs、普通标点、事实/evidence 与 prompt 全部按原规则。Artwork 和采集单主图不因此需要 ImageSet.Text。
 3. 五个旧字面文案 helper 和 `visualImagePrompt` 整退。asset_catalog/generation_input 直接调用现有 `validateReviewedImageText`；该 helper 对非 ImageSet 仍允许 nil set，对 ImageSet 的 nil Text 明确拒绝。构造器只保留当前 `imageTextPrompt`，退被覆盖的局部 `visualProductFacts`/payload/旧 prompt 及专属调用，不改最终当前 prompt 字节、顺序、引号、语言或字段。
 4. 原严格规则归 `ValidatePlan`：JSON-safe 修订、最多 32 slots、显式 pending；Artwork 原分支也必须执行同样当前约束，且其直接 validator 不再接受空 pending。`ValidatePlanAgainstCatalog` 收入原 size 首选源必须有真实尺寸的规则。删除两个冗余 Submitted 门面并改接所有生产调用；`ValidateInitialSubmittedPlan` / `ValidateReplacementSubmittedPlan` 保留初始 1/0 和单步修订业务含义。不为零修订/空计划加跳过校验；原缺投影或初始化未完成的错误合同保持。
-5. 两个真实 Repository 的 GetProjection 已调用 `ValidateProjectionSnapshot → ValidatePlan`，复用该现有链封闭旧读取，不在 Service.Get 重复增加 validator 或改变身份顺序，不把原始读取改成迁移/过滤。Prepare 的 Text 在已有/新记录之前统一要求；旧 policy 的 input digest 重算分支退出。已有请求路径仍校验原身份与当前计划，原同键异载荷、source revalidate 及准确当前回放不变。PreparedImageSetFromProjection 对缺 Set 显式失败，不能解引用 panic。
+5. 两个真实 Repository 的 GetProjection 已调用 `ValidateProjectionSnapshot → ValidatePlan`，但原链没有 catalog 校验，单收严 catalog validator 会漏掉 size 首图无尺寸的历史读取。**在现有 `projection.go::ValidateProjectionSnapshot` 的原 scope/cursor/Plan/revision 检查之后、原 admission 校验之前，复用 `ValidatePlanAgainstCatalog(snapshot.Plan, snapshot.AssetCatalog)`**。只用投影已有不可变目录，不读当前商品/外部服务；不改变原检查顺序或在 Service.Get 复制 validator，不把原始读取改成迁移/过滤。Prepare 的 Text 在已有/新记录之前统一要求；旧 policy 的 input digest 重算分支退出。已有请求路径仍校验原身份与当前计划，原同键异载荷、source revalidate 及准确当前回放不变。PreparedImageSetFromProjection 对缺 Set 显式失败，不能解引用 panic。
 6. Confirm 在原身份/修订/digest检查后、任何已准入回执早返回或 StartManual 前经 PlanDigest 校验当前计划。**当前 v4 的原 admission 恢复仍先于新 source/Skill/quote 准入**，不因本批把撤销后的安全关闭路径堵死。`ValidateImageSetAdmission` 在原 pending-copy 前拒绝空 slot.Status；保留原非空当前执行状态的 plan-definition pending-copy 和准确回执比较，不能借复制把已退休空状态修成有效计划。Asset publication、直接 tools、worker 和结果恢复沿现有 validator 调用链拒绝旧计划；不复制领域验证到各适配器。
 7. `ImageSetQuoteDigest` 保留当前 Route+Text 与无 Route+Text 的两种原编码，退出仅 Method/仅 quotes 的旧 Text=nil 分支；计算前拒绝非当前 set，不能递归调用依赖 QuoteDigest 的完整 plan validator。PlanDigest 改用 canonical ValidatePlan，**原 JSON 声明/tag/顺序、nil/空值、omitempty、当前 SHA256/指纹/版本和值完全不变**。当前无 Method、有/无 Route、none/reviewed 四种组合必须证明字节与 hash 等价。
 8. `catalog-v1` 仍用于当前 Artwork 的空素材目录，catalog-v2 仍用于商品上下文；两种 hash、Normalize、ProductContext 零值及 SourceIdentity 四零值槽位全部保留。不把旧方法 policy 与 Skill 数字版本、ImageSet schema、Temporal V3 或所有“历史”一词混同。
@@ -72,7 +72,7 @@ owner 不变：组织 Repository 拥有 run/plan/slot/projection/commit；Skill 
 
 ## 5. 完整删除 / 保留 / 抽取矩阵
 
-**本次设计提交只有三文档。未来源码同一 PR 覆盖以下 3 个生产整退文件、16 个生产有界文件及全部专属检查/文档尾部。** 测试文件按 §6.1 的同根 fixture/调用改接边界授权，不为凑文件数改未受影响测试；最终实际路径与准确 HEAD 写 PR。
+**本次设计提交只有三文档。未来源码同一 PR 覆盖以下 3 个生产整退文件、17 个生产有界文件及全部专属检查/文档尾部。** 初审唯一 IMPLEMENTATION_TEST 已在冻结前收齐 catalog 读取接线；没有新增状态/事实 owner。测试文件按 §6.1 的同根 fixture/调用改接边界授权，不为凑文件数改未受影响测试；最终实际路径与准确 HEAD 写 PR。
 
 | 文件 | 决定与边界 |
 | --- | --- |
@@ -89,6 +89,7 @@ owner 不变：组织 Repository 拥有 run/plan/slot/projection/commit；Skill 
 | `internal/imageagent/image_set.go` | 当前 Text 必需、旧标签 fallback 与旧 quote 编码退出、PlanDigest 改接；当前 DTO/clone/schema/quote及两当前 hash 编码保持 |
 | `internal/imageagent/image_set_service.go` | Prepare/GetPrepared/Confirm 原请求和回执快捷路径覆盖当前校验；整退旧 digest重算、旧构造器/局部 payload 与 prompt；当前 receipt 恢复顺序/source授权不变 |
 | `internal/imageagent/service.go` | 仅规范校验调用改接；Get/Repository 原校验和身份顺序复用，不改命令/授权/事务 owner |
+| `internal/imageagent/projection.go` | 仅在原 scope/cursor/Plan/revision 校验后、admission 前复用 snapshot 自有 catalog 校验，收齐尺寸规则的读取闭包；原权限/回执/slot/UNKNOWN/cursor 断言和状态不改 |
 | `internal/imageagent/image_set_admission.go` | 仅在原 pending-copy 前拒绝空 slot.Status；原非空执行状态的定义复制、准确回执/digest/身份与时限比较保持 |
 | `internal/imageagent/image_set_result.go` | 仅 Submitted 门面调用改接当前 canonical；partial/settled/UNKNOWN/结果 hash 保留 |
 | `internal/imageagent/temporal/worker.go` | 仅两处 Submitted 门面调用改接；SDK client/Update/Start/队列和组织隔离原样 |
@@ -108,6 +109,7 @@ owner 不变：组织 Repository 拥有 run/plan/slot/projection/commit；Skill 
 获准后同一批连续执行：先对旧 request/policy/nil Text/宽松计划写真实 RED，再将当前文案和严格规则归原 canonical owner，切断全部 read/confirm/dispatch/publication/recovery 快捷路径，最后删除三个生产文件与专属尾部。普通测试、合成 fixture 和成熟 SDK 足够，不建设新 runner/故障矩阵平台。
 
 - 负例：三旧 policy、无 Method 的 nil Text、已有相同请求/原 admission 的旧计划、空 pending/超32/非安全revision/缺首图尺寸；必须在新增 admission、reserve、provider、启动或发布前拒绝，无正文/跨租户泄露，不伪造 no_generation/released。
+- 读取闭包：既有投影 fixture 中使 size 首选资产缺尺寸，保持其它 plan/scope/receipt 正确；直接 ValidateProjectionSnapshot 与两个原 Repository 的 GetProjection 都应拒绝。尺寸充分的当前快照继续成功，不能因只有初始化/commit 拒绝就宣称读取已退休；不以当前商品目录替换已冻结目录。
 - 正例：当前 v4 和无 Method；none/reviewed；有/无 Route；当前原请求/原回执恢复、撤权后安全关闭、同键冲突与来源谱系、Artwork/采集单主图、当前恢复/UNKNOWN。保留 nil/空值和当前 hash 输入；对冻结有效输入逐字节/独立 SHA 断言，不改 hash 算法或掩盖旧记录不再支持。
 - 两个 #1001 SDK prefix 是任务自有合成数据。已只读确认 current prefix 的七 slot 均 pending、revision1、合法幂等键；**两 fixture 文件和原 SDK marker 时点/错误/回放断言不改**。不读取真实历史。
 - 必要原测试：受影响的 ImageAgent、Skill adapter、worker/HTTP/Asset publication 与前端合同/API/面板；沿原测试按当前风险选择 race 和现有合成/任务自有资源测试。只编译原 current-application、image-agent-temporal-worker、1688-public-browser-collector、1688-batch-import，不启动。
@@ -125,6 +127,7 @@ owner 不变：组织 Repository 拥有 run/plan/slot/projection/commit；Skill 
 | `image_set_test.go` 原无 ModeSnapshotRef JSON/hash测试 | 其共享 fixture 改为当前 Text；缺省字段/顺序/omitempty/独立SHA断言保持，不新增 ModeSnapshotRef 或修改生产序列化以迁就测试 | 当前hash算法、两个当前 quote编码、JSON/指纹；旧载荷被拒绝不是改写数据 |
 | `store/generation_execution_test.go`、`generation_output_recovery_test.go`、worker/tools/Asset publication 方法测试 | 当前成功fixture从旧2/3改4并接当前Text；旧方法作为负例保留；成功观察、下载物化、再次尝试拒绝等当前断言完整保持 | 不凭旧方法/校验失败释放UNKNOWN、不重新POST、不丢成功与settlement证据 |
 | `image_set_admission_test.go`（Temporal/store 的原同族测试） | 追加空状态不能经回执 pending-copy 恢复的负例；当前非空执行状态的定义复制与原回执恢复正例保留 | 原组织/member、CAS、撤权后安全收尾、原deadline和回执防重，不要求旧空状态继续可用 |
+| `projection_test.go` / `store/repository_contract_test.go` 的投影与读取检查 | 追加首选源缺尺寸的真实读取负例；当前合法共享 fixture 明确绑定其原合成 catalog，保留 source ID/冻结事实 | 不为应拒绝的负例补假源/尺寸，不忽略坏 catalog；原scope/cursor/receipt/CAS/UNKNOWN/序列化断言不改 |
 | 前端面板及 API/proxy 既有测试 | projection helper补当前Text/4；旧policy/nilText响应改为decoder拒绝/无可执行动作，旧v1/v3专属展示正向测试退出；当前历史来源/版本/late response测试保持 | scope/run/source身份绑定、撤权/只读/并发响应/草稿保留、人工文案与当前再生成审核、严格响应大小与HTTP错误 |
 | 现有 root guard 与 code health | 只追加本批缺席/当前能力/不改workflow与inventory guard；原四函数、算法、ceilings、历史计数不改 | 不加 skip、忽略、缺文件成功或放宽禁令 |
 
@@ -135,7 +138,7 @@ owner 不变：组织 Repository 拥有 run/plan/slot/projection/commit；Skill 
 ## 7. 交付、独立复核与停止点
 
 1. 当前三文档和准确设计 HEAD 交 PR，原 CI 与适用独立设计结论分别记录；还需用户明确确认 §4.2 旧读/恢复承诺及 §6.1检查转换，才可 SOURCE IMPLEMENTATION_READY。
-2. 独立检查看真实源码/消费者、19生产矩阵、旧快捷路径、hash/JSON/Artwork/资金及当前恢复保留，不重复重开无关架构。finding 先分类，正常设计复核最多两轮；真实 Must 缺陷处理，非阻塞增强不扩为平台或试用前置。
+2. 独立检查看真实源码/消费者、20生产矩阵、旧快捷路径、hash/JSON/Artwork/资金及当前恢复保留，不重复重开无关架构。初审唯一 catalog 读取接线 finding 分类 IMPLEMENTATION_TEST，按 §4.1/§5/§6.1 在冻结前收齐；准确审核 SHA 与增量结论维护在 PR。finding 先分类，正常设计复核最多两轮；真实 Must 缺陷处理，非阻塞增强不扩为平台或试用前置。
 3. 已有适用 GitHub 复核运行时不重复触发；启动失败可以唯一重试，空 reviews/Completed 不冒充通过。**未经用户本轮授权不默认新增 AI 互验线程；设计和源码最终复核授权分开。**
 4. 获准后同一 Writer/主要PR整批实现、必要TDD/原测试/编译/原CI；源码稳定后一次最终独立交付检查，修复仅复查真实增量。开发检查/AI复核不签发用户产品验收。
 5. 当前无合并/部署/实例/数据/凭据/进程/真实历史操作或关单授权。未来合并须准确expected-head授权和正常门禁；合并后另确认实际merge SHA的push/main整run。
