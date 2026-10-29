@@ -8,11 +8,12 @@ import (
 	"strings"
 	"testing"
 
+	aistore "task-processor/internal/aicapability/store"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	aistore "task-processor/internal/aicapability/store"
 )
 
 var trialDBNamePattern = regexp.MustCompile(`(?:^|\s)dbname=([^\s]+)`)
@@ -69,9 +70,10 @@ func TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres(t *test
 	require.NoError(t, trialPool.Raw(`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`).Scan(&names).Error)
 	want := []string{
 		"ai_client_credentials", "ai_invocations",
-		"image_agent_v2_asset_catalog", "image_agent_v2_asset_catalog_manifests", "image_agent_v2_attempts", "image_agent_v2_events", "image_agent_v2_plans", "image_agent_v2_projection_commits", "image_agent_v2_projection_snapshots", "image_agent_v2_runs", "image_agent_v2_slot_external_effects", "image_agent_v2_slots", "image_agent_v3_slot_external_effects",
+		"image_agent_v2_asset_catalog", "image_agent_v2_asset_catalog_manifests", "image_agent_v2_attempts", "image_agent_v2_events", "image_agent_v2_plans", "image_agent_v2_projection_commits", "image_agent_v2_projection_snapshots", "image_agent_v2_runs", "image_agent_v2_slots", "image_agent_v3_slot_external_effects",
 		"product_approval_receipts", "product_approved_assets", "product_approved_inventory_heads", "product_approved_inventory_version_heads",
 	}
+	require.False(t, trialPool.Migrator().HasTable("image_agent_v2_slot_external_effects"))
 	slices.Sort(want)
 	require.Equal(t, want, names)
 	var indexes []string

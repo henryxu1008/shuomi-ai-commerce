@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -32,7 +33,7 @@ func TestSlotEffectV3RepositoryContract(t *testing.T) {
 			return repository.(imageagent.SlotExternalEffectV3Repository)
 		}},
 		{name: "gorm", new: func(t *testing.T) imageagent.SlotExternalEffectV3Repository {
-			repository := NewGormRepository(newConcurrentSQLite(t))
+			repository := NewOrganizationRepository(newConcurrentSQLite(t))
 			initializeSlotEffectRun(t, repository, "run-slot-effect-v3-gorm")
 			return repository.(imageagent.SlotExternalEffectV3Repository)
 		}},
@@ -97,7 +98,7 @@ func TestSlotEffectV3StagingRepositoryConformance(t *testing.T) {
 		new  func(*testing.T) imageagent.Repository
 	}{
 		{name: "memory", new: func(*testing.T) imageagent.Repository { return NewMemoryRepository() }},
-		{name: "gorm", new: func(t *testing.T) imageagent.Repository { return NewGormRepository(newConcurrentSQLite(t)) }},
+		{name: "gorm", new: func(t *testing.T) imageagent.Repository { return NewOrganizationRepository(newConcurrentSQLite(t)) }},
 	}
 	var baseline stagingConformanceTrace
 	for index, factory := range factories {
@@ -437,7 +438,7 @@ func TestSlotEffectV3StagingInputValidationPrecedesStoredStateAcrossAdapters(t *
 		new  func(*testing.T) imageagent.Repository
 	}{
 		{name: "memory", new: func(*testing.T) imageagent.Repository { return NewMemoryRepository() }},
-		{name: "gorm", new: func(t *testing.T) imageagent.Repository { return NewGormRepository(newConcurrentSQLite(t)) }},
+		{name: "gorm", new: func(t *testing.T) imageagent.Repository { return NewOrganizationRepository(newConcurrentSQLite(t)) }},
 	}
 	for _, factory := range factories {
 		t.Run(factory.name+"/missing_effect", func(t *testing.T) {
@@ -547,7 +548,7 @@ func TestSlotEffectV3ProviderBudgetRepositoryConformance(t *testing.T) {
 		new  func(*testing.T) imageagent.Repository
 	}{
 		{name: "memory", new: func(*testing.T) imageagent.Repository { return NewMemoryRepository() }},
-		{name: "gorm", new: func(t *testing.T) imageagent.Repository { return NewGormRepository(newConcurrentSQLite(t)) }},
+		{name: "gorm", new: func(t *testing.T) imageagent.Repository { return NewOrganizationRepository(newConcurrentSQLite(t)) }},
 	}
 	var baseline providerBudgetConformanceTrace
 	for index, factory := range factories {
@@ -972,7 +973,7 @@ func TestSlotEffectV3RepositoryRejectsMismatchedBlockedPolicyOnRead(t *testing.T
 	t.Run("gorm", func(t *testing.T) {
 		reservation := v3Reservation("invalid-policy-read-gorm")
 		db := newConcurrentSQLite(t)
-		repository := NewGormRepository(db)
+		repository := NewOrganizationRepository(db)
 		initializeSlotEffectRun(t, repository, reservation.Identity.RunID)
 		row := slotEffectV3RecordFixtureFromReservation(reservation, time.Now().UTC())
 		row.Phase = string(imageagent.SlotEffectV3PublicationUnknown)
@@ -994,7 +995,7 @@ func TestGormSlotEffectV3CanFailClosedCorruptBudgetPayload(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			reservation := v3Reservation("corrupt-" + tc.name)
 			db := newConcurrentSQLite(t)
-			repository := NewGormRepository(db)
+			repository := NewOrganizationRepository(db)
 			effects := repository.(imageagent.SlotExternalEffectV3Repository)
 			initializeSlotEffectRun(t, repository, reservation.Identity.RunID)
 			row := slotEffectV3RecordFixtureFromReservation(reservation, time.Now().UTC())
@@ -1150,7 +1151,7 @@ func testMemoryHistoricalNilOperationReplay(t *testing.T) {
 func testGormHistoricalNilOperationReplay(t *testing.T) {
 	t.Run("staging", func(t *testing.T) {
 		db := newConcurrentSQLite(t)
-		repository := NewGormRepository(db)
+		repository := NewOrganizationRepository(db)
 		reservation := v3Reservation("historical-nil-gorm-staging")
 		initializeSlotEffectRun(t, repository, reservation.Identity.RunID)
 		row := slotEffectV3RecordFixtureFromReservation(reservation, time.Now().UTC())
@@ -1167,7 +1168,7 @@ func testGormHistoricalNilOperationReplay(t *testing.T) {
 
 	t.Run("final", func(t *testing.T) {
 		db := newConcurrentSQLite(t)
-		repository := NewGormRepository(db)
+		repository := NewOrganizationRepository(db)
 		reservation := v3Reservation("historical-nil-gorm-final")
 		initializeSlotEffectRun(t, repository, reservation.Identity.RunID)
 		request := v3NilOperationPublicationRequest(reservation)
@@ -1316,7 +1317,7 @@ func TestSlotEffectV3IsolatesTenantAndOwner(t *testing.T) {
 
 func TestGormSlotEffectV3ConcurrentClaimsAndFencing(t *testing.T) {
 	db := newConcurrentSQLite(t)
-	repository := NewGormRepository(db)
+	repository := NewOrganizationRepository(db)
 	scope := initializeSlotEffectRun(t, repository, "run-slot-effect-v3-concurrent")
 	effects := repository.(imageagent.SlotExternalEffectV3Repository)
 	reservation := imageagent.SlotEffectV3Reservation{Identity: imageagent.SlotExternalEffectIdentity{RunScope: scope, PlanRevision: 1, SlotID: "slot-1", Attempt: 1}, IdempotencyKey: "slot-key-v3-concurrent", InputFingerprint: "input-fingerprint-v3-concurrent"}
@@ -1444,7 +1445,7 @@ func TestGormPostgresPublicationClaimLocksBeforeReadingWallClock(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT \* FROM "image_agent_v2_runs".*FOR UPDATE`).
 		WithArgs(reservation.Identity.TenantID, reservation.Identity.OwnerUserID, reservation.Identity.RunID, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "owner_user_id", "scope_protocol"}).AddRow(reservation.Identity.RunID, reservation.Identity.TenantID, reservation.Identity.OwnerUserID, ""))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "owner_user_id", "scope_protocol"}).AddRow(reservation.Identity.RunID, reservation.Identity.TenantID, reservation.Identity.OwnerUserID, imageagent.OrganizationScopeProtocol))
 	mock.ExpectQuery(`SELECT \* FROM "image_agent_v3_slot_external_effects".*FOR UPDATE`).
 		WithArgs(reservation.Identity.TenantID, reservation.Identity.OwnerUserID, reservation.Identity.RunID, reservation.Identity.PlanRevision, reservation.Identity.SlotID, reservation.Identity.Attempt, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"tenant_id", "owner_user_id", "run_id", "plan_revision", "slot_id", "attempt", "idempotency_key", "input_fingerprint", "phase", "staging_manifest_json", "staging_manifest_fingerprint", "publication_owner", "publication_lease_expires_at", "publication_fence", "publication_fingerprint", "result_fingerprint", "final_manifest_json", "published_json", "blocked_code", "provider_claimed_at", "staging_prepared_at", "staged_at", "published_at", "created_at", "updated_at"}).AddRow(reservation.Identity.TenantID, reservation.Identity.OwnerUserID, reservation.Identity.RunID, reservation.Identity.PlanRevision, reservation.Identity.SlotID, reservation.Identity.Attempt, reservation.IdempotencyKey, reservation.InputFingerprint, imageagent.SlotEffectV3ArtifactStaged, nil, nil, "", nil, 0, "", "", nil, nil, "", claimedAt, nil, claimedAt, nil, claimedAt, claimedAt))
@@ -1452,7 +1453,7 @@ func TestGormPostgresPublicationClaimLocksBeforeReadingWallClock(t *testing.T) {
 	mock.ExpectExec(`UPDATE "image_agent_v3_slot_external_effects"`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	effects := NewGormRepository(db).(imageagent.SlotExternalEffectV3Repository)
+	effects := NewOrganizationRepository(db).(imageagent.SlotExternalEffectV3Repository)
 	_, claim, claimed, err := effects.ClaimSlotPublicationV3(context.Background(), v3PublicationRequest(reservation, "worker-a"))
 	require.NoError(t, err)
 	require.True(t, claimed)
@@ -1653,7 +1654,7 @@ func newV3ReviewFixtures() []v3ReviewFixtureFactory {
 			name: "gorm",
 			new: func(t *testing.T) v3ReviewFixture {
 				db := newConcurrentSQLite(t)
-				repository := NewGormRepository(db)
+				repository := NewOrganizationRepository(db)
 				reservation := v3Reservation("review-gorm")
 				initializeSlotEffectRun(t, repository, reservation.Identity.RunID)
 				return v3ReviewFixture{
@@ -1748,4 +1749,19 @@ func stageV3Attempt(t *testing.T, effects imageagent.SlotExternalEffectV3Reposit
 	attempt, err = effects.CommitSlotStagedV3(context.Background(), reservation, attempt.StagingManifestFingerprint)
 	require.NoError(t, err)
 	return attempt
+}
+
+func initializeSlotEffectRun(t *testing.T, repository imageagent.Repository, runID string) imageagent.RunScope {
+	t.Helper()
+	run := manualRun(runID, "tenant-a")
+	run.BusinessTaskID = "task-" + runID
+	plan := planRevision(1)
+	scope := imageagent.ScopeForRun(*run)
+	_, err := repository.InitializeRun(context.Background(), imageagent.ProjectionInitialization{
+		Scope: scope, Run: *run, Plan: plan,
+		Catalog:  imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png"}, {ID: "style-1", Type: imageagent.AuthorizedAssetStyle}}},
+		Snapshot: imageagent.RunProjection{Run: *run, Plan: plan}, CommitID: fmt.Sprintf("start:%s", runID), EventType: "run.initialized", EventPayload: []byte(`{}`),
+	})
+	require.NoError(t, err)
+	return scope
 }

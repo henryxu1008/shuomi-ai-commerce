@@ -9,57 +9,24 @@ import (
 	"testing"
 	"time"
 
+	client "go.temporal.io/sdk/client"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	historypb "go.temporal.io/api/history/v1"
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdkconverter "go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
-	sdkworker "go.temporal.io/sdk/worker"
 	sdkworkflow "go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"task-processor/internal/imageagent"
 )
 
-func TestReplayV2SlotInflightHistory(t *testing.T) {
-	replayer := sdkworker.NewWorkflowReplayer()
-	replayer.RegisterWorkflowWithOptions(ImageSlotWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageSlot})
-
-	require.NoError(t, replayer.ReplayWorkflowHistory(nil, readHistoryFixture(t, "v2-slot-inflight.json")))
-}
-
-func TestOldV2ParentCanStartFreshSlotChildWithExactV2Registrations(t *testing.T) {
-	var suite testsuite.WorkflowTestSuite
-	env := suite.NewTestWorkflowEnvironment()
-	env.RegisterWorkflow(oldV2ParentContinuationProbe)
-	env.RegisterWorkflowWithOptions(ImageSlotWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageSlot})
-	env.RegisterActivityWithOptions(
-		func(_ context.Context, input ExecuteSlotActivityInput) (imageagent.SlotExecutionResult, error) {
-			return imageagent.SlotExecutionResult{
-				SlotID: input.Slot.ID, Attempt: input.Attempt,
-				Candidates: []imageagent.AssetCandidate{{AssetID: "candidate-1"}},
-			}, nil
-		},
-		sdkactivity.RegisterOptions{Name: activityExecuteSlot},
-	)
-	input := SlotWorkflowInput{
-		RunID: "run-old-v2-parent", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
-		PlanRevision: 1, Slot: imageagent.Slot{ID: "scene-1", Role: imageagent.SlotRoleScene, IdempotencyKey: "scene-key"}, Attempt: 1,
-	}
-
-	env.ExecuteWorkflow(oldV2ParentContinuationProbe, input)
-
-	require.NoError(t, env.GetWorkflowError())
-	var result SlotWorkflowResult
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, imageagent.SlotStatusAccepted, result.Status)
-	require.Empty(t, result.ErrorCode)
-}
-
 func TestImageWorkflowReplaysPreFinalizationHistory(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(preFinalizationHistoryProbe)
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	var observedStartToCloseTimeout time.Duration
@@ -82,48 +49,11 @@ func preFinalizationHistoryProbe(ctx sdkworkflow.Context, deadline time.Time) er
 	finalizationEnabled := sdkworkflow.GetVersion(ctx, externalEffectFinalizationPatch, sdkworkflow.DefaultVersion, 1) != sdkworkflow.DefaultVersion
 	var result SlotWorkflowV3Result
 	return sdkworkflow.ExecuteChildWorkflow(ctx, ImageSlotWorkflowV3, SlotWorkflowV3Input{
-		RunID: "run-pre-finalization", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		RunID: "run-pre-finalization", Identity: imageagent.ExecutionIdentity{BusinessTaskID: "task-" + "run-pre-finalization", MemberID: "member-" + "user-a", ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-pre-finalization", TenantID: "tenant-a", UserID: "user-a"},
 		PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1,
 		ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true, DeadlineAt: deadline,
 		ExternalEffectFinalization: finalizationEnabled,
 	}).Get(ctx, &result)
-}
-
-func oldV2ParentContinuationProbe(ctx sdkworkflow.Context, input SlotWorkflowInput) (SlotWorkflowResult, error) {
-	var result SlotWorkflowResult
-	err := sdkworkflow.ExecuteChildWorkflow(ctx, workflowNameImageSlot, input).Get(ctx, &result)
-	return result, err
-}
-
-func TestReplayV2AwaitingApprovalHistory(t *testing.T) {
-	replayer := sdkworker.NewWorkflowReplayer()
-	replayer.RegisterWorkflowWithOptions(ImageAgentWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageAgent})
-	replayer.RegisterWorkflowWithOptions(ImageSlotWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageSlot})
-
-	require.NoError(t, replayer.ReplayWorkflowHistory(nil, readHistoryFixture(t, "v2-awaiting-approval.json")))
-}
-
-func TestReplayV2PreAtomicAwaitingApprovalHistory(t *testing.T) {
-	history := readHistoryFixture(t, "v2-pre-atomic-awaiting-approval.json")
-	require.NotContains(t, historyVersionChangeIDs(t, history), activityWireV2Patch)
-
-	replayer := sdkworker.NewWorkflowReplayer()
-	replayer.RegisterWorkflowWithOptions(ImageAgentWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageAgent})
-	replayer.RegisterWorkflowWithOptions(ImageSlotWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageSlot})
-
-	require.NoError(t, replayer.ReplayWorkflowHistory(nil, history))
-}
-
-func TestLegacyHistoryDoesNotStartExternalRecoveryWorkflow(t *testing.T) {
-	history := readHistoryFixture(t, "v2-awaiting-approval.json")
-	require.NotContains(t, historyVersionChangeIDs(t, history), effectRecoveryStartWireV1Patch)
-	require.NotContains(t, scheduledActivityNames(history), activityStartEffectRecoveryV3)
-
-	replayer := sdkworker.NewWorkflowReplayer()
-	replayer.RegisterWorkflowWithOptions(ImageAgentWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageAgent})
-	replayer.RegisterWorkflowWithOptions(ImageSlotWorkflow, sdkworkflow.RegisterOptions{Name: workflowNameImageSlot})
-
-	require.NoError(t, replayer.ReplayWorkflowHistory(nil, history))
 }
 
 func historyVersionChangeIDs(t *testing.T, history *historypb.History) []string {
@@ -157,63 +87,12 @@ func scheduledActivityNames(history *historypb.History) []string {
 	return names
 }
 
-func TestOldApprovalHistoryRetainsPlanDerivedKeyAndV2Digest(t *testing.T) {
-	history := readHistoryFixture(t, "v2-awaiting-approval.json")
-	var awaiting WorkflowResult
-	for _, event := range history.Events {
-		attributes := event.GetActivityTaskScheduledEventAttributes()
-		if attributes == nil || attributes.GetActivityType().GetName() != activityPersistRunState {
-			continue
-		}
-		var input PersistRunStateActivityInput
-		require.NoError(t, sdkconverter.GetDefaultDataConverter().FromPayloads(attributes.Input, &input))
-		if input.Projection.Status == imageagent.RunStatusAwaitingFinalApproval {
-			awaiting = input.Projection
-		}
-	}
-	require.NotEmpty(t, awaiting.ResultDigest)
-	wantDigest, err := imageagent.ResultDigestV2(awaiting.Plan, awaiting.Slots)
-	require.NoError(t, err)
-	require.Equal(t, wantDigest, awaiting.ResultDigest)
-
-	var publish PublishApprovedActivityInput
-	found := false
-	for _, event := range history.Events {
-		attributes := event.GetActivityTaskScheduledEventAttributes()
-		if attributes == nil || attributes.GetActivityType().GetName() != "imageagent.publish_approved.v2" {
-			continue
-		}
-		require.NoError(t, sdkconverter.GetDefaultDataConverter().FromPayloads(attributes.Input, &publish))
-		found = true
-		break
-	}
-	require.True(t, found, "captured history must schedule imageagent.publish_approved.v2")
-	require.Equal(t, publicationKey(publish.RunID, publish.PlanRevision), publish.IdempotencyKey)
-}
-
 type wireProbeResult struct {
 	ExecuteSlot         string
 	StartEffectRecovery string
 	PublishApproved     string
 	ApprovalActionID    string
 	ResultDigest        string
-}
-
-func TestTask6MarkersAreEvaluatedBeforePreAtomicSelection(t *testing.T) {
-	var suite testsuite.WorkflowTestSuite
-	env := suite.NewTestWorkflowEnvironment()
-	env.RegisterWorkflow(workflowWireProbe)
-	slot := env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	action := env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	publication := env.OnGetVersion(approvalPublicationWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	digest := env.OnGetVersion(resultDigestV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	scope := env.OnGetVersion(approvalPublicationScopePatch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	env.OnGetVersion(activityWireV2Patch, sdkworkflow.DefaultVersion, 1).
-		Return(sdkworkflow.DefaultVersion).Once().NotBefore(slot, action, publication, digest, scope)
-
-	env.ExecuteWorkflow(workflowWireProbe)
-	require.NoError(t, env.GetWorkflowError())
-	require.True(t, env.AssertExpectations(t))
 }
 
 type approvalProtocolProbeResult struct {
@@ -231,8 +110,8 @@ func approvalProtocolProbe(ctx sdkworkflow.Context) (approvalProtocolProbeResult
 		return approvalProtocolProbeResult{}, err
 	}
 	key := approvalPublicationKeyForWire("capture-action", "capture-run", 1, effects.activities)
-	err = effects.publishApproved(ctx, PublishApprovedActivityInput{
-		RunID: "capture-run", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+	err = effects.publishApproved(ctx, PublishApprovedV3ActivityInput{
+		RunID: "capture-run", Identity: imageagent.ExecutionIdentity{BusinessTaskID: "task-" + "capture-run", MemberID: "member-" + "user-a", ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "capture-run", TenantID: "tenant-a", UserID: "user-a"},
 		PlanRevision: 1, CandidateAssetIDs: []string{"candidate-1"}, IdempotencyKey: key,
 	})
 	if err != nil {
@@ -250,10 +129,11 @@ func TestApprovalMarkerCombinationsSelectOnlyCompleteProtocols(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
+			env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 			env.RegisterWorkflow(approvalProtocolProbe)
 			env.RegisterActivityWithOptions(
-				func(context.Context, PublishApprovedActivityInput) error { return nil },
-				sdkactivity.RegisterOptions{Name: activityPublishApproved},
+				func(context.Context, PublishApprovedV3ActivityInput) error { return nil },
+				sdkactivity.RegisterOptions{Name: activityPublishApprovedV3},
 			)
 			env.RegisterActivityWithOptions(
 				func(context.Context, PublishApprovedV3ActivityInput) error { return nil },
@@ -267,7 +147,7 @@ func TestApprovalMarkerCombinationsSelectOnlyCompleteProtocols(t *testing.T) {
 			env.OnGetVersion(activityWireV2Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 
 			allV3 := actionV3 && publicationV3 && digestV3
-			wantActivity := activityPublishApproved
+			wantActivity := activityPublishApprovedV3
 			wantKey := publicationKey("capture-run", 1)
 			plan, results := wireProbePlanAndResults()
 			wantDigest, err := imageagent.ResultDigestV2(plan, slotProjections(plan, results))
@@ -281,7 +161,7 @@ func TestApprovalMarkerCombinationsSelectOnlyCompleteProtocols(t *testing.T) {
 					return input.IdempotencyKey == wantKey
 				})).Return(nil).Once()
 			} else {
-				env.OnActivity(wantActivity, mock.Anything, mock.MatchedBy(func(input PublishApprovedActivityInput) bool {
+				env.OnActivity(wantActivity, mock.Anything, mock.MatchedBy(func(input PublishApprovedV3ActivityInput) bool {
 					return input.IdempotencyKey == wantKey
 				})).Return(nil).Once()
 			}
@@ -322,6 +202,7 @@ func workflowWireProbe(ctx sdkworkflow.Context) (wireProbeResult, error) {
 func TestNewWorkflowSelectsExecuteSlotV3(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(workflowWireProbe)
 	env.ExecuteWorkflow(workflowWireProbe)
 	require.NoError(t, env.GetWorkflowError())
@@ -334,6 +215,7 @@ func TestNewWorkflowSelectsExecuteSlotV3(t *testing.T) {
 func TestNewApprovalScopesActionIDByRunAndRevisionWithV3DigestAndPublishV3(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(workflowWireProbe)
 	env.ExecuteWorkflow(workflowWireProbe)
 	require.NoError(t, env.GetWorkflowError())
@@ -353,6 +235,7 @@ func TestNewApprovalScopesActionIDByRunAndRevisionWithV3DigestAndPublishV3(t *te
 func TestRecoveryStartMarkerDefaultsOffForLegacyV3Histories(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(workflowWireProbe)
 	env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 	env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
@@ -375,6 +258,7 @@ func TestRecoveryStartMarkerDefaultsOffForLegacyV3Histories(t *testing.T) {
 func TestRecoveryStartMarkerEnablesExternalRecoveryForNewV3Histories(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(workflowWireProbe)
 	env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 	env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
@@ -401,6 +285,7 @@ func TestRunScopedApprovalPublicationKeyFitsReceiptSchema(t *testing.T) {
 func TestLegacyScopedApprovalHistoryKeepsLegacyPublicationKey(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(workflowWireProbe)
 	env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 	env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()

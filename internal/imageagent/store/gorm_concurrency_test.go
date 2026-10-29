@@ -33,7 +33,7 @@ const (
 func TestGormProjectionCommitConcurrentExactCommitIDReturnsWinnerReceipt(t *testing.T) {
 	const callers = 6
 	db := newConcurrentSQLite(t)
-	repository := NewGormRepository(db)
+	repository := NewOrganizationRepository(db)
 	ctx := context.Background()
 	run := manualRun("run-projection-concurrent", "tenant-a")
 	run.Version = 1
@@ -100,7 +100,7 @@ func TestGormPostgresProjectionCommitRechecksReceiptAfterConcurrentLockAcquisiti
 		Logger:               logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
-	repository := NewGormRepository(db)
+	repository := NewOrganizationRepository(db)
 	run := manualRun("run-postgres-projection-concurrent", "tenant-a")
 	run.Version = 1
 	run.ActivePlanRevision = 1
@@ -233,17 +233,15 @@ func postgresRunRows(run imageagent.Run) *sqlmock.Rows {
 	usage, _ := json.Marshal(run.Usage)
 	block, _ := json.Marshal(run.Block)
 	return sqlmock.NewRows([]string{
-		"tenant_id", "owner_user_id", "id", "business_task_id", "mode", "idempotency_key", "status", "current_node", "active_plan_revision", "version", "budget_json", "usage_json", "block_json", "created_at", "updated_at",
-	}).AddRow(
+		"tenant_id", "owner_user_id", "id", "business_task_id", "mode", "idempotency_key", "status", "current_node", "active_plan_revision", "version", "budget_json", "usage_json", "block_json", "created_at", "updated_at", "scope_protocol"}).AddRow(
 		run.TenantID, run.UserID, run.ID, run.BusinessTaskID, run.Mode, run.IdempotencyKey, run.Status, run.CurrentNode,
-		run.ActivePlanRevision, run.Version, budget, usage, block, time.Unix(0, 0), time.Unix(0, 0),
-	)
+		run.ActivePlanRevision, run.Version, budget, usage, block, time.Unix(0, 0), time.Unix(0, 0), imageagent.OrganizationScopeProtocol)
 }
 
 func TestGormInitializeRunConcurrentExactCommitIDReturnsWinnerReceipt(t *testing.T) {
 	const callers = 6
 	db := newConcurrentSQLite(t)
-	repository := NewGormRepository(db)
+	repository := NewOrganizationRepository(db)
 	run := manualRun("run-initialize-concurrent", "tenant-a")
 	plan := planRevision(1)
 	input := imageagent.ProjectionInitialization{
@@ -292,7 +290,7 @@ func TestGormInitializeRunConcurrentExactCommitIDReturnsWinnerReceipt(t *testing
 func TestGormSaveSlotResultAndAppendPlanSerialize(t *testing.T) {
 	t.Run("slot write loses revision race without mutating inactive revision", func(t *testing.T) {
 		db := newConcurrentSQLite(t)
-		repo := NewGormRepository(db).(repositoryContract)
+		repo := NewOrganizationRepository(db).(repositoryContract)
 		ctx := context.Background()
 		scope := imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-1", RunID: "run-1"}
 		require.NoError(t, repo.CreateRun(ctx, manualRun(scope.RunID, scope.TenantID)))
@@ -326,7 +324,7 @@ func TestGormSaveSlotResultAndAppendPlanSerialize(t *testing.T) {
 
 	t.Run("slot write commits before revision advance", func(t *testing.T) {
 		db := newConcurrentSQLite(t)
-		repo := NewGormRepository(db).(repositoryContract)
+		repo := NewOrganizationRepository(db).(repositoryContract)
 		ctx := context.Background()
 		scope := imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-1", RunID: "run-1"}
 		require.NoError(t, repo.CreateRun(ctx, manualRun(scope.RunID, scope.TenantID)))
@@ -374,7 +372,7 @@ func TestGormAppendAttemptPostgresConcurrentIdenticalRetries(t *testing.T) {
 		Logger:               logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(t, err)
-	repo := NewGormRepository(db).(repositoryContract)
+	repo := NewOrganizationRepository(db).(repositoryContract)
 	ctx := context.Background()
 	attempt := imageagent.StepAttempt{TenantID: "tenant-a", OwnerUserID: "user-1", RunID: "run-1", PlanRevision: 1, SlotID: "slot-1", Node: "generate", IdempotencyKey: "attempt-1", Attempt: 1, Outcome: "succeeded"}
 
@@ -478,10 +476,8 @@ func expectAppendAttemptRunLookup(mock sqlmock.Sqlmock, attempt imageagent.StepA
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "image_agent_v2_runs" WHERE tenant_id = $1 AND owner_user_id = $2 AND id = $3 ORDER BY "image_agent_v2_runs"."id" LIMIT $4`)).
 		WithArgs(attempt.TenantID, attempt.OwnerUserID, attempt.RunID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"tenant_id", "id", "business_task_id", "owner_user_id", "mode", "idempotency_key", "status", "current_node", "active_plan_revision", "version", "budget_json", "usage_json", "block_json", "created_at", "updated_at",
-		}).AddRow(
-			attempt.TenantID, attempt.RunID, "task-1", "user-1", imageagent.RunModeManual, "run-key", imageagent.RunStatusPlanning, "", 0, 1, []byte(`{}`), []byte(`{}`), []byte(`null`), time.Unix(0, 0), time.Unix(0, 0),
-		))
+			"tenant_id", "id", "business_task_id", "owner_user_id", "mode", "idempotency_key", "status", "current_node", "active_plan_revision", "version", "budget_json", "usage_json", "block_json", "created_at", "updated_at", "scope_protocol"}).AddRow(
+			attempt.TenantID, attempt.RunID, "task-1", "user-1", imageagent.RunModeManual, "run-key", imageagent.RunStatusPlanning, "", 0, 1, []byte(`{}`), []byte(`{}`), []byte(`null`), time.Unix(0, 0), time.Unix(0, 0), imageagent.OrganizationScopeProtocol))
 }
 
 func expectAppendAttemptEqualityLookup(mock sqlmock.Sqlmock, attempt imageagent.StepAttempt) {

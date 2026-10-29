@@ -1,3 +1,7 @@
+> #994 当前实施：**USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认准确设计 HEAD `d3ee18816f02520329482ce55f174ca48584cdfc`；初版适用设计复核与 `582ab474d..d3ee18816` 增量复核无 BLOCKER，设计原 CI40802778590 整 run SUCCESS。按以下冻结 §1–§7（含 §4.2/§6.1）同批实施，源码最终 CI/复核另记 PR，未授权合并。Store 观察同步、当前组织 ImageSet/Artwork/采集单主图与隔离 canary 保留；workflow/inventory/既有资源零操作，#301 OPEN。以下设计历史原文保留，SOURCE_NOT_STARTED 等是确认前状态。
+
+> 本轮用户批准的准确尾部例外（适用 §5.2 / §6.1）：`internal/imageagent/tools/image_set_executor.go` 的 `resolveImageSetInput` 仅删除条件中的 `e.legacyV2 ||`，解除已退休字段的编译引用；其它身份、图组、策略和安全校验逐字保留。该文件是冻结矩阵遗漏的当前消费者，补丁先撤回并报告，获得用户明确批准后才重新应用。本例外不授权其它生产、workflow/inventory 或检查变化。
+
 # 旧 ImageAgent v2/v3 手工图像任务运行链完整退休设计
 
 这批删除**旧 v2/v3 业务启动模式、未绑定组织身份的任务执行链、v2 一次性生成/发布和专属持久化尾部**。当前图组、Artwork 和采集页单主图继续走组织协议；隔离 canary 保留。版本名带 v2/v3 的代码和表不能据此整包删除。

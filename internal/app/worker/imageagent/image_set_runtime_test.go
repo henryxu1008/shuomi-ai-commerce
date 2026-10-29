@@ -2,9 +2,10 @@ package imageagentworker
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/imageagent"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestImageSetExecutorDoesNotDispatchUnconfirmedOrSingleImageInputs(t *testing.T) {
@@ -13,8 +14,6 @@ func TestImageSetExecutorDoesNotDispatchUnconfirmedOrSingleImageInputs(t *testin
 	_, err := executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 	require.ErrorIs(t, err, imageagent.ErrCommandBlocked)
 	_, err = executor.GenerateQuotedSlot(context.Background(), input, imageagent.SlotUsageQuote{})
-	require.ErrorIs(t, err, imageagent.ErrCommandBlocked)
-	_, err = executor.ExecuteSlot(context.Background(), input)
 	require.ErrorIs(t, err, imageagent.ErrCommandBlocked)
 	_, err = executor.BuildSlotResult(context.Background(), input, imageagent.PublishedSlotOutput{})
 	require.ErrorIs(t, err, imageagent.ErrCommandBlocked)

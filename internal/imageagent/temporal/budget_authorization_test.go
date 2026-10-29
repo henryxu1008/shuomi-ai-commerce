@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	client "go.temporal.io/sdk/client"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	sdkactivity "go.temporal.io/sdk/activity"
@@ -200,13 +202,14 @@ func TestExecuteSlotV3MarksProvenPreDispatchFailureRetryable(t *testing.T) {
 func TestImageSlotWorkflowV3BudgetDeadlineBlocksWithoutActivity(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	activityCalls := 0
 	env.RegisterActivityWithOptions(func(context.Context, ExecuteSlotV3ActivityInput) (imageagent.SlotEffectV3PublishedResult, error) {
 		activityCalls++
 		return imageagent.SlotEffectV3PublishedResult{}, nil
 	}, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
-	input := SlotWorkflowV3Input{RunID: "run-deadline", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1, ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true, DeadlineAt: env.Now().Add(-time.Second)}
+	input := SlotWorkflowV3Input{RunID: "run-deadline", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-deadline", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-deadline", TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1, ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true, DeadlineAt: env.Now().Add(-time.Second)}
 
 	env.ExecuteWorkflow(ImageSlotWorkflowV3, input)
 	require.NoError(t, env.GetWorkflowError())
@@ -219,6 +222,7 @@ func TestImageSlotWorkflowV3BudgetDeadlineBlocksWithoutActivity(t *testing.T) {
 func TestImageSlotWorkflowV3ReservesFinalizationGraceAfterBudgetDeadline(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	var observedStartToCloseTimeout time.Duration
 	var observedHeartbeatTimeout time.Duration
@@ -231,7 +235,7 @@ func TestImageSlotWorkflowV3ReservesFinalizationGraceAfterBudgetDeadline(t *test
 	}, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
 
 	env.ExecuteWorkflow(ImageSlotWorkflowV3, SlotWorkflowV3Input{
-		RunID: "run-finalization-grace", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		RunID: "run-finalization-grace", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-finalization-grace", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-finalization-grace", TenantID: "tenant-a", UserID: "user-a"},
 		PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1,
 		ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true,
 		DeadlineAt: env.Now().Add(2 * time.Minute), ExternalEffectFinalization: true,
@@ -245,6 +249,7 @@ func TestImageSlotWorkflowV3ReservesFinalizationGraceAfterBudgetDeadline(t *test
 func TestImageSlotWorkflowV3UsesProviderWindowPlusGraceBeyondTenMinutes(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	var observedStartToCloseTimeout time.Duration
 	var observedHeartbeatTimeout time.Duration
@@ -257,7 +262,7 @@ func TestImageSlotWorkflowV3UsesProviderWindowPlusGraceBeyondTenMinutes(t *testi
 	}, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
 
 	env.ExecuteWorkflow(ImageSlotWorkflowV3, SlotWorkflowV3Input{
-		RunID: "run-provider-window-plus-grace", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		RunID: "run-provider-window-plus-grace", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-provider-window-plus-grace", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-provider-window-plus-grace", TenantID: "tenant-a", UserID: "user-a"},
 		PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1,
 		ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true, ExternalEffectFinalization: true,
 		DeadlineAt: env.Now().Add(20 * time.Minute),
@@ -299,12 +304,12 @@ func TestImageAgentWorkflowBudgetDeniesRepairBeforeChild(t *testing.T) {
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPersistSlotResult, mock.Anything, mock.Anything).Return(nil)
+	env.OnActivity(activityPersistSlotResultV3, mock.Anything, mock.Anything).Return(nil)
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.Anything).Return(nil)
 	retry := RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-over-budget"}
 	var retryErr error
@@ -321,7 +326,7 @@ func TestImageAgentWorkflowBudgetDeniesRepairBeforeChild(t *testing.T) {
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
 	require.NoError(t, env.GetWorkflowError())
 	require.NoError(t, retryErr)
-	env.AssertNotCalled(t, activityExecuteSlot, mock.Anything, executeInputForSlot("scene-2", 2))
+	env.AssertNotCalled(t, activityExecuteSlotV3, mock.Anything, executeInputForSlot("scene-2", 2))
 }
 
 func initializedBudgetedV3Activity(t *testing.T, runID string, maxImages int) (imageagent.Repository, ExecuteSlotV3ActivityInput, imageagent.BudgetPolicy) {
@@ -331,12 +336,12 @@ func initializedBudgetedV3Activity(t *testing.T, runID string, maxImages int) (i
 func initializedBudgetedV3ActivityWithBudget(t *testing.T, runID string, budget imageagent.Budget) (imageagent.Repository, ExecuteSlotV3ActivityInput, imageagent.BudgetPolicy) {
 	t.Helper()
 	repository := store.NewMemoryRepository()
-	run := imageagent.Run{ID: runID, BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + runID, Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1, Budget: budget, StartedAt: time.Now().UTC()}
+	run := imageagent.Run{ID: runID, BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + runID, Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1, Budget: budget, StartedAt: time.Now().UTC(), ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"}
 	policy, err := run.Budget.Policy()
 	require.NoError(t, err)
 	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a", Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1"}}}
 	projection := initializeActivityProjection(t, repository, run, plan)
-	return repository, ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: imageagent.ExecutionIdentity{TenantID: run.TenantID, UserID: run.UserID, BusinessTaskID: run.BusinessTaskID}, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-key-1:plan:1:attempt:1", AssetCatalog: projection.AssetCatalog}, policy
+	return repository, ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, MemberID: "member-" + run.UserID, TenantID: run.TenantID, UserID: run.UserID, BusinessTaskID: run.BusinessTaskID}, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-key-1:plan:1:attempt:1", AssetCatalog: projection.AssetCatalog}, policy
 }
 
 func budgetActivityQuote(fingerprint string) imageagent.SlotUsageQuote {
@@ -400,15 +405,14 @@ func (e *budgetedRecordingExecutor) QuoteCalls() int {
 }
 
 type budgetedSlotExecutor interface {
-	imageagent.SlotExecutor
 	imageagent.BudgetedStagedSlotExecutor
 }
 
 func newBudgetV3Activities(t *testing.T, repository imageagent.Repository, executor budgetedSlotExecutor, artifacts DurableArtifactStore) *Activities {
 	t.Helper()
 	activities, err := NewActivities(ActivityDependencies{
-		Repository: repository, SlotExecutor: executor, StagedSlotExecutor: executor, SlotEffectsV3: repository.(imageagent.SlotExternalEffectV3Repository), ArtifactStore: artifacts,
-		Publisher: &identityCheckingPublisher{t: t}, PublisherV3: &identityCheckingPublisher{t: t}, PublicationOwner: func(context.Context) (string, error) { return "workflow-run/activity/1", nil },
+		Repository: repository, ExecutionAuthorizer: allowGenerationExecution{}, StagedSlotExecutor: executor, SlotEffectsV3: repository.(imageagent.SlotExternalEffectV3Repository), ArtifactStore: artifacts,
+		PublisherV3: &identityCheckingPublisher{t: t}, PublicationOwner: func(context.Context) (string, error) { return "workflow-run/activity/1", nil },
 	})
 	require.NoError(t, err)
 	return activities

@@ -59,50 +59,6 @@ type imageAgentArtifactTiming struct {
 	OperationTimeout         time.Duration
 }
 
-// legacyV2AssetMaterializer gives the frozen URL-based activity contract a
-// durable publication path while the provider adapter produces inline bytes.
-// The deterministic v3 object key makes retries idempotent without changing
-// the v2 Temporal payload or its product-asset publisher.
-type legacyV2AssetMaterializer struct {
-	store imageagenttemporal.DurableArtifactStore
-}
-
-func (m legacyV2AssetMaterializer) Materialize(ctx context.Context, input domainimageagent.SlotExecutionInput, index int, generated domainimageagent.GeneratedAsset) (string, error) {
-	if m.store == nil || ctx == nil || index < 0 {
-		return "", domainimageagent.ErrValidation
-	}
-	identity := domainimageagent.SlotExternalEffectIdentity{
-		RunScope:     domainimageagent.RunScope{TenantID: input.TenantID, OwnerUserID: input.UserID, RunID: input.RunID},
-		PlanRevision: input.PlanRevision, SlotID: input.Slot.ID, Attempt: input.Attempt,
-	}
-	sourceAssetID := ""
-	if len(input.Slot.SourceAssetIDs) == 1 {
-		sourceAssetID = strings.TrimSpace(input.Slot.SourceAssetIDs[0])
-	}
-	prepared, err := m.store.PrepareSlotArtifacts(objectstore.PrepareSlotArtifactsInput{
-		Identity: identity,
-		Assets: []objectstore.ArtifactInput{{
-			Bytes: generated.Bytes, ContentType: generated.ContentType, Width: generated.Width, Height: generated.Height,
-			SourceAssetID: sourceAssetID, Operations: generated.Operations,
-			ProviderReceiptID: generated.ProviderReceiptID,
-		}},
-	})
-	if err != nil {
-		return "", fmt.Errorf("prepare v2 compatibility artifact: %w", err)
-	}
-	if err := m.store.EnsureStaged(ctx, prepared); err != nil {
-		return "", fmt.Errorf("stage v2 compatibility artifact: %w", err)
-	}
-	final, err := m.store.Finalize(ctx, prepared.Manifest)
-	if err != nil || len(final.Assets) != 1 {
-		if err == nil {
-			err = domainimageagent.ErrValidation
-		}
-		return "", fmt.Errorf("publish v2 compatibility artifact: %w", err)
-	}
-	return m.store.PublicURL(final.Assets[0].ObjectKey), nil
-}
-
 var defaultImageAgentArtifactTiming = imageAgentArtifactTiming{
 	PublicationLeaseDuration: 2 * time.Minute,
 	OperationTimeout:         time.Minute,
@@ -144,14 +100,9 @@ func defaultImageAgentWorkerDependencyResolver() imageAgentWorkerDependencyResol
 }
 
 // ResolveImageAgentTemporalDependenciesForMode composes only the capabilities
-// registered by the selected worker process. The legacy public resolver above
-// remains v3-compatible for existing callers.
+// required by the explicit organization worker. Retired raw modes fail before loading configuration.
 func ResolveImageAgentTemporalDependenciesForMode(configPath string, logger *logrus.Logger, mode imageagenttemporal.WorkerWireMode) (appruntime.ImageAgentTemporalDependencies, func() error, error) {
 	return resolveImageAgentTemporalDependenciesForMode(configPath, logger, mode, defaultImageAgentWorkerDependencyResolver())
-}
-
-func resolveImageAgentTemporalDependencies(configPath string, logger *logrus.Logger, resolver imageAgentWorkerDependencyResolver) (appruntime.ImageAgentTemporalDependencies, func() error, error) {
-	return resolveImageAgentTemporalDependenciesForMode(configPath, logger, imageagenttemporal.WorkerWireModeV3, resolver)
 }
 
 func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *logrus.Logger, mode imageagenttemporal.WorkerWireMode, resolver imageAgentWorkerDependencyResolver) (appruntime.ImageAgentTemporalDependencies, func() error, error) {
@@ -183,37 +134,26 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 		timing = defaultImageAgentArtifactTiming
 	}
 	var artifactStore imageagenttemporal.DurableArtifactStore
-	if mode == imageagenttemporal.WorkerWireModeV2 {
-		if resolver.BuildArtifactStore == nil {
-			resolver.BuildArtifactStore = buildImageAgentDurableArtifactStore
-		}
-		artifactStore, err = resolver.BuildArtifactStore(cfg, timing, logger)
-		if err != nil {
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent v2 compatibility artifact store: %w", err)
-		}
+
+	if err := timing.validate(); err != nil {
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("validate image agent durable artifact timing: %w", err)
 	}
-	if mode == imageagenttemporal.WorkerWireModeV3 || mode == imageagenttemporal.WorkerWireModeOrganization {
-		if err := timing.validate(); err != nil {
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("validate image agent durable artifact timing: %w", err)
-		}
-		if _, err := artifactStorageCapabilitiesFromConfig(cfg.ImageAgent.ArtifactStore); err != nil {
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("validate image agent durable artifact configuration: %w", err)
-		}
-		if resolver.BuildArtifactStore == nil {
-			resolver.BuildArtifactStore = buildImageAgentDurableArtifactStore
-		}
-		artifactStore, err = resolver.BuildArtifactStore(cfg, timing, logger)
-		if err != nil {
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent durable artifact store: %w", err)
-		}
+	if _, err := artifactStorageCapabilitiesFromConfig(cfg.ImageAgent.ArtifactStore); err != nil {
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("validate image agent durable artifact configuration: %w", err)
+	}
+	if resolver.BuildArtifactStore == nil {
+		resolver.BuildArtifactStore = buildImageAgentDurableArtifactStore
+	}
+	artifactStore, err = resolver.BuildArtifactStore(cfg, timing, logger)
+	if err != nil {
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent durable artifact store: %w", err)
 	}
 
-	if mode == imageagenttemporal.WorkerWireModeOrganization {
-		owner := cfg.CommercialOwnerDatabase
-		if owner == nil || owner.User != resourceadapter.RuntimeRole || owner.Host == "" || owner.Port <= 0 || owner.Database == "" {
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent requires the explicit commercial resource owner runtime")
-		}
+	owner := cfg.CommercialOwnerDatabase
+	if owner == nil || owner.User != resourceadapter.RuntimeRole || owner.Host == "" || owner.Port <= 0 || owner.Database == "" {
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent requires the explicit commercial resource owner runtime")
 	}
+
 	db, err := resolver.OpenDB(cfg.Database)
 	if err != nil {
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("open image agent worker database: %w", err)
@@ -240,24 +180,24 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("verify organization image agent worker role: %w", err)
 		}
 	}
-	if mode == imageagenttemporal.WorkerWireModeOrganization {
-		resourceDB, err = resolver.OpenDB(cfg.CommercialOwnerDatabase)
-		if err != nil {
-			_ = closeDB()
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("open commercial resource owner database: %w", err)
-		}
-		verify := resolver.VerifyResourceRuntime
-		if verify == nil {
-			verify = resourceadapter.VerifyRuntimePermissions
-		}
-		verification, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		err = verify(verification, resourceDB)
-		cancel()
-		if err != nil {
-			_ = closeDB()
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("verify commercial resource owner runtime: %w", err)
-		}
+
+	resourceDB, err = resolver.OpenDB(cfg.CommercialOwnerDatabase)
+	if err != nil {
+		_ = closeDB()
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("open commercial resource owner database: %w", err)
 	}
+	verify := resolver.VerifyResourceRuntime
+	if verify == nil {
+		verify = resourceadapter.VerifyRuntimePermissions
+	}
+	verification, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	err = verify(verification, resourceDB)
+	cancel()
+	if err != nil {
+		_ = closeDB()
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("verify commercial resource owner runtime: %w", err)
+	}
+
 	manager, credentialResolver, err := resolver.BuildAI(cfg, db, logger)
 	if err != nil {
 		_ = closeDB()
@@ -267,19 +207,13 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 		OpenAIManager: manager, CredentialResolver: credentialResolver, Logger: logger,
 	}
 	var capabilities ImageCapabilities
-	if mode == imageagenttemporal.WorkerWireModeOrganization {
-		if resolver.BuildOrganizationCapabilities == nil {
-			_ = closeDB()
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent capability builder is required")
-		}
-		capabilities, err = resolver.BuildOrganizationCapabilities(runtime, db)
-	} else {
-		if resolver.BuildCapabilities == nil {
-			_ = closeDB()
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("image agent capability builder is required")
-		}
-		capabilities, err = resolver.BuildCapabilities(runtime)
+
+	if resolver.BuildOrganizationCapabilities == nil {
+		_ = closeDB()
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent capability builder is required")
 	}
+	capabilities, err = resolver.BuildOrganizationCapabilities(runtime, db)
+
 	if err != nil {
 		_ = closeDB()
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent capabilities: %w", err)
@@ -298,19 +232,12 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("validate isolated trial generated URLs: %w", err)
 		}
 	}
-	repository := imageagentstore.NewGormRepository(db)
-	if mode == imageagenttemporal.WorkerWireModeOrganization {
-		repository = imageagentstore.NewOrganizationRepository(db)
-	}
+	repository := imageagentstore.NewOrganizationRepository(db)
+
 	assetRepository, err := productassetpersistence.NewRepository(db)
 	if err != nil {
 		_ = closeDB()
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build product asset repository: %w", err)
-	}
-	publisher, err := assetpublication.NewV2Publisher(repository, assetRepository)
-	if err != nil {
-		_ = closeDB()
-		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent v2 asset publisher: %w", err)
 	}
 	executorDependencies := imageagenttools.Dependencies{
 		SubjectExtractor: capabilities.SubjectExtractor, WhiteBackgroundRenderer: capabilities.WhiteBackgroundRenderer,
@@ -318,68 +245,62 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 		ProfileResolver:   capabilities.ProfileResolver,
 		GeneratedURLTrial: trialURLs,
 	}
-	if artifactStore != nil {
-		executorDependencies.LegacyAssetMaterializer = legacyV2AssetMaterializer{store: artifactStore}
-	}
-	v2Executor := imageagenttools.NewFrozenV2ProductImageSlotExecutor(executorDependencies)
 	v3Executor := imageagenttools.NewProductImageSlotExecutor(executorDependencies)
-	dependencies := appruntime.ImageAgentTemporalDependencies{Repository: repository, SlotExecutor: v2Executor, Publisher: publisher}
-	if mode == imageagenttemporal.WorkerWireModeV2 {
-		return dependencies, closeDB, nil
-	}
+	dependencies := appruntime.ImageAgentTemporalDependencies{Repository: repository}
+
 	publisherV3, err := assetpublication.NewPublisher(repository, assetRepository, artifactStore, trialURLs)
 	if err != nil {
 		_ = closeDB()
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent v3 asset publisher: %w", err)
 	}
 	dependencies.StagedSlotExecutor = v3Executor
-	if mode == imageagenttemporal.WorkerWireModeOrganization {
-		if resolver.BuildOrganizationAuthorizer == nil {
-			_ = closeDB()
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent live authorizer is required")
-		}
-		authorizer, authErr := resolver.BuildOrganizationAuthorizer(cfg)
-		if authErr != nil || authorizer == nil {
-			_ = closeDB()
-			if authErr == nil {
-				authErr = domainimageagent.ErrIdentityRequired
-			}
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build organization image agent execution authorizer: %w", authErr)
-		}
-		if cfg.ListingKit.RolePolicyDatabase != nil {
-			if cfg.ListingKit.RolePolicyDatabase.User != memberstore.RolePolicyReaderRole {
-				_ = closeDB()
-				return appruntime.ImageAgentTemporalDependencies{}, nil, errors.New("role policy requires its read-only runtime role")
-			}
-			rolePolicyDB, err = resolver.OpenDB(cfg.ListingKit.RolePolicyDatabase)
-			if err != nil {
-				_ = closeDB()
-				return appruntime.ImageAgentTemporalDependencies{}, nil, errors.New("open role policy database failed")
-			}
-			startup, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			reader, readerErr := memberstore.NewRolePolicyReader(startup, rolePolicyDB, cfg.ListingKit.Zitadel.ProjectID)
-			cancel()
-			receiver, ok := authorizer.(interface{ SetRolePolicyReader(authz.RolePolicyReader) })
-			if readerErr != nil || !ok {
-				_ = closeDB()
-				return appruntime.ImageAgentTemporalDependencies{}, nil, errors.New("role policy reader injection failed")
-			}
-			receiver.SetRolePolicyReader(reader)
-		}
-		dependencies.ExecutionAuthorizer = authorizer
-		generation, recovery, generationErr := buildOrganizationGeneration(cfg.ImageAgent.Generation, db, resourceDB, repository, authorizer, logger)
-		if generationErr != nil {
-			_ = closeDB()
-			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build organization generation admission: %w", generationErr)
-		}
-		if err = configureStorageCapacity(cfg, resourceDB, repository, artifactStore, generation, recovery); err != nil {
-			_ = closeDB()
-			return appruntime.ImageAgentTemporalDependencies{}, nil, err
-		}
-		dependencies.GenerationRecovery = recovery
-		dependencies.GenerationOutputRecovery = generationOutputRecovery(nil, logger)
-		dependencies.StagedSlotExecutor = organizationMainSlotExecutor{delegate: v3Executor, generation: generation}
+
+	if resolver.BuildOrganizationAuthorizer == nil {
+		_ = closeDB()
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent live authorizer is required")
 	}
+	authorizer, authErr := resolver.BuildOrganizationAuthorizer(cfg)
+	if authErr != nil || authorizer == nil {
+		_ = closeDB()
+		if authErr == nil {
+			authErr = domainimageagent.ErrIdentityRequired
+		}
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build organization image agent execution authorizer: %w", authErr)
+	}
+	if cfg.ListingKit.RolePolicyDatabase != nil {
+		if cfg.ListingKit.RolePolicyDatabase.User != memberstore.RolePolicyReaderRole {
+			_ = closeDB()
+			return appruntime.ImageAgentTemporalDependencies{}, nil, errors.New("role policy requires its read-only runtime role")
+		}
+		rolePolicyDB, err = resolver.OpenDB(cfg.ListingKit.RolePolicyDatabase)
+		if err != nil {
+			_ = closeDB()
+			return appruntime.ImageAgentTemporalDependencies{}, nil, errors.New("open role policy database failed")
+		}
+		startup, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		reader, readerErr := memberstore.NewRolePolicyReader(startup, rolePolicyDB, cfg.ListingKit.Zitadel.ProjectID)
+		cancel()
+		receiver, ok := authorizer.(interface{ SetRolePolicyReader(authz.RolePolicyReader) })
+		if readerErr != nil || !ok {
+			_ = closeDB()
+			return appruntime.ImageAgentTemporalDependencies{}, nil, errors.New("role policy reader injection failed")
+		}
+		receiver.SetRolePolicyReader(reader)
+	}
+	dependencies.ExecutionAuthorizer = authorizer
+	generation, recovery, generationErr := buildOrganizationGeneration(cfg.ImageAgent.Generation, db, resourceDB, repository, authorizer, logger)
+	if generationErr != nil {
+		_ = closeDB()
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build organization generation admission: %w", generationErr)
+	}
+	if err = configureStorageCapacity(cfg, resourceDB, repository, artifactStore, generation, recovery); err != nil {
+		_ = closeDB()
+		return appruntime.ImageAgentTemporalDependencies{}, nil, err
+	}
+	dependencies.GenerationRecovery = recovery
+	dependencies.GenerationOutputRecovery = generationOutputRecovery(nil, logger)
+	dependencies.StagedSlotExecutor = organizationMainSlotExecutor{delegate: v3Executor, generation: generation}
+
 	dependencies.ArtifactStore = artifactStore
 	dependencies.PublisherV3 = publisherV3
 	dependencies.PublicationLeaseDuration = timing.PublicationLeaseDuration

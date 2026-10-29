@@ -73,7 +73,7 @@ func TestManualWorkflowRecoveryOwnerCompletesAfterWorkerRestart(t *testing.T) {
 	require.Equal(t, 2, result.RecoveryWorkflowStarts)
 	require.Equal(t, 1, result.RecoveryAttachCalls)
 	require.Equal(t, imageagenttemporal.EffectRecoveryWorkflowName, result.RecoveryWorkflowName)
-	require.Equal(t, imageagenttemporal.TaskQueueV3, result.RecoveryTaskQueue)
+	require.Equal(t, imageagenttemporal.OrganizationTaskQueue, result.RecoveryTaskQueue)
 	require.Equal(t, enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING, result.RecoveryConflictPolicy)
 	require.Equal(t, enumspb.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY, result.RecoveryReusePolicy)
 	require.Equal(t, result.ExpectedRecoveryWorkflowID, result.StartedRecoveryWorkflowID)
@@ -94,7 +94,7 @@ func executeManualRecoveryWorkflowRestartAcceptance(t *testing.T) manualRecovery
 	ctx := context.Background()
 	repository := imageagentstore.NewMemoryRepository()
 	plan := acceptancePlan(1, 1)
-	run := imageagent.Run{
+	run := imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
 		ID: "run-recovery-restart", BusinessTaskID: "task-recovery-restart", TenantID: "tenant-a", UserID: "user-a",
 		TargetPlatform: "acceptance", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-recovery-restart", Status: imageagent.RunStatusExecuting,
@@ -188,20 +188,20 @@ func executeManualRecoveryWorkflowRestartAcceptance(t *testing.T) manualRecovery
 
 	recoveryExecutor := newAcceptanceProductImageExecutor(transientPath)
 	blockingStore := newBlockingFinalizeArtifactStore(durableStore)
-	recoveryActivities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
-		Repository: repository, SlotEffects: repository.(imageagent.SlotExternalEffectRepository), SlotExecutor: recoveryExecutor,
-		Publisher: acceptancePublisher{}, PublisherV3: acceptancePublisher{}, SlotEffectsV3: effects,
+	recoveryActivities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{ExecutionAuthorizer: acceptanceExecutionAuthorizer{},
+		Repository:  repository,
+		PublisherV3: acceptancePublisher{}, SlotEffectsV3: effects,
 		StagedSlotExecutor: recoveryExecutor, ArtifactStore: blockingStore,
 		PublicationOwner:         func(context.Context) (string, error) { return "recovered-workflow-run/execute-slot-v3/2", nil },
 		PublicationLeaseDuration: time.Minute,
 	})
 	require.NoError(t, err)
 	workflowClient := newRecordingRecoveryWorkflowClient(t, recoveryActivities)
-	client := imageagenttemporal.NewClient(workflowClient)
+	client := imageagenttemporal.NewOrganizationClient(workflowClient)
 	command := imageagent.RecoverEffectCommand{
 		RunID: run.ID, PlanRevision: plan.Revision, SlotID: recoveryInput.Slot.ID, Attempt: recoveryInput.Attempt,
 		ActionID:   "recover-effect-restart-1",
-		Identity:   imageagent.ExecutionIdentity{TenantID: run.TenantID, UserID: run.UserID, BusinessTaskID: run.BusinessTaskID},
+		Identity:   imageagent.ExecutionIdentity{MemberID: "member-" + run.UserID, ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, TenantID: run.TenantID, UserID: run.UserID, BusinessTaskID: run.BusinessTaskID},
 		Projection: blockedProjection,
 	}
 	expectedRecoveryWorkflowID := imageagenttemporal.EffectRecoveryWorkflowIDForSlot(
@@ -284,7 +284,7 @@ func executePodLossRecoveryAcceptance(t *testing.T) podLossRecoveryAcceptanceRes
 	ctx := context.Background()
 	repository := imageagentstore.NewMemoryRepository()
 	plan := acceptancePlan(3, 3)
-	run := imageagent.Run{
+	run := imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
 		ID: "run-pod-loss", BusinessTaskID: "task-pod-loss", TenantID: "tenant-a", UserID: "user-a",
 		TargetPlatform: "acceptance", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-pod-loss", Status: imageagent.RunStatusExecuting,
@@ -377,7 +377,7 @@ func executePodLossRecoveryAcceptance(t *testing.T) podLossRecoveryAcceptanceRes
 	}
 	require.NotEmpty(t, mainID)
 	require.NoError(t, recoveryActivities.PublishApprovedV3(ctx, imageagenttemporal.PublishApprovedV3ActivityInput{
-		RunID: run.ID, Identity: imageagent.ExecutionIdentity{TenantID: run.TenantID, UserID: run.UserID},
+		RunID: run.ID, Identity: imageagent.ExecutionIdentity{BusinessTaskID: run.BusinessTaskID, MemberID: "member-" + run.UserID, ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, TenantID: run.TenantID, UserID: run.UserID},
 		PlanRevision: plan.Revision, CandidateAssetIDs: approvedIDs, IdempotencyKey: "approve-pod-loss-v3",
 	}))
 	require.Equal(t, approvedIDs, approvalPublisher.input.CandidateAssetIDs)
@@ -414,7 +414,7 @@ func newAcceptanceProductImageExecutor(artifactPath string) *recordingAcceptance
 }
 
 func TestManualAcceptanceProductImageFixtureGeneratesInlineArtifact(t *testing.T) {
-	run := imageagent.Run{
+	run := imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
 		ID: "run-fixture", TenantID: "tenant-a", UserID: "user-a", TargetPlatform: "acceptance",
 		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
 	}
@@ -446,8 +446,8 @@ func newPodLossAcceptanceActivities(
 	publicationOwner func(context.Context) (string, error),
 ) *imageagenttemporal.Activities {
 	t.Helper()
-	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
-		Repository: repository, SlotExecutor: executor, Publisher: acceptancePublisher{}, PublisherV3: publisherV3,
+	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{ExecutionAuthorizer: acceptanceExecutionAuthorizer{},
+		Repository: repository, PublisherV3: publisherV3,
 		SlotEffectsV3: repository.(imageagent.SlotExternalEffectV3Repository), StagedSlotExecutor: executor,
 		ArtifactStore: durableStore, PublicationOwner: publicationOwner, PublicationLeaseDuration: time.Minute,
 	})
@@ -462,7 +462,7 @@ func podLossAcceptanceActivityInput(run imageagent.Run, plan imageagent.Plan, ca
 func podLossAcceptanceActivityInputForAttempt(run imageagent.Run, plan imageagent.Plan, catalog imageagent.AssetCatalog, slot imageagent.Slot, attempt int) imageagenttemporal.ExecuteSlotV3ActivityInput {
 	return imageagenttemporal.ExecuteSlotV3ActivityInput{
 		RunID: run.ID, TargetPlatform: run.TargetPlatform, ImagePolicyContext: &run.ImagePolicyContext,
-		Identity:     imageagent.ExecutionIdentity{TenantID: run.TenantID, UserID: run.UserID},
+		Identity:     imageagent.ExecutionIdentity{BusinessTaskID: run.BusinessTaskID, MemberID: "member-" + run.UserID, ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, TenantID: run.TenantID, UserID: run.UserID},
 		PlanRevision: plan.Revision, Slot: slot, Attempt: attempt,
 		IdempotencyKey: fmt.Sprintf("%s:plan:%d:attempt:%d", slot.IdempotencyKey, plan.Revision, attempt), AssetCatalog: catalog,
 	}
@@ -496,7 +496,7 @@ func TestManualImageAgentAcceptanceAllowsElevenStandardSlotsThroughWorkflow(t *t
 func executeAcceptanceWorkflow(t *testing.T, plan imageagent.Plan, invalidSlotID string) (imageagenttemporal.WorkflowResult, []string, []imageagent.RunEvent) {
 	t.Helper()
 	repository := imageagentstore.NewMemoryRepository()
-	run := &imageagent.Run{
+	run := &imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
 		ID: "run-acceptance", BusinessTaskID: "task-acceptance",
 		TargetPlatform: "acceptance", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
 		TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual,
@@ -530,8 +530,8 @@ func executeAcceptanceWorkflow(t *testing.T, plan imageagent.Plan, invalidSlotID
 		ProfileResolver:         acceptanceProfileResolver{},
 	})
 	executor := &recordingAcceptanceExecutor{delegate: delegate, invalidSlotID: invalidSlotID}
-	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
-		Repository: repository, SlotExecutor: executor, Publisher: acceptancePublisher{}, PublisherV3: acceptancePublisher{},
+	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{ExecutionAuthorizer: acceptanceExecutionAuthorizer{},
+		Repository: repository, PublisherV3: acceptancePublisher{},
 		SlotEffectsV3: repository.(imageagent.SlotExternalEffectV3Repository), StagedSlotExecutor: executor,
 		ArtifactStore: acceptanceDurableArtifactStore{},
 	})
@@ -539,13 +539,14 @@ func executeAcceptanceWorkflow(t *testing.T, plan imageagent.Plan, invalidSlotID
 
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: imageagenttemporal.OrganizationTaskQueue})
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
 	env.RegisterWorkflow(imageagenttemporal.ImageSlotWorkflowV3)
-	require.NoError(t, imageagenttemporal.RegisterActivitiesForMode(env, activities, imageagenttemporal.WorkerWireModeV3))
+	require.NoError(t, imageagenttemporal.RegisterActivitiesForMode(env, activities, imageagenttemporal.WorkerWireModeOrganization))
 	env.ExecuteWorkflow(imageagenttemporal.ImageAgentWorkflow, imageagenttemporal.WorkflowInput{
 		RunID: run.ID, Mode: imageagent.RunModeManual,
 		TargetPlatform: run.TargetPlatform, ImagePolicyContext: &run.ImagePolicyContext,
-		Identity: imageagent.ExecutionIdentity{TenantID: run.TenantID, UserID: run.UserID},
+		Identity: imageagent.ExecutionIdentity{BusinessTaskID: run.BusinessTaskID, MemberID: "member-" + run.UserID, ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, TenantID: run.TenantID, UserID: run.UserID},
 		Plan:     plan, AssetCatalog: normalizedCatalog, MaxConcurrentSlots: 4, WaitForCommands: false,
 	})
 	require.True(t, env.IsWorkflowCompleted())
@@ -772,6 +773,7 @@ func (c *recordingRecoveryWorkflowClient) ExecuteWorkflow(_ context.Context, opt
 func (c *recordingRecoveryWorkflowClient) executeRecoveryWorkflow(execution *recordedRecoveryExecution, input imageagenttemporal.EffectRecoveryWorkflowInput) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: imageagenttemporal.OrganizationTaskQueue})
 	env.RegisterWorkflow(imageagenttemporal.ImageAgentEffectRecoveryWorkflow)
 	env.RegisterActivityWithOptions(c.activities.RecoverEffectV3, sdkactivity.RegisterOptions{Name: "imageagent.recover_effect.v3"})
 	env.RegisterActivityWithOptions(c.activities.PersistRecoveryBlockedEffectV3, sdkactivity.RegisterOptions{Name: "imageagent.persist_recovery_blocked.v3"})
@@ -951,7 +953,6 @@ type recordingAcceptanceExecutor struct {
 
 type acceptanceExecutorDelegate interface {
 	imageagent.StagedSlotExecutor
-	imageagent.RecoverableSlotExecutor
 }
 
 func (e *recordingAcceptanceExecutor) QuoteSlot(context.Context, imageagent.SlotExecutionInput, imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
@@ -967,14 +968,6 @@ func (e *recordingAcceptanceExecutor) GenerateQuotedSlot(ctx context.Context, in
 	return generated, err
 }
 
-func (e *recordingAcceptanceExecutor) ExecuteSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	generated, err := e.GenerateSlot(ctx, input)
-	if err != nil {
-		return imageagent.SlotExecutionResult{}, err
-	}
-	return e.PublishSlot(ctx, input, generated)
-}
-
 func (e *recordingAcceptanceExecutor) GenerateSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	result, err := e.delegate.GenerateSlot(ctx, input)
 	e.mu.Lock()
@@ -982,14 +975,6 @@ func (e *recordingAcceptanceExecutor) GenerateSlot(ctx context.Context, input im
 	e.mu.Unlock()
 	if err == nil && input.Slot.ID == e.invalidSlotID {
 		return imageagent.SlotGeneratedOutput{}, fmt.Errorf("intentional acceptance provider failure for %s", input.Slot.ID)
-	}
-	return result, err
-}
-
-func (e *recordingAcceptanceExecutor) PublishSlot(ctx context.Context, input imageagent.SlotExecutionInput, generated imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	result, err := e.delegate.PublishSlot(ctx, input, generated)
-	if err == nil && input.Slot.ID == e.invalidSlotID {
-		return imageagent.SlotExecutionResult{SlotID: input.Slot.ID, Attempt: input.Attempt}, nil
 	}
 	return result, err
 }
@@ -1061,10 +1046,6 @@ func (acceptanceProfileResolver) Resolve(input imagepolicy.ProfileInput) (imagep
 }
 
 type acceptancePublisher struct{}
-
-func (acceptancePublisher) PublishApproved(context.Context, imageagent.PublishApprovedInput) (imageagent.PublicationAcknowledgement, error) {
-	return imageagent.PublicationAcknowledgement{}, nil
-}
 
 func (acceptancePublisher) PublishApprovedV3(context.Context, imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
 	return imageagent.PublicationAcknowledgement{}, nil
@@ -1276,4 +1257,10 @@ func sortedStrings(values []string) []string {
 	result := append([]string(nil), values...)
 	sort.Strings(result)
 	return result
+}
+
+type acceptanceExecutionAuthorizer struct{}
+
+func (acceptanceExecutionAuthorizer) AuthorizeExecution(context.Context, imageagent.ExecutionIdentity) error {
+	return nil
 }

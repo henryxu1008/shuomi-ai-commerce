@@ -65,18 +65,12 @@ type imageAgentWorkloadContainer struct {
 
 func TestListingKitImageAgentDeploymentsAndCanaryAreCapabilityIsolated(t *testing.T) {
 	base := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench")
-	v2 := loadImageAgentWorkloadManifest(t, filepath.Join(base, "base", "image-agent-temporal-worker-deployment.yaml"))
-	v3 := loadImageAgentWorkloadManifest(t, filepath.Join(base, "base", "image-agent-temporal-worker-v3-deployment.yaml"))
+	for _, name := range []string{"image-agent-temporal-worker-deployment.yaml", "image-agent-temporal-worker-v3-deployment.yaml"} {
+		if _, err := os.Stat(filepath.Join(base, "base", name)); !os.IsNotExist(err) {
+			t.Fatalf("retired worker %s must be absent: %v", name, err)
+		}
+	}
 	canary := loadImageAgentWorkloadFromMultiDoc(t, filepath.Join(base, "release-authority", "listingkit-release-gate-runners.yaml"), "image-agent-temporal-v3-canary-runner")
-
-	assertImageAgentDeployment(t, v2, "image-agent-temporal-worker", "image-agent-temporal-worker", "v2", "image-agent-manual")
-	assertImageAgentDeployment(t, v3, "image-agent-temporal-worker-v3", "image-agent-temporal-worker-v3", "v3", "image-agent-manual-v3")
-	if v2.Spec.Selector.MatchLabels["app"] == v3.Spec.Selector.MatchLabels["app"] {
-		t.Fatal("v2 and v3 image-agent workers must have distinct selectors")
-	}
-	if got, want := onlyImageAgentContainer(t, v3).Image, onlyImageAgentContainer(t, v2).Image; got != want {
-		t.Fatalf("v2 and v3 workers must start from the same application image, v2=%q v3=%q", want, got)
-	}
 
 	if canary.Kind != "Deployment" || canary.Metadata.Name != "image-agent-temporal-v3-canary-runner" || canary.Spec.Replicas != 0 {
 		t.Fatalf("v3 compatibility canary must be a fixed zero-replica Deployment, got kind=%q name=%q replicas=%d", canary.Kind, canary.Metadata.Name, canary.Spec.Replicas)
@@ -138,24 +132,6 @@ func onlyImageAgentContainer(t *testing.T, manifest imageAgentWorkloadManifest) 
 		t.Fatalf("%s has %d containers, want one", manifest.Metadata.Name, len(manifest.Spec.Template.Spec.Containers))
 	}
 	return manifest.Spec.Template.Spec.Containers[0]
-}
-
-func assertImageAgentDeployment(t *testing.T, manifest imageAgentWorkloadManifest, name, containerName, wireMode, taskQueue string) {
-	t.Helper()
-	if manifest.Kind != "Deployment" || manifest.Metadata.Name != name {
-		t.Fatalf("image-agent worker must be Deployment %q, got kind=%q name=%q", name, manifest.Kind, manifest.Metadata.Name)
-	}
-	if manifest.Spec.Selector.MatchLabels["app"] != name || manifest.Spec.Template.Metadata.Labels["app"] != name {
-		t.Fatalf("deployment %s selector and pod label must both be %q", name, name)
-	}
-	container := onlyImageAgentContainer(t, manifest)
-	if container.Name != containerName {
-		t.Fatalf("deployment %s container=%q want=%q", name, container.Name, containerName)
-	}
-	wantArgs := []string{"-config", "config/config-prod.yaml", "-log-level", "info", "-wire-mode", wireMode, "-task-queue", taskQueue}
-	if !reflect.DeepEqual(container.Args, wantArgs) {
-		t.Fatalf("deployment %s args=%#v want=%#v", name, container.Args, wantArgs)
-	}
 }
 
 func TestListingKitProductListingAPIImageCarriesV3NewStartsContract(t *testing.T) {

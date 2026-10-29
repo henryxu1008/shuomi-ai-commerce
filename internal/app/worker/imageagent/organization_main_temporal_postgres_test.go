@@ -81,7 +81,7 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 	scope := imageagent.ScopeForRun(run)
 	_, err = repository.InitializeRun(context.Background(), imageagent.ProjectionInitialization{Scope: scope, Run: run, Plan: plan, Catalog: catalog, Snapshot: imageagent.RunProjection{Run: run, Plan: plan}, CommitID: "start:" + run.IdempotencyKey, EventType: "run.initialized", EventPayload: []byte(`{}`)})
 	require.NoError(t, err)
-	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repository, SlotExecutor: dependencies.SlotExecutor, Publisher: dependencies.Publisher, PublisherV3: dependencies.PublisherV3, StagedSlotExecutor: dependencies.StagedSlotExecutor, ArtifactStore: dependencies.ArtifactStore, ExecutionAuthorizer: dependencies.ExecutionAuthorizer})
+	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repository, PublisherV3: dependencies.PublisherV3, StagedSlotExecutor: dependencies.StagedSlotExecutor, ArtifactStore: dependencies.ArtifactStore, ExecutionAuthorizer: dependencies.ExecutionAuthorizer})
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

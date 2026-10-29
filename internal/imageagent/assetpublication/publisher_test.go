@@ -112,32 +112,6 @@ func TestPublisherUsesProductContextIdentityInsteadOfBusinessTaskCompatibility(t
 	require.ErrorIs(t, err, productasset.ErrApprovedAssetsNotReady)
 }
 
-func TestV2PublisherWritesURLCandidatesToProductAssetsWithoutListingKit(t *testing.T) {
-	projection := approvedV3Projection(t)
-	for index := range projection.Slots {
-		candidate := &projection.Slots[index].Candidates[0]
-		candidate.URL = fmt.Sprintf("https://cdn.example.test/v2-%d.png", index+1)
-		candidate.DurableAsset = imageagent.DurableAssetIdentity{}
-	}
-	var err error
-	projection.ResultDigest, err = imageagent.ResultDigestV2(projection.Plan, projection.Slots)
-	require.NoError(t, err)
-	repository := assettest.NewMemoryRepository()
-	publisher, err := NewV2Publisher(staticProjectionSource{projection: projection}, repository)
-	require.NoError(t, err)
-
-	acknowledgement, err := publisher.PublishApproved(context.Background(), imageagent.PublishApprovedInput{
-		RunID: "run-1", TenantID: "tenant-a", UserID: "user-a", PlanRevision: 1,
-		CandidateAssetIDs: []string{"asset-1", "asset-2"}, IdempotencyKey: "approve-v2-action-1",
-	})
-
-	require.NoError(t, err)
-	require.Equal(t, "product-1", acknowledgement.ProductKey)
-	inventory, err := repository.GetApprovedInventory(context.Background(), productasset.InventoryScope{TenantID: "tenant-a", ProductKey: "product-1"})
-	require.NoError(t, err)
-	require.Equal(t, "https://cdn.example.test/v2-1.png", inventory.Assets[0].URL)
-}
-
 func TestPublisherRejectsInvalidProjectionBeforeRepositoryCommit(t *testing.T) {
 	tests := map[string]func(*imageagent.RunProjection, *imageagent.PublishApprovedV3Input){
 		"wrong run status": func(projection *imageagent.RunProjection, _ *imageagent.PublishApprovedV3Input) {

@@ -15,9 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
-	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
-	taskqueuepb "go.temporal.io/api/taskqueue/v1"
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdkclient "go.temporal.io/sdk/client"
 	sdkconverter "go.temporal.io/sdk/converter"
@@ -25,27 +23,38 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/store"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
-const sevenSlotResultDigest = "727974ab58eba204b1e83cd3dc97c064713351e944ae1896e6e9d36e2f9eaedd"
+var sevenSlotResultDigest = func() string {
+	plan := sevenSlotPlan()
+	var results []SlotWorkflowResult
+	for _, slot := range plan.Slots {
+		results = append(results, SlotWorkflowResult{Execution: successfulExecutionResult(slot.ID, 1), Status: imageagent.SlotStatusAccepted})
+	}
+	digest, err := imageagent.ResultDigestV3(plan, slotProjections(plan, results))
+	if err != nil {
+		panic(err)
+	}
+	return digest
+}()
 
 func TestManualWorkflowExecutesEverySlotIndependently(t *testing.T) {
 	env := newWorkflowEnv(t)
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1"))
 	}, time.Second)
@@ -66,7 +75,7 @@ func TestManualWorkflowPersistsLifecycleBlockWhileAwaitingFinalApproval(t *testi
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
@@ -103,12 +112,12 @@ func TestManualWorkflowBlocksOnlyFailedSlot(t *testing.T) {
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).
 				Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
@@ -137,22 +146,22 @@ func TestManualWorkflowReplacesBlockedPlanAtExactRevision(t *testing.T) {
 	for _, slot := range initial.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).
 				Once()
 		} else {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
 				Return(successfulSlotResult(slot.ID, 1), nil).
 				Once()
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.MatchedBy(func(input PersistPlanRevisionActivityInput) bool {
 		return input.RunID == "run-1" && input.ExpectedRevision == 1 && input.Plan.Revision == 2 && input.Identity.TenantID == "tenant-a"
 	})).Return(nil).Once()
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalReplacePlan, ReplacePlanSignal{
 			RunID: "run-1", ExpectedRevision: 1, Plan: replacement,
@@ -194,13 +203,13 @@ func TestManualWorkflowReplaceUpdatesRejectLostCommandWindowAndAckAfterPersisten
 	for _, slot := range initial.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 		} else {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
 				Return(successfulSlotResult(slot.ID, 1), nil).Once()
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	persisted := false
@@ -241,7 +250,7 @@ func TestManualWorkflowReplaceUpdatesRejectLostCommandWindowAndAckAfterPersisten
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
-			RunID: "run-1", PlanRevision: 2, ResultDigest: sevenSlotResultDigest, ActorID: "user-a", ActionID: "approve-replacement-update",
+			RunID: "run-1", PlanRevision: 2, ResultDigest: successfulPlanDigest(replacement), ActorID: "user-a", ActionID: "approve-replacement-update",
 		})
 	}, 3*time.Minute)
 	env.RegisterDelayedCallback(func() {
@@ -276,13 +285,13 @@ func TestManualWorkflowReplaceUpdateResumesAfterRunTransitionFailure(t *testing.
 	for _, slot := range initial.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 		} else {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
 				Return(successfulSlotResult(slot.ID, 1), nil).Once()
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	planPersistCalls := 0
@@ -358,7 +367,7 @@ func TestManualWorkflowReplaceUpdateResumesAfterRunTransitionFailure(t *testing.
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
-			RunID: "run-1", PlanRevision: 2, ResultDigest: sevenSlotResultDigest,
+			RunID: "run-1", PlanRevision: 2, ResultDigest: successfulPlanDigest(replacement),
 			ActorID: "user-a", ActionID: "approve-replaced-plan",
 		})
 	}, 4*time.Second)
@@ -387,22 +396,22 @@ func TestManualWorkflowRetryUpdatesRejectLostCommandWindowAndAckAfterProjectionP
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("scene-2", 2)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("scene-2", 2)).
 		After(time.Minute).
 		Return(successfulSlotResult("scene-2", 2), nil).
 		Once()
 	retryPersisted := false
-	env.OnActivity(activityPersistSlotResult, mock.Anything, mock.MatchedBy(func(input PersistSlotResultActivityInput) bool {
-		return input.Result.Execution.SlotID == "scene-2" && input.Result.Execution.Attempt == 2
+	env.OnActivity(activityPersistSlotResultV3, mock.Anything, mock.MatchedBy(func(input PersistSlotResultV3ActivityInput) bool {
+		return input.Result.Published.SlotID == "scene-2" && input.Result.Published.Attempt == 2
 	})).Run(func(mock.Arguments) { retryPersisted = true }).Return(nil).Once()
-	env.OnActivity(activityPersistSlotResult, mock.Anything, mock.Anything).Return(nil)
+	env.OnActivity(activityPersistSlotResultV3, mock.Anything, mock.Anything).Return(nil)
 	approvalStatePersisted := false
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.MatchedBy(func(input PersistRunStateActivityInput) bool {
 		return input.Projection.Status == imageagent.RunStatusAwaitingFinalApproval
@@ -427,7 +436,7 @@ func TestManualWorkflowRetryUpdatesRejectLostCommandWindowAndAckAfterProjectionP
 				var projection WorkflowResult
 				require.NoError(t, encoded.Get(&projection))
 				require.Equal(t, imageagent.RunStatusAwaitingFinalApproval, projection.Status)
-				require.Equal(t, sevenSlotResultDigest, projection.ResultDigest)
+				require.Equal(t, successfulRetryDigest(), projection.ResultDigest)
 			},
 		}, retryUpdate)
 	}, time.Second)
@@ -441,7 +450,7 @@ func TestManualWorkflowRetryUpdatesRejectLostCommandWindowAndAckAfterProjectionP
 		}, second)
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-update"))
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-update", successfulRetryDigest()))
 	}, 3*time.Minute)
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "retry-red-cleanup"})
@@ -470,31 +479,31 @@ func TestManualWorkflowRetryUpdateResumesWithoutRerunningProviderAfterPersistenc
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	providerRetryCalls := 0
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("scene-2", 2)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("scene-2", 2)).
 		Run(func(mock.Arguments) { providerRetryCalls++ }).
 		Return(successfulSlotResult("scene-2", 2), nil).Once()
-	retryPersist := mock.MatchedBy(func(input PersistSlotResultActivityInput) bool {
-		return input.Result.Execution.SlotID == "scene-2" && input.Result.Execution.Attempt == 2
+	retryPersist := mock.MatchedBy(func(input PersistSlotResultV3ActivityInput) bool {
+		return input.Result.Published.SlotID == "scene-2" && input.Result.Published.Attempt == 2
 	})
 	logicalSlotWrites := 0
 	durableSlotStatus := imageagent.SlotStatusBlocked
 	durableStatus := imageagent.RunStatusBlocked
-	env.OnActivity(activityPersistSlotResult, mock.Anything, retryPersist).
+	env.OnActivity(activityPersistSlotResultV3, mock.Anything, retryPersist).
 		Run(func(mock.Arguments) {
 			logicalSlotWrites = 1
 			durableSlotStatus = imageagent.SlotStatusAccepted
 		}).
 		Return(sdktemporal.NewNonRetryableApplicationError("slot write reported failure", "terminal_test_failure", nil)).Once()
-	env.OnActivity(activityPersistSlotResult, mock.Anything, retryPersist).Return(nil).Once()
-	env.OnActivity(activityPersistSlotResult, mock.Anything, mock.Anything).Return(nil)
+	env.OnActivity(activityPersistSlotResultV3, mock.Anything, retryPersist).Return(nil).Once()
+	env.OnActivity(activityPersistSlotResultV3, mock.Anything, mock.Anything).Return(nil)
 	approvalTransition := mock.MatchedBy(func(input PersistRunStateActivityInput) bool {
 		return input.Projection.Status == imageagent.RunStatusAwaitingFinalApproval
 	})
@@ -575,7 +584,7 @@ func TestManualWorkflowRetryUpdateResumesWithoutRerunningProviderAfterPersistenc
 		}, ResumeCommandInput{RunID: "run-1", ActorID: "user-a", ActionID: "retry-resume"})
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-resume"))
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-resume", successfulRetryDigest()))
 	}, 4*time.Second)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -603,14 +612,14 @@ func TestManualWorkflowMixedCommandsAtOneTickReserveExactlyOnePendingOwner(t *te
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	providerRetryCalls := 0
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("scene-2", 2)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("scene-2", 2)).
 		After(time.Minute).
 		Run(func(mock.Arguments) { providerRetryCalls++ }).
 		Return(successfulSlotResult("scene-2", 2), nil).Once()
@@ -618,7 +627,7 @@ func TestManualWorkflowMixedCommandsAtOneTickReserveExactlyOnePendingOwner(t *te
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { planWrites++ }).Return(nil).Maybe()
 	published := 0
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 
 	retry := RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-owner"}
@@ -637,10 +646,10 @@ func TestManualWorkflowMixedCommandsAtOneTickReserveExactlyOnePendingOwner(t *te
 		env.UpdateWorkflow(signalCancel, "cancel-competing-update", &testsuite.TestUpdateCallback{
 			OnReject: func(err error) { cancelErr = err }, OnAccept: func() {}, OnComplete: func(_ interface{}, err error) { cancelErr = err },
 		}, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-competing"})
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-competing-signal"))
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-competing-signal", successfulRetryDigest()))
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-single-owner"))
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-single-owner", successfulRetryDigest()))
 	}, 3*time.Minute)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -668,15 +677,15 @@ func TestManualWorkflowUpdateActionIDIsIdempotentAndRejectsConflictingReuse(t *t
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("scene-2", 2)).
-		Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected retry", "slot_rejected", nil)).Once()
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("scene-2", 2)).
+		Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected retry", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 	retry := RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-idempotent"}
 	var firstAck, duplicateAck CommandAcknowledgement
 	var firstErr, duplicateErr, conflictingRejected error
@@ -1053,6 +1062,7 @@ func TestV3InitialChildFailurePersistsRecoverableBlockedSlotIdentity(t *testing.
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflowWithOptions(
 		func(workflow.Context, SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 			return SlotWorkflowV3Result{}, sdktemporal.NewNonRetryableApplicationError("child crashed", "child_test_failure", nil)
@@ -1151,6 +1161,7 @@ func newV3BlockWorkflowEnv(t *testing.T, blocked func(ExecuteSlotV3ActivityInput
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
 	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
 	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
@@ -1206,7 +1217,7 @@ func TestInvalidPersistedV3PolicySurvivesProjectionRefreshAndRejectsDirectRetry(
 					db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 					require.NoError(t, err)
 					require.NoError(t, store.AutoMigrate(db))
-					return store.NewGormRepository(db)
+					return store.NewOrganizationRepository(db)
 				}},
 			} {
 				t.Run(repository.name, func(t *testing.T) {
@@ -1215,7 +1226,7 @@ func TestInvalidPersistedV3PolicySurvivesProjectionRefreshAndRejectsDirectRetry(
 						ID: "run-invalid-policy-" + tc.name + "-" + repository.name, BusinessTaskID: "task-invalid-policy",
 						TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + tc.name + "-" + repository.name,
 						Status: summarized.Status, ActivePlanRevision: plan.Revision, Version: 1, Block: summarized.Block,
-					}
+						ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"}
 					snapshot := imageagent.RunProjection{Run: run, Plan: plan, Slots: summarized.Slots, Actions: imageagent.AllowedActions(run)}
 					_, err := repo.InitializeRun(context.Background(), imageagent.ProjectionInitialization{
 						Scope: imageagent.ScopeForRun(run), Run: run, Plan: plan,
@@ -1228,7 +1239,7 @@ func TestInvalidPersistedV3PolicySurvivesProjectionRefreshAndRejectsDirectRetry(
 					require.Equal(t, tc.want, refreshed.Run.Block.Code)
 					require.Equal(t, []imageagent.Action{imageagent.ActionCancel}, refreshed.Actions)
 
-					input := WorkflowInput{RunID: run.ID, Mode: run.Mode, Identity: imageagent.ExecutionIdentity{TenantID: run.TenantID, UserID: run.UserID}, Plan: refreshed.Plan}
+					input := WorkflowInput{RunID: run.ID, Mode: run.Mode, Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, MemberID: "member-" + run.UserID, BusinessTaskID: "task-" + run.ID, TenantID: run.TenantID, UserID: run.UserID}, Plan: refreshed.Plan}
 					results := []SlotWorkflowResult{{Execution: imageagent.SlotExecutionResult{SlotID: "scene-1", Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: tc.want}}
 					projection := WorkflowResult{Status: refreshed.Run.Status, Block: refreshed.Run.Block, Plan: refreshed.Plan, Slots: refreshed.Slots}
 					state := workflowUpdateState{input: &input, projection: &projection, results: &results}
@@ -1422,7 +1433,7 @@ func rejectedUpdateTombstoneWorkflow(ctx workflow.Context) (rejectedUpdateTombst
 	input := manualWorkflowInput(plan)
 	results := make([]SlotWorkflowResult, len(plan.Slots))
 	for index, slot := range plan.Slots {
-		results[index] = SlotWorkflowResult{Execution: successfulSlotResult(slot.ID, 1), Status: imageagent.SlotStatusAccepted}
+		results[index] = SlotWorkflowResult{Execution: successfulExecutionResult(slot.ID, 1), Status: imageagent.SlotStatusAccepted}
 	}
 	projection := WorkflowResult{
 		Status: imageagent.RunStatusAwaitingFinalApproval, Plan: plan,
@@ -1503,7 +1514,7 @@ func TestManualWorkflowRejectsPlanReferencesOutsideImmutableCatalogBeforeActivit
 
 	require.True(t, env.IsWorkflowCompleted())
 	require.ErrorContains(t, env.GetWorkflowError(), "not authorized")
-	env.AssertNotCalled(t, activityExecuteSlot, mock.Anything, mock.Anything)
+	env.AssertNotCalled(t, activityExecuteSlotV3, mock.Anything, mock.Anything)
 }
 
 func TestManualWorkflowWaitsForFinalApprovalBeforePublishing(t *testing.T) {
@@ -1511,12 +1522,12 @@ func TestManualWorkflowWaitsForFinalApprovalBeforePublishing(t *testing.T) {
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
 	publishedCalls := 0
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { publishedCalls++ }).
 		Return(nil).
 		Once()
@@ -1537,11 +1548,11 @@ func TestManualWorkflowApprovalUpdateRequiresCanonicalDigestAndAcksAfterPublicat
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	published := false
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
 		After(time.Minute).
 		Run(func(mock.Arguments) { published = true }).
 		Return(nil).
@@ -1600,13 +1611,13 @@ func TestManualWorkflowApprovalUpdateResumesAfterCompletedStateFailureWithoutRep
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	publishCalls := 0
 	logicalPublications := 0
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.MatchedBy(func(input PublishApprovedActivityInput) bool {
-		return input.IdempotencyKey == "image-agent:run-1:plan:1:publication"
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.MatchedBy(func(input PublishApprovedV3ActivityInput) bool {
+		return input.IdempotencyKey == ApprovalActionPublicationKey("approve-resume", "run-1", 1)
 	})).Run(func(mock.Arguments) {
 		publishCalls++
 		logicalPublications = 1
@@ -1687,11 +1698,11 @@ func TestManualWorkflowRejectsCancelAfterApprovalPublicationBeforeProjection(t *
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	publishCalls := 0
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { publishCalls++ }).Return(nil).Once()
 	completed := mock.MatchedBy(func(input PersistRunStateActivityInput) bool {
 		return input.Projection.Status == imageagent.RunStatusCompleted
@@ -1749,10 +1760,10 @@ func TestManualWorkflowCancelSupersedesFailedApprovalCommand(t *testing.T) {
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
 		Return(sdktemporal.NewNonRetryableApplicationError("publication permanently rejected", "publication_permanent", nil)).Once()
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.Anything).Return(nil)
 
@@ -1790,12 +1801,12 @@ func TestManualWorkflowDuplicateApprovalPublishesOnceWithStableKey(t *testing.T)
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.MatchedBy(func(in PublishApprovedActivityInput) bool {
-		return in.IdempotencyKey == "image-agent:run-1:plan:1:publication" &&
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.MatchedBy(func(in PublishApprovedV3ActivityInput) bool {
+		return in.IdempotencyKey == ApprovalActionPublicationKey("approve-final-1", "run-1", 1) &&
 			requireCandidateIDs(in.CandidateAssetIDs, plan)
 	})).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
@@ -1814,11 +1825,11 @@ func TestManualWorkflowIgnoresApprovalForStaleRevision(t *testing.T) {
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	published := 0
 	freshSent := false
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 	stale := validApproval("approve-stale")
 	stale.PlanRevision = 2
 	env.RegisterDelayedCallback(func() {
@@ -1845,11 +1856,11 @@ func TestManualWorkflowRejectsEarlyApprovalEvenWhenLaterResent(t *testing.T) {
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	published := 0
 	freshSent := false
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 	early := validApproval("approve-too-early")
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalApproveResults, early)
@@ -1876,9 +1887,9 @@ func TestManualWorkflowRejectedLegacySignalTombstonesWorkflowUpdateActionID(t *t
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	command := validApproval("approval-shared-with-update")
 	var rejected error
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, command) }, 0)
@@ -1911,17 +1922,17 @@ func TestManualWorkflowRejectsApprovalQueuedWhileBlocked(t *testing.T) {
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 2)).Return(successfulSlotResult(slot.ID, 2), nil).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 2)).Return(successfulSlotResult(slot.ID, 2), nil).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	published := 0
 	freshSent := false
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
-	blockedApproval := validApproval("approve-while-blocked")
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+	blockedApproval := validApproval("approve-while-blocked", successfulRetryDigest())
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalApproveResults, blockedApproval)
 	}, time.Second)
@@ -1935,7 +1946,7 @@ func TestManualWorkflowRejectsApprovalQueuedWhileBlocked(t *testing.T) {
 	env.RegisterDelayedCallback(func() {
 		require.Zero(t, published)
 		freshSent = true
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-review"))
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-review", successfulRetryDigest()))
 	}, 4*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -1956,19 +1967,19 @@ func TestManualWorkflowConsumesRejectedReplaceSignalActionID(t *testing.T) {
 	for _, slot := range initial.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 		} else {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 1)).
 				Return(successfulSlotResult(slot.ID, 1), nil).Once()
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	planWrites := 0
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { planWrites++ }).Return(nil).Once()
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	rejected := ReplacePlanSignal{
 		RunID: "run-1", ExpectedRevision: 1, Plan: replacement, ActorID: "user-a", ActionID: "replace-too-early",
 	}
@@ -2019,16 +2030,16 @@ func TestManualWorkflowWrongActorRetrySignalDoesNotPoisonActionID(t *testing.T) 
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	providerRetryCalls := 0
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("scene-2", 2)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("scene-2", 2)).
 		Run(func(mock.Arguments) { providerRetryCalls++ }).Return(successfulSlotResult("scene-2", 2), nil).Once()
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	rejected := RetrySlotSignal{
 		RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "attacker", ActionID: "retry-rejected-actor",
 	}
@@ -2049,7 +2060,7 @@ func TestManualWorkflowWrongActorRetrySignalDoesNotPoisonActionID(t *testing.T) 
 		env.SignalWorkflow(signalRetrySlot, fresh)
 	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-tombstone"))
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-after-retry-tombstone", successfulRetryDigest()))
 	}, 4*time.Second)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -2076,16 +2087,16 @@ func TestManualWorkflowReplacementRejectsAssetsOutsideImmutableCatalogAndConsume
 	for _, slot := range initial.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 		} else {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlotRevision(slot.ID, 1, 2)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	planWrites := 0
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).Run(func(mock.Arguments) { planWrites++ }).Return(nil).Once()
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	unauthorized := validReplacement
 	unauthorized.SourceAssetIDs = []string{"source-not-in-catalog"}
 	unauthorized.Slots = append([]imageagent.Slot(nil), validReplacement.Slots...)
@@ -2107,7 +2118,7 @@ func TestManualWorkflowReplacementRejectsAssetsOutsideImmutableCatalogAndConsume
 	}, 2*time.Second)
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
-			RunID: "run-1", PlanRevision: 2, ResultDigest: sevenSlotResultDigest, ActorID: "user-a", ActionID: "approve-authorized-replacement",
+			RunID: "run-1", PlanRevision: 2, ResultDigest: successfulPlanDigest(validReplacement), ActorID: "user-a", ActionID: "approve-authorized-replacement",
 		})
 	}, 3*time.Second)
 	input := manualWorkflowInput(initial)
@@ -2192,14 +2203,14 @@ func TestManualWorkflowRejectsApprovalWithWrongActorOrDigest(t *testing.T) {
 			plan := sevenSlotPlan()
 			for _, slot := range plan.Slots {
 				slot := slot
-				env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+				env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 			}
 			published := 0
 			pendingReceiptWrites := 0
 			env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.Anything).
 				Run(func(mock.Arguments) { pendingReceiptWrites++ }).Return(nil).Twice()
 			freshSent := false
-			env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+			env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 			invalid := validApproval("approve-invalid")
 			test.mutate(&invalid)
 			env.RegisterDelayedCallback(func() {
@@ -2229,9 +2240,9 @@ func TestManualWorkflowExposesFinalResultDigestWhileAwaitingApproval(t *testing.
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
 		require.NoError(t, err)
@@ -2260,13 +2271,13 @@ func TestManualWorkflowDuplicateRetrySignalCreatesOneNewAttempt(t *testing.T) {
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 2)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 2)).
 				Return(successfulSlotResult(slot.ID, 2), nil).Once()
 			continue
 		}
-		expectation := env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		expectation := env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 		if slot.ID == "slot-1" {
 			expectation.After(time.Minute)
 		}
@@ -2276,8 +2287,10 @@ func TestManualWorkflowDuplicateRetrySignalCreatesOneNewAttempt(t *testing.T) {
 		env.SignalWorkflow(signalRetrySlot, retry)
 		env.SignalWorkflow(signalRetrySlot, retry)
 	}, time.Second)
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1")) }, 3*time.Minute)
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
+	}, 3*time.Minute)
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
 
@@ -2296,19 +2309,21 @@ func TestManualWorkflowRemainsDurableWhileBlockedForLaterRetrySignal(t *testing.
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 2)).
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 2)).
 				Return(successfulSlotResult(slot.ID, 2), nil).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalRetrySlot, RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-after-block"})
 	}, time.Second)
-	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1")) }, 2*time.Second)
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
+	}, 2*time.Second)
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
 
@@ -2325,11 +2340,11 @@ func TestManualWorkflowRejectsRetrySignalFromDifferentActor(t *testing.T) {
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "scene-2" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
-				Return(imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("failed", "slot_rejected", nil)).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
+				Return(imageagent.SlotEffectV3PublishedResult{}, sdktemporal.NewNonRetryableApplicationError("failed", imageagent.SlotProviderNotDispatchedCode, nil)).Once()
 			continue
 		}
-		expectation := env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		expectation := env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 		if slot.ID == "slot-1" {
 			expectation.After(time.Minute)
 		}
@@ -2355,9 +2370,9 @@ func TestManualWorkflowRejectsCancelSignalFromDifferentActor(t *testing.T) {
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "attacker", ActionID: "spoofed-cancel"})
 	}, time.Second)
@@ -2380,7 +2395,7 @@ func TestManualWorkflowWrongActorCancelSignalDoesNotPoisonActionID(t *testing.T)
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = 1
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("slot-1", 1)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-1", 1)).
 		After(10*time.Minute).Return(successfulSlotResult("slot-1", 1), nil).Once()
 	rejected := CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "attacker", ActionID: "cancel-rejected-actor"}
 	freshSent := false
@@ -2490,23 +2505,23 @@ func TestManualWorkflowCancellationStartsNoThirdChildAndKeepsCompletedSibling(t 
 	started := []string{}
 	persisted := []string{}
 	env.SetOnChildWorkflowStartedListener(func(_ *workflow.Info, _ workflow.Context, args sdkconverter.EncodedValues) {
-		var childInput SlotWorkflowInput
+		var childInput slotChildIdentity
 		require.NoError(t, args.Get(&childInput))
 		mu.Lock()
 		started = append(started, childInput.Slot.ID)
 		mu.Unlock()
 	})
 	for _, slotID := range []string{"slot-1", "slot-2"} {
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slotID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slotID, 1)).
 			After(time.Minute).
 			Return(successfulSlotResult(slotID, 1), nil).
 			Once()
 	}
-	env.OnActivity(activityPersistSlotResult, mock.Anything, mock.Anything).
+	env.OnActivity(activityPersistSlotResultV3, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			in := activityInputFromArgs[PersistSlotResultActivityInput](t, args)
+			in := activityInputFromArgs[PersistSlotResultV3ActivityInput](t, args)
 			mu.Lock()
-			persisted = append(persisted, in.Result.Execution.SlotID)
+			persisted = append(persisted, in.Result.Published.SlotID)
 			mu.Unlock()
 		}).
 		Return(nil)
@@ -2539,6 +2554,7 @@ func TestManualWorkflowV3CancellationWaitsForStartedSlotFinalization(t *testing.
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	var childStarted atomic.Bool
 	var childFinalized atomic.Bool
 	var eventMu sync.Mutex
@@ -2627,6 +2643,7 @@ func TestManualWorkflowStartsExternalRecoveryForUnterminalizedEffect(t *testing.
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflowWithOptions(
 		func(_ workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 			return SlotWorkflowV3Result{
@@ -2691,7 +2708,7 @@ func TestManualWorkflowStartsExternalRecoveryForUnterminalizedEffect(t *testing.
 	require.NoError(t, cancelErr)
 	require.Equal(t, imageagent.RunStatusBlocked, cancelAck.Status)
 	require.Len(t, started, 1)
-	require.Equal(t, EffectRecoveryWorkflowInput{
+	require.Equal(t, EffectRecoveryWorkflowInput{TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.Plan.Revision,
 		Slot: input.Plan.Slots[0], Attempt: 1, AssetCatalog: normalizedCatalog,
 	}, started[0])
@@ -2710,6 +2727,7 @@ func TestManualWorkflowKeepsBlockedWhenRecoveryStartFails(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflowWithOptions(
 		func(_ workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 			return SlotWorkflowV3Result{
@@ -2801,24 +2819,25 @@ func TestManualWorkflowKeepsBlockedWhenRecoveryStartFails(t *testing.T) {
 
 func TestManualWorkflowPersistsSecondaryRecoveryStartFailureWithRealRepository(t *testing.T) {
 	repository := store.NewMemoryRepository()
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-real-secondary-recovery-failure", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan := sevenSlotPlan()
 	plan.Slots = plan.Slots[:2]
 	run := imageagent.Run{
 		ID: "run-real-secondary-recovery-failure", BusinessTaskID: "task-1",
 		TenantID: identity.TenantID, UserID: identity.UserID,
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-real-secondary-recovery-failure",
-		Status: imageagent.RunStatusPlanning,
-	}
+		Status:        imageagent.RunStatusPlanning,
+		ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	initializeActivityProjection(t, repository, run, plan)
-	activities, err := NewActivities(ActivityDependencies{
-		Repository: repository, SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t},
+	activities, err := NewActivities(ActivityDependencies{ExecutionAuthorizer: allowGenerationExecution{}, PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{},
+		Repository: repository,
 	})
 	require.NoError(t, err)
 
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflowWithOptions(
 		func(_ workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 			return SlotWorkflowV3Result{
@@ -2864,6 +2883,8 @@ func TestManualWorkflowPersistsSecondaryRecoveryStartFailureWithRealRepository(t
 
 	input := manualWorkflowInput(plan)
 	input.RunID = run.ID
+	input.Identity = identity
+	input.AssetCatalog = activityFixtureCatalog(t, repository, run.ID)
 	input.MaxConcurrentSlots = 2
 	input.WaitForCommands = true
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -2889,6 +2910,7 @@ func TestManualWorkflowStartsIndependentRecoveryOwnersForEachBlockedEffect(t *te
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflowWithOptions(
 		func(_ workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 			return SlotWorkflowV3Result{
@@ -2955,11 +2977,11 @@ func TestManualWorkflowStartsIndependentRecoveryOwnersForEachBlockedEffect(t *te
 	require.NoError(t, cancelErr)
 	require.Equal(t, imageagent.RunStatusBlocked, cancelAck.Status)
 	require.Len(t, started, 2)
-	require.Equal(t, EffectRecoveryWorkflowInput{
+	require.Equal(t, EffectRecoveryWorkflowInput{TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.Plan.Revision,
 		Slot: input.Plan.Slots[0], Attempt: 1, AssetCatalog: normalizedCatalog,
 	}, started[0])
-	require.Equal(t, EffectRecoveryWorkflowInput{
+	require.Equal(t, EffectRecoveryWorkflowInput{TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.Plan.Revision,
 		Slot: input.Plan.Slots[1], Attempt: 1, AssetCatalog: normalizedCatalog,
 	}, started[1])
@@ -2976,6 +2998,7 @@ func TestManualWorkflowKeepsBlockedCancellationOpenWithAccurateReceipt(t *testin
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflowWithOptions(
 		func(_ workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 			return SlotWorkflowV3Result{
@@ -3053,6 +3076,7 @@ func TestManualWorkflowDoesNotProjectCancelledForUnterminalizedEffect(t *testing
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	var childStarted atomic.Bool
 	var cancelErr error
 	var cancelAck CommandAcknowledgement
@@ -3171,107 +3195,6 @@ func TestManualWorkflowDoesNotProjectCancelledForUnterminalizedEffect(t *testing
 	require.Nil(t, last.Receipt.LastFailedAt)
 }
 
-func TestManualWorkflowMixedHistoryCancellationBlocksStartedLegacyChild(t *testing.T) {
-	var suite testsuite.WorkflowTestSuite
-	env := suite.NewTestWorkflowEnvironment()
-	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
-	var childStarted atomic.Bool
-	var cancelErr error
-	var cancelAck CommandAcknowledgement
-	var retryErr error
-	var retryAck CommandAcknowledgement
-	var blockedMu sync.Mutex
-	var blockedStates []PersistRunStateActivityInput
-	cancelledStates := 0
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context, input SlotWorkflowInput) (SlotWorkflowResult, error) {
-			childStarted.Store(true)
-			if input.Attempt > 1 {
-				return SlotWorkflowResult{Execution: successfulSlotResult(input.Slot.ID, input.Attempt), Status: imageagent.SlotStatusAccepted}, nil
-			}
-			if err := workflow.NewTimer(ctx, time.Hour).Get(ctx, nil); err != nil {
-				return SlotWorkflowResult{}, err
-			}
-			return SlotWorkflowResult{Execution: successfulSlotResult(input.Slot.ID, input.Attempt), Status: imageagent.SlotStatusAccepted}, nil
-		},
-		workflow.RegisterOptions{Name: workflowNameImageSlot},
-	)
-	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.RegisterActivityWithOptions(func(_ context.Context, input PersistRunStateActivityInput) error {
-		if input.Projection.Status == imageagent.RunStatusBlocked {
-			blockedMu.Lock()
-			blockedStates = append(blockedStates, input)
-			blockedMu.Unlock()
-		}
-		if input.Projection.Status == imageagent.RunStatusCancelled {
-			cancelledStates++
-		}
-		return nil
-	}, sdkactivity.RegisterOptions{Name: activityPersistRunState})
-	env.RegisterActivityWithOptions(
-		func(context.Context, PersistSlotResultActivityInput) error { return nil },
-		sdkactivity.RegisterOptions{Name: activityPersistSlotResult},
-	)
-	env.RegisterActivityWithOptions(
-		func(context.Context, PersistPendingCommandActivityInput) error { return nil },
-		sdkactivity.RegisterOptions{Name: activityPersistPendingCommand},
-	)
-	env.RegisterDelayedCallback(func() {
-		require.True(t, childStarted.Load())
-		env.UpdateWorkflow(signalCancel, "cancel-mixed-history", &testsuite.TestUpdateCallback{
-			OnReject: func(err error) { cancelErr = err },
-			OnAccept: func() {},
-			OnComplete: func(result interface{}, err error) {
-				cancelErr = err
-				if err == nil {
-					cancelAck = result.(CommandAcknowledgement)
-				}
-			},
-		}, CancelSignal{
-			RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-mixed-history",
-		})
-	}, time.Second)
-	env.RegisterDelayedCallback(func() {
-		require.NoError(t, cancelErr)
-		env.UpdateWorkflow(signalRetrySlot, "retry-mixed-history", &testsuite.TestUpdateCallback{
-			OnReject: func(err error) { retryErr = err },
-			OnAccept: func() {},
-			OnComplete: func(result interface{}, err error) {
-				retryErr = err
-				if err == nil {
-					retryAck = result.(CommandAcknowledgement)
-				}
-			},
-		}, RetrySlotSignal{
-			RunID: "run-1", PlanRevision: 1, SlotID: "slot-1", ActorID: "user-a", ActionID: "retry-mixed-history",
-		})
-	}, 2*time.Second)
-	env.RegisterDelayedCallback(env.CancelWorkflow, 3*time.Second)
-
-	plan := sevenSlotPlan()
-	plan.Slots = plan.Slots[:1]
-	input := manualWorkflowInput(plan)
-	input.MaxConcurrentSlots = 1
-	env.ExecuteWorkflow(ImageAgentWorkflow, input)
-
-	require.Error(t, env.GetWorkflowError(), "the test cancellation should stop the workflow after proving retry remains operational")
-	require.NoError(t, cancelErr)
-	require.Equal(t, imageagent.RunStatusBlocked, cancelAck.Status)
-	require.NoError(t, retryErr)
-	require.Equal(t, imageagent.RunStatusAwaitingFinalApproval, retryAck.Status)
-	blockedMu.Lock()
-	require.Len(t, blockedStates, 1)
-	require.Equal(t, imageagent.RunStatusBlocked, blockedStates[0].Projection.Status)
-	require.NotNil(t, blockedStates[0].Projection.Block)
-	require.Equal(t, "slot-1", blockedStates[0].Projection.Block.SlotID)
-	require.Equal(t, "slot_failed", blockedStates[0].Projection.Block.Code)
-	blockedMu.Unlock()
-	require.Zero(t, cancelledStates, "mixed-history cancellation must not persist cancelled while a started legacy child is unresolved")
-}
-
 func TestImageSlotWorkflowV3RealActivityHeartbeatsWhileProviderIsInFlight(t *testing.T) {
 	const runID = "run-v3-temporal-heartbeat"
 	repository, activityInput := initializedSlotEffectV3Activity(t, runID)
@@ -3280,10 +3203,10 @@ func TestImageSlotWorkflowV3RealActivityHeartbeatsWhileProviderIsInFlight(t *tes
 		recordingStagedExecutor: &recordingStagedExecutor{},
 		waitTimeout:             2 * time.Second,
 	}
-	activities, err := NewActivities(ActivityDependencies{
-		Repository: repository, SlotEffects: repository.(imageagent.SlotExternalEffectRepository), SlotExecutor: provider,
+	activities, err := NewActivities(ActivityDependencies{ExecutionAuthorizer: allowGenerationExecution{},
+		Repository:    repository,
 		SlotEffectsV3: effects, StagedSlotExecutor: provider, ArtifactStore: &recordingArtifactStore{},
-		Publisher: &identityCheckingPublisher{t: t}, PublisherV3: &identityCheckingPublisher{t: t},
+		PublisherV3:      &identityCheckingPublisher{t: t},
 		PublicationOwner: func(context.Context) (string, error) { return "workflow-run/activity/1", nil },
 	})
 	require.NoError(t, err)
@@ -3291,6 +3214,7 @@ func TestImageSlotWorkflowV3RealActivityHeartbeatsWhileProviderIsInFlight(t *tes
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	env.RegisterActivityWithOptions(activities.ExecuteSlotV3, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
 	var heartbeatCount atomic.Int32
@@ -3324,7 +3248,7 @@ func TestManualWorkflowCancelUpdateAcksAfterCancelledProjectionPersistence(t *te
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = 1
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("slot-1", 1)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-1", 1)).
 		After(10*time.Minute).
 		Return(successfulSlotResult("slot-1", 1), nil).
 		Once()
@@ -3385,7 +3309,7 @@ func TestManualWorkflowCancelUpdateResumesAfterTerminalPersistenceFailure(t *tes
 	})
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).
 			After(time.Second).
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
@@ -3610,13 +3534,13 @@ func TestSlotWorkflowUsesTemporalTechnicalRetryWithoutChangingSemanticAttempt(t 
 	for _, slot := range plan.Slots {
 		slot := slot
 		if slot.ID == "slot-1" {
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(imageagent.SlotExecutionResult{}, errors.New("temporary provider outage")).Once()
-			env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(imageagent.SlotEffectV3PublishedResult{}, errors.New("temporary provider outage")).Once()
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 			continue
 		}
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1")) }, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -3628,28 +3552,29 @@ func TestSlotWorkflowUsesTemporalTechnicalRetryWithoutChangingSemanticAttempt(t 
 func TestImageSlotWorkflowFailsClosedForMismatchedOrEmptyExecutorResult(t *testing.T) {
 	for _, test := range []struct {
 		name     string
-		result   imageagent.SlotExecutionResult
+		result   imageagent.SlotEffectV3PublishedResult
 		wantCode string
 	}{
 		{name: "wrong slot", result: successfulSlotResult("different-slot", 1), wantCode: "invalid_slot_result"},
 		{name: "wrong attempt", result: successfulSlotResult("slot-1", 2), wantCode: "invalid_slot_result"},
-		{name: "empty candidates", result: imageagent.SlotExecutionResult{SlotID: "slot-1", Attempt: 1}, wantCode: "invalid_slot_result"},
-		{name: "whitespace candidate ID", result: imageagent.SlotExecutionResult{SlotID: "slot-1", Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: " \t "}}}, wantCode: "invalid_slot_result"},
+		{name: "empty candidates", result: imageagent.SlotEffectV3PublishedResult{SlotID: "slot-1", Attempt: 1}, wantCode: "invalid_slot_result"},
+		{name: "whitespace candidate ID", result: imageagent.SlotEffectV3PublishedResult{SlotID: "slot-1", Attempt: 1, Candidates: []imageagent.SlotEffectV3AssetCandidate{{AssetID: " \t "}}}, wantCode: "invalid_slot_result"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			env := newWorkflowEnv(t)
 			slot := sevenSlotPlan().Slots[0]
-			env.OnActivity(activityExecuteSlot, mock.Anything, mock.Anything).Return(test.result, nil).Once()
+			slot.Role = imageagent.SlotRoleScene
+			env.OnActivity(activityExecuteSlotV3, mock.Anything, mock.Anything).Return(test.result, nil).Once()
 
-			env.ExecuteWorkflow(ImageSlotWorkflow, SlotWorkflowInput{RunID: "run-1", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: slot, Attempt: 1})
+			env.ExecuteWorkflow(ImageSlotWorkflowV3, SlotWorkflowV3Input{ExecuteActivityName: activityExecuteSlotV3, RunID: "run-1", Identity: manualWorkflowInput(sevenSlotPlan()).Identity, PlanRevision: 1, Slot: slot, Attempt: 1})
 
 			require.NoError(t, env.GetWorkflowError())
-			var result SlotWorkflowResult
+			var result SlotWorkflowV3Result
 			require.NoError(t, env.GetWorkflowResult(&result))
 			require.Equal(t, imageagent.SlotStatusBlocked, result.Status)
 			require.Equal(t, test.wantCode, result.ErrorCode)
-			require.Equal(t, "slot-1", result.Execution.SlotID)
-			require.Equal(t, 1, result.Execution.Attempt)
+			require.Equal(t, "slot-1", result.Published.SlotID)
+			require.Equal(t, 1, result.Published.Attempt)
 		})
 	}
 }
@@ -3660,11 +3585,11 @@ func TestManualWorkflowQueryRecoversPersistedPartialSlotProgress(t *testing.T) {
 	plan := sevenSlotPlan()
 	input := manualWorkflowInput(plan)
 	input.MaxConcurrentSlots = 1
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("slot-1", 1)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-1", 1)).
 		After(time.Minute).
 		Return(successfulSlotResult("slot-1", 1), nil).
 		Once()
-	env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot("slot-2", 1)).
+	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("slot-2", 1)).
 		After(10*time.Minute).
 		Return(successfulSlotResult("slot-2", 1), nil).
 		Once()
@@ -3693,29 +3618,21 @@ func TestManualWorkflowQueryRecoversPersistedPartialSlotProgress(t *testing.T) {
 	require.Equal(t, []string{"slot-1"}, result.CompletedSlotIDs)
 }
 
-func TestManualWorkflowTrimsCandidateIDsForDigestAndPublication(t *testing.T) {
+func TestManualWorkflowRejectsPaddedCandidateIDsBeforePublication(t *testing.T) {
 	env := newWorkflowEnv(t)
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
-		slot := slot
 		result := successfulSlotResult(slot.ID, 1)
 		result.Candidates[0].AssetID = "  " + result.Candidates[0].AssetID + "\t"
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(result, nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(result, nil).Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.MatchedBy(func(in PublishApprovedActivityInput) bool {
-		return requireCandidateIDs(in.CandidateAssetIDs, plan)
-	})).Return(nil).Once()
-	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalApproveResults, validApproval("approve-trimmed-results"))
-	}, time.Second)
-
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
-
 	require.NoError(t, env.GetWorkflowError())
 	var result WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, sevenSlotResultDigest, result.ResultDigest)
-	env.AssertExpectations(t)
+	require.Equal(t, imageagent.RunStatusBlocked, result.Status)
+	require.Empty(t, result.ResultDigest)
+	env.AssertNotCalled(t, activityPublishApprovedV3, mock.Anything, mock.Anything)
 }
 
 func TestManualWorkflowBoundsConcurrentSlotChildren(t *testing.T) {
@@ -3733,9 +3650,9 @@ func TestManualWorkflowBoundsConcurrentSlotChildren(t *testing.T) {
 	env.SetOnChildWorkflowCompletedListener(func(_ *workflow.Info, _ sdkconverter.EncodedValue, _ error) { active-- })
 	for _, slot := range plan.Slots {
 		slot := slot
-		env.OnActivity(activityExecuteSlot, mock.Anything, executeInputForSlot(slot.ID, 1)).After(time.Minute).Return(successfulSlotResult(slot.ID, 1), nil).Once()
+		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).After(time.Minute).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApproved, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() { env.SignalWorkflow(signalApproveResults, validApproval("approve-final-1")) }, 5*time.Minute)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -3748,22 +3665,22 @@ func TestActivitiesRestoreCapturedIdentityForExecutorAndPublisher(t *testing.T) 
 	repository := store.NewMemoryRepository()
 	executor := &identityCheckingExecutor{t: t}
 	publisher := &identityCheckingPublisher{t: t}
-	activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: executor, Publisher: publisher})
+	activities, err := NewActivities(ActivityDependencies{ExecutionAuthorizer: allowGenerationExecution{}, PublisherV3: publisher, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: executor, Repository: repository, PublicationOwner: func(context.Context) (string, error) { return "fixture-owner", nil }})
 	require.NoError(t, err)
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan := sevenSlotPlan()
 	slot := plan.Slots[0]
 	initializeActivityProjection(t, repository, imageagent.Run{
 		ID: "run-1", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID,
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-1", Status: imageagent.RunStatusExecuting, Version: 1,
-	}, plan)
+		ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}, plan)
 
-	result, err := activities.ExecuteSlot(context.Background(), ExecuteSlotActivityInput{
-		RunID: "run-1", Identity: identity, PlanRevision: 1, Slot: slot, Attempt: 1, IdempotencyKey: "slot-key-slot-1:attempt:1",
+	result, err := activities.ExecuteSlotV3(context.Background(), ExecuteSlotV3ActivityInput{
+		RunID: "run-1", Identity: identity, AssetCatalog: activityFixtureCatalog(t, repository, "run-1"), PlanRevision: 1, Slot: slot, Attempt: 1, IdempotencyKey: "slot-key-slot-1:attempt:1",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "slot-1", result.SlotID)
-	require.NoError(t, activities.PublishApproved(context.Background(), PublishApprovedActivityInput{
+	require.NoError(t, activities.PublishApprovedV3(context.Background(), PublishApprovedV3ActivityInput{
 		RunID: "run-1", Identity: identity, PlanRevision: 1, CandidateAssetIDs: []string{"candidate-slot-1"}, IdempotencyKey: "image-agent:run-1:plan:1:publication",
 	}))
 	require.Equal(t, 1, executor.calls)
@@ -3772,14 +3689,14 @@ func TestActivitiesRestoreCapturedIdentityForExecutorAndPublisher(t *testing.T) 
 
 func TestPersistWorkflowFailureProjectsTerminalStateIdempotently(t *testing.T) {
 	repository := store.NewMemoryRepository()
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan := sevenSlotPlan()
 	run := imageagent.Run{
 		ID: "run-1", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID,
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-1", Status: imageagent.RunStatusPlanning, Version: 1,
-	}
+		ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	initializeActivityProjection(t, repository, run, plan)
-	activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
+	activities, err := NewActivities(ActivityDependencies{PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{}, ExecutionAuthorizer: allowGenerationExecution{}, Repository: repository})
 	require.NoError(t, err)
 	input := PersistWorkflowFailureActivityInput{
 		RunID: "run-1", Identity: identity, FailureCode: "workflow_failed",
@@ -3807,17 +3724,17 @@ func TestPersistWorkflowFailureProjectsTerminalStateIdempotently(t *testing.T) {
 
 func TestRestartedExecutionCanRepersistProjectionAndReplayedSlotResult(t *testing.T) {
 	repository := store.NewMemoryRepository()
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-restart", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan := sevenSlotPlan()
 	run := imageagent.Run{
 		ID: "run-restart", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID,
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-restart", Status: imageagent.RunStatusPlanning, Version: 1,
-	}
+		ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	initializeActivityProjection(t, repository, run, plan)
-	activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
+	activities, err := NewActivities(ActivityDependencies{PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{}, ExecutionAuthorizer: allowGenerationExecution{}, Repository: repository})
 	require.NoError(t, err)
 	projection := WorkflowResult{Status: imageagent.RunStatusExecuting, Plan: plan, Slots: slotProjections(plan, nil)}
-	result := SlotWorkflowResult{Execution: successfulSlotResult("slot-1", 1), Status: imageagent.SlotStatusAccepted}
+	result := SlotWorkflowV3Result{Published: successfulSlotResultForRun(run.ID, plan.Revision, "slot-1", 1), Status: imageagent.SlotStatusAccepted}
 	attemptKey := slotAttemptKey(plan.Revision, plan.Slots[0], 1)
 
 	firstInput := manualWorkflowInput(plan)
@@ -3827,7 +3744,7 @@ func TestRestartedExecutionCanRepersistProjectionAndReplayedSlotResult(t *testin
 	firstRunCommit, err := runProjectionCommitID(firstInput, projection, "execute_slots")
 	require.NoError(t, err)
 	require.NoError(t, activities.PersistRunState(context.Background(), PersistRunStateActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Projection: projection, CurrentNode: "execute_slots", CommitID: firstRunCommit}))
-	require.NoError(t, activities.PersistSlotResult(context.Background(), PersistSlotResultActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Result: result, AttemptKey: attemptKey}))
+	require.NoError(t, activities.PersistSlotResultV3(context.Background(), PersistSlotResultV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Result: result, AttemptKey: attemptKey}))
 	firstFailureCommit, err := workflowFailureCommitID(firstInput)
 	require.NoError(t, err)
 	require.NoError(t, activities.PersistWorkflowFailureV2(context.Background(), PersistWorkflowFailureV2ActivityInput{RunID: run.ID, Identity: identity, FailureCode: "workflow_failed", FailureMessage: "retry", CommitID: firstFailureCommit}))
@@ -3837,7 +3754,7 @@ func TestRestartedExecutionCanRepersistProjectionAndReplayedSlotResult(t *testin
 	secondRunCommit, err := runProjectionCommitID(secondInput, projection, "execute_slots")
 	require.NoError(t, err)
 	require.NoError(t, activities.PersistRunState(context.Background(), PersistRunStateActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Projection: projection, CurrentNode: "execute_slots", CommitID: secondRunCommit}))
-	require.NoError(t, activities.PersistSlotResult(context.Background(), PersistSlotResultActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Result: result, AttemptKey: attemptKey}))
+	require.NoError(t, activities.PersistSlotResultV3(context.Background(), PersistSlotResultV3ActivityInput{RunID: run.ID, Identity: identity, PlanRevision: plan.Revision, Result: result, AttemptKey: attemptKey}))
 
 	current, err := repository.GetProjection(context.Background(), imageagent.RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: run.ID})
 	require.NoError(t, err)
@@ -3849,20 +3766,20 @@ func TestActivitiesPersistTerminalSlotResultIdempotently(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:image-agent-activity-%d?mode=memory&cache=shared", time.Now().UnixNano())), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, store.AutoMigrate(db))
-	repository := store.NewGormRepository(db)
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	repository := store.NewOrganizationRepository(db)
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan := sevenSlotPlan()
-	run := &imageagent.Run{ID: "run-1", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-1", Status: imageagent.RunStatusExecuting, Version: 1}
+	run := &imageagent.Run{ID: "run-1", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-1", Status: imageagent.RunStatusExecuting, Version: 1, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	initializeActivityProjection(t, repository, *run, plan)
-	activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
+	activities, err := NewActivities(ActivityDependencies{PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{}, ExecutionAuthorizer: allowGenerationExecution{}, Repository: repository})
 	require.NoError(t, err)
-	input := PersistSlotResultActivityInput{
+	input := PersistSlotResultV3ActivityInput{
 		RunID: "run-1", Identity: identity, PlanRevision: 1, AttemptKey: "slot-key-slot-1:plan:1:attempt:1",
-		Result: SlotWorkflowResult{Execution: successfulSlotResult("slot-1", 1), Status: imageagent.SlotStatusAccepted},
+		Result: SlotWorkflowV3Result{Published: successfulSlotResult("slot-1", 1), Status: imageagent.SlotStatusAccepted},
 	}
 
-	require.NoError(t, activities.PersistSlotResult(context.Background(), input))
-	require.NoError(t, activities.PersistSlotResult(context.Background(), input))
+	require.NoError(t, activities.PersistSlotResultV3(context.Background(), input))
+	require.NoError(t, activities.PersistSlotResultV3(context.Background(), input))
 	var attemptCount, resultCount, eventCount int64
 	require.NoError(t, db.Table("image_agent_v2_attempts").Where("tenant_id = ? AND owner_user_id = ? AND run_id = ? AND plan_revision = ? AND slot_id = ? AND attempt = ?", "tenant-a", "user-a", "run-1", 1, "slot-1", 1).Count(&attemptCount).Error)
 	require.NoError(t, db.Table("image_agent_v2_slots").Where("tenant_id = ? AND owner_user_id = ? AND run_id = ? AND plan_revision = ? AND id = ? AND attempt = ? AND status = ?", "tenant-a", "user-a", "run-1", 1, "slot-1", 1, string(imageagent.SlotStatusAccepted)).Count(&resultCount).Error)
@@ -3883,25 +3800,25 @@ func TestPersistPlanRevisionActivityCommitsRunPlanSnapshotEventAndReceiptTogethe
 			db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:image-agent-replace-activity-%d?mode=memory&cache=shared", time.Now().UnixNano())), &gorm.Config{})
 			require.NoError(t, err)
 			require.NoError(t, store.AutoMigrate(db))
-			return store.NewGormRepository(db)
+			return store.NewOrganizationRepository(db)
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repository := test.new(t)
-			identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+			identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-replace-activity", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 			plan1 := sevenSlotPlan()
 			run := imageagent.Run{
 				ID: "run-replace-activity", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID,
 				Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-replace-activity", Status: imageagent.RunStatusBlocked,
 				CurrentNode: "retry_slot", ActivePlanRevision: 1, Version: 1,
-				Block: &imageagent.Block{Code: "slot_failed", SlotID: "scene-2"},
-			}
+				Block:         &imageagent.Block{Code: "slot_failed", SlotID: "scene-2"},
+				ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 			initial := initializeActivityProjection(t, repository, run, plan1)
 			replacement := sevenSlotPlan()
 			replacement.Revision = 2
 			replacement.ParentRevision = 1
 			replacement.IdempotencyKey = "plan-key-2"
-			activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
+			activities, err := NewActivities(ActivityDependencies{ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{}, ExecutionAuthorizer: allowGenerationExecution{}, PublisherV3: &identityCheckingPublisher{t: t}, Repository: repository})
 			require.NoError(t, err)
 
 			err = activities.PersistPlanRevision(context.Background(), PersistPlanRevisionActivityInput{
@@ -3929,15 +3846,15 @@ func TestPersistPlanRevisionActivityCommitsRunPlanSnapshotEventAndReceiptTogethe
 
 func TestPersistPendingCommandActivityMakesLedgerExhaustionDurableWithoutLosingPendingOwner(t *testing.T) {
 	repository := store.NewMemoryRepository()
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-ingress-cap", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan := sevenSlotPlan()
 	run := imageagent.Run{
 		ID: "run-ingress-cap", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID,
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-ingress-cap", Status: imageagent.RunStatusBlocked,
 		ActivePlanRevision: 1, Version: 1,
-	}
+		ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	initial := initializeActivityProjection(t, repository, run, plan)
-	activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
+	activities, err := NewActivities(ActivityDependencies{ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{}, ExecutionAuthorizer: allowGenerationExecution{}, PublisherV3: &identityCheckingPublisher{t: t}, Repository: repository})
 	require.NoError(t, err)
 	receipt := &imageagent.PendingCommandReceipt{
 		ActionID: "retry-at-cap", Kind: signalRetrySlot, Phase: string(updatePhaseRetryPersistResult),
@@ -3965,34 +3882,36 @@ func TestPersistPendingCommandActivityMakesLedgerExhaustionDurableWithoutLosingP
 
 func TestManualWorkflowReplacePathUsesRealProjectionActivityAndRepository(t *testing.T) {
 	repository := store.NewMemoryRepository()
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-real-replace", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan1 := sevenSlotPlan()
 	run := imageagent.Run{
 		ID: "run-real-replace", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID,
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-real-replace", Status: imageagent.RunStatusPlanning,
-	}
+		ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	initializeActivityProjection(t, repository, run, plan1)
-	executor := &revisionFailingExecutor{failedRevision: 1, failedSlotID: "scene-2"}
-	activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: executor, Publisher: &identityCheckingPublisher{t: t}})
+	executor := &revisionFailingExecutor{failedRevision: 1, failedSlotID: "scene-2", t: t}
+	activities, err := NewActivities(ActivityDependencies{PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: executor, ExecutionAuthorizer: allowGenerationExecution{}, Repository: repository})
 	require.NoError(t, err)
 
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
 	env.OnGetVersion(projectionExecutionCommitPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
 	env.OnGetVersion(approvalPublicationScopePatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.RegisterWorkflow(ImageSlotWorkflow)
-	env.RegisterActivityWithOptions(activities.ExecuteSlot, sdkactivity.RegisterOptions{Name: activityExecuteSlot})
-	env.RegisterActivityWithOptions(activities.PersistSlotResult, sdkactivity.RegisterOptions{Name: activityPersistSlotResult})
+	env.OnGetVersion(budgetAuthorizationPatch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.RegisterWorkflow(ImageSlotWorkflowV3)
+	env.RegisterActivityWithOptions(activities.ExecuteSlotV3, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
+	env.RegisterActivityWithOptions(activities.PersistSlotResultV3, sdkactivity.RegisterOptions{Name: activityPersistSlotResultV3})
 	env.RegisterActivityWithOptions(activities.PersistRunState, sdkactivity.RegisterOptions{Name: activityPersistRunState})
 	env.RegisterActivityWithOptions(activities.PersistPlanRevision, sdkactivity.RegisterOptions{Name: activityPersistPlanRevision})
 	env.RegisterActivityWithOptions(activities.PersistPendingCommand, sdkactivity.RegisterOptions{Name: activityPersistPendingCommand})
-	env.RegisterActivityWithOptions(activities.PublishApproved, sdkactivity.RegisterOptions{Name: activityPublishApproved})
+	env.RegisterActivityWithOptions(activities.PublishApprovedV3, sdkactivity.RegisterOptions{Name: activityPublishApprovedV3})
 	replacement := sevenSlotPlan()
 	replacement.Revision = 2
 	replacement.ParentRevision = 1
@@ -4003,12 +3922,18 @@ func TestManualWorkflowReplacePathUsesRealProjectionActivityAndRepository(t *tes
 		})
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
+		encoded, queryErr := env.QueryWorkflow(QueryWorkflowProjection)
+		require.NoError(t, queryErr)
+		var projection WorkflowResult
+		require.NoError(t, encoded.Get(&projection))
 		env.SignalWorkflow(signalApproveResults, ApproveResultsSignal{
-			RunID: run.ID, PlanRevision: 2, ResultDigest: sevenSlotResultDigest, ActorID: identity.UserID, ActionID: "approve-real-replacement",
+			RunID: run.ID, PlanRevision: 2, ResultDigest: projection.ResultDigest, ActorID: identity.UserID, ActionID: "approve-real-replacement",
 		})
 	}, 2*time.Second)
 	input := manualWorkflowInput(plan1)
 	input.RunID = run.ID
+	input.Identity = identity
+	input.AssetCatalog = activityFixtureCatalog(t, repository, run.ID)
 	input.WaitForCommands = true
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -4028,17 +3953,17 @@ func TestActivitiesPersistEachSlotResultWithItsOwnDurableProjectionCursor(t *tes
 	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:image-agent-slot-events-%d?mode=memory&cache=shared", time.Now().UnixNano())), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, store.AutoMigrate(db))
-	repository := store.NewGormRepository(db)
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	repository := store.NewOrganizationRepository(db)
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-cursors", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	plan := sevenSlotPlan()
-	run := &imageagent.Run{ID: "run-cursors", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-cursors-key", Status: imageagent.RunStatusExecuting, Version: 1}
+	run := &imageagent.Run{ID: "run-cursors", BusinessTaskID: "task-1", TenantID: identity.TenantID, UserID: identity.UserID, Mode: imageagent.RunModeManual, IdempotencyKey: "run-cursors-key", Status: imageagent.RunStatusExecuting, Version: 1, ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + identity.UserID}
 	initializeActivityProjection(t, repository, *run, plan)
-	activities, err := NewActivities(ActivityDependencies{Repository: repository, SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
+	activities, err := NewActivities(ActivityDependencies{PublisherV3: &identityCheckingPublisher{t: t}, ArtifactStore: &recordingArtifactStore{}, StagedSlotExecutor: &recordingStagedExecutor{}, ExecutionAuthorizer: allowGenerationExecution{}, Repository: repository})
 	require.NoError(t, err)
 	for _, slotID := range []string{"slot-1", "slot-2"} {
-		require.NoError(t, activities.PersistSlotResult(context.Background(), PersistSlotResultActivityInput{
+		require.NoError(t, activities.PersistSlotResultV3(context.Background(), PersistSlotResultV3ActivityInput{
 			RunID: run.ID, Identity: identity, PlanRevision: 1, AttemptKey: "slot-key-" + slotID + ":plan:1:attempt:1",
-			Result: SlotWorkflowResult{Execution: successfulSlotResult(slotID, 1), Status: imageagent.SlotStatusAccepted},
+			Result: SlotWorkflowV3Result{Published: successfulSlotResultForRun(run.ID, plan.Revision, slotID, 1), Status: imageagent.SlotStatusAccepted},
 		}))
 	}
 	events, err := repository.ListEvents(context.Background(), imageagent.RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: run.ID}, 0, 10)
@@ -4052,7 +3977,9 @@ func TestNewActivitiesRejectsMissingDependencies(t *testing.T) {
 	_, err := NewActivities(ActivityDependencies{})
 	require.ErrorContains(t, err, "repository")
 	_, err = NewActivities(ActivityDependencies{Repository: store.NewMemoryRepository()})
-	require.ErrorContains(t, err, "slot executor")
+	require.ErrorContains(t, err, "execution authorizer")
+	_, err = NewActivities(ActivityDependencies{Repository: store.NewMemoryRepository(), ExecutionAuthorizer: allowGenerationExecution{}})
+	require.ErrorContains(t, err, "staged slot executor")
 }
 
 func initializeActivityProjection(t *testing.T, repository imageagent.Repository, run imageagent.Run, plan imageagent.Plan) imageagent.RunProjection {
@@ -4077,7 +4004,7 @@ func initializeActivityProjection(t *testing.T, repository imageagent.Repository
 func TestServiceCapturesVerifiedIdentityAndRejectsNonManualStarts(t *testing.T) {
 	repository := store.NewMemoryRepository()
 	workflows := &recordingDomainWorkflowClient{}
-	service, err := imageagent.NewService(repository, workflows, workflowCatalogResolver{})
+	service, err := imageagent.NewService(repository, workflows, workflowCatalogResolver{}, imageagent.WithOrganizationScope())
 	require.NoError(t, err)
 	input := imageagent.StartRunInput{
 		RunID: "run-1", BusinessTaskID: "task-1", TargetPlatform: "shein",
@@ -4086,7 +4013,7 @@ func TestServiceCapturesVerifiedIdentityAndRejectsNonManualStarts(t *testing.T) 
 	}
 
 	require.ErrorContains(t, service.Start(context.Background(), input), "verified")
-	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", EffectiveOrganizationID: "tenant-a", EffectiveMemberID: "member-user-a", UserID: "user-a"})
 	nonManual := input
 	nonManual.RunID = "run-assisted"
 	nonManual.IdempotencyKey = "run-assisted-key"
@@ -4096,7 +4023,7 @@ func TestServiceCapturesVerifiedIdentityAndRejectsNonManualStarts(t *testing.T) 
 	require.NoError(t, service.Start(ctx, input))
 	require.NoError(t, service.Start(ctx, input))
 	require.Len(t, workflows.starts, 2)
-	require.Equal(t, imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a", BusinessTaskID: "task-1"}, workflows.starts[0].Identity)
+	require.Equal(t, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", TenantID: "tenant-a", UserID: "user-a", BusinessTaskID: "task-1"}, workflows.starts[0].Identity)
 	require.Equal(t, "user-a", workflows.starts[0].Plan.CreatedBy)
 	scope := imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-a", RunID: "run-1"}
 	projection, err := repository.GetProjection(context.Background(), scope)
@@ -4126,23 +4053,23 @@ func TestServiceCapturesVerifiedIdentityAndRejectsNonManualStarts(t *testing.T) 
 
 func TestTemporalClientUsesStableWorkflowAndProjectionQuery(t *testing.T) {
 	raw := &recordingSDKClient{queryValue: imageagent.WorkflowProjection{Status: imageagent.RunStatusBlocked, Plan: sevenSlotPlan()}}
-	client := NewClient(raw)
+	client := NewOrganizationClient(raw)
 	startedAt := time.Date(2026, time.August, 29, 0, 0, 0, 0, time.UTC)
 	start := imageagent.WorkflowStart{
 		Run: imageagent.Run{
-			ID: "run-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, StartedAt: startedAt,
+			ID: "run-1", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, StartedAt: startedAt,
 			TargetPlatform: "shein", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
-		},
-		Plan: sevenSlotPlan(), Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, MaxConcurrentSlots: 3,
+			ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
+		Plan: sevenSlotPlan(), Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}, MaxConcurrentSlots: 3,
 	}
 
 	require.NoError(t, client.StartManual(context.Background(), start))
-	require.Equal(t, "image-agent:tenant-a:user-a:run-1", raw.startOptions.ID)
-	require.Equal(t, TaskQueueV3, raw.startOptions.TaskQueue)
+	require.Equal(t, scopedWorkflowID(imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, "run-1"), raw.startOptions.ID)
+	require.Equal(t, OrganizationTaskQueue, raw.startOptions.TaskQueue)
 	require.Equal(t, V3WorkflowExecutionTimeout, raw.startOptions.WorkflowExecutionTimeout)
 	require.Equal(t, enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING, raw.startOptions.WorkflowIDConflictPolicy)
 	require.Equal(t, enumspb.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY, raw.startOptions.WorkflowIDReusePolicy)
-	require.Equal(t, workflowNameImageAgent, raw.workflowName)
+	require.Equal(t, organizationWorkflowName, raw.workflowName)
 	require.Equal(t, imageagent.RunModeManual, raw.workflowInput.Mode)
 	require.Equal(t, "shein", raw.workflowInput.TargetPlatform)
 	require.Equal(t, &start.Run.ImagePolicyContext, raw.workflowInput.ImagePolicyContext)
@@ -4152,7 +4079,7 @@ func TestTemporalClientUsesStableWorkflowAndProjectionQuery(t *testing.T) {
 	projection, err := client.GetProjection(context.Background(), imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-a", RunID: "run-1"}, start.Identity)
 	require.NoError(t, err)
 	require.Equal(t, raw.queryValue, projection)
-	require.Equal(t, "image-agent:tenant-a:user-a:run-1", raw.queryWorkflowID)
+	require.Equal(t, scopedWorkflowID(imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, "run-1"), raw.queryWorkflowID)
 	require.Equal(t, QueryWorkflowProjection, raw.queryType)
 
 	require.ErrorContains(t, client.ApproveResults(context.Background(), imageagent.ApproveResultsCommand{RunID: "run-1", PlanRevision: 1, ResultDigest: sevenSlotResultDigest, ActorID: "attacker", ActionID: "spoofed", Identity: start.Identity}), "actor")
@@ -4165,7 +4092,7 @@ func TestV3ActivityInputCarriesPolicyContextIntoExecutionFingerprint(t *testing.
 
 	policyContext := &imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"}
 	input := ExecuteSlotV3ActivityInput{
-		RunID: "run-1", Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		RunID: "run-1", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"},
 		TargetPlatform: "shein", ImagePolicyContext: policyContext,
 		PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1"}, Attempt: 1, IdempotencyKey: "attempt-1",
 	}
@@ -4227,17 +4154,18 @@ func TestMaximumSlotIdempotencyKeyFitsDerivedAttemptAndProjectionCommitColumns(t
 
 func TestTemporalClientRejectsUnsafeConcurrencyBeforeStartingWorkflow(t *testing.T) {
 	raw := &recordingSDKClient{}
-	client := NewClient(raw)
+	client := NewOrganizationClient(raw)
 	start := imageagent.WorkflowStart{
 		Run: imageagent.Run{
 			ID:                 "run-1",
+			BusinessTaskID:     "task-1",
 			TenantID:           "tenant-a",
 			UserID:             "user-a",
 			Mode:               imageagent.RunModeManual,
 			MaxConcurrentSlots: imageagent.MaxConcurrentSlots + 1,
-		},
+			ScopeProtocol:      imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"},
 		Plan:     sevenSlotPlan(),
-		Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"},
 	}
 
 	require.ErrorIs(t, client.StartManual(context.Background(), start), imageagent.ErrValidation)
@@ -4251,8 +4179,8 @@ func TestV3ManualApprovalLifetimeIsBoundedBeforeStagingRetentionExpires(t *testi
 
 func TestTemporalClientRetryReturnsAfterWorkflowUpdateIsAccepted(t *testing.T) {
 	raw := &recordingSDKClient{updateResultErr: errors.New("accepted retry must not wait for workflow completion")}
-	client := NewClient(raw)
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	client := NewOrganizationClient(raw)
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 
 	err := client.RetrySlot(context.Background(), imageagent.RetrySlotCommand{
 		RunID: "run-1", PlanRevision: 2, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-accepted", Identity: identity,
@@ -4266,8 +4194,8 @@ func TestTemporalClientRetryReturnsAfterWorkflowUpdateIsAccepted(t *testing.T) {
 
 func TestTemporalClientRetryWaitsForAcceptedWhileOtherCommandsWaitForCompleted(t *testing.T) {
 	raw := &recordingSDKClient{updateAck: imageagent.CommandAcknowledgement{RunID: "run-1", PlanRevision: 2, ActionID: "retry-1", Status: imageagent.RunStatusExecuting}}
-	client := NewClient(raw)
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	client := NewOrganizationClient(raw)
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	replacement := sevenSlotPlan()
 	replacement.Revision = 2
 	replacement.ParentRevision = 1
@@ -4280,7 +4208,7 @@ func TestTemporalClientRetryWaitsForAcceptedWhileOtherCommandsWaitForCompleted(t
 		RunID: "run-1", PlanRevision: 2, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-1", Identity: identity,
 	}))
 	require.NoError(t, client.ApproveResults(context.Background(), imageagent.ApproveResultsCommand{
-		RunID: "run-1", PlanRevision: 2, ResultDigest: sevenSlotResultDigest, ActorID: "user-a", ActionID: "approve-1", Identity: identity,
+		RunID: "run-1", PlanRevision: 2, ResultDigest: successfulPlanDigest(replacement), ActorID: "user-a", ActionID: "approve-1", Identity: identity,
 	}))
 	require.NoError(t, client.Cancel(context.Background(), imageagent.CancelRunCommand{
 		RunID: "run-1", PlanRevision: 2, ActorID: "user-a", ActionID: "cancel-1", Identity: identity,
@@ -4296,7 +4224,7 @@ func TestTemporalClientRetryWaitsForAcceptedWhileOtherCommandsWaitForCompleted(t
 		raw.updateOptions[0].UpdateName, raw.updateOptions[1].UpdateName, raw.updateOptions[2].UpdateName, raw.updateOptions[3].UpdateName, raw.updateOptions[4].UpdateName,
 	})
 	for index, options := range raw.updateOptions {
-		require.Equal(t, "image-agent:tenant-a:user-a:run-1", options.WorkflowID)
+		require.Equal(t, scopedWorkflowID(imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}, "run-1"), options.WorkflowID)
 		if index == 1 || index == 3 {
 			require.Equal(t, sdkclient.WorkflowUpdateStageAccepted, options.WaitForStage)
 		} else {
@@ -4314,10 +4242,10 @@ func TestTemporalClientUsesUniqueTransportUpdateIDForEachResumeAttempt(t *testin
 		updateAck:          imageagent.CommandAcknowledgement{RunID: "run-1", PlanRevision: 1, ActionID: "retry-1", Status: imageagent.RunStatusExecuting},
 		updateResultErrors: []error{errors.New("first resume transport lost after workflow activity failure"), nil},
 	}
-	client := NewClient(raw)
+	client := NewOrganizationClient(raw)
 	command := imageagent.ResumeCommand{
 		RunID: "run-1", ActorID: "user-a", ActionID: "retry-1",
-		Identity: imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"},
 	}
 	require.Error(t, func() error { _, err := client.Resume(context.Background(), command); return err }())
 	require.NoError(t, func() error { _, err := client.Resume(context.Background(), command); return err }())
@@ -4331,7 +4259,7 @@ func TestTemporalClientUsesUniqueTransportUpdateIDForEachResumeAttempt(t *testin
 }
 
 func TestTemporalClientMapsWorkflowUpdateErrorsToApplicationContracts(t *testing.T) {
-	identity := imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"}
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", MemberID: "member-" + "user-a", BusinessTaskID: "task-1", TenantID: "tenant-a", UserID: "user-a"}
 	command := imageagent.CancelRunCommand{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-1", Identity: identity}
 	for _, tt := range []struct {
 		name             string
@@ -4347,7 +4275,7 @@ func TestTemporalClientMapsWorkflowUpdateErrorsToApplicationContracts(t *testing
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			raw := &recordingSDKClient{updateErr: tt.directErr, updateResultErr: tt.resultErr}
-			client := NewClient(raw)
+			client := NewOrganizationClient(raw)
 			var err error
 			if tt.completedCommand {
 				err = client.ApproveResults(context.Background(), imageagent.ApproveResultsCommand{
@@ -4399,165 +4327,6 @@ func TestTemporalPayloadEncodingPreservesLegacyDefaultGoKeys(t *testing.T) {
 	require.Equal(t, "run-legacy", decoded.RunID)
 	require.EqualValues(t, 1, decoded.Plan.Revision)
 	require.Equal(t, "slot-1", decoded.Plan.Slots[0].ID)
-}
-
-func TestRegisterWorkerPreservesFrozenV2Compatibility(t *testing.T) {
-	activities, err := NewActivities(ActivityDependencies{Repository: store.NewMemoryRepository(), SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
-	require.NoError(t, err)
-	registrar := &recordingWorkerRegistrar{}
-
-	require.NoError(t, RegisterWorkerForMode(registrar, activities, WorkerWireModeV2))
-
-	require.Equal(t, []string{workflowNameImageAgent, workflowNameImageSlot}, registrar.workflows)
-	require.Equal(t, []string{
-		"imageagent.execute_slot", "imageagent.persist_slot_result", "imageagent.persist_run_state", "imageagent.persist_plan_revision", "imageagent.persist_pending_command", "imageagent.publish_approved",
-		"imageagent.execute_slot.v2", "imageagent.persist_slot_result.v2", "imageagent.persist_run_state.v2", "imageagent.persist_workflow_failure.v1", "imageagent.persist_workflow_failure.v2", "imageagent.persist_plan_revision.v2", "imageagent.persist_pending_command.v2", "imageagent.publish_approved.v2",
-	}, registrar.activities)
-}
-
-func TestRegisterWorkerUsesExactModeBoundWorkflowAndActivitySets(t *testing.T) {
-	activities, err := NewActivities(ActivityDependencies{Repository: store.NewMemoryRepository(), SlotExecutor: &identityCheckingExecutor{t: t}, Publisher: &identityCheckingPublisher{t: t}})
-	require.NoError(t, err)
-	tests := []struct {
-		name           string
-		mode           WorkerWireMode
-		wantWorkflows  []string
-		wantActivities []string
-	}{
-		{
-			name: "v2", mode: WorkerWireModeV2,
-			wantWorkflows: []string{workflowNameImageAgent, workflowNameImageSlot},
-			wantActivities: []string{
-				"imageagent.execute_slot", "imageagent.persist_slot_result", "imageagent.persist_run_state", "imageagent.persist_plan_revision", "imageagent.persist_pending_command", "imageagent.publish_approved",
-				"imageagent.execute_slot.v2", "imageagent.persist_slot_result.v2", "imageagent.persist_run_state.v2", "imageagent.persist_workflow_failure.v1", "imageagent.persist_workflow_failure.v2", "imageagent.persist_plan_revision.v2", "imageagent.persist_pending_command.v2", "imageagent.publish_approved.v2",
-			},
-		},
-		{
-			name: "v3", mode: WorkerWireModeV3,
-			wantWorkflows: []string{workflowNameImageAgent, "ImageSlotWorkflowV3", EffectRecoveryWorkflowName, workflowNameCompatibilityCanary},
-			wantActivities: []string{
-				"imageagent.persist_run_state.v2", "imageagent.persist_workflow_failure.v1", "imageagent.persist_workflow_failure.v2", "imageagent.persist_plan_revision.v2", "imageagent.persist_pending_command.v2",
-				"imageagent.execute_slot.v3", "imageagent.review_staged_slot.v3", "imageagent.start_effect_recovery.v3", "imageagent.recover_effect.v3", "imageagent.persist_recovery_blocked.v3", "imageagent.reconcile_effect_recovery.v3", "imageagent.persist_slot_result.v3", "imageagent.publish_approved.v3",
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			registrar := &recordingWorkerRegistrar{}
-			require.NoError(t, RegisterWorkerForMode(registrar, activities, test.mode))
-			require.Equal(t, test.wantWorkflows, registrar.workflows)
-			require.Equal(t, test.wantActivities, registrar.activities)
-		})
-	}
-}
-
-func TestWorkerConfigBindsExplicitModesToCompatibleQueues(t *testing.T) {
-	tests := []struct {
-		name    string
-		config  WorkerConfig
-		queue   string
-		wantErr string
-	}{
-		{name: "v2", config: WorkerConfig{WireMode: WorkerWireModeV2}, queue: TaskQueue},
-		{name: "v3", config: WorkerConfig{WireMode: WorkerWireModeV3}, queue: TaskQueueV3},
-		{name: "custom v2", config: WorkerConfig{WireMode: WorkerWireModeV2, TaskQueue: "image-agent-manual-v2-custom"}, queue: "image-agent-manual-v2-custom"},
-		{name: "custom v3", config: WorkerConfig{WireMode: WorkerWireModeV3, TaskQueue: "image-agent-manual-v3-custom"}, queue: "image-agent-manual-v3-custom"},
-		{name: "v2 rejects v3 default", config: WorkerConfig{WireMode: WorkerWireModeV2, TaskQueue: TaskQueueV3}, wantErr: "v2 wire mode cannot use v3 task queue"},
-		{name: "v3 rejects v2 default", config: WorkerConfig{WireMode: WorkerWireModeV3, TaskQueue: TaskQueue}, wantErr: "v3 wire mode cannot use v2 task queue"},
-		{name: "missing explicit mode", config: WorkerConfig{TaskQueue: "image-agent-custom"}, wantErr: "wire mode is required"},
-		{name: "invalid mode", config: WorkerConfig{WireMode: "invalid"}, wantErr: "unsupported image agent temporal wire mode"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			queue, err := test.config.selectedTaskQueue()
-			if test.wantErr != "" {
-				require.ErrorContains(t, err, test.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, test.queue, queue)
-		})
-	}
-}
-
-func TestLegacyPersistRunStateDecodesFrozenPayloadAndFailsWithoutWritingV2State(t *testing.T) {
-	repository := store.NewMemoryRepository()
-	activities, err := NewActivities(ActivityDependencies{
-		Repository:   repository,
-		SlotExecutor: &identityCheckingExecutor{t: t},
-		Publisher:    &identityCheckingPublisher{t: t},
-	})
-	require.NoError(t, err)
-
-	raw := []byte(`{"RunID":"run-legacy","Identity":{"TenantID":"tenant-a","UserID":"user-a"},"PlanRevision":1,"Status":"executing","CurrentNode":"execute_slots","Block":{"Code":"legacy_block","Message":"legacy payload"}}`)
-	payloads := &commonpb.Payloads{Payloads: []*commonpb.Payload{{
-		Metadata: map[string][]byte{"encoding": []byte("json/plain")},
-		Data:     raw,
-	}}}
-	var input LegacyPersistRunStateActivityInput
-	require.NoError(t, sdkconverter.GetDefaultDataConverter().FromPayloads(payloads, &input))
-	require.Equal(t, imageagent.RunStatusExecuting, input.Status)
-	require.Equal(t, "legacy_block", input.Block.Code)
-
-	err = activities.LegacyPersistRunState(context.Background(), input)
-	var applicationError *sdktemporal.ApplicationError
-	require.ErrorAs(t, err, &applicationError)
-	require.Equal(t, updateErrorLegacyMigrationRequired, applicationError.Type())
-
-	_, err = repository.GetProjection(context.Background(), imageagent.RunScope{
-		TenantID: input.Identity.TenantID, OwnerUserID: input.Identity.UserID, RunID: input.RunID,
-	})
-	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
-}
-
-func TestImageAgentWorkflowReplaysAfterPersistStateWorkflowTaskRestart(t *testing.T) {
-	input := manualWorkflowInput(sevenSlotPlan())
-	workflowPayloads, err := sdkconverter.GetDefaultDataConverter().ToPayloads(input)
-	require.NoError(t, err)
-	persistInput := LegacyPersistRunStateActivityInput{
-		RunID: "run-1", Identity: input.Identity, PlanRevision: 1,
-		Status: imageagent.RunStatusExecuting, CurrentNode: "execute_slots", Block: &imageagent.Block{Code: "legacy_block", Message: "legacy payload"},
-	}
-	activityPayloads, err := sdkconverter.GetDefaultDataConverter().ToPayloads(persistInput)
-	require.NoError(t, err)
-	history := &historypb.History{Events: []*historypb.HistoryEvent{
-		{
-			EventId: 1, EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
-			Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{
-				WorkflowType: &commonpb.WorkflowType{Name: workflowNameImageAgent},
-				TaskQueue:    &taskqueuepb.TaskQueue{Name: "image-agent-replay"}, Input: workflowPayloads,
-			}},
-		},
-		{
-			EventId: 2, EventType: enumspb.EVENT_TYPE_WORKFLOW_TASK_SCHEDULED,
-			Attributes: &historypb.HistoryEvent_WorkflowTaskScheduledEventAttributes{WorkflowTaskScheduledEventAttributes: &historypb.WorkflowTaskScheduledEventAttributes{}},
-		},
-		{EventId: 3, EventType: enumspb.EVENT_TYPE_WORKFLOW_TASK_STARTED, Attributes: &historypb.HistoryEvent_WorkflowTaskStartedEventAttributes{WorkflowTaskStartedEventAttributes: &historypb.WorkflowTaskStartedEventAttributes{ScheduledEventId: 2}}},
-		{
-			EventId: 4, EventType: enumspb.EVENT_TYPE_WORKFLOW_TASK_COMPLETED,
-			Attributes: &historypb.HistoryEvent_WorkflowTaskCompletedEventAttributes{WorkflowTaskCompletedEventAttributes: &historypb.WorkflowTaskCompletedEventAttributes{ScheduledEventId: 2, StartedEventId: 3}},
-		},
-		{
-			EventId: 5, EventType: enumspb.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED,
-			Attributes: &historypb.HistoryEvent_ActivityTaskScheduledEventAttributes{ActivityTaskScheduledEventAttributes: &historypb.ActivityTaskScheduledEventAttributes{
-				ActivityId: "5", ActivityType: &commonpb.ActivityType{Name: activityPersistRunStateLegacy},
-				TaskQueue: &taskqueuepb.TaskQueue{Name: "image-agent-replay"}, Input: activityPayloads,
-				WorkflowTaskCompletedEventId: 4, StartToCloseTimeout: durationpb.New(time.Minute),
-				RetryPolicy: &commonpb.RetryPolicy{InitialInterval: durationpb.New(time.Second), BackoffCoefficient: 2, MaximumInterval: durationpb.New(10 * time.Second), MaximumAttempts: 5},
-			}},
-		},
-		{EventId: 6, EventType: enumspb.EVENT_TYPE_ACTIVITY_TASK_STARTED, Attributes: &historypb.HistoryEvent_ActivityTaskStartedEventAttributes{ActivityTaskStartedEventAttributes: &historypb.ActivityTaskStartedEventAttributes{ScheduledEventId: 5}}},
-		{EventId: 7, EventType: enumspb.EVENT_TYPE_ACTIVITY_TASK_COMPLETED, Attributes: &historypb.HistoryEvent_ActivityTaskCompletedEventAttributes{ActivityTaskCompletedEventAttributes: &historypb.ActivityTaskCompletedEventAttributes{ScheduledEventId: 5, StartedEventId: 6}}},
-		{
-			EventId: 8, EventType: enumspb.EVENT_TYPE_WORKFLOW_TASK_SCHEDULED,
-			Attributes: &historypb.HistoryEvent_WorkflowTaskScheduledEventAttributes{WorkflowTaskScheduledEventAttributes: &historypb.WorkflowTaskScheduledEventAttributes{}},
-		},
-		{EventId: 9, EventType: enumspb.EVENT_TYPE_WORKFLOW_TASK_STARTED, Attributes: &historypb.HistoryEvent_WorkflowTaskStartedEventAttributes{WorkflowTaskStartedEventAttributes: &historypb.WorkflowTaskStartedEventAttributes{ScheduledEventId: 8}}},
-	}}
-	replayer := worker.NewWorkflowReplayer()
-	replayer.RegisterWorkflowWithOptions(ImageAgentWorkflow, workflow.RegisterOptions{Name: workflowNameImageAgent})
-
-	require.NoError(t, replayer.ReplayWorkflowHistory(nil, history))
 }
 
 type workflowEffectOwnerFenceResult struct {
@@ -4637,22 +4406,23 @@ func newWorkflowEnv(t *testing.T) *testsuite.TestWorkflowEnvironment {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
+	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.OnGetVersion(activityWireV2Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
-	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
+	env.OnGetVersion(slotExecutionWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalActionIDV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(approvalPublicationWireV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(resultDigestV3Patch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
 	env.OnGetVersion(approvalPublicationScopePatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
-	env.RegisterWorkflow(ImageSlotWorkflow)
+	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	env.RegisterActivityWithOptions(
-		func(context.Context, ExecuteSlotActivityInput) (imageagent.SlotExecutionResult, error) {
-			return imageagent.SlotExecutionResult{}, nil
+		func(context.Context, ExecuteSlotV3ActivityInput) (imageagent.SlotEffectV3PublishedResult, error) {
+			return imageagent.SlotEffectV3PublishedResult{}, nil
 		},
-		sdkactivity.RegisterOptions{Name: activityExecuteSlot},
+		sdkactivity.RegisterOptions{Name: activityExecuteSlotV3},
 	)
 	env.RegisterActivityWithOptions(
-		func(context.Context, PersistSlotResultActivityInput) error { return nil },
-		sdkactivity.RegisterOptions{Name: activityPersistSlotResult},
+		func(context.Context, PersistSlotResultV3ActivityInput) error { return nil },
+		sdkactivity.RegisterOptions{Name: activityPersistSlotResultV3},
 	)
 	env.RegisterActivityWithOptions(
 		func(context.Context, PersistRunStateActivityInput) error { return nil },
@@ -4667,8 +4437,8 @@ func newWorkflowEnv(t *testing.T) *testsuite.TestWorkflowEnvironment {
 		sdkactivity.RegisterOptions{Name: activityPersistPendingCommand},
 	)
 	env.RegisterActivityWithOptions(
-		func(context.Context, PublishApprovedActivityInput) error { return nil },
-		sdkactivity.RegisterOptions{Name: activityPublishApproved},
+		func(context.Context, PublishApprovedV3ActivityInput) error { return nil },
+		sdkactivity.RegisterOptions{Name: activityPublishApprovedV3},
 	)
 	env.RegisterActivityWithOptions(
 		func(context.Context, EffectRecoveryWorkflowInput) error { return nil },
@@ -4680,9 +4450,10 @@ func newWorkflowEnv(t *testing.T) *testsuite.TestWorkflowEnvironment {
 func manualWorkflowInput(plan imageagent.Plan) WorkflowInput {
 	plan = pendingPlanForTest(plan)
 	return WorkflowInput{
-		RunID:              "run-1",
-		Mode:               imageagent.RunModeManual,
-		Identity:           imageagent.ExecutionIdentity{TenantID: "tenant-a", UserID: "user-a"},
+		RunID:          "run-1",
+		Mode:           imageagent.RunModeManual,
+		Identity:       imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", TenantID: "tenant-a", UserID: "user-a", MemberID: "member-a", BusinessTaskID: "task-1"},
+		TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Plan:               plan,
 		MaxConcurrentSlots: 3,
 		AssetCatalog:       imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png"}}},
@@ -4699,8 +4470,12 @@ func pendingPlanForTest(plan imageagent.Plan) imageagent.Plan {
 	return plan
 }
 
-func validApproval(actionID string) ApproveResultsSignal {
-	return ApproveResultsSignal{RunID: "run-1", PlanRevision: 1, ResultDigest: sevenSlotResultDigest, ActorID: "user-a", ActionID: actionID}
+func validApproval(actionID string, digests ...string) ApproveResultsSignal {
+	digest := sevenSlotResultDigest
+	if len(digests) > 0 {
+		digest = digests[0]
+	}
+	return ApproveResultsSignal{RunID: "run-1", PlanRevision: 1, ResultDigest: digest, ActorID: "user-a", ActionID: actionID}
 }
 
 func executeInputForSlot(slotID string, attempt int) interface{} {
@@ -4708,21 +4483,16 @@ func executeInputForSlot(slotID string, attempt int) interface{} {
 }
 
 func executeInputForSlotRevision(slotID string, attempt int, revision int64) interface{} {
-	return mock.MatchedBy(func(in ExecuteSlotActivityInput) bool {
+	return mock.MatchedBy(func(in ExecuteSlotV3ActivityInput) bool {
 		return in.RunID == "run-1" && in.Identity.TenantID == "tenant-a" && in.Identity.UserID == "user-a" &&
 			in.PlanRevision == revision && in.Slot.ID == slotID && in.Attempt == attempt && in.IdempotencyKey == fmt.Sprintf("slot-key-%s:plan:%d:attempt:%d", slotID, revision, attempt)
 	})
 }
 
-func successfulSlotResult(slotID string, attempt int) imageagent.SlotExecutionResult {
-	return imageagent.SlotExecutionResult{
-		SlotID:  slotID,
-		Attempt: attempt,
-		Candidates: []imageagent.AssetCandidate{{
-			AssetID: "candidate-" + slotID,
-			URL:     "https://generated.example/" + slotID + ".png",
-		}},
-	}
+func successfulExecutionResult(slotID string, attempt int) imageagent.SlotExecutionResult {
+	value := successfulSlotResult(slotID, attempt)
+	c := value.Candidates[0]
+	return imageagent.SlotExecutionResult{SlotID: slotID, Attempt: attempt, Candidates: []imageagent.AssetCandidate{{AssetID: c.AssetID, SourceAssetID: c.SourceAssetID, DurableAsset: c.DurableAsset, Width: c.Width, Height: c.Height, Operations: c.Operations}}}
 }
 
 func requireCandidateIDs(got []string, plan imageagent.Plan) bool {
@@ -4779,6 +4549,7 @@ func (e *temporalCancellationStagedExecutor) Called() bool {
 }
 
 type revisionFailingExecutor struct {
+	t              *testing.T
 	failedRevision int64
 	failedSlotID   string
 	failedCalls    atomic.Int64
@@ -4788,23 +4559,28 @@ type revisionFailingExecutor struct {
 func (e *revisionFailingExecutor) ExecuteSlot(_ context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
 	if input.PlanRevision == e.failedRevision && input.Slot.ID == e.failedSlotID {
 		e.failedCalls.Add(1)
-		return imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)
+		return imageagent.SlotExecutionResult{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", imageagent.SlotProviderNotDispatchedCode, nil)
 	}
 	e.successCalls.Add(1)
-	return successfulSlotResult(input.Slot.ID, input.Attempt), nil
+	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
 }
 
 func (e *revisionFailingExecutor) GenerateSlot(_ context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	if input.PlanRevision == e.failedRevision && input.Slot.ID == e.failedSlotID {
 		e.failedCalls.Add(1)
-		return imageagent.SlotGeneratedOutput{}, sdktemporal.NewNonRetryableApplicationError("provider rejected slot", "slot_rejected", nil)
+		return imageagent.SlotGeneratedOutput{}, &imageagent.ProviderDispatchError{State: imageagent.ProviderRejectedBeforeEffect, Err: storagecapacity.ErrExceeded}
 	}
 	e.successCalls.Add(1)
-	return testGeneratedOutput(input), nil
+	out := testGeneratedOutput(input)
+	out.Assets[0].Bytes = tinyPNGBytes(e.t)
+	out.Assets[0].ContentType = "image/png"
+	out.Assets[0].Width = 1
+	out.Assets[0].Height = 1
+	return out, nil
 }
 
 func (e *revisionFailingExecutor) PublishSlot(_ context.Context, input imageagent.SlotExecutionInput, _ imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	return successfulSlotResult(input.Slot.ID, input.Attempt), nil
+	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
 }
 
 func (e *identityCheckingExecutor) ExecuteSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
@@ -4813,7 +4589,7 @@ func (e *identityCheckingExecutor) ExecuteSlot(ctx context.Context, input imagea
 	require.True(e.t, ok)
 	require.Equal(e.t, input.TenantID, identity.TenantID)
 	require.Equal(e.t, input.UserID, identity.UserID)
-	return successfulSlotResult(input.Slot.ID, input.Attempt), nil
+	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
 }
 
 func (e *identityCheckingExecutor) GenerateSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
@@ -4822,11 +4598,16 @@ func (e *identityCheckingExecutor) GenerateSlot(ctx context.Context, input image
 	require.True(e.t, ok)
 	require.Equal(e.t, input.TenantID, identity.TenantID)
 	require.Equal(e.t, input.UserID, identity.UserID)
-	return testGeneratedOutput(input), nil
+	output := testGeneratedOutput(input)
+	output.Assets[0].Bytes = tinyPNGBytes(e.t)
+	output.Assets[0].ContentType = "image/png"
+	output.Assets[0].Width = 1
+	output.Assets[0].Height = 1
+	return output, nil
 }
 
 func (e *identityCheckingExecutor) PublishSlot(_ context.Context, input imageagent.SlotExecutionInput, _ imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	return successfulSlotResult(input.Slot.ID, input.Attempt), nil
+	return successfulExecutionResult(input.Slot.ID, input.Attempt), nil
 }
 
 func testGeneratedOutput(input imageagent.SlotExecutionInput) imageagent.SlotGeneratedOutput {
@@ -4838,7 +4619,7 @@ type identityCheckingPublisher struct {
 	calls int
 }
 
-func (p *identityCheckingPublisher) PublishApproved(ctx context.Context, input imageagent.PublishApprovedInput) (imageagent.PublicationAcknowledgement, error) {
+func (p *identityCheckingPublisher) PublishApproved(ctx context.Context, input imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
 	p.calls++
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	require.True(p.t, ok)
@@ -4895,7 +4676,7 @@ type workflowCatalogResolver struct{}
 func (workflowCatalogResolver) Resolve(context.Context, imageagent.AssetCatalogScope) (imageagent.AssetCatalog, error) {
 	assets := make([]imageagent.AuthorizedAsset, 0, 10)
 	for index := 1; index <= 9; index++ {
-		assets = append(assets, imageagent.AuthorizedAsset{ID: fmt.Sprintf("source-%d", index), Type: imageagent.AuthorizedAssetSource, Width: 1200, Height: 900})
+		assets = append(assets, imageagent.AuthorizedAsset{ID: fmt.Sprintf("source-%d", index), Type: imageagent.AuthorizedAssetSource, SourceURL: fmt.Sprintf("https://source.example/source-%d.png", index), Width: 1200, Height: 900})
 	}
 	assets = append(assets, imageagent.AuthorizedAsset{ID: "style-modern", Type: imageagent.AuthorizedAssetStyle, URL: "https://style.example/style-modern.png"})
 	return imageagent.AssetCatalog{Assets: assets}, nil
@@ -5031,5 +4812,113 @@ func sevenSlotPlan() imageagent.Plan {
 		SourceAssetIDs: []string{"source-1"},
 		Slots:          slots,
 		CreatedBy:      "user-a",
+	}
+}
+
+func successfulSlotResult(slotID string, attempt int) imageagent.SlotEffectV3PublishedResult {
+	return imageagent.SlotEffectV3PublishedResult{SlotID: slotID, Attempt: attempt, Candidates: []imageagent.SlotEffectV3AssetCandidate{{AssetID: "candidate-" + slotID, SourceAssetID: "source-1", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: fmt.Sprintf("image-agent/public/tenant-a/fc95297aa4f56781f0decb7d4bf59b1447f09b3611039b80188b1c6beb03ee6a/run-1/1/%s/%d/0-%s.png", slotID, attempt, v3SHA256), SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, Width: 1200, Height: 1200}}}
+}
+
+func TestRegisterWorkerUsesExactModeBoundWorkflowAndActivitySets(t *testing.T) {
+	activities := &Activities{executionAuthorizer: allowGenerationExecution{}}
+	registrar := &recordingWorkerRegistrar{}
+	require.NoError(t, RegisterWorkerForMode(registrar, activities, WorkerWireModeOrganization))
+	require.Equal(t, []string{organizationWorkflowName, "ImageSlotWorkflowV3", EffectRecoveryWorkflowName}, registrar.workflows)
+	require.Equal(t, []string{activityPersistRunState, activityPersistWorkflowFailure, activityPersistWorkflowFailureV2, activityPersistPlanRevision, activityPersistPendingCommand, activityExecuteSlotV3, activityReviewStagedSlotV3, activityStartEffectRecoveryV3, activityRecoverEffectV3, activityPersistRecoveryBlockedV3, activityReconcileEffectRecoveryV3, activityPersistSlotResultV3, activityPrepareImageSetPolicyAdoption, activityPublishApprovedImageSet, activityPersistImageSetSlotResult, activityPublishApprovedV3}, registrar.activities)
+	for _, mode := range []WorkerWireMode{"v2", "v3", ""} {
+		r := &recordingWorkerRegistrar{}
+		require.Error(t, RegisterWorkerForMode(r, activities, mode))
+		require.Empty(t, r.workflows)
+		require.Empty(t, r.activities)
+	}
+}
+func TestWorkerConfigBindsExplicitModesToCompatibleQueues(t *testing.T) {
+	for _, config := range []WorkerConfig{{WireMode: "v2"}, {WireMode: "v3"}, {WireMode: "v2", TaskQueue: TaskQueue}, {WireMode: "v3", TaskQueue: TaskQueueV3}, {WireMode: "invalid"}, {TaskQueue: "image-agent-custom"}, {WireMode: WorkerWireModeOrganization, TaskQueue: TaskQueueV3}} {
+		_, err := config.selectedTaskQueue()
+		require.Error(t, err)
+	}
+	for _, config := range []WorkerConfig{{WireMode: WorkerWireModeOrganization}, {WireMode: WorkerWireModeOrganization, TaskQueue: OrganizationTaskQueue}} {
+		queue, err := config.selectedTaskQueue()
+		require.NoError(t, err)
+		require.Equal(t, OrganizationTaskQueue, queue)
+	}
+}
+
+func activityFixtureCatalog(t *testing.T, repository imageagent.Repository, runID string) imageagent.AssetCatalog {
+	t.Helper()
+	p, err := repository.GetProjection(context.Background(), imageagent.RunScope{TenantID: "tenant-a", OwnerUserID: "user-a", RunID: runID})
+	require.NoError(t, err)
+	return p.AssetCatalog
+}
+
+func (e *identityCheckingExecutor) BuildSlotResult(ctx context.Context, input imageagent.SlotExecutionInput, published imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {
+	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	require.True(e.t, ok)
+	require.Equal(e.t, input.TenantID, identity.TenantID)
+	require.Equal(e.t, input.UserID, identity.UserID)
+	candidates := make([]imageagent.AssetCandidate, len(published.Assets))
+	for i, a := range published.Assets {
+		candidates[i] = imageagent.AssetCandidate{AssetID: "candidate-" + input.Slot.ID, SourceAssetID: a.SourceAssetID, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: a.ObjectKey, SHA256: a.SHA256}}
+	}
+	return imageagent.SlotExecutionResult{SlotID: input.Slot.ID, Attempt: input.Attempt, Candidates: candidates}, nil
+}
+
+func successfulPlanDigest(plan imageagent.Plan) string {
+	results := make([]SlotWorkflowResult, len(plan.Slots))
+	for i, slot := range plan.Slots {
+		results[i] = SlotWorkflowResult{Execution: successfulExecutionResult(slot.ID, 1), Status: imageagent.SlotStatusAccepted}
+	}
+	digest, err := imageagent.ResultDigestV3(plan, slotProjections(plan, results))
+	if err != nil {
+		panic(err)
+	}
+	return digest
+}
+func successfulSlotResultForRun(runID string, revision int64, slotID string, attempt int) imageagent.SlotEffectV3PublishedResult {
+	result := successfulSlotResult(slotID, attempt)
+	result.Candidates[0].DurableAsset.ObjectKey = fmt.Sprintf("image-agent/public/tenant-a/fc95297aa4f56781f0decb7d4bf59b1447f09b3611039b80188b1c6beb03ee6a/%s/%d/%s/%d/0-%s.png", runID, revision, slotID, attempt, v3SHA256)
+	return result
+}
+
+func (e *revisionFailingExecutor) BuildSlotResult(ctx context.Context, input imageagent.SlotExecutionInput, published imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {
+	return (&identityCheckingExecutor{t: e.t}).BuildSlotResult(ctx, input, published)
+}
+
+func successfulRetryDigest() string {
+	plan := sevenSlotPlan()
+	results := make([]SlotWorkflowResult, len(plan.Slots))
+	for i, slot := range plan.Slots {
+		attempt := 1
+		if slot.ID == "scene-2" {
+			attempt = 2
+		}
+		results[i] = SlotWorkflowResult{Execution: successfulExecutionResult(slot.ID, attempt), Status: imageagent.SlotStatusAccepted}
+	}
+	digest, err := imageagent.ResultDigestV3(plan, slotProjections(plan, results))
+	if err != nil {
+		panic(err)
+	}
+	return digest
+}
+
+func TestRetiredActivityWireFailsBeforeAnyActivity(t *testing.T) {
+	for _, retired := range []string{activityWireV2Patch, slotExecutionWireV3Patch, approvalActionIDV3Patch, approvalPublicationWireV3Patch, resultDigestV3Patch} {
+		t.Run(retired, func(t *testing.T) {
+			var suite testsuite.WorkflowTestSuite
+			env := suite.NewTestWorkflowEnvironment()
+			env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
+			for _, marker := range []string{activityWireV2Patch, slotExecutionWireV3Patch, approvalActionIDV3Patch, approvalPublicationWireV3Patch, resultDigestV3Patch, workflowFailureProjectionPatch} {
+				version := workflow.Version(1)
+				if marker == retired {
+					version = workflow.DefaultVersion
+				}
+				env.OnGetVersion(marker, workflow.DefaultVersion, 1).Return(version)
+			}
+			activities := 0
+			env.SetOnActivityStartedListener(func(*sdkactivity.Info, context.Context, sdkconverter.EncodedValues) { activities++ })
+			env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(sevenSlotPlan()))
+			require.ErrorContains(t, env.GetWorkflowError(), "retired image agent activity wire")
+			require.Zero(t, activities)
+		})
 	}
 }

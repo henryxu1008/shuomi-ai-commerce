@@ -46,8 +46,6 @@ type ImageAgentTemporalDependencies struct {
 	GenerationOutputRecovery imageagent.GenerationOutputRecovery
 	ExecutionAuthorizer      imageagent.ExecutionAuthorizer
 	Repository               imageagent.Repository
-	SlotExecutor             imageagent.SlotExecutor
-	Publisher                imageagent.ApprovedAssetPublisher
 	PublisherV3              imageagent.ApprovedAssetPublisherV3
 	StagedSlotExecutor       imageagent.StagedSlotExecutor
 	ArtifactStore            imageagenttemporal.DurableArtifactStore
@@ -80,7 +78,7 @@ func NewOrganizationImageSetWorker(client sdkclient.Client, d ImageAgentTemporal
 		ImageSetApprovals:     d.ImageSetApprovals,
 		ImageSetPolicyAdopter: d.ImageSetPolicyAdopter,
 		ImageSetPublisher:     d.ImageSetPublisher, GenerationRecovery: d.GenerationRecovery, GenerationOutputRecovery: d.GenerationOutputRecovery,
-		ExecutionAuthorizer: d.ExecutionAuthorizer, Repository: d.Repository, SlotExecutor: d.SlotExecutor, StagedSlotExecutor: d.StagedSlotExecutor, ArtifactStore: d.ArtifactStore, PublicationLeaseDuration: d.PublicationLeaseDuration,
+		ExecutionAuthorizer: d.ExecutionAuthorizer, Repository: d.Repository, StagedSlotExecutor: d.StagedSlotExecutor, ArtifactStore: d.ArtifactStore, PublicationLeaseDuration: d.PublicationLeaseDuration,
 	})
 	if err != nil {
 		return nil, err
@@ -147,6 +145,12 @@ func runImageAgentTemporalWorkerWithOptionsAndDependencies(ctx context.Context, 
 }
 
 func startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(ctx context.Context, dependencies ImageAgentTemporalDependencies, options ImageAgentTemporalWorkerOptions, runtimeDependencies imageAgentTemporalRuntimeDependencies) (func() error, error) {
+	if _, err := options.WireMode.DefaultTaskQueue(); err != nil {
+		return nil, err
+	}
+	if options.TaskQueue != "" && options.TaskQueue != imageagenttemporal.OrganizationTaskQueue {
+		return nil, imageagent.ErrIdentityRequired
+	}
 	if !envBool(envImageAgentTemporalEnabled) {
 		return nil, nil
 	}
@@ -164,7 +168,7 @@ func startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(ctx context.
 		GenerationRecovery:       dependencies.GenerationRecovery,
 		GenerationOutputRecovery: dependencies.GenerationOutputRecovery,
 		ExecutionAuthorizer:      dependencies.ExecutionAuthorizer,
-		Repository:               dependencies.Repository, SlotExecutor: dependencies.SlotExecutor, Publisher: dependencies.Publisher, PublisherV3: dependencies.PublisherV3,
+		Repository:               dependencies.Repository, PublisherV3: dependencies.PublisherV3,
 		StagedSlotExecutor: dependencies.StagedSlotExecutor, ArtifactStore: dependencies.ArtifactStore,
 		PublicationLeaseDuration: dependencies.PublicationLeaseDuration,
 	})
