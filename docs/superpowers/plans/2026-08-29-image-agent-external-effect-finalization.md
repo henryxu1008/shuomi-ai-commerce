@@ -1,3 +1,5 @@
+> #301 / #998 用户已确认[旧业务Signal完整退休设计](../../architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md) §1–§7：本计划中的业务 cancel Signal 测试驱动已由当前 cancel Update 替代；started effect 先终结再投影取消、绝对deadline/UNKNOWN/fence/恢复等安全要求继续有效，effect_recovery_completed 真实恢复Signal保留。以下历史正文、步骤、勾选及证据不改，不授权操作实际历史或资源。
+
 # Image Agent External-Effect Finalization Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

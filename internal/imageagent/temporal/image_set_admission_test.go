@@ -187,7 +187,7 @@ func TestLateOriginalImageSetWorkflowClosesExpiredSlotsWithoutDispatch(t *testin
 			env.RegisterDelayedCallback(func() {
 				observed, readErr = repo.GetProjection(ctx, scope)
 				if !claimed {
-					env.SignalWorkflow(signalCancel, CancelSignal{RunID: input.RunID, PlanRevision: 1, ActorID: input.Identity.UserID, ActionID: "8d272ce6-0833-4f67-9479-d18708a8cb59"})
+					requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: input.RunID, PlanRevision: 1, ActorID: input.Identity.UserID, ActionID: "8d272ce6-0833-4f67-9479-d18708a8cb59"})
 				}
 			}, time.Second)
 			env.ExecuteWorkflow(organizationWorkflowName, raw.workflowInput)

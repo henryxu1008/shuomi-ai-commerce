@@ -118,7 +118,6 @@ func TestOrganizationClientRequiresCompleteBoundIdentityAtEveryIngress(t *testin
 				require.Empty(t, raw.workflowName, "rejected identity must not start a workflow")
 				require.Empty(t, raw.queryWorkflowID, "rejected identity must not query a workflow")
 				require.Empty(t, raw.updateOptions, "rejected identity must not send an update")
-				require.Empty(t, raw.signalName)
 				require.ErrorIs(t, err, imageagent.ErrIdentityRequired)
 			})
 		}

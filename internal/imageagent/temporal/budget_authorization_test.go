@@ -317,7 +317,7 @@ func TestImageAgentWorkflowBudgetDeniesRepairBeforeChild(t *testing.T) {
 		env.UpdateWorkflow(signalRetrySlot, "retry-over-budget-request", &testsuite.TestUpdateCallback{OnReject: func(err error) { retryErr = err }, OnAccept: func() {}, OnComplete: func(_ interface{}, err error) { retryErr = err }}, retry)
 	}, time.Second)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-budget-test"})
+		requireWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "user-a", ActionID: "cancel-budget-test"})
 	}, 2*time.Second)
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true

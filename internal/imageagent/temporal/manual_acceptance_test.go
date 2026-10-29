@@ -802,10 +802,6 @@ func (*recordingRecoveryWorkflowClient) QueryWorkflow(context.Context, string, s
 	return nil, fmt.Errorf("unexpected QueryWorkflow call in recovery acceptance")
 }
 
-func (*recordingRecoveryWorkflowClient) SignalWorkflow(context.Context, string, string, string, interface{}) error {
-	return fmt.Errorf("unexpected SignalWorkflow call in recovery acceptance")
-}
-
 func (*recordingRecoveryWorkflowClient) UpdateWorkflow(context.Context, sdkclient.UpdateWorkflowOptions) (sdkclient.WorkflowUpdateHandle, error) {
 	return nil, fmt.Errorf("unexpected UpdateWorkflow call in recovery acceptance")
 }
