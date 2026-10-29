@@ -37,10 +37,10 @@ func LoadPackage(c PackageConfig) ([]byte, error) {
 		return nil, ErrUnavailable
 	}
 	z, e := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
-	if e != nil || len(z.File) != 6 {
+	if e != nil || len(z.File) != 7 {
 		return nil, ErrUnavailable
 	}
-	names := map[string]bool{"manifest.json": true, "background.js": true, "popup.js": true, "extractor.js": true, "popup.html": true, "popup.css": true}
+	names := map[string]bool{"manifest.json": true, "background.js": true, "popup.js": true, "extractor.js": true, "page.js": true, "popup.html": true, "popup.css": true}
 	files := map[string][]byte{}
 	total := 0
 	for _, entry := range z.File {
@@ -67,12 +67,23 @@ func LoadPackage(c PackageConfig) ([]byte, error) {
 			Matches []string `json:"matches"`
 		} `json:"externally_connectable"`
 	}
-	if json.Unmarshal(files["manifest.json"], &manifest) != nil || manifest.Version != 3 || manifest.Name != "1688 商品采集" || len(manifest.External.Matches) != 1 || manifest.External.Matches[0] != "https://"+u.Hostname()+"/capture/1688" {
+	if json.Unmarshal(files["manifest.json"], &manifest) != nil || manifest.Version != 3 || manifest.Name != "1688 / Amazon 商品采集" || len(manifest.External.Matches) != 2 {
 		return nil, ErrUnavailable
 	}
-	quoted, _ := json.Marshal(c.CaptureAppURL)
-	if !strings.Contains(string(files["background.js"]), string(quoted)) {
-		return nil, ErrUnavailable
+	matches := map[string]bool{"https://" + u.Hostname() + "/capture/1688": true, "https://" + u.Hostname() + "/capture/amazon": true}
+	for _, match := range manifest.External.Matches {
+		if !matches[match] {
+			return nil, ErrUnavailable
+		}
+		delete(matches, match)
+	}
+	amazon := *u
+	amazon.Path = "/capture/amazon"
+	for _, receiver := range []string{c.CaptureAppURL, amazon.String()} {
+		quoted, _ := json.Marshal(receiver)
+		if !strings.Contains(string(files["background.js"]), string(quoted)) {
+			return nil, ErrUnavailable
+		}
 	}
 	return raw, nil
 }
