@@ -37,7 +37,7 @@ func (s *Service) ListResourceOffers(ctx context.Context) ([]Offer, error) {
 		return nil, ErrFeatureUnavailable
 	}
 	for _, offer := range offers {
-		if offer.Validate() != nil || offer.ProductKind == ProductSubscriptionPlan || offer.UnitPriceMinor <= 0 || offer.Status != OfferActive {
+		if offer.Validate() != nil || offer.UnitPriceMinor <= 0 || offer.Status != OfferActive {
 			return nil, ErrOfferUnavailable
 		}
 	}

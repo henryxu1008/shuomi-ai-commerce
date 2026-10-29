@@ -18,16 +18,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
 	"task-processor/internal/core/config"
 	invitationmail "task-processor/internal/integration/mail"
 	memberstore "task-processor/internal/integration/persistence/organization/membership"
-	"task-processor/internal/listingsubscription"
 	platformdatabase "task-processor/internal/platform/database"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 type membershipFixture struct {
@@ -44,7 +44,6 @@ func newMembershipFixture(t *testing.T) *membershipFixture {
 	t.Helper()
 	ctx := context.Background()
 	owner, connection := commercialPostgres(t)
-	require.NoError(t, listingsubscription.AutoMigrateRepository(owner))
 	require.NoError(t, registrySchema.Migrate(ctx, owner))
 	sqlDB, err := owner.DB()
 	require.NoError(t, err)

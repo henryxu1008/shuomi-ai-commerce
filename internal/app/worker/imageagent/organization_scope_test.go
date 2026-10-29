@@ -1,17 +1,22 @@
 package imageagentworker
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
 	"task-processor/internal/imageagent"
+
+	"github.com/stretchr/testify/require"
 )
 
 type workerRolePolicyFixture struct{ removed atomic.Bool }
@@ -93,4 +98,22 @@ func TestOrganizationExecutionAuthorizerRejectsMultipleActiveGrantsWithoutRoleUn
 	require.ErrorIs(t, auth.AuthorizeExecution(context.Background(), identity), imageagent.ErrIdentityRequired)
 	identity.MemberID = "member-admin"
 	require.ErrorIs(t, auth.AuthorizeExecution(context.Background(), identity), imageagent.ErrIdentityRequired)
+}
+
+func TestOrganizationCredentialTransportLoggerDropsSDKTextAndFields(t *testing.T) {
+	var output bytes.Buffer
+	logger := logrus.New()
+	logger.SetOutput(&output)
+	logger.SetLevel(logrus.DebugLevel)
+	safe := safeReviewTransportLogger{logger: logger}
+	fields := map[string]any{"api_key": "SENSITIVE-KEY", "prompt": "SENSITIVE-PROMPT", "url": "SENSITIVE-URL"}
+	safe.Debug("SENSITIVE-DEBUG", fields)
+	safe.Info("SENSITIVE-INFO", fields)
+	require.Empty(t, output.String())
+	safe.Warn("SENSITIVE-WARN", fields)
+	safe.Error("SENSITIVE-ERROR", fields)
+	require.NotContains(t, output.String(), "SENSITIVE-")
+	require.Contains(t, output.String(), "organization_provider_transport_warning")
+	require.Contains(t, output.String(), "organization_provider_transport_error")
+	require.Equal(t, 2, strings.Count(output.String(), "\n"))
 }

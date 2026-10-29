@@ -567,10 +567,10 @@ UI remains pending its exact Figma node. Product/browser and image-quality
 acceptance remain unavailable. The local Python OpenAI-protocol stub's
 deterministic white 2×2 PNG is not image-quality evidence. Its seven-token Review
 usage belongs only to historical Review tests, not the current one-edit,
-zero-Extract, zero-model-Review flow or its generation metering. The `paid_pilot`
-isolated catalog is only a purchasable local trial offer; subscription activation
-or member token allocation does not supply an image price/member point limit or
-unlock dispatch. No paid or external AI key is installed.
+zero-Extract, zero-model-Review flow or its generation metering. The retired
+subscription catalog and Token allocation are no longer installed or checked.
+Image dispatch requires the current explicit price and member point limit.
+No paid or external AI key is installed.
 
 For a separately authorized configured runtime, the current manifest's
 `imageAgent.generation.priceVersion` and `pointsPerImage` must match the worker's
@@ -587,7 +587,7 @@ these privileges alone do not enable the unpriced HTTP Start route. The
 organization-v1 worker connects to the same database as
 `image_agent_worker_runtime`, with exactly its 16 current tables' required
 read/insert/update privileges; startup verifies and refuses extra privileges.
-Its existing token/review connection remains `commercial_runtime`. The explicit
+The retired Token/review pool is absent. The explicit
 `commercialOwnerDatabase` pool uses `commercial_owner_runtime` for image AI point
 reservations, original-month counters and settlement; neither uses a schema-owner
 role. Startup verifies the existing resource owner's exact required rights,

@@ -24,7 +24,6 @@ import (
 	"go.temporal.io/api/serviceerror"
 	sdkclient "go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
-	"go.temporal.io/sdk/testsuite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -135,7 +134,7 @@ func (s *scope339IAM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	entries := []any{}
 	if !s.revoked.Load() {
 		for _, org := range orgs {
-			role := "listingkit_operator"
+			role := authz.EnterpriseRoleKey(org, 1)
 			if users.IDs[0] == "admin" {
 				role = "listingkit_admin"
 			}
@@ -147,6 +146,18 @@ func (s *scope339IAM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type scope339Verifier struct{}
+
+type scope339ImageRolePolicy struct{}
+
+func (scope339ImageRolePolicy) RoleModules(_ context.Context, org string, keys []string) (map[string][]string, error) {
+	result := map[string][]string{}
+	for _, key := range keys {
+		if key == authz.EnterpriseRoleKey(org, 1) {
+			result[key] = []string{"images"}
+		}
+	}
+	return result, nil
+}
 
 func (scope339Verifier) Verify(_ context.Context, token string) (authidentity.AuthenticatedIdentity, error) {
 	if token != "actor" && token != "admin" {
@@ -195,6 +206,7 @@ func newScope339Fixture(t *testing.T) *scope339Fixture {
 	f.authClient = zitadel.NewAuthorizationClient(upstream.URL, upstream.Client())
 	f.auth, err = authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
+	f.auth.SetRolePolicyReader(scope339ImageRolePolicy{})
 	repo, err := catalogstore.NewRepository(db)
 	require.NoError(t, err)
 	for _, org := range []string{"B", "C"} {
@@ -426,13 +438,13 @@ func TestOrganizationRealTemporalImageBudgetDeniesBeforeFirstProvider(t *testing
 	if address == "" {
 		t.Skip("requires isolated Temporal ISSUE487_TEMPORAL_ADDRESS")
 	}
-	f, recorder := review334Fixture(t)
+	f := newScope339Fixture(t)
 	var providerCalls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { providerCalls.Add(1) }))
 	defer provider.Close()
 	logger := logrus.New()
 	manager := review334Manager(t, f.db, provider.URL, logger)
-	capabilities, err := imageworker.BuildOrganizationImageCapabilities(manager, f.db, imageworker.OrganizationReviewOptions{Recorder: recorder, Logger: logger})
+	capabilities, err := imageworker.BuildOrganizationImageCapabilities(manager, f.db, logger)
 	require.NoError(t, err)
 	executor := imagetools.NewProductImageSlotExecutor(imagetools.Dependencies{
 		SubjectExtractor: capabilities.SubjectExtractor, WhiteBackgroundRenderer: capabilities.WhiteBackgroundRenderer,
@@ -572,7 +584,7 @@ func TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver(t *tes
 	}
 	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}})
 	require.NoError(t, err)
-	_, err = imageworker.BuildOrganizationImageCapabilities(manager, f.db)
+	_, err = imageworker.BuildOrganizationImageCapabilities(manager, f.db, logrus.New())
 	require.NoError(t, err)
 	// This supplemental negative matrix deliberately creates mismatched contexts
 	// to test the App adapter. It is not the full-chain scope evidence above.
@@ -642,11 +654,7 @@ type scope339NoPublication struct {
 	imageagent.ApprovedAssetPublisherV3
 }
 
-func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.WorkflowInput, modes ...string) {
-	mode := ""
-	if len(modes) > 0 {
-		mode = modes[0]
-	}
+func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.WorkflowInput) {
 	var logs bytes.Buffer
 	logger := logrus.New()
 	logger.SetOutput(&logs)
@@ -670,11 +678,7 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 	cfg := openai.NewClientConfig("static-must-not-be-used", "review-test", provider.URL+"/v1", 1)
 	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}})
 	require.NoError(t, err)
-	options := imageworker.OrganizationReviewOptions{Recorder: aistore.NewGormInvocationRecorder(f.db), Logger: logger}
-	if mode == "known_cost" {
-		options.Pricing = &imageworker.ReviewPricing{Version: "controlled-price-v1", MaximumCostMicros: 7}
-	}
-	capabilities, err := imageworker.BuildOrganizationImageCapabilities(manager, f.db, options)
+	capabilities, err := imageworker.BuildOrganizationImageCapabilities(manager, f.db, logger)
 	require.NoError(t, err)
 	executor := imagetools.NewProductImageSlotExecutor(imagetools.Dependencies{SubjectExtractor: capabilities.SubjectExtractor, WhiteBackgroundRenderer: capabilities.WhiteBackgroundRenderer, SceneRenderer: capabilities.SceneRenderer, Reviewer: capabilities.Reviewer, UsageQuoter: capabilities.UsageQuoter, ProfileResolver: capabilities.ProfileResolver})
 	repo := imagestore.NewOrganizationRepository(f.db)
@@ -746,73 +750,11 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 	require.Error(t, err)
 	require.Zero(t, f.providerCalls.Load())
 	require.Zero(t, artifacts.reads.Load())
-	// B is absent: A and static credentials must not substitute for its route.
-	_, err = activities.ReviewStagedSlotV3(context.Background(), input)
-	require.Error(t, err)
-	require.Zero(t, f.providerCalls.Load())
-	for _, enabled := range []bool{false, true} {
-		for _, name := range []string{"default", "image_gpt_image_2"} {
-			require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "B", UserID: "actor", ClientName: name, APIKey: "synthetic-B", BaseURL: provider.URL + "/v1", Model: "review-test", Enabled: enabled, TimeoutSecond: 1}))
-		}
-		if !enabled {
-			require.NoError(t, f.db.Model(&openai.AIClientCredential{}).Where("tenant_id = ? AND user_id = ?", "B", "actor").Update("enabled", false).Error)
-			_, err = activities.ReviewStagedSlotV3(context.Background(), input)
-			require.Error(t, err)
-			require.Zero(t, f.providerCalls.Load())
-		}
-	}
-	readsBefore := artifacts.reads.Load()
-	var suite testsuite.WorkflowTestSuite
-	env := suite.NewTestActivityEnvironment()
-	env.RegisterActivity(activities.ReviewStagedSlotV3)
-	if mode == "record_failure" {
-		require.NoError(t, f.db.Callback().Create().Before("gorm:create").Register("review-ledger-fault", func(tx *gorm.DB) {
-			if tx.Statement.Table == "ai_invocations" {
-				tx.AddError(fmt.Errorf("controlled ledger failure"))
-			}
-		}))
-	}
-	if mode == "response_cancel" {
-		callCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		require.NoError(t, f.db.Callback().Create().After("gorm:create").Register("review-response-cancel", func(tx *gorm.DB) {
-			if tx.Statement.Table == "ai_invocations" {
-				cancel()
-			}
-		}))
-		_, err = activities.ReviewStagedSlotV3(callCtx, input)
-	} else {
-		_, err = env.ExecuteActivity(activities.ReviewStagedSlotV3, input)
-	}
-	require.Error(t, err)
-	if mode == "unknown_cost" {
-		require.Contains(t, err.Error(), imageagent.BudgetQuoteUnavailableCode)
-		require.Zero(t, f.providerCalls.Load())
-		return
-	}
-	if mode != "response_cancel" {
-		require.Contains(t, err.Error(), imageagent.SlotReviewRequiredCode)
-	}
-	require.EqualValues(t, 1, f.providerCalls.Load())
-	require.EqualValues(t, readsBefore+1, artifacts.reads.Load())
-	var invocation struct{ TenantID, UserID, AgentRunID, BusinessTaskID, Outcome string }
-	if mode == "record_failure" {
-		var count int64
-		require.NoError(t, f.db.Table("ai_invocations").Count(&count).Error)
-		require.Zero(t, count)
-		require.Contains(t, logs.String(), "image_review_record_degraded")
-	} else {
-		require.NoError(t, f.db.Table("ai_invocations").Take(&invocation).Error)
-		require.Equal(t, "B", invocation.TenantID)
-		require.Equal(t, "actor", invocation.UserID)
-		require.Equal(t, input.RunID, invocation.AgentRunID)
-		require.Equal(t, input.Identity.BusinessTaskID, invocation.BusinessTaskID)
-		require.Equal(t, "succeeded", invocation.Outcome)
-	}
-	_, err = env.ExecuteActivity(activities.ReviewStagedSlotV3, input)
-	require.Error(t, err)
-	require.EqualValues(t, 1, f.providerCalls.Load(), "persisted outcome prevents repeated provider execution")
-	t.Log("verified Home A / selected B -> persisted scope -> converter -> SDK Activity -> service authorization -> B credentials -> Manager / adapter: provider HTTP=1; no generation or approval")
+	// The old recorded Review success/failure/Token matrix retires with its
+	// owner. Current credential routing is checked directly by
+	// TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver;
+	// the production closed Review seam remains covered in the worker tests.
+
 }
 
 func TestServiceAuthorizationRequiresExactOrganization(t *testing.T) {
@@ -838,4 +780,21 @@ func TestServiceAuthorizationRequiresExactOrganization(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, grants)
 	require.Equal(t, 1, calls)
+}
+
+func review334Manager(t *testing.T, db *gorm.DB, endpoint string, logger *logrus.Logger) *openai.Manager {
+	t.Helper()
+	credentials := openai.NewGormCredentialResolver(db)
+	for _, org := range []string{"B", "C"} {
+		for _, name := range []string{"default", "image_gpt_image_2"} {
+			require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: org, UserID: "actor", ClientName: name, APIKey: "SENSITIVE-KEY-" + org, BaseURL: endpoint + "/v1", Model: "review-test", Enabled: true, TimeoutSecond: 1}))
+		}
+	}
+	cfg := openai.NewClientConfig("SENSITIVE-STATIC", "review-test", endpoint+"/v1", 1)
+	cfg.MaxRetries = 3
+	cfg.RetryDelay = time.Millisecond
+	cfg.Logger = openai.AdaptLogrus(logrus.NewEntry(logger))
+	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}, Logger: cfg.Logger})
+	require.NoError(t, err)
+	return manager
 }

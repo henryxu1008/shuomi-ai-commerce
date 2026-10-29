@@ -7,7 +7,7 @@ product_owner=/product-db-owner-secret; product_runtime=/product-runtime-secret
 zitadel=/zitadel-api-secrets; inputs=/tofu-inputs; frontend=/frontend-secrets
 marker="$state/.bootstrap-complete"
 if [ -f "$marker" ]; then
-  for path in "$ca/root-ca.pem" "$tls/localhost.crt" "$tls/localhost.key" "$identity/identity-db-password" "$source_owner/source-db-password" "$source_runtime/source-runtime-password" "$commercial_owner/commercial-db-password" "$commercial_runtime/commercial-reader-password" "$product_owner/product-db-password" "$product_runtime/product-runtime-password" "$zitadel/zitadel-masterkey" "$zitadel/runtime-config.yaml" "$inputs/operator-password" "$frontend/auth-secret"; do test -f "$path"; done
+  for path in "$ca/root-ca.pem" "$tls/localhost.crt" "$tls/localhost.key" "$identity/identity-db-password" "$source_owner/source-db-password" "$source_runtime/source-runtime-password" "$commercial_owner/commercial-db-password" "$product_owner/product-db-password" "$product_runtime/product-runtime-password" "$zitadel/zitadel-masterkey" "$zitadel/runtime-config.yaml" "$inputs/operator-password" "$frontend/auth-secret"; do test -f "$path"; done
   exit 0
 fi
 umask 077
@@ -15,7 +15,7 @@ mkdir -p "$state" "$ca" "$tls" "$identity" "$source_owner" "$source_runtime" "$c
 write_random(){ openssl rand -hex "$1" | tr -d '\n' > "$2.tmp"; chmod 600 "$2.tmp"; mv "$2.tmp" "$2"; }
 write_random 16 "$zitadel/zitadel-masterkey"; write_random 24 "$identity/identity-db-password"
 write_random 24 "$source_owner/source-db-password"; write_random 24 "$source_runtime/source-runtime-password"
-write_random 24 "$commercial_owner/commercial-db-password"; write_random 24 "$commercial_runtime/commercial-reader-password"
+write_random 24 "$commercial_owner/commercial-db-password"
 write_random 24 "$product_owner/product-db-password"; write_random 24 "$product_runtime/product-runtime-password"
 write_random 32 "$frontend/auth-secret"
 { printf 'Local!'; openssl rand -hex 18; } > "$inputs/operator-password.tmp"; chmod 600 "$inputs/operator-password.tmp"; mv "$inputs/operator-password.tmp" "$inputs/operator-password"

@@ -15,17 +15,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/app/accountaudit"
 	schema "task-processor/internal/app/schema/sourceaccountregistry"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	store "task-processor/internal/integration/persistence/sourceaccountregistry"
-	"task-processor/internal/listingsubscription"
 	registry "task-processor/internal/sourceaccountregistry"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 )
 
 // Only external OIDC/UserInfo/grant HTTP and Auth.js session issuance are
@@ -33,7 +33,6 @@ import (
 func TestAccountAuditBrowserFixture(t *testing.T) {
 	owner, connection := commercialPostgres(t) // Newly created task-owned PostgreSQL.
 	ctx := context.Background()
-	require.NoError(t, listingsubscription.AutoMigrateRepository(owner))
 	require.NoError(t, schema.Migrate(ctx, owner))
 	auth, _ := authz.NewListingKitAuthorizer(nil, nil)
 	repo, err := store.NewRepository(ctx, owner)

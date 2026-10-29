@@ -2,15 +2,15 @@ package imageagentworker
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/authidentity"
 	zitadel "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
 	"task-processor/internal/imageagent"
 	openai "task-processor/internal/integration/openai"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // OrganizationExecutionAuthorizer is explicitly assembled; no default worker
@@ -57,35 +57,16 @@ func (a OrganizationExecutionAuthorizer) AuthorizeExecution(ctx context.Context,
 }
 
 // BuildOrganizationImageCapabilities reuses the current production ports and
-// adapters with a mandatory organization credential resolver. It intentionally
-// installs the existing invocation recorder only for this explicit assembly.
-func BuildOrganizationImageCapabilities(manager *openai.Manager, db *gorm.DB, options ...OrganizationReviewOptions) (ImageCapabilities, error) {
-	if manager == nil || db == nil {
+// adapters with a mandatory organization credential resolver.
+func BuildOrganizationImageCapabilities(manager *openai.Manager, db *gorm.DB, logger *logrus.Logger) (ImageCapabilities, error) {
+	if manager == nil || db == nil || logger == nil {
 		return ImageCapabilities{}, imageagent.ErrIdentityRequired
 	}
-	governance := OrganizationReviewOptions{Recorder: aistore.NewGormInvocationRecorder(db), Logger: logrus.StandardLogger()}
-	if len(options) > 1 {
-		return ImageCapabilities{}, imageagent.ErrValidation
-	}
-	if len(options) == 1 {
-		governance = options[0]
-	}
-	if nilDependency(governance.Recorder) || governance.Logger == nil {
-		return ImageCapabilities{}, imageagent.ErrValidation
-	}
-	if governance.Pricing != nil && (governance.Pricing.Version == "" || governance.Pricing.MaximumCostMicros < 0) {
-		return ImageCapabilities{}, imageagent.ErrValidation
-	}
-	if governance.Pricing != nil {
-		pricing := *governance.Pricing
-		governance.Pricing = &pricing
-	}
-	manager.SetConfigResolver(organizationCredentialAdmission{resolver: openai.NewOrganizationCredentialResolver(db), logger: safeReviewTransportLogger{logger: governance.Logger}})
+	manager.SetConfigResolver(organizationCredentialAdmission{resolver: openai.NewOrganizationCredentialResolver(db), logger: safeReviewTransportLogger{logger: logger}})
 	provider, err := newRoutedOpenAIProductImageProvider(manager)
 	if err != nil {
 		return ImageCapabilities{}, err
 	}
-	provider.reviewGovernance = &governance
 	resolver, err := loadEmbeddedImagePolicyResolver()
 	if err != nil {
 		return ImageCapabilities{}, err
@@ -114,4 +95,15 @@ func (r organizationCredentialAdmission) ResolveClientConfig(ctx context.Context
 		resolved.Config.Logger = r.logger
 	}
 	return resolved, err
+}
+
+type safeReviewTransportLogger struct{ logger *logrus.Logger }
+
+func (l safeReviewTransportLogger) Debug(string, map[string]any) {}
+func (l safeReviewTransportLogger) Info(string, map[string]any)  {}
+func (l safeReviewTransportLogger) Warn(string, map[string]any) {
+	l.logger.WithField("event", "organization_provider_transport_warning").Warn("organization provider transport warning")
+}
+func (l safeReviewTransportLogger) Error(string, map[string]any) {
+	l.logger.WithField("event", "organization_provider_transport_error").Error("organization provider transport error")
 }

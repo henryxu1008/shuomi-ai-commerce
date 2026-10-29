@@ -23,7 +23,6 @@ import (
 	"task-processor/internal/aicapability"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/app/runtime/currentapplication"
-	allocationSchema "task-processor/internal/app/schema/accountallocation"
 	"task-processor/internal/app/schema/productagentruntime"
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
 	governed "task-processor/internal/integration/aicapability/einomodel"
@@ -34,7 +33,6 @@ import (
 	knowledgestore "task-processor/internal/integration/persistence/knowledge"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/listingsubscription"
 	productasset "task-processor/internal/product/asset"
 )
 
@@ -91,8 +89,6 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 	commercial := create("commercial", "issue347")
 	agentDB := create("product_agent", "product_agent_owner")
 	knowledgeDB := create("knowledge", "knowledge_owner")
-	require.NoError(t, listingsubscription.AutoMigrateRepository(root))
-	require.NoError(t, allocationSchema.Migrate(ctx, root))
 	require.NoError(t, registrySchema.Migrate(ctx, root))
 	require.NoError(t, root.Exec("REVOKE CREATE ON SCHEMA public FROM PUBLIC").Error)
 	require.NoError(t, root.Exec("GRANT CONNECT ON DATABASE issue347 TO source_account_runtime; GRANT USAGE ON SCHEMA public TO source_account_runtime").Error)
@@ -103,7 +99,6 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 
 	require.NoError(t, commercialstore.AutoMigrate(commercial))
 	require.NoError(t, resourceadapter.AutoMigrate(commercial))
-	require.NoError(t, listingsubscription.AutoMigrateRepository(commercial))
 	require.NoError(t, commercial.Exec("GRANT CONNECT ON DATABASE commercial TO commercial_owner_runtime; GRANT USAGE ON SCHEMA public TO commercial_owner_runtime; GRANT SELECT ON ALL TABLES IN SCHEMA public TO commercial_owner_runtime").Error)
 	for _, table := range []string{"saas_organization_resource_buckets", "saas_organization_resource_operations", "saas_organization_resource_reservations", "saas_organization_resource_debts", "saas_member_ai_point_limits", "saas_member_ai_point_months", "saas_member_resource_positions"} {
 		require.NoError(t, commercial.Exec("GRANT INSERT,UPDATE ON public."+table+" TO commercial_owner_runtime").Error)

@@ -23,7 +23,7 @@ const volumes=['identity','commercial','login','setup'];
 function binary(m){return join(m.directory,'runtime.test.exe')}
 function applicationBinary(m){return join(m.directory,'current-application.exe')}
 function schemaBinary(m){return join(m.directory,'bin','source-account-registry-schema-init.exe')}
-function commercialRoleFor(m){return currentMode(m)?'commercial_runtime':'commercial_reader';}
+function commercialRoleFor(m){return 'commercial_reader';}
 function baseConfig(m){return {runId:m.runId,runtimeMode:m.runtimeMode,issuer:m.origins.issuer,issuerPort:m.ports.issuer,webOrigin:m.origins.web,goPort:m.ports.go,databasePort:m.ports.database,databaseHost:'127.0.0.1',databaseName:'issue357',databaseUser:commercialRoleFor(m),databasePassword:m.secrets.reader,projectId:m.projectId,organizationA:m.organizations.A?.id,organizationB:m.organizations.B?.id,organizationC:m.organizations.C?.id}}
 async function go(m,mode,input='runtime.json') {
  return run(binary(m),[`-test.run=^TestIssue357${mode}$`,'-test.v','-test.timeout=120s'],{cwd:m.directory,env:{...childEnvironment(),ISSUE357_INPUT_FILE:join(m.directory,input)}});

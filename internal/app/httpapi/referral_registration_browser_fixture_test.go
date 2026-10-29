@@ -22,13 +22,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 	"task-processor/internal/app/runtime/currentapplication"
 	sourceSchema "task-processor/internal/app/schema/sourceaccountregistry"
 	"task-processor/internal/core/config"
 	referralStore "task-processor/internal/integration/persistence/referral"
-	"task-processor/internal/listingsubscription"
+
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // This is a controlled Go transport/provider fixture, not a browser or proof of
@@ -128,7 +128,6 @@ func newReferralProviderFixture(t *testing.T) *referralProviderFixture {
 func referralBinaryConfig(t *testing.T, owner *gorm.DB, connection *config.DatabaseConfig, f *referralProviderFixture) *currentapplication.Config {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, listingsubscription.AutoMigrateRepository(owner))
 	require.NoError(t, sourceSchema.Migrate(ctx, owner))
 	require.NoError(t, referralStore.Install(ctx, owner))
 	require.NoError(t, owner.Exec(`REVOKE ALL ON SCHEMA public FROM PUBLIC; REVOKE CREATE,TEMP ON DATABASE issue347 FROM PUBLIC; REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC`).Error)

@@ -38,9 +38,6 @@ type Config struct {
 	ProductCollectionSourceMediaIsolatedTrial             bool                          `yaml:"productCollectionSourceMediaIsolatedTrial"`
 	ProductCollectionSourceMediaIsolatedTrialDeploymentID string                        `yaml:"productCollectionSourceMediaIsolatedTrialDeploymentID"`
 	Database                                              *DatabaseConfig               `yaml:"database"`
-	// CommercialDatabase is optional for workers that settle observed AI
-	// usage into the commercial owner.
-	CommercialDatabase *DatabaseConfig `yaml:"commercialDatabase"`
 	// CommercialOwnerDatabase is the explicit resource-balance owner pool;
 	// it must not borrow the Token usage runtime role.
 	CommercialOwnerDatabase *DatabaseConfig    `yaml:"commercialOwnerDatabase"`
@@ -325,27 +322,7 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_DATABASE_MAX_IDLE_CONNECTIONS",
 			Deprecated: []string{"DB_MAX_IDLE_CONNECTIONS"},
 		},
-		"commercialDatabase.host": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_HOST",
-		},
-		"commercialDatabase.port": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_PORT",
-		},
-		"commercialDatabase.user": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_USER",
-		},
-		"commercialDatabase.password": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_PASSWORD",
-		},
-		"commercialDatabase.database": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_NAME",
-		},
-		"commercialDatabase.max_connections": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_MAX_CONNECTIONS",
-		},
-		"commercialDatabase.max_idle_connections": {
-			Primary: "TASK_PROCESSOR_COMMERCIAL_DATABASE_MAX_IDLE_CONNECTIONS",
-		},
+
 		"listingkit.imageUpload.provider": {
 			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_PROVIDER",
 		},
