@@ -19,6 +19,8 @@
 
 `store-browser` 是现有企业角色目录中的显式模块，包含已有 `workbench.store.read` 和新增 `workbench.store.browser.use`，不包含 store.update，不自动加入旧 `stores` 模块或既有角色。原 32 模块持久化边界保持，不改 IAM。
 
+组合依赖 #978 / PR #979 将前端只读目录与系统角色投影解析上限设为 64，以接受新增 browser 后的 33 项合法目录；自定义角色、create/save 和后端持久化仍限 32。固定管理员展示沿用 #992 的统一静态角色定义，不能从当前查看者附加角色推导内置权限，也不自动授予 browser.use。该依赖在 PR #956 中以原提交普通合入，不另建角色目录或授权 owner。
+
 新增 Store-owned 表为 `workbench_store_browser_operations` 和 `workbench_store_browser_reports`。现有 Store 缺这两表时原 Store 可继续工作；新接口返回不可用。部分表、同名 view/RLS 或不符合合同的结构关闭，运行时不执行 DDL。
 
 既有 schema-owner CLI 提供显式模式：`--browser-workbench --confirm-database <精确库名> --config <私有 owner 配置>`。仅接受当前 Store 原版本历史，复用原 Goose version table 新增 2026102501；同一新版本事务添加两表及新表 SELECT/INSERT，并读回验证结构与 serving role 实际不可变权限。不得与其他安装/观测/对齐模式组合；不执行旧 schema 步骤，不改旧事实/授权，不放宽原 runtime privilege guard。此命令用于后续获授权维护，本批没有运行它。
