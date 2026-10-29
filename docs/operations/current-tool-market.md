@@ -32,7 +32,17 @@ The private native manifest adds:
 `packageDirectory` is optional. It contains the existing build script's ZIP and
 `release.json`. The recorded full capture URL must match `captureAppURL` exactly;
 the SHA verifies the ZIP and its compiled receiver. An invalid or missing record
-leaves downloads unavailable. The nonfixture extension builder accepts the fixed
+leaves downloads unavailable.
+
+The current release is the seven-file dual-platform package, including `page.js`,
+named `1688 / Amazon 商品采集`. Its manifest must contain exactly the two sibling
+`/capture/1688` and `/capture/amazon` receiver matches on the installation hostname;
+both full HTTPS receiver URLs, including the configured port, must be compiled into
+`background.js`. The former six-file single-platform layout is retired. Do not
+remove the page script, relabel a fixture, or relax the trusted digest/address checks
+to make a package load. Updating source does not replace any retained package or instance.
+
+The nonfixture extension builder accepts the fixed
 HTTPS application receiver, including a trusted localhost installation with an
 explicit non-default port. Use the actual installation URL; image admission still
 rejects private/local hosts. Do not relabel a fixture as a release. Online/local capture

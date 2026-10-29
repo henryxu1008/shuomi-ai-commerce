@@ -70,6 +70,12 @@ runtime读取record的sha256，将**当前安装接收地址**传入`Handler.Con
 当前安装地址与record.captureAppUrl必须完全相同，否则不得加载包。
 ConfigurePackage失败保持下载不可用并显示当前安装未配置插件包。
 Handler不暴露原始包bytes注入口，ConfigurePackage内部调用LoadPackage校验后保存。
+当前正式包为含page.js的七文件双平台包，名称“1688 / Amazon 商品采集”；
+两个manifest receiver必须同hostname，background同时绑定完整1688/amazon地址及安装端口。
+旧六文件单平台包不再加载，不通过删文件、改名或放宽散列/地址校验恢复下载。
+仅在独立源码工作区内验证实际产物时，将TOOLMARKET_PACKAGE_TEST_DIR指向上述脚本的
+测试输出目录后运行`go test ./internal/toolmarket/... -count=1`，复用现有发布包检查及
+受控HTTP下载测试；这不安装插件、不替换保留包、不更改真实配置或采集/保存。
 本批开发检查用测试HTTPS地址编译，没有把测试包交付为用户安装包。
 
 ## 消费者和用户操作
