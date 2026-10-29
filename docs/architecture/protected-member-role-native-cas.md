@@ -120,3 +120,34 @@ Legacy decision: N/A（本次为设计文档，未消费或修改登记为 Legac
 开发验证已覆盖：原生事务提交/通知及旧 Push 回归（使用仓库声明的 Go 1.25.11、默认 vet）；真实 Commands/precondition/PostgreSQL 的角色增减、撤销交错和拒绝路径；不同项目拥有企业的非空原生 grant 发现、增减、并发撤销及错误/显式空 grant 拒绝；应用原回执/audit/reservation 原子保存、审计失败回滚、旧 UNKNOWN 不重发；精确 HTTP 路由权限；已有 UI 回执解析及类型检查。完整 provider 启动、真实 bearer/IAM、管理员真实授权、GUI 新授权流程和环境联调均 **NOT_RUN**。
 
 最终独立源码复核发现 B1-GRANT（空 grant 假设阻断合法企业路径），按同一设计修复并补 RED→GREEN；增量复核已关闭该 finding，无剩余具体源码阻塞。该结论只覆盖本地源码阶段，不是用户、运行或上线验收。共享实例、已有 schema/ACL、数据和管理员权限未改；原 spike 未重跑，新临时 fixture 在保存证据后停止。Issue 保持 OPEN / In Review，远端 CI 未运行。
+# Local member-detail delivery (2026-10-29)
+
+The local UI continuation uses the approved conditional-role contract above and
+the existing member drawer, same-origin BFF and durable membership operation
+receipts. Issue #954 records the user's local-entry/build/isolated-integration
+authorization and `Reuse Existing Architecture / IMPLEMENTATION_READY` basis.
+
+`GET /account/members/:id` projects `businessRoleActions` with concrete grantable
+and revocable enterprise role IDs. It reuses the command eligibility predicate
+and confirms the exact native authorization facts before offering any action.
+The list does not fan out native revision requests. Unavailable or changed native
+facts leave both arrays empty; the projection is never write authorization.
+
+The drawer offers one explicit ADD or REMOVE, previews the member, organization
+and business role, and retains other roles. It uses the detail response's current
+definitions. The existing whole-role replacement/removal protections remain.
+The BFF accepts only the two exact paths and a single enterprise role plus the
+observed version. Commands still perform fresh authorization and native CAS.
+
+The existing scoped pending record is saved before POST. UNKNOWN retains its
+original key; a known receipt is observed through the existing verify path.
+Pending targets cannot submit another drawer action. Closing the drawer is not
+cancellation of a dispatched operation. A newly observed conditional-role ACK,
+including one recovered by GET after response loss, refreshes current member
+facts and Workbench context once in the active scope. Scope changes abort old
+requests and do not restore old controls.
+
+These are local source changes. Use coordinated native provider/backend/UI
+candidates for isolated integration; an upstream provider without the native
+conditional API cannot offer these actions. No retained deployment, account
+permission change, Store operation or user acceptance follows from source checks.

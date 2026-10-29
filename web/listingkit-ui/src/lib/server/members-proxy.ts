@@ -17,6 +17,7 @@ import {
   parseMembers,
   removeInput,
   roleInput,
+  businessRoleInput,
 } from "@/lib/api/members";
 import {
   invitationInput,
@@ -178,6 +179,8 @@ function endpoint(url: URL, method: string) {
   )
     return { path, operation: true, schema: null };
   if (method !== "POST" || parts[0] !== "members") return null;
+  if (parts.length === 4 && memberId.safeParse(parts[1]).success && parts[2] === "business-roles" && ["grant", "revoke"].includes(parts[3]))
+    return { path, operation: true, schema: businessRoleInput };
   if (parts.length === 3 && memberId.safeParse(parts[1]).success) {
     if (parts[2] === "role")
       return { path, operation: true, schema: roleInput };

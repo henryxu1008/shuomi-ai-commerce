@@ -4,6 +4,17 @@ import { WORKBENCH_COOKIE_NAME } from "./workbench-proxy";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.useRealTimers(); });
 const headers = { "X-Expected-User-ID": "actor", "X-Expected-Organization-ID": "org", cookie: `${WORKBENCH_COOKIE_NAME}=org`, Origin: "http://localhost:3000" };
+it.each(["grant", "revoke"])("forwards one business-role %s with the original scope and key", async action => {
+  vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
+  vi.stubEnv("LISTINGKIT_SERVICE_API_BASE", "http://127.0.0.1:9000/api/v1");
+  const fetch = vi.fn().mockResolvedValue(Response.json({code:"MEMBER_OPERATION_CONFLICT",message:"",requestId:"",fieldErrors:[]},{status:409})); vi.stubGlobal("fetch", fetch);
+  const key="4841d296-ef14-4c16-8d25-a7667e534feb", input={role:"sumi_role_e87cb45c05ad389dff6dea6e7bf581ee_03",expectedVersion:"a".repeat(64)};
+  const response=await proxyMembers(new Request(`http://localhost:3000/api/account/members/grant/business-roles/${action}`, {method:"POST",headers:{...headers,"Content-Type":"application/json","Idempotency-Key":key},body:JSON.stringify(input)}),"server-secret","actor");
+  expect(response.status).toBe(409); expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][0]).toBe(`http://127.0.0.1:9000/api/v1/account/members/grant/business-roles/${action}`);
+  expect(fetch.mock.calls[0][1].headers.get("Idempotency-Key")).toBe(key);
+  expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(input);
+});
 it("forwards complete-directory filters with the verified scope",async()=>{
   vi.stubEnv("LISTINGKIT_SERVICE_API_BASE","http://127.0.0.1:9000/api/v1");
   const fetch=vi.fn().mockResolvedValue(Response.json({schemaVersion:"membership-v1",userId:"actor",organizationId:"org",items:[],total:0,canManage:false,assignableRoles:[],roleDefinitions:[]}));vi.stubGlobal("fetch",fetch);

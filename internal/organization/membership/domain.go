@@ -17,20 +17,28 @@ var (
 )
 
 type Member struct {
-	ID              string   `json:"id"`
-	UserID          string   `json:"userId"`
-	OrganizationID  string   `json:"organizationId"`
-	ProjectID       string   `json:"projectId"`
-	DisplayName     string   `json:"displayName"`
-	LoginName       string   `json:"loginName"`
-	Roles           []string `json:"roles"`
-	State           string   `json:"state"`
-	CreatedAt       string   `json:"createdAt"`
-	ChangedAt       string   `json:"changedAt"`
-	ObservedVersion string   `json:"observedVersion"`
-	CanChangeRole   bool     `json:"canChangeRole"`
-	CanRemove       bool     `json:"canRemove"`
-	Permissions     []string `json:"permissions"`
+	ID                  string               `json:"id"`
+	UserID              string               `json:"userId"`
+	OrganizationID      string               `json:"organizationId"`
+	ProjectID           string               `json:"projectId"`
+	DisplayName         string               `json:"displayName"`
+	LoginName           string               `json:"loginName"`
+	Roles               []string             `json:"roles"`
+	State               string               `json:"state"`
+	CreatedAt           string               `json:"createdAt"`
+	ChangedAt           string               `json:"changedAt"`
+	ObservedVersion     string               `json:"observedVersion"`
+	CanChangeRole       bool                 `json:"canChangeRole"`
+	CanRemove           bool                 `json:"canRemove"`
+	Permissions         []string             `json:"permissions"`
+	BusinessRoleActions *BusinessRoleActions `json:"businessRoleActions,omitempty"`
+}
+
+// BusinessRoleActions is a read hint; each command independently revalidates it.
+type BusinessRoleActions struct {
+	GrantableRoleIDs []string `json:"grantableRoleIds"`
+	RevocableRoleIDs []string `json:"revocableRoleIds"`
+	Reason           string   `json:"reason"`
 }
 
 type PageRequest struct {

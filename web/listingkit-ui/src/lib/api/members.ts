@@ -12,6 +12,14 @@ const text = (max: number) =>
 const role = assignableRole;
 const timestamp = z.string().max(40).datetime({ precision: null });
 const version = z.string().regex(/^[a-f0-9]{64}$/);
+const businessRoleActions = z.object({
+  grantableRoleIds: z.array(enterpriseRoleKey).max(64),
+  revocableRoleIds: z.array(enterpriseRoleKey).max(32),
+  reason: z.enum(["ready", "not_allowed", "no_eligible_role", "provider_unavailable", "state_changed"]),
+}).strict().refine(value =>
+  new Set(value.grantableRoleIds).size === value.grantableRoleIds.length &&
+  new Set(value.revocableRoleIds).size === value.revocableRoleIds.length &&
+  (value.reason === "ready" ? value.grantableRoleIds.length + value.revocableRoleIds.length > 0 : value.grantableRoleIds.length + value.revocableRoleIds.length === 0));
 const memberSchema = z
   .object({
     id: memberId,
@@ -28,6 +36,7 @@ const memberSchema = z
     observedVersion: version,
     canChangeRole: z.boolean(),
     canRemove: z.boolean(),
+    businessRoleActions: businessRoleActions.optional(),
   })
   .strict();
 const listSchema = z
@@ -47,7 +56,14 @@ const listSchema = z
       value.items.length <= value.total &&
       new Set(value.items.map((item) => item.id)).size === value.items.length &&
       value.items.every(
-        (item) => item.organizationId === value.organizationId,
+        (item) => item.organizationId === value.organizationId &&
+          (!item.businessRoleActions || [...item.businessRoleActions.grantableRoleIds, ...item.businessRoleActions.revocableRoleIds].every(id => {
+            const definition = value.roleDefinitions.find(role => role.id === id && !role.system);
+            return value.canManage && item.state === "active" && !!definition &&
+              (item.businessRoleActions!.grantableRoleIds.includes(id)
+                ? !item.roles.includes(id) && definition.modules.length === 1 && definition.modules[0] === "store-browser"
+                : item.roles.includes(id));
+          })),
       ) &&
       (value.canManage ||
         (!value.assignableRoles.length &&
@@ -221,6 +237,7 @@ export const invitationInput = z
   })
   .strict();
 export const roleInput = z.object({ role, expectedVersion: version }).strict();
+export const businessRoleInput = z.object({ role: enterpriseRoleKey, expectedVersion: version }).strict();
 export const removeInput = z.object({ expectedVersion: version }).strict();
 
 export async function getMembers(scope: MemberScope, offset = 0, filters: Partial<MemberFilters> = {}): Promise<Members> {
@@ -336,6 +353,10 @@ export function removeMember(
     key,
     removeInput.parse(input),
   );
+}
+
+export function changeMemberBusinessRole(scope: MemberScope, key: string, id: string, action: "grant" | "revoke", input: z.infer<typeof businessRoleInput>): Promise<MemberOperation> {
+  return requestMembers(`/members/${memberId.parse(id)}/business-roles/${z.enum(["grant", "revoke"]).parse(action)}`, scope, "POST", value => parseMemberOperation(value, key), key, businessRoleInput.parse(input));
 }
 
 export async function requestMembers<T>(

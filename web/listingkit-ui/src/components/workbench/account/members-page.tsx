@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
 
-import { changeMemberRole, getMember, getMemberOperation, getMemberOperations, getMembers, MemberError, MemberFilters, memberListFilterSchema, MemberOperation, MemberOperations, MemberRole, MemberScope, removeMember, verifyMemberOperation } from "@/lib/api/members";
+import { changeMemberBusinessRole, changeMemberRole, getMember, getMemberOperation, getMemberOperations, getMembers, MemberError, MemberFilters, memberListFilterSchema, MemberOperation, MemberOperations, MemberRole, MemberScope, removeMember, verifyMemberOperation } from "@/lib/api/members";
+import { WORKBENCH_CONTEXT_QUERY_KEY } from "@/lib/api/workbench-context";
 import { Pending, readPending, retainAdvancedReceipt, savePending, terminalReceipt } from "./member-pending";
 import { ConsoleState } from "../console/console-page";
 import { AccountShell } from "./account-shell";
@@ -46,6 +47,7 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
   const applyFilters = (next:MemberFilters) => { setSelected(null);setOffset(0);setFilters(next);setFilterError(""); };
   const [busy, setBusy] = useState(false); const busyRef = useRef(false); const [error, setError] = useState("");
   const [receipts, setReceipts] = useState<Record<string, MemberOperation>>({});
+  const businessRoleRefreshed = useRef(new Set<string>());
   const remember = (items: MemberOperation[]) => setReceipts(previous => {
     const next = {...previous};
     for (const item of items) next[item.id] = retainAdvancedReceipt(previous[item.id], item)!;
@@ -75,7 +77,17 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
   const operationKey = ["member-operation",scope.expectedUserId,scope.expectedOrganizationId,activeKey];
   const operation = useQuery({ queryKey:operationKey, queryFn: async ({ signal }) => { try { const receipt=await getMemberOperation({ ...scope, signal }, activeKey!);if(!signal.aborted)remember([receipt]);return receipt; } catch (failure) { if (!signal.aborted) quarantine(failure); throw failure; } }, enabled:!!activeKey && !authorityError, gcTime:0,staleTime:0,retry:false });
   const receiptFor = (key:string) => retainAdvancedReceipt(retainAdvancedReceipt(durable.find(item=>item.id===key),receipts[key]),operation.data?.id===key ? operation.data : undefined);
+  const targetPending = (id:string) => local.items.some(item=>"target" in item && item.target === id && !terminalReceipt(receiptFor(item.key))) || durable.some(item=>item.authorizationId === id && !terminalReceipt(receiptFor(item.id)));
   const currentReceipt = authorityError ? undefined : activeKey ? receiptFor(activeKey) : undefined;
+  useEffect(() => {
+    if (authorityError || !controllerRef.current || controllerRef.current.signal.aborted) return;
+    const completed = Object.values(receipts).filter(item=>item.status === "acknowledged" && item.kind.startsWith("business_role_") && !businessRoleRefreshed.current.has(item.id));
+    if (!completed.length) return;
+    completed.forEach(item=>businessRoleRefreshed.current.add(item.id));
+    void queryClient.invalidateQueries({queryKey:["members",scope.expectedUserId,scope.expectedOrganizationId]});
+    void queryClient.invalidateQueries({queryKey:["member-detail",scope.expectedUserId,scope.expectedOrganizationId]});
+    void queryClient.invalidateQueries({queryKey:WORKBENCH_CONTEXT_QUERY_KEY});
+  }, [receipts, authorityError, queryClient, scope.expectedUserId, scope.expectedOrganizationId]);
   const refreshMembers = async () => {
     const revision = authorityRevision.current;
     setSelected(null); const refreshed = await query.refetch();
@@ -91,7 +103,10 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
     try {
       await queryClient.cancelQueries({queryKey:["member-operation",scope.expectedUserId,scope.expectedOrganizationId,key]});
       const requestScope = { ...scope, signal: controller.signal };
-      const result = verify || !command ? await verifyMemberOperation(requestScope, key) : command.kind === "invite" ? await verifyMemberOperation(requestScope, key) : command.kind === "role" ? await changeMemberRole(requestScope, key, command.target, command.input) : await removeMember(requestScope, key, command.target, command.input);
+      // Once dispatched, a conditional write is only observed by its original
+      // receipt. A local recovery record never authorizes a second POST.
+      const conditionalSent = command?.kind.startsWith("business_role_") && !!receiptFor(key);
+      const result = verify || !command || conditionalSent ? await verifyMemberOperation(requestScope, key) : command.kind === "invite" ? await verifyMemberOperation(requestScope, key) : command.kind === "role" ? await changeMemberRole(requestScope, key, command.target, command.input) : command.kind === "business_role_grant" || command.kind === "business_role_revoke" ? await changeMemberBusinessRole(requestScope, key, command.target, command.kind === "business_role_grant" ? "grant" : "revoke", command.input) : await removeMember(requestScope, key, command.target, command.input);
       if (!controller.signal.aborted) { remember([result]); queryClient.setQueryData(["member-operation",scope.expectedUserId,scope.expectedOrganizationId,key],result); void query.refetch(); void operations.refetch(); }
     } catch (failure) { if (!controller.signal.aborted) { quarantine(failure); setError(failure instanceof MemberError ? failure.code : "DEPENDENCY_UNAVAILABLE"); } }
     finally { busyRef.current=false; if (!controller.signal.aborted) setBusy(false); }
@@ -145,7 +160,7 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
     <p id="member-search-error" className={styles.authorityNote} role={filterError ? "alert" : undefined}>{filterError}</p></div>
     </div>
     {!ready ? authorityError ? <MemberFailure code={authorityError.code} /> : query.isError ? <MemberFailure code={query.error instanceof MemberError ? query.error.code : "DEPENDENCY_UNAVAILABLE"} /> : <ConsoleState kind="loading" title="正在读取成员">正在确认成员目录与当前权限。</ConsoleState> : <><div hidden={memberTab!=="formal"}>
-      {selected && <MemberDetail key={selected} id={selected} scope={scope} roles={query.data.assignableRoles} definitions={query.data.roleDefinitions} disabled={busy || local.error} onClose={() => setSelected(null)} onSubmit={submit} onAuthorityFailure={quarantine} />}
+      {selected && <MemberDetail key={selected} id={selected} scope={scope} disabled={busy || local.error || targetPending(selected)} onClose={() => setSelected(null)} onSubmit={submit} onAuthorityFailure={quarantine} />}
       {query.data.items.length === 0 ? <ConsoleState kind="empty" title={filtered ? "没有匹配的成员" : "当前没有可显示的成员"}>{filtered ? "当前企业目录读取成功，请调整或清除筛选条件。" : "当前企业的成员目录读取成功。"}</ConsoleState> : <div className={styles.tableWrap} role="region" aria-label="成员表格，可横向滚动" tabIndex={0}><table className={styles.table}><caption className={styles.caption}>当前企业成员</caption><thead><tr><th>成员</th><th>账号</th><th>角色</th><th>权限范围</th><th>状态</th><th>最近活跃</th><th>操作</th></tr></thead><tbody>{query.data.items.map(member => <tr key={member.id}><td><strong>{member.displayName || member.loginName || member.userId}</strong></td><td>{member.loginName || "未提供"}</td><td>{member.roles.map(value => roleNames[value as MemberRole] ?? value).join("、") || "未授予角色"}</td><td><PermissionScope permissions={member.permissions}/></td><td>{member.state === "active" ? "有效" : "已停用"}</td><td><RecentMemberActivity scope={scope} userId={member.userId}/></td><td><Button variant="ghost" onClick={() => { setSelected(member.id); }}>查看详情</Button></td></tr>)}</tbody></table></div>}
       <div className={styles.pagination}><Button variant="outline" disabled={offset === 0 || busy} onClick={() => { setSelected(null); setOffset(value => Math.max(0, value - 20)); }}>上一页</Button><span>第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" disabled={offset + 20 >= query.data.total || busy} onClick={() => { setSelected(null); setOffset(value => value + 20); }}>下一页</Button></div>
       </div>
@@ -154,16 +169,35 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
   </div></AccountShell>;
 }
 
-function MemberDetail({ id, scope, roles, definitions, disabled, onClose, onSubmit, onAuthorityFailure }: { id: string; scope: MemberScope; roles: MemberRole[]; definitions: EnterpriseRole[]; disabled: boolean; onClose: () => void; onSubmit: (pending: Pending) => void; onAuthorityFailure: (failure: unknown) => void }) {
+function MemberDetail({ id, scope, disabled, onClose, onSubmit, onAuthorityFailure }: { id: string; scope: MemberScope; disabled: boolean; onClose: () => void; onSubmit: (pending: Pending) => void; onAuthorityFailure: (failure: unknown) => void }) {
   const detail = useQuery({ queryKey: ["member-detail", scope.expectedUserId, scope.expectedOrganizationId, id], queryFn: async ({ signal }) => { try { return await getMember({ ...scope, signal }, id); } catch (failure) { if (!signal.aborted) onAuthorityFailure(failure); throw failure; } }, gcTime: 0, staleTime: 0, retry: false });
   const [confirmed, setConfirmed] = useState(false);
+  const [grantRole, setGrantRole] = useState("");
+  const [revokeRole, setRevokeRole] = useState("");
+  const context = useWorkbenchContext();
   if (detail.isFetching || detail.isPending) return <ConsoleState kind="loading" title="正在读取成员详情" />;
   if (detail.isError || detail.data.items.length !== 1) return <MemberFailure code={detail.error instanceof MemberError ? detail.error.code : "MEMBER_NOT_FOUND"} />;
   const member = detail.data.items[0];
+  const definitions=detail.data.roleDefinitions, roles=detail.data.assignableRoles;
+  const actions = detail.data.canManage ? member.businessRoleActions : undefined;
+  const grantable = actions?.grantableRoleIds ?? [], revocable = actions?.revocableRoleIds ?? [];
+  const businessForm = (action:"grant"|"revoke", candidates:string[], selectedRole:string, choose:(role:string)=>void) => {
+    if (!candidates.length) return null;
+    const definition=definitions.find(role=>role.id===selectedRole);
+    const verb=action === "grant" ? "追加" : "撤销";
+    return <form onSubmit={event=>{event.preventDefault();if (!disabled && definition && candidates.includes(selectedRole)) onSubmit({key:crypto.randomUUID(),kind:action === "grant" ? "business_role_grant" : "business_role_revoke",target:id,input:{role:selectedRole,expectedVersion:member.observedVersion}});}}>
+      <label>{verb}业务角色<select className={styles.select} required value={selectedRole} onChange={event=>choose(event.target.value)} disabled={disabled}><option value="" disabled>请选择业务角色</option>{candidates.map(role=><option key={role} value={role}>{displayRoles(definitions)[role] ?? role}</option>)}</select></label>
+      {definition && <p>仅{verb}「{definition.name}」，保留该成员的其他角色。{action === "grant" ? "追加后可使用店铺浏览器。" : "该角色的授权将被移除，最终权限以其他角色为准。"}</p>}
+      <Button type="submit" variant={action === "revoke" ? "outline" : "default"} disabled={disabled || !definition || !candidates.includes(selectedRole)}>确认{verb}</Button>
+    </form>;
+  };
   return <AccountDialog title="成员详情" drawer onClose={onClose}><section className={styles.detail}><h3>{member.displayName || member.loginName}</h3><p>{member.loginName || "未提供账号"}</p><p>{member.roles.map(role=>displayRoles(definitions)[role] ?? role).join("、")}</p><PermissionScope permissions={member.permissions}/><RecentMemberActivity scope={scope} userId={member.userId}/><dl className={styles.facts}><div><dt>成员 ID</dt><dd>{member.id}</dd><dt>用户 ID</dt><dd>{member.userId}</dd></div><div><dt>加入时间</dt><dd>{new Date(member.createdAt).toLocaleString()}</dd></div><div><dt>最近变更</dt><dd>{new Date(member.changedAt).toLocaleString()}</dd></div></dl>
     {member.canChangeRole && <form onSubmit={event => { event.preventDefault(); onSubmit({ key: crypto.randomUUID(), kind: "role", target: id, input: { role: new FormData(event.currentTarget).get("role") as MemberRole, expectedVersion: member.observedVersion } }); }}><label>新的成员角色<RoleSelect name="role" roles={roles} definitions={definitions} initialRole={member.roles.length === 1 ? member.roles[0] : ""} /></label><Button disabled={disabled} type="submit">保存角色</Button></form>}
     {member.canRemove && <div className={styles.removal}><label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={disabled} /> 确认移除该成员在当前企业项目中的访问权限</label><Button variant="destructive" disabled={disabled || !confirmed} onClick={() => onSubmit({ key: crypto.randomUUID(), kind: "remove", target: id, input: { expectedVersion: member.observedVersion } })}>移除成员</Button></div>}
-    {!member.canChangeRole && !member.canRemove && <p>当前成员仅可查看。</p>}
+    {!!(grantable.length || revocable.length) && <section aria-label="业务角色"><h3>业务角色</h3><p>当前企业：{context.effectiveOrganization?.name}；成员：{member.displayName || member.loginName}。每次仅变更一个业务角色。</p>{businessForm("grant",grantable,grantRole,setGrantRole)}{businessForm("revoke",revocable,revokeRole,setRevokeRole)}</section>}
+    {actions?.reason === "provider_unavailable" && <p role="status">暂时无法确认业务角色资格，请关闭详情后重新读取。</p>}
+    {actions?.reason === "state_changed" && <p role="status">成员状态已变化，请关闭详情后重新读取。</p>}
+    {!member.canChangeRole && !member.canRemove && !grantable.length && !revocable.length && <p>当前成员仅可查看。</p>}
   </section></AccountDialog>;
 }
 function RoleSelect({ roles, definitions, name, initialRole }: { roles: MemberRole[]; definitions: EnterpriseRole[]; name: string; initialRole?: string }) { return <select name={name} className={styles.select} defaultValue={initialRole} required>{initialRole === "" && <option value="" disabled>请选择角色</option>}{roles.map(role => <option key={role} value={role}>{displayRoles(definitions)[role] ?? role}</option>)}</select>; }

@@ -15,11 +15,18 @@ import (
 )
 
 func (s *Service) businessRoleEligible(ctx context.Context, member Member, kind CommandKind, key string) bool {
-	if !businessRoleKind(kind) || member.State != "active" || s.roleStore == nil || !authz.IsEnterpriseRoleKey(member.OrganizationID, key) || member.ProjectID != s.projectID || len(member.Roles) == 0 || len(member.Roles) > 32 {
+	if s.roleStore == nil {
 		return false
 	}
 	definitions, _, err := s.roleStore.Roles(ctx, member.OrganizationID)
 	if err != nil {
+		return false
+	}
+	return s.businessRoleEligibleWithDefinitions(member, kind, key, definitions)
+}
+
+func (s *Service) businessRoleEligibleWithDefinitions(member Member, kind CommandKind, key string, definitions []RoleDefinition) bool {
+	if !businessRoleKind(kind) || member.State != "active" || !authz.IsEnterpriseRoleKey(member.OrganizationID, key) || member.ProjectID != s.projectID || len(member.Roles) == 0 || len(member.Roles) > 32 {
 		return false
 	}
 	known := map[string]bool{"listingkit_admin": true}
@@ -128,9 +135,7 @@ func (c *Commands) resumeBusinessRole(ctx context.Context, op Operation) (Operat
 	if !native.valid() || native.OrganizationID != member.OrganizationID || native.ProjectID != member.ProjectID || native.AuthorizationID != member.ID || native.UserID != member.UserID {
 		return op, ErrInvalidResponse
 	}
-	projectedTime, parseProjected := time.Parse(time.RFC3339Nano, member.ChangedAt)
-	nativeTime, parseNative := time.Parse(time.RFC3339Nano, native.ChangedAt)
-	if native.State != member.State || !sameRoles(native.Roles, member.Roles) || parseProjected != nil || parseNative != nil || !projectedTime.Equal(nativeTime) {
+	if !nativeMatchesMember(native, member) {
 		return c.rejectBusinessRole(ctx, op)
 	}
 	plan := &ConditionalRolePlan{Native: native, Direction: "ADD", AfterRoles: append(slices.Clone(native.Roles), op.Role)}

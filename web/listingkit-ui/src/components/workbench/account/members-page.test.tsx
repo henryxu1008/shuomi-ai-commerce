@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { MembersPage } from "./members-page";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { WORKBENCH_CONTEXT_QUERY_KEY } from "@/lib/api/workbench-context";
 
 // Reuse the axe engine already installed by the repository's browser test dependency.
 const load = createRequire(import.meta.url);
@@ -23,6 +24,49 @@ beforeAll(() => {
 });
 afterEach(() => { cleanup(); clients.splice(0).forEach(client => client.clear()); vi.unstubAllGlobals(); vi.restoreAllMocks(); state.switching = false; state.org = "org";state.counts={total:1,active:1,administrators:0,inactive:0}; sessionStorage.clear(); });
 function page(client = new QueryClient()) { vi.stubGlobal("fetch",withAdditionalReads(globalThis.fetch)); clients.push(client); return <QueryClientProvider client={client}><MembersPage expectedUserId="actor" /></QueryClientProvider>; }
+it("refreshes current context when GET recovers an acknowledged business-role receipt without resending", async()=>{
+  const key="ea0390e6-6fd0-4834-8e9c-277caf59c122", role="sumi_role_e87cb45c05ad389dff6dea6e7bf581ee_03";
+  const retained=JSON.stringify([{key,kind:"business_role_grant",target:"grant",input:{role,expectedVersion:"a".repeat(64)}}]);
+  sessionStorage.setItem('membership.pending:["actor","org"]',retained);
+  const proof={result:"APPLIED",instanceId:"instance",organizationId:"org",projectId:"project",projectGrantId:"enterprise-grant",authorizationId:"grant",userId:"member",expectedSequence:"7",nativeSequence:"8",roleKey:role,direction:"ADD",dispatchId:"attempt"};
+  const receipt={schemaVersion:"membership-operation-v1",userId:"actor",organizationId:"org",id:key,kind:"business_role_grant",step:"conditional_role",status:"acknowledged",targetUserId:"member",authorizationId:"grant",userEvidence:"",userAcknowledgment:null,acknowledgment:{id:"grant",at:"2026-10-29T00:00:00Z",conditionalRole:proof},observation:"unavailable",observed:null};
+  const calls=vi.fn((url:string, _init?:RequestInit)=>Promise.resolve(Response.json(url.endsWith(key) ? receipt : url.includes("member-operations") ? {schemaVersion:"membership-operations-v1",userId:"actor",organizationId:"org",items:[],next:""} : {...result,canManage:true})));
+  vi.stubGlobal("fetch",calls); const client=new QueryClient(); const invalidations=vi.spyOn(client,"invalidateQueries");render(page(client));
+  expect(await screen.findByRole("heading",{name:"操作已获服务确认"})).toBeVisible();
+  await waitFor(()=>expect(invalidations).toHaveBeenCalledWith({queryKey:WORKBENCH_CONTEXT_QUERY_KEY}));
+  expect(calls.mock.calls.every(([,init])=>!init || (init as RequestInit).method !== "POST")).toBe(true);
+  expect(sessionStorage.getItem('membership.pending:["actor","org"]')).toBe(retained);
+});
+it.each(["grant", "revoke"] as const)("adds or revokes exactly one business role through the protected member drawer: %s", async action => {
+  const business="sumi_role_e87cb45c05ad389dff6dea6e7bf581ee_03";
+  const definitions=[...roleDefinitions,{id:business,name:"店铺浏览器",modules:["store-browser"],version:1,system:false}];
+  const member={...result.items[0],roles:action === "grant" ? ["listingkit_admin","platform_admin"] : ["listingkit_admin","platform_admin",business],businessRoleActions:{grantableRoleIds:action === "grant" ? [business] : [],revocableRoleIds:action === "revoke" ? [business] : [],reason:"ready"}};
+  const value={...result,canManage:true,roleDefinitions:definitions,assignableRoles:[],items:[member]};
+  const calls=vi.fn((url:string,init?:RequestInit)=>Promise.resolve(Response.json(
+    init?.method === "POST" ? {schemaVersion:"membership-operation-v1",userId:"actor",organizationId:"org",id:new Headers(init.headers).get("Idempotency-Key"),kind:`business_role_${action}`,step:"conditional_role",status:"unknown",targetUserId:"member",authorizationId:"grant",userEvidence:"",userAcknowledgment:null,acknowledgment:null,observation:"unavailable",observed:null} :
+    url.includes("member-operations") ? {schemaVersion:"membership-operations-v1",userId:"actor",organizationId:"org",items:[],next:""} : value
+  )));
+  vi.stubGlobal("fetch",calls); render(page()); const user=userEvent.setup();
+  await user.click(await screen.findByRole("button",{name:"查看详情"}));
+  const dialog=await screen.findByRole("dialog",{name:"成员详情"});
+  expect(within(dialog).queryByText("当前成员仅可查看。")).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole("button",{name:"保存角色"})).not.toBeInTheDocument();
+  await user.selectOptions(within(dialog).getByRole("combobox",{name:action === "grant" ? "追加业务角色" : "撤销业务角色"}),business);
+  expect(within(dialog).getByText(/仅.*店铺浏览器/)).toBeVisible();
+  await user.click(within(dialog).getByRole("button",{name:action === "grant" ? "确认追加" : "确认撤销"}));
+  expect(await screen.findByRole("heading",{name:"结果待核实"})).toBeVisible();
+  const writes=calls.mock.calls.filter(([,init])=>init?.method === "POST"); expect(writes).toHaveLength(1);
+  expect(writes[0][0]).toBe(`/api/account/members/grant/business-roles/${action}`);
+  expect(JSON.parse(writes[0][1]!.body as string)).toEqual({role:business,expectedVersion:member.observedVersion});
+  const retained=sessionStorage.getItem('membership.pending:["actor","org"]')!;
+  expect(JSON.parse(retained)[0].kind).toBe(`business_role_${action}`);
+  // A returned UNKNOWN must stay on its original key even after continuing.
+  calls.mockImplementation((url:string)=>Promise.resolve(Response.json(url.includes("member-operations/") ? {schemaVersion:"membership-operation-v1",userId:"actor",organizationId:"org",id:JSON.parse(retained)[0].key,kind:`business_role_${action}`,step:"conditional_role",status:"unknown",targetUserId:"member",authorizationId:"grant",userEvidence:"",userAcknowledgment:null,acknowledgment:null,observation:"unavailable",observed:null} : value)));
+  await user.click(screen.getByRole("button",{name:"继续原操作"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"继续原操作"})).toBeEnabled());
+  expect(calls.mock.calls.filter(([url])=>url.includes(`/business-roles/${action}`))).toHaveLength(1);
+  expect(sessionStorage.getItem('membership.pending:["actor","org"]')).toBe(retained);
+});
 it("labels the authorization member ID separately from its user ID",async()=>{
  vi.stubGlobal("fetch",vi.fn().mockImplementation(()=>Promise.resolve(Response.json(result))));render(page());
  await userEvent.click(await screen.findByRole("button",{name:"查看详情"}));

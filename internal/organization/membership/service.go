@@ -45,7 +45,18 @@ func (s *Service) Read(ctx context.Context, id string) (Result, error) {
 		return Result{}, ErrInvalidResponse
 	}
 	member.Roles = append([]string{}, member.Roles...)
-	return s.project(ctx, identity, []Member{member}, 1)
+	result, err := s.project(ctx, identity, []Member{member}, 1)
+	if err != nil {
+		return Result{}, err
+	}
+	result.Items[0].BusinessRoleActions = s.businessRoleActions(ctx, result.Items[0], result.CanManage, result.RoleDefinitions)
+	if ctx.Err() != nil {
+		return Result{}, ErrUnavailable
+	}
+	if !time.Now().Before(identity.TokenExpiresAt) {
+		return Result{}, ErrAuthentication
+	}
+	return result, nil
 }
 
 func NewService(directory Directory, authorizer Authorizer, projectID string, protectedRoles ...string) *Service {

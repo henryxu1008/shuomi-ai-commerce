@@ -2,6 +2,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getMembers, parseMembers, parseMemberOperation, invitationInput, getMemberOperations, parseMemberOperations, getMemberOperation, verifyMemberOperation, changeMemberRole, removeMember } from "./members";
 
 const empty = { schemaVersion: "membership-v1", userId: "actor", organizationId: "org", items: [], total: 0, canManage: false, assignableRoles:[],roleDefinitions:[] };
+it("rejects business-role hints that offer system, absent, broad or contradictory roles",()=>{
+  const role="sumi_role_e87cb45c05ad389dff6dea6e7bf581ee_03";
+  const member={id:"grant",userId:"target",organizationId:"org",projectId:"project",displayName:"Target",loginName:"t@example.test",roles:["listingkit_admin"],permissions:[],state:"active",createdAt:"2026-10-29T00:00:00Z",changedAt:"2026-10-29T00:00:00Z",observedVersion:"a".repeat(64),canChangeRole:false,canRemove:false,businessRoleActions:{grantableRoleIds:[role],revocableRoleIds:[],reason:"ready"}};
+  const valid={...empty,canManage:true,total:1,items:[member],roleDefinitions:[{id:role,name:"店铺浏览器",modules:["store-browser"],system:false,version:1}]};
+  expect(parseMembers(valid).items[0].businessRoleActions?.grantableRoleIds).toEqual([role]);
+  for (const invalid of [
+    {...valid,canManage:false}, {...valid,roleDefinitions:[]},
+    {...valid,roleDefinitions:[{...valid.roleDefinitions[0],modules:["members"]}]},
+    {...valid,items:[{...member,roles:["listingkit_admin",role]}]},
+    {...valid,items:[{...member,businessRoleActions:{...member.businessRoleActions,reason:"provider_unavailable"}}]},
+    {...valid,items:[{...member,businessRoleActions:{...member.businessRoleActions,grantableRoleIds:["listingkit_admin"]}}]},
+  ]) expect(()=>parseMembers(invalid)).toThrow();
+});
 it("reads conditional role receipts without discarding original UNKNOWN or native evidence",()=>{
   const receipt={schemaVersion:"membership-operation-v1",userId:"actor",organizationId:"org",id:"ea0390e6-6fd0-4834-8e9c-277caf59c122",kind:"business_role_grant",step:"conditional_role",status:"unknown",targetUserId:"target",authorizationId:"grant",userEvidence:"",userAcknowledgment:null,acknowledgment:null,observation:"unavailable",observed:null};
   expect(parseMemberOperation(receipt).status).toBe("unknown");

@@ -64,6 +64,7 @@ func (s *Service) project(ctx context.Context, identity authidentity.Authenticat
 		}
 	}
 	for i := range items {
+		items[i].BusinessRoleActions = nil // Only the detail path confirms native availability.
 		items[i].Permissions = []string{}
 		if items[i].State == "active" {
 			permissions, err := authz.PermissionsInOrganization(ctx, s.authorizer, items[i].UserID, identity.EffectiveOrganizationID, items[i].Roles)
