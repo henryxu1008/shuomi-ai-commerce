@@ -37,6 +37,39 @@ it("does not POST when the durable intent cannot be retained",async()=>{
  render(<CaptureReceiver/>);await loaded();mocks.message.mockImplementation(async(m)=>m.type==="capture.bind"?{version:2,code:"DRAFT_STORAGE_FULL"}:{version:2,type:"capture.metadata",idempotencyKey:key,phase:"ready"});
  submit();await screen.findByText(/DRAFT_STORAGE_FULL/);expect(mocks.capture).not.toHaveBeenCalled();
 });
+it.each(["capture.meta","capture.read","capture.bind","capture.send"])("guides original-draft recovery after %s expires without dispatching or resubmitting",async stage=>{
+ const message=mocks.message.getMockImplementation()!;
+ if(stage==="capture.meta"||stage==="capture.read")mocks.message.mockImplementation(async m=>m.type===stage?{version:2,code:"CAPTURE_EXPIRED"}:message(m));
+ render(<CaptureReceiver/>);
+ if(stage==="capture.bind"||stage==="capture.send"){
+  await loaded();mocks.message.mockImplementation(async m=>m.type===stage?{version:2,code:"CAPTURE_EXPIRED"}:message(m));submit();
+ }
+ await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("交接已过期（CAPTURE_EXPIRED）"));
+ expect(screen.getByRole("status")).toHaveTextContent("本机保全资料");expect(screen.getByRole("status")).toHaveTextContent("恢复原操作");
+ expect(screen.getByRole("status")).not.toHaveTextContent("OUTCOME_UNKNOWN");
+ expect(screen.queryByRole("button",{name:"Confirm and submit"})).toBeNull();expect(mocks.capture).not.toHaveBeenCalled();
+ expect(mocks.message.mock.calls.filter(c=>c[0].type==="capture.status")).toHaveLength(0);
+});
+it("requires fresh consent after explicit recovery with a new nonce and the same key and body",async()=>{
+ const message=mocks.message.getMockImplementation()!;
+ const mounted=render(<CaptureReceiver/>);await loaded();
+ mocks.message.mockImplementation(async m=>m.type==="capture.bind"?{version:2,code:"CAPTURE_EXPIRED"}:message(m));submit();
+ await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("CAPTURE_EXPIRED"));
+ const original=mocks.message.mock.calls.find(c=>c[0].type==="capture.bind")![0];
+ mounted.unmount();mocks.message.mockImplementation(message);
+ const nonce="33333333-3333-4333-8333-33333333333c";
+ window.history.replaceState(null,"",`/capture/1688#extensionId=${"a".repeat(32)}&handoffId=${nonce}&idempotencyKey=${key}`);
+ render(<CaptureReceiver/>);await loaded();expect(mocks.capture).not.toHaveBeenCalled();submit();await screen.findByText("Published version 1");
+ const restored=mocks.message.mock.calls.filter(c=>c[0].type==="capture.bind").at(-1)![0];
+ expect(restored).toEqual({...original,handoffId:nonce});expect(mocks.capture).toHaveBeenCalledOnce();expect(mocks.capture.mock.calls[0][0]).toMatchObject({key,body:original.body});
+});
+it("keeps the saved result when the handoff expires while reporting the receipt",async()=>{
+ const message=mocks.message.getMockImplementation()!;
+ mocks.message.mockImplementation(async m=>m.type==="capture.status"?{version:2,code:"CAPTURE_EXPIRED"}:message(m));
+ render(<CaptureReceiver/>);await loaded();submit();await screen.findByText("Published version 1");
+ expect(mocks.capture).toHaveBeenCalledOnce();expect(screen.getByRole("status")).not.toHaveTextContent("交接已过期");
+ expect(screen.queryByRole("button",{name:"Confirm and submit"})).toBeNull();
+});
 it("reload only verifies the original key after an explicit click",async()=>{
  window.history.replaceState(null,"",`/capture/1688#operationKey=${key}`);render(<CaptureReceiver/>);fireEvent.click(await screen.findByRole("button",{name:"Check original operation"}));await screen.findByText("Published version 1");expect(mocks.message).not.toHaveBeenCalled();expect(mocks.capture).not.toHaveBeenCalled();expect(mocks.read.mock.calls[0].slice(0,2)).toEqual([{userId:"actor",organizationId:"org-B"},key]);
 });

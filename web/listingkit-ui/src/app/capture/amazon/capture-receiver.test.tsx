@@ -40,10 +40,53 @@ it("does not require a second body owner in sessionStorage",async()=>{
 it("refuses POST if the durable freeze cannot commit",async()=>{
  render(<AmazonCaptureReceiver/>);await loaded();mocks.message.mockImplementation(async()=>({version:2,code:"DRAFT_STORAGE_FULL"}));submit();await screen.findByText(/保存未发送：DRAFT_STORAGE_FULL/);expect(mocks.request).not.toHaveBeenCalled();
 });
+it.each(["capture.meta","capture.read","capture.bind","capture.send"])("guides original-draft recovery after %s expires without dispatching or resubmitting",async stage=>{
+ const message=mocks.message.getMockImplementation()!;
+ if(stage==="capture.meta"||stage==="capture.read")mocks.message.mockImplementation(async m=>m.type===stage?{version:2,code:"CAPTURE_EXPIRED"}:message(m));
+ render(<AmazonCaptureReceiver/>);
+ if(stage==="capture.bind"||stage==="capture.send"){
+  await loaded();mocks.message.mockImplementation(async m=>m.type===stage?{version:2,code:"CAPTURE_EXPIRED"}:message(m));submit();
+ }
+ expect(await screen.findByRole("status")).toBeInTheDocument();
+ await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("交接已过期（CAPTURE_EXPIRED）"));
+ expect(screen.getByRole("status")).toHaveTextContent("本机保全资料");expect(screen.getByRole("status")).toHaveTextContent("恢复原操作");
+ expect(screen.getByRole("status")).not.toHaveTextContent("OUTCOME_UNKNOWN");
+ expect(screen.queryByRole("button",{name:"确认保存"})).toBeNull();expect(screen.queryByRole("button",{name:"用原键重试同一份资料"})).toBeNull();
+ expect(mocks.request).not.toHaveBeenCalled();expect(mocks.message.mock.calls.filter(c=>c[0].type==="capture.status")).toHaveLength(0);
+});
+it("requires fresh consent after explicit recovery with a new nonce and the same key and body",async()=>{
+ const message=mocks.message.getMockImplementation()!;
+ const mounted=render(<AmazonCaptureReceiver/>);await loaded();
+ mocks.message.mockImplementation(async m=>m.type==="capture.bind"?{version:2,code:"CAPTURE_EXPIRED"}:message(m));submit();
+ await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("CAPTURE_EXPIRED"));
+ const original=mocks.message.mock.calls.find(c=>c[0].type==="capture.bind")![0];
+ mounted.unmount();mocks.message.mockImplementation(message);
+ const nonce="33333333-3333-4333-8333-33333333333c";
+ window.history.replaceState(null,"",`/capture/amazon#extensionId=${"a".repeat(32)}&handoffId=${nonce}&idempotencyKey=${receipt.key}`);
+ render(<AmazonCaptureReceiver/>);await loaded();expect(mocks.request).not.toHaveBeenCalled();submit();await screen.findByText(/已保存：Cotton bag/);
+ const restored=mocks.message.mock.calls.filter(c=>c[0].type==="capture.bind").at(-1)![0];
+ expect(restored).toEqual({...original,handoffId:nonce});expect(mocks.request).toHaveBeenCalledOnce();expect(mocks.request.mock.calls[0][1]).toBe(receipt.key);expect(mocks.request.mock.calls[0][2]).toBe(original.body);
+});
+it("keeps the saved result when the handoff expires while reporting the receipt",async()=>{
+ const message=mocks.message.getMockImplementation()!;
+ mocks.message.mockImplementation(async m=>m.type==="capture.status"?{version:2,code:"CAPTURE_EXPIRED"}:message(m));
+ render(<AmazonCaptureReceiver/>);await loaded();submit();await screen.findByText(/已保存：Cotton bag/);
+ expect(mocks.request).toHaveBeenCalledOnce();expect(screen.getByRole("status")).not.toHaveTextContent("交接已过期");
+ expect(screen.queryByRole("button",{name:"确认保存"})).toBeNull();
+});
 it("unknown response only allows a manual same-key same-body retry after explicit original-key 404",async()=>{
  mocks.request.mockRejectedValueOnce(new AmazonCaptureError("OUTCOME_UNKNOWN"));render(<AmazonCaptureReceiver/>);await loaded();submit();await screen.findByText(/保存结果待核实/);expect(mocks.request).toHaveBeenCalledOnce();
  mocks.request.mockRejectedValueOnce(new AmazonCaptureError("CAPTURE_NOT_FOUND"));fireEvent.click(screen.getByRole("button",{name:"检查原操作"}));await screen.findByRole("button",{name:"用原键重试同一份资料"});expect(mocks.request).toHaveBeenCalledTimes(2);expect(mocks.request.mock.calls[1][2]).toBeUndefined();
  fireEvent.click(screen.getByRole("button",{name:"用原键重试同一份资料"}));await screen.findByText(/已保存：Cotton bag/);expect(mocks.request).toHaveBeenCalledTimes(3);expect(mocks.request.mock.calls[2].slice(0,3)).toEqual(mocks.request.mock.calls[0].slice(0,3));expect(mocks.message.mock.calls.filter(c=>c[0].type==="capture.retry")).toHaveLength(1);
+});
+it("retains unknown-outcome semantics when the retry capability has expired after original-key verification",async()=>{
+ mocks.request.mockRejectedValueOnce(new AmazonCaptureError("OUTCOME_UNKNOWN"));render(<AmazonCaptureReceiver/>);await loaded();submit();await screen.findByText(/保存结果待核实/);
+ const message=mocks.message.getMockImplementation()!;
+ mocks.message.mockImplementation(async m=>m.type==="capture.armRetry"?{version:2,code:"CAPTURE_EXPIRED"}:message(m));
+ mocks.request.mockRejectedValueOnce(new AmazonCaptureError("CAPTURE_NOT_FOUND"));fireEvent.click(screen.getByRole("button",{name:"检查原操作"}));
+ await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("CAPTURE_EXPIRED"));
+ expect(screen.getByRole("status")).toHaveTextContent("原请求仍可能完成");expect(screen.getByRole("status")).toHaveTextContent("恢复原操作");
+ expect(screen.queryByRole("button",{name:"用原键重试同一份资料"})).toBeNull();expect(mocks.request).toHaveBeenCalledTimes(2);expect(mocks.request.mock.calls[1][2]).toBeUndefined();
 });
 it("does not offer resend for an original key without a recoverable local draft",async()=>{
  window.history.replaceState(null,"",`/capture/amazon#operationKey=${receipt.key}`);render(<AmazonCaptureReceiver/>);fireEvent.click(await screen.findByRole("button",{name:"检查原操作"}));await screen.findByText(/没有原恢复标记/);expect(mocks.request).not.toHaveBeenCalled();expect(screen.queryByRole("button",{name:"用原键重试同一份资料"})).toBeNull();
