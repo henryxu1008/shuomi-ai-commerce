@@ -47,7 +47,7 @@ func TestSetSlotClosurePreservesUnstartedWorkInNormalizedAndProjectedState(t *te
 			unverified.Slots = append([]imageagent.SlotProjection(nil), current.Slots...)
 			unverified.Slots[0].Slot.Status = imageagent.SlotStatusAccepted
 			unverified.Slots[0].Attempt = 1
-			unverified.Slots[0].Candidates = []imageagent.AssetCandidate{{AssetID: "unverified", URL: "https://images.example.org/unverified.png", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}}}
+			unverified.Slots[0].Candidates = []imageagent.AssetCandidate{{AssetID: "unverified", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}}}
 			badMutation := &imageagent.SlotProjectionMutation{PlanRevision: 1, Result: imageagent.SlotResult{SlotID: plan.Slots[0].ID, Attempt: 1, Status: imageagent.SlotStatusAccepted, CandidateAssetIDs: []string{"unverified"}}, Projection: unverified.Slots[0], Attempt: imageagent.StepAttempt{TenantID: scope.TenantID, OwnerUserID: scope.OwnerUserID, RunID: scope.RunID, PlanRevision: 1, SlotID: plan.Slots[0].ID, Attempt: 1, Node: "execute_slot_v3", IdempotencyKey: "unverified", Outcome: "accepted"}}
 			_, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "unverified", ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: unverified, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutation: badMutation})
 			require.ErrorIs(t, err, imageagent.ErrRevisionConflict, "a set cannot persist accepted candidates without original settlement evidence")

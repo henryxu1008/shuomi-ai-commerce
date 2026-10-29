@@ -104,6 +104,9 @@ type approvalProtocolProbeResult struct {
 func approvalProtocolProbe(ctx sdkworkflow.Context) (approvalProtocolProbeResult, error) {
 	ctx = imageAgentActivityContext(ctx)
 	effects := newWorkflowEffectOwner(ctx)
+	if !effects.activities.useV3Slot || !effects.activities.useV3Approval {
+		return approvalProtocolProbeResult{}, errRetiredImageAgentWire
+	}
 	plan, results := wireProbePlanAndResults()
 	digest, err := resultDigestForWire(plan, results, effects.activities)
 	if err != nil {
@@ -135,11 +138,9 @@ func TestApprovalMarkerCombinationsSelectOnlyCompleteProtocols(t *testing.T) {
 				func(context.Context, PublishApprovedV3ActivityInput) error { return nil },
 				sdkactivity.RegisterOptions{Name: activityPublishApprovedV3},
 			)
-			env.RegisterActivityWithOptions(
-				func(context.Context, PublishApprovedV3ActivityInput) error { return nil },
-				sdkactivity.RegisterOptions{Name: activityPublishApprovedV3},
-			)
-			env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
+			activities := 0
+			env.SetOnActivityStartedListener(func(*sdkactivity.Info, context.Context, sdkconverter.EncodedValues) { activities++ })
+			env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 			env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(markerVersion(actionV3)).Once()
 			env.OnGetVersion(approvalPublicationWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(markerVersion(publicationV3)).Once()
 			env.OnGetVersion(resultDigestV3Patch, sdkworkflow.DefaultVersion, 1).Return(markerVersion(digestV3)).Once()
@@ -148,25 +149,23 @@ func TestApprovalMarkerCombinationsSelectOnlyCompleteProtocols(t *testing.T) {
 
 			allV3 := actionV3 && publicationV3 && digestV3
 			wantActivity := activityPublishApprovedV3
-			wantKey := publicationKey("capture-run", 1)
+			wantKey := "capture-action"
 			plan, results := wireProbePlanAndResults()
-			wantDigest, err := imageagent.ResultDigestV2(plan, slotProjections(plan, results))
+			wantDigest, err := imageagent.ResultDigestV3(plan, slotProjections(plan, results))
 			require.NoError(t, err)
 			if allV3 {
-				wantActivity = activityPublishApprovedV3
-				wantKey = "capture-action"
-				wantDigest, err = imageagent.ResultDigestV3(plan, slotProjections(plan, results))
-				require.NoError(t, err)
-				env.OnActivity(wantActivity, mock.Anything, mock.MatchedBy(func(input PublishApprovedV3ActivityInput) bool {
-					return input.IdempotencyKey == wantKey
-				})).Return(nil).Once()
-			} else {
 				env.OnActivity(wantActivity, mock.Anything, mock.MatchedBy(func(input PublishApprovedV3ActivityInput) bool {
 					return input.IdempotencyKey == wantKey
 				})).Return(nil).Once()
 			}
 
 			env.ExecuteWorkflow(approvalProtocolProbe)
+			if !allV3 {
+				require.ErrorContains(t, env.GetWorkflowError(), errRetiredImageAgentWire.Error())
+				require.Zero(t, activities)
+				require.True(t, env.AssertExpectations(t))
+				return
+			}
 			require.NoError(t, env.GetWorkflowError())
 			var got approvalProtocolProbeResult
 			require.NoError(t, env.GetWorkflowResult(&got))
@@ -185,6 +184,9 @@ func markerVersion(enabled bool) sdkworkflow.Version {
 
 func workflowWireProbe(ctx sdkworkflow.Context) (wireProbeResult, error) {
 	wire := activityWireForWorkflow(ctx)
+	if !wire.useV3Slot || !wire.useV3Approval {
+		return wireProbeResult{}, errRetiredImageAgentWire
+	}
 	plan, results := wireProbePlanAndResults()
 	digest, err := resultDigestForWire(plan, results, wire)
 	if err != nil {
@@ -238,9 +240,9 @@ func TestRecoveryStartMarkerDefaultsOffForLegacyV3Histories(t *testing.T) {
 	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(workflowWireProbe)
 	env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
-	env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	env.OnGetVersion(approvalPublicationWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	env.OnGetVersion(resultDigestV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
+	env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
+	env.OnGetVersion(approvalPublicationWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
+	env.OnGetVersion(resultDigestV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 	env.OnGetVersion(approvalPublicationScopePatch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
 	env.OnGetVersion(effectRecoveryStartWireV1Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
 	env.OnGetVersion(activityWireV2Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
@@ -261,9 +263,9 @@ func TestRecoveryStartMarkerEnablesExternalRecoveryForNewV3Histories(t *testing.
 	env.SetStartWorkflowOptions(client.StartWorkflowOptions{TaskQueue: OrganizationTaskQueue})
 	env.RegisterWorkflow(workflowWireProbe)
 	env.OnGetVersion(slotExecutionWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
-	env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	env.OnGetVersion(approvalPublicationWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
-	env.OnGetVersion(resultDigestV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
+	env.OnGetVersion(approvalActionIDV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
+	env.OnGetVersion(approvalPublicationWireV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
+	env.OnGetVersion(resultDigestV3Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 	env.OnGetVersion(approvalPublicationScopePatch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.DefaultVersion).Once()
 	env.OnGetVersion(effectRecoveryStartWireV1Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()
 	env.OnGetVersion(activityWireV2Patch, sdkworkflow.DefaultVersion, 1).Return(sdkworkflow.Version(1)).Once()

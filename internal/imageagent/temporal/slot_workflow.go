@@ -188,15 +188,3 @@ func slotExecutionV3ErrorCode(err error) string {
 	}
 	return "slot_execution_failed"
 }
-
-func hasCandidateAsset(candidates []imageagent.AssetCandidate) bool {
-	if len(candidates) == 0 {
-		return false
-	}
-	for _, candidate := range candidates {
-		if strings.TrimSpace(candidate.AssetID) == "" {
-			return false
-		}
-	}
-	return true
-}

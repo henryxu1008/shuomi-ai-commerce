@@ -48,9 +48,6 @@ type fullImageWorkerSourceProbe struct {
 	calls int
 }
 
-func (e *fullImageWorkerSourceProbe) ExecuteSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	return imageagent.SlotExecutionResult{}, imageagent.ErrCommandBlocked
-}
 func (e *fullImageWorkerSourceProbe) QuoteSlot(ctx context.Context, input imageagent.SlotExecutionInput, _ imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
 	id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || !id.TokenExpiresAt.IsZero() || id.TenantID != input.TenantID || id.UserID != input.UserID || id.EffectiveMemberID != input.OrganizationIdentity.MemberID {

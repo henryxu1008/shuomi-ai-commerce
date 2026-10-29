@@ -1,3 +1,5 @@
+> #301 / #996 当前源码边界：按[用户确认的完整闭包](../../architecture/legacy-imageagent-v2-contract-tail-closure-retirement-boundary.md)退休旧V2候选URL/Metadata双格式、candidate-ID-only摘要、计划级发布键、无人调用默认装配和专属测试尾部；下文要求继续执行/兼容这些V2载荷的部分为SUPERSEDED，仅保留历史证据。当前组织图组/Artwork/采集单主图、durable JSON/hash、有效V3 marker/批准键/回放/恢复/事务和Store观察同步保留；不承接旧V2历史、不重写既有表/载荷、不操作实例/数据/凭据/进程，不增加试用前置，#301 OPEN。下方完整历史正文/数字/勾选保留。
+
 # Image Agent Recovery and Compatibility Design
 
 ## 1. Status and decision

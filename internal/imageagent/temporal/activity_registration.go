@@ -9,8 +9,7 @@ import (
 	"task-processor/internal/imageagent"
 )
 
-// PublishApprovedV3 is additive and intentionally not registered here. Task 6
-// owns selecting and registering imageagent.publish_approved.v3.
+// PublishApprovedV3 publishes through the current organization-scoped owner.
 func (a *Activities) PublishApprovedV3(ctx context.Context, input PublishApprovedV3ActivityInput) error {
 	current, readErr := a.repository.GetProjection(ctx, imageagent.RunScope{TenantID: input.Identity.TenantID, OwnerUserID: input.Identity.UserID, RunID: input.RunID})
 	if readErr != nil {

@@ -105,7 +105,7 @@ func (p *Publisher) approvalCommit(projection imageagent.RunProjection, input im
 			return productasset.ApprovalCommit{}, "", imageagent.ErrRevisionConflict
 		}
 		for candidateIndex, candidate := range slot.Candidates {
-			if !canonical(candidate.AssetID) || !canonical(candidate.SourceAssetID) || candidate.URL != "" || len(candidate.Metadata) != 0 {
+			if !canonical(candidate.AssetID) || !canonical(candidate.SourceAssetID) {
 				return productasset.ApprovalCommit{}, "", imageagent.ErrRevisionConflict
 			}
 			execution := imageagent.SlotExecutionInput{

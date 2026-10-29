@@ -59,23 +59,6 @@ type providerDependencies struct {
 	Review          reviewProvider
 }
 
-// buildProductionImageCapabilities assembles only the new typed image ports.
-// Provider routing is resolved per activity identity and never falls back to
-// the retired ProductImage runtime.
-func buildProductionImageCapabilities(runtime imageCapabilityRuntime) (ImageCapabilities, error) {
-	provider, err := newRoutedOpenAIProductImageProvider(runtime.OpenAIManager)
-	if err != nil {
-		return ImageCapabilities{}, err
-	}
-	resolver, err := loadEmbeddedImagePolicyResolver()
-	if err != nil {
-		return ImageCapabilities{}, fmt.Errorf("load image agent policy resolver: %w", err)
-	}
-	return buildImageCapabilities(providerDependencies{
-		Subject: provider, WhiteBackground: provider, Scene: provider, Review: provider,
-	}, resolver)
-}
-
 const imageAgentOpenAIClientName = "image_gpt_image_2"
 
 // The default client is the configured chat-capable route exposed by the

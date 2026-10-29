@@ -1344,10 +1344,6 @@ func (e *recordingStagedExecutor) GenerateQuotedSlot(ctx context.Context, input 
 	return generated, err
 }
 
-func (e *recordingStagedExecutor) ExecuteSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	return imageagent.SlotExecutionResult{}, errors.New("v2 execute must not be used by ExecuteSlotV3")
-}
-
 func (e *recordingStagedExecutor) GenerateSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	e.mu.Lock()
 	e.generateCalls++
@@ -1514,10 +1510,6 @@ func (e *recordingStagedExecutor) BuildSlotResult(ctx context.Context, input ima
 		e.mutateResult(&result)
 	}
 	return result, nil
-}
-
-func (e *recordingStagedExecutor) PublishSlot(context.Context, imageagent.SlotExecutionInput, imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	return imageagent.SlotExecutionResult{}, errors.New("v2 publication must not be used by ExecuteSlotV3")
 }
 
 func (e *recordingStagedExecutor) GenerateCalls() int {

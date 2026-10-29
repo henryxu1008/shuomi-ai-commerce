@@ -212,9 +212,7 @@ type AssetCandidate struct {
 	Artwork         *ArtworkProvenance    `json:"-"`
 	GenerationProof *ImageGenerationProof `json:"-"`
 	AssetID         string
-	URL             string
 	SourceAssetID   string
-	Metadata        map[string]string
 	Width           int                  `json:"-"`
 	Height          int                  `json:"-"`
 	Operations      []string             `json:"-"`

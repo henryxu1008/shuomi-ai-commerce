@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -219,58 +218,4 @@ func initializedSlotEffectActivity(t *testing.T, runID string) (imageagent.Repos
 	_, err = repository.InitializeRun(context.Background(), imageagent.ProjectionInitialization{Scope: imageagent.ScopeForRun(run), Run: run, Plan: plan, Catalog: catalog, Snapshot: imageagent.RunProjection{Run: run, Plan: plan}, CommitID: "start:" + runID, EventType: "run.initialized", EventPayload: []byte(`{}`)})
 	require.NoError(t, err)
 	return repository, ExecuteSlotV3ActivityInput{RunID: runID, Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: runID, MemberID: "member-user-a", BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a"}, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-key-1:plan:1:attempt:1", AssetCatalog: catalog}
-}
-
-func activityGeneratedOutput() imageagent.SlotGeneratedOutput {
-	return imageagent.SlotGeneratedOutput{SlotID: "slot-1", Attempt: 1, SourceAssetID: "source-1", Assets: []imageagent.GeneratedAsset{{URL: "C:/generated/scene.png", Width: 1200, Height: 1200, Metadata: map[string]string{"local_path": "C:/generated/scene.png"}}}}
-}
-
-type recordingRecoverableSlotExecutor struct {
-	mu              sync.Mutex
-	generateCalls   int
-	publishCalls    int
-	generateStarted chan struct{}
-	releaseGenerate chan struct{}
-}
-
-func (e *recordingRecoverableSlotExecutor) ExecuteSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotExecutionResult, error) {
-	generated, err := e.GenerateSlot(ctx, input)
-	if err != nil {
-		return imageagent.SlotExecutionResult{}, err
-	}
-	return e.PublishSlot(ctx, input, generated)
-}
-
-func (e *recordingRecoverableSlotExecutor) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
-	e.mu.Lock()
-	e.generateCalls++
-	started, release := e.generateStarted, e.releaseGenerate
-	e.mu.Unlock()
-	if started != nil {
-		close(started)
-		<-release
-	}
-	return activityGeneratedOutput(), nil
-}
-
-func (e *recordingRecoverableSlotExecutor) PublishSlot(_ context.Context, _ imageagent.SlotExecutionInput, generated imageagent.SlotGeneratedOutput) (imageagent.SlotExecutionResult, error) {
-	e.mu.Lock()
-	e.publishCalls++
-	e.mu.Unlock()
-	if len(generated.Assets) != 1 {
-		return imageagent.SlotExecutionResult{}, errors.New("generated output missing")
-	}
-	return imageagent.SlotExecutionResult{SlotID: generated.SlotID, Attempt: generated.Attempt, Candidates: []imageagent.AssetCandidate{{AssetID: "candidate-1", URL: "https://cdn.example.test/scene.png", SourceAssetID: generated.SourceAssetID}}}, nil
-}
-
-func (e *recordingRecoverableSlotExecutor) GenerateCalls() int {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.generateCalls
-}
-
-func (e *recordingRecoverableSlotExecutor) PublishCalls() int {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.publishCalls
 }

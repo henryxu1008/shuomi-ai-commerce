@@ -1461,33 +1461,18 @@ func TestGormPostgresPublicationClaimLocksBeforeReadingWallClock(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestSlotExecutionResultV2JSONRemainsFrozen(t *testing.T) {
-	result := imageagent.SlotExecutionResult{
-		SlotID:  "slot-1",
-		Attempt: 1,
-		Candidates: []imageagent.AssetCandidate{{
-			AssetID:       "candidate-1",
-			URL:           "https://cdn.example.test/candidate.png",
-			SourceAssetID: "source-1",
-			Metadata:      map[string]string{"legacy": "kept"},
-			DurableAsset:  imageagent.DurableAssetIdentity{ObjectKey: "image-agent/final/tenant-a/run/asset.png", SHA256: v3SHA256},
-		}},
-	}
-	encoded, err := json.Marshal(result)
-	require.NoError(t, err)
-	require.JSONEq(t, `{"SlotID":"slot-1","Attempt":1,"Candidates":[{"AssetID":"candidate-1","URL":"https://cdn.example.test/candidate.png","SourceAssetID":"source-1","Metadata":{"legacy":"kept"}}]}`, string(encoded))
-}
-
 func TestSlotEffectV3PublishedResultRejectsLegacyCandidateFields(t *testing.T) {
 	for _, test := range []struct {
-		name      string
-		candidate imageagent.AssetCandidate
+		name  string
+		field string
 	}{
-		{name: "URL", candidate: imageagent.AssetCandidate{AssetID: "candidate-1", URL: "file:///tmp/generated.png", SourceAssetID: "source-1", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/final/tenant-a/run/asset.png", SHA256: v3SHA256}}},
-		{name: "metadata", candidate: imageagent.AssetCandidate{AssetID: "candidate-1", SourceAssetID: "source-1", Metadata: map[string]string{"authorization": "secret"}, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/final/tenant-a/run/asset.png", SHA256: v3SHA256}}},
+		{name: "URL", field: `"URL":"file:///tmp/generated.png"`},
+		{name: "metadata", field: `"Metadata":{"authorization":"secret"}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := imageagent.NewSlotEffectV3PublishedResult(imageagent.SlotExecutionResult{SlotID: "slot-1", Attempt: 1, Candidates: []imageagent.AssetCandidate{test.candidate}})
+			raw := `{"Candidates":[{"AssetID":"candidate-1","SourceAssetID":"source-1","DurableAsset":{"ObjectKey":"image-agent/final/tenant-a/run/asset.png","SHA256":"` + v3SHA256 + `"},` + test.field + `}]}`
+			var projection imageagent.SlotProjection
+			err := json.Unmarshal([]byte(raw), &projection)
 			require.ErrorIs(t, err, imageagent.ErrValidation)
 		})
 	}

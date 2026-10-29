@@ -1,33 +1,17 @@
 package imageagent
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestResultDigestV2MatchesCommittedHistoricalValue(t *testing.T) {
-	plan := Plan{Revision: 1, Slots: []Slot{{ID: "main", Role: SlotRoleMain}, {ID: "scene", Role: SlotRoleScene}}}
-	sceneCandidates := make([]AssetCandidate, 11)
-	for index := range sceneCandidates {
-		sceneCandidates[index] = AssetCandidate{AssetID: fmt.Sprintf("candidate-scene-%02d", index+1)}
-	}
-	slots := []SlotProjection{
-		{Slot: Slot{ID: "main", Role: SlotRoleMain, Status: SlotStatusAccepted}, Candidates: []AssetCandidate{{AssetID: "candidate-main"}}},
-		{Slot: Slot{ID: "scene", Role: SlotRoleScene, Status: SlotStatusAccepted}, Candidates: sceneCandidates},
-	}
-
-	digest, err := ResultDigestV2(plan, slots)
-	require.NoError(t, err)
-	require.Equal(t, "9e5c8dba27d1224662e48945bf1456d7c339f541250228b068abafe8a944c0e6", digest)
-}
-
 func TestResultDigestV3ChangesWithPlanRoleObjectKeyHashOrOrder(t *testing.T) {
 	plan, slots := digestV3Fixture()
 	baseline, err := ResultDigestV3(plan, slots)
 	require.NoError(t, err)
+	require.Equal(t, "23d42b4696e984d930ebb4fdcfb7475d6991c18a4e2f274d6dc31358dcd77ab9", baseline)
 
 	tests := []struct {
 		name   string
