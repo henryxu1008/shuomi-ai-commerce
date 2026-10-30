@@ -404,7 +404,7 @@ func TestProductImageAdapterBoundsAggregateInlineOutputBeforeCapabilityReturn(t 
 	require.ErrorIs(t, err, productimage.ErrOutputValidation)
 }
 
-func validProductImageAdapterConfig(images ai.ImageGenerator, chat ai.ChatCompleter) ProductImageAdapterConfig {
+func validProductImageAdapterConfig(images ai.ImageGenerator, chat ai.ChatCompletionClient) ProductImageAdapterConfig {
 	return ProductImageAdapterConfig{
 		ImageClient: images, ReviewClient: chat, Provider: "openai", ImageModel: "gpt-image-1", ReviewModel: "gpt-5-mini",
 		RouteReference: "route-a", CredentialReference: "credential-a", ConfigurationVersion: "config-v1", PricingVersion: "pricing-v1",
@@ -478,8 +478,3 @@ func (s *productImageChatStub) CreateChatCompletion(_ context.Context, request *
 	s.lastRequest = request
 	return s.response, s.err
 }
-func (*productImageChatStub) Generate(context.Context, string) (string, error) { return "", nil }
-func (*productImageChatStub) AnalyzeImage(context.Context, string, string) (string, error) {
-	return "", nil
-}
-func (*productImageChatStub) GetDefaultModel() string { return "gpt-5-mini" }

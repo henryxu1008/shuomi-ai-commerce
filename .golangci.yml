@@ -798,15 +798,19 @@ linters-settings:
           - "go.opentelemetry.io/otel/trace$"
 
       listing_task_canonical_subject_boundaries:
-        # Task-scoped product resolution is a platform-neutral domain port and
-        # must not depend on ListingKit DTOs, persistence, or Tool contracts.
-        list-mode: strict
+        # Both retired owners must stay absent from all current Go consumers.
+        list-mode: lax
         files:
-          - "**/internal/listing/task/*.go"
-          - "**/internal/listing/task/**/*.go"
-        allow:
-          - "$gostd"
-          - "task-processor/internal/authz$"
+          - "**/*.go"
+        deny:
+          - pkg: "task-processor/internal/listing/task$"
+            desc: "Use current record identity contracts; the old task owner is retired."
+          - pkg: "task-processor/internal/listing/task/"
+            desc: "Do not recreate the retired task owner below a child package."
+          - pkg: "task-processor/internal/shared/ptr$"
+            desc: "The legacy convenience-only pointer helpers are retired."
+          - pkg: "task-processor/internal/shared/ptr/"
+            desc: "Do not recreate retired pointer helpers below a child package."
 
       canonical_inspection_tool_boundaries:
         # The first canonical-product Tool is a read-only adapter over two
@@ -819,7 +823,6 @@ linters-settings:
           - "$gostd"
           - "task-processor/internal/authz$"
           - "task-processor/internal/commercetool$"
-          - "task-processor/internal/listing/task$"
           - "task-processor/internal/product/catalog$"
 
       commercetoolauth_boundaries:

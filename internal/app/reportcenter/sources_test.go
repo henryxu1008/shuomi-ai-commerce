@@ -11,7 +11,6 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/listing/record"
-	listingtask "task-processor/internal/listing/task"
 	validator "task-processor/internal/marketplace/validator"
 	"task-processor/internal/product/review"
 	rc "task-processor/internal/reportcenter"
@@ -27,16 +26,16 @@ type reviewFunc func(context.Context, string) (review.View, error)
 
 func (f reviewFunc) Get(c context.Context, id string) (review.View, error) { return f(c, id) }
 
-type recordFunc func(context.Context, listingtask.Actor, string) (record.Record, error)
+type recordFunc func(context.Context, record.Actor, string) (record.Record, error)
 
-func (f recordFunc) ReadOfflinePackage(c context.Context, a listingtask.Actor, id string) (record.Record, error) {
+func (f recordFunc) ReadOfflinePackage(c context.Context, a record.Actor, id string) (record.Record, error) {
 	return f(c, a, id)
 }
 func TestSourceAuthorizationUsesTheVerifiedUserSubject(t *testing.T) {
 	policy, err := authz.NewListingKitAuthorizer([]string{"configured-user"}, nil)
 	require.NoError(t, err)
 	calls := 0
-	s := &Sources{Policy: policy, Reviews: reviewFunc(func(context.Context, string) (review.View, error) { calls++; return review.View{}, review.ErrNotFound }), Records: recordFunc(func(context.Context, listingtask.Actor, string) (record.Record, error) {
+	s := &Sources{Policy: policy, Reviews: reviewFunc(func(context.Context, string) (review.View, error) { calls++; return review.View{}, review.ErrNotFound }), Records: recordFunc(func(context.Context, record.Actor, string) (record.Record, error) {
 		calls++
 		return record.Record{}, record.ErrNotFound
 	})}
@@ -86,7 +85,7 @@ func TestRecordSourceUsesSavedDiagnosticWithoutReadingPayloadOrCurrentTime(t *te
 	raw, _ := json.Marshal(diagnostic)
 	sum := sha256.Sum256(raw)
 	r := record.Record{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID, Input: record.Input{ProductKey: "product-a", SnapshotVersion: 1, StoreID: uuid.NewString(), Country: "US", Language: "en", Action: validator.SaveDraft}, InputHash: hash, PackageHash: hash, DiagnosticHash: "sha256:" + hex.EncodeToString(sum[:]), RuleRevision: "rules-v1", PolicyRevision: "policy-v1", DiagnosticStatus: validator.Blocked, Diagnostic: raw, CreatedAt: at, Payload: []byte("secret complete payload must not be copied")}
-	s := Sources{Policy: allowPolicy(true), Records: recordFunc(func(context.Context, listingtask.Actor, string) (record.Record, error) {
+	s := Sources{Policy: allowPolicy(true), Records: recordFunc(func(context.Context, record.Actor, string) (record.Record, error) {
 		r.ReadAt = time.Now()
 		return r, nil
 	})}
@@ -107,7 +106,7 @@ func TestSourcesNeverInheritAdminOwnershipBypass(t *testing.T) {
 	scope := rc.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{UserID: scope.ActorID, TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)})
 	id := uuid.NewString()
-	s := Sources{Policy: allowPolicy(true), Reviews: reviewFunc(func(context.Context, string) (review.View, error) { return review.View{ID: id, Owner: "other"}, nil }), Records: recordFunc(func(_ context.Context, a listingtask.Actor, _ string) (record.Record, error) {
+	s := Sources{Policy: allowPolicy(true), Reviews: reviewFunc(func(context.Context, string) (review.View, error) { return review.View{ID: id, Owner: "other"}, nil }), Records: recordFunc(func(_ context.Context, a record.Actor, _ string) (record.Record, error) {
 		require.Equal(t, scope.ActorID, a.UserID)
 		return record.Record{ID: id, OrganizationID: scope.OrganizationID, OwnerUserID: "other"}, nil
 	})}

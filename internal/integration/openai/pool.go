@@ -247,21 +247,6 @@ func (p *RequestPool) logMetrics(duration time.Duration, resp *ai.ChatCompletion
 	p.logger.Debug("OpenAI API请求成功", fields)
 }
 
-// GetStats 获取请求池统计信息
-func (p *RequestPool) GetStats() map[string]any {
-	p.rateLimit.mutex.Lock()
-	defer p.rateLimit.mutex.Unlock()
-
-	return map[string]any{
-		"available_tokens": p.rateLimit.tokens,
-		"max_tokens":       p.rateLimit.maxTokens,
-		"refill_rate":      p.rateLimit.refillRate,
-		"concurrent_slots": cap(p.semaphore),
-		"used_slots":       len(p.semaphore),
-		"client_count":     len(p.clients),
-	}
-}
-
 // Close 关闭请求池
 func (p *RequestPool) Close() error {
 	// 等待所有请求完成

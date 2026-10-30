@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：[本批已确认完整退休设计](../../architecture/legacy-task-openai-convenience-closure-retirement-boundary.md)仅替代本文旧Actor/读取/校验owner与旧源文件链接的当前含义：当前record持最小Actor/原纯校验，当前草稿读取仍归原record/repository；旧listing/task根与Reader退出。本文§3.1的持久化输入绑定、严格JSON/hash/字段/版本规则和权限/组织owner读取要求继续有效；#904只退休旧alias，不扩大为整份依据退休。不迁移已有载荷、不新建兼容读取/第二事实源，当前能力与Store观察保持，workflow/inventory/既有资源不动。以下冻结原文/历史完整保留。
+
 > #301 / #904 用户确认的[完整 JSON 别名退休设计](../../architecture/legacy-shein-draft-json-alias-retirement-v1.md) §5/§6.1 仅替代本文三旧 Package 字段、回填/镜像/custom JSON、summary-only SKU 就绪回退及旧绑定/规则版本的 KEEP 或双输出要求。当前仅 canonical 字段，typed v1.2 / diagnostic v2.2 / binding go-json.v2；当前类型、有效规则、严格解码、原持久化 owner、独立 SHEIN 登录与 Store 同步保留。不迁移已有记录、不改 workflow/inventory、不增加试用前置。以下历史正文原样保留。
 
 # SHEIN 离线诊断输入、freshness 与组织范围读取设计

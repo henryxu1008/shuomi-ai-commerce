@@ -16,7 +16,6 @@ import (
 	"task-processor/internal/authz"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	"task-processor/internal/listing/record"
-	listingtask "task-processor/internal/listing/task"
 	contract "task-processor/internal/marketplace/validator"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/sourcing"
@@ -251,7 +250,7 @@ func assertSharedOrganizationSwitch(t *testing.T, db *gorm.DB, server *httptest.
 		var receipt record.Receipt
 		sharedDecode(t, raw, &receipt)
 		ids[org] = receipt.RecordID
-		stored, err := reader.ReadOfflinePackage(context.Background(), listingtask.Actor{TenantID: org, UserID: "switcher", Roles: []string{"listingkit_operator"}}, receipt.RecordID)
+		stored, err := reader.ReadOfflinePackage(context.Background(), record.Actor{OrganizationID: org, UserID: "switcher", Roles: []string{"listingkit_operator"}}, receipt.RecordID)
 		require.NoError(t, err)
 		require.Equal(t, org, stored.OrganizationID)
 		require.Equal(t, "switcher", stored.OwnerUserID)

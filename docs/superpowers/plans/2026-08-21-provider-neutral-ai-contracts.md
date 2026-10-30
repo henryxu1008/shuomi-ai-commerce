@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：[本批已确认完整退休设计](../../architecture/legacy-task-openai-convenience-closure-retirement-boundary.md)替代本计划宽ChatCompleter/TextChatCompleter保留及兼容步骤的当前执行含义：只保留internal/ai单方法ChatCompletionClient的实际审核调用，旧便利链与专属ptr退出，不留alias。当前图像/async/wire/JSON/hash/版本/route/计量/UNKNOWN保持，不重跑旧步骤或旧子代理派工；workflow/inventory/既有资源不变，Store观察保持。以下原正文/步骤/勾选完整保留。
+
 > #301 / #983 本批准确替代：[已确认完整闭包](../../architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)。仅取代继续保留OpenAI别名/re-export及其兼容测试要求；现役合同引用改ai，原请求/错误/安全断言保持，不恢复历史Gemini/ListingKit入口。只按冻结§1–§7/§4.2/§6.1整批实施，无兼容alias/转发/双读/迁移或第二owner；workflow/完整inventory/计数/勾选/检查不改，既有资源不动，无试用前置。独立SHEIN登录/Store同步保持，#301 OPEN。以下起始main原文及历史证据完整保留。
 
 # Provider-Neutral AI Contracts Implementation Plan

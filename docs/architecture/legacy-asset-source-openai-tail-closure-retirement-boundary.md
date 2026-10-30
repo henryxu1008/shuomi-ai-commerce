@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：[本批已确认设计](legacy-task-openai-convenience-closure-retirement-boundary.md)仅替代本文ChatCompleter/TextChatCompleter两个无字段接口的逐字保活：实际审核改用internal/ai.ChatCompletionClient单方法合同，旧两个接口完全退出。其余全部数据类型/字段/tag/顺序、JSON/hash/版本、原ClientConfig/PoolConfig/构造器/错误/alias禁入与Catalog/Source事实保持；不新增兼容转发。workflow/inventory/既有资源不动，当前能力与Store观察保持；以下原文/历史完整保留。
+
 > #301 / #983 当前整批实施：**RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结[设计18a955e22 §1–§7（含§4.2/§6.1）](https://github.com/qq550723504/shuomi-ai-commerce/blob/18a955e225285c5f1068f7e6ea07e9f8ba1e5a9e/docs/architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)；同一39路径收齐资产静态recipe、来源Publisher包装和17合同alias/错误转发/旧resolver版本尾部，不机械拆批。有效行为复用现有internal/ai/ToSnapshot/catalog.Publisher，原断言仅按冻结§6.1精确改接；JSON/hash/版本/已保存载荷、当前能力、独立SHEIN登录与Store同步保持，无兼容/新owner。workflow/完整inventory/依赖/保护与既有实例/数据/凭据/进程零改，不增试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI/最终复核留同PR；不等于运行/产品验收，合并/部署/关单另授权。以下冻结正文完整保留。
 
 # 旧资产配方、来源发布包装与 OpenAI 迁移尾部完整退休边界

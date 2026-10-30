@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：[本批已确认设计](legacy-task-openai-convenience-closure-retirement-boundary.md)只替代本文canonical_subject.go/test/README的整体KEEP：当前实际使用的Actor/两校验归record，旧Subject/Reader/Lineage/Checker与旧task根退休；四项有效隔离行为由当前ReadOfflinePackage原fixture承接。当前canonical.inspect/Catalog、草稿/诊断/身份权限/事务/JSON/hash/版本及Store观察保持，不新建Task或compat owner。其它禁入/保留、workflow/inventory与既有资源不变，以下原文完整保留为冻结历史。
+
 > #301 / #1007 当前实施边界：用户已确认[配置、投影与 Dub 完整退休设计](legacy-config-projection-dub-closure-retirement-boundary.md) §1–§7/§4.2/§6.1。Dub 无实际消费者的准备适配器整包及专属尾部退休，本文件对 Dub 的旧 KEEP/Out of Scope 不再是当前保活要求；其它当前能力及既有原文/历史逐字保留。不调用 Dub、不操作既有实例/数据/凭据/进程，不改 workflow/inventory，不加试用前置，#301 OPEN。
 
 > #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。

@@ -48,7 +48,7 @@ type ProductImageAdapterConfig struct {
 	// enforced before dispatch; ReviewMaxTokens caps completion tokens.
 	ReviewTokenUpperBound int64
 	ImageClient           ai.ImageGenerator
-	ReviewClient          ai.ChatCompleter
+	ReviewClient          ai.ChatCompletionClient
 	Prompts               ProductImagePrompts
 
 	Provider                   string

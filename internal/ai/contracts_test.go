@@ -50,7 +50,7 @@ func TestContractsMarshalStableJSON(t *testing.T) {
 }
 
 func TestContractsExposeMinimalInterfaces(t *testing.T) {
-	var _ ChatCompleter = contractChatStub{}
+	var _ ChatCompletionClient = contractChatStub{}
 	var _ ImageGenerator = contractImageStub{}
 	if !errors.Is(ErrAsyncImageGenerationNotSupported, ErrAsyncImageGenerationNotSupported) {
 		t.Fatal("async unsupported sentinel must be comparable through errors.Is")
@@ -62,11 +62,6 @@ type contractChatStub struct{}
 func (contractChatStub) CreateChatCompletion(_ context.Context, _ *ChatCompletionRequest) (*ChatCompletionResponse, error) {
 	return nil, nil
 }
-func (contractChatStub) Generate(context.Context, string) (string, error) { return "", nil }
-func (contractChatStub) AnalyzeImage(context.Context, string, string) (string, error) {
-	return "", nil
-}
-func (contractChatStub) GetDefaultModel() string { return "" }
 
 type contractImageStub struct{}
 

@@ -17,10 +17,10 @@ func TestCommerceToolCanonicalInspectionUsesOnlyNarrowDomainPorts(t *testing.T) 
 	assertCanonicalInspectionImports(t, filepath.Join("..", "internal", "product", "catalog", "tools", "canonicalinspect"), map[string]struct{}{
 		"task-processor/internal/authz":           {},
 		"task-processor/internal/commercetool":    {},
-		"task-processor/internal/listing/task":    {},
 		"task-processor/internal/product/catalog": {},
 	})
-	assertCanonicalInspectionImports(t, filepath.Join("..", "internal", "listing", "task"), map[string]struct{}{})
+	_, err := os.Lstat(filepath.Join("..", "internal", "listing", "task"))
+	require.True(t, os.IsNotExist(err), "retired task root must be absent: %v", err)
 }
 
 func TestCommerceToolCanonicalInspectionDeclaresNoMutationOrCompatibilityOwner(t *testing.T) {
@@ -48,21 +48,31 @@ func TestCommerceToolCanonicalInspectionDeclaresNoMutationOrCompatibilityOwner(t
 	}
 	require.Empty(t, violations)
 
-	listingFiles := canonicalInspectionProductionFiles(t, filepath.Join("..", "internal", "listing", "task"))
-	for _, path := range listingFiles {
-		parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.SkipObjectResolution)
-		require.NoError(t, err)
-		for _, declaration := range parsed.Decls {
-			general, ok := declaration.(*ast.GenDecl)
+	actorPath := filepath.Join("..", "internal", "listing", "record", "actor.go")
+	parsed, err := parser.ParseFile(token.NewFileSet(), actorPath, nil, parser.SkipObjectResolution)
+	require.NoError(t, err)
+	foundActor := false
+	for _, declaration := range parsed.Decls {
+		general, ok := declaration.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		for _, spec := range general.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
 			if !ok {
 				continue
 			}
-			for _, spec := range general.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				require.False(t, ok && strings.Contains(typeSpec.Name.Name, "Repository"), "%s declares a second task repository", path)
+			require.False(t, strings.Contains(typeSpec.Name.Name, "Repository"), "%s declares a second record repository", actorPath)
+			if typeSpec.Name.Name == "Actor" {
+				fields, ok := typeSpec.Type.(*ast.StructType)
+				require.True(t, ok, "current Actor must be a value struct")
+				require.Len(t, fields.Fields.List, 3, "current Actor must remain a minimal scoped value")
+				require.False(t, typeSpec.Assign.IsValid(), "current Actor must not alias the retired owner")
+				foundActor = true
 			}
 		}
 	}
+	require.True(t, foundActor, "current record Actor must exist")
 }
 
 func TestCommerceToolCanonicalInspectionGovernanceIsRecorded(t *testing.T) {
@@ -76,7 +86,7 @@ func TestCommerceToolCanonicalInspectionGovernanceIsRecorded(t *testing.T) {
 	for _, rule := range []string{"canonical_inspection_tool_boundaries", "listing_task_canonical_subject_boundaries", "commercetoolauth_boundaries"} {
 		require.Contains(t, string(config), rule)
 	}
-	for _, text := range []string{"product.canonical.inspect", "internal/listing/task", "ProductSnapshot", "Phase 2B"} {
+	for _, text := range []string{"product.canonical.inspect", "internal/listing/record", "ProductSnapshot", "Phase 2B"} {
 		require.Contains(t, string(architecture), text)
 		require.Contains(t, string(structure), text)
 	}

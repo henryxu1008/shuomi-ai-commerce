@@ -6,7 +6,6 @@ import (
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
-	listingtask "task-processor/internal/listing/task"
 
 	"github.com/google/uuid"
 )
@@ -49,7 +48,7 @@ type Page struct {
 }
 
 type CollectionReader interface {
-	List(context.Context, listingtask.Actor, PageRequest) (Page, error)
+	List(context.Context, Actor, PageRequest) (Page, error)
 }
 
 type CollectionService struct {
@@ -71,8 +70,8 @@ func (s *CollectionService) List(ctx context.Context, request PageRequest) (Page
 		return Page{}, err
 	}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	actor := listingtask.Actor{TenantID: identity.EffectiveOrganizationID, UserID: identity.UserID, Roles: identity.Roles}
-	if !ok || identity.TenantID != actor.TenantID || listingtask.ValidateActor(actor) != nil || !time.Now().Before(identity.TokenExpiresAt) || !s.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
+	actor := Actor{OrganizationID: identity.EffectiveOrganizationID, UserID: identity.UserID, Roles: identity.Roles}
+	if !ok || identity.TenantID != actor.OrganizationID || ValidateActor(actor) != nil || !time.Now().Before(identity.TokenExpiresAt) || !s.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
 		return Page{}, ErrForbidden
 	}
 	if err := request.Validate(); err != nil {

@@ -91,7 +91,7 @@ func NewManager(config *ManagerConfig) (*Manager, error) {
 // configuration selected by the caller. Resolution and version validation
 // happen before the provider client is returned, so later rotation cannot run
 // under stale route metadata.
-func (m *Manager) GetClientWithRoute(ctx context.Context, name string, selection ai.ImageRouteSelection) (ai.ChatCompleter, error) {
+func (m *Manager) GetClientWithRoute(ctx context.Context, name string, selection ai.ImageRouteSelection) (ai.ChatCompletionClient, error) {
 	return m.resolveClientWithSelection(ctx, name, &selection)
 }
 

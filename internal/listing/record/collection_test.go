@@ -5,19 +5,17 @@ import (
 	"testing"
 	"time"
 
-	listingtask "task-processor/internal/listing/task"
-
 	"github.com/stretchr/testify/require"
 )
 
 type collectionReaderFixture struct {
 	calls int
-	actor listingtask.Actor
+	actor Actor
 	page  Page
 	err   error
 }
 
-func (f *collectionReaderFixture) List(_ context.Context, actor listingtask.Actor, request PageRequest) (Page, error) {
+func (f *collectionReaderFixture) List(_ context.Context, actor Actor, request PageRequest) (Page, error) {
 	f.calls++
 	f.actor = actor
 	return f.page, f.err
@@ -51,7 +49,7 @@ func TestCollectionServicePassesVerifiedEffectiveActor(t *testing.T) {
 	page, err := service.List(fixtureContext(), PageRequest{Limit: 20})
 	require.NoError(t, err)
 	require.Equal(t, reader.page, page)
-	require.Equal(t, listingtask.Actor{TenantID: "B", UserID: "actor", Roles: []string{"role"}}, reader.actor)
+	require.Equal(t, Actor{OrganizationID: "B", UserID: "actor", Roles: []string{"role"}}, reader.actor)
 }
 
 func TestPageRequestRejectsInvalidBoundsAndCursor(t *testing.T) {

@@ -13,7 +13,6 @@ import (
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
-	listingtask "task-processor/internal/listing/task"
 	contract "task-processor/internal/marketplace/validator"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
@@ -95,11 +94,11 @@ type Prepared struct{ record Record }
 func (p Prepared) Record() Record { return p.record.Clone() }
 
 type Reader interface {
-	ReadOfflinePackage(context.Context, listingtask.Actor, string) (Record, error)
+	ReadOfflinePackage(context.Context, Actor, string) (Record, error)
 }
 
 type Store interface {
-	FindOperation(context.Context, listingtask.Actor, string) (Record, error)
+	FindOperation(context.Context, Actor, string) (Record, error)
 	Insert(context.Context, Prepared) (Record, error)
 }
 
@@ -157,14 +156,14 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 		return Receipt{}, err
 	}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	actor := listingtask.Actor{TenantID: identity.EffectiveOrganizationID, UserID: identity.UserID, Roles: identity.Roles}
-	if !ok || identity.TenantID != actor.TenantID || listingtask.ValidateActor(actor) != nil || !s.dependencies.Now().Before(identity.TokenExpiresAt) {
+	actor := Actor{OrganizationID: identity.EffectiveOrganizationID, UserID: identity.UserID, Roles: identity.Roles}
+	if !ok || identity.TenantID != actor.OrganizationID || ValidateActor(actor) != nil || !s.dependencies.Now().Before(identity.TokenExpiresAt) {
 		return Receipt{}, ErrForbidden
 	}
 	if !s.dependencies.Authorizer.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminWrite) {
 		return Receipt{}, ErrForbidden
 	}
-	if input.Validate() != nil || listingtask.ValidateTaskID(operation) != nil {
+	if input.Validate() != nil || ValidateOperationID(operation) != nil {
 		return Receipt{}, ErrInvalid
 	}
 	existing, lookupErr := s.dependencies.Records.FindOperation(ctx, actor, operation)
@@ -178,18 +177,18 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 		return Receipt{}, err
 	}
 
-	store, err := s.dependencies.Stores.GetStoreReference(ctx, actor.TenantID, input.StoreID)
+	store, err := s.dependencies.Stores.GetStoreReference(ctx, actor.OrganizationID, input.StoreID)
 	if err != nil {
 		return Receipt{}, err
 	}
-	if store.OrganizationID != actor.TenantID || store.StoreID != input.StoreID || store.Platform != "shein" {
+	if store.OrganizationID != actor.OrganizationID || store.StoreID != input.StoreID || store.Platform != "shein" {
 		return Receipt{}, ErrNotFound
 	}
 	if err := ctx.Err(); err != nil {
 		return Receipt{}, err
 	}
 
-	sourceID := catalog.SnapshotIdentity{TenantID: actor.TenantID, ProductKey: input.ProductKey}
+	sourceID := catalog.SnapshotIdentity{TenantID: actor.OrganizationID, ProductKey: input.ProductKey}
 	published, err := s.dependencies.Products.GetSnapshot(ctx, sourceID, input.SnapshotVersion)
 	if errors.Is(err, catalog.ErrSnapshotNotReady) {
 		return Receipt{}, ErrNotFound
@@ -213,7 +212,7 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 	productHash := digest(productBytes)
 
 	inventoryScope := productasset.InventoryScope{
-		TenantID: actor.TenantID, ProductKey: input.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: input.SnapshotVersion,
+		TenantID: actor.OrganizationID, ProductKey: input.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: input.SnapshotVersion,
 	}
 	inventory, err := s.dependencies.Assets.GetApprovedInventory(ctx, inventoryScope)
 	if errors.Is(err, productasset.ErrApprovedAssetsNotReady) {
@@ -286,7 +285,7 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 	}
 
 	created, err := s.dependencies.Records.Insert(ctx, Prepared{record: Record{
-		ID: uuid.NewString(), OrganizationID: actor.TenantID, OwnerUserID: actor.UserID, OperationID: operation,
+		ID: uuid.NewString(), OrganizationID: actor.OrganizationID, OwnerUserID: actor.UserID, OperationID: operation,
 		Input: input, InputHash: inputHash, ProductHash: productHash,
 		AssetInventoryVersion: input.SnapshotVersion, AssetInventoryHash: inventoryHash,
 		RuleRevision: s.dependencies.RuleRevision, PolicyRevision: s.dependencies.PolicyRevision,
@@ -317,7 +316,7 @@ func canonicalInventory(inventory productasset.ApprovedAssetInventory) productas
 	return inventory
 }
 
-func canonicalInputHash(actor listingtask.Actor, input Input, productHash, inventoryHash, ruleRevision, policyRevision string) (string, error) {
+func canonicalInputHash(actor Actor, input Input, productHash, inventoryHash, ruleRevision, policyRevision string) (string, error) {
 	wire, err := json.Marshal(struct {
 		OrganizationID     string `json:"organization_id"`
 		OwnerUserID        string `json:"owner_user_id"`
@@ -331,7 +330,7 @@ func canonicalInputHash(actor listingtask.Actor, input Input, productHash, inven
 		AssetInventoryHash string `json:"asset_inventory_hash"`
 		RuleRevision       string `json:"rule_revision"`
 		PolicyRevision     string `json:"policy_revision"`
-	}{actor.TenantID, actor.UserID, input.ProductKey, input.SnapshotVersion, input.StoreID, input.Country, input.Language, string(input.Action), productHash, inventoryHash, ruleRevision, policyRevision})
+	}{actor.OrganizationID, actor.UserID, input.ProductKey, input.SnapshotVersion, input.StoreID, input.Country, input.Language, string(input.Action), productHash, inventoryHash, ruleRevision, policyRevision})
 	if err != nil {
 		return "", err
 	}
@@ -343,8 +342,8 @@ func digest(value []byte) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
-func receiptFor(r Record, actor listingtask.Actor, operation, inputHash string) (Receipt, error) {
-	if r.OrganizationID != actor.TenantID || r.OwnerUserID != actor.UserID || r.OperationID != operation || r.InputHash != inputHash ||
+func receiptFor(r Record, actor Actor, operation, inputHash string) (Receipt, error) {
+	if r.OrganizationID != actor.OrganizationID || r.OwnerUserID != actor.UserID || r.OperationID != operation || r.InputHash != inputHash ||
 		r.ID == "" || !contract.ValidContentDigest(r.DiagnosticHash) || r.DiagnosticStatus == "" {
 		return Receipt{}, ErrConflict
 	}

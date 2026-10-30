@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：The user-confirmed [complete #301 boundary](../../docs/architecture/legacy-task-openai-convenience-closure-retirement-boundary.md) retires the old task root after extracting the current Actor and pure validation into record. Canonical inspection reads Catalog by ProductKey/CatalogVersion; no replacement task Reader or lifecycle is introduced. Independent SHEIN login and identity writeback already retired under #985; current Store observations, record/preparation/submission and other current capabilities remain. JSON/hash/version, authorization and transaction owners are unchanged. The original text below is preserved as historical context, not an instruction to restore task or login ownership.
+
 # Listing Domain
 
 Current listing contracts keep their existing owners:
