@@ -290,6 +290,8 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		{"resume committed current core", "", true},
 		{"reject drifted core without committing metadata", "ALTER TABLE workbench_stores DROP CONSTRAINT store_walmart_market", false},
 		{"reject drifted platform without committing metadata", "ALTER TABLE workbench_store_walmart_oauth_grants DROP CONSTRAINT walmart_grant_identity", false},
+		{"reject same-name weak merchant without committing metadata", "ALTER TABLE workbench_store_merchant_bindings DROP CONSTRAINT store_merchant_binding_shape; ALTER TABLE workbench_store_merchant_bindings ADD CONSTRAINT store_merchant_binding_shape CHECK (app_id<>'')", false},
+		{"reject same-name weak connection without committing metadata", "ALTER TABLE workbench_store_connections DROP CONSTRAINT store_connection_shape; ALTER TABLE workbench_store_connections ADD CONSTRAINT store_connection_shape CHECK (version>0)", false},
 		{"reject unknown Goose history", "INSERT INTO goose_store_center_version(version_id,is_applied) VALUES(9999999999,true)", false},
 		{"reject missing Goose history", "DROP TABLE goose_store_center_version", false},
 	} {
@@ -332,6 +334,11 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 				var metadataAbsent bool
 				require.NoError(t, f.owner.Raw(`SELECT to_regclass('public.workbench_store_groups') IS NULL AND to_regclass('public.workbench_store_profiles') IS NULL AND to_regclass('public.workbench_store_metadata_operations') IS NULL`).Scan(&metadataAbsent).Error)
 				require.True(t, metadataAbsent, "rejected progress must not commit later schema")
+				if historyPresent {
+					var laterVersions int64
+					require.NoError(t, f.owner.Raw(`SELECT count(*) FROM goose_store_center_version WHERE version_id IN (2026101101,2026101601)`).Scan(&laterVersions).Error)
+					require.Zero(t, laterVersions, "rejected progress must not commit later Goose receipts")
+				}
 			}
 			require.NoError(t, f.owner.Raw(`SELECT 'public.workbench_stores'::regclass::oid::bigint`).Scan(&afterOID).Error)
 			require.Equal(t, beforeOID, afterOID, "the committed core must not be recreated")

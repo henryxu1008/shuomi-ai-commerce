@@ -59,6 +59,9 @@ func newStoreRunner(db *sql.DB, align func(context.Context, *sql.Tx) error) (*pl
 			}
 			// Keep the resumed step and its original Goose receipt atomic. A
 			// retained/drifted core must not commit newly created metadata.
+			if err := storecenter.VerifyAlignedCoreSchemaTx(ctx, tx); err != nil {
+				return err
+			}
 			return storecenter.VerifyCurrentSchemaTx(ctx, tx)
 		}}, nil),
 		goose.NewGoMigration(CoreAlignmentVersion, &goose.GoFunc{RunTx: align}, nil))
