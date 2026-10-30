@@ -14,6 +14,8 @@
 
 调查起点 main `be7f6592a7f9792c1119a98b774624a31a8593e7`；[#1010](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1010) 对应 push/main CI41023989892 attempt1 整 run SUCCESS。接单与边界见 [#301 当前接单](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301#issuecomment-6518684671)。单 Writer、当前独立工作区、一个主要分支/PR；#1014 的内核发行目录保持原 owner，不接管。后续 main 若推进，仅核对真实组合及实际消费者，不能据旧快照删除新消费者。
 
+设计候选前已同步实际 main `6229cd96c80bfa93cdd91d06c8556ca7f0bb7644`（原 owner 合入 #1014）。组合核对：新增内核目录只调用现有 WithOptions/module 与当前 identity/verified-roles，没有调用本批退出声明；其 BrowserKernel optional feature、metadata/persistence owner、manifest、权限、workflow 和新原检查全部保留。同步不改变本批91路径提案；本 PR 对实际 main 仍只有三文档差异，上游源码/CI调整不是本批 authored 修改。
+
 Must：当前采集、图像、身份/组织/权限、Store 观察同步、JSON/hash/版本、凭据保护、事务、deadline/取消和现有 retry/UNKNOWN/恢复事实 owner 保留。Out of Scope：workflow、完整 inventory、历史记录/计数/ceilings、保护规则、工具与依赖版本；既有实例、数据、凭据、配置/token/profile/轨迹文件或进程；部署、运行验收、Issue 关闭、新内部试用前置。#301 保持 OPEN。不恢复已由 #985 退休的独立 SHEIN 登录与身份回写 worker。
 
 ## §2 Design Basis 与旧 KEEP 替代
