@@ -61,21 +61,49 @@ func TestGetStringSlice_SplitsCommaSeparatedSingleEntry(t *testing.T) {
 }
 
 func TestNewViper_BindsLegacyEnvironmentAliases(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY", "legacy-image-key")
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL", "https://legacy-image.example.test/v1")
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE", "legacy-style")
-
-	v := newViper()
-
-	assert.Equal(t, "legacy-image-key", v.GetString("openai.clients.image.apiKey"))
-	assert.Equal(t, "https://legacy-image.example.test/v1", v.GetString("openai.clients.image.baseURL"))
-	assert.Equal(t, "legacy-style", v.GetString("openai.clients.image.apiStyle"))
+	tests := []struct{ key, primary, retired string }{
+		{"openai.apiKey", "TASK_PROCESSOR_OPENAI_API_KEY", "OPENAI_API_KEY"},
+		{"openai.model", "TASK_PROCESSOR_OPENAI_MODEL", "OPENAI_MODEL"},
+		{"openai.baseURL", "TASK_PROCESSOR_OPENAI_BASE_URL", "OPENAI_BASE_URL"},
+		{"openai.clients.image.apiKey", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY"},
+		{"openai.clients.image.baseURL", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL"},
+		{"openai.clients.image.apiStyle", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE"},
+		{"browser.browserPath", "TASK_PROCESSOR_BROWSER_PATH", "BROWSER_PATH"},
+		{"browser.userDataDir", "TASK_PROCESSOR_BROWSER_USER_DATA_DIR", "BROWSER_USER_DATA_DIR"},
+		{"browser.headless", "TASK_PROCESSOR_BROWSER_HEADLESS", "BROWSER_HEADLESS"},
+		{"browser.poolSize", "TASK_PROCESSOR_BROWSER_POOL_SIZE", "BROWSER_POOL_SIZE"},
+		{"platforms.alibaba1688.enabled", "TASK_PROCESSOR_PLATFORM_1688_ENABLED", "PLATFORM_1688_ENABLED"},
+		{"database.host", "TASK_PROCESSOR_DATABASE_HOST", "DB_HOST"},
+		{"database.port", "TASK_PROCESSOR_DATABASE_PORT", "DB_PORT"},
+		{"database.user", "TASK_PROCESSOR_DATABASE_USER", "DB_USER"},
+		{"database.password", "TASK_PROCESSOR_DATABASE_PASSWORD", "DB_PASSWORD"},
+		{"database.database", "TASK_PROCESSOR_DATABASE_NAME", "DB_NAME"},
+		{"database.max_connections", "TASK_PROCESSOR_DATABASE_MAX_CONNECTIONS", "DB_MAX_CONNECTIONS"},
+		{"database.max_idle_connections", "TASK_PROCESSOR_DATABASE_MAX_IDLE_CONNECTIONS", "DB_MAX_IDLE_CONNECTIONS"},
+		{"listingkit.zitadel.allowedTenantIDs", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS", "LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS"},
+		{"listingkit.zitadel.allowedUserIDs", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS", "LISTINGKIT_ZITADEL_ALLOWED_USER_IDS"},
+		{"listingkit.zitadel.allowedUsernames", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES", "LISTINGKIT_ZITADEL_ALLOWED_USERNAMES"},
+		{"listingkit.zitadel.allowedRoles", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES", "LISTINGKIT_ZITADEL_ALLOWED_ROLES"},
+	}
+	for _, test := range tests {
+		t.Run(test.retired, func(t *testing.T) {
+			automatic := "TASK_PROCESSOR_" + strings.ToUpper(strings.ReplaceAll(test.key, ".", "_"))
+			t.Setenv(test.primary, "")
+			t.Setenv(automatic, "")
+			t.Setenv(test.retired, "retired-synthetic-value")
+			v := newViper()
+			v.SetDefault(test.key, "current-default")
+			assert.Equal(t, "current-default", v.GetString(test.key), "a retired alias must not provide a value, including via AutomaticEnv")
+			t.Setenv(test.primary, "current-synthetic-value")
+			assert.Equal(t, "current-synthetic-value", newViper().GetString(test.key), "retired aliases cannot override Primary")
+		})
+	}
 }
 
 func TestNewViper_BindsDatabaseEnvironmentVariables(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_DATABASE_HOST", "db.example")
 	t.Setenv("TASK_PROCESSOR_DATABASE_PORT", "30432")
-	t.Setenv("DB_NAME", "legacy-db")
+	t.Setenv("TASK_PROCESSOR_DATABASE_NAME", "legacy-db")
 
 	v := newViper()
 
@@ -133,13 +161,15 @@ func TestOldSDSConfigurationIsRetired(t *testing.T) {
 }
 
 func TestKnownEnvBindingsDoNotExposeListingKitOwnerScopeToggle(t *testing.T) {
+	require.Equal(t, 1, reflect.TypeOf(envBinding{}).NumField(), "bindings must expose only the current Primary name")
+	require.Equal(t, "Primary", reflect.TypeOf(envBinding{}).Field(0).Name)
 	bindings := knownEnvBindings()
 	_, ok := bindings["listingkit.ownerScopeRequired"]
 	assert.False(t, ok)
 
 	for _, binding := range bindings {
 		assert.NotEqual(t, "TASK_PROCESSOR_LISTINGKIT_OWNER_SCOPE_REQUIRED", binding.Primary)
-		assert.NotContains(t, binding.Deprecated, "TASK_PROCESSOR_LISTINGKIT_ZITADEL_OWNER_SCOPE_REQUIRED")
+		assert.NotEqual(t, "TASK_PROCESSOR_LISTINGKIT_ZITADEL_OWNER_SCOPE_REQUIRED", binding.Primary)
 	}
 }
 
@@ -305,26 +335,6 @@ func TestBuildConfigPreservesValidPhoneVerificationExpiry(t *testing.T) {
 	}
 	t.Setenv(envKey, "")
 	require.Zero(t, BuildConfig(newViper()).ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
-}
-
-func TestDeprecatedEnvWarnings_ReportsLegacyAliases(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "legacy")
-
-	warnings := deprecatedEnvWarnings()
-
-	assert.NotEmpty(t, warnings)
-	assert.Contains(t, strings.Join(warnings, "\n"), "OPENAI_API_KEY is deprecated")
-}
-
-func TestDeprecatedEnvWarnings_SkipsWhenPrimaryEnvSet(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_OPENAI_API_KEY", "primary")
-	t.Setenv("OPENAI_API_KEY", "legacy")
-
-	warnings := deprecatedEnvWarnings()
-
-	for _, w := range warnings {
-		assert.NotContains(t, w, "OPENAI_API_KEY")
-	}
 }
 
 func TestLoadDotEnvFile_PopulatesUnsetEnvironmentVariables(t *testing.T) {
@@ -514,4 +524,30 @@ func TestRetiredCommercialTokenDatabaseIsNotConfiguration(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_COMMERCIAL_DATABASE_HOST", "retired-token-pool")
 	cfg := BuildConfig(newViper())
 	assert.Nil(t, cfg.CommercialOwnerDatabase, "old Token env must not alias the current resource owner")
+}
+
+func TestCurrentAutomaticEnvironmentInputsRemainAvailable(t *testing.T) {
+	for key, name := range map[string]string{
+		"unregistered.setting":                 "TASK_PROCESSOR_UNREGISTERED_SETTING",
+		"openai.apiKey":                        "TASK_PROCESSOR_OPENAI_APIKEY",
+		"openai.clients.secondary.model":       "TASK_PROCESSOR_OPENAI_CLIENTS_SECONDARY_MODEL",
+		"openai.clients.image.apiKey_suffix":   "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY_SUFFIX",
+		"openai.clients.image.baseURL_suffix":  "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL_SUFFIX",
+		"openai.clients.image.apiStyle_suffix": "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE_SUFFIX",
+	} {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv(name, "current-automatic-value")
+			v := newViper()
+			require.Equal(t, "current-automatic-value", v.GetString(key))
+			v.Set(key, "explicit-current-value")
+			require.Equal(t, "explicit-current-value", v.GetString(key))
+		})
+	}
+	t.Run("dynamic client and file fallback", func(t *testing.T) {
+		t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_SECONDARY_MODEL", "current-model")
+		v := newViper()
+		require.NoError(t, v.ReadConfig(strings.NewReader("openai:\n  clients:\n    secondary:\n      model: file-model\n      apiKey: fixture-key\n")))
+		require.Equal(t, "current-model", BuildConfig(v).OpenAI.Clients["secondary"].Model)
+		require.Equal(t, "fixture-key", BuildConfig(v).OpenAI.Clients["secondary"].APIKey)
+	})
 }

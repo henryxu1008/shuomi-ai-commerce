@@ -1,3 +1,5 @@
+> #301 / #1007 当前实施边界：用户已确认[配置、投影与 Dub 完整退休设计](legacy-config-projection-dub-closure-retirement-boundary.md) §1–§7/§4.2/§6.1。Dub 无实际消费者的准备适配器整包及专属尾部退休，本文件对 Dub 的旧 KEEP/Out of Scope 不再是当前保活要求；旧配置别名取值与专属警告的 KEEP 同步由本批准确替代，当前 Primary/加载/普通日志/校验保留；其它当前能力及既有原文/历史逐字保留。不调用 Dub、不操作既有实例/数据/凭据/进程，不改 workflow/inventory，不加试用前置，#301 OPEN。
+
 > #301 / #985 **SUPERSEDED：独立 SHEIN 登录与身份回写完整退休**。按[用户已确认的完整边界](legacy-shein-login-identity-sync-closure-retirement-boundary.md) §1–§7/§4.2/§6.1，本文件涉及独立登录 CLI/runtime/service、Cookie/Profile/RedisConfig、Store 执行归属/身份回写及旧 session transport/商家仓库查询的 KEEP、安装或运行指引仅为历史；这些专属闭包已从源码退出，不留 alias/fallback/替代 owner。当前 Store 观察同步、官方授权及其它当前能力保留。既有表/记录/权限/Redis/Profile/凭据/进程无操作，运行停用 NOT_RUN/NOT_AUTHORIZED；不增加试用前置，#301 OPEN。以下起点 main 完整原正文、历史、批准、失败、数字与勾选逐字保留。
 
 > #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。

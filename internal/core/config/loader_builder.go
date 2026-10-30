@@ -195,8 +195,7 @@ func legacyListingKitUsernameAllowlistConfigured(v *viper.Viper) bool {
 		return true
 	}
 
-	binding := knownEnvBindings()[key]
-	for _, name := range append([]string{binding.Primary}, binding.Deprecated...) {
+	for _, name := range []string{knownEnvBindings()[key].Primary, "LISTINGKIT_ZITADEL_ALLOWED_USERNAMES"} {
 		if value, ok := os.LookupEnv(name); ok && strings.TrimSpace(value) != "" {
 			return true
 		}

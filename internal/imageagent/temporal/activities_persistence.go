@@ -75,7 +75,7 @@ func (a *Activities) PersistSlotResultV3(ctx context.Context, input PersistSlotR
 	if err != nil {
 		return fmt.Errorf("encode terminal v3 slot result event: %w", err)
 	}
-	_, err = a.repository.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "slot-v3:" + input.AttemptKey, ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: updated, EventType: slotResultPersistedEventType, EventPayload: eventPayload, SlotMutation: &imageagent.SlotProjectionMutation{PlanRevision: input.PlanRevision, Result: storedResult, Projection: updated.Slots[slotIndex], Attempt: attempt}})
+	_, err = a.repository.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "slot-v3:" + input.AttemptKey, ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: updated, EventType: slotResultPersistedEventType, EventPayload: eventPayload, SlotMutations: []imageagent.SlotProjectionMutation{{PlanRevision: input.PlanRevision, Result: storedResult, Projection: updated.Slots[slotIndex], Attempt: attempt}}})
 	if err != nil {
 		return fmt.Errorf("commit terminal v3 slot projection: %w", err)
 	}

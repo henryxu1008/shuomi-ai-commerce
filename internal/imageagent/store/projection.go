@@ -225,10 +225,7 @@ func (r *memoryRepository) applyMemoryProjectionMutation(input imageagent.Projec
 		run.ActivePlanRevision = mutation.Plan.Revision
 		r.runs[key] = run
 	}
-	mutations, err := orderedSlotProjectionMutations(input)
-	if err != nil {
-		return err
-	}
+	mutations := input.SlotMutations
 	for index := range mutations {
 		mutation := &mutations[index]
 		run := r.runs[key]
@@ -545,10 +542,7 @@ func withProjectionTransaction(ctx context.Context, db *gorm.DB, transaction fun
 }
 
 func validateProjectionMutation(current imageagent.RunProjection, input imageagent.ProjectionCommit) error {
-	mutations, err := orderedSlotProjectionMutations(input)
-	if err != nil {
-		return err
-	}
+	mutations := input.SlotMutations
 	expectedRun := current.Run
 	if input.RunMutation != nil {
 		expectedRun.Status = input.RunMutation.Status
@@ -605,16 +599,6 @@ func validateProjectionMutation(current imageagent.RunProjection, input imageage
 		return fmt.Errorf("%w: projection plan is outside the persisted catalog: %v", imageagent.ErrRevisionConflict, err)
 	}
 	return nil
-}
-
-func orderedSlotProjectionMutations(input imageagent.ProjectionCommit) ([]imageagent.SlotProjectionMutation, error) {
-	if input.SlotMutation != nil && len(input.SlotMutations) > 0 {
-		return nil, fmt.Errorf("%w: projection commit cannot mix legacy and ordered slot mutations", imageagent.ErrRevisionConflict)
-	}
-	if input.SlotMutation != nil {
-		return []imageagent.SlotProjectionMutation{*input.SlotMutation}, nil
-	}
-	return input.SlotMutations, nil
 }
 
 func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, currentSlot imageagent.SlotProjection, mutation imageagent.SlotProjectionMutation) error {
@@ -776,10 +760,7 @@ func (r *gormRepository) applyGormProjectionMutation(ctx context.Context, tx *go
 			}
 		}
 	}
-	mutations, err := orderedSlotProjectionMutations(input)
-	if err != nil {
-		return err
-	}
+	mutations := input.SlotMutations
 	for index := range mutations {
 		mutation := &mutations[index]
 		var stored slotRecord
@@ -800,6 +781,7 @@ func (r *gormRepository) applyGormProjectionMutation(ctx context.Context, tx *go
 		candidates, _ := marshalJSON(candidateIDs)
 		var closure []byte
 		if mutation.Result.Closure != nil {
+			var err error
 			closure, err = marshalJSON(mutation.Result.Closure)
 			if err != nil {
 				return err
@@ -896,7 +878,21 @@ func initializationFingerprint(input imageagent.ProjectionInitialization) (strin
 	}{input.Scope, input.Run, input.Plan, input.Catalog, input.Snapshot, input.CommitID, input.EventType, input.EventPayload})
 }
 func projectionCommitFingerprint(input imageagent.ProjectionCommit) (string, error) {
-	return hashJSON(input)
+	// The durable array-command preimage predates removal of the single-slot
+	// command. Its null byte slot is a hash constant, never an accepted command.
+	return hashJSON(struct {
+		Scope                     imageagent.RunScope
+		CommitID                  string
+		ExpectedProjectionVersion int64
+		Snapshot                  imageagent.RunProjection
+		EventType                 string
+		EventPayload              json.RawMessage
+		RunMutation               *imageagent.RunMutation
+		ExpectedRunVersion        int64
+		PlanMutation              *imageagent.PlanProjectionMutation
+		RetiredSingleSlot         any `json:"SlotMutation"`
+		SlotMutations             []imageagent.SlotProjectionMutation
+	}{input.Scope, input.CommitID, input.ExpectedProjectionVersion, input.Snapshot, input.EventType, input.EventPayload, input.RunMutation, input.ExpectedRunVersion, input.PlanMutation, nil, input.SlotMutations})
 }
 func hashJSON(value any) (string, error) {
 	encoded, err := json.Marshal(value)

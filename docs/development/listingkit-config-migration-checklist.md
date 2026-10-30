@@ -39,9 +39,11 @@ Relevant env bindings:
 - `TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS`
 - `TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES`
 
-Compatibility aliases remain bound for some old `LISTINGKIT_ZITADEL_*` names,
-but new deployment manifests should move to the `TASK_PROCESSOR_*` forms where
-they exist.
+Old `LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS`, `LISTINGKIT_ZITADEL_ALLOWED_USER_IDS`,
+and `LISTINGKIT_ZITADEL_ALLOWED_ROLES` aliases are retired and rejected by both
+configuration loaders, including empty values and coexistence with Primary.
+Use the canonical `TASK_PROCESSOR_*` names above; the exact retirement and
+username rejection boundary is recorded in [#301 configuration closure](../architecture/legacy-config-projection-dub-closure-retirement-boundary.md).
 
 The obsolete YAML key `listingkit.zitadel.allowedUsernames` and both
 `TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES` and

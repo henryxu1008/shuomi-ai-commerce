@@ -413,7 +413,7 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 			Status: updated.Run.Status, CurrentNode: updated.Run.CurrentNode,
 			ActivePlanRevision: updated.Run.ActivePlanRevision, Block: updated.Run.Block,
 		},
-		SlotMutation: &imageagent.SlotProjectionMutation{
+		SlotMutations: []imageagent.SlotProjectionMutation{{
 			PlanRevision: input.PlanRevision,
 			Result: imageagent.SlotResult{
 				Closure: updated.Slots[slotIndex].Closure,
@@ -428,7 +428,7 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 				IdempotencyKey: fmt.Sprintf("%s:slot:%s:attempt:%d", commitID, input.Slot.ID, input.Attempt),
 				Outcome:        outcome, ErrorCategory: updated.Slots[slotIndex].ErrorCode,
 			},
-		},
+		}},
 	})
 	if err != nil {
 		return fmt.Errorf("commit image agent recovery parent projection: %w", err)
