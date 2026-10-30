@@ -27,6 +27,7 @@ func (e *recordingSourceEditor) EditSources(_ context.Context, r productimage.So
 func setExecutionInput(t *testing.T) imageagent.SlotExecutionInput {
 	input := testProductImageExecutionInput()
 	input.TargetPlatform = "product"
+	input.AssetCatalog.ProductContext = input.ProductContext
 	input.ImagePolicyContext = nil
 	input.Slot.Role = imageagent.SlotRoleDetail
 	input.Slot.Brief = ""
@@ -38,8 +39,8 @@ func setExecutionInput(t *testing.T) imageagent.SlotExecutionInput {
 	input.AssetCatalog.Assets = append(input.AssetCatalog.Assets, second)
 	input.SourceReferences = [][]byte{testTinyPNG(t), []byte("second exact source")}
 	hash := strings.Repeat("a", 64)
-	input.ImageSet = &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product-1", OperationID: "operation-1", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}
-	input.Slot.Recipe = &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "approved product overview", Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 12, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}
+	input.ImageSet = &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product-1", OperationID: "operation-1", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}
+	input.Slot.Recipe = &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): Product. Product type: shoe. Confirmed color: blue. Visual task: product_overview; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 12, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}
 	for i, data := range input.SourceReferences {
 		sum := sha256.Sum256(data)
 		input.Slot.Recipe.References = append(input.Slot.Recipe.References, imageagent.ImageSourceObservation{AssetID: input.Slot.SourceAssetIDs[i], SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(data)), Width: 1200, Height: 1200})
@@ -83,7 +84,8 @@ func TestImageSetExecutorUsesSingleEditForDetailAndBindsEverySource(t *testing.T
 
 func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *testing.T) {
 	input := setExecutionInput(t)
-	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.FrozenVisualBriefPolicyVersion}
+	originalPrompt := input.Slot.Recipe.Prompt
+	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
 	input.ImageMethodText = "Bounded method text that must reach the image provider."
 	var err error
 	input.ImageSet.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: input.ImageSet, Slots: []imageagent.Slot{input.Slot}})
@@ -98,7 +100,8 @@ func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *test
 	require.True(t, strings.HasPrefix(editor.request.Prompt, input.Slot.Recipe.Prompt))
 	require.NotContains(t, editor.request.Prompt, "BEGIN UNTRUSTED METHOD")
 	require.Contains(t, editor.request.Prompt, input.ImageMethodText)
-	require.Equal(t, "approved product overview", input.Slot.Recipe.Prompt, "persisted recipe must not acquire method plaintext")
+	require.Equal(t, originalPrompt, input.Slot.Recipe.Prompt, "persisted recipe must retain its exact frozen prompt")
+	require.NotContains(t, input.Slot.Recipe.Prompt, input.ImageMethodText, "persisted recipe must not acquire method plaintext")
 	input.ImageMethodText = ""
 	_, err = executor.GenerateQuotedSlot(context.Background(), input, quote)
 	require.Error(t, err)
@@ -107,7 +110,7 @@ func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *test
 
 func TestLiteralDetailCopyMismatchIsRejectedBeforeDirectToolsDispatch(t *testing.T) {
 	input := setExecutionInput(t)
-	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.FrozenLiteralCopyPolicyVersion}
+	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
 	input.Slot.Role = imageagent.SlotRoleSellingPoint
 	input.Slot.Recipe.Purpose = "key_benefits"
 	input.Slot.Recipe.VisibleText = []string{"unsupported claim"}

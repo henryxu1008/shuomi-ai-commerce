@@ -1,3 +1,5 @@
+> #301 / #1001：用户已确认[历史协议完整退休边界§1–§7](../../architecture/legacy-imageagent-history-protocol-closure-retirement-boundary.md)，同一PR整批实施。本文对旧默认版本双分支/旧历史续跑的要求退出当前Authority（包括组织V3）；当前版本1、预算quote事实、绝对deadline/取消/finalization、UNKNOWN、恢复通知和有效JSON/hash合同继续保留。原SDK读取位置保持；未操作实际历史、任务、实例、数据、凭据或进程，不增加试用前置。以下原正文、步骤、勾选和证据逐字保留。
+
 > #301 / #977 用户确认的[完整退休闭包](../../architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md)已在同一主要PR实施：旧HTTP预算DTO/测试保活限定退出；有效存在性/零值/负值、预算、取消、发送前释放及UNKNOWN断言改当前owner，生产算法不改。 此顶注只校准本批指定旧KEEP，以下实际开工main的完整原正文/批准/失败/数字/勾选逐字保留为历史。无新alias/替代旧宿主、workflow/inventory/运行/数据操作或内部试用前置；独立SHEIN登录与Store同步保留，#301 OPEN。
 
 # Image Agent Budget Authorization Implementation Plan

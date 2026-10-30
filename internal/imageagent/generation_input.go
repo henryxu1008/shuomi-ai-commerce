@@ -10,13 +10,14 @@ func ValidateImageSetExecution(input SlotExecutionInput) error {
 	if input.ImageSet == nil || input.Slot.Recipe == nil || input.ImageSet.Target.Platform != input.TargetPlatform || input.ImageSet.MaxPoints < input.Slot.Recipe.Quote.Points || !generationDigest(input.ImageSet.QuoteDigest) {
 		return ErrValidation
 	}
-	if input.ImageSet.Text != nil || usesLiteralDetailCopy(input.ImageSet, input.Slot.Recipe) {
-		if !reflect.DeepEqual(input.ProductContext, input.AssetCatalog.ProductContext) {
-			return ErrRevisionConflict
-		}
-		if err := validateLiteralDetailRecipe(input.ImageSet, input.Slot, input.ProductContext); err != nil {
-			return err
-		}
+	if err := ValidateImageMethodDispatch(input.ImageSet.Method); err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(input.ProductContext, input.AssetCatalog.ProductContext) {
+		return ErrRevisionConflict
+	}
+	if err := validateReviewedImageText(input.ImageSet, input.Slot, &input.ProductContext); err != nil {
+		return err
 	}
 	// Validate the exact slot against the same recipe contract as plan creation.
 	// Set totals are checked on the complete plan by its owner, not by a slot.

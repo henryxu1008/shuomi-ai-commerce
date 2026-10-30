@@ -2,8 +2,6 @@ package imageagent_test
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -12,6 +10,19 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/imageagent"
 )
+
+func TestImageMethodBindingRejectsRetiredPolicies(t *testing.T) {
+	ref := imageMethodRef()
+	for _, policy := range []string{"image-method-prompt-v1", "image-method-visual-brief-v2", "image-method-visual-brief-v3"} {
+		t.Run(policy, func(t *testing.T) {
+			binding := &imageagent.ImageMethodBinding{Skill: ref, PolicyVersion: policy}
+			require.False(t, binding.Valid(), "a retired policy cannot remain a readable current binding")
+			require.ErrorIs(t, imageagent.ValidateImageMethodDispatch(binding), imageagent.ErrCommandBlocked)
+		})
+	}
+	require.True(t, (imageagent.ImageMethodBinding{Skill: ref, PolicyVersion: imageagent.ImageMethodPolicyVersion}).Valid())
+	require.NoError(t, imageagent.ValidateImageMethodDispatch(nil))
+}
 
 func TestImageMethodVisualPlanUsesNaturalFactsWithoutDocumentBlocks(t *testing.T) {
 	m := &methodFixture{text: "Soft photographic light and balanced negative space."}
@@ -90,113 +101,6 @@ func TestVisualMethodIncludesOnlyEvidenceRequiredByTheCurrentTask(t *testing.T) 
 			}
 		})
 	}
-}
-
-type historicalMethodRepository struct {
-	imageagent.Repository
-	input      imageagent.PrepareImageSetInput
-	historical bool
-}
-
-func (r *historicalMethodRepository) GetProjection(ctx context.Context, scope imageagent.RunScope) (imageagent.RunProjection, error) {
-	p, err := r.Repository.GetProjection(ctx, scope)
-	if err == nil && r.historical {
-		p.Plan.Set.Method.PolicyVersion = "image-method-prompt-v1"
-		raw, _ := json.Marshal(struct {
-			Input        imageagent.PrepareImageSetInput
-			MethodPolicy string
-		}{r.input, "image-method-prompt-v1"})
-		sum := sha256.Sum256(raw)
-		p.Plan.Set.InputDigest = hex.EncodeToString(sum[:])
-		p.Plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(p.Plan)
-	}
-	return p, err
-}
-
-// Install an original v2 snapshot in the isolated repository, rather than
-// changing a read view of an immutable v3 plan during confirmation.
-type frozenVisualV2Repository struct {
-	imageagent.Repository
-	input imageagent.PrepareImageSetInput
-}
-
-func (r *frozenVisualV2Repository) InitializeRun(ctx context.Context, p imageagent.ProjectionInitialization) (imageagent.RunProjection, error) {
-	p.Plan.Set.Method.PolicyVersion = "image-method-visual-brief-v2"
-	raw, _ := json.Marshal(struct {
-		Input        imageagent.PrepareImageSetInput
-		MethodPolicy string
-	}{r.input, "image-method-visual-brief-v2"})
-	sum := sha256.Sum256(raw)
-	p.Plan.Set.InputDigest = hex.EncodeToString(sum[:])
-	var err error
-	p.Plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(p.Plan)
-	if err != nil {
-		return imageagent.RunProjection{}, err
-	}
-	p.Snapshot.Plan = p.Plan
-	return r.Repository.InitializeRun(ctx, p)
-}
-
-func TestFrozenVisualV2SameKeyAndOriginalConfirmationKeepTheirBytes(t *testing.T) {
-	var original *frozenVisualV2Repository
-	wrap := func(repo imageagent.Repository) imageagent.Repository {
-		original = &frozenVisualV2Repository{Repository: repo}
-		return original
-	}
-	m := &methodFixture{text: "Original immutable visual brief."}
-	s, _, _, cfg, _, _, ctx, input := imageSetServiceFixtureWithRepository(t, wrap, imageagent.WithImageMethodContext(m))
-	ref := imageMethodRef()
-	input.Method = &ref
-	original.input = input
-	first, err := s.PrepareImageSet(ctx, input)
-	require.NoError(t, err)
-	old, err := s.PrepareImageSet(ctx, input)
-	require.NoError(t, err)
-	before, err := json.Marshal(old.Projection.Plan.Slots)
-	require.NoError(t, err)
-	initial, err := json.Marshal(first.Projection.Plan.Slots)
-	require.NoError(t, err)
-	require.Equal(t, initial, before, "non-detail recipes retain their exact v2 prompt bytes")
-	require.Equal(t, ref, old.Projection.Plan.Set.Method.Skill)
-	require.NoError(t, imageagent.ValidateImageMethodDispatch(old.Projection.Plan.Set.Method))
-	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(old))
-	require.NoError(t, err)
-	calls := m.calls
-	m.unavailable = true
-	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(old))
-	require.NoError(t, err, "original confirmation receipt recovery keeps its prior admission")
-	require.Equal(t, 1, cfg.admissions)
-	require.Equal(t, calls, m.calls)
-	read, err := s.PrepareImageSet(ctx, input)
-	require.NoError(t, err)
-	after, err := json.Marshal(read.Projection.Plan.Slots)
-	require.NoError(t, err)
-	require.Equal(t, before, after)
-	require.Equal(t, old.PlanDigest, read.PlanDigest)
-	require.Equal(t, old.QuoteDigest, read.QuoteDigest)
-}
-func TestHistoricalMethodSameKeyReadSurvivesPolicyChangeButNewConfirmIsBlocked(t *testing.T) {
-	var original *historicalMethodRepository
-	wrap := func(repo imageagent.Repository) imageagent.Repository {
-		original = &historicalMethodRepository{Repository: repo}
-		return original
-	}
-	m := &methodFixture{text: "A product photograph."}
-	s, _, _, cfg, _, _, ctx, input := imageSetServiceFixtureWithRepository(t, wrap, imageagent.WithImageMethodContext(m))
-	ref := imageMethodRef()
-	input.Method = &ref
-	original.input = input
-	_, err := s.PrepareImageSet(ctx, input)
-	require.NoError(t, err)
-	original.historical = true
-	calls := m.calls
-	old, err := s.PrepareImageSet(ctx, input)
-	require.NoError(t, err, "same stored v1 policy must determine its original hash")
-	require.Equal(t, "image-method-prompt-v1", old.Projection.Plan.Set.Method.PolicyVersion)
-	require.Equal(t, calls, m.calls)
-	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(old))
-	require.ErrorIs(t, err, imageagent.ErrCommandBlocked)
-	require.Zero(t, cfg.admissions)
 }
 
 func imageMethodRef() agent.SkillVersionRef {

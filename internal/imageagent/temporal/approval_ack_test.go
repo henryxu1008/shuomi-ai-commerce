@@ -17,7 +17,7 @@ import (
 // Only the original publication action may reconcile that outcome.
 func TestManualWorkflowApprovalLostACKCannotBeSupersededByCancel(t *testing.T) {
 	env := newWorkflowEnv(t)
-	env.OnGetVersion(externalEffectFinalizationPatch, workflow.DefaultVersion, 1).Return(workflow.Version(1))
+	env.OnGetVersion(externalEffectFinalizationPatch, 1, 1).Return(workflow.Version(1))
 	plan := sevenSlotPlan()
 	for _, slot := range plan.Slots {
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()

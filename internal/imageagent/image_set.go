@@ -185,7 +185,7 @@ func ValidateImageSetPlan(plan Plan) error {
 	if s == nil || s.Schema != ImageSetSchema || len(plan.Slots) > MaxPlanSlots || len(plan.StyleReferenceIDs) > 0 {
 		return fmt.Errorf("%w: incomplete image set binding", ErrValidation)
 	}
-	if s.Method != nil && s.Method.PolicyVersion == ImageMethodPolicyVersion && s.Text == nil {
+	if s.Text == nil {
 		return ErrValidation
 	}
 	if s.Regeneration != nil && (!agentconfig.UUID(s.Regeneration.RunID) || !agentconfig.ImageDigest(s.Regeneration.ClosedEffectsDigest) || s.Regeneration.ResultDigest != "" && !agentconfig.ImageDigest(s.Regeneration.ResultDigest)) {
@@ -216,15 +216,11 @@ func ValidateImageSetPlan(plan Plan) error {
 		if r == nil || !r.Quote.Valid() || r.PromptVersion != ImageSetSchema || strings.TrimSpace(r.Prompt) == "" || !agentconfig.ValidSetText(r.Prompt, 16<<10) || !agentconfig.ValidSetText(r.Background, agentconfig.MaxSetBackgroundBytes) || strings.TrimSpace(r.Background) == "" || !agentconfig.ValidSetText(slot.Brief, agentconfig.MaxSetBriefBytes) || len(slot.StyleReferenceIDs) > 0 || len(r.References) < 1 || len(r.References) > agentconfig.MaxSetSourceReferences || len(r.References) != len(slot.SourceAssetIDs) {
 			return fmt.Errorf("%w: invalid image slot recipe", ErrValidation)
 		}
-		if len(r.VisibleText) > 2 || len(r.VisibleText) > 0 && s.Text == nil && !usesLiteralDetailCopy(s, r) {
+		if len(r.VisibleText) > 2 {
 			return ErrValidation
 		}
 		for _, label := range r.VisibleText {
-			valid := validDetailLabel(label)
-			if s.Text != nil {
-				valid = validReviewedImageText(label)
-			}
-			if !valid {
+			if !validReviewedImageText(label) {
 				return ErrValidation
 			}
 		}
@@ -297,6 +293,9 @@ func ImageSetPoints(plan Plan) (int64, error) {
 }
 
 func ImageSetQuoteDigest(plan Plan) (string, error) {
+	if plan.Set == nil || !plan.Set.Text.Valid(plan.Set.Source) || plan.Set.Method != nil && !plan.Set.Method.Valid() {
+		return "", ErrValidation
+	}
 	type quotedSlot struct {
 		SlotID string
 		Quote  ImageGenerationQuote
@@ -316,24 +315,15 @@ func ImageSetQuoteDigest(plan Plan) (string, error) {
 			Text   *ImageTextBinding   `json:",omitempty"`
 		}{quotes, plan.Set.Route, plan.Set.Method, plan.Set.Text})
 	}
-	if plan.Set != nil && plan.Set.Text != nil {
-		return resultDigestSHA256(struct {
-			Quotes []quotedSlot
-			Method *ImageMethodBinding `json:",omitempty"`
-			Text   *ImageTextBinding
-		}{quotes, plan.Set.Method, plan.Set.Text})
-	}
-	if plan.Set != nil && plan.Set.Method != nil {
-		return resultDigestSHA256(struct {
-			Quotes []quotedSlot
-			Method *ImageMethodBinding
-		}{quotes, plan.Set.Method})
-	}
-	return resultDigestSHA256(quotes)
+	return resultDigestSHA256(struct {
+		Quotes []quotedSlot
+		Method *ImageMethodBinding `json:",omitempty"`
+		Text   *ImageTextBinding
+	}{quotes, plan.Set.Method, plan.Set.Text})
 }
 
 func ImageSetPlanDigest(plan Plan) (string, error) {
-	if err := ValidateSubmittedPlan(plan); err != nil {
+	if err := ValidatePlan(plan); err != nil {
 		return "", err
 	}
 	return resultDigestSHA256(plan)

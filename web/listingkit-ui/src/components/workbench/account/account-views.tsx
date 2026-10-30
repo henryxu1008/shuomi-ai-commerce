@@ -39,23 +39,36 @@ type ProfileSection = "summary" | "settings" | "business" | "verification";
 
 export function ProfileView({ data, business, organization, organizationId, section = "summary", identityVerificationOutcomeUnknown = false, onIdentityVerificationOutcomeUnknown, identityContactOutcomeUnknown = false, onIdentityContactOutcomeUnknown }: { data: AccountProfile; business?: AccountBusinessProfile | null; organization?: AccountOrganization | null; organizationId?: string; section?: ProfileSection; identityVerificationOutcomeUnknown?: boolean; onIdentityVerificationOutcomeUnknown?: () => void; identityContactOutcomeUnknown?: boolean; onIdentityContactOutcomeUnknown?: () => void }) {
   const identity = <ProfileIdentity data={data}/>;
-  if (section === "settings") return <section className={styles.settingsWorkspace} aria-label="账户资料设置"><AccountSettingsPanel data={data} editable returnTo="/workbench/account/profile/settings" identityContactOutcomeUnknown={identityContactOutcomeUnknown} onIdentityContactOutcomeUnknown={onIdentityContactOutcomeUnknown} /><Provenance data={data} /></section>;
+  if (section === "settings") return <section className={styles.settingsWorkspace} aria-label="账户资料设置"><AccountSettingsPanel data={data} returnTo="/workbench/account/profile/settings" identityContactOutcomeUnknown={identityContactOutcomeUnknown} onIdentityContactOutcomeUnknown={onIdentityContactOutcomeUnknown} /><Provenance data={data} /></section>;
   if (section === "business") return <>{identity}<BusinessProfilePanel profile={business} organizationId={organizationId} /><Provenance data={data} /></>;
   if (section === "verification") return <>{identity}<VerificationPanel data={data} interactive organization={organization} returnTo="/workbench/account/profile/verification" identityVerificationOutcomeUnknown={identityVerificationOutcomeUnknown} onIdentityVerificationOutcomeUnknown={onIdentityVerificationOutcomeUnknown} /><Provenance data={data} /></>;
-  return <>{identity}<Card className={styles.profileStatusMetric}><span>账户状态</span><strong>{data.emailVerified === true && data.phoneNumberVerified === true ? "已验证" : "待完善"}</strong><small>{data.emailVerified === true && data.phoneNumberVerified === true ? "邮箱与手机均由身份服务确认" : "验证状态以身份服务返回为准"}</small></Card>
+  return <>
+    <Card className={styles.profileSummary}>
+      <header><div className={styles.profileAvatar} aria-hidden="true">{(data.displayName?.trim() || "账").slice(0, 1)}</div><div><h2>{data.displayName?.trim() || "当前账户"}</h2><p>个人资料与联系方式</p></div><div className={styles.summaryStatus} data-complete={data.emailVerified === true && data.phoneNumberVerified === true || undefined}><span>账户状态</span><strong>{data.emailVerified === true && data.phoneNumberVerified === true ? "已验证" : "待完善"}</strong></div></header>
+      <Fields items={[["手机号码", <>{provided(data.phoneNumber)} · <span>{verification(data.phoneNumberVerified)}</span></>], ["邮箱地址", <>{provided(data.email)} · <span>{verification(data.emailVerified)}</span></>], ["归属企业（Home）", data.homeOrganizationId]]} />
+    </Card>
     {![data.displayName, data.email, data.phoneNumber].some(value => value?.trim()) ? <ConsoleState kind="empty" title="暂未提供个人资料">登录服务本次未提供显示名称、手机号码或电子邮箱。你仍可查看账户标识并刷新资料。</ConsoleState> : null}
-    <div className={styles.profileGrid}><div className={styles.profileMain}>
-      <AccountSettingsPanel data={data} />
-      <VerificationPanel data={data} />
-    </div><BusinessProfilePanel profile={business} organizationId={organizationId} /></div><Provenance data={data} /></>;
+    <div className={styles.summaryGrid}>
+      <Panel title="经营画像" description="已填写的经营角色、平台与市场">
+        {business ? <Fields items={[["经营角色", provided(business.userRole)], ["店铺情况", provided(business.shopSituation)], ["销售平台", business.platforms.join("、") || "未设置"], ["经营站点", business.sites.join("、") || "未设置"]]} /> : <p className={styles.note}>经营画像暂时无法读取，未将缺失资料视为已填写。</p>}
+        <Button asChild variant="outline"><Link href="/workbench/account/profile/business" prefetch={false}>编辑经营画像</Link></Button>
+      </Panel>
+      <Panel title="账户设置" description="修改联系方式与维护登录安全">
+        <p className={styles.note}>手机号、邮箱及验证流程沿用现有账户设置。</p>
+        <p className={styles.note}>敏感操作会按当前规则要求验证。</p>
+        <div className={styles.summaryActions}><Button asChild variant="outline"><Link href="/workbench/account/profile/settings" prefetch={false}>前往账户设置</Link></Button><Button asChild variant="link"><Link href="/workbench/account/profile/verification" prefetch={false}>查看身份认证</Link></Button></div>
+      </Panel>
+    </div>
+    <details className={styles.summaryDetails}><summary>查看账户编号与登录信息</summary><p>账户 ID：{data.userId}</p><IdentityDates subject={data.userId}/><Provenance data={data}/></details>
+  </>;
 }
 
 function ProfileIdentity({ data }: { data: AccountProfile }) {
   return <Card className={styles.identity}><div><h2>{data.displayName?.trim() || "当前账户"}</h2><p>账户 ID：{data.userId}</p><p>归属企业（Home）：{data.homeOrganizationId}</p></div><div className={styles.identityStatus}><span className={styles.badge}>账户资料 · 当前用户</span><IdentityDates subject={data.userId}/></div></Card>;
 }
 
-function AccountSettingsPanel({ data, editable = false, returnTo, identityContactOutcomeUnknown = false, onIdentityContactOutcomeUnknown }: { data: AccountProfile; editable?: boolean; returnTo?: string; identityContactOutcomeUnknown?: boolean; onIdentityContactOutcomeUnknown?: () => void }) {
-  if (editable) return <>
+function AccountSettingsPanel({ data, returnTo, identityContactOutcomeUnknown = false, onIdentityContactOutcomeUnknown }: { data: AccountProfile; returnTo?: string; identityContactOutcomeUnknown?: boolean; onIdentityContactOutcomeUnknown?: () => void }) {
+  return <>
     <Panel title="账户信息" description="个人身份资料由 ZITADEL 官方 Auth API 管理" className={styles.settingsAccount}>
       <Fields items={[["显示名称", provided(data.displayName)], ["国家 / 地区", <RegionValue key="country" subject={data.userId} field="country"/>], ["省 / 州", <RegionValue key="province" subject={data.userId} field="province"/>], ["城市", <RegionValue key="city" subject={data.userId} field="city"/>]]} />
       <RegionSettings subject={data.userId}/>
@@ -63,13 +76,7 @@ function AccountSettingsPanel({ data, editable = false, returnTo, identityContac
     </Panel>
     <IdentityContactManagement data={data} returnTo={returnTo ?? "/workbench/account/profile/settings"} identityContactOutcomeUnknown={identityContactOutcomeUnknown} onIdentityContactOutcomeUnknown={onIdentityContactOutcomeUnknown} />
   </>;
-  return <div className={styles.settingsSections}>
-    <Panel title="账户设置" description="个人身份资料由 ZITADEL 官方 Auth API 管理">
-      <Fields items={[["显示名称", provided(data.displayName)], ["国家 / 地区", <RegionValue key="country" subject={data.userId} field="country"/>], ["省 / 州", <RegionValue key="province" subject={data.userId} field="province"/>], ["城市", <RegionValue key="city" subject={data.userId} field="city"/>]]} />
-      <p className={styles.note}>进入账户设置后，可在 Shuomi 内修改个人资料；字段由当前登录身份服务提供。</p>
-    </Panel>
-    <Panel title="联系方式"><Fields items={[["手机号码", <>{provided(data.phoneNumber)} · {verification(data.phoneNumberVerified)}</>], ["邮箱地址", <>{provided(data.email)} · {verification(data.emailVerified)}</>]]} /><p className={styles.note}>修改和验证由 ZITADEL 官方流程完成。</p></Panel>
-  </div>;
+
 }
 
 function IdentityProfileManagement({ data, returnTo }: { data: AccountProfile; returnTo: string }) {

@@ -10,6 +10,120 @@ import (
 	"testing"
 )
 
+func TestLegacyImageAgentHistoryProtocolClosureIsRetired(t *testing.T) {
+	for path, banned := range map[string][]string{
+		"internal/imageagent/temporal/workflow.go":               {"workflowActivityWire", "activityWireForWorkflow", "resultDigestForWire", "approvalPublicationKeyForWire", "legacyApprovalActionPublicationKey", "errRetiredImageAgentWire", "enforceIngressPlanPolicy", "externalEffectFinalization"},
+		"internal/imageagent/temporal/types.go":                  {"PersistWorkflowFailureActivityInput", "activityPersistWorkflowFailure", "enforceIngressPlanPolicy", "externalEffectFinalization"},
+		"internal/imageagent/temporal/activity_registration.go":  {"PersistWorkflowFailure", "activityPersistWorkflowFailure"},
+		"internal/imageagent/temporal/activities_persistence.go": {"PersistWorkflowFailure"},
+		"internal/imageagent/temporal/slot_workflow.go":          {"effectPhaseForFinalizationWire"},
+		"internal/imageagent/artifact.go":                        {"ValidateStagingManifest", "ValidateFinalManifest"},
+		"internal/imageagent/budget.go":                          {"HasProviderLimits", "EnabledLimitNames"},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok && slices.Contains(banned, id.Name) {
+				t.Errorf("%s retains retired identifier %s", path, id.Name)
+			}
+			return true
+		})
+	}
+	for path, expected := range map[string]map[string][]string{
+		"internal/imageagent/temporal/workflow.go": {
+			"ImageAgentWorkflow":            {"commandIngressPlanPolicyPatch", "budgetAuthorizationPatch", "externalEffectFinalizationPatch", "projectionExecutionCommitPatch", "workflowFailureProjectionPatch"},
+			"assertCurrentWorkflowProtocol": {"slotExecutionWireV3Patch", "approvalActionIDV3Patch", "approvalPublicationWireV3Patch", "resultDigestV3Patch", "approvalPublicationScopePatch", "approvalPublicationKeyLengthPatch", "activityWireV2Patch", "effectRecoveryStartWireV1Patch"},
+			"newWorkflowEffectOwner":        {"externalEffectFinalizationPatch"},
+		},
+		"internal/imageagent/temporal/effect_recovery_workflow.go": {"reconcileEffectRecovery": {"effectRecoveryParentSignalPatch"}},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen := map[string][]string{}
+		for _, d := range file.Decls {
+			f, ok := d.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			ast.Inspect(f, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				sel, ok := call.Fun.(*ast.SelectorExpr)
+				if !ok || sel.Sel.Name != "GetVersion" {
+					return true
+				}
+				if len(call.Args) != 4 {
+					t.Errorf("%s malformed GetVersion", f.Name.Name)
+					return true
+				}
+				id, ok := call.Args[1].(*ast.Ident)
+				if !ok {
+					t.Errorf("version ID must retain its original constant")
+					return true
+				}
+				seen[f.Name.Name] = append(seen[f.Name.Name], id.Name)
+				for _, arg := range call.Args[2:] {
+					if v, ok := arg.(*ast.BasicLit); !ok || v.Kind != token.INT || v.Value != "1" {
+						t.Errorf("%s must support only current version 1", id.Name)
+					}
+				}
+				return true
+			})
+			positions := map[string]token.Pos{}
+			ast.Inspect(f, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				name := ""
+				switch target := call.Fun.(type) {
+				case *ast.Ident:
+					name = target.Name
+				case *ast.SelectorExpr:
+					name = target.Sel.Name
+				}
+				if name == "GetVersion" && len(call.Args) == 4 {
+					if id, ok := call.Args[1].(*ast.Ident); ok {
+						name = id.Name
+					}
+				}
+				if _, exists := positions[name]; !exists {
+					positions[name] = call.Pos()
+				}
+				return true
+			})
+			var order []string
+			switch f.Name.Name {
+			case "ImageAgentWorkflow":
+				order = []string{"runImageAgentWorkflow", "workflowFailureProjectionPatch", "persistWorkflowFailure"}
+			case "newWorkflowEffectOwner":
+				order = []string{"NewChannel", "assertCurrentWorkflowProtocol", "externalEffectFinalizationPatch", "Go"}
+			case "reconcileEffectRecovery":
+				order = []string{"ExecuteActivity", "effectRecoveryParentSignalPatch", "signalEffectRecoveryCompletion"}
+			}
+			for i, name := range order {
+				if positions[name] == token.NoPos || i > 0 && positions[order[i-1]] >= positions[name] {
+					t.Errorf("%s moved protocol boundary: expected %v", f.Name.Name, order)
+				}
+			}
+		}
+		if len(seen) != len(expected) {
+			t.Errorf("%s version read owners drifted: %v", path, seen)
+		}
+		for function, want := range expected {
+			if !slices.Equal(seen[function], want) {
+				t.Errorf("%s.%s version reads/order = %v, want %v", path, function, seen[function], want)
+			}
+		}
+	}
+}
+
 func TestLegacyImageAgentManualRuntimeClosureIsRetired(t *testing.T) {
 	for _, path := range []string{
 		"internal/imageagent/slot_effect.go", "internal/imageagent/store/slot_effect.go",
@@ -211,5 +325,58 @@ func TestLegacyImageAgentBusinessSignalClosureIsRetired(t *testing.T) {
 	}
 	if !sdkPort || !recoveryChannel || !recoveryProducer {
 		t.Errorf("current SDK port and recovery Signal producer/receiver must remain: port=%t receiver=%t producer=%t", sdkPort, recoveryChannel, recoveryProducer)
+	}
+}
+
+func TestLegacyImageMethodSnapshotClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/imageagent/image_detail_copy.go", "internal/imageagent/image_visual_prompt.go", "internal/imageagent/image_detail_copy_test.go", "hack/debug/image-reconcile-774/main.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired path %s must be absent: %v", path, err)
+		}
+	}
+	for path, banned := range map[string][]string{
+		"internal/imageagent/image_method.go":                     {"HistoricalImageMethodPolicyVersion", "FrozenVisualBriefPolicyVersion", "FrozenLiteralCopyPolicyVersion", "Executable"},
+		"internal/imageagent/image_set_service.go":                {"visualProductFacts", "visualImagePrompt", "usesLiteralDetailCopy", "detailVisibleText", "literalDetailPrompt"},
+		"internal/imageagent/asset_catalog.go":                    {"ValidateSubmittedPlanAgainstCatalog", "validateLiteralDetailRecipe"},
+		"internal/imageagent/validation.go":                       {"ValidateSubmittedPlan"},
+		"internal/imageagent/generation_input.go":                 {"usesLiteralDetailCopy", "validateLiteralDetailRecipe"},
+		"internal/integration/skillimage/context.go":              {"HistoricalImageMethodPolicyVersion"},
+		"internal/imageagent/store/generation_output_recovery.go": {"FrozenLiteralCopyPolicyVersion"},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok && slices.Contains(banned, id.Name) {
+				t.Errorf("%s retains %s", path, id.Name)
+			}
+			return true
+		})
+	}
+	for path, required := range map[string][]string{
+		"internal/imageagent/image_method.go":        {"ImageMethodPolicyVersion", "ValidateImageMethodDispatch", "AcquireImageMethod", "ComposeImageMethodPrompt"},
+		"internal/imageagent/image_text.go":          {"validateReviewedImageText", "imageTextPrompt", "validReviewedImageText", "CloneImageTextBinding"},
+		"internal/imageagent/validation.go":          {"ValidatePlan", "MaxPlanSlots", "MaxJSONSafePlanRevision", "ValidateInitialSubmittedPlan", "ValidateReplacementSubmittedPlan"},
+		"internal/imageagent/asset_catalog.go":       {"ValidatePlanAgainstCatalog", "CatalogHash", "CatalogSnapshotHash", "NormalizeProductContextRef"},
+		"internal/imageagent/projection.go":          {"ValidatePlanAgainstCatalog", "ValidateVisualAdmission", "ErrRevisionConflict"},
+		"internal/imageagent/image_set_admission.go": {"ValidateImageSetAdmission", "SlotStatusPending", "ErrRevisionConflict"},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen := map[string]bool{}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok {
+				seen[id.Name] = true
+			}
+			return true
+		})
+		for _, name := range required {
+			if !seen[name] {
+				t.Errorf("%s must retain %s", path, name)
+			}
+		}
 	}
 }

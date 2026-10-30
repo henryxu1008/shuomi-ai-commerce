@@ -77,11 +77,12 @@ func reconcileEffectRecovery(ctx workflow.Context, input EffectRecoveryWorkflowI
 	if err := workflow.ExecuteActivity(ctx, activityReconcileEffectRecoveryV3, input).Get(ctx, &result); err != nil {
 		return EffectRecoveryResult{}, err
 	}
-	if workflow.GetVersion(ctx, effectRecoveryParentSignalPatch, workflow.DefaultVersion, 1) != workflow.DefaultVersion {
-		if err := signalEffectRecoveryCompletion(ctx, input, result); err != nil {
-			return EffectRecoveryResult{}, err
-		}
+	workflow.GetVersion(ctx, effectRecoveryParentSignalPatch, 1, 1)
+
+	if err := signalEffectRecoveryCompletion(ctx, input, result); err != nil {
+		return EffectRecoveryResult{}, err
 	}
+
 	return result, nil
 }
 

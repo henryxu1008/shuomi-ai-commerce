@@ -22,7 +22,7 @@ const MaxIdempotencyKeyLength = 128
 const MaxJSONSafePlanRevision int64 = 1<<53 - 1
 
 // MaxPlanSlots bounds provider fan-out and parent workflow history growth for
-// newly submitted plans. Historical snapshots remain readable via ValidatePlan.
+// current plans, including persisted projection reads.
 const MaxPlanSlots = 32
 
 var actionIDPattern = regexp.MustCompile(fmt.Sprintf(`^[A-Za-z0-9][A-Za-z0-9._:+-]{0,%d}$`, MaxActionIDLength-1))
@@ -66,7 +66,10 @@ func ValidateSlotRole(role SlotRole) error {
 
 func ValidatePlan(plan Plan) error {
 	if plan.Artwork != nil {
-		return ValidateArtworkPlan(plan)
+		if err := ValidateArtworkPlan(plan); err != nil {
+			return err
+		}
+		return validatePlanBounds(plan)
 	}
 	if plan.Revision <= 0 {
 		return fmt.Errorf("revision must be positive")
@@ -155,12 +158,15 @@ func ValidatePlan(plan Plan) error {
 				return fmt.Errorf("style reference %q is not in plan", styleID)
 			}
 		}
-		if slot.Status != "" && slot.Status != SlotStatusPending {
+		if slot.Status != SlotStatusPending {
 			return fmt.Errorf("slot status must be pending")
 		}
 	}
 	if plan.Set != nil {
-		return ValidateImageSetPlan(plan)
+		if err := ValidateImageSetPlan(plan); err != nil {
+			return err
+		}
+		return validatePlanBounds(plan)
 	}
 	for _, slot := range plan.Slots {
 		if slot.Recipe != nil {
@@ -170,16 +176,10 @@ func ValidatePlan(plan Plan) error {
 	if mainSlots != 1 {
 		return fmt.Errorf("plan requires exactly one main slot")
 	}
-	return nil
+	return validatePlanBounds(plan)
 }
 
-// ValidateSubmittedPlan applies the stricter command-ingress contract while
-// ValidatePlan remains able to read pre-contract workflow histories whose
-// pending status was omitted from the serialized plan.
-func ValidateSubmittedPlan(plan Plan) error {
-	if err := ValidatePlan(plan); err != nil {
-		return err
-	}
+func validatePlanBounds(plan Plan) error {
 	if plan.Revision > MaxJSONSafePlanRevision || plan.ParentRevision < 0 || plan.ParentRevision > MaxJSONSafePlanRevision {
 		return fmt.Errorf("plan revision and parent revision must be JSON-safe integers")
 	}
@@ -195,7 +195,7 @@ func ValidateSubmittedPlan(plan Plan) error {
 }
 
 func ValidateInitialSubmittedPlan(plan Plan) error {
-	if err := ValidateSubmittedPlan(plan); err != nil {
+	if err := ValidatePlan(plan); err != nil {
 		return err
 	}
 	if plan.Revision != 1 || plan.ParentRevision != 0 {
@@ -208,7 +208,7 @@ func ValidateReplacementSubmittedPlan(expectedRevision int64, plan Plan) error {
 	if expectedRevision <= 0 || expectedRevision > MaxJSONSafePlanRevision {
 		return fmt.Errorf("expected revision must be a positive JSON-safe integer")
 	}
-	if err := ValidateSubmittedPlan(plan); err != nil {
+	if err := ValidatePlan(plan); err != nil {
 		return err
 	}
 	if expectedRevision == MaxJSONSafePlanRevision || plan.ParentRevision != expectedRevision || plan.Revision != expectedRevision+1 {

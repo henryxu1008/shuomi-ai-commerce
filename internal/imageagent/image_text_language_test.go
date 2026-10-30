@@ -25,8 +25,8 @@ func (r *frozenLanguageReplayRepository) GetProjection(ctx context.Context, scop
 	return r.Repository.GetProjection(ctx, scope)
 }
 
-func TestHistoricalPrepareWithoutTextReplaysFrozenBytes(t *testing.T) {
-	for _, policy := range []string{"", imageagent.FrozenVisualBriefPolicyVersion, imageagent.FrozenLiteralCopyPolicyVersion} {
+func TestHistoricalPrepareWithoutTextIsRejectedWithoutRewritingSnapshot(t *testing.T) {
+	for _, policy := range []string{"", "image-method-visual-brief-v2", "image-method-visual-brief-v3"} {
 		t.Run(policy, func(t *testing.T) {
 			var repo *frozenLanguageReplayRepository
 			service, _, _, _, owner, _, ctx, input := imageSetServiceFixtureWithRepository(t, func(r imageagent.Repository) imageagent.Repository {
@@ -55,15 +55,19 @@ func TestHistoricalPrepareWithoutTextReplaysFrozenBytes(t *testing.T) {
 			}
 			sum := sha256.Sum256(wire)
 			frozen.Plan.Set.InputDigest = hex.EncodeToString(sum[:])
-			frozen.Plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(frozen.Plan)
-			require.NoError(t, err)
+			// Captured from this original synthetic fixture before retiring the old encoders.
+			frozen.Plan.Set.QuoteDigest = map[string]string{
+				"":                             "2a9a3f27a50d9170fb0528910632d11acf7d39ee9d5e86d0edac8b73c715eff2",
+				"image-method-visual-brief-v2": "972d5542c006db50170dd45f143e7573e1db53e57e8b00c20c01beb213c8fdb7",
+				"image-method-visual-brief-v3": "96fd42c2eedc9738f917ec96a5662313e0647c069ce4e1ed0408a6257cc9405a",
+			}[policy]
 			repo.projection = &frozen
 			before, err := json.Marshal(frozen)
 			require.NoError(t, err)
 			for i := 0; i < 2; i++ {
-				result, err := service.PrepareImageSet(ctx, input)
-				require.NoError(t, err)
-				after, err := json.Marshal(result.Projection)
+				_, err := service.PrepareImageSet(ctx, input)
+				require.ErrorIs(t, err, imageagent.ErrValidation)
+				after, err := json.Marshal(*repo.projection)
 				require.NoError(t, err)
 				require.Equal(t, string(before), string(after))
 			}
@@ -80,7 +84,7 @@ func TestNewImagePreparationRequiresExplicitTextChoice(t *testing.T) {
 }
 
 func TestReviewedCopyFreezesTargetLanguageWithoutChangingCatalog(t *testing.T) {
-	for _, bad := range []string{"", "language", "source", "publication", "revision", "too_long", "control", "format", "markup", "url", "unknown"} {
+	for _, bad := range []string{"", "language", "source", "publication", "revision", "too_long", "control", "format", "markup", "url", "tab", "padded", "www", "data", "brackets", "empty", "unknown"} {
 		t.Run(bad, func(t *testing.T) {
 			s, _, _, config, contexts, _, ctx, input := imageSetServiceFixture(t)
 			config.template.Language = "en"
@@ -107,6 +111,18 @@ func TestReviewedCopyFreezesTargetLanguageWithoutChangingCatalog(t *testing.T) {
 				contexts.copy.Lines[0] = "<b>copy</b>"
 			case "url":
 				contexts.copy.Lines[0] = "https://example.com"
+			case "tab":
+				contexts.copy.Lines[0] = "one\ttwo"
+			case "padded":
+				contexts.copy.Lines[0] = " padded"
+			case "www":
+				contexts.copy.Lines[0] = "WWW.example.com"
+			case "data":
+				contexts.copy.Lines[0] = "data:image/png"
+			case "brackets":
+				contexts.copy.Lines[0] = "[instruction]"
+			case "empty":
+				contexts.copy.Lines[0] = ""
 			case "unknown":
 				contexts.copyErr = imageagent.ErrCommandBlocked
 			}
@@ -145,7 +161,7 @@ func TestReviewedImageTextFailsClosedWithoutConfirmedCopyOwner(t *testing.T) {
 }
 
 func TestReviewedCopyPreservesOrdinaryPunctuationAndFrozenReplay(t *testing.T) {
-	for _, title := range []string{"Women's organizer", `Fits a 13" shelf`, "Box — fabric, grey.", "收纳盒（灰色）· 33厘米"} {
+	for _, title := range []string{"Women's organizer", `Fits a 13" shelf`, "Box — fabric, grey.", "收纳盒（灰色）· 33厘米", strings.Repeat("界", 32), strings.Repeat("🟢", 32)} {
 		t.Run(title, func(t *testing.T) {
 			s, _, _, config, owner, _, ctx, input := imageSetServiceFixture(t)
 			config.template.Language = "en"
@@ -176,5 +192,36 @@ func TestExplicitNoTextDoesNotDelegateLanguageToImageModel(t *testing.T) {
 	require.NoError(t, err)
 	for _, slot := range p.Projection.Plan.Slots {
 		require.Contains(t, slot.Recipe.Prompt, "No visible text", "new no-text requests must not retain the old discretionary lettering instruction")
+	}
+}
+
+func TestRetiredImagePlanCannotUseAnExistingAdmissionReceipt(t *testing.T) {
+	for _, policy := range []string{"", "image-method-prompt-v1", "image-method-visual-brief-v2", "image-method-visual-brief-v3"} {
+		t.Run(policy, func(t *testing.T) {
+			var repo *frozenLanguageReplayRepository
+			s, _, _, cfg, _, _, ctx, input := imageSetServiceFixtureWithRepository(t, func(r imageagent.Repository) imageagent.Repository {
+				repo = &frozenLanguageReplayRepository{Repository: r}
+				return repo
+			})
+			prepared, err := s.PrepareImageSet(ctx, input)
+			require.NoError(t, err)
+			confirmed, err := s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+			require.NoError(t, err)
+			require.Equal(t, 1, cfg.admissions)
+			if policy == "" {
+				confirmed.Plan.Set.Text = nil
+			} else {
+				confirmed.Plan.Set.Method = &imageagent.ImageMethodBinding{Skill: imageMethodRef(), PolicyVersion: policy}
+			}
+			repo.projection = &confirmed
+			before, err := json.Marshal(confirmed)
+			require.NoError(t, err)
+			_, err = s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+			require.Error(t, err, "an original receipt cannot admit a retired definition")
+			require.Equal(t, 1, cfg.admissions)
+			after, err := json.Marshal(*repo.projection)
+			require.NoError(t, err)
+			require.Equal(t, string(before), string(after))
+		})
 	}
 }

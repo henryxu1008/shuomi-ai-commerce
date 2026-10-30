@@ -1,3 +1,5 @@
+> #301 / #1005 已确认的源码退休边界：按[冻结设计 §2/§4.2](legacy-image-method-snapshot-closure-retirement-boundary.md)退出旧方法v1/v2/v3、Text=nil与宽松旧计划的读取/重放/续跑/新增采用及旧recipe恢复承诺，并退四笔专用事故命令。准确对象按该设计矩阵，不退休Skill数字版本、当前v4/人工文案、Artwork/catalog-v1、通用UNKNOWN/资金防重及当前恢复。已有资产/审计/回执/账务与本文件历史正文不改；不操作既有环境、不增加试用前置。以下原正文、历史证据和勾选完整保留。
+
 # Detail image literal copy assembly v3
 
 Design Basis: **Independent Architecture / IMPLEMENTATION_READY** (2026-10-20).

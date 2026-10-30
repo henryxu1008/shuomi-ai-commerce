@@ -10,6 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestProjectionReadRejectsSizeSourceWithoutFrozenDimensions(t *testing.T) {
+	run := Run{ID: "run-dimensions", TenantID: "tenant-a", UserID: "user-a", ActivePlanRevision: 1}
+	main := Slot{ID: "main", Role: SlotRoleMain, IdempotencyKey: "main", SourceAssetIDs: []string{"source"}, Status: SlotStatusPending}
+	size := Slot{ID: "size", Role: SlotRoleSize, IdempotencyKey: "size", SourceAssetIDs: []string{"source"}, Status: SlotStatusPending}
+	snapshot := RunProjection{Run: run, Plan: Plan{Revision: 1, IdempotencyKey: "plan", SourceAssetIDs: []string{"source"}, Slots: []Slot{main, size}},
+		AssetCatalog: AssetCatalog{Assets: []AuthorizedAsset{{ID: "source", Type: AuthorizedAssetSource, Width: 1200, Height: 900}}},
+		Slots:        []SlotProjection{{Slot: main}, {Slot: size}}, ProjectionVersion: 1, LastEventID: 1}
+	require.NoError(t, ValidateProjectionSnapshot(ScopeForRun(run), snapshot))
+	snapshot.AssetCatalog.Assets[0].Width = 0
+	require.ErrorContains(t, ValidateProjectionSnapshot(ScopeForRun(run), snapshot), "reliable dimensions")
+}
+
 func TestValidateProjectionSnapshotAcceptsOnlyValidatedDurableV3Candidates(t *testing.T) {
 	const (
 		tenantID = "tenant-a"
@@ -21,6 +33,7 @@ func TestValidateProjectionSnapshotAcceptsOnlyValidatedDurableV3Candidates(t *te
 	snapshot := RunProjection{
 		Run:               run,
 		Plan:              plan,
+		AssetCatalog:      AssetCatalog{Assets: []AuthorizedAsset{{ID: "source-1", Type: AuthorizedAssetSource}}},
 		ProjectionVersion: 1,
 		LastEventID:       1,
 		Slots: []SlotProjection{{
@@ -126,6 +139,7 @@ func TestValidateProjectionSnapshotRejectsRecoverableEffectWithoutMatchingBlocke
 	snapshot := RunProjection{
 		Run:               run,
 		Plan:              plan,
+		AssetCatalog:      AssetCatalog{Assets: []AuthorizedAsset{{ID: "source-1", Type: AuthorizedAssetSource}}},
 		ProjectionVersion: 1,
 		LastEventID:       1,
 		Slots:             []SlotProjection{{Slot: Slot{ID: "scene-1", Role: SlotRoleMain, Status: SlotStatusBlocked}, Attempt: 1, ErrorCode: "recovery_requested"}},

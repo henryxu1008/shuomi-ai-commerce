@@ -48,27 +48,27 @@ func TestSetWorkflowOffersKnownPartialResultsOnlyAfterEveryEffectCloses(t *testi
 		{Execution: imageagent.SlotExecutionResult{SlotID: plan.Slots[0].ID, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "generated", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/run-1/1/overview/1/0-" + hash + ".png", SHA256: hash}, GenerationProof: proof}}}, Status: imageagent.SlotStatusAccepted, Closure: &imageagent.ImageSlotClosure{Kind: "settled", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}},
 		{Execution: imageagent.SlotExecutionResult{SlotID: second.ID}, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.BudgetElapsedCode, Closure: &imageagent.ImageSlotClosure{Kind: "not_dispatched"}},
 	}
-	wire := workflowActivityWire{useV3Slot: true, useV3Approval: true}
-	projection := summarizeResultsForWire(plan, results, wire)
+
+	projection := summarizeCurrentResults(plan, results)
 	require.Equal(t, imageagent.RunStatusAwaitingFinalApproval, projection.Status)
 	require.Nil(t, projection.Block)
-	digest, err := resultDigestForWire(plan, results, wire)
+	digest, err := projectionResultDigest(plan, results)
 	require.NoError(t, err)
 	require.NotEmpty(t, digest)
 	acceptedClosure := results[0].Closure
 	results[0].Closure = nil
 	results[0].EffectPhase = imageagent.SlotEffectV3PublicationComplete
-	require.Equal(t, imageagent.RunStatusBlocked, summarizeResultsForWire(plan, results, wire).Status, "materialized output without original settlement evidence must stay blocked")
+	require.Equal(t, imageagent.RunStatusBlocked, summarizeCurrentResults(plan, results).Status, "materialized output without original settlement evidence must stay blocked")
 	results[0].Closure = acceptedClosure
 	results[1].Closure = nil
 	results[1].Execution.Attempt = 1
 	results[1].ErrorCode = imageagent.SlotProviderOutcomeUnknownCode
 	results[1].EffectPhase = imageagent.SlotEffectV3ProviderUnknown
-	unknown := summarizeResultsForWire(plan, results, wire)
+	unknown := summarizeCurrentResults(plan, results)
 	require.Equal(t, []imageagent.RecoverableEffect{{SlotID: second.ID, Attempt: 1, Code: imageagent.SlotProviderOutcomeUnknownCode}}, unknown.RecoverableEffects, "the full set must expose the original UNKNOWN recovery identity")
-	projection = summarizeResultsForWire(plan, results, wire)
+	projection = summarizeCurrentResults(plan, results)
 	require.Equal(t, imageagent.RunStatusBlocked, projection.Status)
-	_, err = resultDigestForWire(plan, results, wire)
+	_, err = projectionResultDigest(plan, results)
 	require.Error(t, err)
 }
 

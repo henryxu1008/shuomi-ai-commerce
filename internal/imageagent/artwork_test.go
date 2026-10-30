@@ -34,7 +34,7 @@ func TestArtworkRequiresExplicitSourceFreeProtocol(t *testing.T) {
 	require.NoError(t, ValidateArtworkExecution(input))
 	legacy := plan
 	legacy.Artwork = nil
-	require.Error(t, ValidateSubmittedPlan(legacy), "ordinary image plans still require originals")
+	require.Error(t, ValidatePlan(legacy), "ordinary image plans still require originals")
 	for name, change := range map[string]func(*SlotExecutionInput){
 		"source asset": func(i *SlotExecutionInput) { i.Slot.SourceAssetIDs = []string{"placeholder"} },
 		"image set":    func(i *SlotExecutionInput) { i.ImageSet = &ImageSetPlan{Schema: ImageSetSchema} },

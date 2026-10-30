@@ -48,9 +48,6 @@ func (c *Context) AcquireImageMethod(ctx context.Context, id imageagent.Executio
 		release()
 		return "", nil, d.ErrConflict
 	}
-	if policy == imageagent.HistoricalImageMethodPolicyVersion {
-		return "", release, nil
-	}
 	brief, err := d.ImageVisualBrief(canonical)
 	if err != nil {
 		release()

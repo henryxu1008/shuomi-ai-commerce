@@ -48,7 +48,7 @@ func ValidateArtworkPlan(plan Plan) error {
 		return ErrValidation
 	}
 	slot := plan.Slots[0]
-	if ValidateArtifactKeyIdentifier(slot.ID) != nil || slot.Role != SlotRoleMain || slot.Recipe != nil || len(slot.SourceAssetIDs) != 0 || len(slot.StyleReferenceIDs) != 0 || slot.Brief != a.Theme || validatePersistedIdempotencyKey("slot", slot.IdempotencyKey) != nil || slot.Status != "" && slot.Status != SlotStatusPending {
+	if ValidateArtifactKeyIdentifier(slot.ID) != nil || slot.Role != SlotRoleMain || slot.Recipe != nil || len(slot.SourceAssetIDs) != 0 || len(slot.StyleReferenceIDs) != 0 || slot.Brief != a.Theme || validatePersistedIdempotencyKey("slot", slot.IdempotencyKey) != nil || slot.Status != SlotStatusPending {
 		return ErrValidation
 	}
 	return nil

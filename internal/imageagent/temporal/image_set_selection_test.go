@@ -53,7 +53,6 @@ type selectedSetApprovalResult struct {
 
 func selectedSetApprovalWorkflow(ctx workflow.Context, input WorkflowInput, command ApproveResultsSignal) (selectedSetApprovalResult, error) {
 	ctx = imageAgentActivityContext(ctx)
-	input.externalEffectFinalization = true
 	projection := WorkflowResult{Status: imageagent.RunStatusAwaitingFinalApproval, Plan: input.Plan, ResultDigest: command.ResultDigest}
 	results := []SlotWorkflowResult{}
 	state := newWorkflowUpdateState(ctx, &input, &projection, &results, newWorkflowEffectOwner(ctx))

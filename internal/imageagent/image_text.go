@@ -75,7 +75,7 @@ func imageTextLanguageValid(language string) bool {
 }
 
 // Human-reviewed copy is rendered as JSON literal strings, so ordinary quote
-// punctuation is valid. Keep the historical v3 label predicate unchanged.
+// punctuation is valid.
 func validReviewedImageText(value string) bool {
 	if value == "" || value != strings.TrimSpace(value) || utf8.RuneCountInString(value) > 32 || !agentconfig.ValidSetText(value, 128) {
 		return false
@@ -169,8 +169,11 @@ func imageTextPrompt(product ProductContextRef, brief string, recipe *ImageSlotR
 }
 
 func validateReviewedImageText(set *ImageSetPlan, slot Slot, product *ProductContextRef) error {
-	if set == nil || set.Text == nil {
+	if set == nil {
 		return nil
+	}
+	if set.Text == nil {
+		return ErrValidation
 	}
 	if !set.Text.Valid(set.Source) || slot.Recipe == nil || slot.Recipe.Language != set.Text.Language || !slices.Equal(slot.Recipe.VisibleText, imageTextLines(set.Text, slot.ID)) {
 		return ErrRevisionConflict

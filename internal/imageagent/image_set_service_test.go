@@ -67,6 +67,17 @@ type setContextFixture struct {
 	revalidationErr error
 }
 
+func TestImageAdmissionCannotRestoreOmittedPendingStatus(t *testing.T) {
+	s, _, _, _, _, _, ctx, input := imageSetServiceFixture(t)
+	prepared, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	confirmed, err := s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+	require.NoError(t, err)
+	require.NoError(t, imageagent.ValidateImageSetAdmission(confirmed.Run, confirmed.Plan))
+	confirmed.Plan.Slots[0].Status = ""
+	require.ErrorIs(t, imageagent.ValidateImageSetAdmission(confirmed.Run, confirmed.Plan), imageagent.ErrRevisionConflict)
+}
+
 func (c *setContextFixture) ReadConfirmedImageText(context.Context, imageagent.ExecutionIdentity, imageagent.ImageTextReviewReference) (imageagent.ImageTextReviewCopy, error) {
 	c.copyReads++
 	if c.copyErr != nil {

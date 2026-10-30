@@ -41,7 +41,7 @@ export async function listOwnHistory(scope:CollectionScope,itemId:string,before?
 }
 export async function readOwnVersion(scope:CollectionScope,itemId:string,version:string,signal?:AbortSignal){
  collectionID.parse(itemId);collectionVersion.parse(version);
- const result=await send(`${base}/items/${itemId}/history/${version}`,scope,collectionOwnVersionSchema,signal);
+ const result=await send(`${base}/items/${itemId}/history/${version}`,scope,collectionOwnVersionSchema,signal,undefined,undefined,COLLECTION_DETAIL_RESPONSE_MAX_BYTES);
  if(result.item.id!==itemId||result.version.version!==version)throw new CollectionAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
 }
 export function mutateCollection(intent: CollectionIntent, signal?: AbortSignal) {

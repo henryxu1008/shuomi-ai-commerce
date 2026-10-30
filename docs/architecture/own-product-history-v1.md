@@ -24,11 +24,11 @@ Must：历史列表按真实手工保存版本倒序分页、真实保存时间�
 
 GET `/collections/items/:item_id/history?limit=20&before=<version>`：limit 1..20，before 可选规范正十进制字符串 <=MaxInt64，表示严格早于该版本；返回 current item、至多 limit 个 `{version,publicationId,savedAt,title}`，有后页才返回 nextBefore。before 是筛选边界，不是授权证据，不接受客户端 org/actor/productKey/publication/head。没有伪造 total。
 
-GET `/collections/items/:item_id/history/:version`：version 同上，只允许在上述手工历史集合中的准确 Source 发布，返回 current item、selected version 元数据、该发布已验证的 product。未来版本、衍生版本、其它商品/actor/org 返回 NOT_FOUND；格式/重复/未知 query、GET body/Idempotency-Key 拒绝。两 GET 沿 verified identity/live membership、`workbench.collection.read`、no-store、现 10s Collection timeout、单响应 2MiB；历史引用查询限制 limit+1，详细内容沿现 Source/Catalog 2MiB 单快照边界。
+GET `/collections/items/:item_id/history/:version`：version 同上，只允许在上述手工历史集合中的准确 Source 发布，返回 current item、selected version 元数据、该发布已验证的 product。未来版本、衍生版本、其它商品/actor/org 返回 NOT_FOUND；格式/重复/未知 query、GET body/Idempotency-Key 拒绝。两 GET 沿 verified identity/live membership、`workbench.collection.read`、no-store、现 10s Collection timeout；历史引用查询限制 limit+1，详细内容沿现 Source/Catalog 2MiB 单快照边界。2026-10-29 #675 有界修复复用[来源报价](plugin-capture-source-quotes-v1.md)既有3MiB GET详情响应预算，为旧版详情的合法快照与 item/version 包装留余量：仅 history-detail 的 Go handler、BFF和浏览器API总响应同步到3MiB；历史列表、其它响应、写入和 Source/envelope/snapshot仍2MiB。不截断事实、不新增接口/schema/恢复 owner。
 
 `route descriptor → 原 BFF allowlist/严格校验 → Collection.Service → 原 actor-scoped Repository.ReadItem → 新 Sourcing 只读 history reader → 原 Source 内部读取与 Catalog binding → 对外 projection`。生产构造器显式注入 history reader，无可选 legacy fallback。完成读取后再次实时授权并复读活跃 item/相同 productKey；撤权/换企业/归档不交付已读取资料。移动分组不撤销原 actor 商品读取权；编辑并发只改变当前引用，已选不可变旧版保持准确且不升级为新版。
 
-全程只读，沿原 read-only/repeatable-read Source 事务；不获得写权限。失败/超时仅明确错误和显式重读，无 UNKNOWN mutation、新命令键或自动恢复协议。索引分页使用版本字符串边界，不依赖 JS number；一个浏览过程新增保存不会插入正在看的旧页，返回首屏刷新显示新版本。
+全程只读，沿原 read-only/repeatable-read Source 事务；不获得写权限。失败/超时仅明确错误和显式重读，无 UNKNOWN mutation、新命令键或自动恢复协议。索引分页使用版本字符串边界，不依赖 JS number；一个浏览过程新增保存不会插入正在看的旧页，返回首屏刷新显示新版本。列表的 item 与版本行绑定同一次初始读取；结束前仍实时复核权限、活跃条目、同 productKey 和版本不回退，但不把并发新 item 替换进旧查询页。旧版详情仍保留已选不可变 product，并按原合同返回复核时的 current item。
 
 ## 页面与对比
 

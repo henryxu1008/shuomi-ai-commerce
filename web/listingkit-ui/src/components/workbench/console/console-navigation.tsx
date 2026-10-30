@@ -2,11 +2,41 @@
 import {canDiscoverNativeRuns} from "../ai-workbench/native-run-records";
 
 import Link from "next/link";
+import { Gauge, PanelsTopLeft, Package, Bot, Wrench, Network, Database, Store, Ticket, UserRound, Circle, ChevronDown, Target, LayoutGrid, BellRing, Lightbulb, MessageSquare, ListChecks, FolderKanban, BookOpen, Sparkles, FileChartColumn, ScanLine, Building2, Star, Boxes, GitBranch, ClipboardList, ClipboardCheck, BotMessageSquare, Settings2, BriefcaseBusiness, Handshake, UserPlus, Braces, FolderArchive, Truck, Layers, BadgeCheck, ChartNoAxesCombined, Wallet, ReceiptText, IdCard, Megaphone, type LucideIcon } from "lucide-react";
+
+const navigationIcons: Record<string, LucideIcon> = {
+  "/workbench": Gauge, "/workbench/ai": PanelsTopLeft, "/workbench/supply": Package,
+  "/workbench/agents": Bot, "/workbench/tools": Wrench, "/workbench/services": Network,
+  "/workbench/data": Database, "/workbench/store-center": Store, "/workbench/plans": Ticket, "/workbench/account": UserRound,
+  "/workbench/overview/goals": Target, "/workbench/overview/stores": LayoutGrid,
+  "/workbench/overview/alerts": BellRing, "/workbench/overview/advice": Lightbulb,
+  "/workbench/ai/chat": MessageSquare, "/workbench/ai/tasks": ListChecks,
+  "/workbench/ai/projects": FolderKanban, "/workbench/ai/knowledge": BookOpen,
+  "/workbench/agents/skills": Sparkles, "/workbench/ai/reports": FileChartColumn,
+  "/workbench/supply/acquisition": ScanLine, "/workbench/supply/official": Building2,
+  "/workbench/supply/selected": Star, "/workbench/supply/catalogs": Boxes,
+  "/workbench/supply/mine": GitBranch, "/workbench/supply/applications": ClipboardList,
+  "/workbench/supply/operator": ClipboardCheck,
+  "/workbench/agents/market": Bot, "/workbench/agents/mine": BotMessageSquare,
+  "/workbench/agents/custom": Settings2,
+  "/workbench/tools/official": Wrench, "/workbench/tools/mine": BriefcaseBusiness,
+  "/workbench/tools/custom": Settings2,
+  "/workbench/services/market": Handshake, "/workbench/services/mine": BriefcaseBusiness,
+  "/workbench/services/join": UserPlus, "/workbench/services/review": ClipboardCheck,
+  "/workbench/data/market": Database, "/workbench/data/api": Braces, "/workbench/data/mine": FolderArchive,
+  "/workbench/stores": Store, "/workbench/store-products": Package, "/workbench/store-orders": Truck,
+  "/workbench/plans/options": Layers, "/workbench/plans/entitlements": BadgeCheck,
+  "/workbench/plans/usage": ChartNoAxesCombined, "/workbench/plans/top-up": Wallet,
+  "/workbench/plans/orders": ReceiptText,
+  "/workbench/account/profile": IdCard, "/workbench/account/organization": Building2,
+  "/workbench/account/referrals": Megaphone,
+};
 import {useSearchParams} from "next/navigation";
 import {collectionID} from "@/lib/contracts/product-collection";
 import {supplyStageHref} from "@/lib/workbench/supply-navigation";
 import {stageSchema} from "@/lib/contracts/supply-chain";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { ecoPageSchema, ecoRequest } from "@/lib/api/ecoservices";
 import { listMarketRecords } from "@/lib/api/supply-market";
@@ -79,13 +109,27 @@ function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "" 
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
   const [expanded, setExpanded] = useState(active);
   const id = useId();
+  const Icon = navigationIcons[node.href] ?? Circle;
   return <li className={`console-nav-level-${depth}`}>
     <div className="console-nav-row" data-active={active || undefined}>
       <Link href={href} prefetch={false} aria-current={pathname === node.href || (!node.children && active) ? "page" : undefined} onClick={onNavigate} title={node.availability === "unavailable" ? `${node.label}：业务暂未启用` : node.label}>
-        <span className="console-nav-dot" aria-hidden="true" /><span>{node.label}</span>
+        {depth <= 2 ? <Icon className="console-nav-icon" size={depth === 1 ? 20 : 16} aria-hidden="true" /> : null}<span className="console-nav-label">{node.label}</span>
       </Link>
-      {node.children ? <button type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "⌃" : "⌄"}</button> : null}
+      {node.children ? <button type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}><ChevronDown className="console-nav-chevron" size={16} aria-hidden="true" /></button> : null}
     </div>
-    {node.children && expanded ? <ul id={id}>{node.children.map((child) => <NavBranch key={child.href} node={child} pathname={pathname} trail={trail} depth={depth + 1} onNavigate={onNavigate} supplyQuery={supplyQuery} />)}</ul> : null}
+    <AnimatePresence initial={false}>{node.children && expanded ? <NavigationChildren key={id} id={id}>{node.children.map((child) => <NavBranch key={child.href} node={child} pathname={pathname} trail={trail} depth={depth + 1} onNavigate={onNavigate} supplyQuery={supplyQuery} />)}</NavigationChildren> : null}</AnimatePresence>
   </li>;
+}
+
+function NavigationChildren({ id, children }: { id: string; children: ReactNode }) {
+  const present = useIsPresent();
+  const reduceMotion = useReducedMotion();
+  // AnimatePresence retains closing DOM briefly; it must stop accepting focus immediately.
+  return <motion.ul id={id} aria-hidden={present ? undefined : true} inert={!present}
+    initial={{ height: 0, opacity: 0.65, overflow: "hidden" }}
+    animate={{ height: "auto", opacity: 1, transitionEnd: { overflow: "visible" } }}
+    exit={{ height: 0, opacity: 0, overflow: "hidden" }}
+    transition={{ duration: reduceMotion ? 0 : 0.2, ease: [0.2, 0.8, 0.2, 1] }}>
+    {children}
+  </motion.ul>;
 }

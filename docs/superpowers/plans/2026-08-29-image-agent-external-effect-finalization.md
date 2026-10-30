@@ -1,3 +1,5 @@
+> #301 / #1001：用户已确认[历史协议完整退休边界§1–§7](../../architecture/legacy-imageagent-history-protocol-closure-retirement-boundary.md)，同一PR整批实施。本文对旧默认版本双分支/旧历史续跑的要求退出当前Authority（包括组织V3）；当前版本1、预算quote事实、绝对deadline/取消/finalization、UNKNOWN、恢复通知和有效JSON/hash合同继续保留。原SDK读取位置保持；未操作实际历史、任务、实例、数据、凭据或进程，不增加试用前置。以下原正文、步骤、勾选和证据逐字保留。
+
 > #301 / #998 用户已确认[旧业务Signal完整退休设计](../../architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md) §1–§7：本计划中的业务 cancel Signal 测试驱动已由当前 cancel Update 替代；started effect 先终结再投影取消、绝对deadline/UNKNOWN/fence/恢复等安全要求继续有效，effect_recovery_completed 真实恢复Signal保留。以下历史正文、步骤、勾选及证据不改，不授权操作实际历史或资源。
 
 # Image Agent External-Effect Finalization Implementation Plan

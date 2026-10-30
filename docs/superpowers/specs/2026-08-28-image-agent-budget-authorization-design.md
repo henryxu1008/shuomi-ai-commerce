@@ -1,3 +1,5 @@
+> #301 / #1001：用户已确认[历史协议完整退休边界§1–§7](../../architecture/legacy-imageagent-history-protocol-closure-retirement-boundary.md)，同一PR整批实施。本文对旧默认版本双分支/旧历史续跑的要求退出当前Authority（包括组织V3）；当前版本1、预算quote事实、绝对deadline/取消/finalization、UNKNOWN、恢复通知和有效JSON/hash合同继续保留。原SDK读取位置保持；未操作实际历史、任务、实例、数据、凭据或进程，不增加试用前置。以下原正文、步骤、勾选和证据逐字保留。
+
 # Image Agent Budget Authorization Design
 
 ## Context

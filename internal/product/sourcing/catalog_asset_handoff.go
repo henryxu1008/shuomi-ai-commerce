@@ -123,12 +123,14 @@ func snapshotVariants(envelope SourceEnvelope) []catalog.Variant {
 	if len(candidates) == 0 {
 		return nil
 	}
-	cost, hasCost := parseSupplierCost(envelope.SupplierOrCostFacts)
+	cost, _ := parseSupplierCost(envelope.SupplierOrCostFacts)
 	variants := make([]catalog.Variant, len(candidates))
 	for index, candidate := range candidates {
 		var price *catalog.Price
 		declaredOwnPrice := envelope.Identity.SourceType == "user_input" && envelope.Identity.SourcePlatform == "own_product" && len(candidate.Currency) == 3
-		if candidate.Price > 0 || hasCost || declaredOwnPrice {
+		// Cost alone does not declare an amount. Cost-only evidence remains in
+		// the Source envelope; a Catalog Price always carries a known amount.
+		if candidate.Price > 0 || declaredOwnPrice {
 			currency := strings.TrimSpace(candidate.Currency)
 			if currency == "" {
 				currency = strings.TrimSpace(envelope.SupplierOrCostFacts.Currency)
