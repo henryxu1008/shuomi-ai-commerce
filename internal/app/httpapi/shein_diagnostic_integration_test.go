@@ -59,7 +59,14 @@ func diagnosticApplication(t *testing.T, db *gorm.DB, g *diagnosticGrants) *http
 	t.Helper()
 	auth, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	server, _, err := NewSheinRecordApplication(db, recordVerifier{}, workbenchcontext.NewResolver(g, "project", "v1", nil), auth, nil)
+	server, _, err := func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: recordVerifier{}, organizationResolver: workbenchcontext.NewResolver(g, "project", "v1", nil), authorizer: auth}
+		routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.NoError(t, err)
 	ts := httptest.NewUnstartedServer(server.Handler)
 	ts.Config.ReadTimeout = server.ReadTimeout

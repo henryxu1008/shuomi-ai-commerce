@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-func ParseRoles(data []byte) []string {
-	return parseRoles(data, "")
-}
-
 func ParseRolesForProject(data []byte, projectID string) []string {
 	return parseRoles(data, strings.TrimSpace(projectID))
 }
@@ -74,40 +70,4 @@ func addRoleClaimValue(value any, add func(string)) {
 			add(role)
 		}
 	}
-}
-
-func StringSliceToSet(values []string) map[string]struct{} {
-	if len(values) == 0 {
-		return nil
-	}
-
-	set := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed != "" {
-			set[trimmed] = struct{}{}
-		}
-	}
-	if len(set) == 0 {
-		return nil
-	}
-	return set
-}
-
-func firstNonEmptyValue(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
-func valueInSet(value string, set map[string]struct{}) bool {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return false
-	}
-	_, ok := set[trimmed]
-	return ok
 }

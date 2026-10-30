@@ -3192,9 +3192,19 @@ func readOptionalRetiredHTTPAPIRoutesCore(t *testing.T, path string) (string, bo
 
 func TestAppHTTPAPISupportHTTPModuleWrappersStayRetired(t *testing.T) {
 	httpModulesPath := filepath.Join("..", "internal", "app", "httpapi", "http_modules.go")
-	httpModulesContent, err := os.ReadFile(httpModulesPath)
+	if _, err := os.Lstat(httpModulesPath); !os.IsNotExist(err) {
+		t.Fatalf("retired HTTP modules file must be absent: %v", err)
+	}
+	index, err := loadGoFileIndex(filepath.Dir(httpModulesPath), "")
 	if err != nil {
-		t.Fatalf("read %s: %v", httpModulesPath, err)
+		t.Fatal(err)
+	}
+	var httpModulesContent []byte
+	for file, facts := range index.files {
+		if !strings.HasSuffix(file, "_test.go") {
+			httpModulesContent = append(httpModulesContent, facts.source...)
+			httpModulesContent = append(httpModulesContent, '\n')
+		}
 	}
 	for _, phrase := range []string{
 		"newPromptTemplateHTTPModule",
@@ -3231,9 +3241,19 @@ func TestAppHTTPAPISupportHTTPModuleWrappersStayRetired(t *testing.T) {
 
 func TestAppHTTPAPIFeatureHTTPModuleWrappersStayRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "httpapi", "http_modules.go")
-	content, err := os.ReadFile(path)
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("retired HTTP modules file must be absent: %v", err)
+	}
+	index, err := loadGoFileIndex(filepath.Dir(path), "")
 	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
+		t.Fatal(err)
+	}
+	var content []byte
+	for file, facts := range index.files {
+		if !strings.HasSuffix(file, "_test.go") {
+			content = append(content, facts.source...)
+			content = append(content, '\n')
+		}
 	}
 	for _, phrase := range []string{
 		"newProductHTTPModule",

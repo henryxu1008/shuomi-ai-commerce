@@ -38,11 +38,12 @@ func TestIssue388Chain1AcceptanceAssemblyContract(t *testing.T) {
 		"imageagentworker.OrganizationExecutionAuthorizer",
 		"imageagenttools.NewProductImageSlotExecutor",
 		"imageagentpolicy.LoadEmbeddedResolver",
-		"NewSheinRecordApplication",
+		"buildLocalTrialListingRoutes",
+		"buildCurrentApplicationHTTPServer",
 	} {
 		require.Contains(t, assembly, required, "#388 must compose the current owner %s", required)
 	}
-	for _, retired := range []string{"NewImageAgentOrganizationApplication", "internal/imageagent/httpapi"} {
+	for _, retired := range []string{"NewImageAgentOrganizationApplication", "internal/imageagent/httpapi", "NewSheinRecordApplication"} {
 		require.NotContains(t, harness, retired, "retired ImageAgent host must not return")
 	}
 	fixtureSource := read("internal/app/httpapi/product_review_integration_test.go")

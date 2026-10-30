@@ -116,7 +116,14 @@ func TestSheinRecordDefaultProductionHasNoRoute(t *testing.T) {
 	require.Equal(t, 404, getResponse.Code)
 	auth, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	application, reader, err := NewSheinRecordApplication(nil, recordVerifier{}, workbenchcontext.NewResolver(&recordGrants{}, "project", "v1", nil), auth, nil)
+	application, reader, err := func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: recordVerifier{}, organizationResolver: workbenchcontext.NewResolver(&recordGrants{}, "project", "v1", nil), authorizer: auth}
+		routes, reader, err := buildLocalTrialListingRoutes(nil, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.ErrorIs(t, err, record.ErrUnavailable)
 	require.Nil(t, application)
 	require.Nil(t, reader)
@@ -127,7 +134,14 @@ func TestSheinRecordCancellationAndIsolatedSource(t *testing.T) {
 	publishRecordProduct(t, db, "200", "product")
 	auth, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	server, reader, err := NewSheinRecordApplication(db, recordVerifier{}, workbenchcontext.NewResolver(&recordGrants{}, "project", "v1", nil), auth, nil)
+	server, reader, err := func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: recordVerifier{}, organizationResolver: workbenchcontext.NewResolver(&recordGrants{}, "project", "v1", nil), authorizer: auth}
+		routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -232,9 +246,23 @@ func TestSheinRecordAuthorizationDeadlineReturnsHTTPTimeout(t *testing.T) {
 			auth, err := authz.NewListingKitAuthorizer(nil, nil)
 			require.NoError(t, err)
 			resolver := workbenchcontext.NewResolver(&recordDeadlineGrants{}, "project", "v1", nil)
-			application, _, err := NewSheinRecordApplication(db, recordVerifier{}, resolver, auth, nil)
+			application, _, err := func() (*http.Server, record.Reader, error) {
+				deps := routeAuthDependencies{workbenchVerifier: recordVerifier{}, organizationResolver: resolver, authorizer: auth}
+				routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+				if err != nil {
+					return nil, nil, err
+				}
+				return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+			}()
 			if stage == "authentication" {
-				application, _, err = NewSheinRecordApplication(db, recordDeadlineVerifier{}, resolver, auth, nil)
+				application, _, err = func() (*http.Server, record.Reader, error) {
+					deps := routeAuthDependencies{workbenchVerifier: recordDeadlineVerifier{}, organizationResolver: resolver, authorizer: auth}
+					routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+					if err != nil {
+						return nil, nil, err
+					}
+					return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+				}()
 			}
 			require.NoError(t, err)
 			server := httptest.NewUnstartedServer(application.Handler)

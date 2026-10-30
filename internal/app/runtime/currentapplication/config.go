@@ -714,8 +714,7 @@ func (cfg *Config) CoreConfig() *coreconfig.Config {
 			Zitadel: coreconfig.ListingKitZitadelConfig{
 				IssuerURL: cfg.Identity.IssuerURL, AuthorizationAPIURL: cfg.Identity.AuthorizationAPIURL,
 				ClientID: cfg.Identity.ClientID, ClientSecret: cfg.Identity.ClientSecret, ProjectID: cfg.Identity.ProjectID,
-				TenantDirectoryToken:  cfg.Identity.TenantDirectoryToken,
-				AuthorizationRequired: true,
+				TenantDirectoryToken: cfg.Identity.TenantDirectoryToken,
 			},
 		},
 	}

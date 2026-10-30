@@ -18,7 +18,6 @@ import (
 	"task-processor/internal/authidentity"
 	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	"task-processor/internal/workbenchcontext"
 	workbenchcontexthttpapi "task-processor/internal/workbenchcontext/httpapi"
@@ -397,12 +396,32 @@ func TestWorkbenchAuthHandlerOrderIsAuthenticationOrganizationRoleThenHandler(t 
 }
 
 func TestProductionAuthShapeUsesIndependentServerAndWorkbenchAuthentication(t *testing.T) {
+
+	t.Run("protected transport must not omit current verifier", func(t *testing.T) {
+		for _, token := range []string{"", "Bearer fixture-token"} {
+			router := gin.New()
+			route := httproute.Descriptor{
+				Method: http.MethodGet, Path: "/protected-contract",
+				AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
+				Handler:    func(*gin.Context) { t.Fatal("handler ran without current verifier") },
+			}
+			mountRoutesWithAuthDependencies(router, []httproute.Descriptor{route}, routeAuthDependencies{})
+			request := httptest.NewRequest(http.MethodGet, route.Path, nil)
+			request.Header.Set("Authorization", token)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+			want := http.StatusUnauthorized
+			if token != "" {
+				want = http.StatusServiceUnavailable
+			}
+			require.Equal(t, want, response.Code, response.Body.String())
+		}
+	})
+
 	zitadel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"introspection_endpoint": "http://" + r.Host + "/oauth/v2/introspect",
-			})
+			_ = json.NewEncoder(w).Encode(map[string]any{"introspection_endpoint": "http://" + r.Host + "/oauth/v2/introspect"})
 		case "/oauth/v2/introspect":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"active": true, "sub": "user-1", "exp": time.Now().Add(time.Minute).Unix(),
@@ -414,34 +433,18 @@ func TestProductionAuthShapeUsesIndependentServerAndWorkbenchAuthentication(t *t
 	}))
 	defer zitadel.Close()
 	events := []string{}
-	authorization, err := buildRouteAuthorization(&config.Config{ListingKit: config.ListingKitConfig{Zitadel: config.ListingKitZitadelConfig{
-		IssuerURL: zitadel.URL, ClientID: "listingkit-client", ProjectID: "project-1",
-		AuthorizationRequired: true, AllowedTenantIDs: []string{"org-other"},
-	}}})
-	require.NoError(t, err)
-	authorization = authorization.withWorkbench(routeAuthDependencies{
+	dependencies := routeAuthDependencies{
 		workbenchVerifier: zitadelruntime.NewVerifier(zitadelruntime.Config{
 			IssuerURL: zitadel.URL, ClientID: "listingkit-client", ProjectID: "project-1", HTTPClient: zitadel.Client(),
 		}),
 		organizationResolver: mountedOrganizationResolverStub{events: &events, roles: []string{"listingkit_viewer"}},
-	})
+	}
 	router := gin.New()
-	mountRoutesWithAuthDependencies(router, []httproute.Descriptor{
-		{
-			Method: http.MethodGet, Path: "/api/v1/workbench/context", AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
-			OrganizationAccessPolicy: httproute.OrganizationAccessPolicyCachedRead,
-			Handler: func(c *gin.Context) {
-				events = append(events, "workbench-handler")
-				c.Status(http.StatusNoContent)
-			},
-		},
-		{
-			Method: http.MethodGet, Path: "/api/v1/listing-kits/tasks", Module: "listing-kit",
-			AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
-			Handler:    func(c *gin.Context) { t.Fatal("listing kit handler ran after allowlist denial") },
-		},
-	}, authorization)
-
+	mountRoutesWithAuthDependencies(router, []httproute.Descriptor{{
+		Method: http.MethodGet, Path: "/api/v1/workbench/context", AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
+		OrganizationAccessPolicy: httproute.OrganizationAccessPolicyCachedRead,
+		Handler:                  func(c *gin.Context) { events = append(events, "workbench-handler"); c.Status(http.StatusNoContent) },
+	}}, dependencies)
 	workbenchRequest := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/context", nil)
 	workbenchRequest.Header.Set("Authorization", "Bearer user-token")
 	workbenchResponse := httptest.NewRecorder()
@@ -453,8 +456,7 @@ func TestProductionAuthShapeUsesIndependentServerAndWorkbenchAuthentication(t *t
 	legacyRequest.Header.Set("Authorization", "Bearer user-token")
 	legacyResponse := httptest.NewRecorder()
 	router.ServeHTTP(legacyResponse, legacyRequest)
-	require.Equal(t, http.StatusForbidden, legacyResponse.Code, legacyResponse.Body.String())
-	require.Contains(t, legacyResponse.Body.String(), "zitadel_access_denied")
+	require.Equal(t, http.StatusNotFound, legacyResponse.Code, legacyResponse.Body.String())
 }
 
 func TestLegacyBlankOrganizationPolicySkipsResolver(t *testing.T) {
@@ -474,7 +476,7 @@ func TestWorkbenchOrganizationPolicyFailsClosedWithoutAuthenticationMiddleware(t
 			t.Fatal("handler ran without authentication middleware")
 		},
 	}
-	router.Handle(route.Method, route.Path, append(routeAuthHandlers(route, routeAuthorization{}), route.Handler)...)
+	router.Handle(route.Method, route.Path, append(routeAuthHandlersWithDependencies(route, routeAuthDependencies{}), route.Handler)...)
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/workbench", nil))
@@ -890,15 +892,12 @@ func init() {
 }
 
 func TestBuildHTTPServerFromRoutesAtBindsLoopback(t *testing.T) {
-	server := buildHTTPServerFromRoutesAt("127.0.0.1", 18085, nil, appHTTPTestRouteAuthorization)
+	server := buildHTTPServerFromRoutesAtWithAuthDependencies("127.0.0.1", 18085, nil, appHTTPTestRouteAuthorization)
 	if server.Addr != "127.0.0.1:18085" {
 		t.Fatalf("server address = %q, want loopback-only listener", server.Addr)
 	}
 	if server.ReadTimeout != 0 {
 		t.Fatalf("server read timeout = %s, want route-scoped body deadlines", server.ReadTimeout)
-	}
-	if got := buildHTTPServerFromRoutes(18085, nil, appHTTPTestRouteAuthorization).Addr; got != ":18085" {
-		t.Fatalf("default server address = %q, want backward-compatible wildcard", got)
 	}
 }
 
@@ -906,37 +905,29 @@ func TestHTTPServersKeepRouteAuthorizationIsolated(t *testing.T) {
 	issuerA := newRouteAuthorizationIssuer(t, "token-a", "role-a")
 	issuerB := newRouteAuthorizationIssuer(t, "token-b", "role-b")
 
-	authA, err := buildRouteAuthorization(&config.Config{ListingKit: config.ListingKitConfig{
-		PlatformAdminRoles: []string{"role-a"},
-		Zitadel: config.ListingKitZitadelConfig{
-			IssuerURL: issuerA.URL,
-			ClientID:  "client-a",
-		},
-	}})
+	authorizerA, err := authz.NewListingKitAuthorizer(nil, []string{"role-a"})
 	require.NoError(t, err)
-	authB, err := buildRouteAuthorization(&config.Config{ListingKit: config.ListingKitConfig{
-		PlatformAdminRoles: []string{"role-b"},
-		Zitadel: config.ListingKitZitadelConfig{
-			IssuerURL: issuerB.URL,
-			ClientID:  "client-b",
-		},
-	}})
+	authorizerB, err := authz.NewListingKitAuthorizer(nil, []string{"role-b"})
 	require.NoError(t, err)
+	authA := routeAuthDependencies{workbenchVerifier: zitadelruntime.NewVerifier(zitadelruntime.Config{IssuerURL: issuerA.URL, ClientID: "client-a", HTTPClient: issuerA.Client()}), authorizer: authorizerA}
+	authB := routeAuthDependencies{workbenchVerifier: zitadelruntime.NewVerifier(zitadelruntime.Config{IssuerURL: issuerB.URL, ClientID: "client-b", HTTPClient: issuerB.Client()}), authorizer: authorizerB}
 
 	route := httproute.Descriptor{
-		Method: http.MethodPost,
-		Path:   "/api/v1/listing-kits/platform/test",
-		Module: "listing-kit-platform-admin",
+		Method:     http.MethodPut,
+		Path:       "/api/v1/platform/browser/kernel-releases/fixture",
+		Module:     "browser-kernel-catalog",
+		AuthPolicy: httproute.AuthPolicyCurrentIdentityWithVerifiedRoles,
+		Permission: authz.PermissionListingKitPlatformAdm,
 		Handler: func(c *gin.Context) {
 			c.Status(http.StatusNoContent)
 		},
 	}
-	serverA := buildHTTPServerFromRoutes(0, []httproute.Descriptor{route}, authA)
-	serverB := buildHTTPServerFromRoutes(0, []httproute.Descriptor{route}, authB)
+	serverA := buildCurrentApplicationHTTPServer([]httproute.Descriptor{route}, authA)
+	serverB := buildCurrentApplicationHTTPServer([]httproute.Descriptor{route}, authB)
 
 	assertStatus := func(server *http.Server, token string, want int) {
 		t.Helper()
-		request := httptest.NewRequest(http.MethodPost, route.Path, nil)
+		request := httptest.NewRequest(route.Method, route.Path, nil)
 		request.Header.Set("Authorization", "Bearer "+token)
 		response := httptest.NewRecorder()
 		server.Handler.ServeHTTP(response, request)
@@ -977,7 +968,7 @@ func newRouteAuthorizationIssuer(t *testing.T, acceptedToken, role string) *http
 func TestCurrentSMSWebhookDoesNotRelaxProtectedImageRoutes(t *testing.T) {
 	webhookCalled := false
 	listingKitCalled := false
-	server := buildHTTPServerFromRoutes(0, []httproute.Descriptor{
+	server := buildCurrentApplicationHTTPServer([]httproute.Descriptor{
 		{
 			Method: http.MethodPost,
 			Path:   zitadelSMSPath,
@@ -989,8 +980,9 @@ func TestCurrentSMSWebhookDoesNotRelaxProtectedImageRoutes(t *testing.T) {
 		},
 		{
 			Method: http.MethodGet,
-			Path:   "/api/v1/image-agent/runs",
-			Module: "image-agent", AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
+			Path:   supplyImageSetBase,
+			Module: "product-image-set", AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
+			OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: authz.PermissionImageAgentRead, RequestTimeout: 30 * time.Second,
 			Handler: func(c *gin.Context) {
 				listingKitCalled = true
 				c.Status(http.StatusOK)
@@ -1004,7 +996,62 @@ func TestCurrentSMSWebhookDoesNotRelaxProtectedImageRoutes(t *testing.T) {
 	require.True(t, webhookCalled)
 
 	listingKitResponse := httptest.NewRecorder()
-	server.Handler.ServeHTTP(listingKitResponse, httptest.NewRequest(http.MethodGet, "/api/v1/image-agent/runs", nil))
+	server.Handler.ServeHTTP(listingKitResponse, httptest.NewRequest(http.MethodGet, strings.ReplaceAll(supplyImageSetBase, ":source_id", "fixture"), nil))
 	require.Equal(t, http.StatusUnauthorized, listingKitResponse.Code)
 	require.False(t, listingKitCalled)
+}
+
+func TestCurrentAuthenticationClearsUntrustedIdentityHeaders(t *testing.T) {
+	verified := authidentity.AuthenticatedIdentity{TenantID: "tenant-9", UserID: "user-42", Roles: []string{"admin", "operator"}, HomeOrganizationID: "tenant-9"}
+	router := gin.New()
+	router.Use(workbenchAuthenticationMiddleware(mountedVerifierStub{identity: verified}))
+	router.GET("/identity-fixture", func(c *gin.Context) {
+		got, ok := authidentity.AuthenticatedIdentityFromContext(c.Request.Context())
+		require.True(t, ok)
+		require.Equal(t, verified, got)
+		require.Equal(t, "user-42", c.GetHeader("X-User-ID"))
+		require.Equal(t, "zitadel", c.GetHeader("X-User-Type"))
+		for _, header := range []string{"X-Tenant-ID", "tenant-id", "X-Tenant", "X-User", "X-User-Roles", "X-Zitadel-Roles"} {
+			require.Empty(t, c.GetHeader(header), header)
+		}
+		c.Status(http.StatusNoContent)
+	})
+	request := httptest.NewRequest(http.MethodGet, "/identity-fixture", nil)
+	request.Header.Set("Authorization", "Bearer access-token")
+	for _, header := range []string{"X-Tenant-ID", "tenant-id", "X-Tenant", "X-User-ID", "X-User-Type", "X-User-Roles", "X-Zitadel-Roles", "X-User"} {
+		request.Header.Set(header, "forged")
+	}
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusNoContent, response.Code, response.Body.String())
+}
+
+func TestCurrentAuthenticationCarriesCanonicalIdentityWithoutTrustingRequestedOrganization(t *testing.T) {
+	expiresAt := time.Date(2026, time.August, 30, 12, 30, 0, 0, time.UTC)
+	verified := authidentity.AuthenticatedIdentity{
+		TenantID: "org-home", UserID: "user-42", Roles: []string{"listingkit_operator"}, HomeOrganizationID: "org-home",
+		OrganizationGrants: []authidentity.OrganizationGrant{{OrganizationID: "org-a", OrganizationName: "Organization A", ProjectID: "project-1", Roles: []string{"listingkit_admin"}}},
+		TokenExpiresAt:     expiresAt,
+	}
+	router := gin.New()
+	router.Use(workbenchAuthenticationMiddleware(mountedVerifierStub{identity: verified}))
+	router.GET("/identity-fixture", func(c *gin.Context) {
+		got, ok := authidentity.AuthenticatedIdentityFromContext(c.Request.Context())
+		require.True(t, ok)
+		require.Equal(t, verified, got)
+		require.Empty(t, got.EffectiveOrganizationID)
+		require.Equal(t, "org-forged", c.GetHeader("X-Requested-Organization-ID"))
+		got.OrganizationGrants[0].Roles[0] = "mutated-downstream"
+		again, ok := authidentity.AuthenticatedIdentityFromContext(c.Request.Context())
+		require.True(t, ok)
+		require.Equal(t, []string{"listingkit_admin"}, again.OrganizationGrants[0].Roles)
+		c.Status(http.StatusNoContent)
+	})
+	request := httptest.NewRequest(http.MethodGet, "/identity-fixture", nil)
+	request.Header.Set("Authorization", "Bearer access-token")
+	request.Header.Set("X-Requested-Organization-ID", "org-forged")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusNoContent, response.Code, response.Body.String())
+	require.Equal(t, []string{"listingkit_admin"}, verified.OrganizationGrants[0].Roles)
 }

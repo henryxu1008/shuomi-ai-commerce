@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"task-processor/internal/authidentity"
 	zitadel "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
@@ -21,24 +19,14 @@ import (
 	"task-processor/internal/organization/membership"
 	memberhttp "task-processor/internal/organization/membership/httpapi"
 	"task-processor/internal/workbenchcontext"
+
+	"gorm.io/gorm"
 )
 
 type MembershipDependencies struct {
 	ReceiptDB                             *gorm.DB
 	ProviderOrigin, ReadToken, WriteToken string
 	InvitationMail                        *invitationmail.Config
-}
-
-// NewCurrentApplicationWithMembership borrows pools owned by the caller. It
-// incrementally extends current defaults and never installs schema or closes DBs.
-func NewCurrentApplicationWithMembership(ctx context.Context, sourceDB *gorm.DB, cfg *config.Config, logger *logrus.Logger, membershipDeps MembershipDependencies) (*http.Server, error) {
-	if ctx == nil {
-		return nil, errors.New("membership startup context unavailable")
-	}
-	if membershipDeps.ReceiptDB == nil || membershipDeps.ReceiptDB == sourceDB || cfg == nil {
-		return nil, errors.New("membership requires an independent receipt pool")
-	}
-	return NewCurrentApplicationWithOptions(ctx, sourceDB, cfg, logger, WithMembership(membershipDeps))
 }
 
 func buildMembershipModule(ctx context.Context, cfg *config.Config, deps MembershipDependencies, authorizer *authz.ListingKitAuthorizer, auth routeAuthDependencies) (kernelmodule.Module, error) {

@@ -12,11 +12,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	sigjson "sigs.k8s.io/json"
 	imageapp "task-processor/internal/app/imageagent"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authz"
@@ -27,6 +22,11 @@ import (
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/product/sourcing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+	sigjson "sigs.k8s.io/json"
 )
 
 const productAcquisitionBase = "/api/v1/workbench/sourcing/1688/acquisitions"
@@ -50,15 +50,6 @@ const productAcquisitionBase = "/api/v1/workbench/sourcing/1688/acquisitions"
 // and the matching invariant test.
 const acquisitionBodyReadTimeout = 5 * time.Second
 
-// NewCurrentApplicationWithAcquisition adds only the explicitly enabled current
-// Product module. All three pools remain caller-owned; construction is read-only.
-func NewCurrentApplicationWithAcquisition(ctx context.Context, sourceAccountDB, productDB, resourceDB *gorm.DB, cfg *config.Config, logger *logrus.Logger) (*http.Server, error) {
-	if ctx == nil || productDB == nil {
-		return nil, sourcing.ErrAcquisitionUnavailable
-	}
-	return NewCurrentApplicationWithOptions(ctx, sourceAccountDB, cfg, logger, WithProductAcquisition(productDB), WithCommercialOwnerDatabase(resourceDB))
-}
-
 // Browser construction stays in the existing admitted Product composition owner.
 // Its routes and transport DTO validation live in the Browser-specific file.
 func buildBrowserCaptureModule(ctx context.Context, db *gorm.DB, dependencies routeAuthDependencies, authorizer *authz.ListingKitAuthorizer, collections ...bool) (kernelmodule.Module, error) {
@@ -79,15 +70,6 @@ func buildBrowserCaptureModule(ctx context.Context, db *gorm.DB, dependencies ro
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
 	return browserCaptureModule{routes: browserCaptureRoutes(service, binder.Bind)}, nil
-}
-
-// NewCurrentApplicationWithAcquisitionAndReferrals composes the two explicitly
-// enabled current modules while keeping all caller-owned pools independent.
-func NewCurrentApplicationWithAcquisitionAndReferrals(ctx context.Context, sourceAccountDB, productDB, referralDB, resourceDB *gorm.DB, cfg *config.Config, logger *logrus.Logger) (*http.Server, error) {
-	if ctx == nil || productDB == nil || referralDB == nil {
-		return nil, sourcing.ErrAcquisitionUnavailable
-	}
-	return NewCurrentApplicationWithOptions(ctx, sourceAccountDB, cfg, logger, WithProductAcquisition(productDB), WithReferrals(referralDB), WithCommercialOwnerDatabase(resourceDB))
 }
 
 type productAcquisitionService interface {

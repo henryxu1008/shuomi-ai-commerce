@@ -15,13 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	"task-processor/internal/integration/zitadelsms"
 	kernelmodule "task-processor/internal/kernel/module"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func TestCurrentApplicationSMSDefaultWiring(t *testing.T) {
@@ -102,6 +103,18 @@ func TestZitadelSMSPrivateConfig(t *testing.T) {
 		valid      bool
 	}{
 		{"valid", validSMSPrivateConfig, true},
+		{"expiry/0", strings.Replace(validSMSPrivateConfig, ":5}", ":0}", 1), true},
+		{"expiry/1", strings.Replace(validSMSPrivateConfig, ":5}", ":1}", 1), true},
+		{"expiry/60", strings.Replace(validSMSPrivateConfig, ":5}", ":60}", 1), true},
+		{"expiry/-1", strings.Replace(validSMSPrivateConfig, ":5}", ":-1}", 1), false},
+		{"expiry/true", strings.Replace(validSMSPrivateConfig, ":5}", ":true}", 1), false},
+		{"expiry/1.5", strings.Replace(validSMSPrivateConfig, ":5}", ":1.5}", 1), false},
+		{"expiry/1.0", strings.Replace(validSMSPrivateConfig, ":5}", ":1.0}", 1), false},
+		{"expiry/[]", strings.Replace(validSMSPrivateConfig, ":5}", ":[]}", 1), false},
+		{"expiry/{}", strings.Replace(validSMSPrivateConfig, ":5}", ":{}}", 1), false},
+		{"expiry/\"\"", strings.Replace(validSMSPrivateConfig, ":5}", ":\"\"}", 1), false},
+		{"expiry/\"60\"", strings.Replace(validSMSPrivateConfig, ":5}", ":\"60\"}", 1), false},
+		{"expiry/999999999999999999999999999999999", strings.Replace(validSMSPrivateConfig, ":5}", ":999999999999999999999999999999999}", 1), false},
 		{"no-template-expiry", strings.Replace(validSMSPrivateConfig, `,"PhoneVerificationExpiryMinutes":5`, "", 1), true},
 		{"unknown", strings.Replace(validSMSPrivateConfig, `"SigningKey"`, `"Unknown"`, 1), false},
 		{"trailing", validSMSPrivateConfig + " {}", false},

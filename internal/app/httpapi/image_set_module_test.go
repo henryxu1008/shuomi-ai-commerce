@@ -3,8 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,6 +15,9 @@ import (
 	"task-processor/internal/product/asset"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 type imageSetRequestCapabilitySource struct{ calls int }
@@ -74,7 +75,7 @@ func TestFullImageReadOnlyGrantCanReadRequirementsButCannotMutate(t *testing.T) 
 			require.NoError(t, err)
 			module := fullImageModule{application: &fullImageApplication{service: service, readSources: source}, bind: (productReviewCapabilityBinder{now: time.Now}).Bind}
 			events := []string{}
-			server := buildIsolatedApplicationHTTPServer(module.routes(), routeAuthDependencies{
+			server := buildCurrentApplicationHTTPServer(module.routes(), routeAuthDependencies{
 				workbenchVerifier:    mountedVerifierStub{identity: authidentity.AuthenticatedIdentity{UserID: "actor", EffectiveMemberID: "member", TokenExpiresAt: time.Now().Add(time.Hour)}},
 				organizationResolver: mountedOrganizationResolverStub{events: &events},
 				// Model a read-only permission grant at the existing policy boundary.
@@ -88,7 +89,7 @@ func TestFullImageReadOnlyGrantCanReadRequirementsButCannotMutate(t *testing.T) 
 						c.Next()
 					}
 				},
-			}, 30*time.Second)
+			})
 			call := func(method, suffix string) *httptest.ResponseRecorder {
 				r := httptest.NewRequest(method, base+suffix, strings.NewReader(`{"target":{"Platform":"product"},"effectiveCatalogVersion":"1"}`))
 				if method == http.MethodGet {

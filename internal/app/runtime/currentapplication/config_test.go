@@ -18,10 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"task-processor/internal/authz"
 	coreconfig "task-processor/internal/core/config"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func TestDatabasePasswordSeparatorsRejectedBeforeRuntimeDependencies(t *testing.T) {
@@ -147,7 +148,7 @@ func TestListingKitAuthorizationManifestMapsOnlyPlatformAdminAllowlist(t *testin
 	if got := strings.Join(core.ListingKit.PlatformAdminRoles, ","); got != "support-role" {
 		t.Fatalf("PlatformAdminRoles = %q", got)
 	}
-	if core.ListingKit.Zitadel.ProjectID != "listingkit-project" || !core.ListingKit.Zitadel.AuthorizationRequired {
+	if core.ListingKit.Zitadel.ProjectID != "listingkit-project" {
 		t.Fatalf("identity mapping changed: %#v", core.ListingKit.Zitadel)
 	}
 	authorizer, err := authz.NewListingKitAuthorizer(core.ListingKit.PlatformAdminUsers, core.ListingKit.PlatformAdminRoles)

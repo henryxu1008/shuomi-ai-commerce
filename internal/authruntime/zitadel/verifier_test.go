@@ -2,7 +2,10 @@ package zitadel
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -296,4 +299,342 @@ func TestVerifierRejectsMalformedOrOversizedIdentityClaims(t *testing.T) {
 			require.True(t, IsVerificationInvalidResponse(err))
 		})
 	}
+}
+
+func TestVerifierCachesDiscoveryDocument(t *testing.T) {
+	var discoveryHits atomic.Int32
+	var introspectionHits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			discoveryHits.Add(1)
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"introspection_endpoint": serverURL(t, r) + "/oauth/v2/introspect",
+			})
+		case "/oauth/v2/introspect":
+			introspectionHits.Add(1)
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"active":                                true,
+				"sub":                                   "user-42",
+				"urn:zitadel:iam:user:resourceowner:id": "tenant-9",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	impl := NewVerifier(Config{
+		IssuerURL: server.URL,
+		ClientID:  "client-id",
+	})
+
+	for range 2 {
+		identity, err := impl.Verify(context.Background(), "access-token")
+		require.NoError(t, err)
+		require.Equal(t, "user-42", identity.UserID)
+	}
+
+	require.Equal(t, int32(1), discoveryHits.Load())
+	require.Equal(t, int32(2), introspectionHits.Load())
+}
+
+func TestVerifierRejectsInvalidDiscoveryResponses(t *testing.T) {
+	testCases := []struct {
+		name       string
+		handler    http.Handler
+		httpClient *http.Client
+	}{
+		{
+			name: "non-2xx",
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "nope", http.StatusBadGateway)
+			}),
+		},
+		{
+			name: "malformed",
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, "{")
+			}),
+		},
+		{
+			name: "transport",
+			httpClient: &http.Client{
+				Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+					return nil, errors.New("dial failed")
+				}),
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				IssuerURL:  "https://issuer.example",
+				ClientID:   "client-id",
+				HTTPClient: tt.httpClient,
+			}
+			if tt.handler != nil {
+				server := httptest.NewServer(tt.handler)
+				defer server.Close()
+				cfg.IssuerURL = server.URL
+			}
+
+			identity, err := NewVerifier(cfg).Verify(context.Background(), "access-token")
+			require.Error(t, err)
+			require.Zero(t, identity)
+			require.True(t, IsVerificationDependencyUnavailable(err))
+		})
+	}
+}
+
+func TestVerifierRejectsInvalidIntrospectionResponses(t *testing.T) {
+	testCases := []struct {
+		name       string
+		handler    http.HandlerFunc
+		httpClient *http.Client
+	}{
+		{
+			name: "inactive",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/.well-known/openid-configuration":
+					writeJSON(t, w, http.StatusOK, map[string]any{
+						"introspection_endpoint": serverURL(t, r) + "/oauth/v2/introspect",
+					})
+				case "/oauth/v2/introspect":
+					writeJSON(t, w, http.StatusOK, map[string]any{"active": false})
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		},
+		{
+			name: "malformed",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/.well-known/openid-configuration":
+					writeJSON(t, w, http.StatusOK, map[string]any{
+						"introspection_endpoint": serverURL(t, r) + "/oauth/v2/introspect",
+					})
+				case "/oauth/v2/introspect":
+					_, _ = io.WriteString(w, "{")
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		},
+		{
+			name: "non-2xx",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/.well-known/openid-configuration":
+					writeJSON(t, w, http.StatusOK, map[string]any{
+						"introspection_endpoint": serverURL(t, r) + "/oauth/v2/introspect",
+					})
+				case "/oauth/v2/introspect":
+					writeJSON(t, w, http.StatusBadGateway, map[string]any{"active": true})
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		},
+		{
+			name: "transport",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(t, w, http.StatusOK, map[string]any{
+					"introspection_endpoint": "https://issuer.example/oauth/v2/introspect",
+				})
+			},
+			httpClient: &http.Client{
+				Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+					if strings.Contains(r.URL.Path, ".well-known") {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(`{"introspection_endpoint":"https://issuer.example/oauth/v2/introspect"}`)),
+							Header:     make(http.Header),
+							Request:    r,
+						}, nil
+					}
+					return nil, errors.New("introspection transport failed")
+				}),
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				IssuerURL:  "https://issuer.example",
+				ClientID:   "client-id",
+				HTTPClient: tt.httpClient,
+			}
+			if tt.handler != nil && tt.httpClient == nil {
+				server := httptest.NewServer(tt.handler)
+				defer server.Close()
+				cfg.IssuerURL = server.URL
+			}
+
+			identity, err := NewVerifier(cfg).Verify(context.Background(), "access-token")
+			require.Error(t, err)
+			require.Zero(t, identity)
+			require.Equal(t, tt.name != "inactive", IsVerificationDependencyUnavailable(err))
+		})
+	}
+}
+
+func TestVerifierRejectsMissingTenantAndSubject(t *testing.T) {
+	testCases := []struct {
+		name         string
+		payload      map[string]any
+		expectedText string
+	}{
+		{
+			name: "missing tenant",
+			payload: map[string]any{
+				"active": true,
+				"sub":    "user-42",
+			},
+			expectedText: "ZITADEL resource owner is required",
+		},
+		{
+			name: "missing subject",
+			payload: map[string]any{
+				"active":                                true,
+				"urn:zitadel:iam:user:resourceowner:id": "tenant-9",
+			},
+			expectedText: "ZITADEL subject is required",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/.well-known/openid-configuration":
+					writeJSON(t, w, http.StatusOK, map[string]any{
+						"introspection_endpoint": serverURL(t, r) + "/oauth/v2/introspect",
+					})
+				case "/oauth/v2/introspect":
+					writeJSON(t, w, http.StatusOK, tt.payload)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			identity, err := NewVerifier(Config{
+				IssuerURL: server.URL,
+				ClientID:  "client-id",
+			}).Verify(context.Background(), "access-token")
+
+			require.ErrorContains(t, err, tt.expectedText)
+			require.Zero(t, identity)
+			if tt.name == "missing tenant" {
+				require.ErrorIs(t, err, errResourceOwnerMissing)
+			} else {
+				require.ErrorIs(t, err, errSubjectMissing)
+			}
+		})
+	}
+}
+
+func TestParseRolesForProjectPreservesOrderAndDeduplicates(t *testing.T) {
+	roles := ParseRolesForProject([]byte(`{"roles":["operator"],"role":"operator,admin","urn:zitadel:iam:org:project:roles":{"admin":{}}}`), "")
+	require.Equal(t, []string{"admin", "operator"}, roles)
+}
+
+func TestNewVerifierNormalizesConfigAndUsesDefaultTimeout(t *testing.T) {
+	impl := NewVerifier(Config{
+		IssuerURL: "https://issuer.example/",
+		ClientID:  " client-id ",
+	}).(*verifier)
+
+	require.Equal(t, "https://issuer.example", impl.cfg.IssuerURL)
+	require.Equal(t, "client-id", impl.cfg.ClientID)
+	require.NotNil(t, impl.cfg.HTTPClient)
+	require.Equal(t, 5*time.Second, impl.cfg.HTTPClient.Timeout)
+}
+
+func TestVerifierProjectsVerifiedIdentityAndDeduplicatedRoles(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"introspection_endpoint": serverURL(t, r) + "/oauth/v2/introspect",
+			})
+		case "/oauth/v2/introspect":
+			require.Equal(t, "access-token", r.FormValue("token"))
+			requireBasicAuth(t, r, "client-id", "secret-value")
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"active":                                true,
+				"sub":                                   "user-42",
+				"username":                              "alice",
+				"user_id":                               "legacy-user",
+				"urn:zitadel:iam:user:resourceowner:id": "tenant-9",
+				"roles":                                 []string{"operator"},
+				"role":                                  "operator,admin",
+				"urn:zitadel:iam:org:project:roles": map[string]any{
+					"admin": map[string]any{},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	identity, err := NewVerifier(Config{IssuerURL: server.URL, ClientID: "client-id", ClientSecret: "secret-value"}).Verify(context.Background(), "access-token")
+	require.NoError(t, err)
+	require.Equal(t, authidentity.AuthenticatedIdentity{TenantID: "tenant-9", UserID: "user-42", Roles: []string{"admin", "operator"}, HomeOrganizationID: "tenant-9"}, identity)
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func writeJSON(t *testing.T, w http.ResponseWriter, statusCode int, payload any) {
+	t.Helper()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	require.NoError(t, json.NewEncoder(w).Encode(payload))
+}
+
+func serverURL(t *testing.T, r *http.Request) string {
+	t.Helper()
+
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
+}
+
+func requireBasicAuth(t *testing.T, r *http.Request, clientID string, clientSecret string) {
+	t.Helper()
+
+	expected := "Basic " + base64.StdEncoding.EncodeToString([]byte(clientID+":"+clientSecret))
+	require.Equal(t, expected, r.Header.Get("Authorization"))
+}
+
+func newAuthServer(t *testing.T, payload map[string]any) *httptest.Server {
+	t.Helper()
+
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"introspection_endpoint": server.URL + "/oauth/v2/introspect",
+			})
+		case "/oauth/v2/introspect":
+			writeJSON(t, w, http.StatusOK, payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	return server
 }

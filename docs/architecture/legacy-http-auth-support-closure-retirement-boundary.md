@@ -1,3 +1,5 @@
+> USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认冻结设计 ec7e1074c48897bb049401d5bad7e3b8053fed93 的 §1–§7（含 §4.1/§4.2/§6.1）；[正式实施准入](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1017#issuecomment-6519361843)及 #301 当前段先于源码修改。以下设计期状态/时态为历史，准确源码、自检、原 CI 和最终复核分别记录在同一 PR，合并另行授权；#301 OPEN。
+
 # #301 旧 HTTP 备用装配、白名单认证与辅助尾部完整退休设计
 
 ## §1 这批具体清理什么
@@ -102,7 +104,7 @@ KEEP：issuerURL/authorizationAPIURL/clientID/clientSecret/projectID、tenantDir
 
 ## §5 精确工件矩阵与删除条件
 
-完整未来范围 **91 路径 = 32 生产 + 53 测试 + 6 文档**。当前设计提交只有新设计和两个导航，共3文档。生产文件不能整包误删；下面的“仅”是边界，不是授权其它 deadcode 清理。
+完整未来范围 **92 路径 = 32 生产 + 54 测试 + 6 文档**（原91路径加已批准的原检查尾部T54，生产边界不变）。当前设计提交只有新设计和两个导航，共3文档。生产文件不能整包误删；下面的“仅”是边界，不是授权其它 deadcode 清理。
 
 ### §5.1 生产矩阵
 
@@ -174,7 +176,7 @@ KEEP：issuerURL/authorizationAPIURL/clientID/clientSecret/projectID、tenantDir
 | T8 | `internal/app/httpapi/ai_workbench_integration_test.go` | `testAIWorkbenchOwners` |
 | T9 | `internal/app/httpapi/ai_workbench_conversation_only_test.go` | `testConversationOnlyScopedCRUDAndNoExecution` |
 | T10 | `internal/app/httpapi/ai_workbench_content_integration_test.go` | `testChatContentThroughOwners` |
-| T11 | `internal/app/httpapi/current_application_test.go` | `TestCurrentApplicationAuditMembershipRouteCombinations`、`TestCurrentApplicationReferralRouteAdmission`、`TestCurrentApplicationAuditRequiresExactDescriptor` |
+| T11 | `internal/app/httpapi/current_application_test.go` | `TestCurrentApplicationAuditMembershipRouteCombinations`、`TestCurrentApplicationReferralRouteAdmission`、`TestCurrentApplicationAuditRequiresExactDescriptor`、`currentApplicationTestConfig`（准确例外：仅删已退休的 AuthorizationRequired:true 字段，其他配置与断言不变） |
 | T12 | `internal/app/httpapi/commercial_resources_test.go` | `TestCommercialResourcesLiveAuthorization` |
 | T13 | `internal/app/httpapi/commercial_read_integration_test.go` | `TestCommercialHTTPPostgresBFFClientZeroWrites` |
 | T14 | `internal/app/httpapi/current_official_knowledge_test.go` | `TestOfficialKnowledgeUsesLiveAccessWithoutEnterpriseStorage` |
@@ -232,6 +234,8 @@ KEEP：issuerURL/authorizationAPIURL/clientID/clientSecret/projectID、tenantDir
 | T51 | `tests/listingkit_backend_retirement_test.go` | 仅 §6.1 D 指定两旧 guard + 一项本批闭包 guard；所有其它函数/计数/算法不变。 |
 | T52 | `tests/import_boundaries_test.go` | 仅 §6.1 D 指定两个 HTTP wrapper guard；其余包括身份中立、package import allowlists 均保持。 |
 | T53 | `tests/issue388_chain1_acceptance_contract_test.go` | 仅 TestIssue388Chain1AcceptanceAssemblyContract 将必需 NewSheinRecordApplication 改为实际 buildLocalTrialListingRoutes + 当前 server 装配，增加旧构造器禁入；其余 owner/原 workflow/无伪造批准/JSON/契约断言不变。 |
+| T54 | `internal/app/httpapi/phase2b_worker_boundary_test.go` | 准确例外仅两函数：TestHTTPAPIServerDoesNotOwnListingKitAuthMiddlewareSelection 将旧NewMiddleware必需改为当前Verifier必需并禁回旧调用；TestHTTPModulesDoNotOwnFeatureHTTPAPIModuleSelectionSignatures 明确旧文件缺席并在保留生产根继续检查原八项禁令。其余函数、权限/禁入断言原样保持。 |
+
 
 config_env_test 允许调整的旧函数仅：
 `TestNewViper_BindsLegacyEnvironmentAliases` 中三个旧 allowlist 行的 Primary 正向保活（username 行保持，三项原 retired alias 拒绝继续由原拒绝测试覆盖）；

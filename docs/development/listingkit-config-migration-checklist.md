@@ -1,81 +1,30 @@
-# ListingKit Config Migration Checklist
+# ListingKit 旧全局配置退休说明
 
-This checklist is for moving a deployment from scattered `LISTINGKIT_*` /
-`ZITADEL_*` runtime assumptions to the unified core config path.
+本页记录源码配置边界，依据 [#301 / #1017 完整退休设计](../architecture/legacy-http-auth-support-closure-retirement-boundary.md) §4.2。旧 allowlist 中间件及其全局 SMS 装配已退出；不再沿本页旧版本指引搬迁部署环境变量或启用旧授权门面。本轮不读取或改动既有配置、凭据、实例或数据，不增加内部试用前置。
 
-## Target State
+## 当前 owner
 
-- The Go API builds ListingKit auth/runtime settings from one config object.
-- `config/*.yaml` carries the structural shape for `listingkit.*` and
-  `listingkit.zitadel.*`.
-- Runtime env only supplies secrets or deployment-specific overrides.
-- The Next.js UI still reads browser-side OIDC env such as `ZITADEL_ISSUER_URL`
-  directly.
+- current-application 沿当前 Zitadel Verifier、身份、组织解析和 permission 准入；身份权限不能通过旧开关关闭。
+- 当前私密 manifest 的 `listingKitAuthorization` 只配置平台管理员的主体/角色；core 的 `listingkit.platformAdminUsers/platformAdminRoles`、issuer/client/project、组织目录与成员邀请凭据 owner 保持。
+- 当前 SMS 由 `ZITADEL_SMS_CONFIG_FILE` 的私密 JSON 与 [当前 SMS 装配](../../internal/app/httpapi/zitadel_sms.go) 提供；文件权限、HMAC、模板和过期值校验保持。旧全局 SMS 字段不是该 JSON 的兼容入口。
+- 当前图像 admission、采集、Store 观察同步及 JSON/hash/版本不受本次退休影响。
 
-## Keys To Review
+## 已退休的输入
 
-Core ListingKit keys now live under:
+两条正式配置 loader 对以下输入按存在性拒绝，包括空值、false、null 和空列表/map；报错只包含键名，不包含配置值：
 
-```yaml
-listingkit:
-  sheinSubmitDebugDumpDir: ""
-  platformAdminUsers: []
-  platformAdminRoles: []
-  zitadel:
-    issuerURL: ""
-    clientID: ""
-    clientSecret: ""
-    allowedTenantIDs: []
-    allowedUserIDs: []
-    allowedRoles: []
-```
+- `listingkit.zitadel.authorizationRequired`
+- `listingkit.zitadel.allowedTenantIDs`
+- `listingkit.zitadel.allowedUserIDs`
+- `listingkit.zitadel.allowedRoles`
+- `listingkit.zitadel.sms` 整个旧 subtree，含 signingKey、tencentSecretID、tencentSecretKey、tencentAppID、tencentSignName、tencentTemplateID、phoneVerificationExpiryMinutes 及任意专属尾部。
 
-Relevant env bindings:
+对应的 11 个 Primary 与 11 个 AutomaticEnv 名精确列在设计 §4.2，全部拒绝，不静默忽略，不把某一值覆盖成默认值。不得据此拒绝整个 LISTINGKIT/ZITADEL 前缀或当前 SMS 私密文件输入。
 
-- `LISTINGKIT_DEBUG_SUBMIT_DUMP_DIR`
-- `LISTINGKIT_PLATFORM_ADMIN_USERS`
-- `LISTINGKIT_PLATFORM_ADMIN_ROLES`
-- `TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS`
-- `TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS`
-- `TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES`
+原无前缀别名 `LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS`、`LISTINGKIT_ZITADEL_ALLOWED_USER_IDS`、`LISTINGKIT_ZITADEL_ALLOWED_ROLES` 继续拒绝；对应 `TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS`、`TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS`、`TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES` 现在也属于退休输入，不再作为替代指引。
 
-Old `LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS`, `LISTINGKIT_ZITADEL_ALLOWED_USER_IDS`,
-and `LISTINGKIT_ZITADEL_ALLOWED_ROLES` aliases are retired and rejected by both
-configuration loaders, including empty values and coexistence with Primary.
-Use the canonical `TASK_PROCESSOR_*` names above; the exact retirement and
-username rejection boundary is recorded in [#301 configuration closure](../architecture/legacy-config-projection-dub-closure-retirement-boundary.md).
+## 用户名配置仍仅作拒绝陷阱
 
-The obsolete YAML key `listingkit.zitadel.allowedUsernames` and both
-`TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES` and
-`LISTINGKIT_ZITADEL_ALLOWED_USERNAMES` are retained only as validation traps.
-Any configured YAML key or non-empty env value makes configuration validation
-fail without logging the configured usernames. Remove those settings and authorize only canonical
-tenant IDs, ZITADEL subject IDs, or roles; usernames never determine access.
+`listingkit.zitadel.allowedUsernames`、`TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES` 与 `LISTINGKIT_ZITADEL_ALLOWED_USERNAMES` 继续沿原校验拒绝，不参与授权。当前权限归当前身份/组织与平台管理员 owner；不恢复用户名白名单，不新增 fallback、双读或数据迁移。
 
-## Migration Steps
-
-1. Update `config/config-*.yaml` or your generated runtime config so
-   `listingkit` and `listingkit.zitadel` keys exist explicitly.
-2. Keep `ZITADEL_ISSUER_URL`, `ZITADEL_CLIENT_ID`, `ZITADEL_CLIENT_SECRET`,
-   `ZITADEL_REDIRECT_URI`, and `ZITADEL_POST_LOGOUT_REDIRECT_URI` in the
-   runtime secret because the Next.js UI still reads them directly.
-3. Move Go API allowlists to the canonical tenant ID, subject ID, or role envs
-   or YAML keys. Remove every username allowlist setting.
-4. ListingKit owner scope and ZITADEL auth now fail closed by default. Confirm
-   historical rows already have `user_id` populated before rollout.
-5. Remove any operator runbooks that tell engineers to patch
-   `internal/app/httpapi/zitadel_auth.go` behavior with ad hoc env changes; the
-   middleware now consumes injected runtime config only.
-
-## Smoke Checks After Deploy
-
-1. Sign in through the UI and confirm `/api/zitadel-auth/me` returns the
-   expected tenant and role claims.
-2. Confirm a user without an allowed role gets `listingkit_role_denied` when
-   authorization is enabled.
-3. Confirm a permitted user can open the main ListingKit pages and any intended
-   operator/admin sections.
-4. Restart the API pod and verify Studio async jobs remain queryable from the
-   database-backed API.
-5. Check API startup logs for config validation errors instead of silent auth
-   fallback behavior.
+本次仅实施已确认源码退休；运行、部署与 #301 关闭均未授权，真实运行验收保持 NOT_RUN。

@@ -214,7 +214,14 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Equal(t, storeID, storeReplay.Store.ID())
 
 	// DRAFT-S1 is not ready for the exact applied version before approval.
-	draftApp, _, err := NewSheinRecordApplication(db, verifier, resolver, authorizer, nil)
+	draftApp, _, err := func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authorizer}
+		routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.NoError(t, err)
 	draftServer := chain1HTTPServer(t, draftApp)
 	draftBody := chain1DraftBody(chain1ProductKey, appliedVersion, storeID)
@@ -378,7 +385,14 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	// Commit DRAFT-S1 while losing the response, rebuild it, then replay the
 	// original key and prove a newer Catalog version does not inherit approval.
 	draftServer.Close()
-	draftApp, _, err = NewSheinRecordApplication(db, verifier, resolver, authorizer, nil)
+	draftApp, _, err = func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authorizer}
+		routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.NoError(t, err)
 	draftServer = chain1HTTPServer(t, draftApp)
 	lostDraft := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -397,7 +411,14 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Error(t, err, "the committed DRAFT response must be lost")
 	lostDraft.Close()
 	draftServer.Close()
-	draftApp, reader, err := NewSheinRecordApplication(db, verifier, resolver, authorizer, nil)
+	draftApp, reader, err := func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authorizer}
+		routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.NoError(t, err)
 	draftServer = chain1HTTPServer(t, draftApp)
 	status, draftRaw, err := chain1RawRequest(draftServer.Client(), http.MethodPost, draftServer.URL+"/api/listing/shein-records", "chain1-draft-save", draftBody, chain1Organization)

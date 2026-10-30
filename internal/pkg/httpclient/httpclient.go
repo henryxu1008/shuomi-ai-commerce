@@ -88,8 +88,3 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 
 	return nil, fmt.Errorf("HTTP请求失败，已重试 %d 次: %w", c.config.MaxRetries, lastErr)
 }
-
-// NewSimpleWithTimeout 创建指定超时的 http.Client
-func NewSimpleWithTimeout(timeout time.Duration) *http.Client {
-	return &http.Client{Timeout: timeout}
-}

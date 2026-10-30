@@ -294,7 +294,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.Equal(t, "AVAILABLE", workbenchModule.(aiWorkbenchModule).PlanningReadiness(context.Background(), "B"))
 	require.Equal(t, "UNAVAILABLE", workbenchModule.(aiWorkbenchModule).PlanningReadiness(context.Background(), "A"))
 	routes := append(agentModule.(productAgentModule).routes, workbenchModule.(aiWorkbenchModule).routes...)
-	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute).Handler)
+	server := httptest.NewServer(buildCurrentApplicationHTTPServer(routes, deps).Handler)
 	defer server.Close()
 
 	code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
@@ -772,7 +772,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, err)
 	require.Equal(t, "AVAILABLE", readyModule.(aiWorkbenchModule).PlanningReadiness(context.Background(), "B"))
 	readyRoutes := append(agentModule.(productAgentModule).routes, readyModule.(aiWorkbenchModule).routes...)
-	readyServer := httptest.NewServer(buildIsolatedApplicationHTTPServer(readyRoutes, deps, 2*time.Minute).Handler)
+	readyServer := httptest.NewServer(buildCurrentApplicationHTTPServer(readyRoutes, deps).Handler)
 	defer readyServer.Close()
 
 	// Persist T1 without dispatching T2, then change the credential before
@@ -894,7 +894,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy(currentChat, profile("chat", "chat-fixture", "ai-workbench-chat-plan-v1", "ai-workbench-plan-decision-v1"))}}, rotatingAgent.(productAgentModule).application)
 	require.NoError(t, err)
 	rotatingRoutes := append(rotatingAgent.(productAgentModule).routes, rotatingWorkbench.(aiWorkbenchModule).routes...)
-	rotatingServer := httptest.NewServer(buildIsolatedApplicationHTTPServer(rotatingRoutes, deps, 2*time.Minute).Handler)
+	rotatingServer := httptest.NewServer(buildCurrentApplicationHTTPServer(rotatingRoutes, deps).Handler)
 	defer rotatingServer.Close()
 	require.Equal(t, "AVAILABLE", rotatingWorkbench.(aiWorkbenchModule).PlanningReadiness(context.Background(), "B"))
 	code, raw, err = acquisitionHTTPRequest(rotatingServer, "GET", workbenchChatBase+"/"+created.Conversation.ID, "admin", "B", "", "")

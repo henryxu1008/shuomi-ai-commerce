@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"task-processor/internal/app/accountaudit"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -20,6 +18,9 @@ import (
 	"task-processor/internal/ledger/orgresource"
 	registry "task-processor/internal/sourceaccountregistry"
 	"task-processor/internal/workbenchcontext"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 type auditHTTPHistory struct {
@@ -77,7 +78,7 @@ func TestAccountAuditHTTPProjectsImagePointsUnderLiveOrgPermission(t *testing.T)
 	}
 	grants := &auditHTTPGrants{role: authz.EnterpriseRoleKey("B", 1)}
 	authorizer, _ := newCurrentRoleTestAuthorizer(nil, nil)
-	server := buildIsolatedApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer}, registry.Timeout)
+	server := buildCurrentApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer})
 	get := func(org string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", accountAuditPath+"?actor=safe-actor", nil)
 		r.Header.Set("X-Requested-Organization-ID", org)
@@ -148,7 +149,7 @@ func TestAccountAuditHTTPUsesFreshOrgReadPermission(t *testing.T) {
 	}
 	grants := &auditHTTPGrants{role: authz.EnterpriseRoleKey("B", 1)}
 	authorizer, _ := newCurrentRoleTestAuthorizer(nil, nil)
-	server := buildIsolatedApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer}, registry.Timeout)
+	server := buildCurrentApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer})
 	get := func(org, query string, token bool) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", "/api/v1/account/audit"+query, nil)
 		r.Header.Set("X-Requested-Organization-ID", org)

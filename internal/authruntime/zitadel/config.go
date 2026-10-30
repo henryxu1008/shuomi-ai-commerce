@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 type Config struct {
@@ -15,14 +13,6 @@ type Config struct {
 	ClientSecret string
 	ProjectID    string
 	HTTPClient   *http.Client
-}
-
-type AuthorizationConfig struct {
-	Required                          bool
-	LegacyUsernameAllowlistConfigured bool
-	AllowedTenantIDs                  map[string]struct{}
-	AllowedUserIDs                    map[string]struct{}
-	AllowedRoles                      map[string]struct{}
 }
 
 type IntrospectionResponse struct {
@@ -38,21 +28,6 @@ type IntrospectionResponse struct {
 
 type discoveryDocument struct {
 	IntrospectionEndpoint string `json:"introspection_endpoint"`
-}
-
-type middleware struct {
-	cfg      Config
-	authzCfg AuthorizationConfig
-	verifier Verifier
-}
-
-func NewMiddleware(cfg Config, authzCfg AuthorizationConfig) gin.HandlerFunc {
-	return newMiddleware(cfg, authzCfg).Handle
-}
-
-func newMiddleware(cfg Config, authzCfg AuthorizationConfig) *middleware {
-	cfg = normalizeConfig(cfg)
-	return &middleware{cfg: cfg, authzCfg: authzCfg, verifier: newVerifier(cfg)}
 }
 
 func normalizeConfig(cfg Config) Config {

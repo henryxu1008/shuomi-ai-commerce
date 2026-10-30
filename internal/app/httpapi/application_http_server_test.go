@@ -14,7 +14,7 @@ import (
 )
 
 func TestBuildIsolatedApplicationHTTPServerPreservesShellContract(t *testing.T) {
-	const applicationTimeout = 37 * time.Second
+	const applicationTimeout = 32 * time.Second
 	type contextKey struct{}
 	contextValue := &struct{}{}
 
@@ -33,12 +33,12 @@ func TestBuildIsolatedApplicationHTTPServerPreservesShellContract(t *testing.T) 
 			c.Status(http.StatusNoContent)
 		},
 	}}
-	server := buildIsolatedApplicationHTTPServer(routes, routeAuthDependencies{}, applicationTimeout)
+	server := buildCurrentApplicationHTTPServer(routes, routeAuthDependencies{})
 
 	require.Equal(t, "127.0.0.1:0", server.Addr)
 	require.Equal(t, 5*time.Second, server.ReadHeaderTimeout)
 	require.Equal(t, applicationTimeout, server.ReadTimeout)
-	require.Equal(t, applicationTimeout+2*time.Second, server.WriteTimeout)
+	require.Equal(t, applicationTimeout, server.WriteTimeout)
 
 	parentDeadline := time.Now().Add(5 * time.Second)
 	parent, cancel := context.WithDeadline(context.WithValue(context.Background(), contextKey{}, contextValue), parentDeadline)

@@ -12,11 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
@@ -30,6 +25,12 @@ import (
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/product/collection"
 	reviewproposal "task-processor/internal/product/review/proposal"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
@@ -132,7 +133,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.Equal(t, aiworkbench.ContentTaskKind, wm.(aiWorkbenchModule).ExecutionKind())
 	require.Equal(t, "AVAILABLE", wm.(aiWorkbenchModule).PlanningReadiness(ctx, "B"))
 	require.Equal(t, "UNAVAILABLE", wm.(aiWorkbenchModule).TitleReadiness(ctx, "B"))
-	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(append(m.routes, wm.(aiWorkbenchModule).routes...), deps, 2*time.Minute).Handler)
+	server := httptest.NewServer(buildCurrentApplicationHTTPServer(append(m.routes, wm.(aiWorkbenchModule).routes...), deps).Handler)
 	defer server.Close()
 	call := func(method, path, key string, body any, status int) []byte {
 		var rawBody string

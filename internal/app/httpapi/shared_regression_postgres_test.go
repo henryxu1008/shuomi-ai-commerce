@@ -46,7 +46,14 @@ func sharedRegressionApplication(t *testing.T, db *gorm.DB, g *sharedRegressionG
 	t.Helper()
 	auth, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	server, reader, err := NewSheinRecordApplication(db, recordVerifier{}, workbenchcontext.NewResolver(g, "project", "v1", nil), auth, nil)
+	server, reader, err := func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: recordVerifier{}, organizationResolver: workbenchcontext.NewResolver(g, "project", "v1", nil), authorizer: auth}
+		routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.NoError(t, err)
 	ts := httptest.NewUnstartedServer(server.Handler)
 	ts.Config.ReadTimeout, ts.Config.WriteTimeout = server.ReadTimeout, server.WriteTimeout

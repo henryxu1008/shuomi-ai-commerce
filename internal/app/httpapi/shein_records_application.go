@@ -3,10 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"github.com/sirupsen/logrus"
-	"net/http"
 	recordstore "task-processor/internal/app/listingrecordstore"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
 	"task-processor/internal/httproute"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
@@ -15,44 +12,12 @@ import (
 	"task-processor/internal/marketplace/shein/draft"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	"task-processor/internal/storecenter"
-	"task-processor/internal/workbenchcontext"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"gorm.io/gorm"
 )
-
-// NewSheinRecordApplication assembles an explicit application instance for the
-// #376 DRAFT-S1 contract. currentProductDB MUST be the explicitly admitted
-// Product/Asset, Store Center and Listing storage boundary with known writers.
-// This is deliberately absent from default runtime composition/configuration:
-// there is no boolean that admits the shared historical Catalog, no implicit
-// database opening and no migration. Production source binding requires a
-// separate rollout decision. Both domains share this single database boundary.
-func NewSheinRecordApplication(currentProductDB *gorm.DB, verifier zitadelruntime.Verifier, resolver *workbenchcontext.Resolver, authorizer *authz.ListingKitAuthorizer, logs func(string) *logrus.Entry) (*http.Server, record.Reader, error) {
-	if currentProductDB == nil || verifier == nil || resolver == nil || authorizer == nil {
-		return nil, nil, record.ErrUnavailable
-	}
-	routes, repository, err := buildLocalTrialListingRoutes(currentProductDB, authorizer, logs)
-	if err != nil {
-		return nil, nil, err
-	}
-	server := buildHTTPServerFromRoutesAtWithAuthDependencies("127.0.0.1", 0, routes, routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authorizer})
-	server.ReadTimeout = record.Timeout
-	// The transport deadline starts before the application deadline. Reserve
-	// bounded headroom so an expired operation can still return its HTTP 504.
-	server.WriteTimeout = record.Timeout + 2*time.Second
-	handler := server.Handler
-	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set the protected-metadata response policy before auth and organization
-		// middleware so their early failures cannot be cached or content-sniffed.
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		ctx, cancel := context.WithTimeout(r.Context(), record.Timeout)
-		defer cancel()
-		handler.ServeHTTP(w, r.WithContext(ctx))
-	})
-	return server, repository, nil
-}
 
 func buildLocalTrialListingRoutes(currentProductDB *gorm.DB, authorizer *authz.ListingKitAuthorizer, logs func(string) *logrus.Entry) ([]httproute.Descriptor, record.Reader, error) {
 	if currentProductDB == nil || authorizer == nil {

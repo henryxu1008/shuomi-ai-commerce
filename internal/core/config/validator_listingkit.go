@@ -11,6 +11,6 @@ func ValidateListingKitConfig(listingKit *ListingKitConfig) []error {
 	return []error{&ValidationError{
 		Field:   "listingkit.zitadel.allowedUsernames",
 		Message: "obsolete ZITADEL username allowlist configuration is not supported",
-		Hint:    "remove it and configure canonical tenant IDs, subject IDs, or roles",
+		Hint:    "remove it and use current identity and organization permissions; configure platform administrators with platformAdminUsers or platformAdminRoles",
 	}}
 }

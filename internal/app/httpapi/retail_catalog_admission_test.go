@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/httproute"
+
+	"github.com/stretchr/testify/require"
 )
 
 func billingDescriptorsForTest() []httproute.Descriptor {
@@ -24,7 +25,7 @@ func TestCurrentApplicationRejectsPublicPriceBoundaryDrift(t *testing.T) {
 		routes = append(routes, httproute.Descriptor{Method: r.Method, Path: r.Path})
 	}
 	routes = append(routes, billingDescriptorsForTest()...)
-	require.NoError(t, validateCurrentApplicationRoutesWithBrowser(routes, false, false, false, false, false))
+	require.NoError(t, validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{}))
 	index := -1
 	for i, r := range routes {
 		if r.Path == billinghttp.PublicResourceOfferPath {
@@ -48,6 +49,6 @@ func TestCurrentApplicationRejectsPublicPriceBoundaryDrift(t *testing.T) {
 	} {
 		changed := append([]httproute.Descriptor(nil), routes...)
 		mutate(&changed[index])
-		require.Error(t, validateCurrentApplicationRoutesWithBrowser(changed, false, false, false, false, false))
+		require.Error(t, validateCurrentApplicationRoutesInternal(changed, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{}))
 	}
 }

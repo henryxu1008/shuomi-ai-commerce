@@ -12,12 +12,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"sort"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/app/accountaudit"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
@@ -30,6 +27,9 @@ import (
 	membership "task-processor/internal/organization/membership"
 	registry "task-processor/internal/sourceaccountregistry"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 const accountAuditPath = "/api/v1/account/audit"
@@ -394,21 +394,4 @@ func buildAccountAuditModule(ctx context.Context, sourceDB, membershipDB, resour
 		return nil, err
 	}
 	return accountAuditModule{query: query}, nil
-}
-
-// NewAccountAuditApplication is explicit isolated composition. It owns no DB,
-// schema, listener, identity provider or default runtime registration.
-func NewAccountAuditApplication(ctx context.Context, db *gorm.DB, verifier zitadelruntime.Verifier, resolver *workbenchcontext.Resolver, authorizer *authz.ListingKitAuthorizer) (*http.Server, error) {
-	if ctx == nil || db == nil || verifier == nil || resolver == nil || authorizer == nil {
-		return nil, registry.ErrUnavailable
-	}
-	module, err := buildAccountAuditModule(ctx, db, nil, nil, nil, authorizer, "")
-	if err != nil {
-		return nil, err
-	}
-	modules := kernelmodule.NewRegistry()
-	if err = module.Register(modules); err != nil {
-		return nil, err
-	}
-	return buildIsolatedApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authorizer}, registry.Timeout), nil
 }

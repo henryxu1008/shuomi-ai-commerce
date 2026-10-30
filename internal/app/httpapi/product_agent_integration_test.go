@@ -595,7 +595,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			require.NoError(t, e)
 			routes = append(routes, skillhttp.Routes(&skillhttp.Handler{Service: service, Policy: configuration, Bind: access.Bind})...)
 		}
-		app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
+		app := buildCurrentApplicationHTTPServer(routes, deps)
 		server := httptest.NewServer(app.Handler)
 		defer server.Close()
 		if strings.HasPrefix(mode, "content flow imagecopy ") {
@@ -884,7 +884,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		testSupplyAgentOwners(t, mode, f, op, module.(productAgentModule).application, deps, auth, &calls)
 		return
 	}
-	app := buildIsolatedApplicationHTTPServer(module.(productAgentModule).routes, deps, 2*time.Minute)
+	app := buildCurrentApplicationHTTPServer(module.(productAgentModule).routes, deps)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
 	if strings.HasPrefix(mode, "permission ") {
@@ -1175,7 +1175,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		// A fresh Review handler reloads the durable opaque origin, not copied text.
 		reloaded, buildErr := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, nil)
 		require.NoError(t, buildErr)
-		app = buildIsolatedApplicationHTTPServer(reloaded.(productAgentModule).routes, deps, 2*time.Minute)
+		app = buildCurrentApplicationHTTPServer(reloaded.(productAgentModule).routes, deps)
 		reopened := httptest.NewServer(app.Handler)
 		defer reopened.Close()
 		code, raw, err = acquisitionHTTPRequest(reopened, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "")

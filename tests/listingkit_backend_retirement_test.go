@@ -17,6 +17,161 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyHTTPAuthSupportClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/app/httpapi/http_module.go", "internal/app/httpapi/http_modules.go",
+		"internal/app/httpapi/module_runtime.go", "internal/app/httpapi/application_http_server.go",
+		"internal/app/httpapi/options.go", "internal/app/httpapi/startup_timing.go",
+		"internal/app/httpapi/storecenter_module.go", "internal/app/httpapi/storecenter_module_test.go",
+		"internal/app/httpapi/zitadel_sms_composition.go", "internal/app/httpapi/zitadel_sms_composition_test.go",
+		"internal/authruntime/zitadel/middleware.go", "internal/authruntime/zitadel/middleware_test.go",
+		"internal/pkg/goroutine",
+	} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired HTTP/auth/support source must be absent: %s: %v", relative, err)
+		}
+	}
+	retired := map[string][]string{
+		"internal/app/httpapi":         strings.Fields("httpModule newCoreHTTPModule buildHTTPServerBundleFromModules buildRegisteredRoutesForModules buildIsolatedApplicationHTTPServer Options startupTimer newStartupTimer storeCenterBuildResult storeCenterModuleBuilder storeCenterFactories defaultStoreCenterFactories buildDefaultStoreCenterModule buildStoreCenterModule storeCenterStartupError newStoreCenterStartupError unavailableConnectionStatusProvider buildZitadelSMSService runtimeBundle.buildServerBundle buildHTTPServerFromRoutes buildHTTPServerFromRoutesAt mountRoutes routeAuthorization buildRouteAuthorization routeAuthHandlers routeAuthorization.withWorkbench NewCurrentApplicationWithBrowserCapture NewCurrentApplicationWithMembership NewCurrentApplicationWithAcquisition NewCurrentApplicationWithAcquisitionAndReferrals NewSourceAccountApplication NewAccountAuditApplication NewSheinRecordApplication buildProductResourceCharges validateCurrentApplicationRoutes validateCurrentApplicationRoutesForAcquisition validateCurrentApplicationRoutesForSourcing validateCurrentApplicationRoutesWithFeatures validateCurrentApplicationRoutesWithAccountProfile validateCurrentApplicationRoutesWithBrowser validateCurrentApplicationRoutesWithBrowserFeatures"),
+		"internal/authruntime/zitadel": strings.Fields("AuthorizationConfig middleware NewMiddleware newMiddleware ParseRoles StringSliceToSet firstNonEmptyValue valueInSet"),
+		"internal/core/config":         {"ListingKitZitadelSMSConfig", "phoneVerificationExpiryMinutes"},
+		"internal/pkg/httpclient":      {"NewSimpleWithTimeout"},
+		"internal/pkg/timeout":         {"AIShortTimeout", "WithAIShortTimeout"},
+	}
+	retiredFields := map[string][]string{
+		"internal/app/httpapi:runtimeBundle":           {"authDependencies"},
+		"internal/app/httpapi:routeAuthDependencies":   {"identityMiddleware"},
+		"internal/core/config:ListingKitZitadelConfig": {"AuthorizationRequired", "AllowedTenantIDs", "AllowedUserIDs", "AllowedRoles", "SMS"},
+	}
+	required := map[string][]string{
+		"internal/app/httpapi":         strings.Fields("NewCurrentApplication NewCurrentApplicationWithOptions buildCurrentApplication buildRuntimeBundleFromModules validateCurrentApplicationRoutesInternal buildCurrentApplicationHTTPServer buildHTTPServerFromRoutesAtWithAuthDependencies mountRoutesWithAuthDependencies routeAuthDependencies routeAuthHandlersWithDependencies workbenchAuthenticationMiddleware buildSourceAccountModule buildAccountAuditModule buildLocalTrialListingRoutes buildCurrentStoreCenterModule buildZitadelSMSModule buildCurrentResourceCharges buildCurrentResourceChargesWithOwners"),
+		"internal/authruntime/zitadel": strings.Fields("Config IntrospectionResponse discoveryDocument normalizeConfig NewVerifier ParseRolesForProject parseRoles addRoleClaimValue"),
+		"internal/core/config":         strings.Fields("Config ListingKitZitadelConfig ValidateListingKitConfig BuildConfig rejectRetiredProductRuntimeConfig"),
+		"internal/pkg/httpclient":      strings.Fields("Config Client New Client.Do"),
+		"internal/pkg/timeout":         {"DownloadTimeout", "DownloadLongTimeout"},
+	}
+	found := map[string]bool{}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, facts := range index.files {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		relative, err := filepath.Rel("..", path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		file, err := parser.ParseFile(token.NewFileSet(), path, facts.source, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if imported == "task-processor/internal/pkg/goroutine" {
+				t.Errorf("%s imports the retired goroutine package", relative)
+			}
+		}
+		check := func(name string) {
+			if slices.Contains(retired[owner], name) {
+				t.Errorf("%s retains retired declaration %s", relative, name)
+			}
+			if slices.Contains(required[owner], name) {
+				found[owner+":"+name] = true
+			}
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					shape := d.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					if receiver, ok := shape.(*ast.Ident); ok {
+						name = receiver.Name + "." + name
+					}
+				}
+				check(name)
+				if owner == "internal/app/httpapi" && name == "routeAuthHandlersWithDependencies" {
+					var body bytes.Buffer
+					if err := format.Node(&body, token.NewFileSet(), d); err != nil {
+						t.Fatal(err)
+					}
+					if !strings.Contains(body.String(), "workbenchAuthenticationMiddleware(dependencies.workbenchVerifier)") {
+						t.Error("current protected routes must use the current verifier middleware")
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name)
+						if shape, ok := s.Type.(*ast.StructType); ok {
+							for _, field := range shape.Fields.List {
+								for _, name := range field.Names {
+									if slices.Contains(retiredFields[owner+":"+s.Name.Name], name.Name) {
+										t.Errorf("%s retains retired field %s.%s", relative, s.Name.Name, name.Name)
+									}
+								}
+							}
+						}
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							check(name.Name)
+						}
+					}
+				}
+			}
+		}
+	}
+	for owner, names := range required {
+		for _, name := range names {
+			if !found[owner+":"+name] {
+				t.Errorf("current owner declaration must remain: %s:%s", owner, name)
+			}
+		}
+	}
+	rejection, err := os.ReadFile(filepath.Join("..", "internal", "core", "config", "retired_product_runtime.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHZ_REQUIRED",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHORIZATIONREQUIRED",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDTENANTIDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDUSERIDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDROLES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_SIGNING_KEY",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_SIGNINGKEY",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SECRET_ID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTSECRETID",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SECRET_KEY",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTSECRETKEY",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_APP_ID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTAPPID",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SIGN_NAME",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTSIGNNAME",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_TEMPLATE_ID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTTEMPLATEID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_PHONE_VERIFICATION_EXPIRY_MINUTES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_PHONEVERIFICATIONEXPIRYMINUTES",
+	} {
+		if !strings.Contains(string(rejection), `"`+name+`"`) {
+			t.Errorf("frozen retired environment name must remain explicitly rejected: %s", name)
+		}
+	}
+}
+
 func TestLegacySheinLoginIdentitySyncClosureIsRetired(t *testing.T) {
 	retiredRoots := []string{
 		"cmd/shein-login-worker", "internal/app/runtime/sheinloginworker",
@@ -299,8 +454,9 @@ func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
 		t.Errorf("retired level split hook file must be absent: %v", err)
 	}
 	retired := map[string][]string{
-		logging:   strings.Fields("rwLocker logLevelState LevelSplitHook LevelFileConfig logLevelState.locking newLogManager LogManager.SetLevel LogManager.GetLevel NewLevelSplitHook LevelSplitHook.Levels LevelSplitHook.Fire"),
-		migration: strings.Fields("Runner.Status"),
+		httpclient: {"NewSimpleWithTimeout"},
+		logging:    strings.Fields("rwLocker logLevelState LevelSplitHook LevelFileConfig logLevelState.locking newLogManager LogManager.SetLevel LogManager.GetLevel NewLevelSplitHook LevelSplitHook.Levels LevelSplitHook.Fire"),
+		migration:  strings.Fields("Runner.Status"),
 	}
 	retiredFields := map[string][]string{
 		logging + ":LogManager": strings.Fields("levelState formatter"),
@@ -337,7 +493,6 @@ func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
 		logging + ":GetGlobalLogger":                                         {"GetGlobalLogManager().GetLogger(component)"},
 		httpclient + ":New":                                                  {"&http.Client{Timeout: config.Timeout}"},
 		httpclient + ":Client.Do":                                            {"case <-ctx.Done():", "req.WithContext(ctx)", "_ = resp.Body.Close()"},
-		httpclient + ":NewSimpleWithTimeout":                                 {"&http.Client{Timeout: timeout}"},
 		migration + ":New":                                                   nil,
 		migration + ":NewWithVersionTable":                                   {"validVersionTableName(dialect, versionTable)"},
 		migration + ":validVersionTableName":                                 nil,
@@ -1189,6 +1344,9 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 }
 
 func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "pkg", "goroutine")); !os.IsNotExist(err) {
+		t.Errorf("retired goroutine root must be absent: %v", err)
+	}
 	for _, relative := range []string{"internal/app/runtime/temporal_bundle.go", "internal/app/runtime/temporal_bundle_test.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired Temporal module bundle %s must be absent: %v", relative, err)
@@ -1211,7 +1369,6 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/shared/resilience":  {"ErrCircuitOpen", "ErrTooManyRequests", "CircuitState", "StateClosed", "StateHalfOpen", "StateOpen", "CircuitBreakerCounts", "CircuitBreakerConfig", "CircuitBreaker", "NewCircuitBreaker", "CircuitBreaker.Execute", "CircuitBreaker.State", "CircuitBreaker.Counts", "convertCounts", "convertState", "RateLimiter", "NewRateLimiter", "RateLimiter.Wait", "RateLimiter.Allow"},
 		"internal/shared/aiidentity":  {"CurrentEnvelopeVersion", "ErrMissingIdentity", "ErrIdentityIntegrity", "ExecutionEnvelope", "PersistedExecutionEnvelope", "PersistedEnvelopeState", "PersistedEnvelopeAbsent", "PersistedEnvelopePartial", "PersistedEnvelopePresent", "envelopeContextKey", "ExecutionEnvelope.Validate", "CaptureExecutionEnvelope", "WithExecutionEnvelope", "ExecutionEnvelopeFromContext", "RestoreExecutionEnvelope", "EnsureExecutionEnvelopeContext", "PersistedExecutionEnvelopeFrom", "PersistedExecutionEnvelope.State", "PersistedExecutionEnvelope.ExecutionEnvelope", "PersistedExecutionEnvelope.executionEnvelope", "normalizePersistedEnvelope", "normalizeEnvelope", "validSource", "TenantIDFromContext", "NormalizePersistedTenantID", "TenantMatchesContext", "TenantCanCreateTask", "requestRolesContextKey", "RequestUserIDFromContext", "WithRequestRoles", "RequestRolesFromContext", "normalizeRequestRoles"},
 		"internal/core/config":        {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog", "HTTPClientConfig", "DefaultHTTPClientConfig", "BuildHTTPClientConfig", "RetryConfig", "DefaultRetryConfig", "LoggingConfig", "PromptsConfig", "buildSplitByLevelConfig", "getStringFromMap"},
-		"internal/pkg/goroutine":      {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
 		"internal/pkg/timeout":        {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
 		"internal/pkg/jsonx":          {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile", "UnmarshalBytes"},
 		"internal/pkg/appenv":         {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
@@ -1229,10 +1386,9 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
 		"internal/core/config":        {"Config": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "OpenAIConfig": false},
 		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false},
-		"internal/pkg/goroutine":      {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
-		"internal/pkg/timeout":        {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
+		"internal/pkg/timeout":        {"DownloadTimeout": false, "DownloadLongTimeout": false},
 		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
-		"internal/pkg/httpclient":     {"Config": false, "Client": false, "New": false, "Client.Do": false, "NewSimpleWithTimeout": false},
+		"internal/pkg/httpclient":     {"Config": false, "Client": false, "New": false, "Client.Do": false},
 		"internal/pkg/imagex":         {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
 	}
 	decoders := map[string]bool{"image/jpeg": false, "image/png": false, "golang.org/x/image/webp": false}
@@ -1241,7 +1397,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			continue
 		}
 		owner := filepath.ToSlash(filepath.Dir(relative))
-		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/goroutine" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" && owner != "internal/shared/aiidentity" && owner != "internal/shared/resilience" && owner != "internal/integration/openai" && owner != "internal/shared/ptr" && owner != "internal/platform/database" {
+		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" && owner != "internal/shared/aiidentity" && owner != "internal/shared/resilience" && owner != "internal/integration/openai" && owner != "internal/shared/ptr" && owner != "internal/platform/database" {
 			continue
 		}
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)

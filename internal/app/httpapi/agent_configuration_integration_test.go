@@ -3,9 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,7 +15,10 @@ import (
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/workbenchcontext"
 	"testing"
-	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestAgentConfigurationUsesCurrentEnterpriseWithoutTextRuntime(t *testing.T) {
@@ -34,7 +34,7 @@ func TestAgentConfigurationUsesCurrentEnterpriseWithoutTextRuntime(t *testing.T)
 	require.NoError(t, e)
 	reg := kernelmodule.NewRegistry()
 	require.NoError(t, module.Register(reg))
-	app := buildIsolatedApplicationHTTPServer(reg.Routes(), deps, 10*time.Second)
+	app := buildCurrentApplicationHTTPServer(reg.Routes(), deps)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
 	call := func(actor, org, method, path, body, key, match string) (int, []byte) {

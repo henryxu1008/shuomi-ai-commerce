@@ -8,26 +8,15 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/sourcing"
+
+	"github.com/gin-gonic/gin"
 )
 
 const browserCaptureBase = "/api/v1/workbench/sourcing/1688/browser-captures"
-
-// NewCurrentApplicationWithBrowserCapture is an explicit opt-in composition.
-// The existing 10-route and Public-only 13-route constructors remain unchanged.
-// Caller-owned pools are inspected read-only; this is not a production switch.
-func NewCurrentApplicationWithBrowserCapture(ctx context.Context, sourceAccountDB, productDB, resourceDB *gorm.DB, cfg *config.Config, logger *logrus.Logger) (*http.Server, error) {
-	if ctx == nil || productDB == nil {
-		return nil, sourcing.ErrAcquisitionUnavailable
-	}
-	return NewCurrentApplicationWithOptions(ctx, sourceAccountDB, cfg, logger, WithProductAcquisition(productDB), WithBrowserCapture(), WithCommercialOwnerDatabase(resourceDB))
-}
 
 type browserCaptureService interface {
 	Capture(context.Context, string, []byte) (sourcing.AcquisitionResult, error)

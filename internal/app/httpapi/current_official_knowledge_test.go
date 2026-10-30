@@ -3,8 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"task-processor/internal/authz"
@@ -13,6 +11,9 @@ import (
 	officialhttp "task-processor/internal/knowledge/httpapi/official"
 	"task-processor/internal/knowledge/official"
 	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOfficialKnowledgeExactRouteAdmission(t *testing.T) {
@@ -68,11 +69,12 @@ func TestOfficialKnowledgeUsesLiveAccessWithoutEnterpriseStorage(t *testing.T) {
 	require.NoError(t, err)
 	handler, err := officialhttp.NewHandler(catalog)
 	require.NoError(t, err)
-	authorization, err := buildRouteAuthorization(cfg)
+	authorization := *auth.authDependencies
+	authorization.authorizer, err = authz.NewListingKitAuthorizer(cfg.ListingKit.PlatformAdminUsers, cfg.ListingKit.PlatformAdminRoles)
 	require.NoError(t, err)
 	policy := &officialRolePolicy{enabled: true}
 	authorization.authorizer.SetRolePolicyReader(policy)
-	server := buildCurrentApplicationHTTPServer(officialhttp.Routes(handler), authorization.withWorkbench(*auth.authDependencies))
+	server := buildCurrentApplicationHTTPServer(officialhttp.Routes(handler), authorization)
 	read := func(path, token string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, path, nil)
 		if token != "" {

@@ -74,7 +74,18 @@ func TestNewSourceAccountApplicationRequiresExplicitSchemaWithoutDDL(t *testing.
 		t.Fatal(err)
 	}
 	grants := applicationGrantLoader{}
-	server, err := NewSourceAccountApplication(db, applicationVerifier{}, workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer)
+	server, err := func() (*http.Server, error) {
+		deps := routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer}
+		module, err := buildSourceAccountModule(context.Background(), db, deps.authorizer)
+		if err != nil {
+			return nil, err
+		}
+		registry := kernelmodule.NewRegistry()
+		if err := module.Register(registry); err != nil {
+			return nil, err
+		}
+		return buildCurrentApplicationHTTPServer(registry.Routes(), deps), nil
+	}()
 	if err == nil || server != nil {
 		t.Fatalf("NewSourceAccountApplication() = %#v, %v", server, err)
 	}
@@ -95,7 +106,18 @@ func TestNewSourceAccountApplicationRejectsNilDatabase(t *testing.T) {
 	}
 	grants := applicationGrantLoader{}
 	resolver := workbenchcontext.NewResolver(grants, "project", "v1", nil)
-	server, err := NewSourceAccountApplication(nil, applicationVerifier{}, resolver, authorizer)
+	server, err := func() (*http.Server, error) {
+		deps := routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: resolver, authorizer: authorizer}
+		module, err := buildSourceAccountModule(context.Background(), nil, deps.authorizer)
+		if err != nil {
+			return nil, err
+		}
+		registry := kernelmodule.NewRegistry()
+		if err := module.Register(registry); err != nil {
+			return nil, err
+		}
+		return buildCurrentApplicationHTTPServer(registry.Routes(), deps), nil
+	}()
 	if err == nil || server != nil {
 		t.Fatalf("NewSourceAccountApplication() = %#v, %v", server, err)
 	}

@@ -14,28 +14,6 @@ import (
 	kernelmodule "task-processor/internal/kernel/module"
 )
 
-func TestCoreHTTPModuleRegistersHealthRoute(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := newCoreHTTPModule().Register(reg)
-	require.NoError(t, err)
-
-	routes := reg.Routes()
-	require.Len(t, routes, 1)
-	require.Equal(t, http.MethodGet, routes[0].Method)
-	require.Equal(t, "/health", routes[0].Path)
-	require.Equal(t, "system", routes[0].Module)
-}
-
-func TestHTTPModuleRegisterRejectsNilRegistrar(t *testing.T) {
-	t.Parallel()
-
-	err := (httpModule{name: "broken"}).Register(kernelmodule.NewRegistry())
-	require.EqualError(t, err, "http module broken has no registrar")
-}
-
 func TestBuildHTTPServerBundleFromModulesSkipsDisabledModules(t *testing.T) {
 	enabledRoute := httproute.Descriptor{
 		Method: http.MethodGet,
@@ -54,24 +32,23 @@ func TestBuildHTTPServerBundleFromModulesSkipsDisabledModules(t *testing.T) {
 		},
 	}
 
-	server, routes, err := buildHTTPServerBundleFromModules(18080, &config.Config{}, []kernelmodule.Module{
-		httpModule{
+	bundle, err := buildRuntimeBundleFromModules(&config.Config{}, []kernelmodule.Module{
+		runtimeBundleTestModule{
 			name:     "enabled",
 			register: func(reg *kernelmodule.Registry) error { reg.AddRoutes(enabledRoute); return nil },
 		},
-		httpModule{
-			name: "disabled",
-			enabled: func(*config.Config) bool {
-				return false
-			},
+		runtimeBundleTestModule{
+			name:     "disabled",
+			disabled: true,
 			register: func(reg *kernelmodule.Registry) error { reg.AddRoutes(disabledRoute); return nil },
 		},
 	})
 	require.NoError(t, err)
+	routes := bundle.routes
+	server := buildCurrentApplicationHTTPServer(routes, routeAuthDependencies{})
 	require.Equal(t, []string{"GET /enabled"}, routeKeys(routes))
 
-	router, ok := server.Handler.(*gin.Engine)
-	require.True(t, ok)
+	router := server.Handler
 
 	req := httptest.NewRequest(http.MethodGet, "/enabled", nil)
 	resp := httptest.NewRecorder()
@@ -87,9 +64,9 @@ func TestBuildHTTPServerBundleFromModulesSkipsDisabledModules(t *testing.T) {
 func TestBuildHTTPServerBundleFromModulesSkipsNilModules(t *testing.T) {
 	t.Parallel()
 
-	server, routes, err := buildHTTPServerBundleFromModules(18080, &config.Config{}, []kernelmodule.Module{
+	bundle, err := buildRuntimeBundleFromModules(&config.Config{}, []kernelmodule.Module{
 		nil,
-		httpModule{
+		runtimeBundleTestModule{
 			name: "enabled",
 			register: func(reg *kernelmodule.Registry) error {
 				reg.AddRoutes(httproute.Descriptor{
@@ -105,10 +82,11 @@ func TestBuildHTTPServerBundleFromModulesSkipsNilModules(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	routes := bundle.routes
+	server := buildCurrentApplicationHTTPServer(routes, routeAuthDependencies{})
 	require.Equal(t, []string{"GET /enabled"}, routeKeys(routes))
 
-	router, ok := server.Handler.(*gin.Engine)
-	require.True(t, ok)
+	router := server.Handler
 
 	req := httptest.NewRequest(http.MethodGet, "/enabled", nil)
 	resp := httptest.NewRecorder()
@@ -120,7 +98,7 @@ func TestBuildRuntimeBundleFromModulesCollectsRoutes(t *testing.T) {
 	t.Parallel()
 
 	bundle, err := buildRuntimeBundleFromModules(&config.Config{}, []kernelmodule.Module{
-		httpModule{
+		runtimeBundleTestModule{
 			name: "custom",
 			register: func(reg *kernelmodule.Registry) error {
 				reg.AddRoutes(httproute.Descriptor{
@@ -137,6 +115,9 @@ func TestBuildRuntimeBundleFromModulesCollectsRoutes(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"GET /health"}, routeKeys(bundle.routes))
+	failure := fmt.Errorf("fixture registration failure")
+	_, err = buildRuntimeBundleFromModules(&config.Config{}, []kernelmodule.Module{runtimeBundleTestModule{name: "broken", register: func(*kernelmodule.Registry) error { return failure }}})
+	require.ErrorIs(t, err, failure)
 }
 
 func routeKeys(routes []httproute.Descriptor) []string {
@@ -145,4 +126,20 @@ func routeKeys(routes []httproute.Descriptor) []string {
 		keys = append(keys, fmt.Sprintf("%s %s", route.Method, route.Path))
 	}
 	return keys
+}
+
+// A test-only Module fixture; production composition uses each current domain module.
+type runtimeBundleTestModule struct {
+	name     string
+	disabled bool
+	register func(*kernelmodule.Registry) error
+}
+
+func (m runtimeBundleTestModule) Name() string                { return m.name }
+func (m runtimeBundleTestModule) Enabled(*config.Config) bool { return !m.disabled }
+func (m runtimeBundleTestModule) Register(reg *kernelmodule.Registry) error {
+	if m.register != nil {
+		return m.register(reg)
+	}
+	return nil
 }

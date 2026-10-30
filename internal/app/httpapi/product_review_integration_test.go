@@ -305,9 +305,9 @@ func candidateReviewFixtureApplication(db *gorm.DB, verifier zitadelruntime.Veri
 		return nil, nil, err
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
-	app := buildIsolatedApplicationHTTPServer(productReviewRoutes(service, binder.Bind), routeAuthDependencies{
+	app := buildCurrentApplicationHTTPServer(productReviewRoutes(service, binder.Bind), routeAuthDependencies{
 		workbenchVerifier: verifier, organizationResolver: resolver, authorizer: auth,
-	}, review.Timeout)
+	})
 	return app, service, nil
 }
 

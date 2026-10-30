@@ -143,13 +143,9 @@ func TestWorkbenchRuntimeBundleConsumesInjectedAuthenticationDependencies(t *tes
 			OrganizationAccessPolicy: httproute.OrganizationAccessPolicyContextRead,
 			Handler:                  func(c *gin.Context) { c.Status(http.StatusNoContent) },
 		}},
-		authDependencies: &routeAuthDependencies{
-			workbenchVerifier:    mountedVerifierStub{identity: mountedVerifiedIdentity()},
-			organizationResolver: resolver,
-		},
 	}
 
-	server, _ := bundle.buildServerBundle(18080, routeAuthorization{})
+	server := buildCurrentApplicationHTTPServer(bundle.routes, routeAuthDependencies{workbenchVerifier: mountedVerifierStub{identity: mountedVerifiedIdentity()}, organizationResolver: resolver})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/context", nil)
 	request.Header.Set("Authorization", "Bearer current-request-token")
 	response := httptest.NewRecorder()

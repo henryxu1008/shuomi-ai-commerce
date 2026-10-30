@@ -86,11 +86,7 @@ func TestConfigBuildIncludesListingKitConfig(t *testing.T) {
 	v.Set("listingkit.zitadel.issuerURL", "https://issuer.example")
 	v.Set("listingkit.zitadel.clientID", "listingkit-client")
 	v.Set("listingkit.zitadel.clientSecret", "listingkit-secret")
-	v.Set("listingkit.zitadel.authorizationRequired", true)
-	v.Set("listingkit.zitadel.allowedTenantIDs", []string{"tenant-a", "tenant-b"})
-	v.Set("listingkit.zitadel.allowedUserIDs", []string{"user-a", "user-b"})
 	v.Set("listingkit.zitadel.allowedUsernames", []string{"alice", "bob"})
-	v.Set("listingkit.zitadel.allowedRoles", []string{"listingkit_admin", "platform_admin"})
 	v.Set("imageagent.admission.enabled", true)
 	v.Set("imageagent.admission.allowedTenantIDs", []string{"tenant-image-a", "tenant-image-b"})
 
@@ -101,11 +97,7 @@ func TestConfigBuildIncludesListingKitConfig(t *testing.T) {
 	assert.Equal(t, "https://issuer.example", cfg.ListingKit.Zitadel.IssuerURL)
 	assert.Equal(t, "listingkit-client", cfg.ListingKit.Zitadel.ClientID)
 	assert.Equal(t, "listingkit-secret", cfg.ListingKit.Zitadel.ClientSecret)
-	assert.True(t, cfg.ListingKit.Zitadel.AuthorizationRequired)
-	assert.Equal(t, []string{"tenant-a", "tenant-b"}, cfg.ListingKit.Zitadel.AllowedTenantIDs)
-	assert.Equal(t, []string{"user-a", "user-b"}, cfg.ListingKit.Zitadel.AllowedUserIDs)
 	assert.Equal(t, []string{"alice", "bob"}, cfg.ListingKit.Zitadel.AllowedUsernames)
-	assert.Equal(t, []string{"listingkit_admin", "platform_admin"}, cfg.ListingKit.Zitadel.AllowedRoles)
 	assert.True(t, cfg.ImageAgent.Admission.Enabled)
 	assert.Equal(t, []string{"tenant-image-a", "tenant-image-b"}, cfg.ImageAgent.Admission.AllowedTenantIDs)
 }

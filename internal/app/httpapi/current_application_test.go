@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"task-processor/internal/app/accountaudit"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"task-processor/internal/app/accountaudit"
 
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
@@ -58,11 +59,11 @@ func TestCurrentApplicationAuditMembershipRouteCombinations(t *testing.T) {
 				if len(routes) != want {
 					t.Fatalf("route count got %d want %d", len(routes), want)
 				}
-				if err := validateCurrentApplicationRoutesWithBrowser(routes, includeAudit, false, false, includeMembership, false); err != nil {
+				if err := validateCurrentApplicationRoutesInternal(routes, includeAudit, false, false, includeMembership, false, false, false, currentApplicationOptionalRoutes{}); err != nil {
 					t.Fatal(err)
 				}
 				for _, flags := range [][2]bool{{!includeAudit, includeMembership}, {includeAudit, !includeMembership}} {
-					if err := validateCurrentApplicationRoutesWithBrowser(routes, flags[0], false, false, flags[1], false); err == nil {
+					if err := validateCurrentApplicationRoutesInternal(routes, flags[0], false, false, flags[1], false, false, false, currentApplicationOptionalRoutes{}); err == nil {
 						t.Fatal("missing or unrequested module admitted")
 					}
 				}
@@ -85,7 +86,7 @@ func TestCurrentApplicationAuditMembershipRouteCombinations(t *testing.T) {
 					} {
 						changed := append([]httproute.Descriptor(nil), routes...)
 						mutate(&changed[i])
-						if err := validateCurrentApplicationRoutesWithBrowser(changed, includeAudit, false, false, includeMembership, false); err == nil {
+						if err := validateCurrentApplicationRoutesInternal(changed, includeAudit, false, false, includeMembership, false, false, false, currentApplicationOptionalRoutes{}); err == nil {
 							t.Fatalf("descriptor %d security drift admitted", i)
 						}
 					}
@@ -137,14 +138,14 @@ func TestCurrentApplicationReferralRouteAdmission(t *testing.T) {
 	for _, r := range currentWorkbenchApplicationRoutes {
 		routes = append(routes, httproute.Descriptor{Method: r.Method, Path: r.Path})
 	}
-	if err := validateCurrentApplicationRoutes(routes, false, false); err != nil {
+	if err := validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{}); err != nil {
 		t.Fatal(err)
 	}
 	referrals := (referralHTTPModule{}).routes()
-	if err := validateCurrentApplicationRoutes(append(routes, referrals...), false, false); err == nil {
+	if err := validateCurrentApplicationRoutesInternal(append(routes, referrals...), false, false, false, false, false, false, false, currentApplicationOptionalRoutes{}); err == nil {
 		t.Fatal("disabled referrals admitted routes")
 	}
-	if err := validateCurrentApplicationRoutes(append(routes, referrals...), false, true); err != nil {
+	if err := validateCurrentApplicationRoutesInternal(append(routes, referrals...), false, false, true, false, false, false, false, currentApplicationOptionalRoutes{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, route := range referrals {
@@ -157,7 +158,7 @@ func TestCurrentApplicationReferralRouteAdmission(t *testing.T) {
 	for i := range referrals {
 		changed := append([]httproute.Descriptor(nil), referrals...)
 		changed[i].AuthPolicy = httproute.AuthPolicyVerifiedIdentity
-		if err := validateCurrentApplicationRoutes(append(routes, changed...), false, true); err == nil {
+		if err := validateCurrentApplicationRoutesInternal(append(routes, changed...), false, false, true, false, false, false, false, currentApplicationOptionalRoutes{}); err == nil {
 			t.Fatal("changed referral authority admitted")
 		}
 	}
@@ -287,7 +288,7 @@ func TestCurrentApplicationAuditRequiresExactDescriptor(t *testing.T) {
 		base = append(base, httproute.Descriptor{Method: route.Method, Path: route.Path})
 	}
 	valid := append(append([]httproute.Descriptor{}, base...), audit.Routes()...)
-	if err := validateCurrentApplicationRoutes(valid, true, false); err != nil {
+	if err := validateCurrentApplicationRoutesInternal(valid, true, false, false, false, false, false, false, currentApplicationOptionalRoutes{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, mutate := range []func(*httproute.Descriptor){func(r *httproute.Descriptor) { r.Method = "POST" }, func(r *httproute.Descriptor) { r.Path += "/extra" }, func(r *httproute.Descriptor) {
@@ -295,16 +296,16 @@ func TestCurrentApplicationAuditRequiresExactDescriptor(t *testing.T) {
 	}, func(r *httproute.Descriptor) { r.Permission = "" }, func(r *httproute.Descriptor) { r.AuthPolicy = httproute.AuthPolicyPublic }, func(r *httproute.Descriptor) { r.RequestTimeout = 0 }, func(r *httproute.Descriptor) { r.OrganizationTargetResolver = nil }, func(r *httproute.Descriptor) { r.RejectUnreadRequestBody = false }} {
 		routes := append([]httproute.Descriptor{}, valid...)
 		mutate(&routes[len(routes)-1])
-		if err := validateCurrentApplicationRoutes(routes, true, false); err == nil {
+		if err := validateCurrentApplicationRoutesInternal(routes, true, false, false, false, false, false, false, currentApplicationOptionalRoutes{}); err == nil {
 			t.Fatal("invalid audit descriptor allowed")
 		}
 	}
 	for _, routes := range [][]httproute.Descriptor{base, append(valid, valid[len(valid)-1]), append(append([]httproute.Descriptor{}, valid[:10]...), valid[0])} {
-		if err := validateCurrentApplicationRoutes(routes, true, false); err == nil {
+		if err := validateCurrentApplicationRoutesInternal(routes, true, false, false, false, false, false, false, currentApplicationOptionalRoutes{}); err == nil {
 			t.Fatal("invalid route set allowed")
 		}
 	}
-	if err := validateCurrentApplicationRoutes(valid, false, false); err == nil {
+	if err := validateCurrentApplicationRoutesInternal(valid, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{}); err == nil {
 		t.Fatal("unrequested audit allowed")
 	}
 }
@@ -437,7 +438,7 @@ func TestCurrentApplicationRetiresPlatformSubscriptionOwnerRoutes(t *testing.T) 
 
 func currentApplicationTestConfig() *config.Config {
 	return &config.Config{Workbench: config.WorkbenchConfig{Enabled: true}, ListingKit: config.ListingKitConfig{Zitadel: config.ListingKitZitadelConfig{
-		IssuerURL: "http://localhost:18080", AuthorizationAPIURL: "http://localhost:18080", ClientID: "client", ClientSecret: "secret", ProjectID: "project", AuthorizationRequired: true,
+		IssuerURL: "http://localhost:18080", AuthorizationAPIURL: "http://localhost:18080", ClientID: "client", ClientSecret: "secret", ProjectID: "project",
 	}}}
 }
 
