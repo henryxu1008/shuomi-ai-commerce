@@ -47,7 +47,7 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 		BuildOrganizationAuthorizer: func(*config.Config) (imageagent.ExecutionAuthorizer, error) {
 			return acceptingOrganizationExecutionAuthorizer{}, nil
 		},
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
+		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error) {
 			return stubWorkerArtifactStore{}, nil
 		},
 	}
@@ -109,7 +109,7 @@ func TestTrialOrganizationWorkerVerifiesDedicatedRoleBeforeProviderConstruction(
 		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 		OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
 		CloseDB:    func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
+		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error) {
 			return stubWorkerArtifactStore{}, nil
 		},
 		VerifyOrganizationWorkerRuntime: func(context.Context, *gorm.DB) error { verified++; return errors.New("role refused") },
@@ -145,7 +145,7 @@ func TestResolveImageAgentTemporalDependenciesForOrganizationFailsBeforeDatabase
 			databaseOpens++
 			return &gorm.DB{}, nil
 		},
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
+		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error) {
 			storeBuilds++
 			return stubWorkerArtifactStore{}, nil
 		},
@@ -165,7 +165,7 @@ func TestResolveImageAgentTemporalDependenciesForOrganizationFailsBeforeDatabase
 			databaseOpens++
 			return &gorm.DB{}, nil
 		},
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
+		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error) {
 			storeBuilds++
 			return stubWorkerArtifactStore{}, nil
 		},
@@ -248,7 +248,7 @@ func TestResolveImageAgentTemporalDependenciesRejectsCredentialsBeforeDatabaseOp
 			_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, imageAgentWorkerDependencyResolver{
 				LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 				OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { dbOpens++; return &gorm.DB{}, nil },
-				BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
+				BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error) {
 					storeBuilds++
 					return stubWorkerArtifactStore{}, nil
 				},
@@ -283,7 +283,7 @@ func TestResolveImageAgentTemporalDependenciesRejectsOperationTimeoutOutsidePubl
 			_, _, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, imageAgentWorkerDependencyResolver{
 				ArtifactTiming: tc.timing,
 				LoadConfig:     func(string) (*config.Config, error) { return cfg, nil },
-				BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imageagenttemporal.DurableArtifactStore, error) {
+				BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error) {
 					storeBuilds++
 					return stubWorkerArtifactStore{}, nil
 				},
@@ -302,7 +302,7 @@ func TestResolveImageAgentTemporalDependenciesRejectsOperationTimeoutOutsidePubl
 
 func TestBuildImageAgentDurableArtifactStoreUsesConfiguredS3ClientPath(t *testing.T) {
 	cfg := &config.Config{ImageAgent: config.ImageAgentConfig{ArtifactStore: durableArtifactStoreConfig("aws", true)}}
-	artifactStore, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming, logrus.New())
+	artifactStore, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming)
 	require.NoError(t, err)
 	require.NotNil(t, artifactStore)
 }

@@ -880,7 +880,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if err != nil {
 			return nil, err
 		}
-		materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig, logger)
+		materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig)
 		if err != nil {
 			return nil, err
 		}

@@ -27,7 +27,7 @@ func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourc
 	if len(methods) == 1 {
 		executor.WithImageMethodContext(methods[0])
 	}
-	artifacts, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming, logger)
+	artifacts, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming)
 	if err != nil {
 		return empty, err
 	}

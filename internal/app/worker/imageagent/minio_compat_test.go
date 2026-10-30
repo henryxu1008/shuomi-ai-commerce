@@ -38,7 +38,7 @@ func TestIsolatedTrialMinIOPreservesRecoversAndPublishesImmutableAsset(t *testin
 	_, err = client.CreateBucket(ctx, &awss3.CreateBucketInput{Bucket: aws.String(bucket)})
 	require.NoError(t, err)
 	storeConfig := config.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: "https://localhost:19444/image-agent-assets/" + bucket, IsolatedTrialGeneratedURLs: true, S3: config.ImageAgentArtifactStoreS3Config{Bucket: bucket, Region: "us-east-1", Endpoint: endpoint, AccessKeyID: "issue487_local", SecretAccessKey: "issue487_local_secret", UsePathStyle: true, ArtifactMode: "aws"}}
-	store, err := buildImageAgentDurableArtifactStore(&config.Config{ImageAgent: config.ImageAgentConfig{ArtifactStore: storeConfig}}, defaultImageAgentArtifactTiming, nil)
+	store, err := buildImageAgentDurableArtifactStore(&config.Config{ImageAgent: config.ImageAgentConfig{ArtifactStore: storeConfig}}, defaultImageAgentArtifactTiming)
 	require.NoError(t, err)
 	imageBytes := new(bytes.Buffer)
 	pixels := image.NewRGBA(image.Rect(0, 0, 2, 2))

@@ -78,35 +78,6 @@ func TestNilReflectValueHandlesEveryIsNilKindWithoutPanicking(t *testing.T) {
 	}
 }
 
-func TestUploadMultipleRejectsEmptyInputWithoutPanic(t *testing.T) {
-	t.Parallel()
-
-	uploader := mustNewUploader(t, &fakeS3API{}, UploaderOptions{Bucket: "assets"})
-	urls, err := uploader.UploadMultiple(context.Background(), "batch", nil)
-	if err == nil || urls != nil {
-		t.Fatalf("UploadMultiple() = (%v, %v), want nil URLs and deterministic error", urls, err)
-	}
-}
-
-func TestUploaderUsesConfiguredStructuredLogger(t *testing.T) {
-	t.Parallel()
-
-	recorder := &recordingLogger{}
-	uploader := mustNewUploader(t, &fakeS3API{}, UploaderOptions{Bucket: "assets", Logger: recorder})
-	if _, err := uploader.Upload(context.Background(), "folder/image.png", []byte("image"), "image/png"); err != nil {
-		t.Fatalf("Upload() error = %v", err)
-	}
-	if len(recorder.infos) != 2 {
-		t.Fatalf("logger info calls = %d, want 2", len(recorder.infos))
-	}
-	if got := recorder.infos[0].fields["bucket"]; got != "assets" {
-		t.Fatalf("first log bucket = %v, want assets", got)
-	}
-	if got := recorder.infos[1].fields["object_key"]; got != "folder/image.png" {
-		t.Fatalf("success log object_key = %v, want folder/image.png", got)
-	}
-}
-
 func mustNewUploader(t *testing.T, client S3ObjectAPI, opts UploaderOptions) *Uploader {
 	t.Helper()
 	uploader, err := NewUploaderWithOptions(client, opts)
@@ -115,22 +86,6 @@ func mustNewUploader(t *testing.T, client S3ObjectAPI, opts UploaderOptions) *Up
 	}
 	return uploader
 }
-
-type recordedLog struct {
-	message string
-	fields  map[string]any
-}
-
-type recordingLogger struct {
-	infos []recordedLog
-}
-
-func (*recordingLogger) Debug(string, map[string]any) {}
-func (l *recordingLogger) Info(message string, fields map[string]any) {
-	l.infos = append(l.infos, recordedLog{message: message, fields: fields})
-}
-func (*recordingLogger) Warn(string, map[string]any)  {}
-func (*recordingLogger) Error(string, map[string]any) {}
 
 func TestUploaderResolvedURLPrefersPublicBase(t *testing.T) {
 	t.Parallel()
@@ -206,19 +161,6 @@ func TestInspectObjectClassifiesWrappedSmithyErrorsPrecisely(t *testing.T) {
 				t.Fatal("InspectObject() error = nil, want propagated error")
 			}
 		})
-	}
-}
-
-func TestExistsPreservesLegacyPlainHeadAndErrorSemantics(t *testing.T) {
-	t.Parallel()
-	api := &fakeS3API{headErr: errors.New("legacy access error")}
-	uploader := mustNewUploader(t, api, UploaderOptions{Bucket: "listingkit-assets"})
-	exists, err := uploader.Exists(context.Background(), "legacy/key.png")
-	if err != nil || exists {
-		t.Fatalf("Exists() = (%t, %v), want (false, nil)", exists, err)
-	}
-	if api.headInput == nil || api.headInput.ChecksumMode != "" {
-		t.Fatalf("Exists() sent strict checksum mode: %+v", api.headInput)
 	}
 }
 
@@ -328,10 +270,6 @@ func (nilSliceS3API) GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.
 func (nilSliceS3API) CopyObject(context.Context, *s3.CopyObjectInput, ...func(*s3.Options)) (*s3.CopyObjectOutput, error) {
 	return nil, errors.New("not implemented")
 }
-func (nilSliceS3API) DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
-	return nil, errors.New("not implemented")
-}
-
 func (f *fakeS3API) PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 	f.putCalls++
 	return &s3.PutObjectOutput{}, f.putErr
@@ -347,10 +285,6 @@ func (f *fakeS3API) GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.O
 }
 
 func (f *fakeS3API) CopyObject(context.Context, *s3.CopyObjectInput, ...func(*s3.Options)) (*s3.CopyObjectOutput, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (f *fakeS3API) DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
 	return nil, errors.New("not implemented")
 }
 

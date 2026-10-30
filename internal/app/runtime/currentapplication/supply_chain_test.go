@@ -133,7 +133,7 @@ func TestSupplyAndEcoservicesRuntimePoolsStayIndependent(t *testing.T) {
 					return workflow, func() error { return nil }, nil
 				},
 				OpenEcoservices: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return eco, nil },
-				NewEcoservices: func(context.Context, *gorm.DB, *EcoservicesConfig, *logrus.Logger) (*EcoservicesRuntime, error) {
+				NewEcoservices: func(context.Context, *gorm.DB, *EcoservicesConfig) (*EcoservicesRuntime, error) {
 					constructed++
 					return &EcoservicesRuntime{DB: eco}, nil
 				},

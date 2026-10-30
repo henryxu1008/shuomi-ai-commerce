@@ -22,52 +22,11 @@ const (
 type RoleAuthorizationResponder func(*gin.Context, RoleAuthorizationFailure, string)
 
 func RouteRequiresZitadelAuth(route httproute.Descriptor) bool {
-	switch route.AuthPolicy {
-	case httproute.AuthPolicyVerifiedIdentity:
-		return true
-	case httproute.AuthPolicyPublic:
-		return false
-	}
-	if route.Method == http.MethodGet && route.Path == "/api/v1/shein-login/health" {
-		return false
-	}
-	if route.Module == "listing-kit-zitadel-sms-webhook" {
-		// ZITADEL does not send a user Bearer token. Only this exact callback
-		// authenticates with the fresh raw-body HMAC validated by its handler.
-		return route.Method != http.MethodPost || route.Path != "/api/v1/listing-kits/integrations/zitadel/sms"
-	}
-	return route.Module == "listing-kit" ||
-		route.Module == "listing-kit-admin" ||
-		route.Module == "listing-kit-platform-admin" ||
-		route.Module == "listing-kit-prompts" ||
-		route.Module == "shein-login" ||
-		route.Module == "product-sourcing" ||
-		route.Module == "local-agent" ||
-		route.Module == "crawler-1688" ||
-		route.Module == "image-agent" ||
-		route.Module == "images"
+	return route.AuthPolicy == httproute.AuthPolicyVerifiedIdentity
 }
 
 func routeRequiredPermission(route httproute.Descriptor) string {
-	if value := strings.TrimSpace(route.Permission); value != "" {
-		return value
-	}
-	switch route.Module {
-	case "listing-kit-admin":
-		if route.Method == http.MethodGet {
-			return authz.PermissionListingKitAdminRead
-		}
-		return authz.PermissionListingKitAdminWrite
-	case "listing-kit-platform-admin":
-		return authz.PermissionListingKitPlatformAdm
-	case "listing-kit-prompts":
-		if route.Method == http.MethodPut || route.Method == http.MethodPatch {
-			return authz.PermissionListingKitPromptWrite
-		}
-	default:
-		return ""
-	}
-	return ""
+	return strings.TrimSpace(route.Permission)
 }
 
 func NewRouteRoleMiddlewareWithAuthorizer(route httproute.Descriptor, authorizer *authz.ListingKitAuthorizer) gin.HandlerFunc {

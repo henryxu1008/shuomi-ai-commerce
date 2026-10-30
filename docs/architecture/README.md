@@ -1,3 +1,9 @@
+> #301 / #1022 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING：[旧认证路由与S3对象操作完整闭包](legacy-auth-route-s3-operation-closure-retirement-boundary.md)。冻结3fc7e4864的§1–§7（含§4.2/§6.1）已确认，同一38路径整批退休旧Module/URL/permission推断、Prompt赋权/两全局helper与S3旧操作/Logger/完整空传参尾部。当前显式认证/实例组织权限、不可覆盖存储/严格读取/原key、JSON/hash/版本/资金/UNKNOWN、采集/图像与Store观察同步保留。原检查只按精确矩阵转换，无alias/fallback/新owner。workflow/inventory/历史计数/ceilings/保护/依赖及既有资源不动，无试用新前置，#301 OPEN。以下原历史/计数/勾选逐字保留；准确源码CI/最终复核在#1022单列，合并另授。
+
+> #301 当前设计：[legacy-auth-route-s3-operation-closure-retirement-boundary.md](legacy-auth-route-s3-operation-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。旧认证路由推断/Prompt权限与全局便利函数、旧S3可覆盖上传/Delete/Exists及专属Logger/空传参/测试尾部一次收齐；未来38路径，不机械拆批。当前显式身份组织权限、不可覆盖存储、采集/图像/JSON/hash/版本及Store观察同步保留。§1–§7（含§4.2/§6.1）待适用独立复核和用户确认；本轮只三文档，不改workflow/inventory，不操作既有实例/数据/凭据/进程，不增加试用前置，#301 OPEN。以下原文/历史/数字/勾选逐字保留。
+
+- [`legacy-auth-route-s3-operation-closure-retirement-boundary.md`](legacy-auth-route-s3-operation-closure-retirement-boundary.md)：本批完整设计，包含实际消费者、前批KEEP替代、owner及精确生产/原检查矩阵；未授权源码实施。
+
 > #301 / #1017 当前 **USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING**：[旧 HTTP 备用装配、白名单认证与辅助尾部完整退休](legacy-http-auth-support-closure-retirement-boundary.md)。用户已确认冻结ec7e1074c的§1–§7（含§4.1/§4.2/§6.1），同一92路径闭包整批实施；共享测试fixture单字段准确例外已获批准，见PR评论6519809300。当前统一入口、身份组织权限、采集/图像/JSON/hash/版本、Chromium安装、私密SMS和Store观察同步保留；无兼容alias/fallback。workflow/inventory/历史计数/ceilings/保护/依赖及既有实例/数据/凭据/进程不动，无试用新前置，#301 OPEN。准确源码/原CI/最终复核留同一PR，合并另授。以下旧历史/计数/勾选逐字保留。
 
 - [`legacy-http-auth-support-closure-retirement-boundary.md`](legacy-http-auth-support-closure-retirement-boundary.md)：本批当前设计与实施边界；原设计复核/CI已通过，实施已获用户授权，源码最终复核与合并另列。
