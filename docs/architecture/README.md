@@ -1,4 +1,4 @@
-> #301 / #1007 整批实施：**RETIRE + SELECTIVE EXTRACTION / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**；[三组29路径完整设计](legacy-config-projection-dub-closure-retirement-boundary.md)已确认。22旧配置别名/警告、旧单项投影命令/helper、Dub整包退出；当前数组/run-only指纹字节和原事务保留，旧非null单项回执不兼容。原有效检查按§6.1改接；当前采集、图像、身份权限、Store观察不变，workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下原正文/历史/计数/勾选逐字保留。
+> #301 / #1007 整批实施：**RETIRE + SELECTIVE EXTRACTION / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**；[三组30路径完整设计](legacy-config-projection-dub-closure-retirement-boundary.md)已确认。22旧配置别名/警告、旧单项投影命令/helper、Dub整包退出；当前数组/run-only指纹字节和原事务保留，旧非null单项回执不兼容。原有效检查按§6.1改接；当前采集、图像、身份权限、Store观察不变，workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下原正文/历史/计数/勾选逐字保留。
 
 > #301 当前设计：[`legacy-config-projection-dub-closure-retirement-boundary.md`](legacy-config-projection-dub-closure-retirement-boundary.md)；Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。整批覆盖旧配置别名、单项投影提交、闲置 Dub 三组29路径；先抽取当前数组回执的固定指纹编码，旧单项回执不兼容，原授权拒绝不能随别名失效。保留当前采集、图像、身份权限与 Store 观察同步；workflow/inventory/既有资源零改，不加试用前置，#301 OPEN。适用设计复核及用户确认后再实施。以下既有正文/历史逐字保留。
 

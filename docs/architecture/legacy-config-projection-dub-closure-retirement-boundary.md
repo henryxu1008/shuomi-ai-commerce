@@ -109,7 +109,7 @@
 
 ## §5 整批实施矩阵与删除条件
 
-本轮源码阶段以以下 **29 路径** 收齐一个主要 PR；数量只便于核对，不构成拆批依据。原本无须改动的当前消费者不为凑数搬家。
+本轮源码阶段以以下 **30 路径** 收齐一个主要 PR；数量只便于核对，不构成拆批依据。原本无须改动的当前消费者不为凑数搬家。
 
 | 路径 | 决策及允许变化 | 保留/删除条件 |
 | --- | --- | --- |
@@ -122,6 +122,7 @@
 | `internal/imageagent/store/projection.go` | 先EXTRACT当前数组指纹编码（含固定null），RETIRE helper、三调用改直接数组 | 原hashJSON、验证、事务/重试、锁/回滚、事件、幂等比较不变；不兼容旧非null指针回执 |
 | `internal/imageagent/temporal/activities_persistence.go` | 仅 PersistSlotResultV3 构造改为原值的单元素数组 | PersistRunState 等其余生产函数零改 |
 | `internal/imageagent/temporal/activities_recovery_v3.go` | 仅 reconcileEffectRecoveryProjection 同形转换 | 活动自己的恢复指纹、效果/结算及未知结果语义不变；旧单项commit回执边界见§4.2 |
+| `internal/imageagent/projection_test.go` | 原durable candidate测试只把3行raw命令编码/commit黄金断言转交真实store指纹owner | 原Projection JSON黄金217981…、candidate拒绝/roundtrip/零值断言全部保留；原commit黄金cc1ef1…不改，见§6.1准确例外 |
 | `internal/imageagent/store/image_set_test.go` | 原两个单项 fixture 改数组 | 未开始工作保留、授权拒绝、投影一致原断言保持 |
 | `internal/imageagent/store/repository_contract_test.go` | 四个原 helper 的单项 fixture 改数组，按 §6 补当前数组边界 | 整套 Memory/GORM 合同与所有有效断言保留 |
 | `internal/imageagent/temporal/manual_acceptance_test.go` | 原重启回归 fixture 单项改数组 | workflow 丢响应/重启/安全断言保持，不执行真实环境验收 |
@@ -170,6 +171,7 @@
 | 同文件 / `TestKnownEnvBindingsDoNotExposeListingKitOwnerScopeToggle` | 仅 Deprecated 字段检查改为完整 binding 形状/无别名通道的等效禁入 | 原 owner-scope binding/Primary 禁令保持；其它身份配置禁入函数不变 |
 | 同文件 / 两个 `TestDeprecatedEnvWarnings_*` | 退休仅警告语义的测试；由旧名无取值/Primary不被旧名覆盖的回归承接有效合同 | 不要求保留对退出警告函数的调用，不删除当前日志/无泄露测试 |
 | validator_listingkit_test / `TestListingKitLegacyUsernameAllowlistInputsFailClosed`、`clearLegacyListingKitUsernameAllowlistEnv` | 只补明确旧名/自动拼写的合成fixture隔离和拒绝回归 | `TestValidateConfigRejectsLegacyListingKitUsernameAllowlistWithoutExposingValues`、`requireLegacyUsernameAllowlistRejection`及原断言保持 |
+| projection_test / `TestSlotProjectionJSONPreservesV3DurableIdentityWithoutChangingV2CandidateWire`（原CI暴露、用户准确例外） | 仅将3行raw `ProjectionCommit` marshal/commit黄金检查移到现有repository_contract_test新增同fixture测试，直接调用真实 `projectionCommitFingerprint` | 原commit黄金 `cc1ef100e1c5d8e7ac7330b7b884620f217654ebadf67f345fdcff70d0554654` 不变；原Projection黄金/全部candidate与解码安全断言保留，不恢复旧Go命令序列化 |
 | store/image_set_test / `TestSetSlotClosurePreservesUnstartedWorkInNormalizedAndProjectedState` | 两构造换原值数组 | 不变任何结果、错误或安全预期 |
 | repository_contract_test / `testProjectionCommitAtomicallyPersistsRecoveryRegistryAndOrderedSlotMutations`、`testProjectionCommitRejectsInvalidSameAttemptRecoveryMetadata`、`testProjectionCommitRejectsMismatchedSlotAttemptIdentityAtomically`、`testProjectionCommitRollbackHidesEventSnapshotAndNormalizedWrites` | 仅原单项setup改数组；数组指纹/回执字节等价与缺少的数组边界加独立用例，测试参考形状可保留固定null字段 | 当前有序多槽、失败原子性、身份/CAS、原完整断言与测试装配保持；不删除整个helper |
 | temporal/manual_acceptance_test / `executeManualRecoveryWorkflowRestartAcceptance` | 只改 recorder 中单项fixture为原值数组 | 原重启、事件、恢复和provider调用约束保持 |

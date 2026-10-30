@@ -1083,3 +1083,18 @@ func TestProjectionCommitFrozenReceiptsAndArrayAtomicity(t *testing.T) {
 		}
 	}
 }
+
+func TestProjectionCommitDurableCandidateFingerprintPreservesOriginalGolden(t *testing.T) {
+	sha := strings.Repeat("a", 64)
+	v3 := imageagent.SlotProjection{Candidates: []imageagent.AssetCandidate{{
+		AssetID: "candidate-1", SourceAssetID: "source-1",
+		Width: 1200, Height: 900, Operations: []string{"render_scene", "review"},
+		GenerationProof: &imageagent.ImageGenerationProof{IntentID: sha, Fingerprint: sha, SettlementProofDigest: sha, Points: 12},
+		Artwork:         &imageagent.ArtworkProvenance{Protocol: imageagent.ArtworkSchema, TenantID: "tenant-a", OwnerUserID: "user-a", RunID: "run-a", SlotID: "scene-1", PlanRevision: 1, Attempt: 1, InputDigest: sha, IntentID: sha, Fingerprint: sha},
+		DurableAsset:    imageagent.DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/fc95297aa4f56781f0decb7d4bf59b1447f09b3611039b80188b1c6beb03ee6a/run-a/1/scene-1/1/0-" + sha + ".png", SHA256: sha},
+	}}}
+	snapshot := imageagent.RunProjection{Run: imageagent.Run{ID: "run-a", TenantID: "tenant-a", UserID: "user-a", ActivePlanRevision: 1}, Plan: imageagent.Plan{Revision: 1}, Slots: []imageagent.SlotProjection{v3}, ProjectionVersion: 1, LastEventID: 1}
+	fingerprint, err := projectionCommitFingerprint(imageagent.ProjectionCommit{Scope: imageagent.ScopeForRun(snapshot.Run), CommitID: "fixture-commit", Snapshot: snapshot, EventType: "fixture.event", EventPayload: json.RawMessage(`{"fixture":true}`)})
+	require.NoError(t, err)
+	require.Equal(t, "cc1ef100e1c5d8e7ac7330b7b884620f217654ebadf67f345fdcff70d0554654", fingerprint, "the original complete durable-candidate commit fingerprint must remain frozen")
+}
