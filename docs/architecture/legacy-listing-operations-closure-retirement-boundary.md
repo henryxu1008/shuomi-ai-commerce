@@ -1,3 +1,5 @@
+> #301 / #1026 USER_CONFIRMED：[用户确认的旧远程联调与专属镜像完整退休边界](legacy-remote-debug-image-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1）仅替代本批七对象的旧KEEP/现行操作含义：四个旧PG/Redis/RabbitMQ/Temporal转发与watcher、SHEIN runtime base构建推送脚本/Dockerfile及专属Pester整批源退，三项原检查精确转退休保护；其它检查不变。Chromium/Playwright安装、非目标Dockerfile、当前标准构建/全部能力与Store观察同步保持，无新EXTRACT/alias/替代工具。不执行旧入口，不停止转发/服务或删除现存镜像、数据、凭据、文件日志或进程；真实外部人工/制品消费者UNKNOWN，运行验收NOT_RUN。workflow/完整inventory/CURRENT/历史计数/ceilings/依赖/保护零改，无试用新前置，#301 OPEN。以下原Git正文/既有顶注/数字/勾选/失败证据逐字保留为历史，不恢复已退SHEIN登录/身份回写。
+
 # 旧数字刊登运维源码：完整退休闭包设计
 
 > #872 后续精确收口：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)同批退休 sync-shein-store-proxies.ps1、shein-proxy-sync 全部专属声明/内联实现、失去最后源码消费者的四份 shein-listing-secret 模板及 prod 装配。本文对这些准确对象的 KEEP 被取代；共享 Namespace/base、Prometheus 存储规则与同 namespace 窄路由、通用转发/诊断、当前工作负载和独立 SHEIN 登录/Store 同步原样。仅源退休，不读取/清理真实 Secret、远端属性、旧表、实例或进程；原历史正文/计数及其它合同保留。

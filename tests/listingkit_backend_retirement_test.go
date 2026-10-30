@@ -2771,14 +2771,8 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 			t.Errorf("%s declares retired queue input", relative)
 		}
 	}
-	content, err := os.ReadFile(filepath.Join("..", "scripts", "start-listingkit-local-portforward.ps1"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"TASK_PROCESSOR_REDIS_HOST", "TASK_PROCESSOR_REDIS_PORT"} {
-		if strings.Contains(string(content), name) {
-			t.Errorf("port-forward help must not recommend retired global input %s", name)
-		}
+	if _, err := os.Stat(filepath.Join("..", "scripts", "start-listingkit-local-portforward.ps1")); !os.IsNotExist(err) {
+		t.Fatalf("retired local port-forward source must be absent: %v", err)
 	}
 
 }
@@ -4685,6 +4679,11 @@ func TestCurrentBuildDoesNotPackageRetiredTaskEntrypoints(t *testing.T) {
 
 func TestRetiredLocalLaunchersRejectBeforeOperations(t *testing.T) {
 	for _, relative := range []string{
+		"scripts/start-listingkit-local-portforward.ps1",
+		"scripts/start-shein-local-rabbitmq-portforward.ps1",
+		"scripts/start-listingkit-remote-temporal-portforward.ps1",
+		"scripts/watch-listingkit-local-portforward.ps1",
+		"scripts/start-listingkit-local-portforward.Tests.ps1",
 		"scripts/start-listingkit-local-api.ps1",
 		"scripts/start-listingkit-local-api.Tests.ps1",
 		"scripts/start-listingkit-local-dev.ps1",
@@ -4708,6 +4707,8 @@ func TestRetiredLocalLaunchersRejectBeforeOperations(t *testing.T) {
 
 func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 	for _, relative := range []string{
+		"scripts/build-push-shein-runtime-base.ps1",
+		"deployments/docker/Dockerfile.shein-runtime",
 		"deployments/docker/Dockerfile.listing",
 		"deployments/kubernetes/shein-listing/base/deployment.yaml",
 		"deployments/kubernetes/temu-listing/base/deployment.yaml",
