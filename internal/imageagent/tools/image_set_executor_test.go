@@ -84,6 +84,7 @@ func TestImageSetExecutorUsesSingleEditForDetailAndBindsEverySource(t *testing.T
 
 func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *testing.T) {
 	input := setExecutionInput(t)
+	originalPrompt := input.Slot.Recipe.Prompt
 	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
 	input.ImageMethodText = "Bounded method text that must reach the image provider."
 	var err error
@@ -99,6 +100,7 @@ func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *test
 	require.True(t, strings.HasPrefix(editor.request.Prompt, input.Slot.Recipe.Prompt))
 	require.NotContains(t, editor.request.Prompt, "BEGIN UNTRUSTED METHOD")
 	require.Contains(t, editor.request.Prompt, input.ImageMethodText)
+	require.Equal(t, originalPrompt, input.Slot.Recipe.Prompt, "persisted recipe must retain its exact frozen prompt")
 	require.NotContains(t, input.Slot.Recipe.Prompt, input.ImageMethodText, "persisted recipe must not acquire method plaintext")
 	input.ImageMethodText = ""
 	_, err = executor.GenerateQuotedSlot(context.Background(), input, quote)
