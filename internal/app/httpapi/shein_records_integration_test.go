@@ -25,7 +25,6 @@ import (
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	listingrecord "task-processor/internal/listing/record"
-	listingtask "task-processor/internal/listing/task"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/storecenter"
@@ -176,7 +175,7 @@ func prepareApprovedAssets(t *testing.T, db *gorm.DB, organizationID, productKey
 }
 func recordApplication(t *testing.T, db *gorm.DB, g *recordGrants) (*httptest.Server, listingrecord.Reader) {
 	t.Helper()
-	auth, err := authz.NewListingKitAuthorizer(nil, nil)
+	auth, err := authz.NewListingKitAuthorizer(nil, []string{"configured-admin"})
 	require.NoError(t, err)
 	server, reader, err := func() (*http.Server, listingrecord.Reader, error) {
 		deps := routeAuthDependencies{workbenchVerifier: recordVerifier{}, organizationResolver: workbenchcontext.NewResolver(g, "project", "v1", nil), authorizer: auth}
@@ -271,8 +270,8 @@ func TestDraftS1ExactApprovedAssetMissDoesNotUseUnversionedHead(t *testing.T) {
 	require.Zero(t, records)
 }
 
-func recordActor(user, role string) listingtask.Actor {
-	return listingtask.Actor{TenantID: "200", UserID: user, Roles: []string{role}}
+func recordActor(user, role string) listingrecord.Actor {
+	return listingrecord.Actor{OrganizationID: "200", UserID: user, Roles: []string{role}}
 }
 func TestSheinRecordHTTPPostgresRoundTrip(t *testing.T) {
 	db := recordTestDB(t)
@@ -312,9 +311,17 @@ func TestSheinRecordHTTPPostgresRoundTrip(t *testing.T) {
 	require.NotContains(t, persistedDiagnostic.NotEvaluated, "approved_asset_provenance_and_consent")
 	require.Contains(t, persistedDiagnostic.NotEvaluated, "online_template_freshness")
 	for _, item := range []struct {
-		actor listingtask.Actor
+		actor listingrecord.Actor
 		deny  bool
-	}{{recordActor("upstream-author", "listingkit_operator"), true}, {recordActor("other", "listingkit_operator"), true}, {recordActor("admin", "listingkit_admin"), false}, {listingtask.Actor{TenantID: "100", UserID: "admin", Roles: []string{"listingkit_admin"}}, true}} {
+	}{
+		{recordActor("upstream-author", "listingkit_operator"), true},
+		{recordActor("other", "listingkit_operator"), true},
+		{recordActor("admin", "listingkit_admin"), false},
+		{listingrecord.Actor{OrganizationID: "100", UserID: "admin", Roles: []string{"listingkit_admin"}}, true},
+		{recordActor("operator", "listingkit_operator"), false},
+		{recordActor("configured-reader", "configured-admin"), false},
+		{listingrecord.Actor{OrganizationID: "100", UserID: "platform-reader", Roles: []string{"platform_admin"}}, true},
+	} {
 		_, e := reader.ReadOfflinePackage(context.Background(), item.actor, receipt.RecordID)
 		if item.deny {
 			require.ErrorIs(t, e, listingrecord.ErrNotFound)

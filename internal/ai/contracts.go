@@ -58,15 +58,9 @@ type ChatCompletionResponse struct {
 	Usage   Usage                  `json:"usage"`
 }
 
-type TextChatCompleter interface {
-	CreateChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error)
-	Generate(ctx context.Context, prompt string) (string, error)
-	GetDefaultModel() string
-}
-
-type ChatCompleter interface {
-	TextChatCompleter
-	AnalyzeImage(ctx context.Context, imageURL string, prompt string) (string, error)
+// ChatCompletionClient is the provider-neutral transport used by image review.
+type ChatCompletionClient interface {
+	CreateChatCompletion(context.Context, *ChatCompletionRequest) (*ChatCompletionResponse, error)
 }
 
 type ImageGenerateRequest struct {

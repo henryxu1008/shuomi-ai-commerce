@@ -159,7 +159,7 @@ func (p *routedOpenAIProductImageProvider) adapter(ctx context.Context, operatio
 	reviewSelection := ai.ImageRouteSelection{
 		CredentialReference: reviewRoute.CredentialReference, ConfigurationVersion: reviewRoute.ConfigurationVersion,
 	}
-	var reviewer ai.ChatCompleter
+	var reviewer ai.ChatCompletionClient
 	if operation != productimage.SourceWhiteBackgroundOperation {
 		reviewer, err = p.manager.GetClientWithRoute(ctx, imageAgentReviewOpenAIClientName, reviewSelection)
 		if err != nil {

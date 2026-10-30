@@ -12,7 +12,6 @@ import (
 
 	"task-processor/internal/authz"
 	"task-processor/internal/listing/record"
-	listingtask "task-processor/internal/listing/task"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	contract "task-processor/internal/marketplace/validator"
 	"task-processor/internal/workbenchcontext"
@@ -20,9 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type diagnosticReaderFunc func(context.Context, listingtask.Actor, string) (record.Record, error)
+type diagnosticReaderFunc func(context.Context, record.Actor, string) (record.Record, error)
 
-func (f diagnosticReaderFunc) ReadOfflinePackage(ctx context.Context, a listingtask.Actor, id string) (record.Record, error) {
+func (f diagnosticReaderFunc) ReadOfflinePackage(ctx context.Context, a record.Actor, id string) (record.Record, error) {
 	return f(ctx, a, id)
 }
 
@@ -55,7 +54,7 @@ func diagnosticSeamServer(t *testing.T, reader record.Reader, evaluator record.D
 func TestSheinDiagnosticTypedFailureHTTP(t *testing.T) {
 	for _, cause := range []string{"stale", "expired", "expired_at_evaluation", "subject_mismatch"} {
 		t.Run(cause, func(t *testing.T) {
-			reader := diagnosticReaderFunc(func(context.Context, listingtask.Actor, string) (record.Record, error) {
+			reader := diagnosticReaderFunc(func(context.Context, record.Actor, string) (record.Record, error) {
 				return record.Record{Payload: []byte(`{}`), ReadAt: time.Now().UTC()}, nil
 			})
 			evaluator := diagnosticEvaluatorFunc(func(contract.BoundRequest[[]byte]) (contract.DiagnosticResult, error) {
@@ -72,7 +71,7 @@ func TestSheinDiagnosticTypedFailureHTTP(t *testing.T) {
 func TestSheinDiagnosticBoundaryFailuresHTTP(t *testing.T) {
 	for _, scenario := range []string{"reader unavailable", "cancelled read", "clock rollback", "report oversized", "report encoding", "compute deadline"} {
 		t.Run(scenario, func(t *testing.T) {
-			reader := diagnosticReaderFunc(func(ctx context.Context, _ listingtask.Actor, _ string) (record.Record, error) {
+			reader := diagnosticReaderFunc(func(ctx context.Context, _ record.Actor, _ string) (record.Record, error) {
 				switch scenario {
 				case "reader unavailable":
 					return record.Record{}, errors.New("secret SQL")
@@ -115,7 +114,7 @@ func TestSheinDiagnosticBoundaryFailuresHTTP(t *testing.T) {
 
 func TestSheinDiagnosticDeniedBeforeReadHTTP(t *testing.T) {
 	var reads atomic.Int32
-	reader := diagnosticReaderFunc(func(context.Context, listingtask.Actor, string) (record.Record, error) {
+	reader := diagnosticReaderFunc(func(context.Context, record.Actor, string) (record.Record, error) {
 		reads.Add(1)
 		return record.Record{}, record.ErrNotFound
 	})

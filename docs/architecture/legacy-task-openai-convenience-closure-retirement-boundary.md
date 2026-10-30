@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：用户已确认冻结4b0ea8227的§1–§7（含§4.2/§6.1）及两组49路径。Design Basis: Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING；生产修改前准入6523692682已写入#301并读回。按本完整矩阵先抽取最小合同/原校验，再整退旧task/AI便利链/独占ptr，不留alias；原JSON/hash/版本/事务/身份权限/审核route/计量/UNKNOWN和当前能力、Store观察保持。原CanRead四项有效隔离行为交当前读取fixture；当前实现/自检/准确源码CI/最终复核留同一#1025，设计证据不替代源码证据。workflow/完整inventory/依赖/保护与既有资源不动，无新试用前置，#301 OPEN；合并另授。以下冻结设计完整保留。
+
 # 旧 listing/task 与 OpenAI 便利调用链完整退休设计
 
 状态：**DESIGN_ONLY / AWAITING_REVIEW_AND_USER_CONFIRMATION / SOURCE_NOT_STARTED / NOT_READY**。Design Basis：**Independent Architecture**。父 Issue [#301](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301) 保持 OPEN。

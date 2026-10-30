@@ -44,7 +44,6 @@ import (
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	"task-processor/internal/listing/record"
-	listingtask "task-processor/internal/listing/task"
 	imagepolicy "task-processor/internal/marketplace/imagepolicy"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
@@ -432,7 +431,7 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, status)
 	require.JSONEq(t, string(draftRaw), string(replayRaw))
-	stored, err := reader.ReadOfflinePackage(context.Background(), listingtask.Actor{TenantID: chain1Organization, UserID: chain1Actor, Roles: []string{"listingkit_admin"}}, draftReceipt.RecordID)
+	stored, err := reader.ReadOfflinePackage(context.Background(), record.Actor{OrganizationID: chain1Organization, UserID: chain1Actor, Roles: []string{"listingkit_admin"}}, draftReceipt.RecordID)
 	require.NoError(t, err)
 	require.Equal(t, appliedVersion, stored.Input.SnapshotVersion)
 	require.Equal(t, storeID, stored.Input.StoreID)

@@ -244,7 +244,7 @@ func testClientConfig(apiKey, model, baseURL string) *ClientConfig {
 	}
 }
 
-func callChat(t *testing.T, client ai.ChatCompleter, ctx context.Context) {
+func callChat(t *testing.T, client ai.ChatCompletionClient, ctx context.Context) {
 	t.Helper()
 	_, err := client.CreateChatCompletion(ctx, &ai.ChatCompletionRequest{
 		Messages: []ai.ChatCompletionMessage{{Role: "user", Content: "hello"}},

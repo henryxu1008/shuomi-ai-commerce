@@ -7,6 +7,6 @@ import (
 )
 
 func TestOpenAIClientImplementsProviderNeutralContracts(t *testing.T) {
-	var _ ai.ChatCompleter = (*Client)(nil)
+	var _ ai.ChatCompletionClient = (*Client)(nil)
 	var _ ai.ImageGenerator = (*Client)(nil)
 }

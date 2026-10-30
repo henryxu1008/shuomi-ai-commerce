@@ -10,7 +10,6 @@ import (
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
-	listingtask "task-processor/internal/listing/task"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	contract "task-processor/internal/marketplace/validator"
 	productasset "task-processor/internal/product/asset"
@@ -109,7 +108,7 @@ type storeFixture struct {
 	cancel context.CancelFunc
 }
 
-func (s *storeFixture) FindOperation(_ context.Context, _ listingtask.Actor, _ string) (Record, error) {
+func (s *storeFixture) FindOperation(_ context.Context, _ Actor, _ string) (Record, error) {
 	if s.saved.ID == "" {
 		return Record{}, ErrNotFound
 	}
@@ -318,8 +317,23 @@ func TestInputRequiresExactStoreAndAction(t *testing.T) {
 	require.NoError(t, fixtureInput.Validate())
 }
 
+func TestRecordActorExtractionPreservesInputHash(t *testing.T) {
+	actor := Actor{OrganizationID: "org", UserID: "user", Roles: []string{"listingkit_operator"}}
+	input := Input{ProductKey: "product", SnapshotVersion: 7, StoreID: fixtureStoreID, Country: "US", Language: "en", Action: contract.SaveDraft}
+	const wantWire = `{"organization_id":"org","owner_user_id":"user","product_key":"product","snapshot_version":7,"store_id":"11111111-1111-4111-8111-111111111111","country":"US","language":"en","action":"save_draft","product_hash":"product-hash","asset_inventory_hash":"inventory-hash","rule_revision":"rule-v1","policy_revision":"binding-v1"}`
+	const wantHash = "sha256:81d608b3f679c43e529ed5443021e8b9189c3e501782c0f026fc3aaa5959b6f0"
+	require.Equal(t, wantHash, digest([]byte(wantWire)))
+	got, err := canonicalInputHash(actor, input, "product-hash", "inventory-hash", "rule-v1", "binding-v1")
+	require.NoError(t, err)
+	require.Equal(t, wantHash, got)
+	actor.Roles = []string{"listingkit_admin"}
+	got, err = canonicalInputHash(actor, input, "product-hash", "inventory-hash", "rule-v1", "binding-v1")
+	require.NoError(t, err)
+	require.Equal(t, wantHash, got, "roles remain an authorization input, not a persisted input-hash field")
+}
+
 func TestCanonicalInputHashBindsRuleAndPolicyRevisions(t *testing.T) {
-	actor := listingtask.Actor{TenantID: "org", UserID: "user"}
+	actor := Actor{OrganizationID: "org", UserID: "user"}
 	input := Input{ProductKey: "product", SnapshotVersion: 7, StoreID: fixtureStoreID, Country: "US", Language: "en", Action: contract.SaveDraft}
 	old, err := canonicalInputHash(actor, input, "product-hash", "inventory-hash", "shein.offline_package.v2.1", "shein.persisted-input.go-json.v1")
 	require.NoError(t, err)

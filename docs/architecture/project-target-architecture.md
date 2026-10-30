@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：本批按用户确认的[完整设计](legacy-task-openai-convenience-closure-retirement-boundary.md)整批实施49路径：当前草稿/报表的Actor与纯校验归 `internal/listing/record`，审核单方法合同归 `internal/ai` 的ChatCompletionClient；旧listing/task、两宽接口/便利方法与独占ptr退出，不留alias。当前product.canonical.inspect继续按ProductKey/CatalogVersion读Catalog，不新增record依赖；当前JSON/hash/版本/身份权限/事务/治理/图像采集与Store观察保持。下文旧Task查询端口/宽接口描述仅为历史，不恢复旧owner；workflow/inventory/既有资源不动，#301 OPEN，以下正文完整保留。
+
 > #301 当前设计提案：[旧 listing/task 与 OpenAI 便利调用链完整退休](legacy-task-openai-convenience-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；两组同批49路径，不机械拆批。拟将当前草稿/报表的最小身份值与校验抽到 listing/record、当前审核单方法合同留 internal/ai，再整退旧任务包、宽接口、四闲置方法与独占 ptr，不留 alias。§4.2 保留原 JSON/hash/版本/事务/路由与当前能力、Store 观察；§6.1 精确转换原检查/lint。当前只四文档，复核及用户确认后再实施；workflow/完整 inventory/计数/ceilings/依赖/保护与既有实例/数据/凭据/进程不动，不增试用前置，#301 OPEN。以下旧 Task query/宽接口等历史描述仅在本设计获确认的准确边界内被替代，原正文完整保留。
 
 # Project Target Architecture

@@ -6,7 +6,6 @@ import (
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
-	listingtask "task-processor/internal/listing/task"
 	contract "task-processor/internal/marketplace/validator"
 )
 
@@ -34,8 +33,8 @@ func (s *DiagnosticService) Diagnose(ctx context.Context, id string, action cont
 		return contract.DiagnosticResult{}, err
 	}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	actor := listingtask.Actor{TenantID: identity.EffectiveOrganizationID, UserID: identity.UserID, Roles: identity.Roles}
-	if !ok || identity.TenantID != actor.TenantID || listingtask.ValidateActor(actor) != nil || !time.Now().Before(identity.TokenExpiresAt) || !s.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
+	actor := Actor{OrganizationID: identity.EffectiveOrganizationID, UserID: identity.UserID, Roles: identity.Roles}
+	if !ok || identity.TenantID != actor.OrganizationID || ValidateActor(actor) != nil || !time.Now().Before(identity.TokenExpiresAt) || !s.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
 		return contract.DiagnosticResult{}, ErrForbidden
 	}
 	stored, err := s.reader.ReadOfflinePackage(ctx, actor, id)

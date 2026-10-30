@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：[本批已确认完整退休设计](../../architecture/legacy-task-openai-convenience-closure-retirement-boundary.md)仅替代本文旧task-to-product Reader/Actor owner的当前含义。canonical.inspect已按ProductKey/CatalogVersion直接读取Catalog；当前草稿/报表实际使用的Actor/校验归record，旧listing/task根退休，不新增Tool→record依赖或Task状态机。原只读/权限/组织/owner/大小/错误与当前ProductSnapshot合同保持，不恢复旧读取器或数据迁移；workflow/inventory/既有资源不变，Store观察保持。以下原文/历史完整保留。
+
 # B0 Canonical Product Inspection Tool 设计
 
 ## 1. 状态与结论

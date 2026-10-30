@@ -701,7 +701,7 @@ func TestSharedResilienceDoesNotImportInternalPackages(t *testing.T) {
 
 func TestSharedPackageTargetsExist(t *testing.T) {
 	// The retired hashx/mathx/strx owners are covered by the complete closure guard.
-	for _, name := range []string{"ptr", "resilience"} {
+	for _, name := range []string{"resilience"} {
 		info, err := os.Stat(filepath.Join("..", "internal", "shared", name))
 		if err != nil || !info.IsDir() {
 			t.Errorf("internal/shared/%s must exist as a directory: %v", name, err)
@@ -751,6 +751,9 @@ func integrationProviderAdapterImportViolations(root string) ([]string, error) {
 }
 
 func isAllowedIntegrationProviderAdapterImport(providerRoot string, hasLegacyProviderDependencies bool, importPath string) bool {
+	if importMatchesPrefix(importPath, "task-processor/internal/shared/ptr") {
+		return false
+	}
 	if hasLegacyProviderDependencies && (importPath == "task-processor/internal/ai" ||
 		importMatchesPrefix(importPath, "task-processor/internal/shared") ||
 		importPath == "task-processor/internal/integration/httpimage") {
@@ -785,11 +788,11 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 			name: "openai",
 			allowed: []string{
 				"task-processor/internal/ai",
-				"task-processor/internal/shared/ptr",
 				"task-processor/internal/integration/httpimage",
 				"task-processor/internal/product/image",
 			},
 			forbidden: []string{
+				"task-processor/internal/shared/ptr",
 				"task-processor/internal/product/enrichment",
 				"task-processor/internal/product/review/proposal",
 				"task-processor/internal/integration/httpimage/child",
@@ -799,8 +802,9 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 		},
 		{
 			name:    "grsai",
-			allowed: []string{"task-processor/internal/ai", "task-processor/internal/shared/ptr", "task-processor/internal/integration/httpimage", "task-processor/internal/product/image"},
+			allowed: []string{"task-processor/internal/ai", "task-processor/internal/integration/httpimage", "task-processor/internal/product/image"},
 			forbidden: []string{
+				"task-processor/internal/shared/ptr",
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
 				"task-processor/internal/product/review/proposal",

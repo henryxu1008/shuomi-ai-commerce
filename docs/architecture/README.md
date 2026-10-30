@@ -1,3 +1,5 @@
+> #301 / #1025 USER_CONFIRMED：[旧listing/task与OpenAI便利链完整边界](legacy-task-openai-convenience-closure-retirement-boundary.md)已获用户确认§1–§7（含§4.2/§6.1），同一#1025按49路径整批实施；当前record/ai最小合同承接有效行为，旧task/宽接口/便利方法/ptr退出。当前能力/JSON/hash/身份权限/事务/Store观察保留，原检查仅按精确矩阵转换；workflow/inventory/既有资源零改，无新增试用前置，#301 OPEN。源码自检/原CI/最终复核另记，合并另授；以下原索引/历史完整保留。
+
 - [`legacy-task-openai-convenience-closure-retirement-boundary.md`](legacy-task-openai-convenience-closure-retirement-boundary.md)：#301 旧 listing/task 与 OpenAI 便利链完整退休设计；两组49路径同批，先抽当前最小 owner/规则，保留 JSON/hash/当前能力与 Store 观察。当前 DESIGN_ONLY / SOURCE_NOT_STARTED，用户确认后再实施。
 
 > #301 / #1022 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING：[旧认证路由与S3对象操作完整闭包](legacy-auth-route-s3-operation-closure-retirement-boundary.md)。冻结3fc7e4864的§1–§7（含§4.2/§6.1）已确认，同一38路径整批退休旧Module/URL/permission推断、Prompt赋权/两全局helper与S3旧操作/Logger/完整空传参尾部。当前显式认证/实例组织权限、不可覆盖存储/严格读取/原key、JSON/hash/版本/资金/UNKNOWN、采集/图像与Store观察同步保留。原检查只按精确矩阵转换，无alias/fallback/新owner。workflow/inventory/历史计数/ceilings/保护/依赖及既有资源不动，无试用新前置，#301 OPEN。以下原历史/计数/勾选逐字保留；准确源码CI/最终复核在#1022单列，合并另授。

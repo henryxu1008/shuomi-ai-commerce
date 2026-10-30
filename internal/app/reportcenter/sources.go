@@ -14,7 +14,6 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/listing/record"
-	listingtask "task-processor/internal/listing/task"
 	validator "task-processor/internal/marketplace/validator"
 	"task-processor/internal/product/review"
 	rc "task-processor/internal/reportcenter"
@@ -83,7 +82,7 @@ func (s *Sources) Read(ctx context.Context, scope rc.Scope, kind, id string) (rc
 	if s.Records == nil {
 		return rc.Snapshot{}, rc.ErrUnavailable
 	}
-	r, e := s.Records.ReadOfflinePackage(ctx, listingtask.Actor{TenantID: scope.OrganizationID, UserID: scope.ActorID, Roles: identity.Roles}, id)
+	r, e := s.Records.ReadOfflinePackage(ctx, record.Actor{OrganizationID: scope.OrganizationID, UserID: scope.ActorID, Roles: identity.Roles}, id)
 	if e != nil {
 		return rc.Snapshot{}, sourceError(e)
 	}

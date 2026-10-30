@@ -8,7 +8,6 @@ import (
 
 	"task-processor/internal/authz"
 	"task-processor/internal/listing/record"
-	listingtask "task-processor/internal/listing/task"
 	contract "task-processor/internal/marketplace/validator"
 
 	"github.com/google/uuid"
@@ -128,18 +127,18 @@ func loadOperation(tx *gorm.DB, organizationID, operationID string) (operationRo
 	return stored, nil
 }
 
-func (r *Repository) FindOperation(ctx context.Context, actor listingtask.Actor, operationID string) (record.Record, error) {
+func (r *Repository) FindOperation(ctx context.Context, actor record.Actor, operationID string) (record.Record, error) {
 	if err := ctx.Err(); err != nil {
 		return record.Record{}, err
 	}
-	if listingtask.ValidateActor(actor) != nil || listingtask.ValidateTaskID(operationID) != nil {
+	if record.ValidateActor(actor) != nil || record.ValidateOperationID(operationID) != nil {
 		return record.Record{}, record.ErrInvalid
 	}
-	operation, err := loadOperation(r.db.WithContext(ctx), actor.TenantID, operationID)
+	operation, err := loadOperation(r.db.WithContext(ctx), actor.OrganizationID, operationID)
 	if err != nil {
 		return record.Record{}, err
 	}
-	stored, err := load(r.db.WithContext(ctx), "id = ? AND organization_id = ? AND operation_id = ?", operation.RecordID, actor.TenantID, operationID)
+	stored, err := load(r.db.WithContext(ctx), "id = ? AND organization_id = ? AND operation_id = ?", operation.RecordID, actor.OrganizationID, operationID)
 	if err != nil {
 		return record.Record{}, err
 	}
@@ -217,13 +216,13 @@ func validatePrepared(proposed record.Record) error {
 	return nil
 }
 
-func (r *Repository) ReadOfflinePackage(ctx context.Context, actor listingtask.Actor, id string) (record.Record, error) {
+func (r *Repository) ReadOfflinePackage(ctx context.Context, actor record.Actor, id string) (record.Record, error) {
 	ctx, cancel := context.WithTimeout(ctx, record.Timeout)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return record.Record{}, err
 	}
-	if listingtask.ValidateActor(actor) != nil || !r.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
+	if record.ValidateActor(actor) != nil || !r.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
 		return record.Record{}, record.ErrForbidden
 	}
 	parsed, err := uuid.Parse(id)
@@ -231,7 +230,7 @@ func (r *Repository) ReadOfflinePackage(ctx context.Context, actor listingtask.A
 		return record.Record{}, record.ErrNotFound
 	}
 	where := "id = ? AND organization_id = ? AND owner_user_id <> '' AND store_id IS NOT NULL"
-	args := []any{id, actor.TenantID}
+	args := []any{id, actor.OrganizationID}
 	admin := r.auth.IsTenantAdmin(actor.UserID, actor.Roles)
 	if !admin {
 		where += " AND owner_user_id = ?"
@@ -241,7 +240,7 @@ func (r *Repository) ReadOfflinePackage(ctx context.Context, actor listingtask.A
 	if err != nil {
 		return record.Record{}, err
 	}
-	if got.ID != id || got.OrganizationID != actor.TenantID || got.OwnerUserID == "" || (got.OwnerUserID != actor.UserID && !admin) {
+	if got.ID != id || got.OrganizationID != actor.OrganizationID || got.OwnerUserID == "" || (got.OwnerUserID != actor.UserID && !admin) {
 		return record.Record{}, record.ErrNotFound
 	}
 	if err := ctx.Err(); err != nil {
@@ -250,18 +249,18 @@ func (r *Repository) ReadOfflinePackage(ctx context.Context, actor listingtask.A
 	return got.Clone(), nil
 }
 
-func (r *Repository) List(ctx context.Context, actor listingtask.Actor, request record.PageRequest) (record.Page, error) {
+func (r *Repository) List(ctx context.Context, actor record.Actor, request record.PageRequest) (record.Page, error) {
 	if err := ctx.Err(); err != nil {
 		return record.Page{}, err
 	}
-	if listingtask.ValidateActor(actor) != nil || !r.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
+	if record.ValidateActor(actor) != nil || !r.auth.Authorize(actor.UserID, actor.Roles, authz.PermissionListingKitAdminRead) {
 		return record.Page{}, record.ErrForbidden
 	}
 	if err := request.Validate(); err != nil {
 		return record.Page{}, err
 	}
 	where := "organization_id = ? AND owner_user_id <> ''"
-	args := []any{actor.TenantID}
+	args := []any{actor.OrganizationID}
 	admin := r.auth.IsTenantAdmin(actor.UserID, actor.Roles)
 	if !admin {
 		where += " AND owner_user_id = ?"
