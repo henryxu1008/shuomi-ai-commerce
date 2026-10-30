@@ -1,3 +1,5 @@
+> #301 当前设计：[`legacy-config-projection-dub-closure-retirement-boundary.md`](legacy-config-projection-dub-closure-retirement-boundary.md)；Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。整批覆盖旧配置别名、单项投影提交、闲置 Dub 三组29路径；先抽取当前数组回执的固定指纹编码，旧单项回执不兼容，原授权拒绝不能随别名失效。保留当前采集、图像、身份权限与 Store 观察同步；workflow/inventory/既有资源零改，不加试用前置，#301 OPEN。适用设计复核及用户确认后再实施。以下既有正文/历史逐字保留。
+
 > #301 / #1005 当前实施：USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认[方法与快照完整退休设计](legacy-image-method-snapshot-closure-retirement-boundary.md) §1–§7/§4.2/§6.1，同一PR整批20生产对象及专属尾部；保留当前方法v4/人工文案/图组/Artwork/采集/Store观察、JSON/hash、资金/UNKNOWN与有效恢复。旧SHEIN登录/身份回写不恢复；workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下起点正文/历史完整保留。
 
 > #301 当前设计：[`legacy-image-method-snapshot-closure-retirement-boundary.md`](legacy-image-method-snapshot-closure-retirement-boundary.md)（旧 ImageAgent 方法策略与历史快照完整退休闭包）。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。四组一次覆盖：方法 v1/v2/v3、旧文案/prompt 与快捷重放尾部、宽松计划合同、四笔事故专用命令；当前方法 v4/人工文案/图组/Artwork/采集/Store 观察、JSON/hash 与资金/恢复 owner 保留。§4.2 明确旧读/续跑承诺须用户确认，§6.1 收齐同根检查与 fixture。当前仅三文档，不操作既有资源、不改 workflow/inventory、不增加试用前置，#301 OPEN。下方起点正文/历史完整保留。
