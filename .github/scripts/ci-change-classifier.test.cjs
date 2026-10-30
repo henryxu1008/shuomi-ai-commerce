@@ -254,8 +254,9 @@ test("actual required-gate shell rejects missing applicable capture checks", () 
     for(const result of ['success','failure','cancelled','skipped','']) {
       const env={...process.env,CI_EVENT:event,CAPTURE_EXTENSION_SELECTED:selected,CAPTURE_EXTENSION_RESULT:result};
       for(const key of ['CHANGES_RESULT','DEVELOPMENT_ADMISSION_TEST_RESULT','ARCHITECTURE_CONTRACT_RESULT','ISOLATED_RUNTIME_RESULT',
-        'RELEASE_RESULT','BACKEND_RESULT','FRONTEND_RESULT','CODE_HEALTH_RESULT']) env[key]='success';
+        'RELEASE_RESULT','BACKEND_RESULT','MEMBERSHIP_CONDITIONAL_RESULT','FRONTEND_RESULT','CODE_HEALTH_RESULT']) env[key]='success';
       env.ISOLATED_RUNTIME_SELECTED='false';
+      env.MEMBERSHIP_CONDITIONAL_SELECTED='false';
       const run=spawnSync(bash,['-c',script],{env,encoding:'utf8'});
       if(run.error)throw run.error;
       const applicable=event==='push'||selected==='true';
@@ -273,10 +274,30 @@ test("actual required-gate shell rejects a skipped selected isolated runtime che
     const env={...process.env,CI_EVENT:'pull_request',CAPTURE_EXTENSION_SELECTED:'false',CAPTURE_EXTENSION_RESULT:'skipped',
       ISOLATED_RUNTIME_SELECTED:selected,ISOLATED_RUNTIME_RESULT:result};
     for(const key of ['CHANGES_RESULT','DEVELOPMENT_ADMISSION_TEST_RESULT','ARCHITECTURE_CONTRACT_RESULT',
-      'RELEASE_RESULT','BACKEND_RESULT','FRONTEND_RESULT','CODE_HEALTH_RESULT']) env[key]='success';
+      'RELEASE_RESULT','BACKEND_RESULT','MEMBERSHIP_CONDITIONAL_RESULT','FRONTEND_RESULT','CODE_HEALTH_RESULT']) env[key]='success';
+    env.MEMBERSHIP_CONDITIONAL_SELECTED='false';
     const run=spawnSync(bash,['-c',script],{env,encoding:'utf8'});
     if(run.error)throw run.error;
     const shouldPass=selected==='true' ? result==='success' : ['success','skipped'].includes(result);
     assert.equal(run.status===0,shouldPass,`${selected}/${result}: ${run.stderr}`);
+  }
+});
+
+test("actual required-gate shell requires the selected Membership PostgreSQL result", () => {
+  const {script}=captureGate();
+  const bash=process.platform==='win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
+  for(const event of ['push','pull_request']) for(const selected of ['true','false','']) {
+    for(const result of ['success','failure','cancelled','skipped','']) {
+      const env={...process.env,CI_EVENT:event,CAPTURE_EXTENSION_SELECTED:'false',
+        CAPTURE_EXTENSION_RESULT:'success',ISOLATED_RUNTIME_SELECTED:'false',
+        MEMBERSHIP_CONDITIONAL_SELECTED:selected,MEMBERSHIP_CONDITIONAL_RESULT:result};
+      for(const key of ['CHANGES_RESULT','DEVELOPMENT_ADMISSION_TEST_RESULT','ARCHITECTURE_CONTRACT_RESULT',
+        'ISOLATED_RUNTIME_RESULT','RELEASE_RESULT','BACKEND_RESULT','FRONTEND_RESULT','CODE_HEALTH_RESULT']) env[key]='success';
+      const run=spawnSync(bash,['-c',script],{env,encoding:'utf8'});
+      if(run.error)throw run.error;
+      const applicable=event==='push'||selected==='true';
+      const shouldPass=applicable ? result==='success' : selected==='false' && ['success','skipped'].includes(result);
+      assert.equal(run.status===0,shouldPass,`${event}/${selected}/${result}: ${run.stderr}`);
+    }
   }
 });

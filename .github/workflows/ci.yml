@@ -386,6 +386,7 @@ jobs:
           RELEASE_RESULT: ${{ needs.release-authority.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
           MEMBERSHIP_CONDITIONAL_RESULT: ${{ needs.membership-conditional-postgres.result }}
+          MEMBERSHIP_CONDITIONAL_SELECTED: ${{ needs.changes.outputs.backend }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           CAPTURE_EXTENSION_RESULT: ${{ needs.capture-extension.result }}
           CAPTURE_EXTENSION_SELECTED: ${{ needs.changes.outputs.capture_extension }}
@@ -409,7 +410,18 @@ jobs:
           }
 
           require_success "change classification" "$CHANGES_RESULT"
-          require_success "membership conditional PostgreSQL" "$MEMBERSHIP_CONDITIONAL_RESULT"
+          if [[ "$CI_EVENT" == "push" || "$MEMBERSHIP_CONDITIONAL_SELECTED" == "true" ]]; then
+            if [[ "$MEMBERSHIP_CONDITIONAL_RESULT" != "success" ]]; then
+              printf 'required membership conditional PostgreSQL result: %s\n' "$MEMBERSHIP_CONDITIONAL_RESULT" >&2
+              exit 1
+            fi
+            printf 'membership conditional PostgreSQL success\n'
+          elif [[ "$CI_EVENT" == "pull_request" && "$MEMBERSHIP_CONDITIONAL_SELECTED" == "false" ]]; then
+            require_success "membership conditional PostgreSQL" "$MEMBERSHIP_CONDITIONAL_RESULT"
+          else
+            echo "membership conditional PostgreSQL applicability is unknown" >&2
+            exit 1
+          fi
           require_success "development admission tests" "$DEVELOPMENT_ADMISSION_TEST_RESULT"
           require_success "architecture contracts" "$ARCHITECTURE_CONTRACT_RESULT"
           if [[ "$CI_EVENT" == "pull_request" ]]; then
