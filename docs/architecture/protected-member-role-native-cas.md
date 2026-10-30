@@ -1,7 +1,7 @@
 # B1：受保护成员单业务角色的原生条件写入
 
 日期：2026-10-29。Design Basis：**Independent Architecture / B1-only increment**。
-状态：**IMPLEMENTATION_READY；本地源码实现与隔离测试已完成，未部署**。执行与接单记录为 [Issue #954](https://github.com/henryxu1008/shuomi-ai-commerce/issues/954)。设计准入本身不授予执行权限；用户随后明确批准“本地正式实现与隔离测试”，见末节。远端 fork、push/合并、发布/部署及真实权限变更不在本轮范围。
+状态：**IMPLEMENTATION_READY；实现及隔离页面验证完成，现进入配套正式源码交付**。当前范围与授权以 [Issue #954](https://github.com/henryxu1008/shuomi-ai-commerce/issues/954) 首屏为准；[源码交付说明](../engineering/b1-native-conditional-delivery.md)记录配套 provider 与消费者关系。下方本地实现记录保留原阶段范围，不覆盖随后获准完成的保留实例更新和单店试用，也不恢复旧 no-push 限制。当前允许推送、PR、必要 CI 与独立复核；合并、发布、再次部署和真实权限变更另行确认。
 
 ## 用户结果与冻结依据
 
