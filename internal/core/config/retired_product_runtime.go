@@ -122,6 +122,13 @@ func rejectRetiredProductRuntimeConfig(v *viper.Viper) error {
 			if v.InConfig(root) {
 				return fmt.Errorf("retired configuration key %s is not supported", root)
 			}
+			// InConfig treats explicit null as absent; AllKeys still records its
+			// name. Retired input must fail by presence, never by its value.
+			for _, key := range v.AllKeys() {
+				if key == root || strings.HasPrefix(key, root+".") {
+					return fmt.Errorf("retired configuration key %s is not supported", root)
+				}
+			}
 		}
 		if v.InConfig("productimage") {
 			return fmt.Errorf("retired configuration key productimage is not supported; use owner-specific imageagent and listingkit settings")

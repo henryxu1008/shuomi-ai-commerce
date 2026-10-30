@@ -573,7 +573,7 @@ func TestLegacyCrawlerEnvironmentInputsFailClosed(t *testing.T) {
 
 func TestLegacyCrawlerYAMLRootsFailClosed(t *testing.T) {
 	for _, root := range []string{"browser", "amazon", "platforms"} {
-		for _, value := range []string{"{}", "\n  enabled: true"} {
+		for _, value := range []string{"{}", "null", "\n  enabled: true"} {
 			t.Run(root+value, func(t *testing.T) {
 				v := newViper()
 				require.NoError(t, v.ReadConfig(strings.NewReader(root+": "+value+"\n")))
