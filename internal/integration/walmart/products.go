@@ -3,6 +3,7 @@ package walmart
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -79,6 +80,9 @@ func (c *OfficialClient) SubmitFeed(ctx context.Context, t auth.TokenSet, d mark
 		return result, marketplace.ErrInvalid
 	}
 	raw, status, e := c.request(ctx, http.MethodPost, "/v3/feeds", url.Values{"feedType": {d.Selection.FeedType}}, d.Payload, t, false, correlation)
+	if errors.Is(e, marketplace.ErrRejected) {
+		return result, e
+	}
 	if e != nil {
 		return result, marketplace.ErrUnknown
 	}

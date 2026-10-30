@@ -105,6 +105,40 @@ func TestPostgresWalmartFeedAdmissionAndPartialRepairAreAtomic(t *testing.T) {
 		require.NoError(t, db.Exec("INSERT INTO listing_submission_official_intents(organization_id,actor_id,member_id,intent_key,record_id,kind,input_hash,body_hash,body_json) VALUES(?,?,?,?,?,'publish',?,?,?::jsonb)", scope.OrganizationID, scope.ActorID, scope.MemberID, intent.Key, saved.ID, intent.InputHash, collection.Digest(intent), string(raw)).Error)
 		return intent, cmd
 	}
+	t.Run("definitive rejection uses original attempt fence and SKU owner", func(t *testing.T) {
+		var previousAttempt string
+		var previousEpoch int64
+		for range 2 {
+			intent, cmd := seed()
+			acquired, err := kernel.Acquire(ctx, cmd)
+			require.NoError(t, err)
+			require.NotNil(t, acquired.Permit)
+			if previousAttempt != "" {
+				require.NotEqual(t, previousAttempt, acquired.Attempt.AttemptID)
+				require.Greater(t, acquired.Attempt.FenceEpoch, previousEpoch)
+			}
+			claim := submission.ExecutionClaim{Scope: cmd.Scope, AttemptID: acquired.Attempt.AttemptID, FenceEpoch: acquired.Attempt.FenceEpoch, OwnerID: acquired.Permit.ClaimOwnerID, Token: acquired.Permit.ClaimToken}
+			evidence, err := submission.NewWalmartRejectionEvidence(intent, acquired.Attempt, time.Now())
+			require.NoError(t, err)
+			failed, err := kernel.Complete(ctx, claim, evidence)
+			require.NoError(t, err)
+			require.Equal(t, submission.ExecutionFailedDefinitive, failed.Status)
+			replayed, err := kernel.Acquire(ctx, cmd)
+			require.NoError(t, err)
+			require.Nil(t, replayed.Permit, "the original command must never send again")
+			require.Equal(t, failed, replayed.Attempt)
+			_, err = official.ReadOfficial(ctx, scope, failed.AttemptID)
+			require.ErrorIs(t, err, submission.ErrExecutionNotFound, "rejection is not Feed acceptance")
+			var occupied []effectsstore.WalmartSKUState
+			require.NoError(t, db.Where("organization_id=?", scope.OrganizationID).Find(&occupied).Error)
+			require.Len(t, occupied, len(saved.Walmart.SKUs))
+			for _, sku := range occupied {
+				require.Equal(t, saved.Source.Source.ProductKey, sku.ProductKey)
+				require.Equal(t, failed.AttemptID, sku.LastAttemptID)
+			}
+			previousAttempt, previousEpoch = failed.AttemptID, failed.FenceEpoch
+		}
+	})
 	intent, cmd := seed()
 	acquired, e := kernel.Acquire(ctx, cmd)
 	require.NoError(t, e)

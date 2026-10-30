@@ -212,6 +212,18 @@ func (k *uploadKernel) ReadIntent(_ context.Context, _ submission.ExecutionScope
 	}
 	return a, nil
 }
+func (k *uploadKernel) Complete(_ context.Context, claim submission.ExecutionClaim, evidence submission.ExecutionEvidence) (submission.ExecutionAttempt, error) {
+	for key, a := range k.attempts {
+		if a.AttemptID == claim.AttemptID {
+			completed, err := submission.CompleteClaimedExecution(a, evidence, time.Now())
+			if err == nil {
+				k.attempts[key] = completed
+			}
+			return completed, err
+		}
+	}
+	return submission.ExecutionAttempt{}, submission.ErrExecutionNotFound
+}
 func (k *uploadKernel) MarkUnknown(_ context.Context, claim submission.ExecutionClaim, reason submission.UnknownReason) (submission.ExecutionAttempt, error) {
 	for key, a := range k.attempts {
 		if a.AttemptID == claim.AttemptID {

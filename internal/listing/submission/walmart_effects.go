@@ -100,6 +100,22 @@ func validateWalmartIntent(v OfficialIntent) error {
 func WalmartIntentMatchesRecord(v OfficialIntent, saved record.TargetRecord) bool {
 	return ValidateOfficialIntent(v) == nil && saved.Walmart != nil && record.PublicationReady(saved) && v.RecordID == saved.ID && v.RecordHash == collection.Digest(saved) && v.Source == saved.Source && v.Binding == saved.Merchant && v.Walmart.Selection == saved.Walmart.Selection && v.Walmart.WireHash == saved.Walmart.WireHash && reflect.DeepEqual(v.Walmart.SKUs, saved.Walmart.SKUs) && v.Walmart.RepairFrom == saved.Input.Walmart.RepairFrom && v.PayloadFingerprint == digestExecutionParts("walmart", v.Target.StoreID, v.Target.SubjectID, WalmartSubmitAction, string(saved.Walmart.Payload))
 }
+
+// NewWalmartRejectionEvidence consumes only the adapter's definitive ErrRejected
+// response. It uses the existing kernel failure contract, not an accepted Feed
+// receipt, and binds the observation to the original intent and exact call.
+func NewWalmartRejectionEvidence(intent OfficialIntent, attempt ExecutionAttempt, observedAt time.Time) (ExecutionEvidence, error) {
+	if ValidateOfficialIntent(intent) != nil || intent.Walmart == nil || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionClaimed || attempt.OrganizationID != intent.Owner.OrganizationID || attempt.IntentKey != intent.Key || attempt.Target != intent.Target || attempt.Action != WalmartSubmitAction || attempt.PayloadFingerprint != intent.PayloadFingerprint {
+		return ExecutionEvidence{}, ErrExecutionEvidenceRequired
+	}
+	const reason = "WALMART_AUTHORIZATION_REJECTED"
+	evidence := ExecutionEvidence{Kind: EvidenceProviderResponse, Outcome: ExecutionFailedDefinitive, Reference: WalmartCorrelationID(intent), Fingerprint: digestExecutionParts("walmart-feed-rejected-v1", intent.InputHash, intent.PayloadFingerprint, WalmartCorrelationID(intent), reason), Reason: reason, ObservedAt: canonicalExecutionTime(observedAt)}
+	if err := validateExecutionEvidence(attempt, evidence, observedAt); err != nil {
+		return ExecutionEvidence{}, err
+	}
+	return evidence, nil
+}
+
 func NewWalmartCompletion(owner collection.Scope, saved record.TargetRecord, intent OfficialIntent, attempt ExecutionAttempt, claim ExecutionClaim, accepted marketplace.AcceptedFeed) (OfficialCompletion, error) {
 	if !WalmartIntentMatchesRecord(intent, saved) || accepted.CorrelationID != WalmartCorrelationID(intent) || accepted.FeedID == "" || len(accepted.FeedID) > 256 || attempt.IntentKey != intent.Key {
 		return OfficialCompletion{}, ErrExecutionEvidenceRequired

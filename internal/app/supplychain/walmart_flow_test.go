@@ -3,6 +3,7 @@ package supplychainapp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -27,10 +28,15 @@ type walmartFlowMerchant struct {
 	occupied  bool
 	feed      marketplace.FeedObservation
 	products  map[string]marketplace.Product
+	submitErr error
+	onRules   func()
 }
 
 func (m *walmartFlowMerchant) Binding() storecenter.ProductMerchantBinding { return m.binding }
 func (m *walmartFlowMerchant) Rules(context.Context, marketplace.RuleSelection) (marketplace.RuleSnapshot, error) {
+	if m.onRules != nil {
+		m.onRules()
+	}
 	return m.rules, nil
 }
 func (m *walmartFlowMerchant) ProductBySKU(_ context.Context, sku string) (*marketplace.Product, error) {
@@ -50,6 +56,9 @@ func (m *walmartFlowMerchant) FeedPage(context.Context, string, int) (marketplac
 }
 func (m *walmartFlowMerchant) SubmitFeed(_ context.Context, d marketplace.Draft, correlation string) (marketplace.AcceptedFeed, error) {
 	m.submitted = append(m.submitted, append([]byte(nil), d.Payload...))
+	if m.submitErr != nil {
+		return marketplace.AcceptedFeed{}, m.submitErr
+	}
 	if m.lost {
 		return marketplace.AcceptedFeed{}, marketplace.ErrUnknown
 	}
@@ -188,7 +197,7 @@ func TestWalmartSharedTargetAndUploadRetainExactFeedAndNeverRepeatUnknown(t *tes
 }
 
 func TestWalmartFinalAuthorityOrRecordDriftStopsDispatch(t *testing.T) {
-	for _, change := range []string{"grant", "record", "wire"} {
+	for _, change := range []string{"grant", "record", "wire", "authorization", "inventory", "review"} {
 		t.Run(change, func(t *testing.T) {
 			uploader, scope, records, merchant, kernel := walmartFlowFixture(t)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -201,6 +210,12 @@ func TestWalmartFinalAuthorityOrRecordDriftStopsDispatch(t *testing.T) {
 					records.saved.Revision++
 				case "wire":
 					records.saved.Walmart.Payload = []byte(`{}`)
+				case "authorization":
+					uploader.dependencies.Authorization.(*uploadAuth).denied = true
+				case "inventory":
+					uploader.dependencies.Assets = uploadAssets{}
+				case "review":
+					uploader.dependencies.ReviewGate = func(context.Context, collection.Scope, record.TargetRecord) error { return record.ErrForbidden }
 				}
 			}
 			result, e := uploader.Upload(ctx, scope, uuid.NewString(), records.saved.ID)
@@ -209,6 +224,103 @@ func TestWalmartFinalAuthorityOrRecordDriftStopsDispatch(t *testing.T) {
 			require.Empty(t, merchant.submitted)
 		})
 	}
+}
+
+func TestWalmartDefinitiveRejectionRetainsFailureAndAllowsExplicitNewCommand(t *testing.T) {
+	uploader, scope, records, merchant, kernel := walmartFlowFixture(t)
+	ctx := context.Background()
+	key := uuid.NewString()
+	merchant.submitErr = marketplace.ErrRejected
+	result, err := uploader.Upload(ctx, scope, key, records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionFailedDefinitive, result.Status)
+	retained, err := kernel.ReadIntent(ctx, submission.ExecutionScope{OrganizationID: scope.OrganizationID}, key)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionFailedDefinitive, retained.Status)
+	require.NotNil(t, retained.Evidence)
+	require.Equal(t, submission.EvidenceProviderResponse, retained.Evidence.Kind)
+	intent, err := uploader.dependencies.Intents.ReadOfficialIntent(ctx, scope, key)
+	require.NoError(t, err)
+	require.Equal(t, submission.WalmartCorrelationID(intent), retained.Evidence.Reference)
+	require.NotEmpty(t, retained.Evidence.Fingerprint)
+	require.Nil(t, result.Walmart, "a rejected call has no accepted Feed receipt")
+	merchant.submitErr = nil
+	replayed, err := uploader.Upload(ctx, scope, key, records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionFailedDefinitive, replayed.Status)
+	require.Equal(t, result.AttemptID, replayed.AttemptID)
+	require.Len(t, merchant.submitted, 1, "same-key replay never resends")
+	next, err := uploader.Upload(ctx, scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionSucceeded, next.Status)
+	require.Len(t, merchant.submitted, 2, "only an explicit new command may reacquire the original target")
+}
+
+type walmartRejectionCommitKernel struct {
+	*uploadKernel
+	committed bool
+}
+
+func (k walmartRejectionCommitKernel) Complete(ctx context.Context, claim submission.ExecutionClaim, evidence submission.ExecutionEvidence) (submission.ExecutionAttempt, error) {
+	if k.committed {
+		if _, err := k.uploadKernel.Complete(ctx, claim, evidence); err != nil {
+			return submission.ExecutionAttempt{}, err
+		}
+	}
+	return submission.ExecutionAttempt{}, submission.ErrExecutionOutcomeUnknown
+}
+
+func TestWalmartRejectionCommitUnknownReadsOriginalAttempt(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "not-retained", true: "retained"}[committed], func(t *testing.T) {
+			uploader, scope, records, merchant, kernel := walmartFlowFixture(t)
+			uploader.dependencies.Kernel = walmartRejectionCommitKernel{kernel, committed}
+			merchant.submitErr = marketplace.ErrRejected
+			key := uuid.NewString()
+			result, err := uploader.Upload(context.Background(), scope, key, records.saved.ID)
+			require.NoError(t, err)
+			expected := submission.ExecutionOutcomeUnknown
+			if committed {
+				expected = submission.ExecutionFailedDefinitive
+			}
+			require.Equal(t, expected, result.Status)
+			replayed, err := uploader.Upload(context.Background(), scope, key, records.saved.ID)
+			require.NoError(t, err)
+			require.Equal(t, expected, replayed.Status)
+			require.Len(t, merchant.submitted, 1)
+		})
+	}
+}
+
+type walmartPreclaimProbe struct {
+	claimed *bool
+	calls   int
+}
+
+func (p *walmartPreclaimProbe) ProbeWalmart(ctx context.Context, a asset.ApprovedAsset) (marketplace.ImageObservation, error) {
+	p.calls++
+	if *p.claimed {
+		return marketplace.ImageObservation{}, errors.New("remote image validation exhausted mutation lease")
+	}
+	return (walmartFlowProbe{}).ProbeWalmart(ctx, a)
+}
+
+func TestWalmartRemotePreflightFinishesBeforeMutationClaim(t *testing.T) {
+	uploader, scope, records, merchant, kernel := walmartFlowFixture(t, true)
+	claimed, rulesUnderClaim := false, false
+	probe := &walmartPreclaimProbe{claimed: &claimed}
+	uploader.dependencies.WalmartImages = probe
+	merchant.onRules = func() { rulesUnderClaim = rulesUnderClaim || claimed }
+	kernel.onAcquire = func(command submission.AcquireExecutionCommand) {
+		require.Equal(t, submission.ExecutionTimeout, command.Lease)
+		claimed = true
+	}
+	result, err := uploader.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionSucceeded, result.Status)
+	require.Positive(t, probe.calls)
+	require.False(t, rulesUnderClaim, "remote rules must not consume the send lease")
+	require.Len(t, merchant.submitted, 1)
 }
 
 type walmartFlowProbe struct{}
