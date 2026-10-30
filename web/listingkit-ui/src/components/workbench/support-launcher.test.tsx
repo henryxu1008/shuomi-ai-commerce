@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SupportLauncher } from "./support-launcher";
 const subject = `platform:${"a".repeat(64)}`;
@@ -46,6 +47,47 @@ describe("platform support panel", () => {
     expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith("conversations"))).toHaveLength(3);
     expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith("conversations/11/messages"))).toBe(true);
+  });
+
+  it.each(["focus", "periodic"])("recovers when %s fires after the send settles but before passive effects reconnect", async (refresh) => {
+    let committed = false;
+    let rejectPost!: (cause: Error) => void;
+    let refreshed = false;
+    const intervals = vi.spyOn(globalThis, "setInterval");
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (init?.method === "POST") return new Promise<Response>((_, reject) => { rejectPost = reject; });
+      if (String(input).endsWith("session")) return Response.json({ subject });
+      if (String(input).endsWith("conversations")) return Response.json({ subject, conversations: committed ? [{ id: 11, status: "open", createdAt: 1 }] : [] });
+      return Response.json({ subject, messages: [{ id: 22, content: "已保存的首次咨询", type: "incoming", createdAt: 1, attachments: [] }], nextBefore: 22 });
+    });
+    render(<Profiler id="support" onRender={() => {
+      if (refreshed || !screen.queryByRole("button", { name: "重新发送" })) return;
+      // Commit has enabled retry, but the previous Effect still owns the listener/timer.
+      refreshed = true;
+      if (refresh === "focus") window.dispatchEvent(new Event("focus"));
+      else {
+        const tick = intervals.mock.calls.filter(([, delay]) => delay === 5000).at(-1)?.[0];
+        if (typeof tick !== "function") throw new Error("support polling callback missing");
+        tick();
+      }
+    }}><SupportLauncher available /></Profiler>);
+    fireEvent.click(screen.getByRole("button", { name: "联系客服" }));
+    const input = await screen.findByRole("textbox", { name: "消息" });
+    fireEvent.change(input, { target: { value: "首次咨询草稿" } });
+    fireEvent.change(screen.getByLabelText("添加截图"), { target: { files: [new File(["image"], "error.png", { type: "image/png" })] } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByRole("button", { name: "正在发送..." })).toBeDisabled();
+    const callsWhileSending = vi.mocked(fetch).mock.calls.length;
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(callsWhileSending);
+    await act(async () => { committed = true; rejectPost(new Error("response lost after commit")); });
+    expect(refreshed).toBe(true);
+    expect(await screen.findByText("已保存的首次咨询")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "消息" })).toHaveValue("首次咨询草稿");
+    expect(screen.getByText("error.png")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("未确认");
+    expect(screen.getByRole("button", { name: "查看更早消息" })).toBeVisible();
+    expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
   });
 
   it("keeps an empty recovery unknown and never creates a conversation while refreshing", async () => {
