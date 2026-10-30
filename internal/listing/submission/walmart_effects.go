@@ -104,10 +104,8 @@ func WalmartIntentMatchesRecord(v OfficialIntent, saved record.TargetRecord) boo
 // NewWalmartRejectionEvidence consumes only the adapter's definitive ErrRejected
 // response. It uses the existing kernel failure contract, not an accepted Feed
 // receipt, and binds the observation to the original intent and exact call.
-// RepairFrom rejection recovery is not admitted by the original SKU policy;
-// retain its existing UNKNOWN fence until that recovery contract is defined.
 func NewWalmartRejectionEvidence(intent OfficialIntent, attempt ExecutionAttempt, observedAt time.Time) (ExecutionEvidence, error) {
-	if ValidateOfficialIntent(intent) != nil || intent.Walmart == nil || intent.Walmart.RepairFrom != "" || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionClaimed || attempt.OrganizationID != intent.Owner.OrganizationID || attempt.IntentKey != intent.Key || attempt.Target != intent.Target || attempt.Action != WalmartSubmitAction || attempt.PayloadFingerprint != intent.PayloadFingerprint {
+	if ValidateOfficialIntent(intent) != nil || intent.Walmart == nil || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionClaimed || attempt.OrganizationID != intent.Owner.OrganizationID || attempt.IntentKey != intent.Key || attempt.Target != intent.Target || attempt.Action != WalmartSubmitAction || attempt.PayloadFingerprint != intent.PayloadFingerprint {
 		return ExecutionEvidence{}, ErrExecutionEvidenceRequired
 	}
 	const reason = "WALMART_AUTHORIZATION_REJECTED"
@@ -116,6 +114,17 @@ func NewWalmartRejectionEvidence(intent OfficialIntent, attempt ExecutionAttempt
 		return ExecutionEvidence{}, err
 	}
 	return evidence, nil
+}
+
+// WalmartRejectedRepairMatches verifies the persisted no-effect evidence and
+// the exact user-approved repair payload. It never resolves an UNKNOWN attempt.
+func WalmartRejectedRepairMatches(next, rejected OfficialIntent, attempt ExecutionAttempt) bool {
+	if ValidateOfficialIntent(next) != nil || ValidateOfficialIntent(rejected) != nil || next.Walmart == nil || rejected.Walmart == nil || rejected.Walmart.RepairFrom == "" || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionFailedDefinitive || attempt.Evidence == nil {
+		return false
+	}
+	e := attempt.Evidence
+	const reason = "WALMART_AUTHORIZATION_REJECTED"
+	return attempt.OrganizationID == rejected.Owner.OrganizationID && attempt.IntentKey == rejected.Key && attempt.Target == rejected.Target && attempt.Action == WalmartSubmitAction && attempt.PayloadFingerprint == rejected.PayloadFingerprint && e.Kind == EvidenceProviderResponse && e.Outcome == ExecutionFailedDefinitive && e.AuthorizedBy == "" && e.Reason == reason && e.Reference == WalmartCorrelationID(rejected) && e.Fingerprint == digestExecutionParts("walmart-feed-rejected-v1", rejected.InputHash, rejected.PayloadFingerprint, WalmartCorrelationID(rejected), reason) && next.Owner == rejected.Owner && next.Source == rejected.Source && next.Target == rejected.Target && WalmartCompatibleBinding(next.Binding, rejected.Binding) && next.PayloadFingerprint == rejected.PayloadFingerprint && reflect.DeepEqual(next.Walmart, rejected.Walmart)
 }
 
 func NewWalmartCompletion(owner collection.Scope, saved record.TargetRecord, intent OfficialIntent, attempt ExecutionAttempt, claim ExecutionClaim, accepted marketplace.AcceptedFeed) (OfficialCompletion, error) {
@@ -152,9 +161,11 @@ func WalmartReceiptMatchesIntent(r OfficialReceipt, i OfficialIntent) bool {
 }
 
 type WalmartResultRequest struct {
-	Receipt     OfficialReceipt
-	Generation  int64
-	TrackedSKUs []string
+	Receipt           OfficialReceipt
+	Generation        int64
+	TrackedSKUs       []string
+	BaseObservationID string
+	ReadProgress      *WalmartReadProgress
 }
 type WalmartResultRecord struct {
 	ID             string                      `json:"id"`
@@ -163,6 +174,8 @@ type WalmartResultRecord struct {
 	Latest         bool                        `json:"latest"`
 	RepairableSKUs []string                    `json:"repairableSKUs,omitempty"`
 	Observation    marketplace.FeedObservation `json:"observation"`
+	ReadProgress   *WalmartReadProgress        `json:"readProgress,omitempty"`
+	ObservedPages  []WalmartObservedPage       `json:"observedPages,omitempty"`
 }
 type WalmartResultRepository interface {
 	BeginWalmartRead(context.Context, collection.Scope, string) (WalmartResultRequest, error)

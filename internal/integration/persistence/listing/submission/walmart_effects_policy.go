@@ -23,17 +23,39 @@ type WalmartSKUState struct {
 }
 
 func (WalmartSKUState) TableName() string { return "listing_walmart_sku_bindings" }
-func (r *Repository) requireWalmartEffect(ctx context.Context, tx *gorm.DB, a submission.ExecutionAttempt, previousID string) error {
+func readWalmartIntentForAttempt(ctx context.Context, tx *gorm.DB, a submission.ExecutionAttempt) (submission.OfficialIntent, error) {
 	var row struct {
 		ActorID, MemberID, RecordID, Kind, InputHash, BodyHash string
 		BodyJSON                                               []byte
 	}
 	if tx.WithContext(ctx).Table("listing_submission_official_intents").Where("organization_id=? AND intent_key=?", a.OrganizationID, a.IntentKey).Take(&row).Error != nil {
-		return submission.ErrExecutionEvidenceRequired
+		return submission.OfficialIntent{}, submission.ErrExecutionEvidenceRequired
 	}
 	var i submission.OfficialIntent
 	if len(row.BodyJSON) > submission.MaxExecutionPayloadBytes || json.Unmarshal(row.BodyJSON, &i) != nil || submission.ValidateOfficialIntent(i) != nil || i.Walmart == nil || i.Target != a.Target || i.Key != a.IntentKey || i.Owner.OrganizationID != a.OrganizationID || i.Owner.ActorID != row.ActorID || i.Owner.MemberID != row.MemberID || i.RecordID != row.RecordID || i.Kind != row.Kind || i.InputHash != row.InputHash || collection.Digest(i) != row.BodyHash || i.PayloadFingerprint != a.PayloadFingerprint || a.Action != submission.WalmartSubmitAction {
-		return submission.ErrExecutionEvidenceRequired
+		return submission.OfficialIntent{}, submission.ErrExecutionEvidenceRequired
+	}
+	return i, nil
+}
+
+func (r *Repository) requireWalmartEffect(ctx context.Context, tx *gorm.DB, a, current submission.ExecutionAttempt) error {
+	i, err := readWalmartIntentForAttempt(ctx, tx, a)
+	if err != nil {
+		return err
+	}
+	previousID, rejectedID := "", ""
+	if current.Status == submission.ExecutionSucceeded {
+		previousID = current.AttemptID
+	} else if current.AttemptID != "" && i.Walmart.RepairFrom != "" {
+		rejected, err := readWalmartIntentForAttempt(ctx, tx, current)
+		if err != nil || !submission.WalmartRejectedRepairMatches(i, rejected, current) {
+			return submission.ErrExecutionEvidenceRequired
+		}
+		var previous struct{ AttemptID string }
+		if err := tx.WithContext(ctx).Table(attemptTable).Select("attempt_id").Where("organization_id=? AND platform=? AND store_id=? AND subject_id=? AND status=? AND fence_epoch<?", a.OrganizationID, a.Target.Platform, a.Target.StoreID, a.Target.SubjectID, submission.ExecutionSucceeded, current.FenceEpoch).Order("fence_epoch DESC").Take(&previous).Error; err != nil {
+			return submission.ErrExecutionEvidenceRequired
+		}
+		previousID, rejectedID = previous.AttemptID, current.AttemptID
 	}
 	var ref struct{ TargetID string }
 	if tx.Raw("SELECT target_id FROM listing_target_records WHERE organization_id=? AND actor_id=? AND member_id=? AND id=?", i.Owner.OrganizationID, i.Owner.ActorID, i.Owner.MemberID, i.RecordID).Scan(&ref).Error != nil || ref.TargetID == "" {
@@ -68,8 +90,8 @@ func (r *Repository) requireWalmartEffect(ctx context.Context, tx *gorm.DB, a su
 			if e = tx.Table("listing_walmart_feed_observations").Where("organization_id=? AND receipt_id=?", a.OrganizationID, previousID).Order("generation DESC").Take(&currentHead).Error; e != nil {
 				return submission.ErrExecutionTargetSucceeded
 			}
-			var currentObservation marketplace.FeedObservation
-			if json.Unmarshal(currentHead.BodyJSON, &currentObservation) != nil || collection.Digest(currentObservation) != currentHead.BodyHash || currentObservation.FeedID != current.Walmart.FeedID || !currentObservation.CompleteFor(submission.WalmartExpectedSKUs(current.Walmart.SKUs)) || currentObservation.FeedStatus != "PROCESSED" && currentObservation.FeedStatus != "ERROR" {
+			currentObservation, err := submission.DecodeWalmartReadDocument(currentHead.BodyJSON, currentHead.BodyHash, current, currentHead.Generation)
+			if err != nil || !currentObservation.CompleteFor(submission.WalmartExpectedSKUs(current.Walmart.SKUs)) || currentObservation.FeedStatus != "PROCESSED" && currentObservation.FeedStatus != "ERROR" {
 				return submission.ErrExecutionTargetSucceeded
 			}
 			for _, item := range currentObservation.Items {
@@ -94,13 +116,27 @@ func (r *Repository) requireWalmartEffect(ctx context.Context, tx *gorm.DB, a su
 			Generation   int64
 		}
 		e = tx.Table("listing_walmart_feed_observations").Where("organization_id=? AND receipt_id=?", a.OrganizationID, i.Walmart.RepairFrom).Order("generation DESC").Take(&head).Error
-		var observation marketplace.FeedObservation
-		if e != nil || len(head.BodyJSON) > submission.MaxExecutionPayloadBytes || json.Unmarshal(head.BodyJSON, &observation) != nil || collection.Digest(observation) != head.BodyHash || observation.FeedID != prior.Walmart.FeedID || observation.ObservedAt.IsZero() || !observation.AllowsRepair(submission.WalmartExpectedSKUs(prior.Walmart.SKUs), submission.WalmartExpectedSKUs(i.Walmart.SKUs)) {
+		observation, decodeErr := submission.DecodeWalmartReadDocument(head.BodyJSON, head.BodyHash, prior, head.Generation)
+		if e != nil || decodeErr != nil || !observation.AllowsRepair(submission.WalmartExpectedSKUs(prior.Walmart.SKUs), submission.WalmartExpectedSKUs(i.Walmart.SKUs)) {
 			return submission.ErrExecutionTargetSucceeded
+		}
+		if rejectedID != "" {
+			var original []WalmartSKUState
+			if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id=? AND environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku IN ?", a.OrganizationID, i.Binding.Walmart.Environment, i.Binding.SupplierIdentityHash, submission.WalmartExpectedSKUs(prior.Walmart.SKUs)).Order("seller_sku").Find(&original).Error; e != nil || len(original) != len(prior.Walmart.SKUs) {
+				return submission.ErrExecutionEvidenceRequired
+			}
+			for _, sku := range original {
+				if sku.LastAttemptID == prior.ID && (sku.ReadGeneration != head.Generation || sku.LatestObservationID != head.ID) {
+					return submission.ErrExecutionEvidenceRequired
+				}
+			}
 		}
 		for _, s := range i.Walmart.SKUs {
 			var occupied WalmartSKUState
-			if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku=?", i.Binding.Walmart.Environment, i.Binding.SupplierIdentityHash, s.SellerSKU).Take(&occupied).Error != nil || occupied.ReadGeneration != head.Generation || occupied.LatestObservationID != head.ID || occupied.LastAttemptID != i.Walmart.RepairFrom {
+			if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku=?", i.Binding.Walmart.Environment, i.Binding.SupplierIdentityHash, s.SellerSKU).Take(&occupied).Error != nil {
+				return submission.ErrExecutionEvidenceRequired
+			}
+			if rejectedID == "" && (occupied.ReadGeneration != head.Generation || occupied.LatestObservationID != head.ID || occupied.LastAttemptID != i.Walmart.RepairFrom) || rejectedID != "" && occupied.LastAttemptID != rejectedID {
 				return submission.ErrExecutionEvidenceRequired
 			}
 		}
@@ -122,7 +158,7 @@ func (r *Repository) requireWalmartEffect(ctx context.Context, tx *gorm.DB, a su
 		if actual.OrganizationID != occupied.OrganizationID || actual.StoreID != occupied.StoreID || actual.ProductKey != occupied.ProductKey || actual.SourceSKUKey != occupied.SourceSKUKey || actual.SubjectID != occupied.SubjectID {
 			return submission.ErrExecutionIntentConflict
 		}
-		if actual.LastAttemptID != a.AttemptID && previousID != "" && actual.LastAttemptID != i.Walmart.RepairFrom {
+		if actual.LastAttemptID != a.AttemptID && previousID != "" && actual.LastAttemptID != i.Walmart.RepairFrom && actual.LastAttemptID != rejectedID {
 			return submission.ErrExecutionEvidenceRequired
 		}
 		if e := tx.Model(&WalmartSKUState{}).Where("environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku=?", occupied.Environment, occupied.MerchantIdentityHash, occupied.SellerSKU).Updates(map[string]any{"last_attempt_id": a.AttemptID, "latest_observation_id": ""}).Error; e != nil {

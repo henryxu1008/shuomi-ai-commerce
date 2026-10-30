@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ type walmartFlowMerchant struct {
 	products  map[string]marketplace.Product
 	submitErr error
 	onRules   func()
+	feedPage  func(context.Context, string, int) (marketplace.FeedObservation, error)
 }
 
 func (m *walmartFlowMerchant) Binding() storecenter.ProductMerchantBinding { return m.binding }
@@ -48,11 +50,21 @@ func (m *walmartFlowMerchant) ProductBySKU(_ context.Context, sku string) (*mark
 	}
 	return nil, nil
 }
-func (m *walmartFlowMerchant) FeedPage(context.Context, string, int) (marketplace.FeedObservation, error) {
+func (m *walmartFlowMerchant) FeedPage(ctx context.Context, feed string, offset int) (marketplace.FeedObservation, error) {
+	if m.feedPage != nil {
+		return m.feedPage(ctx, feed, offset)
+	}
 	if m.feed.FeedID == "" {
 		return marketplace.FeedObservation{}, marketplace.ErrUnavailable
 	}
-	return m.feed, nil
+	page := m.feed
+	if page.ObservedAt.IsZero() {
+		page.ObservedAt = time.Now().UTC()
+	}
+	if len(page.ResponseHashes) == 0 {
+		page.ResponseHashes = []string{collection.Digest(page)}
+	}
+	return page, nil
 }
 func (m *walmartFlowMerchant) SubmitFeed(_ context.Context, d marketplace.Draft, correlation string) (marketplace.AcceptedFeed, error) {
 	m.submitted = append(m.submitted, append([]byte(nil), d.Payload...))
@@ -110,6 +122,11 @@ func walmartFlowFixture(t *testing.T, full ...bool) (*UploadService, collection.
 
 func walmartFlowFixtureWithRepair(t *testing.T, repair bool, full ...bool) (*UploadService, collection.Scope, *walmartFlowRecords, *walmartFlowMerchant, *uploadKernel) {
 	t.Helper()
+	return walmartSizedFlowFixture(t, repair, 1, full...)
+}
+
+func walmartSizedFlowFixture(t *testing.T, repair bool, count int, full ...bool) (*UploadService, collection.Scope, *walmartFlowRecords, *walmartFlowMerchant, *uploadKernel) {
+	t.Helper()
 	uploader, scope, records, _, kernel, _, authority := uploadFixture(t)
 	b := records.saved.Merchant
 	b.Platform = storecenter.PlatformWalmart
@@ -120,6 +137,9 @@ func walmartFlowFixtureWithRepair(t *testing.T, repair bool, full ...bool) (*Upl
 	b.Walmart = storecenter.WalmartMerchantBinding{Environment: "sandbox", Market: "US", GrantID: uuid.NewString(), Generation: 1, GrantVersion: 1}
 	source := records.saved.Source
 	snapshot := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey}, PublicationID: source.Source.PublicationID, Version: 1, Snapshot: catalog.ProductSnapshot{Title: "Original", Variants: []catalog.Variant{{SourceID: "original-sku", SKU: "human-sku"}}}}
+	for n := 1; n < count; n++ {
+		snapshot.Snapshot.Variants = append(snapshot.Snapshot.Variants, catalog.Variant{SourceID: fmt.Sprint("source-", n), SKU: fmt.Sprint("human-", n)})
+	}
 	collections, e := collection.NewService(uploadCollections{}, authority, uploadUnusedSources{})
 	require.NoError(t, e)
 	sources := uploadSources{source: source}
@@ -146,6 +166,9 @@ func walmartFlowFixtureWithRepair(t *testing.T, repair bool, full ...bool) (*Upl
 	targets, e := record.NewTargetService(record.TargetDependencies{Sources: selector, Products: record.OriginalTargetProduct{}, Assets: uploadAssets{inventory}, Rules: uploader.dependencies.Rules, WalmartRules: ruleReader, WalmartImages: walmartFlowProbe{}, Records: flowRecords, Images: uploadProbe{}, Authorizer: authority})
 	require.NoError(t, e)
 	input := record.TargetInput{SourceID: source.ID, StoreID: b.StoreID, EffectiveVersion: 1, Walmart: &marketplace.DraftInput{Selection: rules.Selection, SKUs: []marketplace.SKUInput{{SourceSKUKey: "original-sku", Identifier: marketplace.Identifier{Type: "GTIN", ID: "12345678901234"}, Condition: "New", Price: "10", ShippingWeight: "1"}}}}
+	for n := 1; n < count; n++ {
+		input.Walmart.SKUs = append(input.Walmart.SKUs, marketplace.SKUInput{SourceSKUKey: fmt.Sprint("source-", n), Identifier: marketplace.Identifier{Type: "GTIN", ID: fmt.Sprintf("%014d", 12345678901234+int64(n))}, Condition: "New", Price: "10", ShippingWeight: "1"})
+	}
 	if rules.Selection.FeedType == marketplace.FullFeed {
 		input.Walmart.SKUs[0].Visible = map[string]any{"productName": "New Shirt", "shortDescription": "Accurate description", "mainImageUrl": inventory.Assets[0].URL}
 	}
@@ -265,17 +288,22 @@ func TestWalmartDefinitiveRejectionRetainsFailureAndAllowsExplicitNewCommand(t *
 	require.Len(t, merchant.submitted, 2, "only an explicit new command may reacquire the original target")
 }
 
-func TestWalmartRepairRejectionKeepsExistingUnknownFenceUntilRecoveryIsAdmitted(t *testing.T) {
+func TestWalmartRepairRejectionRetainsFailureAndRequiresExplicitNewCommand(t *testing.T) {
 	uploader, scope, records, merchant, _ := walmartFlowFixtureWithRepair(t, true)
 	merchant.submitErr = marketplace.ErrRejected
 	key := uuid.NewString()
-	for _, command := range []string{key, key, uuid.NewString()} {
+	for _, command := range []string{key, key} {
 		result, err := uploader.Upload(context.Background(), scope, command, records.saved.ID)
 		require.NoError(t, err)
-		require.Equal(t, submission.ExecutionOutcomeUnknown, result.Status, "rejected RepairFrom recovery is not admitted by the original receipt/SKU policy")
+		require.Equal(t, submission.ExecutionFailedDefinitive, result.Status)
 		require.Nil(t, result.Walmart)
 		require.Len(t, merchant.submitted, 1, "the original repair claim remains fenced")
 	}
+	merchant.submitErr = nil
+	result, err := uploader.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionSucceeded, result.Status)
+	require.Len(t, merchant.submitted, 2)
 }
 
 type walmartRejectionCommitKernel struct {
@@ -373,10 +401,19 @@ func (r *walmartFlowResults) BeginWalmartRead(_ context.Context, _ collection.Sc
 		return submission.WalmartResultRequest{}, record.ErrNotFound
 	}
 	r.generation++
-	return submission.WalmartResultRequest{Receipt: r.receipt, Generation: r.generation, TrackedSKUs: submission.WalmartExpectedSKUs(r.receipt.Walmart.SKUs)}, nil
+	req := submission.WalmartResultRequest{Receipt: r.receipt, Generation: r.generation, TrackedSKUs: submission.WalmartExpectedSKUs(r.receipt.Walmart.SKUs)}
+	var previous *submission.WalmartResultRecord
+	if len(r.records) > 0 {
+		previous = &r.records[0]
+	}
+	return submission.StartWalmartRead(req, previous)
 }
 func (r *walmartFlowResults) SaveWalmartRead(_ context.Context, _ collection.Scope, req submission.WalmartResultRequest, o marketplace.FeedObservation) (submission.WalmartResultRecord, error) {
-	v := submission.WalmartResultRecord{ID: uuid.NewString(), ReceiptID: req.Receipt.ID, Generation: req.Generation, Latest: true, Observation: o}
+	doc, err := submission.WalmartReadDocumentFor(req, o)
+	if err != nil {
+		return submission.WalmartResultRecord{}, err
+	}
+	v := submission.WalmartResultRecord{ID: uuid.NewString(), ReceiptID: req.Receipt.ID, Generation: req.Generation, Latest: true, Observation: doc.FeedObservation, ReadProgress: doc.ReadProgress}
 	r.records = append([]submission.WalmartResultRecord{v}, r.records...)
 	return v, nil
 }
@@ -407,4 +444,34 @@ func TestWalmartPublicationSeparatesAcceptedIngestionAndNativePublishedStatus(t 
 	require.Len(t, merchant.submitted, 1, "result reads cannot dispatch another Feed")
 	_, e = app.PublicationStatus(ctx, records.saved.Source.ID, merchant.binding.StoreID, uuid.NewString())
 	require.ErrorIs(t, e, record.ErrForbidden)
+}
+
+func TestWalmartThousandSKUReadsContinueAfterEachBoundedWindow(t *testing.T) {
+	uploader, scope, records, merchant, _ := walmartSizedFlowFixture(t, false, 1000)
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, UserID: scope.ActorID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute)})
+	accepted, err := uploader.Upload(ctx, scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	receipt, err := uploader.dependencies.Receipts.ReadOfficial(ctx, scope, accepted.AttemptID)
+	require.NoError(t, err)
+	results := &walmartFlowResults{receipt: receipt}
+	app := Application{Sources: uploader.dependencies.Sources.(*preparation.SourceSelector), Authorization: &uploadAuth{scope: scope}, PublicationReceipts: uploader.dependencies.Receipts, TargetMerchants: &rulesFixture{binding: merchant.binding}, WalmartStatusStores: walmartFlowStores{merchant}, WalmartResults: results}
+	for window := 0; window < 20; window++ {
+		calls := 0
+		merchant.feedPage = func(_ context.Context, feed string, offset int) (marketplace.FeedObservation, error) {
+			calls++
+			if calls > 1 {
+				return marketplace.FeedObservation{}, marketplace.ErrUnavailable
+			}
+			require.Equal(t, window*50, offset, "a fresh service must use saved progress, not restart at offset zero")
+			page := marketplace.FeedObservation{FeedID: feed, FeedStatus: "PROCESSED", Received: 1000, Succeeded: 1000, ObservedAt: time.Now().UTC(), ResponseHashes: []string{collection.Digest(offset)}}
+			for _, sku := range receipt.Walmart.SKUs[offset : offset+50] {
+				page.Items = append(page.Items, marketplace.ItemResult{SKU: sku.SellerSKU, IngestionStatus: "SUCCESS"})
+			}
+			return page, nil
+		}
+		view, err := app.PublicationStatus(ctx, records.saved.Source.ID, merchant.binding.StoreID)
+		require.NoError(t, err)
+		require.True(t, view.WalmartResults[0].Observation.Partial, "cross-query pages never form a complete repair proof")
+	}
+	require.Len(t, merchant.submitted, 1)
 }

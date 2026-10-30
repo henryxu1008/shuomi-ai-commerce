@@ -103,7 +103,10 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 	}
 	remoteCtx, remoteCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer remoteCancel()
-	for offset := 0; offset < len(expected); offset += 50 {
+	if req.ReadProgress == nil {
+		return view, record.ErrNotReady
+	}
+	for offset := req.ReadProgress.StartOffset; offset < len(expected); {
 		if e = recheck(ctx); e != nil {
 			return view, e
 		}
@@ -115,13 +118,16 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 		if e != nil {
 			break
 		}
-		if offset == 0 {
+		firstPage := len(req.ReadProgress.Pages) == 0
+		if !firstPage && (page.FeedStatus != observation.FeedStatus || page.Received != observation.Received || page.Succeeded != observation.Succeeded || page.Failed != observation.Failed || page.Processing != observation.Processing) {
+			break
+		}
+		if e := req.ObserveWalmartPage(offset, page); e != nil {
+			break
+		}
+		if firstPage {
 			observation = page
 		} else {
-			if page.FeedStatus != observation.FeedStatus || page.Received != observation.Received || page.Succeeded != observation.Succeeded || page.Failed != observation.Failed || page.Processing != observation.Processing {
-				observation.Partial = true
-				break
-			}
 			observation.Items = append(observation.Items, page.Items...)
 			observation.ResponseHashes = append(observation.ResponseHashes, page.ResponseHashes...)
 		}
@@ -131,8 +137,9 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 		if len(page.Items) < 50 {
 			break
 		}
+		offset = req.ReadProgress.NextOffset
 	}
-	observation.Partial = !observation.CompleteFor(expected)
+	observation.Partial = !observation.CompleteFor(expected) || req.ReadProgress.StartOffset > 0
 	observation.ObservedAt = time.Now().UTC()
 	// Publication/lifecycle are read independently. Absence/failure remains
 	// unknown even for a successful ingestion and never grants another send.
