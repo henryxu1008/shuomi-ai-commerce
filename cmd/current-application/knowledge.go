@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"task-processor/internal/app/runtime/currentapplication"
 	"task-processor/internal/integration/documentparser/tika"
@@ -11,7 +10,7 @@ import (
 	"task-processor/internal/knowledge"
 )
 
-func prepareKnowledge(ctx context.Context, db *gorm.DB, cfg *currentapplication.KnowledgeConfig, logger *logrus.Logger) (*knowledge.Service, *knowledge.Processor, error) {
+func prepareKnowledge(ctx context.Context, db *gorm.DB, cfg *currentapplication.KnowledgeConfig) (*knowledge.Service, *knowledge.Processor, error) {
 	if err := store.VerifyRuntime(ctx, db); err != nil {
 		return nil, nil, err
 	}
@@ -24,7 +23,7 @@ func prepareKnowledge(ctx context.Context, db *gorm.DB, cfg *currentapplication.
 	if err != nil {
 		return nil, nil, err
 	}
-	uploader, err := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Logger: s3.AdaptLogrus(logger.WithField("component", "knowledge-objects")), Bucket: c.Bucket, Endpoint: c.Endpoint, UsePathStyle: true, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
+	uploader, err := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Bucket: c.Bucket, Endpoint: c.Endpoint, UsePathStyle: true, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
 	if err != nil {
 		return nil, nil, err
 	}

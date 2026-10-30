@@ -214,7 +214,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	generatedMaterials, err := imageworker.NewImageSetMaterialReader(workerConfig, logger)
+	generatedMaterials, err := imageworker.NewImageSetMaterialReader(workerConfig)
 	if err != nil {
 		return nil, empty, err
 	}

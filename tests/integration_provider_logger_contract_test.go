@@ -12,7 +12,6 @@ import (
 
 	grsai "task-processor/internal/integration/grsai"
 	openaiclient "task-processor/internal/integration/openai"
-	s3integration "task-processor/internal/integration/s3"
 )
 
 func TestIntegrationProviderLoggerMethodSetsMatch(t *testing.T) {
@@ -22,7 +21,6 @@ func TestIntegrationProviderLoggerMethodSetsMatch(t *testing.T) {
 	}{
 		{"openai", reflect.TypeOf((*openaiclient.Logger)(nil)).Elem()},
 		{"grsai", reflect.TypeOf((*grsai.Logger)(nil)).Elem()},
-		{"s3", reflect.TypeOf((*s3integration.Logger)(nil)).Elem()},
 	}
 	want := []string{"Debug", "Error", "Info", "Warn"}
 	for _, provider := range interfaces {

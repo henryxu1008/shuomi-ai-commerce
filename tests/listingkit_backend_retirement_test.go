@@ -17,6 +17,130 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyAuthRouteS3OperationClosureIsRetired(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "integration", "s3", "logger.go")); !os.IsNotExist(err) {
+		t.Errorf("retired S3 logger source must be absent: %v", err)
+	}
+	retired := map[string][]string{
+		"internal/authz":          {"PermissionListingKitPromptWrite", "IsListingKitPlatformAdmin", "IsListingKitTenantAdmin"},
+		"internal/integration/s3": {"Uploader.Upload", "Uploader.UploadMultiple", "Uploader.UploadWithMetadata", "Uploader.Delete", "Uploader.Exists", "Uploader.generateKey", "Uploader.GenerateUniqueKey", "Uploader.detectContentType", "Logger", "AdaptLogrus", "loggerOrNoop", "noopLogger", "logrusAdapter"},
+	}
+	required := map[string][]string{
+		"internal/authz":          {"NewListingKitAuthorizer", "DefaultListingKitAuthorizer", "ListingKitAuthorizer.IsTenantAdmin"},
+		"internal/authz/httpapi":  {"RouteRequiresZitadelAuth", "routeRequiredPermission", "NewRouteRoleMiddlewareWithAuthorizer", "NewRouteRoleMiddlewareWithAuthorizerAndResponder"},
+		"internal/integration/s3": {"S3ObjectAPI", "Uploader", "UploaderOptions", "NewUploaderWithOptions", "Uploader.PutImmutable", "Uploader.InspectObject", "Uploader.ReadObject", "Uploader.CopyImmutable", "Uploader.PublicURL", "Uploader.resolveObjectURL"},
+	}
+	retiredMembers := map[string][]string{
+		"Uploader": {"logger"}, "UploaderOptions": {"Logger"}, "S3ObjectAPI": {"DeleteObject"},
+	}
+	found := map[string]bool{}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, facts := range index.files {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		relative, err := filepath.Rel("..", path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if retired[owner] == nil && required[owner] == nil {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, facts.source, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check := func(name string) {
+			if slices.Contains(retired[owner], name) {
+				t.Errorf("%s retains retired declaration %s", relative, name)
+			}
+			if slices.Contains(required[owner], name) {
+				found[owner+":"+name] = true
+			}
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if d.Recv != nil {
+					shape := d.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					if receiver, ok := shape.(*ast.Ident); ok {
+						name = receiver.Name + "." + name
+					}
+				}
+				check(name)
+				if owner == "internal/authz/httpapi" && (name == "RouteRequiresZitadelAuth" || name == "routeRequiredPermission") {
+					ast.Inspect(d.Body, func(node ast.Node) bool {
+						if selector, ok := node.(*ast.SelectorExpr); ok && slices.Contains([]string{"Module", "Path", "Method"}, selector.Sel.Name) {
+							t.Errorf("%s.%s must not infer authority from %s", owner, name, selector.Sel.Name)
+						}
+						return true
+					})
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							check(name.Name)
+						}
+					case *ast.TypeSpec:
+						check(s.Name.Name)
+						if owner != "internal/integration/s3" {
+							continue
+						}
+						var fields *ast.FieldList
+						switch shape := s.Type.(type) {
+						case *ast.StructType:
+							fields = shape.Fields
+						case *ast.InterfaceType:
+							fields = shape.Methods
+						}
+						if fields != nil {
+							for _, field := range fields.List {
+								for _, name := range field.Names {
+									if slices.Contains(retiredMembers[s.Name.Name], name.Name) {
+										t.Errorf("%s retains retired member %s.%s", relative, s.Name.Name, name.Name)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		if owner == "internal/authz" {
+			ast.Inspect(file, func(node ast.Node) bool {
+				literal, ok := node.(*ast.BasicLit)
+				if ok && literal.Kind == token.STRING {
+					value, err := decodeGoImportPath(literal.Value)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if value == "listingkit.prompt.write" {
+						t.Errorf("%s retains retired Prompt permission or grant", relative)
+					}
+				}
+				return true
+			})
+		}
+	}
+	for owner, names := range required {
+		for _, name := range names {
+			if !found[owner+":"+name] {
+				t.Errorf("current declaration must remain: %s:%s", owner, name)
+			}
+		}
+	}
+}
+
 func TestLegacyHTTPAuthSupportClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/app/httpapi/http_module.go", "internal/app/httpapi/http_modules.go",

@@ -1,3 +1,5 @@
+> #301 / #1022 current boundary: [confirmed auth-route/S3 retirement](../../architecture/legacy-auth-route-s3-operation-closure-retirement-boundary.md) supersedes only the obsolete Module/path/method inference, Prompt grants and two unused global admin helpers. Current explicit Descriptor/Verifier/instance organization authorization and Store observation remain authoritative. The original historical extraction/compatibility wording below is preserved evidence, not authority to restore retired paths. No runtime action or new trial prerequisite; #301 stays OPEN.
+
 # Zitadel Authentication Runtime Extraction Design
 
 ## Status

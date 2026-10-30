@@ -1,3 +1,5 @@
+> #301 / #1022 准确后继：[完整确认边界](legacy-auth-route-s3-operation-closure-retirement-boundary.md)在S3八旧操作无消费者后退出专属Logger/Options字段/五注入/空参数链；本文S3 method-set及生产SSA rule KEEP只在该准确范围被替代。OpenAI/GRSAI及所有真实logger、SSA算法/typed-nil/ConfigArgument=1合成正负覆盖、五S3 constructor inventory和其它检查保持。原历史/计数/批准/失败完整保留，无新全局getter/noop兼容；workflow/inventory/既有资源不动，#301 OPEN。
+
 > #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
 
 > #301 / #969 按[用户确认设计](legacy-support-control-tail-closure-retirement-boundary.md)精确替代本文对整个 platform/logging manager/测试的宽泛 KEEP：仅退级别镜像与闲置 SetLevel/GetLevel、分级 Hook/配置及专属测试尾部。当前显式日志注入、原生 Logrus/初始配置、全局真实锁/完整发布、文件轮转/关闭和旧业务 logger 导入禁令保持；不是撤销日志能力。完整18路径/JSON/§6.1与其它保留边界不变，workflow/完整 inventory/既有资源零改，无试用前置，#301 OPEN。以下原完整 Git blob、批准/失败/数字/勾选逐字保留。

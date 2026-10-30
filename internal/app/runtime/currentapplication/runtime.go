@@ -41,16 +41,16 @@ type Dependencies struct {
 	OpenDataServices              func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	DialDataServicesWorkflow      func(context.Context, string, string) (client.Client, func() error, error)
 	OpenReportCenter              func(context.Context, DatabaseConfig) (*gorm.DB, error)
-	NewMarketStorage              func(context.Context, *SupplyMarketConfig, *logrus.Logger) (supplymarket.PrivateFileStorage, error)
+	NewMarketStorage              func(context.Context, *SupplyMarketConfig) (supplymarket.PrivateFileStorage, error)
 	PreparePOD                    func(context.Context, *PODConfig) (sds.CredentialSource, error)
 	OpenAgentCustomization        func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenProjectCenter             func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenToolMarket                func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenEcoservices               func(context.Context, DatabaseConfig) (*gorm.DB, error)
-	NewEcoservices                func(context.Context, *gorm.DB, *EcoservicesConfig, *logrus.Logger) (*EcoservicesRuntime, error)
+	NewEcoservices                func(context.Context, *gorm.DB, *EcoservicesConfig) (*EcoservicesRuntime, error)
 	OpenNotificationCenter        func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenKnowledge                 func(context.Context, DatabaseConfig) (*gorm.DB, error)
-	NewKnowledge                  func(context.Context, *gorm.DB, *KnowledgeConfig, *logrus.Logger) (*knowledge.Service, *knowledge.Processor, error)
+	NewKnowledge                  func(context.Context, *gorm.DB, *KnowledgeConfig) (*knowledge.Service, *knowledge.Processor, error)
 	OpenStoreCenter               func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenLocalTrial                func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenProductAgent              func(context.Context, DatabaseConfig) (*gorm.DB, error)
@@ -609,7 +609,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			}
 		}
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(pool)) }()
-		ecoservicesRuntime, err = dependencies.NewEcoservices(startupContext, pool, cfg.Ecoservices, logger)
+		ecoservicesRuntime, err = dependencies.NewEcoservices(startupContext, pool, cfg.Ecoservices)
 		if err != nil || ecoservicesRuntime == nil || ecoservicesRuntime.DB != pool {
 			return errors.New("ecoservices runtime dependencies unavailable")
 		}
@@ -630,7 +630,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return errors.New("knowledge and ecoservices require independent owner pools")
 		}
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(pool)) }()
-		knowledgeService, knowledgeProcessor, err = dependencies.NewKnowledge(startupContext, pool, cfg.Knowledge, logger)
+		knowledgeService, knowledgeProcessor, err = dependencies.NewKnowledge(startupContext, pool, cfg.Knowledge)
 		knowledgeDB = pool
 		if err != nil || knowledgeService == nil || knowledgeProcessor == nil {
 			return errors.New("knowledge dependencies unavailable")
@@ -641,7 +641,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	}
 	var sourceMediaStorage productsourcing.SourceMediaStorage
 	if cfg.SourceMedia != nil {
-		sourceMediaStorage, err = NewSourceMediaStorage(*cfg.SourceMedia, logger, cfg.SourceMediaIsolatedTrial)
+		sourceMediaStorage, err = NewSourceMediaStorage(*cfg.SourceMedia, cfg.SourceMediaIsolatedTrial)
 		if err != nil {
 			return errors.New("source media storage unavailable")
 		}
@@ -719,7 +719,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	}
 	var marketStorage supplymarket.PrivateFileStorage
 	if cfg.SupplyMarket != nil {
-		marketStorage, err = dependencies.NewMarketStorage(startupContext, cfg.SupplyMarket, logger)
+		marketStorage, err = dependencies.NewMarketStorage(startupContext, cfg.SupplyMarket)
 		if err != nil || marketStorage == nil {
 			return errors.New("private supply market storage unavailable")
 		}
