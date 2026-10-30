@@ -154,6 +154,10 @@ func (c *Commands) readTarget(ctx context.Context, id string) (Member, error) {
 }
 
 func (c *Commands) resume(ctx context.Context, op Operation) (Operation, error) {
+	if businessRoleKind(op.Kind) {
+		// Retired operations are immutable receipts, including ready/UNKNOWN.
+		return op, nil
+	}
 	if op.Kind == CommandInvite {
 		return c.resumeInvite(ctx, op)
 	}

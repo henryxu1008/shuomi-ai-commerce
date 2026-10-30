@@ -51,27 +51,30 @@ type Invitation struct {
 
 // Operation contains protocol facts only. Member state remains provider-owned.
 type Operation struct {
-	Scope              OperationScope  `json:"scope"`
-	Key                string          `json:"key"`
-	Fingerprint        string          `json:"fingerprint"`
-	Kind               CommandKind     `json:"kind"`
-	TargetUserID       string          `json:"targetUserId"`
-	AuthorizationID    string          `json:"authorizationId"`
-	ExpectedVersion    string          `json:"expectedVersion"`
-	Role               string          `json:"role"`
-	Invitation         *Invitation     `json:"invitation,omitempty"`
-	Step               OperationStep   `json:"step"`
-	Phase              OperationPhase  `json:"phase"`
-	Revision           int64           `json:"revision"`
-	DispatchID         string          `json:"dispatchId"`
-	UserEvidence       string          `json:"userEvidence"`
-	Acknowledgment     *Acknowledgment `json:"acknowledgment,omitempty"`
-	UserAcknowledgment *Acknowledgment `json:"userAcknowledgment,omitempty"`
+	Scope              OperationScope       `json:"scope"`
+	Key                string               `json:"key"`
+	Fingerprint        string               `json:"fingerprint"`
+	Kind               CommandKind          `json:"kind"`
+	TargetUserID       string               `json:"targetUserId"`
+	AuthorizationID    string               `json:"authorizationId"`
+	ExpectedVersion    string               `json:"expectedVersion"`
+	Role               string               `json:"role"`
+	Invitation         *Invitation          `json:"invitation,omitempty"`
+	Step               OperationStep        `json:"step"`
+	Phase              OperationPhase       `json:"phase"`
+	Revision           int64                `json:"revision"`
+	DispatchID         string               `json:"dispatchId"`
+	UserEvidence       string               `json:"userEvidence"`
+	Acknowledgment     *Acknowledgment      `json:"acknowledgment,omitempty"`
+	UserAcknowledgment *Acknowledgment      `json:"userAcknowledgment,omitempty"`
+	ConditionalRole    *ConditionalRolePlan `json:"conditionalRole,omitempty"`
+	ProviderRoleResult *RoleWriteEvidence   `json:"providerRoleResult,omitempty"`
 }
 
 type Acknowledgment struct {
-	ID string `json:"id"`
-	At string `json:"at"`
+	ID              string             `json:"id"`
+	At              string             `json:"at"`
+	ConditionalRole *RoleWriteEvidence `json:"conditionalRole,omitempty"`
 }
 
 type OperationChange struct {
@@ -118,6 +121,10 @@ type ReceiptStore interface {
 }
 
 func Transition(op Operation, change OperationChange) (Operation, error) {
+	// Historical conditional-role facts stay readable, but cannot transition.
+	if businessRoleKind(op.Kind) {
+		return Operation{}, ErrConflict
+	}
 	next, err := transition(op, change.Event, change.DispatchID)
 	if err != nil {
 		return Operation{}, err

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { assignableRole, roleDefinition } from "./enterprise-role-schema";
+import { assignableRole, enterpriseRoleKey, roleDefinition } from "./enterprise-role-schema";
 import { accountErrorCode } from "./account";
 import {
   InvalidStrictJSONResponseError,
@@ -53,8 +53,24 @@ const listSchema = z
         (!value.assignableRoles.length &&
           value.items.every((item) => !item.canChangeRole && !item.canRemove))),
   );
+const nativeSequence = z.string().regex(/^[1-9][0-9]{0,18}$/)
+  .refine(value => BigInt(value) <= BigInt("9223372036854775807"));
+const conditionalRoleEvidence = z.object({
+  result: z.literal("APPLIED"),
+  instanceId: memberId,
+  organizationId: memberId,
+  projectId: memberId,
+  projectGrantId: z.union([memberId, z.literal("")]),
+  authorizationId: memberId,
+  userId: memberId,
+  expectedSequence: nativeSequence,
+  nativeSequence,
+  roleKey: enterpriseRoleKey,
+  direction: z.enum(["ADD", "REMOVE"]),
+  dispatchId: memberId,
+}).strict().refine(value => BigInt(value.nativeSequence) > BigInt(value.expectedSequence));
 const acknowledgment = z
-  .object({ id: memberId, at: timestamp })
+  .object({ id: memberId, at: timestamp, conditionalRole: conditionalRoleEvidence.optional() })
   .strict()
   .nullable();
 const operationSchema = z
@@ -63,12 +79,13 @@ const operationSchema = z
     userId: memberId,
     organizationId: memberId,
     id: z.string().uuid(),
-    kind: z.enum(["invite", "role", "remove"]),
+    kind: z.enum(["invite", "role", "remove", "business_role_grant", "business_role_revoke"]),
     step: z.enum([
       "create_user",
       "create_authorization",
       "update_authorization",
       "delete_authorization",
+      "conditional_role",
     ]),
     status: z.enum(["pending", "unknown", "acknowledged", "rejected"]),
     targetUserId: memberId,
@@ -88,7 +105,15 @@ const operationSchema = z
         : value.observed === null) &&
       (value.observed === null ||
         (value.observed.organizationId === value.organizationId &&
-          value.observed.userId === value.targetUserId)),
+          value.observed.userId === value.targetUserId)) &&
+      ((value.kind === "business_role_grant" || value.kind === "business_role_revoke")
+        ? value.step === "conditional_role" && (value.acknowledgment === null
+          || (!!value.acknowledgment.conditionalRole
+            && value.acknowledgment.conditionalRole.organizationId === value.organizationId
+            && value.acknowledgment.conditionalRole.authorizationId === value.authorizationId
+            && value.acknowledgment.conditionalRole.userId === value.targetUserId
+            && value.acknowledgment.conditionalRole.direction === (value.kind === "business_role_grant" ? "ADD" : "REMOVE")))
+        : value.step !== "conditional_role" && !value.acknowledgment?.conditionalRole),
   );
 
 export type Members = z.infer<typeof listSchema>;
@@ -196,6 +221,8 @@ export const invitationInput = z
   })
   .strict();
 export const roleInput = z.object({ role, expectedVersion: version }).strict();
+// Historical local recovery records are parsed only; this is not a write API.
+export const historicalBusinessRoleInput = z.object({ role: enterpriseRoleKey, expectedVersion: version }).strict();
 export const removeInput = z.object({ expectedVersion: version }).strict();
 
 export async function getMembers(scope: MemberScope, offset = 0, filters: Partial<MemberFilters> = {}): Promise<Members> {
@@ -312,6 +339,8 @@ export function removeMember(
     removeInput.parse(input),
   );
 }
+
+
 
 export async function requestMembers<T>(
   path: string,
