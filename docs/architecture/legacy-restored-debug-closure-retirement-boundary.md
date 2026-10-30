@@ -58,10 +58,16 @@ Must：保留当前采集、图像、身份权限、Store 观察同步、有效 
 - 当前公开采集器的 challenge 拒绝、冷却/限流与 deadline/取消保留，不把旧自动解题接入当前链。
 - 旧 Login V2 探针创建/验证/cleanup 全部退出，不保留后台清理、不调用 provider、不转移 token；当前身份 owner 与安全测试保留。
 - 浏览器安装副作用仍只归原 installer 命令；不加应用启动时自动下载、第二事实源、新 retry 或后台 owner。本次不运行安装。
-- 四个现役命令 image-agent-temporal-worker、source-account-registry-schema-init、product-listing-api-schema-migrate、listingkit-schema-migrate 改为必须显式提供私有 -config。空白/缺参在依赖解析、DB/provider/worker 启动前失败；原 manifest/owner/role、SQL 和 canary 语义不变。current-application 原私有 JSON 输入不改。
+- 四个现役命令 image-agent-temporal-worker、source-account-registry-schema-init、product-listing-api-schema-migrate、listingkit-schema-migrate 的实际消费配置分支改为必须显式提供私有 -config。空白/缺参在该分支的依赖解析、DB/provider/worker 启动前失败；原 manifest/owner/role/SQL 不变。标准 help 保持不消费配置；image-agent-temporal-worker 的 -canary 仍先独立执行、无需 -config、不解析产品依赖，保留原 V3 queue 传递。current-application 原私有 JSON 输入不改，不新增虚假文件前置。
 - 仅旧 Browser/Amazon/Platforms 配置根与已枚举旧 env 退出；复用现有 retired-config 入口拒绝旧输入，不静默忽略、不 fallback、不恢复旧别名。当前 BrowserCollector 与其它现役配置/环境输入保留。
-- 准确输入边界：YAML 的 browser、amazon、platforms 三根（包含空对象）拒绝；五条现有 Primary 为 TASK_PROCESSOR_BROWSER_PATH、TASK_PROCESSOR_BROWSER_USER_DATA_DIR、TASK_PROCESSOR_BROWSER_HEADLESS、TASK_PROCESSOR_BROWSER_POOL_SIZE、TASK_PROCESSOR_PLATFORM_1688_ENABLED。环境拒绝只涵盖 TASK_PROCESSOR_BROWSER_、TASK_PROCESSOR_AMAZON_、TASK_PROCESSOR_PLATFORMS_ALIBABA1688_、TASK_PROCESSOR_PLATFORM_1688_ 四个旧命名空间；仅按变量名/存在性判断，空值也拒绝，不记录值。当前 TASK_PROCESSOR_BROWSER_COLLECTOR_ 是保留输入，不能被宽泛 browser 前缀误拒；#1007 的三项 image 自动变量映射与身份拒绝不变。
+- 准确输入边界：YAML 的 browser、amazon、platforms 三根（包含空对象）拒绝；五条现有 Primary 为 TASK_PROCESSOR_BROWSER_PATH、TASK_PROCESSOR_BROWSER_USER_DATA_DIR、TASK_PROCESSOR_BROWSER_HEADLESS、TASK_PROCESSOR_BROWSER_POOL_SIZE、TASK_PROCESSOR_PLATFORM_1688_ENABLED。环境拒绝只能是这五条与下表 39 个基线 Viper key 的原 AutomaticEnv 名的精确并集：TASK_PROCESSOR_ + key 将点替换为下划线后转大写，共 43 个不重复名字；只按名字/存在性判断，空值也拒绝，不记录值。禁止宽泛前缀匹配，不能虚构 Collector 环境合同。当前 BrowserCollector 由 currentapplication.Config.CoreConfig 从私有 JSON 显式装配，BuildConfig 没有该赋值；该链保持不变。其它 AutomaticEnv、#1007 三项 image 映射及身份拒绝原样保留。
 - 没有业务 schema/表、持久化 JSON/hash/版本、事务、权限或 UNKNOWN owner 改变。所有真实环境与旧产物处置均 NOT_AUTHORIZED，运行/产品验收 NOT_RUN。
+
+| 基线旧 Viper 根 | 原 config.go/defaults.go/loader_builder.go 中实际 key（仅列后缀） |
+| --- | --- |
+| browser | browserPath、enabled、headless、poolSize、proxyServer、randomConfig.enabled、randomConfig.fingerprintStrategy、randomConfig.healthCheckEnabled、randomConfig.maxRetries、randomConfig.maxUsesPerInstance、randomConfig.presetName、randomConfig.strategy、userDataDir、viewportHeight、viewportWidth |
+| amazon | crawlTimeout、enabled、failureArtifacts.captureHTML、failureArtifacts.directory、failureArtifacts.enabled、failureArtifacts.maxHTMLBytes、proxyPool.enabled、proxyPool.failureCooldownSeconds、proxyPool.proxies、proxyPool.proxyFile、proxyPool.strategy、qualityControl.retryOnValidationFailure、qualityControl.validationRetryMaxAttempts、riskControl.authenticationRecreateThreshold、riskControl.browserCrashRecreateThreshold、riskControl.captchaRecreateThreshold、riskControl.networkRecreateThreshold、riskControl.serverErrorRecreateThreshold、riskControl.timeoutRecreateThreshold、zipcodes |
+| platforms.alibaba1688 | enabled、poolSize、profileRootDir、timeout |
 
 ## §5 完整删除/保留矩阵
 
@@ -76,8 +82,9 @@ Must：保留当前采集、图像、身份权限、Store 观察同步、有效 
 | config/config-dev.yaml、config-prod.yaml、config-test.yaml；data/sensitive_words.json | RETIRE tracked 工件，不读取真实私有配置/词表；有效检查按 §6.1 改接 |
 | core/config/type_browser.go、type_amazon.go、type_platform.go、validator_browser.go、validator_amazon.go、validator_platform.go | Collector 类型抽取后 RETIRE 旧类型与校验 |
 | core/config/config.go、defaults.go、loader.go、loader_builder.go、loader_helpers.go、validator.go、retired_product_runtime.go | 仅退出旧三个配置根/隐式 LoadConfig 的字段、装配、defaults/env/helper/错误组尾部；保留当前显式 loader、dotenv/私有保护、现役域校验与 #1007 拒绝。旧输入拒绝仍用原入口 |
-| 四个 cmd 的 main.go；app/runtime/listingkitschemamigrate/options.go 与原调用点 | 删除公开样例默认路径，显式输入/缺参在依赖前失败；不动业务 owner/SQL/grants/wire-mode/canary |
-| hack/debug/go.mod、go.sum、README.md；scripts/test-all.ps1 | 仅在 #1009 原 owner 合并其两个 debug 入口删除后，剩余五入口随本批退出，才删除空 module；原多模块测试脚本只去掉 debug 项，不先遗留他人源码 |
+| 四个 cmd 的 main.go；app/runtime/listingkitschemamigrate/options.go 与原调用点 | 删除公开样例默认路径，仅配置消费分支显式输入/缺参在依赖前失败；标准 help 与现役 canary 保持不依赖配置。业务 owner/SQL/grants/wire-mode 不变 |
+| hack/debug/go.mod、go.sum、README.md | 仅在 #1009 原 owner 合并其两个 debug 入口删除后，剩余五入口随本批退出，才删除空 module，不先遗留他人源码；#1009 和本批完成后 fresh checkout 的 hack 整根缺席 |
+| scripts/test-all.ps1、test-all.Tests.ps1、test-fast.ps1、code-health-audit.config.json | test-all 仅运行剩余 root module（tools 已无普通测试包），保留参数透传/覆盖范围/错误退出；test-fast 唯一旧 crawler 目标改为现役 ./internal/integration/acquisition/...；audit 的 nested_modules 退出 tools/hack-debug、clone_paths 仅去 hack/debug。保留 root_patterns、tools clone 路径、算法与版本，不造空包/空目录保活 |
 | docs/CODE_WIKI.md、amazon-listing-workbench-api.md、database-connection-optimization.md、hack/debug/README.md、tmp/README.md 与当前维护导航 | 撤掉本批现行操作指引；历史证据文档加准确退休注记，保留原正文，不为清链接抹历史 |
 | 本设计、architecture/README.md、refactoring/legacy-register.md、code-health-decisions.md、phase2-runtime-inventory.md、module-target-mapping.md、development/repository-structure.md | 窄当前说明替代本批 KEEP；历史正文/计数/ceilings/勾选不改。完整 CURRENT inventory 仍零改，真实失配先交准确提案 |
 | tools/go.mod、go.sum、tools.go；workflow、Docker、有效 cmd 清单 | KEEP。tools module 和 tools/tools.go 仍固定 CI golangci-lint；不因工具 main 退出删 module、升级依赖或全量 tidy；安装器/Playwright 构建命令保留 |
@@ -104,9 +111,13 @@ Legacy decision: EXTRACT | RETIRE。Reusable behavior: 现役 Chromium 安装和
 | validator_dependencies_test.go、validator_format_test.go | 错误/顺序 fixture 仅退出 Browser/Amazon/Platforms 组，以原当前域输入继续验证 | 现役域规则/顺序/错误格式 |
 | listingkit_backend_retirement_test.go：SourceResultContractClosure、IdleProviderBootstrapClosure、CrawlerFacadeDiagnosticsClosure、SourceURLAndTimeoutClosure、BrowserManagementTailClosure、Alibaba1688CaptchaExperimentClosure、AmazonSourceAdapterClosure、RuntimeSkeletonAndIdleConfigClosure、NumericAcquisitionAndPlatformTailClosure、ListingKitTaskBackendSourcesAreRetired、assertLegacyLoggerFacadeRetired 中本批旧树 KEEP | 旧 crawler/debug/配置保活改显式缺席；旧根遍历上移 retained internal，原 Below 过滤/读解析错误失败保留；安装器 KEEP 改接新叶子 | 全部其它退休禁令与当前 runtime/acquisition/图像/身份/Store/日志/Retry KEEP |
 | 同文件 SDSRuntimeClosure、HostConfigFeatureFlagTracingClosure、WatermarkClosure、RetiredTaskAndListingRuntimeConfigClosure；logging_config_test.go | 公共 YAML 存在/扫描改缺席；原退休键用合成 fixture 送原 loader 验证拒绝 | SDS/宿主/水印/任务/全局输入禁令及当前权限安全 |
+| SDSRuntimeClosure 的 debug README 读取项；AIRoutingImagePolicyClosure 的旧 manager.go；SourceNormalizationFactsClosure 的旧 pool_manager.go | 三项原文件读取/保活改准确缺席；保留其余字段/规则/禁令，不依赖本地遗留空目录 | 当前清理/路由/来源事实与 JSON/hash/身份断言 |
+| TestLegacyLoggingHTTPMigrationSupportClosureIsRetired | downloader constructor fragment、扫描文件筛选与 HTTP Config 分类一起切到新安装 owner；仅退出随旧 crawler 消失的项 | 原 TLS 禁入与注入日志/HTTP timeout 安全断言，不能因移包漏扫下载器 |
+| integration_provider_logger_contract_test.go 的 scanProviderConstructors、TestProductionLLMManagerAdapterCallersPassLogger；s3_integration_architecture_test.go 的 scanProductionS3Uses | hack 遍历从保留祖先开始，按原 hack 子树/源码条件过滤，缺席自然为零；不加 missing-skip、不造空目录，读/解析错误仍失败；其它原扫描根不变 | 当前全部 provider/S3 构造、logger 传递、默认 client/凭据/日志安全断言；将来旧 hack 路径复活仍会被扫描 |
 | target_architecture_phase2_test.go::TestPhase2LegacyRootsDoNotGrow | crawler 与已退 infra 同样从 retained internal 索引按原子树过滤计数，缺席为 0，读解析错误仍失败 | max=134、所有其它 ceiling/CURRENT 规则/比较不变 |
-| CurrentCommandsDoNotCompileLegacyBusinessBackends、ProductionProviderConstructorInventoryIsComplete、catalog/sourcing/import boundary guards | 当前禁令保留；若静态 expected 要求本批旧路径存在，仅改显式缺席、安装器准确改新叶子；当前 provider 构造无变化 | 不删现役构造/依赖项，不把 guard 当运行证明 |
-| 四命令 main 测试；listingkitschemamigrate/runtime_test.go::TestResolveConfigPathAndParseFlags | 公共路径默认改显式输入/缺参先失败，复用原依赖 spy | productlistingschemamigrate 三 owner/manifest 拒绝及 worker 原安全测试 |
+| CurrentCommandsDoNotCompileLegacyBusinessBackends、ProductionProviderConstructorInventoryIsComplete、catalog/sourcing/import boundary guards | 当前禁令保留；旧路径保活只改缺席、安装器准确改新叶子。Provider constructor expected 仅删除 hack/debug/replay-sale-attribute 一项，另两项与算法不变 | 不删现役构造/依赖项，不把 guard 当运行证明 |
+| 四命令 main 测试；listingkitschemamigrate/runtime_test.go::TestResolveConfigPathAndParseFlags | 公共路径默认改配置消费分支显式输入/缺参先失败，复用原依赖 spy；标准 help 不加载 | productlistingschemamigrate 三 owner/manifest 拒绝；TestRunCanaryDoesNotResolveProductDependenciesAndForwardsV3Queue、原 worker 角色/租户/取消断言 |
+| scripts/test-all.Tests.ps1 | 三 module/旧 tools 失败分支 fixture 改接剩余 root module；旧 debug/tools 目标断言改为不执行，原根包/追加参数/失败错误码断言保持 | 原脚本真实失败传播，不把无普通包的 module 当运行成功；tools manifest 与 CI lint 安装检查不取消 |
 | repository_structure_test.go、architecture_docs_test.go、Greenfield/链接检查 | 只跟随准确维护目录/链接退出；历史文档保留注记，合成安全负例不认作旧消费者 | 当前入口 owner、禁迁移/兼容/旧依赖语义、完整 inventory 零改 |
 
 发现表外真实当前消费者、不同安全结果、CURRENT 失配或新持久化/副作用义务，先报告根因、同根路径和准确补丁，不重跑掩盖或放宽门禁。最终基线必须逐项复核，本文不是提前放行未知改动。
