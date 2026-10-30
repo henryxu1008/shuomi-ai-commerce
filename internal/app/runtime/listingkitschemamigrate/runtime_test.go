@@ -55,6 +55,10 @@ func TestResolveConfigPathAndParseFlags(t *testing.T) {
 	if got := ResolveConfigPath(""); got != "" {
 		t.Fatalf("default config path = %q", got)
 	}
+	// Supplied nonblank paths retain their exact value, as in the other CLIs.
+	if got := ResolveConfigPath(" private-fixture.yaml "); got != " private-fixture.yaml " {
+		t.Fatalf("explicit config path changed: %q", got)
+	}
 	if got := ResolveConfigPath("config/custom.yaml"); got != "config/custom.yaml" {
 		t.Fatalf("config path precedence = %q", got)
 	}

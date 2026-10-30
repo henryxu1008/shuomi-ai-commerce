@@ -15,5 +15,8 @@ func (o Options) ConfigPath() string {
 }
 
 func ResolveConfigPath(configPath string) string {
-	return strings.TrimSpace(configPath)
+	if strings.TrimSpace(configPath) == "" {
+		return ""
+	}
+	return configPath
 }
