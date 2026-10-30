@@ -100,6 +100,8 @@ ReadWalmartResults 从真实 head/anchor 读取本轮有界窗口链，最多20�
 
 只有从 offset0 开始、同一次有界读取已完整覆盖准确 expected 集合、满足原完整性校验的原生观察才保留原修复资格；跨窗口/跨次累积的 read-progress 永远不能使 AllowsRepair 成功。先前完整证据在新 generation 开始时失效，本轮缺证据就继续阻止修复。
 
+预算实施收敛：接入下一页前按整个 typed 文档试算，超限保留原可提交前缀；可选 publication 信息也不能撑爆已经拟合的窗口。历史投影超限只显示有界部分并标记 `limited`，不能使下一次查询在 Begin 前失败。整个 Publication 共用原 2 MiB 响应预算，保留各 live receipt 的查询身份；覆盖受限时可只投影持久化 `readOffset` 并省略明细/页证明，显示 partial、不授予修复，绝不改写已存原生事实或游标。此为 R3/R4 的 IMPLEMENTATION_TEST 收敛，不增加状态或新事实 owner。
+
 ## 6. Legacy 与接口边界
 
 Legacy decision: N/A。只使用当前 owner；不恢复旧 Task/queue/workbench，不增加兼容层、历史映射、双读双写或数据迁移。typed JSON 组合是当前单事实模型的扩展，不建立第二套 native result owner。

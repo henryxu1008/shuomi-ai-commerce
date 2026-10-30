@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -394,4 +395,43 @@ func TestPostgresWalmartReadProgressSurvivesReconstructionAndRejectsTampering(t 
 	require.Error(t, err, "resumption rejects altered progress")
 	_, err = f.official.SaveWalmartRead(f.ctx, f.scope, finalRequest, finalPage)
 	require.Error(t, err, "save replay also validates the entire stored document")
+}
+
+func TestPostgresWalmartLargeHistoryDoesNotBlockNextRead(t *testing.T) {
+	f := newWalmartPostgresFixture(t, 1000)
+	intent, command := f.seed()
+	a, err := f.kernel.Acquire(f.ctx, command)
+	require.NoError(t, err)
+	claim := submission.ExecutionClaim{Scope: command.Scope, AttemptID: a.Attempt.AttemptID, FenceEpoch: a.Attempt.FenceEpoch, OwnerID: a.Permit.ClaimOwnerID, Token: a.Permit.ClaimToken}
+	completion, err := submission.NewWalmartCompletion(f.scope, *f.saved, intent, a.Attempt, claim, marketplace.AcceptedFeed{FeedID: "large-errors", CorrelationID: submission.WalmartCorrelationID(intent)})
+	require.NoError(t, err)
+	receipt, err := f.official.CompleteOfficial(f.ctx, completion)
+	require.NoError(t, err)
+	for start := 0; start < 1000; start += 300 {
+		req, err := f.official.BeginWalmartRead(f.ctx, f.scope, receipt.ID)
+		require.NoError(t, err)
+		require.Equal(t, start, req.ReadProgress.StartOffset)
+		window := marketplace.FeedObservation{FeedID: receipt.Walmart.FeedID, FeedStatus: "PROCESSED", Received: 1000, Failed: 1000, Partial: true, ObservedAt: time.Now().UTC()}
+		for offset := start; offset < min(start+300, 1000); offset += 50 {
+			page := window
+			page.Items = nil
+			page.ResponseHashes = []string{collection.Digest(offset)}
+			for _, sku := range receipt.Walmart.SKUs[offset : offset+50] {
+				page.Items = append(page.Items, marketplace.ItemResult{SKU: sku.SellerSKU, IngestionStatus: "DATA_ERROR", Errors: []marketplace.ItemError{{Code: "DATA_ERROR", Description: strings.Repeat("x", 3000)}}})
+			}
+			require.NoError(t, req.ObserveWalmartPage(offset, page))
+			window.Items = append(window.Items, page.Items...)
+			window.ResponseHashes = append(window.ResponseHashes, page.ResponseHashes...)
+		}
+		_, err = f.official.SaveWalmartRead(f.ctx, f.scope, req, window)
+		require.NoError(t, err)
+	}
+	view, err := f.official.ReadWalmartResults(f.ctx, f.scope, receipt.Target)
+	require.NoError(t, err, "large optional history must not block the next PublicationStatus before Begin")
+	raw, err := json.Marshal(view)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(raw), submission.MaxExecutionPayloadBytes)
+	req, err := f.official.BeginWalmartRead(f.ctx, f.scope, receipt.ID)
+	require.NoError(t, err)
+	require.Equal(t, 0, req.ReadProgress.StartOffset)
 }

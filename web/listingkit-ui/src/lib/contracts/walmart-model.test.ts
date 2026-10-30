@@ -17,4 +17,8 @@ it("retains bounded read progress and historical page times without granting a c
  expect(walmartResultSchema.safeParse({...record,observation:{...observation,partial:false}}).success).toBe(false);
  expect(walmartResultSchema.safeParse({...record,readProgress:{...record.readProgress,nextOffset:101}}).success).toBe(false);
  expect(walmartResultSchema.safeParse({...record,observedPages:[{offset:0,observation:{...observation,partial:false}}]}).success).toBe(false);
+ const limited={...record,readProgress:undefined,observedPages:undefined,observation:{...observation,items:[],responseHashes:[]},limited:true,readOffset:100};
+ expect(walmartResultSchema.parse(limited).readOffset).toBe(100);
+ expect(walmartResultSchema.safeParse({...limited,observation:{...limited.observation,partial:false}}).success).toBe(false);
+ expect(walmartResultSchema.safeParse({...limited,repairableSKUs:["sku"]}).success).toBe(false);
 });

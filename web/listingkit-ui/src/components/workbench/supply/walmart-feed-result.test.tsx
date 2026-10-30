@@ -55,3 +55,12 @@ it("shows progress and historical page times separately from the current native 
  expect(screen.getByText(`页面取得时间：${new Date(old).toLocaleString()}`)).toBeInTheDocument();
  expect(screen.getByText(/此前窗口页面仅供核对，不能拼成完整的新结果/)).toBeInTheDocument();expect(state.read).toHaveBeenCalledOnce();
 });
+
+it("keeps the saved read position visible when detail coverage is limited",async()=>{
+ const result=publicationSchema.parse({...publication("feed"),walmartResults:[{id,receiptId:id,generation:2,latest:true,limited:true,readOffset:650,observation:{feedId:"feed",feedStatus:"PROCESSED",itemsReceived:1000,itemsSucceeded:0,itemsFailed:1000,itemsProcessing:0,items:[],partial:true,responseHashes:[],observedAt:"2026-10-30T00:01:00Z"}}]});
+ state.read.mockResolvedValue(result);
+ render(<WalmartFeedResult value={publication("feed")} scope={{userId:"actor",organizationId:"org"}} sourceId={id} storeId={id}/>);
+ await userEvent.click(screen.getByRole("button",{name:"查询平台结果"}));
+ await screen.findByText(/本轮已读取 650 条明细/);
+ expect(screen.getByText(/部分明细因大小限制未展示，已保存进度仍保留/)).toBeInTheDocument();
+});

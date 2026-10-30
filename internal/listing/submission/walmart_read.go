@@ -122,6 +122,41 @@ func WalmartReadDocumentFor(req WalmartResultRequest, observation marketplace.Fe
 	return doc, nil
 }
 
+func WalmartReadFits(req WalmartResultRequest, observation marketplace.FeedObservation) bool {
+	doc, err := WalmartReadDocumentFor(req, observation)
+	if err != nil {
+		return false
+	}
+	raw, err := json.Marshal(doc)
+	return err == nil && len(raw) <= MaxExecutionPayloadBytes
+}
+
+// AppendWalmartPage leaves the admitted prefix unchanged when the next whole
+// typed window exceeds the original persistence budget.
+func (r WalmartResultRequest) AppendWalmartPage(offset int, current, page marketplace.FeedObservation) (WalmartResultRequest, marketplace.FeedObservation, error) {
+	if r.ReadProgress == nil {
+		return r, current, ErrExecutionEvidenceRequired
+	}
+	progress := *r.ReadProgress
+	progress.Pages = append([]WalmartReadPage(nil), progress.Pages...)
+	next := r
+	next.ReadProgress = &progress
+	if err := next.ObserveWalmartPage(offset, page); err != nil {
+		return r, current, err
+	}
+	window := page
+	if len(r.ReadProgress.Pages) > 0 {
+		window = current
+		window.Items = append(append([]marketplace.ItemResult(nil), current.Items...), page.Items...)
+		window.ResponseHashes = append(append([]string(nil), current.ResponseHashes...), page.ResponseHashes...)
+		window.ObservedAt = page.ObservedAt
+	}
+	if !WalmartReadFits(next, window) {
+		return r, current, ErrExecutionInvalid
+	}
+	return next, window, nil
+}
+
 func (doc WalmartReadDocument) ObservedPages() []WalmartObservedPage {
 	if doc.ReadProgress == nil {
 		return nil

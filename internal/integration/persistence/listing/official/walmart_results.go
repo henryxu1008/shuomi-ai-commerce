@@ -187,7 +187,7 @@ func (r *OfficialRepository) ReadWalmartResults(ctx context.Context, scope colle
 		if e != nil {
 			return nil, e
 		}
-		pages, e := r.walmartPreviousPages(r.db.WithContext(ctx), receipt, row, doc)
+		pages, limited, e := r.walmartPreviousPages(r.db.WithContext(ctx), receipt, row, doc)
 		if e != nil {
 			return nil, e
 		}
@@ -205,7 +205,14 @@ func (r *OfficialRepository) ReadWalmartResults(ctx context.Context, scope colle
 				available = append(available, sku.SellerSKU)
 			}
 		}
-		out = append(out, submission.WalmartResultRecord{ID: row.ID, ReceiptID: row.ReceiptID, Generation: row.Generation, Latest: int(count) == len(receipt.Walmart.SKUs), RepairableSKUs: available, Observation: doc.FeedObservation, ReadProgress: doc.ReadProgress, ObservedPages: pages})
+		item := submission.WalmartResultRecord{ID: row.ID, ReceiptID: row.ReceiptID, Generation: row.Generation, Latest: int(count) == len(receipt.Walmart.SKUs), RepairableSKUs: available, Observation: doc.FeedObservation, ReadProgress: doc.ReadProgress, ObservedPages: pages, Limited: limited}
+		if limited {
+			item.Observation.Partial = true
+			item.RepairableSKUs = nil
+			offset := doc.ReadProgress.NextOffset
+			item.ReadOffset = &offset
+		}
+		out = append(out, item)
 	}
-	return out, nil
+	return submission.BoundWalmartResults(out, submission.MaxExecutionPayloadBytes)
 }

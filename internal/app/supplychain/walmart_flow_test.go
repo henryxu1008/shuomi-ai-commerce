@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -413,6 +414,10 @@ func (r *walmartFlowResults) SaveWalmartRead(_ context.Context, _ collection.Sco
 	if err != nil {
 		return submission.WalmartResultRecord{}, err
 	}
+	raw, err := json.Marshal(doc)
+	if err != nil || len(raw) > submission.MaxExecutionPayloadBytes {
+		return submission.WalmartResultRecord{}, submission.ErrExecutionInvalid
+	}
 	v := submission.WalmartResultRecord{ID: uuid.NewString(), ReceiptID: req.Receipt.ID, Generation: req.Generation, Latest: true, Observation: doc.FeedObservation, ReadProgress: doc.ReadProgress}
 	r.records = append([]submission.WalmartResultRecord{v}, r.records...)
 	return v, nil
@@ -474,4 +479,38 @@ func TestWalmartThousandSKUReadsContinueAfterEachBoundedWindow(t *testing.T) {
 		require.True(t, view.WalmartResults[0].Observation.Partial, "cross-query pages never form a complete repair proof")
 	}
 	require.Len(t, merchant.submitted, 1)
+}
+
+func TestWalmartLargeErrorsCommitPrefixAndBoundWholePublication(t *testing.T) {
+	uploader, scope, records, merchant, _ := walmartSizedFlowFixture(t, false, 1000)
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, UserID: scope.ActorID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute)})
+	accepted, err := uploader.Upload(ctx, scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	receipt, err := uploader.dependencies.Receipts.ReadOfficial(ctx, scope, accepted.AttemptID)
+	require.NoError(t, err)
+	results := &walmartFlowResults{receipt: receipt}
+	app := Application{Sources: uploader.dependencies.Sources.(*preparation.SourceSelector), Authorization: &uploadAuth{scope: scope}, PublicationReceipts: uploader.dependencies.Receipts, TargetMerchants: &rulesFixture{binding: merchant.binding}, WalmartStatusStores: walmartFlowStores{merchant}, WalmartResults: results}
+	starts := []int{}
+	merchant.feedPage = func(_ context.Context, feed string, offset int) (marketplace.FeedObservation, error) {
+		starts = append(starts, offset)
+		page := marketplace.FeedObservation{FeedID: feed, FeedStatus: "PROCESSED", Received: 1000, Failed: 1000, ObservedAt: time.Now().UTC(), ResponseHashes: []string{collection.Digest(offset)}}
+		for _, sku := range receipt.Walmart.SKUs[offset:min(offset+50, 1000)] {
+			page.Items = append(page.Items, marketplace.ItemResult{SKU: sku.SellerSKU, IngestionStatus: "DATA_ERROR", Errors: []marketplace.ItemError{{Code: "DATA_ERROR", Description: strings.Repeat("x", 3000)}}})
+		}
+		return page, nil
+	}
+	for n := 0; n < 2; n++ {
+		starts = nil
+		previous := 0
+		if len(results.records) > 0 {
+			previous = results.records[0].ReadProgress.NextOffset
+		}
+		view, err := app.PublicationStatus(ctx, records.saved.Source.ID, merchant.binding.StoreID)
+		require.NoError(t, err, "a large valid window must commit its fitting prefix")
+		require.Equal(t, previous, starts[0])
+		require.Greater(t, results.records[0].ReadProgress.NextOffset, previous)
+		raw, err := json.Marshal(view)
+		require.NoError(t, err)
+		require.LessOrEqual(t, len(raw), submission.MaxExecutionPayloadBytes, "the outer receipt and all result heads share one response budget")
+	}
 }

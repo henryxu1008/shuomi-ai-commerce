@@ -176,6 +176,8 @@ type WalmartResultRecord struct {
 	Observation    marketplace.FeedObservation `json:"observation"`
 	ReadProgress   *WalmartReadProgress        `json:"readProgress,omitempty"`
 	ObservedPages  []WalmartObservedPage       `json:"observedPages,omitempty"`
+	Limited        bool                        `json:"limited,omitempty"`
+	ReadOffset     *int                        `json:"readOffset,omitempty"`
 }
 type WalmartResultRepository interface {
 	BeginWalmartRead(context.Context, collection.Scope, string) (WalmartResultRequest, error)

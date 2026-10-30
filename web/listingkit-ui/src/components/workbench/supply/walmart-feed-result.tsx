@@ -23,7 +23,8 @@ function BoundWalmartFeedResult({value,scope,sourceId,storeId,onChanged}:Walmart
   {latestByReceipt.map(item=><section key={item.id} className="space-y-1 rounded-lg border p-2">
    <p>Feed {item.observation.feedId} · {item.observation.feedStatus||"尚未确认"}{item.observation.partial?" · 部分结果，不能据此重发":""}</p>
    <Button size="sm" variant="outline" disabled={busy} onClick={()=>void query(item.receiptId)}>刷新此 Feed 与仍归属的 SKU</Button>
-   {item.readProgress?<p>本轮已读取 {item.readProgress.nextOffset} 条明细；再次查询将继续读取或刷新。逐页观察不代表全部处理完成。</p>:null}
+   {item.readProgress||item.readOffset!==undefined?<p>本轮已读取 {item.readProgress?.nextOffset??item.readOffset} 条明细；再次查询将继续读取或刷新。逐页观察不代表全部处理完成。</p>:null}
+   {item.limited?<p>部分明细因大小限制未展示，已保存进度仍保留；当前覆盖受限，不能据此重发。</p>:null}
    <p>查询时间：{new Date(item.observation.observedAt).toLocaleString()}</p>
    <WalmartItemResults items={item.observation.items}/>
    {item.observedPages?.length?<div className="space-y-2 border-t pt-2">

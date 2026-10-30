@@ -33,34 +33,38 @@ func sameWalmartReadStart(want, got submission.WalmartResultRequest) bool {
 	return a != nil && b != nil && want.BaseObservationID == got.BaseObservationID && a.Round == b.Round && a.ExpectedHash == b.ExpectedHash && a.StartOffset == b.StartOffset && a.PreviousWindowID == b.PreviousWindowID
 }
 
-func (r *OfficialRepository) walmartPreviousPages(tx *gorm.DB, receipt submission.OfficialReceipt, row walmartObservationRow, doc submission.WalmartReadDocument) ([]submission.WalmartObservedPage, error) {
+func (r *OfficialRepository) walmartPreviousPages(tx *gorm.DB, receipt submission.OfficialReceipt, row walmartObservationRow, doc submission.WalmartReadDocument) ([]submission.WalmartObservedPage, bool, error) {
 	if doc.ReadProgress == nil {
-		return nil, nil
+		return nil, false, nil
 	}
 	progress, generation := doc.ReadProgress, row.Generation
 	id, offset := progress.PreviousWindowID, progress.StartOffset
 	pages := []submission.WalmartObservedPage{}
 	for windows := 0; id != ""; windows++ {
 		if windows >= 20 {
-			return nil, submission.ErrExecutionEvidenceRequired
+			return nil, false, submission.ErrExecutionEvidenceRequired
 		}
 		prior, previous, err := readWalmartWindow(tx, receipt, id)
 		p := previous.ReadProgress
 		if err != nil || prior.Generation >= generation || p == nil || len(p.Pages) == 0 || p.Round != progress.Round || p.ExpectedHash != progress.ExpectedHash || p.NextOffset != offset || p.StartOffset >= offset {
-			return nil, submission.ErrExecutionEvidenceRequired
+			return nil, false, submission.ErrExecutionEvidenceRequired
 		}
-		pages = append(previous.ObservedPages(), pages...)
+		candidate := append(previous.ObservedPages(), pages...)
+		raw, err := json.Marshal(candidate)
+		if err != nil {
+			return nil, false, submission.ErrExecutionUnavailable
+		}
+		if len(raw) > submission.MaxExecutionPayloadBytes {
+			return pages, true, nil
+		}
+		pages = candidate
 		if len(pages) > 20 {
-			return nil, submission.ErrExecutionEvidenceRequired
+			return nil, false, submission.ErrExecutionEvidenceRequired
 		}
 		id, offset, generation = p.PreviousWindowID, p.StartOffset, prior.Generation
 	}
 	if offset != 0 {
-		return nil, submission.ErrExecutionEvidenceRequired
+		return nil, false, submission.ErrExecutionEvidenceRequired
 	}
-	raw, err := json.Marshal(pages)
-	if err != nil || len(raw) > submission.MaxExecutionPayloadBytes {
-		return nil, submission.ErrExecutionUnavailable
-	}
-	return pages, nil
+	return pages, false, nil
 }
