@@ -46,12 +46,12 @@ func New(cfg Config) (*Sender, error) {
 	}
 	return &Sender{cfg}, nil
 }
-func (s *Sender) Send(parent context.Context, inv flow.Invitation) error {
+func (s *Sender) Send(parent context.Context, inv flow.Invitation, roleName string) error {
 	if s == nil {
 		return errors.New("mail unavailable")
 	}
 	id, err := uuid.Parse(inv.ID)
-	if err != nil || id.String() != inv.ID || inv.State != "" && inv.State != flow.Pending {
+	if err != nil || id.String() != inv.ID || inv.State != "" && inv.State != flow.Pending || strings.TrimSpace(roleName) == "" {
 		return errors.New("invalid mail intent")
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
@@ -86,7 +86,6 @@ func (s *Sender) Send(parent context.Context, inv flow.Invitation) error {
 		return errors.New("invalid recipient")
 	}
 	msg.Subject("硕米智能引擎 · 企业成员邀请")
-	roleName := map[string]string{"listingkit_viewer": "只读成员", "listingkit_operator": "操作成员", "listingkit_admin": "企业管理员"}[inv.Role]
 	msg.SetBodyString(gomail.TypeTextPlain, fmt.Sprintf("你收到企业 %s 的成员邀请。\n邀请角色：%s\n请登录并验证此邮箱后，确认接受或拒绝：\n%s/invitations/%s\n链接有效期至 %s。未接受前不会成为企业成员。\n", inv.OrganizationName, roleName, s.config.PublicOrigin, inv.ID, inv.ExpiresAt.UTC().Format(time.RFC3339)))
 	if err = client.DialAndSendWithContext(ctx, msg); err != nil {
 		return errors.New("mail delivery unconfirmed")
