@@ -204,7 +204,7 @@ func TestListingKitIdentityReadersUseNeutralContext(t *testing.T) {
 }
 
 func TestZitadelAuthMiddlewareWritesNeutralIdentityContext(t *testing.T) {
-	path := filepath.Join("..", "internal", "authruntime", "zitadel", "middleware.go")
+	path := filepath.Join("..", "internal", "app", "httpapi", "server_auth.go")
 	source, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

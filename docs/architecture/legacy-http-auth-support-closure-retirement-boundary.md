@@ -232,7 +232,7 @@ KEEP：issuerURL/authorizationAPIURL/clientID/clientSecret/projectID、tenantDir
 | T49 | `internal/app/httpapi/zitadel_sms_test.go` | 仅 TestZitadelSMSPrivateConfig 复用已有临时私密文件 fixture 接收原全局配置测试中仍有效的 0/1/60/-1/61/畸形过期值约束；私密文件、HMAC、失败安全、取消和旧路由404等原断言全保留。 |
 | T50 | `internal/app/httpapi/current_store_center_test.go` | 仅 TestCurrentStoreOptionalAssembly 与同文件窄用例核对当前 native records pool 缺失即失败、不替开旧 cfg.Database、不关闭调用者持有连接；当前观察/授权/路由 drift 断言全保留。 |
 | T51 | `tests/listingkit_backend_retirement_test.go` | 仅 §6.1 D 指定两旧 guard + 一项本批闭包 guard；所有其它函数/计数/算法不变。 |
-| T52 | `tests/import_boundaries_test.go` | 仅 §6.1 D 指定两个 HTTP wrapper guard；其余包括身份中立、package import allowlists 均保持。 |
+| T52 | `tests/import_boundaries_test.go` | 仅 §6.1 D 指定两个 HTTP wrapper guard；准确例外另将 TestZitadelAuthMiddlewareWritesNeutralIdentityContext 的读取路径改接当前 server_auth.go，原 AST/中立身份断言不变；其余身份读取、package import allowlists 均保持。 |
 | T53 | `tests/issue388_chain1_acceptance_contract_test.go` | 仅 TestIssue388Chain1AcceptanceAssemblyContract 将必需 NewSheinRecordApplication 改为实际 buildLocalTrialListingRoutes + 当前 server 装配，增加旧构造器禁入；其余 owner/原 workflow/无伪造批准/JSON/契约断言不变。 |
 | T54 | `internal/app/httpapi/phase2b_worker_boundary_test.go` | 准确例外仅两函数：TestHTTPAPIServerDoesNotOwnListingKitAuthMiddlewareSelection 将旧NewMiddleware必需改为当前Verifier必需并禁回旧调用；TestHTTPModulesDoNotOwnFeatureHTTPAPIModuleSelectionSignatures 明确旧文件缺席并在保留生产根继续检查原八项禁令。其余函数、权限/禁入断言原样保持。 |
 
@@ -253,6 +253,7 @@ middleware_test 的有效 discovery缓存/坏响应/过大响应/subject/resourc
 | TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired | goroutine 在 retired/KEEP表中的入口转换成 Lstat 整根缺席；移除八声明保活与 owner存在例外；timeout KEEP只删AI两项；httpclient KEEP只删NewSimpleWithTimeout；本批新 guard明确这些缺席 | kernel/module/httpapi/current config/logging/httpclient其余声明、下载值、遍历/错误失败关闭、其它 owner 与原禁令 |
 | TestLegacyLoggingHTTPMigrationSupportClosureIsRetired | 仅删 NewSimpleWithTimeout 的正向源码片段行，改为声明缺席 | 当前 HTTP/logger/TLS/security 与其它精确片段/AST/算法 |
 | TestAppHTTPAPISupportHTTPModuleWrappersStayRetired / TestAppHTTPAPIFeatureHTTPModuleWrappersStayRetired | 原必须读取 http_modules.go 改为显式 Lstat 文件缺席；旧声明/禁词继续用保留 internal/app/httpapi 索引检查 | 原禁入集合、其它 route_handler_types 检查/失败处理；不 early-return 跳过、无 root缺失 skip |
+| TestZitadelAuthMiddlewareWritesNeutralIdentityContext | 准确例外：只把必读源从 authruntime/zitadel/middleware.go 改为现役 app/httpapi/server_auth.go | 原 authidentity import、AST 遍历、listingkit selector 禁入与读/解析失败关闭全部原样保持 |
 | TestIssue388Chain1AcceptanceAssemblyContract | 只把旧独立 SHEIN constructor 的必需字符串改为真实 buildLocalTrialListingRoutes/当前 server 装配，显式禁回旧constructor | 全部业务/批准/worker/原工具契约及禁止fixture伪造持久事实断言 |
 
 允许在原 listingkit_backend_retirement_test.go 添加一项聚焦本批的闭包 guard：精确声明/整源缺席、32生产路径混合KEEP、当前认证必需调用与22env/配置拒绝合同；复用既有 AST/文件索引工具，不新造检查平台或宽泛词禁令。其它检查函数、Code Health逻辑、CURRENT inventory、历史/计数/ceilings、workflow、保护规则、依赖零改。若实际 CI暴露遗漏，按 §5.2 报告准确例外，不能偷偷放宽。
