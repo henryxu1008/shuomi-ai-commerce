@@ -2,7 +2,7 @@
 
 Design Basis: **Independent Architecture**。状态：**DESIGN_ONLY / AWAITING_REVIEW_AND_USER_CONFIRMATION / SOURCE_NOT_STARTED / NOT_READY**。父 Issue [#301](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301) 保持 OPEN。
 
-调查基线：main `8551e5787339c5d0d48693f43e713db87da55063`。本轮只交本文、Architecture README 和 Legacy Register 三文档；未来实施的完整矩阵为 **30 路径**，不是本轮已执行的删除清单。准确设计 HEAD、CI、独立复核与用户决定记在同一 PR。
+调查基线：main `8551e5787339c5d0d48693f43e713db87da55063`。本轮只交本文、Architecture README 和 Legacy Register 三文档；未来实施的完整矩阵为 **31 路径**，不是本轮已执行的删除清单。准确设计 HEAD、CI、独立复核与用户决定记在同一 PR。
 
 ## §1 用户结果与完整范围
 
@@ -32,7 +32,7 @@ Out of Scope：执行目标脚本、构建/推送/拉取镜像、Docker/Compose/
 | [#839 运维退休](legacy-listing-operations-closure-retirement-boundary.md) §3/§5 | SHEIN PG/Redis/RabbitMQ 转发器的通用人工工具 KEEP | 数字队列与登录业务退出；仓库无当前业务/工作流调用此工具。不能因手工入口无静态 caller 就直接断言无人使用，也不能仅因曾列为工具而永久保留 |
 | [#846 本地验收](legacy-local-acceptance-closure-retirement-boundary.md) §5.2 | 四个 port-forward/watcher 及其 Pester 的原样 KEEP | 旧共库 replay 已标历史，当前应用以明确私密 manifest 和现有 Compose/运行 owner 装配；当前 UI、Auth.js handoff、issue357、原生身份与 Temporal dev 工具继续保留 |
 | [#872 队列/代理退休](legacy-queue-proxy-config-tail-closure-retirement-boundary.md) §4/§5.2 和 code-health Task 11 | SHEIN 转发器及 watcher 的 retained-deferred；通用转发工具中这四个准确对象 | 不再保留旧数字链专属远端联调入口；PG/Redis/RabbitMQ/Temporal 共享基础层、声明和正常诊断能力不随本批退出 |
-| [#939 全局配置尾部](legacy-global-config-logging-tail-closure-retirement-boundary.md) §5/§6.1 | 仅删两行 Redis 建议、其余脚本/Pester逐字 KEEP | 改为四源及专属测试完整缺席，旧 Redis 建议自然随源退出；原其它配置禁入、读取失败和当前配置校验不变。其十二份承接顶注一并窄校准 |
+| [#939 全局配置尾部](legacy-global-config-logging-tail-closure-retirement-boundary.md) §5/§6.1 | 仅删两行 Redis 建议、其余脚本/Pester逐字 KEEP | 改为四源及专属测试完整缺席，旧 Redis 建议自然随源退出；原其它配置禁入、读取失败和当前配置校验不变。其十三份承接顶注一并窄校准 |
 | [#884 品牌/更名清单](../development/branding-and-repository-rename.md) | 本批脚本的保留含义，不是 Docker Hub 名称、tag 或现存资源 | 只退仓库生产入口；不重命名、删除、推送镜像或接管运行 owner，外部制品消费者继续 UNKNOWN |
 | [旧 1688 preflight 计划](../superpowers/plans/2026-08-08-1688-runtime-preflight.md) | 本批 port-forward/测试的现行操作含义 | 只追加准确历史注记，不改原计划勾选、失败或旧路径解析证据，不把旧计划当当前派工 |
 
@@ -106,7 +106,7 @@ scripts/start-listingkit-local-portforward.Tests.ps1
 
 仅一个混合测试源：`tests/listingkit_backend_retirement_test.go`，三个准确函数的变化见 §6.1。
 
-19 份既有文档只追加窄顶注，原 Git blob 必须逐字节成为后缀，不改旧数字、计数、勾选或失败证据。十二份 #939 承接顶注也一并收齐，避免把“其余转发/Pester不改”继续当当前权限。顶注只替代本批七对象，链接本文；其余 KEEP 和原 owner 不变。
+20 份既有文档只追加窄顶注，原 Git blob 必须逐字节成为后缀，不改旧数字、计数、勾选或失败证据。十三份 #939 承接顶注也一并收齐，避免把“其余转发/Pester不改”继续当当前权限。顶注只替代本批七对象，链接本文；其余 KEEP 和原 owner 不变。
 
 ```text
 docs/architecture/legacy-listing-cli-retirement-boundary.md
@@ -128,9 +128,10 @@ docs/refactoring/code-health-decisions.md
 docs/development/branding-and-repository-rename.md
 docs/development/listingkit-local-prod-db-replay.md
 docs/superpowers/plans/2026-08-08-1688-runtime-preflight.md
+docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md
 ```
 
-另有本文及 `docs/architecture/README.md`、`docs/refactoring/legacy-register.md` 三个当前设计/导航文件；导航亦只加当前条目，原内容完整保留。合计 **7 删除 + 1 混合 Go 测试 + 19 直接旧文档 + 3 当前设计/导航 = 30 路径**。本设计提交只应用最后三文档；其余尚未实施。
+另有本文及 `docs/architecture/README.md`、`docs/refactoring/legacy-register.md` 三个当前设计/导航文件；导航亦只加当前条目，原内容完整保留。合计 **7 删除 + 1 混合 Go 测试 + 20 直接旧文档 + 3 当前设计/导航 = 31 路径**。本设计提交只应用最后三文档；其余尚未实施。
 
 ### §5.3 KEEP／不动清单
 
@@ -161,7 +162,7 @@ Cutover/deletion condition: 适用独立设计复核与用户确认，§5/§6.1�
 | `TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints` | 原准确缺席表只增加 SHEIN base build/push 脚本与 Dockerfile 两路径 | 原 Makefile/两 workflow必读、旧 CLI/runtime/auto-shard禁入、current-application必须编译、失败关闭全部原样；读取 workflow不等于修改 workflow |
 | `TestRetiredTaskAndListingRuntimeConfigClosure` | 仅把末尾“必读旧 local-portforward 并禁两项 Redis env文本”替换成该脚本准确路径必须缺席；源不存在即不可能继续提供旧建议 | 前部所有旧配置/源缺席、当前 Secret必读与 RabbitMQ键禁入全部原样；不改其它函数或配置加载/校验逻辑，不保空壳满足必读 |
 | 专属 Pester `start-listingkit-local-portforward.Tests.ps1` | 随唯一被测脚本删除，退出旧参数默认值和 parser helper 的保活 | 它只有旧源解析/默认服务测试，没有独立当前安全/业务断言；不移植旧端口/远端默认值到新工具，当前 UI/构建/Pester其它测试零改 |
-| §5.2 的19文档 | 仅加准确 superseded/source-retired 顶注，明确本批七对象、当前安装/构建/Store观察和 UNKNOWN/NOT_RUN；原完整 blob 逐字节后缀保持 | 不重写旧计划勾选/数字/失败，不再把旧共库步骤当当前runbook，不增加新的运行操作要求 |
+| §5.2 的20文档 | 仅加准确 superseded/source-retired 顶注，明确本批七对象、当前安装/构建/Store观察和 UNKNOWN/NOT_RUN；原完整 blob 逐字节后缀保持 | 不重写旧计划勾选/数字/失败，不再把旧共库步骤当当前runbook，不增加新的运行操作要求 |
 | 本文、Architecture README、Legacy Register | 当前状态/准入/同一PR链接与准确矩阵；README完整索引，Register登记 RETIRE/原owner | 其它原正文/历史完整保留，不把设计完成写成实施/运行验收成功 |
 | 所有其它测试与guard、lint、workflow、完整inventory、历史计数/ceilings、依赖/锁、保护规则 | **零改** | 原解析/读取失败、当前安装/构建/身份/事务/采集/图像/Store观察安全断言不放宽；失败先查真实根因，不简单重跑或绕门禁 |
 
@@ -169,7 +170,7 @@ Cutover/deletion condition: 适用独立设计复核与用户确认，§5/§6.1�
 
 ## §7 评审、确认、实施与停止点
 
-1. 本轮交付三文档及一个主要设计 PR。适用独立设计复核检查真实源、全部30路径闭包、§2旧KEEP替代、§4.2/§6.1和当前保留能力。最多两轮正常架构评审，finding先分类；CI绿色或作者自检不是独立结论，也不是用户确认。
+1. 本轮交付三文档及一个主要设计 PR。适用独立设计复核检查真实源、全部31路径闭包、§2旧KEEP替代、§4.2/§6.1和当前保留能力。最多两轮正常架构评审，finding先分类；CI绿色或作者自检不是独立结论，也不是用户确认。
 2. 未经用户本轮授权不默认新增 AI 互验线程。原 GitHub 复核运行时不重复触发；确实无法完成时可报告准确状态，请用户决定是否授权一次只读子代理设计复核。源码最终复核与设计复核分别绑定准确 HEAD，授权分开，不扩大为多 Writer。
 3. 设计复核和必要原 CI 完成、用户确认 §1–§7（含§4.2/§6.1）后，将冻结设计 HEAD/准入与唯一 Writer 写 #301 和同一 PR 并读回，才可标 IMPLEMENTATION_READY、正式修改七目标及其测试/文档尾部。未满足时保持 SOURCE_NOT_STARTED，不执行预删/试运行。
 4. 同一完整批次连续实施、必要自检/提交/推送与范围内 CI/review 修复；不机械拆PR。发现当前Must无法满足、当前外部可观察契约、需触碰运行资源/凭据或改变授权/事实/事务/恢复边界时，停止对应部分报告，不自行扩大权限或发明兼容。
