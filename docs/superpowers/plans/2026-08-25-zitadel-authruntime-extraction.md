@@ -1,3 +1,5 @@
+> #301 / #1022 current boundary: [confirmed complete retirement](../../architecture/legacy-auth-route-s3-operation-closure-retirement-boundary.md) retires only old route inference/Prompt grants/global convenience tails while retaining current explicit identity/permission and instance policies. The historical plan and checkboxes below remain verbatim evidence; they do not authorize compatibility, implementation of retired APIs or additional agent threads. Workflow/inventory and retained resources are untouched; #301 OPEN.
+
 # Zitadel Authentication Runtime Extraction Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

@@ -68,7 +68,7 @@ func TestPODRuntimeAssemblyFailureClosesCanonicalPools(t *testing.T) {
 				OpenSupplyAssets:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
 				OpenAgentCustomization: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
 				OpenReportCenter:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
-				NewMarketStorage: func(context.Context, *SupplyMarketConfig, *logrus.Logger) (supplymarket.PrivateFileStorage, error) {
+				NewMarketStorage: func(context.Context, *SupplyMarketConfig) (supplymarket.PrivateFileStorage, error) {
 					return marketTestStorage{}, nil
 				},
 				PreparePOD: func(context.Context, *PODConfig) (sds.CredentialSource, error) { return podTestCredentials{}, nil },

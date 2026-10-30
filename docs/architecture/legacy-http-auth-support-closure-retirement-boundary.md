@@ -1,3 +1,5 @@
+> #301 / #1022 窄范围后继：[确认的完整退休边界](legacy-auth-route-s3-operation-closure-retirement-boundary.md)仅替代本文RouteRequiresZitadelAuth的旧Module/URL推断保留；函数继续检测显式VerifiedIdentity，server/currentIdentity/组织/role/OPTIONS/public/headers/审计/取消原样。当前全部能力与Store观察保持，不扩本文其它退休/保留边界；原冻结正文/历史/批准/失败/数字/勾选完整保留为后缀。#301 OPEN，无运行资源操作或试用前置。
+
 > USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认冻结设计 ec7e1074c48897bb049401d5bad7e3b8053fed93 的 §1–§7（含 §4.1/§4.2/§6.1）；[正式实施准入](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1017#issuecomment-6519361843)及 #301 当前段先于源码修改。以下设计期状态/时态为历史，准确源码、自检、原 CI 和最终复核分别记录在同一 PR，合并另行授权；#301 OPEN。
 
 # #301 旧 HTTP 备用装配、白名单认证与辅助尾部完整退休设计

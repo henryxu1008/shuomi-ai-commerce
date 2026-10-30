@@ -25,7 +25,6 @@ const (
 	PermissionWorkbenchListingSubmit            = "workbench.listing.submit"
 	PermissionListingKitAdminRead               = "listingkit.admin.read"
 	PermissionListingKitAdminWrite              = "listingkit.admin.write"
-	PermissionListingKitPromptWrite             = "listingkit.prompt.write"
 	PermissionListingKitPlatformAdm             = "listingkit.platform_admin"
 	PermissionProductSourcingWrite              = "product_sourcing.write"
 	PermissionLocalAgentWrite                   = "local_agent.write"
@@ -202,7 +201,6 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 		{"listingkit_operator", PermissionWorkbenchCommercialRead},
 		{"listingkit_admin", PermissionListingKitAdminRead},
 		{"listingkit_admin", PermissionListingKitAdminWrite},
-		{"listingkit_admin", PermissionListingKitPromptWrite},
 		{"listingkit_admin", PermissionProductSourcingWrite},
 		{"listingkit_admin", PermissionLocalAgentWrite},
 		{"listingkit_admin", PermissionImageAgentRead},
@@ -219,7 +217,6 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 		{"listingkit_admin", PermissionWorkbenchCommercialWalletTopUp},
 		{"platform_admin", PermissionListingKitAdminRead},
 		{"platform_admin", PermissionListingKitAdminWrite},
-		{"platform_admin", PermissionListingKitPromptWrite},
 		{"platform_admin", PermissionListingKitPlatformAdm},
 		{"platform_admin", PermissionProductSourcingWrite},
 		{"platform_admin", PermissionLocalAgentWrite},
@@ -236,7 +233,6 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 		{"platform_admin", PermissionWorkbenchCommercialPurchase},
 		{"platform_admin", PermissionWorkbenchCommercialWalletTopUp},
 		{"admin", PermissionListingKitAdminRead},
-		{"admin", PermissionListingKitPromptWrite},
 		{"admin", PermissionLocalAgentWrite},
 		{"admin", PermissionImageAgentRead},
 		{"admin", PermissionImageAgentWrite},
@@ -358,9 +354,6 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 		if _, err := enforcer.AddPolicy(role, PermissionListingKitAdminRead); err != nil {
 			return nil, err
 		}
-		if _, err := enforcer.AddPolicy(role, PermissionListingKitPromptWrite); err != nil {
-			return nil, err
-		}
 		if _, err := enforcer.AddPolicy(role, PermissionProductSourcingWrite); err != nil {
 			return nil, err
 		}
@@ -415,9 +408,6 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 			return nil, err
 		}
 		if _, err := enforcer.AddPolicy(subject, PermissionListingKitAdminRead); err != nil {
-			return nil, err
-		}
-		if _, err := enforcer.AddPolicy(subject, PermissionListingKitPromptWrite); err != nil {
 			return nil, err
 		}
 		if _, err := enforcer.AddPolicy(subject, PermissionProductSourcingWrite); err != nil {
@@ -492,10 +482,6 @@ func DefaultListingKitAuthorizer() *ListingKitAuthorizer {
 	return defaultListingKitAuthorizer
 }
 
-func IsListingKitPlatformAdmin(userID string, roles []string) bool {
-	return DefaultListingKitAuthorizer().Authorize(userID, roles, PermissionListingKitPlatformAdm)
-}
-
 // IsTenantAdmin reports whether the identity may bypass owner scope inside its
 // already authenticated tenant. It intentionally uses this authorizer's
 // configured users and roles instead of the process-wide default instance.
@@ -509,13 +495,6 @@ func (a *ListingKitAuthorizer) IsTenantAdmin(userID string, roles []string) bool
 		}
 	}
 	return false
-}
-
-// IsListingKitTenantAdmin reports whether the identity may manage all data in
-// its current tenant. Platform administrators are included because they also
-// have tenant-wide access, while listingkit_operator remains owner-scoped.
-func IsListingKitTenantAdmin(userID string, roles []string) bool {
-	return DefaultListingKitAuthorizer().IsTenantAdmin(userID, roles)
 }
 
 func userSubject(userID string) string {

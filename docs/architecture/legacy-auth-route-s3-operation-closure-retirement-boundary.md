@@ -1,3 +1,5 @@
+> USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认冻结设计 `3fc7e486427a87d0efce80ca5b8843558c977da1` 的§1–§7（含§4.2/§6.1），[正式准入6521804808](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1022#issuecomment-6521804808)和#301当前Ready读回先于生产修改。同一PR整批收齐38路径，不机械拆批。当前显式身份组织权限、immutable/严格读取、JSON/hash/版本、资金/UNKNOWN及采集/图像/Store观察保持；workflow/inventory/既有资源不动，无试用新前置。以下冻结设计正文与设计期时态完整保留；准确源码HEAD/原CI/最终复核留#1022，不等于运行/产品验收。合并/部署/关单另授权，#301 OPEN。
+
 # #301 旧认证路由推断、权限尾部与 S3 对象操作完整退休设计
 
 ## §1 这批具体做什么

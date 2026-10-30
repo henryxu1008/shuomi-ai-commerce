@@ -63,7 +63,7 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			"internal/app/productsourcing/source_media.go": {"InspectGeneratedArtifact", "ValidatePublicHTTPSURL"},
 		}},
 		{"internal/app/runtime/currentapplication", issue605SourceStorage, map[string][]string{
-			"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "AdaptLogrus", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
+			"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
 			// #659 frozen capacity design: exact startup identity/empty-prefix proof,
 			// without admission for upload/delete APIs or sibling files.
 			"internal/app/runtime/currentapplication/storage_capacity.go": {"ResolveCapacityNamespace", "ResolveSourceMediaCapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig"},
