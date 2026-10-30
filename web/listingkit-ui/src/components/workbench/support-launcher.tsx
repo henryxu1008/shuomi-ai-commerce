@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,7 +96,8 @@ export function SupportLauncher({ available }: { available: boolean }) {
 
   useEffect(() => { if (phase === "loading") closeButton.current?.focus(); }, [phase]);
   useEffect(() => { bottom.current?.scrollIntoView?.({ block: "nearest" }); }, [messages]);
-  useEffect(() => { const focus = () => { void refresh(true); }; const timer = setInterval(() => { void refresh(); }, 5000); window.addEventListener("focus", focus); return () => { clearInterval(timer); window.removeEventListener("focus", focus); }; }, [refresh]);
+  const refreshFromEffect = useEffectEvent((focus = false) => refresh(focus));
+  useEffect(() => { const focus = () => { void refreshFromEffect(true); }; const timer = setInterval(() => { void refreshFromEffect(); }, 5000); window.addEventListener("focus", focus); return () => { clearInterval(timer); window.removeEventListener("focus", focus); }; }, []);
   useEffect(() => { const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); }; window.addEventListener("keydown", escape); return () => { window.removeEventListener("keydown", escape); discard(); }; }, [close, discard]);
 
   return <>
