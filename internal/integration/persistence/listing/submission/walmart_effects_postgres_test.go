@@ -289,6 +289,21 @@ func TestPostgresWalmartFeedAdmissionAndPartialRepairAreAtomic(t *testing.T) {
 	third, e := kernel.Acquire(ctx, repairC)
 	require.NoError(t, e, "unselected original failed SKU remains repairable after another subset succeeds")
 	require.NotNil(t, third.Permit)
+	for range 2 {
+		rejectedIntent, err := official.ReadOfficialIntent(ctx, scope, repairC.IntentKey)
+		require.NoError(t, err)
+		require.Equal(t, receipt.ID, rejectedIntent.Walmart.RepairFrom)
+		claim := submission.ExecutionClaim{Scope: repairC.Scope, AttemptID: third.Attempt.AttemptID, FenceEpoch: third.Attempt.FenceEpoch, OwnerID: third.Permit.ClaimOwnerID, Token: third.Permit.ClaimToken}
+		evidence, err := submission.NewWalmartRejectionEvidence(rejectedIntent, third.Attempt, time.Now())
+		require.NoError(t, err)
+		failed, err := kernel.Complete(ctx, claim, evidence)
+		require.NoError(t, err)
+		_, repairC = seed()
+		third, err = kernel.Acquire(ctx, repairC)
+		require.NoError(t, err, "consecutive rejected repairs recheck the original ancestor and a different last accepted Feed")
+		require.NotNil(t, third.Permit)
+		require.Greater(t, third.Attempt.FenceEpoch, failed.FenceEpoch)
+	}
 	retained, e := official.ReadOfficial(ctx, scope, receipt.ID)
 	require.NoError(t, e)
 	require.Equal(t, receipt, retained, "repair preserves original accepted Feed")
