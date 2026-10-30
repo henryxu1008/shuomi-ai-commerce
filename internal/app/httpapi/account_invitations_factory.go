@@ -107,7 +107,28 @@ func buildInvitationFactory(deps MembershipDependencies, project string, auth ro
 				return err
 			}}
 		if sender != nil {
-			dependencies.Notify = sender.Send
+			dependencies.Notify = func(ctx context.Context, inv flow.Invitation) error {
+				if inv.ProjectID != project || inv.OrganizationID != initial.EffectiveOrganizationID || inv.Role != "listingkit_admin" && !authz.IsEnterpriseRoleKey(inv.OrganizationID, inv.Role) {
+					return domain.ErrPermission
+				}
+				ctx, err := scoped(ctx)
+				if err != nil {
+					return err
+				}
+				roles, err := service.Roles(ctx)
+				if err != nil {
+					return err
+				}
+				if roles.OrganizationID != inv.OrganizationID {
+					return domain.ErrPermission
+				}
+				for _, role := range roles.Items {
+					if role.ID == inv.Role {
+						return sender.Send(ctx, inv, role.Name)
+					}
+				}
+				return domain.ErrUnavailable
+			}
 		}
 		return flow.New(project, dependencies), nil
 	}, nil

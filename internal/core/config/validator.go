@@ -9,9 +9,6 @@ import (
 func ValidateConfig(c *Config) []error {
 	var errors []error
 	errors = append(errors, ValidateOpenAIConfig(&c.OpenAI)...)
-	errors = append(errors, ValidateBrowserConfig(&c.Browser)...)
-	errors = append(errors, ValidateAmazonConfig(&c.Amazon)...)
-	errors = append(errors, ValidatePlatformsConfig(&c.Platforms)...)
 	errors = append(errors, ValidateListingKitConfig(&c.ListingKit)...)
 	errors = append(errors, ValidateWorkbenchConfig(&c.Workbench, &c.ListingKit.Zitadel)...)
 	return errors
@@ -68,12 +65,6 @@ func moduleFromField(field string) string {
 	switch {
 	case strings.HasPrefix(field, "openai."):
 		return "OpenAI"
-	case strings.HasPrefix(field, "browser."):
-		return "Browser"
-	case strings.HasPrefix(field, "amazon."):
-		return "Amazon"
-	case strings.HasPrefix(field, "platforms.alibaba1688."):
-		return "Platforms.1688"
 	default:
 		return "General"
 	}
@@ -83,12 +74,6 @@ func validationModuleRank(module string) int {
 	switch module {
 	case "OpenAI":
 		return 1
-	case "Browser":
-		return 2
-	case "Amazon":
-		return 4
-	case "Platforms.1688":
-		return 8
 	default:
 		return 99
 	}

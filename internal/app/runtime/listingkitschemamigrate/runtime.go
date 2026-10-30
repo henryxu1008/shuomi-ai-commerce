@@ -46,6 +46,9 @@ func runWithDependencies(ctx context.Context, opts Options, deps runtimeDependen
 	if err := validateMigrationScope(opts.Scope); err != nil {
 		return err
 	}
+	if opts.ConfigPath() == "" {
+		return fmt.Errorf("-config is required; provide an explicit private configuration file")
+	}
 	_ = ctx
 	defaults := defaultRuntimeDependencies()
 	if deps.LoadConfig == nil {

@@ -41,10 +41,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("listingkit.zitadel.sms.phoneVerificationExpiryMinutes", defaults.ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
 	v.SetDefault("workbench.enabled", defaults.Workbench.Enabled)
 
-	setBrowserDefaults(v, defaults)
-	setAmazonDefaults(v, defaults)
 	setImageAgentDefaults(v, defaults)
-	setPlatformDefaults(v, defaults)
 }
 
 func setImageAgentDefaults(v *viper.Viper, defaults *Config) {
@@ -62,61 +59,4 @@ func setImageAgentDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("imageagent.artifactStore.s3.usePathStyle", store.S3.UsePathStyle)
 	v.SetDefault("imageagent.artifactStore.s3.artifactMode", store.S3.ArtifactMode)
 	v.SetDefault("imageagent.artifactStore.s3.cosImmutableNonVersionedBucketPolicy", store.S3.COSImmutableNonVersionedBucketPolicy)
-}
-
-func setBrowserDefaults(v *viper.Viper, defaults *Config) {
-	b := defaults.Browser
-
-	v.SetDefault("browser.enabled", b.Enabled)
-	v.SetDefault("browser.headless", b.Headless)
-	v.SetDefault("browser.browserPath", b.BrowserPath)
-	v.SetDefault("browser.userDataDir", b.UserDataDir)
-	v.SetDefault("browser.poolSize", b.PoolSize)
-	v.SetDefault("browser.viewportWidth", b.ViewportWidth)
-	v.SetDefault("browser.viewportHeight", b.ViewportHeight)
-	v.SetDefault("browser.proxyServer", b.ProxyServer)
-
-	rc := b.RandomConfig
-	v.SetDefault("browser.randomConfig.enabled", rc.Enabled)
-	v.SetDefault("browser.randomConfig.strategy", rc.Strategy)
-	v.SetDefault("browser.randomConfig.presetName", rc.PresetName)
-	v.SetDefault("browser.randomConfig.fingerprintStrategy", rc.FingerprintStrategy)
-	v.SetDefault("browser.randomConfig.healthCheckEnabled", rc.HealthCheckEnabled)
-	v.SetDefault("browser.randomConfig.maxRetries", rc.MaxRetries)
-	v.SetDefault("browser.randomConfig.maxUsesPerInstance", rc.MaxUsesPerInstance)
-}
-
-func setAmazonDefaults(v *viper.Viper, defaults *Config) {
-	a := defaults.Amazon
-
-	v.SetDefault("amazon.enabled", a.Enabled)
-	v.SetDefault("amazon.failureArtifacts.enabled", a.FailureArtifacts.Enabled)
-	v.SetDefault("amazon.failureArtifacts.directory", a.FailureArtifacts.Directory)
-	v.SetDefault("amazon.failureArtifacts.captureHTML", a.FailureArtifacts.CaptureHTML)
-	v.SetDefault("amazon.failureArtifacts.maxHTMLBytes", a.FailureArtifacts.MaxHTMLBytes)
-	v.SetDefault("amazon.riskControl.captchaRecreateThreshold", a.RiskControl.CaptchaRecreateThreshold)
-	v.SetDefault("amazon.riskControl.authenticationRecreateThreshold", a.RiskControl.AuthenticationRecreateThreshold)
-	v.SetDefault("amazon.riskControl.browserCrashRecreateThreshold", a.RiskControl.BrowserCrashRecreateThreshold)
-	v.SetDefault("amazon.riskControl.timeoutRecreateThreshold", a.RiskControl.TimeoutRecreateThreshold)
-	v.SetDefault("amazon.riskControl.networkRecreateThreshold", a.RiskControl.NetworkRecreateThreshold)
-	v.SetDefault("amazon.riskControl.serverErrorRecreateThreshold", a.RiskControl.ServerErrorRecreateThreshold)
-	v.SetDefault("amazon.qualityControl.retryOnValidationFailure", a.QualityControl.RetryOnValidationFailure)
-	v.SetDefault("amazon.qualityControl.validationRetryMaxAttempts", a.QualityControl.ValidationRetryMaxAttempts)
-	v.SetDefault("amazon.proxyPool.enabled", a.ProxyPool.Enabled)
-	v.SetDefault("amazon.proxyPool.strategy", a.ProxyPool.Strategy)
-	v.SetDefault("amazon.proxyPool.failureCooldownSeconds", a.ProxyPool.FailureCooldownSeconds)
-	v.SetDefault("amazon.proxyPool.proxyFile", a.ProxyPool.ProxyFile)
-	v.SetDefault("amazon.proxyPool.proxies", a.ProxyPool.Proxies)
-
-}
-
-func setPlatformDefaults(v *viper.Viper, defaults *Config) {
-	setAlibaba1688Defaults(v, &defaults.Platforms.Alibaba1688)
-}
-
-func setAlibaba1688Defaults(v *viper.Viper, p *Alibaba1688Config) {
-	v.SetDefault("platforms.alibaba1688.enabled", p.Enabled)
-	v.SetDefault("platforms.alibaba1688.timeout", p.Timeout)
-	v.SetDefault("platforms.alibaba1688.poolSize", p.PoolSize)
-	v.SetDefault("platforms.alibaba1688.profileRootDir", p.ProfileRootDir)
 }

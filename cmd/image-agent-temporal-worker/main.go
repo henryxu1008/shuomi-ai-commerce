@@ -39,6 +39,13 @@ func run(ctx context.Context, resolve dependencyResolver, start temporalWorkerRu
 	return start(ctx, resolved.dependencies, options, logger)
 }
 
+func runConfigured(ctx context.Context, path string, resolver func(string) dependencyResolver, start temporalWorkerRunner, options appruntime.ImageAgentTemporalWorkerOptions, logger *logrus.Logger) error {
+	if strings.TrimSpace(path) == "" {
+		return fmt.Errorf("-config is required; provide an explicit private configuration file")
+	}
+	return run(ctx, resolver(path), start, options, logger)
+}
+
 func validateProcessWorkerOptions(options appruntime.ImageAgentTemporalWorkerOptions) error {
 	if _, err := options.WireMode.DefaultTaskQueue(); err != nil {
 		return err
@@ -64,7 +71,7 @@ func resolveImageAgentTemporalDependencies(configPath string, logger *logrus.Log
 }
 
 func main() {
-	configPath := flag.String("config", "config/config-prod.yaml", "config file path")
+	configPath := flag.String("config", "", "config file path")
 	logLevel := flag.String("log-level", "info", "log level")
 	canary := flag.Bool("canary", false, "run the side-effect-free v3 Temporal compatibility canary and exit")
 	canaryTaskQueue := flag.String("canary-task-queue", imageagenttemporal.TaskQueueV3Canary, "isolated v3 Temporal task queue for -canary")
@@ -81,7 +88,7 @@ func main() {
 		return
 	}
 	options := appruntime.ImageAgentTemporalWorkerOptions{WireMode: imageagenttemporal.WorkerWireMode(*wireMode), TaskQueue: *taskQueue}
-	if err := run(ctx, resolveImageAgentTemporalDependencies(*configPath, logger), appruntime.RunImageAgentTemporalWorkerWithOptions, options, logger); err != nil {
+	if err := runConfigured(ctx, *configPath, func(path string) dependencyResolver { return resolveImageAgentTemporalDependencies(path, logger) }, appruntime.RunImageAgentTemporalWorkerWithOptions, options, logger); err != nil {
 		logger.Fatalf("image agent temporal worker exited: %v", err)
 	}
 }

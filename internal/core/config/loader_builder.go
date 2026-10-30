@@ -31,66 +31,6 @@ func BuildConfig(v *viper.Viper) *Config {
 			Timeout: v.GetInt("openai.timeout"),
 			Clients: buildOpenAIClients(v),
 		},
-		Platforms: PlatformsConfig{
-			Alibaba1688: Alibaba1688Config{
-				Enabled:        v.GetBool("platforms.alibaba1688.enabled"),
-				Timeout:        v.GetInt("platforms.alibaba1688.timeout"),
-				PoolSize:       v.GetInt("platforms.alibaba1688.poolSize"),
-				ProfileRootDir: v.GetString("platforms.alibaba1688.profileRootDir"),
-			},
-		},
-		Browser: BrowserConfig{
-			Enabled:        v.GetBool("browser.enabled"),
-			Headless:       v.GetBool("browser.headless"),
-			BrowserPath:    v.GetString("browser.browserPath"),
-			UserDataDir:    v.GetString("browser.userDataDir"),
-			PoolSize:       v.GetInt("browser.poolSize"),
-			ViewportWidth:  v.GetInt("browser.viewportWidth"),
-			ViewportHeight: v.GetInt("browser.viewportHeight"),
-			ProxyServer:    v.GetString("browser.proxyServer"),
-			RandomConfig: BrowserRandomConfig{
-				Enabled:             v.GetBool("browser.randomConfig.enabled"),
-				Strategy:            v.GetString("browser.randomConfig.strategy"),
-				PresetName:          v.GetString("browser.randomConfig.presetName"),
-				FingerprintStrategy: v.GetString("browser.randomConfig.fingerprintStrategy"),
-				HealthCheckEnabled:  v.GetBool("browser.randomConfig.healthCheckEnabled"),
-				MaxRetries:          v.GetInt("browser.randomConfig.maxRetries"),
-				MaxUsesPerInstance:  v.GetInt("browser.randomConfig.maxUsesPerInstance"),
-			},
-		},
-		Amazon: AmazonConfig{
-			Enabled:      v.GetBool("amazon.enabled"),
-			Zipcodes:     v.GetStringMapString("amazon.zipcodes"),
-			CrawlTimeout: v.GetInt("amazon.crawlTimeout"),
-			FailureArtifacts: FailureArtifactsConfig{
-				Enabled:      v.GetBool("amazon.failureArtifacts.enabled"),
-				Directory:    v.GetString("amazon.failureArtifacts.directory"),
-				CaptureHTML:  v.GetBool("amazon.failureArtifacts.captureHTML"),
-				MaxHTMLBytes: v.GetInt("amazon.failureArtifacts.maxHTMLBytes"),
-			},
-			RiskControl: AmazonRiskControlConfig{
-				CaptchaRecreateThreshold:        v.GetInt("amazon.riskControl.captchaRecreateThreshold"),
-				AuthenticationRecreateThreshold: v.GetInt("amazon.riskControl.authenticationRecreateThreshold"),
-				BrowserCrashRecreateThreshold:   v.GetInt("amazon.riskControl.browserCrashRecreateThreshold"),
-				TimeoutRecreateThreshold:        v.GetInt("amazon.riskControl.timeoutRecreateThreshold"),
-				NetworkRecreateThreshold:        v.GetInt("amazon.riskControl.networkRecreateThreshold"),
-				ServerErrorRecreateThreshold:    v.GetInt("amazon.riskControl.serverErrorRecreateThreshold"),
-			},
-			QualityControl: AmazonQualityControlConfig{
-				RetryOnValidationFailure:   v.GetBool("amazon.qualityControl.retryOnValidationFailure"),
-				ValidationRetryMaxAttempts: v.GetInt("amazon.qualityControl.validationRetryMaxAttempts"),
-			},
-			ProxyPool: AmazonProxyPoolConfig{
-				Enabled:                v.GetBool("amazon.proxyPool.enabled"),
-				Strategy:               v.GetString("amazon.proxyPool.strategy"),
-				FailureCooldownSeconds: v.GetInt("amazon.proxyPool.failureCooldownSeconds"),
-				ProxyFile:              v.GetString("amazon.proxyPool.proxyFile"),
-				Proxies: uniqueStringList(
-					getStringSlice(v, "amazon.proxyPool.proxies"),
-					readLineList(v.GetString("amazon.proxyPool.proxyFile")),
-				),
-			},
-		},
 		ImageAgent: ImageAgentConfig{
 			Generation: ImageAgentGenerationConfig{
 				PriceVersion:   v.GetString("imageagent.generation.priceVersion"),
