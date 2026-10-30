@@ -152,6 +152,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `project-center-schema-init`
     - `report-center-schema-init`
     - `notification-center-schema-init`
+    - `browser-kernel-schema-init`
     - `product-agent-credential-provision`
     - `product-agent-runtime-prepare`
     - `local-ai-trial-grant`

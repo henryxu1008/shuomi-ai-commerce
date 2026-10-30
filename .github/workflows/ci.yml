@@ -199,9 +199,10 @@ jobs:
         run: |
           go test -race ./internal/listingadmin -count=1
 
-      - name: Build runtime commands
+      - name: Build runtime and schema commands
         run: |
           go build ./cmd/current-application
+          go build ./cmd/browser-kernel-schema-init
 
   frontend:
     name: Frontend Checks
