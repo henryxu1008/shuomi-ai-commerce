@@ -141,6 +141,9 @@ func execute() error {
 		OpenAIWorkbench: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
+		OpenBrowserKernel: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
+			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+		},
 		OpenNotificationCenter: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
@@ -176,6 +179,9 @@ func execute() error {
 			}
 			if features.NotificationCenterDB != nil {
 				options = append(options, httpapi.WithNotificationCenter(features.NotificationCenterDB))
+			}
+			if features.BrowserKernel != nil {
+				options = append(options, httpapi.WithBrowserKernelCatalog(features.BrowserKernelDB, features.BrowserKernel.ArtifactOrigins))
 			}
 			if features.Knowledge != nil {
 				options = append(options, httpapi.WithKnowledge(features.Knowledge))
