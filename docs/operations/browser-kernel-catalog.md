@@ -36,6 +36,8 @@ runtime只验证现有schema/列/主键及最小权限，失败即拒绝服务�
 
 API token只进入API请求头，不能发给资产存储，metadata/下载URL不能进入renderer或摘要。源metadata必须是稳定固定版本URL；CDN跳转中的临时签名query仅内存使用，不记录/保存。现成CDN或GitHub资产须把初始和实际跳转域名都列入部署origin。
 
+桌面首版发行包必须自包含，仅普通文件和目录；ZIP、tar.gz、tar.xz均先检查归档边界，再复用既有解压库，拒绝symlink、hardlink和特殊文件。含链接的常规macOS bundle需要发行方制作自包含包；目录支持darwin元数据不代表这些包已实机兼容。实际包/系统兼容性仍待后续获准验证，本轮不实际发行或下载CDN包。
+
 ## 已有检查入口与限制
 
 ```text
