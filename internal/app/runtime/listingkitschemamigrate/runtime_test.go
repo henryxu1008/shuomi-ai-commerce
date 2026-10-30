@@ -52,7 +52,7 @@ func TestDefaultLoaderAcceptsDatabaseOnlyConfig(t *testing.T) {
 }
 
 func TestResolveConfigPathAndParseFlags(t *testing.T) {
-	if got := ResolveConfigPath(""); got != "config/config-dev.yaml" {
+	if got := ResolveConfigPath(""); got != "" {
 		t.Fatalf("default config path = %q", got)
 	}
 	if got := ResolveConfigPath("config/custom.yaml"); got != "config/custom.yaml" {
@@ -188,6 +188,18 @@ func TestMigrationScopeFlagHelpAdvertisesAllSupportedScopes(t *testing.T) {
 	for _, scope := range []string{"workbench"} {
 		if !strings.Contains(output.String(), scope) {
 			t.Fatalf("scope help does not advertise %q: %s", scope, output.String())
+		}
+	}
+}
+
+func TestWorkbenchMigrationRequiresExplicitConfigurationBeforeDependencies(t *testing.T) {
+	for _, path := range []string{"", " \t"} {
+		called := false
+		err := runWithDependencies(context.Background(), Options{Config: path, Scope: "workbench"}, runtimeDependencies{
+			LoadConfig: func(string) (*config.Config, error) { called = true; return nil, errors.New("fixture stop") },
+		})
+		if called || err == nil || !strings.Contains(err.Error(), "-config is required") {
+			t.Fatalf("path=%q called=%v err=%v", path, called, err)
 		}
 	}
 }
