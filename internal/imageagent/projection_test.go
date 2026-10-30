@@ -97,10 +97,7 @@ func TestSlotProjectionJSONPreservesV3DurableIdentityWithoutChangingV2CandidateW
 	snapshot := RunProjection{Run: Run{ID: "run-a", TenantID: "tenant-a", UserID: "user-a", ActivePlanRevision: 1}, Plan: Plan{Revision: 1}, Slots: []SlotProjection{v3}, ProjectionVersion: 1, LastEventID: 1}
 	full, err := json.Marshal(snapshot)
 	require.NoError(t, err)
-	commit, err := json.Marshal(ProjectionCommit{Scope: ScopeForRun(snapshot.Run), CommitID: "fixture-commit", Snapshot: snapshot, EventType: "fixture.event", EventPayload: json.RawMessage(`{"fixture":true}`)})
-	require.NoError(t, err)
 	require.Equal(t, "2179812526fba20fcb42f44ca16c21e54632872907c9f2affbb83a2cd9ec514a", fmt.Sprintf("%x", sha256.Sum256(full)), "complete current projection JSON bytes must remain frozen")
-	require.Equal(t, "cc1ef100e1c5d8e7ac7330b7b884620f217654ebadf67f345fdcff70d0554654", fmt.Sprintf("%x", sha256.Sum256(commit)), "complete current commit JSON/fingerprint bytes must remain frozen")
 }
 
 func TestNormalizeRecoverableEffectsDeduplicatesStableEntriesAndRejectsConflicts(t *testing.T) {

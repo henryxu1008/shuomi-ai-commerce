@@ -49,7 +49,7 @@ func TestSetSlotClosurePreservesUnstartedWorkInNormalizedAndProjectedState(t *te
 			unverified.Slots[0].Attempt = 1
 			unverified.Slots[0].Candidates = []imageagent.AssetCandidate{{AssetID: "unverified", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}}}
 			badMutation := &imageagent.SlotProjectionMutation{PlanRevision: 1, Result: imageagent.SlotResult{SlotID: plan.Slots[0].ID, Attempt: 1, Status: imageagent.SlotStatusAccepted, CandidateAssetIDs: []string{"unverified"}}, Projection: unverified.Slots[0], Attempt: imageagent.StepAttempt{TenantID: scope.TenantID, OwnerUserID: scope.OwnerUserID, RunID: scope.RunID, PlanRevision: 1, SlotID: plan.Slots[0].ID, Attempt: 1, Node: "execute_slot_v3", IdempotencyKey: "unverified", Outcome: "accepted"}}
-			_, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "unverified", ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: unverified, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutation: badMutation})
+			_, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "unverified", ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: unverified, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutations: []imageagent.SlotProjectionMutation{*badMutation}})
 			require.ErrorIs(t, err, imageagent.ErrRevisionConflict, "a set cannot persist accepted candidates without original settlement evidence")
 			closure := &imageagent.ImageSlotClosure{Kind: "not_dispatched"}
 			updated := current
@@ -58,7 +58,7 @@ func TestSetSlotClosurePreservesUnstartedWorkInNormalizedAndProjectedState(t *te
 			updated.Slots[0].ErrorCode = imageagent.BudgetElapsedCode
 			updated.Slots[0].Closure = closure
 			mutation := &imageagent.SlotProjectionMutation{PlanRevision: 1, Result: imageagent.SlotResult{SlotID: plan.Slots[0].ID, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.BudgetElapsedCode, Closure: closure}, Projection: updated.Slots[0], Attempt: imageagent.StepAttempt{TenantID: scope.TenantID, OwnerUserID: scope.OwnerUserID, RunID: scope.RunID, PlanRevision: 1, SlotID: plan.Slots[0].ID, Node: "execute_slot_v3", IdempotencyKey: "unstarted", Outcome: "blocked", ErrorCategory: imageagent.BudgetElapsedCode}}
-			got, err := repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "unstarted", ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: updated, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutation: mutation})
+			got, err := repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "unstarted", ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: updated, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutations: []imageagent.SlotProjectionMutation{*mutation}})
 			require.NoError(t, err)
 			require.Zero(t, got.Slots[0].Attempt)
 			require.Equal(t, closure, got.Slots[0].Closure)

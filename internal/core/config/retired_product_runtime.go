@@ -22,6 +22,9 @@ var retiredProductRuntimeYAMLKeys = map[string]string{
 }
 
 var retiredProductRuntimeEnvironmentVariables = map[string]struct{}{
+	"LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS":                                  {},
+	"LISTINGKIT_ZITADEL_ALLOWED_USER_IDS":                                    {},
+	"LISTINGKIT_ZITADEL_ALLOWED_ROLES":                                       {},
 	"TASK_PROCESSOR_AI_CAPABILITY_STUDIO_IMAGE_ROUTING_MODE":                 {},
 	"TASK_PROCESSOR_AICAPABILITY_STUDIOIMAGEROUTINGMODE":                     {},
 	"TASK_PROCESSOR_DEBUG_PRODUCTENRICHMOCKLLM":                              {},

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,7 @@ func TestListingKitLegacyUsernameAllowlistInputsFailClosed(t *testing.T) {
 	for _, envName := range []string{
 		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES",
 		"LISTINGKIT_ZITADEL_ALLOWED_USERNAMES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDUSERNAMES",
 	} {
 		t.Run(envName, func(t *testing.T) {
 			clearLegacyListingKitUsernameAllowlistEnv(t)
@@ -88,6 +90,7 @@ func clearLegacyListingKitUsernameAllowlistEnv(t *testing.T) {
 	for _, name := range []string{
 		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES",
 		"LISTINGKIT_ZITADEL_ALLOWED_USERNAMES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDUSERNAMES",
 	} {
 		value, existed := os.LookupEnv(name)
 		require.NoError(t, os.Unsetenv(name))
@@ -107,4 +110,33 @@ func requireLegacyUsernameAllowlistRejection(t *testing.T, err error, configured
 	assert.Contains(t, err.Error(), "listingkit.zitadel.allowedUsernames")
 	assert.Contains(t, err.Error(), "obsolete")
 	assert.NotContains(t, err.Error(), configuredValue)
+}
+
+func TestRetiredAuthorizationAliasesRejectEveryConfigLoaderWithoutValues(t *testing.T) {
+	aliases := map[string]string{
+		"LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS": "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS",
+		"LISTINGKIT_ZITADEL_ALLOWED_USER_IDS":   "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS",
+		"LISTINGKIT_ZITADEL_ALLOWED_ROLES":      "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES",
+	}
+	for name := range aliases {
+		t.Setenv(name, "")
+		require.NoError(t, os.Unsetenv(name))
+	}
+	for retired, primary := range aliases {
+		for _, value := range []string{"", "private-synthetic-subject"} {
+			for _, current := range []string{"", "current-subject"} {
+				for loader, load := range map[string]func(*viper.Viper) (*Config, error){"validated": loadWithViper, "without validation": loadWithViperWithoutValidation} {
+					t.Run(retired+"/"+loader+"/"+value+"/"+current, func(t *testing.T) {
+						t.Setenv(retired, value)
+						t.Setenv(primary, current)
+						_, err := load(newViper())
+						require.Error(t, err)
+						assert.Contains(t, err.Error(), "retired environment variable "+retired+" is not supported")
+						assert.NotContains(t, err.Error(), "private-synthetic-subject")
+						assert.NotContains(t, err.Error(), "current-subject")
+					})
+				}
+			}
+		}
+	}
 }
