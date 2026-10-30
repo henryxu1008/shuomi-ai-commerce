@@ -1,3 +1,5 @@
+> #301 当前优先提案：[旧调试与采集执行链完整退休设计](../architecture/legacy-restored-debug-closure-retirement-boundary.md)。仅三文档 N/A / Ready；未来 Independent Architecture / NOT_READY。恢复文件不是整删清单：沿五个 debug 入口核对整条旧执行链，当前安装/Collector 配置最小抽取，当前业务继续由原 owner 提供；旧浏览器/探针/工具/公开样例取舍须确认 §1–§7，#1009 不接管。workflow/完整 inventory/既有资源零改，不增试用前置，#301 OPEN。原正文/历史/计数/勾选逐字保留。
+
 > #301 / #1007 整批实施：**RETIRE + SELECTIVE EXTRACTION / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**；[三组30路径完整设计](../architecture/legacy-config-projection-dub-closure-retirement-boundary.md)已确认。22旧配置别名/警告、旧单项投影命令/helper、Dub整包退出；当前数组/run-only指纹字节和原事务保留，旧非null单项回执不兼容。原有效检查按§6.1改接；当前采集、图像、身份权限、Store观察不变，workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下原正文/历史/计数/勾选逐字保留。
 
 > #301 当前三组完整闭包设计：[旧配置别名、单项投影提交与 Dub](../architecture/legacy-config-projection-dub-closure-retirement-boundary.md)。RETIRE + SELECTIVE EXTRACTION / Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；29路径一个主要PR，不机械拆批。22旧别名停止取值，原身份拒绝保留；当前数组提交的指纹合同归原store，旧单项字段/helper和Dub整包退出，不支持旧单项回执。当前采集/图像/身份权限/Store观察保留；workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。设计复核与确认后再实施；以下历史/计数/勾选逐字保留。
