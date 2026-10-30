@@ -105,6 +105,11 @@ func (r *walmartFlowRecords) SaveTarget(ctx context.Context, p record.TargetPrep
 
 func walmartFlowFixture(t *testing.T, full ...bool) (*UploadService, collection.Scope, *walmartFlowRecords, *walmartFlowMerchant, *uploadKernel) {
 	t.Helper()
+	return walmartFlowFixtureWithRepair(t, false, full...)
+}
+
+func walmartFlowFixtureWithRepair(t *testing.T, repair bool, full ...bool) (*UploadService, collection.Scope, *walmartFlowRecords, *walmartFlowMerchant, *uploadKernel) {
+	t.Helper()
 	uploader, scope, records, _, kernel, _, authority := uploadFixture(t)
 	b := records.saved.Merchant
 	b.Platform = storecenter.PlatformWalmart
@@ -143,6 +148,10 @@ func walmartFlowFixture(t *testing.T, full ...bool) (*UploadService, collection.
 	input := record.TargetInput{SourceID: source.ID, StoreID: b.StoreID, EffectiveVersion: 1, Walmart: &marketplace.DraftInput{Selection: rules.Selection, SKUs: []marketplace.SKUInput{{SourceSKUKey: "original-sku", Identifier: marketplace.Identifier{Type: "GTIN", ID: "12345678901234"}, Condition: "New", Price: "10", ShippingWeight: "1"}}}}
 	if rules.Selection.FeedType == marketplace.FullFeed {
 		input.Walmart.SKUs[0].Visible = map[string]any{"productName": "New Shirt", "shortDescription": "Accurate description", "mainImageUrl": inventory.Assets[0].URL}
+	}
+	if repair {
+		input.Walmart.RepairFrom = uuid.Must(uuid.NewV7()).String()
+		input.Walmart.RepairSKUs = []string{marketplace.SellerSKU(marketplace.SKUNamespace(b.SupplierIdentityHash, b.Walmart.GrantID), source.Source.ProductKey, input.Walmart.SKUs[0].SourceSKUKey)}
 	}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, UserID: scope.ActorID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute)})
 	receipt, e := targets.Create(ctx, uuid.NewString(), input)
@@ -254,6 +263,19 @@ func TestWalmartDefinitiveRejectionRetainsFailureAndAllowsExplicitNewCommand(t *
 	require.NoError(t, err)
 	require.Equal(t, submission.ExecutionSucceeded, next.Status)
 	require.Len(t, merchant.submitted, 2, "only an explicit new command may reacquire the original target")
+}
+
+func TestWalmartRepairRejectionKeepsExistingUnknownFenceUntilRecoveryIsAdmitted(t *testing.T) {
+	uploader, scope, records, merchant, _ := walmartFlowFixtureWithRepair(t, true)
+	merchant.submitErr = marketplace.ErrRejected
+	key := uuid.NewString()
+	for _, command := range []string{key, key, uuid.NewString()} {
+		result, err := uploader.Upload(context.Background(), scope, command, records.saved.ID)
+		require.NoError(t, err)
+		require.Equal(t, submission.ExecutionOutcomeUnknown, result.Status, "rejected RepairFrom recovery is not admitted by the original receipt/SKU policy")
+		require.Nil(t, result.Walmart)
+		require.Len(t, merchant.submitted, 1, "the original repair claim remains fenced")
+	}
 }
 
 type walmartRejectionCommitKernel struct {

@@ -104,8 +104,10 @@ func WalmartIntentMatchesRecord(v OfficialIntent, saved record.TargetRecord) boo
 // NewWalmartRejectionEvidence consumes only the adapter's definitive ErrRejected
 // response. It uses the existing kernel failure contract, not an accepted Feed
 // receipt, and binds the observation to the original intent and exact call.
+// RepairFrom rejection recovery is not admitted by the original SKU policy;
+// retain its existing UNKNOWN fence until that recovery contract is defined.
 func NewWalmartRejectionEvidence(intent OfficialIntent, attempt ExecutionAttempt, observedAt time.Time) (ExecutionEvidence, error) {
-	if ValidateOfficialIntent(intent) != nil || intent.Walmart == nil || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionClaimed || attempt.OrganizationID != intent.Owner.OrganizationID || attempt.IntentKey != intent.Key || attempt.Target != intent.Target || attempt.Action != WalmartSubmitAction || attempt.PayloadFingerprint != intent.PayloadFingerprint {
+	if ValidateOfficialIntent(intent) != nil || intent.Walmart == nil || intent.Walmart.RepairFrom != "" || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionClaimed || attempt.OrganizationID != intent.Owner.OrganizationID || attempt.IntentKey != intent.Key || attempt.Target != intent.Target || attempt.Action != WalmartSubmitAction || attempt.PayloadFingerprint != intent.PayloadFingerprint {
 		return ExecutionEvidence{}, ErrExecutionEvidenceRequired
 	}
 	const reason = "WALMART_AUTHORIZATION_REJECTED"

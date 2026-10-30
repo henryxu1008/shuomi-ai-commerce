@@ -160,11 +160,13 @@ Feed PROCESSED 不推出每 SKU SUCCESS；ingestion SUCCESS 不推出 publicatio
 | Feed ERROR 且官方证明没有 item 被处理，或 exact SKU DATA_ERROR 证明该 SKU 未被接纳 | 用户修改并重新批准后，才可提交原失败 SKU 的新版本；原成功 SKU 不重发 |
 | SYSTEM_ERROR/TIMEOUT_ERROR/404/列表暂未出现/只有同标题或 SKU 存在 | 不能证明原写入未发生，继续核实；不自动解除 UNKNOWN |
 
-当前适配器完整收到 POST 的 401/403 时，沿既有 `ErrRejected` 和 Submission
+当前适配器完整收到初次提交（无 RepairFrom）POST 的 401/403 时，沿既有 `ErrRejected` 和 Submission
 `provider_response / failed_definitive` 合同保存明确授权拒绝；原 intent/payload/correlation
 绑定该证据，同键回读原终态，不制造 accepted Feed receipt。只有原失败事实已持久化，
 后续显式新命令才可经原 target fence / SKU owner 准入；失败落库结果不明先读原 intent，
 不能推定已失败。其它 4xx/5xx、传输失败、截断或无有效回执仍不作为确定拒绝。
+带 RepairFrom 的修复提交被拒绝后，原准入不能在无 accepted Feed 回执时安全承接；
+该拒绝后的恢复仍保留原 UNKNOWN/fence，先补合同，不在本轮隐式放宽 SKU/修复准入。
 耗时规则/图片/完整 draft 预检在 Acquire 前完成；claim 后只保留原授权、ReviewGate、
 Target/source/effective Product/approved inventory 与 Store mutation handle 最终核对，
 不在 10 秒发送 lease 中重复远程规则读取或图片下载，不延长 lease 或解除 UNKNOWN。
