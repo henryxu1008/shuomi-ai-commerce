@@ -78,7 +78,7 @@ failure COMMIT 不明只读原 intent/attempt；未取得同一拒绝证据继�
 
 - Round：本轮第一次 read generation；ReceiptID/FeedID 与 expected-SKU hash 精确绑定。
 - StartOffset / NextOffset：实际零基页位置，范围0..expected数量；按真实完整页推进，不从 items 条数猜未读页。
-- PreviousWindowID：同一轮上一个已提交非空读取窗口，原 observation ID；无响应窗口不新增空链。
+- PreviousWindowID：同一轮上一个已提交真实页面的窗口，原 observation ID；零 item 的真实回执仍是页面，无响应窗口不新增空链。
 - Pages：本次窗口各页的 offset、item count、response hash 与原生 observedAt，最多20页；Items 按这些真实页归属，不能把以前页面改写为当前观察时间。
 
 JSON、总响应、错误文本和 SKU 数量沿原2 MiB/1000 SKU预算；超限停止且保持partial，不截断后声称完整。不引入新表、job、租约或独立进度 owner。
@@ -90,7 +90,7 @@ JSON、总响应、错误文本和 SKU 数量沿原2 MiB/1000 SKU预算；超限
 3. 原用户查询有界读取 offset≤1000、每页≤50。每页重核 source/Store/授权，使用原短生命周期 reader；长读不占 mutation permit。收到完整合法页才加入本次窗口，超时/失败保持最后确认的位置。
 4. Save 在原事务中验证当前 generation、BaseObservationID、准确 receipt/expected binding、连续页面与 hash/time/count，append immutable observation，再以原 generation/anchor CAS 推进 SKU head。重复相同 save 读回同一结果，不同内容冲突。若 generation 已落后，页面可保留为历史，但不能推进当前 head。
 5. 响应丢失后下一次读从原已提交 anchor 继续；若事务没有提交则重读原 offset（GET可安全重复）。无响应/崩溃不从0重来，也不跳未提交页。
-6. 本轮达到末页/short page后，下次同一查询入口开始新 Round 从0刷新。Feed summary 改变时停止当前轮继续声明并从新轮0读取，旧页面保留原时间。权限/身份变化按原合同拒绝，不携带旧 cursor 穿越企业/Feed。
+6. 本轮达到末页/short page后，下次同一查询入口开始新 Round 从0刷新。Feed summary 变化不把已提交游标退回0，否则处理中 Feed 仍可能永远读不到后页：同一 HTTP 窗口若遇 summary 差异，就止于最后一致页面，下次从尚未提交的页继续；不同窗口各保留自己的 summary/时间，累计只能是partial。权限/身份变化按原合同拒绝，不携带旧 cursor 穿越企业/Feed。
 
 ### 5.3 投影与修复资格分开
 
