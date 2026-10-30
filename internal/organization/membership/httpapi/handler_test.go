@@ -51,6 +51,9 @@ func TestCommandRoutesHaveExactManagePermission(t *testing.T) {
 		t.Fatalf("routes=%d", len(routes))
 	}
 	for _, route := range routes {
+		if strings.Contains(route.Path, "/business-roles/") {
+			t.Fatalf("retired role command registered: %s", route.Path)
+		}
 		if route.Method == "GET" && route.Permission == authz.PermissionWorkbenchOrganizationMemberRead {
 			continue
 		}

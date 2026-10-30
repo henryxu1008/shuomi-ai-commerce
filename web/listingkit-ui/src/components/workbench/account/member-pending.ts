@@ -1,10 +1,15 @@
 import { z } from "zod";
-import { invitationInput, memberId, MemberOperation, removeInput, roleInput } from "@/lib/api/members";
+import { historicalBusinessRoleInput, invitationInput, memberId, MemberOperation, removeInput, roleInput } from "@/lib/api/members";
+
+// Retained business-role records identify original receipts; never execute them.
+export const retiredBusinessRole = (kind?: string) => kind === "business_role_grant" || kind === "business_role_revoke";
 
 const commandSchema = z.discriminatedUnion("kind", [
   z.object({ key: z.string().uuid(), kind: z.literal("invite"), input: invitationInput }).strict(),
   z.object({ key: z.string().uuid(), kind: z.literal("role"), target: memberId, input: roleInput }).strict(),
   z.object({ key: z.string().uuid(), kind: z.literal("remove"), target: memberId, input: removeInput }).strict(),
+  z.object({ key: z.string().uuid(), kind: z.literal("business_role_grant"), target: memberId, input: historicalBusinessRoleInput }).strict(),
+  z.object({ key: z.string().uuid(), kind: z.literal("business_role_revoke"), target: memberId, input: historicalBusinessRoleInput }).strict(),
 ]);
 export type Pending = z.infer<typeof commandSchema>;
 const collection = z.array(commandSchema).max(100).refine(items => new Set(items.map(item => item.key)).size === items.length);
