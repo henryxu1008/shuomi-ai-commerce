@@ -18,7 +18,7 @@ const table = "browser_kernel.releases"
 type Store struct{ db *gorm.DB }
 
 func New(db *gorm.DB) (*Store, error) {
-	if db == nil || db.Dialector.Name() != "postgres" {
+	if db == nil || db.Config == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
 		return nil, k.ErrUnavailable
 	}
 	return &Store{db}, nil
