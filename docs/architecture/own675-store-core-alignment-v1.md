@@ -49,6 +49,16 @@ Design Basis：**Reuse Existing Architecture**。引用 [Store 当前应用 owne
 
 ## 前置状态、事务与重入
 
+### 当前新库的中断安装（#735 恢复原 Goose 重入）
+
+`workbench_stores` 存在本身不能区分保留库与首个 Goose 事务刚提交的新库。
+默认安装在完整当前 schema 之外，仅可按原 `goose_store_center_version` 的准确
+applied 前缀 `0, 2026092801` 继续当前尚未提交的元数据步骤；缺失、未知、回退或完整旧历史不作为该进度。
+后续步骤仍由原 Goose session locker / `RunTx` 执行，并在同一 pinned 事务中复用
+Store canonical 完整 schema 校验后，才提交原 `2026101101` 记录；漂移或旧核心失败时该步骤回滚。
+不重建已提交核心、不改原历史/业务行/权限、不加新迁移版本或恢复状态；完整旧 core A/B
+仍必须走上文显式维护入口。这是当前新系统原安装步骤的继续，不是 retained schema 的隐式升级或旧数据兼容。
+
 将 schema 简称为 A/B 仅用于说明，不持久化另一套状态机：A 是本次确认的两平台基线，除上表四项外全部满足既有 current core 合同；B 是四项均满足当前定义的完整 core。两者必须同时核实原 12 表、列类型/空值、PK/FK/索引、owner 和保留授权；不得只比较表数量或 Goose 版本。
 
 | schema / 新版本记录 | 行为 |

@@ -105,7 +105,7 @@ var tiktokSchemaConstraints = []struct{ table, name, definition string }{
 	{"workbench_store_tiktok_authorization_events", "tiktok_event_grant", "FOREIGN KEY (organization_id, grant_id, app_key) REFERENCES workbench_store_tiktok_oauth_grants(organization_id, id, app_key)"},
 }
 
-func verifyTikTokSchema(ctx context.Context, db *sql.DB) error {
+func verifyTikTokSchema(ctx context.Context, db coreSchemaQueryer) error {
 	for _, boundary := range tiktokSchemaConstraints {
 		var definition string
 		if err := db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=('public.'||$1)::regclass AND conname=$2 AND convalidated`, boundary.table, boundary.name).Scan(&definition); err != nil {

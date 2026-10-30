@@ -93,24 +93,8 @@ func AlignCoreContract(ctx context.Context, db *gorm.DB, confirmedDatabase strin
 }
 
 func verifyCoreAlignmentHistory(ctx context.Context, tx *sql.Tx) (bool, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT version_id,is_applied FROM public.goose_store_center_version ORDER BY id`)
+	versions, err := appliedStoreVersions(ctx, tx)
 	if err != nil {
-		return false, errors.New("original Store Goose history unavailable")
-	}
-	defer rows.Close()
-	var versions []int64
-	for rows.Next() {
-		var version int64
-		var applied bool
-		if err := rows.Scan(&version, &applied); err != nil {
-			return false, err
-		}
-		if !applied {
-			return false, errors.New("original Store Goose history differs")
-		}
-		versions = append(versions, version)
-	}
-	if err := rows.Err(); err != nil {
 		return false, err
 	}
 	if slices.Equal(versions, []int64{0, 2026092801, 2026101101}) {
@@ -120,4 +104,28 @@ func verifyCoreAlignmentHistory(ctx context.Context, tx *sql.Tx) (bool, error) {
 		return true, nil
 	}
 	return false, errors.New("original Store Goose history differs")
+}
+
+func appliedStoreVersions(ctx context.Context, tx *sql.Tx) ([]int64, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT version_id,is_applied FROM public.goose_store_center_version ORDER BY id`)
+	if err != nil {
+		return nil, errors.New("original Store Goose history unavailable")
+	}
+	defer rows.Close()
+	var versions []int64
+	for rows.Next() {
+		var version int64
+		var applied bool
+		if err := rows.Scan(&version, &applied); err != nil {
+			return nil, err
+		}
+		if !applied {
+			return nil, errors.New("original Store Goose history differs")
+		}
+		versions = append(versions, version)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return versions, nil
 }

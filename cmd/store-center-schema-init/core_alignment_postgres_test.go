@@ -282,6 +282,69 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		require.Error(t, alignCoreContract(f.config, f.name, storecenter.RuntimeCapabilities{}), "core maintenance cannot broaden into optional platform tables")
 	})
 
+	for _, test := range []struct {
+		name   string
+		drift  string
+		resume bool
+	}{
+		{"resume committed current core", "", true},
+		{"reject drifted core without committing metadata", "ALTER TABLE workbench_stores DROP CONSTRAINT store_walmart_market", false},
+		{"reject drifted platform without committing metadata", "ALTER TABLE workbench_store_walmart_oauth_grants DROP CONSTRAINT walmart_grant_identity", false},
+		{"reject unknown Goose history", "INSERT INTO goose_store_center_version(version_id,is_applied) VALUES(9999999999,true)", false},
+		{"reject missing Goose history", "DROP TABLE goose_store_center_version", false},
+	} {
+		t.Run("interrupted fresh installation/"+test.name, func(t *testing.T) {
+			f := newFixture(t)
+			// Recreate only this task-owned fixture, then let the original Goose
+			// owner commit the first migration before the installation stops.
+			require.NoError(t, f.owner.Exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public`).Error)
+			pool, err := f.owner.DB()
+			require.NoError(t, err)
+			firstStep, err := platformmigration.NewWithVersionTable(goose.DialectPostgres, pool, "public.goose_store_center_version",
+				goose.NewGoMigration(2026092801, &goose.GoFunc{RunTx: storecenter.InstallCoreSchemaTx}, nil))
+			require.NoError(t, err)
+			_, err = firstStep.Up(ctx)
+			require.NoError(t, err)
+			if test.drift != "" {
+				require.NoError(t, f.owner.Exec(test.drift).Error)
+			}
+			var beforeOID, afterOID int64
+			require.NoError(t, f.owner.Raw(`SELECT 'public.workbench_stores'::regclass::oid::bigint`).Scan(&beforeOID).Error)
+			var historyPresent bool
+			require.NoError(t, f.owner.Raw(`SELECT to_regclass('public.goose_store_center_version') IS NOT NULL`).Scan(&historyPresent).Error)
+			var beforeHistory, afterHistory string
+			const committedHistory = `SELECT jsonb_agg(to_jsonb(v) ORDER BY id)::text FROM goose_store_center_version v WHERE version_id IN (0,2026092801,9999999999)`
+			if historyPresent {
+				require.NoError(t, f.owner.Raw(committedHistory).Scan(&beforeHistory).Error)
+			}
+			err = storeschema.Migrate(ctx, f.owner)
+			if test.resume {
+				require.NoError(t, err, "normal installation must resume after its committed first migration")
+				require.NoError(t, storecenter.VerifyCurrentSchema(ctx, f.owner))
+				var versions []int64
+				require.NoError(t, f.owner.Raw(`SELECT version_id FROM goose_store_center_version ORDER BY id`).Scan(&versions).Error)
+				require.Equal(t, []int64{0, 2026092801, 2026101101, 2026101601}, versions)
+				installed := coreAlignmentFullSnapshot(t, f.owner)
+				require.NoError(t, storeschema.Migrate(ctx, f.owner))
+				require.Equal(t, installed, coreAlignmentFullSnapshot(t, f.owner), "completed re-entry must not rewrite facts or history")
+			} else {
+				require.Error(t, err)
+				var metadataAbsent bool
+				require.NoError(t, f.owner.Raw(`SELECT to_regclass('public.workbench_store_groups') IS NULL AND to_regclass('public.workbench_store_profiles') IS NULL AND to_regclass('public.workbench_store_metadata_operations') IS NULL`).Scan(&metadataAbsent).Error)
+				require.True(t, metadataAbsent, "rejected progress must not commit later schema")
+			}
+			require.NoError(t, f.owner.Raw(`SELECT 'public.workbench_stores'::regclass::oid::bigint`).Scan(&afterOID).Error)
+			require.Equal(t, beforeOID, afterOID, "the committed core must not be recreated")
+			if historyPresent {
+				require.NoError(t, f.owner.Raw(committedHistory).Scan(&afterHistory).Error)
+				require.Equal(t, beforeHistory, afterHistory, "original Goose rows must be retained")
+			} else {
+				require.NoError(t, f.owner.Raw(`SELECT to_regclass('public.goose_store_center_version') IS NOT NULL`).Scan(&historyPresent).Error)
+				require.False(t, historyPresent, "unreceipted tables must not bootstrap a new history")
+			}
+		})
+	}
+
 	t.Run("default fresh mode refuses retained core A and B", func(t *testing.T) {
 		f := newFixture(t)
 		for range 2 {
