@@ -16,14 +16,15 @@ import { TaskDetail } from "./task-detail";
 import { errorText, filters, taskState, reasonText, type TaskMode } from "./task-presentation";
 import {useNativeRuns} from "./use-native-runs";
 import {NativeRunDetail,NativeRunReadStatus} from "./native-run-view";
+import type {NativeRunDestinations} from "@/lib/agent-run-destination";
 import layout from "../task-center/task-center.module.css";
 import styles from "./task-browser.module.css";
 
 type Selection = { kind: "task" | "review" | "native"; id: string };
 type Row = Selection & { title: string; caption: string; summary: string; state?: string; label?:string; available: boolean };
 
-export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, productReviewAvailable, sheinRecordsAvailable, nativeRunsAvailable = false, initialProposalId }: {
-  scope: AIScope; authorizationKey: string; mode: TaskMode; tasksAvailable: boolean; productReviewAvailable: boolean; sheinRecordsAvailable: boolean; nativeRunsAvailable?:boolean; initialProposalId?: string;
+export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, productReviewAvailable, sheinRecordsAvailable, nativeRunsAvailable = false, nativeRunDestinations, initialProposalId }: {
+  scope: AIScope; authorizationKey: string; mode: TaskMode; tasksAvailable: boolean; productReviewAvailable: boolean; sheinRecordsAvailable: boolean; nativeRunsAvailable?:boolean; nativeRunDestinations?:NativeRunDestinations; initialProposalId?: string;
 }) {
   const context = useWorkbenchContext(), client = useQueryClient();
   const [selection, setSelection] = useState<Selection | undefined>(initialProposalId ? {kind:"review", id:initialProposalId} : undefined);
@@ -120,7 +121,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   if (selection?.kind === "task" && tasksAvailable) detail = <><TaskDetail key={selection.id} scope={scope} authorizationKey={authorizationKey} taskId={selection.id} embedded interactionLocked={reviewLocked} onLocked={setTaskLocked} onReviewReference={productReviewAvailable ? observeReview : undefined} />{productReviewAvailable && reviewRef ? renderReview(reviewRef) : null}</>;
   if (selection?.kind === "review" && productReviewAvailable) detail = renderReview(selection.id);
   const selectedNative=selection?.kind==="native"?native.items.find(item=>item.key===selection.id):undefined;
-  if(selectedNative)detail=<NativeRunDetail record={selectedNative} locked={locked}/>;
+  if(selectedNative)detail=<NativeRunDetail record={selectedNative} locked={locked} scope={scope} destinations={nativeRunDestinations}/>;
   return <ConsolePage title="任务中心" description="查看正在执行、等待确认和已经完成的业务任务。" breadcrumbs={findConsoleRoute(filters.find(item=>item.mode===mode)!.href)?.trail}
     actions={<>{<input className={styles.search} type="search" aria-label="搜索已加载记录" placeholder="搜索任务或商品" value={search} disabled={locked} onChange={event=>setSearch(event.target.value)} />}
       {canChat ? <Button asChild><Link href="/workbench/ai/chat/new" prefetch={false} aria-disabled={locked || undefined} tabIndex={locked ? -1 : undefined} onClick={event=>{if(locked)event.preventDefault();}}>向硕米发起任务</Link></Button> : null}</>}>

@@ -1,5 +1,5 @@
 "use client";
-import {nativeRunDestination} from "@/lib/agent-run-destination";
+import {nativeRunDestination,type NativeRunDestinations} from "@/lib/agent-run-destination";
 import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
 import { AgentMarket } from "./agent-market";
@@ -68,10 +68,12 @@ export function AgentPage({
   mode,
   id,
   podAvailable = false,
+  nativeRunDestinations,
 }: {
   mode: "market" | "mine";
   id?: string;
   podAvailable?: boolean;
+  nativeRunDestinations?:NativeRunDestinations;
 }) {
   const ctx = useWorkbenchContext();
   if (ctx.error || ctx.blockingError)
@@ -100,6 +102,7 @@ export function AgentPage({
       mode={mode}
       id={id}
       podAvailable={podAvailable}
+      nativeRunDestinations={nativeRunDestinations}
     />
   );
 }
@@ -109,12 +112,14 @@ function ScopedPage({
   mode,
   id,
   podAvailable = false,
+  nativeRunDestinations,
 }: {
   scope: ConfigurationScope;
   organization: string;
   mode: "market" | "mine";
   id?: string;
   podAvailable?: boolean;
+  nativeRunDestinations?:NativeRunDestinations;
 }) {
   const agentId = id ?? "product.title.agent";
   const [after, setAfter] = useState(""),
@@ -603,7 +608,7 @@ function ScopedPage({
             ) : recent.data?.items.length ? (
               <ul className={styles.recent}>
                 {recent.data.items.map((run) => {
-                  const destination=nativeRunDestination(scope,agentId,run.contextKind,run.operationId,run.requestKey,run.targetPlatform);
+                  const destination=nativeRunDestination(scope,agentId,run.contextKind,run.operationId,run.requestKey,run.targetPlatform,nativeRunDestinations);
                   return (
                   <li key={run.runId}>
                     <span>

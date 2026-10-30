@@ -1,3 +1,4 @@
+import {nativeRunDestinationAvailability} from "@/lib/server/native-run-destination-availability";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { AgentPage } from "@/components/workbench/agents/agent-page";
@@ -10,5 +11,5 @@ export default async function Page({
   await connection();
   const { agentId } = await params;
   if (!registeredAgentIdSchema.safeParse(agentId).success) notFound();
-  return <AgentPage mode="mine" id={agentId} podAvailable={process.env.LISTINGKIT_SDS_POD_ENABLED === "true" && process.env.LISTINGKIT_SUPPLY_MARKET_ENABLED === "true"} />;
+  return <AgentPage nativeRunDestinations={nativeRunDestinationAvailability()} mode="mine" id={agentId} podAvailable={process.env.LISTINGKIT_SDS_POD_ENABLED === "true" && process.env.LISTINGKIT_SUPPLY_MARKET_ENABLED === "true"} />;
 }

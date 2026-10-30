@@ -19,3 +19,9 @@ it.each([["false","true",false],["true","false",false],["true","true",true]])("b
 it("keeps arbitrary agent ids out of the registered configuration page", async () => {
   await expect(AgentDetailPage({ params: Promise.resolve({ agentId: "other.agent" }) })).rejects.toThrow("not found");
 });
+it("passes the actual destination flags to original agent history",async()=>{
+ vi.stubEnv("LISTINGKIT_PRODUCT_AGENT_ENABLED","true");vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","false");
+ vi.stubEnv("LISTINGKIT_PRODUCT_ACQUISITION_ENABLED","true");vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED","false");
+ const page=await AgentDetailPage({params:Promise.resolve({agentId:"product.content.agent"})});
+ expect(page.props.nativeRunDestinations).toEqual({ownProduct:false,acquisition:true,materials:false});
+});

@@ -26,7 +26,25 @@ it.each(["market","sds_template","amazon_data","collection","future_source"])("n
  expect(nativeRunDestination(scope,"product.content.agent",kind,id,id,"product")).toEqual({href:"/workbench/agents/mine/product.content.agent",direct:false});
 });
 it("preserves the exact own-product actor/org/request instead of converting its identity",()=>{
- const destination=nativeRunDestination(scope,"product.content.agent","own_product",id,id,"product");
+ const destination=nativeRunDestination(scope,"product.content.agent","own_product",id,id,"product",{ownProduct:true});
  const url=new URL(destination.href,"https://test.invalid");expect(url.pathname).toBe(`/workbench/data/mine/own/${id}/optimize`);
  expect(Object.fromEntries(url.searchParams)).toEqual({agent_actor:"actor",agent_org:"org",agent_key:id});
+});
+it.each([
+ ["product.content.agent","own_product","ownProduct"],
+ ["product.content.agent","acquisition","acquisition"],
+ ["product.title.agent","acquisition","acquisition"],
+ ["listing.materials.agent","listing-target-record","materials"],
+] as const)("requires the actual destination for %s / %s",(agent,kind,capability)=>{
+ const fallback={href:`/workbench/agents/mine/${agent}`,direct:false};
+ expect(nativeRunDestination(scope,agent,kind,id,id,"shein")).toEqual(fallback);
+ expect(nativeRunDestination(scope,agent,kind,id,id,"shein",{ownProduct:false,acquisition:false,materials:false})).toEqual(fallback);
+ expect(nativeRunDestination(scope,agent,kind,id,id,"shein",{ownProduct:true,acquisition:true,materials:true,[capability]:false})).toEqual(fallback);
+ const direct=nativeRunDestination(scope,agent,kind,id,id,"shein",{[capability]:true});
+ expect(direct.direct).toBe(true);
+ const url=new URL(direct.href,"https://test.invalid");
+ expect(url.pathname).toBe(capability==="ownProduct"?`/workbench/data/mine/own/${id}/optimize`:capability==="materials"?`/workbench/supply/materials/${id}`:`/workbench/supply/acquisition/operation/${id}`);
+ expect(url.searchParams.get("agent_actor")).toBe("actor");expect(url.searchParams.get("agent_org")).toBe("org");expect(url.searchParams.get("agent_key")).toBe(id);
+ if(capability==="acquisition"){expect(url.searchParams.get("agent_platform")).toBe("shein");expect(url.searchParams.get("agent_kind")).toBe(agent==="product.content.agent"?"content":null);}
+ expect(nativeRunDestination(scope,agent,kind,id,undefined,"shein",{[capability]:true})).toEqual(fallback);
 });
