@@ -4,15 +4,18 @@ import {Button} from "@/components/ui/button";
 import {configurationError} from "../agents/agent-configuration-hooks";
 import {nativeContextLabel,nativePlatformLabel,type NativeRunRecord} from "./native-run-records";
 import type {NativeRuns} from "./use-native-runs";
+import {nativeRunDestination,type NativeRunDestinations} from "@/lib/agent-run-destination";
+import type {ConfigurationScope} from "@/lib/api/agent-configuration";
 
-export function NativeRunDetail({record,locked}:{record:NativeRunRecord;locked:boolean}){
+export function NativeRunDetail({record,locked,scope,destinations}:{record:NativeRunRecord;locked:boolean;scope:ConfigurationScope;destinations?:NativeRunDestinations}){
+ const destination=nativeRunDestination(scope,record.agentId,record.contextKind,record.contextId,record.requestKey,record.targetPlatform,destinations);
  return <section className="space-y-4 p-4"><h3 className="font-semibold">{record.title}</h3><p>{record.label}</p>
   <dl className="space-y-2 break-words"><dt>业务上下文</dt><dd>{nativeContextLabel(record.contextKind)} · {record.contextId}</dd>
    {record.productKey?<><dt>商品</dt><dd>{record.productKey}</dd></>:null}<dt>目标范围</dt><dd>{nativePlatformLabel(record.targetPlatform)}</dd>
    <dt>发起时间</dt><dd>{new Date(record.at).toLocaleString()}</dd><dt>运行编号</dt><dd>{record.runId}</dd></dl>
   <p>这是原智能体的运行记录；建议是否采用、素材是否保存或商品是否发布，以原业务结果为准。</p>
-  {!record.direct?<p>该上下文暂无直达入口。可在原智能体历史中按运行编号核对；支持详情选择的历史可打开原记录，其余上下文暂不能重新打开。</p>:null}
-  <Button asChild variant="outline"><Link href={record.href} prefetch={false} aria-disabled={locked||undefined} tabIndex={locked?-1:undefined} onClick={event=>{if(locked)event.preventDefault();}}>打开原业务工作区</Link></Button>
+  {!destination.direct?<p>该上下文暂无直达入口。可在原智能体历史中按运行编号核对；支持详情选择的历史可打开原记录，其余上下文暂不能重新打开。</p>:null}
+  <Button asChild variant="outline"><Link href={destination.href} prefetch={false} aria-disabled={locked||undefined} tabIndex={locked?-1:undefined} onClick={event=>{if(locked)event.preventDefault();}}>打开原业务工作区</Link></Button>
  </section>;
 }
 export function NativeRunReadStatus({runs,locked}:{runs:NativeRuns;locked:boolean}){

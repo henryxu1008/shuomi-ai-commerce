@@ -14,7 +14,7 @@ function entry(id="product.content.agent",name="商品内容与本地化"){retur
 const content={runId,operationId:objectId,contextKind:"own_product",requestKey:key,productKey:"我的水杯",targetPlatform:"product",phase:"running",revision:"1",startedAt:time};
 const image={runId,contextKind:"supply",contextId:objectId,status:"completed",targetPlatform:"product",createdAt:time};
 let client:QueryClient;
-const tree=()=> <QueryClientProvider client={client}><BusinessTaskPage {...{nativeRunsAvailable:true}} /></QueryClientProvider>;
+const tree=(ownProduct=true)=> <QueryClientProvider client={client}><BusinessTaskPage {...{nativeRunsAvailable:true,nativeRunDestinations:{ownProduct}}} /></QueryClientProvider>;
 beforeEach(()=>{
  client=new QueryClient({defaultOptions:{queries:{retry:false}}});
  f.context={user:{id:"owner"},effectiveOrganization:{id:"org"},roles:[],permissions:["workbench.agent.read","workbench.agent.use","local_agent.write","listingkit.image_agent.read"],aiWorkbenchAvailable:false};
@@ -40,6 +40,17 @@ it("does not route an unrecognized source to acquisition",async()=>{
  render(tree());fireEvent.click(await screen.findByRole("button",{name:/商品内容与本地化.*我的水杯/}));
  expect(screen.getByRole("link",{name:"打开原业务工作区"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
  expect(screen.getByText(/该上下文暂无直达入口/)).toBeVisible();
+});
+it("keeps runs readable and withdraws a direct link when the destination becomes unavailable",async()=>{
+ const view=render(tree());fireEvent.click(await screen.findByRole("button",{name:/商品内容与本地化.*我的水杯/}));
+ expect(screen.getByRole("link",{name:"打开原业务工作区"})).toHaveAttribute("href",expect.stringContaining("/optimize?"));
+ const reads=f.request.mock.calls.length;
+ view.rerender(tree(false));
+ expect(screen.getByRole("link",{name:"打开原业务工作区"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
+ expect(screen.getByText(runId)).toBeVisible();
+ expect(screen.getByText(/该上下文暂无直达入口/)).toBeVisible();
+ expect(f.request).toHaveBeenCalledTimes(reads);
+ expect(f.tasks).not.toHaveBeenCalled();
 });
 it("keeps successful sources visible when another source fails",async()=>{
  const original=f.request.getMockImplementation()!;
