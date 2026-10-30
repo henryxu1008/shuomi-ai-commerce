@@ -24,6 +24,7 @@ Out of Scope：其它旧代码、当前 ImageAgent 准入/存储、任何身份�
 | 原依据 | 本批替代 | 仍保留 |
 | --- | --- | --- |
 | [#846 本地启动](legacy-local-acceptance-closure-retirement-boundary.md) §5 当前 UI launcher/tests、API base 和 secret 行为全保留 | 仅退出旧 Task API 两 env/参数与隐式 Kubernetes Secret 导入 | Next 启动、Service API、dotenv、Auth.js/handoff、isolated 模式、路径/端口/就绪/已验证进程清理 |
+| [#847 发布执行](legacy-kubernetes-release-execution-closure-retirement-boundary.md) ConfigMap/Ingress 及 §5 的全局同名配置合同 KEEP | 仅替代全局 `LISTINGKIT_API_BASE` 旧 Task API 输入的保留含义；当时只删旧 ConfigMap 两键不再阻止本批退出无消费者的全局旧输入 | `LISTINGKIT_SERVICE_API_BASE`、当前身份/构建、共享配置、全部其它 KEEP 原样；不修改或恢复旧发布声明 |
 | [#852 token 工具](legacy-api-token-tools-retirement-boundary.md)当前 UI launcher/tests KEEP | 同上；不撤回 Auth.js/native identity/Login V2 的正确 owner | token handoff、认证验证、现有显式凭据输入 |
 | [#885 SDS](legacy-sds-runtime-closure-retirement-boundary.md)只删 SDS env、其它 API base/启动保持 | 精确退出剩余两个 Task API env，不涉及当前 Service API | 原 SDS 禁入、身份/loopback/环境恢复断言 |
 | [#958 provider bootstrap](legacy-idle-provider-bootstrap-closure-retirement-boundary.md)配置测试仅改 fixture owner、断言保持 | 四个只验证旧上传配置的当前测试退出；两个 ArtifactStore 测试和一个 Admission 测试逐字保持 | 当前配置 fixture、现役六组配置校验和其它测试 |
@@ -69,7 +70,7 @@ Out of Scope：其它旧代码、当前 ImageAgent 准入/存储、任何身份�
 
 ## §5 完整修改／保留矩阵
 
-未来整批共 **29 路径**；本轮设计只修改其中新设计与两导航三文件。没有整包搬迁或新运行组件。
+未来整批共 **30 路径**；本轮设计只修改其中新设计与两导航三文件。没有整包搬迁或新运行组件。
 
 ### §5.1 配置、启动与样例（13 路径）
 
@@ -89,10 +90,10 @@ Out of Scope：其它旧代码、当前 ImageAgent 准入/存储、任何身份�
 | `deployments/docker/account-compose/docker-compose.yml` | 仅删 frontend environment 的 `LISTINGKIT_API_BASE` 一行；command、Service API、Secret volumes、依赖/健康检查零改 |
 | `tests/listingkit_backend_retirement_test.go` | §6.1 仅新增一个闭包 guard，原全部函数/断言不变 |
 
-### §5.2 文档与导航（16 路径）
+### §5.2 文档与导航（17 路径）
 
 - 当前两处错误操作说明直接只改所述地址为已有 `LISTINGKIT_SERVICE_API_BASE=<current-application origin>/api/v1`：`docs/operations/product-agent-trial.md`、`docs/operations/ai-workbench-chat-trial.md`。Auth.js、可用性、预算/付费准入和其余步骤保持，不新增流程。
-- 七份历史文档仅追加本批准确窄注记，原 blob 作完整后缀：`docs/architecture/legacy-local-acceptance-closure-retirement-boundary.md`、`legacy-api-token-tools-retirement-boundary.md`、`legacy-sds-runtime-closure-retirement-boundary.md`、`legacy-idle-provider-bootstrap-closure-retirement-boundary.md`、`legacy-shein-login-identity-sync-closure-retirement-boundary.md`、`legacy-remote-debug-image-closure-retirement-boundary.md`，及 `docs/refactoring/code-health-decisions.md`。只替代 §2 对象，不改旧数字、状态、检查表或历史结论。
+- 八份历史文档仅追加本批准确窄注记，原 blob 作完整后缀：`docs/architecture/legacy-local-acceptance-closure-retirement-boundary.md`、`legacy-kubernetes-release-execution-closure-retirement-boundary.md`、`legacy-api-token-tools-retirement-boundary.md`、`legacy-sds-runtime-closure-retirement-boundary.md`、`legacy-idle-provider-bootstrap-closure-retirement-boundary.md`、`legacy-shein-login-identity-sync-closure-retirement-boundary.md`、`legacy-remote-debug-image-closure-retirement-boundary.md`，及 `docs/refactoring/code-health-decisions.md`。只替代 §2 对象，不改旧数字、状态、检查表或历史结论。
 - 四份旧操作参考仅在顶部加准确历史注记并保留原 blob 后缀：`docs/development/listingkit-object-storage.md`、`docs/development/listingkit-local-debug.md`、`docs/development/listingkit-local-prod-db-replay.md`、`deployments/kubernetes/listingkit-workbench/README.md`。旧手工上传/API 示例不再是当前入口；不能把保留的 Service API/Auth.js/imgproxy 一起宣布退休。
 - 本设计 `docs/architecture/legacy-listingkit-input-config-closure-retirement-boundary.md`、`docs/architecture/README.md`、`docs/refactoring/legacy-register.md` 共三份维护当前导航/状态，导航旧 blob 完整保留。
 
