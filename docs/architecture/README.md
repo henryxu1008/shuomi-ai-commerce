@@ -1,3 +1,5 @@
+- [`legacy-remote-debug-image-closure-retirement-boundary.md`](legacy-remote-debug-image-closure-retirement-boundary.md)：#301 旧 SHEIN／ListingKit 远程联调与专属镜像链完整退休设计。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；未来30路径整批收齐四转发/监视脚本、专属镜像生产入口和测试/文档尾部。保留Chromium/Playwright安装、当前构建/能力与Store观察；§1–§7（含§4.2/§6.1）待独立复核和用户确认。当前仅三文档，workflow/inventory与既有资源不动，无新增试用前置，#301 OPEN。以下原索引/历史完整保留。
+
 > #301 / #1025 USER_CONFIRMED：[旧listing/task与OpenAI便利链完整边界](legacy-task-openai-convenience-closure-retirement-boundary.md)已获用户确认§1–§7（含§4.2/§6.1），同一#1025按49路径整批实施；当前record/ai最小合同承接有效行为，旧task/宽接口/便利方法/ptr退出。当前能力/JSON/hash/身份权限/事务/Store观察保留，原检查仅按精确矩阵转换；workflow/inventory/既有资源零改，无新增试用前置，#301 OPEN。源码自检/原CI/最终复核另记，合并另授；以下原索引/历史完整保留。
 
 - [`legacy-task-openai-convenience-closure-retirement-boundary.md`](legacy-task-openai-convenience-closure-retirement-boundary.md)：#301 旧 listing/task 与 OpenAI 便利链完整退休设计；两组49路径同批，先抽当前最小 owner/规则，保留 JSON/hash/当前能力与 Store 观察。当前 DESIGN_ONLY / SOURCE_NOT_STARTED，用户确认后再实施。
