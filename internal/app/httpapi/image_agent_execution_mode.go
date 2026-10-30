@@ -13,8 +13,9 @@ import (
 
 type modeBoundImageContexts struct {
 	imageagent.ImageSetContextReader
-	source        imageagent.ImageSetSourceGuard
-	configuration *configstore.Store
+	source               imageagent.ImageSetSourceGuard
+	configuration        *configstore.Store
+	artworkConfiguration agentconfig.ArtworkConfigurationRepository
 }
 
 func (c modeBoundImageContexts) RevalidateImageSet(ctx context.Context, identity imageagent.ExecutionIdentity, p imageagent.RunProjection) error {
@@ -36,18 +37,18 @@ func (c modeBoundImageContexts) AuthorizeImageSetSource(ctx context.Context, ide
 }
 
 func (c modeBoundImageContexts) AuthorizeArtworkExecution(ctx context.Context, identity imageagent.ExecutionIdentity, p imageagent.RunProjection) error {
-	if c.configuration == nil || p.Plan.Artwork == nil || p.Run.ID != identity.RunID || p.Run.TenantID != identity.TenantID || p.Run.UserID != identity.UserID || p.Run.MemberID != identity.MemberID || imageagent.ValidateArtworkAdmission(p.Run, p.Plan) != nil {
+	if c.artworkConfiguration == nil || p.Plan.Artwork == nil || p.Run.ID != identity.RunID || p.Run.TenantID != identity.TenantID || p.Run.UserID != identity.UserID || p.Run.MemberID != identity.MemberID || imageagent.ValidateArtworkAdmission(p.Run, p.Plan) != nil {
 		return imageagent.ErrCommandBlocked
 	}
 	a := p.Plan.Artwork
-	snapshot, err := c.configuration.LoadArtworkConfiguration(ctx, agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, a.Configuration)
+	snapshot, err := c.artworkConfiguration.LoadArtworkConfiguration(ctx, agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, a.Configuration)
 	if err != nil {
 		return err
 	}
 	if snapshot.RunID != p.Run.ID || snapshot.ContextID != p.Run.BusinessTaskID || snapshot.MemberID != identity.MemberID || snapshot.InputDigest != a.InputDigest || snapshot.ParametersDigest != a.ParametersDigest || snapshot.Epoch != a.ConfigurationEpoch || snapshot.ModeSnapshotRef != a.ModeSnapshotRef {
 		return imageagent.ErrRevisionConflict
 	}
-	mode, err := c.configuration.CheckArtworkExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.MemberID}, a.Configuration, a.ModeSnapshotRef)
+	mode, err := c.artworkConfiguration.CheckArtworkExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.MemberID}, a.Configuration, a.ModeSnapshotRef)
 	if err != nil {
 		return err
 	}

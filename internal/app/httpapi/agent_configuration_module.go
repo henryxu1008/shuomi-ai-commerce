@@ -161,36 +161,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			return capabilities
 		}
 		if entry.Definition.ID == agentconfig.ImageAgentID || entry.Definition.ID == agentconfig.ArtworkAgentID {
-			capabilities := productImageAgentCapabilities(ctx, h.Authorize)
-			if entry.Definition.ID == agentconfig.ArtworkAgentID {
-				capabilities[1].Support = "NOT_SUPPORTED"
-				capabilities[1].Readiness = "UNAVAILABLE"
-				capabilities[1].Reason = "从主题创作全新图案，无需商品原图"
-			}
-			if imageRuntime != nil && (entry.Definition.ID != agentconfig.ArtworkAgentID || imageRuntime.artwork != nil) {
-				capability := &capabilities[0]
-				id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-				_, authorization := h.Authorize(ctx, authz.PermissionImageAgentWrite)
-				if !ok || authorization != nil {
-					capability.Readiness = "REQUIRES_AUTHORIZATION"
-					capability.Reason = "需要当前企业图片生成权限"
-				} else if !imageRuntime.gate.AllowTenantStart(ctx, id.TenantID) {
-					capability.Reason = "当前企业尚未开放图片生成"
-				} else {
-					_, err := imageRuntime.quotes.ReadImageGenerationQuote(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.EffectiveMemberID}, nil)
-					if err == nil {
-						capability.Readiness = "AVAILABLE"
-						capability.Reason = "可准备整套计划，确认点数后生成"
-						if entry.Definition.ID == agentconfig.ArtworkAgentID {
-							capability.Reason = "可输入主题准备原创图案报价，确认后生成"
-						}
-					} else {
-						capability.Readiness = "NEEDS_CONFIGURATION"
-						capability.Reason = "需要有效的企业图片模型配置与凭据"
-					}
-				}
-			}
-			return capabilities
+			return configuredImageAgentCapabilities(ctx, entry.Definition.ID, h.Authorize, imageRuntime)
 		}
 		return productAgentCapabilities(ctx, resolver, h.Authorize, k, runtime)
 	}
