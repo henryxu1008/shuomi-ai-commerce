@@ -9,7 +9,7 @@
 - 基线：`bd2640ffb15baa29bea9639a5796fb3527403354`；用户 2026-10-30 的三组整批设计授权；接单记录见 [#301](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301#issuecomment-6512801376)。同一分支、一个 Writer、一个主要 PR；#1006 的成员角色交付不在本批。
 - 本轮交付仅本文件、架构索引与 Legacy Register。§5 是未来实施的完整清单，不是本轮修改生产代码的授权。
 
-**Must**：保留当前采集、图像、身份权限、Store 观察同步；旧身份限制不得静默消失而放行请求；保持当前 JSON/hash/版本与投影原子性。**Out of Scope**：workflow/inventory/保护规则/依赖变更，真实环境核对、实例/数据/凭据/进程操作、Dub 调用或外部清理、上线/运行验收、关单。无新增 Accepted Risk；不增加内部试用前置，#301 保持 OPEN。不恢复已经退休的独立 SHEIN 登录或身份回写 worker。
+**Must**：保留当前采集、图像、身份权限、Store 观察同步；旧身份限制输入不得静默失效，保持现有权限拒绝；保持当前 JSON/hash/版本与投影原子性。**Out of Scope**：workflow/inventory/保护规则/依赖变更，真实环境核对、实例/数据/凭据/进程操作、Dub 调用或外部清理、上线/运行验收、关单。无新增 Accepted Risk；不增加内部试用前置，#301 保持 OPEN。不恢复已经退休的独立 SHEIN 登录或身份回写 worker。
 
 ## §2 依据与前批 KEEP 的准确替代
 
@@ -59,11 +59,11 @@
 根因有两处，不能只删表：
 
 1. 仓库锁定 Viper v1.16.0 的 `find → getEnv` 会先尝试 `AutomaticEnv`，再查 `BindEnv`。点号替换会重新得到上表三个图片客户端紧凑旧名；它们必须在自动入口也退出。
-2. `loader_builder.go::legacyListingKitUsernameAllowlistConfigured` 仍从 `Deprecated` 表枚举被禁用的 username 限制。直接删表会漏掉原拒绝输入。另三项旧 allowlist 若被静默忽略，当前 middleware 的“全部限制为空”语义可能放行，因此必须明确拒绝，而不是改权限算法。
+2. `loader_builder.go::legacyListingKitUsernameAllowlistConfigured` 仍从 `Deprecated` 表枚举被禁用的 username 限制。直接删表会漏掉原拒绝输入。另三项旧 allowlist 若被静默忽略，会改变操作者配置的生效/拒绝结果。当前 middleware 在 Required=true 时明确拒绝全空 allowlist，Required=false 时原本不执行该检查，不存在本批修补“全空放行”的依据；新增 name-only 拒绝是待用户确认的 hard-cut 配置合同，用于避免旧输入静默失效，不改变权限算法。
 
 ### §3.2 单项投影命令
 
-当前 `ActivitiesOptions.Repository → Activities.repository` 注入 `imageagent.Repository`。`activities_persistence.go::PersistSlotResultV3` 与 `activities_recovery_v3.go::reconcileEffectRecoveryProjection` 是旧指针的两个生产构造者；`PersistRunState` 已使用数组。Repository 两个实现共用验证，再分别提交 Memory 备份/回滚和 GORM 事务。
+当前 `ActivityDependencies.Repository → Activities.repository` 注入 `imageagent.Repository`。`activities_persistence.go::PersistSlotResultV3` 与 `activities_recovery_v3.go::reconcileEffectRecoveryProjection` 是旧指针的两个生产构造者；`PersistRunState` 已使用数组。Repository 两个实现共用验证，再分别提交 Memory 备份/回滚和 GORM 事务。
 
 `orderedSlotProjectionMutations` 的三个调用点是 `applyMemoryProjectionMutation`、`validateProjectionMutation`、`applyGormProjectionMutation`；helper 同时拒绝双字段并把指针包装成数组。整闭包是一个命令字段、一个 helper、三个读取点、两个生产构造点和 §6.1 的四份测试 fixture，不能只删字段或另留 wrapper。
 
@@ -179,7 +179,7 @@
 
 ## §7 独立复核、停止点与授权
 
-适用独立 Architecture Review 只核对本三组完整闭包、§4.2 合同取舍、真实消费者/owner、JSON/hash/事务和 §6.1。当前 `REVIEW_PENDING`，作者自检不是独立结论。Finding 先按 AGENTS.md 分类；最多两轮正常架构评审，真实 Must 未满足不转成 PASS。适用复核通过且用户确认 §1–§7 后，才把本批标为 `IMPLEMENTATION_READY` 并在同一主要 PR 实施。
+适用独立 Architecture Review 只核对本三组完整闭包、§4.2 合同取舍、真实消费者/owner、JSON/hash/事务和 §6.1。独立结论及准确审核 SHA 记录于同一 PR，作者自检不是独立结论；用户确认前保持 `NOT_READY`。Finding 先按 AGENTS.md 分类；最多两轮正常架构评审，真实 Must 未满足不转成 PASS。适用复核通过且用户确认 §1–§7 后，才把本批标为 `IMPLEMENTATION_READY` 并在同一主要 PR 实施。
 
 未经用户本轮授权不默认新增 AI 互验线程；GitHub 适用复核无法给出结论时，先说明具体失败，再请求一次有界只读设计复核。设计授权与源码最终交付复核授权分开，不把前批授权沿用到本批，不重复触发已运行的同 SHA 复核。
 
