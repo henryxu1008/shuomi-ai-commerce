@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
@@ -77,7 +76,7 @@ func testStandaloneSourceMediaStorage(t *testing.T, trial bool) {
 	if trial {
 		base = "https://localhost:39744/source-media-assets/source-products"
 	}
-	storage, e := NewSourceMediaStorage(config.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: base, S3: config.ImageAgentArtifactStoreS3Config{Region: "us-east-1", Bucket: "source-products", Endpoint: server.URL, AccessKeyID: "synthetic", SecretAccessKey: "synthetic", UsePathStyle: true, ArtifactMode: "aws"}}, logrus.New(), trial)
+	storage, e := NewSourceMediaStorage(config.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: base, S3: config.ImageAgentArtifactStoreS3Config{Region: "us-east-1", Bucket: "source-products", Endpoint: server.URL, AccessKeyID: "synthetic", SecretAccessKey: "synthetic", UsePathStyle: true, ArtifactMode: "aws"}}, trial)
 	require.NoError(t, e)
 	var b bytes.Buffer
 	require.NoError(t, png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 2, 2))))

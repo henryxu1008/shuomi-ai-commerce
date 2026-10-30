@@ -332,7 +332,6 @@ func productionProviderLoggerRules() []providerLoggerRule {
 		{PackagePath: openAIPath, ConstructorName: "NewCachedClient", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
 		{PackagePath: openAIPath, ConstructorName: "NewResilientClient", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
 		{PackagePath: "task-processor/internal/integration/grsai", ConstructorName: "NewClient", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
-		{PackagePath: "task-processor/internal/integration/s3", ConstructorName: "NewUploaderWithOptions", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 1},
 	}
 }
 

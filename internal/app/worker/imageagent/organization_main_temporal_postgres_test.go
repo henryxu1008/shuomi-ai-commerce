@@ -62,7 +62,7 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 		BuildOrganizationAuthorizer: func(*config.Config) (imageagent.ExecutionAuthorizer, error) {
 			return admissionExactAuthorizer{}, nil
 		},
-		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming, *logrus.Logger) (imagetemporal.DurableArtifactStore, error) {
+		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imagetemporal.DurableArtifactStore, error) {
 			return stubWorkerArtifactStore{}, nil
 		},
 	}

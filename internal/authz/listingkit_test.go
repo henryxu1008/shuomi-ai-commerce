@@ -83,15 +83,22 @@ func TestListingKitAuthorizerRestrictsPromptWritesToTenantAndPlatformAdmins(t *t
 
 	require.False(t, authorizer.Authorize("", []string{"listingkit_viewer"}, "listingkit.prompt.write"))
 	require.False(t, authorizer.Authorize("", []string{"listingkit_operator"}, "listingkit.prompt.write"))
-	require.True(t, authorizer.Authorize("", []string{"listingkit_admin"}, "listingkit.prompt.write"))
-	require.True(t, authorizer.Authorize("", []string{"platform_admin"}, "listingkit.prompt.write"))
+	require.False(t, authorizer.Authorize("", []string{"listingkit_admin"}, "listingkit.prompt.write"))
+	require.False(t, authorizer.Authorize("", []string{"platform_admin"}, "listingkit.prompt.write"))
+	require.False(t, authorizer.Authorize("", []string{"admin"}, "listingkit.prompt.write"))
+	configured, err := NewListingKitAuthorizer([]string{"configured-user"}, []string{"configured-role"})
+	require.NoError(t, err)
+	require.False(t, configured.Authorize("configured-user", nil, "listingkit.prompt.write"))
+	require.False(t, configured.Authorize("", []string{"configured-role"}, "listingkit.prompt.write"))
 }
 
 func TestIsListingKitTenantAdminIncludesTenantAndPlatformAdmins(t *testing.T) {
-	require.True(t, IsListingKitTenantAdmin("", []string{"listingkit_admin"}))
-	require.True(t, IsListingKitTenantAdmin("", []string{"platform_admin"}))
-	require.True(t, IsListingKitTenantAdmin("", []string{"admin"}))
-	require.False(t, IsListingKitTenantAdmin("", []string{"listingkit_operator"}))
+	authorizer, err := NewListingKitAuthorizer(nil, nil)
+	require.NoError(t, err)
+	require.True(t, authorizer.IsTenantAdmin("", []string{"listingkit_admin"}))
+	require.True(t, authorizer.IsTenantAdmin("", []string{"platform_admin"}))
+	require.True(t, authorizer.IsTenantAdmin("", []string{"admin"}))
+	require.False(t, authorizer.IsTenantAdmin("", []string{"listingkit_operator"}))
 }
 
 func TestListingKitAuthorizerEnforcesScopedStorePermissionMatrix(t *testing.T) {

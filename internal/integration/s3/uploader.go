@@ -9,11 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -31,7 +29,6 @@ type Uploader struct {
 	endpoint             string
 	usePathStyle         bool
 	artifactCapabilities ArtifactStorageCapabilities
-	logger               Logger
 }
 
 // S3ObjectAPI is the narrow AWS SDK v2 request boundary used by Uploader.
@@ -40,7 +37,6 @@ type S3ObjectAPI interface {
 	HeadObject(context.Context, *s3.HeadObjectInput, ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
 	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 	CopyObject(context.Context, *s3.CopyObjectInput, ...func(*s3.Options)) (*s3.CopyObjectOutput, error)
-	DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
 }
 
 type ObjectInspection struct {
@@ -86,7 +82,6 @@ type UploaderOptions struct {
 	Endpoint             string
 	UsePathStyle         bool
 	ArtifactCapabilities ArtifactStorageCapabilities
-	Logger               Logger `json:"-"`
 }
 
 // NewUploaderWithOptions constructs the sole uploader implementation. The
@@ -106,7 +101,6 @@ func NewUploaderWithOptions(s3Client S3ObjectAPI, opts UploaderOptions) (*Upload
 		endpoint:             opts.Endpoint,
 		usePathStyle:         opts.UsePathStyle,
 		artifactCapabilities: opts.ArtifactCapabilities,
-		logger:               loggerOrNoop(opts.Logger),
 	}, nil
 }
 
@@ -283,206 +277,10 @@ func (u *Uploader) CopyImmutable(ctx context.Context, object ImmutableObjectCopy
 	return nil
 }
 
-// Upload 上传图片到S3
-func (u *Uploader) Upload(
-	ctx context.Context,
-	key string,
-	data []byte,
-	contentType string,
-) (string, error) {
-	u.logger.Info("开始上传到S3", map[string]any{
-		"bucket":       u.bucket,
-		"key":          key,
-		"size":         len(data),
-		"content_type": contentType,
-	})
-
-	input := &s3.PutObjectInput{
-		Bucket:      aws.String(u.bucket),
-		Key:         aws.String(key),
-		Body:        bytes.NewReader(data),
-		ContentType: aws.String(contentType),
-	}
-
-	_, err := u.s3Client.PutObject(ctx, input)
-	if err != nil {
-		return "", fmt.Errorf("上传到S3失败: %w", err)
-	}
-
-	url := u.resolveObjectURL(key)
-	u.logger.Info("S3上传成功", map[string]any{
-		"object_key": key,
-		"url":        url,
-	})
-
-	return url, nil
-}
-
 // PublicURL returns the externally reachable URL for an object key using the
-// same public-base and endpoint rules as Upload.
+// configured public-base and endpoint rules.
 func (u *Uploader) PublicURL(key string) string {
 	return u.resolveObjectURL(key)
-}
-
-// UploadMultiple 批量上传图片
-func (u *Uploader) UploadMultiple(
-	ctx context.Context,
-	prefix string,
-	images [][]byte,
-) ([]string, error) {
-	if len(images) == 0 {
-		return nil, fmt.Errorf("S3 image batch cannot be empty")
-	}
-	u.logger.Info("开始批量上传到S3", map[string]any{
-		"prefix": prefix,
-		"count":  len(images),
-	})
-
-	urls := make([]string, 0, len(images))
-	var errors []error
-
-	for i, imageData := range images {
-		// 生成唯一的key
-		key := u.generateKey(prefix, i)
-
-		// 检测内容类型
-		contentType := u.detectContentType(imageData)
-
-		url, err := u.Upload(ctx, key, imageData, contentType)
-		if err != nil {
-			u.logger.Warn("上传图片失败", map[string]any{"error": err, "index": i + 1, "total_count": len(images)})
-			errors = append(errors, err)
-			continue
-		}
-
-		urls = append(urls, url)
-	}
-
-	if len(urls) == 0 {
-		return nil, fmt.Errorf("所有图片上传失败，第一个错误: %w", errors[0])
-	}
-
-	u.logger.Info("批量S3上传完成", map[string]any{
-		"success_count": len(urls),
-		"total_count":   len(images),
-		"error_count":   len(errors),
-	})
-
-	return urls, nil
-}
-
-// UploadWithMetadata 上传带元数据的文件
-func (u *Uploader) UploadWithMetadata(
-	ctx context.Context,
-	key string,
-	data []byte,
-	contentType string,
-	metadata map[string]string,
-) (string, error) {
-	u.logger.Info("开始上传带元数据的文件到S3", map[string]any{
-		"bucket":       u.bucket,
-		"key":          key,
-		"size":         len(data),
-		"content_type": contentType,
-		"metadata":     metadata,
-	})
-
-	input := &s3.PutObjectInput{
-		Bucket:      aws.String(u.bucket),
-		Key:         aws.String(key),
-		Body:        bytes.NewReader(data),
-		ContentType: aws.String(contentType),
-		Metadata:    metadata,
-	}
-
-	_, err := u.s3Client.PutObject(ctx, input)
-	if err != nil {
-		return "", fmt.Errorf("上传到S3失败: %w", err)
-	}
-
-	url := u.resolveObjectURL(key)
-	u.logger.Info("带元数据的S3上传成功", map[string]any{
-		"object_key": key,
-		"url":        url,
-	})
-
-	return url, nil
-}
-
-// Delete 删除S3对象
-func (u *Uploader) Delete(ctx context.Context, key string) error {
-	u.logger.Info("删除S3对象", map[string]any{
-		"bucket": u.bucket,
-		"key":    key,
-	})
-
-	input := &s3.DeleteObjectInput{
-		Bucket: aws.String(u.bucket),
-		Key:    aws.String(key),
-	}
-
-	_, err := u.s3Client.DeleteObject(ctx, input)
-	if err != nil {
-		return fmt.Errorf("删除S3对象失败: %w", err)
-	}
-
-	u.logger.Info("S3对象删除成功", nil)
-	return nil
-}
-
-// Exists 检查S3对象是否存在
-func (u *Uploader) Exists(ctx context.Context, key string) (bool, error) {
-	_, err := u.s3Client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(u.bucket), Key: aws.String(key)})
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
-}
-
-// generateKey 生成S3 key
-func (u *Uploader) generateKey(prefix string, index int) string {
-	timestamp := time.Now().Unix()
-	filename := fmt.Sprintf("image_%d_%d.jpg", timestamp, index)
-	return filepath.Join(prefix, filename)
-}
-
-// GenerateUniqueKey 生成唯一的S3 key
-func (u *Uploader) GenerateUniqueKey(prefix, filename string) string {
-	timestamp := time.Now().Unix()
-	ext := filepath.Ext(filename)
-	name := filename[:len(filename)-len(ext)]
-	uniqueFilename := fmt.Sprintf("%s_%d%s", name, timestamp, ext)
-	return filepath.Join(prefix, uniqueFilename)
-}
-
-// detectContentType 检测内容类型
-func (u *Uploader) detectContentType(data []byte) string {
-	if len(data) < 12 {
-		return "image/jpeg"
-	}
-
-	// 检测PNG
-	if len(data) >= 8 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47 {
-		return "image/png"
-	}
-
-	// 检测JPEG
-	if len(data) >= 2 && data[0] == 0xFF && data[1] == 0xD8 {
-		return "image/jpeg"
-	}
-
-	// 检测GIF
-	if len(data) >= 6 && data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 {
-		return "image/gif"
-	}
-
-	// 检测WebP
-	if len(data) >= 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP" {
-		return "image/webp"
-	}
-
-	// 默认JPEG
-	return "image/jpeg"
 }
 
 func (u *Uploader) resolveObjectURL(key string) string {

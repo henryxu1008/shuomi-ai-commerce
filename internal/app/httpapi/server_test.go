@@ -965,6 +965,54 @@ func newRouteAuthorizationIssuer(t *testing.T, acceptedToken, role string) *http
 	return issuer
 }
 
+func TestCurrentExplicitAuthenticationDoesNotDependOnLegacyModuleNames(t *testing.T) {
+	for _, module := range []string{"", "listing-kit-admin", "arbitrary-current"} {
+		for _, policy := range []httproute.AuthPolicy{httproute.AuthPolicyVerifiedIdentity, httproute.AuthPolicyCurrentIdentity, httproute.AuthPolicyCurrentIdentityWithVerifiedRoles} {
+			for _, authenticated := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/authenticated=%t", module, policy, authenticated), func(t *testing.T) {
+					calls := 0
+					router := gin.New()
+					mountRoutesWithAuthDependencies(router, []httproute.Descriptor{{
+						Method: http.MethodGet, Path: "/current", Module: module, AuthPolicy: policy,
+						Handler: func(c *gin.Context) {
+							calls++
+							identity, ok := authidentity.AuthenticatedIdentityFromContext(c.Request.Context())
+							require.True(t, ok)
+							require.Equal(t, "subject-1", identity.UserID)
+							if policy == httproute.AuthPolicyCurrentIdentity {
+								require.Empty(t, identity.Roles)
+							} else {
+								require.Equal(t, []string{"listingkit_viewer"}, identity.Roles)
+							}
+							c.Status(http.StatusNoContent)
+						},
+					}}, routeAuthDependencies{workbenchVerifier: mountedVerifierStub{identity: authidentity.AuthenticatedIdentity{UserID: "subject-1", Roles: []string{"listingkit_viewer"}}}})
+					request := httptest.NewRequest(http.MethodGet, "/current", nil)
+					if authenticated {
+						request.Header.Set("Authorization", "Bearer current-token")
+					}
+					response := httptest.NewRecorder()
+					router.ServeHTTP(response, request)
+					if authenticated {
+						require.Equal(t, http.StatusNoContent, response.Code, response.Body.String())
+						require.Equal(t, 1, calls)
+					} else {
+						require.Equal(t, http.StatusUnauthorized, response.Code, response.Body.String())
+						require.Zero(t, calls)
+					}
+				})
+			}
+		}
+	}
+	for _, module := range []string{"image-agent", "listing-kit-prompts", "listing-kit-zitadel-sms-webhook"} {
+		router := gin.New()
+		mountRoutesWithAuthDependencies(router, []httproute.Descriptor{{Method: http.MethodPost, Path: "/current-public", Module: module, AuthPolicy: httproute.AuthPolicyPublic, Handler: func(c *gin.Context) { c.Status(http.StatusNoContent) }}}, routeAuthDependencies{})
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/current-public", nil))
+		require.Equal(t, http.StatusNoContent, response.Code, module)
+	}
+}
+
 func TestCurrentSMSWebhookDoesNotRelaxProtectedImageRoutes(t *testing.T) {
 	webhookCalled := false
 	listingKitCalled := false

@@ -1,7 +1,6 @@
 package currentapplication
 
 import (
-	"github.com/sirupsen/logrus"
 	"net/url"
 	"strings"
 	"task-processor/internal/app/productsourcing"
@@ -37,13 +36,13 @@ func ValidateSourceMediaStorage(c config.ImageAgentArtifactStoreConfig, isolated
 	}
 	return nil
 }
-func NewSourceMediaStorage(c config.ImageAgentArtifactStoreConfig, logger *logrus.Logger, isolatedTrial bool) (productsourcing.SourceMediaStorage, error) {
-	if err := ValidateSourceMediaStorage(c, isolatedTrial); err != nil || logger == nil {
+func NewSourceMediaStorage(c config.ImageAgentArtifactStoreConfig, isolatedTrial bool) (productsourcing.SourceMediaStorage, error) {
+	if err := ValidateSourceMediaStorage(c, isolatedTrial); err != nil {
 		return nil, collection.ErrUnavailable
 	}
 	client, err := s3integration.NewClient(s3integration.ClientConfig{Region: c.S3.Region, Endpoint: c.S3.Endpoint, AccessKeyID: c.S3.AccessKeyID, SecretAccessKey: c.S3.SecretAccessKey, UsePathStyle: c.S3.UsePathStyle})
 	if err != nil {
 		return nil, err
 	}
-	return s3integration.NewUploaderWithOptions(client, s3integration.UploaderOptions{Logger: s3integration.AdaptLogrus(logger.WithField("component", "product-source-media")), Bucket: c.S3.Bucket, PublicBase: c.PublicBase, Endpoint: c.S3.Endpoint, UsePathStyle: c.S3.UsePathStyle, ArtifactCapabilities: s3integration.ArtifactStorageCapabilities{Mode: s3integration.ArtifactStorageMode(c.S3.ArtifactMode), COSImmutableNonVersionedBucketPolicy: c.S3.COSImmutableNonVersionedBucketPolicy}})
+	return s3integration.NewUploaderWithOptions(client, s3integration.UploaderOptions{Bucket: c.S3.Bucket, PublicBase: c.PublicBase, Endpoint: c.S3.Endpoint, UsePathStyle: c.S3.UsePathStyle, ArtifactCapabilities: s3integration.ArtifactStorageCapabilities{Mode: s3integration.ArtifactStorageMode(c.S3.ArtifactMode), COSImmutableNonVersionedBucketPolicy: c.S3.COSImmutableNonVersionedBucketPolicy}})
 }

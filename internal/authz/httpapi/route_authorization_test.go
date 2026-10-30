@@ -15,7 +15,7 @@ import (
 
 func TestRoutePolicyPreservesVerifiedIdentityAndExplicitPublicAuthority(t *testing.T) {
 	for _, route := range []httproute.Descriptor{
-		{Method: http.MethodPost, Path: "/api/v1/image-agent/runs", Module: "image-agent"},
+		{Method: http.MethodPost, Path: "/api/v1/image-agent/runs", Module: "image-agent", AuthPolicy: httproute.AuthPolicyVerifiedIdentity},
 		{Method: http.MethodGet, Path: "/api/v1/current", AuthPolicy: httproute.AuthPolicyVerifiedIdentity},
 	} {
 		if !RouteRequiresZitadelAuth(route) {
@@ -58,5 +58,37 @@ func TestRoleMiddlewareUsesVerifiedContextAndOriginalPermissionPolicy(t *testing
 				t.Fatalf("status=%d want=%d body=%s", response.Code, test.want, response.Body.String())
 			}
 		})
+	}
+}
+
+func TestRoutePolicyDoesNotInferAuthorityFromRetiredModulesOrPaths(t *testing.T) {
+	for _, module := range []string{"listing-kit", "listing-kit-admin", "listing-kit-platform-admin", "listing-kit-prompts", "shein-login", "product-sourcing", "local-agent", "crawler-1688", "image-agent", "images", "listing-kit-zitadel-sms-webhook"} {
+		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch} {
+			route := httproute.Descriptor{Method: method, Path: "/current", Module: module}
+			if RouteRequiresZitadelAuth(route) {
+				t.Errorf("retired module %q/%s must not infer authentication", module, method)
+			}
+			if permission := routeRequiredPermission(route); permission != "" {
+				t.Errorf("retired module %q/%s inferred permission %q", module, method, permission)
+			}
+			route.Permission = "  " + authz.PermissionListingKitAdminRead + "  "
+			if permission := routeRequiredPermission(route); permission != authz.PermissionListingKitAdminRead {
+				t.Errorf("explicit permission lost for %q/%s: %q", module, method, permission)
+			}
+			route.AuthPolicy = httproute.AuthPolicyVerifiedIdentity
+			if !RouteRequiresZitadelAuth(route) {
+				t.Errorf("explicit verified identity lost for %q/%s", module, method)
+			}
+			route.AuthPolicy = httproute.AuthPolicyPublic
+			if RouteRequiresZitadelAuth(route) {
+				t.Errorf("explicit public policy lost for %q/%s", module, method)
+			}
+		}
+	}
+	for _, path := range []string{"/api/v1/shein-login/health", "/api/v1/listing-kits/integrations/zitadel/sms"} {
+		route := httproute.Descriptor{Method: http.MethodGet, Path: path, AuthPolicy: httproute.AuthPolicyVerifiedIdentity}
+		if !RouteRequiresZitadelAuth(route) {
+			t.Errorf("old path %q must not override the explicit verified identity", path)
+		}
 	}
 }
