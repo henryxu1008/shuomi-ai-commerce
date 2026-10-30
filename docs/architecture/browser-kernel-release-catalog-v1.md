@@ -1,6 +1,6 @@
 # 平台浏览器内核发行目录 V1
 
-2026-10-30。Issue #1013。Status: **IMPLEMENTATION_READY**。首轮独立检查绑定 c73b22421ac51c3601a19567c64a5be3f27446f1，无架构 BLOCKER；本次增量明确桌面下载合同，须同一 Reviewer 确认后开始正式代码。
+2026-10-30。Issue #1013。Status: **IMPLEMENTATION_READY**。首轮独立检查绑定 c73b22421ac51c3601a19567c64a5be3f27446f1；同一 Reviewer 对跨端增量 3c9e47d328038cc917f8009af156662651341108 和桌面依据 eee5f60e30a30abf15aa03a282c3e98e4b82ea80 确认保持准入，无架构 BLOCKER。正式实现晚于这两次检查；分页/版本校验在实施层验证。
 
 ## 产品依据、范围与 owner
 

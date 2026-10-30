@@ -186,6 +186,9 @@ jobs:
       - name: Verify startup schema cancellation and request context isolation
         run: go test -race -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationStartupSchemaContextPostgres$' -count=1 -v
 
+      - name: Verify immutable browser kernel catalog and serving authority
+        run: go test -race -tags integration ./internal/integration/persistence/browserkernel ./internal/app/httpapi -run '^(TestKernelCatalogPostgres|TestCurrentApplicationKernelCatalogPostgres)$' -count=1 -v
+
       - name: Verify normal application Knowledge preclaim crash recovery
         run: go test -race -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationKnowledgePreclaimCrashRecovery$' -count=1 -v -timeout 8m
 
