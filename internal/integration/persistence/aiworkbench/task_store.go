@@ -155,15 +155,15 @@ func (s *Store) Confirm(ctx context.Context, scope aiworkbench.Scope, conversati
 		if err != nil {
 			return err
 		}
+		if conversation.Lifecycle != "ACTIVE" {
+			return aiworkbench.ErrConversationArchived
+		}
 		// The existing Conversation lock serializes different confirmation
 		// keys for the same proposal. A new key is not a new execution intent.
 		if _, found, err := s.lookupProposalTask(tx, scope, conversationID, proposalID); err != nil {
 			return err
 		} else if found {
 			return aiworkbench.ErrRevisionMismatch
-		}
-		if conversation.Lifecycle != "ACTIVE" {
-			return aiworkbench.ErrConversationArchived
 		}
 		var proposal proposalRow
 		if err := tx.Where("id = ? AND organization_id = ? AND owner_user_id = ? AND conversation_id = ?",
@@ -272,6 +272,13 @@ func (s *Store) LookupTask(ctx context.Context, scope aiworkbench.Scope, convers
 		if _, confirmed, lookupErr := s.LookupProposalTask(ctx, scope, conversationID, proposalID); lookupErr != nil {
 			return aiworkbench.BusinessTask{}, false, lookupErr
 		} else if confirmed {
+			conversation, err := s.lookupConversation(s.db.WithContext(ctx), scope, conversationID, false)
+			if err != nil {
+				return aiworkbench.BusinessTask{}, false, err
+			}
+			if conversation.Lifecycle != "ACTIVE" {
+				return aiworkbench.BusinessTask{}, false, aiworkbench.ErrConversationArchived
+			}
 			return aiworkbench.BusinessTask{}, false, aiworkbench.ErrRevisionMismatch
 		}
 	}
