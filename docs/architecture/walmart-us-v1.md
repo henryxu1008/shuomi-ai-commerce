@@ -1,5 +1,7 @@
 # Walmart 美国站：多商家授权、商品草稿与受控刊登
 
+> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](walmart-feed-recovery-v1.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性先做局部 Independent Architecture 准入；当前 DESIGNING/NOT_READY，准入前不改该部分生产路径。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
+
 Refs [#733](https://github.com/qq550723504/task-processor/issues/733)。
 
 - Product Decision：**PD-WALMART-US-MULTIMERCHANT-V1-2026-10-16**。用户确认美国站、开放给多个商家，并确认首期范围；平台申请由用户自行处理。
