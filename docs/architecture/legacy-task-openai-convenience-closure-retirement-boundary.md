@@ -2,7 +2,7 @@
 
 状态：**DESIGN_ONLY / AWAITING_REVIEW_AND_USER_CONFIRMATION / SOURCE_NOT_STARTED / NOT_READY**。Design Basis：**Independent Architecture**。父 Issue [#301](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301) 保持 OPEN。
 
-本次只交设计和两处导航，不修改生产代码、测试或 lint。调查基线是实际 main `194ec7a41da3ecd054a4c658e59f73267860e0e0`。准确设计 HEAD、原 CI、评审与用户确认记录维护在同一 PR，不用历史证据代替当前结论。
+本次只交设计和三处导航，不修改生产代码、测试或 lint。调查基线是实际 main `194ec7a41da3ecd054a4c658e59f73267860e0e0`。准确设计 HEAD、原 CI、评审与用户确认记录维护在同一 PR，不用历史证据代替当前结论。
 
 ## §1 本批做什么，以及不做什么
 
@@ -73,7 +73,7 @@ Out of Scope：新任务/读取器、兼容 alias、fallback、双读双写、�
 
 ## §5 同一主要 PR 的完整删除、改接与保留矩阵
 
-未来源码阶段共 **46 个唯一路径：14 生产、17 测试、14 文档、1 lint 配置**。新增文件也计入；两组一起实施，不机械拆批。当前设计阶段只修改 D1/D2/D3 三份文档。
+未来源码阶段共 **49 个唯一路径：14 生产、17 测试、17 文档、1 lint 配置**。新增文件也计入；两组一起实施，不机械拆批。当前设计阶段只修改 D1/D2/D3/D15 四份文档。原 CI 已真实检出遗漏 D15，适用独立设计复核指出 D16/D17 为直接当前说明/绑定依据尾部；本次据此补齐矩阵，不修改原检查或提前实施 D16/D17。
 
 ### §5.1 生产矩阵（14）
 
@@ -116,7 +116,7 @@ Out of Scope：新任务/读取器、兼容 alias、fallback、双读双写、�
 | T16 | `tests/target_architecture_phase2_test.go` | 转换 ptr 根保活与 provider 精确禁入；其余算法/合成反例/解码检查保持 |
 | T17 | `tests/listingkit_backend_retirement_test.go` | 四项 KEEP 校准与新增一个完整闭包 guard；其它检查保持 |
 
-### §5.3 文档与 lint（15）
+### §5.3 文档与 lint（18）
 
 | ID | 路径 | 动作 |
 | --- | --- | --- |
@@ -134,13 +134,16 @@ Out of Scope：新任务/读取器、兼容 alias、fallback、双读双写、�
 | D12 | `docs/superpowers/specs/2026-09-05-commerce-tool-canonical-inspection-design.md` | 只顶注当前 Catalog/record owner 与旧 Task query 退休，当前 Tool 只读行为保留 |
 | D13 | `docs/superpowers/plans/2026-09-05-commerce-tool-canonical-inspection.md` | 同上，不恢复旧 Reader、数据迁移或 Task runtime |
 | D14 | `docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md` | 只顶注旧 ptr/任务合同的本批取舍，历史数字/勾选/步骤保持 |
+| D15 | `docs/architecture/README.md` | 新设计加入原架构索引；原正文/历史完整保留，不改索引检查 |
+| D16 | `internal/listing/README.md` | 仅当前 owner 顶注：record 承接有效 Actor/校验，旧 task 退休；独立 SHEIN 登录/身份回写已由 #985 退休，Store 观察保留；原正文后缀保持 |
+| D17 | `docs/superpowers/specs/2026-09-05-shein-offline-validation-input-binding-design.md` | 仅顶注替代旧 Actor/读取/校验 owner 与旧源文件链接的当前含义；保留原 §3.1 绑定、JSON/hash/版本规则和完整后缀，#904 的 alias 退休不扩大为整份依据退休 |
 | L1 | `.golangci.yml` | 仅转换 listing_task_canonical_subject_boundaries 与收窄 canonical_inspection_tool_boundaries，精确见 §6.1；其它规则零改 |
 
 矩阵外明确 KEEP：当前 AuthIdentity/authz/所有 HTTP 路由、record HTTP handlers/schema/数据库 DDL、canonical.inspect 生产与原行为测试、全部治理 Executor/AI 路由/凭据仓库、当前图像/V3/采集/Store 观察、Logger/Retry/限流/真实锁、SDK 和依赖。所有 workflow 与名字含 inventory 的文件零改；`phase2-runtime-inventory.md` 等保留原历史记录，不因提及旧名而制造当前消费者。
 
 ## §6 同批实施与必要验证
 
-确认前只核三文档、实际消费者、矩阵/链接、原文后缀与设计 CI，不运行生产测试/程序。源码获准后：先在原 T17 增加准确根缺席/旧声明禁入检查并确认真实 RED；T3 在旧 owner 仍存在时固定合成输入的原 wire/hash 独立 literal，再抽取/改接/删除至 GREEN。两组在同一分支连续完成，可分提交，不拆主要 PR。
+确认前只核四文档、实际消费者、矩阵/链接、原文后缀与设计 CI，不运行生产测试/程序。源码获准后：先在原 T17 增加准确根缺席/旧声明禁入检查并确认真实 RED；T3 在旧 owner 仍存在时固定合成输入的原 wire/hash 独立 literal，再抽取/改接/删除至 GREEN。两组在同一分支连续完成，可分提交，不拆主要 PR。
 
 开发自检限当前受影响的 record/报表/OpenAI/AI/worker 与原聚合/import/depguard 检查，相关 race，以及 current-application、image-agent-temporal-worker、report-center-schema-init 的仅编译；原 integration-tag/chain1 用例只做编译或使用原 CI 明确自有 fixture，未实际执行不得写 PASS。不新增 runner、session、临时数据库要求或故障注入平台；不人工重复原 CI 的完整检查。原 CI 最终仍须成功，源码最终独立检查不能由作者自检替代。
 
@@ -169,7 +172,7 @@ Out of Scope：新任务/读取器、兼容 alias、fallback、双读双写、�
 | T17 / 新增 TestLegacyTaskOpenAIConvenienceClosureIsRetired | 复用原 trackedFiles/AST/decoded import/helper：两根与直接文件显式缺席、跨 tracked Go 的旧 import 禁入；owner-qualified 禁四方法/两宽接口/旧 Subject；精确新 Actor/单方法合同及当前 Client/请求池活跃方法保留 | 不使用泛化 Generate/Actor 名字禁令，不新增扫描器/宽豁免；解析/文件读取失败关闭 |
 | L1 / listing_task_canonical_subject_boundaries | 同一稳定 rule 名改为 files=**/*.go、list-mode=lax、deny 两旧根的 exact `$` 与子包 `/` 共四项；不留原 allow。T17 精确验配置 | 已退 owner 的保护变为全源禁入；其它 lint 规则和所有 workflow 不变 |
 | L1 / canonical_inspection_tool_boundaries | allow 只删 task 根一项，原 gostd/authz/commercetool/catalog 保留 | strict/list-mode、files 范围及其余规则逐字保持，不扩大 allowlist |
-| D2/D3/D5–D14 | 仅本批当前导航/准确 supersession 顶注；原后缀原样 | 历史勾选、数字、失败/批准证据、其它 KEEP 与旧表记录不改；任何 inventory 零改 |
+| D2/D3/D5–D17 | 仅本批当前导航/准确 supersession 顶注；原后缀原样 | 历史勾选、数字、失败/批准证据、其它 KEEP 与旧表记录不改；任何 inventory 零改 |
 
 若发现矩阵外真实消费者或检查冲突，先给具体当前证据及最小提案；不得擅自删安全断言、扩大清单或改 inventory/workflow。非 Blocker 的实现细化按既有 finding 分类收敛，不重开全局架构。真正改变当前权限、事务、持久化或副作用边界的缺陷，按 AGENTS 的 Blocker 标准报告。
 
@@ -179,6 +182,6 @@ Out of Scope：新任务/读取器、兼容 alias、fallback、双读双写、�
 
 先使用原 GitHub 适用复核，同 SHA 已运行时不重复触发；启动失败最多一次重试。**未经用户本轮授权不默认新增 AI 互验线程；设计与源码最终复核分别绑定准确 HEAD，授权分开。** 需要独立子代理时先说明准确范围和原因，若原适用复核先完成且无待处理问题则不新增。设计复核不跑测试/构建，不操作既有资源；源码最终复核只读真实 diff 与已有证据。
 
-三文档、原设计 CI 和适用设计复核形成可审阅结果后，交用户确认本 §1–§7（含 §4.2/§6.1）及 46 路径完整边界；未确认前 SOURCE_NOT_STARTED，不改正式生产/测试/lint。未来实施继续同一主要 PR，形成完整路径后做一次最终交付检查，修复只复核对应增量。
+四文档、原设计 CI 和适用设计复核形成可审阅结果后，交用户确认本 §1–§7（含 §4.2/§6.1）及 49 路径完整边界；未确认前 SOURCE_NOT_STARTED，不改正式生产/测试/lint。未来实施继续同一主要 PR，形成完整路径后做一次最终交付检查，修复只复核对应增量。
 
 准确 HEAD 合并、实际 merge SHA 的完整 main CI、部署、真实运行/产品验收和 Issue 关闭分别记证/授权；不从设计确认推定合并授权，不把 CI/fixture/AI review 写成产品验收。#301 保持 OPEN，运行/产品验收 NOT_RUN；Store 观察同步与全部当前能力保留，不增加内部试用前置。
