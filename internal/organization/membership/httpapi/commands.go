@@ -50,10 +50,8 @@ func validateMutationScope(c *gin.Context) error {
 	return nil
 }
 
-func (h *Handler) ChangeRole(c *gin.Context)         { h.execute(c, domain.CommandRole) }
-func (h *Handler) Remove(c *gin.Context)             { h.execute(c, domain.CommandRemove) }
-func (h *Handler) GrantBusinessRole(c *gin.Context)  { h.execute(c, domain.CommandBusinessRoleGrant) }
-func (h *Handler) RevokeBusinessRole(c *gin.Context) { h.execute(c, domain.CommandBusinessRoleRevoke) }
+func (h *Handler) ChangeRole(c *gin.Context) { h.execute(c, domain.CommandRole) }
+func (h *Handler) Remove(c *gin.Context)     { h.execute(c, domain.CommandRemove) }
 
 func (h *Handler) execute(c *gin.Context, kind domain.CommandKind) {
 	if err := validateMutationScope(c); err != nil {
@@ -72,7 +70,7 @@ func (h *Handler) execute(c *gin.Context, kind domain.CommandKind) {
 	}
 	input := domain.CommandInput{Kind: kind, AuthorizationID: c.Param("member_id")}
 	switch kind {
-	case domain.CommandRole, domain.CommandBusinessRoleGrant, domain.CommandBusinessRoleRevoke:
+	case domain.CommandRole:
 		var payload struct {
 			Role            string `json:"role"`
 			ExpectedVersion string `json:"expectedVersion"`

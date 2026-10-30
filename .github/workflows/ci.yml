@@ -200,36 +200,6 @@ jobs:
         run: |
           go build ./cmd/current-application
 
-  membership-conditional-postgres:
-    name: Membership Conditional PostgreSQL
-    needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.backend == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: b1_implementation
-          POSTGRES_PASSWORD: b1_ci_disposable
-          POSTGRES_DB: b1_membership
-        ports:
-          - 15432:5432
-        options: >-
-          --health-cmd "pg_isready -U b1_implementation -d b1_membership"
-          --health-interval 5s --health-timeout 5s --health-retries 12
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Verify atomic conditional conflict evidence and audit rollback
-        env:
-          B1_MEMBERSHIP_DATABASE_URL: postgres://b1_implementation:b1_ci_disposable@127.0.0.1:15432/b1_membership?sslmode=disable
-        run: go test -race -tags b1_local ./internal/integration/persistence/organization/membership -run '^TestB1PostgresNoEffectEvidenceAuditAndReservationAreAtomic$' -count=1 -v -timeout 5m
-
   frontend:
     name: Frontend Checks
     needs: changes
@@ -368,7 +338,6 @@ jobs:
       - isolated-runtime-contracts
       - release-authority
       - backend
-      - membership-conditional-postgres
       - frontend
       - capture-extension
       - code-health
@@ -385,8 +354,6 @@ jobs:
           ISOLATED_RUNTIME_SELECTED: ${{ needs.changes.outputs.isolated_runtime }}
           RELEASE_RESULT: ${{ needs.release-authority.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
-          MEMBERSHIP_CONDITIONAL_RESULT: ${{ needs.membership-conditional-postgres.result }}
-          MEMBERSHIP_CONDITIONAL_SELECTED: ${{ needs.changes.outputs.backend }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           CAPTURE_EXTENSION_RESULT: ${{ needs.capture-extension.result }}
           CAPTURE_EXTENSION_SELECTED: ${{ needs.changes.outputs.capture_extension }}
@@ -410,18 +377,6 @@ jobs:
           }
 
           require_success "change classification" "$CHANGES_RESULT"
-          if [[ "$CI_EVENT" == "push" || "$MEMBERSHIP_CONDITIONAL_SELECTED" == "true" ]]; then
-            if [[ "$MEMBERSHIP_CONDITIONAL_RESULT" != "success" ]]; then
-              printf 'required membership conditional PostgreSQL result: %s\n' "$MEMBERSHIP_CONDITIONAL_RESULT" >&2
-              exit 1
-            fi
-            printf 'membership conditional PostgreSQL success\n'
-          elif [[ "$CI_EVENT" == "pull_request" && "$MEMBERSHIP_CONDITIONAL_SELECTED" == "false" ]]; then
-            require_success "membership conditional PostgreSQL" "$MEMBERSHIP_CONDITIONAL_RESULT"
-          else
-            echo "membership conditional PostgreSQL applicability is unknown" >&2
-            exit 1
-          fi
           require_success "development admission tests" "$DEVELOPMENT_ADMISSION_TEST_RESULT"
           require_success "architecture contracts" "$ARCHITECTURE_CONTRACT_RESULT"
           if [[ "$CI_EVENT" == "pull_request" ]]; then

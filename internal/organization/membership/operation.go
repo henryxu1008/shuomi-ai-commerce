@@ -78,11 +78,9 @@ type Acknowledgment struct {
 }
 
 type OperationChange struct {
-	Event           OperationEvent
-	DispatchID      string
-	Acknowledgment  *Acknowledgment
-	NoEffect        *RoleWriteEvidence   `json:"noEffect,omitempty"`
-	ConditionalRole *ConditionalRolePlan `json:"conditionalRole,omitempty"`
+	Event          OperationEvent
+	DispatchID     string
+	Acknowledgment *Acknowledgment
 }
 
 type AuditEvent struct {
@@ -123,38 +121,9 @@ type ReceiptStore interface {
 }
 
 func Transition(op Operation, change OperationChange) (Operation, error) {
-	if businessRoleKind(op.Kind) && change.Event == EventDispatch && change.ConditionalRole != nil {
-		if op.ConditionalRole != nil {
-			return Operation{}, ErrConflict
-		}
-		plan := *change.ConditionalRole
-		plan.Native.Roles = append([]string(nil), plan.Native.Roles...)
-		plan.AfterRoles = append([]string(nil), plan.AfterRoles...)
-		op.ConditionalRole = &plan
-	}
-	if businessRoleKind(op.Kind) && change.Event == EventDispatch && !validConditionalPlan(op) {
+	// Historical conditional-role facts stay readable, but cannot transition.
+	if businessRoleKind(op.Kind) {
 		return Operation{}, ErrConflict
-	}
-	if change.Event == EventProviderNoEffect {
-		if op.Phase != PhaseDispatched || change.DispatchID != op.DispatchID || change.NoEffect == nil || change.NoEffect.Result != RoleWriteNoEffect || !change.NoEffect.matches(op) || change.NoEffect.NativeSequence != "" {
-			return Operation{}, ErrConflict
-		}
-		evidence := *change.NoEffect
-		op.ProviderRoleResult = &evidence
-		op.Phase = PhaseRejected
-		op.Revision++
-		return op, nil
-	}
-	if businessRoleKind(op.Kind) && change.Event == EventAcknowledge {
-		if change.Acknowledgment == nil || change.Acknowledgment.ConditionalRole == nil {
-			return Operation{}, ErrConflict
-		}
-		evidence := change.Acknowledgment.ConditionalRole
-		before, _ := nativeSequence(evidence.ExpectedSequence)
-		after, valid := nativeSequence(evidence.NativeSequence)
-		if evidence.Result != RoleWriteApplied || !evidence.matches(op) || !valid || after <= before {
-			return Operation{}, ErrConflict
-		}
 	}
 	next, err := transition(op, change.Event, change.DispatchID)
 	if err != nil {
@@ -166,10 +135,6 @@ func Transition(op Operation, change OperationChange) (Operation, error) {
 		}
 		ack := *change.Acknowledgment
 		next.Acknowledgment = &ack
-		if businessRoleKind(op.Kind) {
-			evidence := *ack.ConditionalRole
-			next.ProviderRoleResult = &evidence
-		}
 		if op.Kind == CommandInvite && op.Step == StepUser {
 			next.UserAcknowledgment = &ack
 		}

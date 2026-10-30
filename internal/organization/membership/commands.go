@@ -86,9 +86,6 @@ func (c *Commands) Execute(ctx context.Context, key string, input CommandInput) 
 	if err != nil || id == uuid.Nil || id.String() != key {
 		return Operation{}, ErrInvalidRequest
 	}
-	if businessRoleKind(input.Kind) {
-		return c.executeBusinessRole(ctx, identity, key, input)
-	}
 	if input.Kind != CommandRole && input.Kind != CommandRemove && input.Kind != CommandInvite {
 		return Operation{}, ErrInvalidRequest
 	}
@@ -158,7 +155,8 @@ func (c *Commands) readTarget(ctx context.Context, id string) (Member, error) {
 
 func (c *Commands) resume(ctx context.Context, op Operation) (Operation, error) {
 	if businessRoleKind(op.Kind) {
-		return c.resumeBusinessRole(ctx, op)
+		// Retired operations are immutable receipts, including ready/UNKNOWN.
+		return op, nil
 	}
 	if op.Kind == CommandInvite {
 		return c.resumeInvite(ctx, op)

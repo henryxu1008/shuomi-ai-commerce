@@ -1,7 +1,12 @@
 # B1：受保护成员单业务角色的原生条件写入
 
-日期：2026-10-29。Design Basis：**Independent Architecture / B1-only increment**。
-状态：**IMPLEMENTATION_READY；实现及隔离页面验证完成，现进入配套正式源码交付**。当前范围与授权以 [Issue #954](https://github.com/henryxu1008/shuomi-ai-commerce/issues/954) 首屏为准；[源码交付说明](../engineering/b1-native-conditional-delivery.md)记录配套 provider 与消费者关系。下方本地实现记录保留原阶段范围，不覆盖随后获准完成的保留实例更新和单店试用，也不恢复旧 no-push 限制。当前允许推送、PR、必要 CI 与独立复核；合并、发布、再次部署和真实权限变更另行确认。
+日期：2026-10-29。**历史设计，已由 2026-10-30 官方版本产品决定替代。**
+
+本文和原 fork/PR/验证证据保留用于追溯，不是当前实现或交付前置。
+当前范围、Reuse Existing Architecture Design Basis、已取消能力及未来切换边界见
+[官方 ZITADEL 适配](../engineering/zitadel-official-provider-boundary.md)和 Issue #954 首屏。
+原文中的 IMPLEMENTATION_READY、保留 provider 补丁、开放受保护单角色写入均只属于原阶段，
+不恢复已撤销的产品要求，也不构成上游已确认漏洞声明。
 
 ## 用户结果与冻结依据
 

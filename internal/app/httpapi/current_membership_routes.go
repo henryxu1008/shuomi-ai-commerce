@@ -17,8 +17,6 @@ var currentMembershipRoutes = []currentApplicationRoute{
 	{Method: "GET", Path: "/api/v1/account/members/summary"},
 	{Method: "GET", Path: "/api/v1/account/members/:member_id"},
 	{Method: "POST", Path: "/api/v1/account/members/:member_id/role"},
-	{Method: "POST", Path: "/api/v1/account/members/:member_id/business-roles/grant"},
-	{Method: "POST", Path: "/api/v1/account/members/:member_id/business-roles/revoke"},
 	{Method: "POST", Path: "/api/v1/account/members/:member_id/remove"},
 	{Method: "GET", Path: "/api/v1/account/member-operations/:operation_id"},
 	{Method: "GET", Path: "/api/v1/account/member-operations"},

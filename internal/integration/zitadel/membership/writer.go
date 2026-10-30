@@ -33,12 +33,15 @@ func (w *Writer) Write(ctx context.Context, op domain.Operation) (domain.Acknowl
 	if op.Phase != domain.PhaseDispatched || op.DispatchID == "" || op.Scope.ProjectID != w.write.project || !authidentity.IsBoundedIdentifier(op.Scope.OrganizationID) {
 		return domain.Acknowledgment{}, domain.ErrInvalidRequest
 	}
+	// A stale or forged historical kind must never fall through to an official
+	// full-role replacement, even if its step was changed by a caller.
+	if op.Kind == domain.CommandBusinessRoleGrant || op.Kind == domain.CommandBusinessRoleRevoke {
+		return domain.Acknowledgment{}, domain.ErrInvalidRequest
+	}
 	prefix := "/zitadel.authorization.v2.AuthorizationService/"
 	var path, dateField, id string
 	var body any
 	switch op.Step {
-	case domain.StepConditionalRole:
-		return w.writeConditionalRole(ctx, op)
 	case domain.StepUser:
 		if op.Invitation == nil || !authidentity.IsBoundedIdentifier(op.TargetUserID) {
 			return domain.Acknowledgment{}, domain.ErrInvalidRequest

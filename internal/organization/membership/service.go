@@ -49,7 +49,6 @@ func (s *Service) Read(ctx context.Context, id string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	result.Items[0].BusinessRoleActions = s.businessRoleActions(ctx, result.Items[0], result.CanManage, result.RoleDefinitions)
 	if ctx.Err() != nil {
 		return Result{}, ErrUnavailable
 	}

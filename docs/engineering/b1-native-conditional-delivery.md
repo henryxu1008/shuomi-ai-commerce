@@ -1,4 +1,10 @@
-# B1 配套源码交付
+# B1 定制源码交付（历史）
+
+**此路线已被官方版本产品决定替代。** 当前实现与交付见
+[官方 ZITADEL 适配与受保护成员管理边界](zitadel-official-provider-boundary.md)。
+下文是原阶段记录，保留 fork/PR/源码/CI 证据，不再要求维护补丁或开放单角色入口。
+现有实例并未因此切回官方镜像；运行切换需另行授权。
+
 
 执行 Issue：[954](https://github.com/henryxu1008/shuomi-ai-commerce/issues/954)。
 Design Basis：Reuse Existing Architecture / IMPLEMENTATION_READY，复用
