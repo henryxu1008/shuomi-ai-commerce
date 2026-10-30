@@ -11,11 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"task-processor/internal/app/accountaudit"
 	schema "task-processor/internal/app/schema/sourceaccountregistry"
 	"task-processor/internal/authidentity"
@@ -29,6 +24,12 @@ import (
 	membership "task-processor/internal/organization/membership"
 	registry "task-processor/internal/sourceaccountregistry"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestAccountAuditSummaryCommittedOwnersPostgres(t *testing.T) {
@@ -115,7 +116,7 @@ func TestAccountAuditSummaryCommittedOwnersPostgres(t *testing.T) {
 	modules := kernelmodule.NewRegistry()
 	require.NoError(t, module.Register(modules))
 	grants := &auditHTTPGrants{role: "listingkit_viewer"}
-	server := buildIsolatedApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: auth}, registry.Timeout)
+	server := buildCurrentApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: auth})
 	before := commercialTableSnapshot(t, owner)
 	get := func(org, path string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest("GET", accountAuditPath+path, nil)

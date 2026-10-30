@@ -23,12 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
@@ -40,6 +34,13 @@ import (
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
 	contextapi "task-processor/internal/workbenchcontext/httpapi"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // This fixture creates its own loopback-only, disposable PostgreSQL. It never
@@ -239,7 +240,7 @@ func TestCommercialHTTPPostgresBFFClientZeroWrites(t *testing.T) {
 	var verifier zitadel.Verifier = mountedVerifierStub{identity: authidentity.AuthenticatedIdentity{UserID: "fixture-user", HomeOrganizationID: "home-A", TokenExpiresAt: now.Add(time.Hour)}}
 	resolver := workbenchcontext.NewResolver(workbenchcontext.NewGrantResolver(grants, workbenchcontext.NewGrantCache(nil)), "fixture-project", "fixture-contract", nil)
 	auth := routeAuthDependencies{workbenchVerifier: verifier, organizationResolver: resolver, authorizer: authorizer, auditRecorder: workbenchcontext.NewStructuredAuditRecorder(log), auditNow: time.Now}
-	appServer := buildHTTPServerFromRoutes(0, registry.Routes(), auth)
+	appServer := buildCurrentApplicationHTTPServer(registry.Routes(), auth)
 	mux := http.NewServeMux()
 	mux.Handle("/", appServer.Handler)
 	mux.HandleFunc("/fixture/mode", func(w http.ResponseWriter, r *http.Request) {

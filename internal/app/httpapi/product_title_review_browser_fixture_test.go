@@ -10,12 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	record "task-processor/internal/listing/record"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/authz"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	kernelmodule "task-processor/internal/kernel/module"
@@ -24,6 +22,10 @@ import (
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
 	contextapi "task-processor/internal/workbenchcontext/httpapi"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 )
 
 // Test-only external identity/grants, never registered by production code.
@@ -97,7 +99,14 @@ func TestProductTitleReviewBrowserFixture(t *testing.T) {
 		candidateService = service
 		return app
 	}
-	listing, _, err := NewSheinRecordApplication(f.db, identity, resolver, authorizer, nil)
+	listing, _, err := func() (*http.Server, record.Reader, error) {
+		deps := routeAuthDependencies{workbenchVerifier: identity, organizationResolver: resolver, authorizer: authorizer}
+		routes, reader, err := buildLocalTrialListingRoutes(f.db, deps.authorizer, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+	}()
 	require.NoError(t, err)
 	var current atomic.Pointer[http.Server]
 	current.Store(application())

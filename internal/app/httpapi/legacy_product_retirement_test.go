@@ -65,7 +65,7 @@ func TestLegacyProductRoutesAreNotRegisteredByProductionComposition(t *testing.T
 
 func TestProductionRuntimeRegistryHasNoLegacyProductModules(t *testing.T) {
 	cfg := &config.Config{}
-	modules := []kernelmodule.Module{newCoreHTTPModule()}
+	modules := []kernelmodule.Module{currentApplicationTestModule{name: "system"}}
 	_, err := buildRuntimeBundleFromModules(cfg, modules)
 	if err != nil {
 		t.Fatalf("build production runtime bundle: %v", err)

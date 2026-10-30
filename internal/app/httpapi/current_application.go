@@ -1353,37 +1353,6 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	return server, nil
 }
 
-func validateCurrentApplicationRoutes(routes []httproute.Descriptor, includeAudit bool, includeReferrals ...bool) error {
-	referrals := len(includeReferrals) > 0 && includeReferrals[0]
-	return validateCurrentApplicationRoutesWithFeatures(routes, includeAudit, false, referrals, false)
-}
-
-func validateCurrentApplicationRoutesForAcquisition(routes []httproute.Descriptor, acquisition bool) error {
-	return validateCurrentApplicationRoutesForSourcing(routes, acquisition, false)
-}
-
-func validateCurrentApplicationRoutesForSourcing(routes []httproute.Descriptor, acquisition, browser bool) error {
-	return validateCurrentApplicationRoutesWithBrowser(routes, false, acquisition, false, false, browser)
-}
-
-func validateCurrentApplicationRoutesWithFeatures(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership bool, includeAllocation ...bool) error {
-	allocation := len(includeAllocation) > 0 && includeAllocation[0]
-	return validateCurrentApplicationRoutesInternal(routes, includeAudit, includeAcquisition, includeReferrals, includeMembership, false, allocation, false, currentApplicationOptionalRoutes{})
-}
-
-func validateCurrentApplicationRoutesWithAccountProfile(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership bool, includeAllocation ...bool) error {
-	allocation := len(includeAllocation) > 0 && includeAllocation[0]
-	return validateCurrentApplicationRoutesInternal(routes, includeAudit, includeAcquisition, includeReferrals, includeMembership, true, allocation, false, currentApplicationOptionalRoutes{})
-}
-
-func validateCurrentApplicationRoutesWithBrowser(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeBrowser bool) error {
-	return validateCurrentApplicationRoutesInternal(routes, includeAudit, includeAcquisition, includeReferrals, includeMembership, false, false, includeBrowser, currentApplicationOptionalRoutes{})
-}
-
-func validateCurrentApplicationRoutesWithBrowserFeatures(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeBrowser, includeAccountProfile, includeAllocation bool) error {
-	return validateCurrentApplicationRoutesInternal(routes, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser, currentApplicationOptionalRoutes{})
-}
-
 type currentApplicationOptionalRoutes struct {
 	StorageCapacity      bool
 	AmazonBrowserCapture bool

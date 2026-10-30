@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	kernelmodule "task-processor/internal/kernel/module"
 	"testing"
 	"time"
 
@@ -96,7 +97,18 @@ type sourceAccountFixtureApplication struct {
 }
 
 func startSourceAccountFixtureApplication(db *gorm.DB, identity *sourceAccountBrowserIdentity, resolver *workbenchcontext.Resolver, authorizer *authz.ListingKitAuthorizer) (*sourceAccountFixtureApplication, error) {
-	server, err := NewSourceAccountApplication(db, identity, resolver, authorizer)
+	server, err := func() (*http.Server, error) {
+		deps := routeAuthDependencies{workbenchVerifier: identity, organizationResolver: resolver, authorizer: authorizer}
+		module, err := buildSourceAccountModule(context.Background(), db, deps.authorizer)
+		if err != nil {
+			return nil, err
+		}
+		registry := kernelmodule.NewRegistry()
+		if err := module.Register(registry); err != nil {
+			return nil, err
+		}
+		return buildCurrentApplicationHTTPServer(registry.Routes(), deps), nil
+	}()
 	if err != nil {
 		return nil, err
 	}

@@ -1,3 +1,5 @@
+> #301 / #1017 源级边界校准：按[已确认设计](legacy-http-auth-support-closure-retirement-boundary.md)，`NewSheinRecordApplication` 独立HTTP门面退休；当前私有试用装配仍复用 `buildLocalTrialListingRoutes` 与统一server，Product/Asset/Store/Listing共同DB、先验证再保存、原JSON/hash/版本及默认未开放边界不变。本文下方关于旧constructor的表述仅保留历史证据，本轮不准备、启动、更新或验收任何试用实例。当前业务与Store观察同步保留，无新增试用前置，#301 OPEN。
+
 # #36 可保留的本机隔离试用运行边界
 
 > 状态：**IMPLEMENTATION_READY，仅限本机隔离试用装配与下述任务中心入口修正**。2026-10-03 独立 Architecture Review 对设计候选 `fe1fb146` 未发现 BLOCKER；2026-10-06 针对 `e3476c83b` 的任务中心入口增量独立复核也未发现新 BLOCKER。Review-only 路由、共同数据库权限、入口实际显示与持久样本列为 `IMPLEMENTATION_TEST`，必须在试用交付前收敛。本准入不代表运行验收、合并或生产开放。

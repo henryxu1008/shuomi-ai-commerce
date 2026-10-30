@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	zitadelruntime "task-processor/internal/authruntime/zitadel"
+	"task-processor/internal/authz"
 	"testing"
+	"time"
 
 	"task-processor/internal/core/config"
 )
@@ -13,7 +16,7 @@ import (
 const appHTTPTestBearerToken = "app-http-test-token"
 const appHTTPTestViewerBearerToken = "app-http-test-viewer-token"
 
-var appHTTPTestRouteAuthorization routeAuthorization
+var appHTTPTestRouteAuthorization routeAuthDependencies
 var appHTTPTestConfig *config.Config
 
 func TestMain(m *testing.M) {
@@ -33,6 +36,7 @@ func TestMain(m *testing.M) {
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"active":                                true,
+				"exp":                                   time.Now().Add(time.Hour).Unix(),
 				"sub":                                   "app-http-test-user",
 				"user_id":                               "app-http-test-user",
 				"urn:zitadel:iam:user:resourceowner:id": "app-http-test-tenant",
@@ -43,7 +47,6 @@ func TestMain(m *testing.M) {
 		}
 	}))
 
-	var err error
 	appHTTPTestConfig = &config.Config{ListingKit: config.ListingKitConfig{
 		PlatformAdminRoles: []string{"platform_admin"},
 		Zitadel: config.ListingKitZitadelConfig{
@@ -51,11 +54,13 @@ func TestMain(m *testing.M) {
 			ClientID:  "app-http-test-client",
 		},
 	}}
-	appHTTPTestRouteAuthorization, err = buildRouteAuthorization(appHTTPTestConfig)
+	authorizer, err := authz.NewListingKitAuthorizer(appHTTPTestConfig.ListingKit.PlatformAdminUsers, appHTTPTestConfig.ListingKit.PlatformAdminRoles)
 	if err != nil {
 		zitadel.Close()
 		panic(err)
 	}
+
+	appHTTPTestRouteAuthorization = routeAuthDependencies{authorizer: authorizer, workbenchVerifier: zitadelruntime.NewVerifier(zitadelruntime.Config{IssuerURL: zitadel.URL, ClientID: "app-http-test-client", HTTPClient: zitadel.Client()})}
 
 	code := m.Run()
 	zitadel.Close()

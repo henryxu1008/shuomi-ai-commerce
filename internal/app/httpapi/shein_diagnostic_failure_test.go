@@ -79,9 +79,23 @@ func TestSheinDiagnosticAuthorizationAndSlowBodyDeadlinePostgres(t *testing.T) {
 			if stage == "grants" {
 				resolver = workbenchcontext.NewResolver(&recordDeadlineGrants{}, "project", "v1", nil)
 			}
-			app, _, err := NewSheinRecordApplication(db, recordVerifier{}, resolver, auth, nil)
+			app, _, err := func() (*http.Server, record.Reader, error) {
+				deps := routeAuthDependencies{workbenchVerifier: recordVerifier{}, organizationResolver: resolver, authorizer: auth}
+				routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+				if err != nil {
+					return nil, nil, err
+				}
+				return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+			}()
 			if stage == "authentication" {
-				app, _, err = NewSheinRecordApplication(db, recordDeadlineVerifier{}, resolver, auth, nil)
+				app, _, err = func() (*http.Server, record.Reader, error) {
+					deps := routeAuthDependencies{workbenchVerifier: recordDeadlineVerifier{}, organizationResolver: resolver, authorizer: auth}
+					routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+					if err != nil {
+						return nil, nil, err
+					}
+					return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+				}()
 			}
 			require.NoError(t, err)
 			ts := httptest.NewUnstartedServer(app.Handler)

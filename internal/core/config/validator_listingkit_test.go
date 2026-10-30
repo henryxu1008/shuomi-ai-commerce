@@ -1,11 +1,12 @@
 package config
 
 import (
-	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/viper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -110,6 +111,7 @@ func requireLegacyUsernameAllowlistRejection(t *testing.T, err error, configured
 	assert.Contains(t, err.Error(), "listingkit.zitadel.allowedUsernames")
 	assert.Contains(t, err.Error(), "obsolete")
 	assert.NotContains(t, err.Error(), configuredValue)
+	assert.Contains(t, err.Error(), "use current identity and organization permissions; configure platform administrators with platformAdminUsers or platformAdminRoles")
 }
 
 func TestRetiredAuthorizationAliasesRejectEveryConfigLoaderWithoutValues(t *testing.T) {

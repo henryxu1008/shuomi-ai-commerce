@@ -576,8 +576,7 @@ func TestAccountCurrentIdentitySkipsLegacyAndOrganization(t *testing.T) {
 			c.Status(http.StatusNoContent)
 		},
 	}}, routeAuthDependencies{
-		workbenchVerifier:  mountedVerifierStub{identity: identity},
-		identityMiddleware: func(c *gin.Context) { t.Fatal("legacy authentication used") },
+		workbenchVerifier: mountedVerifierStub{identity: identity},
 	})
 	request := httptest.NewRequest("GET", "/api/v1/account/profile", nil)
 	request.Header.Set("Authorization", "Bearer fixture")

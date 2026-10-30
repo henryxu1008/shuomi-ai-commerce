@@ -9,14 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type resourceBalanceFixture struct {
@@ -37,7 +38,7 @@ func TestCommercialResourcesLiveAuthorization(t *testing.T) {
 	grants := &auditHTTPGrants{role: "listingkit_admin"}
 	authorizer, _ := authz.NewListingKitAuthorizer(nil, nil)
 	module := commercialResourcesModule{reader: reader}
-	server := buildIsolatedApplicationHTTPServer(module.routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer}, 15*time.Second)
+	server := buildCurrentApplicationHTTPServer(module.routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer})
 	get := func(org, path, body, token string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, path, strings.NewReader(body))
 		req.Header.Set("X-Requested-Organization-ID", org)

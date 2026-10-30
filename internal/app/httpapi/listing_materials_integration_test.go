@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	supplyapp "task-processor/internal/app/supplychain"
@@ -22,6 +20,9 @@ import (
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 // The original acquisition/supply fixtures create a fresh synthetic database.
@@ -99,7 +100,7 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	require.NotNil(t, a.runtime)
 	parent.config.Limits.Runtime = 2 * time.Minute
 	parent.materials = a
-	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(listingMaterialsRoutes(a, a.bindRequest), deps, 2*time.Minute).Handler)
+	server := httptest.NewServer(buildCurrentApplicationHTTPServer(listingMaterialsRoutes(a, a.bindRequest), deps).Handler)
 	defer server.Close()
 	key := uuid.NewString()
 	path := strings.Replace(listingMaterialsBase, ":record_id", base.Record.ID, 1)

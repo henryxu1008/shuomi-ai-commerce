@@ -2,17 +2,15 @@ package httpapi
 
 import (
 	"context"
-	"gorm.io/gorm"
 	storeapp "task-processor/internal/app/storecenter"
 	"task-processor/internal/authz"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/storecenter"
+
+	"gorm.io/gorm"
 )
 
-func buildProductResourceCharges(ctx context.Context, productDB, resourceDB *gorm.DB) (*orgresource.ConsumerChargeService, error) {
-	return buildCurrentResourceCharges(ctx, productDB, nil, resourceDB, nil, storecenter.RuntimeCapabilities{})
-}
 func buildCurrentResourceCharges(ctx context.Context, productDB, storeDB, resourceDB *gorm.DB, authorizer *authz.ListingKitAuthorizer, capabilities storecenter.RuntimeCapabilities) (*orgresource.ConsumerChargeService, error) {
 	return buildCurrentResourceChargesWithOwners(ctx, productDB, storeDB, resourceDB, authorizer, capabilities, nil)
 }

@@ -10,9 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/app/productsourcing"
@@ -25,6 +22,10 @@ import (
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/collection"
 	reviewproposal "task-processor/internal/product/review/proposal"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestOwnContentRunsThroughRealReviewApplyAndChoiceWithoutShop(t *testing.T) {
@@ -127,7 +128,7 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 		revision = saved.Revision
 	}
 	routes := append(module.routes, ownContentAgentRoutes(a)...)
-	app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
+	app := buildCurrentApplicationHTTPServer(routes, deps)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
 	base := "/api/v1/workbench/collections/items/" + item.Item.ID + "/content-agent"

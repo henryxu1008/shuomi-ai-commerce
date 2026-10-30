@@ -9,11 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	"task-processor/internal/product/sourcing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -176,12 +177,12 @@ func TestBrowserCaptureHTTPOptionalCompositionPreservesExistingContracts(t *test
 			routes = append(routes, browserCaptureRoutes(nil, nil)...)
 		}
 		require.Len(t, routes, tc.count)
-		require.NoError(t, validateCurrentApplicationRoutesForSourcing(routes, tc.public, tc.browser))
+		require.NoError(t, validateCurrentApplicationRoutesInternal(routes, false, tc.public, false, false, false, false, tc.browser, currentApplicationOptionalRoutes{}))
 		if !tc.browser {
-			require.NoError(t, validateCurrentApplicationRoutesForAcquisition(routes, tc.public))
+			require.NoError(t, validateCurrentApplicationRoutesInternal(routes, false, tc.public, false, false, false, false, false, currentApplicationOptionalRoutes{}))
 		}
 		extra := append(append([]httproute.Descriptor(nil), routes...), httproute.Descriptor{Method: http.MethodPost, Path: browserCaptureBase + "/by-key/:key"})
-		require.Error(t, validateCurrentApplicationRoutesForSourcing(extra, tc.public, tc.browser))
+		require.Error(t, validateCurrentApplicationRoutesInternal(extra, false, tc.public, false, false, false, false, tc.browser, currentApplicationOptionalRoutes{}))
 	}
 }
 

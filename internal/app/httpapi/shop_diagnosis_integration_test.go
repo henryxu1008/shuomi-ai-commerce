@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	confighttp "task-processor/internal/agentconfig/httpapi"
@@ -22,6 +20,9 @@ import (
 	"task-processor/internal/storecenter"
 	observations "task-processor/internal/storecenter/observations"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -120,7 +121,7 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, configurationModule.Register(registry))
 	routes = append(routes, registry.Routes()...)
-	app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
+	app := buildCurrentApplicationHTTPServer(routes, deps)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
 	call := func(method, path, key string, body any, status int) []byte {

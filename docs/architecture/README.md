@@ -1,3 +1,7 @@
+> #301 / #1017 当前 **USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING**：[旧 HTTP 备用装配、白名单认证与辅助尾部完整退休](legacy-http-auth-support-closure-retirement-boundary.md)。用户已确认冻结ec7e1074c的§1–§7（含§4.1/§4.2/§6.1），同一92路径闭包整批实施；共享测试fixture单字段准确例外已获批准，见PR评论6519809300。当前统一入口、身份组织权限、采集/图像/JSON/hash/版本、Chromium安装、私密SMS和Store观察同步保留；无兼容alias/fallback。workflow/inventory/历史计数/ceilings/保护/依赖及既有实例/数据/凭据/进程不动，无试用新前置，#301 OPEN。准确源码/原CI/最终复核留同一PR，合并另授。以下旧历史/计数/勾选逐字保留。
+
+- [`legacy-http-auth-support-closure-retirement-boundary.md`](legacy-http-auth-support-closure-retirement-boundary.md)：本批当前设计与实施边界；原设计复核/CI已通过，实施已获用户授权，源码最终复核与合并另列。
+
 > #301 / #1010 — USER_CONFIRMED / IMPLEMENTING. [完整退休边界](legacy-restored-debug-closure-retirement-boundary.md) §1–§7（含 §4.2/§6.1）替代下文仅属于本批的旧 KEEP：旧 Go Amazon/1688 手工浏览器执行树、五个 debug 入口、手机号探针、db-query/json-simplifier、公开 YAML 与隐式配置入口退出。Chromium 安装闭包归 `integration/browserinstall`，当前 Collector 配置合同原样保留。当前采集、图像、身份权限、Store 观察同步保持；实际消费配置的四个命令须显式 `-config`，worker canary 无需配置。tools module 仅保留原 CI lint 固定用途；test-all 仅测 root。下方原文保留为历史，不作为已退休入口的现行操作指引。源级/CI 不等于运行验收；workflow/完整 inventory/计数/ceilings/工具版本及既有资源零改，#301 OPEN，无新增试用前置。
 
 > #301 当前优先设计：[恢复文件背后的旧调试与采集执行链完整退休](legacy-restored-debug-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。优先覆盖恢复入口背后的旧 Go 爬虫、prompt 回放、身份探针、DB/JSON 工具及配置尾部；仅抽取现役 Chromium 安装与 Collector 配置，保留当前采集/图像/身份/Store 观察。§4.2 的旧能力取舍及 §6.1 待独立复核和用户确认；#1009 保持原 owner。当前仅三文档，workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下原正文与历史完整保留。

@@ -14,15 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/listing/record"
 	"task-processor/internal/workbenchcontext"
 	contextapi "task-processor/internal/workbenchcontext/httpapi"
+
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 )
 
 // External identity/grant substitutes exist only in this test binary. Tokens
@@ -104,7 +105,14 @@ func TestSheinDiagnosticBrowserFixture(t *testing.T) {
 	require.NoError(t, err)
 	resolver := workbenchcontext.NewResolver(f, "project", "v1", nil)
 	application := func() *http.Server {
-		app, _, e := NewSheinRecordApplication(db, f, resolver, authorizer, nil)
+		app, _, e := func() (*http.Server, record.Reader, error) {
+			deps := routeAuthDependencies{workbenchVerifier: f, organizationResolver: resolver, authorizer: authorizer}
+			routes, reader, err := buildLocalTrialListingRoutes(db, deps.authorizer, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+			return buildCurrentApplicationHTTPServer(routes, deps), reader, nil
+		}()
 		require.NoError(t, e)
 		return app
 	}

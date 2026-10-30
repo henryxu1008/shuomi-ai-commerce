@@ -2,7 +2,6 @@ package config
 
 import (
 	"os"
-	"strconv"
 	"strings"
 	topupconfig "task-processor/internal/integration/wallettopup/config"
 	"time"
@@ -11,11 +10,8 @@ import (
 )
 
 func BuildConfig(v *viper.Viper) *Config {
-	listingKitAllowedTenantIDs := getStringSlice(v, "listingkit.zitadel.allowedTenantIDs")
-	listingKitAllowedUserIDs := getStringSlice(v, "listingkit.zitadel.allowedUserIDs")
 	listingKitAllowedUsernames := getStringSlice(v, "listingkit.zitadel.allowedUsernames")
 	listingKitLegacyUsernameAllowlistConfigured := legacyListingKitUsernameAllowlistConfigured(v)
-	listingKitAllowedRoles := getStringSlice(v, "listingkit.zitadel.allowedRoles")
 	listingKitZitadelIssuerURL := v.GetString("listingkit.zitadel.issuerURL")
 	listingKitZitadelAuthorizationAPIURL := v.GetString("listingkit.zitadel.authorizationAPIURL")
 	if strings.TrimSpace(listingKitZitadelAuthorizationAPIURL) == "" {
@@ -81,21 +77,8 @@ func BuildConfig(v *viper.Viper) *Config {
 				TenantDirectoryToken:              v.GetString("listingkit.zitadel.tenantDirectoryToken"),
 				MemberInvitationToken:             v.GetString("listingkit.zitadel.memberInvitationToken"),
 				ProjectID:                         v.GetString("listingkit.zitadel.projectID"),
-				AuthorizationRequired:             v.GetBool("listingkit.zitadel.authorizationRequired"),
-				AllowedTenantIDs:                  listingKitAllowedTenantIDs,
-				AllowedUserIDs:                    listingKitAllowedUserIDs,
 				AllowedUsernames:                  listingKitAllowedUsernames,
 				LegacyUsernameAllowlistConfigured: listingKitLegacyUsernameAllowlistConfigured,
-				AllowedRoles:                      listingKitAllowedRoles,
-				SMS: ListingKitZitadelSMSConfig{
-					SigningKey:                     v.GetString("listingkit.zitadel.sms.signingKey"),
-					TencentSecretID:                v.GetString("listingkit.zitadel.sms.tencentSecretID"),
-					TencentSecretKey:               v.GetString("listingkit.zitadel.sms.tencentSecretKey"),
-					TencentAppID:                   v.GetString("listingkit.zitadel.sms.tencentAppID"),
-					TencentSignName:                v.GetString("listingkit.zitadel.sms.tencentSignName"),
-					TencentTemplateID:              v.GetString("listingkit.zitadel.sms.tencentTemplateID"),
-					PhoneVerificationExpiryMinutes: phoneVerificationExpiryMinutes(v),
-				},
 			},
 		},
 		Workbench: WorkbenchConfig{
@@ -179,23 +162,6 @@ func buildOpenAIClients(v *viper.Viper) map[string]OpenAIClientConfig {
 		}
 	}
 	return clients
-}
-
-// Preserve malformed configuration as an invalid value for NewService to reject.
-// GetInt would turn invalid strings into zero and truncate YAML floats, making
-// invalid input indistinguishable from an explicitly disabled or valid setting.
-func phoneVerificationExpiryMinutes(v *viper.Viper) int {
-	switch raw := v.Get("listingkit.zitadel.sms.phoneVerificationExpiryMinutes").(type) {
-	case nil:
-		return 0
-	case int:
-		return raw
-	case string:
-		if value, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil {
-			return value
-		}
-	}
-	return -1
 }
 
 func rolePolicyDatabase(v *viper.Viper) *DatabaseConfig {

@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,13 +37,14 @@ func TestHTTPAPIServerDoesNotOwnListingKitAuthMiddlewareSelection(t *testing.T) 
 	authContent := string(authSrc)
 	for _, marker := range []string{
 		`"task-processor/internal/authz/httpapi"`,
-		"zitadelruntime.NewMiddleware(",
+		"workbenchAuthenticationMiddleware(dependencies.workbenchVerifier)",
 		"RouteRequiresZitadelAuth(",
 		"NewRouteRoleMiddlewareWithAuthorizer(",
 	} {
 		require.Contains(t, authContent, marker)
 	}
 	for _, forbidden := range []string{
+		"zitadelruntime.NewMiddleware(",
 		"ConfigureListingKitZitadelAuth(",
 		"ConfigureListingKitAuthorization(",
 		"NewZitadelAuthMiddlewareFromEnv(",
@@ -54,9 +57,21 @@ func TestHTTPAPIServerDoesNotOwnListingKitAuthMiddlewareSelection(t *testing.T) 
 func TestHTTPModulesDoNotOwnFeatureHTTPAPIModuleSelectionSignatures(t *testing.T) {
 	t.Parallel()
 
-	modulesSrc, err := os.ReadFile("http_modules.go")
+	_, err := os.Lstat("http_modules.go")
+	require.True(t, os.IsNotExist(err), "the retired assembly file must be absent")
+	sources, err := filepath.Glob("*.go")
 	require.NoError(t, err)
-	modulesContent := string(modulesSrc)
+	require.NotEmpty(t, sources, "the retained HTTP owner must remain readable")
+	var modulesContent strings.Builder
+	for _, source := range sources {
+		if strings.HasSuffix(source, "_test.go") {
+			continue
+		}
+		body, err := os.ReadFile(source)
+		require.NoError(t, err)
+		modulesContent.Write(body)
+		modulesContent.WriteByte('\n')
+	}
 
 	for _, marker := range []string{
 		"built *productenrichhttpapi.Module",
@@ -68,6 +83,6 @@ func TestHTTPModulesDoNotOwnFeatureHTTPAPIModuleSelectionSignatures(t *testing.T
 		"built *amazonListingModuleResult",
 		"built *listingKitModuleResult",
 	} {
-		require.NotContains(t, modulesContent, marker)
+		require.NotContains(t, modulesContent.String(), marker)
 	}
 }

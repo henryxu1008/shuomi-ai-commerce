@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	kernelmodule "task-processor/internal/kernel/module"
 	"testing"
 	"time"
 
@@ -41,7 +42,18 @@ func TestSourceAccountApplicationPostgresAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 	resolver := workbenchcontext.NewResolver(authFixture, "project", "v1", nil)
-	application, err := NewSourceAccountApplication(db, authFixture, resolver, authorizer)
+	application, err := func() (*http.Server, error) {
+		deps := routeAuthDependencies{workbenchVerifier: authFixture, organizationResolver: resolver, authorizer: authorizer}
+		module, err := buildSourceAccountModule(context.Background(), db, deps.authorizer)
+		if err != nil {
+			return nil, err
+		}
+		registry := kernelmodule.NewRegistry()
+		if err := module.Register(registry); err != nil {
+			return nil, err
+		}
+		return buildCurrentApplicationHTTPServer(registry.Routes(), deps), nil
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +129,18 @@ func TestSourceAccountApplicationPostgresAcceptance(t *testing.T) {
 	if err := db.Exec("SELECT 1").Error; err != nil {
 		t.Fatalf("caller-owned database was not usable after server shutdown: %v", err)
 	}
-	sameDBRebuilt, err := NewSourceAccountApplication(db, authFixture, resolver, authorizer)
+	sameDBRebuilt, err := func() (*http.Server, error) {
+		deps := routeAuthDependencies{workbenchVerifier: authFixture, organizationResolver: resolver, authorizer: authorizer}
+		module, err := buildSourceAccountModule(context.Background(), db, deps.authorizer)
+		if err != nil {
+			return nil, err
+		}
+		registry := kernelmodule.NewRegistry()
+		if err := module.Register(registry); err != nil {
+			return nil, err
+		}
+		return buildCurrentApplicationHTTPServer(registry.Routes(), deps), nil
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +162,18 @@ func TestSourceAccountApplicationPostgresAcceptance(t *testing.T) {
 	}
 	db = openSourceAccountApplicationDB(t, dsn)
 
-	rebuilt, err := NewSourceAccountApplication(db, authFixture, resolver, authorizer)
+	rebuilt, err := func() (*http.Server, error) {
+		deps := routeAuthDependencies{workbenchVerifier: authFixture, organizationResolver: resolver, authorizer: authorizer}
+		module, err := buildSourceAccountModule(context.Background(), db, deps.authorizer)
+		if err != nil {
+			return nil, err
+		}
+		registry := kernelmodule.NewRegistry()
+		if err := module.Register(registry); err != nil {
+			return nil, err
+		}
+		return buildCurrentApplicationHTTPServer(registry.Routes(), deps), nil
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +231,18 @@ func TestSourceAccountConfiguredUserPostgresAcceptance(t *testing.T) {
 			t.Fatal(err)
 		}
 		resolver := workbenchcontext.NewResolver(fixture, "project", "v1", fixture)
-		application, err := NewSourceAccountApplication(db, fixture, resolver, authorizer)
+		application, err := func() (*http.Server, error) {
+			deps := routeAuthDependencies{workbenchVerifier: fixture, organizationResolver: resolver, authorizer: authorizer}
+			module, err := buildSourceAccountModule(context.Background(), db, deps.authorizer)
+			if err != nil {
+				return nil, err
+			}
+			registry := kernelmodule.NewRegistry()
+			if err := module.Register(registry); err != nil {
+				return nil, err
+			}
+			return buildCurrentApplicationHTTPServer(registry.Routes(), deps), nil
+		}()
 		if err != nil {
 			t.Fatal(err)
 		}

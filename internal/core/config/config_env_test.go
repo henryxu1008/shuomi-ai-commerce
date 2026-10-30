@@ -12,6 +12,154 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRetiredHTTPAuthSupportYAMLInputsFailClosed(t *testing.T) {
+	keys := []string{
+		"listingkit.zitadel.authorizationRequired",
+		"listingkit.zitadel.allowedTenantIDs",
+		"listingkit.zitadel.allowedUserIDs",
+		"listingkit.zitadel.allowedRoles",
+		"listingkit.zitadel.sms.signingKey",
+		"listingkit.zitadel.sms.tencentSecretID",
+		"listingkit.zitadel.sms.tencentSecretKey",
+		"listingkit.zitadel.sms.tencentAppID",
+		"listingkit.zitadel.sms.tencentSignName",
+		"listingkit.zitadel.sms.tencentTemplateID",
+		"listingkit.zitadel.sms.phoneVerificationExpiryMinutes",
+		"listingkit.zitadel.sms",
+		"listingkit.zitadel.sms.unknownTail",
+	}
+	loaders := []struct {
+		name string
+		load func(*viper.Viper) (*Config, error)
+	}{{"validated", loadWithViper}, {"without-validation", loadWithViperWithoutValidation}}
+	for _, key := range keys {
+		for _, value := range []string{"null", "false", "{}", "[]", `""`, `"private-retired-fixture"`} {
+			for _, loader := range loaders {
+				t.Run(loader.name+"/"+key+"/"+value, func(t *testing.T) {
+					var document strings.Builder
+					parts := strings.Split(key, ".")
+					for index, part := range parts {
+						document.WriteString(strings.Repeat("  ", index) + part + ":")
+						if index == len(parts)-1 {
+							document.WriteString(" " + value)
+						}
+						document.WriteString("\n")
+					}
+					v := newViper()
+					v.Set("openai.apiKey", "current-fixture-key")
+					require.NoError(t, v.ReadConfig(strings.NewReader(document.String())))
+					cfg, err := loader.load(v)
+					if cfg != nil {
+						t.Fatal("retired configuration returned a usable config")
+					}
+					require.ErrorContains(t, err, "retired configuration key listingkit.zitadel.")
+					require.NotContains(t, err.Error(), "private-retired-fixture")
+				})
+			}
+		}
+	}
+}
+
+func TestRetiredHTTPAuthSupportEnvironmentInputsFailClosed(t *testing.T) {
+	// Frozen §4.2 names, independent of the implementation's rejection table.
+	names := []string{
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHZ_REQUIRED",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHORIZATIONREQUIRED",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDTENANTIDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDUSERIDS",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWEDROLES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_SIGNING_KEY",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_SIGNINGKEY",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SECRET_ID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTSECRETID",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SECRET_KEY",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTSECRETKEY",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_APP_ID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTAPPID",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SIGN_NAME",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTSIGNNAME",
+		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_TEMPLATE_ID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_TENCENTTEMPLATEID",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_PHONE_VERIFICATION_EXPIRY_MINUTES",
+		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_PHONEVERIFICATIONEXPIRYMINUTES",
+	}
+	for _, name := range names {
+		for _, value := range []string{"", "false", "private-retired-fixture"} {
+			t.Run(name+"/"+value, func(t *testing.T) {
+				t.Setenv(name, value)
+				for _, load := range []func(*viper.Viper) (*Config, error){loadWithViper, loadWithViperWithoutValidation} {
+					v := newViper()
+					// A current value coexisting with a retired name must not suppress rejection.
+					v.Set("listingkit.zitadel.projectID", "current-project")
+					v.Set("openai.apiKey", "current-fixture-key")
+					cfg, err := load(v)
+					if cfg != nil {
+						t.Fatal("retired environment name returned a usable config")
+					}
+					require.ErrorContains(t, err, "retired environment variable "+name)
+					require.NotContains(t, err.Error(), "private-retired-fixture")
+				}
+			})
+		}
+	}
+
+	for index := 0; index < len(names); index += 2 {
+		primary, automatic := names[index], names[index+1]
+		for _, values := range [][2]string{{"", "private-retired-fixture"}, {"private-retired-fixture", ""}} {
+			t.Run(primary+"/coexists", func(t *testing.T) {
+				t.Setenv(primary, values[0])
+				t.Setenv(automatic, values[1])
+				for _, load := range []func(*viper.Viper) (*Config, error){loadWithViper, loadWithViperWithoutValidation} {
+					v := newViper()
+					v.Set("openai.apiKey", "current-fixture-key")
+					cfg, err := load(v)
+					if cfg != nil {
+						t.Fatal("coexisting retired names returned a usable config")
+					}
+					require.ErrorContains(t, err, "retired environment variable ")
+					require.True(t, strings.Contains(err.Error(), primary) || strings.Contains(err.Error(), automatic))
+					require.NotContains(t, err.Error(), "private-retired-fixture")
+				}
+			})
+		}
+	}
+}
+
+func TestRetiredHTTPAuthSupportPreservesCurrentInputs(t *testing.T) {
+	v := newViper()
+	require.NoError(t, v.ReadConfig(strings.NewReader(`openai:
+  apiKey: fixture-key
+  model: fixture-model
+listingkit:
+  platformAdminUsers: [subject-a]
+  platformAdminRoles: [platform_admin]
+  zitadel:
+    issuerURL: https://identity.example.test
+    authorizationAPIURL: https://authorization.example.test
+    clientID: fixture-client
+    clientSecret: fixture-secret
+    projectID: fixture-project
+    tenantDirectoryToken: fixture-directory
+    memberInvitationToken: fixture-invitation
+imageagent:
+  admission:
+    allowedTenantIDs: [org-a]
+`)))
+	for _, load := range []func(*viper.Viper) (*Config, error){loadWithViper, loadWithViperWithoutValidation} {
+		cfg, err := load(v)
+		require.NoError(t, err)
+		require.Equal(t, []string{"subject-a"}, cfg.ListingKit.PlatformAdminUsers)
+		require.Equal(t, []string{"platform_admin"}, cfg.ListingKit.PlatformAdminRoles)
+		require.Equal(t, "fixture-project", cfg.ListingKit.Zitadel.ProjectID)
+		require.Equal(t, "fixture-directory", cfg.ListingKit.Zitadel.TenantDirectoryToken)
+		require.Equal(t, "fixture-invitation", cfg.ListingKit.Zitadel.MemberInvitationToken)
+		require.Equal(t, []string{"org-a"}, cfg.ImageAgent.Admission.AllowedTenantIDs)
+	}
+}
+
 func TestUniqueCleanPathsPreservesFirstOccurrenceOrder(t *testing.T) {
 	got := uniqueCleanPaths([]string{"./.env", ".env", "config/../.env", "config/.env", "./config/../.env"})
 	require.Equal(t, []string{".env", filepath.Join("config", ".env")}, got)
@@ -74,10 +222,7 @@ func TestNewViper_BindsLegacyEnvironmentAliases(t *testing.T) {
 		{"database.database", "TASK_PROCESSOR_DATABASE_NAME", "DB_NAME"},
 		{"database.max_connections", "TASK_PROCESSOR_DATABASE_MAX_CONNECTIONS", "DB_MAX_CONNECTIONS"},
 		{"database.max_idle_connections", "TASK_PROCESSOR_DATABASE_MAX_IDLE_CONNECTIONS", "DB_MAX_IDLE_CONNECTIONS"},
-		{"listingkit.zitadel.allowedTenantIDs", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS", "LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS"},
-		{"listingkit.zitadel.allowedUserIDs", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS", "LISTINGKIT_ZITADEL_ALLOWED_USER_IDS"},
 		{"listingkit.zitadel.allowedUsernames", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES", "LISTINGKIT_ZITADEL_ALLOWED_USERNAMES"},
-		{"listingkit.zitadel.allowedRoles", "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES", "LISTINGKIT_ZITADEL_ALLOWED_ROLES"},
 	}
 	for _, test := range tests {
 		t.Run(test.retired, func(t *testing.T) {
@@ -114,11 +259,7 @@ func TestNewViper_BindsListingKitEnvironmentVariables(t *testing.T) {
 	t.Setenv("ZITADEL_CLIENT_ID", "listingkit-client")
 	t.Setenv("ZITADEL_CLIENT_SECRET", "listingkit-secret")
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_TENANT_DIRECTORY_TOKEN", "directory-token")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHZ_REQUIRED", "true")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS", "tenant-a,tenant-b")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS", "user-a,user-b")
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES", "alice,bob")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES", "listingkit_admin,platform_admin")
 
 	v := newViper()
 
@@ -128,11 +269,7 @@ func TestNewViper_BindsListingKitEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "listingkit-client", v.GetString("listingkit.zitadel.clientID"))
 	assert.Equal(t, "listingkit-secret", v.GetString("listingkit.zitadel.clientSecret"))
 	assert.Equal(t, "directory-token", v.GetString("listingkit.zitadel.tenantDirectoryToken"))
-	assert.True(t, v.GetBool("listingkit.zitadel.authorizationRequired"))
-	assert.Equal(t, []string{"tenant-a", "tenant-b"}, getStringSlice(v, "listingkit.zitadel.allowedTenantIDs"))
-	assert.Equal(t, []string{"user-a", "user-b"}, getStringSlice(v, "listingkit.zitadel.allowedUserIDs"))
 	assert.Equal(t, []string{"alice", "bob"}, getStringSlice(v, "listingkit.zitadel.allowedUsernames"))
-	assert.Equal(t, []string{"listingkit_admin", "platform_admin"}, getStringSlice(v, "listingkit.zitadel.allowedRoles"))
 }
 
 func TestKnownEnvBindingsDoesNotExposeListingKitAuthenticationToggle(t *testing.T) {
@@ -250,63 +387,6 @@ func TestConfigFixtureRejectsEnabledWorkbenchWithoutCompleteZitadelConfig(t *tes
 	assert.Contains(t, err.Error(), "listingkit.zitadel.projectID")
 }
 
-func TestBuildConfigReadsTencentSMSWebhookCredentials(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_SIGNING_KEY", "signing-key")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SECRET_ID", "secret-id")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SECRET_KEY", "secret-key")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_APP_ID", "1400000000")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SIGN_NAME", "ListingKit")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_TEMPLATE_ID", "100001")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_PHONE_VERIFICATION_EXPIRY_MINUTES", "60")
-
-	cfg := BuildConfig(newViper())
-
-	assert.Equal(t, "signing-key", cfg.ListingKit.Zitadel.SMS.SigningKey)
-	assert.Equal(t, "secret-id", cfg.ListingKit.Zitadel.SMS.TencentSecretID)
-	assert.Equal(t, "secret-key", cfg.ListingKit.Zitadel.SMS.TencentSecretKey)
-	assert.Equal(t, "1400000000", cfg.ListingKit.Zitadel.SMS.TencentAppID)
-	assert.Equal(t, "ListingKit", cfg.ListingKit.Zitadel.SMS.TencentSignName)
-	assert.Equal(t, "100001", cfg.ListingKit.Zitadel.SMS.TencentTemplateID)
-	assert.Equal(t, 60, cfg.ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
-}
-
-func TestBuildConfigRejectsMalformedPhoneVerificationExpiry(t *testing.T) {
-	const envKey = "TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_PHONE_VERIFICATION_EXPIRY_MINUTES"
-	for _, value := range []string{"abc", "1.5", "true", "999999999999999999999999999999999"} {
-		t.Run("env/"+value, func(t *testing.T) {
-			t.Setenv(envKey, value)
-			require.Equal(t, -1, BuildConfig(newViper()).ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
-		})
-	}
-	for _, value := range []string{"abc", "1.5", "1.0", "true", "[]", "{}", `""`} {
-		t.Run("yaml/"+value, func(t *testing.T) {
-			t.Setenv(envKey, "")
-			v := newViper()
-			v.SetConfigType("yaml")
-			require.NoError(t, v.ReadConfig(strings.NewReader("listingkit:\n  zitadel:\n    sms:\n      phoneVerificationExpiryMinutes: "+value+"\n")))
-			require.Equal(t, -1, BuildConfig(v).ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
-		})
-	}
-}
-
-func TestBuildConfigPreservesValidPhoneVerificationExpiry(t *testing.T) {
-	const envKey = "TASK_PROCESSOR_LISTINGKIT_ZITADEL_SMS_PHONE_VERIFICATION_EXPIRY_MINUTES"
-	for _, tc := range []struct {
-		raw  string
-		want int
-	}{{"0", 0}, {"1", 1}, {"60", 60}, {`"60"`, 60}, {"-1", -1}, {"61", 61}} {
-		t.Run(tc.raw, func(t *testing.T) {
-			t.Setenv(envKey, "")
-			v := newViper()
-			v.SetConfigType("yaml")
-			require.NoError(t, v.ReadConfig(strings.NewReader("listingkit:\n  zitadel:\n    sms:\n      phoneVerificationExpiryMinutes: "+tc.raw+"\n")))
-			require.Equal(t, tc.want, BuildConfig(v).ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
-		})
-	}
-	t.Setenv(envKey, "")
-	require.Zero(t, BuildConfig(newViper()).ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
-}
-
 func TestLoadDotEnvFile_PopulatesUnsetEnvironmentVariables(t *testing.T) {
 	tempDir := t.TempDir()
 	envPath := filepath.Join(tempDir, ".env")
@@ -412,6 +492,7 @@ func TestLoadDotEnvCandidates_LoadsScopedEnvBeforeSharedDotEnv(t *testing.T) {
 
 func TestLoadConfigFromFile_AssemblesListingKitAndZitadelConfig(t *testing.T) {
 	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".env"), nil, 0o600))
 	configPath := filepath.Join(tempDir, "config-test.yaml")
 	configBody := strings.Join([]string{
 		"openai:",
@@ -426,48 +507,36 @@ func TestLoadConfigFromFile_AssemblesListingKitAndZitadelConfig(t *testing.T) {
 		"    issuerURL: \"https://issuer.file.example\"",
 		"    clientID: \"file-client\"",
 		"    clientSecret: \"file-secret\"",
-		"    authorizationRequired: false",
 	}, "\n")
 	require.NoError(t, os.WriteFile(configPath, []byte(configBody), 0o600))
 
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES", "listingkit_admin,platform_admin")
 	t.Setenv("LISTINGKIT_PLATFORM_ADMIN_USERS", "user-b,user-c")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHZ_REQUIRED", "1")
 
 	cfg, err := LoadConfigFromFile(configPath)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"user-b", "user-c"}, cfg.ListingKit.PlatformAdminUsers)
 	assert.Equal(t, []string{"platform_admin"}, cfg.ListingKit.PlatformAdminRoles)
-	assert.True(t, cfg.ListingKit.Zitadel.AuthorizationRequired)
 	assert.Equal(t, "https://issuer.file.example", cfg.ListingKit.Zitadel.IssuerURL)
 	assert.Equal(t, "file-client", cfg.ListingKit.Zitadel.ClientID)
-	assert.Equal(t, []string{"listingkit_admin", "platform_admin"}, cfg.ListingKit.Zitadel.AllowedRoles)
 }
 
 func TestLoadConfigFromFile_CannotDisableListingKitAuthentication(t *testing.T) {
-	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "config-test.yaml")
-	configBody := strings.Join([]string{
-		"openai:",
-		"  apiKey: \"test-openai-key\"",
-		"  model: \"gemini-2.5-flash\"",
-		"  baseURL: \"https://api.example.test/v1\"",
-		"  timeout: 30",
-		"listingkit:",
-		"  zitadel:",
-		"    authorizationRequired: false",
-	}, "\n")
-	require.NoError(t, os.WriteFile(configPath, []byte(configBody), 0o600))
-
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHZ_REQUIRED", "0")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES", "listingkit_admin,platform_admin")
-
-	cfg, err := LoadConfigFromFile(configPath)
-	require.NoError(t, err)
-
-	assert.False(t, cfg.ListingKit.Zitadel.AuthorizationRequired)
-	assert.Equal(t, []string{"listingkit_admin", "platform_admin"}, cfg.ListingKit.Zitadel.AllowedRoles)
+	for _, value := range []string{"false", "0"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHZ_REQUIRED", value)
+			for _, load := range []func(*viper.Viper) (*Config, error){loadWithViper, loadWithViperWithoutValidation} {
+				v := newViper()
+				require.NoError(t, v.ReadConfig(strings.NewReader("listingkit:\n  zitadel:\n    authorizationRequired: false\n")))
+				cfg, err := load(v)
+				if cfg != nil {
+					t.Fatal("retired switch returned usable config")
+				}
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "retired configuration key listingkit.zitadel.authorizationRequired")
+			}
+		})
+	}
 }
 
 func TestRetiredCommercialTokenDatabaseIsNotConfiguration(t *testing.T) {

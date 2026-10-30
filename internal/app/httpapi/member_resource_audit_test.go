@@ -7,16 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"task-processor/internal/app/accountaudit"
 	"task-processor/internal/authz"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
-	registry "task-processor/internal/sourceaccountregistry"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestAccountAuditHTTPReadsNativeMemberResourceFactsWithFreshAuthorization(t *testing.T) {
@@ -47,7 +47,7 @@ func TestAccountAuditHTTPReadsNativeMemberResourceFactsWithFreshAuthorization(t 
 	require.NoError(t, (accountAuditModule{query: query}).Register(modules))
 	grants := &auditHTTPGrants{role: authz.EnterpriseRoleKey("B", 1)}
 	authorizer, _ := newCurrentRoleTestAuthorizer(nil, nil)
-	server := buildIsolatedApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer}, registry.Timeout)
+	server := buildCurrentApplicationHTTPServer(modules.Routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: authorizer})
 	get := func(org, query string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", accountAuditPath+query, nil)
 		r.Header.Set("Authorization", "Bearer fixture")

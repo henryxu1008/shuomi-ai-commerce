@@ -4,13 +4,12 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
+	"gorm.io/driver/sqlite"
+
 	storeapp "task-processor/internal/app/storecenter"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
@@ -19,6 +18,11 @@ import (
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/storecenter"
 	storehttp "task-processor/internal/storecenter/httpapi"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestTikTokLifecycleAdmissionRequiresExplicitSignedBoundary(t *testing.T) {
@@ -265,3 +269,24 @@ func (currentStoreChargeFixture) ReadChargeIntent(context.Context, orgresource.C
 func (currentStoreChargeFixture) ReadChargeProof(context.Context, orgresource.ConsumerChargeReceipt) (orgresource.ConsumerChargeProof, error) {
 	return orgresource.ConsumerChargeProof{}, orgresource.ErrInvalidInput
 }
+
+func TestCurrentStoreBuilderDoesNotOpenOrCloseBorrowedPool(t *testing.T) {
+	module, err := buildCurrentStoreCenterModule(context.Background(), nil, currentRoleTestAuthorizer(), nil, nil, storecenter.RuntimeCapabilities{})
+	require.Error(t, err)
+	require.Nil(t, module)
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "borrowed-store.sqlite")), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	module, err = buildCurrentStoreCenterModule(context.Background(), db, currentRoleTestAuthorizer(), nil, nil, storecenter.RuntimeCapabilities{})
+	require.Error(t, err, "a native record pool without current schema must fail closed")
+	require.Nil(t, module)
+	require.NoError(t, sqlDB.PingContext(context.Background()), "the builder must not close a caller-owned pool after failure")
+	tables, err := db.Migrator().GetTables()
+	require.NoError(t, err)
+	require.Empty(t, tables, "building a module must not perform implicit DDL")
+}
+
+// Shared current Store fixture moved from the retired assembly test.
+type inertStoreService struct{ storehttp.StoreService }

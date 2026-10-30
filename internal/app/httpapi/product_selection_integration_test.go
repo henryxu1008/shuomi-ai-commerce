@@ -10,9 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	confighttp "task-processor/internal/agentconfig/httpapi"
@@ -30,6 +27,10 @@ import (
 	"task-processor/internal/product/selection/tools/selectioninspect"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 type mutationAfterProposalModel struct {
@@ -137,7 +138,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, configurationModule.Register(registry))
 	routes = append(routes, registry.Routes()...)
-	app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
+	app := buildCurrentApplicationHTTPServer(routes, deps)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
 	call := func(method, path, key string, body any, status int) []byte {

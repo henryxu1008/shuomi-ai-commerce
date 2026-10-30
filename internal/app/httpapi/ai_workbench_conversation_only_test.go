@@ -12,11 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"task-processor/internal/agent"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
@@ -24,6 +19,12 @@ import (
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	"task-processor/internal/workbenchcontext"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type conversationOnlyGrants struct {
@@ -115,7 +116,7 @@ func testConversationOnlyScopedCRUDAndNoExecution(t *testing.T, content *product
 			require.Nil(t, built, kind)
 		}
 	}
-	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(m.routes, deps, 15*time.Second).Handler)
+	server := httptest.NewServer(buildCurrentApplicationHTTPServer(m.routes, deps).Handler)
 	t.Cleanup(server.Close)
 	key := uuid.NewString()
 	code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", key, `{}`)
