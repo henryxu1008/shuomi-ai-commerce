@@ -15,6 +15,17 @@ vi.stubGlobal("fetch",vi.fn(async(url,init)=>{const path=String(url);if(path.inc
 afterEach(()=>{cleanup();vi.unstubAllGlobals()});
 function mount(podAvailable=true,value=entry){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<QueryClientProvider client={client}><PODArtworkFlow scope={scope} entry={value} templates={[]} nonce={0} podAvailable={podAvailable}/></QueryClientProvider>)}
 
+it("keeps the original quote readable but disables confirmation after write access is lost",async()=>{
+ localStorage.setItem(`pod.artwork.last:${JSON.stringify([scope.userId,scope.organizationId])}`,runId);
+ mount(true,{...entry,canUse:false});
+ const confirm=await screen.findByRole("button",{name:"确认点数并生成新图案"});
+ expect(current.generationAllowed).toBe(true);
+ expect(confirm).toBeDisabled();
+ fireEvent.click(confirm);
+ expect(post).not.toHaveBeenCalled();
+ expect(screen.getByText(new RegExp(runId))).toBeInTheDocument();
+});
+
 it("preserves the read candidate but disables saving without the write capability",async()=>{current.status="awaiting_final_approval";current.generationAdmitted=true;current.saveAvailable=true;current.resultDigest="d".repeat(64);current.candidates=[{assetId:"artwork-asset",url:"https://cdn.example/artwork.png",width:1024,height:1024,hash:"c".repeat(64)}];localStorage.setItem(`pod.artwork.last:${JSON.stringify([scope.userId,scope.organizationId])}`,runId);mount(true,{...entry,canUse:false});await screen.findByRole("img",{name:"森林狐狸"});expect(screen.getByRole("button",{name:"确认并保存作品"})).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:"确认并保存作品"}));expect(post).not.toHaveBeenCalled()});
 describe("POD原创图案路径",()=>{
  it("报价不自动发送模型；确认后检查实际候选并显式保存，再带入设计器",async()=>{mount();fireEvent.change(screen.getByLabelText("图案主题"),{target:{value:"森林狐狸"}});await waitFor(()=>expect(screen.getByRole("button",{name:"准备图案并查看报价"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"准备图案并查看报价"}));await screen.findByRole("button",{name:"确认点数并生成新图案"});expect(post).toHaveBeenCalledTimes(1);expect(screen.queryByRole("img")).toBeNull();fireEvent.click(screen.getByRole("button",{name:"确认点数并生成新图案"}));await screen.findByRole("button",{name:"确认并保存作品"});expect(post).toHaveBeenCalledTimes(2);expect(screen.queryByText("作品已保存到我的数据。")).toBeNull();expect(screen.getByRole("img",{name:"森林狐狸"})).toHaveAttribute("src","https://cdn.example/artwork.png");fireEvent.click(screen.getByRole("button",{name:"确认并保存作品"}));const link=await screen.findByRole("link",{name:"选择模板，进入布局与效果图 →"});expect(link).toHaveAttribute("href",`/workbench/supply/catalogs/sds/design?artwork=${itemId}`);expect(post).toHaveBeenCalledTimes(3);expect(post.mock.calls.every(c=>!String(c[0]).includes("designs"))).toBe(true)});

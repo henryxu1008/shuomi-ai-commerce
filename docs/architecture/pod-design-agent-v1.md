@@ -82,6 +82,8 @@ Provider POST只能由原fact的单次dispatch permit发出，adapter固定一�
 
 ## 权限与POD执行
 
+POD新图案入口沿现有保存合同要求同一企业/actor/member同时具备图片生成权限与`workbench.collection.manage`，不自动授予权限。配置页capability分别核验两项授权（原多参数授权接口是ANY，不能用一次调用表示AND）；新准备配置、新Run准入及worker付费执行前，由app组合现有`ArtworkConfigurationRepository`与当前组织授权owner补齐保存权限检查，商品图片分支不增加该要求。原准确配置/准入回执读回、同键准备重放及已提交Run的确认恢复保持原只读/幂等路径，恢复后的新付费执行仍重新核权。前端失去`entry.canUse`时禁用报价确认，原报价/结果继续可读；原恢复、取消和保存各自沿既有边界。
+
 所有入口和worker复用verified Effective Organization、原actor/member及当前业务权限。原付费图片准入`AdmitImageRun`拒绝`read_only`；本POD复用该策略，不扩大它。`read_only`可查看原生成结果/历史并准备意图/报价，拒绝确认模型发送、正式作品采用、RoleDesign批准及POD外部写入。`default`明确确认；`auto_approve/full_access`只处理原policy允许的已授权内部动作。模型调用仍受原报价/预算/用量/存储约束，full不提供新增额度或假用量成功。
 
 图案作为印花用途的选择/批准沿原RoleDesign合同，不由模型自批；当前领域需要确认时，full不能覆盖。未授权外部发布/改价/下架/删除/增加额度均拒绝。SDS“生成效果图并保存成品”明确产生远端素材/设计，仍有单独的当前业务授权与用户确认，不能被智能布局或图案生成成功暗中触发。
