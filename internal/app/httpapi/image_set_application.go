@@ -257,16 +257,20 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return nil, empty, err
 	}
 	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
-	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration}
-	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}})}
-	options = append(options, imageagent.WithImageMethodContext(methods))
 	var artwork imageagent.ArtworkPublisher
+	var artworkConfiguration agentconfig.ArtworkConfigurationRepository
 	if artworkConfigurationReady(startup, configurationDB, productDB, collectionsEnabled) {
 		artwork, err = buildPODArtworkPublisher(startup, productDB, workerRepository, publicURLs, configuration, imageMediaScopeAuthority{current: live}, trial)
 		if err != nil {
 			return nil, empty, err
 		}
-		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
+		artworkConfiguration = artworkAdmissionConfiguration{ArtworkConfigurationRepository: configuration, authorize: live.AuthorizeExecution}
+	}
+	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration, artworkConfiguration: artworkConfiguration}
+	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}})}
+	options = append(options, imageagent.WithImageMethodContext(methods))
+	if artworkConfiguration != nil {
+		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: artworkConfiguration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
 	}
 	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, options...)
 	if err != nil {
