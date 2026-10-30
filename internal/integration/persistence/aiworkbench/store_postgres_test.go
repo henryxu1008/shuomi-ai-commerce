@@ -384,7 +384,7 @@ func preparedTaskFixture(t *testing.T, p aiworkbench.ExecutionProposal, key stri
 	request := agent.Request{Key: key,
 		Binding: agent.Binding{ContextKind: "acquisition", ContextID: p.OperationID, ProductKey: p.ProductKey,
 			CatalogVersion: p.CatalogVersion, PublicationID: p.PublicationID, TargetPlatform: p.TargetPlatform},
-		ConfigurationSnapshotRef: ref, GoalSummary: p.GoalSummary, PolicyVersion: "policy-v1", PromptVersion: "prompt-v1",
+		ConfigurationSnapshotRef: ref, GoalSummary: p.GoalSummary, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1",
 		Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 500000, CostMicros: 500000, Currency: "USD", Runtime: time.Minute}}
 	raw, err := json.Marshal(request)
 	require.NoError(t, err)
@@ -418,6 +418,8 @@ func TestConfirmReceiptPrecedesLaterStalenessAndKeepsOneTask(t *testing.T) {
 	require.NoError(t, err)
 	_, _, err = store.Confirm(ctx, scope, conversation.ID, proposal.ID, uuid.NewString(), prepared)
 	require.ErrorIs(t, err, aiworkbench.ErrRevisionMismatch)
+	_, _, err = store.LookupTask(ctx, scope, conversation.ID, proposal.ID, uuid.NewString())
+	require.ErrorIs(t, err, aiworkbench.ErrRevisionMismatch)
 	archived := true
 	_, err = store.SetMetadata(ctx, scope, conversation.ID, conversation.MetadataRevision, aiworkbench.MetadataChange{Archived: &archived})
 	require.NoError(t, err)
@@ -425,6 +427,10 @@ func TestConfirmReceiptPrecedesLaterStalenessAndKeepsOneTask(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, duplicate)
 	require.Equal(t, task.ID, replayed.ID)
+	readback, found, err := store.LookupTask(ctx, scope, conversation.ID, proposal.ID, key)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, task.ID, readback.ID, "same-key receipt read survives archive")
 	preflightFailure := errors.New("agent or knowledge changed after lookup")
 	replayed, duplicate, err = store.ReplayOrFail(ctx, scope, conversation.ID, proposal.ID, key, preflightFailure)
 	require.NoError(t, err)
@@ -436,8 +442,19 @@ func TestConfirmReceiptPrecedesLaterStalenessAndKeepsOneTask(t *testing.T) {
 	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
 	_, _, err = store.Confirm(ctx, scope, conversation.ID, uuid.NewString(), key, aiworkbench.PreparedTask{})
 	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
-	_, _, err = store.Confirm(ctx, scope, conversation.ID, proposal.ID, uuid.NewString(), prepared)
-	require.ErrorIs(t, err, aiworkbench.ErrConversationArchived)
+	t.Run("new key lookup preserves archived error", func(t *testing.T) {
+		_, found, err := store.LookupTask(ctx, scope, conversation.ID, proposal.ID, uuid.NewString())
+		require.ErrorIs(t, err, aiworkbench.ErrConversationArchived)
+		require.False(t, found)
+	})
+	t.Run("new key confirm preserves archived error", func(t *testing.T) {
+		_, replay, err := store.Confirm(ctx, scope, conversation.ID, proposal.ID, uuid.NewString(), prepared)
+		require.ErrorIs(t, err, aiworkbench.ErrConversationArchived)
+		require.False(t, replay)
+	})
+	var count int64
+	require.NoError(t, store.db.Model(&taskRow{}).Where("organization_id = ? AND owner_user_id = ? AND conversation_id = ?", scope.OrganizationID, scope.ActorID, conversation.ID).Count(&count).Error)
+	require.EqualValues(t, 1, count, "rejected new keys cannot create another task")
 }
 
 type competingExecution struct {
