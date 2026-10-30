@@ -64,7 +64,7 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			run.Budget = imageagent.Budget{MaxImages: 1, MaxModelCalls: 1}
 			policy, err := run.Budget.Policy()
 			require.NoError(t, err)
-			plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key", SourceAssetIDs: []string{"source-1"}, CreatedBy: run.UserID, Slots: []imageagent.Slot{{ID: "main", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key"}}}
+			plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key", SourceAssetIDs: []string{"source-1"}, CreatedBy: run.UserID, Slots: []imageagent.Slot{{ID: "main", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key", Status: imageagent.SlotStatusPending}}}
 			catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/image.png"}}})
 			require.NoError(t, err)
 			_, err = repo.InitializeRun(ctx, imageagent.ProjectionInitialization{Scope: imageagent.ScopeForRun(run), Run: run, Plan: plan, Catalog: catalog, Snapshot: imageagent.RunProjection{Run: run, Plan: plan}, CommitID: "start", EventType: "run.initialized", EventPayload: []byte(`{}`)})

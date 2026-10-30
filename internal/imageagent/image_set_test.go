@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/agent"
 )
 
 func TestExistingImageSetPlanRetainsItsExactDigestWithoutModeRef(t *testing.T) {
@@ -38,11 +40,20 @@ func setPlanFixture(t *testing.T) Plan {
 	var plan Plan
 	require.NoError(t, json.Unmarshal([]byte(strings.ReplaceAll(raw, "HASH", hash)), &plan))
 	if plan.Set != nil {
+		plan.Set.Text = &ImageTextBinding{PolicyVersion: ImageTextPolicyVersion, Mode: "none", Language: "zh"}
+		plan.Slots[0].Recipe.Prompt = imageTextPrompt(ProductContextRef{}, plan.Slots[0].Brief, plan.Slots[0].Recipe)
 		var err error
 		plan.Set.QuoteDigest, err = ImageSetQuoteDigest(plan)
 		require.NoError(t, err)
 	}
 	return plan
+}
+
+func TestImageSetPlanRejectsOmittedTextEvenWithoutMethod(t *testing.T) {
+	plan := setPlanFixture(t)
+	plan.Set.Text = nil
+	plan.Set.Method = nil
+	require.ErrorIs(t, ValidateImageSetPlan(plan), ErrValidation)
 }
 
 func TestSetPlanPermitsDetailOnlyWithoutWeakeningSingleImagePlan(t *testing.T) {
@@ -163,16 +174,16 @@ func TestAllKnownFailedEffectsCanRegenerateButCannotApproveResults(t *testing.T)
 func TestSetPlanChecksSourceBoundsQuoteChangesAndPointSumOverflow(t *testing.T) {
 	plan := setPlanFixture(t)
 	plan.Slots[0].Recipe.References[0].SHA256 = "missing"
-	require.Error(t, ValidateSubmittedPlan(plan))
+	require.Error(t, ValidatePlan(plan))
 	plan = setPlanFixture(t)
 	plan.Slots[0].Recipe.Quote.PriceVersion = "price-2"
-	require.Error(t, ValidateSubmittedPlan(plan), "the frozen quote digest must reject a price change")
+	require.Error(t, ValidatePlan(plan), "the frozen quote digest must reject a price change")
 	plan = setPlanFixture(t)
 	plan.Slots[0].Recipe.References[0].Bytes = 16 << 20
 	plan.Slots[0].SourceAssetIDs = append(plan.Slots[0].SourceAssetIDs, "source-2")
 	plan.SourceAssetIDs = append(plan.SourceAssetIDs, "source-2")
 	plan.Slots[0].Recipe.References = append(plan.Slots[0].Recipe.References, ImageSourceObservation{AssetID: "source-2", SHA256: strings.Repeat("b", 64), MediaType: "image/png", Bytes: 1, Width: 1, Height: 1})
-	require.Error(t, ValidateSubmittedPlan(plan), "an aggregate source bundle must remain bounded")
+	require.Error(t, ValidatePlan(plan), "an aggregate source bundle must remain bounded")
 	plan = setPlanFixture(t)
 	plan.Slots[0].Recipe.Quote.Points = math.MaxInt64
 	second := plan.Slots[0]
@@ -181,4 +192,53 @@ func TestSetPlanChecksSourceBoundsQuoteChangesAndPointSumOverflow(t *testing.T) 
 	plan.Slots = append(plan.Slots, second)
 	_, err := ImageSetPoints(plan)
 	require.Error(t, err, "point overflow cannot become a small or negative budget")
+}
+
+func TestCurrentImageSetQuoteEncodingIsUnchanged(t *testing.T) {
+	for _, route := range []bool{false, true} {
+		for _, reviewed := range []bool{false, true} {
+			for _, method := range []bool{false, true} {
+				t.Run(fmt.Sprintf("route=%t/reviewed=%t/method=%t", route, reviewed, method), func(t *testing.T) {
+					plan := setPlanFixture(t)
+					if route {
+						plan.Set.Route = &ImageRouteSelection{BindingID: "route", RevisionID: "revision"}
+					}
+					if reviewed {
+						ref := ImageTextReviewReference{ID: "a3ce4c41-745a-47bf-a418-c940d3ba4b84", Revision: 2}
+						plan.Set.Text.Mode, plan.Set.Text.TaskIDs = "reviewed", []string{"overview"}
+						plan.Set.Text.Copy = &ImageTextReviewCopy{Review: ref, ProductID: plan.Set.Source.ProductID, PublicationID: plan.Set.Source.OriginalPublicationID, Version: 1, Language: "zh", OriginRunID: ref.ID, ModeSnapshot: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: ref.ID, Digest: strings.Repeat("c", 64)}, Lines: []string{"已审核文案"}}
+					}
+					if method {
+						plan.Set.Method = &ImageMethodBinding{PolicyVersion: ImageMethodPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}}
+					}
+					type quotedSlot struct {
+						SlotID string
+						Quote  ImageGenerationQuote
+					}
+					quotes := []quotedSlot{{plan.Slots[0].ID, plan.Slots[0].Recipe.Quote}}
+					var original []byte
+					var err error
+					if route {
+						original, err = json.Marshal(struct {
+							Quotes []quotedSlot
+							Route  *ImageRouteSelection
+							Method *ImageMethodBinding `json:",omitempty"`
+							Text   *ImageTextBinding   `json:",omitempty"`
+						}{quotes, plan.Set.Route, plan.Set.Method, plan.Set.Text})
+					} else {
+						original, err = json.Marshal(struct {
+							Quotes []quotedSlot
+							Method *ImageMethodBinding `json:",omitempty"`
+							Text   *ImageTextBinding
+						}{quotes, plan.Set.Method, plan.Set.Text})
+					}
+					require.NoError(t, err)
+					expected := sha256.Sum256(original)
+					actual, err := ImageSetQuoteDigest(plan)
+					require.NoError(t, err)
+					require.Equal(t, hex.EncodeToString(expected[:]), actual)
+				})
+			}
+		}
+	}
 }

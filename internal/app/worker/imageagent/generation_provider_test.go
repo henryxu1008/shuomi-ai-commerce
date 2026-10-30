@@ -68,7 +68,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	logger, hook := logtest.NewNullLogger()
 	dispatches, observed, downloads := 0, 0, 0
 	expectedObservations := 1
-	expectedPrompt := "approved exact product and method"
+	expectedPrompt := "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): Product. Product type: . Visual task: product_identity; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image."
 	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: model, BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
 	factory := generationProviderFactory{logger: logrus.NewEntry(logger), resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
 		dispatches++
@@ -100,9 +100,10 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	input := imageagent.SlotExecutionInput{RunID: "run-1", IdempotencyKey: "attempt", TenantID: "org-1", UserID: "user-1", PlanRevision: 1, Attempt: 1, TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}, Slot: imageagent.Slot{ID: "main-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot"}, AssetCatalog: imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/image.png"}}}, ProductContext: imageagent.ProductContextRef{ProductID: "product-1", Title: "Product"}, SourceBytes: pngBytes.Bytes(), SourceDigest: hex.EncodeToString(sum[:])}
 	hash := strings.Repeat("a", 64)
 	input.ImagePolicyContext = nil
+	input.AssetCatalog.ProductContext = input.ProductContext
 	input.SourceReferences = [][]byte{pngBytes.Bytes()}
-	input.ImageSet = &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceSupply, ProductID: "product-1", OperationID: "source-1", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 1}
-	input.Slot.Recipe = &imageagent.ImageSlotRecipe{Purpose: "product_identity", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "carousel", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "approved exact product and method", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(pngBytes.Bytes())), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: prepared.Metadata.Provider, Model: prepared.Metadata.Model, Protocol: prepared.Metadata.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: prepared.Metadata.PriceVersion, Points: prepared.Metadata.Points, RouteReference: prepared.Metadata.RouteReference, CredentialReference: prepared.Metadata.CredentialReference, ConfigurationVersion: prepared.Metadata.ConfigurationVersion}}
+	input.ImageSet = &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceSupply, ProductID: "product-1", OperationID: "source-1", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 1}
+	input.Slot.Recipe = &imageagent.ImageSlotRecipe{Purpose: "product_identity", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "carousel", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): Product. Product type: . Visual task: product_identity; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(pngBytes.Bytes())), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: prepared.Metadata.Provider, Model: prepared.Metadata.Model, Protocol: prepared.Metadata.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: prepared.Metadata.PriceVersion, Points: prepared.Metadata.Points, RouteReference: prepared.Metadata.RouteReference, CredentialReference: prepared.Metadata.CredentialReference, ConfigurationVersion: prepared.Metadata.ConfigurationVersion}}
 	input.ImageSet.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: input.ImageSet, Slots: []imageagent.Slot{input.Slot}})
 	require.NoError(t, err)
 	quote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
@@ -158,7 +159,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 		}
 		imageMethods++
 		t.Run(official.Key, func(t *testing.T) {
-			input.ImageSet.Method = &imageagent.ImageMethodBinding{PolicyVersion: imageagent.FrozenVisualBriefPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: official.Version, Digest: official.Package.Digest, PolicyVersion: "skill-method-v1"}}
+			input.ImageSet.Method = &imageagent.ImageMethodBinding{PolicyVersion: imageagent.ImageMethodPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: official.Version, Digest: official.Package.Digest, PolicyVersion: "skill-method-v1"}}
 			adapter, err := skillimage.New(officialImageUseStore{official.Package}, officialImageUseAuthority{})
 			require.NoError(t, err)
 			id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", TenantID: "org-1", UserID: "user-1", MemberID: "member-1", BusinessTaskID: "product-1"}
@@ -176,14 +177,14 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 			before := dispatches
 			methodQuote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 			require.NoError(t, err)
-			input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+			input.ImageSet.Method.PolicyVersion = "image-method-prompt-v1"
 			before = dispatches
 			_, err = prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 			require.Error(t, err)
 			_, err = prepared.Executor.GenerateQuotedSlot(context.Background(), input, methodQuote)
 			require.Error(t, err)
 			require.Equal(t, before, dispatches, "historical policy cannot grant a provider POST")
-			input.ImageSet.Method.PolicyVersion = imageagent.FrozenVisualBriefPolicyVersion
+			input.ImageSet.Method.PolicyVersion = imageagent.ImageMethodPolicyVersion
 			_, err = prepared.Executor.GenerateQuotedSlot(context.Background(), input, methodQuote)
 			require.Equal(t, before+1, dispatches, "each official image method must reach exactly one provider POST")
 			require.NoError(t, err)

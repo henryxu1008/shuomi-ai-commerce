@@ -109,12 +109,12 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 					hash := strings.Repeat("a", 64)
 					data := []byte("exact-source-bytes")
 					sum := sha256.Sum256(data)
-					set := &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product-1", OperationID: "source-operation", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}
+					set := &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product-1", OperationID: "source-operation", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}
 					method := &generationMethodFixture{text: "exact image method"}
 					if useMethod {
-						set.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.FrozenVisualBriefPolicyVersion}
+						set.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
 					}
-					slot := imageagent.Slot{ID: identity.Identity.SlotID, Role: imageagent.SlotRoleDetail, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot", Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "approved overview", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(data)), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}}}
+					slot := imageagent.Slot{ID: identity.Identity.SlotID, Role: imageagent.SlotRoleDetail, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot", Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): . Product type: . Visual task: product_overview; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(data)), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}}}
 					set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: set, Slots: []imageagent.Slot{slot}})
 					require.NoError(t, err)
 					input := imageagent.SlotExecutionInput{RunID: identity.Identity.RunID, TenantID: identity.Identity.TenantID, UserID: identity.Identity.OwnerUserID, PlanRevision: 1, Attempt: 1, IdempotencyKey: "attempt", TargetPlatform: "product", Slot: slot, ImageSet: set, AssetCatalog: catalog, OrganizationIdentity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: identity.Identity.RunID, TenantID: identity.Identity.TenantID, UserID: identity.Identity.OwnerUserID, MemberID: identity.MemberID, BusinessTaskID: "task-" + identity.Identity.RunID}}
@@ -141,7 +141,7 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 					}})
 					require.NoError(t, err)
 					if useMethod {
-						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+						input.ImageSet.Method.PolicyVersion = "image-method-prompt-v1"
 						_, oldErr := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
 						require.ErrorIs(t, oldErr, imageagent.ErrCommandBlocked)
 						_, oldErr = executor.GenerateQuotedSlot(ctx, input, imageagent.SlotUsageQuote{})
@@ -153,7 +153,7 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 						require.Zero(t, reservations)
 						require.Zero(t, provider.dispatches)
 						require.Zero(t, method.calls)
-						input.ImageSet.Method.PolicyVersion = imageagent.FrozenVisualBriefPolicyVersion
+						input.ImageSet.Method.PolicyVersion = imageagent.ImageMethodPolicyVersion
 					}
 					quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
 					require.NoError(t, err)
@@ -181,7 +181,7 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 					calls := method.calls
 					method.unavailable = true
 					if useMethod {
-						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+						input.ImageSet.Method.PolicyVersion = "image-method-prompt-v1"
 					}
 					_, err = executor.GenerateQuotedSlot(ctx, input, quote)
 					require.Error(t, err)

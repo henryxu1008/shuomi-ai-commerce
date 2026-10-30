@@ -36,6 +36,9 @@ func ValidateImageSetAdmission(run Run, plan Plan) error {
 	copy := plan
 	copy.Slots = append([]Slot(nil), plan.Slots...)
 	for i := range copy.Slots {
+		if copy.Slots[i].Status == "" {
+			return ErrRevisionConflict
+		}
 		copy.Slots[i].Status = SlotStatusPending
 	}
 	digest, err := ImageSetPlanDigest(copy)

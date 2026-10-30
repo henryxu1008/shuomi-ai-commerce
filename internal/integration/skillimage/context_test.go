@@ -105,7 +105,7 @@ func TestImageMethodAdapterUsesLiveImageAuthorityAndCanonicalExactPackage(t *tes
 	require.ErrorIs(t, err, imageagent.ErrIdentityRequired)
 }
 
-func TestHistoricalMethodKeepsAvailabilityFenceWithoutImageMaterial(t *testing.T) {
+func TestHistoricalMethodIsRejectedBeforeAcquiringMaterial(t *testing.T) {
 	releases, err := d.OfficialPackages()
 	require.NoError(t, err)
 	for _, release := range releases {
@@ -118,11 +118,10 @@ func TestHistoricalMethodKeepsAvailabilityFenceWithoutImageMaterial(t *testing.T
 		require.NoError(t, err)
 		ref := agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: d.PlatformOwner, OwnerID: d.PlatformID, Version: 1, Digest: p.Digest, PolicyVersion: d.MethodPolicyVersion}
 		id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run", TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "product"}
-		text, held, err := imageagent.AcquireImageMethod(context.Background(), adapter, id, &imageagent.ImageMethodBinding{Skill: ref, PolicyVersion: imageagent.HistoricalImageMethodPolicyVersion})
-		require.NoError(t, err)
+		text, held, err := imageagent.AcquireImageMethod(context.Background(), adapter, id, &imageagent.ImageMethodBinding{Skill: ref, PolicyVersion: "image-method-prompt-v1"})
+		require.ErrorIs(t, err, imageagent.ErrCommandBlocked)
 		require.Empty(t, text)
+		require.Nil(t, held)
 		require.False(t, store.released)
-		held()
-		require.True(t, store.released)
 	}
 }

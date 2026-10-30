@@ -1185,7 +1185,7 @@ func TestInvalidPersistedV3PolicySurvivesProjectionRefreshAndRejectsDirectRetry(
 		t.Run(tc.name, func(t *testing.T) {
 			plan := imageagent.Plan{
 				Revision: 1, IdempotencyKey: "plan-invalid-policy", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a",
-				Slots: []imageagent.Slot{{ID: "scene-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "scene-key"}},
+				Slots: []imageagent.Slot{{ID: "scene-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "scene-key", Status: imageagent.SlotStatusPending}},
 			}
 			result := SlotWorkflowV3Result{Published: imageagent.SlotEffectV3PublishedResult{SlotID: "scene-1", Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: tc.code}
 			summarized := summarizeResultsV3(plan, []SlotWorkflowV3Result{result})
@@ -4532,7 +4532,7 @@ func manualWorkflowInput(plan imageagent.Plan) WorkflowInput {
 		TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Plan:               plan,
 		MaxConcurrentSlots: 3,
-		AssetCatalog:       imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png"}}},
+		AssetCatalog:       imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png", Width: 1200, Height: 900}}},
 	}
 }
 

@@ -327,7 +327,7 @@ func initializedBudgetedV3ActivityWithBudget(t *testing.T, runID string, budget 
 	run := imageagent.Run{ID: runID, BusinessTaskID: "task-" + runID, TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-" + runID, Status: imageagent.RunStatusExecuting, ActivePlanRevision: 1, Version: 1, Budget: budget, StartedAt: time.Now().UTC(), ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-" + "user-a"}
 	policy, err := run.Budget.Policy()
 	require.NoError(t, err)
-	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a", Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1"}}}
+	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan-key-1", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a", Slots: []imageagent.Slot{{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key-1", Status: imageagent.SlotStatusPending}}}
 	projection := initializeActivityProjection(t, repository, run, plan)
 	return repository, ExecuteSlotV3ActivityInput{RunID: run.ID, Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, MemberID: "member-" + run.UserID, TenantID: run.TenantID, UserID: run.UserID, BusinessTaskID: run.BusinessTaskID}, PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "slot-key-1:plan:1:attempt:1", AssetCatalog: projection.AssetCatalog}, policy
 }

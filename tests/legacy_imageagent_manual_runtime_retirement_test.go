@@ -327,3 +327,56 @@ func TestLegacyImageAgentBusinessSignalClosureIsRetired(t *testing.T) {
 		t.Errorf("current SDK port and recovery Signal producer/receiver must remain: port=%t receiver=%t producer=%t", sdkPort, recoveryChannel, recoveryProducer)
 	}
 }
+
+func TestLegacyImageMethodSnapshotClosureIsRetired(t *testing.T) {
+	for _, path := range []string{"internal/imageagent/image_detail_copy.go", "internal/imageagent/image_visual_prompt.go", "internal/imageagent/image_detail_copy_test.go", "hack/debug/image-reconcile-774/main.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired path %s must be absent: %v", path, err)
+		}
+	}
+	for path, banned := range map[string][]string{
+		"internal/imageagent/image_method.go":                     {"HistoricalImageMethodPolicyVersion", "FrozenVisualBriefPolicyVersion", "FrozenLiteralCopyPolicyVersion", "Executable"},
+		"internal/imageagent/image_set_service.go":                {"visualProductFacts", "visualImagePrompt", "usesLiteralDetailCopy", "detailVisibleText", "literalDetailPrompt"},
+		"internal/imageagent/asset_catalog.go":                    {"ValidateSubmittedPlanAgainstCatalog", "validateLiteralDetailRecipe"},
+		"internal/imageagent/validation.go":                       {"ValidateSubmittedPlan"},
+		"internal/imageagent/generation_input.go":                 {"usesLiteralDetailCopy", "validateLiteralDetailRecipe"},
+		"internal/integration/skillimage/context.go":              {"HistoricalImageMethodPolicyVersion"},
+		"internal/imageagent/store/generation_output_recovery.go": {"FrozenLiteralCopyPolicyVersion"},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok && slices.Contains(banned, id.Name) {
+				t.Errorf("%s retains %s", path, id.Name)
+			}
+			return true
+		})
+	}
+	for path, required := range map[string][]string{
+		"internal/imageagent/image_method.go":        {"ImageMethodPolicyVersion", "ValidateImageMethodDispatch", "AcquireImageMethod", "ComposeImageMethodPrompt"},
+		"internal/imageagent/image_text.go":          {"validateReviewedImageText", "imageTextPrompt", "validReviewedImageText", "CloneImageTextBinding"},
+		"internal/imageagent/validation.go":          {"ValidatePlan", "MaxPlanSlots", "MaxJSONSafePlanRevision", "ValidateInitialSubmittedPlan", "ValidateReplacementSubmittedPlan"},
+		"internal/imageagent/asset_catalog.go":       {"ValidatePlanAgainstCatalog", "CatalogHash", "CatalogSnapshotHash", "NormalizeProductContextRef"},
+		"internal/imageagent/projection.go":          {"ValidatePlanAgainstCatalog", "ValidateVisualAdmission", "ErrRevisionConflict"},
+		"internal/imageagent/image_set_admission.go": {"ValidateImageSetAdmission", "SlotStatusPending", "ErrRevisionConflict"},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen := map[string]bool{}
+		ast.Inspect(file, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok {
+				seen[id.Name] = true
+			}
+			return true
+		})
+		for _, name := range required {
+			if !seen[name] {
+				t.Errorf("%s must retain %s", path, name)
+			}
+		}
+	}
+}

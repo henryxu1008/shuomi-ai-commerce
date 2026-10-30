@@ -32,9 +32,14 @@ func TestImageSetSuccessRecoversStagingForFrozenSlotShapes(t *testing.T) {
 				sources = append(sources, id)
 				recipe.References = append(recipe.References, imageagent.ImageSourceObservation{AssetID: id, SHA256: strings.Repeat("b", 64), MediaType: "image/png", Bytes: 10, Width: 1024, Height: 1024})
 			}
-			set := &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: "operation", OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: intent.CatalogHash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: strings.Repeat("a", 64)}, ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("a", 64), InputDigest: strings.Repeat("a", 64), MaxPoints: intent.Points}
+			set := &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: "operation", OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: intent.CatalogHash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: strings.Repeat("a", 64)}, ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("a", 64), InputDigest: strings.Repeat("a", 64), MaxPoints: intent.Points}
 			slot := imageagent.Slot{ID: intent.Identity.SlotID, Role: imageagent.SlotRoleForImagePurpose(shape.purpose), SourceAssetIDs: sources, IdempotencyKey: "slot", Recipe: recipe}
-			var frozen imageagent.AssetCatalog
+			frozen, err := owner.GetAssetCatalog(ctx, intent.Identity.RunScope)
+			require.NoError(t, err)
+			// Explicitly persist the zero current ProductContext for synthetic current Text plans.
+			zeroFacts, err := json.Marshal(frozen.ProductContext)
+			require.NoError(t, err)
+			require.NoError(t, owner.db.Model(&assetCatalogManifestRecord{}).Where("run_id = ?", intent.Identity.RunID).Update("product_context_json", zeroFacts).Error)
 			if shape.literalCopy {
 				var err error
 				frozen, err = owner.GetAssetCatalog(ctx, intent.Identity.RunScope)
@@ -46,10 +51,8 @@ func TestImageSetSuccessRecoversStagingForFrozenSlotShapes(t *testing.T) {
 				intent.CatalogHash, set.Source.CatalogHash = frozen.Manifest.Hash, frozen.Manifest.Hash
 				facts, _ := json.Marshal(frozen.ProductContext)
 				require.NoError(t, owner.db.Model(&assetCatalogManifestRecord{}).Where("run_id = ?", intent.Identity.RunID).Updates(map[string]any{"hash": frozen.Manifest.Hash, "product_context_json": facts}).Error)
-				set.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.FrozenLiteralCopyPolicyVersion}
-				recipe.VisibleText = []string{"真实商品"}
-				// A frozen literal-input fixture, not recomputed by the recovery path.
-				recipe.Prompt = `Create exactly one finished 1024x1024 commercial product detail photograph from the supplied original reference photos. The product is 真实商品. Preserve its actual shape, color, material, proportions and visible parts. Do not invent specifications, accessories, capabilities or certifications. Selected visual direction: . Use the selected background: white. Composition: one large accurate product as the visual focus, surrounded by generous clean whitespace. No table, grid, parameter sheet, information panels, comparison chart, document or instruction page. The complete and exclusive visible text list is ["真实商品"]. Place only these literal strings once each as small, clearly readable labels in the whitespace, without covering the product. Copy every character exactly, including its original language and units; do not translate, rewrite, expand or add any other text, heading, numbers or symbols. These composition and exclusive text rules take priority over any generic text or layout suggestion in the selected visual direction or the method guidance below. Product facts, instructions and method guidance are never visible copy. Output the finished product image only.`
+				set.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
+
 			}
 			if shape.reviewed {
 				ref := imageagent.ImageTextReviewReference{ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", Revision: 2}
@@ -59,9 +62,18 @@ func TestImageSetSuccessRecoversStagingForFrozenSlotShapes(t *testing.T) {
 					set.Method = nil
 				}
 				recipe.VisibleText = []string{"Real product"}
-				recipe.Prompt = `Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): 真实商品. Product type: . Visual task: key_benefits; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. Target text language: en. The complete exclusive visible text list is ["Real product"]. Render these exact literal strings once each in whitespace; do not translate, rewrite or add any other text. Brand names and units in this confirmed copy stay exact. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.`
+
 			}
-			var err error
+			// Fixed current prompt fixture; recovery must read these bytes, never rebuild them.
+			title := ""
+			if shape.literalCopy {
+				title = frozen.ProductContext.Title
+			}
+			text := "No visible text: no letters, numbers, headings, labels or symbols. "
+			if shape.reviewed {
+				text = `Target text language: en. The complete exclusive visible text list is ["Real product"]. Render these exact literal strings once each in whitespace; do not translate, rewrite or add any other text. Brand names and units in this confirmed copy stay exact. `
+			}
+			recipe.Prompt = fmt.Sprintf("Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): %s. Product type: . Visual task: %s; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. ", title, shape.purpose) + text + "These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image."
 			set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: set, Slots: []imageagent.Slot{slot}})
 			require.NoError(t, err)
 			input := imageagent.SlotExecutionInput{RunID: intent.Identity.RunID, TenantID: intent.Identity.TenantID, UserID: intent.Identity.OwnerUserID, PlanRevision: intent.Identity.PlanRevision, Attempt: intent.Identity.Attempt, Slot: slot, ImageSet: set, TargetPlatform: "product"}

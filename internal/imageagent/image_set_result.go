@@ -55,7 +55,7 @@ func VisualResultDigest(plan Plan, slots []SlotProjection, recoverable []Recover
 	return ImageSetResultDigest(plan, slots, recoverable)
 }
 func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []RecoverableEffect, requireAccepted, artwork bool) (string, error) {
-	if (artwork && plan.Artwork == nil || !artwork && (plan.Set == nil || plan.Artwork != nil)) || ValidateSubmittedPlan(plan) != nil || len(slots) != len(plan.Slots) || len(recoverable) != 0 {
+	if (artwork && plan.Artwork == nil || !artwork && (plan.Set == nil || plan.Artwork != nil)) || ValidatePlan(plan) != nil || len(slots) != len(plan.Slots) || len(recoverable) != 0 {
 		return "", ErrRevisionConflict
 	}
 	accepted := 0
