@@ -28,6 +28,7 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"fingerprint-browser-installer":       {},
 		"knowledge-schema-init":               {},
 		"notification-center-schema-init":     {},
+		"browser-kernel-schema-init":          {},
 		"issue36-local-trial-init":            {},
 		"listingkit-schema-migrate":           {},
 		"playwright-installer":                {},

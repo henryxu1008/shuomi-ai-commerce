@@ -34,6 +34,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	BrowserKernel                        *BrowserKernelConfig                      `json:"browserKernel,omitempty"`
 	ModelRoutePricing                    *ModelRoutePricingConfig                  `json:"modelRoutePricing,omitempty"`
 	SourceMediaIsolatedTrialDeploymentID string                                    `json:"sourceMediaIsolatedTrialDeploymentID,omitempty"`
 	StorageCapacity                      bool                                      `json:"storageCapacity,omitempty"`
@@ -315,6 +316,9 @@ func (cfg *Config) validate() error {
 	}
 	if cfg == nil || cfg.SchemaVersion != manifestSchemaVersion {
 		return fmt.Errorf("unsupported current application manifest schema version")
+	}
+	if err := cfg.validateBrowserKernel(); err != nil {
+		return err
 	}
 	if err := cfg.validateSupplyMarket(); err != nil {
 		return err

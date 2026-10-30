@@ -2182,6 +2182,8 @@ func businessHTTPPackages(root string) map[string]struct{} {
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "knowledge", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #608 admits only Notification Center's feature-local HTTP adapter.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "notificationcenter", "httpapi"))+string(os.PathSeparator)] = struct{}{}
+	// #1013 admits the frozen kernel catalog transport; the domain stays Gin-free.
+	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "browserkernel", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #628 admits only the reviewed Report Center HTTP adapter; core stays framework-free.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "reportcenter", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #622 frozen design admits only these feature-local adapters; core remains Gin-free.
@@ -2330,6 +2332,16 @@ func TestNotificationCenterHTTPBoundaryRegistration(t *testing.T) {
 	root := filepath.Join("..", "internal")
 	allowed := businessHTTPPackages(root)
 	for path, want := range map[string]bool{"notificationcenter/httpapi/handler.go": true, "notificationcenter/service.go": false, "notificationcenter/httpapi_extra/handler.go": false} {
+		if got := pathAllowed(filepath.Join(root, filepath.FromSlash(path)), allowed); got != want {
+			t.Errorf("HTTP boundary allows %s = %v, want %v", path, got, want)
+		}
+	}
+}
+
+func TestKernelCatalogHTTPBoundaryRegistration(t *testing.T) {
+	root := filepath.Join("..", "internal")
+	allowed := businessHTTPPackages(root)
+	for path, want := range map[string]bool{"browserkernel/httpapi/handler.go": true, "browserkernel/catalog.go": false, "browserkernel/httpapi_extra/handler.go": false, "browserkernel-extra/httpapi/handler.go": false} {
 		if got := pathAllowed(filepath.Join(root, filepath.FromSlash(path)), allowed); got != want {
 			t.Errorf("HTTP boundary allows %s = %v, want %v", path, got, want)
 		}

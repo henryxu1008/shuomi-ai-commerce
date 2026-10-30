@@ -115,6 +115,7 @@ consider the applicable guards, including:
 - `TestSubjectVerificationHTTPBoundaryRegistration` — permits only the approved subject verification HTTP subtree; rejects the domain root, siblings and similar prefixes.
 - `TestEcoservicesHTTPBoundaryRegistration` — permits only the approved ecosystem HTTP subtree; rejects the domain root, siblings and similar prefixes.
 - `TestNotificationCenterHTTPBoundaryRegistration` — permits only the approved notification center HTTP subtree; rejects the domain root, siblings and similar prefixes.
+- `TestKernelCatalogHTTPBoundaryRegistration` — permits only the approved browser kernel catalog HTTP subtree; rejects its domain root, siblings and similar prefixes.
 - `TestReportCenterHTTPBoundaryRegistration` — permits only the approved Report Center HTTP subtree; rejects the domain core, siblings and similar prefixes.
 - `TestToolMarketHTTPBoundaryRegistration` — permits only the approved Tool Market HTTP subtree; rejects core contracts, siblings and similar prefixes.
 - `TestSupplyMarketHTTPBoundaryRegistration` — permits only the approved Supply Market and POD HTTP subtrees; rejects domain roots, siblings and similar prefixes.

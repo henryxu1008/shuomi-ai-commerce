@@ -31,6 +31,7 @@ import (
 	observationhttp "task-processor/internal/app/storeobservations/httpapi"
 	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
+	kernelhttp "task-processor/internal/browserkernel/httpapi"
 	"task-processor/internal/core/config"
 	datahttp "task-processor/internal/dataservice/httpapi"
 	ehttp "task-processor/internal/ecoservices/httpapi"
@@ -163,6 +164,9 @@ type currentApplicationOptions struct {
 	ecoservices                  *EcoservicesDependencies
 	notifications                int
 	notificationDB               *gorm.DB
+	browserKernels               int
+	browserKernelDB              *gorm.DB
+	browserKernelOrigins         []string
 	agentConfigurationDB         *gorm.DB
 	knowledgeServices            int
 	knowledge                    *knowledge.Service
@@ -1236,6 +1240,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, notifications)
 	}
+	if supplied.browserKernels > 0 {
+		module, err := buildBrowserKernelModule(ctx, sourceAccountDB, supplied)
+		if err != nil {
+			return nil, err
+		}
+		modules = append(modules, module)
+	}
 	bundle, err := buildRuntimeBundleFromModules(cfg, modules)
 	if err != nil {
 		return nil, err
@@ -1261,6 +1272,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		ProductSelection:     selectionRuntime != nil,
 		ShopDiagnosis:        diagnosisRuntime != nil,
 		NotificationCenter:   supplied.notifications > 0,
+		BrowserKernel:        supplied.browserKernels > 0,
 		ZitadelSMS:           true,
 		StoreCenter:          supplied.storeCenters > 0,
 		TikTokShop:           supplied.officialStoreApplications.TikTokConfigured(),
@@ -1392,6 +1404,7 @@ type currentApplicationOptionalRoutes struct {
 	ProductSelection     bool
 	ShopDiagnosis        bool
 	NotificationCenter   bool
+	BrowserKernel        bool
 	AgentConfiguration   bool
 	ModelRoutePricing    bool
 	Knowledge            bool
@@ -1541,6 +1554,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.NotificationCenter {
 		for _, r := range notificationhttp.Routes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.BrowserKernel {
+		for _, r := range kernelhttp.Routes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1831,6 +1849,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 			if e := validateAcquisitionPlanDescriptor(descriptor); e != nil {
 				return e
+			}
+		}
+		if strings.HasPrefix(descriptor.Path, kernelhttp.ReadBase) || strings.HasPrefix(descriptor.Path, kernelhttp.WriteBase) {
+			if !optional.BrowserKernel {
+				return errors.New("browser kernel not admitted")
+			}
+			if err := kernelhttp.ValidateDescriptor(descriptor); err != nil {
+				return err
 			}
 		}
 		if strings.HasPrefix(descriptor.Path, "/api/v1/notifications/") || strings.HasPrefix(descriptor.Path, "/api/v1/workbench/notifications") || strings.HasPrefix(descriptor.Path, "/api/v1/platform/notifications/") {
