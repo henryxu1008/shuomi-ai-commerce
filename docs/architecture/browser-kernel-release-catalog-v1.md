@@ -1,6 +1,6 @@
 # 平台浏览器内核发行目录 V1
 
-2026-10-30。Issue #1013。Status: **DESIGNING / CONTRACT_PROPOSED**；正式代码须待窄独立检查明确 IMPLEMENTATION_READY。
+2026-10-30。Issue #1013。Status: **IMPLEMENTATION_READY**。首轮独立检查绑定 c73b22421ac51c3601a19567c64a5be3f27446f1，无架构 BLOCKER；本次增量明确桌面下载合同，须同一 Reviewer 确认后开始正式代码。
 
 ## 产品依据、范围与 owner
 
@@ -28,11 +28,11 @@ Legacy decision: N/A。复用合格基础设施，无迁移、旧 ID 映射、fa
 
 `ReleaseSummary` 的字段固定为：`releaseId`, `version`, `os`, `arch`, `minClientVersion`, `maxClientVersionExclusive`（空串表示无上限）, `recommended`。目录不含地址、路径或发布者身份。
 
-`Artifact` 为 Summary 相同字段加 `archiveFormat`（zip/tar.gz/tar.xz）、`size`（JSON整数、1..2147483648）、`sha256`（64位小写hex）、`downloadUrl`。原生必须重新绑定当前 releaseId/OS/arch/兼容版本并校验大小/哈希；页面只拿 Summary、releaseId 和准备进度，不透传 Artifact。
+`Artifact` 为 Summary 相同字段加 `archiveFormat`（zip/tar.gz/tar.xz）、`size`（JSON整数、1..2147483648）、`sha256`（64位小写hex）、`downloadUrl`、`downloadOrigins`（1..8个规范HTTPS origin，取部署 artifactOrigins 的副本，不由 Publish 输入）。原生必须重新绑定当前 releaseId/OS/arch/兼容版本并校验大小/哈希；页面只拿 Summary、releaseId 和准备进度，不透传 Artifact。releaseId 即制品身份，不另设可变 artifactId。
 
 `Publish` 包含：`version`, `os`, `arch`, `minClientVersion`, `maxClientVersionExclusive`, `archiveFormat`, `size`, `sha256`, `downloadUrl`；全部必需（上限字段允许空串）。推荐初始false，推荐修改走单独API；不存在隐式latest或自动推荐。版本字符串最多64字符，无控制字符/首尾空格。URL最多2048字符，仅HTTPS、无userinfo/query/fragment，origin精确命中部署提供的批准资产origin（1..8项，无通配），用稳定版本路径，不持久化会过期的预签URL。URL仅由平台发行身份提供，普通query/body不得替换。
 
-分页limit默认50、1..100；按不可变UUID字典序升序。cursor是上页扫描到的最后UUID，不含租户/秘密。数据库每页最多limit+1行，按OS/arch/已发布筛选后，再用SemVer筛兼容范围；nextCursor按最后扫描行计算，因此允许本页releases为空但nextCursor非空。客户端继续读取直到nextCursor空；不把空中间页误认为目录结束。推荐不改变分页顺序，也不自动改写店铺绑定。
+分页limit默认50、1..100；按不可变UUID字典序升序。cursor是上页实际消费的最后UUID，不含租户/秘密。数据库每页最多limit+1行，按OS/arch/已发布筛选后，只消费前limit行并用SemVer筛兼容范围；额外行仅判断hasMore，不能消费或推进cursor。hasMore时nextCursor为最后实际消费行，否则空。因此允许本页releases为空但nextCursor非空。客户端继续读取直到nextCursor空；不把空中间页误认为目录结束。推荐不改变分页顺序，也不自动改写店铺绑定。SemVer先校验完整三段且无v前缀，再调用现有库比较；非空max必须严格大于min，允许合法预发行/build metadata。
 
 错误：认证401沿当前middleware；写入权限403沿当前平台middleware。域校验400 `INVALID_REQUEST`；不存在/已下架/OS架构版本不匹配均404 `KERNEL_RELEASE_NOT_FOUND`；同ID不同固定载荷409 `KERNEL_RELEASE_CONFLICT`；下架后请求推荐409 `KERNEL_RELEASE_WITHDRAWN`；存储/未知内部错误503 `KERNEL_CATALOG_UNAVAILABLE`。平台写API不存在时404，永不以不可用库生成临时目录或内存成功。
 
@@ -42,7 +42,9 @@ Legacy decision: N/A。复用合格基础设施，无迁移、旧 ID 映射、fa
 
 发行身份定义为现有 `listingkit.platform_admin` 判定通过者；写路由复用 `AuthPolicyCurrentIdentityWithVerifiedRoles` + OrganizationNone + PermissionListingKitPlatformAdm（与既有全局通知/生态平台维护相同）。只消费已验证全局role或已配置全局账号/role，不接受企业admin/listingkit_admin、组织grant或伪造header替代。复用现有权限撤销/有效期边界，不新增本地认证或原子角色写承诺。不增加IAM角色/模块/授权分配，不改白名单。
 
-backend不从制品URL取内容，因此无后端资产网络访问或URL代理。Artifact只经原生Go客户端读取；该端须用与API请求分离的下载客户端，不把API bearer/登录cookie传到CDN或重定向目标。后端采用部署固定origin精确白名单；即便允许源被替换为不同字节，原生仍须大小/SHA校验失败，不能登记可用缓存。这是完整性保护，不承诺上游availability。
+backend不从制品URL取内容，因此无后端资产网络访问或URL代理。Artifact只经原生Go客户端读取；该端须用与API请求分离的下载客户端，不把API bearer/登录cookie传到CDN或重定向目标。初始URL与每次重定向都必须HTTPS、无userinfo/fragment且origin精确命中downloadOrigins；最多3次重定向，禁止降级或越界。为支持现成CDN/GitHub release assets，重定向目标允许临时签名query，但不得存入缓存回执、摘要或日志；原始downloadUrl仍禁止query。部署origin须为规范小写host、无默认443端口/路径/query/fragment，输出即精确比较值。即便允许源被替换为不同字节，原生仍须大小/SHA校验失败，不能登记可用缓存。这是完整性保护，不承诺上游availability。
+
+配套桌面依据为 ant-browser/design/kernel-distribution/DESKTOP-IMPLEMENTATION-BASIS.md（2026-10-30）：原生复用严格公共API origin、登录generation及AuthorizeRequest，不带Store/组织上下文；只有releaseId准备入口，独立下载client，固定哈希缓存，归档路径/链接检查，不在identity lock内联网或拿browser锁；旧任意URL/本地目录入口在原生边界收口。普通下架禁止后续目录/元数据读取和新选择，不作安全kill/下载租约：已发出的metadata和已验证缓存不会远程失效，已有固定绑定不升级/删除，保存新选择须重新核对目录。跨端最终检查验证这些既定边界，不另造跨库事务。
 
 Threat Must：普通用户/企业管理员不可发版；跨企业不形成另一目录owner；同ID不能替换二进制或兼容身份；下架不可通过重试恢复；请求输入不变成任意服务器访问；不泄露代理/登录/存储秘密；目录/GET不能成为店铺启动授权。Out of Scope：原生下载实现、制品构建/签名/上传、存储管理页面、审批平台、按企业发行策略、安全禁用/强制更新、在运行进程替换、商家登录及真实发行。既有全局平台授权时点是本轮复用边界，不新增上游权限CAS/恢复平台。
 
