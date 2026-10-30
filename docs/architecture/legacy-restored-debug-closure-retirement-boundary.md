@@ -60,6 +60,7 @@ Must：保留当前采集、图像、身份权限、Store 观察同步、有效 
 - 浏览器安装副作用仍只归原 installer 命令；不加应用启动时自动下载、第二事实源、新 retry 或后台 owner。本次不运行安装。
 - 四个现役命令 image-agent-temporal-worker、source-account-registry-schema-init、product-listing-api-schema-migrate、listingkit-schema-migrate 改为必须显式提供私有 -config。空白/缺参在依赖解析、DB/provider/worker 启动前失败；原 manifest/owner/role、SQL 和 canary 语义不变。current-application 原私有 JSON 输入不改。
 - 仅旧 Browser/Amazon/Platforms 配置根与已枚举旧 env 退出；复用现有 retired-config 入口拒绝旧输入，不静默忽略、不 fallback、不恢复旧别名。当前 BrowserCollector 与其它现役配置/环境输入保留。
+- 准确输入边界：YAML 的 browser、amazon、platforms 三根（包含空对象）拒绝；五条现有 Primary 为 TASK_PROCESSOR_BROWSER_PATH、TASK_PROCESSOR_BROWSER_USER_DATA_DIR、TASK_PROCESSOR_BROWSER_HEADLESS、TASK_PROCESSOR_BROWSER_POOL_SIZE、TASK_PROCESSOR_PLATFORM_1688_ENABLED。环境拒绝只涵盖 TASK_PROCESSOR_BROWSER_、TASK_PROCESSOR_AMAZON_、TASK_PROCESSOR_PLATFORMS_ALIBABA1688_、TASK_PROCESSOR_PLATFORM_1688_ 四个旧命名空间；仅按变量名/存在性判断，空值也拒绝，不记录值。当前 TASK_PROCESSOR_BROWSER_COLLECTOR_ 是保留输入，不能被宽泛 browser 前缀误拒；#1007 的三项 image 自动变量映射与身份拒绝不变。
 - 没有业务 schema/表、持久化 JSON/hash/版本、事务、权限或 UNKNOWN owner 改变。所有真实环境与旧产物处置均 NOT_AUTHORIZED，运行/产品验收 NOT_RUN。
 
 ## §5 完整删除/保留矩阵
