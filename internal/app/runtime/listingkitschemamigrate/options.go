@@ -1,6 +1,6 @@
 package listingkitschemamigrate
 
-const defaultConfigPath = "config/config-dev.yaml"
+import "strings"
 
 type Options struct {
 	Config    string
@@ -15,8 +15,8 @@ func (o Options) ConfigPath() string {
 }
 
 func ResolveConfigPath(configPath string) string {
-	if configPath != "" {
-		return configPath
+	if strings.TrimSpace(configPath) == "" {
+		return ""
 	}
-	return defaultConfigPath
+	return configPath
 }

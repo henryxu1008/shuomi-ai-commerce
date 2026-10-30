@@ -23,7 +23,7 @@ func TestLegacyConfigProjectionDubClosureIsRetired(t *testing.T) {
 		t.Errorf("retired Dub consumers: %v", violations)
 	}
 	for path, banned := range map[string][]string{
-		"internal/core/config/config.go":                         {"Deprecated", "deprecatedEnvWarnings", "logDeprecatedEnvUsage"},
+		"internal/core/config/config.go":                         {"Deprecated", "deprecatedEnvWarnings", "logDeprecatedEnvUsage", "LoadConfig"},
 		"internal/core/config/loader_builder.go":                 {"Deprecated"},
 		"internal/imageagent/projection.go":                      {"SlotMutation"},
 		"internal/imageagent/store/projection.go":                {"SlotMutation", "orderedSlotProjectionMutations"},
@@ -42,7 +42,7 @@ func TestLegacyConfigProjectionDubClosureIsRetired(t *testing.T) {
 		})
 	}
 	for path, kept := range map[string][]string{
-		"internal/core/config/config.go":          {"newViper", "AutomaticEnv", "BindEnv", "LoadConfig", "LoadConfigFromFile", "LoadConfigFromFileWithoutValidation"},
+		"internal/core/config/config.go":          {"newViper", "AutomaticEnv", "BindEnv", "LoadConfigFromFile", "LoadConfigFromFileWithoutValidation"},
 		"internal/core/config/loader_builder.go":  {"BuildConfig", "legacyListingKitUsernameAllowlistConfigured"},
 		"internal/imageagent/projection.go":       {"ProjectionCommit", "SlotProjectionMutation", "SlotMutations"},
 		"internal/imageagent/store/projection.go": {"projectionCommitFingerprint", "hashJSON", "withProjectionTransaction", "captureMemoryProjectionState", "restoreMemoryProjectionState", "validateSlotProjectionMutationIdentity"},

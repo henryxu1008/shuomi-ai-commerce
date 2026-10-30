@@ -48,9 +48,19 @@ func scanProviderConstructors(t *testing.T, roots ...string) map[string]provider
 	t.Helper()
 	result := make(map[string]providerConstructorCounts)
 	for _, root := range roots {
-		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		scanRoot := root
+		if filepath.Clean(root) == filepath.Join("..", "hack") {
+			scanRoot = filepath.Dir(root)
+		}
+		err := filepath.WalkDir(scanRoot, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
+			}
+			if scanRoot != root && path != scanRoot && !pathIsWithin(path, root) {
+				if entry.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
 			}
 			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || pathIsWithin(path, filepath.Join("..", "internal", "integration")) {
 				return nil
@@ -129,7 +139,6 @@ func scanProviderConstructors(t *testing.T, roots ...string) map[string]provider
 
 func TestProductionProviderConstructorInventoryIsComplete(t *testing.T) {
 	want := map[string]providerConstructorCounts{
-		"hack/debug/replay-sale-attribute/main.go":              {openAI: 1},
 		"internal/app/worker/imageagent/dependencies.go":        {openAI: 1},
 		"internal/app/worker/imageagent/generation_provider.go": {grsai: 1},
 	}
@@ -154,9 +163,19 @@ func TestProductionLLMManagerAdapterCallersPassLogger(t *testing.T) {
 		filepath.Join("..", "tools"),
 		filepath.Join("..", "tmp"),
 	} {
-		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		scanRoot := root
+		if filepath.Clean(root) == filepath.Join("..", "hack") {
+			scanRoot = filepath.Dir(root)
+		}
+		err := filepath.WalkDir(scanRoot, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
+			}
+			if scanRoot != root && path != scanRoot && !pathIsWithin(path, root) {
+				if entry.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
 			}
 			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return nil

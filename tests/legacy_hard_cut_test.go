@@ -242,11 +242,7 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 	}
 	_, httpxErr := os.Stat(filepath.Join("..", "internal", "infra", "httpx"))
 	require.True(t, os.IsNotExist(httpxErr), "retired host HTTP root must remain absent: %v", httpxErr)
-	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "crawler", "alibaba1688"), []string{"task-processor/internal/sourceaccount"}, nil)
-	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "crawler", "alibaba1688"), []string{
-		"task-processor/internal/platform/workerpool",
-		"task-processor/internal/infra/httpx",
-	}, nil)
+	assertRestoredDebugPathsAbsent(t, "internal/crawler/alibaba1688")
 	for _, source := range trackedProductionTextSources(t, []string{"internal/crawler/alibaba1688"}, func(path string) bool {
 		return strings.HasSuffix(path, ".go")
 	}) {

@@ -118,17 +118,15 @@ Describe "repository-wide Go test harness" {
         $env:Path = $script:priorPath
     }
 
-    It "runs each Go module from its own directory and propagates Go test arguments" {
+    It "runs only the root Go module from its own directory and propagates Go test arguments" {
         $result = Invoke-TestAllHarness -CallsPath $callsPath
 
         $result | Should Be 0
         $calls = Read-TestAllCalls -Path $callsPath
-        $calls.Count | Should Be 3
+        $calls.Count | Should Be 1
 
         $expected = @(
-            @{ Directory = $repositoryRoot; Packages = @("./...") },
-            @{ Directory = (Join-Path $repositoryRoot "tools"); Packages = @("./...") },
-            @{ Directory = (Join-Path $repositoryRoot "hack/debug"); Packages = @("./...") }
+            @{ Directory = $repositoryRoot; Packages = @("./...") }
         )
         for ($index = 0; $index -lt $expected.Count; $index++) {
             $calls[$index].WorkingDirectory | Should Be $expected[$index].Directory
@@ -146,15 +144,14 @@ Describe "repository-wide Go test harness" {
         (@($calls[0].Arguments) -contains "./hack/debug/...") | Should Be $false
     }
 
-    It "returns the nested Go module failure code and stops later module execution" {
-        $toolsDirectory = Join-Path $repositoryRoot "tools"
-        $result = Invoke-TestAllHarness -CallsPath $callsPath -FailDirectory $toolsDirectory
+    It "returns the root Go module failure code" {
+        $failureDirectory = $repositoryRoot
+        $result = Invoke-TestAllHarness -CallsPath $callsPath -FailDirectory $failureDirectory
 
         $result | Should Be 23
         $calls = Read-TestAllCalls -Path $callsPath
-        $calls.Count | Should Be 2
+        $calls.Count | Should Be 1
         $calls[0].WorkingDirectory | Should Be $repositoryRoot
-        $calls[1].WorkingDirectory | Should Be $toolsDirectory
     }
 
     It "covers root-module packages outside cmd internal and tests" {
@@ -163,15 +160,15 @@ Describe "repository-wide Go test harness" {
 
         $result | Should Be 0
         $calls = Read-TestAllCalls -Path $callsPath
-        $calls.Count | Should Be 3
+        $calls.Count | Should Be 1
     }
 
-    It "preserves a nested native failure code when native errors use ErrorActionPreference" {
-        $toolsDirectory = Join-Path $repositoryRoot "tools"
-        $result = Invoke-TestAllHarness -CallsPath $callsPath -FailDirectory $toolsDirectory -NativeErrorPreference
+    It "preserves a root native failure code when native errors use ErrorActionPreference" {
+        $failureDirectory = $repositoryRoot
+        $result = Invoke-TestAllHarness -CallsPath $callsPath -FailDirectory $failureDirectory -NativeErrorPreference
 
         $result | Should Be 23
         $calls = Read-TestAllCalls -Path $callsPath
-        $calls.Count | Should Be 2
+        $calls.Count | Should Be 1
     }
 }

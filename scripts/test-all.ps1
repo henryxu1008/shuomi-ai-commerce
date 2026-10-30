@@ -11,16 +11,6 @@ $testModules = @(
         Name = "root"
         Directory = $repoRoot
         Packages = @("./...")
-    },
-    [pscustomobject]@{
-        Name = "tools"
-        Directory = Join-Path $repoRoot "tools"
-        Packages = @("./...")
-    },
-    [pscustomobject]@{
-        Name = "debug tools"
-        Directory = Join-Path $repoRoot "hack/debug"
-        Packages = @("./...")
     }
 )
 

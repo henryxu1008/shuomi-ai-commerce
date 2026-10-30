@@ -11,7 +11,7 @@ import (
 func TestFormatValidationErrors_GroupsByModule(t *testing.T) {
 	lines := formatValidationErrors([]error{
 		&ValidationError{Field: "openai.apiKey", Message: "missing", Hint: "set TASK_PROCESSOR_OPENAI_API_KEY"},
-		&ValidationError{Field: "browser.poolSize", Message: "missing"},
+		&ValidationError{Field: "listingkit.zitadel.projectID", Message: "missing"},
 		&ValidationError{Field: "openai.model", Message: "missing"},
 	})
 
@@ -20,9 +20,9 @@ func TestFormatValidationErrors_GroupsByModule(t *testing.T) {
 	assert.Contains(t, joined, "openai.apiKey: missing")
 	assert.Contains(t, joined, "hint: set TASK_PROCESSOR_OPENAI_API_KEY")
 	assert.Contains(t, joined, "openai.model: missing")
-	assert.Contains(t, joined, "[Browser]")
-	assert.Contains(t, joined, "browser.poolSize: missing")
-	assert.Less(t, strings.Index(joined, "[OpenAI]"), strings.Index(joined, "[Browser]"))
+	assert.Contains(t, joined, "[General]")
+	assert.Contains(t, joined, "listingkit.zitadel.projectID: missing")
+	assert.Less(t, strings.Index(joined, "[OpenAI]"), strings.Index(joined, "[General]"))
 }
 
 func TestFormatValidationErrors_FallbacksToGeneral(t *testing.T) {
@@ -33,16 +33,11 @@ func TestFormatValidationErrors_FallbacksToGeneral(t *testing.T) {
 }
 
 func TestValidateConfigWithError_UsesGroupedFormat(t *testing.T) {
-	cfg := &Config{
-		Browser: BrowserConfig{
-			Enabled:  true,
-			PoolSize: 0,
-		},
-	}
+	cfg := &Config{ListingKit: ListingKitConfig{Zitadel: ListingKitZitadelConfig{AllowedUsernames: []string{"obsolete-fixture"}}}}
 
 	err := ValidateConfigWithError(cfg)
 	if assert.Error(t, err) {
 		assert.NotContains(t, err.Error(), "[Management]")
-		assert.Contains(t, err.Error(), "[Browser]")
+		assert.Contains(t, err.Error(), "[General]")
 	}
 }

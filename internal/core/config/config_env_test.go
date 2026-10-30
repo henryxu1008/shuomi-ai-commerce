@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
 func TestUniqueCleanPathsPreservesFirstOccurrenceOrder(t *testing.T) {
@@ -68,11 +67,6 @@ func TestNewViper_BindsLegacyEnvironmentAliases(t *testing.T) {
 		{"openai.clients.image.apiKey", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY"},
 		{"openai.clients.image.baseURL", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL"},
 		{"openai.clients.image.apiStyle", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE"},
-		{"browser.browserPath", "TASK_PROCESSOR_BROWSER_PATH", "BROWSER_PATH"},
-		{"browser.userDataDir", "TASK_PROCESSOR_BROWSER_USER_DATA_DIR", "BROWSER_USER_DATA_DIR"},
-		{"browser.headless", "TASK_PROCESSOR_BROWSER_HEADLESS", "BROWSER_HEADLESS"},
-		{"browser.poolSize", "TASK_PROCESSOR_BROWSER_POOL_SIZE", "BROWSER_POOL_SIZE"},
-		{"platforms.alibaba1688.enabled", "TASK_PROCESSOR_PLATFORM_1688_ENABLED", "PLATFORM_1688_ENABLED"},
 		{"database.host", "TASK_PROCESSOR_DATABASE_HOST", "DB_HOST"},
 		{"database.port", "TASK_PROCESSOR_DATABASE_PORT", "DB_PORT"},
 		{"database.user", "TASK_PROCESSOR_DATABASE_USER", "DB_USER"},
@@ -147,8 +141,8 @@ func TestKnownEnvBindingsDoesNotExposeListingKitAuthenticationToggle(t *testing.
 }
 
 func TestOldSDSConfigurationIsRetired(t *testing.T) {
-	_, exists := reflect.TypeOf(PlatformsConfig{}).FieldByName("SDS")
-	assert.False(t, exists, "PlatformsConfig must not expose the old SDS login owner")
+	_, exists := reflect.TypeOf(Config{}).FieldByName("Platforms")
+	assert.False(t, exists, "Config must not expose the old platform/SDS owner")
 	for key, binding := range knownEnvBindings() {
 		assert.False(t, strings.HasPrefix(key, "platforms.sds."), key)
 		assert.False(t, strings.HasPrefix(binding.Primary, "TASK_PROCESSOR_SDS_"), binding.Primary)
@@ -173,34 +167,10 @@ func TestKnownEnvBindingsDoNotExposeListingKitOwnerScopeToggle(t *testing.T) {
 	}
 }
 
-func TestCommittedListingKitConfigArtifactsDoNotExposeOwnerScopeToggle(t *testing.T) {
-	for _, configName := range []string{"config-dev.yaml", "config-prod.yaml", "config-test.yaml"} {
-		t.Run(configName, func(t *testing.T) {
-			contents, err := os.ReadFile(filepath.Join("..", "..", "..", "config", configName))
-			require.NoError(t, err)
-
-			var document map[string]any
-			require.NoError(t, yaml.Unmarshal(contents, &document))
-			listingKit, ok := document["listingkit"].(map[string]any)
-			require.True(t, ok, "listingkit must be a YAML mapping")
-			_, exposed := listingKit["ownerScopeRequired"]
-			assert.False(t, exposed, "committed config must not offer an owner scope toggle")
-		})
-	}
-}
-
-func TestCommittedBrowserConfigArtifactsDefaultToHeadless(t *testing.T) {
-	for _, configName := range []string{"config-dev.yaml", "config-prod.yaml", "config-test.yaml"} {
-		t.Run(configName, func(t *testing.T) {
-			contents, err := os.ReadFile(filepath.Join("..", "..", "..", "config", configName))
-			require.NoError(t, err)
-
-			var document map[string]any
-			require.NoError(t, yaml.Unmarshal(contents, &document))
-			browser, ok := document["browser"].(map[string]any)
-			require.True(t, ok, "browser must be a YAML mapping")
-			assert.Equal(t, true, browser["headless"], "committed browser config must default to headless")
-		})
+func TestRetiredPublicConfigurationArtifactsAreAbsent(t *testing.T) {
+	for _, name := range []string{"config-dev.yaml", "config-prod.yaml", "config-test.yaml"} {
+		_, err := os.Stat(filepath.Join("..", "..", "..", "config", name))
+		require.True(t, os.IsNotExist(err), "retired public config %s must be absent, got %v", name, err)
 	}
 }
 
@@ -392,24 +362,6 @@ openai:
 	assert.Equal(t, "env-openai-key", cfg.OpenAI.ToClientConfigs()["vision"].APIKey)
 }
 
-func TestConfigFixture_AppliesViperManagedEnvironmentOverrides(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_BROWSER_HEADLESS", "false")
-	t.Setenv("TASK_PROCESSOR_BROWSER_POOL_SIZE", "7")
-	cfg, err := loadConfigFixture(t, []byte(`
-openai:
-  apiKey: test-openai-key
-  model: gemini-2.5-flash
-  baseURL: https://api.example.test/v1
-  timeout: 30
-browser:
-  headless: true
-  poolSize: 1
-`))
-	require.NoError(t, err)
-	assert.False(t, cfg.Browser.Headless)
-	assert.Equal(t, 7, cfg.Browser.PoolSize)
-}
-
 func TestConfigFixturesDoNotCarryRetiredManagementConfig(t *testing.T) {
 	content, err := os.ReadFile("config_env_test.go")
 	require.NoError(t, err)
@@ -550,4 +502,118 @@ func TestCurrentAutomaticEnvironmentInputsRemainAvailable(t *testing.T) {
 		require.Equal(t, "current-model", BuildConfig(v).OpenAI.Clients["secondary"].Model)
 		require.Equal(t, "fixture-key", BuildConfig(v).OpenAI.Clients["secondary"].APIKey)
 	})
+}
+
+// These names are the frozen §4.2 input contract, independent of the loader's rejection table.
+func TestLegacyCrawlerEnvironmentInputsFailClosed(t *testing.T) {
+	names := []string{
+		"TASK_PROCESSOR_AMAZON_CRAWLTIMEOUT",
+		"TASK_PROCESSOR_AMAZON_ENABLED",
+		"TASK_PROCESSOR_AMAZON_FAILUREARTIFACTS_CAPTUREHTML",
+		"TASK_PROCESSOR_AMAZON_FAILUREARTIFACTS_DIRECTORY",
+		"TASK_PROCESSOR_AMAZON_FAILUREARTIFACTS_ENABLED",
+		"TASK_PROCESSOR_AMAZON_FAILUREARTIFACTS_MAXHTMLBYTES",
+		"TASK_PROCESSOR_AMAZON_PROXYPOOL_ENABLED",
+		"TASK_PROCESSOR_AMAZON_PROXYPOOL_FAILURECOOLDOWNSECONDS",
+		"TASK_PROCESSOR_AMAZON_PROXYPOOL_PROXIES",
+		"TASK_PROCESSOR_AMAZON_PROXYPOOL_PROXYFILE",
+		"TASK_PROCESSOR_AMAZON_PROXYPOOL_STRATEGY",
+		"TASK_PROCESSOR_AMAZON_QUALITYCONTROL_RETRYONVALIDATIONFAILURE",
+		"TASK_PROCESSOR_AMAZON_QUALITYCONTROL_VALIDATIONRETRYMAXATTEMPTS",
+		"TASK_PROCESSOR_AMAZON_RISKCONTROL_AUTHENTICATIONRECREATETHRESHOLD",
+		"TASK_PROCESSOR_AMAZON_RISKCONTROL_BROWSERCRASHRECREATETHRESHOLD",
+		"TASK_PROCESSOR_AMAZON_RISKCONTROL_CAPTCHARECREATETHRESHOLD",
+		"TASK_PROCESSOR_AMAZON_RISKCONTROL_NETWORKRECREATETHRESHOLD",
+		"TASK_PROCESSOR_AMAZON_RISKCONTROL_SERVERERRORRECREATETHRESHOLD",
+		"TASK_PROCESSOR_AMAZON_RISKCONTROL_TIMEOUTRECREATETHRESHOLD",
+		"TASK_PROCESSOR_AMAZON_ZIPCODES",
+		"TASK_PROCESSOR_BROWSER_BROWSERPATH",
+		"TASK_PROCESSOR_BROWSER_ENABLED",
+		"TASK_PROCESSOR_BROWSER_HEADLESS",
+		"TASK_PROCESSOR_BROWSER_PATH",
+		"TASK_PROCESSOR_BROWSER_POOLSIZE",
+		"TASK_PROCESSOR_BROWSER_POOL_SIZE",
+		"TASK_PROCESSOR_BROWSER_PROXYSERVER",
+		"TASK_PROCESSOR_BROWSER_RANDOMCONFIG_ENABLED",
+		"TASK_PROCESSOR_BROWSER_RANDOMCONFIG_FINGERPRINTSTRATEGY",
+		"TASK_PROCESSOR_BROWSER_RANDOMCONFIG_HEALTHCHECKENABLED",
+		"TASK_PROCESSOR_BROWSER_RANDOMCONFIG_MAXRETRIES",
+		"TASK_PROCESSOR_BROWSER_RANDOMCONFIG_MAXUSESPERINSTANCE",
+		"TASK_PROCESSOR_BROWSER_RANDOMCONFIG_PRESETNAME",
+		"TASK_PROCESSOR_BROWSER_RANDOMCONFIG_STRATEGY",
+		"TASK_PROCESSOR_BROWSER_USERDATADIR",
+		"TASK_PROCESSOR_BROWSER_USER_DATA_DIR",
+		"TASK_PROCESSOR_BROWSER_VIEWPORTHEIGHT",
+		"TASK_PROCESSOR_BROWSER_VIEWPORTWIDTH",
+		"TASK_PROCESSOR_PLATFORMS_ALIBABA1688_ENABLED",
+		"TASK_PROCESSOR_PLATFORMS_ALIBABA1688_POOLSIZE",
+		"TASK_PROCESSOR_PLATFORMS_ALIBABA1688_PROFILEROOTDIR",
+		"TASK_PROCESSOR_PLATFORMS_ALIBABA1688_TIMEOUT",
+		"TASK_PROCESSOR_PLATFORM_1688_ENABLED",
+	}
+	for _, name := range names {
+		for _, value := range []string{"", "private-fixture-value"} {
+			label := "empty"
+			if value != "" {
+				label = "set"
+			}
+			t.Run(name+"/"+label, func(t *testing.T) {
+				t.Setenv(name, value)
+				_, err := loadWithViperWithoutValidation(newViper())
+				if err == nil || !strings.Contains(err.Error(), "retired environment variable "+name) {
+					t.Fatalf("retired name %s must fail closed by name, got %v", name, err)
+				}
+				if strings.Contains(err.Error(), "private-fixture-value") {
+					t.Fatal("configuration rejection exposed the input value")
+				}
+			})
+		}
+	}
+}
+
+func TestLegacyCrawlerYAMLRootsFailClosed(t *testing.T) {
+	for _, root := range []string{"browser", "amazon", "platforms"} {
+		for _, value := range []string{"{}", "null", "\n  enabled: true"} {
+			t.Run(root+value, func(t *testing.T) {
+				v := newViper()
+				require.NoError(t, v.ReadConfig(strings.NewReader(root+": "+value+"\n")))
+				_, err := loadWithViperWithoutValidation(v)
+				if err == nil || !strings.Contains(err.Error(), "retired configuration key "+root) {
+					t.Fatalf("retired root %s must fail closed, got %v", root, err)
+				}
+			})
+		}
+	}
+}
+
+func TestCrawlerInputRejectionPreservesOtherConfiguration(t *testing.T) {
+	// Similar names are not evidence of a retired input. This does not introduce a Collector env binding.
+	for _, name := range []string{"TASK_PROCESSOR_BROWSER_COLLECTOR_CREDENTIAL", "TASK_PROCESSOR_BROWSER_OTHER_CURRENT_INPUT"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(name, "unrelated-fixture")
+			v := newViper()
+			v.Set("openai.apiKey", "current-fixture")
+			cfg, err := loadWithViperWithoutValidation(v)
+			require.NoError(t, err)
+			require.Equal(t, "current-fixture", cfg.OpenAI.APIKey)
+		})
+	}
+}
+
+func TestRetiredSampleInputsRemainRejectedByCurrentLoader(t *testing.T) {
+	for _, key := range []string{"processor", "worker", "listingControlPlane", "rabbitmq", "updater", "logging", "redis", "prompts", "featureFlags", "observability", "watermark", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedgerEnabled", "listingkit.generationUsageLedgerTenantIDs"} {
+		parts := strings.Split(key, ".")
+		var document strings.Builder
+		for i, part := range parts {
+			document.WriteString(strings.Repeat("  ", i) + part + ":")
+			if i == len(parts)-1 {
+				document.WriteString(" {}")
+			}
+			document.WriteString("\n")
+		}
+		v := newViper()
+		require.NoError(t, v.ReadConfig(strings.NewReader(document.String())))
+		_, err := loadWithViperWithoutValidation(v)
+		require.ErrorContains(t, err, "retired configuration key "+key)
+	}
 }

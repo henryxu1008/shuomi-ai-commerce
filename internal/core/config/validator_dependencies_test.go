@@ -35,28 +35,6 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 				"vision": {},
 			},
 		},
-		Browser: BrowserConfig{
-			Enabled:        true,
-			PoolSize:       1,
-			ViewportWidth:  1,
-			ViewportHeight: 1,
-		},
-		Amazon: AmazonConfig{
-			Enabled:      true,
-			CrawlTimeout: 1,
-			RiskControl: AmazonRiskControlConfig{
-				CaptchaRecreateThreshold:        1,
-				AuthenticationRecreateThreshold: 1,
-				BrowserCrashRecreateThreshold:   1,
-				TimeoutRecreateThreshold:        3,
-				NetworkRecreateThreshold:        2,
-				ServerErrorRecreateThreshold:    3,
-			},
-			QualityControl: AmazonQualityControlConfig{
-				RetryOnValidationFailure:   true,
-				ValidationRetryMaxAttempts: 2,
-			},
-		},
 	}
 
 	errors := ValidateConfig(cfg)
@@ -65,10 +43,7 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 
 func TestValidateConfigPreservesValidationGroupOrder(t *testing.T) {
 	cfg := &Config{
-		OpenAI:    OpenAIConfig{Model: "synthetic-model"},
-		Browser:   BrowserConfig{Enabled: true},
-		Amazon:    AmazonConfig{Enabled: true},
-		Platforms: PlatformsConfig{Alibaba1688: Alibaba1688Config{Enabled: true}},
+		OpenAI: OpenAIConfig{Model: "synthetic-model"},
 		ListingKit: ListingKitConfig{Zitadel: ListingKitZitadelConfig{
 			AllowedUsernames: []string{"synthetic-obsolete-user"},
 		}},
@@ -79,9 +54,6 @@ func TestValidateConfigPreservesValidationGroupOrder(t *testing.T) {
 	previous := -1
 	for _, field := range []string{
 		"openai.apiKey",
-		"browser.poolSize",
-		"amazon.crawlTimeout",
-		"platforms.alibaba1688.timeout",
 		"listingkit.zitadel.allowedUsernames",
 		"listingkit.zitadel.projectID",
 	} {
