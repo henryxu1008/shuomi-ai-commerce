@@ -3,7 +3,7 @@
 Refs #733 / PR #1028。
 
 - Design Basis: **Independent Architecture**，只补本文件两处恢复合同，不重做全局架构。
-- Admission: **DESIGNING / NOT_READY**。独立设计检查通过并明确 IMPLEMENTATION_READY 前，不修改这两部分生产路径。
+- Admission: **IMPLEMENTATION_READY / FROZEN**。原唯一 Reviewer 对候选 `03037fc3d60baa5f3820d496249e65b3c3265ec2` 的[独立局部设计检查](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1028#issuecomment-6527391507)无设计 BLOCKER；§7 两项 IMPLEMENTATION_TEST 留同批实现收敛，不扩大本阶段范围。
 - 用户决定：2026-10-30 明确同意当前唯一 Writer / 原唯一 Reviewer，先 #1027 最终工程检查，再本设计检查，准入后在同一 #1028 实现、自检和最终检查；不新增线程或拆 PR。
 - 本文以 #1028 `9c7cb07ce9912f0bbb94b3484b31f0286c7a1919` 为调查基线。当前运行/真实保存/浏览器/产品验收 NOT_RUN，缺失证据 UNKNOWN。
 
@@ -107,6 +107,11 @@ Legacy decision: N/A。只使用当前 owner；不恢复旧 Task/queue/workbench
 不改真实权限/配置；controller/worker 原注入不新增服务。只改原 Walmart 结果端口和 strict DTO，不开放客户端自报 cursor/feedId/企业，不新增控制面或通用 SDK。
 
 ## 7. 验证与准入
+
+首轮局部设计检查的两项收敛点分类均为 **IMPLEMENTATION_TEST**，不新增设计 BLOCKER：
+
+- R2/R3：Submission 的 persisted typed document 整体计算 canonical hash；Begin、Save重放、ReadWalmartResults 以及 requireWalmartEffect 的最后 accepted / RepairFrom 两处读取统一解码校验。不能只解析/hash旧的原生 FeedObservation 而忽略进度；补 progress 篡改和未赢 CAS 分支负向。
+- R4/现有权限 Must：原 WalmartFeedResult 的显示与异步请求绑定 scope/source/store/receipt 和请求代次；输入改变立即隐藏旧显示、取消旧请求、拒绝晚到响应。原生、历史页及 publication 时间分别显示；只复用原组件回归，不新建验证工具。
 
 复用原 flow / synthetic HTTP transport / task-owned PostgreSQL fixtures，TDD先RED后最小实现：
 

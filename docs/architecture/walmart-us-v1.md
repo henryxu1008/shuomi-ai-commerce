@@ -1,6 +1,6 @@
 # Walmart 美国站：多商家授权、商品草稿与受控刊登
 
-> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](walmart-feed-recovery-v1.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性先做局部 Independent Architecture 准入；当前 DESIGNING/NOT_READY，准入前不改该部分生产路径。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
+> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](walmart-feed-recovery-v1.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性已完成局部 Independent Architecture 准入，IMPLEMENTATION_READY/FROZEN；原唯一 Reviewer 无设计 BLOCKER，两项 IMPLEMENTATION_TEST 留同批实现。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
 
 Refs [#733](https://github.com/qq550723504/task-processor/issues/733)。
 

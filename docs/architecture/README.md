@@ -361,6 +361,8 @@ feature contracts reuse the current Store/Listing/Submission owners rather than
 changing repository-wide structural rules. Shared wiring, real application
 credentials and user acceptance remain separate delivery conditions.
 
+[`walmart-feed-recovery-v1.md`](walmart-feed-recovery-v1.md) defines the #733 / #1028 bounded recovery supplement: explicit rejected-repair admission and durable feed-read progress. It is IMPLEMENTATION_READY after the authorized local architecture review; cross-query pages remain visibility-only and never grant repair eligibility.
+
 Walmart US multi-merchant integration is being designed in
 [`walmart-us-v1.md`](walmart-us-v1.md) / execution Issue #733, with official
 protocol evidence in [`walmart-us-contract-evidence.md`](walmart-us-contract-evidence.md).
