@@ -43,7 +43,6 @@ type ProjectionCommit struct {
 	RunMutation               *RunMutation
 	ExpectedRunVersion        int64
 	PlanMutation              *PlanProjectionMutation
-	SlotMutation              *SlotProjectionMutation
 	SlotMutations             []SlotProjectionMutation
 }
 

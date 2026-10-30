@@ -165,7 +165,7 @@ func executeManualRecoveryWorkflowRestartAcceptance(t *testing.T) manualRecovery
 			Status: blockedProjection.Run.Status, CurrentNode: blockedProjection.Run.CurrentNode,
 			ActivePlanRevision: blockedProjection.Run.ActivePlanRevision, Block: blockedProjection.Run.Block,
 		},
-		SlotMutation: &imageagent.SlotProjectionMutation{
+		SlotMutations: []imageagent.SlotProjectionMutation{{
 			PlanRevision: plan.Revision,
 			Result: imageagent.SlotResult{
 				SlotID: recoveryInput.Slot.ID, Attempt: recoveryInput.Attempt, Status: imageagent.SlotStatusBlocked, ErrorCode: "recovery_requested",
@@ -176,7 +176,7 @@ func executeManualRecoveryWorkflowRestartAcceptance(t *testing.T) manualRecovery
 				SlotID: recoveryInput.Slot.ID, PlanRevision: plan.Revision, Node: "execute_slot_v3",
 				IdempotencyKey: recoveryInput.IdempotencyKey, Attempt: recoveryInput.Attempt, Outcome: "blocked", ErrorCategory: "recovery_requested",
 			},
-		},
+		}},
 	})
 	require.NoError(t, err)
 

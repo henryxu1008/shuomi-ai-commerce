@@ -1,3 +1,5 @@
+> #301 / #1007 当前实施边界：用户已确认[配置、投影与 Dub 完整退休设计](legacy-config-projection-dub-closure-retirement-boundary.md) §1–§7/§4.2/§6.1。Dub 无实际消费者的准备适配器整包及专属尾部退休，本文件对 Dub 的旧 KEEP/Out of Scope 不再是当前保活要求；其它当前能力及既有原文/历史逐字保留。不调用 Dub、不操作既有实例/数据/凭据/进程，不改 workflow/inventory，不加试用前置，#301 OPEN。
+
 #301 / #977 当前整批实施：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `6285dd4a850351407c987445e3a519a7b7f0b2f4` 的§1–§7（含§4.2/§6.1），同一49路径闭包：旧ImageAgent HTTP宿主/静态binding、Task启动预检四合同/六函数、闲置默认装配/queue/字符串recovery-ID门面退出，无alias或替代旧宿主。有效断言改当前Service/HTTP/真实授权owner；Chain1真实领域首次批准/丢返回与当前HTTP已完成批准socket重放分层保留，不新增generic运行装配。现役worker/WithWorker canary、通用域命令/Temporal/JSON/hash/版本/恢复、采集/图像/SDS/POD/资产审批及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/进程，无新增试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI及最终交付复核分别记录同PR；不等于运行/用户验收，合并/部署/关单另授权。 以下冻结设计全文逐字保留。
 
 # #301 旧 ImageAgent 隔离 HTTP 与闲置启动装配完整退休设计

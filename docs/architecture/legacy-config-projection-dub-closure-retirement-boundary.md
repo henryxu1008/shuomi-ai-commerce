@@ -5,9 +5,9 @@
 本批把三个已定位的旧设计闭包一次收齐：配置不再通过旧别名取值；图像投影只接受现有的有序数组命令；没有当前消费者的 Dub 归因适配器退出仓库。维护者不再面对两套配置名称或两个 slot 提交通道；当前采集、图像、身份权限与 Store 观察同步继续使用原 owner。
 
 - **Design Basis: Independent Architecture**。本批改变配置输入合同和内部 Repository 命令形状，必须先确认设计，再实施；不是按文件数拆批。
-- 当前文档阶段：`Design Basis: N/A`（只读调查与三份设计文档）、`Ready / DESIGN_ONLY / SOURCE_NOT_STARTED`。未来源码阶段：`NOT_READY / AWAITING_ARCHITECTURE_REVIEW_AND_USER_CONFIRMATION`，尚未达到 `IMPLEMENTATION_READY`。
+- 当前源码阶段：**`Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW`**。用户已确认准确设计的 §1–§7（含§4.2/§6.1）；适用独立设计复核无待处理问题，准确设计原CI整轮SUCCESS后开始实施，准入及准确证据记录于同PR。此前只读/三文档阶段的N/A不作为生产代码准入依据。
 - 基线：`bd2640ffb15baa29bea9639a5796fb3527403354`；用户 2026-10-30 的三组整批设计授权；接单记录见 [#301](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301#issuecomment-6512801376)。同一分支、一个 Writer、一个主要 PR；#1006 的成员角色交付不在本批。
-- 本轮交付仅本文件、架构索引与 Legacy Register。§5 是未来实施的完整清单，不是本轮修改生产代码的授权。
+- 本轮按用户已确认的§5完整清单，在同一PR整批实施三组闭包；运行验收、源码最终复核、合并和关单仍分别授权。
 
 **Must**：保留当前采集、图像、身份权限、Store 观察同步；旧身份限制输入不得静默失效，保持现有权限拒绝；保持当前 JSON/hash/版本与投影原子性。**Out of Scope**：workflow/inventory/保护规则/依赖变更，真实环境核对、实例/数据/凭据/进程操作、Dub 调用或外部清理、上线/运行验收、关单。无新增 Accepted Risk；不增加内部试用前置，#301 保持 OPEN。不恢复已经退休的独立 SHEIN 登录或身份回写 worker。
 
@@ -59,7 +59,7 @@
 根因有两处，不能只删表：
 
 1. 仓库锁定 Viper v1.16.0 的 `find → getEnv` 会先尝试 `AutomaticEnv`，再查 `BindEnv`。点号替换会重新得到上表三个图片客户端紧凑旧名；它们必须在自动入口也退出。
-2. `loader_builder.go::legacyListingKitUsernameAllowlistConfigured` 仍从 `Deprecated` 表枚举被禁用的 username 限制。直接删表会漏掉原拒绝输入。另三项旧 allowlist 若被静默忽略，会改变操作者配置的生效/拒绝结果。当前 middleware 在 Required=true 时明确拒绝全空 allowlist，Required=false 时原本不执行该检查，不存在本批修补“全空放行”的依据；新增 name-only 拒绝是待用户确认的 hard-cut 配置合同，用于避免旧输入静默失效，不改变权限算法。
+2. `loader_builder.go::legacyListingKitUsernameAllowlistConfigured` 仍从 `Deprecated` 表枚举被禁用的 username 限制。直接删表会漏掉原拒绝输入。另三项旧 allowlist 若被静默忽略，会改变操作者配置的生效/拒绝结果。当前 middleware 在 Required=true 时明确拒绝全空 allowlist，Required=false 时原本不执行该检查，不存在本批修补“全空放行”的依据；新增 name-only 拒绝是用户已确认的 hard-cut 配置合同，用于避免旧输入静默失效，不改变权限算法。
 
 ### §3.2 单项投影命令
 
@@ -95,7 +95,7 @@
 
 **Dub 无 EXTRACT**。当前 referral 业务不是该适配器替代层；不新建 Dub wrapper、DTO alias、路由或 provider。成熟 Viper/GORM/Temporal 继续复用，go.mod/go.sum 不变。
 
-### §4.2 需要用户确认的合同取舍
+### §4.2 用户已确认的合同取舍
 
 | 边界 | 确认后行为 | 保持不变 |
 | --- | --- | --- |
@@ -109,7 +109,7 @@
 
 ## §5 整批实施矩阵与删除条件
 
-未来源码阶段以以下 **29 路径** 收齐一个主要 PR；数量只便于核对，不构成拆批依据。原本无须改动的当前消费者不为凑数搬家。
+本轮源码阶段以以下 **29 路径** 收齐一个主要 PR；数量只便于核对，不构成拆批依据。原本无须改动的当前消费者不为凑数搬家。
 
 | 路径 | 决策及允许变化 | 保留/删除条件 |
 | --- | --- | --- |

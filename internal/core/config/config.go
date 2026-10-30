@@ -14,8 +14,7 @@ import (
 )
 
 type envBinding struct {
-	Primary    string
-	Deprecated []string
+	Primary string
 }
 
 var (
@@ -46,11 +45,27 @@ type Config struct {
 	WalletTopUp             topupconfig.Config `yaml:"walletTopUp"`
 }
 
+// Only the three retired compact image spellings overlap AutomaticEnv. Keep all
+// other automatic inputs and explicitly bound environment names unchanged.
+type imageClientEnvKeyReplacer struct{}
+
+func (imageClientEnvKeyReplacer) Replace(value string) string {
+	switch value {
+	case "TASK_PROCESSOR_OPENAI.CLIENTS.IMAGE.APIKEY":
+		return "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY"
+	case "TASK_PROCESSOR_OPENAI.CLIENTS.IMAGE.BASEURL":
+		return "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL"
+	case "TASK_PROCESSOR_OPENAI.CLIENTS.IMAGE.APISTYLE":
+		return "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE"
+	default:
+		return strings.ReplaceAll(value, ".", "_")
+	}
+}
+
 func newViper() *viper.Viper {
-	v := viper.New()
+	v := viper.NewWithOptions(viper.EnvKeyReplacer(imageClientEnvKeyReplacer{}))
 	v.SetConfigType("yaml")
 	v.SetEnvPrefix("TASK_PROCESSOR")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 	bindKnownEnvs(v)
 	setDefaults(v)
@@ -195,9 +210,7 @@ func loadDotEnvFile(path string) error {
 
 func bindKnownEnvs(v *viper.Viper) {
 	for key, binding := range knownEnvBindings() {
-		args := []string{key, binding.Primary}
-		args = append(args, binding.Deprecated...)
-		_ = v.BindEnv(args...)
+		_ = v.BindEnv(key, binding.Primary)
 	}
 }
 
@@ -243,84 +256,64 @@ func knownEnvBindings() map[string]envBinding {
 			Primary: "TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_S3_COS_IMMUTABLE_NON_VERSIONED_BUCKET_POLICY",
 		},
 		"openai.apiKey": {
-			Primary:    "TASK_PROCESSOR_OPENAI_API_KEY",
-			Deprecated: []string{"OPENAI_API_KEY"},
+			Primary: "TASK_PROCESSOR_OPENAI_API_KEY",
 		},
 		"openai.model": {
-			Primary:    "TASK_PROCESSOR_OPENAI_MODEL",
-			Deprecated: []string{"OPENAI_MODEL"},
+			Primary: "TASK_PROCESSOR_OPENAI_MODEL",
 		},
 		"openai.baseURL": {
-			Primary:    "TASK_PROCESSOR_OPENAI_BASE_URL",
-			Deprecated: []string{"OPENAI_BASE_URL"},
+			Primary: "TASK_PROCESSOR_OPENAI_BASE_URL",
 		},
 		"openai.clients.image.apiKey": {
-			Primary:    "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY",
-			Deprecated: []string{"TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY"},
+			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY",
 		},
 		"openai.clients.image.baseURL": {
-			Primary:    "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL",
-			Deprecated: []string{"TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL"},
+			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL",
 		},
 		"openai.clients.image.apiStyle": {
-			Primary:    "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE",
-			Deprecated: []string{"TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE"},
+			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE",
 		},
 		"openai.clients.image.model": {
-			Primary:    "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_MODEL",
-			Deprecated: nil,
+			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_MODEL",
 		},
 		"openai.clients.image.timeout": {
-			Primary:    "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_TIMEOUT",
-			Deprecated: nil,
+			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_TIMEOUT",
 		},
 		"browser.browserPath": {
-			Primary:    "TASK_PROCESSOR_BROWSER_PATH",
-			Deprecated: []string{"BROWSER_PATH"},
+			Primary: "TASK_PROCESSOR_BROWSER_PATH",
 		},
 		"browser.userDataDir": {
-			Primary:    "TASK_PROCESSOR_BROWSER_USER_DATA_DIR",
-			Deprecated: []string{"BROWSER_USER_DATA_DIR"},
+			Primary: "TASK_PROCESSOR_BROWSER_USER_DATA_DIR",
 		},
 		"browser.headless": {
-			Primary:    "TASK_PROCESSOR_BROWSER_HEADLESS",
-			Deprecated: []string{"BROWSER_HEADLESS"},
+			Primary: "TASK_PROCESSOR_BROWSER_HEADLESS",
 		},
 		"browser.poolSize": {
-			Primary:    "TASK_PROCESSOR_BROWSER_POOL_SIZE",
-			Deprecated: []string{"BROWSER_POOL_SIZE"},
+			Primary: "TASK_PROCESSOR_BROWSER_POOL_SIZE",
 		},
 		"platforms.alibaba1688.enabled": {
-			Primary:    "TASK_PROCESSOR_PLATFORM_1688_ENABLED",
-			Deprecated: []string{"PLATFORM_1688_ENABLED"},
+			Primary: "TASK_PROCESSOR_PLATFORM_1688_ENABLED",
 		},
 		"database.host": {
-			Primary:    "TASK_PROCESSOR_DATABASE_HOST",
-			Deprecated: []string{"DB_HOST"},
+			Primary: "TASK_PROCESSOR_DATABASE_HOST",
 		},
 		"database.port": {
-			Primary:    "TASK_PROCESSOR_DATABASE_PORT",
-			Deprecated: []string{"DB_PORT"},
+			Primary: "TASK_PROCESSOR_DATABASE_PORT",
 		},
 		"database.user": {
-			Primary:    "TASK_PROCESSOR_DATABASE_USER",
-			Deprecated: []string{"DB_USER"},
+			Primary: "TASK_PROCESSOR_DATABASE_USER",
 		},
 		"database.password": {
-			Primary:    "TASK_PROCESSOR_DATABASE_PASSWORD",
-			Deprecated: []string{"DB_PASSWORD"},
+			Primary: "TASK_PROCESSOR_DATABASE_PASSWORD",
 		},
 		"database.database": {
-			Primary:    "TASK_PROCESSOR_DATABASE_NAME",
-			Deprecated: []string{"DB_NAME"},
+			Primary: "TASK_PROCESSOR_DATABASE_NAME",
 		},
 		"database.max_connections": {
-			Primary:    "TASK_PROCESSOR_DATABASE_MAX_CONNECTIONS",
-			Deprecated: []string{"DB_MAX_CONNECTIONS"},
+			Primary: "TASK_PROCESSOR_DATABASE_MAX_CONNECTIONS",
 		},
 		"database.max_idle_connections": {
-			Primary:    "TASK_PROCESSOR_DATABASE_MAX_IDLE_CONNECTIONS",
-			Deprecated: []string{"DB_MAX_IDLE_CONNECTIONS"},
+			Primary: "TASK_PROCESSOR_DATABASE_MAX_IDLE_CONNECTIONS",
 		},
 
 		"listingkit.imageUpload.provider": {
@@ -402,54 +395,20 @@ func knownEnvBindings() map[string]envBinding {
 			Primary: "TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHZ_REQUIRED",
 		},
 		"listingkit.zitadel.allowedTenantIDs": {
-			Primary:    "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS",
-			Deprecated: []string{"LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS"},
+			Primary: "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_TENANT_IDS",
 		},
 		"listingkit.zitadel.allowedUserIDs": {
-			Primary:    "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS",
-			Deprecated: []string{"LISTINGKIT_ZITADEL_ALLOWED_USER_IDS"},
+			Primary: "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USER_IDS",
 		},
 		"listingkit.zitadel.allowedUsernames": {
-			Primary:    "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES",
-			Deprecated: []string{"LISTINGKIT_ZITADEL_ALLOWED_USERNAMES"},
+			Primary: "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_USERNAMES",
 		},
 		"listingkit.zitadel.allowedRoles": {
-			Primary:    "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES",
-			Deprecated: []string{"LISTINGKIT_ZITADEL_ALLOWED_ROLES"},
+			Primary: "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES",
 		},
 		"workbench.enabled": {
 			Primary: "TASK_PROCESSOR_WORKBENCH_ENABLED",
 		},
-	}
-}
-
-func deprecatedEnvWarnings() []string {
-	var warnings []string
-
-	for key, binding := range knownEnvBindings() {
-		_, primarySet := os.LookupEnv(binding.Primary)
-		for _, deprecated := range binding.Deprecated {
-			_, deprecatedSet := os.LookupEnv(deprecated)
-			if !deprecatedSet {
-				continue
-			}
-			// 已设置新名称时不再提示旧别名（避免系统环境仍带 DB_* 等与项目 TASK_PROCESSOR_* 并存时刷屏）
-			if primarySet {
-				continue
-			}
-
-			warning := fmt.Sprintf("environment variable %s is deprecated; use %s for %s instead", deprecated, binding.Primary, key)
-			warnings = append(warnings, warning)
-		}
-	}
-
-	return warnings
-}
-
-func logDeprecatedEnvUsage() {
-	logger := logger.GetGlobalLogger("core/config")
-	for _, warning := range deprecatedEnvWarnings() {
-		logger.Warn(warning)
 	}
 }
 
@@ -481,7 +440,6 @@ func LoadConfig() (*Config, error) {
 
 	configName := fmt.Sprintf("config-%s", env)
 	logger.GetGlobalLogger("core/config").Infof("loading config file: %s.yaml", configName)
-	logDeprecatedEnvUsage()
 
 	v := newViper()
 	v.SetConfigName(configName)
@@ -509,7 +467,6 @@ func LoadConfigFromFile(configFile string) (*Config, error) {
 	tryLoadDotEnvForConfig(configFile)
 
 	logger.GetGlobalLogger("core/config").Infof("loading config file: %s", configFile)
-	logDeprecatedEnvUsage()
 
 	v := newViper()
 	v.SetConfigFile(configFile)
@@ -526,7 +483,6 @@ func LoadConfigFromFileWithoutValidation(configFile string) (*Config, error) {
 	tryLoadDotEnvForConfig(configFile)
 
 	logger.GetGlobalLogger("core/config").Infof("loading config file: %s", configFile)
-	logDeprecatedEnvUsage()
 
 	v := newViper()
 	v.SetConfigFile(configFile)

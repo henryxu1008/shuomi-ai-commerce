@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -190,7 +192,7 @@ func testProjectionCommitAtomicallyPersistsRecoveryRegistryAndOrderedSlotMutatio
 		}
 		current, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{
 			Scope: scope, CommitID: "slot:" + slotID, ExpectedProjectionVersion: current.ProjectionVersion,
-			Snapshot: updated, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutation: &mutation,
+			Snapshot: updated, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutations: []imageagent.SlotProjectionMutation{mutation},
 		})
 		require.NoError(t, err)
 	}
@@ -292,11 +294,11 @@ func testProjectionCommitRejectsInvalidSameAttemptRecoveryMetadata(t *testing.T,
 			current, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{
 				Scope: scope, CommitID: "slot:slot-1", ExpectedProjectionVersion: current.ProjectionVersion,
 				Snapshot: blocked, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`),
-				SlotMutation: &imageagent.SlotProjectionMutation{
+				SlotMutations: []imageagent.SlotProjectionMutation{{
 					PlanRevision: 1,
 					Result:       imageagent.SlotResult{SlotID: "slot-1", Attempt: 1, Status: imageagent.SlotStatusBlocked, ErrorCode: "slot_execution_failed"},
 					Projection:   blocked.Slots[0], Attempt: initialAttempt,
-				},
+				}},
 			})
 			require.NoError(t, err)
 
@@ -430,7 +432,7 @@ func testProjectionCommitRejectsMismatchedSlotAttemptIdentityAtomically(t *testi
 				Attempt:      imageagent.StepAttempt{TenantID: scope.TenantID, OwnerUserID: scope.OwnerUserID, RunID: scope.RunID, PlanRevision: 1, SlotID: "slot-1", Attempt: 1, Node: "execute_slot", IdempotencyKey: "attempt-1", Outcome: "accepted"},
 			}
 			tt.mutate(&mutation)
-			_, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "malicious", ExpectedProjectionVersion: initial.ProjectionVersion, Snapshot: updated, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutation: &mutation})
+			_, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "malicious", ExpectedProjectionVersion: initial.ProjectionVersion, Snapshot: updated, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`), SlotMutations: []imageagent.SlotProjectionMutation{mutation}})
 			require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 
 			stored, err := repo.GetProjection(ctx, scope)
@@ -609,11 +611,11 @@ func testProjectionCommitRollbackHidesEventSnapshotAndNormalizedWrites(t *testin
 	_, err = repo.CommitProjection(ctx, imageagent.ProjectionCommit{
 		Scope: scope, CommitID: "slot:unsafe", ExpectedProjectionVersion: initial.ProjectionVersion,
 		Snapshot: bad, EventType: "slot.result.persisted", EventPayload: json.RawMessage(`{}`),
-		SlotMutation: &imageagent.SlotProjectionMutation{
+		SlotMutations: []imageagent.SlotProjectionMutation{{
 			PlanRevision: 1,
 			Result:       imageagent.SlotResult{SlotID: "slot-1", Attempt: 1, Status: imageagent.SlotStatusAccepted, CandidateAssetIDs: []string{"candidate-unsafe"}},
 			Projection:   bad.Slots[0], Attempt: attempt,
-		},
+		}},
 	})
 	require.Error(t, err)
 
@@ -935,5 +937,149 @@ func planRevision(revision int64) imageagent.Plan {
 			},
 		},
 		CreatedBy: "user-1",
+	}
+}
+
+// This frozen wire is the pre-retirement durable fingerprint contract, not a
+// second Repository command. Non-null single-slot input exists only as a fixture.
+func frozenProjectionCommitJSON(t *testing.T, input imageagent.ProjectionCommit, single *imageagent.SlotProjectionMutation) []byte {
+	t.Helper()
+	wire := struct {
+		Scope                     imageagent.RunScope
+		CommitID                  string
+		ExpectedProjectionVersion int64
+		Snapshot                  imageagent.RunProjection
+		EventType                 string
+		EventPayload              json.RawMessage
+		RunMutation               *imageagent.RunMutation
+		ExpectedRunVersion        int64
+		PlanMutation              *imageagent.PlanProjectionMutation
+		SlotMutation              *imageagent.SlotProjectionMutation
+		SlotMutations             []imageagent.SlotProjectionMutation
+	}{input.Scope, input.CommitID, input.ExpectedProjectionVersion, input.Snapshot, input.EventType, input.EventPayload, input.RunMutation, input.ExpectedRunVersion, input.PlanMutation, single, input.SlotMutations}
+	if single != nil {
+		wire.SlotMutations = nil
+	}
+	encoded, err := json.Marshal(wire)
+	require.NoError(t, err)
+	return encoded
+}
+
+func TestProjectionCommitArrayFingerprintPreservesFrozenBytes(t *testing.T) {
+	frozenHashes := map[string]string{"nil": "c10d5e8ad7b1bca128d39d841cf81abdb07bd8638bc5f096d934868a2c32b1ae", "empty": "c042f3bd7b56171547e135c1190f1c34c2fd4574763ebee7d9f95bd7413f80db", "single": "9c7f67f62ee86aa0e815233f8ecf28dbea47012c08279bc374ef3e7bb6c4194b", "ordered": "ca52a68df265d6e5bee4e3271434e2f7253cc9d15a50193ba3277b9afe69b5a8"}
+
+	for _, name := range []string{"nil", "empty", "single", "ordered"} {
+		t.Run(name, func(t *testing.T) {
+			input := imageagent.ProjectionCommit{
+				Scope:    imageagent.RunScope{TenantID: "fixture-tenant", OwnerUserID: "fixture-owner", RunID: "fixture-run"},
+				CommitID: "fixture-commit", ExpectedProjectionVersion: 7,
+				Snapshot:  imageagent.RunProjection{Run: *manualRun("fixture-run", "fixture-tenant"), Plan: planRevision(2)},
+				EventType: "fixture.updated", EventPayload: json.RawMessage(`{"value":"<synthetic>","order":[2,1]}`),
+				RunMutation:        &imageagent.RunMutation{Status: imageagent.RunStatusBlocked, CurrentNode: "retry_slot", ActivePlanRevision: 2},
+				ExpectedRunVersion: 5, PlanMutation: &imageagent.PlanProjectionMutation{ExpectedActiveRevision: 1, Plan: planRevision(2)},
+			}
+			if name != "nil" {
+				input.SlotMutations = []imageagent.SlotProjectionMutation{}
+			}
+			if name == "single" || name == "ordered" {
+				input.SlotMutations = append(input.SlotMutations, imageagent.SlotProjectionMutation{PlanRevision: 2, Result: imageagent.SlotResult{SlotID: "slot-a", Attempt: 3, Status: imageagent.SlotStatusBlocked}})
+			}
+			if name == "ordered" {
+				input.SlotMutations = append(input.SlotMutations, imageagent.SlotProjectionMutation{PlanRevision: 2, Result: imageagent.SlotResult{SlotID: "slot-b", Attempt: 4, Status: imageagent.SlotStatusBlocked}})
+			}
+			encoded := frozenProjectionCommitJSON(t, input, nil)
+			require.Contains(t, string(encoded), `"SlotMutation":null,"SlotMutations":`)
+			sum := sha256.Sum256(encoded)
+			expected := hex.EncodeToString(sum[:])
+			require.Equal(t, frozenHashes[name], expected, "the pre-retirement bytes are frozen, not derived from the new implementation")
+			actual, err := projectionCommitFingerprint(input)
+			require.NoError(t, err)
+			require.Equal(t, expected, actual)
+		})
+	}
+}
+
+func TestProjectionCommitFrozenReceiptsAndArrayAtomicity(t *testing.T) {
+	for _, kind := range []string{"memory", "gorm"} {
+		for _, mode := range []string{"nil", "empty", "single"} {
+			t.Run(kind+"/"+mode, func(t *testing.T) {
+				var repo imageagent.Repository = NewMemoryRepository()
+				if kind == "gorm" {
+					repo = NewOrganizationRepository(newConcurrentSQLite(t))
+				}
+				ctx := context.Background()
+				run := manualRun("frozen-receipt", "tenant-a")
+				scope := imageagent.ScopeForRun(*run)
+				current, err := repo.InitializeRun(ctx, imageagent.ProjectionInitialization{
+					Scope: scope, Run: *run, Plan: planRevision(1),
+					Catalog: imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{
+						{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png"},
+						{ID: "style-1", Type: imageagent.AuthorizedAssetStyle, URL: "https://style.example/style.png"},
+					}}, Snapshot: imageagent.RunProjection{Run: *run, Plan: planRevision(1)}, CommitID: "start:frozen", EventType: "run.initialized", EventPayload: json.RawMessage(`{}`),
+				})
+				require.NoError(t, err)
+				input := imageagent.ProjectionCommit{Scope: scope, CommitID: "frozen:commit", ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: current, EventType: "run.checked", EventPayload: json.RawMessage(`{}`)}
+				if mode == "empty" {
+					input.SlotMutations = []imageagent.SlotProjectionMutation{}
+				}
+				if mode == "single" {
+					input.Snapshot.Slots = append([]imageagent.SlotProjection(nil), current.Slots...)
+					input.Snapshot.Slots[0].Slot.Status = imageagent.SlotStatusBlocked
+					input.Snapshot.Slots[0].Attempt = 1
+					input.Snapshot.Slots[0].ErrorCode = "fixture_blocked"
+					input.EventType = "slot.result.persisted"
+					input.SlotMutations = []imageagent.SlotProjectionMutation{{PlanRevision: 1,
+						Result: imageagent.SlotResult{SlotID: "slot-1", Attempt: 1, Status: imageagent.SlotStatusBlocked, ErrorCode: "fixture_blocked"}, Projection: input.Snapshot.Slots[0],
+						Attempt: imageagent.StepAttempt{TenantID: scope.TenantID, OwnerUserID: scope.OwnerUserID, RunID: scope.RunID, PlanRevision: 1, SlotID: "slot-1", Attempt: 1, Node: "execute_slot_v3", IdempotencyKey: "fixture:attempt", Outcome: "blocked", ErrorCategory: "fixture_blocked"},
+					}}
+				}
+				if mode == "single" {
+					duplicate := input
+					duplicate.CommitID = "duplicate:slots"
+					duplicate.ExpectedProjectionVersion = current.ProjectionVersion
+					duplicate.Snapshot = input.Snapshot
+					duplicate.SlotMutations = append([]imageagent.SlotProjectionMutation{}, input.SlotMutations[0], input.SlotMutations[0])
+					_, err = repo.CommitProjection(ctx, duplicate)
+					require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
+					require.ErrorContains(t, err, "duplicate slot mutations")
+					stored, err := repo.GetProjection(ctx, scope)
+					require.NoError(t, err)
+					require.Equal(t, current, stored)
+				}
+				committed, err := repo.CommitProjection(ctx, input)
+				require.NoError(t, err)
+				seedFingerprint := func(encoded []byte) {
+					sum := sha256.Sum256(encoded)
+					fingerprint := hex.EncodeToString(sum[:])
+					switch r := repo.(type) {
+					case *memoryRepository:
+						r.mu.Lock()
+						receipt := r.projectionCommits[scopeKey(scope)][input.CommitID]
+						receipt.fingerprint = fingerprint
+						r.projectionCommits[scopeKey(scope)][input.CommitID] = receipt
+						r.mu.Unlock()
+					case *gormRepository:
+						updated := scopedWhere(r.db.Model(&projectionCommitRecord{}), scope).Where("commit_id = ?", input.CommitID).Update("fingerprint", fingerprint)
+						require.NoError(t, updated.Error)
+						require.EqualValues(t, 1, updated.RowsAffected)
+					default:
+						t.Fatalf("unexpected repository %T", repo)
+					}
+				}
+				seedFingerprint(frozenProjectionCommitJSON(t, input, nil))
+				replay, err := repo.CommitProjection(ctx, input)
+				require.NoError(t, err, "an existing current-array receipt must still replay")
+				require.Equal(t, committed, replay)
+				if mode != "single" {
+					return
+				}
+				seedFingerprint(frozenProjectionCommitJSON(t, input, &input.SlotMutations[0]))
+				_, err = repo.CommitProjection(ctx, input)
+				require.ErrorIs(t, err, imageagent.ErrRevisionConflict, "a historical non-null single-slot receipt must never be accepted through fallback")
+				stored, err := repo.GetProjection(ctx, scope)
+				require.NoError(t, err)
+				require.Equal(t, committed, stored)
+			})
+		}
 	}
 }
