@@ -5,9 +5,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"io"
+	"mime/quotedprintable"
 	"net"
+	stdmail "net/mail"
 	"strconv"
 	"strings"
+	"task-processor/internal/authz"
 	flow "task-processor/internal/organization/membership/inviteflow"
 	"testing"
 	"time"
@@ -85,9 +89,9 @@ func TestSMTPActualMessageAndStalledDataCancellation(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 			defer cancel()
-			inv := flow.Invitation{ID: uuid.NewString(), Contact: "recipient@example.test", OrganizationName: "测试企业", Role: "listingkit_viewer", ExpiresAt: time.Now().Add(time.Hour)}
+			inv := flow.Invitation{ID: uuid.NewString(), Contact: "recipient@example.test", OrganizationID: "org", OrganizationName: "测试企业", Role: authz.EnterpriseRoleKey("org", 1), ExpiresAt: time.Now().Add(time.Hour)}
 			start := time.Now()
-			err = sender.Send(ctx, inv)
+			err = sender.Send(ctx, inv, "商品运营")
 			if stall && err == nil || !stall && err != nil {
 				t.Fatal("result", err)
 			}
@@ -98,6 +102,14 @@ func TestSMTPActualMessageAndStalledDataCancellation(t *testing.T) {
 			case body := <-message:
 				if !strings.Contains(body, inv.ID) {
 					t.Fatal("missing configured invitation link")
+				}
+				msg, err := stdmail.ReadMessage(strings.NewReader(body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				decoded, err := io.ReadAll(quotedprintable.NewReader(msg.Body))
+				if err != nil || !strings.Contains(string(decoded), "邀请角色：商品运营") {
+					t.Fatalf("missing custom role name: %s, %v", decoded, err)
 				}
 			case <-time.After(time.Second):
 				t.Fatal("no actual message")
