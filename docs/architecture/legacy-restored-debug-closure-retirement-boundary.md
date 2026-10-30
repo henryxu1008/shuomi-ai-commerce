@@ -1,3 +1,5 @@
+> USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING. 用户确认 §1–§7 见 [#1010 准入](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1010#issuecomment-6516767885)。#1009 已由原 owner 合入；其真实 frontend 失败由 #1016 独立根因修复（原失败历史不改）。以下冻结范围与取舍保持，设计期时态仅为历史。实际源码 HEAD、CI、最终复核及合并授权分别留 PR，#301 OPEN。
+
 # #301 恢复文件背后的旧调试与采集执行链退休设计
 
 ## §1 用户结果与准入
@@ -121,6 +123,10 @@ Legacy decision: EXTRACT | RETIRE。Reusable behavior: 现役 Chromium 安装和
 | repository_structure_test.go、architecture_docs_test.go、Greenfield/链接检查 | 只跟随准确维护目录/链接退出；历史文档保留注记，合成安全负例不认作旧消费者 | 当前入口 owner、禁迁移/兼容/旧依赖语义、完整 inventory 零改 |
 
 发现表外真实当前消费者、不同安全结果、CURRENT 失配或新持久化/副作用义务，先报告根因、同根路径和准确补丁，不重跑掩盖或放宽门禁。最终基线必须逐项复核，本文不是提前放行未知改动。
+
+§6.1 实施核对补充（未改变当前安全结果）：`TestLegacySheinLoginIdentitySyncClosureIsRetired` 的旧 manager 单项 KEEP、`TestLegacyLocalAgentSourcePolicyClosureIsRetired` 的七项 Alibaba 函数 KEEP，均被本批整树缺席取代；其它当前消费者/JSON/hash/权限断言不变。原配置样例中已经禁止的 SDS/宿主/水印/Task/全局输入由当前 loader 的合成 fixture 继续拒绝，三个 YAML 根和 43 个环境名仍严格按 §4.2 精确边界，不增加环境前缀匹配。所有旧纯执行树检查改为更强的整根缺席；混合检查保留当前属性合同/采集入口/日志与安装器安全结果。
+
+原 import boundary 的 ListingKit 根读取随最后探针包退出改用 retained `internal` + 原子树/文件过滤；目录缺席由本批 guard 强制，原 allowlist/身份与禁入断言不变。`TestLegacyConfigProjectionDubClosureIsRetired` 的隐式 `LoadConfig` KEEP 改为同文件 AST 禁入，其余 AutomaticEnv/BindEnv/显式加载/当前数组事务指纹检查不变。两个原 numeric/current-command 检查对旧配置类型文件的读取改整文件缺席，安装器已由新 owner 继续被原 HTTP/logger/TLS 检查扫描。
 
 ## §7 准入和停止点
 

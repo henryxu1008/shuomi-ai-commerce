@@ -1,8 +1,6 @@
 package config
 
 import (
-	"bufio"
-	"os"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -37,49 +35,6 @@ func getStringSlice(v *viper.Viper, key string) []string {
 			continue
 		}
 		result = append(result, part)
-	}
-	return result
-}
-
-func readLineList(path string) []string {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return nil
-	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer file.Close()
-
-	var result []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		result = append(result, line)
-	}
-	return result
-}
-
-func uniqueStringList(items ...[]string) []string {
-	seen := make(map[string]struct{})
-	var result []string
-	for _, group := range items {
-		for _, item := range group {
-			item = strings.TrimSpace(item)
-			if item == "" {
-				continue
-			}
-			if _, ok := seen[item]; ok {
-				continue
-			}
-			seen[item] = struct{}{}
-			result = append(result, item)
-		}
 	}
 	return result
 }

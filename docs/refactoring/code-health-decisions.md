@@ -1,3 +1,5 @@
+> #301 / #1010 — USER_CONFIRMED / IMPLEMENTING. [完整退休边界](../architecture/legacy-restored-debug-closure-retirement-boundary.md) §1–§7（含 §4.2/§6.1）替代下文仅属于本批的旧 KEEP：旧 Go Amazon/1688 手工浏览器执行树、五个 debug 入口、手机号探针、db-query/json-simplifier、公开 YAML 与隐式配置入口退出。Chromium 安装闭包归 `integration/browserinstall`，当前 Collector 配置合同原样保留。当前采集、图像、身份权限、Store 观察同步保持；实际消费配置的四个命令须显式 `-config`，worker canary 无需配置。tools module 仅保留原 CI lint 固定用途；test-all 仅测 root。下方原文保留为历史，不作为已退休入口的现行操作指引。源级/CI 不等于运行验收；workflow/完整 inventory/计数/ceilings/工具版本及既有资源零改，#301 OPEN，无新增试用前置。
+
 > #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](../architecture/legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
 
 # Code Health Decisions

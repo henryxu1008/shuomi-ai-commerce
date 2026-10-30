@@ -14,14 +14,12 @@ import (
 )
 
 func TestAlibaba1688CrawlerDoesNotImportListingKitRoot(t *testing.T) {
-	assertNoProductionBannedImports(t, filepath.Join("..", "internal", "crawler", "alibaba1688"), []string{
-		`"task-processor/internal/listingkit"`,
-	}, nil)
+	assertRestoredDebugPathsAbsent(t, "internal/crawler/alibaba1688")
 }
 
 func TestAlibaba1688CrawlerDoesNotConfigureLegacyTenantThroughListingKitHTTPAPI(t *testing.T) {
 	root := filepath.Join("..", "internal", "crawler", "alibaba1688")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +78,7 @@ func TestAlibaba1688CrawlerDoesNotConfigureLegacyTenantThroughListingKitHTTPAPI(
 
 func TestAlibaba1688CrawlerDoesNotImportListingKitHTTPAPIForSourceAccountBuilder(t *testing.T) {
 	root := filepath.Join("..", "internal", "crawler", "alibaba1688")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +251,7 @@ func TestZitadelAuthRuntimeDoesNotImportListingKit(t *testing.T) {
 }
 
 func TestListingKitAuthenticatedIdentityCompatibilityFacadeIsRetired(t *testing.T) {
-	index, err := loadGoFileIndex(filepath.Join("..", "internal", "listingkit"), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), filepath.Join("..", "internal", "listingkit"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -571,7 +569,7 @@ func TestListingKitNonAPISheinImportsStayAllowlisted(t *testing.T) {
 		},
 	}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,7 +603,7 @@ func TestListingKitAmazonListingImportsStayAllowlisted(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "service_defaults.go")):                       {},
 	}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -917,7 +915,7 @@ func TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets(t *testing.T
 
 func TestListingKitImportDirectionStaysRetiredAcrossBuildTargets(t *testing.T) {
 	root := filepath.Join("..", "internal", "listingkit")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1014,15 +1012,15 @@ func TestListingKitRootSheinHelpersStayAllowlisted(t *testing.T) {
 		"shein_workspace_types_bridge.go":                     {},
 	}
 
-	entries, err := os.ReadDir(root)
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for path := range index.files {
+		if filepath.Dir(path) != filepath.Clean(root) {
 			continue
 		}
-		name := entry.Name()
+		name := filepath.Base(path)
 		if !strings.HasPrefix(name, "shein_") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
@@ -1069,15 +1067,15 @@ func TestListingKitRootServiceSubmitFilesStayAllowlisted(t *testing.T) {
 		"service_submit_workflow_entry_helpers.go":         {},
 	}
 
-	entries, err := os.ReadDir(root)
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for path := range index.files {
+		if filepath.Dir(path) != filepath.Clean(root) {
 			continue
 		}
-		name := entry.Name()
+		name := filepath.Base(path)
 		if !strings.HasPrefix(name, "service_submit") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
@@ -1114,15 +1112,15 @@ func TestListingKitRootTaskSubmissionFilesStayAllowlisted(t *testing.T) {
 		"task_submission_success_persistence_support.go":     {},
 	}
 
-	entries, err := os.ReadDir(root)
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for path := range index.files {
+		if filepath.Dir(path) != filepath.Clean(root) {
 			continue
 		}
-		name := entry.Name()
+		name := filepath.Base(path)
 		if !strings.HasPrefix(name, "task_submission") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
@@ -1138,15 +1136,15 @@ func TestListingKitRootServiceGenerationFilesStayAllowlisted(t *testing.T) {
 		"service_generation.go": {},
 	}
 
-	entries, err := os.ReadDir(root)
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for path := range index.files {
+		if filepath.Dir(path) != filepath.Clean(root) {
 			continue
 		}
-		name := entry.Name()
+		name := filepath.Base(path)
 		if !strings.HasPrefix(name, "service_generation") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
@@ -1201,15 +1199,15 @@ func TestListingKitRootGenerationFilesStayAllowlisted(t *testing.T) {
 		"generation_task_list.go":                            {},
 	}
 
-	entries, err := os.ReadDir(root)
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for path := range index.files {
+		if filepath.Dir(path) != filepath.Clean(root) {
 			continue
 		}
-		name := entry.Name()
+		name := filepath.Base(path)
 		if !strings.HasPrefix(name, "generation_") || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
@@ -1263,7 +1261,7 @@ func TestListingKitRootSheinWorkspaceBridgesDoNotImportWorkspaceDomainDirectly(t
 		`"task-processor/internal/workspace/shein"`: {},
 	}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1722,7 +1720,7 @@ func TestListingKitRootOpenAIImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "listingkit")
 	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}

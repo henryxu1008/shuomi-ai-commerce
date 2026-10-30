@@ -11,7 +11,7 @@ Set-Location $repoRoot
 $fastTestPackages = @(
     "./cmd/current-application"
     "./internal/app/httpapi"
-    "./internal/crawler/alibaba1688"
+    "./internal/integration/acquisition/..."
     "./internal/listingadmin"
     "./internal/integration/orgresource"
 )

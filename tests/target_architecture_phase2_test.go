@@ -484,7 +484,7 @@ func TestPhase2LegacyRootsDoNotGrow(t *testing.T) {
 	root := filepath.Join("..", "internal")
 	for _, tc := range phase2LegacyRootCeilings() {
 		var got int
-		if tc.name == "infra" {
+		if tc.name == "infra" || tc.name == "crawler" {
 			// The last old-host packages are retired. Scan the retained ancestor
 			// so absence counts as zero while read/parse failures still fail closed.
 			index, err := loadGoFileSubtreeIndex(root, filepath.Join(root, tc.name))

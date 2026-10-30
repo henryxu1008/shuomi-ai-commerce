@@ -26,12 +26,9 @@ type Config struct {
 	StorageCapacity bool            `yaml:"storageCapacity"`
 	Referrals       ReferralsConfig `yaml:"-"`
 	OpenAI          OpenAIConfig    `yaml:"openai"`
-	Browser         BrowserConfig   `yaml:"browser"`
 	// BrowserCollector is the opt-in wiring to the standalone anonymous public
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
-	Amazon                                                AmazonConfig                  `yaml:"amazon"`
-	Platforms                                             PlatformsConfig               `yaml:"platforms"`
 	ImageAgent                                            ImageAgentConfig              `yaml:"imageagent"`
 	ProductCollectionSourceMedia                          ImageAgentArtifactStoreConfig `yaml:"productCollectionSourceMedia"`
 	ProductCollectionSourceMediaIsolatedTrial             bool                          `yaml:"productCollectionSourceMediaIsolatedTrial"`
@@ -70,10 +67,6 @@ func newViper() *viper.Viper {
 	bindKnownEnvs(v)
 	setDefaults(v)
 	return v
-}
-
-func tryLoadDotEnv() {
-	loadDotEnvCandidates(dotEnvCandidates())
 }
 
 func tryLoadDotEnvForConfig(configFile string) {
@@ -279,21 +272,6 @@ func knownEnvBindings() map[string]envBinding {
 		"openai.clients.image.timeout": {
 			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_TIMEOUT",
 		},
-		"browser.browserPath": {
-			Primary: "TASK_PROCESSOR_BROWSER_PATH",
-		},
-		"browser.userDataDir": {
-			Primary: "TASK_PROCESSOR_BROWSER_USER_DATA_DIR",
-		},
-		"browser.headless": {
-			Primary: "TASK_PROCESSOR_BROWSER_HEADLESS",
-		},
-		"browser.poolSize": {
-			Primary: "TASK_PROCESSOR_BROWSER_POOL_SIZE",
-		},
-		"platforms.alibaba1688.enabled": {
-			Primary: "TASK_PROCESSOR_PLATFORM_1688_ENABLED",
-		},
 		"database.host": {
 			Primary: "TASK_PROCESSOR_DATABASE_HOST",
 		},
@@ -428,39 +406,6 @@ func loadWithViperWithoutValidation(v *viper.Viper) (*Config, error) {
 		return nil, err
 	}
 	return BuildConfig(v), nil
-}
-
-func LoadConfig() (*Config, error) {
-	tryLoadDotEnv()
-
-	env := os.Getenv("TASK_PROCESSOR_ENV")
-	if env == "" {
-		env = "dev"
-	}
-
-	configName := fmt.Sprintf("config-%s", env)
-	logger.GetGlobalLogger("core/config").Infof("loading config file: %s.yaml", configName)
-
-	v := newViper()
-	v.SetConfigName(configName)
-
-	exePath, err := os.Executable()
-	if err == nil {
-		exeDir := filepath.Dir(exePath)
-		v.AddConfigPath(filepath.Join(exeDir, "config"))
-		v.AddConfigPath(exeDir)
-	}
-
-	v.AddConfigPath("./config")
-	v.AddConfigPath(".")
-	v.AddConfigPath("/etc/task-processor/")
-
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read config %s.yaml: %w", configName, err)
-	}
-
-	logger.GetGlobalLogger("core/config").Infof("loaded config file: %s", v.ConfigFileUsed())
-	return loadWithViper(v)
 }
 
 func LoadConfigFromFile(configFile string) (*Config, error) {
