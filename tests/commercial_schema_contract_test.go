@@ -22,8 +22,8 @@ func TestAccountComposeCommercialSchemaUsesGORMUniqueConstraintNames(t *testing.
 		}
 	}
 	// Current Store/Resource constraints and repeatability are exercised by the
-	// original internal/workbench/schema and owner migration tests, not legacy SQL.
-	for _, owner := range []string{"internal/workbench/schema/runtime.go", "internal/integration/orgresource/schema.go"} {
+	// current Store/Resource owner migration tests, not legacy SQL.
+	for _, owner := range []string{"internal/app/schema/storecenter/migrations.go", "internal/integration/orgresource/schema.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(owner))); err != nil {
 			t.Fatal(err)
 		}

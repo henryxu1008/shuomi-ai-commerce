@@ -1335,7 +1335,7 @@ func TestProductSourceCompatibilityAliasStaysRetired(t *testing.T) {
 
 func TestAppRuntimeLegacyAppConfigFlagsStayRetired(t *testing.T) {
 	roots := []string{
-		filepath.Join("..", "internal", "app", "runtime", "listingkitschemamigrate"),
+		filepath.Join("..", "internal", "app", "runtime", "imageagentschemainit"),
 	}
 	for _, root := range roots {
 		index, err := loadGoFileIndex(root, "")

@@ -1,3 +1,5 @@
+> #1032 当前实施：用户已确认准确设计 7b761786ef998d3d4bb9cf72d5ae214fae35431e 的 §1–§7（含 §4.2、§6.1）；准入 USER_CONFIRMED / IMPLEMENTATION_READY。按67路径整批抽取四项当前 Image 维护操作、退休两旧 CLI 与聚合建表闭包，不留 alias。原冻结设计/导航原文逐字保留于下；滚动 CI/复核证据见 PR #1032。既有 Goose 记录不动，workflow/inventory 零改，不操作既有资源，#301 保持 OPEN。
+
 # 旧 schema CLI 与跨域聚合建表整链退休设计
 
 Refs #301。Design Basis: **Independent Architecture**。当前 **DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**；适用独立设计复核、用户确认 §1–§7 和 Issue/PR 准入读回完成前，不修改正式源码。三组闭包在一个主要 PR 完成，不机械拆批。

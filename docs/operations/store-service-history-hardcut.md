@@ -1,3 +1,5 @@
+> #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
+
 # Store Service History Hard-cut Runbook
 
 > HISTORICAL / RETIRED by #552. Historical migration commands, lifecycle compatibility and constraints/backfill procedures below are not executable current authority. The current greenfield installation uses [Store Center current application v1](../architecture/store-center-current-application-v1.md) and `store-center-schema-init`; no historical migration is authorized.

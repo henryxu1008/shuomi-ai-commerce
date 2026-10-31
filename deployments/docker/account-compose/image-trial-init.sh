@@ -73,9 +73,9 @@ database:
   max_connections: 2
   max_idle_connections: 1
 EOF
-product-listing-api-schema-migrate -initialize-organization-image-agent -config "$work/image-owner.yaml" -current-application-manifest "$runtime/current-application.json"
-product-listing-api-schema-migrate -grant-image-agent-runtime -config "$work/image-owner.yaml" -current-application-manifest "$runtime/current-application.json"
-product-listing-api-schema-migrate -grant-image-agent-worker-runtime -config "$work/image-owner.yaml" -current-application-manifest "$runtime/current-application.json"
+image-agent-schema-init -initialize-organization-image-agent -config "$work/image-owner.yaml" -current-application-manifest "$runtime/current-application.json"
+image-agent-schema-init -grant-image-agent-runtime -config "$work/image-owner.yaml" -current-application-manifest "$runtime/current-application.json"
+image-agent-schema-init -grant-image-agent-worker-runtime -config "$work/image-owner.yaml" -current-application-manifest "$runtime/current-application.json"
 
 psql "$image_dsn" -v ON_ERROR_STOP=1 -v "org=$org_id" -v "actor=$operator_id" <<'SQL'
 INSERT INTO ai_client_credentials (tenant_id,user_id,client_name,api_key,base_url,model,api_style,timeout_second,enabled,created_at,updated_at)
