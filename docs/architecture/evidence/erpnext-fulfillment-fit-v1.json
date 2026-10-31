@@ -1,0 +1,242 @@
+{
+  "kind": "NON_PRODUCTION_SPIKE",
+  "project": "orderfit-20261031",
+  "erpnext": "15.124.3",
+  "frappe": "15.125.0",
+  "imageDigest": "sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49",
+  "erpnextCommit": "9f33fd5d32ae8a75156b2e7c2f8be02503fcc248",
+  "frappeCommit": "e7458ff33c8c1b81f812d521a17df790804eed6d",
+  "native": {
+    "kind": "NON_PRODUCTION_SPIKE",
+    "run": "1f9a08fd",
+    "cases": [
+      {
+        "name": "purchase_order_does_not_create_stock",
+        "status": "PASS",
+        "evidence": {
+          "order": "PUR-ORD-2026-00001",
+          "qty": 5
+        }
+      },
+      {
+        "name": "partial_receipt_keeps_two_pending",
+        "status": "PASS",
+        "evidence": {
+          "receipt": "MAT-PRE-2026-00001",
+          "stock": 3.0,
+          "received": 3.0,
+          "ordered": 5.0
+        }
+      },
+      {
+        "name": "stock_without_automatic_general_ledger",
+        "status": "PASS",
+        "evidence": {
+          "receipt": "MAT-PRE-2026-00001",
+          "gl_entries": 0
+        }
+      },
+      {
+        "name": "native_partial_stock_reservation",
+        "status": "PASS",
+        "evidence": {
+          "sales_order": "SAL-ORD-2026-00001",
+          "reserved": 3.0,
+          "demand": 5
+        }
+      },
+      {
+        "name": "partial_delivery_updates_original_line",
+        "status": "PASS",
+        "evidence": {
+          "delivery": "MAT-DN-2026-00001",
+          "remaining_stock": 1.0,
+          "delivered": 2.0,
+          "demand": 5
+        }
+      }
+    ],
+    "versions": {
+      "erpnext": "15.124.3",
+      "frappe": "15.125.0"
+    },
+    "fixtures": {
+      "company": "Fit 1f9a08fd",
+      "warehouse": "Goods In Transit - 1f9a",
+      "item": "FIT-1f9a08fd",
+      "supplier": "Supplier 1f9a08fd",
+      "customer": "Buyer 1f9a08fd",
+      "sales_order": "SAL-ORD-2026-00001",
+      "purchase_order": "PUR-ORD-2026-00001",
+      "receipt": "MAT-PRE-2026-00001",
+      "delivery": "MAT-DN-2026-00001"
+    }
+  },
+  "extended": {
+    "kind": "NON_PRODUCTION_SPIKE",
+    "run": "94915aba",
+    "cases": [
+      {
+        "name": "concurrent_native_reservation_no_oversell",
+        "status": "PASS",
+        "evidence": {
+          "actual": 3,
+          "requested": 4,
+          "reserved": 3.0,
+          "outcomes": [
+            {
+              "order": "SAL-ORD-2026-00008",
+              "status": "submitted"
+            },
+            {
+              "order": "SAL-ORD-2026-00009",
+              "status": "submitted"
+            }
+          ],
+          "reservations": [
+            {
+              "name": "MAT-SRE-2026-00007",
+              "voucher_no": "SAL-ORD-2026-00008",
+              "reserved_qty": 1.0,
+              "delivered_qty": 0.0
+            },
+            {
+              "name": "MAT-SRE-2026-00006",
+              "voucher_no": "SAL-ORD-2026-00009",
+              "reserved_qty": 2.0,
+              "delivered_qty": 0.0
+            }
+          ]
+        }
+      },
+      {
+        "name": "owned_platform_transfer_keeps_total_quantity",
+        "status": "PASS",
+        "evidence": {
+          "transfer": "MAT-STE-2026-00010",
+          "source": 3.0,
+          "platform_transit": 2.0,
+          "total": 5,
+          "gl_entries": 0
+        }
+      },
+      {
+        "name": "standard_rest_post_is_not_idempotent",
+        "status": "GAP",
+        "evidence": {
+          "first_id": "PUR-ORD-2026-00008",
+          "second_id": "PUR-ORD-2026-00009",
+          "finding": "Standard POST cannot safely be replayed after a lost response."
+        }
+      },
+      {
+        "name": "native_unique_key_and_original_digest_recovery",
+        "status": "PASS",
+        "evidence": {
+          "original_id": "PUR-ORD-2026-00010",
+          "recovered_id": "PUR-ORD-2026-00010",
+          "repeat_status": 417
+        }
+      },
+      {
+        "name": "same_key_different_payload_conflicts",
+        "status": "PASS",
+        "evidence": {
+          "http_status": 417
+        }
+      },
+      {
+        "name": "site_a_key_cannot_read_site_b",
+        "status": "PASS",
+        "evidence": {
+          "http_status": 401,
+          "body_discloses_order": false
+        }
+      },
+      {
+        "name": "non_admin_operator_cannot_read_bank_accounts",
+        "status": "PASS",
+        "evidence": {
+          "http_status": 403
+        }
+      }
+    ],
+    "fixtures": {
+      "item": "FIT-CONCURRENT-94915aba",
+      "warehouse": "Stores - 1f9a",
+      "concurrent_orders": [
+        "SAL-ORD-2026-00008",
+        "SAL-ORD-2026-00009"
+      ],
+      "operation": "fit:94915aba",
+      "original_purchase_order": "PUR-ORD-2026-00010"
+    }
+  },
+  "atomic": {
+    "kind": "NON_PRODUCTION_SPIKE",
+    "run": "atomic-38bfb673",
+    "cases": [
+      {
+        "name": "owner_transaction_concurrent_create_once",
+        "status": "PASS",
+        "evidence": {
+          "outcomes": [
+            {
+              "status": "replayed",
+              "target": "PUR-ORD-2026-00011"
+            },
+            {
+              "status": "created",
+              "target": "PUR-ORD-2026-00011"
+            }
+          ],
+          "purchase_orders": 1
+        }
+      },
+      {
+        "name": "lost_response_reads_original_and_changed_payload_conflicts",
+        "status": "PASS",
+        "evidence": {
+          "replay": {
+            "status": "replayed",
+            "target": "PUR-ORD-2026-00011"
+          },
+          "changed": {
+            "status": "conflict"
+          }
+        }
+      },
+      {
+        "name": "failure_before_commit_rolls_back_document_and_receipt",
+        "status": "PASS",
+        "evidence": {
+          "purchase_orders": 0,
+          "receipts": 0
+        }
+      }
+    ]
+  },
+  "isolation": {
+    "baselineContainers": 39,
+    "unchangedContainerIdentitiesAndImages": 39,
+    "sharedVolumes": 0,
+    "sharedNetworks": 0
+  },
+  "scriptHashes": [
+    {
+      "file": "probe_native.py",
+      "Hash": "FAEFF1C8B438F01929C740F70302ED22AC1640F98F39D2A852C2775FFE6BEF2C"
+    },
+    {
+      "file": "probe_extended.py",
+      "Hash": "7A6B96DE743093A417981C0F84CAC09779C61BA14997E7383634AB8D187EB476"
+    },
+    {
+      "file": "probe_atomic.py",
+      "Hash": "072A458118B4FDC305687A546ED007C5C9E5A19CF699006C580684D1A05BF55C"
+    }
+  ],
+  "realShein": "NOT_RUN",
+  "deployment": "NOT_RUN",
+  "userAcceptance": "NOT_RUN"
+}
