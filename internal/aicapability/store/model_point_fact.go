@@ -19,7 +19,10 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan}).Take(&row).Error; err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
-	fact := invocationRecordFromRow(row)
+	fact, err := invocationRecordFromRow(row)
+	if err != nil {
+		return aicapability.InvocationRecord{}, err
+	}
 	if !fact.PointTariff.Valid() || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.StartedAt.IsZero() || fact.UserID == "" || fact.MemberID == "" || fact.InputHash == "" || !validPricedTextOperationIdentity(fact) {
 		return aicapability.InvocationRecord{}, fmt.Errorf("invalid priced model fact")
 	}

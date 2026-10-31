@@ -30,25 +30,13 @@ type GenerationObservation struct {
 type GenerationObserver func(context.Context, GenerationObservation) error
 
 // NewSynchronousSourceImageAdapter is the only assembly for the fixed
-// source-only GPT-image consumer. Unlike the ordinary adapter, its pinned
-// client cannot fall back to the polling/retrying EditImage implementation.
+// source-only GPT-image consumer. Its pinned client requires a durable effect
+// observer and dispatches each request once.
 func NewSynchronousSourceImageAdapter(config SourceImageAdapterConfig, observe GenerationObserver) (SourceImageProvider, error) {
-	client, ok := config.Client.(*Client)
-	if !ok || client == nil || observe == nil || synchronousImageQuality(config.ImageModel) == "" {
+	if config.Client == nil || observe == nil || synchronousImageQuality(config.ImageModel) == "" {
 		return nil, errors.New("synchronous product image dependencies unavailable")
 	}
-	config.Client = &synchronousProductImageClient{ImageGenerator: client, client: client, observe: observe}
-	return NewSourceImageAdapter(config)
-}
-
-type synchronousProductImageClient struct {
-	ai.ImageGenerator
-	client  *Client
-	observe GenerationObserver
-}
-
-func (c *synchronousProductImageClient) EditImage(ctx context.Context, request *ai.ImageEditRequest) (*ai.ImageResponse, error) {
-	return c.client.EditImageOnce(ctx, request, c.observe)
+	return newSourceImageAdapter(config, observe)
 }
 
 // GenerateImageOnce consumes the same bounded effect observation protocol as
@@ -101,11 +89,11 @@ func (c *Client) EditImageOnce(ctx context.Context, req *ai.ImageEditRequest, ob
 		return nil, errors.New("synchronous image reference budget unavailable")
 	}
 	defer releaseBudget()
-	images, release, err := c.imageInputsForRequest(ctx, req)
+	primary, err := exactImageInput(req)
 	if err != nil {
 		return nil, errors.New("synchronous image reference unavailable")
 	}
-	defer release()
+	images := []string{primary}
 	for _, reference := range req.ReferenceImages {
 		images = append(images, "data:"+reference.MediaType+";base64,"+base64.StdEncoding.EncodeToString(reference.Bytes))
 	}
@@ -119,11 +107,9 @@ func (c *Client) submitSynchronousImageOnce(ctx context.Context, model, prompt s
 	if err != nil {
 		return nil, errors.New("synchronous image route unavailable")
 	}
-	local := *c
-	local.disableSubmitReplay = true
-	payload, err := local.submitGenerationRequestNoPoll(ctx, submitURL, submitRequest{
+	payload, err := c.submitGenerationRequestNoPoll(ctx, submitURL, submitRequest{
 		Model: model, Prompt: prompt, Images: images, AspectRatio: "1024x1024",
-		Quality: synchronousImageQuality(model), ReplyType: "json", UnifiedSync: true,
+		Quality: synchronousImageQuality(model), ReplyType: "json",
 	})
 	if err != nil {
 		return nil, errors.New("synchronous image generation outcome unknown")

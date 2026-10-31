@@ -87,24 +87,6 @@ func canonical(s string) bool {
 }
 func SupportsModel(model string) bool { return model == Model || model == ModelPro }
 
-func (c *Client) GetDefaultModel() string          { return c.cfg.Model }
-func (*Client) SupportsAsyncImageGeneration() bool { return false }
-func (*Client) GenerateImage(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
-	return nil, errInput
-}
-func (*Client) EditImage(context.Context, *ai.ImageEditRequest) (*ai.ImageResponse, error) {
-	return nil, errInput
-}
-func (*Client) SubmitImageGeneration(context.Context, *ai.ImageGenerateRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-func (*Client) SubmitImageEdit(context.Context, *ai.ImageEditRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-func (*Client) QueryImageGeneration(context.Context, string) (*ai.ImageAsyncQueryResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-
 func (c *Client) matches(route ai.ImageRouteSelection) bool {
 	return c != nil && route.CredentialReference == c.cfg.CredentialReference && route.ConfigurationVersion == c.cfg.ConfigurationVersion
 }

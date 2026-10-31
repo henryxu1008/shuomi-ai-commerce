@@ -1,3 +1,5 @@
+> #1039 / #301 本轮源码退休替代：按[完整冻结设计](../../architecture/legacy-image-async-review-closure-retirement-boundary.md)的§1–§7/§4.2/§6.1，旧图片async/宽接口、GRSAI通用poll/retry/远程来源重抓与专属日志SSA、模型审核可写结果及旧业务回放退出；当前窄编辑/同步Once、有效DTO、精确来源、当前native账本双指纹编码、物理账本、当前能力和Store观察保留。本文对应旧KEEP/供应承诺仅在本批精确边界内被替代，不恢复旧SHEIN登录/身份回写，不处理已有记录。workflow/inventory和既有资源不动，不增加试用前置，#301保持OPEN。以下历史原文逐字保留。
+
 # ListingKit Async Studio Image Generation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

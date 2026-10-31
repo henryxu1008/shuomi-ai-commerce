@@ -90,7 +90,7 @@ func TestSourceImageAdapterBoundsAggregateInlineOutputBeforeCapabilityReturn(t *
 	require.ErrorIs(t, err, productimage.ErrOutputValidation)
 }
 
-func validSourceImageAdapterConfig(images ai.ImageGenerator) SourceImageAdapterConfig {
+func validSourceImageAdapterConfig(images ai.RouteBoundImageEditor) SourceImageAdapterConfig {
 	return SourceImageAdapterConfig{ImageClient: images, Provider: "openai", ImageModel: "gpt-image-1", RouteReference: "route-a", CredentialReference: "credential-a", ConfigurationVersion: "config-v1", PricingVersion: "pricing-v1", ImageCostMicrosPerOutput: 100, CostUpperBoundKnown: true}
 }
 func TestSourceImageQuoteAndRouteRejection(t *testing.T) {
@@ -152,29 +152,12 @@ type productImageGeneratorStub struct {
 	lastRoute ai.ImageRouteSelection
 }
 
-func (s *productImageGeneratorStub) GenerateImage(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
-	return s.response, s.err
-}
-func (s *productImageGeneratorStub) EditImage(_ context.Context, request *ai.ImageEditRequest) (*ai.ImageResponse, error) {
+func (s *productImageGeneratorStub) EditImageWithRoute(_ context.Context, request *ai.ImageEditRequest, route ai.ImageRouteSelection) (*ai.ImageResponse, error) {
+	s.lastRoute = route
 	s.editCalls++
 	cloned := *request
 	cloned.Image = append([]byte(nil), request.Image...)
 	cloned.ImageURLs = append([]string(nil), request.ImageURLs...)
 	s.lastEdit = &cloned
 	return s.response, s.err
-}
-func (s *productImageGeneratorStub) EditImageWithRoute(ctx context.Context, request *ai.ImageEditRequest, route ai.ImageRouteSelection) (*ai.ImageResponse, error) {
-	s.lastRoute = route
-	return s.EditImage(ctx, request)
-}
-func (*productImageGeneratorStub) GetDefaultModel() string            { return "gpt-image-1" }
-func (*productImageGeneratorStub) SupportsAsyncImageGeneration() bool { return false }
-func (*productImageGeneratorStub) SubmitImageGeneration(context.Context, *ai.ImageGenerateRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-func (*productImageGeneratorStub) SubmitImageEdit(context.Context, *ai.ImageEditRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-func (*productImageGeneratorStub) QueryImageGeneration(context.Context, string) (*ai.ImageAsyncQueryResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
 }

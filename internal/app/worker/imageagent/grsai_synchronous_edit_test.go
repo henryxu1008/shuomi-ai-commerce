@@ -46,7 +46,7 @@ func TestSourceOnlyGRSAIAdapterRetainsProvenanceButSendsOnlyExactBytes(t *testin
 			client := grsai.NewClient(grsai.Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()})
 			provider, err := grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{
 				Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1",
-				Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
+				Build: func(bound ai.RouteBoundImageEditor) (grsai.SourceImageProvider, error) {
 					return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2.5", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PricingVersion: "test-only-unpriced", GeneratedImageFetcher: func(context.Context, string) ([]byte, error) {
 						downloads++
 						require.Equal(t, 1, observations)

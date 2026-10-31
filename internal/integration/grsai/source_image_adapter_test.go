@@ -2,110 +2,72 @@ package grsai
 
 import (
 	"context"
-	"testing"
-
+	"encoding/json"
 	"github.com/stretchr/testify/require"
-
+	"net/http"
+	"net/http/httptest"
 	"task-processor/internal/ai"
 	productimage "task-processor/internal/product/image"
+	"testing"
 )
 
 func TestNewSourceImageAdapterInjectsExactRoutePinnedGRSAIClient(t *testing.T) {
-	t.Parallel()
-
-	upstream := &grsaiProductImageGeneratorStub{}
-	var pinned ai.RouteBoundImageGenerator
-	adapter, err := NewSourceImageAdapter(SourceImageAdapterConfig{
-		Client: upstream, ImageModel: "nano-banana", RouteReference: "route-a",
-		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-		Build: func(client ai.RouteBoundImageGenerator) (SourceImageProvider, error) {
-			pinned = client
-			return &grsaiSourceImageProviderStub{quote: productimage.UsageQuote{
-				Operation: "extract_subject", RouteReference: "route-a", Model: "nano-banana",
-				CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-			}}, nil
-		},
-	})
+	calls, observed := 0, 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var wire submitRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+		require.Equal(t, "gpt-image-2.5", wire.Model)
+		_, _ = w.Write([]byte(`{"id":"result","status":"succeeded","results":[{"url":"https://images.example/result.png"}]}`))
+	}))
+	defer server.Close()
+	var pinned ai.RouteBoundImageEditor
+	adapter, err := NewSynchronousSourceImageAdapter(SourceImageAdapterConfig{Client: NewClient(Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()}), ImageModel: "gpt-image-2.5", RouteReference: "route-a", CredentialReference: "credential-a", ConfigurationVersion: "config-v1", Build: func(client ai.RouteBoundImageEditor) (SourceImageProvider, error) {
+		pinned = client
+		return &grsaiSourceImageProviderStub{}, nil
+	}}, func(context.Context, GenerationObservation) error { observed++; return nil })
 	require.NoError(t, err)
 	require.NotNil(t, adapter)
 	require.NotNil(t, pinned)
-
-	_, err = pinned.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: "nano-banana"}, ai.ImageRouteSelection{
-		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-	})
+	_, err = pinned.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: "gpt-image-2.5", Quality: "auto", Prompt: "approved", Image: []byte("source"), ImageContentType: "image/png"}, ai.ImageRouteSelection{CredentialReference: "credential-a", ConfigurationVersion: "config-v1"})
 	require.NoError(t, err)
-	require.Equal(t, 1, upstream.editCalls)
+	require.Equal(t, 1, calls)
+	require.Equal(t, 1, observed)
 }
-
 func TestPinnedProductImageClientRejectsRouteDriftBeforeGRSAIDispatch(t *testing.T) {
-	t.Parallel()
-
-	upstream := &grsaiProductImageGeneratorStub{}
-	pinned, err := newPinnedProductImageClient(upstream, "nano-banana", "credential-a", "config-v1")
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls++ }))
+	defer server.Close()
+	client := NewClient(Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()})
+	observer := func(context.Context, GenerationObservation) error { return nil }
+	pinned, err := newPinnedProductImageClient(client, "gpt-image-2.5", "credential-a", "config-v1", observer)
 	require.NoError(t, err)
-
-	_, err = pinned.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: "nano-banana"}, ai.ImageRouteSelection{
-		CredentialReference: "credential-b", ConfigurationVersion: "config-v1",
-	})
+	_, err = pinned.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: "gpt-image-2.5", Quality: "auto", Prompt: "approved", Image: []byte("source"), ImageContentType: "image/png"}, ai.ImageRouteSelection{CredentialReference: "credential-b", ConfigurationVersion: "config-v1"})
 	require.Error(t, err)
-	require.Zero(t, upstream.editCalls)
+	require.Zero(t, calls)
+	_, err = newPinnedProductImageClient(client, "gpt-image-2-vip", "credential-a", "config-v1", observer)
+	require.Error(t, err)
+	require.Zero(t, calls)
 }
-
 func TestGRSAISourceImageAdapterRejectsQuoteRouteDrift(t *testing.T) {
-	t.Parallel()
-
-	delegate := &grsaiSourceImageProviderStub{quote: productimage.UsageQuote{
-		Operation: "render_scene", RouteReference: "route-b", Model: "nano-banana",
-		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-	}}
-	adapter, err := NewSourceImageAdapter(SourceImageAdapterConfig{
-		Client: &grsaiProductImageGeneratorStub{}, ImageModel: "nano-banana", RouteReference: "route-a",
-		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-		Build: func(ai.RouteBoundImageGenerator) (SourceImageProvider, error) { return delegate, nil },
-	})
+	delegate := &grsaiSourceImageProviderStub{quote: productimage.UsageQuote{Operation: "render_scene", RouteReference: "route-b", Model: "gpt-image-2.5", CredentialReference: "credential-a", ConfigurationVersion: "config-v1"}}
+	adapter, err := NewSynchronousSourceImageAdapter(SourceImageAdapterConfig{Client: NewClient(Config{Model: "gpt-image-2.5"}), ImageModel: "gpt-image-2.5", RouteReference: "route-a", CredentialReference: "credential-a", ConfigurationVersion: "config-v1", Build: func(ai.RouteBoundImageEditor) (SourceImageProvider, error) { return delegate, nil }}, func(context.Context, GenerationObservation) error { return nil })
 	require.NoError(t, err)
-
-	_, err = adapter.QuoteUsage(context.Background(), productimage.UsageQuoteRequest{
-		Operation: "render_scene", InputFingerprint: "input-v1", MaximumOutputs: 1,
-	})
+	_, err = adapter.QuoteUsage(context.Background(), productimage.UsageQuoteRequest{Operation: "render_scene", InputFingerprint: "input-v1", MaximumOutputs: 1})
 	require.ErrorIs(t, err, productimage.ErrCapabilityUnsupported)
 }
-
 func TestNewSourceImageAdapterRejectsMissingFactoryAndTypedNilDelegate(t *testing.T) {
-	t.Parallel()
-
-	base := SourceImageAdapterConfig{
-		Client: &grsaiProductImageGeneratorStub{}, ImageModel: "nano-banana", RouteReference: "route-a",
-		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-	}
-	_, err := NewSourceImageAdapter(base)
+	base := SourceImageAdapterConfig{Client: NewClient(Config{Model: "gpt-image-2.5"}), ImageModel: "gpt-image-2.5", RouteReference: "route-a", CredentialReference: "credential-a", ConfigurationVersion: "config-v1"}
+	observe := func(context.Context, GenerationObservation) error { return nil }
+	_, err := NewSynchronousSourceImageAdapter(base, observe)
 	require.Error(t, err)
-
 	var provider *grsaiSourceImageProviderStub
-	base.Build = func(ai.RouteBoundImageGenerator) (SourceImageProvider, error) { return provider, nil }
-	_, err = NewSourceImageAdapter(base)
+	base.Build = func(ai.RouteBoundImageEditor) (SourceImageProvider, error) { return provider, nil }
+	_, err = NewSynchronousSourceImageAdapter(base, observe)
 	require.Error(t, err)
-}
-
-type grsaiProductImageGeneratorStub struct{ editCalls int }
-
-func (*grsaiProductImageGeneratorStub) GenerateImage(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
-	return nil, nil
-}
-func (s *grsaiProductImageGeneratorStub) EditImage(context.Context, *ai.ImageEditRequest) (*ai.ImageResponse, error) {
-	s.editCalls++
-	return &ai.ImageResponse{}, nil
-}
-func (*grsaiProductImageGeneratorStub) GetDefaultModel() string            { return "nano-banana" }
-func (*grsaiProductImageGeneratorStub) SupportsAsyncImageGeneration() bool { return false }
-func (*grsaiProductImageGeneratorStub) SubmitImageGeneration(context.Context, *ai.ImageGenerateRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-func (*grsaiProductImageGeneratorStub) SubmitImageEdit(context.Context, *ai.ImageEditRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-func (*grsaiProductImageGeneratorStub) QueryImageGeneration(context.Context, string) (*ai.ImageAsyncQueryResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
+	base.Client = nil
+	_, err = NewSynchronousSourceImageAdapter(base, observe)
+	require.Error(t, err)
 }
 
 type grsaiSourceImageProviderStub struct{ quote productimage.UsageQuote }

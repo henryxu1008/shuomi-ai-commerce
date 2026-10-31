@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"task-processor/internal/ai"
-	"task-processor/internal/integration/grsai"
+	"task-processor/internal/integration/bailian"
 )
 
 var (
-	_ ai.ImageGenerator = (*grsai.Client)(nil)
+	_ ai.RouteBoundImageEditor = (*bailian.Client)(nil)
 )
 
 func TestProviderAdaptersDoNotImportOpenAIForSharedContracts(t *testing.T) {

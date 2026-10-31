@@ -50,7 +50,7 @@ func TestSynchronousArtworkGeneratesWithoutOriginalAndNeverReposts(t *testing.T)
 						_ = json.NewEncoder(w).Encode(map[string]any{"id": "artwork-1", "status": status, "results": []map[string]string{{"url": "https://example.test/artwork.png"}}})
 					}))
 					defer server.Close()
-					client := NewClient(Config{Model: route.model, SubmitURL: server.URL, MaxAttempts: 3, HTTPClient: server.Client()})
+					client := NewClient(Config{Model: route.model, SubmitURL: server.URL, HTTPClient: server.Client()})
 					response, err := client.GenerateImageOnce(context.Background(), &ai.ImageGenerateRequest{Model: route.model, Prompt: "original forest animal artwork", Size: "1024x1024", Quality: route.quality, N: 1}, func(_ context.Context, observation GenerationObservation) error {
 						observed.Add(1)
 						require.Equal(t, "artwork-1", observation.ResponseID)

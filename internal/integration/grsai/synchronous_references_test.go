@@ -34,7 +34,7 @@ func TestSynchronousEditKeepsEveryExactSourceInOrder(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"result-1","status":"succeeded","results":[{"url":"https://example.com/generated.png"}]}`))
 	}))
 	defer server.Close()
-	client := NewClient(Config{Model: "gpt-image-2.5", SubmitURL: server.URL, MaxAttempts: 3, HTTPClient: server.Client()})
+	client := NewClient(Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()})
 	request := &ai.ImageEditRequest{Model: "gpt-image-2.5", Prompt: "approved detail purpose", Image: []byte("original one"), ImageContentType: "image/png", ReferenceImages: []ai.ImageInlineReference{{Bytes: []byte("original two"), MediaType: "image/jpeg"}, {Bytes: []byte("original three"), MediaType: "image/webp"}}, N: 1}
 	if _, err := client.EditImageOnce(context.Background(), request, func(context.Context, GenerationObservation) error { observations++; return nil }); err != nil {
 		t.Fatal(err)
@@ -71,16 +71,5 @@ func TestSynchronousEditRejectsInvalidSourceBundleBeforePOST(t *testing.T) {
 	}
 	if submissions != 0 {
 		t.Fatalf("invalid bundle submitted %d times", submissions)
-	}
-}
-
-func TestOrdinaryGRSAIEditRejectsExactAdditionalReferences(t *testing.T) {
-	var submissions int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { submissions++; http.Error(w, "unexpected", 500) }))
-	defer server.Close()
-	client := NewClient(Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()})
-	_, err := client.EditImage(context.Background(), &ai.ImageEditRequest{Model: "gpt-image-2.5", Prompt: "approved", Image: []byte("primary"), ImageContentType: "image/png", ReferenceImages: []ai.ImageInlineReference{{Bytes: []byte("secondary"), MediaType: "image/png"}}})
-	if err == nil || submissions != 0 {
-		t.Fatalf("unsupported contract dispatched: err=%v calls=%d", err, submissions)
 	}
 }

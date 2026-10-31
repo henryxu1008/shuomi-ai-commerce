@@ -3,7 +3,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -101,7 +100,11 @@ func (r *GormInvocationRecorder) FindInvocation(ctx context.Context, tenantID, m
 	if inputHash != "" && row.InputHash != strings.TrimSpace(inputHash) {
 		return aicapability.InvocationRecord{}, false, fmt.Errorf("ai invocation identity conflict")
 	}
-	return invocationRecordFromRow(row), true, nil
+	fact, err := invocationRecordFromRow(row)
+	if err != nil {
+		return aicapability.InvocationRecord{}, false, err
+	}
+	return fact, true, nil
 }
 
 // ResolveDispatchedInvocation closes the only safe recovery gap after a
@@ -111,6 +114,9 @@ func (r *GormInvocationRecorder) FindInvocation(ctx context.Context, tenantID, m
 // token usage and is settled through the commercial owner. It never calls a
 // provider and is idempotent for the same terminal fact.
 func (r *GormInvocationRecorder) ResolveDispatchedInvocation(ctx context.Context, record aicapability.InvocationRecord) error {
+	if retiredModelReviewIdentity(string(record.Capability), string(record.Operation)) {
+		return fmt.Errorf("retired model review fact")
+	}
 	if r == nil || r.db == nil {
 		return fmt.Errorf("ai invocation recorder database is nil")
 	}
@@ -218,6 +224,9 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 	} else if lookupErr != nil {
 		return lookupErr
 	} else {
+		if err := validateCurrentInvocationRow(existing); err != nil {
+			return err
+		}
 		if existing.TenantID != strings.TrimSpace(record.TenantID) || existing.UserID != strings.TrimSpace(record.UserID) || existing.MemberID != strings.TrimSpace(record.MemberID) || existing.InputHash != strings.TrimSpace(record.InputHash) {
 			return fmt.Errorf("ai invocation identity conflict")
 		}
@@ -236,7 +245,11 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 			}
 			// The already persisted terminal fact is authoritative. A replay may
 			// retry commercial settlement, but may never overwrite observed usage.
-			record = invocationRecordFromRow(existing)
+			current, err := invocationRecordFromRow(existing)
+			if err != nil {
+				return err
+			}
+			record = current
 		} else {
 			if existing.PointPriceVersion != "" && !samePointDispatchMetadata(existing, row) {
 				return fmt.Errorf("ai invocation frozen charge identity conflict")
@@ -250,10 +263,17 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 				if err := r.db.WithContext(ctx).Where("invocation_id = ?", row.InvocationID).Take(&winner).Error; err != nil {
 					return err
 				}
+				if err := validateCurrentInvocationRow(winner); err != nil {
+					return err
+				}
 				if !sameImmutableInvocationFact(winner, row) {
 					return fmt.Errorf("ai invocation terminal identity conflict")
 				}
-				record = invocationRecordFromRow(winner)
+				current, err := invocationRecordFromRow(winner)
+				if err != nil {
+					return err
+				}
+				record = current
 			}
 
 		}
@@ -292,11 +312,13 @@ func samePointDispatchMetadata(original, proposed invocationRow) bool {
 	proposed.Outcome, proposed.ErrorCategory, proposed.ErrorCode = original.Outcome, original.ErrorCategory, original.ErrorCode
 	proposed.RouteErrorCategory = original.RouteErrorCategory
 	proposed.ProviderRequestID, proposed.UpstreamJobID, proposed.OutputHash = original.ProviderRequestID, original.UpstreamJobID, original.OutputHash
-	proposed.ReviewScore, proposed.ReviewNeedsHuman, proposed.ReviewReasonsJSON = original.ReviewScore, original.ReviewNeedsHuman, original.ReviewReasonsJSON
 	return sameImmutableInvocationFact(original, proposed)
 }
 
 func validateUsage(record aicapability.InvocationRecord) error {
+	if retiredModelReviewIdentity(string(record.Capability), string(record.Operation)) {
+		return fmt.Errorf("retired model review fact")
+	}
 	if record.PointTariff != (aicapability.ModelPointTariff{}) || record.MaximumPromptTokens != 0 || record.MaximumCompletionTokens != 0 {
 		if !validPricedTextOperationIdentity(record) || !record.PointTariff.Valid() || record.MaximumPromptTokens <= 0 || record.MaximumCompletionTokens <= 0 {
 			return fmt.Errorf("invalid frozen model point policy")
@@ -400,7 +422,6 @@ func invocationRowFromRecord(record aicapability.InvocationRecord) invocationRow
 	if cacheStatus == "" {
 		cacheStatus = aicapability.CacheStatusNotApplicable
 	}
-	reasons, _ := json.Marshal(record.ReviewReasons)
 	return invocationRow{
 		PointPriceVersion: record.PointTariff.PriceVersion, InputPointsPerMillionTokens: record.PointTariff.InputPointsPerMillionTokens, OutputPointsPerMillionTokens: record.PointTariff.OutputPointsPerMillionTokens, MaximumPromptTokens: record.MaximumPromptTokens, MaximumCompletionTokens: record.MaximumCompletionTokens,
 
@@ -414,18 +435,31 @@ func invocationRowFromRecord(record aicapability.InvocationRecord) invocationRow
 		StartedAt: startedAt, FinishedAt: finishedAt, LatencyMilliseconds: latencyMilliseconds,
 		Attempt: record.Attempt, FallbackIndex: record.FallbackIndex, PromptTokens: record.PromptTokens, CompletionTokens: record.CompletionTokens, TotalTokens: record.TotalTokens, ImageCount: record.ImageCount, EstimatedCostMicros: record.EstimatedCostMicros, Currency: trim(record.Currency),
 		Outcome: trim(string(record.Outcome)), ErrorCategory: trim(string(record.ErrorCategory)), RouteErrorCategory: trim(string(record.RouteErrorCategory)), ErrorCode: trim(record.ErrorCode),
-		ProviderRequestID: trim(record.ProviderRequestID), UpstreamJobID: trim(record.UpstreamJobID), InputHash: trim(record.InputHash), OutputHash: trim(record.OutputHash), ReviewScore: record.ReviewScore, ReviewNeedsHuman: record.ReviewNeedsHumanReview, ReviewReasonsJSON: string(reasons),
+		ProviderRequestID: trim(record.ProviderRequestID), UpstreamJobID: trim(record.UpstreamJobID), InputHash: trim(record.InputHash), OutputHash: trim(record.OutputHash), ReviewReasonsJSON: "null",
 	}
 }
 
-func invocationRecordFromRow(row invocationRow) aicapability.InvocationRecord {
-	var reasons []string
-	_ = json.Unmarshal([]byte(row.ReviewReasonsJSON), &reasons)
+func invocationRecordFromRow(row invocationRow) (aicapability.InvocationRecord, error) {
+	if err := validateCurrentInvocationRow(row); err != nil {
+		return aicapability.InvocationRecord{}, err
+	}
 	return aicapability.InvocationRecord{
 		PointTariff: aicapability.ModelPointTariff{PriceVersion: row.PointPriceVersion, InputPointsPerMillionTokens: row.InputPointsPerMillionTokens, OutputPointsPerMillionTokens: row.OutputPointsPerMillionTokens}, MaximumPromptTokens: row.MaximumPromptTokens, MaximumCompletionTokens: row.MaximumCompletionTokens,
 		InvocationID: row.InvocationID, ParentInvocationID: row.ParentInvocationID, AgentRunID: row.AgentRunID, TenantID: row.TenantID, UserID: row.UserID, MemberID: row.MemberID, BusinessTaskID: row.BusinessTaskID, TraceID: row.TraceID,
-		Capability: aicapability.Capability(row.Capability), Operation: aicapability.Operation(row.Operation), RouteMode: aicapability.RoutingMode(row.RouteMode), RouteOutcome: aicapability.RouteOutcome(row.RouteOutcome), CacheStatus: aicapability.CacheStatus(row.CacheStatus), ProviderID: row.ProviderID, ModelID: row.ModelID, RequestedRoutingKey: row.RequestedRoutingKey, RoutingKey: row.RoutingKey, CredentialReference: row.CredentialReference, PolicyVersion: row.PolicyVersion, ConfigurationVersion: row.ConfigurationVersion, PromptKey: row.PromptKey, PromptVersion: row.PromptVersion, PromptScope: row.PromptScope, PromptHash: row.PromptHash, StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, LatencyMilliseconds: row.LatencyMilliseconds, Attempt: row.Attempt, FallbackIndex: row.FallbackIndex, PromptTokens: row.PromptTokens, CompletionTokens: row.CompletionTokens, TotalTokens: row.TotalTokens, ImageCount: row.ImageCount, EstimatedCostMicros: row.EstimatedCostMicros, EstimatedCostKnown: row.EstimatedCostKnown, UsageKnown: row.UsageKnown, Currency: row.Currency, Outcome: aicapability.InvocationOutcome(row.Outcome), ErrorCategory: aicapability.ErrorCategory(row.ErrorCategory), RouteErrorCategory: aicapability.ErrorCategory(row.RouteErrorCategory), ErrorCode: row.ErrorCode, ProviderRequestID: row.ProviderRequestID, UpstreamJobID: row.UpstreamJobID, InputHash: row.InputHash, OutputHash: row.OutputHash, ReviewScore: row.ReviewScore, ReviewNeedsHumanReview: row.ReviewNeedsHuman, ReviewReasons: reasons,
-	}
+		Capability: aicapability.Capability(row.Capability), Operation: aicapability.Operation(row.Operation), RouteMode: aicapability.RoutingMode(row.RouteMode), RouteOutcome: aicapability.RouteOutcome(row.RouteOutcome), CacheStatus: aicapability.CacheStatus(row.CacheStatus), ProviderID: row.ProviderID, ModelID: row.ModelID, RequestedRoutingKey: row.RequestedRoutingKey, RoutingKey: row.RoutingKey, CredentialReference: row.CredentialReference, PolicyVersion: row.PolicyVersion, ConfigurationVersion: row.ConfigurationVersion, PromptKey: row.PromptKey, PromptVersion: row.PromptVersion, PromptScope: row.PromptScope, PromptHash: row.PromptHash, StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, LatencyMilliseconds: row.LatencyMilliseconds, Attempt: row.Attempt, FallbackIndex: row.FallbackIndex, PromptTokens: row.PromptTokens, CompletionTokens: row.CompletionTokens, TotalTokens: row.TotalTokens, ImageCount: row.ImageCount, EstimatedCostMicros: row.EstimatedCostMicros, EstimatedCostKnown: row.EstimatedCostKnown, UsageKnown: row.UsageKnown, Currency: row.Currency, Outcome: aicapability.InvocationOutcome(row.Outcome), ErrorCategory: aicapability.ErrorCategory(row.ErrorCategory), RouteErrorCategory: aicapability.ErrorCategory(row.RouteErrorCategory), ErrorCode: row.ErrorCode, ProviderRequestID: row.ProviderRequestID, UpstreamJobID: row.UpstreamJobID, InputHash: row.InputHash, OutputHash: row.OutputHash,
+	}, nil
 }
 
 func trim(value string) string { return strings.TrimSpace(value) }
+
+// The physical audit columns stay intact. A retired payload never becomes a
+// current fact that could overwrite a row, settle tokens or release a reserve.
+func retiredModelReviewIdentity(capability, operation string) bool {
+	return trim(capability) == "productimage.scene_generation" || trim(operation) == "productimage_review"
+}
+func validateCurrentInvocationRow(row invocationRow) error {
+	if retiredModelReviewIdentity(row.Capability, row.Operation) || row.ReviewScore != 0 || row.ReviewNeedsHuman || (row.ReviewReasonsJSON != "" && row.ReviewReasonsJSON != "null") {
+		return fmt.Errorf("retired model review fact")
+	}
+	return nil
+}

@@ -50,7 +50,7 @@ func TestSynchronousImageSetOutputCanBeSelectedWithDistinctOrMissingRequestID(t 
 			}))
 			defer server.Close()
 			client := grsai.NewClient(grsai.Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()})
-			provider, err := grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
+			provider, err := grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", Build: func(bound ai.RouteBoundImageEditor) (grsai.SourceImageProvider, error) {
 				return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", PricingVersion: "controlled-unpriced", GeneratedImageFetcher: func(context.Context, string) ([]byte, error) { return pngData.Bytes(), nil }})
 			}}, func(_ context.Context, observation grsai.GenerationObservation) error {
 				require.Equal(t, "generation-job-1", observation.ResponseID)

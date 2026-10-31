@@ -126,7 +126,7 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 				_, _ = w.Write(tinyPNGBytes(t))
 			}))
 			defer server.Close()
-			client := grsai.NewClient(grsai.Config{Model: intent.Model, SubmitURL: server.URL, HTTPClient: server.Client(), MaxAttempts: 1})
+			client := grsai.NewClient(grsai.Config{Model: intent.Model, SubmitURL: server.URL, HTTPClient: server.Client()})
 			if entry != "unknown" {
 				_, err = client.EditImageOnce(ctx, &ai.ImageEditRequest{Model: intent.Model, Quality: intent.Quality, Prompt: "white", Image: tinyPNGBytes(t), ImageContentType: "image/png", N: 1}, func(ctx context.Context, o grsai.GenerationObservation) error {
 					_, err := facts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: o.ResponseID, RequestID: o.RequestID, ResultDigest: o.ResultDigest}.WithResultLocator(o.ResultURL, o.ResultUnavailable))
