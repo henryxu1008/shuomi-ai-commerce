@@ -214,13 +214,13 @@ func (h *Handler) RefreshOfficialConnection(c *gin.Context) {
 		return
 	}
 	service, ok := h.officialConnections.(interface {
-		RefreshWalmart(context.Context, string, string, string, int64) (storecenter.OfficialConnectionView, error)
+		Refresh(context.Context, string, string, string, int64) (storecenter.OfficialConnectionView, error)
 	})
 	if !ok {
 		writeStoreError(c, storecenter.ErrOfficialConnectionUnavailable)
 		return
 	}
-	result, e := service.RefreshWalmart(c.Request.Context(), identity.EffectiveOrganizationID, id, op, generation)
+	result, e := service.Refresh(c.Request.Context(), identity.EffectiveOrganizationID, id, op, generation)
 	if e != nil {
 		writeStoreError(c, e)
 		return

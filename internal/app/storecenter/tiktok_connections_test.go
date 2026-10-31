@@ -78,6 +78,31 @@ func TestTikTokLostRefreshResponseIsUnknownAndNeverRedispatched(t *testing.T) {
 	}
 }
 
+func TestOfficialConnectionRefreshReachesCanonicalTikTokOwner(t *testing.T) {
+	s := &tiktokRefreshStore{}
+	p := &tiktokRefreshProvider{}
+	a, err := NewTikTokConnections(s, p, tiktokRefreshProtection{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	official := &OfficialConnections{tiktok: a}
+	entry, ok := any(official).(interface {
+		Refresh(context.Context, string, string, string, int64) (storecenter.OfficialConnectionView, error)
+	})
+	if !ok {
+		t.Fatal("production connection refresh has no TikTok dispatch entry")
+	}
+	op := uuid.NewString()
+	_, err = entry.Refresh(context.Background(), "org", "00000000-0000-4000-8000-000000000001", op, 1)
+	if err != storecenter.ErrOfficialExchangeUnknown || !s.unknown || p.calls != 1 {
+		t.Fatalf("canonical unknown not retained: %v, calls=%d", err, p.calls)
+	}
+	_, _ = entry.Refresh(context.Background(), "org", "00000000-0000-4000-8000-000000000001", op, 1)
+	if p.calls != 1 {
+		t.Fatal("original refresh operation dispatched twice")
+	}
+}
+
 func (s tiktokRecordOnlyStore) Get(context.Context, string, string) (*storecenter.Store, error) {
 	return s.store, nil
 }

@@ -59,6 +59,10 @@ go run ./cmd/current-application -config C:\private\supply-current-application.j
 
 ## 保存与恢复
 
+有店铺维护权限的成员可在原“官方 API 授权”面板点击“刷新官方授权”，使用页面取得的当前 grant generation 显式刷新令牌。该操作与只读查询分开；读取规则、查看状态或刊登不会暗中刷新授权。同一卖家的店铺仍共用原 Store grant，刷新结果未知或处理中时不再提供刷新按钮；结果未知须通过重新官方授权恢复，不换操作键盲重试。
+
+草稿校验会逐个 SKU 检查官方必填、美国区域和条件销售属性；未知的必填规则不能让资料变为可刊登。取消某项证明的最后一张图片会同时取消该项证明，不影响其他已选择证明。
+
 候选文字保存到原 CompletionDraft owner；正式平台资料保存到原不可变 Target record。当前 Seller grant、加密 token generation 和 Shop binding 由 Store owner 保存；Submission 以原 Product DB 事务保存每个 intent、attempt 和关联回执。两个本地 Store 绑定同一卖家时仍共用 canonical grant，断开一个 Store 不撤销其他 Store 的授权。
 
 重复点击或使用新操作键不能重新创建已成功步骤。成功回执可以在确切相容的批准资料和实际店铺身份下复用；等价批准图片的相同字节和用途复用原上传回执并保留最初来源审计。响应丢失、提交结果不明或 worker 重启保留原 UNKNOWN 占用；没有“填商品编号即成功”或解除占用后盲重发。当前页面展示原回执及待核实状态，远端修改/重新刊登和完整未知结果核验尚未开放。

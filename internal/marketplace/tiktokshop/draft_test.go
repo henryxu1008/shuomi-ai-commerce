@@ -1,6 +1,7 @@
 package tiktokshop
 
 import (
+	"fmt"
 	"strings"
 	"task-processor/internal/product/asset"
 	"testing"
@@ -44,5 +45,64 @@ func TestCustomNumericAttributePreservesOfficialPrecision(t *testing.T) {
 	validateAttributes(input, rules, func(_, code string) { issues = append(issues, code) })
 	if len(issues) > 0 {
 		t.Fatalf("weight precision must not restrict numeric product attributes: %v", issues)
+	}
+}
+
+func TestRequiredSalesPropertiesApplyToEverySKU(t *testing.T) {
+	yes, no := true, false
+	for _, tc := range []struct {
+		name       string
+		required   *bool
+		regions    []string
+		conditions []Condition
+		want       string
+	}{
+		{name: "required", required: &yes, want: "required"},
+		{name: "US region", required: &no, regions: []string{"US"}, want: "required"},
+		{name: "US condition", required: &no, conditions: []Condition{{Region: "US", Type: "VALUE_ID_MATCH", AttributeID: "battery", ValueID: "yes"}}, want: "required"},
+		{name: "other region", required: &no, regions: []string{"GB"}},
+		{name: "unknown required", want: "unknown_requirement"},
+		{name: "unknown condition", required: &no, conditions: []Condition{{Region: "US", Type: "UNSUPPORTED"}}, want: "unknown_requirement"},
+	} {
+		for _, count := range []int{1, 2} {
+			t.Run(fmt.Sprintf("%s/%d", tc.name, count), func(t *testing.T) {
+				rules := RuleSnapshot{Attributes: []AttributeRule{{ID: "color", Type: "SALES_PROPERTY", Required: tc.required, RequiredRegions: tc.regions, Conditions: tc.conditions, Values: []AttributeValue{{ID: "red"}, {ID: "blue"}}}}}
+				input := DraftInput{Selection: RuleSelection{Method: GlobalPublishing}, Attributes: []ProductAttributeInput{{ID: "battery", Values: []AttributeValue{{ID: "yes"}}}}}
+				for n := 0; n < count; n++ {
+					input.SKUs = append(input.SKUs, SKUInput{SellerSKU: fmt.Sprintf("sku%d", n)})
+				}
+				check := func() []string {
+					var found []string
+					validateSKUs(input, rules, func(field, code string) {
+						if field == "salesAttributes" && (code == "required" || code == "unknown_requirement") {
+							found = append(found, code)
+						}
+					})
+					return found
+				}
+				found := check()
+				if tc.want == "" {
+					if len(found) != 0 {
+						t.Fatalf("optional property required: %v", found)
+					}
+				} else if len(found) != count || found[0] != tc.want {
+					t.Fatalf("missing sales property was not rejected for every SKU: %v", found)
+				}
+				if tc.want == "required" {
+					for n := range input.SKUs {
+						input.SKUs[n].SalesAttributes = []SalesAttributeInput{{ID: "color", ValueID: []string{"red", "blue"}[n]}}
+					}
+					if found = check(); len(found) != 0 {
+						t.Fatalf("supplied required properties rejected: %v", found)
+					}
+					if count == 2 {
+						input.SKUs[1].SalesAttributes = nil
+						if found = check(); len(found) != 1 {
+							t.Fatalf("one missing SKU must fail: %v", found)
+						}
+					}
+				}
+			})
+		}
 	}
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
 	getStoreConnection,
- refreshWalmartConnection,
+ refreshStoreConnection,
 	getStoreApplications,
 	installStoreToken,
   beginStoreConnection,
@@ -85,6 +85,9 @@ export function StoreOfficialConnection({
     administrator,
   ]);
   const data = !view.isFetching && !view.isError ? view.data : undefined;
+  const refreshGeneration = store.platform === "tiktokshop"
+    ? data?.state === "bound" ? data.tiktok?.grantGeneration : undefined
+    : store.platform === "walmart" && data?.state !== "refresh_unknown" ? data?.walmart?.generation : undefined;
   async function run(action: "begin" | "query" | "disconnect" | "install" | "refresh") {
     const current = active.current;
     if (!current?.alive || current.busy) return;
@@ -127,8 +130,8 @@ export function StoreOfficialConnection({
         if(current.alive)setMessage("官方身份已核验。商品发布权限按实际授权另行判断。");
       } else if (action === "query" && data?.attemptId) {
         await queryStoreConnection(scope, store.id, data.attemptId);
-      } else if(action === "refresh" && data?.walmart?.generation){
- await refreshWalmartConnection(scope,store.id,data.walmart.generation);
+      } else if(action === "refresh" && refreshGeneration){
+ await refreshStoreConnection(scope,store.id,refreshGeneration,current.controller.signal);
  } else if (action === "disconnect") {
         await disconnectStoreConnection(
           scope,
@@ -190,7 +193,7 @@ export function StoreOfficialConnection({
 				<p className="text-sm text-muted-foreground">{applications.isFetching ? "正在读取应用配置…": applications.isError ? "未取得应用配置，请刷新后再连接。":store.platform==="walmart"?(choices.length?"Walmart 美国站授权，商品刊登按实际获批权限检查。":"尚未配置获批的 Walmart 开发者应用。"):store.platform==="tiktokshop" ? (choices.length?"美国跨境店铺授权，商品发布按实际获批权限检查。":"尚未配置获批的 TikTok Shop 开发者应用。") : store.platform==="temu"?(choices.length?"按原官方应用分区选择，不能按店铺所在国家猜测。":"尚未配置 TEMU 官方应用。"):Object.entries(applicationLabels).filter(([type])=>!choices.some(choice=>choice.type===type)).map(([,label])=>`${label}未配置`).join("；")}</p>
 				{data?.authorizationMethod==="manual_token" && data.state==="awaiting_consent" ? <div className="space-y-2"><label className="grid gap-1 text-sm">TEMU 授权 token<Input key={scopeKey} ref={captureTokenInput} type="password" autoComplete="off" spellCheck={false} maxLength={4096} disabled={working}/></label><Button disabled={working} onClick={()=>void run("install")}>验证并连接</Button></div>:null}
 				<div className="flex flex-wrap gap-2">
- {store.platform==="walmart"&&data?.walmart?.generation&&data.state!=="refresh_unknown"?<Button variant="outline" disabled={working} onClick={()=>void run("refresh")}>刷新官方授权</Button>:null}
+ {refreshGeneration?<Button variant="outline" disabled={working} onClick={()=>void run("refresh")}>刷新官方授权</Button>:null}
 					<Button disabled={working || !data || !chosen} onClick={() => void run("begin")}>
             {store.platform==="temu"?(data?.attemptId?"重新连接":"开始连接"):(data?.attemptId ? "重新官方授权" : "前往官方授权")}
           </Button>
