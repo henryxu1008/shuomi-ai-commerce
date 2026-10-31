@@ -40,7 +40,7 @@ func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourc
 
 type imageSetSlotExecutor struct {
 	generation *imageagent.GenerationExecution
-	builder    *imagetools.ProductImageSlotExecutor
+	builder    *imagetools.ImageResultBuilder
 }
 
 func (e imageSetSlotExecutor) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {

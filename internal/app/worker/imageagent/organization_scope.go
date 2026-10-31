@@ -7,10 +7,8 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/imageagent"
 	openai "task-processor/internal/integration/openai"
+	"task-processor/internal/shared/aiidentity"
 	"task-processor/internal/workbenchcontext"
-
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
 // OrganizationExecutionAuthorizer is explicitly assembled; no default worker
@@ -58,21 +56,6 @@ func (a OrganizationExecutionAuthorizer) AuthorizeExecution(ctx context.Context,
 
 // BuildOrganizationImageCapabilities reuses the current production ports and
 // adapters with a mandatory organization credential resolver.
-func BuildOrganizationImageCapabilities(manager *openai.Manager, db *gorm.DB, logger *logrus.Logger) (ImageCapabilities, error) {
-	if manager == nil || db == nil || logger == nil {
-		return ImageCapabilities{}, imageagent.ErrIdentityRequired
-	}
-	manager.SetConfigResolver(organizationCredentialAdmission{resolver: openai.NewOrganizationCredentialResolver(db), logger: safeReviewTransportLogger{logger: logger}})
-	provider, err := newRoutedOpenAIProductImageProvider(manager)
-	if err != nil {
-		return ImageCapabilities{}, err
-	}
-	resolver, err := loadEmbeddedImagePolicyResolver()
-	if err != nil {
-		return ImageCapabilities{}, err
-	}
-	return buildImageCapabilities(providerDependencies{Subject: provider, WhiteBackground: provider, Scene: provider, Review: provider}, resolver)
-}
 
 var _ imageagent.ExecutionAuthorizer = OrganizationExecutionAuthorizer{}
 
@@ -81,29 +64,15 @@ var _ imageagent.ExecutionAuthorizer = OrganizationExecutionAuthorizer{}
 // imports application authentication policy.
 type organizationCredentialAdmission struct {
 	resolver openai.ClientConfigResolver
-	logger   openai.Logger
 }
 
-func (r organizationCredentialAdmission) ResolveClientConfig(ctx context.Context, name string, fallback *openai.ClientConfig) (*openai.ResolvedClientConfig, error) {
-	identity := openai.IdentityFromContext(ctx)
+func (r organizationCredentialAdmission) ResolveClientConfig(ctx context.Context, name string) (*openai.ResolvedClientConfig, error) {
+	identity := aiidentity.FromContext(ctx)
 	verified, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || verified.EffectiveOrganizationID == "" || verified.EffectiveOrganizationID != identity.TenantID || verified.TenantID != identity.TenantID || verified.UserID != identity.UserID || r.resolver == nil {
 		return nil, openai.ErrClientConfigurationUnavailable
 	}
-	resolved, err := r.resolver.ResolveClientConfig(ctx, name, fallback)
-	if err == nil && resolved != nil && resolved.Config != nil && r.logger != nil {
-		resolved.Config.Logger = r.logger
-	}
+	resolved, err := r.resolver.ResolveClientConfig(ctx, name)
+
 	return resolved, err
-}
-
-type safeReviewTransportLogger struct{ logger *logrus.Logger }
-
-func (l safeReviewTransportLogger) Debug(string, map[string]any) {}
-func (l safeReviewTransportLogger) Info(string, map[string]any)  {}
-func (l safeReviewTransportLogger) Warn(string, map[string]any) {
-	l.logger.WithField("event", "organization_provider_transport_warning").Warn("organization provider transport warning")
-}
-func (l safeReviewTransportLogger) Error(string, map[string]any) {
-	l.logger.WithField("event", "organization_provider_transport_error").Error("organization provider transport error")
 }

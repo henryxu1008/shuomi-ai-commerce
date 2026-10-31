@@ -9,58 +9,10 @@ import (
 	"time"
 )
 
-type ChatCompletionMessage struct {
-	Role         string                      `json:"role"`
-	Content      string                      `json:"content"`
-	MultiContent []ChatCompletionContentPart `json:"multi_content,omitempty"`
-}
-
-type ChatCompletionContentPart struct {
-	Type     string                          `json:"type"`
-	Text     string                          `json:"text,omitempty"`
-	ImageURL *ChatCompletionContentPartImage `json:"image_url,omitempty"`
-}
-
-type ChatCompletionContentPartImage struct {
-	URL    string `json:"url"`
-	Detail string `json:"detail,omitempty"`
-}
-
-type ChatCompletionRequest struct {
-	Temperature    *float32                `json:"temperature,omitempty"`
-	Seed           *int                    `json:"seed,omitempty"`
-	MaxTokens      *int                    `json:"max_tokens,omitempty"`
-	ResponseFormat string                  `json:"response_format,omitempty"`
-	Model          string                  `json:"model"`
-	Messages       []ChatCompletionMessage `json:"messages"`
-	Timeout        *time.Duration          `json:"-"`
-	MaxRetries     *int                    `json:"-"`
-}
-
-type ChatCompletionChoice struct {
-	Message      ChatCompletionMessage `json:"message"`
-	FinishReason string                `json:"finish_reason"`
-	Index        int                   `json:"index"`
-}
-
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
-}
-
-type ChatCompletionResponse struct {
-	ID      string                 `json:"id"`
-	Object  string                 `json:"object"`
-	Model   string                 `json:"model"`
-	Choices []ChatCompletionChoice `json:"choices"`
-	Created int64                  `json:"created"`
-	Usage   Usage                  `json:"usage"`
-}
-
-// ChatCompletionClient is the provider-neutral transport used by image review.
-type ChatCompletionClient interface {
-	CreateChatCompletion(context.Context, *ChatCompletionRequest) (*ChatCompletionResponse, error)
 }
 
 type ImageGenerateRequest struct {

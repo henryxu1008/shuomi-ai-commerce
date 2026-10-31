@@ -1,3 +1,5 @@
+> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
+
 > #301 / #969 按[用户确认设计](legacy-support-control-tail-closure-retirement-boundary.md)只替代本文 LevelFileConfig/level_split_hook.go、级别镜像/控制与所有 manager 测试必须保活的含义。有效 LogConfig 九字段、LogManager 五字段、原生初始级别/格式/ReportCaller、真实全局锁/完整发布、writer/轮转和其它已退休对象永久禁令保持；四旧级别测试退出，两 registry 并发测试的安全协议/断言保持。完整18路径与 §6.1不扩大其它检查，workflow/完整 inventory及既有资源零改，独立 SHEIN 登录/Store 同步保持，无试用前置，#301 OPEN。以下完整原文/批准/失败/数字/勾选逐字保留。
 
 > #953 当前 owner 校准：本文旧 OpenAI 文本门面/适配器、Proposer 与 `product/enrichment` KEEP 依据由[完整退休设计](legacy-openai-adapter-closure-retirement-boundary.md)替代。当前合同与纯规则归 `internal/product/review/proposal`；当前 AI、图像、身份、计量、UNKNOWN 与审核/Apply 保留。以下原设计、数值和历史证据全文保留，不构成恢复旧包或运行授权。

@@ -1,6 +1,7 @@
 package effectpolicy
 
 import (
+	"encoding/json"
 	"time"
 
 	"task-processor/internal/imageagent"
@@ -52,11 +53,13 @@ func cloneSlotEffectV3Attempt(attempt imageagent.SlotEffectV3Attempt) imageagent
 	return attempt
 }
 
-func cloneReviewUsage(values []imageagent.SlotReviewUsageAttempt) []imageagent.SlotReviewUsageAttempt {
-	cloned := cloneSlice(values)
-	for index := range cloned {
-		cloned[index].Quote.Operations = cloneSlice(cloned[index].Quote.Operations)
-		cloned[index].Receipt.ProviderRequestIDs = cloneStrings(cloned[index].Receipt.ProviderRequestIDs)
+func cloneReviewUsage(values []json.RawMessage) []json.RawMessage {
+	if values == nil {
+		return nil
+	}
+	cloned := make([]json.RawMessage, len(values))
+	for i := range values {
+		cloned[i] = append(json.RawMessage(nil), values[i]...)
 	}
 	return cloned
 }

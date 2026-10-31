@@ -86,10 +86,6 @@ func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWo
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeStagingUnknown, effect.Phase, slotStagingOutcomeUnknownCode), nil
 	case imageagent.SlotEffectV3PublicationUnknown:
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomePublicationUnknown, effect.Phase, slotPublicationOutcomeUnknownCode), nil
-	case imageagent.SlotEffectV3ReviewRequired:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, effect.Phase, imageagent.SlotReviewRequiredCode), nil
-	case imageagent.SlotEffectV3ReviewTransportRequired:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, effect.Phase, imageagent.SlotReviewTransportRequiredCode), nil
 	case imageagent.SlotEffectV3ProviderNotDispatched:
 		return a.blockEffectRecoveryV3(ctx, input, reservation)
 	case imageagent.SlotEffectV3ProviderClaimed:
@@ -168,10 +164,6 @@ func (a *Activities) PersistRecoveryBlockedEffectV3(ctx context.Context, input E
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeStagingUnknown, effect.Phase, slotStagingOutcomeUnknownCode), nil
 	case imageagent.SlotEffectV3PublicationUnknown:
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomePublicationUnknown, effect.Phase, slotPublicationOutcomeUnknownCode), nil
-	case imageagent.SlotEffectV3ReviewRequired:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, effect.Phase, imageagent.SlotReviewRequiredCode), nil
-	case imageagent.SlotEffectV3ReviewTransportRequired:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, effect.Phase, imageagent.SlotReviewTransportRequiredCode), nil
 	case imageagent.SlotEffectV3RecoveryBlocked:
 		return effectRecoveryBlockedResult(input), nil
 	}
@@ -267,10 +259,6 @@ func effectRecoveryResultFromDurableEffect(effect imageagent.SlotEffectV3Attempt
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeStagingUnknown, effect.Phase, effect.BlockedCode), nil
 	case imageagent.SlotEffectV3PublicationUnknown:
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomePublicationUnknown, effect.Phase, effect.BlockedCode), nil
-	case imageagent.SlotEffectV3ReviewRequired:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, effect.Phase, effect.BlockedCode), nil
-	case imageagent.SlotEffectV3ReviewTransportRequired:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, effect.Phase, effect.BlockedCode), nil
 	case imageagent.SlotEffectV3RecoveryBlocked:
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeRecoveryBlocked, effect.Phase, effect.BlockedCode), nil
 	default:
@@ -559,10 +547,6 @@ func effectRecoveryResultFromError(err error) (EffectRecoveryResult, bool) {
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeStagingUnknown, imageagent.SlotEffectV3StagingUnknown, slotStagingOutcomeUnknownCode), true
 	case slotPublicationOutcomeUnknownCode:
 		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomePublicationUnknown, imageagent.SlotEffectV3PublicationUnknown, slotPublicationOutcomeUnknownCode), true
-	case imageagent.SlotReviewRequiredCode:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, imageagent.SlotEffectV3ReviewRequired, imageagent.SlotReviewRequiredCode), true
-	case imageagent.SlotReviewTransportRequiredCode:
-		return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeReviewRequired, imageagent.SlotEffectV3ReviewTransportRequired, imageagent.SlotReviewTransportRequiredCode), true
 	default:
 		return EffectRecoveryResult{}, false
 	}

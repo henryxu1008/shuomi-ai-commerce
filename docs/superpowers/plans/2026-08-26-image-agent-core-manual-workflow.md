@@ -1,3 +1,5 @@
+> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](../../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
+
 > #301 / #998 用户已确认[旧业务Signal完整退休设计](../../architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md) §1–§7：本计划以四旧业务Signal作正向驱动、重发或延迟排队的现行实施要求已替代，当前命令使用带原身份校验/回执的 Update/Resume。有效重试/幂等/批准/取消断言改接当前owner；含旧Signal的历史（含这类V3）不再承诺续跑，不操作实际历史。以下原步骤、勾选和历史证据逐字保留。
 
 > #301 / #977 用户确认的[完整退休闭包](../../architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md)已在同一主要PR实施：旧HTTP/Task启动预检及指定默认注册/queue门面退出；现役Service/Repository/手动工作流、ForMode注册/显式worker与原wire保持。 此顶注只校准本批指定旧KEEP，以下实际开工main的完整原正文/批准/失败/数字/勾选逐字保留为历史。无新alias/替代旧宿主、workflow/inventory/运行/数据操作或内部试用前置；独立SHEIN登录与Store同步保留，#301 OPEN。

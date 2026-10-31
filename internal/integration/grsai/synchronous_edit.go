@@ -29,16 +29,16 @@ type GenerationObservation struct {
 
 type GenerationObserver func(context.Context, GenerationObservation) error
 
-// NewSynchronousProductImageAdapter is the only assembly for the fixed
+// NewSynchronousSourceImageAdapter is the only assembly for the fixed
 // source-only GPT-image consumer. Unlike the ordinary adapter, its pinned
 // client cannot fall back to the polling/retrying EditImage implementation.
-func NewSynchronousProductImageAdapter(config ProductImageAdapterConfig, observe GenerationObserver) (ProductImageProvider, error) {
+func NewSynchronousSourceImageAdapter(config SourceImageAdapterConfig, observe GenerationObserver) (SourceImageProvider, error) {
 	client, ok := config.Client.(*Client)
 	if !ok || client == nil || observe == nil || synchronousImageQuality(config.ImageModel) == "" {
 		return nil, errors.New("synchronous product image dependencies unavailable")
 	}
 	config.Client = &synchronousProductImageClient{ImageGenerator: client, client: client, observe: observe}
-	return NewProductImageAdapter(config)
+	return NewSourceImageAdapter(config)
 }
 
 type synchronousProductImageClient struct {
@@ -155,7 +155,7 @@ func (c *Client) submitSynchronousImageOnce(ctx context.Context, model, prompt s
 	for _, item := range payload.Results {
 		response.Data = append(response.Data, ai.ImageData{URL: item.URL})
 	}
-	// No download here. The existing ProductImageAdapter owns public-URL SSRF,
+	// No download here. The existing SourceImageAdapter owns public-URL SSRF,
 	// bounded fetching, decoding and candidate validation after this callback.
 	return response, nil
 }

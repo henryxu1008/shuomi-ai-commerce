@@ -9,6 +9,7 @@ import (
 )
 
 var retiredProductRuntimeYAMLKeys = map[string]string{
+	"openai":                 "openai",
 	"listingkit.imageupload": "listingkit.imageUpload",
 
 	"listingkit.zitadel.authorizationrequired": "listingkit.zitadel.authorizationRequired",
@@ -134,6 +135,7 @@ var retiredProductRuntimeEnvironmentVariables = map[string]struct{}{
 }
 
 var retiredProductRuntimeEnvironmentPrefixes = []string{
+	"TASK_PROCESSOR_OPENAI_",
 	"TASK_PROCESSOR_PRODUCTIMAGE_",
 	"TASK_PROCESSOR_PRODUCT_IMAGE_",
 	"PRODUCTIMAGE_",
@@ -160,7 +162,7 @@ func rejectRetiredProductRuntimeConfig(v *viper.Viper) error {
 				return fmt.Errorf("retired configuration key %s is not supported", canonical)
 			}
 		}
-		for _, root := range []string{"browser", "amazon", "platforms"} {
+		for _, root := range []string{"browser", "amazon", "platforms", "openai"} {
 			if v.InConfig(root) {
 				return fmt.Errorf("retired configuration key %s is not supported", root)
 			}

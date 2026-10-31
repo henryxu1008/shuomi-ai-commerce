@@ -65,21 +65,26 @@ const (
 func TestChain1ControlledImagePortsExerciseCurrentProductSlotExecutor(t *testing.T) {
 	imagePorts := &chain1ImagePorts{}
 	policyResolver := chain1EmbeddedImagePolicy(t)
-	executor := imageagenttools.NewProductImageSlotExecutor(imageagenttools.Dependencies{
-		SubjectExtractor: imagePorts, WhiteBackgroundRenderer: imagePorts, SceneRenderer: imagePorts,
-		Reviewer: imagePorts, UsageQuoter: imagePorts, ProfileResolver: policyResolver,
+	executor := imageagenttools.NewSourceGenerationExecutor(imageagenttools.SourceGenerationDependencies{
+		WhiteBackground: imagePorts, UsageQuoter: imagePorts, ProfileResolver: policyResolver,
 	})
 	catalogInput, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{
 		Assets:         []imageagent.AuthorizedAsset{{ID: "catalog-image-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example.test/chain1.png", SourceURL: "https://source.example.test/chain1.png", DisplayURL: "https://source.example.test/chain1.png", Width: 1, Height: 1}},
 		ProductContext: imageagent.ProductContextRef{ProductID: chain1ProductKey, Title: "Reviewed chain product", ProductType: "Fashion / Shoes", SourceSnapshotVersion: 2},
 	})
 	require.NoError(t, err)
-	result, err := executor.GenerateSlot(context.Background(), imageagent.SlotExecutionInput{
-		RunID: "chain1-run-388", TenantID: chain1Organization, UserID: chain1Actor, TargetPlatform: "shein",
-		ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
+	input := imageagent.SlotExecutionInput{
+		RunID: "chain1-run-388", TenantID: chain1Organization, UserID: chain1Actor, TargetPlatform: "product",
+		ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		PlanRevision:       1, Slot: imageagent.Slot{ID: "main", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"catalog-image-1"}, IdempotencyKey: "chain1-main-key-388", Status: imageagent.SlotStatusPending},
 		Attempt: 1, IdempotencyKey: "chain1-main-key-388:plan:1:attempt:1", AssetCatalog: catalogInput, ProductContext: catalogInput.ProductContext,
-	})
+	}
+	input.SourceBytes = append([]byte(nil), chain1PNG...)
+	sum := sha256.Sum256(input.SourceBytes)
+	input.SourceDigest = hex.EncodeToString(sum[:])
+	quote, err := executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
+	require.NoError(t, err)
+	result, err := executor.GenerateQuotedSlot(context.Background(), input, quote)
 	require.NoError(t, err)
 	require.Len(t, result.Assets, 1)
 	require.Equal(t, chain1PNG, result.Assets[0].Bytes)
@@ -242,19 +247,19 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.NoError(t, err)
 	imagePorts := &chain1ImagePorts{}
 	policyResolver := chain1EmbeddedImagePolicy(t)
-	executor := imageagenttools.NewProductImageSlotExecutor(imageagenttools.Dependencies{
-		SubjectExtractor: imagePorts, WhiteBackgroundRenderer: imagePorts, SceneRenderer: imagePorts,
-		Reviewer: imagePorts, UsageQuoter: imagePorts, ProfileResolver: policyResolver,
+	executor := imageagenttools.NewSourceGenerationExecutor(imageagenttools.SourceGenerationDependencies{
+		WhiteBackground: imagePorts, UsageQuoter: imagePorts, ProfileResolver: policyResolver,
 	})
-	publisherV3, err := assetpublication.NewPublisher(imageRepository, assetRepository, durableArtifacts)
+	publisherV3, err := assetpublication.NewAcquisitionMainPublisher(imageRepository, assetRepository, durableArtifacts)
 	require.NoError(t, err)
 	executionAuthorizer := imageagentworker.OrganizationExecutionAuthorizer{
 		Client: authorizationClient, ServiceToken: func(context.Context) (string, error) { return chain1ServiceToken, nil },
 		ProjectID: chain1Project, Authorizer: authorizer,
 	}
+	imagePorts.executor = executor
 	activityDependencies := imageagenttemporal.ActivityDependencies{
 		ExecutionAuthorizer: executionAuthorizer, Repository: imageRepository,
-		PublisherV3: publisherV3, StagedSlotExecutor: executor, ArtifactStore: durableArtifacts,
+		PublisherV3: publisherV3, StagedSlotExecutor: imagePorts, ArtifactStore: durableArtifacts,
 	}
 	activities, err := imageagenttemporal.NewActivities(activityDependencies)
 	require.NoError(t, err)
@@ -269,8 +274,8 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	}
 	runID, actionID := "chain1-run-388", "chain1-approve-388"
 	createRun := imageagent.StartRunInput{
-		RunID: runID, BusinessTaskID: "chain1-context-388", TargetPlatform: "shein",
-		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
+		RunID: runID, BusinessTaskID: "chain1-context-388", TargetPlatform: "product",
+		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Mode:               imageagent.RunModeManual, IdempotencyKey: "chain1-run-key-388", MaxConcurrentSlots: 1,
 		Plan: imageagent.Plan{Revision: 1, IdempotencyKey: "chain1-plan-key-388", SourceAssetIDs: []string{"catalog-image-1"}, Slots: []imageagent.Slot{{ID: "main", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"catalog-image-1"}, IdempotencyKey: "chain1-main-key-388", Status: imageagent.SlotStatusPending}}},
 	}
@@ -337,7 +342,7 @@ func TestChain1LocalProductAcceptance(t *testing.T) {
 	require.Equal(t, assetRowsBeforeRevoke, chain1RowCount(t, db, "product_approved_assets"))
 	require.Equal(t, publicObjectsBeforeRevoke, objects.countPrefix("image-agent/public/"))
 	require.Equal(t, imageCallsAfterGeneration, imagePorts.calls.Load(), "denied approval must not dispatch image capabilities")
-	_, err = assetRepository.GetApprovedInventory(context.Background(), productasset.InventoryScope{TenantID: chain1Organization, ProductKey: chain1ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: appliedVersion})
+	_, err = assetRepository.GetApprovedInventory(context.Background(), productasset.InventoryScope{TenantID: chain1Organization, ProductKey: chain1ProductKey, TargetPlatform: "product", SourceSnapshotVersion: appliedVersion})
 	require.ErrorIs(t, err, productasset.ErrApprovedAssetsNotReady)
 	imageContext, err = imageWriteContext()
 	require.NoError(t, err)
@@ -748,29 +753,18 @@ func chain1EmbeddedImagePolicy(t *testing.T) *imagepolicy.Resolver {
 
 var chain1PNG, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 
-type chain1ImagePorts struct{ calls atomic.Int32 }
-
-func (ports *chain1ImagePorts) Extract(_ context.Context, request productimage.ExtractRequest) (productimage.Candidate, error) {
-	ports.calls.Add(1)
-	return chain1ImageCandidate(request.Source, productimage.RoleSubject, "extract_subject"), nil
+type chain1ImagePorts struct {
+	calls    atomic.Int32
+	executor *imageagenttools.SourceGenerationExecutor
 }
 
-func (ports *chain1ImagePorts) RenderWhiteBackground(_ context.Context, request productimage.RenderRequest) (productimage.Candidate, error) {
+func (ports *chain1ImagePorts) EditSourceWhiteBackground(_ context.Context, request productimage.SourceWhiteBackgroundRequest) (productimage.Candidate, error) {
 	ports.calls.Add(1)
-	return chain1ImageCandidate(request.Source, productimage.RoleWhiteBackground, "render_white_background"), nil
+	return chain1ImageCandidate(request.Source, productimage.RoleWhiteBackground, productimage.SourceWhiteBackgroundOperation), nil
 }
 
-func (ports *chain1ImagePorts) RenderScene(_ context.Context, request productimage.SceneRequest) ([]productimage.Candidate, error) {
-	ports.calls.Add(1)
-	return []productimage.Candidate{chain1ImageCandidate(request.Source, productimage.RoleScene, "render_scene")}, nil
-}
 func chain1ImageCandidate(source productimage.Asset, role productimage.Role, operation string) productimage.Candidate {
 	return productimage.Candidate{Asset: productimage.Asset{Bytes: append([]byte(nil), chain1PNG...), MediaType: "image/png", SourceURL: source.URL, SourceAssetID: source.SourceAssetID, Role: role, Width: 1, Height: 1, Operations: []string{operation}}, Metadata: productimage.GenerationMetadata{Capability: operation, ModelFamily: "controlled", InvocationID: "chain1-" + operation, PromptReference: "chain1", PromptVersion: "v1"}}
-}
-
-func (ports *chain1ImagePorts) Review(context.Context, productimage.ReviewRequest) (productimage.Review, error) {
-	ports.calls.Add(1)
-	return productimage.Review{Score: 1}, nil
 }
 
 func (ports *chain1ImagePorts) QuoteUsage(_ context.Context, request productimage.UsageQuoteRequest) (productimage.UsageQuote, error) {
@@ -886,7 +880,7 @@ func chain1WaitRun(t *testing.T, service *imageagent.Service, readContext func()
 func chain1WaitInventory(t *testing.T, repository productasset.Repository, version uint64, timeout time.Duration) productasset.ApprovedAssetInventory {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
-	scope := productasset.InventoryScope{TenantID: chain1Organization, ProductKey: chain1ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: version}
+	scope := productasset.InventoryScope{TenantID: chain1Organization, ProductKey: chain1ProductKey, TargetPlatform: "product", SourceSnapshotVersion: version}
 	for time.Now().Before(deadline) {
 		if inventory, err := repository.GetApprovedInventory(context.Background(), scope); err == nil {
 			return inventory
@@ -917,4 +911,22 @@ func chain1RestartTemporal(t *testing.T) {
 	command := exec.Command("docker", "compose", "-p", project, "-f", compose, "restart", "chain1-temporal")
 	output, err := command.CombinedOutput()
 	require.NoError(t, err, string(output))
+}
+
+// The controlled fixture supplies its own synthetic source bytes at the same
+// in-process generation seam used by the current production owner.
+func (p *chain1ImagePorts) QuoteSlot(ctx context.Context, input imageagent.SlotExecutionInput, policy imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
+	return p.executor.QuoteSlot(ctx, input, policy)
+}
+func (p *chain1ImagePorts) GenerateQuotedSlot(ctx context.Context, input imageagent.SlotExecutionInput, quote imageagent.SlotUsageQuote) (imageagent.SlotGeneratedOutput, error) {
+	input.SourceBytes = append([]byte(nil), chain1PNG...)
+	sum := sha256.Sum256(input.SourceBytes)
+	input.SourceDigest = hex.EncodeToString(sum[:])
+	return p.executor.GenerateQuotedSlot(ctx, input, quote)
+}
+func (p *chain1ImagePorts) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
+	return imageagent.SlotGeneratedOutput{}, imageagent.ErrBudgetQuoteUnavailable
+}
+func (p *chain1ImagePorts) BuildSlotResult(ctx context.Context, input imageagent.SlotExecutionInput, published imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {
+	return p.executor.BuildSlotResult(ctx, input, published)
 }

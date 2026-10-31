@@ -123,15 +123,15 @@ func (c *countingPolicyCatalog) Resolve(context.Context, imageagent.AssetCatalog
 
 func validPolicyStartInput(runID string) imageagent.StartRunInput {
 	return imageagent.StartRunInput{
-		RunID: runID, BusinessTaskID: "task-1", TargetPlatform: "shein",
-		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
+		RunID: runID, BusinessTaskID: "task-1", TargetPlatform: "product",
+		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Mode:               imageagent.RunModeManual, IdempotencyKey: runID + "-key", Plan: commandPlan(1),
 	}
 }
 
 func withValidPolicy(input imageagent.StartRunInput) imageagent.StartRunInput {
-	input.TargetPlatform = "shein"
-	input.ImagePolicyContext = imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"}
+	input.TargetPlatform = "product"
+	input.ImagePolicyContext = imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}
 	return input
 }
 

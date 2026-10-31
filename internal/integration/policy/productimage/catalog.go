@@ -43,7 +43,7 @@ type Thresholds struct {
 type Policy struct {
 	Key           PolicyKey
 	Thresholds    Thresholds
-	SceneDefaults productimage.SceneOptions
+	SceneDefaults productimage.PolicySceneDefaults
 }
 
 type catalogDocument struct {
@@ -130,7 +130,7 @@ func Decode(reader io.Reader) (Catalog, error) {
 				WhiteBackgroundReview: *policy.Thresholds.WhiteBackgroundReview,
 				WhiteCanvasPenalty:    *policy.Thresholds.WhiteCanvasPenalty,
 			},
-			SceneDefaults: productimage.SceneOptions{
+			SceneDefaults: productimage.PolicySceneDefaults{
 				SceneCategory:     policy.SceneDefaults.SceneCategory,
 				SceneStyle:        policy.SceneDefaults.SceneStyle,
 				BackgroundTone:    policy.SceneDefaults.BackgroundTone,

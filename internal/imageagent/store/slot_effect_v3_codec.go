@@ -17,6 +17,14 @@ import (
 func decodeSlotEffectV3Record(row slotExternalEffectV3Record) (imageagent.SlotEffectV3Attempt, error) {
 	result := slotEffectV3FromRecord(row)
 	result.CorruptionMarker = row.CorruptionMarker
+	if len(row.ReviewUsageJSON) > 0 {
+		if err := json.Unmarshal(row.ReviewUsageJSON, &result.ReviewUsage); err != nil {
+			return result, fmt.Errorf("decode v3 review usage: %w", err)
+		}
+	}
+	if len(result.ReviewUsage) > 0 {
+		return result, fmt.Errorf("%w: retired model review usage cannot resume", imageagent.ErrInvalidPersistedPolicy)
+	}
 	if row.Phase == string(imageagent.SlotEffectV3RecoveryBlocked) && strings.TrimSpace(row.CorruptionMarker) != "" {
 		if row.BlockedCode != imageagent.SlotRecoveryBlockedCode {
 			return result, fmt.Errorf("%w: corrupt effect has invalid recovery block code", imageagent.ErrInvalidPersistedPolicy)
@@ -55,11 +63,7 @@ func decodeSlotEffectV3Record(row slotExternalEffectV3Record) (imageagent.SlotEf
 			return result, fmt.Errorf("decode v3 usage receipt: %w", err)
 		}
 	}
-	if len(row.ReviewUsageJSON) > 0 {
-		if err := json.Unmarshal(row.ReviewUsageJSON, &result.ReviewUsage); err != nil {
-			return result, fmt.Errorf("decode v3 review usage: %w", err)
-		}
-	}
+
 	if err := imageagent.ValidateSlotEffectV3AttemptPolicy(result); err != nil {
 		return imageagent.SlotEffectV3Attempt{}, err
 	}
@@ -130,11 +134,13 @@ func cloneSlotUsageReceipt(receipt imageagent.SlotUsageReceipt) imageagent.SlotU
 	return receipt
 }
 
-func cloneReviewUsage(values []imageagent.SlotReviewUsageAttempt) []imageagent.SlotReviewUsageAttempt {
-	cloned := append([]imageagent.SlotReviewUsageAttempt(nil), values...)
-	for index := range cloned {
-		cloned[index].Quote.Operations = append([]imageagent.SlotUsageOperation(nil), cloned[index].Quote.Operations...)
-		cloned[index].Receipt.ProviderRequestIDs = append([]string(nil), cloned[index].Receipt.ProviderRequestIDs...)
+func cloneReviewUsage(values []json.RawMessage) []json.RawMessage {
+	if values == nil {
+		return nil
+	}
+	cloned := make([]json.RawMessage, len(values))
+	for i := range values {
+		cloned[i] = append(json.RawMessage(nil), values[i]...)
 	}
 	return cloned
 }

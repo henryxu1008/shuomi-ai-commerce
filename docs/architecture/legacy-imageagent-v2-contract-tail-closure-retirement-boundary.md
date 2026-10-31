@@ -1,3 +1,5 @@
+> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
+
 > 本轮用户批准的准确尾部例外（§5.2/§6.1）：按 [PR 提案6488918931](https://github.com/qq550723504/shuomi-ai-commerce/pull/996#issuecomment-6488918931) 将遗漏 `store/slot_effect_v3_repository_test.go` 纳入，删除 V2 JSON-only 保活测试、两项旧字段拒绝改接当前 decoder；HTTP 仅两行 expected 对齐原 durable ErrValidation/GET400，完成回放409与无泄露/无副作用断言保留。生产映射、workflow/inventory及其余检查不改。原33路径精确补为34（14生产/15测试/5文档），不扩大产品范围、不新增兼容层。
 
 > #301 / #996 当前实施：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户确认冻结设计25258f5eb的§1–§7（含§4.2、§6.1），同一主要PR收齐34路径；旧V2候选/批准/默认装配与专属尾部按本设计退休。当前durable JSON/hash/有效V3回放恢复、真实组织worker/provider、图像/采集和Store观察同步保留；GitHub workflow/完整inventory/依赖/保护及既有实例/数据/凭据/进程零改，无新试用前置，#301 OPEN。实施/原CI/源码最终复核证据写PR，设计复核不替代源码复核；合并/部署/关单另授权。

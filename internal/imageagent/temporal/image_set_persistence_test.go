@@ -14,14 +14,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/store"
+
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func imageSetPersistenceFixture(t *testing.T) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
@@ -231,8 +232,6 @@ func TestExpiredImageSetProjectionPreservesPersistedBlockedEffectPolicy(t *testi
 		{imageagent.SlotEffectV3ProviderUnknown, imageagent.SlotProviderOutcomeUnknownCode},
 		{imageagent.SlotEffectV3StagingUnknown, imageagent.SlotStagingOutcomeUnknownCode},
 		{imageagent.SlotEffectV3PublicationUnknown, imageagent.SlotPublicationOutcomeUnknownCode},
-		{imageagent.SlotEffectV3ReviewRequired, imageagent.SlotReviewRequiredCode},
-		{imageagent.SlotEffectV3ReviewTransportRequired, imageagent.SlotReviewTransportRequiredCode},
 		{imageagent.SlotEffectV3RecoveryBlocked, imageagent.SlotRecoveryBlockedCode},
 	} {
 		t.Run(string(policy.phase), func(t *testing.T) {

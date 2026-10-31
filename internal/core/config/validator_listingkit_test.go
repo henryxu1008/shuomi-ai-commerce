@@ -15,7 +15,6 @@ import (
 func TestValidateConfigRejectsLegacyListingKitUsernameAllowlistWithoutExposingValues(t *testing.T) {
 	const configuredValue = "sensitive-legacy-subject"
 	cfg := NewDefaultConfig()
-	cfg.OpenAI.APIKey = "test-openai-key"
 	cfg.ListingKit.Zitadel.AllowedUsernames = []string{configuredValue}
 
 	err := ValidateConfigWithError(cfg)
@@ -28,12 +27,7 @@ func TestValidateConfigRejectsLegacyListingKitUsernameAllowlistWithoutExposingVa
 
 func TestListingKitLegacyUsernameAllowlistInputsFailClosed(t *testing.T) {
 	const configuredValue = "sensitive-legacy-subject"
-	baseConfig := strings.Join([]string{
-		"openai:",
-		"  apiKey: test-openai-key",
-		"  model: gemini-2.5-flash",
-		"  baseURL: https://api.example.test/v1",
-	}, "\n")
+	baseConfig := strings.Join([]string{}, "\n")
 
 	t.Run("yaml", func(t *testing.T) {
 		clearLegacyListingKitUsernameAllowlistEnv(t)

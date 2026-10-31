@@ -197,7 +197,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 
 type generationConfigTestResolver struct{ resolved *openai.ResolvedClientConfig }
 
-func (r *generationConfigTestResolver) ResolveClientConfig(context.Context, string, *openai.ClientConfig) (*openai.ResolvedClientConfig, error) {
+func (r *generationConfigTestResolver) ResolveClientConfig(context.Context, string) (*openai.ResolvedClientConfig, error) {
 	return r.resolved, nil
 }
 

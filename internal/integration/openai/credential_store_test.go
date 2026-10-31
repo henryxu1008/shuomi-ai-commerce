@@ -3,76 +3,14 @@ package openai
 import (
 	"context"
 	"errors"
+	"task-processor/internal/shared/aiidentity"
 	"testing"
-	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	_ "modernc.org/sqlite"
 )
-
-func TestGormCredentialResolverPrefersUserThenTenantConfig(t *testing.T) {
-	db := openTestCredentialDB(t)
-	resolver := NewGormCredentialResolver(db)
-	fallback := testClientConfig("global-key", "global-model", "https://global.example.test/v1")
-
-	if err := resolver.SaveCredential(context.Background(), AIClientCredential{
-		TenantID:      "tenant-a",
-		ClientName:    "default",
-		APIKey:        "tenant-key",
-		BaseURL:       "https://tenant.example.test/v1",
-		Model:         "tenant-model",
-		APIStyle:      "openai",
-		TimeoutSecond: 45,
-		Enabled:       true,
-	}); err != nil {
-		t.Fatalf("save tenant credential: %v", err)
-	}
-	if err := resolver.SaveCredential(context.Background(), AIClientCredential{
-		TenantID:      "tenant-a",
-		UserID:        "user-a",
-		ClientName:    "default",
-		APIKey:        "user-key",
-		BaseURL:       "https://user.example.test/v1",
-		Model:         "user-model",
-		APIStyle:      "gemini",
-		TimeoutSecond: 60,
-		Enabled:       true,
-	}); err != nil {
-		t.Fatalf("save user credential: %v", err)
-	}
-
-	userResolved, err := resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-a", UserID: "user-a"}), "default", fallback)
-	if err != nil {
-		t.Fatalf("resolve user: %v", err)
-	}
-	if userResolved == nil || userResolved.Config.APIKey != "user-key" || userResolved.Config.BaseURL != "https://user.example.test/v1" || userResolved.Config.Model != "user-model" || userResolved.Config.Timeout != 60*time.Second {
-		t.Fatalf("user resolved = %#v", userResolved)
-	}
-	if userResolved.Config.APIStyle != "gemini" {
-		t.Fatalf("user resolved api_style = %q, want gemini", userResolved.Config.APIStyle)
-	}
-
-	tenantResolved, err := resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}), "default", fallback)
-	if err != nil {
-		t.Fatalf("resolve tenant: %v", err)
-	}
-	if tenantResolved == nil || tenantResolved.Config.APIKey != "tenant-key" || tenantResolved.Config.BaseURL != "https://tenant.example.test/v1" || tenantResolved.Config.Model != "tenant-model" || tenantResolved.Config.Timeout != 45*time.Second {
-		t.Fatalf("tenant resolved = %#v", tenantResolved)
-	}
-	if tenantResolved.Config.APIStyle != "openai" {
-		t.Fatalf("tenant resolved api_style = %q, want openai", tenantResolved.Config.APIStyle)
-	}
-
-	missing, err := resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-b"}), "default", fallback)
-	if err != nil {
-		t.Fatalf("resolve missing: %v", err)
-	}
-	if missing != nil {
-		t.Fatalf("missing resolved = %#v, want nil", missing)
-	}
-}
 
 func TestOrganizationOnlyCredentialResolverNeverUsesMemberOrGlobalCredential(t *testing.T) {
 	db := openTestCredentialDB(t)
@@ -87,17 +25,16 @@ func TestOrganizationOnlyCredentialResolverNeverUsesMemberOrGlobalCredential(t *
 		}
 	}
 	resolver := NewOrganizationOnlyCredentialResolver(db)
-	fallback := testClientConfig("global-key", "global-model", "https://global.example.test/v1")
-	selected, err := resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-a", UserID: "member-a"}), "text", fallback)
+	selected, err := resolver.ResolveClientConfig(aiidentity.WithIdentity(context.Background(), aiidentity.Identity{TenantID: "tenant-a", UserID: "member-a"}), "text")
 	if err != nil || selected == nil || selected.Config.APIKey != "organization-key" || selected.Config.Model != "organization-model" {
 		t.Fatalf("organization resolution = %#v, %v", selected, err)
 	}
-	selected, err = resolver.ResolveClientConfig(WithIdentity(context.Background(), Identity{TenantID: "tenant-a"}), "text", fallback)
+	selected, err = resolver.ResolveClientConfig(aiidentity.WithIdentity(context.Background(), aiidentity.Identity{TenantID: "tenant-a"}), "text")
 	if err != nil || selected == nil || selected.Config.APIKey != "organization-key" {
 		t.Fatalf("operator organization resolution = %#v, %v", selected, err)
 	}
-	for _, identity := range []Identity{{TenantID: "tenant-b", UserID: "member-b"}, {TenantID: "tenant-c", UserID: "member-c"}} {
-		selected, err = resolver.ResolveClientConfig(WithIdentity(context.Background(), identity), "text", fallback)
+	for _, identity := range []aiidentity.Identity{{TenantID: "tenant-b", UserID: "member-b"}, {TenantID: "tenant-c", UserID: "member-c"}} {
+		selected, err = resolver.ResolveClientConfig(aiidentity.WithIdentity(context.Background(), identity), "text")
 		if !errors.Is(err, ErrClientConfigurationUnavailable) || selected != nil {
 			t.Fatalf("missing organization credential for %s = %#v, %v", identity.TenantID, selected, err)
 		}

@@ -1,6 +1,7 @@
 package imageagent
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -186,7 +187,6 @@ func TestSlotEffectV3BlockedPolicyMapsExactPhaseCodeAndActions(t *testing.T) {
 		{SlotEffectV3ProviderUnknown, SlotProviderOutcomeUnknownCode, []Action{ActionCancel}},
 		{SlotEffectV3StagingUnknown, SlotStagingOutcomeUnknownCode, []Action{ActionEditPlan, ActionRetrySlot, ActionCancel}},
 		{SlotEffectV3PublicationUnknown, SlotPublicationOutcomeUnknownCode, []Action{ActionEditPlan, ActionCancel}},
-		{SlotEffectV3ReviewRequired, SlotReviewRequiredCode, []Action{ActionEditPlan, ActionRetrySlot, ActionCancel}},
 		{SlotEffectV3RecoveryBlocked, SlotRecoveryBlockedCode, []Action{ActionCancel}},
 	} {
 		policy, err := SlotEffectV3BlockedPolicyFor(tc.phase, tc.code)
@@ -342,4 +342,11 @@ func TestValidatePlanRejectsInvalidPlanInvariants(t *testing.T) {
 			require.ErrorContains(t, ValidatePlan(tt.plan), tt.message)
 		})
 	}
+}
+
+func TestCurrentEffectSnapshotRejectsRetiredReviewUsage(t *testing.T) {
+	current := SlotEffectV3Attempt{Phase: SlotEffectV3ProviderClaimed}
+	require.NoError(t, ValidateSlotEffectV3AttemptPolicy(current))
+	current.ReviewUsage = []json.RawMessage{json.RawMessage(`{"ActionID":"retired-review","BudgetStatus":"reserved"}`)}
+	require.ErrorIs(t, ValidateSlotEffectV3AttemptPolicy(current), ErrInvalidPersistedPolicy)
 }

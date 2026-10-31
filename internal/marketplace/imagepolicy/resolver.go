@@ -36,7 +36,7 @@ func validatePolicySet(set PolicySet) error {
 		}
 	}
 	for _, policy := range set.Policies {
-		options, err := productimage.MergeSceneOptions(nil, &policy.SceneDefaults)
+		options, err := productimage.NormalizePolicySceneDefaults(policy.SceneDefaults)
 		if err != nil || options.SceneCategory != policy.Key.SceneCategory {
 			return ErrInvalidPolicySet
 		}
@@ -48,7 +48,7 @@ func buildResolver(set PolicySet) (*Resolver, error) {
 	policies := make(map[PolicyKey]ProductImageProfile, len(set.Policies))
 	version := strings.Clone(set.Version)
 	for _, policy := range set.Policies {
-		options, err := productimage.MergeSceneOptions(nil, &policy.SceneDefaults)
+		options, err := productimage.NormalizePolicySceneDefaults(policy.SceneDefaults)
 		if err != nil {
 			return nil, ErrInvalidPolicySet
 		}
@@ -57,7 +57,7 @@ func buildResolver(set PolicySet) (*Resolver, error) {
 			Key:           key,
 			PolicyVersion: version,
 			Thresholds:    policy.Thresholds,
-			SceneDefaults: ownSceneOptions(*options),
+			SceneDefaults: ownSceneOptions(options),
 		}
 	}
 	return &Resolver{policies: policies}, nil
@@ -82,7 +82,7 @@ func ValidateProfileInput(input ProfileInput) error {
 	return nil
 }
 
-func cloneSceneOptions(options productimage.SceneOptions) productimage.SceneOptions {
+func cloneSceneOptions(options productimage.PolicySceneDefaults) productimage.PolicySceneDefaults {
 	options.StyleReferenceIDs = append([]string(nil), options.StyleReferenceIDs...)
 	return options
 }
@@ -96,8 +96,8 @@ func ownPolicyKey(key PolicyKey) PolicyKey {
 	}
 }
 
-func ownSceneOptions(options productimage.SceneOptions) productimage.SceneOptions {
-	owned := productimage.SceneOptions{
+func ownSceneOptions(options productimage.PolicySceneDefaults) productimage.PolicySceneDefaults {
+	owned := productimage.PolicySceneDefaults{
 		SceneCategory:   strings.Clone(options.SceneCategory),
 		SceneStyle:      strings.Clone(options.SceneStyle),
 		BackgroundTone:  strings.Clone(options.BackgroundTone),

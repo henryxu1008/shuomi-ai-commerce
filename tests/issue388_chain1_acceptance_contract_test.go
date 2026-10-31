@@ -36,7 +36,7 @@ func TestIssue388Chain1AcceptanceAssemblyContract(t *testing.T) {
 		"imageagenttemporal.NewWorker",
 		"WorkerWireModeOrganization",
 		"imageagentworker.OrganizationExecutionAuthorizer",
-		"imageagenttools.NewProductImageSlotExecutor",
+		"imageagenttools.NewSourceGenerationExecutor",
 		"imageagentpolicy.LoadEmbeddedResolver",
 		"buildLocalTrialListingRoutes",
 		"buildCurrentApplicationHTTPServer",

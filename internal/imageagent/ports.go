@@ -29,29 +29,15 @@ type StagedSlotExecutor interface {
 // StagedSlotReviewer is an additive capability for retrying a reviewer
 // transport failure against already-staged candidates. Implementations must
 // not invoke generation or quote provider work from this method.
-type StagedSlotReviewer interface {
-	ReviewStagedSlot(context.Context, SlotExecutionInput, SlotGeneratedOutput) error
-}
-
-// BudgetedStagedSlotReviewer pins and accounts for each read-only review
-// dispatch. The quote is revalidated at dispatch time so a route change is a
-// revision conflict instead of an unaccounted provider call.
-type BudgetedStagedSlotReviewer interface {
-	StagedSlotReviewer
-	QuoteStagedReview(context.Context, SlotExecutionInput, BudgetPolicy) (SlotUsageQuote, error)
-	ReviewStagedSlotQuoted(context.Context, SlotExecutionInput, SlotGeneratedOutput, SlotUsageQuote) (SlotUsageReceipt, error)
-}
-
-// BudgetedStagedSlotExecutor quotes and accounts for admitted staged work.
 type BudgetedStagedSlotExecutor interface {
 	StagedSlotExecutor
 	QuoteSlot(context.Context, SlotExecutionInput, BudgetPolicy) (SlotUsageQuote, error)
 	GenerateQuotedSlot(context.Context, SlotExecutionInput, SlotUsageQuote) (SlotGeneratedOutput, error)
 }
 
-// ApprovedAssetPublisherV3 publishes the current durable approval payload.
-type ApprovedAssetPublisherV3 interface {
-	PublishApprovedV3(context.Context, PublishApprovedV3Input) (PublicationAcknowledgement, error)
+// AcquisitionMainPublisher publishes the current durable approval payload.
+type AcquisitionMainPublisher interface {
+	PublishAcquisitionMain(context.Context, PublishAcquisitionMainInput) (PublicationAcknowledgement, error)
 }
 
 type ApprovedImageSetPublisher interface {
@@ -126,8 +112,8 @@ type PublishedSlotOutput struct {
 	Assets  []PublishedAssetRef
 }
 
-// PublishApprovedV3Input is the current durable-approval payload.
-type PublishApprovedV3Input struct {
+// PublishAcquisitionMainInput is the current durable-approval payload.
+type PublishAcquisitionMainInput struct {
 	RunID             string
 	TenantID          string
 	UserID            string

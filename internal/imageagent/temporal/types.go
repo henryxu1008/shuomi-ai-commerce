@@ -34,12 +34,11 @@ const (
 	activityPersistPlanRevision           = "imageagent.persist_plan_revision.v2"
 	activityPersistPendingCommand         = "imageagent.persist_pending_command.v2"
 	activityExecuteSlotV3                 = "imageagent.execute_slot.v3"
-	activityReviewStagedSlotV3            = "imageagent.review_staged_slot.v3"
 	activityStartEffectRecoveryV3         = "imageagent.start_effect_recovery.v3"
 	activityRecoverEffectV3               = "imageagent.recover_effect.v3"
 	activityPersistRecoveryBlockedV3      = "imageagent.persist_recovery_blocked.v3"
 	activityReconcileEffectRecoveryV3     = "imageagent.reconcile_effect_recovery.v3"
-	activityPublishApprovedV3             = "imageagent.publish_approved.v3"
+	activityPublishAcquisitionMain        = "imageagent.publish_approved.v3"
 	activityPublishApprovedImageSet       = "imageagent.publish_approved_image_set.v1"
 	activityPrepareImageSetPolicyAdoption = "imageagent.prepare_policy_adoption.v1"
 	workflowNameCompatibilityCanary       = "ImageAgentCompatibilityCanaryWorkflow"
@@ -219,7 +218,6 @@ type ExecuteSlotV3ActivityInput struct {
 	Slot                       imageagent.Slot
 	Attempt                    int
 	IdempotencyKey             string
-	ReviewActionID             string `json:",omitempty"`
 	AssetCatalog               imageagent.AssetCatalog
 	ExternalEffectFinalization bool
 	BudgetAuthorization        bool
@@ -284,9 +282,9 @@ type PersistPendingCommandActivityInput struct {
 	CommandIngress imageagent.CommandIngress
 }
 
-// PublishApprovedV3ActivityInput is a distinct durable-approval wire payload.
+// PublishAcquisitionMainActivityInput is a distinct durable-approval wire payload.
 // Task 6 owns its Temporal registration and workflow routing.
-type PublishApprovedV3ActivityInput struct {
+type PublishAcquisitionMainActivityInput struct {
 	RunID             string
 	Identity          imageagent.ExecutionIdentity
 	PlanRevision      int64

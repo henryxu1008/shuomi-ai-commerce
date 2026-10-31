@@ -515,29 +515,6 @@ func (o *workflowEffectOwner) persistImageSetCompletion(ctx workflow.Context, in
 	})
 }
 
-func (o *workflowEffectOwner) reviewStagedSlotV3(ctx workflow.Context, input WorkflowInput, index, attempt int, actionID string) (SlotWorkflowV3Result, error) {
-
-	slot := input.Plan.Slots[index]
-	activityInput := ExecuteSlotV3ActivityInput{
-		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.Plan.Revision,
-		TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext),
-		Slot: slot, Attempt: attempt, IdempotencyKey: slotAttemptKey(input.Plan.Revision, slot, attempt),
-		ReviewActionID: strings.TrimSpace(actionID),
-		AssetCatalog:   input.AssetCatalog, ExternalEffectFinalization: true,
-		BudgetAuthorization: input.BudgetAuthorization, BudgetPolicy: input.BudgetPolicy,
-		DeadlineAt: input.DeadlineAt, LifecycleDeadlineAt: input.LifecycleDeadlineAt,
-	}
-	var published imageagent.SlotEffectV3PublishedResult
-	if err := workflow.ExecuteActivity(ctx, activityReviewStagedSlotV3, activityInput).Get(ctx, &published); err != nil {
-		return SlotWorkflowV3Result{}, err
-	}
-	normalized, err := imageagent.NormalizeSlotEffectV3PublishedResult(published)
-	if err != nil || normalized.SlotID != slot.ID || normalized.Attempt != attempt {
-		return SlotWorkflowV3Result{}, fmt.Errorf("staged review returned an invalid slot result")
-	}
-	return SlotWorkflowV3Result{Published: normalized, Status: imageagent.SlotStatusAccepted, EffectPhase: imageagent.SlotEffectV3PublicationComplete}, nil
-}
-
 func (o *workflowEffectOwner) persistRunState(
 	ctx workflow.Context,
 	input WorkflowInput,
@@ -1072,63 +1049,33 @@ func (s *workflowUpdateState) applyRetrySlot(ctx workflow.Context, signal RetryS
 	index := slotIndex(s.input.Plan, signal.SlotID)
 	if record.phase == updatePhaseRetryExecuteChild {
 		currentAttempt := (*s.results)[index].Execution.Attempt
-		if (*s.results)[index].ErrorCode == imageagent.SlotReviewTransportRequiredCode {
-			if currentAttempt <= 0 {
-				return CommandAcknowledgement{}, fmt.Errorf("review retry is missing its staged attempt")
-			}
-			reviewed, reviewErr := s.effects.reviewStagedSlotV3(ctx, *s.input, index, currentAttempt, signal.ActionID)
-			if reviewErr != nil {
-				code := slotExecutionV3ErrorCode(reviewErr)
-				reviewed = SlotWorkflowV3Result{
-					Published: imageagent.SlotEffectV3PublishedResult{SlotID: signal.SlotID, Attempt: currentAttempt},
-					Status:    imageagent.SlotStatusBlocked, ErrorCode: code,
-					EffectPhase: terminalEffectPhaseForErrorCode(code),
-				}
-			}
-			record.retryResultV3 = &reviewed
-			pendingResult := SlotWorkflowResult{
-				Execution: imageagent.SlotExecutionResult{SlotID: signal.SlotID, Attempt: currentAttempt},
-				Status:    reviewed.Status, ErrorCode: reviewed.ErrorCode, EffectPhase: reviewed.EffectPhase,
-			}
-			if reviewed.Status == imageagent.SlotStatusAccepted {
-				pendingResult.Execution.Attempt = reviewed.Published.Attempt
-				for _, candidate := range reviewed.Published.Candidates {
-					pendingResult.Execution.Candidates = append(pendingResult.Execution.Candidates, imageagent.AssetCandidate{
-						AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset,
-						Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...),
-					})
-				}
-			}
-			record.retryResult = &pendingResult
-			record.phase = updatePhaseRetryPersistResult
+
+		attempt := currentAttempt + 1
+		completionChannel := workflow.NewBufferedChannel(ctx, 1)
+		if s.input.BudgetAuthorization && s.input.BudgetPolicy.AllowsRepairAttempt(attempt-1) != nil {
+			completionChannel.Send(ctx, blockedSlotCompletion(*s.input, index, attempt, imageagent.BudgetExhaustedCode))
 		} else {
-			attempt := currentAttempt + 1
-			completionChannel := workflow.NewBufferedChannel(ctx, 1)
-			if s.input.BudgetAuthorization && s.input.BudgetPolicy.AllowsRepairAttempt(attempt-1) != nil {
-				completionChannel.Send(ctx, blockedSlotCompletion(*s.input, index, attempt, imageagent.BudgetExhaustedCode))
-			} else {
-				startChild(ctx, *s.input, index, attempt, completionChannel)
-			}
-			var completion childCompletion
-			completionChannel.Receive(ctx, &completion)
-			if completion.Failed {
-				completion.Result = SlotWorkflowResult{
-					Execution: imageagent.SlotExecutionResult{SlotID: signal.SlotID, Attempt: attempt},
-					Status:    imageagent.SlotStatusBlocked, ErrorCode: "slot_workflow_failed",
-				}
-				completion.V3Result = &SlotWorkflowV3Result{
-					Published: imageagent.SlotEffectV3PublishedResult{SlotID: signal.SlotID, Attempt: attempt},
-					Status:    imageagent.SlotStatusBlocked, ErrorCode: "slot_workflow_failed",
-				}
-			}
-			pendingResult := completion.Result
-			record.retryResult = &pendingResult
-			if completion.V3Result != nil {
-				pendingV3Result := *completion.V3Result
-				record.retryResultV3 = &pendingV3Result
-			}
-			record.phase = updatePhaseRetryPersistResult
+			startChild(ctx, *s.input, index, attempt, completionChannel)
 		}
+		var completion childCompletion
+		completionChannel.Receive(ctx, &completion)
+		if completion.Failed {
+			completion.Result = SlotWorkflowResult{
+				Execution: imageagent.SlotExecutionResult{SlotID: signal.SlotID, Attempt: attempt},
+				Status:    imageagent.SlotStatusBlocked, ErrorCode: "slot_workflow_failed",
+			}
+			completion.V3Result = &SlotWorkflowV3Result{
+				Published: imageagent.SlotEffectV3PublishedResult{SlotID: signal.SlotID, Attempt: attempt},
+				Status:    imageagent.SlotStatusBlocked, ErrorCode: "slot_workflow_failed",
+			}
+		}
+		pendingResult := completion.Result
+		record.retryResult = &pendingResult
+		if completion.V3Result != nil {
+			pendingV3Result := *completion.V3Result
+			record.retryResultV3 = &pendingV3Result
+		}
+		record.phase = updatePhaseRetryPersistResult
 	}
 	if record.retryResult == nil {
 		return CommandAcknowledgement{}, fmt.Errorf("retry update is missing its deterministic child result")
@@ -1258,7 +1205,7 @@ func (s *workflowUpdateState) applyApproveResults(ctx workflow.Context, signal r
 				return CommandAcknowledgement{}, err
 			}
 		} else {
-			publishInput := PublishApprovedV3ActivityInput{
+			publishInput := PublishAcquisitionMainActivityInput{
 				RunID: s.input.RunID, Identity: s.input.Identity, PlanRevision: s.input.Plan.Revision,
 				CandidateAssetIDs: candidateAssetIDs(s.input.Plan, *s.results),
 				IdempotencyKey:    approvalActionPublicationKey(signal.ActionID, s.input.RunID, s.input.Plan.Revision),
@@ -2224,10 +2171,6 @@ func cancellationResultTerminalized(result SlotWorkflowResult) bool {
 		return result.Status == imageagent.SlotStatusBlocked && result.ErrorCode == imageagent.SlotStagingOutcomeUnknownCode
 	case imageagent.SlotEffectV3PublicationUnknown:
 		return result.Status == imageagent.SlotStatusBlocked && result.ErrorCode == imageagent.SlotPublicationOutcomeUnknownCode
-	case imageagent.SlotEffectV3ReviewRequired:
-		return result.Status == imageagent.SlotStatusBlocked && result.ErrorCode == imageagent.SlotReviewRequiredCode
-	case imageagent.SlotEffectV3ReviewTransportRequired:
-		return result.Status == imageagent.SlotStatusBlocked && result.ErrorCode == imageagent.SlotReviewTransportRequiredCode
 	default:
 		return false
 	}
@@ -2441,9 +2384,9 @@ func findSlot(plan imageagent.Plan, slotID string) imageagent.Slot {
 	return imageagent.Slot{ID: slotID, IdempotencyKey: "unknown-slot"}
 }
 
-func (o *workflowEffectOwner) publishApproved(ctx workflow.Context, input PublishApprovedV3ActivityInput) error {
+func (o *workflowEffectOwner) publishApproved(ctx workflow.Context, input PublishAcquisitionMainActivityInput) error {
 	return o.execute(ctx, "", func(ownerCtx workflow.Context) error {
-		if err := workflow.ExecuteActivity(ownerCtx, activityPublishApprovedV3, input).Get(ownerCtx, nil); err != nil {
+		if err := workflow.ExecuteActivity(ownerCtx, activityPublishAcquisitionMain, input).Get(ownerCtx, nil); err != nil {
 			return fmt.Errorf("publish approved assets: %w", err)
 		}
 		return nil

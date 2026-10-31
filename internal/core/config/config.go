@@ -25,7 +25,6 @@ var (
 type Config struct {
 	StorageCapacity bool            `yaml:"storageCapacity"`
 	Referrals       ReferralsConfig `yaml:"-"`
-	OpenAI          OpenAIConfig    `yaml:"openai"`
 	// BrowserCollector is the opt-in wiring to the standalone anonymous public
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
@@ -42,25 +41,8 @@ type Config struct {
 	WalletTopUp             topupconfig.Config `yaml:"walletTopUp"`
 }
 
-// Only the three retired compact image spellings overlap AutomaticEnv. Keep all
-// other automatic inputs and explicitly bound environment names unchanged.
-type imageClientEnvKeyReplacer struct{}
-
-func (imageClientEnvKeyReplacer) Replace(value string) string {
-	switch value {
-	case "TASK_PROCESSOR_OPENAI.CLIENTS.IMAGE.APIKEY":
-		return "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY"
-	case "TASK_PROCESSOR_OPENAI.CLIENTS.IMAGE.BASEURL":
-		return "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL"
-	case "TASK_PROCESSOR_OPENAI.CLIENTS.IMAGE.APISTYLE":
-		return "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE"
-	default:
-		return strings.ReplaceAll(value, ".", "_")
-	}
-}
-
 func newViper() *viper.Viper {
-	v := viper.NewWithOptions(viper.EnvKeyReplacer(imageClientEnvKeyReplacer{}))
+	v := viper.NewWithOptions(viper.EnvKeyReplacer(strings.NewReplacer(".", "_")))
 	v.SetConfigType("yaml")
 	v.SetEnvPrefix("TASK_PROCESSOR")
 	v.AutomaticEnv()
@@ -247,30 +229,6 @@ func knownEnvBindings() map[string]envBinding {
 		},
 		"imageagent.artifactStore.s3.cosImmutableNonVersionedBucketPolicy": {
 			Primary: "TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_S3_COS_IMMUTABLE_NON_VERSIONED_BUCKET_POLICY",
-		},
-		"openai.apiKey": {
-			Primary: "TASK_PROCESSOR_OPENAI_API_KEY",
-		},
-		"openai.model": {
-			Primary: "TASK_PROCESSOR_OPENAI_MODEL",
-		},
-		"openai.baseURL": {
-			Primary: "TASK_PROCESSOR_OPENAI_BASE_URL",
-		},
-		"openai.clients.image.apiKey": {
-			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY",
-		},
-		"openai.clients.image.baseURL": {
-			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL",
-		},
-		"openai.clients.image.apiStyle": {
-			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE",
-		},
-		"openai.clients.image.model": {
-			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_MODEL",
-		},
-		"openai.clients.image.timeout": {
-			Primary: "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_TIMEOUT",
 		},
 		"database.host": {
 			Primary: "TASK_PROCESSOR_DATABASE_HOST",

@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"task-processor/internal/shared/aiidentity"
 	"testing"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	_ "modernc.org/sqlite"
 	"task-processor/internal/aicapability"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/openai"
+
+	_ "modernc.org/sqlite"
 )
 
 func TestTitleCredentialProvisionWritesOnlyTheAdmittedOrganizationRow(t *testing.T) {
@@ -80,7 +82,7 @@ func TestTitleCredentialProvisionWritesOnlyTheAdmittedOrganizationRow(t *testing
 	if err != nil || org == nil || org.Enabled {
 		t.Fatalf("disable did not persist = %+v, %v", org, err)
 	}
-	selected, err := openai.NewOrganizationOnlyCredentialResolver(db).ResolveClientConfig(openai.WithIdentity(context.Background(), openai.Identity{TenantID: "org"}), "text", nil)
+	selected, err := openai.NewOrganizationOnlyCredentialResolver(db).ResolveClientConfig(aiidentity.WithIdentity(context.Background(), aiidentity.Identity{TenantID: "org"}), "text")
 	if selected != nil || !errors.Is(err, openai.ErrClientConfigurationUnavailable) {
 		t.Fatalf("disabled organization fell back to member: %+v, %v", selected, err)
 	}

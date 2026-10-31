@@ -1,13 +1,11 @@
 package tests
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,7 +16,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/serviceerror"
@@ -28,21 +25,26 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"task-processor/internal/ai"
 	aistore "task-processor/internal/aicapability/store"
+	policyassembly "task-processor/internal/app/imageagentpolicy"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	"task-processor/internal/authidentity"
 	zitadel "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
+	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/objectstore"
 	imagestore "task-processor/internal/imageagent/store"
 	imagetemporal "task-processor/internal/imageagent/temporal"
 	imagetools "task-processor/internal/imageagent/tools"
+	"task-processor/internal/integration/grsai"
 	openai "task-processor/internal/integration/openai"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	platformtemporal "task-processor/internal/platform/temporal"
 	"task-processor/internal/product/catalog"
+	productimage "task-processor/internal/product/image"
 	"task-processor/internal/workbenchcontext"
 )
 
@@ -278,8 +280,8 @@ func (c scope339Catalog) Resolve(_ context.Context, scope imageagent.AssetCatalo
 
 func scope339StartInput() imageagent.StartRunInput {
 	return imageagent.StartRunInput{
-		RunID: "run339", BusinessTaskID: "catalog-input", TargetPlatform: "shein",
-		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
+		RunID: "run339", BusinessTaskID: "catalog-input", TargetPlatform: "product",
+		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Mode:               imageagent.RunModeManual, IdempotencyKey: "run-key339", MaxConcurrentSlots: 1,
 		Budget: imageagent.Budget{MaxImages: 12, MaxAgentSteps: 20, MaxModelCalls: 30, MaxRepairAttemptsPerSlot: 2, MaxElapsed: 500 * time.Second,
 			EnabledLimits: imageagent.BudgetLimitImages | imageagent.BudgetLimitAgentSteps | imageagent.BudgetLimitModelCalls | imageagent.BudgetLimitRepairAttemptsPerSlot | imageagent.BudgetLimitElapsed},
@@ -442,15 +444,18 @@ func TestOrganizationRealTemporalImageBudgetDeniesBeforeFirstProvider(t *testing
 	var providerCalls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { providerCalls.Add(1) }))
 	defer provider.Close()
-	logger := logrus.New()
-	manager := review334Manager(t, f.db, provider.URL, logger)
-	capabilities, err := imageworker.BuildOrganizationImageCapabilities(manager, f.db, logger)
+	profiles, err := policyassembly.LoadEmbeddedResolver()
 	require.NoError(t, err)
-	executor := imagetools.NewProductImageSlotExecutor(imagetools.Dependencies{
-		SubjectExtractor: capabilities.SubjectExtractor, WhiteBackgroundRenderer: capabilities.WhiteBackgroundRenderer,
-		SceneRenderer: capabilities.SceneRenderer, Reviewer: capabilities.Reviewer,
-		UsageQuoter: capabilities.UsageQuoter, ProfileResolver: capabilities.ProfileResolver,
-	})
+	providerAdapter, err := grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{
+		Client: grsai.NewClient(grsai.Config{APIKey: "synthetic-only", Model: "gpt-image-2-vip", SubmitURL: provider.URL, MaxAttempts: 1}), ImageModel: "gpt-image-2-vip", RouteReference: "fixture-route", CredentialReference: "fixture-credential", ConfigurationVersion: "fixture-version",
+		Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
+			return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2-vip", RouteReference: "fixture-route", CredentialReference: "fixture-credential", ConfigurationVersion: "fixture-version", PricingVersion: "fixture-price"})
+		},
+	}, func(context.Context, grsai.GenerationObservation) error { return nil })
+	require.NoError(t, err)
+	white, err := productimage.NewSourceWhiteBackgroundCapability(providerAdapter)
+	require.NoError(t, err)
+	executor := imagetools.NewSourceGenerationExecutor(imagetools.SourceGenerationDependencies{WhiteBackground: white, UsageQuoter: providerAdapter, ProfileResolver: profiles})
 	repository := imagestore.NewOrganizationRepository(f.db)
 	authorizer := imageworker.OrganizationExecutionAuthorizer{Client: f.authClient, ServiceToken: func(context.Context) (string, error) { return "service339", nil }, ProjectID: "project", Authorizer: f.auth}
 	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{
@@ -469,7 +474,7 @@ func TestOrganizationRealTemporalImageBudgetDeniesBeforeFirstProvider(t *testing
 	require.NoError(t, worker.Start())
 	defer worker.Stop()
 	request := scope339StartInput()
-	request.Budget.MaxImages = 1
+	request.Budget.MaxImages = 0
 	request.RunID = "run487-" + uuid.NewString()[:8]
 	request.TargetPlatform = "product"
 	request.ImagePolicyContext = imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}
@@ -487,8 +492,9 @@ func TestOrganizationRealTemporalImageBudgetDeniesBeforeFirstProvider(t *testing
 		projection, getErr := repository.GetProjection(ctx, scope)
 		require.NoError(t, getErr)
 		if projection.Run.Status == imageagent.RunStatusBlocked || projection.Run.Status == imageagent.RunStatusFailed {
-			require.Zero(t, providerCalls.Load(), "quota must deny before first Extract provider dispatch")
+			require.Zero(t, providerCalls.Load(), "quota must deny before current source-edit dispatch")
 			require.Equal(t, imageagent.RunStatusBlocked, projection.Run.Status)
+			require.Equal(t, imageagent.BudgetExhaustedCode, projection.Run.Block.Code)
 			break
 		}
 		select {
@@ -517,13 +523,9 @@ func scope339AssertEffectMode(t *testing.T, owner, other imageagent.Repository, 
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	_, err = wrong.CommitSlotStagedV3(ctx, reservation, "controlled-fingerprint")
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
-	_, err = wrong.RecordSlotReviewOutcomeV3(ctx, imageagent.SlotReviewUsageReservation{Identity: id}, imageagent.SlotReviewOutcomeNeedsHuman)
-	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	_, err = wrong.BlockSlotEffectV3(ctx, imageagent.SlotEffectV3BlockTransition{Reservation: reservation, Phase: imageagent.SlotEffectV3RecoveryBlocked, Code: imageagent.SlotRecoveryBlockedCode})
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	_, err = wrong.(imageagent.RecoveryBlockedSlotEffectV3Repository).RestoreRecoveryBlockedEffectV3(ctx, reservation)
-	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
-	_, err = wrong.(imageagent.ReviewRetrySlotEffectV3Repository).ResumeReviewRetrySlotV3(ctx, reservation)
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	unchanged, err := proper.GetSlotExternalEffectV3(ctx, id)
 	require.NoError(t, err)
@@ -566,28 +568,17 @@ func TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver(t *tes
 	provider := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
 	defer provider.Close()
 	credentials := openai.NewGormCredentialResolver(f.db)
-	cfg := openai.NewClientConfig("synthetic-B", "review-test", provider.URL+"/v1", 1)
-	for _, name := range []string{"default", "image_gpt_image_2"} {
-		require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "B", UserID: "actor", ClientName: name, APIKey: "synthetic-B", BaseURL: provider.URL + "/v1", Model: "review-test", Enabled: true, TimeoutSecond: 1}))
-	}
-	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}})
+	require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "B", ClientName: "image_gpt_image_2", APIKey: "synthetic-B", BaseURL: provider.URL, APIStyle: "grsai", Model: "gpt-image-2-vip", Enabled: true, TimeoutSecond: 1}))
+	reader, err := imageworker.NewImageGenerationQuoteReader(f.db, config.ImageAgentGenerationConfig{PriceVersion: "fixture-price", PointsPerImage: 1})
 	require.NoError(t, err)
-	_, err = imageworker.BuildOrganizationImageCapabilities(manager, f.db, logrus.New())
-	require.NoError(t, err)
-	// This supplemental negative matrix deliberately creates mismatched contexts
-	// to test the App adapter. It is not the full-chain scope evidence above.
-	for _, verified := range []authidentity.AuthenticatedIdentity{
-		{}, {TenantID: "A", UserID: "actor", HomeOrganizationID: "A"},
-		{TenantID: "B", UserID: "other", EffectiveOrganizationID: "B"},
-		{TenantID: "C", UserID: "actor", EffectiveOrganizationID: "C"},
-	} {
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "B", UserID: "actor", MemberID: "member-B", RunID: "run339", BusinessTaskID: "catalog-input"}
+	for _, verified := range []authidentity.AuthenticatedIdentity{{}, {TenantID: "A", UserID: "actor", HomeOrganizationID: "A"}, {TenantID: "B", UserID: "other", EffectiveOrganizationID: "B"}, {TenantID: "C", UserID: "actor", EffectiveOrganizationID: "C"}} {
 		ctx := authidentity.WithAuthenticatedIdentity(context.Background(), verified)
-		ctx = openai.WithIdentity(ctx, openai.Identity{TenantID: "B", UserID: "actor"})
-		_, err := manager.ResolveEffectiveClientRoute(ctx, "default")
-		require.ErrorIs(t, err, openai.ErrClientConfigurationUnavailable)
+		_, err := reader.ReadImageGenerationQuote(ctx, identity, nil)
+		require.ErrorIs(t, err, imageagent.ErrIdentityRequired)
 	}
-	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "B", UserID: "actor", HomeOrganizationID: "A", EffectiveOrganizationID: "B"})
-	_, err = manager.ResolveEffectiveClientRoute(ctx, "default")
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "B", UserID: "actor", HomeOrganizationID: "A", EffectiveOrganizationID: "B", EffectiveMemberID: "member-B"})
+	_, err = reader.ReadImageGenerationQuote(ctx, identity, nil)
 	require.NoError(t, err)
 	require.Zero(t, calls.Load())
 }
@@ -601,12 +592,12 @@ func (f *scope339Fixture) verifyRecoveryCommand(t *testing.T) {
 	next.Run.Status = imageagent.RunStatusBlocked
 	next.Run.CurrentNode = "blocked"
 	next.Run.Version++
-	next.Run.Block = &imageagent.Block{Code: imageagent.SlotReviewRequiredCode, SlotID: "slot1"}
+	next.Run.Block = &imageagent.Block{Code: imageagent.SlotStagingOutcomeUnknownCode, SlotID: "slot1"}
 	next.Slots = append([]imageagent.SlotProjection(nil), current.Slots...)
 	next.Slots[0].Slot.Status = imageagent.SlotStatusBlocked
 	next.Slots[0].Attempt = 1
-	next.Slots[0].ErrorCode = imageagent.SlotReviewRequiredCode
-	_, err = repo.CommitProjection(context.Background(), imageagent.ProjectionCommit{Scope: scope, CommitID: "scope339-blocked", ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, EventType: "run.blocked", EventPayload: json.RawMessage(`{}`), RunMutation: &imageagent.RunMutation{Status: next.Run.Status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: next.Run.ActivePlanRevision, Block: next.Run.Block}, SlotMutations: []imageagent.SlotProjectionMutation{{PlanRevision: 1, Projection: next.Slots[0], Result: imageagent.SlotResult{SlotID: "slot1", Attempt: 1, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotReviewRequiredCode}, Attempt: imageagent.StepAttempt{TenantID: "B", OwnerUserID: "actor", RunID: "run339", PlanRevision: 1, SlotID: "slot1", Attempt: 1, Node: "execute_slot", IdempotencyKey: "scope339-blocked-attempt", Outcome: "blocked", ErrorCategory: imageagent.SlotReviewRequiredCode}}}})
+	next.Slots[0].ErrorCode = imageagent.SlotStagingOutcomeUnknownCode
+	_, err = repo.CommitProjection(context.Background(), imageagent.ProjectionCommit{Scope: scope, CommitID: "scope339-blocked", ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, EventType: "run.blocked", EventPayload: json.RawMessage(`{}`), RunMutation: &imageagent.RunMutation{Status: next.Run.Status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: next.Run.ActivePlanRevision, Block: next.Run.Block}, SlotMutations: []imageagent.SlotProjectionMutation{{PlanRevision: 1, Projection: next.Slots[0], Result: imageagent.SlotResult{SlotID: "slot1", Attempt: 1, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotStagingOutcomeUnknownCode}, Attempt: imageagent.StepAttempt{TenantID: "B", OwnerUserID: "actor", RunID: "run339", PlanRevision: 1, SlotID: "slot1", Attempt: 1, Node: "execute_slot", IdempotencyKey: "scope339-blocked-attempt", Outcome: "blocked", ErrorCategory: imageagent.SlotStagingOutcomeUnknownCode}}}})
 	require.NoError(t, err)
 	ctx, err := f.context(t, "actor", "B", authz.PermissionImageAgentWrite)
 	require.NoError(t, err)
@@ -638,43 +629,17 @@ func (s *scope339Artifacts) EnsureStaged(context.Context, objectstore.PreparedSl
 }
 
 type scope339NoPublication struct {
-	imageagent.ApprovedAssetPublisherV3
+	imageagent.AcquisitionMainPublisher
 }
 
 func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.WorkflowInput) {
-	var logs bytes.Buffer
-	logger := logrus.New()
-	logger.SetOutput(&logs)
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		f.providerCalls.Add(1)
-		require.Equal(t, "Bearer synthetic-B", r.Header.Get("Authorization"))
-		require.Equal(t, "/v1/chat/completions", r.URL.Path)
-		body, _ := io.ReadAll(r.Body)
-		require.Contains(t, string(body), "/B.png")
-		require.NotContains(t, string(body), "/A.png")
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"id":"scope339-review","model":"review-test","choices":[{"index":0,"message":{"role":"assistant","content":"{\"score\":0.2,\"needs_human_review\":true,\"reasons\":[\"controlled review\"]}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":4,"total_tokens":7}}`)
-	}))
-	defer provider.Close()
-	credentials := openai.NewGormCredentialResolver(f.db)
-	for _, org := range []string{"A"} {
-		for _, name := range []string{"default", "image_gpt_image_2"} {
-			require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: org, UserID: "actor", ClientName: name, APIKey: "synthetic-" + org, BaseURL: provider.URL + "/v1", Model: "review-test", Enabled: true, TimeoutSecond: 1}))
-		}
-	}
-	cfg := openai.NewClientConfig("static-must-not-be-used", "review-test", provider.URL+"/v1", 1)
-	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}})
-	require.NoError(t, err)
-	capabilities, err := imageworker.BuildOrganizationImageCapabilities(manager, f.db, logger)
-	require.NoError(t, err)
-	executor := imagetools.NewProductImageSlotExecutor(imagetools.Dependencies{SubjectExtractor: capabilities.SubjectExtractor, WhiteBackgroundRenderer: capabilities.WhiteBackgroundRenderer, SceneRenderer: capabilities.SceneRenderer, Reviewer: capabilities.Reviewer, UsageQuoter: capabilities.UsageQuoter, ProfileResolver: capabilities.ProfileResolver})
 	repo := imagestore.NewOrganizationRepository(f.db)
 	effects := repo.(imageagent.SlotExternalEffectV3Repository)
 	artifacts := &scope339Artifacts{}
 	authorizer := imageworker.OrganizationExecutionAuthorizer{Client: f.authClient, ServiceToken: func(context.Context) (string, error) { return "service339", nil }, ProjectID: "project", Authorizer: f.auth}
-	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repo, PublisherV3: scope339NoPublication{}, StagedSlotExecutor: executor, ArtifactStore: artifacts, ExecutionAuthorizer: authorizer})
+	activities, err := imagetemporal.NewActivities(imagetemporal.ActivityDependencies{Repository: repo, PublisherV3: scope339NoPublication{}, StagedSlotExecutor: imageworker.SourceMainExecutor{}, ArtifactStore: artifacts, ExecutionAuthorizer: authorizer})
 	require.NoError(t, err)
-	input := imagetemporal.ExecuteSlotV3ActivityInput{RunID: wf.RunID, Identity: wf.Identity, PlanRevision: wf.Plan.Revision, Slot: wf.Plan.Slots[0], Attempt: 1, IdempotencyKey: "review339", BudgetAuthorization: true, BudgetPolicy: wf.BudgetPolicy, ReviewActionID: "review-action339", TargetPlatform: wf.TargetPlatform, ImagePolicyContext: wf.ImagePolicyContext, AssetCatalog: wf.AssetCatalog}
+	input := imagetemporal.ExecuteSlotV3ActivityInput{RunID: wf.RunID, Identity: wf.Identity, PlanRevision: wf.Plan.Revision, Slot: wf.Plan.Slots[0], Attempt: 1, IdempotencyKey: "staging339", BudgetAuthorization: true, BudgetPolicy: wf.BudgetPolicy, TargetPlatform: wf.TargetPlatform, ImagePolicyContext: wf.ImagePolicyContext, AssetCatalog: wf.AssetCatalog}
 	// Capture and decode the actual Activity envelope too; no authidentity or
 	// aiidentity context is inserted by this test at the consumer end.
 	data, err := converter.GetDefaultDataConverter().ToPayloads(input)
@@ -687,7 +652,7 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 	// Review quoting. The actual Activity obtains and validates its own quote.
 	reservation.Policy = wf.BudgetPolicy
 	maximum := imageagent.UsageVector{Images: 1, AgentSteps: 1}
-	reservation.Quote = imageagent.SlotUsageQuote{Fingerprint: "existing-staging-quote339", Maximum: maximum, Operations: []imageagent.SlotUsageOperation{{Name: "render_scene", Fingerprint: "existing-staging-operation339", MaximumOutputs: 1, Maximum: maximum}}}
+	reservation.Quote = imageagent.SlotUsageQuote{Fingerprint: "existing-staging-quote339", Maximum: maximum, Operations: []imageagent.SlotUsageOperation{{Name: productimage.SourceWhiteBackgroundOperation, Fingerprint: "existing-staging-operation339", MaximumOutputs: 1, Maximum: maximum}}}
 	_, claimed, err := effects.ReserveSlotProviderV3(context.Background(), reservation)
 	require.NoError(t, err)
 	require.True(t, claimed)
@@ -695,7 +660,7 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 	hash := hex.EncodeToString(sum[:])
 	owner, err := imageagent.ArtifactOwnerKey(input.Identity.UserID)
 	require.NoError(t, err)
-	manifest := imageagent.StagingManifest{Assets: []imageagent.StagedAssetRef{{ObjectKey: fmt.Sprintf("image-agent/staging/%s/%s/%s/%d/%s/1/0-%s.png", input.Identity.TenantID, owner, input.RunID, input.PlanRevision, input.Slot.ID, hash), SHA256: hash, SizeBytes: 35, ContentType: "image/png", Width: 1200, Height: 1200, SourceAssetID: input.Slot.SourceAssetIDs[0], Operations: []string{"render_scene_model"}}}}
+	manifest := imageagent.StagingManifest{Assets: []imageagent.StagedAssetRef{{ObjectKey: fmt.Sprintf("image-agent/staging/%s/%s/%s/%d/%s/1/0-%s.png", input.Identity.TenantID, owner, input.RunID, input.PlanRevision, input.Slot.ID, hash), SHA256: hash, SizeBytes: 35, ContentType: "image/png", Width: 1200, Height: 1200, SourceAssetID: input.Slot.SourceAssetIDs[0], Operations: []string{productimage.SourceWhiteBackgroundOperation}}}}
 	_, err = effects.PrepareSlotStagingV3(context.Background(), reservation, manifest)
 	require.NoError(t, err)
 	for _, tc := range []struct {
@@ -713,35 +678,30 @@ func (f *scope339Fixture) verifyActivity(t *testing.T, wf imagetemporal.Workflow
 		t.Run(tc.name, func(t *testing.T) {
 			bad := input
 			tc.mutate(&bad)
-			_, err := activities.ReviewStagedSlotV3(context.Background(), bad)
+			_, err := activities.ExecuteSlotV3(context.Background(), bad)
 			require.Error(t, err)
 			require.Zero(t, f.providerCalls.Load())
 			require.Zero(t, artifacts.reads.Load())
 		})
 	}
 	f.iam.revoked.Store(true)
-	_, err = activities.ReviewStagedSlotV3(context.Background(), input)
+	_, err = activities.ExecuteSlotV3(context.Background(), input)
 	require.Error(t, err)
 	f.iam.revoked.Store(false)
 	f.iam.failed.Store(true)
-	_, err = activities.ReviewStagedSlotV3(context.Background(), input)
+	_, err = activities.ExecuteSlotV3(context.Background(), input)
 	require.Error(t, err)
 	f.iam.failed.Store(false)
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = activities.ReviewStagedSlotV3(canceled, input)
+	_, err = activities.ExecuteSlotV3(canceled, input)
 	require.Error(t, err)
 	expired, stop := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	defer stop()
-	_, err = activities.ReviewStagedSlotV3(expired, input)
+	_, err = activities.ExecuteSlotV3(expired, input)
 	require.Error(t, err)
 	require.Zero(t, f.providerCalls.Load())
 	require.Zero(t, artifacts.reads.Load())
-	// The old recorded Review success/failure/Token matrix retires with its
-	// owner. Current credential routing is checked directly by
-	// TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver;
-	// the production closed Review seam remains covered in the worker tests.
-
 }
 
 func TestServiceAuthorizationRequiresExactOrganization(t *testing.T) {
@@ -767,21 +727,4 @@ func TestServiceAuthorizationRequiresExactOrganization(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, grants)
 	require.Equal(t, 1, calls)
-}
-
-func review334Manager(t *testing.T, db *gorm.DB, endpoint string, logger *logrus.Logger) *openai.Manager {
-	t.Helper()
-	credentials := openai.NewGormCredentialResolver(db)
-	for _, org := range []string{"B", "C"} {
-		for _, name := range []string{"default", "image_gpt_image_2"} {
-			require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: org, UserID: "actor", ClientName: name, APIKey: "SENSITIVE-KEY-" + org, BaseURL: endpoint + "/v1", Model: "review-test", Enabled: true, TimeoutSecond: 1}))
-		}
-	}
-	cfg := openai.NewClientConfig("SENSITIVE-STATIC", "review-test", endpoint+"/v1", 1)
-	cfg.MaxRetries = 3
-	cfg.RetryDelay = time.Millisecond
-	cfg.Logger = openai.AdaptLogrus(logrus.NewEntry(logger))
-	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{"default": cfg, "image_gpt_image_2": cfg}, Logger: cfg.Logger})
-	require.NoError(t, err)
-	return manager
 }

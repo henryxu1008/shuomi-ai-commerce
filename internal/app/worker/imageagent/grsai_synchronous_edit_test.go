@@ -14,7 +14,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/ai"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/tools"
@@ -22,6 +21,8 @@ import (
 	openai "task-processor/internal/integration/openai"
 	"task-processor/internal/marketplace/imagepolicy"
 	productimage "task-processor/internal/product/image"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSourceOnlyGRSAIAdapterRetainsProvenanceButSendsOnlyExactBytes(t *testing.T) {
@@ -43,10 +44,10 @@ func TestSourceOnlyGRSAIAdapterRetainsProvenanceButSendsOnlyExactBytes(t *testin
 			}))
 			defer server.Close()
 			client := grsai.NewClient(grsai.Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()})
-			provider, err := grsai.NewSynchronousProductImageAdapter(grsai.ProductImageAdapterConfig{
+			provider, err := grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{
 				Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1",
-				Build: func(bound ai.RouteBoundImageGenerator) (grsai.ProductImageProvider, error) {
-					return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2.5", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PricingVersion: "test-only-unpriced", Prompts: openai.DefaultProductImagePrompts(), MaximumSceneOutputs: 1, GeneratedImageFetcher: func(context.Context, string) ([]byte, error) {
+				Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
+					return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2.5", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PricingVersion: "test-only-unpriced", GeneratedImageFetcher: func(context.Context, string) ([]byte, error) {
 						downloads++
 						require.Equal(t, 1, observations)
 						if mode == "download_failure" {
@@ -63,9 +64,9 @@ func TestSourceOnlyGRSAIAdapterRetainsProvenanceButSendsOnlyExactBytes(t *testin
 				return nil
 			})
 			require.NoError(t, err)
-			capability, err := productimage.NewWhiteBackgroundCapability(provider)
+			capability, err := productimage.NewSourceWhiteBackgroundCapability(provider)
 			require.NoError(t, err)
-			executor := tools.NewProductImageSlotExecutor(tools.Dependencies{WhiteBackgroundRenderer: capability, ProfileResolver: synchronousEditProfile{}})
+			executor := tools.NewSourceGenerationExecutor(tools.SourceGenerationDependencies{WhiteBackground: capability, UsageQuoter: provider, ProfileResolver: synchronousEditProfile{}})
 			digest := sha256.Sum256(encoded.Bytes())
 			input := imageagent.SlotExecutionInput{
 				RunID: "run-1", TenantID: "org-1", UserID: "user-1", TargetPlatform: "product", PlanRevision: 1, Attempt: 1, IdempotencyKey: "attempt-1",
@@ -74,7 +75,9 @@ func TestSourceOnlyGRSAIAdapterRetainsProvenanceButSendsOnlyExactBytes(t *testin
 				AssetCatalog:       imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "catalog-image-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/original.png", SourceURL: "https://source.example/original.png", Width: 2, Height: 2}}},
 				ProductContext:     imageagent.ProductContextRef{ProductID: "product-1", Title: "Product"}, SourceBytes: encoded.Bytes(), SourceDigest: hex.EncodeToString(digest[:]),
 			}
-			result, err := executor.GenerateSlot(context.Background(), input)
+			quote, err := executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
+			require.NoError(t, err)
+			result, err := executor.GenerateQuotedSlot(context.Background(), input, quote)
 			require.Equal(t, 1, submits, "render error: %v", err)
 			require.Equal(t, 1, observations)
 			if mode != "success" {

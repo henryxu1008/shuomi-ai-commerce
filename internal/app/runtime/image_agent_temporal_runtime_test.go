@@ -416,6 +416,6 @@ func (runtimeArtifactStore) FinalizeWithProgress(context.Context, imageagent.Sta
 
 type runtimePublisher struct{}
 
-func (runtimePublisher) PublishApprovedV3(context.Context, imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
+func (runtimePublisher) PublishAcquisitionMain(context.Context, imageagent.PublishAcquisitionMainInput) (imageagent.PublicationAcknowledgement, error) {
 	return imageagent.PublicationAcknowledgement{}, nil
 }

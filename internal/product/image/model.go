@@ -47,48 +47,6 @@ type Candidate struct {
 	Metadata GenerationMetadata
 }
 
-type ExtractRequest struct {
-	Source        Asset
-	Product       ProductContext
-	Authorization *UsageQuote
-}
-
-type RenderRequest struct {
-	Source  Asset
-	Subject Candidate
-	// SourceOnly requests one edit of Source, not an extracted-subject render.
-	// Subject must be absent in this mode.
-	SourceOnly    bool
-	SourceBytes   []byte `json:"-"`
-	Product       ProductContext
-	Authorization *UsageQuote
-}
-
-const SourceWhiteBackgroundOperation = "render_source_white_background"
-
-type SceneRequest struct {
-	Source          Asset
-	Product         ProductContext
-	Options         SceneOptions
-	ProfileName     string
-	StyleReferences []Asset
-	MaximumOutputs  int
-	Authorization   *UsageQuote
-}
-
-type ReviewRequest struct {
-	Product       ProductContext
-	Sources       []Asset
-	Candidates    []Candidate
-	Authorization *UsageQuote
-}
-
-type Review struct {
-	Score            float64
-	NeedsHumanReview bool
-	Reasons          []string
-}
-
 type UsageQuoteRequest struct {
 	Operation        string
 	InputFingerprint string

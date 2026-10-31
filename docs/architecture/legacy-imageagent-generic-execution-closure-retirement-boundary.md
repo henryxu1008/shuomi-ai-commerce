@@ -1,3 +1,7 @@
+> 实施尾部准确补齐T15（仅在用户批准后生效）：在此前T14的194路径上，仅追加 `internal/imageagent/policy_context_test.go`，当前允许上限195（RETIRE40/新22/混合101/其它32）。只将 `validPolicyStartInput`、`withValidPolicy` 两个共享Start fixture的目标/策略由旧SHEIN/us/shoes改为当前product/zz/general；原错误类型、不可变持久化/幂等、hash/JSON及全部其它测试断言逐字保持。分类IMPLEMENTATION_TEST，无生产/workflow/inventory额外变化。以下批准正文完整保留。
+
+> 实施尾部准确补齐（仅在用户批准后生效）：原冻结191路径清单追加三处真实测试尾部，当前允许上限194（RETIRE40/新22/混合100/其它32）；不新增生产行为或兼容层。§5/§6.1追加T14：①退休 `internal/imageagent/temporal/organization_review_quote_test.go`（仅消费已退休模型审核 quote helper）；②`internal/ai/import_boundary_test.go`仅移除旧OpenAI SDK Client的编译保活断言及对应unused import，GRSAI中立合同断言、原源码检查算法/错误处理原样保持；③`cmd/current-application/image_set_worker_test.go`仅将旧全局key空值检查改为Config根OpenAI字段明确缺席（加reflect import），原worker DB owner/角色/上限和其它断言不变。Classification: IMPLEMENTATION_TEST；原§1–§7合同与原文完整保留，workflow/inventory无额外变化，#301 OPEN。
+
 # 旧 ImageAgent 通用执行与 OpenAI 装配完整退休边界
 
 > Design Basis: **Independent Architecture**；当前 **DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。用户仅授权先设计。起始 main `fa6a0fbbe68ade4579b21cdefb2b776dc4afb149`；候选前同步 main `f3dbd6a6f0047e128db9f52431489c312018a7e9`（#1031：只与本批 README 重叠，当前消费者/未来闭包无变化，完整保留新增TikTok索引）。本次提交只新增本设计及两个导航，不修改生产、测试、部署、workflow 或 inventory。一个主要 PR，设计确认后整批实施，不机械拆批。

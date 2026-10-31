@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"task-processor/internal/shared/aiidentity"
+
 	"gorm.io/gorm"
 )
 
@@ -30,19 +32,11 @@ func (AIClientCredential) TableName() string {
 }
 
 type GormCredentialResolver struct {
-	db                *gorm.DB
-	organizationScope bool
-	organizationOnly  bool
+	db *gorm.DB
 }
 
-func NewOrganizationCredentialResolver(db *gorm.DB) *GormCredentialResolver {
-	return &GormCredentialResolver{db: db, organizationScope: true}
-}
-
-// NewOrganizationOnlyCredentialResolver selects only the organization row.
-// It is used when a member must not override a deployment-admitted route.
 func NewOrganizationOnlyCredentialResolver(db *gorm.DB) *GormCredentialResolver {
-	return &GormCredentialResolver{db: db, organizationScope: true, organizationOnly: true}
+	return &GormCredentialResolver{db: db}
 }
 
 func NewGormCredentialResolver(db *gorm.DB) *GormCredentialResolver {
@@ -114,42 +108,23 @@ func (r *GormCredentialResolver) GetCredential(ctx context.Context, tenantID, us
 	return &credential, nil
 }
 
-func (r *GormCredentialResolver) ResolveClientConfig(ctx context.Context, clientName string, fallback *ClientConfig) (*ResolvedClientConfig, error) {
+func (r *GormCredentialResolver) ResolveClientConfig(ctx context.Context, clientName string) (*ResolvedClientConfig, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("ai credential resolver database is nil")
 	}
-	identity := IdentityFromContext(ctx)
-	if r.organizationScope {
-		if identity.TenantID == "" || (!r.organizationOnly && identity.UserID == "") {
-			return nil, ErrClientConfigurationUnavailable
-		}
-	}
+	identity := aiidentity.FromContext(ctx)
 	tenantID := strings.TrimSpace(identity.TenantID)
-	userID := strings.TrimSpace(identity.UserID)
-	clientName = normalizeClientName(clientName)
-	if tenantID == "" || clientName == "" {
-		return nil, nil
+	if tenantID == "" {
+		return nil, ErrClientConfigurationUnavailable
 	}
-	if userID != "" && !r.organizationOnly {
-		credential, err := r.findCredential(ctx, tenantID, userID, clientName)
-		if err != nil {
-			return nil, err
-		}
-		if credential != nil {
-			return credential.toResolvedClientConfig(fallback), nil
-		}
-	}
-	credential, err := r.findCredential(ctx, tenantID, "", clientName)
+	credential, err := r.findCredential(ctx, tenantID, "", normalizeClientName(clientName))
 	if err != nil {
 		return nil, err
 	}
 	if credential == nil {
-		if r.organizationScope {
-			return nil, ErrClientConfigurationUnavailable
-		}
-		return nil, nil
+		return nil, ErrClientConfigurationUnavailable
 	}
-	return credential.toResolvedClientConfig(fallback), nil
+	return credential.toResolvedClientConfig(), nil
 }
 
 func (r *GormCredentialResolver) findCredential(ctx context.Context, tenantID, userID, clientName string) (*AIClientCredential, error) {
@@ -166,44 +141,12 @@ func (r *GormCredentialResolver) findCredential(ctx context.Context, tenantID, u
 	return &credential, nil
 }
 
-func (c AIClientCredential) toResolvedClientConfig(fallback *ClientConfig) *ResolvedClientConfig {
-	cfg := cloneClientConfig(fallback)
-	if cfg == nil {
-		cfg = &ClientConfig{}
-	}
-	if c.APIKey != "" {
-		cfg.APIKey = c.APIKey
-	}
-	if c.BaseURL != "" {
-		cfg.BaseURL = c.BaseURL
-	}
-	if c.Model != "" {
-		cfg.Model = c.Model
-	}
-	if c.APIStyle != "" {
-		cfg.APIStyle = c.APIStyle
-	}
+func (c AIClientCredential) toResolvedClientConfig() *ResolvedClientConfig {
+	cfg := &ClientConfig{APIKey: c.APIKey, BaseURL: c.BaseURL, Model: c.Model, APIStyle: c.APIStyle}
 	if c.TimeoutSecond > 0 {
 		cfg.Timeout = time.Duration(c.TimeoutSecond) * time.Second
 	}
-	if cfg.MaxRetries == 0 && fallback != nil {
-		cfg.MaxRetries = fallback.MaxRetries
-	}
-	if cfg.RetryDelay == 0 && fallback != nil {
-		cfg.RetryDelay = fallback.RetryDelay
-	}
-	return &ResolvedClientConfig{
-		CacheKey: CredentialReference(c),
-		Config:   cfg,
-	}
-}
-
-func cloneClientConfig(cfg *ClientConfig) *ClientConfig {
-	if cfg == nil {
-		return nil
-	}
-	cloned := *cfg
-	return &cloned
+	return &ResolvedClientConfig{CacheKey: CredentialReference(c), Config: cfg}
 }
 
 func normalizeClientName(name string) string {
@@ -212,4 +155,10 @@ func normalizeClientName(name string) string {
 		return "default"
 	}
 	return name
+}
+
+// NewOrganizationCredentialResolver retains the current generation/quote entry;
+// ResolveClientConfig always selects the organization row, never a member/global fallback.
+func NewOrganizationCredentialResolver(db *gorm.DB) *GormCredentialResolver {
+	return &GormCredentialResolver{db: db}
 }

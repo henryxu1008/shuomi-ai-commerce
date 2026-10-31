@@ -1,3 +1,5 @@
+> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](../../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
+
 > #301 / #1026 USER_CONFIRMED：[用户确认的旧远程联调与专属镜像完整退休边界](../../architecture/legacy-remote-debug-image-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1）仅替代本批七对象的旧KEEP/现行操作含义：四个旧PG/Redis/RabbitMQ/Temporal转发与watcher、SHEIN runtime base构建推送脚本/Dockerfile及专属Pester整批源退，三项原检查精确转退休保护；其它检查不变。Chromium/Playwright安装、非目标Dockerfile、当前标准构建/全部能力与Store观察同步保持，无新EXTRACT/alias/替代工具。不执行旧入口，不停止转发/服务或删除现存镜像、数据、凭据、文件日志或进程；真实外部人工/制品消费者UNKNOWN，运行验收NOT_RUN。workflow/完整inventory/CURRENT/历史计数/ceilings/依赖/保护零改，无试用新前置，#301 OPEN。以下原Git正文/既有顶注/数字/勾选/失败证据逐字保留为历史，不恢复已退SHEIN登录/身份回写。
 
 > #301 / #1025 USER_CONFIRMED：[本批已确认完整退休设计](../../architecture/legacy-task-openai-convenience-closure-retirement-boundary.md)仅替代旧ptr/任务合同的当前保留/迁移目标：record承接实际Actor/纯校验，internal/ai承接单方法审核合同；旧task根和最后消费者退出后的shared/ptr整退。没有兼容alias/第二事实源，原JSON/hash/版本/权限/事务/实际图像采集与Store观察保持；其它阶段/模块不扩范围，workflow/inventory/既有资源不动。以下原计划/数字/勾选完整保留。

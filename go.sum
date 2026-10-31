@@ -514,8 +514,6 @@ github.com/safchain/ethtool v0.4.1 h1:S6mEleTADqgynileXoiapt/nKnatyR6bmIHoF+h2AD
 github.com/safchain/ethtool v0.4.1/go.mod h1:XLLnZmy4OCRTkksP/UiMjij96YmIsBfmBQcs7H6tA48=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
-github.com/sashabaranov/go-openai v1.41.1 h1:zf5tM+GuxpyiyD9XZg8nCqu52eYFQg9OOew0gnIuDy4=
-github.com/sashabaranov/go-openai v1.41.1/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
 github.com/secure-io/sio-go v0.3.1 h1:dNvY9awjabXTYGsTF1PiCySl9Ltofk9GA3VdWlo7rRc=
 github.com/secure-io/sio-go v0.3.1/go.mod h1:+xbkjDzPjwh4Axd07pRKSNriS9SCiYksWnZqdnfpQxs=
 github.com/sethvargo/go-retry v0.4.0 h1:9qy1OoIAxBL+gBYnkTnTnWle5wlfsXQlwRzIbbpdqPw=

@@ -3,40 +3,33 @@ package assetpublication
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
-
 	"task-processor/internal/imageagent"
 	productasset "task-processor/internal/product/asset"
 )
 
-type ProjectionSource interface {
-	GetProjection(context.Context, imageagent.RunScope) (imageagent.RunProjection, error)
-}
-
-type Publisher struct {
+type AcquisitionMainPublisher struct {
 	projections ProjectionSource
 	assets      productasset.Repository
 	publicURLs  imageagent.DurableAssetPublicURLResolver
 	trialURLs   *imageagent.IsolatedTrialGeneratedURLPolicy
 }
 
-func NewPublisher(projections ProjectionSource, assets productasset.Repository, publicURLs imageagent.DurableAssetPublicURLResolver, trial ...*imageagent.IsolatedTrialGeneratedURLPolicy) (*Publisher, error) {
+func NewAcquisitionMainPublisher(projections ProjectionSource, assets productasset.Repository, publicURLs imageagent.DurableAssetPublicURLResolver, trial ...*imageagent.IsolatedTrialGeneratedURLPolicy) (*AcquisitionMainPublisher, error) {
 	if nilValue(projections) || nilValue(assets) || nilValue(publicURLs) || len(trial) > 1 {
 		return nil, fmt.Errorf("image agent projection source, product asset repository, and public URL resolver are required")
 	}
-	publisher := &Publisher{projections: projections, assets: assets, publicURLs: publicURLs}
+	publisher := &AcquisitionMainPublisher{projections: projections, assets: assets, publicURLs: publicURLs}
 	if len(trial) == 1 {
 		publisher.trialURLs = trial[0]
 	}
 	return publisher, nil
 }
 
-// NewV2Publisher keeps only the frozen URL-based Temporal wire while writing
-// to the same product asset repository. It has no ListingKit dependency.
-
-func (p *Publisher) PublishApprovedV3(ctx context.Context, input imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
+// PublishAcquisitionMain commits the approved capture main through the current
+// Product Asset owner and its immutable approval receipt.
+func (p *AcquisitionMainPublisher) PublishAcquisitionMain(ctx context.Context, input imageagent.PublishAcquisitionMainInput) (imageagent.PublicationAcknowledgement, error) {
 	if p == nil || p.projections == nil || p.assets == nil || p.publicURLs == nil {
 		return imageagent.PublicationAcknowledgement{}, imageagent.ErrValidation
 	}
@@ -65,19 +58,14 @@ func (p *Publisher) PublishApprovedV3(ctx context.Context, input imageagent.Publ
 	}
 	return publicationAcknowledgement(commit, input.RunID, input.PlanRevision, digest, receipt), nil
 }
-
-func publicationAcknowledgement(commit productasset.ApprovalCommit, runID string, revision int64, digest string, receipt productasset.ApprovalReceipt) imageagent.PublicationAcknowledgement {
-	return imageagent.PublicationAcknowledgement{
-		ProductKey: commit.ProductKey, RunID: runID, PlanRevision: revision,
-		ResultDigest: digest, ActionID: receipt.ActionID, AssetIDs: append([]string(nil), receipt.AssetIDs...),
-	}
-}
-
-func (p *Publisher) approvalCommit(projection imageagent.RunProjection, input imageagent.PublishApprovedV3Input) (productasset.ApprovalCommit, string, error) {
+func (p *AcquisitionMainPublisher) approvalCommit(projection imageagent.RunProjection, input imageagent.PublishAcquisitionMainInput) (productasset.ApprovalCommit, string, error) {
 	if projection.Run.TenantID != input.TenantID || projection.Run.UserID != input.UserID || projection.Run.ID != input.RunID ||
 		projection.Run.Status != imageagent.RunStatusAwaitingFinalApproval || projection.Run.ActivePlanRevision != input.PlanRevision ||
 		projection.Plan.Revision != input.PlanRevision || len(projection.Plan.Slots) != len(projection.Slots) {
 		return productasset.ApprovalCommit{}, "", imageagent.ErrRevisionConflict
+	}
+	if err := imageagent.ValidateAcquisitionMainPlan(projection.Run.TargetPlatform, projection.Run.ImagePolicyContext, projection.Plan); err != nil {
+		return productasset.ApprovalCommit{}, "", err
 	}
 	product, err := imageagent.NormalizeProductContextRef(projection.AssetCatalog.ProductContext)
 	if err != nil || product.ProductID == "" {
@@ -99,8 +87,11 @@ func (p *Publisher) approvalCommit(projection imageagent.RunProjection, input im
 	mainAssets := 0
 	for slotIndex, declared := range projection.Plan.Slots {
 		slot := projection.Slots[slotIndex]
-		role, roleErr := approvedRole(declared.Role)
-		if roleErr != nil || slot.Slot.ID != declared.ID || slot.Slot.Role != declared.Role ||
+		role := productasset.RoleMain
+		if declared.Role != imageagent.SlotRoleMain || len(projection.Plan.Slots) != 1 || len(slot.Candidates) != 1 {
+			return productasset.ApprovalCommit{}, "", imageagent.ErrRevisionConflict
+		}
+		if slot.Slot.ID != declared.ID || slot.Slot.Role != declared.Role ||
 			slot.Slot.Status != imageagent.SlotStatusAccepted || slot.Attempt <= 0 || len(slot.Candidates) == 0 {
 			return productasset.ApprovalCommit{}, "", imageagent.ErrRevisionConflict
 		}
@@ -147,36 +138,3 @@ func (p *Publisher) approvalCommit(projection imageagent.RunProjection, input im
 	}
 	return commit, digest, nil
 }
-
-func approvedRole(role imageagent.SlotRole) (productasset.Role, error) {
-	if err := imageagent.ValidateSlotRole(role); err != nil {
-		return "", err
-	}
-	if role == imageagent.SlotRoleMain {
-		return productasset.RoleMain, nil
-	}
-	return productasset.RoleGallery, nil
-}
-
-func canonical(value string) bool {
-	return value != "" && strings.TrimSpace(value) == value
-}
-
-func nilValue(value any) bool {
-	if value == nil {
-		return true
-	}
-	reflected := reflect.ValueOf(value)
-	switch reflected.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return reflected.IsNil()
-	default:
-		return false
-	}
-}
-
-func sourceSnapshotVersion(catalog imageagent.AssetCatalog) uint64 {
-	return catalog.ProductContext.SourceSnapshotVersion
-}
-
-var _ imageagent.ApprovedAssetPublisherV3 = (*Publisher)(nil)

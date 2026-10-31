@@ -9,11 +9,9 @@ import (
 
 	"task-processor/internal/ai"
 	"task-processor/internal/integration/grsai"
-	"task-processor/internal/integration/openai"
 )
 
 var (
-	_ ai.ImageGenerator = (*openai.Client)(nil)
 	_ ai.ImageGenerator = (*grsai.Client)(nil)
 )
 

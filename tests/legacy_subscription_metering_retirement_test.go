@@ -73,7 +73,7 @@ func TestLegacySubscriptionMeteringClosureIsRetired(t *testing.T) {
 			}
 		}
 	}
-	for _, path := range []string{"internal/integration/orgresource/balance_read.go", "internal/storecenter/service_summary.go", "internal/app/httpapi/unified_commercial_read.go", "internal/app/worker/imageagent/organization_main_admission.go", "internal/aicapability/store/gorm_invocation_recorder.go", "internal/app/runtime/currentapplication/store_observations.go", "internal/integration/shein/official_observations.go"} {
+	for _, path := range []string{"internal/integration/orgresource/balance_read.go", "internal/storecenter/service_summary.go", "internal/app/httpapi/unified_commercial_read.go", "internal/app/worker/imageagent/source_main_executor.go", "internal/aicapability/store/gorm_invocation_recorder.go", "internal/app/runtime/currentapplication/store_observations.go", "internal/integration/shein/official_observations.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
 			t.Errorf("current owner missing %s: %v", path, err)
 		}

@@ -41,11 +41,6 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 	for _, name := range []string{"default", "image_gpt_image_2"} {
 		require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "org-1", UserID: "actor-1", ClientName: name, APIKey: "controlled-local-only", BaseURL: provider.URL + "/v1", Model: "review-test", Enabled: true, TimeoutSecond: 1}))
 	}
-	manager, err := openai.NewManager(&openai.ManagerConfig{Clients: map[string]*openai.ClientConfig{
-		"default":           openai.NewClientConfig("unused", "review-test", provider.URL+"/v1", 1),
-		"image_gpt_image_2": openai.NewClientConfig("unused", "image-test", provider.URL+"/v1", 1),
-	}})
-	require.NoError(t, err)
 	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialOwnerDatabase: &config.DatabaseConfig{Host: "isolated-fixture", Port: 5432, Database: "commercial", User: "commercial_owner_runtime"}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 	resolver := imageAgentWorkerDependencyResolver{
@@ -55,10 +50,6 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 		VerifyResourceRuntime: func(context.Context, *gorm.DB) error { return nil },
 		OpenDB:                func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
 		CloseDB:               func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openai.Manager, openai.ClientConfigResolver, error) {
-			return manager, nil, nil
-		},
-		BuildOrganizationCapabilities: buildOrganizationWorkerCapabilities,
 		BuildOrganizationAuthorizer: func(*config.Config) (imageagent.ExecutionAuthorizer, error) {
 			return admissionExactAuthorizer{}, nil
 		},
@@ -69,7 +60,7 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 	dependencies, closeDependencies, err := resolveImageAgentTemporalDependenciesForMode("controlled", logrus.New(), imagetemporal.WorkerWireModeOrganization, resolver)
 	require.NoError(t, err)
 	defer closeDependencies()
-	require.IsType(t, organizationMainSlotExecutor{}, dependencies.StagedSlotExecutor)
+	require.IsType(t, SourceMainExecutor{}, dependencies.StagedSlotExecutor)
 	repository := dependencies.Repository
 	runID := "run487-" + uuid.NewString()[:8]
 	policyContext := imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}

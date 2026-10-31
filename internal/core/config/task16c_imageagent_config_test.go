@@ -9,8 +9,6 @@ import (
 
 func TestConfigFixtureBindsImageAgentArtifactStoreYAML(t *testing.T) {
 	cfg, err := loadConfigFixture(t, []byte(`
-openai:
-  apiKey: test-key
 imageagent:
   artifactStore:
     enabled: true
@@ -55,7 +53,7 @@ func TestConfigFixtureBindsImageAgentArtifactStoreEnvironment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_S3_ARTIFACT_MODE", "aws")
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ARTIFACT_STORE_S3_COS_IMMUTABLE_NON_VERSIONED_BUCKET_POLICY", "false")
 
-	cfg, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"))
+	cfg, err := loadConfigFixture(t, []byte(""))
 	require.NoError(t, err)
 
 	store := cfg.ImageAgent.ArtifactStore
@@ -76,7 +74,7 @@ func TestConfigFixtureBindsImageAgentAdmissionEnvironment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ENABLED", "true")
 	t.Setenv("TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ALLOWED_TENANT_IDS", "373211199677923496,1038")
 
-	cfg, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\nimageagent:\n  admission:\n    enabled: false\n    allowedTenantIDs: []\n"))
+	cfg, err := loadConfigFixture(t, []byte("imageagent:\n  admission:\n    enabled: false\n    allowedTenantIDs: []\n"))
 	require.NoError(t, err)
 
 	assert.True(t, cfg.ImageAgent.Admission.Enabled)

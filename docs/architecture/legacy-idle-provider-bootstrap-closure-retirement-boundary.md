@@ -1,3 +1,5 @@
+> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
+
 > #301 / #1029 [用户确认的完整输入链退休](legacy-listingkit-input-config-closure-retirement-boundary.md)：本批窄替代旧上传配置四测试的保活；它们与三个旧类型/字段及九绑定同退，原 ArtifactStore YAML/env、Admission env 三测试和其余有效校验原样保留。 两组30路径在同一 #1029 整批实施，用户已确认冻结设计 e343a825b 的§1–§7（含§4.2/§6.1），IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。退出旧手工上传配置及旧 UI Task API/隐式集群 Secret 导入；当前 UI/Auth.js/Service API、图像/采集、imgproxy 两有效 Secret 键与原安全检查、Store 观察保留。workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下原文、历史、计数和勾选完整保留；源码 CI/最终复核证据另见同一 PR，不代表产品或运行验收。
 
 > #301 / #1007 当前实施边界：用户已确认[配置、投影与 Dub 完整退休设计](legacy-config-projection-dub-closure-retirement-boundary.md) §1–§7/§4.2/§6.1。Dub 无实际消费者的准备适配器整包及专属尾部退休，本文件对 Dub 的旧 KEEP/Out of Scope 不再是当前保活要求；其它当前能力及既有原文/历史逐字保留。不调用 Dub、不操作既有实例/数据/凭据/进程，不改 workflow/inventory，不加试用前置，#301 OPEN。

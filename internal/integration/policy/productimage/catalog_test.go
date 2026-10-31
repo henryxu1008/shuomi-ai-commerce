@@ -29,7 +29,7 @@ func TestDecodeReturnsTypedPolicySetFromStrictDocument(t *testing.T) {
 				WhiteBackgroundReview: 0.72,
 				WhiteCanvasPenalty:    0.08,
 			},
-			SceneDefaults: productimage.SceneOptions{
+			SceneDefaults: productimage.PolicySceneDefaults{
 				SceneCategory:     "category-a",
 				SceneStyle:        "studio",
 				BackgroundTone:    "neutral",

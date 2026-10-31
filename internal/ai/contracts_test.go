@@ -9,29 +9,6 @@ import (
 )
 
 func TestContractsMarshalStableJSON(t *testing.T) {
-	request := ChatCompletionRequest{
-		Model: "chat-model",
-		Messages: []ChatCompletionMessage{{
-			Role:    "user",
-			Content: "describe this",
-			MultiContent: []ChatCompletionContentPart{{
-				Type:     "image_url",
-				ImageURL: &ChatCompletionContentPartImage{URL: "https://example.test/image.png", Detail: "high"},
-			}},
-		}},
-		Timeout:    durationPointer(5 * time.Second),
-		MaxRetries: intPointer(2),
-	}
-
-	encoded, err := json.Marshal(request)
-	if err != nil {
-		t.Fatalf("marshal chat request: %v", err)
-	}
-	const want = `{"model":"chat-model","messages":[{"role":"user","content":"describe this","multi_content":[{"type":"image_url","image_url":{"url":"https://example.test/image.png","detail":"high"}}]}]}`
-	if string(encoded) != want {
-		t.Fatalf("unexpected chat request JSON: %s", encoded)
-	}
-
 	async := ImageAsyncSubmitResponse{
 		JobID:      "job-1",
 		Provider:   "provider-1",
@@ -39,7 +16,7 @@ func TestContractsMarshalStableJSON(t *testing.T) {
 		AcceptedAt: time.Unix(1700000000, 0).UTC(),
 		Response:   &ImageResponse{Data: []ImageData{{URL: "https://example.test/result.png"}}},
 	}
-	encoded, err = json.Marshal(async)
+	encoded, err := json.Marshal(async)
 	if err != nil {
 		t.Fatalf("marshal async response: %v", err)
 	}
@@ -50,17 +27,10 @@ func TestContractsMarshalStableJSON(t *testing.T) {
 }
 
 func TestContractsExposeMinimalInterfaces(t *testing.T) {
-	var _ ChatCompletionClient = contractChatStub{}
 	var _ ImageGenerator = contractImageStub{}
 	if !errors.Is(ErrAsyncImageGenerationNotSupported, ErrAsyncImageGenerationNotSupported) {
 		t.Fatal("async unsupported sentinel must be comparable through errors.Is")
 	}
-}
-
-type contractChatStub struct{}
-
-func (contractChatStub) CreateChatCompletion(_ context.Context, _ *ChatCompletionRequest) (*ChatCompletionResponse, error) {
-	return nil, nil
 }
 
 type contractImageStub struct{}
