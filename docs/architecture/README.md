@@ -819,3 +819,7 @@ it is treated as a long-lived review entrypoint.
 
 - [`chat-task-object-goal-design-brief.md`](./chat-task-object-goal-design-brief.md) — IMPLEMENTATION_READY；#808，多来源对象、任务目标、冻结内容执行合同与原审核采用。
 - [`local-tls-revocation-maintenance.md`](./local-tls-revocation-maintenance.md)：#965 本机 TLS 独立 OpenSSL 维护、既有服务的精确 CRL 发布合同；真实凭据、信任及运行接线单独授权。
+
+
+- [`order-procurement-fulfillment-v1.md`](order-procurement-fulfillment-v1.md) — #1037 / #1038；独立架构 IMPLEMENTATION_READY，当前仓库双履约与显式用途授权；真实 SHEIN 待联调。
+- [`erpnext-shein-fulfillment-fit-v1.md`](erpnext-shein-fulfillment-fit-v1.md) — 固定 ERPNext/Frappe 版本，原生数量、事务与原操作恢复证据，不代表真实平台验收。

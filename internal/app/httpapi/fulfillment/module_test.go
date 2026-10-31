@@ -10,8 +10,8 @@ import (
 	runtime "task-processor/internal/app/runtime/fulfillment"
 	"task-processor/internal/authidentity"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"task-processor/internal/storecenter"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"testing"
 	"time"
 )

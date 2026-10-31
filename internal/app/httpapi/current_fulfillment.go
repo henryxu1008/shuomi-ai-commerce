@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"errors"
-	module "task-processor/internal/app/fulfillment/module"
+	module "task-processor/internal/app/httpapi/fulfillment"
 	"task-processor/internal/httproute"
 )
 

@@ -94,3 +94,7 @@ func NewWorker(c client.Client, s *app.Service, l *Lifecycle) (Worker, error) {
 	}, activity.RegisterOptions{Name: sendActivity})
 	return w, nil
 }
+
+func WorkerFactory(c client.Client, l *Lifecycle) func(*app.Service) (Worker, error) {
+	return func(s *app.Service) (Worker, error) { return NewWorker(c, s, l) }
+}

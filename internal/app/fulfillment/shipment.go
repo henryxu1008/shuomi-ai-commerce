@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
+	sf "task-processor/internal/storecenter/fulfillment"
 )
 
 func (s *Service) shipment(ctx context.Context, scope f.Scope, in Input, base f.Command, merchant Merchant) (json.RawMessage, error) {

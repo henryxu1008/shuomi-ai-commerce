@@ -90,12 +90,18 @@ def demand_doc(name, request, cfg):
     source = json.loads(doc.cf_source)
     if source["organization"] != request["organization"] or any(source[key] != request[key] for key in ("store", "source_kind", "source_id")):
         fail()
-    current = request.get("current_lines")
-    if current is not None:
-        remaining = {row.cf_source_line: int(row.qty - row.delivered_qty) for row in doc.items if row.qty > row.delivered_qty}
-        if not isinstance(current, dict) or current != remaining:
-            fail()
     return doc
+
+
+def validate_current_line(line, request):
+    current = request.get("current_lines")
+    if current is None:
+        return
+    # Consumer goodsId quantity is an original platform unit, distinct from
+    # native physical handover. Only this selected current line is checked.
+    expected = line.qty if request["source_kind"] == "consumer_order" else line.qty - line.delivered_qty
+    if not isinstance(current, dict) or current.get(line.cf_source_line) != expected:
+        fail()
 
 
 def selected(doc, rows, field):
@@ -189,19 +195,24 @@ def _execute(request):
     command = request["command"]
     payload = request["payload"]
     if command == "cancel_original":
-        shape(payload, ())
+        shape(payload, ("command",))
+        if payload["command"] not in HANDLERS:
+            fail()
         # Unique insertion serializes with any late/in-flight original native
         # transaction. Never infer absence from an ordinary failed read.
         tombstone = frappe.get_doc({"doctype": OP, "operation_id": request["operation_id"],
             "organization": request["organization"], "actor": request["actor"], "member": request["member"],
             "binding": request["binding"], "purpose": command, "input_digest": digest(request),
-            "stage": "DEFINITIVE_NO_EFFECT", "input_json": "{}",
+            "stage": "DEFINITIVE_NO_EFFECT", "input_json": canonical(payload),
             "result_json": canonical({"reason": "original_command_cancelled_before_commit"})})
         try:
             tombstone.insert()
             return receipt(tombstone)
         except frappe.DuplicateEntryError:
             original = current_operation({"operation": request["operation_id"]}, request)
+            original_command = json.loads(original.input_json)["command"] if original.purpose == "cancel_original" else original.purpose
+            if payload["command"] != original_command:
+                fail()
             if original.target:
                 validate_operation_target(original, request, cfg)
             if original.purpose == "prepare" and original.stage in ("PREPARED", "CONFIRMED"):
@@ -308,6 +319,7 @@ def create_purchase(p, r, c):
     items = []
     for row in rows:
         line, qty = selected(doc, [row], "demand_line")[0]
+        validate_current_line(line, r)
         if qty > allocation_budget(line)["purchase_remaining"] or isinstance(row["rate"], bool):
             fail()
         try:
@@ -416,6 +428,7 @@ def reserve(p, r, c):
     rows = selected(doc, lines(p, ("demand_line", "qty")), "demand_line")
     details = []
     for row, qty in rows:
+        validate_current_line(row, r)
         if qty > allocation_budget(row)["reserve_budget"] or row.warehouse != c["source_warehouse"]:
             fail()
         details.append({"sales_order_item": row.name, "warehouse": row.warehouse, "qty_to_reserve": qty * row.conversion_factor})
@@ -428,6 +441,7 @@ def pack(p, r, c):
     doc = demand_doc(p["demand"], r, c)
     quantities = {}
     for row, qty in selected(doc, lines(p, ("demand_line", "qty")), "demand_line"):
+        validate_current_line(row, r)
         reserved = frappe.db.sql("select coalesce(sum(reserved_qty-delivered_qty),0) from `tabStock Reservation Entry` where voucher_detail_no=%s and docstatus=1 for update", (row.name,))[0][0]
         if qty > row.qty - row.delivered_qty or qty * row.conversion_factor > reserved or row.warehouse != c["source_warehouse"]:
             fail()
@@ -496,6 +510,11 @@ def prepare(p, r, c):
         delivery = lock_doc("Delivery Note", p.get("delivery"), c, draft=True)
         if not delivery.items or any(row.against_sales_order != demand.name for row in delivery.items):
             fail()
+        original = {row.name: row for row in demand.items}
+        for row in delivery.items:
+            if row.so_detail not in original:
+                fail()
+            validate_current_line(original[row.so_detail], r)
         if p["purpose"] == "consumer_tracking":
             effect.append(delivery.name)
     return demand.name, {}, effect

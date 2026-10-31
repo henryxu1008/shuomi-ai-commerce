@@ -382,7 +382,15 @@ function ScopedPage({
           ...original,
           action: cancelOriginal ? "cancel_original" : "read",
           operation_id: id,
-          payload: cancelOriginal ? {} : { operation: id },
+          payload: cancelOriginal
+            ? {
+                command: ["confirm", "ensure", "cancel"].includes(
+                  original.action,
+                )
+                  ? "prepare"
+                  : original.action,
+              }
+            : { operation: id },
         },
         fulfillmentReceipt,
         lifetime.current.signal,
@@ -416,7 +424,18 @@ function ScopedPage({
     <ConsolePage
       title={procurement ? "采购管理" : "订单履约"}
       description="SHEIN 原单、原生 ERPNext 采购和库存、平台回执在同一流程中核对。真实平台联调待完成。"
-      breadcrumbs={procurement ? [{label:"供应市场"},{label:"我的供应链",href:"/workbench/supply/mine"},{label:"采购管理"}] : [{label:"订单管理",href:"/workbench/store-orders"},{label:"原单履约"}]}
+      breadcrumbs={
+        procurement
+          ? [
+              { label: "供应市场" },
+              { label: "我的供应链", href: "/workbench/supply/mine" },
+              { label: "采购管理" },
+            ]
+          : [
+              { label: "订单管理", href: "/workbench/store-orders" },
+              { label: "原单履约" },
+            ]
+      }
       actions={
         <Button
           variant="outline"
@@ -528,7 +547,7 @@ function ScopedPage({
                 </Button>
                 <Button
                   variant="ghost"
-                  disabled={working || !can("execute")}
+                  disabled={working || !can(["receive","reserve","pack","dispatch"].includes(intent.action)?"stock":["bind_demand","create_purchase","record_external_order","close_purchase"].includes(intent.action)?"purchase":"execute")}
                   onClick={() => void resolvePending(true)}
                 >
                   核对并取消尚未生效的原操作
@@ -604,7 +623,11 @@ function ScopedPage({
                     </div>
                     <div>
                       <dt>履约时限</dt>
-                      <dd>{source.data.source.deadline}</dd>
+                      <dd>
+                        {source.data.source.deadline.startsWith("0001-")
+                          ? "未返回当前时限"
+                          : source.data.source.deadline}
+                      </dd>
                     </div>
                     <div>
                       <dt>当前可新增履约</dt>
@@ -621,7 +644,7 @@ function ScopedPage({
                         <tr>
                           <th>原 SKU</th>
                           <th>原需求</th>
-                          <th>平台已发</th>
+                          <th>平台已发 / 原商品状态</th>
                           <th>平台实收</th>
                           <th>平台入库</th>
                           <th>平台次品</th>
@@ -635,7 +658,19 @@ function ScopedPage({
                               <small>{line.id}</small>
                             </td>
                             <td>{line.quantity}</td>
-                            <td>{line.delivered}</td>
+                            <td>
+                              {kind === "consumer_order"
+                                ? ({
+                                    1: "待处理",
+                                    2: "待发货",
+                                    3: "待平台发货",
+                                    4: "已发货",
+                                    5: "已签收",
+                                    6: "已退款",
+                                    7: "待揽收",
+                                  }[line.goodsStatus ?? 0] ?? "未识别")
+                                : line.delivered}
+                            </td>
                             <td>{line.received ?? "未知"}</td>
                             <td>{line.stored ?? "未知"}</td>
                             <td>{line.defective ?? "未知"}</td>

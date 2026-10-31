@@ -8,8 +8,9 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"task-processor/internal/storecenter"
+	sf "task-processor/internal/storecenter/fulfillment"
+	"time"
 )
 
 type Starter interface {
@@ -73,6 +74,9 @@ func checkedTransition(raw json.RawMessage, original Loaded, stage string) error
 	return nil
 }
 func (s *Service) freeze(ctx context.Context, erp f.ERP, base f.Command, merchant ExecutionMerchant, source sf.Source, selection sf.Selection) (Prepared, error) {
+	if err := eligibleSource(source, time.Now()); err != nil {
+		return Prepared{}, err
+	}
 	var delivery sf.Delivery
 	if selection.Purpose == "consumer_tracking" || selection.Purpose == "supply_shipping" {
 		raw, err := native(ctx, erp, base, "delivery_details", map[string]any{"demand": selection.Demand, "delivery": selection.Delivery})

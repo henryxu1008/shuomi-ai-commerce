@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"testing"
 	"time"
 )
@@ -79,6 +79,8 @@ func TestAcceptAddressIsExplicitAndTrackingUsesCurrentChannel(t *testing.T) {
 	if err == nil {
 		t.Fatal("stale carrier accepted")
 	}
+	source.Status = 4
+	source.Lines = append(source.Lines, sf.Line{ID: "456", SKU: "already-picked", Quantity: 1, GoodsStatus: 4, ExchangeTag: 1})
 	plan, err = c.BuildFulfillmentPlan(context.Background(), goodsCredential(), source, delivery, sf.Selection{Purpose: "consumer_tracking", Channel: "current-channel", Tracking: "waybill"})
 	if err != nil || len(plan.GoodsIDs) != 1 || reads != 2 {
 		t.Fatal(plan, err, reads)

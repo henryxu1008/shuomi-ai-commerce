@@ -59,11 +59,32 @@ class TestFulfillment(FrappeTestCase):
         frappe.conf.encryption_key = self.previous_encryption_key
         super().tearDown()
 
-    def command(self, command, payload, key=None):
+    def command(self, command, payload, key=None, current_lines=None):
         return execute({"operation_id": key or str(uuid.uuid4()), "organization": "test-org",
             "actor": "test-user", "member": "test-member", "binding": "a" * 64,
             "store": "test-store", "source_kind": getattr(self, "source_kind", "consumer_order"), "source_id": "source-" + self.suffix,
-            "command": command, "payload": payload})
+            "command": command, "payload": payload, **({"current_lines": current_lines} if current_lines is not None else {})})
+
+    def test_consumer_second_package_after_first_handover_keeps_platform_and_physical_facts_separate(self):
+        payload = self.demand(quantity=1)
+        payload["lines"].append({**payload["lines"][0], "source_line": "source-two"})
+        demand = self.command("bind_demand", payload)
+        doc = frappe.get_doc("Sales Order", demand["target"])
+        first, second = doc.items
+        frappe.get_doc({"doctype": "Stock Entry", "stock_entry_type": "Material Receipt", "company": self.company.name,
+            "items": [{"item_code": self.item, "t_warehouse": self.warehouse, "qty": 2, "basic_rate": 4, "conversion_factor": 1}]}).insert().submit()
+        current = {"source-line": 1, "source-two": 1}
+        self.command("reserve", {"demand": doc.name, "lines": [{"demand_line": row.name, "qty": 1} for row in doc.items]}, current_lines=current)
+        packed = self.command("pack", {"demand": doc.name, "package_id": "first", "lines": [{"demand_line": first.name, "qty": 1}]}, current_lines=current)
+        self.command("dispatch", {"demand": doc.name, "delivery": packed["target"]})
+        second_payload = {"demand": doc.name, "package_id": "second", "lines": [{"demand_line": second.name, "qty": 1}]}
+        denied = self.command("pack", second_payload, current_lines={"source-line": 1})
+        self.assertEqual(denied["stage"], "DEFINITIVE_NO_EFFECT")
+        packed_second = self.command("pack", second_payload, current_lines=current)
+        self.assertEqual(packed_second["stage"], "SUCCEEDED")
+        prepared = self.command("prepare", {"purpose": "consumer_tracking", "demand": doc.name, "delivery": packed_second["target"], "version": "v1", "data": {}}, current_lines=current)
+        self.assertEqual(prepared["stage"], "PREPARED")
+        self.assertEqual(frappe.get_doc("Sales Order", doc.name).items[0].delivered_qty, 1)
 
     def demand(self, kind="consumer_order", quantity=5):
         self.source_kind = kind
@@ -97,13 +118,17 @@ class TestFulfillment(FrappeTestCase):
     def test_cancel_original_fences_late_request_and_preserves_committed_result(self):
         key = str(uuid.uuid4())
         payload = self.demand()
-        cancelled = self.command("cancel_original", {}, key)
+        cancelled = self.command("cancel_original", {"command": "bind_demand"}, key)
         self.assertEqual(cancelled["stage"], "DEFINITIVE_NO_EFFECT")
         with self.assertRaises(frappe.ValidationError):
             self.command("bind_demand", payload, key)
         self.assertEqual(frappe.db.count("Sales Order", {"company": self.company.name}), 0)
         original = self.command("bind_demand", payload)
-        self.assertEqual(self.command("cancel_original", {}, original["operation"]), original)
+        self.assertEqual(self.command("cancel_original", {"command": "bind_demand"}, original["operation"]), original)
+        platform = self.command("prepare", {"purpose": "accept_address", "demand": original["target"], "version": "v1", "data": {"orderNo": "source-" + self.suffix}})
+        with self.assertRaises(frappe.ValidationError):
+            self.command("cancel_original", {"command": "pack"}, platform["operation"])
+        self.assertEqual(self.command("read", {"operation": platform["operation"]})["stage"], "PREPARED")
 
     def test_changed_original_quantity_blocks_new_allocation(self):
         demand = self.command("bind_demand", self.demand())

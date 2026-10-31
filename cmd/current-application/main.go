@@ -8,9 +8,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	fulfillmentmodule "task-processor/internal/app/fulfillment/module"
+	fulfillmentmodule "task-processor/internal/app/httpapi/fulfillment"
 	podapp "task-processor/internal/app/pod"
 	dataservicesruntime "task-processor/internal/app/runtime/dataservices"
+	fulfillmentruntime "task-processor/internal/app/runtime/fulfillment"
 	podruntime "task-processor/internal/app/runtime/pod"
 	observationruntime "task-processor/internal/app/runtime/storeobservations"
 	supplyruntime "task-processor/internal/app/runtime/supplychain"
@@ -211,7 +212,7 @@ func execute() error {
 				}
 			}
 			if features.Fulfillment != nil {
-				options = append(options, httpapi.WithFulfillment(fulfillmentmodule.Dependencies{Configuration: features.Fulfillment, Workflow: features.FulfillmentWorkflow, Lifecycle: features.FulfillmentLifecycle}))
+				options = append(options, httpapi.WithFulfillment(fulfillmentmodule.Dependencies{Configuration: features.Fulfillment, Starter: fulfillmentruntime.Starter{Client: features.FulfillmentWorkflow}, NewWorker: fulfillmentruntime.WorkerFactory(features.FulfillmentWorkflow, features.FulfillmentLifecycle), Lifecycle: features.FulfillmentLifecycle}))
 			}
 			if features.OperationsCockpit {
 				options = append(options, httpapi.WithOperationsCockpit())

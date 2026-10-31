@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"task-processor/internal/storecenter"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"time"
 )
 
@@ -53,9 +53,6 @@ func (c *OfficialClient) QueryFulfillmentOptions(ctx context.Context, k storecen
 
 func (c *OfficialClient) BuildFulfillmentPlan(ctx context.Context, k storecenter.OfficialMerchantCredential, s sf.Source, delivery sf.Delivery, selection sf.Selection) (sf.Plan, error) {
 	empty := sf.Plan{}
-	if err := s.Eligible(time.Now()); err != nil {
-		return empty, err
-	}
 	if selection.Purpose == "accept_address" || selection.Purpose == "read_address" {
 		if s.Kind != "consumer_order" || s.SelectedLogistics != 2 || selection.Purpose == "accept_address" && s.Status != 1 {
 			return empty, f.ErrConflict
@@ -87,7 +84,7 @@ func (c *OfficialClient) BuildFulfillmentPlan(ctx context.Context, k storecenter
 		return empty, err
 	}
 	if selection.Purpose == "consumer_tracking" {
-		if s.Kind != "consumer_order" || s.SelectedLogistics != 2 || s.Status != 2 && s.Status != 7 || !boundedParameter(selection.Tracking, 100) {
+		if s.Kind != "consumer_order" || s.SelectedLogistics != 2 || s.Status != 2 && s.Status != 4 && s.Status != 7 || !boundedParameter(selection.Tracking, 100) {
 			return empty, f.ErrConflict
 		}
 		var channel sf.Channel

@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"task-processor/internal/storecenter"
 	"time"
 )

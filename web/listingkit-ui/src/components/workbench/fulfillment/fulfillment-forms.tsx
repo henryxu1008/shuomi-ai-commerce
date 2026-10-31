@@ -37,7 +37,11 @@ export function MappingForm({
   >({});
   const [units, setUnits] = useState<Record<string, string>>({});
   const lines = source.source.lines.filter(
-    (line) => line.quantity > line.delivered,
+    (line) =>
+      line.quantity > line.delivered &&
+      (source.source.kind !== "consumer_order" ||
+        ([1, 2, 7].includes(line.goodsStatus ?? 0) &&
+          [1, 3].includes(line.exchangeTag ?? 0))),
   );
   return (
     <Card className={styles.panel}>

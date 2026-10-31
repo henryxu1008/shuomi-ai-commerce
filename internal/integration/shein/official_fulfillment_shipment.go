@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"task-processor/internal/storecenter"
 )
 

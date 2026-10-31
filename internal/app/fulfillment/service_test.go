@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"task-processor/internal/storecenter"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"testing"
 	"time"
 )
 
 type fakeMerchant struct {
-	denied    bool
-	source    sf.Source
-	sourceErr error
+	denied      bool
+	source      sf.Source
+	sourceErr   error
+	sourceCalls int
 }
 
 func (m *fakeMerchant) Check(context.Context) error {
@@ -26,7 +27,51 @@ func (m *fakeMerchant) BindingDigest() string {
 	return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 func (m *fakeMerchant) Source(context.Context, string) (sf.Source, error) {
+	m.sourceCalls++
 	return m.source, m.sourceErr
+}
+func TestActualConsumerHandoverDoesNotRequireNewShippingEligibility(t *testing.T) {
+	m := &fakeMerchant{sourceErr: f.ErrUnavailable}
+	erp := &fakeERP{}
+	service := &Service{ERPs: map[string]f.ERP{"org": erp}, Open: func(context.Context, storecenter.FulfillmentSubject, string, string) (Merchant, error) { return m, nil }}
+	input := Input{Store: "store", Kind: "consumer_order", SourceID: "original", OperationID: "a182d2e0-6f91-4e71-8b7f-5df25b75fb11", Action: "dispatch", Payload: json.RawMessage(`{"demand":"native-so","delivery":"original-dn"}`)}
+	if _, err := service.Execute(context.Background(), f.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}, input); err != nil || m.sourceCalls != 0 || len(erp.calls) != 1 {
+		t.Fatal("actual physical fact depends on new platform eligibility", err, m.sourceCalls)
+	}
+	m.denied = true
+	if _, err := service.Execute(context.Background(), f.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}, input); err != f.ErrForbidden || len(erp.calls) != 1 {
+		t.Fatal("actual handover bypassed current authority", err)
+	}
+}
+func TestCurrentConsumerAllocationCarriesOnlyEligibleOriginalGoods(t *testing.T) {
+	m := &fakeMerchant{source: sf.Source{Kind: "consumer_order", ID: "original", Market: "shein-us", Type: 1, Status: 4, StockMode: 3, PrintStatus: 1, SelectedLogistics: 2, Logistics: []int{2}, Deadline: time.Now().Add(time.Hour), Lines: []sf.Line{{ID: "101", SKU: "first", Quantity: 1, GoodsStatus: 4, ExchangeTag: 1}, {ID: "102", SKU: "second", Quantity: 1, GoodsStatus: 2, ExchangeTag: 1}}}}
+	erp := &fakeERP{}
+	service := &Service{ERPs: map[string]f.ERP{"org": erp}, Open: func(context.Context, storecenter.FulfillmentSubject, string, string) (Merchant, error) { return m, nil }}
+	input := Input{Store: "store", Kind: "consumer_order", SourceID: "original", OperationID: "a182d2e0-6f91-4e71-8b7f-5df25b75fb11", Action: "pack", Payload: json.RawMessage(`{"demand":"native","package_id":"second","lines":[{"demand_line":"native-second","qty":1}]}`)}
+	if _, err := service.Execute(context.Background(), f.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}, input); err != nil {
+		t.Fatal(err)
+	}
+	if lines := erp.calls[0].CurrentLines; len(lines) != 1 || lines["102"] != 1 {
+		t.Fatal("wrong selected platform projection", lines)
+	}
+	m.source.Lines[1].GoodsStatus = 6
+	if _, err := service.Execute(context.Background(), f.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}, input); err == nil || len(erp.calls) != 1 {
+		t.Fatal("refunded original goods reached allocation")
+	}
+}
+func TestWarehouseCanResolveOnlyItsOriginalCommandPurpose(t *testing.T) {
+	erp := &fakeERP{}
+	m := &fakeMerchant{}
+	service := &Service{ERPs: map[string]f.ERP{"org": erp}, Open: func(_ context.Context, s storecenter.FulfillmentSubject, _, _ string) (Merchant, error) {
+		if s.Purpose != "fulfillment.stock" {
+			return nil, f.ErrForbidden
+		}
+		return m, nil
+	}}
+	input := Input{Store: "store", Kind: "consumer_order", SourceID: "original", OperationID: "a182d2e0-6f91-4e71-8b7f-5df25b75fb11", Action: "cancel_original", Payload: json.RawMessage(`{"command":"pack"}`)}
+	if _, err := service.Execute(context.Background(), f.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}, input); err != nil || len(erp.calls) != 1 {
+		t.Fatal("stock recovery required unrelated platform execution grant", err)
+	}
 }
 
 type fakeERP struct{ calls []f.Command }

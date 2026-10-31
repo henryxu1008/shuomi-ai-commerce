@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"regexp"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"task-processor/internal/storecenter"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"time"
 )
 
@@ -93,6 +93,7 @@ func (c *OfficialClient) QueryFulfillmentSource(ctx context.Context, k storecent
 			return sf.Source{}, f.ErrUnavailable
 		}
 		source := sf.Source{Kind: kind, ID: id, Market: row.Site, Type: *orderType, Status: *status, StockMode: *stock, PrintStatus: *row.Print, Logistics: row.Logistics, SelectedLogistics: row.Selected, Lines: []sf.Line{}}
+		deadlineMissing := false
 		for _, goods := range row.Goods {
 			identity, err := scalar(goods.ID)
 			if err != nil || !observationDigits.MatchString(identity) {
@@ -104,6 +105,9 @@ func (c *OfficialClient) QueryFulfillmentSource(ctx context.Context, k storecent
 				return sf.Source{}, f.ErrUnavailable
 			}
 			source.Lines = append(source.Lines, sf.Line{ID: identity, SKU: goods.SKU, Quantity: 1, GoodsStatus: *status, ExchangeTag: *exchange})
+			if *status != 1 && *status != 2 && *status != 7 {
+				continue
+			}
 			found := false
 			for _, timeout := range goods.Timeouts {
 				if timeout.Type == 2 || timeout.Type == 35 || timeout.Type == 1 && *status == 1 {
@@ -118,8 +122,11 @@ func (c *OfficialClient) QueryFulfillmentSource(ctx context.Context, k storecent
 				}
 			}
 			if !found {
-				return sf.Source{}, f.ErrUnavailable
+				deadlineMissing = true
 			}
+		}
+		if deadlineMissing {
+			source.Deadline = time.Time{}
 		}
 		return source, nil
 	}

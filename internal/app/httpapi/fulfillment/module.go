@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"go.temporal.io/sdk/client"
 	"io"
 	"mime"
 	"net/http"
@@ -27,7 +26,8 @@ const BasePath = "/api/v1/workbench/fulfillment"
 
 type Dependencies struct {
 	Configuration *app.Configuration
-	Workflow      client.Client
+	Starter       app.Starter
+	NewWorker     func(*app.Service) (runtime.Worker, error)
 	Lifecycle     *runtime.Lifecycle
 	Stores        storecenter.FulfillmentReader
 	Authorization app.Authorization
@@ -44,11 +44,11 @@ func (Module) Name() string                         { return "fulfillment" }
 func (Module) Enabled(c *config.Config) bool        { return c != nil && c.Workbench.Enabled }
 func (m *Module) Register(r *kernel.Registry) error { r.AddRoutes(m.Routes()...); return nil }
 func New(ctx context.Context, d Dependencies) (*Module, error) {
-	if d.Configuration == nil || len(d.Configuration.ERPs) == 0 || d.Workflow == nil || d.Lifecycle == nil || d.Stores == nil || d.Applications == nil || d.Bind == nil {
+	if d.Configuration == nil || len(d.Configuration.ERPs) == 0 || d.Starter == nil || d.NewWorker == nil || d.Lifecycle == nil || d.Stores == nil || d.Applications == nil || d.Bind == nil {
 		return nil, f.ErrUnavailable
 	}
 	access := &storeapp.FulfillmentAccess{Reader: d.Stores, Authorization: d.Authorization, Applications: d.Applications}
-	service := &app.Service{ERPs: d.Configuration.ERPs, Aliases: d.Configuration.Aliases, SupplyMovement: d.Configuration.SupplyMovement, Starter: runtime.Starter{Client: d.Workflow}, Open: func(ctx context.Context, subject storecenter.FulfillmentSubject, store, kind string) (app.Merchant, error) {
+	service := &app.Service{ERPs: d.Configuration.ERPs, Aliases: d.Configuration.Aliases, SupplyMovement: d.Configuration.SupplyMovement, Starter: d.Starter, Open: func(ctx context.Context, subject storecenter.FulfillmentSubject, store, kind string) (app.Merchant, error) {
 		return access.Open(ctx, subject, store, kind)
 	}}
 	module := &Module{Service: service, dependencies: d, address: map[string]bool{}}
@@ -68,7 +68,7 @@ func New(ctx context.Context, d Dependencies) (*Module, error) {
 		}
 		module.address[org] = native.Address
 	}
-	worker, err := runtime.NewWorker(d.Workflow, service, d.Lifecycle)
+	worker, err := d.NewWorker(service)
 	if err != nil {
 		return nil, err
 	}

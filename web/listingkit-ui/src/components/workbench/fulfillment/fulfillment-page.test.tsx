@@ -15,7 +15,7 @@ vi.mock("@/components/providers/workbench-context-provider", () => ({
     user: { id: "user" },
     permissions: [
       "workbench.fulfillment.read",
-      "workbench.fulfillment.execute",
+      "workbench.fulfillment.stock",
     ],
   }),
 }));

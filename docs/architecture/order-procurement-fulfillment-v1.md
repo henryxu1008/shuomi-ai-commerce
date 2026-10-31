@@ -292,3 +292,14 @@ Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过�
 - 当前 route0 直送路径按官方查询发货单 FAQ 不强制打印发货单；合作物流购买、私有面单下载和其它运输方式未开放，不制造假面单。地址仍为显式用途和加密 TTL，不进入日志、普通投影或工作流。
 
 - 用户追加 UI 决定：允许按多个流程拆分，并把订单独立为菜单。当前投影为独立“订单管理”，内部五个子流程；采购管理仍在供应市场。适用局部 Product Authority 见 [当前 UI Authority 增量](../product/final-ui-ia-authority.md#2026-11-01-用户明确批准的订单导航增量)，替代本文历史“店铺中心→订单”的导航引用，事实、状态、权限与副作用边界不变。
+
+
+### 最终检查增量 F1/F2 与依赖归位
+
+独立最终检查 cf3e2d6ab 为 CHANGES_REQUIRED，两项 IMPLEMENTATION_TEST 阻止合并/试用，架构 IMPLEMENTATION_READY 保持。F1 修复按当前选中 goodsId 校验原数量/行资格，不将平台整单剩余等同于已扣实际交接的本地 SO 剩余；已发商品不转成本地 delivered。单商品退款/取消阻止该行新分配；未完成的合法商品可继续。官方订单状态4可由至少一件商品揽收触发，因此其他商品仍按原 newGoodsStatus=2/7 等逐行核对，已结束商品缺少时限不阻断其余行。F2 的已有原 DN 实际交接记录只消费当前权限、原单/包裹与原生数量/事务/幂等前置条件；平台已发/签收、原时限到期或暂时不可读不会阻止登记已经发生的实物事实，平台观察不会自动提交 DN。新采购、预留、装箱和平台发送仍做当前资格核对。
+
+来源：[SHEIN 官方 ERP 订单履约方案](https://open.sheincorp.com/documents/system/b86df826-638d-4128-9f5e-c7b20d8cf28e)。组合回归分别覆盖官方两 goodsId 原观察、Go 当前可分配投影、原生第一包交接后第二包装箱/准备与取消行拒绝，以及实际交接时平台不可读/撤权。
+
+CI 指出的依赖归位：纯平台履约 DTO 放 `internal/storecenter/fulfillment` 公共 Port；新执行资格只由 `internal/app/fulfillment/source_policy.go` 拥有，签名 HTTP adapter 不依赖业务规则包。HTTP 模块位于既有 `internal/app/httpapi/fulfillment` 边界；Temporal SDK 留在 `internal/app/runtime/fulfillment`，通过 Starter 和有界 worker factory 注入。未增加兼容别名、修改 guard 或放宽架构准入。
+
+原键恢复复用原业务用途：cancel_original 由原命令类别选择当前采购/库存/执行授权，native owner 再核对已存在原操作的真实 purpose；浏览器不能把平台准备伪称库存命令来取消。仓库人员恢复自己的收货/装箱原键不需要额外授予平台发货能力。对应 Go、UI 仓库权限及 native 错误 purpose 拒绝回归已覆盖。

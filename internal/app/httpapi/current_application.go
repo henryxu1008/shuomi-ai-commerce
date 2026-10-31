@@ -9,7 +9,7 @@ import (
 	"strings"
 	"task-processor/internal/agentconfig"
 	fulfillmentapp "task-processor/internal/app/fulfillment"
-	fulfillmentmodule "task-processor/internal/app/fulfillment/module"
+	fulfillmentmodule "task-processor/internal/app/httpapi/fulfillment"
 	podhttp "task-processor/internal/app/pod/httpapi"
 	supplyapp "task-processor/internal/app/supplychain"
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"

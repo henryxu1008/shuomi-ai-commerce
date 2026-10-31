@@ -333,7 +333,7 @@ export function fulfillmentResponseSchema(action: FulfillmentInput["action"]) {
   if (action === "read_private") return fulfillmentPrivate;
   return fulfillmentReceipt;
 }
-export class FulfillmentError extends Error {
+class FulfillmentError extends Error {
   constructor(
     public code: string,
     public status: number,

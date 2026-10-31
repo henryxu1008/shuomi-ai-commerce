@@ -9,8 +9,8 @@ import (
 	sigjson "sigs.k8s.io/json"
 	"task-processor/internal/authidentity"
 	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"task-processor/internal/storecenter"
+	sf "task-processor/internal/storecenter/fulfillment"
 	"time"
 )
 
@@ -60,6 +60,20 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 		return nil, f.ErrInvalid
 	}
 	permission := f.Permission(in.Action)
+	if in.Action == "cancel_original" {
+		var recovery struct {
+			Command string `json:"command"`
+		}
+		if decode(in.Payload, &recovery) != nil {
+			return nil, f.ErrInvalid
+		}
+		switch recovery.Command {
+		case "bind_demand", "create_purchase", "record_external_order", "close_purchase", "receive", "reserve", "pack", "dispatch", "prepare":
+			permission = f.Permission(recovery.Command)
+		default:
+			return nil, f.ErrInvalid
+		}
+	}
 	if in.Action == "source" {
 		permission = "fulfillment.read"
 	}
@@ -85,7 +99,7 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 	switch in.Action {
 	case "shipment":
 		return s.shipment(ctx, scope, in, command, merchant)
-	case "catalog", "details", "find_demand", "read", "read_private", "record_external_order", "close_purchase", "receive", "cancel", "cancel_original":
+	case "catalog", "details", "find_demand", "read", "read_private", "record_external_order", "close_purchase", "receive", "dispatch", "cancel", "cancel_original":
 		if err = merchant.Check(ctx); err != nil {
 			return nil, err
 		}
@@ -105,11 +119,11 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 			Source   sf.Source `json:"source"`
 			Version  string    `json:"version"`
 			Eligible bool      `json:"eligible"`
-		}{source, version(source), source.Eligible(time.Now()) == nil})
+		}{source, version(source), eligibleSource(source, time.Now()) == nil})
 	}
 	if in.Action == "create_purchase" || in.Action == "reserve" || in.Action == "pack" || in.Action == "prepare" || in.Action == "confirm" {
 		command.CurrentLines = map[string]int64{}
-		for _, line := range source.FulfillableLines() {
+		for _, line := range eligibleSourceLines(source) {
 			command.CurrentLines[line.ID] = line.Quantity - line.Delivered
 		}
 	}
@@ -117,10 +131,7 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 		return nil, f.ErrInvalid
 	}
 	if in.Action != "catalog" && in.Action != "details" && in.Action != "read" && in.Action != "read_private" && in.Action != "cancel" && in.Action != "ensure" && in.Action != "find_demand" {
-		// Recording the actual handover follows this exact original platform
-		// shipment, which may already have advanced to the platform's sent state.
-		originalHandover := in.Action == "dispatch" && source.Kind == "platform_supply" && (source.Status == 4 || source.Status == 5 || source.Status == 6 || source.Status == 8)
-		if err = source.Eligible(time.Now()); err != nil && !originalHandover {
+		if err = eligibleSource(source, time.Now()); err != nil {
 			return nil, err
 		}
 	}
@@ -137,11 +148,11 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 				Warehouse  string `json:"warehouse"`
 			} `json:"lines"`
 		}
-		if decode(in.Payload, &mapping) != nil || len(mapping.Lines) != len(source.FulfillableLines()) {
+		if decode(in.Payload, &mapping) != nil || len(mapping.Lines) != len(eligibleSourceLines(source)) {
 			return nil, f.ErrInvalid
 		}
 		original := map[string]sf.Line{}
-		for _, line := range source.FulfillableLines() {
+		for _, line := range eligibleSourceLines(source) {
 			original[line.ID] = line
 		}
 		rows := []map[string]any{}
