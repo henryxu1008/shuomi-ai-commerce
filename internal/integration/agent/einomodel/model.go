@@ -246,6 +246,9 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	operation := aicapability.OperationProductAgentDecision
 	if m.content {
 		system, operation = contentTextSystem, aicapability.OperationProductContentDecision
+		if snapshot.Request.Limits.ModelCalls == 2 {
+			system += "\n" + twoCallContentSystem
+		}
 	}
 	if m.materials {
 		system, operation = materialsTextSystem, aicapability.OperationListingMaterialsDecision
