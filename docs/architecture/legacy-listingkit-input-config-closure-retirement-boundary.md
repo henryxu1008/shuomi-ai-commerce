@@ -1,3 +1,5 @@
+> 当前实施状态：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户已确认下列冻结设计 e343a825b 的§1–§7（含§4.2/§6.1）；生产修改前授权与准入[6537277799](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1029#issuecomment-6537277799)已写回并读回 #301/PR。整批30路径，无范围扩张或检查例外。下方原设计作为冻结依据逐字保留，原阶段性措辞由本条当前状态替代；必要源码自检/原 CI/源码最终复核另记同一 PR，合并/部署/关单未授权，#301 OPEN。
+
 # 旧 ListingKit 上传配置与本地 UI 输入链完整退休设计
 
 Refs #301。Design Basis: **Independent Architecture**。状态：**DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**；先完成适用设计复核及用户确认，再整批实施。一个主要 PR，不按文件或内部步骤拆批。

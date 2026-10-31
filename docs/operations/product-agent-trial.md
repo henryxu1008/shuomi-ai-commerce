@@ -100,7 +100,7 @@ go run ./cmd/product-agent-credential-provision -config C:\private\current-appli
 go run ./cmd/current-application -config C:\private\current-application.json
 ```
 
-Console 的现有 `LISTINGKIT_API_BASE` 指向上述当前 application；
+Console 的现有 `LISTINGKIT_SERVICE_API_BASE` 设为上述当前 application 的 origin 加 `/api/v1`；
 `PRODUCT_REVIEW_API_ORIGIN` 设为同一 application 的 origin（不含 path），以便既有标题
 审核 BFF 访问同一 Review owner。`LISTINGKIT_PRODUCT_AGENT_ENABLED=true` 打开页面入口。
 保留当前 Console 的 `LISTINGKIT_PUBLIC_BASE_URL`/身份配置。进入 `web/listingkit-ui` 后

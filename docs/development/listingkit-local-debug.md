@@ -1,3 +1,5 @@
+> #301 / #1029 [用户确认的完整输入链退休](../architecture/legacy-listingkit-input-config-closure-retirement-boundary.md)：当前 UI launcher 仅保留 ServiceApiBase/LISTINGKIT_SERVICE_API_BASE；旧 ApiBase/Task API 两 env 与自动读取集群 Secret 已退出。原显式进程 env/本地 .env 和 Auth.js handoff 保留，不新增登录步骤；下文旧 API/dev/token 操作仍为历史。 两组30路径在同一 #1029 整批实施，用户已确认冻结设计 e343a825b 的§1–§7（含§4.2/§6.1），IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。退出旧手工上传配置及旧 UI Task API/隐式集群 Secret 导入；当前 UI/Auth.js/Service API、图像/采集、imgproxy 两有效 Secret 键与原安全检查、Store 观察保留。workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下原文、历史、计数和勾选完整保留；源码 CI/最终复核证据另见同一 PR，不代表产品或运行验收。
+
 # Historical ListingKit Local Debug Reference
 
 > #852 / #29 / #301 [用户确认的 API token 工具完整退休](../architecture/legacy-api-token-tools-retirement-boundary.md)，冻结设计 `e6ac780d7`：旧取 token、保存与 auth-check 三脚本已从仓库删除；下文旧 API token 文件/环境约定及脚本命令仅为历史，不是当前操作或试用要求。当前 Auth.js handoff、原生身份及 Login V2 探针保持原 owner；当前采集、Store 和独立 SHEIN 登录/Store 同步保留。历史正文原样，未读取现有凭据或操作实例/数据，不增加试用前置。

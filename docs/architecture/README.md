@@ -1,3 +1,5 @@
+> #301 / #1029 当前 USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW：[完整两组30路径退休设计](legacy-listingkit-input-config-closure-retirement-boundary.md)。两组30路径在同一 #1029 整批实施，用户已确认冻结设计 e343a825b 的§1–§7（含§4.2/§6.1），IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。退出旧手工上传配置及旧 UI Task API/隐式集群 Secret 导入；当前 UI/Auth.js/Service API、图像/采集、imgproxy 两有效 Secret 键与原安全检查、Store 观察保留。workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下原文、历史、计数和勾选完整保留；源码 CI/最终复核证据另见同一 PR，不代表产品或运行验收。
+
 > #301 当前待确认设计：[旧 ListingKit 上传配置与本地 UI 输入链完整退休](legacy-listingkit-input-config-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；两组30路径一个主要 PR，先核对旧 KEEP 与实际消费者。退出无应用消费者的上传配置、旧 Task API 输入及隐式集群 Secret 导入；保留当前 UI/Auth.js/Service API、ImageAgent、imgproxy 两 Secret 键、当前能力和 Store 观察。不改 workflow/inventory，不操作既有资源，不增加试用前置；设计复核与用户确认后再实施，#301 OPEN。以下原导航/历史完整保留。
 
 - [`legacy-listingkit-input-config-closure-retirement-boundary.md`](legacy-listingkit-input-config-closure-retirement-boundary.md) — #301 两组完整输入链退休设计；DESIGN_ONLY / NOT_READY，用户确认后再实施。

@@ -294,33 +294,6 @@ func knownEnvBindings() map[string]envBinding {
 			Primary: "TASK_PROCESSOR_DATABASE_MAX_IDLE_CONNECTIONS",
 		},
 
-		"listingkit.imageUpload.provider": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_PROVIDER",
-		},
-		"listingkit.imageUpload.local.rootDir": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_LOCAL_ROOT_DIR",
-		},
-		"listingkit.imageUpload.s3.bucket": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_BUCKET",
-		},
-		"listingkit.imageUpload.s3.region": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_REGION",
-		},
-		"listingkit.imageUpload.s3.endpoint": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_ENDPOINT",
-		},
-		"listingkit.imageUpload.s3.accessKeyID": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_ACCESS_KEY_ID",
-		},
-		"listingkit.imageUpload.s3.secretAccessKey": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_SECRET_ACCESS_KEY",
-		},
-		"listingkit.imageUpload.s3.usePathStyle": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_USE_PATH_STYLE",
-		},
-		"listingkit.imageUpload.s3.publicBase": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_PUBLIC_BASE",
-		},
 		"listingkit.platformAdminUsers": {
 			Primary: "LISTINGKIT_PLATFORM_ADMIN_USERS",
 		},

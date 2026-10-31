@@ -17,6 +17,103 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyListingKitInputConfigurationClosureIsRetired(t *testing.T) {
+	read := func(path string) string {
+		t.Helper()
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatalf("read ListingKit input closure %s: %v", path, err)
+		}
+		return string(content)
+	}
+	listingKitConfigFound := false
+	for _, path := range trackedFiles(t, "internal/core/config") {
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, read(path), 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			declaration, ok := node.(*ast.TypeSpec)
+			if !ok {
+				return true
+			}
+			if slices.Contains([]string{"ListingKitImageUploadConfig", "ListingKitImageUploadLocalConfig", "ListingKitImageUploadS3Config"}, declaration.Name.Name) {
+				t.Errorf("%s retains retired upload type %s", path, declaration.Name.Name)
+			}
+			if declaration.Name.Name == "ListingKitConfig" {
+				listingKitConfigFound = true
+				shape, ok := declaration.Type.(*ast.StructType)
+				if !ok {
+					t.Fatal("ListingKitConfig must remain a struct")
+				}
+				fields := map[string]bool{}
+				for _, field := range shape.Fields.List {
+					for _, name := range field.Names {
+						fields[name.Name] = true
+					}
+				}
+				if fields["ImageUpload"] {
+					t.Error("ListingKitConfig retains retired ImageUpload owner")
+				}
+				for _, name := range []string{"RolePolicyDatabase", "PlatformAdminUsers", "PlatformAdminRoles", "Zitadel"} {
+					if !fields[name] {
+						t.Errorf("current ListingKit configuration field %s must remain", name)
+					}
+				}
+			}
+			return true
+		})
+	}
+	if !listingKitConfigFound {
+		t.Fatal("current ListingKitConfig owner must remain")
+	}
+	for _, path := range []string{"config.go", "defaults.go", "loader.go", "loader_builder.go"} {
+		content := read("internal/core/config/" + path)
+		for _, retired := range []string{"listingkit.imageUpload.", "ListingKitImageUpload", "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_"} {
+			if strings.Contains(content, retired) {
+				t.Errorf("%s retains retired upload construction/binding %s", path, retired)
+			}
+		}
+	}
+	launcher := read("scripts/start-listingkit-local-ui.ps1")
+	for _, retired := range []string{"$ApiBase", "LISTINGKIT_API_BASE", "NEXT_PUBLIC_LISTINGKIT_API_BASE", "Import-DeployedListingKitAuthSecrets", "kubectl"} {
+		if strings.Contains(launcher, retired) {
+			t.Errorf("UI launcher retains retired input %s", retired)
+		}
+	}
+	for _, current := range []string{"$ServiceApiBase", "LISTINGKIT_SERVICE_API_BASE", "Assert-LoopbackApiBase", "Import-DotEnvFile", "Stop-VerifiedUiProcessTree"} {
+		if !strings.Contains(launcher, current) {
+			t.Errorf("UI launcher must retain current behavior %s", current)
+		}
+	}
+	if strings.Contains(read("deployments/docker/account-compose/docker-compose.yml"), "LISTINGKIT_API_BASE:") {
+		t.Error("Compose retains retired Task API input")
+	}
+	configMap := read("deployments/kubernetes/listingkit-workbench/base/configmap.yaml")
+	for _, suffix := range []string{"PROVIDER", "S3_PUBLIC_BASE", "S3_BUCKET", "S3_REGION", "S3_ENDPOINT", "S3_USE_PATH_STYLE"} {
+		if strings.Contains(configMap, "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_"+suffix+":") {
+			t.Errorf("ConfigMap retains retired manual upload key %s", suffix)
+		}
+	}
+	for _, path := range []string{"base/secret.example.yaml", "base/imgproxy-deployment.yaml"} {
+		content := read("deployments/kubernetes/listingkit-workbench/" + path)
+		for _, key := range []string{"TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_ACCESS_KEY_ID", "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_SECRET_ACCESS_KEY"} {
+			if !strings.Contains(content, key) {
+				t.Errorf("%s must retain current imgproxy key %s", path, key)
+			}
+		}
+	}
+	current := read("internal/app/runtime/currentapplication/config.go")
+	for _, field := range []string{"core.ImageAgent.Admission", "core.ImageAgent.ArtifactStore", "core.ProductCollectionSourceMedia"} {
+		if !strings.Contains(current, field) {
+			t.Errorf("current image/source media injection must retain %s", field)
+		}
+	}
+}
+
 func TestLegacyTaskOpenAIConvenienceClosureIsRetired(t *testing.T) {
 	for _, path := range []string{"internal/listing/task", "internal/shared/ptr"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
