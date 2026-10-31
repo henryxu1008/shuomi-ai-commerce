@@ -1,3 +1,5 @@
+> #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
+
 > #301 / #1007 当前实施边界：用户已确认[配置、投影与 Dub 完整退休设计](legacy-config-projection-dub-closure-retirement-boundary.md) §1–§7/§4.2/§6.1。Dub 无实际消费者的准备适配器整包及专属尾部退休，本文件对 Dub 的旧 KEEP/Out of Scope 不再是当前保活要求；其它当前能力及既有原文/历史逐字保留。不调用 Dub、不操作既有实例/数据/凭据/进程，不改 workflow/inventory，不加试用前置，#301 OPEN。
 
 > 用户已批准的第二项准确实施例外（§5 / §6.1）：`tests/commercial_readiness_workflow_test.go` 仅从 sharedSecrets 精确 expected 集合删除五个已退休 `TASK_PROCESSOR_COMMERCIAL_DATABASE_*` 项；原 allowlist、其它 Secret/ConfigMap、隔离/canary断言与算法不变。`tests/commerce_tool_canonical_inspection_conformance_test.go` 仅显式 blank-import 已有 `modernc.org/sqlite`，使当前测试自己拥有驱动注册，原逻辑和依赖版本不变。合计153候选；第一文件此前 KEEP 的零改限制由本准确例外替代，旧订阅拒绝负例与其它检查继续保留。

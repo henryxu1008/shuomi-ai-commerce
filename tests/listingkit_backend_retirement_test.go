@@ -1702,7 +1702,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/shared/aiidentity":  {"CurrentEnvelopeVersion", "ErrMissingIdentity", "ErrIdentityIntegrity", "ExecutionEnvelope", "PersistedExecutionEnvelope", "PersistedEnvelopeState", "PersistedEnvelopeAbsent", "PersistedEnvelopePartial", "PersistedEnvelopePresent", "envelopeContextKey", "ExecutionEnvelope.Validate", "CaptureExecutionEnvelope", "WithExecutionEnvelope", "ExecutionEnvelopeFromContext", "RestoreExecutionEnvelope", "EnsureExecutionEnvelopeContext", "PersistedExecutionEnvelopeFrom", "PersistedExecutionEnvelope.State", "PersistedExecutionEnvelope.ExecutionEnvelope", "PersistedExecutionEnvelope.executionEnvelope", "normalizePersistedEnvelope", "normalizeEnvelope", "validSource", "TenantIDFromContext", "NormalizePersistedTenantID", "TenantMatchesContext", "TenantCanCreateTask", "requestRolesContextKey", "RequestUserIDFromContext", "WithRequestRoles", "RequestRolesFromContext", "normalizeRequestRoles"},
 		"internal/core/config":        {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog", "HTTPClientConfig", "DefaultHTTPClientConfig", "BuildHTTPClientConfig", "RetryConfig", "DefaultRetryConfig", "LoggingConfig", "PromptsConfig", "buildSplitByLevelConfig", "getStringFromMap"},
 		"internal/pkg/jsonx":          {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile", "UnmarshalBytes"},
-		"internal/pkg/appenv":         {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
+		"internal/pkg/appenv":         {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform", "VersionInfo", "PrintVersionInfo"},
 		"internal/pkg/imagex":         {"Format", "FormatJPEG", "FormatPNG", "FormatAuto", "ToBase64", "ToBase64JPEG", "ToBase64PNG", "FromBase64", "FromBytes", "ToBytes", "FromReader", "Encode", "Size", "FormatFromBytes", "HasTransparency", "OptimalFormat"},
 	}
 	// Owner-qualified declarations avoid banning current same-name workflows,
@@ -1716,7 +1716,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
 		"internal/core/config":        {"Config": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "OpenAIConfig": false},
 		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false},
-		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
+		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false},
 		"internal/pkg/imagex":         {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
 	}
 	decoders := map[string]bool{"image/jpeg": false, "image/png": false, "golang.org/x/image/webp": false}
@@ -4199,7 +4199,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		})
 	}
 	for relative, retired := range map[string][]string{
-		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
+		"internal/app/runtime/imageagentschemainit/runtime_test.go": {
 			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
 		},
 	} {
@@ -4219,7 +4219,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		},
 		"internal/listing/record/actor.go":        {"type Actor struct", "func ValidateActor(", "func ValidateOperationID("},
 		"internal/storecenter/gorm_repository.go": {"type GormStoreRepository struct"},
-		"internal/pkg/appenv/apputil.go":          {"func ComponentLoggers(", "func SetupLoggerWithLevel(", "type VersionInfo struct", "func PrintVersionInfo("},
+		"internal/pkg/appenv/apputil.go":          {"func ComponentLoggers(", "func SetupLoggerWithLevel("},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
@@ -4617,7 +4617,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 			}
 		}
 	}
-	for _, command := range []string{"current-application", "image-agent-temporal-worker", "source-account-registry-schema-init", "product-listing-api-schema-migrate", "1688-batch-import", "1688-public-browser-collector"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker", "source-account-registry-schema-init", "image-agent-schema-init", "1688-batch-import", "1688-public-browser-collector"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -6356,6 +6356,47 @@ func TestLegacyBrowserInstallClosureIsRetired(t *testing.T) {
 			if !strings.Contains(string(data), fragment) {
 				t.Errorf("%s must retain current SDK installation contract %q", path, fragment)
 			}
+		}
+	}
+}
+
+func TestLegacySchemaCLIClosureIsRetired(t *testing.T) {
+	assertRestoredDebugPathsAbsent(t,
+		"cmd/listingkit-schema-migrate", "cmd/product-listing-api-schema-migrate",
+		"internal/app/runtime/listingkitschemamigrate", "internal/app/runtime/productlistingschemamigrate",
+		"internal/app/schema/productlisting", "internal/workbench/schema",
+	)
+	for _, root := range []string{"internal", "cmd", "scripts", "tools"} {
+		assertNoBannedImportPrefixes(t, filepath.Join("..", root), []string{
+			"task-processor/internal/app/runtime/listingkitschemamigrate",
+			"task-processor/internal/app/runtime/productlistingschemamigrate",
+			"task-processor/internal/app/schema/productlisting",
+			"task-processor/internal/workbench/schema",
+		}, nil)
+	}
+	for _, path := range []string{"cmd/image-agent-schema-init/main.go", "internal/app/runtime/imageagentschemainit/runtime.go", "internal/app/runtime/imageagentschemainit/organization.go"} {
+		data, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, banned := range []string{"2026083001", "runWithDependencies", "MigrateAll", "productlisting.Migrate", "AutoMigrateRuntime"} {
+			if strings.Contains(string(data), banned) {
+				t.Errorf("%s retains old aggregation %q", path, banned)
+			}
+		}
+	}
+	for _, path := range []string{"deployments/docker/Dockerfile.account-compose", "deployments/docker/Dockerfile.product-listing-api", "deployments/docker/account-compose/image-trial-init.sh"} {
+		data, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, old := range []string{"listingkit-schema-migrate", "product-listing-api-schema-migrate"} {
+			if strings.Contains(string(data), old) {
+				t.Errorf("%s retains retired executable %q", path, old)
+			}
+		}
+		if !strings.Contains(string(data), "image-agent-schema-init") {
+			t.Errorf("%s lacks current image maintenance entry", path)
 		}
 	}
 }

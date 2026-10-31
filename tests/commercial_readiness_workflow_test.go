@@ -314,9 +314,9 @@ func TestListingKitReleaseImageRetainsNormalSchemaCLI(t *testing.T) {
 		t.Fatalf("read product-listing API Dockerfile: %v", err)
 	}
 	for _, required := range []string{
-		"cmd/listingkit-schema-migrate/",
-		"/out/listingkit-schema-migrate",
-		"/app/listingkit-schema-migrate",
+		"cmd/image-agent-schema-init/",
+		"/out/image-agent-schema-init",
+		"/app/image-agent-schema-init",
 	} {
 		if !strings.Contains(string(dockerfile), required) {
 			t.Errorf("product-listing API image must contain %q", required)

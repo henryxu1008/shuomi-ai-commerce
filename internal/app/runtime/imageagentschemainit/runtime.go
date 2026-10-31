@@ -1,4 +1,4 @@
-package productlistingschemamigrate
+package imageagentschemainit
 
 import (
 	"context"
@@ -11,22 +11,10 @@ import (
 
 	"task-processor/internal/app/configadapter"
 	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/app/schema/productlisting"
 	"task-processor/internal/core/config"
 	imagestore "task-processor/internal/imageagent/store"
 	platformdatabase "task-processor/internal/platform/database"
 )
-
-type Dependencies struct {
-	LoadConfig func(string) (*config.Config, error)
-	OpenDB     func(*config.DatabaseConfig) (*gorm.DB, error)
-	CloseDB    func(*gorm.DB) error
-	MigrateAll func(context.Context, *gorm.DB) error
-}
-
-func Run(ctx context.Context, configPath string) error {
-	return runWithDependencies(ctx, configPath, Dependencies{})
-}
 
 // GrantImageAgentRuntime requires both an explicit owner credential and the
 // current application's validated ImageAgent owner identity. It does not use
@@ -98,42 +86,6 @@ func validateImageAgentGrantTarget(owner *config.Config, current *currentapplica
 	if actual.Host == "" || actual.Port < 1 || actual.Database == "" || actual.User == "" || actual.User == imagestore.OrganizationRuntimeRole || actual.User == imagestore.OrganizationWorkerRuntimeRole ||
 		actual.Host != intended.Host || actual.Port != intended.Port || actual.Database != intended.Database {
 		return errors.New("explicit owner database does not match current image agent owner")
-	}
-	return nil
-}
-
-func runWithDependencies(ctx context.Context, configPath string, deps Dependencies) error {
-	if deps.LoadConfig == nil {
-		deps.LoadConfig = config.LoadConfigFromFileWithoutValidation
-	}
-	if deps.OpenDB == nil {
-		deps.OpenDB = func(cfg *config.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.Open(configadapter.Database(cfg))
-		}
-	}
-	if deps.CloseDB == nil {
-		deps.CloseDB = closeDB
-	}
-	if deps.MigrateAll == nil {
-		deps.MigrateAll = productlisting.Migrate
-	}
-	cfg, err := deps.LoadConfig(configPath)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	if cfg == nil || cfg.Database == nil {
-		return fmt.Errorf("database is not configured")
-	}
-	db, err := deps.OpenDB(cfg.Database)
-	if err != nil {
-		return fmt.Errorf("connect database: %w", err)
-	}
-	if db == nil {
-		return fmt.Errorf("database is not configured")
-	}
-	defer func() { _ = deps.CloseDB(db) }()
-	if err := deps.MigrateAll(ctx, db); err != nil {
-		return fmt.Errorf("migrate product listing API schema: %w", err)
 	}
 	return nil
 }

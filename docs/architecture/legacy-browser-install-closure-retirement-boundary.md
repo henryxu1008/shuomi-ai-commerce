@@ -1,3 +1,5 @@
+> #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
+
 > 当前用户决定 / #301 / #1030：用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。生产修改前授权与准入已[写回并读回](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1030#issuecomment-6540889996)。以下[冻结设计/原导航](legacy-browser-install-closure-retirement-boundary.md)及其原阶段性措辞完整保留，当前授权状态以本条及PR为准。
 
 # 旧浏览器预装与自下载整链退休设计

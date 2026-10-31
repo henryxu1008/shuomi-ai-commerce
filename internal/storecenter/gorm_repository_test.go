@@ -63,6 +63,29 @@ func TestGormStoreRepositoryMigratesRepeatableScopedSchema(t *testing.T) {
 	assertSQLiteIndex(t, db, "workbench_stores", []string{"organization_id", "platform", "region"}, false)
 	assertSQLiteIndex(t, db, "workbench_stores", []string{"organization_id", "create_idempotency_key"}, true)
 	assertSQLiteIndex(t, db, "workbench_stores", []string{"organization_id", "identity_key"}, true)
+	for _, table := range []string{"workbench_stores", "workbench_store_audit_logs", "workbench_store_groups", "workbench_store_profiles", "workbench_store_metadata_operations"} {
+		var columns []column
+		if err := db.Raw("PRAGMA table_info(" + table + ")").Scan(&columns).Error; err != nil {
+			t.Fatalf("inspect columns for %s: %v", table, err)
+		}
+		var organizationColumn *column
+		for index := range columns {
+			if columns[index].Name == "organization_id" {
+				organizationColumn = &columns[index]
+				break
+			}
+		}
+		if organizationColumn == nil {
+			t.Fatalf("%s has no organization_id column", table)
+		}
+		columnType := strings.ToLower(organizationColumn.Type)
+		if !strings.Contains(columnType, "char") && !strings.Contains(columnType, "text") && !strings.Contains(columnType, "string") {
+			t.Fatalf("%s organization_id type = %q, want string storage", table, organizationColumn.Type)
+		}
+		if organizationColumn.NotNull != 1 {
+			t.Fatalf("%s organization_id notnull = %d, want 1", table, organizationColumn.NotNull)
+		}
+	}
 }
 
 func TestGormStoreRepositoryAppliesServiceStateInsideCallerTransaction(t *testing.T) {
