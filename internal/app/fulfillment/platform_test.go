@@ -119,3 +119,16 @@ func TestMalformedDispatchMarkerNeverAuthorizesProviderSend(t *testing.T) {
 		t.Fatal("invalid marker authorized send", err, merchant.sends)
 	}
 }
+func TestOriginalDeadlineExpiringAfterMarkerStopsProviderSend(t *testing.T) {
+	service, erp, merchant := executionFixture()
+	merchant.source.Deadline = time.Now().Add(200 * time.Millisecond)
+	plan, _ := merchant.Build(context.Background(), merchant.source, sf.Delivery{}, erp.original.Input.Selection)
+	erp.original.Input.Version = preparedVersion(merchant.source, sf.Delivery{}, erp.original.Input.Selection, plan)
+	erp.original.Revision = erp.original.Input.Version
+	marked := false
+	erp.onMarker = func() { marked = true; time.Sleep(250 * time.Millisecond) }
+	err := service.Run(context.Background(), "site", "org", erp.original.Operation)
+	if !marked || err != f.ErrConflict || merchant.sends != 0 {
+		t.Fatal("expired original deadline authorized a provider send", marked, err, merchant.sends)
+	}
+}

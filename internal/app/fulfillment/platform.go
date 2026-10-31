@@ -249,6 +249,9 @@ func (s *Service) Run(ctx context.Context, alias, org, id string) error {
 	if err != nil {
 		return err
 	}
+	if err = eligibleSource(fresh, time.Now()); err != nil {
+		return err
+	}
 	plan, err := merchant.Build(ctx, fresh, delivery, prepared.Selection)
 	if err != nil || preparedVersion(fresh, delivery, prepared.Selection, plan) != prepared.Version {
 		return f.ErrConflict
