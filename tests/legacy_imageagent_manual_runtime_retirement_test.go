@@ -471,7 +471,8 @@ func TestLegacyImageAgentGenericExecutionClosureIsRetired(t *testing.T) {
 func TestRetiredGenericImageContractsCannotReturn(t *testing.T) {
 	banned := map[string][]string{
 		"internal/imageagent/ports.go":                     {"StagedSlotReviewer", "BudgetedStagedSlotReviewer", "ApprovedAssetPublisherV3", "PublishApprovedV3Input"},
-		"internal/imageagent/slot_execution.go":            {"ReviewUsageReservation", "ReviewUsageAttempt", "ReviewUsageOutcome", "ReviewRetryInput"},
+		"internal/imageagent/slot_execution.go":            {"SlotReviewUsageReservation", "SlotReviewUsageAttempt", "SlotReviewOutcome"},
+		"internal/imageagent/slot_effect_v3.go":            {"ReviewRetrySlotEffectV3Repository"},
 		"internal/product/image/ports.go":                  {"SubjectExtractor", "WhiteBackgroundRenderer", "SceneRenderer", "Reviewer", "CompleteCapabilities"},
 		"internal/product/image/model.go":                  {"ExtractRequest", "RenderRequest", "SceneRequest", "ReviewRequest", "Review"},
 		"internal/integration/openai/credential_config.go": {"Manager", "Client", "RequestPool", "Logger", "PoolConfig", "ManagerConfig"},
