@@ -1,4 +1,4 @@
-import {cleanup,render,screen} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,it,expect,vi} from "vitest";
 import {TikTokTargetEditor} from "./tiktok-target-editor";
@@ -39,4 +39,33 @@ it("removes a cancelled optional certification while retaining other selected pr
  await userEvent.click(boxes[1]);
  await userEvent.click(screen.getByRole("button",{name:"保存并校验 TikTok 资料"}));
  expect(state.execute.mock.lastCall?.[1].tiktok.certifications).toEqual([]);
+});
+it("clears a removed proof's displayed expiry and saves the reselected proof's current date",async()=>{
+ const readRules=state.rules.getMockImplementation()!;
+ state.rules.mockImplementation(async(...args)=>{
+  const result=await readRules(...args);
+  if(result.tiktok)result.tiktok.rules.product_certifications=[{id:"cert-a",name:"Optional A",is_required:false,expiration_date:{is_required:true}},{id:"cert-b",name:"Optional B",is_required:false}];
+  return result;
+ });
+ state.inventory.mockResolvedValue({scope:{target_platform:"tiktokshop"},assets:[{id:"proof-1",role:"main",url:"https://example.org/proof.jpg"}]});
+ render(<TikTokTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={{execute:state.execute} as unknown as SupplyCommandState} disabled={false} saved={0}/>);
+ await userEvent.selectOptions(await screen.findByLabelText("TikTok 发布方式"),"LOCAL_REPLICATION");
+ await userEvent.selectOptions(await screen.findByLabelText("TikTok 商品类目"),"cat");
+ const boxes=await screen.findAllByRole("checkbox",{name:"证明素材 1"});
+ const expiry=screen.getByLabelText("Optional A 有效期至");
+ await userEvent.click(boxes[0]);await userEvent.click(boxes[1]);
+ fireEvent.change(expiry,{target:{value:"2035-12-31"}});
+ expect(expiry).toHaveValue("2035-12-31");
+ await userEvent.selectOptions(screen.getByLabelText("平台提交方式"),"AS_DRAFT");
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验 TikTok 资料"}));
+ expect(state.execute.mock.lastCall?.[1].tiktok.certifications).toEqual(expect.arrayContaining([{id:"cert-a",images:["proof-1"],expirationDate:Date.parse("2035-12-31T00:00:00Z")/1000},{id:"cert-b",images:["proof-1"]}]));
+ await userEvent.click(boxes[0]);
+ expect(expiry).toHaveValue("");
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验 TikTok 资料"}));
+ expect(state.execute.mock.lastCall?.[1].tiktok.certifications).toEqual([{id:"cert-b",images:["proof-1"]}]);
+ await userEvent.click(boxes[0]);
+ expect(expiry).toHaveValue("");
+ fireEvent.change(expiry,{target:{value:"2036-01-01"}});
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验 TikTok 资料"}));
+ expect(state.execute.mock.lastCall?.[1].tiktok).toMatchObject({title:"Source title",description:"Source description",certifications:expect.arrayContaining([{id:"cert-a",images:["proof-1"],expirationDate:Date.parse("2036-01-01T00:00:00Z")/1000},{id:"cert-b",images:["proof-1"]}])});
 });
