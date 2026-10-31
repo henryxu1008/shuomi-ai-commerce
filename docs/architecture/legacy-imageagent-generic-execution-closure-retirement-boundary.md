@@ -87,7 +87,7 @@ SourceGenerationExecutor 不引入通用调度平台。现有 provider/Goose/Tem
 
 ## §5 完整退休/抽取/混合矩阵
 
-清单为未来实施的**准确允许范围上限，共 188 路径**（39旧文件、22新文件、95混合文件、27历史文档、1当前文档、设计/两导航3文件、1inventory）。RETIRE/新 owner 是完整闭包，不拆小批；混合/条件依赖文件没有实际必要变化时可零 diff 并记PR，不为达到文件数修改它。未列新消费者/检查/持久化变化须先报告准确提案。当前设计提交只本设计与两导航三文件，未来清单不等于现在授权实施。
+清单为未来实施的**准确允许范围上限，共 191 路径**（39旧文件、22新文件、98混合文件、27历史文档、1当前文档、设计/两导航3文件、1inventory）。RETIRE/新 owner 是完整闭包，不拆小批；混合/条件依赖文件没有实际必要变化时可零 diff 并记PR，不为达到文件数修改它。未列新消费者/检查/持久化变化须先报告准确提案。当前设计提交只本设计与两导航三文件，未来清单不等于现在授权实施。
 
 ### §5.1 RETIRE — 39旧文件
 
@@ -156,7 +156,7 @@ SourceGenerationExecutor 不引入通用调度平台。现有 provider/Goose/Tem
 - `internal/product/image/source_white_background.go`
 - `internal/product/image/source_white_background_test.go`
 
-### §5.3 精确混合 — 95文件
+### §5.3 精确混合 — 98文件
 
 按 §4/§6.1 仅改旧声明/消费者/固定fixture，原其它行为零改。内部两个 README 是活跃说明，改为当前 source adapter/凭据 owner；Go 模块两文件条件如§4.2.6。
 
@@ -169,11 +169,14 @@ SourceGenerationExecutor 不引入通用调度平台。现有 provider/Goose/Tem
 - `internal/aicapability/store/gorm_invocation_recorder_test.go`
 - `internal/app/httpapi/chain1_local_product_acceptance_test.go`
 - `internal/app/httpapi/imageagent_acquisition_module_test.go`
+- `internal/app/runtime/currentapplication/title_credential_provision_test.go`
 - `internal/app/runtime/image_agent_temporal_runtime.go`
 - `internal/app/runtime/image_agent_temporal_runtime_test.go`
+- `internal/app/schema/productagentruntime/collation_postgres_test.go`
 - `internal/app/worker/imageagent/dependencies.go`
 - `internal/app/worker/imageagent/dependencies_test.go`
 - `internal/app/worker/imageagent/generation_provider.go`
+- `internal/app/worker/imageagent/generation_provider_test.go`
 - `internal/app/worker/imageagent/grsai_synchronous_edit_test.go`
 - `internal/app/worker/imageagent/image_policy_test.go`
 - `internal/app/worker/imageagent/image_set_runtime.go`
@@ -315,7 +318,7 @@ SourceGenerationExecutor 不引入通用调度平台。现有 provider/Goose/Tem
 | T9 | listingkit_backend_retirement 原AST / legacy manual / subscription guard | 仅将本批旧KEEP（Manager/Client/Pool/Logger/OpenAIConfig/ProductImageAdapter/旧capabilities/Review ports）移到同owner禁入；原 TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired、TestLegacyAIRoutingImagePolicyClosureIsRetired 精确表项转换。其它同文件指向新adapter/最小配置的准确保活路径/符号改接；保留原AST/decoded import/类型字段/decl禁令/错误处理及全部其它KEEP，不宽泛删除 openai 包检查 |
 | T10 | image policy/catalog/scene defaults 原测试 | old SceneOptions/merge nil-base行为改当前 PolicySceneDefaults/Normalize；保留原10字段/规范化/去重/字节上限/clone/ownership/精确policy key和整个catalog hash版本。只有旧执行期override合并case随旧renderer退出；不删policy数据或改变profile JSON |
 | T11 | worker Secret与模块元数据、CURRENT | 原Secret精确expected表仅删§4.2五键；旧脚本仅删§4.2明确的openai块，保留当前DB/凭据/装配及原其余断言。其余键/凭据隔离/canary安全断言保持。CURRENT只删用户批准的一行，历史/计数/ceiling/准确性算法不变。SDK模块只按真实保留消费者选择条件删除，无其它依赖漂移 |
-| T13 | credential_store / 最小 credential_config / 原 tenant-manager 有效作用域断言 | Get/Save 的明确tenant/user/client精确查找、enabled/缺失/DB错误和组织专属解析不访问成员/全局/静态fallback等有效负例保留，改接当前共享aiidentity与去fallback参数的最小port。旧Manager/成员优先继承/全局key正例随旧入口退出；CredentialReference/Version、当前published route与生成前后version漂移拒绝不改，不把user_id物理字段删掉或迁移行 |
+| T13 | credential_store / 最小 credential_config / 原 tenant-manager、title_credential_provision、productagentruntime/collation_postgres、generation_provider 有效断言 | Get/Save 的明确tenant/user/client精确查找、enabled/缺失/DB错误和组织专属解析不访问成员/全局/静态fallback等有效负例保留，改接当前共享aiidentity与去fallback参数的最小port。旧Manager/成员优先继承/全局key正例随旧入口退出；CredentialReference/Version、当前published route与生成前后version漂移拒绝不改，不把user_id物理字段删掉或迁移行。新增列明的三测试文件仅将旧 WithIdentity/Identity 改接共享 aiidentity、去 ResolveClientConfig 第三个 fallback 参数及同签名mock；原禁成员fallback、collation精确作用域/漂移证据与拒绝不修复、provider/version/取消及所有其它断言原样保留，不执行真实DB或借用既有凭据 |
 | T12 | 新 scoped retirement guard（现有tests目录文件内） | 强制§5.1旧文件/声明和专属producer/Review Activity注册缺席，当前窄owner/源码入口/标准wire/canary/关键安全约束必需；现役根上用原decoded import/AST设施禁旧SDK/旧跨层依赖，无missing-skip。字段/合同rename只改真实owner，不复活旧包或用wrapper隐藏旧依赖 |
 
 所有表列fixture的原PG独占gate、DSN/系统DB拒绝、自有临时库清理与有效断言保持；没有任务自有环境授权与实际执行就是NOT_RUN，不能借用既有DSN/凭据。未来必要自检限受影响原包/guard、原合成fixture及命令仅编译，稳定候选才跑原完整CI，不人工重复完整矩阵，不造runner/故障注入平台/验证工具的验证工具。
