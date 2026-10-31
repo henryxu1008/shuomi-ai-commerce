@@ -1,3 +1,5 @@
+> #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
+
 # 旧数字任务执行链：退休设计与持久化边界
 
 > #822 用户确认的[完整 Amazon 刊登闭包](legacy-amazon-listing-closure-retirement-boundary.md)已源码退休；本文原保留 Amazon 非 API 子包、internal/state 及专属 helper 的叙述，仅对新边界 §5 列明对象被窄替代。原证据与当时消费者事实保持；Amazon API、当前来源采集/共享合同、Store 观察及独立 SHEIN worker/Store 同步继续保留。

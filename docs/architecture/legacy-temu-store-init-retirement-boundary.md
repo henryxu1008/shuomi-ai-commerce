@@ -1,3 +1,5 @@
+> #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
+
 > #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，仅将 appenv.GetInstanceID 及其宿主实例/平台辅助闭包的旧 KEEP 替换为精确 RETIRE；当前 ComponentLoggers、SetupLoggerWithLevel、VersionInfo/PrintVersionInfo、其它同名 owner 及 Store/API/身份合同保持。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
 
 # 旧 TEMU 店铺上下文与商品初始化链退休边界

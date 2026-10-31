@@ -167,8 +167,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `ecoservices-schema-init`
     - `knowledge-schema-init`
     - `issue36-local-trial-init`
-    - `listingkit-schema-migrate`
-    - `product-listing-api-schema-migrate`
+    - `image-agent-schema-init`
     - `supply-asset-init`
     - `product-acquisition-init`
     - `store-center-schema-init`
@@ -317,3 +316,5 @@ runtime dependencies.
 - 不把历史调试或兼容入口重新放回 `cmd/`。
 - 不改动业务 API、HTTP 路由、消息结构、数据库结构。
 - 不重命名 `internal/pkg`，也不引入新的共享层抽象。
+
+当前 Image 维护入口 `image-agent-schema-init` 由 `deployments/docker/account-compose/image-trial-init.sh` 维护；只允许显式选择初始化、ledger-only 准备或两个窄 grant 之一，无默认跨域建表。两旧 schema CLI 已在 #1032 退休，不提供兼容入口。

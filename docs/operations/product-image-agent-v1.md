@@ -40,7 +40,7 @@ JSON 的 `imageAgent` 除上述 database/assetDatabase/workerConfigFile/generati
 
 全新空 Product 数据库的既有 `product-acquisition-init` 私有 manifest 使用 `imageSets:true` 安装当前 schema 和上述窄授权；需要商品集合时再设 `collections:true`，同时启用 Supply 时须设 `collections:true, supplyChain:true`。这些标志不是既有环境的自动迁移/权限修复入口。报价与逐图执行共用现 worker 角色的企业凭据读取能力，HTTP Image 角色仍没有密钥表读取权限。完整 GRSAI worker 无需配置未使用的全局 OpenAI key。
 
-新配置 schema 通过已有 `cmd/agent-configuration-schema-init` 安装；Image schema 与窄 HTTP/worker grant 通过已有 `cmd/product-listing-api-schema-migrate` 的 Organization Image 初始化选项安装；Image 空库初始化已同时安装当前 Asset schema；随后用已有 `cmd/supply-asset-init` 对同一物理 owner 补 `supply_asset_runtime` 授权，省略 `-install-empty-schema`。只能对获准的新环境执行维护命令。旧的单图配置/状态不迁移、不包装到新流程。
+新配置 schema 通过已有 `cmd/agent-configuration-schema-init` 安装；Image schema 与窄 HTTP/worker grant 通过已有 `cmd/image-agent-schema-init` 的 Organization Image 初始化选项安装；Image 空库初始化已同时安装当前 Asset schema；随后用已有 `cmd/supply-asset-init` 对同一物理 owner 补 `supply_asset_runtime` 授权，省略 `-install-empty-schema`。只能对获准的新环境执行维护命令。旧的单图配置/状态不迁移、不包装到新流程。
 
 ```powershell
 # 后端：仓库根目录，私有 manifest 已包含上表实际依赖。
@@ -78,6 +78,8 @@ pnpm.cmd exec next start --hostname 127.0.0.1 --port 3000
 
 本地待补全详情使用原 Preparation 来源打开同一整套图片面板，完整平台 Supply 开关仍可关闭。来源读取使用原 read 权限，方法选择要求原 image write；没有原图时如实返回空列表，仍能核对方法版本，Prepare 保持拒绝。缺少模型配置或智能体未启用时不能准备或生成。
 
-专用 Image 库若只存在**当前完整** `ai_invocations`，可在保留备份后显式运行 `product-listing-api-schema-migrate -prepare-ledger-only-organization-image-agent -config <private-owner.yaml> -current-application-manifest <private-current.json>`。入口核实准确数据库、原 ledger owner/列/索引/约束和单表状态，事务只创建缺失的当前 Image、Asset、credential 表，不迁移或改写账本；未知、混合或已安装状态拒绝。原空库初始化保持严格；普通 API/worker 启动不执行 DDL。随后沿现有独立窄角色 grant / verify 维护入口装配，不能把 owner pool 用于 HTTP 或 worker。
+专用 Image 库若只存在**当前完整** `ai_invocations`，可在保留备份后显式运行 `image-agent-schema-init -prepare-ledger-only-organization-image-agent -config <private-owner.yaml> -current-application-manifest <private-current.json>`。入口核实准确数据库、原 ledger owner/列/索引/约束和单表状态，事务只创建缺失的当前 Image、Asset、credential 表，不迁移或改写账本；未知、混合或已安装状态拒绝。原空库初始化保持严格；普通 API/worker 启动不执行 DDL。随后沿现有独立窄角色 grant / verify 维护入口装配，不能把 owner pool 用于 HTTP 或 worker。
 
 PR 的受控 HTTP/隔离 PostgreSQL 测试不等于真实百炼调用。运行实例、凭据准入、实际生图与用户验收分别记录在 #774 / #799。
+
+> #1032 当前维护入口：上述 Image 四项显式操作统一由 `image-agent-schema-init` 装配，旧两 schema CLI/默认跨域建表已退休。仅入口归属改变，原输入、数据库 owner、事务、权限与初始化拒绝条件保持；本注记不授权真实环境执行。

@@ -1,3 +1,5 @@
+> #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
+
 # 验收环境拆分：RUN-1 与跟随生产的完整环境
 
 **状态**：**拆分决策已准入（IMPLEMENTATION_READY，2026-09-27）**；FULL 部分**经用户决定暂缓**；§3.1 为**待确认的提案**，未获裁定，且其**待裁定范围已于 2026-09-29 收窄**（见下）。本文不含实现。

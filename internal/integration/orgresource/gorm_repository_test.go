@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -428,5 +429,50 @@ func assertTableCount(t *testing.T, db *gorm.DB, table string, want int64) {
 	}
 	if got != want {
 		t.Fatalf("%s count = %d, want %d", table, got, want)
+	}
+}
+
+func TestResourceSchemaUsesNonNullStringOrganizationColumns(t *testing.T) {
+	db := openSQLiteStore(t)
+	if err := AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+	type column struct {
+		Name    string `gorm:"column:name"`
+		Type    string `gorm:"column:type"`
+		NotNull int    `gorm:"column:notnull"`
+	}
+	for _, table := range []string{"saas_organization_resource_buckets", "saas_organization_resource_debts", "saas_organization_resource_reservations"} {
+		var columns []column
+		if err := db.Raw("PRAGMA table_info(" + table + ")").Scan(&columns).Error; err != nil {
+			t.Fatalf("inspect columns for %s: %v", table, err)
+		}
+		var organizationColumn *column
+		for index := range columns {
+			if columns[index].Name == "organization_id" {
+				organizationColumn = &columns[index]
+				break
+			}
+		}
+		if organizationColumn == nil {
+			t.Fatalf("%s has no organization_id column", table)
+		}
+		columnType := strings.ToLower(organizationColumn.Type)
+		if !strings.Contains(columnType, "char") && !strings.Contains(columnType, "text") && !strings.Contains(columnType, "string") {
+			t.Fatalf("%s organization_id type = %q, want string storage", table, organizationColumn.Type)
+		}
+		if organizationColumn.NotNull != 1 {
+			t.Fatalf("%s organization_id notnull = %d, want 1", table, organizationColumn.NotNull)
+		}
+	}
+}
+func TestResourceSchemaRejectsNullBucketOrganization(t *testing.T) {
+	db := openSQLiteStore(t)
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate() error = %v", err)
+	}
+
+	if err := db.Exec(`INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (NULL,'ai_point',0,0,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`).Error; err == nil {
+		t.Fatal("Resource bucket accepted a NULL organization_id")
 	}
 }

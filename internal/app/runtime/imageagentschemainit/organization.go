@@ -1,4 +1,4 @@
-package productlistingschemamigrate
+package imageagentschemainit
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-// Package appenv provides current runtime logging composition and version output.
+// Package appenv provides current runtime logging composition.
 package appenv
 
 import (
@@ -25,23 +25,4 @@ func SetupLoggerWithLevel(level string) *logrus.Logger {
 		Console: true,
 	})
 	return loggerPkg.GetGlobalLogManager().GetRawLogger()
-}
-
-// =============================================================================
-// 版本
-// =============================================================================
-
-// VersionInfo 版本信息
-type VersionInfo struct {
-	Version   string
-	BuildTime string
-}
-
-// PrintVersionInfo 打印版本信息
-func PrintVersionInfo(logger *logrus.Logger, v VersionInfo) {
-	logger.Infof("========================================")
-	logger.Infof("Task Processor 启动")
-	logger.Infof("版本: %s", v.Version)
-	logger.Infof("构建时间: %s", v.BuildTime)
-	logger.Infof("========================================")
 }
