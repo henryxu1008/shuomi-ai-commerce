@@ -1,9 +1,9 @@
-# TikTok 发送前未执行的终止与显式重试：设计候选
+# TikTok 发送前未执行的终止与显式重试：冻结设计
 
 - Execution Issue: [#669](https://github.com/henryxu1008/shuomi-ai-commerce/issues/669)，同一 Draft PR #1031。
 - Design Basis: **Independent Architecture，局部恢复合同增量**。
-- Admission Status: **DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**。
-- Authority：2026-10-31 用户仅授权设计 no-send 证明、原 claim/fence 的 CAS 终止、原键重放与新尝试规则；**暂不实现、不新增 Reviewer**。本文件不是实现、评审通过或上线授权。
+- Admission Status: **IMPLEMENTATION_READY / FROZEN**。用户已认可准确候选 `5496f141c15dc88669d5f85eef2101dd5e8fef99`，[第1轮独立架构复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1031#issuecomment-6541484592)无范围内 BLOCKER。
+- Authority：2026-10-31 用户已授权原唯一 Writer 按该冻结设计先补回归再实现/自检，在原 PR #1031 维护，并复用原唯一 Reviewer 做范围内增量复核；不授权合并、部署、关单或真实操作。
 - 原 [TikTok 首版设计](tiktok-shop-us-v1.md)及[官方合同依据](tiktok-shop-us-contract-evidence.md)其余范围保持冻结；本候选只处理 #670 的发送前失败恢复 finding，不重新设计整个 Submission。
 - 唯一设计/写入负责人沿用 #669 当前会话与独立工作区；保留实例、数据和会话，不部署、不真实启停或保存配置，不调用真实平台/模型，不发送邮件短信。
 
@@ -11,7 +11,7 @@
 
 美国跨境 TikTok 店铺运营人员明确确认上传后，若当前 worker 在源资料、图片或店铺授权复核中失败，而且**尚未进入平台 mutation 调用**，这一次应有准确的“未发送”结果。处理缺项后，用户可以沿原上传入口重新确认；原操作回执保持原结果。
 
-本候选建议同时采用两项决定，均待用户确认及适用独立架构复核：
+以下两项决定已获用户认可并完成适用独立架构复核：
 
 1. 仅在**仍存活的原执行者**持有 Submission 创建的一次性发送门禁、且它能不可逆地禁止该执行者后续发送时，允许提交 `not_sent`。没有这种证明的进程中断、重启、超时和已有 UNKNOWN 继续保守关闭重发。
 2. `not_sent` 是原键的永久终态；不自动重试。只有用户重新确认产生的新 Operation/item command，重新检查全部当前准入后，才能竞争新的 fence。成功前置回执仍优先复用；UNKNOWN 仍阻止新命令发送。
@@ -76,7 +76,7 @@ no-send 仅证明**本阶段受保护的 mutation 未进入**，不声称没有�
 
 ### 4.3 拟议的最小 Port 与装配
 
-以下是待确认的合同名称，不是已存在 API：`PrepareTikTokExecution(command)` 返回原 attempt 和准备句柄；`BeginTikTokSend(handle)` 一次性交出 SendPermit；`StopTikTokBeforeSend(handle, reason)` 关闭门禁并提交原 claim 的 no-send 终止。`ReadIntent/Get` 只读，任何重放都不返回可发送/可终止句柄。
+已准入的最小 Port：`PrepareTikTokExecution(command)` 返回原 attempt 和准备句柄；`BeginTikTokSend(handle)` 一次性交出 SendPermit；`StopTikTokBeforeSend(handle, reason)` 关闭门禁并提交原 claim 的 no-send 终止。`ReadIntent/Get` 只读，任何重放都不返回可发送/可终止句柄。
 
 准备入口只在原 reservation/target 事务确定成功、原 lease 仍有效时签发句柄；事务结果不明、replay 或过期均无句柄。Begin 还检查原有界 context/lease，不能以进入门禁延长许可。Supply 的原窄 Kernel Port 消费这些能力；current application 仍注入同一 ExecutionKernel/官方效果 Repository，不增加第二装配或 provider owner。普通 Complete/UNKNOWN/official completion 保留原路径。
 
@@ -164,4 +164,4 @@ no-send 证据只由 Kernel 的已关闭门禁生成。它绑定原 organization
 
 Legacy decision: **N/A**，仅当前 owner 的新合同；遵守 [greenfield baseline](../product/greenfield-no-legacy-migration.md)。未来只在获准的任务独立新空测试库中修改/校验 schema；本设计不提供旧表迁移、UNKNOWN backfill、双读双写或旧 TikTok 发送入口兼容。保留实例继续原版本/原数据，不触碰；如后续要求接入不匹配的新 schema，先报告并取得单独方案/授权，不隐式升级。
 
-当前交付仅本设计和索引/引用。**用户尚未确认这两项设计决定，独立 Architecture Review NOT_RUN，生产代码/正式 schema 修改 NOT_RUN；不得标为 IMPLEMENTATION_READY 或据此继续实现。** #1031 既有三项修复及其 CI 是各自原 SHA 的工程证据，不是本候选恢复协议已经实现或验证的证据。运行、真实保存/恢复/刷新/刊登、浏览器与产品验收保持 NOT_RUN，现场缺失证据 UNKNOWN。
+本文件记录已批准的冻结合同；实施、必要自检、准确 HEAD/CI 和同一 Reviewer 的增量复核以 #1031 当前证据为准，不把架构准入、旧 SHA 的 CI 或未执行测试写成实现验证通过。合并、部署、关单仍需独立授权。运行、真实保存/恢复/刷新/刊登、浏览器与产品验收保持 NOT_RUN，现场缺失证据 UNKNOWN；没有操作保留实例或升级保留库的授权。

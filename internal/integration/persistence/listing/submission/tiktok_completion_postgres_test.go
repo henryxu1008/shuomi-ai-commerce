@@ -101,7 +101,9 @@ func TestPostgresTikTokStagesUseAtomicCompletionAndRetainDraft(t *testing.T) {
 	require.NoError(t, err)
 	official, err := officialstore.NewOfficialRepository(ctx, db)
 	require.NoError(t, err)
-	acquire := func(stage string, img *marketplace.ImageObservation, images []submission.OfficialReceipt, global *submission.OfficialReceipt) (submission.OfficialIntent, []byte, submission.ExecutionAcquisition, submission.ExecutionClaim) {
+	closed := map[string]*submission.TikTokPreparation{}
+	var acquire func(string, *marketplace.ImageObservation, []submission.OfficialReceipt, *submission.OfficialReceipt) (submission.OfficialIntent, []byte, submission.ExecutionAcquisition, submission.ExecutionClaim)
+	acquire = func(stage string, img *marketplace.ImageObservation, images []submission.OfficialReceipt, global *submission.OfficialReceipt) (submission.OfficialIntent, []byte, submission.ExecutionAcquisition, submission.ExecutionClaim) {
 		key := uuid.NewString()
 		payload, effect, e := submission.ResolveTikTokPayload(saved, stage, key, img, images, global)
 		require.NoError(t, e)
@@ -120,10 +122,25 @@ func TestPostgresTikTokStagesUseAtomicCompletionAndRetainDraft(t *testing.T) {
 		encoded, e := json.Marshal(intent)
 		require.NoError(t, e)
 		require.NoError(t, db.Exec("INSERT INTO listing_submission_official_intents(organization_id,actor_id,member_id,intent_key,record_id,kind,input_hash,body_hash,body_json) VALUES(?,?,?,?,?,?,?,?,?::jsonb)", scope.OrganizationID, scope.ActorID, scope.MemberID, key, saved.ID, stage, intent.InputHash, collection.Digest(intent), string(encoded)).Error)
-		acquired, e := kernel.Acquire(ctx, command)
+		prepared, e := kernel.PrepareTikTokExecution(ctx, command)
 		require.NoError(t, e)
-		require.NotNil(t, acquired.Permit)
-		permit := acquired.Permit
+		require.NotNil(t, prepared.Preparation)
+		if closed[stage] == nil {
+			closed[stage] = prepared.Preparation
+			stopped, e := kernel.StopTikTokBeforeSend(ctx, prepared.Preparation, submission.NoSendPreflightUnavailable)
+			require.NoError(t, e)
+			require.Equal(t, submission.ExecutionNotSent, stopped.Status)
+			_, e = official.ReadOfficial(ctx, scope, stopped.AttemptID)
+			require.ErrorIs(t, e, submission.ErrExecutionNotFound, "no-send never creates an official success receipt")
+			replayed, e := kernel.PrepareTikTokExecution(ctx, command)
+			require.NoError(t, e)
+			require.Nil(t, replayed.Preparation)
+			require.Equal(t, stopped, replayed.Attempt)
+			return acquire(stage, img, images, global)
+		}
+		permit, e := kernel.BeginTikTokSend(ctx, prepared.Preparation)
+		require.NoError(t, e)
+		acquired := submission.ExecutionAcquisition{Attempt: prepared.Attempt, Permit: permit}
 		claim := submission.ExecutionClaim{Scope: command.Scope, AttemptID: permit.AttemptID, FenceEpoch: permit.FenceEpoch, OwnerID: permit.ClaimOwnerID, Token: permit.ClaimToken}
 		return intent, payload, acquired, claim
 	}
@@ -158,6 +175,14 @@ func TestPostgresTikTokStagesUseAtomicCompletionAndRetainDraft(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "US-product", reread.TikTok.Publication.ProductID)
 	require.Equal(t, marketplace.RemoteDraft, reread.TikTok.Publication.State)
+	for _, original := range closed {
+		stopped, e := kernel.StopTikTokBeforeSend(ctx, original, submission.NoSendPreflightUnavailable)
+		require.NoError(t, e)
+		require.Equal(t, submission.ExecutionNotSent, stopped.Status)
+	}
+	reread, err = official.FindOfficialTarget(ctx, scope.OrganizationID, retained.Target)
+	require.NoError(t, err)
+	require.Equal(t, retained, reread, "replayed no-send proofs cannot replace a completed official target")
 	_, err = kernel.Acquire(ctx, submission.AcquireExecutionCommand{Scope: claim.Scope, IntentKey: uuid.NewString(), Target: retained.Target, Action: submission.TikTokPublishAction, Payload: []byte("changed approved data"), ClaimOwnerID: "test-worker", Lease: time.Minute})
 	require.ErrorIs(t, err, submission.ErrExecutionTargetSucceeded)
 	require.NoError(t, db.Exec("ALTER TABLE listing_submission_official_intents DROP CONSTRAINT listing_submission_official_intents_kind_check; ALTER TABLE listing_submission_official_intents ADD CHECK(kind IN ('publish','image')) NOT VALID").Error)

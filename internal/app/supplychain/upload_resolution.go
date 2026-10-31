@@ -105,6 +105,12 @@ func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID
 	if intent.Kind == "image" {
 		message = "图片处理结果待核实；官方未提供可安全确认该图片操作的查询，原操作保留，不自动重发。"
 	}
+	if attempt.Status == submission.ExecutionNotSent {
+		if platform != "tiktokshop" {
+			return UploadAttemptView{}, record.ErrConflict
+		}
+		message = tiktokNotSent(recordID, attemptID).Message
+	}
 	return UploadAttemptView{RecordID: recordID, AttemptID: attemptID, EffectKind: intent.Kind, Platform: platform, Status: attempt.Status, Message: message}, nil
 }
 

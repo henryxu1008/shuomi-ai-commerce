@@ -208,6 +208,9 @@ func TransitionExecutionToUnknown(attempt ExecutionAttempt, reason UnknownReason
 }
 
 func CompleteClaimedExecution(attempt ExecutionAttempt, evidence ExecutionEvidence, now time.Time) (ExecutionAttempt, error) {
+	if evidence.Kind == EvidenceLocalNoSend || attempt.Status == ExecutionNotSent {
+		return ExecutionAttempt{}, ErrExecutionEvidenceRequired
+	}
 	if validateExecutionAttempt(attempt) != nil || now.IsZero() {
 		return ExecutionAttempt{}, ErrExecutionInvalid
 	}
@@ -238,6 +241,9 @@ func CompleteClaimedExecution(attempt ExecutionAttempt, evidence ExecutionEviden
 }
 
 func ResolveUnknownExecution(attempt ExecutionAttempt, evidence ExecutionEvidence, now time.Time) (ExecutionAttempt, error) {
+	if evidence.Kind == EvidenceLocalNoSend || attempt.Status == ExecutionNotSent {
+		return ExecutionAttempt{}, ErrExecutionEvidenceRequired
+	}
 	if validateExecutionAttempt(attempt) != nil || now.IsZero() {
 		return ExecutionAttempt{}, ErrExecutionInvalid
 	}
@@ -303,13 +309,16 @@ func ValidatePersistedExecutionAttempt(attempt ExecutionAttempt) error {
 		if !validUnknownReason(attempt.UnknownReason) || attempt.Evidence != nil || attempt.FinishedAt != nil {
 			return ErrExecutionUnavailable
 		}
-	case ExecutionSucceeded, ExecutionFailedDefinitive, ExecutionCancelled:
+	case ExecutionSucceeded, ExecutionFailedDefinitive, ExecutionCancelled, ExecutionNotSent:
 		if attempt.UnknownReason != "" || attempt.Evidence == nil || attempt.FinishedAt == nil ||
 			attempt.Evidence.Outcome != attempt.Status || attempt.FinishedAt.IsZero() || !attempt.UpdatedAt.Equal(*attempt.FinishedAt) ||
 			attempt.FinishedAt.Before(attempt.CreatedAt) ||
 			attempt.Evidence.ObservedAt.After(*attempt.FinishedAt) ||
 			(attempt.Evidence.Kind == EvidenceProviderResponse && !attempt.FinishedAt.Before(attempt.LeaseExpiresAt)) ||
 			validatePersistedExecutionEvidence(*attempt.Evidence, attempt.CreatedAt) != nil {
+			return ErrExecutionUnavailable
+		}
+		if attempt.Status == ExecutionNotSent && !validNoSendAttempt(attempt) {
 			return ErrExecutionUnavailable
 		}
 	default:
@@ -324,6 +333,10 @@ func validatePersistedExecutionEvidence(evidence ExecutionEvidence, createdAt ti
 		return ErrExecutionUnavailable
 	}
 	switch evidence.Kind {
+	case EvidenceLocalNoSend:
+		if evidence.Outcome != ExecutionNotSent || evidence.AuthorizedBy != "" || !validNoSendReason(evidence.Reason) {
+			return ErrExecutionUnavailable
+		}
 	case EvidenceProviderResponse, EvidenceProviderReadBack:
 		if evidence.AuthorizedBy != "" || evidence.Outcome != ExecutionSucceeded && evidence.Outcome != ExecutionFailedDefinitive {
 			return ErrExecutionUnavailable
@@ -379,7 +392,7 @@ func sameExecutionEvidence(left, right *ExecutionEvidence) bool {
 }
 
 func isExecutionTerminal(status ExecutionStatus) bool {
-	return status == ExecutionSucceeded || status == ExecutionFailedDefinitive || status == ExecutionCancelled
+	return status == ExecutionSucceeded || status == ExecutionFailedDefinitive || status == ExecutionCancelled || status == ExecutionNotSent
 }
 
 func validUnknownReason(reason UnknownReason) bool {

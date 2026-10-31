@@ -142,6 +142,8 @@ func (a *OperationActivities) process(ctx context.Context, in OperationExecution
 			}
 		case submission.ExecutionOutcomeUnknown:
 			result.Status = preparation.ItemUnknown
+		case submission.ExecutionNotSent:
+			result.Status = preparation.ItemFailed
 		default:
 			result.Status = preparation.ItemFailed
 		}

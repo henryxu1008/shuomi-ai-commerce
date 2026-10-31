@@ -378,11 +378,12 @@ changing repository-wide structural rules. Shared wiring, real application
 credentials and user acceptance remain separate delivery conditions.
 
 [`tiktok-pre-dispatch-no-send-v1.md`](tiktok-pre-dispatch-no-send-v1.md) is the
-#669 / Draft #1031 **DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY** supplement for
-live-owner no-send proof, original-claim/fence CAS termination and explicit new
-commands. It is design-only: no production/schema implementation, no new Reviewer,
-and no reclassification or automatic retry of UNKNOWN. The existing TikTok
-architecture remains frozen outside that candidate increment.
+#669 / PR #1031 **IMPLEMENTATION_READY / FROZEN** supplement for live-owner
+no-send proof, original-claim/fence CAS termination and explicit new commands.
+The user approved the candidate and its exact-head independent architecture
+review, then authorized the original Writer and the same Reviewer for scoped
+implementation. Current implementation/CI evidence stays in the PR; UNKNOWN is
+not reclassified or automatically retried. Other TikTok contracts remain frozen.
 
 [`walmart-feed-recovery-v1.md`](walmart-feed-recovery-v1.md) defines the #733 / #1028 bounded recovery supplement: explicit rejected-repair admission and durable feed-read progress. It is IMPLEMENTATION_READY after the authorized local architecture review; cross-query pages remain visibility-only and never grant repair eligibility.
 

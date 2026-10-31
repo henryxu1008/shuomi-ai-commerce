@@ -74,7 +74,7 @@ var schemaStatements = []string{
             int8send(octet_length(intent_key)::bigint) || convert_to(intent_key, 'UTF8')
         ), 'hex')
     ),
-    CONSTRAINT listing_submission_execution_attempts_status_check CHECK (status IN ('claimed', 'outcome_unknown', 'succeeded', 'failed_definitive', 'cancelled')),
+    CONSTRAINT listing_submission_execution_attempts_status_check CHECK (status IN ('claimed', 'outcome_unknown', 'succeeded', 'failed_definitive', 'cancelled', 'not_sent')),
     CONSTRAINT listing_submission_execution_attempts_fence_check CHECK (fence_epoch > 0),
     CONSTRAINT listing_submission_execution_attempts_timestamp_check CHECK (updated_at >= created_at AND lease_expires_at > created_at AND (finished_at IS NULL OR finished_at >= created_at)),
     CONSTRAINT listing_submission_execution_attempts_finite_time_check CHECK (
@@ -88,15 +88,21 @@ var schemaStatements = []string{
     CONSTRAINT listing_submission_execution_attempts_state_shape_check CHECK (
         ((status = 'claimed' AND unknown_reason IS NULL AND evidence_kind IS NULL AND evidence_outcome IS NULL AND evidence_reference IS NULL AND evidence_fingerprint IS NULL AND evidence_reason IS NULL AND evidence_authorized_by IS NULL AND evidence_observed_at IS NULL AND finished_at IS NULL) OR
         (status = 'outcome_unknown' AND unknown_reason IN ('response_lost', 'lease_expired', 'execution_cancelled') AND evidence_kind IS NULL AND evidence_outcome IS NULL AND evidence_reference IS NULL AND evidence_fingerprint IS NULL AND evidence_reason IS NULL AND evidence_authorized_by IS NULL AND evidence_observed_at IS NULL AND finished_at IS NULL) OR
-        (status IN ('succeeded', 'failed_definitive', 'cancelled') AND unknown_reason IS NULL AND evidence_kind IS NOT NULL AND evidence_outcome = status AND evidence_reference IS NOT NULL AND evidence_fingerprint IS NOT NULL AND evidence_observed_at IS NOT NULL AND finished_at IS NOT NULL)
+        (status IN ('succeeded', 'failed_definitive', 'cancelled', 'not_sent') AND unknown_reason IS NULL AND evidence_kind IS NOT NULL AND evidence_outcome = status AND evidence_reference IS NOT NULL AND evidence_fingerprint IS NOT NULL AND evidence_observed_at IS NOT NULL AND finished_at IS NOT NULL)
         ) IS TRUE
     ),
     CONSTRAINT listing_submission_execution_attempts_evidence_check CHECK (
         evidence_kind IS NULL OR
         (evidence_kind = 'provider_response' AND evidence_outcome IN ('succeeded', 'failed_definitive') AND evidence_authorized_by IS NULL) OR
         (evidence_kind = 'provider_readback' AND evidence_outcome IN ('succeeded', 'failed_definitive') AND evidence_authorized_by IS NULL) OR
-        (evidence_kind = 'manual_resolution' AND evidence_outcome IN ('succeeded', 'failed_definitive', 'cancelled') AND evidence_authorized_by IS NOT NULL AND evidence_authorized_by ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$' AND evidence_reason IS NOT NULL)
+        (evidence_kind = 'manual_resolution' AND evidence_outcome IN ('succeeded', 'failed_definitive', 'cancelled') AND evidence_authorized_by IS NOT NULL AND evidence_authorized_by ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$' AND evidence_reason IS NOT NULL) OR
+        (evidence_kind = 'local_no_send' AND evidence_outcome = 'not_sent' AND evidence_authorized_by IS NULL)
     ),
+    CONSTRAINT listing_submission_execution_attempts_no_send_check CHECK ((
+        evidence_kind IS DISTINCT FROM 'local_no_send' OR
+        (platform = 'tiktokshop' AND action IN ('tiktok_upload_image', 'tiktok_create_global', 'tiktok_publish_us') AND
+         evidence_reference = attempt_id::text AND evidence_reason IN ('preflight_unavailable', 'facts_changed', 'access_recheck_failed', 'image_content_changed', 'payload_invalid') AND finished_at < lease_expires_at)
+    ) IS TRUE),
     CONSTRAINT listing_submission_execution_attempts_evidence_value_check CHECK (
         (evidence_kind IS NULL OR (
             evidence_reference ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$' AND
@@ -127,7 +133,7 @@ var schemaStatements = []string{
     ),
     CONSTRAINT listing_submission_target_fences_epoch_check CHECK (epoch > 0),
     CONSTRAINT listing_submission_target_fences_time_check CHECK (isfinite(updated_at) AND updated_at <> make_timestamptz(1,1,1,0,0,0,'UTC')),
-    CONSTRAINT listing_submission_target_fences_status_check CHECK (current_status IN ('claimed', 'outcome_unknown', 'succeeded', 'failed_definitive', 'cancelled'))
+    CONSTRAINT listing_submission_target_fences_status_check CHECK (current_status IN ('claimed', 'outcome_unknown', 'succeeded', 'failed_definitive', 'cancelled', 'not_sent'))
 )`,
 }
 
@@ -205,7 +211,7 @@ var expectedConstraints = map[string]map[string]constraintContract{
 			kind: "c", exactDefinition: `CHECK (((payload_fingerprint ~ '^[0-9a-f]{64}$'::text) AND ((provider_execution_key)::text ~ '^subk1_v1_[0-9a-f]{64}$'::text) AND (claim_token_hash ~ '^[0-9a-f]{64}$'::text) AND ((evidence_fingerprint IS NULL) OR (evidence_fingerprint ~ '^[0-9a-f]{64}$'::text))))`,
 		},
 		"listing_submission_execution_attempts_status_check": {
-			kind: "c", exactDefinition: `CHECK (((status)::text = ANY ((ARRAY['claimed'::character varying, 'outcome_unknown'::character varying, 'succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying])::text[])))`,
+			kind: "c", exactDefinition: `CHECK (((status)::text = ANY ((ARRAY['claimed'::character varying, 'outcome_unknown'::character varying, 'succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying, 'not_sent'::character varying])::text[])))`,
 		},
 		"listing_submission_execution_attempts_provider_key_check": {
 			kind: "c", exactDefinition: `CHECK (((provider_execution_key)::text = ('subk1_v1_'::text || encode(sha256((((((int8send((octet_length('task-processor/submission/provider-execution/v1'::text))::bigint) || convert_to('task-processor/submission/provider-execution/v1'::text, 'UTF8'::name)) || int8send((octet_length((organization_id)::text))::bigint)) || convert_to((organization_id)::text, 'UTF8'::name)) || int8send((octet_length((intent_key)::text))::bigint)) || convert_to((intent_key)::text, 'UTF8'::name))), 'hex'::text))))`,
@@ -223,10 +229,13 @@ var expectedConstraints = map[string]map[string]constraintContract{
 			kind: "c", exactDefinition: `CHECK (((finished_at IS NULL) OR ((updated_at = finished_at) AND (((evidence_kind)::text IS DISTINCT FROM 'provider_response'::text) OR (finished_at < lease_expires_at)))))`,
 		},
 		"listing_submission_execution_attempts_state_shape_check": {
-			kind: "c", exactDefinition: `CHECK ((((((status)::text = 'claimed'::text) AND (unknown_reason IS NULL) AND (evidence_kind IS NULL) AND (evidence_outcome IS NULL) AND (evidence_reference IS NULL) AND (evidence_fingerprint IS NULL) AND (evidence_reason IS NULL) AND (evidence_authorized_by IS NULL) AND (evidence_observed_at IS NULL) AND (finished_at IS NULL)) OR (((status)::text = 'outcome_unknown'::text) AND ((unknown_reason)::text = ANY ((ARRAY['response_lost'::character varying, 'lease_expired'::character varying, 'execution_cancelled'::character varying])::text[])) AND (evidence_kind IS NULL) AND (evidence_outcome IS NULL) AND (evidence_reference IS NULL) AND (evidence_fingerprint IS NULL) AND (evidence_reason IS NULL) AND (evidence_authorized_by IS NULL) AND (evidence_observed_at IS NULL) AND (finished_at IS NULL)) OR (((status)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying])::text[])) AND (unknown_reason IS NULL) AND (evidence_kind IS NOT NULL) AND ((evidence_outcome)::text = (status)::text) AND (evidence_reference IS NOT NULL) AND (evidence_fingerprint IS NOT NULL) AND (evidence_observed_at IS NOT NULL) AND (finished_at IS NOT NULL))) IS TRUE))`,
+			kind: "c", exactDefinition: `CHECK ((((((status)::text = 'claimed'::text) AND (unknown_reason IS NULL) AND (evidence_kind IS NULL) AND (evidence_outcome IS NULL) AND (evidence_reference IS NULL) AND (evidence_fingerprint IS NULL) AND (evidence_reason IS NULL) AND (evidence_authorized_by IS NULL) AND (evidence_observed_at IS NULL) AND (finished_at IS NULL)) OR (((status)::text = 'outcome_unknown'::text) AND ((unknown_reason)::text = ANY ((ARRAY['response_lost'::character varying, 'lease_expired'::character varying, 'execution_cancelled'::character varying])::text[])) AND (evidence_kind IS NULL) AND (evidence_outcome IS NULL) AND (evidence_reference IS NULL) AND (evidence_fingerprint IS NULL) AND (evidence_reason IS NULL) AND (evidence_authorized_by IS NULL) AND (evidence_observed_at IS NULL) AND (finished_at IS NULL)) OR (((status)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying, 'not_sent'::character varying])::text[])) AND (unknown_reason IS NULL) AND (evidence_kind IS NOT NULL) AND ((evidence_outcome)::text = (status)::text) AND (evidence_reference IS NOT NULL) AND (evidence_fingerprint IS NOT NULL) AND (evidence_observed_at IS NOT NULL) AND (finished_at IS NOT NULL))) IS TRUE))`,
 		},
 		"listing_submission_execution_attempts_evidence_check": {
-			kind: "c", exactDefinition: `CHECK (((evidence_kind IS NULL) OR (((evidence_kind)::text = 'provider_response'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'provider_readback'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'manual_resolution'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying])::text[])) AND (evidence_authorized_by IS NOT NULL) AND ((evidence_authorized_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND (evidence_reason IS NOT NULL))))`,
+			kind: "c", exactDefinition: `CHECK (((evidence_kind IS NULL) OR (((evidence_kind)::text = 'provider_response'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'provider_readback'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'manual_resolution'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying])::text[])) AND (evidence_authorized_by IS NOT NULL) AND ((evidence_authorized_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND (evidence_reason IS NOT NULL)) OR (((evidence_kind)::text = 'local_no_send'::text) AND ((evidence_outcome)::text = 'not_sent'::text) AND (evidence_authorized_by IS NULL))))`,
+		},
+		"listing_submission_execution_attempts_no_send_check": {
+			kind: "c", exactDefinition: `CHECK (((((evidence_kind)::text IS DISTINCT FROM 'local_no_send'::text) OR (((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[])) AND ((evidence_reference)::text = (attempt_id)::text) AND ((evidence_reason)::text = ANY ((ARRAY['preflight_unavailable'::character varying, 'facts_changed'::character varying, 'access_recheck_failed'::character varying, 'image_content_changed'::character varying, 'payload_invalid'::character varying])::text[])) AND (finished_at < lease_expires_at))) IS TRUE))`,
 		},
 		"listing_submission_execution_attempts_evidence_value_check": {
 			kind: "c", exactDefinition: `CHECK ((((evidence_kind IS NULL) OR (((evidence_reference)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND (evidence_observed_at >= created_at) AND (evidence_observed_at <= finished_at))) IS TRUE))`,
@@ -252,7 +261,7 @@ var expectedConstraints = map[string]map[string]constraintContract{
 			kind: "c", exactDefinition: `CHECK ((isfinite(updated_at) AND (updated_at <> make_timestamptz(1, 1, 1, 0, 0, (0)::double precision, 'UTC'::text))))`,
 		},
 		"listing_submission_target_fences_status_check": {
-			kind: "c", exactDefinition: `CHECK (((current_status)::text = ANY ((ARRAY['claimed'::character varying, 'outcome_unknown'::character varying, 'succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying])::text[])))`,
+			kind: "c", exactDefinition: `CHECK (((current_status)::text = ANY ((ARRAY['claimed'::character varying, 'outcome_unknown'::character varying, 'succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying, 'not_sent'::character varying])::text[])))`,
 		},
 	},
 }
