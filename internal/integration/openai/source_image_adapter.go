@@ -19,7 +19,7 @@ const sourceWhiteBackgroundPromptVersion = "source-white-background-v1"
 const sourceWhiteBackgroundPrompt = "Edit only the background of the supplied source image to clean white; preserve shape, proportions, colors, materials, patterns, text and accessory count. Do not add decorations or crop the product."
 
 type SourceImageAdapterConfig struct {
-	ImageClient              ai.ImageGenerator
+	ImageClient              ai.RouteBoundImageEditor
 	Provider                 string
 	ImageModel               string
 	RouteReference           string
@@ -35,16 +35,9 @@ type SourceImageAdapter struct{ config SourceImageAdapterConfig }
 
 const SourceImagePromptVersion = "product-image-prompts-v1"
 
-type routeBoundSourceImageGenerator interface {
-	EditImageWithRoute(context.Context, *ai.ImageEditRequest, ai.ImageRouteSelection) (*ai.ImageResponse, error)
-}
-
 func NewSourceImageAdapter(config SourceImageAdapterConfig) (*SourceImageAdapter, error) {
 	if nilInterface(config.ImageClient) {
 		return nil, fmt.Errorf("source image client is required")
-	}
-	if _, ok := config.ImageClient.(routeBoundSourceImageGenerator); !ok {
-		return nil, fmt.Errorf("source image client must support exact route pinning")
 	}
 	for name, value := range map[string]string{"provider": config.Provider, "image model": config.ImageModel, "route reference": config.RouteReference, "credential reference": config.CredentialReference, "configuration version": config.ConfigurationVersion, "pricing version": config.PricingVersion} {
 		if !canonicalProductImageString(value) {
@@ -182,7 +175,7 @@ func (a *SourceImageAdapter) editOne(ctx context.Context, input, source producti
 	return candidates[0], nil
 }
 func (a *SourceImageAdapter) editImage(ctx context.Context, request *ai.ImageEditRequest) (*ai.ImageResponse, error) {
-	client := a.config.ImageClient.(routeBoundSourceImageGenerator)
+	client := a.config.ImageClient
 	return client.EditImageWithRoute(ctx, request, ai.ImageRouteSelection{
 		CredentialReference: a.config.CredentialReference, ConfigurationVersion: a.config.ConfigurationVersion,
 	})

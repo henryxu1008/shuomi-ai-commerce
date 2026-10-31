@@ -20,9 +20,9 @@ const (
 	InvocationDispatched InvocationOutcome = "dispatched"
 	InvocationSucceeded  InvocationOutcome = "succeeded"
 	InvocationFailed     InvocationOutcome = "failed"
-	// InvocationUsageObservedFailed is limited to image Review and Product Agent output failures
+	// InvocationUsageObservedFailed is limited to current native structured-output failures
 	// with trustworthy provider-observed tokens. It bills consumption without
-	// claiming that QA succeeded or that an image may be approved.
+	// claiming that the structured output was accepted.
 	InvocationUsageObservedFailed InvocationOutcome = "usage_observed_failed"
 )
 
@@ -78,12 +78,6 @@ type InvocationRecord struct {
 	UpstreamJobID        string
 	InputHash            string
 	OutputHash           string
-	// Review result is kept as a small, typed replay envelope so a Temporal
-	// retry can return a completed review without dispatching the provider a
-	// second time. It is not a prompt or provider response payload.
-	ReviewScore            float64
-	ReviewNeedsHumanReview bool
-	ReviewReasons          []string
 }
 
 type InvocationRecorder interface {
@@ -100,7 +94,7 @@ type InvocationDispatchClaimer interface {
 // SupportsObservedUsageFailure deliberately allows only current consumers that
 // preserve trustworthy provider usage when their structured output is rejected.
 func SupportsObservedUsageFailure(operation Operation) bool {
-	return operation == OperationProductImageReview || operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationListingMaterialsDecision || operation == OperationProductSelectionDecision || operation == OperationShopDiagnosisDecision || operation == OperationAIWorkbenchChatPlan
+	return operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationListingMaterialsDecision || operation == OperationProductSelectionDecision || operation == OperationShopDiagnosisDecision || operation == OperationAIWorkbenchChatPlan
 }
 
 // InvocationReplayReader is optional for non-durable test recorders. The

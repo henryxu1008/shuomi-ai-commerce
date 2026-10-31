@@ -5,8 +5,6 @@ package ai
 
 import (
 	"context"
-	"errors"
-	"time"
 )
 
 type Usage struct {
@@ -68,39 +66,6 @@ type ImageResponse struct {
 	RawResponse   string `json:"raw_response,omitempty"`
 }
 
-var ErrAsyncImageGenerationNotSupported = errors.New("async image generation is not supported")
-
-type ImageAsyncSubmitResponse struct {
-	JobID             string         `json:"job_id,omitempty"`
-	RequestID         string         `json:"request_id,omitempty"`
-	Provider          string         `json:"provider,omitempty"`
-	Status            string         `json:"status,omitempty"`
-	RawSubmitResponse string         `json:"raw_submit_response,omitempty"`
-	AcceptedAt        time.Time      `json:"accepted_at,omitempty"`
-	Response          *ImageResponse `json:"response,omitempty"`
-}
-
-type ImageAsyncQueryResponse struct {
-	JobID             string      `json:"job_id,omitempty"`
-	RequestID         string      `json:"request_id,omitempty"`
-	Provider          string      `json:"provider,omitempty"`
-	Status            string      `json:"status,omitempty"`
-	RawResultResponse string      `json:"raw_result_response,omitempty"`
-	Error             string      `json:"error,omitempty"`
-	Usage             Usage       `json:"usage"`
-	Data              []ImageData `json:"data,omitempty"`
-}
-
-type ImageGenerator interface {
-	GenerateImage(ctx context.Context, req *ImageGenerateRequest) (*ImageResponse, error)
-	EditImage(ctx context.Context, req *ImageEditRequest) (*ImageResponse, error)
-	GetDefaultModel() string
-	SupportsAsyncImageGeneration() bool
-	SubmitImageGeneration(ctx context.Context, req *ImageGenerateRequest) (*ImageAsyncSubmitResponse, error)
-	SubmitImageEdit(ctx context.Context, req *ImageEditRequest) (*ImageAsyncSubmitResponse, error)
-	QueryImageGeneration(ctx context.Context, jobID string) (*ImageAsyncQueryResponse, error)
-}
-
 // ImageRouteSelection binds an image call to an already resolved credential
 // configuration. It contains no provider-specific client or configuration
 // representation.
@@ -109,9 +74,7 @@ type ImageRouteSelection struct {
 	ConfigurationVersion string
 }
 
-// RouteBoundImageGenerator executes an image edit only on the exact route
-// selected before dispatch.
-type RouteBoundImageGenerator interface {
-	ImageGenerator
+// RouteBoundImageEditor edits only on the exact route resolved before dispatch.
+type RouteBoundImageEditor interface {
 	EditImageWithRoute(context.Context, *ImageEditRequest, ImageRouteSelection) (*ImageResponse, error)
 }

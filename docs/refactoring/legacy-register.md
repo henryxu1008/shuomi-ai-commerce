@@ -1,3 +1,5 @@
+> #1039 当前整批实施：准确设计 df8973a99 已由用户确认，IMPLEMENTATION_READY。按§1–§7/§4.2/§6.1抽取窄编辑、同步transport、双账本编码和当前共享AST helper，再退休完整专属闭包；物理账本与Store观察保持。无合并/运行/关单授权，#301 OPEN。以下冻结登记原文保留。
+
 > #301 当前设计登记：旧图片异步协议、GRSAI 通用执行及模型审核尾部整批 **EXTRACT | RETIRE**，见[完整边界](../architecture/legacy-image-async-review-closure-retirement-boundary.md)。抽取窄 route 编辑、当前同步 transport/精确字节、当前账本 reserve/finalize 编码与来源发布共享 AST helper；旧宽接口/异步 DTO/poll/retry/旧下载、专属日志/SSA 和可写模型审核结果退出。当前能力/Store 观察、有效 JSON/hash/版本与物理账本表保留。未来61路径（含百炼现役测试getter尾部），DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；仅设计，workflow/inventory 与既有资源零改，#301 OPEN。以下原登记逐字保留。
 
 > #1033 / #301 当前整批实施：[旧通用图像执行闭包退休](../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)。旧通用管线/模型审核、SDK Manager/Pool、全局/成员凭据回退和通用发布器退出；当前来源单主图、图组/Artwork 抽到当前 owner，JSON/hash/事务/恢复保持。#301 保持 OPEN；实现和 CI 证据不等于运行验收或合并授权。以下导航及历史原文保留。

@@ -1,3 +1,5 @@
+> #1039 当前整批实施：用户确认旧图片异步、GRSAI通用执行与模型审核尾部完整设计，IMPLEMENTATION_READY。先抽取当前有效行为，再整退61路径闭包；JSON/hash、当前能力与Store观察保留，workflow/inventory/既有资源不动，#301 OPEN。以下冻结导航原文保留。
+
 > #301 当前待确认设计：[旧图片异步协议、GRSAI 通用执行与模型审核尾部完整退休](legacy-image-async-review-closure-retirement-boundary.md)。三组一起；先抽取当前窄编辑/同步提交、账本双指纹零槽位和有效 AST helper，再退休旧协议与专属尾部。当前能力/Store 观察保持，workflow/inventory/既有资源不动。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY，设计确认后再实施，#301 OPEN。以下导航与历史逐字保留。
 
 - `legacy-image-async-review-closure-retirement-boundary.md` — [完整设计](legacy-image-async-review-closure-retirement-boundary.md)：§1–§7（含 §4.2/§6.1），未来61路径，一批交付。

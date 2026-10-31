@@ -1,3 +1,5 @@
+> 本批实施准入：用户已确认准确设计 df8973a9906c9c6f7def63aa87efc64ff70b438a 的§1–§7（含§4.2/§6.1），原CI与独立设计复核已齐。当前 USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING；同一PR整批61路径，不机械拆批。合并/运行/关单未授权，#301 OPEN。以下冻结设计原文逐字保留。
+
 # 旧图片异步协议、GRSAI 通用执行与模型审核尾部完整退休设计
 
 > Design Basis: **Independent Architecture**。当前 **DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**；用户仅授权设计，尚未授权实施。本次文档工作为 N/A / Ready，只提交本文、architecture README 和 legacy-register。起始 main：`f359224f9a7ee08bde28ab554b7aee020036e593`（#1033 已合并）。一个主要 PR，三组一起，不机械拆批。#301 保持 OPEN。

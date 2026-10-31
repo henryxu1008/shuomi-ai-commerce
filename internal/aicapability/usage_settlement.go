@@ -16,8 +16,8 @@ type InvocationUsageSettler interface {
 }
 
 // SettleSuccessfulInvocation forwards provider-observed, internally
-// consistent token usage for successful invocations and the narrow image Review
-// and Product Agent output-failure terminals. Ordinary failures remain unbilled.
+// consistent token usage for successful invocations and current native structured-output
+// failure terminals. Ordinary failures remain unbilled.
 // The adapter is idempotent at the commercial owner using invocation identity.
 func SettleSuccessfulInvocation(ctx context.Context, record InvocationRecord, settler InvocationUsageSettler) error {
 	if record.Outcome == InvocationUsageObservedFailed && !SupportsObservedUsageFailure(record.Operation) {

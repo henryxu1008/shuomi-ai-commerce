@@ -87,11 +87,11 @@ func TestSynchronousProductEditUsesExactGRSAIWireBeforeDownloads(t *testing.T) {
 						_ = json.NewEncoder(w).Encode(map[string]any{"id": "result-1", "status": "succeeded", "results": []map[string]string{{"url": server.URL + "/image"}}})
 					}))
 					defer server.Close()
-					client := NewClient(Config{Model: route.model, SubmitURL: server.URL, MaxAttempts: 3, HTTPClient: server.Client()})
-					var pinned ai.RouteBoundImageGenerator
+					client := NewClient(Config{Model: route.model, SubmitURL: server.URL, HTTPClient: server.Client()})
+					var pinned ai.RouteBoundImageEditor
 					_, err := NewSynchronousSourceImageAdapter(SourceImageAdapterConfig{
 						Client: client, ImageModel: route.model, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1",
-						Build: func(bound ai.RouteBoundImageGenerator) (SourceImageProvider, error) {
+						Build: func(bound ai.RouteBoundImageEditor) (SourceImageProvider, error) {
 							pinned = bound
 							return &grsaiSourceImageProviderStub{}, nil
 						},
@@ -146,7 +146,7 @@ func TestSynchronousProductEditUsesExactGRSAIWireBeforeDownloads(t *testing.T) {
 func TestSynchronousAdapterMissingObserverCannotFallbackToOrdinaryEdit(t *testing.T) {
 	var builds int
 	client := NewClient(Config{Model: "gpt-image-2.5", SubmitURL: "https://example.com"})
-	_, err := NewSynchronousSourceImageAdapter(SourceImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "version", Build: func(ai.RouteBoundImageGenerator) (SourceImageProvider, error) {
+	_, err := NewSynchronousSourceImageAdapter(SourceImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "version", Build: func(ai.RouteBoundImageEditor) (SourceImageProvider, error) {
 		builds++
 		return &grsaiSourceImageProviderStub{}, nil
 	}}, nil)
