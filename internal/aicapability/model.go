@@ -4,7 +4,6 @@ package aicapability
 type Capability string
 
 const (
-	CapabilityProductImageScene       Capability = "productimage.scene_generation"
 	CapabilityProductEnrichText       Capability = "productenrich.text_understanding"
 	CapabilityAIWorkbenchChatPlanning Capability = "aiworkbench.chat_planning"
 )
@@ -18,5 +17,4 @@ const (
 	OperationProductSelectionDecision Operation = "product.selection.decision"
 	OperationShopDiagnosisDecision    Operation = "shop.operations-diagnosis.decision"
 	OperationAIWorkbenchChatPlan      Operation = "aiworkbench_chat_plan"
-	OperationProductImageReview       Operation = "productimage_review"
 )

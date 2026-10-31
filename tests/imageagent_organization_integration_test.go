@@ -447,8 +447,8 @@ func TestOrganizationRealTemporalImageBudgetDeniesBeforeFirstProvider(t *testing
 	profiles, err := policyassembly.LoadEmbeddedResolver()
 	require.NoError(t, err)
 	providerAdapter, err := grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{
-		Client: grsai.NewClient(grsai.Config{APIKey: "synthetic-only", Model: "gpt-image-2-vip", SubmitURL: provider.URL, MaxAttempts: 1}), ImageModel: "gpt-image-2-vip", RouteReference: "fixture-route", CredentialReference: "fixture-credential", ConfigurationVersion: "fixture-version",
-		Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
+		Client: grsai.NewClient(grsai.Config{APIKey: "synthetic-only", Model: "gpt-image-2-vip", SubmitURL: provider.URL}), ImageModel: "gpt-image-2-vip", RouteReference: "fixture-route", CredentialReference: "fixture-credential", ConfigurationVersion: "fixture-version",
+		Build: func(bound ai.RouteBoundImageEditor) (grsai.SourceImageProvider, error) {
 			return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2-vip", RouteReference: "fixture-route", CredentialReference: "fixture-credential", ConfigurationVersion: "fixture-version", PricingVersion: "fixture-price"})
 		},
 	}, func(context.Context, grsai.GenerationObservation) error { return nil })

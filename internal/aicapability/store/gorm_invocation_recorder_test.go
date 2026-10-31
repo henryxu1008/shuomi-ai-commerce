@@ -241,13 +241,13 @@ func TestGormInvocationRecorderRecoversDispatchedSuccessOnlyWithObservedUsage(t 
 	require.Zero(t, settler.releaseCalls)
 }
 
-func TestGormInvocationRecorderObservedFailedReviewSettlesAndReplaysWithoutRelease(t *testing.T) {
+func TestGormInvocationRecorderObservedFailedNativeOutputSettlesAndReplaysWithoutRelease(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	settler := &recordingInvocationUsageSettler{}
 	recorder := NewGormInvocationRecorder(db)
 	recorder.SetUsageSettler(settler)
 	started := time.Date(2026, 9, 21, 5, 0, 0, 0, time.UTC)
-	base := aicapability.InvocationRecord{InvocationID: "review-observed-failed", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-3", Operation: aicapability.OperationProductImageReview, StartedAt: started, Outcome: aicapability.InvocationDispatched}
+	base := aicapability.InvocationRecord{InvocationID: "review-observed-failed", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-3", Operation: aicapability.OperationProductAgentDecision, StartedAt: started, Outcome: aicapability.InvocationDispatched}
 	require.NoError(t, recorder.RecordInvocation(context.Background(), base))
 	terminal := base
 	terminal.FinishedAt = started.Add(time.Minute)
@@ -277,13 +277,13 @@ func TestGormInvocationRecorderObservedFailedReviewSettlesAndReplaysWithoutRelea
 	require.ErrorContains(t, recorder.RecordInvocation(context.Background(), terminal), "outcome conflict")
 }
 
-func TestGormInvocationRecoveryRequiresObservedReviewUsageForFailedOutput(t *testing.T) {
+func TestGormInvocationRecoveryRequiresObservedNativeOutputUsageForFailedOutput(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	settler := &recordingInvocationUsageSettler{}
 	recorder := NewGormInvocationRecorder(db)
 	recorder.SetUsageSettler(settler)
 	started := time.Date(2026, 9, 21, 6, 0, 0, 0, time.UTC)
-	base := aicapability.InvocationRecord{InvocationID: "review-recover-invalid", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-4", Operation: aicapability.OperationProductImageReview, StartedAt: started, Outcome: aicapability.InvocationDispatched}
+	base := aicapability.InvocationRecord{InvocationID: "review-recover-invalid", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-4", Operation: aicapability.OperationProductAgentDecision, StartedAt: started, Outcome: aicapability.InvocationDispatched}
 	require.NoError(t, recorder.RecordInvocation(context.Background(), base))
 	terminal := aicapability.InvocationRecord{InvocationID: base.InvocationID, TenantID: base.TenantID, MemberID: base.MemberID, InputHash: base.InputHash, FinishedAt: started.Add(time.Minute), Outcome: aicapability.InvocationUsageObservedFailed}
 	require.ErrorContains(t, recorder.ResolveDispatchedInvocation(context.Background(), terminal), "observed token usage")
@@ -298,13 +298,13 @@ func TestGormInvocationRecoveryRequiresObservedReviewUsageForFailedOutput(t *tes
 	require.ErrorContains(t, recorder.ResolveDispatchedInvocation(context.Background(), terminal), "outcome conflict")
 }
 
-func TestObservedFailedReviewSettlementFailureKeepsDurableTerminalForRetry(t *testing.T) {
+func TestObservedFailedNativeOutputSettlementFailureKeepsDurableTerminalForRetry(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	settler := &recordingInvocationUsageSettler{settleErr: errors.New("commercial database unavailable")}
 	recorder := NewGormInvocationRecorder(db)
 	recorder.SetUsageSettler(settler)
 	started := time.Date(2026, 9, 21, 7, 0, 0, 0, time.UTC)
-	record := aicapability.InvocationRecord{InvocationID: "review-settle-retry", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-5", Operation: aicapability.OperationProductImageReview, StartedAt: started, Outcome: aicapability.InvocationDispatched}
+	record := aicapability.InvocationRecord{InvocationID: "review-settle-retry", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-5", Operation: aicapability.OperationProductAgentDecision, StartedAt: started, Outcome: aicapability.InvocationDispatched}
 	require.NoError(t, recorder.RecordInvocation(context.Background(), record))
 	record.Outcome = aicapability.InvocationUsageObservedFailed
 	record.FinishedAt = started.Add(time.Minute)
@@ -322,12 +322,12 @@ func TestObservedFailedReviewSettlementFailureKeepsDurableTerminalForRetry(t *te
 	require.Zero(t, settler.releaseCalls)
 }
 
-func TestObservedFailedReviewRequiresExistingDispatchedReview(t *testing.T) {
+func TestObservedFailedNativeOutputRequiresExistingDispatchedNativeOutput(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	settler := &recordingInvocationUsageSettler{}
 	recorder := NewGormInvocationRecorder(db)
 	recorder.SetUsageSettler(settler)
-	terminal := aicapability.InvocationRecord{InvocationID: "unreserved-invalid-review", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", Operation: aicapability.OperationProductImageReview, InputHash: "input-6", Outcome: aicapability.InvocationUsageObservedFailed, FinishedAt: time.Now().UTC(), UsageKnown: true, PromptTokens: 7, CompletionTokens: 5, TotalTokens: 12}
+	terminal := aicapability.InvocationRecord{InvocationID: "unreserved-invalid-review", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", Operation: aicapability.OperationProductAgentDecision, InputHash: "input-6", Outcome: aicapability.InvocationUsageObservedFailed, FinishedAt: time.Now().UTC(), UsageKnown: true, PromptTokens: 7, CompletionTokens: 5, TotalTokens: 12}
 	require.ErrorContains(t, recorder.RecordInvocation(context.Background(), terminal), "durable dispatched")
 	require.Zero(t, settler.settleCalls)
 	var count int64
@@ -343,17 +343,17 @@ func TestObservedFailedReviewRequiresExistingDispatchedReview(t *testing.T) {
 	terminal.FinishedAt = time.Now().UTC()
 	terminal.UsageKnown = true
 	terminal.PromptTokens, terminal.CompletionTokens, terminal.TotalTokens = 7, 5, 12
-	terminal.Operation = aicapability.OperationProductImageReview
+	terminal.Operation = aicapability.OperationProductAgentDecision
 	require.ErrorContains(t, recorder.RecordInvocation(context.Background(), terminal), "identity conflict")
 	require.Zero(t, settler.settleCalls)
 }
 
-func TestObservedFailedReviewRecoveryPreservesDispatchedProvenance(t *testing.T) {
+func TestObservedFailedNativeOutputRecoveryPreservesDispatchedProvenance(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	recorder := NewGormInvocationRecorder(db)
 	started := time.Date(2026, 9, 21, 8, 0, 0, 0, time.UTC)
 	base := aicapability.InvocationRecord{
-		InvocationID: "review-preserve-provenance", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-7", Operation: aicapability.OperationProductImageReview,
+		InvocationID: "review-preserve-provenance", TenantID: "tenant-1", UserID: "user-1", MemberID: "member-1", InputHash: "input-7", Operation: aicapability.OperationProductAgentDecision,
 		AgentRunID: "run-1", BusinessTaskID: "receipt-1", StartedAt: started, Outcome: aicapability.InvocationDispatched,
 		ProviderID: "provider-a", ModelID: "review-model-a", RoutingKey: "route-a", CredentialReference: "credential-ref-a", ConfigurationVersion: "config-a", PromptKey: "product-image-review", RouteOutcome: aicapability.RouteOutcomeActive,
 	}
@@ -408,4 +408,120 @@ func newInvocationLedgerDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	require.NoError(t, AutoMigrateInvocationLedger(db))
 	return db
+}
+
+// Synthetic rows belong only to this test's isolated SQLite database.
+func TestRetiredModelReviewFactsCannotEnterCurrentRecovery(t *testing.T) {
+	mutations := map[string]func(*invocationRow){
+		"score":      func(r *invocationRow) { r.ReviewScore = 0.5 },
+		"human":      func(r *invocationRow) { r.ReviewNeedsHuman = true },
+		"reasons":    func(r *invocationRow) { r.ReviewReasonsJSON = "[]" },
+		"operation":  func(r *invocationRow) { r.Operation = "productimage_review" },
+		"capability": func(r *invocationRow) { r.Capability = "productimage.scene_generation" },
+	}
+	terminalMutations := make(map[string]func(*invocationRow))
+	for name, mutate := range mutations {
+		m := mutate
+		terminalMutations[name+"/terminal"] = func(r *invocationRow) {
+			m(r)
+			r.Outcome = string(aicapability.InvocationSucceeded)
+			r.FinishedAt = r.StartedAt.Add(time.Second)
+			r.UsageKnown = true
+			r.PromptTokens, r.CompletionTokens, r.TotalTokens = 7, 5, 12
+		}
+	}
+	for name, mutate := range terminalMutations {
+		mutations[name] = mutate
+	}
+
+	for name, mutate := range mutations {
+		for _, entry := range []string{"find", "read_model", "record", "record_dispatched", "resolve", "claim"} {
+			t.Run(name+"/"+entry, func(t *testing.T) {
+				db := newInvocationLedgerDB(t)
+				settler := &recordingInvocationUsageSettler{}
+				recorder := NewGormInvocationRecorder(db)
+				recorder.SetUsageSettler(settler)
+				start := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+				fact := aicapability.InvocationRecord{InvocationID: "fixture-retired", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: start, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, PointTariff: aicapability.ModelPointTariff{PriceVersion: "fixture", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}}
+				row := invocationRowFromRecord(fact)
+				mutate(&row)
+				require.NoError(t, db.Create(&row).Error)
+				var before invocationRow
+				require.NoError(t, db.Take(&before).Error)
+				terminal := fact
+				terminal.Outcome, terminal.UsageKnown, terminal.FinishedAt = aicapability.InvocationSucceeded, true, start.Add(time.Second)
+				terminal.PromptTokens, terminal.CompletionTokens, terminal.TotalTokens = 7, 5, 12
+				var err error
+				switch entry {
+				case "find":
+					_, _, err = recorder.FindInvocation(context.Background(), "org", "member", fact.InvocationID, "input")
+				case "read_model":
+					_, err = recorder.ReadModelInvocation(context.Background(), "org", fact.InvocationID)
+				case "record":
+					err = recorder.RecordInvocation(context.Background(), terminal)
+				case "record_dispatched":
+					err = recorder.RecordInvocation(context.Background(), fact)
+				case "resolve":
+					err = recorder.ResolveDispatchedInvocation(context.Background(), terminal)
+				case "claim":
+					_, err = recorder.ClaimInvocation(context.Background(), fact)
+				}
+				require.Error(t, err)
+				var after invocationRow
+				require.NoError(t, db.Take(&after).Error)
+				require.Equal(t, before, after, "retired raw fact must not be overwritten or normalized")
+				require.Zero(t, settler.settleCalls)
+				require.Zero(t, settler.releaseCalls)
+			})
+		}
+	}
+}
+
+func TestRetiredModelReviewIdentityCannotCreateCurrentFact(t *testing.T) {
+	for _, identity := range []struct {
+		capability aicapability.Capability
+		operation  aicapability.Operation
+	}{{"productimage.scene_generation", aicapability.OperationProductAgentDecision}, {aicapability.CapabilityProductEnrichText, "productimage_review"}} {
+		db := newInvocationLedgerDB(t)
+		settler := &recordingInvocationUsageSettler{}
+		recorder := NewGormInvocationRecorder(db)
+		recorder.SetUsageSettler(settler)
+		fact := aicapability.InvocationRecord{InvocationID: "retired-new", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Capability: identity.capability, Operation: identity.operation, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC()}
+		require.Error(t, recorder.RecordInvocation(context.Background(), fact))
+		_, err := recorder.ClaimInvocation(context.Background(), fact)
+		require.Error(t, err)
+		var count int64
+		require.NoError(t, db.Model(&invocationRow{}).Count(&count).Error)
+		require.Zero(t, count)
+		require.Zero(t, settler.settleCalls)
+		require.Zero(t, settler.releaseCalls)
+	}
+}
+
+func TestRetiredModelReviewCASWinnerCannotBeSettled(t *testing.T) {
+	db := newInvocationLedgerDB(t)
+	recorder := NewGormInvocationRecorder(db)
+	settler := &recordingInvocationUsageSettler{}
+	recorder.SetUsageSettler(settler)
+	start := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	fact := aicapability.InvocationRecord{InvocationID: "fixture-winner", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: start}
+	require.NoError(t, recorder.RecordInvocation(context.Background(), fact))
+	injected := false
+	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture:retired-winner", func(tx *gorm.DB) {
+		if injected {
+			return
+		}
+		injected = true
+		tx.Session(&gorm.Session{NewDB: true}).Exec("UPDATE ai_invocations SET review_score = ?, outcome = ? WHERE invocation_id = ?", 0.5, string(aicapability.InvocationSucceeded), fact.InvocationID)
+	}))
+	fact.Outcome, fact.UsageKnown, fact.FinishedAt = aicapability.InvocationSucceeded, true, start.Add(time.Second)
+	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 7, 5, 12
+	require.ErrorContains(t, recorder.RecordInvocation(context.Background(), fact), "retired model review fact")
+	require.True(t, injected)
+	var raw invocationRow
+	require.NoError(t, db.Take(&raw).Error)
+	require.Equal(t, 0.5, raw.ReviewScore)
+	require.Equal(t, string(aicapability.InvocationSucceeded), raw.Outcome)
+	require.Zero(t, settler.settleCalls)
+	require.Zero(t, settler.releaseCalls)
 }

@@ -85,7 +85,6 @@ func testQwenImageEditSendsFrozenBytes(t *testing.T, model string) {
 		return nil
 	})
 	require.NoError(t, err)
-	require.Equal(t, model, c.GetDefaultModel())
 	r, err := c.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: model, Prompt: "preserve exact product and method", Image: sourcePNG(t), ImageContentType: "image/png", N: 1}, fixtureRoute())
 	require.NoError(t, err)
 	require.Len(t, r.Data, 1)

@@ -61,8 +61,7 @@ func modelPointFingerprint(fact aicapability.InvocationRecord) string {
 	fact.Outcome = aicapability.InvocationDispatched
 	fact.ErrorCategory, fact.ErrorCode, fact.RouteErrorCategory = "", "", ""
 	fact.ProviderRequestID, fact.UpstreamJobID, fact.OutputHash = "", "", ""
-	fact.ReviewScore, fact.ReviewNeedsHumanReview, fact.ReviewReasons = 0, false, nil
-	return modelPointHash(fact)
+	return modelPointFactHash(fact)
 }
 func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id string) (aicapability.InvocationRecord, error) {
 	fact, err := r.owner.ReadModelInvocation(ctx, org, id)
@@ -233,7 +232,7 @@ func (r *GormModelInvocationRepository) finalize(ctx context.Context, fact aicap
 	fingerprint := modelPointFingerprint(fact)
 	fact.StartedAt = fact.StartedAt.UTC().Truncate(time.Microsecond)
 	fact.FinishedAt = fact.FinishedAt.UTC().Truncate(time.Microsecond)
-	proof := modelPointHash(fact)
+	proof := modelPointFactHash(fact)
 	org, id := fact.TenantID, fact.InvocationID
 	return r.runner.run(ctx, func(tx *gorm.DB) error {
 		reserve, err := lockFixedResourceOperation(tx, org, modelPointKey("reserve", id), "model_point_reserve", fingerprint)

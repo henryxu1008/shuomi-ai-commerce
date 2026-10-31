@@ -18,10 +18,10 @@ type SourceImageProvider interface {
 	productimage.UsageQuoter
 }
 
-type SourceImageAdapterFactory func(ai.RouteBoundImageGenerator) (SourceImageProvider, error)
+type SourceImageAdapterFactory func(ai.RouteBoundImageEditor) (SourceImageProvider, error)
 
 type SourceImageAdapterConfig struct {
-	Client               ai.ImageGenerator
+	Client               *Client
 	ImageModel           string
 	RouteReference       string
 	CredentialReference  string
@@ -29,10 +29,10 @@ type SourceImageAdapterConfig struct {
 	Build                SourceImageAdapterFactory
 }
 
-// NewSourceImageAdapter pins the concrete GRSAI client before handing it to
+// newSourceImageAdapter pins the concrete GRSAI client before handing it to
 // an App-selected compatible capability adapter. The Integration packages do
 // not depend on one another; App is the only concrete composition boundary.
-func NewSourceImageAdapter(config SourceImageAdapterConfig) (SourceImageProvider, error) {
+func newSourceImageAdapter(config SourceImageAdapterConfig, observe GenerationObserver) (SourceImageProvider, error) {
 	if nilGRSAISourceImageClient(config.Client) {
 		return nil, fmt.Errorf("grsai product image client is required")
 	}
@@ -48,7 +48,7 @@ func NewSourceImageAdapter(config SourceImageAdapterConfig) (SourceImageProvider
 		}
 	}
 	pinned, err := newPinnedProductImageClient(
-		config.Client, config.ImageModel, config.CredentialReference, config.ConfigurationVersion,
+		config.Client, config.ImageModel, config.CredentialReference, config.ConfigurationVersion, observe,
 	)
 	if err != nil {
 		return nil, err
@@ -108,14 +108,15 @@ func (a *sourceImageAdapter) QuoteUsage(ctx context.Context, request productimag
 }
 
 type pinnedProductImageClient struct {
-	client               ai.ImageGenerator
+	observe              GenerationObserver
+	client               *Client
 	model                string
 	credentialReference  string
 	configurationVersion string
 }
 
-func newPinnedProductImageClient(client ai.ImageGenerator, model, credentialReference, configurationVersion string) (*pinnedProductImageClient, error) {
-	if nilGRSAISourceImageClient(client) {
+func newPinnedProductImageClient(client *Client, model, credentialReference, configurationVersion string, observe GenerationObserver) (*pinnedProductImageClient, error) {
+	if nilGRSAISourceImageClient(client) || observe == nil {
 		return nil, fmt.Errorf("grsai product image client is required")
 	}
 	for name, value := range map[string]string{
@@ -125,11 +126,11 @@ func newPinnedProductImageClient(client ai.ImageGenerator, model, credentialRefe
 			return nil, fmt.Errorf("grsai product image %s is required and must be canonical", name)
 		}
 	}
-	if defaultModel := strings.TrimSpace(client.GetDefaultModel()); defaultModel != "" && defaultModel != model {
+	if client.cfg.Model != model {
 		return nil, fmt.Errorf("grsai product image model does not match the configured client")
 	}
 	return &pinnedProductImageClient{
-		client: client, model: model, credentialReference: credentialReference, configurationVersion: configurationVersion,
+		client: client, model: model, credentialReference: credentialReference, configurationVersion: configurationVersion, observe: observe,
 	}, nil
 }
 
@@ -138,39 +139,10 @@ func (c *pinnedProductImageClient) EditImageWithRoute(ctx context.Context, reque
 		route.CredentialReference != c.credentialReference || route.ConfigurationVersion != c.configurationVersion {
 		return nil, fmt.Errorf("grsai product image route changed before dispatch")
 	}
-	return c.client.EditImage(ctx, request)
+	return c.client.EditImageOnce(ctx, request, c.observe)
 }
 
-func (*pinnedProductImageClient) GenerateImage(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
-	return nil, fmt.Errorf("grsai product image generation requires an exact route")
-}
-
-func (*pinnedProductImageClient) EditImage(context.Context, *ai.ImageEditRequest) (*ai.ImageResponse, error) {
-	return nil, fmt.Errorf("grsai product image edit requires an exact route")
-}
-
-func (c *pinnedProductImageClient) GetDefaultModel() string {
-	if c == nil {
-		return ""
-	}
-	return c.model
-}
-
-func (*pinnedProductImageClient) SupportsAsyncImageGeneration() bool { return false }
-
-func (*pinnedProductImageClient) SubmitImageGeneration(context.Context, *ai.ImageGenerateRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-
-func (*pinnedProductImageClient) SubmitImageEdit(context.Context, *ai.ImageEditRequest) (*ai.ImageAsyncSubmitResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-
-func (*pinnedProductImageClient) QueryImageGeneration(context.Context, string) (*ai.ImageAsyncQueryResponse, error) {
-	return nil, ai.ErrAsyncImageGenerationNotSupported
-}
-
-func nilGRSAISourceImageClient(client ai.ImageGenerator) bool {
+func nilGRSAISourceImageClient(client *Client) bool {
 	return nilGRSAISourceImageValue(client)
 }
 
@@ -186,5 +158,5 @@ func nilGRSAISourceImageValue(value any) bool {
 	return reflected.Kind() == reflect.Pointer && reflected.IsNil()
 }
 
-var _ ai.RouteBoundImageGenerator = (*pinnedProductImageClient)(nil)
+var _ ai.RouteBoundImageEditor = (*pinnedProductImageClient)(nil)
 var _ SourceImageProvider = (*sourceImageAdapter)(nil)
