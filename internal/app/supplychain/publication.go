@@ -119,5 +119,8 @@ func (a *Application) Publication(ctx context.Context, sourceID, storeID string)
 	if receipt.Owner == scope {
 		value.RecordID = receipt.RecordID
 	}
+	if value.Walmart != nil {
+		return boundWalmartPublication(value)
+	}
 	return value, nil
 }

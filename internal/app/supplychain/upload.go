@@ -41,6 +41,7 @@ func (s OfficialExecutionStore) ExecutionMerchant(ctx context.Context, scope col
 type UploadKernel interface {
 	Acquire(context.Context, submission.AcquireExecutionCommand) (submission.ExecutionAcquisition, error)
 	ReadIntent(context.Context, submission.ExecutionScope, string) (submission.ExecutionAttempt, error)
+	Complete(context.Context, submission.ExecutionClaim, submission.ExecutionEvidence) (submission.ExecutionAttempt, error)
 	MarkUnknown(context.Context, submission.ExecutionClaim, submission.UnknownReason) (submission.ExecutionAttempt, error)
 	Expire(context.Context, submission.ExecutionScope, string) (submission.ExecutionAttempt, error)
 }
