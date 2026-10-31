@@ -1,4 +1,4 @@
-> #1039 当前整批实施：准确设计 df8973a99 已由用户确认，IMPLEMENTATION_READY。按§1–§7/§4.2/§6.1抽取窄编辑、同步transport、双账本编码和当前共享AST helper，再退休完整专属闭包；物理账本与Store观察保持。无合并/运行/关单授权，#301 OPEN。以下冻结登记原文保留。
+> #1039 当前整批交付：用户确认的61路径完整闭包已实现，当前 IMPLEMENTED / In Review；Design Basis仍为冻结df8973a99的§1–§7/§4.2/§6.1。抽取当前窄编辑、同步transport、双账本编码和共享AST helper，旧专属闭包退出。当前能力/物理账本/Store观察保持，无合并/运行/关单授权，#301 OPEN。以下冻结登记原文逐字保留。
 
 > #301 当前设计登记：旧图片异步协议、GRSAI 通用执行及模型审核尾部整批 **EXTRACT | RETIRE**，见[完整边界](../architecture/legacy-image-async-review-closure-retirement-boundary.md)。抽取窄 route 编辑、当前同步 transport/精确字节、当前账本 reserve/finalize 编码与来源发布共享 AST helper；旧宽接口/异步 DTO/poll/retry/旧下载、专属日志/SSA 和可写模型审核结果退出。当前能力/Store 观察、有效 JSON/hash/版本与物理账本表保留。未来61路径（含百炼现役测试getter尾部），DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；仅设计，workflow/inventory 与既有资源零改，#301 OPEN。以下原登记逐字保留。
 
@@ -16,7 +16,7 @@
 
 > #301 当前待确认设计：[旧 ListingKit 上传配置与本地 UI 输入链完整退休](../architecture/legacy-listingkit-input-config-closure-retirement-boundary.md)。Legacy decision RETIRE；当前正确 owner 已存在，无新 EXTRACT 包/alias/回退。两组30路径收齐配置/样例/启动/测试/文档尾部，DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；当前 UI/Auth.js/Service API、ImageAgent、imgproxy 有效 Secret 键及 Store 观察保持。设计确认后再实施；workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下历史、计数和勾选完整保留。
 
-> #301 / #1026 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTED（待原CI与源码最终复核）：用户已确认冻结设计bd53b2044的§1–§7（含§4.2/§6.1），[完整31路径边界](../architecture/legacy-remote-debug-image-closure-retirement-boundary.md)在同一PR整批实施，不机械拆批；生产修改前授权与准入读回见[6525933152](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1026#issuecomment-6525933152)。七准确工件/专属helper与Pester退出，三原guard窄转换，20旧文档仅顶注且原blob完整后缀。当前安装、标准构建/全部能力与Store观察保持，无alias/新owner；workflow/完整inventory/依赖/保护与既有资源零改，无试用前置，#301 OPEN。必要源码自检/原CI/最终复核在同一PR另列，设计证据不替代源码，合并另授。以下冻结设计/原索引/历史逐字保留，旧阶段时态由本条当前决定替代。
+> #301 / #1026 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING：用户已确认冻结设计bd53b2044的§1–§7（含§4.2/§6.1），[完整31路径边界](../architecture/legacy-remote-debug-image-closure-retirement-boundary.md)在同一PR整批实施，不机械拆批；生产修改前授权与准入读回见[6525933152](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1026#issuecomment-6525933152)。七准确工件/专属helper与Pester退出，三原guard窄转换，20旧文档仅顶注且原blob完整后缀。当前安装、标准构建/全部能力与Store观察保持，无alias/新owner；workflow/完整inventory/依赖/保护与既有资源零改，无试用前置，#301 OPEN。必要源码自检/原CI/最终复核在同一PR另列，设计证据不替代源码，合并另授。以下冻结设计/原索引/历史逐字保留，旧阶段时态由本条当前决定替代。
 
 > #301 当前设计提案：[旧 SHEIN／ListingKit 远程联调与专属镜像链完整退休边界](../architecture/legacy-remote-debug-image-closure-retirement-boundary.md)。Design Basis: Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。Legacy decision: RETIRE；仅拟退出四个旧转发/监视脚本、SHEIN base构建推送脚本/Dockerfile及专属Pester，三项原检查和20文档尾部同批收齐，共31路径，不机械拆批。无新EXTRACT/替代工具；Chromium/Playwright安装、当前标准构建/能力与Store观察保持原owner。旧KEEP仅在§2/§5/§6.1准确对象获用户确认后被替代，原正文/历史/计数/勾选原样；workflow/完整inventory/依赖/保护与既有实例/数据/凭据/进程不动，无试用前置，#301 OPEN。适用独立复核与用户确认前不实施。以下原登记完整保留。
 
