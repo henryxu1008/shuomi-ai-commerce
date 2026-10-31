@@ -14,7 +14,7 @@ function Import-StartUiScriptFunctions {
     $ast = Get-StartUiScriptAst
     $functionNames = @(
         "Import-DotEnvFile",
-        "Import-DeployedListingKitAuthSecrets",
+        "Set-EnvIfMissing",
         "Initialize-UiLaunchEnvironment",
         "Assert-LoopbackApiBase",
         "Set-UiApiBases",
@@ -81,9 +81,7 @@ Describe "start-listingkit-local-ui authentication" {
 
     It "overrides inherited API bases in isolated acceptance" {
         $names = @(
-            "LISTINGKIT_API_BASE",
-            "LISTINGKIT_SERVICE_API_BASE",
-            "NEXT_PUBLIC_LISTINGKIT_API_BASE"
+            "LISTINGKIT_SERVICE_API_BASE"
         )
         $previous = @{}
         try {
@@ -93,13 +91,10 @@ Describe "start-listingkit-local-ui authentication" {
             }
 
             Set-UiApiBases `
-                -ApiBase "http://127.0.0.1:18085/api/v1/listing-kits" `
                 -ServiceApiBase "http://127.0.0.1:18085/api/v1" `
                 -IsolatedAcceptance
 
-            $env:LISTINGKIT_API_BASE | Should Be "http://127.0.0.1:18085/api/v1/listing-kits"
             $env:LISTINGKIT_SERVICE_API_BASE | Should Be "http://127.0.0.1:18085/api/v1"
-            $env:NEXT_PUBLIC_LISTINGKIT_API_BASE | Should Be "/api/listing-kits"
         } finally {
             foreach ($name in $names) {
                 [Environment]::SetEnvironmentVariable($name, $previous[$name])
@@ -111,13 +106,66 @@ Describe "start-listingkit-local-ui authentication" {
         $message = ""
         try {
             Set-UiApiBases `
-                -ApiBase "https://deployed.example.invalid/api/v1/listing-kits" `
-                -ServiceApiBase "http://127.0.0.1:18085/api/v1" `
+                -ServiceApiBase "https://deployed.example.invalid/api/v1" `
                 -IsolatedAcceptance
         } catch {
             $message = $_.Exception.Message
         }
         $message | Should Match "loopback"
+    }
+
+    It "preserves normal explicit auth inputs without reading deployed secrets" {
+        $repoRoot = Join-Path $TestDrive "normal-repo"
+        New-Item -ItemType Directory -Path $repoRoot -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $repoRoot ".env") -Value @(
+            "AUTH_SECRET=synthetic-dotenv-auth",
+            "ZITADEL_CLIENT_SECRET=synthetic-dotenv-client",
+            "ZITADEL_CLIENT_ID=synthetic-dotenv-id",
+            "LISTINGKIT_SERVICE_API_BASE=http://127.0.0.1:18085/api/v1"
+        )
+        $names = @("AUTH_SECRET", "ZITADEL_CLIENT_SECRET", "ZITADEL_CLIENT_ID", "LISTINGKIT_SERVICE_API_BASE", "KUBECONFIG")
+        $previous = @{}
+        $script:clusterReads = 0
+        function global:kubectl { $script:clusterReads++; throw "Synthetic test must not read a cluster" }
+        try {
+            foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name) }
+            $env:AUTH_SECRET = "synthetic-explicit-auth"
+            $env:ZITADEL_CLIENT_SECRET = "synthetic-explicit-client"
+            $env:ZITADEL_CLIENT_ID = ""
+            $env:LISTINGKIT_SERVICE_API_BASE = "http://127.0.0.1:28085/api/v1"
+            $env:KUBECONFIG = "synthetic-no-such-kubeconfig"
+
+            Initialize-UiLaunchEnvironment -RepoRoot $repoRoot
+            Set-UiApiBases -ServiceApiBase "http://127.0.0.1:38085/api/v1"
+
+            $script:clusterReads | Should Be 0
+            $env:AUTH_SECRET | Should Be "synthetic-explicit-auth"
+            $env:ZITADEL_CLIENT_SECRET | Should Be "synthetic-explicit-client"
+            $env:ZITADEL_CLIENT_ID | Should Be "synthetic-dotenv-id"
+            $env:LISTINGKIT_SERVICE_API_BASE | Should Be "http://127.0.0.1:28085/api/v1"
+        } finally {
+            foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $previous[$name]) }
+            Remove-Item Function:\global:kubectl -ErrorAction SilentlyContinue
+        }
+    }
+
+    It "has no retired Task API or cluster-secret entry" {
+        $ast = Get-StartUiScriptAst
+        @($ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq "ApiBase" }).Count | Should Be 0
+        $content = Get-Content -LiteralPath $scriptPath -Raw
+        foreach ($retired in @('LISTINGKIT_API_BASE', 'NEXT_PUBLIC_LISTINGKIT_API_BASE', 'Import-DeployedListingKitAuthSecrets', 'kubectl')) {
+            $content | Should Not Match ([regex]::Escape($retired))
+        }
+    }
+
+    It "rejects an empty Service API base in isolated acceptance" {
+        $message = ""
+        try {
+            Set-UiApiBases -ServiceApiBase "" -IsolatedAcceptance
+        } catch {
+            $message = $_.Exception.Message
+        }
+        $message | Should Match "explicit local API base"
     }
 
     It "refuses an occupied port in isolated acceptance" {

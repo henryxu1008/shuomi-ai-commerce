@@ -59,16 +59,6 @@ func BuildConfig(v *viper.Viper) *Config {
 			RolePolicyDatabase: rolePolicyDatabase(v),
 			PlatformAdminUsers: getStringSlice(v, "listingkit.platformAdminUsers"),
 			PlatformAdminRoles: getStringSlice(v, "listingkit.platformAdminRoles"),
-			ImageUpload: ListingKitImageUploadConfig{
-				Provider: v.GetString("listingkit.imageUpload.provider"),
-				Local:    ListingKitImageUploadLocalConfig{RootDir: v.GetString("listingkit.imageUpload.local.rootDir")},
-				S3: ListingKitImageUploadS3Config{
-					Bucket: v.GetString("listingkit.imageUpload.s3.bucket"), Region: v.GetString("listingkit.imageUpload.s3.region"),
-					Endpoint: v.GetString("listingkit.imageUpload.s3.endpoint"), AccessKeyID: v.GetString("listingkit.imageUpload.s3.accessKeyID"),
-					SecretAccessKey: v.GetString("listingkit.imageUpload.s3.secretAccessKey"), UsePathStyle: v.GetBool("listingkit.imageUpload.s3.usePathStyle"),
-					PublicBase: v.GetString("listingkit.imageUpload.s3.publicBase"),
-				},
-			},
 			Zitadel: ListingKitZitadelConfig{
 				IssuerURL:                         listingKitZitadelIssuerURL,
 				AuthorizationAPIURL:               listingKitZitadelAuthorizationAPIURL,

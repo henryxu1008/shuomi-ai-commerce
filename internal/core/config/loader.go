@@ -10,8 +10,7 @@ func NewDefaultConfig() *Config {
 		},
 		ImageAgent: ImageAgentConfig{},
 		ListingKit: ListingKitConfig{
-			ImageUpload: ListingKitImageUploadConfig{},
-			Zitadel:     ListingKitZitadelConfig{},
+			Zitadel: ListingKitZitadelConfig{},
 		},
 	}
 }

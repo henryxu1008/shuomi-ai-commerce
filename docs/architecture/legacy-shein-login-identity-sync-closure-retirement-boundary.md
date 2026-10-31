@@ -1,3 +1,5 @@
+> #301 / #1029 [用户确认的完整输入链退休](legacy-listingkit-input-config-closure-retirement-boundary.md)：本批仅替代 ConfigMap 六个旧上传非敏感键与双 owner 专属注释的 KEEP，及 UI 旧 Task API/隐式 Secret 尾部；Secret 样例/映射/安全检查全文保留，不恢复 SHEIN 登录或身份回写。 两组30路径在同一 #1029 整批实施，用户已确认冻结设计 e343a825b 的§1–§7（含§4.2/§6.1），IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。退出旧手工上传配置及旧 UI Task API/隐式集群 Secret 导入；当前 UI/Auth.js/Service API、图像/采集、imgproxy 两有效 Secret 键与原安全检查、Store 观察保留。workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下原文、历史、计数和勾选完整保留；源码 CI/最终复核证据另见同一 PR，不代表产品或运行验收。
+
 > #301 / #985 **USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**：用户已确认冻结设计 `8fd07fd3af2a90a314ff7fdc8f0410a507895d34` 的 §1–§7（含§4.2/§6.1）。独立 SHEIN 登录及登录后 Store ID 回写、专属 Cookie/Profile/Redis/执行控制表源码和旧 session API 整批退休；保留 Store 观察同步、官方授权与当前能力。原安全/并发断言按§6.1改接，CI仅去旧worker build一行并删其专属deploy workflow，其余 workflow/inventory/保护规则保持。实施期单行 core_alignment 尾部例外已单独获用户批准并列入矩阵。无既有实例/数据/凭据/进程操作，无试用新前置，#301 OPEN。准确源码HEAD/必要自检/原CI/最终复核留同PR，不等于运行或产品验收，合并/部署/关单另授权。以下冻结设计正文保留，阶段标签由本段替代。
 
 # 独立 SHEIN 登录与身份回写完整退休设计

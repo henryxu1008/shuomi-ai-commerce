@@ -9,6 +9,8 @@ import (
 )
 
 var retiredProductRuntimeYAMLKeys = map[string]string{
+	"listingkit.imageupload": "listingkit.imageUpload",
+
 	"listingkit.zitadel.authorizationrequired": "listingkit.zitadel.authorizationRequired",
 	"listingkit.zitadel.allowedtenantids":      "listingkit.zitadel.allowedTenantIDs",
 	"listingkit.zitadel.alloweduserids":        "listingkit.zitadel.allowedUserIDs",

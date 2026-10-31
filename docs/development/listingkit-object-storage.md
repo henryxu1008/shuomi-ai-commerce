@@ -1,3 +1,5 @@
+> #301 / #1029 [用户确认的完整输入链退休](../architecture/legacy-listingkit-input-config-closure-retirement-boundary.md)：下文 ListingKit 手工上传 HTTP、listingkit.imageUpload、旧 Task API env 和 MinIO smoke 步骤仅为历史，不能启动当前上传能力。当前 ImageAgent/SourceMedia、imgproxy 及有效存储合同保持原 owner；不执行下文命令或访问已有存储。 两组30路径在同一 #1029 整批实施，用户已确认冻结设计 e343a825b 的§1–§7（含§4.2/§6.1），IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。退出旧手工上传配置及旧 UI Task API/隐式集群 Secret 导入；当前 UI/Auth.js/Service API、图像/采集、imgproxy 两有效 Secret 键与原安全检查、Store 观察保留。workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下原文、历史、计数和勾选完整保留；源码 CI/最终复核证据另见同一 PR，不代表产品或运行验收。
+
 # ListingKit 对象存储开发说明
 
 这份说明覆盖本地开发时如何把 ListingKit 图片上传切到 S3 兼容对象存储。ImageAgent durable artifact publication 使用独立的 `imageagent.artifactStore` 配置，不与 ListingKit 共享配置所有权。

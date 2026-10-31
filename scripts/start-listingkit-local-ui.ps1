@@ -1,6 +1,5 @@
 param(
     [int]$Port = 3000,
-    [string]$ApiBase = "http://localhost:8085/api/v1/listing-kits",
     [string]$ServiceApiBase = "http://localhost:8085/api/v1",
     [switch]$IsolatedAcceptance,
     [string]$RuntimeDirectory = ""
@@ -90,25 +89,19 @@ function Assert-LoopbackApiBase {
 
 function Set-UiApiBases {
     param(
-        [string]$ApiBase,
         [string]$ServiceApiBase,
         [switch]$IsolatedAcceptance
     )
 
     if ($IsolatedAcceptance) {
-        if ([string]::IsNullOrWhiteSpace($ApiBase) -or [string]::IsNullOrWhiteSpace($ServiceApiBase)) {
+        if ([string]::IsNullOrWhiteSpace($ServiceApiBase)) {
             throw "Isolated acceptance requires explicit local API base URLs."
         }
-        Assert-LoopbackApiBase -Name "ApiBase" -Value $ApiBase
         Assert-LoopbackApiBase -Name "ServiceApiBase" -Value $ServiceApiBase
-        $normalizedServiceApiBase = $ServiceApiBase.TrimEnd("/")
-        [Environment]::SetEnvironmentVariable("LISTINGKIT_API_BASE", $ApiBase)
         [Environment]::SetEnvironmentVariable("LISTINGKIT_SERVICE_API_BASE", $ServiceApiBase)
-        [Environment]::SetEnvironmentVariable("NEXT_PUBLIC_LISTINGKIT_API_BASE", "/api/listing-kits")
         return
     }
 
-    Set-EnvIfMissing -Name "LISTINGKIT_API_BASE" -Value $ApiBase
     Set-EnvIfMissing -Name "LISTINGKIT_SERVICE_API_BASE" -Value $ServiceApiBase
 }
 
@@ -150,35 +143,6 @@ function Import-DotEnvFile {
 
     if ($loadedCount -gt 0) {
         Write-Host "Loaded local .env values for local UI startup." -ForegroundColor DarkGreen
-    }
-}
-
-function Import-DeployedListingKitAuthSecrets {
-    if ([string]::IsNullOrWhiteSpace($env:KUBECONFIG)) {
-        Write-Host "KUBECONFIG is not set; keeping local Auth.js credentials." -ForegroundColor DarkYellow
-        return
-    }
-
-    try {
-        $json = & kubectl -n task-processor get secret listingkit-workbench-secret -o json 2>$null
-        if (-not $json) {
-            throw "the deployed ListingKit secret was not returned"
-        }
-        $secret = $json | ConvertFrom-Json
-        # Keep AUTH_SECRET from .env so a UI restart can still decrypt the
-        # existing localhost Auth.js session. Only the OAuth client secret has
-        # to match the deployed ZITADEL application for a future login.
-        foreach ($name in @("ZITADEL_CLIENT_SECRET")) {
-            $encoded = $secret.data.$name
-            if ([string]::IsNullOrWhiteSpace($encoded)) {
-                throw "missing $name"
-            }
-            $value = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
-            [Environment]::SetEnvironmentVariable($name, $value, "Process")
-        }
-        Write-Host "Loaded the deployed ListingKit ZITADEL client credential for this local UI process." -ForegroundColor DarkGreen
-    } catch {
-        Write-Host "Could not load deployed ListingKit Auth.js credentials: $($_.Exception.Message)" -ForegroundColor DarkYellow
     }
 }
 
@@ -263,12 +227,11 @@ function Initialize-UiLaunchEnvironment {
 
     if ($IsolatedAcceptance) {
         $env:KUBECONFIG = ""
-        Write-Host "Isolated acceptance mode: repository .env and deployed Kubernetes credentials are disabled." -ForegroundColor DarkGreen
+        Write-Host "Isolated acceptance mode: repository .env is disabled; explicit process inputs are preserved." -ForegroundColor DarkGreen
         return
     }
 
     Import-DotEnvFile -Path (Join-Path $RepoRoot ".env")
-    Import-DeployedListingKitAuthSecrets
 }
 
 function Assert-PortAvailable {
@@ -363,7 +326,6 @@ Remove-FileIfExists -Path $pidFile
 
 Initialize-UiLaunchEnvironment -RepoRoot $repoRoot -IsolatedAcceptance:$IsolatedAcceptance
 Set-UiApiBases `
-    -ApiBase $ApiBase `
     -ServiceApiBase $ServiceApiBase `
     -IsolatedAcceptance:$IsolatedAcceptance
 
@@ -416,7 +378,6 @@ Write-Host "  launcher PID: $($process.Id)"
 Write-Host "  listener PID: $($listenerPid[0])"
 Write-Host "  stdout: $stdoutLog"
 Write-Host "  stderr: $stderrLog"
-Write-Host "  LISTINGKIT_API_BASE: $ApiBase"
 Write-Host "  LISTINGKIT_SERVICE_API_BASE: $ServiceApiBase"
 Write-Host ""
 Write-Host "Stop command:" -ForegroundColor Yellow
