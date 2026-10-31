@@ -1,3 +1,5 @@
+> #301 / #1030 [用户确认的浏览器安装完整退休边界](architecture/legacy-browser-install-closure-retirement-boundary.md)仅替代下文属于该闭包的旧KEEP/安装指引；其它有效规则不变。用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。以下原Git正文、既有顶注、历史计数和勾选逐字保留。
+
 > #301 / #1010 — USER_CONFIRMED / IMPLEMENTING. [完整退休边界](architecture/legacy-restored-debug-closure-retirement-boundary.md) §1–§7（含 §4.2/§6.1）替代下文仅属于本批的旧 KEEP：旧 Go Amazon/1688 手工浏览器执行树、五个 debug 入口、手机号探针、db-query/json-simplifier、公开 YAML 与隐式配置入口退出。Chromium 安装闭包归 `integration/browserinstall`，当前 Collector 配置合同原样保留。当前采集、图像、身份权限、Store 观察同步保持；实际消费配置的四个命令须显式 `-config`，worker canary 无需配置。tools module 仅保留原 CI lint 固定用途；test-all 仅测 root。下方原文保留为历史，不作为已退休入口的现行操作指引。源级/CI 不等于运行验收；workflow/完整 inventory/计数/ceilings/工具版本及既有资源零改，#301 OPEN，无新增试用前置。
 
 # Amazon Listing Workbench API

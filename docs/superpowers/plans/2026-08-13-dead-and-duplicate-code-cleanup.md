@@ -1,3 +1,5 @@
+> #301 / #1030 [用户确认的浏览器安装完整退休边界](../../architecture/legacy-browser-install-closure-retirement-boundary.md)仅替代下文属于该闭包的旧KEEP/安装指引；其它有效规则不变。用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。以下原Git正文、既有顶注、历史计数和勾选逐字保留。
+
 # Dead and Duplicate Code Cleanup Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

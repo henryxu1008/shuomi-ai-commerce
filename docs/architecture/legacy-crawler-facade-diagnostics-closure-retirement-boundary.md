@@ -1,3 +1,5 @@
+> #301 / #1030 [用户确认的浏览器安装完整退休边界](legacy-browser-install-closure-retirement-boundary.md)仅替代下文属于该闭包的旧KEEP/安装指引；其它有效规则不变。用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。以下原Git正文、既有顶注、历史计数和勾选逐字保留。
+
 > #301 / #972 窄范围替代：本文涉及旧1688 LocalAgent PoC CLI/client/deviceauth/未挂载HTTP/内存Job/Runner、旧integration/crawler/a1688及父crawler空壳、sds/adapter/product_source、asset/policy和两个专属Prepare的KEEP/实施/操作要求，已由本批完整退休设计替代。这不取消当前公共/扩展/批量/原浏览器采集、SDS/POD、资产审批/有效规则、共享身份权限、独立SHEIN登录或Store同步；其它产品边界与永久禁令保持。以下起始Git blob、历史批准/失败/数字/勾选逐字保留，不恢复迁移或试用/生产前置，不授权任何既有资源操作。
 
 > #301 / #964 当前替代边界（[用户确认设计 §1–§7/§6.1](legacy-source-result-contract-closure-retirement-boundary.md)）：仅替代全局 model import及guard保留 owner：Product移归 crawler/amazon/capturedata；原 guard 的 retained owner与精确过滤两字符串一起转换，其余断言/禁入全集不变。公共1688配置、原浏览器/debug/variations转换/PoolManager deadline取消与SHEIN行为保持。 当前能力、独立SHEIN登录/Store同步及持久化事实owner保持，workflow/完整inventory/依赖及既有资源不动，无试用前置，#301 OPEN。以下原完整Git正文/数字/勾选/证据逐字保留。
