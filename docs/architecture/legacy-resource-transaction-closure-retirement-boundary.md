@@ -8,7 +8,7 @@
 - 使用者：维护当前图像与资源扣费、Store 服务的开发者。交付结果是源码不再依赖闲置的同库/任意 owner 注册协议；不声称当前用户业务被阻塞，不新增产品功能、试用门禁或验收平台。
 - Design Basis: **Independent Architecture**。当前 **DESIGN_ONLY / REVIEW_PENDING / SOURCE_NOT_STARTED / NOT_READY**；用户当前仅授权完整设计，适用独立复核与用户确认完成前不修改生产实现。
 - 调查基线：main `27039ab105ad0bac4cc274b5d59a96b703808a09`（含 #1039、#1040）。Writer 会话 `01a133ef-757c-73e3-b8f6-76958c642397`，分支 `codex/issue301-resource-execution-retirement`。已核对当前 Issue、open PR 与会话；#1038 的 SHEIN 履约归原 owner，不接管。
-- 本轮设计提交仅新增本文并向 `legacy-register.md`、`project-boundaries.md` 追加顶注；§5 其余路径是**待确认实施范围**，不是已经实施。
+- 本轮设计提交仅新增本文并向 `legacy-register.md`、`project-boundaries.md`、`docs/architecture/README.md` 追加顶注/必需导航；§5 其余路径是**待确认实施范围**，不是已经实施。
 
 Product Authority：[全新系统基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[当前统一基础方案](unified-base-prepaid-resources-v1.md)、[成员资源与 Store 当前合同](member-resource-allocation-v1.md)、[原资源/Store 设计](../superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md)以及用户本轮“先做完整设计、确认后实施”的决定。没有 UI/IA/交互改动，Figma 增量 **N/A**；不重开上述当前产品决定。
 
@@ -69,7 +69,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：当前 ReservationSt
 
 ## §5 完整删除/抽取/保留矩阵
 
-实施范围共 **26 路径**：9 生产、9 测试、8 文档；是允许上限与准确矩阵，不为凑数制造修改。设计阶段仅 D1–D3 三文档。清单外变化按 §3/§6.1 先报告，不机械新开小 PR。
+实施范围共 **27 路径**：9 生产、9 测试、9 文档；是允许上限与准确矩阵，不为凑数制造修改。设计阶段仅 D1–D3/D9 四文档。清单外变化按 §3/§6.1 先报告，不机械新开小 PR。
 
 ### §5.1 生产：9 路径
 
@@ -97,9 +97,9 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：当前 ReservationSt
 | T6 | `internal/integration/orgresource/gorm_repository_postgres_test.go` | 仅去首函数内三段旧 Reserve/Settle/同库 Store 尾部及唯一旧 import；保留 welcome 并发与完整权限测试 |
 | T7 | `internal/integration/orgresource/gorm_repository_test.go` | 只原样承接两共享 helper，原当前测试/断言保持 |
 | T8 | `internal/integration/orgresource/image_generation_repository_test.go` | 原测试保持；将仍有效的释放债务/溢出/事务失败回滚安全验证改接真实当前图像终结入口 |
-| T9 | `tests/legacy_resource_transaction_retirement_test.go`（新增） | 全闭包禁入、最小当前值/事务接线、当前 Store 装配必需及七份既有文档冻结原后缀验证；不改其它 guard 算法 |
+| T9 | `tests/legacy_resource_transaction_retirement_test.go`（新增） | 全闭包禁入、最小当前值/事务接线、当前 Store 装配必需及八份既有文档冻结原后缀验证；不改其它 guard 算法 |
 
-### §5.3 文档：8 路径
+### §5.3 文档：9 路径
 
 | ID | 路径 | 处置 |
 | --- | --- | --- |
@@ -111,8 +111,9 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：当前 ReservationSt
 | D6 | `docs/engineering/2026-09-25-issue487-main-image-execution-design.md` | 仅顶注替代通用注册/旧仓库借用；当前图像合同保持 |
 | D7 | `docs/architecture/legacy-subscription-metering-closure-retirement-boundary.md` | 仅顶注说明 #988 Resource KEEP 只对本批专属对象被替代 |
 | D8 | `docs/superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md` | 仅顶注替代旧通用 owner 和 §8 同库 Store 编排承诺；当前资金与其它历史原文完整保留 |
+| D9 | `docs/architecture/README.md` | 追加新设计的显式索引，原导航/历史完整保留；原文档索引检查不变 |
 
-D2–D8 一律从基线完整 Git blob 追加顶注，原内容作为**逐字后缀**保留（只在验证工作区时允许 CRLF→LF 归一化）；不对历史做全局 replace。滚动 HEAD/CI/评审状态写 PR，不用提交改历史状态。
+D2–D9 一律从基线完整 Git blob 追加顶注，原内容作为**逐字后缀**保留（只在验证工作区时允许 CRLF→LF 归一化）；不对历史做全局 replace。滚动 HEAD/CI/评审状态写 PR，不用提交改历史状态。
 
 ### §5.4 KEEP / 零差异
 
@@ -143,7 +144,7 @@ workflow（含两套原 workflow）、完整 inventory（CURRENT/历史/计数/c
 
 ## §7 准入、评审、实施顺序与停止条件
 
-1. 本轮三文档提交设计 PR，记录起始 SHA、scope/owner/未授权项，核对原 CI 和适用独立设计复核。**未经用户本轮授权不默认新增 AI 互验线程**；设计与源码最终复核授权分开、绑定准确 HEAD。GitHub 同 SHA 复核运行时不重复触发；启动失败/不可用不冒称 review PASS。
+1. 本轮四文档提交设计 PR，记录起始 SHA、scope/owner/未授权项，核对原 CI 和适用独立设计复核。**未经用户本轮授权不默认新增 AI 互验线程**；设计与源码最终复核授权分开、绑定准确 HEAD。GitHub 同 SHA 复核运行时不重复触发；启动失败/不可用不冒称 review PASS。
 2. 发现 finding 先按 AGENTS.md 分类，指出当前 Must/后果/阻塞层级；最多两轮正常架构 review，不重开无关全局架构。有效证据只复用未变化部分。
 3. 适用设计 review 收敛、原 CI 和用户确认 §1–§7（含 §4.2/§6.1）后，才能登记 USER_CONFIRMED / IMPLEMENTATION_READY 并实施；设计 CI 绿色本身不授权生产变更。
 4. 同一主要 PR 内先值/购买校验与事务 helper抽取、当前接线，再退旧五生产文件和专属五测试/混合尾部，收齐原安全验证和历史顶注；小切片只作提交/验证边界，不机械拆批。

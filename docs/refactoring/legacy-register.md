@@ -1,4 +1,4 @@
-> #301 当前设计提案：[旧资源通用事务与 Store 同库扣费链完整退休](../architecture/legacy-resource-transaction-closure-retirement-boundary.md)。Design Basis: Independent Architecture / DESIGN_ONLY / REVIEW_PENDING / SOURCE_NOT_STARTED / NOT_READY。两组26路径同一主要PR：先抽取当前资源值、购买校验、图像事务结算和两共享测试helper，再整退无当前装配的通用注册/预留/结算与旧同库Store执行链。当前AI/图像扣费、余额/月限、Store服务及观察同步、JSON/hash/物理账本保持；旧KEEP仅对本文矩阵中的专属对象待确认替代，不恢复独立SHEIN登录。适用设计复核及用户确认前不实施；workflow/完整inventory/依赖/保护及既有实例/数据/凭据/缓存/进程不动，不增试用前置，#301保持OPEN。以下原历史、计数和勾选逐字保留。
+> #301 当前设计提案：[旧资源通用事务与 Store 同库扣费链完整退休](../architecture/legacy-resource-transaction-closure-retirement-boundary.md)。Design Basis: Independent Architecture / DESIGN_ONLY / REVIEW_PENDING / SOURCE_NOT_STARTED / NOT_READY。两组27路径同一主要PR：先抽取当前资源值、购买校验、图像事务结算和两共享测试helper，再整退无当前装配的通用注册/预留/结算与旧同库Store执行链。当前AI/图像扣费、余额/月限、Store服务及观察同步、JSON/hash/物理账本保持；旧KEEP仅对本文矩阵中的专属对象待确认替代，不恢复独立SHEIN登录。适用设计复核及用户确认前不实施；workflow/完整inventory/依赖/保护及既有实例/数据/凭据/缓存/进程不动，不增试用前置，#301保持OPEN。以下原历史、计数和勾选逐字保留。
 
 > #1039 当前整批交付：用户确认的61路径完整闭包已实现，当前 IMPLEMENTED / In Review；Design Basis仍为冻结df8973a99的§1–§7/§4.2/§6.1。抽取当前窄编辑、同步transport、双账本编码和共享AST helper，旧专属闭包退出。当前能力/物理账本/Store观察保持，无合并/运行/关单授权，#301 OPEN。以下冻结登记原文逐字保留。
 
