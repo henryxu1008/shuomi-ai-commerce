@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"time"
+
 	storeapp "task-processor/internal/app/storecenter"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	marketplace "task-processor/internal/marketplace/walmart"
 	"task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
 )
@@ -30,39 +33,52 @@ func (s OfficialWalmartExecutionStore) WalmartExecutionMerchant(ctx context.Cont
 	}
 	return s.Access.AuthorizeWalmartMutation(ctx, storecenter.ProductExecutionSubject{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Purpose: storecenter.ProductPurposePublish}, id, expected)
 }
-func (s *UploadService) walmartFacts(ctx context.Context, scope collection.Scope, saved record.TargetRecord) error {
+
+// walmartLocalFacts retains the final authorization and exact saved-fact fence
+// without refetching remote rules or downloading images under a mutation lease.
+func (s *UploadService) walmartLocalFacts(ctx context.Context, scope collection.Scope, saved record.TargetRecord) (catalog.PublishedSnapshot, asset.ApprovedAssetInventory, error) {
+	var emptyProduct catalog.PublishedSnapshot
+	var emptyInventory asset.ApprovedAssetInventory
 	if !record.PublicationReady(saved) || saved.Walmart == nil || s.dependencies.WalmartRules == nil || s.dependencies.WalmartStores == nil || s.dependencies.WalmartReadStores == nil {
-		return record.ErrNotReady
+		return emptyProduct, emptyInventory, record.ErrNotReady
 	}
 	if e := s.authorize(ctx, scope); e != nil {
-		return e
+		return emptyProduct, emptyInventory, e
 	}
 	if s.dependencies.ReviewGate != nil {
 		if e := s.dependencies.ReviewGate(ctx, scope, saved); e != nil {
-			return e
+			return emptyProduct, emptyInventory, e
 		}
 	}
 	head, e := s.dependencies.Records.ReadTargetHead(ctx, scope, saved.TargetID)
 	if e != nil || head.ID != saved.ID || collection.Digest(head) != collection.Digest(saved) {
-		return record.ErrConflict
+		return emptyProduct, emptyInventory, record.ErrConflict
 	}
 	proof, e := s.source(ctx, scope, saved)
 	if e != nil {
-		return e
+		return emptyProduct, emptyInventory, e
 	}
 	p, e := s.dependencies.Products.ReadEffectiveTargetProduct(ctx, proof, saved.EffectiveVersion, saved.ApplyReceiptID)
 	if e != nil || p.Identity.TenantID != scope.OrganizationID || p.Identity.ProductKey != saved.Source.Source.ProductKey || p.Version != saved.EffectiveVersion || collection.Digest(p.Snapshot) != saved.ProductHash {
-		return record.ErrConflict
+		return emptyProduct, emptyInventory, record.ErrConflict
 	}
 	as := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: p.Identity.ProductKey, TargetPlatform: "walmart", SourceSnapshotVersion: p.Version}
 	inventory, e := s.dependencies.Assets.GetApprovedInventory(ctx, as)
 	if errors.Is(e, asset.ErrApprovedAssetsNotReady) {
 		inventory = asset.ApprovedAssetInventory{Scope: as, Assets: []asset.ApprovedAsset{}}
 	} else if e != nil {
-		return record.ErrUnavailable
+		return emptyProduct, emptyInventory, record.ErrUnavailable
 	}
 	if inventory.Scope != as || collection.Digest(inventory) != saved.InventoryHash {
-		return record.ErrConflict
+		return emptyProduct, emptyInventory, record.ErrConflict
+	}
+	return p, inventory, nil
+}
+
+func (s *UploadService) walmartFacts(ctx context.Context, scope collection.Scope, saved record.TargetRecord) error {
+	p, inventory, e := s.walmartLocalFacts(ctx, scope, saved)
+	if e != nil {
+		return e
 	}
 	binding, rules, e := s.dependencies.WalmartRules.ReadWalmartTargetRules(ctx, scope, saved.Merchant.StoreID, saved.Input.Walmart.Selection)
 	if e != nil {
@@ -103,6 +119,9 @@ func (s *UploadService) uploadWalmart(ctx context.Context, scope collection.Scop
 					return UploadResult{}, record.ErrConflict
 				}
 				return walmartUploadResult(saved, r), nil
+			}
+			if a.Status == submission.ExecutionFailedDefinitive || a.Status == submission.ExecutionCancelled {
+				return s.replay(ctx, scope, saved.ID, a)
 			}
 			_, _ = s.dependencies.Kernel.Expire(ctx, submission.ExecutionScope{OrganizationID: scope.OrganizationID}, a.AttemptID)
 			return unknownUpload(saved.ID, a.AttemptID), nil
@@ -166,6 +185,10 @@ func (s *UploadService) uploadWalmart(ctx context.Context, scope collection.Scop
 	if !submission.WalmartIntentMatchesRecord(intent, saved) {
 		return UploadResult{}, submission.ErrExecutionIntentConflict
 	}
+	// Complete expensive remote preflight before starting the send-only lease.
+	if e = s.walmartFacts(ctx, scope, saved); e != nil {
+		return UploadResult{}, e
+	}
 	a, e := s.dependencies.Kernel.Acquire(ctx, submission.AcquireExecutionCommand{Scope: submission.ExecutionScope{OrganizationID: scope.OrganizationID}, IntentKey: key, Target: target, Action: submission.WalmartSubmitAction, Payload: saved.Walmart.Payload, ClaimOwnerID: "supply-worker", Lease: submission.ExecutionTimeout})
 	if errors.Is(e, submission.ErrExecutionTargetClaimed) {
 		return unknownUpload(saved.ID, ""), nil
@@ -181,13 +204,16 @@ func (s *UploadService) uploadWalmart(ctx context.Context, scope collection.Scop
 			}
 			return walmartUploadResult(saved, r), nil
 		}
+		if a.Attempt.Status == submission.ExecutionFailedDefinitive || a.Attempt.Status == submission.ExecutionCancelled {
+			return s.replay(ctx, scope, saved.ID, a.Attempt)
+		}
 		return unknownUpload(saved.ID, a.Attempt.AttemptID), nil
 	}
 	claim := uploadClaim(scope, a.Permit)
 	ctx, cancel := context.WithDeadline(ctx, a.Permit.LeaseExpiresAt)
 	defer cancel()
 	uncertain := func() (UploadResult, error) { return s.unknown(ctx, saved.ID, claim), nil }
-	if e = s.walmartFacts(ctx, scope, saved); e != nil {
+	if _, _, e = s.walmartLocalFacts(ctx, scope, saved); e != nil {
 		return uncertain()
 	}
 	merchant, e := s.dependencies.WalmartStores.WalmartExecutionMerchant(ctx, scope, saved.Merchant.StoreID, &intent.Binding)
@@ -195,6 +221,9 @@ func (s *UploadService) uploadWalmart(ctx context.Context, scope collection.Scop
 		return uncertain()
 	}
 	accepted, e := merchant.SubmitFeed(ctx, *saved.Walmart, submission.WalmartCorrelationID(intent))
+	if errors.Is(e, marketplace.ErrRejected) {
+		return s.walmartRejected(ctx, saved.ID, intent, a.Attempt, claim), nil
+	}
 	if e != nil {
 		return uncertain()
 	}
@@ -207,4 +236,21 @@ func (s *UploadService) uploadWalmart(ctx context.Context, scope collection.Scop
 		return uncertain()
 	}
 	return walmartUploadResult(saved, retained), nil
+}
+
+func (s *UploadService) walmartRejected(ctx context.Context, recordID string, intent submission.OfficialIntent, attempt submission.ExecutionAttempt, claim submission.ExecutionClaim) UploadResult {
+	evidence, err := submission.NewWalmartRejectionEvidence(intent, attempt, time.Now())
+	if err != nil {
+		return s.unknown(ctx, recordID, claim)
+	}
+	retention, cancel := context.WithTimeout(context.WithoutCancel(ctx), submission.ExecutionTimeout)
+	defer cancel()
+	retained, err := s.dependencies.Kernel.Complete(retention, claim, evidence)
+	if errors.Is(err, submission.ErrExecutionOutcomeUnknown) {
+		retained, err = s.dependencies.Kernel.ReadIntent(retention, claim.Scope, intent.Key)
+	}
+	if err == nil && retained.AttemptID == attempt.AttemptID && retained.Status == submission.ExecutionFailedDefinitive && retained.Evidence != nil && retained.Evidence.Kind == evidence.Kind && retained.Evidence.Reference == evidence.Reference && retained.Evidence.Fingerprint == evidence.Fingerprint && retained.Evidence.ObservedAt.Equal(evidence.ObservedAt) {
+		return UploadResult{RecordID: recordID, AttemptID: retained.AttemptID, Status: retained.Status, Message: "平台已明确拒绝本次提交；保留原结果，处理授权后可显式重新提交"}
+	}
+	return s.unknown(retention, recordID, claim)
 }

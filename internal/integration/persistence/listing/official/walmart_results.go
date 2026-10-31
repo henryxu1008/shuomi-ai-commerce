@@ -71,15 +71,30 @@ func (r *OfficialRepository) BeginWalmartRead(ctx context.Context, scope collect
 		if len(out.TrackedSKUs) == 0 {
 			return submission.ErrExecutionIntentConflict
 		}
-		updated := tx.Model(&submissionstore.WalmartSKUState{}).Where("organization_id=? AND environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku IN ? AND last_attempt_id=?", scope.OrganizationID, receipt.Binding.Walmart.Environment, receipt.Binding.SupplierIdentityHash, submission.WalmartExpectedSKUs(receipt.Walmart.SKUs), receipt.ID).Updates(map[string]any{"read_generation": generation, "latest_observation_id": ""})
+		anchor, anchorSet := "", false
+		for _, s := range rows {
+			if s.LastAttemptID != receipt.ID {
+				continue
+			}
+			if anchorSet && anchor != s.LatestObservationID {
+				return submission.ErrExecutionEvidenceRequired
+			}
+			anchor, anchorSet = s.LatestObservationID, true
+		}
+		out.Receipt, out.Generation = receipt, generation
+		out, e = r.startWalmartRead(tx, out, anchor)
+		if e != nil {
+			return e
+		}
+		// Keep the last committed observation as a recovery anchor. Its old
+		// generation cannot grant repair while this new read is in flight.
+		updated := tx.Model(&submissionstore.WalmartSKUState{}).Where("organization_id=? AND environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku IN ? AND last_attempt_id=?", scope.OrganizationID, receipt.Binding.Walmart.Environment, receipt.Binding.SupplierIdentityHash, submission.WalmartExpectedSKUs(receipt.Walmart.SKUs), receipt.ID).Updates(map[string]any{"read_generation": generation})
 		if updated.Error != nil {
 			return updated.Error
 		}
 		if int(updated.RowsAffected) != len(out.TrackedSKUs) {
 			return submission.ErrExecutionIntentConflict
 		}
-		out.Receipt = receipt
-		out.Generation = generation
 		return nil
 	})
 	return
@@ -88,18 +103,18 @@ func (r *OfficialRepository) SaveWalmartRead(ctx context.Context, scope collecti
 	if scope.Validate() != nil || req.Generation < 1 || len(req.TrackedSKUs) == 0 || req.Receipt.Owner.OrganizationID != scope.OrganizationID || req.Receipt.Walmart == nil || submission.ValidateOfficialReceipt(req.Receipt) != nil || o.FeedID != req.Receipt.Walmart.FeedID || o.ObservedAt.IsZero() {
 		return out, submission.ErrExecutionEvidenceRequired
 	}
-	raw, e := json.Marshal(o)
+	doc, e := submission.WalmartReadDocumentFor(req, o)
+	if e != nil || req.ReadProgress == nil {
+		return out, submission.ErrExecutionEvidenceRequired
+	}
+	raw, e := json.Marshal(doc)
 	if e != nil || len(raw) > submission.MaxExecutionPayloadBytes {
 		return out, submission.ErrExecutionInvalid
 	}
 	// Incomplete/missing/duplicate results are retained as partial, never used
 	// as a retry admission receipt. The generation head is separate from success.
-	if !o.CompleteFor(submission.WalmartExpectedSKUs(req.Receipt.Walmart.SKUs)) {
-		o.Partial = true
-		raw, _ = json.Marshal(o)
-	}
 	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(scope.OrganizationID+":"+req.Receipt.ID+":"+jsonGeneration(req.Generation))).String()
-	hash := collection.Digest(o)
+	hash := collection.Digest(doc)
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		receipt, e := readOfficialReceipt(tx, scope.OrganizationID, req.Receipt.ID)
 		if e != nil || collection.Digest(receipt) != collection.Digest(req.Receipt) {
@@ -108,9 +123,16 @@ func (r *OfficialRepository) SaveWalmartRead(ctx context.Context, scope collecti
 		if e = lockWalmartTarget(tx, receipt); e != nil {
 			return e
 		}
+		start, e := r.startWalmartRead(tx, submission.WalmartResultRequest{Receipt: receipt, Generation: req.Generation}, req.BaseObservationID)
+		if e != nil || !sameWalmartReadStart(start, req) {
+			return submission.ErrExecutionEvidenceRequired
+		}
 		var prior walmartObservationRow
 		e = tx.Where("organization_id=? AND receipt_id=? AND generation=?", scope.OrganizationID, receipt.ID, req.Generation).Take(&prior).Error
 		if e == nil {
+			if _, err := submission.DecodeWalmartReadDocument(prior.BodyJSON, prior.BodyHash, receipt, prior.Generation); err != nil {
+				return err
+			}
 			if prior.BodyHash != hash {
 				return submission.ErrExecutionIntentConflict
 			}
@@ -118,7 +140,7 @@ func (r *OfficialRepository) SaveWalmartRead(ctx context.Context, scope collecti
 			if e = tx.Model(&submissionstore.WalmartSKUState{}).Where("organization_id=? AND last_attempt_id=? AND read_generation=? AND latest_observation_id=?", scope.OrganizationID, receipt.ID, req.Generation, prior.ID).Count(&heads).Error; e != nil {
 				return e
 			}
-			out = submission.WalmartResultRecord{ID: prior.ID, ReceiptID: receipt.ID, Generation: req.Generation, Latest: int(heads) == len(receipt.Walmart.SKUs), Observation: o}
+			out = submission.WalmartResultRecord{ID: prior.ID, ReceiptID: receipt.ID, Generation: req.Generation, Latest: int(heads) == len(receipt.Walmart.SKUs), Observation: doc.FeedObservation, ReadProgress: doc.ReadProgress}
 			return nil
 		}
 		if e != gorm.ErrRecordNotFound {
@@ -128,11 +150,11 @@ func (r *OfficialRepository) SaveWalmartRead(ctx context.Context, scope collecti
 		if e = tx.Create(&row).Error; e != nil {
 			return e
 		}
-		updated := tx.Model(&submissionstore.WalmartSKUState{}).Where("organization_id=? AND environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku IN ? AND last_attempt_id=? AND read_generation=?", scope.OrganizationID, receipt.Binding.Walmart.Environment, receipt.Binding.SupplierIdentityHash, submission.WalmartExpectedSKUs(receipt.Walmart.SKUs), receipt.ID, req.Generation).Update("latest_observation_id", id)
+		updated := tx.Model(&submissionstore.WalmartSKUState{}).Where("organization_id=? AND environment=? AND market='US' AND merchant_identity_hash=? AND seller_sku IN ? AND last_attempt_id=? AND read_generation=? AND latest_observation_id=?", scope.OrganizationID, receipt.Binding.Walmart.Environment, receipt.Binding.SupplierIdentityHash, submission.WalmartExpectedSKUs(receipt.Walmart.SKUs), receipt.ID, req.Generation, req.BaseObservationID).Update("latest_observation_id", id)
 		if updated.Error != nil {
 			return updated.Error
 		}
-		out = submission.WalmartResultRecord{ID: id, ReceiptID: receipt.ID, Generation: req.Generation, Latest: int(updated.RowsAffected) == len(receipt.Walmart.SKUs), Observation: o}
+		out = submission.WalmartResultRecord{ID: id, ReceiptID: receipt.ID, Generation: req.Generation, Latest: int(updated.RowsAffected) == len(receipt.Walmart.SKUs), Observation: doc.FeedObservation, ReadProgress: doc.ReadProgress}
 		return nil
 	})
 	return
@@ -149,7 +171,7 @@ func (r *OfficialRepository) ReadWalmartResults(ctx context.Context, scope colle
  SELECT DISTINCT ON(o.receipt_id) o.* FROM listing_walmart_feed_observations o
  JOIN listing_submission_official_receipts r ON r.organization_id=o.organization_id AND r.attempt_id=o.receipt_id
  WHERE o.organization_id=? AND r.store_id=? AND r.subject_id=?
- AND EXISTS(SELECT 1 FROM listing_walmart_sku_bindings s WHERE s.organization_id=o.organization_id AND s.last_attempt_id=o.receipt_id)
+ AND EXISTS(SELECT 1 FROM listing_walmart_sku_bindings s WHERE s.organization_id=o.organization_id AND s.last_attempt_id=o.receipt_id AND s.latest_observation_id=o.id::text)
  ORDER BY o.receipt_id,o.generation DESC
  ) live ORDER BY observed_at DESC,generation DESC LIMIT ?`, scope.OrganizationID, target.StoreID, target.SubjectID, marketplace.MaxSKUs).Scan(&rows).Error; e != nil {
 		return nil, e
@@ -157,13 +179,17 @@ func (r *OfficialRepository) ReadWalmartResults(ctx context.Context, scope colle
 
 	out := []submission.WalmartResultRecord{}
 	for _, row := range rows {
-		var obs marketplace.FeedObservation
-		if len(row.BodyJSON) > submission.MaxExecutionPayloadBytes || json.Unmarshal(row.BodyJSON, &obs) != nil || collection.Digest(obs) != row.BodyHash {
+		receipt, e := readOfficialReceipt(r.db.WithContext(ctx), scope.OrganizationID, row.ReceiptID)
+		if e != nil || receipt.Walmart == nil || receipt.Target != target {
 			return nil, submission.ErrExecutionEvidenceRequired
 		}
-		receipt, e := readOfficialReceipt(r.db.WithContext(ctx), scope.OrganizationID, row.ReceiptID)
-		if e != nil || receipt.Walmart == nil || receipt.Target != target || receipt.Walmart.FeedID != obs.FeedID {
-			return nil, submission.ErrExecutionEvidenceRequired
+		doc, e := submission.DecodeWalmartReadDocument(row.BodyJSON, row.BodyHash, receipt, row.Generation)
+		if e != nil {
+			return nil, e
+		}
+		pages, limited, e := r.walmartPreviousPages(r.db.WithContext(ctx), receipt, row, doc)
+		if e != nil {
+			return nil, e
 		}
 		var count int64
 		if e = r.db.WithContext(ctx).Model(&submissionstore.WalmartSKUState{}).Where("organization_id=? AND last_attempt_id=? AND read_generation=? AND latest_observation_id=?", scope.OrganizationID, row.ReceiptID, row.Generation, row.ID).Count(&count).Error; e != nil {
@@ -175,11 +201,18 @@ func (r *OfficialRepository) ReadWalmartResults(ctx context.Context, scope colle
 			return nil, e
 		}
 		for _, sku := range skuRows {
-			if obs.AllowsRepair(submission.WalmartExpectedSKUs(receipt.Walmart.SKUs), []string{sku.SellerSKU}) {
+			if doc.AllowsRepair(submission.WalmartExpectedSKUs(receipt.Walmart.SKUs), []string{sku.SellerSKU}) {
 				available = append(available, sku.SellerSKU)
 			}
 		}
-		out = append(out, submission.WalmartResultRecord{ID: row.ID, ReceiptID: row.ReceiptID, Generation: row.Generation, Latest: int(count) == len(receipt.Walmart.SKUs), RepairableSKUs: available, Observation: obs})
+		item := submission.WalmartResultRecord{ID: row.ID, ReceiptID: row.ReceiptID, Generation: row.Generation, Latest: int(count) == len(receipt.Walmart.SKUs), RepairableSKUs: available, Observation: doc.FeedObservation, ReadProgress: doc.ReadProgress, ObservedPages: pages, Limited: limited}
+		if limited {
+			item.Observation.Partial = true
+			item.RepairableSKUs = nil
+			offset := doc.ReadProgress.NextOffset
+			item.ReadOffset = &offset
+		}
+		out = append(out, item)
 	}
-	return out, nil
+	return submission.BoundWalmartResults(out, submission.MaxExecutionPayloadBytes)
 }
