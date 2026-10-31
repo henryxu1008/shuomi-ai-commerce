@@ -234,9 +234,90 @@
     {
       "file": "probe_atomic.py",
       "Hash": "072A458118B4FDC305687A546ED007C5C9E5A19CF699006C580684D1A05BF55C"
+    },
+    {
+      "file": "probe_currency.py",
+      "Hash": "E5DE9EE6827C747E9FFF0B01F3FE4DC266C1D4C957D07ECF3551E87F2883B000"
+    },
+    {
+      "file": "probe_reserved_transfer.py",
+      "Hash": "809DAC8E26BD0B00F2496206AE72A7B6216E0C55B961CB7983E94AC729CB168C"
     }
   ],
   "realShein": "NOT_RUN",
   "deployment": "NOT_RUN",
-  "userAcceptance": "NOT_RUN"
+  "userAcceptance": "NOT_RUN",
+  "currency": {
+    "kind": "NON_PRODUCTION_SPIKE",
+    "cases": [
+      {
+        "name": "foreign_purchase_keeps_original_currency_and_configured_conversion",
+        "status": "PASS",
+        "evidence": {
+          "currency": "CNY",
+          "original_total": 32,
+          "company_currency": "USD",
+          "base_total": 4,
+          "synthetic_conversion_rate": 0.125,
+          "note": "Synthetic test rate only; not a market quote; no FX provider requested."
+        }
+      }
+    ]
+  },
+  "reservedTransfer": {
+    "kind": "NON_PRODUCTION_SPIKE",
+    "architecture_finding": "B1",
+    "run": "f1eaa573",
+    "cases": [
+      {
+        "name": "original_stock_entry_cannot_consume_same_reserved_stock",
+        "status": "PASS",
+        "evidence": {
+          "rejection": "NegativeStockError",
+          "state": {
+            "source_qty": 5.0,
+            "target_qty": 0.0,
+            "delivered_qty": 0.0,
+            "remaining_reserved": 5.0
+          }
+        }
+      },
+      {
+        "name": "native_internal_dn_failure_rolls_back_stock_reservation_demand_and_receipt",
+        "status": "PASS",
+        "evidence": {
+          "state": {
+            "source_qty": 5.0,
+            "target_qty": 0.0,
+            "delivered_qty": 0.0,
+            "remaining_reserved": 5.0
+          },
+          "receipts": 0,
+          "delivery_notes": 0
+        }
+      },
+      {
+        "name": "native_internal_dn_consumes_exact_sre_and_keeps_owned_stock",
+        "status": "PASS",
+        "evidence": {
+          "order": "SAL-ORD-2026-00010",
+          "delivery_note": "MAT-DN-2026-00002",
+          "same_item": "FIT-B1-f1eaa573",
+          "state": {
+            "source_qty": 3.0,
+            "target_qty": 2.0,
+            "delivered_qty": 2.0,
+            "remaining_reserved": 3.0
+          },
+          "owned_total": 5,
+          "gl_entries": 0,
+          "is_internal_customer": 1,
+          "represents_company": "Fit 1f9a08fd",
+          "company": "Fit 1f9a08fd",
+          "currency": "USD",
+          "source_line": "od77ng4466"
+        }
+      }
+    ]
+  }
 }

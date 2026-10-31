@@ -6,7 +6,7 @@
 
 ERPNext 适合复用为本批采购、收货、库存预留和实物出库的单一 owner。原生业务单据和事务可以满足有界首版；普通 REST POST 没有原操作幂等语义，必须增加 ERP owner 内的最小原子命令，不能由 Go 侧先查后建或重复发 POST 补救。
 
-本轮 14 项实际检查通过，另有 1 项明确适配缺口（普通 POST 重复创建）。该缺口的唯一键、同键载荷冲突、原单读回、并发原子创建及事务回滚路径已在非生产 Spike 验证，但尚未成为正式插件。原生通用采购/库存角色对本批过宽，最终 HTTP 验证改用 Frappe 原生 Custom Role/DocPerm，未新增 IAM。
+本轮及首轮评审增量共18项实际检查通过，另有1项明确适配缺口（普通 POST 重复创建）。该缺口的唯一键、同键载荷冲突、原单读回、并发原子创建及事务回滚路径已在非生产 Spike 验证，但尚未成为正式插件。原生通用采购/库存角色对本批过宽，最终 HTTP 验证改用 Frappe 原生 Custom Role/DocPerm，未新增 IAM。
 
 ## 固定基线
 
@@ -40,8 +40,12 @@ ERPNext 适合复用为本批采购、收货、库存预留和实物出库的单
 | ERP 事务内并发创建 | PASS，一个创建、一个读回同一单，数据库实际只有一张采购单 |
 | 提交成功但响应未采用 | PASS，原键读取返回原单，异载荷返回冲突，无第二张采购单 |
 | 提交前故障 | PASS，业务单据创建后、原事务提交前故障，采购单与操作回执均回滚为 0 |
+| 采购原币与固定换算 | PASS，合成 CNY 32、明确测试换算率0.125，对应USD基础金额4；保留原币，未请求汇率服务，不代表真实市场报价 |
+| B1 原错误组合 | PASS（缺口复现），同一 SO/SRE 已预留5件时，Stock Entry 调拨被拒绝，原数量和需求保持 |
+| B1 原子回滚 | PASS，原生内部 DN 已更新库存、SRE及原需求后、回执提交前故障，源仓5/在途0/已交0/剩余预留5全部恢复，DN及回执均0 |
+| B1 原生内部 DN | PASS，准确同一已预留商品部分移交2后，源仓3/在途2/原需求已交2/剩余预留3，总拥有5且GL为0 |
 
-最后成功记录的原生运行标识：1f9a08fd、94915aba、atomic-38bfb673。数据全部为临时合成业务，不是实际 SHEIN、供应商或买家数据。完整非敏感结果和脚本摘要见 [固定证据](evidence/erpnext-fulfillment-fit-v1.json)。
+最后成功记录的原生运行标识：1f9a08fd、94915aba、atomic-38bfb673、f1eaa573。数据全部为临时合成业务，不是实际 SHEIN、供应商或买家数据。完整非敏感结果和脚本摘要见 [固定证据](evidence/erpnext-fulfillment-fit-v1.json)。
 
 原生唯一字段冲突在此准确版本返回 HTTP 417 / UniqueValidationError，不能假定一定返回 409，更不能把任意 417 都解释为重复或无效果。正式插件应返回稳定的窄合同和安全错误，不向 Console 透传 Frappe 堆栈。
 
@@ -51,7 +55,9 @@ ERPNext 适合复用为本批采购、收货、库存预留和实物出库的单
 2. 一个有界 Frappe app 提供固定用途命令和原键读取；外部操作唯一键、绑定摘要、原单引用与原业务写入在同一 ERP 数据库事务内提交。
 3. 复用 Frappe Custom Role/DocPerm 和每企业独立 site；API 凭据只给服务端。多 Company 不替代企业隔离。
 4. 独立保存平台副作用意图和结果；调用原 Store 官方句柄，不把原生 ERP 出库提交当作 SHEIN 已收货或原平台操作成功。
-5. 同币种与库存会计关闭路径已实测。非基础币种只消费已明确配置的 ERP 汇率与原币金额，缺失时阻止该次折算，不自动外呼汇率服务或补成 1。
+5. 库存会计关闭与明确换算的外币采购已实测。非基础币种只消费已明确配置的 ERP 汇率与原币金额，缺失时阻止该次折算，不自动外呼汇率服务或补成 1。内部DN调拨必须使用公司基础币种。
+
+首轮独立评审 B1 发现：未预留商品的调拨 PASS 不涵盖 SO/SRE 已预留的原托管需求。对应冻结增量只改为 ERPNext 原生内部 DN：本公司 Internal Customer / represents_company、公司基础币种、原 SO item 身份和固定在途目标仓。原生 DN 在同事务消费 SRE、更新 SO 交付量和两仓库存；平台 receipt/storage 仍是独立观察，不能拿内部已移交数量当平台已入库。
 
 ## 证据限制
 
@@ -69,6 +75,6 @@ ERPNext 适合复用为本批采购、收货、库存预留和实物出库的单
 
 ## 原始执行位置与来源
 
-任务私有目录：独立工作区 .local/erpnext-fit。包含 probe_native.py、probe_extended.py、probe_atomic.py、每次运行记录、镜像/Compose 和资源交集证据；所有文件明确 NON_PRODUCTION_SPIKE，生产代码不得导入或调用。凭据文件和原始环境不进入提交。
+任务私有目录：独立工作区 .local/erpnext-fit。包含 probe_native.py、probe_extended.py、probe_atomic.py、probe_currency.py、probe_reserved_transfer.py、每次运行记录、镜像/Compose 和资源交集证据；所有文件明确 NON_PRODUCTION_SPIKE，生产代码不得导入或调用。凭据文件和原始环境不进入提交。
 
 上游来源：[ERPNext v15.124.3](https://github.com/frappe/erpnext/tree/9f33fd5d32ae8a75156b2e7c2f8be02503fcc248)、[Frappe v15.125.0](https://github.com/frappe/frappe/tree/e7458ff33c8c1b81f812d521a17df790804eed6d)、[官方 Docker](https://github.com/frappe/frappe_docker/tree/61d35da827ebc04d01b64c9e78385597ccebc9d8)、[采购与收货](https://docs.frappe.io/erpnext/purchase-receipt)、[库存预留](https://docs.frappe.io/erpnext/stock-reservation)、[Frappe API](https://docs.frappe.io/framework/user/en/api/rest)。

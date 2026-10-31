@@ -214,7 +214,9 @@ Cutover/deletion condition: 新执行路径不得依赖已 RETIRE 的 Task、旧
 
 正式扩展落点为 extensions/erpnext-fulfillment 的标准 Frappe app；Spike 位于 .local，禁止正式 import/copy 为运行消费者。原生 Sales Order/Item 表达内部数量需求，Customer 为企业内系统交易对方，不复制消费者个人资料。以 source_kind=consumer_order 或 platform_supply 分开保存原平台来源、原行与绑定摘要，内部单据状态不覆盖平台状态。
 
-平台为原商业买方的供货交付可按批准合同消费原 Delivery Note；商家仍拥有的实物交仓使用原 Stock Entry/Material Request 等调拨合同，源仓、在途、平台位置分别记录，不把所有权未确定的交仓自动记销售。ERP 端在执行前要求明确且与原需求一致的 movement_kind，缺失则拒绝；不从地址或全托管名称猜所有权。非基础币种只消费 ERP 原币种与明确配置的汇率，不自动外呼，不补 rate=1。SaaS 钱包、供应商付款和财务结算不接入本批。
+平台为原商业买方的供货交付可按批准合同消费原 Delivery Note。商家仍拥有且已由原 SO/SRE 预留的交仓，固定使用原生内部 Delivery Note：原需求使用本公司专用 Internal Customer，represents_company 必须等于该 ERP company；原 SO item 为 so_detail/against_sales_order，DN item.target_warehouse 指向该公司配置的不可再分配在途仓，币种为公司基础币种。原生 DN 在同一 ERP 事务内消费准确 SRE、推进原 SO 交付数量、减源仓并增加在途仓，总拥有数量不减；不能使用 Stock Entry 绕开原 SRE，不能分次解除预留再调拨。交仓页面将此内部 SO 的 delivered_qty 命名为“已移交/发出数量”，不冒充 SHEIN 已收货/入库。
+
+movement_kind 由当前已确认的供货/所有权配置和原需求固定，缺失则拒绝，不接受浏览器临时改为内部/销售；不从地址或全托管名称猜所有权。内部 Customer、company、基础币种及源仓/不可再分配在途仓由当前 site 配置和原单校验；原生约束不能放宽。后续有准确平台入库证据时单独核对实际数量，原采购单的累计 storageQuantity 不足以证明本次某个包裹的入库，不自动按它调拨或关闭原 UNKNOWN。非基础币种采购只消费 ERP 原币种与明确配置的汇率，不自动外呼，不补 rate=1；内部调拨需求不使用跨币种。SaaS 钱包、供应商付款和财务结算不接入本批。
 
 拟新增的本批 ERP operation DocType 仅拥有命令幂等/进度和平台副作用回执，字段为 operation_id、organization/site binding、actor/member、purpose、input_digest、source_binding_digest、target_doc/line refs、revision、stage、result/error 及时间。业务数量、预留、实收/实出仍归原生单据；关联扩展字段不另存可写库存余额。
 
@@ -255,3 +257,11 @@ ERP/平台调用固定于安装配置和当前 Store registry；禁止浏览器�
 实现先写当前缺陷/规则的 RED：同键异载荷、并发数量、回滚与丢响应、地址 read/accept 区分、跨 site/店铺与撤权、客单 US/stockMode 筛选、托管原规则/市场未知、发货逐项结果与 UNKNOWN；再做最小实现。原生单据重复约束优先使用已有能力，不把 Spike 脚本变成生产服务或专项验收平台。
 
 开发交付提供一个主要 PR、原生 ERP app 的全新安装说明、当前应用正常启动配置、两条真实入口/步骤/保存位置与缺配置关闭说明。正式源码、准确 CI/独立最终检查、真实 SHEIN、部署与用户验收分开记录。Architecture Review 只对本次实际新增事务、状态、隐私和副作用边界审查，最多两轮正常评审；只有具体 BLOCKER 可重开冻结设计。
+
+## 14. 首轮架构 Finding 与窄增量
+
+第1轮候选 ae76bef05e5afda1f2647ad43f16a14af7c5814e 的唯一 BLOCKER 为 B1：原 SO/SRE 预留后使用 Stock Entry 调拨，不能同时消费预留及推进原需求，命中核心 happy path 无法完成，阻塞实施准入。独立 Reviewer 已核对准确上游源码和真实 Spike，未要求重审其余未变边界。
+
+分类：BLOCKER。Action：仅冻结§13.2的原生内部 DN 路径，并在同一已预留商品验证。增量 Spike f1eaa573 已重现旧 Stock Entry 拒绝；原生内部 DN 部分移交2后，源仓5→3、在途0→2、原需求已交0→2、剩余预留5→3，总拥有数量5且无GL；DN/SRE/库存更新后、回执提交前故障时，四项原事实和回执一起回滚。准确结果见 [适配验证](erpnext-shein-fulfillment-fit-v1.md) 与固定JSON。
+
+Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过同一实物/平台效果的 UNKNOWN 占用；实时权限/地址用途/版本漂移；原生容差、单位换算和部分收货/出库的准确约束。它们必须在正式实现和必要验证中收敛，当前不据此增建通用机制或扩大架构评审范围。本增量尚待原独立 Reviewer 明确准入，不能自行把本节证据标为 IMPLEMENTATION_READY。
