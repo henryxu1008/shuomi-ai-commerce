@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -152,9 +152,10 @@ it("only opens the granted cockpit page and keeps settings under its goal",()=>{
 });
 it("advertises each Store observation entry only with ready runtime and its read permission", () => {
   const view=render(<ConsoleNavigation pathname="/workbench/store-orders" ariaLabel="主导航" storeProductsAvailable={false} storeOrdersAvailable={false}/>);
-  expect(screen.getByRole("link",{name:"订单履约"})).toHaveAttribute("title","订单履约：业务暂未启用");
+  expect(screen.getByRole("link",{name:"订单管理"})).toHaveAttribute("title","订单管理：业务暂未启用");
   view.rerender(<ConsoleNavigation pathname="/workbench/store-orders" ariaLabel="主导航" storeProductsAvailable={false} storeOrdersAvailable/>);
-  expect(screen.getByRole("link",{name:"订单履约"})).toHaveAttribute("title","订单履约");
+  expect(screen.getByRole("link",{name:"订单管理"})).toHaveAttribute("title","订单管理");
+  fireEvent.click(screen.getByRole("button",{name:"展开店铺中心"}));
   expect(screen.getByRole("link",{name:"店铺商品"})).toHaveAttribute("title","店铺商品：业务暂未启用");
   view.rerender(<ConsoleNavigation pathname="/workbench/store-orders" ariaLabel="主导航" storeProductsAvailable storeOrdersAvailable/>);
   expect(screen.getByRole("link",{name:"店铺商品"})).toHaveAttribute("title","店铺商品");

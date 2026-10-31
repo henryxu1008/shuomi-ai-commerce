@@ -7,9 +7,11 @@ import (
 	"net"
 	"net/http"
 	dataservicesapp "task-processor/internal/app/dataservices"
+	fulfillmentapp "task-processor/internal/app/fulfillment"
 	podapp "task-processor/internal/app/pod"
 	"task-processor/internal/app/productsourcing"
 	dataservicesruntime "task-processor/internal/app/runtime/dataservices"
+	fulfillmentruntime "task-processor/internal/app/runtime/fulfillment"
 	observationruntime "task-processor/internal/app/runtime/storeobservations"
 	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/integration/acquisition/amazon"
@@ -82,6 +84,9 @@ type Dependencies struct {
 // ApplicationFeatures keeps separately owned, opt-in current modules together
 // only at the serving composition boundary.
 type ApplicationFeatures struct {
+	Fulfillment                                          *fulfillmentapp.Configuration
+	FulfillmentWorkflow                                  client.Client
+	FulfillmentLifecycle                                 *fulfillmentruntime.Lifecycle
 	BrowserKernelDB                                      *gorm.DB
 	BrowserKernel                                        *BrowserKernelConfig
 	ModelRouteText, ModelRouteImage                      *d.Service
@@ -577,6 +582,29 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
 		}
 	}
+	var fulfillmentConfiguration *fulfillmentapp.Configuration
+	var fulfillmentWorkflow client.Client
+	var fulfillmentLifecycle fulfillmentruntime.Lifecycle
+	if cfg.Fulfillment != nil {
+		fulfillmentConfiguration, err = cfg.Fulfillment.prepare(startupContext)
+		if err != nil {
+			return err
+		}
+		settings := cfg.Fulfillment
+		if cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.TemporalAddress == settings.TemporalAddress && cfg.StoreCenter.Observations.TemporalNamespace == settings.TemporalNamespace {
+			fulfillmentWorkflow = observationWorkflow
+		} else {
+			if dependencies.DialStoreObservationsWorkflow == nil {
+				return errors.New("fulfillment Temporal dial unavailable")
+			}
+			var closeWorkflow func() error
+			fulfillmentWorkflow, closeWorkflow, err = dependencies.DialStoreObservationsWorkflow(startupContext, settings.TemporalAddress, settings.TemporalNamespace)
+			if err != nil || fulfillmentWorkflow == nil || closeWorkflow == nil {
+				return errors.New("fulfillment Temporal runtime unavailable")
+			}
+			defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
+		}
+	}
 	var trialDB *gorm.DB
 	if cfg.LocalTrial != nil {
 		trialDB, err = dependencies.OpenLocalTrial(startupContext, cfg.LocalTrial.Database)
@@ -877,7 +905,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		}
 	}
 	if dependencies.NewApplicationWithFeatures != nil {
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, ModelRouteText: textManager, ModelRouteImage: imageManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, ModelRouteText: textManager, ModelRouteImage: imageManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {
@@ -949,6 +977,13 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return errors.New("start full image worker failed")
 		}
 		defer imageWorker.Stop()
+	}
+	if fulfillmentWorkflow != nil {
+		if err := fulfillmentLifecycle.Start(); err != nil {
+			_ = listener.Close()
+			return errors.New("start fulfillment worker failed")
+		}
+		defer fulfillmentLifecycle.Stop()
 	}
 	if observationWorkflow != nil {
 		if err := observationLifecycle.Start(); err != nil {

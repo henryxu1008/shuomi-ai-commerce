@@ -45,11 +45,15 @@ func (c *OfficialClient) goodsRequest(ctx context.Context, method, path, query s
 		return nil, ErrGoodsInvalid
 	}
 	switch path {
-	case "/open-api/goods/query-document-state", "/open-api/goods/modify-skc-shelf", "/open-api/stock/stock-query", "/open-api/goods/searchProduct", "/open-api/order/order-list", "/open-api/order/order-detail", "/open-api/goods/spu-info", "/open-api/goods/product/publishOrEdit", "/open-api/goods/transform-pic", "/open-api/goods/query-site-list", "/open-api/goods/query-publish-fill-in-standard", "/open-api/goods/query-category-tree", "/open-api/goods/query-attribute-template", "/open-api/goods/get-associated-attribute-rules", "/open-api/goods/query-brand-list":
+	case "/open-api/order/express-channel", "/open-api/purchase/intelligent-packing-result", "/open-api/shipping/delivery/print-package":
 		if method != http.MethodPost || query != "" {
 			return nil, ErrGoodsInvalid
 		}
-	case "/open-api/gsp/logistics-track", "/open-api/goods/product/check-publish-permission":
+	case "/open-api/order/export-address", "/open-api/order/import-batch-multiple-express", "/open-api/shipping/orderToShipping", "/open-api/goods/query-document-state", "/open-api/goods/modify-skc-shelf", "/open-api/stock/stock-query", "/open-api/goods/searchProduct", "/open-api/order/order-list", "/open-api/order/order-detail", "/open-api/goods/spu-info", "/open-api/goods/product/publishOrEdit", "/open-api/goods/transform-pic", "/open-api/goods/query-site-list", "/open-api/goods/query-publish-fill-in-standard", "/open-api/goods/query-category-tree", "/open-api/goods/query-attribute-template", "/open-api/goods/get-associated-attribute-rules", "/open-api/goods/query-brand-list":
+		if method != http.MethodPost || query != "" {
+			return nil, ErrGoodsInvalid
+		}
+	case "/open-api/order/purchase-order-infos", "/open-api/shipping/delivery", "/open-api/shipping/warehouse", "/open-api/shipping/basic", "/open-api/gsp/logistics-track", "/open-api/goods/product/check-publish-permission":
 		if method != http.MethodGet || len(payload) != 0 {
 			return nil, ErrGoodsInvalid
 		}

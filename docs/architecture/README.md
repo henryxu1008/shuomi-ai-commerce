@@ -1,3 +1,6 @@
+- [`order-procurement-fulfillment-v1.md`](order-procurement-fulfillment-v1.md) — #1037 / #1038；独立架构 IMPLEMENTATION_READY，当前仓库双履约与显式用途授权；真实 SHEIN 待联调。
+- [`erpnext-shein-fulfillment-fit-v1.md`](erpnext-shein-fulfillment-fit-v1.md) — 固定 ERPNext/Frappe 版本，原生数量、事务与原操作恢复证据，不代表真实平台验收。
+
 > #1039 当前整批交付：[旧图片异步、GRSAI通用执行与模型审核闭包](legacy-image-async-review-closure-retirement-boundary.md)已按用户确认设计整批实现，当前 IMPLEMENTED / In Review。窄编辑/同步Once、账本双指纹和当前共享AST helper已抽取；当前能力与Store观察、JSON/hash和物理账本保持，workflow/inventory/既有资源不动，#301 OPEN。以下冻结导航原文逐字保留。
 
 > #301 当前待确认设计：[旧图片异步协议、GRSAI 通用执行与模型审核尾部完整退休](legacy-image-async-review-closure-retirement-boundary.md)。三组一起；先抽取当前窄编辑/同步提交、账本双指纹零槽位和有效 AST helper，再退休旧协议与专属尾部。当前能力/Store 观察保持，workflow/inventory/既有资源不动。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY，设计确认后再实施，#301 OPEN。以下导航与历史逐字保留。

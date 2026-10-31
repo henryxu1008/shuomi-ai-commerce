@@ -96,6 +96,7 @@ func WorkbenchPermissions() []string {
 	result := []string{PermissionListingKitAdminRead, PermissionListingKitAdminWrite, PermissionListingKitPlatformAdm, PermissionProductSourcingWrite, PermissionLocalAgentWrite, PermissionImageAgentRead, PermissionImageAgentWrite, PermissionWorkbenchAgentRead, PermissionWorkbenchAgentUse, PermissionWorkbenchAgentConfigure}
 	result = append(result, workbenchReportPermissions...)
 	result = append(result, supplyMarketPermissions...)
+	result = append(result, fulfillmentPermissions...)
 	for _, group := range [][]string{cockpitPermissions, []string{"workbench.project.read", "workbench.project.manage"}, workbenchToolPermissions, workbenchChatPermissions, workbenchKnowledgePermissions, workbenchEcoservicesPermissions, workbenchSupplyPermissions, workbenchStorePermissions, workbenchStoreObservationPermissions, workbenchSourceAccountPermissions, workbenchOrganizationMemberPermissions, workbenchCommercialPermissions} {
 		result = append(result, group...)
 	}
@@ -139,6 +140,18 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 	enforcer, err := casbin.NewEnforcer(m)
 	if err != nil {
 		return nil, err
+	}
+	for _, role := range []string{"listingkit_admin"} {
+		for _, permission := range fulfillmentPermissions {
+			if _, err := enforcer.AddPolicy(role, permission); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, role := range []string{"listingkit_viewer", "listingkit_operator"} {
+		if _, err := enforcer.AddPolicy(role, "workbench.fulfillment.read"); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, policy := range [][]string{
