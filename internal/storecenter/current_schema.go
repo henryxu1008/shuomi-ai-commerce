@@ -174,6 +174,19 @@ func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabi
 	if err != nil {
 		return err
 	}
+	return verifyCurrentSchema(ctx, sqlDB, capabilities)
+}
+
+// VerifyCurrentSchemaTx verifies the same complete fresh-install contract on
+// Goose's pinned transaction, before committing schema changes and its receipt.
+func VerifyCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
+	if tx == nil {
+		return errors.New("store schema transaction unavailable")
+	}
+	return verifyCurrentSchema(ctx, tx, RuntimeCapabilities{TikTokShop: true, WalmartUS: true})
+}
+
+func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities) error {
 	if err := verifyCoreSchema(ctx, sqlDB, capabilities, currentConstraintDefinitions); err != nil {
 		return err
 	}
