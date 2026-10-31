@@ -85,6 +85,8 @@ func TestContentTwoCallDecisionInstructionUsesFrozenBudget(t *testing.T) {
 				require.Contains(t, executor.input.System, "After the canonical read, return Kind=propose")
 				require.Contains(t, executor.input.System, "Kind=interrupt with the specific missing facts")
 				require.Contains(t, executor.input.System, "Do not request another tool after that read.")
+				require.Contains(t, executor.input.System, "required but unread source evidence")
+				require.Contains(t, executor.input.System, "Propose when the observed facts already support the selection.")
 				// A quote for the old unconstrained prompt cannot authorize the
 				// corrected two-call prompt, even with the same frozen input.
 				unconstrained := executor.input

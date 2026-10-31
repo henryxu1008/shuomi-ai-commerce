@@ -12,7 +12,7 @@ import (
 const twoCallContentSystem = `This frozen run permits at most two model decisions.
 If successful canonical output is not already in Input.History, use the first decision to request product.canonical.inspect once.
 After the canonical read, return Kind=propose from the observed facts or Kind=interrupt with the specific missing facts. Do not request another tool after that read.
-For this budget, unread additional source evidence must be named in Unresolved instead of requesting another read. Do not invent facts, treat unread evidence as observed, or raise the budget.`
+For this budget, required but unread source evidence must be named in Unresolved instead of requesting another read. Propose when the observed facts already support the selection. Do not invent facts, treat unread evidence as observed, or raise the budget.`
 
 // This fixed consumer shares the governed executor, Knowledge permits, usage
 // ledger and bounded runtime; no prompt/provider/tool selector is exposed.
