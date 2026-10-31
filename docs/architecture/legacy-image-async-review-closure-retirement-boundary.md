@@ -1,4 +1,6 @@
-> 本批实施准入：用户已确认准确设计 df8973a9906c9c6f7def63aa87efc64ff70b438a 的§1–§7（含§4.2/§6.1），原CI与独立设计复核已齐。当前 USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING；同一PR整批61路径，不机械拆批。合并/运行/关单未授权，#301 OPEN。以下冻结设计原文逐字保留。
+> 实施说明：P1明确退休的async sentinel在T20同一已列函数的shape表仍有一条正向保活；该行随已批准声明退场，由T29明确缺席检查承接，七项有效DTO/其余原断言保持。只收齐同一批准函数/工件内的对应尾部，不改检查算法。
+
+> 本批实施准入：用户已确认准确设计 df8973a9906c9c6f7def63aa87efc64ff70b438a 的§1–§7（含§4.2/§6.1），原CI与独立设计复核已齐。当前 USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTED（待原CI与源码最终复核）；同一PR整批61路径，不机械拆批。合并/运行/关单未授权，#301 OPEN。以下冻结设计原文逐字保留。
 
 # 旧图片异步协议、GRSAI 通用执行与模型审核尾部完整退休设计
 

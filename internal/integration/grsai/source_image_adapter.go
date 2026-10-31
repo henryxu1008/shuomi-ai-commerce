@@ -29,7 +29,7 @@ type SourceImageAdapterConfig struct {
 	Build                SourceImageAdapterFactory
 }
 
-// NewSourceImageAdapter pins the concrete GRSAI client before handing it to
+// newSourceImageAdapter pins the concrete GRSAI client before handing it to
 // an App-selected compatible capability adapter. The Integration packages do
 // not depend on one another; App is the only concrete composition boundary.
 func newSourceImageAdapter(config SourceImageAdapterConfig, observe GenerationObserver) (SourceImageProvider, error) {

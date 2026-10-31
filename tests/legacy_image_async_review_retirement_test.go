@@ -18,10 +18,12 @@ func TestLegacyImageAsyncReviewClosureIsRetired(t *testing.T) {
 		"tests/provider_logger_ssa_nil_analysis_test.go", "tests/provider_logger_ssa_managed_use_analysis_test.go",
 		"tests/provider_logger_ssa_loading_test.go", "tests/provider_logger_ssa_analysis_test.go")
 	for path, names := range map[string][]string{
-		"internal/ai/contracts.go":              {"ImageGenerator", "RouteBoundImageGenerator", "ImageAsyncSubmitResponse", "ImageAsyncQueryResponse", "ErrAsyncImageGenerationNotSupported"},
-		"internal/integration/grsai/client.go":  {"GenerateImage", "EditImage", "GetDefaultModel", "SupportsAsyncImageGeneration", "SubmitImageGeneration", "SubmitImageEdit", "QueryImageGeneration", "pollGenerationResult", "fetchGenerationResult", "downloadGeneratedImages", "materializeRemoteImageReference", "logSubmitDiagnostic"},
-		"internal/integration/bailian/image.go": {"GenerateImage", "EditImage", "GetDefaultModel", "SupportsAsyncImageGeneration", "SubmitImageGeneration", "SubmitImageEdit", "QueryImageGeneration"},
-		"internal/aicapability/model.go":        {"CapabilityProductImageScene", "OperationProductImageReview"},
+		"internal/ai/contracts.go":                           {"ImageGenerator", "RouteBoundImageGenerator", "ImageAsyncSubmitResponse", "ImageAsyncQueryResponse", "ErrAsyncImageGenerationNotSupported"},
+		"internal/integration/grsai/client.go":               {"GenerateImage", "EditImage", "GetDefaultModel", "SupportsAsyncImageGeneration", "SubmitImageGeneration", "SubmitImageEdit", "QueryImageGeneration", "pollGenerationResult", "fetchGenerationResult", "downloadGeneratedImages", "materializeRemoteImageReference", "logSubmitDiagnostic"},
+		"internal/integration/bailian/image.go":              {"GenerateImage", "EditImage", "GetDefaultModel", "SupportsAsyncImageGeneration", "SubmitImageGeneration", "SubmitImageEdit", "QueryImageGeneration"},
+		"internal/integration/grsai/source_image_adapter.go": {"NewSourceImageAdapter", "GetDefaultModel", "GenerateImage", "EditImage", "SupportsAsyncImageGeneration", "SubmitImageGeneration", "SubmitImageEdit", "QueryImageGeneration"},
+		"internal/integration/grsai/synchronous_edit.go":     {"synchronousProductImageClient"},
+		"internal/aicapability/model.go":                     {"CapabilityProductImageScene", "OperationProductImageReview"},
 	} {
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
 		if err != nil {
@@ -63,5 +65,76 @@ func TestLegacyImageAsyncReviewClosureIsRetired(t *testing.T) {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
 			t.Errorf("current owner missing: %s: %v", path, err)
 		}
+	}
+}
+
+func TestCurrentImageRetirementKeepsLedgerAndRouteBoundaries(t *testing.T) {
+	for path, types := range map[string]map[string][]string{
+		"internal/integration/grsai/client.go": {"Config": {"Logger", "PollInterval", "MaxAttempts", "MaxReferenceMaterializationConcurrency"}},
+		"internal/aicapability/invocation.go":  {"InvocationRecord": {"ReviewScore", "ReviewNeedsHumanReview", "ReviewReasons"}},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range file.Decls {
+			g, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, spec := range g.Specs {
+				typ, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				names, ok := types[typ.Name.Name]
+				if !ok {
+					continue
+				}
+				st, ok := typ.Type.(*ast.StructType)
+				if !ok {
+					t.Fatalf("current type changed: %s", typ.Name.Name)
+				}
+				for _, field := range st.Fields.List {
+					for _, name := range field.Names {
+						for _, banned := range names {
+							if name.Name == banned {
+								t.Errorf("retired business/config field %s.%s", typ.Name.Name, banned)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", "internal", "integration", "orgresource", "model_invocation_repository.go"), nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, decl := range file.Decls {
+		f, ok := decl.(*ast.FuncDecl)
+		if !ok || (f.Name.Name != "modelPointFingerprint" && f.Name.Name != "finalize") {
+			continue
+		}
+		calls := 0
+		ast.Inspect(f.Body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			name, ok := call.Fun.(*ast.Ident)
+			if ok && name.Name == "modelPointFactHash" {
+				calls++
+			}
+			return true
+		})
+		if calls != 1 {
+			t.Errorf("%s must encode the original current fact exactly once", f.Name.Name)
+		}
+		seen[f.Name.Name] = true
+	}
+	if !seen["modelPointFingerprint"] || !seen["finalize"] {
+		t.Fatal("ledger hash owner missing")
 	}
 }

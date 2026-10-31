@@ -30,8 +30,8 @@ type GenerationObservation struct {
 type GenerationObserver func(context.Context, GenerationObservation) error
 
 // NewSynchronousSourceImageAdapter is the only assembly for the fixed
-// source-only GPT-image consumer. Unlike the ordinary adapter, its pinned
-// client cannot fall back to the polling/retrying EditImage implementation.
+// source-only GPT-image consumer. Its pinned client requires a durable effect
+// observer and dispatches each request once.
 func NewSynchronousSourceImageAdapter(config SourceImageAdapterConfig, observe GenerationObserver) (SourceImageProvider, error) {
 	if config.Client == nil || observe == nil || synchronousImageQuality(config.ImageModel) == "" {
 		return nil, errors.New("synchronous product image dependencies unavailable")

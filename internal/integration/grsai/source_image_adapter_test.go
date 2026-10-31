@@ -42,7 +42,7 @@ func TestPinnedProductImageClientRejectsRouteDriftBeforeGRSAIDispatch(t *testing
 	observer := func(context.Context, GenerationObservation) error { return nil }
 	pinned, err := newPinnedProductImageClient(client, "gpt-image-2.5", "credential-a", "config-v1", observer)
 	require.NoError(t, err)
-	_, err = pinned.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: "gpt-image-2.5"}, ai.ImageRouteSelection{CredentialReference: "credential-b", ConfigurationVersion: "config-v1"})
+	_, err = pinned.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: "gpt-image-2.5", Quality: "auto", Prompt: "approved", Image: []byte("source"), ImageContentType: "image/png"}, ai.ImageRouteSelection{CredentialReference: "credential-b", ConfigurationVersion: "config-v1"})
 	require.Error(t, err)
 	require.Zero(t, calls)
 	_, err = newPinnedProductImageClient(client, "gpt-image-2-vip", "credential-a", "config-v1", observer)

@@ -1,3 +1,5 @@
+> #1039 / #301 本轮源码退休替代：按[完整冻结设计](legacy-image-async-review-closure-retirement-boundary.md)的§1–§7/§4.2/§6.1，旧图片async/宽接口、GRSAI通用poll/retry/远程来源重抓与专属日志SSA、模型审核可写结果及旧业务回放退出；当前窄编辑/同步Once、有效DTO、精确来源、当前native账本双指纹编码、物理账本、当前能力和Store观察保留。本文对应旧KEEP/供应承诺仅在本批精确边界内被替代，不恢复旧SHEIN登录/身份回写，不处理已有记录。workflow/inventory和既有资源不动，不增加试用前置，#301保持OPEN。以下历史原文逐字保留。
+
 > USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认冻结设计 `3fc7e486427a87d0efce80ca5b8843558c977da1` 的§1–§7（含§4.2/§6.1），[正式准入6521804808](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1022#issuecomment-6521804808)和#301当前Ready读回先于生产修改。同一PR整批收齐38路径，不机械拆批。当前显式身份组织权限、immutable/严格读取、JSON/hash/版本、资金/UNKNOWN及采集/图像/Store观察保持；workflow/inventory/既有资源不动，无试用新前置。以下冻结设计正文与设计期时态完整保留；准确源码HEAD/原CI/最终复核留#1022，不等于运行/产品验收。合并/部署/关单另授权，#301 OPEN。
 
 # #301 旧认证路由推断、权限尾部与 S3 对象操作完整退休设计

@@ -21,6 +21,10 @@ func TestSourceEditDisablesGRSAISubmitReplay(t *testing.T) {
 					return
 				}
 				submits.Add(1)
+				if r.URL.Path == "/redirected" {
+					http.Error(w, "redirect must not be reached", 500)
+					return
+				}
 				switch mode {
 				case "lost_response":
 					h, ok := w.(http.Hijacker)

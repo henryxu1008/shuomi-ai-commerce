@@ -419,8 +419,23 @@ func TestRetiredModelReviewFactsCannotEnterCurrentRecovery(t *testing.T) {
 		"operation":  func(r *invocationRow) { r.Operation = "productimage_review" },
 		"capability": func(r *invocationRow) { r.Capability = "productimage.scene_generation" },
 	}
+	terminalMutations := make(map[string]func(*invocationRow))
 	for name, mutate := range mutations {
-		for _, entry := range []string{"find", "read_model", "record", "resolve", "claim"} {
+		m := mutate
+		terminalMutations[name+"/terminal"] = func(r *invocationRow) {
+			m(r)
+			r.Outcome = string(aicapability.InvocationSucceeded)
+			r.FinishedAt = r.StartedAt.Add(time.Second)
+			r.UsageKnown = true
+			r.PromptTokens, r.CompletionTokens, r.TotalTokens = 7, 5, 12
+		}
+	}
+	for name, mutate := range terminalMutations {
+		mutations[name] = mutate
+	}
+
+	for name, mutate := range mutations {
+		for _, entry := range []string{"find", "read_model", "record", "record_dispatched", "resolve", "claim"} {
 			t.Run(name+"/"+entry, func(t *testing.T) {
 				db := newInvocationLedgerDB(t)
 				settler := &recordingInvocationUsageSettler{}
@@ -444,6 +459,8 @@ func TestRetiredModelReviewFactsCannotEnterCurrentRecovery(t *testing.T) {
 					_, err = recorder.ReadModelInvocation(context.Background(), "org", fact.InvocationID)
 				case "record":
 					err = recorder.RecordInvocation(context.Background(), terminal)
+				case "record_dispatched":
+					err = recorder.RecordInvocation(context.Background(), fact)
 				case "resolve":
 					err = recorder.ResolveDispatchedInvocation(context.Background(), terminal)
 				case "claim":
@@ -458,4 +475,53 @@ func TestRetiredModelReviewFactsCannotEnterCurrentRecovery(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestRetiredModelReviewIdentityCannotCreateCurrentFact(t *testing.T) {
+	for _, identity := range []struct {
+		capability aicapability.Capability
+		operation  aicapability.Operation
+	}{{"productimage.scene_generation", aicapability.OperationProductAgentDecision}, {aicapability.CapabilityProductEnrichText, "productimage_review"}} {
+		db := newInvocationLedgerDB(t)
+		settler := &recordingInvocationUsageSettler{}
+		recorder := NewGormInvocationRecorder(db)
+		recorder.SetUsageSettler(settler)
+		fact := aicapability.InvocationRecord{InvocationID: "retired-new", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Capability: identity.capability, Operation: identity.operation, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC()}
+		require.Error(t, recorder.RecordInvocation(context.Background(), fact))
+		_, err := recorder.ClaimInvocation(context.Background(), fact)
+		require.Error(t, err)
+		var count int64
+		require.NoError(t, db.Model(&invocationRow{}).Count(&count).Error)
+		require.Zero(t, count)
+		require.Zero(t, settler.settleCalls)
+		require.Zero(t, settler.releaseCalls)
+	}
+}
+
+func TestRetiredModelReviewCASWinnerCannotBeSettled(t *testing.T) {
+	db := newInvocationLedgerDB(t)
+	recorder := NewGormInvocationRecorder(db)
+	settler := &recordingInvocationUsageSettler{}
+	recorder.SetUsageSettler(settler)
+	start := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	fact := aicapability.InvocationRecord{InvocationID: "fixture-winner", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: start}
+	require.NoError(t, recorder.RecordInvocation(context.Background(), fact))
+	injected := false
+	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture:retired-winner", func(tx *gorm.DB) {
+		if injected {
+			return
+		}
+		injected = true
+		tx.Session(&gorm.Session{NewDB: true}).Exec("UPDATE ai_invocations SET review_score = ?, outcome = ? WHERE invocation_id = ?", 0.5, string(aicapability.InvocationSucceeded), fact.InvocationID)
+	}))
+	fact.Outcome, fact.UsageKnown, fact.FinishedAt = aicapability.InvocationSucceeded, true, start.Add(time.Second)
+	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 7, 5, 12
+	require.ErrorContains(t, recorder.RecordInvocation(context.Background(), fact), "retired model review fact")
+	require.True(t, injected)
+	var raw invocationRow
+	require.NoError(t, db.Take(&raw).Error)
+	require.Equal(t, 0.5, raw.ReviewScore)
+	require.Equal(t, string(aicapability.InvocationSucceeded), raw.Outcome)
+	require.Zero(t, settler.settleCalls)
+	require.Zero(t, settler.releaseCalls)
 }

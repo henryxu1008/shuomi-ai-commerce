@@ -26,7 +26,7 @@
 
 - [`legacy-listingkit-input-config-closure-retirement-boundary.md`](legacy-listingkit-input-config-closure-retirement-boundary.md) — #301 两组完整输入链退休设计；DESIGN_ONLY / NOT_READY，用户确认后再实施。
 
-> #301 / #1026 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING：用户已确认冻结设计bd53b2044的§1–§7（含§4.2/§6.1），[完整31路径边界](legacy-remote-debug-image-closure-retirement-boundary.md)在同一PR整批实施，不机械拆批；生产修改前授权与准入读回见[6525933152](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1026#issuecomment-6525933152)。七准确工件/专属helper与Pester退出，三原guard窄转换，20旧文档仅顶注且原blob完整后缀。当前安装、标准构建/全部能力与Store观察保持，无alias/新owner；workflow/完整inventory/依赖/保护与既有资源零改，无试用前置，#301 OPEN。必要源码自检/原CI/最终复核在同一PR另列，设计证据不替代源码，合并另授。以下冻结设计/原索引/历史逐字保留，旧阶段时态由本条当前决定替代。
+> #301 / #1026 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTED（待原CI与源码最终复核）：用户已确认冻结设计bd53b2044的§1–§7（含§4.2/§6.1），[完整31路径边界](legacy-remote-debug-image-closure-retirement-boundary.md)在同一PR整批实施，不机械拆批；生产修改前授权与准入读回见[6525933152](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1026#issuecomment-6525933152)。七准确工件/专属helper与Pester退出，三原guard窄转换，20旧文档仅顶注且原blob完整后缀。当前安装、标准构建/全部能力与Store观察保持，无alias/新owner；workflow/完整inventory/依赖/保护与既有资源零改，无试用前置，#301 OPEN。必要源码自检/原CI/最终复核在同一PR另列，设计证据不替代源码，合并另授。以下冻结设计/原索引/历史逐字保留，旧阶段时态由本条当前决定替代。
 
 - [`legacy-remote-debug-image-closure-retirement-boundary.md`](legacy-remote-debug-image-closure-retirement-boundary.md)：#301 旧 SHEIN／ListingKit 远程联调与专属镜像链完整退休设计。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；未来31路径整批收齐四转发/监视脚本、专属镜像生产入口和测试/文档尾部。保留Chromium/Playwright安装、当前构建/能力与Store观察；§1–§7（含§4.2/§6.1）待独立复核和用户确认。当前仅三文档，workflow/inventory与既有资源不动，无新增试用前置，#301 OPEN。以下原索引/历史完整保留。
 
