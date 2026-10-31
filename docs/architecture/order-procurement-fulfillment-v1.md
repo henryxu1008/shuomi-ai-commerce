@@ -1,6 +1,6 @@
 # 订单、采购、发货与物流首版设计草案
 
-日期：2026-10-31。执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。Design Basis：Independent Architecture。状态：DESIGN_REVIEW_PENDING，尚未达到 IMPLEMENTATION_READY。用户已授权适配验证、独立评审及准入后的开发；合并、部署、保留实例和真实业务操作不在本次授权内。
+日期：2026-10-31。执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。Design Basis：Independent Architecture。状态：FROZEN / IMPLEMENTATION_READY。独立第1轮核对 ae76bef05，第2轮仅复核 B1 增量，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确准入；此结论先于生产代码修改。用户已授权适配验证、独立评审及准入后的开发；合并、部署、保留实例和真实业务操作不在本次授权内。
 
 ## 1. 已确认范围与交付目标
 
@@ -264,4 +264,4 @@ ERP/平台调用固定于安装配置和当前 Store registry；禁止浏览器�
 
 分类：BLOCKER。Action：仅冻结§13.2的原生内部 DN 路径，并在同一已预留商品验证。增量 Spike f1eaa573 已重现旧 Stock Entry 拒绝；原生内部 DN 部分移交2后，源仓5→3、在途0→2、原需求已交0→2、剩余预留5→3，总拥有数量5且无GL；DN/SRE/库存更新后、回执提交前故障时，四项原事实和回执一起回滚。准确结果见 [适配验证](erpnext-shein-fulfillment-fit-v1.md) 与固定JSON。
 
-Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过同一实物/平台效果的 UNKNOWN 占用；实时权限/地址用途/版本漂移；原生容差、单位换算和部分收货/出库的准确约束。它们必须在正式实现和必要验证中收敛，当前不据此增建通用机制或扩大架构评审范围。本增量尚待原独立 Reviewer 明确准入，不能自行把本节证据标为 IMPLEMENTATION_READY。
+Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过同一实物/平台效果的 UNKNOWN 占用；实时权限/地址用途/版本漂移；原生容差、单位换算和部分收货/出库的准确约束。它们必须在正式实现和必要验证中收敛，当前不据此增建通用机制或扩大架构评审范围。原独立 Reviewer 已只读核对 B1 的真实三文件增量、脚本哈希、原始 f1eaa573 结果和准确上游约束，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确 IMPLEMENTATION_READY；B1关闭，不重复全局评审。Reviewer未重新执行有写入的probe，该结论不是真实平台或用户验收。
