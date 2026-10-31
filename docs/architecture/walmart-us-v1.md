@@ -1,5 +1,7 @@
 # Walmart 美国站：多商家授权、商品草稿与受控刊登
 
+> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](walmart-feed-recovery-v1.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性已完成局部 Independent Architecture 准入，IMPLEMENTATION_READY/FROZEN；原唯一 Reviewer 无设计 BLOCKER，两项 IMPLEMENTATION_TEST 留同批实现。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
+
 Refs [#733](https://github.com/qq550723504/task-processor/issues/733)。
 
 - Product Decision：**PD-WALMART-US-MULTIMERCHANT-V1-2026-10-16**。用户确认美国站、开放给多个商家，并确认首期范围；平台申请由用户自行处理。
@@ -159,6 +161,20 @@ Feed PROCESSED 不推出每 SKU SUCCESS；ingestion SUCCESS 不推出 publicatio
 | Feed pending/某 SKU INPROGRESS/审核中/观察不完整 | 禁止第二次 create Feed，换 Target revision/应用/Store 不绕过 |
 | Feed ERROR 且官方证明没有 item 被处理，或 exact SKU DATA_ERROR 证明该 SKU 未被接纳 | 用户修改并重新批准后，才可提交原失败 SKU 的新版本；原成功 SKU 不重发 |
 | SYSTEM_ERROR/TIMEOUT_ERROR/404/列表暂未出现/只有同标题或 SKU 存在 | 不能证明原写入未发生，继续核实；不自动解除 UNKNOWN |
+
+当前适配器完整收到 POST 的 401/403 时，沿既有 `ErrRejected` 和 Submission
+`provider_response / failed_definitive` 合同保存明确授权拒绝；原 intent/payload/correlation
+绑定该证据，同键回读原终态，不制造 accepted Feed receipt。只有原失败事实已持久化，
+后续显式新命令才可经原 target fence / SKU owner 准入；失败落库结果不明先读原 intent，
+不能推定已失败。其它 4xx/5xx、传输失败、截断或无有效回执仍不作为确定拒绝。
+带 RepairFrom 的修复提交按[冻结补充合同](walmart-feed-recovery-v1.md)核原明确拒绝、准确载荷/SKU、
+原 accepted 祖先和最后 accepted 的完整证据，用户重新批准后才允许新的显式命令；
+保留 SKU 占用，不回填旧 UNKNOWN、不重发成功或未终结 SKU。
+耗时规则/图片/完整 draft 预检在 Acquire 前完成；claim 后只保留原授权、ReviewGate、
+Target/source/effective Product/approved inventory 与 Store mutation handle 最终核对，
+不在 10 秒发送 lease 中重复远程规则读取或图片下载，不延长 lease 或解除 UNKNOWN。
+此处复用现有状态、证据与事务；大 Feed 进度与逐页观察同原 observation owner 持久化，
+按冻结补充合同从原 head/anchor 续读；跨次部分页面只供可见性，不授予修复准入，完整一致证据缺口仍未完成。
 
 已成功接受 Feed 后的重提准入是同 Submission repository 内的 Walmart 特定 policy：锁原 stable target 与 SKU bindings，核对完整原 Feed evidence、允许修复的 exact failed SKU 子集、新的用户批准/input hash 后，才原子推进原 fence epoch 与新 intent。原未终结 Feed 或成功 SKU 永远不能进入修复子集。部分成功保留已成功的 SKU/ID；修复失败 SKU 不被 UI 当更新已有成功 Offer。其他平台的 admission policy 不变。
 

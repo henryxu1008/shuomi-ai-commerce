@@ -2,6 +2,7 @@ package supplychainapp
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
@@ -103,7 +104,10 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 	}
 	remoteCtx, remoteCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer remoteCancel()
-	for offset := 0; offset < len(expected); offset += 50 {
+	if req.ReadProgress == nil {
+		return view, record.ErrNotReady
+	}
+	for offset := req.ReadProgress.StartOffset; offset < len(expected); {
 		if e = recheck(ctx); e != nil {
 			return view, e
 		}
@@ -115,25 +119,24 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 		if e != nil {
 			break
 		}
-		if offset == 0 {
-			observation = page
-		} else {
-			if page.FeedStatus != observation.FeedStatus || page.Received != observation.Received || page.Succeeded != observation.Succeeded || page.Failed != observation.Failed || page.Processing != observation.Processing {
-				observation.Partial = true
-				break
-			}
-			observation.Items = append(observation.Items, page.Items...)
-			observation.ResponseHashes = append(observation.ResponseHashes, page.ResponseHashes...)
+		firstPage := len(req.ReadProgress.Pages) == 0
+		if !firstPage && (page.FeedStatus != observation.FeedStatus || page.Received != observation.Received || page.Succeeded != observation.Succeeded || page.Failed != observation.Failed || page.Processing != observation.Processing) {
+			break
 		}
+		next, window, err := req.AppendWalmartPage(offset, observation, page)
+		if err != nil {
+			break
+		}
+		req, observation = next, window
 		if page.FeedStatus == "ERROR" {
 			break
 		}
 		if len(page.Items) < 50 {
 			break
 		}
+		offset = req.ReadProgress.NextOffset
 	}
-	observation.Partial = !observation.CompleteFor(expected)
-	observation.ObservedAt = time.Now().UTC()
+	observation.Partial = !observation.CompleteFor(expected) || req.ReadProgress.StartOffset > 0
 	// Publication/lifecycle are read independently. Absence/failure remains
 	// unknown even for a successful ingestion and never grants another send.
 
@@ -153,16 +156,21 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 		tracked[sku] = true
 	}
 	indexes := []int{}
+	withPrior := observation
+	withPrior.Items = append([]marketplace.ItemResult(nil), observation.Items...)
 	for i, item := range observation.Items {
 		if p, ok := priorProducts[item.SKU]; ok {
-			observation.Items[i].PublicationStatus = p.PublicationStatus
-			observation.Items[i].LifecycleStatus = p.LifecycleStatus
-			observation.Items[i].Availability = p.Availability
-			observation.Items[i].PublicationObservedAt = p.PublicationObservedAt
+			withPrior.Items[i].PublicationStatus = p.PublicationStatus
+			withPrior.Items[i].LifecycleStatus = p.LifecycleStatus
+			withPrior.Items[i].Availability = p.Availability
+			withPrior.Items[i].PublicationObservedAt = p.PublicationObservedAt
 		}
 		if item.IngestionStatus == "SUCCESS" && tracked[item.SKU] {
 			indexes = append(indexes, i)
 		}
+	}
+	if submission.WalmartReadFits(req, withPrior) {
+		observation = withPrior
 	}
 	sort.SliceStable(indexes, func(i, j int) bool {
 		a, b := observation.Items[indexes[i]].PublicationObservedAt, observation.Items[indexes[j]].PublicationObservedAt
@@ -182,10 +190,16 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 		}
 		if product != nil {
 			now := time.Now().UTC()
-			observation.Items[i].PublicationStatus = product.PublicationStatus
-			observation.Items[i].LifecycleStatus = product.LifecycleStatus
-			observation.Items[i].Availability = product.Availability
-			observation.Items[i].PublicationObservedAt = &now
+			candidate := observation
+			candidate.Items = append([]marketplace.ItemResult(nil), observation.Items...)
+			candidate.Items[i].PublicationStatus = product.PublicationStatus
+			candidate.Items[i].LifecycleStatus = product.LifecycleStatus
+			candidate.Items[i].Availability = product.Availability
+			candidate.Items[i].PublicationObservedAt = &now
+			if !submission.WalmartReadFits(req, candidate) {
+				break
+			}
+			observation = candidate
 		}
 	}
 
@@ -196,5 +210,26 @@ func (a *Application) walmartPublicationStatus(ctx context.Context, view Publica
 		return view, e
 	}
 	view.WalmartResults, e = a.WalmartResults.ReadWalmartResults(ctx, scope, req.Receipt.Target)
-	return view, e
+	if e != nil {
+		return view, e
+	}
+	return boundWalmartPublication(view)
+}
+
+func boundWalmartPublication(view PublicationView) (PublicationView, error) {
+	base := view
+	base.WalmartResults = nil
+	raw, err := json.Marshal(base)
+	if err != nil {
+		return view, record.ErrUnavailable
+	}
+	view.WalmartResults, err = submission.BoundWalmartResults(view.WalmartResults, submission.MaxExecutionPayloadBytes-len(raw)-32)
+	if err != nil {
+		return view, err
+	}
+	raw, err = json.Marshal(view)
+	if err != nil || len(raw) > submission.MaxExecutionPayloadBytes {
+		return view, record.ErrUnavailable
+	}
+	return view, nil
 }

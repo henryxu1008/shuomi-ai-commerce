@@ -1,3 +1,5 @@
+> #301 / #1026 USER_CONFIRMED：[用户确认的旧远程联调与专属镜像完整退休边界](../architecture/legacy-remote-debug-image-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1）仅替代本批七对象的旧KEEP/现行操作含义：四个旧PG/Redis/RabbitMQ/Temporal转发与watcher、SHEIN runtime base构建推送脚本/Dockerfile及专属Pester整批源退，三项原检查精确转退休保护；其它检查不变。Chromium/Playwright安装、非目标Dockerfile、当前标准构建/全部能力与Store观察同步保持，无新EXTRACT/alias/替代工具。不执行旧入口，不停止转发/服务或删除现存镜像、数据、凭据、文件日志或进程；真实外部人工/制品消费者UNKNOWN，运行验收NOT_RUN。workflow/完整inventory/CURRENT/历史计数/ceilings/依赖/保护零改，无试用新前置，#301 OPEN。以下原Git正文/既有顶注/数字/勾选/失败证据逐字保留为历史，不恢复已退SHEIN登录/身份回写。
+
 # 硕米智能引擎 / Shuomi AI Commerce 品牌与仓库更名清单
 
 依据 [#884](https://github.com/qq550723504/shuomi-ai-commerce/issues/884) 的 2026-10-22 产品决定。
