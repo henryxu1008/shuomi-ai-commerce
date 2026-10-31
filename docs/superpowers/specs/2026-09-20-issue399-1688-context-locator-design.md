@@ -110,6 +110,17 @@ Case B 在真实页面上：实参为 `window.contextPath`（标识符，非对�
 - 任何不确定情形一律 **fail-closed** 为 `UNSUPPORTED_PAGE` / `ErrUnsupported`，绝不产出猜测事实。
 - 服务端 `failFetch` 的既有映射（`SOURCE_UNAVAILABLE`）与插件 `CAPTURE_REJECTED` 语义不变。
 
+#### 插件扫描前输入预算（2026-10-31，#399 资源缺口修复）
+
+用户已授权修复 #400 review 4057387941；Design Basis 为 Reuse Existing Architecture，当前准入及单一 Writer 见 #399。本节只补当前插件的既有资源不变量，不恢复暂停的服务端解析器工作，也不新增通用解析平台。
+
+- 现有 `MAX_BYTES = 2 MiB` 同时约束本次1688无 `src` 内联脚本扫描的累计 UTF-8 输入，包含未命中 `context` 的脚本；脚本数量仍最多256。超限必须在 `includes`、定位或配平扫描前以 `CAPTURE_TOO_LARGE` 拒绝，不能仅限制提取后的对象。
+- 读取整段 `Text.data` 前，先用常数时间的 `Text.length` 与剩余字节预算比较（UTF-8字节数不会小于UTF-16码元数）；通过后只对这个有界字符串使用既有 `byteLength` 核准UTF-8并扣减预算。恰好等于上限允许，后续脚本仍共用剩余预算。
+- 每段脚本处理前检查原8秒截止，过期以既有 `CAPTURE_TIMEOUT` 停止，不再完整读取或扫描下一段；不增加timer、worker或后台保活。
+- 原candidate、归一化JSON和payload的2MiB检查、65536节点、深度32、8秒、JSON/IIFE/数字键/严格字段、原始金额/ID及内容摘要不放宽；保存、权限、持久事实和UNKNOWN/恢复合同不变。
+- 回归复用原extractor测试，覆盖完整读取前拒绝、无关脚本累计、UTF-8前缀、精确上限及扫描阶段截止；不是新runner或真实浏览器验收。
+- Amazon相册/同族的候选筛选及无关脚本规则属于另行批准的合同；本次不把1688累计扫描准入直接套到它们，也不处理批量入口的manifest权限预检。
+
 ### 3.3 参考实现验证（本次已执行，验证 §3.1 可判定性）
 
 用一份一次性参考实现（不在仓库内，`/tmp/locator/ref.mjs`）对 13 个用例执行 §3.1：
