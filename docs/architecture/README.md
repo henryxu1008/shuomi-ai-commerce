@@ -1,3 +1,7 @@
+> #301 当前待确认设计：[旧图片异步协议、GRSAI 通用执行与模型审核尾部完整退休](legacy-image-async-review-closure-retirement-boundary.md)。三组一起；先抽取当前窄编辑/同步提交、账本双指纹零槽位和有效 AST helper，再退休旧协议与专属尾部。当前能力/Store 观察保持，workflow/inventory/既有资源不动。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY，设计确认后再实施，#301 OPEN。以下导航与历史逐字保留。
+
+- `legacy-image-async-review-closure-retirement-boundary.md` — [完整设计](legacy-image-async-review-closure-retirement-boundary.md)：§1–§7（含 §4.2/§6.1），未来60路径，一批交付。
+
 > #1033 / #301 当前整批实施：[旧通用图像执行闭包退休](legacy-imageagent-generic-execution-closure-retirement-boundary.md)。旧通用管线/模型审核、SDK Manager/Pool、全局/成员凭据回退和通用发布器退出；当前来源单主图、图组/Artwork 抽到当前 owner，JSON/hash/事务/恢复保持。#301 保持 OPEN；实现和 CI 证据不等于运行验收或合并授权。以下导航及历史原文保留。
 
 - `legacy-imageagent-generic-execution-closure-retirement-boundary.md` — [#1033 完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)：当前有效行为抽取后整退旧通用链；§4.2/§6.1 与获批 T14/T15 保持。
