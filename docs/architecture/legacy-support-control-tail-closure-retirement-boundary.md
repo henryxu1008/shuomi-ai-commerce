@@ -1,3 +1,5 @@
+> #301 / #1030 [用户确认的浏览器安装完整退休边界](legacy-browser-install-closure-retirement-boundary.md)仅替代下文属于该闭包的旧KEEP/安装指引；其它有效规则不变。用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。以下原Git正文、既有顶注、历史计数和勾选逐字保留。
+
 #301 / #969 当前实施：**RETIRE / Reuse Existing Architecture / USER_CONFIRMED / Ready / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `60bef6cf3d5d7d557477f69b4ea8c19d162e0d58` 的 §1–§7（含 §4.2、§6.1），同一18路径完整收齐。日志级别镜像/闲置控制/分级 Hook、无效配置与 Runner.Status 转发及专属尾部退出；有效构造留原公开 NewLogManager，registry 使用标准 sync.Locker，原真实锁/发布顺序/轮转保持。HTTP 实际 TLS/重试/取消、Goose Up/版本表/锁/幂等与状态断言不变。原 guard 仅删三旧保活项并新增一个完整 guard，其余原检查与 workflow/完整 inventory/依赖/保护零改。当前能力、采集及独立 SHEIN 登录/Store 同步保持；不操作既有实例/数据/凭据/进程，无试用前置，#301 OPEN。准确源码 HEAD、自检/CI/最终复核分别留同一 PR；实现不是运行/用户验收，合并/部署/关单另授权。
 
 ## 本次确认与实施映射

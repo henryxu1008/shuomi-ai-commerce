@@ -1,3 +1,5 @@
+> #301 / #1030 [用户确认的浏览器安装完整退休边界](legacy-browser-install-closure-retirement-boundary.md)仅替代下文属于该闭包的旧KEEP/安装指引；其它有效规则不变。用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。以下原Git正文、既有顶注、历史计数和勾选逐字保留。
+
 > #301 / #1022 窄范围后继：[确认的完整退休边界](legacy-auth-route-s3-operation-closure-retirement-boundary.md)仅替代本文RouteRequiresZitadelAuth的旧Module/URL推断保留；函数继续检测显式VerifiedIdentity，server/currentIdentity/组织/role/OPTIONS/public/headers/审计/取消原样。当前全部能力与Store观察保持，不扩本文其它退休/保留边界；原冻结正文/历史/批准/失败/数字/勾选完整保留为后缀。#301 OPEN，无运行资源操作或试用前置。
 
 > USER_CONFIRMED / Independent Architecture / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认冻结设计 ec7e1074c48897bb049401d5bad7e3b8053fed93 的 §1–§7（含 §4.1/§4.2/§6.1）；[正式实施准入](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1017#issuecomment-6519361843)及 #301 当前段先于源码修改。以下设计期状态/时态为历史，准确源码、自检、原 CI 和最终复核分别记录在同一 PR，合并另行授权；#301 OPEN。

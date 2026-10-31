@@ -1,3 +1,5 @@
+> #301 / #1030 [用户确认的浏览器安装完整退休边界](legacy-browser-install-closure-retirement-boundary.md)仅替代下文属于该闭包的旧KEEP/安装指引；其它有效规则不变。用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。以下原Git正文、既有顶注、历史计数和勾选逐字保留。
+
 > USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING. 用户确认 §1–§7 见 [#1010 准入](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1010#issuecomment-6516767885)。#1009 已由原 owner 合入；其真实 frontend 失败由 #1016 独立根因修复（原失败历史不改）。以下冻结范围与取舍保持，设计期时态仅为历史。实际源码 HEAD、CI、最终复核及合并授权分别留 PR，#301 OPEN。
 
 # #301 恢复文件背后的旧调试与采集执行链退休设计

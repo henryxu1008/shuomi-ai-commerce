@@ -1,3 +1,5 @@
+> **准确局部替代 / #301 / #1030**：[用户确认的浏览器安装退休](../../architecture/legacy-browser-install-closure-retirement-boundary.md)仅替代 §3.1 表中旧 fingerprint 安装CLI“直接复用”一行。取消应用自下载与旧镜像预装；现有必填指纹浏览器路径/同二进制版本Profile、路线B、scope/Consent、队列/UNKNOWN/崩溃安全和人工登录/验证码边界继续有效。普通Chromium与元数据目录不是等价替代，不新增安装器/试用前置。本设计其余内容和原产品决定保持，不操作既有资源，#301 OPEN。
+
 # 1688 批量导入（本地执行器驱动既有浏览器采集链路）设计
 
 - 状态：**待评审 v3**（未批准前不进入实现）
@@ -140,7 +142,7 @@ PR #443 第三轮评审提出 13 条，逐条对照真实代码核实后确认�
 | 触发采集的扩展内部消息 | `extensions/1688-capture/src/background.ts:32`（`popup.capture`） | 执行器发同一条消息，绕开「必须聚焦窗口才能开 popup」的限制 |
 | CDP 加载扩展 + 驱动 popup | `extensions/1688-capture/scripts/browser-smoke.mjs:78-101`（`Extensions.loadUnpacked` + `Runtime.evaluate{userGesture:true}`） | 作为驱动循环的**已证模板**（Node 参考实现） |
 | Go 侧 CDP 能力 | `github.com/mxschmitt/playwright-go`：`Browser.NewBrowserCDPSession()`（`browser.go:125`）、`Context.NewCDPSession`（`browser_context.go:88`）；已有用法 `internal/sheinlogin/automation_network.go:52` | 执行器用 Go 实现，不新增运行时 |
-| fingerprint-chromium 安装 | `cmd/fingerprint-browser-installer` | 直接复用 |
+| fingerprint-chromium 输入 | 发行方/已有制品准备 owner；`cmd/1688-batch-import --browser` → `batchcapture.DriverOptions.ExecutablePath` | 显式指纹浏览器路径与匹配版本 Profile 保持；不再提供旧 CLI 自下载 |
 
 ### 3.2 缺口（本设计要补的全部）
 

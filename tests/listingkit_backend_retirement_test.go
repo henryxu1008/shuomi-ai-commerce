@@ -383,8 +383,6 @@ func TestLegacyHTTPAuthSupportClosureIsRetired(t *testing.T) {
 		"internal/app/httpapi":         strings.Fields("httpModule newCoreHTTPModule buildHTTPServerBundleFromModules buildRegisteredRoutesForModules buildIsolatedApplicationHTTPServer Options startupTimer newStartupTimer storeCenterBuildResult storeCenterModuleBuilder storeCenterFactories defaultStoreCenterFactories buildDefaultStoreCenterModule buildStoreCenterModule storeCenterStartupError newStoreCenterStartupError unavailableConnectionStatusProvider buildZitadelSMSService runtimeBundle.buildServerBundle buildHTTPServerFromRoutes buildHTTPServerFromRoutesAt mountRoutes routeAuthorization buildRouteAuthorization routeAuthHandlers routeAuthorization.withWorkbench NewCurrentApplicationWithBrowserCapture NewCurrentApplicationWithMembership NewCurrentApplicationWithAcquisition NewCurrentApplicationWithAcquisitionAndReferrals NewSourceAccountApplication NewAccountAuditApplication NewSheinRecordApplication buildProductResourceCharges validateCurrentApplicationRoutes validateCurrentApplicationRoutesForAcquisition validateCurrentApplicationRoutesForSourcing validateCurrentApplicationRoutesWithFeatures validateCurrentApplicationRoutesWithAccountProfile validateCurrentApplicationRoutesWithBrowser validateCurrentApplicationRoutesWithBrowserFeatures"),
 		"internal/authruntime/zitadel": strings.Fields("AuthorizationConfig middleware NewMiddleware newMiddleware ParseRoles StringSliceToSet firstNonEmptyValue valueInSet"),
 		"internal/core/config":         {"ListingKitZitadelSMSConfig", "phoneVerificationExpiryMinutes"},
-		"internal/pkg/httpclient":      {"NewSimpleWithTimeout"},
-		"internal/pkg/timeout":         {"AIShortTimeout", "WithAIShortTimeout"},
 	}
 	retiredFields := map[string][]string{
 		"internal/app/httpapi:runtimeBundle":           {"authDependencies"},
@@ -395,8 +393,6 @@ func TestLegacyHTTPAuthSupportClosureIsRetired(t *testing.T) {
 		"internal/app/httpapi":         strings.Fields("NewCurrentApplication NewCurrentApplicationWithOptions buildCurrentApplication buildRuntimeBundleFromModules validateCurrentApplicationRoutesInternal buildCurrentApplicationHTTPServer buildHTTPServerFromRoutesAtWithAuthDependencies mountRoutesWithAuthDependencies routeAuthDependencies routeAuthHandlersWithDependencies workbenchAuthenticationMiddleware buildSourceAccountModule buildAccountAuditModule buildLocalTrialListingRoutes buildCurrentStoreCenterModule buildZitadelSMSModule buildCurrentResourceCharges buildCurrentResourceChargesWithOwners"),
 		"internal/authruntime/zitadel": strings.Fields("Config IntrospectionResponse discoveryDocument normalizeConfig NewVerifier ParseRolesForProject parseRoles addRoleClaimValue"),
 		"internal/core/config":         strings.Fields("Config ListingKitZitadelConfig ValidateListingKitConfig BuildConfig rejectRetiredProductRuntimeConfig"),
-		"internal/pkg/httpclient":      strings.Fields("Config Client New Client.Do"),
-		"internal/pkg/timeout":         {"DownloadTimeout", "DownloadLongTimeout"},
 	}
 	found := map[string]bool{}
 	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
@@ -796,20 +792,17 @@ func TestLegacyLocalAgentSourcePolicyClosureIsRetired(t *testing.T) {
 
 func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
 	const logging = "internal/platform/logging"
-	const httpclient = "internal/pkg/httpclient"
 	const migration = "internal/platform/database/migration"
 	if _, err := os.Lstat(filepath.Join("..", logging, "level_split_hook.go")); !os.IsNotExist(err) {
 		t.Errorf("retired level split hook file must be absent: %v", err)
 	}
 	retired := map[string][]string{
-		httpclient: {"NewSimpleWithTimeout"},
-		logging:    strings.Fields("rwLocker logLevelState LevelSplitHook LevelFileConfig logLevelState.locking newLogManager LogManager.SetLevel LogManager.GetLevel NewLevelSplitHook LevelSplitHook.Levels LevelSplitHook.Fire"),
-		migration:  strings.Fields("Runner.Status"),
+		logging:   strings.Fields("rwLocker logLevelState LevelSplitHook LevelFileConfig logLevelState.locking newLogManager LogManager.SetLevel LogManager.GetLevel NewLevelSplitHook LevelSplitHook.Levels LevelSplitHook.Fire"),
+		migration: strings.Fields("Runner.Status"),
 	}
 	retiredFields := map[string][]string{
 		logging + ":LogManager": strings.Fields("levelState formatter"),
 		logging + ":LogConfig":  strings.Fields("EnableCaller CallerSkip SplitByLevel"),
-		httpclient + ":Config":  strings.Fields("SkipTLSVerify"),
 	}
 	shapes := map[string][]string{
 		logging + ":LogConfig": {
@@ -821,32 +814,28 @@ func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
 		},
 		logging + ":LogManager":         {"logger:*logrus.Logger:", "outputs:[]io.Writer:", "config:*LogConfig:", "fileWriter:*rotatingFileWriter:", "mutex:sync.RWMutex:"},
 		logging + ":logManagerRegistry": {"locker:sync.Locker:", "manager:*LogManager:", "factory:logManagerFactory:"},
-		httpclient + ":Config":          {"Timeout:time.Duration:", "MaxRetries:int:", "RetryDelay:time.Duration:", "EnableLogging:bool:"},
 		migration + ":Runner":           {"provider:*goose.Provider:", "upMu:sync.Locker:"},
 	}
 	fragments := map[string][]string{
-		logging + ":NewLogManager":                                           {"config = DefaultLogConfig()", "logger := logrus.New()", "level := parseLogLevel(config.Level)", "logger.SetLevel(level)", "formatter := createFormatter(config.Format, config.ReportCaller)", "logger.SetFormatter(formatter)", "logger.SetReportCaller(config.ReportCaller)", "outputs := lm.createOutputs()", "lm.outputs = outputs", "logger.SetOutput(io.MultiWriter(outputs...))"},
-		logging + ":DefaultLogConfig":                                        {`Level:`, `"info"`, `ReportCaller: false`},
-		logging + ":LogManager.GetLogger":                                    {`lm.logger.WithField("component", component)`},
-		logging + ":LogManager.GetRawLogger":                                 {"return lm.logger"},
-		logging + ":LogManager.Close":                                        {"lm.mutex.Lock()", "defer lm.mutex.Unlock()", "lm.fileWriter.Close()"},
-		logging + ":parseLogLevel":                                           nil,
-		logging + ":createFormatter":                                         nil,
-		logging + ":LogManager.createOutputs":                                {"os.Stdout", "newRotatingFileWriter("},
-		logging + ":newLogManagerRegistry":                                   {"locker sync.Locker"},
-		logging + ":logManagerRegistry.init":                                 {"r.locker.Lock()", "defer r.locker.Unlock()", "r.manager = r.factory(config)"},
-		logging + ":logManagerRegistry.get":                                  {"r.locker.Lock()", "defer r.locker.Unlock()", "if r.manager == nil", "r.manager = r.factory(nil)"},
-		logging + ":InitGlobalLogger":                                        {"globalLogManagerRegistry.init(config)"},
-		logging + ":GetGlobalLogManager":                                     {"globalLogManagerRegistry.get()"},
-		logging + ":GetGlobalLogger":                                         {"GetGlobalLogManager().GetLogger(component)"},
-		httpclient + ":New":                                                  {"&http.Client{Timeout: config.Timeout}"},
-		httpclient + ":Client.Do":                                            {"case <-ctx.Done():", "req.WithContext(ctx)", "_ = resp.Body.Close()"},
-		migration + ":New":                                                   nil,
-		migration + ":NewWithVersionTable":                                   {"validVersionTableName(dialect, versionTable)"},
-		migration + ":validVersionTableName":                                 nil,
-		migration + ":newRunner":                                             {"lock.NewPostgresSessionLocker()", "goose.WithSessionLocker(sessionLocker)", "goose.WithTableName(versionTable)", "upMu = &sqliteUpMu", "goose.NewProvider("},
-		migration + ":Runner.Up":                                             {"r.upMu.Lock()", "defer r.upMu.Unlock()", "r.provider.Up(ctx)"},
-		"internal/integration/browserinstall:NewChromeDownloaderWithTimeout": {"httpclient.Config{", "httpclient.New(httpConfig,"},
+		logging + ":NewLogManager":            {"config = DefaultLogConfig()", "logger := logrus.New()", "level := parseLogLevel(config.Level)", "logger.SetLevel(level)", "formatter := createFormatter(config.Format, config.ReportCaller)", "logger.SetFormatter(formatter)", "logger.SetReportCaller(config.ReportCaller)", "outputs := lm.createOutputs()", "lm.outputs = outputs", "logger.SetOutput(io.MultiWriter(outputs...))"},
+		logging + ":DefaultLogConfig":         {`Level:`, `"info"`, `ReportCaller: false`},
+		logging + ":LogManager.GetLogger":     {`lm.logger.WithField("component", component)`},
+		logging + ":LogManager.GetRawLogger":  {"return lm.logger"},
+		logging + ":LogManager.Close":         {"lm.mutex.Lock()", "defer lm.mutex.Unlock()", "lm.fileWriter.Close()"},
+		logging + ":parseLogLevel":            nil,
+		logging + ":createFormatter":          nil,
+		logging + ":LogManager.createOutputs": {"os.Stdout", "newRotatingFileWriter("},
+		logging + ":newLogManagerRegistry":    {"locker sync.Locker"},
+		logging + ":logManagerRegistry.init":  {"r.locker.Lock()", "defer r.locker.Unlock()", "r.manager = r.factory(config)"},
+		logging + ":logManagerRegistry.get":   {"r.locker.Lock()", "defer r.locker.Unlock()", "if r.manager == nil", "r.manager = r.factory(nil)"},
+		logging + ":InitGlobalLogger":         {"globalLogManagerRegistry.init(config)"},
+		logging + ":GetGlobalLogManager":      {"globalLogManagerRegistry.get()"},
+		logging + ":GetGlobalLogger":          {"GetGlobalLogManager().GetLogger(component)"},
+		migration + ":New":                    nil,
+		migration + ":NewWithVersionTable":    {"validVersionTableName(dialect, versionTable)"},
+		migration + ":validVersionTableName":  nil,
+		migration + ":newRunner":              {"lock.NewPostgresSessionLocker()", "goose.WithSessionLocker(sessionLocker)", "goose.WithTableName(versionTable)", "upMu = &sqliteUpMu", "goose.NewProvider("},
+		migration + ":Runner.Up":              {"r.upMu.Lock()", "defer r.upMu.Unlock()", "r.provider.Up(ctx)"},
 	}
 	formatNode := func(node ast.Node) string {
 		var b bytes.Buffer
@@ -858,7 +847,7 @@ func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
 	found := map[string]bool{}
 	for _, relative := range trackedFiles(t, ".") {
 		owner := filepath.ToSlash(filepath.Dir(relative))
-		if !strings.HasSuffix(relative, ".go") || (owner != logging && owner != httpclient && owner != migration && relative != "internal/integration/browserinstall/chrome_downloader.go") {
+		if !strings.HasSuffix(relative, ".go") || (owner != logging && owner != migration) {
 			continue
 		}
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
@@ -940,11 +929,6 @@ func TestLegacyLoggingHTTPMigrationSupportClosureIsRetired(t *testing.T) {
 				typeName := ""
 				if name, ok := literal.Type.(*ast.Ident); ok {
 					typeName = owner + ":" + name.Name
-				}
-				if name, ok := literal.Type.(*ast.SelectorExpr); ok && relative == "internal/integration/browserinstall/chrome_downloader.go" && name.Sel.Name == "Config" {
-					if alias, ok := name.X.(*ast.Ident); ok && alias.Name == "httpclient" {
-						typeName = httpclient + ":Config"
-					}
 				}
 				for _, entry := range literal.Elts {
 					if pair, ok := entry.(*ast.KeyValueExpr); ok {
@@ -1717,10 +1701,8 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/shared/resilience":  {"ErrCircuitOpen", "ErrTooManyRequests", "CircuitState", "StateClosed", "StateHalfOpen", "StateOpen", "CircuitBreakerCounts", "CircuitBreakerConfig", "CircuitBreaker", "NewCircuitBreaker", "CircuitBreaker.Execute", "CircuitBreaker.State", "CircuitBreaker.Counts", "convertCounts", "convertState", "RateLimiter", "NewRateLimiter", "RateLimiter.Wait", "RateLimiter.Allow"},
 		"internal/shared/aiidentity":  {"CurrentEnvelopeVersion", "ErrMissingIdentity", "ErrIdentityIntegrity", "ExecutionEnvelope", "PersistedExecutionEnvelope", "PersistedEnvelopeState", "PersistedEnvelopeAbsent", "PersistedEnvelopePartial", "PersistedEnvelopePresent", "envelopeContextKey", "ExecutionEnvelope.Validate", "CaptureExecutionEnvelope", "WithExecutionEnvelope", "ExecutionEnvelopeFromContext", "RestoreExecutionEnvelope", "EnsureExecutionEnvelopeContext", "PersistedExecutionEnvelopeFrom", "PersistedExecutionEnvelope.State", "PersistedExecutionEnvelope.ExecutionEnvelope", "PersistedExecutionEnvelope.executionEnvelope", "normalizePersistedEnvelope", "normalizeEnvelope", "validSource", "TenantIDFromContext", "NormalizePersistedTenantID", "TenantMatchesContext", "TenantCanCreateTask", "requestRolesContextKey", "RequestUserIDFromContext", "WithRequestRoles", "RequestRolesFromContext", "normalizeRequestRoles"},
 		"internal/core/config":        {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog", "HTTPClientConfig", "DefaultHTTPClientConfig", "BuildHTTPClientConfig", "RetryConfig", "DefaultRetryConfig", "LoggingConfig", "PromptsConfig", "buildSplitByLevelConfig", "getStringFromMap"},
-		"internal/pkg/timeout":        {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
 		"internal/pkg/jsonx":          {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile", "UnmarshalBytes"},
 		"internal/pkg/appenv":         {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
-		"internal/pkg/httpclient":     {"DefaultConfig", "NewWithTransport", "ClientConfig", "Build", "buildTLSConfig", "NewSimple"},
 		"internal/pkg/imagex":         {"Format", "FormatJPEG", "FormatPNG", "FormatAuto", "ToBase64", "ToBase64JPEG", "ToBase64PNG", "FromBase64", "FromBytes", "ToBytes", "FromReader", "Encode", "Size", "FormatFromBytes", "HasTransparency", "OptimalFormat"},
 	}
 	// Owner-qualified declarations avoid banning current same-name workflows,
@@ -1734,9 +1716,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
 		"internal/core/config":        {"Config": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false, "OpenAIConfig": false},
 		"internal/platform/logging":   {"LogConfig": false, "DefaultLogConfig": false, "LogManager": false, "NewLogManager": false, "InitGlobalLogger": false, "GetGlobalLogManager": false, "GetGlobalLogger": false},
-		"internal/pkg/timeout":        {"DownloadTimeout": false, "DownloadLongTimeout": false},
 		"internal/pkg/appenv":         {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
-		"internal/pkg/httpclient":     {"Config": false, "Client": false, "New": false, "Client.Do": false},
 		"internal/pkg/imagex":         {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
 	}
 	decoders := map[string]bool{"image/jpeg": false, "image/png": false, "golang.org/x/image/webp": false}
@@ -1745,7 +1725,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			continue
 		}
 		owner := filepath.ToSlash(filepath.Dir(relative))
-		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" && owner != "internal/shared/aiidentity" && owner != "internal/shared/resilience" && owner != "internal/integration/openai" && owner != "internal/shared/ptr" && owner != "internal/platform/database" {
+		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/imagex" && owner != "internal/shared/aiidentity" && owner != "internal/shared/resilience" && owner != "internal/integration/openai" && owner != "internal/shared/ptr" && owner != "internal/platform/database" {
 			continue
 		}
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
@@ -6329,9 +6309,53 @@ func TestLegacyRestoredDebugClosureIsRetired(t *testing.T) {
 	for _, root := range []string{"internal", "cmd", "scripts", "tools"} {
 		assertNoBannedImportPrefixes(t, filepath.Join("..", root), []string{"task-processor/internal/crawler", "task-processor/internal/listingkit/phoneonboardingpreflight"}, nil)
 	}
-	for _, path := range []string{"cmd/fingerprint-browser-installer/main.go", "internal/integration/browserinstall/chrome_downloader.go", "internal/core/config/type_browser_collector.go", "tools/go.mod", "tools/go.sum", "tools/tools.go"} {
+	for _, path := range []string{"internal/core/config/type_browser_collector.go", "tools/go.mod", "tools/go.sum", "tools/tools.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
 			t.Fatalf("current owner must remain: %s: %v", path, err)
+		}
+	}
+}
+
+func TestLegacyBrowserInstallClosureIsRetired(t *testing.T) {
+	assertRestoredDebugPathsAbsent(t,
+		"cmd/playwright-installer", "cmd/fingerprint-browser-installer",
+		"internal/integration/browserinstall", "internal/pkg/httpclient", "internal/pkg/timeout",
+		"deployments/docker/Dockerfile.product-listing-api-runtime-base",
+	)
+	for _, root := range []string{"internal", "cmd", "scripts", "tools"} {
+		assertNoBannedImportPrefixes(t, filepath.Join("..", root), []string{
+			"task-processor/internal/integration/browserinstall",
+			"task-processor/internal/pkg/httpclient",
+			"task-processor/internal/pkg/timeout",
+		}, nil)
+	}
+	for _, path := range []string{
+		"go.mod", "go.sum", "scripts/build-listingkit-images.ps1", "scripts/build-listingkit-images.test.mjs",
+		"scripts/1688-batch-import.ps1", "cmd/1688-batch-import/main.go", "internal/batchcapture/driver.go",
+		"cmd/1688-public-browser-collector/main.go", "deployments/docker/account-compose/browser-collector-start.sh",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
+			t.Fatalf("current browser installation or capture owner must remain: %s: %v", path, err)
+		}
+	}
+	for path, fragments := range map[string][]string{
+		"deployments/docker/Dockerfile.account-compose": {
+			"FROM go-modules AS playwright-installer-builder", "github.com/mxschmitt/playwright-go/cmd/playwright",
+			"playwright-install install --with-deps chromium", "FROM data-services-runtime-base AS data-services-runtime",
+		},
+		"deployments/docker/Dockerfile.browser-collector": {
+			"github.com/mxschmitt/playwright-go/cmd/playwright", "playwright-driver install --with-deps chromium",
+			"/usr/local/bin/collector-chromium",
+		},
+	} {
+		data, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, fragment := range fragments {
+			if !strings.Contains(string(data), fragment) {
+				t.Errorf("%s must retain current SDK installation contract %q", path, fragment)
+			}
 		}
 	}
 }

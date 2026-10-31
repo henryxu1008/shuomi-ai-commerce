@@ -1,3 +1,5 @@
+> 当前用户决定 / #301 / #1030：用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。生产修改前授权与准入已[写回并读回](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1030#issuecomment-6540889996)。以下[冻结设计/原导航](legacy-browser-install-closure-retirement-boundary.md)及其原阶段性措辞完整保留，当前授权状态以本条及PR为准。
+
 > #301 当前待确认设计：[旧浏览器预装与自下载整链](legacy-browser-install-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。未来36路径完整闭包：弃用预装基础镜像、两个仓库安装CLI及下载/HTTP/timeout专属尾部；当前官方SDK安装与本地批量显式指纹浏览器/Profile输入保持。待用户确认取消旧自下载承诺；不把普通Chromium或内核目录当等价替代，不增加试用前置。workflow/所有inventory/既有实例数据凭据缓存进程零改，Store观察保持，#301 OPEN。以下原导航和历史完整保留。
 
 - [`legacy-browser-install-closure-retirement-boundary.md`](legacy-browser-install-closure-retirement-boundary.md) — §1–§7（含§4.2/§6.1）完整退休设计；当前仅三文档，设计复核及用户确认后再实施。

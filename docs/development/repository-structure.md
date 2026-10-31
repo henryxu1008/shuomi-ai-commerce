@@ -1,3 +1,5 @@
+> #301 / #1030 [用户确认的浏览器安装退休](../architecture/legacy-browser-install-closure-retirement-boundary.md)：维护命令列表仅去两个旧安装CLI。用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。其余命令owner/分类不变；下方其它原文与历史保留。
+
 > #301 / #1025 USER_CONFIRMED：[本批用户确认的完整退休边界](../architecture/legacy-task-openai-convenience-closure-retirement-boundary.md)替代旧task查询根/ptr保留含义。当前 `internal/listing/record` 拥有三字段Actor、原纯校验及原草稿读取；`internal/ai.ChatCompletionClient`仅承载实际CreateChatCompletion审核调用。旧listing/task与独占shared/ptr整根退出，不留alias；canonical.inspect仍直接按ProductKey/CatalogVersion读取Catalog。当前JSON/hash/版本/身份权限/事务/采集图像与Store观察保持；不恢复#985旧登录/身份回写。workflow/inventory/既有资源不动，#301 OPEN；以下原结构/历史正文完整保留。
 
 > #301 / #1010 — USER_CONFIRMED / IMPLEMENTING. [完整退休边界](../architecture/legacy-restored-debug-closure-retirement-boundary.md) §1–§7（含 §4.2/§6.1）替代下文仅属于本批的旧 KEEP：旧 Go Amazon/1688 手工浏览器执行树、五个 debug 入口、手机号探针、db-query/json-simplifier、公开 YAML 与隐式配置入口退出。Chromium 安装闭包归 `integration/browserinstall`，当前 Collector 配置合同原样保留。当前采集、图像、身份权限、Store 观察同步保持；实际消费配置的四个命令须显式 `-config`，worker canary 无需配置。tools module 仅保留原 CI lint 固定用途；test-all 仅测 root。下方原文保留为历史，不作为已退休入口的现行操作指引。源级/CI 不等于运行验收；workflow/完整 inventory/计数/ceilings/工具版本及既有资源零改，#301 OPEN，无新增试用前置。
@@ -163,11 +165,9 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `1688-batch-import`
     - `commercial-owner-schema-migrate`
     - `ecoservices-schema-init`
-    - `fingerprint-browser-installer`
     - `knowledge-schema-init`
     - `issue36-local-trial-init`
     - `listingkit-schema-migrate`
-    - `playwright-installer`
     - `product-listing-api-schema-migrate`
     - `supply-asset-init`
     - `product-acquisition-init`
