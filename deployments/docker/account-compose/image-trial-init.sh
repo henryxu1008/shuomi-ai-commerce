@@ -101,17 +101,6 @@ commercialOwnerDatabase:
   password: "$(tr -d '\r\n' < /secrets/commercial-runtime/commercial-owner-password)"
   database: ${commercial_database}
   max_connections: 4
-openai:
-  apiKey: controlled-local-only
-  model: controlled-review
-  baseURL: http://127.0.0.1:18080/v1
-  timeout: 5
-  clients:
-    image_gpt_image_2:
-      apiKey: controlled-local-only
-      model: controlled-image
-      baseURL: http://127.0.0.1:18080/v1
-      timeout: 5
 listingkit:
   rolePolicyDatabase:
     host: 127.0.0.1

@@ -1750,3 +1750,26 @@ func initializeSlotEffectRun(t *testing.T, repository imageagent.Repository, run
 	require.NoError(t, err)
 	return scope
 }
+
+func TestRetiredReviewRecordDecodeRejectsWithoutMutatingStoredFacts(t *testing.T) {
+	for _, phase := range []string{"provider_claimed", "review_required", "review_transport_required", "recovery_blocked"} {
+		row := slotExternalEffectV3Record{Phase: phase, ReviewUsageJSON: []byte(`[{"ActionID":"retired-review","BudgetStatus":"reserved"}]`), CorruptionMarker: "existing-marker"}
+		before := append([]byte(nil), row.ReviewUsageJSON...)
+		_, err := decodeSlotEffectV3Record(row)
+		require.ErrorIs(t, err, imageagent.ErrInvalidPersistedPolicy)
+		require.Equal(t, before, row.ReviewUsageJSON)
+	}
+	for _, payload := range []string{"null", "[]"} {
+		row := slotExternalEffectV3Record{Phase: "provider_claimed", ReviewUsageJSON: []byte(payload)}
+		got, err := decodeSlotEffectV3Record(row)
+		require.NoError(t, err)
+		require.Len(t, got.ReviewUsage, 0)
+		data, err := json.Marshal(got)
+		require.NoError(t, err)
+		if payload == "null" {
+			require.Contains(t, string(data), `"ReviewUsage":null`)
+		} else {
+			require.Contains(t, string(data), `"ReviewUsage":[]`)
+		}
+	}
+}

@@ -26,7 +26,6 @@ import (
 	imageagenttemporal "task-processor/internal/imageagent/temporal"
 	imageagenttools "task-processor/internal/imageagent/tools"
 	"task-processor/internal/integration/httpimage"
-	openaiclient "task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	memberstore "task-processor/internal/integration/persistence/organization/membership"
 	productassetpersistence "task-processor/internal/integration/persistence/product/asset"
@@ -34,18 +33,10 @@ import (
 	platformdatabase "task-processor/internal/platform/database"
 )
 
-type imageCapabilityRuntime struct {
-	OpenAIManager      *openaiclient.Manager
-	CredentialResolver openaiclient.ClientConfigResolver
-	Logger             *logrus.Logger
-}
-
 type imageAgentWorkerDependencyResolver struct {
 	LoadConfig                      func(string) (*config.Config, error)
 	OpenDB                          func(*config.DatabaseConfig) (*gorm.DB, error)
 	CloseDB                         func(*config.DatabaseConfig, *gorm.DB) error
-	BuildAI                         func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error)
-	BuildOrganizationCapabilities   func(imageCapabilityRuntime, *gorm.DB) (ImageCapabilities, error)
 	BuildOrganizationAuthorizer     func(*config.Config) (domainimageagent.ExecutionAuthorizer, error)
 	BuildArtifactStore              func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error)
 	VerifyOrganizationWorkerRuntime func(context.Context, *gorm.DB) error
@@ -88,8 +79,6 @@ func defaultImageAgentWorkerDependencyResolver() imageAgentWorkerDependencyResol
 			}
 			return platformdatabase.CloseShared(configadapter.Database(cfg), db)
 		},
-		BuildAI:                         buildImageAgentWorkerAI,
-		BuildOrganizationCapabilities:   buildOrganizationWorkerCapabilities,
 		BuildOrganizationAuthorizer:     buildOrganizationWorkerAuthorizer,
 		BuildArtifactStore:              buildImageAgentDurableArtifactStore,
 		VerifyOrganizationWorkerRuntime: imageagentstore.VerifyOrganizationWorkerRuntimePermissions,
@@ -197,32 +186,6 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("verify commercial resource owner runtime: %w", err)
 	}
 
-	manager, credentialResolver, err := resolver.BuildAI(cfg, db, logger)
-	if err != nil {
-		_ = closeDB()
-		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent provider runtime: %w", err)
-	}
-	runtime := imageCapabilityRuntime{
-		OpenAIManager: manager, CredentialResolver: credentialResolver, Logger: logger,
-	}
-	var capabilities ImageCapabilities
-
-	if resolver.BuildOrganizationCapabilities == nil {
-		_ = closeDB()
-		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("organization image agent capability builder is required")
-	}
-	capabilities, err = resolver.BuildOrganizationCapabilities(runtime, db)
-
-	if err != nil {
-		_ = closeDB()
-		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent capabilities: %w", err)
-	}
-	if nilDependency(capabilities.SubjectExtractor) || nilDependency(capabilities.WhiteBackgroundRenderer) ||
-		nilDependency(capabilities.SceneRenderer) || nilDependency(capabilities.Reviewer) ||
-		nilDependency(capabilities.UsageQuoter) || nilDependency(capabilities.ProfileResolver) {
-		_ = closeDB()
-		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("image agent capabilities are incomplete")
-	}
 	var trialURLs *domainimageagent.IsolatedTrialGeneratedURLPolicy
 	if cfg.ImageAgent.ArtifactStore.IsolatedTrialGeneratedURLs {
 		trialURLs, err = domainimageagent.NewIsolatedTrialGeneratedURLPolicy(cfg.ImageAgent.ArtifactStore.PublicBase, cfg.ImageAgent.ArtifactStore.S3.Bucket)
@@ -238,21 +201,19 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 		_ = closeDB()
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build product asset repository: %w", err)
 	}
-	executorDependencies := imageagenttools.Dependencies{
-		SubjectExtractor: capabilities.SubjectExtractor, WhiteBackgroundRenderer: capabilities.WhiteBackgroundRenderer,
-		SceneRenderer: capabilities.SceneRenderer, Reviewer: capabilities.Reviewer, UsageQuoter: capabilities.UsageQuoter,
-		ProfileResolver:   capabilities.ProfileResolver,
-		GeneratedURLTrial: trialURLs,
+	profiles, err := loadEmbeddedImagePolicyResolver()
+	if err != nil {
+		_ = closeDB()
+		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent policy: %w", err)
 	}
-	v3Executor := imageagenttools.NewProductImageSlotExecutor(executorDependencies)
+	builder := imageagenttools.NewAcquisitionMainResultBuilder(profiles)
 	dependencies := appruntime.ImageAgentTemporalDependencies{Repository: repository}
 
-	publisherV3, err := assetpublication.NewPublisher(repository, assetRepository, artifactStore, trialURLs)
+	publisherV3, err := assetpublication.NewAcquisitionMainPublisher(repository, assetRepository, artifactStore, trialURLs)
 	if err != nil {
 		_ = closeDB()
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build image agent v3 asset publisher: %w", err)
 	}
-	dependencies.StagedSlotExecutor = v3Executor
 
 	if resolver.BuildOrganizationAuthorizer == nil {
 		_ = closeDB()
@@ -298,19 +259,12 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 	}
 	dependencies.GenerationRecovery = recovery
 	dependencies.GenerationOutputRecovery = generationOutputRecovery(nil, logger)
-	dependencies.StagedSlotExecutor = organizationMainSlotExecutor{delegate: v3Executor, generation: generation}
+	dependencies.StagedSlotExecutor = SourceMainExecutor{builder: builder, generation: generation}
 
 	dependencies.ArtifactStore = artifactStore
 	dependencies.PublisherV3 = publisherV3
 	dependencies.PublicationLeaseDuration = timing.PublicationLeaseDuration
 	return dependencies, closeDB, nil
-}
-
-func buildOrganizationWorkerCapabilities(runtime imageCapabilityRuntime, db *gorm.DB) (ImageCapabilities, error) {
-	if runtime.Logger == nil {
-		return ImageCapabilities{}, fmt.Errorf("organization image agent logger is required")
-	}
-	return BuildOrganizationImageCapabilities(runtime.OpenAIManager, db, runtime.Logger)
 }
 
 func buildOrganizationWorkerAuthorizer(cfg *config.Config) (domainimageagent.ExecutionAuthorizer, error) {
@@ -435,25 +389,4 @@ func (timing imageAgentArtifactTiming) validate() error {
 		return fmt.Errorf("durable image artifact operation timeout must be positive and strictly shorter than the publication lease")
 	}
 	return nil
-}
-
-func buildImageAgentWorkerAI(cfg *config.Config, db *gorm.DB, logger *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
-	if cfg == nil || db == nil {
-		return nil, nil, fmt.Errorf("image agent provider configuration and database are required")
-	}
-
-	var componentLogger *logrus.Entry
-	if logger != nil {
-		componentLogger = logrus.NewEntry(logger).WithField("component", "image-agent-openai")
-	}
-	manager, err := openaiclient.NewManager(&openaiclient.ManagerConfig{
-		Clients: cfg.OpenAI.ToClientConfigs(),
-		Logger:  openaiclient.AdaptLogrus(componentLogger),
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	credentials := openaiclient.NewGormCredentialResolver(db)
-	manager.SetConfigResolver(credentials)
-	return manager, credentials, nil
 }

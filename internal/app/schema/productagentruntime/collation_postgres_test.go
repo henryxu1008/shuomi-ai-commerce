@@ -2,10 +2,12 @@ package productagentruntime
 
 import (
 	"context"
+	"task-processor/internal/shared/aiidentity"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/integration/openai"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestPrepareRejectsCredentialScopeCollationDriftWithoutRepair(t *testing.T) {
@@ -21,12 +23,12 @@ func TestPrepareRejectsCredentialScopeCollationDriftWithoutRepair(t *testing.T) 
 			row := openai.AIClientCredential{TenantID: test.tenant, ClientName: test.client, APIKey: "synthetic-only", BaseURL: "https://example.test/v1", Model: "synthetic", Enabled: true}
 			require.NoError(t, store.SaveCredential(context.Background(), row))
 			reader := openai.NewOrganizationOnlyCredentialResolver(f.role(t, "product_agent_runtime"))
-			ctx := openai.WithIdentity(context.Background(), openai.Identity{TenantID: test.lookupTenant})
-			_, err = reader.ResolveClientConfig(ctx, test.lookupClient, nil)
+			ctx := aiidentity.WithIdentity(context.Background(), aiidentity.Identity{TenantID: test.lookupTenant})
+			_, err = reader.ResolveClientConfig(ctx, test.lookupClient)
 			require.ErrorIs(t, err, openai.ErrClientConfigurationUnavailable)
 			require.NoError(t, f.db.Exec("CREATE COLLATION public.case_insensitive (provider=icu,locale='und-u-ks-level2',deterministic=false); ALTER TABLE public.ai_client_credentials ALTER COLUMN "+quote(test.column)+" TYPE varchar(64) COLLATE public.case_insensitive").Error)
 			reader = openai.NewOrganizationOnlyCredentialResolver(f.role(t, "product_agent_runtime"))
-			resolved, err := reader.ResolveClientConfig(ctx, test.lookupClient, nil)
+			resolved, err := reader.ResolveClientConfig(ctx, test.lookupClient)
 			require.NoError(t, err)
 			require.NotNil(t, resolved)
 			require.Equal(t, row.APIKey, resolved.Config.APIKey, "collation drift confuses the original exact credential scope")

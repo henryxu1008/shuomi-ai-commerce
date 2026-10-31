@@ -18,12 +18,10 @@ import (
 
 func TestOrganizationMainUnpricedGenerationCreatesNoCommercialReservation(t *testing.T) {
 	db := admissionPostgres(t)
-	delegate := &recordingMainExecutor{}
-	executor := organizationMainSlotExecutor{delegate: delegate}
+	executor := SourceMainExecutor{}
 	_, err := executor.GenerateQuotedSlot(mainAdmissionContext(), mainAdmissionInput(), mainGenerationQuote())
 	require.ErrorIs(t, err, imageagent.ErrBudgetQuoteUnavailable)
 	require.Equal(t, imageagent.ProviderNotDispatched, imageagent.ProviderDispatchStateOf(err))
-	require.Zero(t, delegate.generateCalls, "generation stays closed without its own approved admission contract")
 	var reservations int64
 	require.NoError(t, db.Table("saas_organization_resource_reservations").Count(&reservations).Error)
 	require.Zero(t, reservations, "denied admission cannot create a held reservation")

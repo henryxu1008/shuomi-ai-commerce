@@ -17,7 +17,6 @@ import (
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/objectstore"
 	imageagenttemporal "task-processor/internal/imageagent/temporal"
-	openaiclient "task-processor/internal/integration/openai"
 	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	s3integration "task-processor/internal/integration/s3"
 )
@@ -30,21 +29,14 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 	var builtOrganization bool
 	var opened []*config.DatabaseConfig
-	providerBuilds, closes := 0, 0
+	closes := 0
 	resolver := imageAgentWorkerDependencyResolver{
 		LoadConfig:            func(string) (*config.Config, error) { return cfg, nil },
 		VerifyResourceRuntime: func(context.Context, *gorm.DB) error { return nil },
 		OpenDB:                func(c *config.DatabaseConfig) (*gorm.DB, error) { opened = append(opened, c); return db, nil },
 		CloseDB:               func(*config.DatabaseConfig, *gorm.DB) error { closes++; return nil },
-		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
-			providerBuilds++
-			return nil, nil, nil
-		},
-		BuildOrganizationCapabilities: func(imageCapabilityRuntime, *gorm.DB) (ImageCapabilities, error) {
-			builtOrganization = true
-			return completeWorkerImageCapabilities(), nil
-		},
 		BuildOrganizationAuthorizer: func(*config.Config) (imageagent.ExecutionAuthorizer, error) {
+			builtOrganization = true
 			return acceptingOrganizationExecutionAuthorizer{}, nil
 		},
 		BuildArtifactStore: func(*config.Config, imageAgentArtifactTiming) (imageagenttemporal.DurableArtifactStore, error) {
@@ -74,7 +66,6 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 	require.ErrorContains(t, err, "missing resource grants")
 	require.Equal(t, []*config.DatabaseConfig{cfg.Database, cfg.CommercialOwnerDatabase}, opened)
 	require.Equal(t, 2, closes)
-	require.Zero(t, providerBuilds, "verify happens before providers/polling")
 	resolver.VerifyResourceRuntime = func(context.Context, *gorm.DB) error { return nil }
 	dependencies, closeFn, err := resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", logrus.New(), imageagenttemporal.WorkerWireModeOrganization, resolver)
 	require.NoError(t, err)
@@ -82,8 +73,8 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 	require.NotNil(t, dependencies.ExecutionAuthorizer)
 	require.NotNil(t, dependencies.GenerationRecovery, "removing current price must not disable old immutable-proof settlement")
 	require.NotNil(t, dependencies.GenerationOutputRecovery, "removing price must not disable live-authorized original output GET")
-	require.IsType(t, organizationMainSlotExecutor{}, dependencies.StagedSlotExecutor)
-	require.Nil(t, dependencies.StagedSlotExecutor.(organizationMainSlotExecutor).generation)
+	require.IsType(t, SourceMainExecutor{}, dependencies.StagedSlotExecutor)
+	require.Nil(t, dependencies.StagedSlotExecutor.(SourceMainExecutor).generation)
 	require.NotNil(t, dependencies.ArtifactStore)
 	require.NotNil(t, dependencies.PublisherV3)
 	require.NoError(t, closeFn())
@@ -91,7 +82,7 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 	dependencies, closeFn, err = resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", logrus.New(), imageagenttemporal.WorkerWireModeOrganization, resolver)
 	require.NoError(t, err)
 	require.NotNil(t, dependencies.GenerationRecovery)
-	require.NotNil(t, dependencies.StagedSlotExecutor.(organizationMainSlotExecutor).generation)
+	require.NotNil(t, dependencies.StagedSlotExecutor.(SourceMainExecutor).generation)
 	require.NoError(t, closeFn())
 }
 
@@ -104,7 +95,7 @@ func TestTrialOrganizationWorkerVerifiesDedicatedRoleBeforeProviderConstruction(
 	cfg.ImageAgent.ArtifactStore.PublicBase = "https://localhost:24544/image-agent-assets/image-agent-trial"
 	cfg.ImageAgent.ArtifactStore.S3.Bucket = "image-agent-trial"
 	cfg.ImageAgent.ArtifactStore.S3.Endpoint = "http://127.0.0.1:9000"
-	verified, providerBuilt := 0, 0
+	verified := 0
 	resolver := imageAgentWorkerDependencyResolver{
 		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
 		OpenDB:     func(*config.DatabaseConfig) (*gorm.DB, error) { return db, nil },
@@ -113,15 +104,10 @@ func TestTrialOrganizationWorkerVerifiesDedicatedRoleBeforeProviderConstruction(
 			return stubWorkerArtifactStore{}, nil
 		},
 		VerifyOrganizationWorkerRuntime: func(context.Context, *gorm.DB) error { verified++; return errors.New("role refused") },
-		BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
-			providerBuilt++
-			return nil, nil, nil
-		},
 	}
 	_, _, err = resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, resolver)
 	require.ErrorContains(t, err, "role refused")
 	require.Equal(t, 1, verified)
-	require.Zero(t, providerBuilt)
 	cfg.Database.User = "image_agent_runtime"
 	verified = 0
 	_, _, err = resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", nil, imageagenttemporal.WorkerWireModeOrganization, resolver)
@@ -289,9 +275,6 @@ func TestResolveImageAgentTemporalDependenciesRejectsOperationTimeoutOutsidePubl
 				},
 				OpenDB:  func(*config.DatabaseConfig) (*gorm.DB, error) { databaseOpens++; return &gorm.DB{}, nil },
 				CloseDB: func(*config.DatabaseConfig, *gorm.DB) error { return nil },
-				BuildAI: func(*config.Config, *gorm.DB, *logrus.Logger) (*openaiclient.Manager, openaiclient.ClientConfigResolver, error) {
-					return nil, nil, errors.New("test must stop before AI composition")
-				},
 			})
 			require.ErrorContains(t, err, "operation timeout")
 			require.Zero(t, storeBuilds)
@@ -338,11 +321,3 @@ func (stubWorkerArtifactStore) FinalizeWithProgress(context.Context, imageagent.
 }
 
 var _ imageagenttemporal.DurableArtifactStore = stubWorkerArtifactStore{}
-
-func completeWorkerImageCapabilities() ImageCapabilities {
-	capabilities, err := buildImageCapabilities(completeProviderDependencies(), &stubProfileResolver{})
-	if err != nil {
-		panic(err)
-	}
-	return capabilities
-}

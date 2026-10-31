@@ -23,7 +23,6 @@ import (
 	sdkclient "go.temporal.io/sdk/client"
 	sdkconverter "go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
-	"go.temporal.io/sdk/worker"
 
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/objectstore"
@@ -96,7 +95,7 @@ func executeManualRecoveryWorkflowRestartAcceptance(t *testing.T) manualRecovery
 	plan := acceptancePlan(1, 1)
 	run := imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
 		ID: "run-recovery-restart", BusinessTaskID: "task-recovery-restart", TenantID: "tenant-a", UserID: "user-a",
-		TargetPlatform: "acceptance", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
+		TargetPlatform: "product", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-recovery-restart", Status: imageagent.RunStatusExecuting,
 		CurrentNode: "execute_slots", ActivePlanRevision: plan.Revision, Version: 1,
 	}
@@ -272,9 +271,9 @@ func TestManualImageAgentAcceptanceRecoversAfterPodLossAndApprovesAllAssets(t *t
 	require.True(t, result.FirstPodDiscarded, "acceptance must remove the original temp directory and activity/executor instance")
 	require.Zero(t, result.RecoveryGenerations, "the replacement activity must not invoke the provider again")
 	require.NotEmpty(t, result.MainAssetID)
-	require.Len(t, result.GalleryAssetIDs, 2)
+	require.Empty(t, result.GalleryAssetIDs)
 	require.Equal(t, append([]string{result.MainAssetID}, result.GalleryAssetIDs...), result.ApprovedAssetIDs)
-	require.Equal(t, 3, result.PublishedObjects)
+	require.Equal(t, 1, result.PublishedObjects)
 	require.NotContains(t, string(result.PersistedJSON), "local_path")
 	require.NotContains(t, string(result.PersistedJSON), "authorization")
 }
@@ -283,15 +282,15 @@ func executePodLossRecoveryAcceptance(t *testing.T) podLossRecoveryAcceptanceRes
 	t.Helper()
 	ctx := context.Background()
 	repository := imageagentstore.NewMemoryRepository()
-	plan := acceptancePlan(3, 3)
+	plan := acceptancePlan(1, 1)
 	run := imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
 		ID: "run-pod-loss", BusinessTaskID: "task-pod-loss", TenantID: "tenant-a", UserID: "user-a",
-		TargetPlatform: "acceptance", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
+		TargetPlatform: "product", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Mode: imageagent.RunModeManual, IdempotencyKey: "run-key-pod-loss", Status: imageagent.RunStatusExecuting,
 		CurrentNode: "execute_slots", ActivePlanRevision: plan.Revision, Version: 1,
 	}
 	scope := imageagent.RunScope{TenantID: run.TenantID, OwnerUserID: run.UserID, RunID: run.ID}
-	catalog, err := imageagent.NormalizeAssetCatalog(acceptanceAssetCatalog(3))
+	catalog, err := imageagent.NormalizeAssetCatalog(acceptanceAssetCatalog(1))
 	require.NoError(t, err)
 	slots := make([]imageagent.SlotProjection, len(plan.Slots))
 	for index, slot := range plan.Slots {
@@ -376,7 +375,7 @@ func executePodLossRecoveryAcceptance(t *testing.T) podLossRecoveryAcceptanceRes
 		}
 	}
 	require.NotEmpty(t, mainID)
-	require.NoError(t, recoveryActivities.PublishApprovedV3(ctx, imageagenttemporal.PublishApprovedV3ActivityInput{
+	require.NoError(t, recoveryActivities.PublishAcquisitionMain(ctx, imageagenttemporal.PublishAcquisitionMainActivityInput{
 		RunID: run.ID, Identity: imageagent.ExecutionIdentity{BusinessTaskID: run.BusinessTaskID, MemberID: "member-" + run.UserID, ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, TenantID: run.TenantID, UserID: run.UserID},
 		PlanRevision: plan.Revision, CandidateAssetIDs: approvedIDs, IdempotencyKey: "approve-pod-loss-v3",
 	}))
@@ -406,17 +405,16 @@ func executePodLossRecoveryAcceptance(t *testing.T) podLossRecoveryAcceptanceRes
 }
 
 func newAcceptanceProductImageExecutor(artifactPath string) *recordingAcceptanceExecutor {
-	return &recordingAcceptanceExecutor{delegate: imageagenttools.NewProductImageSlotExecutor(imageagenttools.Dependencies{
-		SubjectExtractor: acceptanceSubjectExtractor{}, WhiteBackgroundRenderer: acceptanceWhiteRenderer{artifactPath: artifactPath},
-		SceneRenderer: acceptanceSceneRenderer{artifactPath: artifactPath}, Reviewer: acceptanceReviewer{}, UsageQuoter: acceptanceUsageQuoter{},
+	return &recordingAcceptanceExecutor{delegate: imageagenttools.NewSourceGenerationExecutor(imageagenttools.SourceGenerationDependencies{
+		WhiteBackground: acceptanceWhiteRenderer{artifactPath: artifactPath}, UsageQuoter: acceptanceUsageQuoter{},
 		ProfileResolver: acceptanceProfileResolver{},
 	})}
 }
 
 func TestManualAcceptanceProductImageFixtureGeneratesInlineArtifact(t *testing.T) {
 	run := imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
-		ID: "run-fixture", TenantID: "tenant-a", UserID: "user-a", TargetPlatform: "acceptance",
-		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
+		ID: "run-fixture", TenantID: "tenant-a", UserID: "user-a", TargetPlatform: "product",
+		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 	}
 	plan := acceptancePlan(1, 1)
 	catalog, err := imageagent.NormalizeAssetCatalog(acceptanceAssetCatalog(1))
@@ -442,7 +440,7 @@ func newPodLossAcceptanceActivities(
 	repository imageagent.Repository,
 	executor *recordingAcceptanceExecutor,
 	durableStore imageagenttemporal.DurableArtifactStore,
-	publisherV3 imageagent.ApprovedAssetPublisherV3,
+	publisherV3 imageagent.AcquisitionMainPublisher,
 	publicationOwner func(context.Context) (string, error),
 ) *imageagenttemporal.Activities {
 	t.Helper()
@@ -466,96 +464,6 @@ func podLossAcceptanceActivityInputForAttempt(run imageagent.Run, plan imageagen
 		PlanRevision: plan.Revision, Slot: slot, Attempt: attempt,
 		IdempotencyKey: fmt.Sprintf("%s:plan:%d:attempt:%d", slot.IdempotencyKey, plan.Revision, attempt), AssetCatalog: catalog,
 	}
-}
-
-func TestManualImageAgentAcceptancePreservesSixSuccessfulSlotsWhenOneBlocks(t *testing.T) {
-	plan := acceptancePlan(7, 9)
-	result, calledSlotIDs, events := executeAcceptanceWorkflow(t, plan, "scene-2")
-
-	require.Equal(t, imageagent.RunStatusBlocked, result.Status)
-	require.NotNil(t, result.Block)
-	require.Equal(t, "scene-2", result.Block.SlotID)
-	require.Len(t, result.CompletedSlotIDs, 6)
-	require.Len(t, result.Slots, 7)
-	require.Equal(t, sortedSlotIDs(plan), sortedStrings(calledSlotIDs))
-	require.Equal(t, 6, acceptedSlotEventCount(t, events))
-}
-
-func TestManualImageAgentAcceptanceAllowsElevenStandardSlotsThroughWorkflow(t *testing.T) {
-	plan := acceptancePlan(11, 9)
-	require.NoError(t, imageagent.ValidatePlan(plan))
-
-	result, calledSlotIDs, _ := executeAcceptanceWorkflow(t, plan, "scene-10")
-
-	require.Equal(t, imageagent.RunStatusBlocked, result.Status)
-	require.Len(t, result.Slots, 11)
-	require.Len(t, result.CompletedSlotIDs, 10)
-	require.Equal(t, sortedSlotIDs(plan), sortedStrings(calledSlotIDs))
-}
-
-func executeAcceptanceWorkflow(t *testing.T, plan imageagent.Plan, invalidSlotID string) (imageagenttemporal.WorkflowResult, []string, []imageagent.RunEvent) {
-	t.Helper()
-	repository := imageagentstore.NewMemoryRepository()
-	run := &imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-user-a",
-		ID: "run-acceptance", BusinessTaskID: "task-acceptance",
-		TargetPlatform: "acceptance", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "general"},
-		TenantID: "tenant-a", UserID: "user-a", Mode: imageagent.RunModeManual,
-		IdempotencyKey: "run-key-acceptance", Status: imageagent.RunStatusPlanning,
-		CurrentNode: "plan", Version: 1,
-	}
-	scope := imageagent.RunScope{TenantID: run.TenantID, OwnerUserID: run.UserID, RunID: run.ID}
-	catalog := acceptanceAssetCatalog(9)
-	normalizedCatalog, err := imageagent.NormalizeAssetCatalog(catalog)
-	require.NoError(t, err)
-	run.ActivePlanRevision = plan.Revision
-	initialSlots := make([]imageagent.SlotProjection, len(plan.Slots))
-	for index, slot := range plan.Slots {
-		initialSlots[index] = imageagent.SlotProjection{Slot: slot}
-	}
-	_, err = repository.InitializeRun(context.Background(), imageagent.ProjectionInitialization{
-		Scope: scope, Run: *run, Plan: plan, Catalog: normalizedCatalog,
-		Snapshot: imageagent.RunProjection{Run: *run, Plan: plan, Slots: initialSlots, AssetCatalog: normalizedCatalog, ProjectionVersion: 1, LastEventID: 1},
-		CommitID: "start:run-key-acceptance", EventType: "run.created", EventPayload: json.RawMessage(`{}`),
-	})
-	require.NoError(t, err)
-
-	artifactPath := filepath.Join(t.TempDir(), "generated.png")
-	require.NoError(t, os.WriteFile(artifactPath, acceptancePNG, 0o600))
-	delegate := imageagenttools.NewProductImageSlotExecutor(imageagenttools.Dependencies{
-		SubjectExtractor:        acceptanceSubjectExtractor{},
-		WhiteBackgroundRenderer: acceptanceWhiteRenderer{artifactPath: artifactPath},
-		SceneRenderer:           acceptanceSceneRenderer{artifactPath: artifactPath},
-		Reviewer:                acceptanceReviewer{},
-		UsageQuoter:             acceptanceUsageQuoter{},
-		ProfileResolver:         acceptanceProfileResolver{},
-	})
-	executor := &recordingAcceptanceExecutor{delegate: delegate, invalidSlotID: invalidSlotID}
-	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{ExecutionAuthorizer: acceptanceExecutionAuthorizer{},
-		Repository: repository, PublisherV3: acceptancePublisher{},
-		SlotEffectsV3: repository.(imageagent.SlotExternalEffectV3Repository), StagedSlotExecutor: executor,
-		ArtifactStore: acceptanceDurableArtifactStore{},
-	})
-	require.NoError(t, err)
-
-	var suite testsuite.WorkflowTestSuite
-	env := suite.NewTestWorkflowEnvironment()
-	env.SetStartWorkflowOptions(sdkclient.StartWorkflowOptions{TaskQueue: imageagenttemporal.OrganizationTaskQueue})
-	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 5 * time.Second})
-	env.RegisterWorkflow(imageagenttemporal.ImageSlotWorkflowV3)
-	require.NoError(t, imageagenttemporal.RegisterActivitiesForMode(env, activities, imageagenttemporal.WorkerWireModeOrganization))
-	env.ExecuteWorkflow(imageagenttemporal.ImageAgentWorkflow, imageagenttemporal.WorkflowInput{
-		RunID: run.ID, Mode: imageagent.RunModeManual,
-		TargetPlatform: run.TargetPlatform, ImagePolicyContext: &run.ImagePolicyContext,
-		Identity: imageagent.ExecutionIdentity{BusinessTaskID: run.BusinessTaskID, MemberID: "member-" + run.UserID, ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: run.ID, TenantID: run.TenantID, UserID: run.UserID},
-		Plan:     plan, AssetCatalog: normalizedCatalog, MaxConcurrentSlots: 4, WaitForCommands: false,
-	})
-	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
-	var result imageagenttemporal.WorkflowResult
-	require.NoError(t, env.GetWorkflowResult(&result))
-	events, err := repository.ListEvents(context.Background(), scope, 0, 100)
-	require.NoError(t, err)
-	return result, executor.calledIDs(), events
 }
 
 func acceptanceAssetCatalog(count int) imageagent.AssetCatalog {
@@ -590,17 +498,16 @@ func acceptancePlan(slotCount, sourceCount int) imageagent.Plan {
 		}
 		slots[index] = imageagent.Slot{
 			ID: id, Role: role,
-			SourceAssetIDs:    []string{sourceIDs[index%len(sourceIDs)]},
-			StyleReferenceIDs: []string{"style-modern"},
-			Brief:             id,
-			IdempotencyKey:    "slot-key-" + id,
-			Status:            imageagent.SlotStatusPending,
+			SourceAssetIDs: []string{sourceIDs[index%len(sourceIDs)]},
+			Brief:          id,
+			IdempotencyKey: "slot-key-" + id,
+			Status:         imageagent.SlotStatusPending,
 		}
 	}
 	return imageagent.Plan{
 		Revision: 1, IdempotencyKey: "plan-key-acceptance",
-		SourceAssetIDs: sourceIDs, StyleReferenceIDs: []string{"style-modern"},
-		Slots: slots, CreatedBy: "user-a",
+		SourceAssetIDs: sourceIDs,
+		Slots:          slots, CreatedBy: "user-a",
 	}
 }
 
@@ -948,31 +855,30 @@ type recordingAcceptanceExecutor struct {
 }
 
 type acceptanceExecutorDelegate interface {
-	imageagent.StagedSlotExecutor
+	imageagent.BudgetedStagedSlotExecutor
 }
 
-func (e *recordingAcceptanceExecutor) QuoteSlot(context.Context, imageagent.SlotExecutionInput, imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
-	maximum := imageagent.UsageVector{Images: 1, AgentSteps: 1}
-	return imageagent.SlotUsageQuote{Maximum: maximum, Operations: []imageagent.SlotUsageOperation{{Name: "acceptance_provider", Fingerprint: "acceptance-provider-v1", Maximum: maximum, MaximumOutputs: 1}}, Fingerprint: "acceptance-slot-quote-v1"}, nil
+func (e *recordingAcceptanceExecutor) QuoteSlot(ctx context.Context, input imageagent.SlotExecutionInput, policy imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
+	return e.delegate.QuoteSlot(ctx, input, policy)
 }
 
-func (e *recordingAcceptanceExecutor) GenerateQuotedSlot(ctx context.Context, input imageagent.SlotExecutionInput, _ imageagent.SlotUsageQuote) (imageagent.SlotGeneratedOutput, error) {
-	generated, err := e.GenerateSlot(ctx, input)
-	if err == nil {
-		generated.UsageReceipt = imageagent.SlotUsageReceipt{Actual: imageagent.UsageVector{Images: int64(len(generated.Assets)), AgentSteps: 1}, CostBasis: imageagent.UsageCostReservedUpperBound}
-	}
-	return generated, err
-}
-
-func (e *recordingAcceptanceExecutor) GenerateSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
-	result, err := e.delegate.GenerateSlot(ctx, input)
+func (e *recordingAcceptanceExecutor) GenerateQuotedSlot(ctx context.Context, input imageagent.SlotExecutionInput, quote imageagent.SlotUsageQuote) (imageagent.SlotGeneratedOutput, error) {
+	input.SourceBytes = append([]byte(nil), acceptancePNG...)
+	sum := sha256.Sum256(input.SourceBytes)
+	input.SourceDigest = hex.EncodeToString(sum[:])
+	result, err := e.delegate.GenerateQuotedSlot(ctx, input, quote)
 	e.mu.Lock()
 	e.calls = append(e.calls, input.Slot.ID)
 	e.mu.Unlock()
-	if err == nil && input.Slot.ID == e.invalidSlotID {
-		return imageagent.SlotGeneratedOutput{}, fmt.Errorf("intentional acceptance provider failure for %s", input.Slot.ID)
-	}
 	return result, err
+}
+
+func (e *recordingAcceptanceExecutor) GenerateSlot(ctx context.Context, input imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
+	quote, err := e.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
+	if err != nil {
+		return imageagent.SlotGeneratedOutput{}, err
+	}
+	return e.GenerateQuotedSlot(ctx, input, quote)
 }
 
 func (e *recordingAcceptanceExecutor) BuildSlotResult(ctx context.Context, input imageagent.SlotExecutionInput, published imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {
@@ -985,43 +891,17 @@ func (e *recordingAcceptanceExecutor) calledIDs() []string {
 	return append([]string(nil), e.calls...)
 }
 
-type acceptanceSubjectExtractor struct{}
-
-func (acceptanceSubjectExtractor) Extract(_ context.Context, request productimage.ExtractRequest) (productimage.Candidate, error) {
-	return productimage.Candidate{Asset: productimage.Asset{
-		Bytes: append([]byte(nil), acceptancePNG...), MediaType: "image/png", SourceURL: request.Source.URL,
-		SourceAssetID: request.Source.SourceAssetID, Role: productimage.RoleSubject, Width: 1, Height: 1,
-		Operations: []string{"extract_subject"},
-	}}, nil
-}
-
 type acceptanceWhiteRenderer struct{ artifactPath string }
 
-func (r acceptanceWhiteRenderer) RenderWhiteBackground(_ context.Context, request productimage.RenderRequest) (productimage.Candidate, error) {
+func (r acceptanceWhiteRenderer) EditSourceWhiteBackground(_ context.Context, request productimage.SourceWhiteBackgroundRequest) (productimage.Candidate, error) {
 	return productimage.Candidate{Asset: productimage.Asset{
 		Bytes: append([]byte(nil), acceptancePNG...), MediaType: "image/png", SourceURL: request.Source.URL,
 		SourceAssetID: request.Source.SourceAssetID, Role: productimage.RoleWhiteBackground, Width: 1, Height: 1,
-		Operations: []string{"render_white_background"},
+		Operations: []string{productimage.SourceWhiteBackgroundOperation},
 	}}, nil
 }
 
-type acceptanceSceneRenderer struct{ artifactPath string }
-
-func (r acceptanceSceneRenderer) RenderScene(_ context.Context, request productimage.SceneRequest) ([]productimage.Candidate, error) {
-	return []productimage.Candidate{{Asset: productimage.Asset{
-		Bytes: append([]byte(nil), acceptancePNG...), MediaType: "image/png", SourceURL: request.Source.URL,
-		SourceAssetID: request.Source.SourceAssetID, Role: productimage.RoleScene, Width: 1, Height: 1,
-		Operations: []string{"render_scene"},
-	}}}, nil
-}
-
 type acceptanceUsageQuoter struct{}
-
-type acceptanceReviewer struct{}
-
-func (acceptanceReviewer) Review(context.Context, productimage.ReviewRequest) (productimage.Review, error) {
-	return productimage.Review{Score: 1}, nil
-}
 
 func (acceptanceUsageQuoter) QuoteUsage(_ context.Context, request productimage.UsageQuoteRequest) (productimage.UsageQuote, error) {
 	return productimage.UsageQuote{
@@ -1037,21 +917,21 @@ type acceptanceProfileResolver struct{}
 func (acceptanceProfileResolver) Resolve(input imagepolicy.ProfileInput) (imagepolicy.ProductImageProfile, error) {
 	return imagepolicy.ProductImageProfile{
 		Key: imagepolicy.PolicyKey(input), PolicyVersion: "acceptance-policy-v1",
-		SceneDefaults: productimage.SceneOptions{SceneCategory: input.SceneCategory, SceneStyle: "studio"},
+		SceneDefaults: productimage.PolicySceneDefaults{SceneCategory: input.SceneCategory, SceneStyle: "studio"},
 	}, nil
 }
 
 type acceptancePublisher struct{}
 
-func (acceptancePublisher) PublishApprovedV3(context.Context, imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
+func (acceptancePublisher) PublishAcquisitionMain(context.Context, imageagent.PublishAcquisitionMainInput) (imageagent.PublicationAcknowledgement, error) {
 	return imageagent.PublicationAcknowledgement{}, nil
 }
 
 type recordingAcceptanceApprovalPublisher struct {
-	input imageagent.PublishApprovedV3Input
+	input imageagent.PublishAcquisitionMainInput
 }
 
-func (p *recordingAcceptanceApprovalPublisher) PublishApprovedV3(_ context.Context, input imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
+func (p *recordingAcceptanceApprovalPublisher) PublishAcquisitionMain(_ context.Context, input imageagent.PublishAcquisitionMainInput) (imageagent.PublicationAcknowledgement, error) {
 	p.input = input
 	return imageagent.PublicationAcknowledgement{ActionID: input.IdempotencyKey}, nil
 }

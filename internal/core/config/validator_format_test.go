@@ -10,19 +10,17 @@ import (
 
 func TestFormatValidationErrors_GroupsByModule(t *testing.T) {
 	lines := formatValidationErrors([]error{
-		&ValidationError{Field: "openai.apiKey", Message: "missing", Hint: "set TASK_PROCESSOR_OPENAI_API_KEY"},
+		&ValidationError{Field: "database.host", Message: "missing", Hint: "set TASK_PROCESSOR_DATABASE_HOST"},
 		&ValidationError{Field: "listingkit.zitadel.projectID", Message: "missing"},
-		&ValidationError{Field: "openai.model", Message: "missing"},
+		&ValidationError{Field: "database.user", Message: "missing"},
 	})
 
 	joined := strings.Join(lines, "\n")
-	assert.Contains(t, joined, "[OpenAI]")
-	assert.Contains(t, joined, "openai.apiKey: missing")
-	assert.Contains(t, joined, "hint: set TASK_PROCESSOR_OPENAI_API_KEY")
-	assert.Contains(t, joined, "openai.model: missing")
+	assert.Contains(t, joined, "database.host: missing")
+	assert.Contains(t, joined, "hint: set TASK_PROCESSOR_DATABASE_HOST")
+	assert.Contains(t, joined, "database.user: missing")
 	assert.Contains(t, joined, "[General]")
 	assert.Contains(t, joined, "listingkit.zitadel.projectID: missing")
-	assert.Less(t, strings.Index(joined, "[OpenAI]"), strings.Index(joined, "[General]"))
 }
 
 func TestFormatValidationErrors_FallbacksToGeneral(t *testing.T) {

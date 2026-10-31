@@ -46,7 +46,6 @@ func TestRetiredHTTPAuthSupportYAMLInputsFailClosed(t *testing.T) {
 						document.WriteString("\n")
 					}
 					v := newViper()
-					v.Set("openai.apiKey", "current-fixture-key")
 					require.NoError(t, v.ReadConfig(strings.NewReader(document.String())))
 					cfg, err := loader.load(v)
 					if cfg != nil {
@@ -94,7 +93,6 @@ func TestRetiredHTTPAuthSupportEnvironmentInputsFailClosed(t *testing.T) {
 					v := newViper()
 					// A current value coexisting with a retired name must not suppress rejection.
 					v.Set("listingkit.zitadel.projectID", "current-project")
-					v.Set("openai.apiKey", "current-fixture-key")
 					cfg, err := load(v)
 					if cfg != nil {
 						t.Fatal("retired environment name returned a usable config")
@@ -114,7 +112,6 @@ func TestRetiredHTTPAuthSupportEnvironmentInputsFailClosed(t *testing.T) {
 				t.Setenv(automatic, values[1])
 				for _, load := range []func(*viper.Viper) (*Config, error){loadWithViper, loadWithViperWithoutValidation} {
 					v := newViper()
-					v.Set("openai.apiKey", "current-fixture-key")
 					cfg, err := load(v)
 					if cfg != nil {
 						t.Fatal("coexisting retired names returned a usable config")
@@ -130,10 +127,7 @@ func TestRetiredHTTPAuthSupportEnvironmentInputsFailClosed(t *testing.T) {
 
 func TestRetiredHTTPAuthSupportPreservesCurrentInputs(t *testing.T) {
 	v := newViper()
-	require.NoError(t, v.ReadConfig(strings.NewReader(`openai:
-  apiKey: fixture-key
-  model: fixture-model
-listingkit:
+	require.NoError(t, v.ReadConfig(strings.NewReader(`listingkit:
   platformAdminUsers: [subject-a]
   platformAdminRoles: [platform_admin]
   zitadel:
@@ -165,22 +159,6 @@ func TestUniqueCleanPathsPreservesFirstOccurrenceOrder(t *testing.T) {
 	require.Equal(t, []string{".env", filepath.Join("config", ".env")}, got)
 }
 
-func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "image-key")
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "https://image.example.test/v1")
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "nanobanana")
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_MODEL", "nano-banana-fast")
-	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_TIMEOUT", "300")
-
-	v := newViper()
-
-	assert.Equal(t, "image-key", v.GetString("openai.clients.image.apiKey"))
-	assert.Equal(t, "https://image.example.test/v1", v.GetString("openai.clients.image.baseURL"))
-	assert.Equal(t, "nanobanana", v.GetString("openai.clients.image.apiStyle"))
-	assert.Equal(t, "nano-banana-fast", v.GetString("openai.clients.image.model"))
-	assert.Equal(t, 300, v.GetInt("openai.clients.image.timeout"))
-}
-
 func TestBuildConfigLoadsExplicitCommercialResourceOwner(t *testing.T) {
 	v := newViper()
 	v.Set("commercialOwnerDatabase.host", "commercial-db")
@@ -209,12 +187,6 @@ func TestGetStringSlice_SplitsCommaSeparatedSingleEntry(t *testing.T) {
 
 func TestNewViper_BindsLegacyEnvironmentAliases(t *testing.T) {
 	tests := []struct{ key, primary, retired string }{
-		{"openai.apiKey", "TASK_PROCESSOR_OPENAI_API_KEY", "OPENAI_API_KEY"},
-		{"openai.model", "TASK_PROCESSOR_OPENAI_MODEL", "OPENAI_MODEL"},
-		{"openai.baseURL", "TASK_PROCESSOR_OPENAI_BASE_URL", "OPENAI_BASE_URL"},
-		{"openai.clients.image.apiKey", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY"},
-		{"openai.clients.image.baseURL", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL"},
-		{"openai.clients.image.apiStyle", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE"},
 		{"database.host", "TASK_PROCESSOR_DATABASE_HOST", "DB_HOST"},
 		{"database.port", "TASK_PROCESSOR_DATABASE_PORT", "DB_PORT"},
 		{"database.user", "TASK_PROCESSOR_DATABASE_USER", "DB_USER"},
@@ -317,11 +289,6 @@ func TestLoadConfigFromFileDoesNotExposeListingKitOwnerScopeToggle(t *testing.T)
 
 	configPath := filepath.Join(t.TempDir(), "config-test.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(strings.Join([]string{
-		"openai:",
-		"  apiKey: test-openai-key",
-		"  model: gemini-2.5-flash",
-		"  baseURL: https://api.example.test/v1",
-		"  timeout: 30",
 		"listingkit:",
 		"  zitadel:",
 		"    issuerURL: https://issuer.file.example",
@@ -375,13 +342,7 @@ func TestConfigFixtureRejectsEnabledWorkbenchWithoutCompleteZitadelConfig(t *tes
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID", "")
 	t.Setenv("ZITADEL_ISSUER_URL", "https://issuer.example")
 
-	_, err := loadConfigFixture(t, []byte(strings.Join([]string{
-		"openai:",
-		"  apiKey: test-openai-key",
-		"  model: gemini-2.5-flash",
-		"  baseURL: https://api.example.test/v1",
-		"  timeout: 30",
-	}, "\n")))
+	_, err := loadConfigFixture(t, []byte(strings.Join([]string{}, "\n")))
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "listingkit.zitadel.projectID")
@@ -422,24 +383,6 @@ func TestLoadDotEnvFile_DoesNotOverrideExistingEnvironmentVariables(t *testing.T
 	require.NoError(t, loadDotEnvFile(envPath))
 
 	assert.Equal(t, "from-process", os.Getenv("TASK_PROCESSOR_OPENAI_API_KEY"))
-}
-
-func TestConfigFixture_AppliesEnvironmentOverrides(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_OPENAI_API_KEY", "env-openai-key")
-	cfg, err := loadConfigFixture(t, []byte(`
-openai:
-  apiKey: file-key
-  model: gemini-2.5-flash
-  baseURL: https://api.example.test/v1
-  timeout: 30
-  clients:
-    vision:
-      model: gemini-2.5-flash
-      timeout: 30
-`))
-	require.NoError(t, err)
-	assert.Equal(t, "env-openai-key", cfg.OpenAI.APIKey)
-	assert.Equal(t, "env-openai-key", cfg.OpenAI.ToClientConfigs()["vision"].APIKey)
 }
 
 func TestConfigFixturesDoNotCarryRetiredManagementConfig(t *testing.T) {
@@ -495,11 +438,6 @@ func TestLoadConfigFromFile_AssemblesListingKitAndZitadelConfig(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".env"), nil, 0o600))
 	configPath := filepath.Join(tempDir, "config-test.yaml")
 	configBody := strings.Join([]string{
-		"openai:",
-		"  apiKey: \"test-openai-key\"",
-		"  model: \"gemini-2.5-flash\"",
-		"  baseURL: \"https://api.example.test/v1\"",
-		"  timeout: 30",
 		"listingkit:",
 		"  platformAdminUsers: [\"user-a\"]",
 		"  platformAdminRoles: [\"platform_admin\"]",
@@ -549,12 +487,7 @@ func TestRetiredCommercialTokenDatabaseIsNotConfiguration(t *testing.T) {
 
 func TestCurrentAutomaticEnvironmentInputsRemainAvailable(t *testing.T) {
 	for key, name := range map[string]string{
-		"unregistered.setting":                 "TASK_PROCESSOR_UNREGISTERED_SETTING",
-		"openai.apiKey":                        "TASK_PROCESSOR_OPENAI_APIKEY",
-		"openai.clients.secondary.model":       "TASK_PROCESSOR_OPENAI_CLIENTS_SECONDARY_MODEL",
-		"openai.clients.image.apiKey_suffix":   "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY_SUFFIX",
-		"openai.clients.image.baseURL_suffix":  "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL_SUFFIX",
-		"openai.clients.image.apiStyle_suffix": "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE_SUFFIX",
+		"unregistered.setting": "TASK_PROCESSOR_UNREGISTERED_SETTING",
 	} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv(name, "current-automatic-value")
@@ -564,13 +497,7 @@ func TestCurrentAutomaticEnvironmentInputsRemainAvailable(t *testing.T) {
 			require.Equal(t, "explicit-current-value", v.GetString(key))
 		})
 	}
-	t.Run("dynamic client and file fallback", func(t *testing.T) {
-		t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_SECONDARY_MODEL", "current-model")
-		v := newViper()
-		require.NoError(t, v.ReadConfig(strings.NewReader("openai:\n  clients:\n    secondary:\n      model: file-model\n      apiKey: fixture-key\n")))
-		require.Equal(t, "current-model", BuildConfig(v).OpenAI.Clients["secondary"].Model)
-		require.Equal(t, "fixture-key", BuildConfig(v).OpenAI.Clients["secondary"].APIKey)
-	})
+
 }
 
 // These names are the frozen §4.2 input contract, independent of the loader's rejection table.
@@ -661,10 +588,10 @@ func TestCrawlerInputRejectionPreservesOtherConfiguration(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv(name, "unrelated-fixture")
 			v := newViper()
-			v.Set("openai.apiKey", "current-fixture")
+			v.Set("imageagent.generation.priceVersion", "current-fixture")
 			cfg, err := loadWithViperWithoutValidation(v)
 			require.NoError(t, err)
-			require.Equal(t, "current-fixture", cfg.OpenAI.APIKey)
+			require.Equal(t, "current-fixture", cfg.ImageAgent.Generation.PriceVersion)
 		})
 	}
 }
@@ -685,4 +612,22 @@ func TestRetiredSampleInputsRemainRejectedByCurrentLoader(t *testing.T) {
 		_, err := loadWithViperWithoutValidation(v)
 		require.ErrorContains(t, err, "retired configuration key "+key)
 	}
+}
+
+func TestRetiredOpenAIEnvironmentNamespaceFailsClosed(t *testing.T) {
+	for _, name := range []string{"TASK_PROCESSOR_OPENAI_API_KEY", "TASK_PROCESSOR_OPENAI_APIKEY", "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY", "TASK_PROCESSOR_OPENAI_CLIENTS_SECONDARY_MODEL", "TASK_PROCESSOR_OPENAI_UNREGISTERED"} {
+		for _, value := range []string{"", "synthetic-secret"} {
+			t.Run(name+value, func(t *testing.T) {
+				t.Setenv(name, value)
+				_, err := loadConfigFixture(t, []byte("{}"))
+				require.Error(t, err)
+				require.NotContains(t, err.Error(), "synthetic-secret")
+			})
+		}
+	}
+}
+func TestUnprefixedOpenAIEnvironmentIsNotANewGlobalGate(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "synthetic-only")
+	_, err := loadConfigFixture(t, []byte("{}"))
+	require.NoError(t, err)
 }

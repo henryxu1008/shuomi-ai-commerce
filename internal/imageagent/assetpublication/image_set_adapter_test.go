@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/ai"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/objectstore"
@@ -20,6 +19,8 @@ import (
 	"task-processor/internal/integration/grsai"
 	openai "task-processor/internal/integration/openai"
 	productimage "task-processor/internal/product/image"
+
+	"github.com/stretchr/testify/require"
 )
 
 // Controlled bytes/storage only; generation, materialization and selection use
@@ -49,8 +50,8 @@ func TestSynchronousImageSetOutputCanBeSelectedWithDistinctOrMissingRequestID(t 
 			}))
 			defer server.Close()
 			client := grsai.NewClient(grsai.Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client()})
-			provider, err := grsai.NewSynchronousProductImageAdapter(grsai.ProductImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", Build: func(bound ai.RouteBoundImageGenerator) (grsai.ProductImageProvider, error) {
-				return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", PricingVersion: "controlled-unpriced", Prompts: openai.DefaultProductImagePrompts(), MaximumSceneOutputs: 1, GeneratedImageFetcher: func(context.Context, string) ([]byte, error) { return pngData.Bytes(), nil }})
+			provider, err := grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
+				return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", PricingVersion: "controlled-unpriced", GeneratedImageFetcher: func(context.Context, string) ([]byte, error) { return pngData.Bytes(), nil }})
 			}}, func(_ context.Context, observation grsai.GenerationObservation) error {
 				require.Equal(t, "generation-job-1", observation.ResponseID)
 				require.Equal(t, requestID, observation.RequestID)
@@ -61,7 +62,7 @@ func TestSynchronousImageSetOutputCanBeSelectedWithDistinctOrMissingRequestID(t 
 			require.NoError(t, err)
 			editor, err := productimage.NewSourceEditCapability(provider.(productimage.SourceEditor))
 			require.NoError(t, err)
-			executor := tools.NewProductImageSlotExecutor(tools.Dependencies{SourceEditor: editor, UsageQuoter: provider})
+			executor := tools.NewSourceGenerationExecutor(tools.SourceGenerationDependencies{SourceEditor: editor, UsageQuoter: provider})
 			quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
 			require.NoError(t, err)
 			output, err := executor.GenerateQuotedSlot(ctx, input, quote)

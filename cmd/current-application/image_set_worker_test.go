@@ -1,12 +1,14 @@
 package main
 
 import (
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
+	"reflect"
 	"task-processor/internal/app/runtime/currentapplication"
 	"task-processor/internal/core/config"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFullImageWorkerConfigDoesNotRequireAnUnusedGlobalOpenAIKey(t *testing.T) {
@@ -23,7 +25,8 @@ func TestFullImageWorkerConfigDoesNotRequireAnUnusedGlobalOpenAIKey(t *testing.T
 	expected := currentapplication.DatabaseConfig{Host: "127.0.0.1", Port: 5432, Database: "image"}
 	cfg, err := loadImageSetWorkerConfig(path, expected)
 	require.NoError(t, err, "full mode consumes its scoped organization credential, never a global OpenAI key")
-	require.Empty(t, cfg.OpenAI.APIKey)
+	_, exposed := reflect.TypeOf(*cfg).FieldByName("OpenAI")
+	require.False(t, exposed, "retired global OpenAI configuration must be absent")
 	expected.Database = "another-owner"
 	_, err = loadImageSetWorkerConfig(path, expected)
 	require.Error(t, err)

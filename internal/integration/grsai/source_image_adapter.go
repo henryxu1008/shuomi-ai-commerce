@@ -10,32 +10,30 @@ import (
 	productimage "task-processor/internal/product/image"
 )
 
-// ProductImageProvider is the complete provider-neutral capability surface a
+// SourceImageProvider is the complete provider-neutral capability surface a
 // GRSAI-compatible delegate must implement.
-type ProductImageProvider interface {
-	productimage.SubjectExtractor
-	productimage.WhiteBackgroundRenderer
-	productimage.SceneRenderer
-	productimage.Reviewer
+type SourceImageProvider interface {
+	productimage.SourceWhiteBackground
+	productimage.SourceEditor
 	productimage.UsageQuoter
 }
 
-type ProductImageAdapterFactory func(ai.RouteBoundImageGenerator) (ProductImageProvider, error)
+type SourceImageAdapterFactory func(ai.RouteBoundImageGenerator) (SourceImageProvider, error)
 
-type ProductImageAdapterConfig struct {
+type SourceImageAdapterConfig struct {
 	Client               ai.ImageGenerator
 	ImageModel           string
 	RouteReference       string
 	CredentialReference  string
 	ConfigurationVersion string
-	Build                ProductImageAdapterFactory
+	Build                SourceImageAdapterFactory
 }
 
-// NewProductImageAdapter pins the concrete GRSAI client before handing it to
+// NewSourceImageAdapter pins the concrete GRSAI client before handing it to
 // an App-selected compatible capability adapter. The Integration packages do
 // not depend on one another; App is the only concrete composition boundary.
-func NewProductImageAdapter(config ProductImageAdapterConfig) (ProductImageProvider, error) {
-	if nilGRSAIProductImageClient(config.Client) {
+func NewSourceImageAdapter(config SourceImageAdapterConfig) (SourceImageProvider, error) {
+	if nilGRSAISourceImageClient(config.Client) {
 		return nil, fmt.Errorf("grsai product image client is required")
 	}
 	if config.Build == nil {
@@ -59,32 +57,28 @@ func NewProductImageAdapter(config ProductImageAdapterConfig) (ProductImageProvi
 	if err != nil {
 		return nil, fmt.Errorf("build grsai product image delegate: %w", err)
 	}
-	if nilGRSAIProductImageProvider(delegate) {
+	if nilGRSAISourceImageProvider(delegate) {
 		return nil, fmt.Errorf("grsai product image delegate is required")
 	}
-	return &productImageAdapter{
+	return &sourceImageAdapter{
 		delegate: delegate, imageModel: config.ImageModel, routeReference: config.RouteReference,
 		credentialReference: config.CredentialReference, configurationVersion: config.ConfigurationVersion,
 	}, nil
 }
 
-type productImageAdapter struct {
-	delegate             ProductImageProvider
+type sourceImageAdapter struct {
+	delegate             SourceImageProvider
 	imageModel           string
 	routeReference       string
 	credentialReference  string
 	configurationVersion string
 }
 
-func (a *productImageAdapter) Extract(ctx context.Context, request productimage.ExtractRequest) (productimage.Candidate, error) {
-	return a.delegate.Extract(ctx, request)
+func (a *sourceImageAdapter) EditSourceWhiteBackground(ctx context.Context, request productimage.SourceWhiteBackgroundRequest) (productimage.Candidate, error) {
+	return a.delegate.EditSourceWhiteBackground(ctx, request)
 }
 
-func (a *productImageAdapter) RenderWhiteBackground(ctx context.Context, request productimage.RenderRequest) (productimage.Candidate, error) {
-	return a.delegate.RenderWhiteBackground(ctx, request)
-}
-
-func (a *productImageAdapter) EditSources(ctx context.Context, request productimage.SourceEditRequest) (productimage.Candidate, error) {
+func (a *sourceImageAdapter) EditSources(ctx context.Context, request productimage.SourceEditRequest) (productimage.Candidate, error) {
 	delegate, ok := a.delegate.(productimage.SourceEditor)
 	if !ok {
 		return productimage.Candidate{}, productimage.ErrCapabilityUnsupported
@@ -92,16 +86,8 @@ func (a *productImageAdapter) EditSources(ctx context.Context, request productim
 	return delegate.EditSources(ctx, request)
 }
 
-func (a *productImageAdapter) RenderScene(ctx context.Context, request productimage.SceneRequest) ([]productimage.Candidate, error) {
-	return a.delegate.RenderScene(ctx, request)
-}
-
-func (a *productImageAdapter) Review(ctx context.Context, request productimage.ReviewRequest) (productimage.Review, error) {
-	return a.delegate.Review(ctx, request)
-}
-
-func (a *productImageAdapter) QuoteUsage(ctx context.Context, request productimage.UsageQuoteRequest) (productimage.UsageQuote, error) {
-	if a == nil || nilGRSAIProductImageProvider(a.delegate) {
+func (a *sourceImageAdapter) QuoteUsage(ctx context.Context, request productimage.UsageQuoteRequest) (productimage.UsageQuote, error) {
+	if a == nil || nilGRSAISourceImageProvider(a.delegate) {
 		return productimage.UsageQuote{}, productimage.ErrCapabilityUnsupported
 	}
 	quote, err := a.delegate.QuoteUsage(ctx, request)
@@ -113,7 +99,7 @@ func (a *productImageAdapter) QuoteUsage(ctx context.Context, request productima
 		return productimage.UsageQuote{}, productimage.ErrCapabilityUnsupported
 	}
 	switch request.Operation {
-	case "extract_subject", "render_white_background", "render_scene", productimage.SourceWhiteBackgroundOperation, productimage.SourceEditOperation:
+	case productimage.SourceWhiteBackgroundOperation, productimage.SourceEditOperation:
 		if quote.Model != a.imageModel {
 			return productimage.UsageQuote{}, productimage.ErrCapabilityUnsupported
 		}
@@ -129,7 +115,7 @@ type pinnedProductImageClient struct {
 }
 
 func newPinnedProductImageClient(client ai.ImageGenerator, model, credentialReference, configurationVersion string) (*pinnedProductImageClient, error) {
-	if nilGRSAIProductImageClient(client) {
+	if nilGRSAISourceImageClient(client) {
 		return nil, fmt.Errorf("grsai product image client is required")
 	}
 	for name, value := range map[string]string{
@@ -184,15 +170,15 @@ func (*pinnedProductImageClient) QueryImageGeneration(context.Context, string) (
 	return nil, ai.ErrAsyncImageGenerationNotSupported
 }
 
-func nilGRSAIProductImageClient(client ai.ImageGenerator) bool {
-	return nilGRSAIProductImageValue(client)
+func nilGRSAISourceImageClient(client ai.ImageGenerator) bool {
+	return nilGRSAISourceImageValue(client)
 }
 
-func nilGRSAIProductImageProvider(provider ProductImageProvider) bool {
-	return nilGRSAIProductImageValue(provider)
+func nilGRSAISourceImageProvider(provider SourceImageProvider) bool {
+	return nilGRSAISourceImageValue(provider)
 }
 
-func nilGRSAIProductImageValue(value any) bool {
+func nilGRSAISourceImageValue(value any) bool {
 	if value == nil {
 		return true
 	}
@@ -201,4 +187,4 @@ func nilGRSAIProductImageValue(value any) bool {
 }
 
 var _ ai.RouteBoundImageGenerator = (*pinnedProductImageClient)(nil)
-var _ ProductImageProvider = (*productImageAdapter)(nil)
+var _ SourceImageProvider = (*sourceImageAdapter)(nil)

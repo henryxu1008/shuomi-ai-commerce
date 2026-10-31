@@ -47,8 +47,8 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
 	}
-	build := func(bound ai.RouteBoundImageGenerator) (*openai.ProductImageAdapter, error) {
-		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)})
+	build := func(bound ai.RouteBoundImageGenerator) (*openai.SourceImageAdapter, error) {
+		return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, PricingVersion: metadata.PriceVersion, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)})
 	}
 	var provider synchronousImageProvider
 	var generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
@@ -73,9 +73,9 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 			proof := imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, UsageKnown: observation.UsageKnown, InputTokens: int64(observation.Usage.PromptTokens), OutputTokens: int64(observation.Usage.CompletionTokens), TotalTokens: int64(observation.Usage.TotalTokens)}
 			return observe(ctx, proof.WithResultLocator(observation.ResultURL, observation.ResultUnavailable))
 		}
-		provider, err = grsai.NewSynchronousProductImageAdapter(grsai.ProductImageAdapterConfig{
+		provider, err = grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{
 			Client: client, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion,
-			Build: func(bound ai.RouteBoundImageGenerator) (grsai.ProductImageProvider, error) {
+			Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
 				return build(bound)
 			},
 		}, observer)
@@ -86,7 +86,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
 	}
-	white, err := productimage.NewWhiteBackgroundCapability(provider)
+	white, err := productimage.NewSourceWhiteBackgroundCapability(provider)
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
 	}
@@ -98,7 +98,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
 	}
-	executor := tools.NewProductImageSlotExecutor(tools.Dependencies{SourceEditor: editor, WhiteBackgroundRenderer: white, UsageQuoter: provider, ProfileResolver: f.profile})
+	executor := tools.NewSourceGenerationExecutor(tools.SourceGenerationDependencies{SourceEditor: editor, WhiteBackground: white, UsageQuoter: provider, ProfileResolver: f.profile})
 	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, quality: imageagent.GenerationRouteQuality(metadata.Provider, metadata.Model, metadata.Protocol), fetch: f.generatedFetcher})}, Rejection: func(err error) (imageagent.GenerationRejection, bool) {
 		var quota *bailian.QuotaRejection
 		if metadata.Provider == "bailian" && errors.As(err, &quota) {
@@ -113,10 +113,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 }
 
 type synchronousImageProvider interface {
-	productimage.SubjectExtractor
-	productimage.WhiteBackgroundRenderer
-	productimage.SceneRenderer
-	productimage.Reviewer
+	productimage.SourceWhiteBackground
 	productimage.UsageQuoter
 }
 
@@ -191,7 +188,7 @@ func (f generationProviderFactory) resolve(ctx context.Context, choices ...*imag
 		published = revision.Payload.Image
 		name = revision.Payload.BindingID
 	}
-	resolved, err := f.resolver.ResolveClientConfig(ctx, name, nil)
+	resolved, err := f.resolver.ResolveClientConfig(ctx, name)
 	if err != nil || resolved == nil || resolved.Config == nil || resolved.CacheKey == "" || len(resolved.CacheKey) > 192 {
 		return invalid()
 	}
@@ -218,11 +215,10 @@ func (f generationProviderFactory) resolve(ctx context.Context, choices ...*imag
 	default:
 		return invalid()
 	}
-	prompts := openai.DefaultProductImagePrompts()
 	metadata := imageagent.GenerationProviderMetadata{Provider: provider, Model: cfg.Model, Protocol: protocol, RouteReference: route, CredentialReference: resolved.CacheKey, ConfigurationVersion: generationConfigDigest(struct {
 		Version, Model, Style, URL string
 		Timeout                    time.Duration
-	}{resolved.CacheKey, cfg.Model, cfg.APIStyle, cfg.BaseURL, cfg.Timeout}), PromptVersion: prompts.Version, PriceVersion: f.price.PriceVersion, Points: f.price.PointsPerImage}
+	}{resolved.CacheKey, cfg.Model, cfg.APIStyle, cfg.BaseURL, cfg.Timeout}), PromptVersion: openai.SourceImagePromptVersion, PriceVersion: f.price.PriceVersion, Points: f.price.PointsPerImage}
 	if published != nil {
 		if published.Provider != metadata.Provider || published.Model != metadata.Model || published.Protocol != metadata.Protocol || published.CredentialReference != resolved.CacheKey || published.EndpointDigest != governed.EndpointIdentityDigest(cfg.BaseURL) || published.Points <= 0 || published.PriceVersion == "" || published.ConfigurationVersion == "" {
 			return invalid()

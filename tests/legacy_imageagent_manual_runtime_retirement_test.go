@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -140,17 +141,17 @@ func TestLegacyImageAgentManualRuntimeClosureIsRetired(t *testing.T) {
 		}
 	}
 	for path, banned := range map[string][]string{
-		"internal/imageagent/ports.go":                            {"SlotExecutor", "ApprovedAssetPublisher", "PublishApprovedInput"},
-		"internal/imageagent/store/gorm.go":                       {"NewGormRepository"},
-		"internal/imageagent/store/records.go":                    {"slotExternalEffectRecord"},
-		"internal/imageagent/temporal/worker.go":                  {"NewClient"},
-		"internal/imageagent/temporal/slot_workflow.go":           {"ImageSlotWorkflow", "activityWireForFrozenSlotWorkflow"},
-		"internal/imageagent/temporal/activity_registration.go":   {"PublishApproved", "LegacyExecuteSlot", "LegacyPersistSlotResult", "LegacyPersistRunState", "LegacyPersistPlanRevision", "LegacyPersistPendingCommand", "LegacyPublishApproved"},
-		"internal/imageagent/temporal/activities_execution_v3.go": {"ExecuteSlot"},
-		"internal/imageagent/temporal/activities_persistence.go":  {"PersistSlotResult"},
-		"internal/imageagent/tools/product_image_executor.go":     {"NewFrozenV2ProductImageSlotExecutor", "LegacyAssetMaterializer", "ExecuteSlot", "PublishSlot"},
-		"internal/imageagent/assetpublication/publisher.go":       {"NewV2Publisher", "PublishApproved", "approvalCommitV2"},
-		"internal/app/worker/imageagent/dependencies.go":          {"legacyV2AssetMaterializer", "resolveImageAgentTemporalDependencies"},
+		"internal/imageagent/ports.go":                                       {"SlotExecutor", "ApprovedAssetPublisher", "PublishApprovedInput"},
+		"internal/imageagent/store/gorm.go":                                  {"NewGormRepository"},
+		"internal/imageagent/store/records.go":                               {"slotExternalEffectRecord"},
+		"internal/imageagent/temporal/worker.go":                             {"NewClient"},
+		"internal/imageagent/temporal/slot_workflow.go":                      {"ImageSlotWorkflow", "activityWireForFrozenSlotWorkflow"},
+		"internal/imageagent/temporal/activity_registration.go":              {"PublishApproved", "LegacyExecuteSlot", "LegacyPersistSlotResult", "LegacyPersistRunState", "LegacyPersistPlanRevision", "LegacyPersistPendingCommand", "LegacyPublishApproved"},
+		"internal/imageagent/temporal/activities_execution_v3.go":            {"ExecuteSlot"},
+		"internal/imageagent/temporal/activities_persistence.go":             {"PersistSlotResult"},
+		"internal/imageagent/tools/source_generation_executor.go":            {"NewFrozenV2ProductImageSlotExecutor", "LegacyAssetMaterializer", "ExecuteSlot", "PublishSlot"},
+		"internal/imageagent/assetpublication/acquisition_main_publisher.go": {"NewV2Publisher", "PublishApproved", "approvalCommitV2"},
+		"internal/app/worker/imageagent/dependencies.go":                     {"legacyV2AssetMaterializer", "resolveImageAgentTemporalDependencies"},
 	} {
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
 		if err != nil {
@@ -174,11 +175,11 @@ func TestLegacyImageAgentManualRuntimeClosureIsRetired(t *testing.T) {
 
 func TestLegacyImageAgentV2ContractClosureIsRetired(t *testing.T) {
 	for path, banned := range map[string][]string{
-		"internal/imageagent/result_digest.go":           {"ResultDigestV2"},
-		"internal/imageagent/temporal/workflow.go":       {"resultDigest"},
-		"internal/imageagent/temporal/types.go":          {"publicationKey"},
-		"internal/imageagent/temporal/slot_workflow.go":  {"hasCandidateAsset"},
-		"internal/app/worker/imageagent/capabilities.go": {"buildProductionImageCapabilities"},
+		"internal/imageagent/result_digest.go":                   {"ResultDigestV2"},
+		"internal/imageagent/temporal/workflow.go":               {"resultDigest"},
+		"internal/imageagent/temporal/types.go":                  {"publicationKey"},
+		"internal/imageagent/temporal/slot_workflow.go":          {"hasCandidateAsset"},
+		"internal/app/worker/imageagent/source_main_executor.go": {"buildProductionImageCapabilities"},
 	} {
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
 		if err != nil {
@@ -376,6 +377,143 @@ func TestLegacyImageMethodSnapshotClosureIsRetired(t *testing.T) {
 		for _, name := range required {
 			if !seen[name] {
 				t.Errorf("%s must retain %s", path, name)
+			}
+		}
+	}
+}
+
+// The current source-edit/approval path must survive without restoring the
+// cancelled generic executor, SDK transport, or staged model-review contracts.
+func TestLegacyImageAgentGenericExecutionClosureIsRetired(t *testing.T) {
+	for _, path := range []string{
+		"internal/app/worker/imageagent/capabilities.go",
+		"internal/app/worker/imageagent/capabilities_test.go",
+		"internal/app/worker/imageagent/organization_main_admission.go",
+		"internal/app/worker/imageagent/organization_main_admission_test.go",
+		"internal/core/config/type_openai.go",
+		"internal/core/config/validator_openai.go",
+		"internal/imageagent/assetpublication/publisher.go",
+		"internal/imageagent/assetpublication/publisher_test.go",
+		"internal/imageagent/effectpolicy/review.go",
+		"internal/imageagent/effectpolicy/review_test.go",
+		"internal/imageagent/review_outcome.go",
+		"internal/imageagent/store/slot_effect_v3_review.go",
+		"internal/imageagent/store/slot_effect_v3_review_memory.go",
+		"internal/imageagent/temporal/activities_review_v3.go",
+		"internal/imageagent/tools/image_set_executor.go",
+		"internal/imageagent/tools/image_set_executor_test.go",
+		"internal/imageagent/tools/product_image_executor.go",
+		"internal/imageagent/temporal/organization_review_quote_test.go",
+		"internal/imageagent/tools/product_image_executor_contract_test.go",
+		"internal/integration/grsai/product_image_adapter.go",
+		"internal/integration/grsai/product_image_adapter_test.go",
+		"internal/integration/openai/client.go",
+		"internal/integration/openai/client_manager.go",
+		"internal/integration/openai/contextual_client.go",
+		"internal/integration/openai/effective_configuration_test.go",
+		"internal/integration/openai/identity.go",
+		"internal/integration/openai/images.go",
+		"internal/integration/openai/images_test.go",
+		"internal/integration/openai/logger.go",
+		"internal/integration/openai/logger_test.go",
+		"internal/integration/openai/pool.go",
+		"internal/integration/openai/pool_request_test.go",
+		"internal/integration/openai/pool_retry_test.go",
+		"internal/integration/openai/product_image_adapter.go",
+		"internal/integration/openai/product_image_adapter_test.go",
+		"internal/integration/openai/tenant_manager_test.go",
+		"internal/integration/openai/types.go",
+		"internal/integration/openai/types_contract_test.go",
+		"internal/product/image/scene_options.go",
+		"internal/product/image/scene_options_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Errorf("retired source %s must be absent (stat: %v)", path, err)
+		}
+	}
+	for path, required := range map[string][]string{
+		"internal/imageagent/tools/source_generation_executor.go":            {"SourceGenerationExecutor", "QuoteSlot", "GenerateQuotedSlot"},
+		"internal/imageagent/tools/result_builder.go":                        {"ImageResultBuilder", "NewAcquisitionMainResultBuilder", "NewImageSetResultBuilder"},
+		"internal/imageagent/acquisition_main.go":                            {"ValidateAcquisitionMainPlan"},
+		"internal/app/worker/imageagent/source_main_executor.go":             {"SourceMainExecutor"},
+		"internal/integration/openai/source_image_adapter.go":                {"SourceImageAdapter"},
+		"internal/integration/openai/credential_config.go":                   {"ClientConfig", "ResolvedClientConfig"},
+		"internal/product/image/source_white_background.go":                  {"SourceWhiteBackgroundRequest"},
+		"internal/product/image/policy_scene_defaults.go":                    {"PolicySceneDefaults"},
+		"internal/imageagent/assetpublication/acquisition_main_publisher.go": {"AcquisitionMainPublisher", "PublishAcquisitionMain"},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		found := map[string]bool{}
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				found[d.Name.Name] = true
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					if typ, ok := spec.(*ast.TypeSpec); ok {
+						found[typ.Name.Name] = true
+					}
+				}
+			}
+		}
+		for _, name := range required {
+			if !found[name] {
+				t.Errorf("%s requires current declaration %s", path, name)
+			}
+		}
+	}
+}
+
+func TestRetiredGenericImageContractsCannotReturn(t *testing.T) {
+	banned := map[string][]string{
+		"internal/imageagent/ports.go":                     {"StagedSlotReviewer", "BudgetedStagedSlotReviewer", "ApprovedAssetPublisherV3", "PublishApprovedV3Input"},
+		"internal/imageagent/slot_execution.go":            {"SlotReviewUsageReservation", "SlotReviewUsageAttempt", "SlotReviewOutcome"},
+		"internal/imageagent/slot_effect_v3.go":            {"ReviewRetrySlotEffectV3Repository"},
+		"internal/product/image/ports.go":                  {"SubjectExtractor", "WhiteBackgroundRenderer", "SceneRenderer", "Reviewer", "CompleteCapabilities"},
+		"internal/product/image/model.go":                  {"ExtractRequest", "RenderRequest", "SceneRequest", "ReviewRequest", "Review"},
+		"internal/integration/openai/credential_config.go": {"Manager", "Client", "RequestPool", "Logger", "PoolConfig", "ManagerConfig"},
+	}
+	for path, names := range banned {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			name := ""
+			switch n := node.(type) {
+			case *ast.TypeSpec:
+				name = n.Name.Name
+				if path == "internal/integration/openai/credential_config.go" && n.Assign.IsValid() {
+					t.Errorf("minimal current credential contracts must not be aliases: %s", n.Name.Name)
+				}
+			case *ast.FuncDecl:
+				name = n.Name.Name
+			}
+			if slices.Contains(names, name) {
+				t.Errorf("retired generic image declaration in current owner: %s:%s", path, name)
+			}
+			return true
+		})
+	}
+	for _, path := range trackedFiles(t, "internal") {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if importMatchesPrefix(imported, "github.com/sashabaranov/go-openai") {
+				t.Errorf("retired SDK import in %s", path)
 			}
 		}
 	}

@@ -28,7 +28,7 @@ func TestConfigFixtureRejectsRetiredProductRuntimeYAML(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"+test.yaml))
+			_, err := loadConfigFixture(t, []byte(""+test.yaml))
 			require.Error(t, err)
 			require.Contains(t, strings.ToLower(err.Error()), strings.ToLower(test.key))
 			require.NotContains(t, err.Error(), "retired-upload-fixture")
@@ -41,7 +41,7 @@ func TestRetiredListingKitUploadEnvDoesNotRecreateApplicationOwner(t *testing.T)
 		t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_"+suffix, "synthetic-retired-upload")
 	}
 	t.Setenv("TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_USE_PATH_STYLE", "true")
-	cfg, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"))
+	cfg, err := loadConfigFixture(t, []byte(""))
 	require.NoError(t, err, "imgproxy's two valid shared Secret names must not be globally rejected")
 	require.NotNil(t, cfg)
 	require.Empty(t, cfg.ImageAgent.ArtifactStore.Provider)
@@ -70,7 +70,7 @@ func TestConfigFixtureRejectsRetiredProductRuntimeEnvironment(t *testing.T) {
 	for _, variable := range variables {
 		t.Run(variable, func(t *testing.T) {
 			t.Setenv(variable, "retired-value")
-			_, err := loadConfigFixture(t, []byte("openai:\n  apiKey: test-key\n"))
+			_, err := loadConfigFixture(t, []byte(""))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), variable)
 		})

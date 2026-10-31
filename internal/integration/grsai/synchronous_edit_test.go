@@ -89,11 +89,11 @@ func TestSynchronousProductEditUsesExactGRSAIWireBeforeDownloads(t *testing.T) {
 					defer server.Close()
 					client := NewClient(Config{Model: route.model, SubmitURL: server.URL, MaxAttempts: 3, HTTPClient: server.Client()})
 					var pinned ai.RouteBoundImageGenerator
-					_, err := NewSynchronousProductImageAdapter(ProductImageAdapterConfig{
+					_, err := NewSynchronousSourceImageAdapter(SourceImageAdapterConfig{
 						Client: client, ImageModel: route.model, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1",
-						Build: func(bound ai.RouteBoundImageGenerator) (ProductImageProvider, error) {
+						Build: func(bound ai.RouteBoundImageGenerator) (SourceImageProvider, error) {
 							pinned = bound
-							return &grsaiProductImageProviderStub{}, nil
+							return &grsaiSourceImageProviderStub{}, nil
 						},
 					}, func(_ context.Context, o GenerationObservation) error {
 						observations.Add(1)
@@ -146,9 +146,9 @@ func TestSynchronousProductEditUsesExactGRSAIWireBeforeDownloads(t *testing.T) {
 func TestSynchronousAdapterMissingObserverCannotFallbackToOrdinaryEdit(t *testing.T) {
 	var builds int
 	client := NewClient(Config{Model: "gpt-image-2.5", SubmitURL: "https://example.com"})
-	_, err := NewSynchronousProductImageAdapter(ProductImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "version", Build: func(ai.RouteBoundImageGenerator) (ProductImageProvider, error) {
+	_, err := NewSynchronousSourceImageAdapter(SourceImageAdapterConfig{Client: client, ImageModel: "gpt-image-2.5", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "version", Build: func(ai.RouteBoundImageGenerator) (SourceImageProvider, error) {
 		builds++
-		return &grsaiProductImageProviderStub{}, nil
+		return &grsaiSourceImageProviderStub{}, nil
 	}}, nil)
 	if err == nil || builds != 0 {
 		t.Fatalf("missing durable observer must fail closed: error=%v builds=%d", err, builds)

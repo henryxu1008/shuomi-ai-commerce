@@ -18,7 +18,7 @@ func TestNewImagePolicyResolverMapsInfrastructureCatalogAtAppBoundary(t *testing
 		Policies: []policycatalog.Policy{{
 			Key:        policycatalog.PolicyKey{Marketplace: "marketplace-a", Country: "xx", Family: "family-a", SceneCategory: "category-a"},
 			Thresholds: policycatalog.Thresholds{MainReview: 0.61, WhiteBackgroundReview: 0.72, WhiteCanvasPenalty: 0.08},
-			SceneDefaults: productimage.SceneOptions{
+			SceneDefaults: productimage.PolicySceneDefaults{
 				SceneCategory: "category-a", SceneStyle: "studio", BackgroundTone: "neutral", Composition: "centered",
 				PropsLevel: "none", AudienceHint: "general", StyleReferenceIDs: []string{"style-a"},
 			},

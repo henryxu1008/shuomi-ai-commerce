@@ -3,10 +3,11 @@ package openai
 import (
 	"context"
 	"encoding/base64"
-	"github.com/stretchr/testify/require"
 	"task-processor/internal/ai"
 	productimage "task-processor/internal/product/image"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSourceEditAdapterSendsExactBundleAndApprovedPromptOnce(t *testing.T) {
@@ -17,14 +18,14 @@ func TestSourceEditAdapterSendsExactBundleAndApprovedPromptOnce(t *testing.T) {
 
 func testSourceEditAdapter(t *testing.T, provider, model string) {
 	images := &productImageGeneratorStub{response: &ai.ImageResponse{Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString(productImagePNG(t, 1024, 1024))}}}}
-	config := validProductImageAdapterConfig(images, nil)
+	config := validSourceImageAdapterConfig(images)
 	config.Provider = provider
 	config.ImageModel = model
 	var dimensions [][4]int
 	config.DiagnoseOutputDimensions = func(ew, eh, aw, ah int) {
 		dimensions = append(dimensions, [4]int{ew, eh, aw, ah})
 	}
-	adapter, err := NewProductImageAdapter(config)
+	adapter, err := NewSourceImageAdapter(config)
 	require.NoError(t, err)
 	capability, err := productimage.NewSourceEditCapability(adapter)
 	require.NoError(t, err)

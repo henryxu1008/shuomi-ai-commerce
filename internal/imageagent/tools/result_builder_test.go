@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/stretchr/testify/require"
 	"strings"
 	"task-processor/internal/agent"
 	"task-processor/internal/imageagent"
 	productimage "task-processor/internal/product/image"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type recordingSourceEditor struct {
@@ -55,7 +56,7 @@ func TestImageSetExecutorUsesSingleEditForDetailAndBindsEverySource(t *testing.T
 	input := setExecutionInput(t)
 	editor := &recordingSourceEditor{candidate: testSceneCandidate(t, "https://source.example/item.png")}
 	editor.candidate.Asset.Operations = []string{productimage.SourceEditOperation}
-	executor := NewProductImageSlotExecutor(Dependencies{SourceEditor: editor, UsageQuoter: testProductUsageQuoter{}})
+	executor := NewSourceGenerationExecutor(SourceGenerationDependencies{SourceEditor: editor, UsageQuoter: testProductUsageQuoter{}})
 	quote, err := executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 	require.NoError(t, err)
 	require.Len(t, quote.Operations, 1)
@@ -78,8 +79,6 @@ func TestImageSetExecutorUsesSingleEditForDetailAndBindsEverySource(t *testing.T
 	_, err = executor.GenerateQuotedSlot(context.Background(), changed, quote)
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 	require.Equal(t, 1, editor.calls)
-	_, err = executor.QuoteStagedReview(context.Background(), input, imageagent.BudgetPolicy{})
-	require.Error(t, err, "no hidden reviewer on set generation or recovery")
 }
 
 func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *testing.T) {
@@ -92,7 +91,7 @@ func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *test
 	require.NoError(t, err)
 	editor := &recordingSourceEditor{candidate: testSceneCandidate(t, "https://source.example/item.png")}
 	editor.candidate.Asset.Operations = []string{productimage.SourceEditOperation}
-	executor := NewProductImageSlotExecutor(Dependencies{SourceEditor: editor, UsageQuoter: testProductUsageQuoter{}})
+	executor := NewSourceGenerationExecutor(SourceGenerationDependencies{SourceEditor: editor, UsageQuoter: testProductUsageQuoter{}})
 	quote, err := executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 	require.NoError(t, err)
 	_, err = executor.GenerateQuotedSlot(context.Background(), input, quote)
@@ -116,10 +115,17 @@ func TestLiteralDetailCopyMismatchIsRejectedBeforeDirectToolsDispatch(t *testing
 	input.Slot.Recipe.VisibleText = []string{"unsupported claim"}
 	input.ImageMethodText = "Original exact Skill v2 visual brief."
 	editor := &recordingSourceEditor{}
-	executor := NewProductImageSlotExecutor(Dependencies{SourceEditor: editor, UsageQuoter: testProductUsageQuoter{}})
+	executor := NewSourceGenerationExecutor(SourceGenerationDependencies{SourceEditor: editor, UsageQuoter: testProductUsageQuoter{}})
 	_, err := executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 	_, err = executor.GenerateSlot(context.Background(), input)
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 	require.Zero(t, editor.calls)
+}
+func testSceneCandidate(t *testing.T, sourceURL string) productimage.Candidate {
+	t.Helper()
+	return productimage.Candidate{Asset: productimage.Asset{
+		Bytes: testTinyPNG(t), MediaType: "image/png", SourceURL: sourceURL, SourceAssetID: "source-1",
+		Role: productimage.RoleScene, Width: 1, Height: 1, Operations: []string{"render_scene"},
+	}}
 }

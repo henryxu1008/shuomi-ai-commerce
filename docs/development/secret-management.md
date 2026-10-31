@@ -6,10 +6,15 @@
 
 - 本地开发：使用 `.env.example`、`.env.prod` 模板、`config/*example*` 或未提交的本地覆盖文件。
 - Kubernetes：使用 `ExternalSecret` 生成运行时 `Secret`，业务 Deployment 继续通过现有 `secretRef`/`envFrom` 读取变量。
-- 变量名保持稳定，例如 `TASK_PROCESSOR_OPENAI_API_KEY`、`TASK_PROCESSOR_RABBITMQ_URL`，避免应用代码感知密钥来源变化。
+- 变量名保持稳定，例如 `TASK_PROCESSOR_RABBITMQ_URL`，避免应用代码感知密钥来源变化。
 - ListingKit Go API 运行时配置现在统一进入核心配置对象；`listingkit.zitadel.*`
   可以来自 YAML，也可以来自绑定 env。Next.js UI 仍直接读取
   `ZITADEL_*` 浏览器端 OIDC 变量。
+
+#1033 已退休全局 `openai:` 与仓库自有 `TASK_PROCESSOR_OPENAI_` 输入；
+当前 AI 使用已发布 route 所属组织的凭据，不再回退到成员或全局配置。
+凭据物理表、明确作用域 Get/Save 和引用/版本合同不变。本次不读取、轮转或
+清理任何已有凭据；下方历史上线清单不作为内部试用新增前置。
 
 ## External Secrets 约定
 

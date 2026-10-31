@@ -114,7 +114,6 @@ func TestValidateWorkbenchZitadelConfigRequiresClientSecret(t *testing.T) {
 
 func TestConfigValidateWithErrorIncludesWorkbenchZitadelConfig(t *testing.T) {
 	cfg := NewDefaultConfig()
-	cfg.OpenAI.APIKey = "test-openai-key"
 	cfg.Workbench.Enabled = true
 	cfg.ListingKit.Zitadel.IssuerURL = "https://issuer.example"
 	cfg.ListingKit.Zitadel.AuthorizationAPIURL = "https://issuer.example"

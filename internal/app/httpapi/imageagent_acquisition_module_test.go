@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
 	imageagentpolicy "task-processor/internal/app/imageagentpolicy"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -21,6 +19,9 @@ import (
 	imagetemporal "task-processor/internal/imageagent/temporal"
 	imageagenttools "task-processor/internal/imageagent/tools"
 	productasset "task-processor/internal/product/asset"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAcquisitionMainRunInputOwnsSingleSourcePolicyAndStableIdempotency(t *testing.T) {
@@ -377,7 +378,7 @@ func TestAcquisitionMainImageBudgetAdmitsRealMainQuoteBeforeProvider(t *testing.
 	require.NoError(t, err)
 	policyResolver, err := imageagentpolicy.LoadEmbeddedResolver()
 	require.NoError(t, err)
-	executor := imageagenttools.NewProductImageSlotExecutor(imageagenttools.Dependencies{UsageQuoter: &chain1ImagePorts{}, ProfileResolver: policyResolver})
+	executor := imageagenttools.NewSourceGenerationExecutor(imageagenttools.SourceGenerationDependencies{UsageQuoter: &chain1ImagePorts{}, ProfileResolver: policyResolver})
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{
 		Assets:         []imageagent.AuthorizedAsset{{ID: "catalog-image-3", Type: imageagent.AuthorizedAssetSource, URL: "https://images.example.test/3.png", SourceURL: "https://images.example.test/3.png", Width: 800, Height: 800}},
 		ProductContext: imageagent.ProductContextRef{ProductID: "crawler:1688:123", Title: "Product", SourceSnapshotVersion: 1},

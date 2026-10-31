@@ -1,3 +1,5 @@
+> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
+
 > #301 / #1025 USER_CONFIRMED：[本批已确认设计](legacy-task-openai-convenience-closure-retirement-boundary.md)仅替代本文Client.Generate与TextChatCompleter宽接口义务KEEP：当前审核仅需CreateChatCompletion，最小单方法合同归internal/ai.ChatCompletionClient；旧Generate/AnalyzeImage/GetStats与独占ptr同批退出，不留alias。原SDK/图像/审核、Manager路由/版本/凭据/预算/计量/UNKNOWN、请求池/限流/重试/日志/Close及当前能力、Store观察保持。其它已退生成链/alias禁令、JSON/hash/版本与原断言不变；workflow/inventory/既有资源不动。以下完整原文/历史逐字保留。
 
 > #301 / #980 用户确认的[完整退休闭包](legacy-ai-routing-image-policy-closure-retirement-boundary.md)已在同一PR实施：本文涉及旧AI PolicyRouter/Legacy-Shadow/Planner、闲置通用HTTP图片生成adapter、旧本地模板/排版/白底或IP启发式的KEEP/开工要求，仅在该设计§5/§6.1明列范围被替代。有效账本值、图片字节检查、SceneOptions/metadata原规则及通用TestCategoryOf断言明确保留；当前AI/图像审核/JSON/hash/计费/UNKNOWN、采集和独立SHEIN登录/Store同步不变。以下实际起始main完整原Git blob、批准/失败/历史/数字/勾选逐字保留；无compat alias/新运行装配、workflow/完整inventory/既有资源操作或试用前置，#301 OPEN。

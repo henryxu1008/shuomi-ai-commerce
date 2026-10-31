@@ -119,15 +119,12 @@ func TestNormalizeRecoverableEffectsDeduplicatesStableEntriesAndRejectsConflicts
 	require.ErrorIs(t, err, ErrRevisionConflict)
 }
 
-func TestNormalizeRecoverableEffectsAcceptsReviewerTransportBlocks(t *testing.T) {
-	normalized, err := NormalizeRecoverableEffects([]RecoverableEffect{{
-		SlotID: "slot-1", Attempt: 1, Code: SlotReviewTransportRequiredCode,
-	}})
-
-	require.NoError(t, err)
-	require.Equal(t, []RecoverableEffect{{
-		SlotID: "slot-1", Attempt: 1, Code: SlotReviewTransportRequiredCode,
-	}}, normalized)
+func TestNormalizeRecoverableEffectsRejectsRetiredReviewerTransportBlocks(t *testing.T) {
+	for _, code := range []string{"slot_review_required", "slot_review_transport_required"} {
+		normalized, err := NormalizeRecoverableEffects([]RecoverableEffect{{SlotID: "slot-1", Attempt: 1, Code: code}})
+		require.Error(t, err)
+		require.Nil(t, normalized)
+	}
 }
 
 func TestValidateProjectionSnapshotRejectsRecoverableEffectWithoutMatchingBlockedSlot(t *testing.T) {

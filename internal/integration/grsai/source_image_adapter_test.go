@@ -10,17 +10,17 @@ import (
 	productimage "task-processor/internal/product/image"
 )
 
-func TestNewProductImageAdapterInjectsExactRoutePinnedGRSAIClient(t *testing.T) {
+func TestNewSourceImageAdapterInjectsExactRoutePinnedGRSAIClient(t *testing.T) {
 	t.Parallel()
 
 	upstream := &grsaiProductImageGeneratorStub{}
 	var pinned ai.RouteBoundImageGenerator
-	adapter, err := NewProductImageAdapter(ProductImageAdapterConfig{
+	adapter, err := NewSourceImageAdapter(SourceImageAdapterConfig{
 		Client: upstream, ImageModel: "nano-banana", RouteReference: "route-a",
 		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-		Build: func(client ai.RouteBoundImageGenerator) (ProductImageProvider, error) {
+		Build: func(client ai.RouteBoundImageGenerator) (SourceImageProvider, error) {
 			pinned = client
-			return &grsaiProductImageProviderStub{quote: productimage.UsageQuote{
+			return &grsaiSourceImageProviderStub{quote: productimage.UsageQuote{
 				Operation: "extract_subject", RouteReference: "route-a", Model: "nano-banana",
 				CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
 			}}, nil
@@ -51,17 +51,17 @@ func TestPinnedProductImageClientRejectsRouteDriftBeforeGRSAIDispatch(t *testing
 	require.Zero(t, upstream.editCalls)
 }
 
-func TestGRSAIProductImageAdapterRejectsQuoteRouteDrift(t *testing.T) {
+func TestGRSAISourceImageAdapterRejectsQuoteRouteDrift(t *testing.T) {
 	t.Parallel()
 
-	delegate := &grsaiProductImageProviderStub{quote: productimage.UsageQuote{
+	delegate := &grsaiSourceImageProviderStub{quote: productimage.UsageQuote{
 		Operation: "render_scene", RouteReference: "route-b", Model: "nano-banana",
 		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
 	}}
-	adapter, err := NewProductImageAdapter(ProductImageAdapterConfig{
+	adapter, err := NewSourceImageAdapter(SourceImageAdapterConfig{
 		Client: &grsaiProductImageGeneratorStub{}, ImageModel: "nano-banana", RouteReference: "route-a",
 		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
-		Build: func(ai.RouteBoundImageGenerator) (ProductImageProvider, error) { return delegate, nil },
+		Build: func(ai.RouteBoundImageGenerator) (SourceImageProvider, error) { return delegate, nil },
 	})
 	require.NoError(t, err)
 
@@ -71,19 +71,19 @@ func TestGRSAIProductImageAdapterRejectsQuoteRouteDrift(t *testing.T) {
 	require.ErrorIs(t, err, productimage.ErrCapabilityUnsupported)
 }
 
-func TestNewProductImageAdapterRejectsMissingFactoryAndTypedNilDelegate(t *testing.T) {
+func TestNewSourceImageAdapterRejectsMissingFactoryAndTypedNilDelegate(t *testing.T) {
 	t.Parallel()
 
-	base := ProductImageAdapterConfig{
+	base := SourceImageAdapterConfig{
 		Client: &grsaiProductImageGeneratorStub{}, ImageModel: "nano-banana", RouteReference: "route-a",
 		CredentialReference: "credential-a", ConfigurationVersion: "config-v1",
 	}
-	_, err := NewProductImageAdapter(base)
+	_, err := NewSourceImageAdapter(base)
 	require.Error(t, err)
 
-	var provider *grsaiProductImageProviderStub
-	base.Build = func(ai.RouteBoundImageGenerator) (ProductImageProvider, error) { return provider, nil }
-	_, err = NewProductImageAdapter(base)
+	var provider *grsaiSourceImageProviderStub
+	base.Build = func(ai.RouteBoundImageGenerator) (SourceImageProvider, error) { return provider, nil }
+	_, err = NewSourceImageAdapter(base)
 	require.Error(t, err)
 }
 
@@ -108,20 +108,15 @@ func (*grsaiProductImageGeneratorStub) QueryImageGeneration(context.Context, str
 	return nil, ai.ErrAsyncImageGenerationNotSupported
 }
 
-type grsaiProductImageProviderStub struct{ quote productimage.UsageQuote }
+type grsaiSourceImageProviderStub struct{ quote productimage.UsageQuote }
 
-func (*grsaiProductImageProviderStub) Extract(context.Context, productimage.ExtractRequest) (productimage.Candidate, error) {
+func (*grsaiSourceImageProviderStub) EditSourceWhiteBackground(context.Context, productimage.SourceWhiteBackgroundRequest) (productimage.Candidate, error) {
 	return productimage.Candidate{}, nil
 }
-func (*grsaiProductImageProviderStub) RenderWhiteBackground(context.Context, productimage.RenderRequest) (productimage.Candidate, error) {
-	return productimage.Candidate{}, nil
-}
-func (*grsaiProductImageProviderStub) RenderScene(context.Context, productimage.SceneRequest) ([]productimage.Candidate, error) {
-	return nil, nil
-}
-func (*grsaiProductImageProviderStub) Review(context.Context, productimage.ReviewRequest) (productimage.Review, error) {
-	return productimage.Review{}, nil
-}
-func (p *grsaiProductImageProviderStub) QuoteUsage(context.Context, productimage.UsageQuoteRequest) (productimage.UsageQuote, error) {
+func (p *grsaiSourceImageProviderStub) QuoteUsage(context.Context, productimage.UsageQuoteRequest) (productimage.UsageQuote, error) {
 	return p.quote, nil
+}
+
+func (*grsaiSourceImageProviderStub) EditSources(context.Context, productimage.SourceEditRequest) (productimage.Candidate, error) {
+	return productimage.Candidate{}, nil
 }

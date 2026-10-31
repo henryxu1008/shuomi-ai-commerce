@@ -28,7 +28,7 @@ type Thresholds struct {
 type Policy struct {
 	Key           PolicyKey
 	Thresholds    Thresholds
-	SceneDefaults productimage.SceneOptions
+	SceneDefaults productimage.PolicySceneDefaults
 }
 
 type PolicySet struct {
@@ -42,5 +42,5 @@ type ProductImageProfile struct {
 	Key           PolicyKey
 	PolicyVersion string
 	Thresholds    Thresholds
-	SceneDefaults productimage.SceneOptions
+	SceneDefaults productimage.PolicySceneDefaults
 }

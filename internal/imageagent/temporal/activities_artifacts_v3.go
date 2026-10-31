@@ -36,7 +36,7 @@ func validatePersistedSlotEffectV3(effect imageagent.SlotEffectV3Attempt) error 
 		switch effect.Phase {
 		case imageagent.SlotEffectV3ProviderClaimed, imageagent.SlotEffectV3StagingPrepared, imageagent.SlotEffectV3ArtifactStaged,
 			imageagent.SlotEffectV3PublicationClaimed, imageagent.SlotEffectV3PublicationComplete,
-			imageagent.SlotEffectV3ProviderUnknown, imageagent.SlotEffectV3StagingUnknown, imageagent.SlotEffectV3PublicationUnknown, imageagent.SlotEffectV3ReviewRequired, imageagent.SlotEffectV3ReviewTransportRequired,
+			imageagent.SlotEffectV3ProviderUnknown, imageagent.SlotEffectV3StagingUnknown, imageagent.SlotEffectV3PublicationUnknown,
 			imageagent.SlotEffectV3RecoveryBlocked:
 		default:
 			code = slotEffectPhaseInvalidCode

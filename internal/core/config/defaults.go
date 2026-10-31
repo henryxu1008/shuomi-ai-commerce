@@ -7,11 +7,6 @@ import (
 func setDefaults(v *viper.Viper) {
 	defaults := NewDefaultConfig()
 
-	v.SetDefault("openai.apiKey", defaults.OpenAI.APIKey)
-	v.SetDefault("openai.model", defaults.OpenAI.Model)
-	v.SetDefault("openai.baseURL", defaults.OpenAI.BaseURL)
-	v.SetDefault("openai.timeout", defaults.OpenAI.Timeout)
-
 	v.SetDefault("listingkit.platformAdminUsers", defaults.ListingKit.PlatformAdminUsers)
 	v.SetDefault("listingkit.platformAdminRoles", defaults.ListingKit.PlatformAdminRoles)
 	v.SetDefault("listingkit.zitadel.issuerURL", defaults.ListingKit.Zitadel.IssuerURL)

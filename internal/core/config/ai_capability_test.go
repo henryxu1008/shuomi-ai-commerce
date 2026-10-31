@@ -8,11 +8,6 @@ import (
 
 func validMinimalConfigYAML() []byte {
 	return []byte(`
-openai:
-  apiKey: test-key
-  model: test-model
-  baseURL: https://example.test/v1
-  timeout: 30
 `)
 }
 

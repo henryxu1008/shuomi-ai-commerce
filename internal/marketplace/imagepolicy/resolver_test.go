@@ -31,7 +31,7 @@ func TestResolverReturnsPolicyForExactKey(t *testing.T) {
 				WhiteBackgroundReview: 0.72,
 				WhiteCanvasPenalty:    0.08,
 			},
-			SceneDefaults: productimage.SceneOptions{
+			SceneDefaults: productimage.PolicySceneDefaults{
 				SceneCategory:     "category-a",
 				SceneStyle:        "studio",
 				BackgroundTone:    "neutral",
@@ -58,7 +58,7 @@ func TestResolverReturnsPolicyForExactKey(t *testing.T) {
 			WhiteBackgroundReview: 0.72,
 			WhiteCanvasPenalty:    0.08,
 		},
-		SceneDefaults: productimage.SceneOptions{
+		SceneDefaults: productimage.PolicySceneDefaults{
 			SceneCategory:     "category-a",
 			SceneStyle:        "studio",
 			BackgroundTone:    "neutral",
@@ -330,7 +330,7 @@ func TestResolverDoesNotRetainCallerStringBackingStorage(t *testing.T) {
 		SceneCategory: callerBackedString("category-a"),
 	}
 	policy := policyForTest(key)
-	policy.SceneDefaults = productimage.SceneOptions{
+	policy.SceneDefaults = productimage.PolicySceneDefaults{
 		SceneCategory:     callerBackedString("category-a"),
 		SceneStyle:        callerBackedString("studio"),
 		BackgroundTone:    callerBackedString("neutral"),
@@ -418,7 +418,7 @@ func policyForTest(key PolicyKey) Policy {
 			WhiteBackgroundReview: 0.70,
 			WhiteCanvasPenalty:    0.10,
 		},
-		SceneDefaults: productimage.SceneOptions{SceneCategory: key.SceneCategory},
+		SceneDefaults: productimage.PolicySceneDefaults{SceneCategory: key.SceneCategory},
 	}
 }
 

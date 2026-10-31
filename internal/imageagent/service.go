@@ -145,6 +145,9 @@ func (s *Service) Start(ctx context.Context, input StartRunInput) error {
 		if existing.Run.BusinessTaskID != input.BusinessTaskID || existing.Run.TargetPlatform != input.TargetPlatform || existing.Run.ImagePolicyContext != input.ImagePolicyContext || existing.Run.IdempotencyKey != input.IdempotencyKey || existing.Run.Budget != input.Budget || existing.Run.MaxConcurrentSlots != input.MaxConcurrentSlots || !reflect.DeepEqual(existing.Plan, input.Plan) {
 			return ErrRevisionConflict
 		}
+		if err := ValidateAcquisitionMainPlan(input.TargetPlatform, input.ImagePolicyContext, input.Plan); err != nil {
+			return err
+		}
 		if existing.Run.Status == RunStatusCompleted || existing.Run.Status == RunStatusCancelled {
 			return nil
 		}
@@ -175,6 +178,9 @@ func (s *Service) Start(ctx context.Context, input StartRunInput) error {
 	}
 	if err := ValidatePlanAgainstCatalog(input.Plan, catalog); err != nil {
 		return fmt.Errorf("%w: validate authorized image assets: %v", ErrValidation, err)
+	}
+	if err := ValidateAcquisitionMainPlan(input.TargetPlatform, input.ImagePolicyContext, input.Plan); err != nil {
+		return err
 	}
 	run := Run{
 		ScopeProtocol: identity.ScopeProtocol,
@@ -254,6 +260,9 @@ func (s *Service) startExistingProjection(ctx context.Context, projection RunPro
 		return fmt.Errorf("%w: image agent provider is unavailable for tenant", ErrCommandBlocked)
 	}
 	if err := s.validateImagePolicyAvailable(ctx, projection.Run.TargetPlatform, projection.Run.ImagePolicyContext); err != nil {
+		return err
+	}
+	if err := ValidateAcquisitionMainPlan(projection.Run.TargetPlatform, projection.Run.ImagePolicyContext, projection.Plan); err != nil {
 		return err
 	}
 	return s.workflows.StartManual(ctx, WorkflowStart{

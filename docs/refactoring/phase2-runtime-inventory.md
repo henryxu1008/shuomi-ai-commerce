@@ -328,7 +328,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | --- | --- | --- | --- |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/pkg/appenv` | runtime-support wiring | app runtime / current logging owner |
-| `task-processor/internal/integration/openai` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/integration/httpimage` | `task-processor/internal/imageagent` | agent business consumer | agent owner / Phase 6 |
 
 ## Historical pre-migration snapshot

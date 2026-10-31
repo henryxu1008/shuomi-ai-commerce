@@ -34,7 +34,7 @@ func TestProfileInputContainsOnlyStructuredPolicyKey(t *testing.T) {
 func TestSceneOptionsOwnershipSchemaIsExplicit(t *testing.T) {
 	t.Parallel()
 
-	typeOfOptions := reflect.TypeOf(productimage.SceneOptions{})
+	typeOfOptions := reflect.TypeOf(productimage.PolicySceneDefaults{})
 	expectedNames := []string{
 		"SceneCategory", "SceneStyle", "BackgroundTone", "Composition", "PropsLevel",
 		"AudienceHint", "CustomSceneHint", "SlotRole", "SlotBrief", "StyleReferenceIDs",

@@ -324,13 +324,7 @@ func TestProductionProviderAndLLMLoggerContractsInSSA(t *testing.T) {
 }
 
 func productionProviderLoggerRules() []providerLoggerRule {
-	const openAIPath = "task-processor/internal/integration/openai"
 	return []providerLoggerRule{
-		{PackagePath: openAIPath, ConstructorName: "NewClient", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
-		{PackagePath: openAIPath, ConstructorName: "NewManager", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
-		{PackagePath: openAIPath, ConstructorName: "NewRequestPool", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
-		{PackagePath: openAIPath, ConstructorName: "NewCachedClient", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
-		{PackagePath: openAIPath, ConstructorName: "NewResilientClient", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
 		{PackagePath: "task-processor/internal/integration/grsai", ConstructorName: "NewClient", AdapterName: "AdaptLogrus", LoggerField: "Logger", ConfigArgument: 0},
 	}
 }

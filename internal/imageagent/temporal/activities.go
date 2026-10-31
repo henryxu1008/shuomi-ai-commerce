@@ -24,7 +24,7 @@ type ActivityDependencies struct {
 	GenerationOutputRecovery imageagent.GenerationOutputRecovery
 	ExecutionAuthorizer      imageagent.ExecutionAuthorizer
 	Repository               imageagent.Repository
-	PublisherV3              imageagent.ApprovedAssetPublisherV3
+	PublisherV3              imageagent.AcquisitionMainPublisher
 	SlotEffectsV3            imageagent.SlotExternalEffectV3Repository
 	StagedSlotExecutor       imageagent.StagedSlotExecutor
 	ArtifactStore            DurableArtifactStore
@@ -42,7 +42,7 @@ type Activities struct {
 	generationOutputRecovery imageagent.GenerationOutputRecovery
 	executionAuthorizer      imageagent.ExecutionAuthorizer
 	repository               imageagent.Repository
-	publisherV3              imageagent.ApprovedAssetPublisherV3
+	publisherV3              imageagent.AcquisitionMainPublisher
 	slotEffectsV3            imageagent.SlotExternalEffectV3Repository
 	stagedSlotExecutor       imageagent.StagedSlotExecutor
 	artifactStore            DurableArtifactStore

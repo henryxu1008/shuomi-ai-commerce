@@ -1,3 +1,5 @@
+> #1033 / #301 当前整批实施：[旧通用图像执行闭包退休](../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)。旧通用管线/模型审核、SDK Manager/Pool、全局/成员凭据回退和通用发布器退出；当前来源单主图、图组/Artwork 抽到当前 owner，JSON/hash/事务/恢复保持。#301 保持 OPEN；实现和 CI 证据不等于运行验收或合并授权。以下导航及历史原文保留。
+
 > #1032 当前实施：用户已确认准确设计 7b761786ef998d3d4bb9cf72d5ae214fae35431e 的 §1–§7（含 §4.2、§6.1）；准入 USER_CONFIRMED / IMPLEMENTATION_READY。按67路径整批抽取四项当前 Image 维护操作、退休两旧 CLI 与聚合建表闭包，不留 alias。原冻结设计/导航原文逐字保留于下；滚动 CI/复核证据见 PR #1032。既有 Goose 记录不动，workflow/inventory 零改，不操作既有资源，#301 保持 OPEN。
 
 > #301 当前待确认设计：[旧schema CLI与跨域聚合建表完整闭包](../architecture/legacy-schema-cli-owner-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。未来67路径，一个主要PR整批覆盖两旧schema CLI、跨域聚合注册及专属装配尾部；先抽取四项当前Image初始化/窄授权到正确owner，保留当前Store/Resource正式安装、组织约束、图像/采集/身份与Store观察。旧Goose2026083001源注册退出，既有版本表/记录不动，当前Goose链保留。不改workflow/所有inventory，不操作既有实例数据凭据缓存进程，无试用新前置，#301 OPEN。适用设计复核与用户确认后再实施，当前仅三文档。以下原导航/登记、既有顶注、历史计数和勾选逐字保留。

@@ -9,8 +9,8 @@ import (
 	"task-processor/internal/imageagent"
 )
 
-// PublishApprovedV3 publishes through the current organization-scoped owner.
-func (a *Activities) PublishApprovedV3(ctx context.Context, input PublishApprovedV3ActivityInput) error {
+// PublishAcquisitionMain publishes through the current organization-scoped owner.
+func (a *Activities) PublishAcquisitionMain(ctx context.Context, input PublishAcquisitionMainActivityInput) error {
 	current, readErr := a.repository.GetProjection(ctx, imageagent.RunScope{TenantID: input.Identity.TenantID, OwnerUserID: input.Identity.UserID, RunID: input.RunID})
 	if readErr != nil {
 		return readErr
@@ -34,7 +34,7 @@ func (a *Activities) PublishApprovedV3(ctx context.Context, input PublishApprove
 	if err != nil {
 		return err
 	}
-	_, err = a.publisherV3.PublishApprovedV3(ctx, imageagent.PublishApprovedV3Input{
+	_, err = a.publisherV3.PublishAcquisitionMain(ctx, imageagent.PublishAcquisitionMainInput{
 		RunID: input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
 		PlanRevision: input.PlanRevision, CandidateAssetIDs: append([]string(nil), input.CandidateAssetIDs...),
 		IdempotencyKey: input.IdempotencyKey,
@@ -66,7 +66,6 @@ func RegisterActivitiesForMode(registrar activityRegistrar, activities *Activiti
 	registrar.RegisterActivityWithOptions(activities.PersistPendingCommand, sdkactivity.RegisterOptions{Name: activityPersistPendingCommand})
 
 	registrar.RegisterActivityWithOptions(activities.ExecuteSlotV3, sdkactivity.RegisterOptions{Name: activityExecuteSlotV3})
-	registrar.RegisterActivityWithOptions(activities.ReviewStagedSlotV3, sdkactivity.RegisterOptions{Name: activityReviewStagedSlotV3})
 	registrar.RegisterActivityWithOptions(activities.StartEffectRecoveryV3, sdkactivity.RegisterOptions{Name: activityStartEffectRecoveryV3})
 	registrar.RegisterActivityWithOptions(activities.RecoverEffectV3, sdkactivity.RegisterOptions{Name: activityRecoverEffectV3})
 	registrar.RegisterActivityWithOptions(activities.PersistRecoveryBlockedEffectV3, sdkactivity.RegisterOptions{Name: activityPersistRecoveryBlockedV3})
@@ -77,7 +76,7 @@ func RegisterActivitiesForMode(registrar activityRegistrar, activities *Activiti
 	registrar.RegisterActivityWithOptions(activities.PublishApprovedImageSet, sdkactivity.RegisterOptions{Name: activityPublishApprovedImageSet})
 	registrar.RegisterActivityWithOptions(activities.PersistImageSetSlotResult, sdkactivity.RegisterOptions{Name: activityPersistImageSetSlotResult})
 
-	registrar.RegisterActivityWithOptions(activities.PublishApprovedV3, sdkactivity.RegisterOptions{Name: activityPublishApprovedV3})
+	registrar.RegisterActivityWithOptions(activities.PublishAcquisitionMain, sdkactivity.RegisterOptions{Name: activityPublishAcquisitionMain})
 
 	return nil
 }

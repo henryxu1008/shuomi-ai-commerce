@@ -20,13 +20,6 @@ func BuildConfig(v *viper.Viper) *Config {
 
 	cfg := &Config{
 		StorageCapacity: v.GetBool("storageCapacity"),
-		OpenAI: OpenAIConfig{
-			APIKey:  v.GetString("openai.apiKey"),
-			Model:   v.GetString("openai.model"),
-			BaseURL: v.GetString("openai.baseURL"),
-			Timeout: v.GetInt("openai.timeout"),
-			Clients: buildOpenAIClients(v),
-		},
 		ImageAgent: ImageAgentConfig{
 			Generation: ImageAgentGenerationConfig{
 				PriceVersion:   v.GetString("imageagent.generation.priceVersion"),
@@ -114,44 +107,6 @@ func legacyListingKitUsernameAllowlistConfigured(v *viper.Viper) bool {
 		}
 	}
 	return false
-}
-
-func buildOpenAIClients(v *viper.Viper) map[string]OpenAIClientConfig {
-	raw := v.GetStringMap("openai.clients")
-	if len(raw) == 0 {
-		return nil
-	}
-
-	defaultKey := v.GetString("openai.apiKey")
-	defaultBase := v.GetString("openai.baseURL")
-	defaultTimeout := v.GetInt("openai.timeout")
-
-	clients := make(map[string]OpenAIClientConfig, len(raw))
-	for name := range raw {
-		prefix := "openai.clients." + name
-
-		apiKey := v.GetString(prefix + ".apiKey")
-		if apiKey == "" {
-			apiKey = defaultKey
-		}
-		baseURL := v.GetString(prefix + ".baseURL")
-		if baseURL == "" {
-			baseURL = defaultBase
-		}
-		timeout := v.GetInt(prefix + ".timeout")
-		if timeout == 0 {
-			timeout = defaultTimeout
-		}
-
-		clients[name] = OpenAIClientConfig{
-			APIKey:   apiKey,
-			Model:    v.GetString(prefix + ".model"),
-			BaseURL:  baseURL,
-			Timeout:  timeout,
-			APIStyle: v.GetString(prefix + ".apiStyle"),
-		}
-	}
-	return clients
 }
 
 func rolePolicyDatabase(v *viper.Viper) *DatabaseConfig {

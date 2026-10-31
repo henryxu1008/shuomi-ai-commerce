@@ -46,7 +46,7 @@ type ImageAgentTemporalDependencies struct {
 	GenerationOutputRecovery imageagent.GenerationOutputRecovery
 	ExecutionAuthorizer      imageagent.ExecutionAuthorizer
 	Repository               imageagent.Repository
-	PublisherV3              imageagent.ApprovedAssetPublisherV3
+	PublisherV3              imageagent.AcquisitionMainPublisher
 	StagedSlotExecutor       imageagent.StagedSlotExecutor
 	ArtifactStore            imageagenttemporal.DurableArtifactStore
 	PublicationLeaseDuration time.Duration

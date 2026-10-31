@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	grsai "task-processor/internal/integration/grsai"
-	openaiclient "task-processor/internal/integration/openai"
 )
 
 func TestIntegrationProviderLoggerMethodSetsMatch(t *testing.T) {
@@ -19,7 +18,6 @@ func TestIntegrationProviderLoggerMethodSetsMatch(t *testing.T) {
 		name   string
 		typeOf reflect.Type
 	}{
-		{"openai", reflect.TypeOf((*openaiclient.Logger)(nil)).Elem()},
 		{"grsai", reflect.TypeOf((*grsai.Logger)(nil)).Elem()},
 	}
 	want := []string{"Debug", "Error", "Info", "Warn"}
@@ -137,7 +135,6 @@ func scanProviderConstructors(t *testing.T, roots ...string) map[string]provider
 
 func TestProductionProviderConstructorInventoryIsComplete(t *testing.T) {
 	want := map[string]providerConstructorCounts{
-		"internal/app/worker/imageagent/dependencies.go":        {openAI: 1},
 		"internal/app/worker/imageagent/generation_provider.go": {grsai: 1},
 	}
 	got := scanProviderConstructors(t,
@@ -242,27 +239,6 @@ func TestProductionLLMManagerAdapterCallersPassLogger(t *testing.T) {
 	}
 }
 
-func TestOpenAIConfigsExposeExplicitNonSerializedLogger(t *testing.T) {
-	for _, config := range []any{
-		openaiclient.ClientConfig{}, openaiclient.PoolConfig{},
-		openaiclient.ManagerConfig{},
-	} {
-		configType := reflect.TypeOf(config)
-		field, ok := configType.FieldByName("Logger")
-		if !ok {
-			t.Errorf("%s has no Logger field", configType.Name())
-			continue
-		}
-		if field.Type != reflect.TypeOf((*openaiclient.Logger)(nil)).Elem() || field.Tag.Get("json") != "-" {
-			t.Errorf("%s.Logger = %s json:%q", configType.Name(), field.Type, field.Tag.Get("json"))
-		}
-	}
-	grsaiType := reflect.TypeOf(grsai.Config{})
-	if field, ok := grsaiType.FieldByName("Logger"); !ok || field.Type != reflect.TypeOf((*grsai.Logger)(nil)).Elem() {
-		t.Errorf("grsai.Config.Logger missing or wrong type")
-	}
-}
-
 func TestIntegrationProviderLoggingUsesOnlyLocalExplicitPorts(t *testing.T) {
 	providerRoot := filepath.Join("..", "internal", "integration")
 	for _, name := range []string{"openai", "grsai"} {
@@ -354,61 +330,9 @@ func TestHTTPImageResolverIsImmutableFunction(t *testing.T) {
 	}
 }
 
-func TestOpenAILoggerConfigFieldsAreASTComplete(t *testing.T) {
-	want := map[string]bool{
-		"ClientConfig": false, "PoolConfig": false,
-		"ManagerConfig": false,
-	}
-	root := filepath.Join("..", "internal", "integration", "openai")
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-		if err != nil {
-			return err
-		}
-		for _, declaration := range file.Decls {
-			generic, ok := declaration.(*ast.GenDecl)
-			if !ok || generic.Tok != token.TYPE {
-				continue
-			}
-			for _, rawSpec := range generic.Specs {
-				typeSpec := rawSpec.(*ast.TypeSpec)
-				if _, tracked := want[typeSpec.Name.Name]; !tracked {
-					continue
-				}
-				structure, ok := typeSpec.Type.(*ast.StructType)
-				if !ok {
-					t.Errorf("%s is not a struct", typeSpec.Name.Name)
-					continue
-				}
-				for _, field := range structure.Fields.List {
-					if len(field.Names) != 1 || field.Names[0].Name != "Logger" {
-						continue
-					}
-					identifier, ok := field.Type.(*ast.Ident)
-					if !ok || identifier.Name != "Logger" {
-						t.Errorf("%s.Logger is not local Logger", typeSpec.Name.Name)
-					}
-					if field.Tag == nil || field.Tag.Value != "`json:\"-\"`" {
-						t.Errorf("%s.Logger json tag = %v", typeSpec.Name.Name, field.Tag)
-					}
-					want[typeSpec.Name.Name] = true
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for name, found := range want {
-		if !found {
-			t.Errorf("%s missing Logger Logger `json:\"-\"`", name)
-		}
+func TestGRSAIConfigRetainsExplicitLocalLogger(t *testing.T) {
+	grsaiType := reflect.TypeOf(grsai.Config{})
+	if field, ok := grsaiType.FieldByName("Logger"); !ok || field.Type != reflect.TypeOf((*grsai.Logger)(nil)).Elem() {
+		t.Errorf("grsai.Config.Logger missing or wrong type")
 	}
 }

@@ -1,3 +1,5 @@
+> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
+
 # 旧 ImageAgent 历史执行协议与便利合同完整退休设计
 
 > #301 / #1001：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户已确认冻结设计 `ea04b837656bf42972159bb7cf2a68a43d17c80a` §1–§7（含§4.2/§6.1），按33路径在同一PR整批实施；[准入和接单记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1001#issuecomment-6496604488)。设计原CI/独立设计复核已完成；准确源码CI及最终交付复核另记PR，设计证据不替代源码证据。#301 保持 OPEN。

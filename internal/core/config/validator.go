@@ -8,7 +8,6 @@ import (
 
 func ValidateConfig(c *Config) []error {
 	var errors []error
-	errors = append(errors, ValidateOpenAIConfig(&c.OpenAI)...)
 	errors = append(errors, ValidateListingKitConfig(&c.ListingKit)...)
 	errors = append(errors, ValidateWorkbenchConfig(&c.Workbench, &c.ListingKit.Zitadel)...)
 	return errors
@@ -63,8 +62,6 @@ func classifyValidationError(err error) (string, string) {
 
 func moduleFromField(field string) string {
 	switch {
-	case strings.HasPrefix(field, "openai."):
-		return "OpenAI"
 	default:
 		return "General"
 	}
@@ -72,8 +69,6 @@ func moduleFromField(field string) string {
 
 func validationModuleRank(module string) int {
 	switch module {
-	case "OpenAI":
-		return 1
 	default:
 		return 99
 	}

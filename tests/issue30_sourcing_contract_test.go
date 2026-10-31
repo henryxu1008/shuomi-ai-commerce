@@ -216,35 +216,35 @@ func TestIssue30ProductApprovalAndReadinessUseDurableCurrentOwners(t *testing.T)
 	require.NoError(t, err)
 	assets, err := assetdb.NewRepository(db)
 	require.NoError(t, err)
-	scope := asset.InventoryScope{TenantID: published.Identity.TenantID, ProductKey: published.Identity.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: published.Version}
+	scope := asset.InventoryScope{TenantID: published.Identity.TenantID, ProductKey: published.Identity.ProductKey, TargetPlatform: "product", SourceSnapshotVersion: published.Version}
 	_, err = assets.GetApprovedInventory(ctx, scope)
 	require.ErrorIs(t, err, asset.ErrApprovedAssetsNotReady)
-	require.False(t, readiness.ProductInputs(published, nil, "shein").Ready)
+	require.False(t, readiness.ProductInputs(published, nil, "product").Ready)
 	require.NotEmpty(t, published.Snapshot.Images)
 	owner, err := imageagent.ArtifactOwnerKey("actor")
 	require.NoError(t, err)
 	hash := strings.Repeat("1", 64)
-	slot := imageagent.Slot{ID: "main-1", Role: imageagent.SlotRoleMain}
+	slot := imageagent.Slot{ID: "main-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{envelope.AssetCandidates[0].SourceID}}
 	projection := imageagent.RunProjection{
-		Run:          imageagent.Run{ID: "image-run-1", TenantID: "org-a", UserID: "actor", TargetPlatform: "shein", Status: imageagent.RunStatusAwaitingFinalApproval, ActivePlanRevision: 1},
-		Plan:         imageagent.Plan{Revision: 1, Slots: []imageagent.Slot{slot}},
+		Run:          imageagent.Run{ID: "image-run-1", TenantID: "org-a", UserID: "actor", TargetPlatform: "product", ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}, Status: imageagent.RunStatusAwaitingFinalApproval, ActivePlanRevision: 1},
+		Plan:         imageagent.Plan{Revision: 1, SourceAssetIDs: slot.SourceAssetIDs, Slots: []imageagent.Slot{slot}},
 		AssetCatalog: imageagent.AssetCatalog{ProductContext: imageagent.ProductContextRef{ProductID: published.Identity.ProductKey, SourceSnapshotVersion: published.Version}},
 		Slots:        []imageagent.SlotProjection{{Slot: imageagent.Slot{ID: slot.ID, Role: slot.Role, Status: imageagent.SlotStatusAccepted}, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "approved-1", SourceAssetID: envelope.AssetCandidates[0].SourceID, Width: 1200, Height: 1200, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: fmt.Sprintf("image-agent/public/org-a/%s/image-run-1/1/main-1/1/0-%s.png", owner, hash), SHA256: hash}}}}},
 	}
 	projection.ResultDigest, err = imageagent.ResultDigestV3(projection.Plan, projection.Slots)
 	require.NoError(t, err)
-	approval, err := assetpublication.NewPublisher(issue30Projection{projection}, assets, issue30PublicURLs{})
+	approval, err := assetpublication.NewAcquisitionMainPublisher(issue30Projection{projection}, assets, issue30PublicURLs{})
 	require.NoError(t, err)
-	input := imageagent.PublishApprovedV3Input{RunID: projection.Run.ID, TenantID: "org-a", UserID: "actor", PlanRevision: 1, CandidateAssetIDs: []string{"approved-1"}, IdempotencyKey: "explicit-approval-1"}
+	input := imageagent.PublishAcquisitionMainInput{RunID: projection.Run.ID, TenantID: "org-a", UserID: "actor", PlanRevision: 1, CandidateAssetIDs: []string{"approved-1"}, IdempotencyKey: "explicit-approval-1"}
 	invalid := input
 	invalid.UserID = "other"
-	_, err = approval.PublishApprovedV3(ctx, invalid)
+	_, err = approval.PublishAcquisitionMain(ctx, invalid)
 	require.Error(t, err)
 	_, err = assets.GetApprovedInventory(ctx, scope)
 	require.ErrorIs(t, err, asset.ErrApprovedAssetsNotReady)
-	ack, err := approval.PublishApprovedV3(ctx, input)
+	ack, err := approval.PublishAcquisitionMain(ctx, input)
 	require.NoError(t, err)
-	replay, err := approval.PublishApprovedV3(ctx, input)
+	replay, err := approval.PublishAcquisitionMain(ctx, input)
 	require.NoError(t, err)
 	require.Equal(t, ack, replay)
 	sqlDB, err := db.DB()
@@ -261,20 +261,20 @@ func TestIssue30ProductApprovalAndReadinessUseDurableCurrentOwners(t *testing.T)
 	require.Len(t, inventory.Assets, 1)
 	require.Equal(t, envelope.AssetCandidates[0].SourceID, inventory.Assets[0].SourceAssetID)
 	require.NotEqual(t, persisted.Snapshot.Images[0].URL, inventory.Assets[0].URL)
-	require.True(t, readiness.ProductInputs(persisted, &inventory, "shein").Ready)
+	require.True(t, readiness.ProductInputs(persisted, &inventory, "product").Ready)
 	require.Equal(t, envelope.Identity.SourceID, persisted.Snapshot.Sources[0].SourceID)
 	require.Equal(t, envelope.RawReference.ReferenceID, persisted.Snapshot.Sources[0].Detail)
 	require.Equal(t, scope, inventory.Scope)
 	for _, other := range []asset.InventoryScope{
-		{TenantID: "org-b", ProductKey: scope.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: 1},
-		{TenantID: "org-a", ProductKey: "other-product", TargetPlatform: "shein", SourceSnapshotVersion: 1},
+		{TenantID: "org-b", ProductKey: scope.ProductKey, TargetPlatform: "product", SourceSnapshotVersion: 1},
+		{TenantID: "org-a", ProductKey: "other-product", TargetPlatform: "product", SourceSnapshotVersion: 1},
 		{TenantID: "org-a", ProductKey: scope.ProductKey, TargetPlatform: "amazon", SourceSnapshotVersion: 1},
-		{TenantID: "org-a", ProductKey: scope.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: 2},
+		{TenantID: "org-a", ProductKey: scope.ProductKey, TargetPlatform: "product", SourceSnapshotVersion: 2},
 	} {
 		_, err = assets.GetApprovedInventory(ctx, other)
 		require.ErrorIs(t, err, asset.ErrApprovedAssetsNotReady)
 	}
 	// Approved images do not conceal later missing source facts.
 	persisted.Snapshot.Review = &catalog.ReviewState{NeedsReview: true, Reasons: []string{"missing dimensions"}}
-	require.False(t, readiness.ProductInputs(persisted, &inventory, "shein").Ready)
+	require.False(t, readiness.ProductInputs(persisted, &inventory, "product").Ready)
 }

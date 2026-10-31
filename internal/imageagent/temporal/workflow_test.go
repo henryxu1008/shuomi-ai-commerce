@@ -54,7 +54,7 @@ func TestManualWorkflowExecutesEverySlotIndependently(t *testing.T) {
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1"))
 	}, time.Second)
@@ -161,7 +161,7 @@ func TestManualWorkflowReplacesBlockedPlanAtExactRevision(t *testing.T) {
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.MatchedBy(func(input PersistPlanRevisionActivityInput) bool {
 		return input.RunID == "run-1" && input.ExpectedRevision == 1 && input.Plan.Revision == 2 && input.Identity.TenantID == "tenant-a"
 	})).Return(nil).Once()
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		requireWorkflowUpdate(t, env, signalReplacePlan, ReplacePlanSignal{
 			RunID: "run-1", ExpectedRevision: 1, Plan: replacement,
@@ -611,7 +611,7 @@ func TestManualWorkflowMixedCommandsAtOneTickReserveExactlyOnePendingOwner(t *te
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { planWrites++ }).Return(nil).Maybe()
 	published := 0
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 
 	retry := RetrySlotSignal{RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "user-a", ActionID: "retry-owner"}
@@ -1517,7 +1517,7 @@ func TestManualWorkflowWaitsForFinalApprovalBeforePublishing(t *testing.T) {
 			Once()
 	}
 	publishedCalls := 0
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { publishedCalls++ }).
 		Return(nil).
 		Once()
@@ -1542,7 +1542,7 @@ func TestManualWorkflowApprovalUpdateRequiresCanonicalDigestAndAcksAfterPublicat
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	published := false
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).
 		After(time.Minute).
 		Run(func(mock.Arguments) { published = true }).
 		Return(nil).
@@ -1606,7 +1606,7 @@ func TestManualWorkflowApprovalUpdateResumesAfterCompletedStateFailureWithoutRep
 	}
 	publishCalls := 0
 	logicalPublications := 0
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.MatchedBy(func(input PublishApprovedV3ActivityInput) bool {
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.MatchedBy(func(input PublishAcquisitionMainActivityInput) bool {
 		return input.IdempotencyKey == ApprovalActionPublicationKey("approve-resume", "run-1", 1)
 	})).Run(func(mock.Arguments) {
 		publishCalls++
@@ -1684,7 +1684,7 @@ func TestManualWorkflowRejectsCancelAfterApprovalPublicationBeforeProjection(t *
 			Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
 	publishCalls := 0
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { publishCalls++ }).Return(nil).Once()
 	completed := mock.MatchedBy(func(input PersistRunStateActivityInput) bool {
 		return input.Projection.Status == imageagent.RunStatusCompleted
@@ -1747,7 +1747,7 @@ func TestManualWorkflowCancelSupersedesFailedApprovalCommand(t *testing.T) {
 	}
 	// Failure is before the durable publish-start boundary; no Asset call occurred.
 	publishCalls := 0
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { publishCalls++ }).Return(nil).Maybe()
 	env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.MatchedBy(func(input PersistPendingCommandActivityInput) bool {
 		return input.Receipt != nil && input.Receipt.Phase == string(updatePhaseApprovalPublishStarted)
@@ -1794,7 +1794,7 @@ func TestManualWorkflowDuplicateApprovalPublishesOnceWithStableKey(t *testing.T)
 			Return(successfulSlotResult(slot.ID, 1), nil).
 			Once()
 	}
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.MatchedBy(func(in PublishApprovedV3ActivityInput) bool {
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.MatchedBy(func(in PublishAcquisitionMainActivityInput) bool {
 		return in.IdempotencyKey == ApprovalActionPublicationKey("approve-final-1", "run-1", 1) &&
 			requireCandidateIDs(in.CandidateAssetIDs, plan)
 	})).Return(nil).Once()
@@ -1818,7 +1818,7 @@ func TestManualWorkflowIgnoresApprovalForStaleRevision(t *testing.T) {
 	}
 	published := 0
 	freshSent := false
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 	stale := validApproval("approve-stale")
 	stale.PlanRevision = 2
 	env.RegisterDelayedCallback(func() {
@@ -1849,7 +1849,7 @@ func TestManualWorkflowRejectsEarlyApprovalEvenWhenLaterResent(t *testing.T) {
 	}
 	published := 0
 	freshSent := false
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 	early := validApproval("approve-too-early")
 	env.RegisterDelayedCallback(func() {
 		requireFailedWorkflowUpdate(t, env, signalApproveResults, early)
@@ -1892,7 +1892,7 @@ func TestRetiredBusinessSignalsCannotActOrConsumeUpdateActionID(t *testing.T) {
 				env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 			}
 			published, planWrites, commandWrites := 0, 0, 0
-			env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+			env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 			env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).Run(func(mock.Arguments) { planWrites++ }).Return(nil).Maybe()
 			env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.Anything).Run(func(mock.Arguments) { commandWrites++ }).Return(nil)
 			var before WorkflowResult
@@ -1962,7 +1962,7 @@ func TestManualWorkflowRejectsApprovalQueuedWhileBlocked(t *testing.T) {
 	}
 	published := 0
 	freshSent := false
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 	blockedApproval := validApproval("approve-while-blocked", successfulRetryDigest())
 	env.RegisterDelayedCallback(func() {
 		requireFailedWorkflowUpdate(t, env, signalApproveResults, blockedApproval)
@@ -2010,7 +2010,7 @@ func TestManualWorkflowConsumesHandlerRejectedReplaceUpdateActionID(t *testing.T
 	planWrites := 0
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { planWrites++ }).Return(nil).Once()
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	rejected := ReplacePlanSignal{
 		RunID: "run-1", ExpectedRevision: 1, Plan: replacement, ActorID: "user-a", ActionID: "replace-too-early",
 	}
@@ -2070,7 +2070,7 @@ func TestManualWorkflowWrongActorRetryUpdateDoesNotPoisonActionID(t *testing.T) 
 	providerRetryCalls := 0
 	env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot("scene-2", 2)).
 		Run(func(mock.Arguments) { providerRetryCalls++ }).Return(successfulSlotResult("scene-2", 2), nil).Once()
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	rejected := RetrySlotSignal{
 		RunID: "run-1", PlanRevision: 1, SlotID: "scene-2", ActorID: "attacker", ActionID: "retry-rejected-actor",
 	}
@@ -2127,7 +2127,7 @@ func TestManualWorkflowReplacementRejectsAssetsOutsideImmutableCatalogAndConsume
 	}
 	planWrites := 0
 	env.OnActivity(activityPersistPlanRevision, mock.Anything, mock.Anything).Run(func(mock.Arguments) { planWrites++ }).Return(nil).Once()
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	unauthorized := validReplacement
 	unauthorized.SourceAssetIDs = []string{"source-not-in-catalog"}
 	unauthorized.Slots = append([]imageagent.Slot(nil), validReplacement.Slots...)
@@ -2239,7 +2239,7 @@ func TestManualWorkflowRejectsApprovalWithWrongActorOrDigest(t *testing.T) {
 			env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.Anything).
 				Run(func(mock.Arguments) { pendingReceiptWrites++ }).Return(nil).Twice()
 			freshSent := false
-			env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
+			env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Run(func(mock.Arguments) { published++ }).Return(nil).Once()
 			invalid := validApproval("approve-invalid")
 			test.mutate(&invalid)
 			env.RegisterDelayedCallback(func() {
@@ -2275,7 +2275,7 @@ func TestManualWorkflowExposesFinalResultDigestWhileAwaitingApproval(t *testing.
 		slot := slot
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		encoded, err := env.QueryWorkflow(QueryWorkflowProjection)
 		require.NoError(t, err)
@@ -2334,7 +2334,7 @@ func TestManualWorkflowDuplicateRetryUpdateCreatesOneNewAttempt(t *testing.T) {
 	env.RegisterDelayedCallback(func() {
 		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
 	}, 3*time.Minute)
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 
 	input := manualWorkflowInput(plan)
 	input.WaitForCommands = true
@@ -2369,7 +2369,7 @@ func TestManualWorkflowRemainsDurableWhileBlockedForLaterRetryUpdate(t *testing.
 	env.RegisterDelayedCallback(func() {
 		requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1", successfulRetryDigest()))
 	}, 2*time.Second)
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
 
@@ -2418,7 +2418,7 @@ func TestManualWorkflowRejectsCancelUpdateFromDifferentActor(t *testing.T) {
 		slot := slot
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() {
 		requireFailedWorkflowUpdate(t, env, signalCancel, CancelSignal{RunID: "run-1", PlanRevision: 1, ActorID: "attacker", ActionID: "spoofed-cancel"})
 	}, time.Second)
@@ -3571,7 +3571,7 @@ func TestSlotWorkflowUsesTemporalTechnicalRetryWithoutChangingSemanticAttempt(t 
 		}
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() { requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1")) }, 2*time.Second)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, manualWorkflowInput(plan))
@@ -3656,7 +3656,7 @@ func TestManualWorkflowRejectsPaddedCandidateIDsBeforePublication(t *testing.T) 
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, imageagent.RunStatusBlocked, result.Status)
 	require.Empty(t, result.ResultDigest)
-	env.AssertNotCalled(t, activityPublishApprovedV3, mock.Anything, mock.Anything)
+	env.AssertNotCalled(t, activityPublishAcquisitionMain, mock.Anything, mock.Anything)
 }
 
 func TestManualWorkflowBoundsConcurrentSlotChildren(t *testing.T) {
@@ -3676,7 +3676,7 @@ func TestManualWorkflowBoundsConcurrentSlotChildren(t *testing.T) {
 		slot := slot
 		env.OnActivity(activityExecuteSlotV3, mock.Anything, executeInputForSlot(slot.ID, 1)).After(time.Minute).Return(successfulSlotResult(slot.ID, 1), nil).Once()
 	}
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).Return(nil).Once()
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).Return(nil).Once()
 	env.RegisterDelayedCallback(func() { requireWorkflowUpdate(t, env, signalApproveResults, validApproval("approve-final-1")) }, 5*time.Minute)
 
 	env.ExecuteWorkflow(ImageAgentWorkflow, input)
@@ -3704,7 +3704,7 @@ func TestActivitiesRestoreCapturedIdentityForExecutorAndPublisher(t *testing.T) 
 	})
 	require.NoError(t, err)
 	require.Equal(t, "slot-1", result.SlotID)
-	require.NoError(t, activities.PublishApprovedV3(context.Background(), PublishApprovedV3ActivityInput{
+	require.NoError(t, activities.PublishAcquisitionMain(context.Background(), PublishAcquisitionMainActivityInput{
 		RunID: "run-1", Identity: identity, PlanRevision: 1, CandidateAssetIDs: []string{"candidate-slot-1"}, IdempotencyKey: "image-agent:run-1:plan:1:publication",
 	}))
 	require.Equal(t, 1, executor.calls)
@@ -3939,7 +3939,7 @@ func TestManualWorkflowReplacePathUsesRealProjectionActivityAndRepository(t *tes
 	env.RegisterActivityWithOptions(activities.PersistRunState, sdkactivity.RegisterOptions{Name: activityPersistRunState})
 	env.RegisterActivityWithOptions(activities.PersistPlanRevision, sdkactivity.RegisterOptions{Name: activityPersistPlanRevision})
 	env.RegisterActivityWithOptions(activities.PersistPendingCommand, sdkactivity.RegisterOptions{Name: activityPersistPendingCommand})
-	env.RegisterActivityWithOptions(activities.PublishApprovedV3, sdkactivity.RegisterOptions{Name: activityPublishApprovedV3})
+	env.RegisterActivityWithOptions(activities.PublishAcquisitionMain, sdkactivity.RegisterOptions{Name: activityPublishAcquisitionMain})
 	replacement := sevenSlotPlan()
 	replacement.Revision = 2
 	replacement.ParentRevision = 1
@@ -4037,11 +4037,12 @@ func TestServiceCapturesVerifiedIdentityAndRejectsNonManualStarts(t *testing.T) 
 	service, err := imageagent.NewService(repository, workflows, workflowCatalogResolver{}, imageagent.WithOrganizationScope())
 	require.NoError(t, err)
 	input := imageagent.StartRunInput{
-		RunID: "run-1", BusinessTaskID: "task-1", TargetPlatform: "shein",
-		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "us", Family: "default", SceneCategory: "shoes"},
+		RunID: "run-1", BusinessTaskID: "task-1", TargetPlatform: "product",
+		ImagePolicyContext: imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"},
 		Mode:               imageagent.RunModeManual, IdempotencyKey: "run-key-1", Plan: sevenSlotPlan(),
 	}
 
+	input.Plan.Slots = input.Plan.Slots[:1]
 	require.ErrorContains(t, service.Start(context.Background(), input), "verified")
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", EffectiveOrganizationID: "tenant-a", EffectiveMemberID: "member-user-a", UserID: "user-a"})
 	nonManual := input
@@ -4513,8 +4514,8 @@ func newWorkflowEnv(t *testing.T) *testsuite.TestWorkflowEnvironment {
 		sdkactivity.RegisterOptions{Name: activityPersistPendingCommand},
 	)
 	env.RegisterActivityWithOptions(
-		func(context.Context, PublishApprovedV3ActivityInput) error { return nil },
-		sdkactivity.RegisterOptions{Name: activityPublishApprovedV3},
+		func(context.Context, PublishAcquisitionMainActivityInput) error { return nil },
+		sdkactivity.RegisterOptions{Name: activityPublishAcquisitionMain},
 	)
 	env.RegisterActivityWithOptions(
 		func(context.Context, EffectRecoveryWorkflowInput) error { return nil },
@@ -4669,7 +4670,7 @@ type identityCheckingPublisher struct {
 	calls int
 }
 
-func (p *identityCheckingPublisher) PublishApproved(ctx context.Context, input imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
+func (p *identityCheckingPublisher) PublishApproved(ctx context.Context, input imageagent.PublishAcquisitionMainInput) (imageagent.PublicationAcknowledgement, error) {
 	p.calls++
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	require.True(p.t, ok)
@@ -4678,7 +4679,7 @@ func (p *identityCheckingPublisher) PublishApproved(ctx context.Context, input i
 	return imageagent.PublicationAcknowledgement{}, nil
 }
 
-func (p *identityCheckingPublisher) PublishApprovedV3(ctx context.Context, input imageagent.PublishApprovedV3Input) (imageagent.PublicationAcknowledgement, error) {
+func (p *identityCheckingPublisher) PublishAcquisitionMain(ctx context.Context, input imageagent.PublishAcquisitionMainInput) (imageagent.PublicationAcknowledgement, error) {
 	p.calls++
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	require.True(p.t, ok)
@@ -4864,7 +4865,7 @@ func TestRegisterWorkerUsesExactModeBoundWorkflowAndActivitySets(t *testing.T) {
 	registrar := &recordingWorkerRegistrar{}
 	require.NoError(t, RegisterWorkerForMode(registrar, activities, WorkerWireModeOrganization))
 	require.Equal(t, []string{organizationWorkflowName, "ImageSlotWorkflowV3", EffectRecoveryWorkflowName}, registrar.workflows)
-	require.Equal(t, []string{activityPersistRunState, activityPersistWorkflowFailureV2, activityPersistPlanRevision, activityPersistPendingCommand, activityExecuteSlotV3, activityReviewStagedSlotV3, activityStartEffectRecoveryV3, activityRecoverEffectV3, activityPersistRecoveryBlockedV3, activityReconcileEffectRecoveryV3, activityPersistSlotResultV3, activityPrepareImageSetPolicyAdoption, activityPublishApprovedImageSet, activityPersistImageSetSlotResult, activityPublishApprovedV3}, registrar.activities)
+	require.Equal(t, []string{activityPersistRunState, activityPersistWorkflowFailureV2, activityPersistPlanRevision, activityPersistPendingCommand, activityExecuteSlotV3, activityStartEffectRecoveryV3, activityRecoverEffectV3, activityPersistRecoveryBlockedV3, activityReconcileEffectRecoveryV3, activityPersistSlotResultV3, activityPrepareImageSetPolicyAdoption, activityPublishApprovedImageSet, activityPersistImageSetSlotResult, activityPublishAcquisitionMain}, registrar.activities)
 	for _, mode := range []WorkerWireMode{"v2", "v3", ""} {
 		r := &recordingWorkerRegistrar{}
 		require.Error(t, RegisterWorkerForMode(r, activities, mode))

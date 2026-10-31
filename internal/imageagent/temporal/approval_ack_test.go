@@ -24,15 +24,15 @@ func TestManualWorkflowApprovalLostACKCannotBeSupersededByCancel(t *testing.T) {
 	}
 	publications, receiptReads := 0, 0
 	var originalKey string
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			publications++
-			originalKey = activityInputFromArgs[PublishApprovedV3ActivityInput](t, args).IdempotencyKey
+			originalKey = activityInputFromArgs[PublishAcquisitionMainActivityInput](t, args).IdempotencyKey
 		}).Return(sdktemporal.NewNonRetryableApplicationError("Asset committed, acknowledgement lost", "publication_ack_unknown", nil)).Once()
-	env.OnActivity(activityPublishApprovedV3, mock.Anything, mock.Anything).
+	env.OnActivity(activityPublishAcquisitionMain, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			receiptReads++
-			require.Equal(t, originalKey, activityInputFromArgs[PublishApprovedV3ActivityInput](t, args).IdempotencyKey)
+			require.Equal(t, originalKey, activityInputFromArgs[PublishAcquisitionMainActivityInput](t, args).IdempotencyKey)
 		}).Return(nil).Once()
 	cancelledWrites := 0
 	env.OnActivity(activityPersistRunState, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {

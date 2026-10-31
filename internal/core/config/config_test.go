@@ -61,22 +61,17 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 		}
 	}
 	for _, cfg := range []*Config{NewDefaultConfig(), BuildConfig(v)} {
-		cfg.OpenAI.APIKey = "fixture-key"
 		require.Empty(t, ValidateConfig(cfg), "current defaults must not require retired worker/task inputs")
 	}
 }
 
-func TestConfigBuild(t *testing.T) {
-	v := viper.New()
-	v.Set("openai.clients.image.model", "nanobanana")
-	v.Set("openai.clients.image.timeout", 180)
-	v.Set("openai.clients.image.apiStyle", "nanobanana")
-
-	cfg := BuildConfig(v)
-
-	assert.Equal(t, "nanobanana", cfg.OpenAI.Clients["image"].Model)
-	assert.Equal(t, 180, cfg.OpenAI.Clients["image"].Timeout)
-	assert.Equal(t, "nanobanana", cfg.OpenAI.Clients["image"].APIStyle)
+func TestRetiredOpenAIPresenceRejected(t *testing.T) {
+	for _, payload := range []string{"openai: null\n", "openai: {}\n", "openai:\n  apiKey: synthetic-secret\n", "openai:\n  clients:\n    image:\n      model: fixture\n"} {
+		_, err := loadConfigFixture(t, []byte(payload))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "openai")
+		require.NotContains(t, err.Error(), "synthetic-secret")
+	}
 }
 
 func TestConfigBuildIncludesListingKitConfig(t *testing.T) {
@@ -103,19 +98,12 @@ func TestConfigBuildIncludesListingKitConfig(t *testing.T) {
 }
 
 func TestConfigValidation(t *testing.T) {
-	validConfig := &Config{
-		OpenAI: OpenAIConfig{
-			APIKey:  "test-key",
-			Model:   "test-model",
-			BaseURL: "http://example.com/v1",
-			Timeout: 30,
-		},
-	}
+	validConfig := &Config{}
 
 	errors := ValidateConfig(validConfig)
 	assert.Empty(t, errors)
 
-	invalidConfig := &Config{OpenAI: OpenAIConfig{Clients: map[string]OpenAIClientConfig{"fixture": {}}}}
+	invalidConfig := &Config{Workbench: WorkbenchConfig{Enabled: true}}
 
 	errors = ValidateConfig(invalidConfig)
 	assert.NotEmpty(t, errors)
