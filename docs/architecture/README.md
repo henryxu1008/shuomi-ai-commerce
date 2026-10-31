@@ -377,6 +377,13 @@ feature contracts reuse the current Store/Listing/Submission owners rather than
 changing repository-wide structural rules. Shared wiring, real application
 credentials and user acceptance remain separate delivery conditions.
 
+[`tiktok-pre-dispatch-no-send-v1.md`](tiktok-pre-dispatch-no-send-v1.md) is the
+#669 / Draft #1031 **DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY** supplement for
+live-owner no-send proof, original-claim/fence CAS termination and explicit new
+commands. It is design-only: no production/schema implementation, no new Reviewer,
+and no reclassification or automatic retry of UNKNOWN. The existing TikTok
+architecture remains frozen outside that candidate increment.
+
 [`walmart-feed-recovery-v1.md`](walmart-feed-recovery-v1.md) defines the #733 / #1028 bounded recovery supplement: explicit rejected-repair admission and durable feed-read progress. It is IMPLEMENTATION_READY after the authorized local architecture review; cross-query pages remain visibility-only and never grant repair eligibility.
 
 Walmart US multi-merchant integration is being designed in
