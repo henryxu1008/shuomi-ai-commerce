@@ -1,0 +1,21 @@
+# MERGE FRAGMENT ONLY; never replace the final mounted dynamic file with this.
+# Explicitly opt in after separate approval. See docs/operations/browser-kernel-catalog.md.
+# Traefik v3.6.8 syntax. No default Compose mount, initializer or platform writes.
+http:
+  routers:
+    browser-kernel-catalog:
+      entryPoints: [application]
+      rule: Host(`localhost`) && Method(`GET`) && Path(`/api/v1/browser/kernel-releases`)
+      priority: 200
+      service: browser-kernel-api
+      tls: {}
+    browser-kernel-artifact:
+      entryPoints: [application]
+      rule: Host(`localhost`) && Method(`GET`) && PathRegexp(`^/api/v1/browser/kernel-releases/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/artifact$`)
+      priority: 200
+      service: browser-kernel-api
+      tls: {}
+  services:
+    browser-kernel-api:
+      loadBalancer:
+        servers: [{url: http://127.0.0.1:8085}]

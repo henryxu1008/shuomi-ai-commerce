@@ -72,3 +72,34 @@ the final retained image overlay. Preserve project/environment, private mounts,
 network namespace, commands and named volumes. Never run `down -v`, old
 initializers or generic prune as part of image building. Keep build and deploy
 as separate operations; this change does not reopen production release.
+
+## Match a retained image to a receipt
+
+Source preparation does not inspect retained containers or private Compose files.
+A later, separately authorized deployment owner must compare only the required
+non-secret image metadata with a trusted receipt; do not dump environment values,
+mount contents, runtime manifests or credentials.
+
+1. Resolve the approved `sourceCommit` and its Git tree; both must exactly match
+   `sourceCommit` / `sourceTree` in the receipt. Confirm the selected serving target
+   contains the required application modules. An older backend without kernel
+   HTTP/runtime/schema code cannot gain that capability from an ingress route.
+2. Select the receipt's correct component/target. Compare its full
+   `images[].imageId` (`sha256:` plus 64 lowercase hex digits) to the container's
+   immutable image ID (`.Image`), then inspect that exact image ID for revision,
+   tree and backend-target labels. Do not compare only the mutable image tag,
+   container labels or a short ID. A registry RepoDigest identifies a different
+   object and must not be substituted for the local image ID.
+3. A missing receipt, ID mismatch, conflicting labels or a tree/target mismatch
+   leaves source provenance **UNPROVEN**. Stop the proposed rollout; do not infer
+   which label is correct or repair labels to make the evidence agree. Labels
+   alone never prove which source produced a binary. Reuse the existing builder
+   with an approved fixed commit and fresh receipt directory to prepare a new
+   provable candidate, subject to separate build authorization.
+
+The builder rejects malformed/missing inspected image IDs and mismatched source
+or target labels before writing a success receipt. Its history checks use the
+inspected immutable ID. A successful receipt records build provenance; it is not
+proof of the retained instance's schema, identity, module configuration or actual
+kernel releases. Those gates and the separately authorized rollback responsibilities
+are listed in [the kernel handoff](browser-kernel-catalog.md#逐项切换与回退清单).

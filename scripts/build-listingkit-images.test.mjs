@@ -20,9 +20,13 @@ function global:docker {
  }
  if($a[0] -eq 'image') {
   $targetLabel=if($env:FIXTURE_FAULT -eq 'target'){'incorrect-target'}else{$global:builtTargetLabel}
-  @([ordered]@{Id=('sha256:' + ('1'*64));Size=1234;RootFS=@{Layers=@('base','app')};Config=@{Labels=@{'org.opencontainers.image.revision'=$global:revision;'org.opencontainers.image.tree'=$global:tree;'io.shuomi.build.backend-target'=$targetLabel}}}) | ConvertTo-Json -Depth 6 -Compress; return
+  $revisionLabel=if($env:FIXTURE_FAULT -eq 'revision'){'0'*40}else{$global:revision}
+  $treeLabel=if($env:FIXTURE_FAULT -eq 'tree'){'0'*40}else{$global:tree}
+  $imageId=switch($env:FIXTURE_FAULT){'missing-id' {''}; 'invalid-id' {'local/current-application:mutable-tag'}; default {('sha256:' + ('1'*64))}}
+  @([ordered]@{Id=$imageId;Size=1234;RootFS=@{Layers=@('base','app')};Config=@{Labels=@{'org.opencontainers.image.revision'=$revisionLabel;'org.opencontainers.image.tree'=$treeLabel;'io.shuomi.build.backend-target'=$targetLabel}}}) | ConvertTo-Json -Depth 6 -Compress; return
  }
  if($a[0] -eq 'history') {
+  if($env:FIXTURE_FAULT -notin @('missing-id','invalid-id') -and $a[-1] -ne ('sha256:' + ('1'*64))){throw 'History must inspect the exact image ID, not a mutable tag'}
   $copy=if($global:builtImage -like '*current-application*'){'COPY /out/current-application /usr/local/bin/current-application # buildkit'}else{'COPY /app/.next/standalone ./ # buildkit'}
   @{CreatedBy=$copy} | ConvertTo-Json -Compress
   if($env:FIXTURE_FAULT -eq 'stacked'){@{CreatedBy=$copy}|ConvertTo-Json -Compress}; return
@@ -47,6 +51,7 @@ function fixture(run) {
     git('init'); git('add', '.');
     git('-c', 'user.name=Build Test', '-c', 'user.email=build-test@example.invalid', 'commit', '-m', 'fixture');
     const revision = git('rev-parse', 'HEAD');
+    const tree = git('rev-parse', 'HEAD^{tree}');
     writeFileSync(path.join(dir, 'marker'), 'dirty source must not be built');
     writeFileSync(path.join(dir, 'private.json'), 'untracked private fixture');
     writeFileSync(path.join(dir, 'invoke.ps1'), wrapper);
@@ -56,7 +61,7 @@ function fixture(run) {
       '-NoProfile', '-File', path.join(dir, 'invoke.ps1'), '-BuildScript', path.join(dir, 'scripts/build.ps1'),
       '-OutputDirectory', output, '-SourceRef', source, '-Component', component, '-BackendTarget', backendTarget,
     ], { encoding: 'utf8', env: { ...process.env, FIXTURE_CALLS: calls, FIXTURE_FAULT: fault } });
-    run({ dir, output, calls, revision, invoke });
+    run({ dir, output, calls, revision, tree, invoke });
   } finally {
     assert.equal(path.dirname(path.resolve(dir)), path.resolve(tmpdir()));
     assert.match(path.basename(dir), /^listingkit-build-test-/);
@@ -64,7 +69,7 @@ function fixture(run) {
   }
 }
 
-test('builds both canonical targets from committed source, excluding dirty and private files', () => fixture(({ output, calls, revision, invoke }) => {
+test('builds both canonical targets from committed source, excluding dirty and private files', () => fixture(({ output, calls, revision, tree, invoke }) => {
   const result = invoke();
   assert.equal(result.status, 0, result.stderr);
   const operations = readFileSync(calls, 'utf8').trim().split(/\r?\n/).map(JSON.parse);
@@ -79,7 +84,9 @@ test('builds both canonical targets from committed source, excluding dirty and p
   assert.match(operations[1].arguments.join(' '), /Dockerfile.listingkit-ui/);
   const receipt = JSON.parse(readFileSync(path.join(output, `build-${revision}-All.json`)));
   assert.equal(receipt.sourceCommit, revision);
+  assert.equal(receipt.sourceTree, tree);
   assert.equal(receipt.images.length, 2);
+  for (const image of receipt.images) assert.equal(image.imageId, `sha256:${'1'.repeat(64)}`);
   assert.equal(receipt.images[0].sizeBytes, 1234);
   assert.equal(receipt.images[0].target, 'data-services-runtime');
   assert.equal(receipt.images[0].tag, `local/current-application:git-${revision}`);
@@ -130,6 +137,10 @@ test('UI-only build ignores the backend selection for tags and receipts', () => 
 for (const [name, fault, source, error, component = 'All'] of [
   ['unknown source', '', 'missing-ref', /SourceRef must resolve/],
   ['Docker failure', 'build', 'HEAD', /image build failed/],
+  ['incorrect commit label', 'revision', 'HEAD', /Image source labels do not match/],
+  ['incorrect tree label', 'tree', 'HEAD', /Image source labels do not match/],
+  ['missing image ID', 'missing-id', 'HEAD', /Image ID must be a full sha256 digest/],
+  ['invalid image ID', 'invalid-id', 'HEAD', /Image ID must be a full sha256 digest/],
   ['incorrect backend target label', 'target', 'HEAD', /Backend image target label does not match/],
   ['historical application layers', 'stacked', 'HEAD', /exactly one application COPY/],
   ['historical UI layers', 'stacked', 'HEAD', /exactly one application COPY/, 'UI'],
