@@ -22,6 +22,24 @@ type OfficialConnections struct {
 	walmart      *WalmartConnections
 }
 
+// Refresh dispatches by the persisted Store platform. The existing platform
+// owner retains the operation claim, generation fence and UNKNOWN contract.
+func (a *OfficialConnections) Refresh(ctx context.Context, org, storeID, operationID string, generation int64) (storecenter.OfficialConnectionView, error) {
+	if a == nil {
+		return storecenter.OfficialConnectionView{}, storecenter.ErrOfficialConnectionUnavailable
+	}
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, org, storeID)
+		if err != nil {
+			return storecenter.OfficialConnectionView{}, err
+		}
+		if owns {
+			return a.tiktok.Refresh(ctx, org, storeID, operationID, generation)
+		}
+	}
+	return a.RefreshWalmart(ctx, org, storeID, operationID, generation)
+}
+
 func (a *OfficialConnections) InstallToken(ctx context.Context, input storecenter.InstallOfficialToken) (storecenter.OfficialConnectionView, error) {
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, input.OrganizationID, input.StoreID)

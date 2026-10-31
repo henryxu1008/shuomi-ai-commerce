@@ -172,8 +172,9 @@ func (s uploadStore) ExecutionMerchant(_ context.Context, scope collection.Scope
 }
 
 type uploadKernel struct {
-	attempts  map[string]submission.ExecutionAttempt
-	onAcquire func(submission.AcquireExecutionCommand)
+	attempts     map[string]submission.ExecutionAttempt
+	onAcquire    func(submission.AcquireExecutionCommand)
+	tikTokKernel *submission.ExecutionKernel
 }
 
 func (k *uploadKernel) Acquire(_ context.Context, c submission.AcquireExecutionCommand) (submission.ExecutionAcquisition, error) {
@@ -283,17 +284,18 @@ func (r *uploadOfficial) ReadOfficialIntent(_ context.Context, scope collection.
 	return v, nil
 }
 func (r *uploadOfficial) CompleteOfficial(ctx context.Context, proof submission.OfficialCompletion) (submission.OfficialReceipt, error) {
-	_, v, err := proof.Read(ctx)
+	claim, v, err := proof.Read(ctx)
 	if err != nil {
 		return v, err
 	}
 	if r.failCommit {
 		return v, submission.ErrExecutionUnavailable
 	}
+	_, err = r.kernel.Complete(ctx, claim, submission.ExecutionEvidence{Kind: submission.EvidenceProviderResponse, Outcome: submission.ExecutionSucceeded, Reference: v.ID, Fingerprint: v.ResponseHash, ObservedAt: v.ObservedAt})
+	if err != nil {
+		return v, err
+	}
 	r.receipts[v.ID] = v
-	a := r.kernel.attempts[v.IntentKey]
-	a.Status = submission.ExecutionSucceeded
-	r.kernel.attempts[v.IntentKey] = a
 	return v, nil
 }
 func (r *uploadOfficial) ReadOfficial(_ context.Context, scope collection.Scope, id string) (submission.OfficialReceipt, error) {

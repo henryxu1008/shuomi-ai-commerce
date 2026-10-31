@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	goods "task-processor/internal/marketplace/shein/goods"
@@ -20,11 +21,150 @@ type tiktokUploadMerchant struct {
 	binding    storecenter.ProductMerchantBinding
 	calls      []string
 	loseGlobal bool
+	denyImage  bool
+}
+
+// Keep application regressions on the real Submission preparation gate while
+// reusing the original in-memory intent/receipt fixture (no provider or DB).
+type tiktokUploadKernelRepository struct {
+	submission.ExecutionRepository
+	kernel *uploadKernel
+}
+
+func (r tiktokUploadKernelRepository) Acquire(_ context.Context, reservation submission.ExecutionReservation) (submission.ExecutionAttempt, bool, error) {
+	k := r.kernel
+	if a, ok := k.attempts[reservation.Attempt.IntentKey]; ok {
+		return a, false, nil
+	}
+	a := reservation.Attempt
+	a.FenceEpoch = 1
+	for _, prior := range k.attempts {
+		if prior.Target == a.Target {
+			if prior.Status == submission.ExecutionSucceeded {
+				return a, false, submission.ErrExecutionTargetSucceeded
+			}
+			if prior.Status == submission.ExecutionClaimed || prior.Status == submission.ExecutionOutcomeUnknown {
+				return a, false, submission.ErrExecutionTargetClaimed
+			}
+			if prior.FenceEpoch >= a.FenceEpoch {
+				a.FenceEpoch = prior.FenceEpoch + 1
+			}
+		}
+	}
+	k.attempts[a.IntentKey] = a
+	if k.onAcquire != nil {
+		k.onAcquire(submission.AcquireExecutionCommand{Scope: submission.ExecutionScope{OrganizationID: a.OrganizationID}, IntentKey: a.IntentKey, Target: a.Target, Action: a.Action})
+	}
+	return a, true, nil
+}
+func (r tiktokUploadKernelRepository) Get(_ context.Context, scope submission.ExecutionScope, id string) (submission.ExecutionAttempt, error) {
+	for _, a := range r.kernel.attempts {
+		if a.OrganizationID == scope.OrganizationID && a.AttemptID == id {
+			return a, nil
+		}
+	}
+	return submission.ExecutionAttempt{}, submission.ErrExecutionNotFound
+}
+func (r tiktokUploadKernelRepository) StopTikTokBeforeSend(_ context.Context, proof submission.TikTokNoSendProof) (submission.ExecutionAttempt, error) {
+	claim, err := proof.Claim()
+	if err != nil {
+		return submission.ExecutionAttempt{}, err
+	}
+	for key, a := range r.kernel.attempts {
+		if a.AttemptID == claim.AttemptID {
+			updated, e := proof.Terminate(a, time.Now())
+			if e == nil {
+				r.kernel.attempts[key] = updated
+			}
+			return updated, e
+		}
+	}
+	return submission.ExecutionAttempt{}, submission.ErrExecutionNotFound
+}
+func (k *uploadKernel) PrepareTikTokExecution(ctx context.Context, c submission.AcquireExecutionCommand) (submission.TikTokPreparedAcquisition, error) {
+	if k.tikTokKernel == nil {
+		var err error
+		k.tikTokKernel, err = submission.NewExecutionKernel(tiktokUploadKernelRepository{kernel: k})
+		if err != nil {
+			return submission.TikTokPreparedAcquisition{}, err
+		}
+	}
+	return k.tikTokKernel.PrepareTikTokExecution(ctx, c)
+}
+func (k *uploadKernel) BeginTikTokSend(ctx context.Context, p *submission.TikTokPreparation) (*submission.SendPermit, error) {
+	return k.tikTokKernel.BeginTikTokSend(ctx, p)
+}
+func (k *uploadKernel) StopTikTokBeforeSend(ctx context.Context, p *submission.TikTokPreparation, reason string) (submission.ExecutionAttempt, error) {
+	return k.tikTokKernel.StopTikTokBeforeSend(ctx, p, reason)
+}
+
+type noSendOperationAuthorization struct{ auth *uploadAuth }
+
+func (a noSendOperationAuthorization) AuthorizeOperationExecution(ctx context.Context, op preparation.Operation) error {
+	return a.auth.AuthorizeExecution(ctx, op.Owner, preparation.PermissionSubmit)
+}
+func (r *activityAuthorizationRepo) BeginOperationItem(ctx context.Context, proof preparation.OperationAccess, sourceID string) (preparation.OperationItem, error) {
+	_, err := proof.Read(ctx)
+	if err != nil {
+		return preparation.OperationItem{}, err
+	}
+	if sourceID != r.item.SourceID {
+		return preparation.OperationItem{}, preparation.ErrNotFound
+	}
+	return r.item, nil
+}
+func (r *activityAuthorizationRepo) FinishOperationItem(ctx context.Context, proof preparation.OperationAccess, item preparation.OperationItem) error {
+	if _, err := proof.Read(ctx); err != nil {
+		return err
+	}
+	r.item = item
+	return nil
+}
+
+func TestTikTokNoSendOperationFinishesOriginalItemAndProjectsAttempt(t *testing.T) {
+	uploader, scope, records, merchant, kernel, probe := tiktokUploadFixture(t, marketplace.GlobalPublishing)
+	auth := uploader.dependencies.Authorization.(*uploadAuth)
+	repo := &activityAuthorizationRepo{op: preparation.Operation{ID: uuid.NewString(), Owner: scope, Input: preparation.OperationInput{Action: preparation.OperationUpload, StoreID: records.saved.Merchant.StoreID, PreparationID: records.saved.Source.PreparationID, ExpectedRevision: 1}}, item: preparation.OperationItem{SourceID: records.saved.Source.ID, RecordID: records.saved.ID, RecordRevision: records.saved.Revision, Status: preparation.ItemPending}}
+	owner, err := preparation.NewOperationService(&preparation.Service{}, unusedOperationOwner{}, repo)
+	require.NoError(t, err)
+	_, err = owner.WithExecution(noSendOperationAuthorization{auth})
+	require.NoError(t, err)
+	activities := OperationActivities{Operations: owner, Repository: repo, Uploader: uploader}
+	kernel.onAcquire = func(submission.AcquireExecutionCommand) { probe.drift = true }
+	original, err := activities.Process(context.Background(), OperationExecution{OrganizationID: scope.OrganizationID, OperationID: repo.op.ID}, repo.item.SourceID)
+	require.NoError(t, err)
+	require.Equal(t, preparation.ItemFailed, original.Status)
+	require.Contains(t, original.Note, "本次未发送")
+	require.NotEmpty(t, original.ResultReference)
+	require.Empty(t, merchant.calls)
+	app := Application{Uploader: uploader, Authorization: auth, TargetMerchants: &rulesFixture{binding: records.saved.Merchant}}
+	view, err := app.ReadUploadAttempt(context.Background(), records.saved.ID, original.ResultReference)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, view.Status)
+	require.Contains(t, view.Message, "本次未发送")
+	require.NotContains(t, view.Message, "待核实")
+	probe.drift = false
+	kernel.onAcquire = nil
+	replayed, err := activities.Process(context.Background(), OperationExecution{OrganizationID: scope.OrganizationID, OperationID: repo.op.ID}, repo.item.SourceID)
+	require.NoError(t, err)
+	require.Equal(t, original, replayed)
+	require.Empty(t, merchant.calls)
+	repo.op.ID = uuid.NewString()
+	repo.item.Status = preparation.ItemPending
+	repo.item.ResultReference = ""
+	repo.item.Note = ""
+	completed, err := activities.Process(context.Background(), OperationExecution{OrganizationID: scope.OrganizationID, OperationID: repo.op.ID}, repo.item.SourceID)
+	require.NoError(t, err)
+	require.Equal(t, preparation.ItemSucceeded, completed.Status)
+	require.Equal(t, []string{"image", "global", "publish"}, merchant.calls)
 }
 
 func (m *tiktokUploadMerchant) Binding() storecenter.ProductMerchantBinding { return m.binding }
 func (m *tiktokUploadMerchant) UploadImage(context.Context, string, string, []byte) (marketplace.UploadedImage, error) {
 	m.calls = append(m.calls, "image")
+	if m.denyImage {
+		return marketplace.UploadedImage{}, record.ErrForbidden
+	}
 	return marketplace.UploadedImage{URI: "official-uri", URL: "https://images.example.org/official.jpg", Width: 600, Height: 600, UseCase: "MAIN_IMAGE", ResponseHash: collection.Digest("image response")}, nil
 }
 func (m *tiktokUploadMerchant) CreateGlobal(_ context.Context, input marketplace.CreateGlobalRequest) (marketplace.CreatedGlobalProduct, error) {
@@ -87,6 +227,31 @@ func (p *tiktokUploadProbe) ReadTikTokContent(_ context.Context, approved asset.
 		v.ContentHash = collection.Digest("changed image")
 	}
 	return v, []byte("approved content"), nil
+}
+
+func TestTikTokNoSendDoesNotRestoreRevokedAuthorityOrClassifyStartedCalls(t *testing.T) {
+	s, scope, records, merchant, kernel, _ := tiktokUploadFixture(t, marketplace.LocalReplication)
+	auth := s.dependencies.Authorization.(*uploadAuth)
+	kernel.onAcquire = func(submission.AcquireExecutionCommand) { auth.denied = true }
+	result, err := s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, result.Status)
+	require.Empty(t, merchant.calls)
+	_, err = s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.Error(t, err)
+	require.Empty(t, merchant.calls)
+	app := Application{Uploader: s, Authorization: auth, TargetMerchants: &rulesFixture{binding: records.saved.Merchant}}
+	_, err = app.ReadUploadAttempt(context.Background(), records.saved.ID, result.AttemptID)
+	require.Error(t, err)
+	s, scope, records, merchant, _, _ = tiktokUploadFixture(t, marketplace.LocalReplication)
+	merchant.denyImage = true
+	result, err = s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionOutcomeUnknown, result.Status)
+	result, err = s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionOutcomeUnknown, result.Status)
+	require.Equal(t, []string{"image"}, merchant.calls)
 }
 
 func TestTikTokReusesOneCanonicalImageForEquivalentApprovedAssets(t *testing.T) {
@@ -185,11 +350,53 @@ func TestTikTokLocalDraftAndActualSendImageDrift(t *testing.T) {
 	kernel.onAcquire = func(submission.AcquireExecutionCommand) { probe.drift = true }
 	result, err := s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
 	require.NoError(t, err)
-	require.Equal(t, submission.ExecutionOutcomeUnknown, result.Status)
+	require.Equal(t, submission.ExecutionNotSent, result.Status)
 	require.Empty(t, merchant.calls)
 	s, scope, records, merchant, _, _ = tiktokUploadFixture(t, marketplace.LocalReplication)
 	result, err = s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
 	require.NoError(t, err)
 	require.Equal(t, "AS_DRAFT", result.TikTok.LocalSaveMode)
 	require.Equal(t, []string{"image", "local"}, merchant.calls)
+}
+
+func TestTikTokPreflightNoSendRequiresNewConfirmationAndKeepsCompletedStages(t *testing.T) {
+	for _, method := range []marketplace.ListingMethod{marketplace.LocalReplication, marketplace.GlobalPublishing} {
+		for _, stage := range []string{submission.TikTokImageStage, submission.TikTokGlobalCreateStage, submission.TikTokPublishStage} {
+			if method == marketplace.LocalReplication && stage == submission.TikTokGlobalCreateStage {
+				continue
+			}
+			t.Run(string(method)+"/"+stage, func(t *testing.T) {
+				s, scope, records, merchant, kernel, probe := tiktokUploadFixture(t, method)
+				key := uuid.NewString()
+				kernel.onAcquire = func(command submission.AcquireExecutionCommand) {
+					if command.Action == submission.TikTokStageAction(stage) {
+						probe.drift = true
+					}
+				}
+				result, err := s.Upload(context.Background(), scope, key, records.saved.ID)
+				require.NoError(t, err)
+				require.Equal(t, submission.ExecutionStatus("not_sent"), result.Status)
+				require.NotEmpty(t, result.AttemptID)
+				callsBefore := len(merchant.calls)
+				kernel.onAcquire = nil
+				probe.drift = false
+				replayed, err := s.Upload(context.Background(), scope, key, records.saved.ID)
+				require.NoError(t, err)
+				require.Equal(t, result, replayed)
+				require.Len(t, merchant.calls, callsBefore)
+				completed, err := s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+				require.NoError(t, err)
+				require.Equal(t, submission.ExecutionSucceeded, completed.Status)
+				want := []string{"image", "local"}
+				if method == marketplace.GlobalPublishing {
+					want = []string{"image", "global", "publish"}
+				}
+				require.Equal(t, want, merchant.calls, "completed steps must not execute twice")
+				replayed, err = s.Upload(context.Background(), scope, key, records.saved.ID)
+				require.NoError(t, err)
+				require.Equal(t, result, replayed, "later success cannot rewrite the original not_sent command")
+				require.Equal(t, want, merchant.calls)
+			})
+		}
+	}
 }

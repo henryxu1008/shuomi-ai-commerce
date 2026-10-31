@@ -2,6 +2,8 @@
 
 Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 
+> #669 / PR #1031 的[发送前 no-send 最小恢复合同](tiktok-pre-dispatch-no-send-v1.md)已获用户认可并完成准确5496f141c的独立架构复核，**IMPLEMENTATION_READY / FROZEN**。用户已授权原唯一 Writer 实施并复用原 Reviewer 做增量检查；具体实现/自检/CI证据留 PR。该合同不把原 UNKNOWN 重分类，不授权操作保留实例；本文其余已冻结范围保持。
+
 - Product Decision: PD-TIKTOKSHOP-US-CROSSBORDER-2026-10-13，来自本 Issue 中用户确认的当前范围。
 - Design Basis: Independent Architecture。
 - Admission Status: **IMPLEMENTATION_READY / FROZEN**。2026-10-13 独立检查已确认候选 `72730db1b41d8573fd5f642a99d2ac800786a399` 无设计级 BLOCKER；准入先于正式实现，实施 findings 见 §12。

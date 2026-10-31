@@ -202,4 +202,4 @@ export function clearStoreAuthorization(
   sessionStorage.removeItem(pendingKey);
 }
 
-export function refreshWalmartConnection(scope:MemberResourceScope,storeId:string,generation:number){return request(scope,storeId,"refresh",officialConnectionViewSchema,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operationId:crypto.randomUUID(),generation:String(generation)})})}
+export function refreshStoreConnection(scope:MemberResourceScope,storeId:string,generation:number,signal?:AbortSignal){return request(scope,storeId,"refresh",officialConnectionViewSchema,{method:"POST",signal,headers:{"Content-Type":"application/json"},body:JSON.stringify({operationId:crypto.randomUUID(),generation:String(generation)})})}

@@ -422,6 +422,28 @@ func validateSKUs(input DraftInput, rules RuleSnapshot, issue func(string, strin
 		types := make([]string, 0, len(sku.SalesAttributes))
 		values := make([]string, 0, len(sku.SalesAttributes))
 		seen := map[string]bool{}
+		for _, rule := range rules.Attributes {
+			if rule.Type != "SALES_PROPERTY" {
+				continue
+			}
+			required, err := RequiredInUS(rule.Required, rule.RequiredRegions, rule.Conditions, input.Attributes, input.Selection.Method)
+			if err != nil {
+				issue("salesAttributes", "unknown_requirement")
+				continue
+			}
+			if required {
+				found := false
+				for _, attribute := range sku.SalesAttributes {
+					if attribute.ID == rule.ID && (attribute.ValueID != "" || attribute.ValueName != "") {
+						found = true
+						break
+					}
+				}
+				if !found {
+					issue("salesAttributes", "required")
+				}
+			}
+		}
 		for _, attribute := range sku.SalesAttributes {
 			name := attribute.ID
 			if name == "" {

@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
 	remember: vi.fn(),
 	applications:vi.fn(),
 	install:vi.fn(),
+	refresh:vi.fn(),
 }));
 vi.mock("@/lib/api/store-connection", async (original) => ({
   ...(await original<typeof import("@/lib/api/store-connection")>()),
@@ -18,6 +19,7 @@ vi.mock("@/lib/api/store-connection", async (original) => ({
 	rememberStoreAuthorization: state.remember,
 	getStoreApplications:state.applications,
 	installStoreToken:state.install,
+	refreshStoreConnection:state.refresh,
 }));
 vi.mock("./store-service-actions", () => ({ StoreServiceActions: () => null }));
 const store = {
@@ -28,13 +30,13 @@ const store = {
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
-function tree(org = "org-1",platform:"shein"|"temu"="shein") {
+function tree(org = "org-1",platform:WorkbenchStore["platform"]="shein",canWrite=true) {
   return (
     <QueryClientProvider client={client}>
       <StoreOfficialConnection
         store={{...store,platform}}
         scope={{ expectedUserId: "actor", expectedOrganizationId: org }}
-        canWrite
+        canWrite={canWrite}
         administrator
         onChanged={vi.fn()}
       />
@@ -46,11 +48,29 @@ beforeEach(() => {
   state.remember.mockReset();
 	state.begin.mockReset();
 	state.install.mockReset();
+	state.refresh.mockReset();
 	state.applications.mockResolvedValue([{appId:"self-app",revision:"v1~self_operated",type:"self_operated"}]);
   state.read.mockResolvedValue({
     connectionStatus: "disconnected",
     attemptId: null,
   });
+});
+it.each(["tiktokshop","walmart"] as const)("explicitly refreshes the current %s generation",async(platform)=>{
+ const details=platform==="tiktokshop"?{tiktok:{grantGeneration:7}}:{walmart:{generation:7}};
+ state.read.mockResolvedValue({platform,connectionStatus:"expired",state:"bound",...details});
+ state.refresh.mockResolvedValue({});
+ const view=render(tree("org-1",platform));
+ await userEvent.click(await screen.findByRole("button",{name:"刷新官方授权"}));
+ expect(state.refresh).toHaveBeenCalledWith({expectedUserId:"actor",expectedOrganizationId:"org-1"},store.id,7,expect.any(AbortSignal));
+ view.rerender(tree("org-1",platform,false));
+ expect(screen.queryByRole("button",{name:"刷新官方授权"})).toBeNull();
+});
+it.each(["refresh_unknown","refresh_dispatched","unknown"])("does not offer TikTok refresh in %s",async(stateName)=>{
+ state.read.mockResolvedValue({platform:"tiktokshop",connectionStatus:"unavailable",state:stateName,tiktok:{grantGeneration:7}});
+ render(tree("org-1","tiktokshop"));
+ await screen.findByText("连接服务未配置或暂不可用");
+ expect(screen.queryByRole("button",{name:"刷新官方授权"})).toBeNull();
+ expect(state.refresh).not.toHaveBeenCalled();
 });
 it("installs a TEMU token only for the original attempt and clears the private input",async()=>{
  const attemptId="22222222-2222-4222-8222-22222222222b";

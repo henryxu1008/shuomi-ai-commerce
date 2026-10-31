@@ -23,3 +23,8 @@ it("uses an explicit authorization code variant and safe unconfigured projection
  expect(officialConnectionViewSchema.safeParse({...view,connectionStatus:"connected"}).success).toBe(false);
  expect(officialApplicationListSchema.safeParse({applications:[{platform:"tiktokshop",appId:"app",revision:"r1",authorizationMethod:"oauth_callback"}]}).success).toBe(true);
 });
+it.each(["refresh_dispatched","refresh_unknown"])("retains the canonical %s projection even after access expiry",state=>{
+ const view={platform:"tiktokshop",attemptId,state,connectionStatus:"expired",version:1,observedAt:null,tiktok:{market:"US",sellerType:"CROSS_BORDER",grantGeneration:3}};
+ expect(officialConnectionViewSchema.safeParse(view).success).toBe(true);
+ expect(officialConnectionViewSchema.safeParse({...view,connectionStatus:"connected"}).success).toBe(false);
+});

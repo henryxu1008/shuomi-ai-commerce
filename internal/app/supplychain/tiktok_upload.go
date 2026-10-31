@@ -41,6 +41,72 @@ type TikTokImageContentReader interface {
 	ReadTikTokContent(context.Context, asset.ApprovedAsset, string) (marketplace.ImageObservation, []byte, error)
 }
 
+type tikTokPreparationKernel interface {
+	PrepareTikTokExecution(context.Context, submission.AcquireExecutionCommand) (submission.TikTokPreparedAcquisition, error)
+	BeginTikTokSend(context.Context, *submission.TikTokPreparation) (*submission.SendPermit, error)
+	StopTikTokBeforeSend(context.Context, *submission.TikTokPreparation, string) (submission.ExecutionAttempt, error)
+}
+
+func tiktokStageKey(scope collection.Scope, parent, recordID, stage string, target submission.ExecutionTarget) string {
+	return collection.StableID(scope.OrganizationID, "tiktok-stage", parent, stage, target.StoreID, target.SubjectID, recordID)
+}
+
+func tiktokNotSent(recordID, attemptID string) UploadResult {
+	return UploadResult{RecordID: recordID, AttemptID: attemptID, Status: submission.ExecutionNotSent, Message: "本次未发送，处理缺项并核对资料后可重新确认上传；已成功步骤不会重复执行"}
+}
+
+func (s *UploadService) tiktokOriginalStep(ctx context.Context, scope collection.Scope, saved record.TargetRecord, key, stage string, target submission.ExecutionTarget) (*UploadResult, error) {
+	a, err := s.dependencies.Kernel.ReadIntent(ctx, submission.ExecutionScope{OrganizationID: scope.OrganizationID}, key)
+	if errors.Is(err, submission.ErrExecutionNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	intent, err := s.dependencies.Intents.ReadOfficialIntent(ctx, scope, key)
+	if err != nil || intent.Owner != scope || intent.RecordID != saved.ID || intent.RecordHash != collection.Digest(saved) || intent.Kind != stage || intent.Target != target || intent.PayloadFingerprint != a.PayloadFingerprint || a.IntentKey != key || a.OrganizationID != scope.OrganizationID || a.Target != target || a.Action != submission.TikTokStageAction(stage) || submission.ValidatePersistedExecutionAttempt(a) != nil {
+		return nil, submission.ErrExecutionIntentConflict
+	}
+	switch a.Status {
+	case submission.ExecutionNotSent:
+		result := tiktokNotSent(saved.ID, a.AttemptID)
+		return &result, nil
+	case submission.ExecutionClaimed, submission.ExecutionOutcomeUnknown:
+		_, _ = s.dependencies.Kernel.Expire(ctx, submission.ExecutionScope{OrganizationID: scope.OrganizationID}, a.AttemptID)
+		result := unknownUpload(saved.ID, a.AttemptID)
+		return &result, nil
+	}
+	return nil, nil
+}
+
+func (s *UploadService) tiktokOriginalCommand(ctx context.Context, scope collection.Scope, saved record.TargetRecord, key string) (*UploadResult, error) {
+	for _, image := range saved.TikTokImageObservations {
+		target, err := tiktokTarget(saved, submission.TikTokImageStage, &image)
+		if err != nil {
+			return nil, err
+		}
+		stepKey := tiktokStageKey(scope, key, saved.ID, submission.TikTokImageStage, target)
+		if result, err := s.tiktokOriginalStep(ctx, scope, saved, stepKey, submission.TikTokImageStage, target); result != nil || err != nil {
+			return result, err
+		}
+	}
+	if saved.Input.TikTok.Selection.Method == marketplace.GlobalPublishing {
+		target, err := tiktokTarget(saved, submission.TikTokGlobalCreateStage, nil)
+		if err != nil {
+			return nil, err
+		}
+		stepKey := tiktokStageKey(scope, key, saved.ID, submission.TikTokGlobalCreateStage, target)
+		if result, err := s.tiktokOriginalStep(ctx, scope, saved, stepKey, submission.TikTokGlobalCreateStage, target); result != nil || err != nil {
+			return result, err
+		}
+	}
+	target, err := tiktokTarget(saved, submission.TikTokPublishStage, nil)
+	if err != nil {
+		return nil, err
+	}
+	return s.tiktokOriginalStep(ctx, scope, saved, key, submission.TikTokPublishStage, target)
+}
+
 func (s *UploadService) tiktokFacts(ctx context.Context, scope collection.Scope, saved record.TargetRecord) (asset.ApprovedAssetInventory, error) {
 	var inventory asset.ApprovedAssetInventory
 	if !record.PublicationReady(saved) || s.dependencies.TikTokRules == nil || s.dependencies.TikTokStores == nil || s.dependencies.TikTokImages == nil {
@@ -150,6 +216,12 @@ func (s *UploadService) uploadTikTok(ctx context.Context, scope collection.Scope
 	if _, err := s.dependencies.TikTokStores.TikTokExecutionMerchant(ctx, scope, saved.Merchant.StoreID, storecenter.ProductPurposePublish, &saved.Merchant); err != nil {
 		return UploadResult{}, err
 	}
+	if original, err := s.tiktokOriginalCommand(ctx, scope, saved, key); original != nil || err != nil {
+		if err != nil {
+			return UploadResult{}, err
+		}
+		return *original, nil
+	}
 	target, err := tiktokTarget(saved, submission.TikTokPublishStage, nil)
 	if err != nil {
 		return UploadResult{}, err
@@ -191,7 +263,7 @@ func (s *UploadService) uploadTikTok(ctx context.Context, scope collection.Scope
 			if e != nil {
 				return UploadResult{}, e
 			}
-			imageKey := collection.StableID(scope.OrganizationID, "tiktok-image", target.StoreID, target.SubjectID, saved.ID)
+			imageKey := tiktokStageKey(scope, key, saved.ID, submission.TikTokImageStage, target)
 			receipt, pending, e := s.tiktokStage(ctx, scope, saved, imageKey, submission.TikTokImageStage, &image, nil, nil)
 			if e != nil {
 				return UploadResult{}, e
@@ -202,7 +274,11 @@ func (s *UploadService) uploadTikTok(ctx context.Context, scope collection.Scope
 			images = append(images, receipt)
 		}
 		if saved.Input.TikTok.Selection.Method == marketplace.GlobalPublishing {
-			globalKey := collection.StableID(scope.OrganizationID, "tiktok-global", saved.Merchant.StoreID, saved.Source.Source.ProductKey, saved.ID)
+			globalTarget, e := tiktokTarget(saved, submission.TikTokGlobalCreateStage, nil)
+			if e != nil {
+				return UploadResult{}, e
+			}
+			globalKey := tiktokStageKey(scope, key, saved.ID, submission.TikTokGlobalCreateStage, globalTarget)
 			receipt, pending, e := s.tiktokStage(ctx, scope, saved, globalKey, submission.TikTokGlobalCreateStage, nil, images, nil)
 			if e != nil {
 				return UploadResult{}, e
@@ -225,6 +301,10 @@ func (s *UploadService) uploadTikTok(ctx context.Context, scope collection.Scope
 }
 func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope, saved record.TargetRecord, key, stage string, image *marketplace.ImageObservation, images []submission.OfficialReceipt, global *submission.OfficialReceipt) (submission.OfficialReceipt, *UploadResult, error) {
 	var zero submission.OfficialReceipt
+	kernel, ok := s.dependencies.Kernel.(tikTokPreparationKernel)
+	if !ok {
+		return zero, nil, record.ErrUnavailable
+	}
 	target, err := tiktokTarget(saved, stage, image)
 	if err != nil {
 		return zero, nil, err
@@ -232,6 +312,9 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 	pending := func(id string) (submission.OfficialReceipt, *UploadResult, error) {
 		result := unknownUpload(saved.ID, id)
 		return zero, &result, nil
+	}
+	if original, err := s.tiktokOriginalStep(ctx, scope, saved, key, stage, target); original != nil || err != nil {
+		return zero, original, err
 	}
 	if prior, err := s.dependencies.Receipts.FindOfficialTarget(ctx, scope.OrganizationID, target); err == nil {
 		if !matchingTikTokReceipt(prior, saved, stage, image) {
@@ -261,7 +344,7 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 	if !submission.TikTokPayloadMatchesIntent(intent, payload) {
 		return zero, nil, submission.ErrExecutionIntentConflict
 	}
-	acquired, err := s.dependencies.Kernel.Acquire(ctx, submission.AcquireExecutionCommand{Scope: submission.ExecutionScope{OrganizationID: scope.OrganizationID}, IntentKey: key, Target: target, Action: submission.TikTokStageAction(stage), Payload: payload, ClaimOwnerID: "supply-worker", Lease: time.Minute})
+	acquired, err := kernel.PrepareTikTokExecution(ctx, submission.AcquireExecutionCommand{Scope: submission.ExecutionScope{OrganizationID: scope.OrganizationID}, IntentKey: key, Target: target, Action: submission.TikTokStageAction(stage), Payload: payload, ClaimOwnerID: "supply-worker", Lease: time.Minute})
 	if errors.Is(err, submission.ErrExecutionTargetSucceeded) {
 		receipt, e := s.dependencies.Receipts.FindOfficialTarget(ctx, scope.OrganizationID, target)
 		if e != nil {
@@ -278,7 +361,11 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 	if err != nil {
 		return zero, nil, err
 	}
-	if acquired.Permit == nil {
+	if acquired.Preparation == nil {
+		if acquired.Attempt.Status == submission.ExecutionNotSent {
+			result := tiktokNotSent(saved.ID, acquired.Attempt.AttemptID)
+			return zero, &result, nil
+		}
 		if acquired.Attempt.Status == submission.ExecutionSucceeded {
 			receipt, e := s.dependencies.Receipts.ReadOfficial(ctx, scope, acquired.Attempt.AttemptID)
 			if e != nil {
@@ -292,16 +379,32 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 		_, _ = s.dependencies.Kernel.Expire(ctx, submission.ExecutionScope{OrganizationID: scope.OrganizationID}, acquired.Attempt.AttemptID)
 		return pending(acquired.Attempt.AttemptID)
 	}
-	claim := uploadClaim(scope, acquired.Permit)
-	ctx, cancel := context.WithDeadline(ctx, acquired.Permit.LeaseExpiresAt)
+	var claim submission.ExecutionClaim
+	ctx, cancel := context.WithDeadline(ctx, acquired.Attempt.LeaseExpiresAt)
 	defer cancel()
+	noSend := func(reason string) (submission.OfficialReceipt, *UploadResult, error) {
+		writeCtx, close := context.WithTimeout(context.WithoutCancel(ctx), submission.ExecutionTimeout)
+		defer close()
+		if a, err := kernel.StopTikTokBeforeSend(writeCtx, acquired.Preparation, reason); err == nil {
+			result := tiktokNotSent(saved.ID, a.AttemptID)
+			return zero, &result, nil
+		}
+		return pending(acquired.Attempt.AttemptID)
+	}
+	begin := func() error {
+		permit, err := kernel.BeginTikTokSend(ctx, acquired.Preparation)
+		if err == nil {
+			claim = uploadClaim(scope, permit)
+		}
+		return err
+	}
 	uncertain := func() (submission.OfficialReceipt, *UploadResult, error) {
 		result := s.unknown(ctx, saved.ID, claim)
 		return zero, &result, nil
 	}
 	inventory, err := s.tiktokFacts(ctx, scope, saved)
 	if err != nil {
-		return uncertain()
+		return noSend(submission.NoSendPreflightUnavailable)
 	}
 	purpose := storecenter.ProductPurposePublish
 	if stage == submission.TikTokImageStage {
@@ -309,7 +412,7 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 	}
 	merchant, err := s.dependencies.TikTokStores.TikTokExecutionMerchant(ctx, scope, saved.Merchant.StoreID, purpose, &intent.Binding)
 	if err != nil {
-		return uncertain()
+		return noSend(submission.NoSendAccessRecheckFailed)
 	}
 	effect := submission.TikTokEffectReceipt{DraftHash: intent.TikTok.DraftHash}
 	switch stage {
@@ -323,8 +426,14 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 		}
 		observed, content, e := s.dependencies.TikTokImages.ReadTikTokContent(ctx, approved, image.UseCase)
 		defer clear(content)
-		if e != nil || observed != *image {
-			return uncertain()
+		if e != nil {
+			return noSend(submission.NoSendPreflightUnavailable)
+		}
+		if observed != *image {
+			return noSend(submission.NoSendImageContentChanged)
+		}
+		if err := begin(); err != nil {
+			return noSend(submission.NoSendPreflightUnavailable)
 		}
 		uploaded, e := merchant.UploadImage(ctx, image.UseCase, observed.MediaType, content)
 		if e != nil {
@@ -335,7 +444,10 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 	case submission.TikTokGlobalCreateStage:
 		var input marketplace.CreateGlobalRequest
 		if json.Unmarshal(payload, &input) != nil {
-			return uncertain()
+			return noSend(submission.NoSendPayloadInvalid)
+		}
+		if err := begin(); err != nil {
+			return noSend(submission.NoSendPreflightUnavailable)
 		}
 		created, e := merchant.CreateGlobal(ctx, input)
 		if e != nil {
@@ -346,7 +458,10 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 		if global == nil {
 			var input marketplace.CreateLocalRequest
 			if json.Unmarshal(payload, &input) != nil {
-				return uncertain()
+				return noSend(submission.NoSendPayloadInvalid)
+			}
+			if err := begin(); err != nil {
+				return noSend(submission.NoSendPreflightUnavailable)
 			}
 			created, e := merchant.CreateLocal(ctx, input)
 			if e != nil {
@@ -356,11 +471,14 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 		} else {
 			var input marketplace.PublishGlobalRequest
 			if json.Unmarshal(payload, &input) != nil {
-				return uncertain()
+				return noSend(submission.NoSendPayloadInvalid)
 			}
 			expected := marketplace.GlobalPublishExpectation{ShopID: intent.Binding.TikTok.ShopID}
 			for _, sku := range global.TikTok.Global.SKUs {
 				expected.GlobalSKUIDs = append(expected.GlobalSKUIDs, sku.ID)
+			}
+			if err := begin(); err != nil {
+				return noSend(submission.NoSendPreflightUnavailable)
 			}
 			result, e := merchant.PublishUS(ctx, global.TikTok.Global.ID, input, expected)
 			if e != nil {
@@ -369,7 +487,7 @@ func (s *UploadService) tiktokStage(ctx context.Context, scope collection.Scope,
 			effect.Publication = &result
 		}
 	default:
-		return uncertain()
+		return noSend(submission.NoSendPayloadInvalid)
 	}
 	completion, err := submission.NewTikTokCompletion(scope, saved, intent, acquired.Attempt, claim, payload, effect)
 	if err != nil {

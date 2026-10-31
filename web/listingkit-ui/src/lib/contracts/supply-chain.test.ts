@@ -1,7 +1,13 @@
 import { expect,it } from "vitest";
-import { officialDraftInputSchema,supplyPath,operationInputSchema,parseSupplyResponse } from "./supply-chain";
+import { officialDraftInputSchema,supplyPath,operationInputSchema,parseSupplyResponse,uploadAttemptSchema } from "./supply-chain";
 import { initialSupplyDraft } from "@/components/workbench/supply/draft-fields";
 import type { SupplySourceDetail } from "./supply-chain";
+it("admits not_sent only for the original TikTok step and rejects a foreign platform",()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ const view={recordId:id,attemptId:id,effectKind:"image",platform:"tiktokshop",status:"not_sent",message:"本次未发送"};
+ expect(uploadAttemptSchema.safeParse(view).success).toBe(true);
+ for(const platform of [undefined,"temu","walmart"]){expect(uploadAttemptSchema.safeParse({...view,platform}).success).toBe(false)}
+});
 it("allows one approved image to be assigned to every real SKU in a large batch",()=>{
  const draft=initialSupplyDraft({product:{}} as SupplySourceDetail);
  draft.images=Array.from({length:205},(_,sku)=>({group:"sku" as const,skc:0,sku,asset_id:"approved-original",sort:1,type:1}));

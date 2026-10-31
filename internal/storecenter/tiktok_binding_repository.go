@@ -114,6 +114,9 @@ func tiktokBindingValue(row tiktokBindingRow) TikTokShopBinding {
 func tiktokConnectionView(connection officialConnectionRow, attempt tiktokAttemptRow, grant tiktok.GrantSnapshot, binding tiktokBindingRow, now time.Time) OfficialConnectionView {
 	view := OfficialConnectionView{Platform: PlatformTikTokShop, AuthorizationMethod: OfficialAuthorizationMethod("oauth_callback"), AppID: attempt.AppKey, AppRevision: attempt.AppRevision, AttemptID: connection.AttemptID, State: attempt.State, Status: ConnectionStatus(connection.Status), Version: connection.Version, ObservedAt: connection.ObservedAt, TikTok: &TikTokConnectionDetails{Market: "US", SellerType: "CROSS_BORDER", ShopID: binding.ShopID, GrantGeneration: grant.Generation, GrantRevision: grant.Revision, BindingRevision: binding.Version}}
 	if grant.ID != "" {
+		if grant.Status == tiktok.GrantRefreshDispatched || grant.Status == tiktok.GrantRefreshUnknown {
+			view.State = string(grant.Status)
+		}
 		view.CredentialExpiresAt = valuePointer(grant.AccessExpiresAt)
 		valid, e := tiktok.RestoreGrant(grant)
 		if e != nil || !valid.CanSend(now) || binding.Status != "active" {
