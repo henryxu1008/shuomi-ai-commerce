@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "commerce_fulfillment"
+version = "0.1.0"
+description = "Native ERPNext fulfillment commands for Shuomi Commerce"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+commerce_fulfillment = ["**/*.json", "*.txt"]

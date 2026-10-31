@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 	"task-processor/internal/agentconfig"
+	fulfillmentapp "task-processor/internal/app/fulfillment"
+	fulfillmentmodule "task-processor/internal/app/fulfillment/module"
 	podhttp "task-processor/internal/app/pod/httpapi"
 	supplyapp "task-processor/internal/app/supplychain"
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
@@ -148,6 +150,8 @@ type currentApplicationFactories struct {
 
 type CurrentApplicationOption func(*currentApplicationOptions)
 type currentApplicationOptions struct {
+	fulfillments                 int
+	fulfillment                  *fulfillmentmodule.Dependencies
 	modelRoutePricing            *ModelRoutePricingDependencies
 	dataServicesConfigs          int
 	dataServices                 *DataServicesDependencies
@@ -693,6 +697,29 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 	}
 	var savedObservations *o.Service
+	if supplied.fulfillments > 0 {
+		if supplied.fulfillments != 1 || supplied.fulfillment == nil || supplied.storeCenters != 1 || supplied.storeCenterDB == nil || supplied.officialStoreApplications == nil {
+			return nil, errors.New("fulfillment requires current Store composition")
+		}
+		resolver, ok := workbench.authDependencies.organizationResolver.(*workbenchcontext.Resolver)
+		if !ok || resolver == nil {
+			return nil, errors.New("fulfillment requires current organization resolver")
+		}
+		stores, err := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer})
+		if err != nil {
+			return nil, err
+		}
+		d := *supplied.fulfillment
+		d.Stores = stores
+		d.Applications = supplied.officialStoreApplications
+		d.Authorization = fulfillmentapp.Authorization{Client: zitadelruntime.NewAuthorizationClient(cfg.ListingKit.Zitadel.AuthorizationAPIURL, &http.Client{Timeout: 5 * time.Second}), ServiceToken: func(context.Context) (string, error) { return cfg.ListingKit.Zitadel.TenantDirectoryToken, nil }, ProjectID: cfg.ListingKit.Zitadel.ProjectID, Permissions: authorizer, OrganizationStatus: resolver.BusinessStatusChecker()}
+		d.Bind = (productReviewCapabilityBinder{now: time.Now}).Bind
+		module, err := fulfillmentmodule.New(ctx, d)
+		if err != nil {
+			return nil, err
+		}
+		modules = append(modules, module)
+	}
 	if supplied.storeObservations > 0 {
 		module, err := buildCurrentStoreObservations(ctx, supplied.storeCenterDB, *supplied.storeObservationDependencies, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, storeCapabilities)
 		if err != nil {
@@ -1277,6 +1304,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		StoreCenter:          supplied.storeCenters > 0,
 		TikTokShop:           supplied.officialStoreApplications.TikTokConfigured(),
 		StoreObservations:    supplied.storeObservations > 0,
+		Fulfillment:          supplied.fulfillments == 1,
 		LocalTrial:           supplied.localTrials > 0,
 		Knowledge:            supplied.knowledgeServices > 0,
 		OfficialKnowledge:    cfg.Workbench.Enabled,
@@ -1354,6 +1382,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 }
 
 type currentApplicationOptionalRoutes struct {
+	Fulfillment          bool
 	StorageCapacity      bool
 	AmazonBrowserCapture bool
 	DataServices         bool
@@ -1404,6 +1433,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		return errors.New("private draft trial excludes market/POD services")
 	}
 	admitted := append([]currentApplicationRoute(nil), currentWorkbenchApplicationRoutes...)
+	if optional.Fulfillment {
+		for _, route := range (*fulfillmentmodule.Module)(nil).Routes() {
+			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
+		}
+	}
 	if optional.DataServices {
 		for _, r := range datahttp.BuildRoutes(datahttp.Dependencies{}) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
@@ -1973,6 +2007,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 			if !optional.MemberResources || descriptor.Module != memberResourcesModuleName || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver == nil || !descriptor.RejectUnreadRequestBody || descriptor.RequestTimeout != 15*time.Second || descriptor.Permission != permission || descriptor.Handler == nil {
 				return errors.New("member resources route loses live permission boundary")
+			}
+		}
+		if strings.HasPrefix(descriptor.Path, fulfillmentmodule.BasePath) {
+			if !optional.Fulfillment {
+				return errors.New("fulfillment feature not admitted")
+			}
+			if err := validateFulfillmentDescriptor(descriptor); err != nil {
+				return err
 			}
 		}
 		if strings.HasPrefix(descriptor.Path, observationhttp.BasePath) {

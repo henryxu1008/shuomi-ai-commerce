@@ -265,3 +265,13 @@ ERP/平台调用固定于安装配置和当前 Store registry；禁止浏览器�
 分类：BLOCKER。Action：仅冻结§13.2的原生内部 DN 路径，并在同一已预留商品验证。增量 Spike f1eaa573 已重现旧 Stock Entry 拒绝；原生内部 DN 部分移交2后，源仓5→3、在途0→2、原需求已交0→2、剩余预留5→3，总拥有数量5且无GL；DN/SRE/库存更新后、回执提交前故障时，四项原事实和回执一起回滚。准确结果见 [适配验证](erpnext-shein-fulfillment-fit-v1.md) 与固定JSON。
 
 Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过同一实物/平台效果的 UNKNOWN 占用；实时权限/地址用途/版本漂移；原生容差、单位换算和部分收货/出库的准确约束。它们必须在正式实现和必要验证中收敛，当前不据此增建通用机制或扩大架构评审范围。原独立 Reviewer 已只读核对 B1 的真实三文件增量、脚本哈希、原始 f1eaa573 结果和准确上游约束，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确 IMPLEMENTATION_READY；B1关闭，不重复全局评审。Reviewer未重新执行有写入的probe，该结论不是真实平台或用户验收。
+
+### 实现澄清与当前验证状态
+
+用户随后确认：暂时没有可证明允许自发货的美国站店铺/订单，继续完成开发，真实自发货保留待联调状态。没有扩大真实渠道或保留实例操作授权。
+
+装箱消费原生 Delivery Note 草稿（docstatus=0），准备/打印平台单据不会提前扣库存；实际交接才提交原草稿，仍使用已批准的原 SO/SRE 与内部 DN 原子库存更新。原操作聚合在 Frappe 原生子表中保存每件 goodsId 的唯一效果占用，不形成第二数量账；换包裹或 DN ID 不能解除原 UNKNOWN。托管发货占用原备货单，不能换单据重复发送。该澄清收敛既定 IMPLEMENTATION_TEST，不新增事实 owner 或跨系统事务协议。
+
+正式官方文档在浏览器动态内容中已核对：[备货履约](https://open.sheincorp.com/documents/system/a880d468-3c56-4dee-b8d6-5c6ff8be756f)、[智能拆包准入](https://open.sheincorp.com/documents/apidoc/detail/3002042)、[发货基础资料](https://open.sheincorp.com/documents/apidoc/detail/3001971)、[发货单面单](https://open.sheincorp.com/documents/apidoc/detail/3001293)。商家渠道查询的当前合同为 POST /open-api/order/express-channel，语义只读；以当前正式文档为准。地址 handleType=2 另要求原单已选 orderLogisticsType=2，不自动替用户切换。智能拆包接口的 countryMarket 说明不能替换用户已经确认的原采购单市场未知处理。
+
+实现仍为 In Progress。ERP 原生扩展、固定 HTTPS adapter、当前 Store/IAM 用途和一次平台派发已形成；Console/BFF、完整联调与最终交付检查尚未完成。当前正式原生测试覆盖10项并通过；相关 Go 包通过。真实 SHEIN、部署及用户验收为 NOT_RUN，不能把它们写成已打通或已验收。

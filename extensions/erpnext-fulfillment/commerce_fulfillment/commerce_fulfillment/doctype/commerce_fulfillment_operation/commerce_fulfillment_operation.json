@@ -1,0 +1,28 @@
+{
+ "doctype": "DocType",
+ "name": "Commerce Fulfillment Operation",
+ "module": "Commerce Fulfillment",
+ "engine": "InnoDB",
+ "autoname": "field:operation_id",
+ "track_changes": 0,
+ "fields": [
+  {"fieldname":"operation_id","label":"Operation","fieldtype":"Data","reqd":1,"unique":1},
+  {"fieldname":"effect_key","label":"Original effect","fieldtype":"Data","unique":1},
+  {"fieldname":"organization","label":"Organization","fieldtype":"Data","reqd":1},
+  {"fieldname":"actor","label":"Actor","fieldtype":"Data","reqd":1},
+  {"fieldname":"member","label":"Member","fieldtype":"Data","reqd":1},
+  {"fieldname":"binding","label":"Source binding","fieldtype":"Data","reqd":1},
+  {"fieldname":"purpose","label":"Purpose","fieldtype":"Data","reqd":1},
+  {"fieldname":"input_digest","label":"Input digest","fieldtype":"Data","reqd":1},
+  {"fieldname":"stage","label":"Stage","fieldtype":"Data","reqd":1},
+  {"fieldname":"revision","label":"Revision","fieldtype":"Data"},
+  {"fieldname":"target","label":"Native document","fieldtype":"Data"},
+  {"fieldname":"input_json","label":"Frozen input","fieldtype":"Long Text","hidden":1},
+  {"fieldname":"result_json","label":"Receipt","fieldtype":"Long Text","hidden":1},
+  {"fieldname":"private_data","label":"Encrypted private data","fieldtype":"Long Text","hidden":1},
+  {"fieldname":"private_expires","label":"Private data expiry","fieldtype":"Datetime","hidden":1},
+  {"fieldname":"effects","label":"Original effects","fieldtype":"Table","options":"Commerce Fulfillment Effect","hidden":1}
+ ],
+ "permissions": [{"role":"Commerce Fulfillment Service","read":1,"write":1,"create":1}],
+ "field_order": ["operation_id","organization","actor","member","purpose","binding","effect_key","input_digest","stage","revision","target","input_json","result_json","private_data","private_expires","effects"]
+}

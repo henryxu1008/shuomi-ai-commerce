@@ -40,7 +40,7 @@ var enterpriseModules = []MenuModule{
 	{"stores", "店铺中心", "我的店铺", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreCreate, PermissionWorkbenchStoreUpdate, PermissionWorkbenchStoreLifecycle}},
 	{"store-browser", "店铺中心", "店铺浏览器使用", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreBrowserUse}},
 	{"store-products", "店铺中心", "店铺商品", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreProductsRead, PermissionWorkbenchStoreProductsSync}},
-	{"store-orders", "店铺中心", "订单履约", true, []string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreOrdersRead, PermissionWorkbenchStoreOrdersSync}},
+	{"store-orders", "店铺中心", "订单履约", true, append([]string{PermissionWorkbenchStoreRead, PermissionWorkbenchStoreOrdersRead, PermissionWorkbenchStoreOrdersSync}, FulfillmentPermissions()...)},
 	{"plans", "套餐与权益", "套餐与权益（查看）", true, []string{PermissionWorkbenchCommercialRead}},
 	{"members", "我的账户", "成员与权限（查看）", true, []string{PermissionWorkbenchOrganizationMemberRead}},
 	{"source-accounts", "我的账户", "源账号", true, []string{PermissionWorkbenchSourceAccountRead, PermissionWorkbenchSourceAccountManage}},

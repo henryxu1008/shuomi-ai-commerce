@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	fulfillmentmodule "task-processor/internal/app/fulfillment/module"
 	podapp "task-processor/internal/app/pod"
 	dataservicesruntime "task-processor/internal/app/runtime/dataservices"
 	podruntime "task-processor/internal/app/runtime/pod"
@@ -208,6 +209,9 @@ func execute() error {
 				if features.OfficialStoreApplications != nil {
 					options = append(options, httpapi.WithStoreOfficialApplications(features.OfficialStoreApplications))
 				}
+			}
+			if features.Fulfillment != nil {
+				options = append(options, httpapi.WithFulfillment(fulfillmentmodule.Dependencies{Configuration: features.Fulfillment, Workflow: features.FulfillmentWorkflow, Lifecycle: features.FulfillmentLifecycle}))
 			}
 			if features.OperationsCockpit {
 				options = append(options, httpapi.WithOperationsCockpit())
