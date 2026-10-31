@@ -2,6 +2,7 @@
 import json
 import uuid
 from unittest.mock import patch
+from cryptography.fernet import Fernet
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -14,6 +15,8 @@ class TestFulfillment(FrappeTestCase):
     def setUp(self):
         if not frappe.conf.get("commerce_fulfillment_test_site"):
             self.skipTest("requires explicitly designated isolated test site")
+        frappe.db.set_single_value("Stock Settings", "enable_stock_reservation", 1)
+        frappe.db.set_single_value("Stock Settings", "allow_partial_reservation", 1)
         self.suffix = uuid.uuid4().hex[:8]
         self.company = frappe.get_doc({"doctype": "Company", "company_name": "CF " + self.suffix,
             "abbr": self.suffix, "default_currency": "USD", "country": "United States",
@@ -21,6 +24,8 @@ class TestFulfillment(FrappeTestCase):
         self.warehouse = frappe.db.get_value("Warehouse", {"company": self.company.name, "warehouse_name": "Stores"}, "name")
         self.transit = frappe.get_doc({"doctype": "Warehouse", "warehouse_name": "CF Transit " + self.suffix,
             "company": self.company.name, "warehouse_type": "Transit"}).insert().name
+        self.rejected = frappe.get_doc({"doctype": "Warehouse", "warehouse_name": "CF Rejected " + self.suffix,
+            "company": self.company.name}).insert().name
         customer_group = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
         territory = frappe.db.get_value("Territory", {"is_group": 0}, "name")
         def customer(internal):
@@ -34,16 +39,24 @@ class TestFulfillment(FrappeTestCase):
         self.item = frappe.get_doc({"doctype": "Item", "item_code": "CF-" + self.suffix,
             "item_name": "Synthetic goods", "item_group": "Products", "stock_uom": "Nos", "is_stock_item": 1}).insert().name
         self.previous = frappe.conf.get("commerce_fulfillment")
+        self.previous_encryption_key = frappe.conf.get("encryption_key")
+        if not self.previous_encryption_key:
+            frappe.conf.encryption_key = Fernet.generate_key().decode()
+        def price_list(field):
+            existing = frappe.db.get_value("Price List", {field: 1, "currency": "USD"}, "name")
+            return existing or frappe.get_doc({"doctype": "Price List", "price_list_name": "CF " + field + self.suffix,
+                "currency": "USD", field: 1, "enabled": 1}).insert().name
         frappe.conf.commerce_fulfillment = {"organization": "test-org", "company": self.company.name,
             "customer": self.customer, "internal_customer": self.internal, "source_warehouse": self.warehouse,
             "transit_warehouse": self.transit, "service_user": "Administrator", "test_only": True,
+            "rejected_warehouse": self.rejected,
             "supply_movement": "owned_transfer", "address_retention_seconds": 3600,
-            "selling_price_list": frappe.db.get_value("Price List", {"selling": 1, "currency": "USD"}, "name"),
-            "buying_price_list": frappe.db.get_value("Price List", {"buying": 1, "currency": "USD"}, "name")}
+            "selling_price_list": price_list("selling"), "buying_price_list": price_list("buying")}
 
     def tearDown(self):
         frappe.set_user("Administrator")
         frappe.conf.commerce_fulfillment = self.previous
+        frappe.conf.encryption_key = self.previous_encryption_key
         super().tearDown()
 
     def command(self, command, payload, key=None):
@@ -64,10 +77,90 @@ class TestFulfillment(FrappeTestCase):
         payload = self.demand()
         first = self.command("bind_demand", payload, key)
         self.assertEqual(first, self.command("bind_demand", payload, key))
+        self.assertEqual(self.command("find_demand", {})["demand"], first["target"])
         payload["lines"][0]["qty"] = 6
         with self.assertRaises(frappe.ValidationError):
             self.command("bind_demand", payload, key)
         self.assertEqual(frappe.get_doc("Sales Order", first["target"]).items[0].qty, 5)
+
+    def test_validation_rejection_has_durable_original_no_effect_receipt(self):
+        key = str(uuid.uuid4())
+        payload = self.demand()
+        payload["lines"][0]["qty"] = 0
+        first = self.command("bind_demand", payload, key)
+        self.assertEqual(first["stage"], "DEFINITIVE_NO_EFFECT")
+        self.assertEqual(self.command("bind_demand", payload, key), first)
+        self.assertFalse(first["target"])
+        self.assertEqual(frappe.db.count("Sales Order", {"company": self.company.name}), 0)
+        self.assertEqual(self.command("read", {"operation": key}), first)
+
+    def test_cancel_original_fences_late_request_and_preserves_committed_result(self):
+        key = str(uuid.uuid4())
+        payload = self.demand()
+        cancelled = self.command("cancel_original", {}, key)
+        self.assertEqual(cancelled["stage"], "DEFINITIVE_NO_EFFECT")
+        with self.assertRaises(frappe.ValidationError):
+            self.command("bind_demand", payload, key)
+        self.assertEqual(frappe.db.count("Sales Order", {"company": self.company.name}), 0)
+        original = self.command("bind_demand", payload)
+        self.assertEqual(self.command("cancel_original", {}, original["operation"]), original)
+
+    def test_changed_original_quantity_blocks_new_allocation(self):
+        demand = self.command("bind_demand", self.demand())
+        line = frappe.get_doc("Sales Order", demand["target"]).items[0].name
+        result = execute({"operation_id": str(uuid.uuid4()), "organization": "test-org",
+            "actor": "test-user", "member": "test-member", "binding": "a" * 64,
+            "store": "test-store", "source_kind": "consumer_order", "source_id": "source-" + self.suffix,
+            "current_lines": {"source-line": 4}, "command": "create_purchase", "payload": {
+                "demand": demand["target"], "supplier": self.supplier, "delivery_date": add_days(nowdate(), 5),
+                "lines": [{"demand_line": line, "qty": 5, "rate": 4}]}})
+        self.assertEqual(result["stage"], "DEFINITIVE_NO_EFFECT")
+        self.assertEqual(frappe.db.count("Purchase Order", {"company": self.company.name}), 0)
+
+    def test_native_uom_conversion_survives_purchase_receipt_and_dispatch(self):
+        if not frappe.db.exists("UOM", "Box"):
+            frappe.get_doc({"doctype": "UOM", "uom_name": "Box", "must_be_whole_number": 1}).insert()
+        item = frappe.get_doc("Item", self.item)
+        item.append("uoms", {"uom": "Box", "conversion_factor": 6})
+        item.save()
+        page = frappe.db.count("Item", {"disabled": 0, "is_stock_item": 1, "name": ["<", self.item]}) // 20 + 1
+        catalog = self.command("catalog", {"page": page})
+        self.assertIn({"uom": "Box", "conversion_factor": 6}, next(row for row in catalog["items"] if row["name"] == self.item)["uoms"])
+        payload = self.demand(quantity=2)
+        payload["lines"][0]["uom"] = "Box"
+        demand = self.command("bind_demand", payload)
+        line = frappe.get_doc("Sales Order", demand["target"]).items[0].name
+        po = self.command("create_purchase", {"demand": demand["target"], "supplier": self.supplier,
+            "delivery_date": add_days(nowdate(), 5), "lines": [{"demand_line": line, "qty": 2, "rate": 4}]})
+        purchase = frappe.get_doc("Purchase Order", po["target"])
+        self.command("receive", {"purchase": purchase.name, "lines": [{"purchase_line": purchase.items[0].name, "qty": 2}]})
+        self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.item, "warehouse": self.warehouse}, "actual_qty"), 12)
+        packed = self.command("pack", {"demand": demand["target"], "package_id": "converted-box", "lines": [{"demand_line": line, "qty": 1}]})
+        handed = self.command("dispatch", {"demand": demand["target"], "delivery": packed["target"]})
+        self.assertEqual(handed["stage"], "SUCCEEDED")
+        self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.item, "warehouse": self.warehouse}, "actual_qty"), 6)
+        self.assertEqual(self.command("details", {"demand": demand["target"]})["lines"][0]["reserved_qty"], 1)
+
+    def test_rejected_and_short_delivery_never_become_available_stock(self):
+        demand = self.command("bind_demand", self.demand())
+        line = frappe.get_doc("Sales Order", demand["target"]).items[0].name
+        po = self.command("create_purchase", {"demand": demand["target"], "supplier": self.supplier,
+            "delivery_date": add_days(nowdate(), 5), "lines": [{"demand_line": line, "qty": 5, "rate": 4}]})
+        purchase = frappe.get_doc("Purchase Order", po["target"])
+        result = self.command("receive", {"purchase": purchase.name, "lines": [{"purchase_line": purchase.items[0].name,
+            "qty": 2, "rejected_qty": 1, "short_qty": 2}]})
+        self.assertEqual(result["stage"], "SUCCEEDED")
+        self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.item, "warehouse": self.warehouse}, "actual_qty"), 2)
+        self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.item, "warehouse": self.rejected}, "actual_qty"), 1)
+        detail = self.command("details", {"demand": demand["target"]})
+        self.assertEqual(detail["purchases"][0]["receipts"][0]["lines"][0]["short_qty"], 2)
+        self.assertEqual(detail["lines"][0]["reserved_qty"], 2)
+        self.assertEqual(detail["lines"][0]["purchase_remaining"], 1)
+        closed = self.command("close_purchase", {"purchase": purchase.name, "reason": "Supplier confirmed no remaining delivery"})
+        self.assertEqual(closed["stage"], "SUCCEEDED")
+        detail = self.command("details", {"demand": demand["target"]})
+        self.assertEqual(detail["purchases"][0]["status"], "Closed")
+        self.assertEqual(detail["lines"][0]["purchase_remaining"], 3)
 
     def test_procurement_partial_receipt_and_owned_dispatch(self):
         demand = self.command("bind_demand", self.demand("platform_supply"))
@@ -78,14 +171,18 @@ class TestFulfillment(FrappeTestCase):
         self.command("record_external_order", {"purchase": purchase.name, "external_order": "manual-supplier-1"})
         self.command("receive", {"purchase": purchase.name, "lines": [{"purchase_line": purchase.items[0].name, "qty": 3}]})
         self.assertEqual(frappe.get_doc("Purchase Order", purchase.name).items[0].received_qty, 3)
-        with self.assertRaises(frappe.ValidationError):
-            self.command("receive", {"purchase": purchase.name, "lines": [{"purchase_line": purchase.items[0].name, "qty": 3}]})
+        self.assertEqual(self.command("receive", {"purchase": purchase.name, "lines": [{"purchase_line": purchase.items[0].name, "qty": 3}]})["stage"], "DEFINITIVE_NO_EFFECT")
         self.command("reserve", {"demand": demand["target"], "lines": [{"demand_line": line, "qty": 3}]})
         packed = self.command("pack", {"demand": demand["target"], "package_id": "physical-package-1",
             "lines": [{"demand_line": line, "qty": 2}]})
         self.assertEqual(frappe.get_doc("Delivery Note", packed["target"]).docstatus, 0)
         self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.item, "warehouse": self.warehouse}, "actual_qty"), 3)
-        result = self.command("dispatch", {"demand": demand["target"], "delivery": packed["target"]})
+        platform = str(uuid.uuid4())
+        self.command("prepare", {"purpose": "supply_shipping", "demand": demand["target"], "delivery": packed["target"], "version": "v1", "data": {}}, platform)
+        for command in ["confirm", "claim", "mark_dispatching"]:
+            self.command(command, {"operation": platform, "version": "v1"})
+        self.command("record_result", {"operation": platform, "stage": "SUCCEEDED", "result": {"shipping_id": "synthetic-native-test-only"}})
+        result = self.command("dispatch", {"demand": demand["target"], "delivery": packed["target"], "platform_operation": platform})
         note = frappe.get_doc("Delivery Note", result["target"])
         self.assertEqual(note.items[0].target_warehouse, self.transit)
         self.assertEqual(frappe.get_doc("Sales Order", demand["target"]).items[0].delivered_qty, 2)
@@ -103,8 +200,7 @@ class TestFulfillment(FrappeTestCase):
         for command in ["confirm", "claim", "mark_dispatching"]:
             self.command(command, {"operation": operation, "version": "v1"})
         self.command("record_result", {"operation": operation, "stage": "UNKNOWN", "result": {"reason": "response_lost"}})
-        with self.assertRaises(frappe.ValidationError):
-            self.command("prepare", payload)
+        self.assertEqual(self.command("prepare", payload)["stage"], "DEFINITIVE_NO_EFFECT")
         result = self.command("read", {"operation": operation})
         self.assertEqual(result["stage"], "UNKNOWN")
 
@@ -118,7 +214,7 @@ class TestFulfillment(FrappeTestCase):
             raise RuntimeError("synthetic lost response before transaction commit")
 
         with patch.dict(api.HANDLERS, {"bind_demand": fault}):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(frappe.ValidationError):
                 self.command("bind_demand", self.demand(), key)
         self.assertFalse(frappe.db.exists("Commerce Fulfillment Operation", key))
         self.assertEqual(frappe.db.count("Sales Order", {"company": self.company.name}), 0)
@@ -147,7 +243,12 @@ class TestFulfillment(FrappeTestCase):
         line = frappe.get_doc("Sales Order", result["target"]).items[0].name
         po = self.command("create_purchase", {"demand": result["target"], "supplier": self.supplier,
             "delivery_date": add_days(nowdate(), 5), "lines": [{"demand_line": line, "qty": 5, "rate": 4}]})
-        self.assertTrue(po["target"])
+        purchase = frappe.get_doc("Purchase Order", po["target"])
+        self.command("receive", {"purchase": purchase.name, "lines": [{"purchase_line": purchase.items[0].name, "qty": 5}]})
+        self.command("reserve", {"demand": result["target"], "lines": [{"demand_line": line, "qty": 5}]})
+        packed = self.command("pack", {"demand": result["target"], "package_id": "role-package", "lines": [{"demand_line": line, "qty": 5}]})
+        handed = self.command("dispatch", {"demand": result["target"], "delivery": packed["target"]})
+        self.assertEqual(frappe.get_doc("Delivery Note", handed["target"]).docstatus, 1)
         self.assertFalse(frappe.has_permission("Bank Account", "read"))
 
     def test_addresses_are_encrypted_and_version_checked(self):
@@ -189,8 +290,7 @@ class TestFulfillment(FrappeTestCase):
             self.command(command, {"operation": operation, "version": "v1"})
         self.command("record_result", {"operation": operation, "stage": "UNKNOWN", "result": {"reason": "lost_response"}})
         second = packing("different-package")
-        with self.assertRaises(frappe.ValidationError):
-            self.command("prepare", {"purpose": "consumer_tracking", "demand": demand["target"], "delivery": second, "version": "v2", "data": {}})
+        self.assertEqual(self.command("prepare", {"purpose": "consumer_tracking", "demand": demand["target"], "delivery": second, "version": "v2", "data": {}})["stage"], "DEFINITIVE_NO_EFFECT")
 
     def test_purchase_receipt_can_be_recovered_by_original_operation_key(self):
         demand = self.command("bind_demand", self.demand())
@@ -199,3 +299,19 @@ class TestFulfillment(FrappeTestCase):
         purchase = self.command("create_purchase", {"demand": demand["target"], "supplier": self.supplier,
             "delivery_date": add_days(nowdate(), 5), "lines": [{"demand_line": line, "qty": 5, "rate": 4}]}, key)
         self.assertEqual(self.command("read", {"operation": key}), purchase)
+
+    def test_existing_stock_and_pending_purchase_share_one_demand_budget(self):
+        demand = self.command("bind_demand", self.demand())
+        line = frappe.get_doc("Sales Order", demand["target"]).items[0].name
+        frappe.get_doc({"doctype": "Stock Entry", "stock_entry_type": "Material Receipt", "company": self.company.name,
+            "items": [{"item_code": self.item, "t_warehouse": self.warehouse, "qty": 3, "basic_rate": 4, "conversion_factor": 1}]}).insert().submit()
+        self.command("reserve", {"demand": demand["target"], "lines": [{"demand_line": line, "qty": 3}]})
+        payload = {"demand": demand["target"], "supplier": self.supplier, "delivery_date": add_days(nowdate(), 5),
+            "lines": [{"demand_line": line, "qty": 5, "rate": 4}]}
+        self.assertEqual(self.command("create_purchase", payload)["stage"], "DEFINITIVE_NO_EFFECT")
+        payload["lines"][0]["qty"] = 2
+        purchase = self.command("create_purchase", payload)
+        po_line = frappe.get_doc("Purchase Order", purchase["target"]).items[0].name
+        self.command("receive", {"purchase": purchase["target"], "lines": [{"purchase_line": po_line, "qty": 2}]})
+        payload["lines"][0]["qty"] = 1
+        self.assertEqual(self.command("create_purchase", payload)["stage"], "DEFINITIVE_NO_EFFECT")

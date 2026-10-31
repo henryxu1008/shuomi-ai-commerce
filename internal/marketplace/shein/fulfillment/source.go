@@ -13,9 +13,9 @@ type Line struct {
 	SKU         string `json:"sku"`
 	Quantity    int64  `json:"quantity"`
 	Delivered   int64  `json:"delivered"`
-	Received    int64  `json:"received"`
-	Stored      int64  `json:"stored"`
-	Defective   int64  `json:"defective"`
+	Received    *int64 `json:"received"`
+	Stored      *int64 `json:"stored"`
+	Defective   *int64 `json:"defective"`
 }
 type Source struct {
 	Kind              string          `json:"kind"`
@@ -28,7 +28,7 @@ type Source struct {
 	SelectedLogistics int             `json:"selectedLogistics"`
 	Scene             int             `json:"scene"`
 	Type              int             `json:"type"`
-	CountryMarket     int             `json:"countryMarket"`
+	CountryMarket     *int            `json:"countryMarket"`
 	StorageID         string          `json:"storageId"`
 	Rules             json.RawMessage `json:"rules"`
 	Deadline          time.Time       `json:"deadline"`
@@ -41,16 +41,28 @@ func (s Source) DisplayMarket() string {
 	}
 	return "unknown"
 }
+func (s Source) FulfillableLines() []Line {
+	result := []Line{}
+	for _, line := range s.Lines {
+		if line.Quantity > line.Delivered {
+			result = append(result, line)
+		}
+	}
+	return result
+}
 func (s Source) Eligible(now time.Time) error {
 	if s.ID == "" || len(s.ID) > 140 || s.Deadline.IsZero() || !now.Before(s.Deadline) || len(s.Lines) < 1 || len(s.Lines) > 20 {
 		return f.ErrConflict
 	}
 	seen := map[string]bool{}
 	for _, line := range s.Lines {
-		if line.ID == "" || line.SKU == "" || seen[line.ID] || line.Quantity < 1 || line.Quantity > 100000000 || line.Delivered < 0 || line.Delivered > line.Quantity {
+		if line.ID == "" || line.SKU == "" || seen[line.ID] || line.Quantity < 0 || line.Quantity > 100000000 || line.Delivered < 0 || line.Delivered > line.Quantity {
 			return f.ErrConflict
 		}
 		seen[line.ID] = true
+	}
+	if len(s.FulfillableLines()) == 0 {
+		return f.ErrConflict
 	}
 	switch s.Kind {
 	case "consumer_order":

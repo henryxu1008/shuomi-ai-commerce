@@ -33,6 +33,23 @@ type MutationResult struct {
 	Result  map[string]any
 	Private map[string]any
 }
+type SupplyShipment struct {
+	ID              string  `json:"deliveryCode"`
+	DeliveryType    int     `json:"deliveryType"`
+	Warehouse       int64   `json:"supplierWarehouseId"`
+	Packages        *int64  `json:"sendPackage"`
+	Tracking        string  `json:"expressCode"`
+	Carrier         string  `json:"expressCompanyName"`
+	Created         *string `json:"addTime"`
+	Pickup          *string `json:"takeParcelTime"`
+	ExpectedArrival *string `json:"preReceiptTime"`
+	Arrival         *string `json:"receiptTime"`
+	Lines           []struct {
+		Order string `json:"orderNo"`
+		SKU   string `json:"skuCode"`
+		Qty   *int64 `json:"deliveryQuantity"`
+	} `json:"deliveryOrderDataList"`
+}
 type Channel struct {
 	Site string `json:"site"`
 	Name string `json:"expressIdCode"`

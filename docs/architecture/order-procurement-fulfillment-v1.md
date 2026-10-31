@@ -14,6 +14,8 @@
 
 用户后续明确批准：优先 SHEIN 美国站客单自发货与托管备货两条路径，先验证 ERPNext，再完成独立架构评审，达到准入后开发。用户进一步批准：托管按当前授权供应商的原始备货单交仓，无法证明销售市场时明确显示未知；客单自发货仍严格限定美国站。北/南大区不等于美国，不以本地 Store 的 shein-us 标签替代采购单市场证据。TikTok Shop、Walmart、TEMU 不属于本轮实现范围。
 
+2026-11-01 当前阶段决定：用户明确批准首版先交付“采购收货／已有库存 → 自发货或托管交仓”两条仓库履约核心流程；供应商直接交付延期，保持未开放，后续单独适配。这一决定替代本文历史流程图、§5/§6/§9/§11/§12中供应商直发作为首版实施或验收前置的要求，历史描述仅保留为未来方向，不能恢复为本批 Must。当前没有已证明支持美国站自发货的真实店铺/订单；用户批准先完成开发，真实自发货保持待联调。
+
 本轮已有 [ERPNext 隔离适配验证](erpnext-shein-fulfillment-fit-v1.md)；独立评审和 Issue Ready 完成前只允许设计及明确的非正式 Spike，不修改正式生产业务路径。现有实例和数据始终保持原状。
 
 ## 2. 现有能力与必须补齐的边界
@@ -275,3 +277,18 @@ Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过�
 正式官方文档在浏览器动态内容中已核对：[备货履约](https://open.sheincorp.com/documents/system/a880d468-3c56-4dee-b8d6-5c6ff8be756f)、[智能拆包准入](https://open.sheincorp.com/documents/apidoc/detail/3002042)、[发货基础资料](https://open.sheincorp.com/documents/apidoc/detail/3001971)、[发货单面单](https://open.sheincorp.com/documents/apidoc/detail/3001293)。商家渠道查询的当前合同为 POST /open-api/order/express-channel，语义只读；以当前正式文档为准。地址 handleType=2 另要求原单已选 orderLogisticsType=2，不自动替用户切换。智能拆包接口的 countryMarket 说明不能替换用户已经确认的原采购单市场未知处理。
 
 实现仍为 In Progress。ERP 原生扩展、固定 HTTPS adapter、当前 Store/IAM 用途和一次平台派发已形成；Console/BFF、完整联调与最终交付检查尚未完成。当前正式原生测试覆盖10项并通过；相关 Go 包通过。真实 SHEIN、部署及用户验收为 NOT_RUN，不能把它们写成已打通或已验收。
+
+
+### §14 实施验证中的局部收敛（2026-11-01）
+
+- 当前阶段按用户新决定延期供应商直发，保留仓库履约两条核心流程；正式 UI、运行说明与 Issue 同步该决定，不把延期记为 PASS。
+- 采购承诺与现货预留共用原生需求上限。合格 PR 使用 ERPNext 的 receipt-origin SRE 来源关联；只有现货来源 SRE 才额外占用采购预算，避免既重复采购又把采购预留重复计算。拒收进入配置隔离仓，本次短缺是原生 PR 关联的交付观察；关闭 PO 剩余消费原生 update_status，不取消外部供应商订单。
+- 新采购、预留、装箱和平台准备/确认携带当前原单逐行剩余量，native owner 在同一事务核对 SO 剩余量。原单数量变化冻结新分配，不改写历史实际收货和回执。
+- 已知 native ValidationError：仅在本地业务整体回滚后，与原 UUID 保留 DEFINITIVE_NO_EFFECT 回执；未知异常、普通非200或失去响应继续 UNKNOWN。普通 HTTP 417 不具备“原键没生效”的证明。
+- 浏览器明确取消未取得回执的原命令时，cancel_original 在同一 Operation 唯一键插入未生效回执，与任何迟到原事务串行。若已有提交，则返回其真实回执；只有尚未领取的 PREPARED/CONFIRMED 可取消。不会覆盖 CLAIMED/DISPATCHING/UNKNOWN，不新增尝试表、不按普通读不到推断无效果。
+- Temporal activity 仍最多一次。只有 native 仍 CONFIRMED 时，用户原键 ensure 可重启领取前已失败的工作流；native claim/dispatch CAS 不变，已领取/未知不重发。
+- 当前企业角色按既有 module grant 授权；store-orders 只新增非敏感履约读取，四类新用途分别在现有 module catalog 显式赋权，避免旧观察模块获得新写入或地址权限。没有新建 IAM 框架。
+- 托管创建必须通过原 deliveryCode 回读，核对原 orderNo/SKU/数量、仓库、方式及一个包裹后才保存成功；回读不足为 UNKNOWN。物流查询只接受本企业/当前店铺原成功操作的 deliveryCode，输出非敏感投影；累计平台入库仍不关闭原效果的 UNKNOWN。
+- 当前 route0 直送路径按官方查询发货单 FAQ 不强制打印发货单；合作物流购买、私有面单下载和其它运输方式未开放，不制造假面单。地址仍为显式用途和加密 TTL，不进入日志、普通投影或工作流。
+
+- 用户追加 UI 决定：允许按多个流程拆分，并把订单独立为菜单。当前投影为独立“订单管理”，内部五个子流程；采购管理仍在供应市场。适用局部 Product Authority 见 [当前 UI Authority 增量](../product/final-ui-ia-authority.md#2026-11-01-用户明确批准的订单导航增量)，替代本文历史“店铺中心→订单”的导航引用，事实、状态、权限与副作用边界不变。

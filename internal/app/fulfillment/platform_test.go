@@ -30,10 +30,11 @@ func (m *executionMerchant) Send(ctx context.Context, p sf.Plan) (sf.MutationRes
 }
 
 type executionERP struct {
-	original   Loaded
-	commands   []string
-	loseMarker bool
-	onMarker   func()
+	original      Loaded
+	commands      []string
+	loseMarker    bool
+	invalidMarker bool
+	onMarker      func()
 }
 
 func (e *executionERP) Execute(_ context.Context, c f.Command) (json.RawMessage, error) {
@@ -44,6 +45,9 @@ func (e *executionERP) Execute(_ context.Context, c f.Command) (json.RawMessage,
 	if c.Command == "mark_dispatching" {
 		if e.onMarker != nil {
 			e.onMarker()
+		}
+		if e.invalidMarker {
+			return json.RawMessage(`{}`), nil
 		}
 		if e.loseMarker {
 			return nil, f.ErrUnknown
@@ -56,14 +60,18 @@ func (e *executionERP) Execute(_ context.Context, c f.Command) (json.RawMessage,
 		_ = json.Unmarshal(c.Payload, &p)
 		e.original.Stage = p.Stage
 	}
-	return json.RawMessage(`{}`), nil
+	stage := map[string]string{"claim": "CLAIMED", "mark_dispatching": "DISPATCHING", "confirm": "CONFIRMED"}[c.Command]
+	if stage == "" {
+		stage = e.original.Stage
+	}
+	return json.Marshal(f.Receipt{Operation: e.original.Operation, Target: e.original.Target, Revision: e.original.Revision, Stage: stage, Result: json.RawMessage(`{}`)})
 }
 func executionFixture() (*Service, *executionERP, *executionMerchant) {
 	source := sf.Source{Kind: "consumer_order", ID: "original", Market: "shein-us", Type: 1, StockMode: 3, Status: 1, PrintStatus: 1, SelectedLogistics: 2, Logistics: []int{2}, Deadline: time.Now().Add(time.Hour), Lines: []sf.Line{{ID: "123", SKU: "sku", Quantity: 1, GoodsStatus: 1, ExchangeTag: 1}}}
 	merchant := &executionMerchant{fakeMerchant: fakeMerchant{source: source}}
 	selection := sf.Selection{Purpose: "accept_address", Demand: "native-demand"}
 	plan, _ := merchant.Build(context.Background(), source, sf.Delivery{}, selection)
-	original := Loaded{Receipt: f.Receipt{Operation: "a182d2e0-6f91-4e71-8b7f-5df25b75fb11", Stage: "CONFIRMED"}, Actor: "actor", Member: "member", Binding: merchant.BindingDigest(), Input: Prepared{Purpose: selection.Purpose, Demand: selection.Demand, Selection: selection, Data: plan.Body, Version: preparedVersion(source, sf.Delivery{}, selection, plan)}}
+	original := Loaded{Receipt: f.Receipt{Operation: "a182d2e0-6f91-4e71-8b7f-5df25b75fb11", Stage: "CONFIRMED", Target: "native-demand"}, Actor: "actor", Member: "member", Binding: merchant.BindingDigest(), Input: Prepared{Purpose: selection.Purpose, Demand: selection.Demand, Selection: selection, Data: plan.Body, Version: preparedVersion(source, sf.Delivery{}, selection, plan)}}
 	original.Revision = original.Input.Version
 	original.Source.Store, original.Source.Kind, original.Source.ID, original.Source.Organization = "store", "consumer_order", "original", "org"
 	erp := &executionERP{original: original}
@@ -101,5 +109,13 @@ func TestOriginalCompletedEffectIsNeverResent(t *testing.T) {
 	}
 	if merchant.sends != 1 || erp.original.Stage != "SUCCEEDED" {
 		t.Fatal(merchant.sends, erp.original.Stage)
+	}
+}
+
+func TestMalformedDispatchMarkerNeverAuthorizesProviderSend(t *testing.T) {
+	service, erp, merchant := executionFixture()
+	erp.invalidMarker = true
+	if err := service.Run(context.Background(), "site", "org", erp.original.Operation); err != f.ErrUnknown || merchant.sends != 0 {
+		t.Fatal("invalid marker authorized send", err, merchant.sends)
 	}
 }

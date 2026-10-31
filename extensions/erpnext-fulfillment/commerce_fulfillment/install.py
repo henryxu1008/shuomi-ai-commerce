@@ -16,6 +16,7 @@ def after_install():
         ],
         "Sales Order Item": [{"fieldname": "cf_source_line", "label": "Original platform line", "fieldtype": "Data", "read_only": 1}],
         "Purchase Order": [{"fieldname": "cf_external_order", "label": "Supplier external order", "fieldtype": "Data", "read_only": 1, "allow_on_submit": 1}],
+        "Purchase Receipt": [{"fieldname": "cf_shortages", "label": "Reported delivery shortages by PO row", "fieldtype": "Small Text", "read_only": 1}],
         "Delivery Note": [{"fieldname": "cf_package", "label": "Physical package", "fieldtype": "Data", "read_only": 1}],
     }
     create_custom_fields(fields, update=True)

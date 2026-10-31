@@ -3,13 +3,32 @@ package shein
 import (
 	"context"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/url"
+	"regexp"
 	f "task-processor/internal/fulfillment"
 	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"task-processor/internal/storecenter"
 	"time"
 )
+
+var fulfillmentQuantity = regexp.MustCompile(`^[0-9]{1,9}(\.[0-9]{1,8})?([eE][+-]?[0-9]{1,2})?$`)
+
+func exactFulfillmentQuantity(value *json.Number) (*int64, error) {
+	if value == nil {
+		return nil, nil
+	}
+	if !fulfillmentQuantity.MatchString(value.String()) {
+		return nil, f.ErrUnavailable
+	}
+	number, ok := new(big.Rat).SetString(value.String())
+	if !ok || !number.IsInt() || !number.Num().IsInt64() || number.Sign() < 0 || number.Num().Int64() > 100000000 {
+		return nil, f.ErrUnavailable
+	}
+	result := number.Num().Int64()
+	return &result, nil
+}
 
 func trackingReceipt(raw []byte, expected []string) ([]string, error) {
 	var result struct {
@@ -120,17 +139,17 @@ func (c *OfficialClient) QueryFulfillmentSource(ctx context.Context, k storecent
 				Status   int             `json:"status"`
 				Scene    int             `json:"sceneType"`
 				Type     int             `json:"type"`
-				Market   int             `json:"countryMarket"`
+				Market   *int            `json:"countryMarket"`
 				Storage  json.RawMessage `json:"storageId"`
 				Deadline string          `json:"requestReceiptTime"`
 				Rules    json.RawMessage `json:"deliveryCheckRuleFields"`
 				Lines    []struct {
-					SKU       string `json:"skuCode"`
-					Qty       int64  `json:"orderQuantity"`
-					Delivered int64  `json:"deliveryQuantity"`
-					Received  int64  `json:"receiptQuantity"`
-					Stored    int64  `json:"storageQuantity"`
-					Defective int64  `json:"defectiveQuantity"`
+					SKU       string       `json:"skuCode"`
+					Qty       *json.Number `json:"orderQuantity"`
+					Delivered *json.Number `json:"deliveryQuantity"`
+					Received  *json.Number `json:"receiptQuantity"`
+					Stored    *json.Number `json:"storageQuantity"`
+					Defective *json.Number `json:"defectiveQuantity"`
 				} `json:"orderExtends"`
 			} `json:"list"`
 		} `json:"info"`
@@ -153,7 +172,15 @@ func (c *OfficialClient) QueryFulfillmentSource(ctx context.Context, k storecent
 	}
 	source := sf.Source{Kind: kind, ID: id, Market: "unknown", Status: row.Status, Scene: row.Scene, Type: row.Type, CountryMarket: row.Market, StorageID: storage, Deadline: deadline.UTC(), Rules: row.Rules, Lines: []sf.Line{}}
 	for _, line := range row.Lines {
-		source.Lines = append(source.Lines, sf.Line{ID: line.SKU, SKU: line.SKU, Quantity: line.Qty, Delivered: line.Delivered, Received: line.Received, Stored: line.Stored, Defective: line.Defective})
+		qty, e1 := exactFulfillmentQuantity(line.Qty)
+		delivered, e2 := exactFulfillmentQuantity(line.Delivered)
+		received, e3 := exactFulfillmentQuantity(line.Received)
+		stored, e4 := exactFulfillmentQuantity(line.Stored)
+		defective, e5 := exactFulfillmentQuantity(line.Defective)
+		if e1 != nil || e2 != nil || e3 != nil || e4 != nil || e5 != nil || qty == nil || delivered == nil {
+			return sf.Source{}, f.ErrUnavailable
+		}
+		source.Lines = append(source.Lines, sf.Line{ID: line.SKU, SKU: line.SKU, Quantity: *qty, Delivered: *delivered, Received: received, Stored: stored, Defective: defective})
 	}
 	return source, nil
 }

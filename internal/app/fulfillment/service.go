@@ -65,7 +65,7 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 	}
 	// Worker-only stages never accept an HTTP command.
 	switch in.Action {
-	case "source", "options", "catalog", "bind_demand", "details", "create_purchase", "record_external_order", "receive", "reserve", "pack", "dispatch", "prepare", "confirm", "ensure", "cancel", "read", "read_private":
+	case "source", "options", "shipment", "catalog", "bind_demand", "details", "find_demand", "create_purchase", "record_external_order", "close_purchase", "receive", "reserve", "pack", "dispatch", "prepare", "confirm", "ensure", "cancel", "cancel_original", "read", "read_private":
 	default:
 		return nil, f.ErrInvalid
 	}
@@ -77,6 +77,21 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 	}
 	if err = merchant.Check(ctx); err != nil {
 		return nil, err
+	}
+	if uuid.Validate(in.OperationID) != nil {
+		return nil, f.ErrInvalid
+	}
+	command := f.Command{OperationID: in.OperationID, Organization: scope.OrganizationID, Actor: scope.ActorID, Member: scope.MemberID, Binding: merchant.BindingDigest(), Store: in.Store, SourceKind: in.Kind, SourceID: in.SourceID, Command: in.Action, Payload: in.Payload}
+	switch in.Action {
+	case "shipment":
+		return s.shipment(ctx, scope, in, command, merchant)
+	case "catalog", "details", "find_demand", "read", "read_private", "record_external_order", "close_purchase", "receive", "cancel", "cancel_original":
+		if err = merchant.Check(ctx); err != nil {
+			return nil, err
+		}
+		return s.ERPs[scope.OrganizationID].Execute(ctx, command)
+	case "ensure":
+		return s.platformCommand(ctx, scope, in, command, merchant, sf.Source{})
 	}
 	source, err := merchant.Source(ctx, in.SourceID)
 	if err != nil {
@@ -92,15 +107,23 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 			Eligible bool      `json:"eligible"`
 		}{source, version(source), source.Eligible(time.Now()) == nil})
 	}
+	if in.Action == "create_purchase" || in.Action == "reserve" || in.Action == "pack" || in.Action == "prepare" || in.Action == "confirm" {
+		command.CurrentLines = map[string]int64{}
+		for _, line := range source.FulfillableLines() {
+			command.CurrentLines[line.ID] = line.Quantity - line.Delivered
+		}
+	}
 	if uuid.Validate(in.OperationID) != nil {
 		return nil, f.ErrInvalid
 	}
-	if in.Action != "catalog" && in.Action != "details" && in.Action != "read" && in.Action != "read_private" && in.Action != "cancel" && in.Action != "ensure" {
-		if err = source.Eligible(time.Now()); err != nil {
+	if in.Action != "catalog" && in.Action != "details" && in.Action != "read" && in.Action != "read_private" && in.Action != "cancel" && in.Action != "ensure" && in.Action != "find_demand" {
+		// Recording the actual handover follows this exact original platform
+		// shipment, which may already have advanced to the platform's sent state.
+		originalHandover := in.Action == "dispatch" && source.Kind == "platform_supply" && (source.Status == 4 || source.Status == 5 || source.Status == 6 || source.Status == 8)
+		if err = source.Eligible(time.Now()); err != nil && !originalHandover {
 			return nil, err
 		}
 	}
-	command := f.Command{OperationID: in.OperationID, Organization: scope.OrganizationID, Actor: scope.ActorID, Member: scope.MemberID, Binding: merchant.BindingDigest(), Store: in.Store, SourceKind: in.Kind, SourceID: in.SourceID, Command: in.Action, Payload: in.Payload}
 	if in.Action == "options" || in.Action == "prepare" || in.Action == "confirm" || in.Action == "ensure" {
 		return s.platformCommand(ctx, scope, in, command, merchant, source)
 	}
@@ -114,11 +137,11 @@ func (s *Service) Execute(ctx context.Context, scope f.Scope, in Input) (json.Ra
 				Warehouse  string `json:"warehouse"`
 			} `json:"lines"`
 		}
-		if decode(in.Payload, &mapping) != nil || len(mapping.Lines) != len(source.Lines) {
+		if decode(in.Payload, &mapping) != nil || len(mapping.Lines) != len(source.FulfillableLines()) {
 			return nil, f.ErrInvalid
 		}
 		original := map[string]sf.Line{}
-		for _, line := range source.Lines {
+		for _, line := range source.FulfillableLines() {
 			original[line.ID] = line
 		}
 		rows := []map[string]any{}

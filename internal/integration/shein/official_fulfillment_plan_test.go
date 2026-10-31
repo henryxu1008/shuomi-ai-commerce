@@ -4,10 +4,43 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	f "task-processor/internal/fulfillment"
 	sf "task-processor/internal/marketplace/shein/fulfillment"
 	"testing"
 	"time"
 )
+
+func TestSupplyCreationRequiresExactOriginalReadback(t *testing.T) {
+	for _, wrong := range []bool{true, false} {
+		calls := 0
+		c := testClient(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			calls++
+			if calls == 1 {
+				return observationResponse(`{"code":"0","info":{"deliveryCode":"shipment"}}`), nil
+			}
+			if r.Method != "GET" || r.URL.Path != "/open-api/shipping/delivery" || r.URL.Query().Get("deliveryCode") != "shipment" {
+				t.Fatal("not original shipment readback", r.URL)
+			}
+			order := "original"
+			if wrong {
+				order = "other-order"
+			}
+			return observationResponse(`{"code":"0","info":{"count":1,"list":[{"deliveryCode":"shipment","deliveryType":4,"supplierWarehouseId":55,"sendPackage":1,"deliveryOrderDataList":[{"orderNo":"` + order + `","skuCode":"sku","deliveryQuantity":2}]}]}}`), nil
+		}))
+		plan := sf.Plan{Purpose: "supply_shipping", Body: json.RawMessage(`{"deliveryType":4,"supplierWarehouseId":55,"list":[{"orderNo":"original","skuCode":"sku","tempDeliveryQuantity":2}]}`)}
+		result, err := c.ExecuteFulfillmentPlan(context.Background(), goodsCredential(), plan)
+		if wrong {
+			if err != f.ErrUnknown {
+				t.Fatal("unproven original effect accepted", result, err)
+			}
+		} else if err != nil || result.Result["shipping_id"] != "shipment" {
+			t.Fatal(result, err)
+		}
+		if calls != 2 {
+			t.Fatal("creation receipt alone treated as success", calls)
+		}
+	}
+}
 
 func TestAcceptAddressIsExplicitAndTrackingUsesCurrentChannel(t *testing.T) {
 	source := sf.Source{Kind: "consumer_order", ID: "order", Market: "shein-us", Type: 1, StockMode: 3, Status: 1, PrintStatus: 1, SelectedLogistics: 2, Logistics: []int{2}, Deadline: time.Now().Add(time.Hour), Lines: []sf.Line{{ID: "123", SKU: "sku", Quantity: 1, GoodsStatus: 1, ExchangeTag: 1}}}

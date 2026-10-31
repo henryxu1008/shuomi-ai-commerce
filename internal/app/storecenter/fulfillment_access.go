@@ -18,6 +18,20 @@ type OfficialFulfillmentProvider interface {
 	ExecuteFulfillmentPlan(context.Context, storecenter.OfficialMerchantCredential, sf.Plan) (sf.MutationResult, error)
 }
 
+func (h *FulfillmentMerchant) Shipment(ctx context.Context, id string) (sf.SupplyShipment, error) {
+	entry, credential, err := h.current(ctx)
+	if err != nil {
+		return sf.SupplyShipment{}, err
+	}
+	provider, ok := entry.provider.(interface {
+		QueryFulfillmentShipment(context.Context, storecenter.OfficialMerchantCredential, string) (sf.SupplyShipment, error)
+	})
+	if !ok {
+		return sf.SupplyShipment{}, f.ErrUnavailable
+	}
+	return provider.QueryFulfillmentShipment(ctx, credential, id)
+}
+
 // FulfillmentAccess uses the current Store owner directly. Observation handles remain read-only.
 type FulfillmentAccess struct {
 	Reader        storecenter.FulfillmentReader
@@ -74,10 +88,6 @@ func (h *FulfillmentMerchant) current(ctx context.Context) (officialApplicationE
 	if h == nil || h.owner == nil {
 		return empty, storecenter.OfficialMerchantCredential{}, f.ErrForbidden
 	}
-	fresh, err := h.owner.Open(ctx, h.subject, h.store, h.kind)
-	if err != nil || fresh.binding != h.binding || fresh.connection != h.connection || fresh.credentialHash != h.credentialHash {
-		return empty, storecenter.OfficialMerchantCredential{}, f.ErrForbidden
-	}
 	material, err := h.owner.Reader.ReadFulfillment(ctx, h.subject, h.store, h.owner.Authorization, time.Now())
 	if err != nil || material.Connection.AttemptID != h.connection || privateCredentialHash(material) != h.credentialHash {
 		return empty, storecenter.OfficialMerchantCredential{}, f.ErrForbidden
@@ -89,6 +99,16 @@ func (h *FulfillmentMerchant) current(ctx context.Context) (officialApplicationE
 	credential, err := entry.protection.Open(material.Attempt, material.Attempt.KeyID, material.Attempt.Ciphertext)
 	if err != nil || !validOfficialMaterial(h.subject.OrganizationID, h.store, material, credential, entry, time.Now()) {
 		return empty, storecenter.OfficialMerchantCredential{}, f.ErrForbidden
+	}
+	binding := officialMerchantBinding(h.subject.OrganizationID, h.store, material, credential, entry.mode)
+	if h.kind == "platform_supply" {
+		binding.Site = "unknown"
+	}
+	if binding != h.binding {
+		return empty, storecenter.OfficialMerchantCredential{}, f.ErrForbidden
+	}
+	if _, ok := entry.provider.(OfficialFulfillmentProvider); !ok {
+		return empty, storecenter.OfficialMerchantCredential{}, f.ErrUnavailable
 	}
 	return entry, credential, nil
 }

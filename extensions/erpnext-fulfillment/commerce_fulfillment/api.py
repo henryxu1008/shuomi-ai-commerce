@@ -5,14 +5,18 @@ The authenticated application rechecks current member/Store authority on every c
 """
 import hashlib
 import json
+import math
 import uuid
+from datetime import timezone
 from decimal import Decimal, InvalidOperation
+from zoneinfo import ZoneInfo
 
 import frappe
-from frappe.utils import add_to_date, get_datetime, now_datetime
+from frappe.utils import add_to_date, get_datetime, get_system_timezone, now_datetime
 from frappe.utils.password import encrypt, decrypt
 from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_receipt
 from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
+from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import get_available_qty_to_reserve
 
 from commerce_fulfillment.install import ROLE
 
@@ -86,6 +90,11 @@ def demand_doc(name, request, cfg):
     source = json.loads(doc.cf_source)
     if source["organization"] != request["organization"] or any(source[key] != request[key] for key in ("store", "source_kind", "source_id")):
         fail()
+    current = request.get("current_lines")
+    if current is not None:
+        remaining = {row.cf_source_line: int(row.qty - row.delivered_qty) for row in doc.items if row.qty > row.delivered_qty}
+        if not isinstance(current, dict) or current != remaining:
+            fail()
     return doc
 
 
@@ -96,6 +105,23 @@ def selected(doc, rows, field):
     return [(by_name[row[field]], quantity(row["qty"])) for row in rows]
 
 
+def allocation_budget(line):
+    purchases = frappe.db.sql("select item.name,item.qty,item.received_qty,po.status from `tabPurchase Order Item` item join `tabPurchase Order` po on po.name=item.parent where item.sales_order_item=%s and po.docstatus=1 for update", (line.name,), as_dict=True)
+    committed, ordered = 0, 0
+    for purchase in purchases:
+        rejected = frappe.db.sql("select coalesce(sum(rejected_qty),0) from `tabPurchase Receipt Item` where purchase_order_item=%s and docstatus=1 for update", (purchase.name,))[0][0]
+        ordered += purchase.qty
+        committed += (purchase.received_qty if purchase.status == "Closed" else purchase.qty) - rejected
+    remaining, existing = frappe.db.sql("select coalesce(sum(reserved_qty-delivered_qty),0),coalesce(sum(case when coalesce(from_voucher_type,'')!='Purchase Receipt' then reserved_qty else 0 end),0) from `tabStock Reservation Entry` where voucher_detail_no=%s and docstatus=1 for update", (line.name,))[0]
+    reserved = remaining / line.conversion_factor
+    # Receipt-origin reservations overlap their own PO commitment. Existing
+    # stock reservations do not. Keep that provenance in native SRE, not a ledger.
+    free = max(0, line.qty - committed - existing / line.conversion_factor)
+    return {"ordered_qty": float(ordered), "reserved_qty": float(reserved), "reserve_budget": math.floor(free),
+        "purchase_remaining": math.floor(free),
+        "reservable_qty": math.floor(max(0, min(free, get_available_qty_to_reserve(line.item_code, line.warehouse)/line.conversion_factor)))}
+
+
 def receipt(doc):
     result = json.loads(doc.result_json or "{}")
     return {"operation": doc.name, "stage": doc.stage, "target": doc.target, "revision": doc.revision, "result": result}
@@ -103,13 +129,20 @@ def receipt(doc):
 
 @frappe.whitelist(methods=["POST"])
 def execute(request):
+    # Frappe's default exception logger may include form arguments and local values.
+    # This RPC never exposes raw request data or unexpected traceback context.
+    frappe.local.flags.disable_traceback = True
+    if getattr(frappe.local, "form_dict", None):
+        frappe.local.form_dict.pop("request", None)
     savepoint = "cf_" + uuid.uuid4().hex
     frappe.db.savepoint(savepoint)
     try:
         return _execute(request)
-    except Exception:
+    except Exception as error:
         frappe.db.rollback(save_point=savepoint)
-        raise
+        if isinstance(error, (frappe.ValidationError, frappe.PermissionError)):
+            raise
+        frappe.throw("Fulfillment outcome requires original-operation verification", frappe.ValidationError)
 
 
 def _execute(request):
@@ -117,7 +150,7 @@ def _execute(request):
         if len(request.encode()) > 256 * 1024:
             fail()
         request = json.loads(request)
-    shape(request, ("operation_id", "organization", "actor", "member", "binding", "store", "source_kind", "source_id", "command", "payload"))
+    shape(request, ("operation_id", "organization", "actor", "member", "binding", "store", "source_kind", "source_id", "command", "payload"), ("current_lines",))
     if len(canonical(request).encode()) > 256 * 1024:
         fail()
     cfg = frappe.conf.get("commerce_fulfillment")
@@ -131,6 +164,8 @@ def _execute(request):
     if frappe.db.get_value("Company", cfg["company"], "enable_perpetual_inventory"):
         frappe.throw("Fulfillment requires the configured periodic-inventory company")
     if request["command"] == "configuration":
+        if not frappe.db.get_single_value("Stock Settings", "enable_stock_reservation") or not frappe.db.get_single_value("Stock Settings", "allow_partial_reservation"):
+            fail()
         return {"organization": cfg["organization"], "version": "0.1.0", "supply_movement": cfg.get("supply_movement"),
             "address_enabled": bool(frappe.conf.get("encryption_key") and isinstance(cfg.get("address_retention_seconds"), int) and 1 <= cfg["address_retention_seconds"] <= 86400)}
     if request["command"] == "load_operation":
@@ -153,7 +188,26 @@ def _execute(request):
         fail()
     command = request["command"]
     payload = request["payload"]
-    if command in ("read", "read_private", "details", "delivery_details", "catalog", "list"):
+    if command == "cancel_original":
+        shape(payload, ())
+        # Unique insertion serializes with any late/in-flight original native
+        # transaction. Never infer absence from an ordinary failed read.
+        tombstone = frappe.get_doc({"doctype": OP, "operation_id": request["operation_id"],
+            "organization": request["organization"], "actor": request["actor"], "member": request["member"],
+            "binding": request["binding"], "purpose": command, "input_digest": digest(request),
+            "stage": "DEFINITIVE_NO_EFFECT", "input_json": "{}",
+            "result_json": canonical({"reason": "original_command_cancelled_before_commit"})})
+        try:
+            tombstone.insert()
+            return receipt(tombstone)
+        except frappe.DuplicateEntryError:
+            original = current_operation({"operation": request["operation_id"]}, request)
+            if original.target:
+                validate_operation_target(original, request, cfg)
+            if original.purpose == "prepare" and original.stage in ("PREPARED", "CONFIRMED"):
+                return transition("cancel", {"operation": original.name, "version": original.revision}, request, cfg)
+            return receipt(original)
+    if command in ("read", "read_private", "find_demand", "details", "delivery_details", "catalog", "list"):
         return read_command(command, payload, request, cfg)
     if command in ("confirm", "cancel", "claim", "mark_dispatching", "record_result"):
         return transition(command, payload, request, cfg)
@@ -173,6 +227,23 @@ def _execute(request):
         if existing.input_digest != input_digest:
             fail()
         return receipt(existing)
+    savepoint = "cf_native_" + uuid.uuid4().hex
+    frappe.db.savepoint(savepoint)
+    try:
+        return apply_operation(operation, handler, payload, request, cfg, input_digest, command)
+    except frappe.ValidationError:
+        # A known native rejection has no business effect: rollback the entire
+        # native command, but retain its original immutable receipt atomically.
+        # Unknown exceptions still roll back the whole RPC and remain UNKNOWN.
+        frappe.db.rollback(save_point=savepoint)
+        operation.reload()
+        operation.stage = "DEFINITIVE_NO_EFFECT"
+        operation.result_json = canonical({"reason": "native_validation_rejected"})
+        operation.save()
+        return receipt(operation)
+
+
+def apply_operation(operation, handler, payload, request, cfg, input_digest, command):
     target, result, effect = handler(payload, request, cfg)
     if effect:
         # A different UUID cannot unlock a claimed/unknown physical/platform effect.
@@ -237,8 +308,7 @@ def create_purchase(p, r, c):
     items = []
     for row in rows:
         line, qty = selected(doc, [row], "demand_line")[0]
-        ordered = frappe.db.sql("select coalesce(sum(qty),0) from `tabPurchase Order Item` where sales_order_item=%s and docstatus<2 for update", (line.name,))[0][0]
-        if qty + ordered > line.qty or isinstance(row["rate"], bool):
+        if qty > allocation_budget(line)["purchase_remaining"] or isinstance(row["rate"], bool):
             fail()
         try:
             rate = Decimal(str(row["rate"]))
@@ -256,11 +326,11 @@ def create_purchase(p, r, c):
     return purchase.name, {}, None
 
 
-def purchase_doc(name, r, c):
+def purchase_doc(name, r, c, allow_closed=False):
     purchase = lock_doc("Purchase Order", name, c)
     for row in purchase.items:
         demand_doc(row.sales_order, r, c)
-    if purchase.status in ("Closed", "Cancelled"):
+    if purchase.status == "Cancelled" or purchase.status == "Closed" and not allow_closed:
         fail()
     return purchase
 
@@ -276,23 +346,67 @@ def record_external_order(p, r, c):
     return doc.name, {}, None
 
 
+def close_purchase(p, r, c):
+    shape(p, ("purchase", "reason"))
+    doc = purchase_doc(p["purchase"], r, c)
+    text(p["reason"], 500)
+    doc.check_permission("write")
+    doc.update_status("Closed")
+    # Reason remains on the immutable original operation; no supplier mutation.
+    return doc.name, {}, None
+
+
 def receive(p, r, c):
     shape(p, ("purchase", "lines"))
     doc = purchase_doc(p["purchase"], r, c)
-    rows = selected(doc, lines(p, ("purchase_line", "qty")), "purchase_line")
-    quantities = {}
-    for row, qty in rows:
-        if qty > row.qty - row.received_qty or row.warehouse != c["source_warehouse"]:
+    raw = p.get("lines")
+    if not isinstance(raw, list) or not 1 <= len(raw) <= 20:
+        fail()
+    rows, seen = [], set()
+    for entry in raw:
+        shape(entry, ("purchase_line", "qty"), ("rejected_qty", "short_qty"))
+        if entry["purchase_line"] in seen:
             fail()
-        quantities[row.name] = qty
+        seen.add(entry["purchase_line"])
+        def nonnegative(value):
+            return 0 if value == 0 and not isinstance(value, bool) else quantity(value)
+        accepted, rejected, short = [nonnegative(entry.get(key, 0)) for key in ("qty", "rejected_qty", "short_qty")]
+        if not accepted + rejected:
+            fail()
+        row = next((item for item in doc.items if item.name == entry["purchase_line"]), None)
+        if not row:
+            fail()
+        rows.append((row, accepted, rejected, short))
+    quantities = {}
+    for row, accepted, rejected, short in rows:
+        if accepted + rejected + short > row.qty - row.received_qty or row.warehouse != c["source_warehouse"]:
+            fail()
+        if rejected:
+            quarantine = frappe.get_doc("Warehouse", text(c.get("rejected_warehouse")))
+            if quarantine.company != c["company"] or quarantine.is_group or quarantine.disabled or quarantine.name in (c["source_warehouse"], c["transit_warehouse"]):
+                fail()
+        quantities[row.name] = (accepted, rejected, short)
     note = make_purchase_receipt(doc.name)
     note.set("items", [row for row in note.items if row.purchase_order_item in quantities])
     for row in note.items:
-        row.qty = quantities[row.purchase_order_item]
+        row.qty, row.rejected_qty, short = quantities[row.purchase_order_item]
         row.stock_qty = row.qty * row.conversion_factor
-        row.received_qty = row.qty
-        row.rejected_qty = 0
+        row.received_qty = row.qty + row.rejected_qty
+        row.rejected_warehouse = c.get("rejected_warehouse") if row.rejected_qty else None
+    note.cf_shortages = canonical({key: value[2] for key, value in quantities.items() if value[2]})
     note.insert().submit()
+    # Use ERPNext's receipt-origin stock reservation contract. Only accepted
+    # stock is reserved; the native transaction includes PR, SRE and receipt.
+    for item in note.items:
+        if not item.qty:
+            continue
+        reserved = frappe.db.sql("select coalesce(sum(reserved_qty),0) from `tabStock Reservation Entry` where from_voucher_type='Purchase Receipt' and from_voucher_detail_no=%s and docstatus=1 for update", (item.name,))[0][0]
+        if reserved < item.stock_qty:
+            demand = demand_doc(item.sales_order, r, c)
+            demand.create_stock_reservation_entries(from_voucher_type="Purchase Receipt", items_details=[{
+                "sales_order_item": item.sales_order_item, "warehouse": item.warehouse,
+                "qty_to_reserve": item.stock_qty - reserved, "from_voucher_no": note.name,
+                "from_voucher_detail_no": item.name}], notify=False)
     return note.name, {}, None
 
 
@@ -302,7 +416,7 @@ def reserve(p, r, c):
     rows = selected(doc, lines(p, ("demand_line", "qty")), "demand_line")
     details = []
     for row, qty in rows:
-        if qty > row.qty - row.delivered_qty or row.warehouse != c["source_warehouse"]:
+        if qty > allocation_budget(row)["reserve_budget"] or row.warehouse != c["source_warehouse"]:
             fail()
         details.append({"sales_order_item": row.name, "warehouse": row.warehouse, "qty_to_reserve": qty * row.conversion_factor})
     doc.create_stock_reservation_entries(items_details=details, notify=False)
@@ -338,11 +452,16 @@ def pack(p, r, c):
 
 
 def dispatch(p, r, c):
-    shape(p, ("demand", "delivery"))
+    shape(p, ("demand", "delivery"), ("platform_operation",))
     demand = demand_doc(p["demand"], r, c)
     note = lock_doc("Delivery Note", p["delivery"], c, draft=True)
     if note.docstatus != 0 or not note.items or any(row.against_sales_order != demand.name for row in note.items):
         fail()
+    if r["source_kind"] == "platform_supply":
+        platform = frappe.get_doc(OP, text(p.get("platform_operation")), for_update=True)
+        frozen = json.loads(platform.input_json)
+        if platform.organization != r["organization"] or platform.binding != r["binding"] or platform.target != demand.name or platform.purpose != "prepare" or platform.stage != "SUCCEEDED" or frozen.get("purpose") != "supply_shipping" or frozen.get("delivery") != note.name:
+            fail()
     original = {row.name: row for row in demand.items}
     for row in note.items:
         source = original.get(row.so_detail)
@@ -436,12 +555,25 @@ def transition(command, p, r, c):
 
 
 def read_command(command, p, r, c):
+    if command == "find_demand":
+        shape(p, ())
+        source = {key: r[key] for key in ("source_kind", "store", "source_id", "organization")}
+        target = frappe.db.get_value(OP, {"effect_key": digest([r["organization"], ["demand", source]]), "stage": "SUCCEEDED"}, "target")
+        if target:
+            demand_doc(target, r, c)
+        return {"demand": target}
     if command == "catalog":
         shape(p, ("page",))
         start = (quantity(p["page"]) - 1) * 20
-        return {"items": frappe.get_all("Item", filters={"disabled": 0, "is_stock_item": 1}, fields=["name", "item_name", "stock_uom"], order_by="name", start=start, page_length=20),
+        items = frappe.get_all("Item", filters={"disabled": 0, "is_stock_item": 1}, fields=["name", "item_name", "stock_uom"], order_by="name", start=start, page_length=20)
+        for item in items:
+            native = frappe.get_doc("Item", item.name)
+            units = {item.stock_uom: 1, **{unit.uom: unit.conversion_factor for unit in native.uoms if unit.conversion_factor and unit.conversion_factor > 0}}
+            item["uoms"] = [{"uom": unit, "conversion_factor": factor} for unit, factor in list(units.items())[:20]]
+        return {"items": items,
             "suppliers": frappe.get_all("Supplier", filters={"disabled": 0}, fields=["name", "supplier_name"], order_by="name", start=start, page_length=20),
-            "source_warehouse": c["source_warehouse"], "movement_kind": c.get("supply_movement")}
+            "source_warehouse": c["source_warehouse"], "movement_kind": c.get("supply_movement"),
+            "currency": frappe.db.get_value("Company", c["company"], "default_currency")}
     if command == "delivery_details":
         shape(p, ("demand", "delivery"))
         demand = demand_doc(p["demand"], r, c)
@@ -453,26 +585,36 @@ def read_command(command, p, r, c):
     if command in ("read", "read_private"):
         shape(p, ("operation",))
         doc = current_operation(p, r)
-        validate_operation_target(doc, r, c)
+        if doc.stage != "DEFINITIVE_NO_EFFECT" or doc.target:
+            validate_operation_target(doc, r, c)
         if command == "read_private":
             if not doc.private_data or not doc.private_expires or get_datetime(doc.private_expires) <= now_datetime():
                 fail()
             demand_doc(doc.target, r, c)
-            return {"private": json.loads(decrypt(doc.private_data)), "expires": str(doc.private_expires)}
+            expires = get_datetime(doc.private_expires).replace(tzinfo=ZoneInfo(get_system_timezone())).astimezone(timezone.utc).isoformat()
+            return {"private": json.loads(decrypt(doc.private_data)), "expires": expires}
         return receipt(doc)
     if command == "list":
         shape(p, ("page",))
         page = quantity(p["page"])
         return {"items": frappe.get_all(OP, filters={"organization": r["organization"], "binding": r["binding"], "purpose": "bind_demand", "stage": "SUCCEEDED"},
             fields=["name as operation", "target", "creation"], order_by="creation desc", start=(page-1)*20, page_length=20)}
-    shape(p, ("demand",), ("purchase_page", "delivery_page"))
+    shape(p, ("demand",), ("purchase_page", "delivery_page", "operation_page", "receipt_page"))
     doc = demand_doc(p["demand"], r, c)
     purchase_names = frappe.db.sql("select distinct parent from `tabPurchase Order Item` where sales_order=%s and docstatus<2 order by parent limit 21 offset %s", (doc.name, (quantity(p.get("purchase_page", 1))-1)*20))
     delivery_names = frappe.db.sql("select distinct parent from `tabDelivery Note Item` where against_sales_order=%s and docstatus<2 order by parent limit 21 offset %s", (doc.name, (quantity(p.get("delivery_page", 1))-1)*20))
     purchases, deliveries = [], []
     for (name,) in purchase_names[:20]:
-        purchase = purchase_doc(name, r, c)
+        purchase = purchase_doc(name, r, c, allow_closed=True)
+        receipts = []
+        receipt_names = frappe.db.sql("select distinct parent from `tabPurchase Receipt Item` where purchase_order=%s and docstatus=1 order by parent desc limit 21 offset %s", (purchase.name, (quantity(p.get("receipt_page", 1))-1)*20))
+        for (receipt_name,) in receipt_names[:20]:
+            note = lock_doc("Purchase Receipt", receipt_name, c)
+            shortages = json.loads(note.cf_shortages or "{}")
+            receipts.append({"name": note.name, "date": str(note.posting_date), "lines": [{"purchase_line": row.purchase_order_item,
+                "accepted_qty": row.qty, "rejected_qty": row.rejected_qty, "short_qty": shortages.get(row.purchase_order_item, 0)} for row in note.items if row.purchase_order == purchase.name]})
         purchases.append({"name": name, "supplier": purchase.supplier, "external_order": purchase.cf_external_order,
+            "receipts": receipts, "has_more_receipts": len(receipt_names)>20,
             "delivery_date": str(purchase.schedule_date), "status": purchase.status, "currency": purchase.currency,
             "lines": [{"line": row.name, "demand_line": row.sales_order_item, "item_code": row.item_code, "uom": row.uom,
                 "qty": row.qty, "received_qty": row.received_qty, "rate": row.rate} for row in purchase.items if row.sales_order == doc.name]})
@@ -480,22 +622,28 @@ def read_command(command, p, r, c):
         note = lock_doc("Delivery Note", name, c, draft=True)
         deliveries.append({"name": name, "docstatus": note.docstatus, "package_id": note.cf_package,
             "lines": [{"demand_line": row.so_detail, "qty": row.qty} for row in note.items if row.against_sales_order == doc.name]})
+    operation_names = frappe.get_all(OP, filters={"organization": r["organization"], "binding": r["binding"], "target": doc.name, "purpose": "prepare"}, pluck="name", order_by="creation desc", start=(quantity(p.get("operation_page", 1))-1)*20, page_length=21)
+    operations = []
+    for name in operation_names[:20]:
+        operation = frappe.get_doc(OP, name)
+        frozen = json.loads(operation.input_json)
+        operations.append({**receipt(operation), "purpose": frozen["purpose"], "delivery": frozen.get("delivery"), "selection": frozen.get("selection", {})})
     return {"name": doc.name, "source": json.loads(doc.cf_source), "movement_kind": doc.cf_movement,
+        "operations": operations, "has_more_operations": len(operation_names)>20,
         "purchases": purchases, "deliveries": deliveries, "has_more_purchases": len(purchase_names)>20, "has_more_deliveries": len(delivery_names)>20,
         "lines": [{"line": row.name, "source_line": row.cf_source_line, "item_code": row.item_code, "uom": row.uom,
-            "qty": row.qty, "delivered_qty": row.delivered_qty, "reserved_qty": row.stock_reserved_qty,
-            "ordered_qty": float(frappe.db.sql("select coalesce(sum(qty),0) from `tabPurchase Order Item` where sales_order_item=%s and docstatus<2 for update", (row.name,))[0][0])} for row in doc.items]}
+            "qty": row.qty, "delivered_qty": row.delivered_qty, **allocation_budget(row)} for row in doc.items]}
 
 
 def validate_operation_target(operation, request, cfg):
     if operation.purpose in ("bind_demand", "reserve", "prepare"):
         demand_doc(operation.target, request, cfg)
-    elif operation.purpose in ("create_purchase", "record_external_order"):
-        purchase_doc(operation.target, request, cfg)
+    elif operation.purpose in ("create_purchase", "record_external_order", "close_purchase"):
+        purchase_doc(operation.target, request, cfg, allow_closed=True)
     elif operation.purpose == "receive":
         doc = lock_doc("Purchase Receipt", operation.target, cfg)
         for row in doc.items:
-            purchase_doc(row.purchase_order, request, cfg)
+            purchase_doc(row.purchase_order, request, cfg, allow_closed=True)
     elif operation.purpose in ("pack", "dispatch"):
         doc = lock_doc("Delivery Note", operation.target, cfg, draft=True)
         for row in doc.items:
@@ -505,7 +653,7 @@ def validate_operation_target(operation, request, cfg):
 
 
 HANDLERS = {"bind_demand": bind_demand, "create_purchase": create_purchase, "record_external_order": record_external_order,
-    "receive": receive, "reserve": reserve, "pack": pack, "dispatch": dispatch, "prepare": prepare}
+    "receive": receive, "close_purchase": close_purchase, "reserve": reserve, "pack": pack, "dispatch": dispatch, "prepare": prepare}
 
 
 def purge_private_data():

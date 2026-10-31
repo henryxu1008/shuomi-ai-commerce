@@ -17,16 +17,17 @@ var (
 
 type Scope struct{ OrganizationID, ActorID, MemberID string }
 type Command struct {
-	Store        string          `json:"store"`
-	SourceKind   string          `json:"source_kind"`
-	SourceID     string          `json:"source_id"`
-	OperationID  string          `json:"operation_id"`
-	Organization string          `json:"organization"`
-	Actor        string          `json:"actor"`
-	Member       string          `json:"member"`
-	Binding      string          `json:"binding"`
-	Command      string          `json:"command"`
-	Payload      json.RawMessage `json:"payload"`
+	CurrentLines map[string]int64 `json:"current_lines,omitempty"`
+	Store        string           `json:"store"`
+	SourceKind   string           `json:"source_kind"`
+	SourceID     string           `json:"source_id"`
+	OperationID  string           `json:"operation_id"`
+	Organization string           `json:"organization"`
+	Actor        string           `json:"actor"`
+	Member       string           `json:"member"`
+	Binding      string           `json:"binding"`
+	Command      string           `json:"command"`
+	Payload      json.RawMessage  `json:"payload"`
 }
 type Receipt struct {
 	Operation string          `json:"operation"`
@@ -44,15 +45,15 @@ type Authority interface {
 
 func Permission(command string) string {
 	switch command {
-	case "list", "details", "delivery_details", "catalog", "read", "options", "configuration":
+	case "list", "details", "delivery_details", "catalog", "read", "find_demand", "options", "shipment", "configuration":
 		return "fulfillment.read"
-	case "bind_demand", "create_purchase", "record_external_order":
+	case "bind_demand", "create_purchase", "record_external_order", "close_purchase":
 		return "fulfillment.purchase"
 	case "receive", "reserve", "pack", "dispatch":
 		return "fulfillment.stock"
 	case "read_private":
 		return "fulfillment.address"
-	case "prepare", "confirm", "ensure", "cancel", "claim", "mark_dispatching", "record_result", "load_operation":
+	case "prepare", "confirm", "ensure", "cancel", "cancel_original", "claim", "mark_dispatching", "record_result", "load_operation":
 		return "fulfillment.execute"
 	}
 	return ""

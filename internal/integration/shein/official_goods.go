@@ -53,7 +53,7 @@ func (c *OfficialClient) goodsRequest(ctx context.Context, method, path, query s
 		if method != http.MethodPost || query != "" {
 			return nil, ErrGoodsInvalid
 		}
-	case "/open-api/order/purchase-order-infos", "/open-api/shipping/warehouse", "/open-api/shipping/basic", "/open-api/gsp/logistics-track", "/open-api/goods/product/check-publish-permission":
+	case "/open-api/order/purchase-order-infos", "/open-api/shipping/delivery", "/open-api/shipping/warehouse", "/open-api/shipping/basic", "/open-api/gsp/logistics-track", "/open-api/goods/product/check-publish-permission":
 		if method != http.MethodGet || len(payload) != 0 {
 			return nil, ErrGoodsInvalid
 		}

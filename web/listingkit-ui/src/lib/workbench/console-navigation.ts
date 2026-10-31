@@ -16,7 +16,8 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
   pending("工具市场", "tools", [pending("官方工具", "tools/official"), pending("我的工具", "tools/mine"), pending("工具定制", "tools/custom", [pending("提交定制需求", "tools/custom/new"), pending("定制进度", "tools/custom/progress")])]),
   pending("生态服务", "services", [pending("服务市场", "services/market"), pending("我的服务", "services/mine"), pending("申请加入", "services/join")]),
   pending("数据服务", "data", [pending("数据市场", "data/market"), pending("API管理", "data/api"), pending("我的数据", "data/mine")]),
-  pending("店铺中心", "store-center", [{ label: "我的店铺", href: "/workbench/stores", availability: "connected" }, pending("店铺商品", "store-products"), pending("订单履约", "store-orders")]),
+  pending("店铺中心", "store-center", [{ label: "我的店铺", href: "/workbench/stores", availability: "connected" }, pending("店铺商品", "store-products")]),
+  pending("订单管理", "store-orders"),
   { label: "套餐与权益", href: "/workbench/plans", availability: "connected", children: [
     { label: "套餐方案", href: "/workbench/plans/options", availability: "connected" },
     { label: "我的权益", href: "/workbench/plans/entitlements", availability: "connected" },
@@ -52,6 +53,12 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
   }
   const exact = visit(consoleNavigation, []);
   if (exact) return exact;
+  if (pathname === "/workbench/store-orders/fulfill" || pathname === "/workbench/supply/mine/procurement") {
+    const procurement=pathname.endsWith("/procurement");
+    const parent=findConsoleRoute(procurement?"/workbench/supply/mine":"/workbench/store-orders")!;
+    const node:ConsoleNavNode={label:procurement?"采购管理":"原单履约",href:pathname,availability:"connected"};
+    return {node,trail:[...parent.trail,node]};
+  }
   if (pathname === "/workbench/agents/skills/official/use") {
     const parent = findConsoleRoute("/workbench/agents/skills/official")!;
     const node: ConsoleNavNode = {label: "选择已有商品", href: pathname, availability: "connected"};

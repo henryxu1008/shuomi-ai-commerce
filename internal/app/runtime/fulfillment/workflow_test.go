@@ -18,3 +18,15 @@ func TestMutationActivityHasExactlyOneAttempt(t *testing.T) {
 		t.Fatal("mutation replayed", calls, environment.GetWorkflowError())
 	}
 }
+
+type fatalStartWorker struct{ lifecycle *Lifecycle }
+
+func (w fatalStartWorker) Start() error { w.lifecycle.Stop(); return nil }
+func (w fatalStartWorker) Stop()        {}
+func TestFatalDuringStartNeverPublishesReady(t *testing.T) {
+	l := &Lifecycle{}
+	l.Worker = fatalStartWorker{l}
+	if l.Start() == nil || l.Ready() {
+		t.Fatal("failed worker became available")
+	}
+}

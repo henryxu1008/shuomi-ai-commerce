@@ -60,10 +60,17 @@ func load(ctx context.Context, erp f.ERP, base f.Command, id string) (Loaded, er
 	if err != nil {
 		return loaded, err
 	}
-	if json.Unmarshal(raw, &loaded) != nil || loaded.Operation != id || loaded.Source.Organization != base.Organization || loaded.Actor == "" || loaded.Member == "" || loaded.Binding == "" {
+	if json.Unmarshal(raw, &loaded) != nil || loaded.Operation != id || loaded.Source.Organization != base.Organization || loaded.Actor == "" || loaded.Member == "" || loaded.Binding == "" || loaded.Target == "" || loaded.Target != loaded.Input.Demand {
 		return loaded, f.ErrUnknown
 	}
 	return loaded, nil
+}
+func checkedTransition(raw json.RawMessage, original Loaded, stage string) error {
+	var result f.Receipt
+	if decode(raw, &result) != nil || result.Operation != original.Operation || result.Stage != stage || result.Revision != original.Revision || result.Target != original.Target {
+		return f.ErrUnknown
+	}
+	return nil
 }
 func (s *Service) freeze(ctx context.Context, erp f.ERP, base f.Command, merchant ExecutionMerchant, source sf.Source, selection sf.Selection) (Prepared, error) {
 	var delivery sf.Delivery
@@ -138,6 +145,9 @@ func (s *Service) platformCommand(ctx context.Context, scope f.Scope, in Input, 
 		return nil, f.ErrConflict
 	}
 	if original.Stage == "PREPARED" {
+		if in.Action != "confirm" {
+			return nil, f.ErrConflict
+		}
 		prepared, err := s.freeze(ctx, erp, base, merchant, source, original.Input.Selection)
 		if err != nil {
 			return nil, err
@@ -148,7 +158,11 @@ func (s *Service) platformCommand(ctx context.Context, scope f.Scope, in Input, 
 		if in.Action != "confirm" {
 			return nil, f.ErrConflict
 		}
-		if _, err = erp.Execute(ctx, base); err != nil {
+		raw, err := erp.Execute(ctx, base)
+		if err != nil {
+			return nil, err
+		}
+		if err = checkedTransition(raw, original, "CONFIRMED"); err != nil {
 			return nil, err
 		}
 		original.Stage = "CONFIRMED"
@@ -199,14 +213,22 @@ func (s *Service) Run(ctx context.Context, alias, org, id string) error {
 		return f.ErrConflict
 	}
 	transition := map[string]any{"operation": id, "version": original.Revision}
-	if _, err = native(ctx, erp, base, "claim", transition); err != nil {
+	raw, err := native(ctx, erp, base, "claim", transition)
+	if err != nil {
+		return err
+	}
+	if err = checkedTransition(raw, original, "CLAIMED"); err != nil {
 		return err
 	}
 	if err = merchant.Check(ctx); err != nil {
 		return err
 	}
 	// A lost marker response never authorizes provider send. Read original key only.
-	if _, err = native(ctx, erp, base, "mark_dispatching", transition); err != nil {
+	raw, err = native(ctx, erp, base, "mark_dispatching", transition)
+	if err != nil {
+		return err
+	}
+	if err = checkedTransition(raw, original, "DISPATCHING"); err != nil {
 		return err
 	}
 	var delivery sf.Delivery
@@ -237,6 +259,9 @@ func (s *Service) Run(ctx context.Context, alias, org, id string) error {
 	if result.Private != nil {
 		payload["private"] = result.Private
 	}
-	_, err = native(ctx, erp, base, "record_result", payload)
-	return err
+	raw, err = native(ctx, erp, base, "record_result", payload)
+	if err != nil {
+		return err
+	}
+	return checkedTransition(raw, original, stage)
 }

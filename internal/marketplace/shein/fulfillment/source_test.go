@@ -28,7 +28,8 @@ func TestUSNeedsOriginalSelfShippingPermission(t *testing.T) {
 
 func TestManagedMarketUnknownAndNoShippingScene(t *testing.T) {
 	now := time.Now()
-	source := Source{Kind: "platform_supply", ID: "purchase", Status: 2, Scene: 1, Type: 2, CountryMarket: 2, Deadline: now.Add(time.Hour), Lines: []Line{{ID: "sku", SKU: "sku", Quantity: 5}}}
+	north := 2
+	source := Source{Kind: "platform_supply", ID: "purchase", Status: 2, Scene: 1, Type: 2, CountryMarket: &north, Deadline: now.Add(time.Hour), Lines: []Line{{ID: "sku", SKU: "sku", Quantity: 5}}}
 	if source.DisplayMarket() != "unknown" {
 		t.Fatal("north region guessed as US")
 	}

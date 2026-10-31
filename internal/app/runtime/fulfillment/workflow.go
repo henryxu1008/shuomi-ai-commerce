@@ -39,7 +39,9 @@ func (s Starter) Ensure(ctx context.Context, alias, org, id string) error {
 	if s.Client == nil || !authidentity.IsBoundedIdentifier(alias) || !authidentity.IsBoundedIdentifier(org) || uuid.Validate(id) != nil {
 		return f.ErrInvalid
 	}
-	_, err := s.Client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{ID: "fulfillment/" + alias + "/" + org + "/" + id, TaskQueue: Queue, WorkflowExecutionTimeout: 10 * time.Minute, WorkflowIDConflictPolicy: enums.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE}, WorkflowName, Execution{alias, org, id})
+	// Explicit ensure may restart a failed workflow only while its native
+	// operation is still CONFIRMED. The native claim/dispatch fences still win.
+	_, err := s.Client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{ID: "fulfillment/" + alias + "/" + org + "/" + id, TaskQueue: Queue, WorkflowExecutionTimeout: 10 * time.Minute, WorkflowIDConflictPolicy: enums.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING, WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY}, WorkflowName, Execution{alias, org, id})
 	var existing *serviceerror.WorkflowExecutionAlreadyStarted
 	if err != nil && !errors.As(err, &existing) {
 		return f.ErrUnknown
@@ -54,21 +56,27 @@ type Worker interface {
 type Lifecycle struct {
 	Worker Worker
 	ready  atomic.Bool
+	failed atomic.Bool
 }
 
-func (l *Lifecycle) Ready() bool { return l != nil && l.ready.Load() }
+func (l *Lifecycle) Ready() bool { return l != nil && !l.failed.Load() && l.ready.Load() }
 func (l *Lifecycle) Start() error {
 	if l == nil || l.Worker == nil {
 		return f.ErrUnavailable
 	}
 	if err := l.Worker.Start(); err != nil {
+		l.failed.Store(true)
 		return err
+	}
+	if l.failed.Load() {
+		return f.ErrUnavailable
 	}
 	l.ready.Store(true)
 	return nil
 }
 func (l *Lifecycle) Stop() {
 	if l != nil {
+		l.failed.Store(true)
 		l.ready.Store(false)
 		if l.Worker != nil {
 			l.Worker.Stop()
@@ -79,7 +87,7 @@ func NewWorker(c client.Client, s *app.Service, l *Lifecycle) (Worker, error) {
 	if c == nil || s == nil || l == nil {
 		return nil, f.ErrUnavailable
 	}
-	w := worker.New(c, Queue, worker.Options{MaxConcurrentActivityExecutionSize: 1, OnFatalError: func(error) { l.ready.Store(false) }})
+	w := worker.New(c, Queue, worker.Options{MaxConcurrentActivityExecutionSize: 1, OnFatalError: func(error) { l.failed.Store(true); l.ready.Store(false) }})
 	w.RegisterWorkflowWithOptions(PlatformWorkflow, workflow.RegisterOptions{Name: WorkflowName})
 	w.RegisterActivityWithOptions(func(ctx context.Context, in Execution) error {
 		return s.Run(ctx, in.Alias, in.Organization, in.Operation)

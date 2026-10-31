@@ -71,7 +71,7 @@ func (c *OfficialClient) BuildFulfillmentPlan(ctx context.Context, k storecenter
 		return empty, f.ErrInvalid
 	}
 	original := map[string]sf.Line{}
-	for _, line := range s.Lines {
+	for _, line := range s.FulfillableLines() {
 		original[line.ID] = line
 	}
 	seen := map[string]bool{}
@@ -197,8 +197,14 @@ func (c *OfficialClient) BuildFulfillmentPlan(ctx context.Context, k storecenter
 		return empty, f.ErrConflict
 	}
 	rows := []map[string]any{}
+	quantities := map[string]int64{}
 	for _, line := range delivery.Lines {
-		rows = append(rows, map[string]any{"orderNo": s.ID, "skuCode": original[line.SourceLine].SKU, "orderQuantity": original[line.SourceLine].Quantity, "tempDeliveryQuantity": line.Qty, "packageNum": 1})
+		quantities[line.SourceLine] = line.Qty
+	}
+	for _, line := range s.Lines {
+		if line.Quantity > 0 {
+			rows = append(rows, map[string]any{"orderNo": s.ID, "skuCode": line.SKU, "orderQuantity": line.Quantity, "tempDeliveryQuantity": quantities[line.ID], "packageNum": 1})
+		}
 	}
 	info := map[string]any{"addrId": selection.AddressID, "packageNumber": 1}
 	if selection.ReserveTime != "" {
@@ -245,6 +251,10 @@ func (c *OfficialClient) ExecuteFulfillmentPlan(ctx context.Context, k storecent
 			ID string `json:"deliveryCode"`
 		}](raw, false)
 		if err != nil || !boundedParameter(info.ID, 140) {
+			return result, f.ErrUnknown
+		}
+		shipment, err := c.QueryFulfillmentShipment(ctx, k, info.ID)
+		if err != nil || validateSupplyShipment(shipment, plan.Body) != nil {
 			return result, f.ErrUnknown
 		}
 		result.Result["shipping_id"] = info.ID
