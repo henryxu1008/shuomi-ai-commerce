@@ -40,22 +40,27 @@ func TestSettleSuccessfulInvocationIgnoresFailedOrUnknownUsage(t *testing.T) {
 	}
 }
 
-func TestObservedFailedReviewSettlesActualTokensWithoutChangingOrdinaryFailure(t *testing.T) {
-	settler := &recordingUsageSettler{}
-	when := time.Now().UTC()
-	record := InvocationRecord{InvocationID: "review-1", TenantID: "org-1", UserID: "actor-1", MemberID: "member-1", Operation: OperationProductImageReview, PromptTokens: 7, CompletionTokens: 5, TotalTokens: 12, UsageKnown: true, Outcome: InvocationUsageObservedFailed, FinishedAt: when}
-	if err := SettleSuccessfulInvocation(context.Background(), record, settler); err != nil {
-		t.Fatal(err)
-	}
-	if settler.invocation != "review-1" || settler.total != 12 {
-		t.Fatalf("observed failed review was not settled: %+v", settler)
-	}
-	settler.invocation = ""
-	record.Operation = Operation("productimage_scene_generate")
-	if err := SettleSuccessfulInvocation(context.Background(), record, settler); err == nil {
-		t.Fatal("non-review observed-failed outcome must be rejected")
-	}
-	if settler.invocation != "" {
-		t.Fatal("non-review observed-failed outcome was settled")
+func TestObservedFailedNativeOutputSettlesActualTokensWithoutChangingOrdinaryFailure(t *testing.T) {
+	for _, operation := range []Operation{OperationProductAgentDecision, OperationProductContentDecision, OperationListingMaterialsDecision, OperationProductSelectionDecision, OperationShopDiagnosisDecision, OperationAIWorkbenchChatPlan} {
+		t.Run(string(operation), func(t *testing.T) {
+			settler := &recordingUsageSettler{}
+			record := InvocationRecord{InvocationID: "native-1", TenantID: "org-1", UserID: "actor-1", MemberID: "member-1", Operation: operation, PromptTokens: 7, CompletionTokens: 5, TotalTokens: 12, UsageKnown: true, Outcome: InvocationUsageObservedFailed, FinishedAt: time.Now().UTC()}
+			if err := SettleSuccessfulInvocation(context.Background(), record, settler); err != nil {
+				t.Fatal(err)
+			}
+			if settler.invocation != "native-1" || settler.total != 12 {
+				t.Fatalf("observed native consumption not settled: %+v", settler)
+			}
+			for _, retired := range []Operation{"productimage_review", "productimage_scene_generate"} {
+				settler.invocation = ""
+				record.Operation = retired
+				if err := SettleSuccessfulInvocation(context.Background(), record, settler); err == nil {
+					t.Fatal("unsupported observed failure accepted")
+				}
+				if settler.invocation != "" {
+					t.Fatal("unsupported failure settled")
+				}
+			}
+		})
 	}
 }

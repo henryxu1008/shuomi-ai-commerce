@@ -65,7 +65,7 @@ func issue30PublicationIdentityViolations(sources []listingKitImageBoundarySourc
 				aliases[alias] = true
 			}
 		}
-		parents := providerSyntaxParents([]*ast.File{file})
+		parents := publicationSyntaxParents([]*ast.File{file})
 		ast.Inspect(file, func(node ast.Node) bool {
 			id, ok := node.(*ast.Ident)
 			if !ok || id.Name != "PublicationIdentity" {
@@ -120,4 +120,23 @@ func issue30PublicationIdentityViolations(sources []listingKitImageBoundarySourc
 	}
 	sort.Strings(violations)
 	return violations, nil
+}
+
+func publicationSyntaxParents(files []*ast.File) map[ast.Node]ast.Node {
+	parents := make(map[ast.Node]ast.Node)
+	for _, file := range files {
+		var stack []ast.Node
+		ast.Inspect(file, func(node ast.Node) bool {
+			if node == nil {
+				stack = stack[:len(stack)-1]
+				return true
+			}
+			if len(stack) > 0 {
+				parents[node] = stack[len(stack)-1]
+			}
+			stack = append(stack, node)
+			return true
+		})
+	}
+	return parents
 }

@@ -1,3 +1,5 @@
+> #1039 / #301 本轮源码退休替代：按[完整冻结设计](legacy-image-async-review-closure-retirement-boundary.md)的§1–§7/§4.2/§6.1，旧图片async/宽接口、GRSAI通用poll/retry/远程来源重抓与专属日志SSA、模型审核可写结果及旧业务回放退出；当前窄编辑/同步Once、有效DTO、精确来源、当前native账本双指纹编码、物理账本、当前能力和Store观察保留。本文对应旧KEEP/供应承诺仅在本批精确边界内被替代，不恢复旧SHEIN登录/身份回写，不处理已有记录。workflow/inventory和既有资源不动，不增加试用前置，#301保持OPEN。以下历史原文逐字保留。
+
 > #301 / #980 当前整批实施：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `63118885b4c3b5137078871588af86e9a7b1160b` 的§1–§7（含§4.2/§6.1），同一44路径完整闭包：旧PolicyRouter/Legacy-Shadow/Planner、未接线HTTP图片adapter、旧本地场景/布局与白底/IP启发式退出；账本值、图片字节检查及场景参数/metadata原规则归当前owner，无alias/转发/fallback。TestCategoryOf原整函数及三分支断言保留到model_test.go；两计费负例只换同值typed string，原断言保留。当前AI/图像/JSON/hash/版本/计费/发送UNKNOWN、采集/PoolManager取消及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，无新试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI/最终复核记同PR，不等于运行/产品验收；合并/部署/关单另授权。 本顶注记录当前实施准入/源码状态；以下用户确认的冻结设计全文逐字保留，历史设计阶段的NOT_READY/SOURCE_NOT_STARTED不恢复为当前权限。
 
 # #301 旧 AI 路由与图像策略支线完整退休边界

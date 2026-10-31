@@ -47,7 +47,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
 	}
-	build := func(bound ai.RouteBoundImageGenerator) (*openai.SourceImageAdapter, error) {
+	build := func(bound ai.RouteBoundImageEditor) (*openai.SourceImageAdapter, error) {
 		return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, PricingVersion: metadata.PriceVersion, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)})
 	}
 	var provider synchronousImageProvider
@@ -68,14 +68,14 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 			return client.GenerateImageWithRoute(ctx, req, ai.ImageRouteSelection{CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion})
 		}
 	} else {
-		client := grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: f.providerHTTPClient, MaxAttempts: 1, Logger: grsai.AdaptLogrus(f.logger)})
+		client := grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: f.providerHTTPClient})
 		observer := func(ctx context.Context, observation grsai.GenerationObservation) error {
 			proof := imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, UsageKnown: observation.UsageKnown, InputTokens: int64(observation.Usage.PromptTokens), OutputTokens: int64(observation.Usage.CompletionTokens), TotalTokens: int64(observation.Usage.TotalTokens)}
 			return observe(ctx, proof.WithResultLocator(observation.ResultURL, observation.ResultUnavailable))
 		}
 		provider, err = grsai.NewSynchronousSourceImageAdapter(grsai.SourceImageAdapterConfig{
 			Client: client, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion,
-			Build: func(bound ai.RouteBoundImageGenerator) (grsai.SourceImageProvider, error) {
+			Build: func(bound ai.RouteBoundImageEditor) (grsai.SourceImageProvider, error) {
 				return build(bound)
 			},
 		}, observer)

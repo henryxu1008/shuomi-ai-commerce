@@ -9,30 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	grsai "task-processor/internal/integration/grsai"
 )
-
-func TestIntegrationProviderLoggerMethodSetsMatch(t *testing.T) {
-	interfaces := []struct {
-		name   string
-		typeOf reflect.Type
-	}{
-		{"grsai", reflect.TypeOf((*grsai.Logger)(nil)).Elem()},
-	}
-	want := []string{"Debug", "Error", "Info", "Warn"}
-	for _, provider := range interfaces {
-		if provider.typeOf.NumMethod() != len(want) {
-			t.Fatalf("%s Logger methods = %d, want %d", provider.name, provider.typeOf.NumMethod(), len(want))
-		}
-		for index, methodName := range want {
-			method := provider.typeOf.Method(index)
-			if method.Name != methodName || method.Type.NumIn() != 2 || method.Type.In(0).Kind() != reflect.String || method.Type.In(1) != reflect.TypeOf(map[string]any{}) {
-				t.Errorf("%s Logger method %d = %s %s", provider.name, index, method.Name, method.Type)
-			}
-		}
-	}
-}
 
 type providerConstructorCounts struct {
 	openAI int
@@ -327,12 +304,5 @@ func TestHTTPImageResolverIsImmutableFunction(t *testing.T) {
 	})
 	if functions != 1 {
 		t.Fatalf("resolvePublicImageHostIPs function declarations = %d, want 1", functions)
-	}
-}
-
-func TestGRSAIConfigRetainsExplicitLocalLogger(t *testing.T) {
-	grsaiType := reflect.TypeOf(grsai.Config{})
-	if field, ok := grsaiType.FieldByName("Logger"); !ok || field.Type != reflect.TypeOf((*grsai.Logger)(nil)).Elem() {
-		t.Errorf("grsai.Config.Logger missing or wrong type")
 	}
 }

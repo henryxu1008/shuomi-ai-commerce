@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
 import { captureDocument } from '../src/extractor';
+import { byteLength, MAX_BYTES } from '../src/validation';
 
 const source = 'https://detail.1688.com/offer/981645030344.html';
 // Observed 1688 wrapper: the document is the single object-literal argument of an
@@ -24,6 +25,56 @@ function fixture(extra = '') {
 }
 
 describe('explicit current-page capture', () => {
+  it.each(['without context', 'with a long prefix and a small context'])('rejects oversized script input %s before reading it in full', async shape => {
+    const dom = fixture();
+    const script = dom.window.document.querySelector('script')!;
+    const payload = script.textContent!;
+    script.textContent = ' '.repeat(MAX_BYTES + 1) + (shape === 'without context' ? '' : payload);
+    Object.defineProperty(script.firstChild!, 'data', { get() { throw Error('UNBOUNDED_SCRIPT_READ'); } });
+    await expect(captureDocument(dom.window.document, source, new Date())).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
+
+  it('counts earlier unrelated scripts before reading the script that exhausts the aggregate budget', async () => {
+    const padding = ';'.repeat(MAX_BYTES / 2);
+    const dom = fixture(`<script>${padding}</script><script>${padding}</script>`);
+    Object.defineProperty(dom.window.document.scripts[2].firstChild!, 'data', { get() { throw Error('UNBOUNDED_SCRIPT_READ'); } });
+    await expect(captureDocument(dom.window.document, source, new Date())).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
+
+  it('rejects a multibyte prefix before locating its small context payload', async () => {
+    const dom = fixture();
+    const script = dom.window.document.querySelector('script')!;
+    script.textContent = `/*${'界'.repeat(Math.floor(MAX_BYTES / 3))}*/${script.textContent}`;
+    expect(script.textContent.length).toBeLessThan(MAX_BYTES);
+    await expect(captureDocument(dom.window.document, source, new Date())).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
+
+  it('charges UTF-8 bytes for multiple individually bounded unrelated scripts', async () => {
+    const padding = `/*${'界'.repeat(Math.ceil(MAX_BYTES / 6))}*/`;
+    expect(byteLength(padding)).toBeLessThan(MAX_BYTES);
+    const dom = fixture(`<script>${padding}</script><script>${padding}</script>`);
+    await expect(captureDocument(dom.window.document, source, new Date())).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
+
+  it('preserves identical evidence at the exact aggregate input byte limit', async () => {
+    const at = new Date('2026-09-12T00:00:00Z');
+    const expected = await captureDocument(fixture().window.document, source, at);
+    const dom = fixture();
+    const padding = dom.window.document.createElement('script');
+    padding.textContent = ' '.repeat(MAX_BYTES - byteLength(dom.window.document.scripts[0].textContent!));
+    dom.window.document.head.append(padding);
+    expect(await captureDocument(dom.window.document, source, at)).toEqual(expected);
+  });
+
+  it('checks the existing deadline before reading another script', async () => {
+    const dom = fixture();
+    Object.defineProperty(dom.window.document.scripts[0].firstChild!, 'data', { get() { throw Error('UNBOUNDED_SCRIPT_READ'); } });
+    const clock = vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(8001);
+    try {
+      await expect(captureDocument(dom.window.document, source, new Date())).rejects.toThrow('CAPTURE_TIMEOUT');
+    } finally { clock.mockRestore(); }
+  });
+
   it('reads safe loaded description siblings while excluding hidden and executable text', async () => {
     const doc = fixture('<div id="desc-lazyload-container"><p>实际正文</p><script>private()</script><iframe></iframe><form>secret</form><span hidden>隐藏</span><span aria-hidden="true">不可见</span><p>第二段</p></div>').window.document;
     expect((await captureDocument(doc, source, new Date())).evidence.description).toBe('实际正文\n第二段');

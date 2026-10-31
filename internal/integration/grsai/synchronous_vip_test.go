@@ -28,7 +28,7 @@ func TestVIPSingleDispatchUsesMediumAndRejectsWrongQuality(t *testing.T) {
 				_, _ = w.Write([]byte(`{"id":"vip-result","status":"succeeded","results":[{"url":"https://output.example/original.png"}]}`))
 			}))
 			defer server.Close()
-			client := NewClient(Config{Model: "gpt-image-2-vip", SubmitURL: server.URL, HTTPClient: server.Client(), MaxAttempts: 4})
+			client := NewClient(Config{Model: "gpt-image-2-vip", SubmitURL: server.URL, HTTPClient: server.Client()})
 			observer := func(context.Context, GenerationObservation) error { observations++; return nil }
 			call := func(quality string) error {
 				if artwork {

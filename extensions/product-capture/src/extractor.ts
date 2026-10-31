@@ -135,13 +135,21 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   let raw: string | undefined;
   const scripts = doc.querySelectorAll('script:not([src])');
   if (scripts.length > 256) fail('CAPTURE_TOO_LARGE');
+  let scriptBytes = 0;
   for (const script of scripts) {
+    if (performance.now() - started > 8000) fail('CAPTURE_TIMEOUT');
     // Only the located literal is copied; other script text is never retained.
     const first = script.firstChild;
     if (!first || first.nodeType !== 3) continue;
     const text = first as Text;
-    if (!text.data.includes('context')) continue;
-    const candidate = contextPayload(text.data);
+    // Bound the read/UTF-8 allocation before searching even unrelated scripts.
+    // UTF-16 length is a lower bound on the number of UTF-8 bytes.
+    if (text.length > MAX_BYTES - scriptBytes) fail('CAPTURE_TOO_LARGE');
+    const scriptText = text.data;
+    scriptBytes += byteLength(scriptText);
+    if (scriptBytes > MAX_BYTES) fail('CAPTURE_TOO_LARGE');
+    if (!scriptText.includes('context')) continue;
+    const candidate = contextPayload(scriptText);
     if (candidate === null) continue;
     if (raw !== undefined) fail('UNSUPPORTED_PAGE');
     if (byteLength(candidate) > MAX_BYTES) fail('CAPTURE_TOO_LARGE');
