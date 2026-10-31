@@ -2,6 +2,8 @@
 
 > Design Basis: **Independent Architecture**。当前 **DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**；用户仅授权设计，尚未授权实施。本次文档工作为 N/A / Ready，只提交本文、architecture README 和 legacy-register。起始 main：`f359224f9a7ee08bde28ab554b7aee020036e593`（#1033 已合并）。一个主要 PR，三组一起，不机械拆批。#301 保持 OPEN。
 
+最终设计候选仅同步 main `d1035558e44883db3ff3b33e7965e76a2e889e10`（#1036：1688 插件内联脚本输入预算，三个无关文件）；未新增本批生产实现，消费者/owner/删除与保留边界不变。首轮设计复核唯一 IMPLEMENTATION_TEST 是遗漏的百炼测试 getter 消费者，已纳入 T30/§6.1；完整范围校准为61路径。
+
 ## §1 这次具体清理什么
 
 使用者仍从当前商品/图像入口生成单主图、图组和 Artwork，Store 仍做观察同步。本批不增加用户步骤；交付给维护者的是：这些当前路径只依赖实际需要的同步能力，不再背负已经取消的异步任务和模型审核协议。
@@ -119,7 +121,7 @@ Legacy decision: **EXTRACT | RETIRE**。Reusable behavior：窄 route 编辑、�
 | P15 | `internal/integration/orgresource/model_invocation_repository.go` | reserve/finalize 两散列改接当前私有编码；其它hash/账本逻辑零改 |
 | P16 | `internal/integration/orgresource/model_invocation_fingerprint.go`（新增） | 最小当前事实零槽位编码，只服务原两散列，无第二事实源 |
 
-### §5.2 测试与专属工具：29 路径
+### §5.2 测试与专属工具：30 路径
 
 | ID | 路径 | 处置 |
 | --- | --- | --- |
@@ -152,6 +154,7 @@ Legacy decision: **EXTRACT | RETIRE**。Reusable behavior：窄 route 编辑、�
 | T27 | `tests/provider_logger_ssa_analysis_test.go` | 专属SSA分析整退；不改其它AST/导入/安全检查算法 |
 | T28 | `tests/issue30_publication_guard_scan_test.go` | 原样抽入AST父节点遍历，可改名publicationSyntaxParents并改其唯一调用；发布全部原断言/算法/失败关闭不变 |
 | T29 | `tests/legacy_image_async_review_retirement_test.go`（新增） | 本闭包原路径/声明明确缺席，当前port/两hash/物理row/有效协议/共享helper owner和文档入口保留；不建新通用检查器 |
+| T30 | `internal/integration/bailian/image_test.go` | 仅退出现役Qwen helper中的GetDefaultModel保活断言；原真实POST模型值、精确字节、单次发送/observer及其它Qwen测试保持 |
 
 ### §5.3 文档：15 路径
 
@@ -173,7 +176,7 @@ Legacy decision: **EXTRACT | RETIRE**。Reusable behavior：窄 route 编辑、�
 | D14 | `docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md` | 同上，仅本次异步/旧审核范围，当前native账本仍有效 |
 | D15 | `docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md` | 同上，当前值DTO与窄Editor取代旧宽合同 |
 
-合计 **60 唯一路径**（16生产＋29测试/工具＋15文档）；三个新增生产/测试文件与本文均显式列明。没有 workflow/inventory 改动，没有部署文件/schema/Goose/依赖变化。并非把所有含 Review/logger/async 名字的文件一并删除。
+合计 **61 唯一路径**（16生产＋30测试/工具＋15文档）；三个新增生产/测试文件与本文均显式列明。没有 workflow/inventory 改动，没有部署文件/schema/Goose/依赖变化。并非把所有含 Review/logger/async 名字的文件一并删除。
 
 ## §6 验证、当前断言与证据边界
 
@@ -202,6 +205,7 @@ Legacy decision: **EXTRACT | RETIRE**。Reusable behavior：窄 route 编辑、�
 | T21 | 退`TestIntegrationProviderLoggerMethodSetsMatch`、`TestGRSAIConfigRetainsExplicitLocalLogger`（已无provider本地logger消费者）；只清失效import。`scanProviderConstructors`/当前GRSAI构造inventory、`TestProductionLLMManagerAdapterCallersPassLogger`的旧入口禁入、`TestIntegrationProviderLoggingUsesOnlyLocalExplicitPorts`、`TestHTTPImageResolverIsImmutableFunction`全部保持 |
 | T22–T28 | 专属SSA生产rule归零后连同工具/合成测试整退，不留空检查假PASS，不把通用模块编译/identity/issue30发布检查一起删；先原样抽出`providerSyntaxParents`并只改其本地名字/唯一调用，原发布扫描/所有安全断言保留 |
 | T29及文档 | 使用仓库既有AST/声明/文件缺席helper检验精确闭包；保留当前解码、生产图像注册、JSON/hash/批准/恢复及Store guard，不加missing-skip、不全仓禁止Review字样。新doc显式索引，D4–D15原Git blob作逐字后缀 |
+| T30 `TestQwenImageEditSendsFrozenBytesOnceAndObservesBeforeReturning`所调`testQwenImageEditSendsFrozenBytes` | 仅删除`require.Equal(t, model, c.GetDefaultModel())`的旧getter保活行；原`require.Equal(t, model, payload.Model)`真实HTTP模型断言、两个模型循环、精确bytes/参数、单次发送/observer与全部其它Qwen测试保持，不保留getter/alias或替换成空断言 |
 
 其它原安全断言/检查算法、workflow、inventory、ceilings不变。发现漏列消费者或真实CI失败时先定位同根sibling并给出最小准确补丁；超出本矩阵不默默修改，也不能把生产缺陷用降低检查掩盖。设计已明确可退的专属检查不要求留下空循环/假调用；有效当前断言必须在正确owner继续执行。
 
