@@ -260,7 +260,7 @@ Figma「智能市场 / 智能体市场」明确表达了最终多专业智能体
    决定最终 UI / IA / 页面命名 / 用户交互语义 / Product Projection。
 2. **产品战略与 Architecture Specs**  
    决定业务规则、canonical facts、领域 ownership、安全边界、Tool/Agent contract、权限、幂等与审计；不能恢复 §1.1 已明确退休的旧产品或架构。
-3. **`docs/refactoring/current-refactoring-status.md`**  
+3. **`docs/archive/refactoring/current-refactoring-status.md`**<br>
    提供注明基线的 implementation / 成熟度记录；今天的代码、接线和验收以准确 HEAD 的 Issue / PR / runtime 证据为准，不把历史状态当实时状态。
 4. **GitHub Roadmap Authority（#137）与具体执行 Issue**  
    决定当前工程执行顺序、任务范围、依赖与操作权限。

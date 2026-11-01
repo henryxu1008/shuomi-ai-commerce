@@ -132,7 +132,7 @@ Cutover/deletion condition: §1–§7/§6.1 获用户确认及 Ready 读回；�
 | docs/architecture/project-boundaries.md | 顶部窄当前注记；只替换当前 owner 表的 Platform-neutral preview rules 行和相应 guard 解释 | 其它当前 owner、enforcement 名称/索引和 dated 计数不改 |
 | docs/architecture/architecture-review-checklist.md | 只校准原 preview owner 那一项和相应 guard 描述为旧包源退/全局禁入，链接本设计 | 其它审核/安全项和原 enforcement 名称保持 |
 | docs/architecture/legacy-temu-image-processing-retirement-boundary.md | 顶部只追加 downloader KEEP 精确取代注记；当前图像/编码/填充/上传/共享合同仍保留 | 原历史正文（含 KEEP 表和执行证据）逐字保留，不重写历史 PASS/统计 |
-| docs/refactoring/phase2-runtime-inventory.md | 仅删除下面准确一条 CURRENT 消费者行 | 历史、计数、ceilings、映射、parser/accuracy/Code Health 逻辑全部不改 |
+| docs/architecture/runtime-consumer-register.md | 仅删除下面准确一条 CURRENT 消费者行 | 历史、计数、ceilings、映射、parser/accuracy/Code Health 逻辑全部不改 |
 | docs/architecture/README.md | PROPOSED 索引转为用户确认/Ready，最终源级状态按实际交付标明 | 不滚动写 CI/SHA，不动其它已完成批次 |
 | docs/refactoring/legacy-register.md | PROPOSED 注记转为确认的准确 RETIRE/KEEP 与本设计链接，旧 preview adapter 行中“当前 preview”的有效性仅由窄 supersession 取代 | 旧登记行/历史正文保留，不授权其它 legacy 复活或扩大删除 |
 | 本文 | 只更新实际确认/Ready/源码阶段及准确范围；新增真实消费者或边界问题按 §7 停止 | 本文不是运行验收，也不替代 PR 中准确 HEAD/证据 |

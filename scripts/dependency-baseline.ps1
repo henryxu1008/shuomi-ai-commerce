@@ -1,6 +1,6 @@
 param(
     [string]$Root = ".",
-    [string]$OutputDir = "docs/refactoring",
+    [string]$OutputDir = ".local/refactoring",
     [string]$DependencyBaselineFile = "dependency-baseline.generated.md",
     [string]$PackageMapFile = "package-map.generated.md",
     [string]$PackagesFile = "packages-baseline.txt",

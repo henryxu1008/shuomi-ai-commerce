@@ -149,7 +149,7 @@ Repository 仍由原组织/原成员 scope 限制。HTTP 当前路由继续原�
 - `docs/architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md`
 - `docs/architecture/README.md`
 - `docs/refactoring/legacy-register.md`
-- `docs/refactoring/module-target-mapping.md`
+- `docs/architecture/module-target-mapping.md`
 - `docs/engineering/imageagent-organization-scope.md`
 - `docs/development/chain1-local-product-acceptance.md`
 - `internal/sds/README.md`

@@ -1,3 +1,9 @@
+## 归位的重构边界
+
+- [`module-target-mapping.md`](module-target-mapping.md) — 现行领域落点、九领域与Phase2 landing规则仍被guard消费，归入架构；历史旧owner按原替代范围读取。
+- [`runtime-consumer-register.md`](runtime-consumer-register.md) — Legacy consumer register仍由测试对实际imports校验；该有效边界不能当旧报告删除，归入架构，dated快照与ceilings原文保留。
+- [`shein-submit-readiness-action-policy.md`](shein-submit-readiness-action-policy.md) — save_draft动作分类仍由publishing/final_review_policy.go实现；既有平台纯规则归位，旧ListingKit适配不恢复。
+
 ## 归位的领域合同
 
 旧工作流目录已撤销。以下只归位既有合同，不改变原状态或后续精确替代；设计/提案准入与实际开放仍分别确认。历史设计、V7计划与验证记录见[归档索引](../archive/README.md)。
@@ -405,9 +411,9 @@ boundary rules unless they explicitly supersede a stable document.
   implementation observations; explicit supersession controls the affected section.
 - [Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md),
   [Legacy Register](../refactoring/legacy-register.md) and
-  [Module Mapping](../refactoring/module-target-mapping.md): only EXTRACT / RETIRE;
+  [Module Mapping](module-target-mapping.md): only EXTRACT / RETIRE;
   existing legacy is not a new dependency permission.
-- [Current status](../refactoring/current-refactoring-status.md): baseline-bound
+- [Current status](../archive/refactoring/current-refactoring-status.md): baseline-bound
   implementation and evidence. [#137](https://github.com/qq550723504/task-processor/issues/137)
   and execution Issues own scheduling and scope under the
   [dispatch rules](../engineering/issue-driven-development.md).
@@ -418,8 +424,8 @@ boundary rules unless they explicitly supersede a stable document.
   (**PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**) requires a fresh installation
   and empty business data; historical migration, profile-reuse and environment
   preflight guidance is not a current acceptance prerequisite.
-- [next-phase-plan.md](../refactoring/next-phase-plan.md): HISTORICAL implementation
-  record, not an execution queue. The [Publication Identity draft](../refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)
+- [next-phase-plan.md](../archive/refactoring/next-phase-plan.md): HISTORICAL implementation
+  record, not an execution queue. The [Publication Identity draft](../archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)
   is SUPERSEDED under #307, not a migration prerequisite.
 
 ACTIVE contracts, CURRENT STATE observations and HISTORICAL/SUPERSEDED evidence

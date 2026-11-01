@@ -291,7 +291,7 @@ the transitive closure exposed by the debug tools' imports of root packages.
 The metadata-only repair is commit `1d809e7f0`. A subsequent `go mod tidy -diff`
 was empty, the debug module passed, and the complete module-aware harness passed
 all three modules with exit 0. The original blocker was already documented in
-`docs/refactoring/code-health-decisions.md` before Task 8.
+`docs/engineering/code-health-decisions.md` before Task 8.
 
 Review then identified three additional harness/input gaps. Behavior-specific
 RED proved that the root patterns omitted the real

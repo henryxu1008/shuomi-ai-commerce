@@ -121,8 +121,8 @@ docs/architecture/legacy-crawler-facade-diagnostics-closure-retirement-boundary.
 docs/CODE_WIKI.md
 docs/amazon-listing-workbench-api.md
 docs/database-connection-optimization.md
-docs/refactoring/code-health-decisions.md
-docs/refactoring/module-target-mapping.md
+docs/engineering/code-health-decisions.md
+docs/architecture/module-target-mapping.md
 docs/superpowers/plans/2026-08-13-dead-and-duplicate-code-cleanup.md
 ```
 

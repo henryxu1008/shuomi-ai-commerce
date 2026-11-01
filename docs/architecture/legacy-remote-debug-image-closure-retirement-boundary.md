@@ -130,7 +130,7 @@ docs/architecture/legacy-redis-proxy-shared-closure-retirement-boundary.md
 docs/architecture/legacy-runtime-config-closure-retirement-boundary.md
 docs/architecture/legacy-runtime-skeleton-config-closure-retirement-boundary.md
 docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md
-docs/refactoring/code-health-decisions.md
+docs/engineering/code-health-decisions.md
 docs/development/branding-and-repository-rename.md
 docs/development/listingkit-local-prod-db-replay.md
 docs/superpowers/plans/2026-08-08-1688-runtime-preflight.md

@@ -96,7 +96,7 @@ Cutover/deletion condition: 用户确认本设计与 §6.1，刷新无当前业�
 | tests/listingkit_backend_retirement_test.go | 在现有设施加一条完整 watermark 包缺席、生产 import 禁入、样例根缺席及当前入口真实依赖退出断言；重用现有 parser/decoder，不建扫描器 | 读取/解析失败拒绝、其它退休根/共享 Namespace/当前 SHEIN worker 与全部有效合同 guard；不删整测试或 missing-skip |
 | internal/core/config/config_test.go | 原 TestCurrentConfigDoesNotRequireRetiredTaskInputs 加 Watermark 字段/专属 defaults/env 键缺席；原 YAML 设施覆盖开发样例仅目标根退出 | 其它全部配置、browser/platform/Retry/身份/图像加载/校验及现有拒绝旧输入断言，不扩大为全局配置 parser 重写 |
 | Architecture README / Legacy Register | 当前只加 PROPOSED 入口；实施后仅将本矩阵更新为确认/源退并给准确依据 | 其它 owner、文档引用、历史行/计数/失败不改；新 guard 只有实现后才登记为当前覆盖 |
-| docs/refactoring/phase2-runtime-inventory.md | **零改**。pkg/watermark 暂留行属于 dated 技术分类，未来由本文和 Register 的确认注记精确取代；CURRENT consumer register 没有 watermark 行，无失效行需要删 | 完整文件、历史/计数、CURRENT 表、provider inventories、ceilings 和准确性检查逻辑均原样；core/config 其它 provider 依赖仍有效 |
+| docs/architecture/runtime-consumer-register.md | **零改**。pkg/watermark 暂留行属于 dated 技术分类，未来由本文和 Register 的确认注记精确取代；CURRENT consumer register 没有 watermark 行，无失效行需要删 | 完整文件、历史/计数、CURRENT 表、provider inventories、ceilings 和准确性检查逻辑均原样；core/config 其它 provider 依赖仍有效 |
 | 原测试/说明尾部 | 原直接文档 guard/引用检查验证新的提案/确认入口；本批没有其它已核实的当前旧操作手册或发布入口 | test-baseline.txt 和 dated 旧证据不改写；当前 bailian/image brief、prompt 的 watermark 语义保留 |
 | 全部 workflow / 依赖与锁 / 保护 | **零改**；原 CI、必需与安全检查正常运行，无新的安装/编译目标/豁免 | 触发/分类/权限/并发/Required CI Gate、商业/数据库安全检查、ceilings 均原样 |
 

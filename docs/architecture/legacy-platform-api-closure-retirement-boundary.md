@@ -178,9 +178,9 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 19. docs/architecture/legacy-tenant-prompt-closure-retirement-boundary.md
 20. docs/architecture/open-source-replacement-evaluation.md
 21. docs/architecture/platform-boundary-strategy.md
-22. docs/refactoring/code-health-decisions.md
+22. docs/engineering/code-health-decisions.md
 23. docs/development/repository-structure.md
-24. docs/refactoring/module-target-mapping.md
+24. docs/architecture/module-target-mapping.md
 25. docs/architecture/legacy-shein-listing-closure-retirement-boundary.md
 26. docs/superpowers/specs/2026-08-08-shein-marketing-client-deduplication-design.md
 27. docs/superpowers/plans/2026-08-08-shein-marketing-client-deduplication.md

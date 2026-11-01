@@ -190,6 +190,10 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 	switch filepath.ToSlash(path) {
 	case "docs/architecture/README.md":
 		edits = [][2]string{
+			{"](../archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)", "](../refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)"},
+			{"](../archive/refactoring/next-phase-plan.md)", "](../refactoring/next-phase-plan.md)"},
+			{"](../archive/refactoring/current-refactoring-status.md)", "](../refactoring/current-refactoring-status.md)"},
+			{"](module-target-mapping.md)", "](../refactoring/module-target-mapping.md)"},
 			{"](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)", "](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)"},
 			{"](product-domain-contracts.md)", "](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md)"},
 		}
@@ -244,9 +248,15 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"docs/architecture/runtime-consumer-register.md", "docs/refactoring/phase2-runtime-inventory.md"},
+			{"docs/architecture/module-target-mapping.md", "docs/refactoring/module-target-mapping.md"},
 			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
 			{"docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md", "docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md"},
 			{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", "docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md"},
+		}
+	case "docs/architecture/legacy-logger-facade-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"](runtime-consumer-register.md)", "](../refactoring/phase2-runtime-inventory.md)"},
 		}
 	case "docs/architecture/legacy-resource-transaction-closure-retirement-boundary.md":
 		edits = [][2]string{
@@ -261,10 +271,21 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
 			{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", "docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md"},
 		}
+	case "docs/architecture/project-boundaries.md":
+		edits = [][2]string{
+			{"docs/archive/refactoring/project-wide-refactoring-plan.md", "docs/refactoring/project-wide-refactoring-plan.md"},
+			{"](runtime-consumer-register.md)", "](../refactoring/phase2-runtime-inventory.md)"},
+			{"](module-target-mapping.md)", "](../refactoring/module-target-mapping.md)"},
+			{"](../archive/refactoring/project-wide-refactoring-plan.md)", "](../refactoring/project-wide-refactoring-plan.md)"},
+		}
 	case "docs/architecture/store-center-current-application-v1.md":
 		edits = [][2]string{
 			{"](../archive/implementation-plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)", "](../superpowers/plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)"},
 			{"](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)", "](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)"},
+		}
+	case "docs/refactoring/legacy-register.md":
+		edits = [][2]string{
+			{"](../architecture/module-target-mapping.md#21-bounded-current-delivery-calibration-386)", "](module-target-mapping.md#21-bounded-current-delivery-calibration-386)"},
 		}
 	}
 	for _, edit := range edits {

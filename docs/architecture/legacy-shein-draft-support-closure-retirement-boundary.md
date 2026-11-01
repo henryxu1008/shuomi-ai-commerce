@@ -223,7 +223,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：22当前wire值、�
 | `docs/architecture/legacy-workerpool-sensitiveword-recovery-closure-retirement-boundary.md` | PREFIX_ONLY_HISTORY |
 | `docs/architecture/project-boundaries.md` | CURRENT_DOC |
 | `docs/refactoring/legacy-register.md` | CURRENT_DOC |
-| `docs/refactoring/module-target-mapping.md` | PREFIX_ONLY_HISTORY |
+| `docs/architecture/module-target-mapping.md` | PREFIX_ONLY_HISTORY |
 | `internal/marketplace/shein/draft/local_cleanup.go` | REPLACE_CLEANUP_CALL |
 | `internal/marketplace/shein/draft/local_cleanup_test.go` | REPLACE_CLEANUP_CALL |
 | `internal/marketplace/shein/draft/local_copy.go` | REPLACE_CLEANUP_CALL |
@@ -294,7 +294,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：22当前wire值、�
 - `docs/architecture/legacy-shein-policy-contract-closure-retirement-boundary.md`
 - `docs/architecture/legacy-workerpool-sensitiveword-recovery-closure-retirement-boundary.md`
 - `docs/architecture/legacy-publishing-support-policy-closure-retirement-boundary.md`
-- `docs/refactoring/module-target-mapping.md`
+- `docs/architecture/module-target-mapping.md`
 
 </details>
 

@@ -91,7 +91,7 @@ main **692cda1d2a49df920e972d24c544f5c664bbb281**，tree **fbc62817d57c37259646a
 | platform/logging → core/config CURRENT行 | **KEEP原字节；0行校准** | 真实consumer仍存在，退出条件未满足；不为删行做依赖反转、注入、迁包或停止有效日志 |
 | 其它3条CURRENT、历史/计数/ceilings、parser/检查 | 全部零改 | 真实原owner继续成立；不改guard排除规则或虚构consumer |
 
-完整docs/refactoring/phase2-runtime-inventory.md不在修改矩阵。未来若另批真实改变配置日志owner，再独立给出证据/准入/授权，不能预借本批“一条边界”当删除许可。
+完整docs/architecture/runtime-consumer-register.md不在修改矩阵。未来若另批真实改变配置日志owner，再独立给出证据/准入/授权，不能预借本批“一条边界”当删除许可。
 
 ## 5. 完整33工件删除/保留矩阵
 

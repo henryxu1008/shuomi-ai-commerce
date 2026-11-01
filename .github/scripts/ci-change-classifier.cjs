@@ -46,6 +46,7 @@ function classifyChangedPaths(paths, { full = false } = {}) {
       path === ".golangci.yml" ||
       matchesPrefix(path, "docs/architecture") ||
       matchesPrefix(path, "docs/refactoring") ||
+      path === "docs/engineering/code-health-decisions.md" ||
       matchesPrefix(path, "docs/product") ||
       matchesPrefix(path, "policy");
 
@@ -81,7 +82,8 @@ function classifyChangedPaths(paths, { full = false } = {}) {
       backendSource ||
       frontend ||
       path === ".golangci.yml" ||
-      path === "docs/refactoring/code-health-decisions.md";
+      path === "docs/refactoring/code-health-decisions.md" ||
+      path === "docs/engineering/code-health-decisions.md";
 
     const releaseAuthority =
       matchesPrefix(path, ".github/workflows") ||

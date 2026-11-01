@@ -33,7 +33,7 @@ Must：两个闭包完整切换/删除；所有当前字段/tag/顺序/数值/�
 | [#901 Amazon 来源适配](legacy-amazon-source-adapter-closure-retirement-boundary.md)、[#948 采集外观](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) | 原全局 model import 不动的 KEEP；#948 guard 的一个保留 owner 身份 | 浏览器 Processor/提取器/variations 转换/有效池大小、取消/质量/代理/日志/debug 的原行为及断言 |
 | [#926 旧平台 API](legacy-platform-api-closure-retirement-boundary.md) | 全局 Amazon 模型路径；attribute 的三个孤立 DTO KEEP 与原 requiredByFile 三项 | CustomAttributeRelation、当前 SHEIN product/warehouse/other DTO、SessionTransport 与三个登录/Store 读取端点 |
 | [#909 旧 Product 策略](legacy-product-policy-closure-retirement-boundary.md) | 共享 `internal/model.Product` 路径不动的旧 KEEP | 同一 Product 值/JSON归新叶子，不恢复旧 Product policy 机制 |
-| [模块目标映射](../refactoring/module-target-mapping.md) | 全局 model catch-all 的现状 | owning-domain 方向、其它历史/计数及全部当前业务 owner |
+| [模块目标映射](module-target-mapping.md) | 全局 model catch-all 的现状 | owning-domain 方向、其它历史/计数及全部当前业务 owner |
 
 仅上述准确范围被替代。7份旧依据在本次实施中只加顶注，原完整 Git blob/数字/勾选/证据保留；其它旧泛称 KEEP 不成为恢复全局模型的理由。原三文档设计阶段未将未来退休写成完成；当前源码状态由本文顶部及 PR 证据说明。
 
@@ -197,7 +197,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：17个原结果值类
 | `docs/architecture/legacy-source-result-contract-closure-retirement-boundary.md` | CURRENT_DOC |
 | `docs/architecture/project-boundaries.md` | CURRENT_DOC |
 | `docs/refactoring/legacy-register.md` | CURRENT_DOC |
-| `docs/refactoring/module-target-mapping.md` | PREFIX_ONLY_HISTORY_NOTE |
+| `docs/architecture/module-target-mapping.md` | PREFIX_ONLY_HISTORY_NOTE |
 | `hack/debug/test-amazon/main.go` | REWIRE_CURRENT_CONTRACT_ONLY |
 | `internal/crawler/amazon/batch_processor.go` | REWIRE_CURRENT_CONTRACT_ONLY |
 | `internal/crawler/amazon/batch_processor_test.go` | REWIRE_CURRENT_CONTRACT_ONLY |

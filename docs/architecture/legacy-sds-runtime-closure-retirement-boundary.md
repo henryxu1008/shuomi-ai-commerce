@@ -256,7 +256,7 @@ Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核
 | hack/debug/README.md | 仅去掉已删除test-sds的示例命令；原guard禁止该旧命令 | test-amazon及其它当前debug条目、父模块/其它源不变 |
 | deployments/kubernetes/listingkit-workbench/README.md | 顶部只加#885 SDS source supersession窄注记，旧BFF/login说明失效、当前POD/SHEIN保持、生产NOT_READY与无执行权限明确 | 原历史body逐字保持，不重写旧IAM/部署/凭据/rollback/drain证据 |
 | internal/sds/README.md | 顶部加窄历史适用注记与当前 product_source/integration/sds/POD owner 链接，旧说明不再是操作入口 | 2026-04-23及后续历史正文/真实样本不重写，不复核真实状态 |
-| docs/refactoring/code-health-decisions.md | 仅新增窄 superseded 注记，指向三条 SDS 手工工具 retained-deferred 行的本轮替代依据 | 旧表格/状态/计数/失败原文不改，不扩展其它工具 |
+| docs/engineering/code-health-decisions.md | 仅新增窄 superseded 注记，指向三条 SDS 手工工具 retained-deferred 行的本轮替代依据 | 旧表格/状态/计数/失败原文不改，不扩展其它工具 |
 | docs/architecture/project-boundaries.md、Architecture README、Legacy Register、本文 | 当前 SDS guard 解释/新设计状态按准确确认校准；设计阶段只本文与 PROPOSED索引/登记 | 既有当前owner/guard清单、dated设计/计划/产品证据不改；#664和#880只在§5精确对象上被取代 |
 | **CURRENT inventory四行** | 用户已具体确认，仅删除下方四行；设计阶段零改证据保留 | 历史/计数/ceilings/映射、accuracy/parser/depguard/guard逻辑全部不改 |
 | workflow/依赖/保护 | 两套 workflow 及其它全部 workflow 零改；根/前端/debug go.mod/go.sum/package锁零改，仅 §5.2 专属 PoC 自有 package.json/package-lock.json 随源退休 | 必需与安全检查、基线、ceilings、分支保护不降级；不新增/retry/cancel CI 或绕过门禁 |

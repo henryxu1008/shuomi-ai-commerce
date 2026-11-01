@@ -568,7 +568,7 @@ internal/promptmgmt/service_test.go
 
 ## 附录 E：仅退出六条 CURRENT consumer 行
 
-位置：`docs/refactoring/phase2-runtime-inventory.md` 的 `## Legacy consumer register` 至 `## Historical pre-migration snapshot` 之间。以下行原文精确匹配后删除；其余当前行及全部历史证据/计数不动。
+位置：`docs/architecture/runtime-consumer-register.md` 的 `## Legacy consumer register` 至 `## Historical pre-migration snapshot` 之间。以下行原文精确匹配后删除；其余当前行及全部历史证据/计数不动。
 
 ```text
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/aicache` | marketplace business consumer | marketplace owner / Phase 4 |

@@ -115,7 +115,7 @@ docs/architecture/legacy-idle-adapter-helper-closure-retirement-boundary.md
 docs/architecture/legacy-idle-support-facade-closure-retirement-boundary.md
 docs/architecture/legacy-global-config-logging-tail-closure-retirement-boundary.md
 docs/architecture/legacy-host-image-helper-closure-retirement-boundary.md
-docs/refactoring/module-target-mapping.md
+docs/architecture/module-target-mapping.md
 ```
 
 8源码/测试/检查路径 +4当前文档 +6历史＝18。logging/README.md 无退休示例，零改；appenv/core/config/rotating_writer、当前采集/图像/AI/SHEIN/Store/schema 和其它文档零改。不因同名 Status/SetLevel/Config 等扩大范围。

@@ -128,7 +128,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 当前仍要求的行为已在�
 | 同原 retirement 文件 TestSheinListingMixedDeclarationsAreRetired（用户准确例外） | 仅将 root internal/shein 的 *.go 必须存在改为必须缺席；根目录有效子包不删，原 root 声明禁入循环继续保留 | content 的存在性/CleanupContext 字段检查、category/aicache 缺席、原全部声明禁入及其它断言不变；不增加 skip/fallback/空列表绕过 |
 | 本文、docs/architecture/README.md、docs/refactoring/legacy-register.md | 设计阶段只三文档；确认后更新同一状态/准确替代矩阵 | 滚动 HEAD/CI/复核/授权留PR；历史正文/计数/勾选保持 |
 | 附录 B 十一旧设计 | 实施时每份只加一条链接本文的准确 superseded 顶注，限定22工件/旧KEEP检查，其他有效API/规则/能力不变 | 确认前零改，原历史正文/数字/证据逐字保留；其它泛化历史提及由当前索引/Register限定，不全仓扫词改历史 |
-| docs/development/repository-structure.md、docs/refactoring/module-target-mapping.md | 实施时各加窄当前说明/本文链接，仅校准旧PriceManager接线、话题和属性暂留含义 | 原历史段落/计数/链接保留；不是重画全局架构 |
+| docs/development/repository-structure.md、docs/architecture/module-target-mapping.md | 实施时各加窄当前说明/本文链接，仅校准旧PriceManager接线、话题和属性暂留含义 | 原历史段落/计数/链接保留；不是重画全局架构 |
 | workflow、全部inventory/CURRENT/历史/计数/ceilings/parser/accuracy、.golangci.yml、其它检查、依赖/锁/保护 | **零改**。当前inventory四条消费者行均不属于本闭包，无需删行或申请校准 | 不降阈值/删job/重跑绕过；真实原CI冲突若超本表，先报告准确提案与影响，用户决定后才改 |
 
 实施完整矩阵为 22 个退出工件 +2 原测试文件 +3 当前设计/索引/Register +11 旧设计窄顶注 +2 当前导航说明，**40 个范围工件**，不为计数制造修改，也不拆 PR 规避风险提示线。实际生产只删除13文件，没有新业务/恢复/持久化代码；Independent Architecture明确覆盖此完整边界。

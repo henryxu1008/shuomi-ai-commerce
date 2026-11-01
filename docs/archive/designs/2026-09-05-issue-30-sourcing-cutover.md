@@ -13,7 +13,7 @@ Baseline: main 2fd42cc06.
 Follow-up decision: the user accepted the BLOCKER, paused production cutover and
 old-route removal, and authorized all independent preparation slices. Current
 READY/BLOCKED/WAITING_FOR_PREREQUISITE evidence and the required source-account
-interface are in [the prepared-slices record](../../refactoring/2026-09-05-issue-30-prepared-slices.md).
+interface are in [the prepared-slices record](../refactoring/2026-09-05-issue-30-prepared-slices.md).
 
 Authority: Issue #30, Legacy Hard-Cut Policy, approved Phase 3 Product design.
 Must: verified organization ownership, deterministic publication, durable lineage,

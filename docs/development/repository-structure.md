@@ -79,7 +79,7 @@ SHEIN 登录后的 Store ID/查重同步沿原 owner。两套 workflow、配置/
 
 ## How To Use This Document
 
-先从下面的[当前入口地图](#current-entrypoint-map)判断运行路径，再从[新代码落点](#current-owner-landing)进入已有 owner；无需先遍历历史计划。目录/命令完整清单只维护在本文件，领域合同与完整退休规则仍分别属于 [Project Boundaries](../architecture/project-boundaries.md)、[Module Target Mapping](../refactoring/module-target-mapping.md) 和 [Legacy Register](../refactoring/legacy-register.md)。本地图是导航，不新建架构权威或依赖准入。
+先从下面的[当前入口地图](#current-entrypoint-map)判断运行路径，再从[新代码落点](#current-owner-landing)进入已有 owner；无需先遍历历史计划。目录/命令完整清单只维护在本文件，领域合同与完整退休规则仍分别属于 [Project Boundaries](../architecture/project-boundaries.md)、[Module Target Mapping](../architecture/module-target-mapping.md) 和 [Legacy Register](../refactoring/legacy-register.md)。本地图是导航，不新建架构权威或依赖准入。
 
 当变更涉及以下问题时，应从 `docs/architecture/README.md` 进入后再落到这里：
 
@@ -96,7 +96,7 @@ SHEIN 登录后的 Store ID/查重同步沿原 owner。两套 workflow、配置/
 
 ## 当前入口地图
 
-本节及命令清单静态核对于 `main @ eb9e019686564b976c1a1a9828eeddb454adabac`（2026-09-25）。只确认源码路径、装配关系和命令分类，不声称执行过当前基线测试、已部署或通过产品/生产验收。[Current Refactoring Status](../refactoring/current-refactoring-status.md) 中较早基线的成熟度记录不能代替本节的入口核对；本节也不重签那些历史验收。
+本节及命令清单静态核对于 `main @ eb9e019686564b976c1a1a9828eeddb454adabac`（2026-09-25）。只确认源码路径、装配关系和命令分类，不声称执行过当前基线测试、已部署或通过产品/生产验收。[Current Refactoring Status](../archive/refactoring/current-refactoring-status.md) 中较早基线的成熟度记录不能代替本节的入口核对；本节也不重签那些历史验收。
 
 | 要做什么 | 从哪里进入 | 当前边界 |
 | --- | --- | --- |
@@ -118,7 +118,7 @@ go run ./cmd/current-application -config /absolute/private/current-application.j
 
 ## 新代码落点
 
-以下是现有归属的阅读入口，不是新的全仓迁移计划；使用具体 API 前仍须满足现有合同与精确依赖 guard。完整 file/package 退休归属只维护在 [Mapping](../refactoring/module-target-mapping.md) / [Register](../refactoring/legacy-register.md)。
+以下是现有归属的阅读入口，不是新的全仓迁移计划；使用具体 API 前仍须满足现有合同与精确依赖 guard。完整 file/package 退休归属只维护在 [Mapping](../architecture/module-target-mapping.md) / [Register](../refactoring/legacy-register.md)。
 
 | 变更内容 | 当前阅读入口 | 不应做什么 |
 | --- | --- | --- |

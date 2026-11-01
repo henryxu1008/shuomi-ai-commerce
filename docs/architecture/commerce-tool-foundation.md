@@ -27,7 +27,7 @@ source lineage 与 canonical facts 分开返回，并且只计算确定性的证
 Phase 2A 的权威要求记录在以下位置：
 
 - `docs/product/ai-commerce-agent-platform-strategy.md`；
-- `docs/refactoring/current-refactoring-status.md`；
+- `docs/archive/refactoring/current-refactoring-status.md`；
 - GitHub Issues #128、#133、#134；
 - `docs/architecture/ai-capability-platform.md`；
 - `docs/superpowers/specs/2026-08-13-agent-roadmap-authority-alignment-design.md`。

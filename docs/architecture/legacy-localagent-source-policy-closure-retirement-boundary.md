@@ -193,9 +193,9 @@ docs/architecture/legacy-tenant-prompt-closure-retirement-boundary.md
 docs/architecture/shein-worker-identity-persistence-boundary.md
 docs/development/1688-local-agent-poc.md
 docs/product/product-sourcing-mvp-plan.md
-docs/refactoring/2026-09-05-issue-30-prepared-slices.md
-docs/refactoring/module-target-mapping.md
-docs/refactoring/project-migration-roadmap.md
+docs/archive/refactoring/2026-09-05-issue-30-prepared-slices.md
+docs/architecture/module-target-mapping.md
+docs/archive/refactoring/project-migration-roadmap.md
 docs/superpowers/plans/2026-08-20-decouple-1688-source-handoff.md
 docs/superpowers/plans/2026-08-21-1688-local-agent-poc.md
 docs/superpowers/plans/2026-08-22-local-agent-contract-hardening.md
