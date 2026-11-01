@@ -1,3 +1,25 @@
+## 阅读入口与文档状态
+
+本目录同时保留当前领域合同、待确认设计、源码退休矩阵和历史证据。先按职责进入，再读目标文档页首的窄范围替代说明；下方历次索引中的旧阶段、SHA、数字和勾选保留原貌，不是滚动状态。准确实施/合并/运行结果以对应 Issue / PR 为准；`IMPLEMENTATION_READY` 只表示设计准入。
+
+- 产品与工程准入：[当前 UI / IA](../product/final-ui-ia-authority.md)、[全新系统决定](../product/greenfield-no-legacy-migration.md)、[AGENTS.md](../../AGENTS.md)。
+- 稳定归属：[Project Boundaries](project-boundaries.md)、[按职责划分的权威入口](#approved-authorities-by-responsibility)、[稳定边界索引](#stable-boundary-documents)、[开发边界索引](#development-boundary-documents)。
+- 当前消费路径：[Repository Structure](../development/repository-structure.md#current-entrypoint-map)、[运行交接](../operations/README.md)。存在设计或历史命令不表示该能力已部署。
+- 退休与历史：[Legacy Register](../refactoring/legacy-register.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[待确认设计](#boundary-designs-awaiting-confirmation)、[支持材料](#supporting-context)、[计划与评估](#plans-runbooks-and-evaluations)。退休矩阵中的 KEEP、有效安全/恢复合同、批准和失败记录保留；不同批次的替代仅作用于明列范围。
+- 既有检查：[Current Guard Baseline](#current-guard-baseline)、[Review Checklist](architecture-review-checklist.md)。[next-steps.md](next-steps.md)的旧阶段排序不是派工队列。
+- 商业及旧计量：[统一基础与预付资源](unified-base-prepaid-resources-v1.md)为当前 owner 依据；[PAY-041](pay-041-usage-ledger.md)、[PAY-042](pay-042-listingkit-generation-usage-cutover.md)和旧订阅合同保留历史，不恢复旧接线，也不表示旧资金/UNKNOWN 已结清。
+- 来源与平台证据：保留 TEMU / TikTok / Walmart 官方文档核对的原日期、范围与缺口；它们不证明账号准入或真实店铺通过。ERPNext [隔离适配结论](erpnext-shein-fulfillment-fit-v1.md)及[原始 JSON 证据](evidence/erpnext-fulfillment-fit-v1.json)同样不替代正式平台验收。
+
+补充可直接打开的入口（下方原索引中的文件名仍保留）：
+
+- 稳定规则与当前有界合同：[兼容路径退休约束](compatibility-retirement.md)、[Temporal 依赖边界](temporal-boundaries.md)、[平台边界策略及其后续替代](platform-boundary-strategy.md)、[优选申请只读总览](selected-application-overview-v1.md)。
+- 阶段盘点：[平台历史规模快照](historical-platform-migration-inventory.md)、[ListingKit 重构状态快照](listingkit-refactor-status.md)、[旧 hardening 拆分计划](listingkit-production-hardening-split.md)、[已退休预览链边界](listing-preview-boundaries.md)。
+- 旧数字协议：[Task Event V2](task-event-v2-migration.md)、[Task 状态生命周期](task-status-lifecycle.md)。协议与拒绝语义作为历史保留，不恢复消费者或迁移观察前置。
+- 旧 TEMU 设计经验：[对象模式](temu-architecture-patterns.md)、[管线阶段](temu-pipeline-stages.md)、[编辑指引](temu-refactor-playbook.md)。当前平台合同优先，不将旧例子作为可调用接口。
+- 旧部署/PoC 记录：[Amazon 检查清单](amazon-crawler-commercialization-checklist.md)、[Amazon 执行计划](amazon-crawler-commercialization-execution-plan.md)、[集中部署方案](centralized-deployment-plan.md)、[Temporal PoC](temporal-poc-runbook.md)、[编排评估](temporal-workflow-evaluation.md)、[Updater 第三方评估](updater-third-party-validation.md)。保留原结论与失败证据，不作为当前执行步骤。
+
+以下为原完整索引与各阶段证据。
+
 - [`store-observations-current-store-install.md`](store-observations-current-store-install.md) — #1037 / #1038；用户明确选择保留当前合成试用数据，显式模块安装独立架构 IMPLEMENTATION_READY；当前 owner/四表/最小 grants，无旧数据迁移。
 - [`order-procurement-fulfillment-v1.md`](order-procurement-fulfillment-v1.md) — #1037 / #1038；独立架构 IMPLEMENTATION_READY，当前仓库双履约与显式用途授权；真实 SHEIN 待联调。
 - [`erpnext-shein-fulfillment-fit-v1.md`](erpnext-shein-fulfillment-fit-v1.md) — 固定 ERPNext/Frappe 版本，原生数量、事务与原操作恢复证据，不代表真实平台验收。

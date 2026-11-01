@@ -1,3 +1,5 @@
+> **当前运行阶段的限定。** 本文保留完整生态服务及收款结算冻结合同；用户后续选择先接入非支付业务，当前资格模式与接线以[qualification-only 增量](ecoservices-qualification-runtime.md)和[运行交接](../operations/ecosystem-services-v1.md)为准。不能仅凭下文完整设计宣称支付渠道、真实收款或结算已经开放；未启用部分的资金安全与恢复合同也未被取消。原设计及评审证据原样保留。
+
 # 生态服务 V1：第三方入驻、服务交付与在线收款结算
 
 状态：**IMPLEMENTATION_READY**。本文件是 [Issue #603](https://github.com/qq550723504/task-processor/issues/603) 的冻结设计基线；独立高风险 Architecture Review 已通过，允许唯一 Writer 按本范围实施和必要自检，不授权真实渠道操作、合并或部署。

@@ -1,3 +1,5 @@
+> **HISTORICAL TRIAL INPUT / 当前入口已拒绝。** 下文 #478 的一次性订阅套餐、旧 CLI flags 与 `ACCOUNT_ISOLATED_TRIAL_CATALOG` 已由[统一基础与预付资源](../architecture/unified-base-prepaid-resources-v1.md)、[订阅计量退休](../architecture/legacy-subscription-metering-closure-retirement-boundary.md)及[当前 Account Compose](../../deployments/docker/account-compose/README.md)替代；当前 init 明确拒绝旧免费订阅 seed。不能执行下文来准备当前安装、重建优惠或改写既有环境。原试用价格、身份/空库限制和历史步骤保留；当前商业价格与资源事实不由旧试用值决定。
+
 # Isolated subscription purchase catalog
 
 This is an explicit, one-time catalog input for the isolated #478 browser trial.

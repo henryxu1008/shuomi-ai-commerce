@@ -1,3 +1,5 @@
+> **当前入口与历史部署约定分开读取。** 凭据不得提交、不得打印、使用私密注入及准确作用域等底线继续有效。当前 Go 应用沿[显式私有 JSON manifest](repository-structure.md#current-entrypoint-map)与[当前配置 owner](listingkit-config-migration-checklist.md)，不由下文旧 `listingkit.zitadel.*` / YAML / RabbitMQ 示例恢复已退休输入。Console 身份配置见[前端 README](../../web/listingkit-ui/README.md)。下方 External Secrets、轮转和 Git 历史清理清单是原部署背景，不能当作本次内部试用的新前置或操作授权；实际目标须由对应运行 owner 核对。原文及已有退休说明保留。
+
 # Secret Management
 
 生产凭据不得写入仓库，包括 `.env`、`config/*.yaml`、`Secret` manifest、临时脚本和调试输出。

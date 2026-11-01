@@ -1,3 +1,5 @@
+> **阅读范围：稳定依赖规则；旧目录例子须按当前 owner 读取。** 下文 Temporal 的编排职责、SDK 隔离和依赖方向仍有效；`Current Allowed Runtime Areas` 中旧 ListingKit 目录与 RabbitMQ task 示例不表示这些运行链仍存在，也不批准重新接入。实际入口与保留运行域见[Repository Structure](../development/repository-structure.md#current-entrypoint-map)、[Project Boundaries](project-boundaries.md)及各当前合同；旧任务源码的退出见[数字任务退休](legacy-numeric-task-execution-retirement-boundary.md)。原规则、例子和历史 guard 保留，不从本说明推导部署或运行验收。
+
 # Temporal Boundaries
 
 ## Goal
