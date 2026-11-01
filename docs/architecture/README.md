@@ -1,3 +1,5 @@
+- `legacy-imageagent-control-summary-tail-retirement-boundary.md` — [#301 ImageAgent旧控制、摘要合同与测试尾部完整退休设计](legacy-imageagent-control-summary-tail-retirement-boundary.md)：七对象、原有效测试/旧KEEP与14路径整批矩阵；当前仅四文档设计，用户确认前不实施，Store组暂缓。
+
 - `legacy-resource-transaction-closure-retirement-boundary.md` — [#1041 旧资源通用事务与 Store 同库扣费链完整退休设计](legacy-resource-transaction-closure-retirement-boundary.md)：§1–§7（含§4.2/§6.1），待确认27路径完整闭包；当前仅设计，保留当前能力与Store观察，#301 OPEN。
 
 > #1039 当前整批交付：[旧图片异步、GRSAI通用执行与模型审核闭包](legacy-image-async-review-closure-retirement-boundary.md)已按用户确认设计整批实现，当前 IMPLEMENTED / In Review。窄编辑/同步Once、账本双指纹和当前共享AST helper已抽取；当前能力与Store观察、JSON/hash和物理账本保持，workflow/inventory/既有资源不动，#301 OPEN。以下冻结导航原文逐字保留。
