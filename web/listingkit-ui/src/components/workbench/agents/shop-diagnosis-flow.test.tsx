@@ -210,7 +210,7 @@ it("can explicitly abandon an uncertain free diagnosis preparation without start
 it("keeps original saved observation links scoped to the inspected store", async () => {
   show(); await choose(); await viewFacts();
   expect(screen.getByRole("link", {name:"查看保存商品"})).toHaveAttribute("href", `/workbench/store-products?storeId=${id}`);
-  expect(screen.getByRole("link", {name:"查看保存订单"})).toHaveAttribute("href", `/workbench/store-orders?storeId=${id}`);
+  expect(screen.getByRole("link", {name:"查看保存订单"})).toHaveAttribute("href", `/workbench/store-orders/records?storeId=${id}`);
 });
 it("recovers an uncertain diagnosis prepare through its original receipt owner and retains its key while forbidden", async () => {
   const baseFetch = fetch;

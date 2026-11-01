@@ -36,7 +36,8 @@ func main() {
 	retainedObservations := flag.Bool("retained-observations", false, "declare already installed observations for --align-core-contract; no installation or grants")
 	retainedCockpit := flag.Bool("retained-operations-cockpit", false, "declare already installed operations cockpit for --align-core-contract; no installation or grants")
 	browserWorkbench := flag.Bool("browser-workbench", false, "explicitly install only Store browser operation/report tables and SELECT/INSERT grants on a confirmed current Store")
-	confirmed := flag.String("confirm-database", "", "exact existing database name required for --align-core-contract")
+	currentObservations := flag.Bool("observations-current-store", false, "explicitly install absent observations on a confirmed current Store without changing existing facts or grants")
+	confirmed := flag.String("confirm-database", "", "exact database name required for a selected current Store maintenance mode")
 	flag.Parse()
 	confirmationSet := false
 	retainedSet := false
@@ -55,6 +56,12 @@ func main() {
 		if retainedSet && !*align {
 			return errors.New("retained capability declarations require --align-core-contract")
 		}
+		if *currentObservations {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align {
+				return errors.New("current Store observation installation cannot be combined with another mode")
+			}
+			return installCurrentObservations(*path, *confirmed)
+		}
 		if *align {
 			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench {
 				return errors.New("core alignment cannot be combined with any installation or observation mode")
@@ -68,7 +75,7 @@ func main() {
 			return installBrowserWorkbench(*path, *confirmed)
 		}
 		if confirmationSet {
-			return errors.New("--confirm-database requires --align-core-contract or --browser-workbench")
+			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench or --observations-current-store")
 		}
 		return runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart)
 	}()
@@ -76,7 +83,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *browserWorkbench {
+	if *currentObservations {
+		fmt.Println("Current Store observations installed atomically; existing facts, base permissions and history retained; verify serving role before enabling")
+	} else if *browserWorkbench {
 		fmt.Println("Store browser schema version and immutable grants verified; existing facts retained")
 	} else if *align {
 		fmt.Println("Store core contract and schema version verified; existing facts and permissions retained")
@@ -89,6 +98,27 @@ func main() {
 	} else {
 		fmt.Println("current Store schema installed and narrow runtime roles granted")
 	}
+}
+
+func installCurrentObservations(path, confirmed string) error {
+	if confirmed == "" {
+		return errors.New("current Store observation installation requires exact database confirmation")
+	}
+	cfg, err := loadOwnerConfig(path, "store_center_owner")
+	if err != nil || cfg.Database != confirmed {
+		return errors.New("current Store observation installation refused: private owner config and exact database confirmation required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
+	if err != nil {
+		return errors.New("current Store observation owner database unavailable")
+	}
+	defer platformdatabase.Close(db)
+	if err := storeschema.InstallCurrentStoreObservations(ctx, db, confirmed); err != nil {
+		return fmt.Errorf("current Store observation installation failed; inspect before retry if outcome is unknown: %w", err)
+	}
+	return nil
 }
 
 func installBrowserWorkbench(path, confirmed string) error {
