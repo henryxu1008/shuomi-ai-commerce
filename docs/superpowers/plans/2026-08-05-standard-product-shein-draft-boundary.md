@@ -1,3 +1,7 @@
+> **#1050 继续整理：保留合同参考与历史记录。** 保留商品事实与 SHEIN draft/preview/state 边界及已勾选验证过程；原 JSON/alias 描述仅绑定当时合同，当前有效 JSON/hash 不因清理改变。
+>
+> 当前阅读依据：[project-boundaries.md](../../architecture/project-boundaries.md)、[README.md](../../../internal/marketplace/shein/workspace/README.md)。旧 owner、操作命令和 agent / sub-skill 指令不构成当前派工或真实操作授权；预期输出、勾选和实际验证继续区分。下方原 Git 正文完整保留。
+
 # Standard Product and SHEIN Draft Boundary Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

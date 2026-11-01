@@ -1,3 +1,7 @@
+> **#1050 继续整理：保留合同参考与历史记录。** 保留已勾选的 module builder 抽取与验证过程；旧 ProductEnrich/AmazonListing 接线为历史，当前 app/领域装配按现行合同。
+>
+> 当前阅读依据：[httpapi-assembly-boundaries.md](../../architecture/httpapi-assembly-boundaries.md)、[legacy-hard-cut-policy.md](../../refactoring/legacy-hard-cut-policy.md)。旧 owner、操作命令和 agent / sub-skill 指令不构成当前派工或真实操作授权；预期输出、勾选和实际验证继续区分。下方原 Git 正文完整保留。
+
 # HTTPAPI Module Builder Phase 6A Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

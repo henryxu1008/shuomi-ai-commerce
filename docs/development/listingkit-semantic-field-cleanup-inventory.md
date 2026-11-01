@@ -1,3 +1,5 @@
+> **HISTORICAL INVENTORY / 旧兼容建议已被精确替代。** [#904 JSON 别名退休](../architecture/legacy-shein-draft-json-alias-retirement-v1.md)已替代下文三旧 Package 字段、双输出、回填与 summary-only readiness 的保留建议；后续[#960 草稿装配退休](../architecture/legacy-shein-draft-assembly-closure-retirement-boundary.md)继续明确当前值/严格 codec/纯规则的 owner。当前只使用 canonical 字段，不据此恢复 fallback、双写或旧 Workspace。平台 DTO、自由 metadata 同名字串和稳定 check ID 不能按别名一概删除；当前严格解码、JSON/hash/版本/权限和有效规则保持。原 inventory、原路径和判断保留为历史证据，不是新一轮迁移任务。
+
 # ListingKit Semantic Field Cleanup Inventory
 
 ## 目的

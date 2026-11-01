@@ -29,15 +29,15 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 - 未开放能力应真实表达 unavailable，不用旧路径兜底、原型示例或模拟成功替代。
 - Agent / Tool 不直接访问数据库绕过领域规则，也不建立第二套权限、商品事实或业务状态机。
 
-## 仍服务当前运行链路的专项文档
+## 商业约束与旧运行记录
 
-以下文档虽然文件名仍带 ListingKit，但其**当前业务/运行职责尚未完成 cutover**，不能仅因 ListingKit 产品退休而整体历史化：
+以下文档保留尚未被明确替代的商业、安全和恢复责任。旧订阅、Token 与影子计量源码已按 [#988 完整边界](../architecture/legacy-subscription-metering-closure-retirement-boundary.md)退休；与[统一基础方案及预付资源](../architecture/unified-base-prepaid-resources-v1.md)直接冲突的旧套餐、配额和接线不再是当前入口：
 
-- [付费试点产品目录与用量政策](./listingkit-paid-pilot-product-catalog.md) — `paid_pilot`、capability / entitlement、metering 与 `shein_publish` 默认关闭等仍是当前商业政策依据；产品投影部分服从 Figma。
-- [付费商业试点上线执行计划](./listingkit-paid-pilot-execution-plan.md) — 外部准入、收费前置、PAY-041～044 / PAY-070～073、Go/No-Go 与回滚等商业 rollout 门禁在新 owner 承接前继续有效；不再作为 ListingKit 产品路线图或通用开发队列。
-- [错误恢复 SOP](./ops/listingkit-error-recovery-sop.md) — 对仍存活的旧 ListingKit / SHEIN 商业路径继续提供操作员恢复与升级指导；不拥有产品/IA 权威。
+- [付费试点产品目录与用量政策](./listingkit-paid-pilot-product-catalog.md) — 保留原政策和当前合同的衔接，不能据此恢复 `paid_pilot` 订阅或旧配额准入，也不能借源码退休取消有效授权、收费或发布约束。
+- [付费商业试点上线执行计划](./listingkit-paid-pilot-execution-plan.md) — 保留外部准入、收费、Go/No-Go、安全、防重、UNKNOWN 与回滚责任；旧 PAY 队列和 Task 接线不是当前开发或内部试用前置。
+- [错误恢复 SOP](./ops/listingkit-error-recovery-sop.md) — 保留故障、防重、恢复和升级责任；旧 Task/Workspace 操作仅限有事实证据的历史运行现场，不证明实例仍存活或已停用。当前操作从[运行交接](../operations/README.md)进入。
 
-这些文档的“当前”仅限各自商业政策、运维或验收职责。它们不能据此恢复旧 Workspace、Task-first 产品模型、永久 ListingKit facade 或新的 legacy consumer；当对应当前 owner/runbook/template 接管后，再单独退休其旧路径部分。
+这些文档必须先读页首的后续合同和窄范围替代说明；原政策、批准、失败与待核实事实保留，不能由标题或旧 Active 标签推断当前源码、部署或产品验收。
 
 ## 历史 ListingKit 文档
 
@@ -56,6 +56,21 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 ## 专项产品文档
 
 Product Sourcing、Account、Commercial、Marketplace、Agent 等专项文档只有在其自身仍被当前 Authority / Issue 引用且未被后续决定替代时，才作为对应范围的依据。文档标题或旧 Active 标签本身不构成当前执行授权。
+
+- Agent 职责：[业务智能体分工](business-agent-responsibilities.md)。
+- 商品与草稿：[未绑定店铺草稿](supply-unbound-completion-drafts.md)、[属性与 SKU 候选](completion-draft-structured-v1.md)、[SHEIN 带入预览](completion-shein-import-v1.md)、[多商品优选申请](selected-application-multi-product.md)。
+- 采集决定：[服务端匿名浏览器范围](pd-1688-server-public-browser-2026-09-26.md)、[1688 Figma 与后续阶段决定](pd-1688-acquisition-figma-2026-10-11.md)、[插件字段设计](plugin-capture-listing-fields-v1.md)。插件字段设计本身仍标为未达到实现准入，不覆盖后续已准入的局部架构。
+- 有界试用与界面：[Local 非现金 AI 试用](local-ai-trial-v1.md)、[工作台主题统一](workbench-theme-unification.md)。产品决定不等于实例操作或真实调用已获准。
+- 来源合同与交接：[Product Sourcing Handoff](product-sourcing-handoff.md)、[MVP 当前合同及历史收口](product-sourcing-mvp-plan.md)。
+
+## 保留的历史证据与取消记录
+
+以下材料的 PASS、BLOCKED、UNKNOWN、未执行项和旧命令只对各自记录的基线有效，不是当前试用或生产已通过的证明：
+
+- 取消的计划：[旧 clean-slate cutover](issue30-clean-slate-cutover.md)、[旧执行 backlog](backlog/listingkit-execution-issues.md)。
+- 来源检查：[2026-07-13 MVP 检查点](product-sourcing-validation-2026-07-13.md)、[1688 受控回放](validation/2026-08-08-1688-controlled-replay.md)。
+- 旧 QA 与待核实事实：[失败样例](validation/listingkit-qa-failure-samples.md)、[UNKNOWN/blocker 台账](validation/unknown-state-and-blocker-tracker.md)、[历史运行索引](validation/runs/README.md)。这些旧 Task 模板/矩阵不恢复已取消的验收要求。
+- 真实运行记录：[SHEIN 预检受阻](validation/runs/2026-06-17-shein-sds-real-api-preflight-blocked.md)、[授权受阻](validation/runs/2026-06-21-shein-sds-batch-production-closure-auth-blocked.md)、[批次回归](validation/runs/2026-06-21-shein-sds-batch-production-closure-regression.md)、[受控闭环](validation/runs/2026-06-21-shein-sds-batch-production-closure.md)、[控制面 leader rollout](validation/runs/2026-06-24-listing-control-plane-leader-rollout.md)、[商业基线](validation/runs/2026-07-13-listingkit-commercial-baseline.md)。
 
 AI Control Plane 与 Agent Runtime 的技术设计见：
 

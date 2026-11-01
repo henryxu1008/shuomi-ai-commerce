@@ -1,3 +1,5 @@
+> **阅读范围：已退休路径与防回流约束。** 下文关于“迁移中有用”“external users”“exception”的旧通用建议，不构成当前 Compatibility 类别或迁移例外。[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)与[全新系统决定](../product/greenfield-no-legacy-migration.md)只允许 EXTRACT / RETIRE；有具体当前外部契约时先报告用户，不能自行恢复 adapter、fallback 或双读双写。历史替代路径名称也须结合[当前 owner](project-boundaries.md)核对。原退休事实与 guard 证据保留。
+
 # Compatibility Retirement
 
 ## Goal

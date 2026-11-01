@@ -1,3 +1,5 @@
+> **后续合同的准确衔接。** [统一基础与预付资源](../architecture/unified-base-prepaid-resources-v1.md)已明确基础方案、Store 时段、AI 点数和数据行；[#988](../architecture/legacy-subscription-metering-closure-retirement-boundary.md)已退休旧订阅、Token 与影子计量源码。下文 `paid_pilot` 订阅套餐/旧配额/旧 owner 与后续合同直接冲突的部分只保留为历史，不能恢复当前应用的订阅购买或准入前置。未被明确替代的外部收费、授权、发布、防重、UNKNOWN 和商业 rollout 约束继续保留；源码退休不等于旧合同义务、存量账务或运行事实已处置。原政策正文原样保留。
+
 > **状态：CURRENT COMMERCIAL POLICY + HISTORICAL LISTINGKIT PROJECTION（2026-09-26 校准）**  
 > 本文中的 `paid_pilot` 套餐、现行 capability / entitlement 门禁、用量指标和默认关闭的 `shein_publish` 政策仍是当前商业读取/准入链的有效政策依据，继续由现有 subscription / entitlement / metering owner 消费；在这些规则被明确迁入新的当前商业政策 owner 前，不得把它们视为历史失效。参见 [#347 Commercial read contract](../engineering/issue347-commercial-read-contract.md)。  
 > **只有 ListingKit 作为产品、工作台、Task-first 投影和长期执行 owner 的表述被降级为历史。** 当前 UI / IA / 页面命名与交互以 [最终 Figma UI / IA Authority](./final-ui-ia-authority.md) 为准；旧 ListingKit 架构按 [Legacy Register](../refactoring/legacy-register.md) EXTRACT → RETIRE。  

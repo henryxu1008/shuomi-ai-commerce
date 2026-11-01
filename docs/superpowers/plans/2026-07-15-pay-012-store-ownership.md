@@ -1,3 +1,7 @@
+> **#1050 核对：保留参考与历史记录，旧实施步骤不再适用。** 保留店铺归属、平台/enabled 与外部动作前重新校验的约束参考；旧 StoreAccessValidator/ListingKit 注入不再执行。
+>
+> 当前阅读依据：[auth-and-tenancy.md](../../architecture/auth-and-tenancy.md)、[zitadel-official-provider-boundary.md](../../engineering/zitadel-official-provider-boundary.md)。本文旧 owner、API、schema、迁移/部署/执行命令及 agent / sub-skill 指令只用于原基线追溯，不构成当前派工或真实操作授权。历史状态、勾选和验证结论原样保留；预期结果不记为实际通过，未执行项保持未执行。下方原 Git 正文完整保留。
+
 # PAY-012 Tenant Store Ownership Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

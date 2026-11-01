@@ -15,13 +15,17 @@
 | 品牌、仓库名称和保留的工程标识 | [更名说明](branding-and-repository-rename.md) |
 | 配置与凭据边界 | [当前应用配置入口](repository-structure.md#current-entrypoint-map)、[凭据管理](secret-management.md)；当前应用使用显式私有 JSON manifest，旧 YAML / ListingKit 配置不替代当前入口合同 |
 
+## 有明确范围的开发与验证说明
+
+- [CHAIN-1 隔离验收装配](chain1-local-product-acceptance.md)仍有当前 runner 和合同检查，不能与已退休的手工编排混淆。只在对应明确授权下使用；本次文档核对不执行它，源码或历史 PASS 不等于用户验收。
+
 ## 专项记录与历史材料
 
 以下入口保留原路径供追溯，使用前先读顶部的退休说明及文内限定范围：
 
 - 旧开发入口：[Local Agent PoC](1688-local-agent-poc.md)、[ListingKit 联调](listingkit-local-debug.md)、[线上库复验记录](listingkit-local-prod-db-replay.md)、[旧对象存储上传](listingkit-object-storage.md)。
-- 旧验收路径：[CHAIN-1](chain1-local-product-acceptance.md)、[Image Agent 本地验收](image-agent-local-acceptance.md)、[RabbitMQ 主链验收](rabbitmq-mainline-validation.md)。这些旧编排或命令不能作为当前试用步骤。
+- 旧验收路径：[Image Agent 本地验收](image-agent-local-acceptance.md)、[RabbitMQ 主链验收](rabbitmq-mainline-validation.md)。这些旧编排或命令不能作为当前试用步骤。
 - 旧实现整理：[全局配置退休](listingkit-config-migration-checklist.md)、[字段清理 inventory](listingkit-semantic-field-cleanup-inventory.md)、[字段迁移 checklist](listingkit-semantic-field-migration-checklist.md)、[旧错误处理指南](error-handling-guide.md)。
-- 有特定基线与环境限制的记录：[隔离订阅目录输入](isolated-subscription-catalog.md)、[SHEIN 报名来源 SDS 排查](listingkit-shein-enrollment-source-sds-troubleshooting.md)。不作为通用安装或真实数据操作说明。
+- 有特定基线与环境限制的记录：[隔离订阅目录输入](isolated-subscription-catalog.md)（旧 seed 当前已被拒绝）、[SHEIN 报名来源 SDS 排查](listingkit-shein-enrollment-source-sds-troubleshooting.md)。不作为通用安装或真实数据操作说明。
 
 当前用户操作与运行交接从[操作说明](../operations/README.md)进入；源码目录和正式命令的完整清单只维护在 Repository Structure。

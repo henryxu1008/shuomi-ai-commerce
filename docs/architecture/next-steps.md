@@ -1,3 +1,5 @@
+> **阅读范围：阶段优先级快照 + guard baseline 入口。** 下文 Priority 1–3 和“后续 2 到 4 周”记录原结构治理阶段，不再是当前派工队列；其中旧包、ListingKit 过渡装配和兼容建议须服从[全新系统决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)及[当前边界](project-boundaries.md)。`Current guard coverage` 保留其索引职责；具体 guard 以[架构索引](README.md#current-guard-baseline)、[Review Checklist](architecture-review-checklist.md)和当前测试为准，不由历史表声称已执行。原阶段判断、计数和证据不改写。
+
 # Next Technical Priorities
 
 ## Goal
