@@ -12,7 +12,7 @@
 - 调查基线：main `27039ab105ad0bac4cc274b5d59a96b703808a09`（含 #1039、#1040）。Writer 会话 `01a133ef-757c-73e3-b8f6-76958c642397`，分支 `codex/issue301-resource-execution-retirement`。已核对当前 Issue、open PR 与会话；#1038 的 SHEIN 履约归原 owner，不接管。
 - 本轮设计提交仅新增本文并向 `legacy-register.md`、`project-boundaries.md`、`docs/architecture/README.md` 追加顶注/必需导航；§5 其余路径是**待确认实施范围**，不是已经实施。
 
-Product Authority：[全新系统基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[当前统一基础方案](unified-base-prepaid-resources-v1.md)、[成员资源与 Store 当前合同](member-resource-allocation-v1.md)、[原资源/Store 设计](../superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md)以及用户本轮“先做完整设计、确认后实施”的决定。没有 UI/IA/交互改动，Figma 增量 **N/A**；不重开上述当前产品决定。
+Product Authority：[全新系统基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[当前统一基础方案](unified-base-prepaid-resources-v1.md)、[成员资源与 Store 当前合同](member-resource-allocation-v1.md)、[原资源/Store 设计](../archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md)以及用户本轮“先做完整设计、确认后实施”的决定。没有 UI/IA/交互改动，Figma 增量 **N/A**；不重开上述当前产品决定。
 
 Must：保留有效行为和当前业务合同；不留旧 facade/alias/fallback/第二事实源；保持当前权限、事务、JSON/hash、UNKNOWN 和恢复；完整收齐专属尾部。Out of Scope：新计费/价格/状态机、余额算法重构、迁移、旧历史续跑、部署、关单与真实资源操作。没有新增 Accepted Risk，也不把现有风险擅自接受为 PASS。
 
@@ -112,7 +112,7 @@ Legacy decision: **EXTRACT + RETIRE**。Reusable behavior：当前 ReservationSt
 | D5 | `docs/architecture/store-center-current-application-v1.md` | 仅顶注旧同库 executor 路径失效；不改当前 Store 产品要求 |
 | D6 | `docs/engineering/2026-09-25-issue487-main-image-execution-design.md` | 仅顶注替代通用注册/旧仓库借用；当前图像合同保持 |
 | D7 | `docs/architecture/legacy-subscription-metering-closure-retirement-boundary.md` | 仅顶注说明 #988 Resource KEEP 只对本批专属对象被替代 |
-| D8 | `docs/superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md` | 仅顶注替代旧通用 owner 和 §8 同库 Store 编排承诺；当前资金与其它历史原文完整保留 |
+| D8 | `docs/archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md` | 仅顶注替代旧通用 owner 和 §8 同库 Store 编排承诺；当前资金与其它历史原文完整保留 |
 | D9 | `docs/architecture/README.md` | 追加新设计的显式索引，原导航/历史完整保留；原文档索引检查不变 |
 
 D2–D9 一律从基线完整 Git blob 追加顶注，原内容作为**逐字后缀**保留（只在验证工作区时允许 CRLF→LF 归一化）；不对历史做全局 replace。滚动 HEAD/CI/评审状态写 PR，不用提交改历史状态。

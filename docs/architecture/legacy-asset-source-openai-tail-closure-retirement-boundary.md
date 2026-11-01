@@ -14,7 +14,7 @@
 
 用户授权三组一起设计，不机械拆批，确认后再实施。本阶段 **Design Basis: N/A / 文档工作 Ready**，实际只允许本文、架构索引和 Legacy Register 三文档；不改生产、测试、fixture、旧依据或运行资源。未来实现采用 **Independent Architecture / NOT_READY**：本次结束一项公共 Go 合同过渡，并收窄 Manager 路由版本接受集合，需要明确当前 owner、持久化和副作用边界，不能以“改 import”代替设计准入。适用独立复核、用户确认及 Issue/PR 的 IMPLEMENTATION_READY 读回均须先于生产修改。
 
-产品依据为本轮用户决定、[greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)及当前来源/AI/资产合同。无 UI、IA、路由或页面变化，Figma N/A。复用 [provider-neutral AI owner](../superpowers/specs/2026-08-21-provider-neutral-ai-contracts-design.md)、[当前 Product Agent 运行合同](product-agent-runtime-contract.md)、[来源业务闭环](source-business-closure-v1.md)和实际源码；本文只替代 §2 指定的旧 KEEP/迁移要求，不重开全局架构。
+产品依据为本轮用户决定、[greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)及当前来源/AI/资产合同。无 UI、IA、路由或页面变化，Figma N/A。复用 [provider-neutral AI owner](ai-provider-contracts.md)、[当前 Product Agent 运行合同](product-agent-runtime-contract.md)、[来源业务闭环](source-business-closure-v1.md)和实际源码；本文只替代 §2 指定的旧 KEEP/迁移要求，不重开全局架构。
 
 Must：三组完整收口，无兼容 alias/re-export/wrapper；catalog.Publisher、全部当前能力及独立 SHEIN 登录/Store 同步保持；原有效业务、安全、组织隔离、幂等、无发送和取消断言保留。Should：复用已有 owner 和现有原测试，不新造框架。Out of Scope：workflow、完整 inventory、依赖/lock、保护规则、UI、新 provider、schema/迁移、运行验收和既有实例/数据/凭据/进程。无新增 Accepted Risk；现有阶段边界不变，运行/provider/用户验收 NOT_RUN，不宣称可上线。
 
@@ -147,9 +147,9 @@ OpenAI 保留真实配置/resolver/identity 注入、Client/Pool 限速/排队/d
 
 - `docs/architecture/legacy-localagent-source-policy-closure-retirement-boundary.md`
 - `docs/architecture/legacy-source-normalization-facts-closure-retirement-boundary.md`
-- `docs/superpowers/specs/2026-08-21-provider-neutral-ai-contracts-design.md`
-- `docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md`
-- `docs/superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md`
+- `docs/architecture/ai-provider-contracts.md`
+- `docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md`
+- `docs/architecture/product-domain-contracts.md`
 - `docs/superpowers/plans/2026-09-01-internal-target-architecture-phase3-product.md`
 
 6+2+16+3+6+6=39。当前三文档不是 39 路径已实施；未来状态只给本文/索引加当前顶注，冻结正文保留。当前 handoff 只替换 canonical publication owner 行和目标流程旧 wrapper 节点，并窄注 recipe KEEP 被本文取代；MVP 只改同一 Canonical facts 行和顶注。project-boundaries 只加准确当前顶注。两索引保持原完整后缀，不重排旧阶段。

@@ -146,7 +146,7 @@ docs/architecture/legacy-logger-facade-closure-retirement-boundary.md
 docs/architecture/legacy-config-facade-closure-retirement-boundary.md
 docs/architecture/legacy-idle-support-facade-closure-retirement-boundary.md
 docs/architecture/legacy-local-acceptance-closure-retirement-boundary.md
-docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md
+docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md
 ```
 
 当前三文档为本文、docs/architecture/README.md和docs/refactoring/legacy-register.md；两索引只加当前项，完整原Git blob保留为后缀。其它历史文档、defaults.go、retired_product_runtime.go、type_redis.go、SHEIN私有JSON示例、Pester、部署共享样例/工作流/完整inventory零改。

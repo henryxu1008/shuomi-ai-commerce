@@ -35,7 +35,7 @@ Refs [#301](https://github.com/qq550723504/task-processor/issues/301)。
 按以下既有依据解释边界，不扩展它们的产品范围：
 
 - [全新系统基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)：只有 EXTRACT / RETIRE，无旧数据迁移、ID 映射、fallback、双读/双写或第二事实源。
-- [当前身份/企业空间](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md) 与 [Store current application](store-center-current-application-v1.md)：当前身份与 Store 记录归原 owner；店铺记录存在不等于官方连接可用。
+- [当前身份/企业空间](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md) 与 [Store current application](store-center-current-application-v1.md)：当前身份与 Store 记录归原 owner；店铺记录存在不等于官方连接可用。
 - [我的供应链 SHEIN](my-supply-chain-shein-v1.md) §8 的 StoreProductAccess / 官方执行合同：新业务请求不得调用旧登录 Profile 或 seller 网页发布 runtime；Submission 保持唯一发送、UNKNOWN 与恢复责任。
 - [Store 平台观察](store-center-platform-observations-v1.md) 及[内部准备接线](store-observations-preparation-runtime.md)：保留当前记录/观察与原权限、配置和真实可用性边界，不因本设计新增 provider 调用或试用前置。
 - [发布预检退休](release-identity-preflight-retirement.md)、#703/#719/#721：旧 bridge、1688 数字账号/队列/Profile 和未注册导入 HTTP 已退休，不能通过 SHEIN 边界恢复它们。

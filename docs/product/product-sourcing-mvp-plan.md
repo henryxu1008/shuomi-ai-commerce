@@ -19,7 +19,7 @@ asset approval → readiness**, preserving source lineage and warnings. Creating
 a legacy ListingKit task is not the target acceptance criterion.
 
 Read [Product Sourcing Handoff](product-sourcing-handoff.md) for owner/code links,
-the [Product Domain contract](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md)
+the [Product Domain contract](../architecture/product-domain-contracts.md)
 for canonical facts and approval, and the
 [greenfield baseline](greenfield-no-legacy-migration.md) for the fresh-install
 data boundary.

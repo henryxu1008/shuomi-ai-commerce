@@ -22,7 +22,7 @@ worker and the release identity-preflight gate remain outside this bounded batch
 
 This is a read-only preview, not a backfill or a production cutover gate. The full
 inventory, target contract and A–D rollout dependencies are in
-[the design](../superpowers/specs/2026-09-05-source-account-organization-cutover.md).
+[the design](../archive/designs/2026-09-05-source-account-organization-cutover.md).
 
 Run on the host with the actual 1688 account profile volume mounted at its runtime
 path. Use the same absolute profile root that currently feeds

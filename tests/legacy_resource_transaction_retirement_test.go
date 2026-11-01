@@ -124,13 +124,14 @@ func TestResourceRetirementFrozenDocumentSuffixesStayIntact(t *testing.T) {
 		{"docs/architecture/store-center-current-application-v1.md", 29644, "af903e3e26a9af52ddbad95c6ff83a8a40be9ce586aa63d632f9f4256178255f"},
 		{"docs/engineering/2026-09-25-issue487-main-image-execution-design.md", 40572, "6db0747b6cf12c3df2c5ed27e298fb3b7df9d20fbd0fefd040c1c763d899173f"},
 		{"docs/architecture/legacy-subscription-metering-closure-retirement-boundary.md", 43013, "1d80b25e70cad2753d02f52ac627a9e17b720e1ee900245f786c2ad1d68d9a6b"},
-		{"docs/superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md", 11132, "91a1c4628d15e8fa043a7cd1631798749eb3e1ab1645e06735888dfa90fafaf7"},
+		{"docs/archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md", 11132, "91a1c4628d15e8fa043a7cd1631798749eb3e1ab1645e06735888dfa90fafaf7"},
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(doc.path)))
 		if err != nil {
 			t.Fatal(err)
 		}
 		raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
+		raw = restoreRelocatedFrozenDocumentNavigation(doc.path, raw)
 		if len(raw) < doc.length {
 			t.Errorf("frozen document truncated: %s", doc.path)
 			continue

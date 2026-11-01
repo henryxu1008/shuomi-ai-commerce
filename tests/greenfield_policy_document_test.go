@@ -40,8 +40,8 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 
 	for _, path := range []string{
 		filepath.Join("..", "docs", "product", "issue30-clean-slate-cutover.md"),
-		filepath.Join("..", "docs", "superpowers", "specs", "2026-09-05-source-account-organization-cutover.md"),
-		filepath.Join("..", "docs", "superpowers", "specs", "2026-09-05-issue-30-sourcing-cutover.md"),
+		filepath.Join("..", "docs", "archive", "designs", "2026-09-05-source-account-organization-cutover.md"),
+		filepath.Join("..", "docs", "archive", "designs", "2026-09-05-issue-30-sourcing-cutover.md"),
 		filepath.Join("..", "docs", "operations", "source-account-ownership-preflight.md"),
 		filepath.Join("..", "docs", "refactoring", "2026-09-05-issue-30-prepared-slices.md"),
 	} {
@@ -147,7 +147,7 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 		filepath.Join("..", "docs", "architecture", "project-target-architecture.md"): {
 			"only a new explicit user product decision can permit a compatibility exception",
 		},
-		filepath.Join("..", "docs", "superpowers", "specs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"): {
+		filepath.Join("..", "docs", "archive", "designs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"): {
 			"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 			"PR #283 V7 and PR #284 V7 are historical evidence, not implementation baselines for the current greenfield product",
 		},
@@ -175,7 +175,7 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 		}
 	}
 
-	consolePhaseOne := strings.Join(strings.Fields(readGreenfieldPolicyDocument(t, filepath.Join("..", "docs", "superpowers", "specs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"))), " ")
+	consolePhaseOne := strings.Join(strings.Fields(readGreenfieldPolicyDocument(t, filepath.Join("..", "docs", "archive", "designs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"))), " ")
 	for _, forbidden := range []string{
 		"唯一实现基线",
 		"实现细节以 #283 V7 为准",

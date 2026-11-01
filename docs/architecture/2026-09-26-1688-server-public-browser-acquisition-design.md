@@ -166,7 +166,7 @@ consumer   productsourcing.AcquisitionService.Acquire
 
 ### D9. 真实页面形状与解析策略（依据 #399 实测，避免重复已知缺陷）
 
-`docs/superpowers/specs/2026-09-20-issue399-1688-context-locator-design.md` 已实测真实 1688 页面：
+`docs/architecture/1688-context-locator.md` 已实测真实 1688 页面：
 
 - `window.context` 的赋值右边是 **IIFE**（`(function(b,d){...})(window.contextPath,{...})`），**不是** JSON 字面量；
 - 真实载荷含**裸数字对象键**（`skuWeight:{6290953586037:0.3}`），**不是严格 JSON**；

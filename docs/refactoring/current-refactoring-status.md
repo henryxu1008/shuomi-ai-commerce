@@ -55,7 +55,7 @@ Use this file together with:
 - `docs/product/ai-commerce-agent-platform-strategy.md`
 - GitHub issue #137 — executable backlog authority
 - GitHub issue #33 — Customer Trial / Production Readiness gate
-- `docs/superpowers/specs/2026-09-02-shuomi-console-phase1-hard-cut-design.md`
+- `docs/archive/designs/2026-09-02-shuomi-console-phase1-hard-cut-design.md`
 - `docs/superpowers/specs/2026-08-27-listingkit-product-design-v1.md`
 - `docs/architecture/project-boundaries.md`
 - Product-domain / Store / Resource / Agent plans only as bounded design or execution evidence

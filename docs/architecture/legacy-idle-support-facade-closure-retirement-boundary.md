@@ -43,7 +43,7 @@ Out of Scope：workflow、完整 inventory（CURRENT/历史/计数/ceilings/pars
 | [#880 Redis/proxy/shared](legacy-redis-proxy-shared-closure-retirement-boundary.md) | shared/ptr 与 database 的广泛保留 | 只退六个无消费者指针变体与两无 context DB 入口/专属 helper；原 DB 安全断言转当前接口 | IntPtr/Float32Ptr、Context DB、Open/OpenShared/Close/CloseShared/Goose/原配置、实际 Redis/其它共享层保留 |
 | [#893 logger facade](legacy-logger-facade-closure-retirement-boundary.md) | platform/logging manager 与原测试全部 KEEP | 只退 SetGlobalLogLevel 全局便利别名及唯一专属测试 | LogManager.SetLevel/GetLevel、级别并发/锁/singleton/hook/writer 与所有其它测试保持 |
 | [#934 idle adapter/helper](legacy-idle-adapter-helper-closure-retirement-boundary.md) | 新 guard 正向要求 role helper、HTTP builder/NewSimple、SetGlobalLogLevel | §6.1 将这些准确项由保活转缺席/owner-qualified 禁入 | #934 已退九文件/114声明/八项数字日志禁入、当前日志/Retry/OpenAI/JSON 及其它原检查保持；旧复核/失败/措辞 BACKLOG 历史不改 |
-| [Phase2 原计划](../superpowers/plans/2026-08-30-internal-target-architecture-phase2.md) | 全量迁包/导出及非 context DB、全局日志 setter、指针 helpers 保留 | 仅替代本批19项声明和专属尾部的继续保活含义 | 当前包根/owner、有效导入与全部其它当前行为保持 |
+| [Phase2 原计划](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) | 全量迁包/导出及非 context DB、全局日志 setter、指针 helpers 保留 | 仅替代本批19项声明和专属尾部的继续保活含义 | 当前包根/owner、有效导入与全部其它当前行为保持 |
 
 旧 SHEIN 活动设计和2026-07-10计划中的 `promotionFloat64Ptr` / `promotionTestFloat64Ptr` 是已退休链的不同 owner 历史样例，不是本批 `shared/ptr.Float64Ptr` 消费者，不改这些历史文件。`phase2-runtime-inventory` 的“if still justified by callers”与本设计一致，完整 inventory/计数/映射根保持；不是借本批改盘点或清扫所有旧文档。
 
@@ -117,7 +117,7 @@ docs/architecture/legacy-task-identity-mapping-closure-retirement-boundary.md
 docs/architecture/legacy-redis-proxy-shared-closure-retirement-boundary.md
 docs/architecture/legacy-logger-facade-closure-retirement-boundary.md
 docs/architecture/legacy-idle-adapter-helper-closure-retirement-boundary.md
-docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md
+docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md
 ```
 
 本文、docs/architecture/README.md、docs/refactoring/legacy-register.md 为三当前文档；两个索引仅增加准确当前项，完整原 Git blob 保留为后缀。历史促销样例、完整 inventory/module 根映射、其它历史文档不改；§2 已说明与当前保留边界没有冲突的引用不扩大为清扫范围。

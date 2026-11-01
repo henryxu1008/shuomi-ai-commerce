@@ -9,7 +9,7 @@
 // person at the moment the application first shows it (design section 4 D1.4).
 //
 // It does not create a server route, does not change the extension, and does not
-// add a producer. See docs/superpowers/specs/2026-09-21-1688-batch-local-agent-design.md
+// add a producer. See docs/architecture/1688-batch-local-agent.md
 // sections 4 D1.3, 4 D1.4 and 17.1.
 package main
 

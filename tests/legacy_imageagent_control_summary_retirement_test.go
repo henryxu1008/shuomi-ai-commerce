@@ -102,15 +102,16 @@ func TestImageAgentControlSummaryRetirementFrozenDocumentSuffixesStayIntact(t *t
 		{"docs/architecture/project-boundaries.md", 55912, "ac4815f08eb7b86da3ca5e55b7af6c9dc1fa090e42a4e632e529681444babac4"},
 		{"docs/architecture/README.md", 158183, "52676d98ac61f295c63d6cd704a3f80c17c65f847a9e15f9c75114e2f827f0ed"},
 		{"docs/architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md", 25547, "191a9f9d5a98ee669d8d9e8eb13295b14f7b9b619bfeee9fd3504a6001b671f9"},
-		{"docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md", 26828, "a8e80f22333a7e14f662b1f64a774c3b3a68b3f70b052bd7a07cd5561c6e394d"},
-		{"docs/superpowers/plans/2026-08-26-image-agent-assisted-planning.md", 16514, "99cc4f666256bde3a7213b5f9f90013c4e06672d70295d35de7c3df297c72709"},
-		{"docs/superpowers/plans/2026-08-26-image-agent-automatic-repair.md", 19377, "1c9148c64927d677776c06ca327cfea1516e96177a2e783e5b76dce3b6521efd"},
+		{"docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md", 26828, "a8e80f22333a7e14f662b1f64a774c3b3a68b3f70b052bd7a07cd5561c6e394d"},
+		{"docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md", 16514, "99cc4f666256bde3a7213b5f9f90013c4e06672d70295d35de7c3df297c72709"},
+		{"docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md", 19377, "1c9148c64927d677776c06ca327cfea1516e96177a2e783e5b76dce3b6521efd"},
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(doc.path)))
 		if err != nil {
 			t.Fatal(err)
 		}
 		raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
+		raw = restoreRelocatedFrozenDocumentNavigation(doc.path, raw)
 		if len(raw) < doc.length {
 			t.Errorf("frozen ImageAgent document truncated: %s", doc.path)
 			continue

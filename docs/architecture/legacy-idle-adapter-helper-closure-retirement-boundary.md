@@ -47,7 +47,7 @@ Out of Scope：workflow、完整 inventory（CURRENT/历史/计数/ceilings/pars
 | [#880 Redis/proxy/shared](legacy-redis-proxy-shared-closure-retirement-boundary.md) | shared/resilience 广泛 KEEP | 只退出 breaker/ratelimit 及两专属测试，不退包根 | Retry/RetryConfig/RetryAttempt、ptr、实际 DB/Redis 与当前 owner 保留 |
 | [#893 logger facade](legacy-logger-facade-closure-retirement-boundary.md) | helpers.go 必须可读且禁数字 Task/Store helper | 文件必须缺席；数字日志禁入准确迁入现有 AST guard，不 missing-skip | 旧 core/logger 根禁入和所有其它身份/日志断言保持 |
 | [#914 idle support](legacy-idle-support-contract-closure-retirement-boundary.md) | 因旧 Amazon API 消费而 KEEP UnmarshalBytes | #926 已移除最后 API 消费者，本批只退该函数 | UnmarshalString/CleanLLMResponse、严格草稿 JSON、hash/读取拒绝保持 |
-| [Phase2 原计划](../superpowers/plans/2026-08-30-internal-target-architecture-phase2.md) | logging 全导出及 resilience 三原语；两个 decorator 配置也有显式 Logger | 仅替代上述已失去当前消费者的 helper/context/limiter/breaker/decorator 保活含义 | 当前日志配置/实例与 ClientConfig/PoolConfig/ManagerConfig 显式 Logger、provider 中立端口仍有效 |
+| [Phase2 原计划](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) | logging 全导出及 resilience 三原语；两个 decorator 配置也有显式 Logger | 仅替代上述已失去当前消费者的 helper/context/limiter/breaker/decorator 保活含义 | 当前日志配置/实例与 ClientConfig/PoolConfig/ManagerConfig 显式 Logger、provider 中立端口仍有效 |
 
 [旧开源替换评估](open-source-replacement-evaluation.md) 引用的 Amazon API/taskstatus 等是历史评估，不是重新建设共享 limiter/breaker 的当前需求，本批不改该历史记录。成熟 rate/gobreaker/backoff/Logrus/SDK 及锁文件保留，符合“已有开源实现不重复造轮子”；没有当前用户需求的封装直接 RETIRE，不再造替代层。
 
@@ -125,7 +125,7 @@ docs/architecture/legacy-numeric-value-contract-closure-retirement-boundary.md
 docs/architecture/legacy-redis-proxy-shared-closure-retirement-boundary.md
 docs/architecture/legacy-logger-facade-closure-retirement-boundary.md
 docs/architecture/legacy-idle-support-contract-closure-retirement-boundary.md
-docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md
+docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md
 ```
 
 本文、docs/architecture/README.md、docs/refactoring/legacy-register.md 是三个当前文档；两个索引仅增加准确当前项，完整既有 Git blob 保留为后缀。#929 对 Retry/Resolved/context 等保留含义没有冲突，旧开源评估和 phase2-runtime-inventory/module-target-mapping 的历史/现役包根映射不改。不存在“顺带清掉全部旧文档”的授权。

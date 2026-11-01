@@ -1,3 +1,30 @@
+## 归位的领域合同
+
+旧工作流目录已撤销。以下只归位既有合同，不改变原状态或后续精确替代；设计/提案准入与实际开放仍分别确认。历史设计、V7计划与验证记录见[归档索引](../archive/README.md)。
+
+- [`ai-capability-platform.md`](ai-capability-platform.md) — AI Capability / Agent平台合同；旧Prompt及泛化执行按页首确认边界退休。
+- [`image-download-safety.md`](image-download-safety.md) — HTTPS/SSRF/重定向/TLS/超时/大小/取消约束仍有效；当前实现归integration/httpimage，旧local路径不是入口。
+- [`ai-provider-contracts.md`](ai-provider-contracts.md) — Provider-neutral值、接口与调用边界；不恢复已退OpenAI Manager/全局回退。
+- [`authentication-runtime.md`](authentication-runtime.md) — 统一Verifier与显式权限/组织边界；旧推断授权和全局helper按#1022精确退休。
+- [`image-agent-workflow.md`](image-agent-workflow.md) — 保留图像原请求/状态/取消/持久化合同；旧Signal与宽执行按后续边界替代。
+- [`image-agent-recovery.md`](image-agent-recovery.md) — 有效JSON/hash/恢复/UNKNOWN合同保留，旧V2/Signal兼容要求不恢复。
+- [`image-agent-budget-authorization.md`](image-agent-budget-authorization.md) — 图像执行预算与授权不变量仍由当前owner消费。
+- [`image-agent-candidate-release-gate.md`](image-agent-candidate-release-gate.md) — 候选canary先于生产promotion的既有安全顺序；不授权发布。
+- [`image-agent-effect-policy.md`](image-agent-effect-policy.md) — 当前副作用事实/结果与恢复owner边界。
+- [`image-agent-effect-terminalization.md`](image-agent-effect-terminalization.md) — 未决effect不能被本地错误终结的既有合同。
+- [`image-agent-effect-finalization.md`](image-agent-effect-finalization.md) — 外部effect最终事实/取消次序与保守UNKNOWN。
+- [`image-agent-effect-recovery.md`](image-agent-effect-recovery.md) — 唯一恢复owner与外部effect恢复合同。
+- [`commerce-tool-foundation.md`](commerce-tool-foundation.md) — Tool registry/权限/副作用与domain调用边界；#981已退中间事实值不恢复。
+- [`product-domain-contracts.md`](product-domain-contracts.md) — 当前Product/Source/Catalog/Asset职责；#981精确替代旧Facts/Normalize中间层。
+- [`commerce-tool-canonical-inspection.md`](commerce-tool-canonical-inspection.md) — 固定版本canonical inspection的有界合同，旧Task Reader由#1025退休。
+- [`shein-offline-validation-input-binding.md`](shein-offline-validation-input-binding.md) — 有界设计/合同引用保留，原BLOCKED_ON_CONTRACT_DECISION与未准入状态不提升。
+- [`source-account-sa1.md`](source-account-sa1.md) — Greenfield SA1 owner/作用域/幂等/秘密材料合同。
+- [`source-account-sa2-bff.md`](source-account-sa2-bff.md) — SA2浏览器DTO/BFF消费边界，原集成证据限制保留。
+- [`1688-context-locator.md`](1688-context-locator.md) — 当前batchcapture注释消费定位边界；原提案与后续采集决定的状态分别保留。
+- [`1688-batch-local-agent.md`](1688-batch-local-agent.md) — 当前CLI/queue注释消费的批量采集边界；不因归位恢复旧LocalAgent或旧未批准计划。
+
+官方登录产品决定见[官方 Login V2 / Auth.js](../product/login-phase1-official-zitadel.md)。
+
 - [`report-center-shein-offline-package-source-v1.md`](./report-center-shein-offline-package-source-v1.md)
   - #628 original offline-package scope; reviewed IMPLEMENTATION_READY design; user-authorized implementation;
     normal owner/auth/schema admission and canonical digest binding; evidence in PR #1049, runtime NOT_RUN.
@@ -371,8 +398,8 @@ boundary rules unless they explicitly supersede a stable document.
 
 - [Final UI / IA](../product/final-ui-ia-authority.md): final navigation, naming
   and BusinessTask projection (#298), not current release capability.
-- [Product Domain](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md),
-  [Identity / Organization](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
+- [Product Domain](product-domain-contracts.md),
+  [Identity / Organization](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
   and current Store/Resource/CommerceTool contracts: facts, access and side effects.
   Preserve valid domain rules even when a document also contains older UI or
   implementation observations; explicit supersession controls the affected section.

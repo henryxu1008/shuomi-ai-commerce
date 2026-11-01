@@ -139,8 +139,8 @@ asset.Facts 的“Items 非空”不是当前批准或 readiness 门禁；保留
 - `docs/superpowers/specs/2026-08-06-1688-source-lineage-design.md`
 - `docs/superpowers/plans/2026-08-06-1688-source-lineage.md`
 - `docs/superpowers/specs/2026-08-07-source-lineage-read-model-design.md`
-- `docs/superpowers/specs/2026-08-31-commerce-tool-foundation-design.md`
-- `docs/superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md`
+- `docs/architecture/commerce-tool-foundation.md`
+- `docs/architecture/product-domain-contracts.md`
 - `docs/superpowers/plans/2026-09-01-internal-target-architecture-phase3-product.md`
 
 当前只改设计三文档，其余 23 路径未改；26 是未来完整边界，不是当前已退休声明。两个索引和 project-boundaries 也只追加当前准确顶注，保留起始 main 原文；本文冻结后未来实施状态只加顶注，不回写冻结设计。

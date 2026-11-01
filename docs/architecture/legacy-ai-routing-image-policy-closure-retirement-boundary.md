@@ -150,11 +150,11 @@ Must：当前能力与原授权/企业隔离/凭据保护；一次发送和 UNKN
 - `docs/architecture/legacy-tenant-prompt-closure-retirement-boundary.md`
 - `docs/architecture/legacy-openai-adapter-closure-retirement-boundary.md`
 - `docs/architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md`
-- `docs/superpowers/specs/2026-08-06-ai-capability-agent-platform-design.md`
-- `docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md`
+- `docs/architecture/ai-capability-platform.md`
+- `docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md`
 - `docs/superpowers/specs/2026-08-22-productenrich-governed-execution-integrity-design.md`
 - `docs/superpowers/plans/2026-08-22-productenrich-governed-execution-integrity.md`
-- `docs/superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md`
+- `docs/architecture/product-domain-contracts.md`
 - `docs/superpowers/plans/2026-09-01-internal-target-architecture-phase3-product.md`
 
 当前仅设计三文档改动：本文件、architecture/README 与 Legacy Register。未来其它41路径均未修改；旧工件仍在，不能标 SOURCE_RETIRED。

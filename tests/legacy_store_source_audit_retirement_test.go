@@ -122,6 +122,7 @@ func TestStoreSourceAuditRetirementFrozenHistoryStaysIntact(t *testing.T) {
 			t.Fatal(err)
 		}
 		raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
+		raw = restoreRelocatedFrozenDocumentNavigation(frozen.path, raw)
 		if len(raw) < frozen.length {
 			t.Errorf("frozen Store source/audit history truncated: %s", frozen.path)
 			continue

@@ -157,9 +157,9 @@ Repository 仍由原组织/原成员 scope 限制。HTTP 当前路由继续原�
 **历史依据：只加准确顶注，原完整blob后缀不改（11）**
 
 - `docs/engineering/evidence/issue334/admission.md`
-- `docs/superpowers/plans/2026-08-26-image-agent-assisted-planning.md`
-- `docs/superpowers/plans/2026-08-26-image-agent-automatic-repair.md`
-- `docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md`
+- `docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md`
+- `docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md`
+- `docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md`
 - `docs/superpowers/plans/2026-08-27-image-agent-recovery-compatibility.md`
 - `docs/superpowers/plans/2026-08-28-image-agent-budget-authorization.md`
 - `docs/superpowers/plans/2026-08-29-image-agent-external-recovery-workflow.md`
