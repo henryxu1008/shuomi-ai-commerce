@@ -44,7 +44,7 @@ input-binding design. Existing independent evidence:
   final-confirmation action differences; complete Package is explicitly synthetic.
 - `internal/marketplace/shein/validator/diagnostic_test.go`:
   `TestDiagnosticFixedEncodingVectors` supplies the already-reviewed empty vector.
-- `docs/superpowers/specs/2026-09-05-shein-offline-validation-input-binding-design.md`
+- `docs/architecture/shein-offline-validation-input-binding.md`
   section 3 and current `internal/marketplace/validator/diagnostic.go`: content
   binding, expiry equality, unknown coverage, zero report on error.
 
