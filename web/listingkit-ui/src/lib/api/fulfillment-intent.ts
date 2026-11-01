@@ -42,7 +42,8 @@ export async function saveFulfillmentIntent(
         prior = parse(raw);
       if (raw !== null && !prior) return false;
       if (input === null) {
-        if (prior && JSON.stringify(prior) !== JSON.stringify(expected))
+        const parsedExpected = fulfillmentInput.safeParse(expected);
+        if (prior && (!parsedExpected.success || JSON.stringify(prior) !== JSON.stringify(parsedExpected.data)))
           return false;
         localStorage.removeItem(key(scope));
         return true;

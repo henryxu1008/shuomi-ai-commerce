@@ -23,6 +23,20 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllGlobals());
+it("acknowledges the exact UI-constructed original despite schema field ordering and retains mismatched payloads", async () => {
+  const constructed: FulfillmentInput = {
+    store: "store", kind: "platform_supply", source_id: "source",
+    action: "receive", payload: { purchase: "PO", lines: [{ purchase_line: "row", qty: 2, rejected_qty: 0, short_qty: 0 }] },
+    operation_id: original.operation_id,
+  };
+  expect(await saveFulfillmentIntent(scope, constructed, null)).toBe(true);
+  expect(loadFulfillmentIntent(scope)).toEqual(constructed);
+  expect(await saveFulfillmentIntent(scope, null, { ...constructed, operation_id: "ca0942bc-aef7-4ae1-a5be-e4bacf434ede" })).toBe(false);
+  expect(await saveFulfillmentIntent(scope, null, { ...constructed, payload: { purchase: "other" } })).toBe(false);
+  expect(loadFulfillmentIntent(scope)).toEqual(constructed);
+  expect(await saveFulfillmentIntent(scope, null, constructed)).toBe(true);
+  expect(loadFulfillmentIntent(scope)).toBeNull();
+});
 it("keeps the original key and payload through reload and refuses replacement while unresolved", async () => {
   expect(await saveFulfillmentIntent(scope, original, null)).toBe(true);
   expect(loadFulfillmentIntent(scope)).toEqual(original);
