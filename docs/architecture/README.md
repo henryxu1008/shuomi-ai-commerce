@@ -1,7 +1,7 @@
 - [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
-  - #628 design-only candidate for native SHEIN TargetRecord report capture;
-    DRAFT / NOT_READY, distinct source identity and explicit schema admission;
-    no reinterpretation or migration of saved reports and no implementation grant.
+  - #628 user-confirmed native SHEIN TargetRecord report-source design;
+    IMPLEMENTATION_READY (architecture only); Draft PR, implementation not authorized;
+    distinct source/schema admission; no saved-report reinterpretation or migration.
 
 - `legacy-resource-transaction-closure-retirement-boundary.md` — [#1041 旧资源通用事务与 Store 同库扣费链完整退休设计](legacy-resource-transaction-closure-retirement-boundary.md)：§1–§7（含§4.2/§6.1），待确认27路径完整闭包；当前仅设计，保留当前能力与Store观察，#301 OPEN。
 
