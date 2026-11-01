@@ -1,3 +1,5 @@
+> **历史实测证据。** 下文结果、日期、限制和完整原文只绑定原基线；旧ListingKit身份迁移/owner修复命令已退休，不是当前操作或执行授权。当前身份与运行入口见[开发说明](../../development/README.md)，旧迁移取消依据见[Greenfield](../../product/greenfield-no-legacy-migration.md)。
+
 # ListingKit owner reconciliation verification
 
 Date: 2026-08-10

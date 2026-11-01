@@ -54,7 +54,7 @@ Must：当前能力、原授权/租户/身份、事实 owner、安全检查和�
 | 边界 | 可确认的所有权/证据 | 本提案决定 |
 | --- | --- | --- |
 | Kubernetes Deployment | 静态名称/引用由声明定义；实际对象若存在，其 Kubernetes reconciliation 和历史镜像进程归原运行 owner | 删除源码文件不等于 delete/apply/prune 或停止 Pod；不查询集群，不改变副本/镜像/节点/权限 |
-| 历史动态 ownership | [2026-06-23 设计](../superpowers/specs/2026-06-23-shein-listing-ownership-controller-design.md)约定 coordinator 写 `listing:queue:owner:{tenant_id}:{store_id}`、`listing:queue:mode:{tenant_id}:{store_id}`、`listing:queue:owner:node:{node_id}`，worker 读节点集合 | 这是历史协议说明，不是当前镜像/实例/键的实测；原运行 owner 不变，不扫描/删除/改写键，不转交当前 worker |
+| 历史动态 ownership | [2026-06-23 设计](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/superpowers/specs/2026-06-23-shein-listing-ownership-controller-design.md)约定 coordinator 写 `listing:queue:owner:{tenant_id}:{store_id}`、`listing:queue:mode:{tenant_id}:{store_id}`、`listing:queue:owner:node:{node_id}`，worker 读节点集合 | 这是历史协议说明，不是当前镜像/实例/键的实测；原运行 owner 不变，不扫描/删除/改写键，不转交当前 worker |
 | 分片锁/租约 | 声明/样例配置指定 `listing:queue:auto-shard:lock`、lockTTL、candidateNodes/weights；声明还设置 Redis DB 9 | 配置数值不证明实际 TTL、释放、fencing、唯一 writer 或无在途操作；不删除锁、调整 TTL 或建设新的 recovery owner |
 | Store/任务持久化与 broker | 历史设计从管理 Store API 读取资格；listingadmin/根 listingruntime 仍有其它有效消费者和原 owner。DB、Redis、broker、平台不是共同事务 | 原表/行/索引、owner/tenant、队列/消息与 claim/recovery 安全合同保持；不按数字字段或无此控制器推定可删仓库，不重放/接管任务 |
 | ConfigMap / Secret / 镜像 | 静态配置是输入，两个专属 ConfigMap 源文件拟退休；实际 ConfigMap/Secret/外部凭据及镜像原制品各有原 owner，不读取真实内容 | 仅删仓库专属 YAML/装配，不 delete/apply/prune 真实 ConfigMap；其它共享配置、Secret/ExternalSecret/Namespace、镜像及历史资源均保留 |
