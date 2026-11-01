@@ -1,6 +1,6 @@
 # 在当前 Store 安装既有订单观察模块
 
-Status: DRAFT — Independent Architecture，独立评审前禁止修改生产安装路径。
+Status: IMPLEMENTATION_READY — Independent Architecture。独立评审绑定设计候选 `57ddbce5f6ea9a62682893ffe3edec1a093600ad`，2026-11-01 无设计 BLOCKER。当前合法19表/固定runtime-role事务内准入及原子性/重复/并发/原数据保留归 IMPLEMENTATION_TEST，须在试用安装前收敛；不代表已安装、用户验收或真实平台联调通过。
 
 执行 Issue [#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)，同一 Writer、分支和主要 PR #1038。
 
