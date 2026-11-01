@@ -1,6 +1,8 @@
-> **HISTORICAL NUMERIC TASK LIFECYCLE。** 下文 app/task 状态流、旧 TaskStatus 与数字刊登回写按[执行链退休](legacy-numeric-task-execution-retirement-boundary.md)、[数字刊登支持退休](legacy-numeric-listing-support-closure-retirement-boundary.md)和[任务持久化尾部退休](legacy-numeric-task-persistence-retirement-boundary.md)处理，不是当前 BusinessTask、ImageAgent、TargetRecord 或 Submission 的统一状态机。有效权限、claim/fence、幂等和 UNKNOWN 仍由各当前 owner 承担；不新增状态映射、兼容恢复或旧数据清理。下方既有窄范围替代注记及完整正文保留。
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
 
-> #301 / #929 **SUPERSEDED，仅旧 SHEIN 品牌查询与错误分类闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-shein-brand-error-closure-retirement-boundary.md)。本文只有旧 authorizedbrand.ProductAPI/Resolver/Config、查询/匹配 helper、sherr 及 BrandItem/BrandListResponse 的保留或现役建议被准确替代；不重建已退的 Store/Task/API 调用。完整 Resolved/context、当前清理/草稿 JSON/有效规则、采集、独立 SHEIN 登录与 Store 同步及原 owner/claim/fence/UNKNOWN 保留。无生产 EXTRACT 或替代 Resolver，不改 workflow/完整 inventory，不操作既有实例/数据/凭据/进程，不增加试用前置；#301 OPEN。以下完整原文/顶注/历史数字/勾选/批准/证据逐字保留。
+> **HISTORICAL NUMERIC TASK LIFECYCLE。** 下文 app/task 状态流、旧 TaskStatus 与数字刊登回写按[执行链退休](../../architecture/legacy-numeric-task-execution-retirement-boundary.md)、[数字刊登支持退休](../../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md)和[任务持久化尾部退休](../../architecture/legacy-numeric-task-persistence-retirement-boundary.md)处理，不是当前 BusinessTask、ImageAgent、TargetRecord 或 Submission 的统一状态机。有效权限、claim/fence、幂等和 UNKNOWN 仍由各当前 owner 承担；不新增状态映射、兼容恢复或旧数据清理。下方既有窄范围替代注记及完整正文保留。
+
+> #301 / #929 **SUPERSEDED，仅旧 SHEIN 品牌查询与错误分类闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](../../architecture/legacy-shein-brand-error-closure-retirement-boundary.md)。本文只有旧 authorizedbrand.ProductAPI/Resolver/Config、查询/匹配 helper、sherr 及 BrandItem/BrandListResponse 的保留或现役建议被准确替代；不重建已退的 Store/Task/API 调用。完整 Resolved/context、当前清理/草稿 JSON/有效规则、采集、独立 SHEIN 登录与 Store 同步及原 owner/claim/fence/UNKNOWN 保留。无生产 EXTRACT 或替代 Resolver，不改 workflow/完整 inventory，不操作既有实例/数据/凭据/进程，不增加试用前置；#301 OPEN。以下完整原文/顶注/历史数字/勾选/批准/证据逐字保留。
 
 # Task Status Lifecycle
 

@@ -120,7 +120,7 @@ Accepted Risk：用户批准到期超限保留已有数据的成本政策，沿�
 
 优先复用 PostgreSQL/GORM、已有 transaction runner 的合格行为和唯一约束模式；不是重写数据库或支付客户端。Money 继续独立 pool。当前 commercial owner 角色只补本模块所需表权限，业务 adapter 通过注入端口调用，不直接读 Money 或其它业务表；沿已有运行权限检查，不扩大为全权 schema owner。
 
-仓库已有 [OpenMeter 技术评估](openmeter-shadow-metering-poc-report.md)，其中明确普通 metering/entitlement 可复用，但访问判断不是原子并发 quota reservation。首版沿已有 PostgreSQL 原子预留模式控制写入，不为容量购买上线新的计量平台；未来若有实测分析需求，可消费本容量 owner 的投影，不能反过来把异步计量变成第二占用/扣款事实。
+仓库已有 [OpenMeter 技术评估](../archive/architecture/openmeter-shadow-metering-poc-report.md)，其中明确普通 metering/entitlement 可复用，但访问判断不是原子并发 quota reservation。首版沿已有 PostgreSQL 原子预留模式控制写入，不为容量购买上线新的计量平台；未来若有实测分析需求，可消费本容量 owner 的投影，不能反过来把异步计量变成第二占用/扣款事实。
 
 `quota(t) = base_policy.bytes + SUM(ACTIVE lot.bytes WHERE starts_at <= t < expires_at)`
 

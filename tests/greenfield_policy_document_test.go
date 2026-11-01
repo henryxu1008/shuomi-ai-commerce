@@ -42,7 +42,7 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 		filepath.Join("..", "docs", "product", "issue30-clean-slate-cutover.md"),
 		filepath.Join("..", "docs", "archive", "designs", "2026-09-05-source-account-organization-cutover.md"),
 		filepath.Join("..", "docs", "archive", "designs", "2026-09-05-issue-30-sourcing-cutover.md"),
-		filepath.Join("..", "docs", "operations", "source-account-ownership-preflight.md"),
+		filepath.Join("..", "docs", "archive", "operations", "source-account-ownership-preflight.md"),
 		filepath.Join("..", "docs", "archive", "refactoring", "2026-09-05-issue-30-prepared-slices.md"),
 	} {
 		contents := readGreenfieldPolicyDocument(t, path)

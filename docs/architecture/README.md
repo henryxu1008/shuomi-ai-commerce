@@ -50,10 +50,7 @@
 补充可直接打开的入口（下方原索引中的文件名仍保留）：
 
 - 稳定规则与当前有界合同：[兼容路径退休约束](compatibility-retirement.md)、[Temporal 依赖边界](temporal-boundaries.md)、[平台边界策略及其后续替代](platform-boundary-strategy.md)、[优选申请只读总览](selected-application-overview-v1.md)。
-- 阶段盘点：[平台历史规模快照](historical-platform-migration-inventory.md)、[ListingKit 重构状态快照](listingkit-refactor-status.md)、[旧 hardening 拆分计划](listingkit-production-hardening-split.md)、[已退休预览链边界](listing-preview-boundaries.md)。
-- 旧数字协议：[Task Event V2](task-event-v2-migration.md)、[Task 状态生命周期](task-status-lifecycle.md)。协议与拒绝语义作为历史保留，不恢复消费者或迁移观察前置。
-- 旧 TEMU 设计经验：[对象模式](temu-architecture-patterns.md)、[管线阶段](temu-pipeline-stages.md)、[编辑指引](temu-refactor-playbook.md)。当前平台合同优先，不将旧例子作为可调用接口。
-- 旧部署/PoC 记录：[Amazon 检查清单](amazon-crawler-commercialization-checklist.md)、[Amazon 执行计划](amazon-crawler-commercialization-execution-plan.md)、[集中部署方案](centralized-deployment-plan.md)、[Temporal PoC](temporal-poc-runbook.md)、[编排评估](temporal-workflow-evaluation.md)、[Updater 第三方评估](updater-third-party-validation.md)。保留原结论与失败证据，不作为当前执行步骤。
+- 历史阶段盘点、旧协议、TEMU设计经验及PoC结果已移到[历史架构材料](../archive/README.md#architecture-history)，不再与当前领域合同并列。
 
 以下为原完整索引与各阶段证据。
 
@@ -567,7 +564,7 @@ Use these as the main source of truth for structural work:
 - `platform-boundary-strategy.md`
   - historical platform, publishing, ListingKit, and platform registration
     convergence roles
-- `historical-platform-migration-inventory.md`
+- `docs/archive/architecture/historical-platform-migration-inventory.md`
   - retained ownership/inventory evidence for historical platform packages;
     candidate slices require current mapping and an execution Issue
 - `external-client-boundary-inventory.md`
@@ -837,25 +834,25 @@ documents unless they say so explicitly:
 - `auth-and-tenancy.md`
   - verified effective Organization, home identity distinction, route
     authorization and remaining legacy paths; supporting context, not a new IAM
-- `task-status-lifecycle.md`
+- `docs/archive/architecture/task-status-lifecycle.md`
   - status lifecycle context; use stable boundary documents for package
     ownership and dependency rules
-- `temu-architecture-patterns.md`
+- `docs/archive/architecture/temu-architecture-patterns.md`
   - TEMU architecture pattern context; use stable boundary documents for
     cross-platform dependency rules
-- `temu-pipeline-stages.md`
+- `docs/archive/architecture/temu-pipeline-stages.md`
   - TEMU pipeline stage context; use stable boundary documents for runtime and
     assembly boundaries
-- `listingkit-refactor-status.md`
+- `docs/archive/architecture/listingkit-refactor-status.md`
   - ListingKit refactor status context; use stable boundary documents for
     long-lived ListingKit boundaries
 - `amazon-crawler-runtime-flow.md`
   - Amazon crawler runtime flow context; use stable boundary documents for
     review policy
-- `task-event-v2-migration.md`
+- `docs/archive/architecture/task-event-v2-migration.md`
   - RabbitMQ complete-task event V2 schema, compatibility window, and removal
     gate; Listing Control ID-only dispatch is out of scope
-- `openmeter-shadow-metering-poc-report.md`
+- `docs/archive/architecture/openmeter-shadow-metering-poc-report.md`
   - time-bounded, evidence-backed local PoC decision; it does not authorize a
     production integration, billing, payment, deployment, or data migration
 - `pay-041-usage-ledger.md`

@@ -22,5 +22,5 @@ Authority: [Issue #365](https://github.com/qq550723504/task-processor/issues/365
 
 ## 直接历史入口
 
-- [#30 / #307 clean-slate cutover](issue30-clean-slate-cutover.md)、[Source Account ownership cutover](../archive/designs/2026-09-05-source-account-organization-cutover.md)、[#30 sourcing cutover](../archive/designs/2026-09-05-issue-30-sourcing-cutover.md) 与 [source-account preflight](../operations/source-account-ownership-preflight.md) 仅保留历史证据，必须标记为 `SUPERSEDED`。
+- [#30 / #307 clean-slate cutover](issue30-clean-slate-cutover.md)、[Source Account ownership cutover](../archive/designs/2026-09-05-source-account-organization-cutover.md)、[#30 sourcing cutover](../archive/designs/2026-09-05-issue-30-sourcing-cutover.md) 与 [source-account preflight](../archive/operations/source-account-ownership-preflight.md) 仅保留历史证据，必须标记为 `SUPERSEDED`。
 - 后续派工以本决定、当前 Issue 的产品需求及 [Legacy Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md) 为准；不得把历史迁移 gate 重新变成新任务依赖。

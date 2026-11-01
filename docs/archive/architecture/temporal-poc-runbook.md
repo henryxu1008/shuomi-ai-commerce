@@ -1,3 +1,5 @@
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
 > **状态：SUPERSEDED — 旧 ListingKit Task SHEIN publish PoC（2026-10-20，#844）**
 > 按[用户确认的 #844 冻结设计](https://github.com/qq550723504/task-processor/blob/ddc6414b0b93964d4de47d34d002ba990257efa1/docs/architecture/legacy-task-diagnostics-retirement-boundary.md)，下文旧 API/worker 入口、PoC flags、preview/events/refresh、测试命令及人工发布/恢复清单只保留为历史操作证据，不是当前启动、发布或内部试用准入。不得据此复活旧入口、兼容字段或迁移窗口，也不新建替代 PoC。
 > 正文/命令原样保留且本批不执行。当前 Temporal 基础设施、SDK、通用 dev 脚本及 image/agent worker owner 保持；远端旧 workflow/实例状态 UNKNOWN，不确认其停止，不终止/重放/清理，不撤销其实际恢复责任。当前商业与生产门禁不变。

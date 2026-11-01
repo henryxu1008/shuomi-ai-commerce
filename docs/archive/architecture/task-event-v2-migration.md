@@ -1,4 +1,6 @@
-> **HISTORICAL WIRE CONTRACT / SUPERSEDED EXECUTION AUTHORITY。** [数字任务执行退休](legacy-numeric-task-execution-retirement-boundary.md)已退出下文 submitter / distributed client / MessageAdapter；后续[数字采集尾部退休](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)又退出无消费者的 domain/task V2 合同。下文“两次发布 + 14 天观察”、兼容 decoder 和 canary 不是当前源码退休或内部试用前置，也不授权恢复消费者。原 schema、拒绝/路由/ACK 语义及观察门槛原样保留为协议历史；实际 broker 消息、旧消费者和运行停用情况不由源码删除证明。共享基础设施及其有效告警不在本文历史化范围内。
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
+> **HISTORICAL WIRE CONTRACT / SUPERSEDED EXECUTION AUTHORITY。** [数字任务执行退休](../../architecture/legacy-numeric-task-execution-retirement-boundary.md)已退出下文 submitter / distributed client / MessageAdapter；后续[数字采集尾部退休](../../architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)又退出无消费者的 domain/task V2 合同。下文“两次发布 + 14 天观察”、兼容 decoder 和 canary 不是当前源码退休或内部试用前置，也不授权恢复消费者。原 schema、拒绝/路由/ACK 语义及观察门槛原样保留为协议历史；实际 broker 消息、旧消费者和运行停用情况不由源码删除证明。共享基础设施及其有效告警不在本文历史化范围内。
 
 # Task Event V2 Migration
 
@@ -11,7 +13,7 @@ constructs a model task.
 
 The former Listing Control Plane publisher sent an ID-only `ListingDispatchSignal`
 and was outside this V2 contract. That publisher and its runtime are source-retired
-under the [confirmed #726 boundary](legacy-listing-control-plane-retirement-boundary.md).
+under the [confirmed #726 boundary](../../architecture/legacy-listing-control-plane-retirement-boundary.md).
 Retained task submitter, distributed crawler and MessageAdapter contracts stay
 unchanged; this retirement creates no replacement producer, payload migration or
 current-application consumer of the old numeric task chain.

@@ -160,7 +160,7 @@ Temporal 现在最像下一块容易膨胀的运行时区域。
 
 迁移成本盘点已收口到：
 
-- `docs/architecture/historical-platform-migration-inventory.md`
+- `docs/archive/architecture/historical-platform-migration-inventory.md`
 
 - 哪些文件已经只剩 facade 作用
 - 哪些文件还混着 runtime、平台规则、状态管理和组装逻辑

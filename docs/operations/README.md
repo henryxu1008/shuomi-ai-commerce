@@ -44,7 +44,7 @@
 - [RUN-1 身份与路由环境](current-application-run1.md)、[环境拆分记录](acceptance-environment-split.md)：限定验收环境；FULL 延期和旧 schema 入口退休说明继续适用。
 - [旧 ListingKit 发布候选](listingkit-release-candidate-runbook.md)、[客户试用 checklist](listingkit-customer-trial-acceptance-checklist.md)：历史发布/Task 材料；生产 `NOT_READY` 及仍有效的专项商业、安全和恢复门禁保留。
 - [旧 Listing Control Plane](listing-control-plane-runbook.md)、[独立 SHEIN 登录 worker](shein-login-worker-current.md)：源码退休记录，无当前运行入口。
-- [旧 SourceAccount preflight](source-account-ownership-preflight.md)、[Store 历史 hard-cut](store-service-history-hardcut.md)：历史处置记录，不是可重复执行的数据操作授权。
+- [旧 SourceAccount preflight](../archive/operations/source-account-ownership-preflight.md)、[Store 历史 hard-cut](../archive/operations/store-service-history-hardcut.md)：历史处置记录，不是可重复执行的数据操作授权。
 - own675 离线材料：[入口及三份非生效配置附件](own675-offline-materials/README.md)、[配置差异](own675-offline-materials/configuration-diff.md)、[失败处置](own675-offline-materials/failure-handling.md)。保留 `PREPARED_ONLY / NOT_AUTHORIZED_TO_EXECUTE` 范围，不把材料准备写成已安装。
 
 历史文件路径中的 `current`、`runbook` 或 `ListingKit` 不决定其适用性；以正文明确的范围、替代说明和当前合同为准。

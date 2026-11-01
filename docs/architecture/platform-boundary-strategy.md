@@ -18,7 +18,7 @@ narrows that baseline for platform-related convergence work; it should not grow
 into a second repository-wide policy source.
 
 For migration-cost triage of historical platform packages, use
-`docs/architecture/historical-platform-migration-inventory.md`.
+`docs/archive/architecture/historical-platform-migration-inventory.md`.
 
 ## Current Package Families
 

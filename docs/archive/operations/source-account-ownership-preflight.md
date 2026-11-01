@@ -1,7 +1,9 @@
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
 # Source-account ownership preflight (slice A)
 
 > **SUPERSEDED — historical evidence, not a runnable current operation.**
-> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) cancels the source-account migration direction that this preflight supported. Do not run it for future work or infer permission to inspect profiles, databases or other real environments. The evidence below is historical only; no legacy migration, old-ID mapping, profile reuse, tenantbridge consumer or compatibility path is authorized.
+> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md) cancels the source-account migration direction that this preflight supported. Do not run it for future work or infer permission to inspect profiles, databases or other real environments. The evidence below is historical only; no legacy migration, old-ID mapping, profile reuse, tenantbridge consumer or compatibility path is authorized.
 
 The `cmd/source-account-ownership-preflight` command, its PowerShell wrapper and
 `internal/integration/persistence/sourceaccount/ownershipmigration` implementation
@@ -22,7 +24,7 @@ worker and the release identity-preflight gate remain outside this bounded batch
 
 This is a read-only preview, not a backfill or a production cutover gate. The full
 inventory, target contract and A–D rollout dependencies are in
-[the design](../archive/designs/2026-09-05-source-account-organization-cutover.md).
+[the design](../designs/2026-09-05-source-account-organization-cutover.md).
 
 Run on the host with the actual 1688 account profile volume mounted at its runtime
 path. Use the same absolute profile root that currently feeds

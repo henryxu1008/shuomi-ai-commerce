@@ -517,7 +517,7 @@ func TestCurrentDocsDoNotReferenceRetiredFrameworkEntrypoints(t *testing.T) {
 		filepath.Join("..", "docs", "CODE_WIKI.md"): {
 			"task/                    # 已废弃的 legacy polling 入口",
 		},
-		filepath.Join("..", "docs", "architecture", "task-status-lifecycle.md"): {
+		filepath.Join("..", "docs", "archive", "architecture", "task-status-lifecycle.md"): {
 			"internal/app/task/task_source.go",
 		},
 		filepath.Join("..", "docs", "archive", "refactoring", "listingkit-refactoring-progress-2026-06-24.md"): {
@@ -1427,7 +1427,7 @@ func TestPlatformBoundaryStrategyDefinesConvergenceRoles(t *testing.T) {
 }
 
 func TestHistoricalPlatformMigrationInventoryDefinesCostSlices(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "historical-platform-migration-inventory.md")
+	path := filepath.Join("..", "docs", "archive", "architecture", "historical-platform-migration-inventory.md")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)

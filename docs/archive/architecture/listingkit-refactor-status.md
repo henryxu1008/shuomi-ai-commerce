@@ -1,8 +1,10 @@
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
 > **Classification:** `DATED EVIDENCE / SUPERSEDED EXECUTION AUTHORITY`. The boundary observations below are retained for traceability; they do not authorize keeping or adding legacy compatibility paths.
-> **Greenfield override:** [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) and the [Legacy Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md) govern any legacy/facade decision: reusable behavior is EXTRACTed to the current owner, otherwise the old path is RETIREd. Historical “compatibility shell”, “acceptable facade”, or “stable and expected to remain” language is not a current exception.
+> **Greenfield override:** [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md) and the [Legacy Hard-Cut Policy](../../refactoring/legacy-hard-cut-policy.md) govern any legacy/facade decision: reusable behavior is EXTRACTed to the current owner, otherwise the old path is RETIREd. Historical “compatibility shell”, “acceptable facade”, or “stable and expected to remain” language is not a current exception.
 >
 > **状态：HISTORICAL ARCHITECTURE SNAPSHOT（2026-09-26 校准）**  
-> 本文是旧 ListingKit 重构阶段的边界快照，不再是当前目标架构。当前产品投影以 [最终 Figma UI / IA Authority](../product/final-ui-ia-authority.md) 为准；旧 ListingKit / compatibility 的处理以 [Legacy Register](../refactoring/legacy-register.md) 和当前领域 owner 为准。  
+> 本文是旧 ListingKit 重构阶段的边界快照，不再是当前目标架构。当前产品投影以 [最终 Figma UI / IA Authority](../../product/final-ui-ia-authority.md) 为准；旧 ListingKit / compatibility 的处理以 [Legacy Register](../../refactoring/legacy-register.md) 和当前领域 owner 为准。<br>
 > 文中的“stable and expected to remain”“acceptable facade”等历史判断不能作为保留 root ListingKit、永久 facade、compatibility shell 或 Task-first 产品模型的依据。有效行为应 EXTRACT 到当前 Product / Listing / Marketplace / Integration / App owner，调用方切换后 RETIRE 原路径。  
 > 历史正文保留用于追溯当时的代码状态；今天的入口、实现和执行顺序以 Repository Structure、#137、具体 Issue / PR 和准确 HEAD 证据为准。
 

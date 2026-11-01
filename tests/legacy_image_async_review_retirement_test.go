@@ -190,6 +190,13 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 	switch filepath.ToSlash(path) {
 	case "docs/architecture/README.md":
 		edits = [][2]string{
+			{"`docs/archive/architecture/temu-architecture-patterns.md`", "`temu-architecture-patterns.md`"},
+			{"`docs/archive/architecture/temu-pipeline-stages.md`", "`temu-pipeline-stages.md`"},
+			{"`docs/archive/architecture/task-status-lifecycle.md`", "`task-status-lifecycle.md`"},
+			{"`docs/archive/architecture/task-event-v2-migration.md`", "`task-event-v2-migration.md`"},
+			{"`docs/archive/architecture/openmeter-shadow-metering-poc-report.md`", "`openmeter-shadow-metering-poc-report.md`"},
+			{"`docs/archive/architecture/listingkit-refactor-status.md`", "`listingkit-refactor-status.md`"},
+			{"`docs/archive/architecture/historical-platform-migration-inventory.md`", "`historical-platform-migration-inventory.md`"},
 			{"](../archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)", "](../refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)"},
 			{"](../archive/refactoring/next-phase-plan.md)", "](../refactoring/next-phase-plan.md)"},
 			{"](../archive/refactoring/current-refactoring-status.md)", "](../refactoring/current-refactoring-status.md)"},

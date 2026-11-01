@@ -188,7 +188,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - `product-agent-runtime-prepare` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`；安装者获准后显式选择 `--target run` 或 `--target review`，分别使用私密 `PRODUCT_AGENT_SCHEMA_DSN` / `PRODUCT_REVIEW_SCHEMA_DSN`。它只编排原 owner 的三表全缺新建及现表窄 grants / 完整精确 no-op；部分状态和漂移拒绝，不创建角色或密码，不迁移、不启用模型、不启动 serving 或 worker。两库分别提交，未知结果先核实；依据 [内容标题与 Chat 共存](../architecture/content-agent-chat-coexistence-v1.md)。
   - `local-ai-trial-grant` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`，装配归 `internal/app/localaitrial`、资源事实归 `ledger/orgresource`。沿私密配置和既有 `commercial_owner_runtime`，默认 inspect 只读；明确获准并开启 grant 后仅一次10000非现金ai_point，复用来源幂等/事务/债务/审计，未知结果原键读回。它不安装 schema/权限、不改钱包/成员限额、不启模型或调用 provider；依据 [#724 专用来源设计](../architecture/local-ai-trial-v1.md) 和[待确认执行清单](../operations/local-ai-trial-v1.md)。列入维护清单不授权真实发点或部署。
   - 不再新增临时调试可执行程序。
-  - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
+  - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../archive/operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
   - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。旧发布身份预检、独占共享reader与tenantbridge已按批准设计退休；schema工具与当前Store观察同步保持。
   - `source-account-registry-schema-init` 由 `scripts/source-account-registry-local-acceptance.ps1` 维护，初始化当前 SourceAccountRegistry 空库 schema 及 RUN-1 在同一 source-account pool 上的账户资料、个人/企业认证 schema；不读取、迁移或兼容旧 Source Account 数据。
   - `organization-membership-schema-init` 由 `deployments/docker/account-compose` 维护，只初始化本账户中心实例的组织成员回执 schema；不读取、迁移或兼容旧成员数据。

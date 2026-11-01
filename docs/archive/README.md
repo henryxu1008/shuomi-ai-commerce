@@ -79,3 +79,26 @@
 - [week2-final-summary.md](refactoring/week2-final-summary.md) — 旧阶段的实际执行/观察、失败或取消记录，完整保留其日期、数字、提交及验证结果；不再作为当前排期或操作入口。
 - [week2-progress-report.md](refactoring/week2-progress-report.md) — 旧阶段的实际执行/观察、失败或取消记录，完整保留其日期、数字、提交及验证结果；不再作为当前排期或操作入口。
 - [workflow-reorganization-decision.md](refactoring/workflow-reorganization-decision.md) — 旧阶段的实际执行/观察、失败或取消记录，完整保留其日期、数字、提交及验证结果；不再作为当前排期或操作入口。
+
+<a id="architecture-history"></a>
+
+## 历史架构、开发与运行材料
+
+旧阶段快照、协议/PoC和排查记录退出当前目录，以下原结果及运行态UNKNOWN完整保留。普通过期排期、拆分与候选验证清单仅保留在[清理前固定版本](https://github.com/henryxu1008/shuomi-ai-commerce/tree/9990bad9ff14e31bc4d33f2d110f1ebac7b88939/docs/architecture)，不作为当前执行队列。
+
+| 历史材料 | 保留依据 |
+| --- | --- |
+| [historical-platform-migration-inventory.md](architecture/historical-platform-migration-inventory.md) | 2026-08-26包规模与候选成本快照归档；原数量/判断及现有文档检查保留，当前owner依Project Boundaries/Legacy Register |
+| [listingkit-refactor-status.md](architecture/listingkit-refactor-status.md) | 旧ListingKit边界与阶段完成观察归档；保留原结果及Greenfield否定compatibility的范围，不宣传当前状态 |
+| [openmeter-shadow-metering-poc-report.md](architecture/openmeter-shadow-metering-poc-report.md) | #988已退休旧计量运行；镜像digest、资源观察、并发/quota与PoC结果属于必要实测证据，完整归档 |
+| [task-event-v2-migration.md](architecture/task-event-v2-migration.md) | 数字任务V2协议及消费者已源码退休；schema/ACK/拒绝/旧观察门槛作为历史保留，不恢复两版发布/14天前置 |
+| [task-status-lifecycle.md](architecture/task-status-lifecycle.md) | 旧数字Task状态机已退休；完整状态/错误/幂等历史归档，不作为BusinessTask/ImageAgent统一状态机，原guard断言保留 |
+| [temporal-poc-runbook.md](architecture/temporal-poc-runbook.md) | #844确认旧Task SHEIN publish PoC退休；保留旧运行/恢复边界与远端UNKNOWN，当前Temporal基础设施/worker不变 |
+| [temporal-workflow-evaluation.md](architecture/temporal-workflow-evaluation.md) | 2026-05-18旧PoC落地结果与评估归档；保留事实及恢复责任，不重新派工旧submit迁入，当前Temporal边界仍有效 |
+| [temu-refactor-playbook.md](architecture/temu-refactor-playbook.md) | 旧TEMU Task管线编辑经验归档；示例owner/API已退休，当前TEMU合同与有效纯规则仍由现有owner承担 |
+| [temu-pipeline-stages.md](architecture/temu-pipeline-stages.md) | 旧SKU/刊登映射管线与stage词汇归档；按#921及刊登退休矩阵保留原历史，不恢复ProductImportMapping |
+| [temu-architecture-patterns.md](architecture/temu-architecture-patterns.md) | 旧TEMU管线对象与编排模式归档；保留原设计经验与准确替代说明，不作为当前API或第二套状态机 |
+| [listingkit-local-prod-db-replay.md](development/listingkit-local-prod-db-replay.md) | 旧共库复验/转发/schema入口均退休；原操作及后续取消证据归档，不连接共享DB/Redis或读凭据 |
+| [listingkit-shein-enrollment-source-sds-troubleshooting.md](development/listingkit-shein-enrollment-source-sds-troubleshooting.md) | 旧页面/Task/SDS fallback的实际排查样例归档；保留401/空结果/504观察，不恢复跨租户fallback |
+| [source-account-ownership-preflight.md](operations/source-account-ownership-preflight.md) | Greenfield取消且#529退休的A/B1预检；真实junction/失败/支持平台结果保留，现有Greenfield检查只改读取路径 |
+| [store-service-history-hardcut.md](operations/store-service-history-hardcut.md) | #552退休的Store历史迁移与约束/backfill说明归档；保留原安全/UNKNOWN/授权停止点，不执行旧数据操作 |

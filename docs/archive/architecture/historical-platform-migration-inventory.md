@@ -1,4 +1,6 @@
-> **DATED INVENTORY — 2026-08-26 快照。** 下方包规模、消费者、成本分层与候选切片保留用于追溯，不是当前源码盘点或获准迁移队列。当前 owner / EXTRACT / RETIRE 见[Project Boundaries](project-boundaries.md)、[Legacy Register](../refactoring/legacy-register.md)及[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)；不能据此保留旧 facade、恢复旧平台执行链或产生数据迁移前置。原计数和判断不改写。
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
+> **DATED INVENTORY — 2026-08-26 快照。** 下方包规模、消费者、成本分层与候选切片保留用于追溯，不是当前源码盘点或获准迁移队列。当前 owner / EXTRACT / RETIRE 见[Project Boundaries](../../architecture/project-boundaries.md)、[Legacy Register](../../refactoring/legacy-register.md)及[Hard-Cut](../../refactoring/legacy-hard-cut-policy.md)；不能据此保留旧 facade、恢复旧平台执行链或产生数据迁移前置。原计数和判断不改写。
 
 # Historical Platform Migration Inventory
 

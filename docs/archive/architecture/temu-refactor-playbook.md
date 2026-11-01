@@ -1,4 +1,6 @@
-> **阅读范围：旧 TEMU 管线的设计经验。** 下文 SavePublishResultInput、ImportMapping、DailyLimit 等示例属于已按[完整 TEMU 刊登闭包](legacy-temu-listing-closure-retirement-boundary.md)及[任务身份映射闭包](legacy-task-identity-mapping-closure-retirement-boundary.md)退休的数字 Task 链，不是当前可复用 API 或开发目标。局部对象职责与副作用隔离经验仍可按[当前 TEMU 合同](temu-platform-v1.md)和现有 owner 复用，不恢复旧 pipeline、状态机或默认数据。原例子和历史正文保留。
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
+> **阅读范围：旧 TEMU 管线的设计经验。** 下文 SavePublishResultInput、ImportMapping、DailyLimit 等示例属于已按[完整 TEMU 刊登闭包](../../architecture/legacy-temu-listing-closure-retirement-boundary.md)及[任务身份映射闭包](../../architecture/legacy-task-identity-mapping-closure-retirement-boundary.md)退休的数字 Task 链，不是当前可复用 API 或开发目标。局部对象职责与副作用隔离经验仍可按[当前 TEMU 合同](../../architecture/temu-platform-v1.md)和现有 owner 复用，不恢复旧 pipeline、状态机或默认数据。原例子和历史正文保留。
 
 # TEMU Refactor Playbook
 
