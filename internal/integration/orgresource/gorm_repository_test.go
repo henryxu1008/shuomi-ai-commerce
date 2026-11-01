@@ -476,3 +476,32 @@ func TestResourceSchemaRejectsNullBucketOrganization(t *testing.T) {
 		t.Fatal("Resource bucket accepted a NULL organization_id")
 	}
 }
+
+func assertBucket(t *testing.T, db *gorm.DB, organizationID string, resourceType orgresource.ResourceType, available, reserved, consumed int64) {
+	t.Helper()
+	var row organizationResourceBucketRow
+	if err := db.Where("organization_id = ? AND resource_type = ?", organizationID, resourceType).Take(&row).Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.Available != available || row.Reserved != reserved || row.Consumed != consumed {
+		t.Fatalf("bucket = %#v, want available=%d reserved=%d consumed=%d", row, available, reserved, consumed)
+	}
+}
+
+func assertDebt(t *testing.T, db *gorm.DB, organizationID string, resourceType orgresource.ResourceType, want int64) {
+	t.Helper()
+	var row organizationResourceDebtRow
+	err := db.Where("organization_id = ? AND resource_type = ?", organizationID, resourceType).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if want != 0 {
+			t.Fatalf("debt missing, want %d", want)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.Amount != want {
+		t.Fatalf("debt = %d, want %d", row.Amount, want)
+	}
+}

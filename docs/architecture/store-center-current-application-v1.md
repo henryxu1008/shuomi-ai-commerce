@@ -1,3 +1,5 @@
+> #1041 窄范围源码退休：[用户确认的完整设计§1–§7/§4.2/§6.1](legacy-resource-transaction-closure-retirement-boundary.md)已实施。本文对integration/orgresource.StoreServiceExecutor旧同库扣费路径的描述仅为历史，该执行器已退出；当前入口仍使用app/storecenter.ServiceLifecycleExecutor、独立Store intent/proof与Resource ConsumerCharge。当前Store开通/续费/重新激活、LockServiceState/ApplyServiceState、权限/付费保留证明/恢复与观察同步保持；不宣称跨库原子性，不退当前服务合同或物理账本。以下原正文逐字保留，不授权部署或真实环境操作。
+
 > SUPERSEDED / RETIRED — #988 / #301 source retirement. Current authority: [unified-base-prepaid-resources-v1](./unified-base-prepaid-resources-v1.md) and [retirement boundary](./legacy-subscription-metering-closure-retirement-boundary.md). The following text is preserved historical evidence; it does not authorize subscription, Token allocation, OpenMeter or retired review runtime. Current Resource/money/Store owners and their valid safety contracts remain. No existing tables, records or credentials are changed.
 
 # Store Center 接入 current application v1

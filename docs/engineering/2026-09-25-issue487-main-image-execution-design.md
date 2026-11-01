@@ -1,3 +1,5 @@
+> #1041 当前图像事务owner校准：[用户确认的完整退休边界](../architecture/legacy-resource-transaction-closure-retirement-boundary.md)已实施。本文旧通用Reservation/Settlement注册合同及通过空GormReservationRepository调用calculateSettlement的借用仅为历史；当前FinalizeImageGeneration改接integration/orgresource私有calculateImageGenerationSettlement，原ctx/tx、锁顺序、debt-first写入、时间语义和Event.Reason commit/release保持。主图/图组/Artwork、预算、结果不可用仍计费、原月归属、JSON/hash/物理账本/权限及UNKNOWN/恢复不变。以下原正文逐字保留，不授权真实provider、数据或运行操作。
+
 > #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
 
 # 1688 单图白底生成：架构与执行交接

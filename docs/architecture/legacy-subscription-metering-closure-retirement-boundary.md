@@ -1,3 +1,5 @@
+> #1041 对#988 Resource KEEP的准确替代：[用户确认的完整退休边界§1–§7/§4.2/§6.1](legacy-resource-transaction-closure-retirement-boundary.md)已实施。仅退出无当前装配的通用ReservationService/SettlementService/GormReservationRepository任意owner协议与旧同库StoreServiceExecutor；不是退休整个orgresource包。当前资源值/购买校验、图像同事务结算、ConsumerCharge/成员分配/月限/余额/欢迎及试用grant、Store当前合同/观察、JSON/hash/物理账本/权限和恢复保持。以下原正文完整保留，不授权既有实例/数据/凭据操作，#301 OPEN。
+
 > #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
 
 > #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
