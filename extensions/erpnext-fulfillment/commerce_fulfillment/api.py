@@ -600,7 +600,7 @@ def read_command(command, p, r, c):
         original = {row.name: row for row in demand.items}
         if any(row.against_sales_order != demand.name or row.so_detail not in original for row in note.items):
             fail()
-        return {"name": note.name, "package_id": note.cf_package, "lines": [{"source_line": original[row.so_detail].cf_source_line, "qty": row.qty} for row in note.items]}
+        return {"name": note.name, "package_id": note.cf_package, "lines": [{"source_line": original[row.so_detail].cf_source_line, "qty": quantity(row.qty)} for row in note.items]}
     if command in ("read", "read_private"):
         shape(p, ("operation",))
         doc = current_operation(p, r)
