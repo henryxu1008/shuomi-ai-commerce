@@ -1,3 +1,5 @@
+- `legacy-store-source-admission-audit-tail-retirement-boundary.md` — [#301 Store旧来源准入与审计尾部完整退休设计](legacy-store-source-admission-audit-tail-retirement-boundary.md)：四对象、三原测试函数逐项安全断言映射及10路径完整矩阵；当前只四文档设计，一名独立Reviewer及原CI后交用户确认，确认前不实施，保留当前能力与历史。
+
 > #1044 当前源码闭包：[ImageAgent旧控制/摘要合同与测试尾部完整退休](legacy-imageagent-control-summary-tail-retirement-boundary.md)已获用户确认，按 §1–§7（含 §4.2/§6.1）在同一 PR 收齐14路径；七旧对象、有效测试转接及窄旧 KEEP 替代一并交付。源码最终复核/准确 CI 和用户确认留 PR；Store 组暂缓，当前能力与既有资源保持，#301 OPEN。以下冻结索引与历史完整保留。
 
 - `legacy-imageagent-control-summary-tail-retirement-boundary.md` — [#301 ImageAgent旧控制、摘要合同与测试尾部完整退休设计](legacy-imageagent-control-summary-tail-retirement-boundary.md)：七对象、原有效测试/旧KEEP与14路径整批矩阵；当前仅四文档设计，用户确认前不实施，Store组暂缓。
