@@ -1,3 +1,5 @@
+> **阅读范围校正（2026-11-01）：历史基线快照，非当前执行队列。** 本文成熟度与 Now / Next / Later 记录绑定下方 2026-09-05 / `cae67730` 基线；后续局部退休注记只更新各自范围，不能把整份记录视为已重新核对。当前产品、源码入口及进度请从[文档导航](../README.md)、[架构索引](../architecture/README.md)、[Repository Structure](../development/repository-structure.md#current-entrypoint-map)及当前执行 Issue / PR 阅读。原有效合同、明确门禁和历史验证结果按其适用范围保留；以下原文完整保留。
+
 # Current Refactoring Status
 
 > Status: baseline-bound maturity and gate record; current entrypoint navigation is maintained in Repository Structure.  
