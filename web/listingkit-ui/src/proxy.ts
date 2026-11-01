@@ -9,6 +9,7 @@ import {
   readZitadelSessionError,
 } from "@/lib/server/zitadel-auth";
 import { readZitadelServerAccessToken } from "@/lib/server/zitadel-server-token";
+import { resolvePublicAppOrigin } from "@/lib/server/public-app-origin";
 
 type AuthenticatedProxyRequest = NextRequest & {
   auth?: unknown;
@@ -57,9 +58,10 @@ function isProtectedPagePath(pathname: string) {
 }
 
 function redirectToZitadelLogin(request: NextRequest) {
-  const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = "/login";
-  loginUrl.search = "";
+  const loginUrl = new URL(
+    "/login",
+    (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim() || resolvePublicAppOrigin(),
+  );
   loginUrl.searchParams.set("returnTo", buildReturnTo(request));
   return NextResponse.redirect(loginUrl);
 }

@@ -9,6 +9,7 @@ export default defineConfig({
     css: true,
     maxWorkers: 4,
     testTimeout: 15000,
+    server: { deps: { inline: ["next-auth"] } },
     exclude: [
       ...configDefaults.exclude,
       "e2e/**",
@@ -23,6 +24,8 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "next/server": path.resolve(__dirname, "./node_modules/next/server.js"),
+      "next/headers": path.resolve(__dirname, "./node_modules/next/headers.js"),
+      "next/navigation": path.resolve(__dirname, "./node_modules/next/navigation.js"),
     },
   },
 });

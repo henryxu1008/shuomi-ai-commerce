@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import Introduction from "./page";
 import Stage from "./[stage]/page";
 const fixture = vi.hoisted(() => ({ preparations: vi.fn(), supply: vi.fn(),completion:vi.fn() }));
+vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({effectiveOrganization:null,user:null,permissions:[]})}));
 vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("@/components/workbench/supply/preparations-page", () => ({ PreparationsPage: fixture.preparations }));

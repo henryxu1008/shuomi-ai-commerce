@@ -1,3 +1,5 @@
+2026-11-01 局部后续设计：用户针对已有合成试用数据，明确选择先设计并评审当前 Store 的模块安装支持。新增显式安装入口的范围与准入见 [`store-observations-current-store-install.md`](store-observations-current-store-install.md)。下文原 fresh/preparation 入口的空店铺约束保持，不能直接删 guard；新设计获准前不得执行非空安装。历史正文保留。
+
 # Store observations internal preparation runtime
 
 Status: IMPLEMENTATION_READY (2026-10-11). Design Basis: Independent Architecture, bounded deployment admission supplement. Independent review of base f1d77a84fa653813235ddbfeedac59ea6bb0a94c and design blob 3f54f87d35fa1da35c8b18883dda84008c4eb978 found no design BLOCKER.
