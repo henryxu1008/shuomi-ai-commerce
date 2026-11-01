@@ -18,7 +18,6 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
   pending("数据服务", "data", [pending("数据市场", "data/market"), pending("API管理", "data/api"), pending("我的数据", "data/mine")]),
   pending("店铺中心", "store-center", [{ label: "我的店铺", href: "/workbench/stores", availability: "connected" }, pending("店铺商品", "store-products")]),
   pending("订单管理", "store-orders", [
-    pending("订单概览", "store-orders"),
     pending("订单处理", "store-orders/fulfill?step=source"),
     pending("采购与收货", "store-orders/fulfill?step=purchase"),
     pending("装箱与发货", "store-orders/fulfill?step=stock"),

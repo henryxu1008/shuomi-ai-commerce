@@ -74,7 +74,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
       return { ...child, availability: cockpitPermissions.includes(permission) ? "connected" as const : "unavailable" as const };
     }) };
     if (node.href === "/workbench/tools" && toolMarketAvailable) return {...node, availability:"connected" as const, children:node.children?.map(child=>({...child, availability:"connected" as const, children:child.children?.map(entry=>({...entry, availability:"connected" as const}))}))};
- if(node.href === "/workbench/store-orders") return {...node,availability:storeOrdersAvailable||fulfillmentAvailable?"connected" as const:"unavailable" as const,children:node.children?.map(child=>({...child,availability:(child.href===node.href?storeOrdersAvailable||fulfillmentAvailable:child.href.endsWith("/records")?storeOrdersAvailable:fulfillmentAvailable)?"connected" as const:"unavailable" as const}))};
+ if(node.href === "/workbench/store-orders") return {...node,availability:storeOrdersAvailable||fulfillmentAvailable?"connected" as const:"unavailable" as const,children:node.children?.map(child=>({...child,availability:(child.href.endsWith("/records")?storeOrdersAvailable:fulfillmentAvailable)?"connected" as const:"unavailable" as const}))};
  if(node.href === "/workbench/store-center") return {...node,children:node.children?.map(child => child.href === "/workbench/store-products" ? {...child,availability:storeProductsAvailable ? "connected" as const:"unavailable" as const} : child.href === "/workbench/store-orders" ? {...child,availability:storeOrdersAvailable ? "connected" as const:"unavailable" as const} :child)};
     if(node.href==="/workbench/services"&&ecoservicesAvailable)return {...node,availability:"connected" as const,children:node.children?.map(child=>({...child,availability:"connected" as const}))};
     if (node.href === "/workbench/supply") return { ...node, children: node.children?.map(child => child.href === "/workbench/supply/mine" ? { ...child, availability: "connected" as const, children: child.children?.map(stage=>({...stage,availability:supplyChainAvailable || supplyPreparationAvailable && stage.href==="/workbench/supply/mine/waiting" || supplyCompletionDraftsAvailable && stage.href==="/workbench/supply/mine/missing" ? "connected" as const : "unavailable" as const})) } : ["/workbench/supply/official","/workbench/supply/selected","/workbench/supply/catalogs","/workbench/supply/applications"].includes(child.href) && supplyMarketAvailable ? {...child,availability:"connected" as const,children:child.children?.map(entry=>({...entry,availability:"connected" as const}))}:child) };
@@ -118,14 +118,14 @@ function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "",
   const orderParameters=new URLSearchParams(node.href.split("?")[1]);
   if(node.href.startsWith("/workbench/store-orders/fulfill?"))for(const [key,value] of new URLSearchParams(orderQuery))orderParameters.set(key,value);
   const href=node.href.startsWith("/workbench/store-orders/fulfill?")?`/workbench/store-orders/fulfill?${orderParameters}`:supplyStage?.success?supplyStageHref(supplyStage.data,{preparation:selection.get("preparation")??undefined,store:selection.get("store")??undefined,operation:selection.get("operation")??undefined,mode:selection.get("mode")==="platform"?"platform":selection.get("mode")==="local"?"local":undefined}):node.href==="/workbench/supply/mine"&&parentSelection.size?`${node.href}?${parentSelection}`:node.href;
-  const active = pathname === node.href || trail.includes(node.href) && !(depth > 1 && node.href === "/workbench/store-orders");
+  const active = trail.includes(node.href) || pathname === node.href;
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
   const [expanded, setExpanded] = useState(active);
   const id = useId();
   const Icon = navigationIcons[node.href] ?? Circle;
   return <li className={`console-nav-level-${depth}`}>
     <div className="console-nav-row" data-active={active || undefined}>
-      <Link href={href} prefetch={false} aria-current={pathname === node.href && !node.children?.some(child=>child.href===node.href) || (!node.children && active) ? "page" : undefined} onClick={onNavigate} title={node.availability === "unavailable" ? `${node.label}：业务暂未启用` : node.label}>
+      <Link href={href} prefetch={false} aria-current={pathname === node.href || (!node.children && active) ? "page" : undefined} onClick={onNavigate} title={node.availability === "unavailable" ? `${node.label}：业务暂未启用` : node.label}>
         {depth <= 2 ? <Icon className="console-nav-icon" size={depth === 1 ? 20 : 16} aria-hidden="true" /> : null}<span className="console-nav-label">{node.label}</span>
       </Link>
       {node.children ? <button type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}><ChevronDown className="console-nav-chevron" size={16} aria-hidden="true" /></button> : null}

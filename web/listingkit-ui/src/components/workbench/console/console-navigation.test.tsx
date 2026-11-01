@@ -7,11 +7,11 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
-it("splits Orders into six entries without advertising fulfillment from observation availability",()=>{
+it("keeps the Orders overview on its parent with five business entries without advertising fulfillment from observation availability",()=>{
  render(<ConsoleNavigation pathname="/workbench/store-orders" ariaLabel="主导航" storeOrdersAvailable/>);
  expect(screen.getByRole("button",{name:"收起订单管理"})).toHaveAttribute("aria-expanded","true");
- expect(screen.getByRole("link",{name:"订单概览"})).toHaveAttribute("aria-current","page");
- expect(screen.getByRole("link",{name:"订单管理"})).not.toHaveAttribute("aria-current");
+ expect(screen.queryByRole("link",{name:"订单概览"})).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"订单管理"})).toHaveAttribute("aria-current","page");
  expect(screen.getByRole("link",{name:"平台订单记录"})).toHaveAttribute("title","平台订单记录");
  for(const name of ["订单处理","采购与收货","装箱与发货","交接与物流"])
   expect(screen.getByRole("link",{name})).toHaveAttribute("title",`${name}：业务暂未启用`);
@@ -20,7 +20,8 @@ it("selects each Order view and keeps the original source when switching query-o
  query.value="step=stock&storeId=store-1&sourceId=source-1&kind=platform_supply&ignored=value";
  const view=render(<ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable/>);
  expect(screen.getByRole("link",{name:"装箱与发货"})).toHaveAttribute("aria-current","page");
- expect(screen.getByRole("link",{name:"订单概览"})).not.toHaveAttribute("aria-current");
+ expect(screen.queryByRole("link",{name:"订单概览"})).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"订单管理"})).not.toHaveAttribute("aria-current");
  for(const [name,step] of [["订单处理","source"],["采购与收货","purchase"],["装箱与发货","stock"],["交接与物流","logistics"]]){
   const link=screen.getByRole("link",{name});
   expect(link).toHaveAttribute("title",name);
