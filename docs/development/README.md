@@ -1,8 +1,6 @@
 # 开发说明
 
-返回[文档首页](../README.md)。先确认当前产品和领域 owner，再选择入口；本目录包含开发说明和保留的旧调试记录。
-
-## 当前开发入口
+返回[文档首页](../README.md)。先确认当前产品和领域 owner，再选择开发入口。
 
 | 目的 | 入口 |
 | --- | --- |
@@ -12,20 +10,13 @@
 | Console / BFF | [前端 README](../../web/listingkit-ui/README.md) |
 | 浏览器采集扩展 | [采集插件 README](../../extensions/product-capture/README.md) |
 | 显式选择 Git 版本构建镜像 | [镜像构建说明](../operations/listingkit-image-build.md) |
-| 品牌、仓库名称和保留的工程标识 | [更名说明](branding-and-repository-rename.md) |
-| 配置与凭据边界 | [当前应用配置入口](repository-structure.md#current-entrypoint-map)、[凭据管理](secret-management.md)；当前应用使用显式私有 JSON manifest，旧 YAML / ListingKit 配置不替代当前入口合同 |
+| 品牌与保留工程标识 | [更名说明](branding-and-repository-rename.md) |
+| 配置与凭据 | [私有 JSON manifest 入口](repository-structure.md#current-entrypoint-map)、[配置退休与拒绝边界](listingkit-config-migration-checklist.md)、[凭据管理](secret-management.md) |
 
-## 有明确范围的开发与验证说明
+## 专项说明与保留证据
 
-- [CHAIN-1 隔离验收装配](chain1-local-product-acceptance.md)仍有当前 runner 和合同检查，不能与已退休的手工编排混淆。只在对应明确授权下使用；本次文档核对不执行它，源码或历史 PASS 不等于用户验收。
+- [当前本地联调入口](listingkit-local-debug.md)：仅导航到当前应用、UI 与身份合同。
+- [CHAIN-1 隔离验收装配](chain1-local-product-acceptance.md)：仍有当前 runner 和合同检查，只在对应授权下使用。
+- [线上库复验记录](listingkit-local-prod-db-replay.md)、[SHEIN 报名来源 SDS 排查](listingkit-shein-enrollment-source-sds-troubleshooting.md)：保留具体基线、环境限制与原始结果，不作为可重复执行的通用安装说明。
 
-## 专项记录与历史材料
-
-以下入口保留原路径供追溯，使用前先读顶部的退休说明及文内限定范围：
-
-- 旧开发入口：[Local Agent PoC](1688-local-agent-poc.md)、[ListingKit 联调](listingkit-local-debug.md)、[线上库复验记录](listingkit-local-prod-db-replay.md)、[旧对象存储上传](listingkit-object-storage.md)。
-- 旧验收路径：[Image Agent 本地验收](image-agent-local-acceptance.md)、[RabbitMQ 主链验收](rabbitmq-mainline-validation.md)。这些旧编排或命令不能作为当前试用步骤。
-- 旧实现整理：[全局配置退休](listingkit-config-migration-checklist.md)、[字段清理 inventory](listingkit-semantic-field-cleanup-inventory.md)、[字段迁移 checklist](listingkit-semantic-field-migration-checklist.md)、[旧错误处理指南](error-handling-guide.md)。
-- 有特定基线与环境限制的记录：[隔离订阅目录输入](isolated-subscription-catalog.md)（旧 seed 当前已被拒绝）、[SHEIN 报名来源 SDS 排查](listingkit-shein-enrollment-source-sds-troubleshooting.md)。不作为通用安装或真实数据操作说明。
-
-当前用户操作与运行交接从[操作说明](../operations/README.md)进入；源码目录和正式命令的完整清单只维护在 Repository Structure。
+旧 LocalAgent PoC、Task 调试/上传、双字段兼容迁移、旧 RabbitMQ 验收及订阅试用 seed 已退出当前文档树；完整原件见[清理前固定版本](https://github.com/henryxu1008/shuomi-ai-commerce/tree/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/development)。当前操作从[运行说明](../operations/README.md)进入，工程交接与验证记录从[工程文档](../engineering/README.md)进入。

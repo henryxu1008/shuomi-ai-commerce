@@ -95,7 +95,7 @@ undefined: Task
 
 **详细分析文档:**
 - [Workflow 模块整理决策记录](./workflow-reorganization-decision.md)
-- [Workflow 模块整理计划](./workflow-module-reorganization.md)
+- [Workflow 模块整理计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/workflow-module-reorganization.md)
 
 ---
 
@@ -204,14 +204,14 @@ undefined: Task
 ## 📝 相关文档
 
 ### 本次会话创建的文档
-1. [Workflow 模块整理计划](./workflow-module-reorganization.md) - 详细的分析和计划
+1. [Workflow 模块整理计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/workflow-module-reorganization.md) - 详细的分析和计划
 2. [Workflow 模块整理决策记录](./workflow-reorganization-decision.md) - 最终决策和理由
 3. [方案 B 执行总结](./phase2-systematic-refactoring-summary.md) - 本文档
 
 ### 之前创建的文档
-1. [模块边界分析](./module-boundary-analysis.md) - 12个子模块的详细分析
+1. [模块边界分析](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/module-boundary-analysis.md) - 12个子模块的详细分析
 2. [第二阶段进展报告](./phase2-progress-report.md) - 两个 TDD 循环的记录
-3. [ListingKit 重构改进计划](../../plans/ListingKit_重构改进计划_2e5b810c.md) - 总体计划
+3. `ListingKit 重构改进计划` - 总体计划
 
 ---
 

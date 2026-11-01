@@ -1,8 +1,6 @@
-> #301 / #1009 / #1010: the tracked tmp/go.mod and old managed debug/tool chains are retired. This directory is not an executable or maintained Go module. Any older module instructions below are historical; no existing local files are inspected or cleaned.
+# Local scratch files
 
-# tmp
-
-Local one-off debug programs live here.
-
-This directory is intentionally a separate Go module so `go test ./...` from the
-main repository does not try to compile every ad-hoc `main` package under `tmp/`.
+The tracked `tmp/go.mod` and managed debug/tool chains were retired under
+[#1010](../docs/architecture/legacy-restored-debug-closure-retirement-boundary.md).
+This directory is not a maintained or executable Go module. Existing untracked
+local files are not part of that source retirement and are not cleaned here.

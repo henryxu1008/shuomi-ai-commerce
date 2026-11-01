@@ -31,7 +31,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 
 - [全新系统产品基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)：只有 EXTRACT / RETIRE，无 legacy wrapper/fallback、旧 ID 映射、双读双写或第二事实源。
 - 已确认的 [CLI](legacy-listing-cli-retirement-boundary.md)、[control-plane](legacy-listing-control-plane-retirement-boundary.md)、[数字执行链](legacy-numeric-task-execution-retirement-boundary.md)、[数字持久化](legacy-numeric-task-persistence-retirement-boundary.md)、[TEMU 保存/提交](legacy-temu-listing-submit-retirement-boundary.md) 和 [前置 handler](legacy-temu-preflight-retirement-boundary.md)：旧执行入口已退出；本轮只接续此前保留的闲置变体编排，不推翻其它保留项。
-- [TEMU publishing owner](../../internal/marketplace/temu/publishing/README.md)：平台规则和 payload shaping 继续归原 owner；已有 `internal/shared/strx.CleanProductTitle` 复用原实现，不在旧 Task 外再包装或复制一份算法。
+- [TEMU publishing owner](https://github.com/henryxu1008/shuomi-ai-commerce/blob/3d52287fdaadd55f89b592abb58eb928a745b76a/internal/marketplace/temu/publishing/README.md)：平台规则和 payload shaping 继续归原 owner；已有 `internal/shared/strx.CleanProductTitle` 复用原实现，不在旧 Task 外再包装或复制一份算法。
 - [独立 worker 身份/持久化](shein-worker-identity-persistence-boundary.md)、[当前 Store](store-center-current-application-v1.md)、[observations](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)、[当前 SHEIN](my-supply-chain-shein-v1.md)：当前事实、身份、授权与 retry/UNKNOWN 不转交。Figma N/A，无 UI/IA 修改。
 
 原设计 N/A 仅覆盖文档调查。本次实施采用 **Reuse Existing Architecture**：用户已确认冻结 §5、§6、§6.1、§7；生产修改前 #29/#301 已写明冻结设计、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 及 **Ready**。仅删除无装配消费者的四文件与专属函数，不新增生产函数/类型/公共接口或当前入口；既有标题清理已有正确共享 owner，无须新增 EXTRACT 实现。

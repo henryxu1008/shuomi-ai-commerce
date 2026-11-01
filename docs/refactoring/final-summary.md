@@ -50,13 +50,13 @@
 
 ### 📝 创建的文档体系
 
-1. ✅ [listingkit-refactoring-plan.md](file://d:/code/task-processor/docs/refactoring/listingkit-refactoring-plan.md) - 原始重构计划（1352行）
-2. ✅ [dependency-analysis.md](file://d:/code/task-processor/docs/refactoring/dependency-analysis.md) - 模块依赖分析（382行）
-3. ✅ [week1-progress-report.md](file://d:/code/task-processor/docs/refactoring/week1-progress-report.md) - Week 1 进展报告
-4. ✅ [week2-progress-report.md](file://d:/code/task-processor/docs/refactoring/week2-progress-report.md) - Week 2 进展报告
-5. ✅ [studio-migration-plan.md](file://d:/code/task-processor/docs/refactoring/studio-migration-plan.md) - Studio 迁移详细计划（439行）
-6. ✅ [week2-final-summary.md](file://d:/code/task-processor/docs/refactoring/week2-final-summary.md) - Week 2 最终总结（221行）
-7. ✅ [studio-migration-attempt-report.md](file://d:/code/task-processor/docs/refactoring/studio-migration-attempt-report.md) - Studio 迁移执行尝试报告（219行，新增）
+1. ✅ [listingkit-refactoring-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/4742ad00f2f21ab0c99878cc804e112bf2061d05/docs/refactoring/listingkit-refactoring-plan.md) - 原始重构计划（1352行）
+2. ✅ [dependency-analysis.md](dependency-analysis.md) - 模块依赖分析（382行）
+3. ✅ [week1-progress-report.md](week1-progress-report.md) - Week 1 进展报告
+4. ✅ [week2-progress-report.md](week2-progress-report.md) - Week 2 进展报告
+5. ✅ [studio-migration-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/02be94f7aa0d0639564d85271108b94d0293c386/docs/refactoring/studio-migration-plan.md) - Studio 迁移详细计划（439行）
+6. ✅ [week2-final-summary.md](week2-final-summary.md) - Week 2 最终总结（221行）
+7. ✅ [studio-migration-attempt-report.md](studio-migration-attempt-report.md) - Studio 迁移执行尝试报告（219行，新增）
 
 ### 🔍 关键发现和洞察
 

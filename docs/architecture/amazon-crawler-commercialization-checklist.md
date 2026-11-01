@@ -25,13 +25,13 @@
 
 相关位置：
 
-- [main.go](D:/code/task-processor/cmd/amazon-crawler-api/main.go)
-- [config-amazon-crawler-api.yaml](D:/code/task-processor/config/config-amazon-crawler-api.yaml)
-- [browser_pool.go](D:/code/task-processor/internal/crawler/amazon/browser/browser_pool.go)
-- [pool_manager.go](D:/code/task-processor/internal/crawler/amazon/browser/pool_manager.go)
-- [captcha_handler.go](D:/code/task-processor/internal/crawler/amazon/captcha_handler.go)
-- [crawler_service.go](D:/code/task-processor/internal/crawler/amazon/crawler_service.go)
-- [amazon-crawler-runtime-flow.md](D:/code/task-processor/docs/architecture/amazon-crawler-runtime-flow.md)
+- [main.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/14e3d21cea24f6f890aef3a1121acdf50fdb6588/cmd/amazon-crawler-api/main.go)
+- [config-amazon-crawler-api.yaml](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/config/config-amazon-crawler-api.yaml)
+- [browser_pool.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/browser/browser_pool.go)
+- [pool_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/browser/pool_manager.go)
+- [captcha_handler.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/captcha_handler.go)
+- [crawler_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/internal/crawler/amazon/crawler_service.go)
+- [amazon-crawler-runtime-flow.md](amazon-crawler-runtime-flow.md)
 
 但从商用标准看，当前仍然更接近“内部生产试跑”而不是“高稳定商用服务”。
 

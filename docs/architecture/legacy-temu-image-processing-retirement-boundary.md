@@ -33,7 +33,7 @@ Architecture / Contract：
 - [当前 TEMU 平台设计](temu-platform-v1.md) §8/§8.1、现有 marketplace TEMU goods/rules/model：资产批准、内容 hash、当次店铺/模式/类目/usage、几何/位置、官方上传效果及 receipt/UNKNOWN 各守原 owner；旧网页默认值不能成为当前规格权威。
 - [Product ImageAgent](product-image-agent-v1.md)、[官方标题与图片方法](official-skills-and-image-method-v1.md)：当前资产/图片方法选择、生成/审查/采用、预算与产物合同保留。#799 的 Bailian 接线由原 owner 实施；其未合并实现不是本设计的批准依据或验收证据。
 - [前批图片编排](legacy-temu-image-orchestration-retirement-boundary.md)、[SKU/SKC](legacy-temu-sku-skc-retirement-boundary.md)、[类目/模板](legacy-temu-category-template-retirement-boundary.md) 退休：历史取证和批准保持；用户已确认本文，只用 §5 替代本批 16 文件及专属 context 闭包的旧保留陈述，不覆盖其它保留能力。
-- [Prompt Management](zitadel-tenant-prompt-management.md)：catalog metadata、tenant override、管理 API 与 runtime rendering 分别有原 owner。vision prompt 有目录引用但没有独立运行消费者，见 §3/§3.1；目录引用不证明该 prompt 是当前有效产品能力。
+- [Prompt Management](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/architecture/zitadel-tenant-prompt-management.md)：catalog metadata、tenant override、管理 API 与 runtime rendering 分别有原 owner。vision prompt 有目录引用但没有独立运行消费者，见 §3/§3.1；目录引用不证明该 prompt 是当前有效产品能力。
 - [Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[独立 SHEIN 身份持久化](shein-worker-identity-persistence-boundary.md)：当前及保留运行链不借旧 Cookie/Profile 补当前身份，不操作运行资产。
 
 本次有界实施采用 **Reuse Existing Architecture**：只退出无装配的旧单域图片编排及专属内存值，当前正确能力/合同沿原 owner 保持，没有新产品流程、领域合同、事实/schema、身份/权限/tenant、状态机/事务、幂等/retry/UNKNOWN/recovery、AI 准入/预算/计量或平台副作用 owner。16 个完整生产文件共 1,964 行，加一个 mixed context 的专属删除；原两 guard 与必要清单/直接冲突文档预计不超过 30 个范围相关文件，生产删除量低于 2,500 行。不通过机械拆 PR 规避阈值；若实际超线且既有批准不足，或必须改变上述边界，停止受影响部分补适用 Independent Architecture 准入。

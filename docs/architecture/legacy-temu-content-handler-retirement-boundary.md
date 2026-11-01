@@ -26,7 +26,7 @@
 
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Project Boundaries](project-boundaries.md) §3.5：旧 owner 仅 EXTRACT / RETIRE，不新增 wrapper/fallback/双读双写/旧 ID 映射/第二事实源。
 - [#749 保存/提交退休](legacy-temu-listing-submit-retirement-boundary.md) 与 [#768 SPU/价格查询退休](legacy-temu-spu-price-query-retirement-boundary.md)：混合 product 包和旧名称/品牌/描述当批保留，不是永久保留权；用户确认本文后，只窄替代 §5 指定的旧对象，不重写历史证据。
-- [当前 publishing owner](../../internal/marketplace/temu/publishing/README.md)：已抽取到该namespace不等于仍是当前requirement。按当前消费者/需求核对：保留仍被bullet_points_validator消费的NormalizeProductSubmissionName和必需leftParenthesisSpacingPattern；三个仅供本轮旧handler的policy/result/test与已孤立NormalizeParenthesesSpacing不以旧测试维持存活。
+- [当前 publishing owner](https://github.com/henryxu1008/shuomi-ai-commerce/blob/3d52287fdaadd55f89b592abb58eb928a745b76a/internal/marketplace/temu/publishing/README.md)：已抽取到该namespace不等于仍是当前requirement。按当前消费者/需求核对：保留仍被bullet_points_validator消费的NormalizeProductSubmissionName和必需leftParenthesisSpacingPattern；三个仅供本轮旧handler的policy/result/test与已孤立NormalizeParenthesesSpacing不以旧测试维持存活。
 - [TEMU 当前平台设计](temu-platform-v1.md) M3/M4 与 §8：当前 Product/ApprovedAsset/明确资料和官方规则/Submission owner 保持；不能从旧文案优化器推断商品类型、品牌事实或平台接受。当前goods/rules按mode/category/官方snapshot校验，不要求旧ASCII剥离、统一10000字符或自动去品牌；这些旧policy不接入新路径。
 - [#807 保留边界](legacy-temu-image-api-prompt-retirement-boundary.md)、[Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[独立 SHEIN 身份持久化](shein-worker-identity-persistence-boundary.md)：当前图像、通用 Prompt、身份/店铺/观察/独立 worker 的事实、权限、receipt/UNKNOWN 与持久化 owner 不变。
 

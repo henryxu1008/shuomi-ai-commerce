@@ -39,19 +39,15 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 
 这些文档必须先读页首的后续合同和窄范围替代说明；原政策、批准、失败与待核实事实保留，不能由标题或旧 Active 标签推断当前源码、部署或产品验收。
 
-## 历史 ListingKit 文档
+## 已归档的旧产品投影
 
-以下文档保留用于追溯旧需求、旧行为、旧产品计划和退休时需要保留的有效约束。它们均不再拥有当前产品或近期派工权威：
+旧 ListingKit 产品目标、总览、页面操作、路线图、下一阶段排期和候选 backlog
+已退出当前树，完整原文见[清理前固定版本](https://github.com/henryxu1008/shuomi-ai-commerce/tree/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/product)。
+其中共有的安全、幂等、UNKNOWN 与外部副作用底线继续由当前领域合同承接，
+清理旧投影不取消这些约束。
 
-- [ListingKit 项目目标与范围](./listingkit-project-goals.md)
-- [ListingKit 产品总览](./listingkit-product-overview.md)
-- [ListingKit 操作指南](./listingkit-operating-guide.md)
-- [ListingKit 产品路线图](./listingkit-product-roadmap.md)
-- [ListingKit 下一阶段执行计划](./listingkit-next-execution-plan.md)
-- [ListingKit 错误恢复手册](./listingkit-error-recovery.md)
-- [旧 Task 真实接口验收报告模板](./validation/listingkit-real-api-validation-report-template.md) — #844 用户确认取消旧数字 Task 源码流程后的历史模板；不作为当前仓库/内部试用门禁，不要求等价替代模板。正文/既有证据保留，远端旧运行事实 UNKNOWN，商业门禁与实际恢复责任保持。
-
-读取这些历史文档时，只抽取仍被当前 owner 明确承接的业务、安全、幂等、恢复或平台规则。出现与 Figma Authority、全新系统基线、Legacy Register、当前领域合同或具体 Issue 冲突的内容时，以后者为准。
+[错误恢复历史](listingkit-error-recovery.md)、下方商业门禁及真实运行记录仍保留。
+旧 Task 验收空模板已按 #844 取消为当前门禁，历史模板仅在固定 Git 版本追溯。
 
 ## 专项产品文档
 
@@ -67,7 +63,7 @@ Product Sourcing、Account、Commercial、Marketplace、Agent 等专项文档只
 
 以下材料的 PASS、BLOCKED、UNKNOWN、未执行项和旧命令只对各自记录的基线有效，不是当前试用或生产已通过的证明：
 
-- 取消的计划：[旧 clean-slate cutover](issue30-clean-slate-cutover.md)、[旧执行 backlog](backlog/listingkit-execution-issues.md)。
+- 取消的计划：[旧 clean-slate cutover](issue30-clean-slate-cutover.md)。
 - 来源检查：[2026-07-13 MVP 检查点](product-sourcing-validation-2026-07-13.md)、[1688 受控回放](validation/2026-08-08-1688-controlled-replay.md)。
 - 旧 QA 与待核实事实：[失败样例](validation/listingkit-qa-failure-samples.md)、[UNKNOWN/blocker 台账](validation/unknown-state-and-blocker-tracker.md)、[历史运行索引](validation/runs/README.md)。这些旧 Task 模板/矩阵不恢复已取消的验收要求。
 - 真实运行记录：[SHEIN 预检受阻](validation/runs/2026-06-17-shein-sds-real-api-preflight-blocked.md)、[授权受阻](validation/runs/2026-06-21-shein-sds-batch-production-closure-auth-blocked.md)、[批次回归](validation/runs/2026-06-21-shein-sds-batch-production-closure-regression.md)、[受控闭环](validation/runs/2026-06-21-shein-sds-batch-production-closure.md)、[控制面 leader rollout](validation/runs/2026-06-24-listing-control-plane-leader-rollout.md)、[商业基线](validation/runs/2026-07-13-listingkit-commercial-baseline.md)。

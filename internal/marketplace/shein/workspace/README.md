@@ -1,5 +1,10 @@
-# SHEIN Workspace
+# SHEIN Workspace Rules
 
-Owns SHEIN workspace, editor, inspection, repair, and revision UX rules.
+Owns the current pure SHEIN review, readiness, taxonomy and template-freshness
+rules in this package. Local draft values and strict codecs belong to
+`../offlinepackage`; assembly belongs to `../draft`, and platform execution
+belongs to its current Listing / Marketplace owner.
 
-Also owns pure SHEIN submit-readiness and template-freshness workspace policies, while `internal/listingkit` keeps only orchestration, runtime loading, and compatibility DTO shaping.
+The old ListingKit orchestration and compatibility DTO owner is retired; do not
+recreate it from earlier workspace examples. See the
+[confirmed draft boundary](../../../../docs/architecture/legacy-shein-draft-assembly-closure-retirement-boundary.md).

@@ -33,7 +33,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 
 - [Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[Project Boundaries](project-boundaries.md)：只有 EXTRACT / RETIRE，无 wrapper/fallback、旧 ID 映射、双读双写或第二事实源。
 - 已确认的 [保存/提交](legacy-temu-listing-submit-retirement-boundary.md)、[前置](legacy-temu-preflight-retirement-boundary.md)、[变体](legacy-temu-variant-retirement-boundary.md)、[筛选/AI 前置](legacy-temu-filter-mapping-retirement-boundary.md)、[Store/初始化](legacy-temu-store-init-retirement-boundary.md)、[SPU/零售价查询](legacy-temu-spu-price-query-retirement-boundary.md)：旧 Task 入口已退出，共享规则/映射/价格仍按原 owner 保留。此前“保留 SKU 构建”的陈述是当批删除边界；用户确认本设计后，仅 §5 的旧构建 caller 保留项由本矩阵替代，其它保留边界不变。
-- [既有 TEMU publishing](../../internal/marketplace/temu/publishing/README.md)：规则与 payload 值处理 owner；已有私有 submissionSpec 可复用，不需新公开 DTO 或依赖旧 Task/API DTO。
+- [既有 TEMU publishing](https://github.com/henryxu1008/shuomi-ai-commerce/blob/3d52287fdaadd55f89b592abb58eb928a745b76a/internal/marketplace/temu/publishing/README.md)：规则与 payload 值处理 owner；已有私有 submissionSpec 可复用，不需新公开 DTO 或依赖旧 Task/API DTO。
 - [当前 Store](store-center-current-application-v1.md)、[观察](store-center-platform-observations-v1.md)、[独立 SHEIN 身份/持久化](shein-worker-identity-persistence-boundary.md)：事实、授权、凭据、同步及恢复归原 owner。Figma N/A，无 UI/IA 修改。
 
 本次实施复用以上架构：只抽取已执行的无 IO 私有值规则、删除旧编排，并收窄无外部消费者的包内 Go constructor 接线。它不是新增/改变公共领域合同、AI 调用/准入/预算/计量、平台 retry/UNKNOWN、身份/tenant、持久化事实、状态机或事务 owner。保留的映射算法、输入/响应合同与 provider 调用实现不变。若实际需要改变上述边界或增加当前消费者，停止对应部分，补适用 Independent Architecture 准入，不能在实现里临时发明架构。

@@ -16,8 +16,8 @@
 
 相关背景文档：
 
-- [amazon-crawler-commercialization-checklist.md](D:/code/task-processor/docs/architecture/amazon-crawler-commercialization-checklist.md)
-- [centralized-deployment-plan.md](D:/code/task-processor/docs/architecture/centralized-deployment-plan.md)
+- [amazon-crawler-commercialization-checklist.md](amazon-crawler-commercialization-checklist.md)
+- [centralized-deployment-plan.md](centralized-deployment-plan.md)
 
 ## 1. 第一阶段
 
@@ -37,9 +37,9 @@
 
 建议改动模块：
 
-- [processor.go](D:/code/task-processor/internal/crawler/amazon/processor.go)
-- [product_checker.go](D:/code/task-processor/internal/crawler/amazon/product_checker.go)
-- [crawler_service.go](D:/code/task-processor/internal/crawler/amazon/crawler_service.go)
+- [processor.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/processor.go)
+- [product_checker.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/product_checker.go)
+- [crawler_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/internal/crawler/amazon/crawler_service.go)
 - `internal/crawler/amazon/result_validator.go`（建议新增）
 
 验收标准：
@@ -58,8 +58,8 @@
 
 建议改动模块：
 
-- [pool_manager.go](D:/code/task-processor/internal/crawler/amazon/browser/pool_manager.go)
-- [processor.go](D:/code/task-processor/internal/crawler/amazon/processor.go)
+- [pool_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/browser/pool_manager.go)
+- [processor.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/processor.go)
 - `internal/crawler/amazon/failure_artifact_store.go`（建议新增）
 
 验收标准：
@@ -80,9 +80,9 @@
 
 建议改动模块：
 
-- [api_service.go](D:/code/task-processor/internal/crawler/amazon/api_service.go)
-- [crawler_service.go](D:/code/task-processor/internal/crawler/amazon/crawler_service.go)
-- [health.go](D:/code/task-processor/internal/infra/httpx/health.go)
+- [api_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/internal/crawler/amazon/api_service.go)
+- [crawler_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/internal/crawler/amazon/crawler_service.go)
+- [health.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/4f30ef5bc9cadc70475005770e4762a8b2da757e/internal/infra/httpx/health.go)
 - `internal/crawler/amazon/metrics.go`（建议新增）
 
 验收标准：
@@ -99,8 +99,8 @@
 
 建议改动模块：
 
-- [crawler_service.go](D:/code/task-processor/internal/crawler/amazon/crawler_service.go)
-- [config-amazon-crawler-api.yaml](D:/code/task-processor/config/config-amazon-crawler-api.yaml)
+- [crawler_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/internal/crawler/amazon/crawler_service.go)
+- [config-amazon-crawler-api.yaml](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/config/config-amazon-crawler-api.yaml)
 
 验收标准：
 
@@ -141,10 +141,10 @@
 
 建议改动模块：
 
-- [browser_pool.go](D:/code/task-processor/internal/crawler/amazon/browser/browser_pool.go)
+- [browser_pool.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/browser/browser_pool.go)
 - `internal/crawler/shared/browser/proxy_provider.go`（建议新增）
 - `internal/crawler/shared/browser/proxy_pool.go`（建议新增）
-- [config-amazon-crawler-api.yaml](D:/code/task-processor/config/config-amazon-crawler-api.yaml)
+- [config-amazon-crawler-api.yaml](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/config/config-amazon-crawler-api.yaml)
 
 验收标准：
 
@@ -163,9 +163,9 @@
 
 建议改动模块：
 
-- [captcha_handler.go](D:/code/task-processor/internal/crawler/amazon/captcha_handler.go)
-- [product_checker.go](D:/code/task-processor/internal/crawler/amazon/product_checker.go)
-- [pool_manager.go](D:/code/task-processor/internal/crawler/amazon/browser/pool_manager.go)
+- [captcha_handler.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/captcha_handler.go)
+- [product_checker.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/product_checker.go)
+- [pool_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/browser/pool_manager.go)
 - `internal/crawler/amazon/risk_backoff.go`（建议新增）
 
 验收标准：
@@ -185,7 +185,7 @@
 
 建议改动模块：
 
-- [crawler_service.go](D:/code/task-processor/internal/crawler/amazon/crawler_service.go)
+- [crawler_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/internal/crawler/amazon/crawler_service.go)
 - `internal/crawler/amazon/rate_limiter.go`（建议新增）
 - Redis 共享状态（可选）
 
@@ -226,8 +226,8 @@
 
 建议改动模块：
 
-- [browser_pool.go](D:/code/task-processor/internal/crawler/amazon/browser/browser_pool.go)
-- [manager.go](D:/code/task-processor/internal/crawler/amazon/browser/manager.go)
+- [browser_pool.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/browser/browser_pool.go)
+- [manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/internal/crawler/amazon/browser/manager.go)
 - `internal/crawler/shared/browser/session_profile.go`（建议新增）
 
 ### 3.2 配置热更新
@@ -241,7 +241,7 @@
 
 建议改动模块：
 
-- [config-amazon-crawler-api.yaml](D:/code/task-processor/config/config-amazon-crawler-api.yaml)
+- [config-amazon-crawler-api.yaml](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/config/config-amazon-crawler-api.yaml)
 - `internal/crawler/amazon/runtime_config.go`（建议新增）
 - Redis / 管理端配置同步模块
 
@@ -271,8 +271,8 @@
 
 建议改动模块：
 
-- [api_service.go](D:/code/task-processor/internal/crawler/amazon/api_service.go)
-- [health.go](D:/code/task-processor/internal/infra/httpx/health.go)
+- [api_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/internal/crawler/amazon/api_service.go)
+- [health.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/4f30ef5bc9cadc70475005770e4762a8b2da757e/internal/infra/httpx/health.go)
 - `internal/crawler/amazon/node_health.go`（建议新增）
 
 ## 4. 模块归属建议

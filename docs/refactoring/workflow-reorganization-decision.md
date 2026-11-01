@@ -178,9 +178,9 @@ internal\listingkit\workflow\result_helpers.go:8:23: undefined: Task
 
 ## 📝 相关文档
 
-- [模块边界分析](./module-boundary-analysis.md)
+- [模块边界分析](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/module-boundary-analysis.md)
 - [第二阶段进展报告](./phase2-progress-report.md)
-- [ListingKit 重构改进计划](../../plans/ListingKit_重构改进计划_2e5b810c.md)
+- `ListingKit 重构改进计划`
 
 ---
 

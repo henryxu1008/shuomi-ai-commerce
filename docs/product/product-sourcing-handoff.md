@@ -77,12 +77,12 @@ explicit new import with verified effective Organization / actor / access
 This is target acceptance, not completed deployment. The baseline above is
 historical; #663 retires only the old Task handoff in this checkout:
 
-- [App composition](../../internal/app/httpapi/composition_builder.go) no longer
+- [App composition](https://github.com/henryxu1008/shuomi-ai-commerce/blob/80c2ddef9c704e5621893a7350061209feb63257/internal/app/httpapi/composition_builder.go) no longer
   wires `internal/compatibility/listingkit/sourcehandoff/a1688` or registers
   `/api/v1/product-sourcing/1688/listingkit/tasks`. The handoff package, dedicated
   DTOs and `scripts/1688-runtime-acceptance.ps1` are removed. Requests to the old
   route are not forwarded to another command.
-- [Catalog composition](../../internal/app/httpapi/product_catalog_composition.go)
+- [Catalog composition](https://github.com/henryxu1008/shuomi-ai-commerce/blob/80c2ddef9c704e5621893a7350061209feb63257/internal/app/httpapi/product_catalog_composition.go)
   retains the Catalog repository and durable snapshot reader. The publisher
   assembly used only by the retired Task handoff is removed.
 - [Current source application](../../internal/app/productsourcing/application.go)

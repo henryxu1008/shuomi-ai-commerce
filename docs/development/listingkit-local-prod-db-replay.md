@@ -138,7 +138,7 @@ go run ./cmd/listingkit-schema-migrate -config config/config-dev.yaml
 以及 ListingKit 的 schema auto-migrate，一起从 API 启动路径里摘出去，
 避免每次本地重启都重复承担这段成本。
 
-这里仍然建议把数据库、Redis、cookie Redis 这些连接信息固定写在仓库根目录的 [`.env`](/D:/code/task-processor/.env)，
+这里仍然建议把数据库、Redis、cookie Redis 这些连接信息固定写在仓库根目录的 `.env`，
 不要每次在当前 PowerShell 窗口里临时敲一遍环境变量。
 原因是 `product-listing-api` 本身就会自动加载仓库根目录 `.env`；
 统一落到文件里，才能保证每次联调都命中同一套固定配置。

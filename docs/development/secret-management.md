@@ -1,43 +1,18 @@
-> **当前入口与历史部署约定分开读取。** 凭据不得提交、不得打印、使用私密注入及准确作用域等底线继续有效。当前 Go 应用沿[显式私有 JSON manifest](repository-structure.md#current-entrypoint-map)与[当前配置 owner](listingkit-config-migration-checklist.md)，不由下文旧 `listingkit.zitadel.*` / YAML / RabbitMQ 示例恢复已退休输入。Console 身份配置见[前端 README](../../web/listingkit-ui/README.md)。下方 External Secrets、轮转和 Git 历史清理清单是原部署背景，不能当作本次内部试用的新前置或操作授权；实际目标须由对应运行 owner 核对。原文及已有退休说明保留。
+# 凭据管理
 
-# Secret Management
+生产凭据不得写入仓库，包括 `.env`、配置、Kubernetes Secret manifest、临时脚本、文档示例和调试输出。配置使用私密注入与准确作用域，不打印凭据或把它传入可观察的命令参数。
 
-生产凭据不得写入仓库，包括 `.env`、`config/*.yaml`、`Secret` manifest、临时脚本和调试输出。
+## 当前配置入口
 
-## 配置约定
+- Go 应用使用显式绝对路径的私有 JSON manifest，见[当前入口地图](repository-structure.md#current-entrypoint-map)与[配置退休边界](listingkit-config-migration-checklist.md)。
+- Console 的身份与 BFF 配置见[前端 README](../../web/listingkit-ui/README.md)和 [Account Compose](../../deployments/docker/account-compose/README.md)。UI 需要的 `ZITADEL_ISSUER_URL`、`ZITADEL_CLIENT_ID`、`ZITADEL_CLIENT_SECRET` 与 redirect URI 由相应私密环境提供；本目录没有需要复制的前端 `.env.example`。
+- 当前 AI 读取已发布 route 所属组织的准确凭据。全局 `openai:`、仓库自有 `TASK_PROCESSOR_OPENAI_` 以及成员/全局凭据回退已按 [#1033](../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)退休；凭据物理表、明确作用域的 Get/Save、引用与版本合同不变。
+- 旧 `listingkit.zitadel.*`、allowlist 和 RabbitMQ 配置示例不能恢复已退休授权或输入；拒绝旧字段的陷阱仍按[当前配置说明](listingkit-config-migration-checklist.md)保留。
 
-- 本地开发：使用 `.env.example`、`.env.prod` 模板、`config/*example*` 或未提交的本地覆盖文件。
-- Kubernetes：使用 `ExternalSecret` 生成运行时 `Secret`，业务 Deployment 继续通过现有 `secretRef`/`envFrom` 读取变量。
-- 变量名保持稳定，例如 `TASK_PROCESSOR_RABBITMQ_URL`，避免应用代码感知密钥来源变化。
-- ListingKit Go API 运行时配置现在统一进入核心配置对象；`listingkit.zitadel.*`
-  可以来自 YAML，也可以来自绑定 env。Next.js UI 仍直接读取
-  `ZITADEL_*` 浏览器端 OIDC 变量。
+## Kubernetes 的既有凭据约定
 
-#1033 已退休全局 `openai:` 与仓库自有 `TASK_PROCESSOR_OPENAI_` 输入；
-当前 AI 使用已发布 route 所属组织的凭据，不再回退到成员或全局配置。
-凭据物理表、明确作用域 Get/Save 和引用/版本合同不变。本次不读取、轮转或
-清理任何已有凭据；下方历史上线清单不作为内部试用新增前置。
+适用部署使用 ExternalSecret 生成运行时 Secret，消费方继续沿其准确 `secretRef` / `envFrom`。原约定为 `secretStoreRef.name=task-processor-secrets`、`kind=ClusterSecretStore`、远端 key `task-processor/<env>/<app>`；`target.name` 必须匹配实际 Deployment。配置是否已安装由对应运维 owner 核对。
 
-## External Secrets 约定
+原生产上线清单中的凭据轮转、ClusterSecretStore / 远端 key、旧明文 Secret 失效以及 Git 历史清理评估仍由生产 owner 负责；不把它们变为当前内部试用的新前置，也不由本说明授权执行。
 
-- `secretStoreRef.name`: `task-processor-secrets`
-- `secretStoreRef.kind`: `ClusterSecretStore`
-- 远端 key 路径格式：`task-processor/<env>/<app>`
-- 每个 `ExternalSecret` 的 `target.name` 必须与 Deployment 当前引用的 Secret 名称一致。
-
-## 上线前必须完成
-
-1. 轮转 RabbitMQ、OpenAI、PostgreSQL、Redis、对象存储等现有凭据。
-2. 在集群中创建或更新 `ClusterSecretStore` 与远端 key。
-3. 失效旧的明文 Kubernetes Secret 来源。
-4. 评估并执行 git 历史清理。
-
-## ListingKit / ZITADEL 额外约定
-
-- `ZITADEL_ISSUER_URL`、`ZITADEL_CLIENT_ID`、`ZITADEL_CLIENT_SECRET`、
-  redirect URI 这类值继续保留在 Secret，因为 UI 仍直接读取它们。
-- Go API 的 ZITADEL issuer/client secret 与 allowlist 继续通过
-  `ZITADEL_*`、`LISTINGKIT_ZITADEL_ALLOWED_*` 或对应的
-  `listingkit.zitadel.*` 配置项注入；ListingKit 鉴权不再提供运行时关闭开关。
-- 迁移步骤与验收项见
-  [listingkit-config-migration-checklist.md](/D:/code/task-processor/docs/development/listingkit-config-migration-checklist.md)。
+删除当前文档中的明文不代表 Git 历史或既有凭据已失效。实际轮转、历史重写与实例配置变更分别沿明确范围处理。

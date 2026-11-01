@@ -295,7 +295,7 @@ if ctxIdentity.TenantID != "" {
 
 ### 文档
 - [第一阶段验收测试报告](./phase1-acceptance-report.md)
-- [错误处理最佳实践指南](../development/error-handling-guide.md)
+- [错误处理最佳实践指南](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/development/error-handling-guide.md)
 - [重构 README](./README.md)
 
 ### 代码位置

@@ -13,7 +13,7 @@
 | 查找使用步骤、配置和运行交接 | [操作与运行说明](operations/README.md) |
 | 执行任务、提交 PR | [AGENTS.md](../AGENTS.md)、[Issue 驱动派工](engineering/issue-driven-development.md)、[Issue 模板](../.github/ISSUE_TEMPLATE/execution-task.md)、[PR 模板](../.github/pull_request_template.md) |
 | 判断旧代码的归属与退出边界 | [重构文档](refactoring/README.md)、[Legacy Hard-Cut](refactoring/legacy-hard-cut-policy.md)、[Legacy Register](refactoring/legacy-register.md) |
-| 追溯旧设计、实施计划或验证结果 | [设计与计划资料](superpowers/README.md)、[历史重构材料](refactoring/README.md#historical-records)、[工程证据目录](engineering/evidence)、[产品验证记录](product/validation/runs/README.md) |
+| 追溯旧设计、实施计划或验证结果 | [设计与计划资料](superpowers/README.md)、[历史重构材料](refactoring/README.md#historical-records)、[工程交接与证据](engineering/README.md)、[产品验证记录](product/validation/runs/README.md) |
 
 当前工作排序见 [Roadmap #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137) 及具体执行 Issue / PR。本页不复制运行地址、账号、滚动 SHA 或验收结果。
 
