@@ -1,3 +1,7 @@
+> **#1050 核对：保留参考与历史记录，旧实施步骤不再适用。** 保留已勾选的邀请 Secret 不泄露和部署 mutation 前 preflight 修复过程；旧脚本/发布链已退休，生产门禁继续适用。
+>
+> 当前阅读依据：[listingkit-release-candidate-runbook.md](../../operations/listingkit-release-candidate-runbook.md)、[legacy-kubernetes-release-execution-closure-retirement-boundary.md](../../architecture/legacy-kubernetes-release-execution-closure-retirement-boundary.md)。本文旧 owner、API、schema、迁移/部署/执行命令及 agent / sub-skill 指令只用于原基线追溯，不构成当前派工或真实操作授权。历史状态、勾选和验证结论原样保留；预期结果不记为实际通过，未执行项保持未执行。下方原 Git 正文完整保留。
+
 # ListingKit Deploy Secret Preflight Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
