@@ -4,10 +4,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SupplyPage } from "./supply-page";
 import StagePage from "@/app/workbench/supply/mine/[stage]/page";
 vi.mock("next/server",()=>({connection:vi.fn()}));
-const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),push:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn()}));
+const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),push:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:state.push})}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
-vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt}));
+vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record}));
 vi.mock("./temu-target-editor",()=>({TemuTargetEditor:({existing}:{existing?:{temu:{mode:string}}})=><p>TEMU 原生资料 {existing?.temu.mode}</p>}));
 vi.mock("./bulk-review-panel",()=>({BulkSupplyReviewPanel:({items}:{items:unknown[]})=><p>实际批量提案 {items.length} 件</p>}));
 vi.mock("@/lib/api/workbench-stores",()=>({listWorkbenchStores:state.stores}));
@@ -21,6 +21,25 @@ beforeEach(()=>{
  state.sources.mockReset().mockResolvedValue({items:[],total:205,nextCursor:source});state.history.mockReset().mockResolvedValue({items:[],total:0});state.write.mockReset().mockResolvedValue({operation:{id:source,input:{preparationId:prep,expectedRevision:1,storeId:store,action:"adapt"},count:205,completed:0,status:"pending",execution:"started",createdAt:"2026-10-08T00:00:00Z"},replayed:false});
  state.stores.mockReset().mockResolvedValue({items:[{id:store,name:"美国试用店铺",platform:"shein",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
 });afterEach(cleanup);
+it("routes the native report source to an exact saved record, independent of a current store or head", async () => {
+ vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","true");vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED","true");
+ const id="55555555-5555-4555-8555-555555555555";
+ const page=await StagePage({params:Promise.resolve({stage:"ready"}),searchParams:Promise.resolve({record:id})});
+ expect(page.props).toMatchObject({initialRecord:id,initialStage:"ready",reportSourcesAvailable:false});
+});
+it("reads the exact historical record without loading a head, rules or execution and links to explicit report preview", async () => {
+ const id="55555555-5555-4555-8555-555555555555";
+ state.context.permissions=["workbench.supply.read","workbench.report.read","workbench.report.manage"];
+ state.record.mockReset().mockResolvedValue({id,revision:2,source:{source:{productKey:"product-a"}},merchant:{store_id:store,site:"shein-us"},input:{draft:{product:{names:[],multi_language_name_list:[{language:"en",name:"历史标题"}],multi_language_desc_list:[]}}},result:{issues:[{field:"images",code:"missing",message:"历史缺图"}],ready_for_upload:false},createdAt:"2026-11-01T00:00:00Z"});
+ const view=render(<SupplyPage initialRecord={id} reportSourcesAvailable/>);
+ await screen.findByText("历史标题");
+ expect(state.record).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},id,expect.any(AbortSignal));
+ expect(state.target).not.toHaveBeenCalled();expect(state.options).not.toHaveBeenCalled();expect(state.stores).not.toHaveBeenCalled();expect(state.write).not.toHaveBeenCalled();
+ expect(screen.getByRole("link",{name:"保存报告"})).toHaveAttribute("href",`/workbench/ai/reports?sourceKind=SHEIN_TARGET_RECORD&sourceId=${id}`);
+ state.context.permissions=["workbench.supply.read"];
+ view.rerender(<SupplyPage initialRecord={id} reportSourcesAvailable/>);
+ expect(screen.queryByRole("link",{name:"保存报告"})).not.toBeInTheDocument();
+});
 it.each(["missing","all"] as const)("keeps platform context through the actual %s route",async(stage)=>{
  state.push.mockClear();
  render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review"/>);

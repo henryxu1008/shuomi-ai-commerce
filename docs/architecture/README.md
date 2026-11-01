@@ -1,3 +1,8 @@
+- [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
+  - #628 user-confirmed native SHEIN TargetRecord report-source design;
+    IMPLEMENTATION_READY; user-authorized implementation in the original Draft PR;
+    distinct source/schema admission; no saved-report reinterpretation or migration.
+
 > #1046 当前源码闭包：[Store旧来源准入与审计尾部完整退休](legacy-store-source-admission-audit-tail-retirement-boundary.md)已获用户确认，按§1–§7（含§4.2/§6.1）在同一PR收齐10路径：四旧对象、专属尾部、安全断言当前owner映射及窄文档说明。当前能力与原有效断言保留；最终源码复核/准确CI留PR，不部署/合并/操作既有资源/关闭#301。以下冻结索引和历史完整保留。
 
 - `legacy-store-source-admission-audit-tail-retirement-boundary.md` — [#301 Store旧来源准入与审计尾部完整退休设计](legacy-store-source-admission-audit-tail-retirement-boundary.md)：四对象、三原测试函数逐项安全断言映射及10路径完整矩阵；当前只四文档设计，一名独立Reviewer及原CI后交用户确认，确认前不实施，保留当前能力与历史。
