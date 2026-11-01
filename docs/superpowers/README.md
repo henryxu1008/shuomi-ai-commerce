@@ -12,7 +12,7 @@
 
 ## 52 份计划逐份核对：保留入口
 
-[本批 #1050](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1050)逐份核对了固定的 52 份旧实施计划：34 份只描述已退休的执行面、兼容路径或旧 UI 拆分，且无完成或实际验证记录，已删除；18 份保留合同参考、已勾选的修复过程或明确的历史证据，原路径和原 Git 正文保持完整，仅增加阅读范围说明。逐份处置与替代依据见该 Issue 的主要 PR。
+[#1050](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1050)首轮逐份核对了固定的 52 份旧实施计划：34 份只描述已退休的执行面、兼容路径或旧 UI 拆分，且无完成或实际验证记录，已删除；18 份保留合同参考、已勾选的修复过程或明确的历史证据，原路径和原 Git 正文保持完整，仅增加阅读范围说明。下节记录用户继续整理后的扩展范围；逐份处置与替代依据均留在同一主要 PR。
 
 以下保留材料供追溯，不是当前实施队列。文内的 `Expected: PASS`、已勾选步骤和未来验收计划不能替代实际执行证据；历史 `NOT_RUN` 不改为通过。当前 owner、准入和事实边界仍以链接的现行合同及明确退休决定为准。
 
@@ -38,6 +38,25 @@
 | [PR #243 审核栏 finding](plans/2026-08-28-pr243-review-fixes.md) | 保留历史问题与方案上下文；当前交互服从 [UI / IA Authority](../product/final-ui-ia-authority.md) |
 
 本批删除草稿的原文可从起始 main `0fba4f8e1602c0760a1ea977c5580887571a7599` 的 Git 历史查阅。身份、资源、平台规则和真实数据的当前边界未因文档清理改变。
+
+## 继续整理：Framework 阶段与专项历史
+
+[实施计划与历史索引](plans/README.md)按阶段收纳了 238 份旧 Framework 资料：94 份 checkpoint、88 份 scope、56 份方案/设计。原文和原位置均保留，“当前”“下一步”和验证结果按原基线追溯；它们不是当前执行队列，也不表示仍有效的 kernel/module 或领域合同已退休。18 份无引用、无当前生产目标和执行结果的旧 Framework 拆分/探索草稿已清理，阶段检查点与范围记录继续可查。
+
+此外，旧调度事件后台和 SDS OSS 恢复两份纯实施草稿已删除；它们的旧运行 owner 已明确退休，不恢复旧状态机或执行批次恢复。以下 8 份专项材料保留原文，仅补阅读说明：
+
+| 保留材料 | 保留依据 |
+| --- | --- |
+| [HTTP module builder 6A](plans/2026-05-20-httpapi-module-builder-phase6a.md) | 已勾选的抽取与验证过程；当前装配仍看现行 HTTP 边界 |
+| [HTTP module builder 6B](plans/2026-05-20-httpapi-module-builder-phase6b.md) | 已勾选的 ProductImage builder 过程；不恢复旧 owner |
+| [HTTP 结构 Phase 1](plans/2026-05-20-httpapi-structure-phase1.md) | HTTP 职责参考；旧集中模块拆分绑定原基线 |
+| [旧 Ownership Controller](plans/2026-06-23-shein-listing-ownership-controller.md) | 原文的生产热修复、专店 976 与旧 rollout 状态记录；controller 操作已退休 |
+| [PAY-013 资产隔离](plans/2026-07-16-pay-013-listingkit-asset-isolation.md) | 私有资产、租户隔离、补偿及重复删除约束与已勾选过程 |
+| [Product / SHEIN Draft 边界](plans/2026-08-05-standard-product-shein-draft-boundary.md) | 领域边界及已勾选验证；原 JSON 兼容描述按原合同追溯 |
+| [owner 写入不变量](plans/2026-08-18-listingkit-owner-write-invariant.md) | canonical owner 约束参考；旧 backfill/部署步骤不授予当前操作权限 |
+| [ImageAgent 入口与 style 授权](plans/2026-08-29-image-agent-workspace-entry-and-style-authorization.md) | 当前授权约束参考；旧 Task Workspace 入口不决定当前 IA |
+
+PR #1051 当前累计核对 318 份原始文档：删除 54 份过期草稿，保留 264 份合同参考和历史记录；索引只是阅读导航，不新增产品/架构权威或验收前置。原始内容可从起始 main `0fba4f8e1602c0760a1ea977c5580887571a7599` 的 Git 历史追溯。
 
 ## 已退出的实施草稿
 

@@ -1,3 +1,7 @@
+> **#1050 继续整理：保留合同参考与历史记录。** 保留显式 style 选择、可信身份与服务端 run 构造的授权约束；旧 Task Workspace 入口不决定当前页面，当前 ImageAgent 合同继续有效。
+>
+> 当前阅读依据：[product-image-agent-v1.md](../../architecture/product-image-agent-v1.md)、[final-ui-ia-authority.md](../../product/final-ui-ia-authority.md)。旧 owner、操作命令和 agent / sub-skill 指令不构成当前派工或真实操作授权；预期输出、勾选和实际验证继续区分。下方原 Git 正文完整保留。
+
 # Image Agent Workspace Entry and Style Authorization Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

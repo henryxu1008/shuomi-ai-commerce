@@ -1,3 +1,7 @@
+> **#1050 继续整理：保留合同参考与历史记录。** 保留 Existing State To Preserve 中当时生产热修复、专店 976 与旧 rollout 状态的历史记录；旧 controller/Redis 协调与部署步骤已退休。
+>
+> 当前阅读依据：[legacy-ownership-controller-retirement-boundary.md](../../architecture/legacy-ownership-controller-retirement-boundary.md)。旧 owner、操作命令和 agent / sub-skill 指令不构成当前派工或真实操作授权；预期输出、勾选和实际验证继续区分。下方原 Git 正文完整保留。
+
 # SHEIN Listing Ownership Controller Implementation Plan
 
 > Historical plan, not current execution authority: #723/#726/#729 retired the old listing CLI and execution chain. The user-confirmed [#738 boundary](../../architecture/legacy-ownership-controller-retirement-boundary.md) retires the remaining declaration, unconsumed ConfigMap overlay and exclusive configuration sources. Do not execute this plan's former implementation, deployment or Redis operations; original evidence and real runtime/data owners are retained.

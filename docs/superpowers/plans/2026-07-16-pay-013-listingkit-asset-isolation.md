@@ -1,3 +1,7 @@
+> **#1050 继续整理：保留合同参考与历史记录。** 保留私有资产、租户隔离、解码校验、补偿和重复删除只结算一次的约束及已勾选过程；旧上传 API 已退出。
+>
+> 当前阅读依据：[auth-and-tenancy.md](../../architecture/auth-and-tenancy.md)、[legacy-listingkit-input-config-closure-retirement-boundary.md](../../architecture/legacy-listingkit-input-config-closure-retirement-boundary.md)。旧 owner、操作命令和 agent / sub-skill 指令不构成当前派工或真实操作授权；预期输出、勾选和实际验证继续区分。下方原 Git 正文完整保留。
+
 # PAY-013 ListingKit Asset Isolation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
