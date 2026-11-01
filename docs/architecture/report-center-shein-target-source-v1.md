@@ -3,9 +3,9 @@
 Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)。
 
 - Design Basis: **Independent Architecture**，新增当前来源的读取、授权、版本和持久化种类合同。
-- Status: **DESIGN_ONLY / DRAFT / NOT_READY**；不是 IMPLEMENTATION_READY。
+- Status: **DESIGN_ONLY / USER_CONFIRMED / IMPLEMENTATION_READY（架构）**；正式实施仍 NOT_AUTHORIZED / SOURCE_NOT_STARTED。
 - Investigation baseline: `161b1de17e1deb769fd661162a9fb38786ab003e`，2026-11-01。
-- 用户本轮只授权唯一 Writer 调查、设计及一个 design-only Draft PR；未授权实现、独立 Reviewer、合并、部署或关闭。
+- 用户已认可新来源与新空 Report 库候选、确认离线诊断未覆盖，并授权单一独立 Reviewer；原候选 `1ebabf3f84b2fda8512a50117717fda8e4b9f10f` 的 R1 无设计级 BLOCKER，两处文档澄清同批修正。准确 HEAD 的最终增量/CI证据维护在 [PR #1045](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1045)；未授权实现、合并、部署或关闭。
 
 ## 1. 用户结果、权威和停止点
 
@@ -49,7 +49,7 @@ Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)�
 版本候选复用现有 `collection.Digest`：
 
 1. `bodyDigest = collection.Digest(record)`，与 native owner 已验证的不可变 body 语义一致。
-2. `version = collection.Digest({projection: "shein-target-report-v1", bodyDigest})`，固定字段结构，不使用 map 或当前时间/店铺名称/当前 head。
+2. `version = "sha256:" + collection.Digest({projection: "shein-target-report-v1", bodyDigest})`；`collection.Digest` 本身只返回裸64hex，前缀在这里显式添加。使用固定字段结构，不使用 map 或当前时间/店铺名称/当前 head。
 3. 新种类的 version 必须是规范 `sha256:<64 lowercase hex>`，长度不超过原 96 字符。projection 格式变化须显式换版本，不能同 ref 生成不同正文后覆盖。
 
 `kind/id/version` 三元组区分两个事实 owner；恰好相同 UUID 不发生跨类命中。Report 自己的 content digest 仍由现有 `Snapshot.Bytes` 计算，与原资料 digest/来源版本分别显示。
@@ -89,7 +89,7 @@ Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)�
 | 请求状态 | 准入与结果 |
 | --- | --- |
 | 未启用新来源 | 原 TITLE_REVIEW/已保存报告照原合同；新种类新捕获不可用，不静默转旧来源 |
-| 已启用 | 必须已有正常 Report + full Supply reader，在 listen 前只读验证 kind CHECK 支持精确三类，并复用原 VerifySchema 角色/列权限检查；原唯一键/FK保持不变并复用既有验证。不满足则拒绝配置，不宣称来源可用 |
+| 已启用 | 必须已有正常 Report + full Supply reader，在 listen 前只读验证 kind CHECK 支持精确三类，并复用原 VerifySchema 角色/列权限检查。原唯一键/FK DDL保持不变，复用原安装及事务回归；当前VerifySchema未验证键/FK，不将其写成已有检查或扩大为新机制。不满足则拒绝配置，不宣称来源可用 |
 | 新空 Report DB | 后续获准实现时，沿原 native initializer安装已批准的新 CHECK，不在serve时DDL |
 | 旧/保留 Report DB只有两类 | 本候选**不提供 ALTER、数据迁移、重建、copy/双读或升级工具**。不能打开opt-in凑可用，不能更换真实连接。将来启用须有合格的正常初始化条件，相关环境动作另行授权 |
 
@@ -127,7 +127,7 @@ Legacy decision: **EXTRACT**（复用当前已批准行为）；不对旧owner�
 
 ## 8. 后续最小验证与批准门槛
 
-只有用户确认本候选范围并授权适用的单一独立架构复核、达到 IMPLEMENTATION_READY，且明确授权实现后，才在同一Delivery Batch/主要PR先补失败回归，再补最小实现。当前不新增Reviewer、不写生产路径或schema。
+用户已确认本候选范围并授权单一独立架构复核；原准确候选R1已给出 IMPLEMENTATION_READY（架构），本批两处文档澄清和README历史后缀修复由同一Reviewer只做增量核对。架构准入不授权实施；必须取得后续明确实施授权，才在同一Delivery Batch/主要PR先补失败回归，再补最小实现。本轮不另派Reviewer、不写生产路径或schema。
 
 后续复用现有 Report、Supply mounted reader和PostgreSQL测试，验证：
 
@@ -140,6 +140,6 @@ Legacy decision: **EXTRACT**（复用当前已批准行为）；不对旧owner�
 
 不新建runner/验收平台，不默认执行完整人工矩阵。未来开发自检、独立复核、PR CI、actual merge CI、运行和用户验收各自记录。
 
-本轮状态：仅文档/引用/索引自检；正式实现、PG功能/故障回归、独立架构复核及真实环境均 **NOT_RUN**，现场准备与旧库状态 **UNKNOWN**。未批准新风险。
+本轮状态：仅文档/引用/索引自检及已授权单一独立架构复核；原R1为 IMPLEMENTATION_READY（架构），准确最终HEAD/增量及CI见PR回执。正式实现、PG功能/故障回归及真实环境均 **NOT_RUN**，现场准备与旧库状态 **UNKNOWN**。旧候选README历史后缀CI失败保留，不以架构Ready或本地自检代替新HEAD CI；未批准新风险。
 
-待用户确认的候选决定是：独立新kind及明确资料/诊断边界；仅正常full Supply读取和显式source opt-in；新schema正常初始化而非保留库变更；最小来源定位consumer。确认本候选不自动授权实施、评审派工、合并、部署或关单。
+用户认可的边界是：独立新kind及明确资料/诊断边界；仅正常full Supply读取和显式source opt-in；新schema正常初始化而非保留库变更；最小来源定位consumer。本轮架构复核与文档收敛不自动授权实施、更多评审派工、合并、部署或关单。

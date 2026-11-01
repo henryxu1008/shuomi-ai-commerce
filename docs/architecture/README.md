@@ -1,3 +1,8 @@
+- [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
+  - #628 design-only candidate for native SHEIN TargetRecord report capture;
+    DRAFT / NOT_READY, distinct source identity and explicit schema admission;
+    no reinterpretation or migration of saved reports and no implementation grant.
+
 - `legacy-resource-transaction-closure-retirement-boundary.md` — [#1041 旧资源通用事务与 Store 同库扣费链完整退休设计](legacy-resource-transaction-closure-retirement-boundary.md)：§1–§7（含§4.2/§6.1），待确认27路径完整闭包；当前仅设计，保留当前能力与Store观察，#301 OPEN。
 
 > #1039 当前整批交付：[旧图片异步、GRSAI通用执行与模型审核闭包](legacy-image-async-review-closure-retirement-boundary.md)已按用户确认设计整批实现，当前 IMPLEMENTED / In Review。窄编辑/同步Once、账本双指纹和当前共享AST helper已抽取；当前能力与Store观察、JSON/hash和物理账本保持，workflow/inventory/既有资源不动，#301 OPEN。以下冻结导航原文逐字保留。
@@ -546,10 +551,6 @@ source of truth for long-lived rules.
   - #628 frozen IMPLEMENTATION_READY personal report snapshots, favorites and
     exact source-version capture. Shared runtime wiring and actual user acceptance
     remain separate from feature-local implementation and fixture evidence.
-- [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
-  - #628 design-only candidate for native SHEIN TargetRecord report capture;
-    DRAFT / NOT_READY, distinct source identity and explicit schema admission;
-    no reinterpretation or migration of saved reports and no implementation grant.
 - [`tool-market-v1.md`](./tool-market-v1.md)
   - Native composition and local installation limits: [current-tool-market operations](../operations/current-tool-market.md).
   - #613 frozen IMPLEMENTATION_READY feature Design Basis for enterprise-shared enablement and manual customization progress; existing capture permissions and offline quote/payment owners remain unchanged. This feature contract does not introduce repository-wide structural rules.
