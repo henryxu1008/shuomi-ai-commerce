@@ -7,7 +7,7 @@
 
 硕米智能引擎面向跨境电商卖家与运营团队，将商品采集、资料管理、AI 内容与图片处理、平台适配和店铺运营连接起来。目标是让团队围绕一个商品或业务目标协作，减少重复录入和多工具切换，并在关键操作前检查结果、作出确认。
 
-[产品与设计](./docs/product/final-ui-ia-authority.md) · [本地环境](./deployments/docker/account-compose/README.md) · [前端开发](./web/listingkit-ui/README.md) · [采集插件](./extensions/product-capture/README.md) · [架构文档](./docs/architecture/README.md)
+[文档导航](./docs/README.md) · [产品与设计](./docs/product/final-ui-ia-authority.md) · [本地环境](./deployments/docker/account-compose/README.md) · [前端开发](./web/listingkit-ui/README.md) · [采集插件](./extensions/product-capture/README.md) · [架构文档](./docs/architecture/README.md)
 
 ## 围绕商品完成工作
 
