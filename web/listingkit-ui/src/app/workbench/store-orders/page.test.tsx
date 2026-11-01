@@ -30,6 +30,9 @@ const detail = {
   deliveries: [], operations: [], has_more_purchases: false, has_more_deliveries: false, has_more_operations: false,
 };
 beforeEach(() => {
+  detail.purchases[0].lines[0].received_qty = 4;
+  detail.purchases[0].has_more_receipts = false;
+  detail.purchases[0].receipts[0].lines[0].rejected_qty = 0;
   state.org = "org"; state.available = true; state.failure = false; commands.length = 0;
   vi.stubEnv("LISTINGKIT_ORDER_BUSINESS_CASE", JSON.stringify(reference));
   vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
@@ -66,6 +69,22 @@ it("does not expose another organization's case or request its facts", async () 
   expect(await screen.findByRole("heading", { name: "订单管理", level: 1 })).toBeVisible();
   expect(screen.queryByText("采购备货交仓案例")).not.toBeInTheDocument();
   expect(commands).toEqual([]);
+});
+
+it("keeps rejected arrival separate from qualified receipts", async () => {
+  detail.purchases[0].lines[0].received_qty = 6;
+  detail.purchases[0].receipts[0].lines[0].rejected_qty = 2;
+  await mount();
+  expect(await screen.findByText("PO-CASE")).toBeVisible();
+  expect(screen.getByText("采购 6 件 · 合格收货 4 件")).toBeVisible();
+  expect(screen.getByText("累计到货 6 件（含拒收）")).toBeVisible();
+});
+
+it("does not infer a qualified total from an incomplete receipt page", async () => {
+  detail.purchases[0].has_more_receipts = true;
+  await mount();
+  expect(await screen.findByText("合格收货数量需翻页核对")).toBeVisible();
+  expect(screen.queryByText("采购 6 件 · 合格收货 4 件")).not.toBeInTheDocument();
 });
 
 it("does not put synthetic cases into an unconfigured installation", async () => {

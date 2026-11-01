@@ -70,15 +70,18 @@ function SavedCase({ reference, scope }: { reference: OrderBusinessCase; scope: 
     <p>本案例使用合成商品和供应商，全部交接与平台回执仅供试用。</p>
     <ol className="grid gap-4" aria-label="订单业务流程">
       <li><h3>1. 原单关联</h3><p>已关联原生需求 {detail.name}；原单与内部单据分别保留。</p><Link href={caseLink(reference, "source")} prefetch={false}>查看原单关联</Link></li>
-      <li><h3>2. 采购与收货</h3>{detail.purchases.length ? detail.purchases.map(purchase => <div key={purchase.name}>
+      <li><h3>2. 采购与收货</h3>{detail.purchases.length ? detail.purchases.map(purchase => {
+        const ordered = purchase.lines.reduce((sum, line) => sum + line.qty, 0);
+        const accepted = purchase.has_more_receipts ? null : purchase.receipts.reduce((sum, receipt) => sum + receipt.lines.filter(line => purchase.lines.some(original => original.line === line.purchase_line)).reduce((total, line) => total + line.accepted_qty, 0), 0);
+        return <div key={purchase.name}>
         <p><strong>{purchase.name}</strong> · {purchase.supplier}</p>
-        <p>采购 {purchase.lines.reduce((sum, line) => sum + line.qty, 0)} 件 · 合格收货 {purchase.lines.reduce((sum, line) => sum + line.received_qty, 0)} 件</p>
-        <p>尚未合格收货 {purchase.lines.reduce((sum, line) => sum + Math.max(0, line.qty - line.received_qty), 0)} 件</p>
+        {accepted === null ? <><p>采购 {ordered} 件</p><p>合格收货数量需翻页核对</p></> : <><p>采购 {ordered} 件 · 合格收货 {accepted} 件</p><p>尚未合格收货 {Math.max(0, ordered - accepted)} 件</p></>}
+        <p>累计到货 {purchase.lines.reduce((sum, line) => sum + line.received_qty, 0)} 件（含拒收）</p>
         {purchase.receipts.map(receipt => <p key={receipt.name}>收货单 {receipt.name}</p>)}
         {purchase.has_more_receipts ? <p>还有收货记录，请进入采购页翻页核对。</p> : null}
-      </div>) : <p>尚无采购单；已有库存的订单可直接办理库存与装箱。</p>}
+      </div>; }) : <p>尚无采购单；已有库存的订单可直接办理库存与装箱。</p>}
         {detail.has_more_purchases ? <p>当前展示首批采购单，更多单据请进入采购页核对。</p> : null}
-        <Link href={caseLink(reference, "purchase")} prefetch={false}>打开采购与收货</Link></li>
+        <Button asChild><Link href={caseLink(reference, "purchase")} prefetch={false}>打开采购与收货</Link></Button></li>
       <li><h3>3. 库存与装箱</h3><p>当前预留 {reserved} 件 · 当前页包裹 {detail.deliveries.length} 个</p>
         {detail.deliveries.map(delivery => <p key={delivery.name}>{delivery.package_id} · {delivery.name} · {delivery.docstatus === 1 ? "已实际交接" : "装箱草稿"}</p>)}
         {detail.has_more_deliveries ? <p>还有包裹，请进入装箱页翻页核对。</p> : null}
