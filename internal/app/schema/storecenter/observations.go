@@ -5,6 +5,7 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	observationschema "task-processor/internal/integration/persistence/storeobservations"
+	currentstore "task-processor/internal/storecenter"
 )
 
 // InstallObservations is explicit fresh-instance setup, never runtime startup.
@@ -22,6 +23,36 @@ func InstallObservations(ctx context.Context, records *gorm.DB) error {
 			return err
 		}
 		return observationschema.GrantRuntime(ctx, tx, "store_center_runtime")
+	})
+}
+
+// InstallCurrentStoreObservations is the separately authorized current-Store
+// installation, not a change to the fresh-instance entry above.
+func InstallCurrentStoreObservations(ctx context.Context, records *gorm.DB, confirmedDatabase string) error {
+	if ctx == nil || records == nil || records.Dialector == nil || records.Dialector.Name() != "postgres" || confirmedDatabase == "" {
+		return errors.New("explicit current Store owner database required")
+	}
+	return records.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='25s'; SELECT pg_advisory_xact_lock(hashtextextended(current_database()||':store-observations-install',0))`).Error; err != nil {
+			return err
+		}
+		var exists bool
+		if err := tx.Raw(`SELECT to_regnamespace('store_observations') IS NOT NULL`).Scan(&exists).Error; err != nil {
+			return err
+		}
+		if exists {
+			return errors.New("observations schema already exists; inspect with --observations-verify; no automatic repair")
+		}
+		if err := currentstore.VerifyCurrentObservationsInstallBoundary(ctx, tx.Statement.ConnPool, confirmedDatabase, false); err != nil {
+			return err
+		}
+		if err := observationschema.Install(ctx, tx); err != nil {
+			return err
+		}
+		if err := observationschema.GrantRuntime(ctx, tx, "store_center_runtime"); err != nil {
+			return err
+		}
+		return currentstore.VerifyCurrentObservationsInstallBoundary(ctx, tx.Statement.ConnPool, confirmedDatabase, true)
 	})
 }
 

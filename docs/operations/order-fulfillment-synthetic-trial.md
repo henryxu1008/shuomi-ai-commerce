@@ -86,6 +86,18 @@
 
 ## 保存与运维边界
 
+### 在本试用的当前 Store 安装订单观察模块
+
+2026-11-01 用户选择保留已保存的合成案例，先设计并独立评审安装支持，再开发。依据为 [当前 Store 观察模块安装设计](../architecture/store-observations-current-store-install.md)。这只授权新试用 `ordertrial-20261101-01`，不授权更改 `task-processor-unified-20261010`、`orderfit-20261031` 或其他实例。
+
+独立 schema owner 先私密备份本试用 Store，保留原配置/镜像和原事实、public schema/ACL/Goose history 快照；使用准确 Git 版本的标准 `Dockerfile.account-compose` 的 `schema-init` target。命令为 `store-center-schema-init --observations-current-store --confirm-database store_center --config <本试用私密owner配置绝对路径>`。命令同时检查配置数据库和真实连接目标，只安装既有四表及原 grants；不运行基础迁移、不修改已保存店铺或履约数据，也不自动发布运行配置。原 `--observations-only` 继续要求空店铺库，不能删 guard 或重 seed。
+
+成功后用本试用私密 `store_center_runtime` 配置执行 `--observations-verify`，再将当前 manifest 中 `storeCenter.observations` 设为同一 Temporal 的 full mode（`preparationOnly:false`），保留全部其余设置。仅本试用后端重启。合成服务补对应原单的订单列表、原包裹详情及明确标识模拟的轨迹；网络代理仍只接本地替身，不向真实 SHEIN 转发。
+
+若命令回执丢失，结果记 UNKNOWN；先只读检查 namespace 与 serving-role verify，不能重建、改库名、drop、自动恢复 grants 或重发原平台操作。已有 schema 一律拒绝安装。回退时先停观察 worker、恢复原 disabled 配置并由原 owner 撤销仅新增观察 runtime grants，再核对原 disabled preflight；保留四表和数据。不能仅回退镜像就宣称数据库已回退。
+
+本次原单 `TRY-US-UI-20261101-001` 已完成现货预留1件、装箱 `MAT-DN-2026-00004` 和原合成运单上传。启用后继续该原单：**平台订单记录 → 选择原合成店铺 → 同步订单 → 原单详情 → 查询原包裹物流**，再回履约页的“交接与物流”记录1件模拟交接。查询与交接分别验证，不重复已成功的运单上传、不换原单绕过未知状态；真实平台与承运商仍待联调。
+
 ERP 站点 `frontend` 的单据与库存保存在本项目的 ERP 数据库/站点卷；账号在本项目身份数据库，业务店铺在本项目业务数据库，工作流在本项目 Temporal 卷，合成平台响应在本项目独立状态卷。另一个 `trial-contract.localhost` 是本项目内的回归测试站点，测试旁路只在该测试站点启用，试用站点 `frontend` 未启用。
 
 私有运行配置为 `C:\Users\Henry\AppData\Local\ListingKit\ordertrial-20261101-01\compose.json`，配置文件和密码目录有独立用户/SYSTEM ACL。保留本次试用服务与所有数据卷；正常停止或重启不删除数据。不要对其他项目执行初始化、清理、`down -v` 或通用 prune。重新启动沿用当前私有编排和已有卷，不重新运行准备脚本或合成数据 seed。
