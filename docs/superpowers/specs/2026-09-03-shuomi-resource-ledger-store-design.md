@@ -1,3 +1,5 @@
+> #1041 当前源码边界：[用户确认的完整退休设计§1–§7/§4.2/§6.1](../../architecture/legacy-resource-transaction-closure-retirement-boundary.md)已实施。本文旧通用owner注册/预留/结算及§8 Store同库编排承诺仅为历史，对应专属源码已退出。当前资源值/购买校验沿ledger/orgresource，图像结算沿integration/orgresource原ctx/tx/锁序及debt-first；当前Store使用独立Store intent/proof和Resource ConsumerCharge。当前资金/余额/月限/身份权限/JSON/hash/物理账本及UNKNOWN/恢复保持，不新增跨库原子性、迁移或兼容。以下原正文逐字保留，不授权部署、既有实例或真实数据操作。
+
 # 硕米企业资源账本与店铺服务生命周期设计
 
 **状态：** 待评审

@@ -2,6 +2,8 @@ package orgresourceadapter
 
 import (
 	"context"
+	"errors"
+	"math"
 	"strings"
 	"sync"
 	"task-processor/internal/imageagent"
@@ -10,11 +12,153 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 type imageFactTestOwner struct {
 	mu   sync.Mutex
 	fact imageagent.GenerationFact
+}
+
+func TestImageSettlementReleaseRepaysDebtBeforeAvailableAndReplays(t *testing.T) {
+	db, repository, owner, receipt := reservedImageSettlementFixture(t)
+	ctx := context.Background()
+	require.NoError(t, db.Create(&organizationResourceDebtRow{OrganizationID: "org-1", ResourceType: "ai_point", Amount: 5}).Error)
+	var err error
+	owner.fact, err = owner.fact.RecordNoGeneration()
+	require.NoError(t, err)
+	settled, err := repository.FinalizeImageGeneration(ctx, owner.fact.Intent.Identity)
+	require.NoError(t, err)
+	require.Equal(t, "released", settled.State)
+	require.Equal(t, receipt.ReservationID, settled.ReservationID)
+	assertBucket(t, db, "org-1", orgresource.ResourceAIPoint, 95, 0, 0)
+	assertDebt(t, db, "org-1", orgresource.ResourceAIPoint, 0)
+	var event organizationResourceEventRow
+	require.NoError(t, db.Where("organization_id = ? AND operation_id = ?", "org-1", settled.OperationID).Take(&event).Error)
+	require.Equal(t, "release", event.Reason)
+	require.EqualValues(t, 12, event.GrossCredit)
+	require.EqualValues(t, 5, event.DebtRepaid)
+	require.EqualValues(t, 7, event.NetCredit)
+	var month memberAIPointMonthRow
+	require.NoError(t, db.Where("organization_id = ? AND member_id = ?", "org-1", "member-1").Take(&month).Error)
+	require.Zero(t, month.Reserved)
+	require.Zero(t, month.Consumed)
+	again, err := repository.FinalizeImageGeneration(ctx, owner.fact.Intent.Identity)
+	require.NoError(t, err)
+	require.Equal(t, settled, again)
+	for table, count := range map[string]int64{"saas_organization_resource_operations": 3, "saas_organization_resource_events": 2, "saas_organization_resource_audit_logs": 3} {
+		assertTableCount(t, db, table, count)
+	}
+}
+
+func TestImageSettlementRejectsBalanceOverflowWithoutPartialEffects(t *testing.T) {
+	for _, balance := range []string{"available", "consumed"} {
+		t.Run(balance, func(t *testing.T) {
+			db, repository, owner, receipt := reservedImageSettlementFixture(t)
+			ctx := context.Background()
+			var err error
+			if balance == "available" {
+				owner.fact, err = owner.fact.RecordNoGeneration()
+			} else {
+				owner.fact, _, err = owner.fact.BeginDispatch()
+				require.NoError(t, err)
+				owner.fact, err = owner.fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
+			}
+			require.NoError(t, err)
+			require.NoError(t, db.Model(&organizationResourceBucketRow{}).Where("organization_id = ? AND resource_type = ?", "org-1", "ai_point").Update(balance, int64(math.MaxInt64)).Error)
+			_, err = repository.FinalizeImageGeneration(ctx, owner.fact.Intent.Identity)
+			require.ErrorIs(t, err, orgresource.ErrInvalidInput)
+			available, consumed := int64(88), int64(0)
+			if balance == "available" {
+				available = math.MaxInt64
+			} else {
+				consumed = math.MaxInt64
+			}
+			assertBucket(t, db, "org-1", orgresource.ResourceAIPoint, available, 12, consumed)
+			assertImageSettlementStillReserved(t, db, owner.fact, receipt)
+			require.NoError(t, db.Model(&organizationResourceBucketRow{}).Where("organization_id = ? AND resource_type = ?", "org-1", "ai_point").Updates(map[string]any{"available": 88, "consumed": 0}).Error)
+			settled, err := repository.FinalizeImageGeneration(ctx, owner.fact.Intent.Identity)
+			require.NoError(t, err)
+			if balance == "consumed" {
+				require.Equal(t, "committed", settled.State)
+				var event organizationResourceEventRow
+				require.NoError(t, db.Where("organization_id = ? AND operation_id = ?", "org-1", settled.OperationID).Take(&event).Error)
+				require.Equal(t, "commit", event.Reason)
+			} else {
+				require.Equal(t, "released", settled.State)
+			}
+		})
+	}
+}
+
+func TestImageSettlementEventOrAuditFailureRollsBackDebtAndEntireHold(t *testing.T) {
+	for _, table := range []string{"saas_organization_resource_events", "saas_organization_resource_audit_logs"} {
+		t.Run(table, func(t *testing.T) {
+			db, repository, owner, receipt := reservedImageSettlementFixture(t)
+			ctx := context.Background()
+			require.NoError(t, db.Create(&organizationResourceDebtRow{OrganizationID: "org-1", ResourceType: "ai_point", Amount: 5}).Error)
+			var err error
+			owner.fact, err = owner.fact.RecordNoGeneration()
+			require.NoError(t, err)
+			failure := errors.New("synthetic image settlement persistence failure")
+			require.NoError(t, db.Callback().Create().Before("gorm:create").Register("reject_image_settlement", func(tx *gorm.DB) {
+				if tx.Statement.Table == table {
+					tx.AddError(failure)
+				}
+			}))
+			_, err = repository.FinalizeImageGeneration(ctx, owner.fact.Intent.Identity)
+			require.ErrorIs(t, err, failure)
+			assertBucket(t, db, "org-1", orgresource.ResourceAIPoint, 88, 12, 0)
+			assertDebt(t, db, "org-1", orgresource.ResourceAIPoint, 5)
+			assertImageSettlementStillReserved(t, db, owner.fact, receipt)
+			require.NoError(t, db.Callback().Create().Remove("reject_image_settlement"))
+			settled, err := repository.FinalizeImageGeneration(ctx, owner.fact.Intent.Identity)
+			require.NoError(t, err)
+			require.Equal(t, "released", settled.State)
+			assertBucket(t, db, "org-1", orgresource.ResourceAIPoint, 95, 0, 0)
+			assertDebt(t, db, "org-1", orgresource.ResourceAIPoint, 0)
+		})
+	}
+}
+
+func reservedImageSettlementFixture(t *testing.T) (*gorm.DB, *GormImageGenerationRepository, *imageFactTestOwner, imageagent.GenerationReservationReceipt) {
+	t.Helper()
+	db := openSQLiteStore(t)
+	require.NoError(t, AutoMigrate(db))
+	now := time.Date(2026, 9, 30, 23, 59, 0, 0, time.UTC)
+	limits, err := NewGormMemberLimitRepository(db, TransactionConfig{})
+	require.NoError(t, err)
+	limits.now = func() time.Time { return now }
+	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "org-1", MemberID: "member-1", ActorID: "admin-1", OperationID: "limit-1", Target: 20})
+	require.NoError(t, err)
+	require.NoError(t, db.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{OrganizationID: "org-1", ResourceType: "ai_point", Available: 100}).Error)
+	fact, err := imageagent.NewGenerationFact(imageagent.GenerationIntent{Identity: imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main-1", Attempt: 1}, MemberID: "member-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(now)})
+	require.NoError(t, err)
+	owner := &imageFactTestOwner{fact: fact}
+	repository, err := NewGormImageGenerationRepository(db, TransactionConfig{}, owner, &imagePointTestAuthorizer{})
+	require.NoError(t, err)
+	repository.now = func() time.Time { return now }
+	receipt, err := repository.ReserveImageGeneration(context.Background(), fact.Intent.Identity)
+	require.NoError(t, err)
+	owner.fact, err = owner.fact.BindReservation(receipt)
+	require.NoError(t, err)
+	return db, repository, owner, receipt
+}
+
+func assertImageSettlementStillReserved(t *testing.T, db *gorm.DB, fact imageagent.GenerationFact, receipt imageagent.GenerationReservationReceipt) {
+	t.Helper()
+	var reservation organizationResourceReservationRow
+	require.NoError(t, db.Where("organization_id = ? AND reservation_id = ?", "org-1", receipt.ReservationID).Take(&reservation).Error)
+	require.Equal(t, string(orgresource.ReservationReserved), reservation.State)
+	require.Nil(t, reservation.SettlementOperationID)
+	require.Nil(t, reservation.SettledAt)
+	var month memberAIPointMonthRow
+	require.NoError(t, db.Where("organization_id = ? AND member_id = ? AND month_start = ?", "org-1", "member-1", fact.Intent.MonthStart).Take(&month).Error)
+	require.EqualValues(t, 12, month.Reserved)
+	require.Zero(t, month.Consumed)
+	for table, count := range map[string]int64{"saas_organization_resource_operations": 2, "saas_organization_resource_events": 1, "saas_organization_resource_audit_logs": 2} {
+		assertTableCount(t, db, table, count)
+	}
 }
 
 func (o *imageFactTestOwner) ReadGenerationFact(_ context.Context, id imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
