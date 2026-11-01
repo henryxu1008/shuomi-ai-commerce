@@ -1,6 +1,6 @@
 # 订单、采购、发货与物流首版设计草案
 
-日期：2026-10-31。执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。Design Basis：Independent Architecture。状态：FROZEN / IMPLEMENTATION_READY。独立第1轮核对 ae76bef05，第2轮仅复核 B1 增量，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确准入；此结论先于生产代码修改。用户已授权适配验证、独立评审及准入后的开发；合并、部署、保留实例和真实业务操作不在本次授权内。
+日期：2026-10-31。执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。Design Basis：Independent Architecture。状态：FROZEN / IMPLEMENTATION_READY。独立第1轮核对 ae76bef05，第2轮仅复核 B1 增量，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确准入；此结论先于生产代码修改。用户已授权适配验证、独立评审及准入后的开发；合并、生产部署、保留实例和真实业务操作不在本次授权内。2026-11-01 用户追加授权全新独立合成试用环境，沿用本冻结架构及现有权限合同；入口与当前范围见[试用说明](../operations/order-fulfillment-synthetic-trial.md)，本决定只替代此前不允许新隔离试用部署的阶段限制。
 
 ## 1. 已确认范围与交付目标
 

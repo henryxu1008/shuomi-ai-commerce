@@ -1,6 +1,6 @@
 # SHEIN 仓库履约首版运行与交接
 
-执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。主要 PR：[#1038](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1038)。设计准入及事实 owner 见[冻结设计](../architecture/order-procurement-fulfillment-v1.md)。本说明不授权操作保留实例、真实订单或部署。
+执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。主要 PR：[#1038](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1038)。设计准入及事实 owner 见[冻结设计](../architecture/order-procurement-fulfillment-v1.md)。本说明不授权操作保留实例、真实订单或生产部署。用户于 2026-11-01 追加授权全新独立环境的合成试用，当前登录入口、两条流程的操作步骤与验证边界见[独立合成试用说明](order-fulfillment-synthetic-trial.md)。
 
 ## 当前范围
 
@@ -110,4 +110,4 @@ ERP 原生 SO/PO/PR/SRE/DN 为唯一数量和库存事实 owner。ERP 扩展的 
 
 适配原始记录见[适配报告](../architecture/erpnext-shein-fulfillment-fit-v1.md)，formal app、Go/BFF/UI 的当前检查与独立最终 Review 以 PR 准确候选记录为准。合成测试不是实际 SHEIN 试用，也不是用户验收。
 
-本批不合并、不部署、不关闭 Issue、不修改现有实例和真实数据。SHEIN 权限、真实原单、真实仓库/运输资料、地址隐私配置、实际预约/上传/交仓均需后续单独联调与验收；没有证据保持 NOT_RUN。当前 API 没有可证明原效果的查询时，UNKNOWN 交平台核实，不提供本地强改成功入口。
+本批不合并、不进行生产或保留实例部署、不关闭 Issue、不修改现有实例和真实数据；只执行用户新授权的独立合成试用部署。SHEIN 权限、真实原单、真实仓库/运输资料、实际预约/上传/交仓均需后续单独联调与验收；没有证据保持 NOT_RUN。合成地址与模拟回执不是实际平台证明。当前 API 没有可证明原效果的查询时，UNKNOWN 交平台核实，不提供本地强改成功入口。
