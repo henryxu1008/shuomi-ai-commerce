@@ -1,3 +1,5 @@
+> #1044 / #301 精确退休替代：[用户确认的完整设计](../../architecture/legacy-imageagent-control-summary-tail-retirement-boundary.md)仅取消本文孤立 `imageagent.AssetRef` Go 值声明的继续实现/保活建议，该值随七对象整批删除；当前 `AuthorizedAsset`、`AssetCandidate`、`StagedAssetRef`、durable identity、单主图/图组/Artwork 合同保持。不恢复旧管线、不加兼容壳；以下原计划与历史逐字保留，本注记不授权部署或既有资源操作。
+
 > #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](../../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
 
 > #301 / #998 用户已确认[旧业务Signal完整退休设计](../../architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md) §1–§7：本计划以四旧业务Signal作正向驱动、重发或延迟排队的现行实施要求已替代，当前命令使用带原身份校验/回执的 Update/Resume。有效重试/幂等/批准/取消断言改接当前owner；含旧Signal的历史（含这类V3）不再承诺续跑，不操作实际历史。以下原步骤、勾选和历史证据逐字保留。

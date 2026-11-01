@@ -865,21 +865,6 @@ func (s *workflowUpdateState) applyEffectRecoveryCompleted(signal EffectRecovery
 	return true
 }
 
-func initialActionPhase(kind string) workflowUpdatePhase {
-	switch kind {
-	case signalReplacePlan:
-		return updatePhaseReplacePersistPlan
-	case signalRetrySlot:
-		return updatePhaseRetryExecuteChild
-	case signalApproveResults:
-		return updatePhaseApprovalPublish
-	case signalCancel:
-		return updatePhaseCancelPersist
-	default:
-		return ""
-	}
-}
-
 func (s *workflowUpdateState) consumeExecutingHandoff(revision int64) bool {
 	if s.executingHandoffRevision != revision {
 		return false
@@ -1125,10 +1110,6 @@ func (s *workflowUpdateState) validateApproveResults(signal ApproveResultsSignal
 }
 
 type resultAdoptionIntent ApproveResultsSignal
-
-func (s *workflowUpdateState) validateApproveResultsBusiness(signal ApproveResultsSignal) error {
-	return s.validateResultAdoptionBusiness(resultAdoptionIntent(signal))
-}
 
 func (s *workflowUpdateState) validateResultAdoptionBusiness(signal resultAdoptionIntent) error {
 	if err := validateCommandRevision(*s.input, signal.PlanRevision); err != nil {
@@ -1771,13 +1752,6 @@ func validateCommandRevision(input WorkflowInput, revision int64) error {
 	return nil
 }
 
-func validateUpdateIdentity(input WorkflowInput, runID string, revision int64, actorID, actionID string) error {
-	if err := validateCommandOwner(input, runID, actorID, actionID); err != nil {
-		return err
-	}
-	return validateCommandRevision(input, revision)
-}
-
 func updateFingerprint(name string, command interface{}) (string, error) {
 	encoded, err := json.Marshal(command)
 	if err != nil {
@@ -2273,43 +2247,6 @@ func imageSetRecoverableEffects(results []SlotWorkflowResult) []imageagent.Recov
 	}
 	normalized, _ := imageagent.NormalizeRecoverableEffects(effects)
 	return normalized
-}
-
-func summarizeResultsV3(plan imageagent.Plan, results []SlotWorkflowV3Result) WorkflowResult {
-	result := WorkflowResult{Status: imageagent.RunStatusAwaitingFinalApproval, Plan: plan, Slots: slotProjectionsV3(plan, results)}
-	for index, slot := range plan.Slots {
-		if results[index].Status == imageagent.SlotStatusAccepted {
-			result.CompletedSlotIDs = append(result.CompletedSlotIDs, slot.ID)
-			continue
-		}
-		if result.Block == nil {
-			result.Status = imageagent.RunStatusBlocked
-			code := imageagent.NormalizeSlotEffectV3BlockCode(results[index].ErrorCode)
-			result.Block = &imageagent.Block{Code: code, Message: code, SlotID: slot.ID}
-		}
-	}
-	return result
-}
-
-func slotProjectionsV3(plan imageagent.Plan, results []SlotWorkflowV3Result) []imageagent.SlotProjection {
-	projections := make([]imageagent.SlotProjection, 0, len(plan.Slots))
-	for index, declared := range plan.Slots {
-		projection := imageagent.SlotProjection{Slot: declared}
-		if index < len(results) && results[index].Published.SlotID != "" {
-			result := results[index]
-			projection.Attempt = result.Published.Attempt
-			projection.ErrorCode = result.ErrorCode
-			projection.Slot.Status = result.Status
-			for _, candidate := range result.Published.Candidates {
-				projection.Candidates = append(projection.Candidates, imageagent.AssetCandidate{
-					AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset,
-					Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...),
-				})
-			}
-		}
-		projections = append(projections, projection)
-	}
-	return projections
 }
 
 func executingProjection(plan imageagent.Plan, results []SlotWorkflowResult) WorkflowResult {
