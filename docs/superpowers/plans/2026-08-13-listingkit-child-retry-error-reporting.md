@@ -1,3 +1,7 @@
+> **#1050 核对：保留参考与历史记录，旧实施步骤不再适用。** 保留已勾选的 SDS 子任务 durable retry、202 与错误展示修复过程；旧重试表/API 不作为当前恢复入口。
+>
+> 当前阅读依据：[legacy-sds-runtime-closure-retirement-boundary.md](../../architecture/legacy-sds-runtime-closure-retirement-boundary.md)、[final-ui-ia-authority.md](../../product/final-ui-ia-authority.md)。本文旧 owner、API、schema、迁移/部署/执行命令及 agent / sub-skill 指令只用于原基线追溯，不构成当前派工或真实操作授权。历史状态、勾选和验证结论原样保留；预期结果不记为实际通过，未执行项保持未执行。下方原 Git 正文完整保留。
+
 # ListingKit Child Retry Error Reporting Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

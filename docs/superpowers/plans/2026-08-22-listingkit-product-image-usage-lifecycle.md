@@ -1,3 +1,7 @@
+> **#1050 核对：保留参考与历史记录，旧实施步骤不再适用。** 保留计量 route 固定、reservation/source 归属与不得跨 owner 回收的约束参考；旧 pending/ledger/legacy 模型不重新开放。
+>
+> 当前阅读依据：[unified-base-prepaid-resources-v1.md](../../architecture/unified-base-prepaid-resources-v1.md)、[legacy-subscription-metering-closure-retirement-boundary.md](../../architecture/legacy-subscription-metering-closure-retirement-boundary.md)。本文旧 owner、API、schema、迁移/部署/执行命令及 agent / sub-skill 指令只用于原基线追溯，不构成当前派工或真实操作授权。历史状态、勾选和验证结论原样保留；预期结果不记为实际通过，未执行项保持未执行。下方原 Git 正文完整保留。
+
 # ListingKit Product Image Usage Lifecycle Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

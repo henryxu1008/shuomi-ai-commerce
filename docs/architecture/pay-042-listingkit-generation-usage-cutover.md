@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED SOURCE — PAY-042。** 旧数字 Task 执行链与订阅计量链分别按[数字任务退休边界](legacy-numeric-task-execution-retirement-boundary.md)和[#988 退休边界](legacy-subscription-metering-closure-retirement-boundary.md)退出。下文 cohort、旧 flag、billing tenant、outbox、续跑和计数迁移只记录原合同，不是当前接线、上线或数据迁移步骤。当前资源与资金 owner 见[统一方案](unified-base-prepaid-resources-v1.md)；原请求身份、持久结果、结算防重、UNKNOWN 及历史证据保留，不能将旧待核实事实改写为已完成。
+
 # PAY-042 ListingKit generation usage cutover
 
 ## Decision

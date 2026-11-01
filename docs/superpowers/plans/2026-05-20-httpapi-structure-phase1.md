@@ -1,3 +1,7 @@
+> **#1050 继续整理：保留合同参考与历史记录。** 保留 HTTP 装配职责参考；现有 server 与领域入口继续当前 owner，旧集中模块/旧服务拆分步骤只对应原基线。
+>
+> 当前阅读依据：[httpapi-assembly-boundaries.md](../../architecture/httpapi-assembly-boundaries.md)、[project-boundaries.md](../../architecture/project-boundaries.md)。旧 owner、操作命令和 agent / sub-skill 指令不构成当前派工或真实操作授权；预期输出、勾选和实际验证继续区分。下方原 Git 正文完整保留。
+
 # HTTP API Structure Phase 1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

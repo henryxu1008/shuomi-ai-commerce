@@ -1,3 +1,7 @@
+> **#1050 核对：保留参考与历史记录，旧实施步骤不再适用。** 保留已勾选的保本 SKU 活动价修复/回归过程记录；旧算法已退休，勾选和 Expected PASS 不升级为本轮实测。
+>
+> 当前阅读依据：[legacy-shein-policy-contract-closure-retirement-boundary.md](../../architecture/legacy-shein-policy-contract-closure-retirement-boundary.md)。本文旧 owner、API、schema、迁移/部署/执行命令及 agent / sub-skill 指令只用于原基线追溯，不构成当前派工或真实操作授权。历史状态、勾选和验证结论原样保留；预期结果不记为实际通过，未执行项保持未执行。下方原 Git 正文完整保留。
+
 # ListingKit 保本活动价修复 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

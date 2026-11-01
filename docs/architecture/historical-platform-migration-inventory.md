@@ -1,3 +1,5 @@
+> **DATED INVENTORY — 2026-08-26 快照。** 下方包规模、消费者、成本分层与候选切片保留用于追溯，不是当前源码盘点或获准迁移队列。当前 owner / EXTRACT / RETIRE 见[Project Boundaries](project-boundaries.md)、[Legacy Register](../refactoring/legacy-register.md)及[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)；不能据此保留旧 facade、恢复旧平台执行链或产生数据迁移前置。原计数和判断不改写。
+
 # Historical Platform Migration Inventory
 
 ## Goal

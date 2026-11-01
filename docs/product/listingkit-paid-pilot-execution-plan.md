@@ -1,3 +1,5 @@
+> **后续合同的准确衔接。** 当前商业/资源依据为[统一基础与预付资源](../architecture/unified-base-prepaid-resources-v1.md)；旧订阅、Token 与影子计量源码已按[#988 完整边界](../architecture/legacy-subscription-metering-closure-retirement-boundary.md)退休。下文 PAY 队列、旧 Task/套餐/计量实现与后续合同直接冲突的部分不是当前开发、安装或收费步骤；[PAY-041](../architecture/pay-041-usage-ledger.md)与[PAY-042](../architecture/pay-042-listingkit-generation-usage-cutover.md)保留原合同及恢复历史。未被明确替代的外部准入、收费、Go/No-Go、安全、防重、UNKNOWN 和回滚责任继续有效，不能借文档清理解除。原执行计划、阶段证据和勾选保留。
+
 > **状态：CURRENT COMMERCIAL ROLLOUT GATES + HISTORICAL LISTINGKIT PROJECTION（2026-09-26 校准）**  
 > 本文中与 `paid_pilot` 外部准入、收费、发布 entitlement、PAY-041～PAY-044、PAY-070～PAY-073、Go/No-Go、回滚与生产放行有关的门禁仍是当前商业 rollout 依据；在这些门禁被明确迁入新的 Commercial / Subscription / Operations owner 前，不得把它们视为历史失效，也不得绕过它们提前收费或邀请外部客户。  
 > **只有 ListingKit 作为产品、Workspace、Task-first 页面和长期执行 owner 的表述被降级为历史。** 当前 UI / IA / 页面命名与交互以 [最终 Figma UI / IA Authority](./final-ui-ia-authority.md) 为准；旧 ListingKit 架构按 [Legacy Register](../refactoring/legacy-register.md) EXTRACT → RETIRE。  

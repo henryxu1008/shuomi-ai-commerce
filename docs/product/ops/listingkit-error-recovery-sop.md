@@ -1,3 +1,5 @@
+> **源码与运行现场的阅读边界。** 旧数字刊登执行/Publishing/诊断源码已按[刊登闭包](../../architecture/legacy-shein-listing-closure-retirement-boundary.md)、[Publishing 闭包](../../architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md)和[诊断工具闭包](../../architecture/legacy-task-diagnostics-retirement-boundary.md)退休。下文 Task / Workspace / retry 按钮不再是当前源码操作入口；当前用户操作从[运行文档索引](../../operations/README.md)及对应 owner 交接进入。下方“live legacy path”仅限定仍有事实证据的原运行现场，不能由本文断言旧实例仍活跃或已停用。真实失败记录、恢复/防重/升级责任完整保留，UNKNOWN 不自动重试；不据本次清理操作现场或撤销有效恢复责任。
+
 > **状态：CURRENT OPERATIONS FOR LIVE LEGACY PATH / NOT PRODUCT AUTHORITY（2026-09-26 校准）**  
 > 在仍未完成页面/调用方切换的现有 ListingKit / SHEIN 商业运行路径上，本文继续作为操作员故障恢复、重试边界和工程升级信息的当前运行 SOP；在替代页面及其当前 owner 提供等价 runbook 前，不得提前撤销这些恢复指导。  
 > 本文**不再拥有产品 UI / IA / 页面命名或长期架构权威**：这些由 [最终 Figma UI / IA Authority](../final-ui-ia-authority.md)、当前领域合同和 [Legacy Register](../../refactoring/legacy-register.md) 决定。旧 Workspace / Task-first / ListingKit facade 仍按 EXTRACT → RETIRE；保留本 SOP 只服务仍存活的旧运行路径，不授权新增消费者或扩展旧产品。  

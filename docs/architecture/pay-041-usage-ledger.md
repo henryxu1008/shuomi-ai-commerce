@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED SOURCE — PAY-041。** [已确认的 #988 退休边界](legacy-subscription-metering-closure-retirement-boundary.md)已退出旧 listingsubscription / Token / OpenMeter 链；下文 saas_usage_*、dry-run helper、旧 Task 路由及 PAY-042 排期不再是当前操作或实施入口。当前商业、资金与资源事实见[统一基础方案与预付资源](unified-base-prepaid-resources-v1.md)。原计量、防重、脱敏、结果未知时不得重发及修复须另获授权等约束和历史正文保留；不由源码退休推断旧账务已结清或授权操作真实数据。
+
 # PAY-041 usage ledger reconciliation and PAY-042 handoff
 
 ## Scope and safety boundary

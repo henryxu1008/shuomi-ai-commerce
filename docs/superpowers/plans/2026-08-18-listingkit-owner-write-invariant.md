@@ -1,3 +1,7 @@
+> **#1050 继续整理：保留合同参考与历史记录。** 保留 canonical owner 写入约束参考；旧 owner backfill、验证命令与部署流程不成为当前迁移授权。
+>
+> 当前阅读依据：[auth-and-tenancy.md](../../architecture/auth-and-tenancy.md)、[greenfield-no-legacy-migration.md](../../product/greenfield-no-legacy-migration.md)。旧 owner、操作命令和 agent / sub-skill 指令不构成当前派工或真实操作授权；预期输出、勾选和实际验证继续区分。下方原 Git 正文完整保留。
+
 # ListingKit Owner Write Invariant Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
