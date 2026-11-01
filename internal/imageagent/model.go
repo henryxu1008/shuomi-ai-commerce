@@ -138,12 +138,6 @@ type RecoverableEffect struct {
 	Code    string
 }
 
-type AssetRef struct {
-	ID   string
-	URL  string
-	Kind string
-}
-
 type AuthorizedAssetType string
 
 const (

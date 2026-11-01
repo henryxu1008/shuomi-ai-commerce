@@ -1,3 +1,5 @@
+> #1044 / #301 精确退休替代：[用户确认的完整设计](../../architecture/legacy-imageagent-control-summary-tail-retirement-boundary.md)仅取消本文候选/兄弟 `AssetRef` 等建议对孤立 `imageagent.AssetRef` Go 值的继续实现/保活要求，该值随七对象整批删除；当前 `AuthorizedAsset`、`AssetCandidate`、`StagedAssetRef`、durable identity、图组/Artwork 合同保持。不恢复或实现旧自动修复管线、不加兼容壳；以下原计划与历史逐字保留，本注记不授权部署或既有资源操作。
+
 > #301 / #977 用户确认的[完整退休闭包](../../architecture/legacy-imageagent-http-runtime-closure-retirement-boundary.md)已在同一主要PR实施：旧HTTP与默认启动门面的实现限定退出；当前领域取消/UNKNOWN/恢复及工作流行为不改，不重建自动修复或旧运行宿主。 此顶注只校准本批指定旧KEEP，以下实际开工main的完整原正文/批准/失败/数字/勾选逐字保留为历史。无新alias/替代旧宿主、workflow/inventory/运行/数据操作或内部试用前置；独立SHEIN登录与Store同步保留，#301 OPEN。
 
 # Image Agent Automatic Evaluation and Repair Implementation Plan

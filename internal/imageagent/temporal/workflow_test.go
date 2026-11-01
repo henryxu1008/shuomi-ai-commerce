@@ -770,7 +770,7 @@ func TestApprovalUpdateValidatorKeepsCompletionChecksInHandler(t *testing.T) {
 		signal := newApproval("approve-stale")
 		signal.PlanRevision = 2
 		require.NoError(t, state.validateApproveResults(signal))
-		assertType(t, state.validateApproveResultsBusiness(signal), updateErrorRevisionConflict)
+		assertType(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(signal)), updateErrorRevisionConflict)
 	})
 	t.Run("actor", func(t *testing.T) {
 		signal := newApproval("approve-wrong-actor")
@@ -786,20 +786,20 @@ func TestApprovalUpdateValidatorKeepsCompletionChecksInHandler(t *testing.T) {
 		signal := newApproval("approve-wrong-state")
 		projection.Status = imageagent.RunStatusExecuting
 		require.NoError(t, state.validateApproveResults(signal))
-		assertType(t, state.validateApproveResultsBusiness(signal), updateErrorCommandBlocked)
+		assertType(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(signal)), updateErrorCommandBlocked)
 		projection.Status = imageagent.RunStatusAwaitingFinalApproval
 	})
 	t.Run("digest whitespace", func(t *testing.T) {
 		signal := newApproval("approve-spaced-digest")
 		signal.ResultDigest = " " + sevenSlotResultDigest
 		require.NoError(t, state.validateApproveResults(signal))
-		assertType(t, state.validateApproveResultsBusiness(signal), updateErrorCommandBlocked)
+		assertType(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(signal)), updateErrorCommandBlocked)
 	})
 	t.Run("digest mismatch", func(t *testing.T) {
 		signal := newApproval("approve-wrong-digest")
 		signal.ResultDigest = "wrong"
 		require.NoError(t, state.validateApproveResults(signal))
-		assertType(t, state.validateApproveResultsBusiness(signal), updateErrorCommandBlocked)
+		assertType(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(signal)), updateErrorCommandBlocked)
 	})
 }
 
@@ -995,7 +995,7 @@ func TestSafeCommandFailureClassificationNeverExposesRawErrors(t *testing.T) {
 
 func TestSummarizeV3ResultsPreservesPublicationUnknownBlockCode(t *testing.T) {
 	plan := imageagent.Plan{Revision: 1, Slots: []imageagent.Slot{{ID: "scene-1", Role: imageagent.SlotRoleScene}}}
-	projection := summarizeResultsV3(plan, []SlotWorkflowV3Result{{Published: imageagent.SlotEffectV3PublishedResult{SlotID: "scene-1", Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotPublicationOutcomeUnknownCode}})
+	projection := summarizeCurrentResults(plan, []SlotWorkflowResult{{Execution: imageagent.SlotExecutionResult{SlotID: "scene-1", Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotPublicationOutcomeUnknownCode}})
 	require.Equal(t, imageagent.SlotPublicationOutcomeUnknownCode, projection.Block.Code)
 	require.Equal(t, []imageagent.Action{imageagent.ActionEditPlan, imageagent.ActionCancel}, imageagent.AllowedActions(imageagent.Run{Mode: imageagent.RunModeManual, Status: projection.Status, Block: projection.Block}))
 }
@@ -1187,8 +1187,8 @@ func TestInvalidPersistedV3PolicySurvivesProjectionRefreshAndRejectsDirectRetry(
 				Revision: 1, IdempotencyKey: "plan-invalid-policy", SourceAssetIDs: []string{"source-1"}, CreatedBy: "user-a",
 				Slots: []imageagent.Slot{{ID: "scene-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "scene-key", Status: imageagent.SlotStatusPending}},
 			}
-			result := SlotWorkflowV3Result{Published: imageagent.SlotEffectV3PublishedResult{SlotID: "scene-1", Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: tc.code}
-			summarized := summarizeResultsV3(plan, []SlotWorkflowV3Result{result})
+			result := SlotWorkflowResult{Execution: imageagent.SlotExecutionResult{SlotID: "scene-1", Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: tc.code}
+			summarized := summarizeCurrentResults(plan, []SlotWorkflowResult{result})
 			require.Equal(t, tc.want, summarized.Block.Code)
 
 			for _, repository := range []struct {

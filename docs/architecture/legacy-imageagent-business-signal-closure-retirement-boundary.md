@@ -1,3 +1,5 @@
+> #1044 / #301 精确替代：用户已确认[旧控制/摘要尾部完整退休设计](legacy-imageagent-control-summary-tail-retirement-boundary.md) §1–§7（含 §4.2/§6.1）。本文 §4.1 对无调用私有 helper `initialActionPhase` 的 KEEP 已撤回，随七对象整批退休；仅替代该 helper，不撤回四个 Update/Validator、Resume、恢复 Signal、phase 常量和值及原 action/pending/ACK/recovery 合同。真实 handler 直接向 `prepareAction` 传入原 phase，保持零改。以下批准设计和历史正文逐字保留，不授权真实历史或既有资源操作。
+
 # 旧 ImageAgent 业务 Signal 控制链完整退休设计
 
 > #301 / #998：USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认冻结设计 b3054a3a46e5e44586988a2e06199f8ff63b3848 §1–§7（含§4.2/§6.1），按15路径在同一PR整批实施；[准入及开工记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/998#issuecomment-6492262601)。源码最终复核/原CI待本批准确候选证据，设计复核不替代源码复核；#301保持OPEN，既有资源不动，无新试用前置。
