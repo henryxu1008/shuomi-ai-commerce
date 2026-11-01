@@ -347,3 +347,16 @@ func TestCanonicalInputHashBindsRuleAndPolicyRevisions(t *testing.T) {
 		require.NotEqual(t, old, current)
 	}
 }
+
+func TestCreateGuardRejectsBeforeDomainReads(t *testing.T) {
+	source, assets, stores := &sourceFixture{}, &assetFixture{}, &storeReferenceFixture{}
+	records := &storeFixture{}
+	svc, err := NewService(ServiceDependencies{Products: source, Assets: assets, Stores: stores, Records: records, Builder: &builderFixture{}, Evaluator: &evaluatorFixture{}, Authorizer: authFixture{write: true}, Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion, CreationGuard: func(context.Context, Actor, Input) error { return ErrForbidden }})
+	require.NoError(t, err)
+	_, err = svc.Create(fixtureContext(), "guard-rejected", fixtureInput)
+	require.ErrorIs(t, err, ErrForbidden)
+	require.Zero(t, source.calls)
+	require.Zero(t, assets.calls)
+	require.Zero(t, stores.calls)
+	require.Zero(t, records.writes)
+}

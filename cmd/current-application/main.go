@@ -173,6 +173,9 @@ func execute() error {
 			if features.ReportCenterDB != nil {
 				options = append(options, httpapi.WithReportCenter(features.ReportCenterDB))
 			}
+			if features.SheinOfflineRecords {
+				options = append(options, httpapi.WithSheinOfflineRecords(features.SupplyAssetDB))
+			}
 			if features.SheinTargetReportSources {
 				options = append(options, httpapi.WithSheinTargetReportSources())
 			}

@@ -1,6 +1,6 @@
 - [`report-center-shein-offline-package-source-v1.md`](./report-center-shein-offline-package-source-v1.md)
-  - #628 original offline-package scope; design-only candidate, not implementation-ready;
-    normal owner/auth/schema admission and canonical digest binding; no runtime changes.
+  - #628 original offline-package scope; reviewed IMPLEMENTATION_READY design; user-authorized implementation;
+    normal owner/auth/schema admission and canonical digest binding; evidence in PR #1049, runtime NOT_RUN.
 
 - [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
   - #628 user-confirmed native SHEIN TargetRecord report-source design;

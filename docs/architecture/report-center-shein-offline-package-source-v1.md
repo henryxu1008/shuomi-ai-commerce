@@ -1,3 +1,5 @@
+> 当前准入：用户已认可下列原设计 HEAD `f45ce2bd2c4f589d5f319d8786e73b2e45628ea1`；[独立 R1](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1049#issuecomment-6554638529) 为 **DESIGN_REVIEW_PASS / IMPLEMENTATION_READY**。用户现已授权原唯一 Writer 在原工作区和 PR #1049 先补离线回归、最小实现、自检，并复用原 Reviewer 做增量及最终复核。当前 **IMPLEMENTING**；未授权合并、部署、关单或真实操作。下列候选正文为已审冻结依据，原提交时状态保留为历史；技术证据维护在 PR，运行及产品验收 NOT_RUN、缺证据 UNKNOWN。
+
 # Report Center：原 SHEIN 离线包诊断正常接线候选
 
 Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)。

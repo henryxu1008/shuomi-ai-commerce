@@ -54,6 +54,7 @@ import (
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/ledger/storagecapacity"
 	"task-processor/internal/listing/preparation"
+	"task-processor/internal/listing/record"
 	notificationhttp "task-processor/internal/notificationcenter/httpapi"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"
@@ -151,6 +152,8 @@ type currentApplicationOptions struct {
 	modelRoutePricing            *ModelRoutePricingDependencies
 	dataServicesConfigs          int
 	dataServices                 *DataServicesDependencies
+	offlineRecords               int
+	offlineRecordAssets          *gorm.DB
 	reportCenters                int
 	reportCenterDB               *gorm.DB
 	sheinTargetReportSources     int
@@ -459,6 +462,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 	}
 	auditSources, auditSourceErr := currentInvocationAuditSources(supplied)
+	if supplied.offlineRecords > 0 && cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
+		return nil, errors.New("offline records require live membership")
+	}
 	if err := validateReportCenterPool(supplied, sourceAccountDB); err != nil {
 		return nil, err
 	}
@@ -578,7 +584,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if err != nil {
 				return nil, err
 			}
-			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
+			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
 		}
 	}
 	if supplied.browserCaptures > 1 {
@@ -593,7 +599,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		browserDB := supplied.productAcquisitionDB
 		factories.buildBrowserCapture = func(authorizer *authz.ListingKitAuthorizer, dependencies routeAuthDependencies) (kernelmodule.Module, error) {
-			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
+			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
 		}
 	}
 	if supplied.imageAgents > 0 && supplied.fullImages == nil {
@@ -846,7 +852,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			}
 			supplied.collectionSourceMedia.Capacity = &storagecapacity.Meter{Writer: capacity, Namespace: ns}
 		}
-		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
+		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if err != nil {
 			return nil, fmt.Errorf("build current product collections: %w", err)
 		}
@@ -892,7 +898,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
 	}
 	if supplied.supplyMarket != nil {
-		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
+		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply market: %w", e)
 		}
@@ -940,7 +946,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, productSelectionModule{app: selectionRuntime})
 	}
 	if supplied.supplyChain != nil {
-		module, e := buildSupplyChainModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.supplyChain, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
+		module, e := buildSupplyChainModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.supplyChain, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply chain: %w", e)
 		}
@@ -1014,12 +1020,21 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules[acquisitionModuleIndex] = module
 	}
+	var offlineReader record.Reader
+	if supplied.offlineRecords > 0 {
+		module, err := buildOfflineRecords(ctx, supplied.productAcquisitionDB, supplied.offlineRecordAssets, supplied.storeCenterDB, *workbench.authDependencies, authorizer, planCollections)
+		if err != nil {
+			return nil, fmt.Errorf("build offline SHEIN records: %w", err)
+		}
+		offlineReader = module.app
+		modules = append(modules, module)
+	}
 	if supplied.reportCenterDB != nil {
 		var targetReader *supplyapp.Application
 		if supplied.sheinTargetReportSources > 0 && supplyRuntime != nil {
 			targetReader = supplyRuntime.app
 		}
-		module, err := buildReportCenter(ctx, supplied.reportCenterDB, *workbench.authDependencies, authorizer, productRuntime, targetReader)
+		module, err := buildReportCenter(ctx, supplied.reportCenterDB, *workbench.authDependencies, authorizer, productRuntime, targetReader, offlineReader)
 		if err != nil {
 			return nil, fmt.Errorf("build current report center: %w", err)
 		}
@@ -1153,7 +1168,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		return nil, errors.New("amazon capture requires Product pool and Collection capability")
 	}
 	if supplied.amazonBrowserCaptures == 1 {
-		capabilities, _, err := collectionAcquisitionOptions([]bool{true, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0})
+		capabilities, _, err := collectionAcquisitionOptions([]bool{true, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0})
 		if err != nil {
 			return nil, err
 		}
@@ -1261,6 +1276,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		StorageCapacity:      cfg.StorageCapacity,
 		AmazonBrowserCapture: supplied.amazonBrowserCaptures == 1,
 		ReportCenter:         supplied.reportCenterDB != nil,
+		OfflineRecords:       supplied.offlineRecords > 0,
 		OperationsCockpit:    supplied.operationsCockpits > 0,
 		AgentCustomization:   supplied.agentCustomizations > 0,
 		PrivateDraftTrial:    privateDraftTrial,
@@ -1363,6 +1379,7 @@ type currentApplicationOptionalRoutes struct {
 	AmazonBrowserCapture bool
 	DataServices         bool
 	ReportCenter         bool
+	OfflineRecords       bool
 	SupplyMarket         bool
 	POD                  bool
 	OperationsCockpit    bool
@@ -1439,6 +1456,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.ToolMarket {
 		for _, r := range tmhttp.Routes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.OfflineRecords {
+		for _, r := range offlineRecordRoutes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1739,6 +1761,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("data services not admitted")
 			}
 			if err := validateDataServicesDescriptor(descriptor); err != nil {
+				return err
+			}
+		}
+		if descriptor.Path == offlineRecordsPath || strings.HasPrefix(descriptor.Path, offlineRecordsPath+"/") {
+			if !optional.OfflineRecords {
+				return errors.New("offline SHEIN records not admitted")
+			}
+			if err := validateOfflineRecordDescriptor(descriptor); err != nil {
 				return err
 			}
 		}

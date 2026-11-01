@@ -1,5 +1,6 @@
 "use client";
 
+import {OfflineDiagnosticPanel} from "../shein-diagnostic/offline-panel";
 import {DescriptionView} from "../description-view";
 import {useEffect,useMemo,useState} from "react";
 import Image from "next/image";
@@ -24,21 +25,21 @@ type Variant=NonNullable<Product["variants"]>[number];
 const imageProxy=(url:string)=>`/api/image-proxy?url=${encodeURIComponent(url)}`;
 const variantLabel=(variant:Variant)=>variant.attributes?.map(a=>`${a.name}：${a.value}`).join(" / ")||variant.title||"默认规格";
 
-export function OwnProductDetailPage({itemId,completionAvailable=false,optimizationAvailable=false}:{itemId:string;completionAvailable?:boolean;optimizationAvailable?:boolean}){
+export function OwnProductDetailPage({offlineAvailable=false,itemId,completionAvailable=false,optimizationAvailable=false}:{itemId:string;offlineAvailable?:boolean;completionAvailable?:boolean;optimizationAvailable?:boolean}){
  const context=useWorkbenchContext();
  const userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  const scope=useMemo(()=>userId&&organizationId?{userId,organizationId}:null,[userId,organizationId]);
  if(context.isLoading||context.isSwitching)return <ConsoleState kind="loading" title="正在确认当前企业"/>;
  if(!scope||context.selectionRequired||context.error||context.blockingError)return <ConsoleState kind="error" title="请先确认登录身份与当前企业"/>;
- return <ScopedOwnProductDetail key={`${scope.userId}:${scope.organizationId}:${itemId}`} scope={scope} itemId={itemId} completionAvailable={completionAvailable} optimizationAvailable={optimizationAvailable}/>;
+ return <ScopedOwnProductDetail key={`${scope.userId}:${scope.organizationId}:${itemId}`} scope={scope} offlineAvailable={offlineAvailable} itemId={itemId} completionAvailable={completionAvailable} optimizationAvailable={optimizationAvailable}/>;
 }
-function ScopedOwnProductDetail({scope,itemId,completionAvailable,optimizationAvailable}:{scope:CollectionScope;itemId:string;completionAvailable:boolean;optimizationAvailable:boolean}){
+function ScopedOwnProductDetail({scope,offlineAvailable,itemId,completionAvailable,optimizationAvailable}:{scope:CollectionScope;offlineAvailable:boolean;itemId:string;completionAvailable:boolean;optimizationAvailable:boolean}){
  const context=useWorkbenchContext();
  const [detail,setDetail]=useState<CollectionDetail|null>(null),[error,setError]=useState(""),[reload,setReload]=useState(0);
  const canOptimize=!!detail&&!error&&optimizationAvailable&&["workbench.collection.read","local_agent.write","workbench.agent.use"].every(permission=>context.permissions.includes(permission));
  useEffect(()=>{const controller=new AbortController();let active=true;void readCollectionItem(scope,itemId,controller.signal).then(value=>{if(active){if(value.item.source.kind!=="own")setError("NOT_FOUND");else {setDetail(value);setError("")}}}).catch(failure=>{if(active)setError(failure instanceof CollectionAPIError?failure.code:"DEPENDENCY_UNAVAILABLE")});return()=>{active=false;controller.abort()}},[scope,itemId,reload]);
  return <ConsolePage title={detail?.product.title||"自有商品资料"} description={<>查看商品图片、通用属性和每个SKU的原始资料。审核采用会生成新的标准商品版本，原始资料保留。{canOptimize&&<> 在“优化商品内容”中查看当前已采用标题与版本。</>}</>} breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:"自有商品资料"}]} actions={<div className="flex flex-wrap gap-3">{canOptimize?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/optimize`}>优化商品内容</Link></Button>:null}{detail&&!error&&completionAvailable&&["workbench.collection.read","workbench.supply.read","workbench.supply.manage"].every(permission=>context.permissions.includes(permission))?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/prepare`}>创建待补全草稿</Link></Button>:null}{detail&&!error?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/history`}>版本历史</Link></Button>:null}{detail&&!error&&context.permissions.includes("workbench.collection.manage")?<Button asChild><Link href={`/workbench/data/mine/own/${itemId}/edit`}>编辑商品</Link></Button>:null}<Button asChild variant="outline"><Link href={library}><ArrowLeft size={16}/>返回自有商品库</Link></Button></div>}>
-  {error?<ConsoleState kind="error" title={collectionFailureText[error]??"暂时无法读取商品资料"}><Button variant="outline" onClick={()=>setReload(v=>v+1)}>重试读取</Button></ConsoleState>:!detail?<ConsoleState kind="loading" title="正在读取商品资料"/>:<div className="space-y-6"><OwnProductContents key={`${detail.item.id}:${detail.item.source.version}`} detail={detail}/>{completionAvailable&&["workbench.collection.read","workbench.supply.read"].every(permission=>context.permissions.includes(permission))?<OwnProductDrafts scope={scope} itemId={itemId} canManage={context.permissions.includes("workbench.supply.manage")}/>:null}</div>}
+  {error?<ConsoleState kind="error" title={collectionFailureText[error]??"暂时无法读取商品资料"}><Button variant="outline" onClick={()=>setReload(v=>v+1)}>重试读取</Button></ConsoleState>:!detail?<ConsoleState kind="loading" title="正在读取商品资料"/>:<div className="space-y-6"><OwnProductContents key={`${detail.item.id}:${detail.item.source.version}`} detail={detail}/>{offlineAvailable?<OfflineDiagnosticPanel item={detail.item}/>:null}{completionAvailable&&["workbench.collection.read","workbench.supply.read"].every(permission=>context.permissions.includes(permission))?<OwnProductDrafts scope={scope} itemId={itemId} canManage={context.permissions.includes("workbench.supply.manage")}/>:null}</div>}
  </ConsolePage>;
 }
 

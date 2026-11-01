@@ -1,3 +1,46 @@
+## #1049 当前原离线包接线增量（源码候选，2026-11-01）
+
+本批复用已审设计 `report-center-shein-offline-package-source-v1.md` 与原 owner，
+实现和工程证据记录于 PR #1049；本节不是部署/真实安装或用户验收记录。
+保留实例、数据和会话未修改；现场准备 UNKNOWN，运行、真实保存/恢复、浏览器及产品验收 NOT_RUN。
+
+- 当前源码入口：我的数据的采集商品详情或自有商品详情内“生成离线诊断”；
+  选择当前获准 SHEIN 店铺和离线检查目的，生成后查看保存时结果，再点“前往我的报告保存此结果”，
+  在原报告页预览准确 `SHEIN_RECORD` 来源并明确点“保存此版本”。已有诊断也可从报告页来源选择器分页选择。
+  原 `/workbench/shein-records` 独立列表继续撤回，不新增菜单/工作台；
+  准确详情仍用 `/workbench/shein-records/<recordId>/diagnostic` 的正常 saved reader。
+- 本地结果来自准确 Catalog 版本＋精确 ApprovedAsset＋本地 Store 元数据；
+  不诊断当前 TargetRecord 人工修改的 SKU/售价，不查官方规则，不调用模型、上传或发布。
+  `publish` 只是原离线检查目的，未评估范围按保存时事实保留。
+- 正常后端 opt-in 为 manifest 的 `sheinOfflineRecords.assetDatabase`，默认省略即关闭。
+  复用当前独立 Product/Collection、Asset、member Store 和 Report owners；拒绝缺 owner、pool/数据库混用、
+  local-trial/private-draft-trial 混配以及不合格 schema/grants；不要求 Agent、模型或 Temporal。
+  Asset 使用原 `supply_asset_runtime` 及现有 Asset initializer，已有 Asset owner 配置须一致，不另造第二来源。
+- Product 新空库初始化 manifest 明确 `collections:true`、`sheinOfflineRecords:true`，
+  由原 `product-acquisition-init -config <absolute-private-manifest> -confirm-empty-database <exact-name>`
+  在其原事务安装两表及 SELECT/INSERT 最小 grants。运行角色由部署 owner 预先提供，程序不签发凭据。
+  非空库拒绝；该开关不得用于现有 feature-enable 路径，也不迁移、修复或升级任何保留库。
+  原 Product 消费者必须显式准入相同 capability footprint；关闭能力不是自动回收/修补真实 grants 的授权。
+- Report 仍为原三表与原三 kind，不新增报告事实或恢复表；新保存沿原权限、事务/命令、收藏与资源上限。
+  读取已有报告和原 report command 不依赖来源。若来源 owner 不再装配，Report owner 可独立读取历史；
+  其他仍装配的 Product 消费者仍必须通过其准确 schema/grant 准入，不会忽略额外权限以强行启动。
+- UI 新声明 `LISTINGKIT_SHEIN_OFFLINE_RECORDS_ENABLED=true`，并要求已有
+  `LISTINGKIT_REPORT_CENTER_ENABLED=true`、`LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED=true` 与合法同应用
+  `LISTINGKIT_SERVICE_API_BASE`。正常能力已声明但依赖不合格时明确不可用，不回落到隔离 reader。
+  本轮没有保存任何真实 manifest/env；UI 声明不授予后端或用户权限。
+- 当前生成需要原 `listingkit.admin.write`、`listingkit.admin.read`，当前 Collection 读取与 member Store 读取；
+  保存报告另需 `workbench.report.read/manage`。普通 Supply/Report 权限不映射为旧来源管理权限。
+  list/read/command lookup 按当前 org/user 在读正文前限本人，管理员也无他人记录例外；新生成在原事务写入及提交前重验 live 来源/权限。
+- 新 API 为 `/api/v1/workbench/offline-shein-records` 的 POST/私有 GET 集合、`/<recordId>` saved DTO、
+  `/commands/<key>` 原键查阅。新正常 DTO 的 `input.snapshot_version` 用规范十进制字符串，
+  服务端还原原 uint64 Input；不改原领域 InputHash、旧隔离 wire、原包/诊断字节或规则/绑定版本。
+- 原记录和报告是两次明确的本地操作、两个原事务；不跨库回滚/删除，不新增 retry owner。
+  生成丢响应后保留原 key＋public Input，仅查 `/commands/<key>`；404/5xx 不证明未提交，不自动换 key 重发。
+  明确未写入的 NOT_READY/权限/输入等拒绝可解除该次生成意图；读回失败或未知结果仍保留原键。
+  Report 保存/收藏继续复用原原键恢复。浏览器无法保留 intent 时停止创建；切换用户/企业/权限隔离迟到结果。
+
+以下前序说明为原阶段历史完整保留，不将其中“离线诊断尚未开放”等旧结论覆盖本批当前源码状态。
+
 ## #1045 当前 SHEIN 已保存资料增量（源码候选，2026-11-01）
 
 本批只在原 PR/独立工作区实现已批准的 `report-center-shein-target-source-v1.md`；

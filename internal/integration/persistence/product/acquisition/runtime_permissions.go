@@ -26,6 +26,7 @@ const planPrivileges = `,('product_acquisition_plans','SELECT'),('product_acquis
  ('product_acquisition_rule_commands','SELECT'),('product_acquisition_rule_commands','INSERT')`
 
 type RuntimeCapabilities struct {
+	OfflineRecords   bool
 	CompletionDrafts bool
 	AcquisitionPlans bool
 	Collections      bool
@@ -102,6 +103,9 @@ func runtimePermissionsFor(capability RuntimeCapabilities) string {
 	}
 	if capability.ImageSets && !capability.SupplyChain && !capability.SupplyMarket {
 		admitted += ",('product_title_proposals','SELECT')"
+	}
+	if capability.OfflineRecords {
+		admitted += `,('listing_shein_records','SELECT'),('listing_shein_records','INSERT'),('listing_shein_record_operations','SELECT'),('listing_shein_record_operations','INSERT')`
 	}
 	admitted += ")"
 	return strings.Replace(runtimePermissionQuery, admittedPrivileges, admitted, 1)
@@ -319,6 +323,9 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 		if images && !supply && !market {
 			statements = append(statements, "GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
 		}
+		if len(capabilities) == 1 && capabilities[0].OfflineRecords {
+			statements = append(statements, "GRANT SELECT,INSERT ON public.listing_shein_records,public.listing_shein_record_operations TO source_acquisition_runtime")
+		}
 		for _, statement := range statements {
 			if err := tx.Exec(statement).Error; err != nil {
 				return sourcing.ErrAcquisitionUnavailable
@@ -351,7 +358,7 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 	if len(capabilities) == 1 {
 		capability = capabilities[0]
 	}
-	if (capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans || capability.CompletionDrafts) && !capability.Collections || capability.POD && !capability.SupplyMarket {
+	if (capability.OfflineRecords || capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans || capability.CompletionDrafts) && !capability.Collections || capability.POD && !capability.SupplyMarket {
 		return sourcing.ErrAcquisitionUnavailable
 	}
 	var required, forbidden bool
