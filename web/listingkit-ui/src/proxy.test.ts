@@ -34,6 +34,7 @@ async function callProxy(path: string, init?: NextRequestInit) {
 function configureZitadel() {
   vi.stubEnv("ZITADEL_ISSUER_URL", "https://issuer.example");
   vi.stubEnv("ZITADEL_CLIENT_ID", "listingkit-client");
+  vi.stubEnv("AUTH_URL", "http://localhost");
 }
 
 function setCanonicalSession(roles: string[] = []) {
@@ -57,6 +58,23 @@ describe("Workbench ZITADEL proxy", () => {
     mockedServerToken.accessToken = "";
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("retains the configured loopback login origin when NextURL normalizes the request host", async () => {
+    configureZitadel();
+    vi.stubEnv("AUTH_URL", "https://127.0.0.37:47644");
+    vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "https://other.example");
+    const path = "/workbench/store-orders/fulfill?sourceId=TRY-US-001";
+    const request = new NextRequest(`https://127.0.0.37:47644${path}`);
+    expect(request.nextUrl.hostname).toBe("localhost");
+
+    const response = (await proxy(request, {} as never)) as Response;
+    const location = new URL(response.headers.get("location")!);
+
+    expect(response.status).toBe(307);
+    expect(location.origin).toBe("https://127.0.0.37:47644");
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("returnTo")).toBe(path);
   });
 
   it.each([

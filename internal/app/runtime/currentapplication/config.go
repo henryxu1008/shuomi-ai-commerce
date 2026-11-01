@@ -35,6 +35,7 @@ var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
+	Fulfillment                          *FulfillmentConfig                        `json:"fulfillment,omitempty"`
 	BrowserKernel                        *BrowserKernelConfig                      `json:"browserKernel,omitempty"`
 	ModelRoutePricing                    *ModelRoutePricingConfig                  `json:"modelRoutePricing,omitempty"`
 	SourceMediaIsolatedTrialDeploymentID string                                    `json:"sourceMediaIsolatedTrialDeploymentID,omitempty"`
@@ -584,6 +585,9 @@ func (cfg *Config) validate() error {
 		} else if _, err := imageagent.ValidateSafeImageURL(image.PublicBase); err != nil {
 			return errors.New("image agent public base must be a safe public URL")
 		}
+	}
+	if err := cfg.validateFulfillment(); err != nil {
+		return err
 	}
 	if err := cfg.validateStoreObservations(); err != nil {
 		return err

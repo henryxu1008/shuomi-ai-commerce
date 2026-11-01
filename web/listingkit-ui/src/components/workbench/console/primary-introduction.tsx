@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import styles from "../data-services/data-services-overview.module.css";
 import homeStyles from "./primary-introduction.module.css";
@@ -67,13 +68,34 @@ const introductions = {
       ["权限与计费", "了解授权要求与服务费用", "工具权限、额度与费用以服务规则为准。", "定制服务需评估报价；实际交付及开放另行核实。"],
     ],
   },
+  orders: {
+    label: "订单管理", title: "统一管理订单、采购与发货，让履约流程更清晰",
+    subtitle: "围绕原订单核对需求、采购收货、库存装箱和发货交接，让每一步都有原单据可查。",
+    entries: [
+      ["原单处理", "订单处理", "查看原单商品、数量与时限，关联内部履约需求，按当前条件继续办理。", "", "查看订单与需求", "/workbench/store-orders/fulfill?step=source"],
+      ["采购交付", "采购与收货", "按订单需求生成采购单，登记外部单号，跟进分批到货与合格实收。", "", "进入采购与收货", "/workbench/supply/mine/procurement"],
+      ["仓库履约", "装箱与发货", "核对可用库存和预留，准备包裹，再逐笔确认平台发货操作。", "", "进入装箱与发货", "/workbench/store-orders/fulfill?step=stock"],
+      ["物流核对", "交接与物流", "记录实际交接，分别查看平台回执、发货进度与物流结果。", "", "查看交接与物流", "/workbench/store-orders/fulfill?step=logistics"],
+    ],
+    entryLabels: [["原单核对", "履约需求"], ["内部采购", "分批收货"], ["库存预留", "包裹装箱"], ["实际交接", "平台回执"]],
+    flowTitle: "订单业务如何流转", flowSubtitle: "从原单关联到采购、发货与交接，按业务步骤持续衔接",
+    steps: [["核对原单与需求", "确认原单类型、商品数量和时限，关联履约需求。"], ["采购并登记收货", "按缺货需求采购，分批登记合格实收、拒收和短缺。"], ["预留库存并装箱", "核对可用数量，按原需求准备包裹与装箱单。"], ["核对并确认发货", "检查发货资料和原操作内容，单独确认平台操作。"], ["记录交接与物流", "记录实际交接，跟进物流及平台实收、入库差异。"]],
+    notes: [
+      ["业务协同", "订单、采购与仓库如何协同", "采购围绕原需求补货，仓库按合格收货预留库存，装箱后核对发货和实际交接。", "订单需求 · 采购收货 · 发货交接"],
+      ["使用边界", "平台状态与实际交接分别核对", "内部移交不代表平台签收；供应商下单和付款仍在供应商平台完成。", "案例仅供合成试用 · 真实平台发货待联调"],
+    ],
+    notePoints: [
+      [["订单处理", "原单与内部履约需求"], ["采购与收货", "采购单、实收与交付进度"], ["发货与物流", "包裹、回执与实际交接"]],
+      [["平台订单", "状态、时限与收货观察"], ["企业库存", "以实际收货和交接为准"], ["操作确认", "逐笔核对平台操作内容"]],
+    ],
+  },
   stores: {
     label: "店铺中心", title: "统一管理店铺、商品与订单，让经营链路更清晰",
     subtitle: "店铺中心负责维护店铺授权、查看商品与订单；经营分析和AI执行分别进入对应业务模块。",
     entries: [
       ["01 · 店铺资产", "我的店铺", "管理店铺授权、经营站点、店铺服务和连接状态。", "适合：绑定、授权和维护店铺", "管理我的店铺", "/workbench/stores"],
       ["02 · 商品资产", "店铺商品", "查看平台商品详情、刊登状态、库存信息和最近同步结果。", "适合：查看店铺内的商品资产", "查看店铺商品", "/workbench/store-products"],
-      ["03 · 交易履约", "订单履约", "同步并查看订单详情、物流、包裹和异常；发货与售后到平台处理。", "适合：查看订单与物流履约", "查看订单履约", "/workbench/store-orders"],
+      ["03 · 平台记录", "平台订单记录", "同步并查看订单详情、物流、包裹和异常。", "适合：查看原平台订单与物流记录", "查看平台订单记录", "/workbench/store-orders/records"],
     ],
     flowTitle: "店铺业务如何流转", flowSubtitle: "从绑定店铺到查看订单履约，只需四步",
     steps: [["绑定并授权店铺", "完成平台、站点和店铺信息配置"], ["同步店铺商品", "拉取在线商品、刊登与库存状态"], ["同步并查看订单", "统一查看订单详情、物流和异常"], ["到平台处理履约", "发货、售后与退款在平台完成"]],
@@ -84,23 +106,26 @@ const introductions = {
   },
 };
 
-export function PrimaryIntroduction({ kind, available = [true, true, true], entryHrefs, notice }: { kind: keyof typeof introductions; available?: readonly boolean[]; entryHrefs?: readonly string[]; notice?: string }) {
+export function PrimaryIntroduction({ kind, available = introductions[kind].entries.map(() => true), entryHrefs, notice, actions, children }: { kind: keyof typeof introductions; available?: readonly boolean[]; entryHrefs?: readonly string[]; notice?: string; actions?: ReactNode; children?: ReactNode }) {
   const data = introductions[kind], id = `primary-${kind}`;
-  const isSkills = kind === "skills", compact = kind === "tools" || isSkills;
-  return <section className={`${styles.page} ${homeStyles.page} ${kind === "tools" ? homeStyles.tools : ""} ${isSkills ? homeStyles.skills : ""}`} aria-labelledby={id}>
-    <header className={styles.header}><p className={styles.eyebrow}>{data.label}</p><h1 id={id}>{data.title}</h1><p className={styles.subtitle}>{data.subtitle}</p></header>
+  const isSkills = kind === "skills", isOrders = kind === "orders", compact = kind === "tools" || isSkills;
+  const entryTones = isOrders ? ["blue", "teal", "purple", "amber"] : ["teal", "blue", "purple"];
+  const stepTones = isOrders ? ["blue", "teal", "purple", "amber", "blue"] : ["teal", "blue", "green", "purple"];
+  return <section className={`${styles.page} ${homeStyles.page} ${kind === "tools" ? homeStyles.tools : ""} ${isSkills ? homeStyles.skills : ""} ${isOrders ? homeStyles.orders : ""}`} aria-labelledby={id}>
+    <header className={styles.header}><p className={styles.eyebrow}>{data.label}</p><h1 id={id}>{data.title}</h1><p className={styles.subtitle}>{data.subtitle}</p>{actions ? <div className={homeStyles.headerActions}>{actions}</div> : null}</header>
     {notice ? <p role="status" className={styles.subtitle}>{notice}</p> : null}
-    <div className={`${styles.entries} ${compact ? homeStyles.entries : ""}`}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
-      const content = <>{isSkills ? <><div className={homeStyles.entryHeading}><span className={homeStyles.entryNumber} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><h2>{title}</h2></div><span className={`${styles.badge} ${homeStyles.skillBadge}`}>{badge}</span></> : kind === "tools" ? <div className={homeStyles.entryHeading}><span className={styles.badge}>{badge}</span><h2>{title}</h2></div> : <><span className={styles.badge}>{badge}</span><h2>{title}</h2></>}<p className={styles.description}>{description}</p>{audience ? <p className={styles.audience}>{audience}</p> : null}<span className={styles.action}>{available[index] ? `${action}${compact ? "" : " →"}` : "暂未启用"}</span></>;
-      return available[index] ? <Link key={href} href={entryHrefs?.[index] ?? href} prefetch={false} className={styles.entry} data-tone={["teal", "blue", "purple"][index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={["teal", "blue", "purple"][index]} data-state="unavailable">{content}</Card>;
+    <div className={`${styles.entries} ${compact ? homeStyles.entries : ""} ${isOrders ? homeStyles.orderEntries : ""}`}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
+      const content = <>{isOrders ? <div className={homeStyles.orderEntryHeading}><h2>{title}</h2><span className={styles.badge}>{badge}</span></div> : isSkills ? <><div className={homeStyles.entryHeading}><span className={homeStyles.entryNumber} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><h2>{title}</h2></div><span className={`${styles.badge} ${homeStyles.skillBadge}`}>{badge}</span></> : kind === "tools" ? <div className={homeStyles.entryHeading}><span className={styles.badge}>{badge}</span><h2>{title}</h2></div> : <><span className={styles.badge}>{badge}</span><h2>{title}</h2></>}<p className={styles.description}>{description}</p>{audience ? <p className={styles.audience}>{audience}</p> : null}{"entryLabels" in data ? <div className={homeStyles.entryLabels}>{data.entryLabels[index].map(label => <span key={label}>{label}</span>)}</div> : null}<span className={styles.action}>{available[index] ? `${action}${compact || isOrders ? "" : " →"}` : "暂未启用"}</span></>;
+      return available[index] ? <Link key={href} href={entryHrefs?.[index] ?? href} prefetch={false} className={styles.entry} data-tone={entryTones[index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={entryTones[index]} data-state="unavailable">{content}</Card>;
     })}</div>
     {"features" in data ? <section className={homeStyles.features} aria-labelledby={`${id}-features`}>
       <div className={homeStyles.featureHeading}><h2 id={`${id}-features`}>{data.featuresTitle}</h2><p>{data.featuresSubtitle}</p></div>
       <Card className={homeStyles.featurePanel}>{data.features.map(([title, description]) => <div key={title}><h3>{title}</h3><p>{description}</p></div>)}</Card>
     </section> : null}
     <section className={styles.flow} aria-labelledby={`${id}-flow`}><div className={styles.flowHeading}><h2 id={`${id}-flow`}>{data.flowTitle}</h2><p>{data.flowSubtitle}</p></div>
-      <ol className={`${styles.steps} ${compact ? homeStyles.steps : ""}`}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={["teal", "blue", "green", "purple"][index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
+      <ol className={`${styles.steps} ${compact ? homeStyles.steps : ""} ${isOrders ? homeStyles.orderSteps : ""}`}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={stepTones[index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
     </section>
-    <div className={`${styles.notes} ${compact ? homeStyles.notes : ""}`}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 && !isSkills ? styles.dataFlow : ""}`} data-tone={index === 0 ? "teal" : "purple"}>{!isSkills ? <p className={styles.noteLabel}>{label}</p> : null}<h2>{title}</h2><p className={styles.description}>{description}</p>{footer ? <p className={styles.noteFooter}>{footer}</p> : null}</Card>)}</div>
+    {children}
+    <div className={`${styles.notes} ${compact ? homeStyles.notes : ""} ${isOrders ? homeStyles.orderNotes : ""}`}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 && !isSkills ? styles.dataFlow : ""}`} data-tone={isOrders ? index === 0 ? "blue" : "teal" : index === 0 ? "teal" : "purple"}>{isOrders && "notePoints" in data ? <><div className={homeStyles.orderNoteCopy}><p className={styles.noteLabel}>{label}</p><h2>{title}</h2><p className={styles.description}>{description}</p><p className={styles.noteFooter}>{footer}</p></div><ul className={homeStyles.orderNotePoints}>{data.notePoints[index].map(([heading, detail]) => <li key={heading}><strong>{heading}</strong><span>{detail}</span></li>)}</ul></> : <>{!isSkills ? <p className={styles.noteLabel}>{label}</p> : null}<h2>{title}</h2><p className={styles.description}>{description}</p>{footer ? <p className={styles.noteFooter}>{footer}</p> : null}</>}</Card>)}</div>
   </section>;
 }
