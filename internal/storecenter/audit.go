@@ -336,19 +336,3 @@ func sameAuditSemanticPayload(a, b AuditEvent) bool {
 func newAuditEvent(organizationID, storeID, requestKey string, action AuditAction, outcome AuditOutcome, actor string, fields []string, previous, next RecordStatus, failure AuditFailureCode, occurredAt time.Time) AuditEvent {
 	return AuditEvent{EventID: uuid.NewString(), OrganizationID: organizationID, StoreID: storeID, RequestKey: requestKey, Action: action, Outcome: outcome, ActorSubject: actor, SafeFieldNames: fields, PreviousState: previous, NewState: next, FailureCode: failure, OccurredAt: occurredAt.UTC()}
 }
-
-func auditFailureFor(err error) AuditFailureCode {
-	if errors.Is(err, ErrAlreadyExists) {
-		return AuditFailureAlreadyExists
-	}
-	return AuditFailureDependencyUnavailable
-}
-
-func stableFailureFromAudit(event AuditEvent) error {
-	switch event.FailureCode {
-	case AuditFailureAlreadyExists:
-		return ErrAlreadyExists
-	default:
-		return ErrDependencyUnavailable
-	}
-}
