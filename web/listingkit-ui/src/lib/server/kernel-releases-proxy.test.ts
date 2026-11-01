@@ -32,6 +32,12 @@ it("forwards only fixed publication metadata and server token, without enterpris
   const headers = new Headers(options.headers); expect(headers.get("Authorization")).toBe("Bearer test-token"); expect(headers.has("X-Requested-Organization-ID")).toBe(false); expect(headers.has("Cookie")).toBe(false);
   expect(JSON.stringify(await result.json())).not.toContain("test-token");
 });
+it("preserves the authoritative same-ID withdrawn PUT result", async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json(context())).mockResolvedValueOnce(Response.json({ releaseId: id, state: "withdrawn" })); vi.stubGlobal("fetch", fetch);
+  const result = await proxyKernelReleases(request(), "test-token", "admin");
+  expect(result.status).toBe(200); expect(await result.json()).toEqual({ releaseId: id, state: "withdrawn" });
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
 it("keeps publication uncertain after lost or malformed responses and does not retry", async () => {
   for (const result of [() => Promise.reject(new Error("lost")), () => Promise.resolve(Response.json({ releaseId: id, state: "published", token: "secret" })), () => Promise.resolve(Response.json({ code: "KERNEL_CATALOG_UNAVAILABLE" }, { status: 503 }))]) {
     const fetch = vi.fn().mockResolvedValueOnce(Response.json(context())).mockImplementationOnce(result); vi.stubGlobal("fetch", fetch);

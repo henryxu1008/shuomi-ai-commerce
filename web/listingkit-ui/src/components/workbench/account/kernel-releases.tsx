@@ -48,6 +48,7 @@ function KernelReleaseList({ userId }: { userId: string }) {
 const blank = { key: "", version: "", os: "windows" as KernelQuery["os"], arch: "amd64" as KernelQuery["arch"], minClientVersion: "1.8.0", maxClientVersionExclusive: "", archiveFormat: "zip", size: "", sha256: "", downloadUrl: "", clientVersion: "1.8.0" };
 function KernelRegistration({ userId }: { userId: string }) {
   const [fields, setFields] = useState(blank), [errors, setErrors] = useState<Record<string, string>>({}), [failure, setFailure] = useState<unknown>(), [busy, setBusy] = useState(false), [receipt, setReceipt] = useState<KernelIntent | null>(null);
+  const [withdrawnId, setWithdrawnId] = useState<string | null>(null);
   const pending = useResourcePending({ expectedUserId: userId, expectedOrganizationId: "" }, ["kernel-publication"], kernelIntent, { storage: "session", maxLength: 16384 });
   const flight = useRef(false), active = useRef(true), controller = useRef<AbortController | null>(null);
   useEffect(() => { active.current = true; return () => { active.current = false; controller.current?.abort(); }; }, []);
@@ -73,7 +74,12 @@ function KernelRegistration({ userId }: { userId: string }) {
       pending.persist(intent);
       try {
         const result = await kernelRequest(userId, "/" + intent.key, kernelResult, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(intent.payload), signal });
-        if (result.releaseId !== intent.key || result.state !== "published") throw new KernelError("OUTCOME_UNKNOWN");
+        if (result.releaseId !== intent.key) throw new KernelError("OUTCOME_UNKNOWN");
+        if (result.state === "withdrawn") {
+          pending.clear(intent);
+          if (active.current) setWithdrawnId(intent.key);
+          return;
+        }
       } catch (error) {
         if (error instanceof KernelError && (error.code === "NOT_SENT" || error.status >= 400 && error.status < 500 && error.code !== "OUTCOME_UNKNOWN")) pending.clear(intent);
         throw error;
@@ -81,7 +87,9 @@ function KernelRegistration({ userId }: { userId: string }) {
       if (active.current) await verify(intent, signal);
     });
   }
-  if (receipt) return <Card className={styles.panel} role="status"><h2>已登记并读回确认</h2><IntentSummary intent={receipt} /><p>推荐：否</p><div className={styles.actions}><Button asChild><Link href={kernelPagePath} prefetch={false}>返回发行目录</Link></Button><Button variant="outline" onClick={() => { setReceipt(null); setFields(blank); }}>登记下一条</Button></div></Card>;
+  function startNext() { setReceipt(null); setWithdrawnId(null); setFields(blank); setErrors({}); setFailure(undefined); }
+  if (withdrawnId) return <Card className={styles.panel} role="status"><h2>发行编号已撤回</h2><p>原发行编号：<code>{withdrawnId}</code></p><p>服务端已确认这条记录已撤回，不能作为可用内核。本次未确认登记成功。</p><div className={styles.actions}><Button disabled={busy} onClick={startNext}>登记另一条</Button><Button asChild variant="outline"><Link href={kernelPagePath} prefetch={false}>返回发行目录</Link></Button></div></Card>;
+  if (receipt) return <Card className={styles.panel} role="status"><h2>已登记并读回确认</h2><IntentSummary intent={receipt} /><p>推荐：否</p><div className={styles.actions}><Button asChild><Link href={kernelPagePath} prefetch={false}>返回发行目录</Link></Button><Button variant="outline" onClick={startNext}>登记下一条</Button></div></Card>;
   return <>
     {pending.command || pending.error ? <Card className={styles.panel}><h2>登记结果待核实</h2>{pending.command ? <IntentSummary intent={pending.command} /> : <p>无法读取保留的请求，暂不可登记新记录。</p>}<p>保留原编号和参数。未确认前不能再次登记或生成新编号。</p><Button disabled={busy || !pending.command} onClick={() => { const intent = pending.command; if (intent) void run(signal => verify(intent, signal)); }}>查询本次登记</Button></Card> : null}
     <Card className={styles.panel}><form onSubmit={event => { event.preventDefault(); void submit(); }}>

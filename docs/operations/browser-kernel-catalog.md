@@ -12,6 +12,8 @@ Issue #1013。设计与精确 HTTP DTO 见 [发行目录 V1](../architecture/bro
 
 部署前核实 Web 服务到同一后端的既有 `LISTINGKIT_SERVICE_API_BASE` 接线、kernel 模块和现有管理员权限。最小候选是更新 Web UI（页面与同源 BFF）；若现有 ingress 未转发该 BFF 路径，应由部署 owner 核实并单独批准必要接线，不泛转发 `/api/v1/platform/*`。本源码任务不执行部署、权限变更或真实目录写入。登录或管理员权限不足时按原身份流程处理，不通过改角色完成验收。
 
+原 PUT 合同还允许同编号的幂等响应为 `state=withdrawn`。仅当严格响应中的编号匹配本次请求时，页面将其作为明确的非成功终态：解除该请求的 pending、显示原编号及已撤回状态，允许显式登记另一条，不再查询必定不可见的 artifact，也不显示成功。编号不匹配、响应结构无效或网络结果未知时仍保留原 pending。
+
 ## 接线与默认行为
 
 `cmd/current-application` 读取可选 manifest `browserKernel`。省略时不打开目录数据库、不挂五条路由，不改变其他模块或账号权限。启用时要求独立 `browser_kernel` 数据库、既有 `browser_kernel_runtime` 角色、1..4连接和1..8个规范HTTPS资产origin。origin不含路径、默认443端口、凭据、query或通配符。

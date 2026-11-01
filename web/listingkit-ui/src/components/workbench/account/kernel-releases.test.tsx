@@ -29,6 +29,29 @@ it("waits for matching readback and prevents duplicate publication while in flig
   expect(fetch.mock.calls.filter(([, options]) => options.method === "PUT")).toHaveLength(1);
   finish(Response.json(artifact)); await screen.findByRole("heading", { name: "已登记并读回确认" });
 });
+it("handles an authoritative matching withdrawn response as a nonsuccess terminal result", async () => {
+  const fetch = vi.fn().mockResolvedValue(Response.json({ releaseId: id, state: "withdrawn" }));
+  vi.stubGlobal("fetch", fetch); const page = mount(); fill(); save();
+  await screen.findByRole("heading", { name: "发行编号已撤回" });
+  expect(screen.getByText(id)).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "已登记并读回确认" })).not.toBeInTheDocument();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "登记另一条" }));
+  expect(screen.getByRole("button", { name: "生成编号" })).toBeEnabled();
+  expect(screen.getByRole("textbox", { name: /发行编号/ })).toHaveValue("");
+  page.unmount(); mount();
+  expect(screen.queryByRole("heading", { name: "登记结果待核实" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "生成编号" })).toBeEnabled();
+});
+it.each([
+  { releaseId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", state: "withdrawn" },
+  { releaseId: id, state: "withdrawn", unexpected: true },
+])("keeps pending for a mismatched or malformed withdrawn response %#", async result => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(result))); mount(); fill(); save();
+  await screen.findByText(/登记结果待核实。保留原编号/);
+  expect(screen.getByRole("button", { name: "生成编号" })).toBeDisabled();
+  expect(screen.queryByRole("heading", { name: "发行编号已撤回" })).not.toBeInTheDocument();
+});
 it("retains the original intent across remount after readback failure and only queries it", async () => {
   const fetch = vi.fn().mockResolvedValueOnce(Response.json({ releaseId: id, state: "published" })).mockResolvedValueOnce(Response.json({ code: "UNAVAILABLE" }, { status: 503 })).mockResolvedValueOnce(Response.json(artifact));
   vi.stubGlobal("fetch", fetch); const page = mount(); fill(); save();
