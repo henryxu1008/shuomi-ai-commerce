@@ -34,7 +34,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)：只有 EXTRACT / RETIRE；无 legacy wrapper、fallback、旧 ID 映射、双读双写或第二事实源。
 - 已确认的 [数字执行链](legacy-numeric-task-execution-retirement-boundary.md)、[数字持久化](legacy-numeric-task-persistence-retirement-boundary.md)、[TEMU save/submit](legacy-temu-listing-submit-retirement-boundary.md)、[前置](legacy-temu-preflight-retirement-boundary.md)、[变体](legacy-temu-variant-retirement-boundary.md)及[筛选/AI 前置](legacy-temu-filter-mapping-retirement-boundary.md)：旧执行入口已退出，本轮只接续明确剩余的初始化阶段，不推翻其它保留项。
 - [当前 Store Center](store-center-current-application-v1.md)、[观察同步](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)、[独立 worker 身份/持久化](shein-worker-identity-persistence-boundary.md)：当前 Organization Store 与保留数字登录运行态不互相代替事实源；身份、权限、租户、同步/恢复 owner 保持原合同。
-- [TEMU publishing](../../internal/marketplace/temu/publishing/README.md)、原 API/DTO、listingadmin Store 合同、共享 ptr、mixed context 和 SKU owner：有效行为保持原实现。Figma N/A，无 UI/IA 修改。
+- [TEMU publishing](https://github.com/henryxu1008/shuomi-ai-commerce/blob/3d52287fdaadd55f89b592abb58eb928a745b76a/internal/marketplace/temu/publishing/README.md)、原 API/DTO、listingadmin Store 合同、共享 ptr、mixed context 和 SKU owner：有效行为保持原实现。Figma N/A，无 UI/IA 修改。
 
 实施采用 **Reuse Existing Architecture**：用户明确确认 §5、§6、§6.1、§7 后，已在 #29/#301 记录冻结依据、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 和 **Ready**，再删除这三个文件/专属 helper 并校准原登记。不新增生产函数/公共合同/入口、事实/schema、身份/权限/tenant、状态机/事务、幂等、retry/UNKNOWN/recovery 或外部副作用 owner；若实际需要改变这些边界，停止对应实现并补适用 Independent Architecture 准入。
 

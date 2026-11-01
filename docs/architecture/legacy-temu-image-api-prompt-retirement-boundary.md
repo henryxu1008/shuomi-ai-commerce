@@ -27,7 +27,7 @@ Architecture / Contract：
 - [#801 图片执行包退休](legacy-temu-image-processing-retirement-boundary.md) §3.1 / §5：该批保留旧 API/prompt 的决定仅约束该批，已明确为后续 RETIRE 候选；本文经用户确认后，只窄替代 §5 所列对象的旧保留陈述，历史取证/批准保持。
 - [TEMU 当前平台设计](temu-platform-v1.md) §3/§8：当前官方协议/签名/HTTP owner 是 `internal/integration/temu`；旧 Cookie/MALL_ID client 不作为当前官方接入基础。当前 marketplace goods/rules/model 的有效资产/几何/usage/slot 规则不从旧 API URL 猜测派生。
 - [Product ImageAgent](product-image-agent-v1.md)、[官方标题与图片方法](official-skills-and-image-method-v1.md)、[#799 当前图片接线](bailian-product-image-wiring-v1.md)：当前生成/编辑/技能选择、预算、产物/ApprovedAsset、审批采用与错误/UNKNOWN owner 保持；合并源码不是 provider/用户验收。
-- [Prompt Management](zitadel-tenant-prompt-management.md)：catalog/schema 与 Service Upsert 已有 known-key 语义；原 tenant Store/Registry 与通用记录读取/状态操作不因此退休。须按 §4 区分目录与持久化记录，不能把目录引用当成执行需求。
+- [Prompt Management](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/architecture/zitadel-tenant-prompt-management.md)：catalog/schema 与 Service Upsert 已有 known-key 语义；原 tenant Store/Registry 与通用记录读取/状态操作不因此退休。须按 §4 区分目录与持久化记录，不能把目录引用当成执行需求。
 - [Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[独立 SHEIN 身份持久化](shein-worker-identity-persistence-boundary.md)：原身份、事实/持久化、官方效果/receipt/UNKNOWN 与 worker/Store sync 不变。
 
 本次实施采用 **Reuse Existing Architecture**：删除无执行消费者的旧 API 与目录资源，使用原 unknown-key/schema/Upsert 错误语义；不改 Service/Store/HTTP 接口形状、认证/tenant、事实/schema、状态/事务、幂等/retry/UNKNOWN/recovery 或平台/provider 副作用 owner。目录不再提供旧 key 是本次明确的有界变化，**不是把实施冒称 N/A**。六源文件加原检查/直接冲突文档预计低于30文件，生产删除量低于400行；不通过机械拆 PR 规避阈值。若发现必须改变保留边界或既有批准不足，停止受影响部分补适用 Independent Architecture 准入。

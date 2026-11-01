@@ -149,7 +149,7 @@ configuration fails closed for protected ListingKit routes.
 Owner filtering is a fixed ListingKit startup invariant; deployment
 configuration cannot disable it. For the full migration checklist, including
 allowlist checks, see
-[listingkit-config-migration-checklist.md](/D:/code/task-processor/docs/development/listingkit-config-migration-checklist.md).
+[listingkit-config-migration-checklist.md](../../../docs/development/listingkit-config-migration-checklist.md).
 
 ## Provision ZITADEL roles
 
@@ -1019,7 +1019,7 @@ them.
 
 Temporal env is prepared in:
 
-- [D:/code/task-processor/deployments/kubernetes/listingkit-workbench/base/configmap.yaml](D:/code/task-processor/deployments/kubernetes/listingkit-workbench/base/configmap.yaml)
+- [D:/code/task-processor/deployments/kubernetes/listingkit-workbench/base/configmap.yaml](base/configmap.yaml)
 
 Prepared variables:
 

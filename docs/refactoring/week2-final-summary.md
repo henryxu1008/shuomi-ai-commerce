@@ -25,10 +25,10 @@
 
 #### 4. **建立文档体系** ✅
 创建了 4 个关键文档：
-1. [listingkit-refactoring-plan.md](file://d:/code/task-processor/docs/refactoring/listingkit-refactoring-plan.md) - 原始重构计划（1352行）
-2. [dependency-analysis.md](file://d:/code/task-processor/docs/refactoring/dependency-analysis.md) - 模块依赖分析
-3. [studio-migration-plan.md](file://d:/code/task-processor/docs/refactoring/studio-migration-plan.md) - Studio 迁移详细计划（439行，新增）
-4. [week2-progress-report.md](file://d:/code/task-processor/docs/refactoring/week2-progress-report.md) - Week 2 进展报告
+1. [listingkit-refactoring-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/4742ad00f2f21ab0c99878cc804e112bf2061d05/docs/refactoring/listingkit-refactoring-plan.md) - 原始重构计划（1352行）
+2. [dependency-analysis.md](dependency-analysis.md) - 模块依赖分析
+3. [studio-migration-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/02be94f7aa0d0639564d85271108b94d0293c386/docs/refactoring/studio-migration-plan.md) - Studio 迁移详细计划（439行，新增）
+4. [week2-progress-report.md](week2-progress-report.md) - Week 2 进展报告
 
 ### 关键发现和洞察
 
@@ -99,7 +99,7 @@ Model 层 (2 个文件，~640 行)
 
 #### **选项 A: 立即执行 Studio 迁移**（推荐用于独立会话）
 
-在后续的专注会话中，按照 [studio-migration-plan.md](file://d:/code/task-processor/docs/refactoring/studio-migration-plan.md) 执行：
+在后续的专注会话中，按照 [studio-migration-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/02be94f7aa0d0639564d85271108b94d0293c386/docs/refactoring/studio-migration-plan.md) 执行：
 
 1. **Day 1:** Phase 1 - 迁移 Model 类型（2-3 小时）
 2. **Day 2:** Phase 2 - 迁移 Repository 接口（3-4 小时）
@@ -209,7 +209,7 @@ Model 层 (2 个文件，~640 行)
 
 如果您希望继续执行 Studio 迁移，建议：
 
-1. **阅读迁移计划**: [studio-migration-plan.md](file://d:/code/task-processor/docs/refactoring/studio-migration-plan.md)
+1. **阅读迁移计划**: [studio-migration-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/02be94f7aa0d0639564d85271108b94d0293c386/docs/refactoring/studio-migration-plan.md)
 2. **创建备份分支**: `git checkout -b feature/studio-migration-backup`
 3. **开始 Phase 1**: 迁移 Model 类型到 `service/studio/models.go`
 4. **每步验证**: 每次移动后立即运行 `go build` 和 `go test`

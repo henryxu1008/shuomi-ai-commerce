@@ -41,9 +41,9 @@ Status: **RETIRED source entrypoints**（#726，#29 / #301）。
 源码清单不证明实例不存在、健康、停用或在途副作用已解决。
 
 当前应用继续沿原私密 manifest 入口；采集、Store 观察同步及图片/Temporal 原合同保持。
-独立 SHEIN 登录 worker 保留原命令、账号仓库、Cookie/attempt/验证码/Profile、
-tenant-qualified Store 查重、health/shutdown 与恢复合同。参见[入口地图](../development/repository-structure.md)
-和[worker 身份/持久化边界](../architecture/shein-worker-identity-persistence-boundary.md)。
+独立 SHEIN 登录与身份回写已按 [#985](../architecture/legacy-shein-login-identity-sync-closure-retirement-boundary.md)
+从源码退休，不再提供旧 worker 的启动或恢复命令。当前官方授权与 Store 观察同步
+仍沿原 owner，见[入口地图](../development/repository-structure.md#current-entrypoint-map)。
 
 ## 运行态与数据停止点
 

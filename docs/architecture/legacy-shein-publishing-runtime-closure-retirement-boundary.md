@@ -38,7 +38,7 @@ Refs #29 / #301。调查基线：`8add3a4455123c04871677bf2c1a3b1366307703`。
 
 - [全新系统产品基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)。
 - 已确认的 [SHEIN 数字刊登退休边界](legacy-shein-listing-closure-retirement-boundary.md) 与 [#824 支撑闭包边界](legacy-numeric-listing-support-closure-retirement-boundary.md)。本文只在 §5 准确对象上替代“当时仍有消费者”的保留结论；历史证据和其余当前能力保持。
-- [当前 SHEIN 供应链](my-supply-chain-shein-v1.md)、[原版本审核/首次上架](shein-publication-closure-v1.md)、[Prompt 管理](zitadel-tenant-prompt-management.md)。现有官方回执、执行许可和 UNKNOWN owner 不变。
+- [当前 SHEIN 供应链](my-supply-chain-shein-v1.md)、[原版本审核/首次上架](shein-publication-closure-v1.md)、[Prompt 管理](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/architecture/zitadel-tenant-prompt-management.md)。现有官方回执、执行许可和 UNKNOWN owner 不变。
 
 本批范围超过 30 文件，且必须区分同包中的当前值合同与旧执行状态/持久缓存，采用 Independent Architecture；这不是新状态机、当前业务 owner 迁移或旧数据迁移许可。复用当前能力和现有 Go/GORM/strict JSON/Prompt 组件，不引入新框架或依赖。
 

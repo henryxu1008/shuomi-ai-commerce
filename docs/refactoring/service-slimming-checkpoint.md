@@ -593,7 +593,7 @@ Recommended next low-risk slices:
 3. Keep `service_config.go` focused on factory wiring; avoid adding new default-building logic there.
 4. Continue moving default construction helpers to concept-specific files only when the move is behavior-preserving.
 5. Apply the same subgroup-oriented ownership test to any remaining large collaborator cluster before introducing new service fields.
-6. Use [legacy-store-routing-retirement-checklist.md](/D:/code/task-processor/docs/refactoring/legacy-store-routing-retirement-checklist.md) before removing `/store-routing` compatibility surfaces.
+6. Use [legacy-store-routing-retirement-checklist.md](legacy-store-routing-retirement-checklist.md) before removing `/store-routing` compatibility surfaces.
 
 Avoid for now:
 

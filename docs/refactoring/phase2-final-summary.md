@@ -65,7 +65,7 @@ undefined: Task
 3. 有更好的替代方案 (文档化改进)
 
 **产出文档:**
-- [Workflow 模块整理计划](./workflow-module-reorganization.md)
+- [Workflow 模块整理计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/workflow-module-reorganization.md)
 - [Workflow 模块整理决策记录](./workflow-reorganization-decision.md)
 
 ---
@@ -93,9 +93,9 @@ func (h *handler) SomeHandler(c *gin.Context) {
 ❌ **不执行文件移动,改为文档化改进**
 
 **产出文档:**
-- [API 模块整理计划](./api-module-reorganization.md)
-- [API 模块整理决策记录](./api-reorganization-decision.md)
-- [API README.md](../../internal/listingkit/api/README.md) ⭐ **实际改进**
+- [API 模块整理计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/api-module-reorganization.md)
+- [API 模块整理决策记录](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/api-reorganization-decision.md)
+- [API README.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/80c2ddef9c704e5621893a7350061209feb63257/internal/listingkit/api/README.md) ⭐ **实际改进**
 
 **实际改进:**
 创建了详细的 API README 文档 (477 行),包含:
@@ -190,14 +190,14 @@ func (h *handler) SomeHandler(c *gin.Context) {
 ### 4. 文档化的价值 📝
 
 **创建的文档**:
-1. [module-boundary-analysis.md](./module-boundary-analysis.md) - 12个子模块的详细分析
+1. [module-boundary-analysis.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/module-boundary-analysis.md) - 12个子模块的详细分析
 2. [phase2-progress-report.md](./phase2-progress-report.md) - 第二阶段进展报告
-3. [workflow-module-reorganization.md](./workflow-module-reorganization.md) - Workflow 整理计划
+3. [workflow-module-reorganization.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/workflow-module-reorganization.md) - Workflow 整理计划
 4. [workflow-reorganization-decision.md](./workflow-reorganization-decision.md) - Workflow 决策记录
-5. [api-module-reorganization.md](./api-module-reorganization.md) - API 整理计划
-6. [api-reorganization-decision.md](./api-reorganization-decision.md) - API 决策记录
+5. [api-module-reorganization.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/api-module-reorganization.md) - API 整理计划
+6. [api-reorganization-decision.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/api-reorganization-decision.md) - API 决策记录
 7. [phase2-systematic-refactoring-summary.md](./phase2-systematic-refactoring-summary.md) - 执行总结
-8. [api/README.md](../../internal/listingkit/api/README.md) - API 详细文档 (477行)
+8. [api/README.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/80c2ddef9c704e5621893a7350061209feb63257/internal/listingkit/api/README.md) - API 详细文档 (477行)
 
 **价值**:
 - 记录了分析过程和决策理由
@@ -338,20 +338,20 @@ func (h *handler) SomeHandler(c *gin.Context) {
 ## 📝 相关文档索引
 
 ### 本次会话创建的文档
-1. [Workflow 模块整理计划](./workflow-module-reorganization.md)
+1. [Workflow 模块整理计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/workflow-module-reorganization.md)
 2. [Workflow 模块整理决策记录](./workflow-reorganization-decision.md)
-3. [API 模块整理计划](./api-module-reorganization.md)
-4. [API 模块整理决策记录](./api-reorganization-decision.md)
+3. [API 模块整理计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/api-module-reorganization.md)
+4. [API 模块整理决策记录](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/api-reorganization-decision.md)
 5. [方案 B 执行总结](./phase2-systematic-refactoring-summary.md)
 6. [方案 B 最终总结](./phase2-final-summary.md) - 本文档
 
 ### 之前创建的文档
-7. [模块边界分析](./module-boundary-analysis.md)
+7. [模块边界分析](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring/module-boundary-analysis.md)
 8. [第二阶段进展报告](./phase2-progress-report.md)
-9. [ListingKit 重构改进计划](../../plans/ListingKit_重构改进计划_2e5b810c.md)
+9. `ListingKit 重构改进计划`
 
 ### 实际改进文件
-10. [API README.md](../../internal/listingkit/api/README.md) ⭐
+10. [API README.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/80c2ddef9c704e5621893a7350061209feb63257/internal/listingkit/api/README.md) ⭐
 
 ---
 

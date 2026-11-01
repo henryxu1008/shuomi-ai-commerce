@@ -1,4 +1,16 @@
-> #301 / #972 / #977 当前校准：`adapter/product_source` 已在 #972 完整源级退休，不能再按下述 #885 顶注把它当作现役纯值/readiness合同。本旧根仅保留历史文档；当前SDS/POD仍由 `internal/integration/sds`、`internal/app/pod`、`internal/product/pod` 及 Submission/Asset 原owner承担。#977仅校准这条过期说明，不改当前SDS/POD或任何既有记录。以下原#885顶注、dated联调/登录/恢复全文逐字保留为历史，不授权读取/迁移/清理旧cookie/Redis/Profile/真实成品或操作既有实例/凭据/进程。独立SHEIN登录与Store同步保留。
+# 旧 SDS 实现的联调记录
+
+旧 client/login/template/design/workflow/HTTP 及 LocalAgent 适配已按
+[#885](../../docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md)与
+[#972](../../docs/architecture/legacy-localagent-source-policy-closure-retirement-boundary.md)退休。
+当前 SDS/POD 使用 `internal/integration/sds`、`internal/app/pod`、
+`internal/product/pod` 及现有 Submission/Asset owner。
+独立 SHEIN 登录与身份回写另按 [#985](../../docs/architecture/legacy-shein-login-identity-sync-closure-retirement-boundary.md)退休；Store 官方授权与观察同步保留。
+
+下方完整保留原始联调事实、接口观察及当时的代码/操作示例。它们属于历史，
+不能作为当前命令或读取、迁移、清理既有 Cookie/Profile/凭据/数据的授权。
+
+## 原始联调记录（历史）
 
 # sds
 

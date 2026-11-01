@@ -1,135 +1,74 @@
-# Refactoring Documentation
+# 重构边界与历史证据
 
-This directory contains current boundary references and historical refactoring records for Shuomi AI Commerce. Start with the [documentation index](../README.md); this directory does not maintain a second execution queue.
+当前执行排序、范围和进度来自 [Roadmap #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137)与执行 Issue / PR。
+产品遵守 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)，领域归属见[Project Boundaries](../architecture/project-boundaries.md)，源码入口见[Repository Structure](../development/repository-structure.md#current-entrypoint-map)。
 
-## Document authority
+## 当前边界与规则
 
-Apply current product decisions and explicit supersession before reading historical plans. A newer file date alone does not replace an approved contract.
+- [Code Health Decisions](code-health-decisions.md)
+- [Dependency Baseline](dependency-baseline.md)
+- [Legacy Hard-Cut Policy](legacy-hard-cut-policy.md)
+- [Legacy Register](legacy-register.md)
+- [Module Target Mapping](module-target-mapping.md)
+- [SHEIN POD Submit Readiness Policy](shein-pod-submit-readiness-policy-design.md)
+- [SHEIN Submit Readiness Action Policy](shein-submit-readiness-action-policy-design.md)
 
-The current product baseline is [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md): design for a fresh installation with empty business data and current owners only.
-
-### Current authorities and navigation
-
-- [Product / Figma Authority](../product/final-ui-ia-authority.md) - current product projection and interaction authority.
-- [Architecture index](../architecture/README.md) and [Project Boundaries](../architecture/project-boundaries.md) - applicable contracts, ownership and dependency rules.
-- [Repository Structure](../development/repository-structure.md#current-entrypoint-map) - source entrypoints and maintained commands; read its exact retirement updates before older catalogues.
-- [Legacy Hard-Cut Policy](./legacy-hard-cut-policy.md) and [Legacy Register](./legacy-register.md) - approved EXTRACT / RETIRE decisions and their bounded supersession.
-- [Roadmap #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137) and the current execution Issue / PR - current scope, dependencies, owner and progress.
-- [../product/product-sourcing-mvp-plan.md](../product/product-sourcing-mvp-plan.md) - Product Sourcing implementation and closeout plan.
-- [../product/product-sourcing-handoff.md](../product/product-sourcing-handoff.md) - Product Sourcing ownership boundaries and handoff expectations.
-- [../architecture/legacy-listing-preview-download-closure-retirement-boundary.md](../architecture/legacy-listing-preview-download-closure-retirement-boundary.md) - confirmed source retirement of old Task preview/platform and listing downloader (#301 / #891); current Product/Catalog/Asset and real Listing owners remain authoritative.
-
-### Long-term architecture authority
-
-- [project-wide-refactoring-plan.md](./project-wide-refactoring-plan.md) - historical reference, not a current implementation authority for greenfield work.
-- [../architecture/project-target-architecture.md](../architecture/project-target-architecture.md) - approved target architecture shape.
-- [project-migration-roadmap.md](./project-migration-roadmap.md) - historical reference, not a current implementation authority; it is superseded for greenfield work by the current product baseline and Hard-Cut policy.
-- [module-target-mapping.md](./module-target-mapping.md) - working map from current package areas to target domains.
-
-### Strategic decision records
-
-- [decisions/2026-06-26-next-growth-sequence.md](./decisions/2026-06-26-next-growth-sequence.md) - dated growth-sequence decision; read with later product decisions and the current execution Issue, not as a live priority list.
+Hard-Cut 只允许 `EXTRACT | RETIRE`。设计中保留的有效平台规则不等于旧 ListingKit
+适配仍存在，也不授权兼容层、数据迁移或已有环境操作。依赖扫描工具是有界分析入口，
+其当前参数以 `scripts/analyze-project-deps.ps1` 为准；生成输出保存在本地产物目录。
 
 <a id="historical-records"></a>
 
-### Historical execution references
-
-- [current-refactoring-status.md](./current-refactoring-status.md) - baseline-bound maturity and gate record, last reviewed 2026-09-05; later bounded notes do not refresh every historical Now / Next / Later statement.
-- [next-phase-plan.md](./next-phase-plan.md) - historical reference, not a current execution authority; use current product decisions and the execution Issue instead.
-- [listingkit-boundary-checkpoint.md](./listingkit-boundary-checkpoint.md) - historical reference, not a current implementation authority for greenfield work.
-- [project-wide-execution-plan.md](./project-wide-execution-plan.md) - earlier broad execution plan; keep for historical PR slices, not the active sprint queue.
-- [project-migration-roadmap.md](./project-migration-roadmap.md) - historical reference, not a current implementation authority; do not use its legacy compatibility directions for a greenfield task.
-- [listingkit-refactoring-progress-2026-06-24.md](./listingkit-refactoring-progress-2026-06-24.md) - dated progress snapshot and backend Control Plane closeout evidence. Treat it as evidence, not the current execution queue.
-- Older local plans provide background only within their recorded baseline; current approved contracts and explicit supersession determine what remains applicable.
-
-For submission and Temporal-related work, use current Listing / Marketplace contracts through the architecture index. The superseded ListingKit checkpoint cannot restore old package ownership, compatibility or migration requirements.
-
-## Status vocabulary
-
-Use these terms consistently across refactoring and product documents:
-
-- **Implemented**: the code path exists on the referenced baseline.
-- **Repository-validated**: the exact baseline has recorded automated test/build results.
-- **Production-validated**: a real environment or real API run is recorded in a dated validation note.
-- **Deferred**: code or runtime assets may exist, but the capability is not an active product-expansion commitment.
-
-Do not use official command existence, retained historical code, or an implemented adapter as proof of full product maturity.
-
-## Boundary rules and enforcement
-
-Use these files before starting broad package moves:
-
-- [../architecture/project-boundaries.md](../architecture/project-boundaries.md) - allowed ownership, forbidden import directions, placement rules, and review checklist.
-- [dependency-baseline.md](./dependency-baseline.md) - worksheet for capturing the current dependency and package-shape baseline before broad moves.
-- [../../scripts/analyze-project-deps.ps1](../../scripts/analyze-project-deps.ps1) - advisory dependency analysis script for package file counts, largest files, ListingKit import pressure, and likely boundary violations.
-
-Recommended first command from the repository root when fresh dependency evidence is needed:
-
-```powershell
-New-Item -ItemType Directory -Force .local/refactoring | Out-Null
-./scripts/analyze-project-deps.ps1 6>&1 | Tee-Object -FilePath .local/refactoring/dependency-baseline-output.txt
-```
-
-To make the script fail when it detects advisory boundary violations:
-
-```powershell
-./scripts/analyze-project-deps.ps1 -FailOnViolation
-```
-
-The script is advisory unless a current PR explicitly promotes a specific check to CI. Generated dependency/package outputs should remain under `.local/` unless a dated validation note summarizes the relevant result.
-
 ## Current active direction
 
-The following are retained structural principles, not a dated product delivery queue. Current priority belongs to #137 and the execution Issue:
+These retained structural principles are not a product delivery queue:
 
-1. Keep the project as a modular monolith first; do not split microservices before package boundaries are stable.
-2. Keep source implementation, repository checks, instance availability and user acceptance distinct; old production gates cannot assert current delivery status.
-3. Use the current product-source flow and its approved owner; do not route new work through a legacy ListingKit handoff.
-4. Let current product decisions and execution Issues determine source/platform expansion; do not dispatch from old Now / Next / Later lists.
-5. Extract current-owner behavior and RETIRE legacy ListingKit ownership; keep task flow, preview/export aggregation, revision/history, persistence ordering, and API shell responsibilities only with their current owners.
-6. Keep marketplace-specific rules in marketplace-specific packages.
-7. Keep product facts, product-source identity, source normalization, and reusable visual assets outside root ListingKit.
-8. Hide infrastructure and external clients behind small interfaces.
-9. Prefer small, testable current-owner changes over broad rewrites; any schema evolution is normal new-system schema evolution, never legacy-data migration.
-10. For submission refactoring, prefer `internal/listing/submission` for generic mechanics and approved marketplace publishing owners for platform rules. Historical `internal/listingkit` references describe a shrinking extraction/RETIRE surface, not a package to recreate.
+- Use the current product-source flow and its approved owner; do not route new work through legacy ListingKit.
+- Extract current-owner behavior and RETIRE legacy ListingKit ownership; the old root is a shrinking extraction/RETIRE surface.
+- Prefer small, testable current-owner changes over broad rewrites. Verify behavior before and after each current-owner change; normal new-system schema evolution does not authorize legacy-data migration.
 
 ## Current refactoring documents
 
-This is a reading catalogue. Historical rows retain their recorded baseline and do not become current execution authority by appearing here.
+`project-migration-roadmap.md` is a historical reference, not a current implementation authority.
+`next-phase-plan.md` is a historical reference, not a current execution authority.
 
-- [current-refactoring-status.md](./current-refactoring-status.md) - historical baseline snapshot and bounded later notes; not a live maturity dashboard or execution queue.
-- [next-phase-plan.md](./next-phase-plan.md) - historical reference, not a current execution authority.
-- [listingkit-boundary-checkpoint.md](./listingkit-boundary-checkpoint.md) - historical reference, not a current implementation authority for greenfield work.
-- [project-wide-refactoring-plan.md](./project-wide-refactoring-plan.md) - historical reference, not a current implementation authority for greenfield work.
-- [project-wide-execution-plan.md](./project-wide-execution-plan.md) - earlier broad execution plan; historical/reference when it conflicts with current checkpoint docs.
-- [project-migration-roadmap.md](./project-migration-roadmap.md) - historical reference, not a current implementation authority for greenfield work.
-- [module-target-mapping.md](./module-target-mapping.md) - working map from current package areas to target domains.
-- [product-sourcing-inventory.md](./product-sourcing-inventory.md) - historical Amazon / 1688 source-flow inventory; new work uses current sourcing contracts and the greenfield baseline.
-- [listing-preview-migration-map.md](./listing-preview-migration-map.md) - historical, superseded preview migration inventory; use the confirmed source-retirement boundary above, not its old owner/compatibility proposals.
-- [dependency-baseline.md](./dependency-baseline.md) - baseline worksheet for dependency scans and legacy exception tracking.
-- [preview-subpackage-feasibility.md](./preview-subpackage-feasibility.md) - historical, superseded feasibility note; its keep-in-root and future extraction proposals are not current implementation authority.
-- [submission-inventory.md](./submission-inventory.md) - historical submission consolidation inventory; current ownership comes from approved Listing / Marketplace contracts, not the superseded checkpoint.
-- [service-slimming-checkpoint.md](./service-slimming-checkpoint.md) - Phase 4 first checkpoint for root service object file-group slimming.
-- [checkpoint-validation-2026-06-17.md](./checkpoint-validation-2026-06-17.md) - focused next-phase validation run covering ListingKit, HTTPAPI, boundary tests, dependency scan, and blocker classification.
-- [listingkit-refactoring-plan.md](./listingkit-refactoring-plan.md) - detailed ListingKit root-directory reduction plan.
-- [studio-migration-plan.md](./studio-migration-plan.md) - Studio migration planning.
+## 保留的批准、观察与验证记录
 
-## Refactoring principles
+以下保留原始基线、计数、失败/取消、PASS 与 NOT_RUN。旧状态中的“当前”“下一步”
+不替代现在的任务；历史兼容/迁移措辞不能恢复已撤回要求。
 
-1. **Hard-Cut**: apply `EXTRACT | RETIRE`; do not create legacy compatibility facades, shims, bridges, wrappers, fallbacks, or dual paths.
-2. **Small steps**: each refactoring task should be independently reviewable and testable.
-3. **Test first**: capture or run relevant tests before and after each current-owner change; normal new-system schema evolution must not be mistaken for legacy migration.
-4. **Incremental change**: avoid one-shot rewrites and package renames.
-5. **Boundary ownership**: new business rules should be placed in the package that owns the business concept.
-6. **No silent authority drift**: record current scope and progress in the execution Issue / PR; product or architecture decisions belong to their existing authority. Do not turn an old status snapshot into another live queue.
-7. **Evidence discipline**: do not claim a baseline is green unless the exact workflow, command output, or validation note is visible.
+- [Issue 30 prepared slices — 2026-09-05](2026-09-05-issue-30-prepared-slices.md)
+- [Draft prerequisite: Publication Identity Cutover](2026-09-05-publication-identity-cutover-issue-draft.md)
+- [Checkpoint Validation - 2026-06-17](checkpoint-validation-2026-06-17.md)
+- [Current Refactoring Status](current-refactoring-status.md)
+- [Decision: Refactoring Closeout, Product Sources, Then Sales Platforms](decisions/2026-06-26-next-growth-sequence.md)
+- [ListingKit Module Dependency Analysis](dependency-analysis.md)
+- [ListingKit 重构工作最终总结](final-summary.md)
+- [HTTPAPI Runtime Inventory](httpapi-runtime-inventory.md)
+- [Legacy Store Routing Retirement Checklist](legacy-store-routing-retirement-checklist.md)
+- [ListingKit Boundary Checkpoint](listingkit-boundary-checkpoint.md)
+- [ListingKit 前端重构路线图](listingkit-frontend-refactoring-roadmap.md)
+- [ListingKit 重构进展审查（2026-06-24）](listingkit-refactoring-progress-2026-06-24.md)
+- [Platform-aware Asset Refactoring Implementation Plan](next-phase-plan.md)
+- [第一阶段重构验收测试报告](phase1-acceptance-report.md)
+- [第一阶段重构完成总结](phase1-summary.md)
+- [方案 B 系统性重构 - 最终总结报告](phase2-final-summary.md)
+- [第二阶段重构进展报告](phase2-progress-report.md)
+- [Phase 2 runtime convergence inventory](phase2-runtime-inventory.md)
+- [方案 B 系统性重构 - 执行总结](phase2-systematic-refactoring-summary.md)
+- [Product Sourcing Inventory](product-sourcing-inventory.md)
+- [Project Migration Roadmap](project-migration-roadmap.md)
+- [Task Processor Project-wide Refactoring Plan](project-wide-refactoring-plan.md)
+- [ListingKit Service Slimming Checkpoint](service-slimming-checkpoint.md)
+- [Studio 迁移执行尝试报告](studio-migration-attempt-report.md)
+- [ListingKit Submission Inventory](submission-inventory.md)
+- [TDD 驱动的全局变量消除重构](tdd-global-state-elimination.md)
+- [配套证据/配置附件](test-baseline.txt)
+- [2026-07-09 Documentation Cleanup Validation](validation/2026-07-09-doc-cleanup-validation.md)
+- [ListingKit Backend Baseline Validation — 2026-07-13](validation/2026-07-13-listingkit-backend-baseline.md)
+- [Week 1 重构进展报告 - Core层抽取（部分完成）](week1-progress-report.md)
+- [Week 2 最终总结 - Studio 服务迁移分析完成](week2-final-summary.md)
+- [Week 2 重构进展报告 - Service层分析](week2-progress-report.md)
+- [Workflow 模块整理决策记录](workflow-reorganization-decision.md)
 
-## Risk control
-
-- Establish a test and dependency baseline before large moves.
-- Keep behavior-preserving moves separate from feature changes.
-- Record known import-boundary exceptions instead of normalizing accidental dependencies.
-- Keep rollback simple by limiting each PR to one bounded capability.
-- Require code review for boundary changes, package moves, production-sensitive SHEIN behavior, pricing logic, submission behavior, or new cross-module dependencies.
-- Do not continue helper shaving, file splitting, or package renaming unless it reduces real ownership or improves dependency direction.
-- Do not use Product Sourcing implementation progress as justification to start several new source integrations at once.
+旧 API/Workflow/Studio 移动计划、Preview/Payload 可行性和重复执行路线图已清理；完整原件见[固定历史目录](https://github.com/henryxu1008/shuomi-ai-commerce/tree/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/refactoring)。真实失败、取消、基线测试输出和受保护快照继续留在上表。

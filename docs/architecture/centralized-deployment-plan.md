@@ -26,11 +26,11 @@
 
 相关实现位置：
 
-- [config-prod.yaml](D:/code/task-processor/config/config-prod.yaml)
-- [rabbitmq_service.go](D:/code/task-processor/internal/app/consumer/rabbitmq_service.go)
-- [client.go](D:/code/task-processor/internal/app/crawler/distributed/client.go)
-- [queue_initializer.go](D:/code/task-processor/internal/infra/rabbitmq/queue_initializer.go)
-- [manager_with_lock.go](D:/code/task-processor/internal/app/scheduler/manager_with_lock.go)
+- [config-prod.yaml](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c5c01e6e5b440cf50116aef6c7ddfa6135dfe70d/config/config-prod.yaml)
+- [rabbitmq_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/consumer/rabbitmq_service.go)
+- [client.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/crawler/distributed/client.go)
+- [queue_initializer.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/6b1fb24936abc9492034df3e04e600be479c0d38/internal/infra/rabbitmq/queue_initializer.go)
+- [manager_with_lock.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/scheduler/manager_with_lock.go)
 
 这说明当前系统并不是“程序结构上只能一店一机”，而更像是“为了规避爬虫、Cookie、浏览器资源冲突，运行策略上按店铺拆机器”。
 
@@ -44,7 +44,7 @@
 
 其中内存状态入口位于：
 
-- [manager.go](D:/code/task-processor/internal/app/state/manager.go)
+- [manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/manager.go)
 
 ## 2. 改造目标
 
@@ -126,7 +126,7 @@
 
 当前仓库当前保留的独立配置入口：
 
-- `amazon-crawler-api`: [config-amazon-crawler-api.yaml](D:/code/task-processor/config/config-amazon-crawler-api.yaml)
+- `amazon-crawler-api`: [config-amazon-crawler-api.yaml](https://github.com/henryxu1008/shuomi-ai-commerce/blob/fa9eed8bf5bf06b2d91721449ca452cc1e291d3f/config/config-amazon-crawler-api.yaml)
 
 当前推荐链路是：
 
@@ -201,10 +201,10 @@ node:
 
 建议优先调整的模块：
 
-- [rabbitmq_service.go](D:/code/task-processor/internal/app/consumer/rabbitmq_service.go)
-- [platform_registry.go](D:/code/task-processor/internal/app/consumer/platform_registry.go)
-- [config.go](D:/code/task-processor/internal/core/config/config.go)
-- [type_rabbitmq.go](D:/code/task-processor/internal/core/config/type_rabbitmq.go)
+- [rabbitmq_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/consumer/rabbitmq_service.go)
+- [platform_registry.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/e10fca2f47dd3a01e6bcfe0f423691dec6ae5495/internal/app/consumer/platform_registry.go)
+- [config.go](../../internal/core/config/config.go)
+- [type_rabbitmq.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/a88b890a7bf304b795a4ce3fc70a19cf6cf644e1/internal/core/config/type_rabbitmq.go)
 
 阶段收益：
 
@@ -304,11 +304,11 @@ TTL 建议：
 
 对应代码入口：
 
-- [manager.go](D:/code/task-processor/internal/app/state/manager.go)
-- [cookie_manager.go](D:/code/task-processor/internal/app/state/cookie_manager.go)
-- [shop_pause_manager.go](D:/code/task-processor/internal/app/state/shop_pause_manager.go)
-- [daily_count_manager.go](D:/code/task-processor/internal/app/state/daily_count_manager.go)
-- [pending_registry.go](D:/code/task-processor/internal/app/crawler/distributed/pending_registry.go)
+- [manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/manager.go)
+- [cookie_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/cookie_manager.go)
+- [shop_pause_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/shop_pause_manager.go)
+- [daily_count_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/daily_count_manager.go)
+- [pending_registry.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/crawler/distributed/pending_registry.go)
 
 ## 第三阶段：动态店铺租约与无状态节点
 
@@ -362,11 +362,11 @@ lease:
 
 ### 6.1 配置与装配层
 
-- [config.go](D:/code/task-processor/internal/core/config/config.go)
-- [type_rabbitmq.go](D:/code/task-processor/internal/core/config/type_rabbitmq.go)
-- [type_worker.go](D:/code/task-processor/internal/core/config/type_worker.go)
-- [bootstrap/app.go](D:/code/task-processor/internal/app/bootstrap/app.go)
-- [shared_resources.go](D:/code/task-processor/internal/app/bootstrap/shared_resources.go)
+- [config.go](../../internal/core/config/config.go)
+- [type_rabbitmq.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/a88b890a7bf304b795a4ce3fc70a19cf6cf644e1/internal/core/config/type_rabbitmq.go)
+- [type_worker.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/209b40f546c72c04761377cb57666076c0043a60/internal/core/config/type_worker.go)
+- [bootstrap/app.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/bootstrap/app.go)
+- [shared_resources.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/e10fca2f47dd3a01e6bcfe0f423691dec6ae5495/internal/app/bootstrap/shared_resources.go)
 
 目标：
 
@@ -377,9 +377,9 @@ lease:
 
 ### 6.2 consumer 运行时
 
-- [rabbitmq_service.go](D:/code/task-processor/internal/app/consumer/rabbitmq_service.go)
-- [service_manager.go](D:/code/task-processor/internal/app/consumer/service_manager.go)
-- [processor_registry.go](D:/code/task-processor/internal/app/consumer/processor_registry.go)
+- [rabbitmq_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/consumer/rabbitmq_service.go)
+- [service_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/consumer/service_manager.go)
+- [processor_registry.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/consumer/processor_registry.go)
 
 目标：
 
@@ -389,10 +389,10 @@ lease:
 
 ### 6.3 state 层
 
-- [manager.go](D:/code/task-processor/internal/app/state/manager.go)
-- [cookie_manager.go](D:/code/task-processor/internal/app/state/cookie_manager.go)
-- [shop_pause_manager.go](D:/code/task-processor/internal/app/state/shop_pause_manager.go)
-- [daily_count_manager.go](D:/code/task-processor/internal/app/state/daily_count_manager.go)
+- [manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/manager.go)
+- [cookie_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/cookie_manager.go)
+- [shop_pause_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/shop_pause_manager.go)
+- [daily_count_manager.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/642db5950c17bdea306d3180bc6706a6c4d8e559/internal/app/state/daily_count_manager.go)
 
 目标：
 
@@ -402,9 +402,9 @@ lease:
 
 ### 6.4 scheduler 与店铺归属
 
-- [manager_with_lock.go](D:/code/task-processor/internal/app/scheduler/manager_with_lock.go)
-- [task_dispatch_guard.go](D:/code/task-processor/internal/app/task/task_dispatch_guard.go)
-- [task_dispatcher.go](D:/code/task-processor/internal/app/task/task_dispatcher.go)
+- [manager_with_lock.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/app/scheduler/manager_with_lock.go)
+- [task_dispatch_guard.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/task/task_dispatch_guard.go)
+- [task_dispatcher.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/task/task_dispatcher.go)
 
 目标：
 

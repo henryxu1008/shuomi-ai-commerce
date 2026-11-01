@@ -22,7 +22,7 @@ YYYY-MM-DD-<platform>-<source>-<scenario>.md
 
 ## 使用方式
 
-1. 复制 [`../listingkit-real-api-validation-report-template.md`](../listingkit-real-api-validation-report-template.md)。
+1. 复制 [`../listingkit-real-api-validation-report-template.md`](https://github.com/henryxu1008/shuomi-ai-commerce/blob/c0210ff34f44c371b5a1993aed89f439cfbdc1ff/docs/product/validation/listingkit-real-api-validation-report-template.md)。
 2. 填写真实 task_id、输入、状态流转、workspace payload、readiness、提交阶段、失败恢复和最终结论。
 3. 每轮联调后必须更新 [`../unknown-state-and-blocker-tracker.md`](../unknown-state-and-blocker-tracker.md)。
 4. 如果报告结论是 `blocked` 或 `fail`，必须在报告里写清关闭标准。

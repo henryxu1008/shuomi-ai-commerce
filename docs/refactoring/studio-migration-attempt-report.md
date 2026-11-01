@@ -5,7 +5,7 @@
 
 ## 执行尝试概述
 
-本次会话尝试执行 [studio-migration-plan.md](file://d:/code/task-processor/docs/refactoring/studio-migration-plan.md) 中的 **Phase 1: 迁移 Model 类型**。
+本次会话尝试执行 [studio-migration-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/02be94f7aa0d0639564d85271108b94d0293c386/docs/refactoring/studio-migration-plan.md) 中的 **Phase 1: 迁移 Model 类型**。
 
 ### 目标
 将 `studio_batch_model.go` 和 `studio_session_model.go` 迁移到 `service/studio/models.go`。
@@ -213,6 +213,6 @@
 ---
 
 **相关文件:**
-- [studio-migration-plan.md](file://d:/code/task-processor/docs/refactoring/studio-migration-plan.md) - 原始迁移计划
-- [week2-final-summary.md](file://d:/code/task-processor/docs/refactoring/week2-final-summary.md) - Week 2 总结
-- [week2-progress-report.md](file://d:/code/task-processor/docs/refactoring/week2-progress-report.md) - Week 2 进展报告
+- [studio-migration-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/02be94f7aa0d0639564d85271108b94d0293c386/docs/refactoring/studio-migration-plan.md) - 原始迁移计划
+- [week2-final-summary.md](week2-final-summary.md) - Week 2 总结
+- [week2-progress-report.md](week2-progress-report.md) - Week 2 进展报告

@@ -17,8 +17,9 @@ without aliases, wrappers or a replacement common package. Field shapes, strict
 JSON, hash/binding algorithms and versions remain unchanged. Future newly built
 multi-attribute drafts have a deterministic order; their hashes may differ from
 an old random ordering. Existing saved payloads are never rebuilt or rewritten.
-Record persistence, permission and transaction owners, Store observation, and
-independent SHEIN login/Store synchronization remain unchanged. Local drafts and
+Record persistence, permission and transaction owners and current Store
+observations remain unchanged. Independent SHEIN login and identity writeback
+were retired under [#985](../../../docs/architecture/legacy-shein-login-identity-sync-closure-retirement-boundary.md). Local drafts and
 offline diagnostics do not authorize a platform submission.
 
 Boundary and original-check conversions: [#961 design](../../../docs/architecture/legacy-publishing-support-policy-closure-retirement-boundary.md).

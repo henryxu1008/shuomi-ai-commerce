@@ -8,7 +8,7 @@
 
 ## 1. 统一状态定义
 
-公共任务状态定义位于 [internal/model/task_status.go](D:/code/task-processor/internal/model/task_status.go)。
+公共任务状态定义位于 [internal/model/task_status.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/331bee51ad6a9fd1acc8a4d04982f37824f710bb/internal/model/task_status.go)。
 
 当前主要状态：
 
@@ -63,21 +63,21 @@
 
 - 这套规则由公共模型维护，不允许业务模块各自手写隐式状态表。
 - 业务里如果需要从 API 返回的状态码进入下一状态，优先使用 `ValidateTaskStatusTransitionCode(...)`。
-- 成功态和失败态更新，优先通过统一状态更新服务 [internal/app/taskstatus/service.go](D:/code/task-processor/internal/app/taskstatus/service.go) 发往管理端。
+- 成功态和失败态更新，优先通过统一状态更新服务 [internal/app/taskstatus/service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/taskstatus/service.go) 发往管理端。
 
 ## 3. 获取链路
 
 `app/task` 中获取和分发任务的职责已经拆开：
 
-- [internal/app/task/fetcher_utils.go](D:/code/task-processor/internal/app/task/fetcher_utils.go)
+- [internal/app/task/fetcher_utils.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/task/fetcher_utils.go)
   负责通过 `pendingRuntimeTaskSource` 获取 `pending` / `pending_retry` 任务并转换为本地分发记录
-- [internal/app/task/task_claim_service.go](D:/code/task-processor/internal/app/task/task_claim_service.go)
+- [internal/app/task/task_claim_service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/task/task_claim_service.go)
   负责 claim 抢占任务，并将状态推进到 `processing`
-- [internal/app/task/task_dispatch_guard.go](D:/code/task-processor/internal/app/task/task_dispatch_guard.go)
+- [internal/app/task/task_dispatch_guard.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/task/task_dispatch_guard.go)
   负责店铺信息检查和暂停态检查
-- [internal/app/task/task_dispatcher.go](D:/code/task-processor/internal/app/task/task_dispatcher.go)
+- [internal/app/task/task_dispatcher.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/task/task_dispatcher.go)
   负责把任务分发到具体平台 submitter
-- [internal/app/task/dispatcher.go](D:/code/task-processor/internal/app/task/dispatcher.go)
+- [internal/app/task/dispatcher.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/task/dispatcher.go)
   只负责编排和统计
 
 claim 约束：
@@ -90,7 +90,7 @@ claim 约束：
 
 管理端任务状态更新统一经由：
 
-- [internal/app/taskstatus/service.go](D:/code/task-processor/internal/app/taskstatus/service.go)
+- [internal/app/taskstatus/service.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/1f9c37d9849f5c5542e2b9fa4e7f088af95c8f9f/internal/app/taskstatus/service.go)
 
 职责：
 
@@ -113,9 +113,9 @@ claim 约束：
 
 SHEIN 错误定义分层如下：
 
-- [internal/shein/sherr](D:/code/task-processor/internal/shein/sherr)
+- [internal/shein/sherr](https://github.com/henryxu1008/shuomi-ai-commerce/blob/912170ca05002204cfe9706c070c1d7f80579fb1/internal/shein/sherr)
   真正的错误类型与分类规则
-- [internal/shein/error_exports.go](D:/code/task-processor/internal/shein/error_exports.go)
+- [internal/shein/error_exports.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/ca4332aef6e4f98a203ca196dc3ccedce649e31c/internal/shein/error_exports.go)
   对外导出入口，保持上层调用稳定
 
 `sherr` 已按职责拆分：
@@ -130,11 +130,11 @@ SHEIN 错误定义分层如下：
 
 SHEIN 任务处理入口位于：
 
-- [internal/shein/pipeline/task.go](D:/code/task-processor/internal/shein/pipeline/task.go)
+- [internal/shein/pipeline/task.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/shein/pipeline/task.go)
 
 错误路由位于：
 
-- [internal/shein/pipeline/task_error_router.go](D:/code/task-processor/internal/shein/pipeline/task_error_router.go)
+- [internal/shein/pipeline/task_error_router.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/shein/pipeline/task_error_router.go)
 
 当前规则：
 
@@ -146,7 +146,7 @@ SHEIN 任务处理入口位于：
 
 错误处理器位于：
 
-- [internal/shein/pipeline/task_error_handler.go](D:/code/task-processor/internal/shein/pipeline/task_error_handler.go)
+- [internal/shein/pipeline/task_error_handler.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/shein/pipeline/task_error_handler.go)
 
 当前规则：
 
@@ -167,7 +167,7 @@ SHEIN 任务处理入口位于：
 
 `publish` 成功后的状态通知统一经由：
 
-- [internal/shein/publish/task_status_notifier.go](D:/code/task-processor/internal/shein/publish/task_status_notifier.go)
+- [internal/shein/publish/task_status_notifier.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/5d17c3fe3c8c8c99f0016ed0b1100bfec6962162/internal/shein/publish/task_status_notifier.go)
 
 当前场景：
 
@@ -178,7 +178,7 @@ SHEIN 任务处理入口位于：
 
 TEMU 状态出口位于：
 
-- [internal/temu/task_handler.go](D:/code/task-processor/internal/temu/task_handler.go)
+- [internal/temu/task_handler.go](https://github.com/henryxu1008/shuomi-ai-commerce/blob/2799043c26a285d046e1a9658cf2892c9d81169e/internal/temu/task_handler.go)
 
 当前将业务结果映射为公共状态：
 
