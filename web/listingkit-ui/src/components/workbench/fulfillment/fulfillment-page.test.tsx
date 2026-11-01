@@ -6,7 +6,7 @@ import { FulfillmentPage } from "./fulfillment-page";
 import type { FulfillmentInput } from "@/lib/api/fulfillment";
 import { saveFulfillmentIntent } from "@/lib/api/fulfillment-intent";
 import { ConsoleNavigation } from "../console/console-navigation";
-const location = vi.hoisted(() => ({ search: "" }));
+const location = vi.hoisted(() => ({ search: "", hasDemand: false, platformSuccess: false }));
 vi.mock("next/navigation", async () => {
   const { useSyncExternalStore } = await import("react");
   return { useSearchParams: () => new URLSearchParams(useSyncExternalStore(
@@ -33,6 +33,7 @@ vi.mock("@/lib/api/workbench-stores", () => ({
 const calls: FulfillmentInput[] = [];
 beforeEach(() => {
   location.search = "storeId=store&sourceId=original&kind=platform_supply";
+  location.hasDemand = false; location.platformSuccess = false;
   window.history.replaceState(null, "", `/workbench/store-orders/fulfill?${location.search}`);
   const replace = window.history.replaceState.bind(window.history);
   // Next's documented native-history integration notifies useSearchParams.
@@ -60,7 +61,15 @@ beforeEach(() => {
       const input = JSON.parse(String(init.body)) as FulfillmentInput;
       calls.push(input);
       if (input.action === "find_demand")
-        return Response.json({ demand: null });
+        return Response.json({ demand: location.hasDemand ? "SO" : null });
+      if (input.action === "details") return Response.json({
+        name: "SO", source: { organization: "org", store: "store", source_id: "original", source_kind: "platform_supply" }, movement_kind: "owned_transfer",
+        lines: [{ line: "line", source_line: "sku", item_code: "ITEM", uom: "Nos", qty: 6, delivered_qty: 0, reserved_qty: 6, ordered_qty: 6, reserve_budget: 6, purchase_remaining: 0, reservable_qty: 0 }],
+        purchases: [], deliveries: [{ name: "DN", docstatus: 0, package_id: "SYN-PACKAGE", lines: [{ demand_line: "line", qty: 6 }] }],
+        operations: location.platformSuccess ? [{ operation: "11111111-1111-4111-8111-111111111111", purpose: "supply_shipping", delivery: "DN", selection: {}, stage: "SUCCEEDED", target: "SYN-DELIVERY", revision: null, result: { shipping_id: "SYN-DELIVERY" } }] : [],
+        has_more_purchases: false, has_more_deliveries: false, has_more_operations: false,
+      });
+      if (input.action === "dispatch") return Response.json({operation: input.operation_id, stage: "SUCCEEDED", target: "DN", revision: null, result: {}});
       if (input.action === "catalog")
         return Response.json({
           items: [],
@@ -114,6 +123,23 @@ function mount(navigation = false) {
     </QueryClientProvider>,
   );
 }
+it.each([false,true])("records exactly the original delivery only after actual-handoff confirmation and platform success=%s", async platformSuccess => {
+  location.hasDemand=true; location.platformSuccess=platformSuccess;
+  location.search += "&step=logistics";
+  mount();
+  const submit=await screen.findByRole("button",{name:"确认记录实际交接"});
+  await userEvent.click(submit);
+  expect(calls.some(call=>call.action==="dispatch")).toBe(false);
+  await userEvent.click(screen.getByRole("checkbox",{name:"我已核对该包裹及实际交接数量"}));
+  await userEvent.click(submit);
+  if(platformSuccess){
+    await waitFor(()=>expect(calls.filter(call=>call.action==="dispatch")).toHaveLength(1));
+    expect(calls.find(call=>call.action==="dispatch")).toMatchObject({store:"store",kind:"platform_supply",source_id:"original",payload:{demand:"SO",delivery:"DN",platform_operation:"11111111-1111-4111-8111-111111111111"}});
+  }else{
+    expect(submit).toBeDisabled();
+    expect(calls.some(call=>call.action==="dispatch")).toBe(false);
+  }
+});
 it("keeps the sidebar selected step in sync after switching a page tab", async () => {
   location.search += "&step=purchase";
   mount(true);

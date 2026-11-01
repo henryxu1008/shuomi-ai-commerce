@@ -1096,6 +1096,7 @@ function ScopedPage({
                                   我已核对该包裹及实际交接数量
                                 </label>
                                 <Button
+                                  type="submit"
                                   disabled={
                                     disabled ||
                                     !can("stock") ||
