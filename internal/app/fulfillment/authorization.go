@@ -30,7 +30,7 @@ func (a Authorization) AuthorizeFulfillment(ctx context.Context, s storecenter.F
 	if _, ok := ctx.Deadline(); !ok {
 		return empty, f.ErrForbidden
 	}
-	if a.Client == nil || a.ServiceToken == nil || a.Permissions == nil || a.ProjectID == "" || a.OrganizationStatus == nil {
+	if a.Client == nil || a.ServiceToken == nil || a.Permissions == nil || a.ProjectID == "" {
 		return empty, f.ErrUnavailable
 	}
 	if identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx); ok && (identity.TenantID != s.OrganizationID || identity.EffectiveOrganizationID != s.OrganizationID || identity.UserID != s.ActorID || identity.EffectiveMemberID != s.MemberID || !time.Now().Before(identity.TokenExpiresAt)) {
@@ -47,12 +47,14 @@ func (a Authorization) AuthorizeFulfillment(ctx context.Context, s storecenter.F
 	if !grant.Found || grant.State != "STATE_ACTIVE" || grant.AuthorizationID != s.MemberID {
 		return empty, f.ErrForbidden
 	}
-	suspended, err := a.OrganizationStatus.IsOrganizationSuspended(ctx, s.OrganizationID)
-	if err != nil {
-		return empty, f.ErrUnavailable
-	}
-	if suspended {
-		return empty, f.ErrForbidden
+	if a.OrganizationStatus != nil {
+		suspended, err := a.OrganizationStatus.IsOrganizationSuspended(ctx, s.OrganizationID)
+		if err != nil {
+			return empty, f.ErrUnavailable
+		}
+		if suspended {
+			return empty, f.ErrForbidden
+		}
 	}
 	for _, permission := range []string{authz.PermissionWorkbenchStoreRead, "workbench." + s.Purpose} {
 		allowed, err := authz.AuthorizeOrganization(ctx, a.Permissions, s.ActorID, s.OrganizationID, grant.Roles, permission)
