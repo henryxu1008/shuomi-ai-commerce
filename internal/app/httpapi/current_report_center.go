@@ -5,6 +5,7 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	reportapp "task-processor/internal/app/reportcenter"
+	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
@@ -16,7 +17,14 @@ func WithReportCenter(db *gorm.DB) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.reportCenters++; o.reportCenterDB = db }
 }
 
+func WithSheinTargetReportSources() CurrentApplicationOption {
+	return func(o *currentApplicationOptions) { o.sheinTargetReportSources++ }
+}
+
 func validateReportCenterPool(o currentApplicationOptions, source *gorm.DB) error {
+	if o.sheinTargetReportSources > 0 && (o.sheinTargetReportSources != 1 || o.reportCenters != 1 || o.supplyChain == nil || o.privateDraftTrial != nil) {
+		return errors.New("SHEIN report sources require one Report owner and normal full Supply")
+	}
 	if o.reportCenters == 0 {
 		return nil
 	}
@@ -64,15 +72,20 @@ func (m reportCenterModule) Register(r *kernelmodule.Registry) error {
 
 // These are the already mounted current-request readers. Missing owners disable
 // only new capture; reading saved reports never depends on an Agent or model.
-func buildReportCenter(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, policy *authz.ListingKitAuthorizer, product *productAgentApplication) (kernelmodule.Module, error) {
+func buildReportCenter(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, policy *authz.ListingKitAuthorizer, product *productAgentApplication, supply *supplyapp.Application) (kernelmodule.Module, error) {
 	var reviews reportapp.ReviewReader
 	if product != nil {
 		reviews = product.reviews
 	}
-	// The native SupplyChain owns TargetRecord, not the offline SHEIN Record
-	// contract. The latter is absent from normal composition; never substitute
-	// an incompatible owner or silently mount the isolated trial application.
-	h, err := reportapp.New(ctx, reportapp.Dependencies{DB: db, Resolver: deps.organizationResolver, Policy: policy, Reviews: reviews})
+	var targets reportapp.TargetRecordReader
+	if supply != nil {
+		if supply.SourceMaterialsOnly || supply.Authorization == nil || supply.Sources == nil || supply.Records == nil || supply.ValidateDraftRead != nil {
+			return nil, errors.New("report capture requires the normal full Supply reader")
+		}
+		targets = supply
+	}
+	// The offline Record reader stays absent; never route its IDs to TargetRecord.
+	h, err := reportapp.New(ctx, reportapp.Dependencies{DB: db, Resolver: deps.organizationResolver, Policy: policy, Reviews: reviews, TargetRecords: targets})
 	if err != nil {
 		return nil, err
 	}

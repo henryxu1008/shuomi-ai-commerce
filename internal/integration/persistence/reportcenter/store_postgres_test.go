@@ -44,6 +44,13 @@ func TestPersonalReportPersistenceAndRuntimeBoundary(t *testing.T) {
 	runtimeRaw, _ := runtime.DB()
 	t.Cleanup(func() { _ = runtimeRaw.Close() })
 	require.NoError(t, VerifySchema(ctx, runtime))
+	require.NoError(t, VerifyTargetSourceSchema(ctx, runtime))
+	// A valid old two-kind schema passes the original gate but cannot opt in.
+	require.NoError(t, admin.Exec(`ALTER TABLE report_center.saved_reports DROP CONSTRAINT saved_reports_kind_check; ALTER TABLE report_center.saved_reports ADD CONSTRAINT saved_reports_kind_check CHECK(kind IN ('TITLE_REVIEW','SHEIN_RECORD'))`).Error)
+	require.ErrorIs(t, VerifyTargetSourceSchema(ctx, runtime), rc.ErrUnavailable)
+	require.NoError(t, VerifySchema(ctx, runtime))
+	require.NoError(t, admin.Exec(`ALTER TABLE report_center.saved_reports DROP CONSTRAINT saved_reports_kind_check; ALTER TABLE report_center.saved_reports ADD CONSTRAINT saved_reports_kind_check CHECK(kind IN ('TITLE_REVIEW','SHEIN_RECORD','SHEIN_TARGET_RECORD'))`).Error)
+	require.NoError(t, VerifyTargetSourceSchema(ctx, runtime))
 	s, e := New(runtime)
 	require.NoError(t, e)
 	scope := rc.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
@@ -123,6 +130,34 @@ func TestPersonalReportPersistenceAndRuntimeBoundary(t *testing.T) {
 	require.NoError(t, e)
 	require.Len(t, page.Items, 1)
 	require.Equal(t, first.Report.ID, page.Items[0].ID)
+	// The new kind uses the same tables, command recovery and favorite contract.
+	native := snap
+	native.Ref = rc.SourceRef{Kind: "SHEIN_TARGET_RECORD", ID: snap.Ref.ID, Version: "sha256:" + strings.Repeat("b", 64)}
+	nativeKey := uuid.NewString()
+	nativeFP := rc.Fingerprint("save", native.Ref)
+	nativeResult, err := s.Save(ctx, scope, nativeKey, nativeFP, native, allow)
+	require.NoError(t, err)
+	nativeResult2, err := second.Save(ctx, scope, nativeKey, nativeFP, native, allow)
+	require.NoError(t, err)
+	require.True(t, nativeResult2.Replayed)
+	require.Equal(t, nativeResult.Report.ID, nativeResult2.Report.ID)
+	require.NotEqual(t, first.Report.ID, nativeResult.Report.ID)
+	page, e = second.List(ctx, scope, rc.Filter{View: "all", Kind: native.Ref.Kind, Limit: 20})
+	require.NoError(t, e)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, nativeResult.Report.ID, page.Items[0].ID)
+	// Disposable fixture only: no serving code mutates a CHECK or upgrades a DB.
+	require.NoError(t, admin.Exec(`ALTER TABLE report_center.saved_reports DROP CONSTRAINT saved_reports_kind_check`).Error)
+	require.ErrorIs(t, VerifyTargetSourceSchema(ctx, runtime), rc.ErrUnavailable)
+	for _, check := range []string{
+		`CHECK(kind IN ('TITLE_REVIEW','SHEIN_RECORD','SHEIN_TARGET_RECORD','UNKNOWN_KIND'))`,
+		`CHECK(kind IN ('TITLE_REVIEW','SHEIN_RECORD','SHEIN_TARGET_RECORD')) NOT VALID`,
+	} {
+		require.NoError(t, admin.Exec(`ALTER TABLE report_center.saved_reports ADD CONSTRAINT saved_reports_kind_check `+check).Error)
+		require.ErrorIs(t, VerifyTargetSourceSchema(ctx, runtime), rc.ErrUnavailable)
+		require.NoError(t, VerifySchema(ctx, runtime), "opt-in-off retains the existing role/column gate")
+		require.NoError(t, admin.Exec(`ALTER TABLE report_center.saved_reports DROP CONSTRAINT saved_reports_kind_check`).Error)
+	}
 	for _, q := range []string{`UPDATE report_center.saved_reports SET title='tampered'`, `DELETE FROM report_center.saved_reports`, `UPDATE report_center.commands SET fingerprint='` + strings.Repeat("a", 64) + `'`, `UPDATE report_center.favorites SET actor_id='other'`, `CREATE TABLE report_center.evil(id int)`} {
 		require.Error(t, runtime.Exec(q).Error, q)
 	}

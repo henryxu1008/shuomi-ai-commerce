@@ -11,11 +11,12 @@ import (
 )
 
 type Dependencies struct {
-	DB       *gorm.DB
-	Resolver OrganizationResolver
-	Policy   authz.StaticAuthorizer
-	Reviews  ReviewReader
-	Records  record.Reader
+	DB            *gorm.DB
+	Resolver      OrganizationResolver
+	Policy        authz.StaticAuthorizer
+	Reviews       ReviewReader
+	Records       record.Reader
+	TargetRecords TargetRecordReader
 }
 
 // New supplies descriptors to the current application owner, never a second server.
@@ -24,10 +25,13 @@ func New(ctx context.Context, d Dependencies) (*reporthttp.Handler, error) {
 	if d.Resolver == nil || d.Policy == nil || store.VerifySchema(ctx, d.DB) != nil {
 		return nil, rc.ErrUnavailable
 	}
+	if d.TargetRecords != nil && store.VerifyTargetSourceSchema(ctx, d.DB) != nil {
+		return nil, rc.ErrUnavailable
+	}
 	repository, e := store.New(d.DB)
 	if e != nil {
 		return nil, e
 	}
 	a := &authorization{d.Resolver, d.Policy}
-	return &reporthttp.Handler{Service: &rc.Service{Repository: repository, Sources: &Sources{Reviews: d.Reviews, Records: d.Records, Policy: d.Policy}, Authorize: a.Authorize}, Bind: a.Bind}, nil
+	return &reporthttp.Handler{Service: &rc.Service{Repository: repository, Sources: &Sources{Reviews: d.Reviews, Records: d.Records, TargetRecords: d.TargetRecords, Policy: d.Policy}, Authorize: a.Authorize}, Bind: a.Bind}, nil
 }

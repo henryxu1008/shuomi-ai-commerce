@@ -51,4 +51,20 @@ func TestReportCenterOptionRequiresOneIndependentPool(t *testing.T) {
 	var o currentApplicationOptions
 	WithReportCenter(reports)(&o)
 	require.NoError(t, validateReportCenterPool(o, source))
+	for _, options := range [][]CurrentApplicationOption{
+		{WithSheinTargetReportSources()},
+		{WithReportCenter(reports), WithSheinTargetReportSources()},
+		{WithReportCenter(reports), WithSupplyChain(SupplyChainDependencies{}), WithSheinTargetReportSources(), WithSheinTargetReportSources()},
+	} {
+		var missing currentApplicationOptions
+		for _, opt := range options {
+			opt(&missing)
+		}
+		require.Error(t, validateReportCenterPool(missing, source))
+	}
+	WithSupplyChain(SupplyChainDependencies{})(&o)
+	WithSheinTargetReportSources()(&o)
+	require.NoError(t, validateReportCenterPool(o, source))
+	o.privateDraftTrial = &PrivateDraftTrialDependencies{}
+	require.Error(t, validateReportCenterPool(o, source))
 }

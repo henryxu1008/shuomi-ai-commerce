@@ -2,6 +2,7 @@ package currentapplication
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -63,4 +64,16 @@ func TestReportCenterRejectsOwnerAliasAndElevatedConfig(t *testing.T) {
 			require.ErrorContains(t, c.validateReportCenter(), "dedicated database")
 		})
 	}
+}
+
+func TestReportTargetOptInRequiresNormalFullSupply(t *testing.T) {
+	c := reportRuntimeConfig()
+	// Missing opt-in stays false and does not require Supply or a new database.
+	require.NoError(t, c.validateReportCenter())
+	require.NoError(t, json.Unmarshal([]byte(`{"sheinTargetSourcesEnabled":true}`), c.ReportCenter))
+	require.Error(t, c.validateReportCenter(), "an enabled source without normal Supply must fail before listen")
+	c.SupplyChain = &SupplyChainConfig{}
+	require.NoError(t, c.validateReportCenter())
+	c.PrivateDraftTrial = &PrivateDraftTrialConfig{}
+	require.Error(t, c.validateReportCenter(), "an isolated trial reader cannot supply normal report capture")
 }
