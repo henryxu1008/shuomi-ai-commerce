@@ -1,0 +1,17 @@
+.panel { padding: 1.5rem; display: grid; gap: 1rem; }
+.form { display: grid; gap: 1.25rem; border: 0; min-width: 0; }
+.grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+.field { display: grid; gap: .4rem; min-width: 0; }
+.field > label { font-weight: 600; }
+.field input,.field select { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: .5rem; background: var(--background); color: var(--foreground); padding: .65rem .75rem; }
+.field small { color: var(--muted-foreground); }
+.field small[role="alert"] { color: var(--destructive); }
+.actions,.filters { display: flex; align-items: end; gap: .75rem; flex-wrap: wrap; }
+.actions input { flex: 1; min-width: 15rem; }
+.actions > .field { flex: 1; min-width: min(15rem,100%); }
+.summary { display: grid; grid-template-columns: auto minmax(0,1fr); gap: .5rem 1rem; }
+.summary dd { overflow-wrap: anywhere; }
+.table { overflow-x: auto; }
+.table table { width: 100%; border-collapse: collapse; text-align: left; }
+.table th,.table td { border-bottom: 1px solid var(--border); padding: .8rem; white-space: nowrap; }
+@media(max-width: 800px) { .grid { grid-template-columns: 1fr; } .summary { grid-template-columns: 1fr; } .panel { padding: 1rem; } .filters { align-items: stretch; flex-direction: column; } }

@@ -1,6 +1,16 @@
 # 浏览器内核目录源码交接
 
-Issue #1013。设计与精确 HTTP DTO 见 [发行目录 V1](../architecture/browser-kernel-release-catalog-v1.md)。当前交付为源码/Draft PR；未启用任何现有实例，也未发行、下载或安装真实内核。普通用户使用桌面版本选择器；本后端不提供另一套管理页面。
+Issue #1013。设计与精确 HTTP DTO 见 [发行目录 V1](../architecture/browser-kernel-release-catalog-v1.md)。普通用户使用桌面版本选择器；#1056 在 Web 工作台补充平台维护页面，后端继续提供同一发行 API。源码交付或构建成功不表示已更新任何现有实例或完成真实发行。
+
+## 工作台维护入口
+
+已登录且持有既有全局 `listingkit.platform_admin` 权限的维护者，从「我的账户 → 企业空间 → 内核发行管理」进入 `/workbench/account/organization/kernel-releases`，查询指定 OS、arch 和客户端版本的兼容目录。列表按 `nextCursor` 翻页，包括本页为空但仍有下一页的情况。登记表单位于其 `/new` 子页面，与列表分开。
+
+浏览器只调用同源 `/api/account/kernel-releases` BFF。BFF 沿用服务端 Auth.js 会话和当前 Workbench authorizer 权限，不接受浏览器提供的 bearer、角色或企业权限替代；发布仍由原 platform handler 再次校验。BFF 不转发企业选择、用户声明或 Cookie 到发行 owner，不开放新的公共 platform 写接口。下载 URL 只作为已授权维护者的固定元数据，不在此下载或运行制品。
+
+登记先校验固定九字段、编号及读回客户端版本，保留原编号和载荷，再调用原 PUT。只有同一编号的 artifact 读回与全部固定元数据一致且推荐为 false 时，页面显示「已登记并读回确认」。服务端明确拒绝或确认尚未发送时保留可编辑输入；发送后结果不确定、响应丢失、读回失败或不匹配时保留待核实请求，不会自动重发、换编号或把查询不到当作未写入。待核实期间可以显式查询本次登记，不能创建另一条记录。这个非凭据请求快照按用户保留在当前标签页 sessionStorage 中；重开同一页面仍需先核实。
+
+部署前核实 Web 服务到同一后端的既有 `LISTINGKIT_SERVICE_API_BASE` 接线、kernel 模块和现有管理员权限。最小候选是更新 Web UI（页面与同源 BFF）；若现有 ingress 未转发该 BFF 路径，应由部署 owner 核实并单独批准必要接线，不泛转发 `/api/v1/platform/*`。本源码任务不执行部署、权限变更或真实目录写入。登录或管理员权限不足时按原身份流程处理，不通过改角色完成验收。
 
 ## 接线与默认行为
 
