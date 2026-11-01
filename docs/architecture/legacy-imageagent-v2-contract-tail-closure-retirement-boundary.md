@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | [#994 手工运行链](legacy-imageagent-manual-runtime-closure-retirement-boundary.md) §4.1/§4.2/§5/§6.1 | 冻结 V2 `AssetCandidate` URL/Metadata、旧摘要/键和仅供其成功的 probe 不再保活；默认 capabilities 的泛称 KEEP 不覆盖无调用 wrapper | 当前组织入口、最小值合同、V3 载荷/版本/恢复、当前表、WithWorker canary、图像/采集/Store |
 | [#977 HTTP 运行链](legacy-imageagent-http-runtime-closure-retirement-boundary.md) | 全部 V2 合同/回放一律保持的旧实现限定 | 当前 HTTP 严格输入、身份/权限、typed Service、安全输出及真实恢复断言 |
-| [2026-08-27 recovery design](../superpowers/specs/2026-08-27-image-agent-recovery-compatibility-design.md) 与 [plan](../superpowers/plans/2026-08-27-image-agent-recovery-compatibility.md) | 保留 V2 candidate-ID-only digest、V2 wire/URL 投影及正向旧协议测试的执行要求 | 当前 V3 staging/finalization、有效版本 marker、批准/恢复/防重/取消/预算不变量；历史正文与证据保留 |
+| [2026-08-27 recovery design](../superpowers/specs/2026-08-27-image-agent-recovery-compatibility-design.md) 与 [plan](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/superpowers/plans/2026-08-27-image-agent-recovery-compatibility.md) | 保留 V2 candidate-ID-only digest、V2 wire/URL 投影及正向旧协议测试的执行要求 | 当前 V3 staging/finalization、有效版本 marker、批准/恢复/防重/取消/预算不变量；历史正文与证据保留 |
 | [当前图像产品](product-image-agent-v1.md)、[图像文本确认](image-text-language-confirmation-v1.md)、[有效方法版本](official-skills-and-image-method-v1.md) | 无 | 当前图组/Artwork/方法/文案与已保存有效 JSON；不能把名称里的 v2 当退休条件 |
 
 Must：不降低组织/原始 member/业务任务归属；不把未验证 URL 当发布资产；不重复 provider dispatch、扣费或批准提交；保留已授权当前 V3 的 JSON/hash/版本/绝对 deadline/取消/UNKNOWN/恢复。范围外：旧 V2 续跑或兼容、历史数据承接、真实环境升级验收。源码退休不是观察到旧运行态已经清空，也不是接受当前安全要求的例外。

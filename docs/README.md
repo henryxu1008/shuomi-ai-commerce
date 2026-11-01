@@ -30,4 +30,6 @@
 
 同一事实维护一个当前版本，其他位置引用。产品与合同放在各自目录，运行交付放在操作说明或对应工程交接，任务进度和准确验证证据放在 Issue / PR。新增架构文档继续登记到[架构索引](architecture/README.md)。
 
-清理以明确替代或退休依据为准：无引用、目标已退休且不承载现行合同或真实验证证据的旧实施草稿可以删除，原文由 Git 历史追溯。仍被引用的设计、冻结历史正文、实际验收证据及有效运维边界保留原路径；不要为了目录整齐制造断链或改写历史结果。
+清理以当前用途和明确替代关系为准：已完成的普通实施步骤、阶段scope/checkpoint、被替代的版本草稿和重复旧入口退出当前树，完整原文通过固定Git版本追溯；过程勾选或历史引用不自动要求每份计划常驻工作树。仍作为当前合同消费、未被撤销的准入、现有guard保护的冻结正文、必要实际验证及有效运维边界保留；直接历史引用可改为准确Git版本链接，不改变原判断和结果，不降低测试或保护规则。
+
+根目录不再保留旧Amazon Task Workbench API和旧刊登数据库连接代理总结。完整原文分别见[旧API协议](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/amazon-listing-workbench-api.md)与[连接池历史总结](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/database-connection-optimization.md)；当前API、数据库和运行合同从上表各owner入口查找，不执行旧示例。

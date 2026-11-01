@@ -72,7 +72,7 @@ labels. The Kubernetes namespace is attached by the repository-owned
 
 The operational implementation, pinned monitoring chart and one-pod canary
 procedure are documented in
-[`2026-08-12-task-event-v2-production-observability.md`](../superpowers/plans/2026-08-12-task-event-v2-production-observability.md).
+[`2026-08-12-task-event-v2-production-observability.md`](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/superpowers/plans/2026-08-12-task-event-v2-production-observability.md).
 The query is valid only while all active consumer scrape targets are healthy;
 any legacy event, consumer rollback or scrape gap restarts the 14-day window.
 

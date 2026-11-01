@@ -50,7 +50,7 @@
 - [最终 Product/UI Authority §1.1](../product/final-ui-ia-authority.md)：平台是当前共享能力的维度，不复制 Amazon 产品孤岛。本批不新增、修改或验收 UI/IA/交互，Figma 直接操作 N/A；不以旧页面/API 文档推定当前产品需求。
 - [Product sourcing](../product/product-sourcing-handoff.md)、[Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[观察接线](store-observations-preparation-runtime.md)、[独立 SHEIN worker](shein-worker-identity-persistence-boundary.md)：当前事实、平台副作用和登录/Store 同步 owner 保持。
 - [旧数字执行链边界](legacy-numeric-task-execution-retirement-boundary.md)、[#819 TEMU 闭包](legacy-temu-listing-closure-retirement-boundary.md) 曾保留 Amazon 子包、`internal/state` 及通用时间 helper。当时有旧消费者；本设计**仅提议窄替代 §5 明列旧源码的保留决定**，不把历史事实改写成错误，也不推定已经获准删除。
-- [Amazon Workbench API 文档](../amazon-listing-workbench-api.md) 仍标 `CURRENT CONTRACT`，与当前未注册的路由、全新系统及 Task-first hard-cut 冲突。撤销该旧内部合同是**本次需用户确认的明确设计决定**；不能只凭静态不可达就删除自称当前的合同。保留其历史正文，实施时改为 SUPERSEDED / RETIRED，不增加兼容路由。
+- [Amazon Workbench API 文档](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/amazon-listing-workbench-api.md) 仍标 `CURRENT CONTRACT`，与当前未注册的路由、全新系统及 Task-first hard-cut 冲突。撤销该旧内部合同是**本次需用户确认的明确设计决定**；不能只凭静态不可达就删除自称当前的合同。保留其历史正文，实施时改为 SUPERSEDED / RETIRED，不增加兼容路由。
 
 未来实施属于 Independent Architecture：跨旧管线、Task/持久化注册和专属共享层，超过30文件/2500生产行，并退出一个旧公开形状。它不建立新公共合同、事实 owner、表、状态机、事务、授权/租户边界、幂等/retry/UNKNOWN/recovery 或 AI 预算/计量/平台发送 authority；只撤销列明旧内部合同与新安装的旧表注册，不迁移已有数据。
 

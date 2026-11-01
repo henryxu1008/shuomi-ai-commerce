@@ -40,7 +40,7 @@ Out of Scope：执行目标脚本、构建/推送/拉取镜像、Docker/Compose/
 | [#872 队列/代理退休](legacy-queue-proxy-config-tail-closure-retirement-boundary.md) §4/§5.2 和 code-health Task 11 | SHEIN 转发器及 watcher 的 retained-deferred；通用转发工具中这四个准确对象 | 不再保留旧数字链专属远端联调入口；PG/Redis/RabbitMQ/Temporal 共享基础层、声明和正常诊断能力不随本批退出 |
 | [#939 全局配置尾部](legacy-global-config-logging-tail-closure-retirement-boundary.md) §5/§6.1 | 仅删两行 Redis 建议、其余脚本/Pester逐字 KEEP | 改为四源及专属测试完整缺席，旧 Redis 建议自然随源退出；原其它配置禁入、读取失败和当前配置校验不变。其十三份承接顶注一并窄校准 |
 | [#884 品牌/更名清单](../development/branding-and-repository-rename.md) | 本批脚本的保留含义，不是 Docker Hub 名称、tag 或现存资源 | 只退仓库生产入口；不重命名、删除、推送镜像或接管运行 owner，外部制品消费者继续 UNKNOWN |
-| [旧 1688 preflight 计划](../superpowers/plans/2026-08-08-1688-runtime-preflight.md) | 本批 port-forward/测试的现行操作含义 | 只追加准确历史注记，不改原计划勾选、失败或旧路径解析证据，不把旧计划当当前派工 |
+| [旧 1688 preflight 计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/superpowers/plans/2026-08-08-1688-runtime-preflight.md) | 本批 port-forward/测试的现行操作含义 | 只追加准确历史注记，不改原计划勾选、失败或旧路径解析证据，不把旧计划当当前派工 |
 
 以上是待确认的窄替代，不批量重写旧产品决定。用户确认本设计后仅这些准确对象的 KEEP 失效，原文保留为历史，不撤销其它有效规则。
 
