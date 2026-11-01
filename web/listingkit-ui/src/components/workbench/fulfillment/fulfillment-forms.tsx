@@ -434,7 +434,7 @@ export function ProcurementPanel({
                   供应商平台订单号
                   <Input name="external" required maxLength={140} />
                 </label>
-                <Button variant="outline" disabled={disabled || !canPurchase}>
+                <Button type="submit" variant="outline" disabled={disabled || !canPurchase}>
                   登记已在外部下单
                 </Button>
               </form>
@@ -516,6 +516,7 @@ export function ProcurementPanel({
                 </table>
               </div>
               <Button
+                type="submit"
                 variant="outline"
                 disabled={
                   disabled ||
@@ -566,7 +567,7 @@ export function ProcurementPanel({
                   <input type="checkbox" required />{" "}
                   已与供应商确认剩余不再交付，本次仅关闭内部剩余采购
                 </label>
-                <Button variant="ghost" disabled={disabled || !canPurchase}>
+                <Button type="submit" variant="ghost" disabled={disabled || !canPurchase}>
                   确认关闭内部剩余采购
                 </Button>
               </form>

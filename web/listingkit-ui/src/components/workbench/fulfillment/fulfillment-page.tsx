@@ -104,7 +104,7 @@ export function FulfillmentPage({
     return <ConsoleState kind="unavailable" title="请先选择可访问的企业" />;
   return (
     <ScopedPage
-      key={JSON.stringify([org, user, procurement, initial(params, "storeId"), initial(params, "sourceId"), params?.get("kind"), initialStep])}
+      key={JSON.stringify([org, user, procurement, initial(params, "storeId"), initial(params, "sourceId"), params?.get("kind")])}
       procurement={procurement}
       scope={scope}
       permissions={context.permissions}
@@ -136,9 +136,7 @@ function ScopedPage({
   initialSource: string;
   initialKind: FulfillmentInput["kind"];
 }) {
-  const [step, setStep] = useState<FlowStep>(
-    initialStep ?? (procurement ? "purchase" : "source"),
-  );
+  const step = initialStep ?? (procurement ? "purchase" : "source");
   const queries = useQueryClient(),
     prefix = useMemo(
       () => ["fulfillment", scope.organizationId, scope.userId],
@@ -146,10 +144,8 @@ function ScopedPage({
     );
   const lifetime = useRef(new AbortController()),
     busy = useRef(false);
-  const [store, setStore] = useState(initialStore),
-    [kind, setKind] = useState(initialKind),
-    [sourceID, setSourceID] = useState(initialSource),
-    [lookup, setLookup] = useState(initialSource);
+  const store = initialStore, kind = initialKind, sourceID = initialSource;
+  const [lookup, setLookup] = useState(initialSource);
   const [intent, setIntent] = useState<FulfillmentInput | null>(null),
     [hydrated, setHydrated] = useState(false),
     [working, setWorking] = useState(false),
@@ -169,6 +165,20 @@ function ScopedPage({
   const [privateData, setPrivateData] = useState<z.infer<
     typeof fulfillmentPrivate
   > | null>(null);
+  const selectView = (next: { step?: FlowStep; store?: string; kind?: FulfillmentInput["kind"]; source?: string }) => {
+    const parameters = new URLSearchParams({ step: next.step ?? step, kind: next.kind ?? kind });
+    const selectedStore = next.store ?? store, selectedSource = next.source ?? sourceID;
+    if (selectedStore) parameters.set("storeId", selectedStore);
+    if (selectedSource) parameters.set("sourceId", selectedSource);
+    setPrivateData(null);
+    // Next integrates native history with useSearchParams without an RSC reload.
+    window.history.replaceState(null, "", `${window.location.pathname}?${parameters}`);
+  };
+  const [privateStep, setPrivateStep] = useState(step);
+  if (privateStep !== step) {
+    setPrivateStep(step);
+    setPrivateData(null);
+  }
   useEffect(() => {
     const controller = new AbortController();
     lifetime.current = controller;
@@ -420,10 +430,8 @@ function ScopedPage({
   const openPending = () => {
     if (!intent) return;
     reset();
-    setStore(intent.store);
-    setKind(intent.kind);
     setLookup(intent.source_id);
-    setSourceID(intent.source_id);
+    selectView({ store: intent.store, kind: intent.kind, source: intent.source_id });
   };
   return (
     <ConsolePage
@@ -466,7 +474,7 @@ function ScopedPage({
                 e.preventDefault();
                 if (fulfillmentID.safeParse(lookup).success) {
                   reset();
-                  setSourceID(lookup);
+                  selectView({ source: lookup });
                 }
               }}
             >
@@ -476,8 +484,7 @@ function ScopedPage({
                   value={store}
                   onChange={(e) => {
                     reset();
-                    setStore(e.target.value);
-                    setSourceID("");
+                    selectView({ store: e.target.value, source: "" });
                   }}
                   required
                   disabled={working}
@@ -496,8 +503,7 @@ function ScopedPage({
                   value={kind}
                   onChange={(e) => {
                     reset();
-                    setKind(e.target.value as FulfillmentInput["kind"]);
-                    setSourceID("");
+                    selectView({ kind: e.target.value as FulfillmentInput["kind"], source: "" });
                   }}
                   disabled={working}
                 >
@@ -517,7 +523,7 @@ function ScopedPage({
                   disabled={working}
                 />
               </label>
-              <Button disabled={working || !store}>查看原单</Button>
+              <Button type="submit" disabled={working || !store}>查看原单</Button>
             </form>
             {stores.isError ? (
               <p role="alert">无法取得当前授权店铺，请刷新核对。</p>
@@ -592,7 +598,7 @@ function ScopedPage({
                     disabled={working}
                     onClick={() => {
                       setPrivateData(null);
-                      setStep(flow.id);
+                      selectView({ step: flow.id });
                     }}
                   >
                     {flow.label}
@@ -601,7 +607,7 @@ function ScopedPage({
               </nav>
               {found.data?.demand === null && step !== "source" ? (
                 <ConsoleState kind="empty" title="先关联这笔原单">
-                  <Button variant="outline" onClick={() => setStep("source")}>
+                  <Button variant="outline" onClick={() => selectView({ step: "source" })}>
                     进入原单关联
                   </Button>
                 </ConsoleState>
@@ -839,7 +845,7 @@ function ScopedPage({
                                             selectedKey
                                         ) {
                                           setShipment(value);
-                                          setStep("logistics");
+                                          selectView({ step: "logistics" });
                                         }
                                       })
                                       .catch(() =>

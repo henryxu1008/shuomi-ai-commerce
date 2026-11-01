@@ -5,11 +5,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FulfillmentPage } from "./fulfillment-page";
 import type { FulfillmentInput } from "@/lib/api/fulfillment";
 import { saveFulfillmentIntent } from "@/lib/api/fulfillment-intent";
+import { ConsoleNavigation } from "../console/console-navigation";
 const location = vi.hoisted(() => ({ search: "" }));
-vi.mock("next/navigation", () => ({
-  useSearchParams: () =>
-    new URLSearchParams(location.search),
-}));
+vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return { useSearchParams: () => new URLSearchParams(useSyncExternalStore(
+    notify => { window.addEventListener("popstate", notify); return () => window.removeEventListener("popstate", notify); },
+    () => location.search,
+  )) };
+});
 vi.mock("@/components/providers/workbench-context-provider", () => ({
   useWorkbenchContext: () => ({
     effectiveOrganization: { id: "org" },
@@ -29,6 +33,14 @@ vi.mock("@/lib/api/workbench-stores", () => ({
 const calls: FulfillmentInput[] = [];
 beforeEach(() => {
   location.search = "storeId=store&sourceId=original&kind=platform_supply";
+  window.history.replaceState(null, "", `/workbench/store-orders/fulfill?${location.search}`);
+  const replace = window.history.replaceState.bind(window.history);
+  // Next's documented native-history integration notifies useSearchParams.
+  vi.spyOn(window.history, "replaceState").mockImplementation((data, unused, url) => {
+    replace(data, unused, url);
+    location.search = window.location.search;
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
   localStorage.clear();
   calls.length = 0;
   vi.stubGlobal("navigator", {
@@ -68,7 +80,7 @@ beforeEach(() => {
       return Response.json({
         source: {
           kind: "platform_supply",
-          id: "original",
+          id: input.source_id,
           market: "unknown",
           status: 2,
           stockMode: 0,
@@ -89,18 +101,42 @@ beforeEach(() => {
     }),
   );
 });
-afterEach(() => vi.unstubAllGlobals());
-function mount() {
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+function mount(navigation = false) {
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
+      {navigation ? <ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable /> : null}
       <FulfillmentPage />
     </QueryClientProvider>,
   );
 }
+it("keeps the sidebar selected step in sync after switching a page tab", async () => {
+  location.search += "&step=purchase";
+  mount(true);
+  await screen.findByRole("button", { name: "采购与收货" });
+  await userEvent.click(screen.getByRole("button", { name: "库存与装箱" }));
+  await waitFor(() => expect(new URLSearchParams(window.location.search).get("step")).toBe("stock"));
+  expect(screen.getByRole("link", { name: "装箱与发货" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "采购与收货" })).not.toHaveAttribute("aria-current");
+  expect(calls.every(call => ["source", "catalog", "find_demand"].includes(call.action))).toBe(true);
+});
+it("carries the confirmed new original into sidebar navigation while keeping unsubmitted lookup text local", async () => {
+  mount(true);
+  await screen.findByText("平台原单 · original");
+  const input=screen.getByRole("textbox", { name: "平台原单号" });
+  await userEvent.clear(input);
+  await userEvent.type(input,"next-original");
+  expect(new URL(screen.getByRole("link", { name: "装箱与发货" }).getAttribute("href")!,"https://test.invalid").searchParams.get("sourceId")).toBe("original");
+  await userEvent.click(screen.getByRole("button", { name: "查看原单" }));
+  await screen.findByText("平台原单 · next-original");
+  expect(new URLSearchParams(window.location.search).get("sourceId")).toBe("next-original");
+  expect(new URL(screen.getByRole("link", { name: "装箱与发货" }).getAttribute("href")!,"https://test.invalid").searchParams.get("sourceId")).toBe("next-original");
+  expect(calls.every(call => ["source", "catalog", "find_demand"].includes(call.action))).toBe(true);
+});
 it("opens the selected case step without executing its operations", async () => {
   location.search += "&step=purchase";
   mount();
