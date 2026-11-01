@@ -23,10 +23,10 @@ func TestSetApprovalRequiresExplicitCompleteSelection(t *testing.T) {
 	projection := WorkflowResult{Status: imageagent.RunStatusAwaitingFinalApproval, Plan: current.Plan, ResultDigest: strings.Repeat("a", 64)}
 	state := workflowUpdateState{input: &input, projection: &projection}
 	signal := ApproveResultsSignal{RunID: input.RunID, PlanRevision: 1, ResultDigest: projection.ResultDigest, ActorID: input.Identity.UserID, ActionID: "1b912e40-d50a-48f5-a12b-62c73a42e4b8"}
-	require.Error(t, state.validateApproveResultsBusiness(signal), "set approval cannot silently approve all generated images")
+	require.Error(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(signal)), "set approval cannot silently approve all generated images")
 	source := current.Plan.Set.Source
 	signal.Selection = &productasset.ImageSetCommand{ApprovingResult: productasset.ImageSetResultBinding{RunID: input.RunID, PlanRevision: input.Plan.Revision, ResultDigest: projection.ResultDigest}, ActionID: signal.ActionID, Source: productasset.SourceSelectionRequest{ContextKind: "acquisition", ItemID: source.OperationID, OriginalPublicationID: source.OriginalPublicationID, OriginalSnapshotVersion: source.OriginalVersion, EffectiveCatalogVersion: source.EffectiveVersion, TargetPlatform: "product"}, SelectionDigest: strings.Repeat("b", 64), Choices: []productasset.ImageSetChoice{{Kind: "source", SourceID: "source-1", Presentation: productasset.ImagePresentation{Group: "detail", Order: 1}}}}
-	require.NoError(t, state.validateApproveResultsBusiness(signal))
+	require.NoError(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(signal)))
 	for _, kind := range []string{"run", "revision", "result"} {
 		t.Run(kind, func(t *testing.T) {
 			changed := signal
@@ -39,11 +39,11 @@ func TestSetApprovalRequiresExplicitCompleteSelection(t *testing.T) {
 			case "result":
 				changed.Selection.ApprovingResult.ResultDigest = strings.Repeat("c", 64)
 			}
-			require.Error(t, state.validateApproveResultsBusiness(changed), "a caller cannot substitute a different approving result")
+			require.Error(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(changed)), "a caller cannot substitute a different approving result")
 		})
 	}
 	signal.Selection.Source.EffectiveCatalogVersion++
-	require.Error(t, state.validateApproveResultsBusiness(signal), "a different source version cannot enter the original approval saga")
+	require.Error(t, state.validateResultAdoptionBusiness(resultAdoptionIntent(signal)), "a different source version cannot enter the original approval saga")
 }
 
 type selectedSetApprovalResult struct {
