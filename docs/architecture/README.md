@@ -1,3 +1,4 @@
+- [`store-observations-current-store-install.md`](store-observations-current-store-install.md) — #1037 / #1038；用户明确选择保留当前合成试用数据，先设计并独立评审有界模块安装；DRAFT，未准入前禁止生产安装路径开发。
 - [`order-procurement-fulfillment-v1.md`](order-procurement-fulfillment-v1.md) — #1037 / #1038；独立架构 IMPLEMENTATION_READY，当前仓库双履约与显式用途授权；真实 SHEIN 待联调。
 - [`erpnext-shein-fulfillment-fit-v1.md`](erpnext-shein-fulfillment-fit-v1.md) — 固定 ERPNext/Frappe 版本，原生数量、事务与原操作恢复证据，不代表真实平台验收。
 - [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
