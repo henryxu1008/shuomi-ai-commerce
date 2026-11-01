@@ -1,3 +1,27 @@
+## #1045 当前 SHEIN 已保存资料增量（源码候选，2026-11-01）
+
+本批只在原 PR/独立工作区实现已批准的 `report-center-shein-target-source-v1.md`；
+保留实例未更新，运行、真实保存/恢复、浏览器和产品验收 NOT_RUN，旧库状态 UNKNOWN。
+
+- 新来源为 `SHEIN_TARGET_RECORD`，使用正常 full Supply 的同一个 `ReadRecord`；
+  旧 `SHEIN_RECORD` 仍是离线 Record，旧离线诊断新保存未开放，两类报告不改义。
+- 精确来源入口为 `/workbench/supply/mine/ready?record=<UUID>`：只读原记录，
+  不读取当前 head，不重算规则/调用模型或平台。正常供应链表格中“查看已保存资料”
+  指向这个入口；有报告查看/管理权限时可进入原报告页面的准确来源预览，显式保存。
+- 后端 opt-in 为 `reportCenter.sheinTargetSourcesEnabled`，默认 false。
+  开启要求同应用正常 Report + full Supply，拒绝 private trial / SourceMaterialsOnly。
+  原 initializer 只对新空 Report DB 安装三种 kind 的 CHECK；serve 只读验证精确已验证
+  CHECK 与原角色/列边界。缺第三种类拒绝启用，不 ALTER、迁移、重建或复制保留库。
+- 对应 UI 部署声明为 `LISTINGKIT_REPORT_SHEIN_TARGET_SOURCES_ENABLED=true`，还须原
+  `LISTINGKIT_REPORT_CENTER_ENABLED=true`、`LISTINGKIT_SUPPLY_CHAIN_ENABLED=true` 与
+  合法同应用 `LISTINGKIT_SERVICE_API_BASE`。这些是未来获准的新安装接线说明，本轮
+  不保存任何真实 manifest / env，不因 UI 声明授予后端或原来源权限。
+- 新来源关闭/失权后，原已提交报告、原键回执和收藏仍走原 Report owner；新捕获不可用。
+  保存的是历史摘要与保存时构建 Issues/ReadyForUpload，不是完整 SKU/媒体导出、
+  旧 DiagnosticResult 或当前上传许可。原 128 KiB/字段/单值限额不变，超限拒绝，不截断。
+
+以下保留原交接和安装历史；本增量不授权实际安装、配置、部署或保留数据操作。
+
 # 个人报告 v1 接线交接
 
 Execution: #628; shared composition owner: #619 / chat

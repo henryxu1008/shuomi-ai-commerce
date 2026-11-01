@@ -1,5 +1,9 @@
 - [`order-procurement-fulfillment-v1.md`](order-procurement-fulfillment-v1.md) — #1037 / #1038；独立架构 IMPLEMENTATION_READY，当前仓库双履约与显式用途授权；真实 SHEIN 待联调。
 - [`erpnext-shein-fulfillment-fit-v1.md`](erpnext-shein-fulfillment-fit-v1.md) — 固定 ERPNext/Frappe 版本，原生数量、事务与原操作恢复证据，不代表真实平台验收。
+- [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
+  - #628 user-confirmed native SHEIN TargetRecord report-source design;
+    IMPLEMENTATION_READY; user-authorized implementation in the original Draft PR;
+    distinct source/schema admission; no saved-report reinterpretation or migration.
 
 > #1044 当前源码闭包：[ImageAgent旧控制/摘要合同与测试尾部完整退休](legacy-imageagent-control-summary-tail-retirement-boundary.md)已获用户确认，按 §1–§7（含 §4.2/§6.1）在同一 PR 收齐14路径；七旧对象、有效测试转接及窄旧 KEEP 替代一并交付。源码最终复核/准确 CI 和用户确认留 PR；Store 组暂缓，当前能力与既有资源保持，#301 OPEN。以下冻结索引与历史完整保留。
 

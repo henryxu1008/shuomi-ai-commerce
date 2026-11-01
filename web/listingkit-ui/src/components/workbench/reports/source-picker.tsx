@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,11 +10,12 @@ import { requestAIWorkbench } from "@/lib/api/ai-workbench";
 import { ReportError, reportRequest } from "@/lib/api/report-center";
 import { reportSourceSchema, reviewLocator, type ReportScope, type ReportSource } from "@/lib/contracts/report-center";
 import styles from "./report-page.module.css";
-type SourceMode = "review" | "task" | "detail";
-export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAvailable, save }: { scope: ReportScope; authorizationKey: string; disabled: boolean; tasksAvailable: boolean; save: (source: ReportSource) => void }) {
-  const [mode, setMode] = useState<SourceMode>("review"), [cursor, setCursor] = useState("");
+type SourceMode = "review" | "task" | "detail" | "target";
+export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAvailable, titleReviewAvailable, targetAvailable, initialTargetRecord, save }: { scope: ReportScope; authorizationKey: string; disabled: boolean; tasksAvailable: boolean; titleReviewAvailable: boolean; targetAvailable: boolean; initialTargetRecord?: string; save: (source: ReportSource) => void }) {
+  const [mode, setMode] = useState<SourceMode>(targetAvailable && (initialTargetRecord || !titleReviewAvailable) ? "target" : "review"), [cursor, setCursor] = useState("");
   const [locator, setLocator] = useState(""), [detailID, setDetailID] = useState(""), [locatorError, setLocatorError] = useState("");
-  const query = useQuery({ queryKey: ["report-sources", scope.userId, scope.organizationId, authorizationKey, mode, cursor, detailID], enabled: mode !== "detail" || !!detailID, queryFn: async ({ signal }) => {
+  const query = useQuery({ queryKey: ["report-sources", scope.userId, scope.organizationId, authorizationKey, mode, mode === "target" ? "SHEIN_TARGET_RECORD" : "TITLE_REVIEW", cursor, mode === "target" ? initialTargetRecord : detailID], enabled: mode === "target" ? targetAvailable && !!initialTargetRecord : titleReviewAvailable && (mode !== "detail" || !!detailID), queryFn: async ({ signal }) => {
+    if (mode === "target") return { sources: [await reportRequest(scope, `/sources/SHEIN_TARGET_RECORD/${initialTargetRecord}`, reportSourceSchema, signal)], next: "" };
     if (mode === "detail") return { sources: [await reportRequest(scope, `/sources/TITLE_REVIEW/${detailID}`, reportSourceSchema, signal)], next: "" };
     let refs: { kind: "TITLE_REVIEW" | "SHEIN_RECORD"; id: string }[], next = "";
     if (mode === "review") { const page = await fetchProductTitleProposals({ ...scope, limit: 20, ...(cursor ? { cursor } : {}), signal }); refs = page.items.map(i => ({ kind: "TITLE_REVIEW", id: i.proposal_id })); next = page.next_cursor ?? ""; }
@@ -27,8 +29,8 @@ export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAva
   return <Card className={styles.picker}>
     <h2>保存本人已有结果</h2>
     <p>选择来源并手动保存当前展示版本。若来源在保存前变化，会拒绝本次保存。</p>
-    <div className={styles.filters}>{([["review", "待处理标题审核"], ["detail", "已有审核详情"], ["task", "业务任务中的标题结果"]] as const).filter(([value]) => value !== "task" || tasksAvailable).map(([value, label]) => <Button key={value} aria-pressed={mode === value} variant={mode === value ? "secondary" : "outline"} disabled={disabled} onClick={() => { setMode(value); setCursor(""); }}>{label}</Button>)}<Button variant="outline" disabled title="报告保存暂未开放">SHEIN资料与保存时诊断</Button></div>
-    <p>SHEIN资料报告保存暂未开放；已保存的历史报告仍可查阅和下载。</p>
+    <div className={styles.filters}>{titleReviewAvailable ? ([["review", "待处理标题审核"], ["detail", "已有审核详情"], ["task", "业务任务中的标题结果"]] as const).filter(([value]) => value !== "task" || tasksAvailable).map(([value, label]) => <Button key={value} aria-pressed={mode === value} variant={mode === value ? "secondary" : "outline"} disabled={disabled} onClick={() => { setMode(value); setCursor(""); }}>{label}</Button>) : null}{targetAvailable ? <Button variant={mode === "target" ? "secondary" : "outline"} aria-pressed={mode === "target"} disabled={disabled} onClick={() => setMode("target")}>SHEIN 已保存资料</Button> : null}<Button variant="outline" disabled title="报告保存暂未开放">SHEIN资料与保存时诊断</Button></div>
+    <p>{targetAvailable ? "当前 SHEIN 已保存资料与旧离线诊断是不同来源；旧离线诊断保存仍未开放。" : "SHEIN资料报告保存暂未开放；已保存的历史报告仍可查阅和下载。"}</p>
     {mode === "detail" ? <form className={styles.filters} onSubmit={e => {
       e.preventDefault(); const id = reviewLocator(locator, window.location.origin);
       if (!id) { setDetailID(""); setLocatorError("请输入当前应用的标题审核详情链接或有效 ID。"); return; }
@@ -39,8 +41,8 @@ export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAva
       <Button type="submit" variant="outline" disabled={disabled || query.isFetching}>读取当前详情</Button>
       {locatorError ? <p role="alert">{locatorError}</p> : null}
     </form> : null}
-    {mode === "detail" && !detailID ? <p>从已有标题审核详情复制链接，可保存已 Apply 或已拒绝的本人结果。</p> : query.isPending || query.isFetching ? <ConsoleState kind="loading" title="正在核实本人可保存的来源" /> : query.isError ? <ConsoleState kind="error" title="来源读取失败">未找到本人来源，或原来源权限、服务暂不可用。<Button variant="outline" onClick={() => void query.refetch()}>重试</Button></ConsoleState> : <>
-      <ul className={styles.sources}>{query.data.sources.map(source => <li key={source.ref.id}><div><strong>{source.title}</strong><small>版本 {source.ref.version}{source.storeId ? ` · 店铺 ${source.storeId}` : ""}</small></div><Button disabled={disabled} onClick={() => save(source)}>保存此版本</Button></li>)}</ul>
+    {mode === "target" && !initialTargetRecord ? <p>从<Link href="/workbench/supply/mine/ready" prefetch={false}>我的供应链</Link>选择已保存的 SHEIN 资料，再进入“保存报告”。</p> : mode === "detail" && !detailID ? <p>从已有标题审核详情复制链接，可保存已 Apply 或已拒绝的本人结果。</p> : query.isPending || query.isFetching ? <ConsoleState kind="loading" title="正在核实本人可保存的来源" /> : query.isError ? <ConsoleState kind="error" title="来源读取失败">未找到本人来源，或原来源权限、服务暂不可用。<Button variant="outline" onClick={() => void query.refetch()}>重试</Button></ConsoleState> : <>
+      <ul className={styles.sources}>{query.data.sources.map(source => <li key={`${source.ref.kind}:${source.ref.id}:${source.ref.version}`}><div><strong>{source.title}</strong><small>版本 {source.ref.version}{source.storeId ? ` · 店铺 ${source.storeId}` : ""}</small></div><Button disabled={disabled} onClick={() => save(source)}>保存此版本</Button></li>)}</ul>
       {query.data.sources.length === 0 ? <p>本页暂无本人可保存的结果。</p> : null}
       {query.data.next && query.data.next !== cursor ? <Button variant="outline" disabled={disabled} onClick={() => setCursor(query.data.next)}>查看下一页来源</Button> : null}
       {cursor ? <Button variant="ghost" disabled={disabled} onClick={() => setCursor("")}>返回首批来源</Button> : null}

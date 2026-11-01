@@ -41,12 +41,14 @@ type SourceRef struct {
 	Version string `json:"version"`
 }
 
-func KindValid(k string) bool { return k == "TITLE_REVIEW" || k == "SHEIN_RECORD" }
+func KindValid(k string) bool {
+	return k == "TITLE_REVIEW" || k == "SHEIN_RECORD" || k == "SHEIN_TARGET_RECORD"
+}
 func (r SourceRef) Valid() bool {
 	if !KindValid(r.Kind) || !UUID(r.ID) {
 		return false
 	}
-	if r.Kind == "SHEIN_RECORD" {
+	if r.Kind == "SHEIN_RECORD" || r.Kind == "SHEIN_TARGET_RECORD" {
 		value, canonical := strings.CutPrefix(r.Version, "sha256:")
 		b, e := hex.DecodeString(value)
 		return canonical && e == nil && len(b) == 32 && hex.EncodeToString(b) == value

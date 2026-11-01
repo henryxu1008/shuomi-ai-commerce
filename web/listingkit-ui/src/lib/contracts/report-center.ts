@@ -3,9 +3,9 @@ export const reportID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[
 const bytes = (v: string) => new TextEncoder().encode(v).length;
 const text = (n: number) => z.string().min(1).refine(v => bytes(v) <= n && !/\p{Cc}/u.test(v));
 const timestamp = z.iso.datetime().refine(v => !v.startsWith("0001-"));
-const reportKind = z.enum(["TITLE_REVIEW", "SHEIN_RECORD"]);
+const reportKind = z.enum(["TITLE_REVIEW", "SHEIN_RECORD", "SHEIN_TARGET_RECORD"]);
 export const sourceRef = z.strictObject({ kind: reportKind, id: reportID, version: z.string().max(96) }).refine(v =>
-  v.kind === "SHEIN_RECORD" ? /^sha256:[0-9a-f]{64}$/.test(v.version) : /^[1-9][0-9]{0,18}:(pending|accepted|rejected|applied)$/.test(v.version) && BigInt(v.version.split(":")[0]) <= BigInt("9223372036854775807"));
+  v.kind !== "TITLE_REVIEW" ? /^sha256:[0-9a-f]{64}$/.test(v.version) : /^[1-9][0-9]{0,18}:(pending|accepted|rejected|applied)$/.test(v.version) && BigInt(v.version.split(":")[0]) <= BigInt("9223372036854775807"));
 const metadata = { ref: sourceRef, title: text(256), productKey: text(128), storeId: z.union([z.literal(""), reportID]), sourceAt: timestamp.optional() };
 export const reportSourceSchema = z.strictObject(metadata);
 const summary = { ...metadata, id: reportID, capturedAt: timestamp, favorite: z.boolean() };
@@ -40,7 +40,13 @@ export function reportEndpoint(url: URL, method: string) {
   if (parts.length === 2 && parts[1] === "favorite" && method === "POST") return { suffix, output: reportResultSchema, input: reportFavoriteBody, operation: "favorite" };
   return null;
 }
-export const sourceHref = (ref: ReportSource["ref"]) => ref.kind === "TITLE_REVIEW" ? `/workbench/ai/tasks/pending/other?proposal_id=${ref.id}` : `/workbench/shein-records/${ref.id}/diagnostic`;
+export const sourceHref = (ref: ReportSource["ref"]) => ref.kind === "TITLE_REVIEW" ? `/workbench/ai/tasks/pending/other?proposal_id=${ref.id}` : ref.kind === "SHEIN_TARGET_RECORD" ? `/workbench/supply/mine/ready?record=${ref.id}` : `/workbench/shein-records/${ref.id}/diagnostic`;
+export const targetReportHref = (id: string) => `/workbench/ai/reports?sourceKind=SHEIN_TARGET_RECORD&sourceId=${reportID.parse(id)}`;
+export function reportTargetQuery(query: Record<string, string | string[] | undefined>): string | null | undefined {
+  if (query.sourceKind === undefined && query.sourceId === undefined) return undefined;
+  if (query.sourceKind !== "SHEIN_TARGET_RECORD" || !reportID.safeParse(query.sourceId).success || Object.keys(query).some(key => !["sourceKind", "sourceId"].includes(key))) return null;
+  return query.sourceId as string;
+}
 export function reviewLocator(value: string, origin: string): string | null {
   const input = value.trim();
   if (reportID.safeParse(input).success) return input;

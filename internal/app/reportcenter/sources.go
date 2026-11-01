@@ -13,8 +13,11 @@ import (
 	"strings"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	"task-processor/internal/listing/preparation"
 	"task-processor/internal/listing/record"
+	target "task-processor/internal/listing/record/target"
 	validator "task-processor/internal/marketplace/validator"
+	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
 	rc "task-processor/internal/reportcenter"
 	"time"
@@ -23,10 +26,17 @@ import (
 type ReviewReader interface {
 	Get(context.Context, string) (review.View, error)
 }
+
+// TargetRecordReader is the already mounted full Supply application's read port.
+// It retains the native request, member and original-source authorization.
+type TargetRecordReader interface {
+	ReadRecord(context.Context, string) (target.TargetRecord, error)
+}
 type Sources struct {
-	Reviews ReviewReader
-	Records record.Reader
-	Policy  authz.StaticAuthorizer
+	Reviews       ReviewReader
+	Records       record.Reader
+	TargetRecords TargetRecordReader
+	Policy        authz.StaticAuthorizer
 }
 
 func (s *Sources) Read(ctx context.Context, scope rc.Scope, kind, id string) (rc.Snapshot, error) {
@@ -38,8 +48,14 @@ func (s *Sources) Read(ctx context.Context, scope rc.Scope, kind, id string) (rc
 	if kind == "SHEIN_RECORD" {
 		permission = authz.PermissionListingKitAdminRead
 	}
+	if kind == "SHEIN_TARGET_RECORD" {
+		permission = preparation.PermissionRead
+	}
 	if !authz.AllowedOrganization(ctx, s.Policy, identity.UserID, scope.OrganizationID, identity.Roles, permission) {
 		return rc.Snapshot{}, rc.ErrForbidden
+	}
+	if kind == "SHEIN_TARGET_RECORD" {
+		return s.readTarget(ctx, scope, id)
 	}
 	if kind == "TITLE_REVIEW" {
 		if s.Reviews == nil {
@@ -123,9 +139,9 @@ func (s *Sources) Read(ctx context.Context, scope rc.Scope, kind, id string) (rc
 }
 func sourceError(e error) error {
 	switch {
-	case errors.Is(e, review.ErrForbidden) || errors.Is(e, record.ErrForbidden):
+	case errors.Is(e, review.ErrForbidden) || errors.Is(e, record.ErrForbidden) || errors.Is(e, target.ErrForbidden) || errors.Is(e, preparation.ErrForbidden) || errors.Is(e, collection.ErrForbidden):
 		return rc.ErrForbidden
-	case errors.Is(e, review.ErrNotFound) || errors.Is(e, record.ErrNotFound):
+	case errors.Is(e, review.ErrNotFound) || errors.Is(e, record.ErrNotFound) || errors.Is(e, target.ErrNotFound) || errors.Is(e, preparation.ErrNotFound) || errors.Is(e, collection.ErrNotFound):
 		return rc.ErrNotFound
 	default:
 		return rc.ErrUnavailable

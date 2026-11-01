@@ -93,6 +93,24 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
+// VerifyTargetSourceSchema is a read-only opt-in gate, never a schema upgrade.
+// Require the native initializer's exact validated kind CHECK; an additional
+// restricting CHECK on kind must not let startup advertise an unusable source.
+func VerifyTargetSourceSchema(ctx context.Context, db *gorm.DB) error {
+	if db == nil || db.Dialector.Name() != "postgres" {
+		return rc.ErrUnavailable
+	}
+	const definition = `CHECK (((kind)::text = ANY ((ARRAY['TITLE_REVIEW'::character varying, 'SHEIN_RECORD'::character varying, 'SHEIN_TARGET_RECORD'::character varying])::text[])))`
+	var ready bool
+	err := db.WithContext(ctx).Raw(`SELECT count(*)=1 AND COALESCE(bool_and(c.convalidated AND pg_get_constraintdef(c.oid)=?),false)
+ FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=ANY(c.conkey)
+ WHERE c.conrelid=to_regclass('report_center.saved_reports') AND c.contype='c' AND a.attname='kind'`, definition).Scan(&ready).Error
+	if err != nil || !ready {
+		return rc.ErrUnavailable
+	}
+	return nil
+}
+
 type reportRow struct {
 	ID, OrganizationID, ActorID, Kind, SourceID, SourceVersion, Title, ProductKey, StoreID string
 	SourceAt                                                                               *time.Time

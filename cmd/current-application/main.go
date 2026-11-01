@@ -175,6 +175,9 @@ func execute() error {
 			if features.ReportCenterDB != nil {
 				options = append(options, httpapi.WithReportCenter(features.ReportCenterDB))
 			}
+			if features.SheinTargetReportSources {
+				options = append(options, httpapi.WithSheinTargetReportSources())
+			}
 			if features.Ecoservices != nil {
 				e := features.Ecoservices
 				options = append(options, httpapi.WithEcoservices(httpapi.EcoservicesDependencies{Capacity: e.Capacity, NonPaymentOnly: e.NonPaymentOnly, DB: e.DB, Objects: e.Objects, Channel: e.Channel, Protection: e.Protection, MerchantProtection: e.MerchantProtection}))
