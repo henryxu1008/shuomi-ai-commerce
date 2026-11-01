@@ -13,6 +13,43 @@ const source = { ref: { kind: "TITLE_REVIEW" as const, id: "550e8400-e29b-41d4-a
 const report: Report = { ...source, id: "550e8400-e29b-41d4-a716-446655440001", capturedAt: "2026-10-10T00:00:00Z", favorite: false, content: { schemaVersion: 1, sections: [{ title: "标题历史", fields: [{ label: "建议标题", value: "已保存的标题内容" }] }] }, digest: "a".repeat(64) };
 beforeEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); sessionStorage.clear(); fixture.context.user = { id: "actor-a" }; fixture.context.effectiveOrganization = { id: "org-a" }; fixture.context.permissions = ["workbench.report.read", "workbench.report.manage"]; fixture.sourceList.mockResolvedValue({ items: [{ proposal_id: source.ref.id }], next_cursor: null }); });
 const tree = (client: QueryClient, titleReviewAvailable = true) => <QueryClientProvider client={client}><ReportPage view="all" titleReviewAvailable={titleReviewAvailable} /></QueryClientProvider>;
+it("previews a native exact record without Review or legacy readers and saves only on explicit confirmation", async () => {
+  fixture.context.permissions.push("workbench.supply.read");
+  const native = { ...source, title: "SHEIN 已保存资料", ref: { kind: "SHEIN_TARGET_RECORD" as const, id: source.ref.id, version: `sha256:${"b".repeat(64)}` } };
+  const posts: unknown[] = [];
+  const fetch = vi.fn(async (path: string, init?: RequestInit) => {
+    if (init?.method === "POST") { posts.push(JSON.parse(String(init.body))); throw new Error("response lost"); }
+    if (path.includes("/sources/")) return Response.json(native);
+    return path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" });
+  });
+  vi.stubGlobal("fetch", fetch);
+  const client = new QueryClient(), view = render(<QueryClientProvider client={client}><ReportPage view="all" sheinTargetSourcesAvailable initialTargetRecord={native.ref.id} /></QueryClientProvider>);
+  const button = await screen.findByRole("button", { name: "保存此版本" });
+  await waitFor(() => expect(button).toBeEnabled());
+  expect(posts).toHaveLength(0); expect(fixture.sourceList).not.toHaveBeenCalled(); expect(fetchSheinRecords).not.toHaveBeenCalled();
+  expect(fetch.mock.calls.some(([path]) => path.includes(`/sources/SHEIN_TARGET_RECORD/${native.ref.id}`))).toBe(true);
+  fireEvent.click(button);
+  await screen.findByText(/操作结果尚未确认/);
+  expect(posts).toEqual([{ source: native.ref }]);
+  expect(readReportIntent({ userId: "actor-a", organizationId: "org-a" })).toMatchObject({ source: native.ref });
+  fixture.context.permissions = ["workbench.report.read"];
+  view.rerender(<QueryClientProvider client={client}><ReportPage view="all" sheinTargetSourcesAvailable initialTargetRecord={native.ref.id} /></QueryClientProvider>);
+  expect(screen.queryByRole("button", { name: "保存此版本" })).not.toBeInTheDocument();
+  view.unmount(); client.clear();
+});
+it("drops a native preview when source admission closes while title capture stays available", async () => {
+  fixture.context.permissions.push("workbench.supply.read");
+  const native = { ...source, title: "先前资料来源", ref: { kind: "SHEIN_TARGET_RECORD" as const, id: source.ref.id, version: `sha256:${"b".repeat(64)}` } };
+  vi.stubGlobal("fetch", vi.fn(async (path: string) => path.includes("/sources/") ? Response.json(native) : path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" })));
+  const client = new QueryClient();
+  const page = (available: boolean) => <QueryClientProvider client={client}><ReportPage titleReviewAvailable sheinTargetSourcesAvailable={available} initialTargetRecord={native.ref.id} /></QueryClientProvider>;
+  const view = render(page(true));
+  await screen.findByRole("button", { name: "保存此版本" });
+  view.rerender(page(false));
+  expect(screen.queryByText(native.title)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "保存此版本" })).not.toBeInTheDocument();
+  view.unmount(); client.clear();
+});
 it("clears pending component state when valid colon scopes switch", async () => {
   fixture.context.user = { id: "a:b" }; fixture.context.effectiveOrganization = { id: "c" };
   vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {

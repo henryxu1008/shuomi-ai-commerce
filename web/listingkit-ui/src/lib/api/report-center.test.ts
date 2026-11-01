@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { reportResultSchema, reviewLocator, sourceRef } from "@/lib/contracts/report-center";
+import { reportResultSchema, reviewLocator, sourceRef, sourceHref, reportEndpoint, reportTargetQuery } from "@/lib/contracts/report-center";
 import { readReportIntent, reportRequest, writeReportIntent } from "./report-center";
 const scope = { userId: "actor-a", organizationId: "org-a" };
 const intent = { operation: "save" as const, key: "1510eced-9831-49de-a28c-098cb16deba1", source: { kind: "TITLE_REVIEW" as const, id: "1510eced-9831-49de-a28c-098cb16deba2", version: "1:pending" } };
@@ -8,6 +8,23 @@ it("preserves the source owner's canonical SHEIN digest", () => {
   const ref = { kind: "SHEIN_RECORD", id: intent.source.id, version: `sha256:${"a".repeat(64)}` };
   expect(sourceRef.safeParse(ref).success).toBe(true);
   expect(sourceRef.safeParse({ ...ref, version: "a".repeat(64) }).success).toBe(false);
+});
+it("keeps native saved material separate from the old diagnostic and recovers its exact intent", () => {
+  const ref = { kind: "SHEIN_TARGET_RECORD" as const, id: intent.source.id, version: `sha256:${"b".repeat(64)}` };
+  expect(sourceRef.safeParse(ref).success).toBe(true);
+  expect(sourceRef.safeParse({ ...ref, version: "1:pending" }).success).toBe(false);
+  expect(sourceHref(ref)).toBe(`/workbench/supply/mine/ready?record=${ref.id}`);
+  expect(sourceHref({ ...ref, kind: "SHEIN_RECORD" })).toBe(`/workbench/shein-records/${ref.id}/diagnostic`);
+  expect(reportEndpoint(new URL(`https://app.test/api/report-center/reports/sources/${ref.kind}/${ref.id}`), "GET")).not.toBeNull();
+  writeReportIntent(scope, { ...intent, source: ref });
+  expect(readReportIntent(scope)?.operation === "save" && readReportIntent(scope)).toMatchObject({ source: ref });
+  expect(readReportIntent({ ...scope, organizationId: "other" })).toBeNull();
+});
+it("allows only a kind-qualified exact native locator, never client versions, body or repeated query values", () => {
+  expect(reportTargetQuery({})).toBeUndefined();
+  const query = { sourceKind: "SHEIN_TARGET_RECORD", sourceId: intent.source.id };
+  expect(reportTargetQuery(query)).toBe(intent.source.id);
+  for (const invalid of [{ ...query, sourceKind: "SHEIN_RECORD" }, { ...query, sourceId: [intent.source.id] }, { ...query, version: "sha256:" + "b".repeat(64) }, { ...query, body: "{}" }, { ...query, sourceId: "https://other.invalid" }]) expect(reportTargetQuery(invalid)).toBeNull();
 });
 it("uses only an exact current-app Review locator without accepting client content or version", () => {
   const origin = "http://localhost:3000", path = `/workbench/ai/tasks/pending/other?proposal_id=${intent.source.id}`;

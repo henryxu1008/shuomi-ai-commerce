@@ -1,6 +1,6 @@
 CREATE TABLE report_center.saved_reports (
  id uuid PRIMARY KEY, organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL,
- kind varchar(20) NOT NULL CHECK(kind IN ('TITLE_REVIEW','SHEIN_RECORD')),
+ kind varchar(20) NOT NULL CHECK(kind IN ('TITLE_REVIEW','SHEIN_RECORD','SHEIN_TARGET_RECORD')),
  source_id uuid NOT NULL, source_version varchar(96) NOT NULL,
  title varchar(256) NOT NULL, product_key varchar(128) NOT NULL, store_id varchar(36) NOT NULL,
  source_at timestamptz, captured_at timestamptz NOT NULL,

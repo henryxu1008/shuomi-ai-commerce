@@ -153,6 +153,7 @@ type currentApplicationOptions struct {
 	dataServices                 *DataServicesDependencies
 	reportCenters                int
 	reportCenterDB               *gorm.DB
+	sheinTargetReportSources     int
 	operationsCockpits           int
 	privateDraftTrials           int
 	privateDraftTrial            *PrivateDraftTrialDependencies
@@ -1014,7 +1015,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules[acquisitionModuleIndex] = module
 	}
 	if supplied.reportCenterDB != nil {
-		module, err := buildReportCenter(ctx, supplied.reportCenterDB, *workbench.authDependencies, authorizer, productRuntime)
+		var targetReader *supplyapp.Application
+		if supplied.sheinTargetReportSources > 0 && supplyRuntime != nil {
+			targetReader = supplyRuntime.app
+		}
+		module, err := buildReportCenter(ctx, supplied.reportCenterDB, *workbench.authDependencies, authorizer, productRuntime, targetReader)
 		if err != nil {
 			return nil, fmt.Errorf("build current report center: %w", err)
 		}

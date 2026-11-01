@@ -3,12 +3,16 @@ package currentapplication
 import "errors"
 
 type ReportCenterConfig struct {
-	Database DatabaseConfig `json:"database"`
+	Database                  DatabaseConfig `json:"database"`
+	SheinTargetSourcesEnabled bool           `json:"sheinTargetSourcesEnabled,omitempty"`
 }
 
 func (c *Config) validateReportCenter() error {
 	if c.ReportCenter == nil {
 		return nil
+	}
+	if c.ReportCenter.SheinTargetSourcesEnabled && (c.SupplyChain == nil || c.PrivateDraftTrial != nil) {
+		return errors.New("SHEIN report capture requires normal full Supply composition")
 	}
 	d := c.ReportCenter.Database
 	if e := d.validate("reportCenter.database"); e != nil {
