@@ -16,6 +16,7 @@ import (
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/listing/record"
 	target "task-processor/internal/listing/record/target"
+	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	validator "task-processor/internal/marketplace/validator"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
@@ -105,9 +106,17 @@ func (s *Sources) Read(ctx context.Context, scope rc.Scope, kind, id string) (rc
 	if r.ID != id || r.OrganizationID != scope.OrganizationID || r.OwnerUserID != scope.ActorID {
 		return rc.Snapshot{}, rc.ErrNotFound
 	}
+	packageSum := sha256.Sum256(r.Payload)
+	if len(r.Payload) == 0 || len(r.Payload) > record.MaxPayloadBytes || "sha256:"+hex.EncodeToString(packageSum[:]) != r.PackageHash {
+		return rc.Snapshot{}, rc.ErrUnavailable
+	}
+	expected, bindErr := sheinvalidator.DiagnosticInputDigest(validator.BoundRequest[[]byte]{Input: r.Payload, Target: validator.Target{Marketplace: "shein"}, Action: r.Input.Action, RuleVersion: r.RuleRevision, BindingVersion: r.PolicyRevision})
+	if bindErr != nil {
+		return rc.Snapshot{}, rc.ErrUnavailable
+	}
 	var d validator.DiagnosticResult
 	sum := sha256.Sum256(r.Diagnostic)
-	if r.Input.Validate() != nil || "sha256:"+hex.EncodeToString(sum[:]) != r.DiagnosticHash || len(r.Diagnostic) > record.MaxPayloadBytes || json.Unmarshal(r.Diagnostic, &d) != nil || !d.DiagnosticOnly || d.Target.Marketplace != "shein" || d.Target.Site != "" || d.Action != r.Input.Action || d.RuleVersion != r.RuleRevision || d.Input.BindingVersion != r.PolicyRevision || d.OfflineChecks.Status != r.DiagnosticStatus || validator.ValidateBoundInput(d.Input, r.PackageHash) != nil || d.Freshness.Validate(d.Input.Digest, d.Input.EvaluatedAt) != nil {
+	if r.Input.Validate() != nil || "sha256:"+hex.EncodeToString(sum[:]) != r.DiagnosticHash || len(r.Diagnostic) > record.MaxPayloadBytes || json.Unmarshal(r.Diagnostic, &d) != nil || !d.DiagnosticOnly || d.Scope != "shein.offline_package" || d.Target.Marketplace != "shein" || d.Target.Site != "" || d.Action != r.Input.Action || d.RuleVersion != r.RuleRevision || d.Input.BindingVersion != r.PolicyRevision || d.OfflineChecks.Status != r.DiagnosticStatus || validator.ValidateBoundInput(d.Input, expected) != nil || d.Freshness.Validate(d.Input.Digest, d.Input.EvaluatedAt) != nil {
 		return rc.Snapshot{}, rc.ErrUnavailable
 	}
 	result := rc.Snapshot{SourceInfo: rc.SourceInfo{Ref: rc.SourceRef{Kind: kind, ID: id, Version: r.InputHash}, Title: "SHEIN 商品资料与离线诊断 · " + r.Input.ProductKey, ProductKey: r.Input.ProductKey, StoreID: r.Input.StoreID, SourceAt: &r.CreatedAt}, Content: rc.Document{SchemaVersion: 1}}

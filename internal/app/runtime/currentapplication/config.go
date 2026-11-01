@@ -34,6 +34,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
 	Fulfillment                          *FulfillmentConfig                        `json:"fulfillment,omitempty"`
 	BrowserKernel                        *BrowserKernelConfig                      `json:"browserKernel,omitempty"`
 	ModelRoutePricing                    *ModelRoutePricingConfig                  `json:"modelRoutePricing,omitempty"`
@@ -328,6 +329,9 @@ func (cfg *Config) validate() error {
 		return err
 	}
 	if err := cfg.validateProjectCenter(); err != nil {
+		return err
+	}
+	if err := cfg.validateOfflineRecords(); err != nil {
 		return err
 	}
 	if err := cfg.validateReportCenter(); err != nil {

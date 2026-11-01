@@ -49,6 +49,9 @@ func (c *Config) validateReportCenter() error {
 	if c.ImageAgent != nil {
 		owners = append(owners, &c.ImageAgent.Database)
 	}
+	if c.SheinOfflineRecords != nil {
+		owners = append(owners, &c.SheinOfflineRecords.AssetDatabase)
+	}
 	if c.SupplyChain != nil {
 		owners = append(owners, &c.SupplyChain.AssetDatabase)
 	}

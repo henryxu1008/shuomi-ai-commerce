@@ -10,15 +10,19 @@ import { requestAIWorkbench } from "@/lib/api/ai-workbench";
 import { ReportError, reportRequest } from "@/lib/api/report-center";
 import { reportSourceSchema, reviewLocator, type ReportScope, type ReportSource } from "@/lib/contracts/report-center";
 import styles from "./report-page.module.css";
-type SourceMode = "review" | "task" | "detail" | "target";
-export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAvailable, titleReviewAvailable, targetAvailable, initialTargetRecord, save }: { scope: ReportScope; authorizationKey: string; disabled: boolean; tasksAvailable: boolean; titleReviewAvailable: boolean; targetAvailable: boolean; initialTargetRecord?: string; save: (source: ReportSource) => void }) {
-  const [mode, setMode] = useState<SourceMode>(targetAvailable && (initialTargetRecord || !titleReviewAvailable) ? "target" : "review"), [cursor, setCursor] = useState("");
+import {offlineRequest} from "@/lib/api/offline-shein-records";
+import {offlineList} from "@/lib/contracts/offline-shein-records";
+type SourceMode = "review" | "task" | "detail" | "target" | "offline";
+export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAvailable, titleReviewAvailable, targetAvailable, offlineAvailable, initialOfflineRecord, initialTargetRecord, save }: { scope: ReportScope; authorizationKey: string; disabled: boolean; tasksAvailable: boolean; titleReviewAvailable: boolean; targetAvailable: boolean; offlineAvailable:boolean; initialOfflineRecord?:string; initialTargetRecord?: string; save: (source: ReportSource) => void }) {
+  const [mode, setMode] = useState<SourceMode>(offlineAvailable&&(initialOfflineRecord||!titleReviewAvailable&&!targetAvailable)?"offline":targetAvailable && (initialTargetRecord || !titleReviewAvailable) ? "target" : "review"), [cursor, setCursor] = useState("");
   const [locator, setLocator] = useState(""), [detailID, setDetailID] = useState(""), [locatorError, setLocatorError] = useState("");
-  const query = useQuery({ queryKey: ["report-sources", scope.userId, scope.organizationId, authorizationKey, mode, mode === "target" ? "SHEIN_TARGET_RECORD" : "TITLE_REVIEW", cursor, mode === "target" ? initialTargetRecord : detailID], enabled: mode === "target" ? targetAvailable && !!initialTargetRecord : titleReviewAvailable && (mode !== "detail" || !!detailID), queryFn: async ({ signal }) => {
+  const query = useQuery({ queryKey: ["report-sources", scope.userId, scope.organizationId, authorizationKey, mode, mode === "target" ? "SHEIN_TARGET_RECORD" : mode==="offline"?"SHEIN_RECORD":"TITLE_REVIEW", cursor, mode === "target" ? initialTargetRecord : mode==="offline"?initialOfflineRecord:detailID], enabled:mode==="offline"?offlineAvailable: mode === "target" ? targetAvailable && !!initialTargetRecord : titleReviewAvailable && (mode !== "detail" || !!detailID), queryFn: async ({ signal }) => {
     if (mode === "target") return { sources: [await reportRequest(scope, `/sources/SHEIN_TARGET_RECORD/${initialTargetRecord}`, reportSourceSchema, signal)], next: "" };
+    if(mode==="offline"&&initialOfflineRecord)return{sources:[await reportRequest(scope,`/sources/SHEIN_RECORD/${initialOfflineRecord}`,reportSourceSchema,signal)],next:""};
     if (mode === "detail") return { sources: [await reportRequest(scope, `/sources/TITLE_REVIEW/${detailID}`, reportSourceSchema, signal)], next: "" };
     let refs: { kind: "TITLE_REVIEW" | "SHEIN_RECORD"; id: string }[], next = "";
-    if (mode === "review") { const page = await fetchProductTitleProposals({ ...scope, limit: 20, ...(cursor ? { cursor } : {}), signal }); refs = page.items.map(i => ({ kind: "TITLE_REVIEW", id: i.proposal_id })); next = page.next_cursor ?? ""; }
+    if(mode==="offline"){const page=await offlineRequest(scope,`?limit=20${cursor?`&cursor=${cursor}`:""}`,offlineList,signal);refs=page.items.map(i=>({kind:"SHEIN_RECORD",id:i.record_id}));next=page.next_cursor??"";}
+    else if (mode === "review") { const page = await fetchProductTitleProposals({ ...scope, limit: 20, ...(cursor ? { cursor } : {}), signal }); refs = page.items.map(i => ({ kind: "TITLE_REVIEW", id: i.proposal_id })); next = page.next_cursor ?? ""; }
     else { const page = await requestAIWorkbench({ scope, signal, method: "GET", route: "task-list", path: `tasks?limit=20${cursor ? `&after=${cursor}` : ""}` }); refs = [...new Set(page.tasks.flatMap(i => i.reviewId ? [i.reviewId] : []))].map(id => ({ kind: "TITLE_REVIEW", id })); next = page.next; }
     const sources: ReportSource[] = [];
     // Original admin lists can contain others' records. Only the private source
@@ -29,8 +33,8 @@ export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAva
   return <Card className={styles.picker}>
     <h2>保存本人已有结果</h2>
     <p>选择来源并手动保存当前展示版本。若来源在保存前变化，会拒绝本次保存。</p>
-    <div className={styles.filters}>{titleReviewAvailable ? ([["review", "待处理标题审核"], ["detail", "已有审核详情"], ["task", "业务任务中的标题结果"]] as const).filter(([value]) => value !== "task" || tasksAvailable).map(([value, label]) => <Button key={value} aria-pressed={mode === value} variant={mode === value ? "secondary" : "outline"} disabled={disabled} onClick={() => { setMode(value); setCursor(""); }}>{label}</Button>) : null}{targetAvailable ? <Button variant={mode === "target" ? "secondary" : "outline"} aria-pressed={mode === "target"} disabled={disabled} onClick={() => setMode("target")}>SHEIN 已保存资料</Button> : null}<Button variant="outline" disabled title="报告保存暂未开放">SHEIN资料与保存时诊断</Button></div>
-    <p>{targetAvailable ? "当前 SHEIN 已保存资料与旧离线诊断是不同来源；旧离线诊断保存仍未开放。" : "SHEIN资料报告保存暂未开放；已保存的历史报告仍可查阅和下载。"}</p>
+    <div className={styles.filters}>{titleReviewAvailable ? ([["review", "待处理标题审核"], ["detail", "已有审核详情"], ["task", "业务任务中的标题结果"]] as const).filter(([value]) => value !== "task" || tasksAvailable).map(([value, label]) => <Button key={value} aria-pressed={mode === value} variant={mode === value ? "secondary" : "outline"} disabled={disabled} onClick={() => { setMode(value); setCursor(""); }}>{label}</Button>) : null}{targetAvailable ? <Button variant={mode === "target" ? "secondary" : "outline"} aria-pressed={mode === "target"} disabled={disabled} onClick={() => setMode("target")}>SHEIN 已保存资料</Button> : null}<Button variant={mode==="offline"?"secondary":"outline"} aria-pressed={mode==="offline"} disabled={disabled||!offlineAvailable} title={offlineAvailable?undefined:"报告保存暂未开放"} onClick={()=>{setMode("offline");setCursor("")}}>SHEIN资料与保存时诊断</Button></div>
+    <p>{offlineAvailable?"离线包保存时诊断与当前 SHEIN 已保存资料分列，保存报告不会重新诊断。":targetAvailable ? "当前 SHEIN 已保存资料与旧离线诊断是不同来源；旧离线诊断保存仍未开放。" : "SHEIN资料报告保存暂未开放；已保存的历史报告仍可查阅和下载。"}</p>
     {mode === "detail" ? <form className={styles.filters} onSubmit={e => {
       e.preventDefault(); const id = reviewLocator(locator, window.location.origin);
       if (!id) { setDetailID(""); setLocatorError("请输入当前应用的标题审核详情链接或有效 ID。"); return; }
