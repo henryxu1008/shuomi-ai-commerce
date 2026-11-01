@@ -10,7 +10,7 @@ vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchCo
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record}));
 vi.mock("./temu-target-editor",()=>({TemuTargetEditor:({existing}:{existing?:{temu:{mode:string}}})=><p>TEMU 原生资料 {existing?.temu.mode}</p>}));
 vi.mock("./bulk-review-panel",()=>({BulkSupplyReviewPanel:({items}:{items:unknown[]})=><p>实际批量提案 {items.length} 件</p>}));
-vi.mock("@/lib/api/workbench-stores",()=>({listWorkbenchStores:state.stores}));
+vi.mock("@/lib/api/workbench-stores",async original=>({...await original<typeof import("@/lib/api/workbench-stores")>(),listWorkbenchStores:state.stores}));
 const prep="11111111-1111-4111-8111-111111111111",store="22222222-2222-4222-8222-222222222222",source="33333333-3333-4333-8333-333333333333";
 beforeEach(()=>{
  for(const name of ["LISTINGKIT_SUPPLY_CHAIN_ENABLED","LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED"])vi.stubEnv(name,"true");

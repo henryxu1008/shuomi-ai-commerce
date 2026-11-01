@@ -3,7 +3,7 @@ import {reportID} from "./report-center";
 import {savedSheinDiagnosticSchema,sheinDigestSchema} from "@/lib/api/shein-diagnostic";
 import {sheinRecordListItemSchema} from "@/lib/api/shein-records";
 const version=z.string().refine(v=>/^[1-9][0-9]{0,18}$/.test(v)&&BigInt(v)<=BigInt("9223372036854775807"));
-export const offlineInput=z.strictObject({product_key:z.string().min(1).max(128).refine(v=>v.trim()===v&&new TextEncoder().encode(v).length<=128),snapshot_version:version,store_id:reportID,country:z.literal("US"),language:z.literal("en"),action:z.enum(["save_draft","publish"])});
+const offlineInput=z.strictObject({product_key:z.string().min(1).max(128).refine(v=>v.trim()===v&&new TextEncoder().encode(v).length<=128),snapshot_version:version,store_id:reportID,country:z.literal("US"),language:z.literal("en"),action:z.enum(["save_draft","publish"])});
 export const offlineCreate=z.strictObject({collectionItemId:reportID,input:offlineInput});
 export const offlineIntent=offlineCreate.extend({key:reportID});
 export const offlineReceipt=z.strictObject({record_id:reportID,input_hash:sheinDigestSchema,diagnostic_hash:sheinDigestSchema,diagnostic_status:z.enum(["ready","ready_with_warnings","blocked"]),diagnostic_only:z.literal(true)});
