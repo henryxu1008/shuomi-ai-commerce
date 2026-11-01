@@ -8,6 +8,7 @@ import {Select} from "@/components/ui/select";
 import {Card} from "@/components/ui/card";
 import {DiagnosticReport} from "./diagnostic-report";
 import {offlineRequest,OfflineRecordError,readOfflineIntent,writeOfflineIntent} from "@/lib/api/offline-shein-records";
+import {isDefiniteOfflineRejection} from "@/lib/api/offline-shein-record-errors";
 import {offlineSaved,offlineReceipt,type OfflineSaved,type OfflineIntent} from "@/lib/contracts/offline-shein-records";
 import {catalogSchema,storeCenterRequest} from "@/lib/api/store-center";
 import type {CollectionItem} from "@/lib/contracts/product-collection";
@@ -42,7 +43,7 @@ function ScopedOfflinePanel({scope,item,recordId,write,report}:{scope:ReportScop
    if(value.recordId!==receipt.record_id||value.sourceVersion!==receipt.input_hash||JSON.stringify(value.input)!==JSON.stringify(next.input))throw new OfflineRecordError("OUTCOME_UNKNOWN");
    if(alive.current){writeOfflineIntent(scope,null);setIntent(null);setSaved(value)}
   }catch(e){if(alive.current){setError(message(e));
-   if(!created&&e instanceof OfflineRecordError&&["NOT_READY","FORBIDDEN","NOT_FOUND","INVALID_REQUEST","COMMAND_CONFLICT","TOO_LARGE"].includes(e.code)){
+   if(!created&&e instanceof OfflineRecordError&&isDefiniteOfflineRejection(e.code)){
     try{writeOfflineIntent(scope,null);setIntent(null)}catch(storage){setError(message(storage))}
    }}}
   finally{if(alive.current)setBusy(false)}

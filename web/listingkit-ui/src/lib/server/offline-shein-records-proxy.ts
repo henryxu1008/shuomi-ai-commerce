@@ -1,4 +1,4 @@
-import { z } from "zod";
+import {parseOfflineRecordFailure} from "@/lib/api/offline-shein-record-errors";
 import {offlineEndpoint,offlineCreate,offlineSaved,offlineReceipt} from "@/lib/contracts/offline-shein-records";
 import {reportID} from "@/lib/contracts/report-center";
 import {isOfflineSheinRecordsAvailable} from "./offline-shein-records-availability";
@@ -38,8 +38,10 @@ export async function proxyOfflineRecords(request: Request, token: string, userI
     const response = await fetch(base.origin + "/api/v1/workbench/offline-shein-records" + route.suffix + url.search, { method: request.method, headers, body, signal: controller.signal, cache: "no-store", redirect: "manual" });
     const raw = await readBoundedStrictJSON(response, (2 << 20)+4096, controller.signal); controller.signal.throwIfAborted();
     if (response.status !== (write?201:200)) {
-      const failure = z.strictObject({ code: z.string().regex(/^[A-Z_]{1,80}$/) }).safeParse(raw);
-      return offlineFailure(response.status >= 400 && response.status < 600 ? response.status : 502, write && response.status >= 500 || !failure.success && write ? "OUTCOME_UNKNOWN" : failure.success ? failure.data.code : "INVALID_UPSTREAM_RESPONSE");
+      const failure = parseOfflineRecordFailure(raw,response.status);
+      const status=response.status>=400&&response.status<600?response.status:502;
+      if(failure&&!(write&&response.status>=500))return Response.json(failure,{status,headers:safe});
+      return offlineFailure(status,write?"OUTCOME_UNKNOWN":"INVALID_UPSTREAM_RESPONSE");
     }
     const checked = route.output.safeParse(raw); if (!checked.success) throw new Error();
     if(write){offlineReceipt.parse(checked.data);offlineCreate.parse(payload);}

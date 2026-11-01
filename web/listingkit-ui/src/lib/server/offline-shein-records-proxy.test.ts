@@ -24,3 +24,14 @@ it("accepts a bounded original receipt without widening fields",async()=>{
  const fetch=vi.fn().mockResolvedValue(Response.json(receipt,{status:201}));vi.stubGlobal("fetch",fetch);const result=await proxyOfflineRecords(request(),"server-token","actor");expect(result.status).toBe(201);expect(await result.json()).toEqual(receipt);
  expect(result.headers.get("cache-control")).toBe("private, no-store");
 });
+
+it.each([["PERMISSION_DENIED",403],["ORGANIZATION_ACCESS_REVOKED",403],["AUTHENTICATION_REQUIRED",401],["ORGANIZATION_SELECTION_REQUIRED",409]] as const)("preserves confirmed middleware %s/%s before creation",async(code,status)=>{
+ const envelope={code,message:"Rejected before dispatch",requestId:"synthetic-request",fieldErrors:[]};vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(envelope,{status})));
+ const result=await proxyOfflineRecords(request(),"server-token","actor");expect(result.status).toBe(status);expect(await result.json()).toEqual(envelope);
+});
+
+it.each([403,503])( "keeps a mismatched or 5xx rejection unknown (%s)",async(status)=>{
+ const envelope={code:status===403?"AUTHENTICATION_REQUIRED":"PERMISSION_DENIED",message:"Untrusted status pairing",requestId:"synthetic-mismatch",fieldErrors:[]};
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(envelope,{status})));
+ const result=await proxyOfflineRecords(request(),"server-token","actor");expect(await result.json()).toEqual({code:"OUTCOME_UNKNOWN"});
+});

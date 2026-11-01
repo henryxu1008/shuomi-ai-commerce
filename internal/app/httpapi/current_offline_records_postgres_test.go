@@ -19,19 +19,25 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	recordstore "task-processor/internal/app/listingrecordstore"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	"task-processor/internal/httproute"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
+	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	reportstore "task-processor/internal/integration/persistence/reportcenter"
 	"task-processor/internal/listing/record"
+	"task-processor/internal/marketplace/shein/draft"
+	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	"task-processor/internal/product/collection"
 	rc "task-processor/internal/reportcenter"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/storecenter"
+	"task-processor/internal/workbenchcontext"
 	"testing"
 	"time"
 )
@@ -95,15 +101,21 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	require.NoError(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.db, capability))
 	require.Error(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.db, acquisitionstore.RuntimeCapabilities{Collections: true}), "undeclared offline grants must fail")
 	require.NoError(t, recordstore.VerifySchema(ctx, f.db))
-	published := publishRecordProductOnly(t, f.owner, "org-a", "synthetic-offline")
-	prepareApprovedAssets(t, assetsOwner, "org-a", published.Identity.ProductKey, published.Version)
-	itemID := uuid.NewString()
-	source := &offlineSourceFixture{detail: collection.ItemDetail{Item: collection.Item{ID: itemID, Source: collection.Source{ProductKey: published.Identity.ProductKey, Version: published.Version}}}}
 	identity := authidentity.AuthenticatedIdentity{UserID: "actor-a", TenantID: "org-a", EffectiveOrganizationID: "org-a", EffectiveMemberID: "member-a", Roles: []string{"platform_admin"}, OrganizationGrants: []authidentity.OrganizationGrant{{OrganizationID: "org-a", AuthorizationID: "member-a", Roles: []string{"platform_admin"}}}, TokenExpiresAt: time.Now().Add(time.Hour)}
 	resolver := &productReviewResolverStub{value: identity}
 	deps := routeAuthDependencies{organizationResolver: resolver}
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
+	source, err := buildProductCollectionService(ctx, f.db, deps, permissions, false, false, false, false, false, false, true)
+	require.NoError(t, err)
+	boundSource, err := (productReviewCapabilityBinder{}).Bind(authidentity.WithAuthenticatedIdentity(ctx, identity), "Bearer synthetic")
+	require.NoError(t, err)
+	ownSource, err := source.Mutate(boundSource, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "Synthetic offline source"}})
+	require.NoError(t, err)
+	sourceDetail, err := source.ReadItem(boundSource, ownSource.ItemID)
+	require.NoError(t, err)
+	itemID := ownSource.ItemID
+	prepareApprovedAssets(t, assetsOwner, "org-a", sourceDetail.Item.Source.ProductKey, sourceDetail.Item.Source.Version)
 	module, err := buildOfflineRecords(ctx, f.db, assets, stores, deps, permissions, source)
 	require.NoError(t, err)
 	reportModule, err := buildReportCenter(ctx, reports, deps, permissions, nil, nil, module.app)
@@ -126,7 +138,7 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 		router.ServeHTTP(w, r)
 		return w
 	}
-	input := record.Input{ProductKey: published.Identity.ProductKey, SnapshotVersion: published.Version, StoreID: recordStoreID, Country: "US", Language: "en", Action: "save_draft"}
+	input := record.Input{ProductKey: sourceDetail.Item.Source.ProductKey, SnapshotVersion: sourceDetail.Item.Source.Version, StoreID: recordStoreID, Country: "US", Language: "en", Action: "save_draft"}
 	body, err := json.Marshal(map[string]any{"collectionItemId": itemID, "input": offlineInput(input)})
 	require.NoError(t, err)
 	key := uuid.NewString()
@@ -142,10 +154,12 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	require.Equal(t, receipt.InputHash, saved.Version)
 	require.Equal(t, key, saved.OperationID)
 	require.NotContains(t, response.Body.String(), "https://fixtures.invalid/")
-	before := source.calls
+	tripwire := &offlineSourceFixture{failAt: 1}
+	module.app.collections = tripwire
 	response = request("GET", offlineRecordsPath+"/commands/"+key, "", "")
 	require.Equal(t, 200, response.Code, response.Body.String())
-	require.Equal(t, before, source.calls, "lookup must not recreate or read fresh source facts")
+	require.Zero(t, tripwire.calls, "lookup must not recreate or read fresh source facts")
+	module.app.collections = source
 	response = request("GET", offlineRecordsPath, "", "")
 	require.Equal(t, 200, response.Code, response.Body.String())
 	require.Contains(t, response.Body.String(), receipt.RecordID)
@@ -171,14 +185,28 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	require.Equal(t, 404, response.Code, response.Body.String())
 	resolver.value = identity
 	// A live source denial at each write/commit guard rolls both rows back.
+	// Only the guard is wrapped: all other ports use the real current SQL owners.
+	originalCreate := module.app.create
+	catalogReader, err := catalogstore.NewBoundedSnapshotReader(f.db, record.MaxPayloadBytes)
+	require.NoError(t, err)
+	approvedReader, err := assetstore.NewBoundedApprovedInventoryReader(assets, record.MaxPayloadBytes)
+	require.NoError(t, err)
 	for _, phase := range []int{1, 2, 3, 4} {
-		source.calls = 0
-		source.failAt = phase
+		calls := 0
+		module.app.create, err = record.NewService(record.ServiceDependencies{Products: catalogReader, Assets: approvedReader, Stores: module.app.stores, Records: module.app.records, Builder: draft.Builder{}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: permissions, Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion, CreationGuard: func(ctx context.Context, actor record.Actor, input record.Input) error {
+			calls++
+			if calls == phase {
+				return record.ErrForbidden
+			}
+			return module.app.guard(ctx, actor, input)
+		}})
+		require.NoError(t, err)
 		response = request("POST", offlineRecordsPath, uuid.NewString(), string(body))
 		require.Equal(t, 403, response.Code, response.Body.String())
+		require.Equal(t, phase, calls)
 		requireDraftS1RowCounts(t, f.owner, 1)
 	}
-	source.failAt = 0
+	module.app.create = originalCreate
 	resolver.value.Roles = []string{"admin"}
 	response = request("POST", offlineRecordsPath, uuid.NewString(), string(body))
 	require.Equal(t, 403, response.Code, response.Body.String())
@@ -212,7 +240,68 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	require.NoError(t, f.owner.Exec("GRANT UPDATE ON listing_shein_records TO source_acquisition_runtime").Error)
 	require.Error(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.db, capability))
 	require.NoError(t, f.owner.Exec("REVOKE UPDATE ON listing_shein_records FROM source_acquisition_runtime").Error)
+
+	// Real Collection/Source/Catalog SQL, including its original own-product UoW.
+	// The smallest admitted Product pool must not wait on its own transaction.
+	pool, e := f.db.DB()
+	require.NoError(t, e)
+	pool.SetMaxOpenConns(1)
+	realDeps := routeAuthDependencies{organizationResolver: offlineFixedResolver{identity}}
+	realCollections, e := buildProductCollectionService(ctx, f.db, realDeps, permissions, false, false, false, false, false, false, true)
+	require.NoError(t, e)
+	bound, e := (productReviewCapabilityBinder{}).Bind(authidentity.WithAuthenticatedIdentity(ctx, identity), "Bearer synthetic")
+	require.NoError(t, e)
+	own, e := realCollections.Mutate(bound, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "Synthetic real Collection"}})
+	require.NoError(t, e)
+	detail, e := realCollections.ReadItem(bound, own.ItemID)
+	require.NoError(t, e)
+	prepareApprovedAssets(t, assetsOwner, "org-a", detail.Item.Source.ProductKey, detail.Item.Source.Version)
+	actual, e := buildOfflineRecords(ctx, f.db, assets, stores, realDeps, permissions, realCollections)
+	require.NoError(t, e)
+	actualRouter := gin.New()
+	actualRouter.Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(authidentity.WithAuthenticatedIdentity(c.Request.Context(), identity))
+	})
+	for _, route := range actual.routes {
+		actualRouter.Handle(route.Method, route.Path, route.Handler)
+	}
+	actualBody, e := json.Marshal(map[string]any{"collectionItemId": own.ItemID, "input": offlineInput(record.Input{ProductKey: detail.Item.Source.ProductKey, SnapshotVersion: detail.Item.Source.Version, StoreID: recordStoreID, Country: "US", Language: "en", Action: "save_draft"})})
+	require.NoError(t, e)
+	createActual := func() *httptest.ResponseRecorder {
+		limited, done := context.WithTimeout(ctx, 5*time.Second)
+		defer done()
+		req := httptest.NewRequest("POST", offlineRecordsPath, strings.NewReader(string(actualBody))).WithContext(limited)
+		req.Header.Set("Authorization", "Bearer synthetic")
+		req.Header.Set("Idempotency-Key", uuid.NewString())
+		req.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		actualRouter.ServeHTTP(response, req)
+		return response
+	}
+	one := createActual()
+	require.Equal(t, 201, one.Code, one.Body.String())
+	// Merely raising the minimum pool size would still deadlock two transactions.
+	pool.SetMaxOpenConns(2)
+	results := make(chan *httptest.ResponseRecorder, 2)
+	var group sync.WaitGroup
+	for range 2 {
+		group.Add(1)
+		go func() { defer group.Done(); results <- createActual() }()
+	}
+	group.Wait()
+	close(results)
+	for result := range results {
+		require.Equal(t, 201, result.Code, result.Body.String())
+	}
 	// Original size and FK/schema admission are checked before listen.
 	require.NoError(t, f.owner.Exec("ALTER TABLE listing_shein_record_operations DROP CONSTRAINT listing_shein_record_operations_record_fk").Error)
 	require.Error(t, recordstore.VerifySchema(ctx, f.db))
+}
+
+type offlineFixedResolver struct {
+	value authidentity.AuthenticatedIdentity
+}
+
+func (r offlineFixedResolver) Resolve(context.Context, httproute.OrganizationAccessPolicy, workbenchcontext.ResolveInput) (authidentity.AuthenticatedIdentity, error) {
+	return r.value, nil
 }

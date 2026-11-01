@@ -70,7 +70,15 @@ func buildOfflineRecords(ctx context.Context, products, assets, stores *gorm.DB,
 	if err := assetstore.VerifySourceRuntimePermissions(ctx, assets); err != nil {
 		return offlineRecordModule{}, err
 	}
-	repository, err := recordstore.NewPrivateRepository(products, policy)
+	repository, err := recordstore.NewPrivateRepository(products, policy, func(ctx context.Context, tx *gorm.DB) (context.Context, error) {
+		// Reuse the current Collection owner on the Record transaction's connection;
+		// never take another connection from the held Product pool.
+		reader, err := composeProductCollectionService(ctx, tx, deps, policy)
+		if err != nil {
+			return nil, err
+		}
+		return context.WithValue(ctx, offlineTransactionCollectionKey{}, reader), nil
+	})
 	if err != nil {
 		return offlineRecordModule{}, err
 	}
@@ -113,6 +121,7 @@ func (a *normalOfflineRecords) fresh(ctx context.Context, permission string) (co
 }
 
 type offlineSourceContextKey struct{}
+type offlineTransactionCollectionKey struct{}
 type offlineSourceContext struct{ itemID, org, user, member string }
 
 func (a *normalOfflineRecords) guard(ctx context.Context, actor record.Actor, input record.Input) error {
@@ -128,8 +137,15 @@ func (a *normalOfflineRecords) guard(ctx context.Context, actor record.Actor, in
 	if source.org != current.OrganizationID || source.user != current.UserID || source.member != id.EffectiveMemberID || actor.OrganizationID != current.OrganizationID || actor.UserID != current.UserID {
 		return record.ErrForbidden
 	}
-	item, err := a.collections.ReadItem(fresh, source.itemID)
+	reader := a.collections
+	if transactionReader, ok := ctx.Value(offlineTransactionCollectionKey{}).(offlineCollectionReader); ok {
+		reader = transactionReader
+	}
+	item, err := reader.ReadItem(fresh, source.itemID)
 	if err != nil {
+		if fresh.Err() != nil {
+			return fresh.Err()
+		}
 		if errors.Is(err, collection.ErrNotFound) {
 			return record.ErrNotFound
 		}

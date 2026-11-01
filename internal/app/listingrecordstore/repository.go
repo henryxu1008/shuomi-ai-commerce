@@ -15,9 +15,10 @@ import (
 )
 
 type Repository struct {
-	db      *gorm.DB
-	auth    record.Authorizer
-	private bool
+	db         *gorm.DB
+	auth       record.Authorizer
+	private    bool
+	guardReads func(context.Context, *gorm.DB) (context.Context, error)
 }
 
 func NewRepository(db *gorm.DB, auth record.Authorizer) (*Repository, error) {
@@ -29,12 +30,16 @@ func NewRepository(db *gorm.DB, auth record.Authorizer) (*Repository, error) {
 
 // NewPrivateRepository retains the same two-table owner and always filters
 // organization/user before loading payloads, including for tenant admins.
-func NewPrivateRepository(db *gorm.DB, auth record.Authorizer) (*Repository, error) {
+func NewPrivateRepository(db *gorm.DB, auth record.Authorizer, guardReads func(context.Context, *gorm.DB) (context.Context, error)) (*Repository, error) {
+	if guardReads == nil {
+		return nil, record.ErrUnavailable
+	}
 	r, err := NewRepository(db, auth)
 	if err != nil {
 		return nil, err
 	}
 	r.private = true
+	r.guardReads = guardReads
 	return r, nil
 }
 
@@ -179,7 +184,15 @@ func (r *Repository) Insert(ctx context.Context, prepared record.Prepared) (reco
 	}
 	var result record.Record
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := prepared.Revalidate(ctx); err != nil {
+		guardContext := ctx
+		if r.guardReads != nil {
+			var err error
+			guardContext, err = r.guardReads(ctx, tx)
+			if err != nil {
+				return err
+			}
+		}
+		if err := prepared.Revalidate(guardContext); err != nil {
 			return err
 		}
 		inserted := tx.Exec(`INSERT INTO listing_shein_record_operations(organization_id,operation_id,owner_user_id,input_hash,record_id) VALUES (?,?,?,?,?) ON CONFLICT (organization_id,operation_id) DO NOTHING`, proposed.OrganizationID, proposed.OperationID, proposed.OwnerUserID, proposed.InputHash, proposed.ID)
@@ -206,7 +219,7 @@ func (r *Repository) Insert(ctx context.Context, prepared record.Prepared) (reco
 		if operation.RecordID != proposed.ID {
 			return record.ErrUnavailable
 		}
-		if err := prepared.Revalidate(ctx); err != nil {
+		if err := prepared.Revalidate(guardContext); err != nil {
 			return err
 		}
 		created := tx.Exec(`INSERT INTO listing_shein_records(id,organization_id,owner_user_id,operation_id,product_key,snapshot_version,store_id,country,language,action,input_hash,product_hash,asset_inventory_version,asset_inventory_hash,rule_revision,policy_revision,package_hash,diagnostic_hash,diagnostic_status,payload,diagnostic) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -221,7 +234,7 @@ func (r *Repository) Insert(ctx context.Context, prepared record.Prepared) (reco
 		if err != nil {
 			return err
 		}
-		return prepared.Revalidate(ctx)
+		return prepared.Revalidate(guardContext)
 	})
 	// An error at COMMIT may mean outcome unknown: do not compensate/delete.
 	if err != nil {

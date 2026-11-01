@@ -33,6 +33,13 @@ func buildProductCollectionService(ctx context.Context, db *gorm.DB, dependencie
 	if err := acquisitionstore.VerifyRuntimePermissions(ctx, db, capability); err != nil {
 		return nil, err
 	}
+	return composeProductCollectionService(ctx, db, dependencies, permissions)
+}
+
+// Consumes an already admitted owner pool or its caller-owned transaction.
+// All read ports below use that same handle; this performs no new pool open,
+// runtime grant/repair, migration or commit outside the caller's UoW.
+func composeProductCollectionService(ctx context.Context, db *gorm.DB, dependencies routeAuthDependencies, permissions *authz.ListingKitAuthorizer) (*collection.Service, error) {
 	live := &productReviewLiveOrganizationAccess{resolver: dependencies.organizationResolver, now: time.Now}
 	authority, err := collection.NewContextAuthorizer(live, permissions)
 	if err != nil {

@@ -21,6 +21,10 @@
   在其原事务安装两表及 SELECT/INSERT 最小 grants。运行角色由部署 owner 预先提供，程序不签发凭据。
   非空库拒绝；该开关不得用于现有 feature-enable 路径，也不迁移、修复或升级任何保留库。
   原 Product 消费者必须显式准入相同 capability footprint；关闭能力不是自动回收/修补真实 grants 的授权。
+- 事务内来源重验使用原 Record 事务连接装配当前 Collection 读端口，不再从已持有的 Product pool 另取连接；
+  不提高 pool 下限或资源上限。原键/两表事务与各阶段 live guard 不变。
+  真实 Workbench 拒绝按原 envelope/code/status 解析；仅首次提交的确定拒绝解除本地 intent，
+  5xx、丢响应和提交成功后读回失败仍保留原键，只查询不重发。
 - Report 仍为原三表与原三 kind，不新增报告事实或恢复表；新保存沿原权限、事务/命令、收藏与资源上限。
   读取已有报告和原 report command 不依赖来源。若来源 owner 不再装配，Report owner 可独立读取历史；
   其他仍装配的 Product 消费者仍必须通过其准确 schema/grant 准入，不会忽略额外权限以强行启动。
