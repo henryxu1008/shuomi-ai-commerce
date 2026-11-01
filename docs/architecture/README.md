@@ -1,3 +1,5 @@
+- `legacy-resource-transaction-closure-retirement-boundary.md` — [#1041 旧资源通用事务与 Store 同库扣费链完整退休设计](legacy-resource-transaction-closure-retirement-boundary.md)：§1–§7（含§4.2/§6.1），待确认27路径完整闭包；当前仅设计，保留当前能力与Store观察，#301 OPEN。
+
 > #1039 当前整批交付：[旧图片异步、GRSAI通用执行与模型审核闭包](legacy-image-async-review-closure-retirement-boundary.md)已按用户确认设计整批实现，当前 IMPLEMENTED / In Review。窄编辑/同步Once、账本双指纹和当前共享AST helper已抽取；当前能力与Store观察、JSON/hash和物理账本保持，workflow/inventory/既有资源不动，#301 OPEN。以下冻结导航原文逐字保留。
 
 > #301 当前待确认设计：[旧图片异步协议、GRSAI 通用执行与模型审核尾部完整退休](legacy-image-async-review-closure-retirement-boundary.md)。三组一起；先抽取当前窄编辑/同步提交、账本双指纹零槽位和有效 AST helper，再退休旧协议与专属尾部。当前能力/Store 观察保持，workflow/inventory/既有资源不动。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY，设计确认后再实施，#301 OPEN。以下导航与历史逐字保留。

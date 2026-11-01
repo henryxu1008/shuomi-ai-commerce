@@ -1,3 +1,7 @@
+> #1041 / #301 当前owner边界：[完整退休设计§1–§7/§4.2/§6.1](legacy-resource-transaction-closure-retirement-boundary.md)已获用户确认并实施。仅替代本文件旧通用Reservation/Settlement任意owner注册和Store强制同库执行器的保活承诺；当前资源值/购买校验归ledger/orgresource，图像debt-first结算归integration/orgresource并沿原ctx/tx/锁序执行，当前Store沿app/storecenter及Resource ConsumerCharge。不新增跨库原子性、兼容或第二事实源；当前资金/权限/JSON/hash/物理账本/恢复/Store观察保持。历史正文完整保留，运行/产品验收未执行，#301 OPEN，不授权真实资源操作。
+
+> #301 待确认设计边界：[旧资源通用事务与 Store 同库扣费链完整退休](legacy-resource-transaction-closure-retirement-boundary.md)。两组27路径，DESIGN_ONLY / REVIEW_PENDING / SOURCE_NOT_STARTED / NOT_READY；仅拟替代§3.10的旧通用注册/Reserve/Settle协议及未装配的同库Store执行器。先抽取当前图像事务结算，保留原ctx/tx/锁顺序/debt-first；当前固定image/model/ConsumerCharge、Store独立owner/服务/观察、JSON/hash/物理账本及全部当前能力不变。不以旧协议约束复活兼容，不改workflow/inventory，不操作既有资源，不加试用前置，#301 OPEN。适用复核与用户确认后再实施；以下原文及历史完整保留。
+
 > #301 / #1022 当前auth/S3边界：[用户确认的完整退休设计](legacy-auth-route-s3-operation-closure-retirement-boundary.md)§1–§7/§4.2/§6.1整批退出旧Module/URL/HTTP method认证/permission推断、Prompt赋权/两全局admin helper，以及S3旧可覆盖上传/Delete/Exists/key/helper/专属Logger和空传参链。现役函数继续解释显式Descriptor，Verifier/实例authorizer/组织/Store观察不变；S3仍在原integration owner提供immutable put/严格inspect/有界read/copy/URL。没有新事实owner、兼容alias或运行操作。仅本设计精确范围替代下文旧SHEIN/SMS推断及S3全接口/logging保活，原边界/历史/计数逐字保留，#301 OPEN。
 
 > #301 / #985 当前边界：独立 SHEIN 登录 worker、登录后 Store ID 回写及其专属持久化/构建部署入口已从源码退休。此前批次中这些对象的 KEEP/装配描述仅为历史，由[本批已确认设计](legacy-shein-login-identity-sync-closure-retirement-boundary.md)准确替代；Store 观察同步、官方授权、当前采集/图像/共享能力继续保留。相关原 guard 的稳定名称继续存在，含义已转换为完整退休禁入，不恢复旧 owner。既有资源/真实运行/数据/凭据/进程不操作，不增加试用前置，#301 OPEN。

@@ -232,3 +232,12 @@ func fingerprintPurchasedResourceGrant(input PurchasedResourceGrantExecution) (s
 	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:]), nil
 }
+
+func validResourceType(resourceType ResourceType) bool {
+	switch resourceType {
+	case ResourceStoreRenewalPeriod, ResourceAIPoint, ResourceDataRow:
+		return true
+	default:
+		return false
+	}
+}

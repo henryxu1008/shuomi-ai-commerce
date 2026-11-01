@@ -190,18 +190,18 @@ func (r *GormImageGenerationRepository) FinalizeImageGeneration(ctx context.Cont
 			if bucket.Reserved < reservation.Quantity {
 				return orgresource.ErrInvalidOwnerProof
 			}
-			decision := orgresource.SettlementRelease
+			decision := imageSettlementRelease
 			result.State = "released"
 			if fact.State == imageagent.GenerationSucceeded {
-				decision = orgresource.SettlementCommit
+				decision = imageSettlementCommit
 				result.State = "committed"
 				if counter.Consumed > math.MaxInt64-reservation.Quantity {
 					return orgresource.ErrInvalidInput
 				}
 				counter.Consumed += reservation.Quantity
 			}
-			// Reuse the canonical debt-first release/commit arithmetic.
-			settlement, err := (&GormReservationRepository{}).calculateSettlement(tx.Statement.Context, tx, reservation, bucket, decision)
+			// Settle through the current persistence owner in this transaction.
+			settlement, err := calculateImageGenerationSettlement(tx.Statement.Context, tx, reservation, bucket, decision)
 			if err != nil {
 				return err
 			}
@@ -220,7 +220,7 @@ func (r *GormImageGenerationRepository) FinalizeImageGeneration(ctx context.Cont
 			}
 			result.ReservationID = reservation.ReservationID
 			consumedDelta := int64(0)
-			if decision == orgresource.SettlementCommit {
+			if decision == imageSettlementCommit {
 				consumedDelta = reservation.Quantity
 			}
 			if err := tx.Create(&organizationResourceEventRow{EventID: uuid.NewString(), OrganizationID: id.TenantID, OperationID: finalOp.OperationID, ReservationID: &result.ReservationID, ResourceType: string(orgresource.ResourceAIPoint), Quantity: reservation.Quantity, AvailableDelta: settlement.netCredit, ReservedDelta: -reservation.Quantity, ConsumedDelta: consumedDelta, Reason: string(decision), SourceType: "image_generation_v1", SourceIdentity: fact.IntentID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: settlement.grossCredit, DebtRepaid: settlement.debtRepaid, NetCredit: settlement.netCredit}).Error; err != nil {
