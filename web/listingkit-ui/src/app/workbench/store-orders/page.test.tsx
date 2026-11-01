@@ -61,12 +61,17 @@ it("opens the saved case from the order menu using native facts and existing ste
   expect(Object.fromEntries(next.searchParams)).toMatchObject({ storeId: "store", sourceId: reference.sourceId, kind: "platform_supply", step: "purchase" });
   expect(screen.getByRole("link", { name: "平台订单记录" })).toHaveAttribute("href", "/workbench/store-orders/records");
   expect(commands).toEqual(["find_demand", "details"]);
+  expect(screen.getByRole("heading", { name: "订单业务如何流转" })).toBeVisible();
+  expect(screen.getByRole("link", { name: /查看订单与需求/ })).toHaveAttribute("href", "/workbench/store-orders/fulfill?step=source");
+  expect(screen.getByRole("link", { name: /进入采购与收货/ })).toHaveAttribute("href", "/workbench/supply/mine/procurement");
+  expect(screen.getByRole("link", { name: /进入装箱与发货/ })).toHaveAttribute("href", "/workbench/store-orders/fulfill?step=stock");
+  expect(screen.getByRole("link", { name: /查看交接与物流/ })).toHaveAttribute("href", "/workbench/store-orders/fulfill?step=logistics");
 });
 
 it("does not expose another organization's case or request its facts", async () => {
   state.org = "other-org";
   await mount();
-  expect(await screen.findByRole("heading", { name: "订单管理", level: 1 })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "统一管理订单、采购与发货，让履约流程更清晰", level: 1 })).toBeVisible();
   expect(screen.queryByText("采购备货交仓案例")).not.toBeInTheDocument();
   expect(commands).toEqual([]);
 });
@@ -90,7 +95,16 @@ it("does not infer a qualified total from an incomplete receipt page", async () 
 it("does not put synthetic cases into an unconfigured installation", async () => {
   vi.stubEnv("LISTINGKIT_ORDER_BUSINESS_CASE", "");
   await mount();
-  expect(await screen.findByRole("heading", { name: "订单管理", level: 1 })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "统一管理订单、采购与发货，让履约流程更清晰", level: 1 })).toBeVisible();
+  expect(screen.queryByText("采购备货交仓案例")).not.toBeInTheDocument();
+  expect(commands).toEqual([]);
+});
+
+it("keeps the four business entries disabled until the existing capability is available", async () => {
+  state.available = false;
+  await mount();
+  expect(await screen.findByText("当前环境未开放订单履约")).toBeVisible();
+  expect(screen.queryByRole("link", { name: /查看订单与需求|进入采购与收货|进入装箱与发货|查看交接与物流/ })).not.toBeInTheDocument();
   expect(screen.queryByText("采购备货交仓案例")).not.toBeInTheDocument();
   expect(commands).toEqual([]);
 });
