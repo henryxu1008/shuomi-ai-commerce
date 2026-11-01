@@ -41,7 +41,7 @@ func EnableSupplyChain(ctx context.Context, manifest, confirmedDatabase string) 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, refused)
-	if err != nil || !cfg.Collections || !cfg.CompletionDrafts || !cfg.SupplyChain || cfg.AcquisitionPlans || cfg.ImageSets || cfg.SupplyMarket || cfg.POD || cfg.DataServices {
+	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.CompletionDrafts || !cfg.SupplyChain || cfg.AcquisitionPlans || cfg.ImageSets || cfg.SupplyMarket || cfg.POD || cfg.DataServices {
 		return refused
 	}
 	d := cfg.Database

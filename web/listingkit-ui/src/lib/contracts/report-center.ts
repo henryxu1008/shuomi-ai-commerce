@@ -60,3 +60,9 @@ export function reviewLocator(value: string, origin: string): string | null {
 export function reportText(report: Report) {
   return [report.title, "历史只读报告；不代表当前批准、执行或平台发布许可。", `来源：${report.ref.kind} / ${report.ref.id} / ${report.ref.version}`, `保存时间：${report.capturedAt}`, ...report.content.sections.flatMap(s => ["", s.title, ...s.fields.map(f => `${f.label}：${f.value}`)])].join("\n") + "\n";
 }
+
+export function reportOfflineQuery(query:Record<string,string|string[]|undefined>):string|null|undefined{
+ if(query.sourceKind!=="SHEIN_RECORD")return undefined;
+ if(!reportID.safeParse(query.sourceId).success||Object.keys(query).some(key=>!["sourceKind","sourceId"].includes(key)))return null;
+ return query.sourceId as string;
+}

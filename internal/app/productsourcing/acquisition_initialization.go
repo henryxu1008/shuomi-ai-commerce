@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	offlinestore "task-processor/internal/app/listingrecordstore"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 var acquisitionInitName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,62}$`)
 
 type acquisitionInitManifest struct {
+	OfflineRecords   bool `json:"sheinOfflineRecords,omitempty"`
 	SchemaVersion    int  `json:"schemaVersion"`
 	Collections      bool `json:"collections,omitempty"`
 	AcquisitionPlans bool `json:"acquisitionPlans,omitempty"`
@@ -78,6 +80,11 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 		}
 		if err := InstallAcquisitionSchema(tx); err != nil {
 			return err
+		}
+		if cfg.OfflineRecords {
+			if err := offlinestore.InstallSchema(tx); err != nil {
+				return err
+			}
 		}
 		if cfg.Collections {
 			if err := collectionstore.InstallSchema(tx); err != nil {
@@ -140,7 +147,7 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 				return err
 			}
 		}
-		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, CompletionDrafts: cfg.CompletionDrafts, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
+		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{OfflineRecords: cfg.OfflineRecords, Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, CompletionDrafts: cfg.CompletionDrafts, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
 	})
 	if err != nil {
 		return unavailable
@@ -195,7 +202,7 @@ func readAcquisitionInitManifest(manifest, confirmedDatabase string, unavailable
 	var cfg acquisitionInitManifest
 	strict, err := sigjson.UnmarshalStrict(raw, &cfg, sigjson.DisallowUnknownFields, sigjson.DisallowDuplicateFields)
 	d := cfg.Database
-	if (cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans || cfg.CompletionDrafts) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
+	if (cfg.OfflineRecords || cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans || cfg.CompletionDrafts) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
 		return acquisitionInitManifest{}, unavailable
 	}
 	if err != nil || len(strict) > 0 || cfg.SchemaVersion != 1 || d.Host != "127.0.0.1" || d.Port < 1 || d.Port > 65535 || !acquisitionInitName.MatchString(d.User) || !acquisitionInitName.MatchString(d.Database) || confirmedDatabase != d.Database || d.User == acquisitionstore.RuntimeRole || d.Database == "postgres" || d.Database == "template0" || d.Database == "template1" || len(d.Password) < 1 || len(d.Password) > 1024 || strings.ContainsAny(d.Password, " ='\\\t\r\n\v\f\x00") {
@@ -212,7 +219,7 @@ func EnableAcquisitionPlans(ctx context.Context, manifest, confirmedDatabase str
 		return unavailable
 	}
 	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, unavailable)
-	if err != nil || !cfg.Collections || !cfg.AcquisitionPlans {
+	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.AcquisitionPlans {
 		return unavailable
 	}
 	d := cfg.Database
@@ -249,7 +256,7 @@ func EnableCompletionDrafts(ctx context.Context, manifest, confirmedDatabase str
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, unavailable)
-	if err != nil || !cfg.Collections || !cfg.CompletionDrafts {
+	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.CompletionDrafts {
 		return unavailable
 	}
 	d := cfg.Database

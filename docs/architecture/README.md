@@ -1,3 +1,7 @@
+- [`report-center-shein-offline-package-source-v1.md`](./report-center-shein-offline-package-source-v1.md)
+  - #628 original offline-package scope; reviewed IMPLEMENTATION_READY design; user-authorized implementation;
+    normal owner/auth/schema admission and canonical digest binding; evidence in PR #1049, runtime NOT_RUN.
+
 ## 阅读入口与文档状态
 
 本目录同时保留当前领域合同、待确认设计、源码退休矩阵和历史证据。先按职责进入，再读目标文档页首的窄范围替代说明；下方历次索引中的旧阶段、SHA、数字和勾选保留原貌，不是滚动状态。准确实施/合并/运行结果以对应 Issue / PR 为准；`IMPLEMENTATION_READY` 只表示设计准入。

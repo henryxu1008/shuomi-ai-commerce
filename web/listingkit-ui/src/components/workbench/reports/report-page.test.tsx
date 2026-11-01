@@ -166,3 +166,12 @@ it("recovers a saved unknown intent with its original key after remount", async 
   const client = new QueryClient(), view = render(tree(client)); fireEvent.click(await screen.findByRole("button", { name: "恢复原请求" })); await screen.findByText(/操作结果尚未确认/); expect(screen.getByRole("button", { name: "保存报告" })).toBeDisabled();
   await waitFor(() => expect(fetch.mock.calls.some(([,init]) => init.method === "POST")).toBe(true)); const posted = fetch.mock.calls.find(([,init]) => init.method === "POST")![1]; expect(new Headers(posted.headers).get("Idempotency-Key")).toBe(key); expect(JSON.parse(String(posted.body))).toEqual({ source: source.ref }); expect(readReportIntent(scope)).toEqual(intent); view.unmount(); client.clear();
 });
+
+it("previews the exact saved offline source and keeps an explicit save intent on response loss",async()=>{
+ fixture.context.permissions.push("listingkit.admin.read");
+ const saved={...source,title:"保存时离线诊断",ref:{kind:"SHEIN_RECORD" as const,id:source.ref.id,version:`sha256:${"c".repeat(64)}`}};
+ const posts:unknown[]=[];const fetch=vi.fn(async(path:string,init?:RequestInit)=>{if(init?.method==="POST"){posts.push(JSON.parse(String(init.body)));throw new Error("lost")};if(path.includes("/sources/"))return Response.json(saved);return path.endsWith("/summary")?Response.json({saved:0,recent:0,favorites:0,stores:0}):Response.json({items:[],nextCursor:""})});vi.stubGlobal("fetch",fetch);
+ const client=new QueryClient(),view=render(<QueryClientProvider client={client}><ReportPage view="all" sheinOfflineSourcesAvailable initialOfflineRecord={saved.ref.id}/></QueryClientProvider>);
+ const button=await screen.findByRole("button",{name:"保存此版本"});await waitFor(()=>expect(button).toBeEnabled());expect(posts).toHaveLength(0);expect(fetchSheinRecords).not.toHaveBeenCalled();
+ fireEvent.click(button);await screen.findByText(/操作结果尚未确认/);expect(posts).toEqual([{source:saved.ref}]);expect(readReportIntent({userId:"actor-a",organizationId:"org-a"})).toMatchObject({source:saved.ref});view.unmount();client.clear();
+});

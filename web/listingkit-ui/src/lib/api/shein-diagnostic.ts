@@ -23,7 +23,7 @@ const freshness = z.union([
   z.strictObject({ status: z.literal("not_evaluated"), coverage: z.array(text).length(0) }),
   z.strictObject({ status: z.literal("valid"), coverage: z.array(text).length(1).refine((coverage) => coverage[0] === "external_package_freshness"), evidence }),
 ]);
-const diagnostic = z.strictObject({
+const diagnosticWire = z.strictObject({
   diagnostic_only: z.literal(true), scope: z.literal("shein.offline_package"),
   target: z.strictObject({ marketplace: z.literal("shein"), site: z.literal("") }),
   action: sheinDiagnosticActionSchema, rule_version: z.literal("shein.offline_package.v2.2"),
@@ -32,9 +32,11 @@ const diagnostic = z.strictObject({
   not_evaluated_reasons: z.record(text, text).optional(),
   offline_checks: z.strictObject({ status: z.enum(["ready", "ready_with_warnings", "blocked"]), checks: z.array(check).min(1), blockers: z.array(check), warnings: z.array(check) }),
   action_policy: z.strictObject({ readiness_blockers_allowed: z.boolean() }),
-}).refine((value) => {
+});
+function consistentDiagnostic(value:z.infer<typeof diagnosticWire>,exactApproved:boolean) {
   // Fixed unchecked scope set in the v2 wire contract, independent of rules.
-  const unchecked = ["online_template_freshness", "store_authorization", "cookie", "pod", "human_review", "approved_asset_provenance_and_consent", "submission_gate"];
+  const unchecked = ["online_template_freshness", "store_authorization", "cookie", "pod", "human_review", "submission_gate"];
+  if(!exactApproved)unchecked.push("approved_asset_provenance_and_consent");
   if (value.external_freshness.status === "not_evaluated") unchecked.push("external_package_freshness");
   const scopes = new Set(value.not_evaluated);
   if (scopes.size !== value.not_evaluated.length || scopes.size !== unchecked.length || unchecked.some((scope) => !scopes.has(scope))) return false;
@@ -62,7 +64,10 @@ const diagnostic = z.strictObject({
     comparableTimestamp(e.observed_at) <= evaluated && evaluated < comparableTimestamp(e.valid_until) &&
     !value.not_evaluated.includes("external_package_freshness") &&
     value.not_evaluated_reasons?.external_package_freshness === undefined;
-});
+}
+const diagnostic=diagnosticWire.refine(value=>consistentDiagnostic(value,false));
+// Saved DRAFT-S1 already verified the exact ApprovedAsset inventory.
+export const savedSheinDiagnosticSchema=diagnosticWire.refine(value=>consistentDiagnostic(value,true));
 function comparableTimestamp(value: string) {
   // Already validated UTC RFC3339, fixed-width date and at most nine fractional
   // digits. Date.parse would discard the Go contract's nanosecond precision.
