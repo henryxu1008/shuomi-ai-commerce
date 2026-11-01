@@ -546,6 +546,10 @@ source of truth for long-lived rules.
   - #628 frozen IMPLEMENTATION_READY personal report snapshots, favorites and
     exact source-version capture. Shared runtime wiring and actual user acceptance
     remain separate from feature-local implementation and fixture evidence.
+- [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
+  - #628 design-only candidate for native SHEIN TargetRecord report capture;
+    DRAFT / NOT_READY, distinct source identity and explicit schema admission;
+    no reinterpretation or migration of saved reports and no implementation grant.
 - [`tool-market-v1.md`](./tool-market-v1.md)
   - Native composition and local installation limits: [current-tool-market operations](../operations/current-tool-market.md).
   - #613 frozen IMPLEMENTATION_READY feature Design Basis for enterprise-shared enablement and manual customization progress; existing capture permissions and offline quote/payment owners remain unchanged. This feature contract does not introduce repository-wide structural rules.
