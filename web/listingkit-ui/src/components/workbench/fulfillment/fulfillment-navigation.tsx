@@ -36,8 +36,6 @@ function ScopedNavigation({ scope, permissions, children }: Props) {
     retry: false,
   });
   return cloneElement(children, {
-    storeOrdersAvailable:
-      children.props.storeOrdersAvailable ||
-      capability.data?.available === true,
+    fulfillmentAvailable: capability.data?.available === true,
   });
 }

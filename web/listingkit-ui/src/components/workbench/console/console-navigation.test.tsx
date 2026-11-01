@@ -7,6 +7,42 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("splits Orders into six entries without advertising fulfillment from observation availability",()=>{
+ render(<ConsoleNavigation pathname="/workbench/store-orders" ariaLabel="主导航" storeOrdersAvailable/>);
+ expect(screen.getByRole("button",{name:"收起订单管理"})).toHaveAttribute("aria-expanded","true");
+ expect(screen.getByRole("link",{name:"订单概览"})).toHaveAttribute("aria-current","page");
+ expect(screen.getByRole("link",{name:"订单管理"})).not.toHaveAttribute("aria-current");
+ expect(screen.getByRole("link",{name:"平台订单记录"})).toHaveAttribute("title","平台订单记录");
+ for(const name of ["订单处理","采购与收货","装箱与发货","交接与物流"])
+  expect(screen.getByRole("link",{name})).toHaveAttribute("title",`${name}：业务暂未启用`);
+});
+it("selects each Order view and keeps the original source when switching query-only steps",()=>{
+ query.value="step=stock&storeId=store-1&sourceId=source-1&kind=platform_supply&ignored=value";
+ const view=render(<ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable/>);
+ expect(screen.getByRole("link",{name:"装箱与发货"})).toHaveAttribute("aria-current","page");
+ expect(screen.getByRole("link",{name:"订单概览"})).not.toHaveAttribute("aria-current");
+ for(const [name,step] of [["订单处理","source"],["采购与收货","purchase"],["装箱与发货","stock"],["交接与物流","logistics"]]){
+  const link=screen.getByRole("link",{name});
+  expect(link).toHaveAttribute("title",name);
+  const href=new URL(link.getAttribute("href")!,"https://test.invalid");
+  expect(href.pathname).toBe("/workbench/store-orders/fulfill");
+  expect(Object.fromEntries(href.searchParams)).toEqual({step,storeId:"store-1",sourceId:"source-1",kind:"platform_supply"});
+ }
+ expect(screen.getByRole("link",{name:"平台订单记录"})).toHaveAttribute("title","平台订单记录：业务暂未启用");
+ query.value="step=logistics&storeId=store-1&sourceId=source-1&kind=platform_supply";
+ view.rerender(<ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable/>);
+ expect(screen.getByRole("link",{name:"交接与物流"})).toHaveAttribute("aria-current","page");
+ expect(screen.getByRole("link",{name:"装箱与发货"})).not.toHaveAttribute("aria-current");
+ query.value="step=platform";
+ view.rerender(<ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable/>);
+ expect(screen.getByRole("link",{name:"装箱与发货"})).toHaveAttribute("aria-current","page");
+});
+it("does not carry duplicate or malformed Order identity parameters into another step",()=>{
+ query.value="step=stock&step=logistics&storeId=one&storeId=two&sourceId=bad%2Fid&kind=platform_supply&kind=consumer_order";
+ render(<ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable/>);
+ expect(screen.getByRole("link",{name:"订单处理"})).toHaveAttribute("aria-current","page");
+ expect(screen.getByRole("link",{name:"采购与收货"})).toHaveAttribute("href","/workbench/store-orders/fulfill?step=purchase");
+});
 it("removes closing menu links from keyboard and accessibility access and supports immediate reopening", async () => {
   const user = userEvent.setup();
   render(<ConsoleNavigation pathname="/workbench/stores" ariaLabel="主导航" />);
