@@ -1,3 +1,7 @@
+- [`walmart-feed-complete-recovery-v1.md`](./walmart-feed-complete-recovery-v1.md)
+  - #733 remaining complete Feed recovery: DESIGN_ONLY / DESIGN_CANDIDATE / NOT_READY;
+    source consistency proof UNKNOWN; original owner, budgets and repair gates preserved; no implementation/review assignment.
+
 - [`report-center-shein-offline-package-source-v1.md`](./report-center-shein-offline-package-source-v1.md)
   - #628 original offline-package scope; reviewed IMPLEMENTATION_READY design; user-authorized implementation;
     normal owner/auth/schema admission and canonical digest binding; evidence in PR #1049, runtime NOT_RUN.
