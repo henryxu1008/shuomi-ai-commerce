@@ -1,5 +1,6 @@
-import { ObservationPage } from "@/components/workbench/store-observations/observation-page";
-import { FulfillmentEntry } from "@/components/workbench/fulfillment/fulfillment-page";
+import { OrderHomepage } from "@/components/workbench/fulfillment/order-homepage";
+import { configuredOrderBusinessCase } from "@/lib/server/order-business-case";
+export const dynamic = "force-dynamic";
 export default function StoreOrdersPage() {
-  return <><FulfillmentEntry/><ObservationPage kind="orders" /></>;
+  return <OrderHomepage businessCase={configuredOrderBusinessCase()} />;
 }

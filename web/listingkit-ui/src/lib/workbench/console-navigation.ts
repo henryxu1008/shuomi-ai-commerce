@@ -53,10 +53,10 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
   }
   const exact = visit(consoleNavigation, []);
   if (exact) return exact;
-  if (pathname === "/workbench/store-orders/fulfill" || pathname === "/workbench/supply/mine/procurement") {
+  if (pathname === "/workbench/store-orders/fulfill" || pathname === "/workbench/store-orders/records" || pathname === "/workbench/supply/mine/procurement") {
     const procurement=pathname.endsWith("/procurement");
     const parent=findConsoleRoute(procurement?"/workbench/supply/mine":"/workbench/store-orders")!;
-    const node:ConsoleNavNode={label:procurement?"采购管理":"原单履约",href:pathname,availability:"connected"};
+    const node:ConsoleNavNode={label:procurement?"采购管理":pathname.endsWith("/records")?"平台订单记录":"原单履约",href:pathname,availability:"connected"};
     return {node,trail:[...parent.trail,node]};
   }
   if (pathname === "/workbench/agents/skills/official/use") {

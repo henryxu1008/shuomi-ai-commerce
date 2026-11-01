@@ -5,9 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FulfillmentPage } from "./fulfillment-page";
 import type { FulfillmentInput } from "@/lib/api/fulfillment";
 import { saveFulfillmentIntent } from "@/lib/api/fulfillment-intent";
+const location = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () =>
-    new URLSearchParams("storeId=store&sourceId=original&kind=platform_supply"),
+    new URLSearchParams(location.search),
 }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({
   useWorkbenchContext: () => ({
@@ -27,6 +28,7 @@ vi.mock("@/lib/api/workbench-stores", () => ({
 }));
 const calls: FulfillmentInput[] = [];
 beforeEach(() => {
+  location.search = "storeId=store&sourceId=original&kind=platform_supply";
   localStorage.clear();
   calls.length = 0;
   vi.stubGlobal("navigator", {
@@ -99,6 +101,12 @@ function mount() {
     </QueryClientProvider>,
   );
 }
+it("opens the selected case step without executing its operations", async () => {
+  location.search += "&step=purchase";
+  mount();
+  expect(await screen.findByRole("button", { name: "采购与收货" })).toHaveAttribute("aria-current", "step");
+  expect(calls.every(call => ["source", "catalog", "find_demand"].includes(call.action))).toBe(true);
+});
 it("does not execute acceptance or shipping while displaying or refreshing an original source", async () => {
   mount();
   await screen.findByText("平台原单 · original");

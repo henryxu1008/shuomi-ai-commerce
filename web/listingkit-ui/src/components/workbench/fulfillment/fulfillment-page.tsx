@@ -90,6 +90,8 @@ export function FulfillmentPage({
     () => ({ organizationId: org, userId: user }),
     [org, user],
   );
+  const stepParameter = params?.getAll("step");
+  const initialStep = flowSteps.find(flow => stepParameter?.length === 1 && flow.id === stepParameter[0])?.id;
   if (context.error || context.blockingError)
     return (
       <ConsoleState kind="error" title="企业上下文不可用">
@@ -102,10 +104,11 @@ export function FulfillmentPage({
     return <ConsoleState kind="unavailable" title="请先选择可访问的企业" />;
   return (
     <ScopedPage
-      key={`${org}:${user}:${procurement}`}
+      key={JSON.stringify([org, user, procurement, initial(params, "storeId"), initial(params, "sourceId"), params?.get("kind"), initialStep])}
       procurement={procurement}
       scope={scope}
       permissions={context.permissions}
+      initialStep={initialStep}
       initialStore={initial(params, "storeId")}
       initialSource={initial(params, "sourceId")}
       initialKind={
@@ -119,6 +122,7 @@ export function FulfillmentPage({
 function ScopedPage({
   scope,
   permissions,
+  initialStep,
   procurement,
   initialStore,
   initialSource,
@@ -126,13 +130,14 @@ function ScopedPage({
 }: {
   scope: FulfillmentScope;
   permissions: string[];
+  initialStep?: FlowStep;
   procurement: boolean;
   initialStore: string;
   initialSource: string;
   initialKind: FulfillmentInput["kind"];
 }) {
   const [step, setStep] = useState<FlowStep>(
-    procurement ? "purchase" : "source",
+    initialStep ?? (procurement ? "purchase" : "source"),
   );
   const queries = useQueryClient(),
     prefix = useMemo(
@@ -789,10 +794,10 @@ function ScopedPage({
                       <p>
                         分别查看平台申报、实际交接和平台收货。消费者轨迹可在
                         <Link
-                          href={`/workbench/store-orders?storeId=${encodeURIComponent(store)}`}
+                          href={`/workbench/store-orders/records?storeId=${encodeURIComponent(store)}`}
                           prefetch={false}
                         >
-                          订单管理
+                          平台订单记录
                         </Link>
                         核对；托管收货 / 入库数量以上方原平台观察为准。
                       </p>
