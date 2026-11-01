@@ -4,7 +4,7 @@ export const kernelID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[
 const numeric = "(?:0|[1-9][0-9]*)";
 const identifier = "(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)";
 const semver = new RegExp(`^${numeric}\\.${numeric}\\.${numeric}(?:-${identifier}(?:\\.${identifier})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`);
-export const kernelClientVersion = z.string().max(64, "版本号不能超过 64 个字符。").regex(semver, "请输入完整的客户端版本号，例如 1.8.0。");
+const kernelClientVersion = z.string().max(64, "版本号不能超过 64 个字符。").regex(semver, "请输入完整的客户端版本号，例如 1.8.0。");
 function compareNumeric(a: string, b: string) { return a.length - b.length || (a < b ? -1 : a > b ? 1 : 0); }
 export function compareKernelVersions(a: string, b: string): number {
   const [ac, ...ar] = a.split("+", 1)[0].split("-"), [bc, ...br] = b.split("+", 1)[0].split("-");
@@ -34,15 +34,15 @@ const fixedURL = z.string().max(2048).refine(v => {
 const metadata = { archiveFormat: z.enum(["zip", "tar.gz", "tar.xz"]), size: z.number().int("大小须为整数字节。").min(1, "大小须为正整数。").max(2 ** 31, "大小不能超过 2147483648 字节。"), sha256: z.string().regex(/^[0-9a-f]{64}$/, "请输入 64 位小写十六进制 SHA256。"), downloadUrl: fixedURL };
 export const kernelPublish = z.strictObject({ version, ...platform, ...range, ...metadata }).refine(validRange, { message: "结束版本必须大于最低版本", path: ["maxClientVersionExclusive"] });
 export const kernelQuery = z.strictObject({ ...platform, clientVersion: kernelClientVersion });
-export const kernelSummary = z.strictObject({ releaseId: kernelID, version, ...platform, ...range, recommended: z.boolean() }).refine(validRange);
+const kernelSummary = z.strictObject({ releaseId: kernelID, version, ...platform, ...range, recommended: z.boolean() }).refine(validRange);
 export const kernelPage = z.strictObject({ releases: z.array(kernelSummary).max(100), nextCursor: z.union([z.literal(""), kernelID]) });
 export const kernelArtifact = z.strictObject({ ...kernelSummary.shape, ...metadata, downloadOrigins: z.array(z.string().max(256)).min(1).max(8) }).refine(validRange);
 export const kernelResult = z.strictObject({ releaseId: kernelID, state: z.enum(["published", "withdrawn"]) });
 export const kernelIntent = z.strictObject({ key: kernelID, clientVersion: kernelClientVersion, payload: kernelPublish }).refine(p => kernelCompatible(p.clientVersion, p.payload), { message: "读回客户端版本必须在兼容范围内", path: ["clientVersion"] });
-export type KernelPublish = z.infer<typeof kernelPublish>;
+type KernelPublish = z.infer<typeof kernelPublish>;
 export type KernelQuery = z.infer<typeof kernelQuery>;
 export type KernelIntent = z.infer<typeof kernelIntent>;
-export type KernelArtifact = z.infer<typeof kernelArtifact>;
+type KernelArtifact = z.infer<typeof kernelArtifact>;
 export function matchesKernelArtifact(id: string, input: KernelPublish, readback: KernelArtifact) {
   return readback.releaseId === id && !readback.recommended && Object.entries(input).every(([k, value]) => readback[k as keyof KernelPublish] === value);
 }

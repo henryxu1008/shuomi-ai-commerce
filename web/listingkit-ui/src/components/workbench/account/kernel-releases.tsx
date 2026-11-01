@@ -12,7 +12,7 @@ import { KernelError, kernelMessage, kernelRequest } from "@/lib/api/kernel-rele
 import { kernelArtifact, kernelIntent, kernelPage, kernelQuery, kernelResult, matchesKernelArtifact, type KernelIntent, type KernelQuery } from "@/lib/contracts/kernel-releases";
 import styles from "./kernel-releases.module.css";
 
-export const kernelPagePath = "/workbench/account/organization/kernel-releases";
+const kernelPagePath = "/workbench/account/organization/kernel-releases";
 export function KernelReleasesEntry() {
   const context = useWorkbenchContext();
   if (!context.permissions.includes("listingkit.platform_admin")) return null;
@@ -27,7 +27,7 @@ export function KernelReleasesPage({ expectedUserId, create = false }: { expecte
 }
 const initialQuery: KernelQuery = { os: "windows", arch: "amd64", clientVersion: "1.8.0" };
 function queryString(query: KernelQuery) { return new URLSearchParams(query).toString(); }
-export function KernelReleaseList({ userId }: { userId: string }) {
+function KernelReleaseList({ userId }: { userId: string }) {
   const [editing, setEditing] = useState(initialQuery), [query, setQuery] = useState(initialQuery), [cursor, setCursor] = useState(""), [error, setError] = useState("");
   const path = "?" + queryString(query) + "&limit=100" + (cursor ? "&cursor=" + cursor : "");
   const result = useQuery({ queryKey: ["kernel-admin", userId, query, cursor], queryFn: ({ signal }) => kernelRequest(userId, path, kernelPage, { signal }), retry: false, gcTime: 0, refetchOnWindowFocus: false });
@@ -46,7 +46,7 @@ export function KernelReleaseList({ userId }: { userId: string }) {
   </>;
 }
 const blank = { key: "", version: "", os: "windows" as KernelQuery["os"], arch: "amd64" as KernelQuery["arch"], minClientVersion: "1.8.0", maxClientVersionExclusive: "", archiveFormat: "zip", size: "", sha256: "", downloadUrl: "", clientVersion: "1.8.0" };
-export function KernelRegistration({ userId }: { userId: string }) {
+function KernelRegistration({ userId }: { userId: string }) {
   const [fields, setFields] = useState(blank), [errors, setErrors] = useState<Record<string, string>>({}), [failure, setFailure] = useState<unknown>(), [busy, setBusy] = useState(false), [receipt, setReceipt] = useState<KernelIntent | null>(null);
   const pending = useResourcePending({ expectedUserId: userId, expectedOrganizationId: "" }, ["kernel-publication"], kernelIntent, { storage: "session", maxLength: 16384 });
   const flight = useRef(false), active = useRef(true), controller = useRef<AbortController | null>(null);
