@@ -1,6 +1,10 @@
 - [`order-procurement-fulfillment-v1.md`](order-procurement-fulfillment-v1.md) — #1037 / #1038；独立架构 IMPLEMENTATION_READY，当前仓库双履约与显式用途授权；真实 SHEIN 待联调。
 - [`erpnext-shein-fulfillment-fit-v1.md`](erpnext-shein-fulfillment-fit-v1.md) — 固定 ERPNext/Frappe 版本，原生数量、事务与原操作恢复证据，不代表真实平台验收。
 
+> #1044 当前源码闭包：[ImageAgent旧控制/摘要合同与测试尾部完整退休](legacy-imageagent-control-summary-tail-retirement-boundary.md)已获用户确认，按 §1–§7（含 §4.2/§6.1）在同一 PR 收齐14路径；七旧对象、有效测试转接及窄旧 KEEP 替代一并交付。源码最终复核/准确 CI 和用户确认留 PR；Store 组暂缓，当前能力与既有资源保持，#301 OPEN。以下冻结索引与历史完整保留。
+
+- `legacy-imageagent-control-summary-tail-retirement-boundary.md` — [#301 ImageAgent旧控制、摘要合同与测试尾部完整退休设计](legacy-imageagent-control-summary-tail-retirement-boundary.md)：七对象、原有效测试/旧KEEP与14路径整批矩阵；当前仅四文档设计，用户确认前不实施，Store组暂缓。
+
 - `legacy-resource-transaction-closure-retirement-boundary.md` — [#1041 旧资源通用事务与 Store 同库扣费链完整退休设计](legacy-resource-transaction-closure-retirement-boundary.md)：§1–§7（含§4.2/§6.1），待确认27路径完整闭包；当前仅设计，保留当前能力与Store观察，#301 OPEN。
 
 > #1039 当前整批交付：[旧图片异步、GRSAI通用执行与模型审核闭包](legacy-image-async-review-closure-retirement-boundary.md)已按用户确认设计整批实现，当前 IMPLEMENTED / In Review。窄编辑/同步Once、账本双指纹和当前共享AST helper已抽取；当前能力与Store观察、JSON/hash和物理账本保持，workflow/inventory/既有资源不动，#301 OPEN。以下冻结导航原文逐字保留。

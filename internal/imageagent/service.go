@@ -514,14 +514,6 @@ func cloneBlock(block *Block) *Block {
 	return &cloned
 }
 
-func clonePendingCommand(receipt *PendingCommandReceipt) *PendingCommandReceipt {
-	if receipt == nil {
-		return nil
-	}
-	cloned := *receipt
-	return &cloned
-}
-
 const OrganizationScopeProtocol = "image-agent.organization.v1"
 
 func (s *Service) identityForRun(identity ExecutionIdentity, run Run) (ExecutionIdentity, error) {
