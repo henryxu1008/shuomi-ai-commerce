@@ -220,7 +220,7 @@ Before merging auth or tenant-sensitive changes, check:
 Current code evidence includes
 [server auth tests](../../internal/app/httpapi/server_test.go),
 [Organization resolver](../../internal/workbenchcontext/resolver.go) and
-[dated multi-Organization verification](../verification/zitadel-multi-organization-authorization.md).
+[dated multi-Organization verification](../archive/verification/zitadel-multi-organization-authorization.md).
 The dated verification is evidence for its own baseline, not approval of today's HEAD.
 
 ## 9. Upgrade path to stable boundary document

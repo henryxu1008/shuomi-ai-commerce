@@ -1,3 +1,11 @@
+# ZITADEL 多组织验证历史记录
+
+返回[历史验证索引](../README.md#verification-history)。本页保留 2026-08-31 的准确基线、合成测试与本地冒烟结果；真实环境、启用 Workbench 及撤销传播仍为原记录的 pending，不能据此认定当前环境已通过。当前身份与企业合同从[身份与租户边界](../../architecture/auth-and-tenancy.md)进入。
+
+以下原始记录完整保留。
+
+---
+
 # ZITADEL 多 Organization 授权验证
 
 ```yaml

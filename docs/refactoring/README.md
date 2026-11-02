@@ -1,5 +1,7 @@
 # 当前重构规则
 
+返回[文档首页](../README.md)。按领域查找具体退出矩阵，使用[退休边界导航](../architecture/retirement-index.md)；查当前领域合同，使用[合同导航](../architecture/topics.md)。
+
 本目录只保留 [Legacy Hard-Cut Policy](legacy-hard-cut-policy.md) 与 [Legacy Register](legacy-register.md) 的当前规则和登记。
 产品遵守 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)，执行排序与进度属于 [#137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137)及当前执行 Issue / PR。
 

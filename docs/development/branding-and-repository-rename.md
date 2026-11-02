@@ -21,7 +21,7 @@ UI / IA 继续使用[最终 Figma Authority](../product/final-ui-ia-authority.md
 
 `task-processor` 作为工程旧称、实际模块/路径/资源标识保留；ListingKit 仍按既有
 EXTRACT / RETIRE 边界处理，不能因品牌变化恢复旧产品或误删有效前端代码。
-当前启动仍见 [README](../../README.md#当前正式运行入口)、
+当前启动仍见 [README 本地开发](../../README.md#本地开发)、
 [Console](../../web/listingkit-ui/README.md) 和[账户环境](../../deployments/docker/account-compose/README.md)。
 
 ## 当前切换范围与历史说明

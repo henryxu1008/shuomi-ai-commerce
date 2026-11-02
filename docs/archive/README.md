@@ -8,6 +8,20 @@
 
 原始正文与结果保留；本次只调整阅读前缀与准确导航。既有冻结检查保留原长度/摘要，在逆映射本轮明列导航路径后验证原文，不放宽内容断言。
 
+## 按材料类型查找
+
+| 原始材料 | 阅读位置 |
+| --- | --- |
+| 旧产品 / Console / 资源设计 | [旧设计与取消边界](#旧设计与取消边界) |
+| 冻结实施计划 | [实施计划与冻结历史](#实施计划与冻结历史) |
+| 带日期和准确基线的验证 | [实际验证记录](#verification-history) |
+| 重构阶段报告、原始测试输出 | [历史重构材料](#refactoring-history) |
+| 旧架构 / PoC、开发与运行记录 | [历史架构、开发与运行材料](#architecture-history) |
+| Kubernetes 发布与旧集成联调 | [历史部署与旧集成](#deployment-and-integration-history) |
+| 保留在原领域旁的工程 / 产品证据 | [工程原始附件](../engineering/README.md#evidence)、[产品验证记录](../product/validation/runs/README.md) |
+
+退休矩阵中的有效边界另见[架构退休导航](../architecture/retirement-index.md)，不与普通过期报告混放。
+
 ## 旧设计与取消边界
 
 - [2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md](designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md) — 首期工作台/企业/店铺设计快照；当前页面与owner由final-ui-ia、auth-and-tenancy和Store当前合同维护，不保留第二套实施入口。
@@ -32,10 +46,14 @@
 - [2026-09-03-shuomi-phone-registration-onboarding-plan-v7.md](implementation-plans/2026-09-03-shuomi-phone-registration-onboarding-plan-v7.md) — Greenfield已明确PR #283/#284 V7只是历史证据，不是当前实现基线；完整原文归档，移除“仍承载当前合同”宣传。
 - [2026-09-03-shuomi-resource-ledger-store-plan-v7.md](implementation-plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md) — Greenfield已明确PR #283/#284 V7只是历史证据，不是当前实现基线；完整原文归档，移除“仍承载当前合同”宣传。
 
+<a id="verification-history"></a>
+
 ## 实际验证记录
 
 - [2026-08-09-listingkit-canonical-zitadel-subject.md](verification/2026-08-09-listingkit-canonical-zitadel-subject.md) — 原始实际执行与限制证据完整归档；旧操作不成为当前命令/运行授权。
 - [2026-08-10-listingkit-owner-reconciliation.md](verification/2026-08-10-listingkit-owner-reconciliation.md) — 原始实际执行与限制证据完整归档；旧操作不成为当前命令/运行授权。
+
+- [ZITADEL 多 Organization 验证](verification/zitadel-multi-organization-authorization.md) — 保留 2026-08-31 合成测试、本地冒烟及准确 SHA；真实双组织、撤销传播与启用 Workbench 仍为原记录的 pending。
 
 原目录与已退出索引的完整内容可从[归位前固定 Git 版本](https://github.com/henryxu1008/shuomi-ai-commerce/tree/bafc9a27208e36b1e3c560cf5196b9c8d690e508/docs/superpowers)追溯。归档不是停用真实实例或清理真实数据的授权。
 
