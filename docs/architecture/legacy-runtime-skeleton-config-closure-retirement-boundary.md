@@ -33,7 +33,7 @@ Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认 §1–§7（�
 适用依据：
 
 - [Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)：只 EXTRACT/RETIRE，无兼容、旧状态迁移、fallback、双读/双写或第二事实源。
-- [Project Target Architecture](project-target-architecture.md) 的 `kernel/module.Registry` 仅限 **startup contribution collection**，**not the Tool Runtime**；[Project Boundaries](project-boundaries.md) 的 HTTP 注册归 owning HTTP API、app 装配，以及 [Phase2 inventory](../refactoring/phase2-runtime-inventory.md) 的精确消费者登记。现有 `Module/Registry` 路由合同继续有效，未把整个 kernel 包判为 legacy。
+- [Project Target Architecture](project-target-architecture.md) 的 `kernel/module.Registry` 仅限 **startup contribution collection**，**not the Tool Runtime**；[Project Boundaries](project-boundaries.md) 的 HTTP 注册归 owning HTTP API、app 装配，以及 [Phase2 inventory](runtime-consumer-register.md) 的精确消费者登记。现有 `Module/Registry` 路由合同继续有效，未把整个 kernel 包判为 legacy。
 - [旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)、[旧任务/刊登配置闭包](legacy-runtime-config-closure-retirement-boundary.md)、[日志门面退休边界](legacy-logger-facade-closure-retirement-boundary.md)：保留有效基础层/workerpool/配置，不因旧名称删除仍有消费者的能力。
 - [独立 SHEIN 持久化边界](shein-worker-numeric-persistence-retirement-v1.md) 与当前采集、图像、Store 合同：原 owner、授权/组织隔离、持久化、fence/UNKNOWN 和副作用保留。
 
@@ -122,7 +122,7 @@ Cutover/deletion condition: 用户确认本设计/Ready读回；闲置分支无�
 | --- | --- | --- |
 | `tests/listingkit_backend_retirement_test.go` | 在原设施加一个本闭包退休检查：两个 bundle 文件缺席；kernel owner 的退休顶层类型/接收者方法/Registry 字段缺席；kernel 全追踪 decoded imports 不得再依赖 workerpool；HTTP runtimeBundle.workerPools/pools 和 core/config 六声明缺席。对保留 Module/Registry 路由方法及当前配置 owner 有正向约束 | 不全局禁止 kernel/module、Task/Workflow/LogConfig 等同名当前能力；不禁止真实 workerpool/Temporal 进入当前命令依赖，不动原退休/安全/解析/读取错误逻辑 |
 | 原 kernel/HTTP/config tests | 仅 §5 指定旧实现细节测试/fixture 转换；pool 结构 mutation 的退出由上述源码缺席 guard 接替 | 原模块 mutation/路由404/system存在、路由复制/顺序、所有当前授权/隔离/幂等/状态/配置/日志行为仍必须 fail-closed；不是删除整个原回归 |
-| `docs/refactoring/phase2-runtime-inventory.md` CURRENT | 仅删下方一条 kernel/module→platform/workerpool 行 | 所有其它文本/行、历史、计数、ceilings、accuracy/parser/排除规则不改；core/config→Platform/OpenAI 等仍有消费者的行保留 |
+| `docs/architecture/runtime-consumer-register.md` CURRENT | 仅删下方一条 kernel/module→platform/workerpool 行 | 所有其它文本/行、历史、计数、ceilings、accuracy/parser/排除规则不改；core/config→Platform/OpenAI 等仍有消费者的行保留 |
 | 本文、Architecture README、Legacy Register | 当前提案/用户确认状态及准确 supersession，继续引用当前路由 owner | 保留所有原历史正文/行；Project Target Architecture 中现役 Registry 的 startup contribution collection/not the Tool Runtime 合同不改 |
 | `.golangci.yml`、Code Health、其它 import/provider/SDK/SSA/Phase2 checks | **零改**，运行适用原检查 | 不加豁免/新允许项、改 ceiling、放松当前消费者准确性或改检查逻辑求绿 |
 | 全部 workflow/命令/部署/依赖/锁/保护 | **零改**，原 Backend/Frontend/Required/Security/Admission 等保持 | 不删/跳过检查、不改 build 目标/flag/镜像/tag、强推或管理员绕过 |

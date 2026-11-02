@@ -137,8 +137,8 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7，登记/读回 Reuse
 | tests/listingkit_backend_retirement_test.go 缺席/保留map | 用整个 internal/temu/image 目录缺席覆盖包括#797七路径在内的全部Go文件，增加 handlerbase/types.go 缺席；移除已退休15文件、ImageRequirement、AssetState/两map/其初始化的旧保留token；新增原 DimensionInfo/TextRenderer及当前有效规则/平台保留断言，共享Prompt合同复用原检查 | 原root/product/CLI/运行/身份/安全断言与有效保留map保持；整目录缺席比旧准确文件/包级名字检查更强，不为同名平台/其它包做全局禁令，不为§3.1残留新增保留断言 |
 | 同一测试原mixed AST与image专属fixture | 仅从必存遍历移除将消失的image项，保留原sku/filter/product/rules/handlerbase五包；image专属helper/十fixture随整目录禁令替代而退出，不留空调用；复用原AST局部检查防handlerbase.ImageRequirement alias/type及context.AssetState/两字段/初始化重建，保持其它领域同名值 | 原SKU九fixture和五mixed扫描不得删；旧三Asset字段/Publish禁令保持。不得使用遇缺就广泛skip、改root/ignore或新扫描框架。context仍有其余合同，不能把其检查整体删除 |
 | tests/import_boundaries_test.go TestTEMUOpenAIImportsStayAllowlisted | 仅删 image/dimension_annotator.go、image/vision_detector.go 两条失去的豁免 | 其它AI/SKU等条目、root/loader/deny/alias检查及scope原样；不顺带清理无关历史条目或修改provider准入 |
-| docs/refactoring/phase2-runtime-inventory.md 当前consumer register | 仅移除 core/logger → temu/image 与 integration/openai → temu/image 两行，因为完整包无源码consumer | 日期化inventory/历史debt list、其它consumer和全部closure ceiling保持，不误报logger/OpenAI或其它平台全部退休 |
-| docs/refactoring/code-health-decisions.md image行、Legacy Register、本文/索引与直接冲突说明 | 标明image包/孤立类型/专属状态source-retired，保留日期化15 declarations计数；当前验证目标换为retained context/API/rules/当前goods与原guard。窄替代#797等当批保留陈述，Prompt/API/共享保留明确 | 历史审批/取证保留，不恢复旧命令、不重写历史统计，不将全部TEMU/Prompt/平台合同记成退休；设计阶段只交本文与索引 |
+| docs/architecture/runtime-consumer-register.md 当前consumer register | 仅移除 core/logger → temu/image 与 integration/openai → temu/image 两行，因为完整包无源码consumer | 日期化inventory/历史debt list、其它consumer和全部closure ceiling保持，不误报logger/OpenAI或其它平台全部退休 |
+| docs/engineering/code-health-decisions.md image行、Legacy Register、本文/索引与直接冲突说明 | 标明image包/孤立类型/专属状态source-retired，保留日期化15 declarations计数；当前验证目标换为retained context/API/rules/当前goods与原guard。窄替代#797等当批保留陈述，Prompt/API/共享保留明确 | 历史审批/取证保留，不恢复旧命令、不重写历史统计，不将全部TEMU/Prompt/平台合同记成退休；设计阶段只交本文与索引 |
 | .github/workflows/ci.yml、commercial-readiness.yml及其它workflows、.golangci.yml/依赖/保护 | **零变更** | 必需/安全检查、编译目标、触发条件、保护/ceiling保持，不增加试用/发布前置 |
 
 ## 7. 确认、实施与停止条件

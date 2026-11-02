@@ -29,7 +29,7 @@ Out of Scope：新安装器或版本选择平台、浏览器内核发行/下载/
 | [#914 timeout](legacy-idle-support-contract-closure-retirement-boundary.md)、[#937 HTTP 门面](legacy-idle-support-facade-closure-retirement-boundary.md)、[#1017 HTTP/auth](legacy-http-auth-support-closure-retirement-boundary.md) | 两个下载常量、httpclient.Config/Client/New/Do 的旧 KEEP | 当前 Context deadline/取消、真实 HTTP/API/SDK 传输、有效配置、身份权限与租户隔离 |
 | [#893 logger](legacy-logger-facade-closure-retirement-boundary.md)、[#939 配置尾部](legacy-global-config-logging-tail-closure-retirement-boundary.md)、[#969 支撑层](legacy-support-control-tail-closure-retirement-boundary.md) | 只为下载链保留的 logger port/注入、HTTP 字段/调用检查及 CLI flags | appenv.ComponentLoggers、platform/logging 真实锁/输出、Goose migration 的会话锁/Up 安全断言及全部真实消费者 |
 | [#870 宿主](legacy-host-runtime-closure-retirement-boundary.md)、[#915 helper](legacy-host-image-helper-closure-retirement-boundary.md)、[#948 crawler 门面](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md) | 广泛共享 helper KEEP 中仅本批 httpclient/timeout 下载专属闭包 | 图像解码注册、当前 HTTP/配置/AI、有效算法与当前采集；不因同名 timeout/retry 删除其它 owner |
-| [1688 本地批量设计](../superpowers/specs/2026-09-21-1688-batch-local-agent-design.md) §3.1 表的 fingerprint-chromium 安装“直接复用”一行 | 不再复用 cmd/fingerprint-browser-installer；本仓库不承担这条自下载实现 | 指纹内核、相同二进制版本创建的 Profile、现有显式 --browser、路线 B、scope/Consent、队列/UNKNOWN/崩溃安全、验证码/登录人工边界 |
+| [1688 本地批量设计](1688-batch-local-agent.md) §3.1 表的 fingerprint-chromium 安装“直接复用”一行 | 不再复用 cmd/fingerprint-browser-installer；本仓库不承担这条自下载实现 | 指纹内核、相同二进制版本创建的 Profile、现有显式 --browser、路线 B、scope/Consent、队列/UNKNOWN/崩溃安全、验证码/登录人工边界 |
 
 最后一项是有效设计中的准确替代，不能把整份批量设计标成历史，也不能用“零 Go caller”代替用户对安装能力的取舍。
 
@@ -101,7 +101,7 @@ internal/pkg/timeout/timeout.go
 - `tests/listingkit_backend_retirement_test.go`、`tests/repository_structure_test.go`：仅 §6.1 精确转换。
 - 本设计、`docs/architecture/README.md`、`docs/refactoring/legacy-register.md`：设计与当前导航，旧正文/数字/勾选保留为完整后缀；准确 HEAD/CI/复核留 PR，不制造滚动证据提交。
 - `docs/development/repository-structure.md`：仅去维护命令列表中两个准确 CLI 行、加窄当前说明；其它维护命令/owner/分类文字不变。它和测试的命令归属表是本批明确调整对象，**不属于允许改动的 CURRENT consumer inventory**。
-- `docs/superpowers/specs/2026-09-21-1688-batch-local-agent-design.md`：仅加 §2/§3.1 的准确局部替代注记、改 §3.1 表的一条安装器复用行为显式指纹浏览器输入 owner；其余原文、产品决定、scope/Consent/队列/恢复逐字保持，不把全设计作废。
+- `docs/architecture/1688-batch-local-agent.md`：仅加 §2/§3.1 的准确局部替代注记、改 §3.1 表的一条安装器复用行为显式指纹浏览器输入 owner；其余原文、产品决定、scope/Consent/队列/恢复逐字保持，不把全设计作废。
 
 以下 **18 份历史设计/直接引用**只加针对安装闭包的顶注，完整原 Git blob（含既有顶注、计数和勾选）逐字作为后缀保留，不逐条重写历史：
 
@@ -121,8 +121,8 @@ docs/architecture/legacy-crawler-facade-diagnostics-closure-retirement-boundary.
 docs/CODE_WIKI.md
 docs/amazon-listing-workbench-api.md
 docs/database-connection-optimization.md
-docs/refactoring/code-health-decisions.md
-docs/refactoring/module-target-mapping.md
+docs/engineering/code-health-decisions.md
+docs/architecture/module-target-mapping.md
 docs/superpowers/plans/2026-08-13-dead-and-duplicate-code-cleanup.md
 ```
 

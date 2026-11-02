@@ -79,7 +79,7 @@ SHEIN 登录后的 Store ID/查重同步沿原 owner。两套 workflow、配置/
 
 ## How To Use This Document
 
-先从下面的[当前入口地图](#current-entrypoint-map)判断运行路径，再从[新代码落点](#current-owner-landing)进入已有 owner；无需先遍历历史计划。目录/命令完整清单只维护在本文件，领域合同与完整退休规则仍分别属于 [Project Boundaries](../architecture/project-boundaries.md)、[Module Target Mapping](../refactoring/module-target-mapping.md) 和 [Legacy Register](../refactoring/legacy-register.md)。本地图是导航，不新建架构权威或依赖准入。
+先从下面的[当前入口地图](#current-entrypoint-map)判断运行路径，再从[新代码落点](#current-owner-landing)进入已有 owner；无需先遍历历史计划。目录/命令完整清单只维护在本文件，领域合同与完整退休规则仍分别属于 [Project Boundaries](../architecture/project-boundaries.md)、[Module Target Mapping](../architecture/module-target-mapping.md) 和 [Legacy Register](../refactoring/legacy-register.md)。本地图是导航，不新建架构权威或依赖准入。
 
 当变更涉及以下问题时，应从 `docs/architecture/README.md` 进入后再落到这里：
 
@@ -96,7 +96,7 @@ SHEIN 登录后的 Store ID/查重同步沿原 owner。两套 workflow、配置/
 
 ## 当前入口地图
 
-本节及命令清单静态核对于 `main @ eb9e019686564b976c1a1a9828eeddb454adabac`（2026-09-25）。只确认源码路径、装配关系和命令分类，不声称执行过当前基线测试、已部署或通过产品/生产验收。[Current Refactoring Status](../refactoring/current-refactoring-status.md) 中较早基线的成熟度记录不能代替本节的入口核对；本节也不重签那些历史验收。
+本节及命令清单静态核对于 `main @ eb9e019686564b976c1a1a9828eeddb454adabac`（2026-09-25）。只确认源码路径、装配关系和命令分类，不声称执行过当前基线测试、已部署或通过产品/生产验收。[Current Refactoring Status](../archive/refactoring/current-refactoring-status.md) 中较早基线的成熟度记录不能代替本节的入口核对；本节也不重签那些历史验收。
 
 | 要做什么 | 从哪里进入 | 当前边界 |
 | --- | --- | --- |
@@ -118,7 +118,7 @@ go run ./cmd/current-application -config /absolute/private/current-application.j
 
 ## 新代码落点
 
-以下是现有归属的阅读入口，不是新的全仓迁移计划；使用具体 API 前仍须满足现有合同与精确依赖 guard。完整 file/package 退休归属只维护在 [Mapping](../refactoring/module-target-mapping.md) / [Register](../refactoring/legacy-register.md)。
+以下是现有归属的阅读入口，不是新的全仓迁移计划；使用具体 API 前仍须满足现有合同与精确依赖 guard。完整 file/package 退休归属只维护在 [Mapping](../architecture/module-target-mapping.md) / [Register](../refactoring/legacy-register.md)。
 
 | 变更内容 | 当前阅读入口 | 不应做什么 |
 | --- | --- | --- |
@@ -188,7 +188,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - `product-agent-runtime-prepare` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`；安装者获准后显式选择 `--target run` 或 `--target review`，分别使用私密 `PRODUCT_AGENT_SCHEMA_DSN` / `PRODUCT_REVIEW_SCHEMA_DSN`。它只编排原 owner 的三表全缺新建及现表窄 grants / 完整精确 no-op；部分状态和漂移拒绝，不创建角色或密码，不迁移、不启用模型、不启动 serving 或 worker。两库分别提交，未知结果先核实；依据 [内容标题与 Chat 共存](../architecture/content-agent-chat-coexistence-v1.md)。
   - `local-ai-trial-grant` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`，装配归 `internal/app/localaitrial`、资源事实归 `ledger/orgresource`。沿私密配置和既有 `commercial_owner_runtime`，默认 inspect 只读；明确获准并开启 grant 后仅一次10000非现金ai_point，复用来源幂等/事务/债务/审计，未知结果原键读回。它不安装 schema/权限、不改钱包/成员限额、不启模型或调用 provider；依据 [#724 专用来源设计](../architecture/local-ai-trial-v1.md) 和[待确认执行清单](../operations/local-ai-trial-v1.md)。列入维护清单不授权真实发点或部署。
   - 不再新增临时调试可执行程序。
-  - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
+  - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../archive/operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
   - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。旧发布身份预检、独占共享reader与tenantbridge已按批准设计退休；schema工具与当前Store观察同步保持。
   - `source-account-registry-schema-init` 由 `scripts/source-account-registry-local-acceptance.ps1` 维护，初始化当前 SourceAccountRegistry 空库 schema 及 RUN-1 在同一 source-account pool 上的账户资料、个人/企业认证 schema；不读取、迁移或兼容旧 Source Account 数据。
   - `organization-membership-schema-init` 由 `deployments/docker/account-compose` 维护，只初始化本账户中心实例的组织成员回执 schema；不读取、迁移或兼容旧成员数据。

@@ -1,0 +1,96 @@
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
+> **HISTORICAL WIRE CONTRACT / SUPERSEDED EXECUTION AUTHORITY。** [数字任务执行退休](../../architecture/legacy-numeric-task-execution-retirement-boundary.md)已退出下文 submitter / distributed client / MessageAdapter；后续[数字采集尾部退休](../../architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)又退出无消费者的 domain/task V2 合同。下文“两次发布 + 14 天观察”、兼容 decoder 和 canary 不是当前源码退休或内部试用前置，也不授权恢复消费者。原 schema、拒绝/路由/ACK 语义及观察门槛原样保留为协议历史；实际 broker 消息、旧消费者和运行停用情况不由源码删除证明。共享基础设施及其有效告警不在本文历史化范围内。
+
+# Task Event V2 Migration
+
+## Scope
+
+`TaskEventV2` is the RabbitMQ contract for messages carrying a complete task
+payload. It is produced by the application task submitter and the distributed
+crawler client, and decoded by `app/task.MessageAdapter` before a consumer
+constructs a model task.
+
+The former Listing Control Plane publisher sent an ID-only `ListingDispatchSignal`
+and was outside this V2 contract. That publisher and its runtime are source-retired
+under the [confirmed #726 boundary](../../architecture/legacy-listing-control-plane-retirement-boundary.md).
+Retained task submitter, distributed crawler and MessageAdapter contracts stay
+unchanged; this retirement creates no replacement producer, payload migration or
+current-application consumer of the old numeric task chain.
+
+## Wire schema
+
+```json
+{
+  "schemaVersion": 2,
+  "taskId": "430604922543791994",
+  "sourcePlatform": "amazon",
+  "targetPlatform": "shein",
+  "traceId": "optional-trace-id",
+  "metadata": {"optional": "string-value"},
+  "payload": {
+    "taskId": "430604922543791994",
+    "sourcePlatform": "amazon",
+    "targetPlatform": "shein",
+    "tenantId": 1001,
+    "storeId": 2001,
+    "productId": "B001TEST"
+  }
+}
+```
+
+`schemaVersion`, the top-level string `taskId`, `sourcePlatform`, and
+`targetPlatform` are required. The domain normalizer rejects missing values or
+an unsupported schema version. The adapter also rejects conflicting duplicate
+routing values in the complete payload. New producers only publish V2.
+
+The pre-V2 flat `platform` field is decoded only in
+`internal/app/task/message_adapter.go`. It is converted there to explicit
+source/target values before the domain normalizer runs; no domain consumer uses
+that ambiguous field.
+
+## Routing safety
+
+Crawler queue lookup no longer defaults unknown routes to `amazon.crawler`.
+It returns the classified `UNKNOWN_CRAWLER_ROUTE` task error so a caller can
+record, alert, or dead-letter the invalid route without sending work to the
+wrong queue.
+
+RabbitMQ acknowledgement remains owned by the existing task handler: it still
+claims task state before calling the acknowledgement callback. V2 decoding does
+not alter that order.
+
+## Compatibility measurement and removal gate
+
+For two released consumer versions, retain the adapter's legacy decode branch.
+Every legacy decode increments the existing consumer Prometheus registry metric
+`task_event_decoded_total{schema_version="legacy"}`. It is exposed from the
+consumer `/metrics` endpoint through `internal/infra/metrics/ConsumerRegistry`.
+Use `increase(task_event_decoded_total{schema_version="legacy",kubernetes_namespace="task-processor"}[14d])`
+for the legacy-event observation gate. The label is deliberately limited to the
+stable `schema_version` value; queue, task ID, tenant, and store are not metric
+labels. The Kubernetes namespace is attached by the repository-owned
+`PodMonitor`, rather than by application code.
+
+The operational implementation, pinned monitoring chart and one-pod canary
+procedure are documented in
+[`2026-08-12-task-event-v2-production-observability.md`](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/superpowers/plans/2026-08-12-task-event-v2-production-observability.md).
+The query is valid only while all active consumer scrape targets are healthy;
+any legacy event, consumer rollback or scrape gap restarts the 14-day window.
+
+Track `legacy_task_event_consumers` from the Kubernetes workload inventory:
+list every consumer deployment/statefulset image digest and release label, then
+compare it with the release manifest that first contains V2 decoding. Keep the
+dated inventory with the release checklist; it is the source of truth for the
+zero-consumer condition.
+
+Remove the legacy branch only when all of the following are true:
+
+1. Two consumer release cycles containing V2 decoding have completed.
+2. `legacy_task_event_consumers` is zero.
+3. `legacy_task_event_observations` is zero for 14 consecutive full days,
+   across every task and crawler queue.
+
+The 14-day window restarts after any legacy observation or any consumer that
+can still publish or require legacy task events is detected. This document
+contains no credentials or environment-specific connection details.

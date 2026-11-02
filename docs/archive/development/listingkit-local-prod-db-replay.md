@@ -1,0 +1,296 @@
+> **历史归档 / 非当前执行入口。** 本文原阶段判断、协议、结果及准确替代说明保留用于追溯；旧命令不执行，源码退休不证明真实资源或在途副作用已结束。当前合同从[架构索引](../../architecture/README.md)、[当前程序入口](../../development/repository-structure.md#current-entrypoint-map)与[操作说明](../../operations/README.md)读取。
+
+> #1032 源级退休注记：本文为历史证据；旧 listingkit-schema-migrate、product-listing-api-schema-migrate 及其跨域聚合建表入口已退出。四项仍有效的 Image 维护操作由 image-agent-schema-init / app/runtime/imageagentschemainit 承担，无默认宽迁移或兼容转发。既有 Goose 记录/业务数据不动，当前能力及 Store 观察保留；不授权真实环境操作。原文如下。
+
+> #301 / #1029 [用户确认的完整输入链退休](../../architecture/legacy-listingkit-input-config-closure-retirement-boundary.md)：下文旧 LISTINGKIT_API_BASE/共库 replay 指引仅为历史，不是当前操作或运行验收要求。当前 UI 连接使用已有 LISTINGKIT_SERVICE_API_BASE 与显式身份输入；本批不执行 replay、不读共享 DB/凭据或已有文件。 两组30路径在同一 #1029 整批实施，用户已确认冻结设计 e343a825b 的§1–§7（含§4.2/§6.1），IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。退出旧手工上传配置及旧 UI Task API/隐式集群 Secret 导入；当前 UI/Auth.js/Service API、图像/采集、imgproxy 两有效 Secret 键与原安全检查、Store 观察保留。workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下原文、历史、计数和勾选完整保留；源码 CI/最终复核证据另见同一 PR，不代表产品或运行验收。
+
+> #301 / #1026 USER_CONFIRMED：[用户确认的旧远程联调与专属镜像完整退休边界](../../architecture/legacy-remote-debug-image-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1）仅替代本批七对象的旧KEEP/现行操作含义：四个旧PG/Redis/RabbitMQ/Temporal转发与watcher、SHEIN runtime base构建推送脚本/Dockerfile及专属Pester整批源退，三项原检查精确转退休保护；其它检查不变。Chromium/Playwright安装、非目标Dockerfile、当前标准构建/全部能力与Store观察同步保持，无新EXTRACT/alias/替代工具。不执行旧入口，不停止转发/服务或删除现存镜像、数据、凭据、文件日志或进程；真实外部人工/制品消费者UNKNOWN，运行验收NOT_RUN。workflow/完整inventory/CURRENT/历史计数/ceilings/依赖/保护零改，无试用新前置，#301 OPEN。以下原Git正文/既有顶注/数字/勾选/失败证据逐字保留为历史，不恢复已退SHEIN登录/身份回写。
+
+# ListingKit 本地复验（复用线上数据库）
+
+> 历史方案，#29 退休旧 API 后不可执行。专属 replay 入口及旧本地 API/dev launcher 源已删除（[#846 完整退休边界](../../architecture/legacy-local-acceptance-closure-retirement-boundary.md)）。当前应用只使用已批准的私密 manifest；这里的共库/端口覆盖不是当前启动依据。
+
+这个方案适合验证 `ListingKit Workbench` / `product-listing-api` 的页面与业务逻辑，
+避免每次都先发版再看结果。
+
+核心思路：
+
+1. 本地启动 `product-listing-api`
+2. 通过 `kubectl port-forward` 把线上 PostgreSQL 转到本地
+3. 同时把线上 Redis 转到本地
+4. 本地 `listingkit-ui` 指向本地 API
+
+注意：
+
+- 这是“本地程序 + 线上数据库”的联调方式，不是完整离线环境。
+- 本地操作会直接读取线上任务数据；如果你点击保存/提交，也会真正写入线上数据库和 Redis。
+- 建议优先用于页面逻辑、只读检查、按钮可用性和提交前校验复验。
+- 本地联调统一只保留一套固定端口：
+  `PostgreSQL=15432`、`Redis=16379`、`product-listing-api=8085`、`listingkit-ui=3000`。
+- 不要同时启动多个 `port-forward` 窗口、多个本地 API、多个本地 UI，也不要临时改成本轮专用端口。
+  否则很容易出现“浏览器连的是 A、API 连的是 B、Redis 连的是 C”的混乱状态。
+- 对 ListingKit / SHEIN / SDS 的真实联调，Redis 不再建议省略。
+  原因是任务状态、登录态、SHEIN cookie、部分缓存和恢复链路都会依赖 Redis；
+  只连数据库不连 Redis，容易出现“数据库是线上、cookie 和缓存却是本地旧数据”的假象。
+
+## 一键转发
+
+在仓库根目录执行：
+
+```powershell
+.\scripts\start-listingkit-local-portforward.ps1
+```
+
+脚本会：
+
+- 转发 `platform-data/shared-postgresql` 到 `127.0.0.1:15432`
+- 转发 `platform-data/redis` 到 `127.0.0.1:16379`
+- 打印本地 API / UI 的建议启动命令
+- 保持窗口常驻，直到你 `Ctrl+C`
+
+如果本地 API 需要启用 ListingKit Temporal 工作流客户端，也可以同时转发远端
+Temporal frontend：
+
+```powershell
+.\scripts\start-listingkit-local-portforward.ps1 -IncludeTemporal
+```
+
+这会额外转发 `temporal/temporal-frontend:7233` 到 `127.0.0.1:7233`，
+并提示设置：
+
+```powershell
+$env:LISTINGKIT_TEMPORAL_ENABLED='true'
+$env:LISTINGKIT_TEMPORAL_ADDRESS='127.0.0.1:7233'
+```
+
+如果只想单独启动远端 Temporal 转发，也可以执行：
+
+```powershell
+.\scripts\start-listingkit-remote-temporal-portforward.ps1
+```
+
+固定端口约定：
+
+- 数据库固定用 `15432`
+- Redis 固定用 `16379`
+- 本地 API 固定用 `8085`
+- 本地 UI 固定用 `3000`
+
+每次联调都复用这一组固定端口，不再另外开第二套 `8086`、`3001`、`16380` 之类的临时实例。
+
+如果你这次只是看纯静态页面，也可以显式跳过 Redis：
+
+```powershell
+.\scripts\start-listingkit-local-portforward.ps1 -SkipRedis
+```
+
+但除非你非常确定这轮只看纯前端静态展示，否则不建议这么做。
+也就是说，默认命令就是推荐命令。
+
+如果你真的要跳过 Redis，那么下面这些内容都不应该在这轮里复验：
+
+- SHEIN 手工搜类目
+- SHEIN / SDS 登录态恢复
+- SHEIN cookie 读取与刷新
+- Resolution cache / 发布前缓存命中
+- 任务状态恢复、重试、阻断项判断
+
+## 启动本地 API
+
+脚本启动后，另开一个 PowerShell，直接执行：
+
+```powershell
+.\scripts\start-listingkit-local-api.ps1
+```
+
+这个脚本会固定做 6 件事：
+
+1. 清掉当前占用 `8085` 的旧进程，避免误连到上一次残留实例
+2. 重新构建本地 `product-listing-api`
+3. 用固定端口 `8085` 启动新实例，并把日志写到 `.local/tmp/listingkit-local-api/logs/`
+4. 对这次本地进程强制注入 `TASK_PROCESSOR_SHEIN_IGNORE_STORE_PROXY=1`
+5. 对这次本地进程默认注入 `TASK_PROCESSOR_API_RUNTIME_AUTOMIGRATE=false`
+6. 对这次本地进程默认注入 `TASK_PROCESSOR_LISTINGKIT_RUNTIME_AUTOMIGRATE=false`
+7. 通过完整 `start-listingkit-local-dev.ps1` 启动时，会额外验证无需认证的 `/readyz`；单独运行 API 脚本只证明 HTTP listener，除非显式传入 `-RequireReadiness`（旧参数 `-RequireSettingsHealth` 仍兼容）。
+
+第 4 点是这轮联调里非常关键的一步。
+原因不是“兼容”，而是根因上本地开发机通常访问不到店铺在远端环境里配置的代理地址；
+如果本地复验还沿用 `storeInfo.Proxy`，就会出现：
+
+- `preview` 看起来正常
+- 但真正发 SHEIN 请求时在 TCP 层直接连不上代理
+- 最终把“本地网络不可达”误判成“类目搜索/联调逻辑有问题”
+
+本地 API 启动脚本默认就是为了避免这种假失败。
+
+如果你想显式指定参数，也可以：
+
+```powershell
+.\scripts\start-listingkit-local-api.ps1 -Port 8085 -ConfigPath config/config-dev.yaml -LogLevel info
+```
+
+如果本地库还没做过 ListingKit schema 初始化，先单独执行一次：
+
+```powershell
+go run ./cmd/product-listing-api-schema-migrate -config config/config-dev.yaml
+go run ./cmd/listingkit-schema-migrate -config config/config-dev.yaml
+```
+
+这样可以把 `product-listing-api` 自己的 task/credential/prompt schema 初始化，
+以及 ListingKit 的 schema auto-migrate，一起从 API 启动路径里摘出去，
+避免每次本地重启都重复承担这段成本。
+
+这里仍然建议把数据库、Redis、cookie Redis 这些连接信息固定写在仓库根目录的 `.env`，
+不要每次在当前 PowerShell 窗口里临时敲一遍环境变量。
+原因是 `product-listing-api` 本身就会自动加载仓库根目录 `.env`；
+统一落到文件里，才能保证每次联调都命中同一套固定配置。
+
+## 为什么数据库和 Redis 要一起连
+
+这套本地复验里，至少有 3 类状态不是只放数据库：
+
+1. SHEIN cookie
+   `product-listing-api` 会从 `platforms.shein.cookieRedis` 读取 `shein:cookie:<tenant>:<store>`。
+   如果这里还指向本地 Redis，就会出现：
+   “任务是线上数据，但 cookie 是本地旧值或空值”。
+
+2. 通用运行态 / 登录态
+   一些恢复、登录、暂停状态和运行态判断会同时依赖数据库与 Redis。
+   只连库不连 Redis，页面看到的阻断项可能不是真实线上状态。
+
+3. 缓存与联调结论
+   如果你正在复验缓存是否生效，数据库和 Redis 必须来自同一套远端环境，
+   否则很容易把“本地缓存命中/未命中”误判成真实逻辑结果。
+
+## 最小自检
+
+启动本地 API 后，建议先做一轮最小自检，再打开页面：
+
+```powershell
+Invoke-WebRequest -Uri http://localhost:8085/health -UseBasicParsing
+```
+
+然后确认 API 启动日志里至少满足两点：
+
+- 数据库连接目标已经是 `127.0.0.1:15432`
+- Redis / SHEIN cookie Redis 已经是 `127.0.0.1:16379`
+- 当前进程已经显式忽略 SHEIN 店铺代理
+- 当前机器上只有这一套本地联调进程在占用 `15432 / 16379 / 8085 / 3000`
+
+如果你机器装了 `redis-cli`，也建议再做一次连通性检查：
+
+```powershell
+redis-cli -h 127.0.0.1 -p 16379 PING
+redis-cli -h 127.0.0.1 -p 16379 -n 9 KEYS "shein:cookie:*"
+```
+
+预期：
+
+- `PING` 返回 `PONG`
+- `DB 9` 下能看到远端同步过来的 `shein:cookie:*` key
+
+如果 `DB 9` 为空，不要继续做 SHEIN 类目、属性、发布相关联调，
+先排查是不是没有把远端 Redis 正确转发到本地。
+
+## 启动本地 UI
+
+再开一个 PowerShell：
+
+```powershell
+Set-Location web/listingkit-ui
+$env:LISTINGKIT_API_BASE='http://localhost:8085/api/v1/listing-kits'
+$env:LISTINGKIT_SERVICE_API_BASE='http://localhost:8085/api/v1'
+npm run dev
+```
+
+打开：
+
+```text
+http://localhost:3000
+```
+
+本地 UI 现在也必须走真实 ZITADEL 登录；
+真正决定“读的是本地还是远端”的仍然是上面的 API 环境变量。
+
+### 本地稳定启动建议
+
+如果你在 `http://localhost:3000` 打开页面时看到“页面一直刷新”，
+先不要怀疑业务代码。
+
+这轮联调里已经确认过一种真实情况：
+
+- `product-listing-api` 正常
+- `listingkit-ui` 页面路由正常
+- 但本地 `next dev` 进程下的 `/api/*` route 会异常返回 `404`
+- 登录门禁依赖 `/api/zitadel-auth/session`
+- 结果就会变成“登录态检查失败 -> 回当前页 -> 再检查”，肉眼看起来像一直刷新
+
+也就是说：
+
+- `k8s` 上同样代码正常，不代表本地 `next dev` 运行态也一定正常
+- 如果本地出现持续刷新，更可能是 UI 开发服务的 API route 运行异常，不是 SHEIN / ListingKit 业务逻辑本身有问题
+
+建议先用下面两个请求自检：
+
+```powershell
+Invoke-WebRequest -Uri http://localhost:3000/api/version -UseBasicParsing
+Invoke-WebRequest -Uri http://localhost:3000/api/zitadel-auth/session -UseBasicParsing
+```
+
+预期：
+
+- `/api/version` 应该返回 `200`
+- `/api/zitadel-auth/session` 在未登录时应该返回 `401`
+
+如果这两个地址返回 `404`，说明本地 UI 运行态已经不可信，
+不要继续在这条 `next dev` 进程上联调。
+
+这种情况下，优先改用稳定启动方式：
+
+```powershell
+Set-Location web/listingkit-ui
+$env:PORT='3000'
+$env:HOSTNAME='0.0.0.0'
+node .next/standalone/server.js
+```
+
+注意：
+
+- 这要求你之前已经做过一次 `npm run build`
+- 独立启动 `server.js` 时，仍然要保证 `.env.local` 里的 ZITADEL 配置和 API 地址是完整的
+- 启动成功后，访问 `/` 的正常表现应该是跳到 `/login`，而不是无限刷新
+
+## 适合复验的内容
+
+- 最终确认页按钮是否可点击
+- readiness / blocker 文案是否正确
+- 页面映射、价格显示、草稿视图等前端逻辑
+- 本地 API 是否按预期读写 `listingkit` 相关数据库与 Redis 状态
+- SHEIN cookie 阻断是否会在更早阶段暴露
+- 手工搜类目、缓存命中、重试子任务等依赖 Redis 的链路
+
+## 1688 来源账户预检
+
+1688 在 Product Sourcing 中是来源侧的“登录账户”，不是 SHEIN 那样的目标店铺。
+请求只传 `source_account_id` 作为账户配置 ID；`source_store_id` 不支持。创建
+ListingKit 任务前，服务会验证该账户属于当前租户且已启用，并独立验证所选
+SHEIN 目标店铺同样属于当前租户且已启用。
+
+不要把账户密码、cookie、浏览器 Profile 目录、`user_data_dir`、代理用户名或密码
+写入请求、日志、回放 fixture 或 ListingKit task payload。账户配置存在且启用只说明
+可以选择该账户 Profile；它不证明该 Profile 已有有效的实时 1688 登录态。运行复验
+仍应先人工完成该 Profile 的登录，然后执行只读 crawl probe，最后才考虑受控的任务创建。
+
+## 不建议直接依赖的内容
+
+- 完整线上鉴权链路
+- 依赖线上部署环境注入的全部 secret
+- 需要多服务协同的真正发布链路回归
+- 任何会真实改写线上店铺登录态、发布状态的高风险操作
+
+如果后面要进一步减少线上依赖，下一步最值得做的是再补一层：
+
+- `product-listing-api` 本地直连线上库
+- 但把真正 `submit remote` 调用切到可控的 mock / dry-run 开关
+
+这样页面和数据库能真联调，发布动作又不会误打到线上。

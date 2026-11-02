@@ -121,7 +121,7 @@ Cutover/deletion condition: 用户确认本设计，#29/#301 Ready 双读回后�
 | `docs/superpowers/plans/2026-08-30-image-agent-local-acceptance.md`、`2026-08-30-image-agent-local-acceptance-pr-hardening.md`、`2026-08-30-image-agent-acceptance-command-ownership.md` | 各只新增窄历史顶注，旧实施/测试/人工验收步骤不再是当前派工或执行授权；不运行其中 stop/reset/脚本测试或子代理指令。原计划正文保留 |
 | `docs/architecture/README.md` | 索引本文和当前设计/实施状态；其它 owner/索引不改 |
 | `docs/refactoring/legacy-register.md`、`module-target-mapping.md` | 顶注仅覆盖八个准确专属源与旧 launcher 保留结论；当前共享/native/worker owner 及其它历史矩阵/计数保留 |
-| `docs/refactoring/code-health-decisions.md` | 只在顶注取代两项 API/dev Pester retained-generated-contract 与旧编排的当前适用性。原 rows/counts/失败证据保留；UI 测试、watcher 和其它工具保留结论及全部 consumer inventory 零改 |
+| `docs/engineering/code-health-decisions.md` | 只在顶注取代两项 API/dev Pester retained-generated-contract 与旧编排的当前适用性。原 rows/counts/失败证据保留；UI 测试、watcher 和其它工具保留结论及全部 consumer inventory 零改 |
 
 不修改已有历史顶注的 SDS 排查记录、dated multi-org 计划/verification、其它旧验收报告、商业/生产/恢复政策、issue357 工程文档或其当前源。引用保留指南的历史链接仍存在；旧文档里的代码路径不是恢复源的命令，旧绝对工作区路径不作为仓库相对链接或真实文件访问目标。
 

@@ -130,11 +130,11 @@ docs/architecture/legacy-redis-proxy-shared-closure-retirement-boundary.md
 docs/architecture/legacy-runtime-config-closure-retirement-boundary.md
 docs/architecture/legacy-runtime-skeleton-config-closure-retirement-boundary.md
 docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md
-docs/refactoring/code-health-decisions.md
+docs/engineering/code-health-decisions.md
 docs/development/branding-and-repository-rename.md
 docs/development/listingkit-local-prod-db-replay.md
 docs/superpowers/plans/2026-08-08-1688-runtime-preflight.md
-docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md
+docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md
 ```
 
 另有本文及 `docs/architecture/README.md`、`docs/refactoring/legacy-register.md` 三个当前设计/导航文件；导航亦只加当前条目，原内容完整保留。合计 **7 删除 + 1 混合 Go 测试 + 20 直接旧文档 + 3 当前设计/导航 = 31 路径**。本设计提交只应用最后三文档；其余尚未实施。

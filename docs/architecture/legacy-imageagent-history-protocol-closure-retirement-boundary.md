@@ -113,13 +113,13 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 | `docs/architecture/legacy-imageagent-history-protocol-closure-retirement-boundary.md` | 本文：边界/矩阵/验证/状态；准确 HEAD、CI 和 review 证据写 PR |
 | `docs/architecture/README.md` | 最小当前索引，保留原正文/历史 |
 | `docs/refactoring/legacy-register.md` | 最小当前登记，保留历史/计数/勾选和旧证据 |
-| `docs/superpowers/specs/2026-08-27-image-agent-recovery-compatibility-design.md` | 只追加本批旧历史要求失效及当前保留注记，原正文不改 |
+| `docs/architecture/image-agent-recovery.md` | 只追加本批旧历史要求失效及当前保留注记，原正文不改 |
 | `docs/superpowers/plans/2026-08-27-image-agent-recovery-compatibility.md` | 同上，原步骤/勾选不改 |
-| `docs/superpowers/specs/2026-08-28-image-agent-budget-authorization-design.md` | 同上，区分旧父协议和仍有效预算事实 |
+| `docs/architecture/image-agent-budget-authorization.md` | 同上，区分旧父协议和仍有效预算事实 |
 | `docs/superpowers/plans/2026-08-28-image-agent-budget-authorization.md` | 同上，当前预算安全要求保留 |
-| `docs/superpowers/specs/2026-08-29-image-agent-external-effect-finalization-design.md` | 同上，取消/绝对 deadline/finalization 不降级 |
-| `docs/superpowers/plans/2026-08-29-image-agent-external-effect-finalization.md` | 同上，旧正向模式失效，不改历史步骤 |
-| `docs/superpowers/specs/2026-08-29-image-agent-external-recovery-workflow-design.md` | 同上，当前 durable recovery/Signal owner 保留 |
+| `docs/architecture/image-agent-effect-finalization.md` | 同上，取消/绝对 deadline/finalization 不降级 |
+| `docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md` | 同上，旧正向模式失效，不改历史步骤 |
+| `docs/architecture/image-agent-effect-recovery.md` | 同上，当前 durable recovery/Signal owner 保留 |
 | `docs/superpowers/plans/2026-08-29-image-agent-external-recovery-workflow.md` | 同上，原恢复安全要求/历史证据保留 |
 
 清单外新增实际消费者、检查变化、公共载荷变化或必须扩大生产抽取时，先提交具体根因和最小补丁提案，再取得准确例外；不能扩成“所有旧 V3”或顺手整理其它包。

@@ -227,7 +227,7 @@ func TestPhase3ProductHardCutProductionSelectionCoversRuntimeContractsOnly(t *te
 		"internal/app/httpapi/routes_test.go",
 		"internal/app/httpapi/testdata/routes.go",
 		"tests/target_architecture_phase3_product_test.go",
-		"docs/superpowers/plans/historical.md",
+		"docs/archive/implementation-plans/historical.md",
 		"internal/app/generated/routes.go",
 		"web/listingkit-ui/src/lib/api/generated/types.gen.ts",
 		"web/listingkit-ui/src/lib/api/client.type-test.ts",

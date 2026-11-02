@@ -12,8 +12,8 @@
 
 ## 1. Authority and purpose
 
-New source work reuses the [Product Domain contract](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md),
-[current package mapping](../refactoring/module-target-mapping.md) and
+New source work reuses the [Product Domain contract](../architecture/product-domain-contracts.md),
+[current package mapping](../architecture/module-target-mapping.md) and
 [Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md).
 Source adapters collect evidence; Product Sourcing normalizes it; Catalog owns
 canonical facts; Product Asset owns approved assets. Marketplace rules remain

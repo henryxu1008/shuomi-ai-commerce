@@ -40,10 +40,10 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 
 	for _, path := range []string{
 		filepath.Join("..", "docs", "product", "issue30-clean-slate-cutover.md"),
-		filepath.Join("..", "docs", "superpowers", "specs", "2026-09-05-source-account-organization-cutover.md"),
-		filepath.Join("..", "docs", "superpowers", "specs", "2026-09-05-issue-30-sourcing-cutover.md"),
-		filepath.Join("..", "docs", "operations", "source-account-ownership-preflight.md"),
-		filepath.Join("..", "docs", "refactoring", "2026-09-05-issue-30-prepared-slices.md"),
+		filepath.Join("..", "docs", "archive", "designs", "2026-09-05-source-account-organization-cutover.md"),
+		filepath.Join("..", "docs", "archive", "designs", "2026-09-05-issue-30-sourcing-cutover.md"),
+		filepath.Join("..", "docs", "archive", "operations", "source-account-ownership-preflight.md"),
+		filepath.Join("..", "docs", "archive", "refactoring", "2026-09-05-issue-30-prepared-slices.md"),
 	} {
 		contents := readGreenfieldPolicyDocument(t, path)
 		if !strings.Contains(contents, "SUPERSEDED") || !strings.Contains(contents, "PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08") {
@@ -60,7 +60,7 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 		}
 	}
 
-	moduleMap := readGreenfieldPolicyDocument(t, filepath.Join("..", "docs", "refactoring", "module-target-mapping.md"))
+	moduleMap := readGreenfieldPolicyDocument(t, filepath.Join("..", "docs", "architecture", "module-target-mapping.md"))
 	for _, required := range []string{
 		"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 		"current package areas to current target owners",
@@ -99,7 +99,7 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 			"historical evidence only; it is not a prerequisite for a fresh-install source path.",
 			"The new path has no old product/asset/task state, legacy profile or late-result dependency.",
 		},
-		filepath.Join("..", "docs", "refactoring", "current-refactoring-status.md"): {
+		filepath.Join("..", "docs", "archive", "refactoring", "current-refactoring-status.md"): {
 			"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 			"greenfield-no-legacy-migration.md",
 			"profile reuse and cutover are not current gates.",
@@ -128,18 +128,18 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 			"historical reference, not a current execution authority",
 			"current product-source flow",
 		},
-		filepath.Join("..", "docs", "refactoring", "project-migration-roadmap.md"): {
+		filepath.Join("..", "docs", "archive", "refactoring", "project-migration-roadmap.md"): {
 			"SUPERSEDED",
 			"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 			"not an implementation authority for the current greenfield product",
 			"Do not create compatibility facades, shims or bridges from this roadmap.",
 		},
-		filepath.Join("..", "docs", "refactoring", "listingkit-boundary-checkpoint.md"): {
+		filepath.Join("..", "docs", "archive", "refactoring", "listingkit-boundary-checkpoint.md"): {
 			"SUPERSEDED FOR GREENFIELD",
 			"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 			"not a current implementation authority",
 		},
-		filepath.Join("..", "docs", "refactoring", "project-wide-refactoring-plan.md"): {
+		filepath.Join("..", "docs", "archive", "refactoring", "project-wide-refactoring-plan.md"): {
 			"SUPERSEDED FOR GREENFIELD",
 			"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 			"not a current implementation authority",
@@ -147,7 +147,7 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 		filepath.Join("..", "docs", "architecture", "project-target-architecture.md"): {
 			"only a new explicit user product decision can permit a compatibility exception",
 		},
-		filepath.Join("..", "docs", "superpowers", "specs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"): {
+		filepath.Join("..", "docs", "archive", "designs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"): {
 			"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 			"PR #283 V7 and PR #284 V7 are historical evidence, not implementation baselines for the current greenfield product",
 		},
@@ -166,16 +166,16 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 	}
 
 	for path, forbidden := range map[string]string{
-		filepath.Join("..", "docs", "refactoring", "legacy-register.md"):            "migration facts needed to preserve valid current value",
-		filepath.Join("..", "docs", "product", "product-sourcing-handoff.md"):       "#30/#307 own separately approved cutover",
-		filepath.Join("..", "docs", "refactoring", "current-refactoring-status.md"): "#30 historical data and cutover",
+		filepath.Join("..", "docs", "refactoring", "legacy-register.md"):                       "migration facts needed to preserve valid current value",
+		filepath.Join("..", "docs", "product", "product-sourcing-handoff.md"):                  "#30/#307 own separately approved cutover",
+		filepath.Join("..", "docs", "archive", "refactoring", "current-refactoring-status.md"): "#30 historical data and cutover",
 	} {
 		if strings.Contains(readGreenfieldPolicyDocument(t, path), forbidden) {
 			t.Errorf("active authority %s must not retain superseded instruction %q", filepath.ToSlash(path), forbidden)
 		}
 	}
 
-	consolePhaseOne := strings.Join(strings.Fields(readGreenfieldPolicyDocument(t, filepath.Join("..", "docs", "superpowers", "specs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"))), " ")
+	consolePhaseOne := strings.Join(strings.Fields(readGreenfieldPolicyDocument(t, filepath.Join("..", "docs", "archive", "designs", "2026-09-02-shuomi-console-phase1-hard-cut-design.md"))), " ")
 	for _, forbidden := range []string{
 		"唯一实现基线",
 		"实现细节以 #283 V7 为准",

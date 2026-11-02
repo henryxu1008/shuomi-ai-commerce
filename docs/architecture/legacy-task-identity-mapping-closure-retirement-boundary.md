@@ -23,7 +23,7 @@ Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301
 
 Scope：`shared/aiidentity` 的 ExecutionEnvelope、PersistedExecutionEnvelope、旧 absent/partial/present 分类、capture/restore/context/校验与 Task 租户辅助，以及两份专属测试；`listingruntime` 最后 ProductImportMapping；原检查、显式 KEEP 和直接文档尾部同批收齐。设计阶段只新增本文并前置两个索引；拟实施准确范围见 §5/§6.1。
 
-Authority 为用户本轮先设计、确认后实施的决定、[Greenfield 决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md) 与 [Issue 驱动规则](../engineering/issue-driven-development.md)。当前身份归 authidentity/各领域执行授权，当前 ImageAgent Organization 身份见 [现行隔离边界](../engineering/imageagent-organization-scope.md)及[当前产品合同](product-image-agent-v1.md)；Commercetool 仍按[现有基础合同](../superpowers/specs/2026-08-31-commerce-tool-foundation-design.md)消费可信上下文。UI/IA/Figma N/A，无新用户流程。
+Authority 为用户本轮先设计、确认后实施的决定、[Greenfield 决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md) 与 [Issue 驱动规则](../engineering/issue-driven-development.md)。当前身份归 authidentity/各领域执行授权，当前 ImageAgent Organization 身份见 [现行隔离边界](../engineering/imageagent-organization-scope.md)及[当前产品合同](product-image-agent-v1.md)；Commercetool 仍按[现有基础合同](commerce-tool-foundation.md)消费可信上下文。UI/IA/Figma N/A，无新用户流程。
 
 Must：完整闭包；当前身份/跨组织拒绝/撤权/角色、AI 凭据选择、ImageAgent/Commercetool 当前执行与恢复不变；当前 JSON/版本/规范化/hash/读取拒绝、SourceIdentity 四零值槽位及全部采集、图像、Store、独立 SHEIN 登录与 Store 同步保留。Should：复用当前 owner、标准库、原 AST/import/dependency 检查与成熟组件，无替代框架。Out of Scope：任何当前身份/权限/状态/事务/事实 owner 变更、schema/迁移/配置/依赖整理、平台 API/Prompt/localagent 退休、旧数据兼容/fallback/双读双写、真实环境操作。Accepted Risks 无新增；真实环境状态 UNKNOWN，运行/产品验收 NOT_RUN。
 

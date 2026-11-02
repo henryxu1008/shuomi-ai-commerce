@@ -70,11 +70,11 @@ func TestPhase2ClosureDocumentsRuntimeOwnershipAndDeferredDebt(t *testing.T) {
 		"internal/core/metrics", "internal/infra/auth", "internal/infra/httpx",
 		"MCP", "pgvector", "TigerBeetle", "not admitted",
 	})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "refactoring", "module-target-mapping.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "module-target-mapping.md"), []string{
 		"Phase 2 closure landing rules",
 		"product owner", "marketplace owner", "organization owner",
 	})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "refactoring", "phase2-runtime-inventory.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "runtime-consumer-register.md"), []string{
 		"Final closure inventory",
 		"`core/logger` | 82", "`platform/logging` | 9", "`platform/database` | 23", "`integration/s3` | 4",
 		"same-platform workerpool", "Goose migration owner", "Legacy consumer register",
@@ -113,7 +113,7 @@ func TestProductAgentRuntimeDocumentPreservesOwnerAndExecutionLimits(t *testing.
 }
 
 func TestPhase2InventoryNamesEveryRemainingLegacyConcreteConsumer(t *testing.T) {
-	path := filepath.Join("..", "docs", "refactoring", "phase2-runtime-inventory.md")
+	path := filepath.Join("..", "docs", "architecture", "runtime-consumer-register.md")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
@@ -517,10 +517,10 @@ func TestCurrentDocsDoNotReferenceRetiredFrameworkEntrypoints(t *testing.T) {
 		filepath.Join("..", "docs", "CODE_WIKI.md"): {
 			"task/                    # 已废弃的 legacy polling 入口",
 		},
-		filepath.Join("..", "docs", "architecture", "task-status-lifecycle.md"): {
+		filepath.Join("..", "docs", "archive", "architecture", "task-status-lifecycle.md"): {
 			"internal/app/task/task_source.go",
 		},
-		filepath.Join("..", "docs", "refactoring", "listingkit-refactoring-progress-2026-06-24.md"): {
+		filepath.Join("..", "docs", "archive", "refactoring", "listingkit-refactoring-progress-2026-06-24.md"): {
 			"retry/cancel/status lookups now return explicit retired/unavailable semantics",
 		},
 	}
@@ -1427,7 +1427,7 @@ func TestPlatformBoundaryStrategyDefinesConvergenceRoles(t *testing.T) {
 }
 
 func TestHistoricalPlatformMigrationInventoryDefinesCostSlices(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "historical-platform-migration-inventory.md")
+	path := filepath.Join("..", "docs", "archive", "architecture", "historical-platform-migration-inventory.md")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)

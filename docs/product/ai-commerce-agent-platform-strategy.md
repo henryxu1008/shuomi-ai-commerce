@@ -808,7 +808,7 @@ Sourcing Agent
 2. **本文与当前领域 Architecture Specs**：长期方向、事实 owner、确定性业务、安全、权限与 Tool/Agent 合同；技术能力图不能反向创造菜单。
 3. **[Legacy Policy](../refactoring/legacy-hard-cut-policy.md)、[Register](../refactoring/legacy-register.md) 与 [全新系统基线](greenfield-no-legacy-migration.md)**：EXTRACT / RETIRE、新代码落点与无旧数据迁移/兼容前置。
 4. **GitHub Issue #137 与具体执行 Issue / PR**：当前排序、范围、准确 HEAD、实际证据和操作权限；历史状态文档按注明的基线阅读。
-5. **`docs/superpowers/specs/2026-08-06-ai-capability-agent-platform-design.md`**：AI Control Plane 与 Agent Runtime 技术设计，受以上边界约束。
+5. **`docs/architecture/ai-capability-platform.md`**：AI Control Plane 与 Agent Runtime 技术设计，受以上边界约束。
 
 `docs/product/listingkit-project-goals.md`、`docs/product/listingkit-next-execution-plan.md` 是旧产品材料，**不再是当前子产品使命或近期执行权威**。其中有效规则只能由当前领域合同明确承接，不能恢复旧 Workspace、Task-first、永久 facade 或“ListingKit 不退休”的结论。
 

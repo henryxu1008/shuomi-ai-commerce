@@ -132,8 +132,8 @@ cmd/shein-login-worker → app/runtime/sheinloginworker
 docs/architecture/legacy-retirement-parent-closure-boundary.md
 docs/architecture/README.md
 docs/refactoring/legacy-register.md
-docs/refactoring/module-target-mapping.md
-docs/refactoring/code-health-decisions.md
+docs/architecture/module-target-mapping.md
+docs/engineering/code-health-decisions.md
 ```
 
 这是同一主要 PR 的冻结设计与已实施校准边界；**源码/测试 DELETE=0，源码/测试 EDIT=0，workflow/inventory/依赖/锁/保护 EDIT=0**。若发现真正未闭合生产消费者，先报告准确路径、owner、当前 Must 和完整删除/保留矩阵，再取得用户设计决定与对应准入；不把零删除结论当永久豁免，也不预先制造新退休批次。

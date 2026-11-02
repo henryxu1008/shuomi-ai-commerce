@@ -37,7 +37,7 @@ Cutover/deletion condition: 用户确认本设计、原检查有效转换、必�
 | --- | --- | --- |
 | [#914](legacy-idle-support-contract-closure-retirement-boundary.md)、[#937](legacy-idle-support-facade-closure-retirement-boundary.md)、[#939](legacy-global-config-logging-tail-closure-retirement-boundary.md)、[#969](legacy-support-control-tail-closure-retirement-boundary.md) | goroutine 八声明、NewSimpleWithTimeout、AIShortTimeout/WithAIShortTimeout 不再为已退出的消费者保留 | 当前 logging/httpclient、两个下载 timeout、真实 worker/取消 |
 | [#1007](legacy-config-projection-dub-closure-retirement-boundary.md) 与原 mandatory-auth 设计 | 当时保留的四个 Primary allowlist 输入及仅服务旧 SMS builder 的全局输入不再接受；不是把授权开关默认值改为 false | username 拒绝陷阱、当前平台管理员、Verifier/身份/组织/permission |
-| [模块映射 SA1 / DRAFT-S1](../refactoring/module-target-mapping.md)、[当前试用边界](issue-36-local-trial-runtime.md) | NewSourceAccountApplication / NewSheinRecordApplication 的独立 HTTP 生命周期门面；独立审计/会员/采集便利构造器同退 | 当前 module/core/routes、schema、记录/资产/Store 共同 DB 假设、默认未开放的能力仍未开放 |
+| [模块映射 SA1 / DRAFT-S1](module-target-mapping.md)、[当前试用边界](issue-36-local-trial-runtime.md) | NewSourceAccountApplication / NewSheinRecordApplication 的独立 HTTP 生命周期门面；独立审计/会员/采集便利构造器同退 | 当前 module/core/routes、schema、记录/资产/Store 共同 DB 假设、默认未开放的能力仍未开放 |
 | [#1010](legacy-restored-debug-closure-retirement-boundary.md) | 已退出消费者的最后专属 helper，不重新抽取闲置库 | 当前 extension/公开采集器/Chromium 安装、当前业务路径 |
 
 前批文档保留为历史。只有本设计明确列出的 KEEP 被替代，不能据此扩大删除其它“deadcode”。当前原生身份 CLI `internal/zitadelprovision/cmd` 是实际 package main；测试辅助包和当前领域合同都不因生产静态根未覆盖而退休。

@@ -290,14 +290,14 @@ SourceGenerationExecutor 不引入通用调度平台。现有 provider/Goose/Tem
 - `docs/engineering/evidence/issue334/admission.md`
 - `docs/engineering/imageagent-organization-scope.md`
 - `docs/engineering/imageagent-review-invocation.md`
-- `docs/refactoring/module-target-mapping.md`
-- `docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md`
-- `docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md`
-- `docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md`
+- `docs/architecture/module-target-mapping.md`
+- `docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md`
+- `docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md`
+- `docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md`
 - `docs/superpowers/plans/2026-09-01-internal-target-architecture-phase3-product.md`
 - `docs/superpowers/plans/2026-09-03-pr-282-review-fixes.md`
 
-当前 `docs/development/secret-management.md` 只将旧全局OpenAI样例/说明改为当前组织凭据/已发布路由，保持其它凭据/注册/部署/私密文件安全说明；`docs/architecture/README.md`/`docs/refactoring/legacy-register.md` 只加本批状态和索引，原Git blob完整后缀。当前 `docs/refactoring/phase2-runtime-inventory.md` 未来仅一条CURRENT精确删除，不追加历史顶注或改任何其它字节。本设计本身保持冻结，滚动源码/CI/复核证据写同一PR。
+当前 `docs/development/secret-management.md` 只将旧全局OpenAI样例/说明改为当前组织凭据/已发布路由，保持其它凭据/注册/部署/私密文件安全说明；`docs/architecture/README.md`/`docs/refactoring/legacy-register.md` 只加本批状态和索引，原Git blob完整后缀。当前 `docs/architecture/runtime-consumer-register.md` 未来仅一条CURRENT精确删除，不追加历史顶注或改任何其它字节。本设计本身保持冻结，滚动源码/CI/复核证据写同一PR。
 
 ### §5.5 KEEP / 零差异
 

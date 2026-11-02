@@ -13,8 +13,8 @@ boundary entrypoint first.
 It complements:
 
 - [`project-boundaries.md`](./project-boundaries.md)
-- [`listingkit-refactor-status.md`](./listingkit-refactor-status.md)
-- [`project-wide-refactoring-plan.md`](../refactoring/project-wide-refactoring-plan.md)
+- [`listingkit-refactor-status.md`](../archive/architecture/listingkit-refactor-status.md)
+- [`project-wide-refactoring-plan.md`](../archive/refactoring/project-wide-refactoring-plan.md)
 
 ## Why This Matters
 

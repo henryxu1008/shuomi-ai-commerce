@@ -21,7 +21,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 
 适用依据：
 
-- [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md) 与 [module mapping](../refactoring/module-target-mapping.md)：EXTRACT / RETIRE；不恢复 Task-first、旧新 ID 映射、迁移、fallback、双读双写或第二事实源。
+- [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md) 与 [module mapping](module-target-mapping.md)：EXTRACT / RETIRE；不恢复 Task-first、旧新 ID 映射、迁移、fallback、双读双写或第二事实源。
 - [项目领域边界](project-boundaries.md)、#29 已合并的 root Task/API/Workspace 退休：旧 standalone numeric leaves 仍是债务，不能因仍可编译而成为当前 Product/Listing owner。
 - [当前 Store](store-center-current-application-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[观察内部准备接线](store-observations-preparation-runtime.md) 与 [当前 SHEIN 供货链](my-supply-chain-shein-v1.md)：当前 Organization/Store、官方连接与 Submission 保持各自原 owner；缺配置仍按原范围不可用。
 - [独立 SHEIN 登录 worker 边界](shein-worker-identity-persistence-boundary.md)：原账号仓库、Cookie/attempt/验证码/Profile/健康与关闭保留，查重按已有 tenant 隔离修复；保留该 worker 不授权其它旧刊登/调度入口。

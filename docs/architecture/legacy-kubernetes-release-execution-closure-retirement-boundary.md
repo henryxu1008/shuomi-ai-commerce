@@ -157,7 +157,7 @@ Cutover/deletion condition: 本设计独立检查与用户确认、IMPLEMENTATIO
 | 本文 | 仅阶段说明反映已确认/实施；冻结矩阵保持，滚动 HEAD/CI/review留PR |
 | `docs/architecture/README.md` | 索引本文与状态，不改其它 owner |
 | `docs/refactoring/legacy-register.md`、`module-target-mapping.md` | 顶注仅替代本批十五删除源/十二混合源的旧保留含义；原矩阵、历史行与计数不重写 |
-| `docs/refactoring/code-health-decisions.md` | 仅顶注取代旧 schema Job shell-test、旧producer drain/receipt与已消失回填包装的当前执行保留含义；保留历史 rows/counts/failures、通用 helper 与仍有效安全测试结论 |
+| `docs/engineering/code-health-decisions.md` | 仅顶注取代旧 schema Job shell-test、旧producer drain/receipt与已消失回填包装的当前执行保留含义；保留历史 rows/counts/failures、通用 helper 与仍有效安全测试结论 |
 | `deployments/kubernetes/listingkit-workbench/README.md` | 仅窄历史顶注：准确源/producer身份消费者与邀请/SMS模板删除、旧 API URL/SMS 接线退出；当前SMS仍用原Account Compose的ZITADEL_SMS_CONFIG_FILE，旧K8s凭据provisioning片段不构成当前许可。历史操作/SQL/drain/attestation/rollback正文保留为证据，不可作为当前执行、回滚或可停worker许可。保留当前Go恢复/UI/worker/OIDC/RBAC/schema与durable owner，未来真实停止另行授权，不增加试用前置 |
 | `docs/architecture/release-identity-preflight-retirement.md` | 仅追加窄 superseded 顶注，取代其两个schema runner/旧Job及旧producer-bound drain/attestation/邀请预检消费者与专属源get权限保留含义；原冻结设计正文/历史逐字保留。正常schema CLI、当前ImageAgent canary/Go恢复、有效安全规则与失败发布入口不受取代 |
 

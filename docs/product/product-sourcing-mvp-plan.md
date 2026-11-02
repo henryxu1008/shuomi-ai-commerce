@@ -19,11 +19,11 @@ asset approval → readiness**, preserving source lineage and warnings. Creating
 a legacy ListingKit task is not the target acceptance criterion.
 
 Read [Product Sourcing Handoff](product-sourcing-handoff.md) for owner/code links,
-the [Product Domain contract](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md)
+the [Product Domain contract](../architecture/product-domain-contracts.md)
 for canonical facts and approval, and the
 [greenfield baseline](greenfield-no-legacy-migration.md) for the fresh-install
 data boundary.
-Use [current status](../refactoring/current-refactoring-status.md) for maturity
+Use [current status](../archive/refactoring/current-refactoring-status.md) for maturity
 and [final UI / IA](final-ui-ia-authority.md) for projection, not permission to
 enable an unvalidated capability.
 
@@ -117,5 +117,5 @@ parallel source model, submission owner or independent platform Workbench.
 and the [former MVP plan](https://github.com/qq550723504/task-processor/blob/73aa79cb98def16536123dc1ea3f55c578ed253b/docs/product/product-sourcing-mvp-plan.md)
 are HISTORICAL checkpoint evidence for the earlier task-to-preview flow. Their
 commands/statuses/results do not define current acceptance.
-[next-phase-plan.md](../refactoring/next-phase-plan.md) is historical implementation
+[next-phase-plan.md](../archive/refactoring/next-phase-plan.md) is historical implementation
 evidence, not the execution queue.

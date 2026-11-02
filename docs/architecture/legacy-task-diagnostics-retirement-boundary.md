@@ -112,7 +112,7 @@ Cutover/deletion condition: 用户确认本设计，#29/#301 Ready 均记录并�
 | `docs/architecture/temporal-workflow-evaluation.md` | 只新增窄历史顶注：2026-05-18 旧 submit PoC 的落地结果、“保留当前状态机/下一步迁入”建议不再是当前源能力或派工前置。日期、评估/恢复/幂等事实与正文保留；有效 durable execution 原理复用当前 Temporal owner，不改变当前合同，也不宣称真实旧 workflow 已退出 |
 | `docs/architecture/README.md` | 索引本文与其设计/实施状态，精确范围和保留边界；不改其它 owner/当前合同 |
 | `docs/refactoring/legacy-register.md`、`module-target-mapping.md` | 新增本批准确 RETIRE 说明，两个旧工具无迁移/替代 Task/cache owner；既有历史矩阵/计数与其它保留结论不变 |
-| `docs/refactoring/code-health-decisions.md` | 顶注只替代 inspector 在 tools 分组行中的当前 retained-configuration-specific 适用结论、旧 Pester 问题的当前追修含义。原分组行/失败事实/计数原样，db-query/json-simplifier 仍保留；不调整任何 consumer inventory |
+| `docs/engineering/code-health-decisions.md` | 顶注只替代 inspector 在 tools 分组行中的当前 retained-configuration-specific 适用结论、旧 Pester 问题的当前追修含义。原分组行/失败事实/计数原样，db-query/json-simplifier 仍保留；不调整任何 consumer inventory |
 
 **不变的商业与运行边界**：`listingkit-paid-pilot-product-catalog.md`、`listingkit-paid-pilot-execution-plan.md` 中当前收费/外部准入/entitlement/Go-No-Go/回滚/生产门禁及其中商业证据要求不变；引用 validation/runs 目录仍有效，不能因旧 Task 工具退休声称商业验收已通过或邀请客户。`ops/listingkit-error-recovery-sop.md` 对实际仍存活旧环境的恢复/升级指导原样。新顶注不取消这些独立职责，也不能让其历史 Task 字段成为无关内部试用的新前置。
 

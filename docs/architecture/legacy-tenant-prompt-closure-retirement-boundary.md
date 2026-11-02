@@ -117,10 +117,10 @@ Threat Model 限误退现役同名 Prompt/身份合同、把旧默认租户或�
 ```text
 docs/architecture/zitadel-tenant-prompt-management.md
 docs/architecture/auth-and-tenancy.md
-docs/refactoring/module-target-mapping.md
-docs/refactoring/dependency-baseline.md
+docs/architecture/module-target-mapping.md
+docs/archive/refactoring/dependency-baseline.md
 docs/product/ai-commerce-agent-platform-strategy.md
-docs/superpowers/specs/2026-08-06-ai-capability-agent-platform-design.md
+docs/architecture/ai-capability-platform.md
 docs/superpowers/specs/2026-08-30-internal-target-architecture-migration-design.md
 docs/superpowers/plans/2026-05-29-task-processor-framework-phase2a.md
 docs/architecture/legacy-amazon-listing-closure-retirement-boundary.md

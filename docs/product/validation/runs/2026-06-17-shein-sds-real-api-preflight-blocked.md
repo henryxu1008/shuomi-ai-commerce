@@ -136,7 +136,7 @@
 
 - 页面截图：无，未启动真实页面验收。
 - 接口响应摘要：无，未调用真实 SHEIN / SDS 保存草稿或发布接口。
-- 日志关键字段：阶段 0 baseline 已记录在 `docs/refactoring/test-baseline.txt`。
+- 日志关键字段：阶段 0 baseline 已记录在 `docs/archive/refactoring/test-baseline.txt`。
 - 远端平台记录：无。
 
 ## 10. 结论

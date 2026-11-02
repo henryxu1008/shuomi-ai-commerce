@@ -160,16 +160,17 @@ func TestImageRetirementFrozenDocumentSuffixesStayIntact(t *testing.T) {
 		{"docs/architecture/legacy-auth-route-s3-operation-closure-retirement-boundary.md", 29020, "d1fbcb9c1a92c7fe938e4e3e91e0387187a00adab1508c31a08b7901d80f9264"},
 		{"docs/architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md", 27995, "8a0758edade3335dc6ed62829a2eb029123dc23599c8e76b81082a23a6f20031"},
 		{"docs/architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md", 40241, "61feae87ec9c0c3c83f2980ac548749e064f59cf804a52651e7663ab347bf8f1"},
-		{"docs/superpowers/plans/2026-06-20-listingkit-async-studio-image-generation.md", 25685, "d65a43c2f17e147959a994aff4fa4d5746990734d2dcfa4b718db2741a64a111"},
-		{"docs/superpowers/plans/2026-08-06-ai-async-job-binding.md", 16069, "6c67ea9d51fb7c17ebc8b848245993a99e4716173dfa04157f34069f72f6150a"},
-		{"docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md", 60142, "27fce34434d70d03cf80366473e602664f295ab8351a0b2de96f8cb69dbf8115"},
-		{"docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md", 11681, "bc2cfb4775d655c630e89b187e5eed5d077c8e932e5dadbc1655a85f1c7a7d86"},
+		{"docs/archive/implementation-plans/2026-06-20-listingkit-async-studio-image-generation.md", 25685, "d65a43c2f17e147959a994aff4fa4d5746990734d2dcfa4b718db2741a64a111"},
+		{"docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md", 16069, "6c67ea9d51fb7c17ebc8b848245993a99e4716173dfa04157f34069f72f6150a"},
+		{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", 60142, "27fce34434d70d03cf80366473e602664f295ab8351a0b2de96f8cb69dbf8115"},
+		{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", 11681, "bc2cfb4775d655c630e89b187e5eed5d077c8e932e5dadbc1655a85f1c7a7d86"},
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(doc.path)))
 		if err != nil {
 			t.Fatal(err)
 		}
 		raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
+		raw = restoreRelocatedFrozenDocumentNavigation(doc.path, raw)
 		if len(raw) < doc.length {
 			t.Errorf("frozen document truncated: %s", doc.path)
 			continue
@@ -179,4 +180,123 @@ func TestImageRetirementFrozenDocumentSuffixesStayIntact(t *testing.T) {
 			t.Errorf("frozen history changed: %s", doc.path)
 		}
 	}
+}
+
+// restoreRelocatedFrozenDocumentNavigation reverses only the exact navigation
+// edits authorized by the documentation relocation. Frozen bodies still use
+// their original lengths and hashes; content, state and evidence changes fail.
+func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
+	var edits [][2]string
+	switch filepath.ToSlash(path) {
+	case "docs/architecture/README.md":
+		edits = [][2]string{
+			{"`docs/archive/architecture/temu-architecture-patterns.md`", "`temu-architecture-patterns.md`"},
+			{"`docs/archive/architecture/temu-pipeline-stages.md`", "`temu-pipeline-stages.md`"},
+			{"`docs/archive/architecture/task-status-lifecycle.md`", "`task-status-lifecycle.md`"},
+			{"`docs/archive/architecture/task-event-v2-migration.md`", "`task-event-v2-migration.md`"},
+			{"`docs/archive/architecture/openmeter-shadow-metering-poc-report.md`", "`openmeter-shadow-metering-poc-report.md`"},
+			{"`docs/archive/architecture/listingkit-refactor-status.md`", "`listingkit-refactor-status.md`"},
+			{"`docs/archive/architecture/historical-platform-migration-inventory.md`", "`historical-platform-migration-inventory.md`"},
+			{"](../archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)", "](../refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)"},
+			{"](../archive/refactoring/next-phase-plan.md)", "](../refactoring/next-phase-plan.md)"},
+			{"](../archive/refactoring/current-refactoring-status.md)", "](../refactoring/current-refactoring-status.md)"},
+			{"](module-target-mapping.md)", "](../refactoring/module-target-mapping.md)"},
+			{"](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)", "](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)"},
+			{"](product-domain-contracts.md)", "](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md)"},
+		}
+	case "docs/architecture/legacy-ai-routing-image-policy-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/architecture/product-domain-contracts.md", "docs/superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md"},
+			{"docs/architecture/ai-capability-platform.md", "docs/superpowers/specs/2026-08-06-ai-capability-agent-platform-design.md"},
+			{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", "docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md"},
+		}
+	case "docs/architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/architecture/product-domain-contracts.md", "docs/superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md"},
+			{"docs/architecture/ai-provider-contracts.md", "docs/superpowers/specs/2026-08-21-provider-neutral-ai-contracts-design.md"},
+			{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", "docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md"},
+			{"](ai-provider-contracts.md)", "](../superpowers/specs/2026-08-21-provider-neutral-ai-contracts-design.md)"},
+		}
+	case "docs/architecture/legacy-auth-route-s3-operation-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/architecture/authentication-runtime.md", "docs/superpowers/specs/2026-08-25-zitadel-authruntime-design.md"},
+			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
+			{"docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md", "docs/superpowers/plans/2026-08-25-zitadel-authruntime-extraction.md"},
+			{"](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "](../superpowers/plans/2026-08-30-internal-target-architecture-phase2.md)"},
+			{"](../archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md)", "](../superpowers/plans/2026-08-25-zitadel-authruntime-extraction.md)"},
+			{"](authentication-runtime.md)", "](../superpowers/specs/2026-08-25-zitadel-authruntime-design.md)"},
+		}
+	case "docs/architecture/legacy-idle-adapter-helper-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
+			{"](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "](../superpowers/plans/2026-08-30-internal-target-architecture-phase2.md)"},
+		}
+	case "docs/architecture/legacy-image-async-review-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", "docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md"},
+			{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", "docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md"},
+			{"docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md", "docs/superpowers/plans/2026-08-06-ai-async-job-binding.md"},
+			{"docs/archive/implementation-plans/2026-06-20-listingkit-async-studio-image-generation.md", "docs/superpowers/plans/2026-06-20-listingkit-async-studio-image-generation.md"},
+		}
+	case "docs/architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/architecture/image-agent-workflow.md", "docs/superpowers/specs/2026-08-26-image-agent-workflow-design.md"},
+			{"docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md", "docs/superpowers/plans/2026-08-29-image-agent-external-effect-finalization.md"},
+			{"docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md", "docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md"},
+			{"](../archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md)", "](../superpowers/plans/2026-08-29-image-agent-external-effect-finalization.md)"},
+			{"](../archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md)", "](../superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md)"},
+			{"](image-agent-workflow.md)", "](../superpowers/specs/2026-08-26-image-agent-workflow-design.md)"},
+		}
+	case "docs/architecture/legacy-imageagent-control-summary-tail-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md", "docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md"},
+			{"docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md", "docs/superpowers/plans/2026-08-26-image-agent-automatic-repair.md"},
+			{"docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md", "docs/superpowers/plans/2026-08-26-image-agent-assisted-planning.md"},
+		}
+	case "docs/architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/architecture/runtime-consumer-register.md", "docs/refactoring/phase2-runtime-inventory.md"},
+			{"docs/architecture/module-target-mapping.md", "docs/refactoring/module-target-mapping.md"},
+			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
+			{"docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md", "docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md"},
+			{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", "docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md"},
+		}
+	case "docs/architecture/legacy-logger-facade-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"](runtime-consumer-register.md)", "](../refactoring/phase2-runtime-inventory.md)"},
+		}
+	case "docs/architecture/legacy-resource-transaction-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md", "docs/superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md"},
+			{"](../archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md)", "](../superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md)"},
+		}
+	case "docs/architecture/legacy-task-openai-convenience-closure-retirement-boundary.md":
+		edits = [][2]string{
+			{"docs/architecture/shein-offline-validation-input-binding.md", "docs/superpowers/specs/2026-09-05-shein-offline-validation-input-binding-design.md"},
+			{"docs/architecture/commerce-tool-canonical-inspection.md", "docs/superpowers/specs/2026-09-05-commerce-tool-canonical-inspection-design.md"},
+			{"docs/architecture/ai-provider-contracts.md", "docs/superpowers/specs/2026-08-21-provider-neutral-ai-contracts-design.md"},
+			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
+			{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", "docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md"},
+		}
+	case "docs/architecture/project-boundaries.md":
+		edits = [][2]string{
+			{"docs/archive/refactoring/project-wide-refactoring-plan.md", "docs/refactoring/project-wide-refactoring-plan.md"},
+			{"](runtime-consumer-register.md)", "](../refactoring/phase2-runtime-inventory.md)"},
+			{"](module-target-mapping.md)", "](../refactoring/module-target-mapping.md)"},
+			{"](../archive/refactoring/project-wide-refactoring-plan.md)", "](../refactoring/project-wide-refactoring-plan.md)"},
+		}
+	case "docs/architecture/store-center-current-application-v1.md":
+		edits = [][2]string{
+			{"](../archive/implementation-plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)", "](../superpowers/plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)"},
+			{"](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)", "](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)"},
+		}
+	case "docs/refactoring/legacy-register.md":
+		edits = [][2]string{
+			{"](../architecture/module-target-mapping.md#21-bounded-current-delivery-calibration-386)", "](module-target-mapping.md#21-bounded-current-delivery-calibration-386)"},
+		}
+	}
+	for _, edit := range edits {
+		raw = bytes.ReplaceAll(raw, []byte(edit[0]), []byte(edit[1]))
+	}
+	return raw
 }

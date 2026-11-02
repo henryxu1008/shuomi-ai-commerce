@@ -16,7 +16,7 @@ Status: **IMPLEMENTATION_READY / USER_CONFIRMED / SOURCE_IMPLEMENTED；待准确
 
 - [Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[项目边界](project-boundaries.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)：无兼容类别、旧 ID 映射、迁移、双读/双写或第二事实源。
 - [#827 完整 Publishing 退休设计](legacy-shein-publishing-runtime-closure-retirement-boundary.md) §2/§5.2/§6.1/附录 C、[#824 支撑闭包](legacy-numeric-listing-support-closure-retirement-boundary.md)：本次只拟替代 §5 中逐项指定的 KEEP，不恢复旧 Task/Workspace/managed/runtime。
-- [当前持久输入绑定设计](../superpowers/specs/2026-09-05-shein-offline-validation-input-binding-design.md) §3.1：JSON 字段/normalization 变化必须升级 binding_version，规则语义变化升级 rule_version；继续复用标准 Go JSON、SHA-256 与已锁定的 sigs.k8s.io/json。
+- [当前持久输入绑定设计](shein-offline-validation-input-binding.md) §3.1：JSON 字段/normalization 变化必须升级 binding_version，规则语义变化升级 rule_version；继续复用标准 Go JSON、SHA-256 与已锁定的 sigs.k8s.io/json。
 - [当前 Validator 合同](../../internal/marketplace/validator/README.md)、[Listing Record owner](../../internal/listing/record/README.md)、[当前诊断 UI 合同](../engineering/shein-diagnostic-ui.md)：诊断不授权发布，存储/权限/幂等保持原 owner。
 - [最终 UI/IA Authority](../product/final-ui-ia-authority.md)，Figma 当前非归档 `31:463`：不改页面/导航/中文标签/交互。前端只调整原 wire schema 的精确版本，技术 FieldPaths 跟随当前字段，不创造新的产品投影；不需 Figma 写入或新界面设计。
 
@@ -189,7 +189,7 @@ docs/architecture/README.md
 docs/refactoring/legacy-register.md
 docs/architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md
 docs/architecture/legacy-numeric-listing-support-closure-retirement-boundary.md
-docs/superpowers/specs/2026-09-05-shein-offline-validation-input-binding-design.md
+docs/architecture/shein-offline-validation-input-binding.md
 docs/development/listingkit-semantic-field-migration-checklist.md
 internal/marketplace/validator/README.md
 docs/engineering/shein-diagnostic-ui.md

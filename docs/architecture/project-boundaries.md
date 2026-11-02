@@ -49,10 +49,10 @@ This document defines the default package and dependency boundaries for the Task
 It complements the project-wide refactoring authority:
 
 - [`project-target-architecture.md`](./project-target-architecture.md)
-- [`docs/refactoring/project-wide-refactoring-plan.md`](../refactoring/project-wide-refactoring-plan.md)
+- [`docs/archive/refactoring/project-wide-refactoring-plan.md`](../archive/refactoring/project-wide-refactoring-plan.md)
 
 ACTIVE package rules are subject to the approved [Legacy Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md),
-[Legacy Register](../refactoring/legacy-register.md), and [Module Target Mapping](../refactoring/module-target-mapping.md).
+[Legacy Register](../refactoring/legacy-register.md), and [Module Target Mapping](module-target-mapping.md).
 Legacy has only `EXTRACT | RETIRE`; existing code is not permission to add dependencies.
 Final UI belongs to [final-ui-ia-authority.md](../product/final-ui-ia-authority.md),
 not package topology. Approved contracts take precedence by responsibility and explicit supersession, not date or an old Active label.
@@ -245,7 +245,7 @@ Must not depend on:
 
 #### Phase 2 closure boundary
 
-Historical closure observations below are bound to the [Phase 2 inventory](../refactoring/phase2-runtime-inventory.md), not current dependency permissions. Its live Legacy consumer register and import checks remain required.
+Historical closure observations below are bound to the [Phase 2 inventory](runtime-consumer-register.md), not current dependency permissions. Its live Legacy consumer register and import checks remain required.
 
 Application assembly owns lifecycle, provider registration, migration
 execution, instrumentation, and shutdown. Platform owns config mechanics,

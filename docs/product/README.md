@@ -20,6 +20,8 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 6. [Repository Structure](../development/repository-structure.md#current-entrypoint-map) — 当前真实入口、命令和代码落点。
 7. GitHub Roadmap #137、具体执行 Issue / PR — 当前排序、范围、准确 HEAD、验证证据和操作权限。
 
+官方登录产品决定：[Phase1 官方 ZITADEL Login V2 / Auth.js](login-phase1-official-zitadel.md)。旧账号入口、Console首期设计和V7计划见[历史归档](../archive/README.md)，不作为当前实现基线。
+
 ## 当前执行规则
 
 - 新功能先确定在 Figma 中的产品位置，再消费当前领域能力；不能由旧包名、旧路由或旧 Task 模型反向创造产品页面。
@@ -70,7 +72,7 @@ Product Sourcing、Account、Commercial、Marketplace、Agent 等专项文档只
 
 AI Control Plane 与 Agent Runtime 的技术设计见：
 
-- [AI Capability / Agent Platform](../superpowers/specs/2026-08-06-ai-capability-agent-platform-design.md)
+- [AI Capability / Agent Platform](../architecture/ai-capability-platform.md)
 
 ## 面向读者
 

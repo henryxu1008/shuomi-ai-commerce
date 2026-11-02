@@ -6,7 +6,7 @@
 
 > Status: approved target architecture for project-wide modularization.  
 > Legacy handling: `docs/refactoring/legacy-hard-cut-policy.md` and `docs/refactoring/legacy-register.md`.  
-> This document describes the intended end state; current runtime reality is tracked separately in `docs/refactoring/current-refactoring-status.md`.
+> This document describes the intended end state; current runtime reality is tracked separately in `docs/archive/refactoring/current-refactoring-status.md`.
 
 ## 1. Goal
 
@@ -341,7 +341,7 @@ Do not execute another broad directory rewrite. For each legacy seam:
 6. remove the old dependency/path;
 7. add a guard so it cannot be reintroduced.
 
-Use `docs/refactoring/module-target-mapping.md` and `docs/refactoring/legacy-register.md` for the active drain inventory.
+Use `docs/architecture/module-target-mapping.md` and `docs/refactoring/legacy-register.md` for the active drain inventory.
 
 ## 8. Non-goals
 
@@ -364,5 +364,5 @@ Use together with:
 - Product/architecture specs — business/safety/contracts;
 - `docs/refactoring/legacy-hard-cut-policy.md` — legacy treatment;
 - `docs/refactoring/legacy-register.md` — current legacy drain inventory;
-- `docs/refactoring/current-refactoring-status.md` — current implementation reality;
+- `docs/archive/refactoring/current-refactoring-status.md` — current implementation reality;
 - GitHub #137 — executable backlog order.

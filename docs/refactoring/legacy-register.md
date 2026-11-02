@@ -862,7 +862,7 @@ or deployment is part of this source delivery.
 
 ### 2.1 Bounded mixed-edge calibration (#386)
 
-This section calibrates only the exact edges below; it does not claim a new full-repository scan and does not alter the historical `6e3b87208e2c4e51039b95145a2377edfbb9b1cb` baseline. Current owners, code/merge/isolated/default/runtime distinctions, and fixed objects SA1/SA2, SRC-1/Catalog, PA-1, DRAFT-S1, REV-1 and SUB-K1 are recorded once in [`module-target-mapping.md`](module-target-mapping.md#21-bounded-current-delivery-calibration-386). This register records their legacy counterpart and exit only.
+This section calibrates only the exact edges below; it does not claim a new full-repository scan and does not alter the historical `6e3b87208e2c4e51039b95145a2377edfbb9b1cb` baseline. Current owners, code/merge/isolated/default/runtime distinctions, and fixed objects SA1/SA2, SRC-1/Catalog, PA-1, DRAFT-S1, REV-1 and SUB-K1 are recorded once in [`module-target-mapping.md`](../architecture/module-target-mapping.md#21-bounded-current-delivery-calibration-386). This register records their legacy counterpart and exit only.
 
 | Exact legacy / mixed edge | Decision | Current replacement / bounded evidence | Reusable behavior | Exit condition / prohibited new work |
 | --- | --- | --- | --- | --- |

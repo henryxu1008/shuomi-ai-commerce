@@ -14,7 +14,7 @@ Supersedes: 下文列出的既有禁令条款
 | 来源 | 被覆盖条款 | 状态 |
 | --- | --- | --- |
 | [Issue #398](https://github.com/qq550723504/task-processor/issues/398)「明确不做」 | 「不绕过站点访问控制、验证码或权限限制；获取失败必须如实失败/提示其他批准入口」 | `SUPERSEDED`（仅该条；#398 的其余匿名/无登录前提、SourceEnvelope→SRC-1→Catalog 契约不变） |
-| `PD-1688-BATCH-VERIFY-ON-CAPTCHA-2026-09-21`（[batch design](../superpowers/specs/2026-09-21-1688-batch-local-agent-design.md) §1.6/§1.3） | 「不自动识别或绕过验证码」「不恢复服务端匿名裸 HTTP」 | `SUPERSEDED`（仅这两条；本地执行器路线本身仍有效，不是取消它） |
+| `PD-1688-BATCH-VERIFY-ON-CAPTCHA-2026-09-21`（[batch design](../architecture/1688-batch-local-agent.md) §1.6/§1.3） | 「不自动识别或绕过验证码」「不恢复服务端匿名裸 HTTP」 | `SUPERSEDED`（仅这两条；本地执行器路线本身仍有效，不是取消它） |
 
 **未被本决定改变**的边界（继续有效）：
 
@@ -28,7 +28,7 @@ Supersedes: 下文列出的既有禁令条款
 用户在被明确告知以下事实后仍选择继续：
 
 1. **站点条款与访问控制**：自动处理验证码属于规避站点反自动化/风控措施，可能违反 1688 服务条款，并存在法律与账号/来源风控层面的不确定性。
-2. **匿名路径实测可靠性低**：[batch design](../superpowers/specs/2026-09-21-1688-batch-local-agent-design.md) §1.4 实测：同一 IP 被污染后，匿名非持久化配置 **0/8 成功**；真正 5/5 成功的是**登录 profile**。本决定不引入登录态，因此**服务端匿名采集预计会频繁遇到挑战页且可能不稳定**。
+2. **匿名路径实测可靠性低**：[batch design](../architecture/1688-batch-local-agent.md) §1.4 实测：同一 IP 被污染后，匿名非持久化配置 **0/8 成功**；真正 5/5 成功的是**登录 profile**。本决定不引入登录态，因此**服务端匿名采集预计会频繁遇到挑战页且可能不稳定**。
 3. **服务端出口 IP 风控**：服务端出口 IP 为共享且易被标记；持续高频匿名采集可能导致该 IP 被 1688 风控，影响其它 1688 相关功能。
 4. **验证码自动处理成功率有限**：验证码形态会变化，自动处理不保证长期有效，失败必须如实失败，不得伪造成功。
 
@@ -43,4 +43,4 @@ Supersedes: 下文列出的既有禁令条款
 ## 直接冲突引用处理
 
 - `docs/engineering/src2b-public-acquisition.md` 中「not Browser Capture…」与「不绕过访问控制」相关表述，由架构阶段一并给出**最小局部**修订，不整篇改写历史。
-- `docs/superpowers/specs/2026-09-21-1688-batch-local-agent-design.md` 的 §1.6/§1.3/§12 中与本决定冲突的两条，标注 `SUPERSEDED`（仅那两条），其余设计继续有效。
+- `docs/architecture/1688-batch-local-agent.md` 的 §1.6/§1.3/§12 中与本决定冲突的两条，标注 `SUPERSEDED`（仅那两条），其余设计继续有效。

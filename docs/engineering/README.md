@@ -9,6 +9,8 @@
 
 ## 开发规则与工程交接
 
+- [代码健康规则与分类决定](code-health-decisions.md)：当前防回归入口及有范围的历史分类，不用旧探测计数推导当前删除权限。
+
 - [1688 单图白底生成：架构与执行交接](2026-09-25-issue487-main-image-execution-design.md)
 - [企业空间操作记录 v1](account-audit-v1.md)
 - [Account read-only contract (#346 → #348)](account-readonly-contract.md)

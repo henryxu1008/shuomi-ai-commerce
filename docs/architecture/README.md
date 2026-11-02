@@ -1,3 +1,36 @@
+## 归位的重构边界
+
+- [`module-target-mapping.md`](module-target-mapping.md) — 现行领域落点、九领域与Phase2 landing规则仍被guard消费，归入架构；历史旧owner按原替代范围读取。
+- [`runtime-consumer-register.md`](runtime-consumer-register.md) — Legacy consumer register仍由测试对实际imports校验；该有效边界不能当旧报告删除，归入架构，dated快照与ceilings原文保留。
+- [`shein-submit-readiness-action-policy.md`](shein-submit-readiness-action-policy.md) — save_draft动作分类仍由publishing/final_review_policy.go实现；既有平台纯规则归位，旧ListingKit适配不恢复。
+
+## 归位的领域合同
+
+旧工作流目录已撤销。以下只归位既有合同，不改变原状态或后续精确替代；设计/提案准入与实际开放仍分别确认。历史设计、V7计划与验证记录见[归档索引](../archive/README.md)。
+
+- [`ai-capability-platform.md`](ai-capability-platform.md) — AI Capability / Agent平台合同；旧Prompt及泛化执行按页首确认边界退休。
+- [`image-download-safety.md`](image-download-safety.md) — HTTPS/SSRF/重定向/TLS/超时/大小/取消约束仍有效；当前实现归integration/httpimage，旧local路径不是入口。
+- [`ai-provider-contracts.md`](ai-provider-contracts.md) — Provider-neutral值、接口与调用边界；不恢复已退OpenAI Manager/全局回退。
+- [`authentication-runtime.md`](authentication-runtime.md) — 统一Verifier与显式权限/组织边界；旧推断授权和全局helper按#1022精确退休。
+- [`image-agent-workflow.md`](image-agent-workflow.md) — 保留图像原请求/状态/取消/持久化合同；旧Signal与宽执行按后续边界替代。
+- [`image-agent-recovery.md`](image-agent-recovery.md) — 有效JSON/hash/恢复/UNKNOWN合同保留，旧V2/Signal兼容要求不恢复。
+- [`image-agent-budget-authorization.md`](image-agent-budget-authorization.md) — 图像执行预算与授权不变量仍由当前owner消费。
+- [`image-agent-candidate-release-gate.md`](image-agent-candidate-release-gate.md) — 候选canary先于生产promotion的既有安全顺序；不授权发布。
+- [`image-agent-effect-policy.md`](image-agent-effect-policy.md) — 当前副作用事实/结果与恢复owner边界。
+- [`image-agent-effect-terminalization.md`](image-agent-effect-terminalization.md) — 未决effect不能被本地错误终结的既有合同。
+- [`image-agent-effect-finalization.md`](image-agent-effect-finalization.md) — 外部effect最终事实/取消次序与保守UNKNOWN。
+- [`image-agent-effect-recovery.md`](image-agent-effect-recovery.md) — 唯一恢复owner与外部effect恢复合同。
+- [`commerce-tool-foundation.md`](commerce-tool-foundation.md) — Tool registry/权限/副作用与domain调用边界；#981已退中间事实值不恢复。
+- [`product-domain-contracts.md`](product-domain-contracts.md) — 当前Product/Source/Catalog/Asset职责；#981精确替代旧Facts/Normalize中间层。
+- [`commerce-tool-canonical-inspection.md`](commerce-tool-canonical-inspection.md) — 固定版本canonical inspection的有界合同，旧Task Reader由#1025退休。
+- [`shein-offline-validation-input-binding.md`](shein-offline-validation-input-binding.md) — 有界设计/合同引用保留，原BLOCKED_ON_CONTRACT_DECISION与未准入状态不提升。
+- [`source-account-sa1.md`](source-account-sa1.md) — Greenfield SA1 owner/作用域/幂等/秘密材料合同。
+- [`source-account-sa2-bff.md`](source-account-sa2-bff.md) — SA2浏览器DTO/BFF消费边界，原集成证据限制保留。
+- [`1688-context-locator.md`](1688-context-locator.md) — 当前batchcapture注释消费定位边界；原提案与后续采集决定的状态分别保留。
+- [`1688-batch-local-agent.md`](1688-batch-local-agent.md) — 当前CLI/queue注释消费的批量采集边界；不因归位恢复旧LocalAgent或旧未批准计划。
+
+官方登录产品决定见[官方 Login V2 / Auth.js](../product/login-phase1-official-zitadel.md)。
+
 - [`report-center-shein-offline-package-source-v1.md`](./report-center-shein-offline-package-source-v1.md)
   - #628 original offline-package scope; reviewed IMPLEMENTATION_READY design; user-authorized implementation;
     normal owner/auth/schema admission and canonical digest binding; evidence in PR #1049, runtime NOT_RUN.
@@ -17,10 +50,7 @@
 补充可直接打开的入口（下方原索引中的文件名仍保留）：
 
 - 稳定规则与当前有界合同：[兼容路径退休约束](compatibility-retirement.md)、[Temporal 依赖边界](temporal-boundaries.md)、[平台边界策略及其后续替代](platform-boundary-strategy.md)、[优选申请只读总览](selected-application-overview-v1.md)。
-- 阶段盘点：[平台历史规模快照](historical-platform-migration-inventory.md)、[ListingKit 重构状态快照](listingkit-refactor-status.md)、[旧 hardening 拆分计划](listingkit-production-hardening-split.md)、[已退休预览链边界](listing-preview-boundaries.md)。
-- 旧数字协议：[Task Event V2](task-event-v2-migration.md)、[Task 状态生命周期](task-status-lifecycle.md)。协议与拒绝语义作为历史保留，不恢复消费者或迁移观察前置。
-- 旧 TEMU 设计经验：[对象模式](temu-architecture-patterns.md)、[管线阶段](temu-pipeline-stages.md)、[编辑指引](temu-refactor-playbook.md)。当前平台合同优先，不将旧例子作为可调用接口。
-- 旧部署/PoC 记录：[Amazon 检查清单](amazon-crawler-commercialization-checklist.md)、[Amazon 执行计划](amazon-crawler-commercialization-execution-plan.md)、[集中部署方案](centralized-deployment-plan.md)、[Temporal PoC](temporal-poc-runbook.md)、[编排评估](temporal-workflow-evaluation.md)、[Updater 第三方评估](updater-third-party-validation.md)。保留原结论与失败证据，不作为当前执行步骤。
+- 历史阶段盘点、旧协议、TEMU设计经验及PoC结果已移到[历史架构材料](../archive/README.md#architecture-history)，不再与当前领域合同并列。
 
 以下为原完整索引与各阶段证据。
 
@@ -371,16 +401,16 @@ boundary rules unless they explicitly supersede a stable document.
 
 - [Final UI / IA](../product/final-ui-ia-authority.md): final navigation, naming
   and BusinessTask projection (#298), not current release capability.
-- [Product Domain](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md),
-  [Identity / Organization](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
+- [Product Domain](product-domain-contracts.md),
+  [Identity / Organization](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
   and current Store/Resource/CommerceTool contracts: facts, access and side effects.
   Preserve valid domain rules even when a document also contains older UI or
   implementation observations; explicit supersession controls the affected section.
 - [Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md),
   [Legacy Register](../refactoring/legacy-register.md) and
-  [Module Mapping](../refactoring/module-target-mapping.md): only EXTRACT / RETIRE;
+  [Module Mapping](module-target-mapping.md): only EXTRACT / RETIRE;
   existing legacy is not a new dependency permission.
-- [Current status](../refactoring/current-refactoring-status.md): baseline-bound
+- [Current status](../archive/refactoring/current-refactoring-status.md): baseline-bound
   implementation and evidence. [#137](https://github.com/qq550723504/task-processor/issues/137)
   and execution Issues own scheduling and scope under the
   [dispatch rules](../engineering/issue-driven-development.md).
@@ -391,8 +421,8 @@ boundary rules unless they explicitly supersede a stable document.
   (**PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**) requires a fresh installation
   and empty business data; historical migration, profile-reuse and environment
   preflight guidance is not a current acceptance prerequisite.
-- [next-phase-plan.md](../refactoring/next-phase-plan.md): HISTORICAL implementation
-  record, not an execution queue. The [Publication Identity draft](../refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)
+- [next-phase-plan.md](../archive/refactoring/next-phase-plan.md): HISTORICAL implementation
+  record, not an execution queue. The [Publication Identity draft](../archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)
   is SUPERSEDED under #307, not a migration prerequisite.
 
 ACTIVE contracts, CURRENT STATE observations and HISTORICAL/SUPERSEDED evidence
@@ -534,7 +564,7 @@ Use these as the main source of truth for structural work:
 - `platform-boundary-strategy.md`
   - historical platform, publishing, ListingKit, and platform registration
     convergence roles
-- `historical-platform-migration-inventory.md`
+- `docs/archive/architecture/historical-platform-migration-inventory.md`
   - retained ownership/inventory evidence for historical platform packages;
     candidate slices require current mapping and an execution Issue
 - `external-client-boundary-inventory.md`
@@ -804,25 +834,25 @@ documents unless they say so explicitly:
 - `auth-and-tenancy.md`
   - verified effective Organization, home identity distinction, route
     authorization and remaining legacy paths; supporting context, not a new IAM
-- `task-status-lifecycle.md`
+- `docs/archive/architecture/task-status-lifecycle.md`
   - status lifecycle context; use stable boundary documents for package
     ownership and dependency rules
-- `temu-architecture-patterns.md`
+- `docs/archive/architecture/temu-architecture-patterns.md`
   - TEMU architecture pattern context; use stable boundary documents for
     cross-platform dependency rules
-- `temu-pipeline-stages.md`
+- `docs/archive/architecture/temu-pipeline-stages.md`
   - TEMU pipeline stage context; use stable boundary documents for runtime and
     assembly boundaries
-- `listingkit-refactor-status.md`
+- `docs/archive/architecture/listingkit-refactor-status.md`
   - ListingKit refactor status context; use stable boundary documents for
     long-lived ListingKit boundaries
 - `amazon-crawler-runtime-flow.md`
   - Amazon crawler runtime flow context; use stable boundary documents for
     review policy
-- `task-event-v2-migration.md`
+- `docs/archive/architecture/task-event-v2-migration.md`
   - RabbitMQ complete-task event V2 schema, compatibility window, and removal
     gate; Listing Control ID-only dispatch is out of scope
-- `openmeter-shadow-metering-poc-report.md`
+- `docs/archive/architecture/openmeter-shadow-metering-poc-report.md`
   - time-bounded, evidence-backed local PoC decision; it does not authorize a
     production integration, billing, payment, deployment, or data migration
 - `pay-041-usage-ledger.md`

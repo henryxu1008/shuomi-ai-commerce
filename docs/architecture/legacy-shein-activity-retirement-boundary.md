@@ -122,7 +122,7 @@ registration_direct_products_test.go 中必须继续覆盖的规则分组：
 | tests/listingkit_backend_retirement_test.go | 既有 absence 清单加入 registration.go、mixed.go、profit.go、product_data_helper.go、config.go、config_test.go、repository_test.go；混合文件精确检查退出符号与保留规则/风险错误/属性 | 不禁止整个 activity 包；断言旧 service/constructor/session/TimeLimitedDiscountConfig 及其 default/Validate/专属错误不复活，规则不能通过空壳恢复 |
 | tests/import_boundaries_test.go 的 TestSheinRetiredManagementImportsStayBlocked | 删除 activity 下 mixed.go、product_data_helper.go、profit.go、registration.go、registration_config.go、time_limited.go 六个 management allowlist 项 | 后两个仍存在但只剩无 IO 规则，不能因文件保留继续豁免；其它条目/deny 保持，不加新 exemption 或调高 ceiling |
 | 架构索引/原设计与 tests/architecture_docs_test.go | 将本设计状态与 §5/§6/本节落地结果同步；若旧文档直接当前保留断言冲突，只更新直接冲突引用/原文档测试 | 历史批次/dated inventory/原 CI 结果不重写；复用原文档测试入口，不额外建治理检查器 |
-| docs/refactoring/phase2-runtime-inventory.md | 实际 import 图确认后，只减当前 core/logger → shein/activity 这一行 | logrus 与其余消费者/ceilings/历史清单保留，不将纯规则包登记为整个目录退休 |
+| docs/architecture/runtime-consumer-register.md | 实际 import 图确认后，只减当前 core/logger → shein/activity 这一行 | logrus 与其余消费者/ceilings/历史清单保留，不将纯规则包登记为整个目录退休 |
 | .github/workflows/ci.yml / commercial-readiness.yml | **零改动** | 原必需/安全检查、触发、权限、并发、选择、完整 listingadmin race、current-application / shein-login-worker build、PG/资金/发布检查及保护保持；其它部署 workflow 不改、不执行 |
 
 本轮自检限原 retirement/import/命名/文档 guard、受影响规则/API/共享 owner/worker/观察的必要原测试和命令实图/编译。稳定候选跑原适用 PR CI，一次集中独立最终检查；分类器原有 SKIPPED 不记 PASS，设计检查不冒充源码实施或 main CI。

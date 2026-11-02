@@ -161,7 +161,7 @@ docs/architecture/legacy-temu-store-init-retirement-boundary.md
 docs/operations/acceptance-environment-split.md
 docs/operations/store-service-history-hardcut.md
 docs/development/listingkit-local-prod-db-replay.md
-docs/refactoring/code-health-decisions.md
+docs/engineering/code-health-decisions.md
 docs/superpowers/plans/2026-08-08-listingkit-schema-migration-unification.md
 docs/superpowers/specs/2026-08-08-listingkit-schema-migration-unification-design.md
 ```

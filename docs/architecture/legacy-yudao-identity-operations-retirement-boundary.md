@@ -107,7 +107,7 @@ Cutover/deletion condition: 用户确认本设计，两个 Issue 明确 Ready；
 | --- | --- | --- |
 | §5.1四脚本 | 用户确认后整文件删除 | 不复制为新 CLI/module、兼容失败入口、模板或示例恢复脚本 |
 | `tests/listingkit_backend_retirement_test.go` | 原身份预检退休 guard 的准确 absence 列表增加四路径 | 原所有路径、权限/发布/worker/current schema/安全断言；无新扫描器、subprocess 或真实运行 |
-| `docs/refactoring/code-health-decisions.md` | 顶部窄注释：用户确认后，两个 local importer 的 retained-deferred 与通用 support-candidate 行中仅其迁移保留结论被本设计取代；实施前只能标“提案/未实施” | 原历史两行、当时 detector 证据/风险/计数及其他所有候选结论原样，不伪称旧清理当时错误，也不把零调用当唯一退休依据 |
+| `docs/engineering/code-health-decisions.md` | 顶部窄注释：用户确认后，两个 local importer 的 retained-deferred 与通用 support-candidate 行中仅其迁移保留结论被本设计取代；实施前只能标“提案/未实施” | 原历史两行、当时 detector 证据/风险/计数及其他所有候选结论原样，不伪称旧清理当时错误，也不把零调用当唯一退休依据 |
 | `docs/superpowers/plans/2026-08-11-listingkit-owner-reconciliation-policy.md` | 实施时仅校准现有 HISTORICAL/SUPERSEDED 顶注，明确新增四个退休入口及已退预检不能重建；删去顶注中“existing read-only preflight policies unchanged”的当前含义 | 原任务正文/测试/提交证据与日期原样；不按当时 sub-skill/迁移步骤重新派工或执行 |
 | `docs/superpowers/plans/2026-08-10-listingkit-owner-reconciliation.md`、`docs/superpowers/specs/2026-08-11-listingkit-owner-reconciliation-policy-design.md` | 实施时各加窄 SUPERSEDED 顶注，链接 Greenfield、#698 及本设计；说明下方 restore/backfill、旧 metadata/migration/recovery 均非当前策略或操作、不得重建/执行四入口 | 原 Goal/Approved policy/历史任务、验收和当时 evidence 原样；不能保留一个无顶注的“当前恢复”入口 |
 | `docs/superpowers/plans/2026-08-10-listingkit-manual-deploy-gate.md` | 实施时加窄历史/SUPERSEDED 顶注，链接 #698；旧预检与发布入口已退/失败关闭，不能按计划恢复。独立 SHEIN worker、原 OIDC/RBAC/安全检查仍保留 | 历史 release plan 正文/回执不改；不改任何发布 workflow、驱动或权限，不新建当前发布链 |

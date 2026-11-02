@@ -406,7 +406,7 @@ Supporting context documents must not be listed as review references unless prom
 - `docs/architecture/app-assembly-boundaries.md`
 - `docs/architecture/temporal-boundaries.md`
 - `docs/architecture/platform-boundary-strategy.md`
-- `docs/architecture/historical-platform-migration-inventory.md`
+- `docs/archive/architecture/historical-platform-migration-inventory.md`
 - `docs/architecture/external-client-boundary-inventory.md`
 - `docs/architecture/compatibility-retirement.md`
 - `docs/architecture/listing-preview-boundaries.md`

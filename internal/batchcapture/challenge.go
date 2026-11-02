@@ -44,7 +44,7 @@ const (
 
 // riskControlMarkers are the response/body markers this repository has already
 // measured on 1688 risk-control pages. See
-// docs/superpowers/specs/2026-09-20-issue399-1688-context-locator-design.md:168,
+// docs/architecture/1688-context-locator.md:181,
 // which records real pages being marked as `punish?x5secdata=...` after repeated
 // automated navigation, and the design doc's own note that anonymous requests
 // hit risk control returning HTTP 200 with Bxpunish/x5secdata and no product

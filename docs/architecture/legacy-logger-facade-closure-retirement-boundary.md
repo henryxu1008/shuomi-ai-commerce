@@ -57,7 +57,7 @@ Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED，待原实现 CI 与最终交付�
 设计阶段 **Design Basis: N/A**（只读调查/三文档）；用户确认后的源码实施为 **Reuse Existing Architecture / Ready**，完整复用以下现有 owner/合同，不新增领域或持久化事实：
 
 - [Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)和[Issue 驱动规则](../engineering/issue-driven-development.md)：只 EXTRACT/RETIRE，无旧 compatibility、双读/双写、迁移或第二事实源。
-- [Project Target Architecture](project-target-architecture.md)、[Project Boundaries](project-boundaries.md) §3.6 和 [Phase2 runtime inventory](../refactoring/phase2-runtime-inventory.md)：Platform 保有日志实现/生命周期，当前门面只是暂留债务，业务最终使用消费端窄依赖。历史 ceiling 82/9 不是允许把79处业务 import直接替换为 Platform 的依据。
+- [Project Target Architecture](project-target-architecture.md)、[Project Boundaries](project-boundaries.md) §3.6 和 [Phase2 runtime inventory](runtime-consumer-register.md)：Platform 保有日志实现/生命周期，当前门面只是暂留债务，业务最终使用消费端窄依赖。历史 ceiling 82/9 不是允许把79处业务 import直接替换为 Platform 的依据。
 - [独立 SHEIN 身份/持久化边界](shein-worker-numeric-persistence-retirement-v1.md)、[当前值合同](legacy-numeric-value-contract-closure-retirement-boundary.md)、[旧采集尾部边界](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)和[来源业务闭环](source-business-closure-v1.md)：当前采集、有效 API/规则、Store/身份/计费、独立 SHEIN 登录/同步及 UNKNOWN/fence 保留。
 
 本批会跨多个源码子系统且超过30文件，但只退出已批准退休的门面、把已有 Logrus 日志依赖放回已有 owner/装配路径。日志管理、文件输出、当前领域合同/事实 owner、schema、状态/事务、身份/租户/权限、计费和 retry/UNKNOWN/recovery/平台副作用均不变；不靠拆 PR 规避准入。消费端只接收技术依赖，不创建业务状态或新的日志框架。若实现必须改变上述边界，停止该部分并升级 Independent Architecture，先达到 IMPLEMENTATION_READY。

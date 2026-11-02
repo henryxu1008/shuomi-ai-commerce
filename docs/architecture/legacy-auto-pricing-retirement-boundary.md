@@ -106,7 +106,7 @@ Must：§5 保留清单完整；有效公式/规则/安全/租户/owner/平台�
 | `TestRetiredManagementRuntimeNamingHotspotsUseCapabilityNames` | 只减 TEMU auto_pricing_service.go / pricing_decision_service.go 两项 | 其它命名检查与原 fail 行为保持，不扩大旧有历史缺席处理 |
 | 已有公式/平台/owner/context 测试 | 原样保留 SHEIN calculator/cost_profit、TEMU calculator 和 marketplace pricing_policy、平台/Store/owner/worker/当前观察与 shared fetcher context 测试 | 旧服务 test 随旧实现 RETIRE；有效安全/隔离/公式/取消断言不能借此删除，不为形式新增 runner/故障矩阵 |
 | 当前文档 | 实施时校准本设计状态、architecture README、legacy-register、原 #742 当前保留说明、必要现时地图/runbook/两份 guard 清单 | 当前清单移除两个退役守卫；保留 port alias/import/absence 等仍有效条目。历史矩阵、日期和结果不回写 |
-| `docs/refactoring/phase2-runtime-inventory.md` | 实施后实际依赖确认再只减当前登记的 core/logger → shein/pricing 与 → temu/pricing 两行 | 保留 logrus 依赖、其它消费者、原 ceilings 与历史/dated inventories；不能将保留包误记为整个目录退休 |
+| `docs/architecture/runtime-consumer-register.md` | 实施后实际依赖确认再只减当前登记的 core/logger → shein/pricing 与 → temu/pricing 两行 | 保留 logrus 依赖、其它消费者、原 ceilings 与历史/dated inventories；不能将保留包误记为整个目录退休 |
 | 两套 workflow：`ci.yml` / `commercial-readiness.yml` | **零改动** | 原触发/选择/权限/并发/保护、必需和安全门禁、完整 listingadmin race、current-application / shein-login-worker build、PG/资金/发布检查及证据保持；其它部署 workflow 同样不改，不部署 |
 
 设计阶段的只读调查和文档检查保留为历史；本轮实施证据与源码RED→GREEN另绑准确候选写PR。开发自检限原 retirement/import/命名/文档 guard、保留 pricing/marketplace/API/owner/fetcher/worker/观察的必要原测试及命令编译/实图；具体执行按改动风险匹配，不为形式新增业务测试。稳定候选运行原适用 PR CI，一次集中独立最终检查；未变代码的有效证据明确复用，不冒充新 SHA 直接执行，SKIPPED 不记 PASS。

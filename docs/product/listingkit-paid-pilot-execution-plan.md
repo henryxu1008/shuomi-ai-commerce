@@ -15,7 +15,7 @@
 >
 > Scope: 将当前已经稳定或接近稳定的 ListingKit / SHEIN 能力整理为可安全收费、可支持、可回滚的邀请制付费试点。
 >
-> Authority: 当本计划与旧的商业化、订阅、部署或产品扩张计划冲突时，付费试点范围、上线门禁和 PR 顺序以本计划为准；长期架构仍以 `docs/refactoring/current-refactoring-status.md`、`docs/refactoring/next-phase-plan.md` 和架构边界文档为准。
+> Authority: 当本计划与旧的商业化、订阅、部署或产品扩张计划冲突时，付费试点范围、上线门禁和 PR 顺序以本计划为准；长期架构仍以 `docs/archive/refactoring/current-refactoring-status.md`、`docs/archive/refactoring/next-phase-plan.md` 和架构边界文档为准。
 
 ## 1. 商业化决策
 

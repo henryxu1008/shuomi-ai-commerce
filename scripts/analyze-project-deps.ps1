@@ -163,7 +163,7 @@ $listingkitImporters | Sort-Object | ForEach-Object { Write-Host "- $_" }
 Write-Host ""
 
 Write-Host "=== Suggested Next Step ===" -ForegroundColor Cyan
-Write-Host "Use this output to create docs/refactoring/dependency-baseline.md before broad package moves."
+Write-Host "Keep generated reports under .local/refactoring; current guidance: docs/development/README.md#dependency-and-package-checks."
 Write-Host "Known legacy violations should be documented before this script is promoted to CI enforcement."
 
 if ($FailOnViolation -and $violations.Count -gt 0) {

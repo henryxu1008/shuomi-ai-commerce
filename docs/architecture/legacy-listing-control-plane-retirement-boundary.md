@@ -24,7 +24,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 
 维护者获得明确的源码删除清单：剩余旧生产者和一次性数据修复入口退出，当前内部试用能力沿原入口使用。目标是消除旧数字任务执行入口及其专属编排，不新增当前刊登执行器，不承诺所有数字类型或旧仓库已经清零，也不证明历史实例已停用。
 
-依据 [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[module mapping](../refactoring/module-target-mapping.md) 和 [项目领域边界](project-boundaries.md)。上一批 [三 CLI 退休设计 §5](legacy-listing-cli-retirement-boundary.md#5-相邻生产者与保留边界) 将控制面与 recovery 工具列为单独债务；用户已明确确认本设计，将这两个入口及专属编排纳入本轮源码退休，其它保留合同不变。
+依据 [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[module mapping](module-target-mapping.md) 和 [项目领域边界](project-boundaries.md)。上一批 [三 CLI 退休设计 §5](legacy-listing-cli-retirement-boundary.md#5-相邻生产者与保留边界) 将控制面与 recovery 工具列为单独债务；用户已明确确认本设计，将这两个入口及专属编排纳入本轮源码退休，其它保留合同不变。
 
 保留能力的依据为 [当前 Store](store-center-current-application-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[观察准备接线](store-observations-preparation-runtime.md)、[当前 SHEIN 供货链](my-supply-chain-shein-v1.md)、[独立 SHEIN worker 身份/持久化边界](shein-worker-identity-persistence-boundary.md) 和 [发布预检退休](release-identity-preflight-retirement.md)。当前权限、连接、Submission、重试及 UNKNOWN 各归原 owner，不能由旧任务状态替代。缺配置或尚未开放的能力仍按原合同报告，不伪造可用。无 UI/IA 改动，Figma N/A。
 

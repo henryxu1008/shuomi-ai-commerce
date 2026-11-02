@@ -117,7 +117,7 @@ Cutover/deletion condition: 用户明确确认 §5/§6/§6.1/§7；实施前登�
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 在原 TestListingKitTaskBackendSourcesAreRetired 的目录缺席列表增加 `internal/temu/category`、`internal/temu/template`，覆盖改名重建的 Go 文件；原保留 map 补 API/category、QueryTemplate/Advanced/CostTemplate、两套平台模板 DTO、四个 TemplateState 字段及当前规则 owner 的准确断言 | 原 root/product 子树、五个原 mixed 包 AST 扫描、SKU declaration fixture、全部原断言保留；两个退休目录不加入要求必须存在的 AST 遍历，不为目录消失加广泛 skip；不禁平台 category/template 包或 SHEIN 同名类型 |
 | 原 import/provider/logger/Phase2/命令/worker guard | 当前候选不直接 import OpenAI/provider，不在相关豁免中；目录删除后复用原规则 | 不加 skip/allowlist，不改 root/扫描/deny/helper、PriceHandler 唯一 management 豁免、ceiling 或必需/安全覆盖 |
-| docs/refactoring/phase2-runtime-inventory.md 当前 consumer register | 仅移除 `core/logger → temu/category` 与 `core/logger → temu/template` 两行失去的直接消费者 | dated inventory、historical debt list、其它 consumer 行及 closure ceiling 不改，不把整套 logger/平台能力写为已退休 |
+| docs/architecture/runtime-consumer-register.md 当前 consumer register | 仅移除 `core/logger → temu/category` 与 `core/logger → temu/template` 两行失去的直接消费者 | dated inventory、historical debt list、其它 consumer 行及 closure ceiling 不改，不把整套 logger/平台能力写为已退休 |
 | Legacy register / 本文 / 架构索引与直接冲突的前批当前说明 | 已标准确 source-retired 七文件，说明共享上下文/API/规则仍保留；对前批 category/template 全保留陈述加本设计的窄替代说明 | 历史设计取证/审批保留；code-health 当前无这两包专属行，不发明行或改其它基线；设计阶段只提交本文与索引 |
 | .github/workflows/ci.yml、commercial-readiness.yml 及其它 workflow、.golangci.yml/依赖/保护 | **零变更** | 原检查目标/必需、安全检查与条件分类均保持；本批不为无 runtime 消费者的维护改 CI/发布/环境前置 |
 
