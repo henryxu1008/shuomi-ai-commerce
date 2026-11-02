@@ -54,7 +54,7 @@ Accepted Risk：用户批准到期超限保留已有数据的成本政策，沿�
 | `internal/ledger/orgresource` | 可借鉴现有 PostgreSQL 事务、幂等与证据模式 | 不把有期限容量塞入永久消耗余额；既有三类资源合同不变 |
 | 旧 `listingsubscription` 的 `oss_storage`、`storage_bytes_current` | 仅作为历史语义参考 | 不接回新基础方案，不保留旧套餐/fallback/双账本 |
 
-产品依据为 [Final UI / IA Authority](../product/final-ui-ia-authority.md)、[统一基础与预付资源](unified-base-prepaid-resources-v1.md)、[Commercial Wallet/Billing](commercial-wallet-billing-contract.md)、[正式价格](commercial-retail-pricing-v1.md)、[Knowledge](agent-knowledge-context-v1.md) 与 [图片智能体](product-image-agent-v1.md)。
+产品依据为 [Final UI / IA Authority](../product/final-ui-ia-authority.md)、[统一基础与预付资源](unified-base-prepaid-resources-v1.md)、[Commercial Wallet/Billing](unified-base-prepaid-resources-v1.md)、[正式价格](commercial-retail-pricing-v1.md)、[Knowledge](agent-knowledge-context-v1.md) 与 [图片智能体](product-image-agent-v1.md)。
 
 2026-10-12 已读取当前 Figma [资源与额度 1627:359](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=1627-359) 的结构与截图，以及 [企业资源摘要 1634:359](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=1634-359)。现稿只有期数、点数/原 Token 文案、数据三类卡片。建议在现有页面增加“企业存储”区域，不新增一级导航、成员分配列或独立网盘；本轮已按用户授权补齐当前 Figma 新存储区域与购买、异常状态，原数值示例不进入运行事实。
 

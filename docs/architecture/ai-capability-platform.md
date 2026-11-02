@@ -1,9 +1,3 @@
-> **领域合同归位。** AI Capability / Agent平台合同；旧Prompt及泛化执行按页首确认边界退休。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
-
-> #301 / #980 用户确认的[完整退休闭包](legacy-ai-routing-image-policy-closure-retirement-boundary.md)已在同一PR实施：本文涉及旧AI PolicyRouter/Legacy-Shadow/Planner、闲置通用HTTP图片生成adapter、旧本地模板/排版/白底或IP启发式的KEEP/开工要求，仅在该设计§5/§6.1明列范围被替代。有效账本值、图片字节检查、SceneOptions/metadata原规则及通用TestCategoryOf断言明确保留；当前AI/图像审核/JSON/hash/计费/UNKNOWN、采集和独立SHEIN登录/Store同步不变。以下实际起始main完整原Git blob、批准/失败/历史/数字/勾选逐字保留；无compat alias/新运行装配、workflow/完整inventory/既有资源操作或试用前置，#301 OPEN。
-
-> #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。
-
 # AI Capability & Agent Platform 设计
 
 ## 1. 状态与决策
@@ -603,7 +597,7 @@ PoC 不允许为了适配框架复制领域模型、业务数据库或 Temporal 
 ## 20. 参考
 
 - `docs/architecture/project-boundaries.md`
-- `docs/architecture/external-client-boundary-inventory.md`
+- `docs/architecture/project-boundaries.md`
 - `docs/architecture/temporal-boundaries.md`
 - `docs/architecture/temporal-workflow-evaluation.md`
 - `internal/productenrich/pipeline.go`

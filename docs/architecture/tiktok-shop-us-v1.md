@@ -27,7 +27,7 @@ Out of Scope：美国本土、其他市场、订单/履约/售后/退款/财务�
 - [最终 UI/IA](../product/final-ui-ia-authority.md)与 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`。2026-10-13 已只读核实节点 `1560:359`「我的店铺/优化版」、`429:5323`「店铺商品」存在。
 - 商品准备复用[我的供应链设计](my-supply-chain-shein-v1.md)中已批准的商品批次、待适配、补全、已适配和渠道结果投影，不恢复 Task-first 页面。其 SHEIN 业务合同不能被本文件直接扩成 TikTok 合同。
 - 未绑定本地文本复用[CompletionDraft 已批准架构](supply-unbound-completion-drafts.md)和 `internal/listing/completiondraft`；正式 TikTok Target 仍须真实 Store 与官方规则。
-- [Project target](project-target-architecture.md)、[package boundaries](project-boundaries.md)、[greenfield baseline](../product/greenfield-no-legacy-migration.md)、[Legacy Register](../refactoring/legacy-register.md)。
+- [Project target](project-target-architecture.md)、[package boundaries](project-boundaries.md)、[greenfield baseline](../product/greenfield-no-legacy-migration.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)。
 - 当前 Store CRUD、成员 grant、服务权益和 official connection 的有效不变量，以及唯一 `internal/listing/submission.ExecutionKernel`。
 - [官方合同证据及缺口](tiktok-shop-us-contract-evidence.md)。没有应用时不引用假店铺/假 API响应作为真实平台证据。
 

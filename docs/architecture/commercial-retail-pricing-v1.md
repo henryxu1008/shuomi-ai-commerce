@@ -20,7 +20,7 @@ Out of Scope：试用资格/赠送/优惠的新状态与持久化、模型/图�
 ## 产品与架构权威
 
 - 当前 Figma [套餐方案 431:3455](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=431-3455)（2026-10-08 已读取设计上下文与截图）：收费构成、店铺 ¥168/店/期、1 期 30 天、AI 与数据分开购买、权益/钱包/账单入口。Figma 绑定后计时、多店优惠、赠送示例由当前领域合同及本批范围约束，不直接转为事实。
-- [Final UI / IA Authority](../product/final-ui-ia-authority.md)、[统一基础与预付资源](unified-base-prepaid-resources-v1.md)、[Commercial Wallet/Billing](commercial-wallet-billing-contract.md)、[成员资源分配](member-resource-allocation-v1.md)、[支付合同](alipay-wallet-topup-design.md)、[Greenfield](../product/greenfield-no-legacy-migration.md)。
+- [Final UI / IA Authority](../product/final-ui-ia-authority.md)、[统一基础与预付资源](unified-base-prepaid-resources-v1.md)、[Commercial Wallet/Billing](unified-base-prepaid-resources-v1.md)、[成员资源分配](member-resource-allocation-v1.md)、[支付合同](alipay-wallet-topup-design.md)、[Greenfield](../product/greenfield-no-legacy-migration.md)。
 - 首页沿已交付 MarketingHomepage 布局、资产和咨询入口；本批仅替换价格数据和未开放试用状态。用户的最新价格决定取代首页 ¥99 文案及旧文档的“店铺/AI 购买价格待决定”，不改变其他 owner 合同。
 
 ## Owner、实现和注入

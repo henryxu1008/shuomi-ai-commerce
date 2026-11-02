@@ -111,4 +111,3 @@ Legacy decision: N/A（当前owner扩展；发现已登记旧代码只EXTRACT/RE
 - Finding：64KiB生命周期预算。Classification：IMPLEMENTATION_TEST（合并层）。Action：§5/§8覆盖before/after、原候选、历史/proof及未来Apply空间，临界/超界整事务验证，不扩大上限。
 
 第2轮对应增量检查已明确IMPLEMENTATION_READY，原两项BLOCKER关闭。混合lineage、64KiB生命周期预算、DDL重复执行及content route/mode负例继续IMPLEMENTATION_TEST，在本批实现和合并前收敛。真实模型/保留实例接入/用户与生产验收仍NOT_RUN；设计准入不替代功能完成。
-

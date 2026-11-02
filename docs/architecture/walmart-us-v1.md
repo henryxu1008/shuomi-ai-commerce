@@ -31,7 +31,7 @@ Threat Model：防止本系统并发/重放导致跨企业绑定、凭据外泄�
 
 ## 2. Product / Figma Authority
 
-引用 [最终 UI / IA](../product/final-ui-ia-authority.md)、[greenfield 基线](../product/greenfield-no-legacy-migration.md)、[当前供应链合同](my-supply-chain-shein-v1.md)、[Store](store-center-current-application-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[CompletionDraft](completion-draft-structured-v1.md)、[TikTok 已批准特性合同](tiktok-shop-us-v1.md)、[项目边界](project-boundaries.md)与[Legacy Register](../refactoring/legacy-register.md)。其他平台的协议和历史实现结论不自动适用于 Walmart。
+引用 [最终 UI / IA](../product/final-ui-ia-authority.md)、[greenfield 基线](../product/greenfield-no-legacy-migration.md)、[当前供应链合同](my-supply-chain-shein-v1.md)、[Store](store-center-current-application-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[CompletionDraft](completion-draft-structured-v1.md)、[TikTok 已批准特性合同](tiktok-shop-us-v1.md)、[项目边界](project-boundaries.md)与[当前系统边界](../product/greenfield-no-legacy-migration.md)。其他平台的协议和历史实现结论不自动适用于 Walmart。
 
 2026-10-16 只读复核 Figma `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463` 中当前节点：`1560:359`“店铺中心 / 我的店铺 / 优化版”、`429:5323`“店铺中心 / 店铺商品”、`2667:1948`“我的供应链 / 我的选品 / 待补全”。本期复用上述入口和现有供应链资料/上传路径；不新增顶层菜单、独立 Walmart Workbench 或 Listing Center。节点示例平台、数字和状态不代表实现/验收事实。
 

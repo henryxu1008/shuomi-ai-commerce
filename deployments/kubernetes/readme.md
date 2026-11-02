@@ -9,7 +9,7 @@
 - `monitoring/prometheus-storage`（共享 PVC 保护及同 namespace 窄路由）
 - `zitadel/local`
 
-旧 SHEIN/TEMU 刊登运维源码已按 [#839 完整闭包](../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)退休。shein-listing 仅保留 Store 代理同步所需共享凭据/Namespace装配，temu-listing 仅保留退休说明；二者不是当前应用发布入口。当前采集、Store观察同步与应用入口见[仓库入口地图](../../docs/development/repository-structure.md)。本次仅改源码，未操作集群或资源。
+旧 SHEIN/TEMU 刊登运维源码已按 [当前系统边界](../../docs/architecture/project-boundaries.md)退休。shein-listing 仅保留 Store 代理同步所需共享凭据/Namespace装配，temu-listing 仅保留退休说明；二者不是当前应用发布入口。当前采集、Store观察同步与应用入口见[仓库入口地图](../../docs/development/repository-structure.md)。本次仅改源码，未操作集群或资源。
 
 ## ZITADEL 2026-05-16 历史切换记录
 
@@ -39,6 +39,6 @@
 
 上述清单仅供各自已获授权的运维使用；旧刊登 staging/prod 不再提供运行部署步骤。
 
-旧 Amazon API/LB/专属监控及发布源按[完整边界](../../docs/architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)退出；共享 Namespace/凭据、WeCom 与 Prometheus 存储窄路由保留。未查询或变更实际集群。
+旧 Amazon API/LB/专属监控及发布源按[当前系统边界](../../docs/architecture/project-boundaries.md)退出；共享 Namespace/凭据、WeCom 与 Prometheus 存储窄路由保留。未查询或变更实际集群。
 
 新建本地应用从 [Account Compose](../docker/account-compose/README.md) 进入。集群接入凭据由当前运维凭据渠道提供，不写入文档或命令示例。

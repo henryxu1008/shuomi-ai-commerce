@@ -317,7 +317,7 @@ The run's private #410 credentials file was deleted by exact path before the
 existing destroy command. Cleanup reports passed, resourcesReleased and
 portsReleased, with both applications exited 0. Its zeroWrite refers only to the
 original commercial fixture. Sanitized role/scope/negative/cleanup evidence is
-stored in `issue410-membership-native-evidence.json`; no PATs or human login
+stored in `../architecture/project-boundaries.md`; no PATs or human login
 credentials are included. Native adapter evidence and the earlier production
 BFF/Go/PG browser fixture remain separate verification layers. Final-HEAD CI
 and independent full-slice review are still pending.

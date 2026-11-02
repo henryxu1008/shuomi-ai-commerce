@@ -1,7 +1,3 @@
-> **领域合同归位。** 统一Verifier与显式权限/组织边界；旧推断授权和全局helper按#1022精确退休。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
-
-> #301 / #1022 current boundary: [confirmed auth-route/S3 retirement](legacy-auth-route-s3-operation-closure-retirement-boundary.md) supersedes only the obsolete Module/path/method inference, Prompt grants and two unused global admin helpers. Current explicit Descriptor/Verifier/instance organization authorization and Store observation remain authoritative. The original historical extraction/compatibility wording below is preserved evidence, not authority to restore retired paths. No runtime action or new trial prerequisite; #301 stays OPEN.
-
 # Zitadel Authentication Runtime Extraction Design
 
 ## Status

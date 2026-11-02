@@ -4,10 +4,10 @@
 
 ## 当前配置入口
 
-- Go 应用使用显式绝对路径的私有 JSON manifest，见[当前入口地图](repository-structure.md#current-entrypoint-map)与[配置退休边界](listingkit-config-migration-checklist.md)。
+- Go 应用使用显式绝对路径的私有 JSON manifest，见[当前入口地图](repository-structure.md#current-entrypoint-map)与[配置退休边界](repository-structure.md)。
 - Console 的身份与 BFF 配置见[前端 README](../../web/listingkit-ui/README.md)和 [Account Compose](../../deployments/docker/account-compose/README.md)。UI 需要的 `ZITADEL_ISSUER_URL`、`ZITADEL_CLIENT_ID`、`ZITADEL_CLIENT_SECRET` 与 redirect URI 由相应私密环境提供；本目录没有需要复制的前端 `.env.example`。
-- 当前 AI 读取已发布 route 所属组织的准确凭据。全局 `openai:`、仓库自有 `TASK_PROCESSOR_OPENAI_` 以及成员/全局凭据回退已按 [#1033](../architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md)退休；凭据物理表、明确作用域的 Get/Save、引用与版本合同不变。
-- 旧 `listingkit.zitadel.*`、allowlist 和 RabbitMQ 配置示例不能恢复已退休授权或输入；拒绝旧字段的陷阱仍按[当前配置说明](listingkit-config-migration-checklist.md)保留。
+- 当前 AI 读取已发布 route 所属组织的准确凭据。全局 `openai:`、仓库自有 `TASK_PROCESSOR_OPENAI_` 以及成员/全局凭据回退已按 [当前系统边界](../architecture/project-boundaries.md)退休；凭据物理表、明确作用域的 Get/Save、引用与版本合同不变。
+- 旧 `listingkit.zitadel.*`、allowlist 和 RabbitMQ 配置示例不能恢复已退休授权或输入；拒绝旧字段的陷阱仍按[当前配置说明](repository-structure.md)保留。
 
 ## Kubernetes 的既有凭据约定
 

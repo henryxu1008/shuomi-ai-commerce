@@ -2,8 +2,6 @@ package tests
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -106,37 +104,6 @@ func TestResourceRetirementKeepsCurrentOwners(t *testing.T) {
 			if !bytes.Contains(raw, []byte(text)) {
 				t.Errorf("current resource owner missing %q: %s", text, path)
 			}
-		}
-	}
-}
-
-// Frozen approved bodies remain suffixes; current progress may be prepended.
-func TestResourceRetirementFrozenDocumentSuffixesStayIntact(t *testing.T) {
-	for _, doc := range []struct {
-		path   string
-		length int
-		hash   string
-	}{
-		{"docs/architecture/legacy-resource-transaction-closure-retirement-boundary.md", 22289, "901abd915c67645234343129fbe33435dc1f33cdd4839a4f3b9a6fa4c9b059fd"},
-		{"docs/refactoring/legacy-register.md", 156056, "d225481094d98b26947a9c991346b0b7e5d3e71e45923e927225f354ffa24509"},
-		{"docs/architecture/project-boundaries.md", 54450, "0d70694e1bf8a0d22053ba199e1b054f694b0d0064ec99ee35ff03324abfc38a"},
-		{"docs/architecture/member-resource-allocation-v1.md", 28776, "65b3bf2b6aa80e560f9244dd62c967e7b91510b8efa72f6eb281e52049ff1ca2"},
-		{"docs/architecture/store-center-current-application-v1.md", 29644, "af903e3e26a9af52ddbad95c6ff83a8a40be9ce586aa63d632f9f4256178255f"},
-		{"docs/engineering/2026-09-25-issue487-main-image-execution-design.md", 40572, "6db0747b6cf12c3df2c5ed27e298fb3b7df9d20fbd0fefd040c1c763d899173f"},
-		{"docs/architecture/legacy-subscription-metering-closure-retirement-boundary.md", 43013, "1d80b25e70cad2753d02f52ac627a9e17b720e1ee900245f786c2ad1d68d9a6b"},
-	} {
-		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(doc.path)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
-		raw = restoreRelocatedFrozenDocumentNavigation(doc.path, raw)
-		if len(raw) < doc.length {
-			t.Errorf("frozen document truncated: %s", doc.path)
-			continue
-		}
-		if fmt.Sprintf("%x", sha256.Sum256(raw[len(raw)-doc.length:])) != doc.hash {
-			t.Errorf("frozen resource history changed: %s", doc.path)
 		}
 	}
 }

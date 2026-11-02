@@ -1,34 +1,20 @@
-# 开发说明
+# 开发入口
 
-返回[文档首页](../README.md)。先确认当前产品和领域 owner，再选择开发入口。
+返回[文档首页](../README.md)。先确定当前产品位置、执行 Issue 和领域 owner，再修改实现。
 
 | 目的 | 入口 |
 | --- | --- |
-| 项目准备、后端启动 | [项目 README](../../README.md)、[Account Compose](../../deployments/docker/account-compose/README.md) |
-| 源码职责、正式命令、工具与本地产物 | [Repository Structure](repository-structure.md#current-entrypoint-map) |
-| 领域归属、依赖方向和准入 | [领域合同导航](../architecture/topics.md)、[Project Boundaries](../architecture/project-boundaries.md)、[AGENTS.md](../../AGENTS.md) |
+| 源码、命令和目录职责 | [Repository Structure](repository-structure.md#current-entrypoint-map) |
+| 后端启动与模块组合 | [项目 README](../../README.md)、[Account Compose](../../deployments/docker/account-compose/README.md) |
 | Console / BFF | [前端 README](../../web/listingkit-ui/README.md) |
-| 浏览器采集扩展 | [采集插件 README](../../extensions/product-capture/README.md) |
-| 显式选择 Git 版本构建镜像 | [镜像构建说明](../operations/listingkit-image-build.md) |
-| 品牌与保留工程标识 | [更名说明](branding-and-repository-rename.md) |
-| 配置与凭据 | [私有 JSON manifest 入口](repository-structure.md#current-entrypoint-map)、[配置退休与拒绝边界](listingkit-config-migration-checklist.md)、[凭据管理](secret-management.md) |
-
-## 专项说明与保留证据
-
-- [当前本地联调入口](listingkit-local-debug.md)：仅导航到当前应用、UI 与身份合同。
-- [CHAIN-1 隔离验收装配](chain1-local-product-acceptance.md)：仍有当前 runner 和合同检查，只在对应授权下使用。
-
-当前操作从[运行说明](../operations/README.md)进入，工程接线与验证记录从[工程文档](../engineering/README.md)进入。旧阶段材料不作为当前开发前置。
+| 浏览器采集插件 | [插件 README](../../extensions/product-capture/README.md) |
+| 配置与凭据 | [凭据管理](secret-management.md) |
+| 镜像构建 | [显式 Git 版本构建](../operations/listingkit-image-build.md) |
+| CHAIN-1 有界环境 | [隔离环境装配](chain1-local-product-acceptance.md) |
+| 准入、接单与评审 | [AGENTS.md](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md) |
 
 <a id="dependency-and-package-checks"></a>
 
 ## 依赖与包边界检查
 
-需要新依赖证据时，复用已有分析脚本；输出放在已忽略的本地产物目录：
-
-```powershell
-New-Item -ItemType Directory -Force .local/refactoring | Out-Null
-./scripts/analyze-project-deps.ps1 6>&1 | Tee-Object -FilePath .local/refactoring/dependency-baseline-output.txt
-```
-
-`scripts/dependency-baseline.ps1` 的默认报告目录同样是 `.local/refactoring`。分析工具是建议性入口，不自行提升为CI门禁，不覆盖归档快照；真实规则由当前架构及原检查决定。
+包依赖由当前架构、`.golangci.yml` 和源码检查约束。需要分析报告时复用 `scripts/analyze-project-deps.ps1` 或 `scripts/dependency-baseline.ps1`，输出保存在已忽略的 `.local/refactoring`；报告不是新的领域事实或额外 CI 门禁。
