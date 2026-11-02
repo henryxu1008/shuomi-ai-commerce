@@ -78,6 +78,7 @@
 - `completion-draft-history.md` — [待补全草稿保存历史与比较 v1](completion-draft-history.md)
 - `completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](completion-draft-restore.md)
 - `completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](completion-draft-structured.md)
+- `market-research-selection.md` — [市场研究与选品：最小领域合同候选（未准入）](market-research-selection.md)
 - `own-product-draft-entry.md` — [自有商品单件转入与独立待补全入口 v1](own-product-draft-entry.md)
 - `own-product-edit.md` — [自有商品版本更新与独立编辑页 v1](own-product-edit.md)
 - `own-product-entry.md` — [自有商品独立录入页与多变体 v1](own-product-entry.md)
