@@ -1,925 +1,208 @@
-# 架构文档入口
-
-返回[文档首页](../README.md)。查找合同时先使用下面的分类入口；原合同文件路径和完整历史索引保留。
-
-| 阅读任务 | 入口 |
-| --- | --- |
-| 按业务领域查合同、owner、权限与恢复边界 | [`topics.md`](topics.md)：领域合同阅读导航 |
-| 查旧实现的 EXTRACT / RETIRE、有效 KEEP 与断言映射 | [`retirement-index.md`](retirement-index.md)：按领域查找退休边界 |
-| 从系统整体开始 | [目标架构](project-target-architecture.md) → [Project Boundaries](project-boundaries.md) → [源码地图](../development/repository-structure.md#current-entrypoint-map) |
-| 做设计或实现前检查 | [AGENTS.md](../../AGENTS.md)、[Review Checklist](architecture-review-checklist.md)、[Current Guard Baseline](#current-guard-baseline) |
-| 找安装、操作与接线说明 | [操作说明](../operations/README.md)、[工程交接](../engineering/README.md)、[全新系统开发基线](../product/greenfield-no-legacy-migration.md) |
-
-目录分类不代表全部文档处于同一批准或开放状态。原文页首的产品依据、准入、精确替代和未开放范围继续有效；
-当前进度、准确 HEAD / CI 与实例交付查对应 Issue / PR。
-
-## 当前设计候选
-
-- [`shein-native-validator-contract-v1.md`](shein-native-validator-contract-v1.md) — #34 原生 SHEIN 公共诊断、材料 Tool 版本及消费者接入候选；design-only，尚未实施或取得独立准入。
-
-## 完整索引与沿革
-
-以下保留历次补充登记、原阅读顺序与冻结证据。旧“当前/下一步”、SHA、计数和阶段状态属于原记录；
-日常查找使用上方领域导航，不把历史索引当作滚动派工队列。
-
-<details>
-<summary>展开早期归位登记与阅读说明</summary>
-
-## 归位的重构边界
-
-- [`module-target-mapping.md`](module-target-mapping.md) — 现行领域落点、九领域与Phase2 landing规则仍被guard消费，归入架构；历史旧owner按原替代范围读取。
-- [`runtime-consumer-register.md`](runtime-consumer-register.md) — Legacy consumer register仍由测试对实际imports校验；该有效边界不能当旧报告删除，归入架构，dated快照与ceilings原文保留。
-- [`shein-submit-readiness-action-policy.md`](shein-submit-readiness-action-policy.md) — save_draft动作分类仍由publishing/final_review_policy.go实现；既有平台纯规则归位，旧ListingKit适配不恢复。
-
-## 归位的领域合同
-
-旧工作流目录已撤销。以下只归位既有合同，不改变原状态或后续精确替代；设计/提案准入与实际开放仍分别确认。旧阶段资料已退出当前工作树，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
-
-- [`ai-capability-platform.md`](ai-capability-platform.md) — AI Capability / Agent平台合同；旧Prompt及泛化执行按页首确认边界退休。
-- [`image-download-safety.md`](image-download-safety.md) — HTTPS/SSRF/重定向/TLS/超时/大小/取消约束仍有效；当前实现归integration/httpimage，旧local路径不是入口。
-- [`ai-provider-contracts.md`](ai-provider-contracts.md) — Provider-neutral值、接口与调用边界；不恢复已退OpenAI Manager/全局回退。
-- [`authentication-runtime.md`](authentication-runtime.md) — 统一Verifier与显式权限/组织边界；旧推断授权和全局helper按#1022精确退休。
-- [`image-agent-workflow.md`](image-agent-workflow.md) — 保留图像原请求/状态/取消/持久化合同；旧Signal与宽执行按后续边界替代。
-- [`image-agent-recovery.md`](image-agent-recovery.md) — 有效JSON/hash/恢复/UNKNOWN合同保留，旧V2/Signal兼容要求不恢复。
-- [`image-agent-budget-authorization.md`](image-agent-budget-authorization.md) — 图像执行预算与授权不变量仍由当前owner消费。
-- [`image-agent-candidate-release-gate.md`](image-agent-candidate-release-gate.md) — 候选canary先于生产promotion的既有安全顺序；不授权发布。
-- [`image-agent-effect-policy.md`](image-agent-effect-policy.md) — 当前副作用事实/结果与恢复owner边界。
-- [`image-agent-effect-terminalization.md`](image-agent-effect-terminalization.md) — 未决effect不能被本地错误终结的既有合同。
-- [`image-agent-effect-finalization.md`](image-agent-effect-finalization.md) — 外部effect最终事实/取消次序与保守UNKNOWN。
-- [`image-agent-effect-recovery.md`](image-agent-effect-recovery.md) — 唯一恢复owner与外部effect恢复合同。
-- [`commerce-tool-foundation.md`](commerce-tool-foundation.md) — Tool registry/权限/副作用与domain调用边界；#981已退中间事实值不恢复。
-- [`product-domain-contracts.md`](product-domain-contracts.md) — 当前Product/Source/Catalog/Asset职责；#981精确替代旧Facts/Normalize中间层。
-- [`commerce-tool-canonical-inspection.md`](commerce-tool-canonical-inspection.md) — 固定版本canonical inspection的有界合同，旧Task Reader由#1025退休。
-- [`shein-offline-validation-input-binding.md`](shein-offline-validation-input-binding.md) — 有界设计/合同引用保留，原BLOCKED_ON_CONTRACT_DECISION与未准入状态不提升。
-- [`source-account-sa1.md`](source-account-sa1.md) — Greenfield SA1 owner/作用域/幂等/秘密材料合同。
-- [`source-account-sa2-bff.md`](source-account-sa2-bff.md) — SA2浏览器DTO/BFF消费边界，原集成证据限制保留。
-- [`1688-context-locator.md`](1688-context-locator.md) — 当前batchcapture注释消费定位边界；原提案与后续采集决定的状态分别保留。
-- [`1688-batch-local-agent.md`](1688-batch-local-agent.md) — 当前CLI/queue注释消费的批量采集边界；不因归位恢复旧LocalAgent或旧未批准计划。
-
-官方登录产品决定见[官方 Login V2 / Auth.js](../product/login-phase1-official-zitadel.md)。
-
-- [`report-center-shein-offline-package-source-v1.md`](./report-center-shein-offline-package-source-v1.md)
-  - #628 original offline-package scope; reviewed IMPLEMENTATION_READY design; user-authorized implementation;
-    normal owner/auth/schema admission and canonical digest binding; evidence in PR #1049, runtime NOT_RUN.
-
-## 阅读入口与文档状态
-
-本目录同时保留当前领域合同、待确认设计、源码退休矩阵和历史证据。先按职责进入，再读目标文档页首的窄范围替代说明；下方历次索引中的旧阶段、SHA、数字和勾选保留原貌，不是滚动状态。准确实施/合并/运行结果以对应 Issue / PR 为准；`IMPLEMENTATION_READY` 只表示设计准入。
-
-- 产品与工程准入：[当前 UI / IA](../product/final-ui-ia-authority.md)、[全新系统决定](../product/greenfield-no-legacy-migration.md)、[AGENTS.md](../../AGENTS.md)。
-- 稳定归属：[Project Boundaries](project-boundaries.md)、[按职责划分的权威入口](#approved-authorities-by-responsibility)、[稳定边界索引](#stable-boundary-documents)、[开发边界索引](#development-boundary-documents)。
-- 当前消费路径：[Repository Structure](../development/repository-structure.md#current-entrypoint-map)、[运行交接](../operations/README.md)。存在设计或历史命令不表示该能力已部署。
-- 退休与历史：[Legacy Register](../refactoring/legacy-register.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[待确认设计](#boundary-designs-awaiting-confirmation)、[支持材料](#supporting-context)、[计划与评估](#plans-runbooks-and-evaluations)。退休矩阵中的 KEEP、有效安全/恢复合同、批准和失败记录保留；不同批次的替代仅作用于明列范围。
-- 既有检查：[Current Guard Baseline](#current-guard-baseline)、[Review Checklist](architecture-review-checklist.md)。[next-steps.md](next-steps.md)的旧阶段排序不是派工队列。
-- 商业及旧计量：[统一基础与预付资源](unified-base-prepaid-resources-v1.md)为当前 owner 依据；[PAY-041](pay-041-usage-ledger.md)、[PAY-042](pay-042-listingkit-generation-usage-cutover.md)和旧订阅合同保留历史，不恢复旧接线，也不表示旧资金/UNKNOWN 已结清。
-- 来源与平台证据：保留 TEMU / TikTok / Walmart 官方文档核对的原日期、范围与缺口；它们不证明账号准入或真实店铺通过。ERPNext [隔离适配结论](erpnext-shein-fulfillment-fit-v1.md)及[原始 JSON 证据](evidence/erpnext-fulfillment-fit-v1.json)同样不替代正式平台验收。
-
-补充可直接打开的入口（下方原索引中的文件名仍保留）：
-
-- 稳定规则与当前有界合同：[兼容路径退休约束](compatibility-retirement.md)、[Temporal 依赖边界](temporal-boundaries.md)、[平台边界策略及其后续替代](platform-boundary-strategy.md)、[优选申请只读总览](selected-application-overview-v1.md)。
-- 旧阶段盘点、旧协议、TEMU设计经验及PoC报告已退出当前工作树，不作为当前开发依据。
-
-以下为原完整索引与各阶段证据。
-
-- [`store-observations-current-store-install.md`](store-observations-current-store-install.md) — #1037 / #1038；用户明确选择保留当前合成试用数据，显式模块安装独立架构 IMPLEMENTATION_READY；当前 owner/四表/最小 grants，无旧数据迁移。
-- [`order-procurement-fulfillment-v1.md`](order-procurement-fulfillment-v1.md) — #1037 / #1038；独立架构 IMPLEMENTATION_READY，当前仓库双履约与显式用途授权；真实 SHEIN 待联调。
-- [`erpnext-shein-fulfillment-fit-v1.md`](erpnext-shein-fulfillment-fit-v1.md) — 固定 ERPNext/Frappe 版本，原生数量、事务与原操作恢复证据，不代表真实平台验收。
-- [`report-center-shein-target-source-v1.md`](./report-center-shein-target-source-v1.md)
-  - #628 user-confirmed native SHEIN TargetRecord report-source design;
-    IMPLEMENTATION_READY; user-authorized implementation in the original Draft PR;
-    distinct source/schema admission; no saved-report reinterpretation or migration.
-
-> #1046 当前源码闭包：[Store旧来源准入与审计尾部完整退休](legacy-store-source-admission-audit-tail-retirement-boundary.md)已获用户确认，按§1–§7（含§4.2/§6.1）在同一PR收齐10路径：四旧对象、专属尾部、安全断言当前owner映射及窄文档说明。当前能力与原有效断言保留；最终源码复核/准确CI留PR，不部署/合并/操作既有资源/关闭#301。以下冻结索引和历史完整保留。
-
-
-</details>
-
-- `legacy-store-source-admission-audit-tail-retirement-boundary.md` — [#301 Store旧来源准入与审计尾部完整退休设计](legacy-store-source-admission-audit-tail-retirement-boundary.md)：四对象、三原测试函数逐项安全断言映射及10路径完整矩阵；当前只四文档设计，一名独立Reviewer及原CI后交用户确认，确认前不实施，保留当前能力与历史。
-
-> #1044 当前源码闭包：[ImageAgent旧控制/摘要合同与测试尾部完整退休](legacy-imageagent-control-summary-tail-retirement-boundary.md)已获用户确认，按 §1–§7（含 §4.2/§6.1）在同一 PR 收齐14路径；七旧对象、有效测试转接及窄旧 KEEP 替代一并交付。源码最终复核/准确 CI 和用户确认留 PR；Store 组暂缓，当前能力与既有资源保持，#301 OPEN。以下冻结索引与历史完整保留。
-
-- `legacy-imageagent-control-summary-tail-retirement-boundary.md` — [#301 ImageAgent旧控制、摘要合同与测试尾部完整退休设计](legacy-imageagent-control-summary-tail-retirement-boundary.md)：七对象、原有效测试/旧KEEP与14路径整批矩阵；当前仅四文档设计，用户确认前不实施，Store组暂缓。
-
-- `legacy-resource-transaction-closure-retirement-boundary.md` — [#1041 旧资源通用事务与 Store 同库扣费链完整退休设计](legacy-resource-transaction-closure-retirement-boundary.md)：§1–§7（含§4.2/§6.1），待确认27路径完整闭包；当前仅设计，保留当前能力与Store观察，#301 OPEN。
-
-> #1039 当前整批交付：[旧图片异步、GRSAI通用执行与模型审核闭包](legacy-image-async-review-closure-retirement-boundary.md)已按用户确认设计整批实现，当前 IMPLEMENTED / In Review。窄编辑/同步Once、账本双指纹和当前共享AST helper已抽取；当前能力与Store观察、JSON/hash和物理账本保持，workflow/inventory/既有资源不动，#301 OPEN。以下冻结导航原文逐字保留。
-
-> #301 当前待确认设计：[旧图片异步协议、GRSAI 通用执行与模型审核尾部完整退休](legacy-image-async-review-closure-retirement-boundary.md)。三组一起；先抽取当前窄编辑/同步提交、账本双指纹零槽位和有效 AST helper，再退休旧协议与专属尾部。当前能力/Store 观察保持，workflow/inventory/既有资源不动。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY，设计确认后再实施，#301 OPEN。以下导航与历史逐字保留。
-
-- `legacy-image-async-review-closure-retirement-boundary.md` — [完整设计](legacy-image-async-review-closure-retirement-boundary.md)：§1–§7（含 §4.2/§6.1），未来61路径，一批交付。
-
-> #1033 / #301 当前整批实施：[旧通用图像执行闭包退休](legacy-imageagent-generic-execution-closure-retirement-boundary.md)。旧通用管线/模型审核、SDK Manager/Pool、全局/成员凭据回退和通用发布器退出；当前来源单主图、图组/Artwork 抽到当前 owner，JSON/hash/事务/恢复保持。#301 保持 OPEN；实现和 CI 证据不等于运行验收或合并授权。以下导航及历史原文保留。
-
-- `legacy-imageagent-generic-execution-closure-retirement-boundary.md` — [#1033 完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)：当前有效行为抽取后整退旧通用链；§4.2/§6.1 与获批 T14/T15 保持。
-
-> #1032 当前实施：用户已确认准确设计 7b761786ef998d3d4bb9cf72d5ae214fae35431e 的 §1–§7（含 §4.2、§6.1）；准入 USER_CONFIRMED / IMPLEMENTATION_READY。按67路径整批抽取四项当前 Image 维护操作、退休两旧 CLI 与聚合建表闭包，不留 alias。原冻结设计/导航原文逐字保留于下；滚动 CI/复核证据见 PR #1032。既有 Goose 记录不动，workflow/inventory 零改，不操作既有资源，#301 保持 OPEN。
-
-> #301 当前待确认设计：[旧schema CLI与跨域聚合建表完整闭包](legacy-schema-cli-owner-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。未来67路径，一个主要PR整批覆盖两旧schema CLI、跨域聚合注册及专属装配尾部；先抽取四项当前Image初始化/窄授权到正确owner，保留当前Store/Resource正式安装、组织约束、图像/采集/身份与Store观察。旧Goose2026083001源注册退出，既有版本表/记录不动，当前Goose链保留。不改workflow/所有inventory，不操作既有实例数据凭据缓存进程，无试用新前置，#301 OPEN。适用设计复核与用户确认后再实施，当前仅三文档。以下原导航/登记、既有顶注、历史计数和勾选逐字保留。
-
-- [`legacy-schema-cli-owner-closure-retirement-boundary.md`](legacy-schema-cli-owner-closure-retirement-boundary.md) — §1–§7（含§4.2/§6.1）设计；EXTRACT当前有效操作后整退旧入口，无alias。
-
-> 当前用户决定 / #301 / #1030：用户已确认冻结设计 f5e560cd7 的 §1–§7（含 §4.2/§6.1），IMPLEMENTATION_READY；同一 #1030 按36路径整批实施，不机械拆批。退出旧预装基础镜像、两个仓库安装CLI及browserinstall/httpclient/timeout专属闭包；官方SDK标准安装、显式指纹浏览器/匹配Profile、当前能力与Store观察保持。无新安装器、alias或试用前置；workflow/所有inventory/既有实例数据凭据缓存进程零改，#301 OPEN。源码自检、原CI及最终复核另记同一PR，不代表产品或运行验收，合并另授。生产修改前授权与准入已[写回并读回](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1030#issuecomment-6540889996)。以下[冻结设计/原导航](legacy-browser-install-closure-retirement-boundary.md)及其原阶段性措辞完整保留，当前授权状态以本条及PR为准。
-
-> #301 当前待确认设计：[旧浏览器预装与自下载整链](legacy-browser-install-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。未来36路径完整闭包：弃用预装基础镜像、两个仓库安装CLI及下载/HTTP/timeout专属尾部；当前官方SDK安装与本地批量显式指纹浏览器/Profile输入保持。待用户确认取消旧自下载承诺；不把普通Chromium或内核目录当等价替代，不增加试用前置。workflow/所有inventory/既有实例数据凭据缓存进程零改，Store观察保持，#301 OPEN。以下原导航和历史完整保留。
-
-- [`legacy-browser-install-closure-retirement-boundary.md`](legacy-browser-install-closure-retirement-boundary.md) — §1–§7（含§4.2/§6.1）完整退休设计；当前仅三文档，设计复核及用户确认后再实施。
-
-> #301 / #1029 当前 USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW：[完整两组30路径退休设计](legacy-listingkit-input-config-closure-retirement-boundary.md)。两组30路径在同一 #1029 整批实施，用户已确认冻结设计 e343a825b 的§1–§7（含§4.2/§6.1），IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。退出旧手工上传配置及旧 UI Task API/隐式集群 Secret 导入；当前 UI/Auth.js/Service API、图像/采集、imgproxy 两有效 Secret 键与原安全检查、Store 观察保留。workflow/inventory/既有实例数据凭据进程不动，无试用前置，#301 OPEN。以下原文、历史、计数和勾选完整保留；源码 CI/最终复核证据另见同一 PR，不代表产品或运行验收。
-
-> #301 当前待确认设计：[旧 ListingKit 上传配置与本地 UI 输入链完整退休](legacy-listingkit-input-config-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；两组30路径一个主要 PR，先核对旧 KEEP 与实际消费者。退出无应用消费者的上传配置、旧 Task API 输入及隐式集群 Secret 导入；保留当前 UI/Auth.js/Service API、ImageAgent、imgproxy 两 Secret 键、当前能力和 Store 观察。不改 workflow/inventory，不操作既有资源，不增加试用前置；设计复核与用户确认后再实施，#301 OPEN。以下原导航/历史完整保留。
-
-- [`legacy-listingkit-input-config-closure-retirement-boundary.md`](legacy-listingkit-input-config-closure-retirement-boundary.md) — #301 两组完整输入链退休设计；DESIGN_ONLY / NOT_READY，用户确认后再实施。
-
-> #301 / #1026 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING：用户已确认冻结设计bd53b2044的§1–§7（含§4.2/§6.1），[完整31路径边界](legacy-remote-debug-image-closure-retirement-boundary.md)在同一PR整批实施，不机械拆批；生产修改前授权与准入读回见[6525933152](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1026#issuecomment-6525933152)。七准确工件/专属helper与Pester退出，三原guard窄转换，20旧文档仅顶注且原blob完整后缀。当前安装、标准构建/全部能力与Store观察保持，无alias/新owner；workflow/完整inventory/依赖/保护与既有资源零改，无试用前置，#301 OPEN。必要源码自检/原CI/最终复核在同一PR另列，设计证据不替代源码，合并另授。以下冻结设计/原索引/历史逐字保留，旧阶段时态由本条当前决定替代。
-
-- [`legacy-remote-debug-image-closure-retirement-boundary.md`](legacy-remote-debug-image-closure-retirement-boundary.md)：#301 旧 SHEIN／ListingKit 远程联调与专属镜像链完整退休设计。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY；未来31路径整批收齐四转发/监视脚本、专属镜像生产入口和测试/文档尾部。保留Chromium/Playwright安装、当前构建/能力与Store观察；§1–§7（含§4.2/§6.1）待独立复核和用户确认。当前仅三文档，workflow/inventory与既有资源不动，无新增试用前置，#301 OPEN。以下原索引/历史完整保留。
-
-> #301 / #1025 USER_CONFIRMED：[旧listing/task与OpenAI便利链完整边界](legacy-task-openai-convenience-closure-retirement-boundary.md)已获用户确认§1–§7（含§4.2/§6.1），同一#1025按49路径整批实施；当前record/ai最小合同承接有效行为，旧task/宽接口/便利方法/ptr退出。当前能力/JSON/hash/身份权限/事务/Store观察保留，原检查仅按精确矩阵转换；workflow/inventory/既有资源零改，无新增试用前置，#301 OPEN。源码自检/原CI/最终复核另记，合并另授；以下原索引/历史完整保留。
-
-- [`legacy-task-openai-convenience-closure-retirement-boundary.md`](legacy-task-openai-convenience-closure-retirement-boundary.md)：#301 旧 listing/task 与 OpenAI 便利链完整退休设计；两组49路径同批，先抽当前最小 owner/规则，保留 JSON/hash/当前能力与 Store 观察。当前 DESIGN_ONLY / SOURCE_NOT_STARTED，用户确认后再实施。
-
-> #301 / #1022 当前USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING：[旧认证路由与S3对象操作完整闭包](legacy-auth-route-s3-operation-closure-retirement-boundary.md)。冻结3fc7e4864的§1–§7（含§4.2/§6.1）已确认，同一38路径整批退休旧Module/URL/permission推断、Prompt赋权/两全局helper与S3旧操作/Logger/完整空传参尾部。当前显式认证/实例组织权限、不可覆盖存储/严格读取/原key、JSON/hash/版本/资金/UNKNOWN、采集/图像与Store观察同步保留。原检查只按精确矩阵转换，无alias/fallback/新owner。workflow/inventory/历史计数/ceilings/保护/依赖及既有资源不动，无试用新前置，#301 OPEN。以下原历史/计数/勾选逐字保留；准确源码CI/最终复核在#1022单列，合并另授。
-
-> #301 当前设计：[legacy-auth-route-s3-operation-closure-retirement-boundary.md](legacy-auth-route-s3-operation-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。旧认证路由推断/Prompt权限与全局便利函数、旧S3可覆盖上传/Delete/Exists及专属Logger/空传参/测试尾部一次收齐；未来38路径，不机械拆批。当前显式身份组织权限、不可覆盖存储、采集/图像/JSON/hash/版本及Store观察同步保留。§1–§7（含§4.2/§6.1）待适用独立复核和用户确认；本轮只三文档，不改workflow/inventory，不操作既有实例/数据/凭据/进程，不增加试用前置，#301 OPEN。以下原文/历史/数字/勾选逐字保留。
-
-- [`legacy-auth-route-s3-operation-closure-retirement-boundary.md`](legacy-auth-route-s3-operation-closure-retirement-boundary.md)：本批完整设计，包含实际消费者、前批KEEP替代、owner及精确生产/原检查矩阵；未授权源码实施。
-
-> #301 / #1017 当前 **USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING**：[旧 HTTP 备用装配、白名单认证与辅助尾部完整退休](legacy-http-auth-support-closure-retirement-boundary.md)。用户已确认冻结ec7e1074c的§1–§7（含§4.1/§4.2/§6.1），同一92路径闭包整批实施；共享测试fixture单字段准确例外已获批准，见PR评论6519809300。当前统一入口、身份组织权限、采集/图像/JSON/hash/版本、Chromium安装、私密SMS和Store观察同步保留；无兼容alias/fallback。workflow/inventory/历史计数/ceilings/保护/依赖及既有实例/数据/凭据/进程不动，无试用新前置，#301 OPEN。准确源码/原CI/最终复核留同一PR，合并另授。以下旧历史/计数/勾选逐字保留。
-
-- [`legacy-http-auth-support-closure-retirement-boundary.md`](legacy-http-auth-support-closure-retirement-boundary.md)：本批当前设计与实施边界；原设计复核/CI已通过，实施已获用户授权，源码最终复核与合并另列。
-
-> #301 / #1010 — USER_CONFIRMED / IMPLEMENTING. [完整退休边界](legacy-restored-debug-closure-retirement-boundary.md) §1–§7（含 §4.2/§6.1）替代下文仅属于本批的旧 KEEP：旧 Go Amazon/1688 手工浏览器执行树、五个 debug 入口、手机号探针、db-query/json-simplifier、公开 YAML 与隐式配置入口退出。Chromium 安装闭包归 `integration/browserinstall`，当前 Collector 配置合同原样保留。当前采集、图像、身份权限、Store 观察同步保持；实际消费配置的四个命令须显式 `-config`，worker canary 无需配置。tools module 仅保留原 CI lint 固定用途；test-all 仅测 root。下方原文保留为历史，不作为已退休入口的现行操作指引。源级/CI 不等于运行验收；workflow/完整 inventory/计数/ceilings/工具版本及既有资源零改，#301 OPEN，无新增试用前置。
-
-> #301 当前优先设计：[恢复文件背后的旧调试与采集执行链完整退休](legacy-restored-debug-closure-retirement-boundary.md)。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。优先覆盖恢复入口背后的旧 Go 爬虫、prompt 回放、身份探针、DB/JSON 工具及配置尾部；仅抽取现役 Chromium 安装与 Collector 配置，保留当前采集/图像/身份/Store 观察。§4.2 的旧能力取舍及 §6.1 待独立复核和用户确认；#1009 保持原 owner。当前仅三文档，workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下原正文与历史完整保留。
-
-> #301 / #1007 整批实施：**RETIRE + SELECTIVE EXTRACTION / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**；[三组30路径完整设计](legacy-config-projection-dub-closure-retirement-boundary.md)已确认。22旧配置别名/警告、旧单项投影命令/helper、Dub整包退出；当前数组/run-only指纹字节和原事务保留，旧非null单项回执不兼容。原有效检查按§6.1改接；当前采集、图像、身份权限、Store观察不变，workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下原正文/历史/计数/勾选逐字保留。
-
-> #301 当前设计：[`legacy-config-projection-dub-closure-retirement-boundary.md`](legacy-config-projection-dub-closure-retirement-boundary.md)；Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。整批覆盖旧配置别名、单项投影提交、闲置 Dub 三组29路径；先抽取当前数组回执的固定指纹编码，旧单项回执不兼容，原授权拒绝不能随别名失效。保留当前采集、图像、身份权限与 Store 观察同步；workflow/inventory/既有资源零改，不加试用前置，#301 OPEN。适用设计复核及用户确认后再实施。以下既有正文/历史逐字保留。
-
-> #301 / #1005 当前实施：USER_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTING。用户已确认[方法与快照完整退休设计](legacy-image-method-snapshot-closure-retirement-boundary.md) §1–§7/§4.2/§6.1，同一PR整批20生产对象及专属尾部；保留当前方法v4/人工文案/图组/Artwork/采集/Store观察、JSON/hash、资金/UNKNOWN与有效恢复。旧SHEIN登录/身份回写不恢复；workflow/inventory/既有资源不动，无试用前置，#301 OPEN。以下起点正文/历史完整保留。
-
-> #301 当前设计：[`legacy-image-method-snapshot-closure-retirement-boundary.md`](legacy-image-method-snapshot-closure-retirement-boundary.md)（旧 ImageAgent 方法策略与历史快照完整退休闭包）。Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。四组一次覆盖：方法 v1/v2/v3、旧文案/prompt 与快捷重放尾部、宽松计划合同、四笔事故专用命令；当前方法 v4/人工文案/图组/Artwork/采集/Store 观察、JSON/hash 与资金/恢复 owner 保留。§4.2 明确旧读/续跑承诺须用户确认，§6.1 收齐同根检查与 fixture。当前仅三文档，不操作既有资源、不改 workflow/inventory、不增加试用前置，#301 OPEN。下方起点正文/历史完整保留。
-
-> #301 / #1001 当前实施：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户确认冻结设计 ea04b8376 §1–§7（含§4.2/§6.1），按[历史协议完整闭包](legacy-imageagent-history-protocol-closure-retirement-boundary.md)在同一PR整批收齐33路径。旧默认历史（含组织V3）退出续跑承诺；原14ID/15处位置/当前1、共享预算false、JSON/hash、当前图像/采集/取消恢复/Store观察保留。workflow/inventory和既有资源不动，无新试用前置，#301 OPEN。准确源码CI/最终复核维护在PR；以下设计及前批历史完整保留。
-
-> #301 当前设计：[`legacy-imageagent-history-protocol-closure-retirement-boundary.md`](legacy-imageagent-history-protocol-closure-retirement-boundary.md)。DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。完整33路径提案：保留原14个ID/15处SDK版本读取及当前值1，退出已到达读取点的旧默认历史、旧失败投影和四便利合同；当前预算false数据合同、JSON/hash、取消/恢复及Store观察保留。历史V3的准确hard-cut仍待独立设计复核和用户确认，不移动late marker、不读取实际历史。当前仅三文档；workflow/inventory及既有资源不动，无新试用前置，#301 OPEN。#998已合并，[准确main CI成功](https://github.com/henryxu1008/shuomi-ai-commerce/pull/998#issuecomment-6493711613)。以下原正文和历史记录完整保留。
-
-> #301 / #998 当前实施：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户确认冻结 b3054a3a4 §1–§7（含§4.2/§6.1），在同一PR整批收齐15路径：四旧业务Signal入口、分派与deferred尾部退休，原恢复接收循环抽取；当前Update/Resume/JSON/hash/版本与Store观察保持。含旧业务Signal历史（含这类V3）停止续跑边界已获确认；不操作真实历史或既有资源，不改workflow/inventory，无新试用前置，#301 OPEN。准确源码CI/最终复核证据维护PR；以下设计阶段和前批记录保留。
-
-> #301 当前设计：[`legacy-imageagent-business-signal-closure-retirement-boundary.md`](legacy-imageagent-business-signal-closure-retirement-boundary.md)，DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY。完整覆盖四旧业务 Signal 入口、专属分派/排队及尾部；当前 Update、恢复 Signal 和共享载荷保留。旧业务 Signal 驱动历史（含这类 V3）停止续跑是待用户确认的提案，不能概括为全部 V3 回放不变。未来15路径，本阶段仅三文档；不改 workflow/inventory，不操作既有资源，不增加试用前置，#301 OPEN。#996 已合并且[准确 main CI 成功](https://github.com/qq550723504/shuomi-ai-commerce/pull/996#issuecomment-6489960568)；以下前批状态与历史正文保留。
-
-> #301 / #996 当前实施：USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW。用户确认冻结设计25258f5eb的§1–§7（含§4.2、§6.1），同一主要PR收齐34路径；旧V2候选/批准/默认装配与专属尾部按本设计退休。当前durable JSON/hash/有效V3回放恢复、真实组织worker/provider、图像/采集和Store观察同步保留；GitHub workflow/完整inventory/依赖/保护及既有实例/数据/凭据/进程零改，无新试用前置，#301 OPEN。实施/原CI/源码最终复核证据写PR，设计复核不替代源码复核；合并/部署/关单另授权。 [`legacy-imageagent-v2-contract-tail-closure-retirement-boundary.md`](legacy-imageagent-v2-contract-tail-closure-retirement-boundary.md)。
-
-> #301 / #994 当前整批实施：**RETIRE + SELECTIVE EXTRACTION / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。[旧 ImageAgent 手工运行链](legacy-imageagent-manual-runtime-closure-retirement-boundary.md)按确认 §1–§7/§4.2/§6.1 收齐旧 v2/raw-v3 启动、旧 Activity/one-shot/v2 effect 仓库和两项闲置部署；当前 V3 纯合同/helper 原样抽取。组织 ImageSet/Artwork/采集单主图、Store 观察与官方授权、有效 JSON/hash/版本及隔离 WithWorker canary 保留。源码 CI 和最终复核待 PR 证据，不代表运行验收或合并授权；workflow/完整 inventory/依赖/保护及既有实例/数据/凭据/进程不动，不增加试用前置，#301 OPEN。以下设计及前批历史全文保留。
-
-> #301 新批完整设计：`legacy-imageagent-manual-runtime-closure-retirement-boundary.md` [旧 ImageAgent v2/v3 手工图像任务运行链](legacy-imageagent-manual-runtime-closure-retirement-boundary.md)，**Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。旧业务模式、未绑定组织的执行/注册、v2 one-shot/ledger 及两份专属声明整批退出；当前图组/Artwork、采集单主图/明确组织 worker、有效 V3 协议、隔离 WithWorker canary、采集及 Store 观察同步保留。§4.1 抽取当前最小合同/helper，§4.2 保持当前表名/JSON/hash/版本，§6.1 精确转换原检查。当前仅三文档 N/A/Ready；复核及用户确认后再实施。workflow/完整 inventory/依赖/保护与既有资源零改，无新试用前置，#301 OPEN。以下开工 main 完整索引与历史逐字保留。
-
-> #988 / #301：USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW。旧订阅、Token allocation/Store quota、OpenMeter 与闲置 recorded Review 整链按冻结设计及两项获批准确例外退休；当前 Resource/money、原始 Token 审计、AI/图像、采集及 Store 官方授权/观察同步保留。详见 [退休设计](legacy-subscription-metering-closure-retirement-boundary.md)。#301 OPEN；无实例、数据、凭据或进程操作，源码最终检查/合并另授权。下方保留原索引/登记与历史证据。
-
-> #301 当前设计：`legacy-subscription-metering-closure-retirement-boundary.md` [旧订阅、额度与影子计量完整退休闭包](legacy-subscription-metering-closure-retirement-boundary.md)，**Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。依据当前统一基础方案，拟整退旧套餐/购买、Token分配/Store quota和OpenMeter专属链；当前Token审计、原图像预算/dispatch防重、Resource点数/月限、钱包和Store观察/官方授权保留。§1–§7（含§4.1/§4.2/§6.1）明确前批KEEP替代、77整退/70有界混合/1 guard候选及原CI检查改接。当前仅三文档N/A/Ready，适用独立复核和用户确认后再实施；workflow/完整inventory/保护不改，不操作既有实例/数据/凭据/进程，不增加试用前置，#301 OPEN。#985独立SHEIN登录/身份回写已源级退休，旧泛称KEEP不恢复。以下起点main完整索引/登记/历史/数字/勾选逐字保留。
-
-> #301 / #985 当前整批实施：**RETIRE / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。独立 SHEIN 登录与登录后 Store 身份回写完整闭包退出；Store 观察同步、官方授权、采集/图像/共享能力及 JSON/hash/版本保持。本轮准确替代此前独立 worker 及其专属同步 KEEP，51整退工件、混合尾部和原有效检查按[冻结设计 §1–§7/§4.2/§6.1](legacy-shein-login-identity-sync-closure-retirement-boundary.md)一次收齐，无兼容层；workflow只有获准旧build行/专属deploy两项改动，inventory/保护不改。core_alignment唯一常量尾部单行修订已另获批准。不操作既有实例/数据/凭据/进程，不增加试用前置，#301 OPEN；准确源码/CI/最终复核见同PR，合并另授权。以下原索引/登记/历史/数字/勾选逐字保留。
-
-> #301 当前设计：[`legacy-shein-login-identity-sync-closure-retirement-boundary.md`](legacy-shein-login-identity-sync-closure-retirement-boundary.md)。**Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。本轮用户决定拟整退独立登录/验证码/私有 Cookie 与 Profile、登录后 Store ID 回写、专属控制表和完整构建部署尾部；Store 观察同步、官方授权、当前采集/图像/共享能力继续保留。§1–§7（含 §4.2/§6.1）明确前批 KEEP 替代、51整退工件、原检查改接和 workflow 两项精确例外提案。当前只三文档 N/A/Ready，不改生产/测试/workflow/inventory；复核及用户确认后才实施，不操作既有实例/数据/凭据/进程，不增加试用前置，#301 OPEN。以下起点 main 完整原正文/历史/数字/勾选逐字保留。
-
-> #301 / #983 **USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**：[`legacy-asset-source-openai-tail-closure-retirement-boundary.md`](legacy-asset-source-openai-tail-closure-retirement-boundary.md)按冻结18a955e22 §1–§7（含§4.2/§6.1）整批实施39路径。旧资产配方、来源发布包装、AI迁移合同/旧版本接受尾部退出；原测试改接当前owner，全部有效断言/八负例保持。catalog.Publisher、当前能力/JSON/hash/版本及独立SHEIN登录/Store同步保留；workflow/完整inventory与既有资源不动，不增试用前置，#301 OPEN。准确源码CI/最终复核见#983，合并另授权。以下完整索引/历史保留。
-
-> #301 当前 **DESIGN_ONLY / AWAITING_REVIEW_AND_USER_CONFIRMATION / SOURCE_NOT_STARTED**：[`legacy-asset-source-openai-tail-closure-retirement-boundary.md`](legacy-asset-source-openai-tail-closure-retirement-boundary.md)。三组完整设计一次覆盖旧资产静态配方、来源发布包装及 OpenAI 合同/旧 resolver 版本尾部，未来同一39路径，先改接当前 owner 再 Hard-Cut，不机械拆批。本文档阶段 N/A 仅三文档；未来 Independent Architecture / NOT_READY，适用复核、用户确认 §1–§7（含 §4.2/§6.1）及 IMPLEMENTATION_READY 读回先于源码修改。保留 catalog.Publisher、当前能力/JSON/hash/版本、独立 SHEIN 登录与 Store 同步；workflow/完整inventory/依赖/保护与既有实例/数据/凭据/进程零改，不增试用前置，#301 OPEN。以下原完整索引/历史逐字保留。
-
-> #301 / #981 当前整批实施：**RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `4e74dfec9f7bdb919ee8f983d5e3cfc5879bc578` 的§1–§7（含§4.2/§6.1），同一26路径完整闭包：catalog.Normalize及17helper、canonical四项旧推断评分、两组旧Facts、SourceRequest/SourceResult及专属尾部已退出，无alias/转发/替代归一化owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog保存读取、canonical13值/六常量/草稿投影、JSON/hash/SourceIdentity四零值槽位与拒绝、采集及独立SHEIN登录/Store同步保持。有效身份断言改接当前owner，旧必读精确转Lstat整源缺席，其余检查保留。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，无新试用前置，#301 OPEN；必要自检、准确源码HEAD/原CI/最终复核分别记同PR，不等于运行/产品验收。合并/部署/关单另授权；源码最终子代理复核与设计复核分开，不默认新增线程。[`legacy-source-normalization-facts-closure-retirement-boundary.md`](legacy-source-normalization-facts-closure-retirement-boundary.md)；以下冻结设计或起始正文/索引/历史完整保留，旧阶段状态由本条当前实施状态替代。
-
-> #301 新批完整设计：[`legacy-source-normalization-facts-closure-retirement-boundary.md`](legacy-source-normalization-facts-closure-retirement-boundary.md)，**RETIRE / Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。未来同一26路径闭包：catalog.Normalize/17 helper、canonical四项旧推断评分、两组旧Facts、SourceRequest/SourceResult及全部专属尾部。当前SourceEnvelope/ToSnapshot/Catalog、canonical13值/六常量及草稿投影保持；SourceIdentity四JSON零值槽位、原规范化/hash/读取拒绝不变，§6.1精确改接旧身份测试和一项旧必读检查。当前仅设计三文档N/A/Ready，适用复核及用户确认后再实施；workflow/完整inventory/依赖/保护与既有实例/数据/凭据/文件/进程零改，保留当前能力、独立SHEIN登录与Store同步，无新试用前置，#301 OPEN。以下起始main完整索引/历史/数字/勾选逐字保留。
-
-> #301 / #980 当前整批实施：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `63118885b4c3b5137078871588af86e9a7b1160b` 的§1–§7（含§4.2/§6.1），同一44路径完整闭包：旧PolicyRouter/Legacy-Shadow/Planner、未接线HTTP图片adapter、旧本地场景/布局与白底/IP启发式退出；账本值、图片字节检查及场景参数/metadata原规则归当前owner，无alias/转发/fallback。TestCategoryOf原整函数及三分支断言保留到model_test.go；两计费负例只换同值typed string，原断言保留。当前AI/图像/JSON/hash/版本/计费/发送UNKNOWN、采集/PoolManager取消及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，无新试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI/最终复核记同PR，不等于运行/产品验收；合并/部署/关单另授权。 [完整冻结设计](legacy-ai-routing-image-policy-closure-retirement-boundary.md)；以下起始main的完整索引/历史/数字/勾选逐字保留。
-
-> #301 新批设计：[`legacy-ai-routing-image-policy-closure-retirement-boundary.md`](legacy-ai-routing-image-policy-closure-retirement-boundary.md)，旧 AI 路由与图像策略支线完整退休边界。**Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。同一44路径闭包：旧 PolicyRouter/Legacy-Shadow/执行计划、未接线 HTTP 图片 adapter、本地场景排版与白底/IP 启发式；先抽取现役账本值、图片字节检查及场景参数/metadata 纯规则，原 JSON/hash/计费/发送/UNKNOWN 不变。当前仅三文档 N/A/Ready；设计复核及用户确认后再实施。完整 inventory/workflow/依赖/保护及既有资源零改，当前能力、采集、独立 SHEIN 登录与 Store 同步保留，无新试用前置，#301 OPEN。以下既有索引与历史完整保留。
-
-> #301 / #977 当前整批实施：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `6285dd4a850351407c987445e3a519a7b7f0b2f4` 的§1–§7（含§4.2/§6.1），同一49路径闭包：旧ImageAgent HTTP宿主/静态binding、Task启动预检四合同/六函数、闲置默认装配/queue/字符串recovery-ID门面退出，无alias或替代旧宿主。有效断言改当前Service/HTTP/真实授权owner；Chain1真实领域首次批准/丢返回与当前HTTP已完成批准socket重放分层保留，不新增generic运行装配。现役worker/WithWorker canary、通用域命令/Temporal/JSON/hash/版本/恢复、采集/图像/SDS/POD/资产审批及独立SHEIN登录/Store同步保持。workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/进程，无新增试用前置，#301 OPEN。必要自检、准确源码HEAD/原CI及最终交付复核分别记录同PR；不等于运行/用户验收，合并/部署/关单另授权。 [完整冻结设计](legacy-imageagent-http-runtime-closure-retirement-boundary.md)；以下实际开工main的完整正文/历史/数字/勾选逐字保留。
-
-> #301 新批完整设计：`legacy-imageagent-http-runtime-closure-retirement-boundary.md`；[旧 ImageAgent 隔离 HTTP 与闲置启动装配闭包](legacy-imageagent-http-runtime-closure-retirement-boundary.md)，**Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。未来49路径一次收齐：旧HTTP宿主/Task专属启动预检/闲置默认wrapper；有效断言改当前Service/HTTP/真实授权owner，整链script/Compose/driver与现役worker/WithWorker canary保留。§4.2明确图片段typed业务用例和当前HTTP丢响应双层证据，§6.1精确冻结原检查。当前只三文档N/A/Ready，设计复核及用户确认后再实施；当前能力、采集、SDS/POD、资产审批及独立SHEIN登录/Store同步不变。workflow/完整inventory/依赖/保护及既有实例/数据/凭据/进程零改，无试用前置，#301 OPEN；以下起始main完整正文/历史/数字/勾选逐字保留。
-
-> #301 / #972 当前整批实施：**RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `a2b39bd82fc8713c2ed54dea208afe47c5cd8248` 的 §1–§7（含 §4.2、§6.1），同一 PR 收齐102路径：旧1688 LocalAgent整链及父crawler空壳、两个专属Prepare、孤立SDS商品源与底图策略退出。有效来源夹具改现有中立合同，原完整JSON/规范化/hash/发布身份前后等价；原安全与领域断言按§6.1精确转换。保留当前采集、SDS/POD、资产审批/recipe/共享身份权限及独立SHEIN登录与Store同步；workflow/完整inventory/依赖/保护零改，不操作既有实例/数据/凭据/文件/进程，不增加试用前置，#301 OPEN。实施/自检/原CI/最终复核分别记录于 [PR #972](https://github.com/qq550723504/shuomi-ai-commerce/pull/972)，不等于运行/产品验收；合并/部署/关单另授权。以下冻结设计及历史完整保留。
-
-> #301 新批完整设计：[`legacy-localagent-source-policy-closure-retirement-boundary.md`](legacy-localagent-source-policy-closure-retirement-boundary.md)，**Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。旧1688 LocalAgent整链、父crawler三空壳及两个专属Prepare、孤立SDS商品源与资产底图策略同一批102路径；43整退/2混合生产/5检查/8当前文档/44历史顶注，不机械拆批。保留当前公共浏览器/扩展/批量及原浏览器/debug、来源JSON/hash/lineage、有效发布/资产回归、当前SDS/POD/资产审批/recipe/共享权限和独立SHEIN登录/Store同步。§4.2明确唯一中立夹具改接，§6.1逐项冻结原检查转换；当前仅三文档N/A/Ready，设计复核、用户确认和IMPLEMENTATION_READY读回后再实施。workflow/完整inventory/依赖/保护及既有实例/数据/凭据/文件/进程零改，无试用前置，#301 OPEN；以下完整原索引/登记/历史/数字/勾选逐字保留。
-
-> #301 / #969 当前实施：**RETIRE / Reuse Existing Architecture / USER_CONFIRMED / Ready / SOURCE_IMPLEMENTED / IN_REVIEW**。用户已确认冻结设计 `60bef6cf3d5d7d557477f69b4ea8c19d162e0d58` 的 §1–§7（含 §4.2、§6.1），同一18路径完整收齐。日志级别镜像/闲置控制/分级 Hook、无效配置与 Runner.Status 转发及专属尾部退出；有效构造留原公开 NewLogManager，registry 使用标准 sync.Locker，原真实锁/发布顺序/轮转保持。HTTP 实际 TLS/重试/取消、Goose Up/版本表/锁/幂等与状态断言不变。原 guard 仅删三旧保活项并新增一个完整 guard，其余原检查与 workflow/完整 inventory/依赖/保护零改。当前能力、采集及独立 SHEIN 登录/Store 同步保持；不操作既有实例/数据/凭据/进程，无试用前置，#301 OPEN。准确源码 HEAD、自检/CI/最终复核分别留同一 PR；实现不是运行/用户验收，合并/部署/关单另授权。 [完整冻结设计](legacy-support-control-tail-closure-retirement-boundary.md)；以下原完整索引与历史逐字保留。
-
-> #301 新批完整设计：**DESIGN_ONLY / SOURCE_NOT_STARTED / AWAITING_USER_CONFIRMATION**。旧日志控制与扩展、HTTP 无效选项、迁移状态转发三组一次收齐，未来18路径，不机械拆批。只退无实际消费者的级别镜像/控制/分级 Hook、无效配置字段和 Runner.Status；原 Logrus/全局初始化锁/轮转、HTTP TLS/重试和 Goose Up/幂等/状态断言保持，当前能力及独立 SHEIN 登录/Store 同步不变。 `legacy-support-control-tail-closure-retirement-boundary.md`, [设计 §1–§7（含 §4.2、§6.1）](legacy-support-control-tail-closure-retirement-boundary.md)明确前批 KEEP 替代、18路径矩阵及原检查三项转换；当前仅三文档 N/A / Ready，未来 Reuse Existing Architecture / NOT_READY，用户确认并 Ready 读回后再实施。workflow/完整 inventory/依赖/保护及既有实例/数据/凭据/文件/进程零改，无试用前置，#301 OPEN。以下起始 main 完整正文/历史逐字保留。
-
-> #301 / #968 当前实施归属：**EXTRACT + RETIRE / Independent Architecture / USER_CONFIRMED / IMPLEMENTATION_READY**。[本批完整设计](legacy-shein-draft-support-closure-retirement-boundary.md)确认68路径一次切换：22真实 wire 值归 `marketplace/shein/offlinepackage/previewdata` 纯叶包，有效文本/品牌规则归当前 `marketplace/shein/publishing`；旧 api/product、api/attribute、content、authorizedbrand 及 adapter/私有空 Context 链退出，无兼容 alias。生产明确传默认词和空品牌值，metadata BrandCode 不签发清理授权。§6.1的11个原函数准确转换，新增 `TestLegacySheinDraftSupportClosureIsRetired` 保护完整闭包，其余原检查/负例/永久禁令保持。JSON/hash/版本、Builder取消与当前采集、独立SHEIN登录/Store同步保持；workflow/完整inventory/依赖/保护零改，无既有资源操作或试用前置。执行证据与最终源码状态见 [PR #968](https://github.com/qq550723504/shuomi-ai-commerce/pull/968)，#301 OPEN；以下冻结设计及历史完整保留。
-
-> #301 新批完整设计：[`legacy-shein-draft-support-closure-retirement-boundary.md`](legacy-shein-draft-support-closure-retirement-boundary.md)，**Independent Architecture / DESIGN_ONLY / SOURCE_NOT_STARTED / NOT_READY**。四旧包及adapter完整闭包未来68路径同一PR：22值归域内previewdata纯叶子避免offlinepackage/publishing循环，有效文本/品牌规则归当前publishing，旧Service/配置JSON/日志/Context及私有尾部退出；当前JSON/hash/版本/Builder取消与独立SHEIN登录/Store同步保持。§4.2/§6.1明确有效行为及11原检查准确转换。仅三设计文档；设计复核、用户确认与Ready读回后才实施。workflow/完整inventory/依赖/保护及既有资源不动，无试用前置，#301 OPEN。以下起始main完整索引/历史逐字保留。
-
-> #301 / #964 **USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**：按[`legacy-source-result-contract-closure-retirement-boundary.md`](legacy-source-result-contract-closure-retirement-boundary.md)（冻结§1–§7/§4.2/§6.1）整批实施53路径。17个结果值/5个原JSON与错误方法归域内纯叶子 `crawler/amazon/capturedata`，36消费者切换，旧全局 `internal/model` 及三个孤立SHEIN属性DTO退出，无alias；CustomAttributeRelation及原JSON/错误/采集/PoolManager行为保持。原两函数精确转换＋完整退休guard，workflow/完整inventory/依赖/保护及既有资源不动。独立SHEIN登录/Store同步保留，无试用前置，#301 OPEN。准确源码CI/最终复核见[#964](https://github.com/qq550723504/shuomi-ai-commerce/pull/964)，运行/产品验收NOT_RUN，合并另授权。以下最终main完整索引/历史逐字保留。
-
-> #301 / #961 **USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**：[`legacy-publishing-support-policy-closure-retirement-boundary.md`](legacy-publishing-support-policy-closure-retirement-boundary.md)按确认§1–§7（含§4.2/§6.1）整批78路径实施。八值合同与有效纯规则归已有owner，旧publishing公共根、十一闲置策略族/三个混合尾部及jsonx退出，无alias。仅未来新生成多属性固定排序，原hash算法/版本/已有载荷与原golden保持；当前能力、独立SHEIN登录与Store同步保持。准确源码HEAD/CI/最终复核见[#961](https://github.com/qq550723504/shuomi-ai-commerce/pull/961)，运行/产品验收NOT_RUN，合并另授权，#301 OPEN。以下最终main完整索引/历史保留。
-
-- [`browser-kernel-release-catalog-v1.md`](browser-kernel-release-catalog-v1.md): 平台内核发行目录与固定制品元数据合同，Issue #1013；独立 metadata owner、全局读/平台发行权限、不可变发布/单向下架及原生下载可信边界。默认关闭；源码交付不授权真实发行、下载、初始化或部署。
-- [`store-browser-workbench-implementation.md`](store-browser-workbench-implementation.md): 店铺浏览器接口实施交接，Issue #954；复用 Store 的单次动作准入、原主体回执/报告与业务审计，基于已批准的 store-workbench C1/C3/C4。固定 HEAD、CI、独立审阅和后续授权保留在实施 PR；不改 IAM、不运行产品、不应用实际 schema、不部署。
-- [`官方 ZITADEL 适配`](../engineering/zitadel-official-provider-boundary.md)：当前受保护成员只读/原生管理边界，取消定制接口依赖，保留历史回执。原 [`protected-member-role-native-cas.md`](protected-member-role-native-cas.md) 仅为历史设计，不再是产品要求。
-> #301 / #960 **USER_CONFIRMED / IMPLEMENTATION_READY / SOURCE_IMPLEMENTED / IN_REVIEW**：[`legacy-shein-draft-assembly-closure-retirement-boundary.md`](legacy-shein-draft-assembly-closure-retirement-boundary.md)按冻结 §1–§7（含 §6.1）整批实现119路径。29值类型与16公开纯规则归offlinepackage，唯一空配置本地组装归既有draft，15消费者改接，60旧文件/未注入扩展/四私有map退出，无alias；当前JSON/hash/版本、有效规则、采集及独立SHEIN登录/Store同步保持。准确源码HEAD/原CI/最终复核见[#960](https://github.com/qq550723504/shuomi-ai-commerce/pull/960)，运行/产品验收NOT_RUN，合并另授权，#301 OPEN。以下最终main完整索引/历史保留。
-
-- [`legacy-idle-provider-bootstrap-closure-retirement-boundary.md`](legacy-idle-provider-bootstrap-closure-retirement-boundary.md): #301 / IMPLEMENTATION_READY。用户已确认§1–§7（含§6.1）；三组35工件整批实施：闲置Gemini图片SDK、runtimepath与LoadFromBytes正式入口退出，19有效配置测试改接当前owner。当前能力、独立SHEIN登录与Store同步保持；验证/准确HEAD/源码CI与最终复核见#958，真实运行/产品验收NOT_RUN，#301 OPEN。以下原完整索引/历史保留。
-
-> #953 源码实施阶段：用户已确认冻结设计 §§1–7（含 §6.1）。旧生成链与 `internal/product/enrichment` 已整批退休；当前候选合同及纯规则归 `internal/product/review/proposal`，Review 仅接现成候选，沿原四个 HTTP 审核路由处理。必要自检、准确源码 CI 与最终复核分别记录在 [PR #953](https://github.com/qq550723504/shuomi-ai-commerce/pull/953)，当前尚未交付合并授权；运行/产品验收 NOT_RUN，#301 保持 OPEN。 以下冻结设计、索引和历史证据完整保留。
-
-#953 当前设计重做：旧生成链与审核候选合同完整退休闭包。**Independent Architecture / REDESIGNING / SOURCE_NOT_STARTED / NOT_READY**；当前只三文档，原旧范围复核不覆盖新范围。先抽取当前审核最小合同/纯规则到 `product/review/proposal`，再整退 `product/enrichment` 旧根、生成入口及 #953 原 OpenAI 专属尾部；未来同一149工件，不留兼容 alias、不机械拆批。保留 JSON/hash、当前采集、独立 SHEIN 登录与 Store 同步；workflow/完整inventory零改，既有实例/数据/凭据/进程不动，#301 OPEN。设计确认与 IMPLEMENTATION_READY 读回后再实施，以下原完整索引保留。
-
-- [`legacy-openai-adapter-closure-retirement-boundary.md`](legacy-openai-adapter-closure-retirement-boundary.md)：本次 #953 重做设计，§1–§7/§6.1 与完整删除/抽取矩阵。
-
-> **#948 当前阶段：源码已按用户确认设计整批实施 / In Review。** [旧采集外观与诊断闭包设计](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md)覆盖四组40工件，公共1688有效配置已先抽取；最终源码 CI/独立交付复核以 PR 为准，合并另授权，#301 保持 OPEN。以下完整旧索引保留。
-
-- [`legacy-crawler-facade-diagnostics-closure-retirement-boundary.md`](legacy-crawler-facade-diagnostics-closure-retirement-boundary.md): #301 four-group complete crawler facade/compatibility/diagnostics/statistics retirement, Independent Architecture / DESIGNING / DESIGN_ONLY. Forty artifacts in one batch, forty-eight production functions/methods, eight exclusive types and six mixed fields; extract one current public-browser configuration projection before retiring the old profile convenience path. Sections 1-7 including 6.1 define actual consumers, six earlier KEEP replacements, JSON/persistence owners, exact four original-guard single-entry changes, effective-test transfers and all exclusive tails. Preserve actual acquisition/features/variations/CAPTCHA rules, parent deadline/cancellation, current models/JSON and independent SHEIN login/Store sync. Only three design documents now; production/tests/workflow/full inventory/dependencies/protection/existing resources unchanged. Independent design review, user confirmation and IMPLEMENTATION_READY readback precede implementation; no trial prerequisite, #301 OPEN. Original full index suffix remains.
-
-- [`legacy-source-url-timeout-closure-retirement-boundary.md`](legacy-source-url-timeout-closure-retirement-boundary.md): #301 / #947 USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW. Frozen 94fd91815 sections 1-7 including 6.1 were confirmed; Reuse Existing Architecture / Ready readback preceded production edits. One fourteen-artifact batch retires twenty-one idle functions/methods, TimeoutManager/languageMap and exclusive field/constructor/Shutdown/test/document tails, with no production extraction. Original aggregate adds one guard RED to GREEN; all other original checks remain. Actual URL normalization/ASIN/currency/marketplace/region/zipcode, PoolManager parent deadline/cancellation/release/rebuild/Batch/Shutdown, current collection/original browser/debug and independent SHEIN login/Store sync remain. Exact source HEAD/CI/final review stay in #947, separate from design evidence. Workflow/full inventory/dependencies/protection/existing resources unchanged, no trial prerequisite, #301 OPEN, merge separately authorized. Original full index suffix remains.
-
-- [`legacy-source-url-timeout-closure-retirement-boundary.md`](legacy-source-url-timeout-closure-retirement-boundary.md): #301 complete dormant source URL/site conveniences and unused timeout-owner retirement, DESIGN_ONLY / AWAITING_USER_CONFIRMATION. N/A / Ready covers three documents only; future Reuse Existing Architecture / NOT_READY. Sections 1-7 including 6.1 cover fourteen artifacts in one batch: twenty-one production functions/methods, TimeoutManager, languageMap and exclusive constructor/field/Shutdown/test/document tails. Exact #893/#901/#946/#822 KEEP replacements; no production extraction. Retain current 1688 normalization, Amazon marketplace/currency/ASIN/region/zipcode data and validation, actual PoolManager deadline/cancellation, collection/original browser/debug and independent SHEIN login/Store sync. One future original aggregate guard; other checks, workflow/full inventory/dependencies/protection and existing resources unchanged. No new trial prerequisite; #301 OPEN. User confirmation precedes implementation; merge separately authorized. Original full index suffix remains.
-
-- [`legacy-browser-management-tail-closure-retirement-boundary.md`](legacy-browser-management-tail-closure-retirement-boundary.md): #301 / #946 USER_CONFIRMED / SOURCE_IMPLEMENTED / IN_REVIEW. Frozen a306b024a sections 1-7 including 6.1 were confirmed; Reuse Existing Architecture / Ready readback preceded production edits. One twenty-six-artifact batch retires dormant browser convenience/configuration bypass/instance diagnostics/statistics and exclusive tails, with no new production extraction/owner. Original aggregate adds one guard RED to GREEN; all other original checks remain. Actual fingerprint/JSON, all proxy health counters/timestamps/state, quality retries/valid assertions, periodic health statistics/logs, collection/original Amazon browser/debug and independent SHEIN login/Store sync remain. Exact source HEAD/CI/final delivery review stay in #946; design evidence is separate. Workflow/full inventory/dependencies/existing resources untouched, no trial prerequisite, #301 OPEN, merge separately authorized. Original full index suffix remains.
-
-- [`legacy-browser-management-tail-closure-retirement-boundary.md`](legacy-browser-management-tail-closure-retirement-boundary.md): #301 complete dormant browser management/configuration bypass/instance diagnostics/statistics closure, DESIGN_ONLY / AWAITING_USER_CONFIRMATION. N/A / Ready covers three documents only; future Reuse Existing Architecture / NOT_READY. Sections 1-7 including 6.1 cover twenty-six artifacts in one batch, exact #867/#893/#901/#822 KEEP replacements, two complete retirements, ten production and five test mixed artifacts, one original aggregate guard, five earlier documents and three current documents. Actual fingerprint generation/injection, proxy health scoring/state, quality retries, periodic health statistics/logs, collection, original Amazon browser/debug and independent SHEIN login/Store sync remain. No new production owner/extraction, runtime/resource action, workflow/full inventory/dependency change or trial prerequisite; #301 OPEN. Implementation/merge require separate authorization. Original full index suffix remains.
-
-- [`legacy-1688-captcha-experiment-closure-retirement-boundary.md`](legacy-1688-captcha-experiment-closure-retirement-boundary.md): #301 / #942 USER_CONFIRMED / SOURCE_IMPLEMENTED. Frozen sections 1-7 including 6.1 were confirmed; Reuse Existing Architecture / Ready and Issue/PR readback preceded production edits. One fifteen-artifact batch retires six files, eighteen mixed declarations and two exclusive curve tests; one guard is added to the original aggregate test, all other original checks remain. Current generated-track algorithm/point and twenty-five mixed functions, seven retained tests, manual/cancellation, collection/local-agent/public collector/debug and independent SHEIN login/Store sync remain. Original guard RED to GREEN; exact source HEAD/CI/final delivery review stay in #942. Workflow/full inventory/dependencies and existing resources untouched; no new trial prerequisite, #301 OPEN, merge separately authorized. Original full document suffix remains.
-
-- [`legacy-1688-captcha-experiment-closure-retirement-boundary.md`](legacy-1688-captcha-experiment-closure-retirement-boundary.md): #301 complete dormant 1688 CAPTCHA experiments and track recording/replay closure, DESIGN_ONLY / AWAITING_USER_CONFIRMATION. N/A / Ready covers three documents only; future Reuse Existing Architecture / NOT_READY. Sections 1-7 including 6.1 cover six complete retirements, eighteen precise mixed declarations, two original test artifacts, one narrow superseding KEEP note and three current documents: fifteen artifacts in one batch. Current generated-track algorithm/point/manual/cancellation, collection/local-agent/public collector, valid debug entrypoints and independent SHEIN login/Store sync remain. No current track-file decoder, runtime/credential/file access, workflow/full inventory/dependency changes or new trial prerequisite; #301 OPEN. Implementation/merge require separate user decisions.
-
-- [`legacy-shein-sensitiveword-closure-retirement-boundary.md`](legacy-shein-sensitiveword-closure-retirement-boundary.md): #301 / #940 **SOURCE_IMPLEMENTED / IN_REVIEW**。冻结§1–§7/§6.1已确认，Reuse Existing Architecture / Ready及读回先于源码；同一PR完整13工件，43闲置函数/专属反馈DTO/ProductData/元数据退出，17实际清理函数/两词表map与原tags/默认词/品牌/日文/当前平台JSON保持。原guard实测RED→GREEN证据留PR；独立SHEIN登录/Store同步、workflow/完整inventory/依赖/保护和既有资源不动，无试用新前置，#301 OPEN。原完整索引后缀保持，准确源码CI/最终复核与合并另记。
-
-- [`legacy-shein-sensitiveword-closure-retirement-boundary.md`](legacy-shein-sensitiveword-closure-retirement-boundary.md): #301 **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**，旧SHEIN敏感词整商品处理、反馈学习与词表管理完整退休设计。当前N/A/Ready仅三文档；未来Reuse Existing Architecture / NOT_READY，须确认§1–§7/§6.1与Ready读回再实施。13工件同批退休43个闲置函数/方法、旧反馈DTO/ProductData及两元数据字段，准确替代#817/#900 KEEP；17实际清理函数、两词表map/原tags/默认词、containsJapanese与当前品牌/display/平台JSON/采集/独立SHEIN登录和Store同步保留。workflow/完整inventory/依赖/保护及既有实例/数据/凭据/进程零改，不增试用前置，#301 OPEN；原完整索引正文/历史后缀保留。
-
-- [`legacy-global-config-logging-tail-closure-retirement-boundary.md`](legacy-global-config-logging-tail-closure-retirement-boundary.md): #301 / #939 SOURCE_IMPLEMENTED / IN_REVIEW. Frozen sections 1-7/4.1/6.1 confirmed; Reuse Existing Architecture / Ready and readback 6392480965/6392481887 precede source edits. One complete 33-artifact closure retires idle HTTP/Retry/global projections and logging convenience tails, with exact original checks/samples/help and historical KEEP notes. Actual configuration-load logging and native SHEIN Redis/login/Store sync remain; the CURRENT logging -> core/config row and whole inventory stay unchanged. Workflow/dependencies/protection and retained resources remain untouched; no new trial prerequisite. Exact source HEAD/CI/final review stay in #939; merge requires separate authorization. Prior complete index content is historical and retained verbatim.
-
-- [`legacy-global-config-logging-tail-closure-retirement-boundary.md`](legacy-global-config-logging-tail-closure-retirement-boundary.md): #301 DESIGN_ONLY / AWAITING_USER_CONFIRMATION. N/A/Ready for this document and two indexes only; future Reuse Existing Architecture / NOT_READY. One complete 33-artifact closure retires unused global HTTP/Retry/config projections and logging convenience tails, including exact tests, maintained samples and two Redis help lines. Current configuration load logs remain: platform/logging -> core/config is a real CURRENT consumer, so the entire inventory stays unchanged (0-row calibration). Native SHEIN Redis/login/Store sync, current capabilities and all effective safety checks retain their owners. No workflow, retained-resource action or new trial prerequisite. Confirm sections 1-7/4.1/6.1 before implementation; exact stage/CI/review evidence stays in the PR. Earlier index entries remain historical.
-
-- [`legacy-idle-support-facade-closure-retirement-boundary.md`](legacy-idle-support-facade-closure-retirement-boundary.md): #301 / #937 SOURCE_IMPLEMENTED. Reuse Existing Architecture / Ready and Issue/PR readback (6386195192/6386203704) precede source edits. One complete 20-artifact closure covers 3 whole files, 8 precise mixed files, 6 historical notes and 3 current documents. Existing DB safety tests only switch to the current context-aware seam, retaining every assertion. Active HTTP/Identity/Context DB/Open/shared pools/IntPtr/Float32Ptr/LogManager and standalone SHEIN login/Store sync remain. Exact original guards convert per sections 5/6.1; workflow/full inventory/dependencies/protection and retained resources stay untouched, no new trial prerequisite, #301 OPEN. Prior entries below preserve their historical stages; exact implementation HEAD/CI/final review and separate merge authority stay in #937.
-
-- [`legacy-idle-support-facade-closure-retirement-boundary.md`](legacy-idle-support-facade-closure-retirement-boundary.md): #301 complete retirement design for five idle support facades, DESIGN_ONLY / AWAITING_USER_CONFIRMATION. Current delivery is three documents (Design Basis: N/A); future implementation reuses existing HTTP/Identity/Context DB/ptr/LogManager owners and remains NOT_READY until user confirmation and Issue/PR Ready readback. One batch covers 3 whole files, 8 precise mixed files, 6 historical notes and 3 current documents, 20 artifacts. Existing DB safety tests keep every assertion and only switch to the existing context-aware test seam; active HTTP/Identity/DB/IntPtr/Float32Ptr/logging and standalone SHEIN login/Store sync remain. Exact sections 5/6.1 cover original guards; workflow/full inventory/dependencies/protection and retained resources stay untouched, no new trial prerequisite, #301 OPEN.
-
-- [`legacy-idle-adapter-helper-closure-retirement-boundary.md`](legacy-idle-adapter-helper-closure-retirement-boundary.md): #301 / #934 USER_CONFIRMED / SOURCE_IMPLEMENTED. Reuse Existing Architecture / Ready and Issue/PR readback (6385055853/6385065287) precede source edits. Frozen sections 1-7 including 6.1 cover one complete 22-artifact retirement: 9 whole files, 5 precise mixed files, 5 narrow historical notes and 3 current documents. Current LogManager/Retry/OpenAI Client/RequestPool/Manager and its own RateLimiter, configuration cache/routes, UnmarshalString/JSON, acquisition/original browser/debug and standalone SHEIN login/Store sync remain. Only exact original checks convert; workflow/full inventory/dependencies/protection and retained resources stay untouched, no new trial prerequisite, #301 OPEN. Existing entries below preserve their historical delivery stages; implementation HEAD/CI/final review and separate merge authority stay in #934.
-
-- [`legacy-idle-adapter-helper-closure-retirement-boundary.md`](legacy-idle-adapter-helper-closure-retirement-boundary.md): #301 complete idle adapter/helper retirement design, DESIGN_ONLY / AWAITING_USER_CONFIRMATION. Current delivery is three documents (Design Basis: N/A); future implementation reuses the current logging/Retry/OpenAI/JSON architecture and remains NOT_READY until user confirmation and Issue/PR Ready readback. One batch covers 9 whole-file retirements, 5 precise mixed files, 5 narrow historical notes and 3 current documents, 22 artifacts. Current global logging, Retry, Client/RequestPool/Manager and its own RateLimiter, UnmarshalString/JSON, acquisition/original browser/debug and standalone SHEIN login/Store sync remain. Sections 5/6.1 freeze exact original check conversions; workflow/full inventory/dependencies/protection and retained resources stay untouched. No new trial prerequisite; #301 OPEN. Design evidence is separate from implementation, merge and runtime evidence.
-
-- [`legacy-shein-brand-error-closure-retirement-boundary.md`](legacy-shein-brand-error-closure-retirement-boundary.md): #301 / #929 complete legacy SHEIN brand-query and error-classification retirement, USER_CONFIRMED / SOURCE_IMPLEMENTED. Independent Architecture / IMPLEMENTATION_READY and Issue/PR Ready were recorded and read back before source edits (6383108340). One batch retires the unused authorizedbrand Resolver/Config, final sherr closure and BrandItem/BrandListResponse: 8 retired files, 2 precise mixed files, 12 narrow history notes and 3 current documents, 25 artifacts. Current Resolved/context, cleanup, draft JSON/rules, acquisition and standalone SHEIN login/Store sync remain. Original helper entries only per section 6.1; all other guards, workflow/full inventory/dependencies/protection and retained resources untouched. No new trial prerequisite, #301 OPEN. Exact implementation HEAD/CI/final source review and separate merge authority stay in #929.
-
-- [`legacy-platform-api-closure-retirement-boundary.md`](legacy-platform-api-closure-retirement-boundary.md): #301 / #926 complete legacy platform API retirement, USER_CONFIRMED / SOURCE_IMPLEMENTED. Independent Architecture / IMPLEMENTATION_READY and Issue/PR Ready were recorded and read back before source edits. Frozen sections 1-7 including 6.1 cover 96 retired artifacts, 24 mixed files, two original pure warehouse conversions, 27 narrow historical notes and three current documents: 152 artifacts in one batch. Current JSON/DTOs/rules, SessionTransport and three read endpoints, acquisition/original Amazon browser/debug, official Store integrations and standalone SHEIN login/Store sync remain. The three earlier scan-anchor approvals remain; the original CI also requires the exact 17-function import-boundary conversion in section 6.1. Existing import assertions and current domains remain; retired owners must stay absent. Workflow/full inventory and existing resources untouched, no new trial prerequisite, #301 OPEN. Exact implementation HEAD/CI/final review and separate merge authority stay in #926.
-
-- [`legacy-tenant-prompt-closure-retirement-boundary.md`](legacy-tenant-prompt-closure-retirement-boundary.md): #301 complete legacy tenant Prompt management/runtime closure design, USER_CONFIRMED / SOURCE_IMPLEMENTED. Independent Architecture / IMPLEMENTATION_READY and Issue/PR Ready were recorded and read back before source edits; the user confirmed frozen sections 1-7 including 4.2/6.1. One batch covers prompt/promptmgmt/tenantctx, five YAML resources, schema registration, six retained SHEIN fixture conversions, exact Docker/script/guard tails and twenty-seven narrow historical notes: sixty-five artifacts without mechanical slicing. Current AI prompts/versions/hash, identity/Organization, images, acquisition and standalone SHEIN login/Store sync remain; the shared Goose callback and fresh-schema change are explicit. Workflow/full inventory and retained resources untouched, no new trial prerequisite, #301 OPEN. Exact HEAD/CI/actual review and authority stay in the primary PR.
-
-- [`legacy-task-identity-mapping-closure-retirement-boundary.md`](legacy-task-identity-mapping-closure-retirement-boundary.md): #301 / #921 complete dormant task-identity and numeric mapping closure, USER_CONFIRMED / SOURCE_IMPLEMENTED. Independent Architecture / IMPLEMENTATION_READY and Issue/PR Ready were recorded and read back before source edits. Frozen sections 1-7 including 6.1 retire the old shared/aiidentity envelope/tenant-scope implementations and exclusive tests, plus final listingruntime.ProductImportMapping. Five retired artifacts, one original guard file with four precise function conversions, twenty-two superseding history notes and three current documents form one thirty-one-artifact batch. Current Identity/context/roles, Organization authorization/execution/recovery, SourceIdentity four JSON slots and original normalization/hash/read rejection, acquisition and standalone SHEIN login/Store sync remain. Workflow/inventory/history/counts and retained resources untouched; no new trial prerequisite; #301 OPEN. Exact source HEAD/CI/final review and separate merge authority stay in #921.
-
-- [`legacy-config-facade-closure-retirement-boundary.md`](legacy-config-facade-closure-retirement-boundary.md): #301 / #917 complete configuration loader/validation facade closure, USER_CONFIRMED / SOURCE_IMPLEMENTED. Reuse Existing Architecture / Ready was recorded and read back before source edits. Frozen sections 1-7 including 6.1 cover both dormant loaders and exclusive helper, Validator/NewValidator/all methods, Config validation/log facades; four valid aggregation calls return to existing ValidateConfig. Four production artifacts, four original tests, one precise guard, two superseding KEEP notes and three current documents form one fourteen-artifact batch. Six rule groups/order/error format, current loading/default/env/scoped .env/WithoutValidation, acquisition and standalone SHEIN login/Store sync remain. Workflow/inventory and retained resources untouched; no new trial prerequisite; #301 OPEN. Exact source HEAD/CI/final review and separate merge authority stay in #917.
-
-- [`legacy-host-image-helper-closure-retirement-boundary.md`](legacy-host-image-helper-closure-retirement-boundary.md): #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**, Reuse Existing Architecture / Ready was recorded and read back before source edits. Frozen sections 1-7 including 6.1 retire dormant appenv host/logging helpers, two HTTP helpers, unused image utilities and orphan ServerConfig together with the original image test, two precise guard conversions and six narrow superseding KEEP notes: fifteen artifacts, one batch. Current logging/version, HTTP/TLS/retry, ImageInfo/decoding and explicit production JPEG/PNG/WebP registrations, acquisition, standalone SHEIN login and Store sync remain at current owners. Workflow/inventory and retained resources stay untouched, no new trial prerequisite, #301 OPEN. Exact implementation HEAD/CI/final review and separate merge authority stay in #915.
-
-- [`legacy-idle-support-contract-closure-retirement-boundary.md`](legacy-idle-support-contract-closure-retirement-boundary.md): #301 / #914 **USER_CONFIRMED / SOURCE_IMPLEMENTED**, Reuse Existing Architecture / Ready was recorded and read back before source edits. Frozen sections 1-7 including 6.1 retire dormant cost/timeout/rate-limit config and tests, goroutine Manager, orphan timeout declarations and jsonx/marshal.go together, plus one precise original guard and four narrow superseding KEEP notes: fifteen scope artifacts without mechanical slicing. Retained HTTP/Retry, original Amazon browser Processor/debug, active AI/download timeouts, JSON/LLM parsing, current strict codecs/rules/acquisition and standalone SHEIN login/Store sync remain at their current owners. Workflow/inventory and existing resources stay untouched; no new trial prerequisite; #301 OPEN. Exact implementation HEAD/CI/final review and separate merge authority stay in #914.
-
-# Architecture Documentation
-
-- [`legacy-shein-policy-contract-closure-retirement-boundary.md`](legacy-shein-policy-contract-closure-retirement-boundary.md): #301 / #912 **USER_CONFIRMED / SOURCE_IMPLEMENTED**, Independent Architecture / IMPLEMENTATION_READY; Ready was recorded and read back before production edits. Frozen sections 1-7 including 6.1 retire dormant SHEIN activity strategies, the old pricing wrapper/calculators, generationtopics/namelimit and both productsync Attributes with their final root AmazonMonitorData tail together: 22 whole artifacts plus exact original guard and documentation tails, 40 scope artifacts without mechanical slicing. Platform APIs/DTOs, pricing_repo.go transport and api/product PriceManager, current JSON/versions/rules/drafts/acquisition, shared MappingInfo/SourceIdentity contracts and standalone SHEIN login/Store sync remain. Workflow/inventory and retained resources stay untouched; no new trial prerequisite; #301 OPEN. Accurate implementation HEAD/CI/final delivery review and separate merge authority stay in #912.
-
-- [`legacy-product-policy-closure-retirement-boundary.md`](legacy-product-policy-closure-retirement-boundary.md): #301 / #909 USER_CONFIRMED / SOURCE_IMPLEMENTED; frozen sections 1-7 including 6.1, Reuse Existing Architecture / Ready read back before production edits. Whole dormant productpolicy package (six artifacts), four original KEEP-to-absence/decoded-import/scoped-declaration checks and twelve direct documentation tails retired together without replacement rules. Current acquisition/browser/debug, platform APIs/rules, shared model, PriceManager/PriceCalculator and standalone SHEIN login/Store sync remain. Workflow/inventory and retained resources stay untouched; no new trial prerequisite; #301 OPEN. Exact implementation HEAD/CI/final review and separate merge authority stay in #909.
-
-- [`plugin-capture-ingestion-v1.md`](./plugin-capture-ingestion-v1.md): IMPLEMENTATION_READY #902 / #903; exact source-variant image relationships and explicit free Amazon browser capture through the existing SRC/Catalog/Collection owners, with original-key recovery and fixed-version reads. Implementation is tracked in #905 / #906; merge, installation, real capture and runtime rollout require their separate authorization.
-- [`plugin-capture-durable-drafts-v1.md`](./plugin-capture-durable-drafts-v1.md): IMPLEMENTATION_READY #989 / #990; IndexedDB owns unpublished capture facts, transactional family checkpoints and explicit paused recovery. Reuses trusted receiver identity, frozen body/key/scope, existing save and original-key lookup; supersedes memory-only loss semantics without historical migration. Candidate-only unlimitedStorage, no retained-instance/plugin update, real recapture, merge or deployment authority; user acceptance remains separate.
-- [`plugin-capture-source-quotes-v1.md`](./plugin-capture-source-quotes-v1.md): #916 incremental design for fixed-publication source quote reads and bounded Amazon/1688 field extraction; one delivery PR, no runtime or collection authorization.
-- [`amazon-condition-quotes-draft.md`](./amazon-condition-quotes-draft.md): #955 design for separately observed Amazon new and used source quotes, preserving fixed snapshots and the original request key.
-- [`plugin-capture-listing-materials-v1.md`](./plugin-capture-listing-materials-v1.md): #916 reviewed reuse of the existing v2 capture/save owners for explicitly bound hiRes albums, product parameters, plain description/detail images and original weight values; no source network requests, runtime update, recapture or deployment.
-- [`plugin-capture-entry-flow-v1.md`](./plugin-capture-entry-flow-v1.md): #920 reviewed reuse of the current capture/handoff owners for a direct browser shortcut, combined entry and return to the original application tab; no new permissions, persistence or backend recovery protocol.
-- [`plugin-capture-page-entry-v1.md`](./plugin-capture-page-entry-v1.md): #924 source-page primary button through a strictly validated content-script adapter, reusing the existing capture/handoff/save path and exact host grants; no automatic capture or runtime update.
-- [`plugin-capture-session-return-v1.md`](./plugin-capture-session-return-v1.md): IMPLEMENTATION_READY #927; trusted chrome.storage.session stores only one original-tab location for same-browser-session worker recreation across page/shortcut/popup. Payload, original-key save/recovery and application fact ownership remain unchanged; no browser-restart/extension-reload recovery or retained-instance update.
-- [`plugin-capture-amazon-variants-v1.md`](./plugin-capture-amazon-variants-v1.md): IMPLEMENTATION_READY #955; opt-in Amazon family discovery and bounded sequential variant capture, a live extension progress page with navigation-only session location, and reuse of the original single handoff/save/recovery owners. User-authorized implementation stays in #957; retained plugin/runtime update, recapture, merge and deployment remain separately gated.
-
-- [`legacy-shein-draft-json-alias-retirement-v1.md`](legacy-shein-draft-json-alias-retirement-v1.md): #301 / #904 Independent Architecture, user-confirmed IMPLEMENTATION_READY. Retires the complete old Package JSON alias/normalization/custom-codec and summary-only SKU readiness closure; canonical draft/preview, strict decoding, valid rules, original persistence owner and standalone SHEIN login/Store sync remain. Backend/frontend/fixture versions change together; workflow/inventory and existing resources remain untouched. Exact implementation/CI/review evidence is maintained in #904.
-
-- [`legacy-amazon-source-adapter-closure-retirement-boundary.md`](legacy-amazon-source-adapter-closure-retirement-boundary.md): #301 **USER_CONFIRMED / SOURCE_IMPLEMENTED** in #901; frozen sections 1-7 including 6.1, Reuse Existing Architecture / Ready read back before production edits. Complete unused integration/crawler/amazon wrappers/planning/defaults/Envelope/batch protocol and exclusive CreateProcessor/Scraper tails retired together, with their tests/README. Original retirement guard protects exact absence and retained current injection/browser/debug/pool-test contracts. Five current documentation tails and three design/index documents complete the 16-artifact batch; Sourcing README and ACTIVE handoff changes replace only the old Amazon path. Current acquisition/data services, original browser Processor/pool/debug, effectiveBrowserPoolSize/factory_test, shared contracts and standalone SHEIN login/Store sync remain. Workflow/inventory/history/counts/ceilings/other checks/dependencies unchanged; no retained-resource operation or trial prerequisite; #301 OPEN. Accurate source HEAD/CI/final review and separate merge authority stay in the primary PR.
-
-- [`legacy-workerpool-sensitiveword-recovery-closure-retirement-boundary.md`](legacy-workerpool-sensitiveword-recovery-closure-retirement-boundary.md): #301 **USER_CONFIRMED / SOURCE_IMPLEMENTED** in #900; frozen sections 1-7 including 4.1/4.2/6.1, Reuse Existing Architecture / Ready read back before production edits. Whole dormant Platform workerpool, SHEIN sensitive-word file/save lifecycle and final recovery-helper closure retired together. Current content memory factory/rules, default/explicit words, brand/JSON, metadata and original mutex remain; only metadata value updates extracted, with map selection/mutation under that mutex. Exact 14-source/test-artifact boundary plus original retirement guard and three documents; workflow/inventory/history/counts/ceilings/other checks/dependencies unchanged. Standalone SHEIN login/Store sync and all current capabilities preserved, no retained-resource operation or trial prerequisite; #301 OPEN. Exact HEAD/CI/design and final delivery review/merge authority stay in the primary PR.
-
-- [`legacy-runtime-skeleton-config-closure-retirement-boundary.md`](legacy-runtime-skeleton-config-closure-retirement-boundary.md): #301 **USER_CONFIRMED / SOURCE_IMPLEMENTED** in #897; frozen sections 1-7 including 6.1, Reuse Existing Architecture / Ready read back before production edits. Whole dormant kernel Task/Workflow/workerpool/Temporal registration, orphan Temporal bundle, HTTP empty-pool tails and three unused core/config types/defaults retired together. Current Module/Registry route contribution contract, ordering/defensive copy, owning HTTP APIs, real workerpool/Temporal workers, configuration and standalone SHEIN login/Store sync remain with their existing owners. Section 6.1 converts only the specified original tests/guard and removes exactly one CURRENT workerpool-to-kernel row; inventory history/counts/ceilings, other checks, lint/workflows/dependencies/protection remain unchanged. No retained resource/credential/process operations or trial prerequisite; #301 OPEN. Exact source HEAD/CI/final review and merge authority stay in #897; design evidence is separate.
-
-- [`legacy-logger-facade-closure-retirement-boundary.md`](legacy-logger-facade-closure-retirement-boundary.md): #301 **USER_CONFIRMED / SOURCE_IMPLEMENTED** in #893; frozen cace5c1f4 design sections 1-7 including 6.1, Reuse Existing Architecture / Ready read back before production edits. Complete old core/logger facade and all 17 consumer packages/79 direct production files plus constructor, nested-component, CLI/debug and fixture wiring; no mechanical PR slicing. Existing Logrus values/local callbacks are injected by current runtime assembly, while Platform retains the manager/configuration/output lifecycle. No business-to-Platform import replacement, new shared logger registry or legacy facade. Section 6.1 applies exactly 17 CURRENT deletions and one appenv wiring row; historical bodies/counts/ceilings/check logic, lint/workflows/dependencies/protection remain unchanged. Two concrete TEMU Cookie-value log arguments are removed without changing Cookie behavior. All current capabilities and standalone SHEIN login/Store sync remain; no retained instance/data/credential/process operations or trial prerequisite. Original implementation CI/final delivery review remain separate from design evidence; exact implementation HEAD/CI/review stay in #893, with merge separately authorized.
-
-- [`legacy-listing-preview-download-closure-retirement-boundary.md`](legacy-listing-preview-download-closure-retirement-boundary.md): #301 / #891 user-confirmed complete Task preview/platform-section and listing image-download/random-fingerprint retirement. Frozen design 7c2c7e3b6 §1–§7 including §6.1; Reuse Existing Architecture / Ready read back before production changes, with 47 exclusive artifacts and 15 exact mixed tails retired together. Current Product/Asset/Listing, image/acquisition/platform APIs and standalone SHEIN login/Store sync retain their owners, with no new extraction or replacement runtime. Inventory only removes the explicitly approved CURRENT logger-to-downloader row; the original preview guard and single depguard rule now protect source absence/retired imports. Historical bodies/counts/ceilings/accuracy checks, other checks, workflows, dependencies and protection stay unchanged. No retained instance/data/credential/process operation or new trial prerequisite; #301 OPEN. Exact implementation HEAD/CI/final review stay in #891.
-
-- [`legacy-watermark-config-closure-retirement-boundary.md`](legacy-watermark-config-closure-retirement-boundary.md): #301 / #874 user-confirmed complete dormant watermark detection/removal and exclusive configuration retirement, frozen design e7ebd1d8d and Reuse Existing Architecture / Ready. The 12-file package, Config.Watermark and development YAML root retire together; original guards enforce absence and actual current-entry dependency exit. Current image risk rules, Bailian generation parameters, image/AI/assets/budget, shared utilities, acquisition, Store and standalone SHEIN login/Store sync remain. Workflows, inventory, dependencies, ceilings and protection stay unchanged; no runtime/data/credential/process operation or new trial prerequisite. #301 OPEN; exact implementation HEAD/CI/final review stay in #874.
-
-- [`legacy-queue-proxy-config-tail-closure-retirement-boundary.md`](legacy-queue-proxy-config-tail-closure-retirement-boundary.md): #301 / #872 user-confirmed complete old RabbitMQ/digital Store proxy/host config and helper retirement, frozen design f59bdf89c and Reuse Existing Architecture / Ready. All 47 exclusive sources, seven mixed config sources and exact original guard/documentation tails retire together without new extraction or replacement owners. Current capabilities, shared Namespace/base, workerpool/Retry and standalone SHEIN login/Store sync remain. Inventory changes only the explicitly approved core/logger to pkg/fileio CURRENT row; history, counts, ceilings, accuracy checks and workflows stay unchanged. No runtime/data/credential/process operations or new trial prerequisite; #301 OPEN. Exact implementation HEAD/CI/final review stay in #872.
-
-- [`legacy-host-runtime-closure-retirement-boundary.md`](legacy-host-runtime-closure-retirement-boundary.md): #301 / #870 user-confirmed complete old-host retirement, Reuse Existing Architecture / Ready. All 38 Go files across infra/httpx/auth, monitoring/lifecycle/errors/ports and updater retire together with exact original guards and direct documentation tails; no new extraction or replacement owner. Current identity/HTTP/shared capabilities, acquisition, Store and standalone SHEIN login/sync remain. No runtime/data/credential/token/update-file/process operations, workflow/inventory changes or new trial prerequisite; #301 OPEN. Exact implementation HEAD/CI/final review stay in #870.
-
-- [`legacy-numeric-value-contract-closure-retirement-boundary.md`](legacy-numeric-value-contract-closure-retirement-boundary.md): #301 / #868 user-confirmed complete numeric context/value-contract retirement, Independent Architecture / IMPLEMENTATION_READY. Orphan logging/sharding APIs, the two listingruntime rule types and SourceIdentity alias/Key behavior retire together; 5/8 rule values live directly in pricing/activity. MappingInfo, both SHEIN attributes, four zero-valued source JSON slots and original normalization/hash/read rejection contracts remain. Current acquisition, platform rules, Store and standalone SHEIN login/sync remain; workflows/inventory/runtime untouched, no new trial prerequisite; #301 OPEN.
-
-- [`legacy-numeric-acquisition-tail-closure-retirement-boundary.md`](legacy-numeric-acquisition-tail-closure-retirement-boundary.md): #301 / #867 user-confirmed complete numeric acquisition/platform tail retirement, Reuse Existing Architecture. Orphan fetch/cache/Task factories, numeric Amazon HTTP/result service and exclusive operations sources, numeric SHEIN Cookie providers and Store/cost adapters retire together. Current Amazon Processor/browser, platform APIs/rules, Store and standalone SHEIN login/sync remain; existing Cookie values and quality metric helpers stay with their current consumers. Exact seven CURRENT inventory rows only; workflows/runtime/data untouched, no new trial prerequisite; #301 OPEN.
-
-- [`vip-original-output-recovery.md`](vip-original-output-recovery.md): #840 admitted reuse of original success/Commercial settlement proofs and GET-only recovery; accurate paid-result presentation, exact result-host DNS diagnosis, no generation, new state, charge or default change.
-
-- [`image-plan-optional-route-v1.md`](image-plan-optional-route-v1.md): #840 independent design admitted before implementation; maintainer optional publication without changing enterprise default, exact VIP selection frozen per product image plan, original quote/admission/dispatch/recovery owners and UNKNOWN preserved. Supersedes the prior batch's maintenance-only scope; no runtime publication or real-call authority.
-
-- [`source-business-closure-v1.md`](source-business-closure-v1.md): #30/#307 user-confirmed complete source business closure, Independent Architecture / IMPLEMENTATION_READY. Current SRC/Catalog/Collection facts and pinned reads, original Preparation/Asset human approval and Product-input diagnostics are composed without Store/AI/upload prerequisites. Product/Figma increment 8130:2280 was explicitly approved on 2026-10-21; implementation and exact evidence remain in #859. No workflow or retained runtime/data/credential operations, no new trial prerequisite; #301 stays OPEN and standalone SHEIN login/Store sync remain.
-
-- [`grsai-vip-image-binding-v1.md`](grsai-vip-image-binding-v1.md): #840 IMPLEMENTATION_READY after original independent review; maintainer-only GPT Image VIP binding, fixed medium and exact original 1024 dimensions; no per-plan selector, automatic publication, default change, new persistence or real provider authorization. Existing route/pricing/generation/recovery owners remain.
-
-- [`legacy-retirement-parent-closure-boundary.md`](legacy-retirement-parent-closure-boundary.md): #29/#301 user-confirmed source-retirement closeout, frozen design 5fb20f877 / Design Basis N/A, record calibration implemented in #854. Original R1-R10/A1-A7 support preparation of #29 source-level closure evidence; merging and closing require separate authorization. #301 stays OPEN: current-app bridge exit does not retire the standalone SHEIN numeric account/Profile/Store owner, and O1-O6 runtime acceptance remains incomplete/NOT_RUN. Historical hotspot/checkpoint statements are read with this current owner/evidence mapping; original bodies/counts/failures remain intact. Only these five documents and both current Issue sections are calibrated; source/tests/workflows/inventories/dependencies, retained capabilities and real assets remain unchanged. No new trial prerequisite; exact implementation HEAD/CI/final review stay in the PR.
-
-- [`legacy-api-token-tools-retirement-boundary.md`](legacy-api-token-tools-retirement-boundary.md): #29/#301 user-confirmed complete ListingKit API token-fetch/save/auth-check closure, frozen design e6ac780d7 / Reuse Existing Architecture, source-implemented in #852 after both Issue Ready readbacks. Three obsolete scripts and their inline helpers retire together; five operating documents receive narrow supersession headers and the original absence guard covers the three paths. Current Auth.js handoff, Login V2 probe, native identity, acquisition, Store and standalone SHEIN login/sync retain their owners. Original historical bodies/counts, workflows/inventories/dependencies and real credentials/runtime/data remain unchanged, with no new trial prerequisite. Exact HEAD/CI/final review stay in the PR.
-
-- [`legacy-kubernetes-release-principal-retirement-boundary.md`](legacy-kubernetes-release-principal-retirement-boundary.md): #29/#301 user-confirmed complete Kubernetes release-principal closure, frozen design da4ac7d16 / Independent Architecture / IMPLEMENTATION_READY, source-implemented in #850 after both Issue Ready readbacks. Twenty-three exclusive sources retire together; seven mixed sources decouple retained fixed-failure/canary/UI/tool-pin checks from old identities. Governed assembly contains only the current canary; reintroduced authority objects/old machine fields and missing required inputs fail closed. Current UI/native identity/schema/ImageAgent, shared tools, Store and standalone SHEIN login/sync keep their owners. Workflows/inventories/dependencies and historical bodies/counts remain unchanged; no runtime/data/IAM action or trial prerequisite. Exact HEAD/CI/final review stay in the PR.
-
-- [`legacy-kubernetes-release-execution-closure-retirement-boundary.md`](legacy-kubernetes-release-execution-closure-retirement-boundary.md): #29/#301 user-confirmed complete Kubernetes release-execution retirement, frozen design a73f44144 / Independent Architecture / IMPLEMENTATION_READY. Fifteen exclusive sources and twelve mixed-source boundaries retire old API/Job/drain/receipt/invitation/SMS-credential/policy tails together; three current test utilities move unchanged to the existing security-test owner. Current UI, ImageAgent Go recovery/workers/canary, normal schema CLIs, shared apply/OIDC/RBAC/immutable and standalone SHEIN login/Store sync keep their owners. Historical bodies/counts, workflows/inventories/dependencies and runtime/data stay unchanged; no new trial prerequisite. Exact implementation HEAD/CI/final review stay in #847.
-
-- [`legacy-local-acceptance-closure-retirement-boundary.md`](legacy-local-acceptance-closure-retirement-boundary.md): #29/#301 user-confirmed complete local-launch/ImageAgent acceptance closure, source-implemented in #846 under frozen design 6a654c04f / Reuse Existing Architecture. Eight exclusive launcher/orchestrator/test/Compose sources and direct historical applicability retire together; the original guard now requires source absence. Current UI launcher/tests, native identity CLI/library, token handoff, issue357, generic DB/port-forward, ImageAgent/Temporal, Store and standalone SHEIN login/sync keep their owners. Historical bodies/counts, workflows/inventories/dependencies, runtime/data and trial prerequisites remain unchanged; exact implementation HEAD/CI/final review stay in the PR.
-
-- [`legacy-task-diagnostics-retirement-boundary.md`](legacy-task-diagnostics-retirement-boundary.md): #29/#301 user-confirmed complete Task diagnostics/regression closure, source-implemented in #844 under frozen design ddc6414b0 and Reuse Existing Architecture. The pricing-cache inspector, retired preview dataset script and exclusive test/example retire together; only old db-query help and exact validation/Temporal PoC applicability notes change. Current pricing/platform rules, generic DB tools, prompt replay, Temporal infrastructure/workers, acquisition, Store and standalone SHEIN login/Store sync retain their owners. Historical evidence, commercial gates, workflows/inventories/runtime/data and trial prerequisites remain unchanged; exact implementation HEAD/CI/final review stay in the PR.
-
-- [`legacy-yudao-identity-operations-retirement-boundary.md`](legacy-yudao-identity-operations-retirement-boundary.md): #529/#301 user-confirmed complete identity operations closure, source-implemented in #842 under frozen design 370695e82 and Reuse Existing Architecture. Three historical Yudao user importers, the owner-recovery dry-run and inline helpers/report generators retire together; six exact historical documents receive narrow supersession headers. The old local-import retained-deferred conclusions are superseded without rewriting historical rows/counts. Current authentication/Organization/phone onboarding, shared ZITADEL infrastructure/credentials and standalone SHEIN login/Store sync keep their owners. Original guards, workflows/inventories/runtime/data and trial prerequisites are preserved; exact implementation HEAD/CI/final review stay in the PR.
-
-- [`legacy-listing-operations-closure-retirement-boundary.md`](legacy-listing-operations-closure-retirement-boundary.md): #29/#301 complete old numeric listing operational-source closure, source-implemented in #839 after user confirmation of frozen design 0871cb591 and Independent Architecture / IMPLEMENTATION_READY admission. Exact deployment/config/monitoring/rollout/SQL and direct-runbook tails retire together; one valid Prometheus storage alert and a narrow routing configuration share the monitoring namespace. Retains shared SHEIN secrets/namespace/Store proxy sync, standalone login/Store sync, current capabilities, generic diagnostics and Amazon monitoring. Original guards preserve valid assertions; workflows, inventories, runtime/data and trial prerequisites remain unchanged. Exact implementation HEAD/CI/final review stay in the PR.
-
-- [`image-api-event-read-permissions.md`](image-api-event-read-permissions.md): #774 bounded correction of the current API role's shared event-log SELECT grant and startup allowlist, with real PostgreSQL confirmation/replay and denial tests. Preserves original admission, UNKNOWN, request identity, deadlines and all retained data; see the document for independent admission.
-
-- [`model-route-pricing-management-v1.md`](model-route-pricing-management-v1.md): #830 bounded platform-maintainer UI for per-organization admitted text/image bindings and execution rates. Reuses Credential, AI capability, ProductAgent, ImageAgent and Commercial owners; versioned atomic publication and original task/UNKNOWN impact. See the document for admission; no runtime/model action is authorized.
-
-- [`generic-image-template-entry.md`](generic-image-template-entry.md): #774 generic image presets saved through current enterprise template commands, with default-preserving exact template discovery from official skill entry. Reuses configuration, ImageSet and Asset owners; no new schema, permission, accounting or recovery contract.
-
-- [`official-skill-product-entry.md`](official-skill-product-entry.md): #774 bounded navigation from an exact official skill version to an existing own product and its fixed original images. Reuses current Collection, explicit single-item Supply transfer, Content confirmation and ImageSet owners; scope-bound URL hints never replace original requests, UNKNOWN or frozen execution references. No backend, permission, accounting or recovery contract changes.
-
-- [`legacy-numeric-listing-support-closure-retirement-boundary.md`](legacy-numeric-listing-support-closure-retirement-boundary.md): #29/#301 user-confirmed complete numeric listing support retirement in #824, under frozen design c971bb9e7 and Independent Architecture / IMPLEMENTATION_READY admission. Eight unused management persistence families, Task RPC, the old SHEIN workspace shell and orphan marketplace editor/repair/history/Task projections, plus exclusive Task/status/retry/metrics/hook/handled-error sources leave together. Keeps current Store/sensitive-word/topic repositories, pricing and four shared value contracts, the exact offline validator/readiness closure, platform API/source acquisition/Store observations and standalone SHEIN login/Store sync. Source implementation; exact HEAD/CI/review stay in the PR, workflows/runtime/data and trial prerequisites unchanged.
-
-- [`legacy-amazon-listing-closure-retirement-boundary.md`](legacy-amazon-listing-closure-retirement-boundary.md): #29/#301 user-confirmed complete Amazon closure source implementation in #822 under frozen design 3a344153e and Independent Architecture admission. The old numeric pipeline, unregistered Task/Workbench and exclusive state/pool/time/DTO/schema/debug/deployment sources retire together; current Amazon API/source acquisition, shared rules/contracts, Store observations and independent SHEIN login/Store sync remain. Exact implementation HEAD/CI/review live in the PR; workflows, ceilings and real runtime/data are unchanged.
-
-- [`legacy-temu-listing-closure-retirement-boundary.md`](legacy-temu-listing-closure-retirement-boundary.md): #29/#301 user-confirmed complete retirement of the remaining numeric TEMU AI/property/spec/SKU/price chain and its exclusive pipeline, value policies, generators, management projections and prompt/static resources. Three shared DTO value helpers stay in listingadmin; current official TEMU contracts, acquisition/images/Store observations and independent SHEIN login/Store sync remain. Frozen design a253ca05f; source implementation under review in #819, workflows/ceilings and real runtime/data unchanged.
-
-> #819 supersedes only the historical numeric TEMU implementation-retention statements in earlier retirement entries below; their original evidence and all current platform/shared/worker capability boundaries remain.
-
-- [`task-center-native-run-projection-v1.md`](task-center-native-run-projection-v1.md): #798 Reuse Existing Architecture; source-neutral, read-only Task Center consumption of current authorized Agent/configuration recent-run contracts, independent of Chat execution readiness. Preserves native identities, source contexts, Review/UNKNOWN boundaries and retained runtime/data; no new execution or persistent Task owner.
-
-- [`own-product-rich-description-v1.md`](own-product-rich-description-v1.md): versioned safe rich descriptions in current Product/CompletionDraft, existing image pool, history/restore, and explicit text-only platform projection; no schema/runtime/provider action.
-- [`rich-description-simple-editor-images-v1.md`](rich-description-simple-editor-images-v1.md): official Simple Editor UI and direct description uploads; CompletionDraft versions candidate image references while fixed source/SKU images, existing upload permissions, capacity, CAS and recovery owners remain unchanged.
-
-## Goal
-
-This index separates stable architecture rules from plans, runbooks, and
-historical evaluations. Use the stable documents for code review and new
-implementation decisions. Use plans and runbooks for context, not as newer
-boundary rules unless they explicitly supersede a stable document.
-
-## Boundary Designs Awaiting Confirmation
-
-- [`legacy-restored-debug-closure-retirement-boundary.md`](legacy-restored-debug-closure-retirement-boundary.md): #301 priority audit of restored debug/business code. Independent Architecture / DESIGN_ONLY / NOT_READY. Full old browser execution, replay, identity probe, manual tools and configuration closure; extract only the active Chromium installer and Collector configuration. Current acquisition/images/identity/Store observation remain. Old KEEP supersession and §4.2/§6.1 await review and user confirmation; #1009 stays with its owner. No workflow/inventory/existing-resource changes or new trial prerequisite.
-
-- [`legacy-sds-runtime-closure-retirement-boundary.md`](legacy-sds-runtime-closure-retirement-boundary.md): #301 / #885 user-confirmed complete old SDS login/client/catalog/design/sync and frontend/debug/tooling/configuration/policy-tail retirement. Frozen design f83ddb2ec §1–§7 including §6.1; Reuse Existing Architecture / Ready read back before production edits. All 81 exclusive artifacts and 15 mixed-source tails retire together; the user-confirmed minimal CI-tail exception removes two orphan response helpers and only the three-line unused request type from upstream-identity, retaining all shared identity behavior and tests; current integration/sds, POD/Submission/Asset, product_source values, shared identity/Redis/browser and standalone SHEIN login/Store sync remain. The user also explicitly allows removing exactly six obsolete SDS sample keys from two retained Kubernetes templates, superseding only those keys' earlier KEEP; all other values remain, the debug index drops the deleted command, and the deployment README receives only a supersession header over its unchanged historical body. Inventory only removes the four explicitly approved CURRENT rows; history, counts, ceilings, accuracy checks and workflows remain unchanged. No runtime/data/credential/process operation or new trial prerequisite; #301 OPEN. Exact implementation HEAD/CI/final review stay in #885.
-
-- [`legacy-redis-proxy-shared-closure-retirement-boundary.md`](legacy-redis-proxy-shared-closure-retirement-boundary.md): #301 / #880 user-confirmed complete dormant DB ConnectionProxy, platform Redis/idle adapter and hashx/mathx/strx closure, source-implemented after frozen design 023567fe4 §1–§7 including §6.1 and Reuse Existing Architecture / Ready readback. All 22 artifacts and exact original guard/current-document tails retire together; absence/import/owner-declaration guards and three current entry dependency checks protect the cut. Active shared DB lifecycle, native Redis/configuration, current rules/capabilities, acquisition, Store and standalone SHEIN login/Store sync remain. No new extraction or replacement owner; workflows, complete inventory, dependencies and ceilings remain unchanged. No existing runtime/data/credential/process operations or new trial prerequisite; #301 OPEN. Exact implementation HEAD/CI/final review stay in the PR.
-
-- [`legacy-host-config-featureflag-tracing-retirement-boundary.md`](legacy-host-config-featureflag-tracing-retirement-boundary.md): #301 / #878 user-confirmed complete dormant host configuration manager, feature-flag and tracing retirement, source-implemented after confirmation of frozen design 77838dc49 §1–§7 including §6.1 and Reuse Existing Architecture / Ready admission. Retires the 14-artifact closure and exact schema/default/build/env/YAML tails together; original guards protect absence/imports/declarations and three current entry dependency closures. Active Viper/core configuration, logging, acquisition, images, Store and standalone SHEIN login/Store sync remain. Workflows, complete inventory, dependencies and ceilings remain unchanged; no existing runtime/data/credential/process operation or new trial prerequisite. Exact implementation HEAD/CI/final review stay in the PR.
-
-- [`shein-worker-numeric-persistence-retirement-v1.md`](shein-worker-numeric-persistence-retirement-v1.md): #301 user-confirmed complete standalone SHEIN worker numeric persistence retirement, Independent Architecture / IMPLEMENTATION_READY under frozen design 94fa4cab. One batch in #863 preserves login/Store sync using current organization/Store owners, authorized CLI, isolated Redis/Profile scope and an optional Store execution fence; UNKNOWN cannot auto-takeover. Includes the test-only historical CI target. No workflow, existing runtime/data/credential action or new trial prerequisite.
-
-- [`legacy-runtime-config-closure-retirement-boundary.md`](legacy-runtime-config-closure-retirement-boundary.md): #29/#301 complete retired task/listing configuration closure, source-implemented in #836 after user confirmation of frozen design 209b40f54 and Independent Architecture / IMPLEMENTATION_READY admission. Retires unused schema/default/load/env/validation/example and exclusive test tails together. Real crawler workerpool, independent queue/Retry, current identity/billing/images/Store and standalone SHEIN login/Store sync retain their owners. Original checks transfer only obsolete assertions; workflows/inventory/runtime/data and trial prerequisites remain unchanged. Exact implementation HEAD/CI/final review stay in the PR.
-
-- [`legacy-numeric-content-management-closure-retirement-boundary.md`](legacy-numeric-content-management-closure-retirement-boundary.md): #29/#301 complete dormant numeric content configuration closure in #833. Independent Architecture / IMPLEMENTATION_READY under user-confirmed frozen design d139bcccc; source-implemented in the same PR. Retires unused repositories, reads/CRUD, global injection, dedicated schema/migration and call tails together; current sanitizer directly reuses its existing in-memory owner. Exact ten whole/six mixed production and original-test matrices preserve pure rules, brand/field safety, Store/API/worker sync and current capabilities. Only one original import-guard case changes; workflows, inventory, runtime/data and trial prerequisites stay unchanged.
-
-- [`legacy-numeric-store-management-closure-retirement-boundary.md`](legacy-numeric-store-management-closure-retirement-boundary.md): #29/#301 source retirement in #831 under user-confirmed frozen design fa4bf0758 and Independent Architecture / IMPLEMENTATION_READY admission. Seven mixed production files lose seven unused repository methods, five helpers, 67 type-scoped fields and the recyclable-row parameters; effective tests use current active-row paths. Standalone SHEIN login/account/duplicate/Store sync, all nine StoreAPI methods, TEMU transport, complete shared values and retained persistence owners remain. Exact HEAD/CI/review stay in the PR; workflows/runtime/data and trial prerequisites unchanged.
-
-- [`legacy-shein-publishing-runtime-closure-retirement-boundary.md`](legacy-shein-publishing-runtime-closure-retirement-boundary.md): #29/#301 source retirement under user-confirmed frozen design a88ceb527 and Independent Architecture / IMPLEMENTATION_READY for the complete unused SHEIN Publishing runtime/managed/resolver/cache/remote submission/recovery and exclusive helper/Prompt closure. Keeps current draft/strict validator, official Submission Kernel/platform operations, shared rules, acquisition/images, Store observations and standalone SHEIN login/Store sync. Exact file/declaration/test/inventory matrices retain current security assertions; implementation is In Review in #827, with exact HEAD/CI/review evidence in the PR. Workflows/runtime/data and trial prerequisites unchanged.
-
-- [`legacy-shein-listing-closure-retirement-boundary.md`](legacy-shein-listing-closure-retirement-boundary.md): #29/#301 complete numeric SHEIN listing closure source-retired under user-confirmed frozen design a7c29d4b1 in #817, after Independent Architecture admission. Three bounded extractions preserve current attribute matching, regional sites and sensitive-content inputs; 207 old Go files, three defaults and exact mixed declarations/metadata are absent. Platform/shared contracts, AmazonMonitorData and both productsync enriched types, pricing, current acquisition/Store observations and standalone SHEIN login/Store sync retain their owners. Workflows, runtime/data and trial prerequisites are unchanged.
-- [`legacy-temu-property-pipeline-retirement-boundary.md`](legacy-temu-property-pipeline-retirement-boundary.md): #29/#301 complete unused default-property pipeline retirement under user-confirmed frozen design c8653f2c9 in #815. One batch covers adapter/orchestrator/pipeline/four stages and all exclusive context/cache/lifecycle/config/stat/DTO/alias code (11 production files, 42 package declarations); 13 property files consumed by retained AI/SKU/spec and their rules/handlerbase contracts remain. Source-retired; no replacement pipeline, workflow/runtime/data action or new trial prerequisite.
-- [`legacy-temu-text-bullet-retirement-boundary.md`](legacy-temu-text-bullet-retirement-boundary.md): #29/#301 complete unused text-check/bullet orchestration and final-consumer formatting/shared-title helper retirement under user-confirmed frozen design b09ed052b in #812. One batch covers six production files, two obsolete tests and exact mixed shared declarations/tests; platform APIs/DTOs, effective rules, pricing, AI/prompt, current image/acquisition/Store observations and standalone SHEIN login/Store sync remain. Source-retired; no replacement formatter/caller, workflow/runtime/data action or new trial prerequisite.
-- [`legacy-temu-content-handler-retirement-boundary.md`](legacy-temu-content-handler-retirement-boundary.md): #29/#301 user-confirmed source retirement under frozen design 13db74471 in #810. Ten exclusive production files, six old tests and the mixed file's orphan format declarations are absent. The formatter/shared regexp was preserved in #810 and is now retired with its final consumer under #812; PriceHandler, AI/SKU/content prompt, current image/platform/shared capabilities and standalone SHEIN login/Store sync remain. No workflow/runtime/data action or new trial prerequisite.
-- [`legacy-temu-image-api-prompt-retirement-boundary.md`](legacy-temu-image-api-prompt-retirement-boundary.md): #29/#301 user-confirmed retirement under frozen design aa21423ac in #807. The orphan TEMU image API/re-exports and unused vision key/default/catalog/exclusive variable metadata are source-retired. Current image/platform/shared capabilities and standalone SHEIN login/Store sync remain. Generic tenant rows/status/rendering keep their existing semantics; no existing override cleanup, workflow/runtime/data action or new trial prerequisite.
-- [`legacy-temu-image-processing-retirement-boundary.md`](legacy-temu-image-processing-retirement-boundary.md): #29/#301 user-confirmed source retirement under frozen design 348ec6b6e in #801. The remaining 15-file image execution package, orphan ImageRequirement and padded-map/AssetState closure are absent; effective rules retain current owners without new extraction. Current image/assets, DimensionInfo/TextRenderer, shared contracts, acquisition/Store observations and independent SHEIN login/Store sync remain. Old image API/re-exports and vision prompt were outside #801 and are now retired under #807; all other preserved boundaries remain. Workflows/ceilings are unchanged; no runtime/data action, new trial prerequisite or dependency on #799 delivery.
-- [`legacy-temu-image-orchestration-retirement-boundary.md`](legacy-temu-image-orchestration-retirement-boundary.md): #797 retired seven unused image orchestration/validator files, exclusive config helper/local alias and three fields. Its remaining image execution/padded-map/ImageRequirement preservation statements are narrowly superseded by #801; historical evidence and all other retained boundaries remain. No new extraction, workflow/runtime/data action or trial prerequisite.
-- [`legacy-temu-category-template-retirement-boundary.md`](legacy-temu-category-template-retirement-boundary.md): #29/#301 user-confirmed source retirement of five unused TEMU category/template handlers and two exclusive input/output DTO files. Existing valid rules retain their owners without new extraction; platform APIs/DTOs, all four TemplateState fields, AI/SKU mapping, pricing and independent SHEIN login/Store sync remain. Original guard and two logger consumer rows are calibrated precisely; no workflow/runtime/data action or new trial prerequisite.
-- [`legacy-temu-sku-skc-retirement-boundary.md`](legacy-temu-sku-skc-retirement-boundary.md): #29/#301 user-confirmed source retirement of six unused TEMU SKU/SKC construction files and exclusive mixed-file helpers. Three private value rules live in existing TEMU publishing; AI mapping retains its receiver with construction-only wiring removed. PriceHandler, APIs/rules/shared contracts and independent SHEIN login/Store sync remain. Original guards are calibrated precisely; no workflow/runtime/data action or new trial prerequisite.
-- [`legacy-temu-spu-price-query-retirement-boundary.md`](legacy-temu-spu-price-query-retirement-boundary.md): #29/#301 user-confirmed source retirement of four unused TEMU SPU/maximum-retail-price Task owners. Seven original structural checks live as a private value rule in existing TEMU publishing. PriceHandler/SKU, platform/AI/shared owners, acquisition/Store observations and independent SHEIN login/Store sync remain; original guards are calibrated precisely, with no workflow changes, real operations or new trial prerequisite.
-- [`legacy-temu-store-init-retirement-boundary.md`](legacy-temu-store-init-retirement-boundary.md): #29/#301 user-confirmed source retirement of unconstructed TEMU StoreInfo/StoreID/InitData handlers and exclusive numeric cache/helpers; preserves current Store and retained numeric/API/Cookie owners, platform DTOs/rules, mixed context/SKU, acquisition/observations and independent SHEIN login/Store sync. Original guards retain product/store subtree coverage; workflows/ceilings stay unchanged, with no real operation or new trial prerequisite.
-- [`legacy-temu-filter-mapping-retirement-boundary.md`](legacy-temu-filter-mapping-retirement-boundary.md): #29/#301 user-confirmed source retirement of unused TEMU variant filtering/AI preflight and the complete exclusive rule-wrapper/result closure; preserves existing marketplace status/rule owners, AIBatchInput and SKU mapping, provider/shared contracts, acquisition/Store observations and independent SHEIN login with Store sync. Workflows/ceilings remain unchanged; no real operation or new trial prerequisite.
-- [`legacy-temu-variant-retirement-boundary.md`](legacy-temu-variant-retirement-boundary.md): #29/#301 user-confirmed source retirement under frozen design 70c60af89 in #751. Four unconstructed TEMU variant read/postprocess/cache components and one exclusive ASIN helper are absent; shared Reader/Cache, existing title rules, mixed SKU helpers and SkuVariantProcessor, platform contracts, acquisition/Store observations and independent SHEIN login with Store sync retain their owners. Workflows/ceilings are unchanged; no runtime/data action or new trial prerequisite.
-- [`legacy-temu-preflight-retirement-boundary.md`](legacy-temu-preflight-retirement-boundary.md): #29/#301 user-confirmed source retirement under frozen design ca7a6e2ea in #750. Four unconstructed TEMU Task preflight handlers for duplicate checking, raw-data reading and caching are absent; two private SKU value rules live in the existing marketplace owner and reuse skugen. Shared Mapping/Reader/Cache, platform APIs/DTOs, SKU rules, mixed context, acquisition/Store observations and independent SHEIN login with Store sync remain. Workflows/ceilings are unchanged; no runtime/data action or new trial prerequisite.
-- [`legacy-temu-listing-submit-retirement-boundary.md`](legacy-temu-listing-submit-retirement-boundary.md): #29/#301 user-confirmed source retirement under frozen design e0003f196 in #749. Fourteen exclusive TEMU Commit/save/submit/result/quota production files, one fixture test, eight context fields and eight methods are absent; two validations live as private values in the existing marketplace owner. Mixed context/PriceQueryResponse, platform APIs/same-named DTOs, valid rules/shared contracts, SHEIN attributes, pricing, acquisition/observations and standalone SHEIN login with Store sync remain. Workflows are unchanged, with no runtime/data action or new trial prerequisite.
-- [`legacy-temu-bulk-relist-retirement-boundary.md`](legacy-temu-bulk-relist-retirement-boundary.md): #29/#301 user-confirmed source retirement of the unconstructed seven-file TEMU bulk-relist closure and exclusive DTOs. Store persistence and platform effects retain their owners; platform APIs and same-named API DTOs/re-exports, valid rules/shared contracts, SHEIN attributes, pricing, acquisition/observations and the independent SHEIN login worker with Store sync remain. Both workflows are unchanged; no runtime/data action or new trial prerequisite.
-- [`legacy-shein-activity-retirement-boundary.md`](legacy-shein-activity-retirement-boundary.md): #29/#301 user-confirmed retirement of unconstructed SHEIN promotion registration, time-limited-discount orchestration and exclusive scheduler DTOs. Seven exclusive files are absent; pure rules, marketing APIs, persistence owners, shared contracts, SHEIN attribute types, PriceManager/PriceCalculator, acquisition/Store observations and the independent login worker with Store sync remain. Both workflows are unchanged; no runtime/data action or new trial prerequisite.
-- [`legacy-auto-pricing-retirement-boundary.md`](legacy-auto-pricing-retirement-boundary.md): #29/#301 user-confirmed source retirement of the unconstructed SHEIN/TEMU automatic-pricing closure and five exclusive interfaces. The 16 files are absent; PriceManager, PriceCalculator, platform APIs/rules, shared contracts, SHEIN attribute types, current acquisition/Store observations and the independent login worker with Store sync remain. Both workflows are unchanged; no runtime/data action or new trial prerequisite.
-- [`legacy-numeric-product-inventory-sync-retirement-boundary.md`](legacy-numeric-product-inventory-sync-retirement-boundary.md): #29/#301 user-confirmed retirement of unconstructed SHEIN/TEMU numeric product and inventory synchronization plus exclusive InventoryRecord source persistence. The 63-file closure and mixed inventory DTOs are absent; SHEIN attribute contracts, platform APIs/rules, current Store observations and the independent login worker with Store sync remain. Both workflows are unchanged; no runtime/data actions or new trial prerequisites.
-- [`legacy-numeric-task-persistence-retirement-boundary.md`](legacy-numeric-task-persistence-retirement-boundary.md): #29/#301 user-confirmed retirement of unconsumed numeric ImportTask persistence, dispatch events, pause/timeout recovery and scheduled configuration. Exclusive sources are absent; mixed Store/owner/rule/mapping contracts and standalone login remain. Both workflows retain their race steps and evidence, selecting the full retained listingadmin suite. No runtime/data action or new trial prerequisite.
-- [`own675-store-core-alignment-v1.md`](own675-store-core-alignment-v1.md): #735 bounded contract for four current Store CHECK changes through the existing owner/Goose transaction and version table; preserve retained facts and ACLs. Current execution authority and results are recorded in #735; this contract does not authorize other installation or provider actions.
-- [`legacy-ownership-controller-retirement-boundary.md`](legacy-ownership-controller-retirement-boundary.md): #29/#301 user-confirmed retirement of the historical ownership-controller and exclusive auto-shard configuration closure, including the unconsumed ConfigMap overlay. Shared configuration contracts, current acquisition, Store observations and standalone SHEIN login remain. Source retirement does not authorize runtime/data actions or new trial prerequisites.
-- [`legacy-numeric-task-execution-retirement-boundary.md`](legacy-numeric-task-execution-retirement-boundary.md): #29/#301 user-confirmed retirement of the numeric task/status/processor, root Amazon executor and exclusive distributed crawler closure. Exact persistence/deletion/check boundaries preserve current acquisition, Store observations, platform APIs/rules/shared contracts and the standalone SHEIN login worker. Source implementation does not authorize runtime/data actions or new trial prerequisites.
-- [`legacy-listing-control-plane-retirement-boundary.md`](legacy-listing-control-plane-retirement-boundary.md): #29/#301 user-confirmed retirement of control-plane and one-time platform-recovery entrypoints with exclusive orchestration; persistence owners, retained numeric-task/shared-contract debt and exact two-workflow CI disposition. Required/security checks and the independent login worker remain; no runtime/data actions or new trial prerequisites.
-- [`legacy-listing-cli-retirement-boundary.md`](legacy-listing-cli-retirement-boundary.md): #29/#301 user-confirmed retirement of three listing CLIs and their exclusive scheduler/local/sync chain; retained control-plane/shared contracts, exact CI target replacement and source-only operation boundary.
-- [`shein-worker-identity-persistence-boundary.md`](shein-worker-identity-persistence-boundary.md): #301 confirmed ownership, retained worker capabilities and deletion conditions. §7 retires the unused managed provider/helpers/verification DTO and fixes tenant-qualified duplicate lookup with fail-closed Store sync. Current Organization/Store and official execution remain separate from the retained numeric login runtime; no runtime/data action or new internal-trial prerequisite.
-
-## Approved Authorities by Responsibility
-
-- [`official-skills-and-image-method-v1.md`](official-skills-and-image-method-v1.md): #774 IMPLEMENTATION_READY six explicitly installed official title/image methods and exact image-method binding; preserves current Skill/ImageSet/Generation/Asset owners, original metadata, data/configuration and receipt recovery. Creator assistant and personal image admission are deferred; runtime installation requires separate authority.
-- [`bailian-product-image-wiring-v1.md`](bailian-product-image-wiring-v1.md): #774 IMPLEMENTATION_READY explicit Beijing Qwen Image 3 route, current Preparation sources and image method picker; reuses generation, audit, capacity and Asset owners while preserving existing data and configuration.
-- [`bailian-image-no-generation-reconciliation-v1.md`](bailian-image-no-generation-reconciliation-v1.md): #774 proven quota/preflight refusals, atomic evidence with unchanged generation fact format, original reservation settlement and bounded four-record reconciliation; historical provider-unknown fences remain non-executable.
-- [`image-skill-visual-brief-v2.md`](image-skill-visual-brief-v2.md): #774 independent design for exact visual-brief resources, immutable official image v2 releases and a new dispatch policy; preserves historical plans, results, reservations and existing owners. See the document for current admission.
-- [`image-detail-visible-copy-v3.md`](image-detail-visible-copy-v3.md): #774 literal fact-derived detail copy frozen and previewed before confirmation. New assembly policy preserves exact Skill versions, historical v2 recipe bytes, single-call accounting and explicit human adoption; real visual quality still requires a separately authorized bounded trial.
-- [`image-text-language-confirmation-v1.md`](image-text-language-confirmation-v1.md): #840 template target-language copy prepared through governed content localization, manually accepted in Product Review and frozen with the exact image plan and Skill. Default-mode-only translation, task-scoped text, original request recovery and Catalog hashes preserve current owner boundaries; real calls require a new bounded budget.
-- [`local-ai-trial-v1.md`](local-ai-trial-v1.md): #724 IMPLEMENTATION_READY fixed non-cash AI trial source in the existing resource owner; exact source/operation replay, debt preservation and private native entry. Runtime execution remains separately approved.
-- [`own-product-optimization-v1.md`](own-product-optimization-v1.md): #710 IMPLEMENTATION_READY own-product context for store-independent content generation and existing Review/Apply; preserves current runtime, permissions, facts and UNKNOWN owners.
-- [`auth-instance-cookie-isolation.md`](auth-instance-cookie-isolation.md): #706 IMPLEMENTATION_READY native Auth.js cookie isolation for configured instances; identity, permissions, secrets and business data remain with existing owners. Source admission is not runtime or user acceptance.
-- [`completion-draft-history-v1.md`](completion-draft-history-v1.md): #704 IMPLEMENTATION_READY read-only saved revision history and same-draft text comparison; existing records, source authority and save protocol retained.
-- [`completion-draft-restore-v1.md`](completion-draft-restore-v1.md): #708 Reuse Existing Architecture; independently preview historical title/description and append a new revision through existing Save/CAS/idempotency, preserving permissions, immutable history and navigation context.
-- [`completion-draft-structured-v1.md`](completion-draft-structured-v1.md): #718 Independent Architecture; candidate attributes and fixed-source SKU prices/stocks in existing CompletionDraft snapshots, preserving original CAS, permissions, history and text-only restoration.
-- [`completion-shein-import-v1.md`](completion-shein-import-v1.md): Independent Architecture; fixed candidate/target versions, explicit mapping, read-only preview and original Target Save/CAS; no publication.
-- [`pod-design-agent-v1.md`](pod-design-agent-v1.md): #672 proposed design for AI-generated new artwork through current generation/asset/POD owners; DESIGN_IN_PROGRESS, not implementation admission or runtime availability.
-- [`product-selection-comparison-agent-v1.md`](product-selection-comparison-agent-v1.md): #680 IMPLEMENTATION_READY design for factual comparison of 2–5 privately authorized saved products through existing Agent/configuration/model owners; source admission does not imply runtime or user acceptance.
-- [`shop-operations-diagnosis-agent-v1.md`](shop-operations-diagnosis-agent-v1.md): #685 IMPLEMENTATION_READY / FROZEN for one-shop diagnosis from native Cockpit and no-provider-I/O saved evidence; three scoped implementation obligations preserve dual access, exact digest and native TEMU read boundaries.
-
-- [Final UI / IA](../product/final-ui-ia-authority.md): final navigation, naming
-  and BusinessTask projection (#298), not current release capability.
-- [Product Domain](product-domain-contracts.md),
-  [Identity / Organization](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
-  and current Store/Resource/CommerceTool contracts: facts, access and side effects.
-  Preserve valid domain rules even when a document also contains older UI or
-  implementation observations; explicit supersession controls the affected section.
-- [Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md),
-  [Legacy Register](../refactoring/legacy-register.md) and
-  [Module Mapping](module-target-mapping.md): only EXTRACT / RETIRE;
-  existing legacy is not a new dependency permission.
-- [Current status](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/current-refactoring-status.md): baseline-bound
-  implementation and evidence. [#137](https://github.com/qq550723504/task-processor/issues/137)
-  and execution Issues own scheduling and scope under the
-  [dispatch rules](../engineering/issue-driven-development.md).
-- [Sourcing guide](../product/product-sourcing-handoff.md) and
-  [closeout](../product/product-sourcing-mvp-plan.md) distinguish current Product
-  wiring, prepared imports and target acceptance. The
-  [greenfield baseline](../product/greenfield-no-legacy-migration.md)
-  (**PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**) requires a fresh installation
-  and empty business data; historical migration, profile-reuse and environment
-  preflight guidance is not a current acceptance prerequisite.
-- [next-phase-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/next-phase-plan.md): HISTORICAL implementation
-  record, not an execution queue. The [Publication Identity draft](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)
-  is SUPERSEDED under #307, not a migration prerequisite.
-
-ACTIVE contracts, CURRENT STATE observations and HISTORICAL/SUPERSEDED evidence
-serve different purposes. An old Active label or a newer date cannot override
-an approved contract. Follow the explicit responsibility/supersession above.
-
-## Recommended Reading Order
-
-Skill V1's three-scope ownership, immutable method versions and existing content
-execution gates are frozen in [`skill-capability-v1.md`](skill-capability-v1.md)
-for #688. User-approved local UI placement augments the current Figma authority;
-implementation evidence, installation and user acceptance remain separate.
-
-TEMU 三模式与全部官方站点的设计候选见
-[`temu-platform-v1.md`](temu-platform-v1.md) / execution Issue #31；
-[`temu-official-contract-evidence.md`](temu-official-contract-evidence.md) 记录官方
-CN/PA/US/EU/GLOBAL 路由与各模式站点依据。第二轮相关增量已独立确认
-IMPLEMENTATION_READY / FROZEN；G1/G2/G3 在实现层验证收敛。
-GE/AM 价格规格仍缺已读官方依据，阻塞受影响发布和全覆盖交付/合并；
-缺规格拒绝发送不算全站点完成，不缩小 #31 产品范围。
-
-1688 acquisition plans, frozen rules, public discovery and Preparation-only
-composition are governed by [`1688-acquisition-figma-v1.md`](1688-acquisition-figma-v1.md),
-with current product scope and independent admission recorded in execution #637.
-
-Official Knowledge's approved reading scope and admission record are tracked in
-[`official-knowledge-v1.md`](official-knowledge-v1.md) / execution Issue #632. Its
-reviewed status must be checked before implementation; it is separate from the
-enterprise Knowledge owner and has no AI-consumption or online-publisher scope.
-
-The #884 user decision removes GitHub provenance URLs from that reading contract.
-[`official-knowledge-provenance-v2.md`](official-knowledge-provenance-v2.md) is the
-IMPLEMENTATION_READY frozen increment: named product provenance, strict title-only
-sources, published guide v2 and exact missing-v1 behavior, with the same owner and
-authorization and no new publisher, storage or external fetch.
-
-TikTok Shop's US cross-border feature Design Basis is frozen IMPLEMENTATION_READY
-in [`tiktok-shop-us-v1.md`](tiktok-shop-us-v1.md) / execution Issue #669;
-[`tiktok-shop-us-contract-evidence.md`](tiktok-shop-us-contract-evidence.md)
-records the official OAuth, Shop, signing and publication protocols. These
-feature contracts reuse the current Store/Listing/Submission owners rather than
-changing repository-wide structural rules. Shared wiring, real application
-credentials and user acceptance remain separate delivery conditions.
-
-[`tiktok-pre-dispatch-no-send-v1.md`](tiktok-pre-dispatch-no-send-v1.md) is the
-#669 / PR #1031 **IMPLEMENTATION_READY / FROZEN** supplement for live-owner
-no-send proof, original-claim/fence CAS termination and explicit new commands.
-The user approved the candidate and its exact-head independent architecture
-review, then authorized the original Writer and the same Reviewer for scoped
-implementation. Current implementation/CI evidence stays in the PR; UNKNOWN is
-not reclassified or automatically retried. Other TikTok contracts remain frozen.
-
-[`walmart-feed-recovery-v1.md`](walmart-feed-recovery-v1.md) defines the #733 / #1028 bounded recovery supplement: explicit rejected-repair admission and durable feed-read progress. It is IMPLEMENTATION_READY after the authorized local architecture review; cross-query pages remain visibility-only and never grant repair eligibility.
-
-Walmart US multi-merchant integration is being designed in
-[`walmart-us-v1.md`](walmart-us-v1.md) / execution Issue #733, with official
-protocol evidence in [`walmart-us-contract-evidence.md`](walmart-us-contract-evidence.md).
-This feature Design Basis reuses current Store, Product, Target, Submission and
-observations owners. Admission is IMPLEMENTATION_READY after independent review;
-this design phase does not authorize production implementation or real-platform I/O.
-
-After identifying the applicable approved authorities above, review structural rules in this order:
-
-1. Start with `project-boundaries.md` for default package ownership,
-   dependency direction, forbidden imports, and repository-wide placement rules.
-2. Then open the most relevant specialized boundary document such as
-   `httpapi-assembly-boundaries.md`, `app-assembly-boundaries.md`, or
-   `platform-boundary-strategy.md`.
-3. Use `architecture-review-checklist.md` to turn those rules into concrete PR
-   review questions.
-4. Use `next-steps.md` only as the current guard coverage ledger, not as a
-   competing source of architecture policy.
-
-If a specialized document appears broader than `project-boundaries.md`, treat
-`project-boundaries.md` as the default review entrypoint and tighten the
-specialized note instead of creating a second top-level policy.
-
-## Stable Boundary Documents
-
-Use these as the main source of truth for structural work:
-
-- `project-boundaries.md`
-  - default package ownership, dependency direction, forbidden imports, and
-    placement rules for new code
-- `product-agent-runtime-contract.md`
-  - #131 bounded Product Agent execution contract and #132 consumer gaps;
-    contract/fake execution does not imply real model or product availability
-- `commercial-wallet-billing-contract.md`
-  - canonical money/wallet, commercial offer/quote/order, and purchased-resource ownership contract for #457
-- `ecosystem-services-v1.md`
-  - #603 frozen IMPLEMENTATION_READY third-party onboarding, original service purchase, exact customer acceptance and channel settlement contract; real channel qualification and product acceptance remain separate gates
-- `ecoservices-qualification-runtime.md`
-  - #619 IMPLEMENTATION_READY qualification-only runtime supplement: application, review and agreement use the existing owner; merchant activation, service publication and payment remain unopened without the full channel configuration
-- `data-services-v1.md`
-  - #621 frozen IMPLEMENTATION_READY Amazon data acquisition, creator-bound API credentials and specialist custom delivery; shared runtime wiring and real user acceptance remain separate gates
-- `data-services-native-authorization.md`
-  - #619 narrow native IAM phase decision and optional deny-only suspension contract; independent admission precedes production authorization changes
-- [`platform-support-chatwoot.md`](platform-support-chatwoot.md)
-  - #650 current user-approved server-only Chatwoot API integration: authenticated
-    personal histories, native staff dashboard and isolated runtime wiring;
-    actual ZITADEL user acceptance and shared/production deployment remain separate.
-- `self-service-subscription-purchase-contract.md`
-  - tenant self-service subscription offer/quote/order, source-bound subscription activation, settlement and recovery contract for #478/#479
-- `store-center-current-application-v1.md`
-  - #552 current Console Store record management, owner pools, quota, authorization and single-state hard-cut; service activation remains a separate unopened capability
-- `supply-market-v1.md`
-  - #622 frozen IMPLEMENTATION_READY market disclosure, manual qualification and shared-account SDS design contract; current implementation and protocol evidence do not imply runtime or user acceptance
-- `supply-market-choice-eligibility.md`
-  - #710 qualified choice read results and normal ineligible own products; preserves exact Apply, official drafts and strict write-side disclosure
-- `selected-application-multi-product-v1.md`
-  - #710 IMPLEMENTATION_READY multi-product selection, shared defaults and original-key recovery; each application, review, transaction and private-file fact remains with its current owner
-- `selected-application-overview-v1.md`
-  - #619 frozen IMPLEMENTATION_READY member-only selected-application counts and bounded optimized own-product preview; original qualification, submit, authorization and fact owners remain unchanged
-- `store-center-platform-observations-v1.md`
-  - #614 IMPLEMENTATION_READY readonly SHEIN products, consumer orders and logistics;
-    scoped observations, original-member sync receipts and bounded recovery. Shared
-    runtime readiness and real merchant/user acceptance remain separate evidence.
-- `store-observations-preparation-runtime.md`
-  - #653 IMPLEMENTATION_READY opt-in provider-free module/worker preparation,
-    strict execution closure, owner-only installation and data-preserving rollback.
-- `supply-unbound-completion-drafts.md`
-  - #605 frozen IMPLEMENTATION_READY actor-private candidate text on original
-    Preparation sources; explicit additive schema owner, immutable receipts and
-    later Store/category/rules admission remain separate from platform readiness.
-- [`store-center-figma-v1.md`](./store-center-figma-v1.md)
-  - #641 IMPLEMENTATION_READY Store catalog, groups, business responsibility and
-    user-configured inventory thresholds; current native authorization, official
-    connection and read-only observation owners remain unchanged.
-- `operations-cockpit-v1.md`
-  - #627 frozen IMPLEMENTATION_READY manual period financial facts, creator or
-    current manager goal maintenance, and evidence-based operating projections;
-    shared wiring and user acceptance remain separate delivery evidence.
-- `httpapi-assembly-boundaries.md`
-  - HTTP API ownership, route/module builder boundaries, and app/httpapi limits
-- `app-assembly-boundaries.md`
-  - app-layer build/register/start/coordinate vocabulary and package roles
-- `temporal-boundaries.md`
-  - Temporal versus RabbitMQ responsibilities and workflow/runtime boundaries
-- `platform-boundary-strategy.md`
-  - historical platform, publishing, ListingKit, and platform registration
-    convergence roles
-- [historical-platform-migration-inventory.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/historical-platform-migration-inventory.md)
-  - retained ownership/inventory evidence for historical platform packages;
-    candidate slices require current mapping and an execution Issue
-- `external-client-boundary-inventory.md`
-  - local-interface rules and baseline-bound adapter hotspots; suggested
-    slices do not override current owners or Issue scheduling
-- `compatibility-retirement.md`
-  - retired compatibility paths, replacement owners, and guard tests
-- `listing-preview-boundaries.md`
-  - superseded historical boundary; current authority is the
-    [confirmed source-retirement boundary](legacy-listing-preview-download-closure-retirement-boundary.md)
-    and current Product/Catalog/Asset/Listing owners. The original preview guards
-    enforce retired-package import bans and source absence, not a living preview seam.
-- `architecture-review-checklist.md`
-  - repeatable PR review checklist for boundary-sensitive changes
-
-## Development Boundary Documents
-
-These documents live outside `docs/architecture`, but still define long-lived
-structure rules that should be reviewed with architecture changes:
-
-- `docs/development/repository-structure.md`
-  - top-level directory ownership, local artifact placement, and repository
-    layout guard tests
-
-Use this development document when the question is mainly about repository
-layout, entrypoint placement, or runtime artifact location. If the question is
-mainly about package ownership or dependency direction, start from the default
-project boundary entrypoint first and only then drop to the development
-document.
-
-## Current Guard Baseline
-
-Use `docs/architecture/next-steps.md` and its `Current guard coverage` section
-as the current guard coverage baseline for active import-boundary tests. Formal
-review actions should still start from
-`docs/architecture/architecture-review-checklist.md`. This baseline tracks what
-reviewers must keep visible while the stable boundary documents remain the
-source of truth for long-lived rules.
-
-## Supporting Context
-
-- `release-identity-preflight-retirement.md` ([design](./release-identity-preflight-retirement.md))
-  - #529 / #301 approved internal-trial release-preflight retirement boundary;
-    standalone SHEIN worker retained, implementation admitted, production NOT_READY.
-
-- [`operations-cockpit-figma-read-v1.md`](./operations-cockpit-figma-read-v1.md)
-  - #619 four-page Figma alignment and bounded readonly cockpit summary/query
-    supplement; admission is stated in the document, preserving #627 frozen owners.
-
-- [`ai-workbench-reports-v1.md`](./ai-workbench-reports-v1.md)
-  - #628 frozen IMPLEMENTATION_READY personal report snapshots, favorites and
-    exact source-version capture. Shared runtime wiring and actual user acceptance
-    remain separate from feature-local implementation and fixture evidence.
-- [`tool-market-v1.md`](./tool-market-v1.md)
-  - Native composition and local installation limits: [current-tool-market operations](../operations/current-tool-market.md).
-  - #613 frozen IMPLEMENTATION_READY feature Design Basis for enterprise-shared enablement and manual customization progress; existing capture permissions and offline quote/payment owners remain unchanged. This feature contract does not introduce repository-wide structural rules.
-- [`tool-customization-figma-v1.md`](./tool-customization-figma-v1.md): #730 complete Figma request form, explicit contact consent and private reference files in the existing Tool Market transaction; admission is stated in the document.
-- [`my-supply-chain-shein-v1.md`](./my-supply-chain-shein-v1.md): #605 的已评审冻结 Design Basis，Collection → Preparation → Target → Submission 完整交付及三种官方应用类型；运行说明见 [operations](../operations/my-supply-chain-shein-v1.md)。
-- [`shein-publication-closure-v1.md`](./shein-publication-closure-v1.md): #605 的 IMPLEMENTATION_READY 冻结增量；原回执审核、三种模式首次上架、现有 Submission 的单次许可/UNKNOWN 与美国站在架和库存回读；当前实现与验证见 PR #821。
-- [`own-product-entry-v1.md`](./own-product-entry-v1.md): #675 的已评审冻结 IMPLEMENTATION_READY Design Basis，独立自有商品录入与详情页、多规格变体及原 Source/Catalog/Collection 保存合同；运行说明见 [operations](../operations/own-product-entry-v1.md)。
-- [`own-product-source-media-trial-v1.md`](./own-product-source-media-trial-v1.md): #675 已评审冻结 IMPLEMENTATION_READY 的本机来源图片试用边界；原SourceMedia/S3/容量与商品owner不变，精确本地对象展示不放开通用私网下载。
-- [`own-product-edit-v1.md`](./own-product-edit-v1.md): #675 已评审冻结 IMPLEMENTATION_READY 的自有商品版本更新与独立编辑页；追加不可变快照、条目基准CAS、原键恢复及既有草稿固定版本，复用原Source/Catalog/Collection owner和事务。
-- [`own-product-history-v1.md`](./own-product-history-v1.md): #675 已评审冻结 IMPLEMENTATION_READY 的自有商品手工保存历史读取、旧版详情和差异独立页面；原 actor/item 权限及 Source/Catalog 准确绑定，实时首尾授权，只读且不开放回滚。
-- [`own-product-draft-entry-v1.md`](./own-product-draft-entry-v1.md): #694 复用现有架构的单件自有商品转入及独立待补全入口；批次版本先于确认资料读取、原 Transfer 子集/CAS 固定来源、原 CompletionDraft 明确保存和原键恢复。
-- [`notification-center-v1.md`](./notification-center-v1.md)
-  - #608 notification-center design and current-business source mapping. Admission
-    is stated in that document and the execution Issue; a draft is not permission
-    to implement or a claim that notification sources have been delivered.
-
-- [`issue-36-local-trial-runtime.md`](./issue-36-local-trial-runtime.md)
-  - IMPLEMENTATION_READY #36 durable loopback runtime and independently reviewed
-    post-#590 Task Center entry correction for existing Review/Apply and Listing
-    completed-work paths. Product validation remains separate.
-- [`issue-36-completed-work-store-scope.md`](./issue-36-completed-work-store-scope.md)
-  - IMPLEMENTATION_READY #36 bounded completed-work v2 projection of Listing's
-    historical Store ID and local preparation action; no Store name read,
-    remote publication claim, or Product Review dependency.
-- [`ai-workbench-project-center-v1.md`](./ai-workbench-project-center-v1.md)
-  - APPROVED / IMPLEMENTATION_READY #624: creator-private current-enterprise
-    long-term projects, manually authorized references and personal templates;
-    independent persistence/runtime, receipt-first replay and slot removal.
-    Does not own execution, source facts or shared project permissions.
-- [`project-center-overview-read-v1.md`](./project-center-overview-read-v1.md)
-  - IMPLEMENTATION_READY #619: private full active-project counts, IANA local-day
-    metadata updates and original authorized waiting-task/store projections;
-    bounded readonly snapshot, filters and Figma overview. No new facts or writes.
-- [`ai-workbench-chat-business-task-v1.md`](./ai-workbench-chat-business-task-v1.md)
-  - APPROVED / IMPLEMENTATION_READY #576 Slice E: owner-scoped Conversation,
-    no-tool Eino/eino-ext planning, immutable execution proposals and BusinessTask,
-    exact model-profile/replay semantics and current AgentRun/Review projections.
-- [`ai-workbench-conversation-runtime.md`](./ai-workbench-conversation-runtime.md)
-  - IMPLEMENTATION_READY: existing scoped Conversation management without model
-    policies; explicit allowlist, live authorization and closed execution routes.
-    Reuses #580 title policy/organization-only credentials; native protocols and
-    run-profile binding are approved implementation contracts, not deployed capability.
-    Reviewed contract HEAD `620495bf03b57099e4b934f89c04e0d989d543d7` received
-    independent no-major-issues verification and CI `37032794759` SUCCESS.
-    Production Writer waits for PR #578 merge and execution-Issue admission;
-    final-head merge checks and separate rollout/provider permissions still apply.
-
-- [`enterprise-custom-roles-v1.md`](./enterprise-custom-roles-v1.md)
-  - IMPLEMENTATION_READY #598 Figma members and enterprise custom roles, native slot inventory, scoped permission consumers and atomic mutation receipts.
-
-- [`member-directory-query-v1.md`](./member-directory-query-v1.md)
-  - #575 bounded current Membership query increment: complete display-name/login
-    search, native role/state filtering, filtered totals and paging. IMPLEMENTATION_READY;
-    no new IAM, persistence owner or shared runtime authority.
-
-- [`product-image-agent-v1.md`](./product-image-agent-v1.md)
-  - IMPLEMENTATION_READY #612: enterprise full-image configuration, product Run/Plan,
-    per-image dispatch/materialization/points, original-request recovery and explicit
-    ordered Asset selection. Reuses current owners and Figma Product Authority;
-    provider use and user acceptance remain separately gated.
-
-- [`organization-agent-configuration-v1.md`](./organization-agent-configuration-v1.md)
-  - APPROVED / IMPLEMENTATION_READY #570 Slice D: enterprise Agent enablement,
-    immutable templates/defaults and start snapshots, capability projections,
-    same-database activation/Claim ordering and existing Product Agent consumption.
-    Final reviewed contract HEAD `88b2be970b470fab45d1897d89b41de4061020ec`;
-    targeted review found no major issues and CI `36566072746` completed SUCCESS
-    including Required CI Gate. Production Writer starts only after PR #571 merges
-    to main; rollout/provider use remain separately gated.
-
-- [`enterprise-agent-permission-modes-v1.md`](./enterprise-agent-permission-modes-v1.md)
-  - #656 APPROVED / IMPLEMENTATION_READY architecture for four enterprise
-    execution modes: default, automatic approval, read-only and full access.
-    Registered and privately delivered agents retain their original admission
-    owners; external publishing, deletion and budget increases require separate
-    authorization. This is design admission, not implemented runtime behavior;
-    production work follows the currently prioritized acquisition/save flow.
-
-- [`product-content-localization-v1.md`](./product-content-localization-v1.md)
-  - #661 APPROVED / IMPLEMENTATION_READY: explicit language and four bounded
-    text fields, immutable registered content configuration, existing ProductDB
-    Review/Catalog atomic adoption and exact mixed publication lineage. Reuses
-    #656 execution modes and governed text/point owners; real models and user
-    acceptance remain separate gates. Main delivery PR #662 depends on #657.
-
-- [`platform-listing-materials-agent-v1.md`](./platform-listing-materials-agent-v1.md)
-  - #135 APPROVED / IMPLEMENTATION_READY: bounded platform-material proposals
-    reuse Eino/configuration/four execution modes, while the existing Listing
-    Target owns local draft facts and command recovery. Agent adoption checks
-    current mode at the Target commit; canonical content remains with the
-    content/localization owner. Main delivery PR #666 depends on #662;
-    implementation, provider use, installation and user acceptance are separate.
-
-- [`agent-customization-v1.md`](./agent-customization-v1.md)
-  - APPROVED / IMPLEMENTATION_READY #611: enterprise customization requests,
-    contact consent, private files and verified-platform manual progress.
-    Submission is free; proposals and fees are confirmed offline. Runtime
-    assembly and user acceptance remain separate from the owner implementation.
-
-- [`private-agent-delivery-v1.md`](./private-agent-delivery-v1.md)
-  - APPROVED / IMPLEMENTATION_READY #611: fixed-version platform draft checks
-    privately delivered to the original request enterprise, atomic publication,
-    actor-private immutable reports and current source authorization. Existing
-    Listing saved validation is reused;
-    no model/provider, product mutation or second generic Agent runtime.
-  - Bounded isolated trial admission: [`private-draft-offline-trial.md`](./private-draft-offline-trial.md).
-    Explicit offline test scope/store and seven existing native read routes;
-    test-rule reports remain distinct from real platform acceptance.
-
-- [`product-agent-text-provider-neutral-v1.md`](./product-agent-text-provider-neutral-v1.md)
-  - IMPLEMENTATION_READY #573 architecture for organization-scoped,
-    provider-neutral title text admission over OpenAI-compatible routes. The
-    user's new supplier decision supersedes the old GRSAI-only requirement;
-    actual paid execution still requires route-specific metering, limits,
-    pricing and paid-call authorization.
-
-- [`product-agent-google-interactions-v1.md`](./product-agent-google-interactions-v1.md)
-  - IMPLEMENTATION_READY #573 Google Gemini 3.8 Flash native Interactions route
-    increment after independent architecture review. The
-    existing provider-neutral identity, points and UNKNOWN owners remain.
-
-- [`account-audit-summary-v1.md`](./account-audit-summary-v1.md)
-  - IMPLEMENTATION_READY #478 four true Account Audit totals over the complete
-    30-day window of current committed owner events, preserving live Organization
-    authorization, canonical operation identity and existing list pagination.
-    Independent Store/Billing history, rollout and product acceptance remain outside
-    this bounded increment.
-
-- [`account-audit-filters-v1.md`](./account-audit-filters-v1.md)
-  - IMPLEMENTATION_READY #581: bounded cross-source content, time and affected
-    member filters with complete matching pagination and unchanged fact owners.
-
-- [`account-audit-usage-readers-v1.md`](./account-audit-usage-readers-v1.md)
-  - IMPLEMENTATION_READY #587: two independent read-only invocation owner pools
-    and fresh Account Compose ledger initialization for the existing filtered
-    audit contract; no Agent execution or historical backfill.
-
-- [`unified-base-prepaid-resources-v1.md`](./unified-base-prepaid-resources-v1.md)
-  - IMPLEMENTATION_READY design basis for #478/#564: current Figma base plan, native Stores, prepaid purchases, real resource events and Product Agent point metering; supersedes subscription/quota/Token entry paths without changing repository package-boundary rules.
-
-- [`commercial-retail-pricing-v1.md`](./commercial-retail-pricing-v1.md)
-  - IMPLEMENTATION_READY #600: approved Store CNY 168 per 30-day period, AI-point purchase CNY 0.01 per point, create-only catalog installation and price-only public projection; unchanged wallet/resource/Store contracts.
-- [`enterprise-storage-capacity-v1.md`](./enterprise-storage-capacity-v1.md): IMPLEMENTATION_READY #659; enterprise retained-byte admission, 5 GiB base capacity, wallet-funded 50 GiB / 30-day expansion and current resource page authority.
-- [`minio-capacity-admission-v1.md`](./minio-capacity-admission-v1.md): IMPLEMENTATION_READY #659; explicit local MinIO deployment identity and bounded existing-empty-schema capacity enablement, preserving cloud and isolated-trial contracts.
-
-These documents are useful background, but should not override stable boundary
-documents unless they say so explicitly:
-
-- [`member-resource-allocation-v1.md`](./member-resource-allocation-v1.md)
-  - IMPLEMENTATION_READY #561 member Store grants, period/data allocation and
-    independent Resource settlement from native Store/Product proofs, including
-    official SHEIN authorization. The existing admitted Product composition
-    constructs its exact-read and charge-proof adapters; candidate implementation
-    does not imply runtime rollout or real merchant authorization acceptance.
-
-- [`agent-knowledge-context-v1.md`](./agent-knowledge-context-v1.md)
-  - IMPLEMENTATION_READY #555/#556 enterprise Knowledge + existing Product Agent V1:
-    Organization-scoped Knowledge, bounded document lifecycle, immutable context bundles,
-    exact citations, dispatch-permit disable fence and Human Review provenance. Production
-    Writer starts only after PR #556 is merged to main; rollout/provider use remains gated.
-
-- [`account-facts-invitations-v1.md`](./account-facts-invitations-v1.md)
-  - IMPLEMENTATION_READY Design Basis for the bounded #551 Account Center
-    delivery: user facts, region preferences, complete enterprise statistics and
-    consent-based email invitations. It does not supersede repository structural
-    boundaries; candidate delivery is not browser acceptance or runtime rollout.
-- [`settlement-reversal-locking.md`](./settlement-reversal-locking.md)
-  - IMPLEMENTATION_READY #413 repair of ordinary refund/chargeback concurrency
-    while preserving immutable canonical settlement privileges and replay bounds
-- [`subject-verification-tencent-esign-design.md`](./subject-verification-tencent-esign-design.md)
-  - #510 bounded subject-verification design. Section 13 freezes the Tencent
-    enterprise first-verification contract and section 14 freezes the Aliyun
-    personal KYC contract; both are IMPLEMENTATION_READY and have merged
-    implementations. Real provider trials and production rollout remain separate gates.
-- [`referral-withdrawal-personal-kyc-contract.md`](./referral-withdrawal-personal-kyc-contract.md)
-  - IMPLEMENTATION_READY #519 cross-domain admission contract: a new referral
-    withdrawal consumes the same subject's authoritative personal KYC VERIFIED
-    fact through a narrow read port; includes committed-operation replay and the
-    staged v1/v2 rules rollout required by the API-first deployment order.
-- [`referral-settlement-and-conduct.md`](./referral-settlement-and-conduct.md)
-  - IMPLEMENTATION_READY #469 contract for a 30-day period on newly recorded
-    referral earnings, immutable stored maturity deadlines during payment replay,
-    and promotion conduct guidance bounded by existing processing capabilities.
-- `alipay-wallet-topup-design.md`
-  - DESIGNING #481 WeChat Pay and Alipay wallet top-up architecture using GoPay;
-    fixed-channel attempts, typed checkout, isolated verification, posting/refund
-    receipts and recovery. Historical filename; one dual-channel design.
-    Desktop checkout, third-party payer, zero top-up commission and admin-approved
-    refunds are approved and incrementally reviewed. Economic amount mapping remains;
-    not IMPLEMENTATION_READY or a real-payment authorization. Includes exact Figma
-    recharge-page and modal references.
-- `2026-09-27-1688-anonymous-rate-and-egress-proxy-addendum.md`
-  - Draft addendum to the #514 browser acquisition design: anonymous collection
-    rate governance (the observed 1688 challenge is frequency-triggered) and the
-    constraints any egress proxy must satisfy. **Proposal only — neither the
-    rate-governance half nor the egress-proxy half is implemented.** Implementation
-    waits on admission of this document and an explicit `IMPLEMENTATION_READY`.
-- `2026-09-26-1688-server-public-browser-acquisition-design.md`
-  - FROZEN BASELINE / IMPLEMENTATION_READY #514 `src2b-public-browser-v1`:
-    server-side anonymous 1688 browser acquisition with automatic challenge
-    handling, reusing the existing `AcquisitionEvidence` → SourceEnvelope →
-    SRC-1 → Catalog chain. The design §12-A open items were resolved by user
-    decision on 2026-09-26 and are recorded in §12-A'; the real-network
-    acceptance result is recorded in §12-A''. Does not supersede approved
-    sourcing contracts, and does not by itself authorize production wiring or
-    deployment.
-- `2026-10-03-acquisition-channel-pricing.md`
-  - IMPLEMENTATION_READY #592 contract for 5 fen per published server-side
-    1688 acquisition and free Browser Capture extension/local executor submission;
-    preserves the existing Product publication and prepaid resource owners.
-- `project-target-architecture.md`
-  - target architecture context; use stable boundary documents for current
-    review policy
-- `auth-and-tenancy.md`
-  - verified effective Organization, home identity distinction, route
-    authorization and remaining legacy paths; supporting context, not a new IAM
-- [task-status-lifecycle.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/task-status-lifecycle.md)
-  - status lifecycle context; use stable boundary documents for package
-    ownership and dependency rules
-- [temu-architecture-patterns.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/temu-architecture-patterns.md)
-  - TEMU architecture pattern context; use stable boundary documents for
-    cross-platform dependency rules
-- [temu-pipeline-stages.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/temu-pipeline-stages.md)
-  - TEMU pipeline stage context; use stable boundary documents for runtime and
-    assembly boundaries
-- [listingkit-refactor-status.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/listingkit-refactor-status.md)
-  - ListingKit refactor status context; use stable boundary documents for
-    long-lived ListingKit boundaries
-- `amazon-crawler-runtime-flow.md`
-  - Amazon crawler runtime flow context; use stable boundary documents for
-    review policy
-- [task-event-v2-migration.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/task-event-v2-migration.md)
-  - RabbitMQ complete-task event V2 schema, compatibility window, and removal
-    gate; Listing Control ID-only dispatch is out of scope
-- [openmeter-shadow-metering-poc-report.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/openmeter-shadow-metering-poc-report.md)
-  - time-bounded, evidence-backed local PoC decision; it does not authorize a
-    production integration, billing, payment, deployment, or data migration
-- `pay-041-usage-ledger.md`
-  - time-bounded PAY-041 reconciliation evidence and PAY-042 handoff; it does
-    not authorize production data repair, entrypoint cutover, or billing
-    integration
-- `pay-042-listingkit-generation-usage-cutover.md`
-  - time-bounded first-slice PAY-042 generation settlement boundary; it does
-    not authorize payment-provider changes or enable the rollout flag
-
-- `content-agent-chat-coexistence-v1.md`: IMPLEMENTATION_READY #688/#715 bounded content title execution alongside storage-only Chat; fixed native Run/Review preparation, no real installation or provider enablement authority.
-
-## Plans, runbooks, and evaluations
-
-- [`store-observations-empty-retirement.md`](store-observations-empty-retirement.md):
-  historical record of the completed, explicitly authorized empty Store schema
-  retirement; not a reusable installer or authorization to repeat the operation.
-
-Documents with names such as `*-plan.md`, `*-runbook.md`, `*-evaluation.md`,
-`*-checklist.md`, `*-status.md`, `*-playbook.md`, `*-validation.md`,
-`*-split.md`, or `*-management.md` are normally time-bounded. Names are discovery hints, not retirement decisions. They may explain
-why a decision was made. Still-approved domain contracts remain effective; link
-applicable boundary rules into stable entries for review policy. Classify mixed
-sections by explicit supersession and evidence, never mechanically by filename.
-Every architecture document must be either indexed above or match a
-time-bounded context pattern.
-
-## Working Rule
-
-When a structural question comes up, start with this index. If two documents
-appear to disagree, first apply the approved responsibility/supersession above;
-within that boundary, prefer the stable boundary document and update the older
-contextual note with a link instead of creating a third interpretation.
-Every stable or development boundary document must have a document test before
-it is treated as a long-lived review entrypoint.
-
-- [`own-product-existing-drafts-v1.md`](./own-product-existing-drafts-v1.md): #699 按准确自有商品有界查询已保存草稿、固定来源与保存版本、独立继续编辑及返回上下文；IMPLEMENTATION_READY，独立R1限定新读合同准入。
-
-- [`chat-task-object-goal-design-brief.md`](./chat-task-object-goal-design-brief.md) — IMPLEMENTATION_READY；#808，多来源对象、任务目标、冻结内容执行合同与原审核采用。
-- [`local-tls-revocation-maintenance.md`](./local-tls-revocation-maintenance.md)：#965 本机 TLS 独立 OpenSSL 维护、既有服务的精确 CRL 发布合同；真实凭据、信任及运行接线单独授权。
+# 当前系统架构合同
+
+返回[文档首页](../README.md)。先读 `project-boundaries.md` 和 `project-target-architecture.md`，再按业务领域选择合同；源码入口见[Repository Structure](../development/repository-structure.md#current-entrypoint-map)。
+
+产品基线为 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。页面与交互见[产品 Authority](../product/final-ui-ia-authority.md)；领域事实和运行边界由下列合同负责。合同中的设计准入不代替源码完成、实例启用或真实用户验收。
+
+<a id="foundation"></a>
+
+## 系统边界与应用装配
+
+- `app-assembly-boundaries.md` — [App Assembly Boundaries](app-assembly-boundaries.md)
+- `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
+- `httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](httpapi-assembly-boundaries.md)
+- `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
+- `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
+- `temporal-boundaries.md` — [Temporal Boundaries](temporal-boundaries.md)
+
+<a id="identity"></a>
+
+## 身份、企业与授权
+
+- `account-audit-filters-v1.md` — [Account Audit 完整历史筛选 V1](account-audit-filters-v1.md)
+- `account-audit-summary-v1.md` — [Account Audit 四项真实汇总 V1](account-audit-summary-v1.md)
+- `account-audit-usage-readers-v1.md` — [Account Audit 只读用量来源接线 V1](account-audit-usage-readers-v1.md)
+- `account-facts-invitations-v1.md` — [Account facts and invitations v1](account-facts-invitations-v1.md)
+- `auth-and-tenancy.md` — [Authentication and Organization Scope](auth-and-tenancy.md)
+- `auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](auth-instance-cookie-isolation.md)
+- `authentication-runtime.md` — [Zitadel Authentication Runtime Extraction Design](authentication-runtime.md)
+- `browser-kernel-release-catalog-v1.md` — [平台浏览器内核发行目录 V1](browser-kernel-release-catalog-v1.md)
+- `enterprise-custom-roles-v1.md` — [Enterprise custom roles v1 — Issue #598](enterprise-custom-roles-v1.md)
+- `local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](local-tls-revocation-maintenance.md)
+- `member-directory-query-v1.md` — [Member directory query v1](member-directory-query-v1.md)
+- `protected-member-role-native-cas.md` — [B1：受保护成员单业务角色的原生条件写入](protected-member-role-native-cas.md)
+- `source-account-sa1.md` — [Source Account SA1 contract](source-account-sa1.md)
+- `source-account-sa2-bff.md` — [Source Account SA-2 BFF contract](source-account-sa2-bff.md)
+
+<a id="commercial"></a>
+
+## 资金、资源与计费
+
+- `alipay-wallet-topup-design.md` — [微信支付与支付宝企业钱包充值架构设计](alipay-wallet-topup-design.md)
+- `commercial-retail-pricing-v1.md` — [店铺与 AI 预付资源正式价格 V1](commercial-retail-pricing-v1.md)
+- `enterprise-storage-capacity-v1.md` — [企业存储容量 V1](enterprise-storage-capacity-v1.md)
+- `local-ai-trial-v1.md` — [Local 一次性 AI 试用来源 v1](local-ai-trial-v1.md)
+- `member-resource-allocation-v1.md` — [Member resources and official store connection v1](member-resource-allocation-v1.md)
+- `minio-capacity-admission-v1.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission-v1.md)
+- `model-route-pricing-management-v1.md` — [模型与费率管理 V1](model-route-pricing-management-v1.md)
+- `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
+- `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
+- `settlement-reversal-locking.md` — [Immutable settlement reversal locking](settlement-reversal-locking.md)
+- `subject-verification-tencent-esign-design.md` — [个人与企业主体认证：腾讯企业认证与阿里云个人认证](subject-verification-tencent-esign-design.md)
+- `unified-base-prepaid-resources-v1.md` — [统一基础方案与预付资源 V1](unified-base-prepaid-resources-v1.md)
+
+<a id="acquisition"></a>
+
+## 来源采集与浏览器插件
+
+- `1688-acquisition-figma-v1.md` — [1688 在线采集、规则与待适配接入](1688-acquisition-figma-v1.md)
+- `1688-batch-local-agent.md` — [1688 批量导入合同](1688-batch-local-agent.md)
+- `1688-context-locator.md` — [1688 window.context 定位合同](1688-context-locator.md)
+- `2026-09-26-1688-server-public-browser-acquisition-design.md` — [服务端匿名浏览器采集（1688 public browser acquisition）架构设计](2026-09-26-1688-server-public-browser-acquisition-design.md)
+- `2026-09-27-1688-anonymous-rate-and-egress-proxy-addendum.md` — [设计增补：匿名采集速率治理与出口代理（#514）](2026-09-27-1688-anonymous-rate-and-egress-proxy-addendum.md)
+- `2026-10-03-acquisition-channel-pricing.md` — [1688 acquisition channel pricing — design basis for #592](2026-10-03-acquisition-channel-pricing.md)
+- `plugin-capture-amazon-variants-v1.md` — [Amazon 插件：可选采集同族其他变体](plugin-capture-amazon-variants-v1.md)
+- `plugin-capture-durable-drafts-v1.md` — [商品采集插件：可恢复本地草稿规划与设计 v1](plugin-capture-durable-drafts-v1.md)
+- `plugin-capture-entry-flow-v1.md` — [Product capture entry and original-tab return](plugin-capture-entry-flow-v1.md)
+- `plugin-capture-ingestion-v1.md` — [插件采集增量架构：规格图片与 Amazon 接收保存 V1](plugin-capture-ingestion-v1.md)
+- `plugin-capture-listing-materials-v1.md` — [插件上架资料补齐：高清相册、参数、正文/详情图与重量 V1](plugin-capture-listing-materials-v1.md)
+- `plugin-capture-page-entry-v1.md` — [Product capture: source-page primary entry](plugin-capture-page-entry-v1.md)
+- `plugin-capture-session-return-v1.md` — [Product capture: original-tab return across worker recreation](plugin-capture-session-return-v1.md)
+- `plugin-capture-source-quotes-v1.md` — [插件资料补齐与来源报价只读展示 V1](plugin-capture-source-quotes-v1.md)
+- `source-business-closure-v1.md` — [#30 / #307 完整来源业务闭环设计](source-business-closure-v1.md)
+
+<a id="product"></a>
+
+## 商品、资产与草稿
+
+- `completion-draft-history-v1.md` — [待补全草稿保存历史与比较 v1](completion-draft-history-v1.md)
+- `completion-draft-restore-v1.md` — [待补全草稿：恢复历史内容为新版本](completion-draft-restore-v1.md)
+- `completion-draft-structured-v1.md` — [CompletionDraft 结构化候选 v1](completion-draft-structured-v1.md)
+- `own-product-draft-entry-v1.md` — [自有商品单件转入与独立待补全入口 v1](own-product-draft-entry-v1.md)
+- `own-product-edit-v1.md` — [自有商品版本更新与独立编辑页 v1](own-product-edit-v1.md)
+- `own-product-entry-v1.md` — [自有商品独立录入页与多变体 v1](own-product-entry-v1.md)
+- `own-product-existing-drafts-v1.md` — [自有商品已有草稿与继续编辑 v1](own-product-existing-drafts-v1.md)
+- `own-product-history-v1.md` — [自有商品历史读取、旧版详情和对比 v1](own-product-history-v1.md)
+- `own-product-optimization-v1.md` — [自有商品无店铺依赖的内容优化与 Apply](own-product-optimization-v1.md)
+- `own-product-rich-description-v1.md` — [自有商品描述富文本 v1](own-product-rich-description-v1.md)
+- `own-product-source-media-trial-v1.md` — [自有商品来源图片的本地隔离试用](own-product-source-media-trial-v1.md)
+- `product-content-localization-v1.md` — [商品内容完善与本地化智能体 v1](product-content-localization-v1.md)
+- `product-domain-contracts.md` — [Product Domain Contracts](product-domain-contracts.md)
+- `rich-description-simple-editor-images-v1.md` — [官方 Simple Editor 与描述图片独立上传](rich-description-simple-editor-images-v1.md)
+- `selected-application-multi-product-v1.md` — [多商品优选申请 v1](selected-application-multi-product-v1.md)
+- `selected-application-overview-v1.md` — [优选申请总览只读汇总 v1](selected-application-overview-v1.md)
+- `supply-unbound-completion-drafts.md` — [Supply 未绑定店铺待补全草稿](supply-unbound-completion-drafts.md)
+
+<a id="store"></a>
+
+## 店铺、平台与履约
+
+- `amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](amazon-condition-quotes-draft.md)
+- `completion-shein-import-v1.md` — [CompletionDraft → SHEIN Target 带入预览与确认](completion-shein-import-v1.md)
+- `erpnext-shein-fulfillment-fit-v1.md` — [ERPNext 与 SHEIN 双履约适配验证](erpnext-shein-fulfillment-fit-v1.md)
+- `my-supply-chain-shein-v1.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein-v1.md)
+- `order-procurement-fulfillment-v1.md` — [订单、采购、发货与物流首版设计草案](order-procurement-fulfillment-v1.md)
+- `own675-store-core-alignment-v1.md` — [own675 Store 核心合同对齐方案](own675-store-core-alignment-v1.md)
+- `report-center-shein-offline-package-source-v1.md` — [Report Center：原 SHEIN 离线包诊断正常接线候选](report-center-shein-offline-package-source-v1.md)
+- `report-center-shein-target-source-v1.md` — [Report Center：当前 SHEIN 已保存资料来源候选](report-center-shein-target-source-v1.md)
+- `shein-native-validator-contract-v1.md` — [SHEIN 原生资料公共诊断与材料 Tool v2](shein-native-validator-contract-v1.md)
+- `shein-offline-validation-input-binding.md` — [SHEIN 离线诊断输入、freshness 与组织范围读取设计](shein-offline-validation-input-binding.md)
+- `shein-publication-closure-v1.md` — [SHEIN 美国站：审核、首次上架与状态回读最小闭环](shein-publication-closure-v1.md)
+- `shein-submit-readiness-action-policy.md` — [SHEIN Submit Readiness Action Policy](shein-submit-readiness-action-policy.md)
+- `store-browser-workbench-implementation.md` — [店铺浏览器接口实施交接](store-browser-workbench-implementation.md)
+- `store-center-current-application-v1.md` — [Store Center 接入 current application v1](store-center-current-application-v1.md)
+- `store-center-figma-v1.md` — [Store Center：我的店铺完整 Figma 路径 v1](store-center-figma-v1.md)
+- `store-center-platform-observations-v1.md` — [店铺中心：平台商品与订单物流只读首版](store-center-platform-observations-v1.md)
+- `store-observations-current-store-install.md` — [在当前 Store 安装既有订单观察模块](store-observations-current-store-install.md)
+- `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
+- `supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](supply-market-choice-eligibility.md)
+- `supply-market-v1.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market-v1.md)
+- `temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](temu-official-contract-evidence.md)
+- `temu-platform-v1.md` — [TEMU 三种模式与全部官方站点接入设计](temu-platform-v1.md)
+- `tiktok-pre-dispatch-no-send-v1.md` — [TikTok 发送前未执行的终止与显式重试：冻结设计](tiktok-pre-dispatch-no-send-v1.md)
+- `tiktok-shop-us-contract-evidence.md` — [TikTok Shop 美国跨境：官方合同证据](tiktok-shop-us-contract-evidence.md)
+- `tiktok-shop-us-v1.md` — [TikTok Shop 美国跨境：店铺授权、商品草稿与受控刊登](tiktok-shop-us-v1.md)
+- `walmart-feed-recovery-v1.md` — [Walmart Feed：明确拒绝的修复重试与有界续读](walmart-feed-recovery-v1.md)
+- `walmart-us-contract-evidence.md` — [Walmart 美国站官方合同证据与边界](walmart-us-contract-evidence.md)
+- `walmart-us-v1.md` — [Walmart 美国站：多商家授权、商品草稿与受控刊登](walmart-us-v1.md)
+
+<a id="agent"></a>
+
+## Agent、Tool、Skill 与知识
+
+- `agent-customization-v1.md` — [智能体定制需求与人工进度 V1](agent-customization-v1.md)
+- `agent-knowledge-context-v1.md` — [Agent + Knowledge Context V1](agent-knowledge-context-v1.md)
+- `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
+- `ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](ai-provider-contracts.md)
+- `commerce-tool-canonical-inspection.md` — [B0 Canonical Product Inspection Tool 设计](commerce-tool-canonical-inspection.md)
+- `commerce-tool-foundation.md` — [Phase 2A 商业工具（Commerce Tool）基础设计](commerce-tool-foundation.md)
+- `enterprise-agent-permission-modes-v1.md` — [企业智能体权限与审批模式 V1](enterprise-agent-permission-modes-v1.md)
+- `official-knowledge-provenance-v2.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](official-knowledge-provenance-v2.md)
+- `official-knowledge-v1.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge-v1.md)
+- `official-skill-product-entry.md` — [官方技能直接处理已有商品](official-skill-product-entry.md)
+- `organization-agent-configuration-v1.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration-v1.md)
+- `platform-listing-materials-agent-v1.md` — [平台上架资料智能体 v1](platform-listing-materials-agent-v1.md)
+- `pod-design-agent-v1.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent-v1.md)
+- `private-agent-delivery-v1.md` — [指定企业私有智能体交付 V1](private-agent-delivery-v1.md)
+- `product-agent-google-interactions-v1.md` — [Product Agent Google Interactions 标题路由增量合同](product-agent-google-interactions-v1.md)
+- `product-agent-runtime-contract.md` — [Product Agent 最小运行合同与接入依赖](product-agent-runtime-contract.md)
+- `product-agent-text-provider-neutral-v1.md` — [Product Agent 标题文本供应商可替换合同（候选）](product-agent-text-provider-neutral-v1.md)
+- `product-selection-comparison-agent-v1.md` — [Product selection comparison Agent v1](product-selection-comparison-agent-v1.md)
+- `shop-operations-diagnosis-agent-v1.md` — [Shop operations diagnosis Agent v1](shop-operations-diagnosis-agent-v1.md)
+- `skill-capability-v1.md` — [Skill V1：三层归属与现有商品内容 Agent 接入](skill-capability-v1.md)
+- `tool-customization-figma-v1.md` — [工具定制完整 Figma 表单与私有参考资料](tool-customization-figma-v1.md)
+- `tool-market-v1.md` — [工具市场 v1 — 企业启用与人工定制需求](tool-market-v1.md)
+
+<a id="image"></a>
+
+## 图片执行、预算与恢复
+
+- `bailian-product-image-wiring-v1.md` — [百炼商品图片接线 V1](bailian-product-image-wiring-v1.md)
+- `generic-image-template-entry.md` — [通用图片模板与技能入口带入](generic-image-template-entry.md)
+- `grsai-vip-image-binding-v1.md` — [GRSAI VIP 图片可选绑定 V1](grsai-vip-image-binding-v1.md)
+- `image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](image-agent-budget-authorization.md)
+- `image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](image-agent-candidate-release-gate.md)
+- `image-agent-effect-finalization.md` — [Image Agent external-effect finalization design](image-agent-effect-finalization.md)
+- `image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](image-agent-effect-policy.md)
+- `image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](image-agent-effect-recovery.md)
+- `image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](image-agent-effect-terminalization.md)
+- `image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](image-agent-recovery.md)
+- `image-agent-workflow.md` — [Image Agent Workflow](image-agent-workflow.md)
+- `image-api-event-read-permissions.md` — [Image API event-read permission correction](image-api-event-read-permissions.md)
+- `image-download-safety.md` — [Image Download Safety Boundary Design](image-download-safety.md)
+- `image-plan-optional-route-v1.md` — [Single-product image plan optional route V1](image-plan-optional-route-v1.md)
+- `image-text-language-confirmation-v1.md` — [Image target language, localization and confirmed copy](image-text-language-confirmation-v1.md)
+- `product-image-agent-v1.md` — [商品图片智能体 V1 — 完整图片能力设计](product-image-agent-v1.md)
+- `source-white-background.md` — [来源商品白底图与资源结算合同](source-white-background.md)
+- `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](vip-original-output-recovery.md)
+
+<a id="workspace"></a>
+
+## 工作台、项目与任务投影
+
+- `ai-workbench-chat-business-task-v1.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task-v1.md)
+- `ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](ai-workbench-conversation-runtime.md)
+- `ai-workbench-project-center-v1.md` — [AI Workbench Project Center V1](ai-workbench-project-center-v1.md)
+- `ai-workbench-reports-v1.md` — [AI工作台个人报告 v1](ai-workbench-reports-v1.md)
+- `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
+- `content-agent-chat-coexistence-v1.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence-v1.md)
+- `issue-36-completed-work-store-scope.md` — [#36 已完成本地资料的店铺归属投影](issue-36-completed-work-store-scope.md)
+- `issue-36-local-trial-runtime.md` — [#36 可保留的本机隔离试用运行边界](issue-36-local-trial-runtime.md)
+- `notification-center-v1.md` — [通知中心 V1：站内通知与业务状态投影](notification-center-v1.md)
+- `operations-cockpit-figma-read-v1.md` — [运营驾驶舱四页 Figma 与只读投影补充](operations-cockpit-figma-read-v1.md)
+- `operations-cockpit-v1.md` — [运营驾驶舱首版：人工经营事实与有据可查的经营投影](operations-cockpit-v1.md)
+- `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
+- `project-center-overview-read-v1.md` — [Project Center overview read V1](project-center-overview-read-v1.md)
+- `task-center-native-run-projection-v1.md` — [任务中心：多来源、多能力的原生运行投影](task-center-native-run-projection-v1.md)
+
+<a id="services"></a>
+
+## 数据与生态服务
+
+- `data-services-native-authorization.md` — [Data Services native authorization — #619 / PR #631](data-services-native-authorization.md)
+- `data-services-v1.md` — [数据市场与 API 管理首版](data-services-v1.md)
+- `ecoservices-qualification-runtime.md` — [Ecoservices qualification-only runtime](ecoservices-qualification-runtime.md)
+- `ecosystem-services-v1.md` — [生态服务 V1：第三方入驻、服务交付与在线收款结算](ecosystem-services-v1.md)
+- `platform-support-chatwoot.md` — [Platform customer support through Chatwoot official APIs](platform-support-chatwoot.md)
+
+Every architecture document is explicitly indexed above. 新增、合并或删除合同时同步本索引；当前规则写入已有 owner 的合同，不追加退休记录、历史索引或逐轮评审日志。

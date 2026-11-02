@@ -1,7 +1,3 @@
-> #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
-
-> #301 / #980 当前源级退休边界：用户确认的[三组完整闭包](legacy-ai-routing-image-policy-closure-retirement-boundary.md)仅退出无生产接线的旧通用路由/HTTP图片adapter、本地场景模板/布局及白底/IP启发式。当前本设计的真实生成/Review/确定性校验/平台规则/预算/UNKNOWN/恢复/显式批准及UI原样；httpimage保留公共安全下载与原InspectGeneratedArtifact，product/image保留SceneOptions/ProfileName与metadata合同和纯规则。旧本地YAML不是当前Marketplace policycatalog，不能用删除它推定平台合规或取消当前质量阈值。本批不操作运行实例/数据/凭据/进程，不增试用前置；以下原合同全文保留，独立SHEIN登录/Store同步和#301 OPEN保持。
-
 # 商品图片智能体 V1 — 完整图片能力设计
 
 > Status: **IMPLEMENTATION_READY**。2026-10-09 独立 Architecture Review R2 已解除唯一设计 BLOCKER；用户随后确认本线程统一完成本批必要共享接口与启动接线，正式开工依赖已满足。
@@ -61,7 +57,7 @@
 | `internal/imageagent/model.go` 的 Run/Plan/Slot | 已有商品运行、计划、多图片 slot 和有界并发；无须创建第二图片运行时。 |
 | `internal/imageagent/generation_execution.go` | 当前正式经济准入只接受 Main、单来源、product/zz/default/general 与 render_source_white_background；不能仅复制十六次请求来实现完整能力。 |
 | `internal/app/worker/imageagent/generation_provider.go` | 当前 GRSAI 同步 adapter、exact bytes、单次 dispatch、typed 成功观察与价格/凭据版本绑定可复用；能力工厂目前只构造白底行为。 |
-| #487 设计 §9.5 A–F | 固定 image owner 的跨库 immutable intent/terminal proof、资源 operation fence、成员 UTC 月限与 UNKNOWN 处理已独立准入；完整图片扩展需要覆盖实际新增边界。 |
+| [固定 Image owner 资源回执](source-white-background.md) | 固定 image owner 的跨库 immutable intent/terminal proof、资源 operation fence、成员 UTC 月限与 UNKNOWN 处理已独立准入；完整图片扩展需要覆盖实际新增边界。 |
 | `internal/imageagent/validation.go` / tools executor | 内部 SlotRole 与面向用户的主图/详情图分组不是同一概念；不能把所有轮播图都标为 Main 后全局放松原不变量。 |
 | `internal/agentconfig` 与其准入文档 | 企业启用、精确模板/配置版本存在，但正式模板仅支持 title-config-v1；图片参数不能冒名写入标题模板。 |
 | `web/.../acquisition/acquisition-page.tsx` | exact 商品详情与 ProductAgentPanel 已有；主图 hook 尚无视觉消费者。 |

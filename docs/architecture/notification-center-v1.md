@@ -16,9 +16,9 @@
 
 - [最终 UI / IA Authority](../product/final-ui-ia-authority.md)。
 - [全新系统基线](../product/greenfield-no-legacy-migration.md)。
-- [项目边界](project-boundaries.md)、[Legacy Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)。
-- [AI Workbench](ai-workbench-chat-business-task-v1.md)、[标题审核](../engineering/product-title-review-ui.md)、[Store Center](store-center-current-application-v1.md)。
-- [统一商业合同](unified-base-prepaid-resources-v1.md)、[钱包计费](commercial-wallet-billing-contract.md)、[充值](alipay-wallet-topup-design.md)。
+- [项目边界](project-boundaries.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)。
+- [AI Workbench](ai-workbench-chat-business-task-v1.md)、[标题审核](../operations/product-agent-trial.md)、[Store Center](store-center-current-application-v1.md)。
+- [统一商业合同](unified-base-prepaid-resources-v1.md)、[钱包计费](unified-base-prepaid-resources-v1.md)、[充值](alipay-wallet-topup-design.md)。
 - [成员邀请](account-facts-invitations-v1.md)、[推广结算](referral-settlement-and-conduct.md)、[主体认证](subject-verification-tencent-esign-design.md)。
 
 本轮实际读取 Figma file `tg48P46SSXl6TBy9lZwg63` / page `31:463` 中以下可见节点的 design context 与截图，并只读核对点击 reactions：

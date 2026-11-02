@@ -1,9 +1,3 @@
-> #1046 / #301 精确退休说明：[用户确认的完整设计](legacy-store-source-admission-audit-tail-retirement-boundary.md)仅退出无生产消费者的SourcingStoreReader/ValidateSourcingStoreAccess和无调用的auditFailureFor/stableFailureFromAudit。当前管理GET及正式用途member/grant/service/connection原生准入、审计Repository/Event/字段/值/幂等/修复、资金/事务/UNKNOWN恢复、观察与多平台能力继续有效；不把旧“来源导入仅活跃SHEIN”推为现役Store规则，不改变当前取消/nil错误合同，不重新解释已有失败记录。以下完整批准架构与历史保留，不授权部署、既有资源操作或关闭#301。
-
-> #1041 窄范围源码退休：[用户确认的完整设计§1–§7/§4.2/§6.1](legacy-resource-transaction-closure-retirement-boundary.md)已实施。本文对integration/orgresource.StoreServiceExecutor旧同库扣费路径的描述仅为历史，该执行器已退出；当前入口仍使用app/storecenter.ServiceLifecycleExecutor、独立Store intent/proof与Resource ConsumerCharge。当前Store开通/续费/重新激活、LockServiceState/ApplyServiceState、权限/付费保留证明/恢复与观察同步保持；不宣称跨库原子性，不退当前服务合同或物理账本。以下原正文逐字保留，不授权部署或真实环境操作。
-
-> SUPERSEDED / RETIRED — #988 / #301 source retirement. Current authority: [unified-base-prepaid-resources-v1](./unified-base-prepaid-resources-v1.md) and [retirement boundary](./legacy-subscription-metering-closure-retirement-boundary.md). The following text is preserved historical evidence; it does not authorize subscription, Token allocation, OpenMeter or retired review runtime. Current Resource/money/Store owners and their valid safety contracts remain. No existing tables, records or credentials are changed.
-
 # Store Center 接入 current application v1
 
 状态：`IMPLEMENTATION_READY`（2026-09-28 独立 Architecture Review，无未解决 BLOCKER）。本文是 #552 的设计依据，不是实现或运行验收；正式 Writer 授权仍须满足 Issue「权限与责任」。
@@ -17,11 +11,11 @@
 依据顺序：
 
 - #552 当前正文：记录管理、三类状态分离、连接不可用时诚实展示；第一批不开放 Activate/Renew/Reactivate。
-- [全新系统产品基线](../product/greenfield-no-legacy-migration.md)、[Legacy Hard-Cut](../refactoring/legacy-hard-cut-policy.md)：全新安装、空业务数据，只有 EXTRACT / RETIRE，无历史兼容义务。
+- [全新系统产品基线](../product/greenfield-no-legacy-migration.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)：全新安装、空业务数据，只有 EXTRACT / RETIRE，无历史兼容义务。
 - [最终 UI / IA Authority](../product/final-ui-ia-authority.md)：Figma 文件 `tg48P46SSXl6TBy9lZwg63`、页面 `31:463`。2026-09-28 使用只读 Plugin API 复核可见节点 `429:4243`、`429:4445`（我的店铺深/浅色），`1560:359`、`1560:716`（优化版），以及批量选择实例。设计实例不是平台、服务或统计事实。
 - [身份与租户合同](auth-and-tenancy.md)、[当前认证边界](auth-and-tenancy.md)：复用 ZITADEL、Effective Organization、当前 route middleware 和 Casbin 权限，不建立 IAM。
 - [当前统一资源合同](unified-base-prepaid-resources-v1.md)：保留服务/资源当前 owner、原子执行与幂等行为；其中历史迁移、旧 lifecycle 兼容与双状态同步不能成为本轮依据。
-- [商业合同](commercial-wallet-billing-contract.md)、[订阅购买合同](self-service-subscription-purchase-contract.md)：本轮消费 Store entitlement，不改套餐、价格、钱包、订单或资源余额。
+- [商业合同](unified-base-prepaid-resources-v1.md)、[订阅购买合同](unified-base-prepaid-resources-v1.md)：本轮消费 Store entitlement，不改套餐、价格、钱包、订单或资源余额。
 
 第一批交付 list/detail/create/update/enable/disable/delete，以及已有 provisioning 的 resume-create；SHEIN 是当前唯一合法 platform。地区、外部店铺 ID 只是用户提供的记录属性，不证明平台授权或真实外部身份验证。
 

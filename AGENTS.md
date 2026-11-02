@@ -38,40 +38,14 @@
 - 用户可以授予**有边界的合并窗口授权**：在产品逻辑 diff、权限、安全、持久化和副作用边界不变的前提下，后续若仅发生 merge-main、依赖同步、文档或元数据变化，独立 Reviewer 只需确认组合无新问题且必需 CI 通过，无需再次请求同一产品决定。实际 GitHub merge 仍必须使用最终准确 HEAD/expected-head 语义，不得管理员绕过、强推或修改保护规则。任何产品逻辑、权限、安全、持久化或副作用变化都会使该窗口授权失效。
 - 汇报以“用户现在能完成什么、入口在哪里、具体阻碍是什么、需要什么产品决定”为主。测试数量、代码行数、PR 数量和报告数量只作为辅助证据，不能替代产品进展。
 
-## Legacy Hard-Cut
+## 当前架构与能力复用
 
-仓库对旧代码采用 `Hard-Cut + Selective Extraction`，详细规则见：
+新代码落在[当前领域 owner](docs/architecture/project-boundaries.md)，复用合格的现有行为和成熟组件。旧代码退休工程已经完成，退休矩阵、登记、阶段报告及其正文冻结不再是开发前置。
 
-- `docs/refactoring/legacy-hard-cut-policy.md`
-- `docs/refactoring/legacy-register.md`
-
-当前 Legacy 只有两种合法处理结果：
-
-- `EXTRACT`：仍然正确、可复用的行为抽取到当前架构的正确 owner；新代码不得继续依赖旧 owner。
-- `RETIRE`：属于旧设计的代码/测试/DTO/Workflow/Task/Workspace/状态机不兼容、不扩展，完成切换后删除或停止使用。
-
-**当前没有 Legacy Compatibility 类别。**
-
-遇到旧代码时：
-
-1. 先判断它是否仍是当前 Product/Architecture requirement；不是则 `RETIRE`。
-2. 若行为仍有价值，优先把行为抽取到当前 Domain/Capability owner，而不是 Wrap 旧 Service。
-3. 不得为了“保持旧代码可用”在新架构内部增加 fallback、双读、双写、双向同步或第二套事实源。
-4. 旧测试不是 Architecture Authority；只保留仍然有效的业务、安全、权限、幂等、平台或确定性行为，旧实现细节测试应删除/改写。
-5. ProductEnrich/ProductImage 旧 task/queue/worker/API、Task-first Product 模型、旧 Listing Workspace/Task Dashboard、平台独立 Workbench 等已 hard-cut 的设计不得通过兼容层重新进入新代码。
-6. 新的 Product/Agent/Tool/Marketplace/Console 代码不得直接依赖已登记为 `RETIRE` 的 legacy abstraction。
-7. 如果未来发现具体、当前的外部可观察契约或持久化运行态似乎要求兼容，必须停下来报告用户；当前没有可执行的 legacy migration/compatibility Exception，只有用户新的明确产品决定可以改变本禁令，Reviewer 或 Agent 无权自行放行。不得自行增加“临时”兼容路径。
-
-PR 触碰 Legacy 时必须说明：
-
-```text
-Legacy decision: EXTRACT | RETIRE
-Reusable behavior:
-Current owner:
-Cutover/deletion condition:
-```
-
-“继续兼容旧内部设计”不是当前允许的默认决策。
+- 一个业务事实由一个当前 owner 负责；不得引入旧 Service 包装、fallback、双读双写或第二事实源来承接旧设计。
+- 测试和源码本身不是新增产品需求的授权；仍有效的业务、安全、权限、事务、幂等和恢复行为继续验证。
+- 发现现有实现不符合当前合同，按明确范围修复并检查同根因路径，不恢复已退出的兼容或迁移方案。
+- 当前运行合同和源码/依赖禁入规则继续有效。涉及实际资源或外部契约时提供具体当前证据，不从退休记录推导操作权限。
 
 ## 全新系统产品基线
 
@@ -83,7 +57,7 @@ Cutover/deletion condition:
 
 按用户2026-11-02决定，项目作为全新系统开发，当前没有旧系统兼容、迁移或历史业务承接义务。Agent 以当前产品决定、已批准领域合同和当前执行 Issue 为开发依据，不默认读取历史归档，不从旧计划、旧测试或既有实现恢复已撤销需求；详细规则见[全新系统开发基线](docs/product/greenfield-no-legacy-migration.md#agent-开发依据2026-11-02-用户决定)。
 
-工作树不保留 `docs/archive` 或另一个历史目录来维持旧阶段准入。历史原件仅作固定版本追溯；对旧材料的文本/冻结检查不作为正常开发前置。现行授权、租户、安全、事务、幂等、资源与恢复合同及其行为测试继续有效。
+工作树不保留归档、退休过程目录或另一个历史目录来维持旧阶段准入。历史原件仅作固定版本追溯；对旧材料的文本、历史计数、版式和正文冻结检查不作为正常开发前置。现行授权、租户、安全、事务、幂等、资源与恢复合同及其行为测试继续有效。
 
 ## Architecture First 开工准入
 

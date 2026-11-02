@@ -44,7 +44,7 @@ Out of Scope：
 - [中立 Validator 合同](../../internal/marketplace/validator/README.md)：确定性、scope、结构化结果、零业务副作用，不授权提交。
 - [Agent 运行合同](product-agent-runtime-contract.md)：固定验证、repair≤2、准确候选/输入绑定、未知结果不自动重放。
 - [原离线报告](report-center-shein-offline-package-source-v1.md)与[原生资料报告](report-center-shein-target-source-v1.md)：两个来源和历史结果含义分开。
-- [Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)。
+- [Greenfield](../product/greenfield-no-legacy-migration.md)、[当前系统边界](project-boundaries.md)。
 
 本轮不设计新页面、按钮、人工流程或页面命名。沿平台资料原设计引用的当前 Figma Product Authority（我的智能体/配置/确认及 Supply 资料页）；没有重新读 Figma 或执行浏览器/视觉验收。若实现必须改变页面职责，停止并报告，不能从公共诊断类型推导额外 UI。
 

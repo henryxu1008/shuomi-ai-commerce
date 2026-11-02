@@ -21,8 +21,8 @@
 - 自有商品：[录入](own-product-entry-v1.md)、[历史](own-product-history-v1.md)、[富文本描述](own-product-rich-description-v1.md)。
 - 待补全草稿：[单件转入](own-product-draft-entry-v1.md)、[已有草稿](own-product-existing-drafts-v1.md)、[未绑定店铺草稿](supply-unbound-completion-drafts.md)。
 - 草稿编辑：[属性与 SKU](completion-draft-structured-v1.md)、[保存历史](completion-draft-history-v1.md)、[恢复为新版本](completion-draft-restore-v1.md)。
-- 自有商品优选：[多商品申请](selected-application-single-product.md)，原文件路径保留，交互范围已更新。
-- SHEIN：[供应链操作与启动](my-supply-chain-shein-v1.md)、[导入试用安装](own675-shein-import-trial-installation-v1.md)、[离线资料说明](own675-offline-materials/README.md)。
+- 自有商品优选：[多商品申请](selected-application-single-product.md)，以当前多商品申请合同为准。
+- SHEIN：[供应链操作与启动](my-supply-chain-shein-v1.md)、[导入试用安装](shein-import-installation.md)。
 
 <a id="ai-work"></a>
 
@@ -39,7 +39,7 @@
 ## 店铺、工具与服务
 
 - 店铺读取：[商品与订单观察接线](../engineering/store-observations-integration-handoff.md)。
-- 订单、采购与仓库履约：[首版运行与保存/恢复](order-fulfillment-v1.md)、[独立合成试用](order-fulfillment-synthetic-trial.md)。合成环境、真实平台联调和生产分别取证；历史交付中的权限不自动转移到其他实例或本次文档整理。
+- 订单、采购与仓库履约：[首版运行与保存/恢复](order-fulfillment-v1.md)、[独立合成试用](order-fulfillment-synthetic-trial.md)。合成环境、真实平台联调和生产分别取证；环境操作按当前授权执行。
 - 平台专项：[TEMU](temu-store-connection.md)、[TikTok Shop 美国站](tiktok-shop-us.md)、[Walmart 美国站](walmart-us-v1.md)。各文档的候选、未开放和恢复限制继续适用。
 - 平台服务：[工具市场](current-tool-market.md)、[数据服务](../engineering/data-services-runtime-handoff.md)、[生态服务](ecosystem-services-v1.md)。
 - 阅读与诊断：[官方知识](../engineering/official-knowledge-handoff.md)、[个人报告](../engineering/report-center-runtime-handoff.md)、[经营诊断](../engineering/shop-operations-diagnosis-handoff.md)、[运营驾驶舱](../engineering/operations-cockpit-runtime-handoff.md)。
@@ -47,13 +47,6 @@
 
 <a id="limited-scope"></a>
 
-## 保留的专项边界与历史运行记录
+## 有界环境
 
-以下材料保留有效门禁、环境隔离边界或历史证据，不能作为当前应用的通用部署说明，也不能据此恢复已退休的 CLI / Task 路径：
-
-- [RUN-1 身份与路由环境](current-application-run1.md)、[环境拆分记录](acceptance-environment-split.md)：限定验收环境；FULL 延期和旧 schema 入口退休说明继续适用。
-- [旧 ListingKit 发布候选](listingkit-release-candidate-runbook.md)、[客户试用 checklist](listingkit-customer-trial-acceptance-checklist.md)：历史发布/Task 材料；生产 `NOT_READY` 及仍有效的专项商业、安全和恢复门禁保留。
-- [旧 Listing Control Plane](listing-control-plane-runbook.md)、[独立 SHEIN 登录 worker](shein-login-worker-current.md)：源码退休记录，无当前运行入口。
-- own675 离线材料：[入口及三份非生效配置附件](own675-offline-materials/README.md)、[配置差异](own675-offline-materials/configuration-diff.md)、[失败处置](own675-offline-materials/failure-handling.md)。保留 `PREPARED_ONLY / NOT_AUTHORIZED_TO_EXECUTE` 范围，不把材料准备写成已安装。
-
-历史文件路径中的 `current`、`runbook` 或 `ListingKit` 不决定其适用性；以正文明确的范围、替代说明和当前合同为准。
+[RUN-1 身份与路由装配](current-application-run1.md)仅描述其明确范围；不作为完整产品验收或生产发布证明。专项功能未开放项见各自合同与当前执行 Issue。

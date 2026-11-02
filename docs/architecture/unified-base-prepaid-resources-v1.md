@@ -1,6 +1,6 @@
-> #988 source owner update: old subscriptions, Token allocation, OpenMeter and idle recorded Review are retired per [closure design](legacy-subscription-metering-closure-retirement-boundary.md). Current `internal/ledger/orgresource`, `internal/integration/orgresource`, `internal/commercial/billing`, `internal/ledger/money`, Store services and raw AI Token audit retain their existing contracts. Public PostgreSQL resource/store reads bind explicitly to `public`; no shadow fallback. Existing records are untouched.
-
 # 统一基础方案与预付资源 V1
+
+当前 owner 为 `internal/ledger/money`、`internal/commercial/billing`、`internal/ledger/orgresource` 和既有 Resource 适配器。商业资源与 Store 的公共 PostgreSQL 读取显式绑定 public，不使用 shadow fallback。
 
 Issue: #478 · Delivery Batch: 账户中心与套餐权益统一模型
 
@@ -55,7 +55,7 @@ Out of Scope: 新订阅等级、升级／降级／按比例计费、自动续费
 本次已读取前两个当前 frame 的截图和设计上下文；修改其余页面前读取相应当前上下文。
 
 - [Final UI / IA Authority](../product/final-ui-ia-authority.md)：沿现有 Console Shell、页面入口和组件。
-- [Commercial Wallet/Billing Contract](commercial-wallet-billing-contract.md)：复用资源购买与资金/资源 owner；旧 subscription 分支被本决定替代。
+- [Commercial Wallet/Billing Contract](unified-base-prepaid-resources-v1.md)：复用资源购买与资金/资源 owner；旧 subscription 分支被本决定替代。
 - [Member Resource Allocation V1](member-resource-allocation-v1.md)：具体店铺授权、期数与条数分配、native proof 与 Resource 跨数据库结算保留。
 - [Greenfield 产品基线](../product/greenfield-no-legacy-migration.md)：新安装、空业务数据，EXTRACT / RETIRE。
 
@@ -268,3 +268,11 @@ Resource 原 reservation 的既有 NextCheckAt 供当前应用同一 30 秒 loop
 输出失败计费、明确未 dispatch 释放与迟到 reserve fence、未知保持、跨月归属、
 bounded recovery 进展、原 Claim/dispatch 不重复、旧 Token owner 当前装配缺席。
 实现者只做这些开发检查；真实 GRSAI 调用/产品验收按原获准范围另行交接，不在本节自动触发付费调用。
+
+## 当前商业安全边界
+
+Offers and immutable quotes are server-owned. The existing commercial_order_item, Idempotency-Key and RECONCILIATION_REQUIRED contracts keep the original order, member, quantity and charge identity across retries and recovery.
+
+Read, purchase and wallet-topup operations retain their separate workbench.commercial.read, workbench.commercial.purchase and workbench.commercial.wallet_topup permissions.
+
+Figma example prices never seed production. The browser never receives a generic positive-credit API. Invoice creation is deliberately not authorized by this contract.

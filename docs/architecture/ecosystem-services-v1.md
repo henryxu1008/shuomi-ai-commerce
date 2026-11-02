@@ -55,7 +55,7 @@
 
 当前未授权真实入驻审核、合同签署、商户进件、付款/退款/结算、共享/生产数据访问、合并、部署及 Issue 关闭。本批不自动加入客户店铺操作、AI/Agent、跨境结算、平台通用 ERP、旧数据迁移、专项验收工具或通用支付治理平台。
 
-适用架构： [目标架构](project-target-architecture.md)、[身份与租户](auth-and-tenancy.md)、[现有商业/钱包合同](commercial-wallet-billing-contract.md)、[现有双渠道充值设计](alipay-wallet-topup-design.md)、[Greenfield](../product/greenfield-no-legacy-migration.md) 及 [AGENTS.md](../../AGENTS.md)。新第三方服务决定只改变本批范围，不能把旧充值合同中的代收付/分账排除项解释为已实现能力。
+适用架构： [目标架构](project-target-architecture.md)、[身份与租户](auth-and-tenancy.md)、[现有商业/钱包合同](unified-base-prepaid-resources-v1.md)、[现有双渠道充值设计](alipay-wallet-topup-design.md)、[Greenfield](../product/greenfield-no-legacy-migration.md) 及 [AGENTS.md](../../AGENTS.md)。新第三方服务决定只改变本批范围，不能把旧充值合同中的代收付/分账排除项解释为已实现能力。
 
 ## 3. 当前实现现实与复用边界
 

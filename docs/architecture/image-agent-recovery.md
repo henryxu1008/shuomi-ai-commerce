@@ -1,9 +1,3 @@
-> **领域合同归位。** 有效JSON/hash/恢复/UNKNOWN合同保留，旧V2/Signal兼容要求不恢复。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
-
-> #301 / #1001：用户已确认[历史协议完整退休边界§1–§7](legacy-imageagent-history-protocol-closure-retirement-boundary.md)，同一PR整批实施。本文对旧默认版本双分支/旧历史续跑的要求退出当前Authority（包括组织V3）；当前版本1、预算quote事实、绝对deadline/取消/finalization、UNKNOWN、恢复通知和有效JSON/hash合同继续保留。原SDK读取位置保持；未操作实际历史、任务、实例、数据、凭据或进程，不增加试用前置。以下原正文、步骤、勾选和证据逐字保留。
-
-> #301 / #996 当前源码边界：按[用户确认的完整闭包](legacy-imageagent-v2-contract-tail-closure-retirement-boundary.md)退休旧V2候选URL/Metadata双格式、candidate-ID-only摘要、计划级发布键、无人调用默认装配和专属测试尾部；下文要求继续执行/兼容这些V2载荷的部分为SUPERSEDED，仅保留历史证据。当前组织图组/Artwork/采集单主图、durable JSON/hash、有效V3 marker/批准键/回放/恢复/事务和Store观察同步保留；不承接旧V2历史、不重写既有表/载荷、不操作实例/数据/凭据/进程，不增加试用前置，#301 OPEN。下方完整历史正文/数字/勾选保留。
-
 # Image Agent Recovery and Compatibility Design
 
 ## 1. Status and decision

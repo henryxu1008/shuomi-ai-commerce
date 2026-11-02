@@ -11,5 +11,5 @@ Secret、远端属性或任何实例/数据。旧部署源和操作说明只保�
 
 当前入口与使用方式见[仓库入口地图](../../../docs/development/repository-structure.md)；
 当前 Store 观察与官方执行使用各自原 owner，不使用这里的数字任务队列作为 fallback。
-[批准的完整退休边界](../../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)
+[当前系统边界](../../../docs/architecture/project-boundaries.md)
 不授权停用旧实例、清理队列、配置/凭据或数据，也不增加内部试用前置。生产 NOT_READY。

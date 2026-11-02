@@ -2,7 +2,7 @@
 
 Refs #331。2026-09-06 实读 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`「硕米官网」：六个参考 Frame 的 design context + 截图，以及只读 Plugin API 的可见性、导航、尺寸、颜色、字体与 reactions。设计原稿未修改。
 
-[FV1最终视觉验收：本轮参考/运行图、门禁修复前后、差异分类及源码SHA](console-fv1.md)。以下保留基础映射及可重复运行流程。
+[FV1最终视觉验收：本轮参考/运行图、门禁修复前后、差异分类及源码SHA](../architecture/project-boundaries.md)。以下保留基础映射及可重复运行流程。
 
 ## Frame → 当前组件 / 路由
 
@@ -46,11 +46,6 @@ Refs #331。2026-09-06 实读 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`「硕米
 
 | 页面 | Figma原图 | 实际运行图 |
 | --- | --- | --- |
-| 驾驶舱深色 | [393:321](evidence/issue331/figma-393-321.png) | [1440](evidence/issue331/overview-1440.png)、[390](evidence/issue331/overview-390.png) |
-| Chat | [427:2467](evidence/issue331/figma-427-2467.png) | [1440](evidence/issue331/chat-1440.png)、[390](evidence/issue331/chat-390.png) |
-| 我的店铺 | [1560:359](evidence/issue331/figma-1560-359.png) | [1440](evidence/issue331/stores-1440.png)、[390](evidence/issue331/stores-390.png) |
-| 驾驶舱浅色 | [411:323](evidence/issue331/figma-411-323.png) | [1440](evidence/issue331/overview-light-1440.png) |
-| 既有诊断模板 | 无对应终稿，工程接入 | [1440](evidence/issue331/diagnostic-1440.png)、[390](evidence/issue331/diagnostic-390.png)、[390代管/错误](evidence/issue331/delegated-error-390.png) |
 
 | 对照项 | 实现与差异处置 |
 | --- | --- |
