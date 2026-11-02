@@ -3,6 +3,8 @@ package httpapi
 import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/httproute"
+	"task-processor/internal/product/dataacquisition"
+	"task-processor/internal/product/research"
 	rh "task-processor/internal/product/research/httpapi"
 	"testing"
 )
@@ -26,4 +28,10 @@ func TestResearchRouteAdmissionRequiresCapabilityAndExactNativeBoundary(t *testi
 		mutate(&changed[len(base)+1])
 		require.Error(t, validate(changed, true))
 	}
+}
+
+func TestResearchSourceRejectionIsDefiniteAndDoesNotMasqueradeAsUnknown(t *testing.T) {
+	require.ErrorIs(t, researchProvenanceFailure(dataacquisition.ErrNotFound), research.ErrUnsupported)
+	require.ErrorIs(t, researchProvenanceFailure(dataacquisition.ErrForbidden), research.ErrForbidden)
+	require.ErrorIs(t, researchProvenanceFailure(dataacquisition.ErrUnavailable), research.ErrUnavailable)
 }

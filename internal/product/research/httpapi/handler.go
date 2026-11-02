@@ -56,7 +56,7 @@ func failure(c *gin.Context, e error) {
 	for _, pair := range []struct {
 		e      error
 		status int
-	}{{research.ErrInvalid, 400}, {research.ErrForbidden, 403}, {research.ErrNotFound, 404}, {research.ErrConflict, 409}, {research.ErrArchived, 409}, {research.ErrUnknown, 503}} {
+	}{{research.ErrUnsupported, 400}, {research.ErrInvalid, 400}, {research.ErrForbidden, 403}, {research.ErrNotFound, 404}, {research.ErrConflict, 409}, {research.ErrArchived, 409}, {research.ErrUnknown, 503}} {
 		if errors.Is(e, pair.e) {
 			status, code = pair.status, pair.e.Error()
 			break

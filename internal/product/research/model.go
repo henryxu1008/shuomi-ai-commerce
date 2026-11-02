@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	ErrUnsupported = errors.New("SOURCE_NOT_SUPPORTED")
 	ErrInvalid     = errors.New("INVALID_REQUEST")
 	ErrForbidden   = errors.New("FORBIDDEN")
 	ErrNotFound    = errors.New("NOT_FOUND")

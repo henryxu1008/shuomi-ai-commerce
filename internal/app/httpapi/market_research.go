@@ -80,7 +80,7 @@ func (a researchSources) Observe(ctx context.Context, scope collection.Scope, in
 	}
 	original, err := a.data.Provenance(ctx, dataacquisition.Principal{Scope: scope}, detail.Item.Source)
 	if err != nil {
-		return research.Observation{}, research.ErrUnavailable
+		return research.Observation{}, researchProvenanceFailure(err)
 	}
 	// Revalidate the member reference after provenance materialization.
 	if _, err = a.collections.Select(ctx, collection.SelectionInput{ItemID: in.ItemID, ExpectedRevision: in.Revision, OriginalPublicationID: in.PublicationID, OriginalVersion: in.Version}); err != nil {
@@ -126,4 +126,16 @@ func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModu
 		return ctx, collection.Scope{OrganizationID: id.TenantID, ActorID: id.UserID, MemberID: id.EffectiveMemberID}, nil
 	}}
 	return researchModule{h}, nil
+}
+
+// A saved Collection reference without a Data Services item is a different
+// producer (for example plugin capture), not an ambiguous research write.
+func researchProvenanceFailure(err error) error {
+	if errors.Is(err, dataacquisition.ErrNotFound) {
+		return research.ErrUnsupported
+	}
+	if errors.Is(err, dataacquisition.ErrForbidden) {
+		return research.ErrForbidden
+	}
+	return research.ErrUnavailable
 }

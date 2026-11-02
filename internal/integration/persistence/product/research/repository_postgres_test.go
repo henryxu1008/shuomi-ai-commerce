@@ -33,11 +33,15 @@ func (p *projectFixture) Authorize(_ context.Context, s collection.Scope, id str
 }
 
 type sourceFixture struct {
-	values map[string]research.Observation
-	denied bool
+	failure error
+	values  map[string]research.Observation
+	denied  bool
 }
 
 func (s *sourceFixture) Observe(_ context.Context, _ collection.Scope, in research.Selection) (research.Observation, error) {
+	if s.failure != nil {
+		return research.Observation{}, s.failure
+	}
 	if s.denied {
 		return research.Observation{}, research.ErrForbidden
 	}
@@ -92,6 +96,14 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	}
 	a, b := makeEvidence("B000123456"), makeEvidence("B000123457")
 	svc := research.New(repo, project, sources)
+	unsupportedKey := uuid.NewString()
+	sources.failure = research.ErrUnsupported
+	_, err = svc.Execute(ctx, scope, project.id, unsupportedKey, research.Command{Action: "link", Selections: []research.Selection{a}})
+	require.ErrorIs(t, err, research.ErrUnsupported)
+	_, err = svc.Lookup(ctx, scope, project.id, unsupportedKey)
+	require.ErrorIs(t, err, research.ErrNotFound, "definite unsupported source rejection must not persist a command")
+	sources.failure = nil
+
 	key := uuid.NewString()
 	link := research.Command{Action: "link", Selections: []research.Selection{a, b}}
 	receipt, err := svc.Execute(ctx, scope, project.id, key, link)

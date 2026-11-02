@@ -8,6 +8,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"os"
+	productsourcingapp "task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/dataservice"
 	keystore "task-processor/internal/integration/persistence/dataservice"
@@ -35,6 +37,11 @@ type readOnlyAcquisitionPorts struct {
 }
 
 type publicationCollectionAuth struct{ scope collection.Scope }
+type publicationCaptureAuth struct{ scope collection.Scope }
+
+func (a publicationCaptureAuth) Authorize(context.Context, bool) (collection.Scope, error) {
+	return a.scope, nil
+}
 
 func (a publicationCollectionAuth) Authorize(context.Context, string) (collection.Scope, error) {
 	return a.scope, nil
@@ -143,6 +150,27 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 		wrong.MemberID = "rebound"
 		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: wrong}, *saved.Source)
 		require.Error(t, e)
+	})
+	t.Run("plugin Amazon publication is not a Data Services origin", func(t *testing.T) {
+		capture, e := productsourcingapp.NewAmazonBrowserCapture(db, publicationCaptureAuth{scope})
+		require.NoError(t, e)
+		body, e := os.ReadFile("../../product/sourcing/testdata/amazon-capture-v2.json")
+		require.NoError(t, e)
+		plugin, e := capture.Capture(ctx, uuid.NewString(), body)
+		require.NoError(t, e)
+		// The original capture owner publishes the same Collection source kind.
+		cr, e := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
+		require.NoError(t, e)
+		page, e := cr.ListItems(ctx, scope, plugin.BatchID, collection.Query{Limit: 10})
+		require.NoError(t, e)
+		require.Len(t, page.Items, 1)
+		require.Equal(t, "amazon_data", page.Items[0].Source.Kind)
+		ports := readOnlyAcquisitionPorts{}
+		acquisition, e := dataacquisition.NewService(repo, live, ports, ports, ports)
+		require.NoError(t, e)
+		module := &Module{acquisition: acquisition, results: capturedResultReader{sourceReader}}
+		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: scope}, page.Items[0].Source)
+		require.ErrorIs(t, e, dataacquisition.ErrNotFound)
 	})
 	t.Run("Amazon original source enters Preparation without changing fact owner", func(t *testing.T) {
 		require.NoError(t, preparationstore.InstallSchema(db))
