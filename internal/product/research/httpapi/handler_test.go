@@ -49,6 +49,10 @@ type scopeRepository struct {
 	calls int
 }
 
+func (p scopeProjects) AuthorizeAnalysis(ctx context.Context, s collection.Scope, id string, active bool) error {
+	return p.Authorize(ctx, s, id, active)
+}
+
 func (r *scopeRepository) List(_ context.Context, s collection.Scope, _, _ string) ([]research.Candidate, string, error) {
 	r.calls++
 	if s != r.scope {

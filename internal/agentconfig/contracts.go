@@ -73,6 +73,9 @@ func ParameterSchemaForAgent(id string) string {
 	if id == DiagnosisAgentID {
 		return DiagnosisParameterSchema
 	}
+	if id == ResearchAgentID {
+		return ResearchParameterSchema
+	}
 	if id == SelectionAgentID {
 		return SelectionParameterSchema
 	}
@@ -94,7 +97,7 @@ func ParameterSchemaForAgent(id string) string {
 func (p TemplateInput) ValidForAgent(id string) bool {
 	// Selection v1 uses its explicit per-run objective; no other Agent's
 	// template schema or default may become its execution configuration.
-	if id == SelectionAgentID || id == DiagnosisAgentID {
+	if id == SelectionAgentID || id == DiagnosisAgentID || id == ResearchAgentID {
 		return false
 	}
 	if id == MaterialsAgentID {

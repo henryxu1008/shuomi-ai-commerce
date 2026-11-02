@@ -1,16 +1,16 @@
 # 市场调研中心与智能选品中心 V1：产品与交互设计
 
-状态：**PRODUCT_APPROVED / 新增 AI 合同 IMPLEMENTATION_READY / 待正式实施授权**。执行范围：[#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。
+状态：**PRODUCT_APPROVED / 新增 AI 合同 IMPLEMENTATION_READY / IMPLEMENTING**。执行范围：[#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。
 
 用户于 2026-11-02 同意先形成两个中心 V1 的范围、入口、页面和交接设计，供实际评审，再决定正式实施。此决定不等于批准本文候选页面、生产代码、真实采集或模型调用。首批冻结的[研究合同](../architecture/market-research-selection.md)及已部署实现继续有效；本文不重新打开或替代该合同。
 
-随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。[新增研究证据 AI 合同](../architecture/market-research-evidence-analysis-v1.md)已完成适用独立R1及对应增量确认，达到 FROZEN / IMPLEMENTATION_READY；正式代码、真实平台/模型/付费、合并及新部署仍未获本阶段授权。
+随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。[新增研究证据 AI 合同](../architecture/market-research-evidence-analysis-v1.md)已完成适用独立R1及对应增量确认，达到 FROZEN / IMPLEMENTATION_READY；后续用户回复“可以”，授权正式代码、必要开发自检、提交/推送和同一 PR 维护；真实平台/模型/付费、合并及新部署仍不授权。
 
 ## 1. 使用者与本次结果
 
 使用者是当前企业中有相应权限的本人研究项目成员。目标操作：从国家、平台及关键词/类目/ASIN 的研究目标出发，整理有来源的样本资料和候选；进入选品视图，查看证据分析、补充人工判断，再将选中商品转入原待适配流程。
 
-本次交付是可编辑 Figma 候选及下面的产品范围和页面合同，不是业务实现完成或用户验收。尚未实现的入口和 AI 能力只出现在设计候选中，不添加到当前运行系统。
+本次实施交付以下已确认的两个中心和原流程贯通；Figma 为产品依据。当前处于正式开发，保留实例仍运行首批实现，两个新中心尚未部署或由用户验收。
 
 ## 2. 两个中心的职责与 V1 范围
 
@@ -29,7 +29,7 @@ Threat Model 沿冻结合同：防跨 org/actor 读取、撤权后内容披露�
 
 ## 3. 导航与页面归属（产品已确认）
 
-| 入口/页面 | 已确认目标路由，当前未注册 | 主要职责与动作 |
+| 入口/页面 | 已确认目标路由（本轮实施） | 主要职责与动作 |
 | --- | --- | --- |
 | 数据服务 → 市场调研中心 | `/workbench/data/research` | 列出本人 PRODUCT_RESEARCH 项目，搜索/选择项目；主动作“新建研究”复用原项目创建，成功进入研究详情 |
 | 市场调研 → 项目研究详情 | `/workbench/data/research/{projectID}` | 目标 → 取得/关联资料 → 选择样本并核对证据 → 样本研究 → “进入选品评审” |
@@ -90,7 +90,7 @@ Threat Model 沿冻结合同：防跨 org/actor 读取、撤权后内容披露�
 
 Figma 已形成两个列表与两个详情的明暗桌面，以及两个关键详情的明暗 390px 视图；空/异常、用量确认、人工确认与分析结果示例分别呈现。所有排版数值标记“示例”，节点中的候选名称保留设计追溯，产品方向已确认。链接见下方索引。
 
-本 V1 产品范围、页面入口和样本范围已确认，新增 AI 证据合同及现有 owner/消费者接线与恢复约束已完成适用准入。正式实施仍需用户明确授权；三项 IMPLEMENTATION_TEST 在实现中验证，不能以架构准入代签。只对新增高风险边界独立评审，不为普通复用页面重复全局审核。
+本 V1 产品范围、页面入口和样本范围已确认，新增 AI 证据合同及现有 owner/消费者接线与恢复约束已完成适用准入。正式实施已获用户明确授权；三项 IMPLEMENTATION_TEST 在实现中验证，不能以架构准入代签。只对新增高风险边界独立评审，不为普通复用页面重复全局审核。
 
 实施保持一个 Writer 连续交付，复用现有主要 PR/Issue 记录，不按页面或测试数机械拆 PR。新业务规则使用既有测试设施 RED→GREEN，界面检查入口/返回/空态/主题/390px；不新建验收 runner、故障平台或治理检查器。
 

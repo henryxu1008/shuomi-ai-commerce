@@ -116,7 +116,7 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.NoError(t, err)
 	in := diagnosisInput{ContextID: uuid.NewString(), StoreID: shopID, StartDate: fact.Period.Start, EndDate: fact.Period.End}
 	routes := shopDiagnosisRoutes(a, a.bindRequest)
-	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, nil, a)
+	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, nil, a, nil)
 	require.NoError(t, err)
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, configurationModule.Register(registry))

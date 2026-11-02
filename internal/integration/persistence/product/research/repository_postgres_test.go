@@ -38,6 +38,10 @@ type sourceFixture struct {
 	denied  bool
 }
 
+func (p *projectFixture) AuthorizeAnalysis(ctx context.Context, s collection.Scope, id string, active bool) error {
+	return p.Authorize(ctx, s, id, active)
+}
+
 func (s *sourceFixture) Observe(_ context.Context, _ collection.Scope, in research.Selection) (research.Observation, error) {
 	if s.failure != nil {
 		return research.Observation{}, s.failure

@@ -15,6 +15,7 @@ func TestResearchRouteAdmissionRequiresCapabilityAndExactNativeBoundary(t *testi
 		base = append(base, httproute.Descriptor{Method: r.Method, Path: r.Path})
 	}
 	routes := append(base, rh.Routes(nil)...)
+	routes = append(routes, marketResearchAnalysisRoutes(nil, nil)...)
 	validate := func(rs []httproute.Descriptor, enabled bool) error {
 		return validateCurrentApplicationRoutesInternal(rs, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{MarketResearch: enabled})
 	}
@@ -34,4 +35,14 @@ func TestResearchSourceRejectionIsDefiniteAndDoesNotMasqueradeAsUnknown(t *testi
 	require.ErrorIs(t, researchProvenanceFailure(dataacquisition.ErrNotFound), research.ErrUnsupported)
 	require.ErrorIs(t, researchProvenanceFailure(dataacquisition.ErrForbidden), research.ErrForbidden)
 	require.ErrorIs(t, researchProvenanceFailure(dataacquisition.ErrUnavailable), research.ErrUnavailable)
+}
+
+func TestResearchAnalysisDescriptorsPreserveTheirExactBoundary(t *testing.T) {
+	for _, d := range marketResearchAnalysisRoutes(nil, nil) {
+		require.NoError(t, validateMarketResearchAnalysisDescriptor(d))
+		changed := d
+		changed.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyCachedRead
+		require.Error(t, validateMarketResearchAnalysisDescriptor(changed))
+		require.Contains(t, d.Path, ":project_id/analysis/")
+	}
 }

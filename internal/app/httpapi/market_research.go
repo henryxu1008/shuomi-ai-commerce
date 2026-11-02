@@ -21,7 +21,10 @@ func WithMarketResearch(db *gorm.DB) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.marketResearchDB = db; o.marketResearchConfigs++ }
 }
 
-type researchModule struct{ handler *rh.Handler }
+type researchModule struct {
+	handler *rh.Handler
+	service *research.Service
+}
 
 func (researchModule) Name() string                { return rh.ModuleName }
 func (researchModule) Enabled(*config.Config) bool { return true }
@@ -36,6 +39,12 @@ type researchProjects struct {
 }
 
 func (a researchProjects) Authorize(ctx context.Context, s collection.Scope, project string, write bool) error {
+	return a.authorize(ctx, s, project, write, write)
+}
+func (a researchProjects) AuthorizeAnalysis(ctx context.Context, s collection.Scope, project string, active bool) error {
+	return a.authorize(ctx, s, project, false, active)
+}
+func (a researchProjects) authorize(ctx context.Context, s collection.Scope, project string, write, active bool) error {
 	scope := pc.Scope{OrganizationID: s.OrganizationID, ActorID: s.ActorID}
 	fresh, id, err := a.auth.fresh(ctx, scope)
 	if err != nil || id.EffectiveMemberID != s.MemberID {
@@ -54,7 +63,7 @@ func (a researchProjects) Authorize(ctx context.Context, s collection.Scope, pro
 	if view.Kind != "PRODUCT_RESEARCH" {
 		return research.ErrNotFound
 	}
-	if write && view.Archived {
+	if active && view.Archived {
 		return research.ErrArchived
 	}
 	return nil
@@ -95,6 +104,7 @@ func (a researchSources) Observe(ctx context.Context, scope collection.Scope, in
 	if e.Availability == "available" && e.Price > 0 {
 		price := e.Price
 		v.Price = &price
+		v.PriceBasis = "displayed_listing_offer"
 	}
 	return v, nil
 }
@@ -125,7 +135,7 @@ func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModu
 		}
 		return ctx, collection.Scope{OrganizationID: id.TenantID, ActorID: id.UserID, MemberID: id.EffectiveMemberID}, nil
 	}}
-	return researchModule{h}, nil
+	return researchModule{handler: h, service: service}, nil
 }
 
 // A saved Collection reference without a Data Services item is a different

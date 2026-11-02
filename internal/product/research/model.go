@@ -56,6 +56,7 @@ type Observation struct {
 	ParserVersion string          `json:"parserVersion"`
 	Currency      string          `json:"currency,omitempty"`
 	Price         *float64        `json:"price,omitempty"`
+	PriceBasis    string          `json:"priceBasis,omitempty"`
 	Missing       []string        `json:"missing"`
 }
 type Link struct {
@@ -120,6 +121,7 @@ type Receipt struct {
 }
 type Projects interface {
 	Authorize(context.Context, collection.Scope, string, bool) error
+	AuthorizeAnalysis(context.Context, collection.Scope, string, bool) error
 }
 type Sources interface {
 	Observe(context.Context, collection.Scope, Selection) (Observation, error)

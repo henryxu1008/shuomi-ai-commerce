@@ -60,6 +60,7 @@ type ProductAgentDependencies struct {
 	ContentTextPolicies      map[string]governed.RoutePolicy
 	MaterialsTextPolicies    map[string]governed.RoutePolicy
 	DiagnosisTextPolicies    map[string]governed.RoutePolicy
+	ResearchTextPolicies     map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
 	ContentOnly              bool
@@ -121,7 +122,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if cfg.ContentTitleOnly && cfg.ContentOnly {
 		return nil, agent.ErrUnavailable
 	}
-	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
+	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.ResearchTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
 		return nil, agent.ErrUnavailable
 	}
 	allowedOrganizations := make(map[string]bool, len(cfg.AllowedOrganizationIDs))
@@ -152,6 +153,17 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return nil, agent.ErrUnavailable
 		}
 	}
+	for org, policy := range cfg.ResearchTextPolicies {
+		if cfg.Limits.Steps < 4 || cfg.Limits.ModelCalls < 2 {
+			return nil, agent.ErrUnavailable
+		}
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.ResearchPromptVersion || profile.OutputSchemaVersion != agentconfig.ResearchActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductResearchDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+			return nil, agent.ErrUnavailable
+		}
+	}
+
 	for org, policy := range cfg.SelectionTextPolicies {
 		if cfg.Limits.Steps < 4 || cfg.Limits.ModelCalls < 2 {
 			return nil, agent.ErrUnavailable
@@ -201,6 +213,11 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	for org, policy := range cfg.MaterialsTextPolicies {
 		a.config.MaterialsTextPolicies[org] = policy
 	}
+	a.config.ResearchTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.ResearchTextPolicies))
+	for org, policy := range cfg.ResearchTextPolicies {
+		a.config.ResearchTextPolicies[org] = policy
+	}
+
 	a.config.SelectionTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.SelectionTextPolicies))
 	for org, policy := range cfg.SelectionTextPolicies {
 		a.config.SelectionTextPolicies[org] = policy

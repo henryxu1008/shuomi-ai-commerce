@@ -95,12 +95,21 @@ func (i Inspector) Prepare(ctx context.Context, contextID string, choices []coll
 // Preserve every authorized identity while omitting whole fields, fairly across
 // candidates. Never truncate a field into a different purported source fact.
 func boundInspection(out *Inspection) error {
+	return BoundInspectionBudget(out, MaxInspectionBytes)
+}
+
+// BoundInspectionBudget preserves exact references and omits whole fields.
+// A qualified consumer may reserve bytes for its own bounded provenance.
+func BoundInspectionBudget(out *Inspection, maximum int) error {
+	if out == nil || maximum < 1 || maximum > MaxInspectionBytes {
+		return agent.ErrInvalid
+	}
 	for {
 		wire, err := json.Marshal(out)
 		if err != nil {
 			return err
 		}
-		if len(wire) <= MaxInspectionBytes {
+		if len(wire) <= maximum {
 			return nil
 		}
 		removed := false
@@ -138,7 +147,7 @@ func boundInspection(out *Inspection) error {
 			if err != nil {
 				return err
 			}
-			if len(wire) <= MaxInspectionBytes {
+			if len(wire) <= maximum {
 				return nil
 			}
 		}
