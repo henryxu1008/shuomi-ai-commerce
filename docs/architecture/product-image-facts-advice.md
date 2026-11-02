@@ -1,9 +1,10 @@
 # 图片事实检查与非执行性建议：C2-1 / C3-1
 
-状态：DESIGNING / NOT_IMPLEMENTATION_READY。Design Basis：Independent Architecture。
-本文是 #134 / #128 的设计候选，不是已实现能力、架构批准、运行或产品验收。
-产品范围、设计候选及 D2 已获产品认可；公共 Tool/结果合同、准入版本和历史效力仍须范围内架构复核及冻结。
-本次只交付文档，不修改生产代码、schema、配置、CI 或真实环境。
+状态：IMPLEMENTATION_READY / IMPLEMENTING。Design Basis：Independent Architecture。
+本文是 #134 / #128 的冻结设计基线，不是运行或产品验收。
+产品范围及 D2 已获产品认可；准确设计 HEAD e498c0c1e87203341c25df79ed58c5cefd228999 的
+[R1 独立架构复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1076#issuecomment-6577193191)
+已达 IMPLEMENTATION_READY。实现沿同一 PR 和唯一 Writer 推进，不修改保留环境或数据库。
 
 ## 1. 用户结果与产品依据
 
@@ -159,9 +160,9 @@ commit/checkpoint 仍原原子边界，失败不产生可采用记录。页面�
 授权撤销/跨企业/来源或 head 漂移由原 fresh reader 拒绝，不输出缓存旧资料作为当前成功；
 历史读取仍走原历史授权和准确记录，不能把历史允许读当作可执行/可采用。
 
-## 6. 准确版本与历史效力（D2 已产品确认，待架构复核）
+## 6. 准确版本与历史效力（D2 已产品确认、R1 已冻结）
 
-下表是已获产品认可、待架构复核的技术候选，不是已有版本或对保留环境的运行切换授权：
+下表为已冻结的实现版本，不是对保留环境的运行切换授权：
 
 | 合同 | 候选版本/处理 |
 | --- | --- |
@@ -174,7 +175,7 @@ D2 产品决定：新执行/claim/resume/adopt 只接本次新定义；旧版本
 不跨版本续跑/采用、不迁移、不补新建议、不重写历史。保留 #34 既有 D1 的 v1 只读效力；
 D2 扩及本次被替换的旧准确定义，本轮已取得上方单独明确认可，不能假定 D1 自动覆盖所有后继版本。
 这是版本执行资格/历史效力的合同变化，影响旧版本 resume/adopt；不能以“没有新增状态机”声称它不影响恢复。
-原 Claim/CAS、原键/预算和 UNKNOWN 核实机制保持；D2 已获产品认可，独立架构复核尚未执行。
+原 Claim/CAS、原键/预算和 UNKNOWN 核实机制保持；D2 已获产品认可并经 R1 独立架构复核。
 现存未终结运行的处置不自行执行；若必须跨版本继续或新增兼容读取，停止并报告，不能加 fallback。
 
 读取旧运行时若没有 image-advice-v1 输出，UI 明确该项未提供，不使用新算法/当前规则补造旧建议。
@@ -205,9 +206,9 @@ governed C1 提案、确定性重验/有界 repair 和原人工审核交接，�
 | Registry/source/canonical/asset/readiness、C1 | #133/#272/#502/#1069 的原代码/复核/准确 CI，按原 SHA/范围 | 不直接证明新增 C2-1。 |
 | C3-1 和原素材放置/重验 | #666/#1064、materials inspection/validation、图片 placement 的局部依据 | 按本阶段 saved Target 范围对齐，不外推所有平台或保留实例。 |
 | C2-1 新增边界 | 原 Asset/Marketplace/Agent/UI 测试可扩展 | 未知与真实冲突、证据/版本/权限、薄 Tool/实际消费、无执行副作用与版本 D2 的增量验证。 |
-| E2 一致组合 | 原 Fake Agent、真实 owner integration 和有界 repair/human-review 基础 | 同一合成场景下的准确版本谱系、合法消费者、观察/候选/重验/审核交接及完整记录。仍未执行。 |
+| E2 一致组合 | 原 Fake Agent、真实 owner integration 和有界 repair/human-review 基础 | 扩展同一隔离场景的实际 Registry/owner/模型协议：新图片观察→候选→repair→固定重验→Review，以及原生当前规则→候选→原 Target 门禁。准确 HEAD 的执行结果与独立最终复核维护在 PR #1076，不代替产品验收。 |
 
-以后获准实现时仅扩现 tests：
+实现阶段仅扩现 tests：
 - 事实未知/冲突、错误资产/位置、过期规则/head、越权与超限；原写入/批准/预算断言保持。
 - Fake transport 的实际 Tool/观察准入、预算下 propose 或 interrupt、原 repair 后固定 Validator 重验；
   合法消费者分别绑定正确对象，不伪造一个全权限 Agent，不拼多份报告为单次组合通过。
@@ -219,11 +220,10 @@ Agent budget/engine、HTTP integration 和 product-agent-panel/materials-page �
 
 ## 9. 准入与交付停止点
 
-本文件和两份引用合同当前为 design-only。新 Tool/DTO、schema 与准确版本已给出候选；
-候选/D2 已获产品认可，但架构复核未执行、候选尚未冻结，因此不得标 IMPLEMENTATION_READY 或进入正式生产实现。
-准入阻碍的 owner 是当前单一设计负责人；解除条件为适用有界独立架构复核完成并冻结上述合同；
-实际实现还须取得相应阶段授权，本次仅允许文档提交和 Draft PR/CI。
-它阻止新增 C2-1 的正式编码，不否定 C1、原材料/图片能力的已有工程交付。
+冻结设计已完成 R1 独立复核；用户随后明确授权同一 Writer 实现及原 Reviewer 增量/最终工程复核。
+R1 的 IT1 在原 Supply/materials 读取路径保留“未准备好”和“明确空库存”的区别，
+经离线回归收敛；不新增库存 owner 或状态机。实现、自检、准确 HEAD CI 和最终复核状态见 PR #1076。
+工程最终复核/交付仍须完成，不因本设计 Ready、开发测试或 CI 而自动授权合并、部署或关闭父 Issue。
 
 文档完成、CI 或独立架构复核均不代表产品通过。运行、真实保存/恢复、浏览器、视觉/模型效果和产品验收 NOT_RUN；
 缺失证据 UNKNOWN。#47 当前1.0.2 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT 保持。

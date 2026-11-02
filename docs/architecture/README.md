@@ -136,7 +136,7 @@
 - `ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](ai-provider-contracts.md)
 - `commerce-tool-canonical-inspection.md` — [B0 Canonical Product Inspection Tool 设计](commerce-tool-canonical-inspection.md)
 - `commerce-tool-foundation.md` — [Phase 2A 商业工具（Commerce Tool）基础设计](commerce-tool-foundation.md)
-- `product-image-facts-advice.md` — [图片事实检查与非执行性建议：C2-1 / C3-1（设计候选，未准入）](product-image-facts-advice.md)
+- `product-image-facts-advice.md` — [图片事实检查与非执行性建议：C2-1 / C3-1（R1 冻结，实现见 #1076）](product-image-facts-advice.md)
 - `enterprise-agent-permission-modes.md` — [企业智能体权限与审批模式 V1](enterprise-agent-permission-modes.md)
 - `official-knowledge-provenance.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](official-knowledge-provenance.md)
 - `official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge.md)

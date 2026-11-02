@@ -48,6 +48,10 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 	if err != nil {
 		return err
 	}
+	a.imageAdvice, err = assetinspect.NewImageAdviceInvoker(reader, assets, principal, definition, deps)
+	if err != nil {
+		return err
+	}
 	a.readiness, err = readinessinspect.NewInvoker(reader, assets, principal, definition, deps)
 	if err != nil {
 		return err

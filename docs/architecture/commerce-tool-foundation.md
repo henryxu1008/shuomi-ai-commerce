@@ -37,12 +37,12 @@ C2-2 的额外视觉模型分析、C3-2 的独立候选类目查询为 DEFERRED 
 不是本阶段 Must 或 E2 前置；不记为 PASS、已接受风险或永久取消。未知事实不伪造为冲突/通过，
 原权限、准确绑定/观察、预算、确定性重验和保存/发布门禁保持。
 
-[图片事实/建议独立设计](product-image-facts-advice.md) 当前为 DESIGNING / NOT_IMPLEMENTATION_READY：
+[图片事实/建议独立设计](product-image-facts-advice.md) 已经 R1 达到 IMPLEMENTATION_READY，按用户后续授权在 #1076 实现：
 复用原 owner/Registry，补纯计算建议、薄适配及既有结果消费者；C2-1 确需代码，C3-1 优先合同/证据对齐。
-该设计的新 Tool/结果/版本候选及 D2 已获产品认可，独立架构复核尚未执行，不授权实现；
+该设计的新 Tool/结果/版本及 D2 已获产品认可并冻结；准确实现/CI/最终复核证据维护在 #1076；
 不在旧定义原位加字段/权限，也不提高调用或费用上限。
 C2 的非执行性建议不调用 PrepareImageSet，不将付费生成或模型提案伪装为 unmetered compute。
-本节仅归并已批准范围，不表示该新增设计获架构复核、工程/运行/产品通过或 #134/#128 完成。
+本节不签发工程最终验收、运行/产品通过或 #134/#128 完成。
 
 本设计决定：在 Product Agent 实现前，先建立一套小而稳定、与 Agent 框架无关的
 Commerce Tool 合同，再通过一个真实的只读纵向切片证明该合同可用。Tool 边界复用
@@ -792,7 +792,7 @@ OpenFeature Runtime。
 还要求 Product Agent 最小集合中声明的 source、facts、proposal、marketplace、validator
 能力分别通过其 Owner/Dependency Gate；其中 C1 proposal 按 §1.1 的当前分工验收，
 不再以额外独立文本 Tool 是否存在作为该项前置；C2/C3 按 §1.2 的选定范围及其独立设计判断。
-C2-1 受控接缝/消费者和 E2 组合证据仍未完成，C2-2/C3-2 延期不记成实现通过。
+C2-1 受控接缝/消费者和 E2 离线组合在 #1076 实现与复核，最终准确 HEAD 状态以该 PR 为准；C2-2/C3-2 延期不记成实现通过。
 
 ### Phase 2A 退出门禁
 

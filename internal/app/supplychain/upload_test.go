@@ -339,7 +339,7 @@ func uploadFixture(t *testing.T) (*UploadService, collection.Scope, *uploadRecor
 	}
 	inventory := asset.ApprovedAssetInventory{Scope: asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: "product-a", TargetPlatform: "shein", SourceSnapshotVersion: 1}, Assets: []asset.ApprovedAsset{}}
 	for _, id := range []string{"main", "detail", "square"} {
-		inventory.Assets = append(inventory.Assets, asset.ApprovedAsset{ID: id, URL: "https://images.example.org/" + id + ".jpg", Width: 900, Height: 900})
+		inventory.Assets = append(inventory.Assets, asset.ApprovedAsset{ID: id, RunID: "image-run", PlanRevision: 1, SlotID: id, Attempt: 1, Role: asset.RoleMain, URL: "https://images.example.org/" + id + ".jpg", Width: 900, Height: 900})
 	}
 	input := record.TargetInput{SourceID: source.ID, StoreID: binding.StoreID, EffectiveVersion: 1, Draft: goods.OfficialDraftInput{Product: model.PublishProduct{CategoryID: 123, BrandCode: "brand-a", Names: []model.LanguageContent{{Language: "en", Name: "Manual title"}}, Attributes: []model.AttributeValue{}}}}
 	input.Draft.Product.Descriptions = []model.LanguageContent{{Language: "en", Name: "Human supplied description"}}
