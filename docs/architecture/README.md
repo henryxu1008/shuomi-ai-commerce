@@ -8,7 +8,7 @@
 | 查旧实现的 EXTRACT / RETIRE、有效 KEEP 与断言映射 | [`retirement-index.md`](retirement-index.md)：按领域查找退休边界 |
 | 从系统整体开始 | [目标架构](project-target-architecture.md) → [Project Boundaries](project-boundaries.md) → [源码地图](../development/repository-structure.md#current-entrypoint-map) |
 | 做设计或实现前检查 | [AGENTS.md](../../AGENTS.md)、[Review Checklist](architecture-review-checklist.md)、[Current Guard Baseline](#current-guard-baseline) |
-| 找安装、操作、接线或历史结果 | [操作说明](../operations/README.md)、[工程交接](../engineering/README.md)、[历史归档](../archive/README.md) |
+| 找安装、操作与接线说明 | [操作说明](../operations/README.md)、[工程交接](../engineering/README.md)、[全新系统开发基线](../product/greenfield-no-legacy-migration.md) |
 
 目录分类不代表全部文档处于同一批准或开放状态。原文页首的产品依据、准入、精确替代和未开放范围继续有效；
 当前进度、准确 HEAD / CI 与实例交付查对应 Issue / PR。
@@ -33,7 +33,7 @@
 
 ## 归位的领域合同
 
-旧工作流目录已撤销。以下只归位既有合同，不改变原状态或后续精确替代；设计/提案准入与实际开放仍分别确认。历史设计、V7计划与验证记录见[归档索引](../archive/README.md)。
+旧工作流目录已撤销。以下只归位既有合同，不改变原状态或后续精确替代；设计/提案准入与实际开放仍分别确认。旧阶段资料已退出当前工作树，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 - [`ai-capability-platform.md`](ai-capability-platform.md) — AI Capability / Agent平台合同；旧Prompt及泛化执行按页首确认边界退休。
 - [`image-download-safety.md`](image-download-safety.md) — HTTPS/SSRF/重定向/TLS/超时/大小/取消约束仍有效；当前实现归integration/httpimage，旧local路径不是入口。
@@ -77,7 +77,7 @@
 补充可直接打开的入口（下方原索引中的文件名仍保留）：
 
 - 稳定规则与当前有界合同：[兼容路径退休约束](compatibility-retirement.md)、[Temporal 依赖边界](temporal-boundaries.md)、[平台边界策略及其后续替代](platform-boundary-strategy.md)、[优选申请只读总览](selected-application-overview-v1.md)。
-- 历史阶段盘点、旧协议、TEMU设计经验及PoC结果已移到[历史架构材料](../archive/README.md#architecture-history)，不再与当前领域合同并列。
+- 旧阶段盘点、旧协议、TEMU设计经验及PoC报告已退出当前工作树，不作为当前开发依据。
 
 以下为原完整索引与各阶段证据。
 
@@ -432,7 +432,7 @@ boundary rules unless they explicitly supersede a stable document.
 - [Final UI / IA](../product/final-ui-ia-authority.md): final navigation, naming
   and BusinessTask projection (#298), not current release capability.
 - [Product Domain](product-domain-contracts.md),
-  [Identity / Organization](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
+  [Identity / Organization](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
   and current Store/Resource/CommerceTool contracts: facts, access and side effects.
   Preserve valid domain rules even when a document also contains older UI or
   implementation observations; explicit supersession controls the affected section.
@@ -440,7 +440,7 @@ boundary rules unless they explicitly supersede a stable document.
   [Legacy Register](../refactoring/legacy-register.md) and
   [Module Mapping](module-target-mapping.md): only EXTRACT / RETIRE;
   existing legacy is not a new dependency permission.
-- [Current status](../archive/refactoring/current-refactoring-status.md): baseline-bound
+- [Current status](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/current-refactoring-status.md): baseline-bound
   implementation and evidence. [#137](https://github.com/qq550723504/task-processor/issues/137)
   and execution Issues own scheduling and scope under the
   [dispatch rules](../engineering/issue-driven-development.md).
@@ -451,8 +451,8 @@ boundary rules unless they explicitly supersede a stable document.
   (**PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**) requires a fresh installation
   and empty business data; historical migration, profile-reuse and environment
   preflight guidance is not a current acceptance prerequisite.
-- [next-phase-plan.md](../archive/refactoring/next-phase-plan.md): HISTORICAL implementation
-  record, not an execution queue. The [Publication Identity draft](../archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)
+- [next-phase-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/next-phase-plan.md): HISTORICAL implementation
+  record, not an execution queue. The [Publication Identity draft](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)
   is SUPERSEDED under #307, not a migration prerequisite.
 
 ACTIVE contracts, CURRENT STATE observations and HISTORICAL/SUPERSEDED evidence
@@ -594,7 +594,7 @@ Use these as the main source of truth for structural work:
 - `platform-boundary-strategy.md`
   - historical platform, publishing, ListingKit, and platform registration
     convergence roles
-- `docs/archive/architecture/historical-platform-migration-inventory.md`
+- [historical-platform-migration-inventory.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/historical-platform-migration-inventory.md)
   - retained ownership/inventory evidence for historical platform packages;
     candidate slices require current mapping and an execution Issue
 - `external-client-boundary-inventory.md`
@@ -864,25 +864,25 @@ documents unless they say so explicitly:
 - `auth-and-tenancy.md`
   - verified effective Organization, home identity distinction, route
     authorization and remaining legacy paths; supporting context, not a new IAM
-- `docs/archive/architecture/task-status-lifecycle.md`
+- [task-status-lifecycle.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/task-status-lifecycle.md)
   - status lifecycle context; use stable boundary documents for package
     ownership and dependency rules
-- `docs/archive/architecture/temu-architecture-patterns.md`
+- [temu-architecture-patterns.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/temu-architecture-patterns.md)
   - TEMU architecture pattern context; use stable boundary documents for
     cross-platform dependency rules
-- `docs/archive/architecture/temu-pipeline-stages.md`
+- [temu-pipeline-stages.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/temu-pipeline-stages.md)
   - TEMU pipeline stage context; use stable boundary documents for runtime and
     assembly boundaries
-- `docs/archive/architecture/listingkit-refactor-status.md`
+- [listingkit-refactor-status.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/listingkit-refactor-status.md)
   - ListingKit refactor status context; use stable boundary documents for
     long-lived ListingKit boundaries
 - `amazon-crawler-runtime-flow.md`
   - Amazon crawler runtime flow context; use stable boundary documents for
     review policy
-- `docs/archive/architecture/task-event-v2-migration.md`
+- [task-event-v2-migration.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/task-event-v2-migration.md)
   - RabbitMQ complete-task event V2 schema, compatibility window, and removal
     gate; Listing Control ID-only dispatch is out of scope
-- `docs/archive/architecture/openmeter-shadow-metering-poc-report.md`
+- [openmeter-shadow-metering-poc-report.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/openmeter-shadow-metering-poc-report.md)
   - time-bounded, evidence-backed local PoC decision; it does not authorize a
     production integration, billing, payment, deployment, or data migration
 - `pay-041-usage-ledger.md`

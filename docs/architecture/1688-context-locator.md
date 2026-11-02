@@ -1,4 +1,4 @@
-> **领域合同归位。** 当前batchcapture注释消费定位边界；原提案与后续采集决定的状态分别保留。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，旧阶段材料见[历史归档](../archive/README.md)。
+> **领域合同归位。** 当前batchcapture注释消费定位边界；原提案与后续采集决定的状态分别保留。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 # Issue #399 1688 `window.context` 定位规则设计（v1 提案）
 

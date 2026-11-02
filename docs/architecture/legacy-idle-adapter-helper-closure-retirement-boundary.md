@@ -47,7 +47,7 @@ Out of Scope：workflow、完整 inventory（CURRENT/历史/计数/ceilings/pars
 | [#880 Redis/proxy/shared](legacy-redis-proxy-shared-closure-retirement-boundary.md) | shared/resilience 广泛 KEEP | 只退出 breaker/ratelimit 及两专属测试，不退包根 | Retry/RetryConfig/RetryAttempt、ptr、实际 DB/Redis 与当前 owner 保留 |
 | [#893 logger facade](legacy-logger-facade-closure-retirement-boundary.md) | helpers.go 必须可读且禁数字 Task/Store helper | 文件必须缺席；数字日志禁入准确迁入现有 AST guard，不 missing-skip | 旧 core/logger 根禁入和所有其它身份/日志断言保持 |
 | [#914 idle support](legacy-idle-support-contract-closure-retirement-boundary.md) | 因旧 Amazon API 消费而 KEEP UnmarshalBytes | #926 已移除最后 API 消费者，本批只退该函数 | UnmarshalString/CleanLLMResponse、严格草稿 JSON、hash/读取拒绝保持 |
-| [Phase2 原计划](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) | logging 全导出及 resilience 三原语；两个 decorator 配置也有显式 Logger | 仅替代上述已失去当前消费者的 helper/context/limiter/breaker/decorator 保活含义 | 当前日志配置/实例与 ClientConfig/PoolConfig/ManagerConfig 显式 Logger、provider 中立端口仍有效 |
+| [Phase2 原计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) | logging 全导出及 resilience 三原语；两个 decorator 配置也有显式 Logger | 仅替代上述已失去当前消费者的 helper/context/limiter/breaker/decorator 保活含义 | 当前日志配置/实例与 ClientConfig/PoolConfig/ManagerConfig 显式 Logger、provider 中立端口仍有效 |
 
 [旧开源替换评估](open-source-replacement-evaluation.md) 引用的 Amazon API/taskstatus 等是历史评估，不是重新建设共享 limiter/breaker 的当前需求，本批不改该历史记录。成熟 rate/gobreaker/backoff/Logrus/SDK 及锁文件保留，符合“已有开源实现不重复造轮子”；没有当前用户需求的封装直接 RETIRE，不再造替代层。
 

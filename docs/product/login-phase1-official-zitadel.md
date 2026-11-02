@@ -1,4 +1,4 @@
-> **当前产品决定归位。** 本文保留官方 ZITADEL Login V2 / Auth.js 的既有产品边界，归位不改变认证行为、准入或部署状态。当前 UI / IA 见[产品权威](final-ui-ia-authority.md)，旧账号入口与V7计划仅作[历史证据](../archive/README.md)。
+> **当前产品决定归位。** 本文保留官方 ZITADEL Login V2 / Auth.js 的既有产品边界，归位不改变认证行为、准入或部署状态。当前 UI / IA 见[产品权威](final-ui-ia-authority.md)，旧账号入口与V7计划仅作[全新系统开发基线](greenfield-no-legacy-migration.md)。
 
 # 硕米登录 Phase1：ZITADEL 原生能力收敛决策
 

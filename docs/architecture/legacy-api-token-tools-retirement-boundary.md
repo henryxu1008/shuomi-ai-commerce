@@ -50,7 +50,7 @@ git grep -l -I -E 'listingkit-(auth-check|fetch-machine-token|save-token)|listin
 | --- | --- |
 | `docs/operations/listingkit-release-candidate-runbook.md` | 已有 #529/#301 HISTORICAL 顶注，明确旧 release/preflight/步骤不是当前准入；token 要求属于被覆盖的历史协议，不重复加顶注 |
 | `docs/product/validation/runs/2026-06-21-shein-sds-batch-production-closure-regression.md` | settings-health-card.tsx 只出现在旧 npm lint 修复结果，无取 token/保存/认证工具操作路径；保留原 partial pass 与 BLOCKED |
-| `docs/archive/refactoring/httpapi-runtime-inventory.md` | 已有 DATED EVIDENCE 顶注，settings-health 是旧装配盘点，不是当前owner或执行入口；inventory及原计数完全不改 |
+| [httpapi-runtime-inventory.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/httpapi-runtime-inventory.md) | 已有 DATED EVIDENCE 顶注，settings-health 是旧装配盘点，不是当前owner或执行入口；inventory及原计数完全不改 |
 | `docs/superpowers/plans/2026-08-13-remove-default-shein-store.md` | 旧数字Task/默认Store feature计划里的端点消费列表，无本批三脚本或token约定；属于旧设计历史引用，不扩大为当前Store合同或执行授权 |
 
 这是仓库静态证据，不证明没有外部人工消费者。搜索仅限 Git tracked 源，不读取真实 `.env`、token 文件、进程环境或现存运行资料。脚本没有专属 Pester、配置 schema、部署声明、workflow、跨文件 helper 或依赖需要连带删除。

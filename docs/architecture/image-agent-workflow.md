@@ -1,4 +1,4 @@
-> **领域合同归位。** 保留图像原请求/状态/取消/持久化合同；旧Signal与宽执行按后续边界替代。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，旧阶段材料见[历史归档](../archive/README.md)。
+> **领域合同归位。** 保留图像原请求/状态/取消/持久化合同；旧Signal与宽执行按后续边界替代。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 > #301 / #998 用户已确认[旧业务Signal完整退休设计](legacy-imageagent-business-signal-closure-retirement-boundary.md) §1–§7：本文件中以 approve_results/retry_slot/replace_plan/cancel Signal 作为当前业务入口及旧Signal历史续跑的要求已替代，当前命令走 Update/Resume；共享载荷仍是当前合同，effect_recovery_completed 恢复Signal保持。当前Update V3/JSON/hash/版本与有效安全不变量不变。本文其余历史正文/证据/勾选保留，不授权操作实际历史、实例或数据。
 

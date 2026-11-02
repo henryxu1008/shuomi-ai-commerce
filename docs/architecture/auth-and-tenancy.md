@@ -15,7 +15,7 @@ Quick entry: [current interface and permission map](#auth-interface-map). This i
 Shuomi reuses its current identity and Organization contracts. Authentication, Organization selection, action authorization and resource ownership must stay separate. User-owned identity data is not automatically Organization-owned; store, source and other business resources keep their own verified ownership boundaries.
 
 This supporting document explains the current
-[Identity / Organization contract](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
+[Identity / Organization contract](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)
 and [server auth assembly](../../internal/app/httpapi/server_auth.go). It does not
 introduce IAM policy. Package rules remain in `project-boundaries.md` and the
 [Legacy Register](../refactoring/legacy-register.md).
@@ -220,7 +220,7 @@ Before merging auth or tenant-sensitive changes, check:
 Current code evidence includes
 [server auth tests](../../internal/app/httpapi/server_test.go),
 [Organization resolver](../../internal/workbenchcontext/resolver.go) and
-[dated multi-Organization verification](../archive/verification/zitadel-multi-organization-authorization.md).
+[dated multi-Organization verification](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/verification/zitadel-multi-organization-authorization.md).
 The dated verification is evidence for its own baseline, not approval of today's HEAD.
 
 ## 9. Upgrade path to stable boundary document
@@ -254,7 +254,7 @@ this map neither merges endpoints nor changes DTOs, permissions or error semanti
 | Login and browser session | [approved Login Phase1 decision](../product/login-phase1-official-zitadel.md), official ZITADEL Login V2 and existing Auth.js | Continue the approved generic `/login` flow; this task adds no Go login/refresh/logout or OTP-primary API. |
 | Request authentication | [ZITADEL verifier](../../internal/authruntime/zitadel/verifier.go), [server auth assembly](../../internal/app/httpapi/server_auth.go) | Verify the request bearer; supplied user/tenant/role headers are not identity proof. |
 | Verified principal | [authidentity](../../internal/authidentity/authenticated_identity.go) | `UserID` is the caller, Home is identity ownership, Effective is verified business scope, `EffectiveMemberID` is the selected authorization/grant identity, not a second user ID. |
-| Organization resolution | [Resolver](../../internal/workbenchcontext/resolver.go), [selection policy](../../internal/workbenchcontext/context.go), [Identity / Organization contract](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md) | A selector chooses a candidate, not a permission grant; apply the route's freshness policy. |
+| Organization resolution | [Resolver](../../internal/workbenchcontext/resolver.go), [selection policy](../../internal/workbenchcontext/context.go), [Identity / Organization contract](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md) | A selector chooses a candidate, not a permission grant; apply the route's freshness policy. |
 | Personal and Organization reads | [account read-only contract](../engineering/account-readonly-contract.md) | Reuse the existing `account-v1` fields, BFF/client assertions, cancellation, null values and errors; do not publish a second wire contract here. |
 | Personal identity mutations | [account identity HTTP module](../../internal/app/httpapi/account_identity.go), [self-service adapter](../../internal/authruntime/zitadel/self_service.go) | Only the authenticated user's official provider self-service; no administrator credential or client-selected target user. Current HTTP placement is recorded, not moved. |
 | Member actions | [membership contract](../engineering/issue410-membership-contract.md), [route module](../../internal/organization/membership/httpapi/module.go) | Existing `authz` checks and membership service enforce project/Organization/actor/target/operation scope; no second RBAC. |

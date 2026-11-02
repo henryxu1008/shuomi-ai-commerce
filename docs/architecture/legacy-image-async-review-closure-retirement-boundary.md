@@ -175,10 +175,10 @@ Legacy decision: **EXTRACT | RETIRE**。Reusable behavior：窄 route 编辑、�
 | D9 | `docs/architecture/legacy-auth-route-s3-operation-closure-retirement-boundary.md` | 同上，不恢复S3/旧认证 |
 | D10 | `docs/architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md` | 同上，仅旧ImageGenerator及GRSAI日志KEEP |
 | D11 | `docs/architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md` | 同上，仅本次剩余合同/日志/审核映射，不重开#1033 |
-| D12 | `docs/archive/implementation-plans/2026-06-20-listingkit-async-studio-image-generation.md` | 追加旧异步协议已退出的历史注记，不删除历史方案 |
-| D13 | `docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md` | 同上，不恢复job接受/查询/回放 |
-| D14 | `docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md` | 同上，仅本次异步/旧审核范围，当前native账本仍有效 |
-| D15 | `docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md` | 同上，当前值DTO与窄Editor取代旧宽合同 |
+| D12 | [2026-06-20-listingkit-async-studio-image-generation.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-06-20-listingkit-async-studio-image-generation.md) | 追加旧异步协议已退出的历史注记，不删除历史方案 |
+| D13 | [2026-08-06-ai-async-job-binding.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md) | 同上，不恢复job接受/查询/回放 |
+| D14 | [2026-08-06-ai-capability-phase-1.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md) | 同上，仅本次异步/旧审核范围，当前native账本仍有效 |
+| D15 | [2026-08-21-provider-neutral-ai-contracts.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md) | 同上，当前值DTO与窄Editor取代旧宽合同 |
 
 合计 **61 唯一路径**（16生产＋30测试/工具＋15文档）；三个新增生产/测试文件与本文均显式列明。没有 workflow/inventory 改动，没有部署文件/schema/Goose/依赖变化。并非把所有含 Review/logger/async 名字的文件一并删除。
 

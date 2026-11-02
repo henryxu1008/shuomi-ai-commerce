@@ -13,8 +13,8 @@ boundary entrypoint first.
 It complements:
 
 - [`project-boundaries.md`](./project-boundaries.md)
-- [`listingkit-refactor-status.md`](../archive/architecture/listingkit-refactor-status.md)
-- [`project-wide-refactoring-plan.md`](../archive/refactoring/project-wide-refactoring-plan.md)
+- [`listingkit-refactor-status.md`](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/listingkit-refactor-status.md)
+- [`project-wide-refactoring-plan.md`](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/project-wide-refactoring-plan.md)
 
 ## Why This Matters
 

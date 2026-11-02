@@ -20,7 +20,7 @@
 | [图像、资产安全与外部 effect](#image) | [商品图片智能体](product-image-agent-v1.md) | [图片智能体操作](../operations/product-image-agent-v1.md) |
 | [会话、项目、任务、知识与经营投影](#workspace) | [项目中心](ai-workbench-project-center-v1.md) | [项目中心操作](../operations/project-center-v1.md)、[工作区工程交接](../engineering/README.md#workspace) |
 | [数据、工具与生态服务](#services) | [Data Services](data-services-v1.md) | [服务操作](../operations/README.md#stores)、[服务工程交接](../engineering/README.md#services) |
-| [有界试用与阶段上下文](#context) | [限定本地试用](issue-36-local-trial-runtime.md) | [专项操作限制](../operations/README.md#limited-scope)、[历史归档](../archive/README.md) |
+| [有界试用与阶段上下文](#context) | [限定本地试用](issue-36-local-trial-runtime.md) | [专项操作限制](../operations/README.md#limited-scope)、[全新系统开发基线](../product/greenfield-no-legacy-migration.md) |
 
 <a id="foundation"></a>
 

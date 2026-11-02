@@ -160,10 +160,6 @@ func TestImageRetirementFrozenDocumentSuffixesStayIntact(t *testing.T) {
 		{"docs/architecture/legacy-auth-route-s3-operation-closure-retirement-boundary.md", 29020, "d1fbcb9c1a92c7fe938e4e3e91e0387187a00adab1508c31a08b7901d80f9264"},
 		{"docs/architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md", 27995, "8a0758edade3335dc6ed62829a2eb029123dc23599c8e76b81082a23a6f20031"},
 		{"docs/architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md", 40241, "61feae87ec9c0c3c83f2980ac548749e064f59cf804a52651e7663ab347bf8f1"},
-		{"docs/archive/implementation-plans/2026-06-20-listingkit-async-studio-image-generation.md", 25685, "d65a43c2f17e147959a994aff4fa4d5746990734d2dcfa4b718db2741a64a111"},
-		{"docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md", 16069, "6c67ea9d51fb7c17ebc8b848245993a99e4716173dfa04157f34069f72f6150a"},
-		{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", 60142, "27fce34434d70d03cf80366473e602664f295ab8351a0b2de96f8cb69dbf8115"},
-		{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", 11681, "bc2cfb4775d655c630e89b187e5eed5d077c8e932e5dadbc1655a85f1c7a7d86"},
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(doc.path)))
 		if err != nil {
@@ -186,10 +182,29 @@ func TestImageRetirementFrozenDocumentSuffixesStayIntact(t *testing.T) {
 // edits authorized by the documentation relocation. Frozen bodies still use
 // their original lengths and hashes; content, state and evidence changes fail.
 func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
+	// The 2026-11-02 greenfield decision removes archived material from checkout.
+	// Exact navigation inverses keep current retained contracts on their original
+	// hashes; no arbitrary content or evidence changes are normalized away.
 	var edits [][2]string
 	switch filepath.ToSlash(path) {
 	case "docs/architecture/README.md":
 		edits = [][2]string{
+			{"- 旧阶段盘点、旧协议、TEMU设计经验及PoC报告已退出当前工作树，不作为当前开发依据。", "- 历史阶段盘点、旧协议、TEMU设计经验及PoC结果已移到[全新系统开发基线](../product/greenfield-no-legacy-migration.md)，不再与当前领域合同并列。"},
+			{"旧阶段资料已退出当前工作树，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)", "历史设计、V7计划与验证记录见[全新系统开发基线](../product/greenfield-no-legacy-migration.md)"},
+			{"[openmeter-shadow-metering-poc-report.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/openmeter-shadow-metering-poc-report.md)", "`docs/archive/architecture/openmeter-shadow-metering-poc-report.md`"},
+			{"[task-event-v2-migration.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/task-event-v2-migration.md)", "`docs/archive/architecture/task-event-v2-migration.md`"},
+			{"[listingkit-refactor-status.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/listingkit-refactor-status.md)", "`docs/archive/architecture/listingkit-refactor-status.md`"},
+			{"[temu-pipeline-stages.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/temu-pipeline-stages.md)", "`docs/archive/architecture/temu-pipeline-stages.md`"},
+			{"[temu-architecture-patterns.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/temu-architecture-patterns.md)", "`docs/archive/architecture/temu-architecture-patterns.md`"},
+			{"[task-status-lifecycle.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/task-status-lifecycle.md)", "`docs/archive/architecture/task-status-lifecycle.md`"},
+			{"[historical-platform-migration-inventory.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/historical-platform-migration-inventory.md)", "`docs/archive/architecture/historical-platform-migration-inventory.md`"},
+			{"[Publication Identity draft](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)", "[Publication Identity draft](../archive/refactoring/2026-09-05-publication-identity-cutover-issue-draft.md)"},
+			{"[next-phase-plan.md](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/next-phase-plan.md)", "[next-phase-plan.md](../archive/refactoring/next-phase-plan.md)"},
+			{"[Current status](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/current-refactoring-status.md)", "[Current status](../archive/refactoring/current-refactoring-status.md)"},
+			{"[Identity / Organization](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)", "[Identity / Organization](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)"},
+			{"[全新系统开发基线](../product/greenfield-no-legacy-migration.md)", "[历史架构材料](../archive/README.md#architecture-history)"},
+			{"[全新系统开发基线](../product/greenfield-no-legacy-migration.md)", "[归档索引](../archive/README.md)"},
+			{"[全新系统开发基线](../product/greenfield-no-legacy-migration.md)", "[历史归档](../archive/README.md)"},
 			{"`docs/archive/architecture/temu-architecture-patterns.md`", "`temu-architecture-patterns.md`"},
 			{"`docs/archive/architecture/temu-pipeline-stages.md`", "`temu-pipeline-stages.md`"},
 			{"`docs/archive/architecture/task-status-lifecycle.md`", "`task-status-lifecycle.md`"},
@@ -206,12 +221,14 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/legacy-ai-routing-image-policy-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-06-ai-capability-phase-1.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md)", "`docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md`"},
 			{"docs/architecture/product-domain-contracts.md", "docs/superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md"},
 			{"docs/architecture/ai-capability-platform.md", "docs/superpowers/specs/2026-08-06-ai-capability-agent-platform-design.md"},
 			{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", "docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md"},
 		}
 	case "docs/architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-21-provider-neutral-ai-contracts.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md)", "`docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md`"},
 			{"docs/architecture/product-domain-contracts.md", "docs/superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md"},
 			{"docs/architecture/ai-provider-contracts.md", "docs/superpowers/specs/2026-08-21-provider-neutral-ai-contracts-design.md"},
 			{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", "docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md"},
@@ -219,6 +236,10 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/legacy-auth-route-s3-operation-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-30-internal-target-architecture-phase2.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "`docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md`"},
+			{"[2026-08-25-zitadel-authruntime-extraction.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md)", "`docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md`"},
+			{"[Phase 2 迁包计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "[Phase 2 迁包计划](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)"},
+			{"[旧抽取计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md)", "[旧抽取计划](../archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md)"},
 			{"docs/architecture/authentication-runtime.md", "docs/superpowers/specs/2026-08-25-zitadel-authruntime-design.md"},
 			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
 			{"docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md", "docs/superpowers/plans/2026-08-25-zitadel-authruntime-extraction.md"},
@@ -228,11 +249,16 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/legacy-idle-adapter-helper-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[Phase2 原计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "[Phase2 原计划](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)"},
 			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
 			{"](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "](../superpowers/plans/2026-08-30-internal-target-architecture-phase2.md)"},
 		}
 	case "docs/architecture/legacy-image-async-review-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-21-provider-neutral-ai-contracts.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md)", "`docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md`"},
+			{"[2026-08-06-ai-capability-phase-1.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md)", "`docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md`"},
+			{"[2026-08-06-ai-async-job-binding.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md)", "`docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md`"},
+			{"[2026-06-20-listingkit-async-studio-image-generation.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-06-20-listingkit-async-studio-image-generation.md)", "`docs/archive/implementation-plans/2026-06-20-listingkit-async-studio-image-generation.md`"},
 			{"docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md", "docs/superpowers/plans/2026-08-21-provider-neutral-ai-contracts.md"},
 			{"docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md", "docs/superpowers/plans/2026-08-06-ai-capability-phase-1.md"},
 			{"docs/archive/implementation-plans/2026-08-06-ai-async-job-binding.md", "docs/superpowers/plans/2026-08-06-ai-async-job-binding.md"},
@@ -240,6 +266,10 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-29-image-agent-external-effect-finalization.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md)", "`docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md`"},
+			{"[2026-08-26-image-agent-core-manual-workflow.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md)", "`docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md`"},
+			{"[2026-08-29 effect finalization 计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md)", "[2026-08-29 effect finalization 计划](../archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md)"},
+			{"[原实施计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md)", "[原实施计划](../archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md)"},
 			{"docs/architecture/image-agent-workflow.md", "docs/superpowers/specs/2026-08-26-image-agent-workflow-design.md"},
 			{"docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md", "docs/superpowers/plans/2026-08-29-image-agent-external-effect-finalization.md"},
 			{"docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md", "docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md"},
@@ -249,12 +279,18 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/legacy-imageagent-control-summary-tail-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-26-image-agent-automatic-repair.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md)", "`docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md`"},
+			{"[2026-08-26-image-agent-assisted-planning.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md)", "`docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md`"},
+			{"[2026-08-26-image-agent-core-manual-workflow.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md)", "`docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md`"},
 			{"docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md", "docs/superpowers/plans/2026-08-26-image-agent-core-manual-workflow.md"},
 			{"docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md", "docs/superpowers/plans/2026-08-26-image-agent-automatic-repair.md"},
 			{"docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md", "docs/superpowers/plans/2026-08-26-image-agent-assisted-planning.md"},
 		}
 	case "docs/architecture/legacy-imageagent-generic-execution-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-30-internal-target-architecture-phase2.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "`docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md`"},
+			{"[2026-08-26-image-agent-core-manual-workflow.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md)", "`docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md`"},
+			{"[2026-08-06-ai-capability-phase-1.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md)", "`docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md`"},
 			{"docs/architecture/runtime-consumer-register.md", "docs/refactoring/phase2-runtime-inventory.md"},
 			{"docs/architecture/module-target-mapping.md", "docs/refactoring/module-target-mapping.md"},
 			{"docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md", "docs/superpowers/plans/2026-08-30-internal-target-architecture-phase2.md"},
@@ -267,11 +303,15 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/legacy-resource-transaction-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-09-03-shuomi-resource-ledger-store-design.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md)", "`docs/archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md`"},
+			{"[原资源/Store 设计](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md)", "[原资源/Store 设计](../archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md)"},
 			{"docs/archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md", "docs/superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md"},
 			{"](../archive/designs/2026-09-03-shuomi-resource-ledger-store-design.md)", "](../superpowers/specs/2026-09-03-shuomi-resource-ledger-store-design.md)"},
 		}
 	case "docs/architecture/legacy-task-openai-convenience-closure-retirement-boundary.md":
 		edits = [][2]string{
+			{"[2026-08-30-internal-target-architecture-phase2.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)", "`docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md`"},
+			{"[2026-08-21-provider-neutral-ai-contracts.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md)", "`docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md`"},
 			{"docs/architecture/shein-offline-validation-input-binding.md", "docs/superpowers/specs/2026-09-05-shein-offline-validation-input-binding-design.md"},
 			{"docs/architecture/commerce-tool-canonical-inspection.md", "docs/superpowers/specs/2026-09-05-commerce-tool-canonical-inspection-design.md"},
 			{"docs/architecture/ai-provider-contracts.md", "docs/superpowers/specs/2026-08-21-provider-neutral-ai-contracts-design.md"},
@@ -280,6 +320,8 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/project-boundaries.md":
 		edits = [][2]string{
+			{"[project-wide-refactoring-plan.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/project-wide-refactoring-plan.md)", "`docs/archive/refactoring/project-wide-refactoring-plan.md`"},
+			{"[`docs/archive/refactoring/project-wide-refactoring-plan.md`](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/project-wide-refactoring-plan.md)", "[`docs/archive/refactoring/project-wide-refactoring-plan.md`](../archive/refactoring/project-wide-refactoring-plan.md)"},
 			{"docs/archive/refactoring/project-wide-refactoring-plan.md", "docs/refactoring/project-wide-refactoring-plan.md"},
 			{"](runtime-consumer-register.md)", "](../refactoring/phase2-runtime-inventory.md)"},
 			{"](module-target-mapping.md)", "](../refactoring/module-target-mapping.md)"},
@@ -287,6 +329,8 @@ func restoreRelocatedFrozenDocumentNavigation(path string, raw []byte) []byte {
 		}
 	case "docs/architecture/store-center-current-application-v1.md":
 		edits = [][2]string{
+			{"[当前统一资源合同](unified-base-prepaid-resources-v1.md)", "[V7 Resource / Store Service 计划](../archive/implementation-plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)"},
+			{"[身份与租户合同](auth-and-tenancy.md)", "[现有身份/企业空间设计](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)"},
 			{"](../archive/implementation-plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)", "](../superpowers/plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)"},
 			{"](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)", "](../superpowers/specs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)"},
 		}
