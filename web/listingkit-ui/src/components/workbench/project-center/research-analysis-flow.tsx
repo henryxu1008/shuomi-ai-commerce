@@ -21,14 +21,15 @@ import styles from "./research-panel.module.css";
 export function analysisChoices(selected:ResearchCandidate[]){return selected.map(c=>({candidateId:c.id,expectedRevision:String(c.revision),linkId:c.selectedLinkId,evidenceDigest:c.evidenceDigest,selection:{itemId:c.observation?.ref.selection.itemId,expectedRevision:String(c.observation?.ref.selection.revision),originalPublicationId:c.observation?.ref.selection.publicationId,originalVersion:c.observation?.ref.selection.version}}));}
 function matches(out:ResearchInspection|undefined,input:unknown){const parsed=researchAnalysisInput.safeParse(input);if(!out||!parsed.success||out.candidates.length!==parsed.data.candidates.length)return false;return parsed.data.candidates.every(c=>out.candidates.some(p=>p.research.CandidateID===c.candidateId&&p.research.CandidateRevision===c.expectedRevision&&p.research.SelectedLinkID===c.linkId&&p.research.EvidenceDigest===c.evidenceDigest&&p.ref.ItemID===c.selection.itemId&&p.ref.ItemRevision===c.selection.expectedRevision&&p.ref.PublicationID===c.selection.originalPublicationId&&p.ref.CatalogVersion===c.selection.originalVersion));}
 const recommendationNames={TEST_CANDIDATE:"建议测试",RESEARCH_MORE:"建议继续研究",NOT_RECOMMENDED:"建议暂不选择"};
-export function ResearchAnalysisFlow({scope,projectId,selected,archived,view}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection"}){
+export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evidenceReadKey="",evidenceReadable=true}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";evidenceReadKey?:string;evidenceReadable?:boolean}){
  const context=useWorkbenchContext(),queries=useQueryClient();
  const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
  const namespace=["research-analysis",projectId,context.effectiveMemberId??""];
  const pending=useResourcePending(identity,namespace,researchAnalysisIntent,{storage:"local",maxLength:16384});
  const preparation=useResourcePending(identity,[...namespace,"prepared"],researchSavedPreparation,{storage:"local",maxLength:16384});
  const saved=preparation.command;
- const [goal,setGoal]=useState("请根据本次保存样本比较差异，说明缺项和后续核实建议。"),[busy,setBusy]=useState(false),[failure,setFailure]=useState<unknown>(),[chosen,setChosen]=useState<string>(),[after,setAfter]=useState(""),[absent,setAbsent]=useState(false);
+ const [goal,setGoal]=useState("请根据本次保存样本比较差异，说明缺项和后续核实建议。"),[busy,setBusy]=useState(false),[failure,setFailure]=useState<unknown>(),[chosen,setChosen]=useState<string>(),[after,setAfter]=useState(""),[absentKey,setAbsentKey]=useState<string>();
+ const absent=!!pending.command&&absentKey===pending.command.key;
  const active=useRef(true),flight=useRef(false),controller=useRef<AbortController|null>(null);
  useEffect(()=>{active.current=true;return()=>{active.current=false;controller.current?.abort();};},[]);
  const register=context.registerOrganizationSwitchGuard;
@@ -40,43 +41,44 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view}:{s
  const mode=useQuery({queryKey:[...keys,"mode"],queryFn:({signal})=>configurationRequest(scope,"execution-modes/registered_agent/product.research.agent",executionModeViewSchema,{signal}),enabled:view==="selection"&&!!entry&&entry.agent.activation!=="NOT_ENABLED",retry:false});
  const recent=useQuery({queryKey:[...keys,"recent",after],queryFn:({signal})=>recentResearchRuns(scope,projectId,after,signal),enabled:view==="selection"&&!!entry?.canReadRuns,retry:false});
  const pointer=chosen??(pending.command?.kind!=="prepare"?pending.command?.key:undefined)??saved?.key;
- const runKey=[...keys,"run",pointer];
- const run=useQuery({queryKey:runKey,queryFn:({signal})=>readResearchRun(scope,projectId,pointer!,signal),enabled:!!pointer,retry:false,refetchInterval:q=>q.state.data?.phase==="running"?3000:false,refetchIntervalInBackground:false});
+ const runKey=[...keys,"run",pointer,evidenceReadKey];
+ const run=useQuery({queryKey:runKey,queryFn:({signal})=>readResearchRun(scope,projectId,pointer!,signal),enabled:!!pointer&&evidenceReadable,retry:false,refetchInterval:q=>q.state.data?.phase==="running"?3000:false,refetchIntervalInBackground:false});
  const denied=(e:unknown)=>e instanceof MarketAPIError&&[403,401].includes(e.status);
  const masked=denied(failure)||denied(facts.error)||denied(run.error)||!!run.error&&!(run.error instanceof MarketAPIError&&run.error.status===404);
- const display=!masked&&!facts.error?(run.data&&!run.error?run.data.inspection:!pointer||pointer===saved?.key?facts.data:undefined):undefined;
- const locked=busy||!!pending.command||pending.error||!pending.ready||preparation.error||!preparation.ready;
+ const evidencePending=!evidenceReadable||run.isFetching;
+ const display=!evidencePending&&!masked&&!facts.error?(run.data&&!run.error?run.data.inspection:!pointer||pointer===saved?.key?facts.data:undefined):undefined;
+ const locked=busy||!evidenceReadable||!!pending.command||pending.error||!pending.ready||preparation.error||!preparation.ready;
  const textReady=!!entry?.canUse&&entry.agent.activation==="ENABLED"&&entry.capabilities.some(c=>c.id==="text.generate"&&c.readiness==="AVAILABLE");
  const goalCheck=researchPrepareSchema.shape.goalSummary.safeParse(goal.trim());
  const factsMatch=!facts.error&&input.success&&matches(facts.data,input.data);
  const preparedFactsMatch=!!saved&&!facts.error&&matches(facts.data,{candidates:saved.input.candidates});
  const modeMatch=!!saved&&!mode.error&&mode.data?.revision===saved.prepared.modeRevision;
- const showRun=run.data&&!run.error&&!masked?run.data:undefined;
+ const showRun=run.data&&!run.error&&!masked&&!evidencePending?run.data:undefined;
  async function inspect(){if(flight.current||archived||!input.success)return;flight.current=true;setBusy(true);setFailure(undefined);try{await facts.refetch({throwOnError:true});if(active.current&&!saved&&!pending.command)setChosen(undefined);}catch(e){if(active.current)setFailure(e);}finally{flight.current=false;if(active.current)setBusy(false);}}
  async function send(intent:ResearchAnalysisIntent){
  if(flight.current||!active.current||!pending.ready||intent.projectId!==projectId||archived)return;
  if(intent.kind==="start"&&!pending.command&&(!preparedFactsMatch||!modeMatch)){setFailure(new Error("请重新核对本次准备的依据和权限版本。"));return;}
- flight.current=true;setBusy(true);setFailure(undefined);setAbsent(false);const abort=new AbortController();controller.current=abort;
+ flight.current=true;setBusy(true);setFailure(undefined);setAbsentKey(undefined);const abort=new AbortController();controller.current=abort;
  try{pending.persist(intent);
  if(intent.kind==="prepare"){
  const prepared=await prepareResearch(scope,intent,abort.signal);if(prepared.contextId!==projectId||prepared.requestKey!==intent.key)throw new MarketAPIError("OUTCOME_UNKNOWN",502);
  if(active.current){preparation.persist({key:intent.key,projectId,input:intent.body,prepared});pending.clear(intent);setChosen(intent.key);}
  }else{
  const result=await executeResearch(scope,intent,abort.signal);if(result.contextId!==projectId||result.requestKey!==intent.key)throw new MarketAPIError("OUTCOME_UNKNOWN",502);
- if(active.current){setChosen(intent.key);queries.setQueryData([...keys,"run",intent.key],result);pending.clear(intent);void recent.refetch();}
+ if(active.current){setChosen(intent.key);queries.setQueryData([...keys,"run",intent.key,evidenceReadKey],result);pending.clear(intent);void recent.refetch();}
  }
  }catch(e){if(active.current)setFailure(e);}finally{flight.current=false;if(active.current)setBusy(false);}
  }
- async function verify(){const intent=pending.command;if(!intent||flight.current)return;flight.current=true;setBusy(true);setFailure(undefined);const abort=new AbortController();controller.current=abort;
+ async function verify(){const intent=pending.command;if(!intent||flight.current)return;flight.current=true;setBusy(true);setFailure(undefined);setAbsentKey(undefined);const abort=new AbortController();controller.current=abort;
  try{if(intent.kind==="prepare"){
  const prepared=await readResearchPreparation(scope,projectId,intent.key,abort.signal);if(prepared.contextId!==projectId||prepared.requestKey!==intent.key)throw new MarketAPIError("OUTCOME_UNKNOWN",502);
  if(active.current){preparation.persist({key:intent.key,projectId,input:intent.body,prepared});pending.clear(intent);setChosen(intent.key);}
  }else{
  const result=await readResearchRun(scope,projectId,intent.key,abort.signal);if(!active.current)return;
- setChosen(intent.key);queries.setQueryData([...keys,"run",intent.key],result);
+ setChosen(intent.key);queries.setQueryData([...keys,"run",intent.key,evidenceReadKey],result);
  if(intent.kind==="start"||BigInt(result.revision)>BigInt(intent.body.revision))pending.clear(intent);
  }
- }catch(e){if(active.current){setFailure(e);setAbsent(e instanceof MarketAPIError&&e.status===404&&e.operationMayExist===false);}}finally{flight.current=false;if(active.current)setBusy(false);}}
+ }catch(e){if(active.current){setFailure(e);setAbsentKey(e instanceof MarketAPIError&&e.status===404&&e.operationMayExist===false?intent.key:undefined);}}finally{flight.current=false;if(active.current)setBusy(false);}}
  const noRun=run.error instanceof MarketAPIError&&run.error.status===404;
  const canClear=!!saved&&!locked&&!masked&&!run.isFetching&&(!!showRun&&showRun.phase!=="running"&&showRun.usageStatus!=="unknown_reserved"||noRun);
  return <>
@@ -86,7 +88,8 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view}:{s
  </Card>
  {failure?<p role="alert">{failure instanceof Error&&!(failure instanceof MarketAPIError)?failure.message:configurationError(failure)}</p>:null}
  {pending.error||preparation.error?<p role="alert">原操作记录无法读取，请恢复浏览器存储后继续。</p>:null}
- {pending.command?<Card className={styles.section}><h3>核实原分析请求</h3><p>保留原请求 {pending.command.key}，当前结果待核实。</p><div className={styles.actions}><Button disabled={busy} onClick={()=>void verify()}>核实原分析请求</Button><Button variant="outline" disabled={busy||archived} onClick={()=>void send(pending.command!)}>{pending.command.kind==="prepare"?"使用原键重试准备":"使用原键重试分析"}</Button></div>{absent?<p>原配置暂未找到，可以显式使用原键重试；尚未创建另一笔分析。</p>:null}</Card>:null}
+ {pending.command?<Card className={styles.section}><h3>核实原分析请求</h3><p>保留原请求 {pending.command.key}，当前结果待核实。</p><div className={styles.actions}><Button disabled={busy} onClick={()=>void verify()}>核实原分析请求</Button><Button variant="outline" disabled={busy||archived} onClick={()=>void send(pending.command!)}>{pending.command.kind==="prepare"?"使用原键重试准备":"使用原键重试分析"}</Button>{absent&&pending.command.kind==="prepare"?<Button variant="outline" disabled={busy} onClick={()=>{const intent=pending.command;if(!intent||intent.kind!=="prepare"||intent.key!==absentKey||flight.current)return;pending.clear(intent);setAbsentKey(undefined);setChosen(undefined);setFailure(undefined);void queries.resetQueries({queryKey:[...keys,"facts"]});}}>放弃未提交的准备并重新选择</Button>:null}</div>{absent?<p>原精确请求已确认没有回执，可以使用原键重试；未提交的准备也可显式结束后重新选样。</p>:null}</Card>:null}
+ {pointer&&evidencePending?<p role="status">正在重新核实原分析依据，原汇总与建议暂时隐藏。</p>:null}
  {view==="selection"?<Card className={styles.section}><div className={styles.heading}><div><h3>研究证据分析</h3><p>AI建议独立保存在原运行历史。人工决定和理由仍由你逐项确认。</p></div><Button asChild variant="outline"><Link href="/workbench/agents/mine/product.research.agent" prefetch={false}>研究分析配置</Link></Button></div>
  {!textReady?<p>当前研究模型尚未就绪。可以继续查看证据、比较事实并作人工决定。</p>:null}
  {catalog.error?<p role="status">当前无法读取研究分析配置。</p>:null}

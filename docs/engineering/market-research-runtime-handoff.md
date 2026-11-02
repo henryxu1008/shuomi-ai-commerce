@@ -2,12 +2,14 @@
 
 本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。本文件交付正常接线与操作入口，不证明实例已启用。初始源码阶段不授权部署，随后用户明确允许仅对 `task-processor-unified-20261010` 做备份、schema 定向补齐及前后端更新；本次实际状态见 #1072 / PR #1075。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
+**当前代码批次**为[已确认的两个中心 V1](../product/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../architecture/market-research-evidence-analysis-v1.md)实现。用户已授权正式代码、必要自检及同一 PR 维护；本新增批次没有更新或重启上述保留实例。该实例仍为首批应用源码 `d8b85805e`，下面的两个新中心及独立研究分析在实例上尚不可见。此前一次部署授权不扩展为后续自动部署。
+
 ## 正常入口与可用路径
 
-1. 正常登录自己的企业，从「AI 工作台 → 项目中心」创建类型为「选品分析」的 PRODUCT_RESEARCH 项目，打开 `/workbench/ai/projects/{projectID}`。
+1. 在运行本轮代码的应用中正常登录自己的企业，从「数据服务 → 市场调研中心」`/workbench/data/research` 创建或打开本人 PRODUCT_RESEARCH 项目，进入 `/workbench/data/research/{projectID}`。「供应市场 → 智能选品中心」`/workbench/supply/selection` 及其同一项目详情共享原项目、候选、证据与人工决定。原「AI 工作台 → 项目中心」研究区继续可用；保留实例当前仅有这个首批入口。
 2. 项目目标下方的「研究选品」区域先打开原数据市场 `/workbench/data/market`。真正采集仍要求单独授权、原权限、原最大 DATA_ROW 用量确认及原执行通道；本轮未执行。只读页面不触发采集或模型。
 3. 「关联已保存资料」复用我的数据批次选择器，仅允许自己当前可读的服务端 `amazon_data` 结果。旧插件结果也使用该 kind，因此关联时由原 Data Services owner 核实；没有原服务端 item 的资料明确拒绝，页面排除该项并允许继续，不留下待核实写入。浏览器桥并未因此启用。展示站点/ASIN、原时间、parser、结构化证据 checksum、准确 publication/version、查询样本范围、已观察价格/币种与缺失项。无价为未知；不同币种不计算统一排名。来源撤权或不可读后遮蔽内容，保留可解除的私有关系槽。
-4. 选择 2–5 个可读候选，「比较所选候选」进入原商品事实比较和显式 AI 配置/预算/确认流程。当前能力只比较已有 Catalog 事实，不宣称完成市场证据 AI 分析。模型不可用不阻止人工审阅与决定。真正市场证据工具、权重和风险分析仍留在 #1073 后续范围。
+4. 两中心选择 2–5 个可读候选，「读取所选样本」核对保存事实、同币种/同页面报价口径范围和缺项；切到选品中心核实原候选 revision、选定观察、digest 和商品引用。可选证据分析使用独立 `product.research.agent` / `product.research.decision`；须在原私密 manifest 显式配置 `productAgent.researchTextPolicies`，沿原凭据、模型路由和 Agent 激活/模式配置开放，不能借用其他智能体配置。准备后单独确认最多两次调用及 token/费用上限才开始；建议和引用保存在原 Agent 运行中，历史按项目读取。模型不可用不阻止只读事实与人工决定。原项目详情仍使用既有商品事实比较；全市场需求/趋势/销量、权重和利润没有开放。
 5. 「提交人工审阅」后填写理由，再批准测试或否决；归档项目只读。新关联同站点/ASIN 归组但不覆盖已选证据；明确切换观察会回到待研究，旧决定/理由/证据身份保留在最近历史中。页面展示最近 20 项观察及当前选定项、最近 20 条人工历史；数据不会因窗口隐藏而删除。
 6. 勾选来源可读且已批准的候选，按批次进入原我的数据弹窗。研究预填锁定原 item revision/publication/version，重新读取不一致则停止。显式清除预填后属于新的普通商品选择。确认发送非空 ItemIDs，空子集不能退化为整批；原独立整批操作有明确范围。跨批分别确认，不承诺全部成功。
 7. 转入仍由 Preparation 执行，成功后沿原回执进入 `/workbench/supply/mine?preparation={id}` 查看待适配。研究页不保存“已转入”布尔状态。转入响应未知沿原 Supply key 核实；研究写响应未知先「核实原操作」，没有回执才允许明确使用原键重试。挂起意图按 actor/org/project 保存于浏览器会话存储，不自动重发。

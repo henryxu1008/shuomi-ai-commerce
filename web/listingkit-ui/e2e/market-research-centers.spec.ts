@@ -4,6 +4,9 @@ import AxeBuilder from "@axe-core/playwright";
 import {test,expect} from "@playwright/test";
 // Opt-in development UI fixture: normal Auth.js cipher and middleware, a
 // synthetic local secret, intercepted local APIs, no IdP/platform/model calls.
+// Run with RESEARCH_CENTERS_UI_FIXTURE=1, AUTH_SECRET set to the constant below,
+// AUTH_URL=LISTINGKIT_PUBLIC_BASE_URL=http://127.0.0.1:3210,
+// ZITADEL_ISSUER_URL=https://research-ui.invalid and ZITADEL_CLIENT_ID=research-ui-fixture.
 const secret="codex-research-centers-synthetic-ui-secret-only";
 test.skip(process.env.RESEARCH_CENTERS_UI_FIXTURE!=="1"||process.env.AUTH_SECRET!==secret,"requires the explicit synthetic local UI fixture environment");
 const project="11111111-1111-4111-8111-111111111111",ids=["22222222-2222-4222-8222-222222222222","33333333-3333-4333-8333-333333333333"],hash="a".repeat(64),at="2026-11-02T00:00:00Z";

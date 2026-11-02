@@ -36,8 +36,6 @@ export const researchSavedPreparation=z.strictObject({key:collectionID,projectId
 export const researchAnalysisFailure=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/),contextId:collectionID.optional(),requestKey:collectionID.optional(),operationMayExist:z.boolean().optional()});
 export type ResearchInspection=z.infer<typeof researchInspectionSchema>;
 export type ResearchAnalysisIntent=z.infer<typeof researchAnalysisIntent>;
-export type ResearchPreparation=z.infer<typeof researchSavedPreparation>;
-export type ResearchRun=z.infer<typeof researchRunSchema>;
 export function researchAnalysisEndpoint(url:URL,method:string):{path:string;input?:z.ZodType;output:z.ZodType}|null{
  const match=url.pathname.match(/^\/api\/workbench\/research\/projects\/([0-9a-f-]{36})\/analysis\/(.+)$/);
  if(!match||url.hash||!collectionID.safeParse(match[1]).success)return null;
