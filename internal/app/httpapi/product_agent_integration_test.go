@@ -310,7 +310,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			require.NoError(t, err)
 			content = string(action)
 		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
-			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v1.0.0"}}`
+			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v2.0.0"}}`
 		case strings.HasPrefix(mode, "supply materials"):
 			var wire struct {
 				Messages []struct {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // The original acquisition/supply fixtures create a fresh synthetic database.
@@ -31,6 +32,12 @@ import (
 func TestMaterialsHTTPRunAndNativeDraftUseFourExistingModes(t *testing.T) {
 	for _, mode := range []string{"default", "read_only", "auto_approve", "full_access"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "supply materials "+mode) })
+	}
+}
+
+func TestMaterialsV1HistoryAndCommittedReceiptAreReadOnlyAfterV2Cutover(t *testing.T) {
+	for _, state := range []string{"pending", "committed", "unknown"} {
+		t.Run(state, func(t *testing.T) { testProductAgentOwners(t, "supply materials default historical-v1-"+state) })
 	}
 }
 
@@ -84,7 +91,7 @@ func (r materialsOwnerFixtureRules) ReadTargetRules(context.Context, collection.
 	return r.merchant, goods.OfficialRuleSnapshot{ApplicationMode: sheinmodel.ModeSelfOperated, Brands: []sheinmodel.Brand{{Code: "fixture-brand", Name: "Disclosed fixture brand"}}}, nil
 }
 
-func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32) {
+func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32, owner *gorm.DB) {
 	t.Helper()
 	ctx := context.Background()
 	scope := agent.Scope{OrganizationID: "B", ActorID: "admin"}
@@ -132,6 +139,10 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	require.Equal(t, agent.ExecutionMode(strings.Fields(value)[0]), result.ExecutionMode)
 	require.NotNil(t, result.Proposal)
 	require.NotNil(t, result.After)
+	if strings.Contains(value, "historical-v1-") {
+		testMaterialsV1ReadOnlyHTTP(t, value, parent, supply, base, actor, calls, owner, frozen, call, path)
+		return
+	}
 	if strings.Contains(value, " qualified") {
 		require.True(t, base.Record.Result.ReadyForUpload, "fixture must satisfy actual official builder, not a mocked readiness flag")
 		require.NotNil(t, result.Adoption, "qualified automatic mode must save through original Target; unresolved=%v", result.Unresolved)

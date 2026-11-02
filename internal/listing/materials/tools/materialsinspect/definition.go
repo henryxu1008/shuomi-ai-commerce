@@ -69,6 +69,12 @@ func OutputSchema() json.RawMessage {
 	for name, schema := range canonical["$defs"].(map[string]any) {
 		defs[name] = schema
 	}
+	// Native diagnostics have no reason-map source. Close this optional field
+	// rather than admit arbitrary keys through the common result's map type.
+	if diagnostic, ok := defs["DiagnosticResult"].(map[string]any); ok {
+		properties, _ := diagnostic["properties"].(map[string]any)
+		delete(properties, "not_evaluated_reasons")
+	}
 	encoded, err := json.Marshal(document)
 	if err != nil {
 		return nil

@@ -45,11 +45,26 @@ func snapshotView(row snapshotRow) (agentconfig.Snapshot, error) {
 	if len(row.Payload) > 8192 || digest(row.Payload) != row.Digest || json.Unmarshal(row.Payload, &v) != nil {
 		return v, agentconfig.ErrUnavailable
 	}
-	if v.ID != row.ID || v.Scope.OrganizationID != row.OrganizationID || v.Scope.ActorID != row.ActorID || v.AgentID != row.AgentID || v.AgentVersion != row.AgentVersion || v.Epoch != decimal(row.ActivationEpoch) || v.AgentRevision != decimal(row.AgentRevision) || v.Request.Binding.ContextKind != row.ContextKind || v.Request.Binding.ContextID != row.ContextID || v.Request.Key != row.RequestKey || !validTextConfigurationRequest(v.AgentID, v.Request) || !v.Request.Limits.Valid() || !agent.ValidGoalSummary(v.Request.GoalSummary) || v.ExecutionModelProfile.Validate() != nil || !validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile) {
+	if v.ID != row.ID || v.Scope.OrganizationID != row.OrganizationID || v.Scope.ActorID != row.ActorID || v.AgentID != row.AgentID || v.AgentVersion != row.AgentVersion || v.Epoch != decimal(row.ActivationEpoch) || v.AgentRevision != decimal(row.AgentRevision) || v.Request.Binding.ContextKind != row.ContextKind || v.Request.Binding.ContextID != row.ContextID || v.Request.Key != row.RequestKey || !validStoredTextConfiguration(v) || !v.Request.Limits.Valid() || !agent.ValidGoalSummary(v.Request.GoalSummary) || v.ExecutionModelProfile.Validate() != nil {
 		return v, agentconfig.ErrUnavailable
 	}
 	v.Digest = row.Digest
 	return v, nil
+}
+
+// Only the storage reader accepts the finite historical material tuples. The
+// normalized copy reuses existing structural checks, never leaves this helper
+// and cannot become an executable request or rewrite a stored snapshot.
+func validStoredTextConfiguration(v agentconfig.Snapshot) bool {
+	if v.AgentID != agentconfig.MaterialsAgentID {
+		return validTextConfigurationRequest(v.AgentID, v.Request) && validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile)
+	}
+	if !agentconfig.MaterialsStoredVersion(v.AgentVersion, v.Request.PolicyVersion, v.Request.PromptVersion) || v.KnowledgeBaseID != "" || v.ExecutionModelProfile.PromptVersion != v.Request.PromptVersion || v.ExecutionModelProfile.OutputSchemaVersion != agentconfig.MaterialsActionVersion {
+		return false
+	}
+	request := v.Request
+	request.PolicyVersion, request.PromptVersion = agentconfig.MaterialsPolicyVersion, agentconfig.MaterialsPromptVersion
+	return validTextConfigurationRequest(v.AgentID, request)
 }
 func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentconfig.Snapshot, error) {
 	identity := agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}

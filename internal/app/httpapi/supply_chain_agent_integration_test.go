@@ -213,7 +213,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	app.Execution.Repository = operationsRepo
 	if strings.HasPrefix(mode, "supply materials") {
 		app.Targets, app.Assets = targets, assets
-		testMaterialsNativeOwners(t, strings.TrimPrefix(mode, "supply materials "), a, app, target, actor, deps, calls)
+		testMaterialsNativeOwners(t, strings.TrimPrefix(mode, "supply materials "), a, app, target, actor, deps, calls, f.owner)
 		return
 	}
 	var draftBefore d.DraftSnapshot

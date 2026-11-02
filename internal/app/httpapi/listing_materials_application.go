@@ -185,7 +185,14 @@ func (a *listingMaterialsApplication) readBase(ctx context.Context, recordID str
 }
 
 func materialsRunReviewable(s agent.State) bool {
-	return s.Phase == agent.HumanReviewRequired && s.StopReason == "" && s.RejectedPayload == nil && s.Request.Binding.ContextKind == "listing-target-record" && s.Request.Binding.TargetPlatform == "shein" && s.Request.PolicyVersion == materials.PolicyVersion && s.Request.PromptVersion == materials.PromptVersion && s.DomainProposal != nil && s.DomainProposal.Kind == materials.ProposalKind && s.Validation != nil && s.Validation.Valid && s.Validation.PolicyVersion == materials.PolicyVersion && s.Validation.CandidateHash == collection.Digest(s.DomainProposal) && len(s.Candidate.Changes) == 0 && len(s.Candidate.Warnings) == 0 && len(s.Candidate.Rejections) == 0
+	return materialsHistoricalReviewable(s) && s.Request.PolicyVersion == materials.PolicyVersion && s.Request.PromptVersion == materials.PromptVersion
+}
+
+// History/committed receipts retain their exact original candidate and policy.
+// This wider read predicate must not authorize a new resume or adoption.
+func materialsHistoricalReviewable(s agent.State) bool {
+	known := agentconfig.MaterialsStoredVersion("v1.0.0", s.Request.PolicyVersion, s.Request.PromptVersion) || agentconfig.MaterialsStoredVersion(materials.AgentVersion, s.Request.PolicyVersion, s.Request.PromptVersion)
+	return known && s.Phase == agent.HumanReviewRequired && s.StopReason == "" && s.RejectedPayload == nil && s.Request.Binding.ContextKind == "listing-target-record" && s.Request.Binding.TargetPlatform == "shein" && s.DomainProposal != nil && s.DomainProposal.Kind == materials.ProposalKind && s.Validation != nil && s.Validation.Valid && s.Validation.PolicyVersion == s.Request.PolicyVersion && s.Validation.CandidateHash == collection.Digest(s.DomainProposal) && len(s.Candidate.Changes) == 0 && len(s.Candidate.Warnings) == 0 && len(s.Candidate.Rejections) == 0
 }
 
 func materialsAdoptionKey(s agent.State) string {

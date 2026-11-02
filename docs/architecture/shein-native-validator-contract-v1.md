@@ -3,11 +3,11 @@
 Execution: [#34](https://github.com/henryxu1008/shuomi-ai-commerce/issues/34)；关联 #134。源码调查基线：`f936702227f871e122d478276868e63a6efcc4fc`。
 
 - Design Basis: **Independent Architecture**，仅新增 native 诊断输入绑定、公共结果投影和材料 Tool 版本合同。
-- Status: **DESIGN_ONLY / USER_CONFIRMED / ARCHITECTURE_REVIEW_NOT_RUN / NOT_IMPLEMENTATION_READY**。
-- 用户已明确认可设计候选及 D1，并授权推送、创建 design-only Draft PR 与核对准确 HEAD 的 CI；暂不实现、不新增评审派工，不合并、部署、关单或执行真实操作。CI、最终 HEAD 和滚动交付状态维护在 PR，不在本文倒写通过。
-- 认可基线为本地设计提交 `6fa0dade9af60f11a8fc51e3c80e4a396569726c`；本轮仅记录认可状态与 D1，候选技术正文不改变。实际 v1 行为和保留实例均未切换。
+- Architecture status: **DESIGN_REVIEW_PASS / IMPLEMENTATION_READY**。R1 绑定设计 HEAD `40ae55c988437d016bfa43eaa53a2ebf23a769db`；0 BLOCKER、两项 IMPLEMENTATION_TEST，具体实施/CI/最终复核状态以 PR #1064 为准。
+- 用户已认可设计及 D1、授权原唯一 Writer 在原工作区/PR 实现并复用原唯一 Reviewer 做必要增量及最终复核。仅合成数据/transport与任务自有临时 PostgreSQL；不合并、部署、关单或执行真实业务操作。CI、最终 HEAD 和滚动交付状态维护在 PR，不在本文倒写通过。
+- 认可基线为本地设计提交 `6fa0dade9af60f11a8fc51e3c80e4a396569726c`；本轮仅记录认可状态与 D1，候选技术正文不改变。保留实例与其现有记录未执行切换。
 - 原 #34 Must 不减少。本文不是已经交付的新能力，不签发运行、产品或发布许可。
-- 设计资料整理者：当前会话 `01a17b25-eb0a-7123-bf5b-ea5c4b914071`；不接管旧实现线程、不另派 Writer/Reviewer。
+- 设计/本增量唯一 Writer：当前会话 `01a17b25-eb0a-7123-bf5b-ea5c4b914071`；不另派 Writer/Reviewer。
 
 ## 1. 用户结果、当前价值和范围
 
@@ -77,7 +77,7 @@ Out of Scope：
 
 ## 4. 候选合同版本
 
-以下是拟冻结值，**当前源码仍为原 v1**。
+以下是已复核冻结的版本合同；保留实例不执行切换。
 
 | 项 | 候选 |
 | --- | --- |
@@ -184,7 +184,7 @@ Tool只对本次 base 计算。候选由固定 DomainValidator 在 ApplyProposal
 
 v2 新证据 ID 建议为 `listing-evidence-v2:`＋固定语义 envelope 的 SHA-256。语义 envelope 包括准确 ToolRef、原 binding/record revision、全部披露事实、保存时 issues、native subject、scope/rule/binding、checks/action policy/not_evaluated；排除 evidenceId 自身和仅表读取/评估时刻的 ReadAt/EvaluatedAt。哈希前验证元数据类型、有序时间及所有 public result 约束；不因此宣称 freshness。
 
-DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准确 binding 和实际已披露证据。它重新读当前 owner 并重算相同稳定语义，比较完整指纹/内容，排除字段只限上述时刻元数据，不允许任意省略。若 fact/rules/assets/规则算法/候选改变，指纹必须改变或 current read 拒绝。
+DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准确 binding 和实际已披露证据。它重新读当前 owner 并重算相同稳定语义，比较完整指纹/内容，排除字段只限上述时刻元数据，不允许任意省略。若 fact/rules/assets/规则算法改变，base 指纹必须改变或 current read 拒绝。候选改变由原 runtime CandidateHash 独立绑定，并在 ApplyProposal 后用同源 native assessment 重验；它不改变未变 base 的 Tool 指纹，也不增加第二次 Tool/model 调用（R1 IMPLEMENTATION_TEST-1）。
 
 记录的 Tool 输出仍保留真实读/评估时间；不改写历史输出使它“等于当前”。不能仅比 evidenceId 字符串而不检查实际完整披露，也不能以模型摘要替代 owner facts。
 
@@ -215,11 +215,11 @@ DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准
 - read_only/default/auto/full 仍按原材料领域策略；公共 Ready 不能允许 read_only写入、绕过人工确认或提供发布权。
 - 不修改任何已有数据、配置、角色、模型、费用、预留、实例、worker或session，不测试真实平台。
 
-## 10. 最小实施落点与未来必要检查（本轮不实施）
+## 10. 最小实施落点与必要检查
 
 拟议生产范围只围绕：
 
-- 新 SHEIN native 纯投影/绑定文件（拟 `internal/marketplace/shein/validator/official_draft.go`）。
+- 新 SHEIN native 纯投影/绑定文件 `internal/marketplace/shein/validator/official_draft.go`，及 goods owner 的一次 assessment 接点。为遵守现有纯 Validator 导入守卫，Product/Store/Source DTO 留在调用方，只传其实际内容的检查式摘要；goods owner 提供 native findings 和原输入摘要，公共 adapter 不反向导入 goods/Catalog/Store，也不修改守卫或 CI。
 - 现 materials inspection/validation、materialsinspect schema/invoker、材料 definition/prompt/admission。
 - Target.preparePlatform / Supply Upload 的一次 native 计算和共享表达接点；原 goods 业务规则不复制。
 - 材料 HTTP 新执行/历史读取/采用回执读取，以及 configuration snapshot 只读校验与当前执行校验分离。
@@ -227,7 +227,7 @@ DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准
 
 获得实现授权后，复用现 contract/diagnostic、goods、materials validation/commit、Tool invoker、Eino domain/repair、材料 HTTP 采用/原键和配置 snapshot 测试。先补失败回归，再最小实现；不为每项造新平台或完整故障矩阵。
 
-必要证明包括：同一准确输入确定性/原 native issues-ready-wire不变；真实汇总及不丢 issue；错误/超限无成功报告；时间变动不假漂移、事实变动必拒绝；base不能替候选；v1历史/原键回执可读且不能跨版本新执行；原模式、权限、commit/CAS/发送守卫不变。上述业务实现测试、独立复核和真实验收尚未执行；design-only PR 的既有 CI 结果仅在 PR 按准确 HEAD 记录，不当作新能力验证。
+必要证明包括：同一准确输入确定性/原 native issues-ready-wire不变；真实汇总及不丢 issue；错误/超限无成功报告；时间变动不假漂移、事实变动必拒绝；base不能替候选；v1历史/原键回执可读且不能跨版本新执行；原模式、权限、commit/CAS/发送守卫不变。业务实现测试及独立复核结果在 PR 按准确 HEAD 记录；design-only HEAD 的既有 CI 不当作新能力验证。真实验收继续 NOT_RUN。
 
 旧 #666、#904、#1049 和 main CI 只按其原SHA/范围引用。#47当前1.0.2共享PG继续 UNKNOWN；不因本候选增加已有PG记录。运行/真实保存恢复/浏览器/模型质量/产品验收 NOT_RUN。
 
@@ -235,7 +235,7 @@ DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准
 
 | 原 Must | 候选承接 / 保留 |
 | --- | --- |
-| M1 UI/fixed/Agent同源 | native依旧唯一goods计算；公共投影明确可供Tool读取。旧Package同源单列，不将两种输入混为同一事实。真实消费者接入与对齐需未来实现/复核 |
+| M1 UI/fixed/Agent同源 | native依旧唯一goods计算；公共投影明确可供Tool读取。旧Package同源单列，不将两种输入混为同一事实。真实消费者接入与对齐由本增量实现/工程复核核对，产品验收 NOT_RUN |
 | M2 repair后重验 | 固定领域 Validator、候选hash、稳定披露证据、采用前及提交前检查；不以base report或停止repair代替候选有效 |
 | M3 draft/publish语义不漂移 | action policy只报告保存目的；缺项草稿政策、自动采用、最终许可分开，guard/UNKNOWN不变 |
 | M4 pure validator无业务副作用 | native计算与公共投影无I/O/时钟/业务写；外层事实读取/审计/保存/发送归原owner |
@@ -247,16 +247,16 @@ DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准
 
 | 项 | 当前状态 |
 | --- | --- |
-| 本文的版本、输入/结果/证据设计 | 用户已认可候选；独立架构准入未执行 |
+| 本文的版本、输入/结果/证据设计 | 用户已认可；R1 DESIGN_REVIEW_PASS / IMPLEMENTATION_READY |
 | D1 v1未完成运行/未采用提案的切换策略 | 用户已确认：只读保留、不跨版本续跑或采用；尚未实施切换 |
-| Independent Architecture Review | NOT_RUN；未新增/唤醒Reviewer |
-| 正式业务实现 / 业务回归 / 产品验收 | NOT_RUN |
-| design-only Draft PR / 准确 HEAD CI | 已获推送与提交、核对授权；实际证据维护在 PR |
+| Independent Architecture Review | R1 通过；复用原唯一 Reviewer |
+| 正式业务实现 / 业务回归 / 产品验收 | 原 Writer 已获实现与隔离回归授权；最终工程状态见 PR，产品 NOT_RUN |
+| 原 PR / 准确 HEAD CI | 维护同一 PR #1064，准确实现 HEAD 的 CI 与最终复核分别记录 |
 | merge / deployment / closure | NOT_AUTHORIZED |
 | #34 / #307 | OPEN |
 | #47 PostgreSQL / #733咨询 | UNKNOWN / NOT_SENT |
 
-用户已认可候选及 D1；范围内独立架构复核仍须另行授权，本轮不新增评审派工。完成准入达到 IMPLEMENTATION_READY 也不自动授权实现、合并、部署、真实操作或关单。
+R1 IMPLEMENTATION_TEST-2：拆开有限 v1/v2 的历史候选/hash/原键回执完整性检查与 v2-only 新执行准入；历史投影可显示原提案/已提交回执，但不能因此开放 v1 的新 resume/adopt。此两项在实现/回归层收敛，不重开全局架构审核。实现授权不包含合并、部署、真实操作或关单。
 
 Legacy decision: **EXTRACT**。
 Reusable behavior: 现 goods、validator、Tool Registry/审计、材料证据/模式、历史读取和原 owner 的幂等/guard。

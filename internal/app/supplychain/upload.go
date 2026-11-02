@@ -240,7 +240,7 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	if err != nil {
 		return UploadResult{}, err
 	}
-	if len(actual) == 0 || collection.Digest(actual) != collection.Digest(saved.ImageObservations) || !goods.BuildOfficial(saved.Input.Draft, rules, inventory, actual, saved.ProofObservations).ReadyForUpload {
+	if len(actual) == 0 || collection.Digest(actual) != collection.Digest(saved.ImageObservations) || !goods.AssessOfficial(saved.Input.Draft, rules, inventory, actual, saved.ProofObservations).Native().ReadyForUpload {
 		return UploadResult{}, record.ErrNotReady
 	}
 	observations := make([]goods.OfficialImageObservation, 0, len(actual))
@@ -260,7 +260,7 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	if err != nil {
 		return UploadResult{}, err
 	}
-	wire := goods.BuildOfficial(saved.Input.Draft, rules, inventory, observations, saved.ProofObservations)
+	wire := goods.AssessOfficial(saved.Input.Draft, rules, inventory, observations, saved.ProofObservations).Native()
 	if !wire.ReadyForUpload || len(wire.SubmissionPayload) == 0 || !submission.MatchesPublicationRecord(saved, wire.SubmissionPayload) {
 		return UploadResult{}, record.ErrNotReady
 	}
