@@ -18,8 +18,8 @@ import (
 	"task-processor/internal/product/collection"
 )
 
-// Seed the finite v1 envelopes only in the existing task-owned fixture DB.
-// This is historical test data, never a production migration or v1 executor.
+// Seed finite historical envelopes only in the existing task-owned fixture DB.
+// This is historical test data, never a production migration or old executor.
 func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, calls *atomic.Int32, db *gorm.DB, snapshot agentconfig.Snapshot, call func(string, string, string, any, int) []byte, path string) {
 	t.Helper()
 	ctx := context.Background()
@@ -29,18 +29,22 @@ func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgen
 	identity := agent.ExecutionIdentity{OrganizationID: snapshot.Scope.OrganizationID, ActorID: snapshot.Scope.ActorID, MemberID: snapshot.MemberID}
 	mode, err := parent.configuration.LoadModeSnapshot(ctx, identity, snapshot.Request.ModeSnapshotRef)
 	require.NoError(t, err)
-	mode.Subject.Definition.Version = "v1.0.0"
+	version, policy, prompt := "v1.0.0", "listing-materials-policy-v1", "listing-materials-prompt-v1"
+	if strings.Contains(value, "historical-v2-") {
+		version, policy, prompt = "v2.0.0", "listing-materials-policy-v2", "listing-materials-prompt-v2"
+	}
+	mode.Subject.Definition.Version = version
 	modeRaw := mustMaterialsJSON(t, mode)
 	mode.Digest = collection.Digest(mode)
-	require.NoError(t, db.Table("agent_configuration.execution_mode_snapshots").Where("id=?", mode.ID).Updates(map[string]any{"definition_version": "v1.0.0", "payload": modeRaw, "digest": mode.Digest}).Error)
-	snapshot.AgentVersion = "v1.0.0"
-	snapshot.Request.PolicyVersion, snapshot.Request.PromptVersion = "listing-materials-policy-v1", "listing-materials-prompt-v1"
+	require.NoError(t, db.Table("agent_configuration.execution_mode_snapshots").Where("id=?", mode.ID).Updates(map[string]any{"definition_version": version, "payload": modeRaw, "digest": mode.Digest}).Error)
+	snapshot.AgentVersion = version
+	snapshot.Request.PolicyVersion, snapshot.Request.PromptVersion = policy, prompt
 	snapshot.ExecutionModelProfile.PromptVersion = snapshot.Request.PromptVersion
 	snapshot.Request.ModeSnapshotRef = mode.Ref()
 	snapshot.Digest = ""
 	snapshotRaw := mustMaterialsJSON(t, snapshot)
 	snapshot.Digest = collection.Digest(snapshot)
-	require.NoError(t, db.Table("agent_configuration.start_snapshots").Where("id=?", snapshot.ID).Updates(map[string]any{"agent_version": "v1.0.0", "payload": snapshotRaw, "digest": snapshot.Digest}).Error)
+	require.NoError(t, db.Table("agent_configuration.start_snapshots").Where("id=?", snapshot.ID).Updates(map[string]any{"agent_version": version, "payload": snapshotRaw, "digest": snapshot.Digest}).Error)
 	ref := agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}
 	run.State.Request = snapshot.Request
 	run.State.Request.ConfigurationSnapshotRef = ref
@@ -49,7 +53,7 @@ func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgen
 	run.State.Validation.CandidateHash = collection.Digest(run.State.DomainProposal)
 	for n := range run.State.History {
 		if run.State.History[n].Tool.ID == materials.InspectToolRef().ID {
-			run.State.History[n].Tool.Version = "v1.0.0"
+			run.State.History[n].Tool.Version = version
 			run.State.History[n].Output = json.RawMessage(`{"evidenceId":"original-v1-evidence"}`)
 		}
 	}
@@ -87,6 +91,8 @@ func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgen
 	var out materialsRunDTO
 	require.NoError(t, json.Unmarshal(response, &out))
 	require.False(t, out.CanRequestAdoption)
+	require.False(t, out.CanResume)
+	require.Nil(t, out.ImageAdvice, "no new advice is fabricated for an old exact Tool version")
 	if strings.HasSuffix(value, "committed") {
 		require.NotNil(t, out.Adoption)
 	}

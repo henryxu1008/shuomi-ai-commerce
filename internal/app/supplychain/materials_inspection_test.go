@@ -2,6 +2,7 @@ package supplychainapp
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"task-processor/internal/listing/materials"
 	"task-processor/internal/listing/materials/tools/materialsinspect"
 	"task-processor/internal/listing/preparation"
+	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 )
 
@@ -102,3 +104,61 @@ func (a *materialsReadAuth) Authorize(context.Context, string) (collection.Scope
 }
 
 var _ materials.InspectionReader = (*Application)(nil)
+
+type materialsInventoryAvailability struct {
+	value       asset.ApprovedAssetInventory
+	unavailable bool
+}
+
+func (r materialsInventoryAvailability) GetApprovedInventory(context.Context, asset.InventoryScope) (asset.ApprovedAssetInventory, error) {
+	if r.unavailable {
+		return asset.ApprovedAssetInventory{}, asset.ErrApprovedAssetsNotReady
+	}
+	return r.value, nil
+}
+
+func TestMaterialsInspectionKeepsUnavailableInventoryDistinctFromEmpty(t *testing.T) {
+	for _, unavailable := range []bool{true, false} {
+		name := "explicit_empty"
+		want := "known_conflict"
+		if unavailable {
+			name, want = "not_ready", "unknown"
+		}
+		t.Run(name, func(t *testing.T) {
+			a, records, _ := materialsApplication(t)
+			inventory := asset.ApprovedAssetInventory{
+				Scope:  asset.InventoryScope{TenantID: "org-a", ProductKey: records.saved.Source.Source.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: records.saved.EffectiveVersion},
+				Assets: []asset.ApprovedAsset{},
+			}
+			records.saved.InventoryHash = collection.Digest(inventory)
+			a.Assets = materialsInventoryAvailability{value: inventory, unavailable: unavailable}
+			i, err := a.InspectMaterialsRecord(materialsReadContext(), records.saved.ID)
+			require.NoError(t, err)
+			disclosed, err := i.Disclose()
+			require.NoError(t, err)
+			raw, err := json.Marshal(disclosed)
+			require.NoError(t, err)
+			var result struct {
+				ImageAdvice *struct {
+					Checks []struct {
+						Code   string `json:"code"`
+						Status string `json:"status"`
+					} `json:"checks"`
+				} `json:"imageAdvice"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &result))
+			require.NotNil(t, result.ImageAdvice, "current-owner inspection must expose typed image advice")
+			found := false
+			for _, check := range result.ImageAdvice.Checks {
+				if check.Code == "approved_assets_unavailable" {
+					require.Equal(t, want, check.Status)
+					found = true
+				}
+				if unavailable {
+					require.NotEqual(t, "required_image_missing", check.Code, "an unread inventory is not proof of missing required images")
+				}
+			}
+			require.True(t, found, "availability needs an explicit evidence-bound check")
+		})
+	}
+}

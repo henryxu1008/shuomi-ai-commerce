@@ -31,14 +31,15 @@ var (
 // Inspection is a bounded read projection, never a second Product/Target fact.
 // Its evidence ID identifies the entire disclosure, including current rules.
 type Inspection struct {
-	EvidenceID string                       `json:"evidenceId"`
-	Binding    agent.Binding                `json:"binding"`
-	Base       record.TargetRecord          `json:"base"`
-	Product    catalog.PublishedSnapshot    `json:"product"`
-	Rules      goods.OfficialRuleSnapshot   `json:"rules"`
-	Inventory  asset.ApprovedAssetInventory `json:"inventory"`
-	computed   contract.DiagnosticResult
-	integrity  string
+	EvidenceID     string                       `json:"evidenceId"`
+	Binding        agent.Binding                `json:"binding"`
+	Base           record.TargetRecord          `json:"base"`
+	Product        catalog.PublishedSnapshot    `json:"product"`
+	Rules          goods.OfficialRuleSnapshot   `json:"rules"`
+	Inventory      asset.ApprovedAssetInventory `json:"inventory"`
+	InventoryReady bool                         `json:"inventoryReady"`
+	computed       contract.DiagnosticResult
+	integrity      string
 }
 
 // Disclosure excludes tenant/actor authority and approval internals. Only
@@ -54,6 +55,7 @@ type Disclosure struct {
 	Assets             []DisclosedAsset           `json:"assets"`
 	Issues             []goods.OfficialIssue      `json:"issues"`
 	ComputedDiagnostic contract.DiagnosticResult  `json:"computedDiagnostic"`
+	ImageAdvice        asset.ImageAdvice          `json:"imageAdvice"`
 }
 
 type DisclosedAsset struct {
@@ -85,6 +87,10 @@ func (i Inspection) disclose() (Disclosure, error) {
 	}
 	d := Disclosure{EvidenceID: i.EvidenceID, Binding: i.Binding, Revision: i.Base.Revision, StoreID: i.Base.Input.StoreID, Draft: i.Base.Input.Draft, Product: canonical.Snapshot, Rules: i.Rules, Assets: []DisclosedAsset{}, Issues: i.Base.Result.Issues}
 	d.ComputedDiagnostic = i.computed
+	d.ImageAdvice, err = i.imageAdvice()
+	if err != nil {
+		return Disclosure{}, err
+	}
 	for _, a := range i.Inventory.Assets {
 		d.Assets = append(d.Assets, DisclosedAsset{a.ID, a.Role, a.URL, a.Width, a.Height, a.OfficialPlacement})
 	}
@@ -110,6 +116,12 @@ func InspectToolRef() commercetool.ToolRef {
 }
 
 func NewInspection(base record.TargetRecord, product catalog.PublishedSnapshot, rules goods.OfficialRuleSnapshot, inventory asset.ApprovedAssetInventory, readAt, evaluatedAt time.Time) (Inspection, error) {
+	return NewInspectionWithInventoryAvailability(base, product, rules, inventory, true, readAt, evaluatedAt)
+}
+
+// A successful explicit empty read and an inventory not ready for reading are
+// different owner observations, even when the original builder needs [].
+func NewInspectionWithInventoryAvailability(base record.TargetRecord, product catalog.PublishedSnapshot, rules goods.OfficialRuleSnapshot, inventory asset.ApprovedAssetInventory, ready bool, readAt, evaluatedAt time.Time) (Inspection, error) {
 	binding := agent.Binding{ContextKind: "listing-target-record", ContextID: base.ID, ProductKey: product.Identity.ProductKey, CatalogVersion: strconv.FormatUint(product.Version, 10), PublicationID: product.PublicationID, TargetPlatform: "shein"}
 	if !binding.Valid() || base.Revision < 1 || !agent.ValidID(base.TargetID) || base.Input.SourceID != base.Source.ID ||
 		base.Source.Source.ProductKey != product.Identity.ProductKey || base.EffectiveVersion != product.Version || base.Input.EffectiveVersion != product.Version || base.Input.ApplyReceiptID != base.ApplyReceiptID ||
@@ -118,7 +130,7 @@ func NewInspection(base record.TargetRecord, product catalog.PublishedSnapshot, 
 		inventory.Scope != (asset.InventoryScope{TenantID: product.Identity.TenantID, ProductKey: product.Identity.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: product.Version}) {
 		return Inspection{}, ErrInspectionChanged
 	}
-	value := Inspection{Binding: binding, Base: base, Product: product, Rules: rules, Inventory: inventory}
+	value := Inspection{Binding: binding, Base: base, Product: product, Rules: rules, Inventory: inventory, InventoryReady: ready}
 	raw, err := json.Marshal(value)
 	if err != nil || len(raw) > MaxInspectionBytes {
 		return Inspection{}, ErrInspectionTooLarge
@@ -189,6 +201,9 @@ func (i Inspection) verify() error {
 // Only read/evaluation metadata is excluded. Actual content, computed checks,
 // scope, algorithm versions and the exact Tool remain in the stable identity.
 func disclosureFingerprint(d Disclosure) (string, error) {
+	if err := d.ImageAdvice.Verify(); err != nil {
+		return "", err
+	}
 	if err := contract.ValidateBoundInput(d.ComputedDiagnostic.Input, ""); err != nil {
 		return "", err
 	}
@@ -196,6 +211,7 @@ func disclosureFingerprint(d Disclosure) (string, error) {
 		return "", err
 	}
 	d.EvidenceID = ""
+	d.ImageAdvice.Evidence.CallID = ""
 	d.ComputedDiagnostic.Input.ReadAt = time.Time{}
 	d.ComputedDiagnostic.Input.EvaluatedAt = time.Time{}
 	digest, err := sheinvalidator.OfficialContentDigest(struct {
@@ -205,5 +221,5 @@ func disclosureFingerprint(d Disclosure) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "listing-evidence-v2:" + strings.TrimPrefix(digest, "sha256:"), nil
+	return "listing-evidence-v3:" + strings.TrimPrefix(digest, "sha256:"), nil
 }

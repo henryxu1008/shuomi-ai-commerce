@@ -64,13 +64,15 @@ func (a *Application) InspectMaterialsRecord(ctx context.Context, id string) (ma
 	}
 	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: product.Identity.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: product.Version}
 	inventory, err := a.Assets.GetApprovedInventory(ctx, inventoryScope)
+	inventoryReady := true
 	if errors.Is(err, asset.ErrApprovedAssetsNotReady) {
+		inventoryReady = false
 		inventory, err = asset.ApprovedAssetInventory{Scope: inventoryScope, Assets: []asset.ApprovedAsset{}}, nil
 	}
 	if err != nil {
 		return materials.Inspection{}, err
 	}
-	value, err := materials.NewInspection(base, product, rules, inventory, readAt, time.Now().UTC())
+	value, err := materials.NewInspectionWithInventoryAvailability(base, product, rules, inventory, inventoryReady, readAt, time.Now().UTC())
 	if err != nil {
 		return materials.Inspection{}, err
 	}

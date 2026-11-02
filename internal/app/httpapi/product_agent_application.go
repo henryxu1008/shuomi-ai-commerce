@@ -32,6 +32,7 @@ import (
 	skillstore "task-processor/internal/integration/persistence/skill"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
+	"task-processor/internal/product/asset"
 	"task-processor/internal/product/asset/tools/assetinspect"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
@@ -103,6 +104,7 @@ type productAgentApplication struct {
 	canonical               *canonicalinspect.Invoker
 	sources                 *sourceevidenceinspect.Invoker
 	assets                  *assetinspect.Invoker
+	imageAdvice             *assetinspect.Invoker
 	readiness               *readinessinspect.Invoker
 	points                  *orgresourceadapter.GormModelInvocationRepository
 	textAdmission           *governed.BoundedAdmission
@@ -491,6 +493,19 @@ func (a *productAgentApplication) Invoke(ctx context.Context, ref commercetool.T
 		return a.sources.Invoke(ctx, meta, sourceevidenceinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion})
 	case assetinspect.Definition().Ref:
 		return a.assets.Invoke(ctx, meta, assetinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion, TargetPlatform: b.TargetPlatform})
+	case assetinspect.ImageAdviceDefinition().Ref:
+		if a.imageAdvice == nil {
+			return commercetool.Result{}, agent.ErrUnavailable
+		}
+		result, err := a.imageAdvice.Invoke(ctx, meta, assetinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion, TargetPlatform: b.TargetPlatform})
+		if err != nil {
+			return result, err
+		}
+		advice, err := asset.DecodeImageAdvice(result.Output)
+		if err != nil || advice.Binding.PublicationID != b.PublicationID || advice.Binding.ProductKey != b.ProductKey || advice.Binding.CatalogVersion != b.CatalogVersion || advice.Binding.TargetPlatform != b.TargetPlatform {
+			return commercetool.Result{}, agent.ErrConflict
+		}
+		return result, nil
 	case readinessinspect.Definition().Ref:
 		return a.readiness.Invoke(ctx, meta, readinessinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion, TargetPlatform: b.TargetPlatform})
 	default:

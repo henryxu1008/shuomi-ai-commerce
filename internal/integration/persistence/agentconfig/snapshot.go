@@ -34,6 +34,9 @@ func validTextConfigurationRequest(id string, request agent.Request) bool {
 	if id == agentconfig.ContentAgentID {
 		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
 	}
+	if id == agentconfig.TitleAgentID && !agentconfig.CurrentTitleRequest(request.PolicyVersion, request.PromptVersion) {
+		return false
+	}
 	return request.ContentSelection.Absent() && request.ValidContentSelection() && agentconfig.Platform(request.Binding.TargetPlatform)
 }
 
@@ -56,6 +59,14 @@ func snapshotView(row snapshotRow) (agentconfig.Snapshot, error) {
 // normalized copy reuses existing structural checks, never leaves this helper
 // and cannot become an executable request or rewrite a stored snapshot.
 func validStoredTextConfiguration(v agentconfig.Snapshot) bool {
+	if v.AgentID == agentconfig.TitleAgentID {
+		if !agentconfig.StoredTitleVersion(v.AgentVersion, v.Request.PolicyVersion, v.Request.PromptVersion) {
+			return false
+		}
+		request := v.Request
+		request.PromptVersion = agentconfig.TitlePromptVersion
+		return validTextConfigurationRequest(v.AgentID, request)
+	}
 	if v.AgentID != agentconfig.MaterialsAgentID {
 		return validTextConfigurationRequest(v.AgentID, v.Request) && validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile)
 	}
@@ -67,6 +78,9 @@ func validStoredTextConfiguration(v agentconfig.Snapshot) bool {
 	return validTextConfigurationRequest(v.AgentID, request)
 }
 func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentconfig.Snapshot, error) {
+	if c.AgentID == agentconfig.TitleAgentID && c.AgentVersion != agentconfig.TitleAgentVersion {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
 	identity := agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}
 	modeRevision, modeErr := agentconfig.ParseModeRevision(c.ExpectedModeRevision)
 	if !identity.Valid() || modeErr != nil || !c.Request.ModeSnapshotRef.Absent() {

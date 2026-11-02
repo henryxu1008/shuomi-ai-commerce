@@ -83,6 +83,7 @@ func (e executor) Execute(ctx context.Context, envelope commercetool.ExecutionEn
 	if err != nil {
 		return commercetool.ExecutionResult{}, readError(err)
 	}
+	disclosed.ImageAdvice.Evidence.CallID = envelope.Metadata().CallID
 	output, err := json.Marshal(disclosed)
 	if err != nil || len(output) > materials.MaxInspectionBytes {
 		return commercetool.ExecutionResult{}, readError(materials.ErrInspectionTooLarge)

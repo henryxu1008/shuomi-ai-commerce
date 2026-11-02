@@ -243,6 +243,12 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		return p, agent.ErrInvalid
 	}
 	system := agentTextSystem
+	if in.AgentID == agentconfig.TitleAgentID {
+		if in.AgentVersion != agentconfig.TitleAgentVersion || !agentconfig.CurrentTitleRequest(in.PolicyVersion, in.PromptVersion) {
+			return p, agent.ErrInvalid
+		}
+		system += "\nFor already-approved image facts or non-executing image guidance, use product.image.analyze@v1.0.0 within the existing frozen budget. Unknown dimensions are unknown, not invalid. Image roles, sizes and positions are not evidence of product content or text attributes. Guidance cannot prepare, generate, save or approve images; actual actions stay at their original entry. Do not add model calls, spend or image actions to the title Candidate. If required facts remain unread or the budget cannot cover them, interrupt with specific unresolved facts."
+	}
 	operation := aicapability.OperationProductAgentDecision
 	if m.content {
 		system, operation = contentTextSystem, aicapability.OperationProductContentDecision

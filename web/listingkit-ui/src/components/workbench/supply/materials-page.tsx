@@ -1,4 +1,5 @@
 "use client";
+import {ImageAdvicePanel} from "../acquisition/image-advice-panel";
 import Link from "next/link";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {useSearchParams} from "next/navigation";
@@ -99,10 +100,11 @@ function MaterialsSession({recordId,userId,organizationId,organization}:{recordI
   </Card>
   {result&&<Card className="space-y-4 p-6"><h2 className="text-lg font-semibold">{phaseText[result.phase]}</h2><p>{executionModeLabels[result.executionMode]} · 冻结权限版本 {result.modeRevision} · {result.templateSelection?`模板版本 ${result.templateSelection.revision}`:"未使用模板"}</p>{result.stopReason&&<p>停止原因：{result.stopReason}</p>}
    {result.proposal&&result.after&&<MaterialDifferences result={result} saved={!!receipt}/>}
+   <ImageAdvicePanel advice={result.imageAdvice}/>
    {!!result.unresolved.length&&<section><h3 className="font-semibold">需要补齐或核对</h3><ul className="list-inside list-disc">{result.unresolved.map((v,i)=><li key={i}>{v}</li>)}</ul></section>}
    {!receipt&&result.canRequestAdoption&&<><label className="flex items-start gap-2"><input type="checkbox" checked={human} disabled={busy||!!mutation||brokenIntent||brokenMutation} onChange={e=>setHuman(e.target.checked)}/>我已逐项核对建议与缺项，确认保存为本地草稿。</label><Button disabled={busy||brokenIntent||brokenMutation||mutation?.action==="resume"||!human&&!mutation} onClick={()=>void execute("adopt")}>{mutation?.action==="adopt"?"重试原保存请求":"确认保存本地草稿"}</Button></>}
    {result.executionMode==="read_only"&&<p>本次为只读模式，建议可查看，不能保存到平台草稿。</p>}
-   {result.phase==="interrupted"&&<><label className="block">补充核对意见<Textarea value={mutation?.action==="resume"?mutation.input.feedback:feedback} maxLength={512} onChange={e=>setFeedback(e.target.value)} disabled={busy||!!mutation||brokenMutation}/></label><Button disabled={busy||brokenIntent||brokenMutation||mutation?.action==="adopt"||!mutation&&!feedback.trim()} onClick={()=>void execute("resume")}>{mutation?.action==="resume"?"重试原继续请求":"按原编号继续"}</Button></>}
+   {result.phase==="interrupted"&&result.canResume===true&&<><label className="block">补充核对意见<Textarea value={mutation?.action==="resume"?mutation.input.feedback:feedback} maxLength={512} onChange={e=>setFeedback(e.target.value)} disabled={busy||!!mutation||brokenMutation}/></label><Button disabled={busy||brokenIntent||brokenMutation||mutation?.action==="adopt"||!mutation&&!feedback.trim()} onClick={()=>void execute("resume")}>{mutation?.action==="resume"?"重试原继续请求":"按原编号继续"}</Button></>}
    <p className="text-sm text-muted-foreground">已记录 {result.tokens} tokens · 费用 {result.estimatedCostMicros/1000000} {result.currency} · {result.usageStatus==="unknown_reserved"?"用量待核实，原预留仍保留":"用量已观察"}</p>
   </Card>}
   {receipt&&<Card className="space-y-4 p-6"><h2 className="text-lg font-semibold">本地草稿已保存 · v{receipt.record.revision}</h2><p className="break-all">原 Listing Target 记录 {receipt.record.id}</p><p>{receipt.record.result.ready_for_upload?"当前本地资料校验完整；真实发布仍需另外授权。":"已保存待补全草稿，仍有实际缺项。"}</p><ul className="list-inside list-disc">{receipt.record.result.issues.map((v,i)=><li key={i}>{v.message}</li>)}</ul><Button asChild variant="outline"><Link href={`/workbench/supply/materials/${receipt.record.id}`}>使用已保存版本继续完善</Link></Button></Card>}

@@ -171,7 +171,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		fixtureActor = "admin"
 	}
 	googleTitle := mode == "google knowledge"
-	canonicalMode := mode == "observed canonical" || mode == "configuration" || mode == "knowledge" || googleTitle || strings.HasPrefix(mode, "supply ") || strings.HasPrefix(mode, "permission ")
+	canonicalMode := mode == "observed canonical" || mode == "image advice" || strings.HasPrefix(mode, "title historical ") || mode == "configuration" || mode == "knowledge" || googleTitle || strings.HasPrefix(mode, "supply ") || strings.HasPrefix(mode, "permission ")
 	var kf *consumerKnowledgeFixture
 	if mode == "knowledge" || googleTitle {
 		kf = newConsumerKnowledgeFixture(t, f.owner)
@@ -310,7 +310,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			require.NoError(t, err)
 			content = string(action)
 		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
-			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v2.0.0"}}`
+			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v3.0.0"}}`
 		case strings.HasPrefix(mode, "supply materials"):
 			var wire struct {
 				Messages []struct {
@@ -377,6 +377,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Guessed title","EvidenceIDs":["981645030344"]}]}}`
 		case cycle == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.asset.inspect","Version":"v1.0.0"}}`
+			if mode == "image advice" {
+				content = `{"Kind":"tool","Tool":{"ID":"product.image.analyze","Version":"v1.0.0"}}`
+			}
 		case cycle == 2 && canonicalMode:
 			if kf == nil && step <= 4 {
 				wire, readErr := io.ReadAll(r.Body)
@@ -1113,6 +1116,14 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	require.Equal(t, agent.HumanReviewRequired, result.Phase, string(raw))
 	require.True(t, result.CanSubmitReview)
+	if mode == "image advice" {
+		require.NotNil(t, result.ImageAdvice, "the actual audited Tool output must reach the fixed HTTP consumer")
+		require.NoError(t, result.ImageAdvice.Verify())
+		require.Equal(t, result.ProductKey, result.ImageAdvice.Binding.ProductKey)
+		require.Equal(t, "product.image.analyze", result.ImageAdvice.Evidence.ToolID)
+		require.Nil(t, result.ImageAdvice.Binding.Target, "generic facts do not acquire a Store or official-rule authority")
+		require.NotEmpty(t, result.ImageAdvice.Facts)
+	}
 	if googleTitle {
 		require.EqualValues(t, 136, result.Tokens)
 	} else {
@@ -1150,6 +1161,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.NoError(t, err)
 	require.NotEqual(t, 200, code, string(raw))
 	require.EqualValues(t, 4, calls.Load())
+	if mode == "title historical pending" {
+		testTitlePreviousRegistrationReadOnly(t, module.(productAgentModule).application, f.owner, server, key, path, startBody, "", &calls)
+		return
+	}
 	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 	require.NoError(t, err)
 	if mode == "configuration" {
@@ -1167,6 +1182,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	view := titleCall(t, server, "GET", titleBasePath+"/"+link.ProposalID, "admin", "B", "", "", 200)
 	require.Equal(t, "pending", view.State)
 	require.Equal(t, "Reviewed bottle title", view.Title)
+	if mode == "title historical committed" {
+		testTitlePreviousRegistrationReadOnly(t, module.(productAgentModule).application, f.owner, server, key, path, startBody, view.ID, &calls)
+		return
+	}
 	if kf != nil {
 		code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "")
 		require.NoError(t, err)

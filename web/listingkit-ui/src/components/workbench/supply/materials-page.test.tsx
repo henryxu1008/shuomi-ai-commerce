@@ -61,7 +61,7 @@ it("does not read a foreign identity's retained record or run",async()=>{
  await screen.findByText("原请求属于另一身份或企业");expect(f.record).not.toHaveBeenCalled();expect(f.read).not.toHaveBeenCalled();
 });
 it("restores a lost resume's exact feedback and revision for retry",async()=>{
- const interrupted={...run(),phase:"interrupted",revision:"3",canRequestAdoption:false};
+ const interrupted={...run(),phase:"interrupted",revision:"3",canResume:true,canRequestAdoption:false};
  const input={configurationSnapshotRef:ref,revision:"3",feedback:"原核对意见"};
  f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org",materials_mutation:JSON.stringify({recordId:id,userId:"actor",organizationId:"org",key,action:"resume",input})});
  f.read.mockResolvedValue(interrupted);f.resume.mockResolvedValue({...run(),revision:"4"});
@@ -86,4 +86,28 @@ it("allows original reads but no writes when a retained mutation is damaged",asy
  fireEvent.click(screen.getByRole("checkbox"));
  expect(screen.getByRole("button",{name:"确认保存本地草稿"})).toBeDisabled();
  expect(screen.getByRole("button",{name:"核对原运行"})).toBeEnabled();expect(f.adopt).not.toHaveBeenCalled();
+});
+it("shows recorded image advice without preparing, generating or adopting",async()=>{
+ f.mode="read_only";f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});
+ const imageAdvice={
+  schemaVersion:"image-advice-v1",
+  binding:{productKey:"product",catalogVersion:"1",publicationId:"publication",targetPlatform:"shein",inventoryDigest:"a".repeat(64),target:{recordId:id,revision:"1",storeId:id,site:"shein-us",categoryId:12,ruleDigest:"d".repeat(64),sourceId:id,originalPublicationId:"publication",originalVersion:"1",applyReceiptId:""}},
+  evidence:{toolId:"listing.materials.inspect",toolVersion:"v3.0.0",callId:"call",digest:"b".repeat(64)},
+  facts:[],checks:[{id:"check",code:"approved_assets_unavailable",status:"unknown",assetIds:[],ruleRef:"",reason:"批准素材尚未准备好，不能据此判断必需图片缺失。"}],
+  suggestions:[{kind:"open_existing_images",checkIds:["check"],assetIds:[],reason:"请在原图片入口核对"}],unresolved:["批准素材尚未准备好"]
+ };
+ f.read.mockResolvedValue({...run(),canRequestAdoption:false,canResume:false,imageAdvice});
+ render(<MaterialsPage recordId={id}/>);
+ await screen.findByRole("heading",{name:"图片事实与建议"});
+ expect(screen.getByText("批准素材尚未准备好，不能据此判断必需图片缺失。")).toBeInTheDocument();
+ expect(f.prepare).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();expect(f.adopt).not.toHaveBeenCalled();
+ expect(screen.queryByRole("button",{name:"确认保存本地草稿"})).toBeNull();
+});
+it("keeps a historical interrupted run readable without offering Resume",async()=>{
+ f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});
+ f.read.mockResolvedValue({...run(),phase:"interrupted",canResume:false,canRequestAdoption:false});
+ render(<MaterialsPage recordId={id}/>);
+ await screen.findByText("等待继续");
+ expect(screen.queryByRole("textbox")).toBeNull();expect(f.resume).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();
+ expect(screen.getByText("本次记录未提供图片检查。")).toBeInTheDocument();
 });
