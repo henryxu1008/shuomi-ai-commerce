@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/commercetool"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
@@ -55,7 +56,7 @@ func TestAgentCandidateRequiresExactVisibleToolEvidence(t *testing.T) {
 				history = nil
 			}
 			require.Equal(t, mode == "exact", agentCandidateEvidenceObserved(b, candidate, history))
-			require.Equal(t, mode == "exact", agentRunReviewable(agent.State{Phase: agent.HumanReviewRequired, Request: agent.Request{Binding: b}, Candidate: candidate, History: history, Validation: &agent.Validation{Valid: true}}), "read/review admission must recheck observed evidence")
+			require.Equal(t, mode == "exact", agentRunReviewable(agent.State{Phase: agent.HumanReviewRequired, Request: agent.Request{Binding: b, PolicyVersion: agentconfig.TitlePolicyVersion, PromptVersion: agentconfig.TitlePromptVersion}, Candidate: candidate, History: history, Validation: &agent.Validation{Valid: true}}), "read/review admission must recheck observed evidence")
 		})
 	}
 }
