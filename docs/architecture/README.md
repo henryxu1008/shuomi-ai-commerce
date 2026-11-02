@@ -13,6 +13,10 @@
 目录分类不代表全部文档处于同一批准或开放状态。原文页首的产品依据、准入、精确替代和未开放范围继续有效；
 当前进度、准确 HEAD / CI 与实例交付查对应 Issue / PR。
 
+## 当前设计候选
+
+- [`shein-native-validator-contract-v1.md`](shein-native-validator-contract-v1.md) — #34 原生 SHEIN 公共诊断、材料 Tool 版本及消费者接入候选；design-only，尚未实施或取得独立准入。
+
 ## 完整索引与沿革
 
 以下保留历次补充登记、原阅读顺序与冻结证据。旧“当前/下一步”、SHA、计数和阶段状态属于原记录；
