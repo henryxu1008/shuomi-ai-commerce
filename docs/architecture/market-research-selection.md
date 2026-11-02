@@ -63,7 +63,7 @@ Accepted Risks：本轮未新增风险接受决定。公开页面可能无数据
 2. `research_opportunities`：scope、projectID、候选 UUID、站点/ASIN 的归组身份、准确关联集合、当前人工选定 evidence ref、正 revision、决定及用户理由；可存原 Agent run locator，不复制输出。站点/ASIN 从可信来源派生，客户端无权指定事实身份。
 3. `research_commands`：scope + UUID key、operation、规范 payload hash、原结果 ID/revision 的不可变回执；同时保存本 owner 的决定意图、理由、决定时间、当时 evidence refs/digest、关联 run locator 和提交 revision。与关系/决定同事务写入，构成最小决定历史，不存来源正文或模型输出。读取历史仍逐项授权来源与 run，失效内容遮蔽。
 
-用户已授权本冻结设计的隔离实现与新空测试安装；不授权变更保留实例或业务数据库。installer 按当前显式安装约定实施并验证最小权限，serving 不 DDL，不给研究角色其他 owner 表的任意读写权。Project DB 保持原逻辑隔离，不搬进 Product DB，不建立跨库外键或事务。
+用户已授权本冻结设计的隔离实现与新空测试安装；最初未授权变更保留实例或业务数据库；用户后续于2026-11-02明确批准仅更新 `task-processor-unified-20261010`，适用下方“指定实例启用决定”，不扩展为其他环境授权。installer 按当前显式安装约定实施并验证最小权限，serving 不 DDL，不给研究角色其他 owner 表的任意读写权。Project DB 保持原逻辑隔离，不搬进 Product DB，不建立跨库外键或事务。
 
 ProjectReader 通过当前项目 Service 读取：项目必须属于相同 org + actor，新增关联/决定还要求项目 active 且类型为 PRODUCT_RESEARCH；归档后只读历史。修改项目类型不删除研究关系，变回研究类型后可继续，研究内容不作为 Project 元数据事实。项目中心无需扩展 PRODUCT 引用种类：研究关系从自己的 projectID 索引投影，项目中心仅增加明确的研究入口。
 
@@ -107,7 +107,7 @@ Project/source 的授权和身份读取在关系事务前完成；事务内只�
 
 **当前存在必须补齐的正式准入增量。** `preparation/schema.go` 的 source_kind CHECK 与 Collection `batchReadColumns` 的 supply_transfer_supported 当前仅接受 acquisition/own/market/sds_finished；`preparation/repository.go` 的事务 callback 当前只显式拒绝 sds_template，没有相同的四类 allowlist。Amazon Data Services 保存为 amazon_data，现有测试明确不支持转入。此设计提出仅增加 **amazon_data**，并让事务来源校验消费相同的准确准入集合，不顺带开放 custom_dataset、sds_template 或其他未授权来源。
 
-新空安装的原 Preparation installer/VerifySchema、事务来源校验和 Collection eligibility 必须同时消费该准确来源集合。Amazon 来源仍来自原同库 Collection/SRC/Catalog，检查当前 org/actor/member、active item、batch revision、publication/version 和 owner 原证据；保留原 FK、事务、回执、权限及受限角色。Preparation 只保存原来源引用，不改为 acquisition 类型，不复制商品，不以后台脚本改 CHECK 逃过 installer 准入。旧实例 schema 演进和现场变更不在本轮授权，不能让 serving 自动修复。
+新空安装的原 Preparation installer/VerifySchema、事务来源校验和 Collection eligibility 必须同时消费该准确来源集合。Amazon 来源仍来自原同库 Collection/SRC/Catalog，检查当前 org/actor/member、active item、batch revision、publication/version 和 owner 原证据；保留原 FK、事务、回执、权限及受限角色。Preparation 只保存原来源引用，不改为 acquisition 类型，不复制商品，不以后台脚本改 CHECK 逃过 installer 准入。原阶段未授权旧实例 schema 演进；后续仅指定统一实例按下方决定执行精确、有界的显式维护，不允许 serving 自动修复。
 
 批准后定位原批次，并**补原 Collection 转入弹窗的商品子集选择与准确预填**；当前弹窗仅发送 batchId/expectedRevision，不能原样复用。研究预填只是建议，不是可信来源；BFF/服务端沿原 owner 重读当前批次和商品，核对批准时的准确来源，变化则提示重新选择/确认，不静默替换为 current head。用户看清本批具体商品后再次确认。原 Preparation.Transfer 是唯一写入者；研究入口调用时必须提交原 BatchID、准确 batch revision 和**非空** ItemIDs，空选择禁止提交，不能退化为整批。原独立整批操作仍明确标为“整批”，不改变其已有语义。跨批候选分别走原批次确认，不新增批间自动 fan-out、恢复器或全部成功承诺。
 
@@ -180,3 +180,13 @@ Project/source 的授权和身份读取在关系事务前完成；事务内只�
 实际使用验收另行授权：正常登录自己的企业 → 创建产品研究项目 → 在获准站点真实采集 → 查看原证据/缺失并关联 → 比较候选/可选实际模型分析 → 人工决定 → 原批次确认转入 → 在待适配读回同一 publication/version。截图、fixture、代码评审、CI、真实平台、用户验收各自记录，未执行保持 NOT_RUN。
 
 实现交付必须提供正常访问入口、启停/数据保留方法和已配置通道/功能限制；不因交付要求操作保留实例、初始化现有业务库或调用付费服务。合并、部署、真实环境/数据和 Issue 关闭均需对应明确授权。
+
+## 11. 指定实例启用决定（2026-11-02）
+
+用户在实现交付后指定 `task-processor-unified-20261010`，并明确允许可恢复备份后新增研究表/受限角色、定向扩展 Amazon 来源约束，更新并短暂重启前后端。身份、原模块配置、全部业务数据和卷保留；不合并、不关闭 Issue，不调用真实平台/模型/付费服务，不删除或重建现有数据。此决定仅替代与该指定实例有关的旧阶段禁止，其他环境仍未获授权。
+
+Operational Design Basis: **Reuse Existing Architecture**，复用本文冻结的 Product/Project/Source/Preparation owner、原角色最小权限、PostgreSQL 局部事务、固定镜像与配置回退。没有旧系统数据迁移、ID 映射、双读双写或新的通用恢复机制。
+
+实施前固化实际容器/镜像/挂载与数据库备份；校验现有 Preparation source CHECK 恰为 acquisition/own/market/sds_finished，再用有界锁等待、同一事务显式扩展为本文批准的五类。新三表与 restricted role 依批准 SQL 安装，不重跑历史 initializer；schema/角色漂移则停止，不自动修补。用户数据不变，Project 保持原独立数据库。原 Browser Kernel 配置与其他模块 settings 保留。
+
+回退以先前镜像与配置为主，保留新增 durable records/回执与所有卷；出现新 Amazon 转入后不得为了回退收紧 CHECK 或删除记录。备份还原是异常处置，不在正常镜像回退中自动覆盖持续写入的数据。实际安装、启动、健康与用户试用分别记录于 #1072/PR #1075，合成/CI 不代真实平台和用户验收。

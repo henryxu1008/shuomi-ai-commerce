@@ -1,6 +1,6 @@
 # 产品研究的运行交接
 
-本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。本文件交付正常接线与操作入口，不证明实例已启用。用户明确不授权合并、部署、真实平台或付费调用；本轮只使用隔离合成测试数据。真实采集、实际模型和用户试用为 NOT_RUN。
+本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。本文件交付正常接线与操作入口，不证明实例已启用。初始源码阶段不授权部署，随后用户明确允许仅对 `task-processor-unified-20261010` 做备份、schema 定向补齐及前后端更新；本次实际状态见 #1072 / PR #1075。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
 ## 正常入口与可用路径
 
@@ -16,7 +16,7 @@
 
 ## 显式新空安装与受限 serving pool
 
-只在另行获准的新空 Product 安装使用现有 SRC/Catalog/Collection/Data Services/Preparation installer；不在已有业务库上升级 CHECK、不迁移旧数据、不让 serving 自动 DDL。Amazon Preparation 安装合同现在包含 `amazon_data`，拒绝 `sds_template`、`custom_dataset` 等其他来源。
+只在另行获准的新空 Product 安装使用现有 SRC/Catalog/Collection/Data Services/Preparation installer；通用 installer 不作为已有业务库升级入口，不迁移旧数据、不让 serving 自动 DDL。指定统一实例的有界维护只适用[本次明确决定](../architecture/market-research-selection.md#11-指定实例启用决定2026-11-02)，先备份并精确核对当前约束，再在同一事务扩展；不重跑历史 initializer。Amazon Preparation 安装合同现在包含 `amazon_data`，拒绝 `sds_template`、`custom_dataset` 等其他来源。
 
 研究新增三表 `research_opportunities` / `research_evidence_links` / `research_commands`，位于同一物理 Product 数据库。预先建立 `product_research_runtime` 普通角色，不能为 superuser、角色/数据库创建者、复制角色或有角色成员关系，不能拥有 public CREATE 权限。沿既有私密配置途径提供安装 DSN，不把密码写进 shell 历史或仓库：
 
