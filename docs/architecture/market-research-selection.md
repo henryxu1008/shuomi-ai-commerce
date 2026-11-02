@@ -150,6 +150,8 @@ Project/source 的授权和身份读取在关系事务前完成；事务内只�
 
 批准增量仅在 PRODUCT_RESEARCH 项目详情增加「研究选品」业务区域；项目中心/数据服务/我的智能体的原导航归属不变。数据市场负责取得资料，研究区域负责关联、证据、候选与决定，原我的数据负责转入。
 
+后续阶段说明：用户随后明确确认[两个中心 V1 产品设计](../product/market-research-selection-centers-v1.md)，新增研究/选品入口的目标替代本段首批导航范围限制；新增 AI 合同见[独立设计增量](market-research-evidence-analysis-v1.md)。本冻结合同的事实owner、权限、状态与恢复不变量不变。当前实例仍运行首批实现，新阶段正式代码和实例更新另行授权。
+
 内容顺序：项目目标 → 选择研究资料（打开原数据市场 / 关联已保存资料）→ 证据与缺项 → 选中 2–5 项事实对比及显式 AI 操作 → 人工决定 → 前往原批次转入。动作各自确认，不以查看页面隐式执行采集/模型/转入；空状态也能继续正常原流程。价格、数量、时间等示例只用于设计排版并显著标记，不能成为产品默认数据。
 
 明暗主题复用现有 SUMI semantic variables、Noto Sans SC 和 Console 组件；390px 使用顺序卡片，证据/缺项/操作仍完整。用户已确认下列可编辑设计；节点名称中的候选字样保留设计阶段追溯，不再代表准入未满足：[深色桌面 11981:919](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-919)、[浅色桌面 11981:1006](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-1006)、[深色手机 11981:962](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-962)、[浅色手机 11981:1049](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-1049)。原已批准 frame 不变。产品确认已记录于 Product Authority；原批次弹窗子集选择按下列同版设计和 §5.3 实施。

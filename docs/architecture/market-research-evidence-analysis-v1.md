@@ -1,6 +1,6 @@
 # 两个中心 V1：研究证据分析合同增量
 
-Design Basis: **Independent Architecture**。状态：**DESIGN_REVIEW / NOT_IMPLEMENTATION_READY**。执行 #1072/#1073，父目标 #1070，沿同一 Draft PR #1075。源码核查基线 `366df3516865163636a68852d7d85cf68c530c48`，应用代码仍与已审 d8b85805e 相同。
+Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY（技术准入，待正式实施授权）**。执行 #1072/#1073，父目标 #1070，沿同一 Draft PR #1075。源码核查基线 `366df3516865163636a68852d7d85cf68c530c48`，应用代码仍与已审 d8b85805e 相同。
 
 用户于 2026-11-02 明确确认沿用[两个中心 V1 产品设计](../product/market-research-selection-centers-v1.md)：数据服务 → 市场调研中心、供应市场 → 智能选品中心，共用项目，汇总限明确选中2–5项。本轮继续设计及准入，不修改生产代码、不实际调用模型或平台。产品确认、Architecture Review、正式实施授权及真实试用分别记录；本文不代签。
 
@@ -126,10 +126,10 @@ POST prepare先查原key，以原持久化Snapshot核对原始规范意图：原
 
 ### Architecture Review 记录
 
-原独立Reviewer R1绑定 HEAD `5985f9e2a59026098dd6cc83246dfc7944a001e6` / 设计blob `1af1b114ae7c5fb47cf88d9611e02e7de76d9624`。结论：无Architecture BLOCKER；以下三项归 **IMPLEMENTATION_TEST**，最小澄清已统一写入正文，待增量确认后冻结，不重复全局架构评审：
+原独立Reviewer R1绑定 HEAD `5985f9e2a59026098dd6cc83246dfc7944a001e6` / 设计blob `1af1b114ae7c5fb47cf88d9611e02e7de76d9624`。结论：无Architecture BLOCKER；以下三项归 **IMPLEMENTATION_TEST**，最小澄清已统一写入正文。原Reviewer增量确认绑定 HEAD `7ac63e647936b7923d26f2c2a995777647df55e4` / 设计blob `8ed205f1d587d67b3d24e5ca4e2bf52fc23e8a21`，明确三项澄清充分、无新Blocker，可以冻结为 IMPLEMENTATION_READY；本次只更新准入记录，不重复全局架构评审：
 
 1. 原prepare key恢复必须不依赖当前profile，披露原Binding前做全部来源历史授权；受影响Must为撤权不披露、丢响应可恢复且不重复付费。实施验证保存后profile/来源变化、原意图重放与operationMayExist。
 2. 历史发现复用原Recent/member及原run owner，主查询和anchor均先限当前project/context；受影响Must为本人/当前成员隔离、无第二事实、未知结果不重派。实际内部读取有界payload，仅对外返回metadata。
 3. 完整Snapshot仍受原8192-byte门禁；受影响Must为合法2–5精确输入保存及超限先于模型/预留拒绝。实施验证长合法身份/goal/profile、边界与原键重放，不扩共享限制或裁掉身份。
 
-以上属于当前Must的必要实现测试，未满足时仍阻止相应切片合并；不是新产品要求、风险接受或验收平台授权。当前尚未签发新增生产路径的实施准入，正式代码授权、真实平台/模型/付费及产品验收仍各自未发生。
+以上属于当前Must的必要实现测试，未满足时仍阻止相应切片合并；不是新产品要求、风险接受或验收平台授权。技术准入已完成，正式代码授权、真实平台/模型/付费及产品验收仍各自未发生。实施者不得以Ready状态自行启动未获准的正式业务代码工作。
