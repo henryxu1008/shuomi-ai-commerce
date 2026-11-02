@@ -106,6 +106,7 @@
 
 | 历史材料 | 保留依据 |
 | --- | --- |
+| [旧 Code Guide 原文](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/CODE_WIKI.md) / [删除前导航页](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/CODE_WIKI.md) | 旧包规模、CURRENT STATE 与 ListingKit 快照只作历史；重复导航页已撤销，当前源码职责和正式命令统一见[源码入口地图](../development/repository-structure.md#current-entrypoint-map)。退休矩阵中的原路径记录保留 |
 | [historical-platform-migration-inventory.md](architecture/historical-platform-migration-inventory.md) | 2026-08-26包规模与候选成本快照归档；原数量/判断及现有文档检查保留，当前owner依Project Boundaries/Legacy Register |
 | [listingkit-refactor-status.md](architecture/listingkit-refactor-status.md) | 旧ListingKit边界与阶段完成观察归档；保留原结果及Greenfield否定compatibility的范围，不宣传当前状态 |
 | [openmeter-shadow-metering-poc-report.md](architecture/openmeter-shadow-metering-poc-report.md) | #988已退休旧计量运行；镜像digest、资源观察、并发/quota与PoC结果属于必要实测证据，完整归档 |

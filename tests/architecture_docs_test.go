@@ -514,7 +514,7 @@ func TestProjectBoundaryDocumentTracksCurrentEnforcementTests(t *testing.T) {
 
 func TestCurrentDocsDoNotReferenceRetiredFrameworkEntrypoints(t *testing.T) {
 	checks := map[string][]string{
-		filepath.Join("..", "docs", "CODE_WIKI.md"): {
+		filepath.Join("..", "docs", "development", "repository-structure.md"): {
 			"task/                    # 已废弃的 legacy polling 入口",
 		},
 		filepath.Join("..", "docs", "archive", "architecture", "task-status-lifecycle.md"): {
