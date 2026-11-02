@@ -1,3 +1,26 @@
+# 架构文档入口
+
+返回[文档首页](../README.md)。查找合同时先使用下面的分类入口；原合同文件路径和完整历史索引保留。
+
+| 阅读任务 | 入口 |
+| --- | --- |
+| 按业务领域查合同、owner、权限与恢复边界 | [`topics.md`](topics.md)：领域合同阅读导航 |
+| 查旧实现的 EXTRACT / RETIRE、有效 KEEP 与断言映射 | [`retirement-index.md`](retirement-index.md)：按领域查找退休边界 |
+| 从系统整体开始 | [目标架构](project-target-architecture.md) → [Project Boundaries](project-boundaries.md) → [源码地图](../development/repository-structure.md#current-entrypoint-map) |
+| 做设计或实现前检查 | [AGENTS.md](../../AGENTS.md)、[Review Checklist](architecture-review-checklist.md)、[Current Guard Baseline](#current-guard-baseline) |
+| 找安装、操作、接线或历史结果 | [操作说明](../operations/README.md)、[工程交接](../engineering/README.md)、[历史归档](../archive/README.md) |
+
+目录分类不代表全部文档处于同一批准或开放状态。原文页首的产品依据、准入、精确替代和未开放范围继续有效；
+当前进度、准确 HEAD / CI 与实例交付查对应 Issue / PR。
+
+## 完整索引与沿革
+
+以下保留历次补充登记、原阅读顺序与冻结证据。旧“当前/下一步”、SHA、计数和阶段状态属于原记录；
+日常查找使用上方领域导航，不把历史索引当作滚动派工队列。
+
+<details>
+<summary>展开早期归位登记与阅读说明</summary>
+
 ## 归位的重构边界
 
 - [`module-target-mapping.md`](module-target-mapping.md) — 现行领域落点、九领域与Phase2 landing规则仍被guard消费，归入架构；历史旧owner按原替代范围读取。
@@ -63,6 +86,9 @@
     distinct source/schema admission; no saved-report reinterpretation or migration.
 
 > #1046 当前源码闭包：[Store旧来源准入与审计尾部完整退休](legacy-store-source-admission-audit-tail-retirement-boundary.md)已获用户确认，按§1–§7（含§4.2/§6.1）在同一PR收齐10路径：四旧对象、专属尾部、安全断言当前owner映射及窄文档说明。当前能力与原有效断言保留；最终源码复核/准确CI留PR，不部署/合并/操作既有资源/关闭#301。以下冻结索引和历史完整保留。
+
+
+</details>
 
 - `legacy-store-source-admission-audit-tail-retirement-boundary.md` — [#301 Store旧来源准入与审计尾部完整退休设计](legacy-store-source-admission-audit-tail-retirement-boundary.md)：四对象、三原测试函数逐项安全断言映射及10路径完整矩阵；当前只四文档设计，一名独立Reviewer及原CI后交用户确认，确认前不实施，保留当前能力与历史。
 

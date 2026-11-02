@@ -2,20 +2,41 @@
 
 从这里查找硕米智能引擎的产品依据、开发入口和使用说明。具体任务的当前范围与进度以执行 Issue / PR 为准；文档中的设计准入、源码交付、实例开放和用户验收是不同状态。
 
+## 目录与职责
+
+| 目录 | 在这里找什么 | 不放在这里的内容 |
+| --- | --- | --- |
+| [product](product/README.md) | 产品决定、Figma / UI Authority、用户范围 | 技术实现细节、运行进度 |
+| [architecture](architecture/topics.md) | 领域合同、owner、权限、事务与恢复边界；[退休边界](architecture/retirement-index.md)单独查找 | 逐步操作、滚动交付状态 |
+| [development](development/README.md) | 源码地图、本地开发、依赖与构建入口 | 面向使用者的操作步骤 |
+| [operations](operations/README.md) | 安装、配置、运行和用户操作，包括本地试用 runbook | 产品或领域合同的另一份副本 |
+| [engineering](engineering/README.md) | Issue / PR 规则、消费者接线合同、实现交接及原始工程证据 | 当前产品要求和通用安装入口 |
+| [refactoring](refactoring/README.md) | Hard-Cut 规则与 Legacy Register | 旧排期、阶段报告和实现合同副本 |
+| [archive](archive/README.md) | 已替代设计、冻结历史、带准确基线的验证和运行记录 | 当前操作入口 |
+
+独立的 `runbooks` 已并入 `operations`；原 `verification` 的日期验证记录归入 `archive/verification`。
+源码旁的 README 保留在原组件，部署配置仍在 `deployments`，截图/JSON 等附件留在对应记录旁，避免产生第二份原件。
+
 ## 按目的阅读
 
 | 你要做什么 | 阅读入口 |
 | --- | --- |
 | 了解产品、启动项目 | [项目 README](../README.md)、[新建本地 Account Compose](../deployments/docker/account-compose/README.md)、[可选模块](../deployments/docker/account-compose/MODULES.md) |
 | 确认页面、导航和产品语义 | [产品文档](product/README.md)、[当前 UI / IA Authority](product/final-ui-ia-authority.md) |
-| 查找领域合同、权限、事务与恢复边界 | [架构索引](architecture/README.md)、[Project Boundaries](architecture/project-boundaries.md) |
+| 查找领域合同、权限、事务与恢复边界 | [领域合同导航](architecture/topics.md)、[Project Boundaries](architecture/project-boundaries.md) |
 | 找代码入口、开发和构建方法 | [开发说明](development/README.md)、[源码入口地图](development/repository-structure.md#current-entrypoint-map)、[前端](../web/listingkit-ui/README.md)、[采集插件](../extensions/product-capture/README.md) |
 | 查找使用步骤、配置和运行交接 | [操作与运行说明](operations/README.md) |
 | 执行任务、提交 PR | [AGENTS.md](../AGENTS.md)、[Issue 驱动派工](engineering/issue-driven-development.md)、[Issue 模板](../.github/ISSUE_TEMPLATE/execution-task.md)、[PR 模板](../.github/pull_request_template.md) |
-| 判断旧代码的归属与退出边界 | [重构文档](refactoring/README.md)、[Legacy Hard-Cut](refactoring/legacy-hard-cut-policy.md)、[Legacy Register](refactoring/legacy-register.md) |
+| 判断旧代码的归属与退出边界 | [重构文档](refactoring/README.md)、[Legacy Hard-Cut](refactoring/legacy-hard-cut-policy.md)、[Legacy Register](refactoring/legacy-register.md)、[按领域查退休边界](architecture/retirement-index.md) |
 | 追溯旧设计、实施计划或验证结果 | [历史设计、计划与验证](archive/README.md)、[历史重构材料](archive/README.md#refactoring-history)、[工程交接与证据](engineering/README.md)、[产品验证记录](product/validation/runs/README.md) |
 
 当前工作排序见 [Roadmap #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137) 及具体执行 Issue / PR。本页不复制运行地址、账号、滚动 SHA 或验收结果。
+
+## 三条常用阅读路径
+
+1. **实现或修改功能**：产品当前依据 → [领域合同](architecture/topics.md) → [源码入口](development/repository-structure.md#current-entrypoint-map) → [工程交接](engineering/README.md) → 当前执行 Issue / PR。
+2. **安装或使用功能**：[操作说明](operations/README.md) → 对应组件的配置与启动入口 → 文内启用条件和限制。具体实例与验收状态查交付记录。
+3. **追查旧实现和历史结果**：[Legacy Register](refactoring/legacy-register.md) → [对应退休边界](architecture/retirement-index.md) → [历史记录](archive/README.md)。历史证据与仍有效合同分别按原范围读取。
 
 ## 如何判断文档是否适用
 

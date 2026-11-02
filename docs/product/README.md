@@ -1,6 +1,6 @@
 # 产品文档
 
-本目录记录硕米智能引擎的产品语义、产品投影、业务边界和历史产品证据。
+返回[文档首页](../README.md)。本目录记录硕米智能引擎的产品语义、产品投影、业务边界和历史产品证据。
 
 ## 当前产品权威
 
@@ -15,7 +15,7 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 1. [最终 UI / IA Authority](./final-ui-ia-authority.md) — 用户看到什么、在哪里操作、如何命名和交互。
 2. [AI Commerce Agent Platform 产品战略](./ai-commerce-agent-platform-strategy.md) — 长期产品方向与 Agent / Tool 边界；技术能力图不覆盖 Figma。
 3. [全新系统产品基线](./greenfield-no-legacy-migration.md) — 新业务按全新安装、空业务数据和当前模型推进，不恢复旧迁移/兼容前置。
-4. [架构索引](../architecture/README.md) — 领域 owner、权限、事务、幂等、资金和外部副作用。
+4. [领域合同导航](../architecture/topics.md) — 领域 owner、权限、事务、幂等、资金和外部副作用。
 5. [Legacy Register](../refactoring/legacy-register.md) — 旧能力的 EXTRACT / RETIRE 去向。
 6. [Repository Structure](../development/repository-structure.md#current-entrypoint-map) — 当前真实入口、命令和代码落点。
 7. GitHub Roadmap #137、具体执行 Issue / PR — 当前排序、范围、准确 HEAD、验证证据和操作权限。

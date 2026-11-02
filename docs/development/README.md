@@ -6,7 +6,7 @@
 | --- | --- |
 | 项目准备、后端启动 | [项目 README](../../README.md)、[Account Compose](../../deployments/docker/account-compose/README.md) |
 | 源码职责、正式命令、工具与本地产物 | [Repository Structure](repository-structure.md#current-entrypoint-map) |
-| 领域归属、依赖方向和准入 | [架构索引](../architecture/README.md)、[Project Boundaries](../architecture/project-boundaries.md)、[AGENTS.md](../../AGENTS.md) |
+| 领域归属、依赖方向和准入 | [领域合同导航](../architecture/topics.md)、[Project Boundaries](../architecture/project-boundaries.md)、[AGENTS.md](../../AGENTS.md) |
 | Console / BFF | [前端 README](../../web/listingkit-ui/README.md) |
 | 浏览器采集扩展 | [采集插件 README](../../extensions/product-capture/README.md) |
 | 显式选择 Git 版本构建镜像 | [镜像构建说明](../operations/listingkit-image-build.md) |
