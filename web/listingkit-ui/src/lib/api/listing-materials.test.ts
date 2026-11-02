@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from "vitest";
-import {prepareMaterials,startMaterials} from "./listing-materials";
+import {prepareMaterials,startMaterials,readMaterials} from "./listing-materials";
 
 const record="11111111-1111-4111-8111-111111111111",key="22222222-2222-4222-8222-222222222222";
 const scope={userId:"actor",organizationId:"org"};
@@ -23,5 +23,13 @@ it("does not accept a valid run for a different query selector",async()=>{
  await expect(startMaterials(scope,record,key,prepared,new AbortController().signal)).resolves.toMatchObject({candidateCategoryId:"123"});
  fetcher.mockResolvedValue(reply({...run,candidateCategoryId:"124"}));
  await expect(startMaterials(scope,record,key,prepared,new AbortController().signal)).rejects.toMatchObject({code:"OUTCOME_UNKNOWN"});
+ expect(fetcher.mock.calls).toHaveLength(2);
+});
+
+it("reads a known repair-limit failure without changing it to outcome unknown",async()=>{
+ const result={...prepared,templateSelection:undefined,runId:key,phase:"human_review_required",stopReason:"repair_limit",revision:"7",executionMode:"default",unresolved:["CANDIDATE_RULE_EVIDENCE_INVALID"],canRequestAdoption:false,canResume:false,steps:[],tokens:50,estimatedCostMicros:20,currency:"CNY",usageStatus:"observed"};
+ const fetcher=vi.fn().mockImplementation(()=>Promise.resolve(reply(result)));vi.stubGlobal("fetch",fetcher);
+ await expect(startMaterials(scope,record,key,prepared,new AbortController().signal)).resolves.toMatchObject({stopReason:"repair_limit",usageStatus:"observed"});
+ await expect(readMaterials(scope,record,key,new AbortController().signal)).resolves.toMatchObject({stopReason:"repair_limit",usageStatus:"observed"});
  expect(fetcher.mock.calls).toHaveLength(2);
 });

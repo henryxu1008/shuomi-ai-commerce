@@ -66,6 +66,24 @@ func testCandidateRulesNativeOwners(t *testing.T, value string, a *listingMateri
 	run, found, err := parent.store.LookupContext(context.Background(), scope, agent.CandidateRulesContextKind, base.Record.ID, input.RequestKey)
 	require.NoError(t, err)
 	require.True(t, found)
+	// Exercise the real failure projection from the existing runtime contract,
+	// without mutating this committed successful run or its known usage.
+	failed := run
+	failed.State.StopReason = agent.StopRepairLimit
+	validation := *failed.State.Validation
+	validation.Valid = false
+	failed.State.Validation = &validation
+	failedDTO, err := a.projectRun(actor, base.Record.ID, failed, frozen)
+	require.NoError(t, err)
+	require.Equal(t, agent.HumanReviewRequired, failedDTO.Phase)
+	require.Equal(t, agent.StopRepairLimit, failedDTO.StopReason)
+	require.Equal(t, "observed", failedDTO.UsageStatus)
+	require.NotNil(t, failedDTO.QueryRules)
+	require.Nil(t, failedDTO.RuleExplanation)
+	require.False(t, failedDTO.CanRequestAdoption)
+	failedJSON := string(mustMaterialsJSON(t, failedDTO))
+	require.NotContains(t, failedJSON, `"ruleExplanation":`)
+	require.NotContains(t, failedJSON, `"before":`)
 	call("POST", path+"/runs/"+input.RequestKey+"/adopt", "", materialsAdoptBody{ConfigurationSnapshotRef: out.ConfigurationSnapshotRef, CandidateHash: run.State.Validation.CandidateHash, HumanConfirmed: true}, 409)
 	head, err := supply.ReadTarget(actor, base.Record.Source.ID, base.Record.Input.StoreID)
 	require.NoError(t, err)

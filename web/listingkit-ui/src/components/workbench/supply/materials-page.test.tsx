@@ -136,6 +136,17 @@ it("restores full-access rule history without refreshing rules or enabling saves
  expect(f.rules).not.toHaveBeenCalled();expect(f.prepare).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();expect(f.adopt).not.toHaveBeenCalled();
  expect(screen.queryByRole("button",{name:"核对原保存结果"})).toBeNull();
 });
+
+it("shows the known query repair limit without claiming an explanation was generated",async()=>{
+ f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});
+ f.read.mockResolvedValue({...queryRun(),stopReason:"repair_limit",ruleExplanation:undefined});
+ render(<MaterialsPage recordId={id}/>);
+ await screen.findByRole("heading",{name:"规则解释未完成，请核对停止原因"});
+ expect(screen.queryByRole("heading",{name:"规则解释已生成，待核对"})).toBeNull();
+ expect(screen.queryByRole("heading",{name:"智能体解释"})).toBeNull();
+ expect(screen.getByText("停止原因：repair_limit")).toBeInTheDocument();
+ expect(f.rules).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();expect(f.adopt).not.toHaveBeenCalled();
+});
 it("keeps a historical interrupted run readable without offering Resume",async()=>{
  f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});
  f.read.mockResolvedValue({...run(),phase:"interrupted",canResume:false,canRequestAdoption:false});
