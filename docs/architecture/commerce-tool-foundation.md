@@ -4,6 +4,27 @@
 
 状态：已于 2026-08-31 确认设计方向。本文档通过审阅后，才进入实施计划阶段。
 
+### 1.1 C1 文本提案的当前产品决定（2026-11-02）
+
+用户已接受 [#134 路径 A](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6572790358)：
+本阶段文本提案沿用现有 GovernedModel Decision → typed Candidate → 固定领域
+Validator → 原 Review/采用路径，不再要求额外注册可由模型调用的独立 Commerce
+propose Tool。此决定仅替代 C1 的独立 Tool 形式要求；旧工具未实现不记为实现 PASS，
+也不是新增风险接受。下文涉及 C1 必须通过 Tool 生成文本的旧表述按本节解释。
+
+事实读取继续使用同一 Commerce Registry 的准确 read/compute Tool；提案阶段引用
+当前固定 Agent/operation/prompt/policy、真实 model invocation/usage 与原审计，
+不伪造 propose ToolRef/CallID，不把有计量模型声明为 unmetered Tool。原权限、准确
+来源/实际观察、字段/版本绑定、确定性重验、有界修复、预算、唯一派发、计量及 UNKNOWN
+责任保持。既有模式和 Review/Catalog 采用门禁不变，提案返回不授予新写入或发布许可。
+
+原 frozen ModelCalls/token/cost/deadline 不提高；当冻结 ModelCalls==2 时，先请求
+canonical read，再从已观察事实 propose 或明确缺项后 interrupt。修复次数受原预算限制，不能在 Tool
+内部隐藏额外模型调用。C2 图片分析/动作提案、C3 规则查询和完整集合验收继续保留。
+
+本次为已批准产品决定的文档归并，不改变运行协议、schema、状态、权限或副作用；
+不据此宣称新实现准入、独立复核、真实模型效果、产品验收或 #134/#128 已完成。
+
 本设计决定：在 Product Agent 实现前，先建立一套小而稳定、与 Agent 框架无关的
 Commerce Tool 合同，再通过一个真实的只读纵向切片证明该合同可用。Tool 边界复用
 现有权限、可信身份、AI 能力治理、链路追踪、工作流和 Schema 组件，不建立第二套
@@ -104,12 +125,15 @@ product、source envelope、asset catalog 或 marketplace rule store。
 
 ## 4. 任务与实施顺序约束
 
+本节实施顺序记录设计当时的依赖；当前交付状态以 Issue 正文为准，C1 形式要求以
+§1.1 的新产品决定为准，不因历史顺序恢复已被替代的独立文本 propose Tool 前置。
+
 #134 不能在第一个变更中被诚实地一次性完成：
 
 - source evidence 依赖仍未完成的 #30 受控 1688 闭环；
 - marketplace readiness 依赖仍未完成的 #34 contract；
-- ProductEnrich 和 ProductImage propose Tool 在语义上依赖 #130 的 AI Capability
-  发布级验证，但 #134 当前没有明确写出该依赖；
+- 文本提案仍依赖 #130 的受治理调用与原计量/UNKNOWN 边界，但按 §1.1 由现
+  GovernedModel Decision 承担；图片分析/提案 Tool 继续其原 owner 与准入要求；
 - 目标架构迁移禁止新增生产代码继续导入 `internal/listingkit` 等退休根包。
 
 正确顺序是：
@@ -118,7 +142,7 @@ product、source envelope、asset catalog 或 marketplace rule store。
 2. 实现与框架无关的 #133 contract 和 registry；
 3. 通过目标方向的服务 Port 接入一个真实 canonical product inspection 切片；
 4. 在 #30 和相关 product 所有权迁移后接入 source/facts Tool；
-5. 在 #130 验证通过后接入 ProductEnrich/ProductImage propose Tool；
+5. 文本提案沿 #130 与当前消费者合同落实 §1.1；图片分析/提案 Tool 仍须原治理准入；
 6. 在 #34 和 marketplace 规则所有权稳定后接入 readiness/rule Tool。
 
 在声明 AI-backed propose Tool 完成前，#134 应补充对 #130 的依赖。本文档不直接修改
@@ -178,8 +202,11 @@ app composition
 
 AI-backed 领域 Adapter
   -> 现有 aicapability 治理
-  -> 现有 ProductEnrich 或 ProductImage 服务接口
+  -> 当前领域所有者的窄接口（不恢复旧生成器）
 ```
+
+C1 文本消费者另通过原 GovernedModel port 生成 Candidate，再交原 Validator/Review；
+该分工不新增第二套 Tool 接口，也不允许 Agent 直接导入 Provider SDK。
 
 `internal/commercetool` 禁止导入：
 
@@ -561,11 +588,11 @@ payload 提交。Contract Test 必须证明它只是权威领域值的只读投�
 后续 Adapter 继续复用同一 Contract，并且只有其 Owner 与 Dependency Gate 准备完成后
 才能接入：
 
-| Tool 家族 | 必要 Owner/Gate | Phase 2A 行为 |
+| 能力 / Tool 家族 | 必要 Owner/Gate | Phase 2A 行为 |
 | --- | --- | --- |
 | source evidence | #30 和中立 sourcing read port | 读取 evidence 和 warning |
 | catalog/asset facts | product catalog/asset 所有权 | 读取 normalized facts |
-| ProductEnrich | #130 governed execution evidence | 只 propose text/product patch |
+| 文本提案（C1） | #130 governed execution、当前 contentagent / Review owner | 按 §1.1 由 GovernedModel Decision 返回 typed Candidate，固定 Validator 重验；不额外注册独立 propose Tool |
 | ProductImage | #130 governed vision/image execution | 只 analyze/propose action |
 | marketplace rules | marketplace-owned rule service | 读取 category/attribute rule |
 | readiness validator | #34 deterministic contract | 计算 blocker/warning |
@@ -633,7 +660,7 @@ Runtime Adapter 对照本合同评估，而不是先选择框架再反向定义�
 ### 切片 C 及以后：按依赖门禁接入适配器
 
 - #30/product ownership 后接入 source/fact Tool；
-- #130 后接入 AI proposal Tool；
+- C1 文本提案按 §1.1 复用原 governed model/Validator/Review；其它 AI-backed Tool 仍须 #130 及各自准入；
 - #34 和 marketplace ownership 后接入 readiness/marketplace Tool。
 
 切片 A 可以关闭 #133。切片 B 记录 #134 的部分证据。只有 Product Agent 所需的最小
@@ -744,10 +771,13 @@ OpenFeature Runtime。
 
 切片 B 证明同一合同能连接真实领域服务，并为 #134 提供部分证据。完整 #134
 还要求 Product Agent 最小集合中声明的 source、facts、proposal、marketplace、validator
-能力分别通过其 Owner/Dependency Gate。
+能力分别通过其 Owner/Dependency Gate；其中 C1 proposal 按 §1.1 的当前分工验收，
+不再以额外独立文本 Tool 是否存在作为该项前置。其余未完成要求不因本决定完成。
 
 ### Phase 2A 退出门禁
 
 只有 Fake Agent 和 Product Agent Integration Test 使用同一 Registry Contract 完成
-read、compute、propose，并且不存在第二套 Compatibility Interface，Agent 也没有任何
-Repository、Provider SDK 或 Marketplace Client 直连能力时，Phase 2A 才能退出。
+事实 read/compute，并以 §1.1 的 governed Decision 完成 C1 文本提案、固定领域重验及
+原审核交接，同时其余最小工具集合与依赖均满足，Phase 2A 才能退出。不得存在第二套
+Compatibility Interface，Agent 也不得直连 Repository、Provider SDK 或 Marketplace
+Client。Fake/隔离证据不替代真实模型效果、#132/#47 比较或产品验收。

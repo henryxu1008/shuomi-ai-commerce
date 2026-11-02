@@ -17,6 +17,14 @@ Issue/主要 PR 记录当前进度、准确代码版本、检查结果与批准�
 后续标题执行的产品要求；新的[供应商可替换合同候选](product-agent-text-provider-neutral.md)
 正在独立评审。候选达到 `IMPLEMENTATION_READY` 前，不以本决定直接放开正式调用。
 
+2026-11-02 用户接受 [#134 C1 路径 A](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6572790358)：
+现有受治理 Model Decision 直接返回 typed 文本 Candidate，固定领域 Validator 重验后
+交原 Review/采用路径，不再额外要求独立 Commerce propose Tool。只读事实工具继续原
+Registry/allowlist，模型调用仍真实计量；原字段/权限、实际观察、预算、唯一 dispatch、
+UNKNOWN 和采用门禁不变，不增加调用或放开 metered Tool。旧 C1 独立 Tool 要求由此
+产品决定替代，不写成该工具已实现；C2/C3、完整集合、原质量与产品验收仍保留。
+本文原 `IMPLEMENTATION_READY` 属既有冻结范围，不表示本次归并获新独立评审或新运行授权。
+
 ## 1. 用户结果与阶段边界
 
 当前组织的商品运营选择已保存商品，查看事实/来源/素材与缺失输入，获得有证据的
@@ -224,7 +232,8 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 1. 本合同及真实缺口做一次独立边界检查。只对新状态/恢复、身份和有费用调用边界审查。
 2. #131 在同一主要 PR 落最小合同/单框架适配，fake model/tool 验证完整循环与全部预算停止。
    此时不开放 HTTP、数据库初始化或真实 provider；恢复/幂等使用测试替身不能宣称持久化完成。
-3. #130/#134 的当前消费者增量：受治理文本调用；复用 review/proposal 纯校验；受控 propose 工具。
+3. #130/#134 的当前消费者增量：受治理文本调用返回 typed Candidate，复用
+   review/proposal 纯校验；C1 按上述产品决定不再额外要求独立 propose Tool。
    在原 owner 内补齐，不把图像、平台工具全集作为标题首片的前置，也不撤销父 Issue 原目标。
 4. #132 接入既有采集结果页和 Product Review，补齐当前组织 runtime 组装与持久执行合同；
    只在现有准入、隔离验证和明确真实调用授权满足后开放。用户能看到入口和不确定项，
@@ -233,7 +242,7 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 | 缺口 | 责任 / 解除条件 | 阻塞层级 |
 | --- | --- | --- |
 | 文本模型治理、可观测预算与未知结果防重复 | #130 / AI Capability：当前文本调用有真实 adapter、前置边界、调用结果/用量与不重放证据 | 真实模型接线；不阻塞 #131 fake 合同实现 |
-| proposed patch 校验及窄 propose tool | #134 / review/proposal：无模型副作用的相同规则校验与精确证据绑定 | 补全/repair 功能实现与该功能合并 |
+| C1 文本候选及 proposed patch 校验 | #134 / 现 governed Model Decision → contentagent / Review/proposal：typed Candidate、相同纯规则与准确已观察证据绑定；不额外注册独立 propose Tool | 原补全/repair 与 Review 交接验收；不推定其它最小工具集合完成 |
 | Agent 结果进入既有审核 | #132 消费 #36 / review：幂等接收可信内部结果、fresh 授权、校验、原 UoW；未修改部分复用现有测试 | 人工审核闭环；不阻塞只读工具 |
 | 当前调用上下文与运行状态持久化 | #131/#132：真实 operation 绑定、run 唯一性、checkpoint revision、restart/unknown 证据 | HTTP/worker 开放；禁止假 task ID 或伪持久化 |
 | 同样本的 Agent/fixed 对照 | #132 消费 #47：复用已有核心样本，补必要标注与实际测量 | PoC 结论/下一阶段；不是只读工具已合入证据 |
@@ -281,7 +290,11 @@ Store 必须原子 claim/CAS 保存控制字段与 checkpoint，GovernedModel �
 上界/usage 并阻止重复 dispatch；本包不提供可误用作生产持久化的内存实现，也不自动
 提供模型客户端。当前 gateway 只接纳 unmetered read/compute 工具；AI propose 工具
 缺少逐调用计量桥接时拒绝注册，不能把只有 AIInvocationID 的 Result 当费用事实。
-fake model 返回的候选可用于完整运行合同验证，不代表 #134 propose 工具已完成。
+C1 文本提案按当前产品决定通过原 GovernedModel Decision 及原 model 预算/计量路径，
+不经过 tool-result 分支，也不解除上述构造/结果门禁。当冻结 ModelCalls==2 时仍先读
+canonical 再 propose/interrupt；最多两次 repair 不表示可突破 ModelCalls 或费用上限。
+fake model 返回的候选可用于运行合同验证，不代表真实模型遵从/效果、其它 propose Tool
+或 #134/#128 完整集合与产品验收已完成；不得制造未发生的 ToolRef/调用审计。
 
 运行必要的本地合同验证：
 
