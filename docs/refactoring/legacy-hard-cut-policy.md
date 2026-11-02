@@ -261,7 +261,7 @@ Use this policy together with:
 1. Figma `31:463` + `docs/product/final-ui-ia-authority.md` — final product UI/IA and product projection;
 2. current Product/Architecture specs — canonical facts, ownership, safety, state machines and contracts;
 3. this policy — how obsolete implementation is handled during migration;
-4. `docs/archive/refactoring/current-refactoring-status.md` — current implementation reality;
+4. [current-refactoring-status.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/current-refactoring-status.md) — current implementation reality;
 5. GitHub #137 — execution/backlog authority.
 
 Historical issues, tests and code are evidence to inspect. They do not override these current authorities.

@@ -20,7 +20,7 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 6. [Repository Structure](../development/repository-structure.md#current-entrypoint-map) — 当前真实入口、命令和代码落点。
 7. GitHub Roadmap #137、具体执行 Issue / PR — 当前排序、范围、准确 HEAD、验证证据和操作权限。
 
-官方登录产品决定：[Phase1 官方 ZITADEL Login V2 / Auth.js](login-phase1-official-zitadel.md)。旧账号入口、Console首期设计和V7计划见[历史归档](../archive/README.md)，不作为当前实现基线。
+官方登录产品决定：[Phase1 官方 ZITADEL Login V2 / Auth.js](login-phase1-official-zitadel.md)。旧账号入口、Console首期设计和V7计划已退出当前工作树；后续开发遵守[全新系统开发基线](greenfield-no-legacy-migration.md)。
 
 ## 当前执行规则
 
@@ -60,15 +60,6 @@ Product Sourcing、Account、Commercial、Marketplace、Agent 等专项文档只
 - 采集决定：[服务端匿名浏览器范围](pd-1688-server-public-browser-2026-09-26.md)、[1688 Figma 与后续阶段决定](pd-1688-acquisition-figma-2026-10-11.md)、[插件字段设计](plugin-capture-listing-fields-v1.md)。插件字段设计本身仍标为未达到实现准入，不覆盖后续已准入的局部架构。
 - 有界试用与界面：[Local 非现金 AI 试用](local-ai-trial-v1.md)、[工作台主题统一](workbench-theme-unification.md)。产品决定不等于实例操作或真实调用已获准。
 - 来源合同与交接：[Product Sourcing Handoff](product-sourcing-handoff.md)、[MVP 当前合同及历史收口](product-sourcing-mvp-plan.md)。
-
-## 保留的历史证据与取消记录
-
-以下材料的 PASS、BLOCKED、UNKNOWN、未执行项和旧命令只对各自记录的基线有效，不是当前试用或生产已通过的证明：
-
-- 取消的计划：[旧 clean-slate cutover](issue30-clean-slate-cutover.md)。
-- 来源检查：[2026-07-13 MVP 检查点](product-sourcing-validation-2026-07-13.md)、[1688 受控回放](validation/2026-08-08-1688-controlled-replay.md)。
-- 旧 QA 与待核实事实：[失败样例](validation/listingkit-qa-failure-samples.md)、[UNKNOWN/blocker 台账](validation/unknown-state-and-blocker-tracker.md)、[历史运行索引](validation/runs/README.md)。这些旧 Task 模板/矩阵不恢复已取消的验收要求。
-- 真实运行记录：[SHEIN 预检受阻](validation/runs/2026-06-17-shein-sds-real-api-preflight-blocked.md)、[授权受阻](validation/runs/2026-06-21-shein-sds-batch-production-closure-auth-blocked.md)、[批次回归](validation/runs/2026-06-21-shein-sds-batch-production-closure-regression.md)、[受控闭环](validation/runs/2026-06-21-shein-sds-batch-production-closure.md)、[控制面 leader rollout](validation/runs/2026-06-24-listing-control-plane-leader-rollout.md)、[商业基线](validation/runs/2026-07-13-listingkit-commercial-baseline.md)。
 
 AI Control Plane 与 Agent Runtime 的技术设计见：
 

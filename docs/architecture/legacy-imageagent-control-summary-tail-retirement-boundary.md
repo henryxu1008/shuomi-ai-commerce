@@ -99,9 +99,9 @@ Legacy decision：**RETIRE**。Reusable behavior：批准业务校验和当前�
 | D3 | `docs/architecture/project-boundaries.md` | 仅精确当前 owner/旧 KEEP 导航顶注；原边界完整保留 |
 | D4 | `docs/architecture/README.md` | 新设计的显式反引号文件名索引，保留原导航完整后缀 |
 | D5 | `docs/architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md` | 确认实施时才加窄顶注，仅替代 `initialActionPhase` 的旧 KEEP；其余当前 Update/recovery 不变 |
-| D6 | `docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md` | 确认实施时才加旧 `AssetRef` 准确保留/实施建议失效注记 |
-| D7 | `docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md` | 同上，只针对孤立旧 `AssetRef`，不恢复/实现旧规划管线 |
-| D8 | `docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md` | 同上，只针对孤立旧 `AssetRef`，不恢复/实现旧自动修复 |
+| D6 | [2026-08-26-image-agent-core-manual-workflow.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md) | 确认实施时才加旧 `AssetRef` 准确保留/实施建议失效注记 |
+| D7 | [2026-08-26-image-agent-assisted-planning.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-assisted-planning.md) | 同上，只针对孤立旧 `AssetRef`，不恢复/实现旧规划管线 |
+| D8 | [2026-08-26-image-agent-automatic-repair.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-automatic-repair.md) | 同上，只针对孤立旧 `AssetRef`，不恢复/实现旧自动修复 |
 
 D2–D8 的原 Git blob 仅允许追加最前方窄顶注/导航，历史后缀逐字保留（工作区核对可归一化 CRLF→LF）；不全局 replace 历史。用户确认后的准确设计 HEAD 将作为 D1–D8 冻结后缀依据；滚动 HEAD/CI/评审状态写 PR，不为证据改历史正文。
 

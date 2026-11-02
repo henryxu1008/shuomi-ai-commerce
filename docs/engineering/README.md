@@ -8,7 +8,7 @@
 | --- | --- |
 | 接单、提交与评审 | [执行规则](#rules) |
 | 找已有消费者合同或接线说明 | [身份与成员](#identity)、[商品与店铺](#commerce)、[Console / AI 工作](#workspace)、[资源与服务](#services) |
-| 追溯准确基线的验收与原始附件 | [专项记录](#historical)、[原始附件](#evidence)、[历史归档](../archive/README.md) |
+| 追溯准确基线的验收与原始附件 | [专项记录](#historical)、[原始附件](#evidence) |
 
 同一交接可能包含仍有效的合同和日期绑定的历史结果。先读页首的替代范围、启用条件及未开放项；
 `IMPLEMENTATION_READY`、源码完成、实例启用和用户验收分别确认，不能从旧 SHA / 地址推断当前运行状态。

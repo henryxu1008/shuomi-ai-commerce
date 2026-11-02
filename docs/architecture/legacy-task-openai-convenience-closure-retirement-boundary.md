@@ -136,10 +136,10 @@ Out of Scope：新任务/读取器、兼容 alias、fallback、双读双写、�
 | D8 | `docs/architecture/legacy-openai-adapter-closure-retirement-boundary.md` | 只顶注替代 Client.Generate/宽接口义务 KEEP，其它禁入/治理保持 |
 | D9 | `docs/architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md` | 只顶注限定两个无字段接口逐字保活的替代，原数据合同/JSON 保持 |
 | D10 | `docs/architecture/ai-provider-contracts.md` | 只顶注宽接口取舍及当前单方法合同，历史原文保持 |
-| D11 | `docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md` | 同上，不重跑旧计划或旧子代理步骤 |
+| D11 | [2026-08-21-provider-neutral-ai-contracts.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md) | 同上，不重跑旧计划或旧子代理步骤 |
 | D12 | `docs/architecture/commerce-tool-canonical-inspection.md` | 只顶注当前 Catalog/record owner 与旧 Task query 退休，当前 Tool 只读行为保留 |
 | D13 | `docs/superpowers/plans/2026-09-05-commerce-tool-canonical-inspection.md` | 同上，不恢复旧 Reader、数据迁移或 Task runtime |
-| D14 | `docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md` | 只顶注旧 ptr/任务合同的本批取舍，历史数字/勾选/步骤保持 |
+| D14 | [2026-08-30-internal-target-architecture-phase2.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) | 只顶注旧 ptr/任务合同的本批取舍，历史数字/勾选/步骤保持 |
 | D15 | `docs/architecture/README.md` | 新设计加入原架构索引；原正文/历史完整保留，不改索引检查 |
 | D16 | `internal/listing/README.md` | 仅当前 owner 顶注：record 承接有效 Actor/校验，旧 task 退休；独立 SHEIN 登录/身份回写已由 #985 退休，Store 观察保留；原正文后缀保持 |
 | D17 | `docs/architecture/shein-offline-validation-input-binding.md` | 仅顶注替代旧 Actor/读取/校验 owner 与旧源文件链接的当前含义；保留原 §3.1 绑定、JSON/hash/版本规则和完整后缀，#904 的 alias 退休不扩大为整份依据退休 |

@@ -49,7 +49,7 @@ This document defines the default package and dependency boundaries for the Task
 It complements the project-wide refactoring authority:
 
 - [`project-target-architecture.md`](./project-target-architecture.md)
-- [`docs/archive/refactoring/project-wide-refactoring-plan.md`](../archive/refactoring/project-wide-refactoring-plan.md)
+- [[project-wide-refactoring-plan.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/project-wide-refactoring-plan.md)](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/project-wide-refactoring-plan.md)
 
 ACTIVE package rules are subject to the approved [Legacy Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md),
 [Legacy Register](../refactoring/legacy-register.md), and [Module Target Mapping](module-target-mapping.md).

@@ -6,7 +6,7 @@
 
 > Status: approved target architecture for project-wide modularization.  
 > Legacy handling: `docs/refactoring/legacy-hard-cut-policy.md` and `docs/refactoring/legacy-register.md`.  
-> This document describes the intended end state; current runtime reality is tracked separately in `docs/archive/refactoring/current-refactoring-status.md`.
+> This document describes the intended end state; current implementation and delivery status are tracked in the current execution Issue / PR, not historical stage reports.
 
 ## 1. Goal
 
@@ -364,5 +364,5 @@ Use together with:
 - Product/architecture specs — business/safety/contracts;
 - `docs/refactoring/legacy-hard-cut-policy.md` — legacy treatment;
 - `docs/refactoring/legacy-register.md` — current legacy drain inventory;
-- `docs/archive/refactoring/current-refactoring-status.md` — current implementation reality;
+- Current execution Issue / PR — current scope, implementation and delivery evidence;
 - GitHub #137 — executable backlog order.

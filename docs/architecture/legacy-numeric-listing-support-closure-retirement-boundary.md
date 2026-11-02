@@ -44,7 +44,7 @@
 - [SHEIN worker 身份与持久化](shein-worker-identity-persistence-boundary.md)：原数字账号/Store、Redis/Profile、登录 attempt、查重与 Store ID 同步继续由原 owner 管理，不将其改成当前 Organization 身份或迁入当前业务。
 - [SHEIN](legacy-shein-listing-closure-retirement-boundary.md)、[TEMU](legacy-temu-listing-closure-retirement-boundary.md)、[Amazon](legacy-amazon-listing-closure-retirement-boundary.md) 三个已确认整链边界：只窄替代本文 §5 明列对象的历史保留描述，其余保留能力与原证据不变。
 - [Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[当前供应链](my-supply-chain-shein-v1.md)、当前 Product/Asset/Listing/Submission/Integration 合同继续作为事实、授权、版本、发送许可、receipt 与 UNKNOWN 的 authority。
-- [旧 boundary checkpoint](../archive/refactoring/listingkit-boundary-checkpoint.md) 仍允许 `internal/workspace/shein` 作为 compatibility shell；这是与当前 Hard-Cut 冲突的历史描述。本设计请求明确退休该 shell，原 checkpoint 加窄 superseded 注记而不重写历史。[external client inventory](external-client-boundary-inventory.md) 的 Task RPC 残留装配描述同样只作为退休前证据，不将它转为当前任务入口。
+- [旧 boundary checkpoint](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/listingkit-boundary-checkpoint.md) 仍允许 `internal/workspace/shein` 作为 compatibility shell；这是与当前 Hard-Cut 冲突的历史描述。本设计请求明确退休该 shell，原 checkpoint 加窄 superseded 注记而不重写历史。[external client inventory](external-client-boundary-inventory.md) 的 Task RPC 残留装配描述同样只作为退休前证据，不将它转为当前任务入口。
 
 Independent Architecture 覆盖准确闭包删除和保留合同识别，**不新增或改变当前事实 owner、表/schema、身份/权限/tenant、事务、状态机、幂等、retry/UNKNOWN/recovery、AI 准入/预算/计量或平台副作用 authority**。没有新 UI/IA，Figma N/A。没有新增依赖、通用抽象或需要另造的开源替代组件。
 

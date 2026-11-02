@@ -291,9 +291,9 @@ SourceGenerationExecutor 不引入通用调度平台。现有 provider/Goose/Tem
 - `docs/engineering/imageagent-organization-scope.md`
 - `docs/engineering/imageagent-review-invocation.md`
 - `docs/architecture/module-target-mapping.md`
-- `docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md`
-- `docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md`
-- `docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md`
+- [2026-08-06-ai-capability-phase-1.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md)
+- [2026-08-26-image-agent-core-manual-workflow.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md)
+- [2026-08-30-internal-target-architecture-phase2.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)
 - `docs/superpowers/plans/2026-09-01-internal-target-architecture-phase3-product.md`
 - `docs/superpowers/plans/2026-09-03-pr-282-review-fixes.md`
 

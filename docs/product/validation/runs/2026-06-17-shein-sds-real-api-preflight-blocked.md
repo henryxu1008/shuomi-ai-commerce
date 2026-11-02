@@ -136,7 +136,7 @@
 
 - 页面截图：无，未启动真实页面验收。
 - 接口响应摘要：无，未调用真实 SHEIN / SDS 保存草稿或发布接口。
-- 日志关键字段：阶段 0 baseline 已记录在 `docs/archive/refactoring/test-baseline.txt`。
+- 日志关键字段：阶段 0 baseline 已记录在 [test-baseline.txt（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/test-baseline.txt)。
 - 远端平台记录：无。
 
 ## 10. 结论

@@ -1,4 +1,4 @@
-> **领域合同归位。** Provider-neutral值、接口与调用边界；不恢复已退OpenAI Manager/全局回退。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，旧阶段材料见[历史归档](../archive/README.md)。
+> **领域合同归位。** Provider-neutral值、接口与调用边界；不恢复已退OpenAI Manager/全局回退。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 > #301 / #1025 USER_CONFIRMED：[本批已确认完整退休设计](legacy-task-openai-convenience-closure-retirement-boundary.md)只替代本文宽ChatCompleter/TextChatCompleter的当前义务：审核使用internal/ai.ChatCompletionClient.CreateChatCompletion单方法，Generate/AnalyzeImage及专属便利尾部退休，不留alias。当前ImageGenerator/图像/async、wire数据类型/tag/JSON/hash/版本/路由/计量/UNKNOWN保持；不是重新执行旧兼容迁移。workflow/inventory与既有资源不动，当前能力及Store观察保持；以下原文完整保留为历史。
 
