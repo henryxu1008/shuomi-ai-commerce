@@ -90,7 +90,7 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 		if consumer == nil {
 			return proof, agentconfig.ErrUnavailable
 		}
-	} else if config.AgentID != "product.title.agent" || !provenance.ContentSelection.Absent() {
+	} else if config.AgentID != agentconfig.TitleAgentID || config.AgentVersion != agentconfig.TitleAgentVersion || !agentconfig.CurrentTitleRequest(config.Request.PolicyVersion, config.Request.PromptVersion) || !provenance.ContentSelection.Absent() {
 		return proof, review.ErrForbidden
 	}
 	origin := agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: config.MemberID}

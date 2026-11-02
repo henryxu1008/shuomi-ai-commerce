@@ -41,6 +41,12 @@ func TestMaterialsV1HistoryAndCommittedReceiptAreReadOnlyAfterV2Cutover(t *testi
 	}
 }
 
+func TestMaterialsV2HistoryAndCommittedReceiptAreReadOnlyAfterV3Cutover(t *testing.T) {
+	for _, state := range []string{"pending", "committed", "unknown"} {
+		t.Run(state, func(t *testing.T) { testProductAgentOwners(t, "supply materials default historical-v2-"+state) })
+	}
+}
+
 func TestMaterialsNewAdoptionRechecksOriginalModeConfigurationAndTemplate(t *testing.T) {
 	for _, change := range []string{"mode changed", "disabled", "archived"} {
 		t.Run(change, func(t *testing.T) { testProductAgentOwners(t, "supply materials default "+change) })
@@ -111,6 +117,8 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	defer server.Close()
 	key := uuid.NewString()
 	path := strings.Replace(listingMaterialsBase, ":record_id", base.Record.ID, 1)
+	_, inspectionErr := supply.InspectMaterialsRecord(actor, base.Record.ID)
+	require.NoError(t, inspectionErr, "current native owner must disclose exact facts before prepare")
 	call := func(method, path, key string, body any, want int) []byte {
 		t.Helper()
 		text := ""
@@ -139,7 +147,12 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	require.Equal(t, agent.ExecutionMode(strings.Fields(value)[0]), result.ExecutionMode)
 	require.NotNil(t, result.Proposal)
 	require.NotNil(t, result.After)
-	if strings.Contains(value, "historical-v1-") {
+	require.NotNil(t, result.ImageAdvice, "current inspect output must reach the actual fixed result consumer")
+	require.NoError(t, result.ImageAdvice.Verify())
+	require.Equal(t, base.Record.ID, result.ImageAdvice.Binding.Target.RecordID)
+	require.Equal(t, base.Record.Input.Draft.Product.CategoryID, result.ImageAdvice.Binding.Target.CategoryID)
+	require.Equal(t, collection.Digest(frozen.Request.Binding), collection.Digest(agent.Binding{ContextKind: "listing-target-record", ContextID: result.ImageAdvice.Binding.Target.RecordID, ProductKey: result.ImageAdvice.Binding.ProductKey, CatalogVersion: result.ImageAdvice.Binding.CatalogVersion, PublicationID: result.ImageAdvice.Binding.PublicationID, TargetPlatform: result.ImageAdvice.Binding.TargetPlatform}))
+	if strings.Contains(value, "historical-v1-") || strings.Contains(value, "historical-v2-") {
 		testMaterialsV1ReadOnlyHTTP(t, value, parent, supply, base, actor, calls, owner, frozen, call, path)
 		return
 	}

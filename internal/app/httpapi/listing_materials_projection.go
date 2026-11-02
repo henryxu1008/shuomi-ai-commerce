@@ -11,6 +11,7 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/listing/materials"
 	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/product/asset"
 )
 
 type materialsRunDTO struct {
@@ -30,6 +31,8 @@ type materialsRunDTO struct {
 	Before                   record.TargetInput             `json:"before"`
 	After                    *record.TargetInput            `json:"after,omitempty"`
 	Unresolved               []string                       `json:"unresolved"`
+	ImageAdvice              *asset.ImageAdvice             `json:"imageAdvice,omitempty"`
+	CanResume                bool                           `json:"canResume"`
 	CanRequestAdoption       bool                           `json:"canRequestAdoption"`
 	Adoption                 *record.TargetReceipt          `json:"adoption,omitempty"`
 	Steps                    []productAgentStepDTO          `json:"steps"`
@@ -65,6 +68,11 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 	}
 	out := materialsRunDTO{RunID: s.RunID, RequestKey: s.Request.Key, RecordID: recordID, Phase: s.Phase, Revision: strconv.FormatUint(s.Revision, 10), StopReason: s.StopReason, ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef, ModeSnapshotRef: mode.Ref(), ExecutionMode: mode.Mode, ModeRevision: mode.Revision, TemplateSelection: snapshot.Template, Before: base.Input, Unresolved: append([]string{}, s.Unresolved...), Steps: []productAgentStepDTO{}, Tokens: s.Usage.Tokens, EstimatedCostMicros: s.Usage.CostMicros, Currency: s.Request.Limits.Currency, UsageStatus: "observed"}
 	out.Unresolved = materialsRunDiagnostics(s)
+	out.ImageAdvice, err = recordedImageAdvice(s, true)
+	if err != nil {
+		return materialsRunDTO{}, err
+	}
+	out.CanResume = s.Phase == agent.Interrupted && s.Request.PolicyVersion == materials.PolicyVersion && s.Request.PromptVersion == materials.PromptVersion
 	if s.PendingInvocationID != "" || s.Phase == agent.Running || s.StopReason == agent.StopUsageUnknown || s.StopReason == agent.StopModelUnknown {
 		out.UsageStatus = "unknown_reserved"
 	}

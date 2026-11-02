@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {imageAdviceSchema,adviceHasRecordedStep} from "./image-advice";
 import {executionModeSchema,modeRevisionSchema,modeSnapshotRefSchema,titlePolicyAdoptionSchema,contentPolicyAdoptionSchema} from "./execution-mode";
 import { contentSelectionSchema, sameContentSelection } from "./content-selection";
 import { isAcquisitionUUID } from "./product-acquisition";
@@ -24,6 +25,7 @@ export const ownContentSourceSchema=z.strictObject({itemId:id,productKey:z.strin
 export const agentResumeRequestSchema = z.strictObject({ revision: version, feedback: z.string().refine(v => new TextEncoder().encode(v).length <= 8192) });
 export const agentReviewLinkSchema = z.strictObject({ proposalId: id, requestKey: id, operationId: id });
 const baseAgentResultSchema = z.strictObject({
+	imageAdvice:imageAdviceSchema.optional(),canResume:z.boolean().optional(),
     executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),modeUnavailableReason:z.literal("EXECUTION_MODE_NOT_FROZEN").optional(),policyAdoption:z.union([titlePolicyAdoptionSchema,contentPolicyAdoptionSchema]).optional(),reviewId:id.optional(),
     knowledge:productKnowledgeSchema.optional(),
     templateSelection:templateRefSchema.optional(),
@@ -37,6 +39,8 @@ const baseAgentResultSchema = z.strictObject({
     tokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), estimatedCostMicros: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), currency: z.string().regex(/^[A-Z]{3}$/), usageStatus: z.enum(["observed", "unknown_reserved"]), canSubmitReview: z.boolean(),
 });
 function authorityMatches(v:z.infer<typeof baseAgentResultSchema>) {
+	if(!adviceHasRecordedStep(v.imageAdvice,v.steps))return false;
+	if(v.imageAdvice&&(v.imageAdvice.binding.productKey!==v.productKey||v.imageAdvice.binding.catalogVersion!==v.catalogVersion||v.imageAdvice.binding.publicationId!==v.publicationId||v.imageAdvice.binding.targetPlatform!==v.targetPlatform||v.imageAdvice.evidence.toolId!=="product.image.analyze"))return false;
     if(v.contextKind && (v.targetPlatform!=="product" || v.policyAdoption&&v.policyAdoption.execution.binding.ContextKind!==v.contextKind))return false;
     if (v.modeUnavailableReason ? (v.executionMode || v.modeRevision || v.modeSnapshotRef || v.canSubmitReview || !v.humanReviewRequired) : (!v.executionMode || !v.modeRevision || !v.modeSnapshotRef)) return false;
     if (!v.humanReviewRequired && (!v.policyAdoption || !v.reviewId || v.canSubmitReview)) return false;
@@ -47,6 +51,7 @@ export const agentResultSchema = baseAgentResultSchema.extend({targetPlatform:ag
 .refine(v => !v.canSubmitReview || (v.phase === "human_review_required" && !v.stopReason && v.candidate.Changes?.length === 1 && v.candidate.Changes[0]?.Field === "title"))
 .refine(authorityMatches);
 export const contentAgentResultSchema = baseAgentResultSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,policyAdoption:contentPolicyAdoptionSchema.optional(),skillVersionRef:skillRefSchema.optional()})
+.refine(v=>!v.imageAdvice,{message:"Content Agent does not consume the image facts Tool"})
 .refine(v=>!v.skillVersionRef||v.contentSelection.title&&!v.contentSelection.description&&!v.contentSelection.sellingPoints&&!v.contentSelection.seoKeywords)
 .refine(v=>!v.policyAdoption||sameSkill(v.skillVersionRef?{skillId:v.skillVersionRef.id,version:v.skillVersionRef.version,digest:v.skillVersionRef.digest}:undefined,v.policyAdoption.execution.skillVersionRef?{skillId:v.policyAdoption.execution.skillVersionRef.id,version:v.policyAdoption.execution.skillVersionRef.version,digest:v.policyAdoption.execution.skillVersionRef.digest}:undefined))
 .refine(authorityMatches)

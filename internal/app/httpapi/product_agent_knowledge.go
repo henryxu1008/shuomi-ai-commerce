@@ -122,7 +122,7 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 	if !agent.ValidGoalSummary(goalSummary) {
 		return agent.Request{}, agent.ErrInvalid
 	}
-	request := agent.Request{Key: key, Binding: binding, GoalSummary: goalSummary, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1", Limits: a.config.Limits}
+	request := agent.Request{Key: key, Binding: binding, GoalSummary: goalSummary, PolicyVersion: agentconfig.TitlePolicyVersion, PromptVersion: agentconfig.TitlePromptVersion, Limits: a.config.Limits}
 	request.ManualReviewOnly = len(manualOnly) == 1 && manualOnly[0]
 	content := a.definition.ID == agentconfig.ContentAgentID
 	if method != nil && (!content || !selection.TitleOnly()) {
@@ -151,7 +151,7 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		return agent.Request{}, agentconfig.ErrPrecondition
 	}
 	if baseID != "" && !content {
-		request.PromptVersion = "product-title-agent-knowledge-v1"
+		request.PromptVersion = agentconfig.TitleKnowledgePromptVersion
 	}
 	input := agentconfig.StartCommand{Scope: scope, MemberID: identity.MemberID, ExpectedModeRevision: expectedModeRevision, AgentID: a.definition.ID, AgentVersion: a.definition.Version, KnowledgeBaseID: baseID, Template: template, Request: request}
 	existing, found, readErr := a.store.Lookup(ctx, input.Scope, binding, key)
@@ -159,6 +159,12 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		return agent.Request{}, readErr
 	}
 	if found {
+		// An exact old Start key is a read of its frozen receipt, not a
+		// request to run the new registration. Match still checks the public
+		// selection/member/key; only the retained finite version is restored.
+		if !content && agentconfig.StoredTitleVersion("v1.0.0", existing.State.Request.PolicyVersion, existing.State.Request.PromptVersion) {
+			input.AgentVersion = "v1.0.0"
+		}
 		if method != nil {
 			ref := existing.State.Request.SkillVersionRef
 			if !ref.Valid() || ref.ID != method.SkillID || ref.Version != method.Version || ref.Digest != method.Digest {
@@ -233,7 +239,7 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		}
 		request.ContextSnapshotRef = agent.ContextSnapshotRef{Kind: ref.Kind, ID: ref.ID, Digest: ref.Digest}
 		if !content {
-			request.PromptVersion = "product-title-agent-knowledge-v1"
+			request.PromptVersion = agentconfig.TitleKnowledgePromptVersion
 		}
 	}
 	if a.model == nil {

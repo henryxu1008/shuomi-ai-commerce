@@ -77,8 +77,8 @@ func TestTitleAdapterUsesFrozenProfileAndSharedEinoExecutor(t *testing.T) {
 	ref := agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: fmt.Sprintf("%064x", 1)}
 	binding := agent.Binding{ContextKind: "acquisition", ContextID: "op-1", ProductKey: "product-1", CatalogVersion: "1", PublicationID: "publication-1", TargetPlatform: "shein"}
 	modeRef := agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: fmt.Sprintf("%064x", 2)}
-	snapshot := agentconfig.Snapshot{MemberID: identity.EffectiveMemberID, AgentID: "product.title.agent", AgentVersion: "v1.0.0", ExecutionModelProfile: profile,
-		Request: agent.Request{ModeSnapshotRef: modeRef, Binding: binding, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1",
+	snapshot := agentconfig.Snapshot{MemberID: identity.EffectiveMemberID, AgentID: agentconfig.TitleAgentID, AgentVersion: agentconfig.TitleAgentVersion, ExecutionModelProfile: profile,
+		Request: agent.Request{ModeSnapshotRef: modeRef, Binding: binding, PolicyVersion: agentconfig.TitlePolicyVersion, PromptVersion: agentconfig.TitlePromptVersion,
 			Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 10000, CostMicros: 10000, Currency: "USD", Runtime: time.Minute}}}
 	ledger := &testLedger{}
 	executor := &governed.Executor{Ledger: ledger, Admission: governed.NewBoundedAdmission(),
@@ -93,7 +93,7 @@ func TestTitleAdapterUsesFrozenProfileAndSharedEinoExecutor(t *testing.T) {
 		func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
 	require.NoError(t, err)
 	input := agent.ModelInput{ModeSnapshotRef: modeRef, ConfigurationSnapshotRef: ref, Binding: binding, PolicyVersion: "title-review-v1",
-		PromptVersion: "product-title-agent-v1", AgentRunID: uuid.NewString(), AgentID: "product.title.agent", AgentVersion: "v1.0.0"}
+		PromptVersion: agentconfig.TitlePromptVersion, AgentRunID: uuid.NewString(), AgentID: agentconfig.TitleAgentID, AgentVersion: agentconfig.TitleAgentVersion}
 	t.Run("live execution identity without manufacturing a JWT identity", func(t *testing.T) {
 		bounded, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

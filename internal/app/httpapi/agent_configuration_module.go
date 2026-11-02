@@ -34,8 +34,8 @@ import (
 // productTitleRegistration is the single code-owned registration consumed by
 // both the market catalog and the executable runtime. No database allowlist.
 func productTitleRegistration() (commercetool.AgentDefinition, []commercetool.Definition) {
-	tools := []commercetool.Definition{canonicalinspect.Definition(), sourceevidenceinspect.Definition(), assetinspect.Definition(), readinessinspect.Definition()}
-	d := commercetool.AgentDefinition{ID: "product.title.agent", Version: "v1.0.0"}
+	tools := []commercetool.Definition{canonicalinspect.Definition(), sourceevidenceinspect.Definition(), assetinspect.Definition(), readinessinspect.Definition(), assetinspect.ImageAdviceDefinition()}
+	d := commercetool.AgentDefinition{ID: agentconfig.TitleAgentID, Version: agentconfig.TitleAgentVersion}
 	for _, t := range tools {
 		d.AllowedTools = append(d.AllowedTools, t.Ref)
 	}

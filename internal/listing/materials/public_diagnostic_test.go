@@ -29,17 +29,17 @@ func TestMaterialsDisclosureProvidesScopedPublicNativeDiagnostic(t *testing.T) {
 	require.NotEmpty(t, wire.Computed.OfflineChecks.Checks)
 	require.NotEmpty(t, wire.Computed.OfflineChecks.Blockers)
 	require.NoError(t, contract.ValidateBoundInput(wire.Computed.Input, ""))
-	require.Equal(t, "v2.0.0", InspectToolRef().Version)
+	require.Equal(t, "v3.0.0", InspectToolRef().Version)
 }
 
-func TestMaterialsModelAdmissionAcceptsExactV2Disclosure(t *testing.T) {
+func TestMaterialsModelAdmissionAcceptsExactCurrentDisclosure(t *testing.T) {
 	i := materialInspection(t)
 	d, err := i.Disclose()
 	require.NoError(t, err)
 	raw, err := json.Marshal(d)
 	require.NoError(t, err)
 	projected, err := (ModelAdmission{}).ProjectEvidence(raw)
-	require.NoError(t, err, "the fixed model must consume the actual v2 Tool output before proposing")
+	require.NoError(t, err, "the fixed model must consume the actual current Tool output before proposing")
 	require.JSONEq(t, string(raw), string(projected))
 }
 
