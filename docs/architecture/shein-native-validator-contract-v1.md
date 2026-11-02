@@ -3,8 +3,9 @@
 Execution: [#34](https://github.com/henryxu1008/shuomi-ai-commerce/issues/34)；关联 #134。源码调查基线：`f936702227f871e122d478276868e63a6efcc4fc`。
 
 - Design Basis: **Independent Architecture**，仅新增 native 诊断输入绑定、公共结果投影和材料 Tool 版本合同。
-- Status: **DESIGN_ONLY / CANDIDATE / NOT_IMPLEMENTATION_READY**。
-- 用户只授权整理设计；候选尚未获产品确认或独立架构复核。没有实现、测试、PR、评审派工、合并、部署、关单或真实操作授权。
+- Status: **DESIGN_ONLY / USER_CONFIRMED / ARCHITECTURE_REVIEW_NOT_RUN / NOT_IMPLEMENTATION_READY**。
+- 用户已明确认可设计候选及 D1，并授权推送、创建 design-only Draft PR 与核对准确 HEAD 的 CI；暂不实现、不新增评审派工，不合并、部署、关单或执行真实操作。CI、最终 HEAD 和滚动交付状态维护在 PR，不在本文倒写通过。
+- 认可基线为本地设计提交 `6fa0dade9af60f11a8fc51e3c80e4a396569726c`；本轮仅记录认可状态与 D1，候选技术正文不改变。实际 v1 行为和保留实例均未切换。
 - 原 #34 Must 不减少。本文不是已经交付的新能力，不签发运行、产品或发布许可。
 - 设计资料整理者：当前会话 `01a17b25-eb0a-7123-bf5b-ea5c4b914071`；不接管旧实现线程、不另派 Writer/Reviewer。
 
@@ -200,7 +201,7 @@ DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准
 - Running、未知 provider 结果、历史费用/预留仍归原 owner，不重放、不结算、不释放、不伪装失败；新版本不提供绕过 UNKNOWN 的入口。
 - 不保存/迁移副本，不引入 v1 可执行 runtime/Tool 分支；代码只保留当前业务资产的有界历史读行为，不恢复 retired abstraction。
 
-**待用户确认的版本切换决定 D1**：推荐 v1 已有记录与成功回执可读，但未完成运行/未采用提案不跨版本继续新执行或采用；保留原事实与状态。若用户要求 v1 继续执行/采用，必须先明确安全和生命周期合同，不能在本候选内增加双执行版本或兼容 fallback。本文没有执行任何切换，也没有使当前 v1 失效。
+**用户已确认的版本切换决定 D1**：v1 历史和已提交回执只读保留，未完成运行/未采用提案不跨版本续跑或采用；保留原事实与状态。此保留来自本轮明确用户决定，只涉及当前材料业务记录，不构成旧系统迁移或其他历史业务承接义务。若以后要求 v1 继续执行/采用，须先取得新的明确决定并核定安全和生命周期合同，不能在本候选内增加双执行版本或兼容 fallback。本文没有执行任何切换，也没有使当前 v1 失效。
 
 这不是迁移授权。相关只读函数应将“存储格式校验”与“当前新执行准入”分开；新操作不得复用宽松历史读取作为执行许可。
 
@@ -226,7 +227,7 @@ DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准
 
 获得实现授权后，复用现 contract/diagnostic、goods、materials validation/commit、Tool invoker、Eino domain/repair、材料 HTTP 采用/原键和配置 snapshot 测试。先补失败回归，再最小实现；不为每项造新平台或完整故障矩阵。
 
-必要证明包括：同一准确输入确定性/原 native issues-ready-wire不变；真实汇总及不丢 issue；错误/超限无成功报告；时间变动不假漂移、事实变动必拒绝；base不能替候选；v1历史/原键回执可读且不能跨版本新执行；原模式、权限、commit/CAS/发送守卫不变。新的测试、CI、独立复核和真实验收均尚未执行。
+必要证明包括：同一准确输入确定性/原 native issues-ready-wire不变；真实汇总及不丢 issue；错误/超限无成功报告；时间变动不假漂移、事实变动必拒绝；base不能替候选；v1历史/原键回执可读且不能跨版本新执行；原模式、权限、commit/CAS/发送守卫不变。上述业务实现测试、独立复核和真实验收尚未执行；design-only PR 的既有 CI 结果仅在 PR 按准确 HEAD 记录，不当作新能力验证。
 
 旧 #666、#904、#1049 和 main CI 只按其原SHA/范围引用。#47当前1.0.2共享PG继续 UNKNOWN；不因本候选增加已有PG记录。运行/真实保存恢复/浏览器/模型质量/产品验收 NOT_RUN。
 
@@ -246,15 +247,16 @@ DomainValidator 只接受当前 Tool v2 的 recorded audit、有效 CallID、准
 
 | 项 | 当前状态 |
 | --- | --- |
-| 本文的版本、输入/结果/证据设计 | 候选，待用户确认及独立架构准入 |
-| D1 v1未完成运行/未采用提案的切换策略 | 推荐只读保留、不跨版本新执行；待用户决定 |
+| 本文的版本、输入/结果/证据设计 | 用户已认可候选；独立架构准入未执行 |
+| D1 v1未完成运行/未采用提案的切换策略 | 用户已确认：只读保留、不跨版本续跑或采用；尚未实施切换 |
 | Independent Architecture Review | NOT_RUN；未新增/唤醒Reviewer |
-| 正式业务实现 / tests / CI | NOT_RUN |
-| PR / merge / deployment / closure | 未创建 / 未授权 |
+| 正式业务实现 / 业务回归 / 产品验收 | NOT_RUN |
+| design-only Draft PR / 准确 HEAD CI | 已获推送与提交、核对授权；实际证据维护在 PR |
+| merge / deployment / closure | NOT_AUTHORIZED |
 | #34 / #307 | OPEN |
 | #47 PostgreSQL / #733咨询 | UNKNOWN / NOT_SENT |
 
-用户认可候选及 D1 后，才能另行授权范围内独立架构复核。完成准入达到 IMPLEMENTATION_READY 也不自动授权实现、合并、部署、真实操作或关单。
+用户已认可候选及 D1；范围内独立架构复核仍须另行授权，本轮不新增评审派工。完成准入达到 IMPLEMENTATION_READY 也不自动授权实现、合并、部署、真实操作或关单。
 
 Legacy decision: **EXTRACT**。
 Reusable behavior: 现 goods、validator、Tool Registry/审计、材料证据/模式、历史读取和原 owner 的幂等/guard。
