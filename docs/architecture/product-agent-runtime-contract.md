@@ -22,8 +22,25 @@ Issue/主要 PR 记录当前进度、准确代码版本、检查结果与批准�
 交原 Review/采用路径，不再额外要求独立 Commerce propose Tool。只读事实工具继续原
 Registry/allowlist，模型调用仍真实计量；原字段/权限、实际观察、预算、唯一 dispatch、
 UNKNOWN 和采用门禁不变，不增加调用或放开 metered Tool。旧 C1 独立 Tool 要求由此
-产品决定替代，不写成该工具已实现；C2/C3、完整集合、原质量与产品验收仍保留。
+产品决定替代，不写成该工具已实现；C2/C3 按下方当前阶段范围、完整集合及原质量/产品验收要求判断。
 本文原 `IMPLEMENTATION_READY` 属既有冻结范围，不表示本次归并获新独立评审或新运行授权。
+
+### C2-1 / C3-1 当前阶段范围（2026-11-02）
+
+用户选择 [C2-1 本阶段、C2-2 后续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6575806435)
+和 [C3-1 本阶段、C3-2 后续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6575617237)。
+前者复用现素材选择/摆放，补有依据的图片事实/规则检查及非执行性建议；
+后者沿现平台资料流程读取当前 saved Target 的类目/属性规则，换类目先人工确认并保存新记录。
+C2-2 额外视觉模型、C3-2 独立候选类目查询均为 DEFERRED / NOT_IMPLEMENTED，
+不是本阶段 Must 或 E2 前置，也不是已实现或风险接受；其他未被替代的 Must 保持。
+
+[图片事实/建议设计](product-image-facts-advice.md) 为新增公共 Tool/结果合同的独立候选，
+当前 DESIGNING / NOT_IMPLEMENTATION_READY，不继承本文原 Ready。通用与原生消费者保持合法 Binding，
+不自动把图片 Tool 加给 contentagent 或所有 Agent；不改 Action/Gateway 自由参数、模型预算、
+原状态/CAS/UNKNOWN 恢复机制和正式采用副作用。D2 涉及版本执行资格及旧版 resume/adopt，
+是单列且已获产品认可的合同变化，不能以“无新状态机”视作原恢复合同完全不变；
+新版本与历史效力仍须范围内独立架构复核后冻结，不能先写生产代码。
+新增建议不触发 Prepare/Run/生成/保存/批准；E2 一致组合证明仍缺，本文同步范围不签发完成或产品通过。
 
 ## 1. 用户结果与阶段边界
 
@@ -121,6 +138,11 @@ confidence 必须标出来源/是否已知；不把 reviewproposal.Quality 或�
 结果默认 `HumanReviewRequired=true`，不提供 Agent 可设的 approved/applied/publish-ready。
 校验报告绑定 exact base + candidate hash + rule/policy version；candidate 修改使原校验失效。
 禁止 raw provider body、secret、任意外链、隐藏推理内容进入 trace/UI。
+
+C2-1 候选的 image-advice-v1 是带准确观察依据的只读检查/建议结果，不加入
+ProposedProductPatch/Candidate.Changes 或新增可执行 DomainProposalKind。
+已有原生图片选择/摆放仍用原 materials.Proposal.Images，经原固定 Validator/Target owner 重验；
+通用建议不能交标题 Review 保存。结构化结果/消费者和新版本按独立设计冻结，当前尚未实现。
 
 ## 4. 状态、预算与恢复
 
@@ -243,6 +265,7 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 | --- | --- | --- |
 | 文本模型治理、可观测预算与未知结果防重复 | #130 / AI Capability：当前文本调用有真实 adapter、前置边界、调用结果/用量与不重放证据 | 真实模型接线；不阻塞 #131 fake 合同实现 |
 | C1 文本候选及 proposed patch 校验 | #134 / 现 governed Model Decision → contentagent / Review/proposal：typed Candidate、相同纯规则与准确已观察证据绑定；不额外注册独立 propose Tool | 原补全/repair 与 Review 交接验收；不推定其它最小工具集合完成 |
+| C2-1 图片事实检查/非执行性建议、C3-1 当前资料规则 | #134 / [独立候选](product-image-facts-advice.md)：Asset/Marketplace 原 owner、薄 read/compute Tool 与既有结果页，保留原权限/证据/预算；候选/D2 已产品认可，独立架构复核未执行、设计未准入 | 阻止新增 C2-1 正式编码/收口；C3-1 做原路径映射；C2-2/C3-2 已延期，不作本阶段 Must |
 | Agent 结果进入既有审核 | #132 消费 #36 / review：幂等接收可信内部结果、fresh 授权、校验、原 UoW；未修改部分复用现有测试 | 人工审核闭环；不阻塞只读工具 |
 | 当前调用上下文与运行状态持久化 | #131/#132：真实 operation 绑定、run 唯一性、checkpoint revision、restart/unknown 证据 | HTTP/worker 开放；禁止假 task ID 或伪持久化 |
 | 同样本的 Agent/fixed 对照 | #132 消费 #47：复用已有核心样本，补必要标注与实际测量 | PoC 结论/下一阶段；不是只读工具已合入证据 |

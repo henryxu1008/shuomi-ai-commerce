@@ -20,10 +20,29 @@ propose Tool。此决定仅替代 C1 的独立 Tool 形式要求；旧工具未�
 
 原 frozen ModelCalls/token/cost/deadline 不提高；当冻结 ModelCalls==2 时，先请求
 canonical read，再从已观察事实 propose 或明确缺项后 interrupt。修复次数受原预算限制，不能在 Tool
-内部隐藏额外模型调用。C2 图片分析/动作提案、C3 规则查询和完整集合验收继续保留。
+内部隐藏额外模型调用。C2/C3 按 §1.2 当前阶段范围验收，完整集合要求继续保留。
 
 本次为已批准产品决定的文档归并，不改变运行协议、schema、状态、权限或副作用；
 不据此宣称新实现准入、独立复核、真实模型效果、产品验收或 #134/#128 已完成。
+
+### 1.2 C2-1 / C3-1 的当前阶段范围（2026-11-02）
+
+用户已选择 [C2-1 本阶段、C2-2 后续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6575806435)
+及 [C3-1 本阶段、C3-2 后续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6575617237)。
+C2-1 复用已有素材选择/摆放，补基于实际已有事实与规则的检查、非执行性动作建议；
+生成、准备任务、保存和批准仍走原入口。C3-1 读取当前已保存 Target 的类目/属性规则；
+换类目先人工确认并由原 owner 保存新记录，再读取其实际规则。
+
+C2-2 的额外视觉模型分析、C3-2 的独立候选类目查询为 DEFERRED / NOT_IMPLEMENTED，
+不是本阶段 Must 或 E2 前置；不记为 PASS、已接受风险或永久取消。未知事实不伪造为冲突/通过，
+原权限、准确绑定/观察、预算、确定性重验和保存/发布门禁保持。
+
+[图片事实/建议独立设计](product-image-facts-advice.md) 当前为 DESIGNING / NOT_IMPLEMENTATION_READY：
+复用原 owner/Registry，补纯计算建议、薄适配及既有结果消费者；C2-1 确需代码，C3-1 优先合同/证据对齐。
+该设计的新 Tool/结果/版本候选及 D2 已获产品认可，独立架构复核尚未执行，不授权实现；
+不在旧定义原位加字段/权限，也不提高调用或费用上限。
+C2 的非执行性建议不调用 PrepareImageSet，不将付费生成或模型提案伪装为 unmetered compute。
+本节仅归并已批准范围，不表示该新增设计获架构复核、工程/运行/产品通过或 #134/#128 完成。
 
 本设计决定：在 Product Agent 实现前，先建立一套小而稳定、与 Agent 框架无关的
 Commerce Tool 合同，再通过一个真实的只读纵向切片证明该合同可用。Tool 边界复用
@@ -126,14 +145,14 @@ product、source envelope、asset catalog 或 marketplace rule store。
 ## 4. 任务与实施顺序约束
 
 本节实施顺序记录设计当时的依赖；当前交付状态以 Issue 正文为准，C1 形式要求以
-§1.1 的新产品决定为准，不因历史顺序恢复已被替代的独立文本 propose Tool 前置。
+§1.1–§1.2 的新产品决定为准，不因历史顺序恢复已被替代/延期的 Tool 前置。
 
 #134 不能在第一个变更中被诚实地一次性完成：
 
 - source evidence 依赖仍未完成的 #30 受控 1688 闭环；
 - marketplace readiness 依赖仍未完成的 #34 contract；
 - 文本提案仍依赖 #130 的受治理调用与原计量/UNKNOWN 边界，但按 §1.1 由现
-  GovernedModel Decision 承担；图片分析/提案 Tool 继续其原 owner 与准入要求；
+  GovernedModel Decision 承担；当前图片范围按 §1.2 的 C2-1 与原 owner 准入要求；
 - 目标架构迁移禁止新增生产代码继续导入 `internal/listingkit` 等退休根包。
 
 正确顺序是：
@@ -142,7 +161,7 @@ product、source envelope、asset catalog 或 marketplace rule store。
 2. 实现与框架无关的 #133 contract 和 registry；
 3. 通过目标方向的服务 Port 接入一个真实 canonical product inspection 切片；
 4. 在 #30 和相关 product 所有权迁移后接入 source/facts Tool；
-5. 文本提案沿 #130 与当前消费者合同落实 §1.1；图片分析/提案 Tool 仍须原治理准入；
+5. 文本提案沿 #130 与当前消费者合同落实 §1.1；C2-1 按 §1.2 补纯事实/建议及消费者，保留原准入；
 6. 在 #34 和 marketplace 规则所有权稳定后接入 readiness/rule Tool。
 
 在声明 AI-backed propose Tool 完成前，#134 应补充对 #130 的依赖。本文档不直接修改
@@ -593,8 +612,8 @@ payload 提交。Contract Test 必须证明它只是权威领域值的只读投�
 | source evidence | #30 和中立 sourcing read port | 读取 evidence 和 warning |
 | catalog/asset facts | product catalog/asset 所有权 | 读取 normalized facts |
 | 文本提案（C1） | #130 governed execution、当前 contentagent / Review owner | 按 §1.1 由 GovernedModel Decision 返回 typed Candidate，固定 Validator 重验；不额外注册独立 propose Tool |
-| ProductImage | #130 governed vision/image execution | 只 analyze/propose action |
-| marketplace rules | marketplace-owned rule service | 读取 category/attribute rule |
+| 图片事实/建议（C2-1） | 当前 Product Asset/source reader、原纯校验；原生侧 Marketplace/Target owner | 读取已有事实、计算有证据的检查/非执行性建议；不调用视觉模型/准备/生成/批准，不恢复旧 ProductImage |
+| 当前资料规则（C3-1） | 原 Marketplace/Store rules owner、准确 saved Target/materials consumer | 读取当前资料类目/属性规则；换类目先人工保存新记录；不把 C3-2 独立候选查询列作本阶段 Must |
 | readiness validator | #34 deterministic contract | 计算 blocker/warning |
 
 AI-backed Adapter 返回 proposal、evidence、confidence、unresolved issue 和 review
@@ -772,7 +791,8 @@ OpenFeature Runtime。
 切片 B 证明同一合同能连接真实领域服务，并为 #134 提供部分证据。完整 #134
 还要求 Product Agent 最小集合中声明的 source、facts、proposal、marketplace、validator
 能力分别通过其 Owner/Dependency Gate；其中 C1 proposal 按 §1.1 的当前分工验收，
-不再以额外独立文本 Tool 是否存在作为该项前置。其余未完成要求不因本决定完成。
+不再以额外独立文本 Tool 是否存在作为该项前置；C2/C3 按 §1.2 的选定范围及其独立设计判断。
+C2-1 受控接缝/消费者和 E2 组合证据仍未完成，C2-2/C3-2 延期不记成实现通过。
 
 ### Phase 2A 退出门禁
 
