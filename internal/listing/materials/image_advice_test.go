@@ -50,3 +50,40 @@ func TestImageAdviceDistinguishesUnknownDimensionsFromRealMismatch(t *testing.T)
 		})
 	}
 }
+
+func TestImageAdviceMixedKnownAndUnknownDimensionsRemainPerAsset(t *testing.T) {
+	for _, group := range []string{"skc", "sku", "detail"} {
+		t.Run(group, func(t *testing.T) {
+			i := materialInspection(t)
+			i.Inventory.Assets[0].Width, i.Inventory.Assets[0].Height = 100, 100
+			other := i.Inventory.Assets[0]
+			other.ID, other.SlotID, other.URL = "unknown", "other", "https://example.test/unknown.png"
+			other.Width, other.Height = 0, 0
+			i.Inventory.Assets = append(i.Inventory.Assets, other)
+			slot := goods.OfficialImageSlot{Group: group, AssetID: "unknown", Type: 1, Sort: 1}
+			if group == "skc" {
+				slot.Type, slot.Sort = 2, 2
+			}
+			if group == "detail" {
+				slot.Type = 7
+			}
+			i.Base.Input.Draft.Images = []goods.OfficialImageSlot{{Group: "skc", AssetID: "approved", Type: 1, Sort: 1}, slot}
+			i.Base.InventoryHash = collection.Digest(i.Inventory)
+			value, err := NewInspection(i.Base, i.Product, i.Rules, i.Inventory, time.Now().UTC(), time.Now().UTC())
+			require.NoError(t, err)
+			d, err := value.Disclose()
+			require.NoError(t, err)
+			conflict, unknown := false, false
+			for _, check := range d.ImageAdvice.Checks {
+				if check.Code == "dimensions_conflict" && check.Status == "known_conflict" && len(check.AssetIDs) == 1 && check.AssetIDs[0] == "approved" {
+					conflict = true
+				}
+				if check.Code == "dimensions_unknown" && check.Status == "unknown" && len(check.AssetIDs) == 1 && check.AssetIDs[0] == "unknown" {
+					unknown = true
+				}
+			}
+			require.True(t, conflict, "the known conflict cannot be downgraded by another image")
+			require.True(t, unknown, "the second image remains an unknown fact")
+		})
+	}
+}

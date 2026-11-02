@@ -1,6 +1,7 @@
 package materials
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -50,9 +51,22 @@ func (i Inspection) imageAdvice() (asset.ImageAdvice, error) {
 	// represents an unread inventory with the same empty slice.
 	if i.InventoryReady {
 		native := goods.AssessOfficial(i.Base.Input.Draft, i.Rules, i.Inventory, i.Base.ImageObservations, i.Base.ProofObservations).Native()
-		unknownDimensions := false
+		facts := map[string]asset.ImageAdviceFact{}
 		for _, fact := range a.Facts {
-			unknownDimensions = unknownDimensions || len(selected[fact.AssetID]) > 0 && fact.DimensionsStatus == "unknown"
+			facts[fact.AssetID] = fact
+		}
+		groups := map[string][]goods.OfficialImageSlot{}
+		for _, slot := range i.Base.Input.Draft.Images {
+			path := "image_info"
+			switch slot.Group {
+			case "skc":
+				path = fmt.Sprintf("skc_list.%d.image_info", slot.SKC)
+			case "sku":
+				path = fmt.Sprintf("skc_list.%d.sku_list.%d.image_info", slot.SKC, slot.SKU)
+			case "detail":
+				path = fmt.Sprintf("skc_list.%d.site_detail_image_info_list", slot.SKC)
+			}
+			groups[path] = append(groups[path], slot)
 		}
 		seen := map[string]bool{}
 		for _, issue := range native.Issues {
@@ -62,10 +76,35 @@ func (i Inspection) imageAdvice() (asset.ImageAdvice, error) {
 			code, status, kind := "owner_image_issue", "unknown", "verify_fact"
 			switch issue.Code {
 			case "image_dimensions":
-				code, status = "dimensions_conflict", "known_conflict"
-				if unknownDimensions {
-					code, status = "dimensions_unknown", "unknown"
+				// The owner reports a group path. Project each selected image
+				// independently with its original size rule; another image's
+				// missing fact cannot downgrade an established conflict.
+				if seen["dimensions/"+issue.Field] {
+					continue
 				}
+				seen["dimensions/"+issue.Field] = true
+				for _, slot := range groups[issue.Field] {
+					fact, ok := facts[slot.AssetID]
+					if !ok {
+						continue
+					}
+					code, status, reason := "dimensions_conflict", "known_conflict", "已知真实尺寸不符合所选图片位置规范。"
+					if fact.DimensionsStatus == "unknown" {
+						code, status, reason = "dimensions_unknown", "unknown", "所选图片的真实尺寸尚未核实，请先在原图片入口核对。"
+					} else if goods.OfficialImageSizeAllowed(slot.Group, slot.Type, fact.Width, fact.Height) {
+						continue
+					}
+					rule := fmt.Sprintf("%s/%s/%d/%d/%d/%d", binding.Target.RuleDigest, slot.Group, slot.SKC, slot.SKU, slot.Sort, slot.Type)
+					if seen[code+"/"+rule+"/"+fact.AssetID] {
+						continue
+					}
+					seen[code+"/"+rule+"/"+fact.AssetID] = true
+					a.AddCheck(code, status, []string{fact.AssetID}, rule, reason, "verify_fact")
+					if status == "unknown" {
+						a.Unresolved = append(a.Unresolved, reason)
+					}
+				}
+				continue
 			case "missing_images":
 				code, status, kind = "required_image_missing", "known_conflict", "open_existing_images"
 			case "invalid":
