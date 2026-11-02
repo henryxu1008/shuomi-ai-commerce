@@ -205,7 +205,7 @@ or shared/real account mutations are authorized.
 ### Concrete initialization and permission mapping
 
 The fresh Compose path uses the existing OpenTofu initialization owner in
-`deployments/zitadel/terraform`. It derives all 64 keys from each actual native
+`deployments/docker/account-compose/terraform`. It derives all 64 keys from each actual native
 organization ID, registers them and the fixed administrator role, and emits
 `enterprise-role-slots.json` from the exact Terraform inventory after native
 initialization succeeds. Apply runs with `-parallelism=1` for the native provider's

@@ -1,11 +1,13 @@
+> **历史归档：旧 SDS 联调记录。** 原批准、失败、数字、IAM/Secret边界与恢复/UNKNOWN记录保留；旧命令不构成当前安装、发布、停用、凭据或数据操作授权。完整原件见[固定Git版本](https://github.com/henryxu1008/shuomi-ai-commerce/blob/bfde4b0ee7cd64c599aafbc12d8bb1125f400d46/internal/sds/README.md)。当前入口见[文档首页](../../README.md)。
+
 # 旧 SDS 实现的联调记录
 
 旧 client/login/template/design/workflow/HTTP 及 LocalAgent 适配已按
-[#885](../../docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md)与
-[#972](../../docs/architecture/legacy-localagent-source-policy-closure-retirement-boundary.md)退休。
+[#885](../../architecture/legacy-sds-runtime-closure-retirement-boundary.md)与
+[#972](../../architecture/legacy-localagent-source-policy-closure-retirement-boundary.md)退休。
 当前 SDS/POD 使用 `internal/integration/sds`、`internal/app/pod`、
 `internal/product/pod` 及现有 Submission/Asset owner。
-独立 SHEIN 登录与身份回写另按 [#985](../../docs/architecture/legacy-shein-login-identity-sync-closure-retirement-boundary.md)退休；Store 官方授权与观察同步保留。
+独立 SHEIN 登录与身份回写另按 [#985](../../architecture/legacy-shein-login-identity-sync-closure-retirement-boundary.md)退休；Store 官方授权与观察同步保留。
 
 下方完整保留原始联调事实、接口观察及当时的代码/操作示例。它们属于历史，
 不能作为当前命令或读取、迁移、清理既有 Cookie/Profile/凭据/数据的授权。
@@ -14,7 +16,7 @@
 
 # sds
 
-> #301 / #885：用户确认的[完整旧 SDS 退休边界](../../docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md)已将下述旧 client/login/template/design/workflow/adapter/usecase/HTTP 与专属工具源码退休。本目录只保留 `adapter/product_source` 的现役纯值/readiness合同；当前 SDS/POD 由 `internal/integration/sds`、`internal/app/pod`、`internal/product/pod` 和 Submission/Asset 原 owner 提供。以下 dated 联调样本、登录/恢复操作说明逐字保留为历史，不是当前操作入口，不授权读取/迁移/清理旧 cookie、Redis、Profile 或真实成品。独立 SHEIN 登录与 Store 同步保留。
+> #301 / #885：用户确认的[完整旧 SDS 退休边界](../../architecture/legacy-sds-runtime-closure-retirement-boundary.md)已将下述旧 client/login/template/design/workflow/adapter/usecase/HTTP 与专属工具源码退休。本目录只保留 `adapter/product_source` 的现役纯值/readiness合同；当前 SDS/POD 由 `internal/integration/sds`、`internal/app/pod`、`internal/product/pod` 和 Submission/Asset 原 owner 提供。以下 dated 联调样本、登录/恢复操作说明逐字保留为历史，不是当前操作入口，不授权读取/迁移/清理旧 cookie、Redis、Profile 或真实成品。独立 SHEIN 登录与 Store 同步保留。
 
 `sds` 负责对接 SDS 网站的登录态请求链路，不依赖浏览器自动化。
 

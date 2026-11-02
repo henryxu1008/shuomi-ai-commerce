@@ -102,3 +102,10 @@
 | [listingkit-shein-enrollment-source-sds-troubleshooting.md](development/listingkit-shein-enrollment-source-sds-troubleshooting.md) | 旧页面/Task/SDS fallback的实际排查样例归档；保留401/空结果/504观察，不恢复跨租户fallback |
 | [source-account-ownership-preflight.md](operations/source-account-ownership-preflight.md) | Greenfield取消且#529退休的A/B1预检；真实junction/失败/支持平台结果保留，现有Greenfield检查只改读取路径 |
 | [store-service-history-hardcut.md](operations/store-service-history-hardcut.md) | #552退休的Store历史迁移与约束/backfill说明归档；保留原安全/UNKNOWN/授权停止点，不执行旧数据操作 |
+
+<a id="deployment-and-integration-history"></a>
+
+## 历史部署与旧集成联调
+
+- [旧ListingKit Kubernetes部署/发布/恢复记录](deployments/listingkit-workbench-k3s.md)：原IAM/Secret边界、drain/rollback与durable staging约束完整保留；当前保留清单见[部署入口](../../deployments/kubernetes/listingkit-workbench/README.md)，不执行历史命令。
+- [旧SDS联调记录](integrations/sds-original-trial.md)：2026-04-23等真实接口观察、失败与恢复样本保留；旧client/login/adapter已退休，当前POD/SDS沿[现有集成](../../internal/integration/sds)、[POD应用](../../internal/app/pod)及原Product/Asset/Submission owner。

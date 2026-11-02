@@ -57,7 +57,7 @@ kind and produce an explicit unavailable projection, while project metadata stay
 | Project, Template, relationship intent, visits, receipts | `internal/aiworkbench/projectcenter` |
 | PostgreSQL implementation | `internal/integration/persistence/aiworkbench/projectcenter` |
 | Feature-local HTTP descriptors and bounded JSON | `internal/aiworkbench/projectcenter/httpapi` |
-| Fresh authorization and narrow reference adapters | `internal/app/httpapi/current_project_center.go` |
+| Fresh authorization and narrow reference adapters | `internal/app/httpapi/project_center.go` |
 | Configuration/pool lifecycle/initializer | existing `currentapplication` / current-schema-init |
 | BFF, contracts, page and components | existing `web/listingkit-ui` workbench conventions |
 
