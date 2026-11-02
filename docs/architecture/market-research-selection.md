@@ -1,13 +1,13 @@
-# 市场研究与选品：最小领域合同候选
+# 市场研究与选品：最小领域合同
 
-Design Basis: **Independent Architecture**。状态：**DRAFT / NOT_READY**。
-执行 [#1071](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1071)，父目标 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)。本轮只交付能力核查、合同与 UI 候选，不修改正式业务代码或 schema。独立评审、产品确认和正式实施准入在 Issue / PR 中分别记录，本文不是运行或用户验收结果。
+Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY**。
+依据 [#1071](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1071)，实施 [#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 与 [#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 的本合同最小切片，父目标 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)。用户于2026-11-02明确批准本版设计、服务端 Amazon 先贯通、浏览器桥后接，并授权隔离实施；不合并、不部署，真实平台和付费调用仍未授权。独立 R1 及对应增量复核无剩余 Architecture BLOCKER，产品确认已满足，允许按冻结合同实施。实际完成、CI、真实运行与用户验收分别记录于同一主要 PR #1075，本文不代签。
 
 ## 1. 用户结果与产品边界
 
 当前企业成员从项目中心建立或打开自己的「产品研究」项目，选择 Amazon 站点及关键词、类目或 ASIN，经现有数据市场明确确认采集范围和最大用量，关联已保存证据，筛选 2–5 个候选，按需发起现有选品对比，记录人工决定，再通过原商品流程转入「我的供应链 → 待适配」。仅查看证据和人工决策不要求模型可用。
 
-本候选建议首批以现有服务端匿名 Amazon 通道贯通；真实可用站点和可得字段必须实际验证，不能预先宣称。Browser [#31](https://github.com/henryxu1008/openbrowser-platform/issues/31) 沿相同证据消费合同接入；其设备配对、单任务授权和采集执行仍须自己的设计准入。本选择不取消父 Epic 的浏览器交付，也不把它伪装为已经接入的备选通道。
+首批按用户决定以现有服务端匿名 Amazon 通道贯通；真实可用站点和可得字段必须实际验证，不能预先宣称。Browser [#31](https://github.com/henryxu1008/openbrowser-platform/issues/31) 沿相同证据消费合同接入；其设备配对、单任务授权和采集执行仍须自己的设计准入。本选择不取消父 Epic 的浏览器交付，也不把它伪装为已经接入的备选通道。
 
 ### Must
 
@@ -63,7 +63,7 @@ Accepted Risks：本轮未新增风险接受决定。公开页面可能无数据
 2. `research_opportunities`：scope、projectID、候选 UUID、站点/ASIN 的归组身份、准确关联集合、当前人工选定 evidence ref、正 revision、决定及用户理由；可存原 Agent run locator，不复制输出。站点/ASIN 从可信来源派生，客户端无权指定事实身份。
 3. `research_commands`：scope + UUID key、operation、规范 payload hash、原结果 ID/revision 的不可变回执；同时保存本 owner 的决定意图、理由、决定时间、当时 evidence refs/digest、关联 run locator 和提交 revision。与关系/决定同事务写入，构成最小决定历史，不存来源正文或模型输出。读取历史仍逐项授权来源与 run，失效内容遮蔽。
 
-这不是 schema 实施授权；当前 PR 不创建表。未来 installer 按当前显式安装约定实施并验证最小权限，serving 不 DDL，不给研究角色其他 owner 表的任意读写权。Project DB 保持原逻辑隔离，不搬进 Product DB，不建立跨库外键或事务。
+用户已授权本冻结设计的隔离实现与新空测试安装；不授权变更保留实例或业务数据库。installer 按当前显式安装约定实施并验证最小权限，serving 不 DDL，不给研究角色其他 owner 表的任意读写权。Project DB 保持原逻辑隔离，不搬进 Product DB，不建立跨库外键或事务。
 
 ProjectReader 通过当前项目 Service 读取：项目必须属于相同 org + actor，新增关联/决定还要求项目 active 且类型为 PRODUCT_RESEARCH；归档后只读历史。修改项目类型不删除研究关系，变回研究类型后可继续，研究内容不作为 Project 元数据事实。项目中心无需扩展 PRODUCT 引用种类：研究关系从自己的 projectID 索引投影，项目中心仅增加明确的研究入口。
 
@@ -144,17 +144,17 @@ Project/source 的授权和身份读取在关系事务前完成；事务内只�
 
 真实 Cookie、代理密钥和 Profile 不上传；遇挑战停止，不能自动登录、换代理、解 CAPTCHA 或开放公网 CDP。已有 Store 绑定仅在研究确实消费该受管环境时适用，不强制为匿名研究创建店铺。
 
-## 8. Product / Figma 增量候选
+## 8. Product / Figma 已批准增量
 
 当前已只读核对文件 `tg48P46SSXl6TBy9lZwg63` 的非归档页 `31:463`：数据市场深色 `430:323` / 浅色 `430:525`、项目详情 `568:365`、项目中心当前总览 `9634:1265` / `9634:1585`，以及 MyAgents `4703:429`。现有项目详情含历史示例进度，不能直接复制成真实研究进展。
 
-候选仅在 PRODUCT_RESEARCH 项目详情增加「研究选品」业务区域；项目中心/数据服务/我的智能体的原导航归属不变。数据市场负责取得资料，研究区域负责关联、证据、候选与决定，原我的数据负责转入。
+批准增量仅在 PRODUCT_RESEARCH 项目详情增加「研究选品」业务区域；项目中心/数据服务/我的智能体的原导航归属不变。数据市场负责取得资料，研究区域负责关联、证据、候选与决定，原我的数据负责转入。
 
 内容顺序：项目目标 → 选择研究资料（打开原数据市场 / 关联已保存资料）→ 证据与缺项 → 选中 2–5 项事实对比及显式 AI 操作 → 人工决定 → 前往原批次转入。动作各自确认，不以查看页面隐式执行采集/模型/转入；空状态也能继续正常原流程。价格、数量、时间等示例只用于设计排版并显著标记，不能成为产品默认数据。
 
-明暗主题复用现有 SUMI semantic variables、Noto Sans SC 和 Console 组件；390px 使用顺序卡片，证据/缺项/操作仍完整。已创建可编辑、明确标记未批准的候选：[深色桌面 11981:919](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-919)、[浅色桌面 11981:1006](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-1006)、[深色手机 11981:962](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-962)、[浅色手机 11981:1049](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-1049)。原已批准 frame 不变。产品确认前，不将候选写为 Product Authority 的批准增量；原批次弹窗子集选择也须按 §5.3 随实施前设计补齐。
+明暗主题复用现有 SUMI semantic variables、Noto Sans SC 和 Console 组件；390px 使用顺序卡片，证据/缺项/操作仍完整。用户已确认下列可编辑设计；节点名称中的候选字样保留设计阶段追溯，不再代表准入未满足：[深色桌面 11981:919](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-919)、[浅色桌面 11981:1006](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-1006)、[深色手机 11981:962](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-962)、[浅色手机 11981:1049](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-1049)。原已批准 frame 不变。产品确认已记录于 Product Authority；原批次弹窗子集选择按下列同版设计和 §5.3 实施。
 
-原弹窗的子集转入候选同样已提供：[深色桌面 11984:966](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-966)、[浅色桌面 11984:1005](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-1005)、[深色手机 11984:985](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-985)、[浅色手机 11984:1024](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-1024)。仅补原操作的明确子集确认，不建立研究专属转入页或结果事实。
+原弹窗的子集转入设计同样已批准：[深色桌面 11984:966](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-966)、[浅色桌面 11984:1005](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-1005)、[深色手机 11984:985](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-985)、[浅色手机 11984:1024](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-1024)。仅补原操作的明确子集确认，不建立研究专属转入页或结果事实。
 
 ## 9. Contract → implementation → injection → consumer
 
@@ -171,7 +171,7 @@ Project/source 的授权和身份读取在关系事务前完成；事务内只�
 
 ## 10. 实施顺序、验证与交付
 
-本设计 PR 只包含本文、必要索引与 Figma 候选引用。独立 R1 围绕新事实、授权、幂等和 owner 边界；正常评审最多两轮，后续非 Blocker finding 按 IMPLEMENTATION_TEST/BACKLOG 收敛，不要求理论场景清零。产品增量与源通道选择未批准、必要设计缺失时保持 NOT_READY。
+同一主要 PR 连续交付本设计与已授权实施。独立 R1 围绕新事实、授权、幂等和 owner 边界；正常评审最多两轮，后续非 Blocker finding 按 IMPLEMENTATION_TEST/BACKLOG 收敛，不要求理论场景清零。产品增量、首批源通道和独立评审均已满足，当前冻结合同为 IMPLEMENTATION_READY。
 
 准入后，一个 Writer、一个主要实现 PR 连续完成 #1072 的研究关联/候选、#1073 最小人工决定与现有比较/转入消费。Browser #31 在其仓库按自己的合同实施；无需为每个模块拆 PR。#1073 的真正市场证据 AI 分析、权重及其他尚未覆盖验收仍留在其 Issue，不因最小路径交付关闭它或父 Epic。
 
