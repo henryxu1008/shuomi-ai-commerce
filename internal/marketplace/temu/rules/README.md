@@ -1,7 +1,7 @@
 # TEMU official specification facts
 
 This is the pure TEMU rule owner admitted by
-[the frozen #31 design](../../../../docs/architecture/temu-platform-v1.md).
+[the frozen #31 design](../../../../docs/architecture/temu-platform.md).
 It has no HTTP, credentials, database, workflow or mutable authority.
 
 `NewOfficialCatalog` loads the checked-in official E23, E24 and E30 snapshots.

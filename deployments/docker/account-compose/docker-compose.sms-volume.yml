@@ -1,5 +1,5 @@
 # Alternative to docker-compose.sms.yml for Docker Desktop private-file modes.
-# Prepare this project-specific external volume using SMS.md before starting.
+# Prepare this project-specific external volume using sms.md before starting.
 services:
   current-application:
     environment:

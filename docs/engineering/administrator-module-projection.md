@@ -4,7 +4,7 @@ Design Basis: N/A。修复既有只读元数据投影，不改变权限词汇、
 
 使用者：企业成员与管理员。场景：在“我的账户 → 企业空间 → 成员与权限 → 角色权限”查看管理员模块，在成员列表与详情查看同一角色定义。结果：只有固定 administrator 策略完整覆盖的可用模块显示“已包含”；其余显示“未包含”，未开放模块继续显示“尚未开放”。自定义角色保留原添加、移除和保存流程。
 
-依据：[Enterprise custom roles v1](../architecture/enterprise-custom-roles-v1.md)、[当前 UI / IA](../product/final-ui-ia-authority.md)，沿用 Figma 文件 `tg48P46SSXl6TBy9lZwg63` 的角色权限 `1536:473`、成员列表 `1532:359`、成员详情 `1541:386`，不新增页面或调整布局。
+依据：[Enterprise custom roles v1](../architecture/enterprise-custom-roles.md)、[当前 UI / IA](../product/final-ui-ia-authority.md)，沿用 Figma 文件 `tg48P46SSXl6TBy9lZwg63` 的角色权限 `1536:473`、成员列表 `1532:359`、成员详情 `1541:386`，不新增页面或调整布局。
 
 根因：`Roles()` 把整个 available catalog 当成系统管理员权限，`project()` 却返回空模块，均未读取固定策略。authz 保持固定 Casbin 策略及模块映射 owner，Membership 仅复用统一系统角色定义。投影只用于元数据；业务请求与成员实际权限继续使用已注入的共享 / scoped authorizer。查看者自定义角色、配置的 protected subject 与平台角色不参与固定系统角色的计算。权限集合为空的模块不能作为完整覆盖。
 

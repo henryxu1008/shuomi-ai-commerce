@@ -2,7 +2,7 @@
 
 This read-only projection was introduced by Issue #340 and consumed by the task
 center in #328. Issue #36 updates its current Store attribution contract to v2;
-the bounded design is in `docs/architecture/issue-36-completed-work-store-scope.md`.
+the bounded design is in `docs/architecture/completed-work-store-scope.md`.
 It is not a BusinessTask, AgentRun or generic producer registry.
 
 ## Source and meaning

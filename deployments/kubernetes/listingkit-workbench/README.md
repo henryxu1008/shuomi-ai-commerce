@@ -1,6 +1,6 @@
 # ListingKit Kubernetes 保留清单与历史操作
 
-本目录保留 UI、imgproxy、命名空间与静态发布门禁源码；它不是当前应用的通用部署入口。**Production: NOT_READY**。当前程序启动与配置见 [Account Compose](../../docker/account-compose/README.md)、[模块说明](../../docker/account-compose/MODULES.md)和[镜像构建](../../../docs/operations/listingkit-image-build.md)；已有实例仍按其明确交付与授权维护。
+本目录保留 UI、imgproxy、命名空间与静态发布门禁源码；它不是当前应用的通用部署入口。**Production: NOT_READY**。当前程序启动与配置见 [Account Compose](../../docker/account-compose/README.md)、[模块说明](../../docker/account-compose/modules.md)和[镜像构建](../../../docs/operations/application-image-build.md)；已有实例仍按其明确交付与授权维护。
 
 ## 保留的源码与边界
 
@@ -8,7 +8,7 @@
 - [UI声明](base/listingkit-ui-deployment.yaml)继续消费现有 Service API、Auth.js/ZITADEL 与当前企业身份；旧 API/Task/SDS BFF 不由本目录恢复。
 - [imgproxy说明](imgproxy.md)、[声明](base/imgproxy-deployment.yaml)及[配置](base/configmap.yaml)保留原签名、S3读取、来源allowlist与映射。
 - [release-authority](release-authority/kustomization.yaml)保留当前静态canary及固定拒绝门禁，不构成活跃发布者或部署授权。旧 API workload、发布/迁移Job、API/UI角色绑定、专属OIDC helper和SHEIN登录worker已按各自确认边界退出。
-- [当前SHEIN退休入口](../../../docs/operations/README.md)和[Store观察合同](../../../docs/architecture/store-center-platform-observations-v1.md)说明各自有效owner；不能把源码退休扩大为停用实际资源或取消恢复责任。
+- [当前SHEIN退休入口](../../../docs/operations/README.md)和[Store观察合同](../../../docs/architecture/store-center-platform-observations.md)说明各自有效owner；不能把源码退休扩大为停用实际资源或取消恢复责任。
 
 原[API发布入口](../../../.github/workflows/listingkit-deploy.yml)和[UI发布入口](../../../.github/workflows/listingkit-ui-deploy.yml)现均固定拒绝执行并退出。它们保留为旧发布/回滚的拒绝门禁，Production NOT_READY；不能用于部署当前程序。
 

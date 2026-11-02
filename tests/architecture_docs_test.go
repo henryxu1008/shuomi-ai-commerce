@@ -10,7 +10,7 @@ import (
 )
 
 func TestPluginCaptureSessionReturnDocumentKeepsNavigationOnlyOwner(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "plugin-capture-session-return-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "plugin-capture-session-return.md"), []string{
 		"Independent Architecture", "IMPLEMENTATION_READY", "chrome.storage.session", "TRUSTED_CONTEXTS",
 		"ReturnSession", "pending | bound", "returnState: none | available |", "application's publication authority",
 		"No payload/title/images/prices", "No storage read error or", "before awaiting",
@@ -29,18 +29,18 @@ func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollo
 }
 
 func TestSheinImportDocumentBindsExistingOwnersAndExplicitConfirmation(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "completion-shein-import-v1.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "completion-shein-import.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
 }
 
 func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry.md"), []string{
 		"Reuse Existing Architecture", "BatchSelectionInput.ItemIDs", "expectedRevision", "先于确认资料",
 		"不自动执行Save", "UNKNOWN", "retained-source", "原owner安装合同", "不引入新的能力开关",
 	})
 }
 
 func TestOwnProductExistingDraftsDocumentKeepsBoundedReadAndNavigationAuthority(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts.md"), []string{
 		"Independent Architecture", "ListForCollectionItem", "org/actor/member", "2MiB", "keyset",
 		"不建反向映射或第二事实源", "不新增每行IAM", "导航按钮不能授权", "不是“自动过期/不可用”",
 		"原sourceID", "不接受完整return URL", "只列已明确保存", "UNKNOWN", "不代签用户/生产验收",
@@ -351,7 +351,7 @@ func TestArchitectureReadmeCoversEveryArchitectureDocument(t *testing.T) {
 }
 
 func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-overview-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-overview.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "Service.Choice", "submit_selected",
 		"MemberID 属于当前", "不跨 owner 直接读", "2000", "并发最多4", "总请求10s",
 		"不返回局部计数或假0", "scope 必须完全一致", "无 mutation intent",
@@ -359,7 +359,7 @@ func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *
 }
 
 func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOriginalIntentRecovery(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product.md"), []string{
 		"Independent Architecture", "IMPLEMENTATION_READY / FROZEN", "SupplyMarket", "submit_selected",
 		"useResourcePending", "navigator.locks", "1 MiB", "journal 在整批处理期间不可变",
 		"每件仍提交一个 submit_selected", "每件 Repository.Execute 仍在自己的同库事务",
@@ -412,7 +412,7 @@ func TestAppAssemblyBoundaryDocumentDefinesStableAssemblyVocabulary(t *testing.T
 }
 
 func TestCommercialWalletBillingContractLocksCanonicalOwners(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "unified-base-prepaid-resources-v1.md")
+	path := filepath.Join("..", "docs", "architecture", "unified-base-prepaid-resources.md")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
@@ -448,7 +448,7 @@ func TestCommercialWalletBillingContractLocksCanonicalOwners(t *testing.T) {
 }
 
 func TestCurrentStoreDesignPreservesGreenfieldOwnersAndUnopenedServices(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-current-application-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-application.md"), []string{
 		"IMPLEMENTATION_READY", "全新系统产品基线", "storeCenter.quotaDatabase", "commercialOwnerDatabase", "AuthPolicyCurrentIdentity", "LiveWrite", "record_status", "pending_activation", "store_center_runtime", "store_quota_runtime", "Activate/Renew/Reactivate", "EXTRACT", "RETIRE",
 	})
 }
@@ -459,7 +459,7 @@ func TestDataServicesDesignPreservesOriginalScopeFundsAndDelivery(t *testing.T) 
 		"本轮不新增本地企业业务停用功能", "nil status port", "deadline checks",
 		"No schema, durable fact owner", "always-allow adapter", "actor-private",
 	})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "data-services-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "data-services.md"), []string{
 		"IMPLEMENTATION_READY", "PD-DATA-SERVICES-2026-10-09",
 		"成功保存一条消费一个 DATA_ROW，5 分/条", "创建者和企业", "撤权/离职后失效",
 		"不注入伪造的全站", "Resource DB 保持独立", "failed_fenced", "UNKNOWN",
@@ -469,13 +469,13 @@ func TestDataServicesDesignPreservesOriginalScopeFundsAndDelivery(t *testing.T) 
 }
 
 func TestCockpitDesignPreservesManualFactsAndCurrentStoreOwner(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "operations-cockpit-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "operations-cockpit.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "人工", "创建人", "operations_cockpit", "同一DB transaction", "UNKNOWN", "不能按天", "JS安全", "NOT_RUN",
 	})
 }
 
 func TestStoreObservationDesignPreservesReadOnlyPlatformAndScopedFacts(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-platform-observations-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-platform-observations.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "PD-STORE-CENTER-READONLY-COMMERCE-2026-10-09",
 		"internal/storecenter/observations", "只读句柄仅暴露 Products/Orders/OrderDetails/Track",
 		"父命令回执", "比较checkpoint revision", "terminal状态和head原子提交", "单调generation",
@@ -484,7 +484,7 @@ func TestStoreObservationDesignPreservesReadOnlyPlatformAndScopedFacts(t *testin
 }
 
 func TestStoreCenterFigmaDesignPreservesCurrentOwnersAndUserThresholds(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-figma-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-figma.md"), []string{
 		"IMPLEMENTATION_READY", "tg48P46SSXl6TBy9lZwg63", "没有默认阈值", "负责人只保存 canonical active member ID",
 		"quantity <= threshold", "返回冻结结果", "runtime只读 schema/权限preflight", "不创建新 database",
 		"基础目录不受 observations 500 店上限裁剪", "平台观察 generation", "NOT_RUN",
@@ -492,7 +492,7 @@ func TestStoreCenterFigmaDesignPreservesCurrentOwnersAndUserThresholds(t *testin
 }
 
 func TestSupplyMarketDesignPreservesDisclosureAndOriginalExecutionOwners(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market.md"), []string{
 		"IMPLEMENTATION_READY", "Independent Architecture", "硕米平台账号",
 		"同 Product UoW", "verified global platform authorizer",
 		"SendPermit", "UNKNOWN", "productsourcing.NewMarketReceiver",
@@ -501,7 +501,7 @@ func TestSupplyMarketDesignPreservesDisclosureAndOriginalExecutionOwners(t *test
 }
 
 func TestEcoservicesDesignPreservesOriginalFundsAndPrivateDomainOwners(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "ecosystem-services-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "ecosystem-services.md"), []string{
 		"IMPLEMENTATION_READY", "internal/ecoservices", "internal/commercial/billing", "money",
 		"SERVICE_PURCHASE", "NON_COMMISSIONABLE", "CUSTOMER_ACCEPTED", "AR1", "UNKNOWN",
 		"CurrentIdentityWithVerifiedRoles", "LiveWrite", "全新", "原订单", "私有",

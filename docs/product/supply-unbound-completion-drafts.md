@@ -2,7 +2,7 @@
 
 Product Decision: PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12
 
-当前增量：2026-10-15 用户批准 [结构化候选](completion-draft-structured-v1.md)，允许未绑定草稿独立保存候选属性和现有SKU价格/库存；仍非平台资料/来源事实。恢复范围仍限文字，原二字段阶段保留为历史基线。
+当前增量：2026-10-15 用户批准 [结构化候选](completion-draft-structured.md)，允许未绑定草稿独立保存候选属性和现有SKU价格/库存；仍非平台资料/来源事实。恢复范围仍限文字，原二字段阶段保留为历史基线。
 
 ## 用户决定与本轮结果
 

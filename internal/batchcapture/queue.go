@@ -4,7 +4,7 @@
 // It owns exactly one durable fact: "what did I intend to do, and how far did I
 // get". It is deliberately NOT a second source of truth for publication results —
 // those stay in the server-side acquisition operation (see the design doc
-// docs/architecture/1688-batch-local-agent.md, sections
+// docs/architecture/1688-batch-import.md, sections
 // D2 and D2.2).
 //
 // Two safety properties are load-bearing and are enforced here rather than left

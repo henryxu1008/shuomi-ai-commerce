@@ -24,7 +24,7 @@ const zitadelSMSWebhookMaxBodyBytes int64 = 64 * 1024
 // template: at most six ASCII digits, no letters/symbols, and matching expiry.
 // Letter-bearing codes fail with TemplateParameterFormatError even if approved.
 // The relay must preserve the original code; changing it breaks verification.
-// Deployment checks: deployments/docker/account-compose/SMS.md.
+// Deployment checks: deployments/docker/account-compose/sms.md.
 func (h zitadelSMSHandler) Deliver(c *gin.Context) {
 	body, ok := readZitadelSMSWebhookBody(c)
 	if !ok {

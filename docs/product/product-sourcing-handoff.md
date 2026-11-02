@@ -27,4 +27,4 @@ New-system idempotency, authorization, immutable versions and explicit approval 
 
 Lookup and recovery bind the original actor, Organization and key. A hidden or missing operation is not evidence that no submission happened. Keep UNKNOWN with its original owner; never create a new key to guess at recovery.
 
-Normal configuration and user operations are documented in [operations](../operations/README.md#products), the [capture extension](../../extensions/product-capture/README.md) and [batch import contract](../architecture/1688-batch-local-agent.md). Current execution scope, real-source availability and acceptance evidence belong to the current Issue / PR, not a static status snapshot.
+Normal configuration and user operations are documented in [operations](../operations/README.md#products), the [capture extension](../../extensions/product-capture/README.md) and [batch import contract](../architecture/1688-batch-import.md). Current execution scope, real-source availability and acceptance evidence belong to the current Issue / PR, not a static status snapshot.

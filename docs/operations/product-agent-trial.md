@@ -60,7 +60,7 @@ DASHSCOPE 的 `deepseek-v4.1-flash` 使用同一个受控 Eino OpenAI-compatible
 供应商对思考默认值及计费的说明见 [官方 DeepSeek API](https://help.aliyun.com/zh/model-studio/deepseek-api)。
 这些字段只说明源码配置合同；真实 endpoint/地域/密钥权限、价格、准入、预算及付费调用仍需原运行清单和单独授权。
 
-Google 标题路由按 [#588 组合增量 §6.7](../architecture/ai-workbench-chat-business-task-v1.md#67-google-interactions-composition-increment) 配置同一 `RoutePolicy`：
+Google 标题路由按 [#588 组合增量 §6.7](../architecture/ai-workbench-chat-business-task.md#67-google-interactions-composition-increment) 配置同一 `RoutePolicy`：
 `Profile.ProviderID=google`、`AdapterKind=google-interactions`、`ModelID=gemini-3.8-flash`、
 `AdapterPolicyVersion=google-interactions-v1`、`UsageMappingVersion=google-interactions-usage-v1`。
 凭据输入的 `apiStyle` 为 `google-interactions`，`baseURL` 必须精确为
@@ -109,7 +109,7 @@ Console 的现有 `LISTINGKIT_SERVICE_API_BASE` 设为上述当前 application �
 
 可选企业知识（#559）复用同一 manifest 中当前 Knowledge owner 的已有配置与专用池；
 Console 设置 `LISTINGKIT_KNOWLEDGE_ENABLED=true` 仅显示选择入口，不授予读取或执行权限。
-新空环境按 [Knowledge 启动说明](../../deployments/docker/account-compose/KNOWLEDGE.md)
+新空环境按 [Knowledge 启动说明](../../deployments/docker/account-compose/knowledge.md)
 准备完整当前 schema；已有 #557 保留实例继续使用匹配镜像，不能就地重建或追加 schema。
 已打开标题诊断的用户在确认框主动勾选知识、查看每份实际可读版本后确认生成。
 完整内容超限或不可读时明确拒绝，本次不启动；不自动截断或换库。

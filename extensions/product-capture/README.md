@@ -6,7 +6,7 @@ and local unpublished drafts plus ephemeral transport; it cannot publish a Produ
 
 ## Durable drafts (execution #989)
 
-Current recovery authority: [durable draft design](../../docs/architecture/plugin-capture-durable-drafts-v1.md).
+Current recovery authority: [durable draft design](../../docs/architecture/plugin-capture-durable-drafts.md).
 The service worker uses `idb` / IndexedDB as the single durable owner. A single
 capture is committed before handoff; every Amazon family observation is committed
 before the progress count advances. The popup lists retained local drafts and
@@ -37,7 +37,7 @@ are superseded by #989's design and current recovery implementation.
 ## Direct entry and return to the original application
 
 [Execution #955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955) adds
-the reviewed [optional Amazon family scope](../../docs/architecture/plugin-capture-amazon-variants-v1.md).
+the reviewed [optional Amazon family scope](../../docs/architecture/plugin-capture-amazon-variants.md).
 On an Amazon detail page, **同时采集其他颜色／尺寸（本次按钮）** is off by default.
 Choose it before the source-page capture button, or inside the existing new-operation
 confirmation. It applies only to that action; idle shortcut/popup capture remains selected-only.
@@ -59,7 +59,7 @@ an unresolved check remains paused. The extension does not handle verification, 
 raise collection limits, or change the existing one-time handoff/save. Keep the progress page open.
 
 [Execution #924](https://github.com/qq550723504/shuomi-ai-commerce/issues/924) adds
-the reviewed [source-page primary entry](../../docs/architecture/plugin-capture-page-entry-v1.md).
+the reviewed [source-page primary entry](../../docs/architecture/plugin-capture-page-entry.md).
 Supported Amazon/1688 detail pages show **硕米 · 商品采集** with **采集并在应用确认**.
 Loading the page only mounts this control and reads limited status; extraction
 starts on a real user click. The isolated content script uses the existing exact
@@ -78,7 +78,7 @@ refresh; the original application remains the save/result authority. Shortcut an
 popup are secondary entries into the same Controller/Handoff.
 
 [Execution #920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920) follows
-the reviewed [entry design](../../docs/architecture/plugin-capture-entry-flow-v1.md).
+the reviewed [entry design](../../docs/architecture/plugin-capture-entry-flow.md).
 On the current supported product page, the named browser shortcut (suggested
 `Alt+Shift+P`) captures and immediately opens the fixed application confirmation
 page. The popup's **采集并在应用确认** button runs that same operation. Saving still
@@ -97,7 +97,7 @@ tab is reported honestly, without opening a replacement. **开始新的采集** 
 refused while capture, delivery or return is in flight. Keep an original possibly
 submitted operation's page/key; a transport failure is not proof of a failed save.
 
-The reviewed [#927 session-return increment](../../docs/architecture/plugin-capture-session-return-v1.md)
+The reviewed [#927 session-return increment](../../docs/architecture/plugin-capture-session-return.md)
 retains only one original-tab location in native `chrome.storage.session`, using
 the additional `storage` permission. A worker recreated within the same browser
 session can return through the source button, shortcut or popup even after its
@@ -116,7 +116,7 @@ replacement, local/sync storage or backend recovery service is introduced.
 
 These source changes do not update an existing installed extension or runtime.
 
-Field/quote increment: [execution #916](https://github.com/qq550723504/shuomi-ai-commerce/issues/916), based on the reviewed [source quote read design](../../docs/architecture/plugin-capture-source-quotes-v1.md) and existing [ingestion design](../../docs/architecture/plugin-capture-ingestion-v1.md). The original image relationship increment is #906.
+Field/quote increment: [execution #916](https://github.com/qq550723504/shuomi-ai-commerce/issues/916), based on the reviewed [source quote read design](../../docs/architecture/plugin-capture-source-quotes.md) and existing [ingestion design](../../docs/architecture/plugin-capture-ingestion.md). The original image relationship increment is #906.
 New 1688 captures use the exact `captureVersion=2 / schemaVersion=2 / browser_acquisition/v2 / src2b-browser-capture-v2 / 1688-browser-dom/v3` combination. Each variant carries its own `images: [{url, role}]`. Only an explicit image on the SKU entry or its exact property value (`skuProps[].value[].imageUrl`) establishes that relationship. A product album never supplies a guessed SKU image. Other DOM structures remain unsupported in this increment.
 
 The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's exact US/CA/UK/DE/JP product URLs and sends them only to the compiled sibling `/capture/amazon` at the same application origin; there is no second shell or runtime destination. Amazon's strict source/observation contract and receiver/save backend originated in [execution #905](https://github.com/qq550723504/shuomi-ai-commerce/issues/905). Amazon observes the selected dimensions, rendered product overview/detail attributes, availability text and current product gallery. Only the main image is explicitly linked to the selected variant; gallery images remain at product level. Default capture does not traverse; the explicit family option above adds bounded mapped-child reads without claiming a complete family, inferring inventory quantities or guessing currency from a site. Both source validators run before document-bound handoff.
@@ -125,7 +125,7 @@ The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's e
 
 The listing-material increment also reads Amazon's explicit `colorImages.initial` metadata using static Acorn/JSON parsing. Only a group bound to the observed MAIN image can upgrade exact visible thumbnail URLs using `hiRes`, then the original `large`; URLs are never manufactured. Conflicts or unsupported metadata preserve known images with a missing-fact reason. The main/thumbnail duplicate is merged, and gallery/detail images never become implicit variant images. Current-product technical parameters, safe A+ paragraphs and product-description images reuse the existing attributes/description/images fields.
 
-1688 supplements the known context attributes with two-cell parameter rows and images inside the already-loaded description container. Original packaging/shipping `unitWeight` values retain their decimal text; an absent unit is labelled explicitly rather than assumed or converted. Supplier services, videos, hidden galleries, external description fetches and other SKU families remain outside this increment. See [listing-material design](../../docs/architecture/plugin-capture-listing-materials-v1.md).
+1688 supplements the known context attributes with two-cell parameter rows and images inside the already-loaded description container. Original packaging/shipping `unitWeight` values retain their decimal text; an absent unit is labelled explicitly rather than assumed or converted. Supplier services, videos, hidden galleries, external description fetches and other SKU families remain outside this increment. See [listing-material design](../../docs/architecture/plugin-capture-listing-materials.md).
 
 The existing 1688 receiver is `/capture/1688`. After explicit confirmation under the current user and organization, the original save chain returns an operation receipt. Open **我的数据 → the saved batch → 商品详情 → 规格图片** to expand each source variant; **下载原始资料** keeps the exact version and nested image relationships. Images are source URL candidates, with the existing asset approval requirements.
 

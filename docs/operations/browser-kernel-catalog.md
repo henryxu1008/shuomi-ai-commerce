@@ -1,6 +1,6 @@
 # 浏览器内核目录源码交接
 
-Issue #1013。设计与精确 HTTP DTO 见 [发行目录 V1](../architecture/browser-kernel-release-catalog-v1.md)。普通用户使用桌面版本选择器；#1056 在 Web 工作台补充平台维护页面，后端继续提供同一发行 API。源码交付或构建成功不表示已更新任何现有实例或完成真实发行。
+Issue #1013。设计与精确 HTTP DTO 见 [发行目录 V1](../architecture/browser-kernel-release-catalog.md)。普通用户使用桌面版本选择器；#1056 在 Web 工作台补充平台维护页面，后端继续提供同一发行 API。源码交付或构建成功不表示已更新任何现有实例或完成真实发行。
 
 ## 工作台维护入口
 

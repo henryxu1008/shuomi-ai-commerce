@@ -1,7 +1,7 @@
 # 企业存储容量 V1 试用入口与启动条件
 
-设计依据：[企业存储容量 V1](../architecture/enterprise-storage-capacity-v1.md)。
-容量启用要求首次计量 namespace 为空；保留业务库的本地35444启用须满足用户2026-10-15决定及 [本地 MinIO 身份准入](../architecture/minio-capacity-admission-v1.md)。不迁移、回填或清理旧文件。
+设计依据：[企业存储容量 V1](../architecture/enterprise-storage-capacity.md)。
+容量启用要求首次计量 namespace 为空；保留业务库的本地35444启用须满足用户2026-10-15决定及 [本地 MinIO 身份准入](../architecture/minio-capacity-admission.md)。不迁移、回填或清理旧文件。
 
 ## 保留实例、容量关闭时的必要 schema 补齐
 

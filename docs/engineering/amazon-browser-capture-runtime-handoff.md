@@ -4,7 +4,7 @@ Refs #905、父设计 #902；设计依据为 PR #903 的 `plugin-capture-ingesti
 
 ## 入口与准备
 
-沿现有 [current-application 启动方法](../operations/current-application-run1.md)准备独立新测试环境的私密 manifest、ZITADEL 和受限 Product pool。正常启动命令：
+沿现有 [current-application 启动方法](../operations/isolated-application-acceptance.md)准备独立新测试环境的私密 manifest、ZITADEL 和受限 Product pool。正常启动命令：
 
 ```powershell
 go run ./cmd/current-application -config C:\private\current-application.json

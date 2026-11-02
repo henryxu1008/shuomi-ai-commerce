@@ -33,7 +33,7 @@ the original runtime CandidateHash binds each proposal. No extra Tool/model
 call or larger budget. Agent/policy/prompt v2 admit new execution only. Under
 the user-approved D1, finite exact v1 histories and committed receipts remain
 read-only; pending v1 proposals/runs cannot resume or newly adopt. See
-`docs/architecture/shein-native-validator-contract-v1.md` for the approved scope.
+`docs/architecture/shein-native-validator-contract.md` for the approved scope.
 
 Implementation/CI/review evidence is maintained in PR #1064. Runtime, real
 save/recovery, browser and product acceptance remain NOT_RUN.

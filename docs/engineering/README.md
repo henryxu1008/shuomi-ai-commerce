@@ -9,19 +9,19 @@
 ## 执行规则
 
 - [Issue 驱动派工](issue-driven-development.md)
-- [代码健康规则](code-health-decisions.md)
+- [代码健康规则](code-health-rules.md)
 
 <a id="identity"></a>
 
 ## 身份与成员
 
-- [企业空间操作记录 v1](account-audit-v1.md)
+- [企业空间操作记录 v1](account-audit.md)
 - [Account read-only contract (#346 → #348)](account-readonly-contract.md)
 - [系统管理员模块展示修复](administrator-module-projection.md)
-- [Current application: personal referrals server slice](current-application-referrals.md)
-- [ACC-1 account profile and shared presentation](issue409-account-profile.md)
-- [ACC-2 membership implementation contract](issue410-membership-contract.md)
-- [ACC-3: resources and optional SourceAccount management](issue411-account-resources.md)
+- [Current application: personal referrals server slice](referrals-runtime.md)
+- [ACC-1 account profile and shared presentation](account-profile.md)
+- [ACC-2 membership implementation contract](account-membership-contract.md)
+- [ACC-3: resources and optional SourceAccount management](account-resources.md)
 - [Personal referral registration: Slice A](referral-registration.md)
 - [店铺浏览器后端与固定角色展示组合](store-browser-permission-combination.md)
 - [官方 ZITADEL 适配与受保护成员管理边界](zitadel-official-provider-boundary.md)
@@ -34,7 +34,7 @@
 - [Shein 只读诊断 BFF 与隔离联调](shein-diagnostic-bff-fixture.md)
 - [SHEIN 资料诊断页面与受控浏览器验收](shein-diagnostic-ui.md)
 - [任务中心：本地资料准备工作记录](shein-records-ui.md)
-- [SRC-2B1 public 1688 acquisition](src2b-public-acquisition.md)
+- [SRC-2B1 public 1688 acquisition](1688-public-acquisition.md)
 - [Store Center 商品与订单只读首版接线](store-observations-integration-handoff.md)
 - [供应市场 v1 正常程序接线](supply-market-runtime-handoff.md)
 

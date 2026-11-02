@@ -3,7 +3,7 @@
 - Product Decision: `PD-DATA-SERVICES-NATIVE-IAM-2026-10-10`.
 - Design Basis: **Independent Architecture**, limited to the discovered native
   authorization composition blocker. Other boundaries reuse the frozen
-  [Data Services v1 design](data-services-v1.md).
+  [Data Services v1 design](data-services.md).
 - Admission: **IMPLEMENTATION_READY**. Independent R1 reviewed design SHA
   `0956ad2ff54ef07caae086876bc75ea8741771c8` before production auth changes.
 - Design baseline: `7e0a5e31a65490dd36784d9a1990f447f9b536a7`.

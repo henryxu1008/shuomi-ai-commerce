@@ -6,13 +6,13 @@ paths and commands. Keep the original project name when operating an existing
 environment; changing it selects different Compose resources. See the
 [branding and repository rename inventory](../../../docs/development/repository-structure.md).
 
-For local image updates, use the [source-based image build entry](../../../docs/operations/listingkit-image-build.md).
+For local image updates, use the [source-based image build entry](../../../docs/operations/application-image-build.md).
 It builds the backend/UI from the selected Git commit and clean runtime bases;
 do not inherit a previous application release image. Building does not deploy or
 change this environment, its configuration, or its data.
 
 Optional ZITADEL/Tencent SMS delivery configuration and the remaining local
-provider connection prerequisite are documented in [SMS.md](SMS.md).
+provider connection prerequisite are documented in [sms.md](sms.md).
 
 ## Local Login HTTP header budget (#539)
 
@@ -35,9 +35,9 @@ pwsh -NoProfile -File scripts/tests/account-compose-login-header-test.ps1
 ```
 
 The opt-in Data Market / API Management profile and admitted native authorization
-are documented in [DATA_SERVICES.md](DATA_SERVICES.md). The unified new-empty
+are documented in [data-services.md](data-services.md). The unified new-empty
 program combining the completed native modules is documented in
-[MODULES.md](MODULES.md), including exact-origin plugin packaging, retained
+[modules.md](modules.md), including exact-origin plugin packaging, retained
 restart commands and the remaining external configuration requirements.
 
 ## Enterprise custom roles and members (#598)
@@ -116,7 +116,7 @@ If a creation or settings response is lost, reopen in the same browser tab and
 confirm/retry the retained original request. Do not clear that tab's storage while
 the result is unconfirmed. A version conflict requires reading current facts and
 confirming the draft again. Real SHEIN operations and user acceptance are separate
-from local development checks. See the [admitted design](../../../docs/architecture/store-center-figma-v1.md).
+from local development checks. See the [admitted design](../../../docs/architecture/store-center-figma.md).
 
 The current entries are `/workbench/account`, `/workbench/plans/options`,
 `/workbench/plans/entitlements`, `/workbench/plans/usage`, and `/workbench/stores`.

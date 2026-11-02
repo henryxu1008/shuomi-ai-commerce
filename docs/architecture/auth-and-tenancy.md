@@ -1,6 +1,6 @@
 # Authentication and Organization Scope
 
-This is the current identity, effective Organization and authorization contract. Product login behavior follows the [official ZITADEL Login / Auth.js decision](../product/login-phase1-official-zitadel.md); domain placement follows [Project Boundaries](project-boundaries.md).
+This is the current identity, effective Organization and authorization contract. Product login behavior follows the [official ZITADEL Login / Auth.js decision](../product/official-zitadel-login.md); domain placement follows [Project Boundaries](project-boundaries.md).
 
 ## Owners and call path
 
@@ -37,8 +37,8 @@ Fresh authorization before an external effect is not an atomic transaction with 
 ## Current consumer contracts
 
 - [Account read contract](../engineering/account-readonly-contract.md)
-- [Membership contract](../engineering/issue410-membership-contract.md)
+- [Membership contract](../engineering/account-membership-contract.md)
 - [Official provider boundary](../engineering/zitadel-official-provider-boundary.md)
-- [Enterprise role management](enterprise-custom-roles-v1.md)
+- [Enterprise role management](enterprise-custom-roles.md)
 
 Current source tests cover scope isolation, forged target/header rejection, live-write freshness, organization-switch cache invalidation and original-owner permission checks. Documentation is not evidence that a particular retained instance or real provider has been exercised.

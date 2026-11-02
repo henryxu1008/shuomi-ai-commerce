@@ -1,10 +1,10 @@
 # 运营驾驶舱首版交接
 
-执行 Issue #627、主要 PR #629；设计依据为 [operations-cockpit-v1](../architecture/operations-cockpit-v1.md)，`IMPLEMENTATION_READY / FROZEN`。用户已确认人工录入收入、退款与成本，系统计算利润；创建人或当前目标管理者维护目标；建议使用规则依据并由人处理。用户已将驾驶舱共享接线指派本线程，并授权通知 #625 接线线程协调写入；本批保持一个 Writer、一个主要 PR。
+执行 Issue #627、主要 PR #629；设计依据为 [operations-cockpit-v1](../architecture/operations-cockpit.md)，`IMPLEMENTATION_READY / FROZEN`。用户已确认人工录入收入、退款与成本，系统计算利润；创建人或当前目标管理者维护目标；建议使用规则依据并由人处理。用户已将驾驶舱共享接线指派本线程，并授权通知 #625 接线线程协调写入；本批保持一个 Writer、一个主要 PR。
 
 ## 正常启动
 
-本功能要求当前 Store Center 及其专用 PostgreSQL 数据库、既有商业资源 owner、正常 ZITADEL 身份与企业上下文。按 [Store Center 架构](../architecture/store-center-current-application-v1.md) 和 [RUN-1](../operations/current-application-run1.md) 准备私密 owner/serving manifest；在 serving manifest 的现有 `storeCenter` 内增加 `"operationsCockpit": true`，并保留 `"enabled": true` 与原专用数据库配置。默认关闭；关闭时也禁止运行角色拥有本功能额外数据库权限。
+本功能要求当前 Store Center 及其专用 PostgreSQL 数据库、既有商业资源 owner、正常 ZITADEL 身份与企业上下文。按 [Store Center 架构](../architecture/store-center-application.md) 和 [RUN-1](../operations/isolated-application-acceptance.md) 准备私密 owner/serving manifest；在 serving manifest 的现有 `storeCenter` 内增加 `"operationsCockpit": true`，并保留 `"enabled": true` 与原专用数据库配置。默认关闭；关闭时也禁止运行角色拥有本功能额外数据库权限。
 
 仅在获准的新空 Store 实例上，通过既有 schema-owner 入口安装。以下绝对配置路径为示意，须替换为已准备的私密配置文件；serving manifest 使用 `store_center_runtime`，不能使用 owner 凭据。
 

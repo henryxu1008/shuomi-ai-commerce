@@ -1,6 +1,6 @@
 # Knowledge execution context and Product Agent consumer (#558 / #559)
 
-Design Basis: Reuse Existing Architecture, [approved contract](../architecture/agent-knowledge-context-v1.md) / [#558](https://github.com/qq550723504/task-processor/issues/558).
+Design Basis: Reuse Existing Architecture, [approved contract](../architecture/agent-knowledge-context.md) / [#558](https://github.com/qq550723504/task-processor/issues/558).
 
 The Knowledge owner supplies immutable execution context, exact revision citations
 and a local dispatch fence. #559 connects these existing ports to Product Agent,
@@ -81,7 +81,7 @@ digest, command identity/fingerprint and entries are immutable to `knowledge_run
 permit UPDATE is limited to its state, excluding invocation binding and lease.
 Serving construction verifies all tables/grants and performs no DDL.
 
-Use the existing [Knowledge startup instructions](../../deployments/docker/account-compose/KNOWLEDGE.md)
+Use the existing [Knowledge startup instructions](../../deployments/docker/account-compose/knowledge.md)
 with a new empty Compose project. Schema-init installs the complete current schema.
 An older initialized Slice A project is not upgraded in place; its serving
 constructor will reject missing Slice B tables. Keep retained trial volumes and

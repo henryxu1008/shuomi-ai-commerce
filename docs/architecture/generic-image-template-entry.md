@@ -10,7 +10,7 @@ Figma `tg48P46SSXl6TBy9lZwg63`，深色 `7622:2079/2109/2128`、浅色 `7622:214
 
 ## 复用依据与 owner
 
-引用 [完整图片](product-image-agent-v1.md)、[视觉 brief](product-image-agent-v1.md)、[准确技能商品入口](official-skill-product-entry.md) 和现有 agentconfig / `image-config-v1` 合同。
+引用 [完整图片](product-image-agent.md)、[视觉 brief](product-image-agent.md)、[准确技能商品入口](official-skill-product-entry.md) 和现有 agentconfig / `image-config-v1` 合同。
 
 - 通用方案只是现有 `imageTemplateInputSchema` 的三份初始值，各一项标准任务：商品主图 `product_identity`、场景 `usage_scene`、详情 `key_benefits`。均不含商品名、型号、固定规格或来源 URL；背景/中文说明不增加事实或任务。
 - 管理员在 ImageAgentPage 选择“从此方案新建”，再沿原保存/幂等/回执入口创建企业模板。选择方案和只读导航不写数据；不自动安装、不设置或清除默认、不覆盖任何模板。

@@ -1,6 +1,6 @@
 # Image Agent Workflow
 
-图片执行复用当前 ImageAgent 与 Temporal。完整用户能力见[商品图片智能体](product-image-agent-v1.md)，操作入口见[图片使用说明](../operations/product-image-agent-v1.md)。本页定义运行职责，不维护阶段交付路线图。
+图片执行复用当前 ImageAgent 与 Temporal。完整用户能力见[商品图片智能体](product-image-agent.md)，操作入口见[图片使用说明](../operations/product-image-agent.md)。本页定义运行职责，不维护阶段交付路线图。
 
 ## Owner 与运行路径
 
