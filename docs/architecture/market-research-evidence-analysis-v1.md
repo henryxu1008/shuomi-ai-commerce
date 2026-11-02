@@ -28,7 +28,7 @@ Threat Model 沿首批冻结合同：跨org/actor访问、项目或来源撤权�
 | 商品与原观察 | Catalog/Collection/dataacquisition/SRC；仍由原 provenance reader核实，研究角色无它们的直接SQL权限 |
 | 候选关系、选定观察、人工状态及历史 | product/research；新增有界 `InspectSelection` / `AuthorizeAnalysisHistory` 读能力，不写模型状态 |
 | 分析输入投影/引用校验/建议校验 | `internal/product/research/analysis`，无业务持久化；消费当前research和既有selection Inspector的合格事实 |
-| 模型run/原输入观察/建议/历史/恢复 | 原agent及持久化owner；增加本consumer的受限按context回执列表，不新建结果副本或“已分析”布尔值 |
+| 模型run/原输入观察/建议/历史/恢复 | 原agent及配置/持久化owner；复用原Recent历史发现并限定context/project，不新建列表owner、结果副本或“已分析”布尔值 |
 | 准入、模型路由、预算/预留/结算 | 原agentconfig/aicapability/Resource；只增加明确operation/definition登记，不借旧配置自动启用 |
 | 转入 | 原Collection/Preparation，原非空子集、版本核对及原键恢复不变 |
 
@@ -53,6 +53,8 @@ Legacy decision：N/A；无迁移、旧ID映射、compatibility adapter、fallba
 每个factID绑定contract版本、候选、准确EvidenceDigest、字段路径与完整规范值hash。摘要、缺项和候选顺序均确定化后计算InspectionDigest。prepare确认的是同一份有界披露；start、tool和每次新model dispatch重新核实当前引用与完整digest，任何变化停止，要求新的明确准备，不能沿原付费key补新证据。
 
 不新增context快照表或报告副本。prepare仅在原配置快照保存Request/Binding/digest；run中的原inspect Observation保存完整有界披露。首次工具读取必须与prepare digest完全相同；原持久化Observation只能按原key恢复，不重新hydrate、抓取或以当前资料替换。
+
+32KiB披露上限不替代原配置快照的 **8192-byte 完整payload** 上限。新consumer沿原Prepare对实际完整Snapshot编码执行此门禁：Request/两组固定槽、goal、冻结profile、mode及scope/config身份和元数据全部计入。只保存digest及精确身份，不把32KiB披露塞进Snapshot；不截断身份、不扩大共享schema门槛。超限在原owner局部事务的持久化提交及模型/预留前拒绝，prepare有关写入随原事务回滚。2/5项、长合法身份、512-byte goal、边界profile和原键重放必须实际验证；未跑不宣称最大合法输入已通过。
 
 ## 4. 样本汇总与建议输出
 
@@ -88,9 +90,13 @@ HTTP/BFF沿verified identity及fresh组织成员权限。inspect需原collection
 
 不新增schema、状态机、跨库事务或research角色权限。Project/Research/Product在读边界核实，唯一新写入是原AgentConfig prepare快照及原run/observations/proposal；这些仍在原各自事务/Claim/CAS中完成。研究候选和人工决定不与模型完成双写，无需跨库补偿。
 
-prepare响应丢失可通过原配置owner的精确准备回执读取恢复：scope+definition/version+context kind/projectID+request key定位原Snapshot，核对当前member和项目读权限，仅返回原配置ref、原绑定与确认用量，不执行模型。客户端必须与持久化pending意图的项目/候选/goal/模式身份逐项匹配。POST prepare先查原key：相同规范payload返回原回执，异payload冲突；已有快照不因当前来源/config改变而被当作不存在。新start仍完整检查当前资料和配置；回执不可披露时保留可能已存在状态，不换key。所需窄读取落在原config Snapshot owner，无第二准备表。
+prepare响应丢失通过原配置owner新增的精确按key读取恢复：scope+definition/version+context kind/projectID+request key定位并验证原持久化Snapshot，核对当前member和项目读权限。原Binding含受保护的商品/来源身份，披露前必须逐项执行下文历史授权；不要求当前人工revision等于旧revision。来源失效时仅返回不含原来源身份的“可能已存在”状态，不假装不存在。可披露时只返回原配置ref、原绑定与确认用量，不执行模型；客户端与持久化pending原意图逐项匹配。
 
-分析历史只存原run owner。新增原RunStore的有界 `ListContextReceipts(scope, researchKind, projectID, cursor, limit=10)`：利用当前unique index前缀按request_key稳定分页，只取request_key/run_id/phase/revision等回执头，不读完整payload或返回证据；不声称按时间最新、总数或分析成功。项目当前授权在查询前后核实。打开一个结果才沿原LookupContext读取有界payload和frozen配置、验证member及全部来源，再返回受保护的正文。原请求键和run存储仍为唯一事实；不把历史发现交给浏览器本地缓存或research第二张指针表。
+POST prepare先查原key，以原持久化Snapshot核对原始规范意图：原definition/member/project、候选/选定link/证据及Collection身份、goal、期望模式身份。不能重新resolve当前profile或重新hydrate当前Binding来重建原fingerprint；该fingerprint中的server profile/digest以原Snapshot为准。相同原意图返回可授权的原回执，异意图冲突；当前profile/config/来源变化不能让原回执被当不存在，不能借新key“恢复”。新的start仍完整检查当前资料和配置。原owner现有原子Snapshot/唯一键继续承接，没有第二准备表。
+
+分析历史只存原run owner，发现复用原 `agentconfig.Store.Recent(size=10)` 的Snapshot→run读取、member预过滤、授权、身份验证及created_at/id分页。在同一owner为本consumer增加固定context kind/projectID过滤，必须同时应用于主SQL及anchor查询，并在分页前生效；不给浏览器选择其他owner或context。原实现会读取有界Snapshot并Lookup/解码原run payload，**不宣称内部header-only**，不新增并行列表owner或指针表。只对外返回当前获准的有界metadata，不返回证据或建议；raw phase不是分析成功判定，也不提供项目总量。
+
+项目当前授权在历史查询前后核实，原Recent的authorize回调采用下文历史语义，当前member仍由原Snapshot核实。打开一个结果继续沿原LookupContext核实frozen配置/member及全部来源，再返回受保护正文。列表过滤/隐藏/缺项不能证明原run不存在；原key Lookup和operationMayExist恢复路径独立保留，不从列表推导换key或重新执行。
 
 新执行与历史读取要区分：新执行必须匹配当前CandidateRevision/SelectedLink/EvidenceDigest/InspectionDigest；人工决定导致revision变化后，历史仍可在当前授权下读取原结果。历史不要求当前候选revision等于旧revision，不重新计算当前摘要冒充原输入；原link须仍属于同一候选且未解除、原来源仍可读。换选观察但保留旧link时可读旧分析，并标注历史依据；解除/撤权/来源不可读时整份受保护的跨候选摘要和建议不可展示，不从副本或其余候选补回。
 
@@ -114,10 +120,16 @@ prepare响应丢失可通过原配置owner的精确准备回执读取恢复：sc
 
 正式实施获准后，同一Writer/主要PR连续交付：两个中心原页面/只读研究投影 → 确定性选样与汇总 → 新AI消费者精确登记及有界披露 → 原治理运行和历史读取 → UI显式确认与原决定/转入消费。普通页面如完全复用现有边界按轻量Reuse路径，不为每页另审或拆PR。
 
-必要RED→GREEN复用现有设施：binding错配/同键异载荷；2–5精确选样、伪造/撤权/归档/跨成员；32KiB字节准入及同根因长字段；缺价/混币种/口径未知；prepare→dispatch来源/config变化；未inspect先propose与假引用；两调用/token/cost gates；并发Claim/响应丢失/usage UNKNOWN不重派；人工决定后可读原历史、换观察不刷新旧run、解除/撤权不泄露；有界回执列表无payload；无模型仍可人工操作；准确子集转入既有证据复用。新增operation/definition各个实际登记与消费者要成对验证，不以guard扫描本身代业务证据。
+必要RED→GREEN复用现有设施：binding错配/同键异载荷；2–5精确选样、伪造/撤权/归档/跨成员；32KiB披露及8192-byte完整Snapshot字节准入/原键重放；缺价/混币种/口径未知；prepare已保存后profile/来源变化仍原键核实且不泄露；prepare→dispatch来源/config变化；未inspect先propose与假引用；两调用/token/cost gates；并发Claim/响应丢失/usage UNKNOWN不重派；人工决定后可读原历史、换观察不刷新旧run、解除/撤权不泄露；Recent旧member与跨项目anchor拒绝、仅对外metadata、列表缺项不改变原键恢复；无模型仍可人工操作；准确子集转入既有证据复用。新增operation/definition各个实际登记与消费者要成对验证，不以guard扫描本身代业务证据。
 
 执行当前改动风险直接相关的开发自检和既有必需CI；不开发验收runner或专项故障平台。最终交付复核完整用户路径及真实diff，修复仅复核对应增量。真实平台/模型/付费、部署、合并、Issue关闭和产品验收保持独立授权；没有真实执行保留NOT_RUN。
 
 ### Architecture Review 记录
 
-R1 待提交原独立Reviewer。产品方向已确认；本文件尚未达到 IMPLEMENTATION_READY，不能开新增生产业务路径。适用原独立评审完成后再冻结，不以本文件作者自检代签。
+原独立Reviewer R1绑定 HEAD `5985f9e2a59026098dd6cc83246dfc7944a001e6` / 设计blob `1af1b114ae7c5fb47cf88d9611e02e7de76d9624`。结论：无Architecture BLOCKER；以下三项归 **IMPLEMENTATION_TEST**，最小澄清已统一写入正文，待增量确认后冻结，不重复全局架构评审：
+
+1. 原prepare key恢复必须不依赖当前profile，披露原Binding前做全部来源历史授权；受影响Must为撤权不披露、丢响应可恢复且不重复付费。实施验证保存后profile/来源变化、原意图重放与operationMayExist。
+2. 历史发现复用原Recent/member及原run owner，主查询和anchor均先限当前project/context；受影响Must为本人/当前成员隔离、无第二事实、未知结果不重派。实际内部读取有界payload，仅对外返回metadata。
+3. 完整Snapshot仍受原8192-byte门禁；受影响Must为合法2–5精确输入保存及超限先于模型/预留拒绝。实施验证长合法身份/goal/profile、边界与原键重放，不扩共享限制或裁掉身份。
+
+以上属于当前Must的必要实现测试，未满足时仍阻止相应切片合并；不是新产品要求、风险接受或验收平台授权。当前尚未签发新增生产路径的实施准入，正式代码授权、真实平台/模型/付费及产品验收仍各自未发生。
