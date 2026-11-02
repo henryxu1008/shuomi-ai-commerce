@@ -68,7 +68,7 @@ func inspector(t *testing.T) (*Invoker, *reader, *fresh, *audit) {
 	base := record.TargetRecord{ID: "record", TargetID: "target", Revision: 1, EffectiveVersion: 1, ProductHash: collection.Digest(product.Snapshot), RulesHash: collection.Digest(rules), InventoryHash: collection.Digest(inventory), Merchant: storecenter.ProductMerchantBinding{OrganizationID: "org", StoreID: "store", Site: "shein-us"}, Input: record.TargetInput{SourceID: "source", StoreID: "store", EffectiveVersion: 1}}
 	base.Source.ID = "source"
 	base.Source.Source = collection.Source{ProductKey: "product", PublicationID: "publication", Version: 1}
-	i, err := materials.NewInspection(base, product, rules, inventory)
+	i, err := materials.NewInspection(base, product, rules, inventory, time.Now().UTC(), time.Now().UTC())
 	require.NoError(t, err, "%v", errors.Unwrap(err))
 	r, f, a := &reader{value: i}, &fresh{organization: "org"}, &audit{}
 	invoker, err := NewInvoker(r, f, AgentDefinition(), commercetool.InvocationDependencies{Authorizer: authorize{}, Recorder: a, Tracer: otel.Tracer("materials-test"), Now: time.Now, AuditTimeout: time.Second})

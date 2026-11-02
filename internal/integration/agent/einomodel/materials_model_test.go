@@ -15,6 +15,12 @@ import (
 	"task-processor/internal/commercetool"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/listing/materials"
+	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/marketplace/shein/goods"
+	"task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
+	"task-processor/internal/product/collection"
+	"task-processor/internal/storecenter"
 )
 
 type materialsTextFixture struct {
@@ -76,7 +82,17 @@ func TestMaterialsModelRejectsWrongConsumerAndRetainsWholeEvidence(t *testing.T)
 	in.AgentID = agentconfig.ContentAgentID
 	_, err := m.Quote(ctx, in)
 	require.Error(t, err)
-	raw, err := json.Marshal(materials.Disclosure{EvidenceID: "listing-evidence:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Binding: in.Binding, Revision: 1, StoreID: "store"})
+	product := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: "org", ProductKey: "product"}, Version: 1, PublicationID: "publication", Snapshot: catalog.ProductSnapshot{Title: "Fixture product"}}
+	rules := goods.OfficialRuleSnapshot{}
+	inventory := asset.ApprovedAssetInventory{Scope: asset.InventoryScope{TenantID: "org", ProductKey: "product", TargetPlatform: "shein", SourceSnapshotVersion: 1}}
+	base := record.TargetRecord{ID: "record", TargetID: "target", Revision: 1, EffectiveVersion: 1, ProductHash: collection.Digest(product.Snapshot), RulesHash: collection.Digest(rules), InventoryHash: collection.Digest(inventory), Merchant: storecenter.ProductMerchantBinding{OrganizationID: "org", StoreID: "store", Site: "shein-us"}, Input: record.TargetInput{SourceID: "source", StoreID: "store", EffectiveVersion: 1}}
+	base.Source.ID = "source"
+	base.Source.Source = collection.Source{ProductKey: "product", PublicationID: "publication", Version: 1}
+	i, err := materials.NewInspection(base, product, rules, inventory, time.Now().UTC(), time.Now().UTC())
+	require.NoError(t, err)
+	d, err := i.Disclose()
+	require.NoError(t, err)
+	raw, err := json.Marshal(d)
 	require.NoError(t, err)
 	projected, err := (materials.ModelAdmission{}).ProjectEvidence(raw)
 	require.NoError(t, err)

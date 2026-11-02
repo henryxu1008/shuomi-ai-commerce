@@ -160,6 +160,6 @@ func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Sc
 	if err != nil {
 		return preparedPlatform{}, err
 	}
-	result := goods.BuildOfficial(input.Draft, rules, inventory, observations, proofs)
+	result := goods.AssessOfficial(input.Draft, rules, inventory, observations, proofs).Native()
 	return preparedPlatform{merchant: merchant, rulesHash: collection.Digest(rules), shein: result, sheinRules: rules, images: observations, proofs: proofs}, nil
 }

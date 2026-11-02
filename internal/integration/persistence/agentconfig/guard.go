@@ -71,6 +71,9 @@ func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64
 			result = existing
 			return nil
 		}
+		if snap.AgentID == agentconfig.MaterialsAgentID && !validMaterialsTextConfiguration(snap.AgentID, snap.AgentVersion, snap.KnowledgeBaseID, snap.ExecutionModelProfile) {
+			return agentconfig.ErrConflict
+		}
 		if errors.Is(ae, agentconfig.ErrNotFound) || ae == nil && a.Activation != "ENABLED" {
 			return agentconfig.ErrNotEnabled
 		}

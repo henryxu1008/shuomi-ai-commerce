@@ -2,7 +2,6 @@ package materials
 
 import (
 	"encoding/json"
-	"strings"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/commercetool"
@@ -20,7 +19,11 @@ func (ModelAdmission) ProjectEvidence(raw json.RawMessage) (json.RawMessage, err
 	}
 	var d Disclosure
 	strict, err := sigjson.UnmarshalStrict(raw, &d)
-	if err != nil || len(strict) != 0 || !d.Binding.Valid() || d.Binding.ContextKind != "listing-target-record" || d.Binding.TargetPlatform != "shein" || d.Revision < 1 || !agent.ValidID(d.StoreID) || !strings.HasPrefix(d.EvidenceID, "listing-evidence:") || len(d.EvidenceID) != len("listing-evidence:")+64 {
+	if err != nil || len(strict) != 0 || !d.Binding.Valid() || d.Binding.ContextKind != "listing-target-record" || d.Binding.TargetPlatform != "shein" || d.Revision < 1 || !agent.ValidID(d.StoreID) {
+		return nil, agent.ErrInvalid
+	}
+	fingerprint, err := disclosureFingerprint(d)
+	if err != nil || fingerprint != d.EvidenceID {
 		return nil, agent.ErrInvalid
 	}
 	return append(json.RawMessage(nil), raw...), nil

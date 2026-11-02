@@ -56,7 +56,7 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 			return materialsRunDTO{}, err
 		}
 	}
-	if snapshot.AgentID != materials.AgentID || snapshot.MemberID != id.MemberID {
+	if snapshot.AgentID != materials.AgentID || !agentconfig.MaterialsStoredVersion(snapshot.AgentVersion, s.Request.PolicyVersion, s.Request.PromptVersion) || snapshot.MemberID != id.MemberID {
 		return materialsRunDTO{}, agentconfig.ErrConflict
 	}
 	mode, err := a.parent.configuration.LoadModeSnapshot(ctx, id, s.Request.ModeSnapshotRef)
@@ -71,7 +71,7 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 	for _, step := range s.History {
 		out.Steps = append(out.Steps, productAgentStepDTO{Step: step.Step, Tool: step.Tool.ID, CallID: step.CallID, InvocationID: step.InvocationID, AuditStatus: string(step.AuditStatus)})
 	}
-	if materialsRunReviewable(s) {
+	if materialsHistoricalReviewable(s) {
 		proposal, e := materials.ParseProposal(s.DomainProposal.Payload)
 		if e != nil {
 			return out, e
@@ -81,7 +81,7 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 			return out, e
 		}
 		out.Proposal, out.After, out.CandidateHash = &proposal, &after, s.Validation.CandidateHash
-		out.CanRequestAdoption = mode.Mode != agent.ModeReadOnly
+		out.CanRequestAdoption = materialsRunReviewable(s) && mode.Mode != agent.ModeReadOnly
 		receipt, e := a.supply.Targets.ReadCommand(ctx, materialsAdoptionKey(s))
 		if e == nil {
 			out.CanRequestAdoption = false

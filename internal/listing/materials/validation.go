@@ -2,16 +2,15 @@ package materials
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	sigjson "sigs.k8s.io/json"
 	"task-processor/internal/agent"
 	"task-processor/internal/commercetool"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/collection"
 )
 
 type MaterialPreview struct {
@@ -36,7 +35,7 @@ func Preview(i Inspection, p Proposal) (MaterialPreview, error) {
 		return MaterialPreview{}, ErrInvalidProposal
 	}
 	changedCategory := input.Draft.Product.CategoryID != i.Base.Input.Draft.Product.CategoryID
-	result := goods.BuildOfficial(input.Draft, i.Rules, i.Inventory, i.Base.ImageObservations, i.Base.ProofObservations)
+	result := goods.AssessOfficial(input.Draft, i.Rules, i.Inventory, i.Base.ImageObservations, i.Base.ProofObservations).Native()
 	if changedCategory {
 		// These attribute/fill rules belong to the original category. The
 		// actual Target owner will load the selected category on local save.
@@ -155,16 +154,22 @@ func (v Validator) ValidateDomain(ctx context.Context, request agent.Request, ca
 	if err != nil || current.Binding != request.Binding {
 		return agent.Validation{}, ErrInspectionChanged
 	}
+	expectedFingerprint, err := disclosureFingerprint(expected)
+	if err != nil {
+		return agent.Validation{}, ErrInspectionChanged
+	}
 	disclosed := false
 	for _, observation := range history {
 		if observation.Tool != InspectToolRef() || observation.AuditStatus != commercetool.AuditStatusRecorded || !agent.ValidID(observation.CallID) || observation.InvocationID != "" || len(observation.Output) > MaxInspectionBytes {
 			continue
 		}
 		var i Disclosure
-		if json.Unmarshal(observation.Output, &i) == nil && i.Binding == request.Binding {
+		strict, decodeErr := sigjson.UnmarshalStrict(observation.Output, &i)
+		if decodeErr == nil && len(strict) == 0 && i.Binding == request.Binding {
 			for _, id := range p.EvidenceIDs {
 				if id == i.EvidenceID {
-					if collection.Digest(i) != collection.Digest(expected) {
+					actual, e := disclosureFingerprint(i)
+					if e != nil || actual != i.EvidenceID || actual != expectedFingerprint {
 						return agent.Validation{}, ErrInspectionChanged
 					}
 					disclosed = true

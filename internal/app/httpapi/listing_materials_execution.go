@@ -72,7 +72,7 @@ func (a *listingMaterialsApplication) readRun(ctx context.Context, recordID, key
 	}
 	request := run.State.Request
 	request.ConfigurationSnapshotRef = agent.ConfigurationSnapshotRef{}
-	if snapshot.AgentID != materials.AgentID || snapshot.AgentVersion != materials.AgentVersion || snapshot.MemberID != id.MemberID || snapshot.Request != request || request.Binding != binding {
+	if snapshot.AgentID != materials.AgentID || !agentconfig.MaterialsStoredVersion(snapshot.AgentVersion, request.PolicyVersion, request.PromptVersion) || snapshot.MemberID != id.MemberID || snapshot.Request != request || request.Binding != binding {
 		return run, snapshot, agentconfig.ErrConflict
 	}
 	return run, snapshot, nil
@@ -120,11 +120,11 @@ func (a *listingMaterialsApplication) start(ctx context.Context, recordID, key s
 }
 
 func (a *listingMaterialsApplication) resume(ctx context.Context, recordID, key string, ref agent.ConfigurationSnapshotRef, revision uint64, feedback string) (agent.Record, bool, error) {
-	run, _, err := a.readRun(ctx, recordID, key)
+	run, snapshot, err := a.readRun(ctx, recordID, key)
 	if err != nil {
 		return run, true, err
 	}
-	if run.State.Request.ConfigurationSnapshotRef != ref {
+	if snapshot.AgentVersion != materials.AgentVersion || run.State.Request.ConfigurationSnapshotRef != ref {
 		return run, true, agentconfig.ErrConflict
 	}
 	if a.runtime == nil {
@@ -179,7 +179,7 @@ func (a *listingMaterialsApplication) adoption(ctx context.Context, recordID, ke
 	if err != nil {
 		return record.TargetReceipt{}, err
 	}
-	if !materialsRunReviewable(run.State) {
+	if !materialsHistoricalReviewable(run.State) {
 		return record.TargetReceipt{}, agentconfig.ErrConflict
 	}
 	return a.readAdoptionReceipt(ctx, run.State)
@@ -188,7 +188,7 @@ func (a *listingMaterialsApplication) adoption(ctx context.Context, recordID, ke
 // Receipt replay is correlated to the immutable original input and candidate,
 // without applying current new-write mode/configuration/head admission.
 func verifyMaterialsAdoptionReceipt(base record.TargetRecord, state agent.State, prior record.TargetReceipt) error {
-	if !materialsRunReviewable(state) || base.ID != state.Request.Binding.ContextID {
+	if !materialsHistoricalReviewable(state) || base.ID != state.Request.Binding.ContextID {
 		return agentconfig.ErrConflict
 	}
 	proposal, err := materials.ParseProposal(state.DomainProposal.Payload)
@@ -222,7 +222,7 @@ func (a *listingMaterialsApplication) adopt(ctx context.Context, recordID, key s
 	if err != nil {
 		return record.TargetReceipt{}, err
 	}
-	if !materialsRunReviewable(run.State) || run.State.Request.ConfigurationSnapshotRef != ref || run.State.Validation.CandidateHash != candidateHash {
+	if !materialsHistoricalReviewable(run.State) || run.State.Request.ConfigurationSnapshotRef != ref || run.State.Validation.CandidateHash != candidateHash {
 		return record.TargetReceipt{}, agentconfig.ErrConflict
 	}
 	commandKey := materialsAdoptionKey(run.State)
@@ -233,6 +233,9 @@ func (a *listingMaterialsApplication) adopt(ctx context.Context, recordID, key s
 	}
 	if !errors.Is(err, record.ErrNotFound) {
 		return record.TargetReceipt{}, err
+	}
+	if !materialsRunReviewable(run.State) {
+		return record.TargetReceipt{}, agentconfig.ErrConflict
 	}
 	inspection, err := a.supply.ReadMaterialsInspection(ctx, run.State.Request.Binding)
 	if err != nil {

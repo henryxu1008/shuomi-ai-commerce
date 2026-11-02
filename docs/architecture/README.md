@@ -105,6 +105,7 @@
 - `own675-store-core-alignment-v1.md` — [own675 Store 核心合同对齐方案](own675-store-core-alignment-v1.md)
 - `report-center-shein-offline-package-source-v1.md` — [Report Center：原 SHEIN 离线包诊断正常接线候选](report-center-shein-offline-package-source-v1.md)
 - `report-center-shein-target-source-v1.md` — [Report Center：当前 SHEIN 已保存资料来源候选](report-center-shein-target-source-v1.md)
+- `shein-native-validator-contract-v1.md` — [SHEIN 原生资料公共诊断与材料 Tool v2](shein-native-validator-contract-v1.md)
 - `shein-offline-validation-input-binding.md` — [SHEIN 离线诊断输入、freshness 与组织范围读取设计](shein-offline-validation-input-binding.md)
 - `shein-publication-closure-v1.md` — [SHEIN 美国站：审核、首次上架与状态回读最小闭环](shein-publication-closure-v1.md)
 - `shein-submit-readiness-action-policy.md` — [SHEIN Submit Readiness Action Policy](shein-submit-readiness-action-policy.md)

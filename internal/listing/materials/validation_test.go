@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
@@ -32,7 +33,7 @@ func materialInspection(t *testing.T) Inspection {
 	base := record.TargetRecord{ID: "record", TargetID: "target", Revision: 1, EffectiveVersion: 1, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: collection.Digest(rules), Merchant: storecenter.ProductMerchantBinding{OrganizationID: "org", StoreID: "store", Site: "shein-us"}, Input: record.TargetInput{SourceID: "source", StoreID: "store", EffectiveVersion: 1, Draft: goods.OfficialDraftInput{Product: model.PublishProduct{CategoryID: 12, SKCs: []model.ProductSKC{{SKUs: []model.ProductSKU{{SupplierSKU: "sku"}}}}}}}}
 	base.Source.ID = "source"
 	base.Source.Source = collection.Source{ProductKey: "product", PublicationID: "publication", Version: 1}
-	value, err := NewInspection(base, product, rules, inventory)
+	value, err := NewInspection(base, product, rules, inventory, time.Now().UTC(), time.Now().UTC())
 	require.NoError(t, err)
 	return value
 }
@@ -112,12 +113,12 @@ func TestMaterialPreviewRejectsInventedRulesAssetsAndNonleafCategory(t *testing.
 func TestMaterialsInspectionRejectsDriftAndOversizedDisclosure(t *testing.T) {
 	value := materialInspection(t)
 	value.Inventory.Assets = nil
-	_, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
+	_, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory, time.Now().UTC(), time.Now().UTC())
 	require.ErrorIs(t, err, ErrInspectionChanged)
 	value = materialInspection(t)
 	value.Product.Snapshot.Description = string(make([]byte, MaxInspectionBytes))
 	value.Base.ProductHash = collection.Digest(value.Product.Snapshot)
-	_, err = NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
+	_, err = NewInspection(value.Base, value.Product, value.Rules, value.Inventory, time.Now().UTC(), time.Now().UTC())
 	require.ErrorIs(t, err, ErrInspectionTooLarge)
 }
 
@@ -125,7 +126,7 @@ func TestMaterialImagesKeepTheirApprovedOfficialPlacement(t *testing.T) {
 	value := materialInspection(t)
 	value.Inventory.Assets[0].OfficialPlacement = &asset.ImageOfficialPlacement{Group: "skc", SKC: 0, SKU: 0, Type: 1, Sort: 1, Site: "shein-us"}
 	value.Base.InventoryHash = collection.Digest(value.Inventory)
-	value, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
+	value, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory, time.Now().UTC(), time.Now().UTC())
 	require.NoError(t, err)
 	original := goods.OfficialImageSlot{Group: "skc", SKC: 0, SKU: 0, AssetID: "approved", Type: 1, Sort: 1}
 	for _, change := range []func(*goods.OfficialImageSlot){

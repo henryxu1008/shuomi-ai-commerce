@@ -3,6 +3,7 @@ package supplychainapp
 import (
 	"context"
 	"errors"
+	"time"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/listing/materials"
@@ -20,6 +21,7 @@ func (a *Application) InspectMaterialsRecord(ctx context.Context, id string) (ma
 	}
 	ctx, cancel := context.WithTimeout(ctx, record.Timeout)
 	defer cancel()
+	readAt := time.Now().UTC()
 	scope, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
 	if err != nil {
 		return materials.Inspection{}, err
@@ -68,7 +70,7 @@ func (a *Application) InspectMaterialsRecord(ctx context.Context, id string) (ma
 	if err != nil {
 		return materials.Inspection{}, err
 	}
-	value, err := materials.NewInspection(base, product, rules, inventory)
+	value, err := materials.NewInspection(base, product, rules, inventory, readAt, time.Now().UTC())
 	if err != nil {
 		return materials.Inspection{}, err
 	}
