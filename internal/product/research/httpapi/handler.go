@@ -1,0 +1,143 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"github.com/gin-gonic/gin"
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	strict "sigs.k8s.io/json"
+	"strings"
+	"task-processor/internal/httproute"
+	"task-processor/internal/product/collection"
+	"task-processor/internal/product/research"
+	"time"
+)
+
+const Base = "/api/v1/workbench/research/projects"
+const ModuleName = "market-research"
+
+type Handler struct {
+	Service *research.Service
+	Bind    func(context.Context, string) (context.Context, collection.Scope, error)
+}
+type route struct{ method, path string }
+
+func Routes(h *Handler) []httproute.Descriptor {
+	out := []httproute.Descriptor{}
+	for _, spec := range []route{{"GET", Base + "/:project_id"}, {"POST", Base + "/:project_id/commands"}, {"GET", Base + "/:project_id/commands/:key"}} {
+		permission := "workbench.project.read"
+		if spec.method == "POST" {
+			permission = "workbench.project.manage"
+		}
+		out = append(out, httproute.Descriptor{Method: spec.method, Path: spec.path, Module: ModuleName, Permission: permission, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 10 * time.Second, RejectUnreadRequestBody: spec.method == "GET", Handler: httproute.WithRequestBodyReadTimeout(3*time.Second, func(c *gin.Context) {
+			if h == nil || h.Service == nil || h.Bind == nil {
+				failure(c, research.ErrUnavailable)
+				return
+			}
+			h.serve(c)
+		})})
+	}
+	return out
+}
+func ValidateDescriptor(d httproute.Descriptor) error {
+	for _, e := range Routes(nil) {
+		if d.Method == e.Method && d.Path == e.Path && d.Module == e.Module && d.Permission == e.Permission && d.AuthPolicy == e.AuthPolicy && d.OrganizationAccessPolicy == e.OrganizationAccessPolicy && d.OrganizationTargetResolver == nil && d.RequestTimeout == e.RequestTimeout && d.RejectUnreadRequestBody == e.RejectUnreadRequestBody && d.Handler != nil {
+			return nil
+		}
+	}
+	return research.ErrForbidden
+}
+func failure(c *gin.Context, e error) {
+	status, code := 503, "DEPENDENCY_UNAVAILABLE"
+	for _, pair := range []struct {
+		e      error
+		status int
+	}{{research.ErrInvalid, 400}, {research.ErrForbidden, 403}, {research.ErrNotFound, 404}, {research.ErrConflict, 409}, {research.ErrArchived, 409}, {research.ErrUnknown, 503}} {
+		if errors.Is(e, pair.e) {
+			status, code = pair.status, pair.e.Error()
+			break
+		}
+	}
+	c.Header("Cache-Control", "private, no-store")
+	c.JSON(status, gin.H{"code": code})
+}
+func (h *Handler) serve(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	ctx, scope, err := h.Bind(ctx, c.GetHeader("Authorization"))
+	if err != nil {
+		failure(c, research.ErrForbidden)
+		return
+	}
+	project := c.Param("project_id")
+	if !collection.ValidID(project) || c.GetHeader("Content-Encoding") != "" {
+		failure(c, research.ErrInvalid)
+		return
+	}
+	var value any
+	if c.Request.Method == http.MethodPost {
+		keys := c.Request.Header.Values("Idempotency-Key")
+		if len(keys) != 1 || !collection.ValidID(keys[0]) || c.Request.URL.RawQuery != "" || c.Request.ContentLength > 64<<10 {
+			failure(c, research.ErrInvalid)
+			return
+		}
+		media, _, e := mime.ParseMediaType(c.GetHeader("Content-Type"))
+		if e != nil || media != "application/json" {
+			failure(c, research.ErrInvalid)
+			return
+		}
+		raw, e := io.ReadAll(io.LimitReader(c.Request.Body, (64<<10)+1))
+		if e != nil || len(raw) > 64<<10 {
+			failure(c, research.ErrInvalid)
+			return
+		}
+		var command research.Command
+		violations, e := strict.UnmarshalStrict(raw, &command, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
+		if e != nil || len(violations) > 0 || research.Validate(command) != nil {
+			failure(c, research.ErrInvalid)
+			return
+		}
+		value, err = h.Service.Execute(ctx, scope, project, keys[0], command)
+	} else {
+		if c.Request.ContentLength != 0 {
+			httproute.RejectUnreadRequestBody(c)
+			failure(c, research.ErrInvalid)
+			return
+		}
+		if key := c.Param("key"); key != "" {
+			if c.Request.URL.RawQuery != "" {
+				failure(c, research.ErrInvalid)
+				return
+			}
+			value, err = h.Service.Lookup(ctx, scope, project, key)
+		} else {
+			query, e := url.ParseQuery(c.Request.URL.RawQuery)
+			if e != nil || strings.Contains(c.Request.URL.RawQuery, ";") || len(query) > 1 || len(query["after"]) > 1 {
+				failure(c, research.ErrInvalid)
+				return
+			}
+			for key := range query {
+				if key != "after" {
+					failure(c, research.ErrInvalid)
+					return
+				}
+			}
+			value, err = h.Service.List(ctx, scope, project, query.Get("after"))
+		}
+	}
+	if err != nil {
+		failure(c, err)
+		return
+	}
+	raw, err := json.Marshal(value)
+	if err != nil || len(raw) > 2<<20 {
+		failure(c, research.ErrUnavailable)
+		return
+	}
+	c.Header("Cache-Control", "private, no-store")
+	c.Data(200, "application/json", raw)
+}

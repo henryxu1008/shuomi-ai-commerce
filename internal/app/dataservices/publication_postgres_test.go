@@ -8,13 +8,16 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"task-processor/internal/authidentity"
 	"task-processor/internal/dataservice"
 	keystore "task-processor/internal/integration/persistence/dataservice"
+	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
 	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 	"task-processor/internal/product/sourcing"
@@ -23,6 +26,23 @@ import (
 )
 
 type authorizedFixture struct{}
+
+// Nil embedded effect ports panic if a read accidentally starts work or charges.
+type readOnlyAcquisitionPorts struct {
+	dataacquisition.Provider
+	dataacquisition.Charges
+	dataacquisition.ExecutionStarter
+}
+
+type publicationCollectionAuth struct{ scope collection.Scope }
+
+func (a publicationCollectionAuth) Authorize(context.Context, string) (collection.Scope, error) {
+	return a.scope, nil
+}
+
+type noPublicationAcquisition struct {
+	sourcing.PublishedAcquisitionReader
+}
 
 func (authorizedFixture) Resolve(context.Context, string) (collection.Scope, error) {
 	return collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "member"}, nil
@@ -102,6 +122,61 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 	again, err := repo.Publish(ctx, job, prepared)
 	require.NoError(t, err)
 	require.Equal(t, saved.Source, again.Source)
+	t.Run("original live provenance verifies SRC without execution", func(t *testing.T) {
+		ports := readOnlyAcquisitionPorts{}
+		acquisition, e := dataacquisition.NewService(repo, live, ports, ports, ports)
+		require.NoError(t, e)
+		module := &Module{acquisition: acquisition, results: capturedResultReader{sourceReader}}
+		v, e := module.Provenance(ctx, dataacquisition.Principal{Scope: scope}, *saved.Source)
+		require.NoError(t, e)
+		require.Equal(t, evidence.CapturedAt, v.Evidence.CapturedAt)
+		require.Equal(t, evidence.ParserVersion, v.Evidence.ParserVersion)
+		require.Equal(t, persisted.Envelope.RawReference.Checksum, v.Checksum)
+		canonicalQuery, e := dataacquisition.NormalizeQuery(q)
+		require.NoError(t, e)
+		require.Equal(t, canonicalQuery, v.Query)
+		wrong := scope
+		wrong.ActorID = "other"
+		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: wrong}, *saved.Source)
+		require.Error(t, e)
+		wrong = scope
+		wrong.MemberID = "rebound"
+		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: wrong}, *saved.Source)
+		require.Error(t, e)
+	})
+	t.Run("Amazon original source enters Preparation without changing fact owner", func(t *testing.T) {
+		require.NoError(t, preparationstore.InstallSchema(db))
+		cr, err := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
+		require.NoError(t, err)
+		auth := publicationCollectionAuth{scope}
+		cs, err := collection.NewService(cr, auth, noPublicationAcquisition{})
+		require.NoError(t, err)
+		batch, err := collection.NewPublicationBatch(scope, job.ID, "amazon_data", "Amazon")
+		require.NoError(t, err)
+		members, err := cr.ListItems(ctx, scope, batch.ID, collection.Query{Limit: 100})
+		require.NoError(t, err)
+		require.Len(t, members.Items, 1)
+		current, err := cr.ReadBatch(ctx, scope, batch.ID)
+		require.NoError(t, err)
+		require.True(t, current.SupplyTransferSupported, "Amazon evidence must be formally admitted to original transfer")
+		pr, err := preparationstore.NewRepository(ctx, db)
+		require.NoError(t, err)
+		ps, err := preparation.NewService(pr, cs, auth)
+		require.NoError(t, err)
+		actor := authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{UserID: scope.ActorID, TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Hour)})
+		key := uuid.NewString()
+		input := preparation.TransferInput{BatchID: batch.ID, ExpectedRevision: current.Revision, ItemIDs: []string{members.Items[0].ID}}
+		result, err := ps.Transfer(actor, key, input)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, result.Preparation.Count)
+		sources, err := ps.ListSources(actor, result.Preparation.ID, collection.Query{Limit: 100})
+		require.NoError(t, err)
+		require.Len(t, sources.Items, 1)
+		require.Equal(t, *saved.Source, sources.Items[0].Source)
+		replay, err := ps.ReadByKey(actor, key)
+		require.NoError(t, err)
+		require.Equal(t, result.Preparation, replay.Preparation)
+	})
 	t.Run("specialist declaration preserves original applicant and spec", func(t *testing.T) {
 		require.NoError(t, keystore.InstallCustomSchema(db))
 		customPublisher, err := NewCustomProductPublisher()

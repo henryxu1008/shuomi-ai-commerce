@@ -38,6 +38,7 @@ type WorkbenchContextValue = {
   aiWorkbenchAvailable: boolean;
   storageCapacityAvailable: boolean;
  projectCenterAvailable:boolean;
+ marketResearchAvailable?:boolean;
   storeObservationsAvailable: boolean;
   operationsCockpitAvailable: boolean;
   aiWorkbenchPlanningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
@@ -233,6 +234,7 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
       aiWorkbenchAvailable: currentContext?.aiWorkbenchAvailable === true,
       storageCapacityAvailable:currentContext?.storageCapacityAvailable===true,
  projectCenterAvailable:currentContext?.projectCenterAvailable===true,
+ marketResearchAvailable:currentContext?.marketResearchAvailable===true,
       storeObservationsAvailable: currentContext?.storeObservationsAvailable === true,
       operationsCockpitAvailable: currentContext?.operationsCockpitAvailable === true,
       aiWorkbenchPlanningReadiness: currentContext?.aiWorkbenchPlanningReadiness ?? "UNAVAILABLE",

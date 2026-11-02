@@ -48,10 +48,12 @@ export function ProductSelectionFlow({
   scope,
   entry,
   nonce,
+  initialItems = [],
 }: {
   scope: ConfigurationScope;
   entry: CatalogEntry;
   nonce: number;
+  initialItems?: CollectionItem[];
 }) {
   const context = useWorkbenchContext();
   const queries = useQueryClient();
@@ -64,7 +66,7 @@ export function ProductSelectionFlow({
     selectionIntentSchema,
     { storage: "local", maxLength: 16384 },
   );
-  const [selected, setSelected] = useState<CollectionItem[]>([]),
+  const [selected, setSelected] = useState<CollectionItem[]>(initialItems),
     [goal, setGoal] = useState(
       "请根据真实事实，用中文比较商品并指出缺失信息。",
     ),

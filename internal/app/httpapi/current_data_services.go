@@ -52,7 +52,10 @@ func validateDataServicesDependencies(o currentApplicationOptions, source *gorm.
 	return datahttp.ValidateProxyCIDRs(d.TrustedProxyCIDRs)
 }
 
-type dataServicesModule struct{ routes []httproute.Descriptor }
+type dataServicesModule struct {
+	routes []httproute.Descriptor
+	owner  *dataservicesapp.Module
+}
 
 func (dataServicesModule) Name() string                  { return "data-services" }
 func (dataServicesModule) Enabled(c *config.Config) bool { return c != nil && c.Workbench.Enabled }
@@ -99,7 +102,7 @@ func buildDataServices(ctx context.Context, o currentApplicationOptions, deps ro
 		return dataServicesModule{}, nil, errors.New("data services worker construction failed")
 	}
 	*d.Worker = w
-	return dataServicesModule{routes: module.BuildRoutes()}, charges, nil
+	return dataServicesModule{routes: module.BuildRoutes(), owner: module}, charges, nil
 }
 
 func verifySameProductDatabase(ctx context.Context, source, data *gorm.DB) error {

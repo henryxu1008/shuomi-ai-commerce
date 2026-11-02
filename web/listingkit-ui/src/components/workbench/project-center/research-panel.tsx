@@ -1,0 +1,64 @@
+"use client";
+import Link from "next/link";
+import {useEffect,useRef,useState} from "react";
+import {Button} from "@/components/ui/button";
+import {Card} from "@/components/ui/card";
+import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
+import {researchRequest,ResearchError} from "@/lib/api/market-research";
+import type {ProjectScope} from "@/lib/api/project-center";
+import {researchPage,researchReceipt,researchIntent,selectionOf,type ResearchCommand,type ResearchCandidate} from "@/lib/contracts/market-research";
+import {CollectionPicker} from "../pod/collection-picker";
+import {useResourcePending} from "../resources/resource-pending";
+import {ResearchComparison} from "./research-comparison";
+import styles from "./research-panel.module.css";
+const states:Record<string,string>={TO_RESEARCH:"待研究",PENDING_CONFIRMATION:"待人工确认",APPROVED_FOR_TEST:"批准测试",REJECTED:"已否决"};
+const failures:Record<string,string>={REVISION_CONFLICT:"研究记录或来源已变化，请刷新后重新确认。",PROJECT_ARCHIVED:"项目已归档，只能查看。",NOT_FOUND:"记录不存在或当前不可访问。",FORBIDDEN:"权限已变化，请重新确认企业。",OUTCOME_UNKNOWN:"操作结果暂未确认，请核实原操作。"};
+export function ResearchPanel({scope,projectId,archived}:{scope:ProjectScope;projectId:string;archived:boolean}){
+ const context=useWorkbenchContext();const canRead=context.permissions.includes("workbench.collection.read");
+ const canWrite=!archived&&context.permissions.includes("workbench.project.manage")&&canRead;
+ const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["research",projectId],researchIntent,{maxLength:65536});
+ const [items,setItems]=useState<ResearchCandidate[]>([]),[after,setAfter]=useState(""),[next,setNext]=useState(""),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true),[incomplete,setIncomplete]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false),[picker,setPicker]=useState(false),[chosen,setChosen]=useState<string[]>([]),[compare,setCompare]=useState(false),[absent,setAbsent]=useState(false);
+ const lifetime=useRef<AbortController|null>(null),flight=useRef(false);
+ useEffect(()=>{const controller=new AbortController();lifetime.current=controller;return()=>controller.abort();},[]);
+ const register=context.registerOrganizationSwitchGuard;
+ useEffect(()=>register(()=>!flight.current&&!pending.command&&!pending.error),[register,pending.command,pending.error]);
+ useEffect(()=>{const controller=new AbortController();void Promise.resolve().then(async()=>{if(controller.signal.aborted)return;setLoading(true);setItems([]);setChosen([]);setCompare(false);setError("");if(!canRead){setLoading(false);return;}try{const page=await researchRequest(scope,projectId,researchPage,controller.signal,{after});if(!controller.signal.aborted){setItems(page.items);setNext(page.nextCursor??"");setIncomplete(page.incomplete);}}catch(e){if(!controller.signal.aborted)setError(message(e));}finally{if(!controller.signal.aborted)setLoading(false);}});return()=>controller.abort();},[scope,projectId,after,refresh,canRead]);
+ const reload=()=>setRefresh(v=>v+1);
+ const locked=busy||loading||!!pending.command||!pending.ready||pending.error||!canWrite;
+ async function submit(body:ResearchCommand,original=pending.command){
+  const controller=lifetime.current;if(!controller||controller.signal.aborted||flight.current)return;
+  const intent=original??{key:crypto.randomUUID(),body};
+  try{pending.persist(intent);}catch{setError("无法保存原操作，请恢复会话存储后继续。");return;}
+  flight.current=true;setBusy(true);setError("");setAbsent(false);
+  try{await researchRequest(scope,projectId,researchReceipt,controller.signal,{intent});if(!controller.signal.aborted){pending.clear(intent);setPicker(false);reload();}}
+  catch(e){if(controller.signal.aborted)return;setError(message(e));if(e instanceof ResearchError&&["INVALID_REQUEST","REVISION_CONFLICT","PROJECT_ARCHIVED"].includes(e.code)){pending.clear(intent);reload();}}
+  finally{flight.current=false;if(!controller.signal.aborted)setBusy(false);}
+ }
+ async function lookup(){const intent=pending.command,controller=lifetime.current;if(!intent||!controller||flight.current)return;flight.current=true;setBusy(true);setError("");try{await researchRequest(scope,projectId,researchReceipt,controller.signal,{lookup:intent.key});if(!controller.signal.aborted){pending.clear(intent);setAbsent(false);reload();}}catch(e){if(!controller.signal.aborted){setAbsent(e instanceof ResearchError&&e.code==="NOT_FOUND");setError(e instanceof ResearchError&&e.code==="NOT_FOUND"?"尚未查到原回执，可以使用原键重试同一操作。":message(e));}}finally{flight.current=false;if(!controller.signal.aborted)setBusy(false);}}
+ const selected=items.filter(v=>chosen.includes(v.id)&&v.observation);
+ const groups=new Map<string,ResearchCandidate[]>();for(const v of selected.filter(v=>v.state==="APPROVED_FOR_TEST")){const batch=v.observation!.batchId;groups.set(batch,[...(groups.get(batch)??[]),v]);}
+ return <section className={styles.panel} aria-label="研究选品"><header className={styles.heading}><div><small>产品研究</small><h2>研究选品</h2><p>核对已保存证据，比较候选，再记录你的决定。</p></div><Button variant="outline" disabled={busy} onClick={reload}>刷新研究资料</Button></header>
+ {archived?<p role="status">项目已归档，研究记录只读。</p>:null}
+ {pending.error?<p role="alert">无法读取原操作记录，请恢复会话存储后刷新。</p>:null}
+ {pending.command?<Card className={styles.section}><p>有一项研究操作需要确认结果。</p><div className={styles.actions}><Button disabled={busy} onClick={()=>void lookup()}>核实原操作</Button>{absent&&canWrite?<Button variant="outline" disabled={busy} onClick={()=>void submit(pending.command!.body,pending.command)}>使用原键重试</Button>:null}</div></Card>:null}
+ {error?<p role="alert">{error}</p>:null}
+ <Card className={styles.section}><div className={styles.heading}><div><h3>选择研究资料</h3><p>在数据市场确认站点、查询与用量，完成后关联自己的已保存 Amazon 结果。</p></div><div className={styles.actions}><Button variant="outline" asChild><Link href="/workbench/data/market" prefetch={false}>打开数据市场</Link></Button>{canWrite?<Button disabled={locked} onClick={()=>setPicker(v=>!v)}>关联已保存资料</Button>:null}</div></div>{picker?<CollectionPicker scope={scope} kind="product" authorizationKey={JSON.stringify([projectId,context.permissions])} disabled={locked} isEligible={item=>item.source.kind==="amazon_data"} emptyMessage="当前页没有已保存的 Amazon 商品，请先在数据市场完成采集。" onSelect={item=>void submit({action:"link",selections:[selectionOf(item)]},null)}/>:null}</Card>
+ <Card className={styles.section}><div className={styles.heading}><div><h3>证据与候选</h3><p>仅代表本次公开页面观察。销量、趋势、利润、合规检查均未执行，状态为 UNKNOWN。</p></div><span>{chosen.length} / 5 项已选</span></div>
+ {!canRead?<p>当前身份没有商品资料查看权限。</p>:loading?<p role="status">正在读取原始证据…</p>:!items.length&&!error?<p>尚未关联研究资料。</p>:null}
+ {incomplete?<p role="status">部分来源在本次读取期限内未能核实，可刷新重试。</p>:null}
+ <div className={styles.grid}>{items.map(v=><CandidateCard key={v.id+":"+v.revision} value={v} checked={chosen.includes(v.id)} toggle={()=>{setCompare(false);setChosen(old=>old.includes(v.id)?old.filter(id=>id!==v.id):old.length<5?[...old,v.id]:old);}} disabled={locked} canWrite={canWrite} chooseDisabled={!v.observation||busy||!!pending.command||(!chosen.includes(v.id)&&chosen.length>=5)} command={body=>void submit(body,null)}/>)}</div>
+ <div className={styles.actions}>{after?<Button variant="outline" onClick={()=>setAfter("")}>候选首页</Button>:null}{next?<Button variant="outline" onClick={()=>setAfter(next)}>下一页候选</Button>:null}</div></Card>
+ <Card className={styles.section}><h3>候选事实对比</h3><p>选择 2–5 个可读候选，进入原商品事实比较流程。AI 分析仍需显式配置与用量确认；当前模型不分析市场总体数据。</p><Button disabled={selected.length<2||selected.length>5||busy||loading} onClick={()=>setCompare(true)}>比较所选候选</Button>{compare&&selected.length>=2?<ResearchComparison key={JSON.stringify(selected.map(v=>v.evidenceDigest))} scope={scope} items={selected.map(v=>v.observation!.item)}/>:null}</Card>
+ <Card className={styles.section}><h3>转入我的供应链</h3><p>勾选已批准测试的候选，再到原批次核对具体商品。跨批次分别确认；批准测试不代表采购、上架或合规许可。</p>{groups.size===0?<p>尚未选中已批准且来源可读的候选。</p>:<div className={styles.actions}>{[...groups].map(([batch,values],i)=><Button key={batch} variant="outline" asChild><Link prefetch={false} href={"/workbench/data/mine?"+new URLSearchParams({batchId:batch,transfer:JSON.stringify(values.map(v=>v.observation!.ref.selection))})}>批次 {i+1} · 核对 {values.length} 件商品</Link></Button>)}</div>}<p className={styles.muted}>转入结果只以原供应链回执为准；本页未核实转入结果。</p></Card>
+ </section>;
+}
+function message(e:unknown){return e instanceof ResearchError?failures[e.code]??"服务暂不可用，请重新读取。":"服务暂不可用，请重新读取。";}
+function CandidateCard({value:v,checked,toggle,disabled,chooseDisabled,canWrite,command}:{value:ResearchCandidate;checked:boolean;toggle:()=>void;disabled:boolean;chooseDisabled:boolean;canWrite:boolean;command:(body:ResearchCommand)=>void}){
+ const [reason,setReason]=useState("");const o=v.observation,change={candidateId:v.id,expectedRevision:v.revision,evidenceDigest:v.evidenceDigest!};
+ return <article className={styles.candidate}><div className={styles.heading}><label className={styles.select}><input type="checkbox" checked={checked} disabled={chooseDisabled} onChange={toggle}/><strong>{o?.title||"来源当前不可访问"}</strong></label><span className={styles.badge}>{states[v.state]}</span></div>
+ {o?<><p>{o.site.toUpperCase()} · {o.asin} · {o.currency??"币种未知"} {o.price??"价格未知"}</p><dl><dt>采集渠道</dt><dd>服务端 Amazon 匿名公开页面</dd><dt>查询样本</dt><dd>{o.query?.mode} · {o.query?.keyword||o.query?.categoryNode||(o.query?.asinCount+" 个 ASIN")} · 最多 {o.query?.limit} 条</dd><dt>采集时间</dt><dd>{o.capturedAt}</dd><dt>原始版本</dt><dd>{o.ref.selection.version} · parser {o.parserVersion}</dd><dt>缺失字段</dt><dd>{o.missing.length?o.missing.join("、"):"来源未报告缺项；不代表市场数据完整"}</dd></dl><details><summary>原始证据身份</summary><p>结构化证据校验和（非 HTML）：{o.ref.checksum}</p><p>Publication：{o.ref.selection.publicationId}</p><p>Job：{o.ref.jobId}</p></details><a href={o.sourceUrl} target="_blank" rel="noreferrer">查看来源页面 ↗</a></>:<p>仅保留本项目关系与人工决定。来源内容、标识和指标已遮蔽。</p>}
+ {v.reason?<p>当前理由：{v.reason}</p>:null}
+ {v.evidence.length>0?<details><summary>已关联观察（最近 20 项及当前选定项）</summary>{v.evidence.map(l=><div className={styles.evidence} key={l.id}><span>{l.observation?`${l.observation.capturedAt} · v${l.observation.ref.selection.version}`:"来源当前不可访问"}</span>{canWrite?<span className={styles.actions}>{l.observation&&l.id!==v.selectedLinkId?<Button size="sm" variant="outline" disabled={disabled} onClick={()=>command({action:"select",candidateId:v.id,expectedRevision:v.revision,linkId:l.id})}>选用此观察</Button>:null}<Button size="sm" variant="ghost" disabled={disabled} onClick={()=>command({action:"unlink",candidateId:v.id,expectedRevision:v.revision,linkId:l.id})}>解除关联</Button></span>:null}</div>)}</details>:null}
+ {canWrite&&o?<div className={styles.decision}>{v.state==="TO_RESEARCH"?<Button disabled={disabled} onClick={()=>command({action:"review",...change})}>提交人工审阅</Button>:v.state==="PENDING_CONFIRMATION"?<><label>决定理由<textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={4096} rows={3}/></label><div className={styles.actions}><Button disabled={disabled||!reason.trim()} onClick={()=>command({action:"decide",...change,state:"APPROVED_FOR_TEST",reason:reason.trim()})}>批准测试</Button><Button variant="outline" disabled={disabled||!reason.trim()} onClick={()=>command({action:"decide",...change,state:"REJECTED",reason:reason.trim()})}>否决候选</Button></div></>:null}{v.state!=="TO_RESEARCH"?<Button variant="outline" disabled={disabled} onClick={()=>command({action:"reset",...change})}>返回待研究</Button>:null}</div>:null}
+ {v.history.length?<details><summary>人工决定历史（最近 20 项）</summary>{v.history.map(h=><div key={h.revision} className={styles.evidence}><p>{states[h.state]} · {h.at} · r{h.revision}</p>{h.reason?<p>{h.reason}</p>:null}<small>{h.evidenceDigest?"当时证据："+h.evidenceDigest:"当时来源当前不可访问"}</small></div>)}</details>:null}</article>;
+}

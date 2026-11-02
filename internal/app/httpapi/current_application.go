@@ -27,6 +27,7 @@ import (
 	confighttp "task-processor/internal/agentconfig/httpapi"
 	customhttp "task-processor/internal/agentcustomization/httpapi"
 	ph "task-processor/internal/aiworkbench/projectcenter/httpapi"
+	dataservicesapp "task-processor/internal/app/dataservices"
 	registration "task-processor/internal/app/referralregistration"
 	appruntime "task-processor/internal/app/runtime"
 	storeapp "task-processor/internal/app/storecenter"
@@ -61,6 +62,7 @@ import (
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
+	rh "task-processor/internal/product/research/httpapi"
 	"task-processor/internal/product/sourcing"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/skill"
@@ -221,6 +223,8 @@ type currentApplicationOptions struct {
 	productAgents                int
 	aiWorkbench                  *AIWorkbenchDependencies
 	aiWorkbenches                int
+	marketResearchDB             *gorm.DB
+	marketResearchConfigs        int
 	projectCenterDB              *gorm.DB
 	projectCenters               int
 }
@@ -655,11 +659,16 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, officialModule)
 	}
+	var researchData *dataservicesapp.Module
+	if supplied.marketResearchConfigs > 1 || supplied.marketResearchDB != nil && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs == 1 && (supplied.marketResearchDB == nil || supplied.projectCenterDB == nil || supplied.dataServices == nil || supplied.productCollections != 1) {
+		return nil, errors.New("market research requires current owners and one explicit pool")
+	}
 	if supplied.dataServices != nil {
 		module, charges, err := buildDataServices(ctx, supplied, *workbench.authDependencies, authorizer, cfg, storeCapabilities)
 		if err != nil {
 			return nil, fmt.Errorf("build current data services: %w", err)
 		}
+		researchData = module.owner
 		consumerCharges = charges
 		modules = append(modules, module)
 	}
@@ -1187,8 +1196,23 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, e
 		}
 		modules = append(modules, module)
+		if supplied.marketResearchDB != nil {
+			if supplied.marketResearchDB == supplied.projectCenterDB || supplied.marketResearchDB == supplied.productAcquisitionDB || supplied.marketResearchDB == supplied.dataServices.ProductDB {
+				return nil, errors.New("research requires its own restricted pool")
+			}
+			if e := verifySameProductDatabase(ctx, supplied.productAcquisitionDB, supplied.marketResearchDB); e != nil {
+				return nil, e
+			}
+			researchModule, e := composeMarketResearch(ctx, supplied.marketResearchDB, module.(projectModule), planCollections, researchData)
+			if e != nil {
+				return nil, e
+			}
+			modules = append(modules, researchModule)
+		}
+
 		if workbench.handler != nil {
 			workbench.handler.SetProjectCenterAvailable(true)
+			workbench.handler.SetMarketResearchAvailable(supplied.marketResearchDB != nil)
 		}
 	}
 	if supplied.amazonBrowserCaptures > 1 || supplied.amazonBrowserCaptures > 0 && (supplied.productAcquisitionDB == nil || supplied.productCollections != 1) {
@@ -1336,6 +1360,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		ContentOnly:          supplied.productAgent != nil && supplied.productAgent.ContentOnly,
 		AIWorkbench:          supplied.aiWorkbench != nil,
 		ProjectCenter:        supplied.projectCenterDB != nil,
+		MarketResearch:       supplied.marketResearchDB != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
 		ModelRoutePricing:    supplied.modelRoutePricing != nil,
 		MemberPoints:         includeMemberPoints,
@@ -1443,6 +1468,7 @@ type currentApplicationOptionalRoutes struct {
 	ContentOnly          bool
 	AIWorkbench          bool
 	ProjectCenter        bool
+	MarketResearch       bool
 	MemberPoints         bool
 	MemberResources      bool
 }
@@ -1722,6 +1748,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		for _, r := range productReviewRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.MarketResearch {
+		for _, r := range rh.Routes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -2073,6 +2104,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase) || strings.HasPrefix(descriptor.Path, ownContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
 			return errors.New("product agent loses fresh permission boundary")
+		}
+		if strings.HasPrefix(descriptor.Path, rh.Base) {
+			if !optional.MarketResearch {
+				return errors.New("market research not admitted")
+			}
+			if e := rh.ValidateDescriptor(descriptor); e != nil {
+				return e
+			}
 		}
 		if strings.HasPrefix(descriptor.Path, ph.Base) {
 			if !optional.ProjectCenter {
