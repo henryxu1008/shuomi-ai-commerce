@@ -191,7 +191,13 @@ func attachProducts(out *Inspection, products selection.Inspection) {
 			}
 			c.Facts = append(c.Facts, selection.Fact{ID: factID(c.Research, c.Ref, path, raw), Path: path, Value: raw})
 		}
+		blocked := sourceMetadataPaths(p.Facts)
 		for _, f := range p.Facts {
+			if blocked[f.Path] {
+				c.Missing = appendMissing(c.Missing, f.Path)
+				c.Warnings = appendMissing(c.Warnings, "source_metadata_omitted")
+				continue
+			}
 			if len(c.Facts) >= selection.MaxFacts {
 				c.Missing = appendMissing(c.Missing, f.Path)
 				continue
@@ -200,6 +206,43 @@ func attachProducts(out *Inspection, products selection.Inspection) {
 			c.Facts = append(c.Facts, f)
 		}
 	}
+}
+
+// Selection's broader Catalog attribute view also carries producer-injected
+// source fields. Research discloses only its qualified observation metadata;
+// never reinterpret those attributes as product facts or copy provider URLs.
+func sourceMetadataPaths(facts []selection.Fact) map[string]bool {
+	blocked := map[string]bool{}
+	metadata := func(name, value string) bool {
+		normalized := strings.ToLower(strings.NewReplacer("_", "", "-", "", ".", "").Replace(name))
+		switch normalized {
+		case "sourceurl", "availability", "capturedat", "sourcemetadata", "providermetadata", "rawhtml", "rawpayload", "providerresponse":
+			return true
+		}
+		return strings.Contains(value, "://") || strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "data:")
+	}
+	for _, f := range facts {
+		if strings.HasPrefix(f.Path, "attributes.") && !strings.HasSuffix(f.Path, ".uncertainty") {
+			var a struct{ Name, Value string }
+			if json.Unmarshal(f.Value, &a) == nil && metadata(a.Name, a.Value) {
+				blocked[f.Path] = true
+				blocked[f.Path+".uncertainty"] = true
+			}
+		}
+		if strings.HasPrefix(f.Path, "variants.") && strings.HasSuffix(f.Path, ".attributes") {
+			var attrs [][2]string
+			if json.Unmarshal(f.Value, &attrs) == nil {
+				for _, a := range attrs {
+					if metadata(a[0], a[1]) {
+						blocked[f.Path] = true
+						blocked[strings.TrimSuffix(f.Path, ".attributes")+".uncertainty"] = true
+						break
+					}
+				}
+			}
+		}
+	}
+	return blocked
 }
 func appendMissing(values []string, path string) []string {
 	for _, s := range values {
@@ -346,7 +389,11 @@ func ParseInspection(raw json.RawMessage) (Inspection, error) {
 		}
 		seen := map[string]bool{}
 		observation := observationValues(c.Observation)
+		blocked := sourceMetadataPaths(c.Facts)
 		for _, f := range c.Facts {
+			if blocked[f.Path] {
+				return Inspection{}, agent.ErrInvalid
+			}
 			if strings.HasPrefix(f.Path, "observation.") {
 				value, ok := observation[f.Path]
 				raw, e := json.Marshal(value)
