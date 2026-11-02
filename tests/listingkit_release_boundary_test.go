@@ -82,7 +82,7 @@ func renderKustomizeObjects(t *testing.T, path string) []renderedObjectIdentity 
 }
 
 func TestListingKitHistoricalDrainEvidenceRetainsDurableSafetyBoundaries(t *testing.T) {
-	runbook := readRepositoryText(t, "..", "deployments", "kubernetes", "listingkit-workbench", "README.md")
+	runbook := readRepositoryText(t, "..", "docs", "archive", "deployments", "listingkit-workbench-k3s.md")
 	for _, required := range []string{
 		"ImageAgentWorkflow",
 		"ImageSlotWorkflow",
@@ -140,7 +140,7 @@ func TestListingKitHistoricalDrainEvidenceRetainsDurableSafetyBoundaries(t *test
 func TestListingKitRunbookRejectsV2ProducingRollback(t *testing.T) {
 	t.Parallel()
 
-	content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "README.md"))
+	content, err := os.ReadFile(filepath.Join("..", "docs", "archive", "deployments", "listingkit-workbench-k3s.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

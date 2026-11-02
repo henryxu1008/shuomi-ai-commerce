@@ -47,7 +47,7 @@ Out of Scope：自动抓取财务、汇率换算、平台资金结算、Commerci
 | --- | --- |
 | 人工录入经营期收入/成本、修订与目标启用历史 | 新有界 `internal/operationscockpit` |
 | 店铺身份/名称/平台/站点/状态/服务、成员grant | `internal/storecenter` |
-| 已取得平台商品/订单/物流、同步范围/覆盖 | `internal/marketplace/shein/observations` |
+| 已取得平台商品/订单/物流、同步范围/覆盖 | `internal/storecenter/observations` |
 | 钱包、资源、费用、订阅、AI调用与Product事实 | 原owner，本批不复制/修改 |
 | 数据库/身份adapter | feature-local integration；app HTTP assembly只组合 |
 | 官方观察消费 | feature-local `app/operationscockpitobservations`，复用现有观察Service只读合同；不将业务Service引入infra/integration |
