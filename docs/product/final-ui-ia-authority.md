@@ -305,3 +305,9 @@ Product、Asset、Listing、Marketplace、Store、Resource 等是支撑该产品
 批准 Figma tg48P46SSXl6TBy9lZwg63 / 非归档页31:463 的研究区深色桌面 [11981:919](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11981-919)、浅色11981:1006、深色390px11981:962、浅色390px11981:1049；原 Collection 转入弹窗补明确非空子集，深色桌面 [11984:966](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=11984-966)、浅色11984:1005、深色390px11984:985、浅色390px11984:1024。排版示例不成为默认业务数据；跨批分别确认，不默认转入整批。
 
 采用原 Console 主题、Noto Sans SC、原项目/数据市场/选品/供应链完整流程。Amazon 数据来源的正式转入准入、溯源 reader、研究关系与本人决定按独立冻结合同实施；不增加第二商品库、项目中心、采集/扣费/转入执行 owner 或浏览器控制面。
+
+### 2026-11-02 已授权设计：市场调研与智能选品两个中心 V1（候选，待确认）
+
+用户随后同意先形成两个中心 V1 的产品范围、页面入口和交接设计增量，落实到现有 #1070/#1072/#1073 与 Figma，确认后再决定正式实施。候选入口为“数据服务 → 市场调研中心”与“供应市场 → 智能选品中心”，共用当前 PRODUCT_RESEARCH 项目和研究候选，不复制商品或增加执行/计量 owner。
+
+本轮范围、12个明暗/关键390px视图、确认与空/异常状态及准确 Figma 链接见[两个中心 V1 产品候选](market-research-selection-centers-v1.md)。该文档状态为 DESIGN_REVIEW，新增导航与市场证据 AI 尚未成为批准的 Product Authority 或 IMPLEMENTATION_READY。上方首批已批准设计及现有实例运行合同继续有效；真实平台、模型/付费、合并和新增实例更新仍无授权。
