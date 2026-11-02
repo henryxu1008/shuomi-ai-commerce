@@ -21,7 +21,7 @@
 - [企业 Agent Configuration](organization-agent-configuration-v1.md)：企业启用、模板、start snapshots 和 command owner。它不拥有当前模型/价格，不借用这些表保存当前路由。
 - [Product Image Agent](product-image-agent-v1.md)：原图片计划、GenerationIntent、reservation、dispatch、proof/recovery、Asset/selection owner。
 - [Commercial retail pricing](commercial-retail-pricing-v1.md)：AI 点数充值售价仍归 Commercial catalog，与供应商估算成本和模型消费点数分开。
-- [Greenfield 产品基线](../product/greenfield-no-legacy-migration.md)、[Legacy hard-cut](../refactoring/legacy-hard-cut-policy.md)、[AGENTS](../../AGENTS.md)。
+- [Greenfield 产品基线](../product/greenfield-no-legacy-migration.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)、[AGENTS](../../AGENTS.md)。
 
 此决定只替代上述文本合同中「部署不可变 map 是当前选路/费率来源、无供应商选择 UI」这一有界限制，以及图片 factory 固定 client name/启动费率的选取点。每组织每用途一个当前 route、所有 adapter/usage/硬上界准入继续有效。不是批准任意模型目录、企业 BYOK、新 provider 或新协议。
 

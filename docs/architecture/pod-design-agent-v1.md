@@ -16,7 +16,7 @@ Out of Scope：新图片SDK/模型路由平台/计费账本/队列/审核或POD�
 
 ## 现状与最小合同补齐
 
-- 原调查基线的 `internal/integration/openai/images.go` 已按 [#1033 完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)退出，不是当前实现入口。现有 GRSAI 有界生成传输见 `internal/integration/grsai/synchronous_edit.go` 的 `GenerateImageOnce`；`imageagent.GenerationExecution`、ImageSet recipe 与 worker 继续沿原 slot/effect 和输入合同消费，商品图分支的原图、References 及 SourceBytes 要求保持；不能把调用 SDK 当成端到端接通。
+- 原调查基线的 `internal/integration/openai/images.go` 已按 [当前系统边界](project-boundaries.md)退出，不是当前实现入口。现有 GRSAI 有界生成传输见 `internal/integration/grsai/synchronous_edit.go` 的 `GenerateImageOnce`；`imageagent.GenerationExecution`、ImageSet recipe 与 worker 继续沿原 slot/effect 和输入合同消费，商品图分支的原图、References 及 SourceBytes 要求保持；不能把调用 SDK 当成端到端接通。
 - `internal/app/pod.Service.Artwork`只列出已保存Source的真实图片；`OriginalInputs`、Asset RoleDesign批准及POD Plan绑定准确来源。新图案必须通过当前生成结果与真实作品接收，不能给POD造假Source/原图或借模板空白图进行所谓文生图。
 - 同一ImageAgent运行/slot/effect owner增加明确的创作输入变体与执行分支。创作输入只含用户设计意图、所选有界输出规格、原配置/模式/报价引用；它不是ProductSnapshot。没有参考图时References为空，不请求原图bytes。商品图片现有分支仍必须真实原图/证据。
 - 创作输入与输出由固定协议`pod-artwork-v1`、注册定义`pod.design.agent/v1.0.0`识别；不可通过商品`custom`提示词、任意source URL或兼容分支绕过。具体新增标识必须在对应精确schema/配置/worker verifier同时消费，不留下菜单空壳。

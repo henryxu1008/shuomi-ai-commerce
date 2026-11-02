@@ -8,7 +8,7 @@
 
 解决 own675 后续安全运行当前 Store/SHEIN 草稿路径时的核心 schema 阻碍。推荐由原 Store owner 对当前系统自己的两张表做四项 CHECK 对齐，通过既有 Goose 记录一个新的 schema 版本；业务表、行、图片、配置、授权和原版本记录保留。不重建数据库或表，不复制/转换业务数据，不创建旧系统兼容路径。
 
-Design Basis：**Reuse Existing Architecture**。引用 [Store 当前应用 owner](store-center-current-application-v1.md)、[当前 Store 目录](store-center-figma-v1.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[实例安装计划](../operations/own675-shein-import-trial-installation-v1.md)，以及现有 `internal/storecenter`、`internal/app/schema/storecenter` 和 `internal/platform/database/migration`。基线明确允许“新系统自身正常的 Schema 演进”，不需要将当前 owner 内的 CHECK 演进误写成旧系统历史迁移例外；此解释不扩大实际操作授权。
+Design Basis：**Reuse Existing Architecture**。引用 [Store 当前应用 owner](store-center-current-application-v1.md)、[当前 Store 目录](store-center-figma-v1.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[实例安装计划](../operations/shein-import-installation.md)，以及现有 `internal/storecenter`、`internal/app/schema/storecenter` 和 `internal/platform/database/migration`。基线明确允许“新系统自身正常的 Schema 演进”，不需要将当前 owner 内的 CHECK 演进误写成旧系统历史迁移例外；此解释不扩大实际操作授权。
 
 本方案不改变 Store 业务状态机、租户/成员权限、官方连接、CAS/幂等、权益/资金或 provider UNKNOWN owner。没有 UI 变更，现有 Figma authority 不变。Legacy decision: N/A；只消费当前合格 Store owner，无 legacy service、双读/双写或第二事实源。
 

@@ -94,4 +94,3 @@ Amazon：
 - Finding：报价子读需早于外层10秒结束。Product requirement affected：报价失败仍显示已知商品。Classification：IMPLEMENTATION_TEST。Action：第3节2秒子预算与父deadline余量检查，测试超时降级为unavailable且没有后台重试。
 
 以上为评审指出的实现收敛，未改变事实owner、权限、状态、事务或恢复协议；设计基线在正式实现前冻结。
-

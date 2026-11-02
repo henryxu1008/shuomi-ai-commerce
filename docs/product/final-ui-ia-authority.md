@@ -31,7 +31,7 @@
 
 用户重申：ListingKit 需要退休，当前产品以 Figma 设计为准。**旧 ListingKit 产品投影、Task-first 工作台及 root 混合架构不能作为长期子产品、默认入口或永久执行引擎保留。** 这不只是“不让它决定导航”，也不能在能力图中换成“内部引擎”继续保留同一旧 owner。
 
-有效行为按 [Legacy Policy](../refactoring/legacy-hard-cut-policy.md)、[Register](../refactoring/legacy-register.md) 归当前 Product / Listing / Marketplace / Integration / App 等 owner，调用方切换后退休原路径；不增加 wrapper、fallback 或双事实源。Listing 领域事实继续存在，不等于保留 ListingKit。
+有效行为按 [当前系统边界](greenfield-no-legacy-migration.md) 归当前 Product / Listing / Marketplace / Integration / App 等 owner，调用方切换后退休原路径；不增加 wrapper、fallback 或双事实源。Listing 领域事实继续存在，不等于保留 ListingKit。
 
 `web/listingkit-ui` 中已经符合 Figma 和当前领域合同的 Console / BFF / 共享组件继续复用；旧 Task-first 页面逐项退出。真实目录、命令或配置名称尚未修改只表示工程现状，不是产品保留决定，也不授权仅凭名称删除合格实现。本文不宣称物理退休已完成，不授权业务迁移、部署或操作真实数据。
 
@@ -96,7 +96,7 @@ Design Basis: N/A，仅调整既有分类导航的展示；路由、领域合同
 
 图片方法选择与计划确认的可编辑面板：深色 [6861:1826](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=6861-1826) / 浅色 `6861:1864`；失效版本为 `6861:1845` / `6861:1883`。用户明确选择一个可用官方/团队版本或不使用；方法不增加已选任务或改写规则/报价，确认摘要显示准确方法来源/版本。个人图片定制先经原团队审核形成团队副本，不借用标题个人准入。设计示例不是运行数据，未开放的创作助手没有可用入口。
 
-图片为新的 Skill 执行消费者，Design Basis: Independent Architecture，具体owner、指纹/撤销栅栏、安装和准入见 [官方标题与图片技能 V1](../architecture/official-skills-and-image-method-v1.md)。设计检查达到IMPLEMENTATION_READY之前不修改正式生产路径；不操作当前实例、原数据或配置。
+图片为新的 Skill 执行消费者，Design Basis: Independent Architecture，具体owner、指纹/撤销栅栏、安装和准入见 [官方标题与图片技能 V1](../architecture/product-image-agent-v1.md)。设计检查达到IMPLEMENTATION_READY之前不修改正式生产路径；不操作当前实例、原数据或配置。
 
 当前设计中，历史「商品中心」已归档；不建立独立顶层 `Product Center` / `Listing Center` 作为最终 IA 前提。
 
@@ -168,7 +168,7 @@ Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](.
 
 当时未开放的组件不得据此推断当前范围；本批次应以 3.2 及 Issue #408 最新产品决定为准，仍然不得通过示例数字或前端假保存伪造事实。现有账户页面继续显式表达 loading、error、empty、denied、unavailable 和只读状态，且不得删除已确认的源账号操作记录。
 
-相关设计组件分类以 `docs/engineering/issue348-account-ui.md` 的 Profile `432:534`、Enterprise `432:4483`、Management `1631:490`/`1631:497`/`1631:504`、Resources `1634:359`/`1636:371` 映射为当前 v1 的视觉与语义约束；成员、操作记录和个人推广组件按上述 v1/未来边界记录在 Issue #408。若无 Figma 编辑权限，不通过其他渠道修改原型，仅在 Issue 中保留待标注项。
+相关设计组件分类以 `docs/engineering/zitadel-official-provider-boundary.md` 的 Profile `432:534`、Enterprise `432:4483`、Management `1631:490`/`1631:497`/`1631:504`、Resources `1634:359`/`1636:371` 映射为当前 v1 的视觉与语义约束；成员、操作记录和个人推广组件按上述 v1/未来边界记录在 Issue #408。若无 Figma 编辑权限，不通过其他渠道修改原型，仅在 Issue 中保留待标注项。
 
 ### 3.2 Account Center — Figma Parity Delivery Batch（2026-09-20）
 

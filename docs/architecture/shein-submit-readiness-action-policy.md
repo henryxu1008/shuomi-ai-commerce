@@ -1,5 +1,3 @@
-> **当前架构边界归位。** save_draft动作分类仍由publishing/final_review_policy.go实现；既有平台纯规则归位，旧ListingKit适配不恢复。原有状态、数字、结果和精确替代范围保留；归位不改变产品或运行语义。当前依据从[文档首页](../README.md)进入，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
-
 # SHEIN Submit Readiness Action Policy
 
 ## Goal

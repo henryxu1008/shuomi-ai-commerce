@@ -6,7 +6,7 @@
 
 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) 是新业务 Issue 的当前产品基线：全新安装、空业务数据和当前模型。不得仅因旧 Issue/PR/设计/测试记录而派发历史数据迁移/backfill、旧 ID 映射、legacy wrapper/adapter、tenantbridge consumer、fallback、双读/双写/同步或第二事实源。若声称存在外部可观察兼容义务，必须先有具体当前证据并报告用户；只有用户新的明确产品决定可以改变本禁令，Reviewer 或 Agent 无权自行放行。
 
-本规则只增加派工和交付流程，不另建架构或安全规则。TDD、架构敏感准入、finding 分类及最多两轮正常架构评审沿用 [AGENTS.md](../../AGENTS.md)；Legacy 处理沿用 [Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md) 与 [Legacy Register](../refactoring/legacy-register.md)，只有 `EXTRACT | RETIRE`，没有 Compatibility 类别。发现批准依据与适用 guard 冲突时，报告具体冲突及最小处理范围，不降低验收、不自行扩大修改范围。
+本规则只增加派工和交付流程，不另建架构或安全规则。TDD、架构敏感准入、finding 分类及最多两轮正常架构评审沿用 [AGENTS.md](../../AGENTS.md)；Legacy 处理沿用 [当前系统边界](../product/greenfield-no-legacy-migration.md)，只有 `EXTRACT | RETIRE`，没有 Compatibility 类别。发现批准依据与适用 guard 冲突时，报告具体冲突及最小处理范围，不降低验收、不自行扩大修改范围。
 
 入口：[执行 Issue 模板](../../.github/ISSUE_TEMPLATE/execution-task.md) · [PR 模板](../../.github/pull_request_template.md)。所有正式开发 Issue 必须填写 Design Basis；简单任务可按 AGENTS.md 规则填写 N/A，不强迫补写重型 PRD、Threat Model 或 Accepted Risk。
 

@@ -63,7 +63,7 @@ returns for identities with and without enterprise grants. Returning to an
 earlier collapsed route also has a regression test.
 
 Use the existing task-owned `scripts/account-fixture.mjs` and
-`scripts/account-browser-verification.mjs` described in `issue348-account-ui.md`.
+`scripts/account-browser-verification.mjs` described in `zitadel-official-provider-boundary.md`.
 They exercise real client/Auth.js/BFF/Go reads with external provider substitutes;
 they are not real IAM or production evidence. No database is needed for this
 profile reader. Ports, processes, synthetic sessions and browser resources must

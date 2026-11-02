@@ -1,9 +1,3 @@
-> **领域合同归位。** 有界设计/合同引用保留，原BLOCKED_ON_CONTRACT_DECISION与未准入状态不提升。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
-
-> #301 / #1025 USER_CONFIRMED：[本批已确认完整退休设计](legacy-task-openai-convenience-closure-retirement-boundary.md)仅替代本文旧Actor/读取/校验owner与旧源文件链接的当前含义：当前record持最小Actor/原纯校验，当前草稿读取仍归原record/repository；旧listing/task根与Reader退出。本文§3.1的持久化输入绑定、严格JSON/hash/字段/版本规则和权限/组织owner读取要求继续有效；#904只退休旧alias，不扩大为整份依据退休。不迁移已有载荷、不新建兼容读取/第二事实源，当前能力与Store观察保持，workflow/inventory/既有资源不动。以下冻结原文/历史完整保留。
-
-> #301 / #904 用户确认的[完整 JSON 别名退休设计](legacy-shein-draft-json-alias-retirement-v1.md) §5/§6.1 仅替代本文三旧 Package 字段、回填/镜像/custom JSON、summary-only SKU 就绪回退及旧绑定/规则版本的 KEEP 或双输出要求。当前仅 canonical 字段，typed v1.2 / diagnostic v2.2 / binding go-json.v2；当前类型、有效规则、严格解码、原持久化 owner、独立 SHEIN 登录与 Store 同步保留。不迁移已有记录、不改 workflow/inventory、不增加试用前置。以下历史正文原样保留。
-
 # SHEIN 离线诊断输入、freshness 与组织范围读取设计
 
 日期：2026-09-05。执行依据：[Issue #316](https://github.com/qq550723504/task-processor/issues/316)；Parent #34，后续接入 #315。
@@ -14,7 +8,7 @@
 
 审计 main：`6b06929f5ca77b1af3020ca92c544774c9416901`，启动时相关增量为空。#314 及 main CI 33972706741 已成功；[#315 原始阻塞](https://github.com/qq550723504/task-processor/issues/315#issuecomment-5552615228) 获协调接受。
 
-适用 [AGENTS](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)、[Legacy Policy](../refactoring/legacy-hard-cut-policy.md)、[Register](../refactoring/legacy-register.md)、[当前身份与租户合同](auth-and-tenancy.md)、[Validator 当前说明](../../internal/marketplace/validator/README.md)。无新增 Accepted Risk。授权读取缓存继续遵守既有最多 60 秒且不超过 token/grant 到期时间的合同，不追求零缓存撤权。
+适用 [AGENTS](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)、[当前身份与租户合同](auth-and-tenancy.md)、[Validator 当前说明](../../internal/marketplace/validator/README.md)。无新增 Accepted Risk。授权读取缓存继续遵守既有最多 60 秒且不超过 token/grant 到期时间的合同，不追求零缓存撤权。
 
 Must：授权范围先于资料读取；hash 和校验用同一读取副本；无假时间；已知 stale/expired 不降格；离线结论不能授予写权限；无规则双跑/复制；无平台/模型调用或业务写。Out of Scope：schema、历史 task 迁移、IAM/tenantbridge、新事实库、缓存/刷新服务、UI/Tool/Apply/Agent/submit 接线、部署和真实数据。认证基础设施可能访问 ZITADEL 与其既有授权缓存；“无平台调用”指不为资料校验访问 SHEIN，不声称认证也无 I/O。
 

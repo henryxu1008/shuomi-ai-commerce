@@ -16,7 +16,7 @@ authorized this repair after the isolated #413 run failed with PostgreSQL
 `permission denied for table ledger_payment_settlements` at `SELECT FOR UPDATE`.
 
 Authority: [greenfield product baseline](../product/greenfield-no-legacy-migration.md),
-[commercial money contract](commercial-wallet-billing-contract.md),
+[commercial money contract](unified-base-prepaid-resources-v1.md),
 [current referral rules](referral-settlement-and-conduct.md), and the runtime
 immutable-table contract in `money.VerifyProviderTopUpRuntime`. No UI change;
 the current [UI authority](../product/final-ui-ia-authority.md) remains applicable.

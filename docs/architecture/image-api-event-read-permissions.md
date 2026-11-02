@@ -27,7 +27,7 @@ original command under the existing authority. The earlier mixed error-state
 draft 7724:2238 remains historical and does not authorize new UNKNOWN handling.
 
 References: [current image architecture](product-image-agent-v1.md),
-[shared event-cursor amendment](bailian-image-no-generation-reconciliation-v1.md#shared-event-cursor-blocker-amendment-2026-10-18-implementation_ready),
+[shared event-cursor amendment](product-image-agent-v1.md),
 and [greenfield product baseline](../product/greenfield-no-legacy-migration.md).
 
 ## Evidence and smallest boundary

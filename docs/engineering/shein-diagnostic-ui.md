@@ -62,9 +62,6 @@ Refs #324；BFF 与跨进程 fixture 由 #323 独占，见 [BFF 合同和启动�
 
 以下均为实际页面 → BFF → Go → 隔离 PostgreSQL，资料由实际 Publisher/POST 创建，身份为上述受控替身。桌面宽 1440px，窄屏宽 390px；窄屏截图保留了键盘展开问题后的焦点状态。截图不是运行时演示数据。
 
-![1440px 实际诊断页面](evidence/issue324/desktop-real-bff.png)
-
-![390px 实际诊断页面与键盘展开](evidence/issue324/narrow-real-bff.png)
 
 本次浏览器测试发现并修复了两处可访问性问题：诊断页灰色背景上的辅助文字，以及复用的 SidebarGroupLabel 默认文字透明度。后者仅将通用组件透明度从 70% 调到 80%，没有改导航、登录或 Shell 结构。两个视口均通过完整页面 axe 检查。
 

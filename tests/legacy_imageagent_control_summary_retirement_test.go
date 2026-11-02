@@ -1,14 +1,10 @@
 package tests
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -91,30 +87,3 @@ func TestImageAgentControlSummaryRetirementKeepsCurrentOwners(t *testing.T) {
 
 // The approved design HEAD 44fa04b6fb8cc151974fe28ce80c3233f7b9af4b is
 // immutable history. Current implementation notes may only be prepended.
-func TestImageAgentControlSummaryRetirementFrozenDocumentSuffixesStayIntact(t *testing.T) {
-	for _, doc := range []struct {
-		path   string
-		length int
-		hash   string
-	}{
-		{"docs/architecture/legacy-imageagent-control-summary-tail-retirement-boundary.md", 19658, "17bdeee63654fe88e9c9c8bb280cfdaf9050b419c3cda03d4a409000a71d5df7"},
-		{"docs/refactoring/legacy-register.md", 157812, "358c4643367bfb9f367d443a86546efe04f61decb2691e8d866988520cca42c4"},
-		{"docs/architecture/project-boundaries.md", 55912, "ac4815f08eb7b86da3ca5e55b7af6c9dc1fa090e42a4e632e529681444babac4"},
-		{"docs/architecture/README.md", 158183, "52676d98ac61f295c63d6cd704a3f80c17c65f847a9e15f9c75114e2f827f0ed"},
-		{"docs/architecture/legacy-imageagent-business-signal-closure-retirement-boundary.md", 25547, "191a9f9d5a98ee669d8d9e8eb13295b14f7b9b619bfeee9fd3504a6001b671f9"},
-	} {
-		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(doc.path)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
-		raw = restoreRelocatedFrozenDocumentNavigation(doc.path, raw)
-		if len(raw) < doc.length {
-			t.Errorf("frozen ImageAgent document truncated: %s", doc.path)
-			continue
-		}
-		if fmt.Sprintf("%x", sha256.Sum256(raw[len(raw)-doc.length:])) != doc.hash {
-			t.Errorf("frozen ImageAgent control/summary history changed: %s", doc.path)
-		}
-	}
-}

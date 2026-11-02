@@ -1,5 +1,3 @@
-> #1041 窄范围源码退休：用户确认的[完整边界§1–§7/§4.2/§6.1](legacy-resource-transaction-closure-retirement-boundary.md)已实施；本文§2 “Preserve existing generic/same-DB contracts for their current consumers”仅对该准确旧闭包不再适用。旧通用注册/预留/结算与同库Store执行器无当前装配，当前图像结算行为已抽到integration/orgresource并保持原事务/上下文/锁序/debt-first。当前独立Store/Commercial DB、成员资金归属、receipt/CAS、权限、UNKNOWN/恢复和物理账本全部保留，不改变计费语义或新增迁移。以下原正文逐字保留，不授权真实资源操作。
-
 # Member resources and official store connection v1
 
 Execution: #561. Parent: #551 / #469. Design Basis: Independent Architecture.

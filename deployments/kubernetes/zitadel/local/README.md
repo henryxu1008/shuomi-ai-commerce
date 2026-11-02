@@ -48,7 +48,7 @@ based on `listingkit-workbench-zitadel-secret.example.yaml`.
 The UI still reads `ZITADEL_*` directly, while the Go API binds the same
 issuer/client credentials into `listingkit.zitadel.*`. Additional rollout
 checks and allowlist guidance are documented in
-[listingkit-config-migration-checklist.md](../../../../docs/development/listingkit-config-migration-checklist.md).
+[listingkit-config-migration-checklist.md](../../../../docs/development/repository-structure.md).
 
 ## Provision ListingKit project roles
 

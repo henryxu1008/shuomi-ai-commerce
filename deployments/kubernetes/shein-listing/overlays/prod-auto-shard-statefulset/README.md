@@ -6,10 +6,10 @@ Status: **RETIRED source entrypoints**（#723 / #726 / #738，#29 / #301）。
 均已从源码退出；本目录已无 Kustomize 装配入口。旧 `/app/listing-service` 历史
 镜像不由当前源码重建，不提供替代协调器、空部署或恢复旧消费链的入口。
 
-ownership-controller 和其唯一 kustomization 按[已确认边界](../../../../../docs/architecture/legacy-ownership-controller-retirement-boundary.md)
+ownership-controller 和其唯一 kustomization 按[当前系统边界](../../../../../docs/architecture/project-boundaries.md)
 退休。特定 ConfigMap 源文件在确认无其它仓库消费者后随专属配置 overlay 退出；
 共享 Secret/ExternalSecret、Namespace、RBAC及独立 SHEIN 登录 worker 保持原 owner。
-#839 [完整运维源码闭包](../../../../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)
+#839 [当前系统边界](../../../../../docs/architecture/project-boundaries.md)
 进一步退出旧专属监控与 rollout helper/test；唯一有效存储告警抽取到现有 monitoring。
 当前采集和 Store 观察同步沿原入口使用。
 

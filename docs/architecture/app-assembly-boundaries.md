@@ -1,262 +1,28 @@
 # App Assembly Boundaries
 
-> #870 当前校准：[用户确认的完整旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)已确认整批退出旧 app/monitoring、app/lifecycle、core/errors、app/ports 及 updater（连同旧 httpx/auth）。下文 bootstrap/runner/consumer、组件监控与 lifecycle/ports 示例仅为历史装配说明，不是待迁移/接线目标。当前 currentapplication、kernel/module、原 closers 与 platform 观测继续既有合同；独立 SHEIN 登录/Store 同步保留，不新增替代 manager 或试用前置。
-
-## Goal
-
-This note captures the assembly-layer boundaries that are emerging in the
-`internal/app` packages. The purpose is to make future high-level refactors
-more consistent: instead of treating `bootstrap`, `runner`, and `consumer` as
-three unrelated places, we can now describe them with one shared assembly
-vocabulary.
-
-Use `docs/architecture/project-boundaries.md` as the repository-wide entrypoint
-for default ownership and dependency direction. This document narrows that
-baseline specifically for app-layer assembly vocabulary and package roles; it
-should not become a parallel policy source for unrelated package placement.
+[project-boundaries.md](project-boundaries.md) is the repository-wide entrypoint for default ownership and dependency direction. This contract narrows that rule to current `internal/app` composition; it does not create domain policy.
 
 ## Assembly Vocabulary
 
-The app layer is converging on this sequence:
+The application layer separates `build / initialize`, `register`, `start` and `coordinate`:
 
-1. `build / initialize`
-2. `register`
-3. `start`
-4. `coordinate`
+- Build / initialize reads explicit configuration, constructs current clients and services, and prepares dependency bundles.
+- Register contributes ready components to module/lifecycle registries, without starting business effects.
+- Start activates the configured lifecycle pieces; it does not install schema or invent facts.
+- Coordinate handles supervision, cancellation, signals and orderly shutdown; domain recovery remains with its owner.
 
-This vocabulary is intentionally higher-level than the TEMU pipeline stages.
-It is meant for composition roots and runtime wiring, not domain workflows.
+Where these package roles exist, `bootstrap` builds and registers, `runner` starts and supervises, and `consumer` assembles and coordinates messaging consumers. New work uses the existing current composition root; these terms are not a requirement to create missing packages or recreate deleted processors.
 
-### 1. Build / Initialize
+## Ownership
 
-Responsible for:
-
-- interpreting config
-- constructing resources and services
-- preparing dependency bundles
-
-Representative examples:
-
-- `ApplicationBootstrap.initializeServices(...)`
-- `ServiceManager.buildManagedComponents()`
-- `ServiceManager.buildResultReporter()`
-- `ServiceManager.buildLoadMonitor()`
-- `processorServiceImpl.startProcessingComponents(...)`
-
-### 2. Register
-
-Responsible for:
-
-- registering components into lifecycle managers
-- wiring services into shared managers
-- preparing runtime-managed structures
-
-Representative examples:
-
-- `ApplicationBootstrap.registerLifecycleComponents(...)`
-- `ServiceManager.registerComponents()`
-
-### 3. Start
-
-Responsible for:
-
-- starting lifecycle-managed components
-- entering running state
-- activating runtime services
-
-Representative examples:
-
-- `ApplicationBootstrap.Start(...)`
-- `ServiceManager.Start(...)`
-- `processorServiceImpl.startLifecycleComponents()`
-
-### 4. Coordinate
-
-Responsible for:
-
-- shutdown orchestration
-- signal handling
-- runtime supervision
-- status monitoring
-
-Representative examples:
-
-- `ShutdownCoordinator`
-- `ServiceManager.Start(...)` signal handling setup
-- `processorServiceImpl.startStatusMonitor()`
-
-## Package Roles
-
-### bootstrap
-
-`bootstrap` should act as the application composition root.
-
-It should primarily own:
-
-- config loading
-- shared service initialization
-- lifecycle registration
-- top-level application start / stop boundaries
-
-It should avoid:
-
-- platform-specific business flow logic
-- long inlined construction sequences when they can be named as initialization
-  steps
-- runtime coordination details that belong to specialized services
-- placing concrete external-client runtime state in generic type files; keep
-  shared external runtime dependencies in a named seam such as
-  `internal/app/httpapi/runtime_shared_deps.go`
-
-### runner
-
-`runner` should act as the runtime orchestration layer for processors and
-schedulers.
-
-It should primarily own:
-
-- starting processing components
-- starting lifecycle-managed runtime pieces
-- runtime status and health coordination
-- processor / scheduler lifecycle control
-
-It should avoid:
-
-- detailed assembly logic that belongs in `bootstrap`
-- domain pipeline logic that belongs in platform packages
-- mixing startup sequencing with low-level implementation details when a
-  dedicated startup step would clarify the flow
-
-### consumer
-
-`consumer` should act as the messaging runtime assembly layer.
-
-It should primarily own:
-
-- composing messaging-related components
-- lifecycle registration for consumer-side services
-- queue / HTTP / reporter / shutdown coordination
-
-It should avoid:
-
-- platform-specific task semantics
-- deeply nested component construction in the same registration method
-- leaking lifecycle orchestration details into lower-level services
-
-## Current Structural Direction
-
-Recent refactors have pushed the app layer toward a clearer shape:
-
-- `bootstrap` is moving toward `load -> initialize -> register`
-- `consumer` is moving toward `build -> register -> coordinate`
-- `runner` is moving toward `validate -> start processing -> start lifecycle -> monitor`
-
-These are not identical flows, but they now share the same assembly idea:
-
-- construction and initialization happen first
-- registration happens explicitly
-- runtime start happens separately
-- coordination concerns are not mixed into every local step
-
-## Preferred Refactor Moves
-
-When editing the app layer, prefer these moves:
-
-1. split construction from registration
-2. split registration from runtime start
-3. keep top-level entry functions orchestration-focused
-4. move repeated assembly details into clearly named builders / initializers
-5. keep domain-specific workflow logic out of app-layer composition code
-
-## Naming Guidance
-
-At the app layer, these names are usually helpful:
-
-- `build...`
-- `initialize...`
-- `register...`
-- `start...`
-- `coordinate...`
-
-These names are usually less helpful when they hide the role:
-
-- `handle...`
-- `process...`
-- `do...`
-- `setup...`
-
-`setup...` may be acceptable for very small generic plumbing, but when a step
-has a clearer role, prefer the explicit assembly vocabulary instead.
-
-## What Not To Do
-
-Avoid these patterns in app-layer code:
-
-- one method both constructing and registering several unrelated components
-- one method both starting services and managing shutdown coordination
-- platform wiring mixed into top-level orchestration without a named assembly
-  step
-- broad helpers that hide assembly order instead of clarifying it
-
-If a refactor shortens a function but makes the assembly order harder to read,
-it is usually not worth it.
-
-## Boundary Guards
-
-App-layer assembly boundaries are guarded by:
-
-- `TestBusinessDomainsDoNotImportAppRuntimeAssembly`
-- `TestAppBootstrapRetiredManagementImportsStayBlocked`
-- `TestAppRunnerRetiredManagementImportsStayBlocked`
-- `TestAppConsumerRetiredManagementImportsStayBlocked`
-- `TestAppHTTPAPIRetiredManagementImportsStayBlocked`
-- `TestAppRuntimeListingRetiredManagementImportsStayBlocked`
-- `TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted`
-- `TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated`
-- `TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated`
-- `TestHTTPAPIRuntimeKeepsOpenAIRuntimeAssemblyDedicated`
-- `TestHTTPAPIRuntimeKeepsSharedResourceAssemblyDedicated`
-
-This keeps business domains from depending directly on concrete
-`internal/app/{bootstrap,consumer,runner,runtime}` assembly packages. If a new
-transition seam is necessary, document the narrow exception and update the
-allowlist in the same change.
-
-The app-layer management guards protect retained boundaries, not permission to revive retired owners.
-The numeric task/status/processor execution closure is retired under #729; bootstrap,
-runner/consumer and old listing runtime owners already retired in earlier batches stay absent.
-Current HTTP and standalone login assembly keep their existing contracts. New business data
-access belongs to in-repository database/repository seams owned by the relevant domain.
-`TestListingKitTaskBackendSourcesAreRetired` and
-`TestCurrentCommandsDoNotCompileLegacyBusinessBackends` protect the retired closure.
-
-The `internal/app/httpapi` package also has package-local runtime seam guards.
-They keep generic files such as `types.go`, `adapters.go`, and `runtime.go`
-from absorbing concrete external-client state or shared resource assembly.
-When a runtime dependency needs a concrete client or bootstrap resource, prefer
-a named seam such as `runtime_shared_deps.go`, `adapters_openai.go`, or
-`runtime_openai.go` instead of expanding the generic assembly files. The same
-rule applies to ProductImage provider/external client assembly: keep provider
-selection and concrete external client wiring in dedicated seams instead of
-spreading them across generic app/httpapi assembly files.
+- `internal/app/httpapi` assembles current HTTP modules and injects trusted runtime dependencies. Each owning domain HTTP API registers its own routes.
+- `internal/app/worker` assembles the corresponding current worker and native runtime.
+- Product, Listing, Store, Agent, commercial and ledger modules keep their service, query, permission, transaction and recovery contracts.
+- External clients and database pools stay in dedicated runtime assembly; domain packages cannot import app bootstrap/runtime to obtain them.
+- A module registration descriptor is not a Tool Runtime, authorization decision or second service owner.
 
 ## Review Questions
 
-When reviewing app-layer changes, these questions are useful:
+Does the change belong to configuration/build, registration, lifecycle start or supervision? Is a domain policy leaking into the composition root? Are the actor, scope, fact owner, transaction and UNKNOWN responsibility still original? Does startup verify current prerequisites without DDL or unintended side effects?
 
-1. Is this logic assembly logic or domain logic?
-2. Does this entry function read like orchestration?
-3. Are build / initialize / register / start / coordinate concerns still mixed?
-4. Did the change make lifecycle boundaries clearer?
-5. Did the change keep package roles clearer rather than blurrier?
-
-## Working Rule
-
-The safest app-layer rule right now is:
-
-- `bootstrap` builds and registers
-- `runner` starts and supervises
-- `consumer` assembles and coordinates messaging runtime
-
-As long as new refactors reinforce that separation, the higher-level structure
-should keep getting easier to extend and reason about.
+Current source/import tests in `tests/` enforce the actual boundary. See [HTTP assembly](httpapi-assembly-boundaries.md) and [Temporal boundary](temporal-boundaries.md) for their specialized contracts.

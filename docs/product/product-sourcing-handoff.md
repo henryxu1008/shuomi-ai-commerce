@@ -1,130 +1,30 @@
-> #301 / #983 当前owner更新：旧sourcing.Publisher包装已按[完整设计](../architecture/legacy-asset-source-openai-tail-closure-retirement-boundary.md)退休；当前正式发布沿已授权InternalProducer/SRC事务到catalog.Publisher，测试的ToSnapshot→Catalog组合仍只为受控领域fixture。仅本批旧静态asset/recipe KEEP被取代，当前ImageSlotRecipe/显式批准/readiness不变；全部原身份/JSON/hash/版本/组织规则及SHEIN登录/Store同步保持，无运行验收或既有数据操作。以下仅两处准确owner节点校准，其余历史正文保持。
-
-> #301 / #972 current owner update: current acquisition uses integration/acquisition/a1688/browser, integration/acquisition/browsercollector and the current Amazon acquisition owner. Current SDS/POD stays with integration/sds and app/pod; current asset approval/recipe remain. The old LocalAgent/legacy crawler adapter and SDS product_source rows below are historical observations, not current entrypoints or compatibility obligations. SourceEnvelope/SourceIdentity JSON/hash/publication/lineage and organization isolation remain unchanged; independent SHEIN login and Store synchronization are retained. No existing data, instances or credentials are accessed.
-
 # Product Sourcing Handoff
 
-> ACTIVE: owner and handoff guide under the current Product Domain contract and
-> **PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**.
-> CURRENT STATE observations: `main @ cae67730c5c0e645d708cb2f6814f14781962bb1`.
-> Execution scope/order: [#30](https://github.com/qq550723504/task-processor/issues/30)
-> and [#137](https://github.com/qq550723504/task-processor/issues/137).
+Source work follows the [Product Domain contract](../architecture/product-domain-contracts.md), [current owners](../architecture/project-boundaries.md) and **PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**: fresh installation and empty business data.
 
-## 1. Authority and purpose
+## Current path
 
-New source work reuses the [Product Domain contract](../architecture/product-domain-contracts.md),
-[current package mapping](../architecture/module-target-mapping.md) and
-[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md).
-Source adapters collect evidence; Product Sourcing normalizes it; Catalog owns
-canonical facts; Product Asset owns approved assets. Marketplace rules remain
-downstream. A source platform is not a target sales platform.
+Verified effective Organization / actor / source access -> current acquisition adapter -> SourceEnvelope -> admitted InternalProducer / SRC transaction -> Catalog publisher -> immutable ProductSnapshot -> explicit asset approval -> deterministic downstream readiness.
 
-The [greenfield baseline](greenfield-no-legacy-migration.md) governs this guide:
-future work starts from a fresh installation and empty business data. It does not
-relax new-system idempotency, authorization, immutable history or explicit
-approval, and it does not authorize migration, profile reuse, wrappers, mappings
-or cutover machinery.
-Final navigation follows [final UI / IA](final-ui-ia-authority.md): shared domain
-facts do not require a top-level Listing Center or a platform Workbench.
+| Responsibility | Current owner |
+| --- | --- |
+| 1688 browser evidence | `internal/integration/acquisition/a1688/browser` and `internal/integration/acquisition/browsercollector` |
+| Amazon acquisition | `internal/integration/acquisition/amazon` and the admitted browser/plugin entry |
+| POD / SDS specialization | `internal/integration/sds` and `internal/app/pod` |
+| Source identity and publication values | `internal/product/sourcing` |
+| Authorized operation and transaction assembly | `internal/app/productsourcing` |
+| Canonical facts and approved assets | `internal/product/catalog` and `internal/product/asset` |
 
-## 2. Current contracts and owners
+## Contract
 
-| Responsibility | Current owner | Boundary |
-| --- | --- | --- |
-| Fetching, parsing, provider DTOs | `internal/integration/crawler/a1688`, `internal/integration/acquisition/amazon` | Adapter-local snapshots become neutral `SourceEnvelope`; no Product service/workflow ownership |
-| POD/design evidence | `internal/sds/adapter/product_source` | Preserve SDS specialization; not generic source onboarding |
-| Identity, normalization, provenance, warnings | `internal/product/sourcing` | `SourceIdentity`, `SourceEnvelope`, `Normalize`, `ToSnapshot`; no crawler/integration/runtime imports |
-| Canonical publication | current application `sourcing.InternalProducer` / SRC transaction → `internal/product/catalog.Publisher` | Explicit tenant/product/publication identity; Catalog owns `ProductSnapshot`, immutable versions and replay/conflict semantics |
-| Approved assets | `internal/product/asset` | `ApprovedAsset`, approval provenance and repository ports; source images remain candidates |
-| Image capabilities and execution | `internal/product/image` + `internal/imageagent` | Capability ports return candidates; ImageAgent owns image workflow/budget/retry/recovery/approval |
-| Access and orchestration | Current application + Organization/Store/source-account owners | Verified effective Organization and actor; recheck access before publication, including replay |
-| Platform adaptation/readiness/submission | `internal/marketplace/*` and existing Listing owners | Deterministic validation and one submission owner |
+Preserve source platform/native ID, canonical URL when available, source version/fingerprint, raw reference, warnings and lineage. A source platform is not the target sales platform. Marketplace transport and payloads stay downstream.
 
-`internal/catalog`, `internal/asset`, `internal/productimage`,
-`internal/productenrich` and `internal/imageasset` are retired roots; do not
-recreate them. Existing `internal/crawler`, root ListingKit and
-`internal/compatibility/*` are extraction/retirement areas, not preferred homes.
+Use the explicit publication identity and current publisher. Same key with the same effective payload replays; changed payload conflicts. No checksum fallback, old task result inference or adapter-owned canonical store is introduced.
 
-## 3. Identity and evidence
+New-system idempotency, authorization, immutable versions and explicit approval remain required. This guide does not authorize migration, profile reuse, wrappers, mappings or cutover machinery. Asset candidates are not ApprovedAsset, and a saved product is not permission to publish.
 
-Preserve source type/platform, source-native ID, canonical URL when available,
-source version/fingerprint, raw reference, warnings and trace/lineage according
-to [SourceEnvelope](../../internal/product/sourcing/source_envelope.go) and
-[SourceIdentity](../../internal/product/sourcing/source_identity.go).
-Do not manufacture missing product facts or confuse evidence metadata with
-authority. Adapter DTOs, browser clients and marketplace payloads stay outside
-the neutral model.
+## Recovery and delivery
 
-[Publication identity](../../internal/product/sourcing/publication_identity.go)
-is distinct from source identity. Use the approved deterministic helper and
-explicit publication contract; do not infer identity from legacy task results
-or introduce checksum fallback. New-system same explicit key plus same payload
-and effective lineage replays; changed payload conflicts. Content changes can
-produce a new content-addressed publication. Catalog owns the version result.
+Lookup and recovery bind the original actor, Organization and key. A hidden or missing operation is not evidence that no submission happened. Keep UNKNOWN with its original owner; never create a new key to guess at recovery.
 
-## 4. Target flow and observed implementation
-
-The approved target is:
-
-```text
-explicit new import with verified effective Organization / actor / access
-  -> source adapter -> SourceEnvelope
-  -> authorized InternalProducer / SRC transaction -> catalog.Publisher -> ProductSnapshot
-  -> explicit asset approval -> ApprovedAsset
-  -> deterministic marketplace/listing readiness
-```
-
-This is target acceptance, not completed deployment. The baseline above is
-historical; #663 retires only the old Task handoff in this checkout:
-
-- [App composition](https://github.com/henryxu1008/shuomi-ai-commerce/blob/80c2ddef9c704e5621893a7350061209feb63257/internal/app/httpapi/composition_builder.go) no longer
-  wires `internal/compatibility/listingkit/sourcehandoff/a1688` or registers
-  `/api/v1/product-sourcing/1688/listingkit/tasks`. The handoff package, dedicated
-  DTOs and `scripts/1688-runtime-acceptance.ps1` are removed. Requests to the old
-  route are not forwarded to another command.
-- [Catalog composition](https://github.com/henryxu1008/shuomi-ai-commerce/blob/80c2ddef9c704e5621893a7350061209feb63257/internal/app/httpapi/product_catalog_composition.go)
-  retains the Catalog repository and durable snapshot reader. The publisher
-  assembly used only by the retired Task handoff is removed.
-- [Current source application](../../internal/app/productsourcing/application.go)
-  composes the admitted `InternalProducer`; browser/acquisition consumers retain
-  their own authorized entrypoints and exact receipt recovery. #301 retires the
-  unregistered numeric-account import HTTP package and its exclusive DTOs/tests;
-  it is not a future wiring target. Existing startup commands and configuration
-  remain with the current applications. Shared crawler task/result types retain
-  trusted tenant scope and valid runtime behavior, without the retired 1688
-  account-assisted/fallback metadata.
-- Source-account preflight from #303 is historical evidence only; it is not a
-  prerequisite for a fresh-install source path.
-
-Do not extend the old handoff, add consumers, wrap it for new sources, or
-automatically forward old requests into new imports. RETIRE the legacy route as
-a separate current-owner change; this guide does not authorize a migration,
-cutover or real-environment operation.
-
-## 5. Acceptance and stop lines
-
-Use the [MVP closeout guide](product-sourcing-mvp-plan.md) and current Issue for
-the chosen slice. Required invariants remain:
-
-- Product packages do not import ListingKit, compatibility, crawler/integration,
-  HTTP runtime or concrete providers. Integration may consume the neutral contract.
-- New imports preserve warnings, durable lineage and exact Catalog identity.
-  Source images are not automatically approved; absent approval means not ready.
-- Organization/account/store ownership, disabled/deleted/revoked access and
-  cross-Organization isolation are checked by existing authorities.
-- The new path has no old product/asset/task state, legacy profile or late-result
-  dependency. Current IAM, Store, financial and external-effect facts remain with
-  their current owners and are not disposable business data.
-- No legacy fallback, dual-read/write, second Product fact source, new submission
-  owner or new IAM is introduced.
-
-If an approved contract cannot satisfy the slice, name the concrete conflict
-and owner in its Issue. Do not revive old packages. No new source or target
-expansion is scheduled here; use #137 and a bounded execution Issue. Fixtures,
-local integration and production acceptance are separate evidence classes.
-
-## 6. Historical evidence
-
-The [previous guide at the audit baseline](https://github.com/qq550723504/task-processor/blob/73aa79cb98def16536123dc1ea3f55c578ed253b/docs/product/product-sourcing-handoff.md)
-records the former ListingKit-task model. It is historical evidence, not a
-current expansion guide. Dated validation does not validate today's HEAD.
+Normal configuration and user operations are documented in [operations](../operations/README.md#products), the [capture extension](../../extensions/product-capture/README.md) and [batch import contract](../architecture/1688-batch-local-agent.md). Current execution scope, real-source availability and acceptance evidence belong to the current Issue / PR, not a static status snapshot.

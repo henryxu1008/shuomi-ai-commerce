@@ -6,7 +6,7 @@ Execution: [#774](https://github.com/qq550723504/task-processor/issues/774)。De
 
 2026-10-18，用户要求查清保留实例图片执行未接入的原因，补齐必要接线，验证三个官方图片方法的选择入口、权限和明暗主题，保留已有数据与配置、不重复派工；随后明确“先使用百炼”，最终指定 `qwen-image-3.0`，并授权本会话决定地域与试用点数。服务商选择替代原运行接入对 GRSAI 的假设，但不撤销点数、权限、人工确认、UNKNOWN 恢复或素材保存合同。
 
-继续沿用 [完整图片 V1](product-image-agent-v1.md)、[官方方法 V1](official-skills-and-image-method-v1.md)、[企业智能体配置](organization-agent-configuration-v1.md) 及其 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463` / 图片方法节点 `6861:1826`、`6861:1864`。不新增页面、技能类别或付费调用入口；本增量改变 provider 接线，选择器仍使用已批准设计。
+继续沿用 [完整图片 V1](product-image-agent-v1.md)、[官方方法 V1](product-image-agent-v1.md)、[企业智能体配置](organization-agent-configuration-v1.md) 及其 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463` / 图片方法节点 `6861:1826`、`6861:1864`。不新增页面、技能类别或付费调用入口；本增量改变 provider 接线，选择器仍使用已批准设计。
 
 使用者从已有合法商品素材上下文打开整套图片面板，选择标准商品套图、场景化商品展示或卖点详情图编排的准确版本；准备阶段显示百炼实际路由和明确点数，只有原人工确认才能开始生成。未完成配置时显示具体不可用原因，不伪造选择成功或执行可用。
 

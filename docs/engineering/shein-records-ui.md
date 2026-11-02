@@ -36,13 +36,7 @@ Refs #328 / PR #330；当前产品映射以 #328 正文、R328-C1（issuecomment
 
 | 参考 | 实际 |
 | --- | --- |
-| [任务中心原稿1440](evidence/issue328/r328/figma-task-center.png) | [数据双栏1440×900](evidence/issue328/r328/completed-1440.png)、[完整右侧结果](evidence/issue328/r328/result-detail-1440.png) |
-| [店铺商品边界原稿](evidence/issue328/r328/figma-store-products.png) | 本片不接店铺商品、不制造发布状态 |
-| 390无移动终稿 | [390响应式完整页面](evidence/issue328/r328/completed-390.png) |
-| 共享浅色变量 | [浅色1440](evidence/issue328/r328/completed-light-1440.png) |
-| 实际空范围 / 错误 | [企业100空集合](evidence/issue328/r328/empty-1440.png)、[撤权](evidence/issue328/r328/actual-revoked-1440.png)、[权限不足](evidence/issue328/r328/actual-store-1440.png)、[超时](evidence/issue328/r328/actual-slow-1440.png)、[依赖故障](evidence/issue328/r328/actual-unavailable-1440.png) |
 
-[未启用1440](evidence/issue328/r328/unavailable-1440.png)、[未启用390](evidence/issue328/r328/unavailable-390.png)来自前一布局源码 e370d86f3b9ed33602198c0b98beb335c68a9717，仅证明当时未接线页面。当前无配置仍消费相同未启用布局，并有组件测试；不把旧截图当当前投影联调证据。
 
 ## 产品语义与隔离
 

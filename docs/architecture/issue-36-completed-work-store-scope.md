@@ -6,7 +6,7 @@
 
 有当前企业 Listing 读取权限的用户在 AI 工作台 → 任务中心 → 已完成，能查看一条已提交的 SHEIN 本地资料准备记录所属的真实店铺 ID、当时选择的准备动作、来源商品、时间和原诊断入口。用户不会因 `action=publish` 误以为资料已向 SHEIN 提交或发布。工作范围总览不再把店铺关联记录一律称为“通用业务”。
 
-产品决定以 [#36 的 2026-09-30 更新](https://github.com/qq550723504/task-processor/issues/36) 为准；[#340](https://github.com/qq550723504/task-processor/issues/340) 的 `projection_version: "1"` / `work_scope: "general"` 是当时无店铺字段的历史投影合同，不能用来抹去当前 source 的归属事实。[Store Center 当前应用](store-center-current-application-v1.md)、[当前无 Legacy 迁移产品决定](../product/greenfield-no-legacy-migration.md) 和 [Hard-Cut 规则](../refactoring/legacy-hard-cut-policy.md) 继续适用。Figma file `tg48P46SSXl6TBy9lZwg63` 的当前页面 `31:463`、任务中心 `427:3005`、工作范围 `560:398` 和店铺示例 `560:438` 仅规定入口/信息呈现：其中“通用业务”“一号店”、数量、进度都是示例，不是事实源，也不覆盖领域合同。
+产品决定以 [#36 的 2026-09-30 更新](https://github.com/qq550723504/task-processor/issues/36) 为准；[#340](https://github.com/qq550723504/task-processor/issues/340) 的 `projection_version: "1"` / `work_scope: "general"` 是当时无店铺字段的历史投影合同，不能用来抹去当前 source 的归属事实。[Store Center 当前应用](store-center-current-application-v1.md)、[当前无 Legacy 迁移产品决定](../product/greenfield-no-legacy-migration.md) 和 [当前系统边界](../product/greenfield-no-legacy-migration.md) 继续适用。Figma file `tg48P46SSXl6TBy9lZwg63` 的当前页面 `31:463`、任务中心 `427:3005`、工作范围 `560:398` 和店铺示例 `560:438` 仅规定入口/信息呈现：其中“通用业务”“一号店”、数量、进度都是示例，不是事实源，也不覆盖领域合同。
 
 两条真实业务流程必须分开：Product 标题 Proposal → 人工 Review → **独立** Apply → Catalog 新版本，事实 owner 是 Product Review/Catalog；Store 绑定的 SHEIN DRAFT-S1 输入 → **本地** Listing record 与离线诊断，之后的远端平台提交是另一项尚未由本页面执行的操作。它们共享任务中心导航，但前者不消费后者的完成记录作为审核前置，后者也不代表标题审核成功。现有浏览器脚本在进入标题审核检查前先检查 completed-work，因其 502 中断；这是验证脚本的顺序和投影缺陷，不能据此推断 Review/Apply 内核失败或建立产品依赖。
 
