@@ -40,7 +40,9 @@ Should：复用原 reader、纯校验、错误分类和 UI/BFF 组件，只补�
 Out of Scope：C2-2 额外视觉模型；C3-2 独立候选类目查询；图片下载/采集、生成/修图、
 Prepare/Run/Confirm/Approve、自动 Apply/publish、额外 planner/reviewer、模型/价格变更、
 通用规则/诊断/编排引擎、新事实源/审批/报告/运行 owner、历史迁移/兼容、部署和真实操作。
-两项延期为 DEFERRED / NOT_IMPLEMENTED，不作本阶段 Must，不记 PASS、风险接受或永久取消。
+C2-2 继续 DEFERRED / NOT_IMPLEMENTED；C3-2 后续已整理[单独设计候选](listing-candidate-category-rules.md)，
+仍在本文冻结范围之外，尚未实现。两者不作 #1076 本阶段 Must，不记 PASS、风险接受或永久取消。
+该新候选的规则覆盖与版本执行资格已获后续单独产品认可，仍不继承本文 R1 / D2 的架构准入或批准。
 没有新增 Accepted Risk；权限隔离、证据、资金和副作用安全底线不变。
 
 ## 2. 当前能力与最小差异
