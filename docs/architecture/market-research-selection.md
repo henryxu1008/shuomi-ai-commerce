@@ -187,6 +187,6 @@ Project/source 的授权和身份读取在关系事务前完成；事务内只�
 
 Operational Design Basis: **Reuse Existing Architecture**，复用本文冻结的 Product/Project/Source/Preparation owner、原角色最小权限、PostgreSQL 局部事务、固定镜像与配置回退。没有旧系统数据迁移、ID 映射、双读双写或新的通用恢复机制。
 
-实施前固化实际容器/镜像/挂载与数据库备份；校验现有 Preparation source CHECK 恰为 acquisition/own/market/sds_finished，再用有界锁等待、同一事务显式扩展为本文批准的五类。新三表与 restricted role 依批准 SQL 安装，不重跑历史 initializer；schema/角色漂移则停止，不自动修补。用户数据不变，Project 保持原独立数据库。原 Browser Kernel 配置与其他模块 settings 保留。
+实施前固化实际容器/镜像/挂载与数据库备份；校验现有 Preparation source CHECK 恰为 acquisition/own/market/sds_finished，再用有界锁等待、同一事务显式扩展为本文批准的五类。新三表与 restricted role 依批准 SQL 安装，不重跑历史 initializer；schema/角色漂移则停止，不自动修补。用户数据不变，Project 保持原独立数据库。原 Browser Kernel 配置与其他模块 settings 保留。 现场确认当前 manifest 未含研究所需 Data Services 子树；仅复用该实例仍保管的原显式 Data Services 配置与受限角色，作为本次必要接线补回，不替换其他配置。启用时原 data_acquisition_jobs 为空，不提交采集、模型或计费任务。
 
 回退以先前镜像与配置为主，保留新增 durable records/回执与所有卷；出现新 Amazon 转入后不得为了回退收紧 CHECK 或删除记录。备份还原是异常处置，不在正常镜像回退中自动覆盖持续写入的数据。实际安装、启动、健康与用户试用分别记录于 #1072/PR #1075，合成/CI 不代真实平台和用户验收。

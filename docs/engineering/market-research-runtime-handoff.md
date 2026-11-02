@@ -38,3 +38,15 @@ pnpm --dir web/listingkit-ui dev --hostname 127.0.0.1 --port 3000
 后端 context 返回 `marketResearchAvailable` 时项目页展示区域；没有安装则不伪造可用。已有选品 AI 与供应链继续使用各自显式模块、权限、配置和恢复 owner，不由研究开关自动开启。研究接口是 `/api/v1/workbench/research/projects/{projectID}`、`POST .../commands`、`GET .../commands/{key}`，前端同源 BFF 保留 verified actor/org 与原键，拒绝浏览器指定事实身份或 scope。
 
 停止沿原 `-shutdown-file` 或正常进程终止执行，等待 serving/worker 结束再释放连接池；不会删除数据库或保存结果。重启读取原本地回执和当前来源，不能因重启重新采集、再次扣费或换键转入。数据保留/备份/恢复沿各数据库现有 owner，不新增研究专属恢复器。
+
+## 指定统一实例交接（2026-11-02）
+
+用户批准的目标 `task-processor-unified-20261010` 已进行定向启用：仅替换后端和 UI，两者运行本 PR 已独立审查/CI 的应用源码 `d8b85805e82d8d6c8fe60c95ecdc88958c823390`；后续授权/交接文档提交不代表另一次应用逻辑变更。原网络、十个原挂载卷、环境变量、身份与 Browser Kernel 配置保留。新增配置只包含 `marketResearch.database` 及该实例原先已有但当前 manifest 未装配的 Data Services 显式子树；没有启动采集或模型请求。
+
+入口：[统一实例项目中心](https://localhost:35444/workbench/ai/projects)。使用原有账户正常登录，创建/打开类型为「选品分析」的项目，在项目目标下方查看「研究选品」。不要在本次未授权阶段发起真实采集或 AI 调用。
+
+实际启用证据：Product 数据库备份成功，并在新建的临时核验数据库恢复出 33 张表；核验库随后删除，原 Product 库保留。3 张研究表/受限角色/五类 Preparation CHECK 在同一有界事务提交；新角色实际登录成功，不能 UPDATE 命令表或读取原 Collection 表。两服务健康，正常入口可达，未登录研究 BFF 与原生后端研究/数据任务接口返回401。其余基础设施容器保持原ID，未删除/重建任何原卷。
+
+当前没有已保存的服务端 Data Services 采集任务/证据；因此真实研究证据 → 人工决定 → 转入的运行验收仍为 **NOT_RUN**，不能用已存在的插件 `amazon_data` 代替服务端证据或伪造计费记录。此前隔离合成测试证据仍有效，实际用户试用由用户独立确认。
+
+运维备份、固定镜像回执、候选/回退配置与运行记录保存在操作员专属受限目录，私密路径由 #1072/PR 仅作非秘密交接，不向公开讨论复制配置、凭据或数据库内容。镜像回退保留新 durable records 和所有卷，不自动还原整个数据库或收紧已消费的 Amazon CHECK。构建镜像使用 Docker 接受的 OCI index ID 固定；linux/amd64 平台 config ID 另行记录，不能把不可寻址的 config ID 当作创建容器的镜像引用。
