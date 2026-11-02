@@ -1,8 +1,10 @@
-# 市场调研中心与智能选品中心 V1：产品与交互候选
+# 市场调研中心与智能选品中心 V1：产品与交互设计
 
-状态：**DESIGN_REVIEW / 非实施准入**。执行范围：[#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。
+状态：**PRODUCT_APPROVED / 新增 AI 合同待架构准入**。执行范围：[#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。
 
 用户于 2026-11-02 同意先形成两个中心 V1 的范围、入口、页面和交接设计，供实际评审，再决定正式实施。此决定不等于批准本文候选页面、生产代码、真实采集或模型调用。首批冻结的[研究合同](../architecture/market-research-selection.md)及已部署实现继续有效；本文不重新打开或替代该合同。
+
+随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。当前继续准备[新增研究证据 AI 合同](../architecture/market-research-evidence-analysis-v1.md)及适用评审；正式代码、真实平台/模型/付费、合并及新部署仍未获本阶段授权。
 
 ## 1. 使用者与本次结果
 
@@ -25,9 +27,9 @@ Should：原 Console 外壳、SUMI 组件/语义主题、Noto Sans SC、明暗�
 
 Threat Model 沿冻结合同：防跨 org/actor 读取、撤权后内容披露、旧证据冒充当前版本、同键异载荷及并发覆盖、未知响应导致重复外部调用/扣费、错误整批转入。无新增 Accepted Risk。
 
-## 3. 导航与页面归属（待产品确认）
+## 3. 导航与页面归属（产品已确认）
 
-| 入口/页面 | 候选路由，当前未注册 | 主要职责与动作 |
+| 入口/页面 | 已确认目标路由，当前未注册 | 主要职责与动作 |
 | --- | --- | --- |
 | 数据服务 → 市场调研中心 | `/workbench/data/research` | 列出本人 PRODUCT_RESEARCH 项目，搜索/选择项目；主动作“新建研究”复用原项目创建，成功进入研究详情 |
 | 市场调研 → 项目研究详情 | `/workbench/data/research/{projectID}` | 目标 → 取得/关联资料 → 选择样本并核对证据 → 样本研究 → “进入选品评审” |
@@ -67,7 +69,7 @@ Threat Model 沿冻结合同：防跨 org/actor 读取、撤权后内容披露�
 | 启动 | 显示将发送的资料范围、模型配置、最大用量/预算，由用户明确确认 | 原 Agent/Resource 的 prepare/run、权限、预算冻结、原键 lookup/retry/UNKNOWN；无第二计费或调度入口 |
 | 保存与变化 | 把原 run 引用和准确 evidence digest 对应显示，建议与人工决定分开 | 原 run 持久化边界、来源/配置变化时的新披露拒绝及历史授权；不建立研究 AI 结果副本 |
 
-上述是需评审的产品要求，不是已完成的公共接口或实施准入。新增 AI/披露边界采用 Independent Architecture；必须在正式代码前形成独立设计增量及适用评审并达到 IMPLEMENTATION_READY。原冻结合同不重审；仅导航/只读视图若完全复用其边界，可按 Reuse Existing Architecture 给出轻量依据。
+上述产品方向已确认，公共接口和实施准入仍以新增技术合同及适用评审为准。新增 AI/披露边界采用 Independent Architecture；必须在正式代码前形成独立设计增量及适用评审并达到 IMPLEMENTATION_READY。原冻结合同不重审；仅导航/只读视图若完全复用其边界，可按 Reuse Existing Architecture 给出轻量依据。
 
 ## 7. 页面状态与正常恢复
 
@@ -84,15 +86,15 @@ Threat Model 沿冻结合同：防跨 org/actor 读取、撤权后内容披露�
 
 ## 8. 设计检查与实施交接
 
-Figma 已形成两个列表与两个详情的明暗桌面，以及两个关键详情的明暗 390px 视图；空/异常、用量确认、人工确认与分析结果示例分别呈现。所有排版数值标记“示例”，候选明确为待确认设计。链接见下方索引。
+Figma 已形成两个列表与两个详情的明暗桌面，以及两个关键详情的明暗 390px 视图；空/异常、用量确认、人工确认与分析结果示例分别呈现。所有排版数值标记“示例”，节点中的候选名称保留设计追溯，产品方向已确认。链接见下方索引。
 
-正式实施前确认：本 V1 范围和页面入口、样本汇总范围、AI 证据合同及当前必须满足的输出、现有 owner/消费者接线与恢复约束。只对新增高风险边界独立评审；不为普通复用页面重复全局审核。
+本 V1 产品范围、页面入口和样本范围已确认。正式实施前仍须完成新增 AI 证据合同、当前必须满足的输出、现有 owner/消费者接线与恢复约束的适用准入，并取得实施授权。只对新增高风险边界独立评审；不为普通复用页面重复全局审核。
 
 实施保持一个 Writer 连续交付，复用现有主要 PR/Issue 记录，不按页面或测试数机械拆 PR。新业务规则使用既有测试设施 RED→GREEN，界面检查入口/返回/空态/主题/390px；不新建验收 runner、故障平台或治理检查器。
 
 真实试用需要另行明确 Amazon 站点/任务/最大 DATA_ROW 以及是否实际调用模型和预算。当前真实采集、付费/模型、用户验收均 NOT_RUN；不合并、不关闭 Issue、不追加实例更新。
 
-### Figma 候选索引
+### Figma 已确认设计索引
 
 文件 `tg48P46SSXl6TBy9lZwg63`，当前非归档页 `31:463`。本轮新节点均命名为“候选 / 两中心V1”；原批准研究区与转入设计未修改。节点内图层可编辑，复用 SUMI 本地 Button/Field 实例、Semantic/Layout 变量及 Noto Sans SC 文字样式，不含整页栅格图。
 

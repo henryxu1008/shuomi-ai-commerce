@@ -306,8 +306,10 @@ Product、Asset、Listing、Marketplace、Store、Resource 等是支撑该产品
 
 采用原 Console 主题、Noto Sans SC、原项目/数据市场/选品/供应链完整流程。Amazon 数据来源的正式转入准入、溯源 reader、研究关系与本人决定按独立冻结合同实施；不增加第二商品库、项目中心、采集/扣费/转入执行 owner 或浏览器控制面。
 
-### 2026-11-02 已授权设计：市场调研与智能选品两个中心 V1（候选，待确认）
+### 2026-11-02 用户确认：市场调研与智能选品两个中心 V1（新增 AI 技术合同待准入）
 
 用户随后同意先形成两个中心 V1 的产品范围、页面入口和交接设计增量，落实到现有 #1070/#1072/#1073 与 Figma，确认后再决定正式实施。候选入口为“数据服务 → 市场调研中心”与“供应市场 → 智能选品中心”，共用当前 PRODUCT_RESEARCH 项目和研究候选，不复制商品或增加执行/计量 owner。
 
-本轮范围、12个明暗/关键390px视图、确认与空/异常状态及准确 Figma 链接见[两个中心 V1 产品候选](market-research-selection-centers-v1.md)。该文档状态为 DESIGN_REVIEW，新增导航与市场证据 AI 尚未成为批准的 Product Authority 或 IMPLEMENTATION_READY。上方首批已批准设计及现有实例运行合同继续有效；真实平台、模型/付费、合并和新增实例更新仍无授权。
+用户随后明确回复“确认沿用这版设计”，确认上述两个入口、共用项目、页面分工及所选2–5项样本范围。12个明暗/关键390px视图、确认与空/异常状态及准确 Figma 链接见[两个中心 V1 产品设计](market-research-selection-centers-v1.md)，产品方向记为 PRODUCT_APPROVED；节点候选名称保留追溯，不等于功能已实施。
+
+新增市场证据 AI 的技术合同及适用独立评审仍须先完成，见[设计增量](../architecture/market-research-evidence-analysis-v1.md)；产品确认不代替 IMPLEMENTATION_READY 或本阶段明确保留的生产代码授权。上方首批已批准设计及现有实例运行合同继续有效；当前继续设计与准入，不修改生产代码，不执行真实平台、模型/付费、合并或新部署。
