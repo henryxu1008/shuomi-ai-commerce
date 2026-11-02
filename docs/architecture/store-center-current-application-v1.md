@@ -19,8 +19,8 @@
 - #552 当前正文：记录管理、三类状态分离、连接不可用时诚实展示；第一批不开放 Activate/Renew/Reactivate。
 - [全新系统产品基线](../product/greenfield-no-legacy-migration.md)、[Legacy Hard-Cut](../refactoring/legacy-hard-cut-policy.md)：全新安装、空业务数据，只有 EXTRACT / RETIRE，无历史兼容义务。
 - [最终 UI / IA Authority](../product/final-ui-ia-authority.md)：Figma 文件 `tg48P46SSXl6TBy9lZwg63`、页面 `31:463`。2026-09-28 使用只读 Plugin API 复核可见节点 `429:4243`、`429:4445`（我的店铺深/浅色），`1560:359`、`1560:716`（优化版），以及批量选择实例。设计实例不是平台、服务或统计事实。
-- [现有身份/企业空间设计](../archive/designs/2026-08-30-shuomi-workbench-store-center-zitadel-multi-org-design.md)、[当前认证边界](auth-and-tenancy.md)：复用 ZITADEL、Effective Organization、当前 route middleware 和 Casbin 权限，不建立 IAM。
-- [V7 Resource / Store Service 计划](../archive/implementation-plans/2026-09-03-shuomi-resource-ledger-store-plan-v7.md)：保留服务/资源当前 owner、原子执行与幂等行为；其中历史迁移、旧 lifecycle 兼容与双状态同步不能成为本轮依据。
+- [身份与租户合同](auth-and-tenancy.md)、[当前认证边界](auth-and-tenancy.md)：复用 ZITADEL、Effective Organization、当前 route middleware 和 Casbin 权限，不建立 IAM。
+- [当前统一资源合同](unified-base-prepaid-resources-v1.md)：保留服务/资源当前 owner、原子执行与幂等行为；其中历史迁移、旧 lifecycle 兼容与双状态同步不能成为本轮依据。
 - [商业合同](commercial-wallet-billing-contract.md)、[订阅购买合同](self-service-subscription-purchase-contract.md)：本轮消费 Store entitlement，不改套餐、价格、钱包、订单或资源余额。
 
 第一批交付 list/detail/create/update/enable/disable/delete，以及已有 provisioning 的 resume-create；SHEIN 是当前唯一合法 platform。地区、外部店铺 ID 只是用户提供的记录属性，不证明平台授权或真实外部身份验证。

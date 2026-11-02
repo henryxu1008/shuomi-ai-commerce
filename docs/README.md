@@ -12,9 +12,8 @@
 | [operations](operations/README.md) | 安装、配置、运行和用户操作，包括本地试用 runbook | 产品或领域合同的另一份副本 |
 | [engineering](engineering/README.md) | Issue / PR 规则、消费者接线合同、实现交接及原始工程证据 | 当前产品要求和通用安装入口 |
 | [refactoring](refactoring/README.md) | Hard-Cut 规则与 Legacy Register | 旧排期、阶段报告和实现合同副本 |
-| [archive](archive/README.md) | 已替代设计、冻结历史、带准确基线的验证和运行记录 | 当前操作入口 |
 
-独立的 `runbooks` 已并入 `operations`；原 `verification` 的日期验证记录归入 `archive/verification`。
+运行步骤统一放在 `operations`；当前工作树不保留归档目录和旧阶段计划。
 源码旁的 README 保留在原组件，部署配置仍在 `deployments`，截图/JSON 等附件留在对应记录旁，避免产生第二份原件。
 
 ## 按目的阅读
@@ -28,15 +27,13 @@
 | 查找使用步骤、配置和运行交接 | [操作与运行说明](operations/README.md) |
 | 执行任务、提交 PR | [AGENTS.md](../AGENTS.md)、[Issue 驱动派工](engineering/issue-driven-development.md)、[Issue 模板](../.github/ISSUE_TEMPLATE/execution-task.md)、[PR 模板](../.github/pull_request_template.md) |
 | 判断旧代码的归属与退出边界 | [重构文档](refactoring/README.md)、[Legacy Hard-Cut](refactoring/legacy-hard-cut-policy.md)、[Legacy Register](refactoring/legacy-register.md)、[按领域查退休边界](architecture/retirement-index.md) |
-| 追溯旧设计、实施计划或验证结果 | [历史设计、计划与验证](archive/README.md)、[历史重构材料](archive/README.md#refactoring-history)、[工程交接与证据](engineering/README.md)、[产品验证记录](product/validation/runs/README.md) |
 
 当前工作排序见 [Roadmap #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137) 及具体执行 Issue / PR。本页不复制运行地址、账号、滚动 SHA 或验收结果。
 
-## 三条常用阅读路径
+## 常用阅读路径
 
 1. **实现或修改功能**：产品当前依据 → [领域合同](architecture/topics.md) → [源码入口](development/repository-structure.md#current-entrypoint-map) → [工程交接](engineering/README.md) → 当前执行 Issue / PR。
 2. **安装或使用功能**：[操作说明](operations/README.md) → 对应组件的配置与启动入口 → 文内启用条件和限制。具体实例与验收状态查交付记录。
-3. **追查旧实现和历史结果**：[Legacy Register](refactoring/legacy-register.md) → [对应退休边界](architecture/retirement-index.md) → [历史记录](archive/README.md)。历史证据与仍有效合同分别按原范围读取。
 
 ## 如何判断文档是否适用
 
@@ -51,6 +48,6 @@
 
 同一事实维护一个当前版本，其他位置引用。产品与合同放在各自目录，运行交付放在操作说明或对应工程交接，任务进度和准确验证证据放在 Issue / PR。新增架构文档继续登记到[架构索引](architecture/README.md)。
 
-清理以当前用途和明确替代关系为准：已完成的普通实施步骤、阶段scope/checkpoint、被替代的版本草稿和重复旧入口退出当前树，完整原文通过固定Git版本追溯；过程勾选或历史引用不自动要求每份计划常驻工作树。仍作为当前合同消费、未被撤销的准入、现有guard保护的冻结正文、必要实际验证及有效运维边界保留；直接历史引用可改为准确Git版本链接，不改变原判断和结果，不降低测试或保护规则。
+当前工作树只维护当前用途的文档与必要原始证据。已替代设计、旧阶段计划、迁移/兼容方案与普通历史报告退出工作树，原件留在 Git 历史，不复制到另一归档目录。
 
-根目录不再保留旧Amazon Task Workbench API和旧刊登数据库连接代理总结。完整原文分别见[旧API协议](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/amazon-listing-workbench-api.md)与[连接池历史总结](https://github.com/henryxu1008/shuomi-ai-commerce/blob/cfd08cf5425f0cc4fb05db6c7df4bc265cfb7f93/docs/database-connection-optimization.md)；当前API、数据库和运行合同从上表各owner入口查找，不执行旧示例。
+Agent 按[全新系统开发基线](product/greenfield-no-legacy-migration.md)工作：当前产品决定、已批准合同与当前执行 Issue 决定需求和准入；不默认搜索旧阶段材料，不把旧实现、旧测试、历史 PASS 或旧兼容义务恢复成开发前置。现行安全、权限、事务、幂等和恢复约束继续有效。

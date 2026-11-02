@@ -406,7 +406,7 @@ Supporting context documents must not be listed as review references unless prom
 - `docs/architecture/app-assembly-boundaries.md`
 - `docs/architecture/temporal-boundaries.md`
 - `docs/architecture/platform-boundary-strategy.md`
-- `docs/archive/architecture/historical-platform-migration-inventory.md`
+- [historical-platform-migration-inventory.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/historical-platform-migration-inventory.md)
 - `docs/architecture/external-client-boundary-inventory.md`
 - `docs/architecture/compatibility-retirement.md`
 - `docs/architecture/listing-preview-boundaries.md`

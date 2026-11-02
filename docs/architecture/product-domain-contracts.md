@@ -1,4 +1,4 @@
-> **领域合同归位。** 当前Product/Source/Catalog/Asset职责；#981精确替代旧Facts/Normalize中间层。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，旧阶段材料见[历史归档](../archive/README.md)。
+> **领域合同归位。** 当前Product/Source/Catalog/Asset职责；#981精确替代旧Facts/Normalize中间层。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 > #301 / #983 本批准确替代：[已确认完整闭包](legacy-asset-source-openai-tail-closure-retirement-boundary.md)。仅旧sourcing.Publisher便利包装和asset/recipe静态配方退出；当前授权InternalProducer/SRC→catalog.Publisher、SourceEnvelope/ToSnapshot、当前图像/资产批准保持。只按冻结§1–§7/§4.2/§6.1整批实施，无兼容alias/转发/双读/迁移或第二owner；workflow/完整inventory/计数/勾选/检查不改，既有资源不动，无试用前置。独立SHEIN登录/Store同步保持，#301 OPEN。以下起始main原文及历史证据完整保留。
 
@@ -13,7 +13,7 @@
 **日期：** 2026-09-01
 
 **基线：** `origin/main` @ `c638c53f2864f65741174d7b4b2bd5550bbf7a60`
-**前置阶段：** `docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md`
+**前置阶段：** [2026-08-30-internal-target-architecture-phase2.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md)
 
 ## 1. 背景
 

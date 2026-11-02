@@ -1,4 +1,4 @@
-> **当前架构边界归位。** 现行领域落点、九领域与Phase2 landing规则仍被guard消费，归入架构；历史旧owner按原替代范围读取。原有状态、数字、结果和精确替代范围保留；归位不改变产品或运行语义。当前依据从[文档首页](../README.md)进入，历史材料见[归档索引](../archive/README.md)。
+> **当前架构边界归位。** 现行领域落点、九领域与Phase2 landing规则仍被guard消费，归入架构；历史旧owner按原替代范围读取。原有状态、数字、结果和精确替代范围保留；归位不改变产品或运行语义。当前依据从[文档首页](../README.md)进入，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 > #1033 源码退休替代说明：本文为历史证据，原文完整保留。旧通用抠主体/渲染/模型审核、OpenAI Manager/请求池/全局与成员凭据回退及通用多槽位发布的 KEEP/供应承诺由[当前完整退休边界](legacy-imageagent-generic-execution-closure-retirement-boundary.md)替代；仅抽取当前来源编辑、结果构造、单主图批准和策略值规则。当前图组/Artwork、JSON/hash、预算/UNKNOWN/恢复和 Store 观察同步保持；本注记不授权旧历史续跑、真实资源操作或增加试用前置。
 

@@ -118,7 +118,7 @@ Legacy decision: **RETIRE + SELECTIVE EXTRACTION**。可复用行为是当前值
 | `docs/architecture/image-agent-budget-authorization.md` | 同上，区分旧父协议和仍有效预算事实 |
 | `docs/superpowers/plans/2026-08-28-image-agent-budget-authorization.md` | 同上，当前预算安全要求保留 |
 | `docs/architecture/image-agent-effect-finalization.md` | 同上，取消/绝对 deadline/finalization 不降级 |
-| `docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md` | 同上，旧正向模式失效，不改历史步骤 |
+| [2026-08-29-image-agent-external-effect-finalization.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md) | 同上，旧正向模式失效，不改历史步骤 |
 | `docs/architecture/image-agent-effect-recovery.md` | 同上，当前 durable recovery/Signal owner 保留 |
 | `docs/superpowers/plans/2026-08-29-image-agent-external-recovery-workflow.md` | 同上，原恢复安全要求/历史证据保留 |
 

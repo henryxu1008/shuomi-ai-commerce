@@ -25,8 +25,8 @@
 | 前批依据 | 本批已确认替代的 KEEP | 仍保留 |
 | --- | --- | --- |
 | [#994 手工运行链](legacy-imageagent-manual-runtime-closure-retirement-boundary.md)、[#996 V2 合同尾部](legacy-imageagent-v2-contract-tail-closure-retirement-boundary.md) | “有效 V3 回放”不再笼统包含由四个旧业务 Signal 进入动作、触发持久化或 effect 的历史。完整退出这条 ingress，不保留版本化旧执行分支 | 当前 Update/Resume、Update 驱动的有效 V3、有效 recovery Signal、GetVersion marker/ID/取值、当前 JSON/hash/事务/恢复 |
-| [2026-08-26 原设计](image-agent-workflow.md)、[原实施计划](../archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md) | app 翻译为四个业务 Signal、正向重发/排队后执行的现行要求 | 当前业务不变量；原文、历史勾选和证据保留，只加限定失效注记 |
-| [2026-08-29 effect finalization 计划](../archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md) | 用业务 cancel Signal 驱动当前取消测试的写法 | started effect 必须终结后才能投影取消的安全要求，当前 Update 驱动与恢复通知继续有效 |
+| [2026-08-26 原设计](image-agent-workflow.md)、[原实施计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md) | app 翻译为四个业务 Signal、正向重发/排队后执行的现行要求 | 当前业务不变量；原文、历史勾选和证据保留，只加限定失效注记 |
+| [2026-08-29 effect finalization 计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md) | 用业务 cancel Signal 驱动当前取消测试的写法 | started effect 必须终结后才能投影取消的安全要求，当前 Update 驱动与恢复通知继续有效 |
 
 Must：组织/原始 member/业务任务/actor 归属不降低；当前同 ActionID 异载荷拒绝、单 pending owner、ack 持久化时点、响应丢失/Resume、UNKNOWN/fence、provider 不重复发送、计量/发布防重、绝对 deadline/取消/恢复不变。当前图像、AI/Resource/钱包、采集和 Store 观察同步/官方授权保留。旧 SHEIN 登录与身份回写已由 #985 退休，不恢复。
 
@@ -89,8 +89,8 @@ Temporal 传输层仍可能接受一个无人消费的旧 Signal 并写入 histo
 | `docs/architecture/README.md` | 当前索引和状态；历史正文保留 |
 | `docs/refactoring/legacy-register.md` | 当前 EXTRACT/RETIRE 决定与 owner；历史/计数/勾选保留 |
 | `docs/architecture/image-agent-workflow.md` | 只追加四旧业务 Signal 现行要求被替代的顶部注记和本设计链接，历史正文不改 |
-| `docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md` | 同上，限定旧 Signal 正向驱动/入队，原步骤与勾选保留 |
-| `docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md` | 顶部注明取消驱动改用 Update，原 effect 终结安全要求仍有效；正文保留 |
+| [2026-08-26-image-agent-core-manual-workflow.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-26-image-agent-core-manual-workflow.md) | 同上，限定旧 Signal 正向驱动/入队，原步骤与勾选保留 |
+| [2026-08-29-image-agent-external-effect-finalization.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-29-image-agent-external-effect-finalization.md) | 顶部注明取消驱动改用 Update，原 effect 终结安全要求仍有效；正文保留 |
 
 ### 5.1 显式 KEEP
 

@@ -1,4 +1,4 @@
-> **领域合同归位。** 当前CLI/queue注释消费的批量采集边界；不因归位恢复旧LocalAgent或旧未批准计划。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，旧阶段材料见[历史归档](../archive/README.md)。
+> **领域合同归位。** 当前CLI/queue注释消费的批量采集边界；不因归位恢复旧LocalAgent或旧未批准计划。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 > **准确局部替代 / #301 / #1030**：[用户确认的浏览器安装退休](legacy-browser-install-closure-retirement-boundary.md)仅替代 §3.1 表中旧 fingerprint 安装CLI“直接复用”一行。取消应用自下载与旧镜像预装；现有必填指纹浏览器路径/同二进制版本Profile、路线B、scope/Consent、队列/UNKNOWN/崩溃安全和人工登录/验证码边界继续有效。普通Chromium与元数据目录不是等价替代，不新增安装器/试用前置。本设计其余内容和原产品决定保持，不操作既有资源，#301 OPEN。
 

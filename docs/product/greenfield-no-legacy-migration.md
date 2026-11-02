@@ -20,7 +20,12 @@ Authority: [Issue #365](https://github.com/qq550723504/task-processor/issues/365
 
 本决定不授权访问、迁移、删除或清理任何既有客户数据库、IAM、profile、账务、订单、对象存储或外部平台状态；环境隔离、归档或删除仍需独立范围和授权。新系统仍必须满足自身的授权、租户隔离、幂等、事务、审计、资源限制和凭据安全要求。
 
-## 直接历史入口
+## Agent 开发依据（2026-11-02 用户决定）
 
-- [#30 / #307 clean-slate cutover](issue30-clean-slate-cutover.md)、[Source Account ownership cutover](../archive/designs/2026-09-05-source-account-organization-cutover.md)、[#30 sourcing cutover](../archive/designs/2026-09-05-issue-30-sourcing-cutover.md) 与 [source-account preflight](../archive/operations/source-account-ownership-preflight.md) 仅保留历史证据，必须标记为 `SUPERSEDED`。
-- 后续派工以本决定、当前 Issue 的产品需求及 [Legacy Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md) 为准；不得把历史迁移 gate 重新变成新任务依赖。
+项目按全新系统设计和开发，当前没有旧系统兼容、迁移、历史数据承接或旧执行续跑义务。Agent 从当前产品决定、已批准领域合同、真实源码入口及当前执行 Issue 读取本次范围，不从旧计划倒推需求。
+
+当前工作树不保留 `docs/archive`、旧阶段计划或重复历史导航；原件通过固定 Git 提交追溯。正常开发不默认加载历史归档，不把旧文档、旧测试、旧实现或历史验收结果当作当前 Authority。具体排查需要引用历史时，明确其版本及用途，不能据此恢复已撤销要求。
+
+本次决定替代此前要求归档资料常驻工作树、把旧迁移/阶段材料作为正常开发或验收前置的安排。仅检查已退出历史文本的断言随材料退出；对现行产品、安全、权限、事务、幂等、资源和恢复行为的检查继续保留。
+
+现有代码能否复用，按当前需求、职责和正确性判断；发现不符合当前合同的代码仍需修复或退休。按全新系统开发不等于假定当前代码没有缺陷，也不授权删除现有数据、实例、凭据或外部资源。

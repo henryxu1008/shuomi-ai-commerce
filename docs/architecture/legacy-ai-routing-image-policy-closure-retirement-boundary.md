@@ -151,7 +151,7 @@ Must：当前能力与原授权/企业隔离/凭据保护；一次发送和 UNKN
 - `docs/architecture/legacy-openai-adapter-closure-retirement-boundary.md`
 - `docs/architecture/legacy-idle-provider-bootstrap-closure-retirement-boundary.md`
 - `docs/architecture/ai-capability-platform.md`
-- `docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md`
+- [2026-08-06-ai-capability-phase-1.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-06-ai-capability-phase-1.md)
 - `docs/superpowers/specs/2026-08-22-productenrich-governed-execution-integrity-design.md`
 - `docs/superpowers/plans/2026-08-22-productenrich-governed-execution-integrity.md`
 - `docs/architecture/product-domain-contracts.md`

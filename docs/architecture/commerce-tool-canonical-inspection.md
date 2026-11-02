@@ -1,4 +1,4 @@
-> **领域合同归位。** 固定版本canonical inspection的有界合同，旧Task Reader由#1025退休。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，旧阶段材料见[历史归档](../archive/README.md)。
+> **领域合同归位。** 固定版本canonical inspection的有界合同，旧Task Reader由#1025退休。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 > #301 / #1025 USER_CONFIRMED：[本批已确认完整退休设计](legacy-task-openai-convenience-closure-retirement-boundary.md)仅替代本文旧task-to-product Reader/Actor owner的当前含义。canonical.inspect已按ProductKey/CatalogVersion直接读取Catalog；当前草稿/报表实际使用的Actor/校验归record，旧listing/task根退休，不新增Tool→record依赖或Task状态机。原只读/权限/组织/owner/大小/错误与当前ProductSnapshot合同保持，不恢复旧读取器或数据迁移；workflow/inventory/既有资源不变，Store观察保持。以下原文/历史完整保留。
 

@@ -148,7 +148,7 @@ OpenAI 保留真实配置/resolver/identity 注入、Client/Pool 限速/排队/d
 - `docs/architecture/legacy-localagent-source-policy-closure-retirement-boundary.md`
 - `docs/architecture/legacy-source-normalization-facts-closure-retirement-boundary.md`
 - `docs/architecture/ai-provider-contracts.md`
-- `docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md`
+- [2026-08-21-provider-neutral-ai-contracts.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-21-provider-neutral-ai-contracts.md)
 - `docs/architecture/product-domain-contracts.md`
 - `docs/superpowers/plans/2026-09-01-internal-target-architecture-phase3-product.md`
 

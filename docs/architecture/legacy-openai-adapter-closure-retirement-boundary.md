@@ -213,7 +213,7 @@ KEEP当前治理Executor/组件、原SDK/图像ImageClient/Client.Generate（当
 | `docs/architecture/project-boundaries.md` | 当前 owner 引用校准，见 §5.7 |
 | `docs/engineering/product-title-review-ui.md` | 当前 owner 引用校准，见 §5.7 |
 | `docs/product/ai-commerce-agent-platform-strategy.md` | 当前 owner 引用校准，见 §5.7 |
-| `docs/archive/refactoring/current-refactoring-status.md` | 当前 owner 引用校准，见 §5.7 |
+| [current-refactoring-status.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/current-refactoring-status.md) | 当前 owner 引用校准，见 §5.7 |
 | `docs/refactoring/legacy-register.md` | 旧 OpenAI / 原三文档与依据，见 §5.1/§5.7 |
 | `docs/architecture/module-target-mapping.md` | 当前 owner 引用校准，见 §5.7 |
 | `internal/agent/content_selection_test.go` | 当前消费者改接，见 §5.5 |

@@ -38,8 +38,8 @@ Cutover/deletion condition: 本设计获确认、所有当前消费者和有效�
 | [#885](legacy-sds-runtime-closure-retirement-boundary.md) 保留 SHEIN health、旧 SMS 和其它 Module/permission | 这些已退注册器不再签发认证/权限；旧 admin Module/method permission 推断同退 | 当前 SMS 的显式 public+原 HMAC、Store/当前业务 permission 与组织授权 |
 | [#923 Prompt 退休](legacy-tenant-prompt-closure-retirement-boundary.md)、[#985 登录链退休](legacy-shein-login-identity-sync-closure-retirement-boundary.md) | 收齐失去业务消费者的 Prompt permission、policy 和路由识别尾部；不恢复任何旧管理 API | 当前 AI/prompt 使用、官方 Store 授权及 Store 观察同步 |
 | [#893 日志门面退休](legacy-logger-facade-closure-retirement-boundary.md) 的 S3 Logger/method-set/SSA 保留 | 仅 S3 专属 Logger/字段/注入/生产 SSA rule；OpenAI/GRSAI、Logrus/当前全局日志不退 | constructor inventory、SSA/typed-nil/decoded parser 算法、其它 provider logging 断言 |
-| [旧认证设计](authentication-runtime.md)、[旧抽取计划](../archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md) | 不再要求已退出 Module/URL/全局管理员 helper 的旧行为 | 当前中立身份与 provider verification，当前安全错误和取消 |
-| [Phase 2 迁包计划](../archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) 的 S3 全接口/Logger | 不保活旧 Upload/Delete/Exists/key/helper/Logger；现役 SDK client 与 immutable path 仍在原包 | AWS/COS 资格、签名、精确缺失分类、校验、URL、容量与原安全边界 |
+| [旧认证设计](authentication-runtime.md)、[旧抽取计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md) | 不再要求已退出 Module/URL/全局管理员 helper 的旧行为 | 当前中立身份与 provider verification，当前安全错误和取消 |
+| [Phase 2 迁包计划](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) 的 S3 全接口/Logger | 不保活旧 Upload/Delete/Exists/key/helper/Logger；现役 SDK client 与 immutable path 仍在原包 | AWS/COS 资格、签名、精确缺失分类、校验、URL、容量与原安全边界 |
 
 §5 的历史文档仅追加准确 supersession 顶注，原正文、批准/失败证据、计数、勾选完整保留。其它历史材料不能恢复本批已取消要求，也不能由本表推导其它删除权限。
 
@@ -129,8 +129,8 @@ Cutover/deletion condition: 本设计获确认、所有当前消费者和有效�
 | D6 | `docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md` | 未来仅顶注替代旧SHEIN/旧SMS/Module权限推断KEEP，其它原禁令保持 |
 | D7 | `docs/architecture/legacy-logger-facade-closure-retirement-boundary.md` | 未来仅顶注替代S3 logger/生产rule的精确KEEP；其它provider/算法/检查保持 |
 | D8 | `docs/architecture/authentication-runtime.md` | 未来仅顶注限定退出的旧推断/便利函数；原文保持历史 |
-| D9 | `docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md` | 同上，不恢复旧兼容实施步骤或历史子代理要求 |
-| D10 | `docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md` | 未来仅顶注替代旧S3全接口/Logger保活；历史计划/勾选/计数完整保持 |
+| D9 | [2026-08-25-zitadel-authruntime-extraction.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-25-zitadel-authruntime-extraction.md) | 同上，不恢复旧兼容实施步骤或历史子代理要求 |
+| D10 | [2026-08-30-internal-target-architecture-phase2.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/implementation-plans/2026-08-30-internal-target-architecture-phase2.md) | 未来仅顶注替代旧S3全接口/Logger保活；历史计划/勾选/计数完整保持 |
 
 若出现清单外真实消费者、失败断言或当前外部/持久化兼容义务，先停止该部分，提供实际路径/根因/最小准确补丁与边界影响供用户决定；不能先删再倒推设计、加fallback或偷偷改检查。实际source或业务安全冲突按AGENTS分类，仅新BLOCKER重开架构；不据纯理论场景追加平台或无限复核。
 

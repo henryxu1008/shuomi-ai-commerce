@@ -7,7 +7,7 @@
 每份文档中的旧 owner、数量、批准/失败与运行态结论仅对其原范围成立；目录分类不提升待确认设计，也不恢复旧兼容或迁移授权。
 
 先读[Hard-Cut 规则](../refactoring/legacy-hard-cut-policy.md)和[Legacy Register](../refactoring/legacy-register.md)，
-再按下面的分类找到具体矩阵。历史阶段报告与原始验证另见[归档索引](../archive/README.md)。
+再按下面的分类找到具体矩阵。历史阶段报告不在当前工作树维护；后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 ## 选择范围
 

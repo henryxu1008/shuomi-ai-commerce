@@ -1,4 +1,4 @@
-> **领域合同归位。** Tool registry/权限/副作用与domain调用边界；#981已退中间事实值不恢复。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，旧阶段材料见[历史归档](../archive/README.md)。
+> **领域合同归位。** Tool registry/权限/副作用与domain调用边界；#981已退中间事实值不恢复。本次仅调整文档位置与引用，不扩大原有准入或改变业务/安全语义；页首已有的精确退休说明和当前产品决定继续优先。当前产品与页面见[产品权威](../product/final-ui-ia-authority.md)，后续开发遵守[全新系统开发基线](../product/greenfield-no-legacy-migration.md)。
 
 > #301 / #981 用户确认[旧商品来源归一化与中间事实合同完整设计](legacy-source-normalization-facts-closure-retirement-boundary.md) §1–§7（含§4.2/§6.1），冻结设计 `4e74dfec9` / Independent Architecture / IMPLEMENTATION_READY 后整批实施。仅替代其中 catalog.Normalize、四项旧置信度判断、catalog.ProductFacts/asset.Facts 与 sourcing.SourceRequest/SourceResult 的准确旧KEEP/后续开工含义；对应无消费者源码和专属测试退出，无alias/转发/替代owner。当前SourceEnvelope/ToSnapshot/SRC/Catalog、canonical13值/六常量/草稿投影、SourceIdentity四JSON零值槽位及规范化/hash/拒绝、当前规则/采集与独立SHEIN登录/Store同步保持。原有效身份断言改接当前owner，唯一旧必读转Lstat缺席，其余检查原样。以下起始main完整正文/历史/数字/勾选逐字保留；workflow/完整inventory/依赖/保护及既有实例/数据/凭据/文件/进程零改，无新试用前置，#301 OPEN。
 
@@ -27,7 +27,7 @@ source lineage 与 canonical facts 分开返回，并且只计算确定性的证
 Phase 2A 的权威要求记录在以下位置：
 
 - `docs/product/ai-commerce-agent-platform-strategy.md`；
-- `docs/archive/refactoring/current-refactoring-status.md`；
+- [current-refactoring-status.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/current-refactoring-status.md)；
 - GitHub Issues #128、#133、#134；
 - `docs/architecture/ai-capability-platform.md`；
 - `docs/superpowers/specs/2026-08-13-agent-roadmap-authority-alignment-design.md`。

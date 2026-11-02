@@ -8,7 +8,7 @@ Status: implemented against the frozen IMPLEMENTATION_READY baseline accepted by
 
 - Issue #347 and its coordination comments; #350 is the UI consumer. Closed #42 is superseded, not permission to rebuild billing.
 - `docs/product/listingkit-paid-pilot-product-catalog.md`: invitation-only `paid_pilot`, no customer contract prices/internal AI cost.
-- `docs/archive/designs/2026-09-02-shuomi-console-phase1-hard-cut-design.md` §§4.5,9–10: `base_payg` product description, actual grants separate from subscriptions; cash/payment/withdrawal deferred.
+- [2026-09-02-shuomi-console-phase1-hard-cut-design.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/designs/2026-09-02-shuomi-console-phase1-hard-cut-design.md) §§4.5,9–10: `base_payg` product description, actual grants separate from subscriptions; cash/payment/withdrawal deferred.
 - Current multi-organization design defines business tenant ID as the opaque ZITADEL Organization ID. `store_quota_gorm.go:storeQuotaLimit` already reads subscription/entitlement using that exact ID. No integer conversion, metadata bridge, legacy fallback or migration.
 - `internal/listingsubscription` remains the subscription/entitlement/metering owner. `internal/ledger/orgresource` and its integration adapter own resource balances. They are distinct from cash.
 

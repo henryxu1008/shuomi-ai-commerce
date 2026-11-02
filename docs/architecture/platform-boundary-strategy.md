@@ -18,7 +18,7 @@ narrows that baseline for platform-related convergence work; it should not grow
 into a second repository-wide policy source.
 
 For migration-cost triage of historical platform packages, use
-`docs/archive/architecture/historical-platform-migration-inventory.md`.
+[historical-platform-migration-inventory.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/architecture/historical-platform-migration-inventory.md).
 
 ## Current Package Families
 

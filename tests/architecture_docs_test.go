@@ -517,12 +517,6 @@ func TestCurrentDocsDoNotReferenceRetiredFrameworkEntrypoints(t *testing.T) {
 		filepath.Join("..", "docs", "development", "repository-structure.md"): {
 			"task/                    # 已废弃的 legacy polling 入口",
 		},
-		filepath.Join("..", "docs", "archive", "architecture", "task-status-lifecycle.md"): {
-			"internal/app/task/task_source.go",
-		},
-		filepath.Join("..", "docs", "archive", "refactoring", "listingkit-refactoring-progress-2026-06-24.md"): {
-			"retry/cancel/status lookups now return explicit retired/unavailable semantics",
-		},
 	}
 	for path, banned := range checks {
 		content, err := os.ReadFile(path)
@@ -617,7 +611,6 @@ func TestArchitectureReviewChecklistCoversBoundaryRegressionRisks(t *testing.T) 
 		"owning module `internal/*/httpapi`",
 		"Temporal",
 		"platform-boundary-strategy.md",
-		"historical-platform-migration-inventory.md",
 		"external-client-boundary-inventory.md",
 		"listing-preview-boundaries.md",
 		"local interface",
@@ -1426,33 +1419,6 @@ func TestPlatformBoundaryStrategyDefinesConvergenceRoles(t *testing.T) {
 	}
 }
 
-func TestHistoricalPlatformMigrationInventoryDefinesCostSlices(t *testing.T) {
-	path := filepath.Join("..", "docs", "archive", "architecture", "historical-platform-migration-inventory.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# Historical Platform Migration Inventory",
-		"project-boundaries.md",
-		"platform-boundary-strategy.md",
-		"`internal/shein`",
-		"`internal/temu`",
-		"`internal/amazon`",
-		"Cost Tiers",
-		"Next Slice Candidates",
-		"TestPlatformRegistrationPackagesStayThin",
-		"TestPlatformRegistrationPackagesContainNoLocalArtifacts",
-		"Non-goals",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so historical platform migration cost is reviewable", path, phrase)
-		}
-	}
-}
-
 func TestExternalClientBoundaryInventoryDefinesCouplingHotspots(t *testing.T) {
 	path := filepath.Join("..", "docs", "architecture", "external-client-boundary-inventory.md")
 	content, err := os.ReadFile(path)
@@ -1538,7 +1504,6 @@ func TestArchitectureReadmeIndexesStableBoundaryDocs(t *testing.T) {
 		"app-assembly-boundaries.md",
 		"temporal-boundaries.md",
 		"platform-boundary-strategy.md",
-		"historical-platform-migration-inventory.md",
 		"external-client-boundary-inventory.md",
 		"compatibility-retirement.md",
 		"listing-preview-boundaries.md",

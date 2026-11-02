@@ -20,10 +20,8 @@
 
 ## Current refactoring documents
 
-[project-migration-roadmap.md](../archive/refactoring/project-migration-roadmap.md) is a historical reference, not a current implementation authority.
-[next-phase-plan.md](../archive/refactoring/next-phase-plan.md) is a historical reference, not a current execution authority.
+当前只维护 [Hard-Cut Policy](legacy-hard-cut-policy.md) 和 [Legacy Register](legacy-register.md)。它们约束现存源码的正确归属，不产生历史迁移或兼容义务；后续开发范围由当前产品决定和执行 Issue 给出。
 
 <a id="historical-records"></a>
 
-阶段总结、旧排期、迁移草案、测试快照及失败/取消记录统一见[历史重构归档](../archive/README.md#refactoring-history)。
-原状态、数字、失败与NOT_RUN保留；历史命令、旧包名和保留文件不恢复兼容、迁移、部署或数据操作授权。
+旧阶段报告和计划不在当前工作树维护，也不是当前实施或验收依据。需要追溯时使用固定 Git 版本，不恢复旧排期、旧命令或真实环境操作权限。
