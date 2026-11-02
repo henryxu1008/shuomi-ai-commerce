@@ -3,7 +3,7 @@ import * as c from "../contracts/supply-market";
 import type {CollectionScope} from "./product-collection";
 import {readBoundedStrictJSON} from "./strict-json-response";
 export type MarketScope=CollectionScope;
-export class MarketAPIError extends Error{constructor(public readonly code:string,public readonly status:number){super(code)}}
+export class MarketAPIError extends Error{constructor(public readonly code:string,public readonly status:number,public readonly operationMayExist?:boolean){super(code)}}
 export type MarketIntent={key:string;command:c.MarketCommand;admin:boolean};
 export const marketIntentSchema=z.object({key:c.marketID,command:c.marketCommandSchema,admin:z.boolean()}).strict().refine(i=>i.admin?["evaluate","request_supplement","approve","reject","confirm_plan","close","publish","revoke"].includes(i.command.action):["create_official_draft","submit_selected","submit_connection","supplement","select_release"].includes(i.command.action));
 function marketRequest<T>(scope:MarketScope,path:string,schema:z.ZodType<T>,signal?:AbortSignal,admin=false,write?:{key:string;command?:c.MarketCommand;file?:File}):Promise<T>{

@@ -66,3 +66,15 @@ it("keeps an unknown create key through permission denial and later authenticati
  f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>{if(command)throw new ProjectError("AUTHENTICATION_REQUIRED");return {projects:[],next:""};});view=render(<ProjectPage/>);await screen.findByRole("button",{name:"重试原操作"});fireEvent.click(screen.getByRole("button",{name:"重试原操作"}));await waitFor(()=>expect(screen.getByRole("button",{name:"重试原操作"})).toBeEnabled());expect(sessionStorage.getItem(storageKey)).not.toBeNull();view.unmount();
  f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>command?{id,revision:1,replayed:true}:{projects:[],next:""});render(<ProjectPage/>);await screen.findByRole("button",{name:"重试原操作"});fireEvent.click(screen.getByRole("button",{name:"重试原操作"}));await waitFor(()=>expect(sessionStorage.getItem(storageKey)).toBeNull());expect(f.push).toHaveBeenCalledWith("/workbench/ai/projects/"+id);expect(f.request.mock.calls.filter(c=>c[4]).every(c=>c[4].key===id)).toBe(true);
 });
+
+it("reuses project creation for research centers with a fixed research kind and no global metrics",async()=>{
+ Object.assign(f.context,{marketResearchAvailable:true});
+ render(<ProjectPage center="research"/>);
+ await screen.findByRole("heading",{name:"市场调研中心",level:1});
+ await waitFor(()=>expect(new URLSearchParams(f.request.mock.lastCall![1].slice(1)).get("kind")).toBe("PRODUCT_RESEARCH"));
+ expect(f.overview).not.toHaveBeenCalled();expect(screen.queryByText("35")).toBeNull();
+ fireEvent.click(await screen.findByRole("button",{name:"＋ 新建研究项目"}));
+ fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"美国站收纳研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对美国站收纳盒的保存样本"}});
+ fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
+ await waitFor(()=>expect(f.request.mock.calls.some(c=>c[4]?.body?.kind==="PRODUCT_RESEARCH")).toBe(true));
+});

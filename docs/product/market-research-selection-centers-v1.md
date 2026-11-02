@@ -96,6 +96,18 @@ Figma 已形成两个列表与两个详情的明暗桌面，以及两个关键�
 
 真实试用需要另行明确 Amazon 站点/任务/最大 DATA_ROW 以及是否实际调用模型和预算。当前真实采集、付费/模型、用户验收均 NOT_RUN；不合并、不关闭 Issue、不追加实例更新。
 
+### 代码交付后的运行与使用
+
+这两个入口随当前应用与 Web Console 一起运行，沿用[已有本地环境与私有配置](../../deployments/docker/account-compose/README.md)及[前端启动说明](../../web/listingkit-ui/README.md)。后端正常命令为 `go run ./cmd/current-application -config <absolute-private-manifest>`；前端在 `web/listingkit-ui` 执行 `pnpm dev`。这些是开发启动入口，不是更新保留实例的授权；不要用新安装步骤重建既有实例。
+
+登录后选择当前企业，通过“数据服务 → 市场调研中心”创建或打开本人研究项目，在原数据市场取得资料并关联已保存的服务端 Amazon 结果。选择 2–5 个候选后点击“读取所选样本”，核对同币种、同页面报价口径的范围、保存事实及缺项，再进入“供应市场 → 智能选品中心”的同一项目。切换时核实原候选 revision、选定观察、digest 和商品版本；变化项须重新选择。
+
+模型是可选步骤。当前应用必须显式配置独立的 `productAgent.researchTextPolicies`（按企业的原 governed RoutePolicy），并沿原模型路由、凭据供给、Agent 激活及执行模式配置开放 `product.research.agent`；不借用其他智能体配置。页面先准备并保存原 key/配置及模式回执，再单独显示最多两次模型调用、token 和费用上限；用户点击“确认生成研究建议”后才执行。未配置时仍可读取样本、人工审阅和转入。模型历史限定当前项目，由原 Agent 运行 owner 保存；任务中心只提供回到项目的入口，不发起跨项目历史扫描。
+
+人工审阅在证据与可选分析之后，必须逐项提交并填写决定理由。AI 建议不会自动批准。勾选已批准且来源可读的准确候选后，按原批次到“我的数据”核对非空商品子集，再沿原转入确认进入待适配；页面链接本身不代表转入成功。项目、研究证据与人工决定仍存原 owner 的数据库；AI 配置、用量与运行仍存原 owner，不新增研究报告表或第二事实源。浏览器仅保存按用户/企业/成员/项目隔离的待确认操作与原准备回执，用于原键核实。
+
+开发验证分别使用原 Go/PostgreSQL/原生 HTTP 测试与本地浏览器合成资料。可选页面自检在既有 Playwright 配置下执行 `pnpm exec playwright test e2e/market-research-centers.spec.ts`；只有显式设置该文件注明的本地合成登录环境才运行，默认跳过，所有外部浏览器请求被拒绝。它验证四个真实页面的操作与主题，不代表真实 Amazon、模型、部署或用户验收。具体 HEAD、CI、独立复核及当前限制记录在同一 PR #1075。
+
 ### Figma 已确认设计索引
 
 文件 `tg48P46SSXl6TBy9lZwg63`，当前非归档页 `31:463`。本轮新节点均命名为“候选 / 两中心V1”；原批准研究区与转入设计未修改。节点内图层可编辑，复用 SUMI 本地 Button/Field 实例、Semantic/Layout 变量及 Noto Sans SC 文字样式，不含整页栅格图。

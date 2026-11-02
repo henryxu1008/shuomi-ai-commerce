@@ -19,6 +19,7 @@ export const agentGroups: readonly {
   { id: "listing-materials", agentIds: ["listing.materials.agent"], category: "商品", summary: "平台上架资料 · 可检查草稿" },
   { id: "product-image", agentIds: ["product.image.agent"], category: "商品", summary: "主图与详情图 · 人工选择批准" },
   { id: "pod-design", agentIds: ["pod.design.agent"], category: "商品", summary: "原创图案 · 保存后布局与效果图" },
+  {id:"market-research",agentIds:["product.research.agent"],category:"选品",summary:"研究证据分析 · 人工决定独立保存"},
   { id: "product-selection", agentIds: ["product.selection.agent"], category: "选品", summary: "商品事实对比 · 有引用建议" },
   { id: "shop-diagnosis", agentIds: ["shop.operations-diagnosis.agent"], category: "运营", summary: "经营事实诊断 · 有引用建议" },
 ];

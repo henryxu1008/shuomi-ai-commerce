@@ -1,3 +1,4 @@
+import {handlePOD} from "./pod-route";
 import { NextRequest } from "next/server";
 import { serverAuth } from "@/auth";
 import { readZitadelIdentityFromSession } from "./zitadel-auth";
@@ -15,6 +16,7 @@ const authenticated = serverAuth(
     ),
 );
 export async function handleMarketResearch(request: NextRequest) {
+ if(new URL(request.url).pathname.includes("/analysis/"))return handlePOD(request);
   const controller = new AbortController(),
     abort = () => controller.abort();
   request.signal.addEventListener("abort", abort, { once: true });

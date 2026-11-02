@@ -1,0 +1,2 @@
+import {ProjectPage} from "@/components/workbench/project-center/project-page";
+export default async function Page({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){const q=await searchParams;return <ProjectPage center="research" mode={q.mode==="archived"?"archived":"active"} initialSearch={typeof q.search==="string"?q.search:""} sample={typeof q.sample==="string"?q.sample:""} candidateAfter={typeof q.candidateAfter==="string"&&/^[0-9a-f-]{36}$/.test(q.candidateAfter)?q.candidateAfter:""}/>;}

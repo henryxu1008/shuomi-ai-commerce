@@ -390,3 +390,13 @@ it.each([
   view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" />);
   expect(screen.getByRole("link", {name:label})).toHaveAttribute("title", `${label}：业务暂未启用`);
 });
+
+it("connects both approved centers only when native research is enabled",()=>{
+ const v=render(<ConsoleNavigation pathname="/workbench/data/research" ariaLabel="主导航" marketResearchAvailable/>);
+ expect(screen.getByRole("link",{name:"市场调研中心"})).toHaveAttribute("title","市场调研中心");
+ v.rerender(<ConsoleNavigation pathname="/workbench/supply/selection" ariaLabel="主导航" marketResearchAvailable/>);
+ expect(screen.getByRole("link",{name:"智能选品中心"})).toHaveAttribute("title","智能选品中心");
+ expect(findConsoleRoute("/workbench/supply/selection/11111111-1111-4111-8111-111111111111")?.trail.map(n=>n.label)).toEqual(["供应市场","智能选品中心","项目评审"]);
+ v.rerender(<ConsoleNavigation pathname="/workbench/supply/selection" ariaLabel="主导航"/>);
+ expect(screen.getByRole("link",{name:"智能选品中心"})).toHaveAttribute("title","智能选品中心：业务暂未启用");
+});

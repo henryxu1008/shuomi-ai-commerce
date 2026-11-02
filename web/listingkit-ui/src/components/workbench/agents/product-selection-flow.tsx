@@ -681,7 +681,7 @@ const missingNames: Record<string, string> = {
   tax: "税费",
   landed_cost: "完整到岸成本",
 };
-function factLabel(path: string): string {
+export function factLabel(path: string): string {
   if (missingNames[path]) return missingNames[path];
   const sku = /^variants\.(\d+)\.(.+)$/.exec(path);
   const skuNames: Record<string, string> = {
@@ -697,7 +697,7 @@ function factLabel(path: string): string {
     ? `属性 ${Number(attr[1]) + 1}${attr[2] ? " · 待核实" : ""}`
     : path;
 }
-function FactTable({ inspection }: { inspection: SelectionInspection }) {
+export function FactTable({ inspection }: { inspection: SelectionInspection }) {
   const paths = [
     ...new Set(inspection.products.flatMap((p) => p.facts.map((f) => f.path))),
   ];

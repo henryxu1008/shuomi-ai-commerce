@@ -138,7 +138,7 @@ const proposal = z.strictObject({
     .min(1)
     .max(5),
 });
-export const selectionRunSchema = z
+export const selectionRunBaseSchema = z
   .strictObject({
     runId: collectionID,
     contextId: collectionID,
@@ -164,7 +164,8 @@ export const selectionRunSchema = z
     costMicros: count,
     currency: text(16),
     usageStatus: z.enum(["observed", "unknown_reserved"]),
-  })
+  });
+export const selectionRunSchema = selectionRunBaseSchema
   .superRefine((r, ctx) => {
     if (!r.validated) {
       if (r.proposal)
