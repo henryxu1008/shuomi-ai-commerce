@@ -8,10 +8,10 @@ Admission: **IMPLEMENTATION_READY / FROZEN (2026-10-13)**。本文先于正式�
 本文保留原 v1 冻结设计。当前 C2-1 / C3-1 的准确 v3 定义、图片事实建议和版本 D2 依据见
 [对应冻结设计](product-image-facts-advice.md)及 #1076，不从本文旧准入推导后续版本授权。
 
-后续 [C3-2 候选类目规则查询](listing-candidate-category-rules.md) 为单独的 design-only 候选：
+后续 [C3-2 候选类目规则查询](listing-candidate-category-rules.md) 为单独冻结设计：
 用户先选一个候选类目，现 Agent 查询并只读解释，当前保存资料不变；候选结果不能进入普通材料采用/保存。
 它需要明确选择绑定、精确 Tool/结果及消费者分派，不能把原 Draft 换一个 categoryId 就宣称已覆盖关联规则。
-覆盖/执行资格 D2/D3 已获本轮单独产品认可；候选 v4 技术合同仍未评审/未实现，状态 NOT_IMPLEMENTATION_READY。
+覆盖/执行资格 D2/D3 已获本轮单独产品认可；v4 技术合同经自身 R1 达 IMPLEMENTATION_READY，后续授权在 #1077 实现。
 本文原实现及冻结范围保持，不把新候选、浏览器或产品验收记成完成。
 
 ## 用户结果与依据

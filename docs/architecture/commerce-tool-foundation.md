@@ -33,8 +33,8 @@ C2-1 复用已有素材选择/摆放，补基于实际已有事实与规则的�
 生成、准备任务、保存和批准仍走原入口。C3-1 读取当前已保存 Target 的类目/属性规则；
 换类目先人工确认并由原 owner 保存新记录，再读取其实际规则。
 
-C2-2 的额外视觉模型分析继续 DEFERRED / NOT_IMPLEMENTED；C3-2 已开始独立 design-only 候选，
-尚未实现。两者均不作为 #1076 冻结范围的 Must 或 E2 前置，不记为 PASS、已接受风险或永久取消。
+C2-2 的额外视觉模型分析继续 DEFERRED / NOT_IMPLEMENTED；C3-2 已由自身 R1 冻结并获后续实现授权，证据见 #1077。
+两者均不作为 #1076 冻结范围的 Must 或 E2 前置，不记为该 PR 的实现 PASS、已接受风险或永久取消。
 未知事实不伪造为冲突/通过，
 原权限、准确绑定/观察、预算、确定性重验和保存/发布门禁保持。
 
@@ -48,7 +48,7 @@ C2 的非执行性建议不调用 PrepareImageSet，不将付费生成或模型�
 [C3-2 候选类目规则查询设计](listing-candidate-category-rules.md) 单独记录后续范围：
 用户在现 SHEIN 资料流程先选择一个候选类目，沿原 owner 查询并只读解释，不改变已保存资料。
 候选包括强类型选择绑定、精确 Tool/模型结果/消费者分派和采用隔离；覆盖范围 D2、版本资格 D3 已取得本轮单独产品认可。
-状态为 DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY；本节与 #1076 的旧 Ready 不覆盖它，不能只改 allowlist 即开工。
+状态为自身 R1 IMPLEMENTATION_READY / FROZEN，后续按单独授权在 #1077 实现；本节与 #1076 的旧 Ready 不覆盖它。
 
 本设计决定：在 Product Agent 实现前，先建立一套小而稳定、与 Agent 框架无关的
 Commerce Tool 合同，再通过一个真实的只读纵向切片证明该合同可用。Tool 边界复用
@@ -620,7 +620,7 @@ payload 提交。Contract Test 必须证明它只是权威领域值的只读投�
 | 文本提案（C1） | #130 governed execution、当前 contentagent / Review owner | 按 §1.1 由 GovernedModel Decision 返回 typed Candidate，固定 Validator 重验；不额外注册独立 propose Tool |
 | 图片事实/建议（C2-1） | 当前 Product Asset/source reader、原纯校验；原生侧 Marketplace/Target owner | 读取已有事实、计算有证据的检查/非执行性建议；不调用视觉模型/准备/生成/批准，不恢复旧 ProductImage |
 | 当前资料规则（C3-1） | 原 Marketplace/Store rules owner、准确 saved Target/materials consumer | 读取当前资料类目/属性规则；换类目先人工保存新记录；不把 C3-2 独立候选查询列作本阶段 Must |
-| 候选类目规则（C3-2，独立设计候选） | 原 Supply/Marketplace/Store reader、原 materials/Agent Run 与结果页 | 用户先选一个候选，强绑定后只读解释；见[候选设计](listing-candidate-category-rules.md)，D2/D3 已产品认可、未评审/未实现，不产生保存或发布许可 |
+| 候选类目规则（C3-2，独立冻结设计） | 原 Supply/Marketplace/Store reader、原 materials/Agent Run 与结果页 | 用户先选一个候选，强绑定后只读解释；见[冻结设计](listing-candidate-category-rules.md)，D2/D3 已产品认可、自身 R1 Ready，#1077 维护实现证据，不产生保存或发布许可 |
 | readiness validator | #34 deterministic contract | 计算 blocker/warning |
 
 AI-backed Adapter 返回 proposal、evidence、confidence、unresolved issue 和 review

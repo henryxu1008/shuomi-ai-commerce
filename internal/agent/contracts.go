@@ -60,9 +60,16 @@ type Binding struct {
 	ProductKey, CatalogVersion, PublicationID, TargetPlatform string
 	Selection                                                 [MaxSelectionProducts]SelectionProductRef `json:",omitzero"`
 	StoreDiagnosis                                            StoreDiagnosisRef                         `json:",omitzero"`
+	CandidateRules                                            CandidateRulesRef                         `json:",omitzero"`
 }
 
 func (b Binding) Valid() bool {
+	if b.ContextKind == CandidateRulesContextKind {
+		return b.validCandidateRules()
+	}
+	if b.CandidateRules != (CandidateRulesRef{}) {
+		return false
+	}
 	if b.ContextKind == StoreDiagnosisContextKind {
 		return b.validStoreDiagnosis()
 	}

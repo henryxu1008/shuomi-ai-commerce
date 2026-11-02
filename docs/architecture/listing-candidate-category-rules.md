@@ -1,7 +1,9 @@
 # SHEIN 候选类目规则查询与只读解释：C3-2
 
-状态：**DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**。Design Basis：Independent Architecture。
-Refs #134 / #128。本文件是 design-only 合同候选；D1/D2/D3 已获产品认可，独立架构复核和实现尚未执行。
+状态：**IMPLEMENTATION_READY / FROZEN（R1）**。Design Basis：Independent Architecture。
+Refs #134 / #128。D1/D2/D3 已获产品认可；[R1 独立架构复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1077#issuecomment-6581638790)
+通过，无设计 BLOCKER。[后续实现及原 Reviewer 复核授权](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6581902411)
+允许同一 Writer 在原 PR #1077 先补回归再实现；本文件维护冻结合同，准确实现/CI/最终复核证据由 PR 承载。
 已有 C3-1 / #1076 的 Ready、实现和 CI 不覆盖本新增合同；本次不操作保留环境。
 
 ## 1. 用户结果与 Authority
@@ -38,7 +40,7 @@ Refs #134 / #128。本文件是 design-only 合同候选；D1/D2/D3 已获产品
 
 D2 明确本阶段的规则覆盖，不把未评价的关联组合记 PASS；其它未撤回 Must 保持。
 若后续要求验证具体属性组合的完整关联规则，须先补候选下的明确取值合同，不能从基础查询推定完整诊断。
-D3 是已单独认可的执行资格/恢复入口产品决定，仍须适用独立架构复核和后续实现授权。
+D3 是已单独认可的执行资格/恢复入口产品决定，已纳入本设计 R1 与后续实现授权。
 本设计不声称存在旧系统历史承接义务，也不建立 legacy adapter；正常版本资格不得通过数据迁移或第二事实源解决。
 
 Must：准确授权和绑定、真实规则/实际观察、未知与确定事实区分、只读解释不得保存/采用、固定预算、原键及 UNKNOWN。
@@ -214,7 +216,7 @@ Tool 内不调用 AI，保持 read / SideEffectNone / unmetered；外层解释�
 
 候选 v4 不在 v3 的定义原位加能力。已批准 D3 规定新执行/claim/resume/adopt 仅接相应新定义；
 本系统被替换 v3 的原记录/已提交回执只按原格式只读，不跨版本继续或采用。
-这会改变 v3 的新执行资格，本轮已取得用户单独明确认可；适用独立复核仍未执行，旧 #1076 D2 不作为本次批准。
+这会改变 v3 的新执行资格，已取得用户单独明确认可及本设计 R1；旧 #1076 D2 不作为本次批准。
 
 该建议只涉及本系统自己的版本资格，不能推出旧系统数据、ID、profile、业务资产或账务承接义务。
 不迁移/backfill、不包装旧 Service、不建 compatibility adapter/双读双写或第二事实源。
@@ -224,9 +226,9 @@ Tool 内不调用 AI，保持 read / SideEffectNone / unmetered；外层解释�
 Current owner：原 Supply / Listing / Marketplace / Store / AgentConfig / Run / AI ledger。
 Legacy decision：不触碰已退休 owner；仅复用当前合法行为，不新增 legacy dependency。
 
-## 11. 实现义务与必要验证（尚未执行）
+## 11. 实现义务与必要验证
 
-| 层 | 将来获准实现后仅扩既有测试 |
+| 层 | 沿既有测试覆盖 |
 | --- | --- |
 | 绑定 / 配置 / Run | 完整 selector、相同 key 异类目冲突、元数据篡改、错误用途、跨组织/成员/Store、准确版本及 claim/中断找回。 |
 | 原规则 owner / Tool | 实际叶子与可信 ProductType、空/未知标志、条件分支未评价、无旧属性值泄漏、来源/记录/Store 漂移、超限/超时/审计失败。 |
@@ -237,13 +239,27 @@ Legacy decision：不触碰已退休 owner；仅复用当前合法行为，不�
 不新建 runner/验收平台，不人工重复正常 CI 已覆盖的全量检查。真实 provider/关联规则覆盖/解释质量/产品试用另有证据门槛。
 实际开发 diff 超出已批准权限、状态/恢复、预算或事实 owner 时停报，不在实现里临时发明新框架。
 
+R1 的两项 `IMPLEMENTATION_TEST` 不重开架构设计，未满足时仍阻止本切片合并：
+
+- IT1：材料 Agent 的公共 request key 不是按用途/selector/base 分别建立新命令。复用原 Prepare 事务与 Agent 行锁，
+  在 org/actor/Agent/key 下比较完整 fingerprint；同 key 不同用途、候选或 base 冲突，并发只允许一个准备结果。
+  原 Run 找回先用 LookupContext 读取完整 frozen Binding，再按原 base/source/Store 校验读权限，禁止用当前选择重建。
+  已提交且尚未 claim 的原准备回执可读；这不授权已停用或旧版本的新执行。
+- IT2：旧 v3 的 profile/action-v1/proposal-v1、Advice 与已提交回执按原准确元组只读。
+  新 v4 的 action-v2 为材料提案/规则解释闭合分支；存储格式识别不授予跨版本执行或采用。
+  不修改原存储事实，不建立通用 compatibility owner。
+
+同一次结果若引用多个成功规则观察，每个 CallID 都须有原 recorded audit、相同冻结绑定与规则摘要；
+历史投影使用实际被引用的观察，不能用最后一次读取或今天的规则代替。
+
 ## 12. 本次交付与停止点
 
-本次仅交付 design-only 文档。D1/D2/D3 已产品确认，准确 schema/版本按本表供独立架构复核。
-独立架构复核 NOT_RUN，不能进入正式生产实现；文档检查不代替架构批准、实现或验收。
-本轮已获原工作区提交、推送、创建一个 design-only Draft PR 及核对准确 HEAD CI 的授权；
-证据维护在该 PR，不为滚动状态制造文档提交。尚未授权派评审、实现或合并，不借原 PR/main CI 记新设计 PASS。
-后续如获明确授权，按适用高风险检查点复用原 Reviewer，不增加人员或重复派工。
+本合同按 R1 冻结；实现沿原工作区、原 PR #1077 与唯一 Writer 推进，最终工程复核复用原 Reviewer。
+入口沿原资料编辑器的候选查询链接，在新标签页打开现材料页，保留原编辑页未保存内容；
+用户选择一个候选，确认保存资料版本、Store、模式及候选后查询，结果只展示基础规则/覆盖/未知与解释。
+任何模式均不提供本查询的保存、采用或发布入口。实际采用类目仍回到原资料编辑/人工保存与正式校验路径。
+PR 维护准确 HEAD、RED/GREEN、隔离验证、CI 和独立最终复核；本文件不滚动记录机器状态或签发产品通过。
+实现及工程复核授权不包含合并、部署、关单、真实平台/模型或任何保留实例操作。
 
 C2-2 继续 DEFERRED / NOT_IMPLEMENTED。缺证据 UNKNOWN；运行、真实保存/恢复、保留实例浏览器、
 模型质量和产品验收 NOT_RUN。#47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT，#134/#128 保持 OPEN。

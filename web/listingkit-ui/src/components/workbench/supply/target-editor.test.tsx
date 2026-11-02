@@ -17,8 +17,11 @@ it("opens materials only for an unchanged saved Target and removes the entry aft
  const existing={id,targetId:id,revision:1,effectiveVersion:"1",input:{sourceId:id,storeId:id,expectedRevision:0,effectiveVersion:"1",draft},merchant:{site:"shein-us",application_type:"self_operated"},result:{ready_for_upload:false,issues:[]}} as unknown as SupplyTarget;
  render(<SupplyTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} existing={existing} command={command} disabled={false} saved={0} materialsAvailable/>);
  expect(await screen.findByRole("link",{name:"准备平台资料"})).toHaveAttribute("href",`/workbench/supply/materials/${id}`);
+ expect(screen.getByRole("link",{name:"查询候选类目规则"})).toHaveAttribute("target","_blank");
  await userEvent.type(screen.getByLabelText("商品标题内容 1")," 修改");
  expect(screen.queryByRole("link",{name:"准备平台资料"})).toBeNull();expect(state.execute).not.toHaveBeenCalled();
+ expect(screen.getByRole("link",{name:"查询候选类目规则"})).toHaveAttribute("href",`/workbench/supply/materials/${id}?purpose=category-rules`);
+ expect(screen.getByLabelText("商品标题内容 1")).toHaveValue("原始商品 修改");
 });
 it("requires an unchanged saved Target before entering independent candidate preview",async()=>{
  state.rules.mockResolvedValue(rules("self_operated"));state.completion.mockResolvedValue({revision:3,content:{title:"明确带入的候选",description:"待补全描述"}});

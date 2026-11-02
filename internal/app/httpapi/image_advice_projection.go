@@ -16,7 +16,9 @@ import (
 func recordedImageAdvice(s agent.State, native bool) (*asset.ImageAdvice, error) {
 	ref := assetinspect.ImageAdviceDefinition().Ref
 	if native {
-		if s.Request.PolicyVersion != materials.PolicyVersion || s.Request.PromptVersion != materials.PromptVersion {
+		current := s.Request.PolicyVersion == materials.PolicyVersion && s.Request.PromptVersion == materials.PromptVersion
+		originalV3 := s.Request.PolicyVersion == "listing-materials-policy-v3" && s.Request.PromptVersion == "listing-materials-prompt-v3"
+		if !current && !originalV3 {
 			return nil, nil
 		}
 		ref = materials.InspectToolRef()

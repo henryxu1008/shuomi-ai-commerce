@@ -15,6 +15,9 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if id != agentconfig.MaterialsAgentID && (request.Binding.ContextKind == agent.CandidateRulesContextKind || request.Binding.CandidateRules != (agent.CandidateRulesRef{})) {
+		return false
+	}
 	if !request.SkillVersionRef.ValidOrAbsent() || !request.SkillVersionRef.Absent() && (id != agentconfig.ContentAgentID || !request.ContentSelection.TitleOnly()) {
 		return false
 	}
@@ -29,7 +32,7 @@ func validTextConfigurationRequest(id string, request agent.Request) bool {
 		return false
 	}
 	if id == agentconfig.MaterialsAgentID {
-		return request.ContentSelection.Absent() && request.Binding.ContextKind == "listing-target-record" && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
+		return request.ContentSelection.Absent() && request.Binding.Valid() && (request.Binding.ContextKind == "listing-target-record" || request.Binding.ContextKind == agent.CandidateRulesContextKind) && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
 	}
 	if id == agentconfig.ContentAgentID {
 		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
@@ -40,7 +43,12 @@ func validTextConfigurationRequest(id string, request agent.Request) bool {
 	return request.ContentSelection.Absent() && request.ValidContentSelection() && agentconfig.Platform(request.Binding.TargetPlatform)
 }
 
-func snapshotQuery(db *gorm.DB, s agent.Scope, r agent.Request) *gorm.DB {
+func snapshotQuery(db *gorm.DB, s agent.Scope, r agent.Request, agentID string) *gorm.DB {
+	if agentID == agentconfig.MaterialsAgentID {
+		// Prepare holds this Agent's existing row lock. Purpose and base are
+		// immutable intent in the fingerprint, not alternate command namespaces.
+		return db.Where("organization_id=? AND actor_id=? AND agent_id=? AND request_key=?", s.OrganizationID, s.ActorID, agentID, r.Key)
+	}
 	return db.Where("organization_id=? AND actor_id=? AND context_kind=? AND context_id=? AND request_key=?", s.OrganizationID, s.ActorID, r.Binding.ContextKind, r.Binding.ContextID, r.Key)
 }
 func snapshotView(row snapshotRow) (agentconfig.Snapshot, error) {
@@ -70,7 +78,10 @@ func validStoredTextConfiguration(v agentconfig.Snapshot) bool {
 	if v.AgentID != agentconfig.MaterialsAgentID {
 		return validTextConfigurationRequest(v.AgentID, v.Request) && validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile)
 	}
-	if !agentconfig.MaterialsStoredVersion(v.AgentVersion, v.Request.PolicyVersion, v.Request.PromptVersion) || v.KnowledgeBaseID != "" || v.ExecutionModelProfile.PromptVersion != v.Request.PromptVersion || v.ExecutionModelProfile.OutputSchemaVersion != agentconfig.MaterialsActionVersion {
+	if !agentconfig.MaterialsStoredVersion(v.AgentVersion, v.Request.PolicyVersion, v.Request.PromptVersion) || v.KnowledgeBaseID != "" || v.ExecutionModelProfile.PromptVersion != v.Request.PromptVersion || v.ExecutionModelProfile.OutputSchemaVersion != agentconfig.MaterialsStoredActionVersion(v.Request.PolicyVersion, v.Request.PromptVersion) {
+		return false
+	}
+	if v.AgentVersion != agentconfig.MaterialsAgentVersion && v.Request.Binding.ContextKind != "listing-target-record" {
 		return false
 	}
 	request := v.Request
@@ -139,7 +150,7 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 	e = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		a, ae := findAgent(tx, c.Scope.OrganizationID, c.AgentID, true)
 		var old snapshotRow
-		e := snapshotQuery(tx, c.Scope, c.Request).Take(&old).Error
+		e := snapshotQuery(tx, c.Scope, c.Request, c.AgentID).Take(&old).Error
 		if e == nil {
 			if old.Fingerprint != fp {
 				return agentconfig.ErrConflict

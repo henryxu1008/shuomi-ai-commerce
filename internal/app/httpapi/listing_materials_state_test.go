@@ -13,7 +13,7 @@ import (
 )
 
 func TestListingMaterialAdoptionRequiresExactReviewableDomainResult(t *testing.T) {
-	state := agent.State{RunID: "run", Scope: agent.Scope{OrganizationID: "org", ActorID: "actor"}, Phase: agent.HumanReviewRequired, Request: agent.Request{Binding: agent.Binding{ContextKind: "listing-target-record", ContextID: "record", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"}, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion}, DomainProposal: &agent.DomainProposal{Kind: materials.ProposalKind, Payload: json.RawMessage(`{"brandCode":"brand","evidenceIds":["observed"]}`)}}
+	state := agent.State{RunID: "run", Scope: agent.Scope{OrganizationID: "org", ActorID: "actor"}, Phase: agent.HumanReviewRequired, Request: agent.Request{Binding: agent.Binding{ContextKind: "listing-target-record", ContextID: "record", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"}, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion}, DomainProposal: &agent.DomainProposal{Kind: materials.ProposalKind, Payload: json.RawMessage(`{"purpose":"materials-edit","proposal":{"brandCode":"brand","evidenceIds":["observed"]}}`)}}
 	state.Validation = &agent.Validation{Valid: true, PolicyVersion: materials.PolicyVersion, CandidateHash: collection.Digest(state.DomainProposal)}
 	require.True(t, materialsRunReviewable(state))
 	key := materialsAdoptionKey(state)
