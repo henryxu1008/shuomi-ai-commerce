@@ -1,6 +1,6 @@
 # TikTok Shop 美国跨境店铺接入
 
-本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执及手动查询平台当前状态。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../architecture/tiktok-shop-us-v1.md)及[官方接口证据](../architecture/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
+本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执及手动查询平台当前状态。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../architecture/tiktok-shop-us.md)及[官方接口证据](../architecture/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
 
 ## 当前入口
 
@@ -44,7 +44,7 @@ Store 消费者沿同一明确配置的能力校验 schema 与权限：未配置
 
 ## 全新安装与启动
 
-沿[当前供应链的正常初始化和启动](my-supply-chain-shein-v1.md#初始化与正常启动)准备已获准、明确命名的**全新空** Product、Asset、Store 数据库及各自 runtime role。Product owner manifest 启用 `collections:true,supplyChain:true`；需要未绑定草稿时另启用 `supplyCompletionDrafts:true`。TikTok 使用原 Listing Target/Submission 表，不复制事实 owner；当前 schema 包含 tiktokshop-us 和 global_create。
+沿[当前供应链的正常初始化和启动](my-supply-chain-shein.md#初始化与正常启动)准备已获准、明确命名的**全新空** Product、Asset、Store 数据库及各自 runtime role。Product owner manifest 启用 `collections:true,supplyChain:true`；需要未绑定草稿时另启用 `supplyCompletionDrafts:true`。TikTok 使用原 Listing Target/Submission 表，不复制事实 owner；当前 schema 包含 tiktokshop-us 和 global_create。
 
 Store 首次空库安装使用已有初始化器增加 TikTok OAuth 最小 grants：
 

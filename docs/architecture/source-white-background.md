@@ -1,6 +1,6 @@
 # 来源商品白底图与资源结算合同
 
-现行 Product/Image 入口对已授权来源商品生成单张白底图候选，经人工预览和明确批准后进入当前 Asset owner。完整图片集合的操作入口见[商品图片智能体](../operations/product-image-agent-v1.md)。
+现行 Product/Image 入口对已授权来源商品生成单张白底图候选，经人工预览和明确批准后进入当前 Asset owner。完整图片集合的操作入口见[商品图片智能体](../operations/product-image-agent.md)。
 
 当前调用使用 Product/Image、ImageAgent、Resource 和选定 provider 的既有 owner。以下是固定 Image owner 的跨库不可变回执、派发顺序、UNKNOWN 恢复和成员限额合同；不开放通用事务代理，不以文档存在证明特定实例已经启用或通过真实平台验收。
 

@@ -6,7 +6,7 @@ Independent Reviewer `/root/native_auth_review` reviewed design HEAD `5418c16687
 
 ## Product authority and outcome
 
-The user explicitly chose “暂未准备商户配置，先接入非支付业务”. The existing full architecture in `ecosystem-services-v1.md` remains frozen. This supplement permits a separately selected qualification-only composition, without changing its payment, merchant, service eligibility, pricing or recovery rules.
+The user explicitly chose “暂未准备商户配置，先接入非支付业务”. The existing full architecture in `ecosystem-services.md` remains frozen. This supplement permits a separately selected qualification-only composition, without changing its payment, merchant, service eligibility, pricing or recovery rules.
 
 An enterprise member with the existing join permission can upload private qualification documents, submit/correct the original application, read the actual platform decision and accept the existing agreement after approval. The existing platform administrator can read, approve or reject applications. Service market, provider listings and my-service queries show actual records, including an empty result. No sample providers, orders or success states are installed.
 

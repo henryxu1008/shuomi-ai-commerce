@@ -1,6 +1,6 @@
 # 1688 采集计划本地试用
 
-依据：`docs/architecture/1688-acquisition-figma-v1.md`。
+依据：`docs/architecture/1688-acquisition-figma.md`。
 
 在当前账户中心组合上追加
 `deployments/docker/account-compose/docker-compose.acquisition-plans.yml`。

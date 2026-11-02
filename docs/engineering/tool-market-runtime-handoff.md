@@ -1,6 +1,6 @@
 # 工具市场 v1 运行接线交接
 
-执行Issue #613；设计依据 [IMPLEMENTATION_READY](../architecture/tool-market-v1.md)。
+执行Issue #613；设计依据 [IMPLEMENTATION_READY](../architecture/tool-market.md)。
 本批唯一Writer交独立模块；协调方指定共享runtime Writer接导航/权限/当前安装组合。
 本文件不表示共享安装已经开放或用户验收通过。
 
@@ -85,7 +85,7 @@ Handler不暴露原始包bytes注入口，ConfigurePackage内部调用LoadPackag
   停用仅改变清单，不撤销插件或既有采集。
 - `/workbench/tools/custom`：定制服务介绍及流程；线下报价付款。
 - `/workbench/tools/custom/new`：提交完整 Figma 需求；场景、类型、名称、规则、联系人、
-  手机/微信、显式联系同意及可选私有参考资料沿 [#730增量设计](../architecture/tool-customization-figma-v1.md)。
+  手机/微信、显式联系同意及可选私有参考资料沿 [#730增量设计](../architecture/tool-customization-figma.md)。
 - `/workbench/tools/custom/progress`：读取当前企业需求及专员进度；
   提交成功跳转 `?request=<UUID>`，刷新仍读取该需求，实际授权始终由原API确认。
   无记录显示真实空态，不展示原型示例为真实需求；进度不证明付款或工具已安装。

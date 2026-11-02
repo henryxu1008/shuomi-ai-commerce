@@ -1,6 +1,6 @@
 # SHEIN 带入：安装与配置边界
 
-用户在正常供应链入口，以已保存的候选和准确 Target 版本进行显式映射、预览与本地保存；不自动发布。依据为[供应链合同](../architecture/my-supply-chain-shein-v1.md)、[带入合同](../architecture/completion-shein-import-v1.md)及[正常操作](my-supply-chain-shein-v1.md)。
+用户在正常供应链入口，以已保存的候选和准确 Target 版本进行显式映射、预览与本地保存；不自动发布。依据为[供应链合同](../architecture/my-supply-chain-shein.md)、[带入合同](../architecture/completion-shein-import.md)及[正常操作](my-supply-chain-shein.md)。
 
 安装按当前 owner 单元进行，不拆写 DDL、伪造规则或新增缺表 fallback。新装与已有当前系统的能力增量是不同命令模式；空库 flag 不能指向非空库。保留实例的维护、凭据、平台连接与数据操作须有其明确授权。
 

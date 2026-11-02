@@ -9,8 +9,8 @@
 | Console / BFF | [前端 README](../../web/listingkit-ui/README.md) |
 | 浏览器采集插件 | [插件 README](../../extensions/product-capture/README.md) |
 | 配置与凭据 | [凭据管理](secret-management.md) |
-| 镜像构建 | [显式 Git 版本构建](../operations/listingkit-image-build.md) |
-| CHAIN-1 有界环境 | [隔离环境装配](chain1-local-product-acceptance.md) |
+| 镜像构建 | [显式 Git 版本构建](../operations/application-image-build.md) |
+| CHAIN-1 有界环境 | [隔离环境装配](local-product-acceptance.md) |
 | 准入、接单与评审 | [AGENTS.md](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md) |
 
 <a id="dependency-and-package-checks"></a>

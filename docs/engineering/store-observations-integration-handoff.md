@@ -1,6 +1,6 @@
 # Store Center 商品与订单只读首版接线
 
-Issue #614 / PR #615；Design Basis 为 `store-center-platform-observations-v1.md` 的冻结基线。2026-10-09 用户明确要求本线程继续推进，公共启动、权限目录、导航和 Store enabled preflight 改由本会话 `01a11f6e-956c-73f1-9f8a-f025734c58d1` 在原主要 PR 接线；替代原启动线程分工，保留历史证据。本文不授予真实数据库安装、平台读取、部署或合并。
+Issue #614 / PR #615；Design Basis 为 `store-center-platform-observations.md` 的冻结基线。2026-10-09 用户明确要求本线程继续推进，公共启动、权限目录、导航和 Store enabled preflight 改由本会话 `01a11f6e-956c-73f1-9f8a-f025734c58d1` 在原主要 PR 接线；替代原启动线程分工，保留历史证据。本文不授予真实数据库安装、平台读取、部署或合并。
 
 ## 注入与生命周期
 
@@ -28,7 +28,7 @@ HTTP 基础路径 `/api/v1/workbench/store-observations`，products / orders 各
 
 ## 正常启动配置
 
-在既有 private current-application manifest 的 `storeCenter` 内显式增加以下设置，其余 Store 专用数据库、官方应用私密文件及 ZITADEL/current Organization 配置沿 [RUN-1](../operations/current-application-run1.md) 的正常合同准备：
+在既有 private current-application manifest 的 `storeCenter` 内显式增加以下设置，其余 Store 专用数据库、官方应用私密文件及 ZITADEL/current Organization 配置沿 [RUN-1](../operations/isolated-application-acceptance.md) 的正常合同准备：
 
 ```json
 "observations": {

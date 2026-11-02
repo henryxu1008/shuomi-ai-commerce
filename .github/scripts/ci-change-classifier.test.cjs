@@ -52,6 +52,23 @@ test("architecture authority docs trigger backend guards without frontend", () =
   }
 });
 
+test("code-health document rename preserves backend and code-health checks", () => {
+  for (const changedPath of [
+    "docs/refactoring/code-health-decisions.md",
+    "docs/engineering/code-health-decisions.md",
+    "docs/engineering/code-health-rules.md",
+  ]) {
+    assert.deepEqual(classifyChangedPaths([changedPath]), {
+      backend: true,
+      frontend: false,
+      code_health: true,
+      release_authority: false,
+      capture_extension: false,
+      isolated_runtime: false,
+    }, changedPath);
+  }
+});
+
 test("release policy and workflow changes run their Go-owned contract tests", () => {
   for (const changedPath of [
     ".github/workflows/listingkit-deploy.yml",

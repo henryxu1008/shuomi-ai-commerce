@@ -14,7 +14,7 @@ Issue/主要 PR 记录当前进度、准确代码版本、检查结果与批准�
 
 2026-09-30 用户为 #573 明确要求标题执行采用 OpenAI 兼容接口且不锁定单一供应商。
 下文 §8.3–§8.5 的 GRSAI 单供应商措辞是此前已批准实现的历史边界，不能再作为
-后续标题执行的产品要求；新的[供应商可替换合同候选](product-agent-text-provider-neutral-v1.md)
+后续标题执行的产品要求；新的[供应商可替换合同候选](product-agent-text-provider-neutral.md)
 正在独立评审。候选达到 `IMPLEMENTATION_READY` 前，不以本决定直接放开正式调用。
 
 ## 1. 用户结果与阶段边界
@@ -51,7 +51,7 @@ Must：真实调用上下文、fresh 授权、精确商品版本、有限执行/
 | [Review Proposal](../../internal/product/review/proposal/candidate.go) | 当前 Candidate、字段/证据/策略纯校验；ValidateCandidate 仅校验现成候选，旧 Proposer 已退休 | Agent 组合仍需读取授权后的 exact base/source 与冻结策略；不能用模型提供的快照、质量或历史报告代替 |
 | [Readiness Executor](../../internal/listing/readiness/tools/readinessinspect/executor.go) | 已保存 Product 版本与 ApprovedAsset 的输入检查 | 不接收 proposed patch；不能用原版本 ready 证明补丁有效，且 marketplace rules 仍 not_evaluated |
 | [Product Review](../../internal/product/review/service.go)、[现有 UI](../operations/product-agent-trial.md) | 标题 pending/accept/edit/reject、精确版本、显式 Apply、原子 Catalog 发布/receipt；内部 CreateFromCandidate 可接收现成候选并按同一规则重验 | 当前 Agent 可选组合已接入该内部入口和四个审核端点；关闭时不挂载。旧 Create/固定生成 POST 已退休 |
-| [采集入口](../engineering/src2b-public-acquisition.md) / [当前 ImageAgent 绑定](../../internal/app/httpapi/imageagent_acquisition_catalog.go) | 真实 acquisition operation 与 Catalog 发布回执绑定，可作为首个 UI 消费场景 | 新诊断操作必须读取授权后的已发布 operation，不接入旧 ListingTask 或伪造 BusinessTask |
+| [采集入口](../engineering/1688-public-acquisition.md) / [当前 ImageAgent 绑定](../../internal/app/httpapi/imageagent_acquisition_catalog.go) | 真实 acquisition operation 与 Catalog 发布回执绑定，可作为首个 UI 消费场景 | 新诊断操作必须读取授权后的已发布 operation，不接入旧 ListingTask 或伪造 BusinessTask |
 
 这些是接线前必须补齐的接口，不是为理论场景扩建通用平台的依据。
 

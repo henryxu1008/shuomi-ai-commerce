@@ -36,7 +36,7 @@ AI 负责理解需求和生成候选；权限、商品事实、价格与平台�
 项目持续开发中，按具体业务路径交付。**设计目标、代码实现、实例开放和用户验收分别确认。** 未配置的模型、店铺连接、支付渠道或可选模块会限制对应功能；菜单、容器健康或 CI 通过不代表完整业务路径已验收。
 
 - **已有实例**：使用该实例交付的应用地址与账号，登录后进入 `/workbench`；使用范围以该实例说明为准。
-- **新建本地环境**：从 [Account Compose](./deployments/docker/account-compose/README.md#start) 开始，按说明准备独立项目、端口、本地 TLS 和私密登录资料。需要组合更多已接入模块时，阅读[统一本地应用说明](./deployments/docker/account-compose/MODULES.md)及其中的配置要求。
+- **新建本地环境**：从 [Account Compose](./deployments/docker/account-compose/README.md#start) 开始，按说明准备独立项目、端口、本地 TLS 和私密登录资料。需要组合更多已接入模块时，阅读[统一本地应用说明](./deployments/docker/account-compose/modules.md)及其中的配置要求。
 - **浏览器采集**：参照[插件说明](./extensions/product-capture/README.md)构建与目标应用地址匹配的包。Chrome / Edge 使用同一扩展源码，采集结果在应用内确认保存。
 - **开发与交付进度**：查看[当前工作排序 #137](https://github.com/qq550723504/shuomi-ai-commerce/issues/137)及对应 Issue / PR；准确范围和验证结果在对应任务中维护。
 

@@ -66,7 +66,7 @@ Figma先于生产代码核对及更新：原位复用[官方模板深色6676:325
 
 以下为历史位置决定；入口归属及账户重复入口保留要求已由上节2026-10-22决定替代。
 
-执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，复用 [Skill V1](../architecture/skill-capability-v1.md) 合同。用户明确批准在「智能市场」下增加「技能库」，包含「官方模板」「我的技能」「团队技能」。三个分类路径分别为 `/workbench/agents/skills/official`、`/mine`、`/team`；侧栏、页内导航和面包屑保持一致。
+执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，复用 [Skill V1](../architecture/skill-capability.md) 合同。用户明确批准在「智能市场」下增加「技能库」，包含「官方模板」「我的技能」「团队技能」。三个分类路径分别为 `/workbench/agents/skills/official`、`/mine`、`/team`；侧栏、页内导航和面包屑保持一致。
 
 最初由用户批准局部 Product Authority，替代 #688 原「仅账户 Dialog、不新增二级菜单」的阶段入口约束；后续已补齐 Figma 节点。个人技能及官方模板按验证身份访问，团队技能按有效当前企业及既有权限管理；原账户/智能体配置的管理快捷入口及业务执行选择保留。官方目录没有模板或服务未就绪时如实展示，不新增公开/付费交易市场。
 
@@ -96,7 +96,7 @@ Design Basis: N/A，仅调整既有分类导航的展示；路由、领域合同
 
 图片方法选择与计划确认的可编辑面板：深色 [6861:1826](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=6861-1826) / 浅色 `6861:1864`；失效版本为 `6861:1845` / `6861:1883`。用户明确选择一个可用官方/团队版本或不使用；方法不增加已选任务或改写规则/报价，确认摘要显示准确方法来源/版本。个人图片定制先经原团队审核形成团队副本，不借用标题个人准入。设计示例不是运行数据，未开放的创作助手没有可用入口。
 
-图片为新的 Skill 执行消费者，Design Basis: Independent Architecture，具体owner、指纹/撤销栅栏、安装和准入见 [官方标题与图片技能 V1](../architecture/product-image-agent-v1.md)。设计检查达到IMPLEMENTATION_READY之前不修改正式生产路径；不操作当前实例、原数据或配置。
+图片为新的 Skill 执行消费者，Design Basis: Independent Architecture，具体owner、指纹/撤销栅栏、安装和准入见 [官方标题与图片技能 V1](../architecture/product-image-agent.md)。设计检查达到IMPLEMENTATION_READY之前不修改正式生产路径；不操作当前实例、原数据或配置。
 
 当前设计中，历史「商品中心」已归档；不建立独立顶层 `Product Center` / `Listing Center` 作为最终 IA 前提。
 
@@ -110,12 +110,12 @@ Design Basis: N/A，仅调整既有分类导航的展示；路由、领域合同
 及现有目录/正文页面保持，原出处卡片改为纯文本资料依据名称，结合原维护方、准确版本与digest
 表达资料身份；不创建外链、内链占位、资料站或新导航。API与内容不保留GitHub来源地址，
 不能仅在界面隐藏。V2内容版本/公开读取合同见
-[产品内依据V2](../architecture/official-knowledge-provenance-v2.md)，独立准入完成前不修改正式路径。
+[产品内依据V2](../architecture/official-knowledge-provenance.md)，独立准入完成前不修改正式路径。
 该局部用户决定替代旧外部出处链接要求；不授权更新当前实例、部署或实际仓库更名。
 
 ### 来源素材与资料检查（2026-10-21 用户批准增量）
 
-执行 #30 / #307，沿 [完整来源闭环设计 §1–§7](../architecture/source-business-closure-v1.md)，用户明确确认 §4.3.1 的 [可编辑面板 `8130:2280`](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=8130-2280)。「我的数据 → 查看商品」继续只读并补来源/固定版本/警告；仅「我的供应链 → 待适配」来源条目增加「来源素材」，打开独立面板，不增加顶层导航，不要求店铺、AI 或上传能力。
+执行 #30 / #307，沿 [完整来源闭环设计 §1–§7](../architecture/source-business-flow.md)，用户明确确认 §4.3.1 的 [可编辑面板 `8130:2280`](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=8130-2280)。「我的数据 → 查看商品」继续只读并补来源/固定版本/警告；仅「我的供应链 → 待适配」来源条目增加「来源素材」，打开独立面板，不增加顶层导航，不要求店铺、AI 或上传能力。
 
 固定来源版本的完整图片选择及用途 → 明确确认 → 原 action 回执 → 重读精确 inventory 与 Product inputs。未知结果保留原 key/选择并核实原确认；关闭面板不取消已提交动作。图片批准与资料受阻分别显示，来源警告不自动清除，Product inputs ready 不代表平台可发布。节点中的商品/图片/回执均为设计示例，不是运行数据；原详情 `3395:389` 与待适配 `3507:1965` 终稿未修改，既有深浅主题保留。
 
@@ -129,7 +129,7 @@ Design Basis: Independent Architecture / IMPLEMENTATION_READY，仅批准上述�
 
 图片独立预览/回执深色 `7666:2226` / `7666:2245`，浅色 `7666:2259` / `7666:2278`，使用每张图片点数而非文本费率。
 
-模型、企业、费率、版本和时间都是明示的排版示例，不能作为真实已配置/可用状态。所有管理动作零模型调用、零任务启动；图片供应商成本未接入则如实展示。旧未发送任务遇配置漂移阻断并重新准备；已通过最终发送门禁/UNKNOWN、费用、已有输出与 Review 保留。Design Basis: Independent Architecture，合同与准入见 [模型与费率管理 V1](../architecture/model-route-pricing-management-v1.md)。本轮只设计和评审，不修改代码、切换当前配置、安装或调用真实模型。
+模型、企业、费率、版本和时间都是明示的排版示例，不能作为真实已配置/可用状态。所有管理动作零模型调用、零任务启动；图片供应商成本未接入则如实展示。旧未发送任务遇配置漂移阻断并重新准备；已通过最终发送门禁/UNKNOWN、费用、已有输出与 Review 保留。Design Basis: Independent Architecture，合同与准入见 [模型与费率管理 V1](../architecture/model-route-pricing-management.md)。本轮只设计和评审，不修改代码、切换当前配置、安装或调用真实模型。
 
 ### SHEIN 已上传商品的平台状态（2026-10-19 用户批准设计增量）
 
@@ -139,7 +139,7 @@ Design Basis: Independent Architecture / IMPLEMENTATION_READY，仅批准上述�
 
 所有新视图的店铺、标识、日期和库存均标为设计示例。模式示例切换、成功回读示例仅用于原型审阅，正式产品只显示服务端实际模式/计划，不能用于切换授权。用户点击「查询平台结果」只读取；「确认首次上架」才是外部写操作，结果待核实期间不提供再次发送。平台已上架不代表全部 SKU 有货或保证结账。
 
-Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](../architecture/shein-publication-closure-v1.md)。本轮只更新设计并完成独立评审；原型不证明实现、店铺 API 准入或用户验收，实施与真实店铺操作均未授权。
+Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](../architecture/shein-publication-flow.md)。本轮只更新设计并完成独立评审；原型不证明实现、店铺 API 准入或用户验收，实施与真实店铺操作均未授权。
 
 以下节点用于固定当前产品语义：
 
@@ -148,7 +148,7 @@ Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](.
 - `427:3005`：二级页面 / AI工作台 / 任务中心
 - `427:3543`：AI工作台 / 知识库总览及「官方知识库 / 我的知识库」三级菜单
 - `682:359`：AI工作台 / 知识库 / 官方知识库；设计入口不代表官方内容已实现
-- `4703:572`：已批准知识库 v1 企业语义修订，「我的知识库」归当前企业所有，依据 `agent-knowledge-context-v1.md`，不表示个人私有资料空间
+- `4703:572`：已批准知识库 v1 企业语义修订，「我的知识库」归当前企业所有，依据 `agent-knowledge-context.md`，不表示个人私有资料空间
 - `428:323`：二级页面 / 智能市场 / 智能体市场
 - `1560:359`：店铺中心 / 我的店铺 / 优化版
 - `429:5323`：店铺中心 / 店铺商品
@@ -160,7 +160,7 @@ Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](.
 
 用户明确要求完整对齐 `/workbench/stores` 当前Figma路径，并确认以下语义优先于旧原型实例：使用官方SHEIN API授权，不恢复子账户密码/验证码；API操作不需要固定IP、代理配置、网络检测，移除这些操作和网络正常状态；负责人仅记录业务归属，不改变已有店铺访问授权；低库存阈值由用户设置，无默认业务阈值，库存缺失仍为未知。
 
-主画面继续用`1560:359/716`的概览、筛选、横向卡片，结合`1583:363`分组管理与`1868:570`批量归组。平台、站点、类型、统计、期限来自当前owner，原型的加拿大店铺、示例数量及正常状态不证明实际可用。完整设计/准入见[#641](https://github.com/qq550723504/task-processor/issues/641)及[店铺中心Figma路径设计](../architecture/store-center-figma-v1.md)；这项产品决定不是实现或用户验收结论。
+主画面继续用`1560:359/716`的概览、筛选、横向卡片，结合`1583:363`分组管理与`1868:570`批量归组。平台、站点、类型、统计、期限来自当前owner，原型的加拿大店铺、示例数量及正常状态不证明实际可用。完整设计/准入见[#641](https://github.com/qq550723504/task-processor/issues/641)及[店铺中心Figma路径设计](../architecture/store-center-figma.md)；这项产品决定不是实现或用户验收结论。
 
 ### 3.1 账户中心 v1 阶段边界（历史记录，2026-09-19，已被当前 Issue 范围取代）
 
@@ -182,7 +182,7 @@ M5 提现申请还必须消费现有 canonical payout-method owner 的有效收�
 
 2026-10-18 用户批准 [#798](https://github.com/qq550723504/task-processor/issues/798)：按既有任务中心 Figma 组织统一列表与详情，标题/内容审核收回待确认流程，撤去 AI 工作台并列二级“标题审核”入口。复用现有 Task/Review owner 与授权，未接入的经营诊断/运营计划、全局或今日统计、店铺筛选和步骤百分比不随布局开放。详见 [统一任务中心](../engineering/unified-task-center.md)。
 
-同日后续明确决定：任务不限定采集商品和标题优化，先明确设计再实现，保留已有数据与其它会话。当前续作沿同一任务中心读取原目录 `canReadRuns` 所允许的多来源、多能力运行，包括已有内容、图片、上架资料、选品、经营诊断、POD 等现有消费者；不因 Chat planner 未启用而隐藏这些读取入口。BusinessTask、原生运行、待确认提案保留原身份和 owner，不互相伪装；采集仅是一种来源，未知上下文不能默认路由到采集。该增量只消费现有授权读取，不启用新的模型/执行能力或修改 Chat 创建合同。范围与阶段语义见 [原生运行投影](../architecture/task-center-native-run-projection-v1.md)，先于生产代码明确设计准入。
+同日后续明确决定：任务不限定采集商品和标题优化，先明确设计再实现，保留已有数据与其它会话。当前续作沿同一任务中心读取原目录 `canReadRuns` 所允许的多来源、多能力运行，包括已有内容、图片、上架资料、选品、经营诊断、POD 等现有消费者；不因 Chat planner 未启用而隐藏这些读取入口。BusinessTask、原生运行、待确认提案保留原身份和 owner，不互相伪装；采集仅是一种来源，未知上下文不能默认路由到采集。该增量只消费现有授权读取，不启用新的模型/执行能力或修改 Chat 创建合同。范围与阶段语义见 [原生运行投影](../architecture/task-center-native-run-projection.md)，先于生产代码明确设计准入。
 
 AI工作台当前产品结构至少包括：
 

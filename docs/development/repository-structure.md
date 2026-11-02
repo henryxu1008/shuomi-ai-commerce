@@ -29,12 +29,12 @@ Framework、Transport、Workflow、Persistence、Provider SDK、Marketplace Clie
 ## 命令与配置
 
 - 当前应用启动从[根 README](../../README.md)及 [Account Compose](../../deployments/docker/account-compose/README.md)选择已说明的模块组合。
-- 本机 1688 批量导入：`cmd/1688-batch-import`，本地队列在 `internal/batchcapture`；服务器采集为 `cmd/1688-public-browser-collector`。使用条件见[批量采集合同](../architecture/1688-batch-local-agent.md)。
-- 图片异步执行：`cmd/image-agent-temporal-worker`，运行与恢复见[图片操作说明](../operations/product-image-agent-v1.md)。
+- 本机 1688 批量导入：`cmd/1688-batch-import`，本地队列在 `internal/batchcapture`；服务器采集为 `cmd/1688-public-browser-collector`。使用条件见[批量采集合同](../architecture/1688-batch-import.md)。
+- 图片异步执行：`cmd/image-agent-temporal-worker`，运行与恢复见[图片操作说明](../operations/product-image-agent.md)。
 - `cmd/*-schema-init`、`commercial-owner-schema-migrate`、`product-acquisition-init`、`supply-asset-init` 等是显式安装命令。只在对应合同和目标环境授权内使用，serving runtime 不执行 DDL。
 - 试用数据、凭据 provision 和 runtime prepare 命令遵守其对应操作合同；命令存在不表示可向保留实例执行。
 - 私有配置使用当前显式 JSON manifest 与 secret file 路径，具体值不提交仓库；见[凭据管理](secret-management.md)。
-- 镜像构建使用[显式 Git 版本入口](../operations/listingkit-image-build.md)，构建和部署分别授权。
+- 镜像构建使用[显式 Git 版本入口](../operations/application-image-build.md)，构建和部署分别授权。
 
 ## 工作树与本地产物
 
