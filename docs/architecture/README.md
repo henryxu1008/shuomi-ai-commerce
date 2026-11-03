@@ -46,7 +46,7 @@
 - `minio-capacity-admission.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission.md)
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与官网价微点折算（限定安全基础已完成工程检查；完整三类/Flare/C2-2仍未就绪）](enterprise-shared-model-configuration.md)
-- `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（全新系统，仅离线实施已准入）](bailian-deepseek-shared-text-admission.md)
+- `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（按用户纠偏收敛参考价估算，撤下价格精度前置）](bailian-deepseek-shared-text-admission.md)
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
 - `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
 - `settlement-reversal-locking.md` — [Immutable settlement reversal locking](settlement-reversal-locking.md)
