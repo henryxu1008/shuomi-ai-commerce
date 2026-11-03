@@ -1,5 +1,13 @@
 # 产品研究的运行交接
 
+## 现有文字凭据元数据已取得（2026-11-03，只读）
+
+沿原受限运行账户 `product_agent_runtime`、已授予SELECT的去密投影和READ ONLY事务，固定LAC组织级筛选，确认两条deepseek-v4.1-flash / openai-compatible记录。首选审查候选为原内容current正在引用的 `local-content-route-830-20261020`，credentialVersion为 `org-credential:v1:9b2ab8feb2e44d7399f9649a8debe471355bbb0388a5a06b022d507ce7907737`，与原current一致；enabled/key_present为true，端点主机格式提示北京。未返回Key值、完整端点或其他企业/成员记录，没有提权、改授权或借用管理员。较早试用记录不作为fallback。
+
+原内容current和固定非思考策略已确认，但研究/选品/企业共享current未见；新共享reference/边界证据、厂商准确版本/价目和完整usage资格仍未核准。现场Invocation为53列旧结构，缺官网价/完整计费用量字段；新owner为52列且严格拒绝旧结构，因此实际运行还需要另行明确实例/数据与新合同适用安排，不能只保存模型名或自动迁移。完整元数据、非执行差异和读取边界见[候选差异](selection-shared-model-wiring-preview.md#已取得的受限元数据与候选差异2026-11-031246-utc)。
+
+Design Basis: N/A；原预算¥0.30/20点每项、总¥0.60/40点保持。仅查询元数据并更新文档，未改Key/配置/schema/实例/余额，未执行真实采集/AI/付费或合并。下方“未取得记录”的观察仅属于此前页面核查阶段，不否定本次新增证据。
+
 ## Local 百炼绑定与价格只读核查（2026-11-03，未改实例）
 
 正常LAC管理页及三个既有去敏GET已核：能力列表200且仅图片，研究绑定400/INVALID、独立商品对比绑定503/UNAVAILABLE。因此没有取得文字binding ID/版本、凭据版本、endpoint/部署地域，不能写成“密钥不存在”。未读取secret、使用管理员DB或借用图片Key。当前两服务OCI来源标签均 `a66d7d0cde74cded28d77060ac941851cc342a30`，镜像2848da261bfc/d106b5dfe863、running/healthy；与下方旧运行记录不同，本轮只观察，不是本线程f872工程代码已更新实例。

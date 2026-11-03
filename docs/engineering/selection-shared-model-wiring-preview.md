@@ -2,9 +2,50 @@
 
 日期：2026-11-03（Asia/Singapore）。配置预览状态：**REVIEW_ONLY / NOT_PUBLISHABLE**；真实配置与调用 **NOT_RUN**。
 
+## 已取得的受限元数据与候选差异（2026-11-03，12:46 UTC）
+
+**本企业组织级凭据记录已确认；新版绑定准入和运行条件仍未完成。** 用户“继续”沿只读范围核实。Design Basis: N/A，只读现有去密投影、配置元数据及表结构，更新本预览；没有凭据、权限、配置、schema或实例写入。
+
+### 读取范围与权限证据
+
+正常页面再次确认当前企业LAC `394513833252618242`、原平台维护身份。实际运行库名称 `product_agent` 来自原非秘密备份回执；使用既有 `product_agent_runtime`，`session_user=current_user`，superuser/create_role/create_db/bypass_rls/replication均false。该账户已经拥有去密视图及原配置表SELECT，本轮没有GRANT/SET ROLE或管理员连接。每次事务均 `BEGIN READ ONLY`，后续读取另加本地3秒statement timeout。
+
+查询固定 `tenant_id='394513833252618242' AND user_id=''`，仅筛选原型号和1017；只返回允许的元数据、端点摘要/主机格式推导的地域提示及Key存在布尔值。视图列不含api_key，不返回完整端点或Key值。首次误用了测试夹具角色agent_runtime（现场不存在）；正式运行账户访问postgres系统库CONNECT被拒绝后未改授权，依据非秘密回执只连接其自身运行库。以上失败和后续成功分别保留。
+
+### 已有记录与来源
+
+| 组织级记录 | 型号/协议 | 状态 | 地域提示与超时 | 凭据版本 |
+| --- | --- | --- | --- | --- |
+| `local-content-route-830-20261020` | `deepseek-v4.1-flash` / `openai-compatible` | enabled=true，key_present=true | cn-beijing；45秒 | `org-credential:v1:9b2ab8feb2e44d7399f9649a8debe471355bbb0388a5a06b022d507ce7907737` |
+| `local-content-title-trial-20261016` | 同上 | enabled=true，key_present=true | cn-beijing；45秒 | `org-credential:v1:d27ce7c4d97a4a4613b61a1fcb8909d398998ced1db5f699a8da8c3717606ddd` |
+
+两条端点摘要同为 `0ec872526f86b31a2cfa18b91270cde45e9c4929123926de91819e677b3e2797`；没有推断二者使用相同Key。版本按原owner公开的非秘密公式计算，首条版本另与原内容current所存版本一致。该范围内没有1017记录。enabled/key_present只证明本地记录状态，远端有效性、额度及实际用量未测试。
+
+只读current查询发现原内容用途 `product.content.decision` 的 `route-af239e9c-04e4-4846-bb1f-31a07365faa7` 正引用首条记录；没有本企业研究、选品或 `ai.models.enterprise` current行。该原内容profile的provider为DASHSCOPE，adapter为openai-compatible，固定非思考策略已是 `dashscope-deepseek-v4.1-flash-nonthinking-v1`；prompt/schema仍是内容用途自身版本，不能直接用作研究/选品。较早试用记录保留为来源，不作失败fallback。
+
+### 本次已可填写与仍须核准的差异
+
+| 边界 | 已核实来源 | 非执行候选/剩余条件 |
+| --- | --- | --- |
+| 凭据候选 | 首条是本企业组织级记录，且被原内容current引用 | 优先审查复用 `local-content-route-830-20261020`；仅引用现有记录，不创建、复制或改写Key |
+| 凭据版本/端点 | 已有准确版本和摘要；北京主机格式提示 | 使用上述版本/摘要；地域和服务适用范围仍须原目录正式核准 |
+| 协议/模式 | DASHSCOPE、OpenAI兼容、原固定非思考策略 | 两项继续使用该固定策略及各自准确prompt/schema/read_only/权限，不复制内容配置 |
+| 用量/字节/期限 | 原内容profile上界65536/4096Token、输入65536字节、输出16384字节、deadline45秒 | 两项仍≤32000/4000Token、最多两调用，并保留各业务原更小字节/期限/费用约束；不把凭据超时自动设成操作期限 |
+| 共享绑定reference | 只有原内容revision和凭据版本；无新共享current | 新ReferenceVersion、BoundEvidenceVersion、Price ID仍待原owner资格；不用旧revision或credentialVersion顶替。正式发布前须由该owner重读CAS，不生成发布请求 |
+| 厂商价目 | 模型元数据仍为用户原名称；没有1017记录 | 原名称保持，厂商当前1017价格的准确适用身份仍未对应；下节公开价目只能作条件参考 |
+| 计费资格 | 原内容UsageMappingVersion为 `openai-compatible-token-usage-v1` | 原token观测标记不等于新版 `openai-text-v1` 完整分项已验证；不能只改版本字符串或用历史总Token补造缓存用量 |
+
+### 新确认的运行阻碍
+
+现场 `public.ai_invocations` 有 **53列**，含 `point_price_version`，没有 `official_tariff_json`、`billable_usage_json`。仓库当前唯一owner模型为 **52列**，[启动校验](../../internal/aicapability/store/model_point_fact.go)要求准确列集合并拒绝旧结构。这已是直接元数据证据，不再只是旧/新单位不明；本轮未运行安装器、ALTER/迁移、重算消费或新增第二账本。
+
+因此，当前可推进的是以首条现有记录形成准确候选差异。正式运行还需要：新共享目录reference/边界证据、准确型号的官网价适用性、完整可信usage资格，以及另行确定现有实例/数据保存与新合同的适用方案。旧内容选择仅作来源证据，不转成新current或回退源。预算保持每项¥0.30成本/20点、两项各一次总¥0.60/40点；没有因找到凭据而获得发布、更新实例或调用授权。
+
+新证据在被Git忽略的 `.local/selection-bailian-owner-metadata-readonly-20261103-01/`，不是配置API载荷。以下12:12 UTC页面核查记录保留其当时的UNKNOWN；本节补足了凭据存在性、版本和地域提示，不把它们继续写成未知。
+
 ## 本次现场核查与配置差异（2026-11-03，只读）
 
-Design Basis: **N/A**。本轮仅核实正常管理页、既有去敏GET、镜像来源标签、官方文档及原代码映射，更新本预览；没有修改业务代码、凭据、配置、schema或实例。核对时点为2026-11-03 12:12:52 UTC（东八区20:12:52）。下方前阶段记录保留各自版本，本节为当前观察。
+Design Basis: **N/A**。本轮仅核实正常管理页、既有去敏GET、镜像来源标签、官方文档及原代码映射，更新本预览；没有修改业务代码、凭据、配置、schema或实例。本节保留2026-11-03 12:12:52 UTC（东八区20:12:52）的页面核查快照；其中凭据版本、端点摘要和地域的UNKNOWN已由上方12:46 UTC受限元数据证据补足，其余未完成条件继续有效。
 
 ### 现场事实与边界
 
