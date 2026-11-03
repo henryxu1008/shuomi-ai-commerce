@@ -75,7 +75,7 @@ it("reuses project creation for research centers with a fixed research kind and 
  await screen.findByRole("heading",{name:"市场调研",level:1});
  await waitFor(()=>expect(new URLSearchParams(f.request.mock.lastCall![1].slice(1)).get("kind")).toBe("PRODUCT_RESEARCH"));
  expect(f.overview).not.toHaveBeenCalled();expect(screen.queryByText("35")).toBeNull();
- fireEvent.click(await screen.findByRole("button",{name:"＋ 新建研究项目"}));
+ fireEvent.click(await screen.findByRole("button",{name:"＋ 新建调研项目"}));
  fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"美国站收纳研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对美国站收纳盒的保存样本"}});
  fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
  await waitFor(()=>expect(f.request.mock.calls.some(c=>c[4]?.body?.kind==="PRODUCT_RESEARCH")).toBe(true));
@@ -85,12 +85,12 @@ it("asks for a project before a workflow function and preserves its step through
  Object.assign(f.context,{marketResearchAvailable:true});
  f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>command?{id,revision:1,replayed:false}:{projects:[{...p,kind:"PRODUCT_RESEARCH"}],next:""});
  render(<ProjectPage center="research" workflowStep="sources" initialSearch="收纳"/>);
- await screen.findByText("当前步骤：取得与关联资料。选择或新建研究项目后继续。");
- const href=new URL((await screen.findByRole("link",{name:"进入研究"})).getAttribute("href")!,"https://test.invalid");
+ await screen.findByText("当前步骤：收集与整理资料。选择或新建调研项目后继续。");
+ const href=new URL((await screen.findByRole("link",{name:"查看调研"})).getAttribute("href")!,"https://test.invalid");
  expect(href.pathname).toBe("/workbench/data/research/"+id);
  expect(Object.fromEntries(href.searchParams)).toEqual({mode:"active",search:"收纳",step:"sources"});
  expect(new URL(screen.getByRole("link",{name:"已归档"}).getAttribute("href")!,"https://test.invalid").searchParams.get("step")).toBe("sources");
- fireEvent.click(screen.getByRole("button",{name:"＋ 新建研究项目"}));
+ fireEvent.click(screen.getByRole("button",{name:"＋ 新建调研项目"}));
  fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"新研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对资料"}});
  fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
  await waitFor(()=>expect(f.push).toHaveBeenCalled());
@@ -109,11 +109,11 @@ it("keeps the live project panel, selected candidates and draft reasons when onl
  f.research.mockResolvedValue({items:[{id,revision:1,state:"PENDING_CONFIRMATION",selectedLinkId:id,evidenceDigest:"a".repeat(64),observation:{title:"已保存候选",site:"us",asin:"B000123456",sourceUrl:"https://www.amazon.com/dp/B000123456",capturedAt:p.createdAt,parserVersion:"amazon-v1",missing:[],ref:{checksum:"original",selection:{itemId:id,revision:1,publicationId:id,version:"1"}},item:{id,revision:1,source:{kind:"amazon_data",version:"1",publicationId:id}}},evidence:[],history:[]}],incomplete:false});
  const view=render(<ProjectPage center="selection" projectId={id} workflowStep="decisions"/>);
  fireEvent.click(await screen.findByRole("checkbox"));
- fireEvent.change(screen.getByLabelText("决定理由"),{target:{value:"仍在核对成本"}});
+ fireEvent.change(screen.getByLabelText("选择理由"),{target:{value:"仍在核对成本"}});
  await waitFor(()=>expect(f.request.mock.calls.filter(c=>c[4]?.path.endsWith("/visit"))).toHaveLength(1));
  view.rerender(<ProjectPage center="selection" projectId={id} workflowStep="transfer"/>);
  await waitFor(()=>expect(document.getElementById("research-transfer")).toHaveFocus());
- expect(screen.getByRole("checkbox")).toBeChecked();expect(screen.getByLabelText("决定理由")).toHaveValue("仍在核对成本");
+ expect(screen.getByRole("checkbox")).toBeChecked();expect(screen.getByLabelText("选择理由")).toHaveValue("仍在核对成本");
  expect(projectReads).toBe(1);expect(f.research).toHaveBeenCalledTimes(1);
  expect(f.request.mock.calls.filter(c=>c[4]?.path.endsWith("/visit"))).toHaveLength(1);
  expect(f.research.mock.calls.every(c=>!c[4]?.intent)).toBe(true);

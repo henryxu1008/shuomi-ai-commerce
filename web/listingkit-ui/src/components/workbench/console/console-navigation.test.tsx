@@ -395,8 +395,8 @@ it("promotes research and selection to independent primary menus and keeps runti
  const v=render(<ConsoleNavigation pathname="/workbench/data/research" ariaLabel="主导航" marketResearchAvailable/>);
  expect(screen.getByRole("link",{name:"市场调研"})).toHaveAttribute("title","市场调研");
  expect(screen.getByRole("link",{name:"市场调研"}).closest("li")).toHaveClass("console-nav-level-1");
- expect(screen.getByRole("button",{name:"展开资料整理"}).closest("li")).toHaveClass("console-nav-level-2");
- expect(screen.queryByRole("link",{name:"资料整理"})).not.toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"展开资料收集"}).closest("li")).toHaveClass("console-nav-level-2");
+ expect(screen.queryByRole("link",{name:"资料收集"})).not.toBeInTheDocument();
  v.rerender(<ConsoleNavigation pathname="/workbench/supply/selection" ariaLabel="主导航" marketResearchAvailable/>);
  expect(screen.getByRole("link",{name:"智能选品"})).toHaveAttribute("title","智能选品");
  expect(screen.getByRole("link",{name:"智能选品"}).closest("li")).toHaveClass("console-nav-level-1");
@@ -409,11 +409,11 @@ it("opens the selected workflow phase and keeps third-level links in the current
  const id="11111111-1111-4111-8111-111111111111";
  query.value="step=evidence&mode=archived&search=收纳";
  render(<ConsoleNavigation pathname={`/workbench/data/research/${id}`} ariaLabel="主导航" marketResearchAvailable/>);
- expect(screen.getByRole("button",{name:"收起样本研究"})).toHaveAttribute("aria-expanded","true");
- const selected=screen.getByRole("link",{name:"证据与缺项"});
+ expect(screen.getByRole("button",{name:"收起竞品研究"})).toHaveAttribute("aria-expanded","true");
+ const selected=screen.getByRole("link",{name:"查看商品资料"});
  expect(selected).toHaveAttribute("aria-current","page");
  expect(selected.closest("li")).toHaveClass("console-nav-level-3");
- const target=new URL(screen.getByRole("link",{name:"所选样本汇总"}).getAttribute("href")!,"https://test.invalid");
+ const target=new URL(screen.getByRole("link",{name:"比较重点商品"}).getAttribute("href")!,"https://test.invalid");
  expect(target.pathname).toBe(`/workbench/data/research/${id}`);
  expect(Object.fromEntries(target.searchParams)).toEqual({step:"summary",mode:"archived",search:"收纳"});
  expect(screen.queryByRole("link",{name:"市场调研中心"})).not.toBeInTheDocument();

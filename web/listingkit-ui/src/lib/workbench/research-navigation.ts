@@ -5,24 +5,24 @@ export const researchWorkflows = [
   {
     center: "research", label: "市场调研", root: "/workbench/data/research",
     phases: [
-      { id: "planning", label: "研究立项", steps: [{ id: "projects", label: "研究项目", section: "research-project" }] },
-      { id: "sources", label: "资料整理", steps: [{ id: "sources", label: "取得与关联资料", section: "research-sources" }] },
-      { id: "research", label: "样本研究", steps: [
-        { id: "evidence", label: "证据与缺项", section: "research-evidence" },
-        { id: "summary", label: "所选样本汇总", section: "research-summary" },
+      { id: "planning", label: "调研准备", steps: [{ id: "projects", label: "调研项目", section: "research-project" }] },
+      { id: "sources", label: "资料收集", steps: [{ id: "sources", label: "收集与整理资料", section: "research-sources" }] },
+      { id: "research", label: "竞品研究", steps: [
+        { id: "evidence", label: "查看商品资料", section: "research-evidence" },
+        { id: "summary", label: "比较重点商品", section: "research-summary" },
       ] },
     ],
   },
   {
     center: "selection", label: "智能选品", root: "/workbench/supply/selection",
     phases: [
-      { id: "comparison", label: "候选比较", steps: [
-        { id: "candidates", label: "候选与证据", section: "research-evidence" },
-        { id: "comparison", label: "所选事实比较", section: "research-summary" },
+      { id: "comparison", label: "商品比较", steps: [
+        { id: "candidates", label: "重点商品", section: "research-evidence" },
+        { id: "comparison", label: "价格与特点比较", section: "research-summary" },
       ] },
-      { id: "analysis", label: "辅助分析", steps: [{ id: "analysis", label: "研究建议与记录", section: "research-analysis" }] },
-      { id: "decisions", label: "人工决策", steps: [{ id: "decisions", label: "人工审阅与决定", section: "research-decisions" }] },
-      { id: "transfer", label: "供应链交接", steps: [{ id: "transfer", label: "核对转入商品", section: "research-transfer" }] },
+      { id: "analysis", label: "分析建议", steps: [{ id: "analysis", label: "AI建议与记录", section: "research-analysis" }] },
+      { id: "decisions", label: "选品决定", steps: [{ id: "decisions", label: "评估与决定", section: "research-decisions" }] },
+      { id: "transfer", label: "后续准备", steps: [{ id: "transfer", label: "确认商品并转入", section: "research-transfer" }] },
     ],
   },
 ] as const;

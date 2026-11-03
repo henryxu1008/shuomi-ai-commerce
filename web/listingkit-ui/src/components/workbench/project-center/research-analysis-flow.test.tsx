@@ -17,53 +17,53 @@ let queries:QueryClient;
 function open(){queries=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<QueryClientProvider client={queries}><ResearchAnalysisFlow scope={{userId:"user",organizationId:"org"}} projectId={project} selected={selected} archived={false} view="selection"/></QueryClientProvider>);}
 beforeEach(()=>{localStorage.clear();for(const f of [mock.inspect,mock.prepare,mock.execute,mock.preparation,mock.run,mock.recent,mock.config])f.mockReset();mock.config.mockImplementation(async(_s,path)=>path.startsWith("execution-modes")?{mode:"default",revision:"0"}:{agent:{activation:"ENABLED"},canUse:true,canReadRuns:true,capabilities:[{id:"text.generate",readiness:"AVAILABLE"}]});mock.inspect.mockResolvedValue(facts);mock.prepare.mockImplementation(async(_s,intent)=>({...prepared,requestKey:intent.key}));mock.preparation.mockResolvedValue(prepared);mock.run.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,true));mock.recent.mockResolvedValue({items:[],nextCursor:""});mock.execute.mockImplementation(async(_s,intent)=>({...result,requestKey:intent.key}));});
 afterEach(()=>{cleanup();queries?.clear();localStorage.clear();});
-async function prepare(){fireEvent.click(screen.getByRole("button",{name:"读取所选样本"}));await waitFor(()=>expect(screen.getByRole("button",{name:"准备研究分析"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"准备研究分析"}));}
+async function prepare(){fireEvent.click(screen.getByRole("button",{name:"查看所选商品比较"}));await waitFor(()=>expect(screen.getByRole("button",{name:"准备AI分析"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"准备AI分析"}));}
 it("requires a fact read, explicit preparation and separate cost confirmation before starting",async()=>{
- open();await screen.findByRole("button",{name:"准备研究分析"});expect(mock.inspect).not.toHaveBeenCalled();expect(mock.prepare).not.toHaveBeenCalled();expect(mock.execute).not.toHaveBeenCalled();
- await prepare();await screen.findByRole("heading",{name:"确认本次研究分析"});expect(mock.execute).not.toHaveBeenCalled();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成研究建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成研究建议"}));await screen.findByText("Saved advisory overview");expect(mock.execute).toHaveBeenCalledOnce();expect(screen.getByText("建议继续研究 · Sample A")).toBeInTheDocument();expect(screen.queryByRole("button",{name:"批准测试"})).toBeNull();
+ open();await screen.findByRole("button",{name:"准备AI分析"});expect(mock.inspect).not.toHaveBeenCalled();expect(mock.prepare).not.toHaveBeenCalled();expect(mock.execute).not.toHaveBeenCalled();
+ await prepare();await screen.findByRole("heading",{name:"确认本次AI分析"});expect(mock.execute).not.toHaveBeenCalled();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));await screen.findByText("Saved advisory overview");expect(mock.execute).toHaveBeenCalledOnce();expect(screen.getByText("建议进一步了解 · Sample A")).toBeInTheDocument();expect(screen.queryByRole("button",{name:"批准测试"})).toBeNull();
 });
 it("keeps unreadable preparation uncertainty and verifies the original receipt without preparing again",async()=>{
- mock.prepare.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));open();await prepare();await screen.findByRole("heading",{name:"核实原分析请求"});const intent=mock.prepare.mock.calls[0][1];mock.preparation.mockRejectedValueOnce(new MarketAPIError("PERMISSION_DENIED",403,true));
- fireEvent.click(screen.getByRole("button",{name:"核实原分析请求"}));await waitFor(()=>expect(mock.preparation).toHaveBeenCalledOnce());expect(mock.preparation.mock.calls[0][2]).toBe(intent.key);expect(mock.prepare).toHaveBeenCalledOnce();expect(screen.queryByRole("button",{name:"准备研究分析"})).toBeNull();
- expect(screen.queryByRole("button",{name:"放弃未提交的准备并重新选择"})).toBeNull();
- mock.preparation.mockResolvedValue({...prepared,requestKey:intent.key});fireEvent.click(screen.getByRole("button",{name:"核实原分析请求"}));await screen.findByRole("heading",{name:"确认本次研究分析"});expect(mock.prepare).toHaveBeenCalledOnce();expect(mock.execute).not.toHaveBeenCalled();
+ mock.prepare.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));open();await prepare();await screen.findByRole("heading",{name:"查询本次分析结果"});const intent=mock.prepare.mock.calls[0][1];mock.preparation.mockRejectedValueOnce(new MarketAPIError("PERMISSION_DENIED",403,true));
+ fireEvent.click(screen.getByRole("button",{name:"查询本次分析结果"}));await waitFor(()=>expect(mock.preparation).toHaveBeenCalledOnce());expect(mock.preparation.mock.calls[0][2]).toBe(intent.key);expect(mock.prepare).toHaveBeenCalledOnce();expect(screen.queryByRole("button",{name:"准备AI分析"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"取消本次准备并重新选择"})).toBeNull();
+ mock.preparation.mockResolvedValue({...prepared,requestKey:intent.key});fireEvent.click(screen.getByRole("button",{name:"查询本次分析结果"}));await screen.findByRole("heading",{name:"确认本次AI分析"});expect(mock.prepare).toHaveBeenCalledOnce();expect(mock.execute).not.toHaveBeenCalled();
 });
 it("invalidates an old no-receipt proof when a new lookup cannot establish absence",async()=>{
- mock.prepare.mockRejectedValue(new MarketAPIError("CONFLICT",409,false));open();await prepare();await screen.findByRole("heading",{name:"核实原分析请求"});
- mock.preparation.mockRejectedValueOnce(new MarketAPIError("NOT_FOUND",404,false));fireEvent.click(screen.getByRole("button",{name:"核实原分析请求"}));await screen.findByRole("button",{name:"放弃未提交的准备并重新选择"});
- mock.preparation.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));fireEvent.click(screen.getByRole("button",{name:"核实原分析请求"}));
- await waitFor(()=>expect(mock.preparation).toHaveBeenCalledTimes(2));expect(screen.queryByRole("button",{name:"放弃未提交的准备并重新选择"})).toBeNull();
- expect(screen.queryByRole("button",{name:"准备研究分析"})).toBeNull();expect(mock.execute).not.toHaveBeenCalled();
+ mock.prepare.mockRejectedValue(new MarketAPIError("CONFLICT",409,false));open();await prepare();await screen.findByRole("heading",{name:"查询本次分析结果"});
+ mock.preparation.mockRejectedValueOnce(new MarketAPIError("NOT_FOUND",404,false));fireEvent.click(screen.getByRole("button",{name:"查询本次分析结果"}));await screen.findByRole("button",{name:"取消本次准备并重新选择"});
+ mock.preparation.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));fireEvent.click(screen.getByRole("button",{name:"查询本次分析结果"}));
+ await waitFor(()=>expect(mock.preparation).toHaveBeenCalledTimes(2));expect(screen.queryByRole("button",{name:"取消本次准备并重新选择"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"准备AI分析"})).toBeNull();expect(mock.execute).not.toHaveBeenCalled();
 });
 it("never releases a pending model start through the unsubmitted preparation action",async()=>{
- mock.execute.mockRejectedValue(new MarketAPIError("OUTCOME_UNKNOWN",503,true));open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成研究建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成研究建议"}));await screen.findByRole("heading",{name:"核实原分析请求"});
- mock.run.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,false));fireEvent.click(screen.getByRole("button",{name:"核实原分析请求"}));await screen.findByText(/原精确请求已确认没有回执/);
- expect(screen.queryByRole("button",{name:"放弃未提交的准备并重新选择"})).toBeNull();expect(screen.getByRole("button",{name:"准备另一组分析"})).toBeDisabled();expect(mock.execute).toHaveBeenCalledOnce();
+ mock.execute.mockRejectedValue(new MarketAPIError("OUTCOME_UNKNOWN",503,true));open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));await screen.findByRole("heading",{name:"查询本次分析结果"});
+ mock.run.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,false));fireEvent.click(screen.getByRole("button",{name:"查询本次分析结果"}));await screen.findByText(/尚未查到这次操作记录/);
+ expect(screen.queryByRole("button",{name:"取消本次准备并重新选择"})).toBeNull();expect(screen.getByRole("button",{name:"分析另一组商品"})).toBeDisabled();expect(mock.execute).toHaveBeenCalledOnce();
 });
 it("releases a rejected preparation only after original-key lookup proves no receipt exists",async()=>{
- mock.prepare.mockRejectedValue(new MarketAPIError("CONFLICT",409,false));open();await prepare();await screen.findByRole("heading",{name:"核实原分析请求"});
- const intent=mock.prepare.mock.calls[0][1];expect(screen.queryByRole("button",{name:"放弃未提交的准备并重新选择"})).toBeNull();
- mock.preparation.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,false));fireEvent.click(screen.getByRole("button",{name:"核实原分析请求"}));
- fireEvent.click(await screen.findByRole("button",{name:"放弃未提交的准备并重新选择"}));expect(mock.preparation.mock.calls[0][2]).toBe(intent.key);expect(mock.execute).not.toHaveBeenCalled();
- expect(await screen.findByRole("button",{name:"准备研究分析"})).toBeDisabled();mock.prepare.mockImplementation(async(_s,next)=>({...prepared,requestKey:next.key}));
- await prepare();await screen.findByRole("heading",{name:"确认本次研究分析"});expect(mock.prepare.mock.calls[1][1].key).not.toBe(intent.key);expect(mock.execute).not.toHaveBeenCalled();
+ mock.prepare.mockRejectedValue(new MarketAPIError("CONFLICT",409,false));open();await prepare();await screen.findByRole("heading",{name:"查询本次分析结果"});
+ const intent=mock.prepare.mock.calls[0][1];expect(screen.queryByRole("button",{name:"取消本次准备并重新选择"})).toBeNull();
+ mock.preparation.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,false));fireEvent.click(screen.getByRole("button",{name:"查询本次分析结果"}));
+ fireEvent.click(await screen.findByRole("button",{name:"取消本次准备并重新选择"}));expect(mock.preparation.mock.calls[0][2]).toBe(intent.key);expect(mock.execute).not.toHaveBeenCalled();
+ expect(await screen.findByRole("button",{name:"准备AI分析"})).toBeDisabled();mock.prepare.mockImplementation(async(_s,next)=>({...prepared,requestKey:next.key}));
+ await prepare();await screen.findByRole("heading",{name:"确认本次AI分析"});expect(mock.prepare.mock.calls[1][1].key).not.toBe(intent.key);expect(mock.execute).not.toHaveBeenCalled();
 });
 it("masks cached cross-candidate output immediately after a history authorization failure",async()=>{
- open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成研究建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成研究建议"}));await screen.findByText("Saved advisory overview");mock.run.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));
+ open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));await screen.findByText("Saved advisory overview");mock.run.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));
  await act(async()=>{await queries.invalidateQueries({predicate:q=>q.queryKey.includes("run")});});
- await screen.findByText(/原依据当前不可完整访问/);expect(screen.queryByText("Saved advisory overview")).toBeNull();expect(screen.queryByRole("table")).toBeNull();expect(mock.execute).toHaveBeenCalledOnce();
+ await screen.findByText(/本次分析使用的部分资料现在无法查看/);expect(screen.queryByText("Saved advisory overview")).toBeNull();expect(screen.queryByRole("table")).toBeNull();expect(mock.execute).toHaveBeenCalledOnce();
 });
 it("keeps an UNKNOWN run from opening another analysis",async()=>{
- mock.execute.mockImplementation(async(_s,intent)=>({...result,requestKey:intent.key,phase:"stopped",validated:false,proposal:undefined,usageStatus:"unknown_reserved",stopReason:"usage_unknown"}));open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成研究建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成研究建议"}));await screen.findByText("原结果或费用未知，请核实原请求。");expect(screen.getByRole("button",{name:"准备另一组分析"})).toBeDisabled();expect(mock.prepare).toHaveBeenCalledOnce();expect(mock.execute).toHaveBeenCalledOnce();
+ mock.execute.mockImplementation(async(_s,intent)=>({...result,requestKey:intent.key,phase:"stopped",validated:false,proposal:undefined,usageStatus:"unknown_reserved",stopReason:"usage_unknown"}));open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));await screen.findByText("这次分析的结果或费用还未确认，请查询操作结果。");expect(screen.getByRole("button",{name:"分析另一组商品"})).toBeDisabled();expect(mock.prepare).toHaveBeenCalledOnce();expect(mock.execute).toHaveBeenCalledOnce();
 });
 it("masks cached analysis during a parent evidence refresh and reauthorizes the original key",async()=>{
- const screenView=open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成研究建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成研究建议"}));await screen.findByText("Saved advisory overview");
+ const screenView=open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));await screen.findByText("Saved advisory overview");
  const original=mock.execute.mock.calls[0][1].key;mock.run.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));
  const props={scope:{userId:"user",organizationId:"org"},projectId:project,archived:false,view:"selection" as const};
  screenView.rerender(<QueryClientProvider client={queries}><ResearchAnalysisFlow {...props} selected={[]} evidenceReadKey="refresh-1" evidenceReadable={false}/></QueryClientProvider>);
  expect(screen.queryByText("Saved advisory overview")).toBeNull();expect(screen.queryByRole("table")).toBeNull();
  screenView.rerender(<QueryClientProvider client={queries}><ResearchAnalysisFlow {...props} selected={[]} evidenceReadKey="refresh-1" evidenceReadable/></QueryClientProvider>);
- await waitFor(()=>expect(mock.run.mock.calls.some(c=>c[2]===original)).toBe(true));await screen.findByText(/原依据当前不可完整访问/);expect(screen.queryByText("Saved advisory overview")).toBeNull();
+ await waitFor(()=>expect(mock.run.mock.calls.some(c=>c[2]===original)).toBe(true));await screen.findByText(/本次分析使用的部分资料现在无法查看/);expect(screen.queryByText("Saved advisory overview")).toBeNull();
  mock.run.mockResolvedValue({...result,requestKey:original});
  screenView.rerender(<QueryClientProvider client={queries}><ResearchAnalysisFlow {...props} selected={selected.map(c=>({...c,revision:2}))} evidenceReadKey="refresh-2" evidenceReadable/></QueryClientProvider>);
  await screen.findByText("Saved advisory overview");expect(mock.execute).toHaveBeenCalledOnce();

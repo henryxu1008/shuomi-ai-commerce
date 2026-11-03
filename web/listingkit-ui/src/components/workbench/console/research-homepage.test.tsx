@@ -25,8 +25,8 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it.each([
-  { Page: ResearchPage, title: "从研究目标到样本证据，整理有依据的候选", flow: "市场调研业务流程", action: /管理研究项目/, root: "/workbench/data/research", step: "projects" },
-  { Page: SelectionPage, title: "比较候选、记录决定，让选品有据可查", flow: "智能选品业务流程", action: /比较同项目候选/, root: "/workbench/supply/selection", step: "candidates" },
+  { Page: ResearchPage, title: "先了解市场，再决定做什么商品", flow: "市场调研业务流程", action: /开始调研/, root: "/workbench/data/research", step: "projects" },
+  { Page: SelectionPage, title: "把重点商品比清楚，再决定下一步", flow: "智能选品业务流程", action: /挑选重点商品/, root: "/workbench/supply/selection", step: "candidates" },
 ])("shows the primary business homepage before project operations at $root", async ({ Page, title, flow, action, root, step }) => {
   render(await Page({ searchParams: Promise.resolve({ mode: "archived", search: "收纳" }) }));
   expect(screen.getByRole("heading", { name: title, level: 1 })).toBeVisible();
@@ -60,21 +60,21 @@ it("keeps the workflow introduction with inactive entries when research is not i
   render(await ResearchPage({ searchParams: Promise.resolve({}) }));
   expect(screen.getByRole("heading", { name: "市场调研业务流程" })).toBeVisible();
   expect(screen.queryAllByRole("link")).toHaveLength(0);
-  expect(screen.getByRole("status")).toHaveTextContent("当前应用尚未启用研究选品");
+  expect(screen.getByRole("status")).toHaveTextContent("当前暂未开放调研与选品功能");
   expect(fixture.project).not.toHaveBeenCalled();
 });
 
 it("keeps project management separate from evidence access", async () => {
   fixture.context.permissions = ["workbench.project.read"];
   render(await ResearchPage({ searchParams: Promise.resolve({}) }));
-  expect(screen.getByRole("link", { name: /管理研究项目/ })).toBeVisible();
-  expect(screen.queryByRole("link", { name: /进入资料整理/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /开始调研/ })).toBeVisible();
+  expect(screen.queryByRole("link", { name: /收集与整理资料/ })).not.toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent("商品资料查看权限");
 });
 
 it("removes the previous enterprise entry links while organization context is switching", async () => {
   const view = render(await SelectionPage({ searchParams: Promise.resolve({}) }));
-  expect(screen.getByRole("link", { name: /比较同项目候选/ })).toBeVisible();
+  expect(screen.getByRole("link", { name: /挑选重点商品/ })).toBeVisible();
   fixture.context.isSwitching = true;
   view.rerender(await SelectionPage({ searchParams: Promise.resolve({}) }));
   expect(screen.queryAllByRole("link")).toHaveLength(0);
