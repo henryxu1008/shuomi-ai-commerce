@@ -203,3 +203,15 @@ it("shows four configuration steps in product/store/rules/confirmation order",as
  expect(titles).toContain("4. 确认提交");
  expect(screen.queryByRole("tab",{name:/已适配/})).not.toBeInTheDocument();
 });
+
+it("keeps uploaded records read-only while retaining the original product and verification entry",async()=>{
+ state.plan.mockRejectedValue(new Error("uploaded must not mount execution plan"));
+ state.stages.mockResolvedValue({items:[{sourceId:source,stage:"uploaded"}],total:1,batchTotal:1,counts:{all:1,waiting:0,missing:0,ready:0,review:0,uploaded:1}});
+ state.detail.mockResolvedValue({source:{id:source,preparationId:prep,source:{kind:"own",productKey:"product",version:1}},product:{title:"原上传商品"},images:[]});
+ state.target.mockResolvedValue({id:source,revision:1,result:{issues:[],ready_for_upload:true}});
+ state.publication.mockResolvedValue({sourceId:source,storeId:store,recordId:source,receiptId:prep,product:{spu_name:"original-spu",skc_list:[]}});
+ render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="uploaded" initialPlan={prep}/>);
+ await screen.findByText("原上传商品");
+ for(const name of ["查看 / 补全","上传配置","配置所选商品上传","检查进度并继续","停止后续步骤","新建上传计划"])expect(screen.queryByRole("button",{name})).not.toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"查看商品"})).toBeEnabled();expect(state.write).not.toHaveBeenCalled();
+});
