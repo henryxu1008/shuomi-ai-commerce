@@ -75,11 +75,13 @@ ENTRYPOINT ["/usr/local/bin/current-application"]
 FROM alpine:3.22 AS bootstrap
 RUN apk add --no-cache openssl
 COPY deployments/docker/account-compose/commercial-database-name.sh /usr/local/lib/account-compose/commercial-database-name.sh
+COPY deployments/docker/account-compose/deployment-origins.sh /usr/local/lib/account-compose/deployment-origins.sh
 COPY --chmod=0755 deployments/docker/account-compose/bootstrap.sh /usr/local/bin/account-bootstrap
 ENTRYPOINT ["/usr/local/bin/account-bootstrap"]
 
 FROM alpine:3.22 AS schema-init
 RUN apk add --no-cache jq openssl postgresql17-client tzdata
+COPY deployments/docker/account-compose/deployment-origins.sh /usr/local/lib/account-compose/deployment-origins.sh
 COPY --from=go-builder /out/store-center-schema-init /usr/local/bin/store-center-schema-init
 COPY --from=go-builder /out/issue36-local-trial-init /usr/local/bin/issue36-local-trial-init
 COPY internal/app/listingrecordstore/schema.sql /etc/issue36-listing-schema.sql

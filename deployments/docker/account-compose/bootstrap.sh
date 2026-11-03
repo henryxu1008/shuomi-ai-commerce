@@ -2,6 +2,8 @@
 set -eu
 # Keep this entrypoint materialized as LF on existing Windows worktrees.
 . /usr/local/lib/account-compose/commercial-database-name.sh
+. /usr/local/lib/account-compose/deployment-origins.sh
+account_resolve_origins
 
 state=/state
 trusted_ca=/trusted-ca
@@ -49,6 +51,7 @@ case "${ACCOUNT_ISSUE36_LOCAL_TRIAL:-}" in
 esac
 
 if [ -f "$marker" ]; then
+  account_pin_origins "$state" retained
   if [ "${ACCOUNT_NATIVE_MODULES_ENABLED:-}" = 1 ]; then
     test -f "$state/.native-modules-enabled" || { echo 'native modules require a new empty project' >&2; exit 1; }
   else
@@ -187,6 +190,7 @@ chmod 600 "$tofu_inputs/insufficient-password.tmp"
 mv "$tofu_inputs/insufficient-password.tmp" "$tofu_inputs/insufficient-password"
 
 identity_db_password=$(cat "$identity_db_secret/identity-db-password")
+account_pin_origins "$state" fresh
 cat > "$zitadel_api_secrets/runtime-config.yaml.tmp" <<EOF
 Database:
   postgres:

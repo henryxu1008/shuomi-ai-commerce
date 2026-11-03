@@ -1,5 +1,7 @@
 #!/bin/sh
 set -eu
+. /usr/local/lib/account-compose/deployment-origins.sh
+account_resolve_origins
 # Keep this entrypoint materialized as LF on existing Windows worktrees.
 
 state=/state
@@ -76,13 +78,18 @@ touch "$state/.terraform-started"
 chmod 600 "$state/.terraform-started"
 
 apk add --no-cache ca-certificates curl jq
-export SSL_CERT_FILE="$trusted_ca/root-ca.pem"
+if test -n "$account_public_identity"; then
+  export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+else
+  export SSL_CERT_FILE="$trusted_ca/root-ca.pem"
+fi
 mkdir -p "$state/config" "$runtime" "$frontend"
 cp -R "$terraform_source/." "$state/config/"
 # This container shares the runtime-network namespace with Traefik.  The
 # host-specific port is only for callers outside the Compose project; inside
 # the namespace Traefik listens on its fixed identity entrypoint.
-until curl --fail --silent --show-error --cacert "$trusted_ca/root-ca.pem" "https://localhost:${identity_port}/.well-known/openid-configuration" >/dev/null; do sleep 2; done
+issuer=${account_public_identity:-https://localhost:${identity_port}}
+until curl --fail --silent --show-error --cacert "$SSL_CERT_FILE" "$issuer/.well-known/openid-configuration" >/dev/null; do sleep 2; done
 cd "$state/config"
 tofu init -input=false
 tofu apply -input=false -auto-approve -parallelism=1 \
@@ -92,6 +99,9 @@ tofu apply -input=false -auto-approve -parallelism=1 \
   -var="insufficient_password=$(tr -d '\r\n' < "$tofu_inputs/insufficient-password")" \
   -var="identity_port=$identity_port" \
   -var="application_port=$application_port" \
+  -var="identity_domain=${account_identity_host:-localhost}" \
+  -var="identity_external_port=$(if test -n "$account_public_identity"; then printf 443; else printf '%s' "$identity_port"; fi)" \
+  -var="public_application_origin=${account_public_app:-https://localhost:${application_port}}" \
   -state="$state/terraform.tfstate"
 
 write_output provider_pat "$runtime/provider-machine.pat"

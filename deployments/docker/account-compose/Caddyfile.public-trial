@@ -1,0 +1,20 @@
+# Load this installation's non-secret origins/ports as Caddy environment values.
+# Copy only its public upstream CA to the file below; never the CA/private key.
+{$ACCOUNT_PUBLIC_APPLICATION_ORIGIN} {
+ reverse_proxy https://localhost:{$ACCOUNT_APPLICATION_PORT} {
+  header_up Host {$ACCOUNT_PUBLIC_APPLICATION_HOST}
+  transport http {
+   tls_server_name localhost
+   tls_trust_pool file /etc/caddy/trial-upstream-ca.pem
+  }
+ }
+}
+{$ACCOUNT_PUBLIC_IDENTITY_ORIGIN} {
+ reverse_proxy https://localhost:{$ACCOUNT_IDENTITY_PORT} {
+  header_up Host {$ACCOUNT_PUBLIC_IDENTITY_HOST}
+  transport http {
+   tls_server_name localhost
+   tls_trust_pool file /etc/caddy/trial-upstream-ca.pem
+  }
+ }
+}
