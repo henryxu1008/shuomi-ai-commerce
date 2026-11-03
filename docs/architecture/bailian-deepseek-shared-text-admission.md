@@ -1,6 +1,6 @@
 # 百炼 DeepSeek 共享文字模型准入：全新系统设计
 
-Design Basis: **Independent Architecture**。状态：**DESIGN_REVIEW_PASS（R1，三项澄清待增量复核）/ OWNER_CONTRACT_PENDING / NOT_IMPLEMENTATION_READY**。
+Design Basis: **Independent Architecture**。状态：**DESIGN_REVIEW_PASS / OWNER_CONTRACT_PENDING / NOT_IMPLEMENTATION_READY**。
 执行：[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)，主要PR [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，公共模型依赖 [#1078](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078)。本文件只提出原公共owner的有界增量，不是生产实现、配置载荷或实例操作授权。
 
 ## 1. 产品决定、范围与验收边界
@@ -152,6 +152,6 @@ Prepare核完整运行/每调用deadline有已发布窗口覆盖；每次最后�
 5. 原账本/成员月限/debt-first/原月份、零实扣、并发同key和ACK丢失恢复；缺完整事实保留R。测试使用明确合成价格/时点，不冒称真实百炼资格。
 6. 新空owner安装和只Verify启动；旧53列和旧/混合单位目标继续拒绝。没有旧业务数据读取、迁移或自动seed。
 
-R1独立检查绑定f1eb0f02281395e6115825d87fadcb017bb1205a，未发现AGENTS设计BLOCKER，仅DESIGN_REVIEW_PASS。三项已分类为IMPLEMENTATION_TEST/合同澄清：R1-1派发前Claim/InputHash与响应后计价时点分离；R1-2完整峰/闲R上界；R1-3可选字段省略及非时段canonical不变。本文已按三项统一澄清，只做对应增量复核，正式实现仍须逐项必要测试；未跑测试不写PASS。
+R1独立检查绑定f1eb0f02281395e6115825d87fadcb017bb1205a，未发现AGENTS设计BLOCKER，仅DESIGN_REVIEW_PASS。三项已分类为IMPLEMENTATION_TEST/合同澄清：R1-1派发前Claim/InputHash与响应后计价时点分离；R1-2完整峰/闲R上界；R1-3可选字段省略及非时段canonical不变。对应增量300285db0a5b4313cba0450e12dd020ac4fe03cc（设计blob cbf62055a7d7a4a0cd3957afbe2b1a9cdb46b856）已由原同一Reviewer复核PASS，三项在设计层闭合、无新增BLOCKER。正式实现仍须逐项必要测试；未跑测试不写PASS。
 
-当前状态分开记录：R1设计检查PASS、三项澄清待增量复核；公共接口确认PENDING，因此仍NOT_IMPLEMENTATION_READY；准确真实usage/计价时点/上界证据NOT_VERIFIED；新空安装/真实配置发布/采集/模型/付费/用户验收NOT_RUN。真实资格缺项始终阻止Catalog Ready和实际开放；本次用户限制也继续阻止生产代码改动。历史数据演进方案CANCELLED，不记为PASS。
+当前状态分开记录：R1及三项澄清增量设计检查PASS；公共接口确认PENDING，因此仍NOT_IMPLEMENTATION_READY；准确真实usage/计价时点/上界证据NOT_VERIFIED；新空安装/真实配置发布/采集/模型/付费/用户验收NOT_RUN。真实资格缺项始终阻止Catalog Ready和实际开放；本次用户限制也继续阻止生产代码改动。历史数据演进方案CANCELLED，不记为PASS。后续只补评审状态的文档提交不扩大上述已核逻辑差异，也不当作应用测试或用户验收。
