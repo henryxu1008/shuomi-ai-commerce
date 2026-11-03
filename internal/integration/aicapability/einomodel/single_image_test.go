@@ -204,6 +204,23 @@ func TestSingleImageUnexpectedResponseModelKeepsOriginalUnknownReservation(t *te
 	require.Len(t, ledger.records, 1)
 }
 
+func TestSingleImageUnmappedBillingDimensionRemainsUnknown(t *testing.T) {
+	in := singleImageExecutionInput(t)
+	q, err := aicapability.QuoteText(in)
+	require.NoError(t, err)
+	ledger := &recordingLedger{}
+	e := singleImageExecutor(in, ledger, imageFixtureTransport(func(*http.Request) (*http.Response, error) {
+		r := singleImageResponse()
+		raw, _ := io.ReadAll(r.Body)
+		r.Body = io.NopCloser(strings.NewReader(strings.Replace(string(raw), `"total_tokens":35`, `"total_tokens":35,"future_billable_units":1`, 1)))
+		return r, nil
+	}))
+	_, err = e.Generate(context.Background(), in, q, nil)
+	require.ErrorIs(t, err, ErrOutcomeUnknown)
+	require.True(t, ledger.reserved)
+	require.Len(t, ledger.records, 1, "unknown pricing dimensions cannot receive a guessed terminal amount")
+}
+
 func TestSingleImageRejectsAnimationAndTruncatedPixelsBeforeClaim(t *testing.T) {
 	for _, animated := range []bool{false, true} {
 		in := singleImageExecutionInput(t)

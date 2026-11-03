@@ -147,26 +147,37 @@ func validSingleImageRequest(cfg GuardConfig) bool {
 
 func validSingleImageResponseUsage(raw []byte, expectedModel string) bool {
 	var response struct {
-		Model string `json:"model"`
-		Usage *struct {
-			PromptDetails *struct {
-				Audio *int64 `json:"audio_tokens"`
-			} `json:"prompt_tokens_details"`
-			CompletionDetails *struct {
-				Audio    *int64 `json:"audio_tokens"`
-				Accepted *int64 `json:"accepted_prediction_tokens"`
-				Rejected *int64 `json:"rejected_prediction_tokens"`
-			} `json:"completion_tokens_details"`
-		} `json:"usage"`
+		Model string          `json:"model"`
+		Usage json.RawMessage `json:"usage"`
 	}
-	if !decodeOfficialUsage(raw, &response) || response.Model != expectedModel || response.Usage == nil {
+	if !decodeOfficialUsage(raw, &response) || response.Model != expectedModel {
+		return false
+	}
+	var usage struct {
+		Prompt        *int64 `json:"prompt_tokens"`
+		Completion    *int64 `json:"completion_tokens"`
+		Total         *int64 `json:"total_tokens"`
+		PromptDetails *struct {
+			Cached *int64 `json:"cached_tokens"`
+			Audio  *int64 `json:"audio_tokens"`
+		} `json:"prompt_tokens_details"`
+		CompletionDetails *struct {
+			Reasoning *int64 `json:"reasoning_tokens"`
+			Audio     *int64 `json:"audio_tokens"`
+			Accepted  *int64 `json:"accepted_prediction_tokens"`
+			Rejected  *int64 `json:"rejected_prediction_tokens"`
+		} `json:"completion_tokens_details"`
+	}
+	// Keep unknown future billable dimensions out of this frozen mapping.
+	// Other text consumers retain their independently approved usage contract.
+	if !decodeClosedSingleImageJSON(response.Usage, &usage) {
 		return false
 	}
 	zero := func(n *int64) bool { return n == nil || *n == 0 }
-	if d := response.Usage.PromptDetails; d != nil && !zero(d.Audio) {
+	if d := usage.PromptDetails; d != nil && !zero(d.Audio) {
 		return false
 	}
-	if d := response.Usage.CompletionDetails; d != nil && (!zero(d.Audio) || !zero(d.Accepted) || !zero(d.Rejected)) {
+	if d := usage.CompletionDetails; d != nil && (!zero(d.Audio) || !zero(d.Accepted) || !zero(d.Rejected)) {
 		return false
 	}
 	return true
