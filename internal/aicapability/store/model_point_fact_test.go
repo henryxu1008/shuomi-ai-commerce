@@ -49,7 +49,7 @@ func TestContentPricedInvocationKeepsCanonicalIdentityAndReplay(t *testing.T) {
 }
 
 func TestAdvisoryAgentsPricedInvocationRetainsExistingScopedLedger(t *testing.T) {
-	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision} {
+	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision} {
 		t.Run(string(op), func(t *testing.T) {
 			db := newInvocationLedgerDB(t)
 			ledger := NewGormInvocationRecorder(db)

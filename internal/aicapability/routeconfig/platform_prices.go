@@ -76,6 +76,8 @@ func officialPriceHost(raw, provider string) bool {
 		return h == "ai.google.dev" || h == "aistudio.google.com" || h == "cloud.google.com"
 	case "qwen":
 		return h == "help.aliyun.com"
+	case "deepseek":
+		return h == "api-docs.deepseek.com" || h == "deepseek.com" || h == "www.deepseek.com"
 	case "cfets":
 		return h == "www.chinamoney.com.cn" || h == "chinamoney.com.cn"
 	}
@@ -201,6 +203,11 @@ func (s PlatformPricesSnapshot) Resolve(id, model, channel string, now time.Time
 		return invalid, ErrNeedsConfiguration
 	}
 	p := *found
+	// This model uses the admitted basic-totals estimate, not a supplier clock
+	// or a generic cache-partition claim.
+	if p.Model == "deepseek-v4.1-flash" && p.UsageVersion != aicapability.ReferenceTextTotalsV1 {
+		return invalid, ErrNeedsConfiguration
+	}
 	result := aicapability.OfficialModelTariff{UnitVersion: s.UnitVersion, PriceVersion: p.Version, Currency: p.Currency, Model: p.Model, Channel: p.Channel, UsageVersion: p.UsageVersion, Rates: p.Rates}
 	if p.Currency == "CNY" {
 		result.CNYMicrosPerCurrencyUnit = 1000000

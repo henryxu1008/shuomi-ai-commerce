@@ -74,3 +74,25 @@ func TestModelPointFactFingerprintsFreezeOfficialPriceJSONAndHashes(t *testing.T
 		t.Fatal("terminal output polluted the dispatch identity")
 	}
 }
+
+func TestReferenceUsageChangesTerminalProofOnly(t *testing.T) {
+	fact := modelPointHashFixture()
+	dispatch := modelPointFingerprint(fact)
+	fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: aicapability.ReferenceTextTotalsV1, Complete: true, InputText: 7, OutputText: 5}
+	first := modelPointFactHash(fact)
+	if modelPointFingerprint(fact) != dispatch {
+		t.Fatal("observed usage polluted pre-dispatch identity")
+	}
+	fact.BillableUsage.OutputText = 6
+	if modelPointFactHash(fact) == first {
+		t.Fatal("terminal proof lost observed basic usage")
+	}
+	if modelPointFingerprint(fact) != dispatch {
+		t.Fatal("observed usage changed the original reservation key")
+	}
+	first = modelPointFactHash(fact)
+	fact.BillableUsage.MappingVersion = "different-policy"
+	if modelPointFactHash(fact) == first {
+		t.Fatal("terminal proof lost estimation-policy identity")
+	}
+}

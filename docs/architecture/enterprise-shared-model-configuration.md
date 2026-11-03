@@ -54,6 +54,27 @@
   原 Invocation/账本消费者的必要投影和相应回归；不接手本批无关 Flare/多模态执行或真实配置准备。
   若实现确需新增状态、schema、资金/恢复 owner 或改变缺基础计量处理，停止并报告；原 Reviewer 仅按已有授权做必要增量/最终工程检查。
 
+### 本批公共增量接入与组合验证
+
+#1075 原 Writer 已完成公共参考策略提交 `65f12fa52cefcdada7ad3be74fe5facaa03aac9c` 和
+预算/显式零计量修复 `644624e7aeed95bfd33cb5aa05112f708c462388`；当前公共 owner 在本 PR
+复用这些已完成的实现，不反向引入研究业务模块，也不并行重写公共能力。原 Reviewer 的已绑定增量证据
+按原 SHA 保留；本 PR 的组合、准确 HEAD 和必需 CI 另记在 PR，不把上游通过写成本分支直接执行结果。
+
+- `Definition.MaximumMicropoints` 是可选的单次调用预算，不是第二套定价或账本；正值以原冻结 tariff
+  对完整 profile 最大输入/输出计算的 R 准入，并进入原 Definition/ProfileVersion 摘要。
+  使用参考策略的研究/选品用途不得缺失点数预算；其两次同 profile 调用按每次最多10点分配，
+  守住原每项20点上限，实际 R 仍按请求收紧，原更小限制继续生效。
+- 显式 Known/Complete、原策略一致且 P/C/T 明确为零的可信 Invocation 可以沿原成功或
+  observed-invalid 终态结算 A=0，并由原事务释放剩余 R；不是 no-send。
+  缺失、矛盾、其他策略、错误身份或恢复证明不因此获准，不从 Go 默认零值推定已观测，不重发。
+- 同一已准入 `(scope,id)` 的显式配置补全原 anchor，不新增第二条定义；两个显式同键定义仍冲突，
+  原 token/成本/权限限制不放大。仅复用该通用装配修复，不引入研究配置或其消费者。
+
+Flare 直连、图片估算策略及三类完整可用仍未实现于本次公共增量；历史硬界研究不恢复为前置。
+本次没有实际发布配置、修改凭据或实例，也没有真实采集、模型/平台或付费操作；运行、真实保存/恢复、
+浏览器及产品验收 NOT_RUN，缺证据 UNKNOWN。
+
 ## 历史限定安全基础与原实施记录
 
 状态：**IMPLEMENTATION_READY / FROZEN（限定安全基础）**。Design Basis：Independent Architecture。

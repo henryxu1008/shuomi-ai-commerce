@@ -79,6 +79,9 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 	if !ValidRouteProfile(input.Profile, input.Operation) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
+	if input.Profile.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy && !input.Profile.OfficialTariff.IsReferenceEstimate() {
+		return QualifiedRoute{}, ErrNotDispatched
+	}
 	route, err := e.Resolve(ctx, admissionMetadata(input))
 	if err != nil || !sameRoute(route, QualifiedRoute{Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
 		return QualifiedRoute{}, ErrNotDispatched
@@ -197,7 +200,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 	}()
 	guardCfg := GuardConfig{Logger: logger, Adapter: AdapterKind(p.AdapterKind), Endpoint: route.Endpoint, ModelID: p.ModelID,
-		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
+		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
 	if input.Image != nil {
@@ -285,7 +288,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 	}
-	if !output.Usage.Known || input.Image != nil && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
+	if !output.Usage.Known || (input.Image != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || p.OfficialTariff.IsReferenceEstimate()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||
 		errors.Is(generationErr, ErrOutcomeUnknown) || errors.Is(generationErr, ErrUsageUnknown) {
 		category := "outcome_or_usage_unknown"
@@ -294,6 +297,11 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 		diagnostic.emit(ctx, "usage", category)
 		return TextOutput{}, ErrOutcomeUnknown
+	}
+	if p.OfficialTariff.IsReferenceEstimate() {
+		if _, err := p.OfficialTariff.SettlementMicropoints(*output.Usage.BillableUsage); err != nil {
+			return TextOutput{}, ErrOutcomeUnknown
+		}
 	}
 	record.FinishedAt = time.Now().UTC()
 	record.ProviderRequestID = googleinteractions.SafeRequestID(output.ProviderRequestID)

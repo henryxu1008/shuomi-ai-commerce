@@ -85,6 +85,16 @@ type InvocationRecorder interface {
 	RecordInvocation(context.Context, InvocationRecord) error
 }
 
+// HasZeroReferenceUsage is an explicitly observed zero under the admitted
+// basic-totals policy. Missing counters or Go defaults cannot create this proof.
+// Identity, dispatch matching, outcome and transaction checks remain the owners'.
+func (r InvocationRecord) HasZeroReferenceUsage() bool {
+	u := r.BillableUsage
+	return r.UsageKnown && r.OfficialTariff.Valid() && r.OfficialTariff.IsReferenceEstimate() &&
+		r.PromptTokens == 0 && r.CompletionTokens == 0 && r.TotalTokens == 0 && r.ImageCount == 0 &&
+		u != nil && u.Validate() == nil && u.MappingVersion == r.OfficialTariff.UsageVersion && u.InputText == 0 && u.OutputText == 0
+}
+
 // InvocationDispatchClaimer atomically inserts the existing dispatch fact.
 // Only acquired=true with nil error grants permission for one provider attempt.
 // Replays, conflicts and ambiguous writes never grant execution.
@@ -95,7 +105,7 @@ type InvocationDispatchClaimer interface {
 // SupportsObservedUsageFailure deliberately allows only current consumers that
 // preserve trustworthy provider usage when their structured output is rejected.
 func SupportsObservedUsageFailure(operation Operation) bool {
-	return operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationListingMaterialsDecision || operation == OperationProductSelectionDecision || operation == OperationShopDiagnosisDecision || operation == OperationProductImageAnalysis || operation == OperationAIWorkbenchChatPlan
+	return operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationListingMaterialsDecision || operation == OperationProductResearchDecision || operation == OperationProductSelectionDecision || operation == OperationShopDiagnosisDecision || operation == OperationProductImageAnalysis || operation == OperationAIWorkbenchChatPlan
 }
 
 // InvocationReplayReader is optional for non-durable test recorders. The

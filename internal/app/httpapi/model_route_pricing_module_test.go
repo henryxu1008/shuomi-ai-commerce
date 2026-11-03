@@ -56,7 +56,8 @@ func TestModelRoutePricingHTTPPublicationUsesOriginalOwnersAndScope(t *testing.T
 	scope := d.Scope{OrganizationID: "org-a", Capability: d.SharedModelCapability}
 	repo, e := store.New(db)
 	require.NoError(t, e)
-	service := &d.SharedModelService{Repository: repo, Catalog: httpSharedCatalogFixture{}}
+	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "synthetic-channel", Text: d.ModelBindingReference{ID: "synthetic-text", Version: "v1"}, Image: d.ModelBindingReference{ID: "synthetic-image", Version: "v1"}, Multimodal: d.ModelBindingReference{ID: "synthetic-text", Version: "v1"}}
+	service := &d.SharedModelService{Repository: repo, Catalog: httpSharedCatalogFixture{selection: selection}}
 	auth, e := authz.NewListingKitAuthorizer([]string{"maintainer"}, nil)
 	require.NoError(t, e)
 	id := authidentity.AuthenticatedIdentity{UserID: "maintainer", Roles: []string{"listingkit_admin"}, TenantID: "org-a", EffectiveOrganizationID: "org-a", EffectiveMemberID: "member", TokenExpiresAt: time.Now().Add(time.Hour)}
@@ -81,7 +82,7 @@ func TestModelRoutePricingHTTPPublicationUsesOriginalOwnersAndScope(t *testing.T
 		return w
 	}
 	path := "/enterprise"
-	input := d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "synthetic-channel", Text: d.ModelBindingReference{ID: "synthetic-text", Version: "v1"}, Image: d.ModelBindingReference{ID: "synthetic-image", Version: "v1"}, Multimodal: d.ModelBindingReference{ID: "synthetic-text", Version: "v1"}}}
+	input := d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection}
 	raw, _ := json.Marshal(input)
 	require.Equal(t, 200, request("POST", path+"/validate", string(raw)).Code)
 	_, e = repo.Current(context.Background(), scope)
@@ -158,7 +159,15 @@ func TestModelRoutePricingDescriptorsKeepLiveAuthorizationAndBounds(t *testing.T
 	}
 }
 
-type httpSharedCatalogFixture struct{}
+type httpSharedCatalogFixture struct{ selection d.SharedModelSelection }
+
+func (c httpSharedCatalogFixture) Options(context.Context, string) ([]d.ModelOption, error) {
+	return []d.ModelOption{
+		{Category: d.ModelCategoryText, Reference: c.selection.Text},
+		{Category: d.ModelCategoryImage, Reference: c.selection.Image},
+		{Category: d.ModelCategoryMultimodal, Reference: c.selection.Multimodal},
+	}, nil
+}
 
 func (httpSharedCatalogFixture) ValidateDefaultChannel(context.Context, string, string) error {
 	return nil

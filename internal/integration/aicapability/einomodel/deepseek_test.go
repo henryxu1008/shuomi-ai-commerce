@@ -21,6 +21,7 @@ func deepSeekTestInput(endpoint string) aicapability.TextInputIdentity {
 	profile.ProviderID = "DASHSCOPE"
 	profile.ModelID = "deepseek-v4.1-flash"
 	profile.OfficialTariff.Model = profile.ModelID
+	profile.OfficialTariff.UsageVersion = aicapability.ReferenceTextTotalsV1
 	profile.AdapterPolicyVersion = DashScopeDeepSeekV41FlashNonThinkingPolicy
 	return aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1",
 		Operation: aicapability.OperationProductContentDecision, AgentRunID: "run-1", InvocationID: "inv-1",
@@ -49,21 +50,47 @@ func TestDeepSeekContentExecutorSendsFixedNonThinkingPolicy(t *testing.T) {
 	require.NoError(t, err)
 	ledger := &recordingLedger{}
 	executor := deepSeekTestExecutor(server.URL, input.Profile, ledger)
-	output, err := executor.Generate(context.Background(), input, quote, nil)
-	require.NoError(t, err)
-	require.Equal(t, "TITLE", output.Content)
+	_, err = executor.Generate(context.Background(), input, quote, nil)
+	require.NoError(t, err, "explicit basic totals can settle the admitted reference strategy")
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(<-wire, &body))
 	require.Equal(t, false, body["enable_thinking"], "the selected model must not inherit the provider thinking default")
 	require.NotContains(t, body, "tools")
 	require.NotContains(t, body, "reasoning_effort")
-	require.Len(t, ledger.records, 2)
+	require.Len(t, ledger.records, 2, "one original claim and one reference usage terminal record")
+	require.Equal(t, aicapability.InvocationDispatched, ledger.records[0].Outcome)
+	require.Equal(t, quote.InputHash, ledger.records[0].InputHash)
 	require.Equal(t, aicapability.InvocationSucceeded, ledger.records[1].Outcome)
-	require.Equal(t, 15, ledger.records[1].TotalTokens)
-	require.Equal(t, quote.InputHash, ledger.records[1].InputHash)
+	require.Equal(t, aicapability.ReferenceTextTotalsV1, ledger.records[1].BillableUsage.MappingVersion)
 	_, err = executor.Generate(context.Background(), input, quote, nil)
 	require.ErrorIs(t, err, ErrOutcomeUnknown)
 	require.EqualValues(t, 1, sends.Load(), "the original claim cannot send twice")
+}
+
+func TestDeepSeekGuardEstimatesOnlyForItsExactModel(t *testing.T) {
+	for _, modelID := range []string{"deepseek-v4.1-flash", "deepseek-v4.1-flash-1017"} {
+		t.Run(modelID, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = fmt.Fprintf(w, `{"model":%q,"created":1793664000,"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15,"prompt_tokens_details":{"cached_tokens":0}}}`, modelID)
+			}))
+			defer server.Close()
+			guard, err := NewGuardedClient(GuardConfig{Adapter: AdapterOpenAICompatible, ProviderID: "DASHSCOPE", ModelID: "deepseek-v4.1-flash", AdapterPolicyVersion: DashScopeDeepSeekV41FlashNonThinkingPolicy, Endpoint: server.URL, MaximumOutputTokens: 64, MaximumRequestBytes: 1024, MaximumResponseBytes: 1024, Timeout: time.Second}, nil, func(context.Context) error { return nil })
+			require.NoError(t, err)
+			request, err := http.NewRequest(http.MethodPost, server.URL+"/chat/completions", strings.NewReader(`{"model":"deepseek-v4.1-flash","max_tokens":64,"enable_thinking":false}`))
+			require.NoError(t, err)
+			response, err := guard.Client.Do(request)
+			require.NoError(t, err)
+			require.NoError(t, response.Body.Close())
+			observed := guard.Usage()
+			if modelID != "deepseek-v4.1-flash" {
+				require.Nil(t, observed.BillableUsage)
+				require.False(t, observed.Known, "1017 cannot silently substitute for the original model")
+			} else {
+				require.NotNil(t, observed.BillableUsage)
+				require.Equal(t, aicapability.ReferenceTextTotalsV1, observed.BillableUsage.MappingVersion)
+			}
+		})
+	}
 }
 
 func TestDeepSeekPolicyQualificationBeforeClaim(t *testing.T) {
@@ -206,20 +233,21 @@ func TestDeepSeekComponentCannotDropFrozenPolicy(t *testing.T) {
 	}
 }
 
-func TestDeepSeekStillRejectsReasoningAndPreservesObservedUsageOrUnknown(t *testing.T) {
+func TestDeepSeekIncompleteOrExcessUsageKeepsOriginalUnknownKey(t *testing.T) {
 	for _, tc := range []struct {
 		name, reasoning, usage string
-		known                  bool
 	}{
-		{"reasoning returned", `,"reasoning_content":"synthetic thought"`, `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}`, true},
-		{"missing completion usage", "", `{"prompt_tokens":10,"total_tokens":15}`, false},
-		{"inconsistent usage", "", `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":20}`, false},
+		{"reasoning returned", `,"reasoning_content":"synthetic thought"`, `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}`},
+		{"zero usage invalid content", `,"reasoning_content":"synthetic thought"`, `{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}`},
+		{"completion exceeds configured bound", "", `{"prompt_tokens":10,"completion_tokens":65537,"total_tokens":65547}`},
+		{"missing completion usage", "", `{"prompt_tokens":10,"total_tokens":15}`},
+		{"inconsistent usage", "", `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":20}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var sends atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				sends.Add(1)
-				_, _ = fmt.Fprint(w, `{"id":"synthetic","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"TITLE"`+tc.reasoning+`},"finish_reason":"stop"}],"usage":`+tc.usage+`}`)
+				_, _ = fmt.Fprint(w, `{"id":"synthetic","object":"chat.completion","model":"deepseek-v4.1-flash","choices":[{"index":0,"message":{"role":"assistant","content":"TITLE"`+tc.reasoning+`},"finish_reason":"stop"}],"usage":`+tc.usage+`}`)
 			}))
 			defer server.Close()
 			input := deepSeekTestInput(server.URL)
@@ -228,12 +256,9 @@ func TestDeepSeekStillRejectsReasoningAndPreservesObservedUsageOrUnknown(t *test
 			ledger := &recordingLedger{}
 			executor := deepSeekTestExecutor(server.URL, input.Profile, ledger)
 			_, err = executor.Generate(context.Background(), input, quote, nil)
-			if tc.known {
+			if tc.reasoning != "" {
 				require.ErrorIs(t, err, ErrObservedInvalidSettled)
-				require.Len(t, ledger.records, 2)
-				require.Equal(t, aicapability.InvocationUsageObservedFailed, ledger.records[1].Outcome)
-				require.Equal(t, 15, ledger.records[1].TotalTokens)
-				require.EqualValues(t, 15, ledger.records[1].EstimatedCostMicros)
+				require.Len(t, ledger.records, 2, "known basic usage settles even when content is rejected")
 			} else {
 				require.ErrorIs(t, err, ErrOutcomeUnknown)
 				require.Len(t, ledger.records, 1, "unknown usage cannot be recorded as zero or settled")

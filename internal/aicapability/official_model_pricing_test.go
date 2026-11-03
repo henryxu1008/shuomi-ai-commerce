@@ -7,6 +7,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestReferenceTextTotalsPricesOnlyItsDeclaredBasicCounters(t *testing.T) {
+	p := OfficialModelTariff{UnitVersion: AIPointMicrounitV1, PriceVersion: "reference-price-v1", FXVersion: "cny-identity-v1", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1_000_000, Model: "deepseek-v4.1-flash", Channel: "bailian-beijing", UsageVersion: "reference-text-totals-v1", Rates: OfficialModelRates{InputText: 2_000_000, OutputText: 8_000_000}}
+	u := BillableModelUsage{MappingVersion: p.UsageVersion, Complete: true, InputText: 32000, OutputText: 4000}
+	r, err := p.ReserveTextMicropoints(u.InputText, u.OutputText)
+	require.NoError(t, err)
+	require.EqualValues(t, 9_600_000, r)
+	a, err := p.SettlementMicropoints(u)
+	require.NoError(t, err)
+	require.Equal(t, r, a)
+	// This strategy never treats an unobserved cache subdivision as an actual
+	// provider cache fact and cannot accept a discount from another strategy.
+	u.CachedInputText = 10
+	_, err = p.SettlementMicropoints(u)
+	require.Error(t, err)
+	p.Rates.CachedInputText = 40_000
+	require.Error(t, p.Validate())
+	p.Rates.CachedInputText = 0
+	p.Rates.OutputImage = 1
+	require.Error(t, p.Validate(), "text estimation must not admit image usage")
+}
+
 func officialMiniPrice() OfficialModelTariff {
 	return OfficialModelTariff{
 		UnitVersion: AIPointMicrounitV1, PriceVersion: "official-mini-standard-v1",

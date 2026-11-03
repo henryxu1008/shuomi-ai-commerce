@@ -36,6 +36,8 @@ type Definition struct {
 	Text                 *governed.RoutePolicy `json:"text,omitempty"`
 	Image                *ImageAdmission       `json:"image,omitempty"`
 	MaximumCostMicros    int64                 `json:"maximumCostMicros,omitempty"`
+	// Per declared text call. This is a budget, never a fixed charge or hold.
+	MaximumMicropoints int64 `json:"maximumMicropoints,omitempty"`
 }
 type Catalog struct {
 	definitions map[d.Scope]map[string]Definition
@@ -47,7 +49,7 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 	}
 	c := &Catalog{definitions: map[d.Scope]map[string]Definition{}}
 	for _, def := range defs {
-		if !def.Scope.Valid() || (def.Text == nil) == (def.Image == nil) || (def.Image != nil) != (def.Scope.Capability == d.ImageCapability) {
+		if !def.Scope.Valid() || def.MaximumMicropoints < 0 || (def.Text == nil) == (def.Image == nil) || (def.Image != nil) != (def.Scope.Capability == d.ImageCapability) {
 			return nil, d.ErrInvalid
 		}
 		id := ""

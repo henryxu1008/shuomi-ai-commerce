@@ -24,6 +24,29 @@ func TestModelRouteWriterUsesOneOriginalOwnerPool(t *testing.T) {
 	require.Zero(t, m.writerConnections(*owner))
 }
 
+func TestModelRouteEnrichesSameAnchorOnceWithoutWideningConsumer(t *testing.T) {
+	c := agentRuntimeConfig()
+	writer := c.ProductAgent.Database
+	writer.User, writer.MaxConnections = "model_route_config_writer", 2
+	p := c.ProductAgent.TextPolicies["org"]
+	def := qualified.Definition{Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &p, Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "synthetic-price", ReferenceVersion: "synthetic-reference", BoundEvidenceVersion: "synthetic-bound"}
+	c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer, Bindings: []qualified.Definition{def}}
+	defs, err := c.modelRouteDefinitions()
+	require.NoError(t, err, "same admitted (scope,id) enriches the anchor instead of duplicating it")
+	require.Len(t, defs, 1)
+	require.Equal(t, def.ReferenceVersion, defs[0].ReferenceVersion)
+	require.Equal(t, p.ShapeProfile(), defs[0].Text.ShapeProfile())
+	c.ModelRoutePricing.Bindings = append(c.ModelRoutePricing.Bindings, def)
+	_, err = c.modelRouteDefinitions()
+	require.Error(t, err, "two explicit definitions still conflict")
+	c.ModelRoutePricing.Bindings = []qualified.Definition{def}
+	wider := p
+	wider.Profile.MaximumPromptTokens++
+	c.ModelRoutePricing.Bindings[0].Text = &wider
+	_, err = c.modelRouteDefinitions()
+	require.Error(t, err, "enrichment must not raise the original token bound")
+}
+
 func TestManagedCandidateUsesExistingPrivateProvisionOwner(t *testing.T) {
 	c, in := contentProvisionFixture()
 	c.ProductAgent.Enabled = true

@@ -65,13 +65,16 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		defs = append(defs, def)
 	}
 	if len(defs) == 0 {
+		q.Channel, q.Model = "UNKNOWN", "UNKNOWN"
+		if ref.Version != "approved-default-v1" || ref.ID == "openai-mini" && category != d.ModelCategoryText && category != d.ModelCategoryMultimodal || ref.ID == "openai-flare" && category != d.ModelCategoryImage {
+			return q, nil
+		}
 		switch ref.ID {
 		case "openai-mini":
 			q.Channel, q.Model = "openai-direct", "gpt-5.4-mini-2026-03-17"
 		case "openai-flare":
 			q.Channel, q.Model = "openai-direct", "gpt-image-2.5-flare-2026-09-08"
 		default:
-			q.Channel, q.Model = "UNKNOWN", "UNKNOWN"
 			return q, nil
 		}
 		if category == d.ModelCategoryImage {
@@ -91,7 +94,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	} else {
 		q.Model = first.Text.ShapeProfile().ModelID
 	}
-	if ref.Version != first.ReferenceVersion || !d.ValidFact(first.BoundEvidenceVersion, 128) {
+	if ref.Version != first.ReferenceVersion || !d.ValidFact(first.ReferenceVersion, 128) {
 		return q, nil
 	}
 	q.BoundEvidenceVersion = first.BoundEvidenceVersion
@@ -129,6 +132,10 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, nil
 	}
 	q.Price = price
+	if !price.IsReferenceEstimate() && !d.ValidFact(first.BoundEvidenceVersion, 128) {
+		q.Reason = "COST_BOUND_MISSING"
+		return q, nil
+	}
 	q.TextProfiles = map[string]aicapability.ModelProfile{}
 	for _, def := range defs {
 		if def.Manufacturer != first.Manufacturer || def.Region != first.Region || def.ServiceType != first.ServiceType || def.Channel != q.Channel || def.PriceID != first.PriceID || def.ReferenceVersion != ref.Version || def.BoundEvidenceVersion != first.BoundEvidenceVersion {
@@ -179,10 +186,10 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 			q.Image = &image
 		} else {
 			p := *binding.Text
-			// The guarded transport currently emits complete official billing
-			// partitions only for this exact adapter/mapping pair. A protocol
-			// shape or a price alone cannot make another consumer chargeable.
-			if p.AdapterKind != string(governed.AdapterOpenAICompatible) || price.UsageVersion != "openai-text-v1" {
+			// Each mapping has explicit fields and applicability. Reference
+			// totals cannot qualify an unopened image or vision consumer.
+			mappingReady := price.UsageVersion == "openai-text-v1" || category == d.ModelCategoryText && price.IsReferenceEstimate()
+			if p.AdapterKind != string(governed.AdapterOpenAICompatible) || !mappingReady || p.AdapterPolicyVersion == governed.DashScopeDeepSeekV41FlashNonThinkingPolicy && !price.IsReferenceEstimate() {
 				q.Reason = "METERING_MAPPING_NOT_ADMITTED"
 				return q, nil
 			}
@@ -199,6 +206,18 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 			if err != nil || maximum > def.MaximumCostMicros {
 				q.Reason = "COST_BOUND_MISSING"
 				return q, nil
+			}
+			advisory := def.Scope.Capability == string(aicapability.OperationProductResearchDecision) || def.Scope.Capability == string(aicapability.OperationProductSelectionDecision)
+			if price.IsReferenceEstimate() && advisory && def.MaximumMicropoints == 0 {
+				q.Reason = "POINT_BUDGET_MISSING"
+				return q, nil
+			}
+			if def.MaximumMicropoints > 0 {
+				points, err := price.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens)
+				if err != nil || points > def.MaximumMicropoints {
+					q.Reason = "POINT_BUDGET_EXCEEDED"
+					return q, nil
+				}
 			}
 			q.TextProfiles[def.Scope.Capability] = p
 			if q.Text == nil {
@@ -252,6 +271,11 @@ func (c *SharedCatalog) Options(ctx context.Context, org string) ([]d.ModelOptio
 				continue
 			}
 			cat := sharedDefinitionCategory(def)
+			for old := range refs[cat] {
+				if old.ID == id {
+					delete(refs[cat], old)
+				}
+			}
 			refs[cat][d.ModelBindingReference{ID: id, Version: def.ReferenceVersion}] = true
 		}
 	}
