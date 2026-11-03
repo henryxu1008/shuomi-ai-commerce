@@ -94,7 +94,13 @@ DeepSeek的时段价在原OfficialModelTariff内增加可选的**冻结文字窗
 
 原 `BillableModelUsage` 增加可选 `BillingTimeUTC` 和 `BillingTimePolicyVersion`，跟随原billable_usage_json持久化；窗口tariff要求二者实际存在、范围合法且策略版本与组一致，非时段tariff不从它们推定资格。解析准确envelope仍由原einomodel拥有；最终原事实/proof涵盖这两项，SDK裸计数不能自行补时点。以上为公共owner确认前的提议字段名，不建立正式schema或提交生产类型。
 
-新增可选JSON字段在不适用时必须真实省略：TextPriceWindows和BillingTimeUTC用nil表达缺失并omitempty，空BillingTimePolicyVersion同样省略，不能序列化null/空字符串/零时间改变普通非时段provider的当前canonical JSON和proof。实现测试逐字比较原非时段编码/输入指纹，不只比较显示值。
+公共owner指出现有tariff/Profile参与直接值比较、冻结快照与当前配置核对；不得把窗口slice或pointer直接存入这些值，也不把全仓比较替换为reflect.DeepEqual。拟议 `TextPriceWindows` 为原aicapability owner拥有的可比较值结构：私有元数据、有效计数和 `[32]` 私有窗口数组，所有成员只含可比较的标量/原OfficialModelRates。原构造器及JSON解码先验证、规范排序、归一UTC时点并清零未用数组尾部，复制调用方输入；不保留外部slice、map、pointer或time.Time位置/单调时钟身份。相同有序窗口事实经独立构建或持久化往返必须 `==`。不同原entry/group/evidence版本仍不相等，不以值相似吞掉事实差异。
+
+新增窗口字段拟用 `json:"textPriceWindows,omitzero"`；复用项目Go 1.26的标准encoding/json省略真正零值。该值只在JSON编解码的临时DTO中使用有界slice，自定义JSON方法仍输出上述窗口组object和仅有效windows，不输出固定数组尾部、字符串包装或count内部字段。解码复用原严格JSON边界拒绝重复/未知字段、null、空组、超32项及非法窗口，再交原owner全部证据/上界校验；可比较表示自身不授予价格或模型资格。
+
+`BillingTimeUTC` 拟用规范UTC RFC3339Nano字符串，缺失为空字符串并 `omitempty`；`BillingTimePolicyVersion` 同样以空字符串表达缺失并省略。原envelope解析用临时presence判断，拒绝缺失/null/不合法时点，只有核准的时点来源和策略可以生成该事实；不从时间字符串存在推定资格，也不丢失原协议时间精度。窗口内部UTC区间沿同一标准规范表示，避免同一时点的时区/格式别名造成值身份差异。不适用时这三个新增JSON字段必须全部真实省略，不能用null/空字符串/零时间改变普通非时段provider的当前canonical JSON和proof。实现测试仍须逐字比较真实原非时段编码/输入指纹，不只比较显示值。
+
+2026-11-03受限非正式POC仅证明上述Go值/JSON表示可行：外层profile保持可比较、零窗口/零时点字段与未新增字段前JSON逐字一致、独立排序构建及JSON往返后相等、调用者slice变更不改变已构建值、JSON只有有效窗口且拒绝显式null。POC不是生产实现，不证明真实tariff/proof、严格重复字段解析、计价公式或provider准入；这些仍为后续原owner实现测试。具体类型、字段和文件分工仍待原公共owner确认，状态保持OWNER_CONTRACT_PENDING。
 
 窗口组连同完整profile必须满足原快照/输入hash/序列化byte上限（包括原8192字节约束及用途更小上限）；Catalog和Prepare使用同一原校验，超限不Ready，不靠截断窗口/删证明或提高限制。原32条是平台价目总上限，不是承诺每个操作都能携带32个窗口。
 
