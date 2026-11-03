@@ -45,7 +45,7 @@
 - `member-resource-allocation.md` — [Member resources and official store connection v1](member-resource-allocation.md)
 - `minio-capacity-admission.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission.md)
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
-- `enterprise-shared-model-configuration.md` — [企业统一三类模型与官方价点数折算（设计候选，NOT_IMPLEMENTATION_READY）](enterprise-shared-model-configuration.md)
+- `enterprise-shared-model-configuration.md` — [企业统一模型与官网价微点折算（限定安全基础已完成工程检查；完整三类/Flare/C2-2仍未就绪）](enterprise-shared-model-configuration.md)
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
 - `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
 - `settlement-reversal-locking.md` — [Immutable settlement reversal locking](settlement-reversal-locking.md)
