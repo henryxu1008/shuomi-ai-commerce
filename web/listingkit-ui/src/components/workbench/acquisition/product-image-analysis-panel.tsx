@@ -29,8 +29,9 @@ function definitePreparationRejection(action:string,error:unknown){
 
 export function ProductImageAnalysisPanel(props:Props){
  const c=useWorkbenchContext(),userId=c.user?.id,organizationId=c.effectiveOrganization?.id;
- if(!userId||!organizationId||c.isLoading||c.isSwitching||c.error||c.blockingError||c.selectionRequired||!c.permissions.includes("workbench.agent.use"))return null;
- return <ScopedAnalysis key={JSON.stringify([userId,organizationId,props,c.permissions])} scope={{userId,organizationId,...props}} canRun={c.permissions.includes("local_agent.write")}/>;
+ const permissions=c.permissions??[];
+ if(!userId||!organizationId||c.isLoading||c.isSwitching||c.error||c.blockingError||c.selectionRequired||!permissions.includes("workbench.agent.use"))return null;
+ return <ScopedAnalysis key={JSON.stringify([userId,organizationId,props,permissions])} scope={{userId,organizationId,...props}} canRun={permissions.includes("local_agent.write")}/>;
 }
 
 function ScopedAnalysis({scope,canRun}:{scope:AnalysisScope;canRun:boolean}){

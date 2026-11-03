@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"task-processor/internal/agent"
@@ -14,6 +15,19 @@ import (
 )
 
 type imageAnalysisModule struct{ app *imageAnalysisApplication }
+
+func validateImageAnalysisRouteDescriptor(d httproute.Descriptor) (bool, error) {
+	for _, expected := range imageAnalysisRoutes(nil) {
+		if d.Path != expected.Path {
+			continue
+		}
+		if d.Method != expected.Method || d.Module != expected.Module || d.Permission != expected.Permission || d.AuthPolicy != expected.AuthPolicy || d.OrganizationAccessPolicy != expected.OrganizationAccessPolicy || d.RequestTimeout != expected.RequestTimeout || d.OrganizationTargetResolver != nil || d.RejectUnreadRequestBody != expected.RejectUnreadRequestBody || d.Handler == nil {
+			return true, errors.New("image analysis route loses exact live permission boundary")
+		}
+		return true, nil
+	}
+	return false, nil
+}
 
 func (imageAnalysisModule) Name() string                { return "product-image-analysis" }
 func (imageAnalysisModule) Enabled(*config.Config) bool { return true }

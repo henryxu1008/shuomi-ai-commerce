@@ -1,7 +1,7 @@
 import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {ProductImageAnalysisPanel} from "./product-image-analysis-panel";
-const context=vi.hoisted(()=>({user:{id:"actor"},effectiveOrganization:{id:"B"},permissions:["workbench.agent.use","local_agent.write"]}));
+const context=vi.hoisted(()=>({user:{id:"actor"},effectiveOrganization:{id:"B"},permissions:["workbench.agent.use","local_agent.write"] as string[]|undefined}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>context}));
 vi.mock("../agents/agent-configuration-hooks",()=>({useConfigurationRead:()=>({data:{mode:"review",revision:"0"}})}));
 const id="11111111-1111-4111-8111-111111111111",key="22222222-2222-4222-8222-222222222222",hash="a".repeat(64),base=`/api/workbench/sourcing/1688/acquisitions/${id}/images/analysis`;
@@ -10,6 +10,9 @@ beforeEach(()=>{localStorage.clear();uncertain=false;context.permissions=["workb
  fetch=vi.fn(async(input,init)=>{const url=String(input);if(url===base)return Response.json({contextKind:"acquisition",contextId:id,productKey:"p",catalogVersion:"1",publicationId:"pub",ready:true,reason:"",inventoryStatus:"NOT_READY",inventoryDigest:"",choices:[{kind:"source",id:"img",url:"https://images.test/1.png"}]});if(url.endsWith("/runs"))return Response.json({contextKind:"acquisition",contextId:id,items:[],nextCursor:""});if(url.endsWith("/prepare")){current={...current,requestKey:new Headers(init.headers).get("Idempotency-Key")};return Response.json(current)}if(url.endsWith("/confirm")){if(uncertain)throw Error("lost reply");current={...current,status:"completed",runId:id,actualMicropoints:"31",opinion:{observations:[],suggestions:[],unknowns:["仅离线示例"]}};return Response.json(current)}if(url.includes("/by-key/"))return Response.json(current);throw Error(url)});vi.stubGlobal("fetch",fetch);
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();localStorage.clear()});
+it.each([undefined,[]])("does not expose or read the analysis capability without a permission projection %s",permissions=>{
+ context.permissions=permissions;render(<ProductImageAnalysisPanel kind="acquisition" contextId={id}/>);expect(screen.queryByLabelText("单图只读检查")).toBeNull();expect(fetch).not.toHaveBeenCalled();
+});
 it("requires explicit image-and-price consent then renders readonly advice with no second model selection",async()=>{
  render(<ProductImageAnalysisPanel kind="acquisition" contextId={id}/>);
  fireEvent.change(await screen.findByLabelText("待检查图片"),{target:{value:"source:img"}});

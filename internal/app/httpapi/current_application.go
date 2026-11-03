@@ -908,6 +908,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	var supplyRuntime *supplyChainModule
 	var imageRuntime *fullImageApplication
+	var imageAnalysisRuntime *imageAnalysisApplication
 	var marketRuntime *supplyMarketModule
 	if supplied.pod != nil && supplied.fullImages != nil {
 		guard, err := buildArtworkOriginGuard(supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.agentConfigurationDB)
@@ -1127,6 +1128,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		if analysis != nil {
 			configureImageAnalysisOrigin(analysis, supplied.productAcquisitionDB, supplied.imageAgentDB, cfg)
+			imageAnalysisRuntime = analysis
 			modules = append(modules, imageAnalysisModule{app: analysis})
 		}
 		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, imageRuntime)
@@ -1347,6 +1349,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		OfficialKnowledge:    cfg.Workbench.Enabled,
 		AcquisitionImage:     factories.buildAcquisitionImage != nil,
 		FullImageSet:         imageRuntime != nil,
+		ImageAnalysis:        imageAnalysisRuntime != nil,
 		ProductAgent:         supplied.productAgent != nil,
 		ContentTitleOnly:     supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
 		ContentOnly:          supplied.productAgent != nil && supplied.productAgent.ContentOnly,
@@ -1454,6 +1457,7 @@ type currentApplicationOptionalRoutes struct {
 	SubjectVerification  bool
 	AcquisitionImage     bool
 	FullImageSet         bool
+	ImageAnalysis        bool
 	ProductAgent         bool
 	ContentTitleOnly     bool
 	ContentOnly          bool
@@ -1710,6 +1714,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
 		}
 	}
+	if optional.ImageAnalysis {
+		for _, route := range imageAnalysisRoutes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
+		}
+	}
 	if optional.SubjectVerification {
 		for _, route := range (verificationhttp.PersonalHandler{}).Routes() {
 			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
@@ -1785,6 +1794,18 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	includeCommercialBilling := false
 	for _, descriptor := range routes {
+		// Analysis lives below existing image/source paths but has its own
+		// exact readonly-Run boundary, not the generation permission/worker.
+		analysis, e := validateImageAnalysisRouteDescriptor(descriptor)
+		if e != nil {
+			return e
+		}
+		if analysis {
+			if !optional.ImageAnalysis {
+				return errors.New("image analysis application not admitted")
+			}
+			continue
+		}
 		if strings.HasPrefix(descriptor.Path, shopDiagnosisBase+"/") {
 			if !optional.ShopDiagnosis || !optional.OperationsCockpit || !optional.StoreCenter {
 				return errors.New("shop diagnosis requires native cockpit and stores")

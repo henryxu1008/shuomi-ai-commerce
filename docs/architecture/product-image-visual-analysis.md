@@ -355,6 +355,8 @@ SharedCatalog 仅在原多模态类别存在完整单图准入定义/官方价�
 - 原 current-application 装配 Catalog 精确版本、ApprovedInventory、原 HTTP 图片读取和 source-media
   不可变对象读取；生成素材/POD 来源沿原 material/artwork owner，不以公共 URL 回退，不要求启动生图 worker。
   source-media 继续从原准入 composition 提供只读字节端口，不新设 producer 或改架构守卫。
+  正常入口按已实际装配的分析模块接入有限精确路由，逐条核 module/method/身份/企业权限/超时；
+  不将 `/images/analysis` 按宽前缀误归生图流程。分析准入不授予任何生图/保存/批准路由。
 - 企业部署准入描述中的有限 `imageAnalysisPolicies` 只限定该用途；当前模型和收费价目仍由
   原 SharedTextReader 的 **multimodal** 类别解析。不会生成另一份 current、账本、价格或逐页模型选择。
 - source context 使用原 `acquisition / collection / own_product` 身份。原图片页增加选单图、准备、
