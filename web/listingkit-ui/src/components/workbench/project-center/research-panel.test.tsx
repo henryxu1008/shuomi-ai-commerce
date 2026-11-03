@@ -50,3 +50,20 @@ it("carries exact selected observations into the other center and rejects stale 
  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection" sample={sample}/>);
  await screen.findByText("所选商品资料已更新或暂时无法查看，请重新选择。");expect(screen.getAllByRole("checkbox").every(v=>!(v as HTMLInputElement).checked)).toBe(true);
 });
+
+it("hands only the selected approved observations to the original per-batch confirmation",async()=>{
+ const secondId="33333333-3333-4333-8333-333333333333",pendingId="44444444-4444-4444-8444-444444444444";
+ const batchA="55555555-5555-4555-8555-555555555555",batchB="66666666-6666-4666-8666-666666666666";
+ const first={...candidate,state:"APPROVED_FOR_TEST",observation:{...candidate.observation,batchId:batchA}};
+ const second={...candidate,id:secondId,state:"APPROVED_FOR_TEST",observation:{...candidate.observation,title:"另一批已批准样本",batchId:batchB,ref:{...candidate.observation.ref,selection:{...candidate.observation.ref.selection,itemId:secondId}}}};
+ const pending={...candidate,id:pendingId,observation:{...candidate.observation,title:"尚未决定的样本",batchId:batchA,ref:{...candidate.observation.ref,selection:{...candidate.observation.ref.selection,itemId:pendingId}}}};
+ mock.read.mockResolvedValue({items:[first,second,pending],incomplete:false});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection" workflowStep="transfer"/>);
+ await screen.findByRole("heading",{name:"尚未决定的样本"});for(const checkbox of screen.getAllByRole("checkbox"))fireEvent.click(checkbox);
+ const links=screen.getAllByRole("link",{name:/批次 \d+ · 核对 1 件商品/});expect(links).toHaveLength(2);
+ const transfers=links.map(link=>new URL(link.getAttribute("href")!,"https://app.example"));
+ expect(transfers.map(url=>url.pathname)).toEqual(["/workbench/data/mine","/workbench/data/mine"]);
+ expect(transfers.map(url=>url.searchParams.get("batchId"))).toEqual([batchA,batchB]);
+ expect(transfers.map(url=>JSON.parse(url.searchParams.get("transfer")!))).toEqual([[first.observation.ref.selection],[second.observation.ref.selection]]);
+ expect(mock.read.mock.calls.every(call=>!call[4]?.intent)).toBe(true);
+});
