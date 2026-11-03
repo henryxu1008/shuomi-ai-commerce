@@ -1,14 +1,20 @@
 # 产品研究的运行交接
 
-## 三级业务导航源码交接（2026-11-03，未更新实例）
+## 三级业务导航交付（2026-11-03，已更新指定实例）
 
-用户已确认“市场调研 / 智能选品”为一级菜单，二级展示业务阶段，三级进入具体功能，名称去掉“中心”。源码候选 `2aea4d1a6cf7a22776c341def70d4058e04a9fe4`、tree `68f2bbd30f75a891ca77614cf2eff29b1543ee95` 已提交到原 PR #1075。路径沿用 `/workbench/data/research`、`/workbench/supply/selection` 和本人项目详情；完整层级见[当前产品增量](../product/market-research-selection-centers-v1.md#当前导航增量2026-11-03)。
+用户已确认“市场调研 / 智能选品”为一级菜单，二级展示业务阶段，三级进入具体功能，名称去掉“中心”，随后明确允许将已构建的准确 `2aea` 版本仅更新统一实例前端并短暂重启。运行 UI 源码为 `2aea4d1a6cf7a22776c341def70d4058e04a9fe4`、tree `68f2bbd30f75a891ca77614cf2eff29b1543ee95`，仍为原 PR #1075。路径沿用 `/workbench/data/research`、`/workbench/supply/selection` 和本人项目详情；完整层级见[当前产品增量](../product/market-research-selection-centers-v1.md#当前导航增量2026-11-03)。
 
 二级为流程展开分组；三级通过白名单 `step` 选择已有功能区域。有项目时保留同项目的有效查询条件和准确 URL 样本，无项目时先选择或创建研究项目再继续。只切换步骤不新建项目、调用模型、提交人工决定或转入；项目与研究请求、原 visit 不因该切换重复，面板中的已选候选、草稿理由和原 pending 保持。跨身份 / 企业 / 成员 / 权限变化仍沿原准入与 key 隔离。
 
 相关6个测试文件在前一候选106项通过；最终两文件增量新增真实 ProjectPage → ResearchPanel 的延迟 GET 回归，先在旧码确认丢失选择 RED，再用相同身份的稳定 scope 修复，ProjectPage 14项全部通过，typecheck / scoped eslint 通过。独立 Reviewer 对原导航增量及最终两文件修复分别检查，`2aea` 对应 finding 已关闭，无剩余 finding。未变化代码的测试证据明确复用，不冒称在新 SHA 全量重跑。最新 GitHub Actions run 尚未观察到，状态 UNKNOWN。
 
-**本导航增量尚未部署，用户使用验收 NOT_RUN。** 通过仓库标准脚本从准确 `2aea` Git archive 构建的 UI 镜像为 `sha256:b3fa12c3e0d4be4bbfa212fc276fa64b9c48ede0760ba0999fc738ed40ea2652`，干净 Next 编译、类型及标准镜像检查全部通过；仅 UI 的候选/回退覆盖材料保存在本次本地交付目录。前一 `1ce` 候选虽曾构建，但对应真实父页选择丢失 finding 未关闭，不作为交付镜像。指定统一实例的 UI 仍为下文 `6bbe5bb48` / `efa4d769…`，后端仍为 `ad3ed151`；本轮未重启服务或修改权限、配置、业务数据和卷。管理员登录后已只读确认数据市场配置/空历史与两个项目列表正常，未执行采集、模型、付费或研究命令。后续替换 UI 镜像仍需对具体候选单独授权，不合并、不关闭 Issue。
+**导航更新 SUCCESS / In Review，待用户试用；完整业务验收 NOT_RUN。** 通过仓库标准脚本从准确 `2aea` Git archive 构建的 UI 镜像为 `sha256:b3fa12c3e0d4be4bbfa212fc276fa64b9c48ede0760ba0999fc738ed40ea2652`，干净 Next 编译、类型及标准镜像检查全部通过；已仅替换 `task-processor-unified-20261010` 的 `listingkit-ui`，新容器 `d970d39d5435fe5ee5e2c2be5fa78cfff5ae20253e28492dc43e5f91e5dd40e2` 为 healthy，容器/镜像来源标签一致。前一 `1ce` 候选虽曾构建，但对应真实父页选择丢失 finding 未关闭，不作为交付镜像。
+
+Operational Design Basis: Reuse Existing Architecture。仅覆盖镜像和来源标签，复用原私密 Compose 与本次 UI 覆盖文件；其余17个容器 ID、image 和运行/停止状态相同，含原两个停用服务；后端仍为 `ad3ed151` / `6174e299…`。项目标签下55个命名卷的清单原样保留，不做 prune 或删除；UI entrypoint、command、networkMode、mounts、ports 与基线一致，原配置输入文件 SHA256 与42个环境变量名称集合相同，未读取或输出变量值。原 UI `6bbe5bb48` / `efa4d769…` 及其来源标签的回退覆盖保留。
+
+正常管理员 Edge 会话已通过原 HTTPS 入口打开新页面：两个页面标题/导航均去掉“中心”，两入口实际为 `console-nav-level-1`；已展开研究的3个业务分组和选品的4个业务分组，能看到9项三级功能。点击“取得与关联资料”“核对转入商品”分别进入原列表的准确 step，面包屑、选中态和“选择或新建研究项目后继续”提示一致；当前仍无项目，未创建资料或研究命令。截图和非秘密运行/保留回执保存在本次本地交付目录。
+
+内部 UI 原实际端口3001的未登录检查：两个页面307，项目BFF401。第一次内部检查误指共享网络的3000端口得到404，不作为UI鉴权证据；纠正端口后通过。Windows公共HTTPS curl因证书吊销检查离线失败，没有降低TLS验证；正常浏览器HTTPS读取成功，不能把该curl失败写成通过。未执行真实采集、模型、付费或研究业务。后续其他版本/服务更新仍需具体授权，不合并、不关闭Issue；用户试用不由实现者代签。
 
 本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
@@ -16,7 +22,7 @@
 
 ## 正常入口与可用路径
 
-1. 正常登录自己的企业，从「数据服务 → 市场调研中心」`/workbench/data/research` 创建或打开本人 PRODUCT_RESEARCH 项目，进入 `/workbench/data/research/{projectID}`。「供应市场 → 智能选品中心」`/workbench/supply/selection` 及其同一项目详情共享原项目、候选、证据与人工决定。原「AI 工作台 → 项目中心」研究区继续可用；指定实例现已包含两个新中心。
+1. 正常登录自己的企业，从一级菜单「市场调研」`/workbench/data/research` 创建或打开本人 PRODUCT_RESEARCH 项目，进入 `/workbench/data/research/{projectID}`。一级菜单「智能选品」`/workbench/supply/selection` 及其同一项目详情共享原项目、候选、证据与人工决定。二级按业务阶段展开，三级进入对应功能区域；没有项目时先选择项目。原「AI 工作台 → 项目中心」研究区继续可用。
 2. 项目目标下方的「研究选品」区域先打开原数据市场 `/workbench/data/market`。当前成员须具备数据市场使用与相应商品资料查看权限；不足时显示明确的权限拒绝，由企业管理员核对，不自动授予角色或权限。真正采集仍要求单独授权、原最大 DATA_ROW 用量确认及原执行通道；本轮未执行。只读页面不触发采集或模型。
 3. 「关联已保存资料」复用我的数据批次选择器，仅允许自己当前可读的服务端 `amazon_data` 结果。旧插件结果也使用该 kind，因此关联时由原 Data Services owner 核实；没有原服务端 item 的资料明确拒绝，页面排除该项并允许继续，不留下待核实写入。浏览器桥并未因此启用。展示站点/ASIN、原时间、parser、结构化证据 checksum、准确 publication/version、查询样本范围、已观察价格/币种与缺失项。无价为未知；不同币种不计算统一排名。来源撤权或不可读后遮蔽内容，保留可解除的私有关系槽。
 4. 两中心选择 2–5 个可读候选，「读取所选样本」核对保存事实、同币种/同页面报价口径范围和缺项；切到选品中心核实原候选 revision、选定观察、digest 和商品引用。可选证据分析使用独立 `product.research.agent` / `product.research.decision`；须在原私密 manifest 显式配置 `productAgent.researchTextPolicies`，沿原凭据、模型路由和 Agent 激活/模式配置开放，不能借用其他智能体配置。准备后单独确认最多两次调用及 token/费用上限才开始；建议和引用保存在原 Agent 运行中，历史按项目读取。模型不可用不阻止只读事实与人工决定。原项目详情仍使用既有商品事实比较；全市场需求/趋势/销量、权重和利润没有开放。

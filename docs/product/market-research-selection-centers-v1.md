@@ -14,7 +14,7 @@
 | 智能选品 | 人工决策 | 人工审阅与决定 |
 | 智能选品 | 供应链交接 | 核对转入商品 |
 
-二级只组织展开的业务顺序；三级进入当前项目的实际区域，没有项目时显示原项目选择列表并说明将继续的步骤。切换同一项目内步骤保留选择和待确认状态，不执行采集、模型、人工决定或转入；未知 / 不属于当前视图的步骤不改变实际业务。Design Basis: Reuse Existing Architecture，沿冻结研究与 AI 合同。本增量代码与独立增量复核已完成，尚未更新指定统一实例；运行版本以[运行交接](../engineering/market-research-runtime-handoff.md)为准。
+二级只组织展开的业务顺序；三级进入当前项目的实际区域，没有项目时显示原项目选择列表并说明将继续的步骤。切换同一项目内步骤保留选择和待确认状态，不执行采集、模型、人工决定或转入；未知 / 不属于当前视图的步骤不改变实际业务。Design Basis: Reuse Existing Architecture，沿冻结研究与 AI 合同。本增量代码与独立增量复核已完成；用户随后明确允许仅更新指定统一实例前端，准确源码 `2aea4d1a6` 已部署，正常登录下菜单/标题/三级入口检查完成。业务使用及用户验收仍 NOT_RUN，准确运行版本与保留检查以[运行交接](../engineering/market-research-runtime-handoff.md)为准。
 
 状态：**PRODUCT_APPROVED / 新增 AI 合同 FROZEN / IMPLEMENTATION_READY / 源码与指定实例更新完成，待用户试用**。执行范围：[#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。
 
