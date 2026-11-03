@@ -90,16 +90,36 @@ func (s SharedModelSelection) CategoryDigest(category ModelCategory) (string, er
 // applicable price/FX and conservative bounds. The service never infers these
 // from a model name, a saved choice or caller-provided readiness.
 type ModelQualification struct {
-	OrganizationID       string
-	Category             ModelCategory
-	Reference            ModelBindingReference
-	Channel              string
-	Model                string
-	Ready                bool
-	Reason               string
-	BoundEvidenceVersion string
-	ProfileVersion       string
-	Price                aicapability.OfficialModelTariff
+	OrganizationID       string                               `json:"organizationId"`
+	Category             ModelCategory                        `json:"category"`
+	Reference            ModelBindingReference                `json:"reference"`
+	Channel              string                               `json:"channel"`
+	Model                string                               `json:"model"`
+	Ready                bool                                 `json:"ready"`
+	Reason               string                               `json:"reason"`
+	BoundEvidenceVersion string                               `json:"boundEvidenceVersion"`
+	ProfileVersion       string                               `json:"profileVersion"`
+	Price                aicapability.OfficialModelTariff     `json:"price"`
+	Text                 *aicapability.ModelProfile           `json:"-"`
+	TextProfiles         map[string]aicapability.ModelProfile `json:"-"`
+	Image                *ImageProfile                        `json:"-"`
+}
+
+type SharedCategoryReader interface {
+	ReadCategory(context.Context, string, ModelCategory) (ModelQualification, string, error)
+}
+
+type ModelOption struct {
+	Category  ModelCategory                     `json:"category"`
+	Reference ModelBindingReference             `json:"reference"`
+	Channel   string                            `json:"channel"`
+	Model     string                            `json:"model"`
+	Ready     bool                              `json:"ready"`
+	Reason    string                            `json:"reason,omitempty"`
+	Price     *aicapability.OfficialModelTariff `json:"price,omitempty"`
+}
+type SharedModelOptions interface {
+	Options(context.Context, string) ([]ModelOption, error)
 }
 
 type SharedModelCatalog interface {
@@ -108,8 +128,8 @@ type SharedModelCatalog interface {
 }
 
 type SharedModelPreview struct {
-	Ready  bool
-	Models []ModelQualification
+	Ready  bool                 `json:"ready"`
+	Models []ModelQualification `json:"models"`
 }
 
 type SharedModelInput struct {
@@ -138,6 +158,18 @@ func (s *SharedModelService) qualify(ctx context.Context, org string, category M
 	}
 	if q.Ready && (q.Price.Validate() != nil || q.Price.Model != q.Model || q.Price.Channel != q.Channel || !ValidFact(q.BoundEvidenceVersion, 128) || !ValidFact(q.ProfileVersion, 128)) {
 		q.Ready, q.Reason = false, "DEPENDENCY_MISSING"
+	}
+	if q.Ready {
+		valid := false
+		if category == ModelCategoryImage && q.Image != nil && q.Text == nil {
+			n, e := q.Image.Billing.ReservationMicropoints(q.Model)
+			valid = e == nil && n == q.Image.Points && q.Image.Model == q.Model && q.Image.Billing.OfficialTariff == q.Price && q.Image.PriceVersion == q.Price.PriceVersion
+		} else if category != ModelCategoryImage && q.Text != nil && q.Image == nil {
+			valid = q.Text.Validate() == nil && q.Text.ModelID == q.Model && q.Text.OfficialTariff == q.Price
+		}
+		if !valid {
+			q.Ready, q.Reason = false, "CONSUMER_NOT_QUALIFIED"
+		}
 	}
 	if q.Ready {
 		q.Reason = ""
@@ -212,7 +244,7 @@ func (s *SharedModelService) ReadCategory(ctx context.Context, org string, categ
 		return ModelQualification{}, "", err
 	}
 	p := r.Payload
-	if r.Scope != scope || r.SchemaVersion != 1 || p.SharedModels == nil || p.Text != nil || p.Image != nil || p.Optional || p.BindingID != "" || p.CredentialVersion != "" || p.Rates != (Rates{}) {
+	if r.Scope != scope || r.SchemaVersion != 1 || p.SharedModels == nil || p.PlatformPrices != nil || p.Text != nil || p.Image != nil || p.Optional || p.BindingID != "" || p.CredentialVersion != "" || p.Rates != (Rates{}) {
 		return ModelQualification{}, "", ErrInvalid
 	}
 	ref, err := p.SharedModels.reference(category)
@@ -232,4 +264,21 @@ func (s *SharedModelService) ReadCategory(ctx context.Context, org string, categ
 		Organization, Choice, Price, Profile, Bound string
 	}{org, choiceDigest, priceDigest, q.ProfileVersion, q.BoundEvidenceVersion})
 	return q, digest, err
+}
+
+func (s *SharedModelService) Current(ctx context.Context, org string) (Revision, SharedModelPreview, error) {
+	if s == nil || s.Repository == nil || !ValidFact(org, 128) {
+		return Revision{}, SharedModelPreview{}, ErrUnavailable
+	}
+	scope := Scope{OrganizationID: org, Capability: SharedModelCapability}
+	r, err := s.Repository.Current(ctx, scope)
+	if err != nil {
+		return r, SharedModelPreview{}, err
+	}
+	p := r.Payload
+	if r.Scope != scope || r.SchemaVersion != 1 || p.SharedModels == nil || p.PlatformPrices != nil || p.Image != nil || p.Text != nil || p.Optional || p.BindingID != "" || p.CredentialVersion != "" || p.Rates != (Rates{}) {
+		return Revision{}, SharedModelPreview{}, ErrInvalid
+	}
+	preview, err := s.Preview(ctx, org, *p.SharedModels)
+	return r, preview, err
 }

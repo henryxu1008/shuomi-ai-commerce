@@ -54,7 +54,10 @@ func validTextFact(value string, max int) bool {
 	return true
 }
 
-func (p ModelProfile) Validate() error {
+// ValidateShape checks a trusted admission descriptor without treating a
+// deployment file as a second source of customer prices. It cannot authorize
+// execution: Validate still requires the use-time published official tariff.
+func (p ModelProfile) ValidateShape() error {
 	for _, value := range []string{
 		p.ClientName, p.ProviderID, p.ModelID, p.EndpointIdentityDigest,
 		p.CredentialVersion, p.RoutingPolicyVersion, p.AdapterPolicyVersion,
@@ -67,7 +70,7 @@ func (p ModelProfile) Validate() error {
 	if p.AdapterKind != "openai-compatible" && p.AdapterKind != "claude-native" && p.AdapterKind != "google-interactions" {
 		return ErrTextProfile
 	}
-	if len(p.Currency) != 3 || !p.OfficialTariff.Valid() || p.OfficialTariff.Model != p.ModelID ||
+	if len(p.Currency) != 3 ||
 		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 ||
 		p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 ||
 		p.MaximumPromptTokens < 1 || p.MaximumPromptTokens > 1048576 ||
@@ -77,10 +80,17 @@ func (p ModelProfile) Validate() error {
 		p.DeadlineBound <= 0 || p.DeadlineBound > 2*time.Minute {
 		return ErrTextProfile
 	}
-	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
+	if _, err := p.MaximumCost(); err != nil {
 		return ErrTextProfile
 	}
-	if _, err := p.MaximumCost(); err != nil {
+	return nil
+}
+
+func (p ModelProfile) Validate() error {
+	if p.ValidateShape() != nil || !p.OfficialTariff.Valid() || p.OfficialTariff.Model != p.ModelID {
+		return ErrTextProfile
+	}
+	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
 		return ErrTextProfile
 	}
 	return nil

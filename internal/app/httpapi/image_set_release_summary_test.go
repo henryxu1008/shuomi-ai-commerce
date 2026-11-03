@@ -21,16 +21,16 @@ func (f imageReleaseFactReader) ReadGenerationFact(ctx context.Context, id image
 func imageReleaseFixture(t *testing.T) (imageagent.RunProjection, imageagent.GenerationFact) {
 	t.Helper()
 	id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: "org", OwnerUserID: "actor", RunID: "run"}, PlanRevision: 1, SlotID: "main", Attempt: 1}
-	intent := imageagent.GenerationIntent{Identity: id, MemberID: "member", CatalogHash: "catalog-v2:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "image-v1", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", Provider: "bailian", Model: "qwen-image-3.0-pro", Protocol: "dashscope-image-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 1, LimitVersion: 2, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+	intent := imageagent.GenerationIntent{Billing: syntheticImageBilling("qwen-image-3.0-pro", "price", 1), Identity: id, MemberID: "member", CatalogHash: "catalog-v2:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "image-v1", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config", Provider: "bailian", Model: "qwen-image-3.0-pro", Protocol: "dashscope-image-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 1, LimitVersion: 2, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
 	fact, err := imageagent.NewGenerationFact(intent)
 	require.NoError(t, err)
-	fact, err = fact.BindReservation(imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: "org", MemberID: "member", OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: 1, PriceVersion: "price", LimitVersion: 2, MonthStart: intent.MonthStart})
+	fact, err = fact.BindReservation(imageagent.GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: "org", MemberID: "member", OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: 1, PriceVersion: "price", LimitVersion: 2, MonthStart: intent.MonthStart})
 	require.NoError(t, err)
 	fact, err = fact.RecordNoGeneration()
 	require.NoError(t, err)
-	fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "reservation", State: "released", ProofDigest: fact.TerminalProofDigest(), Points: 1})
+	fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: 1, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "reservation", State: "released", ProofDigest: fact.TerminalProofDigest(), Points: 0})
 	require.NoError(t, err)
-	definition := imageagent.Slot{ID: "main", Recipe: &imageagent.ImageSlotRecipe{PromptVersion: intent.PromptVersion, Quote: imageagent.ImageGenerationQuote{Provider: intent.Provider, Model: intent.Model, Protocol: intent.Protocol, Resolution: intent.Resolution, Quality: intent.Quality, PriceVersion: intent.PriceVersion, Points: intent.Points, RouteReference: intent.RouteReference, CredentialReference: intent.CredentialReference, ConfigurationVersion: intent.ConfigurationVersion}}}
+	definition := imageagent.Slot{ID: "main", Recipe: &imageagent.ImageSlotRecipe{PromptVersion: intent.PromptVersion, Quote: imageagent.ImageGenerationQuote{Billing: syntheticImageBilling(intent.Model, intent.PriceVersion, intent.Points), Provider: intent.Provider, Model: intent.Model, Protocol: intent.Protocol, Resolution: intent.Resolution, Quality: intent.Quality, PriceVersion: intent.PriceVersion, Points: intent.Points, RouteReference: intent.RouteReference, CredentialReference: intent.CredentialReference, ConfigurationVersion: intent.ConfigurationVersion}}}
 	current := definition
 	current.Status = imageagent.SlotStatusBlocked
 	p := imageagent.RunProjection{Run: imageagent.Run{ID: "run", TenantID: "org", UserID: "actor", MemberID: "member", ScopeProtocol: imageagent.OrganizationScopeProtocol, Status: imageagent.RunStatusBlocked, ImageAdmission: &agentconfig.ImageRunAdmissionReceipt{}, Block: &imageagent.Block{Code: "slot_provider_outcome_unknown"}}, Plan: imageagent.Plan{Revision: 1, Set: &imageagent.ImageSetPlan{MaxPoints: 1}, Slots: []imageagent.Slot{definition}}, Slots: []imageagent.SlotProjection{{Slot: current, Attempt: 1, ErrorCode: "slot_provider_outcome_unknown"}}, RecoverableEffects: []imageagent.RecoverableEffect{{SlotID: "main", Attempt: 1, Code: "slot_provider_outcome_unknown"}}}
@@ -46,7 +46,7 @@ func TestImageReleaseSummaryReadsTheOriginalSettlementWithoutChangingFailures(t 
 	})}
 	got, err := a.releaseSummary(context.Background(), p)
 	require.NoError(t, err)
-	require.Equal(t, &fullImageReleaseSummary{ReleasedPoints: 1}, got)
+	require.Equal(t, &fullImageReleaseSummary{UnitVersion: "ai-micropoint-v1", ReleasedPoints: 1}, got)
 	require.Equal(t, before, p)
 	require.Equal(t, "slot_provider_outcome_unknown", p.Slots[0].ErrorCode)
 }
@@ -130,7 +130,7 @@ func TestFullImageRecentReleaseSummaryFollowsLiveSourceAuthorization(t *testing.
 			require.NoError(t, err)
 			fact, err = fact.RecordNoGeneration()
 			require.NoError(t, err)
-			fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "original-reservation", State: "released", ProofDigest: fact.TerminalProofDigest(), Points: 1})
+			fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: 1, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "original-reservation", State: "released", ProofDigest: fact.TerminalProofDigest(), Points: 0})
 			require.NoError(t, err)
 			projections[p.Run.ID] = p
 			reads := 0
@@ -153,7 +153,7 @@ func TestFullImageRecentReleaseSummaryFollowsLiveSourceAuthorization(t *testing.
 			} else {
 				require.Len(t, got, 1)
 				require.Equal(t, imageagent.RunStatusBlocked, got[0].Status)
-				require.Equal(t, &fullImageReleaseSummary{ReleasedPoints: 1}, got[0].ReleaseSummary)
+				require.Equal(t, &fullImageReleaseSummary{UnitVersion: "ai-micropoint-v1", ReleasedPoints: 1}, got[0].ReleaseSummary)
 				require.Equal(t, 1, reads)
 			}
 		})

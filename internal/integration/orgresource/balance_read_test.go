@@ -66,7 +66,7 @@ func TestReadBalancesProjectsAllocatedHoldingsSeparatelyFromAdminAvailability(t 
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "store_renewal_period", Available: 3, Allocated: 2, UpdatedAt: time.Now().UTC()}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("store_renewal_period"), OrganizationID: "org-a", ResourceType: "store_renewal_period", Available: 3, Allocated: 2, UpdatedAt: time.Now().UTC()}).Error; err != nil {
 		t.Fatal(err)
 	}
 	repo, _ := NewGormRepository(db, TransactionConfig{})
@@ -90,14 +90,14 @@ func TestReadBalancesZeroExactIntegersDebtAndReserved(t *testing.T) {
 	now := time.Now().UTC()
 	rows := []organizationResourceBucketRow{
 		{OrganizationID: "org-a", ResourceType: "store_renewal_period", UpdatedAt: now},
-		{OrganizationID: "org-a", ResourceType: "ai_point", Reserved: 9007199254740993, Consumed: 4, UpdatedAt: now},
+		{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-a", ResourceType: "ai_point", Reserved: 9007199254740993, Consumed: 4, UpdatedAt: now},
 		{OrganizationID: "org-a", ResourceType: "data_row", Available: 9223372036854775807, UpdatedAt: now},
 		{OrganizationID: "org-b", ResourceType: "data_row", Available: 7, UpdatedAt: now},
 	}
 	if err := db.Create(&rows).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceDebtRow{OrganizationID: "org-a", ResourceType: "ai_point", Amount: 12, UpdatedAt: now}).Error; err != nil {
+	if err := db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-a", ResourceType: "ai_point", Amount: 12, UpdatedAt: now}).Error; err != nil {
 		t.Fatal(err)
 	}
 	repo, _ := NewGormRepository(db, TransactionConfig{})
@@ -111,7 +111,7 @@ func TestReadBalancesZeroExactIntegersDebtAndReserved(t *testing.T) {
 			t.Fatalf("resource %d: %+v", i, value)
 		}
 	}
-	if *got.Resources[1].Reserved != "9007199254740993" || *got.Resources[1].Consumed != "4" || *got.Resources[1].Debt != "12" {
+	if *got.Resources[1].Reserved != "9007199254.740993" || *got.Resources[1].Consumed != "0.000004" || *got.Resources[1].Debt != "0.000012" {
 		t.Fatal(got.Resources[1])
 	}
 	again, err := repo.ReadBalances(context.Background(), "org-a")

@@ -12,7 +12,7 @@ func officialMiniPrice() OfficialModelTariff {
 		UnitVersion: AIPointMicrounitV1, PriceVersion: "official-mini-standard-v1",
 		FXVersion: "synthetic-fx-7", Currency: "USD", CNYMicrosPerCurrencyUnit: 7_000_000,
 		Model: "gpt-5.4-mini-2026-03-17", Channel: "openai-direct", UsageVersion: "openai-text-v1",
-		Rates: OfficialTokenRates{InputText: 750_000, CachedInputText: 75_000, OutputText: 4_500_000},
+		Rates: OfficialModelRates{InputText: 750_000, CachedInputText: 75_000, OutputText: 4_500_000},
 	}
 }
 
@@ -40,14 +40,14 @@ func TestOfficialModelPricingUsesManufacturerPartitionsAndSingleFinalRounding(t 
 func TestOfficialModelPricingImagePartitionsAndSubMicropoint(t *testing.T) {
 	price := officialMiniPrice()
 	price.Model, price.UsageVersion = "gpt-image-2.5-flare-2026-09-08", "openai-images-direct-v1"
-	price.Rates = OfficialTokenRates{InputText: 5_000_000, InputImage: 8_000_000, OutputImage: 30_000_000}
+	price.Rates = OfficialModelRates{InputText: 5_000_000, InputImage: 8_000_000, OutputImage: 30_000_000}
 	usage := BillableModelUsage{MappingVersion: price.UsageVersion, Complete: true, InputText: 20, InputImage: 50, OutputImage: 196}
 	actual, err := price.SettlementMicropoints(usage)
 	require.NoError(t, err)
 	require.EqualValues(t, 4_466_000, actual)
 	// Pure arithmetic on observed synthetic quantities does not admit a Flare request.
 	price.Currency, price.FXVersion, price.CNYMicrosPerCurrencyUnit = "CNY", "cny-identity", 1_000_000
-	price.Rates = OfficialTokenRates{InputText: 1}
+	price.Rates = OfficialModelRates{InputText: 1}
 	actual, err = price.SettlementMicropoints(BillableModelUsage{MappingVersion: price.UsageVersion, Complete: true, InputText: 1})
 	require.NoError(t, err)
 	require.Zero(t, actual)
@@ -127,4 +127,21 @@ func TestOfficialModelPricingObservedZeroDiffersFromMissingUsage(t *testing.T) {
 	require.Error(t, err)
 	_, err = price.ReservationMicropoints(BillableModelUsage{MappingVersion: price.UsageVersion, Complete: true})
 	require.Error(t, err)
+}
+
+func TestOfficialPerImageCurrencyPriceUsesTheSameMicropointLedgerUnit(t *testing.T) {
+	price := OfficialModelTariff{UnitVersion: AIPointMicrounitV1, PriceVersion: "synthetic-official-image", FXVersion: "synthetic-cny-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "synthetic-qwen", Channel: "synthetic-channel", UsageVersion: "qwen-image-count-v1", Rates: OfficialModelRates{OutputImagePerItem: 200000}}
+	billing := OfficialModelBilling{OfficialTariff: price, BoundEvidenceVersion: "synthetic-count-bound", UsageBound: BillableModelUsage{MappingVersion: "qwen-image-count-v1", Complete: true, OutputImageItems: 1}}
+	reserved, err := billing.ReservationMicropoints("synthetic-qwen")
+	require.NoError(t, err)
+	require.EqualValues(t, 20000000, reserved, "CNY0.2 = 20 points; no independent points-per-image price")
+	actual, err := billing.ActualMicropoints("synthetic-qwen", billing.UsageBound)
+	require.NoError(t, err)
+	require.Equal(t, reserved, actual)
+	wrong := billing.UsageBound
+	wrong.OutputImageItems = 2
+	_, err = billing.ActualMicropoints("synthetic-qwen", wrong)
+	require.Error(t, err)
+	price.Rates.OutputImage = 1
+	require.Error(t, price.Validate(), "image-count protocol cannot double-charge an inferred token dimension")
 }

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { proxyAccount } from "./account-proxy";
 import { WORKBENCH_COOKIE_NAME } from "./workbench-proxy";
 
-const limit = { organizationId: "org-1", memberId: "member-1", configured: true, monthlyLimit: "25", reserved: "0", consumed: "0", remaining: "25", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" };
+const limit = {unitVersion:"ai-micropoint-v1", organizationId: "org-1", memberId: "member-1", configured: true, monthlyLimit: "25", reserved: "0", consumed: "0", remaining: "25", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" };
 const snapshot = { schemaVersion: "member-ai-point-monthly-limit-v1", organizationId: "org-1", resourceType: "ai_point", timezone: "UTC", members: [{ ...limit, displayName: "Member", loginName: "member@example.test", roles: ["listingkit_operator"] }] };
 function request(method = "GET") { return new Request(`http://localhost/api/account/member-ai-point-limits${method === "PUT" ? "/member-1" : ""}`, { method, headers: { cookie: `${WORKBENCH_COOKIE_NAME}=org-1`, "X-Expected-User-ID": "actor-1", "X-Expected-Organization-ID": "org-1", "Content-Type": "application/json", "Idempotency-Key": "original-key" }, ...(method === "PUT" ? { body: JSON.stringify({ target: "25", expectedVersion: "0" }) } : {}) }); }
 beforeEach(() => vi.stubEnv("LISTINGKIT_SERVICE_API_BASE", "http://backend.example/api/v1"));

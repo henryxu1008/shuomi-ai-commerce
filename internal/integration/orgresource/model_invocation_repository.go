@@ -34,9 +34,9 @@ type GormModelInvocationRepository struct {
 	now        func() time.Time
 }
 type modelPointReceipt struct {
-	ReservationID, MemberID, Fingerprint, PriceVersion string
-	Quantity, LimitVersion                             int64
-	Month                                              time.Time
+	ReservationID, MemberID, Fingerprint, PriceVersion, UnitVersion string
+	Quantity, LimitVersion                                          int64
+	Month                                                           time.Time
 }
 
 func NewGormModelInvocationRepository(db *gorm.DB, config TransactionConfig, owner ModelInvocationFactReader, auth ModelInvocationAuthorizer) (*GormModelInvocationRepository, error) {
@@ -157,8 +157,8 @@ func (r *GormModelInvocationRepository) ReserveAIInvocationUsage(ctx context.Con
 		if bucket.Reserved > math.MaxInt64-quantity {
 			return orgresource.ErrInvalidInput
 		}
-		receipt := modelPointReceipt{ReservationID: uuid.NewString(), MemberID: member, Fingerprint: fingerprint, PriceVersion: fact.OfficialTariff.PriceVersion, Quantity: quantity, LimitVersion: limit.Version, Month: month}
-		row := organizationResourceReservationRow{OrganizationID: org, ReservationID: receipt.ReservationID, OperationID: op.OperationID, OwnerType: modelPointOwner, OwnerAttemptID: id, BusinessScope: modelPointBusinessScope(fact), ResourceType: string(orgresource.ResourceAIPoint), ReservationPurpose: modelPointOwner, Quantity: quantity, State: string(orgresource.ReservationReserved), RequestFingerprint: fingerprint, MemberID: member, MemberMonthStart: &month, MemberLimitVersion: limit.Version, PriceVersion: receipt.PriceVersion, NextCheckAt: &now, ChargeActorID: fact.UserID, CreatedAt: now}
+		receipt := modelPointReceipt{UnitVersion: fact.OfficialTariff.UnitVersion, ReservationID: uuid.NewString(), MemberID: member, Fingerprint: fingerprint, PriceVersion: fact.OfficialTariff.PriceVersion, Quantity: quantity, LimitVersion: limit.Version, Month: month}
+		row := organizationResourceReservationRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceAIPoint)), OrganizationID: org, ReservationID: receipt.ReservationID, OperationID: op.OperationID, OwnerType: modelPointOwner, OwnerAttemptID: id, BusinessScope: modelPointBusinessScope(fact), ResourceType: string(orgresource.ResourceAIPoint), ReservationPurpose: modelPointOwner, Quantity: quantity, State: string(orgresource.ReservationReserved), RequestFingerprint: fingerprint, MemberID: member, MemberMonthStart: &month, MemberLimitVersion: limit.Version, PriceVersion: receipt.PriceVersion, NextCheckAt: &now, ChargeActorID: fact.UserID, CreatedAt: now}
 		if err := tx.Omit("Events").Create(&row).Error; err != nil {
 			return err
 		}
@@ -181,7 +181,7 @@ func (r *GormModelInvocationRepository) ReserveAIInvocationUsage(ctx context.Con
 
 func matchesModelPointReceipt(fact aicapability.InvocationRecord, fingerprint string, quantity int64, receipt modelPointReceipt, row organizationResourceReservationRow) bool {
 	month := orgresource.AIPointMonthStart(fact.StartedAt)
-	return receipt.ReservationID != "" && receipt.MemberID == fact.MemberID && receipt.Fingerprint == fingerprint && receipt.PriceVersion == fact.OfficialTariff.PriceVersion && receipt.Quantity == quantity && receipt.LimitVersion > 0 && receipt.Month.Equal(month) && row.OrganizationID == fact.TenantID && row.OwnerType == modelPointOwner && row.OwnerAttemptID == fact.InvocationID && row.BusinessScope == modelPointBusinessScope(fact) && row.ResourceType == string(orgresource.ResourceAIPoint) && row.ReservationPurpose == modelPointOwner && row.Quantity == quantity && row.RequestFingerprint == fingerprint && row.MemberID == receipt.MemberID && row.MemberMonthStart != nil && row.MemberMonthStart.Equal(month) && row.MemberLimitVersion == receipt.LimitVersion && row.PriceVersion == receipt.PriceVersion && row.ChargeActorID == fact.UserID
+	return receipt.UnitVersion == fact.OfficialTariff.UnitVersion && row.QuantityUnit == receipt.UnitVersion && receipt.ReservationID != "" && receipt.MemberID == fact.MemberID && receipt.Fingerprint == fingerprint && receipt.PriceVersion == fact.OfficialTariff.PriceVersion && receipt.Quantity == quantity && receipt.LimitVersion > 0 && receipt.Month.Equal(month) && row.OrganizationID == fact.TenantID && row.OwnerType == modelPointOwner && row.OwnerAttemptID == fact.InvocationID && row.BusinessScope == modelPointBusinessScope(fact) && row.ResourceType == string(orgresource.ResourceAIPoint) && row.ReservationPurpose == modelPointOwner && row.Quantity == quantity && row.RequestFingerprint == fingerprint && row.MemberID == receipt.MemberID && row.MemberMonthStart != nil && row.MemberMonthStart.Equal(month) && row.MemberLimitVersion == receipt.LimitVersion && row.PriceVersion == receipt.PriceVersion && row.ChargeActorID == fact.UserID
 }
 
 func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error) {
@@ -327,7 +327,7 @@ func (r *GormModelInvocationRepository) finalize(ctx context.Context, fact aicap
 	})
 }
 func writeModelPointEvent(tx *gorm.DB, row organizationResourceReservationRow, bucket organizationResourceBucketRow, op, reason string, available, reserved, consumed int64, credit positiveCreditAllocation, payload string, now time.Time) error {
-	if err := tx.Create(&organizationResourceEventRow{EventID: uuid.NewString(), OrganizationID: row.OrganizationID, OperationID: op, ReservationID: &row.ReservationID, ResourceType: row.ResourceType, Quantity: row.Quantity, AvailableDelta: available, ReservedDelta: reserved, ConsumedDelta: consumed, Reason: reason, SourceType: modelPointOwner, SourceIdentity: row.OwnerAttemptID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, AllocatedAfter: bucket.Allocated, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: credit.gross, DebtRepaid: credit.debtRepaid, NetCredit: credit.net, CreatedAt: now}).Error; err != nil {
+	if err := tx.Create(&organizationResourceEventRow{QuantityUnit: resourceQuantityUnit(row.ResourceType), EventID: uuid.NewString(), OrganizationID: row.OrganizationID, OperationID: op, ReservationID: &row.ReservationID, ResourceType: row.ResourceType, Quantity: row.Quantity, AvailableDelta: available, ReservedDelta: reserved, ConsumedDelta: consumed, Reason: reason, SourceType: modelPointOwner, SourceIdentity: row.OwnerAttemptID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, AllocatedAfter: bucket.Allocated, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: credit.gross, DebtRepaid: credit.debtRepaid, NetCredit: credit.net, CreatedAt: now}).Error; err != nil {
 		return err
 	}
 	return tx.Create(&organizationResourceAuditLogRow{OrganizationID: row.OrganizationID, OperationID: op, Action: reason, ActorID: row.ChargeActorID, Payload: payload, CreatedAt: now}).Error

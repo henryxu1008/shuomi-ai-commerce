@@ -106,7 +106,7 @@ it("keeps supply writes unavailable without the management grant",async()=>{
 });
 
 it("confirms full-batch retail points and pins the exact selected title template quote",async()=>{
- state.options.mockResolvedValue({titles:[{agentId:"product.title.agent",modeRevision:"0",executionMode:"default",templateId:source,revision:"3",name:"美国站标题",quoteHash:"a".repeat(64),maximumPoints:10,priceVersion:"price-1",maximumCostMicros:1000,currency:"USD"}]});
+ state.options.mockResolvedValue({titles:[{agentId:"product.title.agent",modeRevision:"0",executionMode:"default",templateId:source,revision:"3",name:"美国站标题",quoteHash:"a".repeat(64),unitVersion:"ai-micropoint-v1",maximumPoints:"10000000",priceVersion:"price-1",maximumCostMicros:1000,currency:"USD"}]});
  render(<SupplyPage initialPreparation={prep}/>);await screen.findByText("完整批次");
  await userEvent.selectOptions(await screen.findByLabelText("目标店铺"),store);
  await userEvent.click(screen.getByLabelText("开启智能体优化"));
@@ -120,7 +120,7 @@ it("confirms full-batch retail points and pins the exact selected title template
 it("does not dispatch title optimization for a TEMU store with no native review consumer",async()=>{
  const temu="44444444-4444-4444-8444-444444444444";
  state.stores.mockResolvedValue({items:[{id:store,name:"SHEIN 店铺",platform:"shein",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"},{id:temu,name:"TEMU 店铺",platform:"temu",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:2}});
- state.options.mockResolvedValue({titles:[{agentId:"product.title.agent",modeRevision:"0",executionMode:"default",templateId:source,revision:"3",name:"标题模板",quoteHash:"a".repeat(64),maximumPoints:10,priceVersion:"price-1",maximumCostMicros:1000,currency:"USD"}]});
+ state.options.mockResolvedValue({titles:[{agentId:"product.title.agent",modeRevision:"0",executionMode:"default",templateId:source,revision:"3",name:"标题模板",quoteHash:"a".repeat(64),unitVersion:"ai-micropoint-v1",maximumPoints:"10000000",priceVersion:"price-1",maximumCostMicros:1000,currency:"USD"}]});
  render(<SupplyPage initialPreparation={prep} initialStore={store}/>);await screen.findByText("完整批次");
  await userEvent.click(screen.getByLabelText("开启智能体优化"));
  await userEvent.selectOptions(await screen.findByLabelText("标题优化模板"),`${source}:3`);

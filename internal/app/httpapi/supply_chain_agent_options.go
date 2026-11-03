@@ -97,7 +97,7 @@ func (s *supplyProductAgent) options(ctx context.Context, q collection.Query) (s
 		if err != nil || calls < 1 || points > math.MaxInt64/calls {
 			continue
 		}
-		out.Titles = append(out.Titles, supplyapp.TitleOptimizationChoice{AgentID: s.agent.definition.ID, ModeRevision: mode.Revision, ExecutionMode: string(mode.Mode), TemplateID: current.TemplateID, Revision: current.Version, Name: current.Name, QuoteHash: s.titleQuote(scope, profile, config, current), MaximumCostMicros: s.agent.config.Limits.CostMicros, Currency: s.agent.config.Limits.Currency, MaximumPoints: points * calls, PriceVersion: profile.OfficialTariff.PriceVersion})
+		out.Titles = append(out.Titles, supplyapp.TitleOptimizationChoice{UnitVersion: "ai-micropoint-v1", AgentID: s.agent.definition.ID, ModeRevision: mode.Revision, ExecutionMode: string(mode.Mode), TemplateID: current.TemplateID, Revision: current.Version, Name: current.Name, QuoteHash: s.titleQuote(scope, profile, config, current), MaximumCostMicros: s.agent.config.Limits.CostMicros, Currency: s.agent.config.Limits.Currency, MaximumPoints: points * calls, PriceVersion: profile.OfficialTariff.PriceVersion})
 	}
 	if len(out.Titles) == 0 {
 		out.Reason = "没有可执行的 SHEIN 标题模板或模型报价；可直接补全并上传"

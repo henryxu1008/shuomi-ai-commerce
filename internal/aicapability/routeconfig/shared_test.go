@@ -30,11 +30,11 @@ func (*sharedCatalogFixture) ValidateDefaultChannel(_ context.Context, _ string,
 
 func (c *sharedCatalogFixture) QualifyModel(_ context.Context, org string, category ModelCategory, ref ModelBindingReference) (ModelQualification, error) {
 	c.reads = append(c.reads, category)
-	price := aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "price", FXVersion: "fx", Currency: "USD", CNYMicrosPerCurrencyUnit: 7_000_000, Model: ref.ID, Channel: "openai-direct", UsageVersion: "synthetic", Rates: aicapability.OfficialTokenRates{InputText: 750_000, OutputText: 4_500_000}}
+	price := aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "price", FXVersion: "fx", Currency: "USD", CNYMicrosPerCurrencyUnit: 7_000_000, Model: ref.ID, Channel: "openai-direct", UsageVersion: "synthetic", Rates: aicapability.OfficialModelRates{InputText: 750_000, OutputText: 4_500_000}}
 	if c.foreign {
 		org = "other-org"
 	}
-	return ModelQualification{OrganizationID: org, Category: category, Reference: ref, Channel: "openai-direct", Model: ref.ID, Ready: category != c.unready, Reason: "BUDGET_BOUND_MISSING", BoundEvidenceVersion: "synthetic-bound", ProfileVersion: "synthetic-profile", Price: price}, nil
+	return syntheticQualifiedModel(ModelQualification{OrganizationID: org, Category: category, Reference: ref, Channel: "openai-direct", Model: ref.ID, Ready: category != c.unready, Reason: "BUDGET_BOUND_MISSING", BoundEvidenceVersion: "synthetic-bound", ProfileVersion: "synthetic-profile", Price: price}), nil
 }
 
 type sharedRepositoryFixture struct {

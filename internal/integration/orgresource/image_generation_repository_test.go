@@ -23,7 +23,7 @@ type imageFactTestOwner struct {
 func TestImageSettlementReleaseRepaysDebtBeforeAvailableAndReplays(t *testing.T) {
 	db, repository, owner, receipt := reservedImageSettlementFixture(t)
 	ctx := context.Background()
-	require.NoError(t, db.Create(&organizationResourceDebtRow{OrganizationID: "org-1", ResourceType: "ai_point", Amount: 5}).Error)
+	require.NoError(t, db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-1", ResourceType: "ai_point", Amount: 5}).Error)
 	var err error
 	owner.fact, err = owner.fact.RecordNoGeneration()
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestImageSettlementRejectsBalanceOverflowWithoutPartialEffects(t *testing.T
 			} else {
 				owner.fact, _, err = owner.fact.BeginDispatch()
 				require.NoError(t, err)
-				owner.fact, err = owner.fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
+				owner.fact, err = owner.fact.RecordSuccess(imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
 			}
 			require.NoError(t, err)
 			require.NoError(t, db.Model(&organizationResourceBucketRow{}).Where("organization_id = ? AND resource_type = ?", "org-1", "ai_point").Update(balance, int64(math.MaxInt64)).Error)
@@ -96,7 +96,7 @@ func TestImageSettlementEventOrAuditFailureRollsBackDebtAndEntireHold(t *testing
 		t.Run(table, func(t *testing.T) {
 			db, repository, owner, receipt := reservedImageSettlementFixture(t)
 			ctx := context.Background()
-			require.NoError(t, db.Create(&organizationResourceDebtRow{OrganizationID: "org-1", ResourceType: "ai_point", Amount: 5}).Error)
+			require.NoError(t, db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-1", ResourceType: "ai_point", Amount: 5}).Error)
 			var err error
 			owner.fact, err = owner.fact.RecordNoGeneration()
 			require.NoError(t, err)
@@ -129,10 +129,10 @@ func reservedImageSettlementFixture(t *testing.T) (*gorm.DB, *GormImageGeneratio
 	limits, err := NewGormMemberLimitRepository(db, TransactionConfig{})
 	require.NoError(t, err)
 	limits.now = func() time.Time { return now }
-	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "org-1", MemberID: "member-1", ActorID: "admin-1", OperationID: "limit-1", Target: 20})
+	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org-1", MemberID: "member-1", ActorID: "admin-1", OperationID: "limit-1", Target: 20})
 	require.NoError(t, err)
-	require.NoError(t, db.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{OrganizationID: "org-1", ResourceType: "ai_point", Available: 100}).Error)
-	fact, err := imageagent.NewGenerationFact(imageagent.GenerationIntent{Identity: imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main-1", Attempt: 1}, MemberID: "member-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(now)})
+	require.NoError(t, db.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-1", ResourceType: "ai_point", Available: 100}).Error)
+	fact, err := imageagent.NewGenerationFact(imageagent.GenerationIntent{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Identity: imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main-1", Attempt: 1}, MemberID: "member-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(now)})
 	require.NoError(t, err)
 	owner := &imageFactTestOwner{fact: fact}
 	repository, err := NewGormImageGenerationRepository(db, TransactionConfig{}, owner, &imagePointTestAuthorizer{})
@@ -184,11 +184,11 @@ func TestImagePointsReserveBothLimitsAndSettleOriginalMonth(t *testing.T) {
 	limits, err := NewGormMemberLimitRepository(db, TransactionConfig{})
 	require.NoError(t, err)
 	limits.now = func() time.Time { return now }
-	set := orgresource.SetMemberLimitExecution{OrganizationID: "org-1", MemberID: "member-1", ActorID: "admin-1", OperationID: "limit-1", Target: 20}
+	set := orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org-1", MemberID: "member-1", ActorID: "admin-1", OperationID: "limit-1", Target: 20}
 	_, err = limits.SetMonthlyLimit(ctx, set)
 	require.NoError(t, err)
-	require.NoError(t, db.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{OrganizationID: "org-1", ResourceType: "ai_point", Available: 100}).Error)
-	fact, err := imageagent.NewGenerationFact(imageagent.GenerationIntent{Identity: imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main-1", Attempt: 1}, MemberID: "member-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(now)})
+	require.NoError(t, db.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-1", ResourceType: "ai_point", Available: 100}).Error)
+	fact, err := imageagent.NewGenerationFact(imageagent.GenerationIntent{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Identity: imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main-1", Attempt: 1}, MemberID: "member-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(now)})
 	require.NoError(t, err)
 	owner := &imageFactTestOwner{fact: fact}
 	auth := &imagePointTestAuthorizer{}
@@ -225,7 +225,7 @@ func TestImagePointsReserveBothLimitsAndSettleOriginalMonth(t *testing.T) {
 	auth.err = orgresource.ErrForbidden
 	_, err = r.ReserveImageGeneration(ctx, fact.Intent.Identity)
 	require.ErrorIs(t, err, orgresource.ErrForbidden)
-	owner.fact, err = owner.fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
+	owner.fact, err = owner.fact.RecordSuccess(imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
 	require.NoError(t, err)
 	settled, err := r.FinalizeImageGeneration(ctx, fact.Intent.Identity)
 	require.NoError(t, err)
@@ -285,6 +285,7 @@ func TestImagePointsReserveBothLimitsAndSettleOriginalMonth(t *testing.T) {
 				next.Points = 12
 				require.NoError(t, db.Model(&organizationResourceBucketRow{}).Where("organization_id = ? AND resource_type = ?", "org-1", "ai_point").Update("available", 1).Error)
 			}
+			next.Billing = syntheticImageBilling(next.Model, next.PriceVersion, next.Points)
 			owner.fact, err = imageagent.NewGenerationFact(next)
 			require.NoError(t, err)
 			auth.err = nil

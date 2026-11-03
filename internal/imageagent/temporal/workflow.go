@@ -780,7 +780,7 @@ func (s *workflowUpdateState) applyEffectRecoveryCompleted(signal EffectRecovery
 			} else if recipe != nil {
 				points = recipe.Quote.Points
 			}
-			if closure == nil || closure.Kind != "settled" || !closure.Valid(signal.Attempt) || proof == nil || points <= 0 || closure.Points != points || *proof != (imageagent.ImageGenerationProof{IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}) {
+			if closure == nil || closure.Kind != "settled" || !closure.Valid(signal.Attempt) || proof == nil || points <= 0 || closure.Points < 0 || closure.Points > points || *proof != (imageagent.ImageGenerationProof{UnitVersion: closure.UnitVersion, IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}) {
 				return false
 			}
 		}

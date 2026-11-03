@@ -145,7 +145,7 @@ func agentRuntimeConfig() *Config {
 	run.User, run.Database = "agent_runtime", "agent"
 	review.User = "product_review_runtime"
 	asset.User, asset.Database = "asset_runtime", "asset"
-	cfg.ProductAgent = &ProductAgentConfig{Enabled: true, Database: run, ReviewDatabase: review, AssetDatabase: asset, AllowedOrganizationIDs: []string{"org"}, Currency: "CNY", Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, RuntimeSeconds: 120, TextPolicies: map[string]governed.RoutePolicy{"org": {AdmittedCredentialVersion: "fixture-credential", AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest("https://grsaiapi.com/v1"), Profile: aicapability.ModelProfile{ClientName: "text", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "test-pricing", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "test-tariff", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 1 << 20, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}}
+	cfg.ProductAgent = &ProductAgentConfig{Enabled: true, Database: run, ReviewDatabase: review, AssetDatabase: asset, AllowedOrganizationIDs: []string{"org"}, Currency: "CNY", Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, RuntimeSeconds: 120, TextPolicies: map[string]governed.RoutePolicy{"org": {AdmittedCredentialVersion: "fixture-credential", AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest("https://grsaiapi.com/v1"), Profile: aicapability.ModelProfile{ClientName: "text", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "test-pricing", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "test-tariff", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 1 << 20, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}}
 	return cfg
 }
 
@@ -163,17 +163,7 @@ func TestProductAgentConfigRejectsUnboundedOrSplitProductOwner(t *testing.T) {
 		"insufficient model cost":   func(c *Config) { c.ProductAgent.CostMicros = 1 },
 		"empty admission":           func(c *Config) { c.ProductAgent.AllowedOrganizationIDs = nil },
 		"duplicate admission":       func(c *Config) { c.ProductAgent.AllowedOrganizationIDs = []string{"org", "org"} },
-		"invalid point tariff": func(c *Config) {
-			policy := c.ProductAgent.TextPolicies["org"]
-			policy.Profile.OfficialTariff = aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: policy.Profile.Currency, CNYMicrosPerCurrencyUnit: 1000000, Model: policy.Profile.ModelID, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 1, OutputText: 0}}
-			c.ProductAgent.TextPolicies["org"] = policy
-		},
-		"overflow point tariff": func(c *Config) {
-			policy := c.ProductAgent.TextPolicies["org"]
-			policy.Profile.OfficialTariff = aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: policy.Profile.Currency, CNYMicrosPerCurrencyUnit: 1000000, Model: policy.Profile.ModelID, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: -92233720368547757, OutputText: -92233720368547757}}
-			c.ProductAgent.TextPolicies["org"] = policy
-		},
-		"policy outside admission": func(c *Config) { c.ProductAgent.TextPolicies["other-org"] = c.ProductAgent.TextPolicies["org"] },
+		"policy outside admission":  func(c *Config) { c.ProductAgent.TextPolicies["other-org"] = c.ProductAgent.TextPolicies["org"] },
 		"policy currency mismatch": func(c *Config) {
 			policy := c.ProductAgent.TextPolicies["org"]
 			policy.Profile.Currency = "USD"
@@ -201,7 +191,7 @@ func TestProductAgentAndImageGenerationShareManifestWithoutLosingAdmission(t *te
 		Database:        DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "image_agent_runtime", Password: "fixture-password", Database: "image_agent", MaxConnections: 4},
 		TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default", AllowedOrganizationIDs: []string{"org"},
 		PublicBase: "https://images.example.test", Bucket: "image-agent-assets",
-		Generation: coreconfig.ImageAgentGenerationConfig{PriceVersion: "price-2026-09", PointsPerImage: 12},
+		Generation: coreconfig.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12},
 	}
 	manifest, err := json.Marshal(cfg)
 	require.NoError(t, err)
@@ -213,7 +203,7 @@ func TestProductAgentAndImageGenerationShareManifestWithoutLosingAdmission(t *te
 	loaded.ProductAgent.AllowedOrganizationIDs = nil
 	require.Error(t, loaded.validate(), "image admission must not replace Product Agent admission")
 	loaded.ProductAgent.AllowedOrganizationIDs = []string{"org"}
-	loaded.ImageAgent.Generation.PriceVersion = ""
+	loaded.ImageAgent.Generation.UnitVersion = ""
 	require.Error(t, loaded.validate(), "Product Agent must not bypass explicit image pricing")
 }
 
@@ -271,4 +261,13 @@ func TestProductAgentPoolsCloseOnPartialStartupAndConfigOnlyOpensRunDB(t *testin
 			}
 		})
 	}
+}
+
+func TestAdmissionConfigurationDoesNotActAsAnotherCustomerPriceSource(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.Profile.OfficialTariff = aicapability.OfficialModelTariff{}
+	cfg.ProductAgent.TextPolicies["org"] = policy
+	require.NoError(t, cfg.validate(), "descriptor and cost limits do not require a fake customer tariff")
+	require.Error(t, policy.ShapeProfile().Validate(), "this descriptor cannot dispatch or settle without use-time official price")
 }

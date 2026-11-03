@@ -62,9 +62,10 @@ func (r *GormRepository) ListMemberAudit(ctx context.Context, org string, limit 
 		}
 		if row.Action == "set_member_ai_point_limit" {
 			var receipt orgresource.MemberLimitSnapshot
-			if json.Unmarshal([]byte(row.Payload), &receipt) != nil || receipt.OrganizationID != org || receipt.MemberID == "" || receipt.Version < 1 || receipt.MonthlyLimit < 0 {
+			if json.Unmarshal([]byte(row.Payload), &receipt) != nil || receipt.UnitVersion != orgresource.AIPointQuantityUnitV1 || receipt.OrganizationID != org || receipt.MemberID == "" || receipt.Version < 1 || receipt.MonthlyLimit < 0 {
 				return orgresource.MemberAuditPage{}, orgresource.ErrInvalidInput
 			}
+			item.UnitVersion = receipt.UnitVersion
 			item.MemberID, item.ResourceType, item.Quantity, item.Version = receipt.MemberID, orgresource.ResourceAIPoint, receipt.MonthlyLimit, receipt.Version
 		} else {
 			var receipt orgresource.MemberResourceTransferResult

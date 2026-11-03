@@ -38,11 +38,11 @@ func imageSetPersistenceFixture(t *testing.T) (*Activities, imageagent.Repositor
 	run := imageagent.Run{ID: "392ed0a2-0f01-4c94-9aa4-eb50271fae9c", TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "source-operation", ScopeProtocol: imageagent.OrganizationScopeProtocol, TargetPlatform: "product", Mode: imageagent.RunModeManual, IdempotencyKey: "prepare", Status: imageagent.RunStatusPlanning, CurrentNode: "plan", Version: 1, ActivePlanRevision: 1, MaxConcurrentSlots: 1}
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{ProductContext: imageagent.ProductContextRef{ProductID: "product"}, Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://images.example.org/source.png"}}})
 	require.NoError(t, err)
-	slot := imageagent.Slot{ID: "overview", Role: imageagent.SlotRoleDetail, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "overview", Status: imageagent.SlotStatusPending, Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "zh", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): . Product type: . Visual task: product_overview; direction: . Background: white. Target text language: zh. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hash, Bytes: 100, Width: 1024, Height: 1024, MediaType: "image/png"}}, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 12, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}}
+	slot := imageagent.Slot{ID: "overview", Role: imageagent.SlotRoleDetail, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "overview", Status: imageagent.SlotStatusPending, Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "zh", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): . Product type: . Visual task: product_overview; direction: . Background: white. Target text language: zh. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hash, Bytes: 100, Width: 1024, Height: 1024, MediaType: "image/png"}}, Quote: imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 12, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}}
 	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan", SourceAssetIDs: []string{"source-1"}, CreatedBy: "actor", Slots: []imageagent.Slot{slot}, Set: &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "zh"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: run.BusinessTaskID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: catalog.Manifest.Hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}}
 	plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(plan)
 	require.NoError(t, err)
-	limits := agentconfig.ImageRunLimits{Images: 1, Points: 12, ElapsedSeconds: 3600}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 12, ElapsedSeconds: 3600}
 	run.Budget = imageagent.ImageSetBudget(limits)
 	run.StartedAt = time.Now().UTC().Truncate(time.Microsecond)
 	planDigest, err := imageagent.ImageSetPlanDigest(plan)
@@ -88,18 +88,18 @@ func persistedAcceptedImageSetFixture(t *testing.T) (*Activities, imageagent.Rep
 		quote := execution.Slot.Recipe.Quote
 		digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
 		require.NoError(t, err)
-		intent := imageagent.GenerationIntent{Identity: slotEffectReservationV3(execution).Identity, MemberID: input.Identity.MemberID, CatalogHash: execution.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(execution.Slot.Recipe.References), PromptVersion: execution.Slot.Recipe.PromptVersion, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+		intent := imageagent.GenerationIntent{Billing: syntheticImageBilling(quote.Model, quote.PriceVersion, quote.Points), Identity: slotEffectReservationV3(execution).Identity, MemberID: input.Identity.MemberID, CatalogHash: execution.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(execution.Slot.Recipe.References), PromptVersion: execution.Slot.Recipe.PromptVersion, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
 		facts := repo.(imageagent.GenerationFactRepository)
 		fact, err := facts.PrepareGenerationIntent(ctx, intent)
 		require.NoError(t, err)
-		fact, err = facts.BindGenerationReservation(ctx, intent, imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: input.Identity.TenantID, MemberID: input.Identity.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
+		fact, err = facts.BindGenerationReservation(ctx, intent, imageagent.GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: input.Identity.TenantID, MemberID: input.Identity.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
 		require.NoError(t, err)
 		_, won, err := facts.BeginGenerationDispatch(ctx, intent)
 		require.NoError(t, err)
 		require.True(t, won)
-		fact, err = facts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: "response", ResultDigest: strings.Repeat("b", 64), ResultURL: "https://images.example.org/output.png"})
+		fact, err = facts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response", ResultDigest: strings.Repeat("b", 64), ResultURL: "https://images.example.org/output.png"})
 		require.NoError(t, err)
-		originalFact, err = facts.BindGenerationSettlement(ctx, intent, imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "reservation", State: "committed", Points: intent.Points, ProofDigest: fact.TerminalProofDigest()})
+		originalFact, err = facts.BindGenerationSettlement(ctx, intent, imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: intent.Points, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "reservation", State: "committed", Points: intent.Points, ProofDigest: fact.TerminalProofDigest()})
 		require.NoError(t, err)
 	}}
 	published, err := a.ExecuteSlotV3(context.Background(), input)
@@ -107,7 +107,7 @@ func persistedAcceptedImageSetFixture(t *testing.T) (*Activities, imageagent.Rep
 	projection, err := a.PersistImageSetSlotResult(context.Background(), PersistSlotResultV3ActivityInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: 1, AttemptKey: input.IdempotencyKey, Result: SlotWorkflowV3Result{Published: published, Status: imageagent.SlotStatusAccepted, EffectPhase: imageagent.SlotEffectV3PublicationComplete}})
 	require.NoError(t, err)
 	require.Len(t, projection.Candidates, 1)
-	require.Equal(t, &imageagent.ImageGenerationProof{IntentID: originalFact.IntentID, Fingerprint: originalFact.Fingerprint, SettlementProofDigest: originalFact.TerminalProofDigest(), Points: 12}, projection.Candidates[0].GenerationProof)
+	require.Equal(t, &imageagent.ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: originalFact.IntentID, Fingerprint: originalFact.Fingerprint, SettlementProofDigest: originalFact.TerminalProofDigest(), Points: 12}, projection.Candidates[0].GenerationProof)
 	return a, repo, input, published, originalFact, recorder
 }
 
@@ -147,12 +147,12 @@ func TestPersistImageSetStorageLimitKeepsNativeClosureAndPreservesUnknown(t *tes
 			digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
 			require.NoError(t, err)
 			quote := input.Slot.Recipe.Quote
-			intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: input.Identity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(input.Slot.Recipe.References), PromptVersion: input.Slot.Recipe.PromptVersion, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+			intent := imageagent.GenerationIntent{Billing: syntheticImageBilling(quote.Model, quote.PriceVersion, quote.Points), Identity: reservation.Identity, MemberID: input.Identity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(input.Slot.Recipe.References), PromptVersion: input.Slot.Recipe.PromptVersion, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
 			facts := repo.(imageagent.GenerationFactRepository)
 			fact, err := facts.PrepareGenerationIntent(ctx, intent)
 			require.NoError(t, err)
 			if unknown {
-				fact, err = facts.BindGenerationReservation(ctx, intent, imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: input.Identity.TenantID, MemberID: input.Identity.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
+				fact, err = facts.BindGenerationReservation(ctx, intent, imageagent.GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: input.Identity.TenantID, MemberID: input.Identity.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
 				require.NoError(t, err)
 				_, won, err = facts.BeginGenerationDispatch(ctx, intent)
 				require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestPersistImageSetStorageLimitKeepsNativeClosureAndPreservesUnknown(t *tes
 			} else {
 				fact, err = facts.RecordGenerationNoEffect(ctx, intent)
 				require.NoError(t, err)
-				fact, err = facts.BindGenerationSettlement(ctx, intent, imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, State: "no_reservation", Points: intent.Points, ProofDigest: fact.TerminalProofDigest()})
+				fact, err = facts.BindGenerationSettlement(ctx, intent, imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: intent.Points, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, State: "no_reservation", Points: 0, ProofDigest: fact.TerminalProofDigest()})
 				require.NoError(t, err)
 				_, err = effects.RecordSlotProviderNotDispatchedV3(ctx, reservation)
 				require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestPersistImageSetSlotResultDistinguishesKnownUnstartedFromUnknown(t *test
 			require.NoError(t, err)
 			if mode == "known_unstarted" {
 				require.Zero(t, result.Attempt)
-				require.Equal(t, &imageagent.ImageSlotClosure{Kind: "not_dispatched"}, result.Closure)
+				require.Equal(t, &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}, result.Closure)
 			} else {
 				require.Equal(t, 1, result.Attempt)
 				require.Nil(t, result.Closure)
@@ -296,14 +296,15 @@ func TestSetSlotClosureBindsTheOriginalSettledEconomics(t *testing.T) {
 			digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
 			require.NoError(t, err)
 			quote := input.Slot.Recipe.Quote
-			intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: input.Identity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(input.Slot.Recipe.References), PromptVersion: input.Slot.Recipe.PromptVersion, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+			intent := imageagent.GenerationIntent{Billing: syntheticImageBilling(quote.Model, quote.PriceVersion, quote.Points), Identity: reservation.Identity, MemberID: input.Identity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(input.Slot.Recipe.References), PromptVersion: input.Slot.Recipe.PromptVersion, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
 			if drift {
 				intent.PriceVersion = "different-price"
+				intent.Billing = syntheticImageBilling(intent.Model, intent.PriceVersion, intent.Points)
 			}
 			facts := repo.(imageagent.GenerationFactRepository)
 			fact, err := facts.PrepareGenerationIntent(context.Background(), intent)
 			require.NoError(t, err)
-			fact, err = facts.BindGenerationReservation(context.Background(), intent, imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: input.Identity.TenantID, MemberID: input.Identity.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
+			fact, err = facts.BindGenerationReservation(context.Background(), intent, imageagent.GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: input.Identity.TenantID, MemberID: input.Identity.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
 			require.NoError(t, err)
 			_, won, err = facts.BeginGenerationDispatch(context.Background(), intent)
 			require.NoError(t, err)
@@ -319,14 +320,14 @@ func TestSetSlotClosureBindsTheOriginalSettledEconomics(t *testing.T) {
 				err = a.PersistRunState(context.Background(), PersistRunStateActivityInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: 1, CommitID: "blocked", CurrentNode: "retry_slot", Projection: WorkflowResult{Status: imageagent.RunStatusBlocked, Block: block, Plan: current.Plan, Slots: current.Slots, RecoverableEffects: []imageagent.RecoverableEffect{{SlotID: input.Slot.ID, Attempt: 1, Code: imageagent.SlotProviderOutcomeUnknownCode}}}})
 				require.NoError(t, err)
 			}
-			proof := imageagent.GenerationSuccess{ResponseID: "response", ResultDigest: strings.Repeat("b", 64), ResultUnavailable: "invalid_result"}
+			proof := imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response", ResultDigest: strings.Repeat("b", 64), ResultUnavailable: "invalid_result"}
 			if mode == "invalid_bytes" || mode == "invalid_bytes_execute" || mode == "transient" || mode == "unsettled_invalid_bytes" {
 				proof = proof.WithResultLocator("https://output.example/image.png", "")
 			}
 			fact, err = facts.RecordGenerationSuccess(context.Background(), intent, proof)
 			require.NoError(t, err)
 			if mode != "unsettled_invalid_bytes" {
-				fact, err = facts.BindGenerationSettlement(context.Background(), intent, imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "reservation", State: "committed", Points: intent.Points, ProofDigest: fact.TerminalProofDigest()})
+				fact, err = facts.BindGenerationSettlement(context.Background(), intent, imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: intent.Points, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: "reservation", State: "committed", Points: intent.Points, ProofDigest: fact.TerminalProofDigest()})
 				require.NoError(t, err)
 			}
 			if drift {
@@ -369,7 +370,7 @@ func TestSetSlotClosureBindsTheOriginalSettledEconomics(t *testing.T) {
 				require.Len(t, current.RecoverableEffects, 1)
 				return
 			}
-			require.Equal(t, &imageagent.ImageSlotClosure{Kind: "settled", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: intent.Points}, result.Closure)
+			require.Equal(t, &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "settled", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: intent.Points}, result.Closure)
 			require.Equal(t, imageagent.InvalidGeneratedOutputCode, result.BlockedCode)
 			current, err := repo.GetProjection(context.Background(), reservation.Identity.RunScope)
 			require.NoError(t, err)

@@ -588,10 +588,10 @@ func TestCrawlerInputRejectionPreservesOtherConfiguration(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv(name, "unrelated-fixture")
 			v := newViper()
-			v.Set("imageagent.generation.priceVersion", "current-fixture")
+			v.Set("imageagent.generation.unitVersion", "ai-micropoint-v1")
 			cfg, err := loadWithViperWithoutValidation(v)
 			require.NoError(t, err)
-			require.Equal(t, "current-fixture", cfg.ImageAgent.Generation.PriceVersion)
+			require.Equal(t, "ai-micropoint-v1", cfg.ImageAgent.Generation.UnitVersion)
 		})
 	}
 }

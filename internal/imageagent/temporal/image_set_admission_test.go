@@ -86,7 +86,7 @@ func TestImageSetSourceDenialBeforeQuoteClosesWithoutGeneration(t *testing.T) {
 			require.Equal(t, imageagent.SlotEffectV3ProviderNotDispatched, result.EffectPhase)
 			stored, err := a.PersistImageSetSlotResult(context.Background(), PersistSlotResultV3ActivityInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision, AttemptKey: input.IdempotencyKey, Result: result})
 			require.NoError(t, err)
-			require.Equal(t, &imageagent.ImageSlotClosure{Kind: "not_dispatched"}, stored.Closure)
+			require.Equal(t, &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}, stored.Closure)
 			require.Zero(t, stored.Attempt)
 			projection, err := repo.GetProjection(context.Background(), imageagent.ScopeForRun(current.Run))
 			require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestLateOriginalImageSetWorkflowClosesExpiredSlotsWithoutDispatch(t *testin
 			if !claimed {
 				require.Equal(t, imageagent.BudgetElapsedCode, observed.Run.Block.Code)
 				require.Equal(t, imageagent.BudgetElapsedCode, observed.Slots[0].ErrorCode)
-				require.Equal(t, &imageagent.ImageSlotClosure{Kind: "not_dispatched"}, observed.Slots[0].Closure)
+				require.Equal(t, &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}, observed.Slots[0].Closure)
 				require.Zero(t, observed.Slots[0].Attempt)
 				require.Empty(t, observed.RecoverableEffects)
 				closedDigest, err := imageagent.ImageSetClosedEffectsDigest(observed.Plan, observed.Slots, observed.RecoverableEffects)

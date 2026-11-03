@@ -71,7 +71,7 @@ func generationPointDatabases(t *testing.T, unprepared ...bool) (*gormRepository
 	require.True(t, won)
 	catalog, err := owner.GetAssetCatalog(ctx, reservation.Identity.RunScope)
 	require.NoError(t, err)
-	intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: "grant-1", CatalogHash: catalog.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(time.Now())}
+	intent := imageagent.GenerationIntent{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Identity: reservation.Identity, MemberID: "grant-1", CatalogHash: catalog.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(time.Now())}
 	if len(unprepared) == 0 || !unprepared[0] {
 		_, err = owner.PrepareGenerationIntent(ctx, intent)
 		require.NoError(t, err)
@@ -83,10 +83,10 @@ func generationPointDatabases(t *testing.T, unprepared ...bool) (*gormRepository
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, resourceadapter.AutoMigrate(commercial))
-	require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,reserved,consumed,created_at,updated_at) VALUES (?, ?, ?, 0, 0, ?, ?)", intent.Identity.TenantID, "ai_point", 100, time.Now(), time.Now()).Error)
+	require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?, ?, ?, 0, 0, ?, ?)", intent.Identity.TenantID, "ai_point", 100, time.Now(), time.Now()).Error)
 	limits, err := resourceadapter.NewGormMemberLimitRepository(commercial, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: intent.Identity.TenantID, MemberID: intent.MemberID, ActorID: "admin-1", OperationID: "limit-1", Target: 20})
+	_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: intent.Identity.TenantID, MemberID: intent.MemberID, ActorID: "admin-1", OperationID: "limit-1", Target: 20})
 	require.NoError(t, err)
 	return owner, commercial, limits, intent
 }
@@ -179,7 +179,7 @@ func TestGenerationRecoveryConsumesExistingProofWithoutReserveOrDispatch(t *test
 	require.NoError(t, err)
 	require.EqualValues(t, 12, read.Reserved)
 	require.Zero(t, read.Consumed)
-	_, err = owner.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
+	_, err = owner.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
 	require.NoError(t, err)
 	state, err = recovery.ReconcileExistingGeneration(ctx, intent.Identity)
 	require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestGenerationPointsReserveAndLowerLimitUseSameMemberFence(t *testing.T) {
 	go func() { <-start; _, err := r.ReserveImageGeneration(ctx, intent.Identity); reserveErr <- err }()
 	go func() {
 		<-start
-		_, err := limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: intent.Identity.TenantID, MemberID: intent.MemberID, ActorID: "admin-1", OperationID: "lower-1", ExpectedVersion: 1, Target: 5})
+		_, err := limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: intent.Identity.TenantID, MemberID: intent.MemberID, ActorID: "admin-1", OperationID: "lower-1", ExpectedVersion: 1, Target: 5})
 		limitErr <- err
 	}()
 	close(start)

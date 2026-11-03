@@ -73,7 +73,7 @@ func (r *ArtworkReceiver) PublishArtwork(ctx context.Context, in imageagent.Publ
 		return empty, imageagent.ErrRevisionConflict
 	}
 	candidate, ref := slot.Candidates[0], effect.FinalManifest.Assets[0]
-	proof := &imageagent.ImageGenerationProof{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: fact.Intent.Points}
+	proof := &imageagent.ImageGenerationProof{UnitVersion: fact.Settlement.UnitVersion, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: fact.Settlement.Points}
 	if !reflect.DeepEqual(candidate.Artwork, &provenance) || !reflect.DeepEqual(candidate.GenerationProof, proof) || imageagent.ValidatePublishedAssetRefForSlot(execution, ref, 0) != nil || candidate.DurableAsset.ObjectKey != ref.ObjectKey || candidate.DurableAsset.SHA256 != ref.SHA256 || candidate.AssetID != effect.Published.Candidates[0].AssetID {
 		return empty, imageagent.ErrRevisionConflict
 	}

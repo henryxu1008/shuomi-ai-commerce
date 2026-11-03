@@ -53,7 +53,7 @@ func TestOfficialPriceCannotBeClaimedForAnotherModel(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	ledger := NewGormInvocationRecorder(db)
 	fact := aicapability.InvocationRecord{InvocationID: "wrong-official-model", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", ModelID: "model", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 10, MaximumCompletionTokens: 10,
-		OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 10000, OutputText: 20000}}}
+		OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}}
 	fact.OfficialTariff.Model = "another-model"
 	_, err := ledger.ClaimInvocation(context.Background(), fact)
 	require.Error(t, err)

@@ -13,7 +13,7 @@ func testTextProfile() ModelProfile {
 		ModelID: "model-a", EndpointIdentityDigest: "endpoint-v1", CredentialVersion: "credential-v1",
 		RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1",
 		PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1",
-		UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1", OfficialTariff: OfficialModelTariff{UnitVersion: AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model-a", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: OfficialTokenRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000,
+		UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1", OfficialTariff: OfficialModelTariff{UnitVersion: AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model-a", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000,
 		MaximumPromptTokens: 10000, MaximumCompletionTokens: 1000,
 		MaximumInputBytes: 8192, MaximumOutputBytes: 16384, DeadlineBound: time.Minute,
 	}

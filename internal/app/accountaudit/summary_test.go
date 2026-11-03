@@ -72,7 +72,7 @@ func TestSummaryDeduplicatesAcrossPagesAndRejectsPartialRead(t *testing.T) {
 func TestSummaryCountsCommittedImageDebitWithoutSummingPointQuantity(t *testing.T) {
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	q := summaryQuery(t, &summaryAdditional{}, &summaryAdditional{}, &summaryAdditional{})
-	q.points = summaryPoints{events: []orgresource.ImagePointDebit{{OrganizationID: "B", EventID: "event-1", ActorID: "actor", MemberID: "member", RunID: "run", IntentID: "intent", PriceVersion: "price", Points: 1200, CreatedAt: at.Add(-time.Second)}}}
+	q.points = summaryPoints{events: []orgresource.ImagePointDebit{{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", EventID: "event-1", ActorID: "actor", MemberID: "member", RunID: "run", IntentID: "intent", PriceVersion: "price", Points: 1200, CreatedAt: at.Add(-time.Second)}}}
 	got, err := q.readSummary(summaryContext(), at)
 	if err != nil || got.Counts.Operations != "1" || got.Counts.Resources != "1" {
 		t.Fatalf("image debit %+v %v", got, err)
@@ -106,7 +106,7 @@ func TestSummaryCountsEntireWindowAcrossPagesAndClassifiesOverlaps(t *testing.T)
 	}
 	resources := &summaryAdditional{events: []AdditionalAuditEvent{
 		{EventType: "account_member_resource.changed", Actor: "actor", Time: at.Add(-time.Second), ObjectType: "member_resource", ObjectReference: "member", Operation: "allocate_member_resource", Version: 1, Key: "00000000000000000002", RelationReference: "allocation", Resource: &ResourceDetail{Type: orgresource.ResourceDataRow, Quantity: "100"}},
-		{EventType: "account_member_ai_point_limit.changed", Actor: "actor", Time: at.Add(-time.Second), ObjectType: "member_ai_point_limit", ObjectReference: "member", Operation: "set_member_ai_point_limit", Version: 2, Key: "00000000000000000001", RelationReference: "limit", Resource: &ResourceDetail{Type: orgresource.ResourceAIPoint, Quantity: "0"}},
+		{EventType: "account_member_ai_point_limit.changed", Actor: "actor", Time: at.Add(-time.Second), ObjectType: "member_ai_point_limit", ObjectReference: "member", Operation: "set_member_ai_point_limit", Version: 2, Key: "00000000000000000001", RelationReference: "limit", Resource: &ResourceDetail{UnitVersion: "ai-micropoint-v1", Type: orgresource.ResourceAIPoint, Quantity: "0"}},
 	}}
 	q := summaryQuery(t, profile, members, resources)
 	usage := &usageHistoryStub{events: []UsageAuditEvent{{OrganizationID: "B", EventID: "observed", MemberID: "member", InvocationID: "inv", Quantity: 10, Time: at.Add(-time.Second)}}}

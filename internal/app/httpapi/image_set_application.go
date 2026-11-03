@@ -99,7 +99,7 @@ func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, 
 
 // The caller owns the API/worker, configuration, source, resource and Asset
 // pools. This assembly installs no schema and starts no provider or worker.
-func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.CurrentReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
+func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.SharedCategoryReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(mediaReaders) > 1 {
 		return nil, empty, imageagent.ErrValidation
@@ -108,7 +108,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if ctx == nil || productDB == nil || imageDB == nil || workerDB == nil || workerDB == imageDB || configurationDB == nil || resourceDB == nil || assetDB == nil || assetDB == imageDB || assetDB == workerDB || workflows == nil || products.Snapshots == nil || products.Applied == nil || live.Permissions == nil || current == nil || workerConfig == nil || !current.ImageAgent.Generation.Configured() || workerConfig.ImageAgent.Generation != current.ImageAgent.Generation || !reflect.DeepEqual(workerConfig.ImageAgent.Admission, current.ImageAgent.Admission) || workerConfig.ImageAgent.ArtifactStore.PublicBase != current.ImageAgent.ArtifactStore.PublicBase || workerConfig.ImageAgent.ArtifactStore.S3.Bucket != current.ImageAgent.ArtifactStore.S3.Bucket {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
-	if current.ImageAgent.Generation.PointsPerImage > math.MaxInt64/32 {
+	if current.ImageAgent.Generation.MaximumMicropoints > math.MaxInt64/32 {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
 	startup, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -267,10 +267,10 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		artworkConfiguration = artworkAdmissionConfiguration{ArtworkConfigurationRepository: configuration, authorize: live.AuthorizeExecution}
 	}
 	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration, artworkConfiguration: artworkConfiguration}
-	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}})}
+	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 32 * current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}})}
 	options = append(options, imageagent.WithImageMethodContext(methods))
 	if artworkConfiguration != nil {
-		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: artworkConfiguration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
+		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: artworkConfiguration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}}))
 	}
 	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, options...)
 	if err != nil {

@@ -39,3 +39,12 @@ func TestAIPointQuantityRejectsAmbiguousOrDifferentUnits(t *testing.T) {
 		require.Error(t, err, "a number alone cannot reinterpret another resource unit")
 	}
 }
+
+func TestSignedMicropointDisplayNeverUsesFloatOrLosesIntegers(t *testing.T) {
+	for _, tc := range []struct {
+		value int64
+		text  string
+	}{{0, "0"}, {1, "0.000001"}, {-1, "-0.000001"}, {9007199254740993, "9007199254.740993"}, {-9223372036854775808, "-9223372036854.775808"}} {
+		require.Equal(t, tc.text, FormatAIPointMicropoints(tc.value))
+	}
+}

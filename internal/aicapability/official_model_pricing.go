@@ -22,15 +22,17 @@ func (p OfficialModelTariff) ReserveTextMicropoints(prompt, completion int64) (i
 	return p.ReservationMicropoints(BillableModelUsage{MappingVersion: p.UsageVersion, Complete: true, InputText: prompt, OutputText: completion})
 }
 
-// OfficialTokenRates are currency micros per one million tokens. Cached inputs
+// OfficialModelRates are currency micros per one million tokens. Cached inputs
 // are subsets of their corresponding total inputs, never additional tokens.
-type OfficialTokenRates struct {
-	InputText        int64 `json:"inputText"`
-	CachedInputText  int64 `json:"cachedInputText"`
-	InputImage       int64 `json:"inputImage"`
-	CachedInputImage int64 `json:"cachedInputImage"`
-	OutputText       int64 `json:"outputText"`
-	OutputImage      int64 `json:"outputImage"`
+type OfficialModelRates struct {
+	// Currency micros per output image, for an explicitly admitted image-count protocol.
+	OutputImagePerItem int64 `json:"outputImagePerItem,omitempty"`
+	InputText          int64 `json:"inputText"`
+	CachedInputText    int64 `json:"cachedInputText"`
+	InputImage         int64 `json:"inputImage"`
+	CachedInputImage   int64 `json:"cachedInputImage"`
+	OutputText         int64 `json:"outputText"`
+	OutputImage        int64 `json:"outputImage"`
 }
 
 // OfficialModelTariff is a frozen execution price, not a current configuration
@@ -46,13 +48,14 @@ type OfficialModelTariff struct {
 	Model                    string             `json:"model"`
 	Channel                  string             `json:"channel"`
 	UsageVersion             string             `json:"usageVersion"`
-	Rates                    OfficialTokenRates `json:"rates"`
+	Rates                    OfficialModelRates `json:"rates"`
 }
 
 // BillableModelUsage is built by the trusted usage mapper only after checking
 // raw field presence and partition totals. Complete must never be inferred from
 // Go zero values. This value alone does not prove a terminal invocation outcome.
 type BillableModelUsage struct {
+	OutputImageItems int64 `json:",omitempty"`
 	MappingVersion   string
 	Complete         bool
 	InputText        int64
@@ -67,7 +70,7 @@ func (u BillableModelUsage) Validate() error {
 	if !u.Complete || !validTextFact(u.MappingVersion, 128) || u.CachedInputText > u.InputText || u.CachedInputImage > u.InputImage {
 		return ErrOfficialModelPrice
 	}
-	for _, quantity := range []int64{u.InputText, u.CachedInputText, u.InputImage, u.CachedInputImage, u.OutputText, u.OutputImage} {
+	for _, quantity := range []int64{u.InputText, u.CachedInputText, u.InputImage, u.CachedInputImage, u.OutputText, u.OutputImage, u.OutputImageItems} {
 		if quantity < 0 || quantity > 1<<30 {
 			return ErrOfficialModelPrice
 		}
@@ -93,6 +96,19 @@ func (p OfficialModelTariff) Validate() error {
 		}
 	}
 	rates := []int64{p.Rates.InputText, p.Rates.CachedInputText, p.Rates.InputImage, p.Rates.CachedInputImage, p.Rates.OutputText, p.Rates.OutputImage}
+	if p.UsageVersion == "qwen-image-count-v1" {
+		for _, rate := range rates {
+			if rate != 0 {
+				return ErrOfficialModelPrice
+			}
+		}
+		if p.Rates.OutputImagePerItem <= 0 {
+			return ErrOfficialModelPrice
+		}
+	} else if p.Rates.OutputImagePerItem != 0 {
+		return ErrOfficialModelPrice
+	}
+	rates = append(rates, p.Rates.OutputImagePerItem)
 	positive := false
 	for _, rate := range rates {
 		if rate < 0 || rate > 1_000_000_000_000 {
@@ -133,8 +149,8 @@ func (p OfficialModelTariff) micropoints(u BillableModelUsage, ceiling bool) (in
 	if p.Validate() != nil || u.Validate() != nil || u.MappingVersion != p.UsageVersion {
 		return 0, ErrOfficialModelPrice
 	}
-	quantities := []int64{u.InputText - u.CachedInputText, u.CachedInputText, u.InputImage - u.CachedInputImage, u.CachedInputImage, u.OutputText, u.OutputImage}
-	rates := []int64{p.Rates.InputText, p.Rates.CachedInputText, p.Rates.InputImage, p.Rates.CachedInputImage, p.Rates.OutputText, p.Rates.OutputImage}
+	quantities := []int64{u.InputText - u.CachedInputText, u.CachedInputText, u.InputImage - u.CachedInputImage, u.CachedInputImage, u.OutputText, u.OutputImage, u.OutputImageItems}
+	rates := []int64{p.Rates.InputText, p.Rates.CachedInputText, p.Rates.InputImage, p.Rates.CachedInputImage, p.Rates.OutputText, p.Rates.OutputImage, p.Rates.OutputImagePerItem}
 	for i, quantity := range quantities {
 		if quantity < 0 || quantity > 1<<30 || quantity > 0 && rates[i] == 0 {
 			return 0, ErrOfficialModelPrice
@@ -146,7 +162,11 @@ func (p OfficialModelTariff) micropoints(u BillableModelUsage, ceiling bool) (in
 	}
 	sum := new(big.Int)
 	for i, quantity := range quantities {
-		sum.Add(sum, new(big.Int).Mul(big.NewInt(quantity), big.NewInt(rates[i])))
+		term := new(big.Int).Mul(big.NewInt(quantity), big.NewInt(rates[i]))
+		if i == 6 {
+			term.Mul(term, big.NewInt(1_000_000))
+		} // per-image micros, not micros per million tokens
+		sum.Add(sum, term)
 	}
 	// sum / 10^12 is the exact currency amount. FX has scale 10^6,
 	// and one micropoint is CNY 10^-8, so the final denominator is 10^10.
@@ -160,4 +180,30 @@ func (p OfficialModelTariff) micropoints(u BillableModelUsage, ceiling bool) (in
 		return 0, ErrOfficialModelPrice
 	}
 	return sum.Int64(), nil
+}
+
+// OfficialModelBilling binds a conservative admitted usage bound to the same
+// frozen official tariff. It is neither a second tariff nor a charge owner.
+type OfficialModelBilling struct {
+	OfficialTariff       OfficialModelTariff
+	UsageBound           BillableModelUsage
+	BoundEvidenceVersion string
+}
+
+func (b OfficialModelBilling) ReservationMicropoints(model string) (int64, error) {
+	if b.OfficialTariff.Model != model || !validTextFact(b.BoundEvidenceVersion, 128) {
+		return 0, ErrOfficialModelPrice
+	}
+	return b.OfficialTariff.ReservationMicropoints(b.UsageBound)
+}
+func (b OfficialModelBilling) ActualMicropoints(model string, u BillableModelUsage) (int64, error) {
+	maximum, err := b.ReservationMicropoints(model)
+	if err != nil || u.Validate() != nil || u.InputText > b.UsageBound.InputText || u.InputImage > b.UsageBound.InputImage || u.OutputText > b.UsageBound.OutputText || u.OutputImage > b.UsageBound.OutputImage || u.OutputImageItems > b.UsageBound.OutputImageItems {
+		return 0, ErrOfficialModelPrice
+	}
+	actual, err := b.OfficialTariff.SettlementMicropoints(u)
+	if err != nil || actual > maximum {
+		return 0, ErrOfficialModelPrice
+	}
+	return actual, nil
 }

@@ -22,9 +22,9 @@ func (*sharedCatalog) ValidateDefaultChannel(_ context.Context, _ string, channe
 }
 
 func (c *sharedCatalog) QualifyModel(_ context.Context, org string, category d.ModelCategory, ref d.ModelBindingReference) (d.ModelQualification, error) {
-	return d.ModelQualification{OrganizationID: org, Category: category, Reference: ref, Channel: "synthetic-channel", Model: ref.ID,
+	return syntheticQualifiedModel(d.ModelQualification{OrganizationID: org, Category: category, Reference: ref, Channel: "synthetic-channel", Model: ref.ID,
 		Ready: !c.unready, Reason: "BUDGET_BOUND_MISSING", ProfileVersion: "profile-v1", BoundEvidenceVersion: "synthetic-bound",
-		Price: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "official-price-v1", FXVersion: "synthetic-fx-v1", Currency: "USD", CNYMicrosPerCurrencyUnit: 7_000_000, Model: ref.ID, Channel: "synthetic-channel", UsageVersion: "synthetic", Rates: aicapability.OfficialTokenRates{InputText: 750_000, OutputText: 4_500_000}}}, nil
+		Price: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "official-price-v1", FXVersion: "synthetic-fx-v1", Currency: "USD", CNYMicrosPerCurrencyUnit: 7_000_000, Model: ref.ID, Channel: "synthetic-channel", UsageVersion: "synthetic", Rates: aicapability.OfficialModelRates{InputText: 750_000, OutputText: 4_500_000}}}), nil
 }
 
 func sharedInput() d.SharedModelInput {

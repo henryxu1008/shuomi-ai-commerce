@@ -156,7 +156,7 @@ func (r memberResourceAuditReader) ListRecentAudit(ctx context.Context, organiza
 		if row.Action == "set_member_ai_point_limit" {
 			eventType, objectType = "account_member_ai_point_limit.changed", "member_ai_point_limit"
 		}
-		page.Items = append(page.Items, accountaudit.AdditionalAuditEvent{EventType: eventType, ObjectType: objectType, ObjectReference: row.MemberID, Actor: row.ActorID, Operation: row.Action, Time: row.CreatedAt, Version: row.Version, Key: fmt.Sprintf("%020d", row.ID), RelationReference: row.OperationID, Resource: &accountaudit.ResourceDetail{Type: row.ResourceType, Quantity: strconv.FormatInt(row.Quantity, 10)}})
+		page.Items = append(page.Items, accountaudit.AdditionalAuditEvent{EventType: eventType, ObjectType: objectType, ObjectReference: row.MemberID, Actor: row.ActorID, Operation: row.Action, Time: row.CreatedAt, Version: row.Version, Key: fmt.Sprintf("%020d", row.ID), RelationReference: row.OperationID, Resource: &accountaudit.ResourceDetail{UnitVersion: row.UnitVersion, Type: row.ResourceType, Quantity: formatAccountResourceQuantity(row.ResourceType, row.Quantity)}})
 	}
 	if rows.Next != nil {
 		page.Next = &accountaudit.AuditPosition{CreatedAt: rows.Next.CreatedAt, Key: fmt.Sprintf("%020d", rows.Next.ID)}
@@ -394,4 +394,11 @@ func buildAccountAuditModule(ctx context.Context, sourceDB, membershipDB, resour
 		return nil, err
 	}
 	return accountAuditModule{query: query}, nil
+}
+
+func formatAccountResourceQuantity(kind orgresource.ResourceType, n int64) string {
+	if kind == orgresource.ResourceAIPoint {
+		return orgresource.FormatAIPointMicropoints(n)
+	}
+	return strconv.FormatInt(n, 10)
 }

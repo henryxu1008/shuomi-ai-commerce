@@ -1,5 +1,7 @@
 # 模型与费率管理 V1
 
+> 当前范围已由用户批准的 [企业统一模型配置](enterprise-shared-model-configuration.md) 和 PR #1078 替代：一处企业三类模型选择、平台官网价/FX、原资源微点账本；本文件的 per-purpose/two-current 和固定图片点价不再授权新实现或执行。原历史证据保留，不能恢复已撤回要求。
+
 > Status: **IMPLEMENTATION_READY**（2026-10-19 独立架构评审收敛）；Design Basis: **Independent Architecture**。
 > Execution: [#830](https://github.com/qq550723504/task-processor/issues/830)。
 > Product decision: **PD-MODEL-ROUTE-PRICING-MANAGEMENT-2026-10-19**，用户批准本会话最小方案并要求设计、Figma、独立架构评审先行。

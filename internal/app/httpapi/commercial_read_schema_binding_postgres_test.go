@@ -60,9 +60,9 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		org      string
 		quantity int64
 	}{{"org-B", 17}, {"org-A", 31}} {
-		require.NoError(t, owner.Exec(`INSERT INTO public.saas_organization_resource_buckets(organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?, 'ai_point', ?,0,2,7,?,?)`, seed.org, seed.quantity, now, now).Error)
+		require.NoError(t, owner.Exec("INSERT INTO public.saas_organization_resource_buckets(quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?, 'ai_point', ?,0,2,7,?,?)", seed.org, seed.quantity, now, now).Error)
 	}
-	require.NoError(t, owner.Exec(`INSERT INTO public.saas_organization_resource_debts(organization_id,resource_type,amount,created_at,updated_at) VALUES ('org-B','ai_point',0,?,?)`, now, now).Error)
+	require.NoError(t, owner.Exec("INSERT INTO public.saas_organization_resource_debts(quantity_unit,organization_id,resource_type,amount,created_at,updated_at) VALUES ('ai-micropoint-v1','org-B','ai_point',0,?,?)", now, now).Error)
 	repo, err := storecenter.NewGormStoreRepository(owner)
 	require.NoError(t, err)
 	for _, org := range []string{"org-B", "org-A"} {

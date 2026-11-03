@@ -132,6 +132,7 @@ func TestPrepareImageSetFreezesExplicitRouteAndConflictsOnChangedSelection(t *te
 	input.Method = &ref
 	quote.quote.Model, quote.quote.Quality = "gpt-image-2-vip", "medium"
 	quote.quote.ConfigurationVersion, quote.quote.PriceVersion = "route-vip", "route-vip"
+	quote.quote.Billing = syntheticImageBilling(quote.quote.Model, quote.quote.PriceVersion, quote.quote.Points)
 	require.NoError(t, json.Unmarshal([]byte(`{"Route":{"BindingID":"image-vip","RevisionID":"route-vip"}}`), &input))
 	p, err := s.PrepareImageSet(ctx, input)
 	require.NoError(t, err)
@@ -199,7 +200,7 @@ func TestKnownClosedSubsetRegenerationCreatesANewAwaitingConfirmationRun(t *test
 	for i := range parent.Slots {
 		parent.Slots[i].Slot.Status = imageagent.SlotStatusBlocked
 		parent.Slots[i].ErrorCode = "budget_exceeded"
-		parent.Slots[i].Closure = &imageagent.ImageSlotClosure{Kind: "not_dispatched"}
+		parent.Slots[i].Closure = &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}
 		slot := parent.Slots[i]
 		mutations = append(mutations, imageagent.SlotProjectionMutation{PlanRevision: parent.Plan.Revision, Result: imageagent.SlotResult{SlotID: slot.Slot.ID, Status: slot.Slot.Status, ErrorCode: slot.ErrorCode, Closure: slot.Closure}, Projection: slot, Attempt: imageagent.StepAttempt{TenantID: parent.Run.TenantID, OwnerUserID: parent.Run.UserID, RunID: parent.Run.ID, PlanRevision: parent.Plan.Revision, SlotID: slot.Slot.ID, Node: "closed", IdempotencyKey: "closed:" + slot.Slot.ID, Outcome: "blocked", ErrorCategory: slot.ErrorCode}})
 	}
@@ -233,13 +234,13 @@ func imageSetServiceFixtureWithRepository(t *testing.T, wrap func(imageagent.Rep
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{ProductContext: imageagent.ProductContextRef{ProductID: "product", Title: "Test product", SourceSnapshotVersion: 1}, Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://images.example.org/source.png", Width: 1024, Height: 1024}}})
 	require.NoError(t, err)
 	contexts := &setContextFixture{preparation: imageagent.ImageSetPreparation{Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: "operation", OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: catalog.Manifest.Hash}, Target: imageagent.ImageTarget{Platform: "product"}, Catalog: catalog, Observations: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: strings.Repeat("c", 64), Bytes: 10, Width: 1024, Height: 1024, MediaType: "image/png"}}}}
-	quotes := &setQuoteFixture{quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 12, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}
+	quotes := &setQuoteFixture{quote: imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 12, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}
 	repository := store.NewMemoryRepository()
 	if wrap != nil {
 		repository = wrap(repository)
 	}
 	workflows := &recordingWorkflowClient{}
-	options = append([]imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: contexts, Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}})}, options...)
+	options = append([]imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: contexts, Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 10000, ElapsedSeconds: 3600}})}, options...)
 	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{catalog: catalog}, options...)
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
@@ -276,7 +277,7 @@ func TestConfirmImageSetRechecksTenantAdmissionButRecoversOriginalReceipts(t *te
 			restarted, err := imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: contexts.preparation.Catalog},
 				imageagent.WithOrganizationScope(),
 				imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"another-org"}}),
-				imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}}))
+				imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 10000, ElapsedSeconds: 3600}}))
 			require.NoError(t, err)
 			resumed, err := restarted.ConfirmImagePlan(ctx, command)
 			if stage == "new" {
@@ -381,7 +382,7 @@ func TestConfirmImageSetRestoresExpiredOriginalStartWithoutExtendingBudget(t *te
 			config.enabled = false
 			quotes.quote.Points++
 			workflows.startErr = nil
-			restarted, err := imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: contexts.preparation.Catalog}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"another-org"}}), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}, Now: func() time.Time { return original.Deadline.Add(time.Second) }}))
+			restarted, err := imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: contexts.preparation.Catalog}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"another-org"}}), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 10000, ElapsedSeconds: 3600}, Now: func() time.Time { return original.Deadline.Add(time.Second) }}))
 			require.NoError(t, err)
 			resumed, err := restarted.ConfirmImagePlan(ctx, command)
 			require.NoError(t, err, "the original owner must get the expired immutable input to close it without dispatch")
@@ -416,7 +417,7 @@ func TestExpiredImageSetConfirmationDoesNotReviveClosedWorkflowProgress(t *testi
 			scope := imageagent.ScopeForRun(current.Run)
 			original, err := repo.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "workflow-progress", ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, RunMutation: &imageagent.RunMutation{Status: status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: next.Plan.Revision}, EventType: "run.updated", EventPayload: []byte(`{}`)})
 			require.NoError(t, err)
-			restarted, err := imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: contexts.preparation.Catalog}, imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}, Now: func() time.Time { return config.receipt.Deadline.Add(time.Second) }}))
+			restarted, err := imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: contexts.preparation.Catalog}, imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 10000, ElapsedSeconds: 3600}, Now: func() time.Time { return config.receipt.Deadline.Add(time.Second) }}))
 			require.NoError(t, err)
 			resumed, err := restarted.ConfirmImagePlan(ctx, command)
 			require.NoError(t, err)
@@ -443,7 +444,7 @@ func TestRestartFailedImageSetRestoresOriginalAdmissionAfterSourceRevocation(t *
 			if revoked {
 				contexts.revalidationErr = imageagent.ErrRevisionConflict
 			}
-			restarted, err := imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: contexts.preparation.Catalog}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"another-org"}}), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}, Now: func() time.Time { return config.receipt.Deadline.Add(time.Second) }}))
+			restarted, err := imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: contexts.preparation.Catalog}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"another-org"}}), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 10000, ElapsedSeconds: 3600}, Now: func() time.Time { return config.receipt.Deadline.Add(time.Second) }}))
 			require.NoError(t, err)
 			err = restarted.RestartFailed(ctx, original.Run.ID)
 			require.NoError(t, err, "the original workflow must close undispatched slots after its live source check")

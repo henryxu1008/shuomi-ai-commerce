@@ -1,10 +1,13 @@
 package orgresource
 
 import (
+	"errors"
 	"math"
 	"strconv"
 	"strings"
 )
+
+var ErrAIPointUnitVersion = errors.New("AI point quantity unit is missing or incompatible")
 
 const AIPointQuantityUnitV1 = "ai-micropoint-v1"
 const MicropointsPerAIPoint int64 = 1_000_000
@@ -63,4 +66,32 @@ func (quantity AIPointQuantity) PointsString() (string, error) {
 		text += "." + strings.TrimRight(digits, "0")
 	}
 	return text, nil
+}
+
+// FormatAIPointMicropoints formats signed ledger deltas exactly, including MinInt64.
+func FormatAIPointMicropoints(value int64) string {
+	magnitude := uint64(value)
+	sign := ""
+	if value < 0 {
+		sign = "-"
+		magnitude = uint64(-(value + 1)) + 1
+	}
+	whole, fraction := magnitude/uint64(MicropointsPerAIPoint), magnitude%uint64(MicropointsPerAIPoint)
+	text := sign + strconv.FormatUint(whole, 10)
+	if fraction != 0 {
+		text += "." + strings.TrimRight(strconv.FormatUint(fraction+uint64(MicropointsPerAIPoint), 10)[1:], "0")
+	}
+	return text
+}
+
+// The commercial source quantity is whole points; only this trusted grant boundary converts it.
+func PurchasedLedgerQuantity(resource ResourceType, source int64) (int64, string, error) {
+	if source <= 0 || !validResourceType(resource) {
+		return 0, "", ErrInvalidInput
+	}
+	if resource == ResourceAIPoint {
+		q, err := WholeAIPointQuantity(source)
+		return q.Micropoints, q.UnitVersion, err
+	}
+	return source, "", nil
 }

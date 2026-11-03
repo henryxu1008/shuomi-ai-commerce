@@ -10,7 +10,7 @@ import (
 
 func modelPointHashFixture() aicapability.InvocationRecord {
 	start := time.Date(2026, 10, 31, 17, 23, 41, 123456789, time.FixedZone("fixture", 19800))
-	return aicapability.InvocationRecord{OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "fixture-price", FXVersion: "fixture-fx-identity", Currency: "fixture-currency", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 10000, OutputText: 20000}}, MaximumPromptTokens: 20, MaximumCompletionTokens: 30,
+	return aicapability.InvocationRecord{OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "fixture-price", FXVersion: "fixture-fx-identity", Currency: "fixture-currency", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, MaximumPromptTokens: 20, MaximumCompletionTokens: 30,
 		InvocationID: "fixture-invocation", ParentInvocationID: "fixture-parent", AgentRunID: "fixture-run",
 		TenantID: "fixture-org", UserID: "fixture-actor", MemberID: "fixture-member", BusinessTaskID: "fixture-task", TraceID: "fixture-trace",
 		Capability: aicapability.CapabilityProductEnrichText, Operation: aicapability.OperationProductAgentDecision,

@@ -42,14 +42,20 @@ func (r *GormMemberLimitRepository) SetMonthlyLimit(ctx context.Context, input o
 		// Read the original receipt BEFORE calculating a new month. A retry in
 		// October must not re-apply a September administration operation.
 		if op.State == "succeeded" {
-			return json.Unmarshal([]byte(op.ImmutableResult), &result)
+			if err := json.Unmarshal([]byte(op.ImmutableResult), &result); err != nil {
+				return err
+			}
+			if result.UnitVersion != orgresource.AIPointQuantityUnitV1 {
+				return orgresource.ErrAIPointUnitVersion
+			}
+			return nil
 		}
 		if op.State != "processing" {
 			return orgresource.ErrIdempotencyKeyConflict
 		}
 		now := r.now().UTC()
 		month := orgresource.AIPointMonthStart(now)
-		initial := memberAIPointLimitRow{OrganizationID: input.OrganizationID, MemberID: input.MemberID, UpdatedBy: input.ActorID, UpdatedAt: now}
+		initial := memberAIPointLimitRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: input.OrganizationID, MemberID: input.MemberID, UpdatedBy: input.ActorID, UpdatedAt: now}
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&initial).Error; err != nil {
 			return err
 		}
@@ -98,7 +104,7 @@ func (r *GormMemberLimitRepository) ReadMonthlyLimit(ctx context.Context, org, m
 		} else if err != nil {
 			return err
 		}
-		counter := memberAIPointMonthRow{OrganizationID: org, MemberID: member, MonthStart: orgresource.AIPointMonthStart(r.now())}
+		counter := memberAIPointMonthRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: org, MemberID: member, MonthStart: orgresource.AIPointMonthStart(r.now())}
 		err := tx.Where("organization_id = ? AND member_id = ? AND month_start = ?", org, member, counter.MonthStart).Take(&counter).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -126,7 +132,7 @@ func lockFixedResourceOperation(tx *gorm.DB, org, key, kind, fingerprint string)
 	return row, nil
 }
 func lockMemberMonth(tx *gorm.DB, org, member string, month time.Time) (memberAIPointMonthRow, error) {
-	row := memberAIPointMonthRow{OrganizationID: org, MemberID: member, MonthStart: month}
+	row := memberAIPointMonthRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: org, MemberID: member, MonthStart: month}
 	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
 		return row, err
 	}
@@ -134,5 +140,5 @@ func lockMemberMonth(tx *gorm.DB, org, member string, month time.Time) (memberAI
 	return row, err
 }
 func limitSnapshot(config memberAIPointLimitRow, counter memberAIPointMonthRow) orgresource.MemberLimitSnapshot {
-	return orgresource.MemberLimitSnapshot{OrganizationID: config.OrganizationID, MemberID: config.MemberID, MonthlyLimit: config.MonthlyLimit, Version: config.Version, MonthStart: counter.MonthStart.UTC(), Reserved: counter.Reserved, Consumed: counter.Consumed}
+	return orgresource.MemberLimitSnapshot{UnitVersion: config.QuantityUnit, OrganizationID: config.OrganizationID, MemberID: config.MemberID, MonthlyLimit: config.MonthlyLimit, Version: config.Version, MonthStart: counter.MonthStart.UTC(), Reserved: counter.Reserved, Consumed: counter.Consumed}
 }

@@ -123,10 +123,12 @@ type Event struct {
 	Resource        *ResourceDetail `json:"resource,omitempty"`
 }
 type ResourceDetail struct {
-	Type     orgresource.ResourceType `json:"type"`
-	Quantity string                   `json:"quantity"`
+	UnitVersion string                   `json:"unitVersion,omitempty"`
+	Type        orgresource.ResourceType `json:"type"`
+	Quantity    string                   `json:"quantity"`
 }
 type PointDetail struct {
+	UnitVersion  string `json:"unitVersion"`
 	MemberID     string `json:"memberId"`
 	Quantity     string `json:"quantity"`
 	PriceVersion string `json:"priceVersion"`
@@ -466,11 +468,11 @@ func (q *Query) readBatch(ctx context.Context, limit int, cursor string, filter 
 		merged = append(merged, mergedEvent{event: Event{EventType: "ai_invocation.usage_observed", Time: item.Time.UTC(), ObjectType: "ai_invocation", ObjectReference: item.InvocationID, Operation: "observe", Result: "observed", Relation: Relation{Type: "ai_invocation", Reference: item.EventID}, Usage: &UsageDetail{MemberID: item.MemberID, Quantity: item.Quantity, Metric: "model_tokens"}}, usage: &p, kind: "usage", key: item.EventID})
 	}
 	for _, item := range pointPage.Items {
-		if item.OrganizationID != identity.EffectiveOrganizationID || item.EventID == "" || item.ActorID == "" || filter.ActorSubject != "" && item.ActorID != filter.ActorSubject || item.MemberID == "" || item.RunID == "" || item.IntentID == "" || item.PriceVersion == "" || item.Points <= 0 || item.CreatedAt.IsZero() {
+		if item.OrganizationID != identity.EffectiveOrganizationID || item.EventID == "" || item.ActorID == "" || filter.ActorSubject != "" && item.ActorID != filter.ActorSubject || item.MemberID == "" || item.RunID == "" || item.IntentID == "" || item.PriceVersion == "" || item.Points < 0 || item.UnitVersion != orgresource.AIPointQuantityUnitV1 || item.CreatedAt.IsZero() {
 			return Page{}, registry.ErrUnavailable
 		}
 		p := orgresource.ImagePointAuditPosition{CreatedAt: item.CreatedAt.UTC().Truncate(time.Microsecond), EventID: item.EventID}
-		merged = append(merged, mergedEvent{event: Event{EventType: "account_ai_points.committed", Actor: item.ActorID, Time: item.CreatedAt.UTC(), ObjectType: "image_generation", ObjectReference: item.RunID, Operation: "consume", Result: "succeeded", Relation: Relation{Type: "organization_resource_event", Reference: item.EventID}, Points: &PointDetail{MemberID: item.MemberID, Quantity: strconv.FormatInt(item.Points, 10), PriceVersion: item.PriceVersion, IntentID: item.IntentID}}, points: &p, kind: "points", key: item.EventID})
+		merged = append(merged, mergedEvent{event: Event{EventType: "account_ai_points.committed", Actor: item.ActorID, Time: item.CreatedAt.UTC(), ObjectType: "image_generation", ObjectReference: item.RunID, Operation: "consume", Result: "succeeded", Relation: Relation{Type: "organization_resource_event", Reference: item.EventID}, Points: &PointDetail{MemberID: item.MemberID, UnitVersion: item.UnitVersion, Quantity: orgresource.FormatAIPointMicropoints(item.Points), PriceVersion: item.PriceVersion, IntentID: item.IntentID}}, points: &p, kind: "points", key: item.EventID})
 	}
 	sort.SliceStable(merged, func(i, j int) bool {
 		if !merged[i].event.Time.Equal(merged[j].event.Time) {
@@ -657,7 +659,14 @@ func validResourceEvent(item AdditionalAuditEvent) bool {
 		return false
 	}
 	quantity, err := strconv.ParseInt(item.Resource.Quantity, 10, 64)
-	if err != nil || strconv.FormatInt(quantity, 10) != item.Resource.Quantity || quantity < 0 {
+	if item.Resource.Type == orgresource.ResourceAIPoint {
+		parsed, e := orgresource.ParseAIPointQuantity(item.Resource.Quantity)
+		if e != nil || item.Resource.UnitVersion != orgresource.AIPointQuantityUnitV1 {
+			return false
+		}
+		quantity, err = parsed.Micropoints, nil
+	}
+	if err != nil || (item.Resource.Type != orgresource.ResourceAIPoint && strconv.FormatInt(quantity, 10) != item.Resource.Quantity) || quantity < 0 {
 		return false
 	}
 	if item.EventType == "account_member_ai_point_limit.changed" {

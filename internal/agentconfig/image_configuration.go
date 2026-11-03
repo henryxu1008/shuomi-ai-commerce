@@ -11,13 +11,14 @@ import (
 const ImageSnapshotContext = "product-image-set-v1"
 
 type ImageRunLimits struct {
-	Images         int   `json:"images"`
-	Points         int64 `json:"points"`
-	ElapsedSeconds int64 `json:"elapsedSeconds"`
+	UnitVersion    string `json:"unitVersion"`
+	Images         int    `json:"images"`
+	Points         int64  "json:\"points,string\""
+	ElapsedSeconds int64  `json:"elapsedSeconds"`
 }
 
 func (l ImageRunLimits) Valid() bool {
-	return l.Images > 0 && l.Images <= MaxSetTasks && l.Points > 0 && l.ElapsedSeconds > 0 && l.ElapsedSeconds <= 3600
+	return l.UnitVersion == "ai-micropoint-v1" && l.Images > 0 && l.Images <= MaxSetTasks && l.Points > 0 && l.ElapsedSeconds > 0 && l.ElapsedSeconds <= 3600
 }
 
 func (l ImageRunLimits) Within(ceiling ImageRunLimits) bool {

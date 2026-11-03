@@ -47,13 +47,12 @@ func (s Scope) Valid() bool {
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan:
 		return true
 	}
-	return s.Capability == ImageCapability || s.Capability == SharedModelCapability
+	return s.Capability == ImageCapability || s.Capability == SharedModelCapability || s.Capability == PlatformPricesCapability && s.OrganizationID == PlatformPricesOrganization
 }
 
 type Rates struct {
-	InputCost      string `json:"inputCost,omitempty"`
-	OutputCost     string `json:"outputCost,omitempty"`
-	PointsPerImage string `json:"pointsPerImage,omitempty"`
+	InputCost  string `json:"inputCost,omitempty"`
+	OutputCost string `json:"outputCost,omitempty"`
 }
 
 // Decimal strings avoid JSON floating point and JavaScript integer truncation.
@@ -86,14 +85,10 @@ func ParseRate(s string, scale int) (int64, error) {
 func FormatCost(v int64) string { return fmt.Sprintf("%d.%06d", v/1000000, v%1000000) }
 func normalize(r Rates, image bool) (Rates, error) {
 	if image {
-		if r.InputCost != "" || r.OutputCost != "" {
+		if r != (Rates{}) {
 			return Rates{}, ErrInvalid
 		}
-		v, e := ParseRate(r.PointsPerImage, 0)
-		return Rates{PointsPerImage: strconv.FormatInt(v, 10)}, e
-	}
-	if r.PointsPerImage != "" {
-		return Rates{}, ErrInvalid
+		return Rates{}, nil
 	}
 	in, e := ParseRate(r.InputCost, 6)
 	if e != nil {
@@ -109,17 +104,17 @@ func normalize(r Rates, image bool) (Rates, error) {
 }
 
 type ImageProfile struct {
-	Provider             string `json:"provider"`
-	Model                string `json:"model"`
-	Protocol             string `json:"protocol"`
-	EndpointDigest       string `json:"endpointDigest"`
-	CredentialReference  string `json:"credentialReference"`
-	ConfigurationVersion string `json:"configurationVersion"`
-	PriceVersion         string `json:"priceVersion"`
-	Points               int64  `json:"points"`
+	Provider             string                            `json:"provider"`
+	Model                string                            `json:"model"`
+	Protocol             string                            `json:"protocol"`
+	EndpointDigest       string                            `json:"endpointDigest"`
+	CredentialReference  string                            `json:"credentialReference"`
+	ConfigurationVersion string                            `json:"configurationVersion"`
+	PriceVersion         string                            `json:"priceVersion"`
+	Points               int64                             `json:"points,string"`
+	Billing              aicapability.OfficialModelBilling `json:"billing"`
 }
 type Binding struct {
-	MaximumImagePoints      int64                      `json:"maximumPointsPerImage,omitempty"`
 	ID                      string                     `json:"id"`
 	CredentialVersion       string                     `json:"credentialVersion"`
 	Provider                string                     `json:"provider"`
@@ -153,6 +148,7 @@ type Catalog interface {
 	Qualify(Scope, string, Credential) (Binding, error)
 }
 type Payload struct {
+	PlatformPrices    *PlatformPricesSnapshot    `json:"platformPrices,omitempty"`
 	SharedModels      *SharedModelSelection      `json:"sharedModels,omitempty"`
 	Optional          bool                       `json:"optional,omitempty"`
 	BindingID         string                     `json:"bindingId"`
@@ -184,11 +180,12 @@ func Freeze(b Binding, r Rates, revision string) (Payload, error) {
 		p.Text = &t
 	} else {
 		i := *b.Image
-		i.Points, _ = ParseRate(rates.PointsPerImage, 0)
-		if b.MaximumImagePoints <= 0 || i.Points > b.MaximumImagePoints {
-			return Payload{}, ErrInvalid
+		maximum, err := i.Billing.ReservationMicropoints(i.Model)
+		if err != nil {
+			return Payload{}, ErrNeedsConfiguration
 		}
-		i.PriceVersion = revision
+		i.Points = maximum
+		i.PriceVersion = i.Billing.OfficialTariff.PriceVersion
 		i.ConfigurationVersion = revision
 		p.Image = &i
 	}

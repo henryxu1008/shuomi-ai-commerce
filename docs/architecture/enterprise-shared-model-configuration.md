@@ -481,3 +481,22 @@ org/actor 来自 verified identity；跨企业选择、凭据引用和旧页面�
 缺证据 UNKNOWN；限定基础架构准入已完成，独立最终工程检查待完整候选；
 运行、真实保存/恢复、浏览器、模型效果及产品验收 NOT_RUN。
 #47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT；保留实例、数据和会话。
+
+
+## PR #1078 本轮接线记录（工程实现，非运行或产品验收）
+
+当前实现沿冻结的有限安全基础：原配置 Repository 的企业三类选择/平台官网价与 FX 两类 payload；同一个 ProductAgent/Run DB 的原 revision/current/CAS/回执；原 Resource owner 的微点、授予转换、member limits、图像 R/A 和 debt-first 差额释放。没有新增钱包、余数账本、双 current、迁移或第二收费引擎。
+
+- 官网价 payload 显式冻结地区、同步服务类型、必要图片尺寸/质量及官方来源/有效期；型号/渠道/地区/服务/图片参数不匹配、价格/FX 缺失或过期均不授予执行。
+- 稳定价格条目在同一 owner 的下一 revision 内复用原版本；修改/移除再加入产生新版本，不通过回滚复活旧报价。平台发布也保留原 key 优先、CAS 与 uncertain ACK 语义。
+- `ValidateShape` 只检查准入描述和原币成本上界；正式 `ModelProfile.Validate` 仍要求完整的当前官方 tariff。部署描述里的历史 tariff 不会被统一 reader 作为收费价目消费。
+- 图片 `Points` 是由统一官方公式计算的预留微点缓存，须与冻结 Billing 完全相符；结算/proof/closure 传实际 A，另保留 R。缺完整实际 usage 不结算；A=0 仍可 committed。原工厂/ledger/key/恢复责任保留。
+- 新空资源 schema 含明确数量单位；已有缺列/混合单位/旧单位库拒绝且不修复。购买源数量维持整点并在可信入口转换一次；余额、月限、事件和 proof 同量纲。
+- 当前页面与 BFF 替换旧独立点价编辑及 per-purpose 发布路由，三类模型一次选择；平台官网价与 FX 仍单独受既有平台维护授权。业务页不另选模型。
+
+Legacy decision: EXTRACT | RETIRE
+Reusable behavior: 原配置 CAS/回执、去密凭据投影、单 effect、原资源事务、debt-first 入账、UNKNOWN 和原结果找回。
+Current owner: `aicapability/routeconfig` 的原 ProductAgent/Run DB；原 Image 凭据/生成 owner；`orgresource`。
+Cutover/deletion condition: 旧输入/输出点价、图片 PointsPerImage、两个 serving current 和业务页 VIP 新选择退出正式接线；不迁移或重解释保留事实。未变化的历史记录及旧证据只按原范围保留。
+
+本轮不把完整三类交付标为 Ready：Flare 完整保守费用上界/直连适配仍缺，C2-2 真实消费链路仍未完成；整体发布门禁保持。GPT/Gemini/Qwen 的支持目标未撤回，未准入型号不伪装可用。只使用合成数据/transport 与任务隔离 PG；现场准备 UNKNOWN，运行/真实保存恢复/浏览器/模型质量/产品验收 NOT_RUN。

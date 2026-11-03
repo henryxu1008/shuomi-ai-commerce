@@ -16,14 +16,13 @@ import (
 // Opt-in per database. Bindings are private, deployment-admitted descriptors;
 // they do not select a current route. No credentials or published rates live here.
 type ModelRoutePricingConfig struct {
-	TextWriter  *DatabaseConfig        `json:"textWriter,omitempty"`
-	ImageWriter *DatabaseConfig        `json:"imageWriter,omitempty"`
-	Bindings    []qualified.Definition `json:"bindings,omitempty"`
+	Writer   *DatabaseConfig        `json:"writer,omitempty"`
+	Bindings []qualified.Definition `json:"bindings,omitempty"`
 }
 
 func (m *ModelRoutePricingConfig) writerConnections(target DatabaseConfig) int {
 	required := 0
-	for _, writer := range []*DatabaseConfig{m.TextWriter, m.ImageWriter} {
+	for _, writer := range []*DatabaseConfig{m.Writer} {
 		if writer != nil && writer.Host == target.Host && writer.Port == target.Port && writer.User == target.User {
 			required += writer.MaxConnections
 		}
@@ -37,7 +36,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		return nil, nil
 	}
 	invalid := errors.New("model route pricing requires enabled original consumers, same database and bounded dedicated writer")
-	if m.TextWriter == nil && m.ImageWriter == nil {
+	if m.Writer == nil {
 		return nil, invalid
 	}
 	check := func(writer, original *DatabaseConfig) bool {
@@ -45,8 +44,8 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	}
 	defs := []qualified.Definition{}
 	anchors := map[d.Scope]governed.RoutePolicy{}
-	if m.TextWriter != nil {
-		if c.ProductAgent == nil || !c.ProductAgent.Enabled || !check(m.TextWriter, &c.ProductAgent.Database) {
+	if m.Writer != nil {
+		if c.ProductAgent == nil || !c.ProductAgent.Enabled || !check(m.Writer, &c.ProductAgent.Database) {
 			return nil, invalid
 		}
 		p := c.ProductAgent
@@ -76,18 +75,12 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 			return nil, invalid
 		}
 	}
-	imageScopes := map[d.Scope]bool{}
-	if m.ImageWriter != nil {
-		if c.ImageAgent == nil || c.ImageAgent.WorkerConfigFile == "" || !check(m.ImageWriter, &c.ImageAgent.Database) || !c.ImageAgent.Generation.Configured() {
-			return nil, invalid
-		}
-	}
+
 	for _, def := range m.Bindings {
 		if def.Image != nil {
-			if m.ImageWriter == nil || !slices.Contains(c.ImageAgent.AllowedOrganizationIDs, def.Scope.OrganizationID) || def.Scope.Capability != d.ImageCapability || def.Image.MaximumPointsPerImage > c.ImageAgent.Generation.PointsPerImage {
+			if c.ImageAgent == nil || !slices.Contains(c.ImageAgent.AllowedOrganizationIDs, def.Scope.OrganizationID) || def.Scope.Capability != d.ImageCapability || def.Image.UnitVersion != aicapability.AIPointMicrounitV1 || def.Image.MaximumMicropoints > c.ImageAgent.Generation.MaximumMicropoints {
 				return nil, invalid
 			}
-			imageScopes[def.Scope] = true
 		} else {
 			anchor, ok := anchors[def.Scope]
 			if !ok || def.Text == nil {
@@ -101,46 +94,44 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		defs = append(defs, def)
 	}
-	if m.ImageWriter != nil {
-		for _, org := range c.ImageAgent.AllowedOrganizationIDs {
-			if !imageScopes[d.Scope{OrganizationID: org, Capability: d.ImageCapability}] {
-				return nil, invalid
-			}
-		}
-	}
 	if _, e := qualified.NewCatalog(defs); e != nil {
 		return nil, e
 	}
 	return defs, nil
 }
 
-func prepareModelRouteServices(ctx context.Context, reader, writer *gorm.DB, defs []qualified.Definition) (*d.Service, *d.Service, error) {
+func prepareSharedModelServices(ctx context.Context, reader, writer, imageCredentials *gorm.DB, defs []qualified.Definition) (*d.SharedModelService, *d.SharedModelService, *d.PlatformPricesService, error) {
 	if reader == nil || writer == nil || reader == writer {
-		return nil, nil, d.ErrUnavailable
+		return nil, nil, nil, d.ErrUnavailable
 	}
-	imageOptions := false
-	for _, def := range defs {
-		imageOptions = imageOptions || def.Scope.Capability == d.ImageCapability
+	if e := store.VerifyReader(ctx, reader, false); e != nil {
+		return nil, nil, nil, e
 	}
-	if e := store.VerifyReader(ctx, reader, imageOptions); e != nil {
-		return nil, nil, e
-	}
-	if e := store.VerifyWriter(ctx, writer, imageOptions); e != nil {
-		return nil, nil, e
+	if e := store.VerifyWriter(ctx, writer, false); e != nil {
+		return nil, nil, nil, e
 	}
 	catalog, e := qualified.NewCatalog(defs)
 	if e != nil {
-		return nil, nil, e
+		return nil, nil, nil, e
 	}
 	read, e := store.New(reader)
 	if e != nil {
-		return nil, nil, e
+		return nil, nil, nil, e
 	}
 	write, e := store.New(writer)
 	if e != nil {
-		return nil, nil, e
+		return nil, nil, nil, e
 	}
-	return &d.Service{Repository: read, Catalog: catalog}, &d.Service{Repository: write, Catalog: catalog}, nil
+	prices := &d.PlatformPricesService{Repository: write}
+	trusted := &qualified.SharedCatalog{Catalog: catalog, Credentials: read, Prices: &d.PlatformPricesService{Repository: read}}
+	if imageCredentials != nil {
+		projection, e := store.New(imageCredentials)
+		if e != nil {
+			return nil, nil, nil, e
+		}
+		trusted.ImageCredentials = projection
+	}
+	return &d.SharedModelService{Repository: read, Catalog: trusted}, &d.SharedModelService{Repository: write, Catalog: trusted}, prices, nil
 }
 
 func (c *Config) modelRouteCostCeiling(capability string) int64 {

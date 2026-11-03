@@ -26,7 +26,7 @@ func TestDecimalRatesAreExactBoundedIntegers(t *testing.T) {
 }
 
 func testBinding() Binding {
-	p := aicapability.ModelProfile{ClientName: "binding-a", ProviderID: "fixture", ModelID: "fixture-model", AdapterKind: "openai-compatible", EndpointIdentityDigest: "endpoint-a", CredentialVersion: "credential-a", RoutingPolicyVersion: "route-a", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "price-a", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "point-a", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 1, OutputText: 1}}, Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 1000, MaximumCompletionTokens: 100, MaximumInputBytes: 4096, MaximumOutputBytes: 4096, DeadlineBound: time.Second}
+	p := aicapability.ModelProfile{ClientName: "binding-a", ProviderID: "fixture", ModelID: "fixture-model", AdapterKind: "openai-compatible", EndpointIdentityDigest: "endpoint-a", CredentialVersion: "credential-a", RoutingPolicyVersion: "route-a", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "price-a", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "point-a", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 1000, MaximumCompletionTokens: 100, MaximumInputBytes: 4096, MaximumOutputBytes: 4096, DeadlineBound: time.Second}
 	return Binding{ID: "binding-a", CredentialVersion: "credential-a", Text: &p, MaximumCostMicros: 1000000}
 }
 
@@ -50,12 +50,14 @@ func TestPublicationVersionsFreezeRatesAndPreventRollbackABA(t *testing.T) {
 }
 
 func TestImagePriceDoesNotBecomeTokenTariffOrProviderCost(t *testing.T) {
-	b := Binding{ID: "image-a", CredentialVersion: "credential-a", MaximumImagePoints: 100, Image: &ImageProfile{Provider: "fixture", Model: "image-model", Protocol: "fixture-sync", EndpointDigest: "endpoint", CredentialReference: "db:1:1:image-a"}}
-	p, err := Freeze(b, Rates{PointsPerImage: "10"}, "image-r1")
+	b := Binding{ID: "image-a", CredentialVersion: "credential-a", Image: &ImageProfile{Billing: aicapability.OfficialModelBilling{OfficialTariff: testBinding().Text.OfficialTariff, BoundEvidenceVersion: "synthetic-bound", UsageBound: aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: 100, OutputText: 100}}, Provider: "fixture", Model: "image-model", Protocol: "fixture-sync", EndpointDigest: "endpoint", CredentialReference: "db:1:1:image-a"}}
+	b.Image.Model = b.Image.Billing.OfficialTariff.Model
+	maximum, _ := b.Image.Billing.ReservationMicropoints(b.Image.Model)
+	p, err := Freeze(b, Rates{}, "image-r1")
 	require.NoError(t, err)
 	require.Nil(t, p.Text)
-	require.EqualValues(t, 10, p.Image.Points)
-	require.Equal(t, "image-r1", p.Image.PriceVersion)
-	_, err = Freeze(b, Rates{PointsPerImage: "10", InputCost: "1"}, "image-r2")
+	require.EqualValues(t, maximum, p.Image.Points)
+	require.Equal(t, b.Image.Billing.OfficialTariff.PriceVersion, p.Image.PriceVersion)
+	_, err = Freeze(b, Rates{InputCost: "1"}, "image-r2")
 	require.Error(t, err)
 }

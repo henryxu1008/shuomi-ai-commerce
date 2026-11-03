@@ -249,7 +249,7 @@ func TestAcquisitionImageConfiguredGenerationUsesExactCatalogAndStableStart(t *t
 	identity := authidentity.AuthenticatedIdentity{TenantID: "org-a", EffectiveOrganizationID: "org-a", UserID: "actor-a", EffectiveMemberID: "member-a"}
 	service, catalog := &acquisitionImageServiceSpy{}, &acquisitionImageCandidatesSpy{}
 	router := gin.New()
-	for _, route := range acquisitionImageRoutes(service, catalog, &acquisitionImageApprovalReaderSpy{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }, acquisitionImagePublicURLs{}, acquisitionImageRouteOptions{Price: config.ImageAgentGenerationConfig{PriceVersion: "price-1", PointsPerImage: 12}}) {
+	for _, route := range acquisitionImageRoutes(service, catalog, &acquisitionImageApprovalReaderSpy{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }, acquisitionImagePublicURLs{}, acquisitionImageRouteOptions{Price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12}}) {
 		router.Handle(route.Method, route.Path, route.Handler)
 	}
 	base := "/api/v1/workbench/sourcing/1688/acquisitions/" + operationID + "/main-image"
@@ -454,7 +454,7 @@ func TestAcquisitionImageCurrentRouteRejectsRetiredControlsBeforeStart(t *testin
 		t.Run(tc.name, func(t *testing.T) {
 			service, sources := &acquisitionImageServiceSpy{}, &acquisitionImageCandidatesSpy{}
 			router := gin.New()
-			for _, route := range acquisitionImageRoutes(service, sources, &acquisitionImageApprovalReaderSpy{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }, acquisitionImagePublicURLs{}, acquisitionImageRouteOptions{Price: config.ImageAgentGenerationConfig{PriceVersion: "price-1", PointsPerImage: 12}}) {
+			for _, route := range acquisitionImageRoutes(service, sources, &acquisitionImageApprovalReaderSpy{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }, acquisitionImagePublicURLs{}, acquisitionImageRouteOptions{Price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12}}) {
 				router.Handle(route.Method, route.Path, route.Handler)
 			}
 			r := httptest.NewRequest(http.MethodPost, "/api/v1/workbench/sourcing/1688/acquisitions/"+operationID+"/main-image"+tc.query, strings.NewReader(tc.body))

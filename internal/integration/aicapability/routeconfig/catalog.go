@@ -15,18 +15,27 @@ import (
 )
 
 type ImageAdmission struct {
-	ClientName            string `json:"clientName"`
-	Provider              string `json:"provider"`
-	Model                 string `json:"model"`
-	Endpoint              string `json:"endpoint"`
-	CredentialVersion     string `json:"credentialVersion"`
-	MaximumPointsPerImage int64  `json:"maximumPointsPerImage"`
+	UnitVersion        string                            `json:"unitVersion"`
+	MaximumMicropoints int64                             `json:"maximumMicropoints,string"`
+	ClientName         string                            `json:"clientName"`
+	Provider           string                            `json:"provider"`
+	Model              string                            `json:"model"`
+	Endpoint           string                            `json:"endpoint"`
+	CredentialVersion  string                            `json:"credentialVersion"`
+	Billing            aicapability.OfficialModelBilling `json:"billing"`
 }
 type Definition struct {
-	Scope             d.Scope               `json:"scope"`
-	Text              *governed.RoutePolicy `json:"text,omitempty"`
-	Image             *ImageAdmission       `json:"image,omitempty"`
-	MaximumCostMicros int64                 `json:"maximumCostMicros,omitempty"`
+	Manufacturer         string                `json:"manufacturer"`
+	Region               string                `json:"region"`
+	ServiceType          string                `json:"serviceType"`
+	Channel              string                `json:"channel"`
+	PriceID              string                `json:"priceId"`
+	ReferenceVersion     string                `json:"referenceVersion"`
+	BoundEvidenceVersion string                `json:"boundEvidenceVersion"`
+	Scope                d.Scope               `json:"scope"`
+	Text                 *governed.RoutePolicy `json:"text,omitempty"`
+	Image                *ImageAdmission       `json:"image,omitempty"`
+	MaximumCostMicros    int64                 `json:"maximumCostMicros,omitempty"`
 }
 type Catalog struct {
 	definitions map[d.Scope]map[string]Definition
@@ -37,7 +46,6 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 		return nil, d.ErrInvalid
 	}
 	c := &Catalog{definitions: map[d.Scope]map[string]Definition{}}
-	clients := map[string]d.Scope{}
 	for _, def := range defs {
 		if !def.Scope.Valid() || (def.Text == nil) == (def.Image == nil) || (def.Image != nil) != (def.Scope.Capability == d.ImageCapability) {
 			return nil, d.ErrInvalid
@@ -47,7 +55,7 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 			p := *def.Text
 			def.Text = &p
 			id = p.Profile.ClientName
-			if !governed.ValidRouteProfile(p.ShapeProfile(), aicapability.Operation(def.Scope.Capability)) || def.MaximumCostMicros <= 0 {
+			if !governed.ValidRouteShape(p.ShapeProfile(), aicapability.Operation(def.Scope.Capability)) || def.MaximumCostMicros <= 0 {
 				return nil, d.ErrInvalid
 			}
 		}
@@ -62,11 +70,6 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 		if !d.ValidFact(id, 64) {
 			return nil, d.ErrInvalid
 		}
-		key := def.Scope.OrganizationID + "/" + id
-		if sc, ok := clients[key]; ok && sc != def.Scope {
-			return nil, d.ErrInvalid
-		}
-		clients[key] = def.Scope
 		if c.definitions[def.Scope] == nil {
 			c.definitions[def.Scope] = map[string]Definition{}
 		}
@@ -79,7 +82,7 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 }
 func validImage(i ImageAdmission) bool {
 	u, e := url.Parse(i.Endpoint)
-	if e != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || i.MaximumPointsPerImage <= 0 || i.MaximumPointsPerImage > 1e12 {
+	if i.UnitVersion != aicapability.AIPointMicrounitV1 || i.MaximumMicropoints <= 0 || e != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return false
 	}
 	if i.Provider == "bailian" {
@@ -139,7 +142,7 @@ func (c *Catalog) Qualify(sc d.Scope, id string, row d.Credential) (d.Binding, e
 	} else if row.APIStyle != "grsai" {
 		return d.Binding{}, d.ErrNeedsConfiguration
 	}
-	return d.Binding{ID: id, CredentialVersion: row.Version, Provider: i.Provider, Model: i.Model, Protocol: protocol, MaximumImagePoints: i.MaximumPointsPerImage, DeadlineSeconds: int64(row.TimeoutSeconds), Image: &d.ImageProfile{Provider: i.Provider, Model: i.Model, Protocol: protocol, EndpointDigest: row.EndpointDigest, CredentialReference: row.Reference}}, nil
+	return d.Binding{ID: id, CredentialVersion: row.Version, Provider: i.Provider, Model: i.Model, Protocol: protocol, DeadlineSeconds: int64(row.TimeoutSeconds), Image: &d.ImageProfile{Provider: i.Provider, Model: i.Model, Protocol: protocol, EndpointDigest: row.EndpointDigest, CredentialReference: row.Reference, Billing: i.Billing}}, nil
 }
 
 type TextReader struct{ Service *d.Service }

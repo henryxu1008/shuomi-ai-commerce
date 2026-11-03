@@ -24,7 +24,7 @@ func TestSetConfirmationPersistsOriginalAdmissionExactlyOnce(t *testing.T) {
 			run.ScopeProtocol, run.MemberID, run.TargetPlatform = imageagent.OrganizationScopeProtocol, "member", "product"
 			run.Status, run.CurrentNode = imageagent.RunStatusAwaitingPlanApproval, "confirm_plan"
 			plan := imageSetPlanForStore(t)
-			limits := agentconfig.ImageRunLimits{Images: 1, Points: 20, ElapsedSeconds: 300}
+			limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 20, ElapsedSeconds: 300}
 			run.Budget = imageagent.ImageSetBudget(limits)
 			scope := imageagent.ScopeForRun(*run)
 			ctx := context.Background()

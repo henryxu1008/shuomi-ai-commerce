@@ -35,7 +35,7 @@ func TestPlanningV2CredentialProvisionCreatesAndRotatesOnlyAdmittedBinding(t *te
 				policy.Profile.ClientName, input.ClientName = "chat-candidate", "chat-candidate"
 				writer := cfg.ProductAgent.Database
 				writer.User, writer.MaxConnections = "model_route_config_writer", 2
-				cfg.ModelRoutePricing = &ModelRoutePricingConfig{TextWriter: &writer, Bindings: []qualified.Definition{{
+				cfg.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer, Bindings: []qualified.Definition{{
 					Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationAIWorkbenchChatPlan)}, Text: &policy,
 				}}}
 			} else {

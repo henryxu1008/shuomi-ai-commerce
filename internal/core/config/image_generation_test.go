@@ -1,17 +1,16 @@
 package config
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
-func TestImageGenerationPriceIsExplicitAndHasNoDefault(t *testing.T) {
-	cfg, err := loadConfigFixture(t, []byte("imageagent:\n  generation:\n    priceVersion: image-price-v2\n    pointsPerImage: 17\n"))
+func TestImageGenerationFixedPriceIsRetiredAndCannotOpenGeneration(t *testing.T) {
+	cfg, err := loadConfigFixture(t, []byte("imageagent:\n  generation:\n    priceVersion: retired\n    pointsPerImage: 17\n"))
 	require.NoError(t, err)
-	require.Equal(t, "image-price-v2", cfg.ImageAgent.Generation.PriceVersion)
-	require.EqualValues(t, 17, cfg.ImageAgent.Generation.PointsPerImage)
-	cfg, err = loadConfigFixture(t, []byte(""))
+	require.False(t, cfg.ImageAgent.Generation.Configured())
+	cfg, err = loadConfigFixture(t, []byte("imageagent:\n  generation:\n    enabled: true\n    unitVersion: ai-micropoint-v1\n    maximumMicropoints: 17000000\n"))
 	require.NoError(t, err)
-	require.Equal(t, ImageAgentGenerationConfig{}, cfg.ImageAgent.Generation)
+	require.True(t, cfg.ImageAgent.Generation.Configured())
+	require.EqualValues(t, 17000000, cfg.ImageAgent.Generation.MaximumMicropoints)
 }
