@@ -1,14 +1,16 @@
 # 企业统一模型配置与官方价点数折算：设计候选
 
-状态：**DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**。Design Basis：Independent Architecture。
+状态：**IMPLEMENTATION_READY / FROZEN（限定安全基础）**。Design Basis：Independent Architecture。
+Flare 准备/执行、三类默认完整可用及整批用户目标仍未满足，不在本次 Ready 声明内。
 Refs #134 / #128 / design-only Draft PR #1078；当前唯一 Writer、原工作区和分支继续，不新增派工或评审。
-本阶段仅交付设计候选与直接冲突引用，沿原 design-only Draft PR 维护；
-无生产代码、schema 或真实配置改动，独立架构复核 NOT_RUN。
+本阶段沿原 Draft PR 连续开发。原唯一 Reviewer 已完成一次有界架构检查及本文件发布语义消歧增量，
+确认官网分项/冻结 FX/微点、原资源事务、统一配置/CAS/reader-validator 的安全基础可实施。
+准入证据与实际实现/最终 HEAD/CI 维护在 PR；独立最终工程检查及真实使用验收分别执行。
 
 2026-11-03 用户后续明确“不用咨询，继续开发”，授权原 Writer 在原工作区和 PR 连续实现、
 必要离线/隔离回归、自检及 PR 维护；复用原唯一 Reviewer 完成适用架构准入与最终检查。
 咨询不发送，也不以取得供应商答复作为开发前置。正式业务路径仍须先取得范围明确的
-IMPLEMENTATION_READY；未具备执行依据的型号继续不可执行，不能据开发授权降低费用 Must。
+IMPLEMENTATION_READY；上述限定基础已获准入，未具备执行依据的型号继续不可执行，不能据开发授权降低费用 Must。
 
 ## 1. 用户结果与已确认决定
 
@@ -466,5 +468,6 @@ org/actor 来自 verified identity；跨企业选择、凭据引用和旧页面�
 后续实现以用户最新“不用咨询，继续开发”的明确指令及范围内独立准入为依据，
 不扩大为新增人员、合并、部署、关单或真实操作权限；未准入的 Flare 执行继续明确不可用。
 本候选不覆盖 C2-2 的单图范围/一次调用/只读结果要求，也不宣称 #134/#128 已完成。
-缺证据 UNKNOWN；独立架构复核、运行、真实保存/恢复、浏览器、模型效果及产品验收 NOT_RUN。
+缺证据 UNKNOWN；限定基础架构准入已完成，独立最终工程检查待完整候选；
+运行、真实保存/恢复、浏览器、模型效果及产品验收 NOT_RUN。
 #47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT；保留实例、数据和会话。

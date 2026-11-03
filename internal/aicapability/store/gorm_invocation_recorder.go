@@ -3,6 +3,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -34,7 +35,7 @@ func (r *GormInvocationRecorder) ClaimInvocation(ctx context.Context, record aic
 	if !validPricedTextOperationIdentity(record) {
 		return false, fmt.Errorf("invalid dispatch operation identity")
 	}
-	if record.Outcome != aicapability.InvocationDispatched || record.StartedAt.IsZero() || !record.FinishedAt.IsZero() || record.UsageKnown || record.PromptTokens != 0 || record.CompletionTokens != 0 || record.TotalTokens != 0 || record.ImageCount != 0 || record.EstimatedCostKnown || record.EstimatedCostMicros != 0 {
+	if record.Outcome != aicapability.InvocationDispatched || record.StartedAt.IsZero() || !record.FinishedAt.IsZero() || record.UsageKnown || record.BillableUsage != nil || record.PromptTokens != 0 || record.CompletionTokens != 0 || record.TotalTokens != 0 || record.ImageCount != 0 || record.EstimatedCostKnown || record.EstimatedCostMicros != 0 {
 		return false, fmt.Errorf("invalid initial dispatch fact")
 	}
 	if err := validateUsage(record); err != nil {
@@ -304,6 +305,7 @@ func sameImmutableInvocationFact(existing, replay invocationRow) bool {
 }
 
 func samePointDispatchMetadata(original, proposed invocationRow) bool {
+	proposed.BillableUsageJSON = original.BillableUsageJSON
 	proposed.FinishedAt = original.FinishedAt
 	proposed.LatencyMilliseconds = original.LatencyMilliseconds
 	proposed.PromptTokens, proposed.CompletionTokens, proposed.TotalTokens = original.PromptTokens, original.CompletionTokens, original.TotalTokens
@@ -316,6 +318,15 @@ func samePointDispatchMetadata(original, proposed invocationRow) bool {
 }
 
 func validateUsage(record aicapability.InvocationRecord) error {
+	if usage := record.BillableUsage; usage != nil {
+		if usage.Validate() != nil || !record.UsageKnown || record.Outcome == aicapability.InvocationDispatched ||
+			usage.InputText+usage.InputImage != int64(record.PromptTokens) || usage.OutputText+usage.OutputImage != int64(record.CompletionTokens) ||
+			int64(record.PromptTokens)+int64(record.CompletionTokens) != int64(record.TotalTokens) ||
+			record.Outcome == aicapability.InvocationSucceeded && record.TotalTokens <= 0 ||
+			record.ErrorCode == "rejected_before_dispatch" || record.ErrorCode == "reservation_failed_before_dispatch" {
+			return fmt.Errorf("invalid billable usage metadata")
+		}
+	}
 	if retiredModelReviewIdentity(string(record.Capability), string(record.Operation)) {
 		return fmt.Errorf("retired model review fact")
 	}
@@ -353,6 +364,7 @@ func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool
 }
 
 type invocationRow struct {
+	BillableUsageJSON            string `gorm:"column:billable_usage_json;type:text;not null;default:'null'"`
 	PointPriceVersion            string `gorm:"column:point_price_version;size:128;not null;default:''"`
 	InputPointsPerMillionTokens  int64  `gorm:"column:input_points_per_million_tokens;not null;default:0"`
 	OutputPointsPerMillionTokens int64  `gorm:"column:output_points_per_million_tokens;not null;default:0"`
@@ -412,6 +424,7 @@ type invocationRow struct {
 func (invocationRow) TableName() string { return "ai_invocations" }
 
 func invocationRowFromRecord(record aicapability.InvocationRecord) invocationRow {
+	billable, _ := json.Marshal(record.BillableUsage)
 	startedAt := record.StartedAt.UTC()
 	finishedAt := record.FinishedAt.UTC()
 	latencyMilliseconds := record.LatencyMilliseconds
@@ -423,6 +436,7 @@ func invocationRowFromRecord(record aicapability.InvocationRecord) invocationRow
 		cacheStatus = aicapability.CacheStatusNotApplicable
 	}
 	return invocationRow{
+		BillableUsageJSON: string(billable),
 		PointPriceVersion: record.PointTariff.PriceVersion, InputPointsPerMillionTokens: record.PointTariff.InputPointsPerMillionTokens, OutputPointsPerMillionTokens: record.PointTariff.OutputPointsPerMillionTokens, MaximumPromptTokens: record.MaximumPromptTokens, MaximumCompletionTokens: record.MaximumCompletionTokens,
 
 		EstimatedCostKnown: record.EstimatedCostKnown, UsageKnown: record.UsageKnown,
@@ -443,11 +457,20 @@ func invocationRecordFromRow(row invocationRow) (aicapability.InvocationRecord, 
 	if err := validateCurrentInvocationRow(row); err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
-	return aicapability.InvocationRecord{
-		PointTariff: aicapability.ModelPointTariff{PriceVersion: row.PointPriceVersion, InputPointsPerMillionTokens: row.InputPointsPerMillionTokens, OutputPointsPerMillionTokens: row.OutputPointsPerMillionTokens}, MaximumPromptTokens: row.MaximumPromptTokens, MaximumCompletionTokens: row.MaximumCompletionTokens,
+	var billable *aicapability.BillableModelUsage
+	if row.BillableUsageJSON != "" && json.Unmarshal([]byte(row.BillableUsageJSON), &billable) != nil {
+		return aicapability.InvocationRecord{}, fmt.Errorf("invalid persisted billable usage")
+	}
+	record := aicapability.InvocationRecord{
+		BillableUsage: billable,
+		PointTariff:   aicapability.ModelPointTariff{PriceVersion: row.PointPriceVersion, InputPointsPerMillionTokens: row.InputPointsPerMillionTokens, OutputPointsPerMillionTokens: row.OutputPointsPerMillionTokens}, MaximumPromptTokens: row.MaximumPromptTokens, MaximumCompletionTokens: row.MaximumCompletionTokens,
 		InvocationID: row.InvocationID, ParentInvocationID: row.ParentInvocationID, AgentRunID: row.AgentRunID, TenantID: row.TenantID, UserID: row.UserID, MemberID: row.MemberID, BusinessTaskID: row.BusinessTaskID, TraceID: row.TraceID,
 		Capability: aicapability.Capability(row.Capability), Operation: aicapability.Operation(row.Operation), RouteMode: aicapability.RoutingMode(row.RouteMode), RouteOutcome: aicapability.RouteOutcome(row.RouteOutcome), CacheStatus: aicapability.CacheStatus(row.CacheStatus), ProviderID: row.ProviderID, ModelID: row.ModelID, RequestedRoutingKey: row.RequestedRoutingKey, RoutingKey: row.RoutingKey, CredentialReference: row.CredentialReference, PolicyVersion: row.PolicyVersion, ConfigurationVersion: row.ConfigurationVersion, PromptKey: row.PromptKey, PromptVersion: row.PromptVersion, PromptScope: row.PromptScope, PromptHash: row.PromptHash, StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, LatencyMilliseconds: row.LatencyMilliseconds, Attempt: row.Attempt, FallbackIndex: row.FallbackIndex, PromptTokens: row.PromptTokens, CompletionTokens: row.CompletionTokens, TotalTokens: row.TotalTokens, ImageCount: row.ImageCount, EstimatedCostMicros: row.EstimatedCostMicros, EstimatedCostKnown: row.EstimatedCostKnown, UsageKnown: row.UsageKnown, Currency: row.Currency, Outcome: aicapability.InvocationOutcome(row.Outcome), ErrorCategory: aicapability.ErrorCategory(row.ErrorCategory), RouteErrorCategory: aicapability.ErrorCategory(row.RouteErrorCategory), ErrorCode: row.ErrorCode, ProviderRequestID: row.ProviderRequestID, UpstreamJobID: row.UpstreamJobID, InputHash: row.InputHash, OutputHash: row.OutputHash,
-	}, nil
+	}
+	if err := validateUsage(record); err != nil {
+		return aicapability.InvocationRecord{}, err
+	}
+	return record, nil
 }
 
 func trim(value string) string { return strings.TrimSpace(value) }

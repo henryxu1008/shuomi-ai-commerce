@@ -53,6 +53,7 @@ func modelPointHash(value any) string {
 }
 func modelPointKey(kind, id string) string { return "model-point-" + kind + ":" + modelPointHash(id) }
 func modelPointFingerprint(fact aicapability.InvocationRecord) string {
+	fact.BillableUsage = nil
 	fact.StartedAt = fact.StartedAt.UTC().Truncate(time.Microsecond)
 	fact.FinishedAt = time.Time{}
 	fact.LatencyMilliseconds = 0

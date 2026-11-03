@@ -24,6 +24,7 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"github.com/sirupsen/logrus"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/integration/googleinteractions"
 )
 
@@ -110,6 +111,7 @@ type GuardConfig struct {
 }
 
 type ObservedUsage struct {
+	BillableUsage    *aicapability.BillableModelUsage
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
@@ -386,7 +388,11 @@ func observeUsage(raw []byte, adapter AdapterKind) ObservedUsage {
 		if p < 0 || c < 0 || t <= 0 || p+c != t {
 			return ObservedUsage{}
 		}
-		return ObservedUsage{PromptTokens: p, CompletionTokens: c, TotalTokens: t, Known: true}
+		observed := ObservedUsage{PromptTokens: p, CompletionTokens: c, TotalTokens: t, Known: true}
+		if billable, err := ObserveOfficialOpenAITextUsage(raw); err == nil {
+			observed.BillableUsage = &billable
+		}
+		return observed
 	}
 	var result struct {
 		Usage *struct {

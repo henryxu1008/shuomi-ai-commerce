@@ -47,7 +47,7 @@ func (s Scope) Valid() bool {
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan:
 		return true
 	}
-	return s.Capability == ImageCapability
+	return s.Capability == ImageCapability || s.Capability == SharedModelCapability
 }
 
 type Rates struct {
@@ -161,6 +161,7 @@ type Catalog interface {
 	Qualify(Scope, string, Credential) (Binding, error)
 }
 type Payload struct {
+	SharedModels      *SharedModelSelection      `json:"sharedModels,omitempty"`
 	Optional          bool                       `json:"optional,omitempty"`
 	BindingID         string                     `json:"bindingId"`
 	CredentialVersion string                     `json:"credentialVersion"`

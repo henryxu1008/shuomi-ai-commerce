@@ -268,6 +268,10 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	record.ProviderRequestID = googleinteractions.SafeRequestID(output.ProviderRequestID)
 	record.LatencyMilliseconds = record.FinishedAt.Sub(now).Milliseconds()
 	record.PromptTokens, record.CompletionTokens, record.TotalTokens = output.Usage.PromptTokens, output.Usage.CompletionTokens, output.Usage.TotalTokens
+	if output.Usage.BillableUsage != nil {
+		billable := *output.Usage.BillableUsage
+		record.BillableUsage = &billable
+	}
 	record.UsageKnown, record.EstimatedCostKnown = true, true
 	record.EstimatedCostMicros, err = p.CostFor(int64(record.PromptTokens), int64(record.CompletionTokens))
 	if err != nil {
