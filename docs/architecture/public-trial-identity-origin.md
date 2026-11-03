@@ -1,7 +1,11 @@
 # Fixed HTTPS identity origin for the cloud trial
 
 Issue: [#1085](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1085).
-Design Basis: **Independent Architecture**. Admission: **REVIEW_REQUIRED**.
+Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY**.
+
+Independent architecture check: `public_identity_review`, 2026-11-04; no BLOCKER.
+One IMPLEMENTATION_TEST finding requires focused foreign-endpoint and untrusted
+TLS preflight tests. Production implementation follows this committed design.
 
 ## Product authority and outcome
 
@@ -87,8 +91,8 @@ confirm rejection before the fix, then acceptance. Test mismatched public origin
 mixed loopback/public, HTTP public origins, explicit ports, paths, trailing slash,
 userinfo, query/fragment, IP/localhost aliases, invalid labels and bounded length.
 Keep existing local config, listener/database isolation and schema checks.
-Reuse existing preflight tests for issuer/endpoint mismatch and TLS failures;
-add only a focused missing boundary case if current coverage requires it.
+Reuse existing issuer-mismatch/unavailable preflight tests and add the reviewed
+coverage gaps: correct issuer with a foreign endpoint, and untrusted TLS rejection.
 Run affected Go tests and required PR CI once the candidate is stable.
 
 On ECS, verify source/image receipt, startup health, public TLS and discovery,
