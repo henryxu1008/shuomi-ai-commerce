@@ -94,7 +94,7 @@ function ScopedSupplyPage({scope,initialPreparation,initialStore,initialOperatio
  const loading=!!preparationId&&loadedKey!==rowsKey;
  const [controlBusy,setControlBusy]=useState(false);
  const [review,setReview]=useState<SupplyOperationItem>();const [bulkReview,setBulkReview]=useState<SupplyOperationItem[]>();
- const selectionRef=useRef("");selectionRef.current=JSON.stringify([preparationId,storeId,planId]);
+ const selectionRef=useRef("");useEffect(()=>{selectionRef.current=JSON.stringify([preparationId,storeId,planId])},[preparationId,storeId,planId]);
  const controlRequest=useRef<AbortController|null>(null);
  useEffect(()=>()=>{controlRequest.current?.abort()},[]);
  function savePlanSelection(p:UploadPlan){const url=new URL(window.location.href);url.searchParams.set("plan",p.id);url.searchParams.set("preparation",p.input.preparationId);url.searchParams.set("store",p.input.storeId);window.history.replaceState(null,"",url);}
