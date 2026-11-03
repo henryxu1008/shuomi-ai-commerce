@@ -26,6 +26,18 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+it.each(["product.image.agent","pod.design.agent"])("preserves bounded unavailable counts for %s",async agentId=>{
+ const payload={items:[],nextCursor:"next",unavailableCount:20};
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(payload)));
+ const response=await proxyAgentConfiguration(request(`${agentId}/recent-runs?pageSize=20`),"token","actor");
+ expect(response.status).toBe(200);expect(await response.json()).toEqual(payload);
+});
+
+it.each([-1,1.5,41])("rejects an invalid unavailable count %s",async unavailableCount=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({items:[],nextCursor:"",unavailableCount})));
+ expect((await proxyAgentConfiguration(request("product.image.agent/recent-runs?pageSize=20"),"token","actor")).status).toBe(502);
+});
+
 it.each([["product.selection.agent","product-selection-v1","product"],["shop.operations-diagnosis.agent","shop-operations-diagnosis-v1","business"]])("preserves the actual Go RecentRun fields for %s",async(agentId,contextKind,targetPlatform)=>{
  const row={runId:key,operationId:key,requestKey:key,contextKind,productKey:"",targetPlatform,phase:"running",revision:"1",startedAt:"2026-10-18T00:00:00Z"};
  const fetch=vi.fn().mockImplementation(()=>Promise.resolve(Response.json({items:[row],nextCursor:""})));vi.stubGlobal("fetch",fetch);

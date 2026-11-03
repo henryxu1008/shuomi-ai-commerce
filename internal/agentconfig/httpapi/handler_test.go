@@ -78,6 +78,21 @@ func TestConfigureGrantReadsWithoutImplyingUse(t *testing.T) {
 	require.Equal(t, 403, call(r, "POST", "/product.title.agent/disable", `{}`, map[string]string{"Idempotency-Key": uuid.NewString(), "If-Match": `"1"`}).Code)
 	require.Zero(t, repo.calls)
 }
+
+func TestRecentPagePublishesOnlyCountForUnreadableTasks(t *testing.T) {
+	h := &Handler{Repository: &repoFixture{}, Catalog: catalogFixture{}, Authorize: func(context.Context, ...string) (agent.Scope, error) {
+		return agent.Scope{OrganizationID: "B", ActorID: "actor"}, nil
+	}, Recent: func(context.Context, agent.Scope, string, string, int) (any, string, error) {
+		return RecentItems{Items: []string{}, UnavailableCount: 20}, "", nil
+	}}
+	router := gin.New()
+	for _, route := range Routes(h) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	response := call(router, "GET", "/product.title.agent/recent-runs?pageSize=20", "", nil)
+	require.Equal(t, 200, response.Code)
+	require.JSONEq(t, `{"items":[],"nextCursor":"","unavailableCount":20}`, response.Body.String())
+}
 func TestDefaultClearAndStrongPreconditions(t *testing.T) {
 	repo := &repoFixture{}
 	r := harness(repo, map[string]bool{authz.PermissionWorkbenchAgentConfigure: true})

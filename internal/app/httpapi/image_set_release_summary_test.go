@@ -145,7 +145,7 @@ func TestFullImageRecentReleaseSummaryFollowsLiveSourceAuthorization(t *testing.
 				}
 				return imageagent.ImageSetPreparation{}, nil
 			})
-			got, _, err := a.readRecent(ctx, "", "previous", 1)
+			got, _, _, err := a.readRecent(ctx, "", "previous", 1)
 			require.NoError(t, err)
 			if denied {
 				require.Empty(t, got)
