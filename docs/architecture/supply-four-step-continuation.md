@@ -1,8 +1,8 @@
 # 四步供应链与原任务继续上传
 
-Product Decision: **PD-SUPPLY-FOUR-STEP-CONTINUATION-2026-11-03**  
-Execution: [#1079](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1079)  
-Design Basis: **Independent Architecture**  
+Product Decision: **PD-SUPPLY-FOUR-STEP-CONTINUATION-2026-11-03**<br>
+Execution: [#1079](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1079)<br>
+Design Basis: **Independent Architecture**<br>
 Admission: **DESIGNING / NOT_READY**（独立评审通过前禁止修改生产路径）
 
 ## 1. 用户结果、范围与优先级
