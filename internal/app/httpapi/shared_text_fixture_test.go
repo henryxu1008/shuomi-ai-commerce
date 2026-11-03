@@ -23,6 +23,8 @@ func (f syntheticCurrentTextPolicies) ReadPolicy(_ context.Context, key governed
 		policies = f.settings.SelectionTextPolicies
 	case aicapability.OperationShopDiagnosisDecision:
 		policies = f.settings.DiagnosisTextPolicies
+	case aicapability.OperationProductImageAnalysis:
+		policies = f.settings.ImageAnalysisPolicies
 	}
 	return policies[key.OrganizationID], nil
 }

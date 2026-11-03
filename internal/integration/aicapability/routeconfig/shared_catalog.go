@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"task-processor/internal/agentconfig"
 	"time"
 
 	"task-processor/internal/aicapability"
@@ -58,7 +59,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	scopes := c.Catalog.Scopes(org)
 	for _, scope := range scopes {
 		def, ok := c.Catalog.definitions[scope][ref.ID]
-		if !ok || (def.Image != nil) != (category == d.ModelCategoryImage) {
+		if !ok || sharedDefinitionCategory(def) != category {
 			continue
 		}
 		defs = append(defs, def)
@@ -94,10 +95,6 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, nil
 	}
 	q.BoundEvidenceVersion = first.BoundEvidenceVersion
-	if category == d.ModelCategoryMultimodal {
-		q.Reason = "VISION_CONSUMER_NOT_IMPLEMENTED"
-		return q, nil
-	}
 	if c.Prices == nil {
 		q.Reason = "OFFICIAL_PRICE_MISSING"
 		return q, nil
@@ -194,6 +191,10 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 				q.Reason = "CONSUMER_NOT_QUALIFIED"
 				return q, nil
 			}
+			if category == d.ModelCategoryMultimodal && (!aicapability.SingleImageProfile(p) || p.PromptVersion != agentconfig.ImageAnalysisPromptVersion || p.OutputSchemaVersion != agentconfig.ImageAnalysisResultVersion || p.MaximumPromptTokens <= aicapability.SingleImagePromptTokenBound+1024) {
+				q.Reason = "VISION_PROTOCOL_NOT_ADMITTED"
+				return q, nil
+			}
 			maximum, err := p.MaximumCost()
 			if err != nil || maximum > def.MaximumCostMicros {
 				q.Reason = "COST_BOUND_MISSING"
@@ -207,7 +208,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	}
 	if category == d.ModelCategoryText {
 		for _, scope := range scopes {
-			if scope.Capability != d.ImageCapability {
+			if scope.Capability != d.ImageCapability && scope.Capability != string(aicapability.OperationProductImageAnalysis) {
 				if _, ok := q.TextProfiles[scope.Capability]; !ok {
 					q.Reason = "OPEN_CONSUMER_MISSING"
 					return q, nil
@@ -223,6 +224,16 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	q.ProfileVersion = hex.EncodeToString(sum[:])
 	q.Ready, q.Reason = true, ""
 	return q, nil
+}
+
+func sharedDefinitionCategory(def Definition) d.ModelCategory {
+	if def.Image != nil {
+		return d.ModelCategoryImage
+	}
+	if def.Scope.Capability == string(aicapability.OperationProductImageAnalysis) {
+		return d.ModelCategoryMultimodal
+	}
+	return d.ModelCategoryText
 }
 func (c *SharedCatalog) Options(ctx context.Context, org string) ([]d.ModelOption, error) {
 	refs := map[d.ModelCategory]map[d.ModelBindingReference]bool{}
@@ -240,10 +251,7 @@ func (c *SharedCatalog) Options(ctx context.Context, org string) ([]d.ModelOptio
 			if !d.ValidFact(def.ReferenceVersion, 128) {
 				continue
 			}
-			cat := d.ModelCategoryText
-			if def.Image != nil {
-				cat = d.ModelCategoryImage
-			}
+			cat := sharedDefinitionCategory(def)
 			refs[cat][d.ModelBindingReference{ID: id, Version: def.ReferenceVersion}] = true
 		}
 	}
@@ -283,7 +291,11 @@ func (r SharedTextReader) ReadPolicy(ctx context.Context, key governed.RouteKey)
 	if r.Service == nil {
 		return governed.RoutePolicy{}, d.ErrUnavailable
 	}
-	q, digest, err := r.Service.ReadCategory(ctx, key.OrganizationID, d.ModelCategoryText)
+	category := d.ModelCategoryText
+	if key.Operation == aicapability.OperationProductImageAnalysis {
+		category = d.ModelCategoryMultimodal
+	}
+	q, digest, err := r.Service.ReadCategory(ctx, key.OrganizationID, category)
 	if errors.Is(err, d.ErrNotFound) || errors.Is(err, d.ErrNeedsConfiguration) {
 		return governed.RoutePolicy{}, nil
 	}

@@ -16,6 +16,16 @@ import (
 	"time"
 )
 
+// The existing source-media composition owns its immutable read port. Caller
+// has already authorized the exact published Catalog/ApprovedAsset identity.
+func (m *collectionSourceMediaDependencies) readAuthorizedPublished(ctx context.Context, originalActor, url string, maximum int64) ([]byte, bool, error) {
+	var storage productsourcing.SourceMediaStorage
+	if m != nil {
+		storage = m.Storage
+	}
+	return (productsourcing.SourceMedia{Storage: storage}).ReadAuthorizedPublished(ctx, originalActor, url, maximum)
+}
+
 func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.DB, dependencies routeAuthDependencies, permissions *authz.ListingKitAuthorizer, cfg *config.Config, supply bool, media *collectionSourceMediaDependencies, marketPODImages ...bool) (kernelmodule.Module, error) {
 	if err := configureCollectionSourceMediaTrial(media, cfg); err != nil {
 		return nil, err

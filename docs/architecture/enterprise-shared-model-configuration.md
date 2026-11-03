@@ -502,4 +502,4 @@ Reusable behavior: 原配置 CAS/回执、去密凭据投影、单 effect、原�
 Current owner: `aicapability/routeconfig` 的原 ProductAgent/Run DB；原 Image 凭据/生成 owner；`orgresource`。
 Cutover/deletion condition: 旧输入/输出点价、图片 PointsPerImage、两个 serving current 和业务页 VIP 新选择退出正式接线；不迁移或重解释保留事实。未变化的历史记录及旧证据只按原范围保留。
 
-本轮不把完整三类交付标为 Ready：Flare 完整保守费用上界/直连适配仍缺，C2-2 真实消费链路仍未完成；整体发布门禁保持。GPT/Gemini/Qwen 的支持目标未撤回，未准入型号不伪装可用。只使用合成数据/transport 与任务隔离 PG；现场准备 UNKNOWN，运行/真实保存恢复/浏览器/模型质量/产品验收 NOT_RUN。
+本轮不把完整三类交付标为 Ready：Flare 完整保守费用上界/直连适配仍缺；C2-2 的生产读取、企业多模态解析、原页面确认及只读历史已接入候选，仍待准确 HEAD CI 和最终工程复核。完整三类原子发布及未准入门禁保持。GPT/Gemini/Qwen 的支持目标未撤回，未准入型号不伪装可用。只使用合成数据/transport 与任务隔离 PG；现场准备 UNKNOWN，运行/真实保存恢复/浏览器/模型质量/产品验收 NOT_RUN。

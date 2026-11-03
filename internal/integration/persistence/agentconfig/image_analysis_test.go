@@ -27,7 +27,7 @@ func analysisStart(t *testing.T, s *Store) agentconfig.StartCommand {
 	require.NoError(t, err)
 	p := aicapability.ModelProfile{ClientName: "openai-mini", ProviderID: "openai", AdapterKind: "openai-compatible", ModelID: aicapability.SingleImageMiniModel, EndpointIdentityDigest: strings.Repeat("a", 64), CredentialVersion: "credential", RoutingPolicyVersion: "shared-choice", AdapterPolicyVersion: aicapability.SingleImageMiniAdapterPolicy, PromptVersion: agentconfig.ImageAnalysisPromptVersion, OutputSchemaVersion: agentconfig.ImageAnalysisResultVersion, UsageMappingVersion: "openai-text-v1", CostPricingVersion: "budget", Currency: "CNY", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, MaximumPromptTokens: 8000, MaximumCompletionTokens: 1024, MaximumInputBytes: 8192, MaximumOutputBytes: 16384, DeadlineBound: time.Minute,
 		OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-price", FXVersion: "fixture-fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: aicapability.SingleImageMiniModel, Channel: "openai-direct", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, CachedInputText: 1000, OutputText: 20000}}}
-	c := agentconfig.StartCommand{Scope: scope, MemberID: id.MemberID, ExpectedModeRevision: mr.Revision, AgentID: agentconfig.ImageAgentID, AgentVersion: agentconfig.ImageAgentVersion, ExecutionModelProfile: p, Request: agent.Request{Key: uuid.NewString(), Binding: agent.Binding{ContextKind: "own-product", ContextID: uuid.NewString(), ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "product"}, PolicyVersion: agentconfig.ImageAnalysisPolicyVersion, PromptVersion: agentconfig.ImageAnalysisPromptVersion, Limits: agent.Limits{Steps: 6, ModelCalls: 1, Tokens: 10000, CostMicros: 10000, Currency: "CNY", Runtime: 2 * time.Minute}}}
+	c := agentconfig.StartCommand{Scope: scope, MemberID: id.MemberID, ExpectedModeRevision: mr.Revision, AgentID: agentconfig.ImageAgentID, AgentVersion: agentconfig.ImageAgentVersion, ExecutionModelProfile: p, Request: agent.Request{Key: uuid.NewString(), Binding: agent.Binding{ContextKind: "own_product", ContextID: uuid.NewString(), ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "product"}, PolicyVersion: agentconfig.ImageAnalysisPolicyVersion, PromptVersion: agentconfig.ImageAnalysisPromptVersion, Limits: agent.Limits{Steps: 6, ModelCalls: 1, Tokens: 10000, CostMicros: 10000, Currency: "CNY", Runtime: 2 * time.Minute}}}
 	a, err := agentconfig.FreezeImageAnalysis(c, "source", "catalog-image-1", "", "", aicapability.SingleImageInput{ContentSHA256: strings.Repeat("b", 64), MediaType: "image/png", ByteLength: 256, Width: 64, Height: 64, Detail: "high", MeteringVersion: aicapability.SingleImageMiniMetering})
 	require.NoError(t, err)
 	c.ImageAnalysis = &a
@@ -40,6 +40,10 @@ func TestImageAnalysisPreparationUsesOriginalImageActivationAndMode(t *testing.T
 	ctx := context.Background()
 	snap, err := s.Prepare(ctx, c)
 	require.NoError(t, err)
+	foundSnapshot, found, findErr := s.FindImageAnalysisPreparation(ctx, c.Scope, c.Request.Key)
+	require.NoError(t, findErr)
+	require.True(t, found)
+	require.Equal(t, snap.ID, foundSnapshot.ID)
 	require.Nil(t, snap.Template, "readonly analysis needs no generation template")
 	require.Equal(t, agentconfig.ImageAgentID, snap.AgentID)
 	require.Equal(t, agentconfig.ImageAnalysisAgentID, snap.ImageAnalysis.ExecutionID)

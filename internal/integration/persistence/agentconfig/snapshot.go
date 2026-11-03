@@ -57,7 +57,7 @@ func snapshotQuery(db *gorm.DB, s agent.Scope, r agent.Request, agentID string) 
 			// Only this finite parent-image snapshot class represents analysis.
 			// Query all its source contexts together, never namespace by the new
 			// context supplied on retry. Generation retains its separate class.
-			query = query.Where("context_kind IN ?", []string{"acquisition", "own-product", "collection"})
+			query = query.Where("context_kind IN ?", []string{"acquisition", "own_product", "collection"})
 		}
 		return query
 	}

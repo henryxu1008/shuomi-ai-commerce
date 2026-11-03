@@ -310,7 +310,9 @@ JSON 空白不改变意见，但不能通过重新序列化伪造原响应 hash�
 当前 Mini 协议/计量依据已补齐；原 Snapshot/Prepare、固定 image activation/mode 映射、
 真实 Tool 预读后单次 Model、准确输入/结果及 native Invocation/资源回归已有仓库实现。
 这些组件已用任务临时 PostgreSQL、合成身份/事实/transport 组合验证；生产 reader 装配、
-HTTP/BFF 显式确认与页面/历史结果展示仍未完成，SharedCatalog 的视觉未接线门禁保持。
+HTTP/BFF 显式确认与原页面/历史结果已接入，当前候选仍待准确 HEAD CI 及最终工程复核。
+SharedCatalog 仅在原多模态类别存在完整单图准入定义/官方价目时提供该用途；
+没有定义、证据或完整三类资格时保持不可用，不解除 Flare 等独立门禁。
 真实账户/凭据准备仍 UNKNOWN。原 PRECHECK_ONLY 已由准确设计 HEAD 的正式 R1 取代，
 该范围 IMPLEMENTATION_READY；不把设计准入或旧基础 CI 代替实现、自检和最终工程复核。
 
@@ -347,3 +349,24 @@ HTTP/BFF 显式确认与页面/历史结果展示仍未完成，SharedCatalog �
 
 上述为同一 Delivery Batch 的组件实现，不是整个用户路径的最终工程复核、可用入口或产品验收。
 完整路径形成后复用原唯一 Reviewer 集中最终检查，不逐片重复评审。
+
+### 9.2 原页面和生产装配
+
+- 原 current-application 装配 Catalog 精确版本、ApprovedInventory、原 HTTP 图片读取和 source-media
+  不可变对象读取；生成素材/POD 来源沿原 material/artwork owner，不以公共 URL 回退，不要求启动生图 worker。
+  source-media 继续从原准入 composition 提供只读字节端口，不新设 producer 或改架构守卫。
+- 企业部署准入描述中的有限 `imageAnalysisPolicies` 只限定该用途；当前模型和收费价目仍由
+  原 SharedTextReader 的 **multimodal** 类别解析。不会生成另一份 current、账本、价格或逐页模型选择。
+- source context 使用原 `acquisition / collection / own_product` 身份。原图片页增加选单图、准备、
+  图片/模型/费用上界显式确认和只读结果，图片生成/保存/批准仍走原入口、原权限。
+- `images/analysis` 下仅有来源读取、准备、原键确认、原键结果和同来源历史。
+  准备从实际字节冻结身份；确认绑定原 preparation/configuration/quote/selection/content/model/最大微点。
+  BFF 拒绝客户端 URL、字节、模型或价格；未确认不发送，UNKNOWN 保留原键且不自动重试。
+- 历史从原配置快照、Run 和 native Invocation 读取；不重报当前价、不重新下载图、不 claim/resume。
+  只在实际成功、固定 validator 有效且原输出/用量绑定一致时展示只读建议。
+- 原 Asset Tool 的手写 generated-only Schema 漏掉当前人工批准来源和不可变证明字段；
+  复用当前 ApprovedAsset 类型生成严格两种来源形状，并保留 Domain 的原 provenance 校验。
+  不伪造 Run/生成身份、不修改批准事实、不放宽 Registry 保留身份字段/大小/权限限制。
+- 离线 HTTP 组合覆盖来源及人工批准来源、两步真实预读、单次合成视觉调用、原账本实际微点、
+  重复确认不再发送，以及停用/当前模型移除后的原结果与历史读取。UI/BFF 覆盖显式确认、
+  上下文/原键绑定、精确点数字符串和响应丢失后只读核实。合成图片不证明视觉质量或真实准备状态。

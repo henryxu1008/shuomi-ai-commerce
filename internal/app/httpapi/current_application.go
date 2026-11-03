@@ -1113,6 +1113,22 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
+		var analysisSupply *supplyapp.Application
+		if completionRuntime != nil {
+			analysisSupply = completionRuntime.app
+		} else if sourceMaterialsRuntime != nil {
+			analysisSupply = sourceMaterialsRuntime.app
+		} else if supplyRuntime != nil {
+			analysisSupply = supplyRuntime.app
+		}
+		analysis, e := buildImageAnalysisApplication(productRuntime, analysisSupply, cfg, supplied.collectionSourceMedia)
+		if e != nil {
+			return nil, fmt.Errorf("build image analysis: %w", e)
+		}
+		if analysis != nil {
+			configureImageAnalysisOrigin(analysis, supplied.productAcquisitionDB, supplied.imageAgentDB, cfg)
+			modules = append(modules, imageAnalysisModule{app: analysis})
+		}
 		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, imageRuntime)
 		if e != nil {
 			return nil, fmt.Errorf("build current agent configuration: %w", e)

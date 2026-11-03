@@ -34,7 +34,16 @@ type ImageAnalysisConfiguration struct {
 
 func ImageAnalysisBinding(b agent.Binding) bool {
 	return b.Valid() && b.TargetPlatform == "product" &&
-		(b.ContextKind == "acquisition" || b.ContextKind == "own-product" || b.ContextKind == "collection")
+		(b.ContextKind == "acquisition" || b.ContextKind == "own_product" || b.ContextKind == "collection")
+}
+
+// The deployment descriptor bounds the consumer, never selects a second
+// current model or supplies the customer tariff. Execution uses shared current.
+func ImageAnalysisProfileAdmissible(p aicapability.ModelProfile, ceiling agent.Limits) bool {
+	cost, err := p.MaximumCost()
+	return aicapability.SingleImageProfileShape(p) && p.PromptVersion == ImageAnalysisPromptVersion && p.OutputSchemaVersion == ImageAnalysisResultVersion &&
+		ceiling.Valid() && ceiling.ModelCalls >= 1 && ceiling.Steps >= 4 && ceiling.Currency == p.Currency && err == nil && cost <= ceiling.CostMicros &&
+		p.MaximumPromptTokens > aicapability.SingleImagePromptTokenBound+1024 && p.MaximumPromptTokens+p.MaximumCompletionTokens <= ceiling.Tokens
 }
 
 func imageAnalysisHash(v any) string {

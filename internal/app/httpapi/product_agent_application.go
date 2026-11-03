@@ -61,6 +61,7 @@ type ProductAgentDependencies struct {
 	MaterialsTextPolicies    map[string]governed.RoutePolicy
 	DiagnosisTextPolicies    map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
+	ImageAnalysisPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
 	ContentOnly              bool
 	ContentTitleOnly         bool
@@ -121,7 +122,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if cfg.ContentTitleOnly && cfg.ContentOnly {
 		return nil, agent.ErrUnavailable
 	}
-	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
+	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0 || len(cfg.ImageAnalysisPolicies) != 0) {
 		return nil, agent.ErrUnavailable
 	}
 	allowedOrganizations := make(map[string]bool, len(cfg.AllowedOrganizationIDs))
@@ -176,6 +177,11 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
 	}
+	for org, policy := range cfg.ImageAnalysisPolicies {
+		if !allowedOrganizations[org] || !agentconfig.ImageAnalysisProfileAdmissible(policy.ShapeProfile(), cfg.Limits) {
+			return nil, agent.ErrUnavailable
+		}
+	}
 	if err := aistore.VerifyModelPointInvocationSchema(ctx, cfg.RunDB); err != nil {
 		return nil, err
 	}
@@ -189,6 +195,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	}
 	a := &productAgentApplication{receipts: receipts, resolver: resolver, authorizer: auth, config: cfg}
 	a.config.AllowedOrganizationIDs = append([]string(nil), cfg.AllowedOrganizationIDs...)
+	a.config.ImageAnalysisPolicies = make(map[string]governed.RoutePolicy, len(cfg.ImageAnalysisPolicies))
+	for org, policy := range cfg.ImageAnalysisPolicies {
+		a.config.ImageAnalysisPolicies[org] = policy
+	}
 	a.config.TextPolicies = make(map[string]governed.RoutePolicy, len(cfg.TextPolicies))
 	for organizationID, policy := range cfg.TextPolicies {
 		a.config.TextPolicies[organizationID] = policy
