@@ -1,5 +1,15 @@
 # 产品研究的运行交接
 
+## 三级业务导航源码交接（2026-11-03，未更新实例）
+
+用户已确认“市场调研 / 智能选品”为一级菜单，二级展示业务阶段，三级进入具体功能，名称去掉“中心”。源码候选 `2aea4d1a6cf7a22776c341def70d4058e04a9fe4`、tree `68f2bbd30f75a891ca77614cf2eff29b1543ee95` 已提交到原 PR #1075。路径沿用 `/workbench/data/research`、`/workbench/supply/selection` 和本人项目详情；完整层级见[当前产品增量](../product/market-research-selection-centers-v1.md#当前导航增量2026-11-03)。
+
+二级为流程展开分组；三级通过白名单 `step` 选择已有功能区域。有项目时保留同项目的有效查询条件和准确 URL 样本，无项目时先选择或创建研究项目再继续。只切换步骤不新建项目、调用模型、提交人工决定或转入；项目与研究请求、原 visit 不因该切换重复，面板中的已选候选、草稿理由和原 pending 保持。跨身份 / 企业 / 成员 / 权限变化仍沿原准入与 key 隔离。
+
+相关6个测试文件在前一候选106项通过；最终两文件增量新增真实 ProjectPage → ResearchPanel 的延迟 GET 回归，先在旧码确认丢失选择 RED，再用相同身份的稳定 scope 修复，ProjectPage 14项全部通过，typecheck / scoped eslint 通过。独立 Reviewer 对原导航增量及最终两文件修复分别检查，`2aea` 对应 finding 已关闭，无剩余 finding。未变化代码的测试证据明确复用，不冒称在新 SHA 全量重跑。最新 GitHub Actions run 尚未观察到，状态 UNKNOWN。
+
+**本导航增量尚未部署，用户使用验收 NOT_RUN。** 通过仓库标准脚本从准确 `2aea` Git archive 构建的 UI 镜像为 `sha256:b3fa12c3e0d4be4bbfa212fc276fa64b9c48ede0760ba0999fc738ed40ea2652`，干净 Next 编译、类型及标准镜像检查全部通过；仅 UI 的候选/回退覆盖材料保存在本次本地交付目录。前一 `1ce` 候选虽曾构建，但对应真实父页选择丢失 finding 未关闭，不作为交付镜像。指定统一实例的 UI 仍为下文 `6bbe5bb48` / `efa4d769…`，后端仍为 `ad3ed151`；本轮未重启服务或修改权限、配置、业务数据和卷。管理员登录后已只读确认数据市场配置/空历史与两个项目列表正常，未执行采集、模型、付费或研究命令。后续替换 UI 镜像仍需对具体候选单独授权，不合并、不关闭 Issue。
+
 本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
 **当前代码批次**为[已确认的两个中心 V1](../product/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../architecture/market-research-evidence-analysis-v1.md)实现。2026-11-03 用户明确允许从已审源码 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2` 构建镜像并仅更新 `task-processor-unified-20261010` 前后端；又明确允许启动已停止的 Docker Desktop 并继续更新。现已完成两服务更新，两个新入口可见。此决定替代本新增批次原先“不部署”的阶段限制，不授权后续自动更新、其他服务升级或真实调用。
