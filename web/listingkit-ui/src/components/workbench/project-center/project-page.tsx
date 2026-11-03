@@ -4,7 +4,7 @@ import {ResearchPanel} from "./research-panel";
 import {researchStep,researchWorkflow} from "@/lib/workbench/research-navigation";
 import { FolderKanban } from "lucide-react";
 import {knowledgeRequest,sourcesSchema,type KnowledgeSource} from "@/lib/api/knowledge";
-import { useEffect,useRef,useState } from "react";
+import { useEffect,useMemo,useRef,useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { ConsolePage,ConsoleState } from "../console/console-page";
@@ -26,7 +26,8 @@ type Center="research"|"selection";
 const centerRoot=(center:Center)=>researchWorkflow(center).root;
 export function ProjectPage({mode="active",projectId,center,initialSearch="",sample="",candidateAfter="",workflowStep=""}:{mode?:Mode;projectId?:string;center?:Center;initialSearch?:string;sample?:string;candidateAfter?:string;workflowStep?:string}){
  const c=useWorkbenchContext();const ready=c.user && c.effectiveOrganization && !c.isLoading && !c.isSwitching && !c.selectionRequired && !c.error && !c.blockingError;
- const scope=ready?{userId:c.user!.id,organizationId:c.effectiveOrganization!.id}:null;
+ const userId=ready?c.user!.id:"",organizationId=ready?c.effectiveOrganization!.id:"";
+ const scope=useMemo(()=>userId&&organizationId?{userId,organizationId}:null,[userId,organizationId]);
  const read=c.permissions.includes("workbench.project.read"),manage=c.permissions.includes("workbench.project.manage");
  const content=center&&!c.marketResearchAvailable?<ConsoleState kind="unavailable" title="当前应用尚未启用研究选品"/>:!scope?<ConsoleState kind={c.isLoading || c.isSwitching?"loading":"unavailable"} title="请先确认当前企业"/>:!c.projectCenterAvailable?<ConsoleState kind="unavailable" title="当前应用暂未启用项目中心"/>:!read?<ConsoleState kind="unavailable" title="当前身份没有项目查看权限"/>:null;
  return content?<ProjectFrame center={center} workflowStep={workflowStep} initialSearch={initialSearch} mode={mode} projectId={projectId}>{content}</ProjectFrame>:<ProjectContent key={JSON.stringify([scope,c.effectiveMemberId,c.permissions,mode,projectId,center,initialSearch])} scope={scope!} center={center} workflowStep={workflowStep} initialSearch={initialSearch} sample={sample} candidateAfter={candidateAfter} mode={mode} projectId={projectId} manage={manage}/>;
