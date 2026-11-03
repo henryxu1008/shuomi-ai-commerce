@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"task-processor/internal/authruntime/zitadel"
 	coreconfig "task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	topupconfig "task-processor/internal/integration/wallettopup/config"
@@ -32,7 +33,6 @@ const (
 )
 
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
-var publicIdentityOriginPattern = regexp.MustCompile(`^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 
 type Config struct {
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
@@ -669,7 +669,7 @@ func validatePlatformAdminAllowlist(name string, values []string) error {
 // Public identity is pinned by the private operator manifest, never request input.
 // Local deployments retain their explicit-port loopback contract.
 func validateIdentityURL(name, raw string) (*url.URL, error) {
-	if len(raw) <= 261 && publicIdentityOriginPattern.MatchString(raw) {
+	if zitadel.IsCanonicalPublicIdentityOrigin(raw) {
 		return url.Parse(raw)
 	}
 	return validateLoopbackURL(name, raw)

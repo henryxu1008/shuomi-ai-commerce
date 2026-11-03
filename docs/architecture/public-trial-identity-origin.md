@@ -56,6 +56,9 @@ fields. No generated manifest or installer state needs mutation for this fix.
 and native authorization clients. Existing identity preflight checks the exact
 discovery issuer and requires authorization/token/userinfo/introspection endpoints
 to use the admitted origin before listeners or owner databases are opened.
+Runtime configuration and HTTP Membership assembly share the canonical public
+origin predicate owned by `authruntime/zitadel`; the assembly's same-issuer check
+continues to apply, rather than retaining an independent loopback-only guard.
 Normal system/public CA validation and existing timeout/size limits remain.
 The same official public issuer is used by Login V2, Auth.js, backend introspection,
 native grants, referrals and membership. No host-header or local-issuer rewrite.
