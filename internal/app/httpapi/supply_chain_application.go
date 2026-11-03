@@ -163,6 +163,14 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 			app.OptimizationOptions = bridge.options
 		}
 	}
+	plansRepo, err := prepstore.NewUploadPlanRepository(ctx, productDB)
+	if err != nil {
+		return empty, err
+	}
+	app.UploadPlans, err = preparation.NewUploadPlanService(auth, plansRepo, supplyapp.UploadPlanInputs{Application: app, Operations: plansRepo})
+	if err != nil {
+		return empty, err
+	}
 	currentWorker, err := d.NewWorker(&supplyapp.OperationActivities{Operations: operations, Repository: operationsRepo, Sources: sources, Products: effective, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}, Targets: records, Creator: targets, Uploader: uploader, Optimizer: optimizer})
 	if err != nil {
 		return empty, err

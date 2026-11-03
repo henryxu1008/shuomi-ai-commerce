@@ -56,3 +56,22 @@ func TestStageFilterUsesOriginalSourceKindSKUAndBatchAcrossPages(t *testing.T) {
 	require.True(t, matchesStageFilter(f, "review", "review", collection.Query{Keyword: "summer batch"}, "", "Summer Batch"))
 	require.False(t, matchesStageFilter(f, "review", "uploaded", collection.Query{}, "", "batch"))
 }
+
+func TestWaitingNavigationIncludesReadyFactsWithoutChangingTheirStage(t *testing.T) {
+	require.True(t, matchesStageFilter(preparation.SourceStageFacts{}, "ready", "waiting", collection.Query{}, "", "batch"))
+	require.False(t, matchesStageFilter(preparation.SourceStageFacts{}, "missing", "waiting", collection.Query{}, "", "batch"))
+}
+
+func TestUploadPlanStageScopeKeepsOnlyItsFixedSelection(t *testing.T) {
+	p := preparation.UploadPlan{Count: 1, Input: preparation.UploadPlanInput{PreparationID: "prep", StoreID: "store", SourceIDs: []string{"selected"}}}
+	include, err := uploadPlanStageSelection(p, "prep", "store")
+	require.NoError(t, err)
+	require.True(t, include("selected"))
+	require.False(t, include("other"))
+	_, err = uploadPlanStageSelection(p, "prep", "wrong")
+	require.ErrorIs(t, err, record.ErrConflict)
+	p.Input.SourceIDs = nil
+	include, err = uploadPlanStageSelection(p, "prep", "store")
+	require.NoError(t, err)
+	require.True(t, include("whole-batch-source"))
+}

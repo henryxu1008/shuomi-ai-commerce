@@ -174,6 +174,10 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 			require.ErrorIs(t, e, preparation.ErrConflict, "a changed target cannot follow the old approval")
 			input.WalmartApprovals[0].Revision = 3
 		}
+		input.TargetApprovals = []preparation.TargetApproval{{SourceID: projected[0].SourceID, RecordID: recordID, Revision: 2}}
+		_, stale := opService.Create(actor, uuid.NewString(), input)
+		require.ErrorIs(t, stale, preparation.ErrConflict, "every platform must reject the user's stale confirmation before binding current head")
+		input.TargetApprovals[0].Revision = 3
 		upload, err := opService.Create(actor, uuid.NewString(), input)
 		require.NoError(t, err)
 		access, err := opService.RequestAccess(actor, upload.Operation.ID)

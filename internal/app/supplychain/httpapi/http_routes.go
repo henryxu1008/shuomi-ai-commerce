@@ -73,6 +73,14 @@ func PrivateDraftReadRoutes(app *supplyapp.Application, bind func(context.Contex
 
 func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
 	specs := []struct{ method, path, action, permission string }{
+		{"POST", "/upload-plans", "create-upload-plan", preparation.PermissionManage},
+		{"GET", "/upload-plans", "upload-plans", preparation.PermissionRead},
+		{"GET", "/upload-plans/by-key/:key", "upload-plan-key", preparation.PermissionRead},
+		{"GET", "/upload-plans/:plan_id", "upload-plan", preparation.PermissionRead},
+		{"POST", "/upload-plans/:plan_id/preview", "upload-plan-preview", preparation.PermissionManage},
+		{"POST", "/upload-plans/:plan_id/cancel", "cancel-upload-plan", preparation.PermissionManage},
+		{"POST", "/upload-plans/:plan_id/continue", "continue-upload-plan", preparation.PermissionManage},
+		{"GET", "/upload-plans/:plan_id/commands/:key", "upload-plan-command", preparation.PermissionRead},
 		{"GET", "/optimization-options", "optimization-options", preparation.PermissionManage},
 		{"GET", "", "list", preparation.PermissionRead}, {"POST", "/transfer", "transfer", preparation.PermissionManage}, {"GET", "/transfers/by-key/:key", "transfer-read", preparation.PermissionRead},
 		{"GET", "/:preparation_id/sources", "sources", preparation.PermissionRead}, {"GET", "/sources/:source_id", "source", preparation.PermissionRead},
@@ -116,11 +124,72 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 					return
 				}
 			}
-			if spec.action != "optimization-options" && spec.action != "list" && spec.action != "sources" && spec.action != "stages" && spec.action != "operation-items" && spec.action != "operations" && c.Request.URL.RawQuery != "" {
+			if spec.action != "upload-plans" && spec.action != "optimization-options" && spec.action != "list" && spec.action != "sources" && spec.action != "stages" && spec.action != "operation-items" && spec.action != "operations" && c.Request.URL.RawQuery != "" {
 				supplyError(c, preparation.ErrInvalid)
 				return
 			}
 			switch spec.action {
+			case "cancel-upload-plan", "create-upload-plan", "upload-plans", "upload-plan", "upload-plan-key", "upload-plan-preview", "continue-upload-plan", "upload-plan-command":
+				if app.UploadPlans == nil {
+					supplyError(c, preparation.ErrUnavailable)
+					return
+				}
+				switch spec.action {
+				case "cancel-upload-plan":
+					var in struct {
+						ExpectedRevision int64 `json:"expectedRevision"`
+					}
+					if _, e := supplyBody(c.Request, &in, false); e != nil {
+						supplyError(c, e)
+						return
+					}
+					output, err = app.UploadPlans.Cancel(ctx, c.Param("plan_id"), in.ExpectedRevision)
+				case "upload-plans":
+					q, e := supplyQuery(c.Request)
+					if e != nil || q.Keyword != "" {
+						supplyError(c, preparation.ErrInvalid)
+						return
+					}
+					output, err = app.UploadPlans.List(ctx, q)
+				case "upload-plan":
+					output, err = app.UploadPlans.Read(ctx, c.Param("plan_id"))
+				case "upload-plan-key":
+					output, err = app.UploadPlans.ReadCreation(ctx, c.Param("key"))
+				case "upload-plan-command":
+					output, err = app.UploadPlans.ReadContinuation(ctx, c.Param("plan_id"), c.Param("key"))
+				case "create-upload-plan":
+					var in preparation.UploadPlanInput
+					key, e := supplyBody(c.Request, &in, true)
+					if e != nil {
+						supplyError(c, e)
+						return
+					}
+					output, err = app.UploadPlans.Create(ctx, key, in)
+				case "upload-plan-preview", "continue-upload-plan":
+					var in preparation.UploadPlanContinueInput
+					key, e := supplyBody(c.Request, &in, spec.action == "continue-upload-plan")
+					if e != nil {
+						supplyError(c, e)
+						return
+					}
+					if spec.action == "upload-plan-preview" {
+						output, err = app.UploadPlans.Preview(ctx, c.Param("plan_id"), in)
+					} else {
+						var receipt preparation.UploadPlanAdvanceReceipt
+						receipt, err = app.UploadPlans.Continue(ctx, c.Param("plan_id"), key, in)
+						output = receipt
+						if err == nil {
+							for _, id := range receipt.OperationIDs {
+								if ctx.Err() != nil {
+									break
+								}
+								if _, e := app.Execution.EnsureExecution(ctx, id); e != nil {
+									break
+								}
+							}
+						}
+					}
+				}
 			case "shein-status", "shein-shelf-prepare", "shein-shelf-confirm", "shein-shelf-result":
 				var in supplyapp.SheinShelfInput
 				key, e := supplyBody(c.Request, &in, spec.action == "shein-shelf-prepare" || spec.action == "shein-shelf-confirm")
@@ -179,13 +248,15 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 				output, err = app.Preparations.Read(ctx, c.Param("preparation_id"))
 			case "stages":
 				values, e := url.ParseQuery(c.Request.URL.RawQuery)
-				if e != nil || len(values["storeId"]) != 1 || !collection.ValidID(values.Get("storeId")) || len(values["stage"]) != 1 || !validStage(values.Get("stage")) || len(values["sourceKind"]) > 1 || values.Has("sourceKind") && !collection.ValidSourceKind(values.Get("sourceKind")) {
+				if e != nil || len(values["storeId"]) != 1 || !collection.ValidID(values.Get("storeId")) || len(values["stage"]) != 1 || !validStage(values.Get("stage")) || len(values["planId"]) > 1 || values.Has("planId") && !collection.ValidID(values.Get("planId")) || len(values["sourceKind"]) > 1 || values.Has("sourceKind") && !collection.ValidSourceKind(values.Get("sourceKind")) {
 					supplyError(c, preparation.ErrInvalid)
 					return
 				}
 				storeID, stage, sourceKind := values.Get("storeId"), values.Get("stage"), values.Get("sourceKind")
 				values.Del("storeId")
 				values.Del("stage")
+				planID := values.Get("planId")
+				values.Del("planId")
 				values.Del("sourceKind")
 				request := c.Request.Clone(ctx)
 				request.URL.RawQuery = values.Encode()
@@ -194,7 +265,7 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 					supplyError(c, e)
 					return
 				}
-				output, err = app.Stages(ctx, c.Param("preparation_id"), storeID, stage, q, sourceKind)
+				output, err = app.Stages(ctx, c.Param("preparation_id"), storeID, stage, q, sourceKind, planID)
 			case "operations":
 				values, e := url.ParseQuery(c.Request.URL.RawQuery)
 				if e != nil || len(values["storeId"]) != 1 || !collection.ValidID(values.Get("storeId")) {
