@@ -1,10 +1,13 @@
 # 商品图片单图视觉分析：C2-2 最小设计候选
 
-状态：**DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**。Design Basis：Independent Architecture。
+状态：**IMPLEMENTATION_READY / FROZEN（仅限本次 C2-2 单图分析架构）**。Design Basis：Independent Architecture。
 Refs #134 / #128；当前唯一负责人、原独立工作区继续，无新增 Writer / Reviewer / 派工。
 用户已[认可 D1–D3](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6592979123)，
 后续授权原 Writer 沿原工作区和 PR 继续开发、复用原唯一 Reviewer 做必要准入与最终检查。
-本用途只完成设计预核，尚无准确设计提交的正式 IMPLEMENTATION_READY，暂不修改生产路径。
+原唯一 Reviewer 已对准确设计 HEAD `75730fc9ca6fe1becb045adb3e54ea3286fb6549` 完成范围内 R1，
+结论 DESIGN_REVIEW_PASS / IMPLEMENTATION_READY，无设计级 BLOCKER；
+[准入及三项 IMPLEMENTATION_TEST 回执](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078#issuecomment-6602880445)。
+本文件为冻结实施基线，尚不表示视觉实现完成或产品验收通过；依既有授权先回归再最小实现。
 不新增人员或 PR，不包含合并、部署、关单或真实调用权限。
 
 2026-11-03 用户进一步确定[企业统一模型配置与官方价折算](enterprise-shared-model-configuration.md)：
@@ -14,7 +17,7 @@ Refs #134 / #128；当前唯一负责人、原独立工作区继续，无新增 
 公开型号/价目信息已有本会话只读调查；Mini 文本/多模态、Flare 生图准确快照及汇率/微点规则
 已获后续产品认可；统一配置、官网价/冻结 FX、微点及原账本安全基础已完成独立工程检查。
 基础准确 HEAD/CI/回执沿 PR 记录，本用途不重复审核未变基础。
-C2-2 的实际图片输入、保守报价、确认与结果接线仍须独立准入；D1–D3 边界不变。
+C2-2 的实际图片输入、保守报价、确认与结果接线已获本用途架构准入，尚须实施；D1–D3 边界不变。
 Flare 完整费用上界/官方直连执行仍 NOT_READY；三类全部合格才原子发布，不改为部分或 pending current。
 
 ## 1. 用户结果、依据与阶段
@@ -299,8 +302,8 @@ selection/报价与确认摘要一致，不从客户端单个勾选或当前页�
 真实视觉准确性、误判/不确定性及用户效果另行验收；技术测试不能替代。
 
 当前 Mini 协议/计量依据已补齐；真实账户/凭据准备仍 UNKNOWN，准确执行定义/输入结果版本、
-确认/固定预读与原 Run 的接线尚未实现。本轮原 Reviewer 的预核为 PRECHECK_ONLY，
-上述准确候选正式提交后须完成范围内架构复核；不能用旧基础 Ready/CI 代替本用途准入。
+确认/固定预读与原 Run 的接线尚未实现。原 PRECHECK_ONLY 已由准确设计 HEAD 的正式 R1 取代，
+该范围 IMPLEMENTATION_READY；不把设计准入或旧基础 CI 代替实现、自检和最终工程复核。
 
 预核提出三项 IMPLEMENTATION_TEST：固定预读/单次执行、analysis→原 activation/mode 的固定映射、
 原 Snapshot/跨 context key 与内容冻结。§3.1、§6 已明确最小合同，不新增 owner/SDK/账本。
@@ -316,6 +319,6 @@ selection/报价与确认摘要一致，不从客户端单个勾选或当前页�
    不触发生成、业务保存、批准或新增每页模型配置。
 
 本阶段设计提交/准确 HEAD CI/复核证据维护原 PR，不新增派工或评审人员；
-获得本用途正式准入前不改生产路径。已批准基础不重复完整评审，修复只复核相关增量。
+仅在该冻结设计内实施；已批准基础不重复完整评审，修复只复核相关增量。
 缺证据 UNKNOWN；运行、真实保存/恢复、浏览器、视觉质量及产品验收 NOT_RUN。
 #47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT；保留所有实例、数据和会话，不合并/部署/关单。

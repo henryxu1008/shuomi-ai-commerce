@@ -15,6 +15,15 @@ vi.stubGlobal("fetch",vi.fn(async(url,init)=>{const path=String(url);if(path.inc
 afterEach(()=>{cleanup();vi.unstubAllGlobals()});
 function mount(podAvailable=true,value=entry){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<QueryClientProvider client={client}><PODArtworkFlow scope={scope} entry={value} templates={[]} nonce={0} podAvailable={podAvailable}/></QueryClientProvider>)}
 
+it("keeps unavailable-only artwork history distinct from empty history",async()=>{
+ const base=vi.mocked(fetch).getMockImplementation()!;
+ vi.mocked(fetch).mockImplementation((url,init)=>String(url).includes("recent-runs")?Promise.resolve(Response.json({items:[],nextCursor:"",unavailableCount:2})):base(url,init));
+ mount();
+ expect(await screen.findByText(/本页有 2 个原任务/)).toHaveTextContent("记录已保留");
+ expect(screen.queryByText("暂无当前企业及本人的图案运行。")).toBeNull();
+ expect(post).not.toHaveBeenCalled();
+});
+
 it("keeps the original quote readable but disables confirmation after write access is lost",async()=>{
  localStorage.setItem(`pod.artwork.last:${JSON.stringify([scope.userId,scope.organizationId])}`,runId);
  mount(true,{...entry,canUse:false});

@@ -70,6 +70,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const [priorRuns,setPriorRuns]=useState<ImageSetRun[]>([]);
  const [recent,setRecent]=useState<z.infer<typeof imageSetRecentSchema>["items"]>([]),[inventory,setInventory]=useState<ImageSetInventory>();
  const [recentCursor,setRecentCursor]=useState("");
+ const [recentUnavailable,setRecentUnavailable]=useState(0);
  const [requirements,setRequirements]=useState<ImageSetRequirements>(),[platform,setPlatform]=useState<"product"|"shein">("product");
  const [restoredTarget,setRestoredTarget]=useState<ImageSetPrepare["target"]>();
  const editorTarget=restoredTarget??target;
@@ -210,7 +211,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
      if(!templateEdited.current){installTemplate(pinned,source?.evidence);if(hasInitialSkill&&!id&&!saved)setTemplateNotice("已保留企业默认模板的准确版本、任务和数量；可以为本次计划显式改选，默认配置不会改变。")}
     }catch(e){if(!controller.signal.aborted)fail(e)}}
     if(controller.signal.aborted)return;
-    const pageRuns=await imageSetRequest(stableScope,"recent",imageSetRecentSchema,{signal:controller.signal});if(controller.signal.aborted)return;setRecent(pageRuns.items);setRecentCursor(pageRuns.nextCursor);
+    const pageRuns=await imageSetRequest(stableScope,"recent",imageSetRecentSchema,{signal:controller.signal});if(controller.signal.aborted)return;setRecent(pageRuns.items);setRecentCursor(pageRuns.nextCursor);setRecentUnavailable(pageRuns.unavailableCount??0);
    }catch(e){if(!controller.signal.aborted)fail(e)}finally{if(!controller.signal.aborted)setLoading(false)}
   })();return()=>controller.abort();
  },[stableScope,storageKey,effectiveVersion,applyReceiptId,initialRunId,initialPreset,hasInitialSkill,readRun,fail]);
@@ -333,7 +334,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    const page=await imageSetRequest(stableScope,"recent",imageSetRecentSchema,{query:new URLSearchParams({cursor:recentCursor}).toString(),signal:controller.signal});
    if(!controller.signal.aborted&&active.current){
     setRecent(old=>{const merged=new Map(old.map(item=>[item.runId,item]));for(const item of page.items){if(!merged.has(item.runId))merged.set(item.runId,item)}return [...merged.values()]});
-    setRecentCursor(page.nextCursor);
+    setRecentCursor(page.nextCursor);setRecentUnavailable(old=>old+(page.unavailableCount??0));
    }
   }catch(e){if(!controller.signal.aborted&&active.current)fail(e)}finally{flight.current=false;if(!controller.signal.aborted&&active.current)setBusy(false)}
  }
@@ -373,7 +374,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     return <div key={task.id} className="space-y-2"><label className="flex items-start gap-2 text-sm"><input type="checkbox" disabled={locked||!!missing} checked={tasks.includes(task.id)} onChange={e=>{if(needsPreparationReview)setTextDraft(undefined);setTasks(old=>e.target.checked?[...old,task.id]:old.filter(id=>id!==task.id))}}/><span>{labels.get(task.purpose)??task.brief??"自定义任务"}{missing?<small className="block text-warning-foreground">缺少真实依据，请补充商品资料或取消该项</small>:null}</span></label>{platform==="shein"&&tasks.includes(task.id)?<OfficialPosition value={positions[task.id]} requirements={requirements} disabled={locked} generated onChange={value=>setPositions(old=>({...old,[task.id]:value}))}/>:null}</div>
    })}</section>)}</div><p className="text-xs text-muted-foreground">背景：{template.image.background} · 文字：{template.image.language} · {template.image.shareOriginals?"两组共用原始素材，分别生成与计费":"两组分别选择原始素材，分别生成与计费"}</p>{template.image.shareOriginals?originalChoices("共用原始素材",shared,setShared):<div className="grid gap-4 md:grid-cols-2">{originalChoices("主图素材",carousel,setCarousel)}{originalChoices("详情素材",detail,setDetail)}</div>}<Button disabled={locked||correctingRegeneration||!canPrepare||!textSelection} onClick={()=>newPreparation()}>准备整套图片计划（{tasks.length} 项）</Button></>:<p className="text-sm">请在智能体配置中创建图片模板并设为默认，或选择已有模板。</p>}
   </>:null}
-  {recent.length?<label className="block space-y-2 text-sm">本商品最近任务<Select disabled={locked} value={run?.runId??""} onChange={e=>{if(e.target.value){setPreview(null);setSelected([]);void readRun(e.target.value).catch(fail)}}}><option value="">选择原任务</option>{recent.map(item=><option key={item.runId} value={item.runId}>{imageResultLabel(item.runId===run?.runId?run:item)} · {new Date(item.createdAt).toLocaleString()}</option>)}</Select></label>:null}
+  {recentUnavailable?<p role="status">已读取页中有 {recentUnavailable} 个原任务无法读取，记录已保留。</p>:null}
+   {recent.length?<label className="block space-y-2 text-sm">本商品最近任务<Select disabled={locked} value={run?.runId??""} onChange={e=>{if(e.target.value){setPreview(null);setSelected([]);void readRun(e.target.value).catch(fail)}}}><option value="">选择原任务</option>{recent.map(item=><option key={item.runId} value={item.runId}>{imageResultLabel(item.runId===run?.runId?run:item)} · {new Date(item.createdAt).toLocaleString()}</option>)}</Select></label>:null}
   {recentCursor?<Button variant="outline" disabled={locked} onClick={()=>void loadMoreRuns()}>加载更多图片任务</Button>:null}
   {run?<section className="space-y-4 border-t border-border pt-5">{run.releaseSummary?<ReleasedImageResult run={run} scope={stableScope} busy={busy} onRefresh={()=>void readRun(run.runId).catch(fail)}/>:<><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{imageResultLabel(run)}</h3><p className="text-xs text-muted-foreground">任务 {run.runId} · {run.slots.filter(s=>s.status==="accepted").length}/{run.images} 张{run.outputRecoverySummary?.slots.length?"候选可查看":"已生成"} · {run.outputRecoverySummary?"已结算用量":"已确认用量"} {formatMicropoints(run.settledPoints)} 点</p></div><Button variant="outline" disabled={busy} onClick={()=>void readRun(run.runId).catch(fail)}>刷新原任务</Button></div>
    {run.executionMode?<p className="text-sm">本次权限：{executionModeLabels[run.executionMode]} · 模式版本 {run.modeRevision}</p>:<p className="text-sm text-warning-foreground">本次权限模式不可用，只能查看原记录。</p>}

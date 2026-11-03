@@ -63,6 +63,14 @@ beforeEach(()=>{
  });vi.stubGlobal("fetch",fetch);
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.unstubAllGlobals();localStorage.clear()});
+
+it("reports unavailable original tasks while leaving their data and generation untouched",async()=>{
+ const base=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>String(input).endsWith("/images/runs")?Promise.resolve(Response.json({items:[],nextCursor:"",unavailableCount:2})):base(input,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByText(/已读取页中有 2 个原任务/)).toHaveTextContent("记录已保留");
+ expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
 async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);

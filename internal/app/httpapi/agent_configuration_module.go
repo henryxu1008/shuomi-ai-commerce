@@ -268,13 +268,15 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			if !ok || !valid || identity.UserID != scope.ActorID || identity.TenantID != scope.OrganizationID {
 				return nil, "", agentconfig.ErrForbidden
 			}
-			return reader.ListArtworkRuns(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: identity.TenantID, UserID: identity.UserID, MemberID: identity.EffectiveMemberID}, cursor, size)
+			items, next, unavailable, err := reader.ListArtworkRuns(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: identity.TenantID, UserID: identity.UserID, MemberID: identity.EffectiveMemberID}, cursor, size)
+			return confighttp.RecentItems{Items: items, UnavailableCount: unavailable}, next, err
 		}
 		if id == agentconfig.ImageAgentID {
 			if imageRuntime == nil {
 				return nil, "", agentconfig.ErrUnavailable
 			}
-			return imageRuntime.readRecent(ctx, "", cursor, size)
+			items, next, unavailable, err := imageRuntime.readRecent(ctx, "", cursor, size)
+			return confighttp.RecentItems{Items: items, UnavailableCount: unavailable}, next, err
 		}
 		selected := runtime
 		if id == agentconfig.ContentAgentID && selected != nil {
