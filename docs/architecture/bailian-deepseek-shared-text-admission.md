@@ -1,6 +1,6 @@
 # 百炼 DeepSeek 共享文字模型准入：全新系统设计
 
-Design Basis: **Independent Architecture**。状态：**DESIGN_REVIEW_PENDING / NOT_IMPLEMENTATION_READY**。
+Design Basis: **Independent Architecture**。状态：**DESIGN_REVIEW_PASS（R1，三项澄清待增量复核）/ OWNER_CONTRACT_PENDING / NOT_IMPLEMENTATION_READY**。
 执行：[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)，主要PR [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，公共模型依赖 [#1078](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078)。本文件只提出原公共owner的有界增量，不是生产实现、配置载荷或实例操作授权。
 
 ## 1. 产品决定、范围与验收边界
@@ -90,11 +90,15 @@ DeepSeek的时段价在原OfficialModelTariff内增加可选的**冻结文字窗
 
 具体拟议窄合同是 `OfficialModelTariff.TextPriceWindows`（可选）：schemaVersion、原price ID/revision、groupVersion、clockPolicyVersion、boundEvidenceVersion及≤原32条上限的windows；每项只含原entryVersion、from/until及原OfficialModelRates，按UTC开始时间排序，严格非重叠。model/channel/currency从外层固定，不能窗口间改变。外层Rates必须恰为组内逐分项最大值，组版本绑定全部有序条目版本/区间/rates/时点证据，原priceVersion采用该owner生成的组版本。不能接受客户端计算的分组或上界。组只从原已发布PlatformPricesSnapshot派生，未另存一份平台价格事实。
 
+本型号已公布峰/闲两档；同组必须有这两档完整、可核验的原价上界及合法窗口证据。不能仅提交当前闲时窗便将外层Rates/R降到闲时价，缺任何可能适用价档的上界证据即不Ready；也不能捏造高峰日期或借别的型号填满证据。R按完整峰/闲上界，A仍只按本次可信时点落入的唯一合法窗口。按实际序列化输入收紧R的原行为保持，不因本澄清强迫总按32k预留。
+
 原 `BillableModelUsage` 增加可选 `BillingTimeUTC` 和 `BillingTimePolicyVersion`，跟随原billable_usage_json持久化；窗口tariff要求二者实际存在、范围合法且策略版本与组一致，非时段tariff不从它们推定资格。解析准确envelope仍由原einomodel拥有；最终原事实/proof涵盖这两项，SDK裸计数不能自行补时点。以上为公共owner确认前的提议字段名，不建立正式schema或提交生产类型。
+
+新增可选JSON字段在不适用时必须真实省略：TextPriceWindows和BillingTimeUTC用nil表达缺失并omitempty，空BillingTimePolicyVersion同样省略，不能序列化null/空字符串/零时间改变普通非时段provider的当前canonical JSON和proof。实现测试逐字比较原非时段编码/输入指纹，不只比较显示值。
 
 窗口组连同完整profile必须满足原快照/输入hash/序列化byte上限（包括原8192字节约束及用途更小上限）；Catalog和Prepare使用同一原校验，超限不Ready，不靠截断窗口/删证明或提高限制。原32条是平台价目总上限，不是承诺每个操作都能携带32个窗口。
 
-原ReservationMicropoints对整个已冻结组的各收费分项取保守最大单价，再沿原公式ceil一次；ActualMicropoints只用**可证明的provider计价时点**选择组内唯一窗口并floor一次。二者使用同一厂商来源和冻结组，非缓存/缓存仍互斥。实际调用的计价时点及其依据版本进入原billable_usage_json，连同冻结组进入原Invocation proof/输入指纹；不新增第二份收费事实。
+原ReservationMicropoints对整个已冻结组的各收费分项取保守最大单价，再沿原公式ceil一次；ActualMicropoints只用**可证明的provider计价时点**选择组内唯一窗口并floor一次。二者使用同一厂商来源和冻结组，非缓存/缓存仍互斥。派发前已知的冻结组/时点策略版本进入原profile快照、Claim和InputHash；响应后才可得的实际BillingTime及其依据版本只进入原终态billable_usage_json/settlement proof。不得改写已创建Claim/InputHash、按响应重做Reserve或重建调用身份；原modelPointFingerprint仍清除终态BillableUsage，不新增第二份收费事实。
 
 具体时点字段只有在官方证明其决定该API请求的收费时段时才能核准，例如响应created不能仅凭字段名字当计价时点。准确时点来源/转换仍缺证据时，Catalog返回TIME_BASIS_NOT_ADMITTED；成功响应没有可信时点、时点在冻结组外或有两个匹配窗口时保留原预留/UNKNOWN，不用本机当前时间、完成时间或后来的价目猜测。此条件不要求本阶段真实调用。
 
@@ -148,4 +152,6 @@ Prepare核完整运行/每调用deadline有已发布窗口覆盖；每次最后�
 5. 原账本/成员月限/debt-first/原月份、零实扣、并发同key和ACK丢失恢复；缺完整事实保留R。测试使用明确合成价格/时点，不冒称真实百炼资格。
 6. 新空owner安装和只Verify启动；旧53列和旧/混合单位目标继续拒绝。没有旧业务数据读取、迁移或自动seed。
 
-当前状态分开记录：架构评审PENDING；公共接口确认PENDING；准确真实usage/计价时点/上界证据NOT_VERIFIED；新空安装/真实配置发布/采集/模型/付费/用户验收NOT_RUN。设计可能达到有限增量的IMPLEMENTATION_READY，但真实资格缺项始终阻止Catalog Ready和实际开放；本次用户限制仍阻止生产代码改动。历史数据演进方案CANCELLED，不记为PASS。
+R1独立检查绑定f1eb0f02281395e6115825d87fadcb017bb1205a，未发现AGENTS设计BLOCKER，仅DESIGN_REVIEW_PASS。三项已分类为IMPLEMENTATION_TEST/合同澄清：R1-1派发前Claim/InputHash与响应后计价时点分离；R1-2完整峰/闲R上界；R1-3可选字段省略及非时段canonical不变。本文已按三项统一澄清，只做对应增量复核，正式实现仍须逐项必要测试；未跑测试不写PASS。
+
+当前状态分开记录：R1设计检查PASS、三项澄清待增量复核；公共接口确认PENDING，因此仍NOT_IMPLEMENTATION_READY；准确真实usage/计价时点/上界证据NOT_VERIFIED；新空安装/真实配置发布/采集/模型/付费/用户验收NOT_RUN。真实资格缺项始终阻止Catalog Ready和实际开放；本次用户限制也继续阻止生产代码改动。历史数据演进方案CANCELLED，不记为PASS。
