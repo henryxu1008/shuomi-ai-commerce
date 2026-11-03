@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+func TestDeepSeekOfficialPriceSourcesRemainExact(t *testing.T) {
+	for _, raw := range []string{"https://api-docs.deepseek.com/zh-cn/news/news260910/", "https://deepseek.com/", "https://www.deepseek.com/"} {
+		require.True(t, officialPriceHost(raw, "deepseek"), raw)
+	}
+	for _, raw := range []string{"https://api-docs.deepseek.com.evil.test/", "http://api-docs.deepseek.com/", "https://user@api-docs.deepseek.com/", "https://api-docs.deepseek.com/#fragment", "https://help.aliyun.com/zh/model-studio/"} {
+		require.False(t, officialPriceHost(raw, "deepseek"), raw)
+	}
+}
+
 func TestOfficialPriceSnapshotKeepsEmptyCollectionsAsWireArrays(t *testing.T) {
 	now := time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC)
 	cny := PublishedModelPrice{ID: "synthetic-cny", Region: "global", ServiceType: "standard-sync", Provider: "openai", Channel: "openai-direct", Model: "synthetic-mini", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}

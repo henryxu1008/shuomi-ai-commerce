@@ -95,6 +95,13 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, nil
 	}
 	q.BoundEvidenceVersion = first.BoundEvidenceVersion
+	// This exact candidate has time-dependent manufacturer pricing. Neither a
+	// generic OpenAI mapper nor deployment evidence strings establish the API's
+	// billing clock. No clock/complete-usage policy has yet been admitted.
+	if q.Model == "deepseek-v4.1-flash" || first.Text != nil && first.Text.ShapeProfile().AdapterPolicyVersion == governed.DashScopeDeepSeekV41FlashNonThinkingPolicy {
+		q.Reason = "TIME_BASIS_NOT_ADMITTED"
+		return q, nil
+	}
 	if c.Prices == nil {
 		q.Reason = "OFFICIAL_PRICE_MISSING"
 		return q, nil

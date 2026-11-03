@@ -79,6 +79,12 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 	if !ValidRouteProfile(input.Profile, input.Operation) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
+	if windows := input.Profile.OfficialTariff.TextPriceWindows; !windows.Empty() {
+		deadline, ok := ctx.Deadline()
+		if !ok || !windows.Covers(time.Now().UTC(), deadline.UTC()) {
+			return QualifiedRoute{}, ErrNotDispatched
+		}
+	}
 	route, err := e.Resolve(ctx, admissionMetadata(input))
 	if err != nil || !sameRoute(route, QualifiedRoute{Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
 		return QualifiedRoute{}, ErrNotDispatched
@@ -285,7 +291,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 	}
-	if !output.Usage.Known || input.Image != nil && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
+	if !output.Usage.Known || (input.Image != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || !p.OfficialTariff.TextPriceWindows.Empty()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||
 		errors.Is(generationErr, ErrOutcomeUnknown) || errors.Is(generationErr, ErrUsageUnknown) {
 		category := "outcome_or_usage_unknown"
@@ -294,6 +300,11 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 		diagnostic.emit(ctx, "usage", category)
 		return TextOutput{}, ErrOutcomeUnknown
+	}
+	if !p.OfficialTariff.TextPriceWindows.Empty() {
+		if _, err := p.OfficialTariff.SettlementMicropoints(*output.Usage.BillableUsage); err != nil {
+			return TextOutput{}, ErrOutcomeUnknown
+		}
 	}
 	record.FinishedAt = time.Now().UTC()
 	record.ProviderRequestID = googleinteractions.SafeRequestID(output.ProviderRequestID)

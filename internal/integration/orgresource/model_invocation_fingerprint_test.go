@@ -74,3 +74,25 @@ func TestModelPointFactFingerprintsFreezeOfficialPriceJSONAndHashes(t *testing.T
 		t.Fatal("terminal output polluted the dispatch identity")
 	}
 }
+
+func TestResponseBillingTimeChangesTerminalProofOnly(t *testing.T) {
+	fact := modelPointHashFixture()
+	dispatch := modelPointFingerprint(fact)
+	fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: 7, OutputText: 5, BillingTimeUTC: "2026-11-03T00:00:00Z", BillingTimePolicyVersion: "synthetic-clock"}
+	first := modelPointFactHash(fact)
+	if modelPointFingerprint(fact) != dispatch {
+		t.Fatal("response time polluted pre-dispatch identity")
+	}
+	fact.BillableUsage.BillingTimeUTC = "2026-11-03T00:00:01Z"
+	if modelPointFactHash(fact) == first {
+		t.Fatal("terminal proof lost exact billing instant")
+	}
+	if modelPointFingerprint(fact) != dispatch {
+		t.Fatal("billing time changed the original reservation key")
+	}
+	first = modelPointFactHash(fact)
+	fact.BillableUsage.BillingTimePolicyVersion = "different-clock"
+	if modelPointFactHash(fact) == first {
+		t.Fatal("terminal proof lost clock-policy identity")
+	}
+}

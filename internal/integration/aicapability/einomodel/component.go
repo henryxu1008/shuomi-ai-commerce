@@ -316,6 +316,9 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	diagnostic.emit(req.Context(), "response", "response_received")
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
+		if g.cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
+			usage = observeDeepSeekUsage(raw)
+		}
 		if g.cfg.SingleImage != nil && (!validSingleImageResponseUsage(raw, g.cfg.ModelID) || usage.BillableUsage == nil) {
 			usage = ObservedUsage{}
 		}

@@ -80,7 +80,24 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 	}
 
+	type bindingKey struct {
+		scope d.Scope
+		id    string
+	}
+	explicit := map[bindingKey]bool{}
 	for _, def := range m.Bindings {
+		id := ""
+		if def.Text != nil {
+			id = def.Text.Profile.ClientName
+		}
+		if def.Image != nil {
+			id = def.Image.ClientName
+		}
+		key := bindingKey{def.Scope, id}
+		if explicit[key] {
+			return nil, invalid
+		}
+		explicit[key] = true
 		if def.Image != nil {
 			if c.ImageAgent == nil || !slices.Contains(c.ImageAgent.AllowedOrganizationIDs, def.Scope.OrganizationID) || def.Scope.Capability != d.ImageCapability || def.Image.UnitVersion != aicapability.AIPointMicrounitV1 || def.Image.MaximumMicropoints > c.ImageAgent.Generation.MaximumMicropoints {
 				return nil, invalid
@@ -96,7 +113,18 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 			}
 			def.MaximumCostMicros = c.modelRouteCostCeiling(def.Scope.Capability)
 		}
-		defs = append(defs, def)
+		enriched := false
+		if def.Text != nil {
+			for i, anchor := range defs {
+				if anchor.Scope == def.Scope && anchor.Text != nil && anchor.Text.Profile.ClientName == id {
+					defs[i], enriched = def, true
+					break
+				}
+			}
+		}
+		if !enriched {
+			defs = append(defs, def)
+		}
 	}
 	if _, e := qualified.NewCatalog(defs); e != nil {
 		return nil, e

@@ -119,6 +119,65 @@ func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
 	}
 }
 
+func TestAdvisoryWindowUsageKeepsOriginalLedgerAndUnknownReservation(t *testing.T) {
+	for _, op := range []aicapability.Operation{aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision} {
+		for _, known := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/clock-proven=%t", op, known), func(t *testing.T) {
+				db, recorder, repo, _, fact := modelPointFixture(t, op)
+				ctx := context.Background()
+				start := fact.StartedAt
+				windows, err := aicapability.NewOfficialTextPriceWindows("synthetic-price", "synthetic-revision", "synthetic-clock-not-provider-admission", "synthetic-bound", []aicapability.OfficialTextPriceWindow{
+					{EntryVersion: "peak", FromUTC: start.Add(-time.Second).Format(time.RFC3339Nano), UntilUTC: start.Add(500 * time.Millisecond).Format(time.RFC3339Nano), Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}},
+					{EntryVersion: "idle", FromUTC: start.Add(500 * time.Millisecond).Format(time.RFC3339Nano), UntilUTC: start.Add(2 * time.Second).Format(time.RFC3339Nano), Rates: aicapability.OfficialModelRates{InputText: 5000, OutputText: 10000}},
+				})
+				require.NoError(t, err)
+				fact.InvocationID = "window-invocation"
+				fact.OfficialTariff.FXVersion = "cny-identity-v1"
+				fact.OfficialTariff.TextPriceWindows = windows
+				fact.OfficialTariff.PriceVersion = windows.Version()
+				_, err = recorder.ClaimInvocation(ctx, fact)
+				require.NoError(t, err)
+				require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, start))
+				fingerprint := modelPointFingerprint(fact)
+				fact.Outcome, fact.UsageKnown, fact.FinishedAt = aicapability.InvocationSucceeded, true, start.Add(time.Second)
+				fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+				fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: 3, OutputText: 2}
+				if known {
+					fact.BillableUsage.BillingTimeUTC = fact.FinishedAt.UTC().Format(time.RFC3339Nano)
+					fact.BillableUsage.BillingTimePolicyVersion = windows.ClockPolicyVersion()
+				}
+				require.Equal(t, fingerprint, modelPointFingerprint(fact))
+				err = recorder.RecordInvocation(ctx, fact)
+				if known {
+					require.NoError(t, err)
+					require.NoError(t, recorder.RecordInvocation(ctx, fact))
+				} else {
+					require.Error(t, err)
+					require.Error(t, repo.ReleaseAIInvocationUsage(ctx, fact.TenantID, fact.InvocationID))
+				}
+				var bucket organizationResourceBucketRow
+				require.NoError(t, db.Take(&bucket).Error)
+				if known {
+					require.EqualValues(t, 3, bucket.Consumed)
+					require.Zero(t, bucket.Reserved)
+					require.EqualValues(t, 97, bucket.Available)
+				} else {
+					require.Zero(t, bucket.Consumed)
+					require.EqualValues(t, 30, bucket.Reserved)
+					require.EqualValues(t, 70, bucket.Available)
+				}
+				var events []organizationResourceEventRow
+				require.NoError(t, db.Find(&events).Error)
+				if known {
+					require.Len(t, events, 2, "exact replay does not settle twice")
+				} else {
+					require.Len(t, events, 1, "only original reserve remains")
+				}
+			})
+		}
+	}
+}
+
 func TestPlannerModelPointsBindChatPlanScopeWithoutAgentRun(t *testing.T) {
 	db, recorder, _, _, fact := modelPointFixture(t, aicapability.OperationAIWorkbenchChatPlan)
 	ctx := context.Background()

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"time"
 )
 
 // AIPointMicrounitV1 represents one million internal units per retail AI point.
@@ -40,33 +41,45 @@ type OfficialModelRates struct {
 // effective dates and credentials before constructing it. No caller-selected
 // rates or FX can authorize dispatch through these arithmetic helpers.
 type OfficialModelTariff struct {
-	UnitVersion              string             `json:"unitVersion"`
-	PriceVersion             string             `json:"priceVersion"`
-	FXVersion                string             `json:"fxVersion"`
-	Currency                 string             `json:"currency"`
-	CNYMicrosPerCurrencyUnit int64              `json:"cnyMicrosPerCurrencyUnit"`
-	Model                    string             `json:"model"`
-	Channel                  string             `json:"channel"`
-	UsageVersion             string             `json:"usageVersion"`
-	Rates                    OfficialModelRates `json:"rates"`
+	UnitVersion              string                   `json:"unitVersion"`
+	PriceVersion             string                   `json:"priceVersion"`
+	FXVersion                string                   `json:"fxVersion"`
+	Currency                 string                   `json:"currency"`
+	CNYMicrosPerCurrencyUnit int64                    `json:"cnyMicrosPerCurrencyUnit"`
+	Model                    string                   `json:"model"`
+	Channel                  string                   `json:"channel"`
+	UsageVersion             string                   `json:"usageVersion"`
+	Rates                    OfficialModelRates       `json:"rates"`
+	TextPriceWindows         OfficialTextPriceWindows `json:"textPriceWindows,omitzero"`
 }
 
 // BillableModelUsage is built by the trusted usage mapper only after checking
 // raw field presence and partition totals. Complete must never be inferred from
 // Go zero values. This value alone does not prove a terminal invocation outcome.
 type BillableModelUsage struct {
-	OutputImageItems int64 `json:",omitempty"`
-	MappingVersion   string
-	Complete         bool
-	InputText        int64
-	CachedInputText  int64
-	InputImage       int64
-	CachedInputImage int64
-	OutputText       int64
-	OutputImage      int64
+	OutputImageItems         int64 `json:",omitempty"`
+	MappingVersion           string
+	Complete                 bool
+	InputText                int64
+	CachedInputText          int64
+	InputImage               int64
+	CachedInputImage         int64
+	OutputText               int64
+	OutputImage              int64
+	BillingTimeUTC           string `json:",omitempty"`
+	BillingTimePolicyVersion string `json:",omitempty"`
 }
 
 func (u BillableModelUsage) Validate() error {
+	if (u.BillingTimeUTC == "") != (u.BillingTimePolicyVersion == "") {
+		return ErrOfficialModelPrice
+	}
+	if u.BillingTimeUTC != "" {
+		at, err := time.Parse(time.RFC3339Nano, u.BillingTimeUTC)
+		if err != nil || at.IsZero() || at.UTC().Format(time.RFC3339Nano) != u.BillingTimeUTC || !validTextFact(u.BillingTimePolicyVersion, 128) {
+			return ErrOfficialModelPrice
+		}
+	}
 	if !u.Complete || !validTextFact(u.MappingVersion, 128) || u.CachedInputText > u.InputText || u.CachedInputImage > u.InputImage {
 		return ErrOfficialModelPrice
 	}
@@ -79,6 +92,9 @@ func (u BillableModelUsage) Validate() error {
 }
 
 func (p OfficialModelTariff) Validate() error {
+	if !p.TextPriceWindows.Empty() && (p.TextPriceWindows.Validate() != nil || p.Currency != "CNY" || p.FXVersion != "cny-identity-v1" || p.UsageVersion != "openai-text-v1" || p.PriceVersion != p.TextPriceWindows.Version() || p.Rates != p.TextPriceWindows.MaximumRates()) {
+		return ErrOfficialModelPrice
+	}
 	if p.UnitVersion != AIPointMicrounitV1 || p.CNYMicrosPerCurrencyUnit <= 0 || p.CNYMicrosPerCurrencyUnit > 1_000_000_000_000 || len(p.Currency) != 3 {
 		return ErrOfficialModelPrice
 	}
@@ -150,7 +166,15 @@ func (p OfficialModelTariff) micropoints(u BillableModelUsage, ceiling bool) (in
 		return 0, ErrOfficialModelPrice
 	}
 	quantities := []int64{u.InputText - u.CachedInputText, u.CachedInputText, u.InputImage - u.CachedInputImage, u.CachedInputImage, u.OutputText, u.OutputImage, u.OutputImageItems}
-	rates := []int64{p.Rates.InputText, p.Rates.CachedInputText, p.Rates.InputImage, p.Rates.CachedInputImage, p.Rates.OutputText, p.Rates.OutputImage, p.Rates.OutputImagePerItem}
+	pricedRates := p.Rates
+	if !ceiling && !p.TextPriceWindows.Empty() {
+		var err error
+		pricedRates, err = p.TextPriceWindows.RatesAt(u.BillingTimeUTC, u.BillingTimePolicyVersion)
+		if err != nil {
+			return 0, err
+		}
+	}
+	rates := []int64{pricedRates.InputText, pricedRates.CachedInputText, pricedRates.InputImage, pricedRates.CachedInputImage, pricedRates.OutputText, pricedRates.OutputImage, pricedRates.OutputImagePerItem}
 	for i, quantity := range quantities {
 		if quantity < 0 || quantity > 1<<30 || quantity > 0 && rates[i] == 0 {
 			return 0, ErrOfficialModelPrice

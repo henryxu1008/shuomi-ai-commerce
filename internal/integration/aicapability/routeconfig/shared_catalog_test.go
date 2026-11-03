@@ -172,3 +172,19 @@ func TestSharedTextAdmissionRequiresAnImplementedOfficialUsageMapper(t *testing.
 		})
 	}
 }
+
+func TestDeepSeekCannotBorrowGenericTextQualificationWithoutTrustedClock(t *testing.T) {
+	now := time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC)
+	ref := d.ModelBindingReference{ID: "synthetic-deepseek", Version: "synthetic-binding"}
+	p := aicapability.ModelProfile{ClientName: ref.ID, ProviderID: "DASHSCOPE", AdapterKind: "openai-compatible", ModelID: "deepseek-v4.1-flash", EndpointIdentityDigest: "synthetic-endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "admission", AdapterPolicyVersion: governed.DashScopeDeepSeekV41FlashNonThinkingPolicy, PromptVersion: "prompt", OutputSchemaVersion: "schema", UsageMappingVersion: "cost-usage", CostPricingVersion: "channel-cost", Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 100, MaximumCompletionTokens: 100, MaximumInputBytes: 1024, MaximumOutputBytes: 1024, DeadlineBound: time.Second}
+	def := Definition{Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "synthetic-price", ReferenceVersion: ref.Version, BoundEvidenceVersion: "caller-string-is-not-clock-qualification", Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: "credential", AdmittedEndpointIdentityDigest: p.EndpointIdentityDigest}, MaximumCostMicros: 100}
+	catalog, err := NewCatalog([]Definition{def})
+	require.NoError(t, err)
+	metadata := &sharedMetadataFixture{}
+	shared := &SharedCatalog{Catalog: catalog, Credentials: metadata, Now: func() time.Time { return now }}
+	q, err := shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+	require.NoError(t, err)
+	require.False(t, q.Ready)
+	require.Equal(t, "TIME_BASIS_NOT_ADMITTED", q.Reason, "a credential/descriptor string cannot qualify provider billing time")
+	require.Zero(t, metadata.reads, "fail before credential resolution or any dispatch")
+}
