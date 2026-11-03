@@ -141,12 +141,22 @@ func imageAnalysisRoutes(a *imageAnalysisApplication) []httproute.Descriptor {
 					}
 					_, attempted, e := runtime.StartWithClaimAttempt(ctx, request)
 					if e != nil {
+						if attempted {
+							c.JSON(http.StatusServiceUnavailable, gin.H{"code": "OUTCOME_UNKNOWN"})
+							return
+						}
 						writeProductAgentRunError(c, e, attempted)
 						return
 					}
 				}
 				v, e := a.result(ctx, snapshot)
 				if e != nil {
+					if action.name == "confirm" {
+						// This can follow a completed send/settlement, including an
+						// original-key replay. A read failure proves no rejection.
+						c.JSON(http.StatusServiceUnavailable, gin.H{"code": "OUTCOME_UNKNOWN"})
+						return
+					}
 					writeProductAgentError(c, e)
 					return
 				}

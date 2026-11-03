@@ -21,6 +21,11 @@ const areas={subject:"主体",framing:"构图",background:"背景",clarity:"清�
 const observationLabels={possible_issue:"可能有问题",no_obvious_issue:"未发现明显问题",unknown:"无法判断"};
 const suggestionLabels={check:"人工核实",change_image:"考虑更换图片",open_image_workflow:"到原图片流程处理"};
 const reasons:Record<string,string>={MODEL_NOT_READY:"企业多模态模型尚未准入，请由管理员在统一模型配置中处理。",AGENT_NOT_ENABLED:"商品图片智能体未启用。",RUN_PERMISSION_REQUIRED:"当前身份可查看，但没有运行权限。",CONFIGURATION_CHANGED:"图片、模型或配置已变化。原请求保留，请读取当前来源后重新准备。",REVISION_MISMATCH:"执行模式已变化，请重新读取并准备。",FORBIDDEN:"当前身份无权执行此操作。",NOT_FOUND:"暂未找到原请求，请保留编号继续核实。",OUTCOME_UNKNOWN:"结果尚未确认，请核实原请求，不要重新发起检查。"};
+function definitePreparationRejection(action:string,error:unknown){
+ if(action!=="prepare"||!(error instanceof AnalysisError))return false;
+ const statuses:Record<string,number>={INVALID_REQUEST:400,INVALID_AGENT_REQUEST:400,FORBIDDEN:403,CONFIGURATION_CHANGED:409,AGENT_NOT_ENABLED:409,AGENT_DEFINITION_UNAVAILABLE:409,REVISION_MISMATCH:412,PRECONDITION_REQUIRED:428};
+ return statuses[error.code]===error.status;
+}
 
 export function ProductImageAnalysisPanel(props:Props){
  const c=useWorkbenchContext(),userId=c.user?.id,organizationId=c.effectiveOrganization?.id;
@@ -67,7 +72,7 @@ function ScopedAnalysis({scope,canRun}:{scope:AnalysisScope;canRun:boolean}){
    }
    if(value.status==="unknown")setError(reasons.OUTCOME_UNKNOWN);
    if(action==="confirm"||action==="read")setNonce(v=>v+1);
-  }catch(e){if(active.current&&!abort.signal.aborted){const code=e instanceof AnalysisError?e.code:"LOCAL_RECEIPT_UNAVAILABLE";setError(reasons[code]??(code==="LOCAL_RECEIPT_UNAVAILABLE"?"无法保留原请求编号，请检查浏览器存储后再操作。":"当前操作未完成，请保留原请求并核实。"));if(action!=="read"&&e instanceof AnalysisError&&e.code!=="OUTCOME_UNKNOWN"&&key)remember({key,uncertain:false})}}
+  }catch(e){if(active.current&&!abort.signal.aborted){const definite=definitePreparationRejection(action,e),code=e instanceof AnalysisError?action!=="read"&&!definite?"OUTCOME_UNKNOWN":e.code:"LOCAL_RECEIPT_UNAVAILABLE";setError(reasons[code]??(code==="LOCAL_RECEIPT_UNAVAILABLE"?"无法保留原请求编号，请检查浏览器存储后再操作。":"当前操作未完成，请保留原请求并核实。"));if(definite&&key)remember({key,uncertain:false})}}
   finally{flight.current=false;if(active.current)setBusy(false)}
  }
  const selectionMatches=!!sources&&!!result&&sources.catalogVersion===result.catalogVersion&&sources.publicationId===result.publicationId&&selected===`${result.kind}:${result.imageId}`;

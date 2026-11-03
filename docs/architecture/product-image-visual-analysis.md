@@ -362,6 +362,8 @@ SharedCatalog 仅在原多模态类别存在完整单图准入定义/官方价�
 - `images/analysis` 下仅有来源读取、准备、原键确认、原键结果和同来源历史。
   准备从实际字节冻结身份；确认绑定原 preparation/configuration/quote/selection/content/model/最大微点。
   BFF 拒绝客户端 URL、字节、模型或价格；未确认不发送，UNKNOWN 保留原键且不自动重试。
+  确认提交后结果读回失败返回 OUTCOME_UNKNOWN；页面仅按严格 code/status 接受初次准备的确定拒绝，
+  不把确认后的5xx/冲突/畸形ACK或被拒绝的历史读取作为“未发送”证据，不解除原键未知门禁。
 - 历史从原配置快照、Run 和 native Invocation 读取；不重报当前价、不重新下载图、不 claim/resume。
   只在实际成功、固定 validator 有效且原输出/用量绑定一致时展示只读建议。
 - 原 Asset Tool 的手写 generated-only Schema 漏掉当前人工批准来源和不可变证明字段；

@@ -28,3 +28,16 @@ it("retains an uncertain original request across reload without automatically po
  view.unmount();render(<ProductImageAnalysisPanel kind="acquisition" contextId={id}/>);fireEvent.click(await screen.findByRole("button",{name:"核实原请求"}));
  await waitFor(()=>expect(fetch.mock.calls.filter(([u])=>String(u).includes("/by-key/")).length).toBeGreaterThan(0));expect(fetch.mock.calls.filter(([,i])=>i.method==="POST")).toHaveLength(posts);
 });
+
+it.each([[503,"PRODUCT_AGENT_UNAVAILABLE"],[503,"DEPENDENCY_UNAVAILABLE"],[409,"AGENT_CONFLICT"]])("retains the original key after confirm readback fails with %s %s",async(status,code)=>{
+ let rejectRead=true;const original=fetch.getMockImplementation()! as (input:unknown,init:RequestInit)=>Promise<Response>;fetch.mockImplementation(async(input,init)=>{if(String(input).endsWith("/confirm")){current={...current,status:"completed",runId:id,actualMicropoints:"31",opinion:{observations:[],suggestions:[],unknowns:["原结果已保存"]}};return Response.json({code},{status})}if(String(input).includes("/by-key/")&&init.method==="GET"&&rejectRead){rejectRead=false;return Response.json({code:"FORBIDDEN"},{status:403})}return original(input,init)});
+ render(<ProductImageAnalysisPanel kind="acquisition" contextId={id}/>);fireEvent.change(await screen.findByLabelText("待检查图片"),{target:{value:"source:img"}});fireEvent.click(screen.getByRole("button",{name:"准备单图检查"}));await screen.findByRole("checkbox");fireEvent.click(screen.getByRole("checkbox"));fireEvent.click(screen.getByRole("button",{name:"确认发送图片并检查"}));
+ await screen.findByRole("alert");expect(screen.getByRole("button",{name:"准备单图检查"})).toBeDisabled();expect(screen.getByRole("button",{name:"确认发送图片并检查"})).toBeDisabled();
+ const storage=localStorage.getItem(`product-image-analysis:actor:B:acquisition:${id}`)!;expect(JSON.parse(storage).uncertain).toBe(true);
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));await screen.findByText("当前身份无权执行此操作。");expect(screen.getByRole("button",{name:"准备单图检查"})).toBeDisabled();expect(JSON.parse(localStorage.getItem(`product-image-analysis:actor:B:acquisition:${id}`)!).uncertain).toBe(true);
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));expect(await screen.findByText("原结果已保存")).toBeVisible();expect(fetch.mock.calls.filter(([,i])=>i.method==="POST")).toHaveLength(2);
+});
+it("allows a new preparation after a proven initial rejection, never after a rejected history read",async()=>{
+ const original=fetch.getMockImplementation()! as (input:unknown,init:RequestInit)=>Promise<Response>;fetch.mockImplementation(async(input,init)=>String(input).endsWith("/prepare")?Response.json({code:"CONFIGURATION_CHANGED"},{status:409}):original(input,init));
+ render(<ProductImageAnalysisPanel kind="acquisition" contextId={id}/>);fireEvent.change(await screen.findByLabelText("待检查图片"),{target:{value:"source:img"}});fireEvent.click(screen.getByRole("button",{name:"准备单图检查"}));await screen.findByRole("alert");expect(screen.getByRole("button",{name:"准备单图检查"})).not.toBeDisabled();
+});

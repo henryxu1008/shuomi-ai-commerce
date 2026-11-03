@@ -29,6 +29,20 @@ import (
 
 type analysisFixtureTransport func(*http.Request) (*http.Response, error)
 
+type analysisReadbackFailureLedger struct {
+	ProductAgentInvocationLedger
+	reads atomic.Int32
+}
+
+func (l *analysisReadbackFailureLedger) ReadModelInvocation(ctx context.Context, org, id string) (aicapability.InvocationRecord, error) {
+	// First read is the actual domain validator; the second is HTTP readback
+	// after the Run/provider/settlement has already completed.
+	if l.reads.Add(1) == 2 {
+		return aicapability.InvocationRecord{}, agent.ErrUnavailable
+	}
+	return l.ProductAgentInvocationLedger.ReadModelInvocation(ctx, org, id)
+}
+
 func (f analysisFixtureTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func configureImageAnalysisFixture(s *ProductAgentDependencies, row openai.AIClientCredential, calls *atomic.Int32) {
 	p := s.TextPolicies["B"]
@@ -110,8 +124,15 @@ func testImageAnalysisHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture,
 	call("POST", base+"/by-key/"+key+"/confirm", "", consent, 400)
 	require.Zero(t, calls.Load())
 	consent.Confirmed = true
+	parent.config.Ledger = &analysisReadbackFailureLedger{ProductAgentInvocationLedger: parent.config.Ledger}
+	var uncertain struct {
+		Code string `json:"code"`
+	}
+	require.NoError(t, json.Unmarshal(call("POST", base+"/by-key/"+key+"/confirm", "", consent, 503), &uncertain))
+	require.Equal(t, "OUTCOME_UNKNOWN", uncertain.Code, "submitted execution cannot become an ordinary rejection when its readback fails")
+	require.EqualValues(t, 1, calls.Load())
 	var result imageAnalysisResultDTO
-	require.NoError(t, json.Unmarshal(call("POST", base+"/by-key/"+key+"/confirm", "", consent, 200), &result))
+	require.NoError(t, json.Unmarshal(call("GET", base+"/by-key/"+key, "", nil, 200), &result))
 	require.Equal(t, "completed", result.Status)
 	require.NotNil(t, result.Opinion)
 	require.Equal(t, "31", result.ActualMicropoints)
