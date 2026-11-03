@@ -123,8 +123,8 @@ func runContracts(db *gorm.DB) ([]relationContract, error) {
 
 func invocationContract(db *gorm.DB) (relationContract, error) {
 	spec, err := modelContract(db, aistore.InvocationSchemaModel(), "product_agent_owner")
-	if err == nil && len(spec.Columns) != 53 {
-		err = fmt.Errorf("invocation owner differs from approved 53-column contract")
+	if err == nil && len(spec.Columns) != 54 {
+		err = fmt.Errorf("invocation owner differs from current 54-column contract")
 	}
 	return spec, err
 }
