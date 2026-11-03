@@ -24,6 +24,13 @@ import (
 const Base = "/api/v1/workbench/agents"
 const Module = "agent-configuration"
 
+// RecentItems adds per-page read availability without exposing an unreadable
+// task's identity, source, status, or execution data.
+type RecentItems struct {
+	Items            any
+	UnavailableCount int
+}
+
 type Handler struct {
 	ModeRepository     agentconfig.ModeRepository
 	ResolveModeSubject func(context.Context, agentconfig.ModeSubject, bool) (agent.ExecutionIdentity, agentconfig.ResolvedModeSubject, error)
@@ -492,6 +499,15 @@ func (h *Handler) serve(c *gin.Context, s spec) {
 			Failure(c, e)
 			return
 		}
-		reply(c, gin.H{"items": items, "nextCursor": cursor(n)}, "")
+		page := gin.H{"items": items, "nextCursor": cursor(n)}
+		if partial, ok := items.(RecentItems); ok {
+			if partial.UnavailableCount < 0 || partial.UnavailableCount > size {
+				Failure(c, agentconfig.ErrUnavailable)
+				return
+			}
+			page["items"] = partial.Items
+			page["unavailableCount"] = partial.UnavailableCount
+		}
+		reply(c, page, "")
 	}
 }

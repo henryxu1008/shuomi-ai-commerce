@@ -28,9 +28,9 @@ func (r recentImageSetRepository) GetProjection(ctx context.Context, scope image
 	return p, nil
 }
 
-type recentImageSetReader func(context.Context, imageagent.ExecutionIdentity, string, string, int) ([]imageagent.ImageSetRunSummary, string, error)
+type recentImageSetReader func(context.Context, imageagent.ExecutionIdentity, string, string, int) ([]imageagent.ImageSetRunSummary, string, int, error)
 
-func (f recentImageSetReader) ListImageSets(ctx context.Context, id imageagent.ExecutionIdentity, contextID, cursor string, size int) ([]imageagent.ImageSetRunSummary, string, error) {
+func (f recentImageSetReader) ListImageSets(ctx context.Context, id imageagent.ExecutionIdentity, contextID, cursor string, size int) ([]imageagent.ImageSetRunSummary, string, int, error) {
 	return f(ctx, id, contextID, cursor, size)
 }
 
@@ -56,12 +56,12 @@ func recentImageSetFixture(t *testing.T, count int) (*fullImageApplication, cont
 	service, err := imageagent.NewService(recentImageSetRepository{projections: projections}, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope())
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
-	a := &fullImageApplication{service: service, recent: recentImageSetReader(func(_ context.Context, id imageagent.ExecutionIdentity, contextID, cursor string, size int) ([]imageagent.ImageSetRunSummary, string, error) {
+	a := &fullImageApplication{service: service, recent: recentImageSetReader(func(_ context.Context, id imageagent.ExecutionIdentity, contextID, cursor string, size int) ([]imageagent.ImageSetRunSummary, string, int, error) {
 		require.Equal(t, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member"}, id)
 		require.Empty(t, contextID)
 		require.Equal(t, "previous", cursor)
 		require.Equal(t, count, size)
-		return append([]imageagent.ImageSetRunSummary(nil), items...), "next", nil
+		return append([]imageagent.ImageSetRunSummary(nil), items...), "next", 0, nil
 	})}
 	return a, ctx, items, projections
 }
@@ -99,8 +99,9 @@ func TestFullImageRecentPageChecksEveryLiveSourceWithinOneDeadline(t *testing.T)
 	})
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	got, next, err := a.readRecent(ctx, "", "previous", count)
+	got, next, unavailable, err := a.readRecent(ctx, "", "previous", count)
 	require.NoError(t, err)
+	require.Zero(t, unavailable)
 	require.EqualValues(t, count, started.Load(), "each item requires its own live authorization/source check")
 	require.Empty(t, badBinding)
 	require.Equal(t, "next", next)
@@ -124,10 +125,29 @@ func TestFullImageRecentPageCancellationNeverReturnsPartialSuccess(t *testing.T)
 	})
 	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	defer cancel()
-	got, next, err := a.readRecent(ctx, "", "previous", 1)
+	got, next, unavailable, err := a.readRecent(ctx, "", "previous", 1)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.Nil(t, got)
+	require.Zero(t, unavailable)
 	require.Empty(t, next)
+}
+
+func TestFullImageRecentPagePreservesUnavailableCountAndLiveSourceCheck(t *testing.T) {
+	a, ctx, items, _ := recentImageSetFixture(t, 1)
+	a.recent = recentImageSetReader(func(context.Context, imageagent.ExecutionIdentity, string, string, int) ([]imageagent.ImageSetRunSummary, string, int, error) {
+		return items, "next", 19, nil
+	})
+	var calls int
+	a.readSources = recentImageSetSources(func(context.Context, imageagent.ExecutionIdentity, imageagent.PrepareImageSetInput) (imageagent.ImageSetPreparation, error) {
+		calls++
+		return imageagent.ImageSetPreparation{}, imageagent.ErrIdentityRequired
+	})
+	got, next, unavailable, err := a.readRecent(ctx, "", "", 20)
+	require.NoError(t, err)
+	require.Empty(t, got, "inaccessible sources remain hidden even on a partial page")
+	require.Equal(t, "next", next)
+	require.Equal(t, 19, unavailable)
+	require.Equal(t, 1, calls)
 }
 
 func TestFullImageRecentPageRejectsInvalidScopeBeforeLiveSourceReads(t *testing.T) {
@@ -151,9 +171,10 @@ func TestFullImageRecentPageRejectsInvalidScopeBeforeLiveSourceReads(t *testing.
 				calls.Add(1)
 				return imageagent.ImageSetPreparation{}, nil
 			})
-			got, next, err := a.readRecent(ctx, "", "previous", count)
+			got, next, unavailable, err := a.readRecent(ctx, "", "previous", count)
 			require.Error(t, err)
 			require.Nil(t, got)
+			require.Zero(t, unavailable)
 			require.Empty(t, next)
 			require.Zero(t, calls.Load())
 		})

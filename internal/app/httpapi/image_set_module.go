@@ -259,7 +259,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 				return
 			}
 		}
-		items, next, e := a.readRecent(ctx, contextID, query.Get("cursor"), 20)
+		items, next, unavailable, e := a.readRecent(ctx, contextID, query.Get("cursor"), 20)
 		if e != nil {
 			writeFullImageError(c, e, false)
 			return
@@ -270,7 +270,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 				visible = append(visible, item)
 			}
 		}
-		c.JSON(http.StatusOK, gin.H{"items": visible, "nextCursor": next})
+		c.JSON(http.StatusOK, gin.H{"items": visible, "nextCursor": next, "unavailableCount": unavailable})
 		return
 	}
 	if action == "sources" {
@@ -557,31 +557,31 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 	c.JSON(http.StatusAccepted, gin.H{"runId": runID, "status": "accepted"})
 }
 
-func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]fullImageRecentRun, string, error) {
+func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]fullImageRecentRun, string, int, error) {
 	id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || a == nil || a.recent == nil {
-		return nil, "", imageagent.ErrIdentityRequired
+		return nil, "", 0, imageagent.ErrIdentityRequired
 	}
 	if size < 1 || size > 40 {
-		return nil, "", imageagent.ErrValidation
+		return nil, "", 0, imageagent.ErrValidation
 	}
 	exec := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.EffectiveMemberID, BusinessTaskID: contextID}
-	items, next, err := a.recent.ListImageSets(ctx, exec, contextID, cursor, size)
+	items, next, unavailable, err := a.recent.ListImageSets(ctx, exec, contextID, cursor, size)
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
-	if len(items) > size {
-		return nil, "", imageagent.ErrValidation
+	if unavailable < 0 || len(items)+unavailable > size {
+		return nil, "", 0, imageagent.ErrValidation
 	}
 	inputs := make([]imageagent.PrepareImageSetInput, len(items))
 	projections := make([]imageagent.RunProjection, len(items))
 	for index, item := range items {
 		p, e := a.service.Get(ctx, item.RunID)
 		if e != nil {
-			return nil, "", e
+			return nil, "", 0, e
 		}
 		if e = validateFullImageRun(id, item.ContextKind, item.ContextID, item.RunID, p); e != nil {
-			return nil, "", e
+			return nil, "", 0, e
 		}
 		source := p.Plan.Set.Source
 		inputs[index] = imageagent.PrepareImageSetInput{ContextKind: item.ContextKind, ContextID: item.ContextID, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, Target: imageagent.ImageTargetSelection{Platform: p.Plan.Set.Target.Platform}}
@@ -609,29 +609,29 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 		})
 	}
 	if err := group.Wait(); err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 	result := make([]fullImageRecentRun, 0, len(items))
 	for index, item := range items {
 		if visible[index] {
 			release, err := a.releaseSummary(ctx, projections[index])
 			if err != nil {
-				return nil, "", err
+				return nil, "", 0, err
 			}
 			var paid *fullImageOutputRecoverySummary
 			if release == nil {
 				paid, err = a.outputRecoverySummary(ctx, projections[index])
 				if err != nil {
-					return nil, "", err
+					return nil, "", 0, err
 				}
 			}
 			result = append(result, fullImageRecentRun{ImageSetRunSummary: item, ReleaseSummary: release, OutputRecoverySummary: paid})
 		}
 	}
-	return result, next, nil
+	return result, next, unavailable, nil
 }
 
 func fullImageSelection(p imageagent.RunProjection, body fullImageSelectionBody) (asset.ImageSetCommand, error) {
