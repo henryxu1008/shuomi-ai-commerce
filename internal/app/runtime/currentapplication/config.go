@@ -32,6 +32,7 @@ const (
 )
 
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
+var publicIdentityOriginPattern = regexp.MustCompile(`^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 
 type Config struct {
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
@@ -388,15 +389,19 @@ func (cfg *Config) validate() error {
 	if cfg.Listen.Host != "127.0.0.1" || cfg.Listen.Port < 1 || cfg.Listen.Port > 65535 {
 		return errors.New("current application listener must use 127.0.0.1 and a valid explicit port")
 	}
-	issuer, err := validateLoopbackURL("issuerURL", cfg.Identity.IssuerURL)
+	issuer, err := validateIdentityURL("issuerURL", cfg.Identity.IssuerURL)
 	if err != nil {
 		return err
 	}
-	authorization, err := validateLoopbackURL("authorizationAPIURL", cfg.Identity.AuthorizationAPIURL)
+	authorization, err := validateIdentityURL("authorizationAPIURL", cfg.Identity.AuthorizationAPIURL)
 	if err != nil {
 		return err
 	}
-	if !strings.EqualFold(issuer.Scheme, authorization.Scheme) || !strings.EqualFold(issuer.Host, authorization.Host) {
+	if issuer.Port() == "" || authorization.Port() == "" {
+		if cfg.Identity.IssuerURL != cfg.Identity.AuthorizationAPIURL {
+			return errors.New("public identity issuer and authorization API must equal the same canonical HTTPS origin")
+		}
+	} else if !strings.EqualFold(issuer.Scheme, authorization.Scheme) || !strings.EqualFold(issuer.Host, authorization.Host) {
 		return errors.New("identity issuer and authorization API must have the same loopback origin")
 	}
 	for name, value := range map[string]string{
@@ -659,6 +664,15 @@ func validatePlatformAdminAllowlist(name string, values []string) error {
 		seen[value] = struct{}{}
 	}
 	return nil
+}
+
+// Public identity is pinned by the private operator manifest, never request input.
+// Local deployments retain their explicit-port loopback contract.
+func validateIdentityURL(name, raw string) (*url.URL, error) {
+	if len(raw) <= 261 && publicIdentityOriginPattern.MatchString(raw) {
+		return url.Parse(raw)
+	}
+	return validateLoopbackURL(name, raw)
 }
 
 func validateLoopbackURL(name, raw string) (*url.URL, error) {
