@@ -20,6 +20,7 @@ const configurationHref = (entry: CatalogEntry) => `/workbench/agents/mine/${ent
 function usageHref(entry: CatalogEntry) {
   switch (entry.agent.agentId) {
     case "product.title.agent": return "/workbench/supply/acquisition?agent_kind=title";
+    case "product.image.agent":
     case "product.content.agent": return "/workbench/data/mine?view=own";
     case "pod.design.agent":
     case "product.selection.agent":
@@ -85,6 +86,7 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
               <p className={styles.description}>{group.description}</p>
               <p className={styles.summary}>{group.summary}</p>
               {usable?.agent.agentId === "product.content.agent" && <p className={styles.description}>打开商品资料，选择“优化商品内容”；确认时可选标题技能，建议人工审核后单独确认采用。</p>}
+              {usable?.agent.agentId === "product.image.agent" && <p className={styles.description}>选择自有商品，打开商品的待补全资料，在商品图片智能体中选择已有原图，无需重新采集。</p>}
             </div>
             <p className={styles.readiness}>{readiness(group.entries)}</p>
             <div className={styles.footer}>
