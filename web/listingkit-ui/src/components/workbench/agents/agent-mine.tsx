@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import type { ConfigurationScope } from "@/lib/api/agent-configuration";
 import { catalogPageSchema, type CatalogEntry } from "@/lib/contracts/agent-configuration";
@@ -11,7 +12,7 @@ import { ConsoleState } from "../console/console-page";
 import { AgentMarket } from "./agent-market";
 import { AgentCapabilityDialog } from "./agent-capability-dialog";
 import { configurationError, useConfigurationRead } from "./agent-configuration-hooks";
-import { groupActivation, groupAgentEntries } from "./agent-responsibilities";
+import { groupActivation, groupAgentEntries, selectionOperationLinks } from "./agent-responsibilities";
 import sharedStyles from "./agents.module.css";
 import styles from "./agent-mine.module.css";
 
@@ -19,6 +20,7 @@ const configurationHref = (entry: CatalogEntry) => `/workbench/agents/mine/${ent
 
 function usageHref(entry: CatalogEntry) {
   switch (entry.agent.agentId) {
+    case "product.research.agent":return "/workbench/supply/selection?step=analysis";
     case "product.title.agent": return "/workbench/supply/acquisition?agent_kind=title";
     case "product.content.agent": return "/workbench/data/mine?view=own";
     case "pod.design.agent":
@@ -47,6 +49,7 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
   pagination?: ReactNode;
 }) {
   const [filter, setFilter] = useState("ALL");
+  const [operations, setOperations] = useState<Record<string,string>>({});
   const [picker, setPicker] = useState(false);
   const [capability, setCapability] = useState<CatalogEntry["agent"]["agentId"] | null>(null);
   const capabilityTrigger = useRef<HTMLButtonElement | null>(null);
@@ -75,9 +78,11 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
       <div className={styles.cards}>
         {visible.map(group => {
           const activation = groupActivation(group);
-          const configuration = group.entries.find(entry=>entry.agent.activation==="ENABLED") ?? group.entries[0];
-          const usable = group.entries.find(entry=>entry.agent.activation==="ENABLED" && entry.canUse);
-          const inspect = group.entries.find(entry=>entry.capabilities.some(cap=>["product.selection.inspect","shop.operations-diagnosis.inspect"].includes(cap.id) && cap.readiness==="AVAILABLE"));
+          const configuration = group.entries.find(entry=>entry.agent.agentId===operations[group.id])
+            ?? group.entries.find(entry=>entry.agent.activation==="ENABLED" && entry.canUse)
+            ?? group.entries.find(entry=>entry.agent.activation==="ENABLED") ?? group.entries[0];
+          const usable = configuration.agent.activation==="ENABLED" && configuration.canUse ? configuration : undefined;
+          const inspect = configuration.capabilities.some(cap=>["product.research.inspect","product.selection.inspect","shop.operations-diagnosis.inspect"].includes(cap.id) && cap.readiness==="AVAILABLE") ? configuration : undefined;
           const titleId = `mine-${group.id}`;
           return <Card key={group.id} role="article" aria-labelledby={titleId} className={styles.card}>
             <div className={styles.copy}>
@@ -86,12 +91,15 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
               <p className={styles.summary}>{group.summary}</p>
               {usable?.agent.agentId === "product.content.agent" && <p className={styles.description}>打开商品资料，选择“优化商品内容”；确认时可选标题技能，建议人工审核后单独确认采用。</p>}
             </div>
-            <p className={styles.readiness}>{readiness(group.entries)}</p>
+            {group.entries.length > 1 ? <label className={styles.operation}><span>本次操作</span><Select aria-label="选择业务操作" value={configuration.agent.agentId} onChange={event=>setOperations(current=>({...current,[group.id]:event.target.value}))}>
+              {group.entries.map(entry=><option key={entry.agent.agentId} value={entry.agent.agentId}>{selectionOperationLinks.find(operation=>operation.agentId===entry.agent.agentId)?.label ?? entry.name} · {groupActivation({agentIds:[entry.agent.agentId],entries:[entry]}).label}</option>)}
+            </Select></label> : null}
+            <p className={styles.readiness}>{readiness([configuration])}</p>
             <div className={styles.footer}>
               <span className={styles.status} data-active={activation.active}>{activation.label}</span>
               <div className={styles.actions}>
                 <Button variant="outline" size="sm" className={styles.configuration} aria-haspopup="dialog" onClick={event=>{capabilityTrigger.current=event.currentTarget;setCapability(configuration.agent.agentId);}}>能力配置</Button>
-                {usable ? <Button asChild size="sm" className={styles.use}><Link href={usageHref(usable)} prefetch={false}>进入使用</Link></Button> : inspect ? <Button asChild size="sm" className={styles.use}><Link href={configurationHref(inspect)} prefetch={false}>{inspect.agent.agentId==="product.selection.agent"?"查看商品事实 →":"查看经营事实 →"}</Link></Button> : <Button size="sm" className={styles.use} disabled>暂不可用</Button>}
+                {usable ? <Button asChild size="sm" className={styles.use}><Link href={usageHref(usable)} prefetch={false}>进入使用</Link></Button> : inspect ? <Button asChild size="sm" className={styles.use}><Link href={inspect.agent.agentId==="product.research.agent"?usageHref(inspect):configurationHref(inspect)} prefetch={false}>{inspect.agent.agentId==="product.research.agent"?"查看研究事实 →":inspect.agent.agentId==="product.selection.agent"?"查看商品事实 →":"查看经营事实 →"}</Link></Button> : <Button size="sm" className={styles.use} disabled>暂不可用</Button>}
               </div>
             </div>
           </Card>;

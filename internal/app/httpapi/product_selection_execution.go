@@ -29,14 +29,22 @@ func (in selectionInput) inputs() ([]collection.SelectionInput, error) {
 	}
 	choices := make([]collection.SelectionInput, 0, len(in.Candidates))
 	for _, c := range in.Candidates {
-		revision, e := strconv.ParseInt(c.ExpectedRevision, 10, 64)
-		version, ve := strconv.ParseUint(c.OriginalVersion, 10, 63)
-		if !agentconfig.UUID(c.ItemID) || e != nil || revision < 1 || strconv.FormatInt(revision, 10) != c.ExpectedRevision || ve != nil || version < 1 || strconv.FormatUint(version, 10) != c.OriginalVersion || !agent.ValidID(c.OriginalPublicationID) {
-			return nil, agent.ErrInvalid
+		p, e := c.input()
+		if e != nil {
+			return nil, e
 		}
-		choices = append(choices, collection.SelectionInput{ItemID: c.ItemID, ExpectedRevision: revision, OriginalPublicationID: c.OriginalPublicationID, OriginalVersion: version})
+		choices = append(choices, p)
 	}
 	return choices, nil
+}
+
+func (c selectionChoice) input() (collection.SelectionInput, error) {
+	revision, e := strconv.ParseInt(c.ExpectedRevision, 10, 64)
+	version, ve := strconv.ParseUint(c.OriginalVersion, 10, 63)
+	if !agentconfig.UUID(c.ItemID) || e != nil || revision < 1 || strconv.FormatInt(revision, 10) != c.ExpectedRevision || ve != nil || version < 1 || strconv.FormatUint(version, 10) != c.OriginalVersion || !agent.ValidID(c.OriginalPublicationID) {
+		return collection.SelectionInput{}, agent.ErrInvalid
+	}
+	return collection.SelectionInput{ItemID: c.ItemID, ExpectedRevision: revision, OriginalPublicationID: c.OriginalPublicationID, OriginalVersion: version}, nil
 }
 
 type selectionPrepareInput struct {

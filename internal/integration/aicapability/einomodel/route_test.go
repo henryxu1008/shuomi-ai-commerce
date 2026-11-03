@@ -77,7 +77,7 @@ func TestEmptyRegistryCannotDispatchOrBorrowAConsumerPolicy(t *testing.T) {
 	require.NoError(t, err)
 	resolver, err := NewOrganizationRouteResolver(openai.NewGormCredentialResolver(db), nil)
 	require.NoError(t, err)
-	for _, op := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductSelectionDecision} {
+	for _, op := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision} {
 		in := aicapability.TextInputIdentity{OrganizationID: "org", Operation: op}
 		_, err = resolver.Resolve(context.Background(), in)
 		require.ErrorIs(t, err, ErrNotDispatched)

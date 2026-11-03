@@ -118,3 +118,10 @@ it("reauthorizes every loaded page before restoring a source after an access den
  await waitFor(()=>expect(screen.queryByRole("button",{name:"重试商品内容与本地化"})).not.toBeInTheDocument());
  expect(firstReads).toBe(2);expect(screen.queryByRole("button",{name:/我的水杯/})).not.toBeInTheDocument();
 });
+
+it("keeps project-scoped research discovery out of the global task paging path",async()=>{
+ const original=f.request.getMockImplementation()!;
+ f.request.mockImplementation((scope,path:string,schema,init)=>path.startsWith("market")?Promise.resolve(schema.parse({items:[entry(),{...entry("product.research.agent","研究证据分析"),parameterSchema:"market-research-config-v1"}],nextCursor:""})):original(scope,path,schema,init));
+ render(tree());await screen.findByRole("button",{name:/商品内容与本地化.*我的水杯/});
+ expect(f.request.mock.calls.some(c=>c[1].startsWith("product.research.agent/recent-runs"))).toBe(false);
+});

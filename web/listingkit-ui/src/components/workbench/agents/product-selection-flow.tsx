@@ -48,10 +48,12 @@ export function ProductSelectionFlow({
   scope,
   entry,
   nonce,
+  initialItems = [],
 }: {
   scope: ConfigurationScope;
   entry: CatalogEntry;
   nonce: number;
+  initialItems?: CollectionItem[];
 }) {
   const context = useWorkbenchContext();
   const queries = useQueryClient();
@@ -64,7 +66,7 @@ export function ProductSelectionFlow({
     selectionIntentSchema,
     { storage: "local", maxLength: 16384 },
   );
-  const [selected, setSelected] = useState<CollectionItem[]>([]),
+  const [selected, setSelected] = useState<CollectionItem[]>(initialItems),
     [goal, setGoal] = useState(
       "请根据真实事实，用中文比较商品并指出缺失信息。",
     ),
@@ -679,7 +681,7 @@ const missingNames: Record<string, string> = {
   tax: "税费",
   landed_cost: "完整到岸成本",
 };
-function factLabel(path: string): string {
+export function factLabel(path: string): string {
   if (missingNames[path]) return missingNames[path];
   const sku = /^variants\.(\d+)\.(.+)$/.exec(path);
   const skuNames: Record<string, string> = {
@@ -695,7 +697,7 @@ function factLabel(path: string): string {
     ? `属性 ${Number(attr[1]) + 1}${attr[2] ? " · 待核实" : ""}`
     : path;
 }
-function FactTable({ inspection }: { inspection: SelectionInspection }) {
+export function FactTable({ inspection }: { inspection: SelectionInspection }) {
   const paths = [
     ...new Set(inspection.products.flatMap((p) => p.facts.map((f) => f.path))),
   ];

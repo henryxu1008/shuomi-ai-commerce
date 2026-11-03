@@ -27,6 +27,7 @@ import (
 	confighttp "task-processor/internal/agentconfig/httpapi"
 	customhttp "task-processor/internal/agentcustomization/httpapi"
 	ph "task-processor/internal/aiworkbench/projectcenter/httpapi"
+	dataservicesapp "task-processor/internal/app/dataservices"
 	registration "task-processor/internal/app/referralregistration"
 	appruntime "task-processor/internal/app/runtime"
 	storeapp "task-processor/internal/app/storecenter"
@@ -61,6 +62,7 @@ import (
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
+	rh "task-processor/internal/product/research/httpapi"
 	"task-processor/internal/product/sourcing"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/skill"
@@ -221,6 +223,8 @@ type currentApplicationOptions struct {
 	productAgents                int
 	aiWorkbench                  *AIWorkbenchDependencies
 	aiWorkbenches                int
+	marketResearchDB             *gorm.DB
+	marketResearchConfigs        int
 	projectCenterDB              *gorm.DB
 	projectCenters               int
 }
@@ -655,11 +659,16 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, officialModule)
 	}
+	var researchData *dataservicesapp.Module
+	if supplied.marketResearchConfigs > 1 || supplied.marketResearchDB != nil && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs == 1 && (supplied.marketResearchDB == nil || supplied.projectCenterDB == nil || supplied.dataServices == nil || supplied.productCollections != 1) {
+		return nil, errors.New("market research requires current owners and one explicit pool")
+	}
 	if supplied.dataServices != nil {
 		module, charges, err := buildDataServices(ctx, supplied, *workbench.authDependencies, authorizer, cfg, storeCapabilities)
 		if err != nil {
 			return nil, fmt.Errorf("build current data services: %w", err)
 		}
+		researchData = module.owner
 		consumerCharges = charges
 		modules = append(modules, module)
 	}
@@ -963,6 +972,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, shopDiagnosisModule{app: diagnosisRuntime})
 	}
+	var researchRuntime *marketResearchApplication
 	var selectionRuntime *productSelectionApplication
 	if planCollections != nil {
 		var e error
@@ -1113,11 +1123,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, imageRuntime)
-		if e != nil {
-			return nil, fmt.Errorf("build current agent configuration: %w", e)
-		}
-		modules = append(modules, m)
+
 	}
 	if supplied.agentConfigurationDB != nil {
 		access, e := skillauth.New(workbench.authDependencies.organizationResolver, authorizer)
@@ -1187,10 +1193,38 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, e
 		}
 		modules = append(modules, module)
+		if supplied.marketResearchDB != nil {
+			if supplied.marketResearchDB == supplied.projectCenterDB || supplied.marketResearchDB == supplied.productAcquisitionDB || supplied.marketResearchDB == supplied.dataServices.ProductDB {
+				return nil, errors.New("research requires its own restricted pool")
+			}
+			if e := verifySameProductDatabase(ctx, supplied.productAcquisitionDB, supplied.marketResearchDB); e != nil {
+				return nil, e
+			}
+			researchMod, e := composeMarketResearch(ctx, supplied.marketResearchDB, module.(projectModule), planCollections, researchData)
+			if e != nil {
+				return nil, e
+			}
+			modules = append(modules, researchMod)
+			researchRuntime, e = buildMarketResearchApplication(ctx, productRuntime, planCollections, researchMod.(researchModule).service, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
+			if e != nil {
+				return nil, fmt.Errorf("build current research analysis: %w", e)
+			}
+			modules = append(modules, marketResearchAnalysisModule{app: researchRuntime})
+		}
+
 		if workbench.handler != nil {
 			workbench.handler.SetProjectCenterAvailable(true)
+			workbench.handler.SetMarketResearchAvailable(supplied.marketResearchDB != nil)
 		}
 	}
+	if supplied.agentConfigurationDB != nil {
+		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, researchRuntime, imageRuntime)
+		if e != nil {
+			return nil, fmt.Errorf("build current agent configuration: %w", e)
+		}
+		modules = append(modules, m)
+	}
+
 	if supplied.amazonBrowserCaptures > 1 || supplied.amazonBrowserCaptures > 0 && (supplied.productAcquisitionDB == nil || supplied.productCollections != 1) {
 		return nil, errors.New("amazon capture requires Product pool and Collection capability")
 	}
@@ -1336,6 +1370,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		ContentOnly:          supplied.productAgent != nil && supplied.productAgent.ContentOnly,
 		AIWorkbench:          supplied.aiWorkbench != nil,
 		ProjectCenter:        supplied.projectCenterDB != nil,
+		MarketResearch:       supplied.marketResearchDB != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
 		ModelRoutePricing:    supplied.modelRoutePricing != nil,
 		MemberPoints:         includeMemberPoints,
@@ -1443,6 +1478,7 @@ type currentApplicationOptionalRoutes struct {
 	ContentOnly          bool
 	AIWorkbench          bool
 	ProjectCenter        bool
+	MarketResearch       bool
 	MemberPoints         bool
 	MemberResources      bool
 }
@@ -1722,6 +1758,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		for _, r := range productReviewRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.MarketResearch {
+		for _, r := range append(rh.Routes(nil), marketResearchAnalysisRoutes(nil, nil)...) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -2074,6 +2115,18 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase) || strings.HasPrefix(descriptor.Path, ownContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
 			return errors.New("product agent loses fresh permission boundary")
 		}
+		if strings.HasPrefix(descriptor.Path, rh.Base) {
+			if !optional.MarketResearch {
+				return errors.New("market research not admitted")
+			}
+			if descriptor.Module == "market-research-agent" {
+				if e := validateMarketResearchAnalysisDescriptor(descriptor); e != nil {
+					return e
+				}
+			} else if e := rh.ValidateDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, ph.Base) {
 			if !optional.ProjectCenter {
 				return errors.New("project center not admitted")
@@ -2197,7 +2250,7 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase) || isResearchAnalysisRunHTTPPath(request.URL.Path)) {
 			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {

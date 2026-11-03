@@ -137,6 +137,8 @@ func credentialProvisionPolicy(cfg *Config, consumer, organizationID string, cli
 		policy, found = cfg.ProductAgent.ContentTextPolicies[organizationID]
 	case "materials":
 		policy, found = cfg.ProductAgent.MaterialsTextPolicies[organizationID]
+	case "research":
+		policy, found = cfg.ProductAgent.ResearchTextPolicies[organizationID]
 	case "selection":
 		policy, found = cfg.ProductAgent.SelectionTextPolicies[organizationID]
 	case "diagnosis":
@@ -180,7 +182,7 @@ func sharedProvisionClient(cfg *Config, organizationID, clientName string) bool 
 	}
 
 	policies := []map[string]governed.RoutePolicy{cfg.ProductAgent.TextPolicies, cfg.ProductAgent.ContentTextPolicies,
-		cfg.ProductAgent.MaterialsTextPolicies, cfg.ProductAgent.SelectionTextPolicies, cfg.ProductAgent.DiagnosisTextPolicies}
+		cfg.ProductAgent.MaterialsTextPolicies, cfg.ProductAgent.ResearchTextPolicies, cfg.ProductAgent.SelectionTextPolicies, cfg.ProductAgent.DiagnosisTextPolicies}
 	if cfg.AIWorkbench != nil {
 		policies = append(policies, cfg.AIWorkbench.PlanningTextPolicies)
 	}
@@ -214,6 +216,8 @@ func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePol
 		operation = aicapability.OperationProductContentDecision
 	case "materials":
 		operation = aicapability.OperationListingMaterialsDecision
+	case "research":
+		operation = aicapability.OperationProductResearchDecision
 	case "selection":
 		operation = aicapability.OperationProductSelectionDecision
 	case "diagnosis":
@@ -234,6 +238,8 @@ func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePol
 	switch consumer {
 	case "materials":
 		return profile.PromptVersion == agentconfig.MaterialsPromptVersion && profile.OutputSchemaVersion == agentconfig.MaterialsActionVersion
+	case "research":
+		return profile.PromptVersion == agentconfig.ResearchPromptVersion && profile.OutputSchemaVersion == agentconfig.ResearchActionVersion
 	case "selection":
 		return profile.PromptVersion == agentconfig.SelectionPromptVersion && profile.OutputSchemaVersion == agentconfig.SelectionActionVersion
 	case "diagnosis":
@@ -308,6 +314,8 @@ func provisionOperation(consumer string) (aicapability.Operation, bool) {
 		return aicapability.OperationProductContentDecision, true
 	case "materials":
 		return aicapability.OperationListingMaterialsDecision, true
+	case "research":
+		return aicapability.OperationProductResearchDecision, true
 	case "selection":
 		return aicapability.OperationProductSelectionDecision, true
 	case "diagnosis":

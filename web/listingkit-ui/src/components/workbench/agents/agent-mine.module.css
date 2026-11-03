@@ -13,6 +13,8 @@
 .description { font-size: var(--body-text-size); line-height: 19px; color: var(--muted-foreground); margin-top: 2px; }
 .summary { color: var(--console-blue); font-size: var(--label-text-size); line-height: 18px; margin-top: 2px; }
 .readiness { display: flex; align-items: center; min-height: 34px; padding: 8px 14px; border-radius: var(--radius); background: var(--secondary); color: var(--muted-foreground); font-size: var(--label-text-size); line-height: 18px; }
+.operation { display: grid; gap: 6px; font-size: var(--label-text-size); }
+.operation select { min-width: 0; }
 .footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: auto; }
 .status { font-size: var(--label-text-size); color: var(--muted-foreground); }
 .status::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; }

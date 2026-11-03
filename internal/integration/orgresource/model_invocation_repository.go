@@ -79,7 +79,7 @@ func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id st
 
 func modelPointBusinessScope(fact aicapability.InvocationRecord) string {
 	switch fact.Operation {
-	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		if fact.AgentRunID != "" {
 			return fact.AgentRunID
 		}

@@ -65,6 +65,9 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		if c.ProductCollections {
 			add(aicapability.OperationProductSelectionDecision, p.SelectionTextPolicies)
+			if c.MarketResearch != nil {
+				add(aicapability.OperationProductResearchDecision, p.ResearchTextPolicies)
+			}
 		}
 		if c.StoreCenter != nil && c.StoreCenter.Enabled && c.StoreCenter.OperationsCockpit {
 			add(aicapability.OperationShopDiagnosisDecision, p.DiagnosisTextPolicies)
@@ -144,7 +147,7 @@ func prepareModelRouteServices(ctx context.Context, reader, writer *gorm.DB, def
 }
 
 func (c *Config) modelRouteCostCeiling(capability string) int64 {
-	if capability == string(aicapability.OperationProductSelectionDecision) || capability == string(aicapability.OperationShopDiagnosisDecision) {
+	if capability == string(aicapability.OperationProductResearchDecision) || capability == string(aicapability.OperationProductSelectionDecision) || capability == string(aicapability.OperationShopDiagnosisDecision) {
 		return c.ProductAgent.CostMicros / 2
 	}
 	return c.ProductAgent.CostMicros

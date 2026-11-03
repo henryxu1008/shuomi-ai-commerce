@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"task-processor/internal/commercetool"
+	"task-processor/internal/product/research/analysis"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/shopdiagnosis"
@@ -281,6 +282,35 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.DiagnosisProposalKind, Payload: mustSelectionJSON(t, proposal)}})
 			require.NoError(t, err)
 			content = string(action)
+		case mode == "research" && step == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.research.inspect","Version":"v1.0.0"}}`
+		case mode == "research":
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var disclosure analysis.Inspection
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct{ Output json.RawMessage }
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, observed := range prompt.Input.History {
+						if got, err := analysis.ParseInspection(observed.Output); err == nil {
+							disclosure = got
+						}
+					}
+				}
+			}
+			require.Len(t, disclosure.Candidates, 2, "proposal must cite the actual tool disclosure")
+			proposal := analysis.Proposal{Overview: "核对所选观察并补充缺项", OverviewEvidenceIDs: []string{disclosure.Candidates[0].Facts[0].ID}, RecommendedCandidateID: disclosure.Candidates[0].Research.CandidateID, Assessments: []analysis.Assessment{{CandidateID: disclosure.Candidates[0].Research.CandidateID, Recommendation: "RESEARCH_MORE", Advice: "核对完整成本后再决定", EvidenceIDs: []string{disclosure.Candidates[0].Facts[0].ID}}}}
+			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.ResearchProposalKind, Payload: mustSelectionJSON(t, proposal)}})
+			require.NoError(t, err)
+			content = string(action)
 		case mode == "selection" && step == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.selection.inspect","Version":"v1.0.0"}}`
 		case mode == "selection":
@@ -506,6 +536,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		settings.TextPolicies = nil
 	}
 
+	if mode == "research" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ResearchPromptVersion, agentconfig.ResearchActionVersion
+		settings.ResearchTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+		settings.TextPolicies = nil
+	}
 	if mode == "selection" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
@@ -533,7 +569,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
-	if mode == "selection" || mode == "diagnosis" {
+	if mode == "research" || mode == "selection" || mode == "diagnosis" {
 		for _, limits := range [][2]int{{3, 2}, {4, 1}} {
 			invalid := settings
 			invalid.Limits.Steps, invalid.Limits.ModelCalls = limits[0], limits[1]
@@ -543,6 +579,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
 		profile := settings.SelectionTextPolicies["B"].ShapeProfile()
+		if mode == "research" {
+			profile = settings.ResearchTextPolicies["B"].ShapeProfile()
+		}
 		if mode == "diagnosis" {
 			profile = settings.DiagnosisTextPolicies["B"].ShapeProfile()
 		}
@@ -576,6 +615,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	if mode == "diagnosis" {
 		testDiagnosisHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		return
+	}
+	if mode == "research" {
+		testResearchHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
 		return
 	}
 	if mode == "selection" {
