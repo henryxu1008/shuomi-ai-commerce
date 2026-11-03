@@ -14,6 +14,14 @@ const AIPointMicrounitV1 = "ai-micropoint-v1"
 
 var ErrOfficialModelPrice = errors.New("invalid official model price or usage evidence")
 
+func (p OfficialModelTariff) Valid() bool { return p.Validate() == nil }
+
+// ReserveTextMicropoints prices an admitted text-token bound, never observed
+// usage or a customer-supplied amount. Settlement uses the complete partitions.
+func (p OfficialModelTariff) ReserveTextMicropoints(prompt, completion int64) (int64, error) {
+	return p.ReservationMicropoints(BillableModelUsage{MappingVersion: p.UsageVersion, Complete: true, InputText: prompt, OutputText: completion})
+}
+
 // OfficialTokenRates are currency micros per one million tokens. Cached inputs
 // are subsets of their corresponding total inputs, never additional tokens.
 type OfficialTokenRates struct {

@@ -13,9 +13,7 @@ func testTextProfile() ModelProfile {
 		ModelID: "model-a", EndpointIdentityDigest: "endpoint-v1", CredentialVersion: "credential-v1",
 		RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1",
 		PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1",
-		UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1",
-		PointTariff: ModelPointTariff{PriceVersion: "points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000},
-		Currency:    "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000,
+		UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1", OfficialTariff: OfficialModelTariff{UnitVersion: AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model-a", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: OfficialTokenRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000,
 		MaximumPromptTokens: 10000, MaximumCompletionTokens: 1000,
 		MaximumInputBytes: 8192, MaximumOutputBytes: 16384, DeadlineBound: time.Minute,
 	}
@@ -28,11 +26,11 @@ func TestModelProfileFreezesRouteCredentialAndPricing(t *testing.T) {
 	require.NoError(t, err)
 	for _, change := range []func(*ModelProfile){
 		func(p *ModelProfile) { p.ProviderID = "other" },
-		func(p *ModelProfile) { p.ModelID = "model-b" },
+		func(p *ModelProfile) { p.ModelID = "model-b"; p.OfficialTariff.Model = "model-b" },
 		func(p *ModelProfile) { p.CredentialVersion = "credential-v2" },
 		func(p *ModelProfile) { p.CostPricingVersion = "cost-v2" },
 		func(p *ModelProfile) { p.PromptVersion = "prompt-v2" },
-		func(p *ModelProfile) { p.PointTariff.PriceVersion = "points-v2" },
+		func(p *ModelProfile) { p.OfficialTariff.PriceVersion = "points-v2" },
 	} {
 		changed := profile
 		change(&changed)

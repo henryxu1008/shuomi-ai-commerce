@@ -30,7 +30,7 @@ type ModelProfile struct {
 	OutputSchemaVersion     string
 	UsageMappingVersion     string
 	CostPricingVersion      string
-	PointTariff             ModelPointTariff
+	OfficialTariff          OfficialModelTariff
 	Currency                string
 	InputMicrosPerMillion   int64
 	OutputMicrosPerMillion  int64
@@ -67,7 +67,7 @@ func (p ModelProfile) Validate() error {
 	if p.AdapterKind != "openai-compatible" && p.AdapterKind != "claude-native" && p.AdapterKind != "google-interactions" {
 		return ErrTextProfile
 	}
-	if len(p.Currency) != 3 || !p.PointTariff.Valid() ||
+	if len(p.Currency) != 3 || !p.OfficialTariff.Valid() || p.OfficialTariff.Model != p.ModelID ||
 		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 ||
 		p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 ||
 		p.MaximumPromptTokens < 1 || p.MaximumPromptTokens > 1048576 ||
@@ -77,7 +77,7 @@ func (p ModelProfile) Validate() error {
 		p.DeadlineBound <= 0 || p.DeadlineBound > 2*time.Minute {
 		return ErrTextProfile
 	}
-	if _, err := p.PointTariff.Points(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
+	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
 		return ErrTextProfile
 	}
 	if _, err := p.MaximumCost(); err != nil {

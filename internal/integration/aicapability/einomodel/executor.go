@@ -103,7 +103,7 @@ func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuo
 		ProviderID: p.ProviderID, ModelID: p.ModelID, CredentialReference: p.ClientName,
 		ConfigurationVersion: p.CredentialVersion, PolicyVersion: p.CostPricingVersion,
 		PromptKey: p.OutputSchemaVersion, PromptVersion: p.PromptVersion, PromptHash: hex.EncodeToString(prompt[:]),
-		InputHash: quote.InputHash, PointTariff: p.PointTariff,
+		InputHash: quote.InputHash, OfficialTariff: p.OfficialTariff,
 		MaximumPromptTokens: quote.MaximumTokens - p.MaximumCompletionTokens, MaximumCompletionTokens: p.MaximumCompletionTokens,
 		StartedAt: now, Attempt: 1, Outcome: aicapability.InvocationDispatched, Currency: p.Currency,
 	}

@@ -223,7 +223,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		}
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"isolated-workbench","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+		_, _ = w.Write([]byte(`{"id":"isolated-workbench","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
 	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
@@ -244,8 +244,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	profile := func(client, model, prompt, output string) aicapability.ModelProfile {
 		return aicapability.ModelProfile{ClientName: client, ProviderID: "openai-compatible", AdapterKind: "openai-compatible", ModelID: model,
 			RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: prompt, OutputSchemaVersion: output,
-			UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000},
-			Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192,
+			UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: model, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192,
 			MaximumInputBytes: 1 << 20, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}
 	}
 	policy := func(row *openai.AIClientCredential, p aicapability.ModelProfile) governed.RoutePolicy {

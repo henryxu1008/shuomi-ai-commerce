@@ -37,9 +37,9 @@ func TestManagedPublicationAtFinalGateAndDuringSendPreservesFrozenEconomics(t *t
 			publish := func() {
 				current.policy.Profile.RoutingPolicyVersion = "r2"
 				current.policy.Profile.CostPricingVersion = "r2"
-				current.policy.Profile.PointTariff.PriceVersion = "r2"
+				current.policy.Profile.OfficialTariff.PriceVersion = "r2"
 				current.policy.Profile.InputMicrosPerMillion = 3000000
-				current.policy.Profile.PointTariff.InputPointsPerMillionTokens = 3000000
+				current.policy.Profile.OfficialTariff.Rates.InputText = 3000000
 			}
 			ledger := &recordingLedger{}
 			sends, checks := 0, 0
@@ -72,7 +72,7 @@ func TestManagedPublicationAtFinalGateAndDuringSendPreservesFrozenEconomics(t *t
 			case "in-flight":
 				require.NoError(t, e)
 				last := ledger.records[len(ledger.records)-1]
-				require.Equal(t, p.PointTariff, last.PointTariff)
+				require.Equal(t, p.OfficialTariff, last.OfficialTariff)
 				require.Equal(t, p.CostPricingVersion, last.PolicyVersion)
 				cost, _ := p.CostFor(10, 5)
 				require.Equal(t, cost, last.EstimatedCostMicros)
@@ -109,6 +109,7 @@ func TestManagedResolverReadsFreshPolicyAndNeverFallsBack(t *testing.T) {
 	p := testTextProfile(row.BaseURL)
 	p.ClientName = row.ClientName
 	p.ModelID = row.Model
+	p.OfficialTariff.Model = p.ModelID
 	p.CredentialVersion = CredentialVersion(*row)
 	current := &changingPolicies{policy: RoutePolicy{Profile: p, AdmittedCredentialVersion: p.CredentialVersion, AdmittedEndpointIdentityDigest: endpointDigest(row.BaseURL)}}
 	r, e := NewManagedOrganizationRouteResolver(writer, current)

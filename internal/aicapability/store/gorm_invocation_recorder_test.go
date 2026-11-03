@@ -442,7 +442,7 @@ func TestRetiredModelReviewFactsCannotEnterCurrentRecovery(t *testing.T) {
 				recorder := NewGormInvocationRecorder(db)
 				recorder.SetUsageSettler(settler)
 				start := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
-				fact := aicapability.InvocationRecord{InvocationID: "fixture-retired", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: start, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, PointTariff: aicapability.ModelPointTariff{PriceVersion: "fixture", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}}
+				fact := aicapability.InvocationRecord{InvocationID: "fixture-retired", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: start, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "fixture", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 10000, OutputText: 20000}}, ModelID: "fixture-model", Currency: "CNY"}
 				row := invocationRowFromRecord(fact)
 				mutate(&row)
 				require.NoError(t, db.Create(&row).Error)

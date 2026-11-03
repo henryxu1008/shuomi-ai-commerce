@@ -60,7 +60,7 @@ go run ./cmd/product-agent-runtime-prepare --target run
 go run ./cmd/product-agent-runtime-prepare --target review
 ```
 
-标准后端镜像也包含 `/app/product-agent-runtime-prepare`。命令不创建角色或密码；固定普通 LOGIN runtime/writer 角色须由原安装负责人按单独批准预备。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_client_credentials` 全缺时按原定义创建；`ai_invocations` 按当前 owner 的 54 列精确形状只验证（含 `billable_usage_json`），不 ALTER；旧 53 列关系缺计量列时拒绝，不自动补列。Review 只验证已有六表。精确 SELECT/INSERT、可变列 UPDATE 和 credential id 序列 USAGE 从当前 owner 展开，参见[新安装计量合同](../architecture/enterprise-shared-model-configuration.md)及原设计权限清单；不授 DDL/删除/owner/grant option，不重置现共享 ACL。
+标准后端镜像也包含 `/app/product-agent-runtime-prepare`。命令不创建角色或密码；固定普通 LOGIN runtime/writer 角色须由原安装负责人按单独批准预备。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_client_credentials` 全缺时按原定义创建；`ai_invocations` 按当前 owner 的 52 列精确形状只验证（含 `billable_usage_json` 和冻结官网价的 `official_tariff_json`），不 ALTER；缺列或仍有旧独立点价列的关系拒绝，不自动改造。Review 只验证已有六表。精确 SELECT/INSERT、可变列 UPDATE 和 credential id 序列 USAGE 从当前 owner 展开，参见[新安装计量合同](../architecture/enterprise-shared-model-configuration.md)及原设计权限清单；不授 DDL/删除/owner/grant option，不重置现共享 ACL。
 
 既有数据库 owner `product_agent_owner` / `acquisition_owner` 沿正式 bootstrap 与原 schema 入口可为 LOGIN；原 native 同样接受合格的 NOLOGIN owner，通过固定 owner 或有权 SET ROLE 的管理员执行。它只拒绝这些 owner 的 superuser/createdb/createrole/replication/bypassrls 超额能力，不改其登录属性、密码、成员关系或原授权。不能为了运行工具将原 LOGIN owner 改为 NOLOGIN；serving/writer 的独立角色与限定权限检查继续保持。
 

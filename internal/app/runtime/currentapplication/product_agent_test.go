@@ -144,7 +144,7 @@ func agentRuntimeConfig() *Config {
 	run.User, run.Database = "agent_runtime", "agent"
 	review.User = "product_review_runtime"
 	asset.User, asset.Database = "asset_runtime", "asset"
-	cfg.ProductAgent = &ProductAgentConfig{Enabled: true, Database: run, ReviewDatabase: review, AssetDatabase: asset, AllowedOrganizationIDs: []string{"org"}, Currency: "CNY", Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, RuntimeSeconds: 120, TextPolicies: map[string]governed.RoutePolicy{"org": {AdmittedCredentialVersion: "fixture-credential", AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest("https://grsaiapi.com/v1"), Profile: aicapability.ModelProfile{ClientName: "text", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "test-pricing", PointTariff: aicapability.ModelPointTariff{PriceVersion: "test-tariff", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 1 << 20, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}}
+	cfg.ProductAgent = &ProductAgentConfig{Enabled: true, Database: run, ReviewDatabase: review, AssetDatabase: asset, AllowedOrganizationIDs: []string{"org"}, Currency: "CNY", Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, RuntimeSeconds: 120, TextPolicies: map[string]governed.RoutePolicy{"org": {AdmittedCredentialVersion: "fixture-credential", AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest("https://grsaiapi.com/v1"), Profile: aicapability.ModelProfile{ClientName: "text", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "test-pricing", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "test-tariff", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 1 << 20, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}}
 	return cfg
 }
 
@@ -164,12 +164,12 @@ func TestProductAgentConfigRejectsUnboundedOrSplitProductOwner(t *testing.T) {
 		"duplicate admission":       func(c *Config) { c.ProductAgent.AllowedOrganizationIDs = []string{"org", "org"} },
 		"invalid point tariff": func(c *Config) {
 			policy := c.ProductAgent.TextPolicies["org"]
-			policy.Profile.PointTariff = aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1}
+			policy.Profile.OfficialTariff = aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: policy.Profile.Currency, CNYMicrosPerCurrencyUnit: 1000000, Model: policy.Profile.ModelID, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 1, OutputText: 0}}
 			c.ProductAgent.TextPolicies["org"] = policy
 		},
 		"overflow point tariff": func(c *Config) {
 			policy := c.ProductAgent.TextPolicies["org"]
-			policy.Profile.PointTariff = aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 9223372036854775807, OutputPointsPerMillionTokens: 9223372036854775807}
+			policy.Profile.OfficialTariff = aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: policy.Profile.Currency, CNYMicrosPerCurrencyUnit: 1000000, Model: policy.Profile.ModelID, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: -92233720368547757, OutputText: -92233720368547757}}
 			c.ProductAgent.TextPolicies["org"] = policy
 		},
 		"policy outside admission": func(c *Config) { c.ProductAgent.TextPolicies["other-org"] = c.ProductAgent.TextPolicies["org"] },

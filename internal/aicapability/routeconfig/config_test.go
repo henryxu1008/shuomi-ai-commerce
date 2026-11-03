@@ -26,24 +26,24 @@ func TestDecimalRatesAreExactBoundedIntegers(t *testing.T) {
 }
 
 func testBinding() Binding {
-	p := aicapability.ModelProfile{ClientName: "binding-a", ProviderID: "fixture", ModelID: "fixture-model", AdapterKind: "openai-compatible", EndpointIdentityDigest: "endpoint-a", CredentialVersion: "credential-a", RoutingPolicyVersion: "route-a", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "price-a", PointTariff: aicapability.ModelPointTariff{PriceVersion: "point-a", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1}, Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 1000, MaximumCompletionTokens: 100, MaximumInputBytes: 4096, MaximumOutputBytes: 4096, DeadlineBound: time.Second}
+	p := aicapability.ModelProfile{ClientName: "binding-a", ProviderID: "fixture", ModelID: "fixture-model", AdapterKind: "openai-compatible", EndpointIdentityDigest: "endpoint-a", CredentialVersion: "credential-a", RoutingPolicyVersion: "route-a", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "price-a", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "point-a", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 1, OutputText: 1}}, Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 1000, MaximumCompletionTokens: 100, MaximumInputBytes: 4096, MaximumOutputBytes: 4096, DeadlineBound: time.Second}
 	return Binding{ID: "binding-a", CredentialVersion: "credential-a", Text: &p, MaximumCostMicros: 1000000}
 }
 
 func TestPublicationVersionsFreezeRatesAndPreventRollbackABA(t *testing.T) {
 	b := testBinding()
-	r := Rates{InputCost: "1.000001", OutputCost: "2", InputPoints: "100", OutputPoints: "200"}
+	r := Rates{InputCost: "1.000001", OutputCost: "2"}
 	first, err := Freeze(b, r, "revision-a")
 	require.NoError(t, err)
 	second, err := Freeze(b, r, "revision-b")
 	require.NoError(t, err)
 	require.NotEqual(t, *first.Text, *second.Text)
 	require.EqualValues(t, 1000001, first.Text.InputMicrosPerMillion)
-	require.EqualValues(t, 100, first.Text.PointTariff.InputPointsPerMillionTokens)
+	require.EqualValues(t, 1, first.Text.OfficialTariff.Rates.InputText)
 	require.Equal(t, "route-a", b.Text.RoutingPolicyVersion, "candidate descriptor must remain immutable")
 	require.Equal(t, "revision-a", first.Text.RoutingPolicyVersion)
 	require.Equal(t, "revision-a", first.Text.CostPricingVersion)
-	require.Equal(t, "revision-a", first.Text.PointTariff.PriceVersion)
+	require.Equal(t, "point-a", first.Text.OfficialTariff.PriceVersion)
 	b.MaximumCostMicros = 1
 	_, err = Freeze(b, r, "revision-c")
 	require.Error(t, err, "rates cannot bypass existing cost ceiling")

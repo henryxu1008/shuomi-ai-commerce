@@ -53,8 +53,6 @@ func (s Scope) Valid() bool {
 type Rates struct {
 	InputCost      string `json:"inputCost,omitempty"`
 	OutputCost     string `json:"outputCost,omitempty"`
-	InputPoints    string `json:"inputPoints,omitempty"`
-	OutputPoints   string `json:"outputPoints,omitempty"`
 	PointsPerImage string `json:"pointsPerImage,omitempty"`
 }
 
@@ -88,7 +86,7 @@ func ParseRate(s string, scale int) (int64, error) {
 func FormatCost(v int64) string { return fmt.Sprintf("%d.%06d", v/1000000, v%1000000) }
 func normalize(r Rates, image bool) (Rates, error) {
 	if image {
-		if r.InputCost != "" || r.OutputCost != "" || r.InputPoints != "" || r.OutputPoints != "" {
+		if r.InputCost != "" || r.OutputCost != "" {
 			return Rates{}, ErrInvalid
 		}
 		v, e := ParseRate(r.PointsPerImage, 0)
@@ -105,15 +103,9 @@ func normalize(r Rates, image bool) (Rates, error) {
 	if e != nil {
 		return Rates{}, e
 	}
-	ip, e := ParseRate(r.InputPoints, 0)
-	if e != nil {
-		return Rates{}, e
-	}
-	op, e := ParseRate(r.OutputPoints, 0)
-	if e != nil {
-		return Rates{}, e
-	}
-	return Rates{InputCost: FormatCost(in), OutputCost: FormatCost(out), InputPoints: strconv.FormatInt(ip, 10), OutputPoints: strconv.FormatInt(op, 10)}, nil
+	// Customer charges are frozen by the server's official tariff. These
+	// existing channel-cost bounds cannot define a second retail point price.
+	return Rates{InputCost: FormatCost(in), OutputCost: FormatCost(out)}, nil
 }
 
 type ImageProfile struct {
@@ -183,11 +175,8 @@ func Freeze(b Binding, r Rates, revision string) (Payload, error) {
 		t := *b.Text
 		t.RoutingPolicyVersion = revision
 		t.CostPricingVersion = revision
-		t.PointTariff.PriceVersion = revision
 		t.InputMicrosPerMillion, _ = ParseRate(rates.InputCost, 6)
 		t.OutputMicrosPerMillion, _ = ParseRate(rates.OutputCost, 6)
-		t.PointTariff.InputPointsPerMillionTokens, _ = ParseRate(rates.InputPoints, 0)
-		t.PointTariff.OutputPointsPerMillionTokens, _ = ParseRate(rates.OutputPoints, 0)
 		cost, err := t.MaximumCost()
 		if t.Validate() != nil || err != nil || b.MaximumCostMicros <= 0 || cost > b.MaximumCostMicros {
 			return Payload{}, ErrInvalid

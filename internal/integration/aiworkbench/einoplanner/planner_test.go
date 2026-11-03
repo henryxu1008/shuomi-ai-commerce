@@ -14,9 +14,7 @@ func testProfile() aicapability.ModelProfile {
 		ClientName: "planning", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model",
 		EndpointIdentityDigest: "digest", CredentialVersion: "v1", RoutingPolicyVersion: "route-v1",
 		AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1",
-		UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1",
-		PointTariff: aicapability.ModelPointTariff{PriceVersion: "points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000},
-		Currency:    "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000,
+		UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "USD", CNYMicrosPerCurrencyUnit: 1000000, Model: "model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialTokenRates{InputText: 10000, OutputText: 10000}}, Currency: "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000,
 		MaximumPromptTokens: 8192, MaximumCompletionTokens: 64, MaximumInputBytes: 16 << 10,
 		MaximumOutputBytes: 16 << 10, DeadlineBound: 5 * time.Second,
 	}
