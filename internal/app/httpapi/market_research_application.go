@@ -65,7 +65,8 @@ func buildMarketResearchApplication(ctx context.Context, parent *productAgentApp
 			}
 		}
 	}
-	if parent == nil || len(parent.config.ResearchTextPolicies) == 0 {
+	// An authoritative current reader does not require a second static policy.
+	if parent == nil || (parent.config.CurrentTextPolicies == nil && len(parent.config.ResearchTextPolicies) == 0) {
 		return a, nil
 	}
 	policies := map[governed.RouteKey]governed.RoutePolicy{}
