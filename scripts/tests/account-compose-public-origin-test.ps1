@@ -30,6 +30,10 @@ for bad in http://auth.example.com https://localhost https://127.0.0.1 https://a
  ACCOUNT_PUBLIC_IDENTITY_ORIGIN="$bad"
  expect_rejected
 done
+for bad in "$(printf 'https://auth.example.com\ninvalid')" "$(printf 'https://auth.example.com\rinvalid')"; do
+ ACCOUNT_PUBLIC_IDENTITY_ORIGIN="$bad"
+ expect_rejected
+done
 ACCOUNT_PUBLIC_IDENTITY_ORIGIN=$ACCOUNT_PUBLIC_APPLICATION_ORIGIN
 expect_rejected
 unset ACCOUNT_PUBLIC_TRIAL ACCOUNT_PUBLIC_APPLICATION_ORIGIN ACCOUNT_PUBLIC_IDENTITY_ORIGIN

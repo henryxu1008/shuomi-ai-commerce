@@ -12,6 +12,7 @@ account_resolve_origins() {
     *) echo 'invalid public trial opt-in' >&2; return 1 ;;
   esac
   for account_origin in "$account_public_app" "$account_public_identity"; do
+    case "$account_origin" in *[[:space:]]*) echo 'public origins must not contain whitespace' >&2; return 1 ;; esac
     test "${#account_origin}" -le 261 && printf '%s\n' "$account_origin" | grep -Eq '^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$' || {
       echo 'public trial requires two exact HTTPS DNS origins on port 443, without paths or credentials' >&2; return 1;
     }
