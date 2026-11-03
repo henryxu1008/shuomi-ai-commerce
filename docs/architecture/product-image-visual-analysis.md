@@ -160,6 +160,9 @@ Legacy decision: **EXTRACT | RETIRE**。复用当前 source/asset 读取、配�
    超限明确不可分析，不自动变更图像、扩上限或按截断内容宣称已覆盖。
 
 Prepare 冻结所选图片的原身份、实际内容 SHA256、媒体类型/字节/宽高、配置/价格及报价摘要。
+此时真实 Run 尚未创建：冻结同一已准入 profile 的完整费用上界，原 Run owner 在 Start 时生成真实 ID；
+实际 Invocation Quote 再绑定真实 Run、完整输入及同一图片，必须落在该 profile 和已确认费用上界内。
+准备不使用虚构 Run ID，不创建第二调用/预留事实，也不为页面报价提前扣款。
 原图链接可能变化，不保证来源图片都有不可变对象；真正发送前再次取得相同内容并验 hash，
 不一致则发送前拒绝，不能借同 key 分析今天的新图。首阶段不为此复制全部图片或新增持久化事实源。
 已提交结果的历史找回不下载今日图片，也不重做分析；保留证据不可读时说明缺失，不能补造旧图。
@@ -268,6 +271,9 @@ selection/报价与确认摘要一致，不从客户端单个勾选或当前页�
 
 模型视觉判断是带不确定性的建议，不是 Catalog/source/批准事实。
 固定 validator 只能证明结构、准确绑定、执行/用量/结果引用和字段范围，不能证明视觉判断真实正确。
+原 Run 的结果保留有界模型原始 JSON 字符串及其 typed 只读视图；fixed validator 重解码并核两者相等，
+将原始字符串 SHA256 与同一组织/成员/原 Run 的 native Invocation OutputHash 核对。
+JSON 空白不改变意见，但不能通过重新序列化伪造原响应 hash；不保存图片 bytes/base64/凭据。
 不能用 ToolRef/CallID 冒充真实模型调用，也不能把模型自报 image hash 当服务端证据。
 现 `image-advice-v1` 及 `product.image.analyze@v1` 保持纯事实语义，不原位扩入视觉付费结果。
 
@@ -301,8 +307,11 @@ selection/报价与确认摘要一致，不从客户端单个勾选或当前页�
 只用合成图片/transport 与任务自有临时 PostgreSQL，沿既有 fixtures，不新建 runner/验收平台或重做全仓审核。
 真实视觉准确性、误判/不确定性及用户效果另行验收；技术测试不能替代。
 
-当前 Mini 协议/计量依据已补齐；真实账户/凭据准备仍 UNKNOWN，准确执行定义/输入结果版本、
-确认/固定预读与原 Run 的接线尚未实现。原 PRECHECK_ONLY 已由准确设计 HEAD 的正式 R1 取代，
+当前 Mini 协议/计量依据已补齐；原 Snapshot/Prepare、固定 image activation/mode 映射、
+真实 Tool 预读后单次 Model、准确输入/结果及 native Invocation/资源回归已有仓库实现。
+这些组件已用任务临时 PostgreSQL、合成身份/事实/transport 组合验证；生产 reader 装配、
+HTTP/BFF 显式确认与页面/历史结果展示仍未完成，SharedCatalog 的视觉未接线门禁保持。
+真实账户/凭据准备仍 UNKNOWN。原 PRECHECK_ONLY 已由准确设计 HEAD 的正式 R1 取代，
 该范围 IMPLEMENTATION_READY；不把设计准入或旧基础 CI 代替实现、自检和最终工程复核。
 
 预核提出三项 IMPLEMENTATION_TEST：固定预读/单次执行、analysis→原 activation/mode 的固定映射、
@@ -322,3 +331,19 @@ selection/报价与确认摘要一致，不从客户端单个勾选或当前页�
 仅在该冻结设计内实施；已批准基础不重复完整评审，修复只复核相关增量。
 缺证据 UNKNOWN；运行、真实保存/恢复、浏览器、视觉质量及产品验收 NOT_RUN。
 #47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT；保留所有实例、数据和会话，不合并/部署/关单。
+
+### 9.1 当前仓库接缝
+
+- `agentconfig.ImageAnalysisConfiguration` → 原 Prepare JSON/指纹/跨 context 原键；Request 保持可比较。
+  与原生图/Skill availability fence 使用同一 mode-first、activation SHARE 锁顺序，无新表或 activation。
+- `imageagentapp.AnalysisSources` → 当前 Catalog/ApprovedInventory 和代码装配的原图片 reader；
+  准备从实际 bytes 冻结描述，模型前核原 Tool 输出/审计与内容，handoff 重核当前权限/准确事实。
+- 原 Eino runtime 的本用途 `SingleCallReadOnly` → 固定 Registry/Gateway 预读 → 一次 Model → 固定 validator；
+  不追加模型选 Tool、repair 或 resume，不改变其他用途的原图流程。
+- `einomodel.ImageAnalysisModel` → 原 Governed Executor/SDK/Invocation/Resource；当前企业多模态 profile 必须与冻结值一致，
+  最后 handoff 重核身份/模式/profile/source；已知 no-send、已结算无效输出和 UNKNOWN 分开。
+- `imageagentapp.AnalysisResultValidator` → 原 Snapshot、Run、native Invocation 与只读 typed 结果；
+  核准确原始输出 hash 和用量，既不下载新图也不证明视觉判断真实。
+
+上述为同一 Delivery Batch 的组件实现，不是整个用户路径的最终工程复核、可用入口或产品验收。
+完整路径形成后复用原唯一 Reviewer 集中最终检查，不逐片重复评审。

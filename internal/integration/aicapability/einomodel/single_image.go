@@ -26,6 +26,15 @@ type SingleImageRequest struct {
 	System, Prompt string
 }
 
+// ValidateSingleImageContent reuses the final transport's bounded image
+// decoder for the authorized preparation/consumer; it grants no send permit.
+func ValidateSingleImageContent(i aicapability.SingleImageInput, content []byte) error {
+	if !validSingleImageContent(i, content) {
+		return ErrInvalid
+	}
+	return nil
+}
+
 func validSingleImageContent(i aicapability.SingleImageInput, content []byte) bool {
 	if !i.Valid() || len(content) != i.ByteLength {
 		return false
