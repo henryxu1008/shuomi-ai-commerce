@@ -3,7 +3,7 @@
 Product Decision: **PD-SUPPLY-FOUR-STEP-CONTINUATION-2026-11-03**<br>
 Execution: [#1079](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1079)<br>
 Design Basis: **Independent Architecture**<br>
-Admission: **DESIGNING / NOT_READY**（独立评审通过前禁止修改生产路径）
+Admission: **IMPLEMENTATION_READY / FROZEN**（2026-11-03 独立 R1 通过，无剩余设计 BLOCKER）
 
 ## 1. 用户结果、范围与优先级
 
@@ -121,6 +121,8 @@ Continue 重读原计划/子命令和准确 owner refs，不以最新 head 替�
 
 Legacy decision: **EXTRACT** 当前Preparation/Operation/Temporal、Console、资料编辑、Review/Asset/Submission合格能力；**RETIRE** 五阶段顶层导航和已上传二次发布消费者。无历史迁移/兼容、双读双写、第二商品/批准/发送事实源。
 
-独立架构评审：**NOT_RUN**。findings先按AGENTS.md分类；BLOCKER须指出当前Must、具体后果和阻塞层，最多两轮正常架构审查。IMPLEMENTATION_TEST在实现验证收敛，不按理论hardening扩范围。准入前不改生产代码。
+独立架构评审 R1：**IMPLEMENTATION_READY**。Reviewer `/root/supply_design_review` 独立检查实际 owner/持久化/Temporal/Review/Store 调用及 Figma 浅深色四步、补全/审核继续与确认稿，无剩余设计 BLOCKER。准确版本/原生发布方式、同事务与完整选择、原优化准入/标准规则映射、首次上架合法深链接四组为 IMPLEMENTATION_TEST，已在§5/8/9明确，须在本次实现和必要测试收敛。详细评审依据及准确blob/HEAD写[主要PR #1080](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1080)。本次冻结不代表实现或产品验收通过。
+
+findings先按AGENTS.md分类；只有新的BLOCKER重开冻结设计，非阻塞实现细化沿原PR收敛，不按理论hardening扩范围。独立最终交付检查在完整用户路径形成后执行，当前NOT_RUN。
 
 真实平台/模型/实例/安装/用户验收：**NOT_RUN**。合并/部署/关单：**NOT_AUTHORIZED**。
