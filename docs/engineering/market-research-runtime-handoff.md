@@ -7,7 +7,7 @@
 ## 正常入口与可用路径
 
 1. 正常登录自己的企业，从「数据服务 → 市场调研中心」`/workbench/data/research` 创建或打开本人 PRODUCT_RESEARCH 项目，进入 `/workbench/data/research/{projectID}`。「供应市场 → 智能选品中心」`/workbench/supply/selection` 及其同一项目详情共享原项目、候选、证据与人工决定。原「AI 工作台 → 项目中心」研究区继续可用；指定实例现已包含两个新中心。
-2. 项目目标下方的「研究选品」区域先打开原数据市场 `/workbench/data/market`。真正采集仍要求单独授权、原权限、原最大 DATA_ROW 用量确认及原执行通道；本轮未执行。只读页面不触发采集或模型。
+2. 项目目标下方的「研究选品」区域先打开原数据市场 `/workbench/data/market`。当前成员须具备数据市场使用与相应商品资料查看权限；不足时显示明确的权限拒绝，由企业管理员核对，不自动授予角色或权限。真正采集仍要求单独授权、原最大 DATA_ROW 用量确认及原执行通道；本轮未执行。只读页面不触发采集或模型。
 3. 「关联已保存资料」复用我的数据批次选择器，仅允许自己当前可读的服务端 `amazon_data` 结果。旧插件结果也使用该 kind，因此关联时由原 Data Services owner 核实；没有原服务端 item 的资料明确拒绝，页面排除该项并允许继续，不留下待核实写入。浏览器桥并未因此启用。展示站点/ASIN、原时间、parser、结构化证据 checksum、准确 publication/version、查询样本范围、已观察价格/币种与缺失项。无价为未知；不同币种不计算统一排名。来源撤权或不可读后遮蔽内容，保留可解除的私有关系槽。
 4. 两中心选择 2–5 个可读候选，「读取所选样本」核对保存事实、同币种/同页面报价口径范围和缺项；切到选品中心核实原候选 revision、选定观察、digest 和商品引用。可选证据分析使用独立 `product.research.agent` / `product.research.decision`；须在原私密 manifest 显式配置 `productAgent.researchTextPolicies`，沿原凭据、模型路由和 Agent 激活/模式配置开放，不能借用其他智能体配置。准备后单独确认最多两次调用及 token/费用上限才开始；建议和引用保存在原 Agent 运行中，历史按项目读取。模型不可用不阻止只读事实与人工决定。原项目详情仍使用既有商品事实比较；全市场需求/趋势/销量、权重和利润没有开放。
 5. 「提交人工审阅」后填写理由，再批准测试或否决；归档项目只读。新关联同站点/ASIN 归组但不覆盖已选证据；明确切换观察会回到待研究，旧决定/理由/证据身份保留在最近历史中。页面展示最近 20 项观察及当前选定项、最近 20 条人工历史；数据不会因窗口隐藏而删除。
@@ -45,7 +45,7 @@ pnpm --dir web/listingkit-ui dev --hostname 127.0.0.1 --port 3000
 
 实际入口：[市场调研中心](https://localhost:35444/workbench/data/research)、[智能选品中心](https://localhost:35444/workbench/supply/selection)。原有正常 Edge 会话已分别打开两个页面，导航和项目列表正常显示；当前账号下还没有研究项目。未创建演示项目或伪造证据，用户可以先检查入口和项目表单。
 
-运行源码固定 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2`，tree `1eaccf3770a93c480c573b7fadf3d89fd35f887c`；标准干净源码构建的后端镜像为 `sha256:6174e2993c69ff4a54c146b48df205767a7f506757a2aa2d0cddcbe6db68cc62`，UI 为 `sha256:6a8a94ca5134bee81b13deeae14695061510ce77d353336dc49f2e8044a7ec85`，均为 Docker 可寻址的镜像引用。容器来源标签已与实际镜像同步，两个服务 healthy。文档提交不改变本次运行的应用源码。
+后端仍运行 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2`，tree `1eaccf3770a93c480c573b7fadf3d89fd35f887c`，镜像为 `sha256:6174e2993c69ff4a54c146b48df205767a7f506757a2aa2d0cddcbe6db68cc62`。同日后续数据市场错误反馈修复仅更新 UI：源码 `6bbe5bb48695fa9441bd0db8342aeea2ce09b182`，tree `92166bb9e80d055204a0bf0f7c639d8fc81be945`，镜像 `sha256:efa4d769a69cf5410806f34fdd06dcb0424db95b611fc0c4fbf040db082a1a78`；原 UI `6a8a94ca…` 保留为回退。上述均为标准干净源码构建、Docker可寻址的镜像引用，容器来源标签与对应镜像同步，两个服务healthy。后续文档提交不改变运行的应用源码。
 
 本次 Operational Design Basis 为 **Reuse Existing Architecture**：只更换两服务镜像及相应来源标签，未修改正式产品代码、schema、身份、权限、私密 manifest、环境、命令、entrypoint、网络或挂载。其余16个容器ID与镜像保留；Docker恢复后仅按原ID启动原有依赖，原已停用的 browser-collector / qualification-objects 保持停用。原十个应用命名卷保留，未执行 initializer、迁移、down -v、prune 或数据删除。
 
@@ -54,6 +54,14 @@ Product、Project 和 Agent 三库更新前均已生成私密 custom-format 备�
 HTTPS首页200、两个中心未登录307；原BFF项目/研究分析接口未登录401，内部原生研究分析接口未登录401。公开HTTPS入口不路由原生/api/v1路径，其404不作为原生鉴权结果。服务端data_acquisition_jobs、data_service_commands、research_commands、research_opportunities仍均为0。本实例原productAgent.enabled=false、researchTextPolicies未配置，保持不变；模型调用没有启用。
 
 **NOT_RUN**：真实 Amazon/1688、真实模型/付费、实际保存证据→人工决定→转入的业务使用，以及用户产品验收。需要真实资料时另行明确站点、查询与最大DATA_ROW；模型另行明确配置、预算和调用授权。此次入口检查不代签以上结果，不合并或关闭Issue。完整构建、备份、保留检查和失败历史记于原PR #1075。
+
+### 同日后续：数据市场502与权限反馈修复
+
+用户另行明确允许先查清并修复数据市场502/权限链路，继续在现有实例推进，同时禁止自行提权和真实采集、AI、付费调用。Design Basis: **N/A**，仅修正当前统一错误合同的有界反馈，不改变授权、租户、状态、持久化或外部副作用语义。当前后端审计确认配置、抓取历史、定制历史三个只读请求因缺少 `workbench.data-market.use` / `workbench.collection.read` 被拒绝；原BFF只接受Data Services嵌套错误，将统一鉴权层的顶层PERMISSION_DENIED误报502。
+
+UI修复复用现有严格Workbench错误解析器并校验code/status，只重包合格的统一错误；不把后端错误正文透传给页面，写入的5xx/畸形/矛盾结果仍保留DATA_UNKNOWN及原键恢复。成功响应、服务器Bearer/企业上下文和原生授权逻辑未变。相同处理也适用于原API管理及专员BFF消费者。
+
+正常保留会话现场核实三个请求现在均为 **403 / PERMISSION_DENIED**；页面说明缺少权限及需管理员核对的两项权限，采集与定制按钮仍禁用，历史读取失败不显示成空历史成功。当前权限摘要仍仅有原店铺查看/浏览器使用权限，未修改任何角色或授权。仅UI容器替换，其余17个容器ID/image及环境、命令、entrypoint、网络、挂载比对不变；四类采集/研究记录仍0。源代码独立增量检查与运行证据分开记录于PR；此修复不代表当前账号已具备采集权限或真实业务验收完成。
 
 ## 首批指定统一实例交接历史（2026-11-02）
 
