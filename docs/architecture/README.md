@@ -101,6 +101,7 @@
 - `completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](completion-shein-import.md)
 - `erpnext-shein-fulfillment-fit.md` — [ERPNext 与 SHEIN 双履约适配验证](erpnext-shein-fulfillment-fit.md)
 - `my-supply-chain-shein.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein.md)
+- `supply-four-step-continuation.md` — [四步供应链与补全/审核后继续上传](supply-four-step-continuation.md)
 - `order-procurement-fulfillment.md` — [订单、采购、发货与物流首版设计草案](order-procurement-fulfillment.md)
 - `store-core-schema-alignment.md` — [own675 Store 核心合同对齐方案](store-core-schema-alignment.md)
 - `report-center-shein-offline-package-source.md` — [Report Center：原 SHEIN 离线包诊断正常接线候选](report-center-shein-offline-package-source.md)
