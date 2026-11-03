@@ -1,8 +1,10 @@
 # 两个中心 V1：研究证据分析合同增量
 
-Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY（正式实施已获授权，IMPLEMENTING）**。执行 #1072/#1073，父目标 #1070，沿同一 Draft PR #1075。设计源码核查基线 `366df3516865163636a68852d7d85cf68c530c48`；2026-11-02 实施开工同步 main `bee30be7dd322a1d5d5777038fa98d939a570545`，沿同一分支持续实施。
+Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY（源码实现、独立检查与必需CI完成）**。执行 #1072/#1073，父目标 #1070，沿同一 Draft PR #1075。设计源码核查基线 `366df3516865163636a68852d7d85cf68c530c48`；2026-11-02 实施开工同步 main `bee30be7dd322a1d5d5777038fa98d939a570545`，沿同一分支交付。
 
 用户于 2026-11-02 明确确认沿用[两个中心 V1 产品设计](../product/market-research-selection-centers-v1.md)：数据服务 → 市场调研中心、供应市场 → 智能选品中心，共用项目，汇总限明确选中2–5项。随后用户明确回复“可以”，批准正式业务代码、必要开发自检、提交/推送及同一 PR 维护；本轮不合并、不更新实例或部署，不调用真实平台、真实模型或付费服务。产品确认、Architecture Review、正式实施授权及真实试用分别记录；本文不代签。
+
+2026-11-03用户后续明确允许按已审源码ad3ed151d6构建并仅更新指定统一实例的前后端，并允许启动Docker Desktop。该有界运行操作复用既有镜像切换/回退，属于Reuse Existing Architecture；不修改本冻结技术合同。准确状态见[运行交接](../engineering/market-research-runtime-handoff.md#当前指定统一实例交接2026-11-03)。真实平台/模型/付费、合并、Issue关闭和用户业务验收仍分别未授权或未执行。
 
 ## 1. Outcome、Authority 与边界
 
@@ -132,4 +134,4 @@ POST prepare先查原key，以原持久化Snapshot核对原始规范意图：原
 2. 历史发现复用原Recent/member及原run owner，主查询和anchor均先限当前project/context；受影响Must为本人/当前成员隔离、无第二事实、未知结果不重派。实际内部读取有界payload，仅对外返回metadata。
 3. 完整Snapshot仍受原8192-byte门禁；受影响Must为合法2–5精确输入保存及超限先于模型/预留拒绝。实施验证长合法身份/goal/profile、边界与原键重放，不扩共享限制或裁掉身份。
 
-以上属于当前Must的必要实现测试，未满足时仍阻止相应切片合并；不是新产品要求、风险接受或验收平台授权。技术准入及正式实施授权已完成；实施在同一 Delivery Batch 内进行。真实平台/模型/付费、新部署、合并及产品验收仍各自未授权或未发生，不由开发自检代签。
+以上属于当前Must的必要实现测试，未满足时仍阻止相应切片合并；不是新产品要求、风险接受或验收平台授权。技术准入及正式实施授权已完成；实施在同一 Delivery Batch 内交付。后续明确允许的指定实例两服务更新不改变本合同；真实平台/模型/付费、合并及产品验收仍各自未授权或未发生，不由开发自检代签。

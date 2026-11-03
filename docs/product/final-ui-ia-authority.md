@@ -312,4 +312,8 @@ Product、Asset、Listing、Marketplace、Store、Resource 等是支撑该产品
 
 用户随后明确回复“确认沿用这版设计”，确认上述两个入口、共用项目、页面分工及所选2–5项样本范围。12个明暗/关键390px视图、确认与空/异常状态及准确 Figma 链接见[两个中心 V1 产品设计](market-research-selection-centers-v1.md)，产品方向记为 PRODUCT_APPROVED；节点候选名称保留追溯，不等于功能已实施。
 
-新增市场证据 AI 的[设计增量](../architecture/market-research-evidence-analysis-v1.md)已完成原独立Reviewer的R1及对应增量确认，冻结为 IMPLEMENTATION_READY；后续用户明确回复“可以”，授权正式业务代码、必要开发自检、提交/推送和同一 PR 维护。新增两个入口的目标替代首批仅项目详情/原导航不变的范围限制；原owner、安全和恢复合同继续有效。当前实例仍为首批实现，本轮在同一主要分支实施，不执行真实平台、模型/付费、合并、实例更新或新部署。
+新增市场证据 AI 的[设计增量](../architecture/market-research-evidence-analysis-v1.md)已完成原独立Reviewer的R1及对应增量确认，冻结为 IMPLEMENTATION_READY；后续用户明确回复“可以”，授权正式业务代码、必要开发自检、提交/推送和同一 PR 维护。新增两个入口的目标替代首批仅项目详情/原导航不变的范围限制；原owner、安全和恢复合同继续有效。当时部署仍需另行授权，后续决定如下。
+
+### 2026-11-03 用户允许：两个中心更新到指定统一实例
+
+用户明确允许使用已审应用源码ad3ed151d6构建标准镜像，仅更新task-processor-unified-20261010的前后端并短暂重启，保留身份、配置、业务数据和全部卷、回退镜像；又明确允许启动已停止的Docker Desktop并继续更新。此决定替代该批次原先“不部署”的阶段限制，不改变冻结产品/AI合同，不授权其他服务升级、合并、Issue关闭或真实平台/模型/付费调用。两个入口的正常会话检查已完成，当前没有研究项目或服务端采集证据；实际用户业务验收仍NOT_RUN。准确运行版本与限制见[运行交接](../engineering/market-research-runtime-handoff.md#当前指定统一实例交接2026-11-03)。

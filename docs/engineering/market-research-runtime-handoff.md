@@ -1,12 +1,12 @@
 # 产品研究的运行交接
 
-本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。本文件交付正常接线与操作入口，不证明实例已启用。初始源码阶段不授权部署，随后用户明确允许仅对 `task-processor-unified-20261010` 做备份、schema 定向补齐及前后端更新；本次实际状态见 #1072 / PR #1075。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
+本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
-**当前代码批次**为[已确认的两个中心 V1](../product/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../architecture/market-research-evidence-analysis-v1.md)实现。用户已授权正式代码、必要自检及同一 PR 维护；本新增批次没有更新或重启上述保留实例。该实例仍为首批应用源码 `d8b85805e`，下面的两个新中心及独立研究分析在实例上尚不可见。此前一次部署授权不扩展为后续自动部署。
+**当前代码批次**为[已确认的两个中心 V1](../product/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../architecture/market-research-evidence-analysis-v1.md)实现。2026-11-03 用户明确允许从已审源码 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2` 构建镜像并仅更新 `task-processor-unified-20261010` 前后端；又明确允许启动已停止的 Docker Desktop 并继续更新。现已完成两服务更新，两个新入口可见。此决定替代本新增批次原先“不部署”的阶段限制，不授权后续自动更新、其他服务升级或真实调用。
 
 ## 正常入口与可用路径
 
-1. 在运行本轮代码的应用中正常登录自己的企业，从「数据服务 → 市场调研中心」`/workbench/data/research` 创建或打开本人 PRODUCT_RESEARCH 项目，进入 `/workbench/data/research/{projectID}`。「供应市场 → 智能选品中心」`/workbench/supply/selection` 及其同一项目详情共享原项目、候选、证据与人工决定。原「AI 工作台 → 项目中心」研究区继续可用；保留实例当前仅有这个首批入口。
+1. 正常登录自己的企业，从「数据服务 → 市场调研中心」`/workbench/data/research` 创建或打开本人 PRODUCT_RESEARCH 项目，进入 `/workbench/data/research/{projectID}`。「供应市场 → 智能选品中心」`/workbench/supply/selection` 及其同一项目详情共享原项目、候选、证据与人工决定。原「AI 工作台 → 项目中心」研究区继续可用；指定实例现已包含两个新中心。
 2. 项目目标下方的「研究选品」区域先打开原数据市场 `/workbench/data/market`。真正采集仍要求单独授权、原权限、原最大 DATA_ROW 用量确认及原执行通道；本轮未执行。只读页面不触发采集或模型。
 3. 「关联已保存资料」复用我的数据批次选择器，仅允许自己当前可读的服务端 `amazon_data` 结果。旧插件结果也使用该 kind，因此关联时由原 Data Services owner 核实；没有原服务端 item 的资料明确拒绝，页面排除该项并允许继续，不留下待核实写入。浏览器桥并未因此启用。展示站点/ASIN、原时间、parser、结构化证据 checksum、准确 publication/version、查询样本范围、已观察价格/币种与缺失项。无价为未知；不同币种不计算统一排名。来源撤权或不可读后遮蔽内容，保留可解除的私有关系槽。
 4. 两中心选择 2–5 个可读候选，「读取所选样本」核对保存事实、同币种/同页面报价口径范围和缺项；切到选品中心核实原候选 revision、选定观察、digest 和商品引用。可选证据分析使用独立 `product.research.agent` / `product.research.decision`；须在原私密 manifest 显式配置 `productAgent.researchTextPolicies`，沿原凭据、模型路由和 Agent 激活/模式配置开放，不能借用其他智能体配置。准备后单独确认最多两次调用及 token/费用上限才开始；建议和引用保存在原 Agent 运行中，历史按项目读取。模型不可用不阻止只读事实与人工决定。原项目详情仍使用既有商品事实比较；全市场需求/趋势/销量、权重和利润没有开放。
@@ -41,7 +41,21 @@ pnpm --dir web/listingkit-ui dev --hostname 127.0.0.1 --port 3000
 
 停止沿原 `-shutdown-file` 或正常进程终止执行，等待 serving/worker 结束再释放连接池；不会删除数据库或保存结果。重启读取原本地回执和当前来源，不能因重启重新采集、再次扣费或换键转入。数据保留/备份/恢复沿各数据库现有 owner，不新增研究专属恢复器。
 
-## 指定统一实例交接（2026-11-02）
+## 当前指定统一实例交接（2026-11-03）
+
+实际入口：[市场调研中心](https://localhost:35444/workbench/data/research)、[智能选品中心](https://localhost:35444/workbench/supply/selection)。原有正常 Edge 会话已分别打开两个页面，导航和项目列表正常显示；当前账号下还没有研究项目。未创建演示项目或伪造证据，用户可以先检查入口和项目表单。
+
+运行源码固定 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2`，tree `1eaccf3770a93c480c573b7fadf3d89fd35f887c`；标准干净源码构建的后端镜像为 `sha256:6174e2993c69ff4a54c146b48df205767a7f506757a2aa2d0cddcbe6db68cc62`，UI 为 `sha256:6a8a94ca5134bee81b13deeae14695061510ce77d353336dc49f2e8044a7ec85`，均为 Docker 可寻址的镜像引用。容器来源标签已与实际镜像同步，两个服务 healthy。文档提交不改变本次运行的应用源码。
+
+本次 Operational Design Basis 为 **Reuse Existing Architecture**：只更换两服务镜像及相应来源标签，未修改正式产品代码、schema、身份、权限、私密 manifest、环境、命令、entrypoint、网络或挂载。其余16个容器ID与镜像保留；Docker恢复后仅按原ID启动原有依赖，原已停用的 browser-collector / qualification-objects 保持停用。原十个应用命名卷保留，未执行 initializer、迁移、down -v、prune 或数据删除。
+
+Product、Project 和 Agent 三库更新前均已生成私密 custom-format 备份，并以 pg_restore --list 验证归档可读；本次没有另建恢复库或宣称实际恢复验证。原配置和镜像回退材料继续保留。回退只按原两服务配置恢复旧镜像并保留当前durable records，不自动覆盖数据库备份或删除卷。私密备份/Compose不提交仓库或公开讨论。
+
+HTTPS首页200、两个中心未登录307；原BFF项目/研究分析接口未登录401，内部原生研究分析接口未登录401。公开HTTPS入口不路由原生/api/v1路径，其404不作为原生鉴权结果。服务端data_acquisition_jobs、data_service_commands、research_commands、research_opportunities仍均为0。本实例原productAgent.enabled=false、researchTextPolicies未配置，保持不变；模型调用没有启用。
+
+**NOT_RUN**：真实 Amazon/1688、真实模型/付费、实际保存证据→人工决定→转入的业务使用，以及用户产品验收。需要真实资料时另行明确站点、查询与最大DATA_ROW；模型另行明确配置、预算和调用授权。此次入口检查不代签以上结果，不合并或关闭Issue。完整构建、备份、保留检查和失败历史记于原PR #1075。
+
+## 首批指定统一实例交接历史（2026-11-02）
 
 用户批准的目标 `task-processor-unified-20261010` 已进行定向启用：仅替换后端和 UI，两者运行本 PR 已独立审查/CI 的应用源码 `d8b85805e82d8d6c8fe60c95ecdc88958c823390`；后续授权/交接文档提交不代表另一次应用逻辑变更。原网络、十个原挂载卷、环境变量、身份与 Browser Kernel 配置保留。新增配置只包含 `marketResearch.database` 及该实例原先已有但当前 manifest 未装配的 Data Services 显式子树；没有启动采集或模型请求。
 
