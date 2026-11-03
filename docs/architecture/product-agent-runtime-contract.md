@@ -34,6 +34,12 @@ UNKNOWN 和采用门禁不变，不增加调用或放开 metered Tool。旧 C1 �
 C2-2 额外视觉模型继续 DEFERRED / NOT_IMPLEMENTED；C3-2 独立查询已完成自身 R1 并获后续实现授权，证据见 #1077。
 两者都不是 #1076 本阶段 Must 或 E2 前置，也不是已实现或风险接受；其他未被替代的 Must 保持。
 
+C2-2 后续已开始[单图视觉分析候选](product-image-visual-analysis.md)，D1–D3 已单独产品认可，
+具体模型/图像计量/费率仍缺失，尚未实施或独立准入。
+候选复用现 Run/config/Model/ledger，保持事实 Tool 无模型调用；新的图片输入、计量与结果合同
+不能从文本 Quote、C1 路径决定或既有 Ready 推定。分析用途与当前生图许可/标题采用分开，
+尚不改变任何现运行的版本、恢复或执行资格；DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY。
+
 [图片事实/建议设计](product-image-facts-advice.md) 是新增公共 Tool/结果合同的独立冻结基线，
 已由准确设计 HEAD 的 R1 达到 IMPLEMENTATION_READY，后续实现授权及准确交付证据见 #1076。通用与原生消费者保持合法 Binding，
 不自动把图片 Tool 加给 contentagent 或所有 Agent；不改 Action/Gateway 自由参数、模型预算、
