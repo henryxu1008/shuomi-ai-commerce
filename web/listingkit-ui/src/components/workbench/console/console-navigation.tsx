@@ -48,8 +48,8 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
   const trail = findConsoleRoute(pathname)?.trail ?? [];
   const query=useSearchParams(), selection=new URLSearchParams();
   if(pathname.startsWith("/workbench/supply/mine")){
-    for(const key of ["preparation","store","operation"]){const value=query?.get(key);if(value&&collectionID.safeParse(value).success)selection.set(key,value);}
-    if(query?.get("mode")==="local"||pathname.startsWith("/workbench/supply/mine/missing")&&query?.get("mode")!=="platform")selection.set("mode","local");
+    for(const key of ["preparation","store","operation","plan"]){const value=query?.get(key);if(value&&collectionID.safeParse(value).success)selection.set(key,value);}
+    if(query?.get("mode")==="local"||pathname.startsWith("/workbench/supply/mine/missing")&&query?.get("mode")!=="platform"&&!query?.get("plan"))selection.set("mode","local");
     else if(supplyChainAvailable)selection.set("mode","platform");
   }
   const orderSteps=["source","purchase","stock","platform","logistics"];
@@ -117,7 +117,7 @@ function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "",
   const parentSelection=new URLSearchParams(selection);parentSelection.delete("mode");
   const orderParameters=new URLSearchParams(node.href.split("?")[1]);
   if(node.href.startsWith("/workbench/store-orders/fulfill?"))for(const [key,value] of new URLSearchParams(orderQuery))orderParameters.set(key,value);
-  const href=node.href.startsWith("/workbench/store-orders/fulfill?")?`/workbench/store-orders/fulfill?${orderParameters}`:supplyStage?.success?supplyStageHref(supplyStage.data,{preparation:selection.get("preparation")??undefined,store:selection.get("store")??undefined,operation:selection.get("operation")??undefined,mode:selection.get("mode")==="platform"?"platform":selection.get("mode")==="local"?"local":undefined}):node.href==="/workbench/supply/mine"&&parentSelection.size?`${node.href}?${parentSelection}`:node.href;
+  const href=node.href.startsWith("/workbench/store-orders/fulfill?")?`/workbench/store-orders/fulfill?${orderParameters}`:supplyStage?.success?supplyStageHref(supplyStage.data,{preparation:selection.get("preparation")??undefined,store:selection.get("store")??undefined,operation:selection.get("operation")??undefined,plan:selection.get("plan")??undefined,mode:selection.get("mode")==="platform"?"platform":selection.get("mode")==="local"?"local":undefined}):node.href==="/workbench/supply/mine"&&parentSelection.size?`${node.href}?${parentSelection}`:node.href;
   const active = trail.includes(node.href) || pathname === node.href;
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
   const [expanded, setExpanded] = useState(active);

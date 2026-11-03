@@ -119,6 +119,22 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 		return preparation.OperationReceipt{}, preparation.ErrUnavailable
 	}
 	defer tx.Rollback()
+	receipt, err := prepareOperationTx(ctx, tx, scope, key, input)
+	if err != nil {
+		return preparation.OperationReceipt{}, err
+	}
+	if _, _, _, err = proof.Read(ctx); err != nil {
+		return preparation.OperationReceipt{}, err
+	}
+	if tx.Commit().Error != nil {
+		return preparation.OperationReceipt{}, preparation.ErrUnknown
+	}
+	return receipt, nil
+}
+
+// Used only inside the owner's existing operation/plan UoW. Public callers
+// must present a live OperationCommit or UploadPlanAdvanceCommit first.
+func prepareOperationTx(ctx context.Context, tx *gorm.DB, scope collection.Scope, key string, input preparation.OperationInput) (preparation.OperationReceipt, error) {
 	if tx.Exec("SET LOCAL synchronous_commit=on").Error != nil || tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", collection.Digest([]string{scope.OrganizationID, scope.ActorID, "supply-operation", key})).Error != nil {
 		return preparation.OperationReceipt{}, preparation.ErrUnavailable
 	}
@@ -195,6 +211,18 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 					return preparation.OperationReceipt{}, preparation.ErrUnavailable
 				}
 				if result.Error == nil {
+					if len(input.TargetApprovals) > 0 {
+						matched := false
+						for _, approved := range input.TargetApprovals {
+							if approved.SourceID == source.ID && approved.RecordID == target.CurrentRecordID && approved.Revision == target.Revision {
+								matched = true
+								break
+							}
+						}
+						if !matched {
+							return preparation.OperationReceipt{}, preparation.ErrConflict
+						}
+					}
 					if input.Action == preparation.OperationUpload && target.Site == "walmart-us" {
 						var wire string
 						if e := tx.Raw("SELECT body_json->'walmart'->>'wireHash' FROM listing_target_records WHERE organization_id=? AND actor_id=? AND member_id=? AND id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, target.CurrentRecordID).Scan(&wire).Error; e != nil {
@@ -214,6 +242,8 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 						return preparation.OperationReceipt{}, preparation.ErrInvalid
 					}
 					item.RecordID, item.RecordRevision = &target.CurrentRecordID, &target.Revision
+				} else if len(input.TargetApprovals) > 0 {
+					return preparation.OperationReceipt{}, preparation.ErrConflict
 				} else if input.Action == preparation.OperationUpload {
 					item.Status, item.Note = preparation.ItemMissing, "尚无该店铺的适配资料"
 					row.CompletedCount++
@@ -235,12 +265,6 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 	}
 	if tx.Model(&operationRow{}).Where("organization_id=? AND actor_id=? AND id=?", scope.OrganizationID, scope.ActorID, row.ID).Updates(map[string]any{"completed_count": row.CompletedCount, "status": row.Status}).Error != nil {
 		return preparation.OperationReceipt{}, preparation.ErrUnavailable
-	}
-	if _, _, _, err = proof.Read(ctx); err != nil {
-		return preparation.OperationReceipt{}, err
-	}
-	if tx.Commit().Error != nil {
-		return preparation.OperationReceipt{}, preparation.ErrUnknown
 	}
 	value, err := row.value()
 	return preparation.OperationReceipt{Operation: value}, err

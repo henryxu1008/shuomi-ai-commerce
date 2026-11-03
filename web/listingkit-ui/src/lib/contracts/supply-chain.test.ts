@@ -1,7 +1,20 @@
 import { expect,it } from "vitest";
-import { officialDraftInputSchema,supplyPath,operationInputSchema,parseSupplyResponse,uploadAttemptSchema } from "./supply-chain";
+import { officialDraftInputSchema,supplyPath,operationInputSchema,operationSchema,parseSupplyResponse,uploadAttemptSchema } from "./supply-chain";
 import { initialSupplyDraft } from "@/components/workbench/supply/draft-fields";
 import type { SupplySourceDetail } from "./supply-chain";
+
+it("admits plan-owned operation metadata only in the response contract",()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ const input={preparationId:id,expectedRevision:1,storeId:id,action:"upload",sourceIds:[id]};
+ const owned={planId:id,planCommandKey:id,planRequestHash:"a".repeat(64),targetApprovals:[{sourceId:id,recordId:id,revision:2}]};
+ const operation={id,input:{...input,...owned},count:1,completed:0,status:"pending",execution:"started",createdAt:"2026-11-03T00:00:00Z"};
+ expect(operationSchema.safeParse(operation).success).toBe(true);
+ expect(operationInputSchema.safeParse(input).success).toBe(true);
+ for(const [key,value] of Object.entries(owned))expect(operationInputSchema.safeParse({...input,[key]:value}).success).toBe(false);
+ for(const invalid of [{planId:"not-an-id"},{planCommandKey:"not-a-key"},{planRequestHash:"not-a-hash"},{targetApprovals:[{sourceId:id,recordId:id,revision:0}]},{targetApprovals:[{sourceId:id,recordId:"other",revision:1}]}]){
+  expect(operationSchema.safeParse({...operation,input:{...operation.input,...invalid}}).success).toBe(false);
+ }
+});
 it("admits not_sent only for the original TikTok step and rejects a foreign platform",()=>{
  const id="11111111-1111-4111-8111-111111111111";
  const view={recordId:id,attemptId:id,effectKind:"image",platform:"tiktokshop",status:"not_sent",message:"本次未发送"};
