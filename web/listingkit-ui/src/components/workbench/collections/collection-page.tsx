@@ -131,7 +131,7 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
   }
   const displayingItems = tab === "own" || !!batchId;
   return <ConsolePage title="我的数据" breadcrumbs={findConsoleRoute("/workbench/data/mine")?.trail}>
-    <div className="mb-5 rounded-xl border border-border bg-muted px-5 py-3 text-sm text-muted-foreground">原始商品数据 <span aria-hidden="true">→</span> 转入待适配 <span aria-hidden="true">→</span> 整理商品资料 <span aria-hidden="true">→</span> 上架其他平台</div>
+    <div className="mb-5 rounded-xl border border-border bg-muted px-5 py-3 text-sm text-muted-foreground">原始商品数据 <span aria-hidden="true">→</span> 转入待上传 <span aria-hidden="true">→</span> 整理商品资料 <span aria-hidden="true">→</span> 上架其他平台</div>
     <div className="mb-5 flex gap-7 border-b border-border text-sm" role="tablist" aria-label="我的数据分类">
       <button role="tab" aria-selected={tab === "batches"} className={`border-b-2 px-1 pb-3 ${tab === "batches" ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground"}`} onClick={() => changeView("batches")}>采集批次</button>
       <button role="tab" aria-selected={tab === "own"} className={`border-b-2 px-1 pb-3 ${tab === "own" ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground"}`} onClick={() => changeView("own")}>自有商品库</button>

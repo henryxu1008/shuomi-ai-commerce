@@ -17,7 +17,7 @@ export default async function Page({params,searchParams}:{params:Promise<{stage:
  const stage=stageSchema.safeParse((await params).stage);if(!stage.success)notFound();
  if(process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED!=="true"||!full&&(!(preparation||completion)||stage.data!=="waiting")&&(!completion||stage.data!=="missing")){
   const route=findConsoleRoute(`/workbench/supply/mine/${stage.data}`)??findConsoleRoute("/workbench/supply/mine")!;
-  return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="按目标平台整理商品并完成发布。"><ConsoleState kind="unavailable" title="平台处理尚未配置">此阶段需要正式官方应用、SHEIN 渠道及供应链运行配置。已保存的商品和待适配批次仍保留在原入口。</ConsoleState></ConsolePage>;
+  return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="按目标平台整理商品并完成发布。"><ConsoleState kind="unavailable" title="平台处理尚未配置">此阶段需要正式官方应用、SHEIN 渠道及供应链运行配置。已保存的商品和待上传批次仍保留在原入口。</ConsoleState></ConsolePage>;
  }
  const query=await searchParams;const read=(name:string)=>{const value=query[name];if(value===undefined)return undefined;if(typeof value!=="string"||!isAcquisitionUUID(value))notFound();return value};
  const record=read("record");
