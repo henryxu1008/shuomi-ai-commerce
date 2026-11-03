@@ -4,6 +4,8 @@
 
 用户明确选择“SHEIN 优先，保留 TEMU 后续接入”。本轮交付具体业务设计，Design Basis: **N/A（设计文档，不改变业务运行语义）**；不据此修改正式生产代码、schema或公共合同。后续多来源正式实现按 Independent Architecture 准入，尚未达到 IMPLEMENTATION_READY。
 
+用户随后咨询将市场调研/智能选品以智能体方式在智能市场启用使用；[智能市场交付提案](market-research-selection-centers-v1.md#智能市场交付方式提案2026-11-03待用户确认)已核对现有企业启用和业务使用链，拟统一发现/配置入口、保留实际业务工作页。该提问尚未批准修改原一级菜单或当前Agent版本/工具合同；下文沿现有入口描述业务步骤，可在产品IA确定后调整入口，SHEIN资料与真实调用条件不变。
+
 依据：[原多来源方案与公开来源调查](market-research-multi-source-plan.md)、[已批准两个入口V1](market-research-selection-centers-v1.md)、[当前Product Authority](final-ui-ia-authority.md)、[现有研究合同](../architecture/market-research-selection.md)、[证据分析合同](../architecture/market-research-evidence-analysis-v1.md)。这份草案不宣称Figma已更新，也不替代现有冻结合同。执行仍沿 #1070/#1072/#1073 和主要 Draft PR #1075，一个Writer。
 
 ## 1. 要交付给业务人员的结果
