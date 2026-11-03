@@ -4,10 +4,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SupplyPage } from "./supply-page";
 import StagePage from "@/app/workbench/supply/mine/[stage]/page";
 vi.mock("next/server",()=>({connection:vi.fn()}));
-const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),push:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn()}));
+const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),preparations:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),push:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:state.push})}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
-vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record,listUploadPlans:state.plans,readUploadPlan:state.plan,previewUploadPlan:state.preview}));
+vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyPreparations:state.preparations,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record,listUploadPlans:state.plans,readUploadPlan:state.plan,previewUploadPlan:state.preview}));
 vi.mock("./temu-target-editor",()=>({TemuTargetEditor:({existing}:{existing?:{temu:{mode:string}}})=><p>TEMU 原生资料 {existing?.temu.mode}</p>}));
 vi.mock("./bulk-review-panel",()=>({BulkSupplyReviewPanel:({items}:{items:unknown[]})=><p>实际批量提案 {items.length} 件</p>}));
 vi.mock("@/lib/api/workbench-stores",async original=>({...await original<typeof import("@/lib/api/workbench-stores")>(),listWorkbenchStores:state.stores}));
@@ -18,6 +18,7 @@ beforeEach(()=>{
  state.plans.mockReset().mockResolvedValue({items:[]});state.plan.mockReset();state.preview.mockReset();
  state.options.mockReset().mockResolvedValue({titles:[],reason:"未启用"});
  state.stages.mockReset().mockResolvedValue({items:[],total:205,batchTotal:205,counts:{all:205,waiting:205,missing:0,ready:0,review:0,uploaded:0},nextCursor:source});
+ state.preparations.mockReset().mockResolvedValue({items:[{id:prep,name:"完整批次",count:205,createdAt:"2026-10-08T00:00:00Z"}],total:1});
  state.preparation.mockReset().mockResolvedValue({id:prep,sourceBatchId:prep,sourceRevision:1,name:"完整批次",count:205,revision:1,createdAt:"2026-10-08T00:00:00Z"});
  state.sources.mockReset().mockResolvedValue({items:[],total:205,nextCursor:source});state.history.mockReset().mockResolvedValue({items:[],total:0});state.write.mockReset().mockResolvedValue({operation:{id:source,input:{preparationId:prep,expectedRevision:1,storeId:store,action:"adapt"},count:205,completed:0,status:"pending",execution:"started",createdAt:"2026-10-08T00:00:00Z"},replayed:false});
  state.stores.mockReset().mockResolvedValue({items:[{id:store,name:"美国试用店铺",platform:"shein",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
@@ -192,6 +193,20 @@ it("retains confirmed UNKNOWN readback across progress refresh while other items
  expect(await screen.findByText("原执行 UNKNOWN，已核实成功")).toBeInTheDocument();expect(screen.getByText("SPU：confirmed-spu")).toBeInTheDocument();expect(screen.getAllByRole("button",{name:"查看待核实结果"})).toHaveLength(1);
  view.unmount();render(<SupplyPage initialPreparation={prep} initialStore={store} initialOperation={operation}/>);
  expect(await screen.findByText("原执行 UNKNOWN，已核实成功")).toBeInTheDocument();expect(screen.getByText("SPU：confirmed-spu")).toBeInTheDocument();expect(screen.getAllByRole("button",{name:"查看待核实结果"})).toHaveLength(1);expect(state.write).toHaveBeenCalledOnce();
+});
+
+it("shows four configuration steps before a batch is selected",async()=>{
+ render(<SupplyPage initialStage="waiting"/>);
+ for(const name of ["1. 选择商品","2. 选择目标店铺","3. 配置规则与智能体","4. 确认提交"]){
+  expect(screen.getByRole("heading",{name})).toBeInTheDocument();
+ }
+ expect(screen.getByRole("button",{name:"选择商品"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"预览整批上传"})).toBeDisabled();
+ await userEvent.click(screen.getByRole("button",{name:"选择商品"}));
+ await userEvent.click(await screen.findByRole("button",{name:"选择批次"}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ await screen.findByRole("button",{name:"更换商品批次"});
+ expect(state.write).not.toHaveBeenCalled();
 });
 
 it("shows four configuration steps in product/store/rules/confirmation order",async()=>{
