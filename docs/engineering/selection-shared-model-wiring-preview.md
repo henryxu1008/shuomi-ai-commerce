@@ -2,6 +2,74 @@
 
 日期：2026-11-03（Asia/Singapore）。配置预览状态：**REVIEW_ONLY / NOT_PUBLISHABLE**；真实配置与调用 **NOT_RUN**。
 
+## 本次现场核查与配置差异（2026-11-03，只读）
+
+Design Basis: **N/A**。本轮仅核实正常管理页、既有去敏GET、镜像来源标签、官方文档及原代码映射，更新本预览；没有修改业务代码、凭据、配置、schema或实例。核对时点为2026-11-03 12:12:52 UTC（东八区20:12:52）。下方前阶段记录保留各自版本，本节为当前观察。
+
+### 现场事实与边界
+
+当前企业为Local Account Center `394513833252618242`，正常登录维护身份为 `394513839896395778`。管理页只有图片用途，已发布的是原图片配置；这不能证明文字凭据不存在，也不能用图片Key替代文字绑定。
+
+| 已有只读入口 | 实际结果 | 能证明什么 |
+| --- | --- | --- |
+| `GET /api/model-route-pricing` | 200，仅 `image / imageagent.generation` | 当前管理能力列表未开放文字用途 |
+| `GET /api/model-route-pricing/text/product.research.decision/bindings` | 400 / `INVALID` | 现场BFF的用途白名单未包含研究操作；不是“查询成功且无绑定” |
+| `GET /api/model-route-pricing/text/product.selection.decision/bindings` | 503 / `UNAVAILABLE` | 当前企业catalog未开放该文字scope，尚未进入绑定读取；不是“不存在密钥”或模型不可用的实测结论 |
+
+三次均为原浏览器会话、当前身份/企业期望头的GET，只接收白名单去敏字段；没有读取cookie/token/secret、绕过权限、调用provider或写配置。现场 `a66d7d0c` 的BFF白名单未含研究操作；原生handler在catalog不支持本企业scope时即返回UNAVAILABLE，尚未调用绑定owner。该源码与正常页面/GET结果一致，未尝试管理员SQL补证。
+
+现场两个服务的OCI来源标签均为 `a66d7d0cde74cded28d77060ac941851cc342a30`，running/healthy：后端镜像 `sha256:2848da261bfc92412fbd2af99719b4963cd6ad45a3bc834a476f844ee2406ffc`、UI镜像 `sha256:d106b5dfe863e4222214daa0bee42696f9243a9abf5e92308852aa51c71494b1`。这是本轮观察，不是本轮部署；与早前e75/ad3记录不同，也不是本线程f872共享模型/微点源码已部署的证明。保留库不能自动换单位。
+
+### 可审查差异：待填项不伪造为可发布值
+
+| 配置边界 | 当前核实结果 | 拟议目标，尚未写入 |
+| --- | --- | --- |
+| 组织与操作 | 已确认LAC；文字用途未开放 | 两项继续共用该企业 `text`，各自operation/prompt/schema/权限保留 |
+| 绑定与版本 | 文字binding ID、binding版本、credential版本、endpoint摘要、地域均UNKNOWN | 只引用原owner提供的本企业去敏记录；不创建/复制Key，不借图片或成员绑定 |
+| 准确型号 | 用户指定 `deepseek-v4.1-flash`；现场无文字绑定可证明其版本 | 先保留该名称；不静默替换 `deepseek-v4.1-flash-1017` 或厂商的 `deepseek-flash` |
+| 请求协议 | 仓库有DASHSCOPE/OpenAI兼容文字适配；现场对应绑定UNKNOWN | 候选为Chat Completions、固定 `enable_thinking=false`、原两调用/更小限制；不用图片协议、原生DashScope响应或Responses响应冒充同一mapper |
+| 官网价/FX | 下表公开原价已核；对本企业准确型号的适用身份、版本和有效期尚未核准 | 厂商价经原平台owner冻结，CNY按原identity换算；不自造price/FX版本，不恢复200/800独立点价 |
+| 内部渠道成本 | 百炼公开价随地域/时段不同；本企业地域UNKNOWN | 作为单独成本预算，不能叠加成第二份用户收费 |
+| 消费/调用预算 | 每项成本¥0.30、消费20点；两项各一次总¥0.60/40点已确认 | 保持两调用、每调用输入≤32000/输出≤4000Token及原更小上限；未发布或执行 |
+| 共享current/CAS | 新版企业共享revision未取得；现场仍是旧分用途合同 | expectedRevision保持UNKNOWN，不能假设no-revision或用旧图片revision顶替；三类资格和正式运行适用范围仍须满足 |
+
+### 价格：厂商用户计价与百炼渠道成本分别核实
+
+以下单位均为CNY/每百万Token，按2026-11-03官方页面原价记录，不含优惠/免费额度，不是可执行报价。
+
+| 价目及用途 | 非缓存输入：忙/闲 | 输出：忙/闲 | 缓存输入：忙/闲 | 时段依据 |
+| --- | --- | --- | --- | --- |
+| 百炼北京（渠道成本候选） | 2 / 1 | 8 / 4 | 0.2 / 0.1 | 东八区22:00至次日08:00为闲时，其余忙时 |
+| 百炼新加坡国际（渠道成本候选） | 2.188 / 1.094 | 8.75 / 4.375 | 0.219 / 0.109 | 同上；缓存为模型页展示值，不能自行从折扣描述推导更细精度作为已发布费率 |
+| DeepSeek官网 `deepseek-flash`（仅准确版本匹配后作为用户计价候选） | 2 / 1 | 8 / 4 | 0.04 / 0.02 | 东八区工作日非中国法定节假日09–12、14–18忙时，其余闲时 |
+
+来源：[百炼准确型号及地区价格](https://help.aliyun.com/zh/model-studio/deepseek-v4-1-flash)、[百炼价格表](https://help.aliyun.com/zh/model-studio/model-pricing)、[厂商型号与价格](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)。厂商页将 `deepseek-flash` 标为DeepSeek-V4.1-Flash-1017；百炼将用户原名称与1017分别列出，现有证据不能证明两者准确版本相同。即使无缓存单价相同，也不能据此签发版本/价目适用性。百炼缓存价与厂商缓存价、两方峰谷日历不得混用。
+
+整数条件算例仍保持每项两调用、32000/4000Token：厂商高峰无缓存为¥0.192=19.2点，两个¥0.384=38.4点；北京渠道成本¥0.192/项，新加坡国际¥0.210032/项（两个¥0.420064），均低于原成本预算。**若把新加坡渠道价误作用户点价，会变成21.0032点/项，超过20点；不得用它替换厂商用户计价。** 版本/地域/时段未知时，这些只是算例；没有对现有余额、原预留或历史消费重算。
+
+### 用量映射：字段对齐与真实资格分开
+
+[百炼Chat Completions响应合同](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions)与[缓存说明](https://help.aliyun.com/zh/model-studio/context-cache)可对齐现有 `ObserveOfficialOpenAITextUsage` / `openai-text-v1`：
+
+| 原响应字段 | 现有映射与检查 |
+| --- | --- |
+| `usage.prompt_tokens` | 总输入；非负且有界 |
+| `usage.completion_tokens` | 总输出；不再另加reasoning tokens |
+| `usage.total_tokens` | 验证等于输入+输出，不作为第三项收费 |
+| `usage.prompt_tokens_details.cached_tokens` | 输入中的缓存子集；必须存在且在0到总输入之间，缺失不能当0或全价 |
+| `usage.completion_tokens_details.reasoning_tokens`（可选） | 若出现必须不大于总输出；候选仍固定非思考，不能靠默认模式执行 |
+
+源码：[严格用量解析](../../internal/integration/aicapability/einomodel/official_usage.go)、[缺缓存/矛盾/重复字段的合成断言](../../internal/integration/aicapability/einomodel/official_usage_test.go)、[固定非思考准入](../../internal/integration/aicapability/einomodel/deepseek.go)。本轮仅阅读，不新建mapper或运行模型。已有DeepSeek适配测试证明非思考请求控制，不等于本企业真实缓存分项已验证；文档字段一致也不等于准确binding已合格。真实原始响应/用量证据本轮未取得，真实AI/付费调用未授权。
+
+### 剩余阻碍与当前交付结论
+
+1. 当前正常管理链未开放可用的文字绑定读取，无法取得本企业准确binding/版本/地域。需原受限owner提供去敏记录或获准后接通相应管理入口；不通过读取secret/管理员DB补证。
+2. 原别名与厂商当前1017的准确身份/适用价格尚未对应；如将来选择1017，原固定非思考准入也须按准确型号核对，不能只换字符串。当前不请求/执行换模。
+3. 需按准确协议、型号和地域补可信完整usage证据，再核准原mapper/保守上界。真实调用没有授权，缺失/矛盾仍交原owner保持UNKNOWN，不补造用量或退款。
+4. 仓库离线工程与现场a66d合同不同；新版三类完整资格、单位/实例适用安排和运行授权未满足。即便文字条件补齐，也不能部分发布text或自动换量纲。
+
+**结论：公开价格与字段合同已核实；本企业可执行文字绑定和价目适用性未核实，仍NOT_PUBLISHABLE。** 证据在被Git忽略的 `.local/selection-bailian-binding-readonly-20261103-01/`，仅含去敏观察和整数算例，不是API请求体。下方为此前设计/工程交付记录。
+
 Issue #1073已记录后续离线开发授权及 **Reuse Existing Architecture / Ready**。先前 `25477d81f` 的读取器准入修正已通过原CI；现已在本开发分支组合#1078稳定提交 `341278d5743cb9f9c4b2e257d72ae8a5c0ed1aa5`，两项消费者共同使用原SharedTextReader及官方价/微点运行链。研究准入描述和夹具完成组合适配，两项真实HTTP/配置/原账本/原key路径的本地合成回归通过；没有另建公共模型或计费能力。详见[当前离线交接](market-research-runtime-handoff.md#共享模型稳定依赖组合2026-11-03离线实现完成待独立检查)。下方N/A和“未写正式代码”仅适用于原预览阶段，不否定后续授权；预算与禁止发布/真实调用等限制保持。
 
 用户已选择百炼 `deepseek-v4.1-flash`，仅准备两项操作的配置接线和差异预览。每项渠道成本上限 ¥0.30、用户消费上限20 AI点，两项各一次合计 ¥0.60/40点。该确认不是调用、凭据写入、配置发布、服务更新、迁移或合并授权。
