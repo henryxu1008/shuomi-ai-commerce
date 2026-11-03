@@ -1,5 +1,9 @@
 # 市场调研与智能选品 V1：产品与交互设计
 
+## 后续模型配置依据（2026-11-03，共享模型预览）
+
+用户指定对齐“检查可关闭的 Issue”线程正在实施的PR #1078：两项操作未来共同读取企业共享text类别，保留各自业务定义、权限、模式与预算；厂商官网价/冻结FX/完整用量经原资源owner精确折算微点。此前200/800独立点数资费草案已撤回，不恢复为第二收费链。用户本次选择的Local Account Center / 百炼deepseek-v4.1-flash及每项¥0.30渠道成本、20点消费上限，仅授权[配置接线与差异预览](../engineering/selection-shared-model-wiring-preview.md)，不授权配置发布、凭据/实例更新或真实调用。原文中独立ResearchTextPolicies及旧模型/费率接线保留为当前旧版实现证据，不作为未来共享模型的fallback或新增配置方案。上游完整共享交付、三类整体发布资格、真实文字binding及保留库单位/安装范围尚未就绪。
+
 ## 现有操作启用、配置与进入使用增量（2026-11-03）
 
 用户明确允许先打通现有操作在智能市场的启用、配置和使用，同时继续只读核实SHEIN美国来源。本轮 **Design Basis: Reuse Existing Architecture**；Issue Ready接单先于生产代码。沿本页已确认的准确操作映射、原组织配置与Agent/研究合同，只补现有Console消费者，不改后端合同/权限/状态/schema/事实owner/预算或UNKNOWN恢复。
