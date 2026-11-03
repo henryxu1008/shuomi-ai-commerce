@@ -21,6 +21,7 @@ func deepSeekTestInput(endpoint string) aicapability.TextInputIdentity {
 	profile.ProviderID = "DASHSCOPE"
 	profile.ModelID = "deepseek-v4.1-flash"
 	profile.OfficialTariff.Model = profile.ModelID
+	profile.OfficialTariff.UsageVersion = aicapability.ReferenceTextTotalsV1
 	profile.AdapterPolicyVersion = DashScopeDeepSeekV41FlashNonThinkingPolicy
 	return aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1",
 		Operation: aicapability.OperationProductContentDecision, AgentRunID: "run-1", InvocationID: "inv-1",
@@ -50,21 +51,23 @@ func TestDeepSeekContentExecutorSendsFixedNonThinkingPolicy(t *testing.T) {
 	ledger := &recordingLedger{}
 	executor := deepSeekTestExecutor(server.URL, input.Profile, ledger)
 	_, err = executor.Generate(context.Background(), input, quote, nil)
-	require.ErrorIs(t, err, ErrOutcomeUnknown, "wire correctness does not prove complete billing usage or clock qualification")
+	require.NoError(t, err, "explicit basic totals can settle the admitted reference strategy")
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(<-wire, &body))
 	require.Equal(t, false, body["enable_thinking"], "the selected model must not inherit the provider thinking default")
 	require.NotContains(t, body, "tools")
 	require.NotContains(t, body, "reasoning_effort")
-	require.Len(t, ledger.records, 1, "no guessed terminal charge; preserve the original claim")
+	require.Len(t, ledger.records, 2, "one original claim and one reference usage terminal record")
 	require.Equal(t, aicapability.InvocationDispatched, ledger.records[0].Outcome)
 	require.Equal(t, quote.InputHash, ledger.records[0].InputHash)
+	require.Equal(t, aicapability.InvocationSucceeded, ledger.records[1].Outcome)
+	require.Equal(t, aicapability.ReferenceTextTotalsV1, ledger.records[1].BillableUsage.MappingVersion)
 	_, err = executor.Generate(context.Background(), input, quote, nil)
 	require.ErrorIs(t, err, ErrOutcomeUnknown)
 	require.EqualValues(t, 1, sends.Load(), "the original claim cannot send twice")
 }
 
-func TestDeepSeekGuardCannotInferBillingClockFromCreatedOrGenericUsage(t *testing.T) {
+func TestDeepSeekGuardEstimatesOnlyForItsExactModel(t *testing.T) {
 	for _, modelID := range []string{"deepseek-v4.1-flash", "deepseek-v4.1-flash-1017"} {
 		t.Run(modelID, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -79,9 +82,12 @@ func TestDeepSeekGuardCannotInferBillingClockFromCreatedOrGenericUsage(t *testin
 			require.NoError(t, err)
 			require.NoError(t, response.Body.Close())
 			observed := guard.Usage()
-			require.Nil(t, observed.BillableUsage, "created is not an admitted billing timestamp")
 			if modelID != "deepseek-v4.1-flash" {
+				require.Nil(t, observed.BillableUsage)
 				require.False(t, observed.Known, "1017 cannot silently substitute for the original model")
+			} else {
+				require.NotNil(t, observed.BillableUsage)
+				require.Equal(t, aicapability.ReferenceTextTotalsV1, observed.BillableUsage.MappingVersion)
 			}
 		})
 	}
@@ -227,12 +233,12 @@ func TestDeepSeekComponentCannotDropFrozenPolicy(t *testing.T) {
 	}
 }
 
-func TestDeepSeekIncompleteOrUnqualifiedBillingKeepsOriginalUnknownKey(t *testing.T) {
+func TestDeepSeekIncompleteOrExcessUsageKeepsOriginalUnknownKey(t *testing.T) {
 	for _, tc := range []struct {
 		name, reasoning, usage string
 	}{
 		{"reasoning returned", `,"reasoning_content":"synthetic thought"`, `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}`},
-		{"complete partitions without billing clock", "", `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15,"prompt_tokens_details":{"cached_tokens":0}}`},
+		{"completion exceeds configured bound", "", `{"prompt_tokens":10,"completion_tokens":65537,"total_tokens":65547}`},
 		{"missing completion usage", "", `{"prompt_tokens":10,"total_tokens":15}`},
 		{"inconsistent usage", "", `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":20}`},
 	} {
@@ -249,8 +255,13 @@ func TestDeepSeekIncompleteOrUnqualifiedBillingKeepsOriginalUnknownKey(t *testin
 			ledger := &recordingLedger{}
 			executor := deepSeekTestExecutor(server.URL, input.Profile, ledger)
 			_, err = executor.Generate(context.Background(), input, quote, nil)
-			require.ErrorIs(t, err, ErrOutcomeUnknown)
-			require.Len(t, ledger.records, 1, "unknown usage cannot be recorded as zero or settled")
+			if tc.name == "reasoning returned" {
+				require.ErrorIs(t, err, ErrObservedInvalidSettled)
+				require.Len(t, ledger.records, 2, "known basic usage settles even when content is rejected")
+			} else {
+				require.ErrorIs(t, err, ErrOutcomeUnknown)
+				require.Len(t, ledger.records, 1, "unknown usage cannot be recorded as zero or settled")
+			}
 			_, err = executor.Generate(context.Background(), input, quote, nil)
 			require.ErrorIs(t, err, ErrOutcomeUnknown)
 			require.EqualValues(t, 1, sends.Load())

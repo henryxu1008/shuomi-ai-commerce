@@ -14,6 +14,11 @@ import (
 
 type sharedCatalog struct{ unready bool }
 
+func (*sharedCatalog) Options(context.Context, string) ([]d.ModelOption, error) {
+	s := sharedInput().Selection
+	return []d.ModelOption{{Category: d.ModelCategoryText, Reference: s.Text}, {Category: d.ModelCategoryImage, Reference: s.Image}, {Category: d.ModelCategoryMultimodal, Reference: s.Multimodal}}, nil
+}
+
 func (*sharedCatalog) ValidateDefaultChannel(_ context.Context, _ string, channel string) error {
 	if channel != "synthetic-channel" {
 		return d.ErrNeedsConfiguration

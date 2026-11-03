@@ -1,55 +1,34 @@
 package einomodel
 
-import (
-	"encoding/json"
-	"task-processor/internal/aicapability"
+import "task-processor/internal/aicapability"
 
-	strict "sigs.k8s.io/json"
-)
-
-// This checks an exact synthetic/observed envelope's token partitions, not
-// provider qualification. In particular created does NOT become BillingTimeUTC.
-// No actual billing clock policy has been admitted for this provider/model.
-func observeDeepSeekPartitions(raw []byte) (aicapability.BillableModelUsage, error) {
-	var envelope map[string]json.RawMessage
-	if !decodeOfficialUsage(raw, &envelope) {
-		return aicapability.BillableModelUsage{}, ErrUsageUnknown
+// This strategy uses only its declared basic counters. Optional supplier cache
+// or pricing metadata is neither required nor represented as observed zero.
+func observeReferenceTextUsage(raw []byte) ObservedUsage {
+	var envelope struct {
+		Usage *struct {
+			Prompt     *int64 `json:"prompt_tokens"`
+			Completion *int64 `json:"completion_tokens"`
+			Total      *int64 `json:"total_tokens"`
+		} `json:"usage"`
 	}
-	for key := range envelope {
-		switch key {
-		case "id", "object", "created", "model", "choices", "usage", "system_fingerprint", "service_tier":
-		default:
-			return aicapability.BillableModelUsage{}, ErrUsageUnknown
-		}
+	if !decodeOfficialUsage(raw, &envelope) || envelope.Usage == nil {
+		return ObservedUsage{}
 	}
-	var modelID string
-	if json.Unmarshal(envelope["model"], &modelID) != nil || modelID != "deepseek-v4.1-flash" {
-		return aicapability.BillableModelUsage{}, ErrUsageUnknown
+	u := envelope.Usage
+	if !observedCounter(u.Prompt, 1<<30) || !observedCounter(u.Completion, 1<<30) || !observedCounter(u.Total, 2<<30) || *u.Prompt+*u.Completion != *u.Total {
+		return ObservedUsage{}
 	}
-	var usage struct {
-		Prompt        *int64 `json:"prompt_tokens"`
-		Completion    *int64 `json:"completion_tokens"`
-		Total         *int64 `json:"total_tokens"`
-		PromptDetails *struct {
-			Cached *int64 `json:"cached_tokens"`
-		} `json:"prompt_tokens_details"`
-		CompletionDetails *struct {
-			Reasoning *int64 `json:"reasoning_tokens"`
-		} `json:"completion_tokens_details"`
-	}
-	violations, err := strict.UnmarshalStrict(envelope["usage"], &usage, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
-	if err != nil || len(violations) != 0 {
-		return aicapability.BillableModelUsage{}, ErrUsageUnknown
-	}
-	return ObserveOfficialOpenAITextUsage(raw)
+	return ObservedUsage{PromptTokens: int(*u.Prompt), CompletionTokens: int(*u.Completion), TotalTokens: int(*u.Total), Known: true,
+		BillableUsage: &aicapability.BillableModelUsage{MappingVersion: aicapability.ReferenceTextTotalsV1, Complete: true, InputText: *u.Prompt, OutputText: *u.Completion}}
 }
 
 func observeDeepSeekUsage(raw []byte) ObservedUsage {
-	partitions, err := observeDeepSeekPartitions(raw)
-	if err != nil {
+	var envelope struct {
+		Model string `json:"model"`
+	}
+	if !decodeOfficialUsage(raw, &envelope) || envelope.Model != "deepseek-v4.1-flash" {
 		return ObservedUsage{}
 	}
-	// Totals may support diagnostics and the separate channel cost bound, but
-	// cannot produce a billable terminal proof without an admitted billing time.
-	return ObservedUsage{PromptTokens: int(partitions.InputText), CompletionTokens: int(partitions.OutputText), TotalTokens: int(partitions.InputText + partitions.OutputText), Known: true}
+	return observeReferenceTextUsage(raw)
 }

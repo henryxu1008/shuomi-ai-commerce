@@ -203,9 +203,9 @@ func (s PlatformPricesSnapshot) Resolve(id, model, channel string, now time.Time
 		return invalid, ErrNeedsConfiguration
 	}
 	p := *found
-	// A single current interval cannot stand in for DeepSeek's complete peak/
-	// idle bound and response-time billing proof. Use the frozen window owner.
-	if p.Provider == "deepseek" || p.Model == "deepseek-v4.1-flash" {
+	// This model uses the admitted basic-totals estimate, not a supplier clock
+	// or a generic cache-partition claim.
+	if p.Model == "deepseek-v4.1-flash" && p.UsageVersion != aicapability.ReferenceTextTotalsV1 {
 		return invalid, ErrNeedsConfiguration
 	}
 	result := aicapability.OfficialModelTariff{UnitVersion: s.UnitVersion, PriceVersion: p.Version, Currency: p.Currency, Model: p.Model, Channel: p.Channel, UsageVersion: p.UsageVersion, Rates: p.Rates}

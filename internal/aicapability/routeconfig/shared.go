@@ -123,6 +123,7 @@ type SharedModelOptions interface {
 }
 
 type SharedModelCatalog interface {
+	SharedModelOptions
 	ValidateDefaultChannel(context.Context, string, string) error
 	QualifyModel(context.Context, string, ModelCategory, ModelBindingReference) (ModelQualification, error)
 }
@@ -156,8 +157,11 @@ func (s *SharedModelService) qualify(ctx context.Context, org string, category M
 	if q.OrganizationID != org || q.Category != category || q.Reference != ref || !ValidFact(q.Channel, 128) || !ValidFact(q.Model, 128) {
 		return ModelQualification{}, ErrInvalid
 	}
-	if q.Ready && (q.Price.Validate() != nil || q.Price.Model != q.Model || q.Price.Channel != q.Channel || !ValidFact(q.BoundEvidenceVersion, 128) || !ValidFact(q.ProfileVersion, 128)) {
+	if q.Ready && (q.Price.Validate() != nil || q.Price.Model != q.Model || q.Price.Channel != q.Channel || !q.Price.IsReferenceEstimate() && !ValidFact(q.BoundEvidenceVersion, 128) || !ValidFact(q.ProfileVersion, 128)) {
 		q.Ready, q.Reason = false, "DEPENDENCY_MISSING"
+	}
+	if q.Ready && q.Price.IsReferenceEstimate() && category != ModelCategoryText {
+		q.Ready, q.Reason = false, "METERING_MAPPING_NOT_ADMITTED"
 	}
 	if q.Ready {
 		valid := false
@@ -219,13 +223,32 @@ func (s *SharedModelService) Publish(ctx context.Context, org, actor, key string
 	// then commits one complete payload under its existing CAS transaction.
 	cmd := Command{Scope: scope, ActorID: actor, Key: key, Fingerprint: fingerprint, Input: Input{ExpectedRevision: input.ExpectedRevision}}
 	return s.Repository.Publish(ctx, cmd, func(_ CredentialReader, _ string) (Payload, error) {
-		preview, err := s.Preview(ctx, org, input.Selection)
+		if s.Catalog == nil {
+			return Payload{}, ErrUnavailable
+		}
+		options, err := s.Catalog.Options(ctx, org)
 		if err != nil {
 			return Payload{}, err
 		}
-		if !preview.Ready {
-			return Payload{}, ErrNeedsConfiguration
+		for _, category := range []ModelCategory{ModelCategoryText, ModelCategoryImage, ModelCategoryMultimodal} {
+			ref, _ := input.Selection.reference(category)
+			found := false
+			for _, option := range options {
+				if option.Category == category && option.Reference == ref {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return Payload{}, ErrNeedsConfiguration
+			}
 		}
+		_, err = s.Preview(ctx, org, input.Selection)
+		if err != nil {
+			return Payload{}, err
+		}
+		// A complete valid choice snapshot is not execution admission. Each
+		// consumer fresh-qualifies its own category in ReadCategory.
 		selection := input.Selection
 		return Payload{SharedModels: &selection}, nil
 	})

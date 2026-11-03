@@ -21,6 +21,26 @@ type sharedCatalogFixture struct {
 	foreign bool
 }
 
+func (*sharedCatalogFixture) Options(context.Context, string) ([]ModelOption, error) {
+	s := sharedChoiceFixture()
+	return []ModelOption{{Category: ModelCategoryText, Reference: s.Text}, {Category: ModelCategoryImage, Reference: s.Image}, {Category: ModelCategoryMultimodal, Reference: s.Multimodal}}, nil
+}
+
+func TestSharedModelSelectionRejectsInventedOrWrongCategoryReferences(t *testing.T) {
+	for _, mutate := range []func(*SharedModelSelection){
+		func(s *SharedModelSelection) { s.Image.Version = "invented-version" },
+		func(s *SharedModelSelection) { s.Text = s.Image },
+	} {
+		repo := &sharedRepositoryFixture{}
+		s := SharedModelService{Repository: repo, Catalog: &sharedCatalogFixture{}}
+		choice := sharedChoiceFixture()
+		mutate(&choice)
+		_, err := s.Publish(context.Background(), "org-a", "actor", "key", SharedModelInput{ExpectedRevision: NoRevision, Selection: choice})
+		require.ErrorIs(t, err, ErrNeedsConfiguration)
+		require.Zero(t, repo.commits)
+	}
+}
+
 func (*sharedCatalogFixture) ValidateDefaultChannel(_ context.Context, _ string, channel string) error {
 	if channel != "openai-direct" {
 		return ErrNeedsConfiguration
@@ -63,7 +83,7 @@ func (r *sharedRepositoryFixture) Publish(_ context.Context, cmd Command, build 
 	return r.current, nil
 }
 
-func TestSharedModelSelectionCannotPublishThreeCategoriesPartially(t *testing.T) {
+func TestSharedModelSelectionSavesCompleteChoicesWithoutUnrelatedReadyGate(t *testing.T) {
 	ctx := context.Background()
 	for _, missing := range []ModelCategory{ModelCategoryText, ModelCategoryImage, ModelCategoryMultimodal} {
 		repo, catalog := &sharedRepositoryFixture{}, &sharedCatalogFixture{unready: missing}
@@ -73,9 +93,17 @@ func TestSharedModelSelectionCannotPublishThreeCategoriesPartially(t *testing.T)
 		require.NoError(t, err)
 		require.False(t, preview.Ready)
 		require.Len(t, preview.Models, 3, "unready Flare identity must remain visible")
-		_, err = service.Publish(ctx, "org-a", "actor", "key", input)
-		require.ErrorIs(t, err, ErrNeedsConfiguration)
-		require.Zero(t, repo.commits, "rejected selection cannot write partial current/revision")
+		row, err := service.Publish(ctx, "org-a", "actor", "key", input)
+		require.NoError(t, err)
+		require.Equal(t, 1, repo.commits, "all three choices still commit once in the original current")
+		require.Equal(t, input.Selection, *row.Payload.SharedModels)
+		_, _, err = service.ReadCategory(ctx, "org-a", missing)
+		require.ErrorIs(t, err, ErrNeedsConfiguration, "saving a choice does not make it executable")
+		if missing != ModelCategoryText {
+			q, _, err := service.ReadCategory(ctx, "org-a", ModelCategoryText)
+			require.NoError(t, err)
+			require.True(t, q.Ready)
+		}
 	}
 }
 

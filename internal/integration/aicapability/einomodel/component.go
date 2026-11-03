@@ -110,6 +110,7 @@ type GuardConfig struct {
 	Adapter              AdapterKind
 	ProviderID           string
 	AdapterPolicyVersion string
+	BillingUsageVersion  string
 	Endpoint             string
 	ModelID              string
 	MaximumOutputTokens  int
@@ -316,6 +317,9 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	diagnostic.emit(req.Context(), "response", "response_received")
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
+		if g.cfg.Adapter == AdapterOpenAICompatible && g.cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1 {
+			usage = observeReferenceTextUsage(raw)
+		}
 		if g.cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
 			usage = observeDeepSeekUsage(raw)
 		}

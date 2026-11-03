@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
-	"time"
 )
 
 // AIPointMicrounitV1 represents one million internal units per retail AI point.
 // Installing or interpreting an existing balance in this unit is not permitted.
 const AIPointMicrounitV1 = "ai-micropoint-v1"
+
+// ReferenceTextTotalsV1 estimates from explicit prompt/completion totals using
+// the platform's frozen reference rates. It makes no provider bill or cache claim.
+const ReferenceTextTotalsV1 = "reference-text-totals-v1"
 
 var ErrOfficialModelPrice = errors.New("invalid official model price or usage evidence")
 
@@ -37,48 +40,52 @@ type OfficialModelRates struct {
 }
 
 // OfficialModelTariff is a frozen execution price, not a current configuration
-// source. The configuration owner validates official provenance, applicability,
+// source. The configuration owner validates reference provenance, applicability,
 // effective dates and credentials before constructing it. No caller-selected
 // rates or FX can authorize dispatch through these arithmetic helpers.
 type OfficialModelTariff struct {
-	UnitVersion              string                   `json:"unitVersion"`
-	PriceVersion             string                   `json:"priceVersion"`
-	FXVersion                string                   `json:"fxVersion"`
-	Currency                 string                   `json:"currency"`
-	CNYMicrosPerCurrencyUnit int64                    `json:"cnyMicrosPerCurrencyUnit"`
-	Model                    string                   `json:"model"`
-	Channel                  string                   `json:"channel"`
-	UsageVersion             string                   `json:"usageVersion"`
-	Rates                    OfficialModelRates       `json:"rates"`
-	TextPriceWindows         OfficialTextPriceWindows `json:"textPriceWindows,omitzero"`
+	UnitVersion              string             `json:"unitVersion"`
+	PriceVersion             string             `json:"priceVersion"`
+	FXVersion                string             `json:"fxVersion"`
+	Currency                 string             `json:"currency"`
+	CNYMicrosPerCurrencyUnit int64              `json:"cnyMicrosPerCurrencyUnit"`
+	Model                    string             `json:"model"`
+	Channel                  string             `json:"channel"`
+	UsageVersion             string             `json:"usageVersion"`
+	Rates                    OfficialModelRates `json:"rates"`
+}
+
+func (p OfficialModelTariff) IsReferenceEstimate() bool {
+	return p.UsageVersion == ReferenceTextTotalsV1
+}
+
+// Empty means this tariff uses a different, separately admitted strategy.
+func (p OfficialModelTariff) ReferencePriceVersion() string {
+	if p.IsReferenceEstimate() {
+		return p.PriceVersion
+	}
+	return ""
 }
 
 // BillableModelUsage is built by the trusted usage mapper only after checking
-// raw field presence and partition totals. Complete must never be inferred from
-// Go zero values. This value alone does not prove a terminal invocation outcome.
+// the fields required by MappingVersion. For ReferenceTextTotalsV1, Complete
+// means explicit basic totals, not all supplier billing subdivisions. It must
+// never be inferred from Go zero values or establish a terminal outcome alone.
 type BillableModelUsage struct {
-	OutputImageItems         int64 `json:",omitempty"`
-	MappingVersion           string
-	Complete                 bool
-	InputText                int64
-	CachedInputText          int64
-	InputImage               int64
-	CachedInputImage         int64
-	OutputText               int64
-	OutputImage              int64
-	BillingTimeUTC           string `json:",omitempty"`
-	BillingTimePolicyVersion string `json:",omitempty"`
+	OutputImageItems int64 `json:",omitempty"`
+	MappingVersion   string
+	Complete         bool
+	InputText        int64
+	CachedInputText  int64
+	InputImage       int64
+	CachedInputImage int64
+	OutputText       int64
+	OutputImage      int64
 }
 
 func (u BillableModelUsage) Validate() error {
-	if (u.BillingTimeUTC == "") != (u.BillingTimePolicyVersion == "") {
+	if u.MappingVersion == ReferenceTextTotalsV1 && (u.CachedInputText != 0 || u.InputImage != 0 || u.CachedInputImage != 0 || u.OutputImage != 0 || u.OutputImageItems != 0) {
 		return ErrOfficialModelPrice
-	}
-	if u.BillingTimeUTC != "" {
-		at, err := time.Parse(time.RFC3339Nano, u.BillingTimeUTC)
-		if err != nil || at.IsZero() || at.UTC().Format(time.RFC3339Nano) != u.BillingTimeUTC || !validTextFact(u.BillingTimePolicyVersion, 128) {
-			return ErrOfficialModelPrice
-		}
 	}
 	if !u.Complete || !validTextFact(u.MappingVersion, 128) || u.CachedInputText > u.InputText || u.CachedInputImage > u.InputImage {
 		return ErrOfficialModelPrice
@@ -92,7 +99,7 @@ func (u BillableModelUsage) Validate() error {
 }
 
 func (p OfficialModelTariff) Validate() error {
-	if !p.TextPriceWindows.Empty() && (p.TextPriceWindows.Validate() != nil || p.Currency != "CNY" || p.FXVersion != "cny-identity-v1" || p.UsageVersion != "openai-text-v1" || p.PriceVersion != p.TextPriceWindows.Version() || p.Rates != p.TextPriceWindows.MaximumRates()) {
+	if p.IsReferenceEstimate() && (p.Rates.InputText <= 0 || p.Rates.OutputText <= 0 || p.Rates.CachedInputText != 0 || p.Rates.InputImage != 0 || p.Rates.CachedInputImage != 0 || p.Rates.OutputImage != 0 || p.Rates.OutputImagePerItem != 0) {
 		return ErrOfficialModelPrice
 	}
 	if p.UnitVersion != AIPointMicrounitV1 || p.CNYMicrosPerCurrencyUnit <= 0 || p.CNYMicrosPerCurrencyUnit > 1_000_000_000_000 || len(p.Currency) != 3 {
@@ -167,13 +174,6 @@ func (p OfficialModelTariff) micropoints(u BillableModelUsage, ceiling bool) (in
 	}
 	quantities := []int64{u.InputText - u.CachedInputText, u.CachedInputText, u.InputImage - u.CachedInputImage, u.CachedInputImage, u.OutputText, u.OutputImage, u.OutputImageItems}
 	pricedRates := p.Rates
-	if !ceiling && !p.TextPriceWindows.Empty() {
-		var err error
-		pricedRates, err = p.TextPriceWindows.RatesAt(u.BillingTimeUTC, u.BillingTimePolicyVersion)
-		if err != nil {
-			return 0, err
-		}
-	}
 	rates := []int64{pricedRates.InputText, pricedRates.CachedInputText, pricedRates.InputImage, pricedRates.CachedInputImage, pricedRates.OutputText, pricedRates.OutputImage, pricedRates.OutputImagePerItem}
 	for i, quantity := range quantities {
 		if quantity < 0 || quantity > 1<<30 || quantity > 0 && rates[i] == 0 {

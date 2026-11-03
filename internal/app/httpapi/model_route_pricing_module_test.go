@@ -160,6 +160,14 @@ func TestModelRoutePricingDescriptorsKeepLiveAuthorizationAndBounds(t *testing.T
 
 type httpSharedCatalogFixture struct{}
 
+func (httpSharedCatalogFixture) Options(context.Context, string) ([]d.ModelOption, error) {
+	return []d.ModelOption{
+		{Category: d.ModelCategoryText, Reference: d.ModelBindingReference{ID: "synthetic-text", Version: "v1"}},
+		{Category: d.ModelCategoryImage, Reference: d.ModelBindingReference{ID: "synthetic-image", Version: "v1"}},
+		{Category: d.ModelCategoryMultimodal, Reference: d.ModelBindingReference{ID: "synthetic-text", Version: "v1"}},
+	}, nil
+}
+
 func (httpSharedCatalogFixture) ValidateDefaultChannel(context.Context, string, string) error {
 	return nil
 }

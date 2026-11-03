@@ -94,12 +94,6 @@ func (p ModelProfile) Validate() error {
 	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
 		return ErrTextProfile
 	}
-	if !p.OfficialTariff.TextPriceWindows.Empty() {
-		raw, err := json.Marshal(p)
-		if err != nil || len(raw) > 8192 {
-			return ErrTextProfile
-		}
-	}
 	return nil
 }
 
