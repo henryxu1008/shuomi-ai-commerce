@@ -28,11 +28,11 @@ async function send<T extends z.ZodType>(scope:SupplyScope,recordId:string,suffi
 function exactRun<T extends {recordId:string;requestKey:string}>(result:T,recordId:string,key:string):T {
  if(result.recordId!==recordId||result.requestKey!==key)throw new SupplyAPIError("OUTCOME_UNKNOWN",502);return result;
 }
-export async function prepareMaterials(scope:SupplyScope,recordId:string,input:MaterialsPrepare,signal:AbortSignal){return exactRun(await send(scope,recordId,"/prepare",materialsPreparedSchema,signal,materialsPrepareSchema.parse(input)),recordId,input.requestKey)}
+export async function prepareMaterials(scope:SupplyScope,recordId:string,input:MaterialsPrepare,signal:AbortSignal){const result=exactRun(await send(scope,recordId,"/prepare",materialsPreparedSchema,signal,materialsPrepareSchema.parse(input)),recordId,input.requestKey);if((result.purpose==="category-rules")!==!!input.candidateCategoryId||result.candidateCategoryId!==input.candidateCategoryId)throw new SupplyAPIError("OUTCOME_UNKNOWN",502);return result;}
 export async function startMaterials(scope:SupplyScope,recordId:string,key:string,prepared:MaterialsPrepared,signal:AbortSignal){
  if(prepared.recordId!==recordId||prepared.requestKey!==key)throw new SupplyAPIError("INVALID_REQUEST",400);
  const result=exactRun(await send(scope,recordId,"/runs",materialsRunSchema,signal,materialsStartSchema.parse({configurationSnapshotRef:prepared.configurationSnapshotRef}),key),recordId,key);
- if(JSON.stringify(result.configurationSnapshotRef)!==JSON.stringify(prepared.configurationSnapshotRef)||JSON.stringify(result.modeSnapshotRef)!==JSON.stringify(prepared.modeSnapshotRef))throw new SupplyAPIError("OUTCOME_UNKNOWN",502);
+ if(JSON.stringify(result.configurationSnapshotRef)!==JSON.stringify(prepared.configurationSnapshotRef)||JSON.stringify(result.modeSnapshotRef)!==JSON.stringify(prepared.modeSnapshotRef))throw new SupplyAPIError("OUTCOME_UNKNOWN",502); if((result.purpose==="category-rules")!==(prepared.purpose==="category-rules")||result.candidateCategoryId!==prepared.candidateCategoryId)throw new SupplyAPIError("OUTCOME_UNKNOWN",502);
  return result;
 }
 export async function readMaterials(scope:SupplyScope,recordId:string,key:string,signal:AbortSignal){return exactRun(await send(scope,recordId,`/runs/${collectionID.parse(key)}`,materialsRunSchema,signal),recordId,key)}

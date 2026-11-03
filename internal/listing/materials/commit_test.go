@@ -11,7 +11,7 @@ import (
 
 func TestMaterialCommitKeepsExactProposalSourceRulesAssetsAndCAS(t *testing.T) {
 	i := materialInspection(t)
-	p, err := ParseProposal(proposalFor(t, i, `"brandCode":"known-brand"`).Payload)
+	p, err := ParseRequestProposal(materialTestRequest(i), proposalFor(t, i, `"brandCode":"known-brand"`))
 	require.NoError(t, err)
 	preview, err := Preview(i, p)
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestMaterialCommitKeepsExactProposalSourceRulesAssetsAndCAS(t *testing.T) {
 
 func TestMaterialCategoryCommitUsesActualNewRulesAndOriginalDisclosedCatalog(t *testing.T) {
 	i := materialInspection(t)
-	p, err := ParseProposal(proposalFor(t, i, `"categoryId":13`).Payload)
+	p, err := ParseRequestProposal(materialTestRequest(i), proposalFor(t, i, `"categoryId":13`))
 	require.NoError(t, err)
 	preview, err := Preview(i, p)
 	require.NoError(t, err)

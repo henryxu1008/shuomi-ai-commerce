@@ -3,6 +3,17 @@
 Refs #135 / #129 / Roadmap #137。Design Basis: **Independent Architecture**。
 Admission: **IMPLEMENTATION_READY / FROZEN (2026-10-13)**。本文先于正式实现；原独立只读Reviewer已对35b6b5eb6完整设计及实际owner合同完成第1轮准入，未发现开工BLOCKER。准确证据及后续运行结果写#135 / 主要PR #666。
 
+## 后续合同的适用范围
+
+本文保留原 v1 冻结设计。当前 C2-1 / C3-1 的准确 v3 定义、图片事实建议和版本 D2 依据见
+[对应冻结设计](product-image-facts-advice.md)及 #1076，不从本文旧准入推导后续版本授权。
+
+后续 [C3-2 候选类目规则查询](listing-candidate-category-rules.md) 为单独冻结设计：
+用户先选一个候选类目，现 Agent 查询并只读解释，当前保存资料不变；候选结果不能进入普通材料采用/保存。
+它需要明确选择绑定、精确 Tool/结果及消费者分派，不能把原 Draft 换一个 categoryId 就宣称已覆盖关联规则。
+覆盖/执行资格 D2/D3 已获本轮单独产品认可；v4 技术合同经自身 R1 达 IMPLEMENTATION_READY，后续授权在 #1077 实现。
+本文原实现及冻结范围保持，不把新候选、浏览器或产品验收记成完成。
+
 ## 用户结果与依据
 
 用户于2026-10-13批准 [业务智能体职责](../product/business-agent-responsibilities.md)：商品内容与本地化之后，逐个推进平台上架资料、POD、选品、经营诊断。本结果消费准确标准商品，依据实际平台规则准备类目、属性、SKU和图片资料，显示可核对的缺项，保存原 Listing owner 的本地草稿。标题/描述/翻译的标准商品修改属于内容能力。

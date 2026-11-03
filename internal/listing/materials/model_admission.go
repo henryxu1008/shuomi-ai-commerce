@@ -13,9 +13,36 @@ import (
 // model consumer. It validates data, never authorizes/saves platform facts.
 type ModelAdmission struct{}
 
+func (m ModelAdmission) ProjectBoundEvidence(b agent.Binding, raw json.RawMessage) (json.RawMessage, error) {
+	projected, err := m.ProjectEvidence(raw)
+	if err != nil {
+		return nil, err
+	}
+	var header struct {
+		Binding       agent.Binding `json:"binding"`
+		SchemaVersion string        `json:"schemaVersion"`
+	}
+	if json.Unmarshal(projected, &header) != nil || header.Binding != b || (b.ContextKind == agent.CandidateRulesContextKind) != (header.SchemaVersion == CandidateRulesSchema) {
+		return nil, agent.ErrInvalid
+	}
+	return projected, nil
+}
+
 func (ModelAdmission) ProjectEvidence(raw json.RawMessage) (json.RawMessage, error) {
 	if len(raw) == 0 || len(raw) > MaxInspectionBytes {
 		return nil, agent.ErrInvalid
+	}
+	var header struct {
+		SchemaVersion string `json:"schemaVersion"`
+	}
+	if json.Unmarshal(raw, &header) != nil {
+		return nil, agent.ErrInvalid
+	}
+	if header.SchemaVersion == CandidateRulesSchema {
+		if _, err := ParseCandidateRulesDisclosure(raw); err != nil {
+			return nil, agent.ErrInvalid
+		}
+		return append(json.RawMessage(nil), raw...), nil
 	}
 	var d Disclosure
 	strict, err := sigjson.UnmarshalStrict(raw, &d)
@@ -35,7 +62,7 @@ func (ModelAdmission) ValidateAction(a agent.Action) error {
 	}
 	switch a.Kind {
 	case "tool":
-		if a.Tool == InspectToolRef() && a.DomainProposal == nil {
+		if (a.Tool == InspectToolRef() || a.Tool == RulesToolRef()) && a.DomainProposal == nil {
 			return nil
 		}
 	case "interrupt":
@@ -46,8 +73,30 @@ func (ModelAdmission) ValidateAction(a agent.Action) error {
 		if a.Tool != (commercetool.ToolRef{}) || a.DomainProposal == nil || a.DomainProposal.Kind != ProposalKind {
 			return agent.ErrInvalid
 		}
-		_, err := ParseProposal(a.DomainProposal.Payload)
+		_, err := ParseDomainResult(a.DomainProposal.Payload)
 		return err
 	}
 	return agent.ErrInvalid
+}
+
+func (m ModelAdmission) ValidateBoundAction(b agent.Binding, a agent.Action) error {
+	if !b.Valid() || m.ValidateAction(a) != nil {
+		return agent.ErrInvalid
+	}
+	purpose, tool := MaterialsEditPurpose, InspectToolRef()
+	if b.ContextKind == agent.CandidateRulesContextKind {
+		purpose, tool = CategoryRulesPurpose, RulesToolRef()
+	} else if b.ContextKind != "listing-target-record" {
+		return agent.ErrInvalid
+	}
+	if a.Kind == "tool" && a.Tool != tool {
+		return agent.ErrInvalid
+	}
+	if a.Kind == "propose" {
+		p, err := ParseDomainResult(a.DomainProposal.Payload)
+		if err != nil || p.Purpose != purpose {
+			return agent.ErrInvalid
+		}
+	}
+	return nil
 }

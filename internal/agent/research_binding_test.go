@@ -18,6 +18,16 @@ func researchBindingFixture() Binding {
 	return b
 }
 
+func TestResearchAndCandidateRulesBindingsCannotBorrowEachOthersReferences(t *testing.T) {
+	research, rules := researchBindingFixture(), candidateRulesBindingFixture(t, "22")
+	require.True(t, research.Valid())
+	require.True(t, rules.Valid())
+	research.CandidateRules = rules.CandidateRules
+	require.False(t, research.Valid(), "research input cannot carry a category selector")
+	rules.ResearchSelection = research.ResearchSelection
+	require.False(t, rules.Valid(), "category input cannot carry research evidence")
+}
+
 func TestResearchBindingPinsProjectCandidateAndObservationWithoutBorrowingOtherContexts(t *testing.T) {
 	b := researchBindingFixture()
 	require.True(t, b.Valid())

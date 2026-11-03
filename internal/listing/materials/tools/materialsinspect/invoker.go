@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/commercetool"
 	"task-processor/internal/listing/materials"
 
@@ -27,11 +28,11 @@ type input struct {
 	Binding agent.Binding `json:"binding"`
 }
 
-func NewInvoker(reader materials.InspectionReader, fresh FreshPrincipalResolver, definition commercetool.AgentDefinition, deps commercetool.InvocationDependencies) (*Invoker, error) {
-	if nilDependency(reader) || nilDependency(fresh) || definition.ID != materials.AgentID || definition.Version != materials.AgentVersion || len(definition.AllowedTools) != 1 || definition.AllowedTools[0] != Definition().Ref {
+func NewInvoker(reader materials.Reader, fresh FreshPrincipalResolver, definition commercetool.AgentDefinition, deps commercetool.InvocationDependencies) (*Invoker, error) {
+	if nilDependency(reader) || nilDependency(fresh) || definition.ID != materials.AgentID || definition.Version != materials.AgentVersion || !reflect.DeepEqual(definition.AllowedTools, agentconfig.MaterialsAllowedTools()) {
 		return nil, errors.New("exact material reader, fresh identity and fixed agent definition are required")
 	}
-	registry, err := commercetool.NewRegistry(commercetool.Tool{Definition: Definition(), Executor: executor{reader}})
+	registry, err := commercetool.NewRegistry(commercetool.Tool{Definition: Definition(), Executor: executor{reader}}, commercetool.Tool{Definition: RulesDefinition(), Executor: rulesExecutor{reader}})
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func NewInvoker(reader materials.InspectionReader, fresh FreshPrincipalResolver,
 // Invoke accepts only the binding minted in the immutable server request;
 // model output cannot supply arguments or another Tool.
 func (i *Invoker) Invoke(ctx context.Context, ref commercetool.ToolRef, metadata commercetool.CallMetadata, binding agent.Binding) (commercetool.Result, error) {
-	if ref != Definition().Ref {
+	if !(ref == Definition().Ref && binding.ContextKind == "listing-target-record" || ref == materials.RulesToolRef() && binding.ContextKind == agent.CandidateRulesContextKind) {
 		return commercetool.Result{}, commercetool.NewError(commercetool.ErrorToolNotAllowed, "platform material tool is not allowed", nil)
 	}
 	if ctx == nil || i == nil || i.tools == nil {

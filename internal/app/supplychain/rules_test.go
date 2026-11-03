@@ -88,3 +88,26 @@ func TestMerchantRuleReaderCapturesAllCombinationsWithExactStoreBinding(t *testi
 	_, _, err = reader.ReadTargetRules(context.Background(), scope, storeID, input)
 	require.ErrorIs(t, err, record.ErrUnavailable, "changed merchant binding never mixes rules from another connection")
 }
+
+func TestCandidateCategoryRulesNeverReadOldAttributeCombinations(t *testing.T) {
+	scope := collection.Scope{"org-a", "actor-a", "member-a"}
+	f := &rulesFixture{binding: storecenter.ProductMerchantBinding{OrganizationID: scope.OrganizationID, StoreID: uuid.NewString(), Site: "shein-us", ApplicationID: "app", ApplicationType: storecenter.ApplicationSelfOperated}}
+	reader, ok := any(RuleReader{Stores: f}).(interface {
+		ReadCandidateCategoryRules(context.Context, collection.Scope, string, int64) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error)
+	})
+	require.True(t, ok, "candidate category needs the existing owner's narrow base-rule reader")
+	if !ok {
+		return
+	}
+	merchant, rules, err := reader.ReadCandidateCategoryRules(context.Background(), scope, f.binding.StoreID, 123)
+	require.NoError(t, err)
+	require.Equal(t, f.binding, merchant)
+	require.EqualValues(t, 456, rules.Attributes.ProductTypeID)
+	require.Empty(t, f.groups, "no LinkedRules call without candidate-category attribute values")
+	require.Empty(t, rules.Linked)
+	_, _, err = reader.ReadCandidateCategoryRules(context.Background(), scope, f.binding.StoreID, 999)
+	require.ErrorIs(t, err, record.ErrInvalid, "an unknown category is not an empty valid template")
+	f.changed = true
+	_, _, err = reader.ReadCandidateCategoryRules(context.Background(), scope, f.binding.StoreID, 123)
+	require.Error(t, err, "final expected Store binding must still be authorized")
+}

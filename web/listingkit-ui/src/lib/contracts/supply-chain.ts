@@ -84,9 +84,6 @@ export const tiktokRulesSchema=z.union([z.object({merchant:tiktokMerchantSchema,
 export const temuRulesSchema=z.object({merchant:temuMerchantSchema,temu:temuRuleSnapshotSchema}).refine(v=>v.merchant.merchant_mode===v.temu.mode);
 export const targetReceiptSchema=z.object({record:targetRecordSchema,replayed:z.boolean()});
 export const materialsAdoptionSchema=z.object({record:sheinTargetRecordSchema,replayed:z.boolean()});
-const materialsSchemas=listingMaterialsSchemas(sheinTargetInputSchema,materialsAdoptionSchema,attribute,imageSlot);
-export const materialsRunSchema=materialsSchemas.run;
-export type MaterialsRun=z.infer<typeof materialsRunSchema>;
 export const transferInputSchema=z.object({batchId:collectionID,expectedRevision:revision,itemIds:z.array(collectionID).max(1000).optional()}).strict();
 export const transferReceiptSchema=z.object({preparation:preparationSchema,replayed:z.boolean()});
 export const sourceSelectionSchema=z.object({itemId:collectionID,originalPublicationId:text(128).min(1),originalSnapshotVersion:version,effectiveCatalogVersion:version,applyReceiptId:collectionID.optional(),targetPlatform:z.enum(["shein","temu","tiktokshop","walmart","product"])}).strict().refine(v=>v.targetPlatform!=="product"||v.originalSnapshotVersion===v.effectiveCatalogVersion&&!v.applyReceiptId);
@@ -104,6 +101,9 @@ const nullableFlag=z.number().int().nullable();
 const ruleAttribute=z.object({attribute_id:integer,attribute_name:text(8192),attribute_is_show:nullableFlag,attribute_type:nullableFlag,attribute_label:nullableFlag,attribute_mode:nullableFlag,attribute_input_num:nullableFlag,attribute_status:nullableFlag,data_dimension:nullableFlag,value_info_list:list(z.object({attribute_value_id:integer,attribute_value:text(8192),is_show:nullableFlag,is_custom_attribute_value:nullableFlag,supplier_id:integer})),rule_info_list:list(z.object({id:integer,condition_operator:nullableFlag,condition_type:nullableFlag,value:text(8192)}))});
 export const rulesSchema=z.object({merchant:merchantSchema,rules:z.object({application_type:applicationModeSchema,categories:list(category),brands:list(z.object({brand_code:text(128),brand_name:text(8192)})),sites:list(z.object({main_site:text(128),main_site_name:text(8192),sub_site_list:list(z.object({site_abbr:text(128),site_name:text(8192),site_status:nullableFlag,store_type:nullableFlag,currency:text(16)}),256)}),256),warehouses:list(z.object({warehouseCode:text(128),warehouseName:text(256),saleCountryList:list(text(2),256),warehouseType:z.union([z.literal(1),z.literal(2)])}),20),
  fill:z.object({fill_in_standard_list:list(z.object({field_key:text(128),module:text(128),required:z.boolean().nullable(),show:z.boolean().nullable()})),currency:text(16).nullable(),default_language:text(32),default_language_title_max_length:integer.nullable(),language_title_max_length_list:list(z.object({language:text(32),max_length:z.number().finite()})),picture_config_list:list(z.object({field_key:text(128),is_true:z.boolean().nullable()})),supplier_code_in_spu_dimension:z.boolean().nullable(),support_duplicate_sale_attr_value:z.boolean().nullable()}),attributes:z.object({product_type_id:integer,main_attribute_status:nullableFlag,attribute_infos:list(ruleAttribute)}),linked:list(z.object({group_id:text(128),link_rule_attribute_list:list(z.object({attribute_id:integer,attribute_value_list:list(integer),attribute_value_pre_fill_list:list(integer)}))}))})});
+const materialsSchemas=listingMaterialsSchemas(sheinTargetInputSchema,materialsAdoptionSchema,attribute,imageSlot,rulesSchema.shape.rules.shape.fill.strict(),rulesSchema.shape.rules.shape.attributes.strict());
+export const materialsRunSchema=materialsSchemas.run;
+export type MaterialsRun=z.infer<typeof materialsRunSchema>;
 export const preparationPageSchema=page(preparationSchema);
 export const sourcePageSchema=page(sourceSchema);
 export const operationItemPageSchema=page(operationItemSchema);

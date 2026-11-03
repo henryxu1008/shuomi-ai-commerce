@@ -81,7 +81,7 @@ func TestMaterialsEvidenceExcludesOnlyReadTimesAndValidatesRecordedPayload(t *te
 	// applied/revalidated by the native rules without another Tool/model call.
 	other := proposalFor(t, first, `"categoryId":13`)
 	require.NotEqual(t, collection.Digest(candidate), collection.Digest(other))
-	p, err := ParseProposal(other.Payload)
+	p, err := ParseRequestProposal(request, other)
 	require.NoError(t, err)
 	preview, err := Preview(later, p)
 	require.NoError(t, err)
