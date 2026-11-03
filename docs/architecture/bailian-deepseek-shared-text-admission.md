@@ -1,13 +1,13 @@
 # 百炼 DeepSeek 共享文字模型准入：全新系统设计
 
-Design Basis: **Independent Architecture**。状态：**DESIGN_REVIEW_PASS / OWNER_CONTRACT_PENDING / NOT_IMPLEMENTATION_READY**。
+Design Basis: **Independent Architecture**。状态：**IMPLEMENTATION_READY（仅离线实现）**；真实provider资格仍NOT_VERIFIED，配置/实例/真实调用未授权。
 执行：[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)，主要PR [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，公共模型依赖 [#1078](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078)。本文件只提出原公共owner的有界增量，不是生产实现、配置载荷或实例操作授权。
 
 ## 1. 产品决定、范围与验收边界
 
 用户先同意准备DeepSeek准入和保留实例的数据演进设计，随后明确纠正：**“不用保留旧的，这是新设计的系统，原来的应该可以不要的”。** 最新决定撤回旧配置/历史/余额/预留/在途执行的承接要求，按[全新系统基线](../product/greenfield-no-legacy-migration.md)和当前模型合同推进。本任务不设计旧数据迁移、旧ID/回执转换、旧状态续跑、兼容adapter、双读写或第二账本；已有调查保留其时点，不作为新空安装的实施前置。
 
-用户随后明确授权：先与#1078原公共模型owner确认DeepSeek准入接口，达到实施准入后沿原工作区/PR #1075继续离线实现、合成回归和CI。此为有条件的实施授权；当前公共接口确认仍PENDING，不因授权自动取得IMPLEMENTATION_READY。现有 `task-processor-unified-20261010` 不清空、不更新、不重建；不改凭据、不发布配置、不执行真实采集/AI/付费，不合并/关单。未来若沿用该实例名称实施新空安装，须先明确实际安装目标和旧资源处置清单并单独取得操作授权。“旧数据无需承接”不等于立即删除卷或数据库。
+用户随后明确授权：先与#1078原公共模型owner确认DeepSeek准入接口，达到实施准入后沿原工作区/PR #1075继续离线实现、合成回归和CI。原owner已接受可比较窗口值、规范UTC字符串和零值JSON省略，并明确由#1075原唯一Writer在原公共owner中有界补齐本文件的增量，保留已批准多模态逻辑。其指定依赖4b6c03caf49e51e2718ea344968d78ca115f3f53的必需CI已成功；实施准入与真实资格严格分开。现有 `task-processor-unified-20261010` 不清空、不更新、不重建；不改凭据、不发布配置、不执行真实采集/AI/付费，不合并/关单。未来若沿用该实例名称实施新空安装，须先明确实际安装目标和旧资源处置清单并单独取得操作授权。“旧数据无需承接”不等于立即删除卷或数据库。
 
 用户结果：Local Account Center有权成员从智能市场启用原研究/选品操作，复用同企业共享text模型；原工作页核资料、权限和预算后发起有界分析，结果仍需人工决定。预算每项渠道成本≤¥0.30、消费≤20点，两项各一次总≤¥0.60/40点；每项最多两次模型调用，每调用≤32000输入/4000输出Token，原更小字节、步骤、运行期限和费用边界继续收紧。
 
@@ -19,7 +19,7 @@ Out of Scope：旧数据演进/读取兼容、真实安装/删除/切换、密�
 
 ## 2. 依据与问题定位
 
-公共依据是[企业共享模型冻结合同](enterprise-shared-model-configuration.md)的341278d5有限安全基础。本地应用源码f872b0d3已消费该基础；只读观察#1078的aac555f3仍为在途视觉增量，不从其作者自检推定完整开放，也不修改其工作区。
+公共依据是[企业共享模型冻结合同](enterprise-shared-model-configuration.md)，稳定依赖为原owner明确指定的4b6c03caf49e51e2718ea344968d78ca115f3f53（含原341278d5有限安全基础和本轮C2-2）。已直接核对其CI41662214683和Required Gate126015144739成功；公共owner已结束该批写入。仅在本工作区组合该依赖，保留其多模态逻辑，不修改其工作区，不据此推定完整三类或真实DeepSeek已开放。
 
 已核实的现有记录只作新设计的元数据候选：LAC组织级 `local-content-route-830-20261020`，原型号 `deepseek-v4.1-flash`、DASHSCOPE/OpenAI兼容、固定非思考策略、45秒凭据超时、北京workspace端点格式及准确credentialVersion/endpoint摘要。Key存在不证明远端有效。新空目标不能借旧per-purpose current取得执行权；若该目标没有当前owner合法供给的本企业凭据，保持未配置，不由本任务复制Key或导入旧记录。
 
@@ -100,7 +100,7 @@ DeepSeek的时段价在原OfficialModelTariff内增加可选的**冻结文字窗
 
 `BillingTimeUTC` 拟用规范UTC RFC3339Nano字符串，缺失为空字符串并 `omitempty`；`BillingTimePolicyVersion` 同样以空字符串表达缺失并省略。原envelope解析用临时presence判断，拒绝缺失/null/不合法时点，只有核准的时点来源和策略可以生成该事实；不从时间字符串存在推定资格，也不丢失原协议时间精度。窗口内部UTC区间沿同一标准规范表示，避免同一时点的时区/格式别名造成值身份差异。不适用时这三个新增JSON字段必须全部真实省略，不能用null/空字符串/零时间改变普通非时段provider的当前canonical JSON和proof。实现测试仍须逐字比较真实原非时段编码/输入指纹，不只比较显示值。
 
-2026-11-03受限非正式POC仅证明上述Go值/JSON表示可行：外层profile保持可比较、零窗口/零时点字段与未新增字段前JSON逐字一致、独立排序构建及JSON往返后相等、调用者slice变更不改变已构建值、JSON只有有效窗口且拒绝显式null。POC不是生产实现，不证明真实tariff/proof、严格重复字段解析、计价公式或provider准入；这些仍为后续原owner实现测试。具体类型、字段和文件分工仍待原公共owner确认，状态保持OWNER_CONTRACT_PENDING。
+2026-11-03受限非正式POC仅证明上述Go值/JSON表示可行：外层profile保持可比较、零窗口/零时点字段与未新增字段前JSON逐字一致、独立排序构建及JSON往返后相等、调用者slice变更不改变已构建值、JSON只有有效窗口且拒绝显式null。POC不是生产实现，不证明真实tariff/proof、严格重复字段解析、计价公式或provider准入；这些仍为后续原owner实现测试。原公共owner已确认本表示，并将下述有界增量交原#1075 Writer在原模块实现；不建立第二owner。
 
 窗口组连同完整profile必须满足原快照/输入hash/序列化byte上限（包括原8192字节约束及用途更小上限）；Catalog和Prepare使用同一原校验，超限不Ready，不靠截断窗口/删证明或提高限制。原32条是平台价目总上限，不是承诺每个操作都能携带32个窗口。
 
@@ -137,7 +137,7 @@ Prepare核完整运行/每调用deadline有已发布窗口覆盖；每次最后�
 
 若未来实际复用同一实例名称，先另行确定命名数据库/目录/卷/配置的处置清单；不得直接对现有卷执行初始化、覆盖或通用prune。新空目标的凭据只能沿原owner合法配置；不读出/复制旧Key、不假定旧组织current存在。当前设计不决定删除哪些资源，也不授权新建实例、备份恢复或清理。
 
-| 原owner | 后续最小增量；本阶段不编码 |
+| 原owner | 本轮有界离线实现 |
 | --- | --- |
 | routeconfig平台价目 | DeepSeek官方来源/准确身份、冻结有界窗口组及稳定版本，沿原CAS/权限/有效期上限 |
 | aicapability原计费类型/公式 | 可选窗口组、保守R、可信时点选窗A及完整proof，不增加SQL列或第二账本 |
@@ -145,7 +145,7 @@ Prepare核完整运行/每调用deadline有已发布窗口覆盖；每次最后�
 | SharedCatalog/运行装配 | 全部已开放scope兼容、同(scope,id)受限补齐、窗口/证据/上界资格、原reader注入 |
 | 原研究/选品消费者 | 仅消费原profile/快照的新证明，保留两调用、各自prompt/schema/权限/read_only和原key；不另写模型或费率逻辑 |
 
-公共类型由#1078原owner负责，#1075只在稳定合同后消费；不在另一个工作区复制公共实现。本文件是最小增量提案，不能以本文跳过公共owner的接口确认。当前用户已允许接口确认和IMPLEMENTATION_READY之后连续离线实施，无须逐步重复请示；配置/安装/真实运行权限仍分开，独立设计通过不自动替代公共接口准入。
+公共事实和类型继续归原owner。#1078原owner确认本批不实现DeepSeek时间窗口，允许#1075原唯一Writer在4b6c03caf稳定依赖后，有界修改原tariff/usage、平台价目、共享目录、原运行装配和受控mapper及对应回归；不复制公共实现、不改其工作区、不与其并行写入重叠文件。用户已允许接口确认和IMPLEMENTATION_READY之后连续离线实施，无须逐步重复请示；配置/安装/真实运行权限仍分开，接口认可不授予模型Ready。
 
 ## 8. 必要验证与准入状态
 
@@ -160,4 +160,4 @@ Prepare核完整运行/每调用deadline有已发布窗口覆盖；每次最后�
 
 R1独立检查绑定f1eb0f02281395e6115825d87fadcb017bb1205a，未发现AGENTS设计BLOCKER，仅DESIGN_REVIEW_PASS。三项已分类为IMPLEMENTATION_TEST/合同澄清：R1-1派发前Claim/InputHash与响应后计价时点分离；R1-2完整峰/闲R上界；R1-3可选字段省略及非时段canonical不变。对应增量300285db0a5b4313cba0450e12dd020ac4fe03cc（设计blob cbf62055a7d7a4a0cd3957afbe2b1a9cdb46b856）已由原同一Reviewer复核PASS，三项在设计层闭合、无新增BLOCKER。正式实现仍须逐项必要测试；未跑测试不写PASS。
 
-当前状态分开记录：R1及三项澄清增量设计检查PASS；公共接口确认PENDING，因此仍NOT_IMPLEMENTATION_READY，正式生产路径尚不能改码；准确真实usage/计价时点/上界证据NOT_VERIFIED；新空安装/真实配置发布/采集/模型/付费/用户验收NOT_RUN。用户已授权满足上述实施准入后继续离线实现，真实资格缺项始终阻止Catalog Ready和实际开放。历史数据演进方案CANCELLED，不记为PASS。后续只补授权/评审状态的文档提交不扩大上述已核逻辑差异，也不当作应用测试或用户验收。
+可比较值/JSON增量已由原同一Reviewer复核PASS（设计blob 2c1aedf94cf4db4ccd1ded19a8cb8c82719e6461），无新增设计BLOCKER；真实类型比较、非时段canonical/proof逐字一致、严格解析及原byte上限保留IMPLEMENTATION_TEST。原公共owner确认接口与文件分工，指定依赖必需CI成功后，本设计达到IMPLEMENTATION_READY，仅允许上述离线实现/合成回归。准确真实usage/计价时点/上界证据仍NOT_VERIFIED；新空安装/真实配置发布/采集/模型/付费/用户验收NOT_RUN。真实资格缺项始终阻止Catalog Ready和实际开放。历史数据演进方案CANCELLED，不记为PASS。
