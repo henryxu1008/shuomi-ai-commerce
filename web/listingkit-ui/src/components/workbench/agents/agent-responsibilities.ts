@@ -19,8 +19,9 @@ export const agentGroups: readonly {
   { id: "listing-materials", agentIds: ["listing.materials.agent"], category: "商品", summary: "平台上架资料 · 可检查草稿" },
   { id: "product-image", agentIds: ["product.image.agent"], category: "商品", summary: "主图与详情图 · 人工选择批准" },
   { id: "pod-design", agentIds: ["pod.design.agent"], category: "商品", summary: "原创图案 · 保存后布局与效果图" },
-  {id:"market-research",agentIds:["product.research.agent"],category:"选品",summary:"研究证据分析 · 人工决定独立保存"},
-  { id: "product-selection", agentIds: ["product.selection.agent"], category: "选品", summary: "商品事实对比 · 有引用建议" },
+  { id: "product-selection", agentIds: ["product.research.agent", "product.selection.agent"], category: "选品",
+    name: "智能选品智能体", description: "分析研究项目资料，或比较已保存商品，查看有依据的建议和缺少的信息。",
+    summary: "项目资料分析 · 独立商品对比 · 人工决定" },
   { id: "shop-diagnosis", agentIds: ["shop.operations-diagnosis.agent"], category: "运营", summary: "经营事实诊断 · 有引用建议" },
 ];
 
@@ -33,6 +34,12 @@ export function groupAgentEntries(entries: readonly CatalogEntry[]) {
 
 export function groupActivation(group: { agentIds: readonly AgentId[]; entries: readonly CatalogEntry[] }) {
   const enabled = group.entries.filter(entry => entry.agent.activation === "ENABLED").length;
-  const disabled = group.entries.every(entry => entry.agent.activation === "DISABLED");
-  return {active:enabled > 0, disabled, label:enabled === group.agentIds.length ? "已启用" : enabled ? "部分已启用" : disabled ? "已停用" : "尚未启用"};
+  const complete = group.entries.length === group.agentIds.length;
+  const disabled = complete && group.entries.every(entry => entry.agent.activation === "DISABLED");
+  return {active:enabled > 0, disabled, label:enabled === group.agentIds.length ? "已启用" : enabled ? "部分已启用" : !complete ? "部分状态待核实" : disabled ? "已停用" : "尚未启用"};
 }
+
+export const selectionOperationLinks = [
+  {agentId:"product.research.agent",label:"项目资料分析",href:"/workbench/agents/mine/product.research.agent"},
+  {agentId:"product.selection.agent",label:"独立商品对比",href:"/workbench/agents/mine/product.selection.agent"},
+] as const;

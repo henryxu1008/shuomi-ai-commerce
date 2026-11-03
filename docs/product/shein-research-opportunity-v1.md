@@ -67,6 +67,18 @@ Bright Data的SHEIN资料集只是公开字段较清楚的候选，未选择服�
 
 ## 6. 正式开发前的设计边界
 
+### 公开取数协议核实增量（2026-11-03）
+
+已进一步读取供应商公开API文档，仍未请求业务API、注册试用、下载真实资料或选择服务商：
+
+- Bright Data 的 [Filter](https://docs.brightdata.com/api-reference/marketplace-dataset-api/filter-dataset) 可按资料集的实际字段做文本/值条件筛选，发起异步作业并返回snapshot_id，后续下载筛选快照；有records_limit及按返回记录计费说明。这是已有资料集内的筛选，不证明SHEIN全站实时搜索、美国覆盖或完整类目发现已经可用。
+- 同一供应商的 [Search](https://docs.brightdata.com/api-reference/marketplace-dataset-api/search-dataset) 公开页本次仍只列三种LinkedIn资料集，其他资料集指向Filter；页面保留的扩展计划不作为SHEIN支持证据。因此不能直接以“通用同步Search”设计SHEIN实现或把它当作低延迟取数保证。
+- [Dataset Metadata](https://docs.brightdata.com/api-reference/marketplace-dataset-api/get-dataset-metadata) 描述可读取资料集的字段、类型和有效状态，但实际接口需要凭据。本轮只读取文档，没有取得具体SHEIN资料集的当前字段元数据；国家/站点、币种、商品编号、时间、评论和查询字段仍待实际许可范围内核实，不能把文档中其他资料集的示例当成SHEIN字段。
+
+由此明确的接入缺口是：适用的SHEIN美国资料集及许可、真实字段和时间/市场覆盖、筛选基底/范围、费用上限，以及异步创建响应丢失时如何确认原作业，避免重复创建和重复费用。公开异步接口的存在不等于幂等/UNKNOWN合同已核实；无snapshot_id时的原请求核实方式仍未知。原owner仍须负责此边界，不在UI中擅自自动重试或新建恢复平台。
+
+### 当前复用与独立设计范围
+
 原 Product Sourcing/Catalog、Collection、Research、Agent、Preparation owner继续复用，原商品事实、资料关系、模型运行和商品转入各归原owner；不复制商品事实、不建立第二套项目或候选。趋势证据的事实归属、持久化和版本合同需在正式技术设计明确，不能塞入当前OwnProduct导入模型或临时写进项目Goal充作事实库。
 
 后续独立技术设计至少覆盖：SHEIN/供应商双身份与来源类型、候选唯一身份、准确版本与撤权读取、查询/样本范围、趋势与商品证据区分、价格语义、分析披露/引用、原状态和转入消费者、预算/幂等及原操作未知结果责任。没有这些设计不能只放宽amazon_data校验或改ASIN列长。
