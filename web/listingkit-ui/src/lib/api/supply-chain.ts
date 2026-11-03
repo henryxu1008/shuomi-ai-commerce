@@ -1,3 +1,4 @@
+import * as plans from "@/lib/contracts/upload-plan";
 import {sourceProductInputsSchema} from "@/lib/contracts/source-materials";
 import { z } from "zod";
 import * as c from "../contracts/supply-chain";
@@ -9,16 +10,18 @@ import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecision
 import { SupplyAPIError } from "./supply-error";
 
 export type SupplyScope=CollectionScope;
-export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
+export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
+ if(route==="cancel-upload-plan")return plans.uploadPlanCancelIntentSchema;
+ if(route==="continue-upload-plan")return plans.uploadPlanContinueIntentSchema;
  if(route==="review-decision")return supplyReviewDecisionCommandSchema;
  if(route==="review-apply")return supplyReviewApplyCommandSchema;
  return c.supplyRequestSchema(route);
 }
 export {SupplyAPIError} from "./supply-error";
 const base="/api/workbench/supply-preparations";
-type Query={after?:string;keyword?:string;limit?:number;sourceKind?:CollectionSourceKind};
-const query=(q:Query)=>{const p=new URLSearchParams({limit:String(q.limit??50)});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.sourceKind)p.set("sourceKind",q.sourceKind);return `?${p}`};
+type Query={planId?:string;after?:string;keyword?:string;limit?:number;sourceKind?:CollectionSourceKind};
+const query=(q:Query)=>{const p=new URLSearchParams({limit:String(q.limit??50)});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.sourceKind)p.set("sourceKind",q.sourceKind);if(q.planId)p.set("planId",collectionID.parse(q.planId));return `?${p}`};
 export const listSupplyPreparations=(scope:SupplyScope,q:Query={},signal?:AbortSignal)=>send(base+query(q),scope,c.preparationPageSchema,signal);
 export const readSupplyPreparation=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/${collectionID.parse(id)}`,scope,c.preparationSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
@@ -29,7 +32,7 @@ export const listSupplyOperations=async(scope:SupplyScope,preparation:string,sto
 };
 export const listSupplyStages=async(scope:SupplyScope,id:string,storeId:string,stage:c.Stage,q:Query={},signal?:AbortSignal)=>{
  const value=await send(`${base}/${collectionID.parse(id)}/stages${query(q)}&storeId=${collectionID.parse(storeId)}&stage=${c.stageSchema.parse(stage)}`,scope,c.stagePageSchema,signal);
- if(stage!=="all"&&value.items.some(i=>i.stage!==stage))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+ if(stage!=="all"&&value.items.some(i=>i.stage!==stage&&!(stage==="waiting"&&i.stage==="ready")))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const listSupplySources=(scope:SupplyScope,id:string,q:Query={},signal?:AbortSignal)=>send(`${base}/${collectionID.parse(id)}/sources${query(q)}`,scope,c.sourcePageSchema,signal);
 export const readSupplySource=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
@@ -89,6 +92,14 @@ export async function prepareSheinShelf(scope:SupplyScope,input:c.SheinShelfInpu
  if(!c.matchesSheinResponse("shein-shelf-prepare",value,JSON.stringify({...command,key})))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 }
 export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command);const value=await send(`${base}/upload-plans/${input.planId}/cancel`,intent,plans.uploadPlanSchema,signal,{method:"POST",command:{expectedRevision:input.expectedRevision},mutates:true});return commandResult(value,intent,true);}
+
+ if(intent.route==="create-upload-plan"||intent.route==="continue-upload-plan"){
+  const input=supplyIntentRequestSchema(intent.route)!.parse(intent.command);
+  const suffix=intent.route==="create-upload-plan"?"upload-plans":`upload-plans/${plans.uploadPlanContinueIntentSchema.parse(input).planId}/continue`;
+  const command=intent.route==="create-upload-plan"?input:plans.uploadPlanContinueSchema.parse(Object.fromEntries(Object.entries(input).filter(([k])=>k!=="planId")));
+  const value=await send(`${base}/${suffix}`,intent,c.supplyResponseSchema(intent.route),signal,{method:"POST",command,key:collectionID.parse(intent.key),mutates:true});return commandResult(value,intent,true);
+ }
  if(intent.route==="shein-shelf-confirm"){const input=c.sheinShelfConfirmInputSchema.parse(intent.command),value=await send(base+"/shein-publication/confirm",intent,c.sheinShelfActionSchema,signal,{method:"POST",command:input,key:intent.key,mutates:true});if(!c.matchesSheinResponse(intent.route,value,JSON.stringify({...input,key:intent.key})))throw new SupplyAPIError("OUTCOME_UNKNOWN",503);return value;}
  if(intent.route==="resolve-upload"){
   const input=c.resolveUploadSchema.parse(intent.command);
@@ -103,6 +114,11 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
 }
 export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal){
  const key=collectionID.parse(intent.key);
+ if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command);return commandResult(await readUploadPlan(intent,input.planId,signal),intent,false);}
+ if(intent.route==="create-upload-plan"||intent.route==="continue-upload-plan"){
+  const suffix=intent.route==="create-upload-plan"?`upload-plans/by-key/${key}`:`upload-plans/${plans.uploadPlanContinueIntentSchema.parse(intent.command).planId}/commands/${key}`;
+  const value=await send(`${base}/${suffix}`,intent,intent.route==="create-upload-plan"?plans.uploadPlanReceiptSchema:plans.uploadPlanAdvanceSchema,signal);return commandResult(value,intent,false);
+ }
  if(intent.route==="shein-shelf-confirm"){const input={...c.sheinShelfConfirmInputSchema.parse(intent.command),key},value=await send(base+"/shein-publication/result",intent,c.sheinShelfActionSchema,signal,{method:"POST",command:input});if(!c.matchesSheinResponse("shein-shelf-result",value,JSON.stringify(input)))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;}
  // Approval is a safely repeatable local fact commit. Replaying the exact full
  // set with the same key reads its immutable receipt without a platform send.
@@ -136,6 +152,9 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
 
 function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  let valid=false;
+ if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command),plan=plans.uploadPlanSchema.parse(value);valid=plan.id===input.planId&&plan.cancelled&&plan.revision>=input.expectedRevision;}
+ if(intent.route==="create-upload-plan"){const input=plans.uploadPlanInputSchema.parse(intent.command),output=plans.uploadPlanReceiptSchema.parse(value).plan.input;const canonical=(v:plans.UploadPlanInput)=>JSON.stringify({...v,sourceIds:[...(v.sourceIds??[])].sort()});valid=canonical(input)===canonical(output);}
+ if(intent.route==="continue-upload-plan")valid=plans.uploadPlanAdvanceSchema.parse(value).planId===plans.uploadPlanContinueIntentSchema.parse(intent.command).planId;
  if(intent.route==="save-completion-draft"){
   const input=c.completionInputSchema.parse(intent.command),record=c.completionReceiptSchema.parse(value).record;
   valid=record.source.id===input.sourceId&&record.revision===input.expectedRevision+1&&completionContentEqual(record.content,input.content);
@@ -170,3 +189,7 @@ export async function readSourceProductInputs(scope:SupplyScope,source:c.SupplyS
  if(value.sourceId!==source.source.id||value.inputs.product_key!==original.productKey||value.inputs.product_version!==original.version||value.inputs.publication_id!==original.publicationId)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);
  return value;
 }
+
+export const listUploadPlans=(scope:SupplyScope,q:Pick<Query,"limit"|"after">={},signal?:AbortSignal)=>send(`${base}/upload-plans${query(q)}`,scope,plans.uploadPlanPageSchema,signal);
+export async function readUploadPlan(scope:SupplyScope,id:string,signal?:AbortSignal){const v=await send(`${base}/upload-plans/${collectionID.parse(id)}`,scope,plans.uploadPlanSchema,signal);if(v.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return v;}
+export async function previewUploadPlan(scope:SupplyScope,id:string,input:z.input<typeof plans.uploadPlanSelectionSchema>,signal?:AbortSignal){const v=await send(`${base}/upload-plans/${collectionID.parse(id)}/preview`,scope,plans.uploadPlanPreviewSchema,signal,{method:"POST",command:plans.uploadPlanSelectionSchema.parse(input)});if(v.plan.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return v;}

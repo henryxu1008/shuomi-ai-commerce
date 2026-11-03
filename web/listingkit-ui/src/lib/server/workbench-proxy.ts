@@ -553,11 +553,11 @@ export async function buildWorkbenchUpstreamRequest(
         body=JSON.stringify(checked.data);headers.set("Content-Type","application/json");if(key)headers.set("Idempotency-Key",key);
       }else{
         if(request.headers.has("Idempotency-Key") || ((action==="item-completion-drafts"||action.startsWith("completion-history"))&&request.headers.has("content-encoding")) || !(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body or command key is not allowed");
-        const allowed=action==="completion-history"?new Set(["before","limit"]):["item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind"]:action==="operations"?["storeId"]:action==="optimization-options"?[]:["keyword"]]):new Set<string>();
+        const allowed=action==="completion-history"?new Set(["before","limit"]):["upload-plans","item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind","planId"]:action==="operations"?["storeId"]:action==="optimization-options"||action==="upload-plans"?[]:["keyword"]]):new Set<string>();
         if(/%(?![0-9A-Fa-f]{2})/.test(url.search)||(action==="operations"||action==="stages")&&!isAcquisitionUUID(url.searchParams.get("storeId")??"")||action==="stages"&&!["all","waiting","missing","ready","review","uploaded"].includes(url.searchParams.get("stage")??""))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         for(const key of url.searchParams.keys()){
           const values=url.searchParams.getAll(key);if(!allowed.has(key)||values.length!==1||!values[0])return protocolError(400,"INVALID_REQUEST","Supply query invalid");
-          const value=values[0];if(key==="before"&&completionRevision(value)===null||key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
+          const value=values[0];if(key==="before"&&completionRevision(value)===null||key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId"||key==="planId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         }
         query=url.search;
       }
@@ -1022,6 +1022,7 @@ export async function buildWorkbenchUpstreamRequest(
       route.requestContract==="supply-shein-completion-preview"&&typeof body==="string"?body:
       route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
+      ["supply-cancel-upload-plan","supply-upload-plan","supply-upload-plan-preview","supply-continue-upload-plan","supply-upload-plan-command"].includes(route.requestContract)?path[2]:
       route.requestContract==="supply-completion-history"?`${path[2]}:${new URL(request.url).searchParams.get("before")??0}:${new URL(request.url).searchParams.get("limit")??20}`:
       route.requestContract==="supply-completion-history-detail"?`${path[2]}:${path[5]}`:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :

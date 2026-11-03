@@ -79,7 +79,7 @@ type StagePage struct {
 func validStage(v string) bool {
 	return v == "all" || v == "waiting" || v == "missing" || v == "ready" || v == "review" || v == "uploaded"
 }
-func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q collection.Query, sourceKind string) (StagePage, error) {
+func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q collection.Query, sourceKind string, planIDs ...string) (StagePage, error) {
 	out := StagePage{Items: []StageItem{}, Counts: map[string]int64{"all": 0, "waiting": 0, "missing": 0, "ready": 0, "review": 0, "uploaded": 0}}
 	if sourceKind != "" && !collection.ValidSourceKind(sourceKind) || a.StageProjection.Facts == nil || !collection.ValidID(id) || !collection.ValidID(storeID) || !validStage(stage) || q.Validate() != nil {
 		return out, preparation.ErrInvalid
@@ -95,6 +95,25 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 		return out, err
 	}
 	out.BatchTotal = prep.Count
+	include := func(string) bool { return true }
+	if len(planIDs) > 1 {
+		return out, preparation.ErrInvalid
+	}
+	if len(planIDs) == 1 && planIDs[0] != "" {
+		if a.UploadPlans == nil {
+			return out, record.ErrUnavailable
+		}
+		plan, e := a.UploadPlans.Read(ctx, planIDs[0])
+		if e != nil {
+			return out, e
+		}
+		include, e = uploadPlanStageSelection(plan, id, storeID)
+		if e != nil {
+			return out, e
+		}
+		out.BatchTotal = plan.Count
+	}
+
 	if a.TargetMerchants == nil {
 		return out, record.ErrUnavailable
 	}
@@ -122,6 +141,9 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 				return out, record.ErrUnavailable
 			}
 			last = f.SourceID
+			if !include(f.SourceID) {
+				continue
+			}
 			current := StageItem{SourceID: f.SourceID, Stage: "waiting"}
 			if f.RecordID != "" {
 				current.Stage = "missing"
@@ -172,7 +194,7 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 	if !cursorFound {
 		return out, preparation.ErrNotFound
 	}
-	if out.Counts["all"] != prep.Count {
+	if out.Counts["all"] != out.BatchTotal {
 		return out, record.ErrConflict
 	}
 	fresh, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
@@ -183,5 +205,16 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 }
 
 func matchesStageFilter(f preparation.SourceStageFacts, currentStage, stage string, q collection.Query, sourceKind, batch string) bool {
-	return (stage == "all" || stage == currentStage) && (sourceKind == "" || f.SourceKind == sourceKind) && (q.Keyword == "" || strings.Contains(strings.ToLower(f.Title+" "+f.ProductKey+" "+f.SKUs+" "+batch), strings.ToLower(q.Keyword)))
+	return (stage == "all" || stage == currentStage || stage == "waiting" && currentStage == "ready") && (sourceKind == "" || f.SourceKind == sourceKind) && (q.Keyword == "" || strings.Contains(strings.ToLower(f.Title+" "+f.ProductKey+" "+f.SKUs+" "+batch), strings.ToLower(q.Keyword)))
+}
+
+func uploadPlanStageSelection(plan preparation.UploadPlan, prep, store string) (func(string) bool, error) {
+	if plan.Input.PreparationID != prep || plan.Input.StoreID != store {
+		return nil, record.ErrConflict
+	}
+	ids := map[string]bool{}
+	for _, id := range plan.Input.SourceIDs {
+		ids[id] = true
+	}
+	return func(id string) bool { return len(ids) == 0 || ids[id] }, nil
 }

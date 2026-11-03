@@ -1,6 +1,7 @@
 package preparation
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -48,4 +49,28 @@ func TestUploadPlanDoesNotTurnFailureCancellationOrRejectionIntoNewModelCall(t *
 		require.Equal(t, status, NextUploadPlanStep(UploadPlanInput{TitleTemplateID: "t"}, UploadPlanItem{OptimizeOperationID: "op"}, UploadPlanFacts{HasTarget: true, Ready: true, OptimizationStatus: status}))
 	}
 	require.Equal(t, "rejected", NextUploadPlanStep(UploadPlanInput{TitleTemplateID: "t"}, UploadPlanItem{OptimizeOperationID: "op"}, UploadPlanFacts{HasTarget: true, Ready: true, OptimizationStatus: ItemReview, ReviewRejected: true}))
+}
+
+func TestUploadPlanKeepsExistingChannelReceiptBoundToItsOriginalVersion(t *testing.T) {
+	facts := UploadPlanFacts{HasTarget: true, Ready: true, Target: TargetApproval{RecordID: "new-version"}, ExistingPublicationRecordID: "original-version"}
+	require.Equal(t, "channel_exists", NextUploadPlanStep(UploadPlanInput{}, UploadPlanItem{}, facts), "a retained platform channel cannot be called a successful upload of new content")
+	facts.Target.RecordID = "original-version"
+	require.Equal(t, ItemSucceeded, NextUploadPlanStep(UploadPlanInput{}, UploadPlanItem{}, facts))
+}
+
+func TestUploadPlanManualPlatformOpensCompletionWithoutInventingAdaptation(t *testing.T) {
+	require.Equal(t, "missing", NextUploadPlanStep(UploadPlanInput{}, UploadPlanItem{}, UploadPlanFacts{ManualTargetRequired: true}))
+}
+
+func TestCancelledUploadPlanCannotBindANewStep(t *testing.T) {
+	s := &UploadPlanService{inputs: &planFactsOnly{}}
+	v, err := s.resolve(context.Background(), UploadPlan{Cancelled: true}, UploadPlanItem{})
+	require.NoError(t, err)
+	require.Equal(t, ItemCancelled, v.Step)
+}
+
+type planFactsOnly struct{ UploadPlanInputs }
+
+func (*planFactsOnly) ReadUploadPlanFacts(context.Context, UploadPlan, UploadPlanItem) (UploadPlanFacts, error) {
+	return UploadPlanFacts{}, nil
 }

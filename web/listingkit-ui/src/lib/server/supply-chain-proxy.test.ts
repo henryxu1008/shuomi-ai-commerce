@@ -102,3 +102,14 @@ it("Walmart historical Feed reads and refresh preserve actor and organization bo
  const result=await buildWorkbenchUpstreamRequest(request,path,"server-private-token","actor-a");expect(result).not.toBeInstanceOf(Response);if(result instanceof Response)continue;expect(result.sourceMutation).toBe(refresh);expect(new Headers(result.init.headers).get("X-Requested-Organization-ID")).toBe("org-a");
  }
 });
+
+it("keeps plan preview read-only, continue keyed, and original-plan filters bounded",async()=>{
+ const path=["supply-preparations","upload-plans",id,"preview"],url=`http://localhost/api/workbench/${path.join("/")}`;
+ const request=(suffix:string,key?:string)=>new Request(url.replace("preview",suffix),{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json",...key?{"Idempotency-Key":key}:{}},body:JSON.stringify({expectedRevision:1,...suffix==="continue"?{previewHash:"a".repeat(64)}:{}})});
+ const preview=await buildWorkbenchUpstreamRequest(request("preview"),path,"token","actor-a");expect(preview).not.toBeInstanceOf(Response);if(preview instanceof Response)return;expect(preview.sourceMutation).toBe(false);expect(preview.expectedStoreId).toBe(id);
+ const continuation=await buildWorkbenchUpstreamRequest(request("continue",id),[...path.slice(0,3),"continue"],"token","actor-a");expect(continuation).not.toBeInstanceOf(Response);if(continuation instanceof Response)return;expect(continuation.sourceMutation).toBe(true);
+ const foreign=await buildWorkbenchUpstreamRequest(request("continue",id),[...path.slice(0,3),"continue"],"token","other");expect(foreign).toBeInstanceOf(Response);if(foreign instanceof Response)expect(foreign.status).toBe(409);
+ const stages=["supply-preparations",id,"stages"],base=`http://localhost/api/workbench/${stages.join("/")}?storeId=${id}&stage=missing&planId=`;
+ expect(await buildWorkbenchUpstreamRequest(new Request(base+id,{headers:scope}),stages,"token","actor-a")).not.toBeInstanceOf(Response);
+ for(const value of ["other",`${id}&planId=${id}`]){const bad=await buildWorkbenchUpstreamRequest(new Request(base+value,{headers:scope}),stages,"token","actor-a");expect(bad).toBeInstanceOf(Response);}
+});

@@ -13,9 +13,9 @@ export default async function Page({searchParams}:{searchParams:Promise<Record<s
  const params=await searchParams;
  const read=(name:string)=>{const value=params[name];if(value===undefined)return undefined;if(typeof value!=="string"||!isAcquisitionUUID(value))notFound();return value};
  const selected=new URLSearchParams();
- for(const name of ["preparation","store","operation"]){const value=read(name);if(value)selected.set(name,value);}
+ for(const name of ["preparation","store","operation","plan"]){const value=read(name);if(value)selected.set(name,value);}
  const suffix=selected.size?`?${selected}`:"";
  return <><FulfillmentEntry procurement/><PrimaryIntroduction kind="supply" available={[collections,collections&&(full||preparation||completion),collections&&full]}
-  entryHrefs={["/workbench/data/mine",`/workbench/supply/mine/waiting${suffix}`,`/workbench/supply/mine/ready${suffix}`]}
+  entryHrefs={["/workbench/data/mine",`/workbench/supply/mine/waiting${suffix}`,`/workbench/supply/mine/uploaded${suffix}`]}
   notice={full?undefined:completion?"当前可保存、编辑未绑定店铺的待补全草稿；平台适配和上传在官方应用与渠道配置后开放。":"当前可查看我的数据与已转入批次；平台适配、智能体优化和上传需要正式官方应用及渠道配置。"}/>{collections&&completion?<p className="mt-5 text-sm"><Link className="text-primary underline" href={`/workbench/supply/mine/missing${suffix}`} prefetch={false}>查看待补全草稿</Link></p>:null}</>;
 }

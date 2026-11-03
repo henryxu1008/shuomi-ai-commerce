@@ -129,6 +129,8 @@ const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparati
  ('listing_target_record_commands','SELECT'),('listing_target_record_commands','INSERT'),
  ('listing_preparation_operations','SELECT'),('listing_preparation_operations','INSERT'),('listing_preparation_operations','UPDATE'),
  ('listing_preparation_operation_items','SELECT'),('listing_preparation_operation_items','INSERT'),('listing_preparation_operation_items','UPDATE'),
+ ('listing_preparation_upload_plans','SELECT'),('listing_preparation_upload_plans','INSERT'),('listing_preparation_upload_plans','UPDATE'),
+ ('listing_preparation_upload_plan_items','SELECT'),('listing_preparation_upload_plan_items','INSERT'),('listing_preparation_upload_plan_items','UPDATE'),
  ('listing_submission_execution_attempts','SELECT'),('listing_submission_execution_attempts','INSERT'),('listing_submission_execution_attempts','UPDATE'),
  ('listing_submission_target_fences','SELECT'),('listing_submission_target_fences','INSERT'),('listing_submission_target_fences','UPDATE'),
  ('listing_submission_official_intents','SELECT'),('listing_submission_official_intents','INSERT'),
@@ -402,6 +404,9 @@ func verifyRuntimeSchema(ctx context.Context, db *gorm.DB, capability RuntimeCap
 			return err
 		}
 		if err := preparationstore.VerifyOperationSchema(ctx, db); err != nil {
+			return err
+		}
+		if err := preparationstore.VerifyUploadPlanSchema(ctx, db); err != nil {
 			return err
 		}
 		if err := recordstore.VerifySchema(ctx, db); err != nil {

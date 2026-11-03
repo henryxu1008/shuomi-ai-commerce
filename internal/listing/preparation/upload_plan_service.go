@@ -72,7 +72,12 @@ type UploadPlanInputs interface {
 	AuthorizeUploadPlanStep(context.Context, UploadPlan, OperationInput) error
 }
 
+type UploadPlanOperationReader interface {
+	ReadUploadPlanOperation(context.Context, Scope, string, string) (Operation, OperationItem, error)
+}
+
 type UploadPlanRepository interface {
+	CancelUploadPlan(context.Context, UploadPlanCancelCommit) (UploadPlan, error)
 	FindUploadPlan(context.Context, Scope, string, string) (UploadPlanReceipt, error)
 	CreateUploadPlan(context.Context, UploadPlanCommit) (UploadPlanReceipt, error)
 	ReadUploadPlan(context.Context, Scope, string) (UploadPlan, error)
@@ -142,6 +147,27 @@ func (s *UploadPlanService) Read(ctx context.Context, id string) (UploadPlan, er
 		return UploadPlan{}, err
 	}
 	return s.repository.ReadUploadPlan(ctx, scope, id)
+}
+
+func (s *UploadPlanService) ReadCreation(ctx context.Context, key string) (UploadPlanReceipt, error) {
+	if !collection.ValidID(key) {
+		return UploadPlanReceipt{}, ErrInvalid
+	}
+	scope, err := s.authorize(ctx, PermissionRead)
+	if err != nil {
+		return UploadPlanReceipt{}, err
+	}
+	return s.repository.FindUploadPlan(ctx, scope, key, "")
+}
+func (s *UploadPlanService) ReadContinuation(ctx context.Context, id, key string) (UploadPlanAdvanceReceipt, error) {
+	if !collection.ValidID(id) || !collection.ValidID(key) {
+		return UploadPlanAdvanceReceipt{}, ErrInvalid
+	}
+	scope, err := s.authorize(ctx, PermissionRead)
+	if err != nil {
+		return UploadPlanAdvanceReceipt{}, err
+	}
+	return s.repository.FindUploadPlanAdvance(ctx, scope, id, key, "")
 }
 func (s *UploadPlanService) List(ctx context.Context, q Query) (collection.Page[UploadPlan], error) {
 	if q.Validate() != nil {
@@ -291,6 +317,9 @@ func (s *UploadPlanService) resolve(ctx context.Context, plan UploadPlan, item U
 		return UploadPlanItemView{}, ErrConflict
 	}
 	view := UploadPlanItemView{Item: item, Facts: facts, Step: NextUploadPlanStep(plan.Input, item, facts)}
+	if plan.Cancelled && IsUploadPlanAction(view.Step) {
+		view.Step = ItemCancelled
+	}
 	if view.Step == OperationUpload && facts.PublicationMode != plan.Input.PublicationMode {
 		return view, ErrConflict
 	}
@@ -355,4 +384,48 @@ func (p UploadPlanAdvanceCommit) AuthorizeStep(ctx context.Context, in Operation
 		}
 	}
 	return p.service.inputs.AuthorizeUploadPlanStep(ctx, p.plan, in)
+}
+
+// Cancellation only stops unbound later steps. Original operations retain their
+// effects and recovery owner; no remote cancellation or replacement is inferred.
+func (s *UploadPlanService) Cancel(ctx context.Context, id string, revision int64) (UploadPlan, error) {
+	ctx, cancel := context.WithTimeout(ctx, Timeout)
+	defer cancel()
+	scope, err := s.authorize(ctx, PermissionManage)
+	if err != nil {
+		return UploadPlan{}, err
+	}
+	if !collection.ValidID(id) || revision < 1 {
+		return UploadPlan{}, ErrInvalid
+	}
+	plan, err := s.repository.ReadUploadPlan(ctx, scope, id)
+	if err != nil {
+		return UploadPlan{}, err
+	}
+	if plan.Cancelled {
+		return plan, nil
+	}
+	if plan.Revision != revision {
+		return UploadPlan{}, ErrConflict
+	}
+	return s.repository.CancelUploadPlan(ctx, UploadPlanCancelCommit{service: s, plan: plan})
+}
+
+type UploadPlanCancelCommit struct {
+	service *UploadPlanService
+	plan    UploadPlan
+}
+
+func (p UploadPlanCancelCommit) Read(ctx context.Context) (UploadPlan, error) {
+	if p.service == nil {
+		return UploadPlan{}, ErrForbidden
+	}
+	scope, err := p.service.authorize(ctx, PermissionManage)
+	if err != nil {
+		return UploadPlan{}, err
+	}
+	if scope != p.plan.Owner {
+		return UploadPlan{}, ErrForbidden
+	}
+	return p.plan, nil
 }

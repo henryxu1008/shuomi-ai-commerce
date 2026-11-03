@@ -67,6 +67,7 @@ func (in UploadPlanInput) normalized() UploadPlanInput {
 }
 
 type UploadPlan struct {
+	Cancelled        bool            `json:"cancelled"`
 	ID               string          `json:"id"`
 	Owner            Scope           `json:"-"`
 	Input            UploadPlanInput `json:"input"`
@@ -105,27 +106,43 @@ func (a TargetApproval) Valid() bool {
 // UploadPlanFacts is supplied only by the current owner reader, never HTTP.
 // Original operations remain terminal; this projection does not reset them.
 type UploadPlanFacts struct {
-	HasTarget          bool           `json:"hasTarget"`
-	Ready              bool           `json:"ready"`
-	Target             TargetApproval `json:"target"`
-	PublicationMode    string         `json:"publicationMode"`
-	AdaptStatus        string         `json:"adaptStatus,omitempty"`
-	OptimizationStatus string         `json:"optimizationStatus,omitempty"`
-	ReviewRequired     bool           `json:"reviewRequired"`
-	ReviewRejected     bool           `json:"reviewRejected"`
-	UploadStatus       string         `json:"uploadStatus,omitempty"`
-	UploadConfirmed    bool           `json:"uploadConfirmed"`
+	PublicationSummary          []string               `json:"publicationSummary,omitempty"`
+	ManualTargetRequired        bool                   `json:"manualTargetRequired"`
+	ExistingPublicationRecordID string                 `json:"existingPublicationRecordId,omitempty"`
+	WalmartApproval             *WalmartUploadApproval `json:"walmartApproval,omitempty"`
+	HasTarget                   bool                   `json:"hasTarget"`
+	Ready                       bool                   `json:"ready"`
+	Target                      TargetApproval         `json:"target"`
+	PublicationMode             string                 `json:"publicationMode"`
+	AdaptStatus                 string                 `json:"adaptStatus,omitempty"`
+	OptimizationStatus          string                 `json:"optimizationStatus,omitempty"`
+	ReviewRequired              bool                   `json:"reviewRequired"`
+	ReviewRejected              bool                   `json:"reviewRejected"`
+	UploadStatus                string                 `json:"uploadStatus,omitempty"`
+	UploadConfirmed             bool                   `json:"uploadConfirmed"`
 }
 
 func NextUploadPlanStep(in UploadPlanInput, item UploadPlanItem, facts UploadPlanFacts) string {
 	if item.UploadOperationID != "" {
 		if facts.UploadConfirmed {
+			if facts.ExistingPublicationRecordID != "" && facts.ExistingPublicationRecordID != facts.Target.RecordID {
+				return "channel_exists"
+			}
 			return ItemSucceeded
 		}
 		if ValidItemStatus(facts.UploadStatus) {
+			if facts.UploadStatus == ItemSucceeded && facts.ExistingPublicationRecordID != "" && facts.ExistingPublicationRecordID != facts.Target.RecordID {
+				return "channel_exists"
+			}
 			return facts.UploadStatus
 		}
 		return "unavailable"
+	}
+	if facts.ExistingPublicationRecordID != "" {
+		if facts.HasTarget && facts.ExistingPublicationRecordID == facts.Target.RecordID {
+			return ItemSucceeded
+		}
+		return "channel_exists"
 	}
 	if item.OptimizeOperationID != "" {
 		if facts.OptimizationStatus != ItemReview {
@@ -148,7 +165,7 @@ func NextUploadPlanStep(in UploadPlanInput, item UploadPlanItem, facts UploadPla
 		return "unavailable"
 	}
 	if !facts.HasTarget {
-		if item.AdaptOperationID != "" {
+		if item.AdaptOperationID != "" || facts.ManualTargetRequired {
 			return "missing"
 		}
 		return OperationAdapt

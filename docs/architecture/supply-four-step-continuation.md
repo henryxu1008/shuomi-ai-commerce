@@ -77,7 +77,7 @@ waiting/ready 合并为“待上传”投影，内部事实/校验保留；计�
 
 ## 6. 继续合同与状态
 
-原 `/supply-preparations` 模块增加创建/读取/列表计划、`POST /upload-plans/:id/continue` 及原 key 读取。Continue 只接受命令键、expected plan/item revisions、明确 SourceIDs、准确已保存 TargetRecord/revision和用户确认动作；客户端不得指定下一阶段、成功、预算、trusted binding 或 provider 请求。服务器从计划和原回执决定下一步。
+原 `/supply-preparations` 模块增加创建/读取/列表计划、`POST /upload-plans/:id/continue` 、停止后续步骤及原 key 读取。Continue 接受命令键、expected plan revision、可选明确 SourceIDs 和完整预览 hash；hash覆盖固定逐项revision、准确已保存 TargetRecord/revision、原生提交摘要和原操作状态，由服务端重新读取比对，承载用户确认动作；客户端不得指定下一阶段、成功、预算、trusted binding 或 provider 请求。服务器从计划和原回执决定下一步。
 
 | 当前事实 / 用户动作 | 下一步 / 持久效果 |
 | --- | --- |
@@ -91,7 +91,7 @@ waiting/ready 合并为“待上传”投影，内部事实/校验保留；计�
 | 已有 upload pending/running | 返回原引用，只 Ensure 原 workflow |
 | upload UNKNOWN/成功/已保留远端资产 | 原核实/结果，不新建upload或换键。部分资产成功而刊登失败按现行平台恢复合同 |
 | 明确未发送失败 | 仅原 owner 有适用恢复合同且用户另行明确确认时处理，本轮不放宽 |
-| 取消 | 阻止未绑定后续步骤；已发送继续由原owner核实 |
+| 取消 | plan行内 cancelled + revision CAS 阻止未绑定后续步骤；已创建原操作保持原进度，已发送继续由原owner核实 |
 
 Continue 重读原计划/子命令和准确 owner refs，不以最新 head 替代用户确认版本；别的编辑改变head则409重新预览。补全、Review.Apply等保存不宣称与计划跨库原子；Continue读取准确回执并经本地CAS绑定，发送前原owner再核对。无法证明的事实保持 unavailable/unknown。
 

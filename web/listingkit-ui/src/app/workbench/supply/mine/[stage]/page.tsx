@@ -26,7 +26,7 @@ export default async function Page({params,searchParams}:{params:Promise<{stage:
   return <SupplyPage initialStage={stage.data} initialRecord={record} reportSourcesAvailable={isReportSheinTargetAvailable()}/>;
  }
  if(query.mode!==undefined&&(query.mode!=="platform"||stage.data!=="missing"||!full)&&(query.mode!=="local"||stage.data!=="waiting"||!completion))notFound();
- if(completion&&stage.data==="missing"&&query.mode!=="platform")return <CompletionDraftsPage initialPreparation={read("preparation")} initialSource={read("source")} fullAvailable={full}/>;
+ if(completion&&stage.data==="missing"&&query.mode!=="platform"&&!query.plan)return <CompletionDraftsPage initialPreparation={read("preparation")} initialSource={read("source")} fullAvailable={full}/>;
  if(!full||completion&&stage.data==="waiting"&&query.mode==="local")return <PreparationsPage initialPreparation={read("preparation")} completionAvailable={completion} sourceMaterialsAvailable={sourceMaterials}/>;
- return <SupplyPage initialStage={stage.data} initialPreparation={read("preparation")} initialStore={read("store")} initialOperation={read("operation")} completionAvailable={completion} sourceMaterialsAvailable={sourceMaterials} materialsAvailable={full&&process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED==="true"}/>;
+ return <SupplyPage initialStage={stage.data} initialPreparation={read("preparation")} initialStore={read("store")} initialOperation={read("operation")} initialPlan={read("plan")} completionAvailable={completion} sourceMaterialsAvailable={sourceMaterials} materialsAvailable={full&&process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED==="true"}/>;
 }
