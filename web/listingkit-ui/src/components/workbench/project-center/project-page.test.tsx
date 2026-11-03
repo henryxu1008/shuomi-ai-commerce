@@ -84,10 +84,10 @@ it("asks for a project before a workflow function and preserves its step through
  f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>command?{id,revision:1,replayed:false}:{projects:[{...p,kind:"PRODUCT_RESEARCH"}],next:""});
  render(<ProjectPage center="research" workflowStep="sources" initialSearch="收纳"/>);
  await screen.findByText("当前步骤：取得与关联资料。选择或新建研究项目后继续。");
- const href=new URL((await screen.findByRole("link",{name:"进入研究",exact:true})).getAttribute("href")!,"https://test.invalid");
+ const href=new URL((await screen.findByRole("link",{name:"进入研究"})).getAttribute("href")!,"https://test.invalid");
  expect(href.pathname).toBe("/workbench/data/research/"+id);
  expect(Object.fromEntries(href.searchParams)).toEqual({mode:"active",search:"收纳",step:"sources"});
- expect(new URL(screen.getByRole("link",{name:"已归档",exact:true}).getAttribute("href")!,"https://test.invalid").searchParams.get("step")).toBe("sources");
+ expect(new URL(screen.getByRole("link",{name:"已归档"}).getAttribute("href")!,"https://test.invalid").searchParams.get("step")).toBe("sources");
  fireEvent.click(screen.getByRole("button",{name:"＋ 新建研究项目"}));
  fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"新研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对资料"}});
  fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
