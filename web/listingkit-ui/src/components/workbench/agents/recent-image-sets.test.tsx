@@ -16,6 +16,30 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals()});
 
+it("shows partial availability without hiding valid tasks or calling the page empty",async()=>{
+ fetch.mockResolvedValue(Response.json({items:[item(0,"completed")],nextCursor:"next",unavailableCount:19}));
+ render(<RecentImageSets scope={scope} nonce={0}/>);
+ expect(await screen.findByText(/本页有 19 个原任务/)).toHaveTextContent("记录已保留");
+ expect(screen.getByText("已保存素材 · 供应链商品 · 通用素材")).toBeVisible();
+ expect(screen.getByRole("button",{name:"查看原任务"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"下一页"})).toBeEnabled();
+ expect(screen.queryByText(/还没有图片任务/)).toBeNull();
+ expect(screen.queryByRole("alert")).toBeNull();
+ expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("keeps an unavailable-only page distinct from an empty history and clears its count on pagination",async()=>{
+ fetch.mockImplementation(async input=>Response.json(String(input).includes("&cursor=next")?{items:[],nextCursor:"",unavailableCount:0}:{items:[],nextCursor:"next",unavailableCount:20}));
+ render(<RecentImageSets scope={scope} nonce={0}/>);
+ expect(await screen.findByText(/本页有 20 个原任务/)).toBeVisible();
+ expect(screen.queryByText(/还没有图片任务/)).toBeNull();
+ expect(screen.queryByRole("button",{name:"查看原任务"})).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"下一页"}));
+ expect(await screen.findByText(/还没有图片任务/)).toBeVisible();
+ expect(screen.queryByText(/本页有/)).toBeNull();
+ expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
+
 it("shows all four proved releases while preserving original run IDs and read-only entry points",async()=>{
  const payload={items:ids.slice(0,4).map((_,index)=>item(index,index%2?"failed":"blocked",true)),nextCursor:""};
  const original=structuredClone(payload);

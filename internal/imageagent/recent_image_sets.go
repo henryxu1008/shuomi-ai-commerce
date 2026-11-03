@@ -14,9 +14,9 @@ type ImageSetRunSummary struct {
 	CreatedAt      time.Time              `json:"createdAt"`
 }
 type ImageSetRunReader interface {
-	ListImageSets(context.Context, ExecutionIdentity, string, string, int) ([]ImageSetRunSummary, string, error)
+	ListImageSets(context.Context, ExecutionIdentity, string, string, int) ([]ImageSetRunSummary, string, int, error)
 }
 
 type ArtworkRunReader interface {
-	ListArtworkRuns(context.Context, ExecutionIdentity, string, int) ([]ImageSetRunSummary, string, error)
+	ListArtworkRuns(context.Context, ExecutionIdentity, string, int) ([]ImageSetRunSummary, string, int, error)
 }
