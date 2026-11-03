@@ -70,11 +70,28 @@ it("keeps an unknown create key through permission denial and later authenticati
 it("reuses project creation for research centers with a fixed research kind and no global metrics",async()=>{
  Object.assign(f.context,{marketResearchAvailable:true});
  render(<ProjectPage center="research"/>);
- await screen.findByRole("heading",{name:"市场调研中心",level:1});
+ await screen.findByRole("heading",{name:"市场调研",level:1});
  await waitFor(()=>expect(new URLSearchParams(f.request.mock.lastCall![1].slice(1)).get("kind")).toBe("PRODUCT_RESEARCH"));
  expect(f.overview).not.toHaveBeenCalled();expect(screen.queryByText("35")).toBeNull();
  fireEvent.click(await screen.findByRole("button",{name:"＋ 新建研究项目"}));
  fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"美国站收纳研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对美国站收纳盒的保存样本"}});
  fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
  await waitFor(()=>expect(f.request.mock.calls.some(c=>c[4]?.body?.kind==="PRODUCT_RESEARCH")).toBe(true));
+});
+
+it("asks for a project before a workflow function and preserves its step through selection and creation",async()=>{
+ Object.assign(f.context,{marketResearchAvailable:true});
+ f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>command?{id,revision:1,replayed:false}:{projects:[{...p,kind:"PRODUCT_RESEARCH"}],next:""});
+ render(<ProjectPage center="research" workflowStep="sources" initialSearch="收纳"/>);
+ await screen.findByText("当前步骤：取得与关联资料。选择或新建研究项目后继续。");
+ const href=new URL((await screen.findByRole("link",{name:"进入研究",exact:true})).getAttribute("href")!,"https://test.invalid");
+ expect(href.pathname).toBe("/workbench/data/research/"+id);
+ expect(Object.fromEntries(href.searchParams)).toEqual({mode:"active",search:"收纳",step:"sources"});
+ expect(new URL(screen.getByRole("link",{name:"已归档",exact:true}).getAttribute("href")!,"https://test.invalid").searchParams.get("step")).toBe("sources");
+ fireEvent.click(screen.getByRole("button",{name:"＋ 新建研究项目"}));
+ fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"新研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对资料"}});
+ fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
+ await waitFor(()=>expect(f.push).toHaveBeenCalled());
+ const created=new URL(f.push.mock.lastCall![0],"https://test.invalid");
+ expect(created.pathname).toBe(href.pathname);expect(Object.fromEntries(created.searchParams)).toEqual(Object.fromEntries(href.searchParams));
 });

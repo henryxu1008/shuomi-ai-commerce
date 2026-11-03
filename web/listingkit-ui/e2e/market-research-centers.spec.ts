@@ -47,14 +47,14 @@ test("the four native pages share a project and preserve evidence through analys
  return json({code:"NOT_FOUND"},404);
  });
  await page.setViewportSize({width:1440,height:1000});
- await page.goto("/workbench/data/research");await expect(page.getByRole("heading",{name:"市场调研中心",level:1})).toBeVisible();await expect(page.getByRole("heading",{name:currentProject.title})).toBeVisible();
+ await page.goto("/workbench/data/research");await expect(page.getByRole("heading",{name:"市场调研",level:1})).toBeVisible();await expect(page.getByRole("heading",{name:currentProject.title})).toBeVisible();
  await expect(page.locator("html")).toHaveClass(/light/);
  const listA11y=await new AxeBuilder({page}).include(".console-page").withTags(["wcag2a","wcag2aa"]).analyze();expect(listA11y.violations.filter(v=>v.impact==="serious"||v.impact==="critical")).toEqual([]);
  await page.screenshot({path:info.outputPath("research-list-light-desktop.png"),fullPage:true});
  await page.getByRole("link",{name:"进入研究",exact:true}).click();await expect(page.getByText(candidates[0].observation.title,{exact:true})).toBeVisible();expect(starts).toBe(0);
  await page.screenshot({path:info.outputPath("research-detail-light-desktop.png"),fullPage:true});
  await page.getByRole("checkbox").nth(0).check();await page.getByRole("checkbox").nth(1).check();await page.getByRole("button",{name:"读取所选样本"}).click();await expect(page.getByText("本次样本 2 项")).toBeVisible();
- await page.getByRole("link",{name:"进入智能选品中心"}).click();await expect(page.getByRole("heading",{name:"智能选品中心",level:1})).toBeVisible();await expect(page.getByRole("checkbox").nth(0)).toBeChecked();await expect(page.getByRole("checkbox").nth(1)).toBeChecked();
+ await page.getByRole("link",{name:"进入智能选品"}).click();await expect(page.getByRole("heading",{name:"智能选品",level:1})).toBeVisible();await expect(page.getByRole("checkbox").nth(0)).toBeChecked();await expect(page.getByRole("checkbox").nth(1)).toBeChecked();
  await page.getByRole("button",{name:"读取所选样本"}).click();await expect(page.getByRole("button",{name:"准备研究分析"})).toBeEnabled();expect(starts).toBe(0);
  await page.getByRole("button",{name:"准备研究分析"}).click();await expect(page.getByRole("heading",{name:"确认本次研究分析"})).toBeVisible();expect(prepares).toBe(1);expect(starts).toBe(0);
  await page.getByRole("button",{name:"确认生成研究建议"}).click();await expect(page.getByText("两项样本均需补齐完整成本，建议先进一步核实。")).toBeVisible();expect(starts).toBe(1);
@@ -65,5 +65,5 @@ test("the four native pages share a project and preserve evidence through analys
  await page.getByRole("button",{name:"提交人工审阅"}).first().click();await page.getByLabel("决定理由").fill("已独立核对保存资料，批准进一步测试。");await page.getByRole("button",{name:"批准测试",exact:true}).click();await expect(page.getByText("批准测试",{exact:true}).first()).toBeVisible();
  const transfer=new URL((await page.getByRole("link",{name:"批次 1 · 核对 1 件商品"}).getAttribute("href"))!,origin);expect(JSON.parse(transfer.searchParams.get("transfer")!)).toEqual([candidates[0].observation.ref.selection]);expect(starts).toBe(1);
  await page.getByRole("switch",{name:"浅色模式"}).click();await expect(page.locator("html")).toHaveClass(/light/);
- await page.setViewportSize({width:1440,height:1000});await page.goto("/workbench/supply/selection");await expect(page.getByRole("heading",{name:"智能选品中心",level:1})).toBeVisible();await page.screenshot({path:info.outputPath("selection-list-light-desktop.png"),fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});await page.goto("/workbench/supply/selection");await expect(page.getByRole("heading",{name:"智能选品",level:1})).toBeVisible();await page.screenshot({path:info.outputPath("selection-list-light-desktop.png"),fullPage:true});
 });

@@ -17,6 +17,16 @@ it("places optional analysis before the independent human decision in selection 
  expect(screen.getByRole("heading",{name:"研究证据分析"}).compareDocumentPosition(decision)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 it("shows original missing facts without dispatching a command on open",async()=>{render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);expect(await screen.findByText("真实保存商品")).toBeInTheDocument();expect(screen.getByText(/rating/)).toBeInTheDocument();expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);});
+it("focuses the requested function while keeping selected candidates and avoiding commands between steps",async()=>{
+ const scope={userId:"u",organizationId:"o"};
+ const view=render(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection" workflowStep="decisions"/>);
+ await screen.findByRole("button",{name:"提交人工审阅"});
+ await waitFor(()=>expect(document.getElementById("research-decisions")).toHaveFocus());
+ fireEvent.click(screen.getByRole("checkbox"));expect(screen.getByRole("checkbox")).toBeChecked();
+ view.rerender(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection" workflowStep="transfer"/>);
+ await waitFor(()=>expect(document.getElementById("research-transfer")).toHaveFocus());
+ expect(screen.getByRole("checkbox")).toBeChecked();expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);
+});
 it("keeps the original unknown write and recovers it by readonly key lookup",async()=>{mock.read.mockImplementation(async(_s,_p,_z,_a,options)=>{if(options?.intent)throw new ResearchError("OUTCOME_UNKNOWN");if(options?.lookup)return {key:options.lookup,candidateIds:[id],replayed:true};return {items:[candidate],incomplete:false};});render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);fireEvent.click(await screen.findByRole("button",{name:"提交人工审阅"}));await screen.findByRole("button",{name:"核实原操作"});const original=mock.read.mock.calls.find(c=>c[4]?.intent)?.[4].intent;fireEvent.click(screen.getByRole("button",{name:"核实原操作"}));await waitFor(()=>expect(mock.read.mock.calls.some(c=>c[4]?.lookup===original.key)).toBe(true));expect(mock.read.mock.calls.filter(c=>c[4]?.intent)).toHaveLength(1);});
 it("masks unavailable evidence and keeps archived projects readonly",async()=>{mock.read.mockResolvedValue({items:[{...candidate,observation:undefined,evidenceDigest:undefined}],incomplete:false});render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived/>);expect(await screen.findByText("来源当前不可访问")).toBeInTheDocument();expect(screen.queryByText("真实保存商品")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"提交人工审阅"})).not.toBeInTheDocument();});
 
@@ -34,7 +44,7 @@ it("carries exact selected observations into the other center and rejects stale 
  mock.read.mockResolvedValue({items:[candidate,second],incomplete:false});
  const view=render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="research"/>);
  await screen.findByText("真实保存商品");for(const checkbox of screen.getAllByRole("checkbox"))fireEvent.click(checkbox);
- const href=screen.getByRole("link",{name:"进入智能选品中心"}).getAttribute("href")!,sample=new URL(href,"https://app.example").searchParams.get("sample")!;
+ const href=screen.getByRole("link",{name:"进入智能选品"}).getAttribute("href")!,sample=new URL(href,"https://app.example").searchParams.get("sample")!;
  expect(JSON.parse(sample).map((c:{candidateId:string})=>c.candidateId)).toEqual([id,other]);expect(JSON.parse(sample)[0].evidenceDigest).toBe(candidate.evidenceDigest);
  view.unmount();mock.read.mockResolvedValue({items:[{...candidate,revision:3},second],incomplete:false});
  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection" sample={sample}/>);

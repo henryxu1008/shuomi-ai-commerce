@@ -414,7 +414,7 @@ function ScopedPage({
             </div>
           </div>
             {agentId==="shop.operations-diagnosis.agent"&&<ShopDiagnosisFlow scope={scope} entry={detail} nonce={nonce}/>}
-            {agentId==="product.research.agent"&&<Card className={styles.panel}><h2>在研究项目内使用</h2><p>在智能选品中心选择同一项目的2–5项证据，核对事实后准备预算。历史按项目查看。</p><Button asChild><Link href="/workbench/supply/selection" prefetch={false}>打开智能选品中心</Link></Button></Card>}
+            {agentId==="product.research.agent"&&<Card className={styles.panel}><h2>在研究项目内使用</h2><p>在智能选品选择同一项目的2–5项证据，核对事实后准备预算。历史按项目查看。</p><Button asChild><Link href="/workbench/supply/selection" prefetch={false}>打开智能选品</Link></Button></Card>}
  {agentId==="product.selection.agent"&&<ProductSelectionFlow scope={scope} entry={detail} nonce={nonce}/>}
             {agentId==="pod.design.agent"&&<PODArtworkFlow scope={scope} entry={detail} templates={templates.data?.items.filter(t=>t.agentId==="pod.design.agent")??[]} nonce={nonce} podAvailable={podAvailable}/>}
           <Card className={styles.panel}>
