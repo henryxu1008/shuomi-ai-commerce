@@ -519,6 +519,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		p := settings.TextPolicies["B"]
 		p.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(googleinteractions.Origin)
 		p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+		p.Profile.OfficialTariff.Model = p.Profile.ModelID
 		p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 		settings.TextPolicies["B"] = p
 		settings.TextTransport = isolatedGoogleTitleTransport(t, provider.URL)
@@ -1040,6 +1041,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		wrongProfile, profileErr := module.(productAgentModule).application.selectTitleProfile(context.Background(), "B")
 		require.NoError(t, profileErr)
 		wrongProfile.ModelID = "another-title-model"
+		wrongProfile.OfficialTariff.Model = wrongProfile.ModelID
 		require.NoError(t, wrongProfile.Validate())
 		bound := agent.Binding{ContextKind: "acquisition", ContextID: op.OperationID, ProductKey: op.ProductKey,
 			CatalogVersion: op.CatalogVersion, PublicationID: op.PublicationID, TargetPlatform: "shein"}

@@ -121,6 +121,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	policy.Profile.ClientName = "chat"
 	policy.Profile.ProviderID = "openai-compatible"
 	policy.Profile.ModelID = "planner-fixture"
+	policy.Profile.OfficialTariff.Model = policy.Profile.ModelID
 	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v2"
 	policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 	policy.Profile.MaximumInputBytes = 128 << 10

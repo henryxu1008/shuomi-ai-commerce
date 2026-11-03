@@ -18,6 +18,7 @@ func TestGoogleTitleProvisionIsOfficialVersionedAndNotPlanner(t *testing.T) {
 	cfg.ProductAgent.Enabled = false
 	p := cfg.ProductAgent.TextPolicies["org"]
 	p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+	p.Profile.OfficialTariff.Model = p.Profile.ModelID
 	p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 	p.Profile.MaximumInputBytes, p.Profile.MaximumOutputBytes = 128<<10, 256<<10
 	p.AdmittedCredentialVersion, p.AdmittedEndpointIdentityDigest = "", ""

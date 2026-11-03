@@ -123,6 +123,7 @@ func TestContentDeepSeekConfigRequiresFixedNonThinkingPolicy(t *testing.T) {
 	cfg := agentRuntimeConfig()
 	policy := cfg.ProductAgent.TextPolicies["org"]
 	policy.Profile.ProviderID, policy.Profile.ModelID = "DASHSCOPE", "deepseek-v4.1-flash"
+	policy.Profile.OfficialTariff.Model = policy.Profile.ModelID
 	policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 	cfg.ProductAgent.TextPolicies = nil
 	cfg.ProductAgent.ContentTextPolicies = map[string]governed.RoutePolicy{"org": policy}

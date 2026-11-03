@@ -268,6 +268,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	if googleTitle {
 		p := settings.TextPolicies["B"]
 		p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+		p.Profile.OfficialTariff.Model = p.Profile.ModelID
 		p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 		p.Profile.MaximumInputBytes = 128 << 10
 		settings.TextPolicies["B"] = p

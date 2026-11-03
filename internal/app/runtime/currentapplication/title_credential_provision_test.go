@@ -104,6 +104,7 @@ func TestPlanningCredentialProvisionUsesItsOwnAdmittedRoute(t *testing.T) {
 	planning.Profile.ProviderID = "anthropic"
 	planning.Profile.AdapterKind = "claude-native"
 	planning.Profile.ModelID = "claude-fixture"
+	planning.Profile.OfficialTariff.Model = planning.Profile.ModelID
 	planning.Profile.PromptVersion = "ai-workbench-chat-plan-v1"
 	planning.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 	planning.Profile.MaximumCompletionTokens = 4096
@@ -150,6 +151,7 @@ func TestFirstPlanningCredentialProvisionReturnsBindingBeforeModuleEnable(t *tes
 	planning.Profile.ProviderID = "anthropic"
 	planning.Profile.AdapterKind = "claude-native"
 	planning.Profile.ModelID = "claude-fixture"
+	planning.Profile.OfficialTariff.Model = planning.Profile.ModelID
 	planning.Profile.PromptVersion = "ai-workbench-chat-plan-v1"
 	planning.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 	planning.Profile.MaximumCompletionTokens = 4096

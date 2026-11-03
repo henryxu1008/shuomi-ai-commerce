@@ -22,6 +22,7 @@ func contentProvisionFixture() (*Config, TitleCredentialProvision) {
 	cfg.ProductAgent.Enabled = false
 	policy := cfg.ProductAgent.TextPolicies["org"]
 	policy.Profile.ClientName, policy.Profile.ProviderID, policy.Profile.ModelID = "content", "content-provider", "content-model"
+	policy.Profile.OfficialTariff.Model = policy.Profile.ModelID
 	policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 	policy.AdmittedCredentialVersion, policy.AdmittedEndpointIdentityDigest = "", ""
 	cfg.ProductAgent.ContentTextPolicies = map[string]governed.RoutePolicy{"org": policy}
@@ -177,6 +178,7 @@ func TestContentCredentialProvisionRejectsUnadmittedRoutesBeforeWriting(t *testi
 		"title-only Google adapter": func(c *Config, in *TitleCredentialProvision) {
 			p := c.ProductAgent.ContentTextPolicies["org"]
 			p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+			p.Profile.OfficialTariff.Model = p.Profile.ModelID
 			p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 			p.Profile.MaximumInputBytes, p.Profile.MaximumOutputBytes = 128<<10, 256<<10
 			c.ProductAgent.ContentTextPolicies["org"] = p
