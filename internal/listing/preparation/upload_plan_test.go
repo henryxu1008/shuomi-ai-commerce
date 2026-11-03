@@ -52,7 +52,7 @@ func TestUploadPlanDoesNotTurnFailureCancellationOrRejectionIntoNewModelCall(t *
 }
 
 func TestUploadPlanKeepsExistingChannelReceiptBoundToItsOriginalVersion(t *testing.T) {
-	facts := UploadPlanFacts{HasTarget: true, Ready: true, Target: TargetApproval{RecordID: "new-version"}, ExistingPublicationRecordID: "original-version"}
+	facts := UploadPlanFacts{HasTarget: true, Ready: true, Target: TargetApproval{RecordID: "new-version"}, ExistingPublicationRecordID: "original-version", PublicationOutcome: "accepted"}
 	require.Equal(t, "channel_exists", NextUploadPlanStep(UploadPlanInput{}, UploadPlanItem{}, facts), "a retained platform channel cannot be called a successful upload of new content")
 	facts.Target.RecordID = "original-version"
 	require.Equal(t, ItemSucceeded, NextUploadPlanStep(UploadPlanInput{}, UploadPlanItem{}, facts))
@@ -73,4 +73,15 @@ type planFactsOnly struct{ UploadPlanInputs }
 
 func (*planFactsOnly) ReadUploadPlanFacts(context.Context, UploadPlan, UploadPlanItem) (UploadPlanFacts, error) {
 	return UploadPlanFacts{}, nil
+}
+
+func TestUploadPlanRetainedFailureAndAssetsNeverBecomeAnUploadedItem(t *testing.T) {
+	for _, operation := range []string{"", "original-upload"} {
+		facts := UploadPlanFacts{HasTarget: true, Ready: true, Target: TargetApproval{RecordID: "original"}, ExistingPublicationRecordID: "original", PublicationOutcome: "failed", UploadStatus: ItemUnknown, UploadConfirmed: true}
+		require.Equal(t, ItemFailed, NextUploadPlanStep(UploadPlanInput{}, UploadPlanItem{UploadOperationID: operation}, facts))
+		facts.PublicationOutcome = "asset_retained"
+		facts.UploadResultOutcome = "asset_retained"
+		facts.UploadConfirmed = false
+		require.Equal(t, "asset_retained", NextUploadPlanStep(UploadPlanInput{}, UploadPlanItem{UploadOperationID: operation}, facts))
+	}
 }

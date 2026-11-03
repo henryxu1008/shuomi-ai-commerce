@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/listing/submission"
+	tiktok "task-processor/internal/marketplace/tiktokshop"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
 )
@@ -64,4 +66,14 @@ func TestUploadPlanPublicationSummaryShowsOriginalNativeTimeAndDoesNotInventSche
 	saved.Result.Product.SKCs[0].ShelfWay = "2"
 	saved.Result.Product.SKCs[0].HopeOnSaleDate = "2099-01-01 08:00:00"
 	require.Contains(t, uploadPlanPublicationSummary(saved)[0], "2099-01-01 08:00:00")
+}
+
+func TestUploadPlanDistinguishesNativeTikTokPublicationFromRetainedAssets(t *testing.T) {
+	require.Equal(t, "failed", uploadPlanTikTokOutcome(&submission.TikTokEffectReceipt{Publication: &tiktok.GlobalPublishResult{State: tiktok.PublicationFailed}}))
+	for _, state := range []tiktok.ChannelState{tiktok.SubmittedForReview, tiktok.RemoteDraft} {
+		require.Equal(t, "accepted", uploadPlanTikTokOutcome(&submission.TikTokEffectReceipt{Publication: &tiktok.GlobalPublishResult{State: state}}))
+	}
+	require.Equal(t, "accepted", uploadPlanTikTokOutcome(&submission.TikTokEffectReceipt{Local: &tiktok.CreatedLocalProduct{}, LocalSaveMode: "AS_DRAFT"}))
+	require.Equal(t, "asset_retained", uploadPlanTikTokOutcome(&submission.TikTokEffectReceipt{Global: &tiktok.CreatedGlobalProduct{}}))
+	require.Equal(t, "asset_retained", uploadPlanTikTokOutcome(&submission.TikTokEffectReceipt{Uploaded: &tiktok.UploadedImage{}}))
 }

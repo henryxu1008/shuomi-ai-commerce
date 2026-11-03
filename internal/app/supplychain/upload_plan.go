@@ -7,6 +7,8 @@ import (
 
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/listing/submission"
+	tiktok "task-processor/internal/marketplace/tiktokshop"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
 	"task-processor/internal/storecenter"
@@ -105,6 +107,14 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		return facts, e
 	}
 	facts.ExistingPublicationRecordID = publication.RecordID
+	if publication.RecordID != "" {
+		if publication.TikTok != nil {
+			facts.PublicationOutcome = uploadPlanTikTokOutcome(publication.TikTok)
+		} else {
+			facts.PublicationOutcome = "accepted"
+		}
+	}
+
 	for _, ref := range []struct{ id, action string }{{item.AdaptOperationID, preparation.OperationAdapt}, {item.OptimizeOperationID, preparation.OperationOptimize}, {item.UploadOperationID, preparation.OperationUpload}} {
 		if ref.id == "" {
 			continue
@@ -129,7 +139,11 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 			if e != nil {
 				return facts, e
 			}
-			facts.UploadConfirmed = view.ConfirmedProduct != nil || view.ConfirmedTemuProduct != nil || view.ConfirmedTikTok != nil || view.ConfirmedWalmart != nil
+			facts.UploadConfirmed = view.ConfirmedProduct != nil || view.ConfirmedTemuProduct != nil || view.ConfirmedWalmart != nil
+			if view.ConfirmedTikTok != nil {
+				facts.UploadResultOutcome = uploadPlanTikTokOutcome(view.ConfirmedTikTok)
+				facts.UploadConfirmed = facts.UploadResultOutcome == "accepted"
+			}
 		case preparation.OperationOptimize:
 			facts.OptimizationStatus = status
 			if status != preparation.ItemReview {
@@ -154,6 +168,11 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 				return facts, e
 			}
 		}
+	}
+	if facts.PublicationOutcome == "failed" || facts.UploadResultOutcome == "failed" {
+		facts.PublicationSummary = append(facts.PublicationSummary, "TikTok 美国站同步未成功，全球商品及原业务失败回执已保留；不会自动重发")
+	} else if facts.PublicationOutcome == "asset_retained" || facts.UploadResultOutcome == "asset_retained" {
+		facts.PublicationSummary = append(facts.PublicationSummary, "仅远端资产已保留，原刊登结果未确认；沿原操作核实，不重复创建")
 	}
 	return facts, nil
 }
@@ -194,4 +213,27 @@ func uploadPlanPublicationSummary(saved record.TargetRecord) []string {
 		out = append(out, fmt.Sprintf("SHEIN 款式 %d · %s · shelf_require %s", i+1, plan, skc.ShelfRequire))
 	}
 	return out
+}
+
+// A retained image/global asset proves only that stage. A failed US publication
+// is a durable business outcome, never a successful channel submission.
+func uploadPlanTikTokOutcome(v *submission.TikTokEffectReceipt) string {
+	if v == nil {
+		return ""
+	}
+	if v.Publication != nil {
+		switch v.Publication.State {
+		case tiktok.PublicationFailed:
+			return "failed"
+		case tiktok.SubmittedForReview, tiktok.RemoteDraft:
+			return "accepted"
+		}
+	}
+	if v.Local != nil {
+		return "accepted"
+	}
+	if v.Global != nil || v.Uploaded != nil {
+		return "asset_retained"
+	}
+	return ""
 }

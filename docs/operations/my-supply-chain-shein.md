@@ -1,19 +1,19 @@
 # 我的供应链 / SHEIN 美国站操作与启动
 
-原流程对应 #605 / PR #606；审核、首次上架与状态回读增量维护于同一 PR #821，设计依据为 [冻结方案](../architecture/shein-publication-flow.md)。用户入口为 `/workbench/data/mine` 与 `/workbench/supply/mine`，五个阶段为 `waiting`、`missing`、`ready`、`review`、`uploaded`。正式运行采用 `cmd/current-application` 与当前 Console。RUN-1 身份测试启动器不包含供应链，不能作为完整业务环境。PR #821 本轮未合并、未部署，现有保留实例不因本实现自动获得新能力。
+当前四步与继续合同见[供应链四步依据](../architecture/supply-four-step-continuation.md)及[PR #1080](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1080)。四个入口为待上传（waiting，合并ready投影）、待补全（missing）、待审核（review）、已上传（uploaded）。正式运行仍采用 cmd/current-application 与当前 Console，使用原 Target / Operation / Temporal / Review / Submission。此交付为源码与设计候选，不更新保留实例，不代表部署或用户验收。
 
 ## 用户操作
 
 1. 正常 ZITADEL 登录并选择当前企业。在“我的数据”添加自有商品、实际 JPEG/PNG 图片或 Excel 商品。Excel 模板从页面下载，先预览再确认保存；有 SKU 时须填写实际 currency、price、stock。
 2. 将选定的完整批次加入“我的供应链”。该操作固定全部 membership，不受显示页限制；之后原批次移动不会改写已建立的供应链批次。
-3. “待适配”选择批次、启用官方规则并选择已连接且服务有效的 SHEIN 美国站店铺。店铺的官方应用决定全托管、半托管或自运营类型，浏览器不能覆盖。
+3. 从 `/workbench/supply/mine/waiting` 按四步配置：选择商品 → 选择目标店铺 → 配置标准规则与可选已准入标题智能体 → 确认提交。核对店铺平台/站点，店铺官方应用决定经营模式。预览按钮保存不可变计划配置，继续确认展示当前准确资料版本、原生提交方式/时间和预算；只有明确确认后才绑定后续原操作。
 4. “待补全”读取实际官方字段，补齐类目、属性、价格、库存、尺寸及图片，并明确批准当前商品版本的图片。要求库存证明时，每个 SKC 最多一个公开 HTTPS JPEG/PNG/PDF 文件，类型匹配实际内容，最多3MiB。服务器在保存和发送前重新核实。
-5. “已适配”可确认实际上传，也可启用已激活的标题智能体模板。执行前展示实际每件和整批预算上限。未配置或未授权会显示不可用原因。完整图片智能体的可选接线与人工选择见 [图片运行说明](product-image-agent.md)；普通文件上传不要求启用 ImageAgent。
+5. 补全保存后，点击原计划“检查进度并继续”，重新确认再推进；保存不会自动上传。原计划固定商品、店铺、规则、模板版本和提交方式，列表及导航保留 plan 编号。未配置或未授权的能力显示不可用原因；平台草稿只在 TikTok 真实 AS_DRAFT 路径开放，原生预约时间在对应商品资料中保存。系统到点发送未开放。完整图片智能体见[图片运行说明](product-image-agent.md)。
 6. “待审核”展示原文、建议、证据和未解决问题。有 `listingkit.admin.write` 的当前企业管理员可接受、编辑或拒绝。本页所选最多20件可先预览后批量批准，失败或 UNKNOWN 即停止。批准与 Apply 保持两个明确动作；之后分别确认应用，使用已应用标题补全并保存新目标资料，重新核对当前版本图片批准。
-7. “已上传”展示确认的原 SPU/SKC/SKU 回执。操作进度可刷新、确认原执行已启动，或取消尚未开始的商品。
+7. Apply完成并保存对应新目标资料后，再检查原计划并显式继续；原模板不重跑。待上传的原操作进度可 Ensure 原执行；“停止后续步骤”只阻止未绑定步骤，已创建操作保持原进度。已上传入口只读展示原资料、回执和状态，首次上架进入“店铺商品”原对象详情；无需先同步出观察行。
 8. 上传结果待核实时保留原 record/attempt，通过“查看待核实结果”输入实际 SPU，只读核实原上传。核实成功后，操作进度保留原 UNKNOWN 历史并另行显示“原执行 UNKNOWN，已核实成功”和原 SPU；刷新后从原回执读取，不再次发送。未找到、未审核、缺字段或不匹配均保留 UNKNOWN，不重新发送。图片 UNKNOWN 没有官方正向查询合同，不开放人工改成功或自动重试。
 
-阶段数量、来源筛选与标题/SKU/批次搜索来自完整批次查询。阶段导航保留批次和店铺，所有 API 仍重新授权当前 actor/member/企业。Amazon/Walmart 不属于本次第一条实际上传开放范围。
+阶段数量、来源筛选与标题/SKU/批次搜索来自完整批次/原计划固定成员查询。阶段导航保留批次、店铺、计划和原操作，所有 API 仍重新授权当前 actor/member/企业。平台执行范围仍由对应已接通的当前原生合同和实际运行配置决定。
 
 新增、导入及批次修改在发送前保留原身份、企业、操作键和输入，重开页面后先核实原操作；未找到时只允许原键重试。浏览器无法保存原请求时不发送。后台确认撤权后停止本次批次：未开始项记为拒绝，执行中项保留为待核实，已有成功或 UNKNOWN 回执不改写；恢复权限不自动重跑。授权服务暂时故障不视为撤权。
 
@@ -22,6 +22,8 @@
 ### 已上传商品的平台状态
 
 部署获准后，正常登录、选择原企业和 SHEIN 美国站店铺，在“已上传 → 查看商品 → 平台状态”显式点击“查询平台结果”。商品详情只读原上传 record；本地后来保存的新草稿不会替换该对象。界面分别显示原 SPU/version/SKC 审核、当前美国站 shelf、SKU mallState 和适用库存，各分项保留查询时间。SKU 超过100件时按“查询下一组 SKU”继续，只读分页不构成整件库存已核实。
+
+首次上架在“已上传 → 查看商品 → 到店铺商品管理首次上架”的准确原对象深链接中进行，复用原 source/record/receipt、权限、模式及 UNKNOWN 门禁。原已上传详情的状态面板仅提供查询。
 
 - 自运营：原版本审核通过、当前下架且权限、原请求保护和冷却均允许时，可“上架到美国站”。确认页核对企业、店铺、原 SPU/version/SKC/计划；确认5分钟有效。
 - 半托管：原 shelf_way=1 自动计划或已到期的 shelf_way=2 计划，符合前述条件才可确认；未来预约不能提前覆盖。时间按北京时间解释，平台仍可能拒绝。
@@ -64,6 +66,8 @@ go run ./cmd/supply-asset-init -dsn-file C:\private\asset-owner-dsn.txt -confirm
 go run ./cmd/store-center-schema-init -config C:\private\store-owner.json
 ```
 
+当前显式 installer 包含 listing_preparation_upload_plans / listing_preparation_upload_plan_items 两张计划表及最小运行权限。缺表或权限不全时启动fail closed；本次未运行任何保留环境安装。
+
 Source Account、Commercial 和可选 Agent 按各自当前 owner 的既有初始化路径准备。服务启动只验证已有 schema/grant，不迁移旧数据；不要将上述命令用于未授权环境或非空旧数据。
 
 ```powershell
@@ -91,4 +95,4 @@ npm.cmd run start -- --hostname 127.0.0.1 --port 3000
 
 开发验证涵盖真实 PostgreSQL 完整 membership、目标 pin、回滚和 UNKNOWN 原操作恢复，实际 SDK 签名/不可覆盖对象读回，三类应用的官方 DTO 校验，现有 Agent owner 的受控 provider 执行与 Review.Apply，以及 BFF/前端交互。布局检查使用隔离合成只读数据，没有实际发布或付费请求，检查状态已清理。
 
-真实 SHEIN 上传、真实存储配置、付费 Agent 和用户试用均为 NOT_RUN。自检、CI 与代码评审不等于产品验收。最终候选、CI、独立检查及本批次授权记录在 PR #606；合并、部署、Issue 关闭和真实外部操作分别按用户授权执行。
+真实 SHEIN 上传、真实存储配置、付费 Agent 和用户试用均为 NOT_RUN。自检、CI 与代码评审不等于产品验收。当前四步候选、CI、独立检查及本批次授权记录在 PR #1080；合并、部署、Issue 关闭和真实外部操作分别按用户授权执行。

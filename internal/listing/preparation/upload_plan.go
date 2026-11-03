@@ -106,6 +106,8 @@ func (a TargetApproval) Valid() bool {
 // UploadPlanFacts is supplied only by the current owner reader, never HTTP.
 // Original operations remain terminal; this projection does not reset them.
 type UploadPlanFacts struct {
+	PublicationOutcome          string                 `json:"publicationOutcome,omitempty"`
+	UploadResultOutcome         string                 `json:"uploadResultOutcome,omitempty"`
 	PublicationSummary          []string               `json:"publicationSummary,omitempty"`
 	ManualTargetRequired        bool                   `json:"manualTargetRequired"`
 	ExistingPublicationRecordID string                 `json:"existingPublicationRecordId,omitempty"`
@@ -123,6 +125,16 @@ type UploadPlanFacts struct {
 }
 
 func NextUploadPlanStep(in UploadPlanInput, item UploadPlanItem, facts UploadPlanFacts) string {
+	if facts.ExistingPublicationRecordID != "" && (!facts.HasTarget || facts.ExistingPublicationRecordID != facts.Target.RecordID) {
+		return "channel_exists"
+	}
+	if facts.PublicationOutcome == "failed" || facts.UploadResultOutcome == "failed" {
+		return ItemFailed
+	}
+	if facts.PublicationOutcome == "asset_retained" || facts.UploadResultOutcome == "asset_retained" {
+		return "asset_retained"
+	}
+
 	if item.UploadOperationID != "" {
 		if facts.UploadConfirmed {
 			if facts.ExistingPublicationRecordID != "" && facts.ExistingPublicationRecordID != facts.Target.RecordID {
@@ -140,6 +152,9 @@ func NextUploadPlanStep(in UploadPlanInput, item UploadPlanItem, facts UploadPla
 	}
 	if facts.ExistingPublicationRecordID != "" {
 		if facts.HasTarget && facts.ExistingPublicationRecordID == facts.Target.RecordID {
+			if facts.PublicationOutcome != "accepted" {
+				return "unavailable"
+			}
 			return ItemSucceeded
 		}
 		return "channel_exists"

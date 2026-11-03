@@ -9,7 +9,7 @@ import type {UploadPlan,UploadPlanPreview} from "@/lib/contracts/upload-plan";
 import {supplyStageHref} from "@/lib/workbench/supply-navigation";
 import type {SupplyCommandState} from "./use-supply-command";
 
-const labels:Record<string,string>={adapt:"生成平台资料",optimize:"智能体优化",upload:"提交到平台",missing:"待补全",review:"待审核并应用",pending:"等待执行",running:"处理中",succeeded:"已上传",unknown:"原结果待核实",failed:"原操作失败",denied:"权限不足",cancelled:"已取消",rejected:"审核已拒绝",unavailable:"原结果暂不可读",channel_exists:"该渠道已有其他版本回执"};
+const labels:Record<string,string>={adapt:"生成平台资料",optimize:"智能体优化",upload:"提交到平台",missing:"待补全",review:"待审核并应用",pending:"等待执行",running:"处理中",succeeded:"已提交／回执已保留",asset_retained:"仅远端资产已保留",unknown:"原结果待核实",failed:"原操作失败",denied:"权限不足",cancelled:"已取消",rejected:"审核已拒绝",unavailable:"原结果暂不可读",channel_exists:"该渠道已有其他版本回执"};
 type Props={scope:SupplyScope;planId:string;autoPreview?:string;reload:number;command:SupplyCommandState;blocked:boolean;canSubmit:boolean;onOpen:(id:string)=>void;onLoaded:(plan:UploadPlan)=>void;onItem:(source:string)=>void;onOperation:(id:string)=>void;onReview:(source:string,operation:string)=>void};
 export function UploadPlanPanel({scope,planId,autoPreview,reload,command,blocked,canSubmit,onOpen,onLoaded,onItem,onOperation,onReview}:Props){
  const [storedPlan,setPlan]=useState<UploadPlan>(),[loadedKey,setLoadedKey]=useState(""),[plans,setPlans]=useState<UploadPlan[]>([]),[after,setAfter]=useState<string>(),[next,setNext]=useState<string>(),[approved,setApproved]=useState<{key:string;value:UploadPlanPreview}>(),[confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
