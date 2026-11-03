@@ -47,7 +47,7 @@ test("the four native pages share a project and preserve evidence through analys
  return json({code:"NOT_FOUND"},404);
  });
  await page.setViewportSize({width:1440,height:1000});
- await page.goto("/workbench/data/research");await expect(page.getByRole("heading",{name:"市场调研",level:1})).toBeVisible();await expect(page.getByRole("heading",{name:currentProject.title})).toBeVisible();
+ await page.goto("/workbench/data/research");await expect(page.getByRole("heading",{name:"市场调研业务流程"})).toBeVisible();await page.screenshot({path:info.outputPath("research-home-light-desktop.png"),fullPage:true});await page.getByRole("link",{name:/管理研究项目/}).click();await expect(page.getByRole("heading",{name:"市场调研",level:1})).toBeVisible();await expect(page.getByRole("heading",{name:currentProject.title})).toBeVisible();
  await expect(page.locator("html")).toHaveClass(/light/);
  const listA11y=await new AxeBuilder({page}).include(".console-page").withTags(["wcag2a","wcag2aa"]).analyze();expect(listA11y.violations.filter(v=>v.impact==="serious"||v.impact==="critical")).toEqual([]);
  await page.screenshot({path:info.outputPath("research-list-light-desktop.png"),fullPage:true});
@@ -65,5 +65,5 @@ test("the four native pages share a project and preserve evidence through analys
  await page.getByRole("button",{name:"提交人工审阅"}).first().click();await page.getByLabel("决定理由").fill("已独立核对保存资料，批准进一步测试。");await page.getByRole("button",{name:"批准测试",exact:true}).click();await expect(page.getByText("批准测试",{exact:true}).first()).toBeVisible();
  const transfer=new URL((await page.getByRole("link",{name:"批次 1 · 核对 1 件商品"}).getAttribute("href"))!,origin);expect(JSON.parse(transfer.searchParams.get("transfer")!)).toEqual([candidates[0].observation.ref.selection]);expect(starts).toBe(1);
  await page.getByRole("switch",{name:"浅色模式"}).click();await expect(page.locator("html")).toHaveClass(/light/);
- await page.setViewportSize({width:1440,height:1000});await page.goto("/workbench/supply/selection");await expect(page.getByRole("heading",{name:"智能选品",level:1})).toBeVisible();await page.screenshot({path:info.outputPath("selection-list-light-desktop.png"),fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});await page.goto("/workbench/supply/selection");await expect(page.getByRole("heading",{name:"智能选品业务流程"})).toBeVisible();await page.screenshot({path:info.outputPath("selection-home-light-desktop.png"),fullPage:true});await page.getByRole("link",{name:/比较同项目候选/}).click();await expect(page.getByRole("heading",{name:"智能选品",level:1})).toBeVisible();await page.screenshot({path:info.outputPath("selection-list-light-desktop.png"),fullPage:true});
 });
