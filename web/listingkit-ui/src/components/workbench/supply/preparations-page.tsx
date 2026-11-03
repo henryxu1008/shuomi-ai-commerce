@@ -12,7 +12,7 @@ import { Select } from "@/components/ui/select";
 import { CollectionDialog } from "../collections/collection-page";
 import { SupplyConfiguration, SupplyConfigurationStep, SupplyContinuationNotice } from "./supply-configuration";
 import { listSupplyPreparations, readSupplyPreparation, listSupplySources, readSupplySource, type SupplyScope } from "@/lib/api/supply-chain";
-import { preparationPageSchema, sourcePageSchema, sourceDetailSchema } from "@/lib/contracts/supply-chain";
+import { preparationPageSchema, sourcePageSchema, sourceDetailSchema, type SupplyPreparation } from "@/lib/contracts/supply-chain";
 import { ConsolePage, ConsoleState } from "../console/console-page";
 
 export function PreparationsPage({ initialPreparation,completionAvailable=false,sourceMaterialsAvailable=false }: { initialPreparation?: string;completionAvailable?:boolean;sourceMaterialsAvailable?:boolean }) {
@@ -31,6 +31,7 @@ function ScopedPreparations({ scope, initialPreparation,completionAvailable,sour
   const [batches, setBatches] = useState<z.infer<typeof preparationPageSchema>>({ items: [], total: 0 });
   const [sources, setSources] = useState<z.infer<typeof sourcePageSchema>>({ items: [], total: 0 });
   const [selected, setSelected] = useState(initialPreparation ?? "");
+  const [batch, setBatch] = useState<SupplyPreparation>();
   const [batchPicker, setBatchPicker] = useState(false);
   const [after, setAfter] = useState<string>();
   const [sourceAfter, setSourceAfter] = useState<string>();
@@ -43,32 +44,31 @@ function ScopedPreparations({ scope, initialPreparation,completionAvailable,sour
     const controller = new AbortController(); let alive = true;
 
     const load = async () => {
-      const page = initialPreparation ? { items: [await readSupplyPreparation(scope, initialPreparation, controller.signal)], total: 1 } : await listSupplyPreparations(scope, { after }, controller.signal);
+      const page = initialPreparation && !batchPicker ? { items: [await readSupplyPreparation(scope, selected || initialPreparation, controller.signal)], total: 1 } : await listSupplyPreparations(scope, { after }, controller.signal);
       const rows = selected ? await listSupplySources(scope, selected, { after: sourceAfter }, controller.signal) : { items: [], total: 0 };
-      if (alive) { setBatches(page); setSources(rows); }
+      if (alive) { setBatches(page); setSources(rows); const current = page.items.find(item => item.id === selected); if (current) setBatch(current); }
     };
     void load().catch(() => { if (alive) setError(true); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; controller.abort(); };
-  }, [scope, initialPreparation, selected, after, sourceAfter, reload]);
+  }, [scope, initialPreparation, selected, after, sourceAfter, reload, batchPicker]);
   useEffect(() => {
     const controller = new AbortController(); let alive = true;
     if (detailID) void readSupplySource(scope, detailID, controller.signal).then(value => { if (alive) setDetail(value); }).catch(() => { if (alive) setError(true); });
     return () => { alive = false; controller.abort(); };
   }, [scope, detailID]);
-  const batch = batches.items.find(item => item.id === selected);
   return <ConsolePage title="待上传" description="配置一次上传任务，资料缺失先补全；审核及应用后，明确继续原任务。" breadcrumbs={[{ label: "供应市场" }, { label: "我的供应链" }, { label: "待上传" }]} actions={<Button variant="outline" disabled={loading} onClick={() => {setLoading(true);setError(false);setDetail(undefined);setDetailID("");setReload(value => value + 1);}}>刷新</Button>}>
     {sourceMaterialsAvailable && pendingSource?.targetPlatform==="product" && pendingSource.itemId ? <Button variant="outline" onClick={()=>setMaterialsID(pendingSource.itemId!)}>返回来源素材并核实</Button>:null}
     {materialsID && sourceMaterialsAvailable ? <SourceMaterialsPanel scope={scope} sourceId={materialsID} onClose={()=>setMaterialsID("")}/>:null}
     <SupplyConfiguration>
       <SupplyConfigurationStep step={1} description="从我的数据选择采集批次或自有商品。">
         <Input aria-label="已选商品" value={batch ? `${batch.name || "采集批次"} · ${batch.count} 件` : ""} placeholder="请选择商品" readOnly />
-        <Button variant="outline" onClick={() => setBatchPicker(true)}>{selected ? "更换商品批次" : "选择商品"}</Button>
+        <Button variant="outline" onClick={() => { setLoading(true);setError(false);setBatchPicker(true); }}>{selected ? "更换商品批次" : "选择商品"}</Button>
         <CardDescription>固定本次所选成员，原始商品资料不变。</CardDescription>
       </SupplyConfigurationStep>
       <SupplyConfigurationStep step={2} description="先确定平台、站点及经营模式，再校验资料。">
         <Select aria-label="目标店铺" disabled><option>请选择店铺</option></Select>
         <Button variant="outline" disabled>选择目标店铺</Button>
-        <CardDescription>当前实例尚未开放店铺适配与上传。</CardDescription>
+        <CardDescription>本页为本地资料模式，店铺适配与上传尚未开放。</CardDescription>
       </SupplyConfigurationStep>
       <SupplyConfigurationStep step={3} description="适配规则必选；智能体及执行模板按需使用。">
         <Select aria-label="适配规则" disabled><option>标准适配规则（待配置店铺）</option></Select>
@@ -82,9 +82,9 @@ function ScopedPreparations({ scope, initialPreparation,completionAvailable,sour
         <CardDescription>当前可查看原始资料{completionAvailable ? "，并保存本地待补全草稿" : ""}。平台提交待相关能力开放后可用。</CardDescription>
       </SupplyConfigurationStep>
     </SupplyConfiguration>
-    <SupplyContinuationNotice availability="当前实例尚未开放平台审核与继续上传；本地待补全草稿不代表平台已受理。" />
+    <SupplyContinuationNotice availability="本地资料模式不执行平台审核与上传；本地待补全草稿不代表平台已受理。" />
     {batchPicker ? <CollectionDialog title="选择商品批次" onClose={() => setBatchPicker(false)}>
-      {loading ? <p>正在读取批次</p> : !batches.items.length ? <p>暂无转入批次</p> : batches.items.map(item => <Button className="w-full justify-between" variant={selected === item.id ? "default" : "outline"} key={item.id} onClick={() => { setLoading(true);setError(false);setDetail(undefined);setSelected(item.id);setSourceAfter(undefined);setDetailID("");setBatchPicker(false); }}>{item.name || "采集批次"}<span>{item.count} 件</span></Button>)}
+      {loading ? <p>正在读取批次</p> : !batches.items.length ? <p>暂无转入批次</p> : batches.items.map(item => <Button className="w-full justify-between" variant={selected === item.id ? "default" : "outline"} key={item.id} onClick={() => { setLoading(true);setError(false);setDetail(undefined);setSelected(item.id);setBatch(item);setSourceAfter(undefined);setDetailID("");setBatchPicker(false); }}>{item.name || "采集批次"}<span>{item.count} 件</span></Button>)}
       {batches.nextCursor ? <Button variant="outline" disabled={loading} onClick={() => { setLoading(true);setError(false);setAfter(batches.nextCursor); }}>下一页批次</Button> : null}
       <Button asChild variant="outline"><Link href="/workbench/data/mine">从我的数据添加商品</Link></Button>
       <Button asChild variant="outline"><Link href="/workbench/supply/acquisition">继续采集商品</Link></Button>

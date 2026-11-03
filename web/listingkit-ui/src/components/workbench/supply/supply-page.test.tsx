@@ -219,6 +219,17 @@ it("shows four configuration steps in product/store/rules/confirmation order",as
  expect(screen.queryByRole("tab",{name:/已适配/})).not.toBeInTheDocument();
 });
 
+it("allows a read-only user to select a batch without enabling upload commands",async()=>{
+ state.context.permissions=["workbench.supply.read"];
+ render(<SupplyPage initialStage="waiting"/>);
+ expect(screen.getByRole("button",{name:"选择商品"})).toBeEnabled();
+ await userEvent.click(screen.getByRole("button",{name:"选择商品"}));
+ await userEvent.click(await screen.findByRole("button",{name:"选择批次"}));
+ expect(await screen.findByRole("button",{name:"更换商品批次"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"预览整批上传"})).toBeDisabled();
+ expect(state.write).not.toHaveBeenCalled();
+});
+
 it("keeps uploaded records read-only while retaining the original product and verification entry",async()=>{
  state.plan.mockRejectedValue(new Error("uploaded must not mount execution plan"));
  state.stages.mockResolvedValue({items:[{sourceId:source,stage:"uploaded"}],total:1,batchTotal:1,counts:{all:1,waiting:0,missing:0,ready:0,review:0,uploaded:1}});
