@@ -2,6 +2,78 @@
 
 日期：2026-11-03（Asia/Singapore）。配置预览状态：**REVIEW_ONLY / NOT_PUBLISHABLE**；真实配置与调用 **NOT_RUN**。
 
+## 共享准入核实与保留统一实例方案（2026-11-03，13:08 UTC）
+
+本轮用户授权只读核实、非执行差异和实施方案，Design Basis: **N/A**。没有正式业务代码修改。本节更新下方“原版厂商价格身份未对应”的早期结论：已找到原版官方发布价表；真实绑定计量、公共价目准入及保留数据的切换仍未完成，不签发IMPLEMENTATION_READY或可发布配置。
+
+### 现有凭据和共享准入
+
+再次使用原 `product_agent_runtime`、`product_agent` 库及READ ONLY事务，固定LAC组织级筛选。两条记录、准确凭据版本和端点摘要均与前次一致；首选审查仍为 `local-content-route-830-20261020`。SQL仅在服务端核对官方workspace端点格式，返回 `cn-beijing-workspace-compatible`，不返回原URL/Key。原内容current仍为 `route-af239e9c-04e4-4846-bb1f-31a07365faa7`；没有本企业共享/研究/选品current，也没有 `platform-ai-models / ai.models.official-prices` current。没有GRANT、SET ROLE、管理员连接或provider请求。
+
+| 准入条件 | 当前证据 | 结论与最小后续 |
+| --- | --- | --- |
+| 凭据事实 | 原型号、OpenAI兼容、enabled/key_present、45秒及北京端点格式已核 | 可作为同企业去密候选；Key远端有效性/余额不由存在标记证明 |
+| 受控请求 | 原固定非思考策略准确限定DASHSCOPE / deepseek-v4.1-flash；原受控组件非流式、无模型工具 | 继续纯文本和各用途原prompt/schema/权限；不增加搜索、视觉或修复调用 |
+| 共享descriptor | `ReferenceVersion`、`BoundEvidenceVersion`、正式`PriceID`未取得 | 由原Catalog提供，绑定同一credentialVersion/endpoint摘要/地域/协议/参数/成本证据；不以凭据版本或旧revision代替 |
+| 已开放用途 | 原SharedCatalog对企业全部已开放文本scope核同一候选，缺项返回 `OPEN_CONSUMER_MISSING` | 研究/选品保留各自较小边界；原内容等已开放用途也需兼容，不能只补两项就宣布共享text合格 |
+| 厂商来源 | 原 `officialPriceHost` 只支持openai/google/qwen/cfets，没有deepseek；#1078当前已提交aac555f3该字段规则相同 | **正式价格发布阻碍**：原公共owner须先批准并最小补齐DeepSeek官方来源/准确身份，不伪装成qwen或渠道零售价 |
+| 发布原子性 | 原SharedModelService要求text/image-generation/multimodal三类全部ready | 本轮两项text准备不授权text单独发布；#1078的Flare/完整视觉链仍未交付完整三类开放 |
+
+依据：[原SharedCatalog](../../internal/integration/aicapability/routeconfig/shared_catalog.go)、[原共享发布](../../internal/aicapability/routeconfig/shared.go)、[原价目owner](../../internal/aicapability/routeconfig/platform_prices.go)、[固定策略](../../internal/integration/aicapability/einomodel/deepseek.go)。#1078当前aac555f3的C2-2在途实现只作依赖现状，不合并或接管；本分支已批准的341278d5有限基础保持其原范围。
+
+### 原版准确价目与预算
+
+价格均为人民币/百万Token；这里只保存公开原价证据，没有PriceID、发布版本、生效窗口或API载荷。
+
+| 口径 | 闲时：非缓存输入 / 缓存输入 / 输出 | 忙时：非缓存输入 / 缓存输入 / 输出 | 用途 |
+| --- | --- | --- | --- |
+| DeepSeek原版V4.1 Flash厂商官网 | 1 / 0.02 / 4 | 2 / 0.04 / 8 | 用户消费点数的原价依据 |
+| 百炼原型号、北京地域 | 1 / 0.1 / 4 | 2 / 0.2 / 8 | 独立渠道成本上限，不叠加用户收费 |
+
+原版来源为[2026-09-10官方发布](https://api-docs.deepseek.com/zh-cn/news/news260910/)中的[原始价格图](https://api-docs.deepseek.com/zh-cn/img/v4.1_260910_price_cn.jpeg)，已实际查看；[官方更新日志2026-10-17](https://api-docs.deepseek.com/zh-cn/updates/)说明升级1017时调用方式和价格未变，与[当前厂商价表](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)相符。这补足原版公开价格依据，但不证明百炼当前实际权重等于1017，原凭据型号保持不变。百炼来源为[原型号详情](https://help.aliyun.com/zh/model-studio/deepseek-v4-1-flash)，本地技能索引 `models/groups/deepseek.json` 与 `raw/model-user-guide/support/model-studio-model-list/model-list-text-generation/deepseek-v4-1-flash.md` 相符。
+
+厂商高峰为东八区非中国法定节假日的周一至周五09–12、14–18，其余闲时；百炼闲时为每日22–次日08，其余忙时。两种日历独立，不能用一个忙闲标记同时定成本和零售。人民币沿原owner的 `cny-identity-v1`，不新增外汇条目。
+
+两调用、每调用≤32000输入/4000输出、无缓存的厂商高峰算例：`2 × (32000 × 2 + 4000 × 8) / 1000000 = ¥0.192 = 19.2点`；闲时为¥0.096/9.6点。百炼北京按其忙时上界同为¥0.192成本；两个操作各一次最坏算例共¥0.384/38.4点，仍在已确认每项¥0.30/20点、总¥0.60/40点内。实际序列化输入、原更小Token/字节/期限及费用上限继续收紧，不扩额度。
+
+原价格owner已有 `EffectiveFrom/EffectiveUntil` 和每次Resolve，但没有周期日历/节假日合同。后续先由公共owner确定如何复用连续有效窗口表达准确价目及跨窗口发送前检查；不能把忙时价整天用于实际结算，也不擅自引入定时器、节假日平台或另一个收费引擎。19.2点是保守上界算例，不是固定扣费。
+
+### 完整用量逐字段映射
+
+| 百炼OpenAI Chat字段 | 原mapper/计费含义 | 准入条件 |
+| --- | --- | --- |
+| `usage.prompt_tokens = P` | 完整输入，含缓存；InputText=P | 必须实际存在且非负，不靠SDK默认零值 |
+| `usage.prompt_tokens_details.cached_tokens = C` | CachedInputText=C；非缓存输入=P−C | 必须存在且0≤C≤P；缺失/null不当0，不把全部输入按非缓存收费 |
+| `usage.completion_tokens = O` | OutputText=O | 必须存在、非负；回答和思考已含在其中，不重复加算 |
+| `usage.total_tokens = T` | 一致性校验，不作为第四项收费 | 必须存在且T=P+O |
+| `completion_tokens_details.reasoning_tokens` | 可选输出子集 | 有值时0≤reasoning≤O；本候选仍强制非思考 |
+| 搜索、显式缓存创建、图像/音频等其他收费项 | 本轮纯文本合同没有这些收费维度 | 不申请这些能力；若准确响应或正式合同出现额外收费维度，不能以三项完整为由忽略，须原owner明确拒绝或补齐后再准入 |
+
+当前mapper为[ObserveOfficialOpenAITextUsage](../../internal/integration/aicapability/einomodel/official_usage.go)：保留字段存在性、拒重复/矛盾/越界，用 `openai-text-v1`；旧profile的token观测标签不是其替代。计费沿[原公式](../../internal/aicapability/official_model_pricing.go)：按P−C、C、O分别乘适用原价，预留ceil、完整实际floor；缺完整usage保留原预留/UNKNOWN和原key，不改价、换Key或重发。
+
+[百炼通用Chat参考](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions)及[缓存说明](https://help.aliyun.com/zh/model-studio/context-cache)能证明通用字段语义；但通用例子是Qwen，并非本候选响应。[百炼DeepSeek参考](https://help.aliyun.com/zh/model-studio/deepseek-api)的V4 Pro示例甚至出现 `prompt_tokens_details=None` 或未列缓存字段，不能据此证明V4.1 Flash缓存为零或始终有完整分项。现有53列Invocation也没有完整分项事实。本轮不读取历史提示词/响应、不调用模型，故本凭据的真实完整usage资格仍 **NOT_VERIFIED**。最小解除证据是原owner可追溯的准确型号/北京端点/固定策略非流式响应合同，覆盖缓存命中与未命中的存在性及所有收费维度；无此证据继续关闭。
+
+### 保留task-processor-unified-20261010的实施顺序与停止点
+
+现场再次确认18个原Compose服务、55个带项目标签的卷、52个已挂载不同命名卷（集合可不同，实际以挂载清单为准）。后端/UI仍a66d7d0c、原5cde984e/25ae8979容器及2848da26/d106b5df镜像；业务PG仍72359f29，数据挂载仍 `task-processor-unified-20261010-business-db → /var/lib/postgresql/data`。仅保存镜像/标签/挂载元数据，没有启动、停止、复制卷或备份恢复执行。配置内容/数据内容和财务余额未核验，不以清单冒称恢复验收通过。
+
+| 顺序 | 具体交付 | 配置、数据和卷的处理 | 停止条件 |
+| --- | --- | --- | --- |
+| 1，本轮已完成 | 既有凭据核实、原版公开价目、字段映射、原挂载清单及本方案 | 原配置/凭据/数据/卷均不写入，AI仍关闭 | REVIEW_ONLY / NOT_PUBLISHABLE |
+| 2，后续代码范围须另行明确 | 原公共owner最小补齐DeepSeek来源/价目有效窗口，取得真实协议/完整usage和BoundEvidence；保持各已开放文本scope兼容 | 仍只在原开发分支离线验证；不复制Key、不改现场current，不接管#1078在途视觉开发 | 相关Design Basis及公共owner批准、稳定接口/CI证据；任一缺失不进入配置发布 |
+| 3，保留数据的设计决定 | 明确要保留的是原配置、历史、余额、在途/UNKNOWN及其找回语义；原owner提供同一事实源的有界演进设计 | 当前只读实证仍为旧53列，目标52列；资源库的实际单位本轮未查，保持UNKNOWN。不得把原表改几个字段或直接乘百万当方案 | **当前没有原地演进准入**。若要求保留数据且在同一实例继续新版调用，须新的产品决定及Independent Architecture达到IMPLEMENTATION_READY；本方案不是迁移授权 |
+| 4，设计批准后才能准备 | 复用既有私密备份/恢复能力，保存原配置基线、准确镜像、全部相关owner数据库/卷及回退依据，在获准副本验证原历史/余额/预留/原key不丢失不重复 | 不删除原卷、不覆盖原配置；不得只备份Invocation而遗漏Run、原资源、图片及配置事实。不能只换Agent库再让新消费者写旧bucket，也不能清空/改名旧表伪装全新安装 | 完整受影响owner一致性、原预留/UNKNOWN处置及数据处置设计未就绪则停止；副本验证不是替换用户交付实例 |
+| 5，另行授权实际更新 | 冻结准确源码/镜像及经审查必要配置差异；用仓库标准构建入口，随后仅更新现有项目的后端/UI | 沿原项目、网络、身份和全部原挂载，其他服务不随依赖重建；凭据保持原记录，不自动seed模型或费率 | 用户明确更新授权、保留数据方案及应用启动验证均满足才执行；本轮NOT_RUN |
+| 6，另行授权配置与试跑 | 原页面正常权限维护官网价、原三类共享选择CAS；保持两项read_only和原预算，先只读核对，再申请限定真实调用 | 不自行提权、不借旧内容current或复制Key；三类任一不合格不部分发布，真实采集/AI/付费仍需各自明确授权 | 当前全部NOT_RUN；保存成功不等于真实模型/业务验收 |
+
+关键冲突依据：[冻结设计§5.2–6](../architecture/enterprise-shared-model-configuration.md#52-新-schema-的最小增量与安装顺序候选)、[新系统产品基线](../product/greenfield-no-legacy-migration.md)、[原Invocation启动校验](../../internal/aicapability/store/model_point_fact.go)、[运行说明](../operations/model-route-pricing.md)。当前批准合同只支持新空库，现有53列缺 `official_tariff_json/billable_usage_json` 已直接不兼容；“原样保留”不自动授权改变旧量纲或历史事实。若不作新的产品决定，方案必须停在第2步及离线准备，不能承诺直接覆盖镜像后可用。
+
+本轮发现按当前Must分类，均不阻止本次只读交付：DeepSeek来源未受理为 **BLOCKER / 后续正式配置发布**（准确官网价的核心路径无法完成）；本绑定完整usage缺证为 **BLOCKER / 后续真实收费开放**（不能按完整用量正确收费）；保留53列数据而启动52列消费者为 **BLOCKER / 后续实例切换**（当前rollout无法安全完成）。周期窗口、缓存/无缓存/额外收费维度和跨边界断言属于原owner后续 **IMPLEMENTATION_TEST**，不因理论场景另建平台。以上分类不授权本轮改代码、补造资格或接受风险。
+
+回退也须尊重事实：未产生新写入时可以按获准方案恢复准确原镜像/配置；一旦已有新格式/余额/预留写入，不得简单回退旧镜像或覆盖旧备份丢弃新事实，先关闭新执行，由原owner按已批准恢复安排处理。本轮不设计或实现第二账本、双读写、fallback、通用迁移器或新的恢复机制。
+
+本地证据 `.local/selection-bailian-admission-plan-20261103-01/` 被Git忽略，含去密复核、字段白名单挂载清单、原公开价格图和非执行摘要。首次清单采集曾在进程内接收完整inspect对象再过滤；未输出/保存其环境变量或凭据，后续已改为inspect字段白名单，保存文件仅含安全元数据。应用测试、备份恢复、安装/演进、配置发布、实例更新及真实调用均 **NOT_RUN**。
+
 ## 已取得的受限元数据与候选差异（2026-11-03，12:46 UTC）
 
 **本企业组织级凭据记录已确认；新版绑定准入和运行条件仍未完成。** 用户“继续”沿只读范围核实。Design Basis: N/A，只读现有去密投影、配置元数据及表结构，更新本预览；没有凭据、权限、配置、schema或实例写入。
