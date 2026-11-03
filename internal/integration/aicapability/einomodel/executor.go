@@ -73,13 +73,13 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 	if e == nil || e.Ledger == nil || e.Admission == nil || e.Resolve == nil || e.Authorize == nil || !dispatchContextActive(ctx) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
-	if err := e.Authorize(ctx, input); err != nil {
+	if err := e.Authorize(ctx, admissionMetadata(input)); err != nil {
 		return QualifiedRoute{}, errors.Join(ErrNotDispatched, err)
 	}
 	if !ValidRouteProfile(input.Profile, input.Operation) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
-	route, err := e.Resolve(ctx, input)
+	route, err := e.Resolve(ctx, admissionMetadata(input))
 	if err != nil || !sameRoute(route, QualifiedRoute{Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
@@ -87,10 +87,24 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 }
 
 func capabilityFor(operation aicapability.Operation) aicapability.Capability {
+	if operation == aicapability.OperationProductImageAnalysis {
+		return aicapability.CapabilityProductImageAnalysis
+	}
 	if operation == aicapability.OperationAIWorkbenchChatPlan {
 		return aicapability.CapabilityAIWorkbenchChatPlanning
 	}
 	return aicapability.CapabilityProductEnrichText
+}
+
+// Credential/permission readers need finite identity, never the image buffer or
+// a mutable alias to the quote's content description.
+func admissionMetadata(input aicapability.TextInputIdentity) aicapability.TextInputIdentity {
+	input.ImageContent = nil
+	if input.Image != nil {
+		image := *input.Image
+		input.Image = &image
+	}
+	return input
 }
 
 func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuote, now time.Time) aicapability.InvocationRecord {
@@ -135,6 +149,16 @@ func (e *Executor) Generate(ctx context.Context, input aicapability.TextInputIde
 // at the final transport handoff. cleanup runs after every model outcome.
 func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.TextInputIdentity, expected aicapability.TextQuote,
 	validate func(string) error, beforeSend func(context.Context) (func(), error)) (TextOutput, error) {
+	if input.Image != nil {
+		frozen := *input.Image
+		input.Image = &frozen
+		input.ImageContent = append([]byte(nil), input.ImageContent...)
+		if !validSingleImageContent(frozen, input.ImageContent) {
+			return TextOutput{}, ErrNotDispatched
+		}
+	} else if len(input.ImageContent) != 0 {
+		return TextOutput{}, ErrNotDispatched
+	}
 	quote, err := aicapability.QuoteText(input)
 	if err != nil || quote != expected || input.InvocationID == "" || ctx == nil {
 		return TextOutput{}, ErrNotDispatched
@@ -176,6 +200,9 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
+	if input.Image != nil {
+		guardCfg.SingleImage = &SingleImageRequest{Image: *input.Image, System: input.System, Prompt: input.Prompt}
+	}
 	guard, err := NewGuardedClient(guardCfg, e.BaseTransport, func(gateCtx context.Context) error {
 		// The SDK may construct its own request context. The frozen caller bound
 		// remains authoritative at the actual guarded network handoff.
@@ -240,7 +267,11 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	if admissionErr == nil {
 		func() {
 			defer release()
-			output, generationErr = GenerateText(ctx, component, input.System, input.Prompt, guard)
+			if input.Image != nil {
+				output, generationErr = generateSingleImage(ctx, component, input, guard)
+			} else {
+				output, generationErr = GenerateText(ctx, component, input.System, input.Prompt, guard)
+			}
 		}()
 	}
 	if admissionErr != nil || guard.NetworkSends() == 0 {
@@ -254,7 +285,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 	}
-	if !output.Usage.Known || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
+	if !output.Usage.Known || input.Image != nil && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||
 		errors.Is(generationErr, ErrOutcomeUnknown) || errors.Is(generationErr, ErrUsageUnknown) {
 		category := "outcome_or_usage_unknown"

@@ -917,6 +917,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	var supplyRuntime *supplyChainModule
 	var imageRuntime *fullImageApplication
+	var imageAnalysisRuntime *imageAnalysisApplication
 	var marketRuntime *supplyMarketModule
 	if supplied.pod != nil && supplied.fullImages != nil {
 		guard, err := buildArtworkOriginGuard(supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.agentConfigurationDB)
@@ -1123,7 +1124,23 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-
+		var analysisSupply *supplyapp.Application
+		if completionRuntime != nil {
+			analysisSupply = completionRuntime.app
+		} else if sourceMaterialsRuntime != nil {
+			analysisSupply = sourceMaterialsRuntime.app
+		} else if supplyRuntime != nil {
+			analysisSupply = supplyRuntime.app
+		}
+		analysis, e := buildImageAnalysisApplication(productRuntime, analysisSupply, cfg, supplied.collectionSourceMedia)
+		if e != nil {
+			return nil, fmt.Errorf("build image analysis: %w", e)
+		}
+		if analysis != nil {
+			configureImageAnalysisOrigin(analysis, supplied.productAcquisitionDB, supplied.imageAgentDB, cfg)
+			imageAnalysisRuntime = analysis
+			modules = append(modules, imageAnalysisModule{app: analysis})
+		}
 	}
 	if supplied.agentConfigurationDB != nil {
 		access, e := skillauth.New(workbench.authDependencies.organizationResolver, authorizer)
@@ -1365,6 +1382,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		OfficialKnowledge:    cfg.Workbench.Enabled,
 		AcquisitionImage:     factories.buildAcquisitionImage != nil,
 		FullImageSet:         imageRuntime != nil,
+		ImageAnalysis:        imageAnalysisRuntime != nil,
 		ProductAgent:         supplied.productAgent != nil,
 		ContentTitleOnly:     supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
 		ContentOnly:          supplied.productAgent != nil && supplied.productAgent.ContentOnly,
@@ -1473,6 +1491,7 @@ type currentApplicationOptionalRoutes struct {
 	SubjectVerification  bool
 	AcquisitionImage     bool
 	FullImageSet         bool
+	ImageAnalysis        bool
 	ProductAgent         bool
 	ContentTitleOnly     bool
 	ContentOnly          bool
@@ -1730,6 +1749,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
 		}
 	}
+	if optional.ImageAnalysis {
+		for _, route := range imageAnalysisRoutes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
+		}
+	}
 	if optional.SubjectVerification {
 		for _, route := range (verificationhttp.PersonalHandler{}).Routes() {
 			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
@@ -1810,6 +1834,18 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	includeCommercialBilling := false
 	for _, descriptor := range routes {
+		// Analysis lives below existing image/source paths but has its own
+		// exact readonly-Run boundary, not the generation permission/worker.
+		analysis, e := validateImageAnalysisRouteDescriptor(descriptor)
+		if e != nil {
+			return e
+		}
+		if analysis {
+			if !optional.ImageAnalysis {
+				return errors.New("image analysis application not admitted")
+			}
+			continue
+		}
 		if strings.HasPrefix(descriptor.Path, shopDiagnosisBase+"/") {
 			if !optional.ShopDiagnosis || !optional.OperationsCockpit || !optional.StoreCenter {
 				return errors.New("shop diagnosis requires native cockpit and stores")
@@ -2250,7 +2286,7 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase) || isResearchAnalysisRunHTTPPath(request.URL.Path)) {
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isResearchAnalysisRunHTTPPath(request.URL.Path) || isImageAnalysisConfirmHTTPPath(request.URL.Path) || isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
 			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {

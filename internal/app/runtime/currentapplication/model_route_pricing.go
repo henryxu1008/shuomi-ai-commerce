@@ -59,6 +59,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		add(aicapability.OperationProductAgentDecision, p.TextPolicies)
 		add(aicapability.OperationProductContentDecision, p.ContentTextPolicies)
+		add(aicapability.OperationProductImageAnalysis, p.ImageAnalysisPolicies)
 		if c.SupplyChain != nil {
 			add(aicapability.OperationListingMaterialsDecision, p.MaterialsTextPolicies)
 		}

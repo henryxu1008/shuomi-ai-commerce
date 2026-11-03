@@ -57,7 +57,13 @@ func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64
 	var result agent.Record
 	acquired := false
 	e = g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		a, ae := findAgent(tx, snap.Scope.OrganizationID, snap.AgentID, true)
+		var a agentRow
+		var ae error
+		if snap.ImageAnalysis != nil {
+			a, ae = lockVisualConfigurationAgent(tx, snap.Scope.OrganizationID, productImageProfile)
+		} else {
+			a, ae = findAgent(tx, snap.Scope.OrganizationID, snap.AgentID, true)
+		}
 		// Return an existing exact receipt before activation/template/ceiling checks.
 		// This lookup shares the lock and transaction used for new acquisition.
 		existing, found, re := g.runs.LookupInTransaction(ctx, tx, initial.State.Scope, initial.State.Request.Binding, initial.State.Request.Key)

@@ -148,6 +148,7 @@ type Receipt struct {
 	CommittedAt    time.Time `json:"committedAt"`
 }
 type StartCommand struct {
+	ImageAnalysis                          *ImageAnalysisConfiguration `json:",omitempty"`
 	MemberID, ExpectedModeRevision         string
 	Scope                                  agent.Scope
 	AgentID, AgentVersion, KnowledgeBaseID string
@@ -156,6 +157,7 @@ type StartCommand struct {
 	ExecutionModelProfile                  aicapability.ModelProfile
 }
 type Snapshot struct {
+	ImageAnalysis                                                *ImageAnalysisConfiguration `json:",omitempty"`
 	MemberID, ExpectedModeRevision                               string
 	ID, Digest                                                   string
 	Scope                                                        agent.Scope

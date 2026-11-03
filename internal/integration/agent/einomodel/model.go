@@ -465,19 +465,23 @@ func (m *AgentTextModel) WithExecutionResolver(resolve func(context.Context) (ag
 	return &next, nil
 }
 func (m *AgentTextModel) resolveIdentity(ctx context.Context) (agent.ExecutionIdentity, context.Context, error) {
+	return resolveModelIdentity(ctx, m.freshIdentity, m.executionResolver)
+}
+
+func resolveModelIdentity(ctx context.Context, freshIdentity func(context.Context) (authidentity.AuthenticatedIdentity, error), executionResolver func(context.Context) (agent.ExecutionIdentity, error)) (agent.ExecutionIdentity, context.Context, error) {
 	original, authenticated := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if authenticated {
-		identity, err := m.freshIdentity(ctx)
+		identity, err := freshIdentity(ctx)
 		if err != nil || original.TenantID != original.EffectiveOrganizationID || identity.UserID != original.UserID || identity.TenantID != original.EffectiveOrganizationID || identity.EffectiveOrganizationID != identity.TenantID || !agent.ValidID(identity.EffectiveMemberID) || !identity.TokenExpiresAt.After(time.Now()) {
 			return agent.ExecutionIdentity{}, ctx, agent.ErrUnavailable
 		}
 		return agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, authidentity.WithAuthenticatedIdentity(ctx, identity), nil
 	}
 	deadline, bounded := ctx.Deadline()
-	if m.executionResolver == nil || !bounded || !time.Now().Before(deadline) {
+	if executionResolver == nil || !bounded || !time.Now().Before(deadline) {
 		return agent.ExecutionIdentity{}, ctx, agent.ErrUnavailable
 	}
-	identity, err := m.executionResolver(ctx)
+	identity, err := executionResolver(ctx)
 	if err != nil || !identity.Valid() || ctx.Err() != nil {
 		return agent.ExecutionIdentity{}, ctx, agent.ErrUnavailable
 	}

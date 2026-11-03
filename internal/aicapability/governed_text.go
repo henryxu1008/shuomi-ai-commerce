@@ -2,6 +2,7 @@ package aicapability
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -142,6 +143,9 @@ type TextInputIdentity struct {
 	System         string
 	Prompt         string
 	Profile        ModelProfile
+	Image          *SingleImageInput `json:",omitempty"`
+	// Transient authorized content is never part of JSON, logs or snapshots.
+	ImageContent []byte `json:"-"`
 }
 
 type TextQuote struct {
@@ -160,9 +164,16 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	}
 	if !validTextFact(input.OrganizationID, 128) ||
 		!validTextFact(input.ActorID, 128) || !validTextFact(input.MemberID, 128) ||
-		(input.Operation != OperationAIWorkbenchChatPlan && input.Operation != OperationProductAgentDecision && input.Operation != OperationProductContentDecision && input.Operation != OperationListingMaterialsDecision && input.Operation != OperationProductResearchDecision && input.Operation != OperationProductSelectionDecision && input.Operation != OperationShopDiagnosisDecision) ||
+		(input.Operation != OperationAIWorkbenchChatPlan && input.Operation != OperationProductAgentDecision && input.Operation != OperationProductContentDecision && input.Operation != OperationListingMaterialsDecision && input.Operation != OperationProductResearchDecision && input.Operation != OperationProductSelectionDecision && input.Operation != OperationShopDiagnosisDecision && input.Operation != OperationProductImageAnalysis) ||
 		input.System == "" || input.Prompt == "" ||
 		!utf8.ValidString(input.System) || !utf8.ValidString(input.Prompt) {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	if input.Image != nil {
+		if input.Operation != OperationProductImageAnalysis || !input.Image.Valid() || !SingleImageProfile(input.Profile) {
+			return TextQuote{}, ErrTextEnvelope
+		}
+	} else if input.Operation == OperationProductImageAnalysis || len(input.ImageContent) != 0 {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	if input.Operation == OperationAIWorkbenchChatPlan {
@@ -183,15 +194,23 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 		ProfileDigest  string
 		System         string
 		Prompt         string
+		Image          *SingleImageInput `json:",omitempty"`
 	}{input.OrganizationID, input.ActorID, input.MemberID, input.Operation,
-		input.AgentRunID, input.BusinessTaskID, profileDigest, input.System, input.Prompt}
+		input.AgentRunID, input.BusinessTaskID, profileDigest, input.System, input.Prompt, input.Image}
 	wire, err := json.Marshal(envelope)
-	if err != nil || len(wire)+1024 > input.Profile.MaximumInputBytes ||
-		int64(len(wire)+1024) > input.Profile.MaximumPromptTokens {
+	if err != nil {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	promptBound := int64(len(wire) + 1024)
+	wireBound := len(wire) + 1024
+	if input.Image != nil {
+		promptBound += SingleImagePromptTokenBound
+		wireBound += base64.StdEncoding.EncodedLen(input.Image.ByteLength) + len("data:"+input.Image.MediaType+";base64,")
+	}
+	if wireBound > input.Profile.MaximumInputBytes || promptBound > input.Profile.MaximumPromptTokens {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	sum := sha256.Sum256(wire)
-	promptBound := int64(len(wire) + 1024)
 	cost, err := input.Profile.CostFor(promptBound, input.Profile.MaximumCompletionTokens)
 	if err != nil {
 		return TextQuote{}, err

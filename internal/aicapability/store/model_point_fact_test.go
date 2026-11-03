@@ -75,6 +75,37 @@ func TestAdvisoryAgentsPricedInvocationRetainsExistingScopedLedger(t *testing.T)
 	}
 }
 
+func TestSingleImagePricedInvocationUsesOriginalScopedLedgerAndUsage(t *testing.T) {
+	db := newInvocationLedgerDB(t)
+	l := NewGormInvocationRecorder(db)
+	ctx := context.Background()
+	fact := aicapability.InvocationRecord{InvocationID: "single-image", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "frozen-image-and-quote", ModelID: aicapability.SingleImageMiniModel, Capability: aicapability.CapabilityProductImageAnalysis, Operation: aicapability.OperationProductImageAnalysis, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 5000, MaximumCompletionTokens: 64,
+		OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: aicapability.SingleImageMiniModel, Channel: "openai-direct", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, CachedInputText: 1000, OutputText: 20000}}}
+	won, err := l.ClaimInvocation(ctx, fact)
+	require.NoError(t, err)
+	require.True(t, won)
+	read, err := l.ReadModelInvocation(ctx, "org", fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, fact.OfficialTariff, read.OfficialTariff)
+	terminal := fact
+	terminal.Outcome, terminal.UsageKnown, terminal.FinishedAt = aicapability.InvocationUsageObservedFailed, true, time.Now().UTC()
+	terminal.PromptTokens, terminal.CompletionTokens, terminal.TotalTokens = 30, 5, 35
+	terminal.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: 30, CachedInputText: 10, OutputText: 5}
+	require.NoError(t, l.RecordInvocation(ctx, terminal))
+	read, err = l.ReadModelInvocation(ctx, "org", fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, terminal.BillableUsage, read.BillableUsage)
+	won, err = l.ClaimInvocation(ctx, fact)
+	require.NoError(t, err)
+	require.False(t, won)
+	_, err = l.ReadModelInvocation(ctx, "other-org", fact.InvocationID)
+	require.Error(t, err)
+	changed := fact
+	changed.Operation = aicapability.OperationProductAgentDecision
+	_, err = l.ClaimInvocation(ctx, changed)
+	require.Error(t, err, "a text purpose cannot reuse the visual dispatch fact")
+}
+
 func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	r := NewGormInvocationRecorder(db)

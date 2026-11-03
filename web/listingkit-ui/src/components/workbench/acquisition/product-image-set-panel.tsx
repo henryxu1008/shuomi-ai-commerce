@@ -27,6 +27,7 @@ import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetR
 
 import {ImagePlanRoutePicker} from "./image-plan-route-picker";
 import {ImageTextCopy,imageTextLanguageNames} from "./image-text-copy";
+import {ProductImageAnalysisPanel} from "./product-image-analysis-panel";
 
 type Props={translationItemId?:string;kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare["target"];effectiveVersion?:string;applyReceiptId?:string;onSaved?:()=>void;initialRunId?:string;initialSkill?:SkillSelection};
 type Intent={action:ImageSetRoute;runId?:string;requestKey?:string;body:unknown};
@@ -41,8 +42,7 @@ export function ProductImageSetPanel(props:Props){
  const context=useWorkbenchContext(),userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  if(!userId||!organizationId||context.isSwitching||context.isLoading||context.error||context.blockingError||context.selectionRequired)return null;
  const permissions=context.permissions??[];
- if(!permissions.includes("listingkit.image_agent.read"))return null;
- return <ScopedImageSetPanel key={`${userId}:${organizationId}:${props.kind}:${props.contextId}:${permissions.join(",")}`} {...props} scope={{userId,organizationId,kind:props.kind,contextId:props.contextId}}/>;
+ return <div className="space-y-4"><ProductImageAnalysisPanel kind={props.kind} contextId={props.contextId}/>{permissions.includes("listingkit.image_agent.read")&&<ScopedImageSetPanel key={`${userId}:${organizationId}:${props.kind}:${props.contextId}:${permissions.join(",")}`} {...props} scope={{userId,organizationId,kind:props.kind,contextId:props.contextId}}/>}</div>;
 }
 
 function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSaved,initialRunId,initialSkill,translationItemId}:Props&{scope:ImageSetScope}){
