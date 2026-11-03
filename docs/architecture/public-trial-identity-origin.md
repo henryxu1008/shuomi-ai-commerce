@@ -91,6 +91,8 @@ confirm rejection before the fix, then acceptance. Test mismatched public origin
 mixed loopback/public, HTTP public origins, explicit ports, paths, trailing slash,
 userinfo, query/fragment, IP/localhost aliases, invalid labels and bounded length.
 Keep existing local config, listener/database isolation and schema checks.
+Include the native Membership configuration in the public-identity config test;
+its provider-origin consumer must use the same admitted identity validator.
 Reuse existing issuer-mismatch/unavailable preflight tests and add the reviewed
 coverage gaps: correct issuer with a foreign endpoint, and untrusted TLS rejection.
 Run affected Go tests and required PR CI once the candidate is stable.

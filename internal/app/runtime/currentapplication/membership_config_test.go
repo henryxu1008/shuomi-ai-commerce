@@ -39,3 +39,22 @@ func TestMembershipConfigurationRequiresSeparatePoolAndExactIdentityOrigin(t *te
 		t.Fatal("invalid trusted project accepted")
 	}
 }
+
+func TestLoadConfigPublicIdentityWithMembership(t *testing.T) {
+	cfg, err := LoadConfig(writeManifest(t, validManifest()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const origin = "https://auth-trial.shuomiai.com"
+	cfg.Identity.IssuerURL, cfg.Identity.AuthorizationAPIURL = origin, origin
+	cfg.Membership = &MembershipConfig{ProviderOrigin: origin, ReadToken: "read-only", WriteToken: "write-only", Database: DatabaseConfig{Host: "127.0.0.1", Port: 15432, User: "organization_membership_runtime", Password: "password", Database: "membership", MaxConnections: 2}}
+	if err := cfg.validate(); err != nil {
+		t.Fatalf("public identity with native membership rejected: %v", err)
+	}
+	for _, candidate := range []string{"https://other.example.com", "http://auth-trial.shuomiai.com", origin + "/", origin + "/api", origin + ":443", "https://localhost:18443"} {
+		cfg.Membership.ProviderOrigin = candidate
+		if cfg.validate() == nil {
+			t.Fatalf("unadmitted membership origin accepted: %s", candidate)
+		}
+	}
+}
