@@ -4,6 +4,33 @@ import {sheinImportFixture} from "@/test/shein-import-fixture";
 const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 describe("private supply chain proxy",()=>{
+ it.each(["adapt","optimize","upload"] as const)("reads a plan-created %s operation through every original BFF recovery route",async action=>{
+  const source="550e8400-e29b-41d4-a716-446655440001";
+  const operation={id,input:{preparationId:id,expectedRevision:1,storeId:id,action,sourceIds:[source],planId:id,planCommandKey:id,planRequestHash:"a".repeat(64),...action!=="adapt"?{targetApprovals:[{sourceId:source,recordId:id,revision:2}]}:{},...action==="optimize"?{titleTemplateId:id,titleTemplateRevision:"1",titleQuoteHash:"b".repeat(64),titleModeRevision:"0"}:{}},count:1,completed:0,status:"pending",execution:"started",createdAt:"2026-11-03T00:00:00Z"};
+  for(const [method,path,query,page] of [
+   ["GET",["supply-preparations","operations",id],"",false],
+   ["GET",["supply-preparations",id,"operations"],`?storeId=${id}`,true],
+   ["GET",["supply-preparations","operations","by-key",id],"",false],
+   ["POST",["supply-preparations","operations",id,"ensure"],"",false],
+   ["POST",["supply-preparations","operations",id,"cancel"],"",false],
+  ] as const){
+   const request=new Request(`http://localhost/api/workbench/${path.join("/")}${query}`,{method,headers:{...scope,...method==="POST"?{Origin:"http://localhost"}:{}}});
+   const upstream=await buildWorkbenchUpstreamRequest(request,[...path],"server-token","actor-a");
+   expect(upstream).not.toBeInstanceOf(Response);if(upstream instanceof Response)continue;
+   const payload=page?{items:[operation],total:1}:operation;
+   const response=await buildWorkbenchBrowserResponse(Response.json(payload),upstream.responseContract,upstream.expectedStoreId,{sourceMutation:upstream.sourceMutation});
+   expect(response.status,`${action} ${path.join("/")}`).toBe(200);
+   expect(await response.json()).toEqual(payload);
+  }
+ });
+ it("does not accept plan ownership or target approval fields from browser commands",async()=>{
+  const input={preparationId:id,expectedRevision:1,storeId:id,action:"upload",sourceIds:[id]};
+  for(const owned of [{planId:id},{planCommandKey:id},{planRequestHash:"a".repeat(64)},{targetApprovals:[{sourceId:id,recordId:id,revision:1}]}]){
+   const request=new Request("http://localhost/api/workbench/supply-preparations/operations",{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify({...input,...owned})});
+   const response=await buildWorkbenchUpstreamRequest(request,["supply-preparations","operations"],"server-token","actor-a");
+   expect(response).toBeInstanceOf(Response);if(response instanceof Response)expect(response.status).toBe(400);
+  }
+ });
  it("keeps SHEIN preview read-only and binds its entire selection echo",async()=>{
   const f=sheinImportFixture(),path=["supply-preparations","shein-completion-preview"],url=`http://localhost/api/workbench/${path.join("/")}`;
   const request=()=>new Request(url,{method:"POST",headers:{...scope,"content-type":"application/json"},body:JSON.stringify(f.request)});
