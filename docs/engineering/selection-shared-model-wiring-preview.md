@@ -1,6 +1,8 @@
 # Local Account Center 智能选品：共享文字模型接线与差异预览
 
-日期：2026-11-03（Asia/Singapore）。状态：**REVIEW_ONLY / NOT_PUBLISHABLE / NOT_RUN**。
+日期：2026-11-03（Asia/Singapore）。配置预览状态：**REVIEW_ONLY / NOT_PUBLISHABLE**；真实配置与调用 **NOT_RUN**。
+
+后续新增离线开发授权已记录在Issue #1073：现有reader消费者准入切片按 **Reuse Existing Architecture / Ready** 实施，源码 `25477d81ffa4891615a4c7246e11d7d46cf1d3dd`。两项工厂已支持只注入权威 `RoutePolicyReader`，不再要求第二份静态map；RED→GREEN和相关合成回归通过。完整共享text→原生执行profile/官网价/微点装配仍依赖#1078，未实现为另一套公共能力。详见[当前离线交接](market-research-runtime-handoff.md#两项操作离线接线2026-11-03未更新实例)。下方记录的是原预览范围，其N/A和“未写正式代码”仅适用于预览阶段，不否定后续本次授权；预算及禁止发布/真实调用等限制保持。
 
 用户已选择百炼 `deepseek-v4.1-flash`，仅准备两项操作的配置接线和差异预览。每项渠道成本上限 ¥0.30、用户消费上限20 AI点，两项各一次合计 ¥0.60/40点。该确认不是调用、凭据写入、配置发布、服务更新、迁移或合并授权。
 
