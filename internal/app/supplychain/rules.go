@@ -40,6 +40,19 @@ func (s OfficialRuleStore) RulesMerchant(ctx context.Context, scope collection.S
 type RuleReader struct{ Stores RuleStore }
 
 func (r RuleReader) ReadTargetRules(ctx context.Context, scope collection.Scope, storeID string, input goods.OfficialDraftInput) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
+	return r.readRules(ctx, scope, storeID, input, true)
+}
+
+// ReadCandidateCategoryRules cannot receive attributes from another category.
+// Linked conditions require actual candidate values and remain unevaluated.
+func (r RuleReader) ReadCandidateCategoryRules(ctx context.Context, scope collection.Scope, storeID string, category int64) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
+	if category <= 0 {
+		return storecenter.ProductMerchantBinding{}, goods.OfficialRuleSnapshot{}, record.ErrInvalid
+	}
+	return r.readRules(ctx, scope, storeID, goods.OfficialDraftInput{Product: model.PublishProduct{CategoryID: category}}, false)
+}
+
+func (r RuleReader) readRules(ctx context.Context, scope collection.Scope, storeID string, input goods.OfficialDraftInput, linked bool) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
 	var snapshot goods.OfficialRuleSnapshot
 	if ctx == nil || r.Stores == nil || scope.Validate() != nil || !collection.ValidID(storeID) {
 		return storecenter.ProductMerchantBinding{}, snapshot, record.ErrInvalid
@@ -56,17 +69,22 @@ func (r RuleReader) ReadTargetRules(ctx context.Context, scope collection.Scope,
 	}
 	snapshot.ApplicationMode = model.ApplicationMode(binding.ApplicationType)
 	group, reads := errgroup.WithContext(ctx)
-	if snapshot.ApplicationMode != model.ModeFullyManaged {
+	if linked && snapshot.ApplicationMode != model.ModeFullyManaged {
 		group.Go(func() error { var err error; snapshot.Sites, err = merchant.Sites(reads); return err })
 		group.Go(func() error { var err error; snapshot.Warehouses, err = merchant.Warehouses(reads); return err })
 	}
 	group.Go(func() error { var err error; snapshot.Categories, err = merchant.Categories(reads); return err })
-	group.Go(func() error { var err error; snapshot.Brands, err = merchant.Brands(reads); return err })
+	if linked {
+		group.Go(func() error { var err error; snapshot.Brands, err = merchant.Brands(reads); return err })
+	}
 	if group.Wait() != nil {
 		return binding, goods.OfficialRuleSnapshot{}, record.ErrUnavailable
 	}
 	productType, valid := goods.ProductTypeForCategory(snapshot.Categories, input.Product.CategoryID)
 	if !valid {
+		if !linked {
+			return binding, goods.OfficialRuleSnapshot{}, record.ErrInvalid
+		}
 		return binding, snapshot, nil
 	} // Preserve the missing-category diagnostic for completion.
 	group, reads = errgroup.WithContext(ctx)
@@ -82,6 +100,15 @@ func (r RuleReader) ReadTargetRules(ctx context.Context, scope collection.Scope,
 	})
 	if group.Wait() != nil {
 		return binding, goods.OfficialRuleSnapshot{}, record.ErrUnavailable
+	}
+	if !linked {
+		if snapshot.Attributes.ProductTypeID != productType {
+			return binding, goods.OfficialRuleSnapshot{}, record.ErrUnavailable
+		}
+		if _, err := r.Stores.RulesMerchant(ctx, scope, storeID, &binding); err != nil {
+			return binding, goods.OfficialRuleSnapshot{}, record.ErrUnavailable
+		}
+		return binding, snapshot, nil
 	}
 	product := input.Product
 	product.ProductTypeID = productType // Canonical leaf owner, never browser-supplied type.

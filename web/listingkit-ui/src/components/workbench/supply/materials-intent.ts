@@ -4,6 +4,7 @@ import {materialsPrepareSchema,materialsPreparedSchema,materialsResumeSchema,mat
 const identity=z.string().min(1).max(128);
 const materialsIntentSchema=z.strictObject({recordId:collectionID,userId:identity,organizationId:identity,key:collectionID,prepare:materialsPrepareSchema,prepared:materialsPreparedSchema.optional()}).superRefine((v,ctx)=>{
  if(v.key!==v.prepare.requestKey||v.prepared&&(v.prepared.recordId!==v.recordId||v.prepared.requestKey!==v.key))ctx.addIssue({code:"custom",message:"Original materials intent binding differs"});
+ if(v.prepared&&((v.prepared.purpose==="category-rules")!==!!v.prepare.candidateCategoryId||v.prepared.candidateCategoryId!==v.prepare.candidateCategoryId))ctx.addIssue({code:"custom",message:"Prepared candidate selection differs from original intent"});
 });
 export type MaterialsIntent=z.infer<typeof materialsIntentSchema>;
 export function readMaterialsIntent(raw:string|null):MaterialsIntent|null {

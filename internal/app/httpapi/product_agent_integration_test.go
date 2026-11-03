@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"task-processor/internal/commercetool"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/shopdiagnosis"
@@ -309,6 +310,34 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.SelectionProposalKind, Payload: mustSelectionJSON(t, proposal)}})
 			require.NoError(t, err)
 			content = string(action)
+		case strings.HasPrefix(mode, "supply materials") && strings.Contains(mode, "candidate-rules") && step%2 == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.rules.query","Version":"v1.0.0"}}`
+		case strings.HasPrefix(mode, "supply materials") && strings.Contains(mode, "candidate-rules"):
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var observed materials.CandidateRulesDisclosure
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input        struct{ History []agent.Observation }
+					AllowedTools []commercetool.ToolRef
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) != nil || len(prompt.Input.History) == 0 {
+					continue
+				}
+				require.Equal(t, []commercetool.ToolRef{materials.RulesToolRef()}, prompt.AllowedTools)
+				for _, o := range prompt.Input.History {
+					if d, e := materials.ParseCandidateRulesDisclosure(o.Output); e == nil {
+						observed = d
+					}
+				}
+			}
+			require.NotEmpty(t, observed.EvidenceID)
+			payload := materials.DomainResult{Purpose: materials.CategoryRulesPurpose, Explanation: &materials.RuleExplanation{SchemaVersion: materials.RuleExplanationSchema, Summary: "该候选类目基础模板可核对，具体属性关联条件仍未评价。", References: []materials.RuleExplanationRef{{EvidenceID: observed.EvidenceID, CallID: observed.Evidence.CallID, RuleDigest: observed.Evidence.RuleDigest}}, Unknowns: []string{"未检查实际图片或完整刊登条件"}}}
+			content = string(mustMaterialsJSON(t, agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.MaterialsProposalKind, Payload: mustMaterialsJSON(t, payload)}}))
 		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v3.0.0"}}`
 		case strings.HasPrefix(mode, "supply materials"):
@@ -338,7 +367,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 				}
 			}
 			require.NotEmpty(t, evidence, "proposal cites the actual bounded disclosure")
-			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}`
+			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v2","Payload":{"purpose":"materials-edit","proposal":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}}`
 			if strings.Contains(mode, "receipt collision") {
 				var action map[string]any
 				require.NoError(t, json.Unmarshal([]byte(content), &action))
@@ -352,7 +381,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 				content = string(encoded)
 			}
 			if strings.Contains(mode, " qualified") {
-				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}`
+				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v2","Payload":{"purpose":"materials-edit","proposal":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}}`
 			}
 		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && (step-1)%3 == 0:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`

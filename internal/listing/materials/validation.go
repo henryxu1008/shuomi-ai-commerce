@@ -142,7 +142,10 @@ func (v Validator) ValidateDomain(ctx context.Context, request agent.Request, ca
 	if ctx == nil || v.Reader == nil || request.PolicyVersion != PolicyVersion || request.PromptVersion != PromptVersion || candidate.Kind != ProposalKind {
 		return invalid, nil
 	}
-	p, err := ParseProposal(candidate.Payload)
+	if request.Binding.ContextKind == agent.CandidateRulesContextKind {
+		return v.validateCandidateRules(ctx, request, candidate, history)
+	}
+	p, err := ParseRequestProposal(request, candidate)
 	if err != nil {
 		return invalid, nil
 	}

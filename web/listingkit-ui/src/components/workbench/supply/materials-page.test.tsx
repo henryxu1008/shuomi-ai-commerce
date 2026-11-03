@@ -3,13 +3,13 @@ import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {MaterialsPage} from "./materials-page";
 import {initialSupplyDraft} from "./draft-fields";
 import {SupplyAPIError} from "@/lib/api/supply-chain";
-const f=vi.hoisted(()=>({record:vi.fn(),prepare:vi.fn(),start:vi.fn(),read:vi.fn(),resume:vi.fn(),adopt:vi.fn(),adoption:vi.fn(),mode:"default",params:new URLSearchParams(),guards:[] as Array<()=>boolean>}));
+const f=vi.hoisted(()=>({record:vi.fn(),rules:vi.fn(),prepare:vi.fn(),start:vi.fn(),read:vi.fn(),resume:vi.fn(),adopt:vi.fn(),adoption:vi.fn(),mode:"default",params:new URLSearchParams(),guards:[] as Array<()=>boolean>}));
 const id="550e8400-e29b-41d4-a716-446655440000",key="550e8400-e29b-41d4-a716-446655440001";
 const context=vi.hoisted(()=>({user:{id:"actor"},effectiveOrganization:{id:"org",name:"测试企业"},permissions:["workbench.agent.use","local_agent.write","workbench.supply.read"],isLoading:false,isSwitching:false,error:null,blockingError:null,selectionRequired:false,registerOrganizationSwitchGuard:(check:()=>boolean)=>{f.guards.push(check);return()=>{f.guards=f.guards.filter(v=>v!==check)}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>context}));
 vi.mock("next/navigation",()=>({useSearchParams:()=>f.params}));
 vi.mock("next/link",()=>({default:({href,children}:React.ComponentProps<"a">)=><a href={href}>{children}</a>}));
-vi.mock("@/lib/api/supply-chain",async importOriginal=>({...await importOriginal<typeof import("@/lib/api/supply-chain")>(),readSupplyRecord:(...a:unknown[])=>f.record(...a)}));
+vi.mock("@/lib/api/supply-chain",async importOriginal=>({...await importOriginal<typeof import("@/lib/api/supply-chain")>(),readSupplyRecord:(...a:unknown[])=>f.record(...a),supplyRules:(...a:unknown[])=>f.rules(...a)}));
 vi.mock("@/lib/api/listing-materials",()=>({prepareMaterials:(...a:unknown[])=>f.prepare(...a),startMaterials:(...a:unknown[])=>f.start(...a),readMaterials:(...a:unknown[])=>f.read(...a),resumeMaterials:(...a:unknown[])=>f.resume(...a),adoptMaterials:(...a:unknown[])=>f.adopt(...a),readMaterialsAdoption:(...a:unknown[])=>f.adoption(...a)}));
 vi.mock("../agents/agent-configuration-hooks",()=>({configurationError:()=>"配置不可用",useConfigurationRead:(_scope:unknown,path:string)=>({data:path.includes("execution-modes")?{mode:f.mode,revision:"1"}:path.includes("templates?")?{items:[]}: {canUse:true,agent:{activation:"ENABLED"},capabilities:[{support:"REQUIRED",readiness:"AVAILABLE"}]}})}));
 const draft=initialSupplyDraft({product:{}} as Parameters<typeof initialSupplyDraft>[0]);
@@ -20,6 +20,7 @@ beforeEach(()=>{
  f.mode="default";f.params=new URLSearchParams();f.guards=[];vi.clearAllMocks();window.history.replaceState(null,"",`/workbench/supply/materials/${id}`);
  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
  f.record.mockResolvedValue(base);
+ f.rules.mockResolvedValue({rules:{categories:[{category_id:123,product_type_id:456,category_name:"候选类目",last_category:true,children:[]}]}});
  f.prepare.mockImplementation(async(_scope,_record,input)=>({recordId:id,requestKey:input.requestKey,configurationSnapshotRef:ref,modeSnapshotRef:modeRef,modeRevision:"1",templateSelection:null}));
  f.start.mockImplementation(async(_scope,_record,requestKey)=>run(requestKey));f.read.mockResolvedValue(run());
 });
@@ -102,6 +103,49 @@ it("shows recorded image advice without preparing, generating or adopting",async
  expect(screen.getByText("批准素材尚未准备好，不能据此判断必需图片缺失。")).toBeInTheDocument();
  expect(f.prepare).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();expect(f.adopt).not.toHaveBeenCalled();
  expect(screen.queryByRole("button",{name:"确认保存本地草稿"})).toBeNull();
+});
+
+function queryRun(requestKey=key){
+ const {before,after,proposal,candidateHash,...common}=run(requestKey);void before;void after;void proposal;void candidateHash;
+ return {...common,purpose:"category-rules",candidateCategoryId:"123",canRequestAdoption:false,canResume:false,queryRules:{binding:{CandidateRules:{BaseRevision:"1",CandidateCategoryID:"123"}},categoryPath:[{id:"123",name:"候选类目",productTypeId:"456"}],fill:{fill_in_standard_list:[{field_key:"name",module:"product",required:null,show:true}],picture_config_list:[]},attributes:{attribute_infos:[]},coverage:[{section:"category",status:"available",reason:"实际类目"},{section:"conditional",status:"not_evaluated",reason:"具体属性关联条件未评价"}],unknowns:["未检查真实图片"],evidence:{readAt:"2026-11-03T00:00:00Z",officialVersionStatus:"unknown"}},ruleExplanation:{schemaVersion:"listing-rule-explanation-v1",summary:"先核对该类目的基础填写模板。",references:[],unknowns:[]}};
+}
+
+it("confirms a separate candidate selector without changing the saved draft or offering adoption",async()=>{
+ const before=JSON.stringify(base);
+ f.prepare.mockImplementation(async(_scope,_record,input)=>({recordId:id,requestKey:input.requestKey,configurationSnapshotRef:ref,modeSnapshotRef:modeRef,modeRevision:"1",templateSelection:null,purpose:"category-rules",candidateCategoryId:input.candidateCategoryId}));
+ f.start.mockImplementation(async(_scope,_record,requestKey)=>queryRun(requestKey));
+ render(<MaterialsPage recordId={id}/>);
+ fireEvent.change(await screen.findByLabelText("本次用途"),{target:{value:"category-rules"}});
+ await screen.findByRole("option",{name:"候选类目"});
+ fireEvent.change(screen.getByLabelText("候选类目"),{target:{value:"123"}});
+ fireEvent.click(screen.getByRole("button",{name:"查询候选类目规则"}));
+ await screen.findByRole("heading",{name:"确认查询候选类目规则"});
+ fireEvent.click(screen.getByRole("button",{name:"确认查询并解释"}));
+ await screen.findByText("先核对该类目的基础填写模板。");
+ expect(f.prepare.mock.calls[0][2].candidateCategoryId).toBe("123");
+ expect(JSON.stringify(base)).toBe(before);expect(f.adopt).not.toHaveBeenCalled();
+ expect(screen.queryByRole("button",{name:"确认保存本地草稿"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"核对原保存结果"})).toBeNull();
+});
+
+it("restores full-access rule history without refreshing rules or enabling saves",async()=>{
+ f.mode="full_access";f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});f.read.mockResolvedValue(queryRun());
+ render(<MaterialsPage recordId={id}/>);
+ await screen.findByText("先核对该类目的基础填写模板。");
+ expect(screen.getByText("具体属性关联条件未评价")).toBeInTheDocument();
+ expect(f.rules).not.toHaveBeenCalled();expect(f.prepare).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();expect(f.adopt).not.toHaveBeenCalled();
+ expect(screen.queryByRole("button",{name:"核对原保存结果"})).toBeNull();
+});
+
+it("shows the known query repair limit without claiming an explanation was generated",async()=>{
+ f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});
+ f.read.mockResolvedValue({...queryRun(),stopReason:"repair_limit",ruleExplanation:undefined});
+ render(<MaterialsPage recordId={id}/>);
+ await screen.findByRole("heading",{name:"规则解释未完成，请核对停止原因"});
+ expect(screen.queryByRole("heading",{name:"规则解释已生成，待核对"})).toBeNull();
+ expect(screen.queryByRole("heading",{name:"智能体解释"})).toBeNull();
+ expect(screen.getByText("停止原因：repair_limit")).toBeInTheDocument();
+ expect(f.rules).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();expect(f.adopt).not.toHaveBeenCalled();
 });
 it("keeps a historical interrupted run readable without offering Resume",async()=>{
  f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});

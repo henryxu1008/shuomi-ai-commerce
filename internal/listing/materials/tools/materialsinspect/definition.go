@@ -10,6 +10,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
 	"task-processor/internal/listing/materials"
@@ -18,7 +19,7 @@ import (
 )
 
 func AgentDefinition() commercetool.AgentDefinition {
-	return commercetool.AgentDefinition{ID: materials.AgentID, Version: materials.AgentVersion, AllowedTools: []commercetool.ToolRef{materials.InspectToolRef()}}
+	return commercetool.AgentDefinition{ID: materials.AgentID, Version: materials.AgentVersion, AllowedTools: agentconfig.MaterialsAllowedTools()}
 }
 
 func Definition() commercetool.Definition {
@@ -61,6 +62,9 @@ func OutputSchema() json.RawMessage {
 	// Accept JSON null for those arrays without relaxing their item schema.
 	allowNilArrays(document)
 	allowUnknownOwnerFlags(document, reflect.TypeOf(materials.Disclosure{}))
+	// Keep the unchanged inspect-v3 Binding contract exact. Query bindings
+	// belong only to the separate rules Tool.
+	setBindingSchema(document, InputSchema())
 	defs, ok := document["$defs"].(map[string]any)
 	if !ok {
 		defs = map[string]any{}

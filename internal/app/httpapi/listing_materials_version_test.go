@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/listing/materials"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/product/collection"
@@ -17,6 +18,17 @@ func materialV1HistoricalState() agent.State {
 		DomainProposal: &agent.DomainProposal{Kind: "listing-materials-v1", Payload: json.RawMessage(`{"brandCode":"brand","evidenceIds":["original-evidence"]}`)}}
 	s.Validation = &agent.Validation{Valid: true, PolicyVersion: "listing-materials-policy-v1", CandidateHash: collection.Digest(s.DomainProposal)}
 	return s
+}
+
+func TestCandidateRulesResultCannotEnterMaterialAdoptionPredicate(t *testing.T) {
+	s := materialV1HistoricalState()
+	s.Request.PolicyVersion, s.Request.PromptVersion = agentconfig.MaterialsPolicyVersion, agentconfig.MaterialsPromptVersion
+	s.Validation.PolicyVersion = s.Request.PolicyVersion
+	s.DomainProposal.Kind = agentconfig.MaterialsProposalKind
+	s.DomainProposal.Payload = json.RawMessage(`{"purpose":"category-rules","explanation":{"schemaVersion":"listing-rule-explanation-v1","summary":"只读规则解释","references":[{"evidenceId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","callId":"call","ruleDigest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}],"unknowns":[]}}`)
+	s.Validation.CandidateHash = collection.Digest(s.DomainProposal)
+	require.False(t, materialsHistoricalReviewable(s), "even a misbound query payload must not become an adoptable material result")
+	require.False(t, materialsRunReviewable(s))
 }
 
 func TestMaterialsV1CommittedReceiptKeepsOriginalIntegrityWithoutCurrentRules(t *testing.T) {
@@ -43,4 +55,15 @@ func TestMaterialsV1HistoricalProposalCannotEnterNewAdoption(t *testing.T) {
 	after, err := json.Marshal(s)
 	require.NoError(t, err)
 	require.Equal(t, before, after, "an execution refusal must not rewrite the historical run or reservation")
+}
+
+func TestMaterialsV3HistoryKeepsOriginalFormatAfterV4Cutover(t *testing.T) {
+	s := materialV1HistoricalState()
+	s.Request.PolicyVersion, s.Request.PromptVersion = "listing-materials-policy-v3", "listing-materials-prompt-v3"
+	s.Validation.PolicyVersion = s.Request.PolicyVersion
+	require.True(t, materialsHistoricalReviewable(s), "v3 bare v1 proposal remains an exact historical read")
+	require.False(t, materialsRunReviewable(s), "D3 denies new adoption of a retained v3 run")
+	s.DomainProposal.Kind = "listing-materials-v2"
+	s.Validation.CandidateHash = collection.Digest(s.DomainProposal)
+	require.False(t, materialsHistoricalReviewable(s), "current proposal kind must not reinterpret a v3 payload")
 }

@@ -140,7 +140,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 			return p, agent.ErrInvalid
 		}
 	} else if m.materials {
-		if in.AgentID != agentconfig.MaterialsAgentID || in.AgentVersion != agentconfig.MaterialsAgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != agentconfig.MaterialsPolicyVersion || in.PromptVersion != agentconfig.MaterialsPromptVersion || in.Binding.ContextKind != "listing-target-record" || in.Binding.TargetPlatform != "shein" || !in.ContextSnapshotRef.Absent() {
+		if in.AgentID != agentconfig.MaterialsAgentID || in.AgentVersion != agentconfig.MaterialsAgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != agentconfig.MaterialsPolicyVersion || in.PromptVersion != agentconfig.MaterialsPromptVersion || (in.Binding.ContextKind != "listing-target-record" && in.Binding.ContextKind != agent.CandidateRulesContextKind) || in.Binding.TargetPlatform != "shein" || !in.ContextSnapshotRef.Absent() {
 			return p, agent.ErrInvalid
 		}
 	} else if m.content {
@@ -209,8 +209,12 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 				in.History[i].Output = append(json.RawMessage(nil), in.History[i].Output...)
 			}
 		} else if m.materials {
-			if in.History[i].Tool == agentconfig.MaterialsInspectToolRef() {
-				in.History[i].Output, err = m.materialsAdmission.ProjectEvidence(in.History[i].Output)
+			expected := agentconfig.MaterialsInspectToolRef()
+			if in.Binding.ContextKind == agent.CandidateRulesContextKind {
+				expected = agentconfig.MaterialsRulesToolRef()
+			}
+			if in.History[i].Tool == expected {
+				in.History[i].Output, err = m.materialsAdmission.ProjectBoundEvidence(in.Binding, in.History[i].Output)
 			} else if in.History[i].Tool != (commercetool.ToolRef{}) || len(in.History[i].Output) > agent.MaxModelOutputBytes || len(in.History[i].Output) != 0 && !json.Valid(in.History[i].Output) {
 				err = agent.ErrInvalid
 			} else {
@@ -233,12 +237,19 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if err != nil {
 		return p, err
 	}
+	allowedTools := m.tools
+	if m.materials {
+		allowedTools = []commercetool.ToolRef{agentconfig.MaterialsInspectToolRef()}
+		if in.Binding.ContextKind == agent.CandidateRulesContextKind {
+			allowedTools = []commercetool.ToolRef{agentconfig.MaterialsRulesToolRef()}
+		}
+	}
 	prompt, err := json.Marshal(struct {
 		Input        agent.ModelInput
 		AllowedTools []commercetool.ToolRef
 		Knowledge    *k.ContextBundle `json:",omitempty"`
 		Skill        *skill.Package   `json:",omitempty"`
-	}{in, m.tools, p.knowledge, p.skill})
+	}{in, allowedTools, p.knowledge, p.skill})
 	if err != nil {
 		return p, agent.ErrInvalid
 	}
@@ -258,6 +269,9 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	}
 	if m.materials {
 		system, operation = materialsTextSystem, aicapability.OperationListingMaterialsDecision
+		if in.Binding.ContextKind == agent.CandidateRulesContextKind {
+			system = candidateRulesTextSystem
+		}
 	}
 	if m.selection {
 		system, operation = selectionTextSystem, aicapability.OperationProductSelectionDecision
@@ -313,7 +327,7 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 			reportActionOutputFailure(p.ctx, in.InvocationID, raw, decodeErr)
 			return decodeErr
 		}
-		if m.materials && m.materialsAdmission.ValidateAction(action) != nil {
+		if m.materials && m.materialsAdmission.ValidateBoundAction(in.Binding, action) != nil {
 			return reject("domain_action", "DomainProposal")
 		}
 		if m.diagnosis && m.diagnosisAdmission.ValidateAction(action) != nil {

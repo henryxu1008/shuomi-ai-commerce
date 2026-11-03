@@ -33,6 +33,9 @@ func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgen
 	if strings.Contains(value, "historical-v2-") {
 		version, policy, prompt = "v2.0.0", "listing-materials-policy-v2", "listing-materials-prompt-v2"
 	}
+	if strings.Contains(value, "historical-v3-") {
+		version, policy, prompt = "v3.0.0", "listing-materials-policy-v3", "listing-materials-prompt-v3"
+	}
 	mode.Subject.Definition.Version = version
 	modeRaw := mustMaterialsJSON(t, mode)
 	mode.Digest = collection.Digest(mode)
@@ -40,6 +43,7 @@ func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgen
 	snapshot.AgentVersion = version
 	snapshot.Request.PolicyVersion, snapshot.Request.PromptVersion = policy, prompt
 	snapshot.ExecutionModelProfile.PromptVersion = snapshot.Request.PromptVersion
+	snapshot.ExecutionModelProfile.OutputSchemaVersion = "listing-materials-action-v1"
 	snapshot.Request.ModeSnapshotRef = mode.Ref()
 	snapshot.Digest = ""
 	snapshotRaw := mustMaterialsJSON(t, snapshot)
@@ -49,10 +53,14 @@ func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgen
 	run.State.Request = snapshot.Request
 	run.State.Request.ConfigurationSnapshotRef = ref
 	run.State.DomainProposal.Payload = json.RawMessage(`{"brandCode":"fixture-brand","evidenceIds":["original-v1-evidence"]}`)
+	run.State.DomainProposal.Kind = "listing-materials-v1"
 	run.State.Validation.PolicyVersion = snapshot.Request.PolicyVersion
 	run.State.Validation.CandidateHash = collection.Digest(run.State.DomainProposal)
 	for n := range run.State.History {
 		if run.State.History[n].Tool.ID == materials.InspectToolRef().ID {
+			if version == "v3.0.0" {
+				continue
+			} // v3's exact inspect/advice format is retained verbatim.
 			run.State.History[n].Tool.Version = version
 			run.State.History[n].Output = json.RawMessage(`{"evidenceId":"original-v1-evidence"}`)
 		}
@@ -92,7 +100,12 @@ func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgen
 	require.NoError(t, json.Unmarshal(response, &out))
 	require.False(t, out.CanRequestAdoption)
 	require.False(t, out.CanResume)
-	require.Nil(t, out.ImageAdvice, "no new advice is fabricated for an old exact Tool version")
+	if version == "v3.0.0" {
+		require.NotNil(t, out.ImageAdvice, "D3 keeps original v3 advice readable, without recomputation")
+		require.NoError(t, out.ImageAdvice.Verify())
+	} else {
+		require.Nil(t, out.ImageAdvice, "no new advice is fabricated for an old exact Tool version")
+	}
 	if strings.HasSuffix(value, "committed") {
 		require.NotNil(t, out.Adoption)
 	}

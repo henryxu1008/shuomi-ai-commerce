@@ -49,7 +49,11 @@ func observedInspection(t *testing.T, value Inspection) []agent.Observation {
 
 func proposalFor(t *testing.T, value Inspection, fields string) agent.DomainProposal {
 	t.Helper()
-	return agent.DomainProposal{Kind: ProposalKind, Payload: json.RawMessage(`{` + fields + `,"evidenceIds":["` + value.EvidenceID + `"]}`)}
+	return agent.DomainProposal{Kind: ProposalKind, Payload: json.RawMessage(`{"purpose":"materials-edit","proposal":{` + fields + `,"evidenceIds":["` + value.EvidenceID + `"]}}`)}
+}
+
+func materialTestRequest(i Inspection) agent.Request {
+	return agent.Request{Binding: i.Binding, PolicyVersion: PolicyVersion, PromptVersion: PromptVersion}
 }
 
 func TestMaterialsValidatorRequiresActuallyDisclosedExactEvidence(t *testing.T) {
@@ -95,12 +99,12 @@ func TestMaterialPreviewRejectsInventedRulesAssetsAndNonleafCategory(t *testing.
 		`"attributes":[{"attribute_id":5,"custom_attribute_value":"invented"}]`,
 		`"images":[{"group":"spu","skc":0,"sku":0,"asset_id":"unapproved","sort":1,"type":1}]`,
 	} {
-		p, err := ParseProposal(proposalFor(t, value, fields).Payload)
+		p, err := ParseRequestProposal(agent.Request{Binding: value.Binding, PolicyVersion: PolicyVersion, PromptVersion: PromptVersion}, proposalFor(t, value, fields))
 		require.NoError(t, err)
 		_, err = Preview(value, p)
 		require.ErrorIs(t, err, ErrInvalidProposal, fields)
 	}
-	p, err := ParseProposal(proposalFor(t, value, `"categoryId":13`).Payload)
+	p, err := ParseRequestProposal(agent.Request{Binding: value.Binding, PolicyVersion: PolicyVersion, PromptVersion: PromptVersion}, proposalFor(t, value, `"categoryId":13`))
 	require.NoError(t, err)
 	preview, err := Preview(value, p)
 	require.NoError(t, err)
