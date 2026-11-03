@@ -112,6 +112,7 @@ export const selectionPreparedSchema = z.strictObject({
   maximumTokens: count,
   maximumCostMicros: count,
   maximumCallCostMicros: count,
+  referencePriceVersion: text(128).optional(),
   currency: text(16).min(1),
 });
 const start = z.strictObject({
@@ -164,6 +165,7 @@ export const selectionRunBaseSchema = z
     costMicros: count,
     currency: text(16),
     usageStatus: z.enum(["observed", "unknown_reserved"]),
+    referencePriceVersion: text(128).optional(),
   });
 export const selectionRunSchema = selectionRunBaseSchema
   .superRefine((r, ctx) => {

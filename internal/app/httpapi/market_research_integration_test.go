@@ -177,8 +177,11 @@ func testResearchHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, pare
 	prepared := call("POST", base+"/prepare", key, prepare, http.StatusOK)
 	var dto struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
+		ReferencePriceVersion    string                         `json:"referencePriceVersion"`
 	}
 	require.NoError(t, json.Unmarshal(prepared, &dto))
+	require.NotEmpty(t, dto.ReferencePriceVersion)
+	start := materialsStartBody{ConfigurationSnapshotRef: dto.ConfigurationSnapshotRef}
 	oldProfile := a.profile
 	a.profile = func(context.Context, string) (aicapability.ModelProfile, error) {
 		return aicapability.ModelProfile{}, agent.ErrUnavailable
@@ -190,17 +193,18 @@ func testResearchHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, pare
 	mismatch := prepare
 	mismatch.GoalSummary = "different intent"
 	call("POST", base+"/prepare", key, mismatch, http.StatusConflict)
-	raw := call("POST", base+"/runs", key, dto, http.StatusOK)
+	raw := call("POST", base+"/runs", key, start, http.StatusOK)
 	var result researchRunDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
 	require.True(t, result.Validated, string(raw))
+	require.Equal(t, dto.ReferencePriceVersion, result.ReferencePriceVersion)
 	require.Len(t, result.Inspection.Candidates, 2)
 	require.EqualValues(t, 2, calls.Load())
 	require.Equal(t, agent.HumanReviewRequired, result.Phase)
 	before, e := core.app.Preparations.List(actor, collection.Query{Limit: 20})
 	require.NoError(t, e)
 	require.Empty(t, before.Items, "read-only advice must not transfer products")
-	require.JSONEq(t, string(raw), string(call("POST", base+"/runs", key, dto, http.StatusOK)))
+	require.JSONEq(t, string(raw), string(call("POST", base+"/runs", key, start, http.StatusOK)))
 	require.EqualValues(t, 2, calls.Load())
 	recent := call("GET", base+"/runs", "", nil, http.StatusOK)
 	require.Contains(t, string(recent), result.RunID)

@@ -25,7 +25,6 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"task-processor/internal/integration/googleinteractions"
 	"task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
@@ -214,6 +213,15 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	var calls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if mode == "research" || mode == "selection" {
+			raw, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			var request map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(raw, &request))
+			require.Equal(t, "false", string(request["enable_thinking"]))
+			require.JSONEq(t, `"deepseek-v4.1-flash"`, string(request["model"]))
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+		}
 		if withSkill {
 			raw, e := io.ReadAll(r.Body)
 			require.NoError(t, e)
@@ -482,11 +490,18 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
+		if mode == "research" || mode == "selection" {
+			_, _ = w.Write([]byte(`{"id":"offline-deepseek","model":"deepseek-v4.1-flash","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
 	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
 	credential := openai.AIClientCredential{TenantID: "B", ClientName: "default", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
+	if mode == "research" || mode == "selection" {
+		credential.Model, credential.APIStyle = "deepseek-v4.1-flash", "openai-compatible"
+	}
 	if googleTitle {
 		credential.BaseURL, credential.Model, credential.APIStyle = googleinteractions.Origin, googleinteractions.Model, "google-interactions"
 	}
@@ -580,11 +595,13 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			policies = settings.ResearchTextPolicies
 		}
 		p := policies["B"]
+		p.Profile.ProviderID, p.Profile.ModelID, p.Profile.AdapterPolicyVersion = "DASHSCOPE", "deepseek-v4.1-flash", governed.DashScopeDeepSeekV41FlashNonThinkingPolicy
+		p.Profile.OfficialTariff.Model, p.Profile.OfficialTariff.UsageVersion = p.Profile.ModelID, aicapability.ReferenceTextTotalsV1
 		p.Profile.MaximumPromptTokens, p.Profile.MaximumCompletionTokens = 32000, 4000
 		p.Profile.InputMicrosPerMillion, p.Profile.OutputMicrosPerMillion = 2000000, 8000000
 		p.Profile.OfficialTariff.Rates = aicapability.OfficialModelRates{InputText: 2000000, OutputText: 8000000}
 		policies["B"] = p
-		settings.CurrentTextPolicies = qualified.SharedTextReader{Service: syntheticSelectionSharedCategory{settings: &settings}}
+		settings.CurrentTextPolicies = configuredSelectionSharedReader(t, &settings, f.owner)
 		retail, err := p.Profile.OfficialTariff.ReserveTextMicropoints(32000, 4000)
 		require.NoError(t, err)
 		require.EqualValues(t, 19200000, 2*retail)

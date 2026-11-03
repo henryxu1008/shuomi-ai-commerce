@@ -302,6 +302,7 @@ type researchRunDTO struct {
 	CostMicros               int64                          `json:"costMicros"`
 	Currency                 string                         `json:"currency"`
 	UsageStatus              string                         `json:"usageStatus"`
+	ReferencePriceVersion    string                         `json:"referencePriceVersion,omitempty"`
 }
 
 func (a *marketResearchApplication) projectRun(ctx context.Context, run agent.Record, frozen agentconfig.Snapshot) (researchRunDTO, error) {
@@ -318,6 +319,7 @@ func (a *marketResearchApplication) projectRun(ctx context.Context, run agent.Re
 		return researchRunDTO{}, agentconfig.ErrForbidden
 	}
 	out := researchRunDTO{RunID: s.RunID, ContextID: s.Request.Binding.ContextID, RequestKey: s.Request.Key, Phase: s.Phase, Revision: strconv.FormatUint(s.Revision, 10), StopReason: s.StopReason, ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef, ModeSnapshotRef: mode.Ref(), ExecutionMode: mode.Mode, ModeRevision: mode.Revision, GoalSummary: s.Request.GoalSummary, Unresolved: append([]string{}, s.Unresolved...), Tokens: s.Usage.Tokens, CostMicros: s.Usage.CostMicros, Currency: s.Request.Limits.Currency, UsageStatus: "observed"}
+	out.ReferencePriceVersion = frozen.ExecutionModelProfile.OfficialTariff.ReferencePriceVersion()
 	if s.Validation != nil {
 		out.Unresolved = append(out.Unresolved, s.Validation.Unresolved...)
 	}

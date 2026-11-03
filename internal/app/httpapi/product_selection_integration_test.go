@@ -192,8 +192,10 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.Zero(t, calls.Load(), "preparation recovery never starts a paid run")
 	var prepared struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
+		ReferencePriceVersion    string                         `json:"referencePriceVersion"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &prepared))
+	require.NotEmpty(t, prepared.ReferencePriceVersion)
 	path := productSelectionBase + "/contexts/" + in.ContextID + "/runs/" + key
 	body := struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
@@ -201,6 +203,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	raw = call("POST", productSelectionBase+"/contexts/"+in.ContextID+"/runs", key, body, http.StatusOK)
 	var result selectionRunDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
+	require.Equal(t, prepared.ReferencePriceVersion, result.ReferencePriceVersion)
 	require.True(t, result.Validated, string(raw))
 	require.True(t, changingModel.mutated, "the product revision changes after the last governed dispatch and before graph validation")
 	require.Equal(t, agent.ModeReadOnly, result.ExecutionMode)
