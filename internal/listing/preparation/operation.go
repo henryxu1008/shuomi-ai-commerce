@@ -32,6 +32,10 @@ const (
 )
 
 type OperationInput struct {
+	TargetApprovals       []TargetApproval        `json:"targetApprovals,omitempty"`
+	PlanID                string                  `json:"planId,omitempty"`
+	PlanCommandKey        string                  `json:"planCommandKey,omitempty"`
+	PlanRequestHash       string                  `json:"planRequestHash,omitempty"`
 	WalmartApprovals      []WalmartUploadApproval `json:"walmartApprovals,omitempty"`
 	PreparationID         string                  `json:"preparationId"`
 	ExpectedRevision      int64                   `json:"expectedRevision"`
@@ -47,6 +51,33 @@ type OperationInput struct {
 }
 
 func (i OperationInput) Validate() error {
+	if i.PlanID != "" {
+		if !collection.ValidID(i.PlanID) || !collection.ValidID(i.PlanCommandKey) || !validPlanHash(i.PlanRequestHash) || len(i.SourceIDs) == 0 || i.Action != OperationAdapt && len(i.TargetApprovals) != len(i.SourceIDs) {
+			return ErrInvalid
+		}
+	} else if i.PlanCommandKey != "" || i.PlanRequestHash != "" {
+		return ErrInvalid
+	}
+	if len(i.TargetApprovals) > 1000 || len(i.TargetApprovals) > 0 && i.Action == OperationAdapt {
+		return ErrInvalid
+	}
+	approved := map[string]bool{}
+	for _, a := range i.TargetApprovals {
+		if !a.Valid() || approved[a.SourceID] {
+			return ErrInvalid
+		}
+		approved[a.SourceID] = true
+	}
+	if len(approved) > 0 {
+		if len(approved) != len(i.SourceIDs) {
+			return ErrInvalid
+		}
+		for _, id := range i.SourceIDs {
+			if !approved[id] {
+				return ErrInvalid
+			}
+		}
+	}
 	if len(i.WalmartApprovals) > 0 {
 		if i.Action != OperationUpload || len(i.WalmartApprovals) > 1000 {
 			return ErrInvalid
@@ -166,6 +197,7 @@ func (p OperationCommit) Read(ctx context.Context) (Scope, string, OperationInpu
 	input := p.input
 	input.SourceIDs = append([]string(nil), input.SourceIDs...)
 	input.WalmartApprovals = append([]WalmartUploadApproval(nil), input.WalmartApprovals...)
+	input.TargetApprovals = append([]TargetApproval(nil), input.TargetApprovals...)
 	return scope, p.key, input, nil
 }
 
@@ -233,7 +265,7 @@ func (s *OperationService) Create(ctx context.Context, key string, input Operati
 	if err != nil {
 		return OperationReceipt{}, err
 	}
-	if !collection.ValidID(key) || input.Validate() != nil {
+	if !collection.ValidID(key) || input.Validate() != nil || input.PlanID != "" {
 		return OperationReceipt{}, ErrInvalid
 	}
 	input.SourceIDs = append([]string(nil), input.SourceIDs...)
