@@ -151,6 +151,10 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 }
 
 func testProductAgentOwners(t *testing.T, mode string) {
+	zeroReferenceUsage := mode == "research zero"
+	if zeroReferenceUsage {
+		mode = "research"
+	}
 	frozenTitleOnly := mode == "content flow frozen-title-only"
 	frozenReviewTitleOnly := mode == "content flow frozen-review-title-only"
 	frozenExistingReviewTitleOnly := mode == "content flow frozen-existing-review-title-only"
@@ -491,7 +495,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
 		if mode == "research" || mode == "selection" {
-			_, _ = w.Write([]byte(`{"id":"offline-deepseek","model":"deepseek-v4.1-flash","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+			usage := `{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}`
+			if zeroReferenceUsage {
+				usage = `{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}`
+			}
+			_, _ = w.Write([]byte(`{"id":"offline-deepseek","model":"deepseek-v4.1-flash","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":` + usage + `}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
@@ -668,12 +676,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	if mode == "research" {
 		testResearchHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
-		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductResearchDecision)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductResearchDecision, zeroReferenceUsage)
 		return
 	}
 	if mode == "selection" {
 		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
-		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductSelectionDecision)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductSelectionDecision, zeroReferenceUsage)
 		return
 	}
 	if chatTasks {

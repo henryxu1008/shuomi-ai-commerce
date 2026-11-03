@@ -187,6 +187,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 		invalid.GoalSummary = goal
 		call("POST", productSelectionBase+"/prepare", key, invalid, http.StatusBadRequest)
 	}
+	parent.config.Limits.ModelCalls = 6 // other consumers may have a wider runtime ceiling
 	raw = call("POST", productSelectionBase+"/prepare", key, preparation, http.StatusOK)
 	require.Equal(t, raw, call("POST", productSelectionBase+"/prepare", key, preparation, http.StatusOK), "uncertain preparation recovers its exact original committed receipt")
 	require.Zero(t, calls.Load(), "preparation recovery never starts a paid run")
@@ -196,6 +197,9 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	}
 	require.NoError(t, json.Unmarshal(raw, &prepared))
 	require.NotEmpty(t, prepared.ReferencePriceVersion)
+	frozenSelection, err := a.configuration.LoadSnapshot(ctx, scope, prepared.ConfigurationSnapshotRef)
+	require.NoError(t, err)
+	require.Equal(t, 2, frozenSelection.Request.Limits.ModelCalls, "a wider shared runtime ceiling must not increase the approved two-call operation")
 	path := productSelectionBase + "/contexts/" + in.ContextID + "/runs/" + key
 	body := struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`

@@ -59,7 +59,7 @@ func configuredSelectionSharedReader(t *testing.T, settings *ProductAgentDepende
 	for op, policies := range map[aicapability.Operation]map[string]governed.RoutePolicy{aicapability.OperationProductResearchDecision: settings.ResearchTextPolicies, aicapability.OperationProductSelectionDecision: settings.SelectionTextPolicies} {
 		if policy, ok := policies["B"]; ok {
 			copy := policy
-			defs = append(defs, qualified.Definition{Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "offline-reference", ReferenceVersion: "offline-shared-v1", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: 150000})
+			defs = append(defs, qualified.Definition{Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "offline-reference", ReferenceVersion: "offline-shared-v1", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: 150000, MaximumMicropoints: 10_000_000})
 		}
 	}
 	catalog, err := qualified.NewCatalog(defs)
@@ -99,7 +99,7 @@ func (f syntheticSelectionSharedCategory) ReadCategory(_ context.Context, org st
 	return q, "route-v1", nil
 }
 
-func assertSelectionMicropointAccounting(t *testing.T, db *gorm.DB, operation aicapability.Operation) {
+func assertSelectionMicropointAccounting(t *testing.T, db *gorm.DB, operation aicapability.Operation, zero bool) {
 	t.Helper()
 	var rows []struct {
 		Operation, OfficialTariffJSON, BillableUsageJSON                  string
@@ -134,8 +134,12 @@ func assertSelectionMicropointAccounting(t *testing.T, db *gorm.DB, operation ai
 	require.Positive(t, totalReserved)
 	require.LessOrEqual(t, totalReserved, int64(19200000))
 	require.LessOrEqual(t, totalReserved, int64(20000000))
-	require.EqualValues(t, 24000, totalActual, "charge complete fixture usage, not the reserved upper bound")
-	require.EqualValues(t, 240, totalCost)
+	expectedActual, expectedCost := int64(24000), int64(240)
+	if zero {
+		expectedActual, expectedCost = 0, 0
+	}
+	require.EqualValues(t, expectedActual, totalActual, "charge explicit fixture usage, not the reserved upper bound")
+	require.EqualValues(t, expectedCost, totalCost)
 	require.LessOrEqual(t, totalCost, int64(300000))
 	var bucket struct {
 		QuantityUnit                  string

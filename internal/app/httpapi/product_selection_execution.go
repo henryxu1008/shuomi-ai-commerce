@@ -87,7 +87,11 @@ func (a *productSelectionApplication) prepare(ctx context.Context, in selectionP
 	if e != nil {
 		return agentconfig.Snapshot{}, agent.ErrUnavailable
 	}
-	request := agent.Request{Key: in.RequestKey, Binding: binding, GoalSummary: in.GoalSummary, PolicyVersion: agentconfig.SelectionPolicyVersion, PromptVersion: agentconfig.SelectionPromptVersion, Limits: a.parent.config.Limits}
+	limits := a.parent.config.Limits
+	if limits.ModelCalls > 2 {
+		limits.ModelCalls = 2
+	}
+	request := agent.Request{Key: in.RequestKey, Binding: binding, GoalSummary: in.GoalSummary, PolicyVersion: agentconfig.SelectionPolicyVersion, PromptVersion: agentconfig.SelectionPromptVersion, Limits: limits}
 	return a.configuration.Prepare(ctx, agentconfig.StartCommand{Scope: agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, MemberID: id.MemberID, ExpectedModeRevision: in.ExpectedModeRevision, AgentID: agentconfig.SelectionAgentID, AgentVersion: agentconfig.SelectionAgentVersion, Request: request, ExecutionModelProfile: profile})
 }
 func (a *productSelectionApplication) readRun(ctx context.Context, contextID, key string) (agent.Record, agentconfig.Snapshot, error) {

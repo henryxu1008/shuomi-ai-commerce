@@ -15,8 +15,8 @@
 | 平台价目 | 原平台参考价/FX owner | 新参考版本，策略 reference-text-totals-v1；CNY 恒等 FX；输入 ¥2/百万 Token、输出 ¥8/百万 Token，不应用缓存优惠。是草案参考值，不是实时准确厂商价 |
 | 研究操作 | product.research.agent / product.research.decision | 项目资料分析，保留 market-research-prompt-v1 / market-research-action-v1、原项目/成员权限及只读设置 |
 | 选品操作 | product.selection.agent / product.selection.decision | 独立商品对比，保留 product-selection-prompt-v1 / product-selection-action-v1、准确保存商品及独立历史 |
-| 操作预算 | 用户已确认每项 ¥0.30 /20点，两项 ¥0.60 /40点 | 数值不变；每项两调用，每次 ≤32000/4000 Token，原更小限制优先。配置预算控制不等于供应商实际账单硬限 |
-| 用量与结算 | 原 Invocation/资源微点账本 | 显式基础 P/C/T 校验后按冻结参考价估算；费用投影带 referencePriceVersion。缺缓存细分不阻断，缺基础事实/矛盾/超限仍 UNKNOWN，保留 R 且不重发 |
+| 操作预算 | 用户已确认每项 ¥0.30 /20点，两项 ¥0.60 /40点 | 数值不变；每项两调用，每次 ≤32000/4000 Token，原更小限制优先。原文本定义每调用 maximumMicropoints=10000000，参考改价后仍核最大 R，不把 10 点当实际收费或强制预留。配置预算控制不等于供应商实际账单硬限 |
+| 用量与结算 | 原 Invocation/资源微点账本 | 显式基础 P/C/T 校验后按冻结参考价估算；费用投影带 referencePriceVersion。缺缓存细分不阻断；显式完整的 0/0/0 按原 A=0 结算/恢复，缺基础事实/矛盾/超限仍 UNKNOWN，保留 R 且不重发 |
 | BoundEvidenceVersion | 不再索取供应商完整硬界证明 | 不填假值；参考策略资格来自有效策略、配置和准确 profile 身份。其他策略不自动放宽 |
 
 候选的准确 binding reference/price revision 由原 owner 合法发布时生成，本文件不伪造 ID、CAS 或真实 Ready。旧内容用途的 revision/凭据版本不能替代研究与选品各自的定义和新共享选择版本。

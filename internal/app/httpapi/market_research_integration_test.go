@@ -35,6 +35,10 @@ func TestResearchHTTPUsesOriginalConfigurationToolLedgerAndRecovery(t *testing.T
 	testProductAgentOwners(t, "research")
 }
 
+func TestResearchHTTPReferenceZeroUsageKeepsOriginalReadonlyJourney(t *testing.T) {
+	testProductAgentOwners(t, "research zero")
+}
+
 // Only the upstream project/provenance adapters are synthetic here. The new
 // research repository, Collection, bounded inspector, tool audit, Agent runtime,
 // model HTTP adapter, point ledger and configuration owner are their real code.
