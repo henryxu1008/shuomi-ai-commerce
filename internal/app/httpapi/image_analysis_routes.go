@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/authidentity"
@@ -15,6 +16,17 @@ import (
 )
 
 type imageAnalysisModule struct{ app *imageAnalysisApplication }
+
+func isImageAnalysisConfirmHTTPPath(path string) bool {
+	for _, prefix := range []string{productAcquisitionBase + "/", "/api/v1/workbench/supply-preparations/sources/", "/api/v1/workbench/collections/items/"} {
+		if !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		parts := strings.Split(strings.TrimPrefix(path, prefix), "/")
+		return len(parts) == 6 && acquisitionHTTPUUID(parts[0]) && parts[1] == "images" && parts[2] == "analysis" && parts[3] == "by-key" && acquisitionHTTPUUID(parts[4]) && parts[5] == "confirm"
+	}
+	return false
+}
 
 func validateImageAnalysisRouteDescriptor(d httproute.Descriptor) (bool, error) {
 	for _, expected := range imageAnalysisRoutes(nil) {

@@ -357,6 +357,8 @@ SharedCatalog 仅在原多模态类别存在完整单图准入定义/官方价�
   source-media 继续从原准入 composition 提供只读字节端口，不新设 producer 或改架构守卫。
   正常入口按已实际装配的分析模块接入有限精确路由，逐条核 module/method/身份/企业权限/超时；
   不将 `/images/analysis` 按宽前缀误归生图流程。分析准入不授予任何生图/保存/批准路由。
+  仅三个准确来源下的原键确认 POST 复用原125秒写deadline，避免两分钟有界调用被默认32秒响应窗口截断；
+  请求读取与业务上限不变，其余方法/路径不扩大。
 - 企业部署准入描述中的有限 `imageAnalysisPolicies` 只限定该用途；当前模型和收费价目仍由
   原 SharedTextReader 的 **multimodal** 类别解析。不会生成另一份 current、账本、价格或逐页模型选择。
 - source context 使用原 `acquisition / collection / own_product` 身份。原图片页增加选单图、准备、
