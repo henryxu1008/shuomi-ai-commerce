@@ -102,7 +102,7 @@ func TestAnalysisSourceUsesExactOriginalSourceOrApprovedInventory(t *testing.T) 
 	}
 }
 func TestAnalysisSourceRejectsChangedFactsPermissionAndContent(t *testing.T) {
-	for _, scenario := range []string{"publication", "tool binding", "inventory", "permission", "bytes", "dimensions"} {
+	for _, scenario := range []string{"publication", "tool binding", "tool ref", "unrecorded audit", "invented invocation", "inventory", "permission", "bytes", "dimensions"} {
 		t.Run(scenario, func(t *testing.T) {
 			r, f, ctx, in, a := analysisSourceFixture(t, true)
 			switch scenario {
@@ -110,6 +110,12 @@ func TestAnalysisSourceRejectsChangedFactsPermissionAndContent(t *testing.T) {
 				f.snapshot.PublicationID = "different"
 			case "tool binding":
 				in.History[0].Output = json.RawMessage(`{"product_key":"other"}`)
+			case "tool ref":
+				in.History[0].Tool = commercetool.ToolRef{ID: "other.tool", Version: "v1.0.0"}
+			case "unrecorded audit":
+				in.History[0].AuditStatus = ""
+			case "invented invocation":
+				in.History[0].InvocationID = "fake-model-invocation"
 			case "inventory":
 				a.InventoryDigest = strings.Repeat("b", 64)
 			case "permission":

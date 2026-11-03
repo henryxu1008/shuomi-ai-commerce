@@ -12,8 +12,6 @@ import (
 	"task-processor/internal/commercetool"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/product/asset"
-	"task-processor/internal/product/asset/tools/assetinspect"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
 )
 
 // ImageAnalysisSource is implemented by the original authorized source/asset
@@ -39,8 +37,15 @@ func NewImageAnalysisModel(executor TextExecutor, snapshots SnapshotReader, sele
 	if executor == nil || snapshots == nil || selectProfile == nil || freshIdentity == nil || source == nil {
 		return nil, agent.ErrUnavailable
 	}
-	if len(tools) < 1 || len(tools) > 2 || tools[0] != canonicalinspect.Definition().Ref || len(tools) == 2 && tools[1] != assetinspect.Definition().Ref {
+	if len(tools) < 1 || len(tools) > 2 {
 		return nil, agent.ErrInvalid
+	}
+	// The original application registration owns concrete Tool definitions.
+	// Its source consumer independently verifies their exact domain identities.
+	for i, ref := range tools {
+		if ref.Validate() != nil || i > 0 && ref == tools[0] {
+			return nil, agent.ErrInvalid
+		}
 	}
 	return &ImageAnalysisModel{executor: executor, snapshots: snapshots, selectProfile: selectProfile, tools: append([]commercetool.ToolRef(nil), tools...), freshIdentity: freshIdentity, source: source}, nil
 }
