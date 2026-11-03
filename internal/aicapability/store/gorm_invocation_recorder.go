@@ -130,7 +130,7 @@ func (r *GormInvocationRecorder) ResolveDispatchedInvocation(ctx context.Context
 	if record.FinishedAt.IsZero() {
 		return fmt.Errorf("ai invocation recovery finished_at is required")
 	}
-	if (record.Outcome == aicapability.InvocationSucceeded || record.Outcome == aicapability.InvocationUsageObservedFailed) && (!record.UsageKnown || record.TotalTokens <= 0 || record.PromptTokens < 0 || record.CompletionTokens < 0 || record.PromptTokens+record.CompletionTokens != record.TotalTokens) {
+	if (record.Outcome == aicapability.InvocationSucceeded || record.Outcome == aicapability.InvocationUsageObservedFailed) && (!record.UsageKnown || record.TotalTokens <= 0 && !record.HasZeroReferenceUsage() || record.PromptTokens < 0 || record.CompletionTokens < 0 || record.PromptTokens+record.CompletionTokens != record.TotalTokens) {
 		return fmt.Errorf("successful or observed-failed ai invocation recovery requires observed token usage")
 	}
 	existing, found, err := r.FindInvocation(ctx, record.TenantID, record.MemberID, record.InvocationID, record.InputHash)
@@ -330,11 +330,15 @@ func samePointDispatchMetadata(original, proposed invocationRow) bool {
 }
 
 func validateUsage(record aicapability.InvocationRecord) error {
+	if record.OfficialTariff.IsReferenceEstimate() && (record.Outcome == aicapability.InvocationSucceeded || record.Outcome == aicapability.InvocationUsageObservedFailed) &&
+		(record.BillableUsage == nil || record.BillableUsage.MappingVersion != record.OfficialTariff.UsageVersion) {
+		return fmt.Errorf("reference terminal requires its explicit basic usage proof")
+	}
 	if usage := record.BillableUsage; usage != nil {
 		if usage.Validate() != nil || !record.UsageKnown || record.Outcome == aicapability.InvocationDispatched ||
 			usage.InputText+usage.InputImage != int64(record.PromptTokens) || usage.OutputText+usage.OutputImage != int64(record.CompletionTokens) ||
 			int64(record.PromptTokens)+int64(record.CompletionTokens) != int64(record.TotalTokens) ||
-			record.Outcome == aicapability.InvocationSucceeded && record.TotalTokens <= 0 ||
+			record.Outcome == aicapability.InvocationSucceeded && record.TotalTokens <= 0 && !record.HasZeroReferenceUsage() ||
 			record.ErrorCode == "rejected_before_dispatch" || record.ErrorCode == "reservation_failed_before_dispatch" {
 			return fmt.Errorf("invalid billable usage metadata")
 		}
@@ -357,7 +361,7 @@ func validateUsage(record aicapability.InvocationRecord) error {
 	if record.PromptTokens < 0 || record.CompletionTokens < 0 || record.TotalTokens < 0 || record.ImageCount < 0 || record.EstimatedCostMicros < 0 {
 		return fmt.Errorf("invocation usage and cost counters must not be negative")
 	}
-	if record.Outcome == aicapability.InvocationUsageObservedFailed && (!aicapability.SupportsObservedUsageFailure(record.Operation) || !record.UsageKnown || record.TotalTokens <= 0 || record.PromptTokens+record.CompletionTokens != record.TotalTokens || record.FinishedAt.IsZero()) {
+	if record.Outcome == aicapability.InvocationUsageObservedFailed && (!aicapability.SupportsObservedUsageFailure(record.Operation) || !record.UsageKnown || record.TotalTokens <= 0 && !record.HasZeroReferenceUsage() || record.PromptTokens+record.CompletionTokens != record.TotalTokens || record.FinishedAt.IsZero()) {
 		return fmt.Errorf("observed-failed invocation requires internally consistent provider token usage")
 	}
 	return nil

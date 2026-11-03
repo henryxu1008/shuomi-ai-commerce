@@ -201,9 +201,10 @@ func (f *knowledgeApplicationFixture) configureHTTP(t *testing.T, identityOrigin
 	policy := f.config.ProductAgent.TextPolicies["B"]
 	policy.Profile.ClientName = credential.ClientName
 	f.config.ModelRoutePricing.Bindings = []qualified.Definition{{Scope: modelconfig.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Manufacturer: "google", Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", PriceID: "synthetic-text-price", ReferenceVersion: "synthetic-binding", BoundEvidenceVersion: "synthetic-text-bound", Text: &policy}}
-	shared := &modelconfig.SharedModelService{Repository: repo, Catalog: httpSharedCatalogFixture{}}
 	ref := modelconfig.ModelBindingReference{ID: credential.ClientName, Version: "synthetic-binding"}
-	_, err = shared.Publish(ctx, "B", "admin", "synthetic-model-publication", modelconfig.SharedModelInput{ExpectedRevision: modelconfig.NoRevision, Selection: modelconfig.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "synthetic-channel", Text: ref, Image: modelconfig.ModelBindingReference{ID: "synthetic-image", Version: "synthetic-binding"}, Multimodal: ref}})
+	selection := modelconfig.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "synthetic-channel", Text: ref, Image: modelconfig.ModelBindingReference{ID: "synthetic-image", Version: "synthetic-binding"}, Multimodal: ref}
+	shared := &modelconfig.SharedModelService{Repository: repo, Catalog: httpSharedCatalogFixture{selection: selection}}
+	_, err = shared.Publish(ctx, "B", "admin", "synthetic-model-publication", modelconfig.SharedModelInput{ExpectedRevision: modelconfig.NoRevision, Selection: selection})
 	require.NoError(t, err)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)

@@ -198,7 +198,7 @@ func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error)
 	if (fact.Outcome != aicapability.InvocationSucceeded && fact.Outcome != aicapability.InvocationUsageObservedFailed) || !fact.UsageKnown {
 		return 0, false, orgresource.ErrOwnerNotTerminal
 	}
-	if fact.PromptTokens < 0 || fact.CompletionTokens < 0 || fact.TotalTokens <= 0 || int64(fact.PromptTokens) > fact.MaximumPromptTokens || int64(fact.CompletionTokens) > fact.MaximumCompletionTokens || int64(fact.TotalTokens) != int64(fact.PromptTokens)+int64(fact.CompletionTokens) {
+	if fact.PromptTokens < 0 || fact.CompletionTokens < 0 || fact.TotalTokens <= 0 && !fact.HasZeroReferenceUsage() || int64(fact.PromptTokens) > fact.MaximumPromptTokens || int64(fact.CompletionTokens) > fact.MaximumCompletionTokens || int64(fact.TotalTokens) != int64(fact.PromptTokens)+int64(fact.CompletionTokens) {
 		return 0, false, orgresource.ErrInvalidOwnerProof
 	}
 	if fact.BillableUsage == nil || fact.BillableUsage.Validate() != nil ||

@@ -174,6 +174,53 @@ func TestAdvisoryReferenceUsageKeepsOriginalLedgerAndUnknownReservation(t *testi
 	}
 }
 
+func TestReferenceZeroUsageSettlesAndRecoversThroughOriginalLedger(t *testing.T) {
+	for _, outcome := range []aicapability.InvocationOutcome{aicapability.InvocationSucceeded, aicapability.InvocationUsageObservedFailed} {
+		for _, recovery := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/recovery=%t", outcome, recovery), func(t *testing.T) {
+				db, recorder, _, _, fact := modelPointFixture(t, aicapability.OperationProductResearchDecision)
+				ctx := context.Background()
+				fact.InvocationID = "reference-zero"
+				fact.OfficialTariff.UsageVersion = aicapability.ReferenceTextTotalsV1
+				_, err := recorder.ClaimInvocation(ctx, fact)
+				require.NoError(t, err)
+				require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
+				fact.Outcome, fact.UsageKnown, fact.EstimatedCostKnown, fact.FinishedAt = outcome, true, true, fact.StartedAt.Add(time.Second)
+				fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: aicapability.ReferenceTextTotalsV1, Complete: true}
+				for _, mutate := range []func(*aicapability.InvocationRecord){
+					func(r *aicapability.InvocationRecord) { r.BillableUsage = nil },
+					func(r *aicapability.InvocationRecord) { r.BillableUsage.Complete = false },
+					func(r *aicapability.InvocationRecord) { r.BillableUsage.MappingVersion = "openai-text-v1" },
+					func(r *aicapability.InvocationRecord) { r.BillableUsage.InputText = 1 },
+					func(r *aicapability.InvocationRecord) { r.InvocationID = "unclaimed-reference-zero" },
+				} {
+					bad, usage := fact, *fact.BillableUsage
+					bad.BillableUsage = &usage
+					mutate(&bad)
+					require.Error(t, recorder.RecordInvocation(ctx, bad), "default, contradictory, foreign-policy or unclaimed zero is not observed zero")
+				}
+				var held organizationResourceBucketRow
+				require.NoError(t, db.Take(&held).Error)
+				require.EqualValues(t, 30, held.Reserved, "rejected proofs leave the original reservation intact")
+				settle := recorder.RecordInvocation
+				if recovery {
+					settle = recorder.ResolveDispatchedInvocation
+				}
+				require.NoError(t, settle(ctx, fact))
+				require.NoError(t, settle(ctx, fact), "original terminal/recovery replay settles once")
+				var bucket organizationResourceBucketRow
+				require.NoError(t, db.Take(&bucket).Error)
+				require.Zero(t, bucket.Consumed)
+				require.Zero(t, bucket.Reserved)
+				require.EqualValues(t, 100, bucket.Available)
+				var count int64
+				require.NoError(t, db.Model(&organizationResourceEventRow{}).Count(&count).Error)
+				require.EqualValues(t, 2, count)
+			})
+		}
+	}
+}
+
 func TestPlannerModelPointsBindChatPlanScopeWithoutAgentRun(t *testing.T) {
 	db, recorder, _, _, fact := modelPointFixture(t, aicapability.OperationAIWorkbenchChatPlan)
 	ctx := context.Background()

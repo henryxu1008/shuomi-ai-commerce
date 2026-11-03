@@ -2,6 +2,7 @@ package routeconfiguration
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/aicapability"
 	d "task-processor/internal/aicapability/routeconfig"
@@ -177,7 +178,7 @@ func TestDeepSeekReferenceAdmissionUsesFrozenReferenceAndCurrentCredentials(t *t
 	now := time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC)
 	ref := d.ModelBindingReference{ID: "synthetic-deepseek", Version: "synthetic-binding"}
 	p := aicapability.ModelProfile{ClientName: ref.ID, ProviderID: "DASHSCOPE", AdapterKind: "openai-compatible", ModelID: "deepseek-v4.1-flash", EndpointIdentityDigest: "synthetic-endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "admission", AdapterPolicyVersion: governed.DashScopeDeepSeekV41FlashNonThinkingPolicy, PromptVersion: "prompt", OutputSchemaVersion: "schema", UsageMappingVersion: "cost-usage", CostPricingVersion: "channel-cost", Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 100, MaximumCompletionTokens: 100, MaximumInputBytes: 1024, MaximumOutputBytes: 1024, DeadlineBound: time.Second}
-	def := Definition{Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "synthetic-price", ReferenceVersion: ref.Version, Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: "credential", AdmittedEndpointIdentityDigest: p.EndpointIdentityDigest}, MaximumCostMicros: 100}
+	def := Definition{Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "synthetic-price", ReferenceVersion: ref.Version, Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductResearchDecision)}, Text: &governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: "credential", AdmittedEndpointIdentityDigest: p.EndpointIdentityDigest}, MaximumCostMicros: 100, MaximumMicropoints: 100000}
 	catalog, err := NewCatalog([]Definition{def})
 	require.NoError(t, err)
 	prices, err := d.FreezePlatformPrices(d.PlatformPricesInput{Prices: []d.PublishedModelPrice{{ID: def.PriceID, Provider: def.Manufacturer, Model: p.ModelID, Region: def.Region, ServiceType: def.ServiceType, Channel: def.Channel, Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1, Rates: aicapability.OfficialModelRates{InputText: 2_000_000, OutputText: 8_000_000}, SourceURL: "https://api-docs.deepseek.com/", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}, "reference-v1", nil, now)
@@ -190,6 +191,50 @@ func TestDeepSeekReferenceAdmissionUsesFrozenReferenceAndCurrentCredentials(t *t
 	require.True(t, q.Price.IsReferenceEstimate())
 	require.Equal(t, prices.Prices[0].Version, q.Price.PriceVersion)
 	require.Empty(t, q.BoundEvidenceVersion, "a reference strategy does not invent supplier bound evidence")
+	// The same channel-cost profile must not borrow a larger retail budget
+	// from a changed reference rate. Metadata is the existing Definition.
+	for scope, definitions := range catalog.definitions {
+		entry := definitions[ref.ID]
+		entry.MaximumMicropoints = 0
+		definitions[ref.ID] = entry
+		q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+		require.NoError(t, err)
+		require.False(t, q.Ready)
+		require.Equal(t, "POINT_BUDGET_MISSING", q.Reason)
+		require.NoError(t, json.Unmarshal([]byte(`{"maximumMicropoints":100000}`), &entry))
+		definitions[ref.ID] = entry
+		q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+		require.NoError(t, err)
+		require.True(t, q.Ready, "equal to the configured point budget is admissible")
+		before := q.ProfileVersion
+		entry.MaximumCostMicros = 100 // channel estimate remains unchanged
+		require.NoError(t, json.Unmarshal([]byte(`{"maximumMicropoints":99999}`), &entry))
+		catalog.definitions[scope][ref.ID] = entry
+		q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+		require.NoError(t, err)
+		require.False(t, q.Ready, "retail point cap is independent of channel cost")
+		require.Equal(t, "POINT_BUDGET_EXCEEDED", q.Reason)
+		require.NoError(t, json.Unmarshal([]byte(`{"maximumMicropoints":100001}`), &entry))
+		catalog.definitions[scope][ref.ID] = entry
+		q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+		require.NoError(t, err)
+		require.True(t, q.Ready)
+		require.NotEqual(t, before, q.ProfileVersion, "budget changes invalidate old profile confirmation")
+		beforePrice := q.ProfileVersion
+		metadata.prices.Prices[0].Rates.InputText *= 2
+		metadata.prices.Prices[0].Rates.OutputText *= 2
+		metadata.prices.Prices[0].Version = "higher-reference-version"
+		q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+		require.NoError(t, err)
+		require.False(t, q.Ready, "a reference change cannot raise the operation's point budget")
+		require.Equal(t, "POINT_BUDGET_EXCEEDED", q.Reason)
+		metadata.prices.Prices[0].Rates.InputText /= 2
+		metadata.prices.Prices[0].Rates.OutputText /= 2
+		q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+		require.NoError(t, err)
+		require.True(t, q.Ready)
+		require.NotEqual(t, beforePrice, q.ProfileVersion, "reference versions are included in confirmation identity")
+	}
 	metadata.credential.Version = "revoked"
 	q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
 	require.NoError(t, err)

@@ -238,6 +238,7 @@ func TestDeepSeekIncompleteOrExcessUsageKeepsOriginalUnknownKey(t *testing.T) {
 		name, reasoning, usage string
 	}{
 		{"reasoning returned", `,"reasoning_content":"synthetic thought"`, `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}`},
+		{"zero usage invalid content", `,"reasoning_content":"synthetic thought"`, `{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}`},
 		{"completion exceeds configured bound", "", `{"prompt_tokens":10,"completion_tokens":65537,"total_tokens":65547}`},
 		{"missing completion usage", "", `{"prompt_tokens":10,"total_tokens":15}`},
 		{"inconsistent usage", "", `{"prompt_tokens":10,"completion_tokens":5,"total_tokens":20}`},
@@ -255,7 +256,7 @@ func TestDeepSeekIncompleteOrExcessUsageKeepsOriginalUnknownKey(t *testing.T) {
 			ledger := &recordingLedger{}
 			executor := deepSeekTestExecutor(server.URL, input.Profile, ledger)
 			_, err = executor.Generate(context.Background(), input, quote, nil)
-			if tc.name == "reasoning returned" {
+			if tc.reasoning != "" {
 				require.ErrorIs(t, err, ErrObservedInvalidSettled)
 				require.Len(t, ledger.records, 2, "known basic usage settles even when content is rejected")
 			} else {

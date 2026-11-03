@@ -26,7 +26,7 @@ func SettleSuccessfulInvocation(ctx context.Context, record InvocationRecord, se
 	if record.Outcome != InvocationSucceeded && record.Outcome != InvocationUsageObservedFailed || !record.UsageKnown {
 		return nil
 	}
-	if record.TenantID == "" || record.UserID == "" || record.MemberID == "" || record.InvocationID == "" || record.TotalTokens <= 0 || record.PromptTokens < 0 || record.CompletionTokens < 0 || record.PromptTokens+record.CompletionTokens != record.TotalTokens || record.FinishedAt.IsZero() {
+	if record.TenantID == "" || record.UserID == "" || record.MemberID == "" || record.InvocationID == "" || record.TotalTokens <= 0 && !record.HasZeroReferenceUsage() || record.PromptTokens < 0 || record.CompletionTokens < 0 || record.PromptTokens+record.CompletionTokens != record.TotalTokens || record.FinishedAt.IsZero() {
 		return ErrInvalidInvocationUsage
 	}
 	if settler == nil {

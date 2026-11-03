@@ -207,6 +207,18 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 				q.Reason = "COST_BOUND_MISSING"
 				return q, nil
 			}
+			advisory := def.Scope.Capability == string(aicapability.OperationProductResearchDecision) || def.Scope.Capability == string(aicapability.OperationProductSelectionDecision)
+			if price.IsReferenceEstimate() && advisory && def.MaximumMicropoints == 0 {
+				q.Reason = "POINT_BUDGET_MISSING"
+				return q, nil
+			}
+			if def.MaximumMicropoints > 0 {
+				points, err := price.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens)
+				if err != nil || points > def.MaximumMicropoints {
+					q.Reason = "POINT_BUDGET_EXCEEDED"
+					return q, nil
+				}
+			}
 			q.TextProfiles[def.Scope.Capability] = p
 			if q.Text == nil {
 				q.Text = &p
