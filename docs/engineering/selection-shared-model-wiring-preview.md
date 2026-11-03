@@ -1,6 +1,79 @@
 # Local Account Center 智能选品：共享文字模型接线与差异预览
 
-日期：2026-11-03（Asia/Singapore）。配置预览状态：**REVIEW_ONLY / NOT_PUBLISHABLE**；真实配置与调用 **NOT_RUN**。
+日期：2026-11-04（Asia/Singapore）。配置预览状态：**REVIEW_ONLY / NOT_PUBLISHABLE**；真实配置与调用 **NOT_RUN**。
+
+## 官方计量与计价时点复核（2026-11-04，只读）
+
+本轮Design Basis: **N/A**，仅复核公开官方文档、既有实现和已获去密元数据快照，形成非发布差异；不修改生产路径或冻结合同。源码依据为440bf15ea2597cf52d8716df525eb4b2f43661a9，已实现窗口/原账本接线且原最终复核、CI41671247979通过；本节不把离线结果转成真实provider资格。用户预算、全新系统基线及不改凭据/发布配置/更新实例/真实采集/AI/付费/合并的限制保持。
+
+**结论：公开价格、缓存适用范围及字段语义更明确；准确调用路径的完整字段保证和峰闲计价时点仍未取得充分官方依据。** 状态保持NOT_VERIFIED、NOT_PUBLISHABLE，原Catalog的TIME_BASIS_NOT_ADMITTED不变。本轮未连接百炼账户、读取调用原文或账单，也没有重新读取实例数据库；下方LAC绑定/current元数据仍是2026-11-03的只读快照，不宣称为本轮现场状态。
+
+### 已核官方依据及适用边界
+
+| 依据 | 本轮确认 | 不能据此推定 |
+| --- | --- | --- |
+| [百炼原型号信息](https://help.aliyun.com/zh/model-studio/deepseek-v4-1-flash) | 原`deepseek-v4.1-flash`由百炼提供，支持缓存；北京价目分输入、缓存输入和输出，闲时为UTC+8每日22:00–次日08:00 | 不证明别名实际等于1017，也没有给出峰闲切换选用哪个响应时间字段 |
+| [百炼上下文缓存](https://help.aliyun.com/zh/model-studio/context-cache)，隐式缓存章节 | 明确列出本型号；命中部分按渠道输入价10%计费，未命中部分按输入原价，输出另计。缓存自动启用，不能靠不配置显式缓存把C当0 | 命中示例能解释C是P的子集，但尚未取得本型号北京/固定非思考/非流式成功响应在缓存未命中时明确返回C=0的准确合同 |
+| [百炼Chat字段参考](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions) | 定义P/O/T、cached_tokens、可选输出分项；created表示请求创建时间。max_tokens条目单独列本型号，限制回答与思维链合计输出 | 字段存在、请求创建、执行完成、出账及实际计价时点不是已证明的同一事实；不能据字段名生成BillingTimeUTC |
+| [百炼DeepSeek参考](https://help.aliyun.com/zh/model-studio/deepseek-api) | 明确北京OpenAI Chat端点、enable_thinking控制和Token计费；展示的V4 Pro示例有prompt_tokens_details=None | 示例型号/策略不同，不能证明原Flash必缺缓存，也不能证明原Flash必返完整缓存；通用schema与示例不能互相代签资格 |
+| [百炼账单说明](https://help.aliyun.com/zh/model-studio/bill-query-and-cost-management)、[用量](https://help.aliyun.com/zh/model-studio/model-usage-statistics)、[监控](https://help.aliyun.com/zh/model-studio/model-telemetry) | 推理账单在调用后出账，通常有分钟级延迟；费用明细含计费规格/用量。监控统计不作为计费依据 | 出账时间不能当请求计价时间；已查看的明细说明未提供与单次模型请求ID对应的权威时点合同。此为本次资料覆盖结论，不声称所有官方渠道都不存在该能力 |
+| [GetBillingOverview](https://help.aliyun.com/zh/model-studio/api-modelstudio-2026-02-10-getbillingoverview)、[GetBillingTrend](https://help.aliyun.com/zh/model-studio/api-modelstudio-2026-02-10-getbillingtrend) | 前者按月份/维度汇总，后者按天/月返回趋势；可按模型、Key ID、工作空间等分组 | 这些响应没有逐模型调用的P/C/O/计价时点关联。顶层requestId位于账单查询回执中，按接口上下文判断不能把它当模型推理请求ID |
+| [DeepSeek直连Chat合同](https://api-docs.deepseek.com/zh-cn/api/create-chat-completion/) | 直连合同列出缓存命中/未命中计数及其与P的关系；created是完成对象的创建时间 | 直连api.deepseek.com的字段、别名和语义不能直接移植为百炼北京原型号的保证；也未据此找到created决定峰闲收费的说明 |
+
+本次同时检索了百炼中英文价格/计费说明和DeepSeek价格页，未找到足以核准上述准确调用路径计价时点的说明。英文价表中其他模型的促销时段注释、其他部署商/机密推理/Responses API及动态调度的规则均不代替本候选合同。没有把“检索未找到”写成“官方保证不存在”。
+
+### 完整用量与时间的准入差异
+
+| 事实 | 可审查的映射/约束 | 当前证据状态 |
+| --- | --- | --- |
+| 输入P | usage.prompt_tokens → InputText；包含缓存，按P−C取得非缓存输入 | 通用语义DOCUMENTED；准确envelope字段存在性待核准 |
+| 缓存C | usage.prompt_tokens_details.cached_tokens → CachedInputText；0≤C≤P，显式0与缺失/null分开 | 本型号缓存适用和渠道10%费率DOCUMENTED；命中/未命中完整返回保证仍PARTIAL |
+| 输出O与总量T | completion_tokens → OutputText，total_tokens用于核T=P+O；思维链若有是输出子集，不另加一次 | 通用语义DOCUMENTED；固定非思考策略保持，未知额外收费项不忽略 |
+| 精细字段集合 | 准确合同还需说明text_tokens、固定null的audio_tokens等非收费字段，以及是否有其他收费分项 | 当前受控mapper只接受已批准字段；通用参考列出更多形状，不能据此放宽本型号allowlist。后续按准确合同由原owner最小补齐，属IMPLEMENTATION_TEST/实际开放前核实 |
+| 实际计价时点 | 由核准来源生成BillingTimeUTC和BillingTimePolicyVersion，再按冻结组唯一窗口结算 | 未取得足够依据；不把created、本机发送/完成时间、HTTP Date、账单出账时刻或监控时间代入 |
+| 账单/监控与单次调用关联 | 需要官方定义能与原Invocation所对应的供应商请求ID可靠关联 | 已查聚合接口不足以建立此关联；不能按分钟总量平均分摊或从应付金额反推P/C/O |
+
+通用Chat当前仍说明max_tokens的本型号含义，但已标注该参数后续将退出；另列max_completion_tokens可能有最多10 Token误差。本轮不改请求参数、不换策略版本、不增加4000上限；参数变更若后续需要，沿原受控owner和准确协议/上界证据处理，不能从通用文档自动推导迁移授权。
+
+### 可审查配置差异（不是API载荷）
+
+| 项目 | 审查基线 | 本次目标/处理 | 发布状态 |
+| --- | --- | --- | --- |
+| 组织级凭据 | 11月3日去密快照中的LAC候选local-content-route-830-20261020 | 仅引用同企业原owner的合法记录；不改Key、端点或凭据版本，不从旧current复制/迁移。新空目标缺合法供给时保持未配置 | 本轮未刷新现场；无凭据写入 |
+| 模型/传输/策略 | deepseek-v4.1-flash、DASHSCOPE、OpenAI-compatible、北京工作空间、固定非思考策略 | 同一准确候选；纯文本、非流式、单结果、无模型工具/搜索/视觉/音频/显式缓存创建 | 模型资格NOT_VERIFIED；不自动换1017或直连 |
+| 两项消费者 | product.research.decision与product.selection.decision | 同一企业共享text候选，各自保留prompt/schema、业务资料/权限及只读职责；AI继续关闭 | 不修改现有启用/只读设置 |
+| 共享身份 | ReferenceVersion、BoundEvidenceVersion尚无本次可发布值 | 原owner在完整准入证据后生成/校验；不以凭据版本、旧revision或文档摘要冒充 | 待证，不填假版本 |
+| 官方价目 | 440bf已补准确DeepSeek来源及完整窗口的代码能力；无本次已发布PriceID/current | 参考下表的原厂费率，由原价目owner核有效窗口/来源后派生同一冻结组；不直接填独立点价 | 未发布；完整时点证据仍缺 |
+| 时点策略 | 无已核准的ClockPolicyVersion | 保持未准入；BillingTimeUTC是响应后的可信事实，不是用户或配置输入 | TIME_BASIS_NOT_ADMITTED |
+| 成本和点数 | 已确认每项¥0.30/20点 | 每项300000货币微元、20000000微点；两项各一次总600000货币微元/40000000微点，分别核验 | 仅预算草案，无实扣 |
+| 调用/用量界限 | 每项最多两调用，每调用≤32000输入/4000输出Token | 保持原更小byte、deadline、steps和费用上限；不追加修复调用。两个操作各一次的合计不是新跨Agent预算账本 | 不提高现场或其他consumer的全局预算 |
+| 三类共享发布 | 原owner要求三类全部合格才原子发布 | 本次只核text候选，不部分发布，也不以本报告代签其他类别资格 | NOT_PUBLISHABLE |
+
+上表数值是两项操作的目标语义上限。现有ProductAgent的ModelCalls/Tokens/CostMicros属于共享运行配置，研究/选品profile还受两调用分摊检查；本轮不把目标数字直接覆盖全局字段，避免影响其他已开放consumer。正式差异仍须原owner按全套配置及原更小边界生成，此处没有可提交的CAS/发布请求。
+
+### 价格与预算复核
+
+单位均为CNY/百万Token，顺序为非缓存输入 / 缓存输入 / 输出。
+
+| 口径 | 忙时 | 闲时 | 用途 |
+| --- | --- | --- | --- |
+| 厂商原版V4.1 Flash参考 | 2 / 0.04 / 8 | 1 / 0.02 / 4 | 原用户官网价折点；依据[原版发布](https://api-docs.deepseek.com/zh-cn/news/news260910/)及其原价图，当前[厂商价表](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)对应1017，不能据同价自动换型号 |
+| 百炼北京原型号 | 2 / 0.2 / 8 | 1 / 0.1 / 4 | 独立渠道成本；[本型号价目](https://help.aliyun.com/zh/model-studio/deepseek-v4-1-flash)与[缓存说明](https://help.aliyun.com/zh/model-studio/context-cache)相互印证 |
+
+两种忙闲日历保持原分离：厂商为UTC+8非中国法定节假日的工作日09–12/14–18，百炼为每日08–22；日历本身不说明某次跨边界调用应按何时选价。两调用无缓存忙时算例仍为2×(32000×2+4000×8)/1000000=¥0.192/项，对应19.2点；两项各一次¥0.384/38.4点。北京渠道同一算例¥0.192/项，分别低于¥0.30/20点；这不是正式报价或固定扣费。渠道账单中的优惠/免费额度/应付金额仅属于供应商费用事实，不替换厂商原价折点规则。
+
+### 剩余阻碍与最小解除依据
+
+| 待项 | 已有与缺失 | 解除所需的最小事实 | 本轮处理 |
+| --- | --- | --- | --- |
+| U1 完整用量 | 有本型号缓存支持/费率及通用字段语义；缺准确北京/原型号/固定非思考/非流式在命中及未命中时的完整返回合同 | 可追溯官方准确合同或原owner已合法取得的去敏证据，明确P/C/O/T存在性、全部收费维度及可接收非收费元数据。样例只证明所示形状；异常缺字段继续原UNKNOWN，不追加供应商永不失败或新故障矩阵要求，不为补证自行调用 | NOT_VERIFIED，阻实际收费开放 |
+| T1 计价时点 | 有峰闲日历和created创建语义；缺决定适用单价的事件与可关联字段 | 官方说明采用接收/开始/完成/其他何事件、时区/边界/精度，并明确可与单次供应商请求ID关联的权威字段或记录。仅说“按计费时间”仍不足 | NOT_VERIFIED，保持TIME_BASIS_NOT_ADMITTED |
+| C1 正式配置事实 | 有已审代码与预算；尚未发布该候选的reference/bound/clock/price窗口及三类共享选择 | 在U1/T1成立后由原owner形成合法、准确且完整的当前版本和非发布差异，继续原CAS/权限/所有已开放scope和三类门禁 | NOT_PUBLISHABLE，无假ID/部分发布 |
+| R1 实际目标与使用 | 本轮没有刷新现场绑定/三类状态，也未执行安装或真实使用 | 后续实际目标/配置/更新/调用按分别授权处理；全新系统不恢复旧53列演进或账本迁移 | 现场未核项UNKNOWN，实际运行/用户验收NOT_RUN |
+
+本轮不创建支持工单、不发送邮件、不查询供应商账单、不打开模型日志、不修改计量allowlist或计价策略；上述是审核者可检查的缺项清单，不是新增人工验收流程或对账平台。
+
+本地百炼文档知识库作为辅助定位，实际已读raw包括：`raw/model-user-guide/use-cases/third-party-model-integration-tutorial/deepseek-api.md`、`raw/model-api-reference/qwen-api-reference/qwen-api-via-openai-chat-completions.md`、`raw/model-api-reference/billing-api/api-modelstudio-2026-02-10-getbillingoverview.md`及`getbillingtrend`对应文件。路径相对百炼文档skill根；实时官方网页用于本次更新核对，公开文档不能证明具体Key远端有效或现场配置已就绪。
 
 ## 最新决定：全新系统，不承接旧数据（2026-11-03）
 
