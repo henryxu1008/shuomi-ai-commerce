@@ -82,7 +82,7 @@ func officialPriceHost(raw, provider string) bool {
 	return false
 }
 func FreezePlatformPrices(in PlatformPricesInput, revision string, previous *PlatformPricesSnapshot, now time.Time) (PlatformPricesSnapshot, error) {
-	out := PlatformPricesSnapshot{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, Prices: append([]PublishedModelPrice(nil), in.Prices...), FX: append([]PublishedFXRate(nil), in.FX...)}
+	out := PlatformPricesSnapshot{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, Prices: append([]PublishedModelPrice{}, in.Prices...), FX: append([]PublishedFXRate{}, in.FX...)}
 	if !ValidFact(revision, 96) || len(out.Prices) > 32 || len(out.FX) > 8 || now.IsZero() {
 		return out, ErrInvalid
 	}

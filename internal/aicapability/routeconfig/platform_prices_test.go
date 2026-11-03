@@ -1,11 +1,29 @@
 package routeconfig
 
 import (
+	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/aicapability"
 	"testing"
 	"time"
 )
+
+func TestOfficialPriceSnapshotKeepsEmptyCollectionsAsWireArrays(t *testing.T) {
+	now := time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC)
+	cny := PublishedModelPrice{ID: "synthetic-cny", Region: "global", ServiceType: "standard-sync", Provider: "openai", Channel: "openai-direct", Model: "synthetic-mini", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}
+	for _, input := range []PlatformPricesInput{{Prices: []PublishedModelPrice{cny}}, {}} {
+		snapshot, err := FreezePlatformPrices(input, "synthetic-revision", nil, now)
+		require.NoError(t, err)
+		wire, err := json.Marshal(snapshot)
+		require.NoError(t, err)
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(wire, &fields))
+		require.JSONEq(t, "[]", string(fields["fx"]), "CNY and empty publications must satisfy the existing array wire contract")
+		if len(input.Prices) == 0 {
+			require.JSONEq(t, "[]", string(fields["prices"]))
+		}
+	}
+}
 
 func TestOfficialPriceAndFXSnapshotsStaySeparateFromEnterpriseChoices(t *testing.T) {
 	now := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)

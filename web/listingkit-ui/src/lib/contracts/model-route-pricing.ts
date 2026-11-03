@@ -12,7 +12,7 @@ const sharedSelection=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiP
 export const routeInput=z.strictObject({expectedRevision:routeFact,selection:sharedSelection});
 const modelOption=z.strictObject({category:modelCategory,reference,channel:routeFact,model:routeFact,ready:z.boolean(),reason:routeFact.optional(),price:officialPrice.optional()});
 const preview=z.strictObject({ready:z.boolean(),models:z.array(modelOption).length(3)}).refine(v=>v.ready===v.models.every(m=>m.ready)&&new Set(v.models.map(m=>m.category)).size===3);
-const date=z.iso.datetime({offset:true});
+const date=z.iso.datetime({offset:true}).refine(value=>!/\.\d{10}/.test(value));
 const interval={sourceUrl:z.url().max(2048),verifiedAt:date,effectiveFrom:date,effectiveUntil:date};
 const publishedPrice=z.strictObject({id:routeFact.max(64),version:routeFact.optional(),region:routeFact.max(64),serviceType:routeFact.max(64),image:z.strictObject({width:z.number().int().positive().max(8192),height:z.number().int().positive().max(8192),quality:routeFact.max(64)}).optional(),provider:z.enum(["openai","google","qwen"]),channel:routeFact,model:routeFact,currency:z.string().regex(/^[A-Z]{3}$/),usageVersion:routeFact,rates:officialRates,...interval});
 const publishedFX=z.strictObject({version:routeFact.optional(),currency:z.string().regex(/^[A-Z]{3}$/),cnyMicrosPerCurrencyUnit:positive,rateDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),...interval});
