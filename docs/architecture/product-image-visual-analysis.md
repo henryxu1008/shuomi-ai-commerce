@@ -1,5 +1,10 @@
 # 商品图片单图视觉分析：C2-2 最小设计候选
 
+2026-11-04 当前价格语义以[共享合同的阶段纠偏](enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)为准：
+平台维护参考价/估算配置并冻结版本，精确厂商逐次价格/细分分项/完整硬上界不再作为业务前置。
+本文旧精确计价描述保留为原实施依据，不恢复已撤回要求；C2-2 单图只读范围、原权限/调用/点数上限、
+原键/UNKNOWN 与同一账本不变。该决定不自动改实际扣点算法、不运行真实分析或重写历史结果。
+
 状态：**IMPLEMENTATION_READY / FROZEN（仅限本次 C2-2 单图分析架构）**。Design Basis：Independent Architecture。
 Refs #134 / #128；当前唯一负责人、原独立工作区继续，无新增 Writer / Reviewer / 派工。
 用户已[认可 D1–D3](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6592979123)，
