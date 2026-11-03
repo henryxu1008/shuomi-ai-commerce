@@ -34,6 +34,14 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 		fact.Capability = aicapability.CapabilityAIWorkbenchChatPlanning
 		fact.AgentRunID = ""
 	}
+	balance := int64(100)
+	if fact.Operation == aicapability.OperationProductImageAnalysis {
+		fact.Capability, fact.ModelID = aicapability.CapabilityProductImageAnalysis, aicapability.SingleImageMiniModel
+		fact.OfficialTariff.Model, fact.OfficialTariff.Channel = fact.ModelID, "openai-direct"
+		fact.OfficialTariff.Rates.CachedInputText = 1000
+		fact.MaximumPromptTokens, fact.MaximumCompletionTokens = 5000, 64
+		balance = 10000
+	}
 	recorder := aistore.NewGormInvocationRecorder(native)
 	_, err := recorder.ClaimInvocation(context.Background(), fact)
 	require.NoError(t, err)
@@ -44,11 +52,45 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	limits, err := NewGormMemberLimitRepository(resource, TransactionConfig{})
 	require.NoError(t, err)
 	limits.now = repo.now
-	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org", MemberID: "member", ActorID: "admin", OperationID: "limit", Target: 100})
+	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org", MemberID: "member", ActorID: "admin", OperationID: "limit", Target: balance})
 	require.NoError(t, err)
-	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org", ResourceType: "ai_point", Available: 100}).Error)
+	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org", ResourceType: "ai_point", Available: balance}).Error)
 	recorder.SetUsageSettler(repo)
 	return resource, recorder, repo, auth, fact
+}
+
+func TestSingleImagePointsUseOneOriginalReservationAndActualCachedUsage(t *testing.T) {
+	db, recorder, repo, _, fact := modelPointFixture(t, aicapability.OperationProductImageAnalysis)
+	ctx := context.Background()
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 5064, fact.StartedAt))
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 5064, fact.StartedAt))
+	var held organizationResourceBucketRow
+	require.NoError(t, db.Take(&held).Error)
+	require.EqualValues(t, 5128, held.Reserved)
+	require.ErrorIs(t, repo.ReleaseAIInvocationUsage(ctx, "org", fact.InvocationID), orgresource.ErrOwnerNotTerminal, "a dispatched unknown image cannot release or replay")
+	fact.Outcome, fact.UsageKnown, fact.FinishedAt = aicapability.InvocationUsageObservedFailed, true, fact.StartedAt.Add(time.Second)
+	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 30, 5, 35
+	fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: 30, CachedInputText: 10, OutputText: 5}
+	require.NoError(t, recorder.RecordInvocation(ctx, fact))
+	require.NoError(t, recorder.RecordInvocation(ctx, fact))
+	var bucket organizationResourceBucketRow
+	require.NoError(t, db.Take(&bucket).Error)
+	// Synthetic tariff: (30-10)*1 + 10*0.1 + 5*2 = 31 micro-points.
+	// The image is already in P; there is no second per-image charge.
+	require.EqualValues(t, 31, bucket.Consumed)
+	require.EqualValues(t, 9969, bucket.Available)
+	require.Zero(t, bucket.Reserved)
+	var month memberAIPointMonthRow
+	require.NoError(t, db.Take(&month).Error)
+	require.EqualValues(t, 31, month.Consumed)
+	require.Zero(t, month.Reserved)
+	var reservation organizationResourceReservationRow
+	require.NoError(t, db.Take(&reservation).Error)
+	require.Equal(t, fact.AgentRunID, reservation.BusinessScope)
+	require.Equal(t, string(orgresource.ReservationCommitted), reservation.State)
+	var events []organizationResourceEventRow
+	require.NoError(t, db.Find(&events).Error)
+	require.Len(t, events, 2, "reserve and one settlement, including exact original-key replay")
 }
 
 func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {

@@ -365,6 +365,9 @@ func validateUsage(record aicapability.InvocationRecord) error {
 
 func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool {
 	switch record.Operation {
+	case aicapability.OperationProductImageAnalysis:
+		return record.AgentRunID != "" && record.Capability == aicapability.CapabilityProductImageAnalysis &&
+			record.ModelID == aicapability.SingleImageMiniModel && record.OfficialTariff.Channel == "openai-direct" && record.OfficialTariff.UsageVersion == "openai-text-v1"
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		return record.AgentRunID != ""
 	case aicapability.OperationAIWorkbenchChatPlan:
