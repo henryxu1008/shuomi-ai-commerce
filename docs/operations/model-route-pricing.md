@@ -1,46 +1,42 @@
-# 模型与费率管理 V1
+# 企业模型与官网费率
 
-依据：[冻结设计](../architecture/model-route-pricing-management.md)、#830。这里描述未来经授权后的准备和使用入口；实现 PR 不代表保留实例已安装、已切模或真实模型可用。
+当前依据：[企业统一模型配置](../architecture/enterprise-shared-model-configuration.md)、PR #1078。此前 #830 按用途、两个数据库分别发布及单计划 VIP 的方案已被本次产品决定替代；历史实现和执行证据仍按原 SHA/范围保留。
 
-## 使用入口
+## 用户入口
 
-我的账户 → 企业空间 → 平台维护 → 模型与费率。只有注入平台维护 allowlist 且有当前企业成员资格者可读取，发布额外复用 `listingkit.admin.write`。入口仅在管理 API 返回当前企业实际接线用途后显示。直接访问 `/workbench/account/organization/model-route-pricing` 仍须服务端登录、当前企业和后端实时授权。
+我的账户 → 企业空间 → 模型与费率（`/workbench/account/organization/model-route-pricing`）。企业拥有 `workbench.agent.configure` 的成员在同一处选择默认渠道和文本、图片生成、多模态理解三类共用模型，所有成员共用。三类必须全部满足技术准入，才会在原配置事务内一次发布；缺少任一项时不创建 current、revision、部分配置或 pending 状态。
 
-工作台上下文的当前企业 `permissions` 须回读既有 authorizer 已授予的 `listingkit.platform_admin`；仅有 `platform_admin` 角色展示或企业管理员权限不能替代此项回读及后端校验。补齐权限回读不执行安装或启用管理：未接线服务、无实际用途仍显示不可用，企业自定义模块不因此获得平台权限。
+企业选择不包含费率或密钥。平台维护者在同一页面的“官网价格与汇率”维护原币价目、官网来源、核验及生效/失效时间、地区、服务类型及必要的图片尺寸/质量。非人民币价目使用已核验发布的 CFETS 中间价；人民币使用恒等汇率。价格由平台权限控制，发布还需要 `listingkit.admin.write`；企业配置权限不能写官网价格或汇率。
 
-每次选择一个用途，读取当前版本和合格绑定，填写费率，校验预览，再确认发布。文本成本是原币种/百万 Token；AI 点数是输入/输出/百万 Token；图片为共享 factory 的点数/张，影响商品图片和 artwork，供应商成本尚未接入。各用途和两个 owner DB 独立发布。充值售价仍在原 Commercial 入口维护。
+收费只有一条路径：适用厂商官网价 × 完整计费用量 × 冻结汇率 ÷ ¥0.01/点。不额外加价，不使用代理零售价作为厂商官网价，不填写“输入/输出 AI 点价”或“每张固定扣点”。按张收费的官方型号按官方原币/张计算金额，不伪装为 token 计费。
 
-发布后查看准确回执和重新读取的实际当前版本。返回历史不等于回退；“以历史配置创建新预览”也必须重新校验并发布新版本。字段错误和 CAS/凭据冲突保留编辑；结果待核实时保留原请求键，恢复页面后只查询该回执，未核实前不新键发布。会话存储只保留未完成发布的原输入和请求键，发布事实仍在数据库。
+1 AI 点 = 1,000,000 微点。原资源 owner 的余额、债务、成员月限/月计数、预留、实际结算、差额释放、事件及回执明确使用 `ai-micropoint-v1`；购买/试用商品源数量仍为整点，只在原可信 grant 边界检查溢出并转换一次。重复 source/key 不再次增加。其它资源和人民币分的数量单位不改变。
 
-## 显式准备与运行接线
+点数通过十进制字符串传输：图片报价和原始 proof 使用整数微点字符串及明确单位，页面按百万比例精确显示 AI 点；余额、成员月限、事件与审计使用服务端格式化的精确点数字符串。前端不以 `Number` 或浮点计算费用。
 
-以下步骤均需单独环境操作授权，不能把文档命令当作执行授权。
+发送前 ceil 预留保守上界，终态完整实际用量统一 floor 一次；实际收费可以低于预留，也可以在正用量下为零。差额经原 debt-first 入账处理，不能直接增加 available。缺用量、映射不完整、分项矛盾或超界时保留原预留。源终态、原 finalize key/proof、RecoverDue 和输出恢复责任不变，不因改价或改模型重发。
 
-1. 原 ProductAgent/Run DB 和 ImageAgent DB、原消费依赖及凭据须已安装。复用原 schema owner；预先准备 `model_route_config_writer` LOGIN 角色（有界连接，非 owner/super/DDL，不能读 Key 或改凭据），并显式授予目标数据库 `CONNECT` 和 `public` schema 的 `USAGE`。同一 PostgreSQL 集群的角色及其连接上限跨数据库共享；不是每库各有一份角色预算。不用 HTTP/worker pool 写 current；安装器的关系授权不代替这两项连接前置。
-2. 对每个启用库用原 `agent-configuration-schema-init` 的 `--model-route-pricing-only --runtime-role <原读取角色> --model-route-writer-role model_route_config_writer`。文本指定原 Run 读取角色；图片必须指定 `image_agent_worker_runtime`，API 报价和执行均复用此 pool，不能给 `image_agent_runtime` 增加无用的配置读取。DSN 仍从私密 `AGENT_CONFIGURATION_SCHEMA_DSN` 提供。显式安装只增加 revision/current、去密 view 和窄 grants，不写凭据、seed current、导入旧 map 或修改历史；不使用 owner pool 运行服务。
-3. 私密 current-application manifest 中按需增加 `modelRoutePricing.textWriter` / `imageWriter`（复用原 DatabaseConfig 形状，host/port/database 必须匹配原执行 owner，user 固定上述窄角色，maxConnections ≤ 2）。省略某个 family 使它保持原批准的未管理运行方式；纳入管理后没有 manifest/member/global-Key fallback。
-4. `modelRoutePricing.bindings` 是私密部署准入描述数组（`routeconfiguration.Definition`），不是当前选择。文本原各用途描述作为基础候选，额外候选必须属于已启用组织/用途，prompt/schema/currency 一致，token/bytes/deadline 不扩大，沿原 adapter/usage 校验。选品/诊断保留原单次半程成本上界，其它文本保留原运行成本上界。图片每个原允许组织须显式给出 `imageagent.generation` 候选，provider/model/endpoint/version 均精确绑定到原 adapter；不能推断 provider。
-5. 文本额外绑定沿原私密 `product-agent-credential-provision -config <private.json> -input <private.json>`，consumer 为 title/content/materials/selection/diagnosis/planning；clientName 必须匹配本用途候选，仍使用 `title_credential_writer`，只写组织行，返回去密 credentialVersion/endpoint digest。先固定可信 endpoint，准备独立新 clientName，取得版本后绑定准入描述；切换不用 upsert 覆盖原任务凭据。图片沿原 Image credential owner 的私密维护方式准备独立组织绑定；管理页不录入 Key。
+业务页只读显示企业已配置图片模型和预留上界，不另选 VIP 或修改点价。原冻结计划、请求键、回执和 UNKNOWN 保留；不跨配置继续采用旧模型绑定。历史结果找回不借新模型生成。
 
-   planning 新增/轮换均按现有 `aiWorkbench.contentTasks` 核验：内容任务规划必须使用 `ai-workbench-chat-plan-v2`，其它规划仍为 `ai-workbench-chat-plan-v1`；输出 schema 保持 `ai-workbench-plan-decision-v1`，原组织、专属 client、endpoint、模型/协议及资源/预算限制不变。轮换返回新 credentialVersion，旧精确绑定随即失效；provisioning 不发布或自动重绑当前路由，须沿原管理流程显式处理。
-6. 启动仍用原 `current-application -config <private.json>`。startup 只验证 schema/角色并注入 fresh reader，不执行 DDL/seed。文本用原 Run pool，图片 API quote 与 worker 用同一原 Image worker pool/current reader。缺 current 时显示“尚未发布”并拒绝新执行，第一次管理发布用 NONE→新 revision。
+## 新空库准备（仅说明，不是环境操作授权）
 
-在 managed image 模式，原 `imageAgent.generation.pointsPerImage` 仅作为部署硬预算上界（候选最大点数不得超出），不再选择当前价格；原 `priceVersion` 不进入新 quote/intent。实际 points/price/configurationVersion 全来自已发布 current。两份原 API/worker配置的一致性检查仍保留，不能以改费率为由扩大 hard limits。
+复用原 ProductAgent/Run DB 的 revision/current、原 CAS 和回执表作为唯一配置事实 owner。私密 manifest 使用 `modelRoutePricing.writer`，数据库必须匹配原 ProductAgent/Run owner；固定 `model_route_config_writer` 非 owner/非 DDL 角色，writer pool ≤ 2。不再配置文字/图片两份 writer/current，不同步两库，不从旧 per-operation、Image current、member 或进程默认配置兜底。
 
-数据库 writer 与原 reader 的连接生命周期由现有 currentapplication 管理；启动失败停止开放管理，不自动修表或回落。schema 检查拒绝缺失 scoped PK/唯一键/FK；serving reader 不能写配置表，writer 不能改历史、删 current、读 Key 或写 credential。
+沿原安装器明确安装原配置关系、去密 credential metadata view 和窄权限；运行只验证，不 DDL/seed/发布。可信 `bindings` 是准确厂商/协议/地区/服务类型/原币成本预算/原更小 token、字节、期限和费用上界的准入描述，含准确 reference/credential/endpoint/bound evidence 版本及官网 price ID，不能充当第二份用户收费价目。文本描述的 shape 准入不要求填一个伪造官网价格；正式执行的完整 profile 仍必须持有 use-time 官网价/FX。
 
-连接预算：每个 writer pool 仍最多 2；启动在打开任何 writer 前，使用原 reader 只读检查固定角色的有限上限（仅 2 或 4），按相同显式 host/port/user 聚合已配置的池上限，数据库名不分割预算。角色缺失、无限、容量不足或不可读时明确停止。仅单 family 可用总限 2；同 cluster 文字和图片各 maxConnections=2 须总限 4。经单独环境授权后，在原安装命令显式加 `--model-route-writer-connections 4`，只修改既有非特权 LOGIN 角色的 CONNECTION LIMIT；也接受显式 2，但拒绝降低已有较大的有限上限。不传参数则不改角色，包括重新安装已设为 4 的环境。此设置与原安装在同一事务，失败回滚；不创建角色、不修改密码/权限/默认模型/费率/额度，不以重启抢占连接代替修复。
+同一共享 reader 注入标题、内容、平台资料、选品、诊断、Chat 规划及图片 API/worker。各用途保留原 prompt/schema、调用次数和更小限制。图片密钥和副作用事实仍由原 Image owner 管理，共享配置只借其去密元数据，不能借文本密钥或扩大真实权限。
 
-图片 worker 的正式权限清单仅可选允许 `public.ai_route_config_revisions`、`public.ai_route_config_current`、`public.ai_route_config_options` 三张普通表及 `public.ai_client_credential_bindings` 去密 view 的 `SELECT`。未管理实例不要求安装或授权这四处关系，原 worker grant 入口也不会自动授予；启用管理后，原 `VerifyReader` / `VerifySchema` 仍强制检查完整对象及读取权限。错误关系类型、RLS、runtime 所有权及额外写权限继续拒绝；HTTP Image role 对这四处关系的额外读取也继续拒绝。
+`imageAgent.generation` 仅包含 `enabled`、`unitVersion: ai-micropoint-v1` 和显式 `maximumMicropoints` 准入上限，不是价格。旧 `priceVersion`/`pointsPerImage` 不会产生可执行报价；API/worker 同一上限的一致性检查保留。缺共享 current 或原币价目/FX/使用协议/完整用量/上界时拒绝新执行，原终态恢复不依赖新 current。
 
-## 任务影响与验证
+已有单位缺失、混合或不完整的资源库不升级、不修表、不换算、不重新解释；明确拒绝。本文和实现均不授权安装、迁移、真实启停、真实配置发布、授予或结算保留数据。
 
-发布不是取消已通过最后发送门禁的请求。未发送旧报价需重新准备，多步下次调用遇到变化会停；已经发送者按冻结模型和费率完成、结算；UNKNOWN/预留、历史账单、结果、Review/Apply 不重算或转移 owner。恢复旧未决事实不依赖新 current，也不允许自动重发。
+## 当前未准入项
 
-开发验证：`go test ./internal/aicapability/routeconfig ./internal/integration/aicapability/einomodel ./internal/app/worker/imageagent ./internal/app/httpapi ./internal/app/runtime/currentapplication`；事务测试可设置仅指向任务隔离 PG 的 `ISSUE830_TEST_DSN`。CI 的 routeconfig 测试复用 testcontainers 自动创建和清理独立 PostgreSQL。前端测试 `pnpm exec vitest run src/components/workbench/account/model-route-pricing.test.tsx src/lib/server/model-route-pricing-proxy.test.ts`、typecheck/build。所有配置/模型试验均使用 fixture/fake transport；无 provider 在线探测。
+- 默认准确型号仍为文本/多模态 `gpt-5.4-mini-2026-03-17`、生图 `gpt-image-2.5-flare-2026-09-08`；界面可显示其未准入身份，不把常量写成实际 current。
+- Flare 的完整发送前保守费用上界及当前直连生图适配仍未满足；不替换默认、不用平均费用或每张点价代替上界。
+- C2-2 图片理解的完整消费链路仍未完成，不能把文本可用或保存选择写成视觉能力已开放。
+- 文本正式准入只接受当前受控 transport 已实现的 OpenAI-compatible / `openai-text-v1` 完整分项组合；Google/Claude native 缺对应计费用量 mapper，保持明确未就绪。支持目标不变，协议存在或价目有效不等于能结算。
+- GRSAI URL-only 响应没有已准入的完整计费用量；现有传输组件不等于收费准入。新工作保持关闭，历史已记录结果按原事实处理。
+- Qwen 已有 native 单图响应可验证输出张数和 1024×1024；仍须准确组织绑定、官方适用地区/型号/图片参数价目、FX、原上限及完整用量同时成立。离线合成测试不代表实际配置/真实运行通过。
 
-独立检查、自检、CI 与用户实际试用分开记录在 #830/实现 PR。保留环境安装、真实模型、真实费用及用户验收保持 NOT_RUN，待相应授权。
-
-## 单商品计划可选 VIP
-
-显式安装原 schema/grants 时同时安装 ai_route_config_options；ordinary startup 只检查不安装。维护者以准确可选 head 校验和“发布为可选、不设为默认”，仅新增不可变版本并 CAS 该 binding 的可选指针，企业 default current 不变。新计划显式选择准确版本，费率由维护者填写并发布，不继承独立试验零点。替换或凭据不可用时旧报价停止；原请求/回执、已派发结果、UNKNOWN 及预留沿原 owner 核实，不能切模型重发。没有可选发布时成员只使用企业默认；artwork 继续默认。升级前需另获准安装关系与窄权限，再切换新程序，不能放松启动校验或清空现有数据。
+发布前按原键保留原输入；ACK 丢失只查询同一回执，未找到或服务不可用都不授权换键重发。历史选择也须重新预览并重新准入。前端/离线自检、CI、独立工程复核和用户使用验收分开；运行、真实保存/恢复、浏览器、模型效果和产品验收保留 NOT_RUN，现场缺证据 UNKNOWN。

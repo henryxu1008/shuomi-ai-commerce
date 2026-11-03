@@ -16,9 +16,9 @@ it("keeps the introduction and selected batch without mounting a processing cons
  vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED", "false");
  const id="550e8400-e29b-41d4-a716-446655440000";
  render(await Introduction({searchParams:Promise.resolve({preparation:id})}));
- expect(screen.getByRole("heading", {level:1,name:"统一管理商品，按目标平台完成发布"})).toBeVisible();
- expect(screen.getByRole("link",{name:/查看待适配商品/})).toHaveAttribute("href",`/workbench/supply/mine/waiting?preparation=${id}`);
- expect(screen.queryByRole("link",{name:/完成商品发布/})).not.toBeInTheDocument();
+ expect(screen.getByRole("heading", {level:1,name:"四步配置，按目标店铺完成上传"})).toBeVisible();
+ expect(screen.getByRole("link",{name:/配置上传计划/})).toHaveAttribute("href",`/workbench/supply/mine/waiting?preparation=${id}`);
+ expect(screen.queryByRole("link",{name:/查看上传结果/})).not.toBeInTheDocument();
  expect(fixture.preparations).not.toHaveBeenCalled();
  expect(fixture.supply).not.toHaveBeenCalled();
 });
@@ -41,7 +41,7 @@ it("opens native waiting and missing entries with drafts alone, keeping platform
  expect(fixture.completion.mock.lastCall?.[0]).toMatchObject({initialPreparation:preparation,initialSource:source});expect(fixture.supply).not.toHaveBeenCalled();cleanup();
  render(await Stage({params:Promise.resolve({stage:"waiting"}),searchParams:Promise.resolve({preparation})}));expect(fixture.preparations.mock.lastCall?.[0]).toMatchObject({completionAvailable:true});cleanup();
  render(await Stage({params:Promise.resolve({stage:"ready"}),searchParams:Promise.resolve({})}));expect(screen.getByText("平台处理尚未配置")).toBeVisible();cleanup();
- render(await Introduction({searchParams:Promise.resolve({preparation})}));expect(screen.getByRole("link",{name:/查看待适配商品/})).toBeVisible();expect(screen.getByRole("link",{name:"查看待补全草稿"})).toHaveAttribute("href",`/workbench/supply/mine/missing?preparation=${preparation}`);
+ render(await Introduction({searchParams:Promise.resolve({preparation})}));expect(screen.getByRole("link",{name:/配置上传计划/})).toBeVisible();expect(screen.getByRole("link",{name:"查看待补全草稿"})).toHaveAttribute("href",`/workbench/supply/mine/missing?preparation=${preparation}`);
 });
 
 it("keeps the requested saved operation through the introduction and each full-chain stage", async () => {
@@ -49,7 +49,7 @@ it("keeps the requested saved operation through the introduction and each full-c
  vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED", "true");
  const preparation="550e8400-e29b-41d4-a716-446655440000",store="550e8400-e29b-41d4-a716-446655440001",operation="550e8400-e29b-41d4-a716-446655440002";
  render(await Introduction({searchParams:Promise.resolve({preparation,store,operation})}));
- for(const name of [/查看待适配商品/,/完成商品发布/]){
+ for(const name of [/配置上传计划/,/查看上传结果/]){
   const query=new URL(screen.getByRole("link",{name}).getAttribute("href")!,"https://localhost").searchParams;
   expect(query.get("preparation")).toBe(preparation);
   expect(query.get("store")).toBe(store);

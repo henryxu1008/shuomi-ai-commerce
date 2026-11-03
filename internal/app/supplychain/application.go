@@ -19,6 +19,7 @@ import (
 )
 
 type Application struct {
+	UploadPlans           *preparation.UploadPlanService
 	SourceMaterialsOnly   bool
 	SheinPublication      *SheinPublicationService
 	WalmartCatalog        WalmartRuleReader

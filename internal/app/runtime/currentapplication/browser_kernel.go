@@ -74,7 +74,7 @@ func (c *Config) validateBrowserKernel() error {
 		owners = append(owners, &c.AccountAuditUsage.Image, &c.AccountAuditUsage.Product)
 	}
 	if c.ModelRoutePricing != nil {
-		owners = append(owners, c.ModelRoutePricing.TextWriter, c.ModelRoutePricing.ImageWriter)
+		owners = append(owners, c.ModelRoutePricing.Writer)
 	}
 	for _, other := range owners {
 		if other != nil && sameDatabaseTarget(d, *other) {

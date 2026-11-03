@@ -186,7 +186,7 @@ func TestArtworkAdmissionBlocksNewPaidWorkButPreservesOriginalRecovery(t *testin
 	quotes := &artworkReadinessQuote{}
 	workflows := &artworkAdmissionWorkflow{}
 	repository := &imageSetPrepareACKRepository{Repository: imagestore.NewMemoryRepository()}
-	service, err := imageagent.NewService(repository, workflows, closedImageSetCatalog{}, imageagent.WithOrganizationScope(), imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: 100, ElapsedSeconds: 300}}))
+	service, err := imageagent.NewService(repository, workflows, closedImageSetCatalog{}, imageagent.WithOrganizationScope(), imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 100, ElapsedSeconds: 300}}))
 	require.NoError(t, err)
 	input := imageagent.PrepareArtworkInput{RequestID: uuid.NewString(), ContextID: "creative", ExpectedModeRevision: "0", Theme: "原创森林动物"}
 	_, err = service.PrepareArtwork(ctx, input)

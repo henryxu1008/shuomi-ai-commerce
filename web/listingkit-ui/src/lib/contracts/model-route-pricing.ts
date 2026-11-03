@@ -1,30 +1,47 @@
 import {z} from "zod";
+import {aiPointUnit} from "./ai-points";
 export const routeFact=z.string().min(1).max(128).regex(/^[^\s\x00-\x1f\x7f]+$/);
-const positive=z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const points=z.string().regex(/^[1-9][0-9]{0,12}$/).refine(v=>{try{return BigInt(v)<=BigInt("1000000000000")}catch{return false}});
-const cost=z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$/).max(24).refine(v=>{try{const [a,b=""]=v.split(".");const n=BigInt(a)*BigInt(1000000)+BigInt(b.padEnd(6,"0"));return n>BigInt(0)&&n<=BigInt("1000000000000")}catch{return false}});
-const textRates=z.strictObject({inputCost:cost,outputCost:cost,inputPoints:points,outputPoints:points});
-const imageRates=z.strictObject({pointsPerImage:points});
-const routeRates=z.union([textRates,imageRates]);
-export const routeInput=z.strictObject({optional:z.literal(true).optional(),expectedRevision:routeFact,bindingId:routeFact,credentialVersion:routeFact,rates:routeRates,rollbackFrom:routeFact.optional()});
-const text=z.strictObject({ClientName:routeFact,ProviderID:routeFact,AdapterKind:routeFact,ModelID:routeFact,EndpointIdentityDigest:routeFact,CredentialVersion:routeFact,RoutingPolicyVersion:routeFact,AdapterPolicyVersion:routeFact,PromptVersion:routeFact,OutputSchemaVersion:routeFact,UsageMappingVersion:routeFact,CostPricingVersion:routeFact,PointTariff:z.strictObject({priceVersion:routeFact,inputPointsPerMillionTokens:positive,outputPointsPerMillionTokens:positive}),Currency:z.string().length(3),InputMicrosPerMillion:positive,OutputMicrosPerMillion:positive,MaximumPromptTokens:positive,MaximumCompletionTokens:positive,MaximumInputBytes:positive,MaximumOutputBytes:positive,DeadlineBound:positive});
-const image=z.strictObject({provider:routeFact,model:routeFact,protocol:routeFact,endpointDigest:routeFact,credentialReference:routeFact.max(192),configurationVersion:routeFact,priceVersion:routeFact,points:positive});
-const base={bindingId:routeFact,credentialVersion:routeFact};
-const routePayload=z.union([z.strictObject({...base,rates:textRates,text}),z.strictObject({...base,optional:z.literal(true).optional(),rates:imageRates,image})]);
-const routeScope=z.strictObject({organizationId:routeFact,capability:routeFact});
-const routeRevision=z.strictObject({id:routeFact,scope:routeScope,parent:routeFact,schemaVersion:z.literal(1),payload:routePayload,digest:routeFact,actorId:routeFact,publishedAt:z.iso.datetime({offset:true}),key:routeFact,rollbackFrom:routeFact.optional()});
-export const routeCurrent=z.strictObject({status:z.enum(["READY","NEEDS_CONFIGURATION","UNCONFIGURED"]),revision:routeRevision.nullable()});
-export const routeOptions=z.strictObject({revisions:z.array(routeRevision).max(128)});
-export const routeReceipt=z.strictObject({receipt:routeRevision});
-export const routePreview=z.strictObject({payload:routePayload,expectedRevision:routeFact,digest:routeFact});
-const routeBinding=z.strictObject({id:routeFact,credentialVersion:routeFact,provider:routeFact,model:routeFact,protocol:routeFact,usageMappingVersion:routeFact.optional(),currency:z.string().length(3).optional(),maximumCostMicros:positive.optional(),maximumPointsPerImage:positive.optional(),maximumInputBytes:positive.optional(),maximumOutputBytes:positive.optional(),maximumPromptTokens:positive.optional(),maximumCompletionTokens:positive.optional(),deadlineSeconds:positive.optional()});
-export const routeBindings=z.strictObject({bindings:z.array(routeBinding).max(128)});
-export const routeHistory=z.strictObject({revisions:z.array(routeRevision).max(50),nextCursor:z.union([routeFact,z.literal("")])});
-export const routeCapabilities=z.strictObject({organizationId:routeFact,capabilities:z.array(z.strictObject({family:z.enum(["text","image"]),capability:routeFact})).max(7)});
-export type RouteRevision=z.infer<typeof routeRevision>;
-export type RoutePayload=z.infer<typeof routePayload>;
-export type RouteInput=z.infer<typeof routeInput>;
-export type RouteBinding=z.infer<typeof routeBinding>;
-export const routeCapabilityLabels:Record<string,string>={product_agent_decision:"商品标题建议","product.content.decision":"商品内容生成","listing.materials.decision":"平台素材生成","product.selection.decision":"商品选品分析","shop.operations-diagnosis.decision":"店铺运营诊断",aiworkbench_chat_plan:"硕米 Chat 规划","imageagent.generation":"图片生成（共享用途）"};
 
-export function routeRateError(field:string,value:string):string|undefined{return (field.endsWith("Cost")?cost:points).safeParse(value).success?undefined:field.endsWith("Cost")?"须大于 0，最多 6 位小数，且不超出费率上界":"须为大于 0 的整数，且不超出费率上界"}
+const modelCategory=z.enum(["text","image-generation","multimodal"]);
+const nonnegative=z.number().int().min(0).max(1e12);
+const positive=nonnegative.refine(v=>v>0);
+export const officialRates=z.strictObject({inputText:nonnegative,cachedInputText:nonnegative,inputImage:nonnegative,cachedInputImage:nonnegative,outputText:nonnegative,outputImage:nonnegative,outputImagePerItem:nonnegative.optional()});
+const officialPrice=z.strictObject({unitVersion:aiPointUnit,priceVersion:routeFact,fxVersion:routeFact,currency:z.string().regex(/^[A-Z]{3}$/),cnyMicrosPerCurrencyUnit:positive,model:routeFact,channel:routeFact,usageVersion:routeFact,rates:officialRates});
+const reference=z.strictObject({id:routeFact.max(64),version:routeFact});
+const sharedSelection=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiPointUnit,defaultChannel:routeFact,text:reference,image:reference,multimodal:reference});
+export const routeInput=z.strictObject({expectedRevision:routeFact,selection:sharedSelection});
+const modelOption=z.strictObject({category:modelCategory,reference,channel:routeFact,model:routeFact,ready:z.boolean(),reason:routeFact.optional(),price:officialPrice.optional()});
+const preview=z.strictObject({ready:z.boolean(),models:z.array(modelOption).length(3)}).refine(v=>v.ready===v.models.every(m=>m.ready)&&new Set(v.models.map(m=>m.category)).size===3);
+const date=z.iso.datetime({offset:true}).refine(value=>!/\.\d{10}/.test(value));
+const interval={sourceUrl:z.url().max(2048),verifiedAt:date,effectiveFrom:date,effectiveUntil:date};
+const publishedPrice=z.strictObject({id:routeFact.max(64),version:routeFact.optional(),region:routeFact.max(64),serviceType:routeFact.max(64),image:z.strictObject({width:z.number().int().positive().max(8192),height:z.number().int().positive().max(8192),quality:routeFact.max(64)}).optional(),provider:z.enum(["openai","google","qwen"]),channel:routeFact,model:routeFact,currency:z.string().regex(/^[A-Z]{3}$/),usageVersion:routeFact,rates:officialRates,...interval});
+const publishedFX=z.strictObject({version:routeFact.optional(),currency:z.string().regex(/^[A-Z]{3}$/),cnyMicrosPerCurrencyUnit:positive,rateDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),...interval});
+export const priceInput=z.strictObject({expectedRevision:routeFact,prices:z.array(publishedPrice).max(32),fx:z.array(publishedFX).max(8)}).refine(v=>v.prices.every(p=>!p.version)&&v.fx.every(f=>!f.version));
+const priceSnapshot=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiPointUnit,prices:z.array(publishedPrice).max(32),fx:z.array(publishedFX).max(8)});
+const routePayload=z.strictObject({bindingId:z.literal(""),credentialVersion:z.literal(""),rates:z.strictObject({}),sharedModels:sharedSelection.optional(),platformPrices:priceSnapshot.optional()}).refine(p=>!!p.sharedModels!==!!p.platformPrices);
+const routeScope=z.strictObject({organizationId:routeFact,capability:z.enum(["ai.models.enterprise","ai.models.official-prices"])});
+const routeRevision=z.strictObject({id:routeFact,scope:routeScope,parent:routeFact,schemaVersion:z.literal(1),payload:routePayload,digest:routeFact,actorId:routeFact,publishedAt:date,key:routeFact});
+export const routeCurrent=z.strictObject({status:z.enum(["READY","NEEDS_CONFIGURATION","UNCONFIGURED"]),revision:routeRevision.nullable(),preview:preview.nullable()});
+export const routeOptions=z.strictObject({organizationId:routeFact,channels:z.array(routeFact).min(1).max(128),models:z.array(modelOption).max(256)});
+export const routeReceipt=z.strictObject({receipt:routeRevision});
+export const routePreview=z.strictObject({selection:sharedSelection,expectedRevision:routeFact,preview});
+export const pricePreview=z.strictObject({expectedRevision:routeFact,snapshot:priceSnapshot});
+export const routeHistory=z.strictObject({revisions:z.array(routeRevision).max(50),nextCursor:z.union([routeFact,z.literal("")])});
+export const routeCapabilities=z.strictObject({organizationId:routeFact,unitVersion:aiPointUnit,available:z.boolean(),canMaintainPrices:z.boolean()});
+export type RouteRevision=z.infer<typeof routeRevision>;
+export type RouteInput=z.infer<typeof routeInput>;
+export type ModelOption=z.infer<typeof modelOption>;
+export type PriceInput=z.infer<typeof priceInput>;
+export const modelLabels={text:"文本模型","image-generation":"图片生成模型",multimodal:"多模态理解模型"} as const;
+export function formatCurrencyMicros(value:number):string{const n=BigInt(value),tail=(n%BigInt(1000000)).toString().padStart(6,"0").replace(/0+$/g,"");return (n/BigInt(1000000)).toString()+(tail?"."+tail:"")}
+export function parseCurrencyMicros(value:string):number{if(!/^(0|[1-9]\d*)(\.\d{1,6})?$/.test(value))throw new Error("INVALID");const [a,b=""]=value.split("."),n=BigInt(a)*BigInt(1000000)+BigInt(b.padEnd(6,"0"));if(n>BigInt("1000000000000"))throw new Error("INVALID");return Number(n)}
+
+// Go persists RFC3339 nanoseconds canonically. Compare price facts, not JSON
+// timestamp spelling or an omitted zero optional dimension, after publication.
+export function canonicalPriceFacts(value:Pick<PriceInput,"prices"|"fx">):string{
+ const instant=(value:string)=>{const match=/^(.*T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?(Z|[+-][0-9]{2}:[0-9]{2})$/.exec(value);if(!match)throw new Error("INVALID_TIME");const seconds=new Date(match[1]+match[3]).toISOString().replace(/\.000Z$/,""),fraction=(match[2]??"").replace(/0+$/g,"");return seconds+(fraction?"."+fraction:"")+"Z"};
+ const interval=<T extends {verifiedAt:string;effectiveFrom:string;effectiveUntil:string}>(entry:T)=>({...entry,verifiedAt:instant(entry.verifiedAt),effectiveFrom:instant(entry.effectiveFrom),effectiveUntil:instant(entry.effectiveUntil)});
+ return JSON.stringify({prices:value.prices.map(value=>{const entry=withoutPublicationVersion(value);return interval({...entry,rates:{...entry.rates,outputImagePerItem:entry.rates.outputImagePerItem||undefined}})}),fx:value.fx.map(value=>interval(withoutPublicationVersion(value)))});
+}
+
+export function withoutPublicationVersion<T extends {version?:string}>(value:T):Omit<T,"version">{const copy={...value};delete copy.version;return copy}

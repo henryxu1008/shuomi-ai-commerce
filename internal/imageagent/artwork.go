@@ -17,7 +17,7 @@ type ArtworkPlan struct {
 	ModeSnapshotRef                                    agent.ModeSnapshotRef
 	ConfigurationEpoch, ParametersDigest, InputDigest  string
 	QuoteDigest                                        string
-	MaxPoints                                          int64
+	MaxPoints                                          int64 "json:\",string\""
 	Quote                                              ImageGenerationQuote
 }
 
@@ -120,7 +120,7 @@ func NewArtworkProvenance(input SlotExecutionInput, fact GenerationFact) (Artwor
 	}
 	quote := input.Artwork.Quote
 	i := fact.Intent
-	if i.Provider != quote.Provider || i.Model != quote.Model || i.Protocol != quote.Protocol || i.Resolution != quote.Resolution || i.Quality != quote.Quality || i.Points != quote.Points || i.PriceVersion != quote.PriceVersion || i.RouteReference != quote.RouteReference || i.CredentialReference != quote.CredentialReference || i.ConfigurationVersion != quote.ConfigurationVersion {
+	if i.Billing != quote.Billing || i.Provider != quote.Provider || i.Model != quote.Model || i.Protocol != quote.Protocol || i.Resolution != quote.Resolution || i.Quality != quote.Quality || i.Points != quote.Points || i.PriceVersion != quote.PriceVersion || i.RouteReference != quote.RouteReference || i.CredentialReference != quote.CredentialReference || i.ConfigurationVersion != quote.ConfigurationVersion {
 		return ArtworkProvenance{}, ErrRevisionConflict
 	}
 	return p, nil

@@ -23,7 +23,7 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 	if err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
-	if !fact.PointTariff.Valid() || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.StartedAt.IsZero() || fact.UserID == "" || fact.MemberID == "" || fact.InputHash == "" || !validPricedTextOperationIdentity(fact) {
+	if !fact.OfficialTariff.Valid() || fact.OfficialTariff.Model != fact.ModelID || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.StartedAt.IsZero() || fact.UserID == "" || fact.MemberID == "" || fact.InputHash == "" || !validPricedTextOperationIdentity(fact) {
 		return aicapability.InvocationRecord{}, fmt.Errorf("invalid priced model fact")
 	}
 	if err := validateUsage(fact); err != nil {
@@ -44,6 +44,9 @@ func VerifyModelPointInvocationSchema(ctx context.Context, db *gorm.DB) error {
 	columns, err := db.WithContext(ctx).Migrator().ColumnTypes(&invocationRow{})
 	if err != nil {
 		return err
+	}
+	if len(columns) != len(stmt.Schema.DBNames) {
+		return fmt.Errorf("current model invocation schema has unexpected columns; install on a fresh database")
 	}
 	present := make(map[string]bool, len(columns))
 	for _, column := range columns {

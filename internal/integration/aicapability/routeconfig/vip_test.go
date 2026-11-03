@@ -11,7 +11,7 @@ import (
 func TestVIPBindingRequiresExactExistingEnterpriseCredential(t *testing.T) {
 	sc := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
 	endpoint := "https://grsaiapi.com/v1/api/generate"
-	c, err := NewCatalog([]Definition{{Scope: sc, Image: &ImageAdmission{ClientName: "image-vip", Provider: "grsai", Model: "gpt-image-2-vip", Endpoint: endpoint, CredentialVersion: "credential-v1", MaximumPointsPerImage: 12}}})
+	c, err := NewCatalog([]Definition{{Scope: sc, Image: &ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, ClientName: "image-vip", Provider: "grsai", Model: "gpt-image-2-vip", Endpoint: endpoint, CredentialVersion: "credential-v1"}}})
 	require.NoError(t, err)
 	row := d.Credential{OrganizationID: "org-a", ClientName: "image-vip", Model: "gpt-image-2-vip", APIStyle: "grsai", Version: "credential-v1", EndpointDigest: governed.EndpointIdentityDigest(endpoint), Reference: "db:1:1:image-vip", TimeoutSeconds: 120, Enabled: true, KeyPresent: true}
 	b, err := c.Qualify(sc, "image-vip", row)

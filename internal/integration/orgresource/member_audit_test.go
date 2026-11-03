@@ -20,7 +20,7 @@ func TestMemberAuditReadsCommittedOriginalFactsWithScopedStablePages(t *testing.
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	transfers.now, limits.now = func() time.Time { return now }, func() time.Time { return now }
 	for _, org := range []string{"org-a", "org-b"} {
-		require.NoError(t, db.Create(&organizationResourceBucketRow{OrganizationID: org, ResourceType: "data_row", Available: 100}).Error)
+		require.NoError(t, db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: org, ResourceType: "data_row", Available: 100}).Error)
 		command := orgresource.MemberResourceTransfer{OrganizationID: org, MemberID: "member", ActorID: "admin", OperationID: "allocate", ResourceType: orgresource.ResourceDataRow, Action: orgresource.MemberResourceAllocate, Quantity: 10}
 		_, err = transfers.Transfer(ctx, command)
 		require.NoError(t, err)
@@ -33,9 +33,9 @@ func TestMemberAuditReadsCommittedOriginalFactsWithScopedStablePages(t *testing.
 		failed.Action, failed.OperationID, failed.Quantity, failed.ExpectedVersion = orgresource.MemberResourceAllocate, "failed-allocate", 1000, 2
 		_, err = transfers.Transfer(ctx, failed)
 		require.ErrorIs(t, err, orgresource.ErrInsufficientBalance)
-		_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: org, MemberID: "member", ActorID: "other-admin", OperationID: "limit", Target: 1000})
+		_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: org, MemberID: "member", ActorID: "other-admin", OperationID: "limit", Target: 1000})
 		require.NoError(t, err)
-		_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: org, MemberID: "member", ActorID: "admin", OperationID: "zero-limit", Target: 0, ExpectedVersion: 1})
+		_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: org, MemberID: "member", ActorID: "admin", OperationID: "zero-limit", Target: 0, ExpectedVersion: 1})
 		require.NoError(t, err)
 	}
 	reader, err := NewGormRepository(db, TransactionConfig{})

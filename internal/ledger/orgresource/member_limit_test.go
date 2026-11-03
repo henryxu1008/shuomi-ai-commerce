@@ -33,7 +33,7 @@ func TestMemberLimitServiceRequiresLiveAuthorizationEvenForReplay(t *testing.T) 
 	s, err := NewMemberLimitService(r, auth)
 	require.NoError(t, err)
 	p := Principal{ID: "admin-1", Kind: PrincipalTenantHuman}
-	input := SetMemberLimitExecution{OrganizationID: "org-1", MemberID: "member-1", OperationID: "op-1", ActorID: p.ID, Target: 0}
+	input := SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org-1", MemberID: "member-1", OperationID: "op-1", ActorID: p.ID, Target: 0}
 	_, err = s.SetMonthlyLimit(context.Background(), p, input)
 	require.ErrorIs(t, err, ErrForbidden)
 	_, err = s.ReadMonthlyLimit(context.Background(), p, "org-1", "member-1")

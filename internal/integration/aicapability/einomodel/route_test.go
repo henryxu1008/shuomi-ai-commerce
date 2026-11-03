@@ -22,6 +22,7 @@ func TestOrganizationRouteNeverBorrowsMemberCredential(t *testing.T) {
 	policy := testTextProfile("https://example.org/v1")
 	policy.ClientName = "planning"
 	policy.ModelID = "model"
+	policy.OfficialTariff.Model = policy.ModelID
 	resolver, err := NewOrganizationRouteResolver(writer, map[RouteKey]RoutePolicy{{OrganizationID: "org-1", Operation: aicapability.OperationAIWorkbenchChatPlan}: {
 		Profile: policy, AdmittedCredentialVersion: "version", AdmittedEndpointIdentityDigest: endpointDigest("https://example.org/v1"),
 	}})

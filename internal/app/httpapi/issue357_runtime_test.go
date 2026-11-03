@@ -172,7 +172,7 @@ func TestIssue357Seed(t *testing.T) {
 	now := time.Now().UTC()
 	for i, org := range []string{c.OrganizationB, c.OrganizationC} {
 		require.NotEmpty(t, org)
-		require.NoError(t, db.Exec(`INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,'ai_point',?,0,0,0,?,?)`, org, i+1, now, now).Error)
+		require.NoError(t, db.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,'ai_point',?,0,0,0,?,?)", org, i+1, now, now).Error)
 	}
 	require.NotContains(t, c.ReaderPassword, "'")
 	require.NoError(t, db.Exec("CREATE ROLE commercial_reader LOGIN PASSWORD '"+c.ReaderPassword+"'").Error)

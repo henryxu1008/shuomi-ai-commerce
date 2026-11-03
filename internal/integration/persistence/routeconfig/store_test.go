@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"task-processor/internal/aicapability"
 	d "task-processor/internal/aicapability/routeconfig"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"task-processor/internal/integration/openai"
@@ -62,13 +63,13 @@ func TestOptionalServiceQualifiedVersionTenantRollbackAndCredentialGuards(t *tes
 	require.NoError(t, credentials.SaveCredential(ctx, openai.AIClientCredential{TenantID: scope.OrganizationID, ClientName: "image-vip", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2-vip", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
 	row, e := credentials.GetCredential(ctx, scope.OrganizationID, "", "image-vip")
 	require.NoError(t, e)
-	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: scope, Image: &qualified.ImageAdmission{ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row), MaximumPointsPerImage: 10}}})
+	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: scope, Image: &qualified.ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row)}}})
 	require.NoError(t, e)
 	s := &d.Service{Repository: repo, Catalog: catalog}
 	options, e := s.Options(ctx, scope)
 	require.NoError(t, e)
 	require.Empty(t, options, "qualified candidate alone is not published")
-	in := d.Input{Optional: true, ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{PointsPerImage: "2"}}
+	in := d.Input{Optional: true, ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{}}
 	first, e := s.Publish(ctx, scope, "maintainer", "option-first", in)
 	require.NoError(t, e)
 	_, e = s.Current(ctx, scope)
@@ -200,11 +201,11 @@ func TestCredentialDisabledAfterProjectionBeforeCommitFailsCurrentClosed(t *test
 	require.NoError(t, owner.SaveCredential(ctx, openai.AIClientCredential{TenantID: sc.OrganizationID, ClientName: "image-a", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
 	row, e := owner.GetCredential(ctx, sc.OrganizationID, "", "image-a")
 	require.NoError(t, e)
-	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: sc, Image: &qualified.ImageAdmission{ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row), MaximumPointsPerImage: 10}}})
+	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: sc, Image: &qualified.ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row)}}})
 	require.NoError(t, e)
 	interleaved := rotatingPublication{Store: repo, rotate: func() { row.Enabled = false; require.NoError(t, owner.SaveCredential(ctx, *row)) }}
 	service := &d.Service{Repository: interleaved, Catalog: catalog}
-	in := d.Input{ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{PointsPerImage: "5"}}
+	in := d.Input{ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{}}
 	r, e := service.Publish(ctx, sc, "maintainer", "race", in)
 	require.NoError(t, e)
 	current, e := service.Current(ctx, sc)
@@ -269,7 +270,7 @@ func TestSchemaRejectsMissingCurrentRevisionConstraint(t *testing.T) {
 	require.Error(t, VerifySchema(context.Background(), db))
 }
 func build(_ d.CredentialReader, id string) (d.Payload, error) {
-	return d.Payload{BindingID: "candidate-a", CredentialVersion: "credential-a", Rates: d.Rates{PointsPerImage: "10"}, Image: &d.ImageProfile{ConfigurationVersion: id, PriceVersion: id, Points: 10}}, nil
+	return d.Payload{BindingID: "candidate-a", CredentialVersion: "credential-a", Rates: d.Rates{}, Image: &d.ImageProfile{ConfigurationVersion: id, PriceVersion: id, Points: 10}}, nil
 }
 func TestAtomicCASReplayHistoryAndRestart(t *testing.T) {
 	db, s := fixture(t)
@@ -392,7 +393,7 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	for _, id := range []string{"image-a", "image-b"} {
 		row, e := owner.GetCredential(ctx, scope.OrganizationID, "", id)
 		require.NoError(t, e)
-		defs = append(defs, qualified.Definition{Scope: scope, Image: &qualified.ImageAdmission{ClientName: id, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row), MaximumPointsPerImage: 100}})
+		defs = append(defs, qualified.Definition{Scope: scope, Image: &qualified.ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: id, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row)}})
 	}
 	catalog, e := qualified.NewCatalog(defs)
 	require.NoError(t, e)
@@ -425,7 +426,7 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	bindings, e := service.Bindings(ctx, scope)
 	require.NoError(t, e)
 	require.Len(t, bindings, 2)
-	in := d.Input{ExpectedRevision: d.NoRevision, BindingID: bindings[0].ID, CredentialVersion: bindings[0].CredentialVersion, Rates: d.Rates{PointsPerImage: "10"}}
+	in := d.Input{ExpectedRevision: d.NoRevision, BindingID: bindings[0].ID, CredentialVersion: bindings[0].CredentialVersion, Rates: d.Rates{}}
 	_, e = service.Validate(ctx, scope, in)
 	require.NoError(t, e)
 	first, e := service.Publish(ctx, scope, "maintainer", "one", in)
@@ -458,4 +459,10 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	require.Equal(t, first.ID, replay.ID, "rotation does not replace historical publication receipt")
 	require.Error(t, writer.Exec("UPDATE public.ai_route_config_revisions SET payload='{}'").Error)
 	require.Error(t, writer.Exec("DELETE FROM public.ai_route_config_current").Error)
+}
+
+// Retained repository/CAS regressions use synthetic official billing only.
+// They do not reopen the retired per-purpose serving API or point-price input.
+func syntheticPublicationBilling(model string) aicapability.OfficialModelBilling {
+	return aicapability.OfficialModelBilling{BoundEvidenceVersion: "synthetic-bound", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-official", FXVersion: "synthetic-fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: model, Channel: "synthetic-channel", UsageVersion: "synthetic", Rates: aicapability.OfficialModelRates{InputText: 500, OutputText: 500}}, UsageBound: aicapability.BillableModelUsage{MappingVersion: "synthetic", Complete: true, InputText: 100, OutputText: 100}}
 }

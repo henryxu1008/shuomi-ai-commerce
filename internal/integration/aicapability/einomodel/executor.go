@@ -103,7 +103,7 @@ func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuo
 		ProviderID: p.ProviderID, ModelID: p.ModelID, CredentialReference: p.ClientName,
 		ConfigurationVersion: p.CredentialVersion, PolicyVersion: p.CostPricingVersion,
 		PromptKey: p.OutputSchemaVersion, PromptVersion: p.PromptVersion, PromptHash: hex.EncodeToString(prompt[:]),
-		InputHash: quote.InputHash, PointTariff: p.PointTariff,
+		InputHash: quote.InputHash, OfficialTariff: p.OfficialTariff,
 		MaximumPromptTokens: quote.MaximumTokens - p.MaximumCompletionTokens, MaximumCompletionTokens: p.MaximumCompletionTokens,
 		StartedAt: now, Attempt: 1, Outcome: aicapability.InvocationDispatched, Currency: p.Currency,
 	}
@@ -268,6 +268,10 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	record.ProviderRequestID = googleinteractions.SafeRequestID(output.ProviderRequestID)
 	record.LatencyMilliseconds = record.FinishedAt.Sub(now).Milliseconds()
 	record.PromptTokens, record.CompletionTokens, record.TotalTokens = output.Usage.PromptTokens, output.Usage.CompletionTokens, output.Usage.TotalTokens
+	if output.Usage.BillableUsage != nil {
+		billable := *output.Usage.BillableUsage
+		record.BillableUsage = &billable
+	}
 	record.UsageKnown, record.EstimatedCostKnown = true, true
 	record.EstimatedCostMicros, err = p.CostFor(int64(record.PromptTokens), int64(record.CompletionTokens))
 	if err != nil {

@@ -29,7 +29,7 @@ const (
 
 // FullImageSetDependencies keeps the SDK client at the runtime assembly boundary.
 type FullImageSetDependencies struct {
-	CurrentImagePolicies d.CurrentReader
+	CurrentImagePolicies d.SharedCategoryReader
 	AssetDB              *gorm.DB
 	WorkerDB             *gorm.DB
 	WorkerConfig         *config.Config

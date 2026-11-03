@@ -45,6 +45,13 @@ C2-2 的额外视觉模型分析继续 DEFERRED / NOT_IMPLEMENTED；C3-2 已由�
 C2 的非执行性建议不调用 PrepareImageSet，不将付费生成或模型提案伪装为 unmetered compute。
 本节不签发工程最终验收、运行/产品通过或 #134/#128 完成。
 
+[C2-2 单图视觉分析候选](product-image-visual-analysis.md)进入单独设计整理，仍为
+DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY / NOT_IMPLEMENTED。
+候选沿受治理 Model 补单张图片输入和只读结果，保留原纯事实 Tool；不自动沿用 C1 路径 A 批准，
+不将真实付费视觉调用藏进 unmetered Tool，也不将通用 metered gateway 作为本阶段前置。
+产品范围、显式外发图片/费用确认与一次调用 D1–D3 已单独认可；具体模型/计量/费率依据仍缺失，
+未授予实现/评审派工/真实操作权限，不将文档 PR CI 当作准入或视觉效果证明。
+
 [C3-2 候选类目规则查询设计](listing-candidate-category-rules.md) 单独记录后续范围：
 用户在现 SHEIN 资料流程先选择一个候选类目，沿原 owner 查询并只读解释，不改变已保存资料。
 候选包括强类型选择绑定、精确 Tool/模型结果/消费者分派和采用隔离；覆盖范围 D2、版本资格 D3 已取得本轮单独产品认可。

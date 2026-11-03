@@ -25,6 +25,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"task-processor/internal/integration/googleinteractions"
 	"task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
@@ -205,9 +206,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	now := time.Now().UTC()
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: 10000000})
+	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: 10000000})
 	require.NoError(t, err)
-	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)", "B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
+	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)", "B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
 	if mode == "no quota" {
 		require.NoError(t, f.owner.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 1 WHERE organization_id = 'B'").Error)
 	}
@@ -481,7 +482,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
 	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
@@ -507,7 +508,8 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	deps.authorizer = auth
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
-	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
+	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
+	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: &settings}
 	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
@@ -555,6 +557,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		p := settings.TextPolicies["B"]
 		p.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(googleinteractions.Origin)
 		p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+		p.Profile.OfficialTariff.Model = p.Profile.ModelID
 		p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 		settings.TextPolicies["B"] = p
 		settings.TextTransport = isolatedGoogleTitleTransport(t, provider.URL)
@@ -564,6 +567,25 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			settings.Ledger = agentReleaseHook{ProductAgentInvocationLedger: ledger}
 		}
 		settings.Ledger = agentReserveHook{ProductAgentInvocationLedger: settings.Ledger, afterReserve: func() { f.grants.revoked.Store(true) }}
+	}
+	if mode == "research" || mode == "selection" {
+		policies := settings.SelectionTextPolicies
+		if mode == "research" {
+			policies = settings.ResearchTextPolicies
+		}
+		p := policies["B"]
+		p.Profile.MaximumPromptTokens, p.Profile.MaximumCompletionTokens = 32000, 4000
+		p.Profile.InputMicrosPerMillion, p.Profile.OutputMicrosPerMillion = 2000000, 8000000
+		p.Profile.OfficialTariff.Rates = aicapability.OfficialModelRates{InputText: 2000000, OutputText: 8000000}
+		policies["B"] = p
+		settings.CurrentTextPolicies = qualified.SharedTextReader{Service: syntheticSelectionSharedCategory{settings: &settings}}
+		retail, err := p.Profile.OfficialTariff.ReserveTextMicropoints(32000, 4000)
+		require.NoError(t, err)
+		require.EqualValues(t, 19200000, 2*retail)
+		require.LessOrEqual(t, 2*retail, int64(20000000), "two-call retail reservation stays below the approved 20 points")
+		cost, err := p.Profile.MaximumCost()
+		require.NoError(t, err)
+		require.LessOrEqual(t, 2*cost, int64(300000), "channel cost remains separately bounded by CNY 0.30")
 	}
 	var reviewIAM *contentReviewIAM
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
@@ -619,10 +641,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	if mode == "research" {
 		testResearchHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductResearchDecision)
 		return
 	}
 	if mode == "selection" {
 		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductSelectionDecision)
 		return
 	}
 	if chatTasks {
@@ -1083,6 +1107,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		wrongProfile, profileErr := module.(productAgentModule).application.selectTitleProfile(context.Background(), "B")
 		require.NoError(t, profileErr)
 		wrongProfile.ModelID = "another-title-model"
+		wrongProfile.OfficialTariff.Model = wrongProfile.ModelID
 		require.NoError(t, wrongProfile.Validate())
 		bound := agent.Binding{ContextKind: "acquisition", ContextID: op.OperationID, ProductKey: op.ProductKey,
 			CatalogVersion: op.CatalogVersion, PublicationID: op.PublicationID, TargetPlatform: "shein"}

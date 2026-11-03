@@ -154,10 +154,10 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, resourceadapter.AutoMigrate(f.owner))
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member-B-admin", ActorID: "admin", OperationID: "point-limit", Target: 10000000})
+	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-admin", ActorID: "admin", OperationID: "point-limit", Target: 10000000})
 	require.NoError(t, err)
 	now := time.Now().UTC()
-	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
+	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)",
 		"B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
 	const approvedGoal = "突出有证据支持的卖点"
 	var plannerCalls, titleCalls atomic.Int32
@@ -223,7 +223,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		}
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"isolated-workbench","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+		_, _ = w.Write([]byte(`{"id":"isolated-workbench","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
 	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
@@ -244,8 +244,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	profile := func(client, model, prompt, output string) aicapability.ModelProfile {
 		return aicapability.ModelProfile{ClientName: client, ProviderID: "openai-compatible", AdapterKind: "openai-compatible", ModelID: model,
 			RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: prompt, OutputSchemaVersion: output,
-			UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000},
-			Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192,
+			UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: model, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192,
 			MaximumInputBytes: 1 << 20, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}
 	}
 	policy := func(row *openai.AIClientCredential, p aicapability.ModelProfile) governed.RoutePolicy {
@@ -269,6 +268,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	if googleTitle {
 		p := settings.TextPolicies["B"]
 		p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+		p.Profile.OfficialTariff.Model = p.Profile.ModelID
 		p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 		p.Profile.MaximumInputBytes = 128 << 10
 		settings.TextPolicies["B"] = p

@@ -41,6 +41,7 @@ func googleLoopbackTransport(t *testing.T, endpoint string) http.RoundTripper {
 func googleTestProfile() aicapability.ModelProfile {
 	p := testTextProfile(googleTestOrigin)
 	p.ProviderID, p.AdapterKind, p.ModelID = "google", "google-interactions", "gemini-3.8-flash"
+	p.OfficialTariff.Model = p.ModelID
 	p.AdapterPolicyVersion, p.UsageMappingVersion = "google-interactions-v1", "google-interactions-usage-v1"
 	return p
 }

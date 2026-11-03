@@ -26,6 +26,7 @@ var supplyFeatureReviewTables = []string{"product_title_proposals", "product_tit
 func supplyFeatureNewTables() []string {
 	tables := append([]string{}, recordstore.Tables...)
 	tables = append(tables, prepstore.OperationTables...)
+	tables = append(tables, prepstore.UploadPlanTables...)
 	tables = append(tables, submissionstore.AttemptTable, submissionstore.TargetFenceTable)
 	tables = append(tables, officialstore.OfficialTables...)
 	return tables

@@ -484,6 +484,17 @@ it("clears the chosen operation when switching enterprise context",async()=>{
   expect(within(current).getByRole("link",{name:"进入使用"})).toHaveAttribute("href","/workbench/supply/selection?step=analysis");
 });
 
+it("opens saved products from the image agent instead of online acquisition", async () => {
+  const base = marketEntries().find(entry => entry.agent.agentId === "product.image.agent")!;
+  const entry = {...base, canUse:true, agent:{...base.agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+  const fetch = vi.fn(async (_url:unknown, _init?:RequestInit) => { void _url; void _init; return Response.json({items:[entry],nextCursor:""}); });
+  vi.stubGlobal("fetch", fetch);
+  render(<AgentPage mode="mine" />);
+  const card = await screen.findByRole("article", {name:"商品图片智能体"});
+  expect(within(card).getByRole("link", {name:"进入使用"})).toHaveAttribute("href", "/workbench/data/mine?view=own");
+  expect(fetch.mock.calls.every(([, init]) => !init || !["POST","PUT","DELETE"].includes(init.method ?? "GET"))).toBe(true);
+});
+
 it("browses the original Figma categories without inventing agents in empty categories", async () => {
   const fetch = vi.fn(async () => Response.json({items:marketEntries(),nextCursor:""}));
   vi.stubGlobal("fetch", fetch);

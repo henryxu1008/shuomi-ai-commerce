@@ -70,11 +70,12 @@ type ImageSetQuoteReader interface {
 
 // Member-facing projection excludes endpoints and credential references.
 type ImageGenerationOption struct {
-	Route      *ImageRouteSelection `json:"route,omitempty"`
-	Model      string               `json:"model"`
-	Quality    string               `json:"quality"`
-	Resolution string               `json:"resolution"`
-	Points     int64                `json:"points"`
+	UnitVersion string               `json:"unitVersion"`
+	Route       *ImageRouteSelection `json:"route,omitempty"`
+	Model       string               `json:"model"`
+	Quality     string               `json:"quality"`
+	Resolution  string               `json:"resolution"`
+	Points      int64                "json:\"points,string\""
 }
 type ImageGenerationOptionsReader interface {
 	ReadImageGenerationOptions(context.Context, ExecutionIdentity) ([]ImageGenerationOption, error)
@@ -106,7 +107,7 @@ type PreparedImageSet struct {
 	Projection              RunProjection
 	PlanDigest, QuoteDigest string
 	Images                  int
-	Points                  int64
+	Points                  int64 "json:\",string\""
 }
 
 type ConfirmImagePlanInput struct {
@@ -345,7 +346,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if encodeErr != nil || len(encodedPlan) > 2<<20 {
 		return PreparedImageSet{}, ErrValidation
 	}
-	limits := agentconfig.ImageRunLimits{Images: len(plan.Slots), Points: plan.Set.MaxPoints, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: len(plan.Slots), Points: plan.Set.MaxPoints, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
 	if !limits.Within(snapshot.HardLimits) || !limits.Within(s.imageSets.HardLimits) {
 		return PreparedImageSet{}, ErrCommandBlocked
 	}
@@ -556,7 +557,7 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 	if current.Run.Status != RunStatusAwaitingPlanApproval {
 		return RunProjection{}, ErrCommandBlocked
 	}
-	limits := agentconfig.ImageRunLimits{Images: len(current.Plan.Slots), Points: current.Plan.Set.MaxPoints, ElapsedSeconds: int64(current.Run.Budget.MaxElapsed / time.Second)}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: len(current.Plan.Slots), Points: current.Plan.Set.MaxPoints, ElapsedSeconds: int64(current.Run.Budget.MaxElapsed / time.Second)}
 	command := agentconfig.ImageRunAdmissionCommand{Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, Snapshot: current.Plan.Set.Configuration, MemberID: identity.MemberID, RunID: input.RunID, ConfirmActionID: input.ActionID, SourceDigest: ImageSetSourceDigest(current.Plan.Set.Source, current.Plan), InputDigest: current.Plan.Set.InputDigest, PlanDigest: input.PlanDigest, QuoteDigest: input.QuoteDigest, Limits: limits}
 	receipt, err := s.imageSets.Configuration.ReadImageRunAdmission(ctx, command.Scope, command.Snapshot)
 	if errors.Is(err, agentconfig.ErrNotFound) {

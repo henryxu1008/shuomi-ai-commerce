@@ -25,7 +25,7 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	require.NoError(t, AutoMigrate(resource))
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(native))
 	now := time.Date(2026, 9, 30, 23, 59, 0, 0, time.UTC)
-	fact := aicapability.InvocationRecord{InvocationID: "invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}}
+	fact := aicapability.InvocationRecord{InvocationID: "invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, ModelID: "fixture-model", Currency: "CNY"}
 	if len(operations) == 1 {
 		fact.Operation = operations[0]
 	}
@@ -44,9 +44,9 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	limits, err := NewGormMemberLimitRepository(resource, TransactionConfig{})
 	require.NoError(t, err)
 	limits.now = repo.now
-	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "org", MemberID: "member", ActorID: "admin", OperationID: "limit", Target: 100})
+	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org", MemberID: "member", ActorID: "admin", OperationID: "limit", Target: 100})
 	require.NoError(t, err)
-	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{OrganizationID: "org", ResourceType: "ai_point", Available: 100}).Error)
+	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org", ResourceType: "ai_point", Available: 100}).Error)
 	recorder.SetUsageSettler(repo)
 	return resource, recorder, repo, auth, fact
 }
@@ -63,6 +63,7 @@ func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
 			require.Equal(t, fact.AgentRunID, reservation.BusinessScope)
 			fact.Outcome, fact.UsageKnown = aicapability.InvocationUsageObservedFailed, true
 			fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+			fact.BillableUsage = syntheticUncachedUsage(3, 2)
 			fact.FinishedAt = fact.StartedAt.Add(time.Second)
 			require.NoError(t, recorder.RecordInvocation(ctx, fact))
 			require.NoError(t, recorder.RecordInvocation(ctx, fact))
@@ -86,6 +87,7 @@ func TestPlannerModelPointsBindChatPlanScopeWithoutAgentRun(t *testing.T) {
 	fact.Outcome = aicapability.InvocationUsageObservedFailed
 	fact.UsageKnown, fact.EstimatedCostKnown = true, true
 	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+	fact.BillableUsage = syntheticUncachedUsage(3, 2)
 	fact.FinishedAt = fact.StartedAt.Add(time.Second)
 	require.NoError(t, recorder.RecordInvocation(ctx, fact))
 	var settled organizationResourceReservationRow
@@ -100,7 +102,7 @@ func TestModelPointsActualUsageReturnsRemainderDebtFirstToOriginalMonth(t *testi
 	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 20, fact.StartedAt))
 	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 20, fact.StartedAt))
 	require.Error(t, recorder.ReserveAIInvocationUsage(ctx, "org", "other", fact.InvocationID, 20, fact.StartedAt))
-	require.NoError(t, db.Create(&organizationResourceDebtRow{OrganizationID: "org", ResourceType: "ai_point", Amount: 4}).Error)
+	require.NoError(t, db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org", ResourceType: "ai_point", Amount: 4}).Error)
 	r.now = func() time.Time { return fact.StartedAt.Add(2 * time.Minute) }
 	auth.err = orgresource.ErrForbidden
 	fact.Outcome = aicapability.InvocationUsageObservedFailed
@@ -108,6 +110,7 @@ func TestModelPointsActualUsageReturnsRemainderDebtFirstToOriginalMonth(t *testi
 	fact.PromptTokens = 3
 	fact.CompletionTokens = 2
 	fact.TotalTokens = 5
+	fact.BillableUsage = syntheticUncachedUsage(3, 2)
 	fact.FinishedAt = r.now()
 	require.NoError(t, recorder.RecordInvocation(ctx, fact))
 	require.NoError(t, recorder.RecordInvocation(ctx, fact))
@@ -187,6 +190,7 @@ func TestModelPointsRecoverPersistedTerminalAfterSettlementRollback(t *testing.T
 	fact.UsageKnown = true
 	fact.PromptTokens = 3
 	fact.TotalTokens = 3
+	fact.BillableUsage = syntheticUncachedUsage(3, 0)
 	fact.FinishedAt = fact.StartedAt.Add(time.Second)
 	require.Error(t, recorder.RecordInvocation(ctx, fact))
 	got, err := recorder.ReadModelInvocation(ctx, "org", fact.InvocationID)
@@ -253,6 +257,7 @@ func TestModelPointsBoundedRecoveryAdvancesUnknownBeforeReadingProof(t *testing.
 			original.UsageKnown = true
 			original.PromptTokens = 1
 			original.TotalTokens = 1
+			original.BillableUsage = syntheticUncachedUsage(1, 0)
 			original.FinishedAt = original.StartedAt.Add(time.Second)
 			require.NoError(t, recorder.RecordInvocation(ctx, original))
 		}
@@ -267,4 +272,9 @@ func TestModelPointsBoundedRecoveryAdvancesUnknownBeforeReadingProof(t *testing.
 	require.NoError(t, db.Take(&bucket).Error)
 	require.EqualValues(t, 1500, bucket.Reserved)
 	require.EqualValues(t, 5, bucket.Consumed)
+}
+
+// syntheticUncachedUsage is explicit synthetic provider evidence, not a fallback for absent partitions.
+func syntheticUncachedUsage(input, output int64) *aicapability.BillableModelUsage {
+	return &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: input, OutputText: output}
 }

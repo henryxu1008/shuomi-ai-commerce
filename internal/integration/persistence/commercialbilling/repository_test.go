@@ -326,7 +326,7 @@ func TestResourcePurchasePersistsReservationAndGrantProofBeforeFulfillment(t *te
 		t.Fatalf("order after cancellation persistence failure = %#v found=%v err=%v", persistedAfterFailure, found, err)
 	}
 	var resourceBalance struct{ Available int64 }
-	if err := db.WithContext(ctx).Table("saas_organization_resource_buckets").Select("available").Where("organization_id = ? AND resource_type = ?", "org-purchase", orgresource.ResourceAIPoint).Take(&resourceBalance).Error; err != nil || resourceBalance.Available != 10 {
+	if err := db.WithContext(ctx).Table("saas_organization_resource_buckets").Select("available").Where("organization_id = ? AND resource_type = ?", "org-purchase", orgresource.ResourceAIPoint).Take(&resourceBalance).Error; err != nil || resourceBalance.Available != 10000000 {
 		t.Fatalf("resource balance after purchase = %#v, err=%v", resourceBalance, err)
 	}
 	releaseFailureStore := &failFirstCancelledOrderUpdate{Repository: commercial}
@@ -352,7 +352,7 @@ func TestResourcePurchasePersistsReservationAndGrantProofBeforeFulfillment(t *te
 		t.Fatalf("reconcile released reservation = %#v, err=%v; must cancel without retrying grant", recoveredRelease, err)
 	}
 	resourceBalance.Available = 0
-	if err := db.WithContext(ctx).Table("saas_organization_resource_buckets").Select("available").Where("organization_id = ? AND resource_type = ?", "org-purchase", orgresource.ResourceAIPoint).Take(&resourceBalance).Error; err != nil || resourceBalance.Available != 10 {
+	if err := db.WithContext(ctx).Table("saas_organization_resource_buckets").Select("available").Where("organization_id = ? AND resource_type = ?", "org-purchase", orgresource.ResourceAIPoint).Take(&resourceBalance).Error; err != nil || resourceBalance.Available != 10000000 {
 		t.Fatalf("resource balance after released-reservation recovery = %#v, err=%v", resourceBalance, err)
 	}
 }
@@ -412,7 +412,7 @@ func TestResourceGrantIdempotencyConflictKeepsReservationForReconciliation(t *te
 		t.Fatalf("wallet after grant conflict = %#v, err=%v; reservation must remain held", walletSnapshot, err)
 	}
 	var resourceBalance struct{ Available int64 }
-	if err := db.WithContext(ctx).Table("saas_organization_resource_buckets").Select("available").Where("organization_id = ? AND resource_type = ?", "org-grant-conflict", orgresource.ResourceAIPoint).Take(&resourceBalance).Error; err != nil || resourceBalance.Available != 9 {
+	if err := db.WithContext(ctx).Table("saas_organization_resource_buckets").Select("available").Where("organization_id = ? AND resource_type = ?", "org-grant-conflict", orgresource.ResourceAIPoint).Take(&resourceBalance).Error; err != nil || resourceBalance.Available != 9000000 {
 		t.Fatalf("resource balance after conflicting source claim = %#v, err=%v", resourceBalance, err)
 	}
 	replayed, err := service.CreateResourceOrder(ctx, request)

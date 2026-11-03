@@ -20,7 +20,7 @@ func TestResourceEventReadIsScopedStableAndBoundToFilters(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			op := uuid.NewString()
 			require.NoError(t, db.Create(&organizationResourceOperationRow{OrganizationID: org, OperationID: op, OperationType: "synthetic", RequestFingerprint: "synthetic", State: "succeeded", ImmutableResult: "{}"}).Error)
-			require.NoError(t, db.Create(&organizationResourceEventRow{EventID: uuid.NewString(), OrganizationID: org, OperationID: op, ResourceType: string(orgresource.ResourceDataRow), Quantity: 1, AvailableAfter: 10, AllocatedAfter: 8, Reason: "synthetic", SourceType: "synthetic", SourceIdentity: op, CreatedAt: at}).Error)
+			require.NoError(t, db.Create(&organizationResourceEventRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceDataRow)), EventID: uuid.NewString(), OrganizationID: org, OperationID: op, ResourceType: string(orgresource.ResourceDataRow), Quantity: 1, AvailableAfter: 10, AllocatedAfter: 8, Reason: "synthetic", SourceType: "synthetic", SourceIdentity: op, CreatedAt: at}).Error)
 		}
 	}
 	query := orgresource.EventQuery{OrganizationID: "org-a", ResourceType: orgresource.ResourceDataRow, Limit: 2}

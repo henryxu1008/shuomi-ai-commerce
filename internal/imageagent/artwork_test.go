@@ -20,7 +20,7 @@ func artworkContractInput(t *testing.T) SlotExecutionInput {
 		Configuration:      agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: "00000000-0000-4000-8000-000000000001", Digest: strings.Repeat("a", 64)},
 		ModeSnapshotRef:    agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: "00000000-0000-4000-8000-000000000002", Digest: strings.Repeat("b", 64)},
 		ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("c", 64), InputDigest: strings.Repeat("d", 64), MaxPoints: 12,
-		Quote: ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"},
+		Quote: ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"},
 	}
 	artwork.QuoteDigest = ArtworkQuoteDigest(artwork.Quote)
 	return SlotExecutionInput{TenantID: "org-1", UserID: "actor-1", RunID: "run-1", TargetPlatform: "sds", PlanRevision: 1, Attempt: 1, IdempotencyKey: "artwork-attempt-1", AssetCatalog: catalog, Artwork: artwork,

@@ -16,7 +16,7 @@ func TestConsumerChargeMemberReleaseReturnsNetToMemberAndCommitsOnce(t *testing.
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Available: 10}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Available: 10}).Error; err != nil {
 		t.Fatal(err)
 	}
 	allocations, _ := NewGormMemberAllocationRepository(db, TransactionConfig{})
@@ -45,7 +45,7 @@ func TestConsumerChargeMemberReleaseReturnsNetToMemberAndCommitsOnce(t *testing.
 	if _, err := service.Reconcile(context.Background(), intent.Identity); !errors.Is(err, orgresource.ErrConsumerChargeUnknown) {
 		t.Fatalf("unknown released reservation: %v", err)
 	}
-	if err := db.Create(&organizationResourceDebtRow{OrganizationID: "org-a", ResourceType: "data_row", Amount: 1}).Error; err != nil {
+	if err := db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Amount: 1}).Error; err != nil {
 		t.Fatal(err)
 	}
 	owner.proofs[first.ReservationID] = orgresource.ConsumerChargeProof{Intent: intent, ReservationID: first.ReservationID, State: orgresource.ConsumerEffectFailed, EvidenceID: "fenced:no-publication"}
@@ -102,7 +102,7 @@ func TestConsumerChargeRecoveryDoesNotStarveBehindTwentyFiveUnknown(t *testing.T
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Available: 30}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Available: 30}).Error; err != nil {
 		t.Fatal(err)
 	}
 	repo, _ := NewGormConsumerChargeRepository(db, TransactionConfig{})
@@ -149,7 +149,7 @@ func TestConsumerChargeRejectsProofForDifferentMember(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Available: 1}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Available: 1}).Error; err != nil {
 		t.Fatal(err)
 	}
 	repo, _ := NewGormConsumerChargeRepository(db, TransactionConfig{})
@@ -177,7 +177,7 @@ func TestConsumerChargeRecoveryOnlyClaimsRegisteredOwners(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, resource := range []string{"data_row", "store_renewal_period"} {
-		if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: resource, Available: 1}).Error; err != nil {
+		if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit(resource), OrganizationID: "org-a", ResourceType: resource, Available: 1}).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -217,7 +217,7 @@ func TestConsumerChargeRecoveryIncludesAmazonAlongsideExistingOwners(t *testing.
 				t.Fatal(err)
 			}
 			for _, resource := range []string{"data_row", "store_renewal_period"} {
-				if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: resource, Available: 10}).Error; err != nil {
+				if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit(resource), OrganizationID: "org-a", ResourceType: resource, Available: 10}).Error; err != nil {
 					t.Fatal(err)
 				}
 			}

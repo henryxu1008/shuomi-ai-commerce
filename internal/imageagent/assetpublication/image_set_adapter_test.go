@@ -56,7 +56,7 @@ func TestSynchronousImageSetOutputCanBeSelectedWithDistinctOrMissingRequestID(t 
 				require.Equal(t, "generation-job-1", observation.ResponseID)
 				require.Equal(t, requestID, observation.RequestID)
 				var err error
-				fact, err = fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, ResultURL: observation.ResultURL})
+				fact, err = fact.RecordSuccess(imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, ResultURL: observation.ResultURL})
 				return err
 			})
 			require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestSynchronousImageSetOutputCanBeSelectedWithDistinctOrMissingRequestID(t 
 			require.NoError(t, err)
 			require.Equal(t, requestID, output.Assets[0].ProviderReceiptID)
 			require.Equal(t, 1, submits)
-			fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: fact.Reservation.ReservationID, State: "committed", Points: fact.Intent.Points, ProofDigest: fact.TerminalProofDigest()})
+			fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: fact.Intent.Points, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: fact.Reservation.ReservationID, State: "committed", Points: fact.Intent.Points, ProofDigest: fact.TerminalProofDigest()})
 			require.NoError(t, err)
 			storage := &adapterObjectFixture{objects: map[string]objectstore.ImmutableObjectPut{}}
 			artifacts, err := objectstore.NewDurableArtifactStore(storage, objectstore.DurableArtifactStoreConfig{MaxArtifactBytes: 16 << 20, OperationTimeout: time.Second})
@@ -82,7 +82,7 @@ func TestSynchronousImageSetOutputCanBeSelectedWithDistinctOrMissingRequestID(t 
 			require.NoError(t, err)
 			built, err := tools.NewImageSetResultBuilder().BuildSlotResult(ctx, input, imageagent.PublishedSlotOutput{SlotID: choice.SlotID, Attempt: choice.Attempt, Assets: manifest.Assets})
 			require.NoError(t, err)
-			proof := &imageagent.ImageGenerationProof{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: fact.Intent.Points}
+			proof := &imageagent.ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: fact.Intent.Points}
 			built.Candidates[0].GenerationProof = proof
 			projection.Slots[0].Candidates = built.Candidates
 			projection.Slots[0].Closure, err = imageagent.ImageGenerationClosure(fact)

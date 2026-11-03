@@ -23,6 +23,14 @@ const resourceRuntimePermissionQuery = `WITH owned(table_name,mutable) AS (VALUE
  ('saas_organization_resource_source_claims',false),
  ('saas_organization_resource_events',false),
  ('saas_organization_resource_audit_logs',false))
+ ,unit_columns(table_name,check_name) AS (VALUES
+ ('saas_organization_resource_buckets','chk_bucket_quantity_unit'),
+ ('saas_organization_resource_debts','chk_debt_quantity_unit'),
+ ('saas_organization_resource_reservations','chk_reservation_quantity_unit'),
+ ('saas_organization_resource_source_claims','chk_source_claim_quantity_unit'),
+ ('saas_organization_resource_events','chk_event_quantity_unit'),
+ ('saas_member_ai_point_limits','chk_limit_quantity_unit'),
+ ('saas_member_ai_point_months','chk_month_quantity_unit'))
  SELECT current_user::text,
  session_user=current_user
  AND current_schemas(false)=ARRAY['public']::name[]
@@ -32,6 +40,13 @@ const resourceRuntimePermissionQuery = `WITH owned(table_name,mutable) AS (VALUE
  AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
  AND NOT EXISTS(SELECT 1 FROM owned WHERE to_regclass(format('public.%I',table_name)) IS NULL)
+ AND NOT EXISTS(SELECT 1 FROM unit_columns u WHERE NOT EXISTS(
+ SELECT 1 FROM pg_attribute a WHERE a.attrelid=to_regclass(format('public.%I',u.table_name))
+ AND a.attname='quantity_unit' AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
+ AND format_type(a.atttypid,a.atttypmod)='character varying(32)')
+ OR NOT EXISTS(SELECT 1 FROM pg_constraint c WHERE c.conrelid=to_regclass(format('public.%I',u.table_name))
+ AND c.conname=u.check_name AND c.contype='c' AND c.convalidated
+ AND position('ai-micropoint-v1' in pg_get_constraintdef(c.oid))>0))
  AND NOT EXISTS(SELECT 1 FROM owned WHERE
    NOT coalesce(has_table_privilege(current_user,format('public.%I',table_name),'SELECT'),false)
    OR NOT coalesce(has_table_privilege(current_user,format('public.%I',table_name),'INSERT'),false)

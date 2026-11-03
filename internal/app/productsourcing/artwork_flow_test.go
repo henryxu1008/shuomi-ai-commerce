@@ -173,10 +173,10 @@ func completedArtworkFixture(t *testing.T, scope collection.Scope) *artworkFacts
 	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID, RunID: runID, BusinessTaskID: uuid.NewString()}
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{})
 	require.NoError(t, err)
-	quote := imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}
+	quote := imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}
 	art := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创水彩狐狸", Requirements: "独立图案", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create original fox artwork", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("a", 64)}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("b", 64)}, ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("c", 64), InputDigest: strings.Repeat("d", 64), MaxPoints: 12, Quote: quote, QuoteDigest: imageagent.ArtworkQuoteDigest(quote)}
 	plan := imageagent.Plan{Revision: 1, Artwork: art, CreatedBy: scope.ActorID, IdempotencyKey: uuid.NewString(), Slots: []imageagent.Slot{{ID: "artwork", Role: imageagent.SlotRoleMain, Brief: art.Theme, IdempotencyKey: "artwork", Status: imageagent.SlotStatusPending}}}
-	limits := agentconfig.ImageRunLimits{Images: 1, Points: 12, ElapsedSeconds: 300}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 12, ElapsedSeconds: 300}
 	digest, err := imageagent.ArtworkPlanDigest(plan)
 	require.NoError(t, err)
 	now := time.Now().UTC()
@@ -188,23 +188,23 @@ func completedArtworkFixture(t *testing.T, scope collection.Scope) *artworkFacts
 	executionDigest, err := imageagent.ArtworkGenerationInputDigest(input)
 	require.NoError(t, err)
 	id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(run), PlanRevision: 1, SlotID: "artwork", Attempt: 1}
-	intent := imageagent.GenerationIntent{Identity: id, MemberID: scope.MemberID, CatalogHash: catalog.Manifest.Hash, SourceDigest: executionDigest, PromptVersion: imageagent.ArtworkSchema, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), InputProtocol: imageagent.ArtworkSchema, InputDigest: executionDigest}
+	intent := imageagent.GenerationIntent{Billing: syntheticImageBilling(quote.Model, quote.PriceVersion, quote.Points), Identity: id, MemberID: scope.MemberID, CatalogHash: catalog.Manifest.Hash, SourceDigest: executionDigest, PromptVersion: imageagent.ArtworkSchema, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), InputProtocol: imageagent.ArtworkSchema, InputDigest: executionDigest}
 	fact, err := imageagent.NewGenerationFact(intent)
 	require.NoError(t, err)
-	fact, err = fact.BindReservation(imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: scope.OrganizationID, MemberID: scope.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "original-reservation", ResourceType: "ai_point", Points: 12, PriceVersion: intent.PriceVersion, LimitVersion: 1, MonthStart: intent.MonthStart})
+	fact, err = fact.BindReservation(imageagent.GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: scope.OrganizationID, MemberID: scope.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "original-reservation", ResourceType: "ai_point", Points: 12, PriceVersion: intent.PriceVersion, LimitVersion: 1, MonthStart: intent.MonthStart})
 	require.NoError(t, err)
 	fact, _, err = fact.BeginDispatch()
 	require.NoError(t, err)
-	fact, err = fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: "original-response", ResultDigest: strings.Repeat("e", 64), ResultURL: "https://provider.example/result.png"})
+	fact, err = fact.RecordSuccess(imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "original-response", ResultDigest: strings.Repeat("e", 64), ResultURL: "https://provider.example/result.png"})
 	require.NoError(t, err)
-	fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: fact.Reservation.ReservationID, State: "committed", ProofDigest: fact.TerminalProofDigest(), Points: 12})
+	fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: 12, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: fact.Reservation.ReservationID, State: "committed", ProofDigest: fact.TerminalProofDigest(), Points: 12})
 	require.NoError(t, err)
 	provenance, err := imageagent.NewArtworkProvenance(input, fact)
 	require.NoError(t, err)
 	owner, err := imageagent.ArtifactOwnerKey(scope.ActorID)
 	require.NoError(t, err)
 	ref := imageagent.PublishedAssetRef{ObjectKey: "image-agent/public/" + scope.OrganizationID + "/" + owner + "/" + runID + "/1/artwork/1/0-" + strings.Repeat("f", 64) + ".png", SHA256: strings.Repeat("f", 64), SizeBytes: 512, Width: 1024, Height: 1024, ContentType: "image/png", Operations: []string{"generate_artwork"}, Artwork: &provenance}
-	candidate := imageagent.AssetCandidate{AssetID: "original-artwork", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: ref.ObjectKey, SHA256: ref.SHA256}, Width: 1024, Height: 1024, Artwork: &provenance, Operations: ref.Operations, GenerationProof: &imageagent.ImageGenerationProof{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: 12}}
+	candidate := imageagent.AssetCandidate{AssetID: "original-artwork", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: ref.ObjectKey, SHA256: ref.SHA256}, Width: 1024, Height: 1024, Artwork: &provenance, Operations: ref.Operations, GenerationProof: &imageagent.ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: 12}}
 	result, err := imageagent.NewSlotEffectV3PublishedResult(imageagent.SlotExecutionResult{SlotID: "artwork", Attempt: 1, Candidates: []imageagent.AssetCandidate{candidate}})
 	require.NoError(t, err)
 	fingerprint, err := imageagent.SlotEffectV3PublishedResultFingerprint(result)

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {aiPointUnit,displayPoints} from "../contracts/ai-points";
 import { readBoundedStrictJSON } from "./strict-json-response";
 import { parseWorkbenchErrorEnvelopePayload } from "./workbench-context";
 
@@ -15,13 +16,20 @@ const resourceTimestamp = timestamp.refine(value => {
   try { return Number(value.slice(0, 4)) > 0 && new Date(value).toISOString().slice(0, 19) === value.slice(0, 19); } catch { return false; }
 });
 // Do not call BigInt in a refinement that can run after an invalid string.
-const resourceQuantity = int64.refine(value => /^(0|[1-9][0-9]*)$/.test(value));
+const resourceQuantity = z.union([nonnegative,displayPoints]);
 const resourceType = z.enum(["store_renewal_period", "ai_point", "data_row"]);
-const resourceBase = { resource_type: resourceType, unit: z.enum(["period", "point", "row"]) };
+const resourceBase = { resource_type: resourceType, unit: z.enum(["period", "point", "row"]), unit_version: aiPointUnit.optional() };
 const resourceBalance = z.discriminatedUnion("state", [
   z.object({ ...resourceBase, state: z.literal("recorded"), available: resourceQuantity, allocated: resourceQuantity, reserved: resourceQuantity, consumed: resourceQuantity, debt: resourceQuantity, updated_at: resourceTimestamp }).strict(),
   z.object({ ...resourceBase, state: z.literal("not_recorded"), available: z.null(), allocated: z.null(), reserved: z.null(), consumed: z.null(), debt: z.null(), updated_at: z.null() }).strict(),
-]).refine(value => value.unit === ({ store_renewal_period: "period", ai_point: "point", data_row: "row" } as const)[value.resource_type] && (value.state !== "recorded" || ((value.debt === "0" || value.available === "0") && (value.resource_type !== "ai_point" || value.allocated === "0"))));
+]).refine(value => {
+ if(value.unit!==({store_renewal_period:"period",ai_point:"point",data_row:"row"} as const)[value.resource_type])return false;
+ if(value.resource_type==="ai_point"?value.unit_version!=="ai-micropoint-v1":value.unit_version!==undefined)return false;
+ if(value.state!=="recorded")return true;
+ if(value.debt!=="0"&&value.available!=="0")return false;
+ const amounts=[value.available,value.allocated,value.reserved,value.consumed,value.debt];
+ return value.resource_type==="ai_point"?value.allocated==="0"&&amounts.every(v=>displayPoints.safeParse(v).success):amounts.every(v=>nonnegative.safeParse(v).success);
+});
 const resourceBalances = z.object({ schema_version: z.literal("organization-resource-balances-v1"), organization_id: id, observed_at: resourceTimestamp, resources: z.array(resourceBalance).length(3) }).strict().refine(value => new Set(value.resources.map(v => v.resource_type)).size === 3);
 export {resourceBalances as commercialResourceBalancesSchema};
 export type CommercialResources = z.infer<typeof resourceBalances>;

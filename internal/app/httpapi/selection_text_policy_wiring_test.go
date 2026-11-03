@@ -18,6 +18,7 @@ import (
 	"task-processor/internal/authz"
 	texteino "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"task-processor/internal/integration/openai"
 	runstore "task-processor/internal/integration/persistence/agent"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
@@ -25,8 +26,7 @@ import (
 	"task-processor/internal/product/research"
 )
 
-// This fixture exercises the existing reader port, not the pending shared
-// catalog, official-price/micropoint implementation or a provider connection.
+// This fixture exercises the stable reader port without a provider connection.
 type selectionCurrentTextPolicies struct {
 	policies map[governed.RouteKey]governed.RoutePolicy
 	keys     []governed.RouteKey
@@ -74,9 +74,8 @@ func selectionTextWiringPolicy(row openai.AIClientCredential, researchOperation 
 		ClientName: row.ClientName, ModelID: row.Model, ProviderID: "DASHSCOPE", AdapterKind: "openai-compatible",
 		RoutingPolicyVersion: "fixture-route-v1", AdapterPolicyVersion: governed.DashScopeDeepSeekV41FlashNonThinkingPolicy, PromptVersion: prompt, OutputSchemaVersion: schema,
 		UsageMappingVersion: "fixture-usage-v1", CostPricingVersion: "fixture-cost-v1", Currency: "CNY", InputMicrosPerMillion: 2000000, OutputMicrosPerMillion: 8000000,
-		// Required only by the current profile contract; this is synthetic,
-		// never a new tariff or a claim of #1078 micropoint integration.
-		PointTariff:         aicapability.ModelPointTariff{PriceVersion: "fixture-only", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1},
+		// A synthetic frozen official-price snapshot, never a published price.
+		OfficialTariff:      aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "fixture-only", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: row.Model, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 2000000, OutputText: 8000000}},
 		MaximumPromptTokens: 32000, MaximumCompletionTokens: 4000, MaximumInputBytes: 32 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 5 * time.Second,
 	}}
 }
@@ -171,5 +170,45 @@ func TestResearchAndSelectionKeepFactsAvailableWithoutTextPolicies(t *testing.T)
 		model, profile := buildSelectionTextConsumer(t, parent, researchOperation)
 		require.Nil(t, model)
 		require.Nil(t, profile)
+	}
+}
+
+func TestResearchAndSelectionShareCategoryAndFrozenOfficialPrice(t *testing.T) {
+	parent, mock, row, _ := selectionTextWiringFixture(t)
+	selectionPolicy, researchPolicy := selectionTextWiringPolicy(row, false), selectionTextWiringPolicy(row, true)
+	shared := ProductAgentDependencies{
+		ResearchTextPolicies:  map[string]governed.RoutePolicy{row.TenantID: researchPolicy},
+		SelectionTextPolicies: map[string]governed.RoutePolicy{row.TenantID: selectionPolicy},
+	}
+	parent.config.CurrentTextPolicies = qualified.SharedTextReader{Service: syntheticSelectionSharedCategory{settings: &shared}}
+	var profiles []aicapability.ModelProfile
+	for _, researchOperation := range []bool{true, false} {
+		model, profile := buildSelectionTextConsumer(t, parent, researchOperation)
+		require.NotNil(t, model)
+		expectSelectionTextCredential(mock, row)
+		p, err := profile(context.Background(), row.TenantID)
+		require.NoError(t, err)
+		profiles = append(profiles, p)
+		retail, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens)
+		require.NoError(t, err)
+		require.EqualValues(t, 19200000, 2*retail)
+		cost, err := p.MaximumCost()
+		require.NoError(t, err)
+		require.LessOrEqual(t, 2*cost, int64(300000))
+	}
+	require.Equal(t, agentconfig.ResearchPromptVersion, profiles[0].PromptVersion)
+	require.Equal(t, agentconfig.SelectionPromptVersion, profiles[1].PromptVersion)
+	require.Equal(t, agentconfig.ResearchActionVersion, profiles[0].OutputSchemaVersion)
+	require.Equal(t, agentconfig.SelectionActionVersion, profiles[1].OutputSchemaVersion)
+	require.Equal(t, profiles[0].ClientName, profiles[1].ClientName)
+	require.Equal(t, profiles[0].CredentialVersion, profiles[1].CredentialVersion)
+	require.Equal(t, profiles[0].RoutingPolicyVersion, profiles[1].RoutingPolicyVersion)
+	require.Equal(t, profiles[0].OfficialTariff, profiles[1].OfficialTariff)
+	require.Equal(t, aicapability.AIPointMicrounitV1, profiles[0].OfficialTariff.UnitVersion)
+	shared.ResearchTextPolicies, shared.SelectionTextPolicies = nil, nil
+	for _, researchOperation := range []bool{true, false} {
+		_, profile := buildSelectionTextConsumer(t, parent, researchOperation)
+		_, err := profile(context.Background(), row.TenantID)
+		require.ErrorIs(t, err, governed.ErrNotDispatched, "a missing shared category must remain unavailable")
 	}
 }

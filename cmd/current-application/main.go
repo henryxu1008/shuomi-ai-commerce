@@ -166,8 +166,8 @@ func execute() error {
 		},
 		NewApplicationWithFeatures: func(ctx context.Context, source *gorm.DB, features currentapplication.ApplicationFeatures, cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
 			options := make([]httpapi.CurrentApplicationOption, 0, 6)
-			if features.ModelRouteText != nil || features.ModelRouteImage != nil {
-				options = append(options, httpapi.WithModelRoutePricing(httpapi.ModelRoutePricingDependencies{Text: features.ModelRouteText, Image: features.ModelRouteImage}))
+			if features.SharedModels != nil {
+				options = append(options, httpapi.WithModelRoutePricing(httpapi.ModelRoutePricingDependencies{Shared: features.SharedModels, Prices: features.OfficialModelPrices}))
 			}
 			if features.AgentCustomizationDB != nil {
 				options = append(options, httpapi.WithAgentCustomization(features.AgentCustomizationDB))

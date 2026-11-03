@@ -1,5 +1,13 @@
 # 商品内容标题试用与现有 Chat 共存的最小运行接线
 
+2026-11-03 当前新安装合同补充：[#1078 统一模型与计量安全基础](enterprise-shared-model-configuration.md)
+在原 Invocation owner 增加 `billable_usage_json` 可信分项元数据，并以 `official_tariff_json`
+冻结官网价/FX/量纲，取代三列独立点数费率，当前新安装模型为 52 列；
+prepare 继续从原 owner 逐列/类型/default/权限验证，不 ALTER 或升级保留的关系。
+下文关于既有 53 列现场、原权限展开和当时准入的描述仅保留其历史阶段；
+当前新空库及运行角色清单以现 owner 模型（包括该计量列）为准，不照抄历史列数。
+缺列只报告不可用，不把本次开发/fixture 当真实改库或授权变更许可。
+
 Status: IMPLEMENTATION_READY。独立高风险准入已对设计35c2326dff2476a4489082a7dea7837050fd3172完成，无设计BLOCKER；批准记录见[#715 comment6185409465](https://github.com/qq550723504/task-processor/pull/715#issuecomment-6185409465)。执行 Issue #688，父项 #137。Design Basis: Independent Architecture；只审本次运行组合与既有 owner 的有界安装入口，不重开内容、Skill、四权限或预算架构。准入前不得修改正式业务路径；最终文档、准确提交、独立边界检查与 Ready 记录须先于实现。
 
 ## 用户结果、授权和非目标

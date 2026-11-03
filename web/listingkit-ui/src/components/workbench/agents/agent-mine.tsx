@@ -22,6 +22,7 @@ function usageHref(entry: CatalogEntry) {
   switch (entry.agent.agentId) {
     case "product.research.agent":return "/workbench/supply/selection?step=analysis";
     case "product.title.agent": return "/workbench/supply/acquisition?agent_kind=title";
+    case "product.image.agent":
     case "product.content.agent": return "/workbench/data/mine?view=own";
     case "pod.design.agent":
     case "product.selection.agent":
@@ -90,6 +91,7 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
               <p className={styles.description}>{group.description}</p>
               <p className={styles.summary}>{group.summary}</p>
               {usable?.agent.agentId === "product.content.agent" && <p className={styles.description}>打开商品资料，选择“优化商品内容”；确认时可选标题技能，建议人工审核后单独确认采用。</p>}
+              {usable?.agent.agentId === "product.image.agent" && <p className={styles.description}>选择自有商品，打开商品的待补全资料，在商品图片智能体中选择已有原图，无需重新采集。</p>}
             </div>
             {group.entries.length > 1 ? <label className={styles.operation}><span>本次操作</span><Select aria-label="选择业务操作" value={configuration.agent.agentId} onChange={event=>setOperations(current=>({...current,[group.id]:event.target.value}))}>
               {group.entries.map(entry=><option key={entry.agent.agentId} value={entry.agent.agentId}>{selectionOperationLinks.find(operation=>operation.agentId===entry.agent.agentId)?.label ?? entry.name} · {groupActivation({agentIds:[entry.agent.agentId],entries:[entry]}).label}</option>)}

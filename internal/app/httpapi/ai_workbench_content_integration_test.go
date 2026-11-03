@@ -110,7 +110,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
 		require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, binding.ContextID)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"planner-fixture","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+		_, _ = w.Write([]byte(`{"id":"planner-fixture","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
 	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
@@ -121,6 +121,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	policy.Profile.ClientName = "chat"
 	policy.Profile.ProviderID = "openai-compatible"
 	policy.Profile.ModelID = "planner-fixture"
+	policy.Profile.OfficialTariff.Model = policy.Profile.ModelID
 	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v2"
 	policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 	policy.Profile.MaximumInputBytes = 128 << 10

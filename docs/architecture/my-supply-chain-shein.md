@@ -1,5 +1,7 @@
 # 我的供应链：SHEIN 美国站完整交付设计
 
+> 2026-11-03 产品增量：四入口、四步配置、补全/审核后继续原任务及已上传只读，改以[四步供应链](supply-four-step-continuation.md)为依据；本文件五阶段顶层投影/已上传再次发布入口由新决定替代。内部事实、权限、批准、预算及Submission UNKNOWN保持；新继续合同须独立准入，原冻结结论不自动授予本增量IMPLEMENTATION_READY。
+
 Refs [#605](https://github.com/qq550723504/task-processor/issues/605)。
 
 > 2026-10-19 有界增量：审核结果、首次上架及当前平台/库存回读以 [SHEIN publication closure V1](shein-publication-flow.md) 为本次 Design Basis；三种经营模式、上架副作用、原回执绑定及 UNKNOWN 规则由该增量细化。本文原有冻结结论不自动覆盖新增副作用；当前用户只授权设计与独立评审，不授权实施或真实店铺操作。

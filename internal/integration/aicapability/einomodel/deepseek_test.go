@@ -20,6 +20,7 @@ func deepSeekTestInput(endpoint string) aicapability.TextInputIdentity {
 	profile := testTextProfile(endpoint)
 	profile.ProviderID = "DASHSCOPE"
 	profile.ModelID = "deepseek-v4.1-flash"
+	profile.OfficialTariff.Model = profile.ModelID
 	profile.AdapterPolicyVersion = DashScopeDeepSeekV41FlashNonThinkingPolicy
 	return aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1",
 		Operation: aicapability.OperationProductContentDecision, AgentRunID: "run-1", InvocationID: "inv-1",
@@ -85,6 +86,7 @@ func TestDeepSeekPolicyQualificationBeforeClaim(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			input := deepSeekTestInput("http://127.0.0.1:1/v1")
 			input.Profile.ProviderID, input.Profile.ModelID = tc.provider, tc.model
+			input.Profile.OfficialTariff.Model = input.Profile.ModelID
 			input.Profile.AdapterKind, input.Profile.AdapterPolicyVersion = string(tc.adapter), tc.policy
 			require.Equal(t, tc.valid, ValidRouteProfile(input.Profile, input.Operation))
 			if tc.valid || tc.policy == "" { // An empty version already fails domain quote validation.

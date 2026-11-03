@@ -2,7 +2,7 @@
 
 日期：2026-11-03（Asia/Singapore）。配置预览状态：**REVIEW_ONLY / NOT_PUBLISHABLE**；真实配置与调用 **NOT_RUN**。
 
-后续新增离线开发授权已记录在Issue #1073：现有reader消费者准入切片按 **Reuse Existing Architecture / Ready** 实施，源码 `25477d81ffa4891615a4c7246e11d7d46cf1d3dd`。两项工厂已支持只注入权威 `RoutePolicyReader`，不再要求第二份静态map；RED→GREEN和相关合成回归通过。完整共享text→原生执行profile/官网价/微点装配仍依赖#1078，未实现为另一套公共能力。详见[当前离线交接](market-research-runtime-handoff.md#两项操作离线接线2026-11-03未更新实例)。下方记录的是原预览范围，其N/A和“未写正式代码”仅适用于预览阶段，不否定后续本次授权；预算及禁止发布/真实调用等限制保持。
+Issue #1073已记录后续离线开发授权及 **Reuse Existing Architecture / Ready**。先前 `25477d81f` 的读取器准入修正已通过原CI；现已在本开发分支组合#1078稳定提交 `341278d5743cb9f9c4b2e257d72ae8a5c0ed1aa5`，两项消费者共同使用原SharedTextReader及官方价/微点运行链。研究准入描述和夹具完成组合适配，两项真实HTTP/配置/原账本/原key路径的本地合成回归通过；没有另建公共模型或计费能力。详见[当前离线交接](market-research-runtime-handoff.md#共享模型稳定依赖组合2026-11-03离线实现完成待独立检查)。下方N/A和“未写正式代码”仅适用于原预览阶段，不否定后续授权；预算与禁止发布/真实调用等限制保持。
 
 用户已选择百炼 `deepseek-v4.1-flash`，仅准备两项操作的配置接线和差异预览。每项渠道成本上限 ¥0.30、用户消费上限20 AI点，两项各一次合计 ¥0.60/40点。该确认不是调用、凭据写入、配置发布、服务更新、迁移或合并授权。
 
@@ -12,7 +12,7 @@ Design Basis: **N/A**，本轮只读对齐、非执行预览与文档；不修�
 
 已读取用户指定的[检查可关闭的 Issue](codex://threads/01a17b25-eb0a-7123-bf5b-ea5c4b914071)最近10轮及其原工作区当前设计，并核对[PR #1078](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078)。引用基线为已提交HEAD `0bd9d243af86710dc2e2b1329b7e3e6b0b5503ac` 的[企业统一模型配置与官方价折算](https://github.com/henryxu1008/shuomi-ai-commerce/blob/0bd9d243af86710dc2e2b1329b7e3e6b0b5503ac/docs/architecture/enterprise-shared-model-configuration.md)；读取的设计文件SHA256为 `5C252EC552322FFFA020E81A01EA817415B93D1459E1CD90BC88DD9C9CCE47E9`。
 
-该PR的限定安全基础为IMPLEMENTATION_READY/FROZEN，整批三类默认、全部消费者、页面与单位贯通尚未交付；原Writer仍在开发。该工作区中的未提交账本修改不是本预览的批准实现。本会话不改写该工作区、不另派Writer/Reviewer，也不发布另一套共享模型或计费实现。
+后续核对#1078稳定提交 `341278d57` 已完成限定安全基础工程交付，其CI41620567748和原独立工程检查通过；共享text profile、官方价/微点及原页面接口可作为本轮依赖。#1075已组合这份准确提交并验证研究/选品消费者；不消费上游未提交代码、不另建共享模型或计费。完整三类默认、Flare及完整视觉消费者仍未开放，原Writer在原PR继续后续工作，不将有限基础交付写成完整产品验收。
 
 - 企业统一选择 `text` / `image-generation` / `multimodal` 三类模型；各Agent继续拥有自己的业务输入、prompt/schema、权限、模式、预算、run及UNKNOWN恢复。
 - 同一企业的两项选品操作读取同一个 `text` 类别选择；不分别维护两条当前模型，不新建Agent专属模型选择、独立费率或第二余额。
@@ -45,7 +45,7 @@ Design Basis: **N/A**，本轮只读对齐、非执行预览与文档；不修�
 
 目标链：原application注入共享配置reader → 按operation固定映射到text → 组合本操作prompt/schema及更小硬限制 → 原Prepare保存准确选择/凭据/官方价/FX/单位/输入/模式快照 → 原最后发送门禁 → 原调用计量与资源预留/结算。
 
-公共reader、统一目录/价目/资源单位由#1078原owner负责；#1075继续拥有在途research消费者及两项业务入口，不复制上游源码或另造共享实现。#1078当前基线尚未包含#1075的research消费者，未来组合须核对实际映射，不将登记说明冒称已接线。shared reader未就绪时不能fallback到旧per-operation current。
+公共reader、统一目录/价目/资源单位由#1078原owner负责；#1075继续拥有research消费者及两项业务入口。本轮已组合其稳定提交，覆盖research运行声明/私有shape准入、两项共享text与原官方价/微点链，并运行合成HTTP/配置/账本/恢复回归。shared reader缺失或不合格时不能fallback到旧per-operation current。真实Local绑定资格和完整三类发布仍未满足，合成通过不代替真实配置/调用授权。
 
 ## 4. 预算与官网价参考
 
@@ -75,9 +75,9 @@ Design Basis: **N/A**，本轮只读对齐、非执行预览与文档；不修�
 | 文字binding、地域、组织归属、凭据版本、共享current/expected revision | UNKNOWN | 原受限凭据/共享配置owner给出合格去敏投影；不读取secret或借别企业绑定 |
 | DeepSeek准确型号/快照与厂商官网价身份 | UNKNOWN | 实际百炼binding能证明对应厂商准确版本；不从两个别名相似推断 |
 | 官网价/渠道价有效时段、缓存分项及serializer/token上界 | NOT_VERIFIED | 原可信目录及usage mapper核准；#1078现有Mini的`openai-text-v1`解析不能自行宣称适用于百炼DeepSeek |
-| 两项共同读text及全体已开放text消费者资格 | NOT_IMPLEMENTED_AS_COMBINED_DELIVERY | #1078实际共享reader交付后，由原消费者owner检查准确operation/prompt/schema和预算；不并行复制实现 |
+| 两项共同读text及全体已开放text消费者资格 | OFFLINE_WIRING_VERIFIED；真实资格UNKNOWN | 组合稳定SharedTextReader，保留准确operation/prompt/schema和更小预算；真实企业绑定/全体消费者资格仍由原目录核验，不通过合成夹具代签 |
 | 三类整体发布 | NOT_READY | 原合同要求text/image-generation/multimodal全部合格；Flare费用上界缺口仍由#1078保留，不只发布text，不造另外两类binding，不绕过原Must |
-| 新单位与保留实例 | NOT_READY_FOR_RUNTIME_CHANGE | 新schema/单位全链及正式运行交付未完成；旧实例不可自动迁移/换量纲，后续由用户决定适用安装/切换范围 |
+| 新单位与保留实例 | NOT_READY_FOR_RUNTIME_CHANGE | 新schema/单位全链的限定工程基础已交付；未授权实例更新，原库不可自动迁移/换量纲，后续由用户决定适用安装/切换范围 |
 | 真实调用与商品资料 | NOT_AUTHORIZED / NOT_RUN | 后续单独明确准确资料和费用后才可执行；本轮不选择商品或创建研究项目 |
 
 以上缺项阻止发布/运行，不阻止本次非执行预览交付。整体发布/实际保存/完整业务验收NOT_RUN，不将上游局部基础Ready或旧CI转换成这两项已可运行的结论。

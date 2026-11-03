@@ -8,6 +8,7 @@ import (
 // These are read projections of existing committed administration facts.
 // Quantity is a transfer amount or the configured monthly cap, never a balance.
 type MemberAuditEvent struct {
+	UnitVersion                                            string
 	OrganizationID, OperationID, ActorID, MemberID, Action string
 	ResourceType                                           ResourceType
 	Quantity, Version, ID                                  int64

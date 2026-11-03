@@ -21,17 +21,20 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	modelconfig "task-processor/internal/aicapability/routeconfig"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/app/runtime/currentapplication"
 	"task-processor/internal/app/schema/productagentruntime"
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	knowledgestore "task-processor/internal/integration/persistence/knowledge"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
+	routestore "task-processor/internal/integration/persistence/routeconfig"
 	"task-processor/internal/ledger/orgresource"
 	productasset "task-processor/internal/product/asset"
 )
@@ -51,7 +54,7 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 	root, connection := commercialPostgres(t)
 	baseDSN := root.Dialector.(*postgres.Dialector).DSN
 	password := strings.ReplaceAll(uuid.NewString(), "-", "")
-	for _, role := range []string{"source_account_runtime", "commercial_owner_runtime", "product_agent_runtime", "title_credential_writer", "product_review_runtime", "asset_reader", "knowledge_runtime", "knowledge_owner", "product_agent_owner"} {
+	for _, role := range []string{"source_account_runtime", "commercial_owner_runtime", "product_agent_runtime", "title_credential_writer", "model_route_config_writer", "product_review_runtime", "asset_reader", "knowledge_runtime", "knowledge_owner", "product_agent_owner"} {
 		require.NoError(t, root.Exec("CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '"+password+"'").Error)
 	}
 	// Existing acquisition fixture needs an initializer, never a serving role.
@@ -109,10 +112,10 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 	require.NoError(t, commercial.Exec("GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO commercial_owner_runtime").Error)
 	limit, err := resourceadapter.NewGormMemberLimitRepository(commercial, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limit.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "grant-B", ActorID: "admin", OperationID: "synthetic-limit", Target: 10000000})
+	_, err = limit.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "grant-B", ActorID: "admin", OperationID: "synthetic-limit", Target: 10000000})
 	require.NoError(t, err)
 	now := time.Now().UTC()
-	require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)", "B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
+	require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)", "B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
 
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(agentDB))
 	require.NoError(t, agentDB.Exec("GRANT SELECT ON public.ai_invocations TO product_agent_runtime").Error)
@@ -122,6 +125,11 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 	initializer := open("product_agent", "issue347")
 	require.NoError(t, configstore.InstallSchema(initializer))
 	require.NoError(t, configstore.GrantRuntime(initializer, "product_agent_runtime"))
+	require.NoError(t, routestore.InstallSchema(ctx, agentDB))
+	require.NoError(t, initializer.Exec(routestore.GrantSQL("product_agent_runtime", false)).Error)
+	require.NoError(t, initializer.Exec("GRANT CONNECT ON DATABASE product_agent TO model_route_config_writer; GRANT USAGE ON SCHEMA public TO model_route_config_writer").Error)
+	require.NoError(t, initializer.Exec(routestore.GrantSQL("model_route_config_writer", true)).Error)
+	require.NoError(t, routestore.ConfigureWriterConnections(ctx, initializer, 2))
 	configuration, err := configstore.New(initializer)
 	require.NoError(t, err)
 	_, err = configuration.Execute(ctx, agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: "product.title.agent", Operation: "enable", Absent: true})
@@ -163,6 +171,9 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 	cfg := currentapplication.Config{SchemaVersion: 1, Listen: currentapplication.ListenConfig{Host: "127.0.0.1"}, SourceAccountDatabase: dbConfig("issue347", "source_account_runtime"), CommercialOwnerDatabase: &commercialConfig, ProductAcquisitionDatabase: &productConfig,
 		ProductAgent: &currentapplication.ProductAgentConfig{Enabled: true, Database: dbConfig("product_agent", "product_agent_runtime"), ReviewDatabase: dbConfig(productName, "product_review_runtime"), AssetDatabase: dbConfig(productName, "asset_reader"), AllowedOrganizationIDs: []string{"B"}, Currency: "CNY", Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, RuntimeSeconds: 60},
 		Knowledge:    &currentapplication.KnowledgeConfig{Enabled: true, Database: dbConfig("knowledge", "knowledge_runtime"), Storage: currentapplication.KnowledgeStorageConfig{Region: "us-east-1", Bucket: "synthetic", AccessKeyID: "synthetic-access", SecretAccessKey: "synthetic-secret", Mode: "aws"}}}
+	writer := dbConfig("product_agent", "model_route_config_writer")
+	writer.MaxConnections = 2
+	cfg.ModelRoutePricing = &currentapplication.ModelRoutePricingConfig{Writer: &writer}
 	return &knowledgeApplicationFixture{core: root, commercial: commercial, agent: agentDB, product: f.owner, knowledgeDB: knowledgeDB, knowledge: kf, config: cfg, operation: op}
 }
 
@@ -171,12 +182,29 @@ func (f *knowledgeApplicationFixture) configureHTTP(t *testing.T, identityOrigin
 	f.config.Identity = currentapplication.IdentityConfig{IssuerURL: identityOrigin, AuthorizationAPIURL: identityOrigin, ClientID: "fixture-client", ClientSecret: "fixture-secret", ProjectID: "project"}
 	f.config.Knowledge.Storage.Endpoint = sinkOrigin
 	f.config.Knowledge.ParserEndpoint = sinkOrigin
-	credential := openai.AIClientCredential{TenantID: "B", ClientName: "default", APIKey: "synthetic-only", BaseURL: modelOrigin + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
+	credential := openai.AIClientCredential{TenantID: "B", ClientName: "gemini-2.5-flash", APIKey: "synthetic-only", BaseURL: modelOrigin + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
 	credentials := openai.NewOrganizationOnlyCredentialResolver(f.agent)
 	require.NoError(t, credentials.SaveCredential(context.Background(), credential))
-	row, err := credentials.GetCredential(context.Background(), "B", "", "default")
+	row, err := credentials.GetCredential(context.Background(), "B", "", credential.ClientName)
 	require.NoError(t, err)
-	f.config.ProductAgent.TextPolicies = map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(credential.BaseURL), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: credential.Model, RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}
+	f.config.ProductAgent.TextPolicies = map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(credential.BaseURL), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: credential.Model, RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: credential.Model, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}
+	// Only this disposable fixture publishes synthetic prices and a previously
+	// qualified three-category selection. The normal binary must still read and
+	// fresh-qualify the actual text binding; no static policy fallback is injected.
+	ctx := context.Background()
+	repo, err := routestore.New(f.agent)
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Second)
+	prices := &modelconfig.PlatformPricesService{Repository: repo, Now: func() time.Time { return now }}
+	_, err = prices.Publish(ctx, "synthetic-maintainer", "synthetic-price-publication", modelconfig.PlatformPricesInput{ExpectedRevision: modelconfig.NoRevision, Prices: []modelconfig.PublishedModelPrice{{ID: "synthetic-text-price", Provider: "google", Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", Model: credential.Model, Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://ai.google.dev/gemini-api/docs/pricing", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}})
+	require.NoError(t, err)
+	policy := f.config.ProductAgent.TextPolicies["B"]
+	policy.Profile.ClientName = credential.ClientName
+	f.config.ModelRoutePricing.Bindings = []qualified.Definition{{Scope: modelconfig.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Manufacturer: "google", Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", PriceID: "synthetic-text-price", ReferenceVersion: "synthetic-binding", BoundEvidenceVersion: "synthetic-text-bound", Text: &policy}}
+	shared := &modelconfig.SharedModelService{Repository: repo, Catalog: httpSharedCatalogFixture{}}
+	ref := modelconfig.ModelBindingReference{ID: credential.ClientName, Version: "synthetic-binding"}
+	_, err = shared.Publish(ctx, "B", "admin", "synthetic-model-publication", modelconfig.SharedModelInput{ExpectedRevision: modelconfig.NoRevision, Selection: modelconfig.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "synthetic-channel", Text: ref, Image: modelconfig.ModelBindingReference{ID: "synthetic-image", Version: "synthetic-binding"}, Multimodal: ref}})
+	require.NoError(t, err)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	f.config.Listen.Port = listener.Addr().(*net.TCPAddr).Port

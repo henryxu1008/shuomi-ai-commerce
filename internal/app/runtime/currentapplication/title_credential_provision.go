@@ -227,7 +227,7 @@ func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePol
 	default:
 		return false
 	}
-	if !governed.ValidRouteProfile(profile, operation) || profile.Currency != cfg.ProductAgent.Currency ||
+	if !governed.ValidRouteShape(profile, operation) || profile.Currency != cfg.ProductAgent.Currency ||
 		profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens {
 		return false
 	}
