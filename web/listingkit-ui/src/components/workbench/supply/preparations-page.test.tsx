@@ -45,3 +45,17 @@ it("can retry the same source after its detail read fails and the user refreshes
   expect(await screen.findByRole("heading", { name: "恢复后的商品" })).toBeInTheDocument();
   expect(state.detail).toHaveBeenLastCalledWith({ userId: "actor-a", organizationId: "org-a" }, source, expect.any(AbortSignal));
 });
+
+it("can change batches from a preparation deep link and opens the newly selected source", async () => {
+  const other = "44444444-4444-4444-8444-444444444444";
+  state.preparations.mockResolvedValue({ items: [{ id: other, name: "另一批商品", count: 1 }], total: 1 });
+  state.preparation.mockImplementation((_scope, id) => Promise.resolve({ id, name: id === other ? "另一批商品" : "单件批次", count: 1 }));
+  state.sources.mockImplementation((_scope, id) => Promise.resolve({ items: [{ id: source, preparationId: id, source: { productKey: id, version: 1 } }], total: 1 }));
+  render(<PreparationsPage initialPreparation={preparation} completionAvailable />);
+  await screen.findByRole("button", { name: "查看资料" });
+  await userEvent.click(screen.getByRole("button", { name: "更换商品批次" }));
+  await userEvent.click(await screen.findByRole("button", { name: /另一批商品/ }));
+  await waitFor(() => expect(state.sources).toHaveBeenLastCalledWith({ userId: "actor-a", organizationId: "org-a" }, other, expect.any(Object), expect.any(AbortSignal)));
+  expect(await screen.findByRole("link", { name: "创建 / 编辑待补全草稿" })).toHaveAttribute("href", `/workbench/supply/mine/missing?preparation=${other}&source=${source}`);
+  expect(screen.getByLabelText("已选商品")).toHaveValue("另一批商品 · 1 件");
+});
