@@ -1,4 +1,25 @@
-# Flare 官方直连生图：最小接线与完整费用上界候选
+# Flare 官方直连生图：当前接线范围与历史上界研究
+
+## 当前阶段：停止精确上界研究，沿参考配置估算（2026-11-04）
+
+依用户最新纠偏与[公共合同当前阶段决定](enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)，
+不再等待厂商完整输入/输出 token 硬界、精确分项或单请求金额保证来开放本阶段业务。
+本文件下方的 U/V 上界路线 **DEFERRED**，继续检索/咨询路线 **CANCELLED**；
+既有 UNKNOWN 和 ChatGPT 检索结果保留历史，不改为已证明或 PASS，也不继续派 Reviewer 研究这些问题。
+
+当前只保留可复用的最小产品路径：统一企业 image 选择/参考配置版本 → 原 quote/intent/slot effect →
+准确 Flare 官方直连 → 原 usage/结果事实 → 同一资源账本与素材 owner。
+原型号、参数域含 auto、预算数值、点数/调用限制及唯一 Writer/工作区/PR 保持；不自动切型、降质量或增加预算。
+报价与费用按平台维护的参考价/估算参数及冻结版本解释，不再宣称是厂商实际最坏费用保证。
+单 effect、无自动重发、原租户/权限、原键和 UNKNOWN 责任、素材批准/恢复及原预算门禁保留。
+
+下方旧 `OfficialModelBilling.UsageBound`/完整 raw 分项属于原精确计费方案，不能靠补假证据让 Flare Ready。
+后续只在原 owner 中明确参考估算的最小映射；算术和原资源事务可 EXTRACT，已撤回的厂商证明前置 RETIRE。
+实际扣点、缺基础用量或超过预留的公共资金语义若必须变化，须先报告；本次不发明固定扣点或第二账本。
+现有 Flare direct wire/worker/source 消费尚未完成，不能把撤下研究前置写成实现已完成或产品可用。
+本次仅改设计/范围，未实施、未新增评审或真实操作，运行及产品验收 NOT_RUN。
+
+## 历史设计（被上述阶段决定部分替代）
 
 状态：**DESIGN_ONLY / NOT_IMPLEMENTATION_READY**。Design Basis：Independent Architecture。
 Refs #134 / #128 / Draft PR #1078。2026-11-03，沿当前唯一 Writer 和原工作区整理；本增量不实现、不派评审。
