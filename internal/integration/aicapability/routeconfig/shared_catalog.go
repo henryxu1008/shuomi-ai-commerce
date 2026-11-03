@@ -182,6 +182,13 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 			q.Image = &image
 		} else {
 			p := *binding.Text
+			// The guarded transport currently emits complete official billing
+			// partitions only for this exact adapter/mapping pair. A protocol
+			// shape or a price alone cannot make another consumer chargeable.
+			if p.AdapterKind != string(governed.AdapterOpenAICompatible) || price.UsageVersion != "openai-text-v1" {
+				q.Reason = "METERING_MAPPING_NOT_ADMITTED"
+				return q, nil
+			}
 			p.OfficialTariff = price
 			if p.Validate() != nil {
 				q.Reason = "CONSUMER_NOT_QUALIFIED"

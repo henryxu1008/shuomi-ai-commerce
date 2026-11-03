@@ -121,9 +121,9 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		require.Equal(t, "available", result.Stores.State)
 		require.Equal(t, "org-B", result.Resources.Value.OrganizationID)
 		require.Len(t, result.Resources.Value.Resources, 3)
-		require.Equal(t, "17", *result.Resources.Value.Resources[1].Available)
-		require.Equal(t, "2", *result.Resources.Value.Resources[1].Reserved)
-		require.Equal(t, "7", *result.Resources.Value.Resources[1].Consumed)
+		require.Equal(t, "0.000017", *result.Resources.Value.Resources[1].Available)
+		require.Equal(t, "0.000002", *result.Resources.Value.Resources[1].Reserved)
+		require.Equal(t, "0.000007", *result.Resources.Value.Resources[1].Consumed)
 		require.Equal(t, int64(1), result.Stores.Value.Records)
 	}
 	t.Run("default_public", func(t *testing.T) { assertPublic(t, read(build(t, db), ctx)) })
@@ -244,8 +244,8 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		out = httptest.NewRecorder()
 		handler.ServeHTTP(out, req.WithContext(authidentity.WithAuthenticatedIdentity(ctx, other)))
 		require.Equal(t, 200, out.Code)
-		require.Contains(t, out.Body.String(), `"available":"31"`)
-		require.NotContains(t, out.Body.String(), `"available":"17"`)
+		require.Contains(t, out.Body.String(), `"available":"0.000031"`)
+		require.NotContains(t, out.Body.String(), `"available":"0.000017"`)
 	})
 	t.Run("cancellation_and_timeout", func(t *testing.T) {
 		assertUnavailable := func(response *httptest.ResponseRecorder) {

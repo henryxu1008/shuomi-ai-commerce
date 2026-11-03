@@ -1,6 +1,7 @@
 import {z} from "zod";
 import {withoutPublicationVersion,canonicalPriceFacts,routeFact,routeOptions,routeInput,priceInput,pricePreview,routeCurrent,routeReceipt,routePreview,routeHistory,routeCapabilities,type RouteRevision} from "../contracts/model-route-pricing";
 import {readBoundedStrictJSON} from "../api/strict-json-response";
+import {parseCommercialReadFailure} from "../api/commercial";
 import {hasTrustedSameOriginWrite} from "./same-origin-write";
 import {WORKBENCH_COOKIE_NAME} from "./workbench-proxy";
 import {hasEmptyBody} from "./members-proxy";
@@ -37,7 +38,16 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
   const origin=configuredAgentConfigurationOrigin();if(!origin)return routeFailure(503,"UNAVAILABLE");controller.signal.throwIfAborted();dispatched=true;
   const response=await fetch(origin+"/api/v1/model-route-pricing"+path+url.search,{method:request.method,headers,body,signal:controller.signal,cache:"no-store",redirect:"manual"});
   const payload=await readBoundedStrictJSON(response,512*1024,controller.signal);controller.signal.throwIfAborted();
-  if(response.status!==200){const parsed=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/)}).safeParse(payload);return routeFailure(response.status>=400&&response.status<600?response.status:502,publish&&response.status>=500?"OUTCOME_UNKNOWN":parsed.success?parsed.data.code:publish?"OUTCOME_UNKNOWN":"UNAVAILABLE")}
+  if(response.status!==200){
+   // The shared Workbench middleware uses four fields, unlike this module's
+   // {code} failures. Reuse its existing envelope and code/status validation;
+   // never expose its diagnostic metadata or guess that an arbitrary 4xx is final.
+   const middleware=parseCommercialReadFailure(payload,response.status);
+   const parsed=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/)}).safeParse(payload);
+   const statuses:Record<string,number>={FORBIDDEN:403,INVALID:400,NOT_FOUND:404,CONFLICT:409,NEEDS_CONFIGURATION:409,UNAVAILABLE:503,OUTCOME_UNKNOWN:503};
+   const code=middleware?.code??(parsed.success&&statuses[parsed.data.code]===response.status?parsed.data.code:null);
+   return routeFailure(response.status>=400&&response.status<600?response.status:502,publish&&(response.status>=500||!code)?"OUTCOME_UNKNOWN":code??"UNAVAILABLE")
+  }
   const parsed=output.parse(payload) as Record<string,unknown>;
   if((output===routeCapabilities||output===routeOptions)&&parsed.organizationId!==org)throw new Error();
   const revisions:RouteRevision[]=output===routeHistory?routeHistory.parse(parsed).revisions:output===routeCurrent?[routeCurrent.parse(parsed).revision].filter((v):v is RouteRevision=>!!v):output===routeReceipt?[routeReceipt.parse(parsed).receipt]:[];

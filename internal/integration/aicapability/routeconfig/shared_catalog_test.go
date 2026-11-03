@@ -139,3 +139,36 @@ func TestOfficialPriceCannotBorrowAnotherManufacturerOrImageScope(t *testing.T) 
 		})
 	}
 }
+
+func TestSharedTextAdmissionRequiresAnImplementedOfficialUsageMapper(t *testing.T) {
+	for _, tc := range []struct {
+		adapter, mapping string
+		ready            bool
+	}{{"openai-compatible", "openai-text-v1", true}, {"openai-compatible", "unimplemented-text-v1", false}, {"claude-native", "openai-text-v1", false}, {"google-interactions", "openai-text-v1", false}} {
+		t.Run(tc.adapter+"/"+tc.mapping, func(t *testing.T) {
+			now := time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC)
+			ref := d.ModelBindingReference{ID: "synthetic-text", Version: "synthetic-binding"}
+			p := aicapability.ModelProfile{ClientName: ref.ID, ProviderID: "synthetic", AdapterKind: tc.adapter, ModelID: "synthetic-mini", EndpointIdentityDigest: "synthetic-endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "admission", AdapterPolicyVersion: "adapter", PromptVersion: "prompt", OutputSchemaVersion: "schema", UsageMappingVersion: "cost-usage", CostPricingVersion: "channel-cost", Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 100, MaximumCompletionTokens: 100, MaximumInputBytes: 1024, MaximumOutputBytes: 1024, DeadlineBound: time.Second}
+			manufacturer, source := "openai", "https://developers.openai.com/api/docs/pricing"
+			if tc.adapter == "google-interactions" {
+				p.ProviderID, p.ModelID = "google", "gemini-3.8-flash"
+				p.AdapterPolicyVersion, p.UsageMappingVersion = "google-interactions-v1", "google-interactions-usage-v1"
+				manufacturer, source = "google", "https://ai.google.dev/gemini-api/docs/pricing"
+			}
+			prices, err := d.FreezePlatformPrices(d.PlatformPricesInput{Prices: []d.PublishedModelPrice{{ID: "synthetic-price", Region: "global", ServiceType: "standard-sync", Provider: manufacturer, Channel: "synthetic-channel", Model: p.ModelID, Currency: "CNY", UsageVersion: tc.mapping, Rates: aicapability.OfficialModelRates{InputText: 1000000, OutputText: 1000000}, SourceURL: source, VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}, "synthetic-publication", nil, now)
+			require.NoError(t, err)
+			metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", ClientName: ref.ID, Model: p.ModelID, APIStyle: tc.adapter, Version: "credential", EndpointDigest: p.EndpointIdentityDigest, Reference: "synthetic-reference", TimeoutSeconds: 30, Enabled: true, KeyPresent: true}}
+			catalog, err := NewCatalog([]Definition{{Manufacturer: manufacturer, Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", PriceID: "synthetic-price", ReferenceVersion: ref.Version, BoundEvidenceVersion: "synthetic-bound", Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: "credential", AdmittedEndpointIdentityDigest: p.EndpointIdentityDigest}, MaximumCostMicros: 100}})
+			require.NoError(t, err)
+			shared := &SharedCatalog{Catalog: catalog, Credentials: metadata, Prices: &d.PlatformPricesService{Repository: metadata, Now: func() time.Time { return now }}, Now: func() time.Time { return now }}
+			q, err := shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+			require.NoError(t, err)
+			require.Equal(t, tc.ready, q.Ready, q.Reason)
+			if !tc.ready {
+				require.Equal(t, "METERING_MAPPING_NOT_ADMITTED", q.Reason)
+			} else {
+				require.Equal(t, q.Price, q.TextProfiles[string(aicapability.OperationProductAgentDecision)].OfficialTariff)
+			}
+		})
+	}
+}

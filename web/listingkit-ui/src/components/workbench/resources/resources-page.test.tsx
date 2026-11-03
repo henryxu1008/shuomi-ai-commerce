@@ -74,7 +74,7 @@ it.each(["PERMISSION_DENIED", "DEPENDENCY_UNAVAILABLE", "AUTHENTICATION_REQUIRED
   expect(await screen.findByText(/本次未取得店铺服务与权益/)).toBeVisible();
   const fallbackMetrics = screen.getByRole("region", { name: "企业资源权益摘要" });
   expect(within(fallbackMetrics).getAllByRole("heading", { level: 3 })).toHaveLength(3);
-  expect(await within(fallbackMetrics).findByText("9007199254740993 点")).toBeVisible();
+  expect(await within(fallbackMetrics).findByText("9007199254.740993 点")).toBeVisible();
   expect(screen.queryByText("基础方案")).not.toBeInTheDocument();
   expect(screen.queryByText("无订阅")).not.toBeInTheDocument();
   expect(screen.queryByText(/private token/)).not.toBeInTheDocument();

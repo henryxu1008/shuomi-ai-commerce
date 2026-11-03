@@ -23,7 +23,7 @@ it("forwards only the fixed org-bound resource GET and validates the complete sc
 it("classifies malformed upstream quantities as invalid responses, not unavailable", async () => {
   vi.stubEnv("COMMERCIAL_API_ORIGIN", "http://localhost:8888"); const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
   const value = commercialResourcesFixture("org-A");
-  for (const field of ["available", "reserved", "consumed", "debt"]) for (const invalid of ["bad", "1e3", "1.5"]) {
+  for (const field of ["available", "reserved", "consumed", "debt"]) for (const invalid of ["bad", "1e3", "1.0000001"]) {
     fetcher.mockResolvedValueOnce(Response.json({ ...value, resources: value.resources.map(v => v.resource_type === "ai_point" ? { ...v, [field]: invalid } : v) }));
     const response = await proxyCommercialBilling(request(), "fixture", "user-A");
     expect(response.status).toBe(502); expect(await response.json()).toMatchObject({ code: "INVALID_UPSTREAM_RESPONSE" });
