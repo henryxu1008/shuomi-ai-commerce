@@ -143,6 +143,7 @@ type ApplicationFeatures struct {
 	ImageSetAssetDB                                      *gorm.DB
 	ImageSetWorkerDB                                     *gorm.DB
 	ImageSetWorkerConfig                                 *coreconfig.Config
+	FullImageSet                                         bool
 	ImageSetTemporal                                     client.Client
 	ImageSetWorker                                       *appruntime.ImageAgentWorker
 	AccountAuditImageDB, AccountAuditProductDB           *gorm.DB
@@ -258,7 +259,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	if cfg.ImageAgent != nil && (dependencies.OpenImageAgent == nil || dependencies.NewApplicationWithFeatures == nil || (cfg.ImageAgent.WorkerConfigFile == "" && dependencies.DialImageAgentWorkflow == nil)) {
 		return errors.New("current image agent owner and organization workflow lifecycle unavailable")
 	}
-	if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" && (dependencies.OpenImageSetWorker == nil || dependencies.DialImageSetWorkflow == nil || dependencies.OpenSupplyAssets == nil) {
+	if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" && (dependencies.OpenSupplyAssets == nil || cfg.ImageAgent.Generation.Enabled && (dependencies.OpenImageSetWorker == nil || dependencies.DialImageSetWorkflow == nil)) {
 		return errors.New("full image set worker lifecycle unavailable")
 	}
 	if cfg.SupplyChain != nil && (dependencies.OpenSupplyAssets == nil || dependencies.DialSupplyWorkflow == nil || dependencies.NewApplicationWithFeatures == nil) {
@@ -421,14 +422,16 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(imageDB)) }()
 		var closeWorkflow func() error
 		if cfg.ImageAgent.WorkerConfigFile != "" {
-			imageWorkerConfig, imageWorkerDB, err = dependencies.OpenImageSetWorker(startupContext, cfg.ImageAgent.WorkerConfigFile, cfg.ImageAgent.Database)
-			if err != nil || imageWorkerConfig == nil || imageWorkerDB == nil || imageWorkerDB == imageDB {
-				return errors.New("open existing full image worker pool failed")
-			}
-			defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(imageWorkerDB)) }()
-			imageTemporal, closeWorkflow, err = dependencies.DialImageSetWorkflow(startupContext, cfg.ImageAgent.TemporalAddress, cfg.ImageAgent.TemporalNamespace)
-			if imageTemporal != nil {
-				imageWorkflow = imagetemporal.NewOrganizationClient(imageTemporal)
+			if cfg.ImageAgent.Generation.Enabled {
+				imageWorkerConfig, imageWorkerDB, err = dependencies.OpenImageSetWorker(startupContext, cfg.ImageAgent.WorkerConfigFile, cfg.ImageAgent.Database)
+				if err != nil || imageWorkerConfig == nil || imageWorkerDB == nil || imageWorkerDB == imageDB {
+					return errors.New("open existing full image worker pool failed")
+				}
+				defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(imageWorkerDB)) }()
+				imageTemporal, closeWorkflow, err = dependencies.DialImageSetWorkflow(startupContext, cfg.ImageAgent.TemporalAddress, cfg.ImageAgent.TemporalNamespace)
+				if imageTemporal != nil {
+					imageWorkflow = imagetemporal.NewOrganizationClient(imageTemporal)
+				}
 			}
 		} else {
 			imageWorkflow, closeWorkflow, err = dependencies.DialImageAgentWorkflow(startupContext, cfg.ImageAgent.TemporalAddress, cfg.ImageAgent.TemporalNamespace)
@@ -436,10 +439,12 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		if err != nil {
 			return fmt.Errorf("connect organization image agent workflow: %w", err)
 		}
-		if imageWorkflow == nil || closeWorkflow == nil {
+		if (cfg.ImageAgent.WorkerConfigFile == "" || cfg.ImageAgent.Generation.Enabled) && (imageWorkflow == nil || closeWorkflow == nil) {
 			return errors.New("organization image agent workflow unavailable")
 		}
-		defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
+		if closeWorkflow != nil {
+			defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
+		}
 	}
 	var auditImageDB, auditProductDB *gorm.DB
 	if cfg.AccountAuditUsage != nil {
@@ -904,7 +909,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		}
 	}
 	if dependencies.NewApplicationWithFeatures != nil {
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, OfficialModelPrices: priceManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, OfficialModelPrices: priceManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {

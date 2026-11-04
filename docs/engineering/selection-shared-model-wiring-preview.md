@@ -1,14 +1,22 @@
-# Local Account Center：统一模型配置与 AI 关闭方案预览
+# Local Account Center：统一模型配置与 AI 关闭边界
 
-本次为**OWNER_ALIGNED_PROPOSAL / NOT_IMPLEMENTATION_READY / NOT_PUBLISHABLE**。用户仅授权与 #1078 原 owner 对齐最小方案，列清配置差异和 AI 关闭边界；保持原 a66 实例可用，不做旧兼容，不改凭据、不发布配置、不更新实例、不执行真实采集/AI/付费、不合并。前序离线实现及镜像不因此获得新的运行许可。旧价格精度研究及峰闲/完整厂商上界前置已撤回，不恢复为当前交付要求。
+本轮**离线实现完成，待最终增量检查；NOT_PUBLISHABLE**。用户已明确保留完整应用与历史查询，仅关闭新执行。
+[最小生命周期设计](../architecture/ai-disabled-application-lifecycle.md)在正式代码前通过原独立 Reviewer，IMPLEMENTATION_READY；
+本次因抽取原图片读取端口与改变关闭态装配采用 Independent Architecture，不把此前 owner 方向确认当准入。
+#1075 原会话为唯一 Writer，#1078 原 owner 已确认文件交接且不并发修改。本轮不自动合入其未合并的 Flare 候选。
 
-## 原 owner 已对齐的最小方向（2026-11-04）
+关闭态保留原图片/图案模块、来源权限、Run/原键/库存/批准/采用回执读取；原 Service 与无执行依赖的 RunReader 共用原读取实现。
+执行关闭时不读图片 worker 秘密配置、不打开 workerDB、不连接图片 Temporal、不装配或启动执行 Service/worker；
+原历史与 UNKNOWN 不被清除、重算或重发。完整模式身份显式传递，不因缺 workerConfig 而退到单图。
+统一模型管理独立于文字执行启用，仍沿原 Run Repository/CAS/current、专用 writer、合法定义/锚点及完整选择合同。
+缺 image credential metadata 沿原未就绪结果，不远程试连或放宽资格。
 
-配置管理用于选择模型、查看当前配置与本地校验结果；AI 执行用于实际分析、生成和调用供应商。建议让管理服务在执行关闭时仍可启动，继续使用原权限管理配置；执行仍受各自明确的关闭条件约束。
+本轮目标缺陷先 RED 再 GREEN；本地 HTTP 相关回归68 PASS、owner/生命周期73 PASS，均0 SKIP/FAIL。
+其中原市场调研→智能选品合成 HTTP 使用原共享配置/参考价/模型适配/Invocation/账本；不等于真实来源或远端调用验收。
+源码候选、准确CI与原独立Reviewer最终增量回执由PR #1075维护，不在本文伪造新SHA的执行结果。
 
-#1078 原 owner 已只读确认此方向，依据稳定源码 `29723cc7bd2420ed6363e0b9a32c1a03b16d18de`，没有引用其未提交的 Flare 实现。公共共享合同继续使用原 Run/ProductAgent DB 的 Repository、CAS、current 与专用 writer；不恢复 `imageWriter`，不机械改名、迁移、双读或同步两库。Flare 的 f35 设计准入不覆盖此生命周期候选。
-
-本增量拟采用 **Reuse Existing Architecture（候选分类，准入待核定）**：管理 owner、权限、预算、账本、UNKNOWN 和恢复责任不变，只调整原装配与关闭规则。实施前仍需在执行 Issue 完整记录轻量 Design Basis 和范围，取得实施授权；若实际必须改变授权、跨 owner 或其他未覆盖的敏感边界，则升级为适用 Independent Architecture。当前仅设计，不能将 owner 对齐或前序研究的 Ready 当成本项实施准入。
+原 a66 实例保持可用，不做旧兼容/迁移、不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并。
+预算仍每项¥0.30/20点、合计¥0.60/40点和原两调用/更小限制。旧价格精度研究已撤回，不恢复为交付前置。
 
 ## 现有实例、固定候选与全新系统目标
 
@@ -21,7 +29,7 @@
 | 三类选择与价格 | 本轮不读取或改写实际 current/价格 | 原 SharedModelService / Options / Current / CAS | 继续同一完整选择快照；平台参考价/FX 沿原 owner。管理可用、配置已保存、技术资格和允许执行分别表达 |
 | 图片资格读取 | worker 配置文件引用存在；未读取其凭据或队列 | `prepareSharedModelServices` 允许 `imageCredentials=nil` | 复用现有 `CREDENTIAL_READER_MISSING` / 未就绪结果；不为管理页强启 worker、读取真实凭据或新增 reader 角色 |
 | 图片生成声明 | generation 只有 `priceVersion` / `pointsPerImage`，没有 `enabled` 键 | 当前 generation 合同为 enabled / unitVersion / maximumMicropoints | 全新 manifest 使用当前字段和原预算，不解释旧字段或原数据；缺字段不冒充已关闭/已准入 |
-| 图片执行生命周期 | worker 引用不能证明实际执行关闭 | 有 WorkerConfigFile 会加载完整 worker 配置、连接 Temporal 并启动 worker；生成配置还要求 Configured | 关闭态不加载/启动对应执行 worker、不做远程检测。需要执行时才满足原完整依赖和全部门禁；不能只加一个 UI 禁用按钮 |
+| 图片执行生命周期 | worker 引用不能证明实际执行关闭 | 有 WorkerConfigFile 会加载完整 worker 配置、连接 Temporal 并启动 worker；生成配置还要求 Configured | 关闭态保留完整模块及原历史读取，不加载/启动对应执行 worker、不做远程检测；启用才满足原完整依赖与门禁 |
 | 凭据归属 | 本轮未读取密钥 | 保留各原 credential owner 的去密投影与执行句柄 | 只引用合法的当前身份，不把图片 Key 借给文字、不复制 Key、不默认使用另一用途的绑定 |
 
 源代码依据：`internal/app/runtime/currentapplication/product_agent.go`、`model_route_pricing.go`、`runtime.go`，`internal/integration/aicapability/routeconfig/shared_catalog.go` 与 `internal/core/config/type_imageagent.go`。owner 已确认原管理服务可复用，尚缺的是此处关闭生命周期与资格规则的有界细化。
@@ -45,14 +53,14 @@
 
 原 a66 的 generation 没有当前 `enabled` 字段，本轮没有检查 worker 秘密配置、任务队列或真实 provider 日志，因此图片是否完全停止仍 **UNKNOWN**。保持实例可用不等于将这项 UNKNOWN 改成关闭，也不授权修改现有开关。
 
-## 最小分工、验收与剩余决定
+## 分工、验证与实际开放停止点
 
-- 后续如另行授权，统一配置/资格与执行生命周期仍在原公共 owner 内收敛；具体 Writer、PR 与职责范围须明确确认。当前 #1078 的实施授权仅覆盖 f35 冻结的 Flare 直连与参考估算，不包含本生命周期候选；本文不扩展其派工，不改其在途公共文件，不另派公共 Writer。
-- #1075 原 Writer 维护本预览、研究/选品消费范围及原预算；将来只在获准后消费已稳定接口，不复制公共实现。本轮不写生产代码、不新建 schema 或恢复/验证平台。
-- 后续最小验证复用原测试：关闭态能启动并读取管理数据；合法性/租户/anchor/预算不放宽；无资格图片显示未就绪；对应关闭时不启动 worker、不发 provider 请求或产生新预留；开放路径仍保持原全部门禁；原键/历史/UNKNOWN 不被重解释。此处仅列实施义务，本轮 **NOT_RUN**。
-- 后续需单独决定是否按此边界正式细化并实施生命周期、是否准备全新合法安装/配置、何时发布配置和真实试用。现阶段不提供可直接执行的 manifest/DSN/grant 脚本，不伪造绑定版本或 Ready，不自动替换 a66。
+- #1075 原 Writer 已按获准设计在原 owner 内实现生命周期与只读装配；#1078 原 owner 的 Flare/provider/quote/worker/fact/ledger 实现保持独立，不新增公共 owner。
+- 关闭态角色/锚点/预算负例、非空历史列表、原键和跨身份拒绝、原批准回执的启用/关闭两分支，以及所有图片/图案执行命令拒绝均纳入原测试。POD provenance guard 保留，缺合法生成 bytes reader的新操作明确不可用。
+- 真实安装/配置发布仍需独立授权和资源核对；现阶段不提供可直接运行的真实 manifest/DSN/grant 脚本，不复制凭据、不迁移旧 current、不替换a66。
+- 开发自检、CI和独立工程检查不等于产品验收；现场运行/真实调用/用户试用仍NOT_RUN。
 
-研究与选品预算继续每项 ¥0.30 /20 点，两项合计 ¥0.60 /40 点；每项最多两调用及原更小限制保持。下方参考文字接线内容是前序候选，不能视作上述生命周期已实现。
+研究与选品预算继续每项 ¥0.30 /20 点，两项合计 ¥0.60 /40 点；每项最多两调用及原更小限制保持。下方参考文字接线保留原预算；本轮生命周期实现不自动发布其中任何配置。
 
 ## 前序参考文字接线候选
 

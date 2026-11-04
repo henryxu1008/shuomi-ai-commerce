@@ -150,7 +150,11 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		writeFullImageError(c, imageagent.ErrIdentityRequired, false)
 		return
 	}
-	if a == nil || a.service == nil || m.bind == nil {
+	if a == nil || a.runs() == nil || m.bind == nil {
+		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+		return
+	}
+	if a.executionDisabled && (action == "model-options" || c.Request.Method != http.MethodGet && action != "requirements") {
 		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
 		return
 	}
@@ -226,7 +230,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		if !emptyAcquisitionImageBody(c) {
 			return
 		}
-		p, e := a.service.GetPreparedImageSet(ctx, kind, contextID, c.Param("request_id"))
+		p, e := a.runs().GetPreparedImageSet(ctx, kind, contextID, c.Param("request_id"))
 		if e == nil {
 			e = validateFullImageRun(identity, kind, contextID, p.Run.ID, p)
 		}
@@ -331,7 +335,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		}
 		input := imageagent.PrepareImageSetInput{Route: body.Route, Text: body.Text, ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
 		if action == "regenerate" {
-			p, e := a.service.Get(ctx, c.Param("run_id"))
+			p, e := a.runs().Get(ctx, c.Param("run_id"))
 			if e == nil {
 				e = validateFullImageRun(identity, kind, contextID, c.Param("run_id"), p)
 			}
@@ -346,7 +350,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			// A frozen preparation is a readback, not a new Skill selection.
 			// Its stored publisher/policy determines the original input hash;
 			// PrepareImageSet still checks every submitted input and live source.
-			prior, readErr := a.service.GetPreparedImageSet(ctx, kind, contextID, keys[0])
+			prior, readErr := a.runs().GetPreparedImageSet(ctx, kind, contextID, keys[0])
 			if readErr == nil {
 				if prior.Plan.Set == nil || prior.Plan.Set.Method == nil {
 					writeFullImageError(c, imageagent.ErrRevisionConflict, false)
@@ -395,7 +399,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		writeFullImageError(c, imageagent.ErrValidation, false)
 		return
 	}
-	p, err := a.service.Get(ctx, runID)
+	p, err := a.runs().Get(ctx, runID)
 	if err == nil {
 		err = validateFullImageRun(identity, kind, contextID, runID, p)
 	}
@@ -576,7 +580,7 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 	inputs := make([]imageagent.PrepareImageSetInput, len(items))
 	projections := make([]imageagent.RunProjection, len(items))
 	for index, item := range items {
-		p, e := a.service.Get(ctx, item.RunID)
+		p, e := a.runs().Get(ctx, item.RunID)
 		if e != nil {
 			return nil, "", 0, e
 		}
@@ -721,6 +725,9 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		} else {
 			response["modeUnavailableReason"] = "EXECUTION_MODE_UNAVAILABLE"
 		}
+	}
+	if a.executionDisabled {
+		response["generationAllowed"], response["modeUnavailableReason"] = false, "EXECUTION_DISABLED"
 	}
 	if response["generationAllowed"] != true {
 		response["approvalAvailable"], response["regenerationAvailable"], response["candidateSelectionAvailable"] = false, false, false

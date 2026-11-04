@@ -41,7 +41,13 @@ func (p *ProductAgentConfig) Limits() agent.Limits {
 
 func (p *ProductAgentConfig) validate(cfg *Config) error {
 	if !p.Enabled {
-		return p.Database.validate("productAgent.database")
+		if err := p.Database.validate("productAgent.database"); err != nil {
+			return err
+		}
+		if cfg.ModelRoutePricing != nil && p.hasPolicies() {
+			return p.validatePolicyMetadata()
+		}
+		return nil
 	}
 	if cfg.ProductAcquisitionDatabase == nil || cfg.CommercialOwnerDatabase == nil {
 		return errors.New("product agent requires acquisition and current commercial owner")
@@ -76,6 +82,18 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	}
 	if (p.ContentTitleOnly || p.ContentOnly) && sameDatabaseTarget(p.Database, p.ReviewDatabase) {
 		return errors.New("content-title-only requires separate Run and Product/Review databases")
+	}
+	return p.validatePolicyMetadata()
+}
+
+func (p *ProductAgentConfig) hasPolicies() bool {
+	return len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) > 0
+}
+
+// Configuration metadata remains bounded even when no executor is assembled.
+func (p *ProductAgentConfig) validatePolicyMetadata() error {
+	if p.ContentOnly && p.ContentTitleOnly {
+		return errors.New("contentOnly and contentTitleOnly are mutually exclusive")
 	}
 	if !p.Limits().Valid() || p.RuntimeSeconds > 120 || p.RuntimeSeconds < 1 || p.Steps > 16 || p.ModelCalls > 8 {
 		return errors.New("product agent limits or title policy invalid")

@@ -36,24 +36,43 @@ import (
 	"gorm.io/gorm"
 )
 
+type imageRunHistory interface {
+	Get(context.Context, string) (imageagent.RunProjection, error)
+	GetPreparedImageSet(context.Context, imageagent.ImageSourceContextKind, string, string) (imageagent.RunProjection, error)
+	GetPreparedArtwork(context.Context, string) (imageagent.PreparedArtwork, error)
+	GetPreparedArtworkByKey(context.Context, string, string) (imageagent.PreparedArtwork, error)
+}
+
 type fullImageApplication struct {
-	skills          *skillstore.Store
-	artwork         imageagent.ArtworkPublisher
-	service         *imageagent.Service
-	readSources     imageapp.ImageSetSourceReader
-	contexts        *imageapp.ImageSetContextReader
-	quotes          imageagent.ImageSetQuoteReader
-	selections      *asset.ImageSetService
-	inventories     asset.ImageSetInventoryReader
-	approvals       asset.ApprovalCommitReader
-	publicURLs      imageagent.DurableAssetPublicURLResolver
-	trial           *imageagent.IsolatedTrialGeneratedURLPolicy
-	configuration   *configstore.Store
-	recent          imageagent.ImageSetRunReader
-	generationFacts imageGenerationFactReader
-	gate            imageagent.TenantAllowlistStartGate
-	rules           supplyapp.ImageSetTargetRules
-	manualAvailable bool
+	history           imageRunHistory
+	executionDisabled bool
+	skills            *skillstore.Store
+	artwork           imageagent.ArtworkPublisher
+	service           *imageagent.Service
+	readSources       imageapp.ImageSetSourceReader
+	contexts          *imageapp.ImageSetContextReader
+	quotes            imageagent.ImageSetQuoteReader
+	selections        *asset.ImageSetService
+	inventories       asset.ImageSetInventoryReader
+	approvals         asset.ApprovalCommitReader
+	publicURLs        imageagent.DurableAssetPublicURLResolver
+	trial             *imageagent.IsolatedTrialGeneratedURLPolicy
+	configuration     *configstore.Store
+	recent            imageagent.ImageSetRunReader
+	generationFacts   imageGenerationFactReader
+	gate              imageagent.TenantAllowlistStartGate
+	rules             supplyapp.ImageSetTargetRules
+	manualAvailable   bool
+}
+
+func (a *fullImageApplication) runs() imageRunHistory {
+	if a.history != nil {
+		return a.history
+	}
+	if a.service != nil {
+		return a.service
+	}
+	return nil
 }
 
 type FullImageSetDependencies = appruntime.FullImageSetDependencies
@@ -105,10 +124,14 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return nil, empty, imageagent.ErrValidation
 	}
 	var manual asset.ManualImageReader
-	if ctx == nil || productDB == nil || imageDB == nil || workerDB == nil || workerDB == imageDB || configurationDB == nil || resourceDB == nil || assetDB == nil || assetDB == imageDB || assetDB == workerDB || workflows == nil || products.Snapshots == nil || products.Applied == nil || live.Permissions == nil || current == nil || workerConfig == nil || !current.ImageAgent.Generation.Configured() || workerConfig.ImageAgent.Generation != current.ImageAgent.Generation || !reflect.DeepEqual(workerConfig.ImageAgent.Admission, current.ImageAgent.Admission) || workerConfig.ImageAgent.ArtifactStore.PublicBase != current.ImageAgent.ArtifactStore.PublicBase || workerConfig.ImageAgent.ArtifactStore.S3.Bucket != current.ImageAgent.ArtifactStore.S3.Bucket {
+	if ctx == nil || productDB == nil || imageDB == nil || configurationDB == nil || resourceDB == nil || assetDB == nil || assetDB == imageDB || assetDB == workerDB || products.Snapshots == nil || products.Applied == nil || live.Permissions == nil || current == nil {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
-	if current.ImageAgent.Generation.MaximumMicropoints > math.MaxInt64/32 {
+	executing := current.ImageAgent.Generation.Enabled
+	if executing && (workerDB == nil || workerDB == imageDB || workflows == nil || workerConfig == nil || !current.ImageAgent.Generation.Configured() || workerConfig.ImageAgent.Generation != current.ImageAgent.Generation || !reflect.DeepEqual(workerConfig.ImageAgent.Admission, current.ImageAgent.Admission) || workerConfig.ImageAgent.ArtifactStore.PublicBase != current.ImageAgent.ArtifactStore.PublicBase || workerConfig.ImageAgent.ArtifactStore.S3.Bucket != current.ImageAgent.ArtifactStore.S3.Bucket) {
+		return nil, empty, imageagent.ErrCommandBlocked
+	}
+	if executing && current.ImageAgent.Generation.MaximumMicropoints > math.MaxInt64/32 {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
 	startup, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -116,8 +139,10 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err := imagestore.VerifyOrganizationRuntimePermissions(startup, imageDB); err != nil {
 		return nil, empty, err
 	}
-	if err := imagestore.VerifyOrganizationWorkerRuntimePermissions(startup, workerDB); err != nil {
-		return nil, empty, err
+	if executing {
+		if err := imagestore.VerifyOrganizationWorkerRuntimePermissions(startup, workerDB); err != nil {
+			return nil, empty, err
+		}
 	}
 	if err := assetstore.VerifySourceRuntimePermissions(startup, assetDB); err != nil {
 		return nil, empty, err
@@ -178,10 +203,6 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation, currentPolicies)
-	if err != nil {
-		return nil, empty, err
-	}
 	publicURLs := imageAgentDurableAssetPublicURLResolver(current)
 	if publicURLs == nil {
 		return nil, empty, imageagent.ErrCommandBlocked
@@ -193,7 +214,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 			return nil, empty, err
 		}
 	}
-	apiRepository, workerRepository := imagestore.NewOrganizationRepository(imageDB), imagestore.NewOrganizationRepository(workerDB)
+	apiRepository := imagestore.NewOrganizationRepository(imageDB)
 	recent, ok := apiRepository.(imageagent.ImageSetRunReader)
 	if !ok {
 		return nil, empty, imageagent.ErrCommandBlocked
@@ -211,6 +232,25 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return nil, empty, asset.ErrRepositoryUnavailable
 	}
 	approvals, err := assetstore.NewBoundedApprovalCommitReader(assetDB, 2<<20)
+	if err != nil {
+		return nil, empty, err
+	}
+	history, err := imageagent.NewRunReader(apiRepository)
+	if err != nil {
+		return nil, empty, err
+	}
+	if !executing {
+		var artwork imageagent.ArtworkPublisher
+		if artworkConfigurationReady(startup, configurationDB, productDB, collectionsEnabled) {
+			artwork, err = buildPODArtworkPublisher(startup, productDB, apiRepository, publicURLs, configuration, imageMediaScopeAuthority{current: live}, trial)
+			if err != nil {
+				return nil, empty, err
+			}
+		}
+		return &fullImageApplication{history: history, executionDisabled: true, skills: skills, artwork: artwork, readSources: readSources, contexts: contexts, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, rules: rules, manualAvailable: manual != nil}, empty, nil
+	}
+	workerRepository := imagestore.NewOrganizationRepository(workerDB)
+	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation, currentPolicies)
 	if err != nil {
 		return nil, empty, err
 	}
@@ -284,7 +324,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if artwork != nil {
 		dependencies.ArtworkPublisher = artwork
 	}
-	return &fullImageApplication{skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+	return &fullImageApplication{history: history, skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
 }
 
 type imagePreparationProductReader struct {

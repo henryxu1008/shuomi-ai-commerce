@@ -35,7 +35,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	if m == nil {
 		return nil, nil
 	}
-	invalid := errors.New("model route pricing requires enabled original consumers, same database and bounded dedicated writer")
+	invalid := errors.New("model route pricing requires original consumer metadata, same database and bounded dedicated writer")
 	if m.Writer == nil {
 		return nil, invalid
 	}
@@ -45,10 +45,15 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	defs := []qualified.Definition{}
 	anchors := map[d.Scope]governed.RoutePolicy{}
 	if m.Writer != nil {
-		if c.ProductAgent == nil || !c.ProductAgent.Enabled || !check(m.Writer, &c.ProductAgent.Database) {
+		if c.ProductAgent == nil || !check(m.Writer, &c.ProductAgent.Database) {
 			return nil, invalid
 		}
 		p := c.ProductAgent
+		if !p.Enabled && p.hasPolicies() {
+			if err := p.validatePolicyMetadata(); err != nil {
+				return nil, err
+			}
+		}
 		add := func(op aicapability.Operation, policies map[string]governed.RoutePolicy) {
 			for org, policy := range policies {
 				copy := policy
@@ -75,7 +80,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		if c.AIWorkbench != nil && c.AIWorkbench.Enabled && !c.AIWorkbench.ConversationOnly {
 			add(aicapability.OperationAIWorkbenchChatPlan, c.AIWorkbench.PlanningTextPolicies)
 		}
-		if len(anchors) == 0 {
+		if len(anchors) == 0 && p.Enabled {
 			return nil, invalid
 		}
 	}

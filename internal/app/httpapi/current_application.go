@@ -540,10 +540,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.productAcquisitionDB != nil && (supplied.productAcquisitionDB == sourceAccountDB) {
 		return nil, errors.New("product acquisition requires an independent pool")
 	}
-	if supplied.imageAgents > 0 && (supplied.imageAgentDB == nil || supplied.imageAgentWorkflows == nil || supplied.productAcquisitionDB == nil || supplied.imageAgentDB == sourceAccountDB || supplied.imageAgentDB == supplied.productAcquisitionDB || supplied.imageAgentDB == supplied.commercialOwnerDB || supplied.imageAgentDB == supplied.referralDB) {
+	if supplied.imageAgents > 0 && (supplied.imageAgentDB == nil || (supplied.fullImages == nil || cfg.ImageAgent.Generation.Enabled) && supplied.imageAgentWorkflows == nil || supplied.productAcquisitionDB == nil || supplied.imageAgentDB == sourceAccountDB || supplied.imageAgentDB == supplied.productAcquisitionDB || supplied.imageAgentDB == supplied.commercialOwnerDB || supplied.imageAgentDB == supplied.referralDB) {
 		return nil, errors.New("acquisition image agent requires its owner pool, organization workflow, and product acquisition pool")
 	}
-	if d := supplied.fullImages; d != nil && (d.AssetDB == nil || d.AssetDB == supplied.imageAgentDB || d.AssetDB == d.WorkerDB || d.AssetDB == supplied.productAcquisitionDB || d.AssetDB == sourceAccountDB || d.AssetDB == supplied.commercialOwnerDB || d.WorkerDB == nil || d.WorkerDB == supplied.imageAgentDB || d.WorkerConfig == nil || d.Client == nil || d.Worker == nil || supplied.agentConfigurationDB == nil || supplied.commercialOwnerDB == nil || factories.buildAcquisitionImage != nil || supplied.supplyChain != nil && supplied.supplyChain.AssetDB != d.AssetDB) {
+	if d := supplied.fullImages; d != nil && (d.AssetDB == nil || d.AssetDB == supplied.imageAgentDB || d.AssetDB == d.WorkerDB || d.AssetDB == supplied.productAcquisitionDB || d.AssetDB == sourceAccountDB || d.AssetDB == supplied.commercialOwnerDB || cfg.ImageAgent.Generation.Enabled && (d.WorkerDB == nil || d.WorkerDB == supplied.imageAgentDB || d.WorkerConfig == nil || d.Client == nil || d.Worker == nil) || supplied.agentConfigurationDB == nil || supplied.commercialOwnerDB == nil || factories.buildAcquisitionImage != nil || supplied.supplyChain != nil && supplied.supplyChain.AssetDB != d.AssetDB) {
 		return nil, errors.New("full image application requires all current owner ports and an explicit worker")
 	}
 	if supplied.referralDB != nil && (supplied.referralDB == sourceAccountDB || supplied.referralDB == supplied.productAcquisitionDB) {
@@ -924,12 +924,14 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if err != nil {
 			return nil, err
 		}
-		materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig)
-		if err != nil {
-			return nil, err
+		guard.URLs = imageAgentDurableAssetPublicURLResolver(cfg)
+		if cfg.ImageAgent.Generation.Enabled {
+			materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig)
+			if err != nil {
+				return nil, err
+			}
+			guard.ReadGeneratedBytes = materials.Read
 		}
-		guard.URLs = imageAgentDurableAssetPublicURLResolver(supplied.fullImages.WorkerConfig)
-		guard.ReadGeneratedBytes = materials.Read
 		supplied.pod.GeneratedArtworkBytes = guard.ReadArtworkSourceBytes
 		supplied.pod.ArtworkOriginGuard = guard
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
@@ -1093,7 +1095,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.agentConfigurationDB != nil {
 		if supplied.fullImages != nil {
-			if supplied.fullImages.Worker == nil || supplied.fullImages.Client == nil {
+			if cfg.ImageAgent.Generation.Enabled && (supplied.fullImages.Worker == nil || supplied.fullImages.Client == nil) {
 				return nil, imageagent.ErrCommandBlocked
 			}
 			products, live, e := buildFullImageProducts(supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg)
@@ -1116,11 +1118,14 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, fmt.Errorf("build full image application: %w", e)
 			}
-			worker, e := appruntime.NewOrganizationImageSetWorker(supplied.fullImages.Client, dependencies)
-			if e != nil {
-				return nil, e
+			if cfg.ImageAgent.Generation.Enabled {
+				worker, e := appruntime.NewOrganizationImageSetWorker(supplied.fullImages.Client, dependencies)
+				if e != nil {
+					return nil, e
+				}
+				*supplied.fullImages.Worker = worker
 			}
-			*supplied.fullImages.Worker = worker
+
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}

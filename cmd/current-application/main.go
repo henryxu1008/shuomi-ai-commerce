@@ -283,7 +283,7 @@ func execute() error {
 				options = append(options, httpapi.WithPOD(httpapi.PODDependencies{AssetDB: features.PODAssetDB, Credentials: features.PODCredentials, HTTP: &http.Client{Timeout: 15 * time.Second}, OSSHosts: p.OSSHosts, Starter: podruntime.TemporalStarter{Client: features.PODWorkflow}, NewWorker: func(p *podapp.Processor) (podapp.Worker, error) { return podruntime.NewWorker(features.PODWorkflow, p) }, Worker: features.PODWorker}))
 			}
 			if features.ImageAgentDB != nil {
-				if features.ImageSetWorkerConfig != nil {
+				if features.FullImageSet {
 					options = append(options, httpapi.WithFullImageSet(features.ImageAgentDB, features.ImageAgentWorkflow, httpapi.FullImageSetDependencies{CurrentImagePolicies: features.CurrentImagePolicies, AssetDB: features.ImageSetAssetDB, WorkerDB: features.ImageSetWorkerDB, WorkerConfig: features.ImageSetWorkerConfig, Client: features.ImageSetTemporal, Worker: features.ImageSetWorker}))
 				} else {
 					options = append(options, httpapi.WithAcquisitionImageAgent(features.ImageAgentDB, features.ImageAgentWorkflow))

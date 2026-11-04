@@ -1,8 +1,20 @@
 # 市场调研与智能选品：统一实例更新准备
 
-本文件交付两服务更新差异和回退方案，目标实例为 `task-processor-unified-20261010`。297 固定源码的两镜像已按先前授权构建，但未部署；原 a66 身份、后端与 UI 已沿原容器恢复健康。当前用户只授权对齐配置合同，保持 a66 可用，不改凭据、不发布配置、不更新实例、不执行真实采集/AI/付费、不合并。准确源码/构建/恢复回执由 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 维护，不从分支名选择未来版本。
+本文件交付两服务更新差异和回退方案，目标实例 task-processor-unified-20261010。
+297两镜像已按此前授权构建但未部署，原a66身份/后端/UI恢复并保持健康。本轮仅授权离线生命周期实施和合成回归，
+不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并。准确候选/CI/构建/恢复证据在[PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。
 
-**当前更新停止点**：297 不接受现有 `imageWriter`，且统一配置管理加载与文字执行启用耦合。#1078 原 owner 已确认应沿单一 Run 配置 owner 收敛，不能改名、迁移或兼容。最小管理/执行生命周期候选及 AI 关闭边界见[配置方案预览](selection-shared-model-wiring-preview.md#原-owner-已对齐的最小方向2026-11-04)，状态为 NOT_IMPLEMENTATION_READY；下方更换镜像步骤必须等新合法配置/生命周期与实际运行准入满足后另行授权，不能因构建成功继续替换。
+**本轮离线增量**：按用户确认保留完整应用/历史，仅关闭新执行。[生命周期设计](../architecture/ai-disabled-application-lifecycle.md)
+已先通过独立准入；统一管理与执行启用分离，原图片读取抽出RunReader，关闭态不加载worker配置/workerDB/图片Temporal/worker，
+保留原模块/权限/原键/库存/批准/图案采用回执及UNKNOWN。启用态仍原完整依赖，无单图fallback，无迁移/旧兼容。
+相关HTTP68 PASS、owner/生命周期73 PASS（0 SKIP/FAIL），待原Reviewer最终增量和准确候选CI。
+
+**实际更新仍停止**：原a66 manifest的imageWriter/旧generation不是当前统一owner合法配置，不能改名、迁移或兼容。
+本次实现不让现有配置原样变得可部署，不安装schema/grant或发布新配置。未来需另行授权准备合法新安装/配置、fresh核资源及运行准入，
+再明确批准准确候选的标准构建和两服务更新；不能用旧297镜像代替新增生命周期实现。
+
+下方“源码组合”记录297已完成整合的范围，当前候选还包含上述生命周期增量及一次main7689的4个无关ChatUI文件。
+预算和运行保留/回退边界不变；旧固定证据不冒称新候选直接执行结果。
 
 ## 源码组合与保留范围
 
@@ -14,7 +26,7 @@
 
 复用 [研究证据合同](../architecture/market-research-evidence-analysis-v1.md)、[参考文字合同](../architecture/bailian-deepseek-shared-text-admission.md)、[供应链四步合同](../architecture/supply-four-step-continuation.md) 和[图片运行合同](../operations/product-image-agent.md)。本整合不增加 schema、状态机、持久化事实、权限或外部副作用；整体业务继续已准入设计，本增量按 Reuse Existing Architecture 执行。
 
-本轮 Docker 引擎不可连接，未启动。因此上述来源是上一轮已核实的固定基线，不冒充本轮现场状态。未来更新前必须 fresh 核对两服务来源及实际镜像；若已有并行更新，先比较其真实差异，不能直接覆盖。
+297整合时Docker不可连接的记录仅属此前时点；随后原a66已恢复健康。未来更新前仍须fresh核对两服务来源及实际镜像；若已有并行更新，先比较真实差异，不能覆盖。
 
 ## 两服务更新差异
 
