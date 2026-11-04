@@ -18,6 +18,20 @@ The deployment's private `docker-compose.images.yml` selects these prepared
 images without changing service commands, entrypoints or mounts. Preserve it on
 restart; image building and deployment remain separate operations.
 
+Map every selected build-only service in that same image-only overlay:
+
+| Standard Dockerfile target / image | Selected Compose services |
+| --- | --- |
+| Standard selected-Git Backend image (`data-services-runtime`) / UI image | `current-application` / `listingkit-ui` |
+| `Dockerfile.account-compose`, `bootstrap` | `bootstrap` |
+| `Dockerfile.account-compose`, `schema-init` | `schema-init`, `native-modules-init`, `ecoservices-init`, `storage-capacity-init`; selected `chat-init`, `acquisition-plans-init`, `store-observations-init` |
+| `Dockerfile.knowledge-storage`, `server` | `knowledge-objects`, `qualification-objects`, `ecoservices-objects` |
+| `Dockerfile.knowledge-storage`, `client` | `knowledge-storage-init`, `qualification-storage-init`, `ecoservices-storage-init` |
+| `deployments/docker/Dockerfile.browser-collector`, `runtime` (same selected-Git clean source; only with acquisition plans or Store observations) | `browser-collector` |
+
+Leave unselected services out of the image overlay; an image entry itself adds
+that service to Compose. Keep source bind paths from the same selected release.
+
 ```sh
 sh ./compose-modules.sh -- -f docker-compose.images.yml up -d --no-build --wait
 # Optional model-free conversations; requires CHAT_ALLOWED_ORGANIZATION_IDS.
