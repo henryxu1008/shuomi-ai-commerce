@@ -38,41 +38,56 @@ func TestDisabledExecutionKeepsModelManagementAndOriginalValidation(t *testing.T
 }
 
 func TestDisabledFullImageKeepsReadPoolsWithoutWorkerDependencies(t *testing.T) {
-	cfg := fullImageGenericRuntimeConfig(t)
-	cfg.ImageAgent.Generation.Enabled = false
-	require.NoError(t, cfg.validate())
-	source, product, configuration, points, images, assets := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}
-	stop := errors.New("disabled full image application construction boundary")
-	closed := map[*gorm.DB]int{}
-	err := Run(context.Background(), cfg, logrus.New(), Dependencies{
-		IdentityPreflight:      func(context.Context, IdentityConfig) error { return nil },
-		OpenSourceAccount:      func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
-		OpenProductAcquisition: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return product, nil },
-		OpenProductAgent:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return configuration, nil },
-		OpenCommercialOwner:    func(context.Context, DatabaseConfig) (*gorm.DB, error) { return points, nil },
-		OpenImageAgent:         func(context.Context, DatabaseConfig) (*gorm.DB, error) { return images, nil },
-		OpenSupplyAssets:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
-		// No worker config loader or Temporal dependency is supplied. The referenced
-		// private-worker.yaml does not exist and must never be read in this mode.
-		NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
-			require.True(t, f.FullImageSet, "closed full mode must never fall back to the single-image consumer")
-			require.Same(t, images, f.ImageAgentDB)
-			require.Same(t, assets, f.ImageSetAssetDB)
-			require.Same(t, configuration, f.ProductAgentDB)
-			require.Nil(t, f.ImageSetWorkerDB)
-			require.Nil(t, f.ImageSetWorkerConfig)
-			require.Nil(t, f.ImageSetTemporal)
-			require.Nil(t, f.ImageAgentWorkflow)
-			return nil, stop
-		},
-		CloseDatabase: func(db *gorm.DB) error { closed[db]++; return nil },
-	})
-	require.ErrorIs(t, err, stop)
-	for _, db := range []*gorm.DB{source, product, configuration, points, images, assets} {
-		require.Equal(t, 1, closed[db])
+	for _, capacityEnabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "capacity disabled", true: "capacity enabled"}[capacityEnabled], func(t *testing.T) {
+			cfg := fullImageGenericRuntimeConfig(t)
+			cfg.ImageAgent.Generation.Enabled = false
+			cfg.StorageCapacity = capacityEnabled
+			if capacityEnabled {
+				cfg.MoneyOwnerDatabase = &DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "money_owner_runtime", Password: "fixture", Database: "money", MaxConnections: 2}
+			}
+			require.NoError(t, cfg.validate())
+			source, product, configuration, points, money, images, assets := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			stop := errors.New("disabled full image application construction boundary")
+			closed := map[*gorm.DB]int{}
+			err := Run(context.Background(), cfg, logrus.New(), Dependencies{
+				IdentityPreflight:      func(context.Context, IdentityConfig) error { return nil },
+				OpenSourceAccount:      func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
+				OpenProductAcquisition: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return product, nil },
+				OpenProductAgent:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return configuration, nil },
+				OpenCommercialOwner:    func(context.Context, DatabaseConfig) (*gorm.DB, error) { return points, nil },
+				OpenMoneyOwner:         func(context.Context, DatabaseConfig) (*gorm.DB, error) { return money, nil },
+				OpenImageAgent:         func(context.Context, DatabaseConfig) (*gorm.DB, error) { return images, nil },
+				OpenSupplyAssets:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
+				// No worker config loader or Temporal dependency is supplied. The referenced
+				// private-worker.yaml does not exist and must never be read in this mode.
+				NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, c *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
+					require.Equal(t, capacityEnabled, c.StorageCapacity)
+					require.True(t, f.FullImageSet, "closed full mode must never fall back to the single-image consumer")
+					require.Same(t, images, f.ImageAgentDB)
+					require.Same(t, assets, f.ImageSetAssetDB)
+					require.Same(t, configuration, f.ProductAgentDB)
+					require.Nil(t, f.ImageSetWorkerDB)
+					require.Nil(t, f.ImageSetWorkerConfig)
+					require.Nil(t, f.ImageSetTemporal)
+					require.Nil(t, f.ImageAgentWorkflow)
+					return nil, stop
+				},
+				CloseDatabase: func(db *gorm.DB) error { closed[db]++; return nil },
+			})
+			require.ErrorIs(t, err, stop)
+			for _, db := range []*gorm.DB{source, product, configuration, points, images, assets} {
+				require.Equal(t, 1, closed[db])
+			}
+			if capacityEnabled {
+				require.Equal(t, 1, closed[money])
+			} else {
+				require.Zero(t, closed[money])
+			}
+			cfg.ImageAgent.Generation.Enabled = true
+			require.Error(t, Run(context.Background(), cfg, logrus.New(), Dependencies{}), "enabled execution still requires its dependencies")
+		})
 	}
-	cfg.ImageAgent.Generation.Enabled = true
-	require.Error(t, Run(context.Background(), cfg, logrus.New(), Dependencies{}), "enabled execution still requires its dependencies")
 }
 
 func TestDisabledManagementRetainsContentOnlyConsumerBoundary(t *testing.T) {

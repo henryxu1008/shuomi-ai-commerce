@@ -54,6 +54,11 @@ Asset 的库存/批准回执、Product 的来源/图案采用回执、原 Invoca
 零声明只能表示没有执行资格，不制造正数预算。原 DB 角色/隔离、allowlist、路径/URL 等静态校验保留。
 不改 Tenant Admission 来伪装关闭，不新增另一个开关。无 worker 文件的现单图路径保持原合同。
 
+完整图片执行关闭时，企业容量仍验证原 commercial owner 的容量 schema，并为其他已启用的存储写入
+消费者执行原 namespace 准入与 meter 接线；不能随图片执行一起关闭容量保护。
+图片 worker 的计量启用及相同 commercial owner 检查，仅适用于实际装配图片写入执行器的路径。
+关闭态不读取 worker 私密配置来满足该检查；完整执行开启及原单图路径的 worker 准入不变。
+
 ## 原历史读取抽取与 HTTP 边界
 
 在当前 `internal/imageagent` owner 内抽出 RunReader：只有 Get、GetPreparedImageSet、
@@ -95,6 +100,8 @@ HTTP body/timeout/大小限制和 DB 窄池保持；不新增轮询/远程探测
 
 TDD 先验证关闭配置/生命周期缺陷，再实现：管理合法性/anchor/预算负例；关闭完整模式仍带原 API/Asset 池和
 完整模式标志，worker配置打开器/workerDB/Temporal/Start 均未被调用；执行启用缺依赖仍失败。
+该生命周期回归同时覆盖 `storageCapacity=true`，并验证关闭图片执行仍拒绝缺失容量 schema、
+取消的启动及其他存储来源身份漂移；容量关闭的既有事实守卫及执行开启的 worker/owner 负例保留。
 RunReader 原键与跨组织/actor/member负例、无执行调用；原图片/图案 GET 历史/回执与响应可用性保持，
 命令在关闭时拒绝且无新事实；原 active 图片测试及研究→选品合成 HTTP 回归。
 复用任务专属 PG/本机 fixture/httptest，不建设 runner/故障矩阵平台。缺 DSN 的 SKIP 不报 PASS。
