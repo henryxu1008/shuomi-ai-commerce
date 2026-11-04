@@ -1,10 +1,10 @@
 # Eino 多厂商模型按需接入：最小设计候选
 
-状态：**DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**（2026-11-04）。
+状态：**IMPLEMENTATION_READY / FROZEN**（2026-11-04）；用户已授权同一Writer按冻结设计实施；范围内实现与离线/隔离自检已形成候选，IT1–IT6的准确HEAD、证据与自动最终评审状态维护在PR。准确设计HEAD及自动评审证据维护在PR #1093。
 Design Basis：**Independent Architecture**。本候选涉及模型用途/输入合同、新 provider 协议和计量准入，不能沿用 #1078/#1089 的 Ready 代替本次准入。
 Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / [#128](https://github.com/henryxu1008/shuomi-ai-commerce/issues/128)。
 
-用户已认可按全新系统、空业务数据整理的设计候选，授权当前唯一负责人在原工作区提交、推送并创建 design-only Draft PR，核对准确 HEAD 的 CI；不实现、不新增 Writer/Reviewer或评审，不合并、部署、关单或执行真实操作。
+用户已认可空业务数据设计，准确设计HEAD已通过CI和Codex自动文档评审；现授权原唯一Writer在原工作区/PR先补离线回归，再最小实现、自检和维护PR。完整候选Ready触发Codex自动评审，不新增人员或重复评审；不合并、部署、关单或执行真实操作。
 原工作区继续使用；本地设计分支 codex/issue134-eino-model-admission-design 从实际 main d80d7b1e01c1e91dd47a3c61272f23b8f2b5ce68 起步，保留原分支和全部实例/数据/会话。
 工程基线的 Eino v0.9.21、GenAI v1.72.0 与 Go 1.26.0 不因本候选自动升级。
 本文D1/D2仅标识本候选的协议与输入设计，不覆盖凭据/Flare等文档中已批准的同名决定。
@@ -44,7 +44,7 @@ UI 沿 Figma tg48P46SSXl6TBy9lZwg63 / 账户中心 31:463 / 模型配置区域
 
 ## 2. 当前根因与不变量
 
-当前问题是“组件/协议”“型号的输入能力”“业务用途”混在固定判断中：
+设计起点的根因是“组件/协议”“型号的输入能力”“业务用途”混在固定判断中。下表为实施前调查与最小修复依据；当前实现及验证证据维护在PR #1093：
 
 | 当前源码 | 实际限制与本次最小处理 |
 | --- | --- |
@@ -60,7 +60,7 @@ Threat Model 保持跨企业用 Key、错模型/错价格/错图、输入/资源
 
 ## 3. 三个层次，沿一个定义 owner
 
-下表是**候选字段合同，不是已新增的 Go 类型、schema、表或运行配置**。
+下表是**冻结职责/字段合同**；实施沿现有类型和owner最小补齐，不将分层说明变成新的持久化表、目录服务或另一份运行配置。
 继续原受限配置的 Definition/Catalog；不让普通用户填写任意 endpoint、模块路径或执行参数。
 
 | 层次 | 最小字段/职责 | 权威位置 |
@@ -146,7 +146,7 @@ ProfileVersion/quote 指纹必须覆盖：准确型号/用途、输入输出合�
 
 部分上游当前版本要求 Eino v0.9.22；已有静态候选不要求先全仓升级。
 是否升级、升级哪些模块须由实际组件需求及适用验证决定，不依赖 latest、replace 强压版本或全量依赖整理。
-未实际执行 MVS/编译/测试；也不为使用 ChatModel先迁移运行框架到 AgenticModel。
+固定组件已在本轮离线构造/编译验证中消费；准确依赖选择与测试结果维护在PR，不为使用ChatModel迁移运行框架到AgenticModel。
 
 ### D1 候选：Gemini 使用 GenerateContent
 
@@ -154,10 +154,11 @@ ProfileVersion/quote 指纹必须覆盖：准确型号/用途、输入输出合�
 空业务数据下直接定义准确的 GenerateContent protocol/profile：模型工厂复用 Eino Gemini，guard核路径上的准确 model及允许的消息/参数。
 不复用 Interactions adapter ID/请求形状，也不放开通用 model/body 判断；不建立旧协议 reader、迁移或兼容分支。
 
+型号协议参数沿可信profile固定：ThinkingMode显式为low、minimal或budget-zero，依据该准确型号支持的参数声明选择；不以统一budget=0冒充所有型号适配，也不向用户页面增加思考/额度选项。原maxOutputTokens覆盖thought，调用/Token/费用上限不变，最终wire核该冻结参数。
 GenAI client 注入原 guarded HTTP client，明确 API Key、backend、origin/API version；不读取缺省云身份、不启用非业务所需 server tools、URI上传或缓存接口。
 SDK v1.72.0 在 [RetryOptions 为 nil 时只发送一次](https://github.com/googleapis/go-genai/blob/v1.72.0/common.go)；
 候选显式锁定 Attempts=1及非流式调用，最后handoff锁/禁止redirect/第二次发送仍归原 guard。
-**D1作为本设计候选已获用户认可，适用架构复核尚未授权或执行，仍不可实施；不涉及旧数据处置或任何实例切换。**
+**D1已获用户认可并随准确设计HEAD完成自动文档复核；按本冻结设计实施，不涉及旧数据处置或任何实例切换。**
 
 ## 7. 图片身份与用途输入
 
@@ -176,7 +177,7 @@ Eino Gemini已经支持 Base64Data→InlineData，Qwen/同ACL支持Base64Data→
 最终wire必须核内联图片字节/hash及准确 model/用途；参数覆盖不能替换内容、增加图片数或调用次数。
 
 单图分析继续主体/构图/背景/清晰度疑点的只读输出，不回填属性、判定侵权/合规或执行动作。
-**D2作为空业务数据下的当前输入设计候选已获用户认可，不建立新旧格式切换或旧格式回读合同，也不再要求用户决定历史数据处理；适用架构复核和实现仍未执行。**
+**D2作为空业务数据下的当前输入设计候选已获用户认可，不建立新旧格式切换或旧格式回读合同，也不再要求用户决定历史数据处理；准确设计HEAD自动复核已完成；范围内实现已形成候选，最终CI和自动工程复核仍须绑定实施HEAD。**
 准确输入、用途、报价和确认仍必须一致；不把未变化的文本、Flare或其他Agent无故升级版本。
 
 ## 8. 参考计量与单一账本
@@ -231,9 +232,9 @@ Legacy decision：**EXTRACT | RETIRE**。
 沿原BFF/严格DTO/权限与页面组件补用途投影；没有新页面设计或真实配置保存。
 本轮Figma、真实浏览器和产品验收NOT_RUN；如果实现确需新交互，先补原Product Authority，而不是在此追加流程。
 
-## 11. 有界实施落点与未来验证
+## 11. 有界实施落点与验证义务
 
-未获实现或评审授权；以下为未来获准后的义务，不是本轮测试结果。
+已获范围内实施授权；以下义务已补离线/隔离回归并形成实现候选。具体RED/GREEN、准确HEAD、必需CI及自动工程复核维护在PR，不将局部通过外推为运行或产品验收。
 
 | 实施落点 | 最小变化 / 证据 |
 | --- | --- |
@@ -252,7 +253,7 @@ Legacy decision：**EXTRACT | RETIRE**。
 6. **IT6实际装配**：原owner/Registry/合成模型/任务临时PG的已有组合验证消费了准确新profile；不是只对独立SDK做mock成功。不新建runner、故障注入平台或验证工具。
 
 仅使用原离线/隔离测试与正常必需CI。真实模型质量、实际配置/部署/保存恢复/平台/浏览器/产品不在本批执行范围，保留NOT_RUN/UNKNOWN。
-必要独立架构/最终检查仍按原单Reviewer里程碑规则；当前没有新派工或将候选宣布Ready。
+设计阶段复用已完成的准确HEAD自动文档复核；最终稳定候选Ready触发Codex自动评审，不新增Reviewer或重复审核未变化内容。
 
 ## 12. 已确认范围与设计准入状态
 
@@ -260,14 +261,14 @@ Legacy decision：**EXTRACT | RETIRE**。
 | --- | --- |
 | 按项目需要复用Eino、厂商不限；企业统一配置、共享连接、一套计费 | 用户已明确，不重复要求确认 |
 | 全新安装、没有历史业务数据；不承接旧数据/格式/协议 | 用户已明确；无须再次确认历史处置，不授权实例清理 |
-| D1：Gemini采用GenerateContent及准确guard/profile | **用户认可的技术设计候选，未评审/实现** |
-| D2：直接定义共同单图身份，型号协议参数归各用途profile | **用户认可的技术设计候选，未评审/实现**；无新旧格式过渡合同 |
+| D1：Gemini采用GenerateContent及准确guard/profile | **已认可/完成设计自动复核，实现候选已形成** |
+| D2：直接定义共同单图身份，型号协议参数归各用途profile | **已认可/完成设计自动复核，实现候选已形成**；无新旧格式过渡合同 |
 | 其他新认证形式或改变资金/状态/恢复合同 | 当前不引入；具体需要出现时先报告，不从本候选自动取得授权 |
 | 型号/参数/计量事实 | 由可信定义与对应原用途约束确定；本轮不发布真实定义、费率/FX或更改默认型号 |
-| Architecture Review / 准入 | NOT_RUN / NOT_IMPLEMENTATION_READY |
+| 设计复核 / 准入 | 准确设计HEAD自动Code Review completed/0 finding，IMPLEMENTATION_READY / FROZEN；非Security Review或产品验收 |
 | 设计提交、推送、Draft PR与准确HEAD的CI | 本轮已授权；准确HEAD、CI与滚动证据维护在PR，不以CI代替架构准入 |
-| 实现、依赖安装/升级、编译/业务回归 | NOT_RUN；不因提交设计或文档CI通过而启动实施 |
+| 实现、依赖、编译/业务回归 | 现获范围内授权，仅任务离线/隔离自检；实际结果与新准确HEAD在PR维护 |
 | 保留环境与产品 | 未操作；运行、真实保存/恢复、浏览器、质量及产品验收NOT_RUN，现场缺证据UNKNOWN |
 
-本轮仅交付设计文档、适用合同引用、design-only Draft PR及准确HEAD的CI证据。#134/#128保持OPEN，#47 PostgreSQL UNKNOWN、#307 OPEN、#733咨询NOT_SENT。
+本轮继续原PR交付范围内实现、必要自检、新准确HEAD CI和自动评审证据；不将工程通过写成真实产品通过。#134/#128保持OPEN，#47 PostgreSQL UNKNOWN、#307 OPEN、#733咨询NOT_SENT。
 不迁移保留库、不合并、不部署、不真实启停/配置保存/采集/保存/恢复、不调用真实模型/业务平台、不发邮件短信。

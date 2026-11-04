@@ -23,7 +23,7 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 	if err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
-	if !fact.OfficialTariff.Valid() || fact.OfficialTariff.Model != fact.ModelID || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.StartedAt.IsZero() || fact.UserID == "" || fact.MemberID == "" || fact.InputHash == "" || !validPricedTextOperationIdentity(fact) {
+	if !fact.OfficialTariff.Valid() || !fact.OfficialTariff.MatchesWireModel(fact.ModelID) || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.StartedAt.IsZero() || fact.UserID == "" || fact.MemberID == "" || fact.InputHash == "" || !validPricedTextOperationIdentity(fact) {
 		return aicapability.InvocationRecord{}, fmt.Errorf("invalid priced model fact")
 	}
 	if err := validateUsage(fact); err != nil {

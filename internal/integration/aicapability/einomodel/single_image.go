@@ -139,19 +139,30 @@ func generateSingleImage(ctx context.Context, component model.BaseChatModel, inp
 	if input.Image == nil || !validSingleImageContent(*input.Image, input.ImageContent) || guard.cfg.SingleImage == nil {
 		return TextOutput{}, ErrNotDispatched
 	}
-	url := "data:" + input.Image.MediaType + ";base64," + base64.StdEncoding.EncodeToString(input.ImageContent)
+	encoded := base64.StdEncoding.EncodeToString(input.ImageContent)
+	part := &schema.MessageInputImage{MessagePartCommon: schema.MessagePartCommon{Base64Data: &encoded, MIMEType: input.Image.MediaType}}
+	if guard.cfg.Adapter == AdapterOpenAICompatible {
+		part.Detail = schema.ImageURLDetailHigh
+	}
 	user := &schema.Message{Role: schema.User, UserInputMultiContent: []schema.MessageInputPart{
 		{Type: schema.ChatMessagePartTypeText, Text: input.Prompt},
-		{Type: schema.ChatMessagePartTypeImageURL, Image: &schema.MessageInputImage{MessagePartCommon: schema.MessagePartCommon{URL: &url}, Detail: schema.ImageURLDetailHigh}},
+		{Type: schema.ChatMessagePartTypeImageURL, Image: part},
 	}}
 	return generateMessages(ctx, component, []*schema.Message{schema.SystemMessage(input.System), user}, guard)
 }
 
 func validSingleImageRequest(cfg GuardConfig) bool {
-	return cfg.Adapter == AdapterOpenAICompatible && cfg.ProviderID == "openai" &&
-		cfg.ModelID == aicapability.SingleImageMiniModel && cfg.SingleImage != nil && cfg.SingleImage.Image.Valid() &&
-		cfg.SingleImage.System != "" && cfg.SingleImage.Prompt != "" && utf8.ValidString(cfg.SingleImage.System) && utf8.ValidString(cfg.SingleImage.Prompt) &&
+	validPurpose := cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy &&
+		cfg.Adapter == AdapterOpenAICompatible && cfg.ProviderID == "openai" && cfg.ModelID == aicapability.SingleImageMiniModel &&
 		(cfg.Endpoint == "https://api.openai.com/v1" || cfg.Endpoint == "https://api.openai.com/v1/")
+	if cfg.AdapterPolicyVersion != aicapability.SingleImageMiniAdapterPolicy {
+		validPurpose = aicapability.SingleImagePurpose(cfg.AdapterPolicyVersion) &&
+			validFixedAdapterPolicy(cfg.Adapter, cfg.ProviderID, cfg.ModelID, cfg.AdapterPolicyVersion) &&
+			cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1
+	}
+	return validPurpose && cfg.SingleImage != nil && cfg.SingleImage.Image.Valid() &&
+		cfg.SingleImage.System != "" && cfg.SingleImage.Prompt != "" && utf8.ValidString(cfg.SingleImage.System) && utf8.ValidString(cfg.SingleImage.Prompt) &&
+		len(cfg.SingleImage.System)+len(cfg.SingleImage.Prompt) <= int(cfg.MaximumRequestBytes)
 }
 
 func validSingleImageResponseUsage(raw []byte, expectedModel string) bool {

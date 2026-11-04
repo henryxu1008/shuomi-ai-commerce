@@ -302,7 +302,7 @@ func (l *recordingLedger) RecordInvocation(_ context.Context, r aicapability.Inv
 
 func testTextProfile(endpoint string) aicapability.ModelProfile {
 	return aicapability.ModelProfile{
-		ClientName: "org-planning", ProviderID: "synthetic", AdapterKind: string(AdapterOpenAICompatible),
+		ClientName: "org-planning", ConnectionID: "fixture-connection", ProviderID: "synthetic", AdapterKind: string(AdapterOpenAICompatible),
 		ModelID: "synthetic-model", EndpointIdentityDigest: endpointDigest(endpoint), CredentialVersion: "v1",
 		RoutingPolicyVersion: "routing-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1",
 		OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "price-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "USD", CNYMicrosPerCurrencyUnit: 1000000, Model: "synthetic-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}}, Currency: "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000,

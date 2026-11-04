@@ -200,6 +200,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 	}()
 	guardCfg := GuardConfig{Logger: logger, Adapter: AdapterKind(p.AdapterKind), Endpoint: route.Endpoint, ModelID: p.ModelID,
+		ResponseModelID: p.OfficialTariff.Model, ThinkingMode: p.ThinkingMode,
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
@@ -233,7 +234,8 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		return TextOutput{}, ErrNotDispatched
 	}
 	component, err := NewComponent(ctx, ComponentConfig{Adapter: guardCfg.Adapter, Endpoint: route.Endpoint,
-		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
+		ThinkingMode: p.ThinkingMode,
+		ProviderID:   p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
 		APIKey: route.APIKey, ModelID: p.ModelID, MaximumOutputTokens: guardCfg.MaximumOutputTokens}, guard)
 	if err != nil {
 		diagnostic.emit(ctx, "component", "rejected_before_claim")

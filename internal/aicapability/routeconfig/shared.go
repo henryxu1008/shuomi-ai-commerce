@@ -157,10 +157,11 @@ func (s *SharedModelService) qualify(ctx context.Context, org string, category M
 	if q.OrganizationID != org || q.Category != category || q.Reference != ref || !ValidFact(q.Channel, 128) || !ValidFact(q.Model, 128) {
 		return ModelQualification{}, ErrInvalid
 	}
-	if q.Ready && (q.Price.Validate() != nil || q.Price.Model != q.Model || q.Price.Channel != q.Channel || !q.Price.IsReferenceEstimate() && !q.Price.IsReferenceImageEstimate() && !ValidFact(q.BoundEvidenceVersion, 128) || !ValidFact(q.ProfileVersion, 128)) {
+	if q.Ready && (q.Price.Validate() != nil || !q.Price.MatchesWireModel(q.Model) || q.Price.Channel != q.Channel || !q.Price.IsReferenceEstimate() && !q.Price.IsReferenceImageEstimate() && !ValidFact(q.BoundEvidenceVersion, 128) || !ValidFact(q.ProfileVersion, 128)) {
 		q.Ready, q.Reason = false, "DEPENDENCY_MISSING"
 	}
-	if q.Ready && (q.Price.IsReferenceEstimate() && category != ModelCategoryText || q.Price.IsReferenceImageEstimate() && category != ModelCategoryImage) {
+	referenceVision := category == ModelCategoryMultimodal && q.Text != nil && aicapability.SingleImageProfile(*q.Text)
+	if q.Ready && (q.Price.IsReferenceEstimate() && category != ModelCategoryText && !referenceVision || q.Price.IsReferenceImageEstimate() && category != ModelCategoryImage) {
 		q.Ready, q.Reason = false, "METERING_MAPPING_NOT_ADMITTED"
 	}
 	if q.Ready {

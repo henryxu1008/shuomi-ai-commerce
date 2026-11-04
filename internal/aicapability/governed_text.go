@@ -19,28 +19,30 @@ var ErrTextEnvelope = errors.New("invalid governed text envelope")
 // ModelProfile is a non-secret, immutable use-time snapshot of the approved
 // organization route and all limits that affect dispatch or settlement.
 type ModelProfile struct {
-	ClientName              string
-	ConnectionID            string `json:",omitempty"`
-	ProviderID              string
-	AdapterKind             string
-	ModelID                 string
-	EndpointIdentityDigest  string
-	CredentialVersion       string
-	RoutingPolicyVersion    string
-	AdapterPolicyVersion    string
-	PromptVersion           string
-	OutputSchemaVersion     string
-	UsageMappingVersion     string
-	CostPricingVersion      string
-	OfficialTariff          OfficialModelTariff
-	Currency                string
-	InputMicrosPerMillion   int64
-	OutputMicrosPerMillion  int64
-	MaximumPromptTokens     int64
-	MaximumCompletionTokens int64
-	MaximumInputBytes       int
-	MaximumOutputBytes      int
-	DeadlineBound           time.Duration
+	ThinkingMode             string `json:",omitempty"`
+	ImagePromptTokenEstimate int64  `json:",omitempty"`
+	ClientName               string
+	ConnectionID             string `json:",omitempty"`
+	ProviderID               string
+	AdapterKind              string
+	ModelID                  string
+	EndpointIdentityDigest   string
+	CredentialVersion        string
+	RoutingPolicyVersion     string
+	AdapterPolicyVersion     string
+	PromptVersion            string
+	OutputSchemaVersion      string
+	UsageMappingVersion      string
+	CostPricingVersion       string
+	OfficialTariff           OfficialModelTariff
+	Currency                 string
+	InputMicrosPerMillion    int64
+	OutputMicrosPerMillion   int64
+	MaximumPromptTokens      int64
+	MaximumCompletionTokens  int64
+	MaximumInputBytes        int
+	MaximumOutputBytes       int
+	DeadlineBound            time.Duration
 }
 
 func validTextFact(value string, max int) bool {
@@ -69,10 +71,18 @@ func (p ModelProfile) ValidateShape() error {
 			return ErrTextProfile
 		}
 	}
-	if p.AdapterKind != "openai-compatible" && p.AdapterKind != "claude-native" && p.AdapterKind != "google-interactions" {
+	if p.AdapterKind != "openai-compatible" && p.AdapterKind != "claude-native" && p.AdapterKind != "google-interactions" &&
+		p.AdapterKind != "google-generate-content" && p.AdapterKind != "qwen-compatible" {
 		return ErrTextProfile
 	}
-	if len(p.Currency) != 3 ||
+	if p.AdapterKind == "google-generate-content" {
+		if !ValidGeminiThinkingMode(p.ThinkingMode) {
+			return ErrTextProfile
+		}
+	} else if p.ThinkingMode != "" {
+		return ErrTextProfile
+	}
+	if p.ImagePromptTokenEstimate < 0 || p.ImagePromptTokenEstimate > p.MaximumPromptTokens || len(p.Currency) != 3 ||
 		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 ||
 		p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 ||
 		p.MaximumPromptTokens < 1 || p.MaximumPromptTokens > 1048576 ||
@@ -89,7 +99,7 @@ func (p ModelProfile) ValidateShape() error {
 }
 
 func (p ModelProfile) Validate() error {
-	if p.ValidateShape() != nil || !p.OfficialTariff.Valid() || p.OfficialTariff.Model != p.ModelID {
+	if p.ValidateShape() != nil || !p.OfficialTariff.Valid() || !p.OfficialTariff.MatchesWireModel(p.ModelID) {
 		return ErrTextProfile
 	}
 	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
@@ -205,7 +215,7 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	promptBound := int64(len(wire) + 1024)
 	wireBound := len(wire) + 1024
 	if input.Image != nil {
-		promptBound += SingleImagePromptTokenBound
+		promptBound += SingleImagePromptEstimate(input.Profile)
 		wireBound += base64.StdEncoding.EncodedLen(input.Image.ByteLength) + len("data:"+input.Image.MediaType+";base64,")
 	}
 	if wireBound > input.Profile.MaximumInputBytes || promptBound > input.Profile.MaximumPromptTokens {
