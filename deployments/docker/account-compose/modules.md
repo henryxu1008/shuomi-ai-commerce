@@ -148,10 +148,18 @@ operations, and keeps model/task execution closed. See
 [`ai-workbench-chat-trial.md`](../../../docs/operations/ai-workbench-chat-trial.md).
 Preserve the two Chat state/runtime volumes alongside every original volume.
 
-```powershell
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.knowledge.yml -f docker-compose.data-services.yml -f docker-compose.modules.yml -f docker-compose.ecoservices.yml -f docker-compose.chat.yml stop
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.knowledge.yml -f docker-compose.data-services.yml -f docker-compose.modules.yml -f docker-compose.ecoservices.yml -f docker-compose.chat.yml up -d --no-build --wait
+For the new capacity-enabled installation described above, use the same fixed
+entrypoint and **exact original options**. For example, when Chat was selected:
+
+```sh
+sh ./compose-modules.sh --chat -- stop
+sh ./compose-modules.sh --chat -- up -d --no-build --wait
 ```
+
+Keep `--public`, `--acquisition-plans` or `--store-observations` if originally
+selected; omit `--chat` only when it was not selected. For an older installation
+created without capacity, retain its original Compose command/files instead;
+do not add the new entrypoint to a retained project as an upgrade.
 
 Keep project/env/source/images/plugin origin and all overlays consistent. Stop
 retains all database, identity, object, private manifest and Temporal volumes.
