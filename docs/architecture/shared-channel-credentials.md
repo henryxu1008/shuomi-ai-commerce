@@ -1,5 +1,8 @@
 # 渠道凭据与模型定义分离：最小设计候选
 
+> 2026-11-04 后续[多厂商模型按需准入候选](eino-model-admission.md)复用本文的唯一凭据owner、企业隔离、轮换及当前合同内幂等/恢复；用户已明确没有历史数据，不从本文引出旧协议/格式读取或迁移要求。
+> 新协议/用途不继承本文或 #1089 的 Ready；该后续候选尚未评审/实现，不新增秘密副本、迁移或保留实例操作。
+
 Status: **IMPLEMENTATION_READY / FROZEN**。Design Basis: **Independent Architecture**。
 Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / #128。日期：2026-11-04。
 
