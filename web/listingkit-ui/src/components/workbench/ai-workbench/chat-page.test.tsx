@@ -38,6 +38,41 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); client.clear(); sessionStorage.clear(); });
+it("keeps new conversation creation separate from the history list", async () => {
+  fixture.request.mockImplementation(async ({ route }) => {
+    if (route === "conversation-list") return { conversations: [{ ...conversation, Title: "已有讨论" }], next: "" };
+    if (route === "conversation-create") return { conversation };
+    throw new AIWorkbenchError("INVALID_REQUEST");
+  });
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  expect(screen.getByRole("heading", { name: "有什么想交给硕米？" })).toBeVisible();
+  expect(screen.queryByRole("region", { name: "会话列表" })).toBeNull();
+  expect(fixture.request).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "新建会话" }));
+  await waitFor(() => expect(fixture.push).toHaveBeenCalled());
+  expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["conversation-create"]);
+});
+
+it.each(["recent", "saved"] as const)("filters only loaded %s titles while retaining pagination and its scope", async mode => {
+  const first = { ...conversation, Title: "中文内容整理", Favorite: mode === "saved" };
+  const older = { ...first, ID: "d5d9d1ca-1db3-43af-9649-dcdf3663745b", Title: "English content" };
+  fixture.request.mockImplementation(async ({ path }) => path.includes("after=older")
+    ? { conversations: [older], next: "" } : { conversations: [first], next: "older" });
+  render(<QueryClientProvider client={client}><ChatPage mode={mode} /></QueryClientProvider>);
+  await screen.findByRole("link", { name: /中文内容整理/ });
+  fireEvent.change(screen.getByRole("searchbox", { name: "筛选已加载的会话标题" }), { target: { value: " ENGLISH " } });
+  expect(screen.queryByRole("link", { name: /中文内容整理/ })).toBeNull();
+  expect(screen.getByText("已加载的会话中没有匹配标题")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "加载更早会话" }));
+  expect(await screen.findByRole("link", { name: /English content/ })).toBeVisible();
+  expect(fixture.request.mock.calls.filter(([input]) => input.route === "conversation-list")).toHaveLength(2);
+  expect(fixture.request.mock.calls.at(-1)![0]).toMatchObject({ scope: { userId: "user-a", organizationId: "org-a" } });
+  if (mode === "saved") expect(fixture.request.mock.calls.at(-1)![0].path).toContain("saved=true");
+  fireEvent.click(screen.getByRole("button", { name: "清空筛选" }));
+  expect(screen.getByRole("link", { name: /中文内容整理/ })).toBeVisible();
+  expect(screen.getByRole("link", { name: /English content/ })).toBeVisible();
+});
+
 it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected %s message for correction with a new key",async(code)=>{
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code,false)});
  const view=render(tree());await screen.findByText("开始讨论");
