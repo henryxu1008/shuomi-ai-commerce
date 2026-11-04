@@ -24,6 +24,7 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"github.com/sirupsen/logrus"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/integration/googleinteractions"
 )
 
@@ -77,6 +78,13 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 		}
 		return &googleComponent{config: cfg, guard: guard}, nil
 	case AdapterOpenAICompatible:
+		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
+			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{
+				APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
+				MaxCompletionTokens: &maxTokens, ReasoningEffort: openaimodel.ReasoningEffortLevel("none"),
+				HTTPClient: guard.Client, ExtraFields: map[string]any{"n": 1, "store": false, "service_tier": "default"},
+			})
+		}
 		var extra map[string]any
 		if cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
 			extra = map[string]any{"enable_thinking": false}
@@ -97,10 +105,12 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 }
 
 type GuardConfig struct {
-	Logger               *logrus.Entry `json:"-"`
+	SingleImage          *SingleImageRequest `json:"-"`
+	Logger               *logrus.Entry       `json:"-"`
 	Adapter              AdapterKind
 	ProviderID           string
 	AdapterPolicyVersion string
+	BillingUsageVersion  string
 	Endpoint             string
 	ModelID              string
 	MaximumOutputTokens  int
@@ -110,6 +120,7 @@ type GuardConfig struct {
 }
 
 type ObservedUsage struct {
+	BillableUsage    *aicapability.BillableModelUsage
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
@@ -183,6 +194,15 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 	if !validFixedAdapterPolicy(cfg.Adapter, cfg.ProviderID, cfg.ModelID, cfg.AdapterPolicyVersion) {
 		return nil, ErrInvalid
 	}
+	if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
+		if !validSingleImageRequest(cfg) {
+			return nil, ErrInvalid
+		}
+		frozen := *cfg.SingleImage
+		cfg.SingleImage = &frozen
+	} else if cfg.SingleImage != nil {
+		return nil, ErrInvalid
+	}
 	if cfg.Adapter == AdapterGoogleInteractions && (cfg.ModelID != googleinteractions.Model || cfg.MaximumRequestBytes > 128<<10 || cfg.MaximumResponseBytes > 256<<10) {
 		return nil, ErrInvalid
 	}
@@ -235,7 +255,8 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.URL.Scheme != g.endpoint.Scheme || !strings.EqualFold(req.URL.Host, g.endpoint.Host) ||
 		!strings.HasPrefix(req.URL.EscapedPath(), strings.TrimSuffix(g.endpoint.EscapedPath(), "/")+"/") ||
 		req.URL.RawQuery != "" || req.URL.Fragment != "" || req.Body == nil ||
-		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" {
+		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" ||
+		g.cfg.SingleImage != nil && req.URL.EscapedPath() != "/v1/chat/completions" {
 		return nil, ErrNotDispatched
 	}
 	diagnostic := g.diagnosticsFor(req.Context())
@@ -296,6 +317,15 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	diagnostic.emit(req.Context(), "response", "response_received")
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
+		if g.cfg.Adapter == AdapterOpenAICompatible && g.cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1 {
+			usage = observeReferenceTextUsage(raw)
+		}
+		if g.cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
+			usage = observeDeepSeekUsage(raw)
+		}
+		if g.cfg.SingleImage != nil && (!validSingleImageResponseUsage(raw, g.cfg.ModelID) || usage.BillableUsage == nil) {
+			usage = ObservedUsage{}
+		}
 		var providerID string
 		if g.cfg.Adapter == AdapterGoogleInteractions {
 			parsed := googleinteractions.Observe(raw, g.cfg.MaximumOutputTokens)
@@ -313,6 +343,9 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func validWire(raw []byte, cfg GuardConfig) bool {
+	if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
+		return validSingleImageWire(raw, cfg)
+	}
 	var envelope map[string]json.RawMessage
 	if json.Unmarshal(raw, &envelope) != nil || envelope == nil {
 		return false
@@ -386,7 +419,11 @@ func observeUsage(raw []byte, adapter AdapterKind) ObservedUsage {
 		if p < 0 || c < 0 || t <= 0 || p+c != t {
 			return ObservedUsage{}
 		}
-		return ObservedUsage{PromptTokens: p, CompletionTokens: c, TotalTokens: t, Known: true}
+		observed := ObservedUsage{PromptTokens: p, CompletionTokens: c, TotalTokens: t, Known: true}
+		if billable, err := ObserveOfficialOpenAITextUsage(raw); err == nil {
+			observed.BillableUsage = &billable
+		}
+		return observed
 	}
 	var result struct {
 		Usage *struct {
@@ -424,8 +461,12 @@ func GenerateText(ctx context.Context, component model.BaseChatModel, system, pr
 	if ctx == nil || component == nil || guard == nil || system == "" || prompt == "" {
 		return TextOutput{}, ErrInvalid
 	}
+	return generateMessages(ctx, component, []*schema.Message{schema.SystemMessage(system), schema.UserMessage(prompt)}, guard)
+}
+
+func generateMessages(ctx context.Context, component model.BaseChatModel, messages []*schema.Message, guard *GuardedClient) (TextOutput, error) {
 	diagnostic := guard.diagnosticsFor(ctx)
-	message, err := component.Generate(ctx, []*schema.Message{schema.SystemMessage(system), schema.UserMessage(prompt)})
+	message, err := component.Generate(ctx, messages)
 	usage := guard.Usage()
 	diagnostic.set("usage_known", usage.Known)
 	if err != nil {

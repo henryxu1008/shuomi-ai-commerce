@@ -19,8 +19,8 @@ it("distinguishes enterprise usable resources from administrator unallocated res
 it("displays exact balances, missing records and renewal periods with owner units", async () => {
   render(tree());
   const points = await screen.findByRole("region", { name: "AI 点数余额" });
-  expect(await within(points).findByText("9007199254740993 点")).toBeVisible();
-  expect(within(points).getByText("预留 12 点 · 已消费 3 点")).toBeVisible();
+  expect(await within(points).findByText("9007199254.740993 点")).toBeVisible();
+  expect(within(points).getByText("预留 0.000012 点 · 已消费 0.000003 点")).toBeVisible();
   expect(within(screen.getByRole("region", { name: "数据额度余额" })).getByText("尚无资源记录")).toBeVisible();
   expect(within(screen.getByRole("region", { name: "店铺续费期数余额" })).getByText("1 期")).toBeVisible();
   expect(screen.queryByText(/1 家|充值暂未开放|未接入/)).not.toBeInTheDocument();
@@ -43,7 +43,7 @@ it("never displays a late A response after changing org or identity", async () =
   read.mockReturnValueOnce(new Promise(r => { resolve = r; }));
   const view = render(tree());
   view.rerender(tree("org-B", "other"));
-  await screen.findAllByText("9007199254740993 点");
+  await screen.findAllByText("9007199254.740993 点");
   await act(async () => resolve({ ...commercialResourcesFixture("org-A"), resources: commercialResourcesFixture("org-A").resources.map(v => v.resource_type === "ai_point" ? { ...v, available: "998877" } : v) }));
   expect(screen.queryByText("998877 点")).not.toBeInTheDocument();
   expect(read).toHaveBeenLastCalledWith("other", "org-B", expect.any(AbortSignal));

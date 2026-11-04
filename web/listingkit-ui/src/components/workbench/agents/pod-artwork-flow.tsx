@@ -1,4 +1,5 @@
 "use client";
+import {formatMicropoints} from "@/lib/contracts/ai-points";
 import Link from "next/link";
 import {useEffect,useRef,useState,useSyncExternalStore} from "react";
 import {useQuery} from "@tanstack/react-query";
@@ -68,9 +69,10 @@ export function PODArtworkFlow({scope,entry,templates,nonce,podAvailable=false}:
   </form>:null}
   {run.error?<p role="alert">{configurationError(run.error)} <Button variant="outline" onClick={()=>void run.refetch()}>读取原运行</Button></p>:runId&&!current?<p role="status">正在读取原图案运行…</p>:null}
   {current?<>
-   <div className={styles.heading}><div><h3>{current.theme}</h3><p role="status">{statusNames[current.status]}</p><p>{executionModeLabels[current.mode]} · 点数上限 {current.points} · 已结算 {current.settledPoints}</p></div><Button variant="outline" disabled={busy} onClick={()=>{void run.refetch();void mode.refetch()}}>核实当前状态</Button></div>
+   <div className={styles.heading}><div><h3>{current.theme}</h3><p role="status">{statusNames[current.status]}</p><p>{executionModeLabels[current.mode]} · 点数上限 {formatMicropoints(current.points)} · 已结算 {formatMicropoints(current.settledPoints)}</p></div><Button variant="outline" disabled={busy} onClick={()=>{void run.refetch();void mode.refetch()}}>核实当前状态</Button></div>
    <p>{current.requirements}</p>
-   {current.status==="awaiting_plan_approval"?<><p>确认后将调用图片模型生成一个原创图案，最多使用 {current.points} 点。请核对主题、要求和预算。</p><Button disabled={locked||!entry.canUse||!current.generationAllowed} onClick={()=>void send({kind:"confirm",key:crypto.randomUUID(),runId:current.runId,body:{planRevision:current.planRevision,planDigest:current.planDigest,quoteDigest:current.quoteDigest}})}>确认点数并生成新图案</Button></>:null}
+   {current.referencePriceVersion?<p>图片参考估算 · 版本 {current.referencePriceVersion}：预留按估算参数，结算按原用量与冻结参考价；缺输入细分时按较高输入参考费率估算。缺基础用量或超出预留保持待核实，不自动补扣或重试。</p>:null}
+   {current.status==="awaiting_plan_approval"?<><p>确认后将调用图片模型生成一个原创图案，最多使用 {formatMicropoints(current.points)} 点。请核对主题、要求和预算。</p><Button disabled={locked||!entry.canUse||!current.generationAllowed} onClick={()=>void send({kind:"confirm",key:crypto.randomUUID(),runId:current.runId,body:{planRevision:current.planRevision,planDigest:current.planDigest,quoteDigest:current.quoteDigest}})}>确认点数并生成新图案</Button></>:null}
    {candidate?<div className={styles.result}><div className={styles.preview}><button aria-label="放大查看生成图案" onClick={()=>setPreview(true)}><img src={candidate.url} alt={current.theme}/></button><p>{candidate.width} × {candidate.height} · 原生成图案</p></div><div className={styles.controls}><h3>确认作品</h3><p>检查实际图案与使用权。保存后仍需明确批准为印花图案。</p>{current.saveAvailable?<Button disabled={locked||!entry.canUse} onClick={()=>void send({kind:"save",key:crypto.randomUUID(),runId:current.runId,body:{planRevision:current.planRevision,resultDigest:current.resultDigest}})}>确认并保存作品</Button>:null}{current.saved?<><p role="status">作品已保存到我的数据。</p>{podAvailable?<Link href={`/workbench/supply/catalogs/sds/design?artwork=${current.saved.itemId}`} prefetch={false}>选择模板，进入布局与效果图 →</Link>:<p>SDS 模板与效果图暂不可用；已生成作品保留，配置就绪后可继续。</p>}<Link href="/workbench/data/mine" prefetch={false}>查看我的数据</Link></>:null}</div></div>:null}
    {!current.generationAllowed&&!current.saved?<p>只读模式或当前授权、配置已变化；新生成和保存操作不可执行，原结果保留。</p>:null}
    {current.recoverableEffects?.map(effect=>typeof effect.SlotID==="string"&&effect.SlotID==="artwork"&&typeof effect.Attempt==="number"?<Button key={effect.Attempt} variant="outline" disabled={locked} onClick={()=>void send({kind:"recover",key:crypto.randomUUID(),runId:current.runId,body:{planRevision:current.planRevision,slotId:"artwork",attempt:effect.Attempt as number}})}>恢复原图案结果（不重新生成）</Button>:null)}

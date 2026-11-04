@@ -8,7 +8,7 @@ vi.mock("@/lib/api/product-image-set",async original=>({...await original<typeof
 const scope={userId:"actor",organizationId:"org"};
 const ids=Array.from({length:7},(_,i)=>"22222222-2222-4222-8222-"+String(i+1).padStart(12,"0"));
 function item(index:number,status="blocked",released=false){
- return {runId:ids[index],contextKind:"supply",contextId:"11111111-1111-4111-8111-111111111111",status,targetPlatform:"product",createdAt:"2026-10-18T08:00:00Z",...released?{releaseSummary:{releasedPoints:1}}:{}};
+ return {runId:ids[index],contextKind:"supply",contextId:"11111111-1111-4111-8111-111111111111",status,targetPlatform:"product",createdAt:"2026-10-18T08:00:00Z",...released?{releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"1000000"}}:{}};
 }
 let fetch:ReturnType<typeof vi.fn<(input:unknown,init?:RequestInit)=>Promise<Response>>>;
 beforeEach(()=>{
@@ -82,7 +82,7 @@ it("uses each page's released summary without carrying it into an UNKNOWN page",
 });
 
 it("rejects a malformed release summary instead of presenting it as released",async()=>{
- const invalid={items:[{...item(0),releaseSummary:{releasedPoints:0}}],nextCursor:""};
+ const invalid={items:[{...item(0),releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"0"}}],nextCursor:""};
  expect(imageSetRecentSchema.safeParse(invalid).success).toBe(false);
  fetch.mockResolvedValue(Response.json(invalid));
  render(<RecentImageSets scope={scope} nonce={0}/>);
@@ -112,7 +112,7 @@ it("refreshes the current page from the server after a verified save without cha
 
 
 it("shows charged original output awaiting recovery without changing genuine UNKNOWN",async()=>{
- fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{settledPoints:1,slots:[{slotId:"detail",attempt:1,points:1,unavailable:false}]}},item(1)],nextCursor:""}));
+ fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"1000000",slots:[{slotId:"detail",attempt:1,points:"1000000",unavailable:false}]}},item(1)],nextCursor:""}));
  render(<RecentImageSets scope={scope} nonce={0}/>);
  expect(await screen.findByText("已生成，结果待恢复 · 供应链商品 · 通用素材")).toBeVisible();
  expect(screen.getByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
@@ -120,7 +120,7 @@ it("shows charged original output awaiting recovery without changing genuine UNK
 });
 
 it("does not call a partially released run paid or wholly released",async()=>{
- fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{settledPoints:0,slots:[],releasedSlots:[{slotId:"detail",attempt:1,points:1}]}}],nextCursor:""}));
+ fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"0",slots:[],releasedSlots:[{slotId:"detail",attempt:1,points:"1000000"}]}}],nextCursor:""}));
  render(<RecentImageSets scope={scope} nonce={0}/>);
  expect(await screen.findByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
  expect(screen.queryByText(/已扣点|未生成，点数已释放|已生成，结果待恢复/)).toBeNull();

@@ -19,6 +19,7 @@ const sourceWhiteBackgroundPromptVersion = "source-white-background-v1"
 const sourceWhiteBackgroundPrompt = "Edit only the background of the supplied source image to clean white; preserve shape, proportions, colors, materials, patterns, text and accessory count. Do not add decorations or crop the product."
 
 type SourceImageAdapterConfig struct {
+	ReferenceEstimate        SourceImageReferenceQuote
 	ImageClient              ai.RouteBoundImageEditor
 	Provider                 string
 	ImageModel               string
@@ -47,6 +48,15 @@ func NewSourceImageAdapter(config SourceImageAdapterConfig) (*SourceImageAdapter
 	if config.ImageCostMicrosPerOutput < 0 {
 		return nil, fmt.Errorf("source image cost is invalid")
 	}
+	if config.Provider == "openai" && config.ImageModel == FlareImageModel {
+		digest, err := hex.DecodeString(config.ReferenceEstimate.ProfileDigest)
+		if err != nil || len(digest) != 32 || strings.ToLower(config.ReferenceEstimate.ProfileDigest) != config.ReferenceEstimate.ProfileDigest || config.ReferenceEstimate.PriceVersion != config.PricingVersion || config.ReferenceEstimate.MaximumCostMicros <= 0 || config.ImageCostMicrosPerOutput != 0 || config.CostUpperBoundKnown {
+			return nil, fmt.Errorf("Flare reference quote is required")
+		}
+	} else if config.ReferenceEstimate != (SourceImageReferenceQuote{}) {
+		return nil, fmt.Errorf("reference image quote does not match route")
+	}
+
 	if config.GeneratedImageFetcher == nil {
 		config.GeneratedImageFetcher = func(ctx context.Context, url string) ([]byte, error) {
 			return httpimage.Download(ctx, httpimage.NewPublicImageHTTPClient(), url, productimage.MaxInlineArtifactBytes)
@@ -108,16 +118,22 @@ func (a *SourceImageAdapter) QuoteUsage(_ context.Context, request productimage.
 		return productimage.UsageQuote{}, productimage.ErrInputInvalid
 	}
 	maximumCost := costPerOutput * maximumOutputs
+	var referenceVersion string
+	if a.isFlareImageRoute() {
+		maximumCost = a.config.ReferenceEstimate.MaximumCostMicros
+		referenceVersion = a.config.ReferenceEstimate.PriceVersion
+	}
 	provider, routeReference, credentialReference, configurationVersion := a.config.Provider, a.config.RouteReference, a.config.CredentialReference, a.config.ConfigurationVersion
 
 	fingerprintPayload := struct {
 		Operation, InputFingerprint, Provider, Model, RouteReference, CredentialReference, ConfigurationVersion, PricingVersion string
 		MaximumOutputs, MaximumTokens, MaximumCost                                                                              int64
 		CostUpperBoundKnown                                                                                                     bool
-		SourcePromptVersion                                                                                                     string `json:",omitempty"`
+		SourcePromptVersion                                                                                                     string                    `json:",omitempty"`
+		ReferenceEstimate                                                                                                       SourceImageReferenceQuote `json:",omitzero"`
 	}{
 		request.Operation, request.InputFingerprint, provider, model, routeReference,
-		credentialReference, configurationVersion, a.config.PricingVersion, maximumOutputs, maximumTokens, maximumCost, a.config.CostUpperBoundKnown, "",
+		credentialReference, configurationVersion, a.config.PricingVersion, maximumOutputs, maximumTokens, maximumCost, a.config.CostUpperBoundKnown, "", a.config.ReferenceEstimate,
 	}
 	if request.Operation == productimage.SourceWhiteBackgroundOperation {
 		fingerprintPayload.SourcePromptVersion = sourceWhiteBackgroundPromptVersion
@@ -128,7 +144,8 @@ func (a *SourceImageAdapter) QuoteUsage(_ context.Context, request productimage.
 	}
 	digest := sha256.Sum256(encoded)
 	return productimage.UsageQuote{
-		Operation: request.Operation, Provider: provider, RouteReference: routeReference, Model: model,
+		ReferencePriceVersion: referenceVersion,
+		Operation:             request.Operation, Provider: provider, RouteReference: routeReference, Model: model,
 		CredentialReference: credentialReference, ConfigurationVersion: configurationVersion,
 		PricingVersion: a.config.PricingVersion, Fingerprint: hex.EncodeToString(digest[:]),
 		MaximumOutputs: maximumOutputs, MaximumModelCalls: 1, MaximumTokens: maximumTokens, MaximumCostMicros: maximumCost,
@@ -149,6 +166,11 @@ func (a *SourceImageAdapter) editOne(ctx context.Context, input, source producti
 	}
 	if a.isVIPImageRoute() {
 		request.Size, request.Quality = "1024x1024", "medium"
+	}
+	if a.isFlareImageRoute() {
+		request.ResponseFormat, request.Quality, request.ImageURL = "", "auto", ""
+		zero := 0
+		request.MaxRetries = &zero
 	}
 	if operation == productimage.SourceWhiteBackgroundOperation {
 		if len(request.Image) == 0 {
@@ -215,6 +237,9 @@ func (a *SourceImageAdapter) imageCandidates(ctx context.Context, response *ai.I
 				PromptReference: operation, PromptVersion: SourceImagePromptVersion,
 				Values: map[string]string{"provider": a.config.Provider, "configuration_version": a.config.ConfigurationVersion},
 			},
+		}
+		if a.isFlareImageRoute() {
+			candidates[index].Metadata.InvocationID = response.UpstreamJobID
 		}
 	}
 	return candidates, nil

@@ -38,7 +38,7 @@ func TestPurchasedResourceGrantIsSourceBoundAndReplayable(t *testing.T) {
 	if err := db.Where("organization_id = ? AND resource_type = ?", "org-a", orgresource.ResourceAIPoint).Take(&wallet).Error; err != nil {
 		t.Fatal(err)
 	}
-	if wallet.Available != 10 {
+	if wallet.Available != 10*orgresource.MicropointsPerAIPoint {
 		t.Fatalf("resource wallet=%#v", wallet)
 	}
 }
@@ -51,7 +51,7 @@ func TestPurchasedResourceEventPreservesExistingMemberAllocation(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	before := organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Available: 20, Allocated: 8, Reserved: 2, Consumed: 3}
+	before := organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Available: 20, Allocated: 8, Reserved: 2, Consumed: 3}
 	if err := db.Create(&before).Error; err != nil {
 		t.Fatal(err)
 	}

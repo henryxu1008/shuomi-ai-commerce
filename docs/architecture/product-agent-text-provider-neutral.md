@@ -7,6 +7,11 @@
 
 ## 1. 用户结果、范围与权威依据
 
+2026-11-03 用户已确定[企业统一三类模型/官方价折算](enterprise-shared-model-configuration.md)目标，
+文本用途后续消费企业共享文本默认模型，各 Agent 保留自身 prompt/schema/权限和预算。
+本候选改变模型选择及计价来源，不意味着现有 route/usage 准入已覆盖所有文本用途；
+尤其 Google 原生当前仅标题准入。新设计 NOT_IMPLEMENTATION_READY，不从本文原 Ready 推定切换或实现许可。
+
 2026-10-19 有界管理增量见 [模型与费率管理 V1](model-route-pricing-management.md) / [#830](https://github.com/qq550723504/task-processor/issues/830)。该决定为已接线用途增加仅平台维护者的绑定选择/费率发布，替代其管理范围的部署 map 当前选路/费率来源及无选择 UI 限制；不是企业 BYOK、任意模型目录或协议开放。下文原部署方案保留作已批准历史基线，当前增量的 owner、原子发布、旧任务失效与设计准入以新合同为准；真实运行接线/切模不由设计授权。
 
 当前企业在商品标题智能体已启用、已保存商品可读取时，成员能确认模板、商品、目标平台和知识选择，执行标题建议并进入现有 Human Review/显式 Apply。部署者可以为不同企业配置不同的已核准 OpenAI Chat Completions 兼容路由，也可更换某企业的路由，无需修改标题 Agent 的业务代码。路由切换后的新调用必须重新报价；已经 dispatch 或结果未知的调用不能切换供应商重发。

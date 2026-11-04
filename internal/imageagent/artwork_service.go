@@ -22,7 +22,7 @@ type PreparedArtwork struct {
 	Projection              RunProjection
 	PlanDigest, QuoteDigest string
 	Images                  int
-	Points                  int64
+	Points                  int64 "json:\",string\""
 }
 type ArtworkDependencies struct {
 	Configuration agentconfig.ArtworkConfigurationRepository
@@ -129,7 +129,7 @@ func (s *Service) PrepareArtwork(ctx context.Context, input PrepareArtworkInput)
 	if err = ValidateArtworkPlan(plan); err != nil {
 		return PreparedArtwork{}, err
 	}
-	limits := agentconfig.ImageRunLimits{Images: 1, Points: quote.Points, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: quote.Points, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
 	if !limits.Within(snapshot.HardLimits) || !limits.Within(s.artworks.HardLimits) {
 		return PreparedArtwork{}, ErrCommandBlocked
 	}
@@ -179,7 +179,7 @@ func (s *Service) ConfirmArtwork(ctx context.Context, input ConfirmArtworkInput)
 		return p, ErrCommandBlocked
 	}
 	a := p.Plan.Artwork
-	cmd := agentconfig.ArtworkRunAdmissionCommand{Scope: agent.Scope{OrganizationID: id.TenantID, ActorID: id.UserID}, Snapshot: a.Configuration, MemberID: id.MemberID, RunID: p.Run.ID, ConfirmActionID: input.ActionID, SourceDigest: a.InputDigest, InputDigest: a.InputDigest, PlanDigest: digest, QuoteDigest: a.QuoteDigest, Limits: agentconfig.ImageRunLimits{Images: 1, Points: a.MaxPoints, ElapsedSeconds: int64(p.Run.Budget.MaxElapsed / time.Second)}}
+	cmd := agentconfig.ArtworkRunAdmissionCommand{Scope: agent.Scope{OrganizationID: id.TenantID, ActorID: id.UserID}, Snapshot: a.Configuration, MemberID: id.MemberID, RunID: p.Run.ID, ConfirmActionID: input.ActionID, SourceDigest: a.InputDigest, InputDigest: a.InputDigest, PlanDigest: digest, QuoteDigest: a.QuoteDigest, Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: a.MaxPoints, ElapsedSeconds: int64(p.Run.Budget.MaxElapsed / time.Second)}}
 	receipt, err := s.artworks.Configuration.ReadArtworkRunAdmission(ctx, cmd.Scope, cmd.Snapshot)
 	if errors.Is(err, agentconfig.ErrNotFound) {
 		if !s.tenantStartAllowed(ctx, id.TenantID) {

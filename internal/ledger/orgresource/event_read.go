@@ -18,6 +18,7 @@ type EventQuery struct {
 }
 
 type EventView struct {
+	UnitVersion    string       `json:"unit_version,omitempty"`
 	EventID        string       `json:"event_id"`
 	OperationID    string       `json:"operation_id"`
 	ResourceType   ResourceType `json:"resource_type"`

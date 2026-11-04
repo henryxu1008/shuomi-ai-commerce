@@ -66,7 +66,7 @@ describe("audit page", () => {
   it("shows the original member resource quantity and monthly cap in the audit table", async () => {
     const allocation = { eventType: "account_member_resource.changed", actor: "operator-B", time: "2026-09-29T08:00:00Z", objectType: "member_resource", objectReference: "member-1", operation: "allocate_member_resource", result: "succeeded", relation: { type: "organization_resource_operation", reference: "allocate-1", version: "1" }, resource: { type: "store_renewal_period", quantity: "1" } };
     const reclaim = { ...allocation, operation: "reclaim_member_resource", relation: { ...allocation.relation, reference: "reclaim-1", version: "2" }, resource: { type: "data_row", quantity: "100" } };
-    const cap = { ...allocation, eventType: "account_member_ai_point_limit.changed", objectType: "member_ai_point_limit", operation: "set_member_ai_point_limit", relation: { ...allocation.relation, reference: "cap-1" }, resource: { type: "ai_point", quantity: "1000" } };
+    const cap = { ...allocation, eventType: "account_member_ai_point_limit.changed", objectType: "member_ai_point_limit", operation: "set_member_ai_point_limit", relation: { ...allocation.relation, reference: "cap-1" }, resource: {unitVersion:"ai-micropoint-v1", type: "ai_point", quantity: "1000" } };
     stubAuditList(vi.fn().mockResolvedValue(Response.json({ ...empty, source: "source_account_committed_operations+member_resource_audit", items: [allocation, reclaim, cap] })));
     mount();
     const table = await screen.findByRole("table", { name: "操作记录" });
@@ -78,7 +78,7 @@ describe("audit page", () => {
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toContain("operation=reclaim_member_resource"));
   });
   it("shows image AI points separately from token consumption in the existing table", async () => {
-    const debit = { eventType: "account_ai_points.committed", actor: "operator-B", time: "2026-09-26T01:00:00Z", objectType: "image_generation", objectReference: "run-1", operation: "consume", result: "succeeded", relation: { type: "organization_resource_event", reference, version: "" }, points: { memberId: "grant-1", quantity: "12", priceVersion: "price-1", intentId: "intent-1" } };
+    const debit = { eventType: "account_ai_points.committed", actor: "operator-B", time: "2026-09-26T01:00:00Z", objectType: "image_generation", objectReference: "run-1", operation: "consume", result: "succeeded", relation: { type: "organization_resource_event", reference, version: "" }, points: {unitVersion:"ai-micropoint-v1", memberId: "grant-1", quantity: "12", priceVersion: "price-1", intentId: "intent-1" } };
     stubAuditList(vi.fn().mockResolvedValue(Response.json({ ...empty, source: "source_account_committed_operations+image_ai_point_debits", items: [debit] })));
     mount();
     const table = await screen.findByRole("table", { name: "操作记录" });

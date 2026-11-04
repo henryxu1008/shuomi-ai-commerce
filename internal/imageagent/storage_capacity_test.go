@@ -40,7 +40,7 @@ func TestStorageClosureRequiresExactInvalidCommittedProof(t *testing.T) {
 				f, err = f.MarkUnknown()
 				require.NoError(t, err)
 			} else {
-				success := GenerationSuccess{ResponseID: "result", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"}
+				success := GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "result", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"}
 				if mode == "valid_output" {
 					success.ResultUnavailable = ""
 					success.ResultURL = "https://images.example.test/output.png"
@@ -48,7 +48,7 @@ func TestStorageClosureRequiresExactInvalidCommittedProof(t *testing.T) {
 				f, err = f.RecordSuccess(success)
 				require.NoError(t, err)
 				if mode != "invalid_unsettled" {
-					f, err = f.BindSettlement(GenerationSettlementReceipt{IntentID: f.IntentID, Fingerprint: f.Fingerprint, OperationID: "image-finalize:" + f.IntentID, ReservationID: f.Reservation.ReservationID, Points: f.Intent.Points, ProofDigest: f.TerminalProofDigest(), State: "committed"})
+					f, err = f.BindSettlement(GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: f.Intent.Points, IntentID: f.IntentID, Fingerprint: f.Fingerprint, OperationID: "image-finalize:" + f.IntentID, ReservationID: f.Reservation.ReservationID, Points: f.Intent.Points, ProofDigest: f.TerminalProofDigest(), State: "committed"})
 					require.NoError(t, err)
 				}
 				if mode == "corrupt_settlement" {

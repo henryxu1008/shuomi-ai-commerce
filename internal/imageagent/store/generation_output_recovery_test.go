@@ -25,7 +25,7 @@ func TestImageSetSuccessRecoversStagingForFrozenSlotShapes(t *testing.T) {
 		t.Run(fmt.Sprintf("%s/literal=%t/reviewed=%t/noSkill=%t", shape.purpose, shape.literalCopy, shape.reviewed, shape.noSkill), func(t *testing.T) {
 			owner, commercial, limits, intent := generationPointDatabases(t, true)
 			ctx := context.Background()
-			recipe := &imageagent.ImageSlotRecipe{Purpose: shape.purpose, Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: shape.group, Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Use the exact source product", Quote: imageagent.ImageGenerationQuote{Provider: intent.Provider, Model: intent.Model, Protocol: intent.Protocol, Resolution: intent.Resolution, Quality: intent.Quality, PriceVersion: intent.PriceVersion, Points: intent.Points, RouteReference: intent.RouteReference, CredentialReference: intent.CredentialReference, ConfigurationVersion: intent.ConfigurationVersion}}
+			recipe := &imageagent.ImageSlotRecipe{Purpose: shape.purpose, Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: shape.group, Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Use the exact source product", Quote: imageagent.ImageGenerationQuote{Billing: syntheticImageBilling(intent.Model, intent.PriceVersion, intent.Points), Provider: intent.Provider, Model: intent.Model, Protocol: intent.Protocol, Resolution: intent.Resolution, Quality: intent.Quality, PriceVersion: intent.PriceVersion, Points: intent.Points, RouteReference: intent.RouteReference, CredentialReference: intent.CredentialReference, ConfigurationVersion: intent.ConfigurationVersion}}
 			sources := []string{}
 			for index := 0; index < shape.references; index++ {
 				id := fmt.Sprintf("source-%d", index+1)
@@ -101,7 +101,7 @@ func TestImageSetSuccessRecoversStagingForFrozenSlotShapes(t *testing.T) {
 			_, won, err := owner.BeginGenerationDispatch(ctx, intent)
 			require.NoError(t, err)
 			require.True(t, won)
-			_, err = owner.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: "result", ResultDigest: strings.Repeat("c", 64)}.WithResultLocator("https://example.com/generated.png", ""))
+			_, err = owner.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "result", ResultDigest: strings.Repeat("c", 64)}.WithResultLocator("https://example.com/generated.png", ""))
 			require.NoError(t, err)
 			settled, err := resources.FinalizeImageGeneration(ctx, intent.Identity)
 			require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestGenerationSuccessCanRecoverStagingWithoutDispatch(t *testing.T) {
 			_, won, err := owner.BeginGenerationDispatch(ctx, intent)
 			require.NoError(t, err)
 			require.True(t, won)
-			proof := imageagent.GenerationSuccess{ResponseID: "result-1", ResultDigest: strings.Repeat("c", 64)}.WithResultLocator("https://example.com/generated.png", "")
+			proof := imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "result-1", ResultDigest: strings.Repeat("c", 64)}.WithResultLocator("https://example.com/generated.png", "")
 			_, err = owner.RecordGenerationSuccess(ctx, intent, proof)
 			require.NoError(t, err)
 			effect, err := owner.GetSlotExternalEffectV3(ctx, intent.Identity)

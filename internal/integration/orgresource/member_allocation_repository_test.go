@@ -20,7 +20,7 @@ func TestMemberAllocationConservesResourceAndReplaysOriginalReceipt(t *testing.T
 			if err := AutoMigrate(db); err != nil {
 				t.Fatal(err)
 			}
-			if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: string(resource), Available: 100}).Error; err != nil {
+			if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit(string(resource)), OrganizationID: "org-a", ResourceType: string(resource), Available: 100}).Error; err != nil {
 				t.Fatal(err)
 			}
 			repo, err := NewGormMemberAllocationRepository(db, TransactionConfig{})
@@ -102,7 +102,7 @@ func TestMemberAllocationConcurrentAdministratorsCannotOverallocate(t *testing.T
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Available: 10}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Available: 10}).Error; err != nil {
 		t.Fatal(err)
 	}
 	repo, err := NewGormMemberAllocationRepository(db, TransactionConfig{})
@@ -148,7 +148,7 @@ func TestMemberAllocationOverflowAndDatabaseBoundsRejectMintedBalance(t *testing
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Available: 1, Allocated: math.MaxInt64}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Available: 1, Allocated: math.MaxInt64}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Create(&memberResourcePositionRow{OrganizationID: "org-a", MemberID: "member-a", ResourceType: "data_row", Free: math.MaxInt64}).Error; err != nil {
@@ -164,7 +164,7 @@ func TestMemberAllocationOverflowAndDatabaseBoundsRejectMintedBalance(t *testing
 	if err := db.Model(&organizationResourceBucketRow{}).Where("organization_id = ?", "org-a").Update("allocated", -1).Error; err == nil {
 		t.Fatal("database accepted negative allocated balance")
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "ai_point", Allocated: 1}).Error; err == nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-a", ResourceType: "ai_point", Allocated: 1}).Error; err == nil {
 		t.Fatal("database accepted separately allocated AI points")
 	}
 }
@@ -174,7 +174,7 @@ func TestMemberReclaimRepaysDebtBeforeReturningUnallocatedResources(t *testing.T
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Available: 10}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Available: 10}).Error; err != nil {
 		t.Fatal(err)
 	}
 	repo, err := NewGormMemberAllocationRepository(db, TransactionConfig{})
@@ -185,7 +185,7 @@ func TestMemberReclaimRepaysDebtBeforeReturningUnallocatedResources(t *testing.T
 	if _, err := repo.Transfer(context.Background(), command); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceDebtRow{OrganizationID: "org-a", ResourceType: "data_row", Amount: 4}).Error; err != nil {
+	if err := db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Amount: 4}).Error; err != nil {
 		t.Fatal(err)
 	}
 	command.Action, command.OperationID, command.ExpectedVersion = orgresource.MemberResourceReclaim, "reclaim", 1
@@ -210,7 +210,7 @@ func TestMemberAllocationCannotSpendDebtOrReclaimReservedResources(t *testing.T)
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{OrganizationID: "org-a", ResourceType: "data_row", Allocated: 5, Reserved: 5}).Error; err != nil {
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Allocated: 5, Reserved: 5}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Create(&memberResourcePositionRow{OrganizationID: "org-a", MemberID: "member-a", ResourceType: "data_row", Free: 5, Reserved: 5}).Error; err != nil {
@@ -227,7 +227,7 @@ func TestMemberAllocationCannotSpendDebtOrReclaimReservedResources(t *testing.T)
 	if err := db.Model(&organizationResourceBucketRow{}).Where("organization_id = ?", "org-a").Update("available", 10).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceDebtRow{OrganizationID: "org-a", ResourceType: "data_row", Amount: 1}).Error; err != nil {
+	if err := db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("data_row"), OrganizationID: "org-a", ResourceType: "data_row", Amount: 1}).Error; err != nil {
 		t.Fatal(err)
 	}
 	command.Action, command.OperationID, command.Quantity = orgresource.MemberResourceAllocate, "allocate", 1

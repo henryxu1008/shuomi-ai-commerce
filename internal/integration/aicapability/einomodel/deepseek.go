@@ -1,6 +1,9 @@
 package einomodel
 
-import "strings"
+import (
+	"strings"
+	"task-processor/internal/aicapability"
+)
 
 // DashScopeDeepSeekV41FlashNonThinkingPolicy fixes the request semantics of
 // this exact provider/model pair. ModelProfile includes this version in its
@@ -8,6 +11,9 @@ import "strings"
 const DashScopeDeepSeekV41FlashNonThinkingPolicy = "dashscope-deepseek-v4.1-flash-nonthinking-v1"
 
 func validFixedAdapterPolicy(adapter AdapterKind, provider, modelID, policy string) bool {
+	if policy == aicapability.SingleImageMiniAdapterPolicy {
+		return adapter == AdapterOpenAICompatible && provider == "openai" && modelID == aicapability.SingleImageMiniModel
+	}
 	selectedModel := strings.EqualFold(provider, "DASHSCOPE") && modelID == "deepseek-v4.1-flash"
 	if selectedModel || policy == DashScopeDeepSeekV41FlashNonThinkingPolicy {
 		return selectedModel && provider == "DASHSCOPE" && adapter == AdapterOpenAICompatible && policy == DashScopeDeepSeekV41FlashNonThinkingPolicy

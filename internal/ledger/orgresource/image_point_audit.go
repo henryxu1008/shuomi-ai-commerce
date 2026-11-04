@@ -5,6 +5,7 @@ import "time"
 // ImagePointDebit is a read-only projection of the canonical resource event
 // and its original reservation. It is not a new usage or balance fact.
 type ImagePointDebit struct {
+	UnitVersion                                                               string
 	OrganizationID, EventID, ActorID, MemberID, RunID, IntentID, PriceVersion string
 	Points                                                                    int64
 	CreatedAt                                                                 time.Time

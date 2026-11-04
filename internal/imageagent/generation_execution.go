@@ -18,9 +18,10 @@ type GenerationMemberLimit struct {
 	MonthStart time.Time
 }
 type GenerationProviderMetadata struct {
+	Billing                                                                                ImageBilling
 	Provider, Model, Protocol                                                              string
 	RouteReference, CredentialReference, ConfigurationVersion, PromptVersion, PriceVersion string
-	Points                                                                                 int64
+	Points                                                                                 int64 "json:\",string\""
 }
 type PreparedGenerationProvider struct {
 	Metadata  GenerationProviderMetadata
@@ -159,7 +160,7 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		return reject(err)
 	}
 	m := provider.Metadata
-	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: GenerationRouteQuality(m.Provider, m.Model, m.Protocol), PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
+	intent = GenerationIntent{Billing: m.Billing, Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: GenerationRouteQuality(m.Provider, m.Model, m.Protocol), PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
 	if input.Artwork != nil {
 		intent.InputProtocol, intent.InputDigest, intent.PromptVersion = ArtworkSchema, sourceDigest, input.Artwork.PromptVersion
 	} else if input.ImageSet != nil {
@@ -223,6 +224,9 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	}
 	_, won, err := e.dependencies.Facts.BeginGenerationDispatch(ctx, intent)
 	if err != nil {
+		if errors.Is(err, ErrReferenceImageBindingStopped) {
+			return closeBeforeDispatch(err)
+		}
 		return generationUnknown(err)
 	}
 	if !won {
@@ -268,6 +272,16 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	if dispatchErr != nil {
 		return generationUnknown(dispatchErr)
 	}
+	if intent.Billing.OfficialTariff.IsReferenceImageEstimate() {
+		settled, err := e.dependencies.Facts.ReadGenerationFact(finalCtx, id)
+		if err != nil {
+			return generationUnknown(err)
+		}
+		output.UsageReceipt, err = settled.ProjectReferenceImageCost(output.UsageReceipt)
+		if err != nil {
+			return generationUnknown(err)
+		}
+	}
 	if input.Artwork != nil {
 		if output.SlotID != input.Slot.ID || output.Attempt != input.Attempt || output.SourceAssetID != "" || len(output.Assets) != 1 || !reflect.DeepEqual(output.Assets[0].Operations, []string{"generate_artwork"}) {
 			return generationUnknown(ErrProviderContractViolation)
@@ -306,7 +320,7 @@ func (e *GenerationExecution) authorize(ctx context.Context, input SlotExecution
 }
 func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, input SlotExecutionInput, policy BudgetPolicy) (SlotUsageQuote, SlotUsageQuote, error) {
 	m := p.Metadata
-	if p.Executor == nil || !validGenerationRoute(m.Provider, m.Model, m.Protocol) || m.Points <= 0 || m.PriceVersion == "" || m.RouteReference == "" || m.CredentialReference == "" || m.ConfigurationVersion == "" || m.PromptVersion == "" {
+	if p.Executor == nil || !validImageBilling(m.Billing, m.Model, m.PriceVersion, m.Points) || !validGenerationRoute(m.Provider, m.Model, m.Protocol) || m.Points <= 0 || m.PriceVersion == "" || m.RouteReference == "" || m.CredentialReference == "" || m.ConfigurationVersion == "" || m.PromptVersion == "" {
 		return SlotUsageQuote{}, SlotUsageQuote{}, ErrBudgetQuoteUnavailable
 	}
 	if err := validateGenerationRouteInput(m, input); err != nil {
@@ -331,7 +345,7 @@ func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, 
 	}
 	if inputQuote != nil {
 		q := *inputQuote
-		if !q.Valid() || q.Provider != m.Provider || q.Model != m.Model || q.Protocol != m.Protocol || q.PriceVersion != m.PriceVersion || q.Points != m.Points || q.RouteReference != m.RouteReference || q.CredentialReference != m.CredentialReference || q.ConfigurationVersion != m.ConfigurationVersion {
+		if !q.Valid() || q.Billing != m.Billing || q.Provider != m.Provider || q.Model != m.Model || q.Protocol != m.Protocol || q.PriceVersion != m.PriceVersion || q.Points != m.Points || q.RouteReference != m.RouteReference || q.CredentialReference != m.CredentialReference || q.ConfigurationVersion != m.ConfigurationVersion {
 			return SlotUsageQuote{}, SlotUsageQuote{}, ErrRevisionConflict
 		}
 	}

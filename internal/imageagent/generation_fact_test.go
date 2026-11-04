@@ -9,11 +9,11 @@ import (
 )
 
 func generationTestIntent() GenerationIntent {
-	return GenerationIntent{Identity: SlotExternalEffectIdentity{RunScope: RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main", Attempt: 1}, MemberID: "grant-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "white-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
+	return GenerationIntent{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Identity: SlotExternalEffectIdentity{RunScope: RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main", Attempt: 1}, MemberID: "grant-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "white-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
 }
 
 func generationTestReceipt(f GenerationFact) GenerationReservationReceipt {
-	return GenerationReservationReceipt{IntentID: f.IntentID, Fingerprint: f.Fingerprint, OrganizationID: f.Intent.Identity.TenantID, MemberID: f.Intent.MemberID, OperationID: "image-reserve:" + f.IntentID, ReservationID: "reservation-1", ResourceType: "ai_point", Points: f.Intent.Points, PriceVersion: f.Intent.PriceVersion, LimitVersion: f.Intent.LimitVersion, MonthStart: f.Intent.MonthStart}
+	return GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: f.IntentID, Fingerprint: f.Fingerprint, OrganizationID: f.Intent.Identity.TenantID, MemberID: f.Intent.MemberID, OperationID: "image-reserve:" + f.IntentID, ReservationID: "reservation-1", ResourceType: "ai_point", Points: f.Intent.Points, PriceVersion: f.Intent.PriceVersion, LimitVersion: f.Intent.LimitVersion, MonthStart: f.Intent.MonthStart}
 }
 
 func TestGenerationSuccessLocatorIsImmutableAndUnsafeOutputStillSucceeded(t *testing.T) {
@@ -23,7 +23,7 @@ func TestGenerationSuccessLocatorIsImmutableAndUnsafeOutputStillSucceeded(t *tes
 	require.NoError(t, err)
 	f, _, err = f.BeginDispatch()
 	require.NoError(t, err)
-	proof := GenerationSuccess{ResponseID: "result", ResultDigest: strings.Repeat("c", 64)}
+	proof := GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "result", ResultDigest: strings.Repeat("c", 64)}
 	_, err = f.RecordSuccess(proof)
 	require.ErrorIs(t, err, ErrValidation, "success must explicitly retain locator or unavailable reason")
 	for _, raw := range []string{"", "https://127.0.0.1/image", "https://u:password@example.com/image", "https://example.com/#fragment", strings.Repeat("x", 4097)} {
@@ -65,7 +65,7 @@ func TestGenerationFactFenceAndImmutableProviderProof(t *testing.T) {
 	_, won, err = unknown.BeginDispatch()
 	require.NoError(t, err)
 	require.False(t, won)
-	proof := GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"}
+	proof := GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"}
 	succeeded, err := unknown.RecordSuccess(proof)
 	require.NoError(t, err)
 	replayed, err := succeeded.RecordSuccess(proof)
@@ -106,6 +106,7 @@ func TestGenerationIntentStableIdentityRejectsDifferentEconomics(t *testing.T) {
 			case "route":
 				changed.RouteReference = "route-2"
 			}
+			changed.Billing = syntheticImageBilling(changed.Model, changed.PriceVersion, changed.Points)
 			other, err := NewGenerationFact(changed)
 			require.NoError(t, err)
 			require.Equal(t, f.IntentID, other.IntentID)
@@ -123,7 +124,7 @@ func TestGenerationSuccessNeverInventsUnknownUsage(t *testing.T) {
 	require.NoError(t, err)
 	f, _, err = f.BeginDispatch()
 	require.NoError(t, err)
-	proof := GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result", UsageKnown: true, InputTokens: 1, OutputTokens: 5, TotalTokens: 6}
+	proof := GenerationSuccess{BillableUsage: syntheticImageUsage(int64(1), int64(5)), ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result", UsageKnown: true, InputTokens: 1, OutputTokens: 5, TotalTokens: 6}
 	_, err = f.RecordSuccess(proof)
 	require.NoError(t, err)
 	proof.UsageKnown = false

@@ -13,12 +13,12 @@ import (
 func TestModelPointTerminalCannotChangeFrozenTariffOrDispatchIdentity(t *testing.T) {
 	recorder := NewGormInvocationRecorder(newInvocationLedgerDB(t))
 	now := time.Now().UTC().Truncate(time.Microsecond)
-	original := aicapability.InvocationRecord{InvocationID: "priced-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, ProviderID: "grsai", ModelID: "gemini", MaximumPromptTokens: 100, MaximumCompletionTokens: 50, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-v1", InputPointsPerMillionTokens: 2000000, OutputPointsPerMillionTokens: 3000000}}
+	original := aicapability.InvocationRecord{InvocationID: "priced-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, ProviderID: "grsai", ModelID: "gemini", MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 20000, OutputText: 30000}}, Currency: "CNY"}
 	won, err := recorder.ClaimInvocation(context.Background(), original)
 	require.NoError(t, err)
 	require.True(t, won)
 	changedDispatch := original
-	changedDispatch.PointTariff.OutputPointsPerMillionTokens++
+	changedDispatch.OfficialTariff.Rates.OutputText++
 	_, err = recorder.ClaimInvocation(context.Background(), changedDispatch)
 	require.Error(t, err)
 	terminal := original
@@ -31,7 +31,7 @@ func TestModelPointTerminalCannotChangeFrozenTariffOrDispatchIdentity(t *testing
 	unclaimed := terminal
 	unclaimed.InvocationID = "unclaimed-terminal"
 	require.Error(t, recorder.RecordInvocation(context.Background(), unclaimed))
-	for _, mutate := range []func(*aicapability.InvocationRecord){func(r *aicapability.InvocationRecord) { r.PointTariff.InputPointsPerMillionTokens++ }, func(r *aicapability.InvocationRecord) { r.MaximumPromptTokens++ }, func(r *aicapability.InvocationRecord) { r.ModelID = "other-model" }} {
+	for _, mutate := range []func(*aicapability.InvocationRecord){func(r *aicapability.InvocationRecord) { r.OfficialTariff.Rates.InputText++ }, func(r *aicapability.InvocationRecord) { r.MaximumPromptTokens++ }, func(r *aicapability.InvocationRecord) { r.ModelID = "other-model" }} {
 		changed := terminal
 		mutate(&changed)
 		require.Error(t, recorder.RecordInvocation(context.Background(), changed))
@@ -45,14 +45,14 @@ func TestModelPointTerminalCannotChangeFrozenTariffOrDispatchIdentity(t *testing
 	found, ok, err := recorder.FindInvocation(context.Background(), "org", "member", original.InvocationID, "input")
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, original.PointTariff, found.PointTariff)
+	require.Equal(t, original.OfficialTariff, found.OfficialTariff)
 }
 
 func TestModelPointConcurrentTerminalUsesOneImmutableWinner(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	recorder := NewGormInvocationRecorder(db)
 	now := time.Now().UTC().Truncate(time.Microsecond)
-	original := aicapability.InvocationRecord{InvocationID: "concurrent", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, MaximumPromptTokens: 100, MaximumCompletionTokens: 50, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000}}
+	original := aicapability.InvocationRecord{InvocationID: "concurrent", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}}, ModelID: "fixture-model", Currency: "CNY"}
 	_, err := recorder.ClaimInvocation(context.Background(), original)
 	require.NoError(t, err)
 	var arrivals atomic.Int32

@@ -3,6 +3,7 @@ package imageagentworker
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"image"
 	"task-processor/internal/ai"
 	"task-processor/internal/imageagent"
@@ -24,11 +25,16 @@ func (a artworkCreator) CreateArtwork(ctx context.Context, prompt string) (image
 	if err != nil {
 		return imageagent.GeneratedAsset{}, err
 	}
-	if response == nil || len(response.Data) != 1 || response.Data[0].URL == "" {
+	if response == nil || len(response.Data) != 1 || response.Data[0].URL == "" && response.Data[0].B64JSON == "" {
 		return imageagent.GeneratedAsset{}, imageagent.ErrInvalidGeneratedOutput
 	}
 	var data []byte
-	if a.fetch != nil {
+	if response.Data[0].B64JSON != "" {
+		if base64.StdEncoding.DecodedLen(len(response.Data[0].B64JSON)) > 3<<20 {
+			return imageagent.GeneratedAsset{}, imageagent.ErrInvalidGeneratedOutput
+		}
+		data, err = base64.StdEncoding.DecodeString(response.Data[0].B64JSON)
+	} else if a.fetch != nil {
 		data, err = a.fetch(ctx, response.Data[0].URL)
 	} else {
 		data, err = httpimage.Download(ctx, nil, response.Data[0].URL, 3<<20)

@@ -7,7 +7,7 @@ import { MemberPointLimits } from "./member-point-limits";
 
 const api = vi.hoisted(() => ({ read: vi.fn(), write: vi.fn() }));
 vi.mock("@/lib/api/member-ai-point-limits", async original => ({ ...await original<typeof import("@/lib/api/member-ai-point-limits")>(), getMemberAIPointLimits: api.read, setMemberAIPointLimit: api.write }));
-const member = { organizationId: "org-1", memberId: "member-1", displayName: "成员甲", loginName: "member@example.test", roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"], configured: true, monthlyLimit: "25", consumed: "3", reserved: "2", remaining: "20", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" };
+const member = { organizationId: "org-1", memberId: "member-1", displayName: "成员甲", loginName: "member@example.test", roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"], unitVersion:"ai-micropoint-v1",configured: true, monthlyLimit: "25", consumed: "3", reserved: "2", remaining: "20", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" };
 const snapshot = { schemaVersion: "member-ai-point-monthly-limit-v1", organizationId: "org-1", resourceType: "ai_point", timezone: "UTC", members: [member] };
 let client: QueryClient;
 function tree(canManage = true, org = "org-1") { return <QueryClientProvider client={client}><MemberPointLimits userId="actor-1" organizationId={org} canManage={canManage} sequence={0} /></QueryClientProvider>; }
@@ -27,7 +27,7 @@ it("shows actual member/month facts and saves an administrator target without a 
   expect(api.write).toHaveBeenCalledWith({ expectedUserId: "actor-1", expectedOrganizationId: "org-1" }, "member-1", "40", "1", expect.any(String));
 });
 it("unconfigured is not zero balance and viewers cannot edit", async () => {
-  api.read.mockResolvedValue({ ...snapshot, members: [{ ...member, configured: false, monthlyLimit: "0", consumed: "0", reserved: "0", remaining: "0", version: "0" }] });
+  api.read.mockResolvedValue({ ...snapshot, members: [{ ...member, unitVersion:"ai-micropoint-v1",configured: false, monthlyLimit: "0", consumed: "0", reserved: "0", remaining: "0", version: "0" }] });
   render(tree(false));
   expect(await screen.findByText("未分配，不能消费")).toBeVisible();
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

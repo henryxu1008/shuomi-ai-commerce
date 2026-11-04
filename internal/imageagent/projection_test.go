@@ -58,7 +58,7 @@ func TestSlotProjectionJSONPreservesV3DurableIdentityWithoutChangingV2CandidateW
 	v3 := SlotProjection{Candidates: []AssetCandidate{{
 		AssetID: "candidate-1", SourceAssetID: "source-1",
 		Width: 1200, Height: 900, Operations: []string{"render_scene", "review"},
-		GenerationProof: &ImageGenerationProof{IntentID: sha, Fingerprint: sha, SettlementProofDigest: sha, Points: 12},
+		GenerationProof: &ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: sha, Fingerprint: sha, SettlementProofDigest: sha, Points: 12},
 		Artwork:         &ArtworkProvenance{Protocol: ArtworkSchema, TenantID: "tenant-a", OwnerUserID: "user-a", RunID: "run-a", SlotID: "scene-1", PlanRevision: 1, Attempt: 1, InputDigest: sha, IntentID: sha, Fingerprint: sha},
 		DurableAsset:    DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/fc95297aa4f56781f0decb7d4bf59b1447f09b3611039b80188b1c6beb03ee6a/run-a/1/scene-1/1/0-" + sha + ".png", SHA256: sha},
 	}}}
@@ -97,7 +97,7 @@ func TestSlotProjectionJSONPreservesV3DurableIdentityWithoutChangingV2CandidateW
 	snapshot := RunProjection{Run: Run{ID: "run-a", TenantID: "tenant-a", UserID: "user-a", ActivePlanRevision: 1}, Plan: Plan{Revision: 1}, Slots: []SlotProjection{v3}, ProjectionVersion: 1, LastEventID: 1}
 	full, err := json.Marshal(snapshot)
 	require.NoError(t, err)
-	require.Equal(t, "2179812526fba20fcb42f44ca16c21e54632872907c9f2affbb83a2cd9ec514a", fmt.Sprintf("%x", sha256.Sum256(full)), "complete current projection JSON bytes must remain frozen")
+	require.Equal(t, "53fe8fa5b9bb1666ceda1c3ce748d09731a8ee9a0049c5c0d27d16efcc4e14d6", fmt.Sprintf("%x", sha256.Sum256(full)), "current projection freezes the explicit micropoint unit; no old-unit reinterpretation")
 }
 
 func TestNormalizeRecoverableEffectsDeduplicatesStableEntriesAndRejectsConflicts(t *testing.T) {

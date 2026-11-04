@@ -25,7 +25,7 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	require.NoError(t, AutoMigrate(resource))
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(native))
 	now := time.Date(2026, 9, 30, 23, 59, 0, 0, time.UTC)
-	fact := aicapability.InvocationRecord{InvocationID: "invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}}
+	fact := aicapability.InvocationRecord{InvocationID: "invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, ModelID: "fixture-model", Currency: "CNY"}
 	if len(operations) == 1 {
 		fact.Operation = operations[0]
 	}
@@ -33,6 +33,14 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 		fact.Operation = operations[0]
 		fact.Capability = aicapability.CapabilityAIWorkbenchChatPlanning
 		fact.AgentRunID = ""
+	}
+	balance := int64(100)
+	if fact.Operation == aicapability.OperationProductImageAnalysis {
+		fact.Capability, fact.ModelID = aicapability.CapabilityProductImageAnalysis, aicapability.SingleImageMiniModel
+		fact.OfficialTariff.Model, fact.OfficialTariff.Channel = fact.ModelID, "openai-direct"
+		fact.OfficialTariff.Rates.CachedInputText = 1000
+		fact.MaximumPromptTokens, fact.MaximumCompletionTokens = 5000, 64
+		balance = 10000
 	}
 	recorder := aistore.NewGormInvocationRecorder(native)
 	_, err := recorder.ClaimInvocation(context.Background(), fact)
@@ -44,15 +52,49 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	limits, err := NewGormMemberLimitRepository(resource, TransactionConfig{})
 	require.NoError(t, err)
 	limits.now = repo.now
-	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "org", MemberID: "member", ActorID: "admin", OperationID: "limit", Target: 100})
+	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org", MemberID: "member", ActorID: "admin", OperationID: "limit", Target: balance})
 	require.NoError(t, err)
-	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{OrganizationID: "org", ResourceType: "ai_point", Available: 100}).Error)
+	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org", ResourceType: "ai_point", Available: balance}).Error)
 	recorder.SetUsageSettler(repo)
 	return resource, recorder, repo, auth, fact
 }
 
+func TestSingleImagePointsUseOneOriginalReservationAndActualCachedUsage(t *testing.T) {
+	db, recorder, repo, _, fact := modelPointFixture(t, aicapability.OperationProductImageAnalysis)
+	ctx := context.Background()
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 5064, fact.StartedAt))
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 5064, fact.StartedAt))
+	var held organizationResourceBucketRow
+	require.NoError(t, db.Take(&held).Error)
+	require.EqualValues(t, 5128, held.Reserved)
+	require.ErrorIs(t, repo.ReleaseAIInvocationUsage(ctx, "org", fact.InvocationID), orgresource.ErrOwnerNotTerminal, "a dispatched unknown image cannot release or replay")
+	fact.Outcome, fact.UsageKnown, fact.FinishedAt = aicapability.InvocationUsageObservedFailed, true, fact.StartedAt.Add(time.Second)
+	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 30, 5, 35
+	fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: 30, CachedInputText: 10, OutputText: 5}
+	require.NoError(t, recorder.RecordInvocation(ctx, fact))
+	require.NoError(t, recorder.RecordInvocation(ctx, fact))
+	var bucket organizationResourceBucketRow
+	require.NoError(t, db.Take(&bucket).Error)
+	// Synthetic tariff: (30-10)*1 + 10*0.1 + 5*2 = 31 micro-points.
+	// The image is already in P; there is no second per-image charge.
+	require.EqualValues(t, 31, bucket.Consumed)
+	require.EqualValues(t, 9969, bucket.Available)
+	require.Zero(t, bucket.Reserved)
+	var month memberAIPointMonthRow
+	require.NoError(t, db.Take(&month).Error)
+	require.EqualValues(t, 31, month.Consumed)
+	require.Zero(t, month.Reserved)
+	var reservation organizationResourceReservationRow
+	require.NoError(t, db.Take(&reservation).Error)
+	require.Equal(t, fact.AgentRunID, reservation.BusinessScope)
+	require.Equal(t, string(orgresource.ReservationCommitted), reservation.State)
+	var events []organizationResourceEventRow
+	require.NoError(t, db.Find(&events).Error)
+	require.Len(t, events, 2, "reserve and one settlement, including exact original-key replay")
+}
+
 func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
-	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision} {
+	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision} {
 		t.Run(string(op), func(t *testing.T) {
 			db, recorder, _, _, fact := modelPointFixture(t, op)
 			ctx := context.Background()
@@ -63,6 +105,7 @@ func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
 			require.Equal(t, fact.AgentRunID, reservation.BusinessScope)
 			fact.Outcome, fact.UsageKnown = aicapability.InvocationUsageObservedFailed, true
 			fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+			fact.BillableUsage = syntheticUncachedUsage(3, 2)
 			fact.FinishedAt = fact.StartedAt.Add(time.Second)
 			require.NoError(t, recorder.RecordInvocation(ctx, fact))
 			require.NoError(t, recorder.RecordInvocation(ctx, fact))
@@ -76,6 +119,108 @@ func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
 	}
 }
 
+func TestAdvisoryReferenceUsageKeepsOriginalLedgerAndUnknownReservation(t *testing.T) {
+	for _, op := range []aicapability.Operation{aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision} {
+		for _, known := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/basic-totals-known=%t", op, known), func(t *testing.T) {
+				db, recorder, repo, _, fact := modelPointFixture(t, op)
+				ctx := context.Background()
+				start := fact.StartedAt
+				fact.InvocationID = "reference-invocation"
+				fact.OfficialTariff.FXVersion = "cny-identity-v1"
+				fact.OfficialTariff.UsageVersion = aicapability.ReferenceTextTotalsV1
+				fact.OfficialTariff.PriceVersion = "reference-config-v1"
+				_, err := recorder.ClaimInvocation(ctx, fact)
+				require.NoError(t, err)
+				require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, start))
+				fingerprint := modelPointFingerprint(fact)
+				fact.Outcome, fact.UsageKnown, fact.FinishedAt = aicapability.InvocationSucceeded, true, start.Add(time.Second)
+				fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+				fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: aicapability.ReferenceTextTotalsV1, Complete: true, InputText: 3, OutputText: 2}
+				if known {
+					require.True(t, fact.OfficialTariff.IsReferenceEstimate())
+				} else {
+					fact.BillableUsage = nil
+				}
+				require.Equal(t, fingerprint, modelPointFingerprint(fact))
+				err = recorder.RecordInvocation(ctx, fact)
+				if known {
+					require.NoError(t, err)
+					require.NoError(t, recorder.RecordInvocation(ctx, fact))
+				} else {
+					require.Error(t, err)
+					require.Error(t, repo.ReleaseAIInvocationUsage(ctx, fact.TenantID, fact.InvocationID))
+				}
+				var bucket organizationResourceBucketRow
+				require.NoError(t, db.Take(&bucket).Error)
+				if known {
+					require.EqualValues(t, 7, bucket.Consumed)
+					require.Zero(t, bucket.Reserved)
+					require.EqualValues(t, 93, bucket.Available)
+				} else {
+					require.Zero(t, bucket.Consumed)
+					require.EqualValues(t, 30, bucket.Reserved)
+					require.EqualValues(t, 70, bucket.Available)
+				}
+				var events []organizationResourceEventRow
+				require.NoError(t, db.Find(&events).Error)
+				if known {
+					require.Len(t, events, 2, "exact replay does not settle twice")
+				} else {
+					require.Len(t, events, 1, "only original reserve remains")
+				}
+			})
+		}
+	}
+}
+
+func TestReferenceZeroUsageSettlesAndRecoversThroughOriginalLedger(t *testing.T) {
+	for _, outcome := range []aicapability.InvocationOutcome{aicapability.InvocationSucceeded, aicapability.InvocationUsageObservedFailed} {
+		for _, recovery := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/recovery=%t", outcome, recovery), func(t *testing.T) {
+				db, recorder, _, _, fact := modelPointFixture(t, aicapability.OperationProductResearchDecision)
+				ctx := context.Background()
+				fact.InvocationID = "reference-zero"
+				fact.OfficialTariff.UsageVersion = aicapability.ReferenceTextTotalsV1
+				_, err := recorder.ClaimInvocation(ctx, fact)
+				require.NoError(t, err)
+				require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
+				fact.Outcome, fact.UsageKnown, fact.EstimatedCostKnown, fact.FinishedAt = outcome, true, true, fact.StartedAt.Add(time.Second)
+				fact.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: aicapability.ReferenceTextTotalsV1, Complete: true}
+				for _, mutate := range []func(*aicapability.InvocationRecord){
+					func(r *aicapability.InvocationRecord) { r.BillableUsage = nil },
+					func(r *aicapability.InvocationRecord) { r.BillableUsage.Complete = false },
+					func(r *aicapability.InvocationRecord) { r.BillableUsage.MappingVersion = "openai-text-v1" },
+					func(r *aicapability.InvocationRecord) { r.BillableUsage.InputText = 1 },
+					func(r *aicapability.InvocationRecord) { r.InvocationID = "unclaimed-reference-zero" },
+				} {
+					bad, usage := fact, *fact.BillableUsage
+					bad.BillableUsage = &usage
+					mutate(&bad)
+					require.Error(t, recorder.RecordInvocation(ctx, bad), "default, contradictory, foreign-policy or unclaimed zero is not observed zero")
+				}
+				var held organizationResourceBucketRow
+				require.NoError(t, db.Take(&held).Error)
+				require.EqualValues(t, 30, held.Reserved, "rejected proofs leave the original reservation intact")
+				settle := recorder.RecordInvocation
+				if recovery {
+					settle = recorder.ResolveDispatchedInvocation
+				}
+				require.NoError(t, settle(ctx, fact))
+				require.NoError(t, settle(ctx, fact), "original terminal/recovery replay settles once")
+				var bucket organizationResourceBucketRow
+				require.NoError(t, db.Take(&bucket).Error)
+				require.Zero(t, bucket.Consumed)
+				require.Zero(t, bucket.Reserved)
+				require.EqualValues(t, 100, bucket.Available)
+				var count int64
+				require.NoError(t, db.Model(&organizationResourceEventRow{}).Count(&count).Error)
+				require.EqualValues(t, 2, count)
+			})
+		}
+	}
+}
+
 func TestPlannerModelPointsBindChatPlanScopeWithoutAgentRun(t *testing.T) {
 	db, recorder, _, _, fact := modelPointFixture(t, aicapability.OperationAIWorkbenchChatPlan)
 	ctx := context.Background()
@@ -86,6 +231,7 @@ func TestPlannerModelPointsBindChatPlanScopeWithoutAgentRun(t *testing.T) {
 	fact.Outcome = aicapability.InvocationUsageObservedFailed
 	fact.UsageKnown, fact.EstimatedCostKnown = true, true
 	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+	fact.BillableUsage = syntheticUncachedUsage(3, 2)
 	fact.FinishedAt = fact.StartedAt.Add(time.Second)
 	require.NoError(t, recorder.RecordInvocation(ctx, fact))
 	var settled organizationResourceReservationRow
@@ -100,7 +246,7 @@ func TestModelPointsActualUsageReturnsRemainderDebtFirstToOriginalMonth(t *testi
 	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 20, fact.StartedAt))
 	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 20, fact.StartedAt))
 	require.Error(t, recorder.ReserveAIInvocationUsage(ctx, "org", "other", fact.InvocationID, 20, fact.StartedAt))
-	require.NoError(t, db.Create(&organizationResourceDebtRow{OrganizationID: "org", ResourceType: "ai_point", Amount: 4}).Error)
+	require.NoError(t, db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org", ResourceType: "ai_point", Amount: 4}).Error)
 	r.now = func() time.Time { return fact.StartedAt.Add(2 * time.Minute) }
 	auth.err = orgresource.ErrForbidden
 	fact.Outcome = aicapability.InvocationUsageObservedFailed
@@ -108,6 +254,7 @@ func TestModelPointsActualUsageReturnsRemainderDebtFirstToOriginalMonth(t *testi
 	fact.PromptTokens = 3
 	fact.CompletionTokens = 2
 	fact.TotalTokens = 5
+	fact.BillableUsage = syntheticUncachedUsage(3, 2)
 	fact.FinishedAt = r.now()
 	require.NoError(t, recorder.RecordInvocation(ctx, fact))
 	require.NoError(t, recorder.RecordInvocation(ctx, fact))
@@ -187,6 +334,7 @@ func TestModelPointsRecoverPersistedTerminalAfterSettlementRollback(t *testing.T
 	fact.UsageKnown = true
 	fact.PromptTokens = 3
 	fact.TotalTokens = 3
+	fact.BillableUsage = syntheticUncachedUsage(3, 0)
 	fact.FinishedAt = fact.StartedAt.Add(time.Second)
 	require.Error(t, recorder.RecordInvocation(ctx, fact))
 	got, err := recorder.ReadModelInvocation(ctx, "org", fact.InvocationID)
@@ -253,6 +401,7 @@ func TestModelPointsBoundedRecoveryAdvancesUnknownBeforeReadingProof(t *testing.
 			original.UsageKnown = true
 			original.PromptTokens = 1
 			original.TotalTokens = 1
+			original.BillableUsage = syntheticUncachedUsage(1, 0)
 			original.FinishedAt = original.StartedAt.Add(time.Second)
 			require.NoError(t, recorder.RecordInvocation(ctx, original))
 		}
@@ -267,4 +416,9 @@ func TestModelPointsBoundedRecoveryAdvancesUnknownBeforeReadingProof(t *testing.
 	require.NoError(t, db.Take(&bucket).Error)
 	require.EqualValues(t, 1500, bucket.Reserved)
 	require.EqualValues(t, 5, bucket.Consumed)
+}
+
+// syntheticUncachedUsage is explicit synthetic provider evidence, not a fallback for absent partitions.
+func syntheticUncachedUsage(input, output int64) *aicapability.BillableModelUsage {
+	return &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: input, OutputText: output}
 }

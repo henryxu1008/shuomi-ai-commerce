@@ -27,7 +27,7 @@ func holdImageSkillFence(t *testing.T, db *gorm.DB, organizationID string) *gorm
 }
 
 func imageSkillAdmission(start agentconfig.ImageStartCommand, snapshot agentconfig.ImageConfigurationSnapshot) agentconfig.ImageRunAdmissionCommand {
-	return agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("skill-plan")), QuoteDigest: digest([]byte("skill-quote")), Limits: agentconfig.ImageRunLimits{Images: 1, Points: 1, ElapsedSeconds: 60}}
+	return agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("skill-plan")), QuoteDigest: digest([]byte("skill-quote")), Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 1, ElapsedSeconds: 60}}
 }
 
 func TestVisualConfigurationWithSkillFence(t *testing.T) {

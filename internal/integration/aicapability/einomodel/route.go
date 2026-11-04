@@ -83,7 +83,7 @@ func NewOrganizationRouteResolver(credentials OrganizationCredentialReader, poli
 	frozen := make(map[RouteKey]RoutePolicy, len(policies))
 	for key, policy := range policies {
 		if key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
-			(key.Operation != aicapability.OperationAIWorkbenchChatPlan && key.Operation != aicapability.OperationProductAgentDecision && key.Operation != aicapability.OperationProductContentDecision && key.Operation != aicapability.OperationListingMaterialsDecision && key.Operation != aicapability.OperationProductSelectionDecision && key.Operation != aicapability.OperationShopDiagnosisDecision) ||
+			(key.Operation != aicapability.OperationAIWorkbenchChatPlan && key.Operation != aicapability.OperationProductAgentDecision && key.Operation != aicapability.OperationProductContentDecision && key.Operation != aicapability.OperationListingMaterialsDecision && key.Operation != aicapability.OperationProductResearchDecision && key.Operation != aicapability.OperationProductSelectionDecision && key.Operation != aicapability.OperationShopDiagnosisDecision && key.Operation != aicapability.OperationProductImageAnalysis) ||
 			policy.AdmittedEndpointIdentityDigest == "" {
 			return nil, ErrInvalid
 		}
@@ -168,8 +168,14 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 // ValidRouteProfile is static protocol qualification, never user permission.
 // The selected DashScope model requires its fixed non-thinking policy.
 // Google is qualified only for the current title operation and fixed versions.
-func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
-	if p.Validate() != nil || !validFixedAdapterPolicy(AdapterKind(p.AdapterKind), p.ProviderID, p.ModelID, p.AdapterPolicyVersion) {
+func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operation) bool {
+	if p.ValidateShape() != nil || !validFixedAdapterPolicy(AdapterKind(p.AdapterKind), p.ProviderID, p.ModelID, p.AdapterPolicyVersion) {
+		return false
+	}
+	if operation == aicapability.OperationProductImageAnalysis {
+		return aicapability.SingleImageProfileShape(p)
+	}
+	if p.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
 		return false
 	}
 	if AdapterKind(p.AdapterKind) != AdapterGoogleInteractions {
@@ -183,3 +189,7 @@ func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Opera
 var _ interface {
 	Resolve(context.Context, aicapability.TextInputIdentity) (QualifiedRoute, error)
 } = (*OrganizationRouteResolver)(nil)
+
+func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
+	return p.Validate() == nil && ValidRouteShape(p, operation)
+}

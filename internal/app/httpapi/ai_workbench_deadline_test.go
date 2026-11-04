@@ -39,9 +39,7 @@ func TestWorkbenchPlannerUsesFrozenDeadlineAtModelHandoff(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		profile := aicapability.ModelProfile{ClientName: "test", ProviderID: "test", AdapterKind: "openai-compatible", ModelID: "test",
 			EndpointIdentityDigest: "digest", CredentialVersion: "v1", RoutingPolicyVersion: "v1", AdapterPolicyVersion: "v1",
-			PromptVersion: "ai-workbench-chat-plan-v1", OutputSchemaVersion: "ai-workbench-plan-decision-v1", UsageMappingVersion: "v1", CostPricingVersion: "v1",
-			PointTariff: aicapability.ModelPointTariff{PriceVersion: "v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000},
-			Currency:    "USD", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 4096, MaximumCompletionTokens: 64,
+			PromptVersion: "ai-workbench-chat-plan-v1", OutputSchemaVersion: "ai-workbench-plan-decision-v1", UsageMappingVersion: "v1", CostPricingVersion: "v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "v1", FXVersion: "fixture-fx-identity", Currency: "USD", CNYMicrosPerCurrencyUnit: 1000000, Model: "test", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}}, Currency: "USD", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 4096, MaximumCompletionTokens: 64,
 			MaximumInputBytes: 16 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: time.Second}
 		require.NoError(t, profile.Validate())
 		scope := aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}

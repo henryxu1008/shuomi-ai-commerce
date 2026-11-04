@@ -1,4 +1,5 @@
-import { z } from "zod";
+import {z} from "zod";
+import {aiPointUnit,displayPoints,signedDisplayPoints} from "../contracts/ai-points";
 import {
   readCommercialBilling,
   CommercialBillingReadError,
@@ -28,21 +29,22 @@ const event = z
     event_id: id,
     operation_id: text,
     resource_type: resourceType,
-    quantity: nonnegative,
-    available_delta: signed,
-    allocated_delta: signed,
-    reserved_delta: signed,
-    consumed_delta: signed,
-    available_after: nonnegative,
-    allocated_after: nonnegative,
-    reserved_after: nonnegative,
-    consumed_after: nonnegative,
+ unit_version:aiPointUnit.optional(),
+    quantity: displayPoints,
+    available_delta: signedDisplayPoints,
+    allocated_delta: signedDisplayPoints,
+    reserved_delta: signedDisplayPoints,
+    consumed_delta: signedDisplayPoints,
+    available_after: displayPoints,
+    allocated_after: displayPoints,
+    reserved_after: displayPoints,
+    consumed_after: displayPoints,
     reason: text,
     source_type: text,
     source_identity: text,
     occurred_at: timestamp,
   })
-  .strict();
+  .strict().refine(value=>value.resource_type==="ai_point"?value.unit_version==="ai-micropoint-v1":[value.quantity,value.available_after,value.allocated_after,value.reserved_after,value.consumed_after].every(v=>nonnegative.safeParse(v).success)&&[value.available_delta,value.allocated_delta,value.reserved_delta,value.consumed_delta].every(v=>signed.safeParse(v).success)&&value.unit_version===undefined);
 const page = z
   .object({
     organization_id: id,

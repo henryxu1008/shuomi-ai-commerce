@@ -67,7 +67,7 @@ func TestMemberAuditMergesPagesWithoutLossAndBindsFiltersAndTenant(t *testing.T)
 	q.resources = &additionalHistoryStub{page: AdditionalAuditPage{Items: []AdditionalAuditEvent{first}}}
 	_, err = q.ReadFiltered(ctx, 10, "", Filter{ActorSubject: "other"})
 	require.True(t, errors.Is(err, registry.ErrUnavailable))
-	first.Resource = &ResourceDetail{Type: "ai_point", Quantity: "100"}
+	first.Resource = &ResourceDetail{UnitVersion: "ai-micropoint-v1", Type: "ai_point", Quantity: "100"}
 	q.resources = &additionalHistoryStub{page: AdditionalAuditPage{Items: []AdditionalAuditEvent{first}}}
 	_, err = q.Read(ctx, 10, "")
 	require.ErrorIs(t, err, registry.ErrUnavailable)

@@ -12,24 +12,24 @@ func TestModelPointSchemaAndScopedCanonicalFact(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	require.NoError(t, VerifyModelPointInvocationSchema(context.Background(), db))
 	r := NewGormInvocationRecorder(db)
-	fact := aicapability.InvocationRecord{InvocationID: "canonical", TenantID: "org", UserID: "user", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1}}
+	fact := aicapability.InvocationRecord{InvocationID: "canonical", TenantID: "org", UserID: "user", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, ModelID: "fixture-model", Currency: "CNY"}
 	_, err := r.ClaimInvocation(context.Background(), fact)
 	require.NoError(t, err)
 	got, err := r.ReadModelInvocation(context.Background(), "org", "canonical")
 	require.NoError(t, err)
-	require.Equal(t, fact.PointTariff, got.PointTariff)
+	require.Equal(t, fact.OfficialTariff, got.OfficialTariff)
 	_, err = r.ReadModelInvocation(context.Background(), "other", "canonical")
 	require.Error(t, err)
 	// Synthetic obsolete schema is rejected without changing it.
-	require.NoError(t, db.Exec("ALTER TABLE ai_invocations DROP COLUMN point_price_version").Error)
+	require.NoError(t, db.Exec("ALTER TABLE ai_invocations DROP COLUMN official_tariff_json").Error)
 	require.Error(t, VerifyModelPointInvocationSchema(context.Background(), db))
-	require.False(t, db.Migrator().HasColumn(&invocationRow{}, "point_price_version"))
+	require.False(t, db.Migrator().HasColumn(&invocationRow{}, "official_tariff_json"))
 }
 
 func TestContentPricedInvocationKeepsCanonicalIdentityAndReplay(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	ledger := NewGormInvocationRecorder(db)
-	fact := aicapability.InvocationRecord{InvocationID: "content-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "content-run", InputHash: "frozen-content-selection", Operation: aicapability.OperationProductContentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1}}
+	fact := aicapability.InvocationRecord{InvocationID: "content-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "content-run", InputHash: "frozen-content-selection", Operation: aicapability.OperationProductContentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, ModelID: "fixture-model", Currency: "CNY"}
 	acquired, err := ledger.ClaimInvocation(context.Background(), fact)
 	require.NoError(t, err)
 	require.True(t, acquired)
@@ -49,11 +49,11 @@ func TestContentPricedInvocationKeepsCanonicalIdentityAndReplay(t *testing.T) {
 }
 
 func TestAdvisoryAgentsPricedInvocationRetainsExistingScopedLedger(t *testing.T) {
-	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision} {
+	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision} {
 		t.Run(string(op), func(t *testing.T) {
 			db := newInvocationLedgerDB(t)
 			ledger := NewGormInvocationRecorder(db)
-			fact := aicapability.InvocationRecord{InvocationID: "materials-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "materials-run", InputHash: "exact-material-disclosure", Operation: op, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1}}
+			fact := aicapability.InvocationRecord{InvocationID: "materials-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "materials-run", InputHash: "exact-material-disclosure", Operation: op, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, ModelID: "fixture-model", Currency: "CNY"}
 			acquired, err := ledger.ClaimInvocation(context.Background(), fact)
 			require.NoError(t, err)
 			require.True(t, acquired)
@@ -63,7 +63,7 @@ func TestAdvisoryAgentsPricedInvocationRetainsExistingScopedLedger(t *testing.T)
 			read, err := ledger.ReadModelInvocation(context.Background(), "org", fact.InvocationID)
 			require.NoError(t, err)
 			require.Equal(t, fact.AgentRunID, read.AgentRunID)
-			require.Equal(t, fact.PointTariff, read.PointTariff)
+			require.Equal(t, fact.OfficialTariff, read.OfficialTariff)
 			foreign := fact
 			foreign.Operation = aicapability.OperationProductContentDecision
 			_, err = ledger.ClaimInvocation(context.Background(), foreign)
@@ -75,6 +75,37 @@ func TestAdvisoryAgentsPricedInvocationRetainsExistingScopedLedger(t *testing.T)
 	}
 }
 
+func TestSingleImagePricedInvocationUsesOriginalScopedLedgerAndUsage(t *testing.T) {
+	db := newInvocationLedgerDB(t)
+	l := NewGormInvocationRecorder(db)
+	ctx := context.Background()
+	fact := aicapability.InvocationRecord{InvocationID: "single-image", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "frozen-image-and-quote", ModelID: aicapability.SingleImageMiniModel, Capability: aicapability.CapabilityProductImageAnalysis, Operation: aicapability.OperationProductImageAnalysis, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 5000, MaximumCompletionTokens: 64,
+		OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: aicapability.SingleImageMiniModel, Channel: "openai-direct", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, CachedInputText: 1000, OutputText: 20000}}}
+	won, err := l.ClaimInvocation(ctx, fact)
+	require.NoError(t, err)
+	require.True(t, won)
+	read, err := l.ReadModelInvocation(ctx, "org", fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, fact.OfficialTariff, read.OfficialTariff)
+	terminal := fact
+	terminal.Outcome, terminal.UsageKnown, terminal.FinishedAt = aicapability.InvocationUsageObservedFailed, true, time.Now().UTC()
+	terminal.PromptTokens, terminal.CompletionTokens, terminal.TotalTokens = 30, 5, 35
+	terminal.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true, InputText: 30, CachedInputText: 10, OutputText: 5}
+	require.NoError(t, l.RecordInvocation(ctx, terminal))
+	read, err = l.ReadModelInvocation(ctx, "org", fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, terminal.BillableUsage, read.BillableUsage)
+	won, err = l.ClaimInvocation(ctx, fact)
+	require.NoError(t, err)
+	require.False(t, won)
+	_, err = l.ReadModelInvocation(ctx, "other-org", fact.InvocationID)
+	require.Error(t, err)
+	changed := fact
+	changed.Operation = aicapability.OperationProductAgentDecision
+	_, err = l.ClaimInvocation(ctx, changed)
+	require.Error(t, err, "a text purpose cannot reuse the visual dispatch fact")
+}
+
 func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	r := NewGormInvocationRecorder(db)
@@ -83,8 +114,7 @@ func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testin
 		InputHash: "frozen-profile-and-message", Operation: aicapability.OperationAIWorkbenchChatPlan,
 		Capability: aicapability.CapabilityAIWorkbenchChatPlanning,
 		Outcome:    aicapability.InvocationDispatched, StartedAt: time.Now().UTC(),
-		MaximumPromptTokens: 100, MaximumCompletionTokens: 50,
-		PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1},
+		MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, ModelID: "fixture-model", Currency: "CNY",
 	}
 	acquired, err := r.ClaimInvocation(context.Background(), fact)
 	require.NoError(t, err)
@@ -96,7 +126,7 @@ func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testin
 	require.NoError(t, err)
 	require.Empty(t, got.AgentRunID)
 	require.Empty(t, got.BusinessTaskID)
-	require.Equal(t, fact.PointTariff, got.PointTariff)
+	require.Equal(t, fact.OfficialTariff, got.OfficialTariff)
 	foreign := fact
 	foreign.AgentRunID = "invented-run"
 	_, err = r.ClaimInvocation(context.Background(), foreign)

@@ -23,6 +23,8 @@ import (
 )
 
 type Config struct {
+	SingleCallReadOnly bool
+	PreReadTools       []commercetool.ToolRef
 	Definition         commercetool.AgentDefinition
 	Tools              []commercetool.Definition
 	Model              agent.GovernedModel
@@ -79,7 +81,22 @@ func New(config Config) (*Runtime, error) {
 		}
 		tools[def.Ref] = def
 	}
+	if config.SingleCallReadOnly {
+		if config.DomainProposalKind == "" || len(config.PreReadTools) < 1 || len(config.PreReadTools) > 2 {
+			return nil, agent.ErrInvalid
+		}
+		seen := map[commercetool.ToolRef]bool{}
+		for _, ref := range config.PreReadTools {
+			if _, ok := tools[ref]; !ok || seen[ref] {
+				return nil, agent.ErrInvalid
+			}
+			seen[ref] = true
+		}
+	} else if len(config.PreReadTools) != 0 {
+		return nil, agent.ErrInvalid
+	}
 	config.Definition.AllowedTools = append([]commercetool.ToolRef(nil), config.Definition.AllowedTools...)
+	config.PreReadTools = append([]commercetool.ToolRef(nil), config.PreReadTools...)
 	return &Runtime{config: config, tools: tools}, nil
 }
 
@@ -117,6 +134,9 @@ func (r *Runtime) ResumeWithClaimAttempt(ctx context.Context, request agent.Requ
 }
 
 func (r *Runtime) runWithClaimAttempt(ctx context.Context, request agent.Request, expected uint64, feedback string) (agent.Record, bool, error) {
+	if r != nil && r.config.SingleCallReadOnly && (expected != 0 || request.Limits.ModelCalls != 1) {
+		return agent.Record{}, false, agent.ErrInvalid
+	}
 	if !request.ContextSnapshotRef.ValidOrAbsent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() || !request.SkillVersionRef.ValidOrAbsent() {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
@@ -248,6 +268,13 @@ type execution struct {
 func (e *execution) graph(ctx context.Context) (compose.Runnable[*flowState, *flowState], error) {
 	g := compose.NewGraph[*flowState, *flowState]()
 	nodes := map[string]func(context.Context, *flowState){"model": e.model, "tool": e.tool, "validate": e.validate, "resume": e.resume}
+	entry := "model"
+	branches := map[string]bool{"model": true, "tool": true, "validate": true, "resume": true, compose.END: true}
+	if e.runtime.config.SingleCallReadOnly {
+		entry = "pre_read"
+		nodes[entry] = e.preRead
+		branches[entry] = true
+	}
 	for name, action := range nodes {
 		if err := g.AddLambdaNode(name, compose.InvokableLambda(func(ctx context.Context, s *flowState) (*flowState, error) {
 			e.last = s
@@ -262,11 +289,11 @@ func (e *execution) graph(ctx context.Context) (compose.Runnable[*flowState, *fl
 		}
 	}
 	for name := range nodes {
-		if err := g.AddBranch(name, compose.NewGraphBranch(func(_ context.Context, s *flowState) (string, error) { return s.Next, nil }, map[string]bool{"model": true, "tool": true, "validate": true, "resume": true, compose.END: true})); err != nil {
+		if err := g.AddBranch(name, compose.NewGraphBranch(func(_ context.Context, s *flowState) (string, error) { return s.Next, nil }, branches)); err != nil {
 			return nil, err
 		}
 	}
-	if err := g.AddEdge(compose.START, "model"); err != nil {
+	if err := g.AddEdge(compose.START, entry); err != nil {
 		return nil, err
 	}
 	return g.Compile(ctx, compose.WithCheckPointStore(e.checkpoint), compose.WithInterruptBeforeNodes([]string{"resume"}), compose.WithMaxRunSteps(e.record.State.Request.Limits.Steps*2+5))

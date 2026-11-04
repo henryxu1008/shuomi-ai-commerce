@@ -11,6 +11,8 @@ import (
 	"unicode/utf8"
 )
 
+const TrialAIGrantMicropoints = TrialAIGrantQuantity * MicropointsPerAIPoint
+
 const (
 	OperationGrantLocalAITrial                  = "grant_local_ai_trial"
 	SourceLocalAITrial                          = "local_ai_trial_v1"
@@ -48,6 +50,8 @@ type TrialAIGrantExecution struct {
 }
 
 type TrialAIGrantSnapshot struct {
+	UnitVersion        string       `json:"unit_version"`
+	LedgerQuantity     string       `json:"ledger_quantity"`
 	OperationID        string       `json:"operation_id"`
 	OrganizationID     string       `json:"organization_id"`
 	ResourceType       ResourceType `json:"resource_type"`
@@ -150,7 +154,7 @@ func (input TrialAIGrantExecution) Validate() error {
 }
 
 func trialAIGrantFingerprint(input TrialAIGrantExecution) string {
-	return trialDigest([]string{OperationGrantLocalAITrial, input.OrganizationID, string(ResourceAIPoint), "10000", SourceLocalAITrial, input.SourceIdentity, input.ApprovalEvidenceID})
+	return trialDigest([]string{OperationGrantLocalAITrial, input.OrganizationID, string(ResourceAIPoint), "10000", AIPointQuantityUnitV1, SourceLocalAITrial, input.SourceIdentity, input.ApprovalEvidenceID})
 }
 
 func trialDigest(value []string) string {

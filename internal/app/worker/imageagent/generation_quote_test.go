@@ -22,7 +22,7 @@ func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *te
 			server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 			defer server.Close()
 			resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Minute}}}
-			reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "price", PointsPerImage: 12}}}
+			reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, current: syntheticFactoryCurrent(resolver, 12), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12}}}
 			identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "source"}
 			ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
 			quote, err := reader.ReadImageGenerationQuote(ctx, identity, nil)
@@ -49,7 +49,7 @@ func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *te
 
 func TestImageSetQuoteAdmitsExplicitBeijingQwenRouteWithoutDispatch(t *testing.T) {
 	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Minute}}}
-	reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-qwen3-v1", PointsPerImage: 1}}}
+	reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, current: syntheticFactoryCurrent(resolver, 1), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 1}}}
 	id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member"}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
 	q, err := reader.ReadImageGenerationQuote(ctx, id, nil)

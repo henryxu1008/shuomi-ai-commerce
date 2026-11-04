@@ -6,6 +6,7 @@ import { aiWorkbenchPath } from "@/lib/contracts/ai-workbench";
 import { collectionPath } from "@/lib/contracts/product-collection";
 import {planPath} from "@/lib/contracts/acquisition-plan";
 import { imageSetMethods, imageSetPath, imageSetRoutes } from "@/lib/contracts/product-image-set";
+import {analysisMethods,analysisPath,analysisRoutes} from "@/lib/contracts/product-image-analysis";
 import { NextRequest } from "next/server";
 
 import { serverAuth } from "@/auth";
@@ -144,7 +145,7 @@ async function handleWorkbenchRequest(
   const imageSetRequest = imageSetRoutes.some((action) => imageSetMethods[action] === request.method && imageSetPath(path, action) !== null);
   const ownAgentRunRequest = path[4] === "runs" && ownAgentPath(path) !== null &&
     (request.method === "GET" && path.length === 6 || request.method === "POST" && (path.length === 5 || path.length === 7));
-  const agentRequest=agentPath(path)!==null || ownAgentRunRequest || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
+  const agentRequest=analysisRoutes.some(a=>analysisMethods[a]===request.method&&analysisPath(path,a)!==null)||agentPath(path)!==null || ownAgentRunRequest || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
   const sheinPublicationRequest=["shein-status","shein-shelf-prepare","shein-shelf-confirm","shein-shelf-result"].includes(supplyPath(request.method,path)??"");
   const timeout = setTimeout(abort, sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
@@ -185,6 +186,7 @@ export const PATCH = handleWorkbenchRequest;
 export const DELETE = handleWorkbenchRequest;
 
 function isSourceMutation(method: string, path: string[]) {
+  if(method==="POST"&&analysisRoutes.some(a=>analysisMethods[a]==="POST"&&analysisPath(path,a)!==null))return true;
   if(method==="POST"&&materialsPath(method,path))return true;
   if(method==="POST"&&planPath(method,path))return true;
   if (collectionPath(method.toUpperCase(), path) === "command") return true;

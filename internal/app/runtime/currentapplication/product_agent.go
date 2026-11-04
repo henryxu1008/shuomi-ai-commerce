@@ -25,6 +25,7 @@ type ProductAgentConfig struct {
 	MaterialsTextPolicies  map[string]governed.RoutePolicy `json:"materialsTextPolicies,omitempty"`
 	DiagnosisTextPolicies  map[string]governed.RoutePolicy `json:"diagnosisTextPolicies,omitempty"`
 	SelectionTextPolicies  map[string]governed.RoutePolicy `json:"selectionTextPolicies,omitempty"`
+	ImageAnalysisPolicies  map[string]governed.RoutePolicy `json:"imageAnalysisPolicies,omitempty"`
 	Currency               string                          `json:"currency"`
 	Steps                  int                             `json:"steps"`
 	ModelCalls             int                             `json:"modelCalls"`
@@ -53,7 +54,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 			return errors.New("content-title-only requires the prepared Run and Review runtime identities")
 		}
 		if p.AssetDatabase != (DatabaseConfig{}) || len(p.ContentTextPolicies) == 0 || len(p.TextPolicies) != 0 ||
-			len(p.MaterialsTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 ||
+			len(p.MaterialsTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 || len(p.ImageAnalysisPolicies) != 0 ||
 			p.ContentTitleOnly && cfg.AIWorkbench != nil && (len(cfg.AIWorkbench.PlanningTextPolicies) != 0 || cfg.AIWorkbench.Enabled && !cfg.AIWorkbench.ConversationOnly) {
 			return errors.New("content-title-only requires only content policies and no Asset or Chat execution")
 		}
@@ -88,14 +89,14 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		}
 		seen[id] = true
 	}
-	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies) == 0 || len(p.TextPolicies) > len(seen) {
+	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) == 0 || len(p.TextPolicies) > len(seen) {
 		return errors.New("product agent text policies invalid")
 	}
 	for organizationID, policy := range p.TextPolicies {
 		profile := policy.ShapeProfile()
 		costMicros, err := profile.MaximumCost()
 		if !seen[organizationID] || profile.PromptVersion != "product-title-agent-v1" || profile.OutputSchemaVersion != "product-title-action-v1" ||
-			profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductAgentDecision) || err != nil ||
+			profile.Currency != p.Currency || !governed.ValidRouteShape(profile, aicapability.OperationProductAgentDecision) || err != nil ||
 			profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || costMicros > p.CostMicros {
 			return errors.New("product agent organization text policy invalid")
 		}
@@ -106,7 +107,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	for organizationID, policy := range p.ContentTextPolicies {
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !seen[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductContentDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
+		if !seen[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || profile.Currency != p.Currency || !governed.ValidRouteShape(profile, aicapability.OperationProductContentDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
 			return errors.New("product content policy invalid")
 		}
 	}
@@ -116,7 +117,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	for org, policy := range p.MaterialsTextPolicies {
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !seen[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationListingMaterialsDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
+		if !seen[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || profile.Currency != p.Currency || !governed.ValidRouteShape(profile, aicapability.OperationListingMaterialsDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
 			return errors.New("platform materials text policy invalid")
 		}
 	}
@@ -129,7 +130,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !seen[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || err != nil || profile.MaximumCompletionTokens > p.Tokens/2 || profile.MaximumPromptTokens > p.Tokens/2-profile.MaximumCompletionTokens || cost > p.CostMicros/2 {
+		if !seen[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || profile.Currency != p.Currency || !governed.ValidRouteShape(profile, aicapability.OperationProductSelectionDecision) || err != nil || profile.MaximumCompletionTokens > p.Tokens/2 || profile.MaximumPromptTokens > p.Tokens/2-profile.MaximumCompletionTokens || cost > p.CostMicros/2 {
 			return errors.New("product selection text policy invalid")
 		}
 	}
@@ -142,8 +143,16 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !seen[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || err != nil || profile.MaximumCompletionTokens > p.Tokens/2 || profile.MaximumPromptTokens > p.Tokens/2-profile.MaximumCompletionTokens || cost > p.CostMicros/2 {
+		if !seen[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || profile.Currency != p.Currency || !governed.ValidRouteShape(profile, aicapability.OperationShopDiagnosisDecision) || err != nil || profile.MaximumCompletionTokens > p.Tokens/2 || profile.MaximumPromptTokens > p.Tokens/2-profile.MaximumCompletionTokens || cost > p.CostMicros/2 {
 			return errors.New("product diagnosis text policy invalid")
+		}
+	}
+	if len(p.ImageAnalysisPolicies) > len(seen) {
+		return errors.New("image analysis policy outside current organization admission")
+	}
+	for org, policy := range p.ImageAnalysisPolicies {
+		if !seen[org] || !agentconfig.ImageAnalysisProfileAdmissible(policy.ShapeProfile(), p.Limits()) {
+			return errors.New("image analysis policy exceeds original consumer admission")
 		}
 	}
 	return nil

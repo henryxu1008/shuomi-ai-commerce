@@ -10,10 +10,11 @@ func TestVIPQuoteAndIntentRequireMediumWithoutChangingOldRoutes(t *testing.T) {
 	old := generationTestIntent()
 	before, err := NewGenerationFact(old)
 	require.NoError(t, err)
-	require.Equal(t, "419cdce766de9ebdcead7aa64d8f93023ea5c6a66d84ec51a0222f003dce95ec", before.Fingerprint, "original auto intent bytes and fingerprint must remain stable")
+	require.Equal(t, "77f77ead89afbb68c947a15707581c15cd3bbc8c0b80ae81d2de8e20bfd56779", before.Fingerprint, "current official-price intent has a frozen identity; old fixed-point facts are not reinterpreted")
 	i := old
 	i.Model, i.Quality = "gpt-image-2-vip", "medium"
-	q := ImageGenerationQuote{Provider: i.Provider, Model: i.Model, Protocol: i.Protocol, Resolution: i.Resolution, Quality: i.Quality, Points: i.Points, PriceVersion: i.PriceVersion, RouteReference: i.RouteReference, CredentialReference: i.CredentialReference, ConfigurationVersion: i.ConfigurationVersion}
+	i.Billing = syntheticImageBilling(i.Model, i.PriceVersion, i.Points)
+	q := ImageGenerationQuote{Billing: syntheticImageBilling(i.Model, i.PriceVersion, i.Points), Provider: i.Provider, Model: i.Model, Protocol: i.Protocol, Resolution: i.Resolution, Quality: i.Quality, Points: i.Points, PriceVersion: i.PriceVersion, RouteReference: i.RouteReference, CredentialReference: i.CredentialReference, ConfigurationVersion: i.ConfigurationVersion}
 	require.True(t, q.Valid(), "VIP medium quote must be admitted")
 	f, err := NewGenerationFact(i)
 	require.NoError(t, err)
@@ -27,6 +28,7 @@ func TestVIPQuoteAndIntentRequireMediumWithoutChangingOldRoutes(t *testing.T) {
 	for _, model := range []string{"gpt-image-2.5", "qwen-image-3.0", "qwen-image-3.0-pro"} {
 		i = old
 		i.Model = model
+		i.Billing = syntheticImageBilling(i.Model, i.PriceVersion, i.Points)
 		if model != "gpt-image-2.5" {
 			i.Provider, i.Protocol = "bailian", "dashscope-image-sync-v1"
 		}
