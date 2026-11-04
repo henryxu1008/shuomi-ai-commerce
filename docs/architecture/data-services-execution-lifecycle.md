@@ -1,7 +1,11 @@
 # 数据服务关闭采集执行，保留配置、资料与历史
 
-Status: **DESIGN_REVIEW_REQUIRED**。Design Basis: **Independent Architecture**。
-执行 Issue #1073，唯一 Writer 与主要 PR #1075 不变。正式实施须先取得本增量的 `IMPLEMENTATION_READY`。
+Status: **IMPLEMENTATION_READY（仅离线实施）**。Design Basis: **Independent Architecture**。
+执行 Issue #1073，唯一 Writer 与主要 PR #1075 不变。
+2026-11-04原独立Reviewer核对HEAD `bb4b6d41d0abd014d08d7d7a44a1b53e000ebe8a`、
+本设计blob `4f6459910641a4b9bc3edc5f7d50ab148ada74ad`及现有consumer，结论无BLOCKER、可以实施。
+唯一IMPLEMENTATION_TEST为启用态GET必须仍消费原Service恢复；两态接线已澄清，须以ADMITTED/RUNNING测试收敛。
+本准入不授权镜像构建、配置发布、实例更新、真实调用或合并。
 
 ## 用户结果与当前依据
 
@@ -38,7 +42,7 @@ Organization Resource原费用及UNKNOWN，Temporal原执行身份，ZITADEL/Wor
 | `dataServices.executionEnabled`，bool，默认false | 当前Config→ApplicationFeatures→cmd→DataServicesDependencies→Module | 显式false或未声明均不创建采集执行资源；true才沿原完整执行准入。不解释旧字段、不提供默认站点/Temporal或fallback |
 | DataAcquisition `Reader` | 原Repository的窄Read/Items/WithResultRead与LiveAccess；抽取原Read/Results/Provenance的读取逻辑 | 关闭态任务/by-command/results和研究Provenance；无provider、starter或charges依赖，不暴露执行方法 |
 | 原Service启用态 | 与Reader共用内部验证/投影；原Service.Read/Results仍在原credential守卫事务内恢复未完任务 | 显式启用时保留原有效重放/恢复行为及其现有测试，不借关闭态新增另一恢复协议 |
-| HTTP读取与执行分开 | Reader供GET；原Service只在enabled时注入 | Console/DataKey共用创建和取消入口在关闭时拒绝，发生在provider/funding/admission/Cancel之前；认证/权限描述符保持 |
+| HTTP读取与执行分开 | 关闭GET→纯Reader；启用GET→原Service.Read/Results，消费同一窄读取接口；原Service只在enabled时注入 | 启用的ADMITTED/RUNNING恢复仍在原WithResultRead内。Console/DataKey共用创建和取消入口在关闭时拒绝，发生在provider/funding/admission/Cancel之前；认证/权限描述符保持 |
 | Options | 关闭时AcquisitionReady=false、Sites空及业务原因 | 原页面消费已有不可用投影；不显示可采集或因查询选项做provider Ready探测 |
 
 ## 开关与装配不变量
