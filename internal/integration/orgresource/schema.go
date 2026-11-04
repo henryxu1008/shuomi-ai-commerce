@@ -8,6 +8,7 @@ import (
 )
 
 type organizationResourceBucketRow struct {
+	QuantityUnit   string                               `gorm:"column:quantity_unit;size:32;not null;default:'';check:chk_bucket_quantity_unit,(resource_type = 'ai_point' AND quantity_unit = 'ai-micropoint-v1') OR (resource_type <> 'ai_point' AND quantity_unit = '')"`
 	OrganizationID string                               `gorm:"column:organization_id;primaryKey;size:128;not null"`
 	ResourceType   string                               `gorm:"column:resource_type;primaryKey;size:64;not null;check:chk_org_resource_bucket_type,resource_type IN ('store_renewal_period','ai_point','data_row')"`
 	Available      int64                                `gorm:"column:available;not null;default:0;check:chk_org_resource_available_nonnegative,available >= 0"`
@@ -49,6 +50,7 @@ func (organizationResourceOperationRow) TableName() string {
 }
 
 type organizationResourceSourceClaimRow struct {
+	QuantityUnit       string    `gorm:"column:quantity_unit;size:32;not null;default:'';check:chk_source_claim_quantity_unit,(resource_type = 'ai_point' AND quantity_unit = 'ai-micropoint-v1') OR (resource_type <> 'ai_point' AND quantity_unit = '')"`
 	SourceType         string    `gorm:"column:source_type;primaryKey;size:96;not null"`
 	SourceIdentity     string    `gorm:"column:source_identity;primaryKey;size:192;not null"`
 	ResourceType       string    `gorm:"column:resource_type;size:64;not null;check:chk_org_resource_source_claim_type,resource_type IN ('store_renewal_period','ai_point','data_row')"`
@@ -63,6 +65,7 @@ func (organizationResourceSourceClaimRow) TableName() string {
 }
 
 type organizationResourceEventRow struct {
+	QuantityUnit   string    `gorm:"column:quantity_unit;size:32;not null;default:'';check:chk_event_quantity_unit,(resource_type = 'ai_point' AND quantity_unit = 'ai-micropoint-v1') OR (resource_type <> 'ai_point' AND quantity_unit = '')"`
 	EventID        string    `gorm:"column:event_id;primaryKey;size:128;not null"`
 	OrganizationID string    `gorm:"column:organization_id;primaryKey;size:128;not null;index:idx_org_resource_event_operation,priority:1"`
 	OperationID    string    `gorm:"column:operation_id;size:128;not null;index:idx_org_resource_event_operation,priority:2"`
@@ -92,6 +95,7 @@ func (organizationResourceEventRow) TableName() string {
 }
 
 type organizationResourceReservationRow struct {
+	QuantityUnit          string                         `gorm:"column:quantity_unit;size:32;not null;default:'';check:chk_reservation_quantity_unit,(resource_type = 'ai_point' AND quantity_unit = 'ai-micropoint-v1') OR (resource_type <> 'ai_point' AND quantity_unit = '')"`
 	ChargeBalanceAfter    int64                          `gorm:"column:charge_balance_after;not null;default:0;check:chk_consumer_charge_balance_nonnegative,charge_balance_after >= 0"`
 	ChargeProtocol        string                         `gorm:"column:charge_protocol;size:64;not null;default:''"`
 	ChargeActorID         string                         `gorm:"column:charge_actor_id;size:128;not null;default:''"`
@@ -124,6 +128,7 @@ func (organizationResourceReservationRow) TableName() string {
 }
 
 type organizationResourceDebtRow struct {
+	QuantityUnit   string    `gorm:"column:quantity_unit;size:32;not null;default:'';check:chk_debt_quantity_unit,(resource_type = 'ai_point' AND quantity_unit = 'ai-micropoint-v1') OR (resource_type <> 'ai_point' AND quantity_unit = '')"`
 	OrganizationID string    `gorm:"column:organization_id;primaryKey;size:128;not null"`
 	ResourceType   string    `gorm:"column:resource_type;primaryKey;size:64;not null;check:chk_org_resource_debt_type,resource_type IN ('store_renewal_period','ai_point','data_row')"`
 	Amount         int64     `gorm:"column:amount;not null;default:0;check:chk_org_resource_debt_nonnegative,amount >= 0"`
@@ -151,6 +156,7 @@ func (organizationResourceAuditLogRow) TableName() string {
 }
 
 type memberAIPointLimitRow struct {
+	QuantityUnit   string    `gorm:"column:quantity_unit;size:32;not null;check:chk_limit_quantity_unit,quantity_unit = 'ai-micropoint-v1'"`
 	OrganizationID string    `gorm:"column:organization_id;primaryKey;size:128;not null"`
 	MemberID       string    `gorm:"column:member_id;primaryKey;size:128;not null"`
 	MonthlyLimit   int64     `gorm:"column:monthly_limit;not null;check:chk_member_ai_point_limit_nonnegative,monthly_limit >= 0"`
@@ -162,6 +168,7 @@ type memberAIPointLimitRow struct {
 func (memberAIPointLimitRow) TableName() string { return "saas_member_ai_point_limits" }
 
 type memberAIPointMonthRow struct {
+	QuantityUnit   string    `gorm:"column:quantity_unit;size:32;not null;check:chk_month_quantity_unit,quantity_unit = 'ai-micropoint-v1'"`
 	OrganizationID string    `gorm:"column:organization_id;primaryKey;size:128;not null"`
 	MemberID       string    `gorm:"column:member_id;primaryKey;size:128;not null"`
 	MonthStart     time.Time `gorm:"column:month_start;primaryKey;not null"`
@@ -188,7 +195,21 @@ func AutoMigrate(db *gorm.DB) error {
 	if db == nil {
 		return errors.New("organization resource database is required")
 	}
-	return db.AutoMigrate(
+	models := resourceSchemaModels()
+	existing := 0
+	for _, model := range models {
+		if db.Migrator().HasTable(model) {
+			existing++
+		}
+	}
+	if existing != 0 {
+		return VerifyQuantitySchema(db.Statement.Context, db)
+	}
+	return db.Transaction(func(tx *gorm.DB) error { return tx.AutoMigrate(models...) })
+}
+
+func resourceSchemaModels() []any {
+	return []any{
 		&organizationResourceOperationRow{},
 		&organizationResourceBucketRow{},
 		&organizationResourceDebtRow{},
@@ -199,5 +220,5 @@ func AutoMigrate(db *gorm.DB) error {
 		&memberAIPointLimitRow{},
 		&memberAIPointMonthRow{},
 		&memberResourcePositionRow{},
-	)
+	}
 }

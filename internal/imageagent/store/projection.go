@@ -615,12 +615,12 @@ func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, c
 			} else if recipe != nil {
 				points = recipe.Quote.Points
 			}
-			if closure == nil || closure.Kind != "settled" || points <= 0 || closure.Points != points || len(mutation.Projection.Candidates) != 1 {
+			if closure == nil || closure.Kind != "settled" || points <= 0 || closure.Points < 0 || closure.Points > points || len(mutation.Projection.Candidates) != 1 {
 				return imageagent.ErrRevisionConflict
 			}
 			candidate := mutation.Projection.Candidates[0]
 			proof := candidate.GenerationProof
-			if proof == nil || *proof != (imageagent.ImageGenerationProof{IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}) {
+			if proof == nil || *proof != (imageagent.ImageGenerationProof{UnitVersion: closure.UnitVersion, IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}) {
 				return imageagent.ErrRevisionConflict
 			}
 			if _, err := imageagent.NormalizeDurableAssetIdentity(candidate.DurableAsset); err != nil {
@@ -628,7 +628,7 @@ func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, c
 			}
 		}
 	}
-	unstarted := (input.Snapshot.Plan.Set != nil || input.Snapshot.Plan.Artwork != nil) && currentSlot.Attempt == 0 && (currentSlot.Slot.Status == imageagent.SlotStatusPending || currentSlot.Slot.Status == "") && mutation.Result.Attempt == 0 && mutation.Result.Status == imageagent.SlotStatusBlocked && len(mutation.Projection.Candidates) == 0 && mutation.Projection.Closure != nil && *mutation.Projection.Closure == (imageagent.ImageSlotClosure{Kind: "not_dispatched"}) && mutation.Projection.ErrorCode != ""
+	unstarted := (input.Snapshot.Plan.Set != nil || input.Snapshot.Plan.Artwork != nil) && currentSlot.Attempt == 0 && (currentSlot.Slot.Status == imageagent.SlotStatusPending || currentSlot.Slot.Status == "") && mutation.Result.Attempt == 0 && mutation.Result.Status == imageagent.SlotStatusBlocked && len(mutation.Projection.Candidates) == 0 && mutation.Projection.Closure != nil && *mutation.Projection.Closure == (imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}) && mutation.Projection.ErrorCode != ""
 	if !reflect.DeepEqual(mutation.Result.Closure, mutation.Projection.Closure) || input.Snapshot.Plan.Set == nil && input.Snapshot.Plan.Artwork == nil && mutation.Result.Closure != nil {
 		return imageagent.ErrRevisionConflict
 	}

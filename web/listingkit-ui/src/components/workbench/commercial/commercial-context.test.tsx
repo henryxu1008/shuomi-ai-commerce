@@ -53,7 +53,7 @@ it("uses real context/switcher and commercial client, drops late HTTP response, 
   await act(async () => release(Response.json(commercialOverviewFixture())));
   await act(async () => releaseResources(Response.json(commercialResourcesFixture())));
   expect(screen.queryByText("企业实际合同")).not.toBeInTheDocument();
-  expect(screen.queryByText("9007199254740993 点")).not.toBeInTheDocument();
+  expect(screen.queryByText("9007199254.740993 点")).not.toBeInTheDocument();
   revoked = true;
   context = { ...context, organizations: context.organizations.map(org => ({ ...org, roles: ["listingkit_viewer"], permissions: ["workbench.task.read","workbench.store.read","workbench.source_account.read","workbench.organization_member.read","workbench.commercial.read"] })) };
   await act(async () => { await queryClient.invalidateQueries({ queryKey: WORKBENCH_CONTEXT_QUERY_KEY }); });

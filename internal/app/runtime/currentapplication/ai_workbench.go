@@ -79,7 +79,7 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	}
 	for org, policy := range w.PlanningTextPolicies {
 		profile := policy.ShapeProfile()
-		if !allowed[org] || !governed.ValidRouteProfile(profile, aicapability.OperationAIWorkbenchChatPlan) || profile.PromptVersion != promptVersion ||
+		if !allowed[org] || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchChatPlan) || profile.PromptVersion != promptVersion ||
 			profile.OutputSchemaVersion != "ai-workbench-plan-decision-v1" ||
 			profile.Currency != cfg.ProductAgent.Currency ||
 			profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens ||

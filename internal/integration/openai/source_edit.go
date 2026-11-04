@@ -19,6 +19,9 @@ func (a *SourceImageAdapter) EditSources(ctx context.Context, request productima
 	}
 	zero := 0
 	input := &ai.ImageEditRequest{Model: a.config.ImageModel, Prompt: cloned.Prompt, Image: cloned.ReferenceBytes[0], ImageContentType: cloned.Sources[0].MediaType, MaxRetries: &zero, N: 1, Size: "1024x1024", Quality: a.sourceEditQuality(), ResponseFormat: "url"}
+	if a.isFlareImageRoute() {
+		input.ResponseFormat = ""
+	}
 	for i := 1; i < len(cloned.Sources); i++ {
 		input.ReferenceImages = append(input.ReferenceImages, ai.ImageInlineReference{Bytes: cloned.ReferenceBytes[i], MediaType: cloned.Sources[i].MediaType})
 	}
@@ -45,7 +48,11 @@ func (a *SourceImageAdapter) EditSources(ctx context.Context, request productima
 }
 
 func (a *SourceImageAdapter) supportsSourceEdit() bool {
-	return a.config.Provider == "grsai" && (a.config.ImageModel == "gpt-image-2.5" || a.config.ImageModel == "gpt-image-2-vip") || a.config.Provider == "bailian" && (a.config.ImageModel == "qwen-image-3.0" || a.config.ImageModel == "qwen-image-3.0-pro")
+	return a.isFlareImageRoute() || a.config.Provider == "grsai" && (a.config.ImageModel == "gpt-image-2.5" || a.config.ImageModel == "gpt-image-2-vip") || a.config.Provider == "bailian" && (a.config.ImageModel == "qwen-image-3.0" || a.config.ImageModel == "qwen-image-3.0-pro")
+}
+
+func (a *SourceImageAdapter) isFlareImageRoute() bool {
+	return a.config.Provider == "openai" && a.config.ImageModel == FlareImageModel
 }
 
 func (a *SourceImageAdapter) sourceEditQuality() string {

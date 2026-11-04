@@ -569,7 +569,7 @@ func TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver(t *tes
 	defer provider.Close()
 	credentials := openai.NewGormCredentialResolver(f.db)
 	require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "B", ClientName: "image_gpt_image_2", APIKey: "synthetic-B", BaseURL: provider.URL, APIStyle: "grsai", Model: "gpt-image-2-vip", Enabled: true, TimeoutSecond: 1}))
-	reader, err := imageworker.NewImageGenerationQuoteReader(f.db, config.ImageAgentGenerationConfig{PriceVersion: "fixture-price", PointsPerImage: 1})
+	reader, err := imageworker.NewImageGenerationQuoteReader(f.db, config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 1})
 	require.NoError(t, err)
 	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "B", UserID: "actor", MemberID: "member-B", RunID: "run339", BusinessTaskID: "catalog-input"}
 	for _, verified := range []authidentity.AuthenticatedIdentity{{}, {TenantID: "A", UserID: "actor", HomeOrganizationID: "A"}, {TenantID: "B", UserID: "other", EffectiveOrganizationID: "B"}, {TenantID: "C", UserID: "actor", EffectiveOrganizationID: "C"}} {
@@ -579,7 +579,7 @@ func TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver(t *tes
 	}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "B", UserID: "actor", HomeOrganizationID: "A", EffectiveOrganizationID: "B", EffectiveMemberID: "member-B"})
 	_, err = reader.ReadImageGenerationQuote(ctx, identity, nil)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, imageagent.ErrBudgetQuoteUnavailable, "a verified identity cannot substitute the shared enterprise reader")
 	require.Zero(t, calls.Load())
 }
 

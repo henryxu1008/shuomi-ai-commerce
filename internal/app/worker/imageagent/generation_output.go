@@ -63,6 +63,9 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 			}
 		}
 		if _, err := imageagent.ValidateSafeImageURL(fact.Success.ResultURL); err != nil || fact.Success.ResultUnavailable != "" {
+			if fact.Success.ResultLocatorKind == "artifact_bundle" {
+				return bad("read_recovery_bundle")
+			}
 			logOutputRecoveryFailure(logger, input.RunID, "validate_result", imageagent.ErrValidation)
 			// Only after binding the immutable success to this original input
 			// may an unusable locator close the charged image-set failure.

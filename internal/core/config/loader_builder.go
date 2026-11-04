@@ -22,8 +22,9 @@ func BuildConfig(v *viper.Viper) *Config {
 		StorageCapacity: v.GetBool("storageCapacity"),
 		ImageAgent: ImageAgentConfig{
 			Generation: ImageAgentGenerationConfig{
-				PriceVersion:   v.GetString("imageagent.generation.priceVersion"),
-				PointsPerImage: v.GetInt64("imageagent.generation.pointsPerImage"),
+				Enabled:            v.GetBool("imageagent.generation.enabled"),
+				UnitVersion:        v.GetString("imageagent.generation.unitVersion"),
+				MaximumMicropoints: v.GetInt64("imageagent.generation.maximumMicropoints"),
 			},
 			Admission: ImageAgentAdmissionConfig{
 				Enabled:          v.GetBool("imageagent.admission.enabled"),

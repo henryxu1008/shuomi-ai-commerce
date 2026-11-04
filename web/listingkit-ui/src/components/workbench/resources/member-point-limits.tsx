@@ -1,5 +1,6 @@
 "use client";
 
+import {displayPoints} from "@/lib/contracts/ai-points";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,8 +43,8 @@ function ScopedPointLimits({ userId, organizationId, canManage, sequence }: Prop
     } finally { busy.current = false; }
   }
   function save(memberId: string, target: string, version: string) {
-    if (operation || !/^(0|[1-9][0-9]*)$/.test(target) || BigInt(target) > BigInt("9223372036854775807")) {
-      setMessage("请输入有效的非负整数上限；未分配不自动填入额度。"); return;
+    if (operation || !displayPoints.safeParse(target).success) {
+      setMessage("请输入有效的非负点数上限（最多六位小数）；未分配不自动填入额度。"); return;
     }
     void write({ memberId, target, version, key: crypto.randomUUID() });
   }
@@ -56,7 +57,7 @@ function ScopedPointLimits({ userId, organizationId, canManage, sequence }: Prop
         {response.data!.members.map(member => {
           const name = member.displayName || member.loginName || member.memberId;
           const target = targets[member.memberId] ?? (member.configured ? member.monthlyLimit : "");
-          return <tr key={member.memberId}><td><strong>{name}</strong><small>{member.roles.map(role => roles[role] ?? role).join("、") || "角色未提供"}</small></td><td>{member.configured ? `${member.monthlyLimit} / 月` : "未分配，不能消费"}</td><td><span>已消费 {member.consumed} · 预留 {member.reserved} · 剩余 {member.remaining}</span><small>{member.monthStart.slice(0, 10)} — {member.monthEnd.slice(0, 10)} UTC</small></td><td>{canManage ? <div className={styles.allocationEdit}><label htmlFor={`point-limit-${member.memberId}`}>{name} AI 点数月度上限</label><input id={`point-limit-${member.memberId}`} inputMode="numeric" maxLength={19} placeholder="未分配" disabled={operation !== null} value={target} onChange={event => setTargets(current => ({ ...current, [member.memberId]: event.target.value }))} />{operation?.unknown && operation.command.memberId === member.memberId ? <Button onClick={() => void write(operation.command)}>核验原操作</Button> : <Button disabled={operation !== null || target === ""} onClick={() => save(member.memberId, target, member.version)}>{operation?.command.memberId === member.memberId ? "保存中…" : "保存上限"}</Button>}</div> : <span className={styles.readOnly}>只读</span>}</td></tr>;
+          return <tr key={member.memberId}><td><strong>{name}</strong><small>{member.roles.map(role => roles[role] ?? role).join("、") || "角色未提供"}</small></td><td>{member.configured ? `${member.monthlyLimit} / 月` : "未分配，不能消费"}</td><td><span>已消费 {member.consumed} · 预留 {member.reserved} · 剩余 {member.remaining}</span><small>{member.monthStart.slice(0, 10)} — {member.monthEnd.slice(0, 10)} UTC</small></td><td>{canManage ? <div className={styles.allocationEdit}><label htmlFor={`point-limit-${member.memberId}`}>{name} AI 点数月度上限</label><input id={`point-limit-${member.memberId}`} inputMode="decimal" maxLength={20} placeholder="未分配" disabled={operation !== null} value={target} onChange={event => setTargets(current => ({ ...current, [member.memberId]: event.target.value }))} />{operation?.unknown && operation.command.memberId === member.memberId ? <Button onClick={() => void write(operation.command)}>核验原操作</Button> : <Button disabled={operation !== null || target === ""} onClick={() => save(member.memberId, target, member.version)}>{operation?.command.memberId === member.memberId ? "保存中…" : "保存上限"}</Button>}</div> : <span className={styles.readOnly}>只读</span>}</td></tr>;
         })}
         {!response.data!.members.length ? <tr><td colSpan={4} className={styles.emptyCell}>当前没有可配置的有效成员。</td></tr> : null}
       </tbody></table></div>}

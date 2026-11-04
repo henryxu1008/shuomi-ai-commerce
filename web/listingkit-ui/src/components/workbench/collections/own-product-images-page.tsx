@@ -16,7 +16,7 @@ export function OwnProductImagesPage(props:Props){
  const scope=useMemo(()=>userId&&organizationId?{userId,organizationId}:null,[userId,organizationId]);
  if(context.isLoading||context.isSwitching)return <ConsoleState kind="loading" title="正在确认当前企业"/>;
  if(!scope||context.error||context.blockingError||context.selectionRequired||!skillLaunchMatches(props.launch,scope,"product-image"))return <SkillLaunchError/>;
- if(!["workbench.supply.read","listingkit.image_agent.read"].every(permission=>context.permissions.includes(permission)))return <ConsoleState kind="unavailable" title="当前身份没有商品来源与图片查看权限"/>;
+ if(!context.permissions.includes("workbench.supply.read")||!context.permissions.some(p=>p==="listingkit.image_agent.read"||p==="workbench.agent.use"))return <ConsoleState kind="unavailable" title="当前身份没有商品来源与图片查看权限"/>;
  return <ScopedImages key={JSON.stringify([scope,props])} {...props} launch={props.launch} scope={scope}/>;
 }
 function ScopedImages({scope,itemId,sourceId,preparationId,launch}:Omit<Props,"launch">&{launch:SkillLaunch;scope:SupplyScope}){

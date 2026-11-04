@@ -28,15 +28,15 @@ describe("account audit query boundary", () => {
   });
   it("reads committed member allocations and monthly caps as current resource facts", async () => {
     const transfer = { eventType: "account_member_resource.changed", actor: "actor-1", time: "2026-09-29T08:00:00Z", objectType: "member_resource", objectReference: "member-1", operation: "allocate_member_resource", result: "succeeded", relation: { type: "organization_resource_operation", reference: "allocate-1", version: "1" }, resource: { type: "data_row", quantity: "100" } };
-    const cap = { ...transfer, eventType: "account_member_ai_point_limit.changed", objectType: "member_ai_point_limit", operation: "set_member_ai_point_limit", relation: { ...transfer.relation, reference: "cap-1" }, resource: { type: "ai_point", quantity: "0" } };
+    const cap = { ...transfer, eventType: "account_member_ai_point_limit.changed", objectType: "member_ai_point_limit", operation: "set_member_ai_point_limit", relation: { ...transfer.relation, reference: "cap-1" }, resource: { unitVersion:"ai-micropoint-v1",type: "ai_point", quantity: "0" } };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...empty, source: "source_account_committed_operations+member_resource_audit", items: [transfer, cap] })));
     expect((await getAccountAudit(options)).items).toEqual([transfer, cap]);
-    for (const item of [{ ...transfer, resource: { type: "ai_point", quantity: "100" } }, { ...transfer, resource: { type: "data_row", quantity: "0" } }, { ...cap, resource: { type: "data_row", quantity: "0" } }, { ...cap, resource: { type: "ai_point", quantity: "9223372036854775808" } }]) {
+    for (const item of [{ ...transfer, resource: { unitVersion:"ai-micropoint-v1",type: "ai_point", quantity: "100" } }, { ...transfer, resource: { type: "data_row", quantity: "0" } }, { ...cap, resource: { type: "data_row", quantity: "0" } }, { ...cap, resource: { unitVersion:"ai-micropoint-v1",type: "ai_point", quantity: "9223372036854775808" } }]) {
       expect(() => parseAccountAudit({ ...empty, source: "source_account_committed_operations+member_resource_audit", items: [item] })).toThrow();
     }
   });
   it("preserves opaque operation IDs allowed by the resource writer within its UTF-8 byte limit", async () => {
-    const cap = { eventType: "account_member_ai_point_limit.changed", actor: "actor-1", time: "2026-09-29T08:00:00Z", objectType: "member_ai_point_limit", objectReference: "member-1", operation: "set_member_ai_point_limit", result: "succeeded", relation: { type: "organization_resource_operation", reference: "limit key", version: "1" }, resource: { type: "ai_point", quantity: "1000" } };
+    const cap = { eventType: "account_member_ai_point_limit.changed", actor: "actor-1", time: "2026-09-29T08:00:00Z", objectType: "member_ai_point_limit", objectReference: "member-1", operation: "set_member_ai_point_limit", result: "succeeded", relation: { type: "organization_resource_operation", reference: "limit key", version: "1" }, resource: { unitVersion:"ai-micropoint-v1",type: "ai_point", quantity: "1000" } };
     for (const reference of ["limit key", "月限操作 / member 1", "x".repeat(128), "\uFEFFlimit key"]) {
       const item = { ...cap, relation: { ...cap.relation, reference } };
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...empty, source: "source_account_committed_operations+member_resource_audit", items: [item] })));
@@ -47,10 +47,10 @@ describe("account audit query boundary", () => {
     }
   });
   it("preserves image point debits as exact strings and does not infer token usage", async () => {
-    const debit = { eventType: "account_ai_points.committed", actor: "actor-1", time: "2026-09-26T01:00:00Z", objectType: "image_generation", objectReference: "run-1", operation: "consume", result: "succeeded", relation: { type: "organization_resource_event", reference, version: "" }, points: { memberId: "grant-1", quantity: "9007199254740993", priceVersion: "price-1", intentId: "intent-1" } };
+    const debit = { eventType: "account_ai_points.committed", actor: "actor-1", time: "2026-09-26T01:00:00Z", objectType: "image_generation", objectReference: "run-1", operation: "consume", result: "succeeded", relation: { type: "organization_resource_event", reference, version: "" }, points: {unitVersion:"ai-micropoint-v1", memberId: "grant-1", quantity: "9007199254.740993", priceVersion: "price-1", intentId: "intent-1" } };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...empty, source: "source_account_committed_operations+image_ai_point_debits", items: [debit] })));
     expect((await getAccountAudit(options)).items).toEqual([debit]);
-    for (const points of [{ ...debit.points, quantity: 12 }, { ...debit.points, quantity: "invalid" }, { ...debit.points, quantity: "0" }, { ...debit.points, quantity: "9223372036854775808" }]) {
+    for (const points of [{ ...debit.points, quantity: 12 }, { ...debit.points, quantity: "invalid" },  { ...debit.points, quantity: "9223372036854775808" }]) {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...empty, items: [{ ...debit, points }] })));
       await expect(getAccountAudit(options)).rejects.toMatchObject({ code: "INVALID_UPSTREAM_RESPONSE" });
     }

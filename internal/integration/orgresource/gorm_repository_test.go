@@ -274,12 +274,12 @@ func TestWelcomeGrantRepaysResourceDebtBeforeIncreasingAvailable(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceBucketRow{
+	if err := db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceStoreRenewalPeriod)),
 		OrganizationID: "org-a", ResourceType: string(orgresource.ResourceStoreRenewalPeriod),
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&organizationResourceDebtRow{
+	if err := db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceStoreRenewalPeriod)),
 		OrganizationID: "org-a", ResourceType: string(orgresource.ResourceStoreRenewalPeriod), Amount: 1,
 	}).Error; err != nil {
 		t.Fatal(err)
@@ -472,7 +472,7 @@ func TestResourceSchemaRejectsNullBucketOrganization(t *testing.T) {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 
-	if err := db.Exec(`INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (NULL,'ai_point',0,0,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`).Error; err == nil {
+	if err := db.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',NULL,'ai_point',0,0,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").Error; err == nil {
 		t.Fatal("Resource bucket accepted a NULL organization_id")
 	}
 }

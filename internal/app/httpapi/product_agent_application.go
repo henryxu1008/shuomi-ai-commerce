@@ -61,6 +61,7 @@ type ProductAgentDependencies struct {
 	MaterialsTextPolicies    map[string]governed.RoutePolicy
 	DiagnosisTextPolicies    map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
+	ImageAnalysisPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
 	ContentOnly              bool
 	ContentTitleOnly         bool
@@ -121,7 +122,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if cfg.ContentTitleOnly && cfg.ContentOnly {
 		return nil, agent.ErrUnavailable
 	}
-	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
+	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0 || len(cfg.ImageAnalysisPolicies) != 0) {
 		return nil, agent.ErrUnavailable
 	}
 	allowedOrganizations := make(map[string]bool, len(cfg.AllowedOrganizationIDs))
@@ -134,21 +135,21 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	for organizationID, policy := range cfg.TextPolicies {
 		profile := policy.ShapeProfile()
 		costMicros, err := profile.MaximumCost()
-		if !allowedOrganizations[organizationID] || !governed.ValidRouteProfile(profile, aicapability.OperationProductAgentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || costMicros > cfg.Limits.CostMicros {
+		if !allowedOrganizations[organizationID] || !governed.ValidRouteShape(profile, aicapability.OperationProductAgentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || costMicros > cfg.Limits.CostMicros {
 			return nil, agent.ErrUnavailable
 		}
 	}
 	for organizationID, policy := range cfg.ContentTextPolicies {
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductContentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+		if !allowedOrganizations[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationProductContentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
 			return nil, agent.ErrUnavailable
 		}
 	}
 	for org, policy := range cfg.MaterialsTextPolicies {
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationListingMaterialsDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationListingMaterialsDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
 			return nil, agent.ErrUnavailable
 		}
 	}
@@ -158,7 +159,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationProductSelectionDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
 			return nil, agent.ErrUnavailable
 		}
 	}
@@ -169,12 +170,17 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationShopDiagnosisDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
 			return nil, agent.ErrUnavailable
 		}
 	}
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
+	}
+	for org, policy := range cfg.ImageAnalysisPolicies {
+		if !allowedOrganizations[org] || !agentconfig.ImageAnalysisProfileAdmissible(policy.ShapeProfile(), cfg.Limits) {
+			return nil, agent.ErrUnavailable
+		}
 	}
 	if err := aistore.VerifyModelPointInvocationSchema(ctx, cfg.RunDB); err != nil {
 		return nil, err
@@ -189,6 +195,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	}
 	a := &productAgentApplication{receipts: receipts, resolver: resolver, authorizer: auth, config: cfg}
 	a.config.AllowedOrganizationIDs = append([]string(nil), cfg.AllowedOrganizationIDs...)
+	a.config.ImageAnalysisPolicies = make(map[string]governed.RoutePolicy, len(cfg.ImageAnalysisPolicies))
+	for org, policy := range cfg.ImageAnalysisPolicies {
+		a.config.ImageAnalysisPolicies[org] = policy
+	}
 	a.config.TextPolicies = make(map[string]governed.RoutePolicy, len(cfg.TextPolicies))
 	for organizationID, policy := range cfg.TextPolicies {
 		a.config.TextPolicies[organizationID] = policy

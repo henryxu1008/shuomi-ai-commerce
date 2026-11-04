@@ -27,7 +27,7 @@ func TestGenerationFactGormFencePreservesKnownSuccess(t *testing.T) {
 	_, claimed, err := repository.ReserveSlotProviderV3(context.Background(), reservation)
 	require.NoError(t, err)
 	require.True(t, claimed)
-	intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: "grant-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "white-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
+	intent := imageagent.GenerationIntent{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Identity: reservation.Identity, MemberID: "grant-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "white-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
 	fact, err := repository.PrepareGenerationIntent(context.Background(), intent)
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict, "intent must use this run's immutable catalog hash")
 	catalog, err := repository.GetAssetCatalog(context.Background(), intent.Identity.RunScope)
@@ -43,7 +43,7 @@ func TestGenerationFactGormFencePreservesKnownSuccess(t *testing.T) {
 	changed.MemberID = "grant-2"
 	_, err = repository.PrepareGenerationIntent(context.Background(), changed)
 	require.Error(t, err)
-	receipt := imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: intent.Identity.TenantID, MemberID: intent.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation-1", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart}
+	receipt := imageagent.GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: intent.Identity.TenantID, MemberID: intent.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation-1", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart}
 	_, err = repository.BindGenerationReservation(context.Background(), intent, receipt)
 	require.NoError(t, err)
 	var winners atomic.Int32
@@ -67,7 +67,7 @@ func TestGenerationFactGormFencePreservesKnownSuccess(t *testing.T) {
 	require.Error(t, err)
 	_, err = repository.MarkGenerationUnknown(context.Background(), intent)
 	require.NoError(t, err)
-	proof := imageagent.GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"}
+	proof := imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"}
 	_, err = repository.RecordGenerationSuccess(context.Background(), intent, proof)
 	require.NoError(t, err)
 	_, err = repository.MarkGenerationUnknown(context.Background(), intent)

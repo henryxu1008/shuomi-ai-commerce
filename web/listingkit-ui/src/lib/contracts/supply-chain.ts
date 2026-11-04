@@ -1,3 +1,4 @@
+import {aiPointUnit,positiveMicropoints} from "./ai-points";
 import * as plans from "./upload-plan";
 import { sourceProductInputsSchema } from "./source-materials";
 import { z } from "zod";
@@ -219,7 +220,7 @@ export function parseSupplyResponse(route:SupplyRoute,payload:unknown,expected?:
 
 export type SupplyPublication=z.infer<typeof publicationSchema>;
 
-const optimizationChoiceSchema=z.object({agentId:z.literal("product.title.agent"),modeRevision:z.union([z.literal("0"),version]),executionMode:z.enum(["default","auto_approve","read_only","full_access"]),templateId:collectionID,revision:version,name:text(512),quoteHash:z.string().regex(/^[a-f0-9]{64}$/),maximumCostMicros:integer,currency:text(16),maximumPoints:revision,priceVersion:text(128).min(1)});
+const optimizationChoiceSchema=z.object({unitVersion:aiPointUnit,agentId:z.literal("product.title.agent"),modeRevision:z.union([z.literal("0"),version]),executionMode:z.enum(["default","auto_approve","read_only","full_access"]),templateId:collectionID,revision:version,name:text(512),quoteHash:z.string().regex(/^[a-f0-9]{64}$/),maximumCostMicros:integer,currency:text(16),maximumPoints:positiveMicropoints,priceVersion:text(128).min(1)});
 export const optimizationOptionsSchema=z.object({titles:z.array(optimizationChoiceSchema).max(100),reason:text(512).optional(),imageReason:text(512).optional(),nextCursor:collectionID.optional()});
 export type SupplyOptimizationChoice=z.infer<typeof optimizationChoiceSchema>;
 export type SupplyOptimizationOptions=z.infer<typeof optimizationOptionsSchema>;

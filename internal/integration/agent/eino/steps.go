@@ -12,6 +12,39 @@ import (
 	"task-processor/internal/commercetool"
 )
 
+// Fixed observations use the existing Gateway, limits, audit and History.
+// They do not ask a model to pick a Tool or create a second execution owner.
+func (e *execution) preRead(ctx context.Context, s *flowState) {
+	for _, observation := range s.State.History {
+		if observation.InvocationID != "" {
+			s.stop(agent.StopModelUnknown)
+			return
+		}
+	}
+	for _, ref := range e.runtime.config.PreReadTools {
+		found := false
+		for _, observation := range s.State.History {
+			if observation.Tool != ref {
+				continue
+			}
+			if found || !agent.ValidID(observation.CallID) || observation.AuditStatus != commercetool.AuditStatusRecorded || !json.Valid(observation.Output) {
+				s.stop(agent.StopAudit)
+				return
+			}
+			found = true
+		}
+		if !found {
+			s.Action = agent.Action{Kind: "tool", Tool: ref}
+			e.tool(ctx, s)
+			if s.Next == "model" && s.State.Phase == agent.Running {
+				s.Next = "pre_read"
+			}
+			return
+		}
+	}
+	s.Next = "model"
+}
+
 func (e *execution) model(ctx context.Context, s *flowState) {
 	limits := s.State.Request.Limits
 	if s.State.Usage.Steps >= limits.Steps {
@@ -75,6 +108,10 @@ func (e *execution) model(ctx context.Context, s *flowState) {
 		return
 	}
 	if observedInvalid {
+		s.stop(agent.StopInvalidOutput)
+		return
+	}
+	if e.runtime.config.SingleCallReadOnly && result.Action.Kind != "propose" {
 		s.stop(agent.StopInvalidOutput)
 		return
 	}
@@ -214,6 +251,10 @@ func (e *execution) validate(ctx context.Context, s *flowState) {
 	}
 	result = clone(result)
 	s.State.Validation = &result
+	if e.runtime.config.SingleCallReadOnly && !result.Valid {
+		s.stop(agent.StopInvalidOutput)
+		return
+	}
 	if result.Valid || s.State.Repairs >= 2 {
 		s.State.Phase = agent.HumanReviewRequired
 		s.Next = compose.END

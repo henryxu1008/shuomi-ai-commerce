@@ -50,7 +50,7 @@ describe("unified commercial contract", () => {
     const value = commercialOverviewFixture();
     expect(
       parseCommercialOverview(value)?.resources.value?.resources[1].available,
-    ).toBe("9007199254740993");
+    ).toBe("9007199254.740993");
     for (const invalid of ["bad", "01", "-1", "9223372036854775808"]) {
       const input = structuredClone(value);
       if (input.resources.state === "available")

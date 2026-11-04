@@ -63,7 +63,7 @@ func (h *imagePointAuditHTTPHistory) ListImagePointDebits(_ context.Context, org
 	if actor != "" && actor != "safe-actor" {
 		return orgresource.ImagePointAuditPage{}, nil
 	}
-	return orgresource.ImagePointAuditPage{Items: []orgresource.ImagePointDebit{{OrganizationID: org, EventID: "event-1", ActorID: "safe-actor", MemberID: "grant-1", RunID: "run-1", IntentID: "intent-1", PriceVersion: "price-1", Points: 12, CreatedAt: time.Now().UTC().Add(-time.Second).Truncate(time.Microsecond)}}}, nil
+	return orgresource.ImagePointAuditPage{Items: []orgresource.ImagePointDebit{{UnitVersion: "ai-micropoint-v1", OrganizationID: org, EventID: "event-1", ActorID: "safe-actor", MemberID: "grant-1", RunID: "run-1", IntentID: "intent-1", PriceVersion: "price-1", Points: 12, CreatedAt: time.Now().UTC().Add(-time.Second).Truncate(time.Microsecond)}}}, nil
 }
 
 func TestAccountAuditHTTPProjectsImagePointsUnderLiveOrgPermission(t *testing.T) {
@@ -88,7 +88,7 @@ func TestAccountAuditHTTPProjectsImagePointsUnderLiveOrgPermission(t *testing.T)
 		return w
 	}
 	w := get("B")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"points":{"memberId":"grant-1","quantity":"12","priceVersion":"price-1","intentId":"intent-1"}`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"points":{"unitVersion":"ai-micropoint-v1","memberId":"grant-1","quantity":"0.000012","priceVersion":"price-1","intentId":"intent-1"}`) {
 		t.Fatalf("point read %d %s", w.Code, w.Body.String())
 	}
 	filteredRequest := httptest.NewRequest("GET", accountAuditPath+"?period=all&member=grant-1&query="+url.QueryEscape("图片 AI 点数已扣"), nil)

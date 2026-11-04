@@ -1,4 +1,5 @@
-import { z } from "zod";
+import {z} from "zod";
+import {aiPointUnit,displayPoints} from "../contracts/ai-points";
 import { AccountReadError, accountErrorCode } from "./account";
 import { InvalidStrictJSONResponseError, readBoundedStrictJSON } from "./strict-json-response";
 
@@ -37,7 +38,7 @@ const resourceEvent = z.object({
 const limitEvent = z.object({
   ...resourceFields, eventType: z.literal("account_member_ai_point_limit.changed"), objectType: z.literal("member_ai_point_limit"),
   operation: z.literal("set_member_ai_point_limit"),
-  resource: z.object({ type: z.literal("ai_point"), quantity: exactNonnegative }).strict(),
+  resource: z.object({ unitVersion:aiPointUnit,type: z.literal("ai_point"), quantity: displayPoints }).strict(),
 }).strict();
 const profileEvent = z.object({
   eventType: z.literal("account_business_profile.updated"),
@@ -69,7 +70,7 @@ const pointEvent = z.object({
   objectType: z.literal("image_generation"), objectReference: resourceReference,
   operation: z.literal("consume"), result: z.literal("succeeded"),
   relation: z.object({ type: z.literal("organization_resource_event"), reference: resourceReference, version: z.literal("") }).strict(),
-  points: z.object({ memberId: resourceReference, quantity: z.string().refine(value => /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= BigInt("9223372036854775807")), priceVersion: z.string().min(1).max(192).regex(/^[^\x00-\x1f\x7f]+$/).refine(value => value.trim() === value), intentId: resourceReference }).strict(),
+  points: z.object({unitVersion:aiPointUnit, memberId:resourceReference, quantity:displayPoints, priceVersion: z.string().min(1).max(192).regex(/^[^\x00-\x1f\x7f]+$/).refine(value => value.trim() === value), intentId: resourceReference }).strict(),
 }).strict();
 const event = z.union([sourceEvent, resourceEvent, limitEvent, profileEvent, membershipEvent, usageEvent, pointEvent]);
 const cursor = z.string().min(1).max(3072).regex(/^[A-Za-z0-9_-]+$/);

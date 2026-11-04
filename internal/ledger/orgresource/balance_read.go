@@ -22,6 +22,7 @@ type Balances struct {
 }
 
 type Balance struct {
+	UnitVersion  string       `json:"unit_version,omitempty"`
 	ResourceType ResourceType `json:"resource_type"`
 	Unit         string       `json:"unit"`
 	State        string       `json:"state"`

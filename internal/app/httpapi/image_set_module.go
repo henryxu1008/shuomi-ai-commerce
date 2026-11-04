@@ -683,14 +683,18 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		if slot.Closure != nil {
 			settled += slot.Closure.Points
 		}
-		slots = append(slots, gin.H{"slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": definition.Recipe, "candidates": candidates, "closure": slot.Closure})
+		referencePriceVersion := ""
+		if definition.Recipe != nil {
+			referencePriceVersion = definition.Recipe.Quote.Billing.OfficialTariff.ReferencePriceVersion()
+		}
+		slots = append(slots, gin.H{"referencePriceVersion": referencePriceVersion, "slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": definition.Recipe, "candidates": candidates, "closure": slot.Closure})
 	}
 	closed := false
 	if p.Run.ImageAdmission != nil && p.PendingCommand == nil && imageagent.ImageSetClosedRunStatus(p.Run.Status) {
 		_, e := imageagent.ImageSetClosedEffectsDigest(p.Plan, p.Slots, p.RecoverableEffects)
 		closed = e == nil
 	}
-	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "points": prepared.Points, "settledPoints": settled, "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed, "block": p.Run.Block}
+	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "unitVersion": "ai-micropoint-v1", "points": strconv.FormatInt(prepared.Points, 10), "settledPoints": strconv.FormatInt(settled, 10), "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed, "block": p.Run.Block}
 	candidateDigest, candidateErr := imageagent.ImageSetCandidateResultDigest(p)
 	response["candidateSelectionAvailable"] = candidateErr == nil
 	if candidateErr == nil {
@@ -745,7 +749,7 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 			return nil, imageagent.ErrRevisionConflict
 		}
 		response["outputRecoverySummary"] = paid
-		response["settledPoints"] = settled + paid.SettledPoints
+		response["settledPoints"] = strconv.FormatInt(settled+paid.SettledPoints, 10)
 	}
 	return response, nil
 }
