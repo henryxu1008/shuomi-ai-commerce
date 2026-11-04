@@ -49,7 +49,11 @@ function ConnectedOverview({ scope, capabilities }: { scope: CockpitScope; capab
     <label><span className="sr-only">店铺</span><select aria-label="店铺" value={store} onChange={e => setStore(e.target.value)}><option value="">全部店铺</option>{capabilities.stores.filter(s => (!platform || s.platform === platform) && (!region || s.region === region)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
     <select aria-label="时间范围" value={days} onChange={e => setDays(Number(e.target.value))}><option value={7}>近7个完整日</option><option value={30}>近30个完整日</option></select>
   </div>;
-  return <OverviewPanels filters={filters} profit={data?.summaryComplete ? moneyText(data.summary.netProfit) : undefined} profitNote={data ? data.summaryComplete ? "人工收入与成本 · 完整覆盖所选店铺" : "待完整数据，未按部分录入推定完整利润" : matrixState ?? undefined}>
+  return <OverviewPanels filters={filters} storeCount={access.storesRead ? capabilities.stores.length : undefined} quickLinks={[
+    ...(access.storesRead ? [{ href: "/workbench/overview/stores", label: "店铺经营", description: "查看可访问店铺" }] : []),
+    ...(access.alertsRead ? [{ href: "/workbench/overview/alerts", label: "经营预警", description: "处理真实规则风险" }] : []),
+    ...(access.adviceRead ? [{ href: "/workbench/overview/advice", label: "经营建议", description: "查看人工处理建议" }] : []),
+  ]} profit={data?.summaryComplete ? moneyText(data.summary.netProfit) : undefined} profitNote={data ? data.summaryComplete ? "人工收入与成本 · 完整覆盖所选店铺" : "待完整数据，未按部分录入推定完整利润" : matrixState ?? undefined}>
     <Panel title="经营趋势" subtitle={`近${days}日 GMV 与利润变化`}><div className={styles.chartEmpty}><p>日趋势暂未接入</p><small>当前经营事实按录入区间保存，不能拆分推定逐日金额。</small></div>{access.storesRead && valid ? <Link className={styles.detailLink} href={`/workbench/overview/stores?${query}`} prefetch={false}>查看真实经营明细 →</Link> : null}</Panel>
     <Panel title="经营预警" subtitle="基于已保存的人工经营事实" link={access.alertsRead ? "/workbench/overview/alerts" : undefined}>
       {!alertState && alerts.data?.goalUnavailable && <p className={styles.empty}>企业当前目标或关联店铺不可访问，目标评判暂不可用。</p>}
@@ -64,10 +68,72 @@ function ConnectedOverview({ scope, capabilities }: { scope: CockpitScope; capab
     </Panel>
   </OverviewPanels>;
 }
-function OverviewPanels({ message, filters, profit, profitNote, children }: { message?: string; filters?: ReactNode; profit?: string; profitNote?: string; children?: ReactNode }) {
+function OverviewPanels({ message, filters, profit, profitNote, storeCount, quickLinks, children }: {
+  message?: string;
+  filters?: ReactNode;
+  profit?: string;
+  profitNote?: string;
+  storeCount?: number;
+  quickLinks?: readonly { href: string; label: string; description: string }[];
+  children?: ReactNode;
+}) {
+  const metrics = [
+    { label: "总 GMV", value: "—", note: "平台 GMV 汇总尚未接入", tone: "info" },
+    { label: "可访问店铺", value: storeCount === undefined ? "—" : String(storeCount), note: storeCount === undefined ? "当前权限范围尚未读取" : "当前企业可访问的店铺", tone: "success" },
+    { label: "待处理商品", value: "—", note: "商品处理统计尚未接入", tone: "warning" },
+    { label: "待审核商品", value: "—", note: "审核数据统计尚未接入", tone: "purple" },
+    { label: "净利润", value: profit ?? "—", note: profitNote ?? message ?? "仅完整经营事实可计算", tone: "info" },
+    { label: "异常任务", value: "—", note: "跨业务任务汇总尚未接入", tone: "danger" },
+  ] as const;
+  const stages = ["商品采集", "AI 处理", "人工审核", "平台上传", "经营观察"] as const;
+
   return <section className={styles.page} aria-labelledby="cockpit-home">
-    <header className={styles.header}><div><p className={styles.eyebrow}>运营驾驶舱</p><h1 id="cockpit-home">经营全局，一屏掌握</h1><p className={styles.subtitle}>统一查看店铺经营结果、规则预警与人工处理建议，辅助快速决策。</p></div>{filters ?? <p className={styles.availability}>{message}</p>}</header>
-    <div className={styles.metrics}>{["总GMV", "订单量", "净利润", "经营健康度"].map((title, index) => <Card className={styles.metric} key={title}><h2>{title}</h2><strong>{index === 2 ? profit ?? "—" : "—"}</strong><small>{index === 2 ? profitNote ?? message ?? "待完整数据" : index === 3 ? "评分规则暂未接入" : "统计来源暂未接入"}</small><Image className={styles.metricDot} src={`/figma/primary-homepages/cockpit-imgEllipse${index || ""}.svg`} width={7} height={7} alt="" /></Card>)}</div>
-    <div className={styles.panels}>{children ?? ["经营趋势", "经营预警", "店铺矩阵", "AI执行与待办决策"].map(title => <Panel key={title} title={title} subtitle="尚未取得经营数据"><p className={styles.empty}>{message}</p>{title === "店铺矩阵" ? <Button asChild variant="outline" size="sm"><Link href="/workbench/stores" prefetch={false}>查看我的店铺</Link></Button> : null}</Panel>)}</div>
+    <header className={styles.header}>
+      <div className={styles.heading}>
+        <p className={styles.eyebrow}>运营驾驶舱 / 经营总览</p>
+        <h1 id="cockpit-home">运营驾驶舱</h1>
+        <p className={styles.subtitle}>统一查看店铺经营、风险与人工决策；仅展示有依据的业务数据。</p>
+      </div>
+      {filters ?? <p className={styles.availability} role="status">{message}</p>}
+    </header>
+
+    <div className={styles.metrics} aria-label="运营指标概览">
+      {metrics.map(metric => <Card className={styles.metric} key={metric.label} data-tone={metric.tone}>
+        <h2>{metric.label}</h2>
+        <strong>{metric.value}</strong>
+        <small>{metric.note}</small>
+        <span className={styles.metricIndicator} aria-hidden="true" />
+      </Card>)}
+    </div>
+
+    <section className={styles.flow} aria-label="跨境电商业务链路">
+      <div className={styles.flowHeader}>
+        <h2>跨境电商业务链路</h2>
+        <p>业务说明 · 非实时进度</p>
+      </div>
+      <ol className={styles.flowSteps}>
+        {stages.map((stage, index) => <li key={stage}>
+          <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+          <strong>{stage}</strong>
+        </li>)}
+      </ol>
+    </section>
+
+    <div className={styles.panels}>
+      {children ?? ["经营趋势", "经营预警", "店铺矩阵", "AI执行与待办决策"].map(title => <Panel key={title} title={title} subtitle="尚未取得经营数据">
+        <p className={styles.empty}>{message}</p>
+        {title === "店铺矩阵" ? <Button asChild variant="outline" size="sm"><Link href="/workbench/stores" prefetch={false}>查看我的店铺</Link></Button> : null}
+      </Panel>)}
+    </div>
+
+    {quickLinks?.length ? <nav className={styles.quickActions} aria-label="驾驶舱快捷入口">
+      <div className={styles.quickHeader}><h2>快捷开始</h2><p>仅展示当前权限允许查看的业务入口</p></div>
+      <div className={styles.quickGrid}>
+        {quickLinks.map(link => <Link key={link.href} href={link.href} prefetch={false} className={styles.quickLink}>
+          <span className={styles.quickIcon} aria-hidden="true">↗</span>
+          <span><strong>{link.label}</strong><small>{link.description}</small></span>
+        </Link>)}
+      </div>
+    </nav> : null}
   </section>;
 }
