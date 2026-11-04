@@ -61,7 +61,7 @@ func (p OfficialModelTariff) IsReferenceEstimate() bool {
 
 // Empty means this tariff uses a different, separately admitted strategy.
 func (p OfficialModelTariff) ReferencePriceVersion() string {
-	if p.IsReferenceEstimate() {
+	if p.IsReferenceEstimate() || p.IsReferenceImageEstimate() {
 		return p.PriceVersion
 	}
 	return ""
@@ -72,18 +72,25 @@ func (p OfficialModelTariff) ReferencePriceVersion() string {
 // means explicit basic totals, not all supplier billing subdivisions. It must
 // never be inferred from Go zero values or establish a terminal outcome alone.
 type BillableModelUsage struct {
-	OutputImageItems int64 `json:",omitempty"`
-	MappingVersion   string
-	Complete         bool
-	InputText        int64
-	CachedInputText  int64
-	InputImage       int64
-	CachedInputImage int64
-	OutputText       int64
-	OutputImage      int64
+	ReferenceImageTotals ReferenceImageTotals `json:"referenceImageTotals,omitzero"`
+	OutputImageItems     int64                `json:",omitempty"`
+	MappingVersion       string
+	Complete             bool
+	InputText            int64
+	CachedInputText      int64
+	InputImage           int64
+	CachedInputImage     int64
+	OutputText           int64
+	OutputImage          int64
 }
 
 func (u BillableModelUsage) Validate() error {
+	if u.MappingVersion == ReferenceImagesTotalsV1 {
+		return u.validateReferenceImages()
+	}
+	if u.ReferenceImageTotals != (ReferenceImageTotals{}) {
+		return ErrOfficialModelPrice
+	}
 	if u.MappingVersion == ReferenceTextTotalsV1 && (u.CachedInputText != 0 || u.InputImage != 0 || u.CachedInputImage != 0 || u.OutputImage != 0 || u.OutputImageItems != 0) {
 		return ErrOfficialModelPrice
 	}
@@ -99,6 +106,9 @@ func (u BillableModelUsage) Validate() error {
 }
 
 func (p OfficialModelTariff) Validate() error {
+	if p.IsReferenceImageEstimate() && (p.Rates.InputText <= 0 || p.Rates.InputImage <= 0 || p.Rates.OutputImage <= 0 || p.Rates.CachedInputText != 0 || p.Rates.CachedInputImage != 0 || p.Rates.OutputText != 0 || p.Rates.OutputImagePerItem != 0) {
+		return ErrOfficialModelPrice
+	}
 	if p.IsReferenceEstimate() && (p.Rates.InputText <= 0 || p.Rates.OutputText <= 0 || p.Rates.CachedInputText != 0 || p.Rates.InputImage != 0 || p.Rates.CachedInputImage != 0 || p.Rates.OutputImage != 0 || p.Rates.OutputImagePerItem != 0) {
 		return ErrOfficialModelPrice
 	}
@@ -175,12 +185,20 @@ func (p OfficialModelTariff) micropoints(u BillableModelUsage, ceiling bool) (in
 	quantities := []int64{u.InputText - u.CachedInputText, u.CachedInputText, u.InputImage - u.CachedInputImage, u.CachedInputImage, u.OutputText, u.OutputImage, u.OutputImageItems}
 	pricedRates := p.Rates
 	rates := []int64{pricedRates.InputText, pricedRates.CachedInputText, pricedRates.InputImage, pricedRates.CachedInputImage, pricedRates.OutputText, pricedRates.OutputImage, pricedRates.OutputImagePerItem}
+	if p.IsReferenceImageEstimate() {
+		quantities[0], quantities[2] = u.ReferenceImageTotals.Input, 0
+		rates[0] = max(pricedRates.InputText, pricedRates.InputImage)
+		if !ceiling && u.ReferenceImageTotals.InputTextKnown && u.ReferenceImageTotals.InputImageKnown {
+			quantities[0], quantities[2] = u.InputText, u.InputImage
+			rates[0] = pricedRates.InputText
+		}
+	}
 	for i, quantity := range quantities {
 		if quantity < 0 || quantity > 1<<30 || quantity > 0 && rates[i] == 0 {
 			return 0, ErrOfficialModelPrice
 		}
 	}
-	if ceiling {
+	if ceiling && !p.IsReferenceImageEstimate() {
 		quantities[0], quantities[1] = u.InputText, 0
 		quantities[2], quantities[3] = u.InputImage, 0
 	}
@@ -209,12 +227,24 @@ func (p OfficialModelTariff) micropoints(u BillableModelUsage, ceiling bool) (in
 // OfficialModelBilling binds a conservative admitted usage bound to the same
 // frozen official tariff. It is neither a second tariff nor a charge owner.
 type OfficialModelBilling struct {
+	ReferenceEstimate    ReferenceImageEstimate `json:"referenceEstimate,omitzero"`
 	OfficialTariff       OfficialModelTariff
 	UsageBound           BillableModelUsage
 	BoundEvidenceVersion string
 }
 
 func (b OfficialModelBilling) ReservationMicropoints(model string) (int64, error) {
+	if b.OfficialTariff.IsReferenceImageEstimate() {
+		if model != FlareImageModel || b.OfficialTariff.Channel != "openai-direct" || b.OfficialTariff.Model != model || b.ReferenceEstimate.Validate() != nil || b.BoundEvidenceVersion != "" || b.UsageBound != (BillableModelUsage{}) {
+			return 0, ErrOfficialModelPrice
+		}
+		e := b.ReferenceEstimate
+		return b.OfficialTariff.ReservationMicropoints(BillableModelUsage{MappingVersion: ReferenceImagesTotalsV1, Complete: true, OutputImage: e.OutputTokens,
+			ReferenceImageTotals: ReferenceImageTotals{Known: true, Input: e.InputTokens, Output: e.OutputTokens, Total: e.InputTokens + e.OutputTokens}})
+	}
+	if b.ReferenceEstimate != (ReferenceImageEstimate{}) {
+		return 0, ErrOfficialModelPrice
+	}
 	if b.OfficialTariff.Model != model || !validTextFact(b.BoundEvidenceVersion, 128) {
 		return 0, ErrOfficialModelPrice
 	}
@@ -222,7 +252,10 @@ func (b OfficialModelBilling) ReservationMicropoints(model string) (int64, error
 }
 func (b OfficialModelBilling) ActualMicropoints(model string, u BillableModelUsage) (int64, error) {
 	maximum, err := b.ReservationMicropoints(model)
-	if err != nil || u.Validate() != nil || u.InputText > b.UsageBound.InputText || u.InputImage > b.UsageBound.InputImage || u.OutputText > b.UsageBound.OutputText || u.OutputImage > b.UsageBound.OutputImage || u.OutputImageItems > b.UsageBound.OutputImageItems {
+	if err != nil || u.Validate() != nil {
+		return 0, ErrOfficialModelPrice
+	}
+	if !b.OfficialTariff.IsReferenceImageEstimate() && (u.InputText > b.UsageBound.InputText || u.InputImage > b.UsageBound.InputImage || u.OutputText > b.UsageBound.OutputText || u.OutputImage > b.UsageBound.OutputImage || u.OutputImageItems > b.UsageBound.OutputImageItems) {
 		return 0, ErrOfficialModelPrice
 	}
 	actual, err := b.OfficialTariff.SettlementMicropoints(u)

@@ -70,12 +70,13 @@ type ImageSetQuoteReader interface {
 
 // Member-facing projection excludes endpoints and credential references.
 type ImageGenerationOption struct {
-	UnitVersion string               `json:"unitVersion"`
-	Route       *ImageRouteSelection `json:"route,omitempty"`
-	Model       string               `json:"model"`
-	Quality     string               `json:"quality"`
-	Resolution  string               `json:"resolution"`
-	Points      int64                "json:\"points,string\""
+	ReferencePriceVersion string               `json:"referencePriceVersion,omitempty"`
+	UnitVersion           string               `json:"unitVersion"`
+	Route                 *ImageRouteSelection `json:"route,omitempty"`
+	Model                 string               `json:"model"`
+	Quality               string               `json:"quality"`
+	Resolution            string               `json:"resolution"`
+	Points                int64                "json:\"points,string\""
 }
 type ImageGenerationOptionsReader interface {
 	ReadImageGenerationOptions(context.Context, ExecutionIdentity) ([]ImageGenerationOption, error)

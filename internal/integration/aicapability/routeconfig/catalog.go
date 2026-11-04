@@ -12,6 +12,7 @@ import (
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/bailian"
+	"task-processor/internal/integration/openai"
 )
 
 type ImageAdmission struct {
@@ -91,6 +92,10 @@ func validImage(i ImageAdmission) bool {
 		_, e = bailian.Endpoint(i.Endpoint)
 		return e == nil && bailian.SupportsModel(i.Model)
 	}
+	if i.Provider == "openai" && i.Model == aicapability.FlareImageModel {
+		_, e = openai.FlareImageEndpoint(i.Endpoint)
+		return e == nil
+	}
 	return i.Provider == "grsai" && (i.Model == "gpt-image-2.5" || i.Model == "gpt-image-2-vip") && (strings.TrimSuffix(u.Path, "/") == "" || strings.TrimSuffix(u.Path, "/") == "/v1" || strings.TrimSuffix(u.Path, "/") == "/v1/api/generate")
 }
 func (c *Catalog) Scopes(org string) []d.Scope {
@@ -136,7 +141,12 @@ func (c *Catalog) Qualify(sc d.Scope, id string, row d.Credential) (d.Binding, e
 		return d.Binding{}, d.ErrNeedsConfiguration
 	}
 	protocol := "grsai-json-sync-v1"
-	if i.Provider == "bailian" {
+	if i.Provider == "openai" {
+		if row.APIStyle != "openai" && row.APIStyle != "openai-compatible" {
+			return d.Binding{}, d.ErrNeedsConfiguration
+		}
+		protocol = aicapability.FlareImageProtocol
+	} else if i.Provider == "bailian" {
 		if row.APIStyle != "dashscope" {
 			return d.Binding{}, d.ErrNeedsConfiguration
 		}

@@ -3,6 +3,8 @@ package store
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"task-processor/internal/imageagent"
 
@@ -58,7 +60,7 @@ func (r *gormRepository) BeginGenerationDispatch(ctx context.Context, intent ima
 		next, acquired, err := existing.BeginDispatch()
 		won = acquired
 		return next, err
-	})
+	}, true)
 	if err != nil {
 		return imageagent.GenerationFact{}, false, err
 	}
@@ -86,7 +88,7 @@ func (r *gormRepository) BindGenerationSettlement(ctx context.Context, intent im
 	})
 }
 
-func (r *gormRepository) mutateGenerationFact(ctx context.Context, intent imageagent.GenerationIntent, requireExisting bool, change func(*imageagent.GenerationFact) (imageagent.GenerationFact, error)) (imageagent.GenerationFact, error) {
+func (r *gormRepository) mutateGenerationFact(ctx context.Context, intent imageagent.GenerationIntent, requireExisting bool, change func(*imageagent.GenerationFact) (imageagent.GenerationFact, error), checkDispatch ...bool) (imageagent.GenerationFact, error) {
 	expected, err := imageagent.NewGenerationFact(intent)
 	if err != nil {
 		return expected, err
@@ -96,6 +98,16 @@ func (r *gormRepository) mutateGenerationFact(ctx context.Context, intent imagea
 	}
 	var result imageagent.GenerationFact
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Serialize the observation and every new dispatch across runs, before
+		// acquiring run/effect locks. SQLite's write transaction conflicts fail
+		// closed; PostgreSQL needs this same-binding transaction lock explicitly.
+		binding := intent.ReferenceImageBindingDigest()
+		if binding != "" && tx.Dialector.Name() == "postgres" {
+			key, _ := hex.DecodeString(binding)
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(binary.BigEndian.Uint64(key[:8]))).Error; err != nil {
+				return err
+			}
+		}
 		run, err := r.findRunForUpdate(ctx, tx, intent.Identity.RunScope)
 		if err != nil {
 			return err
@@ -134,6 +146,21 @@ func (r *gormRepository) mutateGenerationFact(ctx context.Context, intent imagea
 			}
 			if catalog.Hash != intent.CatalogHash {
 				return imageagent.ErrRevisionConflict
+			}
+		}
+		if len(checkDispatch) == 1 && checkDispatch[0] && binding != "" && prior != nil && prior.State == imageagent.GenerationPrepared {
+			var rows []slotExternalEffectV3Record
+			if err := tx.Select("generation_fact_json").Where("tenant_id = ? AND length(generation_fact_json) > 0", intent.Identity.TenantID).Find(&rows).Error; err != nil {
+				return err
+			}
+			for _, row := range rows {
+				fact, err := decodeGenerationFact(row.GenerationFactJSON)
+				if err != nil {
+					return err
+				}
+				if fact.ObservedOverage != (imageagent.GenerationSuccess{}) && fact.Intent.ReferenceImageBindingDigest() == binding {
+					return imageagent.ErrReferenceImageBindingStopped
+				}
 			}
 		}
 		next, err := change(prior)

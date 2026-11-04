@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"reflect"
+	"task-processor/internal/aicapability"
 
 	"task-processor/internal/imageagent"
 )
@@ -24,7 +25,7 @@ func (e *ArtworkSlotExecutor) QuoteSlot(_ context.Context, input imageagent.Slot
 		return imageagent.SlotUsageQuote{}, imageagent.ErrValidation
 	}
 	// This fixed consumer has a point tariff, not a fabricated money quote.
-	if policy.CostMicros.Enabled {
+	if policy.CostMicros.Enabled && !input.Artwork.Quote.Billing.OfficialTariff.IsReferenceImageEstimate() {
 		return imageagent.SlotUsageQuote{}, imageagent.ErrBudgetQuoteUnavailable
 	}
 	pricing := input.Artwork.Quote
@@ -33,6 +34,9 @@ func (e *ArtworkSlotExecutor) QuoteSlot(_ context.Context, input imageagent.Slot
 		return imageagent.SlotUsageQuote{}, err
 	}
 	maximum := imageagent.UsageVector{Images: 1, AgentSteps: 1, ModelCalls: 1}
+	if pricing.Billing.OfficialTariff.IsReferenceImageEstimate() {
+		maximum.CostMicros = aicapability.ReferenceImageCNYMicros(pricing.Points)
+	}
 	return imageagent.SlotUsageQuote{Maximum: maximum, PricingVersion: pricing.PriceVersion, Fingerprint: fingerprint, Operations: []imageagent.SlotUsageOperation{{Name: "generate_artwork", Provider: pricing.Provider, Model: pricing.Model, PricingVersion: pricing.PriceVersion, Fingerprint: fingerprint, Maximum: maximum, MaximumOutputs: 1}}}, nil
 }
 
@@ -51,7 +55,11 @@ func (e *ArtworkSlotExecutor) GenerateQuotedSlot(ctx context.Context, input imag
 	if asset.Artwork != nil || asset.SourceURL != "" || asset.URL != "" || len(asset.Bytes) == 0 || !reflect.DeepEqual(asset.Operations, []string{"generate_artwork"}) {
 		return imageagent.SlotGeneratedOutput{}, imageagent.ErrProviderContractViolation
 	}
-	return imageagent.SlotGeneratedOutput{SlotID: input.Slot.ID, Attempt: input.Attempt, Assets: []imageagent.GeneratedAsset{asset}, UsageReceipt: imageagent.SlotUsageReceipt{Actual: quote.Maximum, ProviderRequestIDs: []string{asset.ProviderReceiptID}, CostBasis: imageagent.UsageCostUnavailable}}, nil
+	basis := imageagent.UsageCostUnavailable
+	if input.Artwork.Quote.Billing.OfficialTariff.IsReferenceImageEstimate() {
+		basis = imageagent.UsageCostReferenceEstimate
+	}
+	return imageagent.SlotGeneratedOutput{SlotID: input.Slot.ID, Attempt: input.Attempt, Assets: []imageagent.GeneratedAsset{asset}, UsageReceipt: imageagent.SlotUsageReceipt{Actual: quote.Maximum, ProviderRequestIDs: []string{asset.ProviderReceiptID}, CostBasis: basis}}, nil
 }
 
 func (*ArtworkSlotExecutor) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {

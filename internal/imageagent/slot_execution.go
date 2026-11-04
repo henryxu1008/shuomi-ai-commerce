@@ -72,6 +72,7 @@ const (
 	UsageCostActual             UsageCostBasis = "actual"
 	UsageCostReservedUpperBound UsageCostBasis = "reserved_upper_bound"
 	UsageCostUnavailable        UsageCostBasis = "unavailable"
+	UsageCostReferenceEstimate  UsageCostBasis = "reference_estimate"
 )
 
 type SlotUsageReceipt struct {

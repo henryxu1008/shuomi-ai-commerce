@@ -76,11 +76,11 @@ func (e *SourceGenerationExecutor) quoteSlot(ctx context.Context, input imageage
 		if quoteErr != nil || capability.MaximumOutputs != 1 {
 			return quotedSlotExecution{}, fmt.Errorf("%w: %s capability returned an invalid quote", imageagent.ErrBudgetQuoteUnavailable, operation)
 		}
-		if policy.CostMicros.Enabled && !capability.CostUpperBoundKnown {
+		if policy.CostMicros.Enabled && !capability.CostUpperBoundKnown && capability.ReferencePriceVersion == "" {
 			return quotedSlotExecution{}, fmt.Errorf("%w: %s capability has no trustworthy cost upper bound", imageagent.ErrBudgetQuoteUnavailable, operation)
 		}
 		maximum := imageagent.UsageVector{Images: 1, AgentSteps: 1, ModelCalls: capability.MaximumModelCalls}
-		if capability.CostUpperBoundKnown {
+		if capability.CostUpperBoundKnown || capability.ReferencePriceVersion != "" {
 			maximum.CostMicros = capability.MaximumCostMicros
 		}
 		public := imageagent.SlotUsageOperation{
@@ -231,7 +231,9 @@ func receiptForQuote(quoted *quotedSlotExecution, actualImages int64, candidates
 	receipt := imageagent.SlotUsageReceipt{Actual: quoted.quote.Maximum, CostBasis: imageagent.UsageCostReservedUpperBound}
 	receipt.Actual.Images = actualImages
 	for _, operation := range quoted.operations {
-		if !operation.capability.CostUpperBoundKnown {
+		if operation.capability.ReferencePriceVersion != "" {
+			receipt.CostBasis = imageagent.UsageCostReferenceEstimate
+		} else if !operation.capability.CostUpperBoundKnown {
 			receipt.Actual.CostMicros = 0
 			receipt.CostBasis = imageagent.UsageCostUnavailable
 			break

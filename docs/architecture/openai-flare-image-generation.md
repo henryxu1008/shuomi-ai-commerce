@@ -16,15 +16,16 @@
 下方旧 `OfficialModelBilling.UsageBound`/完整 raw 分项属于原精确计费方案，不能靠补假证据让 Flare Ready。
 后续只在原 owner 中明确参考估算的最小映射；算术和原资源事务可 EXTRACT，已撤回的厂商证明前置 RETIRE。
 实际扣点、缺基础用量或超过预留的公共资金语义若必须变化，须先报告；本次不发明固定扣点或第二账本。
-现有 Flare direct wire/worker/source 消费尚未完成，不能把撤下研究前置写成实现已完成或产品可用。
-本次仅改设计/范围，未实施、未新增评审或真实操作，运行及产品验收 NOT_RUN。
+本轮按冻结设计补齐 Flare direct wire/worker/source 的离线实现；准确实现 HEAD 的 CI 与原 Reviewer 最终工程复核另在 PR 记录。
+撤下精确研究前置不等于产品可用；真实配置未发布，运行及产品验收 NOT_RUN。
 
 ## 本次设计候选（2026-11-04）
 
-状态：**DESIGN_ONLY / NOT_IMPLEMENTATION_READY**。Design Basis：Independent Architecture。
-用户已授权当前唯一 Writer 在原工作区、原 PR #1078 补齐本候选；暂不实现、不新增评审派工。
+状态：**冻结设计 IMPLEMENTATION_READY；实现待最终工程复核**。Design Basis：Independent Architecture。
+冻结设计为 `f35f30d41cbc5840174e6aea16b571607a158ef8`；[原唯一 Reviewer R1](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078#issuecomment-6619681516)通过，D1 已获用户认可。
+用户随后授权原唯一 Writer 在原工作区/PR 先补离线回归再最小实现，复用原 Reviewer；不合并、部署、关单或执行真实操作。
 源码依据为 `bb269e6fa14cb9b8bb94e2fd473721602bf69b4e`，其 CI 成功只证明已有代码，不证明本文候选已实现或已评审。
-本节是当前候选；折叠的旧设计仅保留历史 UNKNOWN/失败和调查记录，直接冲突要求不再生效。
+本节是本次冻结设计；折叠的旧设计仅保留历史 UNKNOWN/失败和调查记录，直接冲突要求不再生效。
 
 ### 1. 用户结果与固定范围
 
@@ -33,18 +34,18 @@
 不切型、降质量、改参数域、增调用或提高额度；不新增上传、任意 URL、页面或自动批准。
 产品依据为[企业统一配置当前决定](enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)、
 [当前 Figma Authority](../product/final-ui-ia-authority.md)及[全新系统基线](../product/greenfield-no-legacy-migration.md)。
-本次只设计图片参考估算和原路径接线，不恢复精确价格、供应商时钟或完整硬上界研究。
+本次只实现已冻结的图片参考估算和原路径接线，不恢复精确价格、供应商时钟或完整硬上界研究。
 
 ### 2. 唯一 owner 与接线
 
 | 原 owner / 入口 | 本候选的最小补齐 | 当前状态 |
 | --- | --- | --- |
-| `aicapability/routeconfig` 的平台价目/FX、企业选择、原 Repository/CAS | 在原图片价目 JSON 增加估算参数；企业仍只选准确绑定，不填写价格或密钥 | 候选，未实现 |
-| `SharedCatalog` → `SharedCategoryReader` → 原 image API/worker 注入 | 增加准确 OpenAI Flare 的参考图片策略准入，按实际 image 用途核凭据、策略、预算 | 当前图片分支尚未支持 Flare |
-| 原 `ImageGenerationQuote` → `GenerationIntent.Billing` / 原指纹 | 冻结同一价目、FX、估算参数及策略版本；不设第二 current 或报价 owner | 候选，未实现 |
-| 原 `generationProviderFactory` / OpenAI integration / route-bound port | 最小同步 generate/edit 适配，传出有界 raw usage 和原结果事实 | Flare 尚未接线 |
-| 原 `GenerationSuccess`、slot/effect、素材 owner | 保留基础用量、结果摘要及原输入身份；原发布/批准/找回路径消费 | 复用，须补策略分支 |
-| 原 `orgresource` 的 reserve/finalize 与终态 proof | 使用同一微点算术和原事务得到 R/A、释放差额，不新增收费账本 | 复用，须补策略验证 |
+| `aicapability/routeconfig` 的平台价目/FX、企业选择、原 Repository/CAS | 在原图片价目 JSON 增加估算参数；企业仍只选准确绑定，不填写价格或密钥 | 已接线，待实现准确 HEAD 的 CI/最终复核 |
+| `SharedCatalog` → `SharedCategoryReader` → 原 image API/worker 注入 | 增加准确 OpenAI Flare 的参考图片策略准入，按实际 image 用途核凭据、策略、预算 | 准确 Flare 分支已接线，未发布配置 |
+| 原 `ImageGenerationQuote` → `GenerationIntent.Billing` / 原指纹 | 冻结同一价目、FX、估算参数及策略版本；不设第二 current 或报价 owner | 已接线，待实现准确 HEAD 的 CI/最终复核 |
+| 原 `generationProviderFactory` / OpenAI integration / route-bound port | 最小同步 generate/edit 适配，传出有界 raw usage 和原结果事实 | 准确 Flare 单次同步 generate/edit 已接线 |
+| 原 `GenerationSuccess`、slot/effect、素材 owner | 保留基础用量、结果摘要及原输入身份；原发布/批准/找回路径消费 | 复用，已补本策略分支 |
+| 原 `orgresource` 的 reserve/finalize 与终态 proof | 使用同一微点算术和原事务得到 R/A、释放差额，不新增收费账本 | 复用，已补本策略验证 |
 
 ### 3. 冻结参考策略与估算参数
 
@@ -105,9 +106,8 @@ A = floor_micro((inputAmount + O * ro) * F)
 显式完整零计量可得 A=0，正计量向下取整也可得零；都必须有准确终态证据，不等于 no-send。
 每张图的 A 来自基础用量和冻结参考价，不按预留 R 或张数固定扣款。
 
-**D1（待认可的设计口径）**：缺输入细分时使用较高输入参考费率可能比完整分项口径偏高；
-它是公开的参考估算，不是额外服务费。候选不把此口径写成用户已批准，不改变原预算；
-若用户不接受，应在实现前明确另一种最小映射，不能退回无限精度研究或暗中补造分项。
+**D1（用户已认可的冻结口径）**：缺输入细分时使用较高输入参考费率可能比完整分项口径偏高；
+它是公开的参考估算，不是额外服务费。用户批准记录见 [D1 确认](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078#issuecomment-6619584091)；不改变原预算，不回退无限精度研究或补造分项。
 
 ### 6. 异常、幂等与原恢复责任
 
@@ -145,8 +145,9 @@ A = floor_micro((inputAmount + O * ro) * F)
 | image generation fact / orgresource | 完整分项、仅总量、显式零、缺失/矛盾、A<=R与A>R、超估计但未超R、原键不重复扣费 |
 | effect recovery/finalization / 原页面 | no-send与已发未知、撤权/漂移、ACK丢失只恢复原事实、坏图有费用、估算与历史投影 |
 
-不新增runner、验收平台或全量故障矩阵。当前只做文档差异、引用、字段/单位和原owner映射检查，不运行业务回归。
-候选仍须用户认可D1和适用独立架构检查，才可能达到IMPLEMENTATION_READY；本次不请求或派发评审、不实施。
+不新增 runner、验收平台或全量故障矩阵。原回归补齐 RED/GREEN：估算参数丢失、超预留误记成功、跨 run 未阻止、白底媒体类型遗漏、厂商 ID 与原素材标识不匹配、未知输出维度和页面估算接线。
+原价目/CAS、API/worker值比较、微点算术、资源预留/结算及回放、单次受控 HTTP、base64/坏图、恢复包 PUT 与观察 ACK 丢失和相邻来源/artwork路径均沿原测试验证。
+本机 SQLite/合成 transport/页面单元回归通过；PostgreSQL 同绑定并发锁回归复用原 CI 临时容器能力，本机 SKIP、待本轮准确 HEAD 的 CI，不连接保留库。
 实际原参数、参考价/FX/凭据及发布状态缺证据 UNKNOWN，不阻止提交设计或未来使用合成资料的离线实现。
 运行、真实保存/恢复、浏览器、真实模型效果及产品验收 NOT_RUN；#47 UNKNOWN、#307 OPEN、#733咨询NOT_SENT。
 
@@ -154,6 +155,15 @@ Legacy decision: EXTRACT | RETIRE
 Reusable behavior: 原配置/CAS/版本、整数算费、资源事务、effect/素材及原键恢复。
 Current owner: 原 aicapability/routeconfig、imageagent、OpenAI integration、orgresource与素材owner。
 Cutover/deletion condition: Flare只接当前owner；厂商完整硬界作为Flare前置RETIRE，其他当前策略不被兼容或放宽；无旧库迁移或历史重算。
+
+
+### 实现接线说明（本轮，不构成产品验收）
+
+- 新字段均为原价目/quote/intent/GenerationFact JSON 的有界值；无新 SQL 表/列、账本、执行状态或配置 current。
+- `ObservedOverage` 只在原 UNKNOWN fact 中保存合法 A>R 的有限证明，不生成 success/terminal proof/结算回执。原事务先按企业与冻结绑定加 PostgreSQL transaction advisory lock，再读写原 fact；新 dispatch 与超额提交同序，已发 permit 不被重解释，原键读取/找回/结算不受 gate 阻止。
+- Flare 返回的 base64 沿原 `PrepareSlotArtifacts`/`PreserveSlotArtifacts`/`EnsureStaged` 保全；最终发布仍在成功与结算之后。`artifact_bundle` 只是原结果定位协议，不证明 PUT 已成功。存储失败仍记录可信用量，不改为未发送或释放费用。
+- 原素材 provenance 使用响应摘要作为有界 opaque receipt；厂商请求 ID 和响应身份保留在原 GenerationFact，不伪造厂商 ID 或可访问 URL。
+- 原页面显示冻结参考版本、预留/已结算和 D1 口径。费用预算只投影同一个原账本的微点金额，不产生第二次计费。
 
 <details>
 <summary>历史设计与上界研究（已被当前阶段决定替代，不是当前准入要求）</summary>
