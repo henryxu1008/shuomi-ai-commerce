@@ -3,6 +3,9 @@
 状态：**REVIEWABLE_DRAFT / NOT_PUBLISHABLE**。本轮只读核对及文档准备，不是实际配置文件、安装回执或发布授权。
 应用固定为 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
 原独立增量复核与 [CI 41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) 已通过；本轮文档提交不改变应用来源，也不把原 CI 冒称新文档 SHA 的直接执行结果。
+前一文档提交 `d8675373bfd9c74dd3e6919120217d93c7000025` 的 [CI 41776984208](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41776984208)
+已 completed/SUCCESS，Required CI Gate `126403603886` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
+本页随后收敛的草案不是该旧SHA直接执行过的配置，也没有被应用到实例。
 
 ## 本次交付与依据
 
@@ -62,7 +65,66 @@
 上述 Run 数值仅说明已批准的两项方案。原 ProductAgent 共享 Limits 实际为 CNY、12步、2调用、139264 Token、
 1000000微元、120秒；原内容 Profile 为65536 prompt /4096 completion、45秒，含当前 ModelProfile 已不接受的 `PointTariff` 字段。
 因此“增加两项 policy”不是完整差异：研究/选品要求的300000微元、≤72000 Token与原共享上限不同，
-原内容声明也须按当前合同重新声明。不能默改内容用途预算、复制旧 Profile，或清空目录来掩盖冲突；本轮仅列出这个待审范围，不写真实配置。
+原内容声明也须按当前合同重新声明。以下将差异收敛为准确候选及其产品影响；不写真实配置，不默改原内容用途预算。
+
+### 三用途声明的准确候选
+
+本轮候选均沿 LAC 原 `local-content-route-830-20261020` 和下节已核凭据/端点版本，不新增凭据记录、不复制Key。
+研究、选品分别新增对应 policies；原内容保留其当前 owner 和 prompt/schema，以当前 ModelProfile重新声明，
+删除不再接受的 `PointTariff`，不把它换算成新的客户点价，也不复制旧 current/revision。
+
+| 字段 | 原内容的当前合同候选 | 项目资料分析候选 | 独立商品对比候选 |
+| --- | --- | --- | --- |
+| policy map / capability | `contentTextPolicies` / `product.content.decision` | `researchTextPolicies` / `product.research.decision` | `selectionTextPolicies` / `product.selection.decision` |
+| prompt | `product-content-agent-v1` | `market-research-prompt-v1` | `product-selection-prompt-v1` |
+| output schema | `product-content-action-v1` | `market-research-action-v1` | `product-selection-action-v1` |
+| prompt / completion上限 | 保留65536 /4096 | 32000 /4000 | 32000 /4000 |
+| 输入/输出字节上限 | 保留65536 /16384 | 32768 /16384（不高于原用途界限） | 32768 /16384 |
+| `DeadlineBound` | 保留45000000000纳秒（45秒） | 45000000000 | 45000000000 |
+| 每调用参考成本上界 | 163840微元，即¥0.16384 | 96000微元，即¥0.096 | 96000微元，即¥0.096 |
+| Definition每调用点预算 | 保留0（未声明独立点上限；不是零扣费） | `maximumMicropoints=10000000` | `maximumMicropoints=10000000` |
+
+三项共同的 `ProviderID=DASHSCOPE`、`AdapterKind=openai-compatible`、`ModelID=deepseek-v4.1-flash`、
+`AdapterPolicyVersion=dashscope-deepseek-v4.1-flash-nonthinking-v1`、Currency=CNY不变；
+输入/输出参考费率仍2000000 /8000000微元每百万Token，`UsageMappingVersion=openai-compatible-token-usage-v1`。
+不把该serializer标识与价目的 `reference-text-totals-v1` 用量策略混成同一字段。
+
+同一绑定覆盖这三个文字消费者时，三个显式 Definition 必须使用相同的 manufacturer / region / serviceType / channel / priceId / referenceVersion：
+候选为 `deepseek` / `cn-beijing` / `standard-sync` / `bailian-beijing` /
+`lac-deepseek-reference-text-v1` / `lac-deepseek-text-reference-v1`。
+Profile的候选RoutingPolicyVersion为 `lac-deepseek-text-admission-20261104-v1`、CostPricingVersion为 `reference-text-totals-v1`。
+这些**新增标识均为未发布草案**，不是已有价目或current；未来发布时须随实际版本一起审查。
+参考策略不要求BoundEvidenceVersion，留空；不伪造精确费用证明。部署Profile不嵌入执行OfficialTariff，由唯一共享owner在使用时读取并冻结。
+
+不能只补研究/选品而让原内容 anchor 缺少同一ReferenceVersion等元数据，否则原SharedCatalog会按 `CONSUMER_BINDING_MISMATCH` / `OPEN_CONSUMER_MISSING` 拒绝，
+不是两项分析通过就可跳过内容声明。原4条图片定义仍按独立ImageAdmission核对，不用文字元数据或20点预算替代。
+
+### 共享 Limits：可实现方案及未批准的影响
+
+固定1e的 [ProductAgentConfig](../../internal/app/runtime/currentapplication/product_agent.go)只有一套Limits。
+研究/选品prepare直接继承parent Limits，仅把ModelCalls收紧到2；
+[配置装配](../../internal/app/runtime/currentapplication/model_route_pricing.go)还会覆盖显式Definition的MaximumCostMicros，研究/选品使用 `CostMicros/2`，内容使用完整 `CostMicros`。
+因此在binding里手填150000不能独立于原¥1共享上限生效。这里是现有装配的真实限制，本轮不新增按用途预算owner或修改固定应用。
+
+| 共享字段 | 原a66 | 供审候选A：三用途共享两项已批上限 |
+| --- | --- | --- |
+| enabled / contentOnly / contentTitleOnly | false /true /false | false /false /false |
+| currency / steps / modelCalls / runtimeSeconds | CNY /12 /2 /120 | 原样保留 |
+| tokens | 139264 | 72000 |
+| costMicros | 1000000 | 300000 |
+| 派生Definition成本上限 | 内容1000000 | 内容300000；研究/选品各150000每调用 |
+
+候选A满足两项每Run¥0.30、最多2调用、每调用32000/4000、20点；参考最大两调用¥0.192/19.2点。
+原内容的单次Profile仍可装入新上限（69632 Token、¥0.16384），但两次最大调用需要139264 Token、¥0.32768，
+超过候选A共享上限。因此A**会收紧原内容Run的预算和Token包络**，不能称为原内容行为完全不变，也不能在本轮当作已经批准应用。
+
+候选B保留原内容¥1/139264共享Limits，则研究/选品Run展示和冻结的上限也会继承这两个原值，
+不符合本次已批¥0.30/≤72000方案；不能靠实际估算较低或20点Definition预算掩盖。B不进入两项功能的配置发布候选。
+如果既要求内容原Run上限完全不变、又要求两项准确独立上限，固定1e没有纯配置解法，须另定源码范围；本轮不实施。
+
+当前技术候选明确为A，但内容用途的收紧仍是**待用户审查的产品影响**；预算不变的指令不被解释为批准修改该原用途。
+在这个决定明确前，只交付差异，不发布manifest、不声称配置准入已完成。无需因此继续研究精确厂商价格。
+本轮非运行草案及整数算术记录保留于 `.local/selection-config-convergence-1e3509-20261104-01/`，无DB连接参数或凭据值；未做实际启动/远端资格验证。
 
 ### 本轮 LAC 绑定及配置版本
 
@@ -103,7 +165,7 @@ Run DB 的 LAC 内容 current 为 `route-af239e9c-04e4-4846-bb1f-31a07365faa7`�
 | 准确企业/两项文字定义元数据 | 声明这些候选、后续配置选择 | 企业/原Client/凭据版本/端点/超时已核，部署中两用途policy未声明；仍须形成合乎当前合同的完整定义，处理contentOnly/旧内容字段/共享Limits，不用不合法policy换取页面可开 |
 | image credential metadata | 图片技术Ready | 关闭态没有worker credential reader，沿原CREDENTIAL_READER_MISSING；不是为了让所有选项Ready而启worker的理由 |
 | 参考价/完整共享选择/操作模式版本 | 后续真实研究与选品 | 本次不发布；未就绪只如实显示。配置管理启动不等于模型可执行，技术Ready也不等于真实调用授权 |
-| 其他worker/恢复入口、真实队列影响 | 更新前外部副作用边界 | 已核如下启动清单；DataServices/知识处理/恢复循环并未随AI关闭。运行范围尚须在更新方案中明确接受或调整，不能悄悄停服务或扩开发范围 |
+| 其他worker/恢复入口、真实队列影响 | 更新前外部副作用边界 | 候选保留/关闭范围已在下表明确；保留依赖不授权消费任务或执行恢复。不能悄悄停原服务，也不能将候选的启动副作用解释为已批准 |
 
 初次连接检查受本机 Windows CRLF 输入影响而认证失败；改为LF后，同一原reader和writer均成功，未更换身份或凭据。
 失败记录保留，但不再作为“凭据失效”结论。以上是只读元数据匹配，不能冒称完整启动、现场历史读取或产品验收通过。
@@ -114,22 +176,28 @@ Run DB 的 LAC 内容 current 为 `route-af239e9c-04e4-4846-bb1f-31a07365faa7`�
 [HTTP装配](../../internal/app/httpapi/current_application.go)及各现有owner；未新增开关、调度器或第二执行owner。
 2026-11-04 04:55–04:57 UTC仅对原Temporal `default` 执行 task-queue describe，没有poll、启动workflow、读取历史/载荷或执行恢复。
 
-| 执行者 | 原配置 / 启动条件 | 本轮证据与1e影响 |
+本阶段原a66的全部现有服务、worker、队列、数据和卷原样保留；不停止、不暂停队列、不重放任务。
+以下是**未来1e配置候选的保留范围**，不是本轮启动或任务执行授权；没有新增worker及新的数据来源。
+
+| 执行者 | 原配置 / 启动条件 | 候选保留范围与启动影响 |
 | --- | --- | --- |
-| DataServices采集 | 配置存在即装配/Start，无独立enabled；Amazon14站点 | `data-services-v1`有workflow/activity poller，近似backlog各0。1e保持此配置仍会启动，两个AI false不控制它；移除DataServices又会破坏当前市场调研依赖，不能当作无影响配置修补 |
+| DataServices采集 | 配置存在即装配/Start，无独立enabled；Amazon14站点 | 保留原配置和采集队列依赖，维持市场调研资料读取/配置接线；不扩站点、不换SHEIN源。原队列有workflow/activity poller、快照backlog各0；未来1e仍会消费，移除又破坏研究依赖，不能伪造enabled=false或当无影响修补 |
 | 完整图片 | 原worker文件引用存在，a66在消费 | `image-agent-organization-v1`有workflow/activity poller，近似backlog各0。1e显式generation=false后仅不装配本应用图片worker；不控制其他进程，也不从本次快照推断所有workflow已结束 |
-| 店铺观察 | observations存在，preparationOnly=true | `store-observations-current`有workflow/activity poller，近似backlog各0。preparationOnly仍装配worker；现合同要求空观察库且不提供official访问，不等于worker关闭。本轮不读取/清空该业务库 |
+| 店铺观察 | observations存在，preparationOnly=true | 保留准备模式，不打开official应用访问；队列`store-observations-current`原有workflow/activity poller、快照backlog各0。准备模式仍装配worker并要求空观察库，不等于worker关闭；本轮不读取/清空业务库 |
 | POD / Supply / Fulfillment | 三项配置均不存在 | 本应用不装配对应worker；不宣称其他进程不存在 |
-| Knowledge | enabled=true | 独立5秒Sweep、并发2、对象读取/文档解析；不受AI开关控制。不触发Sweep或查询业务队列 |
-| Ecoservices / 商业资源 / consumer恢复 / 推荐成熟 | 原Ecoservices启用，Commercial/Money owner存在，Referrals启用 | 固定1e仍装配Ecoservices15秒、资源购买/consumer30秒、推荐成熟1小时循环，启动会立即运行；非Temporal队列。本轮不触发恢复、不查订单/余额/待结算记录 |
+| Knowledge | enabled=true | 保留原资料服务及其5秒Sweep、并发2、对象读取/文档解析；不受AI开关控制。启动会处理存量任务，不把它冒称纯只读；本轮不触发Sweep或查询业务队列 |
+| Ecoservices | enabled=true、nonPaymentOnly=true；newPayments/newMerchantApplications均false | 保留非支付资格模式；按`buildEcoservices`该分支返回nil恢复回调，**不装配Ecoservices15秒支付恢复循环**。更正此前仅凭enabled推断有该循环的说法，不打开支付/商户申请，也不读其秘密配置 |
+| 商业资源 / consumer恢复 / 推荐成熟 | Commercial/Money owner存在，Referrals启用 | 保留原owner/依赖，不删池绕过启动；固定1e仍有资源购买/consumer30秒、推荐成熟1小时循环，首次立即运行，可能写原业务事实。只描述装配，不推定实际待处理数量，不调用恢复或读取订单/余额 |
 | 充值 / Chat / BrowserCollector | walletTopUp缺省（两渠道false）；Chat enabled=false；采集桥配置仍存在 | 不能把“无新支付渠道”写成“所有恢复停止”；充值恢复回调仍可装配。原独立browser-collector容器保持退出，不启动、不控制既有桥会话 |
 
-这些队列0积压只是一个近似快照，不证明无运行中的workflow、未来任务或恢复副作用。
-启动所消费的非AI现有任务范围须审查；本轮不停止原a66，也不通过重新启动消费者来验证边界。
+这些队列0积压只是上一轮近似快照，不证明无运行中的workflow、未来任务或恢复副作用；本轮不将它重新标成实时零积压。
+保留的DataServices/观察/知识/商业恢复会在候选启动时运行，**当前禁止真实采集/付费及不更新实例的边界没有解除**。
+因此后续两服务更新必须单独明确该启动范围；若要求候选启动后全系统绝无后台消费/写入，固定1e与当前依赖配置不满足，不能只靠两个AI false承诺。
+本轮不停止原a66、不修改消费者源码，也不通过重新启动来验证边界。
 
 ## 未来配置交付清单
 
-1. 复用本轮已核writer/LAC版本；仅补未核的图片现行声明/读取资格和现有执行者处理范围。先审查旧内容声明与共享Limits的具体差异，不再研究精确厂商价格，不申请新凭据或角色。
+1. 复用已核writer/LAC版本及本页准确三用途/worker差异；供审候选A的原内容预算收紧须明确决定。另补尚未核的图片现行声明/读取资格，不再研究精确厂商价格、不申请新凭据/角色，不等待新的渠道凭据设计来替换固定1e。
 2. 形成独立的新私密 manifest 及去密 diff：只包含明确批准的字段改动，productAgent=false、generation=false；原 a66 文件和哈希不变。现在没有生成或写入该真实文件。
 3. 在明确获准的离线/元数据检查范围完成当前严格字段和资源校验；不以在 a66 上尝试启动或请求模型来“验证配置”。
 4. 通过后才进入[两服务更新方案](market-research-unified-update-plan.md)。模型/参考价发布、构建、实例更新、真实AI分别单独授权，不能因批准本文一并执行。
