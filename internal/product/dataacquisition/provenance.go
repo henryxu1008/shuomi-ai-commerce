@@ -21,6 +21,11 @@ type CapturedEvidenceRepository interface {
 }
 
 func (s *Service) Provenance(ctx context.Context, p Principal, source collection.Source, reader CapturedResultReader) (Provenance, error) {
+	r := Reader{repo: s.repo, live: s.live}
+	return r.Provenance(ctx, p, source, reader)
+}
+
+func (s *Reader) Provenance(ctx context.Context, p Principal, source collection.Source, reader CapturedResultReader) (Provenance, error) {
 	if ctx == nil || p.Scope.Validate() != nil || p.CredentialID != "" || source.Kind != "amazon_data" || !collection.ValidID(source.PublicationID) || source.OperationID != source.PublicationID || source.ProductKey == "" || source.Version == 0 || reader == nil {
 		return Provenance{}, ErrInvalid
 	}

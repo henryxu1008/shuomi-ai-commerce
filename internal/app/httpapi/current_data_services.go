@@ -23,6 +23,7 @@ import (
 )
 
 type DataServicesDependencies struct {
+	ExecutionEnabled  bool
 	ProductDB         *gorm.DB
 	Provider          dataservicesapp.RuntimeProvider
 	Starter           dataacquisition.ExecutionStarter
@@ -40,8 +41,11 @@ func validateDataServicesDependencies(o currentApplicationOptions, source *gorm.
 		return nil
 	}
 	d := o.dataServices
-	if o.dataServicesConfigs != 1 || d == nil || d.ProductDB == nil || d.Provider == nil || d.Starter == nil || d.NewWorker == nil || d.Worker == nil || o.productAcquisitionDB == nil || o.productCollections != 1 || o.commercialOwnerDB == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
+	if o.dataServicesConfigs != 1 || d == nil || d.ProductDB == nil || o.productAcquisitionDB == nil || o.productCollections != 1 || o.commercialOwnerDB == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
 		return errors.New("data services require Product, collections, Resource, exact IAM, provider and worker lifecycle")
+	}
+	if d.ExecutionEnabled && (d.Provider == nil || d.Starter == nil || d.NewWorker == nil || d.Worker == nil) || !d.ExecutionEnabled && (d.Provider != nil || d.Starter != nil || d.NewWorker != nil || d.Worker != nil) {
+		return errors.New("data services execution dependencies must match explicit enablement")
 	}
 	// Identity of the physical database is also verified against the live pool.
 	for _, other := range []*gorm.DB{source, o.productAcquisitionDB, o.commercialOwnerDB, o.moneyOwnerDB} {
@@ -86,22 +90,33 @@ func buildDataServices(ctx context.Context, o currentApplicationOptions, deps ro
 		return dataServicesModule{}, nil, err
 	}
 	var charges *orgresource.ConsumerChargeService
-	module, err := dataservicesapp.NewModule(ctx, dataservicesapp.Dependencies{
-		ProductDB: d.ProductDB, Access: authority, Live: authority, Specialist: authority, Funding: authority, Provider: d.Provider, Starter: d.Starter, TrustedProxyCIDRs: d.TrustedProxyCIDRs,
-		Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
+	moduleDependencies := dataservicesapp.Dependencies{
+		ExecutionEnabled: d.ExecutionEnabled,
+		ProductDB:        d.ProductDB, Access: authority, Live: authority, Specialist: authority, Funding: authority, Provider: d.Provider, Starter: d.Starter, TrustedProxyCIDRs: d.TrustedProxyCIDRs,
+	}
+	if d.ExecutionEnabled {
+		moduleDependencies.Charges = func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
 			var e error
 			charges, e = buildCurrentResourceChargesWithOwners(ctx, o.productAcquisitionDB, o.storeCenterDB, o.commercialOwnerDB, a, capabilities, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerAmazonData: owner})
 			return charges, e
-		},
-	})
+		}
+	} else {
+		charges, err = buildCurrentResourceCharges(ctx, o.productAcquisitionDB, o.storeCenterDB, o.commercialOwnerDB, a, capabilities)
+		if err != nil {
+			return dataServicesModule{}, nil, err
+		}
+	}
+	module, err := dataservicesapp.NewModule(ctx, moduleDependencies)
 	if err != nil {
 		return dataServicesModule{}, nil, err
 	}
-	w, err := d.NewWorker(module.Runner())
-	if err != nil || w == nil {
-		return dataServicesModule{}, nil, errors.New("data services worker construction failed")
+	if d.ExecutionEnabled {
+		w, err := d.NewWorker(module.Runner())
+		if err != nil || w == nil {
+			return dataServicesModule{}, nil, errors.New("data services worker construction failed")
+		}
+		*d.Worker = w
 	}
-	*d.Worker = w
 	return dataServicesModule{routes: module.BuildRoutes(), owner: module}, charges, nil
 }
 

@@ -52,23 +52,25 @@ type syntheticSelectionSharedCategory struct{ settings *ProductAgentDependencies
 func configuredSelectionSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB) qualified.SharedTextReader {
 	t.Helper()
 	ctx, now := context.Background(), time.Now().UTC()
+	connection, err := newHTTPChannelFixture(db).owner.Metadata(ctx, "B", "default")
+	require.NoError(t, err)
 	require.NoError(t, routestore.InstallSchema(ctx, db))
 	repo, err := routestore.New(db)
 	require.NoError(t, err)
 	prices := &d.PlatformPricesService{Repository: repo}
-	_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "offline-reference", Provider: "deepseek", Model: "deepseek-v4.1-flash", Channel: "bailian-beijing", Region: "cn-beijing", ServiceType: "standard-sync", Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1, Rates: aicapability.OfficialModelRates{InputText: 2_000_000, OutputText: 8_000_000}, SourceURL: "https://api-docs.deepseek.com/", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
+	_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "offline-reference", Provider: "deepseek", Model: "deepseek-v4.1-flash", Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1, Rates: aicapability.OfficialModelRates{InputText: 2_000_000, OutputText: 8_000_000}, SourceURL: "https://api-docs.deepseek.com/", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
 	require.NoError(t, err)
 	defs := []qualified.Definition{}
 	for op, policies := range map[aicapability.Operation]map[string]governed.RoutePolicy{aicapability.OperationProductResearchDecision: settings.ResearchTextPolicies, aicapability.OperationProductSelectionDecision: settings.SelectionTextPolicies} {
 		if policy, ok := policies["B"]; ok {
 			copy := policy
-			defs = append(defs, qualified.Definition{Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "offline-reference", ReferenceVersion: "offline-shared-v1", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: 150000, MaximumMicropoints: 10_000_000})
+			defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "deepseek", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "offline-reference", ReferenceVersion: "offline-shared-v1", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: 150000, MaximumMicropoints: 10_000_000})
 		}
 	}
 	catalog, err := qualified.NewCatalog(defs)
 	require.NoError(t, err)
 	service := &d.SharedModelService{Repository: repo, Catalog: &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}}
-	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "bailian-beijing", Text: d.ModelBindingReference{ID: "default", Version: "offline-shared-v1"}, Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"}}
+	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: connection.Channel, Text: d.ModelBindingReference{ID: "default", Version: "offline-shared-v1"}, Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"}}
 	_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection})
 	require.NoError(t, err)
 	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)

@@ -250,9 +250,15 @@ func execute() error {
 			}
 			if features.DataServices != nil {
 				d := features.DataServices
-				options = append(options, httpapi.WithDataServices(httpapi.DataServicesDependencies{ProductDB: features.DataServicesDB, Provider: features.DataServicesProvider, Starter: dataservicesruntime.TemporalStarter{Client: features.DataServicesWorkflow}, NewWorker: func(runner dataservicesruntime.JobRunner) (dataservicesruntime.Worker, error) {
-					return dataservicesruntime.NewWorker(features.DataServicesWorkflow, runner)
-				}, Worker: features.DataServicesWorker, TrustedProxyCIDRs: d.TrustedProxyCIDRs}))
+				dataDependencies := httpapi.DataServicesDependencies{ExecutionEnabled: d.ExecutionEnabled, ProductDB: features.DataServicesDB, TrustedProxyCIDRs: d.TrustedProxyCIDRs}
+				if d.ExecutionEnabled {
+					dataDependencies.Provider, dataDependencies.Worker = features.DataServicesProvider, features.DataServicesWorker
+					dataDependencies.Starter = dataservicesruntime.TemporalStarter{Client: features.DataServicesWorkflow}
+					dataDependencies.NewWorker = func(runner dataservicesruntime.JobRunner) (dataservicesruntime.Worker, error) {
+						return dataservicesruntime.NewWorker(features.DataServicesWorkflow, runner)
+					}
+				}
+				options = append(options, httpapi.WithDataServices(dataDependencies))
 			}
 			if features.ProductCollections {
 				if features.ProductAcquisitionDB != nil {

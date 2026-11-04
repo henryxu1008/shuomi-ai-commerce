@@ -13,7 +13,7 @@ import (
 type capturedResultReader struct{ store sourcing.PublicationReadStore }
 
 func (m *Module) Provenance(ctx context.Context, p dataacquisition.Principal, source collection.Source) (dataacquisition.Provenance, error) {
-	return m.acquisition.Provenance(ctx, p, source, m.results)
+	return m.reader.Provenance(ctx, p, source, m.results)
 }
 
 func transactionResultReader(tx *gorm.DB) (dataacquisition.CapturedResultReader, error) {
