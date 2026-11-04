@@ -1,14 +1,14 @@
 # 市场调研与智能选品：固定1e3509两服务更新方案
 
-状态：**ACTUAL_BIND_PERMISSION_BLOCKED / NOT_AUTHORIZED_TO_EXECUTE**。候选字段已解析，但实际只读bind的Linux mode0777会被固定1e文件门禁拒绝；本轮只读复核，不改权限、不构建应用镜像、不发布配置、不启停/更新实例、不真实采集/AI/付费、不合并。
+状态：**ACTUAL_BIND_LOADCONFIG_PASS / NOT_AUTHORIZED_TO_EXECUTE**。用户本轮授权仅收紧候选POSIX mode到0600；内容hash/Windows ACL不变，新只读bind下直接固定1e LoadConfig已PASS。0777阻碍已解决；不构建应用镜像、不发布配置、不启停/更新实例、不真实采集/AI/付费、不合并。
 2026-11-04用户已批准候选A，包括原内容也收紧为¥0.30/72000 Token；该决定已完成，不重复作为待审预算阻碍。
 目标项目仅 `task-processor-unified-20261010`；服务仅 `current-application` 与 `listingkit-ui`。
 应用 SourceRef固定 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
 后续文档HEAD/main变化不自动改变构建来源。原 [PR #1075 CI41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) SUCCESS及独立增量PASS只按其原绑定引用。
-前一文档候选 `09830cf5527b3ebc9c58091106535e25168b7035` 的 [CI41782829529](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41782829529)
-已 completed/SUCCESS，Required CI Gate `126424403536` SUCCESS；该结论不等于后续文档SHA或实际候选挂载通过。本轮发现的0777模式BLOCKER不会因CI绿色而解除。
+前一文档候选 `596cc3c1ff0998bd19ebd2c213125c410a9ad960` 的 [CI41785450029](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41785450029)
+已 completed/SUCCESS，Required CI Gate `126430070664` SUCCESS；该结论不等于后续文档SHA的CI结果。0777阻碍由本轮授权权限修正及实际bind直接加载证据解除，不能仅由CI绿色推定。
 
-本轮 Design Basis: **N/A（只读hash/ACL/bind及启动范围复核、文档）**，复用[当前生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
+本轮 Design Basis: **N/A（现有私密文件合同的单文件权限修正、直接离线解析及文档）**，复用[当前生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
 [配置差异](selection-shared-model-wiring-preview.md)和[标准镜像构建入口](../operations/application-image-build.md)，不修改现有应用/Compose生产文件。
 
 ## 已核原版本与保留对象
@@ -34,9 +34,11 @@
 SHA256 `194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
 新文件ACL仅Henry/SYSTEM，原凭据原值复用，未切入原后端/未发布；去密diff只含hash/字段路径/白名单目标值。
 固定1e字段严格解析及未知/重复/尾随JSON拒绝检查PASS的输入为0600内存副本；该结果不覆盖真实bind权限。
-本轮按原后端同一UID/GID 0:0、删除全部capabilities、无网络/只读根的工具进程直接只读bind候选，真实读取hash匹配，
-但文件mode为0777、owner0:0。固定LoadConfig在读取JSON前拒绝group/other权限非零，故新增明确的**更新启动BLOCKER**。
-本轮未chmod、改ACL、试写、调用Run或构建应用镜像；原服务挂载不变。详细回执见配置页及.local/selection-config-mount-review-1e3509-20261104-01/。
+此前同UID/GID 0:0、capabilities全删除/无网络/只读根的真实bind复核发现mode0777，作为更新启动BLOCKER保留历史。
+本轮按用户明确授权，仅将这一个未发布候选mode收紧0600；候选hash194B…0786EC、原hash1271…及二者Windows Owner/Group/Access SDDL完全不变。
+再用新工具进程在**同一实际目标只读bind**直接调用固定1e LoadConfig，文件门禁、严格JSON和完整静态validate均PASS，未复制或规范化输入。
+uid/gid仍0:0、capabilities=0、network=none，不调用Run/DB/worker/provider。原服务挂载不变，未发布/构建应用镜像/更新实例。
+历史失败回执见.local/selection-config-mount-review-1e3509-20261104-01/；当前修正与直接加载回执见.local/selection-config-mode-fix-1e3509-20261104-01/。
 现存297镜像仅是此前构建证据，不包含本轮关闭态实现，不能拿来替代1e。1e镜像 **NOT_BUILT**，不编造新镜像digest。
 
 ## 必须一起审查的具体差异
@@ -45,7 +47,7 @@ SHA256 `194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
 | --- | --- | --- |
 | 后端镜像/来源标签 | 由准确1e标准构建回执确定 | 保留供应链四步、批次深链、图片入口、原不可读历史隔离和研究/选品人工准确交接；不使用旧应用镜像作为FROM |
 | UI镜像/来源标签 | 同一1e标准UI产物 | 原身份/环境/端口/命令/会话密钥引用保持，不新增凭据或模型请求 |
-| 后端运行manifest | 独立候选字段已通过严格解析；单writer为127.0.0.1:5433/product_agent、pool1。3条文字bindings、productAgent=false、Generation仅enabled=false，完整图片模式及原读取owner保留 | 候选仅在工具中只读试挂载，未应用到原服务；实际0777模式须先修正后直接bind重验。不能只换镜像或绕过LoadConfig文件门禁 |
+| 后端运行manifest | 独立候选mode0600，新只读bind直接LoadConfig已PASS；单writer为127.0.0.1:5433/product_agent、pool1。3条文字bindings、productAgent=false、Generation仅enabled=false，完整图片模式及原读取owner保留 | 0777模式阻碍已解决，内容/hash/Windows ACL不变。仍仅在工具中加载，未应用到原服务；不把解析通过升级为正式启动或执行资格 |
 | 文字用途声明 | 同一原Client的内容/研究/选品分别按当前prompt/schema声明；移除已退出PointTariff，新增用途要求contentOnly=false | 已写入独立候选并严格解析；准确Profile/候选标识见配置页。标识未发布，不复制旧current或独立点价，实际部署未应用 |
 | 共享预算 | 已批准A：CNY、12步、2调用、72000 Token、300000微元、120秒；研究/选品各10点每调用 | 两项已批¥0.30/20点不变。原内容¥1/139264也按用户决定收紧；单次原最大调用可容纳、两次最大调用不可容纳。实际配置尚未应用，不新增按用途预算owner |
 | 关闭态图片目录 | 原4条旧image声明不进入本次新bindings；不声明图片单位/正预算，保留非空workerConfigFile引用和完整历史模块 | 这是显式新文件差异，原a66文件、Image current、凭据及历史均不改，不换算旧点价。图片候选如实未准入；未来生成另行提供合法准入/预算，不能为关闭态伪造数值 |
@@ -59,7 +61,7 @@ SHA256 `194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
 
 ## 进入未来执行前的停止点
 
-1. **配置条件**：[配置差异](selection-shared-model-wiring-preview.md)的writer/元数据已有证据，但候选实际bind的0777模式未过。单独获准后仅收紧该候选POSIX mode到0600，核原/候选hash及Windows ACL未变，直接bind下复用固定LoadConfig检查；不以0600复制品代替、不启动a66试错或跳过门禁。
+1. **配置条件**：[配置差异](selection-shared-model-wiring-preview.md)的writer/元数据已有证据；候选已按授权收紧0600并在直接只读bind下通过固定LoadConfig。后续只核同一文件hash/ACL/mode漂移及最终镜像User/Compose覆盖，不重复修正或使用复制品，不启动a66试错或跳过门禁。
 2. **副作用条件**：productAgent=false、generation=false、Chat保持关闭；其他worker的保留范围已在配置页列明。保留配置不授权启动/消费：DataServices无独立执行开关，移除会破坏市场调研依赖；Knowledge和原商业恢复可能写事实，观察准备模式仍有worker。未来更新须单独覆盖这些启动影响，不能只批准两镜像就默认批准真实采集/付费或后台任务处置。不能用存在的任务做检查，不能运行重发/恢复/结算来证明关闭，也不在本轮修改源码或停止原a66。
 3. **固定来源条件**：准确1e源码/原审核与CI仍为所批准应用范围；若发现需要业务代码变更，停回原PR修复/核增量，不能悄悄把SourceRef换为分支HEAD/main。
 4. **操作授权条件**：构建、真实配置文件发布、两服务更新、业务只读检查分别在用户明确授权内。批准本文不等于批准它们；真实采集/AI/付费仍需另外授权。
@@ -67,8 +69,8 @@ SHA256 `194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
 本轮已收敛writer身份/配置表权限及LAC版本，不再将它们笼统记为UNKNOWN。
 本轮已确定三用途准确字段和已批准A，图片按零元数据关闭态处理、旧4声明不进入新目录；非AI消费者保留范围已明确。
 Image API的原权限查询required=true/forbidden=false，Asset所需列/约束/权限匹配，Run配置8表/图片参数列可读，两审计reader无写权。
-独立私密文件和去密diff已生成，0600内存副本的字段解析PASS证据保留；实际bind内容可读/哈希匹配，但0777私密模式不合格。
-最小权限修正及同bind重验尚未获准执行，不重复预算/价格调查，也不把字段解析PASS写成实际运行文件门禁通过。
+独立私密文件和去密diff已生成；此前0600内存副本的字段解析证据保留。本轮已按授权修正候选mode0600，
+在真实新只读bind下固定LoadConfig直接PASS、hash/Windows ACL不变，原0777门禁阻碍已解决，不再列为待授权修正。
 候选未应用到原服务；真正更新前还须核最终镜像Config.User/Compose用户覆盖、文件/ACL/版本漂移，并明确保留消费者的启动授权；
 1e真实启动、身份与历史GET只能在相应获准阶段验证，本轮未读业务行、不把NOT_RUN写成PASS。
 共享三类选择和平台参考价尚未发布，真实文字调用还受调用记录表合同不匹配及用户授权限制。
@@ -77,7 +79,7 @@ Image API的原权限查询required=true/forbidden=false，Asset所需列/约束
 | 两服务更新前项目 | 当前结论 | 下一阶段边界 |
 | --- | --- | --- |
 | 候选内容/宿主ACL | hash194B…0786EC、Henry/SYSTEM匹配；实际只读读取hash也匹配 | 原文件/凭据/预算不变，使用前核漂移 |
-| 候选Linux私密模式 | **BLOCKER：0777，固定LoadConfig会在读JSON前拒绝** | 仅另获准后收紧这个候选mode到0600，并在原bind直接重验；不修改原a66或代码 |
+| 候选Linux私密模式 | **RESOLVED：0600，新只读bind直接LoadConfig PASS** | 使用前只核同一文件漂移；若复制/替换文件则重新核实际mode，不能沿用本次证据。不改原a66或代码 |
 | 固定1e前后端镜像 | NOT_BUILT，未获构建授权 | 后端仍用标准data-services-runtime；构建回执核准确SourceRef/tree/imageID/User，不能拿297/c26/旧镜像替代 |
 | 配置发布与两服务替换 | NOT_AUTHORIZED / NOT_RUN | 当前没有可执行overlay；未来仅两镜像及后端manifest绑定变化，原网络/命令/其余挂载/卷/身份服务保留 |
 | 保留消费者启动 | 源码与候选配置范围已明确，未获启动/消费授权 | DataServices、观察准备worker、Knowledge、商业/consumer/充值恢复及推荐成熟须明确；不是两个AI false即可承诺无后台副作用 |
@@ -93,7 +95,7 @@ DataServices及观察worker在Listen后、Serve前Start；没有用户HTTP操作
 
 1. **fresh核对**：核准确项目、两服务当前ID/镜像/配置哈希/挂载与依赖健康。若与上述a66不同，先查并行更新差异，不覆盖。原私密Compose/manifest及原镜像引用留作回退，禁止把备份写进仓库。
 2. **只读资源预检**：复用本轮原身份/配置schema/grant/连接额度证据，并在执行前核漂移及尚未核实的原历史owner；不自行提权或修复真实库。真实执行schema的差异不伪装已通过，也不自动升级成关闭态路径的前置。
-3. **候选权限先修正并单独批准配置发布后**：只采用直接bind已通过文件门禁的同一候选，核准确hash/ACL/去密diff，原a66文件保留。未来才切换经审查的新宿主文件绑定，容器目标不变；不重复生成或覆盖原文件，不借此改凭据/发布共享选择或价目。
+3. **单独批准配置发布后**：权限修正与直接bind门禁已经完成，只采用这个同一候选，核准确hash/ACL/mode/去密diff，原a66文件保留。未来才切换经审查的新宿主文件绑定，容器目标不变；不重复生成或覆盖原文件，不借此改凭据/发布共享选择或价目。
 4. **单独批准构建后**：运行下方标准入口，构建本地两镜像；核回执commit/tree/target/imageID/来源标签。失败不继续，不换源、不取消TLS验证、不触碰保留服务。
 5. **单独批准更新后**：从两服务当前已核Compose来源追加最终overlay，只允许两镜像/来源标签和上述后端manifest bind差异。使用原project、明确服务名单和no-deps语义；不得应用身份服务历史overlay链、重建网络依赖或运行整个项目初始化。
 6. **受限检查**：先后端健康/身份发现，再UI健康/版本；未登录研究/选品入口仍登录跳转、BFF仍拒绝未登录。需要登录后核管理/历史时先明确只读范围，不发prepare/start/confirm或模型“测试连接”。读取失败保留原错误，不以空历史或假Ready通过。

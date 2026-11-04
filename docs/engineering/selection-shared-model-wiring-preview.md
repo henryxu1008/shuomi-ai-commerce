@@ -1,19 +1,19 @@
 # Local Account Center：1e3509 统一模型配置差异
 
-状态：**STATIC_FIELDS_VALIDATED / ACTUAL_BIND_PERMISSION_BLOCKED / NOT_PUBLISHED**。独立候选已生成、0600内存副本的字段解析通过；本轮实际只读bind复核发现Linux mode=0777，不满足固定1e私密文件门禁。本文不含实际配置正文或发布授权。
+状态：**ACTUAL_BIND_LOADCONFIG_PASS / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。用户本轮授权仅收紧候选POSIX mode到0600；内容hash/Windows ACL不变，新建同路径只读bind直接调用固定1e LoadConfig已PASS，不使用内存副本替代。本文不含配置正文或发布授权。
 应用固定为 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
 2026-11-04用户已明确接受候选A：原内容也收紧到¥0.30/72000 Token。该预算决定已批准，不再待确认；
 它不授权改凭据、发布配置、构建/更新实例或真实调用。本页其他运行缺项仍按各自层级处理。
 原独立增量复核与 [CI 41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) 已通过；本轮文档提交不改变应用来源，也不把原 CI 冒称新文档 SHA 的直接执行结果。
-前一文档提交 `09830cf5527b3ebc9c58091106535e25168b7035` 的 [CI 41782829529](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41782829529)
-已 completed/SUCCESS，Required CI Gate `126424403536` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
+前一文档提交 `596cc3c1ff0998bd19ebd2c213125c410a9ad960` 的 [CI 41785450029](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41785450029)
+已 completed/SUCCESS，Required CI Gate `126430070664` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
 本页随后收敛的草案不是该旧SHA直接执行过的配置，也没有被应用到实例。
 
 ## 本次交付与依据
 
 使用者为 Local Account Center 配置管理员及指定实例操作者。目标是准备一份符合当前统一 owner 的关闭态运行配置，
 使管理员后续可以查看配置、业务人员可以读取原历史；研究/选品和图片新执行继续关闭。
-本轮 Design Basis: **N/A（只读hash/ACL/bind及启动合同复核、文档）**，复用已准入的[生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
+本轮 Design Basis: **N/A（现有私密文件合同的单文件权限修正、直接离线解析及文档）**，复用已准入的[生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
 [统一模型合同](../architecture/enterprise-shared-model-configuration.md)和[两项文字合同](../architecture/bailian-deepseek-shared-text-admission.md)。
 不改变产品、权限、状态、事实 owner 或恢复语义。原工作区、唯一 Writer、PR #1075 保持。
 
@@ -51,13 +51,14 @@
 候选宿主路径：`C:/Users/Henry/.codex/private/market-research-unified-20261104-config-a-01/current-application-1e3509-a.private.json`。
 SHA256：`194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
 新目录先限制ACL，再写入凭据；允许主体仅Henry和SYSTEM。原文件SHA256仍为上文1271…，原后端仍只读挂载原文件，未加载该候选。
-本轮fresh复核hash仍完全匹配，宿主文件无链接跳转、父ACL受保护；本轮没有修改文件内容、ACL或POSIX mode。
+本轮fresh复核hash仍完全匹配，宿主文件无链接跳转、父ACL受保护。用户明确授权后只将候选POSIX mode从0777收紧0600；
+候选及原a66文件的内容hash、Windows ACL（Owner/Group/Access SDDL）均与修改前完全一致，未修改其他权限或凭据。
 
 固定1e的 `internal` tree为 `8653591a9667dc803777e0d711984bba1d841fb7`，与本工作区解析时的生产源码完全相同。
-临时解析测试只调用现有 `currentapplication.LoadConfig`，不调用`Run`；在network=none、uid/gid=65534、只读根的一次性进程中运行，
+生成候选阶段的首次临时解析测试只调用现有 `currentapplication.LoadConfig`，不调用`Run`；在network=none、uid/gid=65534、只读根的一次性进程中运行，
 输入经stdin进入私有tmpfs的0600内存文件。未启动应用、身份预检、监听器、DB连接、worker、恢复循环或provider；未构建应用镜像。
 
-| 离线检查 | 结果 | 范围 |
+| 生成阶段离线检查（历史证据） | 结果 | 范围 |
 | --- | --- | --- |
 | 固定源码LoadConfig：唯一JSON键、未知字段、尾随JSON及完整静态validate | PASS | 针对上述候选hash，Linux路径语义；不证明实际挂载/依赖启动 |
 | 已批准A、完整图片零声明、单Run writer和3条文字定义 | PASS | 不包含模型使用时资格或实际价目发布 |
@@ -65,9 +66,12 @@ SHA256：`194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
 | 原凭据与其他配置语义对比 | PASS | 密码/令牌/密钥相关值及引用未变；writer仅改变目标库，限定变化外全部相同 |
 | 原a66与候选状态 | 原容器健康、原hash/挂载不变；候选未发布 | 1e正式启动、现场历史GET和用户验收NOT_RUN |
 
-### 实际只读挂载：内容可读，但Linux私密文件模式不合格
+### 实际只读挂载：模式修正及直接LoadConfig已通过
 
-本轮在一次性工具进程中，将候选只读bind到未来后端的同一目标 `/private/market-research/current-application.json`。
+此前只读复核发现候选在DrvFS bind下为0777，固定1e私密文件门禁将拒绝；该历史结果不改写成PASS。
+本轮按用户授权，仅在限定候选文件上执行mode0777→0600，没有修改Windows ACL、内容、owner或原a66文件。
+随后在**另一个全新工具进程**中，将该候选只读bind到未来后端的同一目标 `/private/market-research/current-application.json`，
+直接调用固定1e的 `currentapplication.LoadConfig` 读取该路径；没有复制输入、临时chmod或使用0600内存副本替代。
 原后端PID1已核为UID/GID 0:0；固定Dockerfile无USER切换，预期相同。检查只复用这个已存在的身份，
 network=none、根只读、capabilities全删除、no-new-privileges，不执行应用ENTRYPOINT，不挂其他私密目录/业务卷。
 1e应用镜像仍未构建，所以最终镜像Config.User及Compose覆盖须在获准构建后再次核对；本次不冒称已验证1e镜像。
@@ -77,26 +81,29 @@ network=none、根只读、capabilities全删除、no-new-privileges，不执行
 | 宿主hash / Windows ACL | 194B…0786EC，Henry/SYSTEM，仅原身份；父ACL受保护 | PASS，未改权限或凭据 |
 | bind路径/只读标志 | 同上目标，实际mount flags为ro | 仅工具进程试挂载；原a66挂载不变，候选未发布 |
 | 实际读取 | SHA256与宿主完全一致，CapEff=0 | READ_PASS，没有显示文件内容 |
-| Linux文件属性 | 普通文件，owner 0:0，mode **0777** | 不符合私密文件要求 |
-| 固定1e LoadConfig文件门禁 | `info.Mode().Perm() & 0077 != 0` 在0777上成立 | **按实际属性与固定源码确定不合格**；该guard在打开JSON前拒绝，不是字段解析失败 |
+| Linux文件属性 | 普通文件，owner 0:0；0777已仅在授权候选上改为**0600**，新只读bind仍为0600 | PASS，模式修正跨新挂载保留 |
+| 固定1e LoadConfig直接加载 | 实际挂载路径文件门禁、严格JSON及完整静态validate均成功 | **实际执行PASS**；没有调用Run或后端应用ENTRYPOINT |
+| 内容/ACL不变量 | 候选hash194B…0786EC、原hash1271…及二者Windows SDDL逐字相同 | PASS，未改字段、凭据、预算或Windows ACL |
 | 新镜像/正式应用加载 | NOT_BUILT / NOT_RUN | 没有运行1e应用来试错 |
 
-Windows ACL私密和Linux POSIX mode是两个检查。此前严格解析是在0600内存副本上运行，证明字段合同成立，
-没有证明宿主文件直接bind后的mode合格。这里保留原PASS的准确范围，不将其扩大成真实候选可启动。
+Windows ACL私密和Linux POSIX mode是两个检查。此前0600内存副本只证明字段合同；本轮通过授权修正和真实bind直接加载，
+补齐了实际文件门禁。此PASS仍不包含应用启动、依赖连接、worker、provider、历史读取或用户验收。
 DrvFS的`test -w`在只读bind上仍返回true，本轮未据此试写；只读状态以实际mount flags的ro为证据。
-真实读取的hash和mode记录于 `.local/selection-config-mount-review-1e3509-20261104-01/mount-review.metadata.json`，无秘密值。
+旧挂载检查保留于 `.local/selection-config-mount-review-1e3509-20261104-01/`；本轮修改前/后、直接加载及最终不变量回执在
+`.local/selection-config-mode-fix-1e3509-20261104-01/`，无秘密值。临时测试仅调用现有LoadConfig，未添加正式工具或改生产代码。
 
 ```text
 Finding: 新候选在实际只读bind下呈现0777，固定1e LoadConfig会拒绝。
 Product requirement affected: AI关闭后完整应用仍须能够启动、管理配置并读取历史。
-Classification: BLOCKER（未来更新/试用启动；核心happy path无法完成），不影响当前原a66。
+Classification: 原BLOCKER（未来更新/试用启动），本轮按用户授权修正后RESOLVED；不影响原a66。
 Reason: Linux文件门禁先于JSON打开/解析，宿主Windows ACL不能替代该检查。
-Action: 本轮只读复核不修改。最小后续修正仅将这一个未发布候选的POSIX mode收紧到0600，
-        同时核Windows ACL、候选/原文件hash不变；再在同一实际bind下调用固定1e LoadConfig，
-        不能使用0600内存副本代替，也不调用Run。不改原a66、不发布、不构建或更新服务。
+Action: 已仅收紧这一个未发布候选mode为0600；Windows ACL、候选/原hash完全不变。
+        新只读bind下固定1e LoadConfig直接加载PASS；未复制/规范化输入，未调用Run。
+        原a66配置/挂载/身份/数据卷不变，未发布、构建应用镜像或更新服务。
 ```
 
-该修正是文件权限元数据变更，超出本轮只读复核；未自行chmod、放宽ACL、换身份或跳过门禁。
+该修正依据用户本轮明确授权，不放宽ACL、不换更高身份、不增加capabilities、不跳过门禁。
+同一hash的JSON未变，去密字段差异仍沿原回执；权限修正另有独立回执。未来若复制/替换文件，需重新核实际mode，不能沿用本次证据。
 
 首次真实严格解析发现，原**已关闭Chat**的 `aiWorkbench.planningTextPolicies.394513833252618242.Profile.PointTariff`
 也会被全文件严格解码拒绝。最终候选只额外移除这个退休字段，Chat仍enabled=false，其余Chat配置/凭据不变；
@@ -273,7 +280,7 @@ Image/Asset直接复用固定1e现有验证器中的只读catalog查询；没有
 | --- | --- | --- |
 | 内容预算决定 | RESOLVED：A已由用户批准 | 不再重复请求同一决定 |
 | writer、Run配置/图片API/Asset/审计元数据 | MATCHED_METADATA | 真正更新前核漂移，实际启动/历史GET在获准更新后按原入口检查；不把未执行结果写PASS |
-| 当前运行文件 | CREATED / STATIC_FIELDS_PASS / ACTUAL_BIND_MODE_FAIL / NOT_PUBLISHED | hash/宿主ACL/实际读取已核；0777私密模式为更新启动BLOCKER。需单独授权只收紧候选mode并在原bind下复核，不覆盖原a66、不正式启动试错 |
+| 当前运行文件 | CREATED / ACTUAL_BIND_LOADCONFIG_PASS / NOT_PUBLISHED | 候选mode0600，新只读bind直接LoadConfig已PASS，hash/Windows ACL不变；0777阻碍已解决。使用前核漂移，不覆盖原a66、不正式启动试错 |
 | 图片预算/旧4声明 | 本次不开放图片执行，采用零声明及显式目录排除；不是待查精确图片价格 | 作为本次新配置差异一并审查；未来生成准入另行处理，不拖住关闭态管理/历史方案 |
 | 保留worker和恢复器的启动 | 范围已明确，启动/消费NOT_AUTHORIZED | 后续更新授权须明确覆盖真实启动影响；若要求完全无后台消费，固定1e+现依赖配置不足，本轮不造开关或改代码 |
 | 平台参考价、共享三类选择、操作模式发布 | NOT_PUBLISHED | 不属于本次关闭态启动前置，未来沿原owner完整CAS；不可测试保存/先发布一版 |
@@ -312,8 +319,8 @@ Ecoservices非支付分支没有15秒支付恢复；它们不能抵消其他已�
 
 ## 未来配置交付清单
 
-1. 已完成：按A生成独立候选、补清关闭Chat退休字段、0600内存副本上的固定1e字段解析及去密diff；原a66文件/挂载/凭据值不变。实际bind内容可读但mode0777为启动BLOCKER，不能把前一PASS当成该项通过。
-2. 单独获准后先最小修正候选POSIX mode并直接bind重验；之后再审hash/ACL/原元数据漂移、最终镜像User和保留worker启动范围。不重复预算/精确价格调查，不改代码/原a66或创造权限绕路。
+1. 已完成：按A生成候选、去密diff及字段解析；按用户授权将候选mode收紧0600，并在真实新只读bind下直接LoadConfig PASS。原a66文件/挂载/凭据不变，0777阻碍已解决，不重复权限修正或预算/价格调查。
+2. 后续发布/更新前核同一候选hash/ACL/mode及原元数据漂移，核最终镜像User和保留worker启动范围；未获相应授权不进入应用生命周期，也不新增权限绕路。
 3. 只有获得相应授权才进入[两服务更新方案](market-research-unified-update-plan.md)。本轮不挂载/发布该文件，不构建应用镜像或更新实例；模型/参考价发布、真实AI也分别单独授权。
 
 用户业务链仍是智能市场启用/配置 → 同项目选择2–5项资料 → 比较/费用估算 → 明确确认只读分析 → 人工决定 → 准确子集交接。
