@@ -50,6 +50,7 @@
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
 - `eino-model-admission.md` — [Eino多厂商模型按需准入（冻结设计与实施合同；交付证据见PR #1093）](eino-model-admission.md)
 - `shared-channel-credentials.md` — [渠道凭据与模型定义分离（D1–D4产品决定已确认；架构候选，尚不可实施）](shared-channel-credentials.md)
+- `channel-credentials-ui.md` — [企业渠道 Key UI 配置与轮换（D1–D3已确认；仅设计，适用架构复核中）](channel-credentials-ui.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计（D1已认可、R1通过；本轮实现待最终工程复核）](openai-flare-image-generation.md)
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
 - `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
