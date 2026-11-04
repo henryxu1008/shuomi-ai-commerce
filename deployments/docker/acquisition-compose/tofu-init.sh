@@ -6,11 +6,16 @@ umask 077
 test -f "$bootstrap_pat"; test -f "$ca/root-ca.pem"; test -f "$inputs/operator-password"
 if [ -f "$state/.terraform-complete" ]; then exit 0; fi
 if [ -f "$state/.terraform-started" ]; then echo 'local OpenTofu initialization is incomplete; do not retry this project' >&2; exit 1; fi
-touch "$state/.terraform-started"; chmod 600 "$state/.terraform-started"
+# Finish repeatable dependency preparation before recording native writes.
 apk add --no-cache ca-certificates curl; export SSL_CERT_FILE="$ca/root-ca.pem"
 mkdir -p "$config"; cp -R "$source/." "$config/"
 until curl --fail --silent --show-error --cacert "$ca/root-ca.pem" https://localhost:18443/.well-known/openid-configuration >/dev/null; do sleep 2; done
 cd "$config"; tofu init -input=false
+if [ -f "$state/.terraform-complete" ] || [ -f "$state/.terraform-started" ]; then
+  echo 'local OpenTofu state changed during preparation; rerun with the same project' >&2
+  exit 1
+fi
+touch "$state/.terraform-started"; chmod 600 "$state/.terraform-started"
 tofu apply -input=false -auto-approve -var="bootstrap_pat=$(tr -d '\r\n' < "$bootstrap_pat")" -var="operator_password=$(tr -d '\r\n' < "$inputs/operator-password")" -state="$state/terraform.tfstate"
 write_output(){ tofu output -state="$state/terraform.tfstate" -raw "$1" > "$2.tmp"; chmod 600 "$2.tmp"; mv "$2.tmp" "$2"; }
 mkdir -p "$runtime" "$frontend"
