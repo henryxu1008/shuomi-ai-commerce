@@ -687,7 +687,11 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		if slot.Closure != nil {
 			settled += slot.Closure.Points
 		}
-		slots = append(slots, gin.H{"slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": definition.Recipe, "candidates": candidates, "closure": slot.Closure})
+		referencePriceVersion := ""
+		if definition.Recipe != nil {
+			referencePriceVersion = definition.Recipe.Quote.Billing.OfficialTariff.ReferencePriceVersion()
+		}
+		slots = append(slots, gin.H{"referencePriceVersion": referencePriceVersion, "slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": definition.Recipe, "candidates": candidates, "closure": slot.Closure})
 	}
 	closed := false
 	if p.Run.ImageAdmission != nil && p.PendingCommand == nil && imageagent.ImageSetClosedRunStatus(p.Run.Status) {

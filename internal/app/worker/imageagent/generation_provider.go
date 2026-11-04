@@ -14,10 +14,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/ai"
+	"task-processor/internal/aicapability"
 	d "task-processor/internal/aicapability/routeconfig"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
+	imageagenttemporal "task-processor/internal/imageagent/temporal"
 	"task-processor/internal/imageagent/tools"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/bailian"
@@ -29,11 +31,13 @@ import (
 // This factory binds an admitted synchronous image consumer explicitly. It
 // never asks the OpenAI manager to guess a provider from a compatible URL.
 type generationProviderFactory struct {
-	current  d.SharedCategoryReader
-	resolver openai.ClientConfigResolver
-	price    config.ImageAgentGenerationConfig
-	profile  ProfileResolver
-	logger   *logrus.Entry
+	current   d.SharedCategoryReader
+	resolver  openai.ClientConfigResolver
+	price     config.ImageAgentGenerationConfig
+	profile   ProfileResolver
+	logger    *logrus.Entry
+	facts     imageagent.GenerationFactRepository
+	artifacts imageagenttemporal.DurableArtifactStore
 	// Explicit in-process test transports only; production leaves these nil.
 	providerHTTPClient *http.Client
 	generatedFetcher   func(context.Context, string) ([]byte, error)
@@ -48,11 +52,29 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	build := func(bound ai.RouteBoundImageEditor) (*openai.SourceImageAdapter, error) {
-		return openai.NewSourceImageAdapter(openai.SourceImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, PricingVersion: metadata.PriceVersion, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)})
+		c := openai.SourceImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, PricingVersion: metadata.PriceVersion, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)}
+		if metadata.Billing.OfficialTariff.IsReferenceImageEstimate() {
+			c.ReferenceEstimate = openai.SourceImageReferenceQuote{PriceVersion: metadata.PriceVersion, ProfileDigest: generationConfigDigest(metadata.Billing), MaximumCostMicros: aicapability.ReferenceImageCNYMicros(metadata.Points)}
+		}
+		return openai.NewSourceImageAdapter(c)
 	}
 	var provider synchronousImageProvider
 	var generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
-	if metadata.Provider == "bailian" {
+	if metadata.Provider == "openai" {
+		if f.facts == nil || f.artifacts == nil {
+			return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
+		}
+		client, clientErr := openai.NewFlareImageClient(openai.FlareImageConfig{APIKey: cfg.APIKey, Model: cfg.Model, BaseURL: cfg.BaseURL, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Timeout: cfg.Timeout, Estimate: flareInputLimits(metadata.Billing.ReferenceEstimate), HTTPClient: f.providerHTTPClient}, func(ctx context.Context, observation openai.FlareImageObservation) error {
+			return f.observeFlare(ctx, input, observation, observe)
+		})
+		if clientErr != nil {
+			return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
+		}
+		provider, err = build(client)
+		generate = func(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
+			return client.GenerateImageWithRoute(ctx, req, ai.ImageRouteSelection{CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion})
+		}
+	} else if metadata.Provider == "bailian" {
 		client, clientErr := bailian.NewClient(bailian.Config{Model: cfg.Model, APIKey: cfg.APIKey, BaseURL: cfg.BaseURL, Timeout: cfg.Timeout, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, HTTPClient: f.providerHTTPClient, Diagnose: func(d bailian.Diagnostic) {
 			if f.logger != nil {
 				f.logger.WithFields(logrus.Fields{"provider": metadata.Provider, "model": metadata.Model, "stage": d.Stage, "reason": d.Reason, "http_status": d.HTTPStatus, "provider_code": d.ProviderCode, "request_id": d.RequestID}).Warn("Bailian image outcome diagnostic")
@@ -105,6 +127,10 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 			return imageagent.GenerationRejection{Kind: "bailian_free_tier", Digest: quota.ResponseDigest, RequestID: quota.RequestID, HTTPStatus: 403, ProviderCode: "AllocationQuota.FreeTierOnly"}, true
 		}
 		var preflight *productimage.SourceEditPreflightError
+		var flarePreflight *openai.FlareImagePreflightError
+		if metadata.Provider == "openai" && errors.As(err, &flarePreflight) {
+			return imageagent.GenerationRejection{Kind: "openai_flare_preflight", Digest: flarePreflight.Digest}, true
+		}
 		if errors.As(err, &preflight) {
 			return imageagent.GenerationRejection{Kind: "source_edit_preflight", Digest: preflight.Digest}, true
 		}
@@ -169,6 +195,12 @@ func (f generationProviderFactory) resolve(ctx context.Context, choices ...*imag
 	}
 	provider, protocol, route := "", "", ""
 	switch {
+	case (cfg.APIStyle == "openai" || cfg.APIStyle == "openai-compatible") && cfg.Model == aicapability.FlareImageModel:
+		endpoint, endpointErr := openai.FlareImageEndpoint(cfg.BaseURL)
+		if endpointErr != nil || !published.Billing.OfficialTariff.IsReferenceImageEstimate() {
+			return invalid()
+		}
+		provider, protocol, route = "openai", aicapability.FlareImageProtocol, "openai-images-sync:"+generationConfigDigest(endpoint)
 	case cfg.APIStyle == "dashscope" && bailian.SupportsModel(cfg.Model):
 		endpoint, endpointErr := bailian.Endpoint(cfg.BaseURL)
 		if endpointErr != nil {

@@ -111,6 +111,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, err
 	}
 	applicable := false
+	var referenceEstimate aicapability.ReferenceImageEstimate
 	for _, entry := range published.Payload.PlatformPrices.Prices {
 		if entry.ID != first.PriceID || entry.Model != q.Model || entry.Channel != q.Channel || c.now().Before(entry.EffectiveFrom) || !c.now().Before(entry.EffectiveUntil) {
 			continue
@@ -118,6 +119,9 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		applicable = d.ValidFact(first.Manufacturer, 64) && entry.Provider == first.Manufacturer && d.ValidFact(first.Region, 64) && d.ValidFact(first.ServiceType, 64) && entry.Region == first.Region && entry.ServiceType == first.ServiceType
 		if category == d.ModelCategoryImage {
 			applicable = applicable && entry.ServiceType == "image-sync" && entry.Image != nil && entry.Image.Width == 1024 && entry.Image.Height == 1024 && entry.Image.Quality == "auto"
+			if applicable {
+				referenceEstimate = entry.Image.ReferenceEstimate
+			}
 		} else {
 			applicable = applicable && entry.ServiceType == "standard-sync" && entry.Image == nil
 		}
@@ -132,7 +136,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, nil
 	}
 	q.Price = price
-	if !price.IsReferenceEstimate() && !d.ValidFact(first.BoundEvidenceVersion, 128) {
+	if !price.IsReferenceEstimate() && !price.IsReferenceImageEstimate() && !d.ValidFact(first.BoundEvidenceVersion, 128) {
 		q.Reason = "COST_BOUND_MISSING"
 		return q, nil
 	}
@@ -170,13 +174,17 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		if binding.Image != nil {
 			// This native response has a validated complete image-count dimension.
 			// URL-only GRSAI responses cannot establish an actual customer charge.
-			if binding.Provider != "bailian" || price.UsageVersion != "qwen-image-count-v1" {
+			reference := binding.Provider == "openai" && binding.Model == aicapability.FlareImageModel && binding.Protocol == aicapability.FlareImageProtocol && price.IsReferenceImageEstimate() && referenceEstimate.Validate() == nil
+			if !reference && (binding.Provider != "bailian" || price.UsageVersion != "qwen-image-count-v1") {
 				q.Reason = "COMPLETE_BILLING_USAGE_MISSING"
 				return q, nil
 			}
 			image := *binding.Image
 			image.Billing.OfficialTariff = price
 			image.Billing.BoundEvidenceVersion = def.BoundEvidenceVersion
+			if reference {
+				image.Billing.ReferenceEstimate = referenceEstimate
+			}
 			maximum, err := image.Billing.ReservationMicropoints(image.Model)
 			if err != nil || maximum > def.Image.MaximumMicropoints {
 				q.Reason = "COST_BOUND_MISSING"

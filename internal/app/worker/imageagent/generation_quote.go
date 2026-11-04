@@ -48,7 +48,7 @@ func (r imageGenerationQuoteReader) ReadImageGenerationOptions(ctx context.Conte
 		return nil, e
 	}
 	project := func(route *imageagent.ImageRouteSelection, q imageagent.ImageGenerationQuote) imageagent.ImageGenerationOption {
-		return imageagent.ImageGenerationOption{UnitVersion: "ai-micropoint-v1", Route: route, Model: q.Model, Quality: q.Quality, Resolution: q.Resolution, Points: q.Points}
+		return imageagent.ImageGenerationOption{ReferencePriceVersion: q.Billing.OfficialTariff.ReferencePriceVersion(), UnitVersion: "ai-micropoint-v1", Route: route, Model: q.Model, Quality: q.Quality, Resolution: q.Resolution, Points: q.Points}
 	}
 	rows := []imageagent.ImageGenerationOption{project(nil, q)}
 	return rows, nil

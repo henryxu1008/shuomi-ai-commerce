@@ -20,16 +20,16 @@ func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourc
 		return empty, imageagent.ErrValidation
 	}
 	repository := imagestore.NewOrganizationRepository(imageDB)
-	executor, recovery, err := buildOrganizationGenerationWithCurrent(cfg.ImageAgent.Generation, imageDB, resourceDB, repository, authorizer, logger, current, contexts)
+	artifacts, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming)
+	if err != nil {
+		return empty, err
+	}
+	executor, recovery, err := buildOrganizationGenerationWithCurrent(cfg.ImageAgent.Generation, imageDB, resourceDB, repository, authorizer, logger, current, artifacts, contexts)
 	if err != nil {
 		return empty, err
 	}
 	if len(methods) == 1 {
 		executor.WithImageMethodContext(methods[0])
-	}
-	artifacts, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming)
-	if err != nil {
-		return empty, err
 	}
 	if err = configureStorageCapacity(cfg, resourceDB, repository, artifacts, executor, recovery); err != nil {
 		return empty, err

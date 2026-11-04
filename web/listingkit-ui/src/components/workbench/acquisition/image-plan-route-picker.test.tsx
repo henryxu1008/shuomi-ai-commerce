@@ -5,6 +5,13 @@ const scope={userId:"actor",organizationId:"org",kind:"acquisition" as const,con
 const route={BindingID:"retired-plan-binding",RevisionID:"original-revision"};
 const response={contextKind:scope.kind,contextId:scope.contextId,options:[{unitVersion:"ai-micropoint-v1",model:"synthetic-image",quality:"auto",resolution:"1024x1024",points:"1250000"}]};
 afterEach(()=>{cleanup();vi.unstubAllGlobals();document.documentElement.className=""});
+it("discloses image reference estimation without claiming a supplier hard bound",async()=>{
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({...response,options:[{...response.options[0],referencePriceVersion:"reference-v1"}]})));
+ render(<ImagePlanRoutePicker scope={scope} value={null} disabled={false} onChange={vi.fn()} onValidity={vi.fn()}/>);
+ expect(await screen.findByText(/参考估算预留 1.25 点/)).toBeVisible();
+ expect(screen.getByText(/缺输入细分时按较高输入参考费率估算/)).toBeVisible();
+ expect(screen.queryByText(/最终按完整实际用量/)).not.toBeInTheDocument();
+});
 // RETIRE per-plan VIP selection; EXTRACT original binding/uncertain-request safety.
 it.each(["light","dark"])("uses the enterprise model read-only with an exact reserve bound in %s",async theme=>{
  document.documentElement.className=theme;const change=vi.fn(),validity=vi.fn();vi.stubGlobal("fetch",vi.fn(async()=>Response.json(response)));

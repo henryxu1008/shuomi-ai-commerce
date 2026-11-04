@@ -69,6 +69,11 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 			outputRecoveryDiagnostic(ctx, input.RunID, "read_recovery_bundle", err)
 			return effect, imageagent.ErrValidation
 		}
+		// A base64 result has no alternate URL or provider replay path. Keep
+		// the original charged fact while its immutable bundle is unavailable.
+		if fact.Success.ResultLocatorKind == "artifact_bundle" {
+			return effect, imageagent.ErrValidation
+		}
 		if fact.Success.ResultURL == "" && input.ImageSet == nil && input.Artwork == nil {
 			outputRecoveryDiagnostic(ctx, input.RunID, "validate_result", imageagent.ErrValidation)
 			return effect, blockedSlotEffectV3Error(slotProviderOutcomeUnknownCode)

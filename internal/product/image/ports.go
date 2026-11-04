@@ -35,7 +35,10 @@ func NormalizeUsageAuthorization(quote UsageQuote, operation string) (UsageQuote
 		!isCanonicalRequired(quote.PricingVersion) || !isCanonicalRequired(quote.Fingerprint) ||
 		quote.MaximumOutputs < 1 || quote.MaximumOutputs > maxSceneCandidates ||
 		quote.MaximumModelCalls < 0 || quote.MaximumCostMicros < 0 ||
-		!quote.CostUpperBoundKnown && quote.MaximumCostMicros != 0 {
+		!quote.CostUpperBoundKnown && quote.ReferencePriceVersion == "" && quote.MaximumCostMicros != 0 {
+		return UsageQuote{}, ErrInputInvalid
+	}
+	if quote.ReferencePriceVersion != "" && (quote.ReferencePriceVersion != quote.PricingVersion || quote.Provider != "openai" || quote.Model != "gpt-image-2.5-flare-2026-09-08" || quote.CostUpperBoundKnown || quote.MaximumCostMicros <= 0 || quote.MaximumModelCalls != 1) {
 		return UsageQuote{}, ErrInputInvalid
 	}
 	return quote, nil

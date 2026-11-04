@@ -121,7 +121,7 @@ func TestImageSettlementEventOrAuditFailureRollsBackDebtAndEntireHold(t *testing
 	}
 }
 
-func reservedImageSettlementFixture(t *testing.T) (*gorm.DB, *GormImageGenerationRepository, *imageFactTestOwner, imageagent.GenerationReservationReceipt) {
+func reservedImageSettlementFixture(t *testing.T, reference ...imageagent.ImageBilling) (*gorm.DB, *GormImageGenerationRepository, *imageFactTestOwner, imageagent.GenerationReservationReceipt) {
 	t.Helper()
 	db := openSQLiteStore(t)
 	require.NoError(t, AutoMigrate(db))
@@ -134,6 +134,14 @@ func reservedImageSettlementFixture(t *testing.T) (*gorm.DB, *GormImageGeneratio
 	require.NoError(t, db.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-1", ResourceType: "ai_point", Available: 100}).Error)
 	fact, err := imageagent.NewGenerationFact(imageagent.GenerationIntent{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Identity: imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: "org-1", OwnerUserID: "actor-1", RunID: "run-1"}, PlanRevision: 1, SlotID: "main-1", Attempt: 1}, MemberID: "member-1", CatalogHash: "catalog-v1:" + strings.Repeat("a", 64), SourceDigest: strings.Repeat("b", 64), PromptVersion: "prompt-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(now)})
 	require.NoError(t, err)
+	if len(reference) == 1 {
+		intent := fact.Intent
+		intent.Billing = reference[0]
+		intent.Provider, intent.Model, intent.Protocol = "openai", reference[0].OfficialTariff.Model, "openai-images-sync-v1"
+		intent.PriceVersion = reference[0].OfficialTariff.PriceVersion
+		fact, err = imageagent.NewGenerationFact(intent)
+		require.NoError(t, err)
+	}
 	owner := &imageFactTestOwner{fact: fact}
 	repository, err := NewGormImageGenerationRepository(db, TransactionConfig{}, owner, &imagePointTestAuthorizer{})
 	require.NoError(t, err)

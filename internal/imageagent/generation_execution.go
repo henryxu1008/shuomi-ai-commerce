@@ -224,6 +224,9 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	}
 	_, won, err := e.dependencies.Facts.BeginGenerationDispatch(ctx, intent)
 	if err != nil {
+		if errors.Is(err, ErrReferenceImageBindingStopped) {
+			return closeBeforeDispatch(err)
+		}
 		return generationUnknown(err)
 	}
 	if !won {
@@ -268,6 +271,16 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	}
 	if dispatchErr != nil {
 		return generationUnknown(dispatchErr)
+	}
+	if intent.Billing.OfficialTariff.IsReferenceImageEstimate() {
+		settled, err := e.dependencies.Facts.ReadGenerationFact(finalCtx, id)
+		if err != nil {
+			return generationUnknown(err)
+		}
+		output.UsageReceipt, err = settled.ProjectReferenceImageCost(output.UsageReceipt)
+		if err != nil {
+			return generationUnknown(err)
+		}
 	}
 	if input.Artwork != nil {
 		if output.SlotID != input.Slot.ID || output.Attempt != input.Attempt || output.SourceAssetID != "" || len(output.Assets) != 1 || !reflect.DeepEqual(output.Assets[0].Operations, []string{"generate_artwork"}) {

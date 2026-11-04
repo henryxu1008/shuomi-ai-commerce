@@ -59,6 +59,7 @@ type GenerationSuccess struct {
 	// Worker-only locator. Never expose GenerationSuccess in a public DTO.
 	ResultURL         string
 	ResultUnavailable string
+	ResultLocatorKind string `json:",omitempty"`
 	UsageKnown        bool
 	InputTokens       int64
 	OutputTokens      int64
@@ -84,6 +85,9 @@ type GenerationFact struct {
 	Reservation GenerationReservationReceipt
 	Success     GenerationSuccess
 	Settlement  GenerationSettlementReceipt
+	// An over-reserve observation is not success or a settlement proof. The
+	// original fact retains it to stop new sends on this exact frozen binding.
+	ObservedOverage GenerationSuccess `json:",omitzero"`
 }
 
 type GenerationSettlementReceipt struct {
@@ -205,8 +209,14 @@ func (f GenerationFact) RecordSuccess(success GenerationSuccess) (GenerationFact
 	if err := f.Validate(); err != nil {
 		return f, err
 	}
-	if !validGenerationSuccess(success) {
+	if !validGenerationSuccess(success) || success.BillableUsage.MappingVersion == aicapability.ReferenceImagesTotalsV1 && !f.Intent.Billing.OfficialTariff.IsReferenceImageEstimate() {
 		return f, ErrValidation
+	}
+	if f.ObservedOverage != (GenerationSuccess{}) {
+		if f.ObservedOverage != success {
+			return f, ErrRevisionConflict
+		}
+		return f, nil
 	}
 	if f.State == GenerationSucceeded {
 		if f.Success != success {
@@ -216,6 +226,16 @@ func (f GenerationFact) RecordSuccess(success GenerationSuccess) (GenerationFact
 	}
 	if f.State != GenerationDispatchStarted && f.State != GenerationUnknown {
 		return f, ErrRevisionConflict
+	}
+	if f.Intent.Billing.OfficialTariff.IsReferenceImageEstimate() {
+		actual, err := f.Intent.Billing.OfficialTariff.SettlementMicropoints(success.BillableUsage)
+		if err != nil {
+			return f, ErrValidation
+		}
+		if actual > f.Intent.Points {
+			f.State, f.ObservedOverage = GenerationUnknown, success
+			return f, nil
+		}
 	}
 	f.State = GenerationSucceeded
 	f.Success = success
@@ -240,7 +260,7 @@ func (f GenerationFact) Validate() error {
 			return ErrValidation
 		}
 	case GenerationSucceeded:
-		if f.Reservation.ReservationID == "" || !validGenerationSuccess(f.Success) {
+		if f.Reservation.ReservationID == "" || !validGenerationSuccess(f.Success) || f.Success.BillableUsage.MappingVersion == aicapability.ReferenceImagesTotalsV1 && !f.Intent.Billing.OfficialTariff.IsReferenceImageEstimate() {
 			return ErrValidation
 		}
 	default:
@@ -248,6 +268,15 @@ func (f GenerationFact) Validate() error {
 	}
 	if f.Settlement != (GenerationSettlementReceipt{}) && !f.matchesSettlement(f.Settlement) {
 		return ErrValidation
+	}
+	if f.ObservedOverage != (GenerationSuccess{}) {
+		if f.State != GenerationUnknown || !f.Intent.Billing.OfficialTariff.IsReferenceImageEstimate() || !validGenerationSuccess(f.ObservedOverage) {
+			return ErrValidation
+		}
+		actual, err := f.Intent.Billing.OfficialTariff.SettlementMicropoints(f.ObservedOverage.BillableUsage)
+		if err != nil || actual <= f.Intent.Points {
+			return ErrValidation
+		}
 	}
 	return nil
 }
@@ -300,10 +329,21 @@ func (f GenerationFact) matchesReceipt(r GenerationReservationReceipt) bool {
 }
 
 func validGenerationSuccess(s GenerationSuccess) bool {
-	if s.BillableUsage.Complete && (s.BillableUsage.Validate() != nil || s.BillableUsage.OutputImageItems == 0 && (!s.UsageKnown || s.BillableUsage.InputText+s.BillableUsage.InputImage != s.InputTokens || s.BillableUsage.OutputText+s.BillableUsage.OutputImage != s.OutputTokens)) {
+	reference := s.BillableUsage.MappingVersion == aicapability.ReferenceImagesTotalsV1
+	if reference {
+		t := s.BillableUsage.ReferenceImageTotals
+		if s.BillableUsage.Validate() != nil || !s.UsageKnown || t.Input != s.InputTokens || t.Output != s.OutputTokens || t.Total != s.TotalTokens {
+			return false
+		}
+	}
+	if !reference && s.BillableUsage.Complete && (s.BillableUsage.Validate() != nil || s.BillableUsage.OutputImageItems == 0 && (!s.UsageKnown || s.BillableUsage.InputText+s.BillableUsage.InputImage != s.InputTokens || s.BillableUsage.OutputText+s.BillableUsage.OutputImage != s.OutputTokens)) {
 		return false
 	}
-	if s.ResultURL != "" {
+	if s.ResultLocatorKind != "" {
+		if !reference || s.ResultLocatorKind != "artifact_bundle" || s.ResultURL != "" || s.ResultUnavailable != "" {
+			return false
+		}
+	} else if s.ResultURL != "" {
 		if s.ResultUnavailable != "" || !validGenerationResultURL(s.ResultURL) {
 			return false
 		}
@@ -316,7 +356,7 @@ func validGenerationSuccess(s GenerationSuccess) bool {
 	if !s.UsageKnown {
 		return s.InputTokens == 0 && s.OutputTokens == 0 && s.TotalTokens == 0
 	}
-	return s.InputTokens >= 0 && s.OutputTokens >= 0 && s.TotalTokens > 0 && s.InputTokens <= s.TotalTokens && s.OutputTokens == s.TotalTokens-s.InputTokens
+	return s.InputTokens >= 0 && s.OutputTokens >= 0 && (s.TotalTokens > 0 || reference) && s.InputTokens <= s.TotalTokens && s.OutputTokens == s.TotalTokens-s.InputTokens
 }
 
 // Bound the original signed URL without rewriting its query. All actual GETs
@@ -334,6 +374,7 @@ func validGenerationResultURL(raw string) bool {
 }
 
 func (s GenerationSuccess) WithResultLocator(raw, unavailable string) GenerationSuccess {
+	s.ResultLocatorKind = ""
 	s.ResultURL, s.ResultUnavailable = "", "invalid_result"
 	if unavailable == "" && validGenerationResultURL(raw) {
 		s.ResultURL, s.ResultUnavailable = raw, ""

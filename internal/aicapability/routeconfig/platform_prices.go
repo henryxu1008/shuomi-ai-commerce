@@ -17,9 +17,10 @@ func PlatformPricesScope() Scope {
 }
 
 type OfficialImagePriceScope struct {
-	Width   int    `json:"width"`
-	Height  int    `json:"height"`
-	Quality string `json:"quality"`
+	ReferenceEstimate aicapability.ReferenceImageEstimate `json:"referenceEstimate,omitzero"`
+	Width             int                                 `json:"width"`
+	Height            int                                 `json:"height"`
+	Quality           string                              `json:"quality"`
 }
 type PublishedModelPrice struct {
 	Region         string                          `json:"region"`
@@ -93,6 +94,18 @@ func FreezePlatformPrices(in PlatformPricesInput, revision string, previous *Pla
 	}
 	for i := range out.Prices {
 		p := &out.Prices[i]
+		if p.Image != nil {
+			copy := *p.Image
+			p.Image = &copy
+			if p.UsageVersion == aicapability.ReferenceImagesTotalsV1 {
+				if p.Model != aicapability.FlareImageModel || p.Provider != "openai" || p.Channel != "openai-direct" || p.ServiceType != "image-sync" ||
+					p.Image.ReferenceEstimate.Validate() != nil || p.Image.Width != 1024 || p.Image.Height != 1024 || p.Image.Quality != "auto" {
+					return out, ErrInvalid
+				}
+			} else if p.Image.ReferenceEstimate != (aicapability.ReferenceImageEstimate{}) {
+				return out, ErrInvalid
+			}
+		}
 		if p.Version != "" || !ValidFact(p.Region, 64) || !ValidFact(p.ServiceType, 64) || !ValidFact(p.ID, 64) || !ValidFact(p.Model, 128) || !ValidFact(p.Channel, 128) || !officialPriceHost(p.SourceURL, p.Provider) || !validPriceInterval(p.VerifiedAt, p.EffectiveFrom, p.EffectiveUntil, now) {
 			return out, ErrInvalid
 		}
