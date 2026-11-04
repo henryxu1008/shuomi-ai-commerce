@@ -74,9 +74,7 @@ if [ -f "$state/.terraform-complete" ]; then
   exit 0
 fi
 if [ -f "$state/.terraform-started" ]; then echo 'local OpenTofu initialization is incomplete; recreate this Compose project' >&2; exit 1; fi
-touch "$state/.terraform-started"
-chmod 600 "$state/.terraform-started"
-
+# Finish repeatable dependency preparation before recording native writes.
 apk add --no-cache ca-certificates curl jq
 if test -n "$account_public_identity"; then
   export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
@@ -92,6 +90,12 @@ issuer=${account_public_identity:-https://localhost:${identity_port}}
 until curl --fail --silent --show-error --cacert "$SSL_CERT_FILE" "$issuer/.well-known/openid-configuration" >/dev/null; do sleep 2; done
 cd "$state/config"
 tofu init -input=false
+if [ -f "$state/.terraform-complete" ] || [ -f "$state/.terraform-started" ]; then
+  echo 'local OpenTofu state changed during preparation; rerun with the same project' >&2
+  exit 1
+fi
+touch "$state/.terraform-started"
+chmod 600 "$state/.terraform-started"
 tofu apply -input=false -auto-approve -parallelism=1 \
   -var="bootstrap_pat=$(tr -d '\r\n' < "$bootstrap_pat")" \
   -var="operator_password=$(tr -d '\r\n' < "$tofu_inputs/operator-password")" \

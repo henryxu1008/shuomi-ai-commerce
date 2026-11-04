@@ -504,6 +504,15 @@ root schema-install containers can read them, but serving containers receive
 only their existing private runtime manifests. An unreadable or malformed
 credential aborts initialization before a passwordless role can be created.
 
+The OpenTofu initializer prepares packages and the first root provider install
+before recording `.terraform-started`. If that preparation fails, restore
+connectivity and rerun the same Compose command with the same project, options
+and volumes. Once the started marker exists, an apply or output may already
+have changed native identity facts: the existing refusal to retry still applies.
+Do not remove markers to force a retry. Existing failed projects with a started
+marker are not repaired by this change. See the
+[preflight boundary](../../../docs/architecture/compose-tofu-preflight.md).
+
 Use a **new project name and empty volumes** for this layout. It is not an
 upgrade/migration command for retained multi-instance projects. Their containers,
 volumes and original checkout remain in place; operate them with that checkout.

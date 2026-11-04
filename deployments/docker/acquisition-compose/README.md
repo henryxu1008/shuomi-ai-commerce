@@ -137,6 +137,13 @@ the browser, and close the editor afterwards; do not read it into PowerShell or
 paste it into a command. Browser login and real 1688 acquisition remain manual
 trial steps, not evidence from this Compose setup.
 
+OpenTofu package/first root provider preparation runs before `.terraform-started`.
+If preparation fails before that marker is written, restore connectivity and
+rerun the same Compose command with the original project and volumes. After
+started is recorded, native apply/output failures still refuse replay; never
+delete a marker to force retry. This does not repair earlier incomplete projects.
+See the [preflight boundary](../../../docs/architecture/compose-tofu-preflight.md).
+
 The product store is the independently named `product_acquisition` database.
 It is initialized once by the existing explicit `product-acquisition-init`
 command with the pre-provisioned `source_acquisition_runtime` role. The
