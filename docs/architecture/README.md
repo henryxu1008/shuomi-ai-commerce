@@ -214,6 +214,7 @@
 
 - `data-services-native-authorization.md` — [Data Services native authorization — #619 / PR #631](data-services-native-authorization.md)
 - `data-services.md` — [数据市场与 API 管理首版](data-services.md)
+- `data-services-execution-lifecycle.md` — [关闭采集执行时保留数据服务配置、资料与历史](data-services-execution-lifecycle.md)
 - `ecoservices-qualification-runtime.md` — [Ecoservices qualification-only runtime](ecoservices-qualification-runtime.md)
 - `ecosystem-services.md` — [生态服务 V1：第三方入驻、服务交付与在线收款结算](ecosystem-services.md)
 - `platform-support-chatwoot.md` — [Platform customer support through Chatwoot official APIs](platform-support-chatwoot.md)
