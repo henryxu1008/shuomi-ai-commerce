@@ -56,3 +56,14 @@ func TestResearchBindingPinsProjectCandidateAndObservationWithoutBorrowingOtherC
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), "ResearchSelection", "unrelated current consumers do not gain a research variant")
 }
+
+func TestCombinedResearchAndCandidateRuleBindingsRemainExclusive(t *testing.T) {
+	research := researchBindingFixture()
+	rules := candidateRulesBindingFixture(t, "22")
+	require.True(t, research.Valid())
+	require.True(t, rules.Valid())
+	research.CandidateRules = rules.CandidateRules
+	require.False(t, research.Valid(), "research evidence must not borrow a listing category selector")
+	rules.ResearchSelection = research.ResearchSelection
+	require.False(t, rules.Valid(), "listing candidate rules must not carry a research disclosure")
+}

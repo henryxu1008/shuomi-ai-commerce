@@ -65,18 +65,16 @@ type Binding struct {
 }
 
 func (b Binding) Valid() bool {
+	if b.ContextKind != CandidateRulesContextKind && b.CandidateRules != (CandidateRulesRef{}) || b.ContextKind != ResearchSelectionContextKind && b.ResearchSelection != (ResearchSelectionRef{}) {
+		return false
+	}
 	if b.ContextKind == CandidateRulesContextKind {
 		return b.validCandidateRules()
-	}
-	if b.CandidateRules != (CandidateRulesRef{}) {
-		return false
 	}
 	if b.ContextKind == ResearchSelectionContextKind {
 		return b.validResearchSelection()
 	}
-	if b.ResearchSelection != (ResearchSelectionRef{}) {
-		return false
-	}
+
 	if b.ContextKind == StoreDiagnosisContextKind {
 		return b.validStoreDiagnosis()
 	}
