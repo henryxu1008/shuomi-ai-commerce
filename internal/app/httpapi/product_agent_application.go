@@ -13,6 +13,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	"task-processor/internal/aicapability/channelcredential"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
@@ -51,6 +52,7 @@ import (
 // and the manager are caller-owned. Construction never installs schema, creates
 // entitlements, calls the model or edits a Product.
 type ProductAgentDependencies struct {
+	ChannelCredentials       channelcredential.SecretReader
 	CurrentTextPolicies      governed.RoutePolicyReader
 	Knowledge                *knowledge.Service
 	RunDB, AssetDB, ReviewDB *gorm.DB

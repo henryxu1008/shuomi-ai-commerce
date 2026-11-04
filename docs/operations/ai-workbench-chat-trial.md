@@ -1,5 +1,7 @@
 # Chat → BusinessTask 标题建议试用交接
 
+> 新版本凭据维护已切换到[企业渠道连接](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
+
 Refs #576、#588。入口为当前 Console 的 `/workbench/ai/chat` 和 `/workbench/ai/tasks`。获准企业的成员从已保存的 1688 商品采集操作开始，在 Chat 中描述标题目标；模型只返回澄清或待确认方案。成员确认后创建 BusinessTask，调用现有 Product Agent 生成建议，最后仍须在现有 Review 中由授权人员接受、编辑和应用。当前不发布到平台，也不自动应用标题。
 
 ## 准备当前应用

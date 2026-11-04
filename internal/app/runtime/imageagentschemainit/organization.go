@@ -15,7 +15,6 @@ import (
 	nativeschema "task-processor/internal/app/schema/productagentruntime"
 	"task-processor/internal/core/config"
 	imagestore "task-processor/internal/imageagent/store"
-	openaiclient "task-processor/internal/integration/openai"
 	assetpersistence "task-processor/internal/integration/persistence/product/asset"
 	platformdatabase "task-processor/internal/platform/database"
 )
@@ -28,7 +27,7 @@ func InitializeOrganizationImageAgent(ctx context.Context, ownerConfigPath, curr
 }
 
 // PrepareLedgerOnlyOrganizationImageAgent preserves an already-current ledger
-// while installing only the missing Image/Asset/credential owner tables.
+// while installing only the missing Image/Asset owner tables.
 func PrepareLedgerOnlyOrganizationImageAgent(ctx context.Context, ownerConfigPath, currentManifestPath string) error {
 	return initializeOrganizationImageAgent(ctx, ownerConfigPath, currentManifestPath, prepareLedgerOnlyOrganizationImageAgent)
 }
@@ -80,9 +79,6 @@ func prepareLedgerOnlyOrganizationImageAgent(ctx context.Context, db *gorm.DB) e
 		if err := nativeschema.VerifyInvocationRelation(ctx, tx, owner); err != nil {
 			return err
 		}
-		if err := tx.AutoMigrate(&openaiclient.AIClientCredential{}); err != nil {
-			return err
-		}
 		if err := imagestore.AutoMigrateOrganizationScope(tx); err != nil {
 			return err
 		}
@@ -101,9 +97,6 @@ func migrateEmptyOrganizationImageAgent(ctx context.Context, db *gorm.DB) error 
 		var empty bool
 		if err := tx.Raw(`SELECT current_schema()='public' AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p','v','m','f','S'))`).Scan(&empty).Error; err != nil || !empty {
 			return errors.New("organization image agent init requires an empty dedicated database")
-		}
-		if err := tx.AutoMigrate(&openaiclient.AIClientCredential{}); err != nil {
-			return fmt.Errorf("migrate image agent credential owner: %w", err)
 		}
 		if err := aicapabilitystore.AutoMigrateInvocationLedger(tx); err != nil {
 			return fmt.Errorf("migrate image agent invocation owner: %w", err)

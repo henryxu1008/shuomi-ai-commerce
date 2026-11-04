@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/aicapability"
+	channel "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"testing"
@@ -20,7 +21,10 @@ type sharedMetadataFixture struct {
 
 func (f *sharedMetadataFixture) Credential(_ context.Context, org, id string) (d.Credential, error) {
 	f.reads++
-	if f.credential.OrganizationID != org || f.credential.ClientName != id {
+	if id == "" {
+		return d.Credential{}, d.ErrUnavailable
+	}
+	if f.credential.OrganizationID != org || f.credential.ConnectionID != id {
 		return d.Credential{}, d.ErrNotFound
 	}
 	return f.credential, nil
@@ -38,11 +42,22 @@ func sharedCatalogImageFixture(t *testing.T) (*SharedCatalog, *sharedMetadataFix
 	input := d.PlatformPricesInput{Prices: []d.PublishedModelPrice{{ID: "synthetic-price", Region: "cn-beijing", ServiceType: "image-sync", Image: &d.OfficialImagePriceScope{Width: 1024, Height: 1024, Quality: "auto"}, Provider: "qwen", Model: "qwen-image-3.0", Channel: "bailian-beijing", Currency: "CNY", UsageVersion: "qwen-image-count-v1", Rates: aicapability.OfficialModelRates{OutputImagePerItem: 200000}, SourceURL: "https://help.aliyun.com/zh/model-studio/", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}
 	prices, err := d.FreezePlatformPrices(input, "price-publication", nil, now)
 	require.NoError(t, err)
-	metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", ClientName: ref.ID, Model: "qwen-image-3.0", APIStyle: "dashscope", Version: "synthetic-credential", EndpointDigest: governed.EndpointIdentityDigest(endpoint), Reference: "synthetic-reference", TimeoutSeconds: 30, Enabled: true, KeyPresent: true}}
+	metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", EndpointDigest: governed.EndpointIdentityDigest(endpoint), Reference: "synthetic-reference", Enabled: true, KeyPresent: true}}
 	def := Definition{Manufacturer: "qwen", Region: "cn-beijing", ServiceType: "image-sync", Scope: d.Scope{OrganizationID: "org", Capability: d.ImageCapability}, Channel: "bailian-beijing", PriceID: "synthetic-price", ReferenceVersion: ref.Version, BoundEvidenceVersion: "synthetic-count-bound", Image: &ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, ClientName: ref.ID, Provider: "bailian", Model: "qwen-image-3.0", Endpoint: endpoint, CredentialVersion: "synthetic-credential", Billing: aicapability.OfficialModelBilling{UsageBound: aicapability.BillableModelUsage{MappingVersion: "qwen-image-count-v1", Complete: true, OutputImageItems: 1}}}}
 	catalog, err := NewCatalog([]Definition{def})
 	require.NoError(t, err)
-	return &SharedCatalog{Catalog: catalog, Credentials: metadata, ImageCredentials: metadata, Prices: &d.PlatformPricesService{Repository: metadata, Now: func() time.Time { return now }}, Now: func() time.Time { return now }}, metadata, ref
+	m := (channel.Metadata{OrganizationID: "org", ConnectionID: "shared-image-connection", Provider: "bailian", Channel: "bailian-beijing", Region: "cn-beijing", Account: "fixture", BaseURL: endpoint, Revision: 1, Enabled: true, KeyPresent: true}).WithIdentity()
+	metadata.credential.ConnectionID, metadata.credential.Provider, metadata.credential.Channel, metadata.credential.Region = m.ConnectionID, m.Provider, m.Channel, m.Region
+	metadata.credential.Reference = m.Reference
+	for scope, bindings := range catalog.definitions {
+		for id, definition := range bindings {
+			definition.ConnectionID = m.ConnectionID
+			definition.ConnectionProvider = m.Provider
+			definition.Image.DeadlineSeconds = 30
+			catalog.definitions[scope][id] = definition
+		}
+	}
+	return &SharedCatalog{Catalog: catalog, Credentials: metadata, Prices: &d.PlatformPricesService{Repository: metadata, Now: func() time.Time { return now }}, Now: func() time.Time { return now }}, metadata, ref
 }
 func TestSharedImageAdmissionUsesPublishedOfficialPriceAndOriginalCredentialOwner(t *testing.T) {
 	catalog, metadata, ref := sharedCatalogImageFixture(t)
@@ -59,7 +74,7 @@ func TestSharedImageAdmissionUsesPublishedOfficialPriceAndOriginalCredentialOwne
 	require.True(t, next.Ready, next.Reason)
 	require.EqualValues(t, 25000000, next.Image.Points)
 	require.NotEqual(t, q.ProfileVersion, next.ProfileVersion)
-	metadata.credential.Version = "rotated"
+	metadata.credential.Provider = "wrong-channel-provider"
 	revoked, err := catalog.QualifyModel(context.Background(), "org", d.ModelCategoryImage, ref)
 	require.NoError(t, err)
 	require.False(t, revoked.Ready)
@@ -67,7 +82,7 @@ func TestSharedImageAdmissionUsesPublishedOfficialPriceAndOriginalCredentialOwne
 }
 func TestSharedImageAdmissionCannotBorrowTextCredentialsOrMissingBillingBound(t *testing.T) {
 	catalog, _, ref := sharedCatalogImageFixture(t)
-	catalog.ImageCredentials = nil
+	catalog.Credentials = nil
 	q, err := catalog.QualifyModel(context.Background(), "org", d.ModelCategoryImage, ref)
 	require.NoError(t, err)
 	require.False(t, q.Ready)
@@ -158,9 +173,10 @@ func TestSharedTextAdmissionRequiresAnImplementedOfficialUsageMapper(t *testing.
 			}
 			prices, err := d.FreezePlatformPrices(d.PlatformPricesInput{Prices: []d.PublishedModelPrice{{ID: "synthetic-price", Region: "global", ServiceType: "standard-sync", Provider: manufacturer, Channel: "synthetic-channel", Model: p.ModelID, Currency: "CNY", UsageVersion: tc.mapping, Rates: aicapability.OfficialModelRates{InputText: 1000000, OutputText: 1000000}, SourceURL: source, VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}, "synthetic-publication", nil, now)
 			require.NoError(t, err)
-			metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", ClientName: ref.ID, Model: p.ModelID, APIStyle: tc.adapter, Version: "credential", EndpointDigest: p.EndpointIdentityDigest, Reference: "synthetic-reference", TimeoutSeconds: 30, Enabled: true, KeyPresent: true}}
+			metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", EndpointDigest: p.EndpointIdentityDigest, Reference: "synthetic-reference", Enabled: true, KeyPresent: true}}
 			catalog, err := NewCatalog([]Definition{{Manufacturer: manufacturer, Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", PriceID: "synthetic-price", ReferenceVersion: ref.Version, BoundEvidenceVersion: "synthetic-bound", Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: "credential", AdmittedEndpointIdentityDigest: p.EndpointIdentityDigest}, MaximumCostMicros: 100}})
 			require.NoError(t, err)
+			bindTestChannel(catalog, &metadata.credential)
 			shared := &SharedCatalog{Catalog: catalog, Credentials: metadata, Prices: &d.PlatformPricesService{Repository: metadata, Now: func() time.Time { return now }}, Now: func() time.Time { return now }}
 			q, err := shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
 			require.NoError(t, err)
@@ -183,7 +199,8 @@ func TestDeepSeekReferenceAdmissionUsesFrozenReferenceAndCurrentCredentials(t *t
 	require.NoError(t, err)
 	prices, err := d.FreezePlatformPrices(d.PlatformPricesInput{Prices: []d.PublishedModelPrice{{ID: def.PriceID, Provider: def.Manufacturer, Model: p.ModelID, Region: def.Region, ServiceType: def.ServiceType, Channel: def.Channel, Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1, Rates: aicapability.OfficialModelRates{InputText: 2_000_000, OutputText: 8_000_000}, SourceURL: "https://api-docs.deepseek.com/", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}, "reference-v1", nil, now)
 	require.NoError(t, err)
-	metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", ClientName: ref.ID, Model: p.ModelID, APIStyle: p.AdapterKind, Version: "credential", EndpointDigest: p.EndpointIdentityDigest, Reference: "synthetic-only", TimeoutSeconds: 30, Enabled: true, KeyPresent: true}}
+	metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", EndpointDigest: p.EndpointIdentityDigest, Reference: "synthetic-only", Enabled: true, KeyPresent: true}}
+	bindTestChannel(catalog, &metadata.credential)
 	shared := &SharedCatalog{Catalog: catalog, Credentials: metadata, Prices: &d.PlatformPricesService{Repository: metadata, Now: func() time.Time { return now }}, Now: func() time.Time { return now }}
 	q, err := shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
 	require.NoError(t, err)
@@ -235,9 +252,32 @@ func TestDeepSeekReferenceAdmissionUsesFrozenReferenceAndCurrentCredentials(t *t
 		require.True(t, q.Ready)
 		require.NotEqual(t, beforePrice, q.ProfileVersion, "reference versions are included in confirmation identity")
 	}
-	metadata.credential.Version = "revoked"
+	metadata.credential.Enabled = false
 	q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
 	require.NoError(t, err)
 	require.False(t, q.Ready)
 	require.Equal(t, "CREDENTIAL_NOT_ADMITTED", q.Reason)
+}
+
+// Explicit fixture admission: models remain in their definitions, the shared
+// credential supplies only connection identity and endpoint metadata.
+func bindTestChannel(c *Catalog, row *d.Credential) {
+	for scope, defs := range c.definitions {
+		for id, def := range defs {
+			if scope.OrganizationID != row.OrganizationID {
+				continue
+			}
+			def.ConnectionID = "fixture-connection"
+			def.ConnectionProvider = "fixture-provider"
+			row.ConnectionID = def.ConnectionID
+			row.Provider = def.ConnectionProvider
+			row.Channel = def.Channel
+			row.Region = def.Region
+			row.Reference = "channel-credential-v1:fixture-revision-1"
+			if def.Image != nil {
+				def.Image.DeadlineSeconds = 30
+			}
+			defs[id] = def
+		}
+	}
 }

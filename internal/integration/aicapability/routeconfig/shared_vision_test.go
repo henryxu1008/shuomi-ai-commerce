@@ -41,7 +41,8 @@ func TestVisionQualificationIsSeparateFromTextConsumersAndUsesOfficialPrice(t *t
 	require.NoError(t, err)
 	prices, err := d.FreezePlatformPrices(d.PlatformPricesInput{Prices: []d.PublishedModelPrice{{ID: "fixture-price", Provider: "openai", Model: p.ModelID, Channel: "openai-direct", Region: "global", ServiceType: "standard-sync", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, CachedInputText: 1000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}, "fixture-publication", nil, now)
 	require.NoError(t, err)
-	metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", ClientName: ref.ID, Model: p.ModelID, APIStyle: "openai-compatible", Version: "credential", EndpointDigest: p.EndpointIdentityDigest, Reference: "fixture", TimeoutSeconds: 30, Enabled: true, KeyPresent: true}}
+	metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", EndpointDigest: p.EndpointIdentityDigest, Reference: "fixture", Enabled: true, KeyPresent: true}}
+	bindTestChannel(catalog, &metadata.credential)
 	shared := &SharedCatalog{Catalog: catalog, Credentials: metadata, Prices: &d.PlatformPricesService{Repository: metadata, Now: func() time.Time { return now }}, Now: func() time.Time { return now }}
 	for _, category := range []d.ModelCategory{d.ModelCategoryText, d.ModelCategoryMultimodal} {
 		q, err := shared.QualifyModel(context.Background(), "org", category, ref)

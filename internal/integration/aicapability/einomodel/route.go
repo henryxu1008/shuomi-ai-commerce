@@ -5,13 +5,9 @@ import (
 	"strings"
 
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/integration/googleinteractions"
-	"task-processor/internal/integration/openai"
 )
-
-type OrganizationCredentialReader interface {
-	GetCredential(context.Context, string, string, string) (*openai.AIClientCredential, error)
-}
 
 type RouteKey struct {
 	OrganizationID string
@@ -48,7 +44,7 @@ func (p RoutePolicy) ShapeProfile() aicapability.ModelProfile {
 }
 
 type OrganizationRouteResolver struct {
-	credentials OrganizationCredentialReader
+	credentials credential.SecretReader
 	policies    map[RouteKey]RoutePolicy
 	current     RoutePolicyReader
 }
@@ -59,22 +55,16 @@ type RoutePolicyReader interface {
 
 // Managed mode has a single durable policy source. An unavailable reader must
 // never borrow a deployment policy, member credential, or process default.
-func NewManagedOrganizationRouteResolver(credentials OrganizationCredentialReader, current RoutePolicyReader) (*OrganizationRouteResolver, error) {
-	if credentials == nil || current == nil {
+func NewManagedOrganizationRouteResolver(credentials credential.SecretReader, current RoutePolicyReader) (*OrganizationRouteResolver, error) {
+	if current == nil {
 		return nil, ErrInvalid
 	}
 	return &OrganizationRouteResolver{credentials: credentials, current: current}, nil
 }
 
-// CredentialVersion is a non-secret row/version identity. The credential
-// writer changes UpdatedAt on rotation; no key material enters the version.
-func CredentialVersion(row openai.AIClientCredential) string {
-	return openai.CredentialVersion(row)
-}
-
 func EndpointIdentityDigest(endpoint string) string { return endpointDigest(endpoint) }
 
-func NewOrganizationRouteResolver(credentials OrganizationCredentialReader, policies map[RouteKey]RoutePolicy) (*OrganizationRouteResolver, error) {
+func NewOrganizationRouteResolver(credentials credential.SecretReader, policies map[RouteKey]RoutePolicy) (*OrganizationRouteResolver, error) {
 	// A separately configured registered consumer may leave this registry
 	// empty. Resolve still rejects every unconfigured exact operation.
 	if credentials == nil || len(policies) > 128 {
@@ -123,42 +113,34 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 	if !ok {
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}
-	if policy.AdmittedCredentialVersion == "" {
+	if !credential.ValidID(policy.Profile.ConnectionID) || !strings.HasPrefix(policy.AdmittedCredentialVersion, "channel-credential-v1:") {
 		return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
 	}
 	policy.Profile = policy.ShapeProfile()
-	// The exact organization row is selected. A member row, process default or
-	// another capability's policy cannot be borrowed when this row is missing.
-	row, err := r.credentials.GetCredential(ctx, input.OrganizationID, "", policy.Profile.ClientName)
+	// Model identity comes only from the qualified definition. One exact current
+	// connection observation supplies revision and secret; no model lives there.
+	row, err := r.credentials.Resolve(ctx, input.OrganizationID, policy.Profile.ConnectionID, policy.Profile.CredentialVersion)
 	if err != nil {
+		if err == credential.ErrChanged || err == credential.ErrNotFound {
+			return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
+		}
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}
-	if row == nil || !row.Enabled || row.UserID != "" || row.TenantID != input.OrganizationID ||
-		row.ClientName != policy.Profile.ClientName || strings.TrimSpace(row.APIKey) == "" ||
-		row.Model != policy.Profile.ModelID || CredentialVersion(*row) != policy.AdmittedCredentialVersion ||
-		endpointDigest(row.BaseURL) != policy.AdmittedEndpointIdentityDigest ||
-		row.TimeoutSecond < 1 || row.TimeoutSecond > 120 ||
-		int64(row.TimeoutSecond)*int64(1e9) < int64(policy.Profile.DeadlineBound) {
+	m := row.Metadata
+	if !m.Enabled || !m.KeyPresent || m.OrganizationID != input.OrganizationID || m.ConnectionID != policy.Profile.ConnectionID || strings.TrimSpace(row.APIKey) == "" || m.Reference != policy.AdmittedCredentialVersion || endpointDigest(m.BaseURL) != policy.AdmittedEndpointIdentityDigest {
 		return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
 	}
-	style := strings.ToLower(strings.TrimSpace(row.APIStyle))
 	switch AdapterKind(policy.Profile.AdapterKind) {
 	case AdapterOpenAICompatible:
-		if style != "openai" && style != "openai-compatible" && style != "grsai" {
-			return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
-		}
 	case AdapterClaudeNative:
-		if style != "claude-native" {
-			return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
-		}
 	case AdapterGoogleInteractions:
-		if style != "google-interactions" || !googleinteractions.ValidEndpoint(row.BaseURL) {
+		if !googleinteractions.ValidEndpoint(m.BaseURL) {
 			return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
 		}
 	default:
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}
-	route := QualifiedRoute{Profile: policy.Profile, Endpoint: row.BaseURL, APIKey: row.APIKey}
+	route := QualifiedRoute{Profile: policy.Profile, Endpoint: m.BaseURL, APIKey: row.APIKey}
 	if !sameRoute(route, route) {
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}

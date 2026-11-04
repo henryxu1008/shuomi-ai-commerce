@@ -41,10 +41,10 @@ func (p *ProductAgentConfig) Limits() agent.Limits {
 
 func (p *ProductAgentConfig) validate(cfg *Config) error {
 	if !p.Enabled {
-		if err := p.Database.validate("productAgent.database"); err != nil {
-			return err
+		if e := p.Database.validate("productAgent.database"); e != nil {
+			return e
 		}
-		if cfg.ModelRoutePricing != nil && p.hasPolicies() {
+		if p.hasPolicies() {
 			return p.validatePolicyMetadata()
 		}
 		return nil

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"task-processor/internal/agentconfig"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	imageapp "task-processor/internal/app/imageagent"
 	appruntime "task-processor/internal/app/runtime"
@@ -118,7 +119,7 @@ func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, 
 
 // The caller owns the API/worker, configuration, source, resource and Asset
 // pools. This assembly installs no schema and starts no provider or worker.
-func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.SharedCategoryReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
+func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.SharedCategoryReader, channelCredentials credential.SecretReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(mediaReaders) > 1 {
 		return nil, empty, imageagent.ErrValidation
@@ -250,7 +251,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return &fullImageApplication{history: history, executionDisabled: true, skills: skills, artwork: artwork, readSources: readSources, contexts: contexts, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, rules: rules, manualAvailable: manual != nil}, empty, nil
 	}
 	workerRepository := imagestore.NewOrganizationRepository(workerDB)
-	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation, currentPolicies)
+	quotes, err := imageworker.NewImageGenerationQuoteReader(current.ImageAgent.Generation, currentPolicies)
 	if err != nil {
 		return nil, empty, err
 	}
@@ -296,7 +297,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
+	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled && channelCredentials != nil, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
 	var artwork imageagent.ArtworkPublisher
 	var artworkConfiguration agentconfig.ArtworkConfigurationRepository
 	if artworkConfigurationReady(startup, configurationDB, productDB, collectionsEnabled) {
@@ -316,7 +317,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	dependencies, err := imageworker.NewManagedImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger, currentPolicies, methods)
+	dependencies, err := imageworker.NewManagedImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger, currentPolicies, channelCredentials, methods)
 	if err != nil {
 		return nil, empty, err
 	}

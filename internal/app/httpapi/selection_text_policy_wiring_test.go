@@ -14,12 +14,12 @@ import (
 	"gorm.io/gorm/logger"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	texteino "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
-	"task-processor/internal/integration/openai"
 	runstore "task-processor/internal/integration/persistence/agent"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	"task-processor/internal/product/collection"
@@ -41,7 +41,16 @@ func (p *selectionCurrentTextPolicies) ReadPolicy(_ context.Context, key governe
 	return governed.RoutePolicy{}, governed.ErrNotDispatched
 }
 
-func selectionTextWiringFixture(t *testing.T) (*productAgentApplication, sqlmock.Sqlmock, openai.AIClientCredential, *selectionCurrentTextPolicies) {
+type selectionChannelSecrets struct{ secret credential.Secret }
+
+func (f selectionChannelSecrets) Resolve(_ context.Context, org, id, reference string) (credential.Secret, error) {
+	if f.secret.Metadata.OrganizationID != org || f.secret.Metadata.ConnectionID != id || f.secret.Metadata.Reference != reference {
+		return credential.Secret{}, credential.ErrChanged
+	}
+	return f.secret, nil
+}
+
+func selectionTextWiringFixture(t *testing.T) (*productAgentApplication, sqlmock.Sqlmock, httpModelFixture, *selectionCurrentTextPolicies) {
 	t.Helper()
 	sqlDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -60,18 +69,21 @@ func selectionTextWiringFixture(t *testing.T) (*productAgentApplication, sqlmock
 		t.Fatal("configuration reads must never dispatch a provider request")
 		return nil, errors.New("unexpected dispatch")
 	})}}
-	row := openai.AIClientCredential{ID: 1, TenantID: "fixture-org", ClientName: "shared-text", APIKey: "synthetic-only", BaseURL: "https://provider.example.test/v1", Model: "deepseek-v4.1-flash", APIStyle: "openai-compatible", TimeoutSecond: 5, Enabled: true, UpdatedAt: time.Unix(100, 0)}
+	row := httpModelFixture{TenantID: "fixture-org", ClientName: "shared-text", APIKey: "synthetic-only", BaseURL: "https://provider.example.test/v1", Model: "deepseek-v4.1-flash", APIStyle: "openai-compatible", TimeoutSecond: 5, Enabled: true}
+	metadata := (credential.Metadata{OrganizationID: row.TenantID, ConnectionID: row.ClientName, Provider: "DASHSCOPE", Channel: "fixture-channel", Account: "synthetic", Region: "global", BaseURL: row.BaseURL, Revision: 1, Enabled: true, KeyPresent: true}).WithIdentity()
+	row.reference = metadata.Reference
+	parent.config.ChannelCredentials = selectionChannelSecrets{credential.Secret{Metadata: metadata, APIKey: row.APIKey}}
 	t.Cleanup(func() { require.NoError(t, mock.ExpectationsWereMet()) })
 	return parent, mock, row, current
 }
 
-func selectionTextWiringPolicy(row openai.AIClientCredential, researchOperation bool) governed.RoutePolicy {
+func selectionTextWiringPolicy(row httpModelFixture, researchOperation bool) governed.RoutePolicy {
 	prompt, schema := agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
 	if researchOperation {
 		prompt, schema = agentconfig.ResearchPromptVersion, agentconfig.ResearchActionVersion
 	}
-	return governed.RoutePolicy{AdmittedCredentialVersion: governed.CredentialVersion(row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(row.BaseURL), Profile: aicapability.ModelProfile{
-		ClientName: row.ClientName, ModelID: row.Model, ProviderID: "DASHSCOPE", AdapterKind: "openai-compatible",
+	return governed.RoutePolicy{AdmittedCredentialVersion: row.reference, AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(row.BaseURL), Profile: aicapability.ModelProfile{
+		ConnectionID: row.ClientName, ClientName: row.ClientName, ModelID: row.Model, ProviderID: "DASHSCOPE", AdapterKind: "openai-compatible",
 		RoutingPolicyVersion: "fixture-route-v1", AdapterPolicyVersion: governed.DashScopeDeepSeekV41FlashNonThinkingPolicy, PromptVersion: prompt, OutputSchemaVersion: schema,
 		UsageMappingVersion: "fixture-usage-v1", CostPricingVersion: "fixture-cost-v1", Currency: "CNY", InputMicrosPerMillion: 2000000, OutputMicrosPerMillion: 8000000,
 		// A synthetic frozen official-price snapshot, never a published price.
@@ -102,12 +114,8 @@ func buildSelectionTextConsumer(t *testing.T, parent *productAgentApplication, r
 	return app.model, app.profile
 }
 
-func expectSelectionTextCredential(mock sqlmock.Sqlmock, row openai.AIClientCredential) {
-	mock.ExpectQuery(`SELECT .*FROM "ai_client_credentials"`).WithArgs(row.TenantID, "", row.ClientName, sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "user_id", "client_name", "api_key", "base_url", "model", "api_style", "timeout_second", "enabled", "updated_at"}).AddRow(row.ID, row.TenantID, "", row.ClientName, row.APIKey, row.BaseURL, row.Model, row.APIStyle, row.TimeoutSecond, row.Enabled, row.UpdatedAt))
-}
-
 func TestResearchAndSelectionUseCurrentTextPoliciesWithoutStaticMaps(t *testing.T) {
-	parent, mock, row, current := selectionTextWiringFixture(t)
+	parent, _, row, current := selectionTextWiringFixture(t)
 	for _, researchOperation := range []bool{true, false} {
 		operation := aicapability.OperationProductSelectionDecision
 		if researchOperation {
@@ -120,11 +128,9 @@ func TestResearchAndSelectionUseCurrentTextPoliciesWithoutStaticMaps(t *testing.
 			model, profile := buildSelectionTextConsumer(t, parent, researchOperation)
 			require.NotNil(t, model, "an injected current reader must not require a second static policy")
 			require.NotNil(t, profile)
-			expectSelectionTextCredential(mock, row)
 			actual, err := profile(context.Background(), row.TenantID)
 			require.NoError(t, err)
 			require.Equal(t, policy.ShapeProfile(), actual, "preserve operation prompt/schema and smaller limits")
-			expectSelectionTextCredential(mock, row)
 			ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{UserID: "fixture-actor", TenantID: row.TenantID, EffectiveOrganizationID: row.TenantID, TokenExpiresAt: time.Now().Add(time.Minute)})
 			require.Equal(t, texteino.TextRouteAvailable, model.RouteReadinessForVerifiedOrganization(ctx, row.TenantID))
 			require.Equal(t, []governed.RouteKey{key, key}, current.keys)
@@ -174,7 +180,7 @@ func TestResearchAndSelectionKeepFactsAvailableWithoutTextPolicies(t *testing.T)
 }
 
 func TestResearchAndSelectionShareCategoryAndFrozenOfficialPrice(t *testing.T) {
-	parent, mock, row, _ := selectionTextWiringFixture(t)
+	parent, _, row, _ := selectionTextWiringFixture(t)
 	selectionPolicy, researchPolicy := selectionTextWiringPolicy(row, false), selectionTextWiringPolicy(row, true)
 	shared := ProductAgentDependencies{
 		ResearchTextPolicies:  map[string]governed.RoutePolicy{row.TenantID: researchPolicy},
@@ -185,7 +191,6 @@ func TestResearchAndSelectionShareCategoryAndFrozenOfficialPrice(t *testing.T) {
 	for _, researchOperation := range []bool{true, false} {
 		model, profile := buildSelectionTextConsumer(t, parent, researchOperation)
 		require.NotNil(t, model)
-		expectSelectionTextCredential(mock, row)
 		p, err := profile(context.Background(), row.TenantID)
 		require.NoError(t, err)
 		profiles = append(profiles, p)

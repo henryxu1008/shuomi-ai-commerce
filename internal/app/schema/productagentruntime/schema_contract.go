@@ -9,7 +9,7 @@ import (
 
 	"gorm.io/gorm"
 	aistore "task-processor/internal/aicapability/store"
-	"task-processor/internal/integration/openai"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
 )
@@ -114,11 +114,17 @@ func runContracts(db *gorm.DB) ([]relationContract, error) {
 		"product_agent_runs_payload_check":  "CHECK ((octet_length(payload) <= 2097152))",
 	}}
 	tools := relationContract{Name: "product_agent_tool_calls", Owner: "product_agent_owner", Columns: []columnContract{{"run_id", "character varying(128)", "", true}, {"call_id", "character varying(128)", "", true}, {"payload", "bytea", "", true}}, Indexes: []indexContract{{Name: "product_agent_tool_calls_pkey", Columns: []string{"run_id", "call_id"}, Unique: true, Primary: true, Constraint: "p"}}, Checks: map[string]string{"product_agent_tool_calls_payload_check": "CHECK ((octet_length(payload) <= 8192))"}, ForeignKeys: map[string]string{"product_agent_tool_calls_run_id_fkey": "FOREIGN KEY (run_id) REFERENCES product_agent_runs(run_id)"}}
-	credential, err := modelContract(db, &openai.AIClientCredential{}, "product_agent_owner")
+	credential, err := modelContract(db, &channelstore.ConnectionRow{}, "product_agent_owner")
 	if err != nil {
 		return nil, err
 	}
-	return []relationContract{runs, tools, credential}, nil
+	receipts, err := modelContract(db, &channelstore.ReceiptRow{}, "product_agent_owner")
+	if err != nil {
+		return nil, err
+	}
+	credential.Checks = map[string]string{"channel_revision_positive": "CHECK ((revision > 0))"}
+	receipts.Checks = map[string]string{"channel_receipt_payload_bound": "CHECK ((octet_length(payload) <= 16384))"}
+	return []relationContract{runs, tools, credential, receipts}, nil
 }
 
 func invocationContract(db *gorm.DB) (relationContract, error) {
@@ -185,7 +191,7 @@ func verifyRelation(db *gorm.DB, spec relationContract) error {
 		actual := cols[i]
 		defaultOK := actual.Default == expected.Default
 		if expected.Default == "@owned-sequence" {
-			defaultOK = actual.Default == "nextval('ai_client_credentials_id_seq'::regclass)"
+			defaultOK = actual.Default == "nextval('"+spec.Name+"_"+expected.Name+"_seq'::regclass)"
 		}
 		if actual.Name != expected.Name || actual.Type != expected.Type || actual.NotNull != expected.NotNull || actual.Position != i+1 || actual.Identity != "" || actual.Generated != "" || !actual.DefaultCollation || !defaultOK {
 			return fmt.Errorf("public.%s.%s column contract differs", spec.Name, expected.Name)

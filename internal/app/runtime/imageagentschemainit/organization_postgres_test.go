@@ -2,11 +2,13 @@ package imageagentschemainit
 
 import (
 	"context"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	aistore "task-processor/internal/aicapability/store"
 
@@ -20,7 +22,19 @@ var trialDBNamePattern = regexp.MustCompile(`(?:^|\s)dbname=([^\s]+)`)
 
 func TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres(t *testing.T) {
 	dsn := os.Getenv("ISSUE487_TEST_DSN")
-	if dsn == "" || os.Getenv("ISSUE487_EXCLUSIVE_POSTGRES") != "ISOLATED_TRIAL_ONLY" {
+	owned := false
+	if dsn == "" && (os.Getenv("CI") != "" || os.Getenv("ISSUE1089_OWNED_POSTGRES") != "") {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		c, e := tcpostgres.Run(ctx, "postgres:17-alpine", tcpostgres.WithDatabase("issue1089_image"), tcpostgres.WithUsername("issue1089_owner"), tcpostgres.WithPassword("synthetic-image"), tcpostgres.BasicWaitStrategies())
+		require.NoError(t, e)
+		t.Cleanup(func() { require.NoError(t, c.Terminate(context.Background())) })
+		port, e := c.MappedPort(ctx, "5432/tcp")
+		require.NoError(t, e)
+		dsn = "host=127.0.0.1 port=" + port.Port() + " user=issue1089_owner password=synthetic-image dbname=issue1089_image sslmode=disable"
+		owned = true
+	}
+	if !owned && (dsn == "" || os.Getenv("ISSUE487_EXCLUSIVE_POSTGRES") != "ISOLATED_TRIAL_ONLY") {
 		t.Skip("requires an explicitly exclusive issue 487 PostgreSQL cluster")
 	}
 	match := trialDBNamePattern.FindStringSubmatch(dsn)
@@ -69,11 +83,13 @@ func TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres(t *test
 	var names []string
 	require.NoError(t, trialPool.Raw(`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`).Scan(&names).Error)
 	want := []string{
-		"ai_client_credentials", "ai_invocations",
+		"ai_invocations",
 		"image_agent_v2_asset_catalog", "image_agent_v2_asset_catalog_manifests", "image_agent_v2_attempts", "image_agent_v2_events", "image_agent_v2_plans", "image_agent_v2_projection_commits", "image_agent_v2_projection_snapshots", "image_agent_v2_runs", "image_agent_v2_slots", "image_agent_v3_slot_external_effects",
 		"product_approval_receipts", "product_approved_assets", "product_approved_inventory_heads", "product_approved_inventory_version_heads",
 	}
 	require.False(t, trialPool.Migrator().HasTable("image_agent_v2_slot_external_effects"))
+	require.False(t, trialPool.Migrator().HasTable("ai_client_credentials"))
+	require.False(t, trialPool.Migrator().HasTable("ai_channel_connections"))
 	slices.Sort(want)
 	require.Equal(t, want, names)
 	var indexes []string

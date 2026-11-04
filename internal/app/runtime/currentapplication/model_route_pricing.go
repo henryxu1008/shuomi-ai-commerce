@@ -137,7 +137,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	return defs, nil
 }
 
-func prepareSharedModelServices(ctx context.Context, reader, writer, imageCredentials *gorm.DB, defs []qualified.Definition) (*d.SharedModelService, *d.SharedModelService, *d.PlatformPricesService, error) {
+func prepareSharedModelServices(ctx context.Context, reader, writer *gorm.DB, defs []qualified.Definition) (*d.SharedModelService, *d.SharedModelService, *d.PlatformPricesService, error) {
 	if reader == nil || writer == nil || reader == writer {
 		return nil, nil, nil, d.ErrUnavailable
 	}
@@ -160,14 +160,8 @@ func prepareSharedModelServices(ctx context.Context, reader, writer, imageCreden
 		return nil, nil, nil, e
 	}
 	prices := &d.PlatformPricesService{Repository: write}
-	trusted := &qualified.SharedCatalog{Catalog: catalog, Credentials: read, Prices: &d.PlatformPricesService{Repository: read}}
-	if imageCredentials != nil {
-		projection, e := store.New(imageCredentials)
-		if e != nil {
-			return nil, nil, nil, e
-		}
-		trusted.ImageCredentials = projection
-	}
+	trusted := &qualified.SharedCatalog{Catalog: catalog, Credentials: write, Prices: &d.PlatformPricesService{Repository: read}}
+
 	return &d.SharedModelService{Repository: read, Catalog: trusted}, &d.SharedModelService{Repository: write, Catalog: trusted}, prices, nil
 }
 

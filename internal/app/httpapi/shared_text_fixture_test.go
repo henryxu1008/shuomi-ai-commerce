@@ -36,7 +36,10 @@ func (f syntheticCurrentTextPolicies) ReadPolicy(_ context.Context, key governed
 	case aicapability.OperationProductImageAnalysis:
 		policies = f.settings.ImageAnalysisPolicies
 	}
-	return policies[key.OrganizationID], nil
+	p := policies[key.OrganizationID]
+	p.Profile.ConnectionID = p.Profile.ClientName
+	p.Profile.CredentialVersion = p.AdmittedCredentialVersion
+	return p, nil
 }
 
 // Only the saved shared-category projection is synthetic. These two business

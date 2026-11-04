@@ -8,25 +8,31 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/authidentity"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/openai"
 )
 
 type readinessCredentialReader struct {
-	row *openai.AIClientCredential
+	row *credential.Secret
 	err error
 }
 
-func (r readinessCredentialReader) GetCredential(context.Context, string, string, string) (*openai.AIClientCredential, error) {
-	return r.row, r.err
+func (r readinessCredentialReader) Resolve(context.Context, string, string, string) (credential.Secret, error) {
+	if r.err != nil {
+		return credential.Secret{}, r.err
+	}
+	if r.row == nil {
+		return credential.Secret{}, credential.ErrNotFound
+	}
+	return *r.row, nil
 }
 
 func TestTitleReadinessPreservesResolverStatus(t *testing.T) {
-	row := openai.AIClientCredential{TenantID: "org-1", ClientName: "title", APIKey: "synthetic-only",
-		BaseURL: "https://example.org/v1", Model: "model", APIStyle: "openai-compatible", TimeoutSecond: 5, Enabled: true}
-	profile := aicapability.ModelProfile{ClientName: "title", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model",
-		EndpointIdentityDigest: governed.EndpointIdentityDigest(row.BaseURL), CredentialVersion: governed.CredentialVersion(row),
+	meta := (credential.Metadata{OrganizationID: "org-1", ConnectionID: "shared", Provider: "synthetic", Channel: "channel", Account: "test", Region: "global", BaseURL: "https://example.org/v1", Revision: 1, Enabled: true, KeyPresent: true}).WithIdentity()
+	row := credential.Secret{Metadata: meta, APIKey: "synthetic-only"}
+	profile := aicapability.ModelProfile{ClientName: "title", ConnectionID: "shared", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model",
+		EndpointIdentityDigest: governed.EndpointIdentityDigest(row.Metadata.BaseURL), CredentialVersion: row.Metadata.Reference,
 		RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1", OutputSchemaVersion: "schema-v1",
 		UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "USD", CNYMicrosPerCurrencyUnit: 1000000, Model: "model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, Currency: "USD", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 8192, MaximumCompletionTokens: 64,
 		MaximumInputBytes: 16 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 5 * time.Second}

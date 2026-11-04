@@ -1,0 +1,8 @@
+# Append after acquisition-plans and storage-capacity on the new empty project.
+services:
+ storage-capacity-init:
+  volumes: [acquisition-plans-runtime:/base:ro]
+  depends_on:
+   acquisition-plans-init: {condition: service_completed_successfully}
+ current-application:
+  command: [-config,/private/storage-capacity/current-application.json]

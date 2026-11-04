@@ -1,5 +1,7 @@
 # Local 非现金 AI 试用：入口与待确认执行清单
 
+> 新版本凭据维护已切换到[企业渠道连接](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
+
 依据：[产品决定](../product/local-ai-trial.md)、[已准入设计](../architecture/local-ai-trial.md)、[Issue #724](https://github.com/qq550723504/task-processor/issues/724)。本文件交付可操作入口和一次标题试用清单；源码准入、隔离测试和 CI 不等于已经发点、配置模型或真实调用。最终 HEAD/CI/独立复核及原运行 owner 的准确镜像/二进制/私密配置摘要写主要 PR 和原 #688 交接，不在此滚动重标构件。
 
 当前授权到代码与清单。**原 #688 汇总给用户确认之前，真实发点、成员额度修改、凭据/模型接线、技能发布或企业准入、部署/停启、生成/Apply 和付费调用均不执行。** 未获未知最终 HEAD 合并许可；不提交优选申请。

@@ -282,6 +282,48 @@ func TestLoadConfigAcceptsExplicitlyDisabledReferrals(t *testing.T) {
 	}
 }
 
+func TestLoadConfigAcceptsFixedPublicHTTPSIdentityOrigin(t *testing.T) {
+	const origin = "https://auth-trial.shuomiai.com"
+	manifest := strings.ReplaceAll(validManifest(), "http://localhost:18080", origin)
+	cfg, err := LoadConfig(writeManifest(t, manifest))
+	if err != nil {
+		t.Fatalf("fixed public identity origin rejected: %v", err)
+	}
+	if cfg.Identity.IssuerURL != origin || cfg.Identity.AuthorizationAPIURL != origin {
+		t.Fatal("identity origin changed during admission")
+	}
+}
+
+func TestLoadConfigRejectsUnsafePublicIdentityOrigins(t *testing.T) {
+	for _, origin := range []string{
+		"http://auth.example.com", "https://auth.example.com:443", "https://auth.example.com:8443",
+		"https://auth.example.com/", "https://auth.example.com/path", "https://user:password@auth.example.com",
+		"https://auth.example.com?", "https://auth.example.com?q=1", "https://auth.example.com#",
+		"https://auth.example.com#fragment", "HTTPS://auth.example.com", "https://Auth.example.com",
+		" https://auth.example.com", "https://auth.example.com ", "https://127.0.0.1", "https://127.1",
+		"https://[::1]", "https://localhost", "https://-auth.example.com", "https://auth-.example.com",
+		"https://auth..example.com", "https://auth_example.com", "https://auth.example.com.",
+		"https://" + strings.Repeat("a", 64) + ".example.com",
+		"https://" + strings.Repeat("a.", 126) + "example.com",
+	} {
+		t.Run(origin, func(t *testing.T) {
+			manifest := strings.ReplaceAll(validManifest(), "http://localhost:18080", origin)
+			if _, err := LoadConfig(writeManifest(t, manifest)); err == nil {
+				t.Fatal("unsafe public identity origin was accepted")
+			}
+		})
+	}
+	for name, endpoint := range map[string]string{"foreign_public": "https://other.example.com", "loopback": "http://localhost:18080"} {
+		t.Run(name, func(t *testing.T) {
+			manifest := strings.ReplaceAll(validManifest(), "http://localhost:18080", "https://auth.example.com")
+			manifest = strings.Replace(manifest, `"authorizationAPIURL": "https://auth.example.com"`, `"authorizationAPIURL": "`+endpoint+`"`, 1)
+			if _, err := LoadConfig(writeManifest(t, manifest)); err == nil {
+				t.Fatal("mismatched identity origin was accepted")
+			}
+		})
+	}
+}
+
 func TestLoadConfigRejectsRelativePathAndNonJSONInput(t *testing.T) {
 	if _, err := LoadConfig("manifest.json"); err == nil || !strings.Contains(err.Error(), "absolute") {
 		t.Fatalf("relative LoadConfig() error = %v", err)

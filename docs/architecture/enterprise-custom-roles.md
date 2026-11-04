@@ -209,10 +209,13 @@ The fresh Compose path uses the existing OpenTofu initialization owner in
 organization ID, registers them and the fixed administrator role, and emits
 `enterprise-role-slots.json` from the exact Terraform inventory after native
 initialization succeeds. Apply runs with `-parallelism=1` for the native provider's
-project-role event constraint. The initializer marks the first attempt with
+project-role event constraint. The initializer marks the first native apply with
 `.terraform-started` and records `.terraform-complete` only after success;
 a completed instance exits without reapplying native roles or grants, and an
 incomplete first attempt refuses to rewrite an existing instance.
+Repeatable package/root-provider preparation precedes that marker under the
+[Compose preflight boundary](compose-tofu-preflight.md); apply/output failures
+never remove it or replay an unknown native effect.
 
 The opt-in `internal/zitadelprovision` bootstrap is also used by the existing local
 acceptance fixture. It resolves actual native organization IDs before deriving

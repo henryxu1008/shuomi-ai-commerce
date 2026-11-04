@@ -4,14 +4,13 @@ import (
 	"context"
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/openai"
 )
 
 func newProductTextRouteResolver(cfg ProductAgentDependencies, policies map[governed.RouteKey]governed.RoutePolicy) (*governed.OrganizationRouteResolver, error) {
 	if cfg.CurrentTextPolicies != nil {
-		return governed.NewManagedOrganizationRouteResolver(openai.NewGormCredentialResolver(cfg.RunDB), cfg.CurrentTextPolicies)
+		return governed.NewManagedOrganizationRouteResolver(cfg.ChannelCredentials, cfg.CurrentTextPolicies)
 	}
-	return governed.NewManagedOrganizationRouteResolver(openai.NewGormCredentialResolver(cfg.RunDB), unavailableSharedTextReader{})
+	return governed.NewManagedOrganizationRouteResolver(cfg.ChannelCredentials, unavailableSharedTextReader{})
 }
 
 type unavailableSharedTextReader struct{}

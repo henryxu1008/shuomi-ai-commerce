@@ -33,13 +33,8 @@ func buildMembershipModule(ctx context.Context, cfg *config.Config, deps Members
 	if cfg == nil || authorizer == nil || auth.authorizer != authorizer || auth.workbenchVerifier == nil || auth.organizationResolver == nil {
 		return nil, errors.New("membership current authority unavailable")
 	}
-	origin, err := url.Parse(deps.ProviderOrigin)
-	if err != nil {
-		return nil, membership.ErrUnavailable
-	}
-	issuer, err := url.Parse(cfg.ListingKit.Zitadel.IssuerURL)
-	if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Scheme != issuer.Scheme || origin.Host != issuer.Host || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") || (origin.Hostname() != "127.0.0.1" && origin.Hostname() != "localhost" && origin.Hostname() != "::1") || origin.Port() == "" {
-		return nil, membership.ErrUnavailable
+	if err := validateMembershipProviderOrigin(deps.ProviderOrigin, cfg.ListingKit.Zitadel.IssuerURL); err != nil {
+		return nil, err
 	}
 	if deps.ReadToken == deps.WriteToken || len(deps.ReadToken) > 4096 || len(deps.WriteToken) > 4096 {
 		return nil, membership.ErrUnavailable
@@ -113,4 +108,19 @@ type currentMembershipModule struct {
 	kernelmodule.Module
 	invitations memberhttp.InvitationFactory
 	commands    memberhttp.CommandFactory
+}
+
+func validateMembershipProviderOrigin(raw, issuerRaw string) error {
+	if raw == issuerRaw && zitadel.IsCanonicalPublicIdentityOrigin(raw) {
+		return nil
+	}
+	origin, err := url.Parse(raw)
+	if err != nil {
+		return membership.ErrUnavailable
+	}
+	issuer, err := url.Parse(issuerRaw)
+	if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Scheme != issuer.Scheme || origin.Host != issuer.Host || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") || (origin.Hostname() != "127.0.0.1" && origin.Hostname() != "localhost" && origin.Hostname() != "::1") || origin.Port() == "" {
+		return membership.ErrUnavailable
+	}
+	return nil
 }

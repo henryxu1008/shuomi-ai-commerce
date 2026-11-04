@@ -25,12 +25,11 @@ func TestFlareSharedImageAdmissionUsesOnlyFrozenReferenceAndOriginalCredential(t
 	var err error
 	m.prices, err = d.FreezePlatformPrices(d.PlatformPricesInput{Prices: []d.PublishedModelPrice{price}}, "reference-image-1", nil, now)
 	require.NoError(t, err)
-	m.credential.Model = aicapability.FlareImageModel
-	m.credential.APIStyle = "openai"
 	m.credential.EndpointDigest = governed.EndpointIdentityDigest("https://api.openai.com/v1")
-	def := Definition{Manufacturer: "openai", Region: "global", ServiceType: "image-sync", Scope: d.Scope{OrganizationID: "org", Capability: d.ImageCapability}, Channel: "openai-direct", PriceID: price.ID, ReferenceVersion: ref.Version, Image: &ImageAdmission{UnitVersion: aicapability.AIPointMicrounitV1, MaximumMicropoints: 300, ClientName: ref.ID, Provider: "openai", Model: aicapability.FlareImageModel, Endpoint: "https://api.openai.com/v1", CredentialVersion: m.credential.Version}}
+	def := Definition{Manufacturer: "openai", Region: "global", ServiceType: "image-sync", Scope: d.Scope{OrganizationID: "org", Capability: d.ImageCapability}, Channel: "openai-direct", PriceID: price.ID, ReferenceVersion: ref.Version, ConnectionID: "fixture-connection", ConnectionProvider: "fixture-provider", Image: &ImageAdmission{DeadlineSeconds: 30, UnitVersion: aicapability.AIPointMicrounitV1, MaximumMicropoints: 300, ClientName: ref.ID, Provider: "openai", Model: aicapability.FlareImageModel, Endpoint: "https://api.openai.com/v1", CredentialVersion: m.credential.Reference}}
 	c.Catalog, err = NewCatalog([]Definition{def})
 	require.NoError(t, err)
+	bindTestChannel(c.Catalog, &m.credential)
 	q, err := c.QualifyModel(context.Background(), "org", d.ModelCategoryImage, ref)
 	require.NoError(t, err)
 	require.True(t, q.Ready, q.Reason)

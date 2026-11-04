@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"time"
 
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/integration/openai"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -28,9 +29,6 @@ func InstallSchema(ctx context.Context, db *gorm.DB) error {
 		return d.ErrUnavailable
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if e := openai.InstallCredentialMetadataProjection(ctx, tx); e != nil {
-			return e
-		}
 		if e := tx.Exec(SchemaSQL).Error; e != nil {
 			return e
 		}
@@ -45,10 +43,13 @@ func VerifySchema(ctx context.Context, db *gorm.DB, imageOptions ...bool) error 
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
 		return d.ErrUnavailable
 	}
+	if channelstore.VerifyMetadataProjection(ctx, db) != nil {
+		return d.ErrUnavailable
+	}
 	for _, q := range []string{
 		`SELECT revision_id,organization_id,capability,parent_revision,schema_version,payload,payload_digest,actor_id,published_at,idempotency_key,request_fingerprint,rollback_from FROM public.ai_route_config_revisions LIMIT 0`,
 		`SELECT organization_id,capability,revision_id FROM public.ai_route_config_current LIMIT 0`,
-		`SELECT id,tenant_id,user_id,client_name,base_url,model,api_style,timeout_second,enabled,updated_at,key_present FROM public.ai_client_credential_bindings LIMIT 0`,
+		`SELECT organization_id,connection_id,provider,channel,account,region,base_url,revision,enabled,key_present FROM public.ai_channel_credential_bindings LIMIT 0`,
 	} {
 		rows, e := db.WithContext(ctx).Raw(q).Rows()
 		if e != nil {
@@ -119,10 +120,10 @@ func VerifyWriter(ctx context.Context, db *gorm.DB, imageOptions ...bool) error 
  AND has_table_privilege(current_user,'public.ai_route_config_current','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_current','DELETE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_current','TRUNCATE')
- AND NOT has_column_privilege(current_user,'public.ai_client_credentials','api_key','SELECT')
- AND NOT has_any_column_privilege(current_user,'public.ai_client_credentials','UPDATE')
- AND NOT has_table_privilege(current_user,'public.ai_client_credentials','INSERT')
- AND NOT has_table_privilege(current_user,'public.ai_client_credentials','DELETE')
+ AND NOT has_column_privilege(current_user,'public.ai_channel_connections','secret_ciphertext','SELECT')
+ AND NOT has_any_column_privilege(current_user,'public.ai_channel_connections','UPDATE')
+ AND NOT has_table_privilege(current_user,'public.ai_channel_connections','INSERT')
+ AND NOT has_table_privilege(current_user,'public.ai_channel_connections','DELETE')
  AND NOT has_schema_privilege(current_user,'public','CREATE')
  FROM pg_roles r,pg_class c WHERE r.rolname=current_user AND c.oid='public.ai_route_config_revisions'::regclass`).Scan(&ok).Error
 	if len(imageOptions) == 1 && imageOptions[0] && e == nil {
@@ -148,19 +149,18 @@ func New(db *gorm.DB) (*Store, error) {
 	return &Store{db: db}, nil
 }
 func (s *Store) Credential(ctx context.Context, org, id string) (d.Credential, error) {
-	var row struct {
-		openai.AIClientCredential
-		KeyPresent bool
-	}
-	result := s.db.WithContext(ctx).Table("public.ai_client_credential_bindings").Where("tenant_id=? AND user_id='' AND client_name=?", org, id).Take(&row)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return d.Credential{}, nil
-	}
-	if result.Error != nil {
+	reader, e := channelstore.New(s.db, nil)
+	if e != nil {
 		return d.Credential{}, d.ErrUnavailable
 	}
-	hash := sha256.Sum256([]byte(row.BaseURL))
-	return d.Credential{OrganizationID: row.TenantID, ClientName: row.ClientName, Model: row.Model, APIStyle: row.APIStyle, Version: openai.CredentialVersion(row.AIClientCredential), EndpointDigest: hex.EncodeToString(hash[:]), Reference: openai.CredentialReference(row.AIClientCredential), Enabled: row.Enabled, KeyPresent: row.KeyPresent, TimeoutSeconds: row.TimeoutSecond}, nil
+	m, e := reader.Metadata(ctx, org, id)
+	if errors.Is(e, credential.ErrNotFound) {
+		return d.Credential{}, nil
+	}
+	if e != nil {
+		return d.Credential{}, d.ErrUnavailable
+	}
+	return d.Credential{OrganizationID: m.OrganizationID, ConnectionID: m.ConnectionID, Provider: m.Provider, Channel: m.Channel, Region: m.Region, Reference: m.Reference, EndpointDigest: m.EndpointDigest, Enabled: m.Enabled, KeyPresent: m.KeyPresent}, nil
 }
 
 type record struct {
@@ -345,7 +345,7 @@ func (s *Store) conflict(ctx context.Context, tx *gorm.DB, cmd d.Command, cause 
 // GrantSQL is consumed only by explicit schema installation; never startup.
 func GrantSQL(role string, writer bool) string {
 	identifier := pgx.Identifier{role}.Sanitize()
-	q := fmt.Sprintf("GRANT SELECT ON public.ai_route_config_revisions,public.ai_route_config_current,public.ai_route_config_options,public.ai_client_credential_bindings TO %s;", identifier)
+	q := fmt.Sprintf("GRANT SELECT ON public.ai_route_config_revisions,public.ai_route_config_current,public.ai_route_config_options,public.ai_channel_credential_bindings TO %s;", identifier)
 	if writer {
 		q += fmt.Sprintf("GRANT INSERT ON public.ai_route_config_revisions TO %s;GRANT INSERT,UPDATE ON public.ai_route_config_current,public.ai_route_config_options TO %s;", identifier, identifier)
 	}
