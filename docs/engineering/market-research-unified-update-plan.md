@@ -1,11 +1,12 @@
 # 市场调研与智能选品：固定1e3509两服务更新方案
 
 状态：**REVIEWABLE_PLAN / NOT_AUTHORIZED_TO_EXECUTE**。本轮只准备方案，不构建、不发布配置、不启停/更新实例、不真实采集/AI/付费、不合并。
+2026-11-04用户已批准候选A，包括原内容也收紧为¥0.30/72000 Token；该决定已完成，不重复作为待审预算阻碍。
 目标项目仅 `task-processor-unified-20261010`；服务仅 `current-application` 与 `listingkit-ui`。
 应用 SourceRef固定 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
 后续文档HEAD/main变化不自动改变构建来源。原 [PR #1075 CI41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) SUCCESS及独立增量PASS只按其原绑定引用。
-前一文档候选 `d8675373bfd9c74dd3e6919120217d93c7000025` 的 [CI41776984208](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41776984208)
-已 completed/SUCCESS，Required CI Gate `126403603886` SUCCESS；该结论不等于本次后续文档SHA或真实运行配置已验证。
+前一文档候选 `81b145d902ce21f39915c3f1896d2ad683f69d47` 的 [CI41779026965](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41779026965)
+已 completed/SUCCESS，Required CI Gate `126409331296` SUCCESS；该结论不等于本次后续文档SHA或真实运行配置已验证。
 
 本轮 Design Basis: **N/A（只读及文档）**，复用[当前生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
 [配置差异](selection-shared-model-wiring-preview.md)和[标准镜像构建入口](../operations/application-image-build.md)，不修改现有应用/Compose生产文件。
@@ -36,11 +37,12 @@
 | --- | --- | --- |
 | 后端镜像/来源标签 | 由准确1e标准构建回执确定 | 保留供应链四步、批次深链、图片入口、原不可读历史隔离和研究/选品人工准确交接；不使用旧应用镜像作为FROM |
 | UI镜像/来源标签 | 同一1e标准UI产物 | 原身份/环境/端口/命令/会话密钥引用保持，不新增凭据或模型请求 |
-| 后端运行manifest | 原writer凭据可在Run库认证；目标单writer为127.0.0.1:5433/product_agent、pool1。合法bindings、productAgent=false、generation=false，完整图片模式及原读取owner保留 | 这是额外的配置发布动作，需要独立授权；当前imageWriter/旧generation原样不能启动1e，不能只换镜像 |
+| 后端运行manifest | 原writer凭据可在Run库认证；目标单writer为127.0.0.1:5433/product_agent、pool1。3条文字bindings、productAgent=false、Generation仅enabled=false，完整图片模式及原读取owner保留 | 这是额外的配置发布动作，需要独立授权；当前imageWriter/旧generation原样不能启动1e，不能只换镜像 |
 | 文字用途声明 | 同一原Client的内容/研究/选品分别按当前prompt/schema声明；移除已退出PointTariff，新增用途要求contentOnly=false | 准确Profile/共同候选标识见配置页；新增标识均未发布，不复制旧current或独立点价。尚未写入真实文件 |
-| 共享预算 | 供审候选A：CNY、12步、2调用、72000 Token、300000微元、120秒；研究/选品各10点每调用 | 两项已批¥0.30/20点不变。A同时把原内容¥1/139264的Run上限收紧；单次原最大内容调用可容纳，两次最大调用不可容纳。该产品影响未被本轮文档授权为实际变更；保留原内容上限又要求两项独立Run上限在固定1e无纯配置解法 |
+| 共享预算 | 已批准A：CNY、12步、2调用、72000 Token、300000微元、120秒；研究/选品各10点每调用 | 两项已批¥0.30/20点不变。原内容¥1/139264也按用户决定收紧；单次原最大调用可容纳、两次最大调用不可容纳。实际配置尚未应用，不新增按用途预算owner |
+| 关闭态图片目录 | 原4条旧image声明不进入本次新bindings；不声明图片单位/正预算，保留非空workerConfigFile引用和完整历史模块 | 这是显式新文件差异，原a66文件、Image current、凭据及历史均不改，不换算旧点价。图片候选如实未准入；未来生成另行提供合法准入/预算，不能为关闭态伪造数值 |
 | 企业模型选择/参考价/操作模式 | 不随镜像或运行manifest发布 | 原CAS/current不迁移、不覆盖、不填假revision。未Ready如实显示，不在验证时“先保存一版” |
-| schema、角色、grant、连接额度 | 原Run reader/writer、配置表/约束/窄grant已核，角色connlimit4，无需改凭据/授权 | ai_invocations与真实执行合同不匹配，属于后续真实文字执行阻碍，非enabled=false配置管理启动阻碍；不执行installer/ALTER ROLE，不迁移/清库。完整图片/Asset/审计历史读取资格未完成现场验证 |
+| schema、角色、grant、连接额度 | 原Run reader/writer、图片API、Asset、Run配置及两审计reader的只读元数据已核；writer connlimit4，无需改凭据/授权 | ai_invocations执行合同仍不匹配，非关闭态管理前置。不执行installer/ALTER ROLE、不迁移/清库；元数据匹配不等于1e已装配或历史GET验收通过 |
 | 图片/文字执行 | 关闭新执行，原历史与回执读取保留 | 不读取图片worker秘密文件/开启workerDB/图片Temporal；DataServices、观察准备模式、Knowledge及原商业恢复依赖保留，不冒称其停止。Ecoservices保留nonPaymentOnly=true，该分支无支付恢复回调；POD/Supply/Fulfillment不新增，Chat/两支付渠道不启用，独立采集桥保持退出 |
 
 原Run、Image、Asset、Product owner和已有durable记录保持。预算仍每项¥0.30/20点、各一次合计¥0.60/40点；
@@ -54,8 +56,10 @@
 4. **操作授权条件**：构建、真实配置文件发布、两服务更新、业务只读检查分别在用户明确授权内。批准本文不等于批准它们；真实采集/AI/付费仍需另外授权。
 
 本轮已收敛writer身份/配置表权限及LAC版本，不再将它们笼统记为UNKNOWN。
-本轮已给出三用途准确字段和共享Limits候选A，非AI消费者保留范围也已明确，不再把它们笼统留作未知调查。
-发布前仍需明确接受或调整A对原内容预算的收紧、补齐图片现行声明/原历史读取资格，并单独批准所保留消费者的启动范围；本轮没有这些运行操作授权。
+本轮已确定三用途准确字段和已批准A，图片按零元数据关闭态处理、旧4声明不进入新目录；非AI消费者保留范围已明确。
+Image API的原权限查询required=true/forbidden=false，Asset所需列/约束/权限匹配，Run配置8表/图片参数列可读，两审计reader无写权。
+剩余不是重复预算/价格调查：实际新私密文件尚未生成/解析/发布，真正更新前须核漂移并明确保留消费者的启动授权；
+1e真实启动、身份与历史GET只能在相应获准阶段验证，本轮未读业务行、不把NOT_RUN写成PASS。
 共享三类选择和平台参考价尚未发布，真实文字调用还受调用记录表合同不匹配及用户授权限制。
 因此本文仍不称DEPLOYMENT_READY，不生成可直接执行的私密manifest/overlay；这些不同层级的缺项不互相替代。
 
@@ -63,7 +67,7 @@
 
 1. **fresh核对**：核准确项目、两服务当前ID/镜像/配置哈希/挂载与依赖健康。若与上述a66不同，先查并行更新差异，不覆盖。原私密Compose/manifest及原镜像引用留作回退，禁止把备份写进仓库。
 2. **只读资源预检**：复用本轮原身份/配置schema/grant/连接额度证据，并在执行前核漂移及尚未核实的原历史owner；不自行提权或修复真实库。真实执行schema的差异不伪装已通过，也不自动升级成关闭态路径的前置。
-3. **批准配置差异后落地新文件**：先明确原内容预算的产品影响，原a66 manifest不改；另建经审查的新私密文件，引用原受控凭据，挂载目标不变。新文件的哈希和去密diff供复核，不能借此改模型凭据或发布共享选择/价目，也不能把草案PriceID/ReferenceVersion写成已有发布事实。
+3. **批准配置差异后落地新文件**：原内容按已批准A，原a66 manifest不改；另建经审查的新私密文件，引用原受控凭据，挂载目标不变。采用3条文字定义及完整图片零声明关闭态，旧4图片定义不搬入新目录。核严格字段/哈希/去密diff；不能借此改模型凭据、发布共享选择/价目，或把草案PriceID/ReferenceVersion写成已有发布事实。
 4. **单独批准构建后**：运行下方标准入口，构建本地两镜像；核回执commit/tree/target/imageID/来源标签。失败不继续，不换源、不取消TLS验证、不触碰保留服务。
 5. **单独批准更新后**：从两服务当前已核Compose来源追加最终overlay，只允许两镜像/来源标签和上述后端manifest bind差异。使用原project、明确服务名单和no-deps语义；不得应用身份服务历史overlay链、重建网络依赖或运行整个项目初始化。
 6. **受限检查**：先后端健康/身份发现，再UI健康/版本；未登录研究/选品入口仍登录跳转、BFF仍拒绝未登录。需要登录后核管理/历史时先明确只读范围，不发prepare/start/confirm或模型“测试连接”。读取失败保留原错误，不以空历史或假Ready通过。

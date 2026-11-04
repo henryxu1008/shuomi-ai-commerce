@@ -2,9 +2,11 @@
 
 状态：**REVIEWABLE_DRAFT / NOT_PUBLISHABLE**。本轮只读核对及文档准备，不是实际配置文件、安装回执或发布授权。
 应用固定为 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
+2026-11-04用户已明确接受候选A：原内容也收紧到¥0.30/72000 Token。该预算决定已批准，不再待确认；
+它不授权改凭据、发布配置、构建/更新实例或真实调用。本页其他运行缺项仍按各自层级处理。
 原独立增量复核与 [CI 41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) 已通过；本轮文档提交不改变应用来源，也不把原 CI 冒称新文档 SHA 的直接执行结果。
-前一文档提交 `d8675373bfd9c74dd3e6919120217d93c7000025` 的 [CI 41776984208](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41776984208)
-已 completed/SUCCESS，Required CI Gate `126403603886` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
+前一文档提交 `81b145d902ce21f39915c3f1896d2ad683f69d47` 的 [CI 41779026965](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41779026965)
+已 completed/SUCCESS，Required CI Gate `126409331296` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
 本页随后收敛的草案不是该旧SHA直接执行过的配置，也没有被应用到实例。
 
 ## 本次交付与依据
@@ -34,10 +36,10 @@
 | `productAgent.enabled` | false | 保持 false；不为配置管理设 true。不开文字 executor/Review/Asset 执行池 |
 | `productAgent.contentOnly` / `contentTitleOnly` | true / false | 若声明研究/选品，必须改为 false / false；保持 enabled=false。原内容声明与共享 Limits 的处理见下文，不能只加两个 policy |
 | 两项文字定义 | 部署中无 research/selection policies；两条 LAC DeepSeek 凭据元数据已核 | 按下表及已核版本准备原用途 anchors 和候选描述。声明合法只允许管理，不自动获得执行资格 |
-| `modelRoutePricing.bindings` | 原 4 条 image 声明 | 逐条按当前 Definition/ImageAdmission 合同核对后明确纳入；不搬旧 current/revision、不解释旧价格字段、不悄悄清空目录绕过校验。未核项保留为待补，不标 Ready |
-| `imageAgent.generation` | 只有 `priceVersion` / `pointsPerImage`，无当前 enabled | 新 manifest 显式 `enabled=false`；使用当前 `unitVersion` / `maximumMicropoints`，旧两字段不进入新文件。图片预算上限须由原 owner 给出现行批准值，不从旧点数自动换算或套用研究/选品 20 点 |
+| `modelRoutePricing.bindings` | 原 4 条旧 image 声明 | 本次新目录显式仅纳入下文3条当前文字Definition；旧4条图片声明逐条列入“不进入新目录”，原a66文件及Image current/history不改。完整图片读取沿原owner，不复制旧options或换算旧点价；不是清空整个目录绕过校验 |
+| `imageAgent.generation` | 只有 `priceVersion` / `pointsPerImage`，无当前 enabled | 新差异为 `{"enabled":false}`，其余单位/上限不声明，使用合同已有的零元数据关闭态；旧两字段不进入新文件。不制造正图片预算或套用文字20点；本次也无新ImageAdmission需要预算 |
 | 完整图片模式 | worker 文件引用存在 | 保持非空 `workerConfigFile` 和原 API/Asset/Product/config owner，以显式完整模式保留历史；关闭态不读该文件、不打开 workerDB、不连接图片 Temporal、不装配/启动图片执行 worker |
-| 图片/Asset/审计读取 | 原 manifest/挂载仍在，实际 schema/grant 未核 | 保留 `image_agent_runtime`、`supply_asset_runtime` 及原 `accountAuditUsage` 读取分工；完整模式独立 image audit reader，文字执行关闭时相应 product audit reader继续按原合同。不能用 writer 或管理员账号替代 |
+| 图片/Asset/审计读取 | 本轮5个原角色均READ ONLY登录成功，元数据结果见下表 | 保留 `image_agent_runtime`、`supply_asset_runtime` 及原 `accountAuditUsage` 读取分工；完整模式独立 image audit reader，文字执行关闭时相应 product audit reader继续按原合同。不能用 writer 或管理员账号替代；实际历史GET仍NOT_RUN |
 | Chat / 其他执行者 | Chat enabled=false；其余范围见本轮启动清单 | Chat 保持关闭。DataServices 的存在会启动采集 worker，Knowledge 与恢复循环也独立于两个 AI 开关；不能宣称全系统停止执行 |
 | 平台参考价、企业三类选择、操作模式 | 已读 current 的版本元数据，未改写；共享选择及参考价未发布 | 与运行 manifest 分开。平台价格和企业完整三类选择沿原 owner/CAS 发布；本次不发布，不恢复旧 image current，不用残缺选择快照替代完整 CAS |
 
@@ -97,16 +99,16 @@ Profile的候选RoutingPolicyVersion为 `lac-deepseek-text-admission-20261104-v1
 参考策略不要求BoundEvidenceVersion，留空；不伪造精确费用证明。部署Profile不嵌入执行OfficialTariff，由唯一共享owner在使用时读取并冻结。
 
 不能只补研究/选品而让原内容 anchor 缺少同一ReferenceVersion等元数据，否则原SharedCatalog会按 `CONSUMER_BINDING_MISMATCH` / `OPEN_CONSUMER_MISSING` 拒绝，
-不是两项分析通过就可跳过内容声明。原4条图片定义仍按独立ImageAdmission核对，不用文字元数据或20点预算替代。
+不是两项分析通过就可跳过内容声明。原4条图片定义本次不进入新目录，不能用文字元数据或20点预算改装成ImageAdmission。
 
-### 共享 Limits：可实现方案及未批准的影响
+### 共享 Limits：已批准候选A
 
 固定1e的 [ProductAgentConfig](../../internal/app/runtime/currentapplication/product_agent.go)只有一套Limits。
 研究/选品prepare直接继承parent Limits，仅把ModelCalls收紧到2；
 [配置装配](../../internal/app/runtime/currentapplication/model_route_pricing.go)还会覆盖显式Definition的MaximumCostMicros，研究/选品使用 `CostMicros/2`，内容使用完整 `CostMicros`。
 因此在binding里手填150000不能独立于原¥1共享上限生效。这里是现有装配的真实限制，本轮不新增按用途预算owner或修改固定应用。
 
-| 共享字段 | 原a66 | 供审候选A：三用途共享两项已批上限 |
+| 共享字段 | 原a66 | 已批准A：三用途共享当前上限 |
 | --- | --- | --- |
 | enabled / contentOnly / contentTitleOnly | false /true /false | false /false /false |
 | currency / steps / modelCalls / runtimeSeconds | CNY /12 /2 /120 | 原样保留 |
@@ -116,14 +118,15 @@ Profile的候选RoutingPolicyVersion为 `lac-deepseek-text-admission-20261104-v1
 
 候选A满足两项每Run¥0.30、最多2调用、每调用32000/4000、20点；参考最大两调用¥0.192/19.2点。
 原内容的单次Profile仍可装入新上限（69632 Token、¥0.16384），但两次最大调用需要139264 Token、¥0.32768，
-超过候选A共享上限。因此A**会收紧原内容Run的预算和Token包络**，不能称为原内容行为完全不变，也不能在本轮当作已经批准应用。
+超过候选A共享上限。因此A**会收紧原内容Run的预算和Token包络**，不能称为原内容行为完全不变。
+用户已明确接受这一影响；批准的是目标差异，实际配置仍未发布。
 
 候选B保留原内容¥1/139264共享Limits，则研究/选品Run展示和冻结的上限也会继承这两个原值，
 不符合本次已批¥0.30/≤72000方案；不能靠实际估算较低或20点Definition预算掩盖。B不进入两项功能的配置发布候选。
 如果既要求内容原Run上限完全不变、又要求两项准确独立上限，固定1e没有纯配置解法，须另定源码范围；本轮不实施。
 
-当前技术候选明确为A，但内容用途的收紧仍是**待用户审查的产品影响**；预算不变的指令不被解释为批准修改该原用途。
-在这个决定明确前，只交付差异，不发布manifest、不声称配置准入已完成。无需因此继续研究精确厂商价格。
+当前技术及产品候选均明确为A，不再将原内容预算列为阻碍。候选B不保留为待选方案，也不新增按用途预算设计。
+本轮仍只交付差异，不发布manifest、不声称真实配置已启动。无需因此继续研究精确厂商价格。
 本轮非运行草案及整数算术记录保留于 `.local/selection-config-convergence-1e3509-20261104-01/`，无DB连接参数或凭据值；未做实际启动/远端资格验证。
 
 ### 本轮 LAC 绑定及配置版本
@@ -147,11 +150,31 @@ Run DB 的 LAC 内容 current 为 `route-af239e9c-04e4-4846-bb1f-31a07365faa7`�
 
 ### 文件编码必须遵循当前合同
 
-- `generation.maximumMicropoints` 与 `bindings[].image.maximumMicropoints` 是十进制 **JSON 字符串**，unitVersion=`ai-micropoint-v1`；非零声明须同时有合法单位与正上限。
+- 本次Generation只声明enabled=false，单位/上限均省略，无ImageAdmission。未来如声明正预算，`generation.maximumMicropoints` 与 `bindings[].image.maximumMicropoints` 必须为十进制 **JSON 字符串**，unitVersion=`ai-micropoint-v1`；不能仅填半组元数据。
 - `bindings[].maximumMicropoints`（文字每调用预算）是 **JSON 整数**；它与 Generation 的 wire 格式不同，不可混用。
 - Definition 的 scope 使用 `organizationId` / `capability`；文字 `text.Profile`、`text.AdmittedCredentialVersion`、`text.AdmittedEndpointIdentityDigest` 沿当前 Go JSON 结构。
 - Profile 的 `DeadlineBound` 沿原 duration 编码和已批准更小值，不凭空写字符串 `120s`；不伪造 BoundEvidenceVersion、Tariff/FX/current revision 来通过校验。
 - 仅内容模式仍只可声明内容 policies；关闭态也不能混入标题、研究或选品等其他用途。两项研究/选品不放在 ContentOnly/ContentTitleOnly 安装模式中。
+
+### 本次关闭态图片目录差异
+
+按已准入生命周期合同，零Generation元数据可以表示“没有图片执行资格”，不是必须先补正数图片预算。
+固定1e的 `Config.validate` 仅在Generation存在非零元数据时校验单位/上限；`buildFullImageApplication` 的关闭分支
+保留Image/Asset/Product/Run配置读取和历史接口，不依赖目录中的ImageAdmission、报价或worker凭据。
+因此本次供审差异为：保留workerConfigFile的原非空引用和完整模式，Generation=`{"enabled":false}`，
+新bindings仅含3条文字定义；旧4条图片定义不搬入新Run目录。没有新增图片点数预算或把旧点数换成微点。
+
+| 原部署图片声明 | 新关闭态目录差异 | 原数据/原a66处理 |
+| --- | --- | --- |
+| LAC / `image_gpt_image_2` / bailian qwen-image-3.0-pro | 不进入本次新bindings | 原凭据、Image current、历史和原manifest不改 |
+| LAC / `image_gpt_image_2_vip` / grsai gpt-image-2-vip | 同上，不伪造完整用量准入 | 同上 |
+| A组织394513989062623234 / `image_gpt_image_2`，部署标记not-provisioned | 同上，不将占位版本当已准入 | 不查询该组织业务记录，不操作其配置 |
+| B组织394513989213618178 / `image_gpt_image_2`，部署标记not-provisioned | 同上 | 同上 |
+
+这是显式列出的**新文件目录范围差异**，尚未发布，不是从原配置中删除记录，不清理数据库、不覆盖旧revision、不改变原历史状态。
+新管理界面没有该4项已准入生图候选，默认/未准入的图片类别如实不可用；未来启用图片仍须另给合法ImageAdmission/预算/原reader和真实调用授权。
+不能为保持下拉列表外观而装配图片worker、捏造正预算，或把新目录缺项伪装成可生成。
+企业三类选择仍沿完整快照/CAS；未发布的当前选择不被本次目录差异补写或迁移。
 
 ## 启动所需资源与开放所需资格分开
 
@@ -161,14 +184,41 @@ Run DB 的 LAC 内容 current 为 `route-af239e9c-04e4-4846-bb1f-31a07365faa7`�
 | 原 Run reader / writer 配置schema与grant | 配置管理启动 | revisions/current/元数据view、4个作用域/CAS约束及窄权限与 `VerifyReader/VerifyWriter(false)` 的只读检查项相符；reader无配置写权，writer仅revisions INSERT、current INSERT/UPDATE，无Key读取/凭据写入/public CREATE。未实际运行应用Verify或尝试写入 |
 | `ai_route_config_options` | 关闭态统一配置管理 | Run库不存在；1e明确使用 requireOptions=false，不是该路径启动缺项，不能据此安装旧Image options表 |
 | `ai_invocations` | 后续真实文字执行 | 当前53列/目标52列：缺 `official_tariff_json`、`billable_usage_json`；多旧 `point_price_version`、input/output points列。不符合1e严格执行合同；enabled=false不装配文字执行器，因此不把它误判成关闭态管理启动阻碍。本轮不迁移/安装/改库 |
-| 原完整图片/Asset/配置/审计读取资格 | 原历史与启动 | UNKNOWN；保留原owner和历史，按原Verify检查。缺schema/权限则停止更新，不初始化/迁移/清库，不更换owner以丢掉历史 |
-| 准确企业/两项文字定义元数据 | 声明这些候选、后续配置选择 | 企业/原Client/凭据版本/端点/超时已核，部署中两用途policy未声明；仍须形成合乎当前合同的完整定义，处理contentOnly/旧内容字段/共享Limits，不用不合法policy换取页面可开 |
-| image credential metadata | 图片技术Ready | 关闭态没有worker credential reader，沿原CREDENTIAL_READER_MISSING；不是为了让所有选项Ready而启worker的理由 |
+| 原完整图片/Asset/配置/审计读取资格 | 原历史与启动 | 本轮原5角色READ ONLY核对结果见下表；权限/必要列/约束已匹配相应检查项，未读取历史业务行、未真正装配1e，不能称完整启动或历史验收PASS |
+| 准确企业/三项文字定义元数据 | 声明候选、后续配置选择 | 企业/原Client/凭据版本/端点/超时已核；三用途当前Profile、启用关闭、A预算目标已明确，原内容收紧已批准；实际部署尚无研究/选品policy，真实manifest未写入 |
+| 图片候选及credential reader | 图片技术Ready | 本次不声明新ImageAdmission，类别保持未准入；无worker credential reader不阻碍关闭态历史读取。未来声明候选时仍可能CREDENTIAL_READER_MISSING，不为显示Ready而启worker |
 | 参考价/完整共享选择/操作模式版本 | 后续真实研究与选品 | 本次不发布；未就绪只如实显示。配置管理启动不等于模型可执行，技术Ready也不等于真实调用授权 |
 | 其他worker/恢复入口、真实队列影响 | 更新前外部副作用边界 | 候选保留/关闭范围已在下表明确；保留依赖不授权消费任务或执行恢复。不能悄悄停原服务，也不能将候选的启动副作用解释为已批准 |
 
 初次连接检查受本机 Windows CRLF 输入影响而认证失败；改为LF后，同一原reader和writer均成功，未更换身份或凭据。
 失败记录保留，但不再作为“凭据失效”结论。以上是只读元数据匹配，不能冒称完整启动、现场历史读取或产品验收通过。
+
+本轮额外核对仍只复用原manifest身份，current_user=session_user，BEGIN READ ONLY、5秒语句/1秒锁超时、ROLLBACK。
+Image/Asset直接复用固定1e现有验证器中的只读catalog查询；没有调用grant/installer、加载worker文件或读取Key/历史/商品/队列载荷。
+
+| 原身份 / 库 | 本轮元数据结果 | 明确未验证 |
+| --- | --- | --- |
+| `image_agent_runtime` / image_agent | 原权限查询required_privileges=true、forbidden_privileges=false | 实际完整图片历史GET、冻结快照和URL可读性 |
+| `supply_asset_runtime` / image_agent | 4张当前审批/库存表所需列、4个主键及2个唯一索引匹配，运行权限查询true | 实际库存/批准回执业务行读取 |
+| `product_agent_runtime` / product_agent | agent_configuration的8张表存在且可SELECT，template_revisions.image_parameters存在 | 配置载荷/模式/历史快照具体内容，Skill等后续实际装配组合 |
+| `account_audit_image_reader` / image_agent | 原身份登录、无super/createDB/createRole/replication/bypassRLS；ai_invocations可SELECT，无INSERT/UPDATE/DELETE/TRUNCATE | 具体审计事件和页面读取 |
+| `account_audit_product_reader` / product_agent | 同上；不因文字执行关闭而替换为writer | 同上；真实文字执行schema不因此获准 |
+
+原五角色pool配置及owner不变。本轮非秘密SQL/结果仅保留 `.local/selection-final-config-a-1e3509-20261104-01/`，
+其中审查JSON含已批准A和零图片声明，不是可加载manifest，也未包含DB连接凭据。
+
+### 更新前缺项已按影响收敛
+
+| 项目 | 当前结论 | 最小后续动作 / 所属阶段 |
+| --- | --- | --- |
+| 内容预算决定 | RESOLVED：A已由用户批准 | 不再重复请求同一决定 |
+| writer、Run配置/图片API/Asset/审计元数据 | MATCHED_METADATA | 真正更新前核漂移，实际启动/历史GET在获准更新后按原入口检查；不把未执行结果写PASS |
+| 当前合法运行文件 | NOT_CREATED / NOT_PUBLISHED | 另获准后才生成独立私密manifest、严格解析并审hash/去密diff；原a66文件不覆盖。任何新增静态字段差异先列明，不实际启动a66试错 |
+| 图片预算/旧4声明 | 本次不开放图片执行，采用零声明及显式目录排除；不是待查精确图片价格 | 作为本次新配置差异一并审查；未来生成准入另行处理，不拖住关闭态管理/历史方案 |
+| 保留worker和恢复器的启动 | 范围已明确，启动/消费NOT_AUTHORIZED | 后续更新授权须明确覆盖真实启动影响；若要求完全无后台消费，固定1e+现依赖配置不足，本轮不造开关或改代码 |
+| 平台参考价、共享三类选择、操作模式发布 | NOT_PUBLISHED | 不属于本次关闭态启动前置，未来沿原owner完整CAS；不可测试保存/先发布一版 |
+| ai_invocations执行合同差异 | CONFIRMED_INCOMPATIBLE_FOR_TEXT_EXECUTION | 只影响未来真实文字执行；不迁移旧数据、不改库，不把它升级为关闭态启动阻碍 |
+| 构建/更新/用户试用 | NOT_AUTHORIZED / NOT_RUN | 仅在实际配置审查及相应授权后进入两服务方案，应用SourceRef仍为1e |
 
 ### 其他 worker 与任务队列的实际范围
 
@@ -197,7 +247,7 @@ Run DB 的 LAC 内容 current 为 `route-af239e9c-04e4-4846-bb1f-31a07365faa7`�
 
 ## 未来配置交付清单
 
-1. 复用已核writer/LAC版本及本页准确三用途/worker差异；供审候选A的原内容预算收紧须明确决定。另补尚未核的图片现行声明/读取资格，不再研究精确厂商价格、不申请新凭据/角色，不等待新的渠道凭据设计来替换固定1e。
+1. 复用已批准A、已核writer/LAC及五原角色元数据，审查本页3条文字定义/零图片声明/旧4图片定义不进入新目录/worker保留范围。预算决定已完成，不再研究精确厂商价格、不申请新凭据/角色，不等待新的渠道凭据设计来替换固定1e。
 2. 形成独立的新私密 manifest 及去密 diff：只包含明确批准的字段改动，productAgent=false、generation=false；原 a66 文件和哈希不变。现在没有生成或写入该真实文件。
 3. 在明确获准的离线/元数据检查范围完成当前严格字段和资源校验；不以在 a66 上尝试启动或请求模型来“验证配置”。
 4. 通过后才进入[两服务更新方案](market-research-unified-update-plan.md)。模型/参考价发布、构建、实例更新、真实AI分别单独授权，不能因批准本文一并执行。
