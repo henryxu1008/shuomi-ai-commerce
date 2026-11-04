@@ -1,4 +1,4 @@
-# Flare 官方直连生图：当前接线范围与历史上界研究
+# Flare 官方直连生图：图片参考估算最小设计
 
 ## 当前阶段：停止精确上界研究，沿参考配置估算（2026-11-04）
 
@@ -18,6 +18,145 @@
 实际扣点、缺基础用量或超过预留的公共资金语义若必须变化，须先报告；本次不发明固定扣点或第二账本。
 现有 Flare direct wire/worker/source 消费尚未完成，不能把撤下研究前置写成实现已完成或产品可用。
 本次仅改设计/范围，未实施、未新增评审或真实操作，运行及产品验收 NOT_RUN。
+
+## 本次设计候选（2026-11-04）
+
+状态：**DESIGN_ONLY / NOT_IMPLEMENTATION_READY**。Design Basis：Independent Architecture。
+用户已授权当前唯一 Writer 在原工作区、原 PR #1078 补齐本候选；暂不实现、不新增评审派工。
+源码依据为 `bb269e6fa14cb9b8bb94e2fd473721602bf69b4e`，其 CI 成功只证明已有代码，不证明本文候选已实现或已评审。
+本节是当前候选；折叠的旧设计仅保留历史 UNKNOWN/失败和调查记录，直接冲突要求不再生效。
+
+### 1. 用户结果与固定范围
+
+企业仍在原统一模型页选择 image 默认模型，成员在原白底、来源图编辑和 artwork 流程确认预留、检查结果并人工批准素材。
+保持 `openai-direct` / `gpt-image-2.5-flare-2026-09-08`、原参数域（含 `auto`）、每 effect 至多一次同步调用及原预算。
+不切型、降质量、改参数域、增调用或提高额度；不新增上传、任意 URL、页面或自动批准。
+产品依据为[企业统一配置当前决定](enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)、
+[当前 Figma Authority](../product/final-ui-ia-authority.md)及[全新系统基线](../product/greenfield-no-legacy-migration.md)。
+本次只设计图片参考估算和原路径接线，不恢复精确价格、供应商时钟或完整硬上界研究。
+
+### 2. 唯一 owner 与接线
+
+| 原 owner / 入口 | 本候选的最小补齐 | 当前状态 |
+| --- | --- | --- |
+| `aicapability/routeconfig` 的平台价目/FX、企业选择、原 Repository/CAS | 在原图片价目 JSON 增加估算参数；企业仍只选准确绑定，不填写价格或密钥 | 候选，未实现 |
+| `SharedCatalog` → `SharedCategoryReader` → 原 image API/worker 注入 | 增加准确 OpenAI Flare 的参考图片策略准入，按实际 image 用途核凭据、策略、预算 | 当前图片分支尚未支持 Flare |
+| 原 `ImageGenerationQuote` → `GenerationIntent.Billing` / 原指纹 | 冻结同一价目、FX、估算参数及策略版本；不设第二 current 或报价 owner | 候选，未实现 |
+| 原 `generationProviderFactory` / OpenAI integration / route-bound port | 最小同步 generate/edit 适配，传出有界 raw usage 和原结果事实 | Flare 尚未接线 |
+| 原 `GenerationSuccess`、slot/effect、素材 owner | 保留基础用量、结果摘要及原输入身份；原发布/批准/找回路径消费 | 复用，须补策略分支 |
+| 原 `orgresource` 的 reserve/finalize 与终态 proof | 使用同一微点算术和原事务得到 R/A、释放差额，不新增收费账本 | 复用，须补策略验证 |
+
+### 3. 冻结参考策略与估算参数
+
+候选策略版本为 `reference-images-totals-v1`；它与文字策略分开准入，但使用同一配置、算费入口和账本。
+在原 `PublishedModelPrice.Image` 中附加一个有界估算 profile：预计输入总 token `Ie`、预计图片输出 token `Oe`，
+及其适用的原操作集合、size/quality（`auto` 是准确取值）、来源图数量/像素/字节和 prompt 字节范围。
+首阶段保留一个覆盖原参数域的 profile，不建立通用预测平台或新的估算表/current。
+`Ie/Oe` 是平台人工维护的参考参数，不是厂商最大 token 保证，也不由期望预算反算或由用户任意填写。
+配置校验要求 `Ie/Oe` 为合法正整数且组合产生正预留；缺少适用参数时明确未就绪，不填假默认值。
+当前真实参数/实际发布状态 **UNKNOWN**；未来离线实现使用明确的合成参数，不要求先发布真实配置。
+
+原平台发布版本/摘要覆盖价目和估算 profile，FX 沿原版本冻结；无需第二套版本发布事务。
+原报价/intent 的 Billing 冻结同一策略、原参考费率、FX、估算 profile 摘要及 R；新字段仅进入原 JSON 和原指纹。
+不得把参考参数塞进 `UsageBound` 并声称已获厂商证明，也不填假 `BoundEvidenceVersion` 或 fake usage Complete。
+`OfficialModelBilling` 的原精确策略守卫只在本明确参考策略分支作必要替代，其他当前策略不因此放宽。
+原报价中“费用已知”的判断须显式识别参考策略，表示本系统估算可计算，不把旧硬界标志置真冒充厂商证明。
+原JSON的值摘要覆盖新增可选字段；API/worker比较同一规范化值与原摘要，不以指针地址、字段遗漏或另造版本身份判断相同。
+
+### 4. 预留 R：原预算内的费用估算
+
+令 `rt/ri/ro` 为同一冻结参考价中的文字输入、图片输入和图片输出费率，`F` 为原 FX。
+候选使用 `rin = max(rt, ri)` 对输入总量作保守参考估算；不应用缓存优惠，不计每张固定扣点。
+
+```text
+R = ceil_micro((Ie * rin + Oe * ro) * F)
+```
+
+`ceil_micro` 包含原“每百万 token”的费率单位与人民币到微点换算，复用原整数/大整数加总后一次向上取整。
+1点 = 1,000,000微点 = 人民币0.01元。公式内的金额与原币预算取自同一次计算，不叠加成另一份用户账单。
+R 必须同时满足原每 effect/计划剩余额度、`maximumMicropoints`、费用预算、成员月限和企业可用资源；
+原数量/调用/步骤/时长限制继续生效。原资源事务原子预留，不从一次余额读取推定并发准入。
+预算不足或参数域不匹配就不发送；不能静默截断 R、降低质量、裁剪必要来源或增加预算。
+原报价入口可以使用覆盖原输入域的 profile；不为获取动态预测新增模型调用或业务上传。
+
+### 5. 结算 A：基础事实与可选细分
+
+可信 mapper 必须从有界原始响应观测到显式、非负且 `I + O = T` 的 input/output/total，
+并绑定本次准确路由、原 dispatch、effect/intent 和响应身份；不能从 SDK 整数默认零值推定已观测。
+image-only 请求的输出总量 O 按图片输出计价；若响应明确有非零文字/其他输出，与本策略域冲突，保持 UNKNOWN。
+
+- 输入文字/图片分项完整、合法且加总等于 I：`inputAmount = It * rt + Ii * ri`。
+- 只有合法输入总量，缺少完整细分：`inputAmount = I * rin`。标明按较高输入参考费率估算，不伪称全部输入都是图片。
+- 可选字段一旦出现负值、越界或相互矛盾，不能当作“缺细分”忽略。仅未提供细分不阻止本策略结算。
+- 不应用缓存优惠，不把缺失缓存写成厂商实际零缓存；不把未观测的文字/图片分项补零。
+
+```text
+A = floor_micro((inputAmount + O * ro) * F)
+```
+
+只复用同一个原算术入口，原价目费率保持原值，`rin` 是策略计算时的派生投影，不另发布价格。
+原 `GenerationSuccess.InputTokens/OutputTokens/TotalTokens` 继续是基础事实；候选在原
+`BillableModelUsage` JSON 增加仅本策略使用的可选基础总量/分项存在性映射，并与这些字段交叉校验。
+不得把总输入写进旧 `InputImage` 或 `InputText` 字段冒充已观测分项；旧策略的字段含义不重解释。
+`Complete` 只表示本策略所需基础计量齐备；无新增 SQL 列、usage owner 或收费结果事实。
+
+合法 A 仅在 `0 <= A <= R` 时由原 finalize/proof 事务结算；剩余 `R-A` 按原 debt-first 规则释放。
+实际某项 token 高于 `Ie/Oe` 不自动等于超额：它们是估计值，仍须检查原资源/协议硬限制及最终 A 是否超过 R。
+显式完整零计量可得 A=0，正计量向下取整也可得零；都必须有准确终态证据，不等于 no-send。
+每张图的 A 来自基础用量和冻结参考价，不按预留 R 或张数固定扣款。
+
+**D1（待认可的设计口径）**：缺输入细分时使用较高输入参考费率可能比完整分项口径偏高；
+它是公开的参考估算，不是额外服务费。候选不把此口径写成用户已批准，不改变原预算；
+若用户不接受，应在实现前明确另一种最小映射，不能退回无限精度研究或暗中补造分项。
+
+### 6. 异常、幂等与原恢复责任
+
+| 情形 | 沿原 owner 的处理 |
+| --- | --- |
+| 缺参数/配置、撤权、原输入漂移、预算不足 | 发送前拒绝；无 provider 调用，不造用量 |
+| 已预留但能证明未交给发送端 | 沿原 claim/fence 的 no-effect 终结和原资源事务释放；HTTP状态码本身不是未发送证明 |
+| 发出后超时、中断、响应丢失或结果不确定 | 原 UNKNOWN、保留 R/身份，不自动重发/换键/切渠道 |
+| 基础用量缺失/矛盾、策略或响应身份不符 | 原 UNKNOWN、保留 R，保存原有有界诊断材料；不默认扣尽R或猜零 |
+| A>R 或超原准入硬限制 | 原 UNKNOWN/阻塞及预留保留；不截断A、不自动补扣/提高预留、不默认平台承担差额，不继续该失配配置的新调用 |
+| 可信计量 A<=R，但图片不合格 | 原费用事实正常结算，结果按原无效/不可用路径处理，不抹去费用、不附送repair |
+| 已观察结果后的持久化/结算/发布ACK丢失 | 原键读原事实/回执，沿原effect recovery/finalization推进，不再生图、不按当前价重算 |
+
+价格/FX/估算参数、凭据、模型、原商品/素材版本或原请求变化时，不得沿原键取得新执行；同键异载荷冲突。
+估算策略和参数摘要进入原 profile/quote/intent 指纹，确认后漂移必须重新走原准入和明确确认。
+原恢复消费已冻结事实，不以当前配置删除/改价为由丢失回执或重新发送；不跨历史执行版本续跑或迁移旧事实。
+责任仍由原 generation fact、资源 owner、slot finalization 和素材 owner 承接，不新增状态机、reconciler或恢复平台。
+
+### 7. 最小直连接线与用户投影
+
+复用现有 OpenAI HTTP/route-bound 能力和原 worker/source 端口，局部补同步 generate/edit 差异，不新建 client manager。
+保持准确型号及原白底/来源编辑/artwork 参数；每个原 effect 单次 `n=1`，不启用自动重试、切型、流式或额外解释调用。
+已授权本地来源 bytes、最终 prompt 与参数冻结在原输入摘要；无新上传/file-id生命周期或任意URL。
+响应的有界 usage/请求ID、base64结果、摘要进入原事实与artifact owner；Flare不借GRSAI/Qwen作为fallback。
+只有新直连、参考策略和原预算/权限检查都具备，才可将该准确绑定标为可执行；不以设置页可见代替准入。
+页面沿原入口显示“参考价/费用估算”、预留、结算、原版本及未知状态；缺细分采用D1时说明估算口径。
+不暴露内部JSON、证明字段、密钥或原始响应，不为设计建立新页面或人工流程。
+
+### 8. 未来必要验证与当前停止点
+
+| 原有测试位置 | 未来实现只补的范围 |
+| --- | --- |
+| routeconfig / pricing / image quote | profile适用性、auto原值、版本漂移、原预算不足、整数单位及ceil/floor；未准备好不显示可执行 |
+| OpenAI/source adapter / worker合成transport | 准确路由与输入、有界响应、一次发送、白底/来源编辑/artwork相邻路径；不请求真实端点 |
+| image generation fact / orgresource | 完整分项、仅总量、显式零、缺失/矛盾、A<=R与A>R、超估计但未超R、原键不重复扣费 |
+| effect recovery/finalization / 原页面 | no-send与已发未知、撤权/漂移、ACK丢失只恢复原事实、坏图有费用、估算与历史投影 |
+
+不新增runner、验收平台或全量故障矩阵。当前只做文档差异、引用、字段/单位和原owner映射检查，不运行业务回归。
+候选仍须用户认可D1和适用独立架构检查，才可能达到IMPLEMENTATION_READY；本次不请求或派发评审、不实施。
+实际原参数、参考价/FX/凭据及发布状态缺证据 UNKNOWN，不阻止提交设计或未来使用合成资料的离线实现。
+运行、真实保存/恢复、浏览器、真实模型效果及产品验收 NOT_RUN；#47 UNKNOWN、#307 OPEN、#733咨询NOT_SENT。
+
+Legacy decision: EXTRACT | RETIRE
+Reusable behavior: 原配置/CAS/版本、整数算费、资源事务、effect/素材及原键恢复。
+Current owner: 原 aicapability/routeconfig、imageagent、OpenAI integration、orgresource与素材owner。
+Cutover/deletion condition: Flare只接当前owner；厂商完整硬界作为Flare前置RETIRE，其他当前策略不被兼容或放宽；无旧库迁移或历史重算。
+
+<details>
+<summary>历史设计与上界研究（已被当前阶段决定替代，不是当前准入要求）</summary>
 
 ## 历史设计（被上述阶段决定部分替代）
 
@@ -246,3 +385,5 @@ Cutover/deletion condition: 精确直连消费只接当前 owner；旧固定点�
 
 保留现有实例、数据和会话；#47 PostgreSQL UNKNOWN，#307 OPEN，#733 咨询 NOT_SENT。
 本增量运行、真实模型/平台、真实保存/恢复、浏览器和产品验收全部 NOT_RUN；缺失现场证据 UNKNOWN。
+
+</details>

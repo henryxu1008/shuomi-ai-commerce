@@ -75,6 +75,18 @@ Flare 直连、图片估算策略及三类完整可用仍未实现于本次公�
 本次没有实际发布配置、修改凭据或实例，也没有真实采集、模型/平台或付费操作；运行、真实保存/恢复、
 浏览器及产品验收 NOT_RUN，缺证据 UNKNOWN。
 
+### Flare 图片参考估算候选（本轮仅设计）
+
+用户授权同一负责人在原 PR #1078 补齐[Flare 最小设计](openai-flare-image-generation.md#本次设计候选2026-11-04)，
+暂不实现、不新增评审派工。当前候选为 `reference-images-totals-v1`：平台在原图片价目JSON
+维护输入/输出预计量与原参数适用域，随原价目/FX/策略和quote/intent摘要冻结；不是厂商硬界或新收费owner。
+报价按预计量与冻结参考费率算R，原预算/调用限制和同一资源事务不变。结算按显式可信基础用量算A，
+分项完整时使用原分项；仅有输入总量时，候选D1按较高输入参考费率估算并明确标记，尚待用户认可。
+不伪造分项、Complete或BoundEvidenceVersion；A<=R才走原结算，缺基础事实、矛盾、超R或发送不明继续原UNKNOWN/保留R/不重发。
+估计分项不是实际token硬限，不因实际分项超过估计但A仍在R内而冒称厂商超界。
+Flare直连、原worker/source及结果装配仍未实现，候选未达到IMPLEMENTATION_READY；真实参数/发布状态UNKNOWN。
+历史BT/BI/BO及精确价格调查不恢复为前置；本次没有生产修改、评审、真实调用或配置/实例操作，运行和产品验收NOT_RUN。
+
 ## 历史限定安全基础与原实施记录
 
 状态：**IMPLEMENTATION_READY / FROZEN（限定安全基础）**。Design Basis：Independent Architecture。

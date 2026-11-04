@@ -46,7 +46,7 @@
 - `minio-capacity-admission.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission.md)
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
-- `openai-flare-image-generation.md` — [Flare 当前最小接线范围与历史上界研究（研究DEFERRED、咨询CANCELLED；尚未完成直连实现）](openai-flare-image-generation.md)
+- `openai-flare-image-generation.md` — [Flare 图片参考估算最小设计（预留/结算/异常；D1待认可，DESIGN_ONLY，未实现未评审）](openai-flare-image-generation.md)
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
 - `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
 - `settlement-reversal-locking.md` — [Immutable settlement reversal locking](settlement-reversal-locking.md)
