@@ -1,7 +1,7 @@
 # Local Account Center：新关闭态候选的配置差异
 
-状态：**OFFLINE_IMPLEMENTED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
-本轮用户已允许最小设计、准入后的离线实现和相关回归，形成新固定候选；准确SourceRef与最终CI记录在PR #1075。
+状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
+应用固定f337521d0；本轮仅按原身份完成运行配置/数据库元数据只读核查，见[新通道实际差异与最小方案](channel-contract-f337-readonly-review.md)。原离线实现与CI记录仍绑定各自准确SourceRef，见PR #1075。
 已按[数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)独立检查并在编码前达到IMPLEMENTATION_READY。
 本页为去密审查差异，不含配置正文或发布授权。原a66继续运行；不自行提权、不改凭据、不发布配置、
 不构建镜像或更新实例、不执行真实采集/AI/付费、不合并关单。
@@ -42,7 +42,7 @@ DataServices密钥元数据及定制记录/原人工交付配置仍沿原领域�
 | 市场调研 / 智能选品 | 各¥0.30、20点；各一次合计¥0.60、40点 |
 | 原内容 | 候选A已批准：也收紧至¥0.30 / 72000 Token，不重复请求预算决定 |
 | 共享Limits | CNY、12步、2调用、72000 Token、300000微元、120秒 |
-| 每条文字声明 | 每调用最多10,000,000 micropoints；prompt≤32000、completion≤4000，input≤32768 bytes、output≤16384 bytes，deadline≤45秒 |
+| 文字声明 | 研究/选品每调用最多10,000,000 micropoints；原内容未声明该独立点数上限，不表示免费；三类仍沿已确认费用/Token上限。prompt≤32000、completion≤4000，input≤32768 bytes、output≤16384 bytes，deadline≤45秒 |
 | 模型方案 | 百炼deepseek-v4.1-flash，openai-compatible，非思考、无工具/搜索；用途prompt/schema沿原内容、研究、选品anchors |
 | 参考估算 | 输入2元/百万、输出8元/百万；两次最大profile估算约¥0.192 / 19.2点，受上述更小总预算约束 |
 
@@ -63,9 +63,11 @@ SHA256 194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC；Window
 
 #1089的新通道模型使用connectionId/connectionProvider和channel-credential-v1引用，旧org-credential版本不自动转换。
 配置管理即使AI关闭，也按公共owner的当前schema检查合法通道metadata投影；旧Run配置/角色证据不能冒称覆盖新投影。
-**新候选对实际私密文件及当前真实库结构的准入仍NOT_RUN/未核**，不把该metadata管理前置混为仅真实AI执行所需的ai_invocations差异。
-本轮只在任务合成数据库按当前原installer建合法夹具，不修真实schema/角色/grant，不导入旧凭据、不新增兼容或迁移。
-未来先按已批准公共合同核具体缺项，再决定合法新系统资源/配置准备，不能在原a66上试错、自动装库或覆盖数据。
+**本轮已用原reader/writer核实实际系统目录：新通道两表及去密视图均缺失，旧ai_client_credentials仍存在，当前库不满足新metadata管理前置。**
+研究/选品/内容三条候选声明均缺connectionId/connectionProvider，仍带退休org-credential版本；没有改写私密文件或实际绑定。
+缺失ai_channel_secret_reader属于标准新空Run准备缺项，AI关闭运行本身不打开其池；不把它与metadata启动阻碍或真实AI执行所需计量混为一谈。
+此前合成夹具仍是离线证据，本轮真实库只读、不执行installer/DDL/GRANT；f337实际LoadConfig/Run仍NOT_RUN。
+最小方案为保留原a66和原库，由原安装负责人另行准备合法的新空Run资源与当前schema，再审查新私密配置；不迁移旧凭据/历史、不在原库补兼容。
 
 ## 其他 worker 与任务队列的实际范围
 
@@ -88,7 +90,8 @@ SHA256 194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC；Window
 
 - 已完成：设计准入、关闭态最小实现、相关RED→GREEN、原启用恢复及合成研究→选品→人工交接回归。证据在.local/data-services-disabled-20261104-01/及PR #1075。
 - 已完成的原1e标准镜像保留为准确旧来源证据，不包含本轮采集关闭与#1089，不作为新候选产物。
-- 尚未执行：实际私密配置的新代码解析/管理schema准入、新镜像构建、配置发布、两服务更新与正常登录管理/历史读取。
+- 已完成：原身份只读元数据核查，确认现库与#1089不符；具体证据及去密差异见[本轮核查](channel-contract-f337-readonly-review.md)。
+- 尚未执行：新空Run资源/安装、实际私密配置的f337严格解析和真实装配、新镜像构建、配置发布、两服务更新与正常登录管理/历史读取；现库不具备管理schema准入。
 - 真实执行仍未授权：共享参考价/完整三类选择/模式/通道准入及ai_invocations执行合同各按原owner处理，不迁移旧数据，不改凭据或真实试连。
 
 后续顺序、精确字段白名单、原a66保留项和回退见[两服务更新方案](market-research-unified-update-plan.md)。

@@ -1,12 +1,12 @@
 # 市场调研与智能选品：关闭执行候选的两服务更新方案
 
-状态：**OFFLINE_IMPLEMENTED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
-用户已授权最小设计、准入后的离线实现和相关回归，形成新的固定候选；原a66保持运行。
-当前应用准确SourceRef以PR #1075的本轮固定候选记录为准，不能使用任意分支HEAD/main或旧1e镜像代替。
+状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
+本轮仅按原身份只读核查，应用固定f337521d0c69f8342c9335ba31e8b86ea3236fa4；原a66保持运行。
+具体配置/结构差异及最小新空Run方案见[核查结果](channel-contract-f337-readonly-review.md)。不能使用任意分支HEAD/main、后续文档提交或旧1e镜像代替应用来源。
 本轮不构建镜像、不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并关单。
 预算仍研究/选品各¥0.30/20点、合计¥0.60/40点，原内容候选A为¥0.30/72000 Token。
 
-Design Basis: **Independent Architecture / IMPLEMENTATION_READY（仅离线实施）**，见
+本轮只读调查的Design Basis: **N/A**，不改正式业务代码或运行语义。此前离线实现依据为 **Independent Architecture / IMPLEMENTATION_READY（仅离线实施）**，见
 [数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)。本轮实际main一次组合d80d7b1e0，
 复用#1089的共享通道凭据，保留原研究/选品、完整图片关闭态及供应链/图片修复；不重建公共模型、费用或凭据能力。
 
@@ -44,10 +44,10 @@ Design Basis: **Independent Architecture / IMPLEMENTATION_READY（仅离线实�
 
 1. **采集执行**：未来配置明确声明dataServices.executionEnabled=false（新系统默认也是关闭），保留同一DataServices DB/权限、原记录及研究依赖。可保留现有合法执行元数据，但不实例化执行资源；不是删除DataServices或伪造Temporal地址。
 2. **AI关闭**：productAgent.enabled=false、完整图片generation.enabled=false、Chat=false及已批准预算保持；沿原Run/Image/Asset/Product配置和历史owner，不装配执行器或通道secret reader。
-3. **公共通道合同**：#1089新增connectionId/connectionProvider等当前模型声明、Run唯一通道metadata/加密凭据owner。关闭态不读取Key；没有当前连接准入的声明保持未就绪，不恢复ai_client_credentials、不把原org-credential版本解释成新channel版本，也不为绿色状态填假值。
+3. **公共通道合同**：原身份已实测新通道两表和metadata视图缺失、旧ai_client_credentials仍在；这会阻止固定版本的配置管理装配，即使AI关闭。原reader/writer的既有路由表权限符合对应边界，不能用提权解决结构冲突。按新空Run合同准备独立新库和当前schema，保留原库/数据/卷，不补旧兼容；connectionId/connectionProvider等去密差异见核查页，连接未创建，声明仍未准入。
 4. **私密候选**：原独立文件current-application-1e3509-a.private.json的hash194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC、Windows ACL和原0600证据保留，未改内容/权限或发布。其严格LoadConfig PASS只绑定1e3509；新代码下的实际私密候选解析尚NOT_RUN。后续只准备/审查新字段差异，不能自行生成含密钥新文件、更新实际绑定或安装新schema。
 5. **构建**：新候选镜像NOT_BUILT。未来单独获准后才用scripts/build-listingkit-images.ps1，准确SourceRef、Component All、标准data-services-runtime与UI Dockerfile构建；核commit/tree/imageID/标签、应用层和Config.User，再核最终Compose是否覆盖用户身份。不能沿用旧镜像User核对或给出虚构digest。
-6. **真实AI**：当前参考价/企业三类选择/模式及新通道准入未发布，原执行表差异仍未处理；它们属于未来真实执行阶段，不拿来拖住本轮关闭态代码，也不因此改库、改凭据或真实试连。
+6. **真实AI**：当前参考价/企业三类选择/模式及新通道准入未发布，原执行表完整合同本轮未复核；缺失的secret reader角色要由安装方另行准备，但关闭态运行不打开该池。未来执行再准备合法连接/保护材料及执行准入，不因此改原库、改凭据或真实试连。
 
 ## 两服务最终允许变更的字段
 
@@ -73,7 +73,7 @@ Design Basis: **Independent Architecture / IMPLEMENTATION_READY（仅离线实�
 ## 后续获准后的更新与回退顺序
 
 1. fresh核原a66的两镜像/标签、原manifest/Compose hash/ACL、网络、挂载、卷及身份依赖健康。
-2. 仅在独立配置准备授权内生成/解析新候选，核其hash/Windows ACL/实际Linux模式；不重复改原文件或借此发布共享模型选择/价格/凭据。
+2. 先单独确认新空Run的资源、原安装负责人及当前各owner的schema/限定grants；未获安装授权不创建数据库、角色或执行initializer。再仅在独立配置准备授权内生成/解析新候选，核其hash/Windows ACL/实际Linux模式；原a66及原库不改，不导入旧历史/凭据，不借此发布共享模型选择/价格。
 3. 仅在构建授权内构建PR记录的准确应用SourceRef并核回执；文档/main后续推进不自动换源。
 4. 仅在更新与启动范围获准后，先更新后端并核健康/身份/管理读取，再更新UI；不跑initializer/DDL或整个项目up。
 5. 获准的只读检查沿正常身份进入市场调研、选品和配置/历史；未登录入口仍跳登录、BFF拒绝未登录。不点击采集、生成、恢复、确认执行或操作具体商品。
