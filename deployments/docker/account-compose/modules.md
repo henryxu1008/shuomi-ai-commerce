@@ -33,13 +33,15 @@ The recommended new unified installation includes non-payment Ecoservices and
 enterprise storage capacity through the existing owner contracts:
 
 ```sh
-sh ./compose-modules.sh -- up -d --build --wait
+sh ./compose-modules.sh -- -f docker-compose.images.yml up -d --no-build --wait
 ```
 
 The [capacity deployment guide](storage-capacity.md) explains automatic trusted
 identity/policy installation and final manifest selection, including optional
 Chat, acquisition plans and Store preparation. Use the same options to stop and
 restart. Public trials append `--public` as in [public-trial.md](public-trial.md).
+Prepare the selected-Git images and private image-only overlay first, following
+the capacity guide and the repository's standard image build entry.
 
 The smaller original four-layer profile below deliberately omits Ecoservices
 and capacity. Its acceptance fixture is an explicit isolated developer action,
@@ -152,8 +154,8 @@ For the new capacity-enabled installation described above, use the same fixed
 entrypoint and **exact original options**. For example, when Chat was selected:
 
 ```sh
-sh ./compose-modules.sh --chat -- stop
-sh ./compose-modules.sh --chat -- up -d --no-build --wait
+sh ./compose-modules.sh --chat -- -f docker-compose.images.yml stop
+sh ./compose-modules.sh --chat -- -f docker-compose.images.yml up -d --no-build --wait
 ```
 
 Keep `--public`, `--acquisition-plans` or `--store-observations` if originally

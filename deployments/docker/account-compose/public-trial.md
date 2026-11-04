@@ -17,7 +17,9 @@ ACCOUNT_PUBLIC_IDENTITY_HOST=auth-trial.example.com
 ```
 
 Only exact HTTPS DNS origins on port 443 are supported by this trial layer.
-For a new unified trial, use `sh ./compose-modules.sh --chat --public -- up -d --build --wait`
+For a new unified trial, after preparing the selected-Git images and private
+image-only overlay below, use
+`sh ./compose-modules.sh --chat --public -- -f docker-compose.images.yml up -d --no-build --wait`
 with capacity included (omit `--chat` if not selected), and keep the same options
 on every restart. See [storage-capacity.md](storage-capacity.md) for automatic
 identity/policy installation, final-manifest composition and other-module gaps.

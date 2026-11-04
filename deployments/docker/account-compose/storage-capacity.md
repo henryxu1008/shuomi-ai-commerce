@@ -10,12 +10,20 @@ schema, price, wallet funding or storage purchase is added by this layer.
 From this directory, prepare the ordinary private `.env` and exact-origin plugin
 as in [modules.md](modules.md). The recommended POSIX entrypoint includes capacity:
 
+First prepare the backend/UI with the repository's
+[selected-Git image build entry](../../../docs/operations/application-image-build.md).
+Build bootstrap/schema and MinIO client/server from that same clean source
+archive using the standard targets, and retain their source/image records.
+The deployment's private `docker-compose.images.yml` selects these prepared
+images without changing service commands, entrypoints or mounts. Preserve it on
+restart; image building and deployment remain separate operations.
+
 ```sh
-sh ./compose-modules.sh -- up -d --build --wait
+sh ./compose-modules.sh -- -f docker-compose.images.yml up -d --no-build --wait
 # Optional model-free conversations; requires CHAT_ALLOWED_ORGANIZATION_IDS.
-sh ./compose-modules.sh --chat -- up -d --build --wait
+sh ./compose-modules.sh --chat -- -f docker-compose.images.yml up -d --no-build --wait
 # Add --public for the fixed HTTPS origins described in public-trial.md.
-sh ./compose-modules.sh --chat --public -- up -d --build --wait
+sh ./compose-modules.sh --chat --public -- -f docker-compose.images.yml up -d --no-build --wait
 ```
 
 Use the **same options** for `config --quiet`, `ps`, `stop`, and
