@@ -95,6 +95,9 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 	if p.ContentOnly && p.ContentTitleOnly {
 		return errors.New("contentOnly and contentTitleOnly are mutually exclusive")
 	}
+	if (p.ContentOnly || p.ContentTitleOnly) && (len(p.ContentTextPolicies) == 0 || len(p.TextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) != 0) {
+		return errors.New("content-only metadata requires only content policies")
+	}
 	if !p.Limits().Valid() || p.RuntimeSeconds > 120 || p.RuntimeSeconds < 1 || p.Steps > 16 || p.ModelCalls > 8 {
 		return errors.New("product agent limits or title policy invalid")
 	}

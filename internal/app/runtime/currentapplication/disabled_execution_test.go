@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"task-processor/internal/agentconfig"
+
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -71,4 +73,21 @@ func TestDisabledFullImageKeepsReadPoolsWithoutWorkerDependencies(t *testing.T) 
 	}
 	cfg.ImageAgent.Generation.Enabled = true
 	require.Error(t, Run(context.Background(), cfg, logrus.New(), Dependencies{}), "enabled execution still requires its dependencies")
+}
+
+func TestDisabledManagementRetainsContentOnlyConsumerBoundary(t *testing.T) {
+	for _, titleOnly := range []bool{false, true} {
+		c := agentRuntimeConfig()
+		c.ProductAgent.Enabled = false
+		c.ProductAgent.ContentOnly, c.ProductAgent.ContentTitleOnly = !titleOnly, titleOnly
+		writer := c.ProductAgent.Database
+		writer.User, writer.MaxConnections = "model_route_config_writer", 2
+		c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer}
+		require.Error(t, c.validate(), "content-only metadata must not admit a title consumer while execution is closed")
+		c.ProductAgent.ContentTextPolicies, c.ProductAgent.TextPolicies = c.ProductAgent.TextPolicies, nil
+		policy := c.ProductAgent.ContentTextPolicies["org"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
+		c.ProductAgent.ContentTextPolicies["org"] = policy
+		require.NoError(t, c.validate(), "the original content-only metadata remains legal without starting execution")
+	}
 }
