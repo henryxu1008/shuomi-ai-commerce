@@ -1,7 +1,7 @@
 # 市场调研与智能选品：关闭执行候选的两服务更新方案
 
 状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
-本轮为安装方案的design-only整理，应用固定f337521d0c69f8342c9335ba31e8b86ea3236fa4；原a66保持。
+安装方案已获认可，原 ledger CLI 最小离线补丁和必要自检完成；应用固定f337521d0c69f8342c9335ba31e8b86ea3236fa4，原a66保持。
 具体配置/结构差异及最小新空Run方案见[核查结果](channel-contract-f337-readonly-review.md)。不能使用任意分支HEAD/main、后续文档提交或旧1e镜像代替应用来源。
 本轮不构建镜像、不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并关单。
 预算仍研究/选品各¥0.30/20点、合计¥0.60/40点，原内容候选A为¥0.30/72000 Token。
@@ -13,7 +13,7 @@
 ## 原 owner 已回复与当前安装阻碍
 
 已在原聊天取得 **ACK1075-INSTALL**。公共 owner 确认现成 f337 ledger CLI 只接受 product_agent/product_agent_owner，**不支持另名新空库**；Run prepare 只验证已有的准确52列ledger，不创建它。
-因此本方案的资源、角色、顺序与配置可以审查，安装尚非可执行状态。新的[最小入口设计候选](new-run-ledger-installer-design.md)明确拟议参数、独立工具版本、schema-init制品来源及停止条件；尚未实现或获准构建/安装。
+因此本方案原先缺少另名新空库入口；用户已认可[最小入口设计与离线实现](new-run-ledger-installer-design.md)，沿原 PR 完成受限参数和合成回归。工具/f337制品未构建、现场身份与安装未授权，实际安装仍不可开始。
 
 | 本候选范围 | 已收敛结果 |
 | --- | --- |
@@ -23,7 +23,7 @@
 | 安装顺序 | 另行获准准备制品和新目标 → ledger → Run/通道 → 配置/Skill → 路由 → 只读核验与另获授权的私密解析；不能跳过缺失ledger入口 |
 | 商业资源 | 原商业/资源库及Money/初始报价不在此安装范围，不运行commercial-owner-schema-migrate或整套bootstrap |
 
-本轮不读取安装凭据、不连接或修改数据库、不操作容器，不编译或重跑业务测试；原只读快照保留其时间范围，不冒称本轮现场权限验证。
+本轮不读取安装凭据、不连接或修改保留数据库/容器。仅为已授权离线回归运行任务自有临时 PostgreSQL/合成账号，完成后清理其容器；原只读快照保留其时间范围，不冒称本轮现场权限验证。此最小补丁 Design Basis 为 Reuse Existing Architecture，详见入口设计与当前 Issue；上方 N/A 仅指原只读阶段。
 
 ## 用户现在能核对的结果
 

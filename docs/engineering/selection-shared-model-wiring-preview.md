@@ -72,7 +72,7 @@ SHA256 194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC；Window
 缺失ai_channel_secret_reader属于标准新空Run准备缺项，AI关闭运行本身不打开其池；不把它与metadata启动阻碍或真实AI执行所需计量混为一谈。
 此前合成夹具仍是离线证据，本轮真实库只读、不执行installer/DDL/GRANT；f337实际LoadConfig/Run仍NOT_RUN。
 最小方案为保留原a66和原库，由原安装负责人另行准备合法的新空Run资源与当前schema，再审查新私密配置；不迁移旧凭据/历史、不在原库补兼容。
-原owner现已确认固定ledger CLI不支持另名库；仅改数据库字段不能启动安装。须先确认[入口最小设计与工具版本](new-run-ledger-installer-design.md)，再分别取得补丁开发、制品构建、实际安装和配置准备授权；本轮均未执行。
+原owner已确认固定ledger CLI不支持另名库；仅改数据库字段不能启动安装。[入口最小设计与工具版本](new-run-ledger-installer-design.md)已获用户认可并完成原 CLI 离线补丁/合成自检；制品构建、实际安装和配置准备仍须分别授权，本轮未执行。
 
 ## 其他 worker 与任务队列的实际范围
 
