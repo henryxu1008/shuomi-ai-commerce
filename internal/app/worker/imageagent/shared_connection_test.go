@@ -23,7 +23,7 @@ func TestChannelSecretAdmissionRequiresVerifiedMatchingOrganization(t *testing.T
 	m := (credential.Metadata{OrganizationID: "org-1", ConnectionID: "shared", Revision: 1}).WithIdentity()
 	keys := &sharedConnectionFixture{secret: credential.Secret{Metadata: m, APIKey: "synthetic"}}
 	gate := organizationCredentialAdmission{resolver: keys}
-	for _, ctx := range []context.Context{context.Background(), syntheticGenerationContext(), aiidentity.WithIdentity(syntheticGenerationContext(), aiidentity.Identity{TenantID: "other", UserID: "actor"})} {
+	for _, ctx := range []context.Context{context.Background(), aiidentity.WithIdentity(context.Background(), aiidentity.Identity{TenantID: "org-1", UserID: "actor"}), aiidentity.WithIdentity(syntheticGenerationContext(), aiidentity.Identity{TenantID: "other", UserID: "actor"})} {
 		_, e := gate.Resolve(ctx, m.OrganizationID, m.ConnectionID, m.Reference)
 		require.Error(t, e)
 	}
