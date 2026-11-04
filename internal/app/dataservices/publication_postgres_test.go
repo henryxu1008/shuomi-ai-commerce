@@ -29,13 +29,6 @@ import (
 
 type authorizedFixture struct{}
 
-// Nil embedded effect ports panic if a read accidentally starts work or charges.
-type readOnlyAcquisitionPorts struct {
-	dataacquisition.Provider
-	dataacquisition.Charges
-	dataacquisition.ExecutionStarter
-}
-
 type publicationCollectionAuth struct{ scope collection.Scope }
 type publicationCaptureAuth struct{ scope collection.Scope }
 
@@ -130,10 +123,10 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 	require.NoError(t, err)
 	require.Equal(t, saved.Source, again.Source)
 	t.Run("original live provenance verifies SRC without execution", func(t *testing.T) {
-		ports := readOnlyAcquisitionPorts{}
-		acquisition, e := dataacquisition.NewService(repo, live, ports, ports, ports)
+		reader, e := dataacquisition.NewReader(repo, live)
 		require.NoError(t, e)
-		module := &Module{acquisition: acquisition, results: capturedResultReader{sourceReader}}
+		module := &Module{reader: reader, results: capturedResultReader{sourceReader}}
+		require.Nil(t, module.Runner())
 		v, e := module.Provenance(ctx, dataacquisition.Principal{Scope: scope}, *saved.Source)
 		require.NoError(t, e)
 		require.Equal(t, evidence.CapturedAt, v.Evidence.CapturedAt)
@@ -165,10 +158,10 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 		require.NoError(t, e)
 		require.Len(t, page.Items, 1)
 		require.Equal(t, "amazon_data", page.Items[0].Source.Kind)
-		ports := readOnlyAcquisitionPorts{}
-		acquisition, e := dataacquisition.NewService(repo, live, ports, ports, ports)
+		reader, e := dataacquisition.NewReader(repo, live)
 		require.NoError(t, e)
-		module := &Module{acquisition: acquisition, results: capturedResultReader{sourceReader}}
+		module := &Module{reader: reader, results: capturedResultReader{sourceReader}}
+		require.Nil(t, module.Runner())
 		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: scope}, page.Items[0].Source)
 		require.ErrorIs(t, e, dataacquisition.ErrNotFound)
 	})
