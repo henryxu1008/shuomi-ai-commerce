@@ -128,7 +128,7 @@ func TestLegacyTaskOpenAIConvenienceClosureIsRetired(t *testing.T) {
 	required := map[string][]string{
 		"internal/listing/record":     {"Actor", "ValidateActor", "ValidateOperationID"},
 		"internal/ai":                 {"RouteBoundImageEditor"},
-		"internal/integration/openai": {"ClientConfig", "ResolvedClientConfig", "ClientConfigResolver"},
+		"internal/integration/openai": {"ClientConfig"},
 	}
 	found := map[string]bool{}
 	for _, path := range trackedFiles(t, ".") {
@@ -6188,8 +6188,7 @@ func TestLegacyAssetSourceOpenAITailClosureIsRetired(t *testing.T) {
 		"internal/product/catalog/publisher.go":              {"Publisher", "NewPublisher", "Publisher.Publish"},
 		"internal/product/sourcing/publication.go":           {"InternalProducer", "NewInternalProducer", "InternalProducer.Publish"},
 		"internal/product/sourcing/catalog_asset_handoff.go": {"ToSnapshot"},
-		"internal/integration/openai/credential_config.go":   {"ClientConfig", "ResolvedClientConfig", "ClientConfigResolver"},
-		"internal/integration/openai/credential_metadata.go": {"CredentialReference", "CredentialVersion"},
+		"internal/integration/openai/credential_config.go":   {"ClientConfig"},
 	}
 	found := map[string]bool{}
 	for _, path := range trackedFiles(t, ".") {

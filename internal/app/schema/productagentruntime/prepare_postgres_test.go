@@ -2,6 +2,9 @@ package productagentruntime
 
 import (
 	"context"
+	"fmt"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -14,10 +17,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/app/httpapi"
-	"task-processor/internal/integration/openai"
 	agentstore "task-processor/internal/integration/persistence/agent"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 type prepareFixture struct {
@@ -28,6 +32,18 @@ type prepareFixture struct {
 func newPrepareFixture(t *testing.T, target string) prepareFixture {
 	t.Helper()
 	dsn := os.Getenv("ISSUE688_RUNTIME_TEST_DSN")
+	if dsn == "" && os.Getenv("ISSUE1089_OWNED_POSTGRES") != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		c, e := tcpostgres.Run(ctx, "postgres:17-alpine", tcpostgres.WithDatabase("issue688_tests"), tcpostgres.WithUsername("issue398_owner"), tcpostgres.WithPassword("synthetic-native-root"), tcpostgres.BasicWaitStrategies())
+		require.NoError(t, e)
+		t.Cleanup(func() { require.NoError(t, c.Terminate(context.Background())) })
+		raw, e := c.ConnectionString(ctx, "sslmode=disable")
+		require.NoError(t, e)
+		u, e := url.Parse(raw)
+		require.NoError(t, e)
+		dsn = fmt.Sprintf("host=127.0.0.1 port=%s user=issue398_owner password=synthetic-native-root dbname=issue688_tests sslmode=disable", u.Port())
+	}
 	if dsn == "" {
 		t.Skip("requires task-owned ISSUE688_RUNTIME_TEST_DSN")
 	}
@@ -38,10 +54,13 @@ func newPrepareFixture(t *testing.T, target string) prepareFixture {
 	require.NoError(t, err)
 	rootPool, err := root.DB()
 	require.NoError(t, err)
-	for _, role := range []string{"product_agent_owner", "acquisition_owner", "product_agent_runtime", "title_credential_writer", "product_review_runtime"} {
+	for _, role := range []string{"product_agent_owner", "acquisition_owner", "product_agent_runtime", "title_credential_writer", "ai_channel_secret_reader", "product_review_runtime"} {
 		login := "NOLOGIN"
-		if strings.HasSuffix(role, "runtime") || role == "title_credential_writer" {
+		if strings.HasSuffix(role, "runtime") || role == "title_credential_writer" || role == "ai_channel_secret_reader" {
 			login = "LOGIN PASSWORD 'synthetic-native-role'"
+			if role == "ai_channel_secret_reader" {
+				login += " CONNECTION LIMIT 2"
+			}
 		}
 		require.NoError(t, root.Exec("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='"+role+"') THEN CREATE ROLE "+role+" "+login+" NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; END IF; END $$").Error)
 	}
@@ -103,17 +122,15 @@ func TestPrepareRunUsesOriginalOwnersAndBoundedRuntimeRoles(t *testing.T) {
 	require.Error(t, runtime.Exec("UPDATE public.product_agent_runs SET actor='another' WHERE run_id='run'").Error)
 	require.NoError(t, runtime.Exec("INSERT INTO public.product_agent_tool_calls VALUES('run','call',?)", []byte(`{}`)).Error)
 	require.Error(t, runtime.Exec("UPDATE public.product_agent_tool_calls SET payload=?", []byte(`{}`)).Error)
-	store := openai.NewGormCredentialResolver(writer)
-	row := openai.AIClientCredential{TenantID: "org", ClientName: "content", APIKey: "synthetic-key", BaseURL: "https://example.test/v1", Model: "synthetic-model", APIStyle: "openai-compatible", Enabled: true}
-	require.NoError(t, store.SaveCredential(context.Background(), row))
-	row.Enabled = false
-	require.NoError(t, store.SaveCredential(context.Background(), row))
+	meta := seedNativeChannel(t, writer, "org", "content")
 	var count int64
-	require.NoError(t, runtime.Table("public.ai_client_credentials").Count(&count).Error)
+	require.NoError(t, runtime.Table("public.ai_channel_credential_bindings").Count(&count).Error)
 	require.EqualValues(t, 1, count)
-	require.Error(t, runtime.Exec("UPDATE public.ai_client_credentials SET enabled=true").Error)
-	require.Error(t, writer.Exec("DELETE FROM public.ai_client_credentials").Error)
-	require.Error(t, writer.Exec("UPDATE public.ai_client_credentials SET tenant_id='other'").Error)
+	require.Error(t, runtime.Table("public.ai_channel_connections").Count(&count).Error)
+	require.Error(t, runtime.Exec("UPDATE public.ai_channel_connections SET enabled=true").Error)
+	require.Error(t, writer.Exec("DELETE FROM public.ai_channel_connections").Error)
+	require.Error(t, writer.Exec("UPDATE public.ai_channel_connections SET organization_id='other'").Error)
+	require.NotEmpty(t, meta.Reference)
 	ledger := aistore.NewGormInvocationRecorder(runtime)
 	fact := aicapability.InvocationRecord{InvocationID: "run:step:1", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", StartedAt: time.Now().UTC(), Outcome: aicapability.InvocationDispatched, Operation: aicapability.OperationProductContentDecision}
 	won, err := ledger.ClaimInvocation(context.Background(), fact)
@@ -150,7 +167,7 @@ func TestPrepareRunRejectsPartialAndDriftWithoutRepair(t *testing.T) {
 			_, err := PrepareRun(context.Background(), f.db)
 			require.Error(t, err)
 			if test == "partial" {
-				require.False(t, f.db.Migrator().HasTable("ai_client_credentials"))
+				require.False(t, f.db.Migrator().HasTable("ai_channel_connections"))
 			} else {
 				require.True(t, f.db.Migrator().HasColumn("product_agent_runs", "foreign_fact"))
 			}
@@ -182,4 +199,15 @@ func TestPrepareReviewKeepsExistingFactsAndUsesExactMutableColumns(t *testing.T)
 	var preserved string
 	require.NoError(t, f.db.Raw("SELECT value FROM public.preserved_fact WHERE id=1").Scan(&preserved).Error)
 	require.Equal(t, "original", preserved)
+}
+
+func seedNativeChannel(t *testing.T, db *gorm.DB, org, id string) credential.Metadata {
+	t.Helper()
+	p, e := channelstore.NewProtection("native-test", []byte(strings.Repeat("n", 32)))
+	require.NoError(t, e)
+	s, e := channelstore.New(db, p)
+	require.NoError(t, e)
+	m, e := s.Publish(context.Background(), credential.Command{OrganizationID: org, ActorID: "operator", Key: uuid.NewString(), ConnectionID: id, Provider: "synthetic", Channel: "fixture-channel", Account: "test", Region: "global", BaseURL: "https://example.test/v1", Secret: "synthetic-only", Enabled: true})
+	require.NoError(t, e)
+	return m
 }

@@ -16,7 +16,6 @@ var errOrganizationWorkerRuntimePermissions = errors.New("organization image age
 // The old v2 slot-effect table is deliberately not admitted. Product Asset
 // approval remains with its existing owner; this role only invokes it.
 var organizationWorkerRuntimeTables = []struct{ name, privileges string }{
-	{"ai_client_credentials", "SELECT"},
 	{"ai_invocations", "SELECT,INSERT,UPDATE"},
 	{"image_agent_v2_runs", "SELECT,UPDATE"},
 	{"image_agent_v2_plans", "SELECT,INSERT"},
@@ -42,7 +41,6 @@ var organizationWorkerRuntimeOptionalReads = []struct{ name, kind string }{
 	{"ai_route_config_revisions", "r"},
 	{"ai_route_config_current", "r"},
 	{"ai_route_config_options", "r"},
-	{"ai_client_credential_bindings", "v"},
 }
 
 // GrantOrganizationWorkerRuntimePermissions is explicit owner maintenance.

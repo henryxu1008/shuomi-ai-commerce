@@ -25,8 +25,10 @@ func runGrants(ledger relationContract) []tableGrant {
 		{"product_agent_runtime", "ai_invocations", true, true, cols},
 		{"product_agent_runtime", "product_agent_runs", true, true, []string{"revision", "phase", "payload"}},
 		{"product_agent_runtime", "product_agent_tool_calls", true, true, nil},
-		{"product_agent_runtime", "ai_client_credentials", true, false, nil},
-		{"title_credential_writer", "ai_client_credentials", true, true, []string{"api_key", "base_url", "model", "api_style", "timeout_second", "enabled", "updated_at"}},
+		{"product_agent_runtime", "ai_channel_credential_bindings", true, false, nil},
+		{"title_credential_writer", "ai_channel_connections", true, true, []string{"revision", "enabled", "protection_key_id", "secret_ciphertext"}},
+		{"title_credential_writer", "ai_channel_connection_receipts", true, true, nil},
+		{"ai_channel_secret_reader", "ai_channel_connections", true, false, nil},
 		{"title_credential_writer", "product_agent_runs", false, false, nil},
 		{"title_credential_writer", "product_agent_tool_calls", false, false, nil},
 		{"title_credential_writer", "ai_invocations", false, false, nil},
@@ -68,7 +70,7 @@ func verifyRole(db *gorm.DB, role string) error {
 // Skill, Chat and Catalog roles are preserved, never rewritten or revoked.
 func verifyPrivateACL(db *gorm.DB, table string) error {
 	var unexpected bool
-	err := db.Raw(`SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_class c CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a WHERE c.oid=pg_catalog.to_regclass(?) AND a.grantee<>c.relowner AND a.grantee NOT IN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname IN ('product_agent_runtime','title_credential_writer'))) OR EXISTS(SELECT 1 FROM pg_catalog.pg_attribute c CROSS JOIN LATERAL pg_catalog.aclexplode(c.attacl) a WHERE c.attrelid=pg_catalog.to_regclass(?) AND a.grantee NOT IN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname IN ('product_agent_owner','product_agent_runtime','title_credential_writer')))`, "public."+table, "public."+table).Scan(&unexpected).Error
+	err := db.Raw(`SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_class c CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a WHERE c.oid=pg_catalog.to_regclass(?) AND a.grantee<>c.relowner AND a.grantee NOT IN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname IN ('product_agent_runtime','title_credential_writer','ai_channel_secret_reader'))) OR EXISTS(SELECT 1 FROM pg_catalog.pg_attribute c CROSS JOIN LATERAL pg_catalog.aclexplode(c.attacl) a WHERE c.attrelid=pg_catalog.to_regclass(?) AND a.grantee NOT IN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname IN ('product_agent_owner','product_agent_runtime','title_credential_writer','ai_channel_secret_reader')))`, "public."+table, "public."+table).Scan(&unexpected).Error
 	if err != nil {
 		return err
 	}
@@ -78,53 +80,7 @@ func verifyPrivateACL(db *gorm.DB, table string) error {
 	return nil
 }
 
-func verifyCredentialSequence(db *gorm.DB) error {
-	var ok bool
-	err := db.Raw(`SELECT c.relkind='S' AND c.relpersistence='p' AND pg_catalog.pg_get_userbyid(c.relowner)='product_agent_owner' AND pg_catalog.pg_get_serial_sequence('public.ai_client_credentials','id')='public.ai_client_credentials_id_seq' AND EXISTS(SELECT 1 FROM pg_catalog.pg_depend d JOIN pg_catalog.pg_attribute a ON a.attrelid=d.refobjid AND a.attnum=d.refobjsubid WHERE d.classid='pg_class'::regclass AND d.objid=c.oid AND d.refobjid='public.ai_client_credentials'::regclass AND a.attname='id' AND d.deptype='a') AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('S',c.relowner))) a WHERE a.grantee<>c.relowner AND a.grantee<>(SELECT oid FROM pg_catalog.pg_roles WHERE rolname='title_credential_writer')) FROM pg_catalog.pg_class c WHERE c.oid=pg_catalog.to_regclass('public.ai_client_credentials_id_seq')`).Scan(&ok).Error
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("credential id sequence owner/dependency/ACL differs")
-	}
-	return verifyCredentialSequenceState(db)
-}
-
-// The owner model uses a default bigint sequence. Read its prospective value
-// without reserving/advancing it; gaps from conflict/rollback are valid.
-func verifyCredentialSequenceState(db *gorm.DB) error {
-	var originalParameters bool
-	if err := db.Raw(`SELECT seqtypid='pg_catalog.int8'::regtype AND seqstart=1 AND seqincrement=1 AND seqmin=1 AND seqmax=9223372036854775807 AND seqcache=1 AND NOT seqcycle FROM pg_catalog.pg_sequence WHERE seqrelid='public.ai_client_credentials_id_seq'::regclass`).Scan(&originalParameters).Error; err != nil {
-		return err
-	}
-	if !originalParameters {
-		return fmt.Errorf("credential id sequence parameters differ from the original model")
-	}
-	var state struct {
-		LastValue int64
-		IsCalled  bool
-	}
-	if err := db.Raw("SELECT last_value,is_called FROM public.ai_client_credentials_id_seq").Scan(&state).Error; err != nil {
-		return err
-	}
-	next := state.LastValue
-	if state.IsCalled {
-		if next == 1<<63-1 {
-			return fmt.Errorf("credential id sequence is exhausted")
-		}
-		next++
-	}
-	var maximumID int64
-	if err := db.Raw("SELECT COALESCE(pg_catalog.max(id),0) FROM public.ai_client_credentials").Scan(&maximumID).Error; err != nil {
-		return err
-	}
-	if next < 1 || next <= maximumID {
-		return fmt.Errorf("credential id sequence does not follow existing IDs")
-	}
-	return nil
-}
-
-func verifyGrants(db *gorm.DB, grants []tableGrant, sequence bool) (bool, error) {
+func verifyGrants(db *gorm.DB, grants []tableGrant) (bool, error) {
 	ready := true
 	roles := map[string]bool{}
 	for _, g := range grants {
@@ -173,23 +129,6 @@ func verifyGrants(db *gorm.DB, grants []tableGrant, sequence bool) (bool, error)
 		}
 		if !complete {
 			ready = false
-		}
-	}
-	if sequence {
-		for _, role := range []string{"product_agent_runtime", "title_credential_writer"} {
-			for _, p := range []string{"USAGE", "SELECT", "UPDATE"} {
-				var actual, option bool
-				if err := db.Raw("SELECT pg_catalog.has_sequence_privilege(?, 'public.ai_client_credentials_id_seq', ?),pg_catalog.has_sequence_privilege(?, 'public.ai_client_credentials_id_seq', ?)", role, p, role, p+" WITH GRANT OPTION").Row().Scan(&actual, &option); err != nil {
-					return false, err
-				}
-				expected := role == "title_credential_writer" && p == "USAGE"
-				if option || actual && !expected {
-					return false, fmt.Errorf("credential sequence privileges differ for %s", role)
-				}
-				if expected && !actual {
-					ready = false
-				}
-			}
 		}
 	}
 	return ready, nil

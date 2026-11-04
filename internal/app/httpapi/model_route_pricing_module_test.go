@@ -12,7 +12,6 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/httproute"
-	"task-processor/internal/integration/openai"
 	store "task-processor/internal/integration/persistence/routeconfig"
 	"testing"
 	"time"
@@ -47,11 +46,11 @@ func TestModelRoutePricingHTTPPublicationUsesOriginalOwnersAndScope(t *testing.T
 		r, _ = root.DB()
 		_ = r.Close()
 	})
-	require.NoError(t, db.Migrator().CreateTable(&openai.AIClientCredential{}))
+	require.NoError(t, installHTTPChannelFixture(db))
 	require.NoError(t, store.InstallSchema(context.Background(), db))
-	owner := openai.NewGormCredentialResolver(db)
-	require.NoError(t, owner.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "org-a", ClientName: "image-a", APIKey: "fixture-secret-never-public", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
-	row, e := owner.GetCredential(context.Background(), "org-a", "", "image-a")
+	owner := newHTTPChannelFixture(db)
+	require.NoError(t, owner.seed(context.Background(), httpModelFixture{TenantID: "org-a", ClientName: "image-a", APIKey: "fixture-secret-never-public", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
+	row, e := owner.record(context.Background(), "org-a", "", "image-a")
 	require.NoError(t, e)
 	scope := d.Scope{OrganizationID: "org-a", Capability: d.SharedModelCapability}
 	repo, e := store.New(db)

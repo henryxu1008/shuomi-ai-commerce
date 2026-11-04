@@ -19,7 +19,6 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/openai"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
@@ -113,9 +112,9 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		_, _ = w.Write([]byte(`{"id":"planner-fixture","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
-	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
-	require.NoError(t, credentials.SaveCredential(ctx, openai.AIClientCredential{TenantID: "B", ClientName: "chat", APIKey: "fixture-only", BaseURL: provider.URL + "/v1", Model: "planner-fixture", APIStyle: "openai", Enabled: true, TimeoutSecond: 3}))
-	credential, err := credentials.GetCredential(ctx, "B", "", "chat")
+	credentials := newHTTPChannelFixture(f.owner)
+	require.NoError(t, credentials.seed(ctx, httpModelFixture{TenantID: "B", ClientName: "chat", APIKey: "fixture-only", BaseURL: provider.URL + "/v1", Model: "planner-fixture", APIStyle: "openai", Enabled: true, TimeoutSecond: 3}))
+	credential, err := credentials.record(ctx, "B", "", "chat")
 	require.NoError(t, err)
 	policy := a.config.ContentTextPolicies["B"]
 	policy.Profile.ClientName = "chat"
@@ -126,7 +125,9 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 	policy.Profile.MaximumInputBytes = 128 << 10
 	policy.Profile.MaximumCompletionTokens = 4096
-	policy.AdmittedCredentialVersion = governed.CredentialVersion(*credential)
+	policy.Profile.ConnectionID = credential.ClientName
+	policy.Profile.CredentialVersion = credential.reference
+	policy.AdmittedCredentialVersion = httpCredentialReference(*credential)
 	policy.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(credential.BaseURL)
 	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}}, m.application)
 	require.NoError(t, err)

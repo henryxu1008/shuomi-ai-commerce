@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/imageagent"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ func assertFlareOverageBinding(t *testing.T, db *gorm.DB) {
 		cat, err := repo.GetAssetCatalog(ctx, res.Identity.RunScope)
 		require.NoError(t, err)
 		b := flareStoreBilling()
-		in := imageagent.GenerationIntent{Billing: b, Identity: res.Identity, MemberID: "grant-1", CatalogHash: cat.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "white-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: config, Provider: "openai", Model: aicapability.FlareImageModel, Protocol: aicapability.FlareImageProtocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: "reference-v1", Points: 300, LimitVersion: 1, MonthStart: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
+		in := imageagent.GenerationIntent{Billing: b, Identity: res.Identity, MemberID: "grant-1", CatalogHash: cat.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "white-v1", RouteReference: "route-1", CredentialReference: (credential.Metadata{OrganizationID: res.Identity.TenantID, ConnectionID: "shared-openai", Provider: "openai", Channel: "openai-direct", Account: "fixture", Region: "global", BaseURL: "https://api.openai.com/v1", Revision: 1}).WithIdentity().Reference, ConfigurationVersion: config, Provider: "openai", Model: aicapability.FlareImageModel, Protocol: aicapability.FlareImageProtocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: "reference-v1", Points: 300, LimitVersion: 1, MonthStart: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
 		fact, err := repo.PrepareGenerationIntent(ctx, in)
 		require.NoError(t, err)
 		_, err = repo.BindGenerationReservation(ctx, in, imageagent.GenerationReservationReceipt{UnitVersion: aicapability.AIPointMicrounitV1, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: in.Identity.TenantID, MemberID: in.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reserve-" + suffix, ResourceType: "ai_point", Points: in.Points, PriceVersion: in.PriceVersion, LimitVersion: 1, MonthStart: in.MonthStart})

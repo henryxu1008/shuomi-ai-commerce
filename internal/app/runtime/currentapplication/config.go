@@ -35,6 +35,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	ChannelCredentials                   *ChannelCredentialsConfig                 `json:"channelCredentials,omitempty"`
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
 	Fulfillment                          *FulfillmentConfig                        `json:"fulfillment,omitempty"`
 	BrowserKernel                        *BrowserKernelConfig                      `json:"browserKernel,omitempty"`
@@ -314,6 +315,9 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 }
 
 func (cfg *Config) validate() error {
+	if err := cfg.validateChannelCredentials(); err != nil {
+		return err
+	}
 	if _, err := cfg.modelRouteDefinitions(); err != nil {
 		return err
 	}

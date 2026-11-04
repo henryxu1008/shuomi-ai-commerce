@@ -100,7 +100,7 @@ func TestFlareFactoryKeepsBase64InOriginalBundleAndRecordsUsageOnStorageFailure(
 			objects := &flareMemoryObjects{objects: map[string]objectstore.ImmutableObjectPut{}}
 			artifacts, err := objectstore.NewDurableArtifactStore(objects, objectstore.DurableArtifactStoreConfig{MaxArtifactBytes: 32 << 20, OperationTimeout: time.Second})
 			require.NoError(t, err)
-			resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "credential-v1", Config: &openai.ClientConfig{APIKey: "synthetic-only", APIStyle: "openai", Model: aicapability.FlareImageModel, BaseURL: "https://api.openai.com/v1", Timeout: time.Second}}}
+			resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "credential-v1", Config: &openai.ClientConfig{APIKey: "synthetic-only", APIStyle: "openai", Model: aicapability.FlareImageModel, BaseURL: "https://api.openai.com/v1", Timeout: time.Second}}}
 			current := syntheticFactoryCurrent(resolver, 300)
 			current.q.Image.Provider = "openai"
 			current.q.Image.Protocol = aicapability.FlareImageProtocol
@@ -109,7 +109,7 @@ func TestFlareFactoryKeepsBase64InOriginalBundleAndRecordsUsageOnStorageFailure(
 			current.q.Price = current.q.Image.Billing.OfficialTariff
 			calls, observed := 0, 0
 			var proof imageagent.GenerationSuccess
-			factory := generationProviderFactory{current: current, resolver: resolver, price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: aicapability.AIPointMicrounitV1, MaximumMicropoints: 300}, profile: synchronousEditProfile{}, facts: unusedArtworkFacts{}, artifacts: flareArtifactFault{artifacts, mode}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
+			factory := generationProviderFactory{current: current, credentials: resolver, price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: aicapability.AIPointMicrounitV1, MaximumMicropoints: 300}, profile: synchronousEditProfile{}, facts: unusedArtworkFacts{}, artifacts: flareArtifactFault{artifacts, mode}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
 				calls++
 				require.Equal(t, "/v1/images/edits", r.URL.Path)
 				var body map[string]json.RawMessage

@@ -14,7 +14,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	aicapabilitystore "task-processor/internal/aicapability/store"
-	"task-processor/internal/integration/openai"
 	assetpersistence "task-processor/internal/integration/persistence/product/asset"
 	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
@@ -42,7 +41,6 @@ func TestOrganizationImageWorkerRuntimeRoleHasOnlyCurrentWorkerGrants(t *testing
 		require.NoError(t, root.Exec("DROP ROLE "+role).Error)
 		require.NoError(t, rootPool.Close())
 	})
-	require.NoError(t, owner.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, aicapabilitystore.AutoMigrateInvocationLedger(owner))
 	require.NoError(t, AutoMigrateOrganizationScope(owner))
 	require.False(t, owner.Migrator().HasTable("image_agent_v2_slot_external_effects"), "new installs must not create the retired ledger")

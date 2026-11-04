@@ -1102,7 +1102,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if productRuntime != nil && productRuntime.content != nil {
 				confirmedCopy = imageTextReviewReader{content: productRuntime.content}
 			}
-			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, supplied.fullImages.CurrentImagePolicies, confirmedCopy, sourceMedia)
+			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, supplied.fullImages.CurrentImagePolicies, supplied.fullImages.ChannelCredentials, confirmedCopy, sourceMedia)
 			if e != nil {
 				return nil, fmt.Errorf("build full image application: %w", e)
 			}

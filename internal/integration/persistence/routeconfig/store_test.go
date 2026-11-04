@@ -9,9 +9,10 @@ import (
 	"strings"
 	"sync"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
-	"task-processor/internal/integration/openai"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 	"testing"
 	"time"
 
@@ -59,17 +60,17 @@ func TestOptionalServiceQualifiedVersionTenantRollbackAndCredentialGuards(t *tes
 	db, repo := fixture(t)
 	ctx := context.Background()
 	scope := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
-	credentials := openai.NewGormCredentialResolver(db)
-	require.NoError(t, credentials.SaveCredential(ctx, openai.AIClientCredential{TenantID: scope.OrganizationID, ClientName: "image-vip", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2-vip", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
-	row, e := credentials.GetCredential(ctx, scope.OrganizationID, "", "image-vip")
+	credentials := testConnectionOwner(db)
+	require.NoError(t, credentials.seed(ctx, testConnectionInput{TenantID: scope.OrganizationID, ClientName: "image-vip", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2-vip", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
+	row, e := credentials.record(ctx, scope.OrganizationID, "", "image-vip")
 	require.NoError(t, e)
-	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: scope, Image: &qualified.ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row)}}})
+	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: scope, ConnectionID: row.ClientName, ConnectionProvider: "synthetic", Channel: "fixture", Region: "global", Image: &qualified.ImageAdmission{DeadlineSeconds: 30, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: row.Reference}}})
 	require.NoError(t, e)
 	s := &d.Service{Repository: repo, Catalog: catalog}
 	options, e := s.Options(ctx, scope)
 	require.NoError(t, e)
 	require.Empty(t, options, "qualified candidate alone is not published")
-	in := d.Input{Optional: true, ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{}}
+	in := d.Input{Optional: true, ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: row.Reference, Rates: d.Rates{}}
 	first, e := s.Publish(ctx, scope, "maintainer", "option-first", in)
 	require.NoError(t, e)
 	_, e = s.Current(ctx, scope)
@@ -96,7 +97,7 @@ func TestOptionalServiceQualifiedVersionTenantRollbackAndCredentialGuards(t *tes
 	_, e = s.Publish(ctx, scope, "maintainer", "stale-head", in)
 	require.ErrorIs(t, e, d.ErrConflict)
 	row.Enabled = false
-	require.NoError(t, credentials.SaveCredential(ctx, *row))
+	require.NoError(t, credentials.seed(ctx, *row))
 	_, e = s.Optional(ctx, scope, row.ClientName)
 	require.ErrorIs(t, e, d.ErrNeedsConfiguration)
 	options, e = s.Options(ctx, scope)
@@ -197,15 +198,15 @@ func TestCredentialDisabledAfterProjectionBeforeCommitFailsCurrentClosed(t *test
 	db, repo := fixture(t)
 	ctx := context.Background()
 	sc := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
-	owner := openai.NewGormCredentialResolver(db)
-	require.NoError(t, owner.SaveCredential(ctx, openai.AIClientCredential{TenantID: sc.OrganizationID, ClientName: "image-a", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
-	row, e := owner.GetCredential(ctx, sc.OrganizationID, "", "image-a")
+	owner := testConnectionOwner(db)
+	require.NoError(t, owner.seed(ctx, testConnectionInput{TenantID: sc.OrganizationID, ClientName: "image-a", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
+	row, e := owner.record(ctx, sc.OrganizationID, "", "image-a")
 	require.NoError(t, e)
-	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: sc, Image: &qualified.ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row)}}})
+	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: sc, ConnectionID: row.ClientName, ConnectionProvider: "synthetic", Channel: "fixture", Region: "global", Image: &qualified.ImageAdmission{DeadlineSeconds: 30, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: row.Reference}}})
 	require.NoError(t, e)
-	interleaved := rotatingPublication{Store: repo, rotate: func() { row.Enabled = false; require.NoError(t, owner.SaveCredential(ctx, *row)) }}
+	interleaved := rotatingPublication{Store: repo, rotate: func() { row.Enabled = false; require.NoError(t, owner.seed(ctx, *row)) }}
 	service := &d.Service{Repository: interleaved, Catalog: catalog}
-	in := d.Input{ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{}}
+	in := d.Input{ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: row.Reference, Rates: d.Rates{}}
 	r, e := service.Publish(ctx, sc, "maintainer", "race", in)
 	require.NoError(t, e)
 	current, e := service.Current(ctx, sc)
@@ -243,7 +244,8 @@ func fixture(t *testing.T) (*gorm.DB, *Store) {
 	root, e := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, e)
 	name := "route830_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	require.NoError(t, root.Exec("CREATE DATABASE "+name).Error)
+	require.NoError(t, root.Exec("DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='product_agent_owner') THEN CREATE ROLE product_agent_owner NOLOGIN; END IF; END $$").Error)
+	require.NoError(t, root.Exec("CREATE DATABASE "+name+" OWNER product_agent_owner").Error)
 	u.Path = "/" + name
 	db, e := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, e)
@@ -254,7 +256,12 @@ func fixture(t *testing.T) (*gorm.DB, *Store) {
 		r, _ = root.DB()
 		_ = r.Close()
 	})
-	require.NoError(t, db.Migrator().CreateTable(&openai.AIClientCredential{}))
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		if e := tx.Exec("SET LOCAL ROLE product_agent_owner").Error; e != nil {
+			return e
+		}
+		return channelstore.EnsureSchema(context.Background(), tx)
+	}))
 	require.NoError(t, InstallSchema(context.Background(), db))
 	s, e := New(db)
 	require.NoError(t, e)
@@ -385,15 +392,15 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	db, _ := fixture(t)
 	ctx := context.Background()
 	scope := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
-	owner := openai.NewGormCredentialResolver(db)
+	owner := testConnectionOwner(db)
 	for _, id := range []string{"image-a", "image-b"} {
-		require.NoError(t, owner.SaveCredential(ctx, openai.AIClientCredential{TenantID: scope.OrganizationID, ClientName: id, APIKey: "fixture-only-secret", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
+		require.NoError(t, owner.seed(ctx, testConnectionInput{TenantID: scope.OrganizationID, ClientName: id, APIKey: "fixture-only-secret", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
 	}
 	var defs []qualified.Definition
 	for _, id := range []string{"image-a", "image-b"} {
-		row, e := owner.GetCredential(ctx, scope.OrganizationID, "", id)
+		row, e := owner.record(ctx, scope.OrganizationID, "", id)
 		require.NoError(t, e)
-		defs = append(defs, qualified.Definition{Scope: scope, Image: &qualified.ImageAdmission{UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: id, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row)}})
+		defs = append(defs, qualified.Definition{Scope: scope, ConnectionID: row.ClientName, ConnectionProvider: "synthetic", Channel: "fixture", Region: "global", Image: &qualified.ImageAdmission{DeadlineSeconds: 30, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 100000000, Billing: syntheticPublicationBilling(row.Model), ClientName: id, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: row.Reference}})
 	}
 	catalog, e := qualified.NewCatalog(defs)
 	require.NoError(t, e)
@@ -417,9 +424,9 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	require.Error(t, VerifyWriter(ctx, writer, true), "image writer requires both INSERT and UPDATE")
 	require.NoError(t, db.Exec("GRANT UPDATE ON ai_route_config_options TO "+role).Error)
 	require.Error(t, VerifyReader(ctx, writer), "configuration writer must never be injected as serving reader")
-	require.Error(t, writer.Exec("UPDATE public.ai_client_credentials SET enabled=false").Error)
+	require.Error(t, writer.Exec("UPDATE public.ai_channel_connections SET enabled=false").Error)
 	var secret string
-	require.Error(t, writer.Raw("SELECT api_key FROM public.ai_client_credentials LIMIT 1").Scan(&secret).Error)
+	require.Error(t, writer.Raw("SELECT secret_ciphertext FROM public.ai_channel_connections LIMIT 1").Scan(&secret).Error)
 	repo, e := New(writer)
 	require.NoError(t, e)
 	service := &d.Service{Repository: repo, Catalog: catalog}
@@ -447,10 +454,10 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	restored, e := service.Publish(ctx, scope, "maintainer", "restore", rollback)
 	require.NoError(t, e)
 	require.NotEqual(t, first.Payload.Image.ConfigurationVersion, restored.Payload.Image.ConfigurationVersion)
-	row, e := owner.GetCredential(ctx, scope.OrganizationID, "", in.BindingID)
+	row, e := owner.record(ctx, scope.OrganizationID, "", in.BindingID)
 	require.NoError(t, e)
 	row.Enabled = false
-	require.NoError(t, owner.SaveCredential(ctx, *row))
+	require.NoError(t, owner.seed(ctx, *row))
 	current, e := service.Current(ctx, scope)
 	require.ErrorIs(t, e, d.ErrNeedsConfiguration)
 	require.Equal(t, restored.ID, current.ID)
@@ -465,4 +472,41 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 // They do not reopen the retired per-purpose serving API or point-price input.
 func syntheticPublicationBilling(model string) aicapability.OfficialModelBilling {
 	return aicapability.OfficialModelBilling{BoundEvidenceVersion: "synthetic-bound", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-official", FXVersion: "synthetic-fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: model, Channel: "synthetic-channel", UsageVersion: "synthetic", Rates: aicapability.OfficialModelRates{InputText: 500, OutputText: 500}}, UsageBound: aicapability.BillableModelUsage{MappingVersion: "synthetic", Complete: true, InputText: 100, OutputText: 100}}
+}
+
+type testConnectionInput struct {
+	TenantID, ClientName, APIKey, BaseURL, Model, APIStyle string
+	TimeoutSecond                                          int
+	Enabled                                                bool
+	Reference                                              string
+}
+type connectionTestOwner struct {
+	db    *gorm.DB
+	store *channelstore.Store
+}
+
+func testConnectionOwner(db *gorm.DB) connectionTestOwner {
+	p, _ := channelstore.NewProtection("route-test", []byte(strings.Repeat("r", 32)))
+	s, _ := channelstore.New(db, p)
+	return connectionTestOwner{db, s}
+}
+func (o connectionTestOwner) seed(ctx context.Context, r testConnectionInput) error {
+	m, _ := o.store.Metadata(ctx, r.TenantID, r.ClientName)
+	secret := r.APIKey
+	if !r.Enabled {
+		secret = ""
+	}
+	_, e := o.store.Publish(ctx, credential.Command{OrganizationID: r.TenantID, ActorID: "operator", Key: uuid.NewString(), ConnectionID: r.ClientName, ExpectedRevision: m.Revision, Provider: "synthetic", Channel: "fixture", Account: "test", Region: "global", BaseURL: r.BaseURL, Secret: secret, Enabled: r.Enabled})
+	return e
+}
+func (o connectionTestOwner) record(ctx context.Context, org, member, id string) (*testConnectionInput, error) {
+	m, e := o.store.Metadata(ctx, org, id)
+	if e != nil {
+		return nil, e
+	}
+	model := "gpt-image-2.5"
+	if id == "image-vip" {
+		model = "gpt-image-2-vip"
+	}
+	return &testConnectionInput{TenantID: org, ClientName: id, BaseURL: m.BaseURL, Model: model, Reference: m.Reference, Enabled: m.Enabled}, nil
 }

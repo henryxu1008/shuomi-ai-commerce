@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"task-processor/internal/commercetool"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/shopdiagnosis"
@@ -25,7 +26,6 @@ import (
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/googleinteractions"
-	"task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	agentstore "task-processor/internal/integration/persistence/agent"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
@@ -199,7 +199,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 	}
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(f.owner))
-	require.NoError(t, f.owner.AutoMigrate(&openai.AIClientCredential{}))
+	require.NoError(t, installHTTPChannelFixture(f.owner))
 	require.NoError(t, resourceadapter.AutoMigrate(f.owner))
 	now := time.Now().UTC()
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
@@ -454,16 +454,16 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
-	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
-	credential := openai.AIClientCredential{TenantID: "B", ClientName: "default", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
+	credentials := newHTTPChannelFixture(f.owner)
+	credential := httpModelFixture{TenantID: "B", ClientName: "default", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
 	if googleTitle {
 		credential.BaseURL, credential.Model, credential.APIStyle = googleinteractions.Origin, googleinteractions.Model, "google-interactions"
 	}
 	if mode == "image analysis" {
 		credential.BaseURL, credential.Model, credential.APIStyle = "https://api.openai.com/v1", aicapability.SingleImageMiniModel, "openai-compatible"
 	}
-	require.NoError(t, credentials.SaveCredential(context.Background(), credential))
-	row, err := credentials.GetCredential(context.Background(), "B", "", "default")
+	require.NoError(t, credentials.seed(context.Background(), credential))
+	row, err := credentials.record(context.Background(), "B", "", "default")
 	require.NoError(t, err)
 	require.NotNil(t, row)
 	ledger := aistore.NewGormInvocationRecorder(f.owner)
@@ -480,7 +480,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	deps.authorizer = auth
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
-	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
+	settings := ProductAgentDependencies{ChannelCredentials: newHTTPChannelFixture(f.owner), Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: httpCredentialReference(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ConnectionID: "default", CredentialVersion: row.reference, ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
 	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: &settings}
 	if mode == "image analysis" {
 		configureImageAnalysisFixture(&settings, *row, &calls)
@@ -1070,8 +1070,8 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 		// The committed run is an immutable receipt. A route or credential change
 		// cannot turn an exact same-key retry into a new model selection.
-		require.NoError(t, f.owner.Model(&openai.AIClientCredential{}).
-			Where("tenant_id = ? AND user_id = ? AND client_name = ?", "B", "", "default").
+		require.NoError(t, f.owner.Model(&channelstore.ConnectionRow{}).
+			Where("organization_id = ? AND connection_id = ?", "B", "default").
 			Update("enabled", false).Error)
 		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 		require.NoError(t, err)

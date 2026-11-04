@@ -104,6 +104,8 @@ func normalize(r Rates, image bool) (Rates, error) {
 }
 
 type ImageProfile struct {
+	ConnectionID         string                            `json:"connectionId"`
+	DeadlineSeconds      int64                             `json:"deadlineSeconds"`
 	Provider             string                            `json:"provider"`
 	Model                string                            `json:"model"`
 	Protocol             string                            `json:"protocol"`
@@ -132,10 +134,10 @@ type Binding struct {
 	Image                   *ImageProfile              `json:"-"`
 }
 type Credential struct {
-	OrganizationID, ClientName, Model, APIStyle, Version, EndpointDigest, Reference string
-	TimeoutSeconds                                                                  int
-	Enabled, KeyPresent                                                             bool
+	OrganizationID, ConnectionID, Provider, Channel, Region, EndpointDigest, Reference string
+	Enabled, KeyPresent                                                                bool
 }
+
 type CredentialReader interface {
 	Credential(context.Context, string, string) (Credential, error)
 }
@@ -145,6 +147,7 @@ type CredentialReader interface {
 type Catalog interface {
 	Scopes(string) []Scope
 	Candidates(Scope) []string
+	CredentialID(Scope, string) (string, error)
 	Qualify(Scope, string, Credential) (Binding, error)
 }
 type Payload struct {
@@ -261,7 +264,11 @@ func (s *Service) binding(ctx context.Context, scope Scope, id, version string, 
 	if !allowed {
 		return Binding{}, ErrNeedsConfiguration
 	}
-	c, e := reader.Credential(ctx, scope.OrganizationID, id)
+	connection, e := s.Catalog.CredentialID(scope, id)
+	if e != nil {
+		return Binding{}, e
+	}
+	c, e := reader.Credential(ctx, scope.OrganizationID, connection)
 	if e != nil {
 		return Binding{}, e
 	}
@@ -277,7 +284,11 @@ func (s *Service) Bindings(ctx context.Context, scope Scope) ([]Binding, error) 
 	}
 	out := []Binding{}
 	for _, id := range s.Catalog.Candidates(scope) {
-		c, e := s.Repository.Credential(ctx, scope.OrganizationID, id)
+		connection, e := s.Catalog.CredentialID(scope, id)
+		if e != nil {
+			return nil, e
+		}
+		c, e := s.Repository.Credential(ctx, scope.OrganizationID, connection)
 		if e != nil {
 			return nil, e
 		}

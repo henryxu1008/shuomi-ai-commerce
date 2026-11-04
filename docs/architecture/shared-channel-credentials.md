@@ -1,10 +1,10 @@
 # 渠道凭据与模型定义分离：最小设计候选
 
-Status: **PRODUCT_DECISIONS_CONFIRMED / DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**。Design Basis: **Independent Architecture**。
+Status: **IMPLEMENTATION_READY / FROZEN**。Design Basis: **Independent Architecture**。
 Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / #128。日期：2026-11-04。
 
-用户已明确回复“认可 D1–D4，仍不实现”，确认本文 D1–D4 产品决定；随后授权原负责人在原工作区提交、推送 design-only Draft PR 并核对准确 HEAD 的 CI。
-架构复核 NOT_RUN，未授权实现、新增派工或评审、合并、部署或真实操作；提交本候选不授予 IMPLEMENTATION_READY。
+用户已确认 D1–D4；[准确 b4 的独立 R1](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1089#issuecomment-6622824606)已通过，设计级 BLOCKER 为0、五项 IMPLEMENTATION_TEST 待实现收敛。
+用户随后明确授权原唯一 Writer 在原工作区/PR先补离线与隔离回归，再最小实现、自检，复用原 Reviewer 做必要增量及最终复核。仍不新增人员、合并、部署、关单、迁移保留库或真实操作；架构 Ready 不代表实现或产品已通过。
 本地调查 HEAD `d9a5c7bd3351b66a23fc66259e459d91333e86ad`；只读 main 基线 `c26c3f522bc14269711baf3a98f7470876c27487`。
 #1078 已正常合并，本候选不继承它的架构 Ready 或扩大其工程通过范围。#1075 保持原负责人，其生命周期/公共配置改动不由本任务重写。
 
@@ -34,6 +34,8 @@ Figma `tg48P46SSXl6TBy9lZwg63`，账户中心 `31:463`，模型配置区域 `765
 - 不迁移保留库、不导入旧凭据、不重解释历史事实、不切换运行实例；不开发新的通用 IAM/KMS/审计平台。
 
 ## 2. 当前事实与根因
+
+下表记录冻结设计前的源码依据；模型同行凭据路径在本次实现中按 EXTRACT / RETIRE 切换，不表示新版本继续消费旧 owner。
 
 | 当前依据 | 已核事实 | 本候选的局部变化 |
 | --- | --- | --- |
@@ -72,7 +74,7 @@ Key 的访问范围来自该账号；模型列表可见、协议兼容或同名�
 receipt 不保存 Key、ciphertext 或可离线猜测 Key 的普通 hash；含秘密的请求指纹采用服务端带钥摘要并版本化，摘要不向前端/日志投影。
 带钥摘要使用成熟标准原语及独立用途的派生密钥，复用现私密保护材料注入；不得自己实现密码算法。
 相同 key/相同完整请求先回原回执；相同 key/不同 Key 或元数据冲突；expected revision 不符冲突；ACK 不明只找原回执，不再轮换一次。
-此为候选的新增持久化合同，尚未安装 schema 或获得实现准入。
+此为已复核的新增持久化合同，实际实现及任务隔离验证证据记录在 PR；不由本合同授权安装或改造保留库。
 
 ### 3.2 接线
 
@@ -179,7 +181,7 @@ contract → implementation → injection → consumer 的最小变化：
 
 ## 8. 新空库切换、Legacy 与最小实现边界
 
-候选是新版本、新空库安装合同。待单独授权实现后，只修改原安装器/schema 检查及所需窄角色；
+本设计是新版本、新空库安装合同。本轮已单独授权实现，只修改原安装器/schema 检查及所需窄角色；
 现模型同行凭据路径不在新正式消费者中继续运行。已有表/签名不符时拒绝，不能就地 ALTER、复制秘密或双读双写。
 运行在当前版本的保留实例不动；后续部署、配置准备、数据处置需要各自授权，本设计不提供操作命令。
 
@@ -189,11 +191,11 @@ Legacy decision: **EXTRACT | RETIRE**。
 - Current owner：AI capability 的现凭据/routeconfig 职责；provider adapter 只传输，Run/ImageAgent/资源 owner 保持原事实职责。
 - Cutover/deletion condition：新空 schema 与全部当前正式读取者完成切换后，退休模型同行凭据读写和原图片库秘密读取；不包裹旧表当新连接服务，不保留 fallback。
 
-最小实现顺序（尚未授权）：连接 owner/保护/事务及新空 schema → 原目录、文本/看图解析 → 图片 quote/worker 的窄只读接线 →
+已授权的最小实现顺序：连接 owner/保护/事务及新空 schema → 原目录、文本/看图解析 → 图片 quote/worker 的窄只读接线 →
 原页面去密状态/历史与既有恢复组合。形成一个用户结果、一个主要 PR；不按上述步骤另派 Writer/Reviewer 或机械拆 PR。
 代码文件清单和必要组合基线在候选确认后由同一负责人核定；触及新的身份/恢复/计费边界先报告，不能凭本候选扩大。
 
-## 9. 必要离线验证候选（全部 NOT_RUN）
+## 9. 必要离线验证要求（实际执行证据见 PR）
 
 复用现有 TS/Go、任务临时 PostgreSQL 和合成 transport；不创建 runner、专项验收平台或真实调用前置。
 
@@ -208,7 +210,7 @@ Legacy decision: **EXTRACT | RETIRE**。
 | 历史与关闭态不依赖当前秘密 | 原列表/结果/BFF及完整应用装配；停用/轮换/缺 secret reader 时历史仍原权限可读，新执行拒绝，无 worker/Temporal/provider 试连 |
 | 新空 schema 与退休路径 | 原安装与启动 guard，旧格式拒绝且零写；所有当前消费者无旧表 fallback/provider SDK 越界 |
 
-已有 SHA 的证据只按原代码范围复用；本候选没有执行测试、独立评审或产品验收，不能写成这些通过。
+已有 SHA 的证据只按原代码范围复用；设计文档不签发实现/运行/产品验收。独立 R1 与本轮回归结果分别记录在 PR，不能互相替代。
 
 ## 10. 用户已确认的 D1–D4（仅产品决定）
 
@@ -221,6 +223,26 @@ Legacy decision: **EXTRACT | RETIRE**。
 4. **D4 历史/切换**：新版本只执行新连接合同；旧格式历史和已提交回执只读，不迁移保留库、不跨版本续跑/重发/新采用；
    新合同内已观测事实的原本地恢复继续，不依赖旧 Key 可用。
 
-D1–D4 已于本轮由用户明确认可；本文其余技术内容仍为未经独立复核的设计候选，未达到 IMPLEMENTATION_READY，不能把产品决定扩写为所有技术风险已接受。
-本轮仅另行授权提交/推送 design-only Draft PR 和准确 HEAD CI 核对；独立架构复核及实现仍未授权，不自动进入下一阶段，也不修改当前生产代码、schema 或保留实例。
+D1–D4 已明确认可，准确 b4 的独立 R1 已使本设计 IMPLEMENTATION_READY / FROZEN；五项实施义务在工程批准前必须收敛，不是所有技术风险已接受。
+本轮已另行授权原 Writer 实现、自检、维护原 PR，复用原 Reviewer；不自动获得合并、部署、关单或保留实例操作权限。
 保留实例、数据和会话；缺证据 UNKNOWN，运行/真实保存恢复/浏览器/模型质量/产品验收 NOT_RUN；#47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT。
+
+## 10. 新版本的受限维护入口
+
+仅适用于经另行授权安装的新空 Run DB。原 `product-agent-runtime-prepare` 的 run 目标建立连接、回执和去密投影；已有旧凭据表、部分组或 schema 漂移均拒绝，不修复、不迁移。Image DB 不再建立凭据表。既有安装/启动操作仍须各自授权，本轮未执行。
+
+- 原 `title_credential_writer` 继续是唯一私密维护身份；仅对连接当前行做有界列更新并写原键回执，不获得 Run / Tool / Invocation 写权限。
+- 新 `ai_channel_secret_reader` 是同一 Run DB 上独立的只读 LOGIN，连接上限 2；只读连接密文表，不读回执或其他业务事实，没有角色继承、DDL、数据库 CREATE/TEMP 或写权限。初始化器不自行创建角色。密钥保护材料仍由原私密配置注入，页面不接收它。
+- 原配置/serving 身份只读 `ai_channel_credential_bindings` 元数据。目录及报价不打开 secret reader；AI 全部关闭时不打开该池、不解密，也不探测 provider。
+
+私密 manifest 增加 `channelCredentials`：`reader` 为上述受限池，`protectionKeyId` 为保护材料版本，`protectionKey` 为私密注入的 32 字节 base64 材料。不得把真实值提交仓库或写入日志。原 `modelRoutePricing.bindings` 为每个准确模型显式声明 `connectionId`、`connectionProvider`；图片 deadline 移至模型定义的 `image.deadlineSeconds`。型号、协议、用途、计量和价格继续由原定义准入。
+
+原命令名保留，私密输入改为连接命令：`organizationId`、`actorId`、`requestKey`、`connectionId`、`expectedRevision`、`provider`、`channel`、`account`、`region`、受控 `baseURL`、`enabled`、`apiKey` 及独立 `writerDatabase`。首次 expected revision 为 0；轮换/停用必须携带准确当前 revision。停用 `enabled:false`，不提供 `apiKey`。旧 `action/consumer/clientName/model/apiStyle/timeoutSecond` 输入退休，不映射或兼容。
+
+```text
+go run ./cmd/product-agent-credential-provision -config <absolute-private-manifest> -input <absolute-private-channel-command>
+```
+
+命令仅输出去密连接回执。提交响应不明时保持原 request key/完整请求找回，不改 key 再轮换；同 key 不同内容冲突。返回的连接版本供准入/事实绑定，不需把当前 Key revision 重写进每条模型定义。外部 origin 仍要求 HTTPS；受控本地隔离场景仅复用既有 guarded transport 的 loopback HTTP 规则，且仍须匹配可信定义的准确 endpoint，不增加任意地址输入。
+
+Legacy decision: EXTRACT + RETIRE。保留组织限定、准确 endpoint、准入与预算、原键和 UNKNOWN 行为；当前 owner 为 `aicapability/channelcredential` + `integration/persistence/channelcredential`。旧 OpenAI model-bound store/metadata/schema、按消费者保存 Key 和 Image DB 凭据表停止使用；旧测试中仍有效的隔离、准入、ACK/CAS、权限和恢复断言迁入当前 owner 与原消费者回归，旧同行模型/成员凭据和序列实现细节退休。原保护材料与新 Key 不进入选择 payload、调用账本或计费表；唯一 orgresource 微点账本及原结算算法不变。

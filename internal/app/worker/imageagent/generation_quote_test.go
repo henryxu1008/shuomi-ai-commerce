@@ -21,8 +21,8 @@ func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *te
 			requests := 0
 			server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 			defer server.Close()
-			resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Minute}}}
-			reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, current: syntheticFactoryCurrent(resolver, 12), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12}}}
+			resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Minute}}}
+			reader := imageGenerationQuoteReader{factory: generationProviderFactory{credentials: resolver, current: syntheticFactoryCurrent(resolver, 12), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12}}}
 			identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "source"}
 			ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
 			quote, err := reader.ReadImageGenerationQuote(ctx, identity, nil)
@@ -41,15 +41,15 @@ func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *te
 			_, err = reader.ReadImageGenerationQuote(context.Background(), identity, nil)
 			require.ErrorIs(t, err, imageagent.ErrIdentityRequired)
 			require.Zero(t, requests)
-			_, err = NewImageGenerationQuoteReader(nil, reader.factory.price)
+			_, err = NewImageGenerationQuoteReader(reader.factory.price, nil)
 			require.Error(t, err)
 		})
 	}
 }
 
 func TestImageSetQuoteAdmitsExplicitBeijingQwenRouteWithoutDispatch(t *testing.T) {
-	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Minute}}}
-	reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, current: syntheticFactoryCurrent(resolver, 1), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 1}}}
+	resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Minute}}}
+	reader := imageGenerationQuoteReader{factory: generationProviderFactory{credentials: resolver, current: syntheticFactoryCurrent(resolver, 1), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 1}}}
 	id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member"}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
 	q, err := reader.ReadImageGenerationQuote(ctx, id, nil)
@@ -58,7 +58,7 @@ func TestImageSetQuoteAdmitsExplicitBeijingQwenRouteWithoutDispatch(t *testing.T
 	require.Equal(t, "bailian", q.Provider)
 	require.Equal(t, "qwen-image-3.0", q.Model)
 	require.Equal(t, "dashscope-image-sync-v1", q.Protocol)
-	resolver.resolved.Config.BaseURL = "https://dashscope-intl.aliyuncs.com"
+	reader.factory.current.(*sharedImageFixture).q.Ready = false // current metadata qualification rejects an unadmitted origin
 	_, err = reader.ReadImageGenerationQuote(ctx, id, nil)
 	require.Error(t, err)
 }

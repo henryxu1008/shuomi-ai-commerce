@@ -7,14 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/ai"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/core/config"
@@ -31,13 +30,13 @@ import (
 // This factory binds an admitted synchronous image consumer explicitly. It
 // never asks the OpenAI manager to guess a provider from a compatible URL.
 type generationProviderFactory struct {
-	current   d.SharedCategoryReader
-	resolver  openai.ClientConfigResolver
-	price     config.ImageAgentGenerationConfig
-	profile   ProfileResolver
-	logger    *logrus.Entry
-	facts     imageagent.GenerationFactRepository
-	artifacts imageagenttemporal.DurableArtifactStore
+	current     d.SharedCategoryReader
+	credentials credential.SecretReader
+	price       config.ImageAgentGenerationConfig
+	profile     ProfileResolver
+	logger      *logrus.Entry
+	facts       imageagent.GenerationFactRepository
+	artifacts   imageagenttemporal.DurableArtifactStore
 	// Explicit in-process test transports only; production leaves these nil.
 	providerHTTPClient *http.Client
 	generatedFetcher   func(context.Context, string) ([]byte, error)
@@ -47,7 +46,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	if observe == nil || f.profile == nil {
 		return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
 	}
-	cfg, metadata, err := f.resolve(ctx, selectedImageRoute(input))
+	cfg, metadata, err := f.resolveForSend(ctx, selectedImageRoute(input))
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
 	}
@@ -151,7 +150,7 @@ func selectedImageRoute(input imageagent.SlotExecutionInput) *imageagent.ImageRo
 }
 
 func (f generationProviderFactory) revalidate(ctx context.Context, input imageagent.SlotExecutionInput, expected imageagent.GenerationProviderMetadata) error {
-	_, current, err := f.resolve(ctx, selectedImageRoute(input))
+	_, current, err := f.resolveForSend(ctx, selectedImageRoute(input))
 	if err != nil {
 		return err
 	}
@@ -162,10 +161,18 @@ func (f generationProviderFactory) revalidate(ctx context.Context, input imageag
 }
 
 func (f generationProviderFactory) resolve(ctx context.Context, choices ...*imageagent.ImageRouteSelection) (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
+	return f.resolveChannel(ctx, false, choices...)
+}
+
+func (f generationProviderFactory) resolveForSend(ctx context.Context, choices ...*imageagent.ImageRouteSelection) (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
+	return f.resolveChannel(ctx, true, choices...)
+}
+
+func (f generationProviderFactory) resolveChannel(ctx context.Context, send bool, choices ...*imageagent.ImageRouteSelection) (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
 	invalid := func() (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
 		return nil, imageagent.GenerationProviderMetadata{}, imageagent.ErrBudgetQuoteUnavailable
 	}
-	if f.resolver == nil || f.current == nil || !f.price.Configured() || len(choices) > 1 {
+	if f.current == nil || !f.price.Configured() || len(choices) > 1 {
 		return invalid()
 	}
 	if len(choices) == 1 && choices[0] != nil {
@@ -175,63 +182,51 @@ func (f generationProviderFactory) resolve(ctx context.Context, choices ...*imag
 	if !ok || identity.TenantID == "" || identity.EffectiveOrganizationID != identity.TenantID {
 		return invalid()
 	}
-	qualified, configurationDigest, err := f.current.ReadCategory(ctx, identity.TenantID, d.ModelCategoryImage)
-	if err != nil || !qualified.Ready || qualified.Image == nil || qualified.OrganizationID != identity.TenantID || qualified.Category != d.ModelCategoryImage {
+	q, digest, err := f.current.ReadCategory(ctx, identity.TenantID, d.ModelCategoryImage)
+	if err != nil || !q.Ready || q.Image == nil || q.OrganizationID != identity.TenantID || q.Category != d.ModelCategoryImage {
 		return invalid()
 	}
-	published := qualified.Image
-	name := qualified.Reference.ID
-	if published.Points > f.price.MaximumMicropoints {
+	p := q.Image
+	if !credential.ValidID(p.ConnectionID) || p.Points <= 0 || p.Points > f.price.MaximumMicropoints || p.DeadlineSeconds < 1 || p.DeadlineSeconds > 300 || p.PriceVersion == "" || digest == "" || p.Billing.OfficialTariff != q.Price {
 		return invalid()
 	}
-	resolved, err := f.resolver.ResolveClientConfig(ctx, name)
-	if err != nil || resolved == nil || resolved.Config == nil || resolved.CacheKey == "" || len(resolved.CacheKey) > 192 {
-		return invalid()
-	}
-	cfg := *resolved.Config
-	u, err := url.Parse(cfg.BaseURL)
-	if err != nil || u == nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || cfg.APIKey == "" || cfg.Timeout <= 0 || cfg.Timeout > 5*time.Minute {
-		return invalid()
-	}
-	provider, protocol, route := "", "", ""
+	cfg := &openai.ClientConfig{Model: p.Model, Timeout: time.Duration(p.DeadlineSeconds) * time.Second}
 	switch {
-	case (cfg.APIStyle == "openai" || cfg.APIStyle == "openai-compatible") && cfg.Model == aicapability.FlareImageModel:
-		endpoint, endpointErr := openai.FlareImageEndpoint(cfg.BaseURL)
-		if endpointErr != nil || !published.Billing.OfficialTariff.IsReferenceImageEstimate() {
-			return invalid()
-		}
-		provider, protocol, route = "openai", aicapability.FlareImageProtocol, "openai-images-sync:"+generationConfigDigest(endpoint)
-	case cfg.APIStyle == "dashscope" && bailian.SupportsModel(cfg.Model):
-		endpoint, endpointErr := bailian.Endpoint(cfg.BaseURL)
-		if endpointErr != nil {
-			return invalid()
-		}
-		provider, protocol, route = "bailian", bailian.Protocol, "bailian-sync:"+generationConfigDigest(endpoint)
-	case cfg.APIStyle == "grsai" && (cfg.Model == "gpt-image-2.5" || cfg.Model == "gpt-image-2-vip"):
-		// A transport alone never grants readiness: the shared catalog rejects this
-		// route while its complete official billing usage remains unproved.
-		switch strings.TrimSuffix(u.Path, "/") {
-		case "", "/v1", "/v1/api/generate":
-		default:
-			return invalid()
-		}
-		provider, protocol, route = "grsai", "grsai-json-sync-v1", "grsai-sync:"+generationConfigDigest(cfg.BaseURL)
+	case p.Provider == "openai" && p.Protocol == aicapability.FlareImageProtocol && p.Model == aicapability.FlareImageModel && p.Billing.OfficialTariff.IsReferenceImageEstimate():
+		cfg.APIStyle = "openai"
+	case p.Provider == "bailian" && p.Protocol == bailian.Protocol && bailian.SupportsModel(p.Model):
+		cfg.APIStyle = "dashscope"
+	case p.Provider == "grsai" && p.Protocol == "grsai-json-sync-v1" && (p.Model == "gpt-image-2.5" || p.Model == "gpt-image-2-vip"):
+		cfg.APIStyle = "grsai"
 	default:
 		return invalid()
 	}
-	metadata := imageagent.GenerationProviderMetadata{Provider: provider, Model: cfg.Model, Protocol: protocol, RouteReference: route, CredentialReference: resolved.CacheKey, ConfigurationVersion: generationConfigDigest(struct {
-		Version, Model, Style, URL string
-		Timeout                    time.Duration
-	}{resolved.CacheKey, cfg.Model, cfg.APIStyle, cfg.BaseURL, cfg.Timeout}), PromptVersion: openai.SourceImagePromptVersion, PriceVersion: published.PriceVersion, Points: published.Points, Billing: published.Billing}
-	if published != nil {
-		if published.Provider != metadata.Provider || published.Model != metadata.Model || published.Protocol != metadata.Protocol || published.CredentialReference != resolved.CacheKey || published.EndpointDigest != governed.EndpointIdentityDigest(cfg.BaseURL) || published.Points <= 0 || published.PriceVersion == "" || configurationDigest == "" || published.Billing.OfficialTariff != qualified.Price {
+	metadata := imageagent.GenerationProviderMetadata{Provider: p.Provider, Model: p.Model, Protocol: p.Protocol, RouteReference: "channel-image-v1:" + p.EndpointDigest, CredentialReference: p.CredentialReference, ConfigurationVersion: digest, PromptVersion: openai.SourceImagePromptVersion, PriceVersion: p.PriceVersion, Points: p.Points, Billing: p.Billing}
+	if !send {
+		return cfg, metadata, nil
+	}
+	if f.credentials == nil {
+		return invalid()
+	}
+	secret, err := f.credentials.Resolve(ctx, identity.TenantID, p.ConnectionID, p.CredentialReference)
+	if err != nil || secret.APIKey == "" || secret.Metadata.OrganizationID != identity.TenantID || secret.Metadata.ConnectionID != p.ConnectionID || secret.Metadata.Reference != p.CredentialReference || secret.Metadata.EndpointDigest != p.EndpointDigest || !secret.Metadata.Enabled {
+		return invalid()
+	}
+	cfg.APIKey, cfg.BaseURL = secret.APIKey, secret.Metadata.BaseURL
+	if !governed.ValidAdapterEndpoint(governed.AdapterOpenAICompatible, cfg.BaseURL) {
+		return invalid()
+	}
+	if p.Provider == "openai" {
+		if _, e := openai.FlareImageEndpoint(cfg.BaseURL); e != nil {
 			return invalid()
 		}
-		metadata.PriceVersion = published.PriceVersion
-		metadata.ConfigurationVersion = configurationDigest
-		metadata.Points = published.Points
 	}
-	return &cfg, metadata, nil
+	if p.Provider == "bailian" {
+		if _, e := bailian.Endpoint(cfg.BaseURL); e != nil {
+			return invalid()
+		}
+	}
+	return cfg, metadata, nil
 }
 
 func generationConfigDigest(value any) string {

@@ -19,7 +19,6 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
-	"task-processor/internal/integration/openai"
 	assetpersistence "task-processor/internal/integration/persistence/product/asset"
 	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
@@ -83,7 +82,6 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role))
 	require.Error(t, verifyOrganizationRuntimePermissions(ctx, owner, role))
-	require.NoError(t, owner.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, routeconfigstore.InstallSchema(ctx, owner))
 	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options", "ai_client_credential_bindings"} {
 		t.Run("unneeded_managed_read_"+relation, func(t *testing.T) {
