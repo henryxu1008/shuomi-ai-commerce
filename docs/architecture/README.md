@@ -52,6 +52,7 @@
 - `ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](ai-disabled-application-lifecycle.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
 - `shared-channel-credentials.md` — [渠道凭据与模型定义分离（冻结合同，#1089已合入）](shared-channel-credentials.md)
+- `eino-model-admission.md` — [Eino多厂商模型按需准入（冻结设计与实施合同；交付证据见PR #1093）](eino-model-admission.md)
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
 - `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
 - `settlement-reversal-locking.md` — [Immutable settlement reversal locking](settlement-reversal-locking.md)

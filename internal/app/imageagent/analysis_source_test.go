@@ -73,7 +73,7 @@ func analysisSourceFixture(t *testing.T, approved bool) (*AnalysisSources, *anal
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), i)
 	binding := agent.Binding{ContextKind: "own_product", ContextID: uuid.NewString(), ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "product"}
 	sum := sha256.Sum256(f.content)
-	a := agentconfig.ImageAnalysisConfiguration{Kind: "source", ImageID: "catalog-image-1", Image: aicapability.SingleImageInput{SelectionDigest: strings.Repeat("a", 64), ContentSHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", ByteLength: len(f.content), Width: 2, Height: 2, Detail: "high", MeteringVersion: aicapability.SingleImageMiniMetering}}
+	a := agentconfig.ImageAnalysisConfiguration{Kind: "source", ImageID: "catalog-image-1", Image: aicapability.SingleImageInput{SelectionDigest: strings.Repeat("a", 64), ContentSHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", ByteLength: len(f.content), Width: 2, Height: 2}}
 	canonical, err := canonicalinspect.Project(f.snapshot)
 	require.NoError(t, err)
 	in := agent.ModelInput{Binding: binding, History: []agent.Observation{{Step: 1, Tool: canonicalinspect.Definition().Ref, CallID: uuid.NewString(), AuditStatus: commercetool.AuditStatusRecorded, Output: canonical}}}

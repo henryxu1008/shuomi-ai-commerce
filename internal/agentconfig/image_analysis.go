@@ -43,7 +43,7 @@ func ImageAnalysisProfileAdmissible(p aicapability.ModelProfile, ceiling agent.L
 	cost, err := p.MaximumCost()
 	return aicapability.SingleImageProfileShape(p) && p.PromptVersion == ImageAnalysisPromptVersion && p.OutputSchemaVersion == ImageAnalysisResultVersion &&
 		ceiling.Valid() && ceiling.ModelCalls >= 1 && ceiling.Steps >= 4 && ceiling.Currency == p.Currency && err == nil && cost <= ceiling.CostMicros &&
-		p.MaximumPromptTokens > aicapability.SingleImagePromptTokenBound+1024 && p.MaximumPromptTokens+p.MaximumCompletionTokens <= ceiling.Tokens
+		p.MaximumPromptTokens > aicapability.SingleImagePromptEstimate(p)+1024 && p.MaximumPromptTokens+p.MaximumCompletionTokens <= ceiling.Tokens
 }
 
 func imageAnalysisHash(v any) string {
@@ -84,7 +84,7 @@ func FreezeImageAnalysis(c StartCommand, kind, imageID, inventoryDigest, applyRe
 	}
 	maximumCost, err := c.ExecutionModelProfile.MaximumCost()
 	if err != nil || maximumCost > c.Request.Limits.CostMicros || c.Request.Limits.Steps < steps ||
-		c.ExecutionModelProfile.MaximumPromptTokens <= aicapability.SingleImagePromptTokenBound+1024 {
+		c.ExecutionModelProfile.MaximumPromptTokens <= aicapability.SingleImagePromptEstimate(c.ExecutionModelProfile)+1024 {
 		return invalid()
 	}
 	image.SelectionDigest = imageAnalysisHash(struct {

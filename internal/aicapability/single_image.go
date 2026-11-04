@@ -24,8 +24,6 @@ type SingleImageInput struct {
 	MediaType       string
 	ByteLength      int
 	Width, Height   int
-	Detail          string
-	MeteringVersion string
 }
 
 func singleImageDigest(value string) bool {
@@ -42,16 +40,31 @@ func (i SingleImageInput) Valid() bool {
 		i.ByteLength > 0 && i.ByteLength <= MaximumSingleImageBytes &&
 		i.Width > 0 && i.Width <= MaximumSingleImageDimension &&
 		i.Height > 0 && i.Height <= MaximumSingleImageDimension &&
-		int64(i.Width)*int64(i.Height) <= MaximumSingleImagePixels &&
-		i.Detail == "high" && i.MeteringVersion == SingleImageMiniMetering
+		int64(i.Width)*int64(i.Height) <= MaximumSingleImagePixels
 }
 
 func SingleImageProfile(p ModelProfile) bool {
-	return p.Validate() == nil && SingleImageProfileShape(p) && p.OfficialTariff.UsageVersion == "openai-text-v1" && p.OfficialTariff.Channel == "openai-direct"
+	return p.Validate() == nil && SingleImageProfileShape(p) &&
+		(p.OfficialTariff.IsReferenceEstimate() || p.AdapterPolicyVersion == SingleImageMiniAdapterPolicy &&
+			p.OfficialTariff.UsageVersion == "openai-text-v1" && p.OfficialTariff.Channel == "openai-direct")
 }
 
 func SingleImageProfileShape(p ModelProfile) bool {
-	return p.ValidateShape() == nil && p.ProviderID == "openai" && p.AdapterKind == "openai-compatible" &&
-		p.ModelID == SingleImageMiniModel && p.AdapterPolicyVersion == SingleImageMiniAdapterPolicy &&
-		p.UsageMappingVersion == "openai-text-v1"
+	if p.ValidateShape() != nil || SingleImagePromptEstimate(p) <= 0 ||
+		SingleImagePromptEstimate(p) >= p.MaximumPromptTokens {
+		return false
+	}
+	switch p.AdapterPolicyVersion {
+	case SingleImageMiniAdapterPolicy:
+		return p.ProviderID == "openai" && p.AdapterKind == "openai-compatible" && p.ModelID == SingleImageMiniModel &&
+			p.UsageMappingVersion == "openai-text-v1" &&
+			(p.ImagePromptTokenEstimate == 0 || p.ImagePromptTokenEstimate == SingleImagePromptTokenBound)
+	case EinoOpenAIImagePolicy:
+		return p.AdapterKind == "openai-compatible" && p.UsageMappingVersion == "openai-text-v1"
+	case EinoGeminiImagePolicy:
+		return p.ProviderID == "google" && p.AdapterKind == "google-generate-content" && p.UsageMappingVersion == GeminiUsageMapping
+	case EinoQwenImagePolicy:
+		return p.ProviderID == "DASHSCOPE" && p.AdapterKind == "qwen-compatible" && p.UsageMappingVersion == QwenUsageMapping
+	}
+	return false
 }

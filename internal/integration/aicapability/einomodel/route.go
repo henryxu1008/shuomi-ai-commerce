@@ -132,7 +132,12 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 	}
 	switch AdapterKind(policy.Profile.AdapterKind) {
 	case AdapterOpenAICompatible:
+	case AdapterQwenCompatible:
 	case AdapterClaudeNative:
+	case AdapterGoogleGenerateContent:
+		if !ValidAdapterEndpoint(AdapterGoogleGenerateContent, m.BaseURL) {
+			return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
+		}
 	case AdapterGoogleInteractions:
 		if !googleinteractions.ValidEndpoint(m.BaseURL) {
 			return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
@@ -154,10 +159,14 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 	if p.ValidateShape() != nil || !validFixedAdapterPolicy(AdapterKind(p.AdapterKind), p.ProviderID, p.ModelID, p.AdapterPolicyVersion) {
 		return false
 	}
+	if (AdapterKind(p.AdapterKind) == AdapterGoogleGenerateContent || AdapterKind(p.AdapterKind) == AdapterQwenCompatible ||
+		p.AdapterPolicyVersion == aicapability.EinoClaudeTextPolicy) && !ReferenceMappingReady(p) {
+		return false
+	}
 	if operation == aicapability.OperationProductImageAnalysis {
 		return aicapability.SingleImageProfileShape(p)
 	}
-	if p.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
+	if aicapability.SingleImagePurpose(p.AdapterPolicyVersion) || p.ImagePromptTokenEstimate != 0 {
 		return false
 	}
 	if AdapterKind(p.AdapterKind) != AdapterGoogleInteractions {
@@ -173,5 +182,8 @@ var _ interface {
 } = (*OrganizationRouteResolver)(nil)
 
 func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
-	return p.Validate() == nil && ValidRouteShape(p, operation)
+	return p.Validate() == nil && ValidRouteShape(p, operation) &&
+		((p.AdapterKind != string(AdapterGoogleGenerateContent) && p.AdapterKind != string(AdapterQwenCompatible) &&
+			p.AdapterPolicyVersion != aicapability.EinoClaudeTextPolicy && p.AdapterPolicyVersion != aicapability.EinoOpenAIImagePolicy) ||
+			p.OfficialTariff.IsReferenceEstimate())
 }

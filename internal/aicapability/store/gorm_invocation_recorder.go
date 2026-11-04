@@ -347,7 +347,7 @@ func validateUsage(record aicapability.InvocationRecord) error {
 		return fmt.Errorf("retired model review fact")
 	}
 	if record.OfficialTariff != (aicapability.OfficialModelTariff{}) || record.MaximumPromptTokens != 0 || record.MaximumCompletionTokens != 0 {
-		if !validPricedTextOperationIdentity(record) || !record.OfficialTariff.Valid() || record.OfficialTariff.Model != record.ModelID || record.MaximumPromptTokens <= 0 || record.MaximumCompletionTokens <= 0 {
+		if !validPricedTextOperationIdentity(record) || !record.OfficialTariff.Valid() || !record.OfficialTariff.MatchesWireModel(record.ModelID) || record.MaximumPromptTokens <= 0 || record.MaximumCompletionTokens <= 0 {
 			return fmt.Errorf("invalid frozen model point policy")
 		}
 		if _, err := record.OfficialTariff.ReserveTextMicropoints(record.MaximumPromptTokens, record.MaximumCompletionTokens); err != nil {
@@ -371,7 +371,9 @@ func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool
 	switch record.Operation {
 	case aicapability.OperationProductImageAnalysis:
 		return record.AgentRunID != "" && record.Capability == aicapability.CapabilityProductImageAnalysis &&
-			record.ModelID == aicapability.SingleImageMiniModel && record.OfficialTariff.Channel == "openai-direct" && record.OfficialTariff.UsageVersion == "openai-text-v1"
+			record.OfficialTariff.MatchesWireModel(record.ModelID) &&
+			(record.OfficialTariff.IsReferenceEstimate() || record.ModelID == aicapability.SingleImageMiniModel &&
+				record.OfficialTariff.Channel == "openai-direct" && record.OfficialTariff.UsageVersion == "openai-text-v1")
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		return record.AgentRunID != ""
 	case aicapability.OperationAIWorkbenchChatPlan:

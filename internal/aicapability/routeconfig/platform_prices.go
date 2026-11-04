@@ -75,6 +75,8 @@ func officialPriceHost(raw, provider string) bool {
 		return h == "developers.openai.com" || h == "openai.com"
 	case "google":
 		return h == "ai.google.dev" || h == "aistudio.google.com" || h == "cloud.google.com"
+	case "anthropic":
+		return h == "anthropic.com" || h == "www.anthropic.com" || h == "platform.claude.com"
 	case "qwen":
 		return h == "help.aliyun.com"
 	case "deepseek":

@@ -76,7 +76,7 @@ func TestImageAnalysisHTTPConfirmationAndOriginalReadonlyHistory(t *testing.T) {
 	testProductAgentOwners(t, "image analysis")
 }
 
-func testImageAnalysisHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent *productAgentApplication, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, operation string, calls *atomic.Int32) {
+func testImageAnalysisHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent *productAgentApplication, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, operation string, calls *atomic.Int32, expectedPoints string) {
 	t.Helper()
 	a, err := buildImageAnalysisApplication(parent, nil, nil, nil)
 	require.NoError(t, err)
@@ -136,7 +136,7 @@ func testImageAnalysisHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture,
 	require.NoError(t, json.Unmarshal(call("GET", base+"/by-key/"+key, "", nil, 200), &result))
 	require.Equal(t, "completed", result.Status)
 	require.NotNil(t, result.Opinion)
-	require.Equal(t, "31", result.ActualMicropoints)
+	require.Equal(t, expectedPoints, result.ActualMicropoints)
 	require.EqualValues(t, 1, calls.Load())
 	before = reads
 	call("POST", base+"/by-key/"+key+"/confirm", "", consent, 200)
@@ -170,7 +170,7 @@ func testImageAnalysisHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture,
 		}
 	}
 	require.Equal(t, "completed", approved.Status)
-	require.Equal(t, "31", approved.ActualMicropoints)
+	require.Equal(t, expectedPoints, approved.ActualMicropoints)
 	require.EqualValues(t, 2, calls.Load())
 	before = reads
 	_, err = parent.configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, AgentID: agentconfig.ImageAgentID, Operation: "disable", Key: uuid.NewString(), Expected: 1})

@@ -150,7 +150,7 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 	}
 }
 
-func testProductAgentOwners(t *testing.T, mode string) {
+func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) {
 	zeroReferenceUsage := mode == "research zero"
 	if zeroReferenceUsage {
 		mode = "research"
@@ -515,6 +515,17 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	if mode == "image analysis" {
 		credential.BaseURL, credential.Model, credential.APIStyle = "https://api.openai.com/v1", aicapability.SingleImageMiniModel, "openai-compatible"
+		if len(imageProvider) > 0 {
+			credential.Model = "synthetic-eino-" + imageProvider[0]
+			switch imageProvider[0] {
+			case "gemini":
+				credential.BaseURL, credential.APIStyle = "https://generativelanguage.googleapis.com", "google-generate-content"
+			case "qwen":
+				credential.BaseURL, credential.APIStyle = "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-compatible"
+			default:
+				t.Fatal("unsupported synthetic image provider")
+			}
+		}
 	}
 	require.NoError(t, credentials.seed(context.Background(), credential))
 	row, err := credentials.record(context.Background(), "B", "", "default")
@@ -538,6 +549,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: &settings}
 	if mode == "image analysis" {
 		configureImageAnalysisFixture(&settings, *row, &calls)
+		if len(imageProvider) > 0 {
+			configureEinoImageAnalysisFixture(&settings, *row, &calls, imageProvider[0])
+		}
 	}
 	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content" {
 		policy := settings.TextPolicies["B"]
@@ -659,7 +673,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
 	if mode == "image analysis" {
-		testImageAnalysisHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, op.OperationID, &calls)
+		expected := "31"
+		if len(imageProvider) > 0 {
+			expected = "40"
+		}
+		testImageAnalysisHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, op.OperationID, &calls, expected)
 		return
 	}
 	if contentTitleOnly {

@@ -11,6 +11,19 @@ import (
 const DashScopeDeepSeekV41FlashNonThinkingPolicy = "dashscope-deepseek-v4.1-flash-nonthinking-v1"
 
 func validFixedAdapterPolicy(adapter AdapterKind, provider, modelID, policy string) bool {
+	switch policy {
+	case aicapability.EinoGeminiTextPolicy, aicapability.EinoGeminiImagePolicy:
+		return adapter == AdapterGoogleGenerateContent && provider == "google" && validGeminiModelID(modelID)
+	case aicapability.EinoQwenTextPolicy, aicapability.EinoQwenImagePolicy:
+		return adapter == AdapterQwenCompatible && provider == "DASHSCOPE"
+	case aicapability.EinoClaudeTextPolicy:
+		return adapter == AdapterClaudeNative && provider == "anthropic"
+	case aicapability.EinoOpenAIImagePolicy:
+		return adapter == AdapterOpenAICompatible
+	}
+	if adapter == AdapterGoogleGenerateContent || adapter == AdapterQwenCompatible || strings.HasPrefix(policy, "eino-") {
+		return false
+	}
 	if policy == aicapability.SingleImageMiniAdapterPolicy {
 		return adapter == AdapterOpenAICompatible && provider == "openai" && modelID == aicapability.SingleImageMiniModel
 	}

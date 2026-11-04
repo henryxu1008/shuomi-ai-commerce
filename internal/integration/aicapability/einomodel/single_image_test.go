@@ -36,7 +36,7 @@ func singleImageExecutionInput(t *testing.T) aicapability.TextInputIdentity {
 	p.AdapterPolicyVersion, p.UsageMappingVersion = aicapability.SingleImageMiniAdapterPolicy, "openai-text-v1"
 	p.OfficialTariff.Model, p.OfficialTariff.Channel = p.ModelID, "openai-direct"
 	p.MaximumPromptTokens, p.MaximumInputBytes = 10000, 8192
-	return aicapability.TextInputIdentity{OrganizationID: "org", ActorID: "actor", MemberID: "member", AgentRunID: "run", InvocationID: "image-invocation", Operation: aicapability.OperationProductImageAnalysis, System: "fixed readonly observations", Prompt: "inspect only this frozen image", Profile: p, Image: &aicapability.SingleImageInput{SelectionDigest: strings.Repeat("a", 64), ContentSHA256: hex.EncodeToString(h[:]), MediaType: "image/png", ByteLength: len(content), Width: 2, Height: 2, Detail: "high", MeteringVersion: aicapability.SingleImageMiniMetering}, ImageContent: content}
+	return aicapability.TextInputIdentity{OrganizationID: "org", ActorID: "actor", MemberID: "member", AgentRunID: "run", InvocationID: "image-invocation", Operation: aicapability.OperationProductImageAnalysis, System: "fixed readonly observations", Prompt: "inspect only this frozen image", Profile: p, Image: &aicapability.SingleImageInput{SelectionDigest: strings.Repeat("a", 64), ContentSHA256: hex.EncodeToString(h[:]), MediaType: "image/png", ByteLength: len(content), Width: 2, Height: 2}, ImageContent: content}
 }
 
 func singleImageExecutor(in aicapability.TextInputIdentity, l *recordingLedger, transport http.RoundTripper) *Executor {

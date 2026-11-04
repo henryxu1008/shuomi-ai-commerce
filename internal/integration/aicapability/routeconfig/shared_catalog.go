@@ -110,9 +110,13 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, err
 	}
 	applicable := false
+	priceModel := q.Model
+	if first.ManufacturerModel != "" {
+		priceModel = first.ManufacturerModel
+	}
 	var referenceEstimate aicapability.ReferenceImageEstimate
 	for _, entry := range published.Payload.PlatformPrices.Prices {
-		if entry.ID != first.PriceID || entry.Model != q.Model || entry.Channel != q.Channel || c.now().Before(entry.EffectiveFrom) || !c.now().Before(entry.EffectiveUntil) {
+		if entry.ID != first.PriceID || entry.Model != priceModel || entry.Channel != q.Channel || c.now().Before(entry.EffectiveFrom) || !c.now().Before(entry.EffectiveUntil) {
 			continue
 		}
 		applicable = d.ValidFact(first.Manufacturer, 64) && entry.Provider == first.Manufacturer && d.ValidFact(first.Region, 64) && d.ValidFact(first.ServiceType, 64) && entry.Region == first.Region && entry.ServiceType == first.ServiceType
@@ -129,10 +133,13 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		q.Reason = "PRICE_APPLICABILITY_MISSING"
 		return q, nil
 	}
-	price, err := published.Payload.PlatformPrices.Resolve(first.PriceID, q.Model, q.Channel, c.now())
+	price, err := published.Payload.PlatformPrices.Resolve(first.PriceID, priceModel, q.Channel, c.now())
 	if err != nil {
 		q.Reason = "PRICE_OR_FX_NOT_APPLICABLE"
 		return q, nil
+	}
+	if priceModel != q.Model {
+		price.WireModel = q.Model
 	}
 	q.Price = price
 	if !price.IsReferenceEstimate() && !price.IsReferenceImageEstimate() && !d.ValidFact(first.BoundEvidenceVersion, 128) {
@@ -140,8 +147,9 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, nil
 	}
 	q.TextProfiles = map[string]aicapability.ModelProfile{}
+	var components []string
 	for _, def := range defs {
-		if def.ConnectionID != first.ConnectionID || def.ConnectionProvider != first.ConnectionProvider || def.Manufacturer != first.Manufacturer || def.Region != first.Region || def.ServiceType != first.ServiceType || def.Channel != q.Channel || def.PriceID != first.PriceID || def.ReferenceVersion != ref.Version || def.BoundEvidenceVersion != first.BoundEvidenceVersion {
+		if def.ManufacturerModel != first.ManufacturerModel || def.ConnectionID != first.ConnectionID || def.ConnectionProvider != first.ConnectionProvider || def.Manufacturer != first.Manufacturer || def.Region != first.Region || def.ServiceType != first.ServiceType || def.Channel != q.Channel || def.PriceID != first.PriceID || def.ReferenceVersion != ref.Version || def.BoundEvidenceVersion != first.BoundEvidenceVersion {
 			q.Reason = "CONSUMER_BINDING_MISMATCH"
 			return q, nil
 		}
@@ -196,8 +204,11 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 			p := *binding.Text
 			// Each mapping has explicit fields and applicability. Reference
 			// totals cannot qualify an unopened image or vision consumer.
-			mappingReady := price.UsageVersion == "openai-text-v1" || category == d.ModelCategoryText && price.IsReferenceEstimate()
-			if p.AdapterKind != string(governed.AdapterOpenAICompatible) || !mappingReady || p.AdapterPolicyVersion == governed.DashScopeDeepSeekV41FlashNonThinkingPolicy && !price.IsReferenceEstimate() {
+			mappingReady := p.AdapterKind == string(governed.AdapterOpenAICompatible) && price.UsageVersion == "openai-text-v1"
+			if price.IsReferenceEstimate() {
+				mappingReady = governed.ReferenceMappingReady(p)
+			}
+			if !mappingReady || p.AdapterPolicyVersion == governed.DashScopeDeepSeekV41FlashNonThinkingPolicy && !price.IsReferenceEstimate() {
 				q.Reason = "METERING_MAPPING_NOT_ADMITTED"
 				return q, nil
 			}
@@ -206,7 +217,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 				q.Reason = "CONSUMER_NOT_QUALIFIED"
 				return q, nil
 			}
-			if category == d.ModelCategoryMultimodal && (!aicapability.SingleImageProfile(p) || p.PromptVersion != agentconfig.ImageAnalysisPromptVersion || p.OutputSchemaVersion != agentconfig.ImageAnalysisResultVersion || p.MaximumPromptTokens <= aicapability.SingleImagePromptTokenBound+1024) {
+			if category == d.ModelCategoryMultimodal && (!aicapability.SingleImageProfile(p) || p.PromptVersion != agentconfig.ImageAnalysisPromptVersion || p.OutputSchemaVersion != agentconfig.ImageAnalysisResultVersion || p.MaximumPromptTokens <= aicapability.SingleImagePromptEstimate(p)+1024) {
 				q.Reason = "VISION_PROTOCOL_NOT_ADMITTED"
 				return q, nil
 			}
@@ -228,6 +239,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 				}
 			}
 			q.TextProfiles[def.Scope.Capability] = p
+			components = append(components, governed.ComponentExecutionBinding(p))
 			if q.Text == nil {
 				q.Text = &p
 			}
@@ -246,7 +258,8 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	raw, _ := json.Marshal(struct {
 		Definitions []Definition
 		Price       aicapability.OfficialModelTariff
-	}{defs, price})
+		Components  []string
+	}{defs, price, components})
 	sum := sha256.Sum256(raw)
 	q.ProfileVersion = hex.EncodeToString(sum[:])
 	q.Ready, q.Reason = true, ""
