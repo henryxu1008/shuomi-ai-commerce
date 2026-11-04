@@ -22,9 +22,7 @@ if [ -f "$state/.terraform-started" ]; then
   echo "local OpenTofu initialization is incomplete; recreate this Compose project's named volumes with the documented destroy command" >&2
   exit 1
 fi
-touch "$state/.terraform-started"
-chmod 600 "$state/.terraform-started"
-
+# Finish repeatable dependency preparation before recording native writes.
 apk add --no-cache ca-certificates curl
 export SSL_CERT_FILE="$trusted_ca/root-ca.pem"
 
@@ -42,6 +40,12 @@ done
 mkdir -p "$state/main" "$state/probe"
 cd "$terraform"
 tofu init -input=false
+if [ -f "$state/.terraform-complete" ] || [ -f "$state/.terraform-started" ]; then
+  echo 'local OpenTofu state changed during preparation; rerun with the same project' >&2
+  exit 1
+fi
+touch "$state/.terraform-started"
+chmod 600 "$state/.terraform-started"
 tofu apply -input=false -auto-approve \
   -var="bootstrap_pat=$(tr -d '\r\n' < "$bootstrap_pat")" \
   -var="operator_password=$(tr -d '\r\n' < "$tofu_inputs/operator-password")" \
