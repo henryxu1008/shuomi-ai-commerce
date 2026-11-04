@@ -7,7 +7,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ConsolePage, ConsoleState } from "../console/console-page";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ConsolePage, ConsoleState, ConsoleToolbar } from "../console/console-page";
+import { ChatIntroduction, NewConversationIntroduction } from "./chat-introduction";
 import { requestAIWorkbench, type AIScope, AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { aiMessageBody, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
@@ -46,8 +51,9 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const canPlan = canUse && planningReadiness === "AVAILABLE";
   const authorizationKey = `${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
+  const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? "从已有商品与明确目标开始一项工作。" : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
   return <ConsolePage className="console-chat" title={title} breadcrumbs={route?.trail}
-    description="选择已保存对象，提出内容目标；核对方案和预算后执行，按本次权限模式处理本地采用。">
+    description={description}>
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请先选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
       <ScopedChat key={`${scope.userId}:${scope.organizationId}:${authorizationKey}`} scope={scope} authorizationKey={authorizationKey} canUse={canUse} canPlan={canPlan} planningReadiness={planningReadiness} titleReadiness={titleReadiness} mode={mode} conversationId={conversationId} />}
@@ -65,11 +71,14 @@ function planningStatus(readiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAI
 
 function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningReadiness, mode }: { scope: AIScope; authorizationKey: string; canUse: boolean; canPlan: boolean; planningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; mode: ChatMode }) {
   const router = useRouter();
+  const context = useWorkbenchContext();
   const search = useSearchParams();
   const selectedOperationId = search.get("operationId");
   const [createKey, setCreateKey] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [titleFilter, setTitleFilter] = useState("");
+  const isCollection = mode === "recent" || mode === "saved" || mode === "archived";
   const abort = useRef<AbortController | null>(null);
   const createStorageKey = pendingCreateStorageKey(scope);
   useEffect(() => {
@@ -78,7 +87,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     return () => { active = false; };
   }, [createStorageKey]);
   useEffect(() => () => abort.current?.abort(), []);
-  const conversations = useInfiniteQuery({ queryKey: ["ai-chat", scope.userId, scope.organizationId, authorizationKey, "list", mode], initialPageParam: "",
+  const conversations = useInfiniteQuery({ queryKey: ["ai-chat", scope.userId, scope.organizationId, authorizationKey, "list", mode], initialPageParam: "", enabled: isCollection,
     queryFn: ({ signal, pageParam }) => requestAIWorkbench({ route: "conversation-list", method: "GET", path: `chat/conversations?limit=50${mode === "saved" ? "&saved=true" : mode === "archived" ? "&archived=true" : ""}${pageParam ? `&after=${pageParam}` : ""}`, scope, signal }),
     getNextPageParam: page => page.next || undefined,
     retry: false, staleTime: 0, refetchOnWindowFocus: false });
@@ -90,6 +99,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
       return true;
     });
   }, [conversations.data, mode]);
+  const matching = visible.filter(item => (item.Title || "未命名会话").toLocaleLowerCase().includes(titleFilter.trim().toLocaleLowerCase()));
   async function create() {
     const key = createKey || crypto.randomUUID();
     setCreateKey(key); setCreating(true); setError("");
@@ -106,29 +116,27 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   }
   return <>
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
-    {mode === "home" ? <>
-      <Card className={styles.summary}>当前企业：{scope.organizationId} · 实际会话按当前账号读取。规划和执行任务会消耗已配置的 AI 额度。</Card>
-      <div className={styles.landingGrid}>
-        <Card className={`${styles.landingCard} ${styles.newCard}`}><span className={styles.accent} /><h2>新建会话</h2><h3>开始一项新需求</h3><p>选择我的数据中的商品，明确内容目标、语言和字段，再查看并确认方案。</p>{canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>{canUse ? "当前企业的规划模型尚未就绪。" : "当前企业仅可查看已有会话。"}</p>}</Card>
-        <Card className={`${styles.landingCard} ${styles.recentCard}`}><span className={styles.accent} /><h2>最近会话</h2><h3>继续之前的工作</h3><p>查看当前账号的对话与提案，从上次讨论的位置继续。</p><Button asChild variant="outline"><Link href="/workbench/ai/chat/recent" prefetch={false}>查看最近会话 →</Link></Button></Card>
-        <Card className={`${styles.landingCard} ${styles.savedCard}`}><span className={styles.accent} /><h2>收藏会话</h2><h3>沉淀重要内容</h3><p>收藏仍在使用的会话，随时继续查看已保存的内容。</p><Button asChild variant="outline"><Link href="/workbench/ai/chat/saved" prefetch={false}>进入收藏会话 →</Link></Button></Card>
-      </div>
-    </> : <div className={styles.toolbar}>{canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "新建会话"}</Button> : null}
+    {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
+      mode === "new" ? <NewConversationIntroduction createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "新建会话"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
+      <ConsoleToolbar><div className={styles.collectionToolbar}><label className={styles.searchField}>筛选已加载的会话标题<Input type="search" value={titleFilter} onChange={event => setTitleFilter(event.target.value)} placeholder="输入会话标题" aria-describedby="chat-filter-scope" /></label>
+      {titleFilter ? <Button variant="ghost" onClick={() => setTitleFilter("")}>清空筛选</Button> : null}
+      <div className={styles.toolbar}>{canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "新建会话"}</Button> : null}
       {mode === "archived" ? <Button asChild variant="outline"><Link href="/workbench/ai/chat/recent" prefetch={false}>返回最近会话</Link></Button> :
         mode === "recent" ? <Button asChild variant="outline"><Link href="/workbench/ai/chat/archived" prefetch={false}>查看归档会话</Link></Button> : null}
-      <Button variant="outline" onClick={() => void conversations.refetch()}>刷新</Button></div>}
+      <Button variant="outline" onClick={() => void conversations.refetch()}>刷新</Button></div></div><p id="chat-filter-scope" className={styles.filterNote}>仅筛选已加载的标题；可加载更早会话继续查找。</p></ConsoleToolbar>}
     {error ? <ConsoleState kind="error" title="操作未完成">{error}</ConsoleState> : null}
-    {conversations.isPending ? <ConsoleState kind="loading" title="正在读取会话" /> : conversations.isError && !conversations.data ? <ConsoleState kind="error" title="会话读取失败">{errorText(conversations.error)} <Button variant="outline" onClick={() => void conversations.refetch()}>重试</Button></ConsoleState> :
-      mode !== "home" ? <section className={styles.list} aria-label="会话列表">
+    {isCollection ? conversations.isPending ? <ConsoleState kind="loading" title="正在读取会话" /> : conversations.isError && !conversations.data ? <ConsoleState kind="error" title="会话读取失败">{errorText(conversations.error)} <Button variant="outline" onClick={() => void conversations.refetch()}>重试</Button></ConsoleState> :
+      <section className={styles.list} aria-label="会话列表">
         {conversations.isError ? <ConsoleState kind="error" title="部分会话读取失败">{errorText(conversations.error)} <Button variant="outline" onClick={() => void (conversations.isFetchNextPageError ? conversations.fetchNextPage() : conversations.refetch())}>重试</Button></ConsoleState> : null}
-        {visible.length ? visible.map(item => <ConversationLink key={item.ID} item={item} />) : <ConsoleState kind="empty" title={mode === "saved" ? "暂无收藏会话" : mode === "archived" ? "暂无归档会话" : "暂无会话"}>{mode === "archived" ? "已归档会话会出现在这里，可打开详情恢复。" : "新建会话后，会保存到当前账号。"}</ConsoleState>}
-        {conversations.hasNextPage ? <Button variant="outline" disabled={conversations.isFetchingNextPage} onClick={() => void conversations.fetchNextPage()}>加载更早会话</Button> : null}</section> : null}
+        {visible.length ? matching.length ? <Card className={styles.conversationRows}>{matching.map(item => <ConversationLink key={item.ID} item={item} />)}</Card> : <ConsoleState kind="empty" title="已加载的会话中没有匹配标题">清空筛选或加载更早会话继续查找。</ConsoleState> : <ConsoleState kind="empty" title={mode === "saved" ? "暂无收藏会话" : mode === "archived" ? "暂无归档会话" : "暂无会话"}>{mode === "archived" ? "已归档会话会出现在这里，可打开详情恢复。" : "新建会话后，会保存到当前账号。"}</ConsoleState>}
+        {conversations.hasNextPage ? <Button variant="outline" disabled={conversations.isFetchingNextPage} onClick={() => void conversations.fetchNextPage()}>加载更早会话</Button> : null}
+        {mode === "saved" ? <p className={styles.filterNote}>取消收藏仅移出本列表，原始会话仍保留；归档会话可在归档列表查看。</p> : null}</section> : null}
   </>;
 }
 
 function ConversationLink({ item }: { item: AIConversation }) {
   return <Link className={styles.conversationLink} href={`/workbench/ai/chat/${item.ID}`} prefetch={false}>
-    <span><strong>{item.Title || "未命名会话"}</strong><small>{item.Favorite ? "★ 收藏 · " : ""}{new Date(item.UpdatedAt).toLocaleString("zh-CN")}</small></span><span>打开 →</span>
+    <span className={styles.conversationText}><strong>{item.Title || "未命名会话"}</strong><small>{item.Archived ? "已归档" : "继续查看会话"}{item.Favorite ? " · 收藏" : ""}</small></span><time dateTime={item.UpdatedAt}>{new Date(item.UpdatedAt).toLocaleString("zh-CN")}</time><span className={styles.openConversation}>打开 →</span>
   </Link>;
 }
 
@@ -145,6 +153,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [knowledgeBaseId, setKnowledgeBaseId] = useState("");
+  const [contextExpanded, setContextExpanded] = useState(false);
   const [templateId, setTemplateId] = useState("");
   const [templateRevision, setTemplateRevision] = useState("");
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(null);
@@ -177,6 +186,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       setContent(checked.data.content);
       if("taskSelection" in checked.data){setSubject(checked.data.taskSelection.subject);setParameters(checked.data.taskSelection.parameters)}else{setOperationId(checked.data.operationId);setPlatform(checked.data.targetPlatform)}
       setTemplateId(checked.data.templateId ?? ""); setTemplateRevision(checked.data.templateRevision ?? ""); setKnowledgeBaseId(checked.data.knowledgeBaseId ?? "");
+      if (checked.data.templateId || checked.data.templateRevision || checked.data.knowledgeBaseId) setContextExpanded(true);
       } catch { try { sessionStorage.removeItem(messageStorageKey); } catch { /* storage may be unavailable */ } }
     });
     return () => { active = false; };
@@ -263,29 +273,31 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   if (detail.isPending) return <ConsoleState kind="loading" title="正在读取会话" />;
   if (detail.isError || !current) return <ConsoleState kind="error" title="会话不可用">{errorText(detail.error)} <Button variant="outline" onClick={() => void detail.refetch()}>重试</Button></ConsoleState>;
   return <div className={styles.detail}>
-    <div className={styles.toolbar}><strong>{current.Title || "未命名会话"}</strong><span>当前企业：{scope.organizationId}</span>
+    <Card className={styles.conversationHeader}><div className={styles.conversationIdentity}><h2>{current.Title || "未命名会话"}</h2><div className={styles.tags}>{current.Favorite ? <Badge variant="neutral">已收藏</Badge> : null}{current.Archived ? <Badge variant="neutral">已归档</Badge> : null}<span>当前企业：{scope.organizationId}</span></div></div><div className={styles.toolbar}>
+      <Button asChild variant="ghost"><Link href="/workbench/ai/chat/recent" prefetch={false}>返回最近会话</Link></Button>
       {canUse && !editingTitle ? <Button variant="outline" disabled={pending} onClick={() => { setTitleDraft(current.Title); setEditingTitle(true); }}>修改标题</Button> : null}
       {canUse ? <Button variant="outline" disabled={pending} onClick={() => void change({ favorite: !current.Favorite })}>{current.Favorite ? "取消收藏" : "收藏"}</Button> : null}
       {canUse ? <Button variant="outline" disabled={pending} onClick={() => void change({ archived: !current.Archived })}>{current.Archived ? "恢复会话" : "归档"}</Button> : null}
-      <Button variant="outline" onClick={() => void detail.refetch()}>刷新</Button></div>
-    {canUse && editingTitle ? <div className={styles.toolbar}><label>会话标题 <input value={titleDraft} disabled={pending} onChange={event => setTitleDraft(event.target.value)} /></label>
+      <Button variant="outline" onClick={() => void detail.refetch()}>刷新</Button></div></Card>
+    {canUse && editingTitle ? <Card className={styles.titleEditor}><label>会话标题 <Input value={titleDraft} disabled={pending} onChange={event => setTitleDraft(event.target.value)} /></label><div className={styles.toolbar}>
       <Button disabled={pending || new TextEncoder().encode(titleDraft).length > 256} onClick={() => void change({ title: titleDraft })}>保存标题</Button>
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
-      {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div> : null}
-    <div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : styles.assistantMessage}>
+      {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div></Card> : null}
+    <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : styles.assistantMessage}>
       <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p></Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
-      {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetchingNextPage} onClick={() => void detail.fetchNextPage()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div>
+      {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetchingNextPage} onClick={() => void detail.fetchNextPage()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div></Card>
     {activeProposal ? <ProposalCard proposal={activeProposal} scope={scope} canUse={canUse} titleReadiness={titleReadiness} disabled={pending || current.Archived}
       confirmedTaskId={activeProposal.confirmedTaskId ?? confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新收据</Button></ConsoleState> : null}
     {!current.Archived && canUse && (canPlan || pendingMessage) ? <Card className={styles.composer}><h2>{contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
       {contentTasks?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
-      <div className={styles.formGrid}>{!contentTasks?<><label>采集操作 ID<input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
-        <label>目标平台<select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></select></label></>:null}
-        <label>模板 ID（可选）<input disabled={Boolean(pendingMessage)} value={templateId} onChange={e => setTemplateId(e.target.value.trim())} /></label>
-        <label>模板修订号{templateId ? "" : "（可选）"}<input disabled={Boolean(pendingMessage)} value={templateRevision} onChange={e => setTemplateRevision(e.target.value.trim())} /></label>
-        <label>知识库 ID（可选）<input disabled={Boolean(pendingMessage)} value={knowledgeBaseId} onChange={e => setKnowledgeBaseId(e.target.value.trim())} /></label></div>
-      <label className={styles.promptLabel}>需求<textarea disabled={Boolean(pendingMessage)} rows={4} value={content} onChange={e => setContent(e.target.value)} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>
+      {!contentTasks?<div className={styles.formGrid}><label>采集操作 ID<Input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
+        <label>目标平台<Select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></Select></label></div>:null}
+      <label className={styles.promptLabel}>需求<Textarea disabled={Boolean(pendingMessage)} rows={4} value={content} onChange={e => setContent(e.target.value)} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>
+      <details className={styles.optionalContext} open={contextExpanded} onToggle={event => setContextExpanded(event.currentTarget.open)}><summary>模板与知识库（可选）</summary><div className={styles.formGrid}>
+        <label>模板 ID（可选）<Input disabled={Boolean(pendingMessage)} value={templateId} onChange={e => setTemplateId(e.target.value.trim())} /></label>
+        <label>模板修订号{templateId ? "" : "（可选）"}<Input disabled={Boolean(pendingMessage)} value={templateRevision} onChange={e => setTemplateRevision(e.target.value.trim())} /></label>
+        <label>知识库 ID（可选）<Input disabled={Boolean(pendingMessage)} value={knowledgeBaseId} onChange={e => setKnowledgeBaseId(e.target.value.trim())} /></label></div></details>
       {pendingMessage ? <p>原消息结果待确认，字段已锁定；同键重试先核对收据，尚未受理的请求可能在配置就绪后首次发送。</p> : null}
       <div className={styles.toolbar}><Button disabled={pending || (!pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : "发送消息"}</Button>
         <span>模型规划可能消耗 AI 额度；不会直接修改商品。</span></div></Card> : current.Archived ? <ConsoleState kind="unavailable" title="会话已归档">已保存的任务仍可从任务中心查看。</ConsoleState> :
