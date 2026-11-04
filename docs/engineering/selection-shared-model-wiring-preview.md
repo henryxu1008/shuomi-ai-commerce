@@ -1,9 +1,9 @@
 # Local Account Center：1e3509 统一模型配置差异
 
-状态：**ACTUAL_BIND_LOADCONFIG_PASS / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。用户本轮授权仅收紧候选POSIX mode到0600；内容hash/Windows ACL不变，新建同路径只读bind直接调用固定1e LoadConfig已PASS，不使用内存副本替代。本文不含配置正文或发布授权。
+状态：**IMAGES_BUILT_VERIFIED / ACTUAL_BIND_LOADCONFIG_PASS / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。本轮用户已授权仅构建固定1e前后端镜像并核对结果、补齐两服务方案，构建已成功；配置仍未发布、实例未更新。前阶段候选mode0600、内容hash/Windows ACL不变及实际只读bind直接LoadConfig PASS继续有效，未重复权限修改或启动候选应用。本文不含配置正文或发布授权。
 应用固定为 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
 2026-11-04用户已明确接受候选A：原内容也收紧到¥0.30/72000 Token。该预算决定已批准，不再待确认；
-它不授权改凭据、发布配置、构建/更新实例或真实调用。本页其他运行缺项仍按各自层级处理。
+它不授权改凭据、发布配置、更新实例或真实调用；镜像构建依据本轮独立授权完成。本页其他运行缺项仍按各自层级处理。
 原独立增量复核与 [CI 41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) 已通过；本轮文档提交不改变应用来源，也不把原 CI 冒称新文档 SHA 的直接执行结果。
 前一文档提交 `596cc3c1ff0998bd19ebd2c213125c410a9ad960` 的 [CI 41785450029](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41785450029)
 已 completed/SUCCESS，Required CI Gate `126430070664` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
@@ -13,14 +13,14 @@
 
 使用者为 Local Account Center 配置管理员及指定实例操作者。目标是准备一份符合当前统一 owner 的关闭态运行配置，
 使管理员后续可以查看配置、业务人员可以读取原历史；研究/选品和图片新执行继续关闭。
-本轮 Design Basis: **N/A（现有私密文件合同的单文件权限修正、直接离线解析及文档）**，复用已准入的[生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
+本轮 Design Basis: **N/A（复用标准构建流程及已批准固定应用，仅构建、检查镜像和更新方案文档）**，复用已准入的[生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
 [统一模型合同](../architecture/enterprise-shared-model-configuration.md)和[两项文字合同](../architecture/bailian-deepseek-shared-text-admission.md)。
 不改变产品、权限、状态、事实 owner 或恢复语义。原工作区、唯一 Writer、PR #1075 保持。
 
 此前阶段使用原浏览器及原数据库身份完成只读元数据查询，数据库检查为 `BEGIN READ ONLY`、5秒语句/1秒锁超时、`ROLLBACK`。
-本轮按用户明确授权，将原manifest凭据原值复用到新的私密候选；未展示、改写凭据或写入仓库/去密回执。
+前阶段按用户明确授权，将原manifest凭据原值复用到新的私密候选；未展示、改写凭据或写入仓库/去密回执。本轮只核文件hash/Windows ACL，未改内容或权限。
 没有读取Key表数据、worker私密文件、任务载荷、商品、余额或模型响应，没有调用发布、安装、恢复或执行入口。
-不做旧兼容、迁移、双读/双写、旧 ID 映射或第二 current；不改凭据、不发布配置、不构建/更新实例、不真实采集/AI/付费、不合并。
+不做旧兼容、迁移、双读/双写、旧 ID 映射或第二 current；不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并。
 
 ## 当前基线与目标差异
 
@@ -74,7 +74,7 @@ SHA256：`194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
 直接调用固定1e的 `currentapplication.LoadConfig` 读取该路径；没有复制输入、临时chmod或使用0600内存副本替代。
 原后端PID1已核为UID/GID 0:0；固定Dockerfile无USER切换，预期相同。检查只复用这个已存在的身份，
 network=none、根只读、capabilities全删除、no-new-privileges，不执行应用ENTRYPOINT，不挂其他私密目录/业务卷。
-1e应用镜像仍未构建，所以最终镜像Config.User及Compose覆盖须在获准构建后再次核对；本次不冒称已验证1e镜像。
+后续本轮已获授权构建固定1e镜像，两镜像Config.User均未指定、实际Compose源也无user覆盖，沿Docker默认0:0，与该直接加载身份对应；未运行新镜像进程或重复解析，正式启动仍NOT_RUN。
 
 | 复核项 | 实际结果 | 结论 |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ network=none、根只读、capabilities全删除、no-new-privileges，不执行
 | Linux文件属性 | 普通文件，owner 0:0；0777已仅在授权候选上改为**0600**，新只读bind仍为0600 | PASS，模式修正跨新挂载保留 |
 | 固定1e LoadConfig直接加载 | 实际挂载路径文件门禁、严格JSON及完整静态validate均成功 | **实际执行PASS**；没有调用Run或后端应用ENTRYPOINT |
 | 内容/ACL不变量 | 候选hash194B…0786EC、原hash1271…及二者Windows SDDL逐字相同 | PASS，未改字段、凭据、预算或Windows ACL |
-| 新镜像/正式应用加载 | NOT_BUILT / NOT_RUN | 没有运行1e应用来试错 |
+| 新镜像/正式应用加载 | BUILT_VERIFIED / NOT_RUN | 标准两镜像及User/Compose已核；没有运行1e应用来试错 |
 
 Windows ACL私密和Linux POSIX mode是两个检查。此前0600内存副本只证明字段合同；本轮通过授权修正和真实bind直接加载，
 补齐了实际文件门禁。此PASS仍不包含应用启动、依赖连接、worker、provider、历史读取或用户验收。
@@ -285,7 +285,7 @@ Image/Asset直接复用固定1e现有验证器中的只读catalog查询；没有
 | 保留worker和恢复器的启动 | 范围已明确，启动/消费NOT_AUTHORIZED | 后续更新授权须明确覆盖真实启动影响；若要求完全无后台消费，固定1e+现依赖配置不足，本轮不造开关或改代码 |
 | 平台参考价、共享三类选择、操作模式发布 | NOT_PUBLISHED | 不属于本次关闭态启动前置，未来沿原owner完整CAS；不可测试保存/先发布一版 |
 | ai_invocations执行合同差异 | CONFIRMED_INCOMPATIBLE_FOR_TEXT_EXECUTION | 只影响未来真实文字执行；不迁移旧数据、不改库，不把它升级为关闭态启动阻碍 |
-| 构建/更新/用户试用 | NOT_AUTHORIZED / NOT_RUN | 仅在实际配置审查及相应授权后进入两服务方案，应用SourceRef仍为1e |
+| 构建 / 更新 / 用户试用 | 构建BUILT_VERIFIED；更新/试用NOT_AUTHORIZED / NOT_RUN | 固定1e本地两镜像已核；使用前核漂移。配置发布/更新及消费者启动仍须明确授权，详见两服务方案 |
 
 ### 其他 worker 与任务队列的实际范围
 
@@ -320,8 +320,8 @@ Ecoservices非支付分支没有15秒支付恢复；它们不能抵消其他已�
 ## 未来配置交付清单
 
 1. 已完成：按A生成候选、去密diff及字段解析；按用户授权将候选mode收紧0600，并在真实新只读bind下直接LoadConfig PASS。原a66文件/挂载/凭据不变，0777阻碍已解决，不重复权限修正或预算/价格调查。
-2. 后续发布/更新前核同一候选hash/ACL/mode及原元数据漂移，核最终镜像User和保留worker启动范围；未获相应授权不进入应用生命周期，也不新增权限绕路。
-3. 只有获得相应授权才进入[两服务更新方案](market-research-unified-update-plan.md)。本轮不挂载/发布该文件，不构建应用镜像或更新实例；模型/参考价发布、真实AI也分别单独授权。
+2. 已完成：本轮标准构建固定1e的前后端镜像，核来源/tree/单份应用层、最终镜像User及实际Compose无覆盖。18容器/55卷、原文件和候选hash/Windows ACL及Compose源hash不变；未运行新镜像。完整imageID、回执与精确字段diff见[两服务更新方案](market-research-unified-update-plan.md)。
+3. 后续发布/更新前仅核同一候选hash/ACL/mode、镜像及原元数据漂移，并明确保留worker启动范围；未获相应授权不进入应用生命周期，也不新增权限绕路。本轮不挂载/发布该文件或更新实例；模型/参考价发布、真实AI也分别单独授权。
 
 用户业务链仍是智能市场启用/配置 → 同项目选择2–5项资料 → 比较/费用估算 → 明确确认只读分析 → 人工决定 → 准确子集交接。
 本轮不操作这条真实业务链；1e3509已通过的合成回归与真实采集、远端模型、现场历史读取及用户验收区分，后者均NOT_RUN。
