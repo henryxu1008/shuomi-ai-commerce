@@ -1,64 +1,86 @@
-# 市场调研与智能选品：统一实例更新准备
+# 市场调研与智能选品：固定1e3509两服务更新方案
 
-本文件交付两服务更新差异和回退方案，目标实例 task-processor-unified-20261010。
-297两镜像已按此前授权构建但未部署，原a66身份/后端/UI恢复并保持健康。本轮仅授权离线生命周期实施和合成回归，
-不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并。准确候选/CI/构建/恢复证据在[PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。
+状态：**REVIEWABLE_PLAN / NOT_AUTHORIZED_TO_EXECUTE**。本轮只准备方案，不构建、不发布配置、不启停/更新实例、不真实采集/AI/付费、不合并。
+目标项目仅 `task-processor-unified-20261010`；服务仅 `current-application` 与 `listingkit-ui`。
+应用 SourceRef固定 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
+后续文档HEAD/main变化不自动改变构建来源。原 [PR #1075 CI41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) SUCCESS及独立增量PASS只按其原绑定引用。
 
-**本轮离线增量**：按用户确认保留完整应用/历史，仅关闭新执行。[生命周期设计](../architecture/ai-disabled-application-lifecycle.md)
-已先通过独立准入；统一管理与执行启用分离，原图片读取抽出RunReader，关闭态不加载worker配置/workerDB/图片Temporal/worker，
-保留原模块/权限/原键/库存/批准/图案采用回执及UNKNOWN。启用态仍原完整依赖，无单图fallback，无迁移/旧兼容。
-相关HTTP68 PASS、owner/生命周期73 PASS（0 SKIP/FAIL），待原Reviewer最终增量和准确候选CI。
+本轮 Design Basis: **N/A（只读及文档）**，复用[当前生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
+[配置差异](selection-shared-model-wiring-preview.md)和[标准镜像构建入口](../operations/application-image-build.md)，不修改现有应用/Compose生产文件。
 
-**实际更新仍停止**：原a66 manifest的imageWriter/旧generation不是当前统一owner合法配置，不能改名、迁移或兼容。
-本次实现不让现有配置原样变得可部署，不安装schema/grant或发布新配置。未来需另行授权准备合法新安装/配置、fresh核资源及运行准入，
-再明确批准准确候选的标准构建和两服务更新；不能用旧297镜像代替新增生命周期实现。
+## 已核原版本与保留对象
 
-下方“源码组合”记录297已完成整合的范围，当前候选还包含上述生命周期增量及一次main7689的4个无关ChatUI文件。
-预算和运行保留/回退边界不变；旧固定证据不冒称新候选直接执行结果。
+2026-11-04 本轮fresh只读核对原身份/后端/UI均running/healthy，前后端来源仍
+`a66d7d0cde74cded28d77060ac941851cc342a30`。原manifest SHA256仍为
+`1271E0D89BC8E8F8DE5DF92FFCE94D9B9032291C9D7EC04FEA8FCC6AFB195B97`；未读取其秘密正文。
 
-## 源码组合与保留范围
-
-- 研究/选品起点：`e743cacd6586b1c4493791159c1c0cd5b0249537`，原共享文字参考价、只读分析、人工决定和准确子集转入流程。
-- 上一轮现场核实的运行组合：`a66d7d0cde74cded28d77060ac941851cc342a30`，tree `705f2aefcd84e144e00a6f86ac777e5fb6267dcd`，前后端均使用此来源。该组合包含供应链四步流程、批次深链/只读入口、图片智能体进入使用和不可读图片历史的隔离修复。
-- 开工实际 main：`128988cad30ea44f342a05cc14d60a608ede4237`。保留运行组合的提交 ancestry，继续原工作区、分支和主要 PR，不改其他 owner 的工作树。
-
-多数运行修复已在研究分支中。合成后的代码增量只有四个文件：Binding 保持两种上下文互斥及原字段顺序；保留运行组合的互斥测试；研究转入和一级流程说明统一使用当前供应链名称“待上传”。没有重新实现供应链、图片或公共模型能力。
-
-复用 [研究证据合同](../architecture/market-research-evidence-analysis-v1.md)、[参考文字合同](../architecture/bailian-deepseek-shared-text-admission.md)、[供应链四步合同](../architecture/supply-four-step-continuation.md) 和[图片运行合同](../operations/product-image-agent.md)。本整合不增加 schema、状态机、持久化事实、权限或外部副作用；整体业务继续已准入设计，本增量按 Reuse Existing Architecture 执行。
-
-297整合时Docker不可连接的记录仅属此前时点；随后原a66已恢复健康。未来更新前仍须fresh核对两服务来源及实际镜像；若已有并行更新，先比较真实差异，不能覆盖。
-
-## 两服务更新差异
-
-下表是待授权执行的更新方案，不是执行回执。
-
-| 项目 | 当前固定基线 | 候选与处理 |
+| 对象 | 当前固定引用 | 后续动作边界 |
 | --- | --- | --- |
-| `current-application` | 上述运行组合 | 原标准 Dockerfile 的 `data-services-runtime` 产物；只替换服务镜像及对应 Git 来源标签 |
-| `listingkit-ui` | 同一运行组合 | 原标准 UI Dockerfile 产物；只替换服务镜像及对应 Git 来源标签 |
-| 供应链与图片 | 当前运行修复 | 保留四步计划/原命令、深链固定批次、只读控制、图片入口与不可读历史提示；本轮没有触发上传或图片生成 |
-| 研究与选品 | 旧运行代码及当时配置 | 加入已完成的共享文字参考估算、每项预算门禁、明确零用量的原结算和人工准确子集交接 |
-| 参考价与企业选择 | 本轮未 fresh 读取 | 不随镜像发布价目、共享选择或企业操作设置；沿[配置差异预览](selection-shared-model-wiring-preview.md)另行授权 |
-| 私密配置、环境、命令、网络和挂载 | 更新前实际快照 | 保留；不复制凭据、不新增 worker、不改变其他服务或自动启用 AI |
-| 数据与卷 | 原实例持久化事实 | 保留；不运行 initializer、迁移、清空、删卷、`down -v` 或 prune |
+| 原后端镜像 | `sha256:2848da261bfc92412fbd2af99719b4963cd6ad45a3bc834a476f844ee2406ffc` | 保留为回退可寻址镜像，不覆盖/删除；未来替换为1e构建回执中该服务镜像 |
+| 原UI镜像 | `sha256:d106b5dfe863e4222214daa0bee42696f9243a9abf5e92308852aa51c71494b1` | 同上，使用同一固定SourceRef |
+| 身份服务 | 原v4.17.1镜像、原容器健康 | 不更新/重建/重启。若前置健康不满足，停止两服务更新，不默认恢复依赖 |
+| 原配置挂载 | bind，只读；容器目标 `/private/market-research/current-application.json` | 原宿主文件保留。新版本未来改为另一个经审查的新私密manifest绑定同一目标；不是覆盖旧文件或原样沿用旧结构 |
+| 两服务当前Compose来源 | 同一 `candidate.compose.private.json`，文件存在 | 未来使用这两个服务自身的已核来源及经审查最终overlay；不从身份容器历史112个overlay列表重放旧部署链 |
+| 网络 | 两服务沿原同一保留网络命名空间 | 保留；不重建该命名空间/数据库容器或改变网络。执行前fresh检查当前引用，不能复制过时容器ID |
+| 原挂载 | 后端12项、UI5项 | 除明确批准的后端manifest bind外，类型/目标/只读标志/卷名逐项保持；数据库、对象、配置卷和其他服务均不动 |
 
-镜像替换不自动使文字模型 Ready，也不代表真实来源或用户验收已通过。当前配置缺依赖或 schema/grant 与候选不匹配时，原启动验证应拒绝启动；必须报告具体差异，不能自动初始化保留库、提权或添加兼容路径。
+本轮证据 `.local/selection-unified-config-plan-1e3509-20261104-01/runtime-metadata.json` 仅含容器/镜像/挂载/路径元数据，无env、命令正文、密码或Key。
+现存297镜像仅是此前构建证据，不包含本轮关闭态实现，不能拿来替代1e。1e镜像 **NOT_BUILT**，不编造新镜像digest。
 
-预算保持：每项 ¥0.30 渠道费用估算、20 AI 点；两项各一次合计 ¥0.60、40 点。每项最多两调用，各次 32000/4000 Token，原更小字节/步骤/时间/费用限制继续生效。参考价不是供应商实际账单保证，10M 微点分配不是固定收费。
+## 必须一起审查的具体差异
 
-## 授权后的操作顺序
+| 内容 | 1e候选目标 | 保持与停止点 |
+| --- | --- | --- |
+| 后端镜像/来源标签 | 由准确1e标准构建回执确定 | 保留供应链四步、批次深链、图片入口、原不可读历史隔离和研究/选品人工准确交接；不使用旧应用镜像作为FROM |
+| UI镜像/来源标签 | 同一1e标准UI产物 | 原身份/环境/端口/命令/会话密钥引用保持，不新增凭据或模型请求 |
+| 后端运行manifest | 单Run writer、合法bindings、productAgent=false、generation=false，完整图片模式及原读取owner保留 | 这是额外的配置发布动作，需要独立授权；当前imageWriter/旧generation原样不能启动1e，不能只换镜像 |
+| 企业模型选择/参考价/操作模式 | 不随镜像或运行manifest发布 | 原CAS/current不迁移、不覆盖、不填假revision。未Ready如实显示，不在验证时“先保存一版” |
+| schema、角色、grant、连接额度 | 只列缺项/读证据，不随更新自动补齐 | 目前UNKNOWN。若不足则停止；不执行installer/ALTER ROLE、不提权/更改密码、不把缺项变成迁移或清库 |
+| 图片/文字执行 | 关闭新执行，原历史与回执读取保留 | 不读取图片worker秘密文件/开启workerDB/图片Temporal；其他worker及队列范围必须先明确，不能冒称全系统AI/采集已停 |
 
-1. 重新确认目标项目、两服务准确来源/镜像、配置结构和原挂载；沿现有私密交接保留可回退的两服务配置与镜像引用，以及相关数据库备份。只输出去密元数据，不公开配置或备份内容。
-2. 依照[标准镜像构建入口](../operations/application-image-build.md)，以 PR 冻结的完整候选 HEAD 构建 `All`，使用新的本地回执目录。原脚本从干净 Git archive 构建，不继承旧应用发布镜像；构建成功不自动更新服务。
-3. 在原 Compose 最终镜像 overlay 中只替换 `current-application` 和 `listingkit-ui` 镜像及来源标签；保留原配置与依赖。当前阶段不发布参考价/共享选择、不启动真实任务。
-4. 复用已有健康、未登录鉴权和正常用户入口检查，核对两服务实际来源及其他服务/挂载保持，AI 开关和操作模式未变。业务入口为市场调研 `/workbench/data/research`、智能选品 `/workbench/supply/selection`；页面确认仍不授权真实 AI。
+原Run、Image、Asset、Product owner和已有durable记录保持。预算仍每项¥0.30/20点、各一次合计¥0.60/40点；
+原两调用及更小Token/byte/deadline限制不提高。参考估算不承诺厂商实际账单精度。
 
-本轮仅准备此顺序，未执行上述构建、备份、替换或现场检查。镜像 ID/OCI 回执、实际部署兼容性和当前账户运行权限仍待相应授权后的现场核实，不记作 PASS。
+## 进入未来执行前的停止点
 
-## 回退方案
+1. **配置条件**：[配置差异](selection-shared-model-wiring-preview.md)的writer身份/同库/窄grant/连接额度、当前schema与原历史读取资格有明确证据，新私密manifest已审查。缺项不以实际启动a66试错，也不创建兼容适配。
+2. **副作用条件**：productAgent=false、generation=false；Chat存储模式或关闭；其他执行者、恢复器/队列的处理范围有无秘密投影。不能用存在的旧任务做检查，不能运行重发/恢复/结算来证明关闭。
+3. **固定来源条件**：准确1e源码/原审核与CI仍为所批准应用范围；若发现需要业务代码变更，停回原PR修复/核增量，不能悄悄把SourceRef换为分支HEAD/main。
+4. **操作授权条件**：构建、真实配置文件发布、两服务更新、业务只读检查分别在用户明确授权内。批准本文不等于批准它们；真实采集/AI/付费仍需另外授权。
 
-镜像更新前固定原两服务的 Docker 可寻址镜像引用、Git 标签和 overlay。任一服务启动/健康失败，或正常入口出现此次组合导致的回归时，停止后续操作，只恢复这两个服务原镜像和来源标签；仍使用原环境、命令、网络与挂载。核对两服务恢复及原数据可读，不触碰其他服务。
+当前仍有真实角色/grant/schema/绑定/版本/其他worker范围 UNKNOWN，所以本文不称DEPLOYMENT_READY，不生成可直接执行的私密manifest/overlay。
 
-本整合没有数据库/schema 或配置发布步骤，所以回退不恢复整个数据库、不覆盖新 durable records，也不删除卷。备份是保留措施，不是自动恢复授权。若以后独立阶段已经发布配置，必须由原配置 owner 校验该阶段的版本/回执后另行处置，不能用旧配置快照覆盖当前事实。
+## 后续获准后的最小顺序（本轮均NOT_RUN）
 
-本文件不签发部署或产品验收。真实采集、真实 AI/付费、配置发布、实例更新、GitHub 合并及关单仍未授权。
+1. **fresh核对**：核准确项目、两服务当前ID/镜像/配置哈希/挂载与依赖健康。若与上述a66不同，先查并行更新差异，不覆盖。原私密Compose/manifest及原镜像引用留作回退，禁止把备份写进仓库。
+2. **只读资源预检**：用获准的原身份核schema/grant/连接额度和原历史owner；不自行提权或修复真实库。失败就停止，报告具体缺项。
+3. **批准配置差异后落地新文件**：原a66 manifest不改；另建经审查的新私密文件，引用原受控凭据，挂载目标不变。新文件的哈希和去密diff供复核，不能借此改模型凭据或发布共享选择/价目。
+4. **单独批准构建后**：运行下方标准入口，构建本地两镜像；核回执commit/tree/target/imageID/来源标签。失败不继续，不换源、不取消TLS验证、不触碰保留服务。
+5. **单独批准更新后**：从两服务当前已核Compose来源追加最终overlay，只允许两镜像/来源标签和上述后端manifest bind差异。使用原project、明确服务名单和no-deps语义；不得应用身份服务历史overlay链、重建网络依赖或运行整个项目初始化。
+6. **受限检查**：先后端健康/身份发现，再UI健康/版本；未登录研究/选品入口仍登录跳转、BFF仍拒绝未登录。需要登录后核管理/历史时先明确只读范围，不发prepare/start/confirm或模型“测试连接”。读取失败保留原错误，不以空历史或假Ready通过。
+7. **后核保留项**：只两服务ID/镜像及经批manifest挂载允许变化；其他服务/配置/挂载/卷保持。记录实际关闭分支和未核项，不把页面可开当真实模型或用户验收。
+
+未来构建命令模板，仅在单独批准构建后使用（本轮不执行）：
+
+```powershell
+pwsh -NoProfile -File scripts/build-listingkit-images.ps1 `
+  -SourceRef 1e3509bda06ad9b8160b0c5a7c5d451de9496c61 `
+  -Component All -OutputDirectory <新的任务回执目录>
+```
+
+标准输出标签为 `local/current-application:git-1e3509bda06ad9b8160b0c5a7c5d451de9496c61` 和对应UI标签；实际可用镜像ID以成功回执为准。
+后端使用1e标准Dockerfile的 `data-services-runtime`；UI使用标准 `Dockerfile.listingkit-ui`。构建不推送、不更新实例或发布配置，不以297/旧发布镜像为基础拼补丁。
+Compose更新命令须在获准后使用审过的真实文件路径填实；本轮不拼一条含占位路径的“可执行部署命令”。
+
+## 回退必须同时覆盖镜像和后端配置绑定
+
+若新后端启动/健康失败、身份正常入口或原历史读取回归、关闭态仍出现新执行资格，则停止继续更新。
+未来回退只能恢复这两个服务的原镜像/来源标签，**并恢复后端原manifest宿主绑定**；仅换回a66镜像却继续挂新manifest不是有效回退。
+恢复时沿原环境/命令/网络/其余挂载/卷；不重启身份或数据库，不删旧/新文件、镜像、数据和卷。
+
+回退不恢复整个数据库，不覆盖新durable事实、不回写旧共享current、不释放预留/清UNKNOWN或运行恢复器。
+如更新期间发生实际配置发布、schema/角色改动或业务写入，已超出此最小方案：保留证据，由原owner在单独授权下处置，不能自动用旧备份覆盖。
+若出现超出两服务的并行更新或原配置文件缺失，也先停止，不从112条历史overlay试拼环境。
+
+回退后的健康/身份/未登录鉴权与原两镜像/配置哈希重新核对，成功只说明恢复原版本；不签发新功能验收。
+本轮原a66可用，配置/数据/卷保留；构建、备份、发布新manifest、两服务更新、现场业务检查及回退实际执行均NOT_RUN。
