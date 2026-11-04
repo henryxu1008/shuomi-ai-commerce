@@ -4,7 +4,7 @@ This profile combines the completed native capabilities in one normal applicatio
 using their existing installers, contracts and independent restricted pools.
 It is for an authorized **new, empty local project**. Retained instances and all
 their named volumes remain untouched. It does not migrate data or install during
-serving. Use the same four overlays on every restart.
+serving. Keep the selected complete overlay set on every restart.
 
 ## Build and start
 
@@ -28,6 +28,24 @@ non-fixture plugin builder; the record includes its exact receiver and SHA. An
 old instance's package is not reused under a different receiver origin.
 
 From this directory:
+
+The recommended new unified installation includes non-payment Ecoservices and
+enterprise storage capacity through the existing owner contracts:
+
+```sh
+sh ./compose-modules.sh -- -f docker-compose.images.yml up -d --no-build --wait
+```
+
+The [capacity deployment guide](storage-capacity.md) explains automatic trusted
+identity/policy installation and final manifest selection, including optional
+Chat, acquisition plans and Store preparation. Use the same options to stop and
+restart. Public trials append `--public` as in [public-trial.md](public-trial.md).
+Prepare the selected-Git images and private image-only overlay first, following
+the capacity guide and the repository's standard image build entry.
+
+The smaller original four-layer profile below deliberately omits Ecoservices
+and capacity. Its acceptance fixture is an explicit isolated developer action,
+not part of normal installation:
 
 ```powershell
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.knowledge.yml -f docker-compose.data-services.yml -f docker-compose.modules.yml up -d --build --wait
@@ -132,10 +150,18 @@ operations, and keeps model/task execution closed. See
 [`ai-workbench-chat-trial.md`](../../../docs/operations/ai-workbench-chat-trial.md).
 Preserve the two Chat state/runtime volumes alongside every original volume.
 
-```powershell
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.knowledge.yml -f docker-compose.data-services.yml -f docker-compose.modules.yml -f docker-compose.ecoservices.yml -f docker-compose.chat.yml stop
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.knowledge.yml -f docker-compose.data-services.yml -f docker-compose.modules.yml -f docker-compose.ecoservices.yml -f docker-compose.chat.yml up -d --no-build --wait
+For the new capacity-enabled installation described above, use the same fixed
+entrypoint and **exact original options**. For example, when Chat was selected:
+
+```sh
+sh ./compose-modules.sh --chat -- -f docker-compose.images.yml stop
+sh ./compose-modules.sh --chat -- -f docker-compose.images.yml up -d --no-build --wait
 ```
+
+Keep `--public`, `--acquisition-plans` or `--store-observations` if originally
+selected; omit `--chat` only when it was not selected. For an older installation
+created without capacity, retain its original Compose command/files instead;
+do not add the new entrypoint to a retained project as an upgrade.
 
 Keep project/env/source/images/plugin origin and all overlays consistent. Stop
 retains all database, identity, object, private manifest and Temporal volumes.

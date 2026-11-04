@@ -31,6 +31,7 @@
 - `local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](local-tls-revocation-maintenance.md)
 - `member-directory-query.md` — [Member directory query v1](member-directory-query.md)
 - `protected-member-role-native-cas.md` — [B1：受保护成员单业务角色的原生条件写入](protected-member-role-native-cas.md)
+- `public-trial-identity-origin.md` — [Fixed HTTPS identity origin for the cloud trial](public-trial-identity-origin.md)
 - `source-account-registry.md` — [Source Account SA1 contract](source-account-registry.md)
 - `source-account-bff.md` — [Source Account SA-2 BFF contract](source-account-bff.md)
 

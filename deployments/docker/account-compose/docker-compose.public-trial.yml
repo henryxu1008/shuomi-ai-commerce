@@ -1,0 +1,37 @@
+# Final opt-in layer for a new empty project behind a host Caddy ingress.
+# Existing high ports stay loopback-only. Do not expose Mailpit or owner services.
+x-public-origins: &public-origins
+ ACCOUNT_PUBLIC_TRIAL: "1"
+ ACCOUNT_PUBLIC_APPLICATION_ORIGIN: "${ACCOUNT_PUBLIC_APPLICATION_ORIGIN:?exact HTTPS application origin required}"
+ ACCOUNT_PUBLIC_IDENTITY_ORIGIN: "${ACCOUNT_PUBLIC_IDENTITY_ORIGIN:?exact HTTPS identity origin required}"
+ ACCOUNT_PUBLIC_APPLICATION_HOST: "${ACCOUNT_PUBLIC_APPLICATION_HOST:?application hostname required}"
+ ACCOUNT_PUBLIC_IDENTITY_HOST: "${ACCOUNT_PUBLIC_IDENTITY_HOST:?identity hostname required}"
+services:
+ bootstrap:
+  environment: *public-origins
+ tofu-init:
+  environment: *public-origins
+ schema-init:
+  environment: *public-origins
+ native-modules-init:
+  environment: *public-origins
+ zitadel-api:
+  environment:
+   ZITADEL_EXTERNALDOMAIN: "${ACCOUNT_PUBLIC_IDENTITY_HOST}"
+   ZITADEL_EXTERNALPORT: "443"
+   ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: "${ACCOUNT_PUBLIC_IDENTITY_ORIGIN}/ui/v2/login/"
+   ZITADEL_OIDC_DEFAULTLOGINURLV2: "${ACCOUNT_PUBLIC_IDENTITY_ORIGIN}/ui/v2/login/login?authRequest="
+   ZITADEL_OIDC_DEFAULTLOGOUTURLV2: "${ACCOUNT_PUBLIC_IDENTITY_ORIGIN}/ui/v2/login/logout?post_logout_redirect="
+ zitadel-login:
+  environment:
+   CUSTOM_REQUEST_HEADERS: "Host:${ACCOUNT_PUBLIC_IDENTITY_HOST},X-Forwarded-Proto:https"
+ traefik:
+  environment: *public-origins
+  volumes: [./traefik-public-trial.yml:/etc/traefik/dynamic.yml:ro]
+ listingkit-ui:
+  environment:
+   AUTH_URL: "${ACCOUNT_PUBLIC_APPLICATION_ORIGIN}"
+   LISTINGKIT_PUBLIC_BASE_URL: "${ACCOUNT_PUBLIC_APPLICATION_ORIGIN}"
+   ZITADEL_ISSUER_URL: "${ACCOUNT_PUBLIC_IDENTITY_ORIGIN}"
+   ZITADEL_REDIRECT_URI: "${ACCOUNT_PUBLIC_APPLICATION_ORIGIN}/api/auth/callback/zitadel"
+   ZITADEL_POST_LOGOUT_REDIRECT_URI: "${ACCOUNT_PUBLIC_APPLICATION_ORIGIN}"

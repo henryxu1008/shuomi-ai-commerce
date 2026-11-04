@@ -1,5 +1,7 @@
 #!/bin/sh
 set -eu
+. /usr/local/lib/account-compose/deployment-origins.sh
+account_resolve_origins
 
 state=/schema-state
 terraform_source=/terraform-source
@@ -252,8 +254,8 @@ chmod 600 "$frontend/service-credential.tmp"
 mv "$frontend/service-credential.tmp" "$frontend/service-credential"
 
 read_bootstrap_user_id
-issuer="https://localhost:${identity_port}"
-public_app="https://localhost:${application_port}"
+issuer=${account_public_identity:-https://localhost:${identity_port}}
+public_app=${account_public_app:-https://localhost:${application_port}}
 cat > "$runtime/current-application.json.tmp" <<EOF
 {
   "schemaVersion": 1,

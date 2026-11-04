@@ -22,11 +22,11 @@ func (cfg MembershipConfig) validate(identity IdentityConfig) error {
 			return err
 		}
 	}
-	origin, err := validateLoopbackURL("membership.providerOrigin", cfg.ProviderOrigin)
+	origin, err := validateIdentityURL("membership.providerOrigin", cfg.ProviderOrigin)
 	if err != nil {
 		return errors.New("membership provider origin is invalid")
 	}
-	issuer, err := validateLoopbackURL("issuerURL", identity.IssuerURL)
+	issuer, err := validateIdentityURL("issuerURL", identity.IssuerURL)
 	if err != nil || origin.Scheme != issuer.Scheme || origin.Host != issuer.Host || (origin.Path != "" && origin.Path != "/") || origin.RawPath != "" {
 		return errors.New("membership provider must use the identity provider origin")
 	}

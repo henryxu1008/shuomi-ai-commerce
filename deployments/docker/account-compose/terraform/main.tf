@@ -25,10 +25,13 @@ variable "insufficient_password" {
 }
 variable "identity_port" { type = number }
 variable "application_port" { type = number }
+variable "identity_domain" { type = string }
+variable "identity_external_port" { type = number }
+variable "public_application_origin" { type = string }
 
 provider "zitadel" {
-  domain       = "localhost"
-  port         = var.identity_port
+  domain       = var.identity_domain
+  port         = var.identity_external_port
   access_token = var.bootstrap_pat
   insecure     = false
 }
@@ -178,8 +181,8 @@ resource "zitadel_application_oidc" "listingkit_ui" {
   org_id                       = zitadel_org.account.id
   project_id                   = zitadel_project.listingkit.id
   name                         = "ListingKit UI Local"
-  redirect_uris                = ["https://localhost:${var.application_port}/api/auth/callback/zitadel"]
-  post_logout_redirect_uris    = ["https://localhost:${var.application_port}"]
+  redirect_uris                = ["${var.public_application_origin}/api/auth/callback/zitadel"]
+  post_logout_redirect_uris    = [var.public_application_origin]
   response_types               = ["OIDC_RESPONSE_TYPE_CODE"]
   grant_types                  = ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE", "OIDC_GRANT_TYPE_REFRESH_TOKEN"]
   app_type                     = "OIDC_APP_TYPE_WEB"

@@ -1,0 +1,8 @@
+# Append after store-observations and storage-capacity on the new empty project.
+services:
+ storage-capacity-init:
+  volumes: [store-observations-runtime:/base:ro]
+  depends_on:
+   store-observations-init: {condition: service_completed_successfully}
+ current-application:
+  command: [-config,/private/storage-capacity/current-application.json]
