@@ -1,6 +1,60 @@
-# Local Account Center：共享文字配置差异预览
+# Local Account Center：统一模型配置与 AI 关闭方案预览
 
-本文件是可审查的**离线候选**，不是配置发布请求。用户已授权 #1075 原工作区实现与合成回归；仍不改凭据、不发布配置、不更新 task-processor-unified-20261010、不执行真实采集/AI/付费、不合并。旧价格精度研究及峰闲/完整厂商上界前置已撤回，历史调查仅由 Git 版本追溯，不恢复为当前交付要求。
+本次为**OWNER_ALIGNED_PROPOSAL / NOT_IMPLEMENTATION_READY / NOT_PUBLISHABLE**。用户仅授权与 #1078 原 owner 对齐最小方案，列清配置差异和 AI 关闭边界；保持原 a66 实例可用，不做旧兼容，不改凭据、不发布配置、不更新实例、不执行真实采集/AI/付费、不合并。前序离线实现及镜像不因此获得新的运行许可。旧价格精度研究及峰闲/完整厂商上界前置已撤回，不恢复为当前交付要求。
+
+## 原 owner 已对齐的最小方向（2026-11-04）
+
+配置管理用于选择模型、查看当前配置与本地校验结果；AI 执行用于实际分析、生成和调用供应商。建议让管理服务在执行关闭时仍可启动，继续使用原权限管理配置；执行仍受各自明确的关闭条件约束。
+
+#1078 原 owner 已只读确认此方向，依据稳定源码 `29723cc7bd2420ed6363e0b9a32c1a03b16d18de`，没有引用其未提交的 Flare 实现。公共共享合同继续使用原 Run/ProductAgent DB 的 Repository、CAS、current 与专用 writer；不恢复 `imageWriter`，不机械改名、迁移、双读或同步两库。Flare 的 f35 设计准入不覆盖此生命周期候选。
+
+本增量拟采用 **Reuse Existing Architecture（候选分类，准入待核定）**：管理 owner、权限、预算、账本、UNKNOWN 和恢复责任不变，只调整原装配与关闭规则。实施前仍需在执行 Issue 完整记录轻量 Design Basis 和范围，取得实施授权；若实际必须改变授权、跨 owner 或其他未覆盖的敏感边界，则升级为适用 Independent Architecture。当前仅设计，不能将 owner 对齐或前序研究的 Ready 当成本项实施准入。
+
+## 现有实例、固定候选与全新系统目标
+
+| 配置或行为 | 原 a66 实例的已核现状 | 297 固定候选 | 建议的最小全新系统目标 |
+| --- | --- | --- | --- |
+| 模型配置 owner | manifest 为 `imageWriter`，4 条 image binding，没有统一 `writer` | 仅接受 `writer` / `bindings`，严格拒绝 `imageWriter` | 一个 Run/ProductAgent 配置 owner、一个 writer/current；提供新的合法 manifest，不承接原 image current |
+| 原配置库连接 | `productAgent.database` 存在，文字执行关闭 | 即使 `Enabled=false`，原 runtime 已能打开 agentDB | 复用这条连接生命周期，不新建配置服务/数据库 owner |
+| 统一配置管理加载 | 原图片配置装配 | `modelRouteDefinitions` 要求 `ProductAgent.Enabled=true` 及文字 anchors | 管理加载可独立成立；仍校验 schema、租户、定义身份、用途、原 anchor/参数及预算，不以删除检查取得资格 |
+| reader / writer | 当前真实权限本轮未查询 | 原 reader + `model_route_config_writer`，writer 与 Run DB 同目标、pool ≤2 | 沿当前安装器准备合法角色/表/视图/窄 grant；本轮不安装、不创建角色或复制密码，现有资源是否满足仍 UNKNOWN |
+| 三类选择与价格 | 本轮不读取或改写实际 current/价格 | 原 SharedModelService / Options / Current / CAS | 继续同一完整选择快照；平台参考价/FX 沿原 owner。管理可用、配置已保存、技术资格和允许执行分别表达 |
+| 图片资格读取 | worker 配置文件引用存在；未读取其凭据或队列 | `prepareSharedModelServices` 允许 `imageCredentials=nil` | 复用现有 `CREDENTIAL_READER_MISSING` / 未就绪结果；不为管理页强启 worker、读取真实凭据或新增 reader 角色 |
+| 图片生成声明 | generation 只有 `priceVersion` / `pointsPerImage`，没有 `enabled` 键 | 当前 generation 合同为 enabled / unitVersion / maximumMicropoints | 全新 manifest 使用当前字段和原预算，不解释旧字段或原数据；缺字段不冒充已关闭/已准入 |
+| 图片执行生命周期 | worker 引用不能证明实际执行关闭 | 有 WorkerConfigFile 会加载完整 worker 配置、连接 Temporal 并启动 worker；生成配置还要求 Configured | 关闭态不加载/启动对应执行 worker、不做远程检测。需要执行时才满足原完整依赖和全部门禁；不能只加一个 UI 禁用按钮 |
+| 凭据归属 | 本轮未读取密钥 | 保留各原 credential owner 的去密投影与执行句柄 | 只引用合法的当前身份，不把图片 Key 借给文字、不复制 Key、不默认使用另一用途的绑定 |
+
+源代码依据：`internal/app/runtime/currentapplication/product_agent.go`、`model_route_pricing.go`、`runtime.go`，`internal/integration/aicapability/routeconfig/shared_catalog.go` 与 `internal/core/config/type_imageagent.go`。owner 已确认原管理服务可复用，尚缺的是此处关闭生命周期与资格规则的有界细化。
+
+上述目标不能直接套入现有 a66 manifest。原实例保持原样；未来全新安装的数据库、当前表/视图、单位及角色/grant 需要独立授权后验证，不能把缺项通过迁移、兼容、双写或第二 current 补齐，也不从本方案推导删除原数据的许可。
+
+## “AI 关闭”的建议边界
+
+| 操作 | 建议关闭态的行为 | 本轮实际授权 |
+| --- | --- | --- |
+| 正常启动、登录、读取页面、手工研究/比较/决定 | 保留原业务权限与事实读取，不调用模型 | 只读核对 a66 运行状态，不操作具体业务记录 |
+| 查看三类模型选项、当前选择、参考价/本地资格 | 复用原管理服务；缺凭据元数据等依赖时明确未就绪，不远程试连 | 仅整理源码/去密配置差异，不读取或发布真实 current |
+| 保存模型选择或发布价格 | 未来可由原授权角色经原 CAS/回执完成；不会自动开放执行 | **本轮禁止保存/发布**，可管理是目标能力，不是此次写入许可 |
+| 纯本地、无副作用的现有校验/费用展示 | 可复用；不新增报价 API。会创建执行快照、Invocation 或预留的业务准备入口遵守原关闭门禁 | 不实际 prepare/start，不产生真实预留或执行事实 |
+| 文字、图片生成、多模态理解 | 对应关闭时拒绝新执行；Agent 已启用、模型可选、技术 Ready、页面“只读建议”均不能替代调用授权 | 不执行任何真实 AI，研究/选品预算不变 |
+| worker、真实模型检测、轮询、重新生成、重试发送 | 关闭时不产生新的 provider 请求，不通过其他入口绕过；启动管理服务不启动这些执行路径 | 不启停 a66 worker，不连接真实 provider 或重发任务 |
+| 原历史、回执、UNKNOWN | 可按原权限读已有事实；关闭不证明“未发送”，不自动清除预留。已有本地终态处理仍由原 owner/既有授权负责 | 不改变余额、旧调用、预留或恢复事实，不运行恢复/结算动作 |
+| 数据采集 | 沿 Data Services 原独立授权；不能由 AI 关闭推导采集已停或获准 | 本轮不采集、不探测真实平台 |
+
+`ProductAgent.Enabled=false` 只说明该文字执行入口关闭，不能代表全系统 AI 关闭。图片生成还有原 Generation/tenant admission/worker，业务操作还有当前授权、启用状态、模式、来源和预算门禁；未来应逐项明确关闭状态，沿原入口拒绝执行，不新增一套全局持久化 gate。
+
+原 a66 的 generation 没有当前 `enabled` 字段，本轮没有检查 worker 秘密配置、任务队列或真实 provider 日志，因此图片是否完全停止仍 **UNKNOWN**。保持实例可用不等于将这项 UNKNOWN 改成关闭，也不授权修改现有开关。
+
+## 最小分工、验收与剩余决定
+
+- 后续如另行授权，统一配置/资格与执行生命周期仍在原公共 owner 内收敛；具体 Writer、PR 与职责范围须明确确认。当前 #1078 的实施授权仅覆盖 f35 冻结的 Flare 直连与参考估算，不包含本生命周期候选；本文不扩展其派工，不改其在途公共文件，不另派公共 Writer。
+- #1075 原 Writer 维护本预览、研究/选品消费范围及原预算；将来只在获准后消费已稳定接口，不复制公共实现。本轮不写生产代码、不新建 schema 或恢复/验证平台。
+- 后续最小验证复用原测试：关闭态能启动并读取管理数据；合法性/租户/anchor/预算不放宽；无资格图片显示未就绪；对应关闭时不启动 worker、不发 provider 请求或产生新预留；开放路径仍保持原全部门禁；原键/历史/UNKNOWN 不被重解释。此处仅列实施义务，本轮 **NOT_RUN**。
+- 后续需单独决定是否按此边界正式细化并实施生命周期、是否准备全新合法安装/配置、何时发布配置和真实试用。现阶段不提供可直接执行的 manifest/DSN/grant 脚本，不伪造绑定版本或 Ready，不自动替换 a66。
+
+研究与选品预算继续每项 ¥0.30 /20 点，两项合计 ¥0.60 /40 点；每项最多两调用及原更小限制保持。下方参考文字接线内容是前序候选，不能视作上述生命周期已实现。
+
+## 前序参考文字接线候选
 
 当前依据：[公共 owner 确认的参考策略与分工](../architecture/enterprise-shared-model-configuration.md#本批文字流程的接口与分工)（#1078 `5cc8248e5d659e3004c2c6686c582528c8fdd0d4`）、[本批接线合同](../architecture/bailian-deepseek-shared-text-admission.md)。原共享选择、CAS/current、Invocation 与资源账本保持唯一；不重复建设公共模型/计费能力。
 
