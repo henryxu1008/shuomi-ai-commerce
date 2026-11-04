@@ -18,11 +18,10 @@ import (
 // SharedCatalog resolves admission metadata and published official price facts.
 // It neither reads keys nor owns a second current selection or resource balance.
 type SharedCatalog struct {
-	Catalog          *Catalog
-	Credentials      d.CredentialReader
-	ImageCredentials d.CredentialReader
-	Prices           *d.PlatformPricesService
-	Now              func() time.Time
+	Catalog     *Catalog
+	Credentials d.CredentialReader
+	Prices      *d.PlatformPricesService
+	Now         func() time.Time
 }
 
 func (c *SharedCatalog) now() time.Time {
@@ -52,7 +51,7 @@ func (c *SharedCatalog) ValidateDefaultChannel(ctx context.Context, org, channel
 }
 func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d.ModelCategory, ref d.ModelBindingReference) (d.ModelQualification, error) {
 	q := d.ModelQualification{OrganizationID: org, Category: category, Reference: ref, Reason: "BINDING_NOT_ADMITTED"}
-	if c == nil || c.Catalog == nil || c.Credentials == nil || ctx == nil || ctx.Err() != nil {
+	if c == nil || c.Catalog == nil || ctx == nil || ctx.Err() != nil {
 		return q, d.ErrUnavailable
 	}
 	defs := []Definition{}
@@ -142,19 +141,20 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	}
 	q.TextProfiles = map[string]aicapability.ModelProfile{}
 	for _, def := range defs {
-		if def.Manufacturer != first.Manufacturer || def.Region != first.Region || def.ServiceType != first.ServiceType || def.Channel != q.Channel || def.PriceID != first.PriceID || def.ReferenceVersion != ref.Version || def.BoundEvidenceVersion != first.BoundEvidenceVersion {
+		if def.ConnectionID != first.ConnectionID || def.ConnectionProvider != first.ConnectionProvider || def.Manufacturer != first.Manufacturer || def.Region != first.Region || def.ServiceType != first.ServiceType || def.Channel != q.Channel || def.PriceID != first.PriceID || def.ReferenceVersion != ref.Version || def.BoundEvidenceVersion != first.BoundEvidenceVersion {
 			q.Reason = "CONSUMER_BINDING_MISMATCH"
 			return q, nil
 		}
-		credentials := c.Credentials
-		if category == d.ModelCategoryImage {
-			credentials = c.ImageCredentials
+		if !d.ValidFact(def.ConnectionID, 128) || !d.ValidFact(def.ConnectionProvider, 128) {
+			q.Reason = "CREDENTIAL_NOT_ADMITTED"
+			return q, nil
 		}
+		credentials := c.Credentials
 		if credentials == nil {
 			q.Reason = "CREDENTIAL_READER_MISSING"
 			return q, nil
 		}
-		row, err := credentials.Credential(ctx, org, ref.ID)
+		row, err := credentials.Credential(ctx, org, def.ConnectionID)
 		if errors.Is(err, d.ErrNotFound) {
 			q.Reason = "CREDENTIAL_NOT_ADMITTED"
 			return q, nil

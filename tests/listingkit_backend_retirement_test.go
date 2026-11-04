@@ -128,7 +128,7 @@ func TestLegacyTaskOpenAIConvenienceClosureIsRetired(t *testing.T) {
 	required := map[string][]string{
 		"internal/listing/record":     {"Actor", "ValidateActor", "ValidateOperationID"},
 		"internal/ai":                 {"RouteBoundImageEditor"},
-		"internal/integration/openai": {"ClientConfig", "ResolvedClientConfig", "ClientConfigResolver"},
+		"internal/integration/openai": {"ClientConfig"},
 	}
 	found := map[string]bool{}
 	for _, path := range trackedFiles(t, ".") {
@@ -1326,18 +1326,22 @@ func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
 		}
 	}
 	retired := map[string][]string{
-		"internal/integration/openai":        strings.Fields("Manager ManagerConfig NewManager Client NewClient Client.CreateChatCompletion Identity WithIdentity IdentityFromContext Manager.GetClientWithRoute Manager.ResolveEffectiveClientRoute Manager.GetImageClient contextualImageClient RequestPool BaseClient Manager.UsesOrganizationCredentials Manager.UsesOrganizationOnlyCredentials Manager.ResolveTextRoute Manager.ResolveTextRouteDetails Manager.resolveTextConfiguration Manager.CompleteText completeTextOnce boundedTextHTTPClient.Do NewProductEnrichmentAdapter ProductEnrichmentAdapter.Generate canonicalContextError isNilTextInvoker canonicalRequestedFields buildProductEnrichmentPrompt buildProductEnrichmentPromptWithMarshal inspectProductEnrichmentPromptBudget productEnrichmentPromptBudgetWalker.visit productEnrichmentPromptBudgetWalker.visitReference parseProductEnrichmentResponse productEnrichmentPromptBudgetError.Error Manager.GetClient Manager.GetDefaultClient Manager.HasConfigResolver Manager.RegisterClient Manager.defaultClientNameLocked Manager.resolveStaticClient Manager.ListClients contextualChatClient.resolve contextualChatClient.CreateChatCompletion contextualChatClient.Generate contextualChatClient.AnalyzeImage contextualChatClient.GetDefaultModel Client.CreateChatCompletionWithTimeout WithTenantID WithUserID"),
-		"internal/product/review":            strings.Fields("NewService Service.Create"),
-		"internal/app/httpapi":               strings.Fields("NewProductReviewApplication productReviewOnlyRoutes"),
-		"internal/integration/crawler/a1688": strings.Fields("ProductEnrichmentRequest cloneEnrichmentSource cloneEnrichmentStringMap"),
+		"internal/aicapability/channelcredential":            nil,
+		"internal/integration/persistence/channelcredential": nil,
+		"internal/integration/openai":                        strings.Fields("Manager ManagerConfig NewManager Client NewClient ResolvedClientConfig ClientConfigResolver AIClientCredential GormCredentialResolver NewGormCredentialResolver NewOrganizationOnlyCredentialResolver Client.CreateChatCompletion Identity WithIdentity IdentityFromContext Manager.GetClientWithRoute Manager.ResolveEffectiveClientRoute Manager.GetImageClient contextualImageClient RequestPool BaseClient Manager.UsesOrganizationCredentials Manager.UsesOrganizationOnlyCredentials Manager.ResolveTextRoute Manager.ResolveTextRouteDetails Manager.resolveTextConfiguration Manager.CompleteText completeTextOnce boundedTextHTTPClient.Do NewProductEnrichmentAdapter ProductEnrichmentAdapter.Generate canonicalContextError isNilTextInvoker canonicalRequestedFields buildProductEnrichmentPrompt buildProductEnrichmentPromptWithMarshal inspectProductEnrichmentPromptBudget productEnrichmentPromptBudgetWalker.visit productEnrichmentPromptBudgetWalker.visitReference parseProductEnrichmentResponse productEnrichmentPromptBudgetError.Error Manager.GetClient Manager.GetDefaultClient Manager.HasConfigResolver Manager.RegisterClient Manager.defaultClientNameLocked Manager.resolveStaticClient Manager.ListClients contextualChatClient.resolve contextualChatClient.CreateChatCompletion contextualChatClient.Generate contextualChatClient.AnalyzeImage contextualChatClient.GetDefaultModel Client.CreateChatCompletionWithTimeout WithTenantID WithUserID"),
+		"internal/product/review":                            strings.Fields("NewService Service.Create"),
+		"internal/app/httpapi":                               strings.Fields("NewProductReviewApplication productReviewOnlyRoutes"),
+		"internal/integration/crawler/a1688":                 strings.Fields("ProductEnrichmentRequest cloneEnrichmentSource cloneEnrichmentStringMap"),
 	}
 	retiredTypes := strings.Fields("TextCompletionRequest TextCompletionResult TextRouteDetails boundedTextHTTPClient TextInvocationRequest TextInvoker ProductEnrichmentAdapter productEnrichmentPromptBudget productEnrichmentPromptBudgetError productEnrichmentPromptBudgetKind productEnrichmentPromptBudgetReference productEnrichmentPromptBudgetWalker contextualChatClient")
 	retained := map[string]bool{}
 	for owner, names := range map[string]string{
-		"internal/integration/openai":      "ClientConfig ResolvedClientConfig ClientConfigResolver",
-		"internal/product/review":          "Service NewCandidateService Service.CreateFromCandidate Service.CreateFromCandidateWithTransactionAttempt Service.ValidateCandidate Service.Decide Service.Apply CreateInput CandidateInput Record View",
-		"internal/product/review/proposal": "Request PolicySnapshot Proposal Candidate FieldChange Evidence QualityScore ValidationResult Warning Rejection ContentSelection ContentPolicyVersion NewContentSelection ValidateCandidate CanonicalEvidenceID ContentSelection.Absent ContentSelection.Valid ContentSelection.Fields ContentSelection.TitleOnly",
-		"internal/app/httpapi":             "InstallProductReviewSchema buildProductReviewCore newProductReviewRepository productReviewRoutes buildLocalTrialReviewRoutes Issue36LocalTrialSourceWiring",
+		"internal/integration/openai":                        "ClientConfig",
+		"internal/aicapability/channelcredential":            "Metadata Secret MetadataReader SecretReader",
+		"internal/integration/persistence/channelcredential": "Store New Store.Metadata Store.Resolve Store.Publish Store.Receipt Protection NewProtection",
+		"internal/product/review":                            "Service NewCandidateService Service.CreateFromCandidate Service.CreateFromCandidateWithTransactionAttempt Service.ValidateCandidate Service.Decide Service.Apply CreateInput CandidateInput Record View",
+		"internal/product/review/proposal":                   "Request PolicySnapshot Proposal Candidate FieldChange Evidence QualityScore ValidationResult Warning Rejection ContentSelection ContentPolicyVersion NewContentSelection ValidateCandidate CanonicalEvidenceID ContentSelection.Absent ContentSelection.Valid ContentSelection.Fields ContentSelection.TitleOnly",
+		"internal/app/httpapi":                               "InstallProductReviewSchema buildProductReviewCore newProductReviewRepository productReviewRoutes buildLocalTrialReviewRoutes Issue36LocalTrialSourceWiring",
 	} {
 		for _, name := range strings.Fields(names) {
 			retained[owner+":"+name] = false
@@ -1711,7 +1715,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 
 		"internal/platform/database":  {"OpenExistingReadOnlyContext": false, "OpenExistingWritableContext": false, "Open": false, "OpenShared": false, "Close": false, "CloseShared": false, "openDatabase": false, "openDatabaseContext": false, "databaseDSN": false},
 		"internal/shared/resilience":  {"Retry": false, "RetryConfig": false, "RetryAttempt": false},
-		"internal/integration/openai": {"ClientConfig": false, "ResolvedClientConfig": false},
+		"internal/integration/openai": {"ClientConfig": false},
 		"internal/shared/aiidentity":  {"Identity": false, "Identity.AgentRunID": false, "Identity.TenantID": false, "Identity.UserID": false, "Identity.BusinessTaskID": false, "Identity.TraceID": false, "WithIdentity": false, "FromContext": false},
 		"internal/kernel/module":      {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
 		"internal/core/config":        {"Config": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false},
@@ -6188,8 +6192,7 @@ func TestLegacyAssetSourceOpenAITailClosureIsRetired(t *testing.T) {
 		"internal/product/catalog/publisher.go":              {"Publisher", "NewPublisher", "Publisher.Publish"},
 		"internal/product/sourcing/publication.go":           {"InternalProducer", "NewInternalProducer", "InternalProducer.Publish"},
 		"internal/product/sourcing/catalog_asset_handoff.go": {"ToSnapshot"},
-		"internal/integration/openai/credential_config.go":   {"ClientConfig", "ResolvedClientConfig", "ClientConfigResolver"},
-		"internal/integration/openai/credential_metadata.go": {"CredentialReference", "CredentialVersion"},
+		"internal/integration/openai/credential_config.go":   {"ClientConfig"},
 	}
 	found := map[string]bool{}
 	for _, path := range trackedFiles(t, ".") {

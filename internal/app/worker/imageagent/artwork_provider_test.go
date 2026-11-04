@@ -43,8 +43,8 @@ func TestArtworkProviderProducesActualNewPixelsAfterDurableObservation(t *testin
 				_, _ = w.Write([]byte(`{"id":"artwork-response","status":"succeeded","results":[{"url":"https://output.example/artwork.png"}]}`))
 			}))
 			defer server.Close()
-			resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Second}}}
-			factory := generationProviderFactory{resolver: resolver, current: syntheticFactoryCurrent(resolver, 17), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
+			resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Second}}}
+			factory := generationProviderFactory{credentials: resolver, current: syntheticFactoryCurrent(resolver, 17), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
 				downloads++
 				require.Equal(t, 1, observations, "provider outcome must be persisted before downloading pixels")
 				return pixels.Bytes(), nil

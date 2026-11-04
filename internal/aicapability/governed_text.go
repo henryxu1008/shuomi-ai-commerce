@@ -20,6 +20,7 @@ var ErrTextEnvelope = errors.New("invalid governed text envelope")
 // organization route and all limits that affect dispatch or settlement.
 type ModelProfile struct {
 	ClientName              string
+	ConnectionID            string `json:",omitempty"`
 	ProviderID              string
 	AdapterKind             string
 	ModelID                 string

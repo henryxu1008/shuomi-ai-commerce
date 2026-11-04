@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/integration/openai"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 func TestPrepareRejectsIdentityRunColumnWithoutRepair(t *testing.T) {
@@ -27,7 +27,7 @@ func TestPrepareRejectsIdentityRunColumnWithoutRepair(t *testing.T) {
 
 func TestRelationRejectsGeneratedColumnMatchingOriginalDefaultWithoutRepair(t *testing.T) {
 	f := newPrepareFixture(t, "run")
-	credential, err := modelContract(f.db, &openai.AIClientCredential{}, "product_agent_owner")
+	credential, err := modelContract(f.db, &channelstore.ConnectionRow{}, "product_agent_owner")
 	require.NoError(t, err)
 	var enabled columnContract
 	for _, column := range credential.Columns {
@@ -35,7 +35,7 @@ func TestRelationRejectsGeneratedColumnMatchingOriginalDefaultWithoutRepair(t *t
 			enabled = column
 		}
 	}
-	require.Equal(t, "true", enabled.Default)
+	require.Empty(t, enabled.Default)
 	// PostgreSQL exposes the same expression for a default and a generated
 	// constant. The original credential writer explicitly supplies enabled.
 	require.NoError(t, f.db.Exec("CREATE TABLE public.generated_probe(enabled boolean GENERATED ALWAYS AS (true) STORED NOT NULL); ALTER TABLE public.generated_probe OWNER TO product_agent_owner").Error)

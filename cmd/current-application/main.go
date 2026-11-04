@@ -63,6 +63,9 @@ func execute() error {
 		defer cancel()
 	}
 	return currentapplication.Run(ctx, cfg, logger, currentapplication.Dependencies{
+		OpenChannelSecretReader: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
+			return platformdatabase.OpenExistingReadOnlyContext(ctx, databaseConfig(cfg))
+		},
 		OpenModelRouteWriter: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
@@ -200,7 +203,7 @@ func execute() error {
 			if features.ProductAgent != nil && features.ProductAgent.Enabled {
 				p := features.ProductAgent
 				ledger := aistore.NewGormInvocationRecorder(features.ProductAgentDB)
-				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
+				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
 			}
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
 				options = append(options, httpapi.WithAIWorkbench(httpapi.AIWorkbenchDependencies{DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}))
@@ -278,7 +281,7 @@ func execute() error {
 			}
 			if features.ImageAgentDB != nil {
 				if features.ImageSetWorkerConfig != nil {
-					options = append(options, httpapi.WithFullImageSet(features.ImageAgentDB, features.ImageAgentWorkflow, httpapi.FullImageSetDependencies{CurrentImagePolicies: features.CurrentImagePolicies, AssetDB: features.ImageSetAssetDB, WorkerDB: features.ImageSetWorkerDB, WorkerConfig: features.ImageSetWorkerConfig, Client: features.ImageSetTemporal, Worker: features.ImageSetWorker}))
+					options = append(options, httpapi.WithFullImageSet(features.ImageAgentDB, features.ImageAgentWorkflow, httpapi.FullImageSetDependencies{ChannelCredentials: features.ChannelCredentials, CurrentImagePolicies: features.CurrentImagePolicies, AssetDB: features.ImageSetAssetDB, WorkerDB: features.ImageSetWorkerDB, WorkerConfig: features.ImageSetWorkerConfig, Client: features.ImageSetTemporal, Worker: features.ImageSetWorker}))
 				} else {
 					options = append(options, httpapi.WithAcquisitionImageAgent(features.ImageAgentDB, features.ImageAgentWorkflow))
 				}

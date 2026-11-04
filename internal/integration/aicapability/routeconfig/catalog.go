@@ -16,6 +16,7 @@ import (
 )
 
 type ImageAdmission struct {
+	DeadlineSeconds    int64                             `json:"deadlineSeconds"`
 	UnitVersion        string                            `json:"unitVersion"`
 	MaximumMicropoints int64                             `json:"maximumMicropoints,string"`
 	ClientName         string                            `json:"clientName"`
@@ -26,6 +27,8 @@ type ImageAdmission struct {
 	Billing            aicapability.OfficialModelBilling `json:"billing"`
 }
 type Definition struct {
+	ConnectionID         string                `json:"connectionId"`
+	ConnectionProvider   string                `json:"connectionProvider"`
 	Manufacturer         string                `json:"manufacturer"`
 	Region               string                `json:"region"`
 	ServiceType          string                `json:"serviceType"`
@@ -116,45 +119,43 @@ func (c *Catalog) Candidates(sc d.Scope) []string {
 	sort.Strings(out)
 	return out
 }
+func (c *Catalog) CredentialID(scope d.Scope, id string) (string, error) {
+	if c == nil {
+		return "", d.ErrUnavailable
+	}
+	def, ok := c.definitions[scope][id]
+	if !ok || !d.ValidFact(def.ConnectionID, 128) {
+		return "", d.ErrNeedsConfiguration
+	}
+	return def.ConnectionID, nil
+}
+
 func (c *Catalog) Qualify(sc d.Scope, id string, row d.Credential) (d.Binding, error) {
 	def, ok := c.definitions[sc][id]
-	if !ok || row.OrganizationID != sc.OrganizationID || row.ClientName != id || !row.Enabled || !row.KeyPresent || row.TimeoutSeconds < 1 {
+	if !ok || !d.ValidFact(def.ConnectionID, 128) || !d.ValidFact(def.ConnectionProvider, 128) || row.OrganizationID != sc.OrganizationID || row.ConnectionID != def.ConnectionID || row.Provider != def.ConnectionProvider || row.Channel != def.Channel || row.Region != def.Region || !row.Enabled || !row.KeyPresent || !strings.HasPrefix(row.Reference, "channel-credential-v1:") {
 		return d.Binding{}, d.ErrNeedsConfiguration
 	}
 	if def.Text != nil {
 		p := def.Text.ShapeProfile()
-		if def.Text.AdmittedCredentialVersion == "" || row.Version != p.CredentialVersion || row.EndpointDigest != p.EndpointIdentityDigest || row.Model != p.ModelID || row.TimeoutSeconds > 120 || int64(row.TimeoutSeconds)*int64(1e9) < int64(p.DeadlineBound) {
+		if row.EndpointDigest != p.EndpointIdentityDigest {
 			return d.Binding{}, d.ErrNeedsConfiguration
 		}
-		style := row.APIStyle
-		if p.AdapterKind == "openai-compatible" {
-			if style != "openai-compatible" && style != "openai" && style != "grsai" {
-				return d.Binding{}, d.ErrNeedsConfiguration
-			}
-		} else if style != p.AdapterKind {
-			return d.Binding{}, d.ErrNeedsConfiguration
-		}
-		return d.Binding{ID: id, CredentialVersion: row.Version, Provider: p.ProviderID, Model: p.ModelID, Protocol: p.AdapterKind, UsageMappingVersion: p.UsageMappingVersion, Currency: p.Currency, MaximumCostMicros: def.MaximumCostMicros, MaximumInputBytes: p.MaximumInputBytes, MaximumOutputBytes: p.MaximumOutputBytes, MaximumPromptTokens: p.MaximumPromptTokens, MaximumCompletionTokens: p.MaximumCompletionTokens, DeadlineSeconds: int64(p.DeadlineBound.Seconds()), Text: &p}, nil
+		p.ConnectionID, p.CredentialVersion = def.ConnectionID, row.Reference
+		return d.Binding{ID: id, CredentialVersion: row.Reference, Provider: p.ProviderID, Model: p.ModelID, Protocol: p.AdapterKind, UsageMappingVersion: p.UsageMappingVersion, Currency: p.Currency, MaximumCostMicros: def.MaximumCostMicros, MaximumInputBytes: p.MaximumInputBytes, MaximumOutputBytes: p.MaximumOutputBytes, MaximumPromptTokens: p.MaximumPromptTokens, MaximumCompletionTokens: p.MaximumCompletionTokens, DeadlineSeconds: int64(p.DeadlineBound.Seconds()), Text: &p}, nil
 	}
 	i := def.Image
-	if i.CredentialVersion == "" || row.Version != i.CredentialVersion || row.Model != i.Model || row.EndpointDigest != governed.EndpointIdentityDigest(i.Endpoint) || row.TimeoutSeconds > 300 {
+	if row.EndpointDigest != governed.EndpointIdentityDigest(i.Endpoint) || i.DeadlineSeconds < 1 || i.DeadlineSeconds > 300 {
 		return d.Binding{}, d.ErrNeedsConfiguration
 	}
 	protocol := "grsai-json-sync-v1"
 	if i.Provider == "openai" {
-		if row.APIStyle != "openai" && row.APIStyle != "openai-compatible" {
-			return d.Binding{}, d.ErrNeedsConfiguration
-		}
 		protocol = aicapability.FlareImageProtocol
 	} else if i.Provider == "bailian" {
-		if row.APIStyle != "dashscope" {
-			return d.Binding{}, d.ErrNeedsConfiguration
-		}
 		protocol = bailian.Protocol
-	} else if row.APIStyle != "grsai" {
+	} else if i.Provider != "grsai" {
 		return d.Binding{}, d.ErrNeedsConfiguration
 	}
-	return d.Binding{ID: id, CredentialVersion: row.Version, Provider: i.Provider, Model: i.Model, Protocol: protocol, DeadlineSeconds: int64(row.TimeoutSeconds), Image: &d.ImageProfile{Provider: i.Provider, Model: i.Model, Protocol: protocol, EndpointDigest: row.EndpointDigest, CredentialReference: row.Reference, Billing: i.Billing}}, nil
+	return d.Binding{ID: id, CredentialVersion: row.Reference, Provider: i.Provider, Model: i.Model, Protocol: protocol, DeadlineSeconds: i.DeadlineSeconds, Image: &d.ImageProfile{ConnectionID: def.ConnectionID, DeadlineSeconds: i.DeadlineSeconds, Provider: i.Provider, Model: i.Model, Protocol: protocol, EndpointDigest: row.EndpointDigest, CredentialReference: row.Reference, Billing: i.Billing}}, nil
 }
 
 type TextReader struct{ Service *d.Service }

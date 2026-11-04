@@ -40,7 +40,13 @@ func (p *ProductAgentConfig) Limits() agent.Limits {
 
 func (p *ProductAgentConfig) validate(cfg *Config) error {
 	if !p.Enabled {
-		return p.Database.validate("productAgent.database")
+		if e := p.Database.validate("productAgent.database"); e != nil {
+			return e
+		}
+		if p.hasPolicies() {
+			return p.validatePolicyMetadata()
+		}
+		return nil
 	}
 	if cfg.ProductAcquisitionDatabase == nil || cfg.CommercialOwnerDatabase == nil {
 		return errors.New("product agent requires acquisition and current commercial owner")
@@ -75,6 +81,20 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	}
 	if (p.ContentTitleOnly || p.ContentOnly) && sameDatabaseTarget(p.Database, p.ReviewDatabase) {
 		return errors.New("content-title-only requires separate Run and Product/Review databases")
+	}
+	return p.validatePolicyMetadata()
+}
+
+func (p *ProductAgentConfig) hasPolicies() bool {
+	return len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) > 0
+}
+
+func (p *ProductAgentConfig) validatePolicyMetadata() error {
+	if p.ContentOnly && p.ContentTitleOnly {
+		return errors.New("contentOnly and contentTitleOnly are mutually exclusive")
+	}
+	if (p.ContentOnly || p.ContentTitleOnly) && (len(p.ContentTextPolicies) == 0 || len(p.TextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) != 0) {
+		return errors.New("content-only metadata requires only content policies")
 	}
 	if !p.Limits().Valid() || p.RuntimeSeconds > 120 || p.RuntimeSeconds < 1 || p.Steps > 16 || p.ModelCalls > 8 {
 		return errors.New("product agent limits or title policy invalid")

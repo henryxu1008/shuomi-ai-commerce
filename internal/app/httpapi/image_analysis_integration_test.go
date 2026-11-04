@@ -21,7 +21,6 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/imageagent"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/openai"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	"task-processor/internal/product/asset"
 	"testing"
@@ -44,9 +43,11 @@ func (l *analysisReadbackFailureLedger) ReadModelInvocation(ctx context.Context,
 }
 
 func (f analysisFixtureTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
-func configureImageAnalysisFixture(s *ProductAgentDependencies, row openai.AIClientCredential, calls *atomic.Int32) {
+func configureImageAnalysisFixture(s *ProductAgentDependencies, row httpModelFixture, calls *atomic.Int32) {
 	p := s.TextPolicies["B"]
-	p.AdmittedCredentialVersion = governed.CredentialVersion(row)
+	p.Profile.ConnectionID = row.ClientName
+	p.Profile.CredentialVersion = row.reference
+	p.AdmittedCredentialVersion = httpCredentialReference(row)
 	p.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(row.BaseURL)
 	p.Profile.ProviderID = "openai"
 	p.Profile.ModelID = aicapability.SingleImageMiniModel

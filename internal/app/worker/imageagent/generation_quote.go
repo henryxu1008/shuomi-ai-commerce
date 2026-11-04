@@ -6,24 +6,16 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
-	openai "task-processor/internal/integration/openai"
 	"task-processor/internal/shared/aiidentity"
-
-	"gorm.io/gorm"
 )
 
 type imageGenerationQuoteReader struct{ factory generationProviderFactory }
 
-func NewImageGenerationQuoteReader(db *gorm.DB, price config.ImageAgentGenerationConfig, current ...d.SharedCategoryReader) (imageagent.ImageSetQuoteReader, error) {
-	if len(current) > 1 || db == nil || !price.Configured() {
+func NewImageGenerationQuoteReader(price config.ImageAgentGenerationConfig, current d.SharedCategoryReader) (imageagent.ImageSetQuoteReader, error) {
+	if current == nil || !price.Configured() {
 		return nil, imageagent.ErrBudgetQuoteUnavailable
 	}
-	var reader d.SharedCategoryReader
-	if len(current) == 1 {
-		reader = current[0]
-	}
-	resolver := openai.NewOrganizationOnlyCredentialResolver(db)
-	return imageGenerationQuoteReader{factory: generationProviderFactory{current: reader, resolver: organizationCredentialAdmission{resolver: resolver}, price: price}}, nil
+	return imageGenerationQuoteReader{factory: generationProviderFactory{current: current, price: price}}, nil
 }
 
 func (r imageGenerationQuoteReader) ReadImageGenerationQuote(ctx context.Context, identity imageagent.ExecutionIdentity, selection *imageagent.ImageRouteSelection) (imageagent.ImageGenerationQuote, error) {

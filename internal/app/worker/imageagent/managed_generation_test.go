@@ -12,9 +12,9 @@ import (
 )
 
 func TestSharedImageFactoryRejectsDriftAndPerPageOverrideWithoutFallback(t *testing.T) {
-	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "synthetic-credential", Config: &openai.ClientConfig{APIKey: "synthetic", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
+	resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "synthetic-credential", Config: &openai.ClientConfig{APIKey: "synthetic", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
 	current := syntheticFactoryCurrent(resolver, 17)
-	f := generationProviderFactory{resolver: resolver, current: current, price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}}
+	f := generationProviderFactory{credentials: resolver, current: current, price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}}
 	ctx := syntheticGenerationContext()
 	_, first, err := f.resolve(ctx)
 	require.NoError(t, err)
@@ -27,7 +27,7 @@ func TestSharedImageFactoryRejectsDriftAndPerPageOverrideWithoutFallback(t *test
 	require.Error(t, err)
 	current.err = nil
 	resolver.resolved.CacheKey = "rotated"
-	_, _, err = f.resolve(ctx)
+	_, _, err = f.resolveForSend(ctx)
 	require.Error(t, err)
 	_, _, err = f.resolve(ctx, &imageagent.ImageRouteSelection{BindingID: "other", RevisionID: "old"})
 	require.ErrorIs(t, err, imageagent.ErrImageRouteChanged)

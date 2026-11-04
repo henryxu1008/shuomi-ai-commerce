@@ -117,7 +117,7 @@ func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuo
 		InvocationID: input.InvocationID, AgentRunID: input.AgentRunID, BusinessTaskID: input.BusinessTaskID,
 		TenantID: input.OrganizationID, UserID: input.ActorID, MemberID: input.MemberID,
 		Capability: capabilityFor(input.Operation), Operation: input.Operation,
-		ProviderID: p.ProviderID, ModelID: p.ModelID, CredentialReference: p.ClientName,
+		ProviderID: p.ProviderID, ModelID: p.ModelID, CredentialReference: p.CredentialVersion,
 		ConfigurationVersion: p.CredentialVersion, PolicyVersion: p.CostPricingVersion,
 		PromptKey: p.OutputSchemaVersion, PromptVersion: p.PromptVersion, PromptHash: hex.EncodeToString(prompt[:]),
 		InputHash: quote.InputHash, OfficialTariff: p.OfficialTariff,

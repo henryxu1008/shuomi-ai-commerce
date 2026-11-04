@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"strconv"
@@ -28,7 +29,6 @@ import (
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
-	"task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
@@ -54,9 +54,10 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 	root, connection := commercialPostgres(t)
 	baseDSN := root.Dialector.(*postgres.Dialector).DSN
 	password := strings.ReplaceAll(uuid.NewString(), "-", "")
-	for _, role := range []string{"source_account_runtime", "commercial_owner_runtime", "product_agent_runtime", "title_credential_writer", "model_route_config_writer", "product_review_runtime", "asset_reader", "knowledge_runtime", "knowledge_owner", "product_agent_owner"} {
+	for _, role := range []string{"source_account_runtime", "commercial_owner_runtime", "product_agent_runtime", "title_credential_writer", "ai_channel_secret_reader", "model_route_config_writer", "product_review_runtime", "asset_reader", "knowledge_runtime", "knowledge_owner", "product_agent_owner"} {
 		require.NoError(t, root.Exec("CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '"+password+"'").Error)
 	}
+	require.NoError(t, root.Exec("ALTER ROLE ai_channel_secret_reader CONNECTION LIMIT 2").Error)
 	// Existing acquisition fixture needs an initializer, never a serving role.
 	require.NoError(t, root.Exec("CREATE ROLE issue398_owner LOGIN SUPERUSER PASSWORD '"+password+"'").Error)
 	t.Setenv("ISSUE398_TEST_DSN", baseDSN+" user=issue398_owner password="+password)
@@ -173,6 +174,9 @@ func newKnowledgeApplicationFixture(t *testing.T) *knowledgeApplicationFixture {
 		Knowledge:    &currentapplication.KnowledgeConfig{Enabled: true, Database: dbConfig("knowledge", "knowledge_runtime"), Storage: currentapplication.KnowledgeStorageConfig{Region: "us-east-1", Bucket: "synthetic", AccessKeyID: "synthetic-access", SecretAccessKey: "synthetic-secret", Mode: "aws"}}}
 	writer := dbConfig("product_agent", "model_route_config_writer")
 	writer.MaxConnections = 2
+	secretReader := dbConfig("product_agent", "ai_channel_secret_reader")
+	secretReader.MaxConnections = 2
+	cfg.ChannelCredentials = &currentapplication.ChannelCredentialsConfig{Reader: secretReader, ProtectionKeyID: "synthetic-http-v1", ProtectionKey: base64.StdEncoding.EncodeToString([]byte(strings.Repeat("h", 32)))}
 	cfg.ModelRoutePricing = &currentapplication.ModelRoutePricingConfig{Writer: &writer}
 	return &knowledgeApplicationFixture{core: root, commercial: commercial, agent: agentDB, product: f.owner, knowledgeDB: knowledgeDB, knowledge: kf, config: cfg, operation: op}
 }
@@ -182,12 +186,12 @@ func (f *knowledgeApplicationFixture) configureHTTP(t *testing.T, identityOrigin
 	f.config.Identity = currentapplication.IdentityConfig{IssuerURL: identityOrigin, AuthorizationAPIURL: identityOrigin, ClientID: "fixture-client", ClientSecret: "fixture-secret", ProjectID: "project"}
 	f.config.Knowledge.Storage.Endpoint = sinkOrigin
 	f.config.Knowledge.ParserEndpoint = sinkOrigin
-	credential := openai.AIClientCredential{TenantID: "B", ClientName: "gemini-2.5-flash", APIKey: "synthetic-only", BaseURL: modelOrigin + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
-	credentials := openai.NewOrganizationOnlyCredentialResolver(f.agent)
-	require.NoError(t, credentials.SaveCredential(context.Background(), credential))
-	row, err := credentials.GetCredential(context.Background(), "B", "", credential.ClientName)
+	credential := httpModelFixture{TenantID: "B", ClientName: "gemini-2.5-flash", APIKey: "synthetic-only", BaseURL: modelOrigin + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
+	credentials := newHTTPChannelFixture(f.agent)
+	require.NoError(t, credentials.seed(context.Background(), credential))
+	row, err := credentials.record(context.Background(), "B", "", credential.ClientName)
 	require.NoError(t, err)
-	f.config.ProductAgent.TextPolicies = map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(credential.BaseURL), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: credential.Model, RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: credential.Model, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}
+	f.config.ProductAgent.TextPolicies = map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: httpCredentialReference(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(credential.BaseURL), Profile: aicapability.ModelProfile{ConnectionID: credential.ClientName, CredentialVersion: row.reference, ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: credential.Model, RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: credential.Model, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}
 	// Only this disposable fixture publishes synthetic prices and a previously
 	// qualified three-category selection. The normal binary must still read and
 	// fresh-qualify the actual text binding; no static policy fallback is injected.
@@ -196,13 +200,13 @@ func (f *knowledgeApplicationFixture) configureHTTP(t *testing.T, identityOrigin
 	require.NoError(t, err)
 	now := time.Now().UTC().Truncate(time.Second)
 	prices := &modelconfig.PlatformPricesService{Repository: repo, Now: func() time.Time { return now }}
-	_, err = prices.Publish(ctx, "synthetic-maintainer", "synthetic-price-publication", modelconfig.PlatformPricesInput{ExpectedRevision: modelconfig.NoRevision, Prices: []modelconfig.PublishedModelPrice{{ID: "synthetic-text-price", Provider: "google", Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", Model: credential.Model, Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://ai.google.dev/gemini-api/docs/pricing", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}})
+	_, err = prices.Publish(ctx, "synthetic-maintainer", "synthetic-price-publication", modelconfig.PlatformPricesInput{ExpectedRevision: modelconfig.NoRevision, Prices: []modelconfig.PublishedModelPrice{{ID: "synthetic-text-price", Provider: "google", Region: "global", ServiceType: "standard-sync", Channel: "fixture-channel", Model: credential.Model, Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://ai.google.dev/gemini-api/docs/pricing", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}})
 	require.NoError(t, err)
 	policy := f.config.ProductAgent.TextPolicies["B"]
 	policy.Profile.ClientName = credential.ClientName
-	f.config.ModelRoutePricing.Bindings = []qualified.Definition{{Scope: modelconfig.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Manufacturer: "google", Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", PriceID: "synthetic-text-price", ReferenceVersion: "synthetic-binding", BoundEvidenceVersion: "synthetic-text-bound", Text: &policy}}
+	f.config.ModelRoutePricing.Bindings = []qualified.Definition{{ConnectionID: credential.ClientName, ConnectionProvider: "synthetic", Scope: modelconfig.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Manufacturer: "google", Region: "global", ServiceType: "standard-sync", Channel: "fixture-channel", PriceID: "synthetic-text-price", ReferenceVersion: "synthetic-binding", BoundEvidenceVersion: "synthetic-text-bound", Text: &policy}}
 	ref := modelconfig.ModelBindingReference{ID: credential.ClientName, Version: "synthetic-binding"}
-	selection := modelconfig.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "synthetic-channel", Text: ref, Image: modelconfig.ModelBindingReference{ID: "synthetic-image", Version: "synthetic-binding"}, Multimodal: ref}
+	selection := modelconfig.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: "fixture-channel", Text: ref, Image: modelconfig.ModelBindingReference{ID: "synthetic-image", Version: "synthetic-binding"}, Multimodal: ref}
 	shared := &modelconfig.SharedModelService{Repository: repo, Catalog: httpSharedCatalogFixture{selection: selection}}
 	_, err = shared.Publish(ctx, "B", "admin", "synthetic-model-publication", modelconfig.SharedModelInput{ExpectedRevision: modelconfig.NoRevision, Selection: selection})
 	require.NoError(t, err)

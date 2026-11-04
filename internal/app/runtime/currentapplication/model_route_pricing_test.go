@@ -1,7 +1,6 @@
 package currentapplication
 
 import (
-	"context"
 	"slices"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
@@ -47,28 +46,15 @@ func TestModelRouteEnrichesSameAnchorOnceWithoutWideningConsumer(t *testing.T) {
 	require.Error(t, err, "enrichment must not raise the original token bound")
 }
 
-func TestManagedCandidateUsesExistingPrivateProvisionOwner(t *testing.T) {
-	c, in := contentProvisionFixture()
-	c.ProductAgent.Enabled = true
-	writer := c.ProductAgent.Database
-	writer.User = "model_route_config_writer"
-	writer.MaxConnections = 2
-	admitted := c.ProductAgent.ContentTextPolicies["org"]
-	admitted.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(in.BaseURL)
-	c.ProductAgent.ContentTextPolicies["org"] = admitted
-	candidate := c.ProductAgent.ContentTextPolicies["org"]
-	candidate.Profile.ClientName = "content-candidate"
-	in.ClientName = "content-candidate"
-	c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer, Bindings: []qualified.Definition{{Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductContentDecision)}, Text: &candidate}}}
-	_, err := c.modelRouteDefinitions()
-	require.NoError(t, err)
-	require.NoError(t, ValidateTitleCredentialProvision(c, in))
-	result, e := SaveTitleCredential(context.Background(), c, in, contentProvisionDB(t))
+func TestManagedCandidateProvisionUsesExplicitSharedConnection(t *testing.T) {
+	c, in := channelProvisionFixture()
+	_, e := c.modelRouteDefinitions()
 	require.NoError(t, e)
-	require.NotEmpty(t, result.CredentialVersion)
-	in.ClientName = "unadmitted"
-	require.Error(t, ValidateTitleCredentialProvision(c, in))
+	require.NoError(t, ValidateChannelCredentialProvision(c, in))
+	in.ConnectionID = "unadmitted"
+	require.Error(t, ValidateChannelCredentialProvision(c, in))
 }
+
 func TestManagedSelectionKeepsExistingHalfRunCostCeiling(t *testing.T) {
 	c := agentRuntimeConfig()
 	c.ProductCollections = true

@@ -2,6 +2,7 @@ package imageagentworker
 
 import (
 	"context"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	appruntime "task-processor/internal/app/runtime"
 	"task-processor/internal/core/config"
@@ -14,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourceDB *gorm.DB, authorizer imageagent.ExecutionAuthorizer, contexts imageagent.ImageSetContextReader, publisher imageagent.ApprovedImageSetPublisher, approvals productasset.ApprovalCommitReader, logger *logrus.Logger, current d.SharedCategoryReader, methods ...imageagent.ImageMethodContext) (appruntime.ImageAgentTemporalDependencies, error) {
+func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourceDB *gorm.DB, authorizer imageagent.ExecutionAuthorizer, contexts imageagent.ImageSetContextReader, publisher imageagent.ApprovedImageSetPublisher, approvals productasset.ApprovalCommitReader, logger *logrus.Logger, current d.SharedCategoryReader, credentials credential.SecretReader, methods ...imageagent.ImageMethodContext) (appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(methods) > 1 || cfg == nil || imageDB == nil || resourceDB == nil || authorizer == nil || contexts == nil || publisher == nil || approvals == nil || !cfg.ImageAgent.Generation.Configured() {
 		return empty, imageagent.ErrValidation
@@ -24,7 +25,7 @@ func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourc
 	if err != nil {
 		return empty, err
 	}
-	executor, recovery, err := buildOrganizationGenerationWithCurrent(cfg.ImageAgent.Generation, imageDB, resourceDB, repository, authorizer, logger, current, artifacts, contexts)
+	executor, recovery, err := buildOrganizationGenerationWithCurrent(cfg.ImageAgent.Generation, imageDB, resourceDB, repository, authorizer, logger, current, credentials, artifacts, contexts)
 	if err != nil {
 		return empty, err
 	}

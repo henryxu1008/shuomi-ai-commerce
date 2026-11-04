@@ -5,83 +5,78 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"task-processor/internal/aicapability"
-	"task-processor/internal/integration/openai"
+	credential "task-processor/internal/aicapability/channelcredential"
 )
 
-func TestOrganizationRouteNeverBorrowsMemberCredential(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:einomodel-org-route?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
-	writer := openai.NewGormCredentialResolver(db)
-	ctx := context.Background()
-	member := openai.AIClientCredential{TenantID: "org-1", UserID: "actor-1", ClientName: "planning", APIKey: "member-secret", BaseURL: "https://example.org/v1", Model: "model", APIStyle: "openai-compatible", TimeoutSecond: 5, Enabled: true}
-	require.NoError(t, writer.SaveCredential(ctx, member))
-	policy := testTextProfile("https://example.org/v1")
-	policy.ClientName = "planning"
-	policy.ModelID = "model"
-	policy.OfficialTariff.Model = policy.ModelID
-	resolver, err := NewOrganizationRouteResolver(writer, map[RouteKey]RoutePolicy{{OrganizationID: "org-1", Operation: aicapability.OperationAIWorkbenchChatPlan}: {
-		Profile: policy, AdmittedCredentialVersion: "version", AdmittedEndpointIdentityDigest: endpointDigest("https://example.org/v1"),
-	}})
-	require.NoError(t, err)
-	input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "actor-1", MemberID: "member-1", Operation: aicapability.OperationAIWorkbenchChatPlan}
-	require.Equal(t, RouteNeedsConfiguration, resolver.Readiness(ctx, input), "member credentials cannot ready an organization route")
-	_, err = resolver.Resolve(ctx, input)
-	require.ErrorIs(t, err, ErrNotDispatched)
+type channelReaderFixture struct {
+	secret      credential.Secret
+	unavailable bool
+	reads       int
+}
 
-	org := member
-	org.UserID, org.APIKey = "", "organization-secret"
-	require.NoError(t, writer.SaveCredential(ctx, org))
-	row, err := writer.GetCredential(ctx, "org-1", "", "planning")
-	require.NoError(t, err)
-	require.NotNil(t, row)
-	version := CredentialVersion(*row)
-	policy.CredentialVersion = version
-	resolver, err = NewOrganizationRouteResolver(writer, map[RouteKey]RoutePolicy{{OrganizationID: "org-1", Operation: aicapability.OperationAIWorkbenchChatPlan}: {
-		Profile: policy, AdmittedCredentialVersion: version, AdmittedEndpointIdentityDigest: endpointDigest(org.BaseURL),
-	}})
-	require.NoError(t, err)
-	route, err := resolver.Resolve(ctx, input)
-	require.NoError(t, err)
-	require.Equal(t, RouteAvailable, resolver.Readiness(ctx, input))
-	require.Equal(t, "organization-secret", route.APIKey)
-	require.Equal(t, version, route.Profile.CredentialVersion)
+func testChannelReader(org, id, endpoint string) *channelReaderFixture {
+	m := (credential.Metadata{OrganizationID: org, ConnectionID: id, Provider: "fixture-provider", Channel: "fixture-channel", Account: "fixture-account", Region: "fixture-region", BaseURL: endpoint, Revision: 1, Enabled: true, KeyPresent: true}).WithIdentity()
+	return &channelReaderFixture{secret: credential.Secret{Metadata: m, APIKey: "synthetic-organization-key"}}
+}
 
-	row.Enabled = false
-	require.NoError(t, writer.SaveCredential(ctx, *row))
-	_, err = resolver.Resolve(ctx, input)
+func (r *channelReaderFixture) Resolve(_ context.Context, org, id, ref string) (credential.Secret, error) {
+	r.reads++
+	if r.unavailable {
+		return credential.Secret{}, credential.ErrUnavailable
+	}
+	if org != r.secret.Metadata.OrganizationID || id != r.secret.Metadata.ConnectionID {
+		return credential.Secret{}, credential.ErrNotFound
+	}
+	if ref != r.secret.Metadata.Reference || !r.secret.Metadata.Enabled {
+		return credential.Secret{}, credential.ErrChanged
+	}
+	return r.secret, nil
+}
+
+func fixtureChannelPolicy(p aicapability.ModelProfile, r *channelReaderFixture) RoutePolicy {
+	p.ConnectionID, p.CredentialVersion = r.secret.Metadata.ConnectionID, r.secret.Metadata.Reference
+	return RoutePolicy{Profile: p, AdmittedCredentialVersion: p.CredentialVersion, AdmittedEndpointIdentityDigest: endpointDigest(r.secret.Metadata.BaseURL)}
+}
+
+func TestSharedChannelKeepsModelAndOrganizationExecutionIdentity(t *testing.T) {
+	reader := testChannelReader("org", "one-channel", "https://example.org/v1")
+	p := testTextProfile(reader.secret.Metadata.BaseURL)
+	policy := fixtureChannelPolicy(p, reader)
+	second := policy
+	second.Profile.ModelID = "another-admitted-model"
+	second.Profile.ClientName = "second-binding"
+	second.Profile.OfficialTariff.Model = second.Profile.ModelID
+	r, err := NewOrganizationRouteResolver(reader, map[RouteKey]RoutePolicy{{"org", aicapability.OperationProductAgentDecision}: policy, {"org", aicapability.OperationProductContentDecision}: second})
+	require.NoError(t, err)
+	first, err := r.Resolve(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", ActorID: "member-a", Operation: aicapability.OperationProductAgentDecision})
+	require.NoError(t, err)
+	next, err := r.Resolve(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", ActorID: "member-b", Operation: aicapability.OperationProductContentDecision})
+	require.NoError(t, err)
+	require.Equal(t, first.APIKey, next.APIKey)
+	require.Equal(t, first.Profile.CredentialVersion, next.Profile.CredentialVersion)
+	require.NotEqual(t, first.Profile.ModelID, next.Profile.ModelID)
+	a, _ := first.Profile.Digest()
+	b, _ := next.Profile.Digest()
+	require.NotEqual(t, a, b, "a shared key cannot share a model execution/cache identity")
+	_, err = r.Resolve(context.Background(), aicapability.TextInputIdentity{OrganizationID: "other-org", Operation: aicapability.OperationProductAgentDecision})
 	require.ErrorIs(t, err, ErrNotDispatched)
-	require.Equal(t, RouteNeedsConfiguration, resolver.Readiness(ctx, input), "disabled credential cannot advertise Chat planning")
-	require.Equal(t, RouteUnavailable, resolver.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: "org-2", Operation: aicapability.OperationAIWorkbenchChatPlan}))
+	reader.secret.Metadata.Enabled = false
+	require.Equal(t, RouteNeedsConfiguration, r.Readiness(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: aicapability.OperationProductAgentDecision}))
 }
 
 func TestListingMaterialsRouteDoesNotBorrowContentOrTitlePolicy(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:materials-route?mode=memory&cache=shared"), &gorm.Config{})
+	rd := testChannelReader("org", "channel", "https://example.org/v1")
+	r, err := NewOrganizationRouteResolver(rd, map[RouteKey]RoutePolicy{{"org", aicapability.OperationListingMaterialsDecision}: fixtureChannelPolicy(testTextProfile(rd.secret.Metadata.BaseURL), rd)})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
-	writer := openai.NewGormCredentialResolver(db)
-	profile := testTextProfile("https://example.org/v1")
-	policy := RoutePolicy{Profile: profile, AdmittedCredentialVersion: "version", AdmittedEndpointIdentityDigest: endpointDigest("https://example.org/v1")}
-	resolver, err := NewOrganizationRouteResolver(writer, map[RouteKey]RoutePolicy{{OrganizationID: "org", Operation: aicapability.OperationListingMaterialsDecision}: policy})
-	require.NoError(t, err)
-	require.Equal(t, RouteNeedsConfiguration, resolver.Readiness(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: aicapability.OperationListingMaterialsDecision}))
-	for _, operation := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision} {
-		require.Equal(t, RouteUnavailable, resolver.Readiness(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: operation}))
+	for _, op := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision} {
+		require.Equal(t, RouteUnavailable, r.Readiness(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: op}))
 	}
 }
 
-func TestEmptyRegistryCannotDispatchOrBorrowAConsumerPolicy(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:empty-text-registry?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	resolver, err := NewOrganizationRouteResolver(openai.NewGormCredentialResolver(db), nil)
-	require.NoError(t, err)
-	for _, op := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision} {
-		in := aicapability.TextInputIdentity{OrganizationID: "org", Operation: op}
-		_, err = resolver.Resolve(context.Background(), in)
-		require.ErrorIs(t, err, ErrNotDispatched)
-		require.Equal(t, RouteUnavailable, resolver.Readiness(context.Background(), in))
-	}
+func TestMissingChannelSecretReaderKeepsConstructionAndRejectsExecution(t *testing.T) {
+	r, err := NewManagedOrganizationRouteResolver(nil, &changingPolicies{missing: true})
+	require.NoError(t, err, "metadata/history construction must not require an executable secret reader")
+	_, err = r.Resolve(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: aicapability.OperationProductAgentDecision})
+	require.ErrorIs(t, err, ErrNotDispatched)
 }

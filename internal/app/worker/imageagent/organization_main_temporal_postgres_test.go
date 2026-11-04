@@ -16,7 +16,6 @@ import (
 	"task-processor/internal/imageagent"
 	imagestore "task-processor/internal/imageagent/store"
 	imagetemporal "task-processor/internal/imageagent/temporal"
-	openai "task-processor/internal/integration/openai"
 	platformtemporal "task-processor/internal/platform/temporal"
 
 	"github.com/google/uuid"
@@ -32,15 +31,12 @@ func TestOrganizationWorkerRealTemporalUnpricedGenerationDoesNotReserveOrDispatc
 	}
 	db := admissionPostgres(t)
 	require.NoError(t, imagestore.AutoMigrateOrganizationScope(db))
-	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(db))
 	var providerCalls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { providerCalls.Add(1) }))
 	defer provider.Close()
-	credentials := openai.NewGormCredentialResolver(db)
-	for _, name := range []string{"default", "image_gpt_image_2"} {
-		require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "org-1", UserID: "actor-1", ClientName: name, APIKey: "controlled-local-only", BaseURL: provider.URL + "/v1", Model: "review-test", Enabled: true, TimeoutSecond: 1}))
-	}
+	// No model-bound/member credential table exists in the new image owner.
+
 	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialOwnerDatabase: &config.DatabaseConfig{Host: "isolated-fixture", Port: 5432, Database: "commercial", User: "commercial_owner_runtime"}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 	resolver := imageAgentWorkerDependencyResolver{

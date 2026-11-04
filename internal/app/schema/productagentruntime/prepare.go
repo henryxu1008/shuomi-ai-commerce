@@ -9,8 +9,8 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/integration/openai"
 	agentstore "task-processor/internal/integration/persistence/agent"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 type Result struct {
@@ -66,12 +66,12 @@ func prepare(ctx context.Context, db *gorm.DB, target, owner string, run func(*g
 	return result, nil
 }
 
-// PrepareRun creates only an entirely absent current three-table group. An
+// PrepareRun creates only an entirely absent current four-table group. An
 // existing group must already match schema and grants; it is never repaired.
 func PrepareRun(ctx context.Context, db *gorm.DB) (Result, error) {
 	return prepare(ctx, db, "run", "product_agent_owner", func(tx *gorm.DB, result *Result) error {
-		result.Roles = []string{"product_agent_runtime", "title_credential_writer"}
-		for _, role := range []string{"product_agent_runtime", "title_credential_writer"} {
+		result.Roles = []string{"product_agent_runtime", "title_credential_writer", "ai_channel_secret_reader"}
+		for _, role := range result.Roles {
 			if err := verifyRole(tx, role); err != nil {
 				return err
 			}
@@ -103,14 +103,14 @@ func PrepareRun(ctx context.Context, db *gorm.DB) (Result, error) {
 		}
 		result.Tables = append(result.Tables, ledger.Name)
 		grants := runGrants(ledger)
-		if _, err = verifyGrants(tx, grants[:1], false); err != nil {
+		if _, err = verifyGrants(tx, grants[:1]); err != nil {
 			return err
 		}
 		if present == 0 {
 			if err = agentstore.EnsureRuntimeSchema(tx.Statement.Context, tx); err != nil {
 				return err
 			}
-			if err = openai.EnsureCredentialSchema(tx.Statement.Context, tx); err != nil {
+			if err = channelstore.EnsureSchema(tx.Statement.Context, tx); err != nil {
 				return err
 			}
 		}
@@ -122,10 +122,10 @@ func PrepareRun(ctx context.Context, db *gorm.DB) (Result, error) {
 				return err
 			}
 		}
-		if err = verifyCredentialSequence(tx); err != nil {
+		if err = channelstore.VerifyMetadataProjection(tx.Statement.Context, tx); err != nil {
 			return err
 		}
-		ready, err := verifyGrants(tx, grants, true)
+		ready, err := verifyGrants(tx, grants)
 		if err != nil {
 			return err
 		}
@@ -139,10 +139,7 @@ func PrepareRun(ctx context.Context, db *gorm.DB) (Result, error) {
 		if err = applyGrants(tx, grants); err != nil {
 			return err
 		}
-		if err = tx.Exec("GRANT USAGE ON SEQUENCE public.ai_client_credentials_id_seq TO title_credential_writer").Error; err != nil {
-			return err
-		}
-		ready, err = verifyGrants(tx, grants, true)
+		ready, err = verifyGrants(tx, grants)
 		if err != nil {
 			return err
 		}
@@ -173,7 +170,7 @@ func PrepareReview(ctx context.Context, db *gorm.DB) (Result, error) {
 			result.Tables = append(result.Tables, spec.Name)
 		}
 		grants := reviewGrants()
-		ready, err := verifyGrants(tx, grants, false)
+		ready, err := verifyGrants(tx, grants)
 		if err != nil {
 			return err
 		}
@@ -191,7 +188,7 @@ func PrepareReview(ctx context.Context, db *gorm.DB) (Result, error) {
 		if err = applyGrants(tx, grants); err != nil {
 			return err
 		}
-		ready, err = verifyGrants(tx, grants, false)
+		ready, err = verifyGrants(tx, grants)
 		if err != nil {
 			return err
 		}

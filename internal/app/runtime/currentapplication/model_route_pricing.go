@@ -35,7 +35,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	if m == nil {
 		return nil, nil
 	}
-	invalid := errors.New("model route pricing requires enabled original consumers, same database and bounded dedicated writer")
+	invalid := errors.New("model route pricing requires original consumer metadata, same database and bounded dedicated writer")
 	if m.Writer == nil {
 		return nil, invalid
 	}
@@ -45,7 +45,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	defs := []qualified.Definition{}
 	anchors := map[d.Scope]governed.RoutePolicy{}
 	if m.Writer != nil {
-		if c.ProductAgent == nil || !c.ProductAgent.Enabled || !check(m.Writer, &c.ProductAgent.Database) {
+		if c.ProductAgent == nil || !check(m.Writer, &c.ProductAgent.Database) {
 			return nil, invalid
 		}
 		p := c.ProductAgent
@@ -72,7 +72,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		if c.AIWorkbench != nil && c.AIWorkbench.Enabled && !c.AIWorkbench.ConversationOnly {
 			add(aicapability.OperationAIWorkbenchChatPlan, c.AIWorkbench.PlanningTextPolicies)
 		}
-		if len(anchors) == 0 {
+		if len(anchors) == 0 && p.Enabled {
 			return nil, invalid
 		}
 	}
@@ -129,7 +129,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	return defs, nil
 }
 
-func prepareSharedModelServices(ctx context.Context, reader, writer, imageCredentials *gorm.DB, defs []qualified.Definition) (*d.SharedModelService, *d.SharedModelService, *d.PlatformPricesService, error) {
+func prepareSharedModelServices(ctx context.Context, reader, writer *gorm.DB, defs []qualified.Definition) (*d.SharedModelService, *d.SharedModelService, *d.PlatformPricesService, error) {
 	if reader == nil || writer == nil || reader == writer {
 		return nil, nil, nil, d.ErrUnavailable
 	}
@@ -152,14 +152,8 @@ func prepareSharedModelServices(ctx context.Context, reader, writer, imageCreden
 		return nil, nil, nil, e
 	}
 	prices := &d.PlatformPricesService{Repository: write}
-	trusted := &qualified.SharedCatalog{Catalog: catalog, Credentials: read, Prices: &d.PlatformPricesService{Repository: read}}
-	if imageCredentials != nil {
-		projection, e := store.New(imageCredentials)
-		if e != nil {
-			return nil, nil, nil, e
-		}
-		trusted.ImageCredentials = projection
-	}
+	trusted := &qualified.SharedCatalog{Catalog: catalog, Credentials: write, Prices: &d.PlatformPricesService{Repository: read}}
+
 	return &d.SharedModelService{Repository: read, Catalog: trusted}, &d.SharedModelService{Repository: write, Catalog: trusted}, prices, nil
 }
 
