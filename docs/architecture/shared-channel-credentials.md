@@ -227,7 +227,7 @@ D1–D4 已明确认可，准确 b4 的独立 R1 已使本设计 IMPLEMENTATION_
 本轮已另行授权原 Writer 实现、自检、维护原 PR，复用原 Reviewer；不自动获得合并、部署、关单或保留实例操作权限。
 保留实例、数据和会话；缺证据 UNKNOWN，运行/真实保存恢复/浏览器/模型质量/产品验收 NOT_RUN；#47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT。
 
-## 10. 新版本的受限维护入口
+## 11. 新版本的受限维护入口
 
 仅适用于经另行授权安装的新空 Run DB。原 `product-agent-runtime-prepare` 的 run 目标建立连接、回执和去密投影；已有旧凭据表、部分组或 schema 漂移均拒绝，不修复、不迁移。Image DB 不再建立凭据表。既有安装/启动操作仍须各自授权，本轮未执行。
 

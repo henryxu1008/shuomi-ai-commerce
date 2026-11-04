@@ -1,6 +1,6 @@
 # Product Agent 标题诊断试用交接
 
-> 新版本凭据维护已切换到[企业渠道连接](../architecture/shared-channel-credentials.md#10-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
+> 新版本凭据维护已切换到[企业渠道连接](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
 
 Refs #131、#132、#134、#573。入口是当前 Console 的 1688 采集详情：
 `/workbench/supply/acquisition/operation/<operation_id>`。范围是从已保存的确切商品版本

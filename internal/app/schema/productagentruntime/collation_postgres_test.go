@@ -25,7 +25,8 @@ func TestPrepareRejectsCredentialScopeCollationDriftWithoutRepair(t *testing.T) 
 			_, err = reader.Metadata(ctx, test.lookupTenant, test.lookupClient)
 			require.ErrorIs(t, err, credential.ErrNotFound)
 
-			require.NoError(t, f.db.Exec("CREATE COLLATION public.case_insensitive (provider=icu,locale='und-u-ks-level2',deterministic=false); ALTER TABLE public.ai_channel_connections ALTER COLUMN "+quote(test.column)+" TYPE varchar(128) COLLATE public.case_insensitive").Error)
+			require.NoError(t, f.db.Exec("DROP VIEW public.ai_channel_credential_bindings; CREATE COLLATION public.case_insensitive (provider=icu,locale='und-u-ks-level2',deterministic=false); ALTER TABLE public.ai_channel_connections ALTER COLUMN "+quote(test.column)+" TYPE varchar(128) COLLATE public.case_insensitive").Error)
+			require.NoError(t, f.db.Exec(channelstore.MetadataView+"; ALTER VIEW public.ai_channel_credential_bindings OWNER TO product_agent_owner; GRANT SELECT ON public.ai_channel_credential_bindings TO product_agent_runtime").Error)
 			_, err = reader.Metadata(ctx, test.lookupTenant, test.lookupClient)
 			require.Error(t, err, "even a drifted database cannot change exact tenant/connection identity")
 			tables := []string{"public.ai_channel_connections", "public.preserved_fact"}
