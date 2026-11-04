@@ -153,6 +153,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [knowledgeBaseId, setKnowledgeBaseId] = useState("");
+  const [contextExpanded, setContextExpanded] = useState(false);
   const [templateId, setTemplateId] = useState("");
   const [templateRevision, setTemplateRevision] = useState("");
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(null);
@@ -185,6 +186,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       setContent(checked.data.content);
       if("taskSelection" in checked.data){setSubject(checked.data.taskSelection.subject);setParameters(checked.data.taskSelection.parameters)}else{setOperationId(checked.data.operationId);setPlatform(checked.data.targetPlatform)}
       setTemplateId(checked.data.templateId ?? ""); setTemplateRevision(checked.data.templateRevision ?? ""); setKnowledgeBaseId(checked.data.knowledgeBaseId ?? "");
+      if (checked.data.templateId || checked.data.templateRevision || checked.data.knowledgeBaseId) setContextExpanded(true);
       } catch { try { sessionStorage.removeItem(messageStorageKey); } catch { /* storage may be unavailable */ } }
     });
     return () => { active = false; };
@@ -292,7 +294,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {!contentTasks?<div className={styles.formGrid}><label>采集操作 ID<Input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
         <label>目标平台<Select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></Select></label></div>:null}
       <label className={styles.promptLabel}>需求<Textarea disabled={Boolean(pendingMessage)} rows={4} value={content} onChange={e => setContent(e.target.value)} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>
-      <details className={styles.optionalContext} open={Boolean(templateId || templateRevision || knowledgeBaseId) || undefined}><summary>模板与知识库（可选）</summary><div className={styles.formGrid}>
+      <details className={styles.optionalContext} open={contextExpanded} onToggle={event => setContextExpanded(event.currentTarget.open)}><summary>模板与知识库（可选）</summary><div className={styles.formGrid}>
         <label>模板 ID（可选）<Input disabled={Boolean(pendingMessage)} value={templateId} onChange={e => setTemplateId(e.target.value.trim())} /></label>
         <label>模板修订号{templateId ? "" : "（可选）"}<Input disabled={Boolean(pendingMessage)} value={templateRevision} onChange={e => setTemplateRevision(e.target.value.trim())} /></label>
         <label>知识库 ID（可选）<Input disabled={Boolean(pendingMessage)} value={knowledgeBaseId} onChange={e => setKnowledgeBaseId(e.target.value.trim())} /></label></div></details>

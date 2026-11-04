@@ -85,6 +85,18 @@ it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected 
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
  expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0].key).not.toBe(first.key);
 });
+it("keeps optional settings expanded when the last field is cleared", async () => {
+  render(tree());
+  await screen.findByText("开始讨论");
+  const summary = screen.getByText("模板与知识库（可选）");
+  const disclosure = summary.closest("details")!;
+  fireEvent.click(summary);
+  await waitFor(() => expect(disclosure).toHaveAttribute("open"));
+  fireEvent.change(screen.getByLabelText("知识库 ID（可选）"), { target: { value: operationId } });
+  fireEvent.change(screen.getByLabelText("知识库 ID（可选）"), { target: { value: "" } });
+  expect(disclosure).toHaveAttribute("open");
+  expect(screen.getByLabelText("知识库 ID（可选）")).toBeVisible();
+});
 it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("retains the original intent for %s without owner rejection evidence",async(code)=>{
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code)});
  render(tree());await screen.findByText("开始讨论");fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"原需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
