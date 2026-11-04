@@ -1,7 +1,8 @@
 # Local Account Center：新关闭态候选的配置差异
 
 状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
-应用固定f337521d0；本轮仅按原身份完成运行配置/数据库元数据只读核查，见[新通道实际差异与最小方案](channel-contract-f337-readonly-review.md)。原离线实现与CI记录仍绑定各自准确SourceRef，见PR #1075。
+应用固定f337521d0；既有原身份运行配置/数据库元数据只读核查见[新通道实际差异与最小方案](channel-contract-f337-readonly-review.md)，本轮在其范围上整理design-only候选，不重做现场操作。原离线实现与CI记录仍绑定各自准确SourceRef，见PR #1075。
+后续已取得原公共owner的ACK1075-INSTALL；另名新空Run的安装入口仍需最小补丁，见[design-only候选](new-run-ledger-installer-design.md)。角色合同已确认，实际安装操作者/权限未确认；不将候选设计写成可执行入口。
 已按[数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)独立检查并在编码前达到IMPLEMENTATION_READY。
 本页为去密审查差异，不含配置正文或发布授权。原a66继续运行；不自行提权、不改凭据、不发布配置、
 不构建镜像或更新实例、不执行真实采集/AI/付费、不合并关单。
@@ -31,6 +32,9 @@
 | modelRoutePricing.writer / bindings | 单Run owner窄writer；三用途声明引用当前ConnectionID/ConnectionProvider等正式模型定义 | 不是将原imageWriter改名或复制旧Image current；新通道缺准入则明确未就绪，不伪造版本 |
 | 平台参考价 / 企业三类默认选择 / 操作模式 | 与运行manifest分开，仍未发布 | 沿原完整CAS/current，不在验证时“先保存一版” |
 | 通道secret reader | 全部AI执行关闭时不要求实例化或解密Key | 未声明不代表通道已准入；未来执行另核当前owner的合法连接/版本及其受限读取身份 |
+| ProductAgent / modelRoutePricing.writer的database | 拟从product_agent同改为product_agent_run_20261104 | host/port/user/password及池4/1保持；新库未创建，原库/manifest不改；不改变其余数据库 |
+| LAC三用途definition | 拟connectionId=lac-bailian-cn-beijing、connectionProvider=bailian | 同企业共享显式连接，当前无连接事实；模型ProviderID仍DASHSCOPE，channel/region/用途限制保持 |
+| 三用途退休准入引用 | 新候选清空旧org-credential引用，保持未配置 | 不机械改前缀或伪造channel版本；合格profile的连接/版本由原Catalog owner准入填充 |
 
 DataServices密钥元数据及定制记录/原人工交付配置仍沿原领域合同；该开关只关闭实时采集执行，不代表所有POST或全系统只读。
 本轮没有实际创建/撤销密钥、提交/交付定制、创建/取消任务或操作具体商品。
@@ -68,6 +72,7 @@ SHA256 194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC；Window
 缺失ai_channel_secret_reader属于标准新空Run准备缺项，AI关闭运行本身不打开其池；不把它与metadata启动阻碍或真实AI执行所需计量混为一谈。
 此前合成夹具仍是离线证据，本轮真实库只读、不执行installer/DDL/GRANT；f337实际LoadConfig/Run仍NOT_RUN。
 最小方案为保留原a66和原库，由原安装负责人另行准备合法的新空Run资源与当前schema，再审查新私密配置；不迁移旧凭据/历史、不在原库补兼容。
+原owner现已确认固定ledger CLI不支持另名库；仅改数据库字段不能启动安装。须先确认[入口最小设计与工具版本](new-run-ledger-installer-design.md)，再分别取得补丁开发、制品构建、实际安装和配置准备授权；本轮均未执行。
 
 ## 其他 worker 与任务队列的实际范围
 

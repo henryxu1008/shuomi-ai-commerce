@@ -84,9 +84,9 @@ LAC 组织为 **394513833252618242**；三用途为 product.content.decision、p
 
 1. **原 a66、原库、配置、数据和卷全部保留。** 不在原库添加替代视图、删旧表、转换旧 Key 或修改旧 schema。
    这是保留运行实例，不是让新版兼容旧库。旧格式历史留在原版本；新空 Run 不承诺显示或续跑旧 Run/凭据历史。
-2. **由原安装负责人提出新空 Run DB 的具体资源差异。** 可优先评估现有 business-db 服务内独立的新库，不要求另建试用实例；本轮尚未创建、命名或授权操作。
+2. **新空 Run 资源方案已收敛为候选。** 在现有 business-db 服务内拟 product_agent_run_20261104，owner 为 product_agent_owner，不要求另建试用实例；未创建、预留或授权实际操作。
    原 reader/writer 已可认证且边界受限，优先复用合格原身份/凭据；缺少的新 secret-reader 角色由具备合法权限的安装方另行准备，不能由本会话自行提权。
-3. **复用当前 installer，而不是写补丁 SQL。** 先由当前调用计量 owner 的新安装路径提供合格 ai_invocations，再沿原 product-agent-runtime-prepare 的 run 目标准备四表组及投影，沿 agent-configuration-schema-init 的 model-route-pricing-only 目标准备路由配置及限定 grants。
+3. **复用当前 installer，先补齐正式入口缺口。** 原公共owner已明确ACK1075-INSTALL，确认现成ledger CLI固定库名、不支持另名新库；须先审查[最小入口设计候选](new-run-ledger-installer-design.md)，不临时建表。合格52列ai_invocations安装后，再沿原product-agent-runtime-prepare的run目标准备四表组及投影，以及原配置/Skill和路由入口。
    preparer 不创建角色或密码，也不创建/修补 ai_invocations；仅建一个空库再直接执行 preparer 并不足够。其它新 Run 消费者需要的当前 schema/权限沿原 owner 安装，具体清单须安装前列清，本轮未盘点为完整安装 PASS。
    role、对象 owner、四表组完整性、准确投影、route reader/writer 与 secret-reader 隔离逐项按原合同验收；不改公共合同或新增迁移/兼容设施。
 4. **资源方案落实后，再单独准备私密候选并按 f337 严格解析。** 仅改变获批数据库目标及上述新通道字段，继续关闭采集和全部 AI。严格解析不等于实际 Run，也不授权创建连接、发布价格/模型选择、构建或更新两服务。
@@ -103,4 +103,4 @@ LAC 组织为 **394513833252618242**；三用途为 product.content.decision、p
 
 本轮交付为 **READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_DEPLOYMENT_READY**。
 没有修改数据库、凭据、私密配置或运行服务；f337 实际严格解析/启动、新镜像构建、配置发布、更新和真实调用均 **NOT_RUN**。
-下一步所需的是新空 Run 资源与安装的具体批准，不是进一步细化厂商价格或在原库重试启动。
+后续已取得原owner明确回执，消息处理不再是阻碍。当前缺项是现有ledger CLI的新空目标模式、独立工具准确来源，以及实际安装操作者/授权；详见[design-only候选](new-run-ledger-installer-design.md)。本轮仅整理方案，不读取安装凭据、不连接或操作数据库/容器、不实现/构建/安装，不把原快照改写为本轮执行PASS。

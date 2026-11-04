@@ -1,14 +1,29 @@
 # 市场调研与智能选品：关闭执行候选的两服务更新方案
 
 状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
-本轮仅按原身份只读核查，应用固定f337521d0c69f8342c9335ba31e8b86ea3236fa4；原a66保持运行。
+本轮为安装方案的design-only整理，应用固定f337521d0c69f8342c9335ba31e8b86ea3236fa4；原a66保持。
 具体配置/结构差异及最小新空Run方案见[核查结果](channel-contract-f337-readonly-review.md)。不能使用任意分支HEAD/main、后续文档提交或旧1e镜像代替应用来源。
 本轮不构建镜像、不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并关单。
 预算仍研究/选品各¥0.30/20点、合计¥0.60/40点，原内容候选A为¥0.30/72000 Token。
 
 本轮只读调查的Design Basis: **N/A**，不改正式业务代码或运行语义。此前离线实现依据为 **Independent Architecture / IMPLEMENTATION_READY（仅离线实施）**，见
-[数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)。本轮实际main一次组合d80d7b1e0，
+[数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)。此前应用离线实施实际main一次组合d80d7b1e0，
 复用#1089的共享通道凭据，保留原研究/选品、完整图片关闭态及供应链/图片修复；不重建公共模型、费用或凭据能力。
+
+## 原 owner 已回复与当前安装阻碍
+
+已在原聊天取得 **ACK1075-INSTALL**。公共 owner 确认现成 f337 ledger CLI 只接受 product_agent/product_agent_owner，**不支持另名新空库**；Run prepare 只验证已有的准确52列ledger，不创建它。
+因此本方案的资源、角色、顺序与配置可以审查，安装尚非可执行状态。新的[最小入口设计候选](new-run-ledger-installer-design.md)明确拟议参数、独立工具版本、schema-init制品来源及停止条件；尚未实现或获准构建/安装。
+
+| 本候选范围 | 已收敛结果 |
+| --- | --- |
+| 新空Run | 同一原business-db内拟product_agent_run_20261104，owner product_agent_owner；不新增试用项目、容器服务、端口或卷；不克隆原库 |
+| 角色 | 获准集群安装身份做资源/配置，product_agent_owner做ledger/Run；配置/Skill仍各自NOLOGIN owner；serving/writer不提权。实际操作者/现场权限仍未确认 |
+| 工具来源 | ledger及配置工具在Dockerfile.account-compose的schema-init target；Run prepare在f337标准后端。新工具需独立准确SourceRef，不能冒称原f337已有参数 |
+| 安装顺序 | 另行获准准备制品和新目标 → ledger → Run/通道 → 配置/Skill → 路由 → 只读核验与另获授权的私密解析；不能跳过缺失ledger入口 |
+| 商业资源 | 原商业/资源库及Money/初始报价不在此安装范围，不运行commercial-owner-schema-migrate或整套bootstrap |
+
+本轮不读取安装凭据、不连接或修改数据库、不操作容器，不编译或重跑业务测试；原只读快照保留其时间范围，不冒称本轮现场权限验证。
 
 ## 用户现在能核对的结果
 
@@ -73,8 +88,8 @@
 ## 后续获准后的更新与回退顺序
 
 1. fresh核原a66的两镜像/标签、原manifest/Compose hash/ACL、网络、挂载、卷及身份依赖健康。
-2. 先单独确认新空Run的资源、原安装负责人及当前各owner的schema/限定grants；未获安装授权不创建数据库、角色或执行initializer。再仅在独立配置准备授权内生成/解析新候选，核其hash/Windows ACL/实际Linux模式；原a66及原库不改，不导入旧历史/凭据，不借此发布共享模型选择/价格。
-3. 仅在构建授权内构建PR记录的准确应用SourceRef并核回执；文档/main后续推进不自动换源。
+2. 先确认最小安装入口设计，另行授权现有CLI补丁及必要离线自检；冻结独立工具准确Ref/制品来源，应用仍f337。现成命令不支持另名库时，不先建库或用临时SQL绕过。
+3. 构建、资源安装和私密配置分别授权：获准后按准确来源准备工具及f337应用制品，再由实际合法安装方按设计页顺序准备新目标与schema/grants；随后才在配置准备授权内生成/解析新候选并核hash/ACL/模式。任何阶段不自动发布模型选择/价格，不导入旧历史/凭据；文档/main后续推进不自动换应用源。
 4. 仅在更新与启动范围获准后，先更新后端并核健康/身份/管理读取，再更新UI；不跑initializer/DDL或整个项目up。
 5. 获准的只读检查沿正常身份进入市场调研、选品和配置/历史；未登录入口仍跳登录、BFF拒绝未登录。不点击采集、生成、恢复、确认执行或操作具体商品。
 6. 后核只有两服务ID/image和经批manifest绑定改变，其他服务、配置/环境/命令/网络、卷保持。回退实际执行和用户验收仍须各自如实记录。
