@@ -21,6 +21,9 @@ type sharedMetadataFixture struct {
 
 func (f *sharedMetadataFixture) Credential(_ context.Context, org, id string) (d.Credential, error) {
 	f.reads++
+	if id == "" {
+		return d.Credential{}, d.ErrUnavailable
+	}
 	if f.credential.OrganizationID != org || f.credential.ConnectionID != id {
 		return d.Credential{}, d.ErrNotFound
 	}

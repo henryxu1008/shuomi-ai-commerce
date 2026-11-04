@@ -145,6 +145,10 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 			q.Reason = "CONSUMER_BINDING_MISMATCH"
 			return q, nil
 		}
+		if !d.ValidFact(def.ConnectionID, 128) || !d.ValidFact(def.ConnectionProvider, 128) {
+			q.Reason = "CREDENTIAL_NOT_ADMITTED"
+			return q, nil
+		}
 		credentials := c.Credentials
 		if credentials == nil {
 			q.Reason = "CREDENTIAL_READER_MISSING"
