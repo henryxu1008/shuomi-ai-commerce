@@ -1,25 +1,25 @@
 # Local Account Center：1e3509 统一模型配置差异
 
-状态：**REVIEWABLE_DRAFT / NOT_PUBLISHABLE**。本轮只读核对及文档准备，不是实际配置文件、安装回执或发布授权。
+状态：**OFFLINE_CONFIG_VALIDATED / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。用户本轮已授权生成独立私密候选并离线严格解析；本文只记录去密差异，不含实际配置正文或发布授权。
 应用固定为 `1e3509bda06ad9b8160b0c5a7c5d451de9496c61`，tree `074f19ab3dd06a8f9552ba73d13b344055913b6c`。
 2026-11-04用户已明确接受候选A：原内容也收紧到¥0.30/72000 Token。该预算决定已批准，不再待确认；
 它不授权改凭据、发布配置、构建/更新实例或真实调用。本页其他运行缺项仍按各自层级处理。
 原独立增量复核与 [CI 41765722589](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41765722589) 已通过；本轮文档提交不改变应用来源，也不把原 CI 冒称新文档 SHA 的直接执行结果。
-前一文档提交 `81b145d902ce21f39915c3f1896d2ad683f69d47` 的 [CI 41779026965](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41779026965)
-已 completed/SUCCESS，Required CI Gate `126409331296` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
+前一文档提交 `987e558e1184112b8a20ccac13c45fbb510949d6` 的 [CI 41780338741](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/41780338741)
+已 completed/SUCCESS，Required CI Gate `126413624959` SUCCESS；架构、准入、分类、前后端、CodeHealth均SUCCESS，条件Windows/Release/Capture为SKIPPED。
 本页随后收敛的草案不是该旧SHA直接执行过的配置，也没有被应用到实例。
 
 ## 本次交付与依据
 
 使用者为 Local Account Center 配置管理员及指定实例操作者。目标是准备一份符合当前统一 owner 的关闭态运行配置，
 使管理员后续可以查看配置、业务人员可以读取原历史；研究/选品和图片新执行继续关闭。
-本轮 Design Basis: **N/A（只读现状映射及文档）**，复用已准入的[生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
+本轮 Design Basis: **N/A（按已批准合同生成未应用配置、离线解析及文档）**，复用已准入的[生命周期合同](../architecture/ai-disabled-application-lifecycle.md)、
 [统一模型合同](../architecture/enterprise-shared-model-configuration.md)和[两项文字合同](../architecture/bailian-deepseek-shared-text-admission.md)。
 不改变产品、权限、状态、事实 owner 或恢复语义。原工作区、唯一 Writer、PR #1075 保持。
 
-本轮使用原浏览器登录身份，以及原 Run reader / writer 身份完成只读元数据查询。
-原凭据仅在本机认证进程内复用，未展示、另存或改写；没有读取 Key 表数据、worker 私密文件、任务载荷、商品、余额或模型响应。
-数据库检查使用 `BEGIN READ ONLY`、5秒语句/1秒锁超时，最终 `ROLLBACK`；没有调用发布、安装、恢复或执行入口。
+此前阶段使用原浏览器及原数据库身份完成只读元数据查询，数据库检查为 `BEGIN READ ONLY`、5秒语句/1秒锁超时、`ROLLBACK`。
+本轮按用户明确授权，将原manifest凭据原值复用到新的私密候选；未展示、改写凭据或写入仓库/去密回执。
+没有读取Key表数据、worker私密文件、任务载荷、商品、余额或模型响应，没有调用发布、安装、恢复或执行入口。
 不做旧兼容、迁移、双读/双写、旧 ID 映射或第二 current；不改凭据、不发布配置、不构建/更新实例、不真实采集/AI/付费、不合并。
 
 ## 当前基线与目标差异
@@ -44,7 +44,33 @@
 | 平台参考价、企业三类选择、操作模式 | 已读 current 的版本元数据，未改写；共享选择及参考价未发布 | 与运行 manifest 分开。平台价格和企业完整三类选择沿原 owner/CAS 发布；本次不发布，不恢复旧 image current，不用残缺选择快照替代完整 CAS |
 
 上述是字段级目标，不是可直接复制的 manifest。没有用假密码、`<组织ID>`、虚构 revision 或不存在的 passwordFile/env 插值功能拼出“可运行配置”。
-后续实际私密文件另建，原 a66 文件不覆盖；凭据仍由原受控 owner 提供。如果现有环境没有合法 writer 身份，不能靠本次“不改凭据”授权创建账号或设密码。
+独立私密文件已生成，原a66文件没有覆盖；复用原受控凭据，不创建账号、设密码或修改任何grant。
+
+### 已生成文件与离线解析回执
+
+候选宿主路径：`C:/Users/Henry/.codex/private/market-research-unified-20261104-config-a-01/current-application-1e3509-a.private.json`。
+SHA256：`194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC`。
+新目录先限制ACL，再写入凭据；允许主体仅Henry和SYSTEM。原文件SHA256仍为上文1271…，原后端仍只读挂载原文件，未加载该候选。
+
+固定1e的 `internal` tree为 `8653591a9667dc803777e0d711984bba1d841fb7`，与本工作区解析时的生产源码完全相同。
+临时解析测试只调用现有 `currentapplication.LoadConfig`，不调用`Run`；在network=none、uid/gid=65534、只读根的一次性进程中运行，
+输入经stdin进入私有tmpfs的0600内存文件。未启动应用、身份预检、监听器、DB连接、worker、恢复循环或provider；未构建应用镜像。
+
+| 离线检查 | 结果 | 范围 |
+| --- | --- | --- |
+| 固定源码LoadConfig：唯一JSON键、未知字段、尾随JSON及完整静态validate | PASS | 针对上述候选hash，Linux路径语义；不证明实际挂载/依赖启动 |
+| 已批准A、完整图片零声明、单Run writer和3条文字定义 | PASS | 不包含模型使用时资格或实际价目发布 |
+| 注入未知字段、重复字段、尾随JSON的负例 | 均被拒绝 | 使用同一个现有严格入口，无宽松解析/fallback |
+| 原凭据与其他配置语义对比 | PASS | 密码/令牌/密钥相关值及引用未变；writer仅改变目标库，限定变化外全部相同 |
+| 原a66与候选状态 | 原容器健康、原hash/挂载不变；候选未发布 | 1e正式启动、现场历史GET和用户验收NOT_RUN |
+
+首次真实严格解析发现，原**已关闭Chat**的 `aiWorkbench.planningTextPolicies.394513833252618242.Profile.PointTariff`
+也会被全文件严格解码拒绝。最终候选只额外移除这个退休字段，Chat仍enabled=false，其余Chat配置/凭据不变；
+不把旧点价映射成OfficialTariff，不增加Chat定义或放宽解析。初始拒绝与最终通过区分保留，不把失败记作PASS。
+
+去密回执为 `.local/selection-private-a-parse-1e3509-20261104-01/redacted-diff.json`，
+仅包含源/候选hash、实际变化的字段路径、白名单目标值和凭据未变结论；不包含任何秘密值。
+同目录保存严格解析结果与一次性测试源码/产物的hash，不作为正式工具或生产入口提交。
 
 ## 两项文字定义与预算保持
 
@@ -185,7 +211,7 @@ Run DB 的 LAC 内容 current 为 `route-af239e9c-04e4-4846-bb1f-31a07365faa7`�
 | `ai_route_config_options` | 关闭态统一配置管理 | Run库不存在；1e明确使用 requireOptions=false，不是该路径启动缺项，不能据此安装旧Image options表 |
 | `ai_invocations` | 后续真实文字执行 | 当前53列/目标52列：缺 `official_tariff_json`、`billable_usage_json`；多旧 `point_price_version`、input/output points列。不符合1e严格执行合同；enabled=false不装配文字执行器，因此不把它误判成关闭态管理启动阻碍。本轮不迁移/安装/改库 |
 | 原完整图片/Asset/配置/审计读取资格 | 原历史与启动 | 本轮原5角色READ ONLY核对结果见下表；权限/必要列/约束已匹配相应检查项，未读取历史业务行、未真正装配1e，不能称完整启动或历史验收PASS |
-| 准确企业/三项文字定义元数据 | 声明候选、后续配置选择 | 企业/原Client/凭据版本/端点/超时已核；三用途当前Profile、启用关闭、A预算目标已明确，原内容收紧已批准；实际部署尚无研究/选品policy，真实manifest未写入 |
+| 准确企业/三项文字定义元数据 | 声明候选、后续配置选择 | 企业/原Client/凭据版本/端点/超时已核；三用途定义与A预算已写入独立候选并通过严格解析，尚未应用到实际部署，研究/选品未获执行资格 |
 | 图片候选及credential reader | 图片技术Ready | 本次不声明新ImageAdmission，类别保持未准入；无worker credential reader不阻碍关闭态历史读取。未来声明候选时仍可能CREDENTIAL_READER_MISSING，不为显示Ready而启worker |
 | 参考价/完整共享选择/操作模式版本 | 后续真实研究与选品 | 本次不发布；未就绪只如实显示。配置管理启动不等于模型可执行，技术Ready也不等于真实调用授权 |
 | 其他worker/恢复入口、真实队列影响 | 更新前外部副作用边界 | 候选保留/关闭范围已在下表明确；保留依赖不授权消费任务或执行恢复。不能悄悄停原服务，也不能将候选的启动副作用解释为已批准 |
@@ -213,7 +239,7 @@ Image/Asset直接复用固定1e现有验证器中的只读catalog查询；没有
 | --- | --- | --- |
 | 内容预算决定 | RESOLVED：A已由用户批准 | 不再重复请求同一决定 |
 | writer、Run配置/图片API/Asset/审计元数据 | MATCHED_METADATA | 真正更新前核漂移，实际启动/历史GET在获准更新后按原入口检查；不把未执行结果写PASS |
-| 当前合法运行文件 | NOT_CREATED / NOT_PUBLISHED | 另获准后才生成独立私密manifest、严格解析并审hash/去密diff；原a66文件不覆盖。任何新增静态字段差异先列明，不实际启动a66试错 |
+| 当前合法运行文件 | CREATED / STRICT_PARSE_PASS / NOT_PUBLISHED | 固定hash独立私密文件及去密diff已生成；后续发布/更新前核漂移和实际挂载读取。原a66文件不覆盖，不以正式启动试错 |
 | 图片预算/旧4声明 | 本次不开放图片执行，采用零声明及显式目录排除；不是待查精确图片价格 | 作为本次新配置差异一并审查；未来生成准入另行处理，不拖住关闭态管理/历史方案 |
 | 保留worker和恢复器的启动 | 范围已明确，启动/消费NOT_AUTHORIZED | 后续更新授权须明确覆盖真实启动影响；若要求完全无后台消费，固定1e+现依赖配置不足，本轮不造开关或改代码 |
 | 平台参考价、共享三类选择、操作模式发布 | NOT_PUBLISHED | 不属于本次关闭态启动前置，未来沿原owner完整CAS；不可测试保存/先发布一版 |
@@ -247,10 +273,9 @@ Image/Asset直接复用固定1e现有验证器中的只读catalog查询；没有
 
 ## 未来配置交付清单
 
-1. 复用已批准A、已核writer/LAC及五原角色元数据，审查本页3条文字定义/零图片声明/旧4图片定义不进入新目录/worker保留范围。预算决定已完成，不再研究精确厂商价格、不申请新凭据/角色，不等待新的渠道凭据设计来替换固定1e。
-2. 形成独立的新私密 manifest 及去密 diff：只包含明确批准的字段改动，productAgent=false、generation=false；原 a66 文件和哈希不变。现在没有生成或写入该真实文件。
-3. 在明确获准的离线/元数据检查范围完成当前严格字段和资源校验；不以在 a66 上尝试启动或请求模型来“验证配置”。
-4. 通过后才进入[两服务更新方案](market-research-unified-update-plan.md)。模型/参考价发布、构建、实例更新、真实AI分别单独授权，不能因批准本文一并执行。
+1. 已完成：按A生成独立候选、补清关闭Chat退休字段、固定1e严格解析及去密diff；原a66文件/挂载/凭据值不变。不再重复预算决定、精确价格调查或生成同一候选。
+2. 发布/更新前审查本页实际变化、文件hash/ACL、原元数据是否漂移，以及保留worker的启动影响；不把解析PASS升级成正式装配或历史验收。
+3. 只有获得相应授权才进入[两服务更新方案](market-research-unified-update-plan.md)。本轮不挂载/发布该文件，不构建应用镜像或更新实例；模型/参考价发布、真实AI也分别单独授权。
 
 用户业务链仍是智能市场启用/配置 → 同项目选择2–5项资料 → 比较/费用估算 → 明确确认只读分析 → 人工决定 → 准确子集交接。
 本轮不操作这条真实业务链；1e3509已通过的合成回归与真实采集、远端模型、现场历史读取及用户验收区分，后者均NOT_RUN。
