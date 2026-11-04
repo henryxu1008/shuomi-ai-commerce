@@ -98,6 +98,7 @@ COPY internal/integration/persistence/toolmarket/schema.sql /etc/tool-market-sch
 COPY --chmod=0755 deployments/docker/account-compose/native-modules-init.sh /usr/local/bin/native-modules-init
 COPY --chmod=0755 deployments/docker/account-compose/ecoservices-init.sh /usr/local/bin/ecoservices-init
 COPY --chmod=0755 deployments/docker/account-compose/chat-init.sh /usr/local/bin/chat-init
+COPY --chmod=0755 deployments/docker/account-compose/storage-capacity-init.sh /usr/local/bin/storage-capacity-init
 COPY --from=go-builder /out/referral-schema-init /usr/local/bin/referral-schema-init
 COPY --from=go-builder /out/organization-membership-schema-init /usr/local/bin/organization-membership-schema-init
 COPY --from=go-builder /out/source-account-registry-schema-init /usr/local/bin/source-account-registry-schema-init

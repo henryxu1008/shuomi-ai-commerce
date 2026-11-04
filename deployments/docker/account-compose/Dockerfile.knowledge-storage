@@ -15,6 +15,7 @@ RUN case "$(uname -m)" in \
 ENTRYPOINT ["minio"]
 
 FROM alpine:3.22 AS client
+RUN apk add --no-cache jq
 LABEL org.opencontainers.image.source="https://github.com/minio/mc" \
       org.opencontainers.image.version="RELEASE.2025-04-16T18-13-26Z" \
       org.opencontainers.image.licenses="AGPL-3.0-only"

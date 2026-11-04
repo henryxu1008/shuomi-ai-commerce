@@ -17,6 +17,11 @@ ACCOUNT_PUBLIC_IDENTITY_HOST=auth-trial.example.com
 ```
 
 Only exact HTTPS DNS origins on port 443 are supported by this trial layer.
+For a new unified trial, use `sh ./compose-modules.sh --chat --public -- up -d --build --wait`
+with capacity included (omit `--chat` if not selected), and keep the same options
+on every restart. See [storage-capacity.md](storage-capacity.md) for automatic
+identity/policy installation, final-manifest composition and other-module gaps.
+
 Origins and hostnames must agree. Bootstrap records the two origins in its
 existing state volume; restart with the original values. Changing a retained
 local installation to public, changing either public origin, or dropping the

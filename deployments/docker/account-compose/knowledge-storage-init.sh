@@ -8,3 +8,6 @@ mc anonymous set none local/knowledge >/dev/null
 mc admin policy create local knowledge-runtime /init/policy.json >/dev/null
 mc admin user add local "$(cat /private/access-key)" "$(cat /private/secret-key)" >/dev/null
 mc admin policy attach local knowledge-runtime --user "$(cat /private/access-key)" >/dev/null
+if test "${ACCOUNT_STORAGE_CAPACITY_ENABLED:-}" = 1; then
+ /bin/sh /init/capacity-storage-init.sh knowledge
+fi

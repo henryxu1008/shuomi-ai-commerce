@@ -39,6 +39,8 @@ are documented in [data-services.md](data-services.md). The unified new-empty
 program combining the completed native modules is documented in
 [modules.md](modules.md), including exact-origin plugin packaging, retained
 restart commands and the remaining external configuration requirements.
+The recommended new unified entrypoint includes [enterprise storage capacity](storage-capacity.md),
+with automatic original-MinIO identity and narrow-policy installation.
 
 ## Enterprise custom roles and members (#598)
 
