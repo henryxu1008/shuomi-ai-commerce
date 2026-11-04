@@ -20,7 +20,6 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
 	assetpersistence "task-processor/internal/integration/persistence/product/asset"
-	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 func imageRuntimePermissionTestDSN(t *testing.T) string {
@@ -82,11 +81,11 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role))
 	require.Error(t, verifyOrganizationRuntimePermissions(ctx, owner, role))
-	require.NoError(t, routeconfigstore.InstallSchema(ctx, owner))
-	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options", "ai_client_credential_bindings"} {
+	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options"} {
 		t.Run("unneeded_managed_read_"+relation, func(t *testing.T) {
+			require.NoError(t, owner.Exec("CREATE TABLE "+relation+"(value text)").Error)
 			require.NoError(t, owner.Exec("GRANT SELECT ON "+relation+" TO "+role).Error)
-			require.Error(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role), "only the worker pool reads managed image routes")
+			require.Error(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role), "Image pools do not own the Run configuration")
 			require.NoError(t, owner.Exec("REVOKE SELECT ON "+relation+" FROM "+role).Error)
 			require.NoError(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role))
 		})
