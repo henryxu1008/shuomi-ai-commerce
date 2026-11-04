@@ -44,6 +44,9 @@ type OfficialModelRates struct {
 // effective dates and credentials before constructing it. No caller-selected
 // rates or FX can authorize dispatch through these arithmetic helpers.
 type OfficialModelTariff struct {
+	// WireModel is set only by the trusted qualifier when a channel uses a
+	// different exact identifier. Model keeps its manufacturer price identity.
+	WireModel                string             `json:"wireModel,omitempty"`
 	UnitVersion              string             `json:"unitVersion"`
 	PriceVersion             string             `json:"priceVersion"`
 	FXVersion                string             `json:"fxVersion"`
@@ -53,6 +56,13 @@ type OfficialModelTariff struct {
 	Channel                  string             `json:"channel"`
 	UsageVersion             string             `json:"usageVersion"`
 	Rates                    OfficialModelRates `json:"rates"`
+}
+
+func (p OfficialModelTariff) MatchesWireModel(model string) bool {
+	if p.WireModel != "" {
+		return validTextFact(p.WireModel, 128) && p.WireModel == model
+	}
+	return p.Model == model
 }
 
 func (p OfficialModelTariff) IsReferenceEstimate() bool {
@@ -106,6 +116,9 @@ func (u BillableModelUsage) Validate() error {
 }
 
 func (p OfficialModelTariff) Validate() error {
+	if p.WireModel != "" && !validTextFact(p.WireModel, 128) {
+		return ErrOfficialModelPrice
+	}
 	if p.IsReferenceImageEstimate() && (p.Rates.InputText <= 0 || p.Rates.InputImage <= 0 || p.Rates.OutputImage <= 0 || p.Rates.CachedInputText != 0 || p.Rates.CachedInputImage != 0 || p.Rates.OutputText != 0 || p.Rates.OutputImagePerItem != 0) {
 		return ErrOfficialModelPrice
 	}

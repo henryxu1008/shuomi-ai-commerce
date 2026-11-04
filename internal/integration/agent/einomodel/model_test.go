@@ -63,7 +63,7 @@ func TestTitleAdapterUsesFrozenProfileAndSharedEinoExecutor(t *testing.T) {
 	}))
 	defer server.Close()
 	endpointHash := sha256.Sum256([]byte(server.URL))
-	profile := aicapability.ModelProfile{ClientName: "title", ProviderID: "synthetic", AdapterKind: "openai-compatible",
+	profile := aicapability.ModelProfile{ConnectionID: "fixture-connection", ClientName: "title", ProviderID: "synthetic", AdapterKind: "openai-compatible",
 		ModelID: "synthetic-title", EndpointIdentityDigest: hex.EncodeToString(endpointHash[:]), CredentialVersion: "v1",
 		RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1",
 		OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "USD", CNYMicrosPerCurrencyUnit: 1000000, Model: "synthetic-title", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}}, Currency: "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000,

@@ -24,3 +24,14 @@ it("opens platform prices without conferring enterprise configuration permission
 it("keeps a platform reader without write authority read-only",async()=>{state.context.permissions=["listingkit.platform_admin"];fixture();mount(true);expect(await screen.findByRole("heading",{name:"模型参考价与人民币汇率"})).toBeVisible();expect(screen.getByRole("button",{name:"添加参考价目"})).toBeDisabled();expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument()});
 it("shows the existing platform maintenance entry without requesting enterprise-only capabilities",async()=>{state.context.permissions=["listingkit.platform_admin"];const fetch=fixture(),client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);render(<QueryClientProvider client={client}><ModelRoutePricingEntry scope={scope}/></QueryClientProvider>);expect(await screen.findByRole("link",{name:"模型与费率"})).toBeVisible();expect(fetch.mock.calls.map(([url])=>url)).toEqual(["/api/model-route-pricing/platform-prices"])});
 it("keeps displayed official amounts bound to the surviving price after deleting an earlier row",async()=>{fixture();const user=userEvent.setup(),client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);render(<QueryClientProvider client={client}><OfficialPriceEditor scope={scope} canPublish/></QueryClientProvider>);const add=await screen.findByRole("button",{name:"添加参考价目"});await user.click(add);await user.click(add);const rates=screen.getAllByLabelText("文字输入 / 百万 Token（参考原币）");await user.clear(rates[0]);await user.type(rates[0],"1.25");await user.clear(rates[1]);await user.type(rates[1],"2.5");await user.click(screen.getAllByRole("button",{name:"删除此价目"})[0]);expect(screen.getByLabelText("文字输入 / 百万 Token（参考原币）")).toHaveValue("2.5")});
+
+it("offers Anthropic in the existing reference price form", async () => {
+ fixture();
+ const user=userEvent.setup(), client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ clients.push(client);
+ render(<QueryClientProvider client={client}><OfficialPriceEditor scope={scope} canPublish/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"添加参考价目"}));
+ await user.selectOptions(screen.getByLabelText("模型厂商"),"anthropic");
+ expect(screen.getByLabelText("模型厂商")).toHaveValue("anthropic");
+ expect(screen.getAllByText("参考价目 1")).toHaveLength(1);
+});

@@ -27,6 +27,9 @@ type ImageAdmission struct {
 	Billing            aicapability.OfficialModelBilling `json:"billing"`
 }
 type Definition struct {
+	// Empty means the wire ID is already the manufacturer price ID. A
+	// different ID must be explicit; never strip a channel/vendor prefix.
+	ManufacturerModel    string                `json:"manufacturerModel,omitempty"`
 	ConnectionID         string                `json:"connectionId"`
 	ConnectionProvider   string                `json:"connectionProvider"`
 	Manufacturer         string                `json:"manufacturer"`
@@ -53,6 +56,12 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 	}
 	c := &Catalog{definitions: map[d.Scope]map[string]Definition{}}
 	for _, def := range defs {
+		if def.ManufacturerModel != "" && !d.ValidFact(def.ManufacturerModel, 128) {
+			return nil, d.ErrInvalid
+		}
+		if def.Image != nil && def.ManufacturerModel != "" && def.ManufacturerModel != def.Image.Model {
+			return nil, d.ErrInvalid
+		}
 		if !def.Scope.Valid() || def.MaximumMicropoints < 0 || (def.Text == nil) == (def.Image == nil) || (def.Image != nil) != (def.Scope.Capability == d.ImageCapability) {
 			return nil, d.ErrInvalid
 		}

@@ -21,7 +21,7 @@ func singleImageQuoteInput(t *testing.T, mutate func(map[string]any)) TextInputI
 	require.NoError(t, err)
 	var envelope map[string]any
 	require.NoError(t, json.Unmarshal(raw, &envelope))
-	envelope["Image"] = map[string]any{"SelectionDigest": strings.Repeat("a", 64), "ContentSHA256": strings.Repeat("b", 64), "MediaType": "image/png", "ByteLength": 256, "Width": 64, "Height": 64, "Detail": "high", "MeteringVersion": "openai-mini-image-high-v1"}
+	envelope["Image"] = map[string]any{"SelectionDigest": strings.Repeat("a", 64), "ContentSHA256": strings.Repeat("b", 64), "MediaType": "image/png", "ByteLength": 256, "Width": 64, "Height": 64}
 	if mutate != nil {
 		mutate(envelope)
 	}
@@ -57,7 +57,7 @@ func TestSingleImageQuoteRejectsWrongPurposeMissingImageOrUnqualifiedProfile(t *
 	for _, mutate := range []func(map[string]any){
 		func(e map[string]any) { e["Operation"] = string(OperationProductAgentDecision) },
 		func(e map[string]any) { delete(e, "Image") },
-		func(e map[string]any) { e["Image"].(map[string]any)["Detail"] = "low" },
+		func(e map[string]any) { e["Profile"].(map[string]any)["AdapterPolicyVersion"] = "wrong-purpose" },
 		func(e map[string]any) { e["Image"].(map[string]any)["SelectionDigest"] = "" },
 		func(e map[string]any) { e["Image"].(map[string]any)["ContentSHA256"] = strings.Repeat("B", 64) },
 		func(e map[string]any) { e["Image"].(map[string]any)["MediaType"] = "image/webp" },
@@ -67,7 +67,7 @@ func TestSingleImageQuoteRejectsWrongPurposeMissingImageOrUnqualifiedProfile(t *
 			e["Image"].(map[string]any)["Width"], e["Image"].(map[string]any)["Height"] = 8192, 8192
 		},
 		func(e map[string]any) { e["Image"].(map[string]any)["ByteLength"] = 768<<10 + 1 },
-		func(e map[string]any) { e["Image"].(map[string]any)["MeteringVersion"] = "other-model" },
+		func(e map[string]any) { e["Profile"].(map[string]any)["ImagePromptTokenEstimate"] = -1 },
 		func(e map[string]any) { e["Profile"].(map[string]any)["ModelID"] = "other-model" },
 	} {
 		_, err := QuoteText(singleImageQuoteInput(t, mutate))

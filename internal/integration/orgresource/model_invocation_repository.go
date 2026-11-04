@@ -69,7 +69,7 @@ func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id st
 	if err != nil {
 		return fact, err
 	}
-	if fact.TenantID != org || fact.InvocationID != id || modelPointBusinessScope(fact) == "" || fact.MemberID == "" || fact.UserID == "" || fact.InputHash == "" || fact.StartedAt.IsZero() || !fact.OfficialTariff.Valid() || fact.OfficialTariff.Model != fact.ModelID || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.MaximumPromptTokens > math.MaxInt64-fact.MaximumCompletionTokens {
+	if fact.TenantID != org || fact.InvocationID != id || modelPointBusinessScope(fact) == "" || fact.MemberID == "" || fact.UserID == "" || fact.InputHash == "" || fact.StartedAt.IsZero() || !fact.OfficialTariff.Valid() || !fact.OfficialTariff.MatchesWireModel(fact.ModelID) || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.MaximumPromptTokens > math.MaxInt64-fact.MaximumCompletionTokens {
 		return fact, orgresource.ErrInvalidOwnerProof
 	}
 	if _, err := fact.OfficialTariff.ReserveTextMicropoints(fact.MaximumPromptTokens, fact.MaximumCompletionTokens); err != nil {

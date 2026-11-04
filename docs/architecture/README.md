@@ -48,6 +48,7 @@
 - `minio-capacity-admission.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission.md)
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
+- `eino-model-admission.md` — [Eino多厂商模型按需准入（冻结设计与实施合同；交付证据见PR #1093）](eino-model-admission.md)
 - `shared-channel-credentials.md` — [渠道凭据与模型定义分离（D1–D4产品决定已确认；架构候选，尚不可实施）](shared-channel-credentials.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计（D1已认可、R1通过；本轮实现待最终工程复核）](openai-flare-image-generation.md)
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)

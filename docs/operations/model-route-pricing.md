@@ -57,3 +57,33 @@ D1“缺输入细分时使用较高输入参考费率”已获用户认可、原
 原 R 向上、A 向下取整，均沿唯一微点算术与原资源账本。原页面费用预算投影同一 R/A；原 per-image 固定点价不会进入该策略。完整输入细分按对应参考价，缺细分按较高输入价；明确零基础计量可结算零，缺失不等于零。A>R 保留 UNKNOWN/R 和原证据，停止同企业同冻结绑定的新发送，不自动补扣、截断或重发；原键历史和终态找回继续由原 owner 处理。
 
 base64 结果沿原不可变恢复包保存，不能把存储 ACK 丢失当成未调用或退款依据；坏图在可信用量满足 A<=R 时仍正常结算。仅恢复原事实/原对象，不调用 provider 重新生成。实际价目/估算、FX、凭据与发布状态 UNKNOWN；运行、真实保存/恢复、浏览器及产品验收 NOT_RUN。
+
+
+## Eino 多厂商按需接入
+
+沿[冻结用途设计](../architecture/eino-model-admission.md)，仍在原企业三类模型页选择，不增加个人模型设置或网页 Key 输入。
+模型和协议在受限配置的原 Definition 中声明，连接只保存企业渠道身份和秘密；同一合格连接可被多个模型引用。原BoundedAdmission按企业+ConnectionID共享10并发、5次/秒、burst15；不按模型引用增发额度，缺连接身份不回退为模型名限流。
+
+| 用途 | AdapterKind | AdapterPolicyVersion | UsageMappingVersion |
+| --- | --- | --- | --- |
+| Gemini 文本 | google-generate-content | eino-gemini-v0.1.36-text-v1 | gemini-generate-content-usage-v1 |
+| Gemini 单图意见 | google-generate-content | eino-gemini-v0.1.36-single-image-v1 | gemini-generate-content-usage-v1 |
+| Qwen 文本 | qwen-compatible | eino-qwen-v0.1.9-text-v1 | qwen-text-v1 |
+| Qwen 单图意见 | qwen-compatible | eino-qwen-v0.1.9-single-image-v1 | qwen-text-v1 |
+| Claude 原生文本 | claude-native | eino-claude-v0.1.26-text-v1 | claude-text-v1 |
+| 合格 OpenAI-compatible 单图意见 | openai-compatible | eino-openai-v0.1.13-single-image-v1 | openai-text-v1 |
+
+上述新增用途只消费同一已发布 reference-text-totals-v1 参考费率，原 Mini 单图准确策略及 Flare/Qwen 生图仍走各自已准入用途和同一微点账本。
+Claude 基础输入总量由普通输入、缓存读取与缓存创建的显式计数合并；缺任一组成不能按SDK默认零结算，继续UNKNOWN/保留预留。Google由显式总量与输入推导含thought的输出；无有效原始证据不按SDK归零。
+Gemini 的可信 ModelProfile.ThinkingMode 必须显式为 low、minimal 或 budget-zero，并只给声明支持该参数的准确型号使用；例如当前3.8使用low，支持关闭思考的2.5用途可选budget-zero，不按名称自动猜测或回退。最终wire只允许对应thinkingLevel或零thinkingBudget之一，maxOutputTokens包含thought且仍受原上限约束，见[Google官方协议](https://ai.google.dev/gemini-api/docs/generate-content/thinking?hl=en)。
+单图用途显式提供原 ModelProfile.ImagePromptTokenEstimate 参考估算，须留在原 MaximumPromptTokens/费用/点数上限内；Mini 保留原 3001/高细节策略。
+共同 SingleImageInput 只携带准确来源/批准身份、内容摘要、MIME、字节与尺寸；不再携带 Mini 专属 detail/计量字段。来源图不冒充批准素材。
+
+每个已开放文本消费者必须有对应的准确 operation profile，保留其 prompt/output 合同；只配置标题不能让其他文本用途假装已准备好。
+存在渠道/厂商型号差异时，Definition.manufacturerModel 必须显式指向同一原价目中的厂商型号；Profile.ModelID 仍是发送给渠道的准确型号。
+本批显式别名用于已消费的文本/单图用途；Flare/Qwen生图保持自身原准确型号合同，不借别名开放新生图型号。
+原冻结 tariff 的 model 保留厂商计价身份，wireModel 绑定渠道型号；报价、最后门禁与结算复用同一组合，不自动去前缀、发现型号或开启备用模型。
+模型厂商来源当前支持 OpenAI、Google、Qwen、DeepSeek 和 Anthropic 的已声明官方域；其他实际需要的协议/认证仍需沿原 owner 最小补齐，不能伪造可用目录或免费价格。
+
+本段只描述源码交付和配置合同，不代表保留实例已更新、配置已发布或真实调用已验收；正式新安装仍用原初始化入口，不迁移保留库或建设第二安装器。
+未准备好依赖继续显示原因；UNKNOWN、原预留及当前合同内原键恢复不因换型号/换 Key 自动改变。真实调用、效果、浏览器及产品验收保持 NOT_RUN。

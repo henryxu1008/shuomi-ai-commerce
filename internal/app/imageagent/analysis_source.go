@@ -232,7 +232,7 @@ func (r *AnalysisSources) FreezeImageAnalysis(ctx context.Context, c agentconfig
 	if err != nil || format != "png" && format != "jpeg" {
 		return agentconfig.StartCommand{}, agent.ErrInvalid
 	}
-	description := aicapability.SingleImageInput{ContentSHA256: analysisEvidenceHash(content), MediaType: "image/" + format, ByteLength: len(content), Width: decoded.Width, Height: decoded.Height, Detail: "high", MeteringVersion: aicapability.SingleImageMiniMetering}
+	description := aicapability.SingleImageInput{ContentSHA256: analysisEvidenceHash(content), MediaType: "image/" + format, ByteLength: len(content), Width: decoded.Width, Height: decoded.Height}
 	frozen, err := agentconfig.FreezeImageAnalysis(c, kind, imageID, inventoryDigest, applyReceiptID, description)
 	if err != nil {
 		return agentconfig.StartCommand{}, err
