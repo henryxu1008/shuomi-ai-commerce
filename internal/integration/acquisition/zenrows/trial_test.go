@@ -22,6 +22,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
+	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 )
@@ -40,7 +41,7 @@ func approvalFixture() dataacquisition.SHEINUSTrialApproval {
 	return dataacquisition.SHEINUSTrialApproval{
 		ID: uuid.NewString(), ProjectID: uuid.NewString(), AccountRef: uuid.NewString(), KeyRef: uuid.NewString(),
 		Scope:     collection.Scope{OrganizationID: "test-org", ActorID: "test-actor", MemberID: "test-member"},
-		ExpiresAt: time.Now().Add(time.Minute),
+		ExpiresAt: time.Now().Add(time.Minute), Funding: orgresource.FundingMember,
 	}
 }
 
@@ -62,15 +63,7 @@ func (a approvalAuthority) CheckSHEINUSTrialBudget(context.Context, dataacquisit
 func TestFetchTrialPersistsOriginalUsageOverLocalTLS(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	pg, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("zenrows_trial"), tcpostgres.WithUsername("test_owner"), tcpostgres.WithPassword("isolated-zenrows"), tcpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, pg.Terminate(context.Background())) })
-	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	db, err := sql.Open("pgx", dsn)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, jobstore.InstallSHEINUSTrialSchema(ctx, db))
+	db := trialTestDB(t, ctx)
 	store, err := jobstore.NewSHEINUSTrialStore(db)
 	require.NoError(t, err)
 
@@ -378,4 +371,18 @@ func TestLookupEvidenceRequiresOneOriginalFinalRecord(t *testing.T) {
 			require.Equal(t, a.Binding(), u.Binding)
 		})
 	}
+}
+
+func trialTestDB(t *testing.T, ctx context.Context) *sql.DB {
+	t.Helper()
+	pg, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("zenrows_trial"), tcpostgres.WithUsername("test_owner"), tcpostgres.WithPassword("isolated-zenrows"), tcpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, pg.Terminate(context.Background())) })
+	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	db, err := sql.Open("pgx", dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.NoError(t, jobstore.InstallSHEINUSTrialSchema(ctx, db))
+	return db
 }

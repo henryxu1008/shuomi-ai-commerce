@@ -94,12 +94,17 @@ func TestSHEINUSPublicationAndExactReadback(t *testing.T) {
 	selections.WithSnapshots(snapshots)
 	sheinPublisher := NewSHEINUSPublisher(live)
 
+	pool, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, jobstore.InstallSHEINUSTrialSchema(ctx, pool))
 	refs := make(map[string]dataacquisition.SHEINUSPreparedRef)
+	approvals := make(map[string]dataacquisition.SHEINUSTrialApproval)
 	for _, name := range []string{"P1", "P2"} {
 		f := fixture.Publications[name]
-		refs[name] = seedSHEINUSPrepared(t, db, f)
+		approvals[name], refs[name] = prepareSHEINUSFixture(t, ctx, db, repo, &f)
+		fixture.Publications[name] = f
 		if name == "P1" {
-			_, err := repo.PublishSHEINUS(ctx, p, refs[name], func(ctx context.Context, tx *gorm.DB, scope collection.Scope, funding orgresource.ResourceFunding, command sourcing.PublicationCommand, verify bool) (collection.Source, error) {
+			_, err := repo.PublishSHEINUS(ctx, p, approvals[name], refs[name], func(ctx context.Context, tx *gorm.DB, scope collection.Scope, funding orgresource.ResourceFunding, command sourcing.PublicationCommand, verify bool) (collection.Source, error) {
 				_, err := sheinPublisher(ctx, tx, scope, funding, command, verify)
 				require.NoError(t, err)
 				return collection.Source{}, dataacquisition.ErrUnavailable
@@ -107,8 +112,13 @@ func TestSHEINUSPublicationAndExactReadback(t *testing.T) {
 			require.ErrorIs(t, err, dataacquisition.ErrUnavailable)
 			_, err = sources.Read(ctx, p.Scope.OrganizationID, f.Item.ItemID)
 			require.ErrorIs(t, err, sourcing.ErrSourcePublicationNotFound)
+			tampered := strings.Replace(f.ObservationUTF8, "38.88", "39.88", 1)
+			require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE id=?", []byte(tampered), f.Item.ItemID).Error)
+			_, err = repo.PublishSHEINUS(ctx, p, approvals[name], refs[name], sheinPublisher)
+			require.ErrorIs(t, err, dataacquisition.ErrConflict)
+			require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE id=?", []byte(f.ObservationUTF8), f.Item.ItemID).Error)
 		}
-		source, err := repo.PublishSHEINUS(ctx, p, refs[name], sheinPublisher)
+		source, err := repo.PublishSHEINUS(ctx, p, approvals[name], refs[name], sheinPublisher)
 		require.NoError(t, err, name)
 		require.Equal(t, f.Publication.Source, source)
 		var count int64
@@ -142,20 +152,21 @@ func TestSHEINUSPublicationAndExactReadback(t *testing.T) {
 		require.Equal(t, f.Job.SHEINUSQuery.Query, observed.QuerySummary)
 		require.Equal(t, f.Publication.RawReference.Checksum, observed.Checksum)
 		require.Equal(t, "568824474", observed.Observation.NativeGoodsID)
+		require.Equal(t, "after coupon", *observed.Observation.Price.PromotionNote)
 		in.OriginalVersion++
 		_, err = selections.Select(ctx, in)
 		require.ErrorIs(t, err, collection.ErrConflict)
 	}
-	replayed, err := repo.PublishSHEINUS(ctx, p, refs["P1"], sheinPublisher)
+	replayed, err := repo.PublishSHEINUS(ctx, p, approvals["P1"], refs["P1"], sheinPublisher)
 	require.NoError(t, err)
 	require.Equal(t, p1.Publication.Source, replayed)
 	conflicting := refs["P1"]
 	conflicting.Checksum = refs["P2"].Checksum
-	_, err = repo.PublishSHEINUS(ctx, p, conflicting, sheinPublisher)
+	_, err = repo.PublishSHEINUS(ctx, p, approvals["P1"], conflicting, sheinPublisher)
 	require.ErrorIs(t, err, dataacquisition.ErrConflict)
-	conflicting = refs["P1"]
-	conflicting.ReservationID = refs["P2"].ReservationID
-	_, err = repo.PublishSHEINUS(ctx, p, conflicting, sheinPublisher)
+	wrongApproval := approvals["P1"]
+	wrongApproval.KeyRef = approvals["P2"].KeyRef
+	_, err = repo.PublishSHEINUS(ctx, p, wrongApproval, refs["P1"], sheinPublisher)
 	require.ErrorIs(t, err, dataacquisition.ErrConflict)
 
 	stale := p1.Publication.Source
@@ -201,19 +212,55 @@ func TestSHEINUSPublicationAndExactReadback(t *testing.T) {
 	require.Equal(t, "36.50", observed.Observation.Price.Amount)
 }
 
-func seedSHEINUSPrepared(t *testing.T, db *gorm.DB, f sheinUSFixture) dataacquisition.SHEINUSPreparedRef {
+func prepareSHEINUSFixture(t *testing.T, ctx context.Context, db *gorm.DB, repo *jobstore.Repository, f *sheinUSFixture) (dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSPreparedRef) {
 	t.Helper()
-	q, err := json.Marshal(f.Job.SHEINUSQuery)
+	var o dataacquisition.SHEINUSObservation
+	require.NoError(t, json.Unmarshal([]byte(f.ObservationUTF8), &o))
+	a := dataacquisition.SHEINUSTrialApproval{
+		ID: f.Job.JobID, ProjectID: "00000000-0000-4000-8000-000000000501",
+		Scope: f.Job.Scope, AccountRef: uuid.NewString(), KeyRef: uuid.NewString(), Funding: orgresource.FundingMember,
+		ExpiresAt: time.Now().Add(time.Minute),
+	}
+	budget := dataacquisition.SHEINUSTrialBudget{
+		Binding: a.Binding(), AvailableCredits: 25, MaximumRequestCredits: 25, ZeroIncrementalCash: true, ExclusiveKeyWindow: true,
+	}
+	pool, err := db.DB()
 	require.NoError(t, err)
-	s := f.Job.Scope
-	reservation := uuid.NewString()
-	require.NoError(t, db.Exec(`INSERT INTO data_acquisition_jobs
-		(organization_id,actor_id,member_id,id,source_kind,command_key,input_hash,query_json,funding,state,quota_reserved,day_window,month_window,created_at,deadline)
-		VALUES (?,?,?,?,?,?,?,?,'member_allocated','RUNNING',0,CURRENT_DATE,CURRENT_DATE,now(),now()+interval '10 minutes')`,
-		s.OrganizationID, s.ActorID, s.MemberID, f.Job.JobID, "shein_us_data", f.Job.JobID, collection.Digest(f.Job.SHEINUSQuery), string(q)).Error)
-	require.NoError(t, db.Exec(`INSERT INTO data_acquisition_items
-		(organization_id,actor_id,job_id,id,source_kind,native_goods_id,state,intent_json,evidence_json,reservation_id,charge_state,created_at)
-		VALUES (?,?,?,?,?,'568824474','PREPARED_EVIDENCE','{}',?,?,'reserved',now())`,
-		s.OrganizationID, s.ActorID, f.Job.JobID, f.Item.ItemID, "shein_us_data", []byte(f.ObservationUTF8), reservation).Error)
-	return dataacquisition.SHEINUSPreparedRef{JobID: f.Job.JobID, ItemID: f.Item.ItemID, ReservationID: reservation, Checksum: f.Publication.RawReference.Checksum}
+	svc, err := NewSHEINUSTrial(pool, trialAuthority{approval: a, budget: budget},
+		func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
+			credits := 5
+			return dataacquisition.SHEINUSTrialSubmission{
+				SHEINUSTrialUsage: dataacquisition.SHEINUSTrialUsage{ApprovalID: a.ID, Binding: a.Binding(), RequestID: a.ID, Credits: &credits},
+				Cards:             []dataacquisition.SHEINUSTrialCard{{Position: 1, GoodsID: o.NativeGoodsID, Title: *o.Title, URL: o.SourceURL, Amount: o.Price.Amount, Currency: o.Price.Currency, PromotionNote: "after coupon"}},
+			}, nil
+		},
+		func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest, dataacquisition.SHEINUSTrialAttempt) (dataacquisition.SHEINUSTrialUsage, error) {
+			return dataacquisition.SHEINUSTrialUsage{}, dataacquisition.ErrNotFound
+		})
+	require.NoError(t, err)
+	p := dataacquisition.Principal{Scope: a.Scope}
+	attempt, err := svc.Send(ctx, p, a.ID)
+	require.NoError(t, err)
+	require.Equal(t, 5, *attempt.Credits)
+	approved, err := svc.PublicationApproval(ctx, p, a.ID)
+	require.NoError(t, err)
+	refs, err := repo.SHEINUSTrialPreparedRefs(ctx, approved)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+
+	f.Job.SHEINUSQuery = a.PageQuery()
+	f.Item.ItemID = collection.StableID("shein-us-trial-item", a.ID, o.NativeGoodsID)
+	f.Publication.Source.PublicationID = f.Item.ItemID
+	f.Publication.Source.OperationID = f.Item.ItemID
+	o.QueryRef = f.Job.QueryRef
+	o.ParserVersion = "zenrows-category-page-v1"
+	note := "after coupon"
+	o.Price.PromotionNote = &note
+	o.Missing = []string{"capturedAt", "variantId", "price.taxIncluded", "price.unit"}
+	expected, err := json.Marshal(o)
+	require.NoError(t, err)
+	f.ObservationUTF8 = string(expected)
+	f.Publication.RawReference.Checksum = sourcing.RawSnapshotChecksum(f.ObservationUTF8)
+	require.Equal(t, dataacquisition.SHEINUSPreparedRef{JobID: a.ID, ItemID: f.Item.ItemID, Checksum: f.Publication.RawReference.Checksum}, refs[0])
+	return approved, refs[0]
 }

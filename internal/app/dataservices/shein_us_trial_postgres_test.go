@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
+	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 )
@@ -46,7 +47,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 	approval := func() trialAuthority {
 		a := dataacquisition.SHEINUSTrialApproval{
 			ID: uuid.NewString(), ProjectID: uuid.NewString(), Scope: scope,
-			AccountRef: uuid.NewString(), KeyRef: uuid.NewString(), ExpiresAt: time.Now().Add(90 * time.Second),
+			AccountRef: uuid.NewString(), KeyRef: uuid.NewString(), ExpiresAt: time.Now().Add(90 * time.Second), Funding: orgresource.FundingMember,
 		}
 		return trialAuthority{approval: a, budget: dataacquisition.SHEINUSTrialBudget{
 			Binding: a.Binding(), AvailableCredits: 25, MaximumRequestCredits: 25,
@@ -62,14 +63,14 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 	a := approval()
 	var submissions atomic.Int32
 	credits := 25
-	sender := func(sendCtx context.Context, a dataacquisition.SHEINUSTrialApproval, request dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialUsage, error) {
+	sender := func(sendCtx context.Context, a dataacquisition.SHEINUSTrialApproval, request dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
 		submissions.Add(1)
 		assertedDeadline, ok := sendCtx.Deadline()
 		if !ok || assertedDeadline.After(a.ExpiresAt) || request.URL != "https://us.shein.com/Women-Dresses-c-1727.html" ||
 			request.Mode != "auto" || request.Extract != "auto" || request.ProxyCountry != "us" || request.CardLimit != 20 {
 			t.Error("send did not preserve fixed request and deadline")
 		}
-		return receipt(a, "fixture-request-25", &credits), nil
+		return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: receipt(a, "fixture-request-25", &credits)}, nil
 	}
 
 	_, err = NewSHEINUSTrial(pool, a, nil, noMatch)
@@ -164,13 +165,13 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		a.budget.Binding = a.approval.Binding()
 		const requestID = "fixture-timeout-original"
 		var sends int
-		timeout := func(sendCtx context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialUsage, error) {
+		timeout := func(sendCtx context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
 			sends++
 			deadline, ok := sendCtx.Deadline()
 			require.True(t, ok)
 			require.True(t, deadline.Equal(a.ExpiresAt))
 			<-sendCtx.Done()
-			return receipt(a, requestID, &credits), nil
+			return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: receipt(a, requestID, &credits)}, nil
 		}
 		first, err := NewSHEINUSTrial(pool, a, timeout, noMatch)
 		require.NoError(t, err)
@@ -229,10 +230,10 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		a.revoked = &revoked
 		const requestID = "fixture-revoked-original"
 		var sends int
-		submit := func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialUsage, error) {
+		submit := func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
 			sends++
 			revoked = dataacquisition.SHEINUSTrialView
-			return receipt(a, requestID, &credits), nil
+			return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: receipt(a, requestID, &credits)}, nil
 		}
 		withdrawReconcile := true
 		actual := 5
@@ -292,8 +293,8 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		a := approval()
 		actual := 26
 		requestID := "fixture-over-limit"
-		over := func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialUsage, error) {
-			return receipt(a, requestID, &actual), nil
+		over := func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
+			return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: receipt(a, requestID, &actual)}, nil
 		}
 		first, err := NewSHEINUSTrial(pool, a, over, noMatch)
 		require.NoError(t, err)

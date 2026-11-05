@@ -50,8 +50,8 @@ func NewFetch(resolve ResolveKey) (*Fetch, error) {
 
 // Send is the adapter for the already claimed, single-use trial slot. A
 // complete response may confirm billing even when there are no usable cards.
-func (f *Fetch) Send(ctx context.Context, a dataacquisition.SHEINUSTrialApproval, request dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialUsage, error) {
-	usage := dataacquisition.SHEINUSTrialUsage{ApprovalID: a.ID, Binding: a.Binding()}
+func (f *Fetch) Send(ctx context.Context, a dataacquisition.SHEINUSTrialApproval, request dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
+	usage := dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: dataacquisition.SHEINUSTrialUsage{ApprovalID: a.ID, Binding: a.Binding()}}
 	if !request.Valid() {
 		return usage, dataacquisition.ErrInvalid
 	}
@@ -89,8 +89,8 @@ func (f *Fetch) Send(ctx context.Context, a dataacquisition.SHEINUSTrialApproval
 	if resp.StatusCode < 200 || (resp.StatusCode >= 300 && resp.StatusCode < 400) {
 		return usage, dataacquisition.ErrUnknown
 	}
-	size, err := io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes+1))
-	if err != nil || size > maxResponseBytes || ctx.Err() != nil {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil || len(body) > maxResponseBytes || ctx.Err() != nil {
 		return usage, dataacquisition.ErrUnknown
 	}
 	if usage.RequestID != "" {
@@ -100,6 +100,9 @@ func (f *Fetch) Send(ctx context.Context, a dataacquisition.SHEINUSTrialApproval
 			actual := int(n)
 			usage.Credits = &actual
 		}
+	}
+	if usage.Credits != nil && resp.StatusCode == http.StatusOK && singleHeader(resp.Header, "Zr-Final-Url") == request.URL {
+		usage.Cards = pageCards(body, request.CardLimit)
 	}
 	return usage, nil
 }

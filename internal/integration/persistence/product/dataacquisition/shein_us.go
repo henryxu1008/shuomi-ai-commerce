@@ -21,13 +21,13 @@ import (
 type SHEINUSPublisher func(context.Context, *gorm.DB, collection.Scope, orgresource.ResourceFunding, sourcing.PublicationCommand, bool) (collection.Source, error)
 
 type sheinUSRow struct {
-	JobID, ItemID, NativeGoodsID, ItemState, ReservationID, InputHash string
-	JobState                                                          string
-	Canceled                                                          bool
-	Deadline                                                          time.Time
-	Funding                                                           orgresource.ResourceFunding
-	ChargeState                                                       orgresource.ReservationState
-	QueryJSON, EvidenceJSON, SourceJSON                               []byte
+	JobID, ItemID, NativeGoodsID, ItemState, TrialBinding, InputHash, EvidenceChecksum string
+	JobState                                                                           string
+	Canceled                                                                           bool
+	Deadline                                                                           time.Time
+	Funding                                                                            orgresource.ResourceFunding
+
+	QueryJSON, EvidenceJSON, SourceJSON []byte
 }
 
 func (row sheinUSRow) capture(scope collection.Scope) (dataacquisition.SHEINUSCapture, error) {
@@ -44,7 +44,7 @@ func (row sheinUSRow) capture(scope collection.Scope) (dataacquisition.SHEINUSCa
 }
 
 const sheinUSSelection = `SELECT i.job_id,i.id AS item_id,i.native_goods_id,i.state AS item_state,i.evidence_json,i.source_json,
- COALESCE(i.reservation_id::text,'') AS reservation_id,i.charge_state,
+ j.trial_binding,i.evidence_checksum,
  j.query_json,j.input_hash,j.state AS job_state,j.canceled,j.deadline,j.funding
  FROM data_acquisition_items i JOIN data_acquisition_jobs j
  ON j.organization_id=i.organization_id AND j.actor_id=i.actor_id AND j.id=i.job_id AND j.source_kind=i.source_kind
@@ -74,10 +74,29 @@ func (r *Repository) ReadSHEINUSCaptured(ctx context.Context, scope collection.S
 	return row.capture(scope)
 }
 
-// PublishSHEINUS consumes an already prepared source item. The offline slice
-// has no runtime command or worker capable of preparing one.
-func (r *Repository) PublishSHEINUS(ctx context.Context, p dataacquisition.Principal, ref dataacquisition.SHEINUSPreparedRef, publish SHEINUSPublisher) (collection.Source, error) {
-	if ctx == nil || p.Scope.Validate() != nil || p.CredentialID != "" || p.CredentialRevision != 0 || !ref.Valid() || publish == nil {
+func (r *Repository) SHEINUSTrialPreparedRefs(ctx context.Context, a dataacquisition.SHEINUSTrialApproval) ([]dataacquisition.SHEINUSPreparedRef, error) {
+	var rows []struct {
+		ID, EvidenceChecksum string
+	}
+	scope := a.Scope
+	err := r.db.WithContext(ctx).Raw(`SELECT i.id,i.evidence_checksum FROM data_acquisition_items i
+ JOIN data_acquisition_jobs j ON j.organization_id=i.organization_id AND j.actor_id=i.actor_id AND j.id=i.job_id AND j.source_kind=i.source_kind
+ WHERE j.organization_id=? AND j.actor_id=? AND j.member_id=? AND j.id=? AND j.source_kind='shein_us_data' AND j.trial_binding=?
+ AND i.state IN ('PREPARED_EVIDENCE','SAVED') ORDER BY i.source_position`,
+		scope.OrganizationID, scope.ActorID, scope.MemberID, a.ID, a.Binding()).Scan(&rows).Error
+	if err != nil {
+		return nil, dataacquisition.ErrUnavailable
+	}
+	refs := make([]dataacquisition.SHEINUSPreparedRef, 0, len(rows))
+	for _, row := range rows {
+		refs = append(refs, dataacquisition.SHEINUSPreparedRef{JobID: a.ID, ItemID: row.ID, Checksum: row.EvidenceChecksum})
+	}
+	return refs, nil
+}
+
+// PublishSHEINUS consumes a prepared card for an authorized original page.
+func (r *Repository) PublishSHEINUS(ctx context.Context, p dataacquisition.Principal, a dataacquisition.SHEINUSTrialApproval, ref dataacquisition.SHEINUSPreparedRef, publish SHEINUSPublisher) (collection.Source, error) {
+	if ctx == nil || p.Scope.Validate() != nil || p.CredentialID != "" || p.CredentialRevision != 0 || !ref.Valid() || publish == nil || a.ID != ref.JobID || a.Scope != p.Scope {
 		return collection.Source{}, dataacquisition.ErrInvalid
 	}
 	var source collection.Source
@@ -92,8 +111,17 @@ func (r *Repository) PublishSHEINUS(ctx context.Context, p dataacquisition.Princ
 			return err
 		}
 		replay := row.ItemState == "SAVED"
-		if row.ReservationID != ref.ReservationID || row.ChargeState != orgresource.ReservationReserved ||
+		if row.TrialBinding != a.Binding() || row.Funding != a.Funding || row.EvidenceChecksum != ref.Checksum ||
 			(!replay && (row.ItemState != "PREPARED_EVIDENCE" || row.JobState != "RUNNING" || row.Canceled || !time.Now().Before(row.Deadline))) {
+			return dataacquisition.ErrConflict
+		}
+		var eligible bool
+		err = tx.Raw(`SELECT EXISTS(SELECT 1 FROM data_acquisition_shein_us_trials
+ WHERE approval_id=? AND binding=? AND request_id IS NOT NULL AND credits BETWEEN 0 AND ?)`, a.ID, row.TrialBinding, dataacquisition.SHEINUSTrialCreditLimit).Scan(&eligible).Error
+		if err != nil {
+			return dataacquisition.ErrUnavailable
+		}
+		if !eligible {
 			return dataacquisition.ErrConflict
 		}
 		capture, err := row.capture(scope)
@@ -142,6 +170,12 @@ func (r *Repository) PublishSHEINUS(ctx context.Context, p dataacquisition.Princ
 		}
 		if result.RowsAffected != 1 {
 			return dataacquisition.ErrConflict
+		}
+		if err := tx.Exec(`UPDATE data_acquisition_jobs j SET state='SUCCEEDED'
+ WHERE j.organization_id=? AND j.actor_id=? AND j.id=? AND j.source_kind=? AND j.state='RUNNING'
+ AND NOT EXISTS(SELECT 1 FROM data_acquisition_items i WHERE i.organization_id=j.organization_id AND i.actor_id=j.actor_id AND i.job_id=j.id AND i.source_kind=j.source_kind AND i.state<>'SAVED')`,
+			scope.OrganizationID, scope.ActorID, ref.JobID, collection.SourceSHEINUSData).Error; err != nil {
+			return err
 		}
 		source = published
 		return nil
