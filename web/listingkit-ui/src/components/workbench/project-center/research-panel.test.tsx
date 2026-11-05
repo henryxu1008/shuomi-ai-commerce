@@ -43,6 +43,9 @@ it("links and switches the original SHEIN evidence, then masks the withdrawn car
  const evidence=[{id,observation:p1.observation},{id:otherLink,observation:p2.observation}];
  const first={...candidate,state:"APPROVED_FOR_TEST",observation:p1.observation,reason,history:[history],evidence};
  const switched={...first,state:"TO_RESEARCH",reason:undefined,revision:3,selectedLinkId:otherLink,observation:p2.observation};
+ const capturedAt="2026-11-02T01:02:03,123Z";
+ const timed=researchPage.parse({items:[{...first,observation:{...p1.observation,capturedAt}}],incomplete:false});
+ expect(timed.items[0].observation?.capturedAt).toBe(capturedAt);
  let response=researchPage.parse({items:[first],incomplete:false});
  mock.pickerItem=item;
  mock.read.mockImplementation(async(_scope,_project,_schema,_signal,options)=>{

@@ -15,11 +15,13 @@ const amazonObservation=z.strictObject({
 });
 const goodsId=z.string().regex(/^[1-9][0-9]{0,63}$/);
 const emptyQueryFields={asinCount:z.literal(0),limit:z.literal(0),fields:z.array(z.never()).length(0)};
+// The source validates the calendar time with Go and preserves the original text.
+const sheinCapturedAt=z.union([z.literal(""),z.iso.date(),z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{1,2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:\d{2})$/)]);
 const sheinObservation=z.strictObject({
  ...sharedObservation,
  ref:z.strictObject({...reference,checksum:z.string().regex(/^sha256:[0-9a-f]{64}$/),queryRef:collectionID,observationVersion:z.literal("1"),observationEncodingVersion:z.literal("shein-us-observation-json-v1")}),
  query:z.discriminatedUnion("mode",[z.strictObject({mode:z.literal("category"),categoryRef:goodsId,...emptyQueryFields}),z.strictObject({mode:z.literal("keyword"),keyword:text(800).min(1),...emptyQueryFields})]),
- site:z.literal(""),asin:z.literal(""),capturedAt:z.union([z.literal(""),z.iso.date(),z.iso.datetime({offset:true})]),
+ site:z.literal(""),asin:z.literal(""),capturedAt:sheinCapturedAt,
  shein:z.strictObject({market:z.literal("US"),nativeGoodsId:goodsId,price:z.strictObject({
   amount:z.string().max(32).regex(/^(0|[1-9][0-9]*)(\.[0-9]+)?$/),currency:z.string().regex(/^[A-Z]{3}$/),basis:z.literal("listing_display"),promotionNote:text(512).nullable(),taxIncluded:z.boolean().nullable(),unit:text(128).nullable(),
  }).nullable()}),
