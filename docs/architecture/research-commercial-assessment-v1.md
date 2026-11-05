@@ -55,7 +55,7 @@ Bright Data SHEIN [实时 PAYG](https://brightdata.com/products/web-scraper/shei
 | 事实/职责 | 唯一 owner 与本范围拟增量 |
 | --- | --- |
 | 项目身份/目标/归档 | projectcenter；不复制项目元数据，不因关联授予来源权限 |
-| 结构化查询、来源任务/远端 attempt/成本意图 | 现有 product/dataacquisition owner；补本范围 SHEIN、趋势和货源的明确任务类型/准入，不建第二任务平台 |
+| 冻结执行查询、来源任务/远端 attempt/成本意图 | 现有 product/dataacquisition owner；补本范围 SHEIN、趋势和货源的明确任务类型/准入，不建第二任务平台。Research 只持有 queryRef/任务回执，不保存另一份可变执行查询 |
 | 商品证据、发布与版本 | sourcing → Catalog → Collection 原 UoW；供应商 DTO 只在 integration；原商品 ID、provider ID 与市场分别表达 |
 | 趋势/评价原始观察 | 拟由 dataacquisition 的窄类型证据持有，Product DB 内受限读写；趋势不伪装为 SourceEnvelope 商品、不进商品转入。Research 仅保存可授权的精确引用 |
 | 货源匹配、条件版本、确定性评估/决定 | 拟扩展 #1075 的 product/research owner；只保存匹配关系、商家条件、被确认的输入证据及测算回执，不复制商品/趋势/模型输出 |
@@ -71,7 +71,7 @@ Bright Data SHEIN [实时 PAYG](https://brightdata.com/products/web-scraper/shei
 
 以下是设计语义，不是已发布 API/schema。
 
-- `ResearchQuery`：projectRef、sourcePlatform、market、keyword 或 admitted categoryRef、字段集、页面/结果上限、sourcePolicyVersion；实际查询由服务端规范化，不接受任意可抓 URL。
+- `ResearchQuery`：projectRef、sourcePlatform、market、keyword 或 admitted categoryRef、字段集、页面/结果上限、sourcePolicyVersion；实际查询由 dataacquisition 服务端规范化并冻结，不接受任意可抓 URL。项目目标仍归 projectcenter；界面未提交查询草稿是 scoped 表单输入，不是第二份收费查询事实。Research 通过 queryRef/原任务回执关联执行，不在原键恢复时重建查询。
 - `EvidenceRef`：scope + sourceKind + owner-issued locator + nativeProductID/market（商品适用）+ observationVersion + original digest + queryRef；原取得时间、原更新时间、我方读取时间分别表达，不补造原时间。
 - `SupplierMatch`：candidateRef、supplier Collection/Catalog/variant exact refs、相同/不同/未知规格清单、数量与计价单位、提出原因、人工确认者/时间/revision。建议、确认、否决分开；图片或文本相似不证明同款。
 - `CostInputVersion`：销售国家/平台/履约模式、商品/货源规格与采购量、各金额/费率/单位/适用条件、来源 ref 或商家假设、validAt/asOf、明确 UNKNOWN/NOT_APPLICABLE。不存在平台默认佣金、税率、退货率或隐含汇率。
@@ -93,7 +93,7 @@ Research 保存的条件版本是本次评估的业务输入快照，来源事�
 
 区间应由完整且一致的经营情景计算；不得把互斥的所有最好/最坏输入乱拼。显示基准和保守情景、适用假设与改变售价/运费/退货条件的敏感性。缺少关键输入时 `INSUFFICIENT_INPUT`，允许展示已知条件下的部分成本但不输出完整利润/测试结论。
 
-保本售价是使期望贡献利润 ≥ 0 的最低合法价格格点。V1 对已验证的固定＋比例费用可精确求解；分段报价只在现有规则能明确求值并证明适用时处理。非线性/不连续且无适用求解合同的费用输出 `UNSUPPORTED_COST_RULE`，不猜一个保本数。比例使边际收入≤0 时显示无可得保本价；税费/广告/汇率缺项不借此清零。
+保本售价是使期望贡献利润 ≥ 0 的最低合法价格格点。V1 对已验证的固定＋比例费用可精确求解；分段报价只在现有规则能明确求值并证明适用时处理。非线性/不连续且无适用求解合同的费用输出 `UNSUPPORTED_COST_RULE`，不猜一个保本数。对 `aP−b≥0` 必须结合 a 的符号及合法价格域求可行集，区分无可行价格、全域可行和存在最低可行格点；例如 `0P−0` 全域可行，不能仅凭边际收入≤0 宣称无保本价。税费/广告/汇率缺项不借此清零。
 
 示例仅为未来确定性测试输入，不是 SHEIN 费率或真实经营数据：销售币 USD、售价 30；采购包装 8、发出物流 6、获客 3；正常情景 95%，费用为售价的 10%；退款情景 5%，商品收入 0、采购不可回收、发出物流 6＋退运 2、平台费全部退还、获客 3；税费和额外汇兑成本明确假设不适用。
 
@@ -105,11 +105,11 @@ Research 保存的条件版本是本次评估的业务输入快照，来源事�
 
 | 操作/边界 | 正常结果 | 丢响应/并发/失败的归属 |
 | --- | --- | --- |
-| 保存查询/匹配/条件 | Project active、当前来源可读；CAS revision＋规范输入 digest＋command receipt 同 Research 本地事务 | 原键 lookup，异载荷冲突；撤权/归档拒绝新写，历史不因刷新换输入 |
+| 保存匹配/经营条件 | 沿原 Project/来源 port fresh 核实 active/访问；自己的 CAS revision＋规范输入 digest＋command receipt 同 Research 本地事务 | 原键 lookup，异载荷冲突；Research 不保存第二执行查询，历史不因刷新换输入 |
 | 发起外部取数 | 原任务先保存 scope/operation/query/budget/deadline 与 attempt 意图，再调用精确来源 | 本地幂等不等于远端幂等。结果不明保存 UNKNOWN；只有该 provider 明确支持原请求核实/幂等时才自动重试创建，不能凭 HTTP 方法或 Temporal 重试推定免费 |
 | 轮询/下载 | 绑定原 provider job/snapshot ID、账号及请求 hash，限制次数/字节/期限 | 只重读已确认原任务；没有远端 ID 的未知创建不新建。取消不证明外部任务未完成/未收费 |
 | 发布商品/关联项目 | 原来源发布/商品/批次在既有 Product UoW；Research 关联用原发布 ref、独立回执 | 发布成功而关联失败只重试关联；不得重采/重发布。部分结果按真实状态展示 |
-| 保存评估 | 先逐项授权读取并冻结输入，确定性计算无外部写；在 Research 事务复核版本/归档并提交结果、hash 和 receipt | 原键恢复只读已冻结结果；并发改条件则冲突，不重算后覆盖。禁止跨 owner 的原始 SQL |
+| 保存评估 | 先通过既有 Project/来源窄 port fresh 核实权限/active并冻结输入，计算后在提交准入检查点再次核实 Project；Research 本地事务只 CAS 自己的候选/匹配/条件版本并提交结果、hash 和 receipt | 原键恢复只读已冻结结果；并发改条件则冲突，不重算后覆盖。Project 归档与 Research 提交不共享原子锁；检查顺序/并发沿既有公开合同在 K2 定稿，不宣称跨库 ACID。禁止跨 owner 原始 SQL |
 | 生成 AI 建议 | 独立 prepare/start，绑定本次评估/证据 digest、原模型配置及预算 | 原 Agent UNKNOWN/receipt/finalizer 负责；不换 key、模型、资料重新计费 |
 | 人工决定/转入 | 沿 Research CAS 与原 Preparation 的准确子集/版本/幂等 | AI 建议不写人工状态。转入未知回 Preparation 原键核实，不因 UI 返回失败重发 |
 
