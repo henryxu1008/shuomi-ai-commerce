@@ -13,6 +13,7 @@
 - `shein-us-trial-entry.md` · [SHEIN 美国站单页取数入口](shein-us-trial-entry.md) · #1073 研究项目的默认关闭入口和原单恢复。
 - `shein-us-trial-installation.md` · [SHEIN 单页试取账本与运行依赖准备](shein-us-trial-installation.md) · 原 Product 安装、最小授权与离线批准接线。
 - `shein-us-trial-runtime-wiring.md` · [SHEIN 美国站单页试取运行接线](shein-us-trial-runtime-wiring.md) · 私有批准与门禁、只读挂载、末次发送检查及原单核账。
+- `shein-us-trial-workbench-entry.md` · [SHEIN 美国站首试工作台入口](shein-us-trial-workbench-entry.md) · 复用登录和原项目权限查看、提交及核对固定批准单。
 
 <a id="foundation"></a>
 
