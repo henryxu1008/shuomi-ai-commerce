@@ -17,9 +17,17 @@ const (
 
 var sheinUSTrialRequestID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
+func ValidSHEINUSTrialRequestID(id string) bool {
+	return sheinUSTrialRequestID.MatchString(id)
+}
+
 type SHEINUSTrialRequest struct {
 	URL, Mode, Extract, ProxyCountry string
 	CardLimit                        int
+}
+
+func (r SHEINUSTrialRequest) Valid() bool {
+	return r == sheinUSFirstPage()
 }
 
 func sheinUSFirstPage() SHEINUSTrialRequest {
@@ -237,7 +245,7 @@ func (s *SHEINUSTrial) Reconcile(ctx context.Context, p Principal, id string) (S
 }
 
 func (s *SHEINUSTrial) record(ctx context.Context, original SHEINUSTrialAttempt, usage SHEINUSTrialUsage) (SHEINUSTrialAttempt, error) {
-	if !sheinUSTrialRequestID.MatchString(usage.RequestID) {
+	if !ValidSHEINUSTrialRequestID(usage.RequestID) {
 		return original, ErrUnknown
 	}
 	if usage.ApprovalID != original.ApprovalID || usage.Binding != original.Binding ||
