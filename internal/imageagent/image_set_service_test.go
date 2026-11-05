@@ -115,6 +115,23 @@ func TestPrepareImageSetRejectsAnotherSourceOwner(t *testing.T) {
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 }
 
+func TestPrepareImageSetRejectsMissingOrDifferentCatalogVersion(t *testing.T) {
+	for _, version := range []uint64{0, 2} {
+		s, _, _, configuration, contexts, quote, ctx, input := imageSetServiceFixture(t)
+		catalog := contexts.preparation.Catalog
+		catalog.ProductContext.SourceSnapshotVersion = version
+		catalog.Manifest.Hash = ""
+		catalog, err := imageagent.NormalizeAssetCatalog(catalog)
+		require.NoError(t, err)
+		contexts.preparation.Catalog = catalog
+		contexts.preparation.Source.CatalogHash = catalog.Manifest.Hash
+		_, err = s.PrepareImageSet(ctx, input)
+		require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
+		require.Empty(t, configuration.snapshot.ID)
+		require.Empty(t, quote.selections)
+	}
+}
+
 func TestPrepareImageSetQuotesOnlyExplicitlySelectedTasks(t *testing.T) {
 	s, _, workflows, _, _, _, ctx, input := imageSetServiceFixture(t)
 	require.NoError(t, json.Unmarshal([]byte(`{"SelectedTaskIDs":["overview"]}`), &input))

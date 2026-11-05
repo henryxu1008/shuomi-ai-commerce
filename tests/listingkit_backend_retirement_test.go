@@ -1017,7 +1017,7 @@ func TestLegacyPublishingSupportPolicyClosureIsRetired(t *testing.T) {
 	required := map[string]map[string]bool{
 		dataRoot:                  {"Variant": false, "ImageSet": false, "PublishImageBundle": false, "BundleSlot": false, "MissingSlot": false, "Attribute": false, "Site": false, "DecodePersistedPackageStrict": false, "ClonePackageForPersistence": false},
 		policyRoot:                {"Price": false, "PricingPolicy": false, "FinalSubmitImagesReady": false, "VariantImageCoverageStatus": false, "SubmitPreferredWarehouseCode": false},
-		draftRoot:                 {"Builder": false, "buildSourceVariants": false, "buildSourceImages": false, "buildSourceAttributes": false, "buildFallbackVariant": false, "variantOptionSplitter": false},
+		draftRoot:                 {"Builder": false, "buildSourceVariants": false, "buildSourceImages": false, "buildSourceAttributes": false},
 		"internal/listing/record": {"Service": false},
 	}
 	valueTypes := strings.Fields("Variant ImageSet PublishImageBundle BundleSlot MissingSlot Attribute Site Price")

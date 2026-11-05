@@ -44,7 +44,7 @@ type messagePlanner struct {
 }
 
 func (*messagePlanner) AuthorizeReceipt(context.Context, Scope) error { return nil }
-func (p *messagePlanner) Admission(context.Context, Scope, MessageInput) (PlanPreparer, error) {
+func (p *messagePlanner) Admission(context.Context, Scope, string, MessageInput) (PlanPreparer, error) {
 	p.admissionCalls++
 	return nil, ErrUnavailable
 }

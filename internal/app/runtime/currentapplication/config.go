@@ -35,6 +35,8 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	MarketResearch                       *ResearchConfig                           `json:"marketResearch,omitempty"`
+	SheinUSTrialInputDir                 *string                                   `json:"sheinUSTrialInputDir,omitempty"`
 	ChannelCredentials                   *ChannelCredentialsConfig                 `json:"channelCredentials,omitempty"`
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
 	Fulfillment                          *FulfillmentConfig                        `json:"fulfillment,omitempty"`
@@ -333,6 +335,12 @@ func (cfg *Config) validate() error {
 	if err := cfg.validateAgentCustomization(); err != nil {
 		return err
 	}
+	if err := cfg.validateResearch(); err != nil {
+		return err
+	}
+	if err := cfg.validateSHEINUSTrial(); err != nil {
+		return err
+	}
 	if err := cfg.validateProjectCenter(); err != nil {
 		return err
 	}
@@ -527,7 +535,7 @@ func (cfg *Config) validate() error {
 	}
 	if image := cfg.ImageAgent; image != nil {
 		if image.WorkerConfigFile != "" {
-			if !filepath.IsAbs(image.WorkerConfigFile) || !boundedValue(image.WorkerConfigFile, 4096) || cfg.ProductAgent == nil || !image.Generation.Configured() || cfg.Identity.TenantDirectoryToken == "" {
+			if !filepath.IsAbs(image.WorkerConfigFile) || !boundedValue(image.WorkerConfigFile, 4096) || cfg.ProductAgent == nil || image.Generation.Enabled && !image.Generation.Configured() || cfg.Identity.TenantDirectoryToken == "" {
 				return errors.New("full image agent requires a private worker config, enterprise configuration, current membership and a points price")
 			}
 			if err := image.AssetDatabase.validate("imageAgent.assetDatabase"); err != nil {
@@ -546,7 +554,9 @@ func (cfg *Config) validate() error {
 				return errors.New("full image and title must use the current canonical Asset owner")
 			}
 		}
-		if image.Generation != (coreconfig.ImageAgentGenerationConfig{}) && (!image.Generation.Configured() || cfg.CommercialOwnerDatabase == nil) {
+		generation := image.Generation
+		generation.Enabled = true // validate declared metadata independently of execution
+		if image.Generation != (coreconfig.ImageAgentGenerationConfig{}) && (!generation.Configured() || cfg.CommercialOwnerDatabase == nil) {
 			return errors.New("image generation requires an explicit versioned points price and commercial owner database")
 		}
 		if cfg.ProductAcquisitionDatabase == nil {

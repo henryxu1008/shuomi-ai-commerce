@@ -24,6 +24,7 @@ type ProductAgentConfig struct {
 	ContentTextPolicies    map[string]governed.RoutePolicy `json:"contentTextPolicies,omitempty"`
 	MaterialsTextPolicies  map[string]governed.RoutePolicy `json:"materialsTextPolicies,omitempty"`
 	DiagnosisTextPolicies  map[string]governed.RoutePolicy `json:"diagnosisTextPolicies,omitempty"`
+	ResearchTextPolicies   map[string]governed.RoutePolicy `json:"researchTextPolicies,omitempty"`
 	SelectionTextPolicies  map[string]governed.RoutePolicy `json:"selectionTextPolicies,omitempty"`
 	ImageAnalysisPolicies  map[string]governed.RoutePolicy `json:"imageAnalysisPolicies,omitempty"`
 	Currency               string                          `json:"currency"`
@@ -60,7 +61,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 			return errors.New("content-title-only requires the prepared Run and Review runtime identities")
 		}
 		if p.AssetDatabase != (DatabaseConfig{}) || len(p.ContentTextPolicies) == 0 || len(p.TextPolicies) != 0 ||
-			len(p.MaterialsTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 || len(p.ImageAnalysisPolicies) != 0 ||
+			len(p.MaterialsTextPolicies) != 0 || len(p.ResearchTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 || len(p.ImageAnalysisPolicies) != 0 ||
 			p.ContentTitleOnly && cfg.AIWorkbench != nil && (len(cfg.AIWorkbench.PlanningTextPolicies) != 0 || cfg.AIWorkbench.Enabled && !cfg.AIWorkbench.ConversationOnly) {
 			return errors.New("content-title-only requires only content policies and no Asset or Chat execution")
 		}
@@ -86,14 +87,15 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 }
 
 func (p *ProductAgentConfig) hasPolicies() bool {
-	return len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) > 0
+	return len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) > 0
 }
 
+// Configuration metadata remains bounded even when no executor is assembled.
 func (p *ProductAgentConfig) validatePolicyMetadata() error {
 	if p.ContentOnly && p.ContentTitleOnly {
 		return errors.New("contentOnly and contentTitleOnly are mutually exclusive")
 	}
-	if (p.ContentOnly || p.ContentTitleOnly) && (len(p.ContentTextPolicies) == 0 || len(p.TextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) != 0) {
+	if (p.ContentOnly || p.ContentTitleOnly) && (len(p.ContentTextPolicies) == 0 || len(p.TextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) != 0) {
 		return errors.New("content-only metadata requires only content policies")
 	}
 	if !p.Limits().Valid() || p.RuntimeSeconds > 120 || p.RuntimeSeconds < 1 || p.Steps > 16 || p.ModelCalls > 8 {
@@ -109,7 +111,7 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 		}
 		seen[id] = true
 	}
-	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) == 0 || len(p.TextPolicies) > len(seen) {
+	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) == 0 || len(p.TextPolicies) > len(seen) {
 		return errors.New("product agent text policies invalid")
 	}
 	for organizationID, policy := range p.TextPolicies {
@@ -139,6 +141,19 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 		cost, err := profile.MaximumCost()
 		if !seen[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || profile.Currency != p.Currency || !governed.ValidRouteShape(profile, aicapability.OperationListingMaterialsDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
 			return errors.New("platform materials text policy invalid")
+		}
+	}
+	if len(p.ResearchTextPolicies) > len(seen) {
+		return errors.New("research policy outside current organization admission")
+	}
+	for org, policy := range p.ResearchTextPolicies {
+		if p.Steps < 4 || p.ModelCalls < 2 {
+			return errors.New("product research requires at least four steps and two model calls")
+		}
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !seen[org] || profile.PromptVersion != agentconfig.ResearchPromptVersion || profile.OutputSchemaVersion != agentconfig.ResearchActionVersion || profile.Currency != p.Currency || !governed.ValidRouteShape(profile, aicapability.OperationProductResearchDecision) || err != nil || profile.MaximumCompletionTokens > p.Tokens/2 || profile.MaximumPromptTokens > p.Tokens/2-profile.MaximumCompletionTokens || cost > p.CostMicros/2 {
+			return errors.New("product research text policy invalid")
 		}
 	}
 	if len(p.SelectionTextPolicies) > len(seen) {

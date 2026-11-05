@@ -39,7 +39,13 @@ type sheinUSPageAuthority struct {
 
 func (a sheinUSPageAuthority) AuthorizeSHEINUSTrial(ctx context.Context, p dataacquisition.Principal, id string, action dataacquisition.SHEINUSTrialAction) (dataacquisition.SHEINUSTrialApproval, error) {
 	approval, err := a.SHEINUSTrialAuthority.AuthorizeSHEINUSTrial(ctx, p, id, action)
-	if err == nil && (action == dataacquisition.SHEINUSTrialSend || action == dataacquisition.SHEINUSTrialPublish) {
+	if err != nil {
+		return approval, err
+	}
+	switch action {
+	case dataacquisition.SHEINUSTrialView:
+		err = a.live.CheckRead(ctx, p)
+	case dataacquisition.SHEINUSTrialSend, dataacquisition.SHEINUSTrialPublish:
 		err = a.live.CheckExecution(ctx, p, approval.Funding)
 	}
 	return approval, err
@@ -66,6 +72,27 @@ func NewSHEINUSPageTrial(ctx context.Context, db *gorm.DB, live dataacquisition.
 		return nil, err
 	}
 	return &SHEINUSPageTrial{runner: runner, repo: repo, publish: NewSHEINUSPublisher(live)}, nil
+}
+
+// AssembleSHEINUSTrial uses the current Data Services pool and publication owner.
+// It neither enables provider execution nor installs the optional trial ledger.
+func (m *Module) AssembleSHEINUSTrial(ctx context.Context, authority dataacquisition.SHEINUSTrialAuthority, sender dataacquisition.SHEINUSTrialSender, lookup dataacquisition.SHEINUSTrialLookup) (*SHEINUSPageTrial, error) {
+	if m == nil || m.productDB == nil || m.repo == nil || m.live == nil || authority == nil || sender == nil || lookup == nil {
+		return nil, dataacquisition.ErrUnavailable
+	}
+	pool, err := m.productDB.DB()
+	if err != nil || jobstore.VerifySHEINUSTrialRuntimePermissions(ctx, pool) != nil {
+		return nil, dataacquisition.ErrUnavailable
+	}
+	runner, err := NewSHEINUSTrial(pool, m.live, authority, sender, lookup)
+	if err != nil {
+		return nil, err
+	}
+	return &SHEINUSPageTrial{runner: runner, repo: m.repo, publish: NewSHEINUSPublisher(m.live)}, nil
+}
+
+func (s *SHEINUSPageTrial) View(ctx context.Context, p dataacquisition.Principal, id string) (dataacquisition.SHEINUSTrialAttempt, error) {
+	return s.runner.View(ctx, p, id)
 }
 
 func (s *SHEINUSPageTrial) Run(ctx context.Context, p dataacquisition.Principal, id string) (dataacquisition.SHEINUSTrialAttempt, []collection.Source, error) {

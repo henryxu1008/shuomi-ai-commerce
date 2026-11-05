@@ -30,17 +30,20 @@ func validTextConfigurationRequest(id string, request agent.Request) bool {
 		return request.Binding.ContextKind == agent.StoreDiagnosisContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.DiagnosisPolicyVersion && request.PromptVersion == agentconfig.DiagnosisPromptVersion
 	}
 
+	if id == agentconfig.ResearchAgentID {
+		return request.Binding.ContextKind == agent.ResearchSelectionContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.ResearchPolicyVersion && request.PromptVersion == agentconfig.ResearchPromptVersion
+	}
 	if id == agentconfig.SelectionAgentID {
 		return request.Binding.ContextKind == agent.SelectionContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.SelectionPolicyVersion && request.PromptVersion == agentconfig.SelectionPromptVersion
 	}
-	if request.Binding.ContextKind == agent.StoreDiagnosisContextKind || request.Binding.StoreDiagnosis != (agent.StoreDiagnosisRef{}) || request.Binding.ContextKind == agent.SelectionContextKind || request.Binding.Selection != ([agent.MaxSelectionProducts]agent.SelectionProductRef{}) {
+	if request.Binding.ContextKind == agent.ResearchSelectionContextKind || request.Binding.ResearchSelection != (agent.ResearchSelectionRef{}) || request.Binding.ContextKind == agent.StoreDiagnosisContextKind || request.Binding.StoreDiagnosis != (agent.StoreDiagnosisRef{}) || request.Binding.ContextKind == agent.SelectionContextKind || request.Binding.Selection != ([agent.MaxSelectionProducts]agent.SelectionProductRef{}) {
 		return false
 	}
 	if id == agentconfig.MaterialsAgentID {
 		return request.ContentSelection.Absent() && request.Binding.Valid() && (request.Binding.ContextKind == "listing-target-record" || request.Binding.ContextKind == agent.CandidateRulesContextKind) && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
 	}
 	if id == agentconfig.ContentAgentID {
-		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
+		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && agentconfig.ValidContentPrompt(request.PromptVersion, request.WorkbenchContextRef) && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
 	}
 	if id == agentconfig.TitleAgentID && !agentconfig.CurrentTitleRequest(request.PolicyVersion, request.PromptVersion) {
 		return false
@@ -135,6 +138,9 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
 
+	if c.AgentID == agentconfig.ResearchAgentID && (c.Request.Limits.ModelCalls != 2 || c.AgentVersion != agentconfig.ResearchAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validResearchTextProfile(c.ExecutionModelProfile)) {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
 	if c.AgentID == agentconfig.SelectionAgentID && (c.AgentVersion != agentconfig.SelectionAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validSelectionTextProfile(c.ExecutionModelProfile)) {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
@@ -254,6 +260,9 @@ func validMaterialsTextConfiguration(id, version, knowledge string, profile aica
 		return version == agentconfig.DiagnosisAgentVersion && knowledge == "" && validDiagnosisTextProfile(profile)
 	}
 
+	if id == agentconfig.ResearchAgentID {
+		return version == agentconfig.ResearchAgentVersion && knowledge == "" && validResearchTextProfile(profile)
+	}
 	if id == agentconfig.SelectionAgentID {
 		return version == agentconfig.SelectionAgentVersion && knowledge == "" && validSelectionTextProfile(profile)
 	}
@@ -313,4 +322,8 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 
 func validDiagnosisTextProfile(p aicapability.ModelProfile) bool {
 	return p.PromptVersion == agentconfig.DiagnosisPromptVersion && p.OutputSchemaVersion == agentconfig.DiagnosisActionVersion
+}
+
+func validResearchTextProfile(p aicapability.ModelProfile) bool {
+	return p.PromptVersion == agentconfig.ResearchPromptVersion && p.OutputSchemaVersion == agentconfig.ResearchActionVersion
 }

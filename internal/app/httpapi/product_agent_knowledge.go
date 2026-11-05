@@ -113,6 +113,10 @@ func (a *productAgentApplication) startTextRequest(ctx context.Context, binding 
 	return a.startTextRequestWithSkill(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, selection, nil)
 }
 func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection reviewproposal.ContentSelection, method *productSkillSelection, manualOnly ...bool) (agent.Request, error) {
+	return a.prepareTextRequest(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, selection, agent.WorkbenchContextRef{}, method, manualOnly...)
+}
+
+func (a *productAgentApplication) prepareTextRequest(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection reviewproposal.ContentSelection, workbench agent.WorkbenchContextRef, method *productSkillSelection, manualOnly ...bool) (agent.Request, error) {
 	if len(manualOnly) > 1 || len(manualOnly) == 1 && manualOnly[0] && (a.definition.ID != agentconfig.ContentAgentID || goalSummary != "") {
 		return agent.Request{}, agent.ErrInvalid
 	}
@@ -123,8 +127,21 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		return agent.Request{}, agent.ErrInvalid
 	}
 	request := agent.Request{Key: key, Binding: binding, GoalSummary: goalSummary, PolicyVersion: agentconfig.TitlePolicyVersion, PromptVersion: agentconfig.TitlePromptVersion, Limits: a.config.Limits}
+	if binding.ContextKind == titlePilotContext {
+		if _, err := a.Authorize(ctx, binding); err != nil {
+			return agent.Request{}, err
+		}
+		slot := ctx.Value(titlePilotSlotKey{}).(*titlePilotSlot)
+		if key != slot.key || expectedProfile != slot.plan.profile || baseID != "" || template != nil || method != nil || !workbench.Absent() || !selection.Absent() || len(manualOnly) != 0 || goalSummary != "" {
+			return agent.Request{}, agent.ErrInvalid
+		}
+		request.Limits = slot.limits
+	}
 	request.ManualReviewOnly = len(manualOnly) == 1 && manualOnly[0]
 	content := a.definition.ID == agentconfig.ContentAgentID
+	if !workbench.ValidOrAbsent() || !workbench.Absent() && (!content || method != nil) {
+		return agent.Request{}, agent.ErrInvalid
+	}
 	if method != nil && (!content || !selection.TitleOnly()) {
 		return agent.Request{}, agent.ErrInvalid
 	}
@@ -133,6 +150,9 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 			return agent.Request{}, agent.ErrInvalid
 		}
 		request.ContentSelection, request.PolicyVersion, request.PromptVersion = selection, reviewproposal.ContentPolicyVersion, agentconfig.ContentPromptVersion
+		if !workbench.Absent() {
+			request.WorkbenchContextRef, request.PromptVersion = workbench, agentconfig.ScopedContentPromptVersion
+		}
 	} else if !selection.Absent() {
 		return agent.Request{}, agent.ErrInvalid
 	}
@@ -212,6 +232,9 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		return agent.Request{}, agent.ErrUnavailable
 	}
 	profile, err := a.selectTitleProfile(ctx, scope.OrganizationID)
+	if !workbench.Absent() {
+		profile = agentconfig.ScopedContentProfile(profile)
+	}
 	if err != nil || profile.Validate() != nil || (expectedProfile.Validate() == nil && profile != expectedProfile) {
 		return agent.Request{}, agent.ErrUnavailable
 	}

@@ -1,0 +1,1994 @@
+[
+  {
+    "case_id": "I132-A01",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A01",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A01",
+        "URL": "https://source.example.test/offer/I132-A01",
+        "SnapshotID": "snapshot-I132-A01",
+        "Checksum": "sha256:0c1663ab9e4f4ca8738fe4b74a64ce041debb724880f1451303129e31416f4e9",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Northquill Manual Coffee Grinder",
+        "Brand": "Northquill",
+        "CategoryPath": [
+          "Kitchen",
+          "Coffee accessories"
+        ],
+        "Description": "A Manual coffee grinder for small-batch coffee preparation. Turn the beech handle by hand to adjust the grind.",
+        "Attributes": {
+          "burr_material": "ceramic",
+          "grind_settings": "12 settings",
+          "handle_material": "beech"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A01",
+          "URL": "https://images.example.test/I132-A01.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A01",
+        "RequestID": "request-I132-A01",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A02",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A02",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A02",
+        "URL": "https://source.example.test/offer/I132-A02",
+        "SnapshotID": "snapshot-I132-A02",
+        "Checksum": "sha256:19e68d7ba31157cb305d506c24f57af1637bbfc674579dd25b8740a52ad5ab16",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Birchloop Laptop Sleeve, 13-inch",
+        "Brand": "Birchloop",
+        "CategoryPath": [
+          "Travel",
+          "Carry accessories"
+        ],
+        "Description": "The Laptop sleeve closes with a zipper. The size label is listed separately from the outer fabric.",
+        "Attributes": {
+          "device_size": "13-inch",
+          "outer_material": "recycled polyester",
+          "closure": "zipper"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A02",
+          "URL": "https://images.example.test/I132-A02.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A02",
+        "RequestID": "request-I132-A02",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A03",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A03",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A03",
+        "URL": "https://source.example.test/offer/I132-A03",
+        "SnapshotID": "snapshot-I132-A03",
+        "Checksum": "sha256:98283a35a91f5930b8ed40775f780d5b7827ca8383f884596f0a40f7c62a679a",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Trelliva Expandable Bamboo Drawer Organizer",
+        "Brand": "Trelliva",
+        "CategoryPath": [
+          "Home",
+          "Storage"
+        ],
+        "Description": "A Drawer organizer for utensils and small tools. Its sections can slide out to change the layout.",
+        "Attributes": {
+          "material": "bamboo",
+          "layout": "expandable",
+          "compartments": "5 compartments"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A03",
+          "URL": "https://images.example.test/I132-A03.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A03",
+        "RequestID": "request-I132-A03",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A04",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A04",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A04",
+        "URL": "https://source.example.test/offer/I132-A04",
+        "SnapshotID": "snapshot-I132-A04",
+        "Checksum": "sha256:207a98c1d3e4ef8f59fefadc011328ea00e2dfca9daa06c58dd595212e2e32cb",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Wrenwick Hiking Daypack",
+        "Brand": "Wrenwick",
+        "CategoryPath": [
+          "Outdoors",
+          "Trail gear"
+        ],
+        "Description": "The Hiking daypack has an air-permeable rear panel. Its color is slate blue.",
+        "Attributes": {
+          "volume": "18 L",
+          "back_panel": "ventilated mesh",
+          "color": "slate blue"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A04",
+          "URL": "https://images.example.test/I132-A04.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A04",
+        "RequestID": "request-I132-A04",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A05",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A05",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A05",
+        "URL": "https://source.example.test/offer/I132-A05",
+        "SnapshotID": "snapshot-I132-A05",
+        "Checksum": "sha256:99fa3f4e3f69f606dca94f3d81b7f4a8a9d0ecc94565cf8476c8f67b367346a7",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Quillbar Felt-Tip Markers, 24 Count",
+        "Brand": "Quillbar",
+        "CategoryPath": [
+          "Stationery",
+          "Drawing tools"
+        ],
+        "Description": "This Felt-tip marker set contains matching pens for drawing. The tip width is stated on the box.",
+        "Attributes": {
+          "count": "24 markers",
+          "ink_base": "water-based",
+          "tip_width": "1 mm"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A05",
+          "URL": "https://images.example.test/I132-A05.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A05",
+        "RequestID": "request-I132-A05",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A06",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A06",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A06",
+        "URL": "https://source.example.test/offer/I132-A06",
+        "SnapshotID": "snapshot-I132-A06",
+        "Checksum": "sha256:a100ab514b11d74d34cb5999d3d6d544077c2a279fe8975733d77c6b10615a4e",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Morrowfin Foldable Yoga Mat",
+        "Brand": "Morrowfin",
+        "CategoryPath": [
+          "Fitness",
+          "Floor equipment"
+        ],
+        "Description": "The Foldable yoga mat is made of TPE. It folds into sections for storage.",
+        "Attributes": {
+          "construction": "foldable",
+          "thickness": "6 mm",
+          "material": "TPE"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A06",
+          "URL": "https://images.example.test/I132-A06.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A06",
+        "RequestID": "request-I132-A06",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A07",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A07",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A07",
+        "URL": "https://source.example.test/offer/I132-A07",
+        "SnapshotID": "snapshot-I132-A07",
+        "Checksum": "sha256:150f7c6bf0be786e6bd014a88797053ac00749304b5d114e6edc246d68274447",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Loomfern Desk Lamp",
+        "Brand": "Loomfern",
+        "CategoryPath": [
+          "Office",
+          "Desk lighting"
+        ],
+        "Description": "A Desk lamp for a tabletop. The light is warm white, and the brightness can be changed.",
+        "Attributes": {
+          "power_connection": "USB-C powered",
+          "brightness_levels": "3 brightness levels",
+          "light_color": "warm white"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A07",
+          "URL": "https://images.example.test/I132-A07.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A07",
+        "RequestID": "request-I132-A07",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A08",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A08",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A08",
+        "URL": "https://source.example.test/offer/I132-A08",
+        "SnapshotID": "snapshot-I132-A08",
+        "Checksum": "sha256:efd1e9b19e60c31c55c79e7eececcdaf8d6c37eb8f35a739af1c45671fc42296",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Raised Ceramic Pet Bowl by Vellacove",
+        "Brand": "Vellacove",
+        "CategoryPath": [
+          "Pets",
+          "Feeding"
+        ],
+        "Description": "A Raised pet bowl for serving food. The bowl sits above its base.",
+        "Attributes": {
+          "bowl_material": "ceramic",
+          "profile": "raised",
+          "capacity": "350 mL"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A08",
+          "URL": "https://images.example.test/I132-A08.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A08",
+        "RequestID": "request-I132-A08",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A09",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A09",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A09",
+        "URL": "https://source.example.test/offer/I132-A09",
+        "SnapshotID": "snapshot-I132-A09",
+        "Checksum": "sha256:ae781e6ef59e842b9209feec3286978dbb4c1f94b03666f41c7feb2d9a678bd8",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Pinehatch Insulated Lunch Bag",
+        "Brand": "Pinehatch",
+        "CategoryPath": [
+          "Kitchen",
+          "Food carrying"
+        ],
+        "Description": "The Insulated lunch bag has a top handle for carrying meals.",
+        "Attributes": {
+          "construction": "insulated",
+          "volume": "7 L",
+          "carry_style": "top handle"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A09",
+          "URL": "https://images.example.test/I132-A09.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A09",
+        "RequestID": "request-I132-A09",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A10",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A10",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A10",
+        "URL": "https://source.example.test/offer/I132-A10",
+        "SnapshotID": "snapshot-I132-A10",
+        "Checksum": "sha256:2c5718b8041a06220dc307af0545728e6629e71967ba980b5ea1d824e1417b60",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Ochrevale Watercolor Pad, A4",
+        "Brand": "Ochrevale",
+        "CategoryPath": [
+          "Stationery",
+          "Paper"
+        ],
+        "Description": "The Watercolor paper pad is made for watercolor painting. The pad contains 20 sheets.",
+        "Attributes": {
+          "sheet_size": "A4",
+          "paper_weight": "300 g/m²",
+          "sheet_count": "20 sheets"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A10",
+          "URL": "https://images.example.test/I132-A10.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A10",
+        "RequestID": "request-I132-A10",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A11",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A11",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A11",
+        "URL": "https://source.example.test/offer/I132-A11",
+        "SnapshotID": "snapshot-I132-A11",
+        "Checksum": "sha256:46cc422c66b1f208e4578a9f8262884c458a0ad2f347f19707b6509fdf942454",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Meadowrill Garden Hand Trowel",
+        "Brand": "Meadowrill",
+        "CategoryPath": [
+          "Garden",
+          "Hand tools"
+        ],
+        "Description": "A Garden hand trowel for hand planting. The grip is rubber.",
+        "Attributes": {
+          "blade_material": "stainless steel",
+          "blade_length": "15 cm",
+          "grip_material": "rubber"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A11",
+          "URL": "https://images.example.test/I132-A11.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A11",
+        "RequestID": "request-I132-A11",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-A12",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-A12",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-A12",
+        "URL": "https://source.example.test/offer/I132-A12",
+        "SnapshotID": "snapshot-I132-A12",
+        "Checksum": "sha256:d64a709ca7f24bd07a197c97a59b386a60da3c685ad44e9dde1b0966b8e87d1c",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Duskspan Three-Tier Shoe Rack",
+        "Brand": "Duskspan",
+        "CategoryPath": [
+          "Home",
+          "Entryway storage"
+        ],
+        "Description": "This Shoe rack is for organizing footwear near an entry. Its width is 62 cm.",
+        "Attributes": {
+          "tiers": "3 tiers",
+          "frame_material": "powder-coated steel",
+          "width": "62 cm"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-A12",
+          "URL": "https://images.example.test/I132-A12.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-A12",
+        "RequestID": "request-I132-A12",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      }
+    }
+  },
+  {
+    "case_id": "I132-B01",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B01",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B01",
+        "URL": "https://source.example.test/offer/I132-B01",
+        "SnapshotID": "snapshot-I132-B01",
+        "Checksum": "sha256:c884bf9cff01be3304c91f9666cb5ae9a0029548811f850219e06b97a9c4db85",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Digital Kitchen Scale",
+        "Brand": "",
+        "CategoryPath": [
+          "Kitchen",
+          "Measuring tools"
+        ],
+        "Description": "The Kitchen scale has a stainless steel platform. The display shows the measured weight in steps.",
+        "Attributes": {
+          "maximum_weight": "5 kg",
+          "display_step": "1 g increments",
+          "platform_material": "stainless steel"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B01",
+          "URL": "https://images.example.test/I132-B01.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B01",
+        "RequestID": "request-I132-B01",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B02",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B02",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B02",
+        "URL": "https://source.example.test/offer/I132-B02",
+        "SnapshotID": "snapshot-I132-B02",
+        "Checksum": "sha256:8431d9a1686897c067cf5afe62dfcb73873fdbb6b83f562a87938755e999f883",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Compression Packing Cube, Small",
+        "Brand": "",
+        "CategoryPath": [
+          "Travel",
+          "Packing"
+        ],
+        "Description": "A Compression packing cube for sorting clothes. Closing the second zipper compresses the packed contents.",
+        "Attributes": {
+          "size": "small",
+          "closure_type": "double-zip compression",
+          "fabric": "ripstop nylon"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B02",
+          "URL": "https://images.example.test/I132-B02.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B02",
+        "RequestID": "request-I132-B02",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B03",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B03",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B03",
+        "URL": "https://source.example.test/offer/I132-B03",
+        "SnapshotID": "snapshot-I132-B03",
+        "Checksum": "sha256:3fef7d2f35761f07d0ed24d047b0375a3e0b45bf671f20e749b2bdaf8149d213",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Long-Spout Watering Can",
+        "Brand": "",
+        "CategoryPath": [
+          "Garden",
+          "Watering"
+        ],
+        "Description": "The Indoor watering can has a long spout for reaching into plant pots.",
+        "Attributes": {
+          "capacity": "1.2 L",
+          "spout": "long spout",
+          "body_material": "polypropylene"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B03",
+          "URL": "https://images.example.test/I132-B03.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B03",
+        "RequestID": "request-I132-B03",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B04",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B04",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B04",
+        "URL": "https://source.example.test/offer/I132-B04",
+        "SnapshotID": "snapshot-I132-B04",
+        "Checksum": "sha256:c90b86f094e5b89b752d0205be90353b879ea5325d01ae12f385e688d685e3ec",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Bike Saddle Bag",
+        "Brand": "",
+        "CategoryPath": [
+          "Outdoors",
+          "Cycling accessories"
+        ],
+        "Description": "The Bike saddle bag attaches by straps. A reflective trim is visible on the outside.",
+        "Attributes": {
+          "capacity": "0.8 L",
+          "mount": "strap mount",
+          "reflective_trim": "reflective trim"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B04",
+          "URL": "https://images.example.test/I132-B04.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B04",
+        "RequestID": "request-I132-B04",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B05",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B05",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B05",
+        "URL": "https://source.example.test/offer/I132-B05",
+        "SnapshotID": "snapshot-I132-B05",
+        "Checksum": "sha256:a3c4e1e40b349e57ba27d4e2a090d5ba64bf43ff75d66cfe1193315a79c24a90",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Manual Dual-Hole Pencil Sharpener",
+        "Brand": "",
+        "CategoryPath": [
+          "Stationery",
+          "Desk tools"
+        ],
+        "Description": "The Pencil sharpener is turned by hand and collects shavings in a built-in compartment.",
+        "Attributes": {
+          "opening_count": "2 openings",
+          "operation": "manual",
+          "shavings_storage": "built-in shavings compartment"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B05",
+          "URL": "https://images.example.test/I132-B05.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B05",
+        "RequestID": "request-I132-B05",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B06",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B06",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B06",
+        "URL": "https://source.example.test/offer/I132-B06",
+        "SnapshotID": "snapshot-I132-B06",
+        "Checksum": "sha256:1d3f3bff1fa2b59d6aef4205afcb527956a261da9ce202cb71fa756f2d77c833",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Loop Resistance Band Set",
+        "Brand": "",
+        "CategoryPath": [
+          "Fitness",
+          "Training accessories"
+        ],
+        "Description": "This Resistance band set contains light, medium and heavy options. The source gives no numeric force values.",
+        "Attributes": {
+          "count": "3 bands",
+          "form": "closed-loop",
+          "levels": "light, medium, heavy"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B06",
+          "URL": "https://images.example.test/I132-B06.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B06",
+        "RequestID": "request-I132-B06",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B07",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B07",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B07",
+        "URL": "https://source.example.test/offer/I132-B07",
+        "SnapshotID": "snapshot-I132-B07",
+        "Checksum": "sha256:0cac7802aa42c53b7d726dde52b9e05920200a7e6adbf3f45440c492a20cb624",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Refillable Lint Roller",
+        "Brand": "",
+        "CategoryPath": [
+          "Home",
+          "Garment care"
+        ],
+        "Description": "A Lint roller with a gray handle. The roll can be replaced.",
+        "Attributes": {
+          "configuration": "refillable",
+          "sheet_count": "60 sheets",
+          "handle_color": "gray"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B07",
+          "URL": "https://images.example.test/I132-B07.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B07",
+        "RequestID": "request-I132-B07",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B08",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B08",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B08",
+        "URL": "https://source.example.test/offer/I132-B08",
+        "SnapshotID": "snapshot-I132-B08",
+        "Checksum": "sha256:44e5e721bf19c0b2ebe6423ab7633d0d62e084671a5b97d6a7dbfc4dc75a6e18",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Corrugated Cat Scratching Board",
+        "Brand": "",
+        "CategoryPath": [
+          "Pets",
+          "Enrichment"
+        ],
+        "Description": "The Cat scratching board has a curved profile and measures 45 cm in length.",
+        "Attributes": {
+          "material": "corrugated cardboard",
+          "shape": "curved",
+          "length": "45 cm"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B08",
+          "URL": "https://images.example.test/I132-B08.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B08",
+        "RequestID": "request-I132-B08",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B09",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B09",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B09",
+        "URL": "https://source.example.test/offer/I132-B09",
+        "SnapshotID": "snapshot-I132-B09",
+        "Checksum": "sha256:c42995e9a97298350f4a72e5d34476811c910a7510936ddfbac694d2877568eb",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Monitor Riser with Drawer",
+        "Brand": "",
+        "CategoryPath": [
+          "Office",
+          "Workstation"
+        ],
+        "Description": "A Monitor riser with a single drawer under the top. The platform is 10 cm high.",
+        "Attributes": {
+          "feature": "single drawer",
+          "width": "40 cm",
+          "height": "10 cm"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B09",
+          "URL": "https://images.example.test/I132-B09.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B09",
+        "RequestID": "request-I132-B09",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-B10",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-B10",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-B10",
+        "URL": "https://source.example.test/offer/I132-B10",
+        "SnapshotID": "snapshot-I132-B10",
+        "Checksum": "sha256:fdccf3bbb41055e8d8549018643742af1333f3be4d396254c7fe5e78c1c8132d",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "Zippered Mesh Laundry Bag",
+        "Brand": "",
+        "CategoryPath": [
+          "Home",
+          "Laundry"
+        ],
+        "Description": "The Mesh laundry bag is made from polyester mesh. A zipper closes the opening.",
+        "Attributes": {
+          "dimensions": "30 × 40 cm",
+          "closure": "zipper",
+          "material": "polyester mesh"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-B10",
+          "URL": "https://images.example.test/I132-B10.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-B10",
+        "RequestID": "request-I132-B10",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C01",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C01",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C01",
+        "URL": "https://source.example.test/offer/I132-C01",
+        "SnapshotID": "snapshot-I132-C01",
+        "Checksum": "sha256:48cdb49460662d7e33f80ffa9141db68e0cb53264a8452d80617c362f3faa970",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "Pebbleweft",
+        "CategoryPath": [
+          "Home",
+          "Entryway textiles"
+        ],
+        "Description": "A Door mat with a fibrous surface and PVC backing. The measurements are recorded with the attributes.",
+        "Attributes": {
+          "surface": "coir",
+          "dimensions": "45 × 75 cm",
+          "backing": "PVC"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C01",
+          "URL": "https://images.example.test/I132-C01.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C01",
+        "RequestID": "request-I132-C01",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C02",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C02",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C02",
+        "URL": "https://source.example.test/offer/I132-C02",
+        "SnapshotID": "snapshot-I132-C02",
+        "Checksum": "sha256:c311618cba4331502ed1eb88b43e78a67a42ef659c4f6814106db0de408ec114",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "Mistgrove",
+        "CategoryPath": [
+          "Kitchen",
+          "Drink preparation"
+        ],
+        "Description": "A Tea infuser for loose-leaf tea. It has a removable lid over the basket.",
+        "Attributes": {
+          "material": "stainless steel",
+          "style": "basket",
+          "included_accessory": "lid"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C02",
+          "URL": "https://images.example.test/I132-C02.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C02",
+        "RequestID": "request-I132-C02",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C03",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C03",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C03",
+        "URL": "https://source.example.test/offer/I132-C03",
+        "SnapshotID": "snapshot-I132-C03",
+        "Checksum": "sha256:fb8da0739e61e674cb51eaf83161f7bd1cfb0ecbcd6025bf964470253db9de8e",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "Harborplait",
+        "CategoryPath": [
+          "Travel",
+          "Toiletry storage"
+        ],
+        "Description": "The Hanging toiletry bag can be suspended by its hook. The shell is nylon.",
+        "Attributes": {
+          "mount": "hanging hook",
+          "compartments": "3 compartments",
+          "fabric": "nylon"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C03",
+          "URL": "https://images.example.test/I132-C03.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C03",
+        "RequestID": "request-I132-C03",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C04",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C04",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C04",
+        "URL": "https://source.example.test/offer/I132-C04",
+        "SnapshotID": "snapshot-I132-C04",
+        "Checksum": "sha256:a992b6eca0a543c608724341d601b4d80036c4fe77d8ae899c23de12da7c4cd3",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "Sprigfen",
+        "CategoryPath": [
+          "Garden",
+          "Plant support"
+        ],
+        "Description": "These Plant support stakes are made from bamboo. The listed count is for the package.",
+        "Attributes": {
+          "length": "40 cm",
+          "count": "10 stakes",
+          "material": "bamboo"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C04",
+          "URL": "https://images.example.test/I132-C04.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C04",
+        "RequestID": "request-I132-C04",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C05",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C05",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C05",
+        "URL": "https://source.example.test/offer/I132-C05",
+        "SnapshotID": "snapshot-I132-C05",
+        "Checksum": "sha256:1cd1e51ab2093747baaeec92588474a57a449bd937f53f28569cb65cbf16e16f",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "",
+        "CategoryPath": [
+          "Fitness",
+          "Recovery accessories"
+        ],
+        "Description": "A Foam roller made from EVA foam. It has a smooth outer surface.",
+        "Attributes": {
+          "length": "33 cm",
+          "surface": "smooth",
+          "material": "EVA foam"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C05",
+          "URL": "https://images.example.test/I132-C05.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C05",
+        "RequestID": "request-I132-C05",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        },
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        },
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C06",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C06",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C06",
+        "URL": "https://source.example.test/offer/I132-C06",
+        "SnapshotID": "snapshot-I132-C06",
+        "Checksum": "sha256:f9fbe9a13810151e8dacc1c4e3bfd526e15ee3cb2ec6a53cc13c8b45965098d3",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "Slipwillow",
+        "CategoryPath": [
+          "Stationery",
+          "Study supplies"
+        ],
+        "Description": "An Index card set for notes. Each pack contains 100 cards.",
+        "Attributes": {
+          "format": "ruled",
+          "dimensions": "3 × 5 in",
+          "count": "100 cards"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C06",
+          "URL": "https://images.example.test/I132-C06.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C06",
+        "RequestID": "request-I132-C06",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C07",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C07",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C07",
+        "URL": "https://source.example.test/offer/I132-C07",
+        "SnapshotID": "snapshot-I132-C07",
+        "Checksum": "sha256:059af0d4a6f85037153e69af11afb52742d71096ff01ae6d6f1ca84a822ecc5f",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "",
+        "CategoryPath": [
+          "Pets",
+          "Walking"
+        ],
+        "Description": "A Dog leash with a swivel clip at the end. The webbing length is listed in the attributes.",
+        "Attributes": {
+          "length": "1.5 m",
+          "webbing": "nylon",
+          "attachment": "swivel clip"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C07",
+          "URL": "https://images.example.test/I132-C07.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C07",
+        "RequestID": "request-I132-C07",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        },
+        {
+          "Code": "missing_brand",
+          "Field": "brand",
+          "Message": "brand unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        },
+        {
+          "Field": "brand",
+          "Reason": "brand unavailable"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "I132-C08",
+    "layers": [
+      "title_pilot"
+    ],
+    "basis": "#132 synthetic candidate using #47 SourceEnvelope",
+    "source": {
+      "Identity": {
+        "SourceType": "CRAWLER",
+        "SourcePlatform": "1688",
+        "SourceID": "I132-C08",
+        "SourceVersion": "v1"
+      },
+      "RawReference": {
+        "ReferenceType": "synthetic_product",
+        "ReferenceID": "raw-I132-C08",
+        "URL": "https://source.example.test/offer/I132-C08",
+        "SnapshotID": "snapshot-I132-C08",
+        "Checksum": "sha256:6c3f07b37ac2941eec93024e8574c8d5b29d55a69a28b5c770e8d7949023fb51",
+        "CapturedAt": "2026-11-05T00:00:00Z",
+        "Metadata": {
+          "collector": "offline-synthetic",
+          "checksum_encoding": "source.ProductCandidate compact UTF-8 JSON as serialized in this dataset"
+        }
+      },
+      "ProductCandidate": {
+        "Title": "",
+        "Brand": "Rookwater",
+        "CategoryPath": [
+          "Outdoors",
+          "Equipment storage"
+        ],
+        "Description": "A Dry bag with a roll-top opening. The shell is made from TPU-coated fabric.",
+        "Attributes": {
+          "capacity": "5 L",
+          "closure": "roll-top",
+          "material": "TPU-coated fabric"
+        }
+      },
+      "AssetCandidates": [
+        {
+          "SourceID": "image-I132-C08",
+          "URL": "https://images.example.test/I132-C08.jpg",
+          "MediaType": "image",
+          "Role": "primary",
+          "Width": 800,
+          "Height": 800
+        }
+      ],
+      "Trace": {
+        "SourceRunID": "run-I132-C08",
+        "RequestID": "request-I132-C08",
+        "Notes": [
+          "Authored synthetic evidence. Reserved domains are fixture identifiers only."
+        ]
+      },
+      "Warnings": [
+        {
+          "Code": "missing_title",
+          "Field": "title",
+          "Message": "original title unavailable"
+        }
+      ],
+      "MissingFacts": [
+        {
+          "Field": "title",
+          "Reason": "original title unavailable"
+        }
+      ]
+    }
+  }
+]

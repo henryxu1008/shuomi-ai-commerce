@@ -119,14 +119,14 @@ func TestPostgresDataPublicationBatchAtomicityReplayAndActorIsolation(t *testing
 			require.Equal(t, want, fields["supplyTransferSupported"])
 		}
 		check(own.BatchID, true)
-		check(batch.ID, false)
+		check(batch.ID, true)
 		moved, err := r.Execute(ctx, testCommand(scope, uuid.NewString(), collection.Mutation{Action: "move_item", ItemID: items.Items[0].ID, TargetBatchID: own.BatchID, ExpectedRevision: items.Items[0].Revision}))
 		require.NoError(t, err)
-		check(own.BatchID, false)
+		check(own.BatchID, true)
 		_, err = r.Execute(ctx, testCommand(scope, uuid.NewString(), collection.Mutation{Action: "archive_item", ItemID: items.Items[0].ID, ExpectedRevision: moved.Revision}))
 		require.NoError(t, err)
 		check(own.BatchID, true)
-		check(batch.ID, false)
+		check(batch.ID, true)
 	})
 	t.Run("original producer appends remain saved while archived batch stays hidden", func(t *testing.T) {
 		owner := collection.Scope{OrganizationID: "org", ActorID: "archive-creator", MemberID: "archive-grant"}

@@ -66,6 +66,11 @@ func configuredImageAgentCapabilities(ctx context.Context, agentID string, autho
 		capabilities[1].Readiness = "UNAVAILABLE"
 		capabilities[1].Reason = "从主题创作全新图案，无需商品原图"
 	}
+	if runtime != nil && runtime.executionDisabled {
+		capabilities[0].Readiness = "UNAVAILABLE"
+		capabilities[0].Reason = "图片生成功能已关闭，历史记录仍可查看"
+		return capabilities
+	}
 	if runtime != nil && (agentID != agentconfig.ArtworkAgentID || runtime.artwork != nil) {
 		capability := &capabilities[0]
 		id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)

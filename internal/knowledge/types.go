@@ -57,25 +57,27 @@ type Base struct {
 	UpdatedAt      time.Time `json:"updatedAt"`
 }
 type Revision struct {
-	ID             string          `json:"id"`
-	OrganizationID string          `json:"-"`
-	SourceID       string          `json:"-"`
-	Number         int64           `json:"number"`
-	Filename       string          `json:"filename"`
-	ContentType    string          `json:"contentType"`
-	SizeBytes      int64           `json:"sizeBytes"`
-	SHA256         string          `json:"-"`
-	ObjectKey      string          `json:"-"`
-	State          ProcessingState `json:"state"`
-	Failure        string          `json:"failure,omitempty"`
-	Warning        string          `json:"warning,omitempty"`
-	Text           string          `json:"-"`
-	LeaseOwner     string          `json:"-"`
-	LeaseUntil     *time.Time      `json:"-"`
-	Attempts       int             `json:"-"`
-	NextAttemptAt  time.Time       `json:"-"`
-	CreatedAt      time.Time       `json:"createdAt"`
-	UpdatedAt      time.Time       `json:"updatedAt"`
+	ID                     string          `json:"id"`
+	OrganizationID         string          `json:"-"`
+	SourceID               string          `json:"-"`
+	Number                 int64           `json:"number"`
+	Filename               string          `json:"filename"`
+	ContentType            string          `json:"contentType"`
+	SizeBytes              int64           `json:"sizeBytes"`
+	SHA256                 string          `json:"-"`
+	ObjectKey              string          `json:"-"`
+	State                  ProcessingState `json:"state"`
+	Failure                string          `json:"failure,omitempty"`
+	Warning                string          `json:"warning,omitempty"`
+	Text                   string          `json:"-"`
+	LeaseOwner             string          `json:"-"`
+	LeaseUntil             *time.Time      `json:"-"`
+	OriginalGeneration     string          `json:"-" gorm:"-"`
+	OriginalDeletionFenced bool            `json:"-" gorm:"-"`
+	Attempts               int             `json:"-"`
+	NextAttemptAt          time.Time       `json:"-"`
+	CreatedAt              time.Time       `json:"createdAt"`
+	UpdatedAt              time.Time       `json:"updatedAt"`
 }
 type Source struct {
 	ID                        string    `json:"id"`

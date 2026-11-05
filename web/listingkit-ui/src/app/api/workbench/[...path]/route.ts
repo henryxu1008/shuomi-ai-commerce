@@ -191,7 +191,7 @@ function isSourceMutation(method: string, path: string[]) {
   if(method==="POST"&&planPath(method,path))return true;
   if (collectionPath(method.toUpperCase(), path) === "command") return true;
   const workbench = aiWorkbenchPath(method, path);
-  if (workbench && !["conversation-list", "conversation-read", "task-list", "task-read"].includes(workbench)) return true;
+  if (workbench && !["conversation-list", "conversation-read", "task-list", "task-read", "scope-options", "task-scope-options"].includes(workbench)) return true;
   if(method.toUpperCase()==="POST" && agentPath(path)!==null)return true;
   if (method === "POST" && isBrowserCapturePath(method, path)) return true;
   if (method.toUpperCase() === "GET" && path[3] === "by-key" && isBrowserCapturePath(method, path)) return true;

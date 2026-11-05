@@ -26,8 +26,6 @@ type Uploader struct {
 	s3Client             S3ObjectAPI
 	bucket               string
 	publicBase           string
-	endpoint             string
-	usePathStyle         bool
 	artifactCapabilities ArtifactStorageCapabilities
 }
 
@@ -79,8 +77,6 @@ type ArtifactStorageCapabilities struct {
 type UploaderOptions struct {
 	Bucket               string
 	PublicBase           string
-	Endpoint             string
-	UsePathStyle         bool
 	ArtifactCapabilities ArtifactStorageCapabilities
 }
 
@@ -98,8 +94,6 @@ func NewUploaderWithOptions(s3Client S3ObjectAPI, opts UploaderOptions) (*Upload
 		s3Client:             s3Client,
 		bucket:               bucket,
 		publicBase:           opts.PublicBase,
-		endpoint:             opts.Endpoint,
-		usePathStyle:         opts.UsePathStyle,
 		artifactCapabilities: opts.ArtifactCapabilities,
 	}, nil
 }
@@ -120,6 +114,10 @@ func isNilReflectValue(value reflect.Value) bool {
 // records application metadata as a fallback for S3-compatible endpoints that
 // do not expose a server checksum through HeadObject.
 func (u *Uploader) PutImmutable(ctx context.Context, object ImmutableObjectPut) error {
+	return u.putImmutable(ctx, object, false)
+}
+
+func (u *Uploader) putImmutable(ctx context.Context, object ImmutableObjectPut, singleAttempt bool) error {
 	if err := validateImmutableObjectIdentity(object); err != nil {
 		return err
 	}
@@ -149,6 +147,9 @@ func (u *Uploader) PutImmutable(ctx context.Context, object ImmutableObjectPut) 
 		}
 		input.ChecksumAlgorithm = types.ChecksumAlgorithmSha256
 		input.ChecksumSHA256 = aws.String(checksum)
+	}
+	if singleAttempt {
+		options = append(options, func(o *s3.Options) { o.Retryer = aws.NopRetryer{} })
 	}
 	_, err = u.s3Client.PutObject(ctx, input, options...)
 	if err != nil {
@@ -278,20 +279,13 @@ func (u *Uploader) CopyImmutable(ctx context.Context, object ImmutableObjectCopy
 }
 
 // PublicURL returns the externally reachable URL for an object key using the
-// configured public-base and endpoint rules.
+// configured public base.
 func (u *Uploader) PublicURL(key string) string {
 	return u.resolveObjectURL(key)
 }
 
 func (u *Uploader) resolveObjectURL(key string) string {
-	fallbackBase := BuildS3PublicBase(u.endpoint, u.bucket, u.usePathStyle)
-	fallbackURL := ""
-	if fallbackBase != "" {
-		fallbackURL = fallbackBase + "/" + key
-	} else {
-		fallbackURL = fmt.Sprintf("https://%s.s3.amazonaws.com/%s", u.bucket, key)
-	}
-	return ResolveObjectURL(u.publicBase, key, fallbackURL)
+	return ResolveObjectURL(u.publicBase, key)
 }
 
 func validateImmutableObjectIdentity(object ImmutableObjectPut) error {

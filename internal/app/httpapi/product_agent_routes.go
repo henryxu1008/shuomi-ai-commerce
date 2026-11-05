@@ -312,6 +312,9 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				if err == nil && content != (record.State.Request.PolicyVersion == reviewproposal.ContentPolicyVersion) {
 					err = agent.ErrConflict
 				}
+				if err == nil && !record.State.Request.WorkbenchContextRef.Absent() {
+					err = agent.ErrUnavailable // Scoped results and actions use their original Task and Review.
+				}
 				if err == nil && spec.action == "resume" {
 					if !currentAgentRequest(record.State) {
 						writeProductAgentRunError(c, agent.ErrConflict, true)

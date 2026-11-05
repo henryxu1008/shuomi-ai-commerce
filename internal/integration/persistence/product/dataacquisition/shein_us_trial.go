@@ -7,26 +7,49 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"gorm.io/gorm"
 
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 	"task-processor/internal/product/sourcing"
 )
 
-// InstallSHEINUSTrialSchema is an explicit empty Product installation step for
-// the isolated trial. It is independent of the Amazon runtime install path.
+const sheinUSTrialLedgerDDL = `public.data_acquisition_shein_us_trials (
+ approval_id uuid PRIMARY KEY,
+ binding char(64) NOT NULL CONSTRAINT shein_trial_binding CHECK(binding ~ '^[0-9a-f]{64}$'),
+ claimed_at timestamptz NOT NULL,
+ request_id varchar(128) UNIQUE CONSTRAINT shein_trial_request_id CHECK(request_id ~ '^[A-Za-z0-9_-]{1,128}$'),
+ credits integer CONSTRAINT shein_trial_credits CHECK(credits IS NULL OR (credits >= 0 AND request_id IS NOT NULL))
+)`
+
+// InstallSHEINUSTrialSchema prepares the isolated Product fixture ledger.
 func InstallSHEINUSTrialSchema(ctx context.Context, db *sql.DB) error {
 	if db == nil {
 		return dataacquisition.ErrUnavailable
 	}
-	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS data_acquisition_shein_us_trials (
- approval_id uuid PRIMARY KEY,
- binding char(64) NOT NULL CHECK(binding ~ '^[0-9a-f]{64}$'),
- claimed_at timestamptz NOT NULL,
- request_id varchar(128) UNIQUE CHECK(request_id ~ '^[A-Za-z0-9_-]{1,128}$'),
- credits integer CHECK(credits IS NULL OR (credits >= 0 AND request_id IS NOT NULL))
-)`)
+	_, err := db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS "+sheinUSTrialLedgerDDL)
 	return err
+}
+
+// InstallSHEINUSTrialLedger uses the existing Product owner's maintenance transaction.
+func InstallSHEINUSTrialLedger(ctx context.Context, tx *gorm.DB) error {
+	if tx == nil || tx.Dialector.Name() != "postgres" {
+		return dataacquisition.ErrUnavailable
+	}
+	return tx.WithContext(ctx).Exec("CREATE TABLE " + sheinUSTrialLedgerDDL).Error
+}
+
+// VerifySHEINUSTrialRuntimePermissions checks the installed trial ledger without DDL.
+func VerifySHEINUSTrialRuntimePermissions(ctx context.Context, db *sql.DB) error {
+	var allowed bool
+	if db == nil || db.QueryRowContext(ctx, `SELECT COALESCE(
+ has_table_privilege(rel,'SELECT')
+ AND has_column_privilege(rel,'approval_id','INSERT') AND has_column_privilege(rel,'binding','INSERT') AND has_column_privilege(rel,'claimed_at','INSERT')
+ AND has_column_privilege(rel,'request_id','UPDATE') AND has_column_privilege(rel,'credits','UPDATE'), false)
+ FROM to_regclass('public.data_acquisition_shein_us_trials') AS installed(rel)`).Scan(&allowed) != nil || !allowed {
+		return dataacquisition.ErrUnavailable
+	}
+	return nil
 }
 
 type SHEINUSTrialStore struct{ db *sql.DB }

@@ -24,7 +24,7 @@ type Repository interface {
 // returned PlanPreparer must be pure: Store calls it under a Conversation lock.
 type PlanningPort interface {
 	AuthorizeReceipt(context.Context, Scope) error
-	Admission(context.Context, Scope, MessageInput) (PlanPreparer, error)
+	Admission(context.Context, Scope, string, MessageInput) (PlanPreparer, error)
 	Decide(context.Context, PlanningCommand, []Message) (PlanTerminal, error)
 	FailureState(context.Context, PlanningCommand, error) PlanningState
 }
@@ -53,7 +53,7 @@ func (s *Service) Message(ctx context.Context, scope Scope, conversationID, key 
 		return PlanningCommand{}, err
 	}
 	if !replay {
-		prepare, admissionErr := s.Plan.Admission(ctx, scope, input)
+		prepare, admissionErr := s.Plan.Admission(ctx, scope, conversationID, input)
 		if admissionErr != nil {
 			// A concurrent T0 may have committed while admission ran. AppendUser
 			// checks the exact scoped key before it invokes this pure failure.

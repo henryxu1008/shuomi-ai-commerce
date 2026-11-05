@@ -106,7 +106,7 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
 				MaxTokens: &maxTokens, HTTPClient: guard.Client, ExtraFields: map[string]any{"n": 1, "store": false}})
 		}
-		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
+		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy || cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
 			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{
 				APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
 				MaxCompletionTokens: &maxTokens, ReasoningEffort: openaimodel.ReasoningEffortLevel("none"),
@@ -231,6 +231,10 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 	if !validFixedAdapterPolicy(cfg.Adapter, cfg.ProviderID, cfg.ModelID, cfg.AdapterPolicyVersion) {
 		return nil, ErrInvalid
 	}
+	if cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy &&
+		(cfg.Endpoint != TitlePilotOpenAIEndpoint || cfg.MaximumOutputTokens != TitlePilotCompletionTokens) {
+		return nil, ErrInvalid
+	}
 	if cfg.Adapter == AdapterGoogleGenerateContent {
 		if !aicapability.ValidGeminiThinkingMode(cfg.ThinkingMode) {
 			return nil, ErrInvalid
@@ -299,6 +303,7 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.URL.Scheme != g.endpoint.Scheme || !strings.EqualFold(req.URL.Host, g.endpoint.Host) ||
 		!strings.HasPrefix(req.URL.EscapedPath(), strings.TrimSuffix(g.endpoint.EscapedPath(), "/")+"/") ||
 		req.URL.RawQuery != "" || req.URL.Fragment != "" || req.Body == nil ||
+		g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy && req.URL.EscapedPath() != "/v1/chat/completions" ||
 		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" ||
 		g.cfg.Adapter == AdapterGoogleGenerateContent && req.URL.EscapedPath() != "/v1beta/models/"+g.cfg.ModelID+":generateContent" ||
 		g.cfg.SingleImage != nil && g.cfg.Adapter != AdapterGoogleGenerateContent &&
@@ -374,8 +379,8 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		if g.cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
 			usage = observeDeepSeekUsage(raw)
 		}
-		if g.cfg.SingleImage != nil && (usage.BillableUsage == nil ||
-			g.cfg.BillingUsageVersion != aicapability.ReferenceTextTotalsV1 && !validSingleImageResponseUsage(raw, g.cfg.ModelID)) {
+		if (g.cfg.SingleImage != nil || g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy) &&
+			(usage.BillableUsage == nil || g.cfg.BillingUsageVersion != aicapability.ReferenceTextTotalsV1 && !validStrictOpenAIResponseUsage(raw, g.cfg.ModelID)) {
 			usage = ObservedUsage{}
 		}
 		var providerID string
@@ -395,6 +400,9 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func validWire(raw []byte, cfg GuardConfig) bool {
+	if cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
+		return validTitlePilotWire(raw, cfg.ModelID)
+	}
 	if cfg.Adapter == AdapterGoogleGenerateContent {
 		return validGeminiWire(raw, cfg)
 	}

@@ -13,7 +13,10 @@ import (
 	k "task-processor/internal/knowledge"
 )
 
-type Repository struct{ db *gorm.DB }
+type Repository struct {
+	db                 *gorm.DB
+	originalGeneration string
+}
 
 var _ k.Repository = (*Repository)(nil)
 
@@ -86,6 +89,9 @@ func (r *Repository) Apply(ctx context.Context, c k.Command) (result k.Result, r
 				}
 				var rev k.Revision
 				if err := one(tx, "SELECT * FROM public.knowledge_revisions WHERE organization_id=? AND id=?", &rev, c.Scope.OrganizationID, existing.RevisionID); err != nil {
+					return err
+				}
+				if err := r.readOriginalRevision(tx, &rev); err != nil {
 					return err
 				}
 				result = k.Result{Source: &source, Revision: &rev}
@@ -231,6 +237,9 @@ func (r *Repository) Apply(ctx context.Context, c k.Command) (result k.Result, r
 					revision.UpdatedAt = now
 					revision.NextAttemptAt = now.Add(30 * time.Second)
 					if err := tx.Table("public.knowledge_revisions").Create(&revision).Error; err != nil {
+						return err
+					}
+					if err := r.markOriginalRevision(tx, &revision); err != nil {
 						return err
 					}
 					source.LatestRevisionID = revision.ID

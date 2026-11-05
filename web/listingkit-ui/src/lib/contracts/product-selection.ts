@@ -112,6 +112,7 @@ export const selectionPreparedSchema = z.strictObject({
   maximumTokens: count,
   maximumCostMicros: count,
   maximumCallCostMicros: count,
+  referencePriceVersion: text(128).optional(),
   currency: text(16).min(1),
 });
 const start = z.strictObject({
@@ -138,7 +139,7 @@ const proposal = z.strictObject({
     .min(1)
     .max(5),
 });
-export const selectionRunSchema = z
+export const selectionRunBaseSchema = z
   .strictObject({
     runId: collectionID,
     contextId: collectionID,
@@ -164,7 +165,9 @@ export const selectionRunSchema = z
     costMicros: count,
     currency: text(16),
     usageStatus: z.enum(["observed", "unknown_reserved"]),
-  })
+    referencePriceVersion: text(128).optional(),
+  });
+export const selectionRunSchema = selectionRunBaseSchema
   .superRefine((r, ctx) => {
     if (!r.validated) {
       if (r.proposal)

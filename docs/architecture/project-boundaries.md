@@ -15,6 +15,7 @@ The product baseline is [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../produc
 | Application composition | `internal/app/*` opens approved dependencies and injects ports; business rules remain in their domains |
 | API route registration | owning module `internal/*/httpapi` first; `internal/app/httpapi` only for shared runtime aggregation |
 | Source evidence and publication | `internal/product/sourcing`, `internal/app/productsourcing` and admitted acquisition adapters |
+| Private research evidence links and human selection | `internal/product/research`; exact live projections from current source owners, no product snapshots or execution/transfer facts; [contract](market-research-selection.md) |
 | Canonical product facts | `internal/product/catalog`; source evidence is not a second canonical store |
 | Approved product assets | `internal/product/asset`; generated or uploaded candidates require the existing explicit approval path |
 | Reviews and proposals | `internal/product/review` and `internal/product/review/proposal` |

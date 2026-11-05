@@ -119,7 +119,8 @@ func testConversationOnlyScopedCRUDAndNoExecution(t *testing.T, content *product
 	server := httptest.NewServer(buildCurrentApplicationHTTPServer(m.routes, deps).Handler)
 	t.Cleanup(server.Close)
 	key := uuid.NewString()
-	code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", key, `{}`)
+	createBody := workbenchCreateFixtureBody(t, server, "operator", "B", aiworkbench.ScopeSelection{Kind: "general"}, false)
+	code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", key, createBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var result struct {
@@ -129,7 +130,7 @@ func testConversationOnlyScopedCRUDAndNoExecution(t *testing.T, content *product
 	require.NoError(t, json.Unmarshal(raw, &result))
 	id := result.Conversation.ID
 	require.NotEmpty(t, id)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", key, `{}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", key, createBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &result))

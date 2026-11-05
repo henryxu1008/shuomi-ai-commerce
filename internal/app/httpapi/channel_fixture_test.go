@@ -24,10 +24,20 @@ type httpChannelFixture struct {
 }
 
 func installHTTPChannelFixture(db *gorm.DB) error {
-	if e := db.Migrator().CreateTable(&channelstore.ConnectionRow{}, &channelstore.ReceiptRow{}); e != nil {
+	if e := db.Exec("DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='product_agent_owner') THEN CREATE ROLE product_agent_owner NOLOGIN; END IF; END $$").Error; e != nil {
 		return e
 	}
-	return db.Exec(channelstore.MetadataView).Error
+	// Only fresh, task-owned fixture databases reach this helper. Exercise the
+	// canonical installer so its metadata view has the admitted owner identity.
+	if e := db.Exec("GRANT USAGE, CREATE ON SCHEMA public TO product_agent_owner").Error; e != nil {
+		return e
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if e := tx.Exec("SET LOCAL ROLE product_agent_owner").Error; e != nil {
+			return e
+		}
+		return channelstore.EnsureSchema(context.Background(), tx)
+	})
 }
 func newHTTPChannelFixture(db *gorm.DB) *httpChannelFixture {
 	p, _ := channelstore.NewProtection("synthetic-http-v1", []byte(strings.Repeat("h", 32)))

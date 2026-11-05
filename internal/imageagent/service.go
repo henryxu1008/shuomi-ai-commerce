@@ -286,21 +286,7 @@ func (s *Service) validateImagePolicyAvailable(ctx context.Context, marketplace 
 }
 
 func (s *Service) Get(ctx context.Context, runID string) (RunProjection, error) {
-	identity, err := s.executionIdentity(ctx)
-	if err != nil {
-		return RunProjection{}, err
-	}
-	scope := RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: strings.TrimSpace(runID)}
-	projection, err := s.repository.GetProjection(ctx, scope)
-	if err != nil {
-		return RunProjection{}, err
-	}
-
-	if _, err := s.identityForRun(identity, projection.Run); err != nil {
-		return RunProjection{}, err
-	}
-
-	return projection, nil
+	return (&RunReader{repository: s.repository}).Get(ctx, runID)
 }
 
 func (s *Service) ReplacePlan(ctx context.Context, runID string, expectedRevision int64, plan Plan, actionID string) error {
@@ -517,17 +503,7 @@ func cloneBlock(block *Block) *Block {
 const OrganizationScopeProtocol = "image-agent.organization.v1"
 
 func (s *Service) identityForRun(identity ExecutionIdentity, run Run) (ExecutionIdentity, error) {
-	identity.BusinessTaskID = run.BusinessTaskID
-
-	if run.ScopeProtocol != OrganizationScopeProtocol || run.TenantID != identity.TenantID || run.UserID != identity.UserID || run.MemberID == "" || run.MemberID != identity.MemberID {
-		return ExecutionIdentity{}, ErrIdentityRequired
-	}
-	identity.RunID = run.ID
-	if err := ValidateOrganizationExecution(identity, run.ID); err != nil {
-		return ExecutionIdentity{}, err
-	}
-
-	return identity, nil
+	return identityForRun(identity, run)
 }
 
 // ExecutionAuthorizer checks current permission for the immutable run owner.
@@ -541,16 +517,7 @@ func WithOrganizationScope() ServiceOption {
 }
 
 func (s *Service) executionIdentity(ctx context.Context) (ExecutionIdentity, error) {
-	identity, err := verifiedExecutionIdentity(ctx)
-	if err != nil {
-		return identity, err
-	}
-	verified, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	if !ok || verified.EffectiveOrganizationID == "" || verified.TenantID != verified.EffectiveOrganizationID {
-		return ExecutionIdentity{}, ErrIdentityRequired
-	}
-	identity.ScopeProtocol = OrganizationScopeProtocol
-	return identity, nil
+	return organizationExecutionIdentity(ctx)
 }
 
 func ValidateOrganizationExecution(identity ExecutionIdentity, runID string) error {

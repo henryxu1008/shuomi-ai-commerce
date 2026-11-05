@@ -77,6 +77,40 @@ func TestManagedSelectionKeepsExistingHalfRunCostCeiling(t *testing.T) {
 	require.True(t, found)
 }
 
+func TestResearchAdmissionDescriptorUsesSharedPriceAtExecution(t *testing.T) {
+	c := agentRuntimeConfig()
+	c.ProductCollections = true
+	c.MarketResearch = &ResearchConfig{}
+	p := c.ProductAgent.TextPolicies["org"]
+	p.Profile.PromptVersion, p.Profile.OutputSchemaVersion = agentconfig.ResearchPromptVersion, agentconfig.ResearchActionVersion
+	p.Profile.OfficialTariff = aicapability.OfficialModelTariff{}
+	c.ProductAgent.TextPolicies = nil
+	c.ProductAgent.ResearchTextPolicies = map[string]governed.RoutePolicy{"org": p}
+	require.NoError(t, c.ProductAgent.validate(c), "private descriptors declare bounds; the shared owner supplies execution prices")
+	writer := c.ProductAgent.Database
+	writer.User, writer.MaxConnections = "model_route_config_writer", 2
+	c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer}
+	defs, err := c.modelRouteDefinitions()
+	require.NoError(t, err)
+	require.Len(t, defs, 1)
+	require.Equal(t, string(aicapability.OperationProductResearchDecision), defs[0].Scope.Capability)
+	require.Equal(t, c.ProductAgent.CostMicros/2, defs[0].MaximumCostMicros)
+	require.False(t, defs[0].Text.Profile.OfficialTariff.Valid(), "an admission descriptor cannot become a serving price")
+
+	for _, field := range []string{"tokens", "cost"} {
+		invalid := *c.ProductAgent
+		cost, err := p.ShapeProfile().MaximumCost()
+		require.NoError(t, err)
+		invalid.Tokens, invalid.CostMicros = 2*(p.Profile.MaximumPromptTokens+p.Profile.MaximumCompletionTokens), 2*cost
+		if field == "tokens" {
+			invalid.Tokens--
+		} else {
+			invalid.CostMicros--
+		}
+		require.Error(t, invalid.validate(c), "the existing two-call bound remains required: %s", field)
+	}
+}
+
 func TestModelRoutePricingAdmitsOnlyAssembledConsumers(t *testing.T) {
 	for _, tc := range []struct {
 		name       string

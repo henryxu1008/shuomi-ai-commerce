@@ -16,6 +16,7 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/app/productsourcing"
+	reportapp "task-processor/internal/app/reportcenter"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
@@ -24,6 +25,7 @@ import (
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/product/collection"
 	reviewproposal "task-processor/internal/product/review/proposal"
+	rc "task-processor/internal/reportcenter"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -99,6 +101,12 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	var planningCalls atomic.Int32
+	const projectID = "project-fixture"
+	var projectRevoked atomic.Bool
+	var failSend atomic.Bool
+	var projectReads atomic.Int32
+	var goal atomic.Value
+	goal.Store("original project goal")
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		planningCalls.Add(1)
 		var wire struct {
@@ -108,6 +116,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		}
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
 		require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, binding.ContextID)
+		require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, goal.Load())
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":"planner-fixture","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
@@ -121,7 +130,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	policy.Profile.ProviderID = "openai-compatible"
 	policy.Profile.ModelID = "planner-fixture"
 	policy.Profile.OfficialTariff.Model = policy.Profile.ModelID
-	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v2"
+	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
 	policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 	policy.Profile.MaximumInputBytes = 128 << 10
 	policy.Profile.MaximumCompletionTokens = 4096
@@ -129,9 +138,19 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	policy.Profile.CredentialVersion = credential.reference
 	policy.AdmittedCredentialVersion = httpCredentialReference(*credential)
 	policy.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(credential.BaseURL)
+	reader, ok := a.config.CurrentTextPolicies.(syntheticCurrentTextPolicies)
+	require.True(t, ok)
+	reader.planning = map[string]governed.RoutePolicy{"B": policy}
+	a.config.CurrentTextPolicies = reader
 	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}}, m.application)
 	require.NoError(t, err)
 	app := wm.(aiWorkbenchModule).application
+	app.scopes.reader.Project = func(_ context.Context, owner aiworkbench.Scope, id string) (aiworkbench.ProjectScopeFacts, error) {
+		if owner != (aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}) || id != projectID || projectRevoked.Load() || failSend.Load() && projectReads.Add(1) == 2 {
+			return aiworkbench.ProjectScopeFacts{}, aiworkbench.ErrNotFound
+		}
+		return aiworkbench.ProjectScopeFacts{ID: projectID, Title: "Fixture project", Goal: goal.Load().(string), Revision: 1}, nil
+	}
 	require.Equal(t, aiworkbench.ContentTaskKind, wm.(aiWorkbenchModule).ExecutionKind())
 	require.Equal(t, "AVAILABLE", wm.(aiWorkbenchModule).PlanningReadiness(ctx, "B"))
 	require.Equal(t, "UNAVAILABLE", wm.(aiWorkbenchModule).TitleReadiness(ctx, "B"))
@@ -161,10 +180,24 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	}
 	require.NoError(t, json.Unmarshal(call("GET", "/api/v1/workbench/chat/subjects/"+binding.ContextKind+"/"+binding.ContextID, "", nil, 200), &sourcePreview))
 	require.Equal(t, selected.Subject, sourcePreview.Subject)
-	var created struct{ Conversation struct{ ID string } }
-	require.NoError(t, json.Unmarshal(call("POST", workbenchChatBase, uuid.NewString(), map[string]any{}, 200), &created))
+	var created struct{ Conversation aiworkbench.Conversation }
+	createBody := workbenchCreateFixtureBody(t, server, "admin", "B", aiworkbench.ScopeSelection{Kind: "project", ProjectID: projectID}, false)
+	var createPayload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(createBody), &createPayload))
+	createKey := uuid.NewString()
+	require.NoError(t, json.Unmarshal(call("POST", workbenchChatBase, createKey, createPayload, 200), &created))
+	require.NotNil(t, created.Conversation.BusinessScope)
+	require.Equal(t, projectID, created.Conversation.BusinessScope.ProjectID)
+	call("POST", workbenchChatBase, createKey, createPayload, 200)
 	messagePath := workbenchChatBase + "/" + created.Conversation.ID + "/messages"
 	body := map[string]any{"content": "整理为英文内容", "taskSelection": selected}
+	failSend.Store(true)
+	var deniedTurn struct{ State aiworkbench.PlanningState }
+	require.NoError(t, json.Unmarshal(call("POST", messagePath, uuid.NewString(), body, 200), &deniedTurn))
+	require.Equal(t, aiworkbench.PlanningFailedBeforeDispatch, deniedTurn.State)
+	require.Zero(t, planningCalls.Load(), "last scope gate must stop the first dispatch")
+	failSend.Store(false)
+	require.Error(t, db.Exec("UPDATE ai_workbench.conversations SET business_scope = NULL WHERE id = ?", created.Conversation.ID).Error)
 	messageKey := uuid.NewString()
 	var planned struct {
 		ProposalID string
@@ -181,6 +214,10 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.Zero(t, before, "planning never starts a content run")
 	confirmPath := workbenchChatBase + "/" + created.Conversation.ID + "/proposals/" + planned.ProposalID + "/confirm"
 	key := uuid.NewString()
+	goal.Store("changed while awaiting confirmation")
+	call("POST", confirmPath, uuid.NewString(), nil, 409)
+	require.Zero(t, calls.Load())
+	goal.Store("original project goal")
 	var confirmed struct {
 		Task   workbenchTaskView
 		Replay bool
@@ -233,6 +270,38 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, json.Unmarshal(call("POST", messagePath, messageKey, body, 200), &planned))
 	require.Equal(t, confirmed.Task.ID, planned.Proposal.ConfirmedTaskID)
 	require.EqualValues(t, 1, planningCalls.Load())
+	owner := aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}
+	storedTask, err := app.store.GetTask(ctx, owner, confirmed.Task.ID)
+	require.NoError(t, err)
+	runScope := agent.Scope{OrganizationID: owner.OrganizationID, ActorID: owner.ActorID}
+	native, nextNative, err := a.configuration.Recent(ctx, runScope, "member-B-admin", agentconfig.ContentAgentID, "", 20, a.store, func(agent.Binding) error { return nil })
+	require.NoError(t, err)
+	require.Empty(t, native, "scoped content is reachable through its exact Task, not a standalone run")
+	require.Empty(t, nextNative)
+	_, _, err = a.configuration.Recent(ctx, runScope, "member-B-admin", agentconfig.ContentAgentID, storedTask.ConfigurationSnapshotRef.ID, 20, a.store, func(agent.Binding) error { return nil })
+	require.ErrorIs(t, err, agentconfig.ErrInvalid)
+	var scopedPage struct {
+		Tasks      []workbenchTaskView
+		Incomplete bool
+	}
+	require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase+"?scopeKind=project&projectId="+projectID, "", nil, 200), &scopedPage))
+	require.Len(t, scopedPage.Tasks, 1)
+	require.Equal(t, confirmed.Task.ID, scopedPage.Tasks[0].ID)
+	require.NotNil(t, scopedPage.Tasks[0].BusinessScope)
+	require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase+"?scopeKind=general", "", nil, 200), &scopedPage))
+	require.Empty(t, scopedPage.Tasks)
+	projectRevoked.Store(true)
+	originalCreate := call("POST", workbenchChatBase, createKey, createPayload, 200)
+	require.NotContains(t, string(originalCreate), "conversationAccepted")
+	require.NotContains(t, string(originalCreate), "Fixture project")
+	rejectedCreate := call("POST", workbenchChatBase, uuid.NewString(), createPayload, 404)
+	require.JSONEq(t, `{"code":"NOT_FOUND","conversationAccepted":false}`, string(rejectedCreate))
+	call("GET", workbenchTaskBase+"/"+confirmed.Task.ID, "", nil, 404)
+	rawHidden := call("GET", workbenchChatBase+"/"+created.Conversation.ID, "", nil, 200)
+	require.NotContains(t, string(rawHidden), "Fixture project")
+	require.NotContains(t, string(rawHidden), "请确认内容方案")
+	call("GET", workbenchTaskBase+"?scopeKind=project&projectId="+projectID, "", nil, 404)
+	projectRevoked.Store(false)
 	if automatic {
 		require.Equal(t, aiworkbench.TaskCompleted, confirmed.Task.State)
 		require.NotNil(t, confirmed.Task.PolicyAdoption)
@@ -252,6 +321,12 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, json.Unmarshal(raw, &reviewed))
 	require.NotEmpty(t, reviewed.Task.ReviewID, string(raw))
 	view := titleCall(t, server, "GET", titleBasePath+"/"+reviewed.Task.ReviewID, "admin", "B", "", "", 200)
+	sources := reportapp.Sources{Reviews: a.reviews, Policy: auth}
+	_, denied := sources.Read(actor, rc.Scope{OrganizationID: "B", ActorID: "admin"}, "TITLE_REVIEW", reviewed.Task.ReviewID)
+	require.ErrorIs(t, denied, rc.ErrNotFound)
+	projectRevoked.Store(true)
+	call("GET", titleBasePath+"/"+reviewed.Task.ReviewID, "", nil, 404)
+	projectRevoked.Store(false)
 	require.Len(t, view.Content.After, len(selection.Fields()))
 	accepted := titleDecision(t, server, view, "accept", "admin", "", 200)
 	applied := titleApply(t, server, accepted, uuid.NewString(), 200)

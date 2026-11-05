@@ -48,10 +48,12 @@ export function ProductSelectionFlow({
   scope,
   entry,
   nonce,
+  initialItems = [],
 }: {
   scope: ConfigurationScope;
   entry: CatalogEntry;
   nonce: number;
+  initialItems?: CollectionItem[];
 }) {
   const context = useWorkbenchContext();
   const queries = useQueryClient();
@@ -64,7 +66,7 @@ export function ProductSelectionFlow({
     selectionIntentSchema,
     { storage: "local", maxLength: 16384 },
   );
-  const [selected, setSelected] = useState<CollectionItem[]>([]),
+  const [selected, setSelected] = useState<CollectionItem[]>(() => initialItems.filter(item => item.source.kind !== "shein_us_data")),
     [goal, setGoal] = useState(
       "请根据真实事实，用中文比较商品并指出缺失信息。",
     ),
@@ -361,8 +363,9 @@ export function ProductSelectionFlow({
             scope={scope}
             kind="product"
             disabled={locked || selected.length >= 5}
+            isEligible={(item) => item.source.kind !== "shein_us_data"}
             onSelect={(item) => {
-              if (selected.some((i) => i.id === item.id)) return;
+              if (item.source.kind === "shein_us_data" || selected.some((i) => i.id === item.id)) return;
               setSelected([...selected, item]);
               setFacts(undefined);
             }}
@@ -432,12 +435,13 @@ export function ProductSelectionFlow({
           <p>
             候选 {saved.input.candidates.length} 个 · 准备权限版本 {saved.prepared.modeRevision} · 当前模式{" "}
             {mode.data ? executionModeLabels[mode.data.mode] : "待核对"} ·
-            单次调用最多{" "}
+            单次调用费用估算最多{" "}
             {(saved.prepared.maximumCallCostMicros / 1000000).toFixed(6)}{" "}
-            {saved.prepared.currency} · 本次总预算最多{" "}
+            {saved.prepared.currency} · 本次费用估算上限{" "}
             {(saved.prepared.maximumCostMicros / 1000000).toFixed(6)}{" "}
             {saved.prepared.currency}
           </p>
+          {saved.prepared.referencePriceVersion ? <p>参考价版本：{saved.prepared.referencePriceVersion}。估算不代表厂商最终账单。</p> : null}
           <p>建议保存在原运行历史，所有模式均只分析，不采购或修改商品。</p>
           {!preparedModeMatch ? <p role="alert">权限模式已变化或待核对，请重新准备；原请求编号和运行保留。</p> : null}
           {!run.data && !preparedFactsMatch ? <><p>请先核对本次准备对应的商品事实。</p><Button variant="outline" disabled={locked || !factsReady} onClick={()=>void inspect()}>核对确认依据</Button></> : null}
@@ -531,7 +535,7 @@ export function ProductSelectionFlow({
             <p>原操作结果或费用待核实，请保留原请求。</p>
           ) : (
             <p>
-              已观察 {run.data.tokens} tokens，费用{" "}
+              已观察 {run.data.tokens} tokens，费用估算{" "}
               {(run.data.costMicros / 1000000).toFixed(6)} {run.data.currency}
             </p>
           )}
@@ -679,7 +683,7 @@ const missingNames: Record<string, string> = {
   tax: "税费",
   landed_cost: "完整到岸成本",
 };
-function factLabel(path: string): string {
+export function factLabel(path: string): string {
   if (missingNames[path]) return missingNames[path];
   const sku = /^variants\.(\d+)\.(.+)$/.exec(path);
   const skuNames: Record<string, string> = {
@@ -695,7 +699,7 @@ function factLabel(path: string): string {
     ? `属性 ${Number(attr[1]) + 1}${attr[2] ? " · 待核实" : ""}`
     : path;
 }
-function FactTable({ inspection }: { inspection: SelectionInspection }) {
+export function FactTable({ inspection }: { inspection: SelectionInspection }) {
   const paths = [
     ...new Set(inspection.products.flatMap((p) => p.facts.map((f) => f.path))),
   ];

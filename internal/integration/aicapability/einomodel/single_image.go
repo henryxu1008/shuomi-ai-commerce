@@ -165,7 +165,7 @@ func validSingleImageRequest(cfg GuardConfig) bool {
 		len(cfg.SingleImage.System)+len(cfg.SingleImage.Prompt) <= int(cfg.MaximumRequestBytes)
 }
 
-func validSingleImageResponseUsage(raw []byte, expectedModel string) bool {
+func validStrictOpenAIResponseUsage(raw []byte, expectedModel string) bool {
 	var response struct {
 		Model string          `json:"model"`
 		Usage json.RawMessage `json:"usage"`

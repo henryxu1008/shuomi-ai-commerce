@@ -69,6 +69,12 @@ type SHEINUSTrialBudget struct {
 	ZeroIncrementalCash, ExclusiveKeyWindow bool
 }
 
+func (b SHEINUSTrialBudget) AllowsSend(binding string) bool {
+	return b.Binding == binding && b.AvailableCredits >= SHEINUSTrialCreditLimit &&
+		b.MaximumRequestCredits >= 1 && b.MaximumRequestCredits <= SHEINUSTrialCreditLimit &&
+		b.ZeroIncrementalCash && b.ExclusiveKeyWindow
+}
+
 // The authority supplies the frozen approval, current project/source permissions
 // and account evidence. Send and publish must verify current execution and
 // funding access. The key must be dedicated to this approval's time window
@@ -154,9 +160,7 @@ func (s *SHEINUSTrial) checkSend(ctx context.Context, p Principal, approved SHEI
 		return ErrForbidden
 	}
 	budget, err := s.authority.CheckSHEINUSTrialBudget(ctx, a)
-	if err != nil || budget.Binding != binding || budget.AvailableCredits < SHEINUSTrialCreditLimit ||
-		budget.MaximumRequestCredits < 1 || budget.MaximumRequestCredits > SHEINUSTrialCreditLimit ||
-		!budget.ZeroIncrementalCash || !budget.ExclusiveKeyWindow {
+	if err != nil || !budget.AllowsSend(binding) {
 		return ErrUnavailable
 	}
 	return ctx.Err()
@@ -172,6 +176,16 @@ func (s *SHEINUSTrial) visible(ctx context.Context, p Principal, a SHEINUSTrialA
 		return SHEINUSTrialAttempt{}, ErrForbidden
 	}
 	return attempt, err
+}
+
+// View reads the original attempt without claiming a send or looking up usage.
+func (s *SHEINUSTrial) View(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {
+	a, err := s.authorize(ctx, p, id, SHEINUSTrialView)
+	if err != nil {
+		return SHEINUSTrialAttempt{}, err
+	}
+	attempt, err := s.store.Read(ctx, a)
+	return s.visible(ctx, p, a, SHEINUSTrialView, attempt, err)
 }
 
 func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {

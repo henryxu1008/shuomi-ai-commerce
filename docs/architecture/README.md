@@ -11,6 +11,10 @@
 - `shein-us-one-page-trial-send.md` · [SHEIN 美国站一页试取单次发送](shein-us-one-page-trial-send.md) · #1074 的离线发送门禁、25 credits 上限与原单核账。
 - `zenrows-shein-us-trial-adapter.md` · [ZenRows 发送与原单用量查证](zenrows-shein-us-trial-adapter.md) · #1074 一页试取适配器设计。
 - `shein-us-page-publication.md` · [SHEIN 美国站一页响应到原版发布](shein-us-page-publication.md) · #1074 离线组合设计。
+- `shein-us-trial-entry.md` · [SHEIN 美国站单页取数入口](shein-us-trial-entry.md) · #1073 研究项目的默认关闭入口和原单恢复。
+- `shein-us-trial-installation.md` · [SHEIN 单页试取账本与运行依赖准备](shein-us-trial-installation.md) · 原 Product 安装、最小授权与离线批准接线。
+- `shein-us-trial-runtime-wiring.md` · [SHEIN 美国站单页试取运行接线](shein-us-trial-runtime-wiring.md) · 私有批准与门禁、只读挂载、末次发送检查及原单核账。
+- `shein-us-trial-workbench-entry.md` · [SHEIN 美国站首试工作台入口](shein-us-trial-workbench-entry.md) · 复用登录和原项目权限查看、提交及核对固定批准单。
 
 <a id="foundation"></a>
 
@@ -18,6 +22,7 @@
 
 - `app-assembly-boundaries.md` — [App Assembly Boundaries](app-assembly-boundaries.md)
 - `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
+- `fallback-contract-consolidation.md` — [Fallback 合同收敛](fallback-contract-consolidation.md)
 - `httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](httpapi-assembly-boundaries.md)
 - `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
 - `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
@@ -56,10 +61,12 @@
 - `minio-capacity-admission.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission.md)
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
+- `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](bailian-deepseek-shared-text-admission.md)
+- `ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](ai-disabled-application-lifecycle.md)
+- `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
+- `shared-channel-credentials.md` — [渠道凭据与模型定义分离（冻结合同，#1089已合入）](shared-channel-credentials.md)
 - `eino-model-admission.md` — [Eino多厂商模型按需准入（冻结设计与实施合同；交付证据见PR #1093）](eino-model-admission.md)
-- `shared-channel-credentials.md` — [渠道凭据与模型定义分离（D1–D4产品决定已确认；架构候选，尚不可实施）](shared-channel-credentials.md)
 - `channel-credentials-ui.md` — [企业渠道 Key UI 配置与轮换（D1–D3冻结、已获实施授权；工程证据见 PR #1096）](channel-credentials-ui.md)
-- `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计（D1已认可、R1通过；本轮实现待最终工程复核）](openai-flare-image-generation.md)
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
 - `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
 - `settlement-reversal-locking.md` — [Immutable settlement reversal locking](settlement-reversal-locking.md)
@@ -93,6 +100,8 @@
 - `completion-draft-history.md` — [待补全草稿保存历史与比较 v1](completion-draft-history.md)
 - `completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](completion-draft-restore.md)
 - `completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](completion-draft-structured.md)
+- `market-research-selection.md` — [市场研究与选品：最小领域合同](market-research-selection.md)
+- `market-research-evidence-analysis-v1.md` — [两个中心 V1：研究证据分析合同增量](market-research-evidence-analysis-v1.md)
 - `own-product-draft-entry.md` — [自有商品单件转入与独立待补全入口 v1](own-product-draft-entry.md)
 - `own-product-edit.md` — [自有商品版本更新与独立编辑页 v1](own-product-edit.md)
 - `own-product-entry.md` — [自有商品独立录入页与多变体 v1](own-product-entry.md)
@@ -148,6 +157,7 @@
 
 - `agent-customization.md` — [智能体定制需求与人工进度 V1](agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
+- `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
 - `ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](ai-provider-contracts.md)
 - `commerce-tool-canonical-inspection.md` — [B0 Canonical Product Inspection Tool 设计](commerce-tool-canonical-inspection.md)
@@ -159,6 +169,7 @@
 - `official-knowledge-provenance.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](official-knowledge-provenance.md)
 - `official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge.md)
 - `official-skill-product-entry.md` — [官方技能直接处理已有商品](official-skill-product-entry.md)
+- `issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](issue132-title-evaluation-admission.md)
 - `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)
 - `platform-listing-materials-agent.md` — [平台上架资料智能体 v1](platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
@@ -203,6 +214,7 @@
 - `ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](ai-workbench-conversation-runtime.md)
 - `ai-workbench-project-center.md` — [AI Workbench Project Center V1](ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
+- `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
 - `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
 - `completed-work-store-scope.md` — [#36 已完成本地资料的店铺归属投影](completed-work-store-scope.md)
@@ -220,6 +232,7 @@
 
 - `data-services-native-authorization.md` — [Data Services native authorization — #619 / PR #631](data-services-native-authorization.md)
 - `data-services.md` — [数据市场与 API 管理首版](data-services.md)
+- `data-services-execution-lifecycle.md` — [关闭采集执行时保留数据服务配置、资料与历史](data-services-execution-lifecycle.md)
 - `ecoservices-qualification-runtime.md` — [Ecoservices qualification-only runtime](ecoservices-qualification-runtime.md)
 - `ecosystem-services.md` — [生态服务 V1：第三方入驻、服务交付与在线收款结算](ecosystem-services.md)
 - `platform-support-chatwoot.md` — [Platform customer support through Chatwoot official APIs](platform-support-chatwoot.md)

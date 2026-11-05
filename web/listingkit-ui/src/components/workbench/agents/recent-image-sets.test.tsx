@@ -111,10 +111,10 @@ it("refreshes the current page from the server after a verified save without cha
 });
 
 
-it("shows charged original output awaiting recovery without changing genuine UNKNOWN",async()=>{
+it("shows proved settlement without inferring recovery authority",async()=>{
  fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"1000000",slots:[{slotId:"detail",attempt:1,points:"1000000",unavailable:false}]}},item(1)],nextCursor:""}));
  render(<RecentImageSets scope={scope} nonce={0}/>);
- expect(await screen.findByText("已生成，结果待恢复 · 供应链商品 · 通用素材")).toBeVisible();
+ expect(await screen.findByText("已生成，已结算 · 供应链商品 · 通用素材")).toBeVisible();
  expect(screen.getByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
  expect(fetch).toHaveBeenCalledTimes(1);
 });
@@ -123,5 +123,5 @@ it("does not call a partially released run paid or wholly released",async()=>{
  fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"0",slots:[],releasedSlots:[{slotId:"detail",attempt:1,points:"1000000"}]}}],nextCursor:""}));
  render(<RecentImageSets scope={scope} nonce={0}/>);
  expect(await screen.findByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
- expect(screen.queryByText(/已扣点|未生成，点数已释放|已生成，结果待恢复/)).toBeNull();
+ expect(screen.queryByText(/已扣点|未生成，点数已释放|已生成，已结算/)).toBeNull();
 });

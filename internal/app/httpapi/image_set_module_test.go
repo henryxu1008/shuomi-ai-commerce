@@ -256,45 +256,62 @@ func TestFullImageCatalogVersionsRemainExactAcrossHTTP(t *testing.T) {
 	}
 }
 func TestFullImageHTTPReadsOriginalApprovalWithoutASecondMutation(t *testing.T) {
-	const sourceID = "d1abe8da-b381-4924-8d15-d79bdbfacf70"
-	const runID = "30d26689-30b6-4358-b0f5-c310d7ab2e58"
-	const actionID = "b912e7d4-df80-44a5-8510-3cdf91d5b8dd"
-	binding := imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: sourceID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 2, ApplyReceiptID: actionID}
-	projection := imageagent.RunProjection{Run: imageagent.Run{ID: runID, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: sourceID, ScopeProtocol: imageagent.OrganizationScopeProtocol}, Plan: imageagent.Plan{Set: &imageagent.ImageSetPlan{Source: binding, Target: imageagent.ImageTarget{Platform: "product"}}}}
-	service, err := imageagent.NewService(imageSetHTTPRepository{projection: projection}, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope())
-	require.NoError(t, err)
-	sources := &imageSetHTTPSource{binding: binding}
-	approvals := &acquisitionImageApprovalReaderSpy{commit: asset.ApprovalCommit{TenantID: "org", ProductKey: "product", TargetPlatform: "product", ActionID: actionID, SourceSnapshotVersion: 2, ImageSet: &asset.ImageSetSelection{Digest: strings.Repeat("a", 64), Source: asset.SourceSelectionRequest{ContextKind: "acquisition", ItemID: sourceID, OriginalPublicationID: "publication", OriginalSnapshotVersion: 1, EffectiveCatalogVersion: 2, ApplyReceiptID: actionID, TargetPlatform: "product"}}, Assets: []asset.ApprovedAsset{{ID: "selected", Role: asset.RoleMain, URL: "https://images.test/1.png"}}}}
-	module := fullImageModule{application: &fullImageApplication{service: service, readSources: sources, approvals: approvals}, bind: func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }}
-	router := gin.New()
-	for _, route := range module.routes() {
-		router.Handle(route.Method, route.Path, route.Handler)
+	for _, disabled := range []bool{false, true} {
+		mode := "enabled"
+		if disabled {
+			mode = "disabled"
+		}
+		t.Run(mode, func(t *testing.T) {
+
+			const sourceID = "d1abe8da-b381-4924-8d15-d79bdbfacf70"
+			const runID = "30d26689-30b6-4358-b0f5-c310d7ab2e58"
+			const actionID = "b912e7d4-df80-44a5-8510-3cdf91d5b8dd"
+			binding := imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: sourceID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 2, ApplyReceiptID: actionID}
+			projection := imageagent.RunProjection{Run: imageagent.Run{ID: runID, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: sourceID, ScopeProtocol: imageagent.OrganizationScopeProtocol}, Plan: imageagent.Plan{Set: &imageagent.ImageSetPlan{Source: binding, Target: imageagent.ImageTarget{Platform: "product"}}}}
+			service, err := imageagent.NewService(imageSetHTTPRepository{projection: projection}, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope())
+			require.NoError(t, err)
+			sources := &imageSetHTTPSource{binding: binding}
+			approvals := &acquisitionImageApprovalReaderSpy{commit: asset.ApprovalCommit{TenantID: "org", ProductKey: "product", TargetPlatform: "product", ActionID: actionID, SourceSnapshotVersion: 2, ImageSet: &asset.ImageSetSelection{Digest: strings.Repeat("a", 64), Source: asset.SourceSelectionRequest{ContextKind: "acquisition", ItemID: sourceID, OriginalPublicationID: "publication", OriginalSnapshotVersion: 1, EffectiveCatalogVersion: 2, ApplyReceiptID: actionID, TargetPlatform: "product"}}, Assets: []asset.ApprovedAsset{{ID: "selected", Role: asset.RoleMain, URL: "https://images.test/1.png"}}}}
+			application := &fullImageApplication{service: service, readSources: sources, approvals: approvals}
+			if disabled {
+				application.history, err = imageagent.NewRunReader(imageSetHTTPRepository{projection: projection})
+				require.NoError(t, err)
+				application.service, application.executionDisabled = nil, true
+			}
+			module := fullImageModule{application: application, bind: func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }}
+			router := gin.New()
+			for _, route := range module.routes() {
+				router.Handle(route.Method, route.Path, route.Handler)
+			}
+			id := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
+			call := func(identity authidentity.AuthenticatedIdentity) *httptest.ResponseRecorder {
+				r := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/sourcing/1688/acquisitions/"+sourceID+"/images/runs/"+runID+"/approvals/"+actionID, nil)
+				r = r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), identity))
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, r)
+				return w
+			}
+			w := call(id)
+			require.Equal(t, 200, w.Code, w.Body.String())
+			require.Contains(t, w.Body.String(), actionID)
+			require.Equal(t, 1, approvals.calls)
+			approvals.commit.ImageSet.Source.ApplyReceiptID = "other"
+			w = call(id)
+			require.Equal(t, 409, w.Code)
+			approvals.commit.ImageSet.Source.ApplyReceiptID = actionID
+			changed := id
+			changed.EffectiveMemberID = "replacement"
+			w = call(changed)
+			require.Equal(t, 403, w.Code)
+			changed = id
+			changed.EffectiveOrganizationID = "other"
+			w = call(changed)
+			require.Equal(t, 403, w.Code)
+
+		})
 	}
-	id := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
-	call := func(identity authidentity.AuthenticatedIdentity) *httptest.ResponseRecorder {
-		r := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/sourcing/1688/acquisitions/"+sourceID+"/images/runs/"+runID+"/approvals/"+actionID, nil)
-		r = r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), identity))
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, r)
-		return w
-	}
-	w := call(id)
-	require.Equal(t, 200, w.Code, w.Body.String())
-	require.Contains(t, w.Body.String(), actionID)
-	require.Equal(t, 1, approvals.calls)
-	approvals.commit.ImageSet.Source.ApplyReceiptID = "other"
-	w = call(id)
-	require.Equal(t, 409, w.Code)
-	approvals.commit.ImageSet.Source.ApplyReceiptID = actionID
-	changed := id
-	changed.EffectiveMemberID = "replacement"
-	w = call(changed)
-	require.Equal(t, 403, w.Code)
-	changed = id
-	changed.EffectiveOrganizationID = "other"
-	w = call(changed)
-	require.Equal(t, 403, w.Code)
 }
+
 func TestFullImageRoutesHaveExactLiveOrganizationAdmission(t *testing.T) {
 	routes := []httproute.Descriptor{}
 	for _, r := range currentWorkbenchApplicationRoutes {

@@ -33,6 +33,7 @@ type AIWorkbenchDependencies struct {
 }
 
 type aiWorkbenchApplication struct {
+	scopes                 workbenchScopeSources
 	store                  *workstore.Store
 	service                *aiworkbench.Service
 	agent                  *productAgentApplication
@@ -44,10 +45,13 @@ type aiWorkbenchApplication struct {
 }
 
 type workbenchPlanner struct {
-	agent  *productAgentApplication
-	routes *governed.OrganizationRouteResolver
-	model  einoplanner.Planner
+	workbench *aiWorkbenchApplication
+	agent     *productAgentApplication
+	routes    *governed.OrganizationRouteResolver
+	model     einoplanner.Planner
 }
+
+type workbenchPlannerScopeGate struct{}
 
 type titleGatedPlanningText struct {
 	executor           *governed.Executor
@@ -63,11 +67,19 @@ func (t *titleGatedPlanningText) Generate(ctx context.Context, input aicapabilit
 		if _, err := t.selectTitleProfile(gateCtx, input.OrganizationID); err != nil {
 			return nil, governed.ErrNotDispatched
 		}
+		if gate, ok := gateCtx.Value(workbenchPlannerScopeGate{}).(func(context.Context) error); ok {
+			if err := gate(gateCtx); err != nil {
+				return nil, err
+			}
+		}
 		return nil, nil
 	})
 }
 
-type workbenchExecution struct{ agent *productAgentApplication }
+type workbenchExecution struct {
+	agent     *productAgentApplication
+	workbench *aiWorkbenchApplication
+}
 
 func (p *workbenchPlanner) AuthorizeReceipt(ctx context.Context, scope aiworkbench.Scope) error {
 	i, err := p.agent.freshChatIdentity(ctx)
@@ -126,7 +138,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	}
 	promptVersion := "ai-workbench-chat-plan-v1"
 	if cfg.ContentTasks {
-		promptVersion = einoplanner.ContentPromptVersion
+		promptVersion = einoplanner.ScopedContentPromptVersion
 		if len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
 			return nil, aiworkbench.ErrUnavailable
 		}
@@ -177,14 +189,44 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	planner := &workbenchPlanner{agent: a, routes: resolver, model: einoplanner.Planner{Text: &titleGatedPlanningText{
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
-	service := &aiworkbench.Service{Store: store, Plan: planner, Execute: workbenchExecution{agent: a}}
-	return &aiWorkbenchApplication{store: store, service: service, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}, nil
+	app := &aiWorkbenchApplication{store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
+	planner.workbench = app
+	if cfg.ContentTasks {
+		a.workbenchScopes = app
+	}
+	app.service = &aiworkbench.Service{Store: store, Plan: planner, Execute: workbenchExecution{agent: a, workbench: app}}
+	return app, nil
 }
 
-func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scope, input aiworkbench.MessageInput) (aiworkbench.PlanPreparer, error) {
+func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scope, id string, input aiworkbench.MessageInput) (aiworkbench.PlanPreparer, error) {
+	c, err := p.workbench.store.Get(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
+	if c.BusinessScope == nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) {
+		return nil, aiworkbench.ErrProposalStale
+	}
+	return p.admission(ctx, scope, input, id, c.BusinessScope)
+}
+
+func (p *workbenchPlanner) admission(ctx context.Context, scope aiworkbench.Scope, input aiworkbench.MessageInput, conversation string, fixed *aiworkbench.BusinessScope) (aiworkbench.PlanPreparer, error) {
 	identity, err := p.agent.freshChatIdentity(ctx)
 	if err != nil || scope != (aiworkbench.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}) {
 		return nil, review.ErrForbidden
+	}
+	var frozen *aiworkbench.FrozenScope
+	if fixed != nil {
+		if err := p.workbench.store.ConversationMember(ctx, scope, conversation, identity.EffectiveMemberID); err != nil {
+			return nil, err
+		}
+		if input.TaskSelection == nil {
+			return nil, aiworkbench.ErrInvalid
+		}
+		f, readErr := p.workbench.scopes.reader.Freeze(ctx, scope, conversation, identity.EffectiveMemberID, *fixed)
+		if readErr != nil {
+			return nil, readErr
+		}
+		frozen = &f
 	}
 	if _, err = p.agent.workbenchSelectionBinding(ctx, identity, input.WorkScope()); err != nil {
 		return nil, err
@@ -216,7 +258,7 @@ func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scop
 	}
 	unavailable := func() (aiworkbench.PlanPreparer, error) {
 		return func([]aiworkbench.Message, string) (aiworkbench.PreparedPlan, error) {
-			return aiworkbench.PreparedPlan{MemberID: identity.EffectiveMemberID, Unavailable: true}, nil
+			return aiworkbench.PreparedPlan{MemberID: identity.EffectiveMemberID, Unavailable: true, FrozenScope: frozen}, nil
 		}, nil
 	}
 	// The paid planner must not run when its only approved consumer cannot
@@ -236,7 +278,7 @@ func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scop
 		prepared, err := einoplanner.Prepare(einoplanner.Request{Scope: scope, MemberID: identity.EffectiveMemberID,
 			InvocationID: invocationID, OperationID: input.OperationID, TargetPlatform: input.TargetPlatform, TaskSelection: input.TaskSelection,
 			TemplateID: input.TemplateID, TemplateRevision: input.TemplateRevision, KnowledgeBaseID: input.KnowledgeBaseID,
-			History: history, Profile: profile})
+			History: history, Profile: profile, FrozenScope: frozen})
 		if err != nil {
 			return aiworkbench.PreparedPlan{}, err
 		}
@@ -245,7 +287,7 @@ func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scop
 			return aiworkbench.PreparedPlan{}, aiworkbench.ErrUnavailable
 		}
 		return aiworkbench.PreparedPlan{MemberID: identity.EffectiveMemberID, InputHash: prepared.Quote.InputHash,
-			ModelProfile: raw, Deadline: time.Now().Add(profile.DeadlineBound)}, nil
+			ModelProfile: raw, Deadline: time.Now().Add(profile.DeadlineBound), FrozenScope: frozen}, nil
 	}, nil
 }
 
@@ -254,22 +296,39 @@ func (p *workbenchPlanner) Decide(ctx context.Context, command aiworkbench.Plann
 	if ctx == nil || json.Unmarshal(command.ModelProfile, &profile) != nil || profile.Validate() != nil || !time.Now().Before(command.Deadline) {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
 	}
-	if p.agent == nil || p.agent.selectTitleProfile == nil {
+	if p.agent == nil || p.agent.selectTitleProfile == nil || p.workbench != nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) && command.FrozenScope == nil {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
 	}
 	if _, err := p.agent.selectTitleProfile(ctx, command.Scope.OrganizationID); err != nil {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
 	}
+	frozen := command.FrozenScope
+	var scopeGate func(context.Context) error
+	if frozen != nil {
+		if !command.ScopeRef().Valid() || p.workbench == nil {
+			return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+		}
+		scopeGate = func(gateCtx context.Context) error {
+			i, err := p.agent.freshChatIdentity(gateCtx)
+			if err != nil || i.TenantID != command.Scope.OrganizationID || i.UserID != command.Scope.ActorID {
+				return review.ErrForbidden
+			}
+			return p.workbench.scopes.reader.Check(authidentity.WithAuthenticatedIdentity(gateCtx, i), *frozen, i.EffectiveMemberID, true)
+		}
+	}
 	selected := command.WorkScope
 	prepared, err := einoplanner.Prepare(einoplanner.Request{Scope: command.Scope, MemberID: command.MemberID,
 		InvocationID: command.PlannerInvocationID, OperationID: selected.OperationID, TargetPlatform: selected.TargetPlatform, TaskSelection: selected.TaskSelection,
 		TemplateID: selected.TemplateID, TemplateRevision: selected.TemplateRevision, KnowledgeBaseID: selected.KnowledgeBaseID,
-		History: history, Profile: profile})
+		History: history, Profile: profile, FrozenScope: frozen})
 	if err != nil || prepared.Quote.InputHash != command.InputHash {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
 	}
 	callCtx, cancel := context.WithDeadline(ctx, command.Deadline)
 	defer cancel()
+	if scopeGate != nil {
+		callCtx = context.WithValue(callCtx, workbenchPlannerScopeGate{}, scopeGate)
+	}
 	decision, err := p.model.Decide(callCtx, prepared)
 	if err != nil {
 		return aiworkbench.PlanTerminal{}, err
@@ -290,6 +349,14 @@ func (p *workbenchPlanner) buildProposal(ctx context.Context, c aiworkbench.Plan
 	if err != nil || i.TenantID != c.Scope.OrganizationID || i.UserID != c.Scope.ActorID {
 		return aiworkbench.ExecutionProposal{}, review.ErrForbidden
 	}
+	if c.FrozenScope != nil {
+		if !c.ScopeRef().Valid() {
+			return aiworkbench.ExecutionProposal{}, aiworkbench.ErrUnavailable
+		}
+		if err := p.workbench.scopes.reader.Check(authidentity.WithAuthenticatedIdentity(ctx, i), *c.FrozenScope, i.EffectiveMemberID, true); err != nil {
+			return aiworkbench.ExecutionProposal{}, err
+		}
+	}
 	binding, err := p.agent.workbenchSelectionBinding(ctx, i, c.WorkScope)
 	if err != nil {
 		return aiworkbench.ExecutionProposal{}, err
@@ -303,6 +370,9 @@ func (p *workbenchPlanner) buildProposal(ctx context.Context, c aiworkbench.Plan
 	if err != nil {
 		return aiworkbench.ExecutionProposal{}, err
 	}
+	if !c.ScopeRef().Absent() {
+		profile = agentconfig.ScopedContentProfile(profile)
+	}
 	rawProfile, err := json.Marshal(profile)
 	if err != nil {
 		return aiworkbench.ExecutionProposal{}, err
@@ -311,7 +381,7 @@ func (p *workbenchPlanner) buildProposal(ctx context.Context, c aiworkbench.Plan
 	if err != nil {
 		return aiworkbench.ExecutionProposal{}, err
 	}
-	proposal := aiworkbench.ExecutionProposal{Kind: "product.title.optimize", Scope: c.Scope, GoalSummary: goal,
+	proposal := aiworkbench.ExecutionProposal{WorkbenchContextRef: c.ScopeRef(), Kind: "product.title.optimize", Scope: c.Scope, GoalSummary: goal,
 		OperationID: binding.ContextID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion,
 		PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform,
 		AgentID: p.agent.definition.ID, AgentVersion: p.agent.definition.Version,
@@ -378,6 +448,14 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 }
 
 func (x workbenchExecution) Prepare(ctx context.Context, p aiworkbench.ExecutionProposal, key string) (aiworkbench.PreparedTask, error) {
+	if !p.WorkbenchContextRef.Absent() {
+		if x.workbench == nil {
+			return aiworkbench.PreparedTask{}, aiworkbench.ErrUnavailable
+		}
+		if _, err := x.workbench.authorizedFrozenScope(ctx, p.Scope, p.WorkbenchContextRef, true); err != nil {
+			return aiworkbench.PreparedTask{}, err
+		}
+	}
 	if _, err := agentconfig.ParseModeRevision(p.ObservedModeRevision); err != nil {
 		return aiworkbench.PreparedTask{}, aiworkbench.ErrProposalStale
 	}
@@ -419,10 +497,18 @@ func (x workbenchExecution) Prepare(ctx context.Context, p aiworkbench.Execution
 	if p.Kind == aiworkbench.ContentTaskKind && p.ExecutionLimits != a.config.Limits {
 		return aiworkbench.PreparedTask{}, aiworkbench.ErrProposalStale
 	}
-	request, err := a.startTextRequest(requestCtx, binding, key, p.KnowledgeBaseID,
-		p.KnowledgeRevisionSetDigest, template, profile, p.GoalSummary, p.ObservedModeRevision, p.ContentSelection)
+	if !p.WorkbenchContextRef.Absent() {
+		requestCtx = context.WithValue(requestCtx, workbenchQuoteKey{}, workbenchQuote{p.WorkbenchContextRef, key, binding})
+	}
+	request, err := a.prepareTextRequest(requestCtx, binding, key, p.KnowledgeBaseID,
+		p.KnowledgeRevisionSetDigest, template, profile, p.GoalSummary, p.ObservedModeRevision, p.ContentSelection, p.WorkbenchContextRef, nil)
 	if err != nil {
 		return aiworkbench.PreparedTask{}, err
+	}
+	if !p.WorkbenchContextRef.Absent() {
+		if _, err := x.workbench.authorizedFrozenScope(ctx, p.Scope, p.WorkbenchContextRef, true); err != nil {
+			return aiworkbench.PreparedTask{}, err
+		}
 	}
 	raw, err := json.Marshal(request)
 	if err != nil {
@@ -476,6 +562,14 @@ func (x workbenchExecution) startTask(ctx context.Context, task aiworkbench.Busi
 	binding, err := a.workbenchCurrentBinding(ctx, i, request.Binding)
 	if err != nil || binding != request.Binding {
 		return false, aiworkbench.ErrRevisionMismatch
+	}
+	if !request.WorkbenchContextRef.Absent() {
+		if x.workbench == nil {
+			return false, aiworkbench.ErrUnavailable
+		}
+		if _, err := x.workbench.authorizedFrozenScope(ctx, task.Scope, request.WorkbenchContextRef, false); err != nil {
+			return false, err
+		}
 	}
 	if !a.frozenTitleProfileReady(ctx, scope, request) {
 		return false, aiworkbench.ErrUnavailable

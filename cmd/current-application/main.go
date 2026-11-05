@@ -143,6 +143,9 @@ func execute() error {
 		OpenProductAgent: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
+		OpenMarketResearch: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
+			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+		},
 		OpenProjectCenter: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
@@ -175,6 +178,19 @@ func execute() error {
 			if features.AgentCustomizationDB != nil {
 				options = append(options, httpapi.WithAgentCustomization(features.AgentCustomizationDB))
 			}
+			if features.MarketResearchDB != nil {
+				options = append(options, httpapi.WithMarketResearch(features.MarketResearchDB))
+			}
+			if trial := features.SHEINUSTrial; trial != nil {
+				option, err := httpapi.WithSHEINUSTrial(httpapi.SHEINUSTrialInputs{
+					Approval: trial.Approval, Reconciler: trial.Reconciler, Access: trial.Access, Budget: trial.Budget,
+					ReadKey: trial.ReadKey, ReadUsage: trial.ReadUsage,
+				})
+				if err != nil {
+					return nil, err
+				}
+				options = append(options, option)
+			}
 			if features.ProjectCenterDB != nil {
 				options = append(options, httpapi.WithProjectCenter(features.ProjectCenterDB))
 			}
@@ -206,7 +222,7 @@ func execute() error {
 			if features.ProductAgent != nil && features.ProductAgent.Enabled {
 				p := features.ProductAgent
 				ledger := aistore.NewGormInvocationRecorder(features.ProductAgentDB)
-				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
+				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, ResearchTextPolicies: p.ResearchTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
 			}
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
 				options = append(options, httpapi.WithAIWorkbench(httpapi.AIWorkbenchDependencies{DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}))
@@ -247,9 +263,15 @@ func execute() error {
 			}
 			if features.DataServices != nil {
 				d := features.DataServices
-				options = append(options, httpapi.WithDataServices(httpapi.DataServicesDependencies{ProductDB: features.DataServicesDB, Provider: features.DataServicesProvider, Starter: dataservicesruntime.TemporalStarter{Client: features.DataServicesWorkflow}, NewWorker: func(runner dataservicesruntime.JobRunner) (dataservicesruntime.Worker, error) {
-					return dataservicesruntime.NewWorker(features.DataServicesWorkflow, runner)
-				}, Worker: features.DataServicesWorker, TrustedProxyCIDRs: d.TrustedProxyCIDRs}))
+				dataDependencies := httpapi.DataServicesDependencies{ExecutionEnabled: d.ExecutionEnabled, ProductDB: features.DataServicesDB, TrustedProxyCIDRs: d.TrustedProxyCIDRs}
+				if d.ExecutionEnabled {
+					dataDependencies.Provider, dataDependencies.Worker = features.DataServicesProvider, features.DataServicesWorker
+					dataDependencies.Starter = dataservicesruntime.TemporalStarter{Client: features.DataServicesWorkflow}
+					dataDependencies.NewWorker = func(runner dataservicesruntime.JobRunner) (dataservicesruntime.Worker, error) {
+						return dataservicesruntime.NewWorker(features.DataServicesWorkflow, runner)
+					}
+				}
+				options = append(options, httpapi.WithDataServices(dataDependencies))
 			}
 			if features.ProductCollections {
 				if features.ProductAcquisitionDB != nil {
@@ -283,7 +305,7 @@ func execute() error {
 				options = append(options, httpapi.WithPOD(httpapi.PODDependencies{AssetDB: features.PODAssetDB, Credentials: features.PODCredentials, HTTP: &http.Client{Timeout: 15 * time.Second}, OSSHosts: p.OSSHosts, Starter: podruntime.TemporalStarter{Client: features.PODWorkflow}, NewWorker: func(p *podapp.Processor) (podapp.Worker, error) { return podruntime.NewWorker(features.PODWorkflow, p) }, Worker: features.PODWorker}))
 			}
 			if features.ImageAgentDB != nil {
-				if features.ImageSetWorkerConfig != nil {
+				if features.FullImageSet {
 					options = append(options, httpapi.WithFullImageSet(features.ImageAgentDB, features.ImageAgentWorkflow, httpapi.FullImageSetDependencies{ChannelCredentials: features.ChannelCredentials, CurrentImagePolicies: features.CurrentImagePolicies, AssetDB: features.ImageSetAssetDB, WorkerDB: features.ImageSetWorkerDB, WorkerConfig: features.ImageSetWorkerConfig, Client: features.ImageSetTemporal, Worker: features.ImageSetWorker}))
 				} else {
 					options = append(options, httpapi.WithAcquisitionImageAgent(features.ImageAgentDB, features.ImageAgentWorkflow))

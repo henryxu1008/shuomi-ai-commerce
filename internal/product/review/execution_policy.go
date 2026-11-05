@@ -20,18 +20,19 @@ const ContentPolicyAdoptionVersion = "product.content.policy-adopt-v1"
 // Metadata explains the exact original Agent. Only the injected live resolver
 // can turn it into authority; no HTTP route accepts a policy approval field.
 type ExecutionProvenance struct {
-	SkillVersionRef  agent.SkillVersionRef           `json:"skillVersionRef,omitzero"`
-	ContentSelection reviewproposal.ContentSelection `json:",omitzero"`
-	Scope            agent.Scope                     `json:"scope"`
-	RunID            string                          `json:"runId"`
-	RequestKey       string                          `json:"requestKey"`
-	Binding          agent.Binding                   `json:"binding"`
-	Configuration    agent.ConfigurationSnapshotRef  `json:"configuration"`
-	Mode             agent.ModeSnapshotRef           `json:"mode"`
+	WorkbenchContextRef agent.WorkbenchContextRef       `json:"workbenchContextRef,omitzero"`
+	SkillVersionRef     agent.SkillVersionRef           `json:"skillVersionRef,omitzero"`
+	ContentSelection    reviewproposal.ContentSelection `json:",omitzero"`
+	Scope               agent.Scope                     `json:"scope"`
+	RunID               string                          `json:"runId"`
+	RequestKey          string                          `json:"requestKey"`
+	Binding             agent.Binding                   `json:"binding"`
+	Configuration       agent.ConfigurationSnapshotRef  `json:"configuration"`
+	Mode                agent.ModeSnapshotRef           `json:"mode"`
 }
 
 func (p *ExecutionProvenance) Valid() bool {
-	return p == nil || p.SkillVersionRef.ValidOrAbsent() && (p.SkillVersionRef.Absent() || p.ContentSelection.TitleOnly()) && (p.ContentSelection.Absent() || p.ContentSelection.Valid()) && agent.ValidID(p.Scope.OrganizationID) && agent.ValidID(p.Scope.ActorID) && validID(p.RunID) && validID(p.RequestKey) && p.Binding.Valid() && !p.Configuration.Absent() && p.Configuration.ValidOrAbsent() && p.Mode.Valid()
+	return p == nil || p.WorkbenchContextRef.ValidOrAbsent() && p.SkillVersionRef.ValidOrAbsent() && (p.SkillVersionRef.Absent() || p.ContentSelection.TitleOnly()) && (p.ContentSelection.Absent() || p.ContentSelection.Valid()) && agent.ValidID(p.Scope.OrganizationID) && agent.ValidID(p.Scope.ActorID) && validID(p.RunID) && validID(p.RequestKey) && p.Binding.Valid() && !p.Configuration.Absent() && p.Configuration.ValidOrAbsent() && p.Mode.Valid()
 }
 
 type PolicyProvenance struct {
