@@ -299,6 +299,21 @@ Research 在自己的事务内按候选键唯一归并，按完整 `EvidenceRef`
 3. 用固定 P1/P2 JSON 验证消费合同。P1 的类目任务符合首试，P2 的关键词任务仅模拟同商品的另一份已保存观察。预期同一候选保留两条原证据，重放不新增，P1 撤权时只隐藏 P1 事实和绑定理由，P2 仍可读。另核对金额篡改、错版、项目撤权，以及移除未选中 P2 时不会把 P1 的历史理由挂到 P2。实现阶段按原 owner 的现有测试入口验证，不另建 runner。
 4. 先完成独立设计准入，定好双方可组合实现 SHA 和必要 UI Authority。获准调用前另核实来源实际覆盖/质量、原资料使用与保存许可、费用、预算和请求结果核实能力。正式执行以有权限的使用者试用为验收，静态对齐只验证接口和证据语义。
 
+### 5.4 首试离线开工评审依据
+
+**界面。** 沿 [当前 UI Authority](https://github.com/henryxu1008/shuomi-ai-commerce/blob/3e65ff9df8b03d12f053cd88ae2481b9226a6451/docs/product/market-research-selection-centers-v1.md) 复用「市场调研 → 研究详情」及 [Figma 12114:1646](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-1646) 的「取得或关联资料」与候选区域。源码入口为 `/workbench/data/research/{projectId}` 的 `ProjectPage → ResearchPanel`。保留「添加已有商品资料 → CollectionPicker → link → 当前项目的候选与资料来源详情」和原权限、按钮、导航。SHEIN 只增加该来源的选件资格、标题、原页面、展示价、时间及缺项的正确投影，不新增页面或采集入口。原候选评审、AI 选择和转入有各自准入，SHEIN 卡片本切片仅关联和查看证据。真实取数入口及其授权确认另行评审。Figma 只读核对，不改原型。
+
+**精确联调依赖。** #1075 Draft HEAD `3e65ff9df8b03d12f053cd88ae2481b9226a6451` 包含原证据不可读时的理由遮蔽，以及移除另一证据不转移人工理由的修复。其与本设计共用实际 main `05e5b14f7f0d3aa80cdccd8dc222d01916c019db`。该 HEAD 可固定为隔离离线联调的代码起点，结合 [P1/P2 JSON](evidence/shein-us-data-v1-p1-p2.json) 核对接口；源码合成检查只验证能组合，不代表已合入或 SHEIN 可运行。#1075 原负责人仍负责消费侧。合并/对外交付须按最终准确依赖版本和必需检查核对。
+
+| 既有路径的约束 | 离线实现边界 |
+| --- | --- |
+| dataacquisition 作业和条目当前使用 Amazon 查询与必填 ASIN，`SAVED` 要求原预留和终态证据；已有 `evidence_json bytea` 保存字节 | #1074 在原作业/条目 owner 内增加明确的来源类型和类型校验。作业固定来源、市场与查询；条目使用该来源的原商品 ID，唯一性仍按原私有作业与原商品校验。Amazon 入口保持原 ASIN 验证、调用和定价。SHEIN 复用保存字节、原发布、同 Product UoW 与授权 reader；不把 goods ID 写入 ASIN，也不放松 `SAVED` 的原预留和终态约束。P1/P2 仅在现有隔离测试的准备入口注入冻结任务、观察和合成预留证明，走真正的发布与回读，测试证明不得由运行时客户端传入或冒充真实费用。 |
+| Collection 发布批次、源类型校验和 Research 服务当前限制来源 | #1074 在既有发布事务内接 `dataservices.NewProductPublisher`、Sourcing 发布、Catalog 版本与 Collection `AppendDataPublication`，明确放行内部 `shein_us_data@v1`。读侧由 `ReadSHEINUSProvenance` 提供带权限的原版回读；按原发布验证字节和同一事务的条目。#1075 由 `market_research.go` 的现有 `Observe` 按凭证来源分发，继续校验原四元组及项目权。 |
+| Research 持久化唯一键、UI 契约和选件器仍只认 `site/ASIN` 与 `amazon_data` | #1075 在同一候选 owner 的全新安装 schema 中表达平台、市场、原商品 ID 并保持范围内唯一，Amazon 仍用原身份和候选 ID 算法。SHEIN 使用 §5.1 的候选键。后端与前端以明确的来源类型分别校验两种证据，选件器只允许已获准且当前可读的来源。证据和理由遮蔽沿原引用。保留严格校验，未知类型拒绝。 |
+| 外部取数、资源预留和 UNKNOWN 恢复有独立运行准入 | 本切片只实现测试可注入的卡片发布、原版读取、候选关联和现有页投影。生产入口及工作流不启用 SHEIN 执行，不新增 fixture 导入、假收费路径或运行配置。正式来源须另行确定资源计价、预留/结算、超时核实及执行许可。 |
+
+**开工与验收边界。** 离线实现只在独立 worktree 和全新隔离 Product 测试库进行。#1074 以 P1/P2 先验证不可变字节、错版、错摘要、跨范围、失败重试及原发布与 Collection 同事务，再与 #1075 核对选择、归并、逐证据理由遮蔽和现有研究页展示。复用既有 Product PostgreSQL、HTTP 和研究页面测试入口，后端以原 owner 的 contract → implementation → injection → consumer 路径为准。缺失证据和错价不补造。现有权限、预算、会话和实例不参与测试。
+
 ## 6. 确定性单位经济模型
 
 金额接口使用十进制字符串，最终金额为币种最小单位整数；中间运算用标准 `math/big` 的精确有理数或合格既有定点实现，不引入 float64 金额计算/新金额框架。先校验币种小数位、单位、费率范围、数量和日期，最后按明确版本舍入；源报价的 float/格式不直接成为财务输入。
