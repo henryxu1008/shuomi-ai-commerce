@@ -44,5 +44,5 @@ func NewSourceMediaStorage(c config.ImageAgentArtifactStoreConfig, isolatedTrial
 	if err != nil {
 		return nil, err
 	}
-	return s3integration.NewUploaderWithOptions(client, s3integration.UploaderOptions{Bucket: c.S3.Bucket, PublicBase: c.PublicBase, Endpoint: c.S3.Endpoint, UsePathStyle: c.S3.UsePathStyle, ArtifactCapabilities: s3integration.ArtifactStorageCapabilities{Mode: s3integration.ArtifactStorageMode(c.S3.ArtifactMode), COSImmutableNonVersionedBucketPolicy: c.S3.COSImmutableNonVersionedBucketPolicy}})
+	return s3integration.NewUploaderWithOptions(client, s3integration.UploaderOptions{Bucket: c.S3.Bucket, PublicBase: c.PublicBase, ArtifactCapabilities: s3integration.ArtifactStorageCapabilities{Mode: s3integration.ArtifactStorageMode(c.S3.ArtifactMode), COSImmutableNonVersionedBucketPolicy: c.S3.COSImmutableNonVersionedBucketPolicy}})
 }

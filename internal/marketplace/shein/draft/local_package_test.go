@@ -3,13 +3,15 @@ package draft
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"task-processor/internal/marketplace/shein/workspace"
 	"task-processor/internal/product/catalog/canonical"
 )
 
-func TestAssemblerBuildCreatesDefaultSKCWhenCanonicalVariantsMissing(t *testing.T) {
+func TestAssemblerBuildKeepsMissingVariantsVisibleInDraftAndReadiness(t *testing.T) {
 	canonical := &canonical.Product{
 		Title:       "Minimal Product",
-		Description: "fallback variant",
+		Description: "Product description",
 		Attributes: map[string]canonical.Attribute{
 			"color": {Value: "Black"},
 			"size":  {Value: "One Size"},
@@ -19,21 +21,44 @@ func TestAssemblerBuildCreatesDefaultSKCWhenCanonicalVariantsMissing(t *testing.
 	}
 
 	pkg := buildLocalPackage(canonical, "US", "en", nil)
-	if pkg == nil || pkg.DraftPayload == nil {
-		t.Fatalf("expected package with request draft")
+	require.Equal(t, "Minimal Product", pkg.SpuName)
+	require.Empty(t, pkg.SkcList)
+	require.NotNil(t, pkg.DraftPayload)
+	require.Empty(t, pkg.DraftPayload.SKCList)
+	require.Empty(t, pkg.DraftPayload.SupplierCode)
+	require.NotNil(t, pkg.PreviewPayload)
+	require.Empty(t, pkg.PreviewPayload.SKCList)
+	require.Contains(t, workspace.BuildSubmitPayloadReadinessChecks(pkg, "publish"), workspace.BuildSubmitReadinessCheck(
+		"variants", "规格结构", false, "当前还没有完整的 SKC/SKU 结构，提交前需要至少一个 SKC 和一个 SKU",
+		[]string{"shein.skc_list", "shein.draft_payload.skc_list"}, "补充规格", false,
+	))
+}
+
+func TestAssemblerUsesOnlySourceSKUPackageMeasurements(t *testing.T) {
+	product := &canonical.Product{
+		Title: "Measured product", Description: "Product description",
+		Specifications: &canonical.ProductSpecs{
+			Weight:     &canonical.Weight{Value: 800, Unit: "g"},
+			Dimensions: &canonical.Dimensions{Length: 80, Width: 70, Height: 60, Unit: "cm"},
+		},
+		Variants: []canonical.Variant{
+			{SKU: "missing"},
+			{SKU: "measured", Weight: &canonical.Weight{Value: 120, Unit: "g"}, Dimensions: &canonical.Dimensions{Length: 10, Width: 9, Height: 8, Unit: "cm"}},
+		},
 	}
-	if len(pkg.DraftPayload.SKCList) != 1 {
-		t.Fatalf("request draft skc count = %d, want 1", len(pkg.DraftPayload.SKCList))
-	}
-	if len(pkg.DraftPayload.SKCList[0].SKUList) != 1 {
-		t.Fatalf("request draft sku count = %d, want 1", len(pkg.DraftPayload.SKCList[0].SKUList))
-	}
-	if pkg.DraftPayload.SKCList[0].SKUList[0].SupplierSKU != "DEFAULT-001" {
-		t.Fatalf("default supplier sku = %q, want DEFAULT-001", pkg.DraftPayload.SKCList[0].SKUList[0].SupplierSKU)
-	}
-	if pkg.PreviewPayload == nil || len(pkg.PreviewPayload.SKCList) != 1 {
-		t.Fatalf("preview product skc count = %d, want 1", len(pkg.PreviewPayload.SKCList))
-	}
+	pkg := buildLocalPackage(product, "US", "en", nil)
+	skus := pkg.DraftPayload.SKCList[0].SKUList
+	require.Len(t, skus, 2)
+	require.Zero(t, skus[0].Weight)
+	require.Empty(t, skus[0].Length)
+	require.Empty(t, skus[0].Width)
+	require.Empty(t, skus[0].Height)
+	require.EqualValues(t, 120, skus[1].Weight)
+	require.Equal(t, "10", skus[1].Length)
+	require.Contains(t, pkg.ReviewNotes, "部分 SKU 缺少来源包装重量或尺寸，请核对原商品规格")
+	check := workspace.BuildManualNotesReadinessCheck(pkg)
+	require.False(t, check.OK)
+	require.True(t, check.WarningOnly)
 }
 
 func TestAssemblerBuildMarks1688LLMOnlyFactsForReview(t *testing.T) {

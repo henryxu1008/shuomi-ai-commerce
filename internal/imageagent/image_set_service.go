@@ -244,6 +244,14 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
+	resolved.Catalog, err = NormalizeAssetCatalog(resolved.Catalog)
+	if err != nil {
+		return PreparedImageSet{}, err
+	}
+	product := resolved.Catalog.ProductContext
+	if product.ProductID == "" || product.ProductID != resolved.Source.ProductID || product.SourceSnapshotVersion == 0 || product.SourceSnapshotVersion != resolved.Source.EffectiveVersion {
+		return PreparedImageSet{}, ErrRevisionConflict
+	}
 	var method *ImageMethodBinding
 	var methodText string
 	if input.Method != nil {
@@ -257,11 +265,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		defer release()
 		methodText = text
 	}
-	resolved.Catalog, err = NormalizeAssetCatalog(resolved.Catalog)
-	if err != nil {
-		return PreparedImageSet{}, err
-	}
-	if resolved.Source.ContextKind != input.ContextKind || resolved.Source.OperationID != input.ContextID || resolved.Source.ProductID != resolved.Catalog.ProductContext.ProductID || resolved.Source.CatalogHash != resolved.Catalog.Manifest.Hash || resolved.Target.Platform != input.Target.Platform || resolved.Target.StoreID != input.Target.StoreID || resolved.Target.Site != input.Target.Site || resolved.Target.CategoryID != input.Target.CategoryID || resolved.Target.RecordID != input.Target.RecordID {
+	if resolved.Source.ContextKind != input.ContextKind || resolved.Source.OperationID != input.ContextID || resolved.Source.CatalogHash != resolved.Catalog.Manifest.Hash || resolved.Target.Platform != input.Target.Platform || resolved.Target.StoreID != input.Target.StoreID || resolved.Target.Site != input.Target.Site || resolved.Target.CategoryID != input.Target.CategoryID || resolved.Target.RecordID != input.Target.RecordID {
 		return PreparedImageSet{}, ErrRevisionConflict
 	}
 	if resolved.Source.ApplyReceiptID != input.ApplyReceiptID || input.EffectiveCatalogVersion > 0 && resolved.Source.EffectiveVersion != input.EffectiveCatalogVersion || input.EffectiveCatalogVersion == 0 && resolved.Source.EffectiveVersion != resolved.Source.OriginalVersion {
