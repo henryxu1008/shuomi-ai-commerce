@@ -198,3 +198,70 @@ it("hands only the selected approved observations to the original per-batch conf
  expect(transfers.map(url=>JSON.parse(url.searchParams.get("transfer")!))).toEqual([[first.observation.ref.selection],[second.observation.ref.selection]]);
  expect(mock.read.mock.calls.every(call=>!call[4]?.intent)).toBe(true);
 });
+
+it("rechecks the exact Amazon observation for a cost preview and keeps the original decision independent", async () => {
+ const selected={...candidate,state:"PENDING_CONFIRMATION"};
+ mock.read.mockResolvedValue({items:[selected],incomplete:false});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
+ fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
+ expect(await screen.findByText("资料仍有缺项")).toBeVisible();
+ expect(mock.read.mock.calls.filter(call=>!call[4]?.intent)).toHaveLength(2);
+ expect(mock.read.mock.calls.filter(call=>call[4]?.intent)).toHaveLength(0);
+ fireEvent.change(screen.getByRole("textbox",{name:"选择理由"}),{target:{value:"继续核对货源条件"}});
+ fireEvent.click(screen.getByRole("button",{name:"批准测试"}));
+ await waitFor(()=>expect(mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent.body).toEqual({
+   action:"decide",candidateId:id,expectedRevision:2,evidenceDigest:"a".repeat(64),state:"APPROVED_FOR_TEST",reason:"继续核对货源条件",
+ }));
+});
+
+it.each(["account","organization","project","permission","archived"])("drops open preview and draft after %s changes", async change => {
+ const scope={userId:"u",organizationId:"o"};
+ const result=render(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
+ fireEvent.change(screen.getByLabelText("假设售价（USD/件）"),{target:{value:"30"}});
+ fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
+ expect(await screen.findByText("资料仍有缺项")).toBeVisible();
+ if(change==="permission")mock.context.permissions=["workbench.collection.read"];
+ const changedScope=change==="account"?{...scope,userId:"another-user"}:change==="organization"?{...scope,organizationId:"another-org"}:scope;
+ const changedProject=change==="project"?"22222222-2222-4222-8222-222222222222":id;
+ result.rerender(<ResearchPanel scope={changedScope} projectId={changedProject} archived={change==="archived"} view="selection"/>);
+ await waitFor(()=>expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument());
+ expect(screen.queryByRole("form",{name:"经营假设和参考试算"})).not.toBeInTheDocument();
+ if(change==="permission"||change==="archived")expect(screen.queryByRole("button",{name:"填写经营假设"})).not.toBeInTheDocument();
+});
+
+it.each(["new version","withdrawn","SHEIN"])("does not reuse preview evidence when the fresh page returns %s", async change => {
+ const next=change==="new version"
+  ? {...candidate,observation:{...candidate.observation,ref:{...candidate.observation.ref,selection:{...candidate.observation.ref.selection,version:"2"}}}}
+  : change==="withdrawn"?{...candidate,observation:undefined,evidenceDigest:undefined}
+  : {...candidate,observation:{...candidate.observation,query:{mode:"category",categoryRef:"1727"},shein:{market:"US",nativeGoodsId:"456",price:null}}};
+ mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false}).mockResolvedValue({items:[next],incomplete:false});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
+ fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
+ expect(await screen.findByText(/原商品资料已变化或暂不可读/)).toBeVisible();
+ expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument();
+ // After the original page refresh, only a currently readable Amazon US version can reopen.
+ fireEvent.click(screen.getByRole("button",{name:"刷新商品资料"}));
+ await waitFor(()=>expect(screen.queryByRole("form",{name:"经营假设和参考试算"})).not.toBeInTheDocument());
+ if(change!=="new version")expect(screen.queryByRole("button",{name:"填写经营假设"})).not.toBeInTheDocument();
+ expect(mock.read.mock.calls.every(call=>!call[4]?.intent)).toBe(true);
+});
+
+
+it("keeps one candidate's assumptions out of another candidate", async () => {
+ const otherId="22222222-2222-4222-8222-222222222222";
+ const other={...candidate,id:otherId,selectedLinkId:otherId,evidenceDigest:"b".repeat(64),observation:{
+  ...candidate.observation,title:"另一件保存商品",
+ }};
+ mock.read.mockResolvedValue({items:[candidate,other],incomplete:false});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ const entries=await screen.findAllByRole("button",{name:"填写经营假设"});
+ expect(entries).toHaveLength(2);
+ fireEvent.click(entries[0]);
+ fireEvent.change(screen.getByLabelText("假设售价（USD/件）"),{target:{value:"30"}});
+ fireEvent.click(screen.getByRole("button",{name:"填写经营假设"}));
+ expect(screen.getAllByRole("form",{name:"经营假设和参考试算"})).toHaveLength(1);
+ expect(screen.getByLabelText("假设售价（USD/件）")).toHaveValue("");
+});
