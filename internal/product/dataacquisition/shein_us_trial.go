@@ -214,7 +214,7 @@ func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINU
 	writeCtx, cancelWrite := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancelWrite()
 	canView := s.stillAuthorized(writeCtx, p, a, SHEINUSTrialView)
-	if err != nil || late || !canView {
+	if err != nil || late || !canView || !s.stillAuthorized(writeCtx, p, a, SHEINUSTrialSend) {
 		usage.Credits = nil
 	}
 	attempt, err := s.recordSubmission(writeCtx, p, a, original, usage, submission.Cards)
@@ -225,8 +225,7 @@ func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINU
 }
 
 func (s *SHEINUSTrial) recordSubmission(ctx context.Context, p Principal, a SHEINUSTrialApproval, original SHEINUSTrialAttempt, usage SHEINUSTrialUsage, cards []SHEINUSTrialCard) (SHEINUSTrialAttempt, error) {
-	if usage.Credits == nil || *usage.Credits < 0 || *usage.Credits > SHEINUSTrialCreditLimit || len(cards) == 0 ||
-		!s.stillAuthorized(ctx, p, a, SHEINUSTrialPublish) {
+	if usage.Credits == nil || *usage.Credits < 0 || *usage.Credits > SHEINUSTrialCreditLimit || len(cards) == 0 {
 		return s.record(ctx, original, usage)
 	}
 	partial := usage
@@ -236,7 +235,7 @@ func (s *SHEINUSTrial) recordSubmission(ctx context.Context, p Principal, a SHEI
 		return pinned, err
 	}
 	if !s.stillAuthorized(ctx, p, a, SHEINUSTrialPublish) {
-		return s.record(ctx, pinned, usage)
+		return pinned, ErrUnknown
 	}
 	saved, err := s.store.RecordPage(ctx, a, usage, cards)
 	if err != nil {

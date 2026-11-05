@@ -29,6 +29,19 @@ type SHEINUSPageTrial struct {
 	publish jobstore.SHEINUSPublisher
 }
 
+type sheinUSPageAuthority struct {
+	dataacquisition.SHEINUSTrialAuthority
+	live dataacquisition.LiveAccess
+}
+
+func (a sheinUSPageAuthority) AuthorizeSHEINUSTrial(ctx context.Context, p dataacquisition.Principal, id string, action dataacquisition.SHEINUSTrialAction) (dataacquisition.SHEINUSTrialApproval, error) {
+	approval, err := a.SHEINUSTrialAuthority.AuthorizeSHEINUSTrial(ctx, p, id, action)
+	if err == nil && (action == dataacquisition.SHEINUSTrialSend || action == dataacquisition.SHEINUSTrialPublish) {
+		err = a.live.CheckExecution(ctx, p, approval.Funding)
+	}
+	return approval, err
+}
+
 func NewSHEINUSPageTrial(ctx context.Context, db *gorm.DB, live dataacquisition.LiveAccess, authority dataacquisition.SHEINUSTrialAuthority, sender dataacquisition.SHEINUSTrialSender, lookup dataacquisition.SHEINUSTrialLookup) (*SHEINUSPageTrial, error) {
 	if db == nil || live == nil || authority == nil {
 		return nil, dataacquisition.ErrUnavailable
@@ -37,7 +50,7 @@ func NewSHEINUSPageTrial(ctx context.Context, db *gorm.DB, live dataacquisition.
 	if err != nil {
 		return nil, dataacquisition.ErrUnavailable
 	}
-	runner, err := NewSHEINUSTrial(pool, authority, sender, lookup)
+	runner, err := NewSHEINUSTrial(pool, sheinUSPageAuthority{SHEINUSTrialAuthority: authority, live: live}, sender, lookup)
 	if err != nil {
 		return nil, err
 	}

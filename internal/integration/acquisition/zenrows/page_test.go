@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -25,10 +26,13 @@ import (
 	"task-processor/internal/product/dataacquisition"
 )
 
-type pageLiveAccess struct{}
+type pageLiveAccess struct{ revoked *atomic.Bool }
 
 func (pageLiveAccess) CheckRead(context.Context, dataacquisition.Principal) error { return nil }
-func (pageLiveAccess) CheckExecution(context.Context, dataacquisition.Principal, orgresource.ResourceFunding) error {
+func (a pageLiveAccess) CheckExecution(context.Context, dataacquisition.Principal, orgresource.ResourceFunding) error {
+	if a.revoked.Load() {
+		return dataacquisition.ErrForbidden
+	}
 	return nil
 }
 
@@ -59,7 +63,7 @@ func TestFetchToSHEINUSPagePublication(t *testing.T) {
 		TenantID: p.Scope.OrganizationID, EffectiveOrganizationID: p.Scope.OrganizationID,
 		UserID: p.Scope.ActorID, EffectiveMemberID: p.Scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute),
 	})
-	for _, kind := range []string{"page", "wrong final URL", "timeout", "prepare rollback", "publish revoked", "same receipt race", "conflicting receipt race"} {
+	for _, kind := range []string{"page", "wrong final URL", "timeout", "prepare rollback", "publish revoked", "funding revoked", "same receipt race", "conflicting receipt race"} {
 		t.Run(kind, func(t *testing.T) {
 			a := approvalFixture()
 			products := make([]map[string]any, 21)
@@ -73,7 +77,11 @@ func TestFetchToSHEINUSPagePublication(t *testing.T) {
 			delete(products[3], "price")
 			products[4]["product_url"] = "https://www.shein.com/Dress-p-104.html"
 			requestID := a.ID
+			var fundingRevoked atomic.Bool
 			fetch, calls, _ := localFetch(t, a, func(w http.ResponseWriter, r *http.Request) {
+				if kind == "funding revoked" {
+					fundingRevoked.Store(true)
+				}
 				w.Header().Set("X-Request-Id", requestID)
 				w.Header().Set("X-Request-Credits", "10")
 				finalURL := trialRequest.URL
@@ -114,13 +122,13 @@ func TestFetchToSHEINUSPagePublication(t *testing.T) {
 					return dataacquisition.ErrForbidden
 				}
 				publishChecks++
-				if publishChecks == 2 && (kind == "same receipt race" || kind == "conflicting receipt race") {
+				if publishChecks == 1 && (kind == "same receipt race" || kind == "conflicting receipt race") {
 					_, err := probe.Reconcile(ctx, p, a.ID)
 					require.NoError(t, err)
 				}
 				return nil
 			}}
-			probe, err = dataservicesapp.NewSHEINUSPageTrial(ctx, product, pageLiveAccess{}, authority, fetch.Send, lookup)
+			probe, err = dataservicesapp.NewSHEINUSPageTrial(ctx, product, pageLiveAccess{revoked: &fundingRevoked}, authority, fetch.Send, lookup)
 			require.NoError(t, err)
 			if kind == "prepare rollback" {
 				require.NoError(t, product.Exec("ALTER TABLE data_acquisition_items ADD CONSTRAINT reject_fixture_capture CHECK (source_kind <> 'shein_us_data') NOT VALID").Error)
@@ -130,19 +138,16 @@ func TestFetchToSHEINUSPagePublication(t *testing.T) {
 			}
 			attempt, saved, err := probe.Run(ctx, p, a.ID)
 			switch kind {
-			case "timeout", "prepare rollback":
+			case "timeout", "prepare rollback", "publish revoked", "funding revoked":
 				require.ErrorIs(t, err, dataacquisition.ErrUnknown)
 				require.Equal(t, requestID, attempt.RequestID)
 				require.Equal(t, 25, attempt.ReservedCredits())
 				require.Empty(t, saved)
 				attempt, err = probe.Reconcile(ctx, p, a.ID)
+				revoked = false
+				fundingRevoked.Store(false)
 				require.NoError(t, err)
 				_, saved, err = probe.Run(ctx, p, a.ID)
-				require.NoError(t, err)
-			case "publish revoked":
-				require.ErrorIs(t, err, dataacquisition.ErrForbidden)
-				revoked = false
-				attempt, saved, err = probe.Run(ctx, p, a.ID)
 				require.NoError(t, err)
 			case "conflicting receipt race":
 				require.ErrorIs(t, err, dataacquisition.ErrConflict)
