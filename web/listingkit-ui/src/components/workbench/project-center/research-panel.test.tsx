@@ -16,7 +16,61 @@ vi.mock("./research-analysis-flow",async original=>({...await original<object>()
 vi.mock("./research-comparison",()=>({ResearchComparison:()=>null}));
 const id="11111111-1111-4111-8111-111111111111";
 const candidate={id,revision:2,state:"TO_RESEARCH",selectedLinkId:id,evidenceDigest:"a".repeat(64),observation:{title:"真实保存商品",site:"us",asin:"B000123456",sourceUrl:"https://www.amazon.com/dp/B000123456",capturedAt:"2026-11-02T00:00:00Z",parserVersion:"amazon-v1",missing:["rating"],ref:{checksum:"original",selection:{itemId:id,revision:1,publicationId:id,version:"1"}},item:{id,revision:1,source:{kind:"amazon_data",version:"1",publicationId:id}}},evidence:[],history:[]};
-beforeEach(()=>{sessionStorage.clear();mock.pickerItem=undefined;mock.read.mockReset().mockResolvedValue({items:[candidate],incomplete:false});});afterEach(cleanup);
+beforeEach(()=>{sessionStorage.clear();mock.pickerItem=undefined;mock.context.permissions=["workbench.collection.read","workbench.project.manage"];mock.read.mockReset().mockResolvedValue({items:[candidate],incomplete:false});});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+
+it("shows the authorized SHEIN trial and sends only after a second explicit confirmation", async () => {
+ const fetcher=vi.fn().mockResolvedValueOnce(Response.json({approvalId:id,state:"NOT_STARTED"}))
+  .mockResolvedValueOnce(Response.json({approvalId:id,state:"CONFIRMED",requestId:"original-1",credits:5,reservedCredits:0,publishedCount:1}));
+ vi.stubGlobal("fetch",fetcher);
+ mock.context.permissions.push("workbench.data-market.use");
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="research" showSheinTrial/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核对试取范围"}));
+ expect(screen.getByText(/最多 20 张商品卡/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"取消"}));
+ expect(screen.getByRole("button",{name:"核对试取范围"})).toHaveFocus();
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole("button",{name:"核对试取范围"}));
+ fireEvent.click(screen.getByRole("button",{name:"确认提交一次"}));
+ expect(await screen.findByText(/已保存 1 张商品卡/)).toBeInTheDocument();
+ expect(fetcher).toHaveBeenCalledTimes(2);
+ expect(fetcher.mock.calls[1][0]).toMatch(/\/shein-us-trial\/submit$/);
+ expect(new Headers(fetcher.mock.calls[1][1].headers).get("X-Expected-SHEIN-Trial-Approval-ID")).toBe(id);
+ expect(screen.getByRole("button",{name:"添加已有商品资料"})).toBeEnabled();
+ expect(screen.getByRole("link",{name:"进入智能选品"})).toBeVisible();
+});
+
+it("keeps a lost submit on the original and reconciles only after checking its status", async () => {
+ const fetcher=vi.fn().mockResolvedValueOnce(Response.json({approvalId:id,state:"NOT_STARTED"}))
+  .mockRejectedValueOnce(new Error("connection closed"))
+  .mockResolvedValueOnce(Response.json({approvalId:id,state:"UNKNOWN",requestId:"original-1",credits:null,reservedCredits:25}))
+  .mockResolvedValueOnce(Response.json({approvalId:id,state:"CONFIRMED",requestId:"original-1",credits:0,reservedCredits:0}));
+ vi.stubGlobal("fetch",fetcher);
+ mock.context.permissions.push("workbench.data-market.use");
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="research" showSheinTrial/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核对试取范围"}));
+ fireEvent.click(screen.getByRole("button",{name:"确认提交一次"}));
+ expect(await screen.findByText(/还不能确认这次提交/)).toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"核对试取范围"})).not.toBeInTheDocument();
+ expect(fetcher).toHaveBeenCalledTimes(2);
+ fireEvent.click(screen.getByRole("button",{name:"查看原单"}));
+ fireEvent.click(await screen.findByRole("button",{name:"核对原账"}));
+ expect(await screen.findByText(/实际用量 0 credits/)).toBeInTheDocument();
+ expect(fetcher.mock.calls.map(([path, init])=>[path.split("/").at(-1),init.method])).toEqual([
+  ["shein-us-trial","GET"],["submit","POST"],["shein-us-trial","GET"],["reconcile","POST"],
+ ]);
+});
+
+it("shows actual over-limit usage with only read access to the original", async () => {
+ const fetcher=vi.fn().mockResolvedValue(Response.json({approvalId:id,state:"OVER_LIMIT",requestId:"original-1",credits:26,reservedCredits:0}));
+ vi.stubGlobal("fetch",fetcher);
+ mock.context.permissions.push("workbench.data-market.use");
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="research" showSheinTrial/>);
+ expect(await screen.findByText(/实际用量 26 credits/)).toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"查看原单"})).toBeVisible();
+ expect(screen.queryByRole("button",{name:/核对试取范围|继续保存原单资料|核对原账/})).not.toBeInTheDocument();
+ expect(fetcher.mock.calls.map(([, init])=>init.method)).toEqual(["GET"]);
+});
 it("places optional analysis before the independent human decision in selection review",async()=>{
  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
  const decision=await screen.findByRole("button",{name:"开始评估"});

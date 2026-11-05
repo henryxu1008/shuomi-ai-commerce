@@ -12,11 +12,12 @@ import {useResourcePending} from "../resources/resource-pending";
 import {ResearchAnalysisFlow,analysisChoices} from "./research-analysis-flow";
 import {researchAnalysisInput} from "@/lib/contracts/research-analysis";
 import {ResearchComparison} from "./research-comparison";
+import {SheinUSTrialPanel} from "./shein-us-trial-panel";
 import {researchStep} from "@/lib/workbench/research-navigation";
 import styles from "./research-panel.module.css";
 const states:Record<string,string>={TO_RESEARCH:"待研究",PENDING_CONFIRMATION:"待人工确认",APPROVED_FOR_TEST:"批准测试",REJECTED:"已否决"};
 const failures:Record<string,string>={REVISION_CONFLICT:"商品资料或选择已更新，请刷新后重新确认。",PROJECT_ARCHIVED:"项目已归档，只能查看。",NOT_FOUND:"记录不存在或当前不可访问。",FORBIDDEN:"权限已变化，请重新确认企业。",OUTCOME_UNKNOWN:"暂时还不能确认操作结果，请先查询这次操作。",SOURCE_NOT_SUPPORTED:"这份资料暂不能用于调研，本次未添加到项目。请选择已保存且支持调研的资料。"};
-export function ResearchPanel({scope,projectId,archived,view="embedded",sample="",initialAfter="",returnQuery="",workflowStep=""}:{scope:ProjectScope;projectId:string;archived:boolean;view?:"embedded"|"research"|"selection";sample?:string;initialAfter?:string;returnQuery?:string;workflowStep?:string}){
+export function ResearchPanel({scope,projectId,archived,view="embedded",sample="",initialAfter="",returnQuery="",workflowStep="",showSheinTrial=false}:{scope:ProjectScope;projectId:string;archived:boolean;view?:"embedded"|"research"|"selection";sample?:string;initialAfter?:string;returnQuery?:string;workflowStep?:string;showSheinTrial?:boolean}){
  const context=useWorkbenchContext();const canRead=context.permissions.includes("workbench.collection.read");
  const canWrite=!archived&&context.permissions.includes("workbench.project.manage")&&canRead;
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["research",projectId],researchIntent,{maxLength:65536});
@@ -51,7 +52,8 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  {pending.error?<p role="alert">本次操作记录暂时无法读取，请检查浏览器设置后刷新。</p>:null}
  {pending.command?<Card className={styles.section}><p>上一次操作还没有确认结果。</p><div className={styles.actions}><Button disabled={busy} onClick={()=>void lookup()}>查询操作结果</Button>{absent&&canWrite?<Button variant="outline" disabled={busy} onClick={()=>void submit(pending.command!.body,pending.command)}>按原内容重试</Button>:null}</div></Card>:null}
  {error?<p role="alert">{error}</p>:null}
- {view!=="selection"?<Card id="research-sources" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>收集与整理资料</h3><p>把已保存的 Amazon 商品资料或 SHEIN 美国站商品卡片添加到项目。SHEIN 卡片可查看和切换资料。</p></div><div className={styles.actions}><Button variant="outline" asChild><Link href="/workbench/data/market" prefetch={false}>去收集资料</Link></Button>{canWrite?<Button disabled={locked} onClick={()=>setPicker(v=>!v)}>添加已有商品资料</Button>:null}</div></div>{picker?<CollectionPicker scope={scope} kind="product" authorizationKey={JSON.stringify([projectId,context.permissions])} disabled={locked} isEligible={item=>(item.source.kind==="amazon_data"||item.source.kind==="shein_us_data")&&!unsupported.includes(item.id)} emptyMessage="这页还没有可添加的商品资料。" onSelect={item=>void submit({action:"link",selections:[selectionOf(item)]},null)}/>:null}</Card>:null}
+ {view!=="selection"?<Card id="research-sources" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>收集与整理资料</h3><p>把已保存的 Amazon 商品资料或 SHEIN 美国站商品卡片添加到项目。SHEIN 卡片可查看和切换资料。</p></div><div className={styles.actions}><Button variant="outline" asChild><Link href="/workbench/data/market" prefetch={false}>去收集资料</Link></Button>{canWrite?<Button disabled={locked} onClick={()=>setPicker(v=>!v)}>添加已有商品资料</Button>:null}</div></div>{picker?<CollectionPicker scope={scope} kind="product" authorizationKey={JSON.stringify([projectId,context.permissions])} disabled={locked} isEligible={item=>(item.source.kind==="amazon_data"||item.source.kind==="shein_us_data")&&!unsupported.includes(item.id)} emptyMessage="这页还没有可添加的商品资料。" onSelect={item=>void submit({action:"link",selections:[selectionOf(item)]},null)}/>:null}
+ {view==="research"&&showSheinTrial&&canRead&&context.permissions.includes("workbench.data-market.use")?<SheinUSTrialPanel key={JSON.stringify([scope,projectId])} scope={scope} projectId={projectId} canWrite={canWrite}/>:null}</Card>:null}
  <Card id="research-evidence" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>已收集的商品</h3><p>这里展示已收集的商品资料。销量、市场需求、利润或合规情况尚未核实，不能据此下结论。</p></div><span>{chosen.length} / 5 项已选</span></div>
  {!canRead?<p>当前身份没有商品资料查看权限。</p>:loading?<p role="status">正在加载商品资料…</p>:!items.length&&!error?<p>还没有添加商品资料。</p>:null}
  {incomplete?<p role="status">部分商品资料暂时无法确认，请刷新后再查看。</p>:null}
