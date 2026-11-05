@@ -64,9 +64,9 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		}},
 		{"internal/app/runtime/currentapplication", issue605SourceStorage, map[string][]string{
 			"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
-			// #659 frozen capacity design: exact startup identity/empty-prefix proof,
-			// without admission for upload/delete APIs or sibling files.
-			"internal/app/runtime/currentapplication/storage_capacity.go": {"ResolveCapacityNamespace", "ResolveSourceMediaCapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig"},
+			// #659 admits namespace verification. #1103 admits only construction of the
+			// Knowledge deletion adapter in this composition file.
+			"internal/app/runtime/currentapplication/storage_capacity.go": {"ResolveCapacityNamespace", "ResolveSourceMediaCapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig", "NewKnowledgeOriginalDeleter"},
 		}},
 		{"internal/app/runtime/currentapplication", issue398HTTP, map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"ValidatePublicHTTPSURL"}}},
 		// #31 frozen approved-image contract reuses only these current safe leaves.
@@ -235,6 +235,8 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"capacity exact empty admission", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", true},
 		{"capacity SDK config", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "ClientConfig", true},
 		{"capacity cannot upload", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "Upload", false},
+		{"capacity exact Knowledge deletion constructor", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "NewKnowledgeOriginalDeleter", true},
+		{"source media cannot construct the Knowledge deleter", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "NewKnowledgeOriginalDeleter", false},
 		{"capacity old accountless identity denied", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "CapacityNamespace", false},
 		{"capacity sibling denied", "internal/app/runtime/currentapplication/other.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
 		{"source media cannot consume capacity admission", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
