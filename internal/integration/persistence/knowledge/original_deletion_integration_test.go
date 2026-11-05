@@ -28,6 +28,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"task-processor/internal/agent"
 	knowledgedb "task-processor/internal/integration/persistence/knowledge"
 	ledgerdb "task-processor/internal/integration/persistence/storagecapacity"
 	objects3 "task-processor/internal/integration/s3"
@@ -92,12 +93,17 @@ func (f *deleteFault) InspectOriginal(ctx context.Context, ns string, o k.Object
 
 type lostRelease struct {
 	*ledgerdb.Repository
-	lost    bool
-	proof   storagecapacity.StoredDeletion
-	receipt storagecapacity.ReleaseReceipt
+	attempts int
+	lost     bool
+	proof    storagecapacity.StoredDeletion
+	receipt  storagecapacity.ReleaseReceipt
 }
 
 func (l *lostRelease) ReleaseStored(ctx context.Context, proof storagecapacity.StoredDeletion) (storagecapacity.ReleaseReceipt, error) {
+	l.attempts++
+	if l.attempts == 1 {
+		return storagecapacity.ReleaseReceipt{}, errors.New("fixture ledger unavailable before commit")
+	}
 	receipt, err := l.Repository.ReleaseStored(ctx, proof)
 	if err == nil && !l.lost {
 		l.lost, l.proof, l.receipt = true, proof, receipt
@@ -429,6 +435,11 @@ func TestOriginalDeletionDisposablePostgresMinIO(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, k.OriginalAbsent, view.State)
 	require.Equal(t, 1, fault.deleteCalls, "readback of absence prevents another DeleteObject")
+	assertCapacity(org, 33+len(fileBytes))
+	view, err = service.ContinueOriginalDeletion(ctx, org, source.ID, operationID, authorize)
+	require.NoError(t, err)
+	require.Equal(t, k.OriginalAbsent, view.State)
+	require.Equal(t, 1, fault.deleteCalls, "capacity retry cannot send another DELETE")
 	assertCapacity(org, 33)
 	require.True(t, loss.lost)
 	require.Equal(t, int64(len(fileBytes)), loss.receipt.Bytes)
@@ -491,6 +502,22 @@ func TestOriginalDeletionDisposablePostgresMinIO(t *testing.T) {
 	require.Equal(t, k.OriginalFenced, view.State)
 	assertCapacity(org, 54)
 
+	const citedBytes = "historically cited original"
+	citedBase := makeBase(org)
+	cited := upload(command(org, citedBase), citedBytes)
+	require.NoError(t, processor.Sweep(ctx))
+	_, err = repo.Materialize(ctx, k.ContextRequest{
+		Scope: org, Binding: agent.Binding{ContextKind: "acquisition", ContextID: "operation", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"},
+		Key: uuid.NewString(), Selection: "knowledge-base:" + citedBase, PolicyVersion: k.ContextPolicyVersion,
+	})
+	require.NoError(t, err)
+	citedSource := disable(org, cited)
+	_, err = service.OriginalFile(ctx, org, citedSource.ID)
+	require.ErrorIs(t, err, k.ErrNotFound)
+	_, err = service.DeleteOriginal(ctx, org, citedSource.ID, cited.Revision.ID, uuid.NewString(), citedSource.Version, authorize)
+	require.ErrorIs(t, err, k.ErrConflict)
+	assertCapacity(org, 54+len(citedBytes))
+
 	_, err = root.PutBucketVersioning(ctx, &sdk.PutBucketVersioningInput{Bucket: aws.String(fixtureBucket), VersioningConfiguration: &sdktypes.VersioningConfiguration{Status: sdktypes.BucketVersioningStatusEnabled}})
 	require.NoError(t, err)
 	key := "knowledge/" + uuid.NewString() + "/" + k.Digest([]byte("versioned"))
@@ -503,6 +530,6 @@ func TestOriginalDeletionDisposablePostgresMinIO(t *testing.T) {
 	_, err = root.PutBucketVersioning(ctx, &sdk.PutBucketVersioningInput{Bucket: aws.String(fixtureBucket), VersioningConfiguration: &sdktypes.VersioningConfiguration{Status: sdktypes.BucketVersioningStatusSuspended}})
 	require.NoError(t, err)
 	require.Error(t, deleter.VerifyNamespace(ctx, ns))
-	assertCapacity(org, 54)
-	t.Log("proof rejects wrong namespace, denied authority, missing bucket, preexisting absence, and version markers")
+	assertCapacity(org, 54+len(citedBytes))
+	t.Log("proof rejects wrong namespace, denied authority, missing bucket, preexisting absence, and version markers; a historically cited original remains stored and billed")
 }
