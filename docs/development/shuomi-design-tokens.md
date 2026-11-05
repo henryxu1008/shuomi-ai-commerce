@@ -54,7 +54,7 @@ Light 规则覆盖 Dark 默认；`:root:has(.console-theme)` 将工作台变量�
 
 ## 填充按钮的悬停配对
 
-Button 的 default/primary 和 destructive/danger 别名使用原填充色与 `foreground` 的 8% 混色作为悬停背景，文字仍读取原专用 foreground。透明度悬停会把浅色表面透进填充色，实际试点已复现小字对比度不足；该混色保留可见反馈，无新变量或主题 provider。
+Button 的 default/primary 和 destructive/danger 别名使用原填充色与中性黑色的 8% 混色作为悬停背景，文字仍读取原专用 foreground。透明度悬停会把浅色表面透进填充色，实际试点已复现小字对比度不足；以中性色仅加深背景，避免主色与正文色过近时悬停没有变化。该状态处理不增加变量或主题 provider，实际颜色变化与对比度分别验证。
 
 全局主题的 `destructive-foreground` 分别为浅色 `#ffffff`、深色 `#26010b`；后者复用 Console 既有危险操作文字色。Console 自身的危险色配对不变。原 Button props、className 覆盖、原生 disabled、asChild、type 和事件保持。
 

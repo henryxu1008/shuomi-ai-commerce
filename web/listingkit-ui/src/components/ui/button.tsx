@@ -9,12 +9,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary),var(--foreground)_8%)]",
-        primary: "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary),var(--foreground)_8%)]",
+        default: "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary),black_8%)]",
+        primary: "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary),black_8%)]",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-[color-mix(in_srgb,var(--destructive),var(--foreground)_8%)]",
+          "bg-destructive text-destructive-foreground hover:bg-[color-mix(in_srgb,var(--destructive),black_8%)]",
         danger:
-          "bg-destructive text-destructive-foreground hover:bg-[color-mix(in_srgb,var(--destructive),var(--foreground)_8%)]",
+          "bg-destructive text-destructive-foreground hover:bg-[color-mix(in_srgb,var(--destructive),black_8%)]",
         outline:
           "border border-input bg-[var(--control-background,var(--background))] hover:bg-accent hover:text-accent-foreground",
         secondary:
