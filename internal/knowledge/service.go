@@ -15,6 +15,7 @@ import (
 
 type Service struct {
 	capacity *storagecapacity.Meter
+	original *originalDeletionService
 	repo     Repository
 	objects  KnowledgeObjectStore
 }
@@ -107,6 +108,9 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 		if result.Revision == nil {
 			return Result{}, ErrUnavailable
 		}
+		if result.Revision.OriginalDeletionFenced {
+			return result, nil
+		}
 		o := capacityObject(*result.Revision)
 		o.Namespace = s.capacity.Namespace
 		if err = s.capacity.Writer.BindObjects(ctx, c.Scope.OrganizationID, capacityReservation.ID, []storagecapacity.Object{o}); err != nil {
@@ -155,9 +159,14 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 		return s.uploadResult(ctx, c, result, revision)
 	}
 	putContext, cancel := context.WithTimeout(ioContext, 20*time.Second)
-	err = s.objects.PutImmutable(putContext, object)
+	firstPut, putErr := s.putOriginal(putContext, revision, object, capacityReservation.ID)
 	cancel()
-	if err != nil {
+	if putErr == nil && firstPut {
+		if err = s.confirmOriginalPut(ctx, revision, capacityReservation.ID); err != nil {
+			return result, err
+		}
+	}
+	if putErr != nil {
 		inspectContext, cancelInspect := context.WithTimeout(ioContext, 5*time.Second)
 		inspection, inspectErr := s.objects.Inspect(inspectContext, object)
 		cancelInspect()
