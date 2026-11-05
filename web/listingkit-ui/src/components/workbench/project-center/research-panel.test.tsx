@@ -23,19 +23,32 @@ it("places optional analysis before the independent human decision in selection 
  expect(screen.getByRole("heading",{name:"AI分析建议"}).compareDocumentPosition(decision)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 it("shows original missing facts without dispatching a command on open",async()=>{render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);expect(await screen.findByText("真实保存商品")).toBeInTheDocument();expect(screen.getByText(/rating/)).toBeInTheDocument();expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);});
-it("shows the original SHEIN card as research evidence without offering assessment", async () => {
+it("links and switches the original SHEIN evidence, then masks the withdrawn card and reason", async () => {
  const fixture=JSON.parse(readFileSync("../../docs/architecture/evidence/shein-us-data-v1-p1-p2.json", "utf8"));
- const {selection,publication,job,observationUtf8}=fixture.publications.P1;
- const card=JSON.parse(observationUtf8);
- const item={id:selection.itemId,batchId:id,title:card.title,source:publication.source,revision:selection.revision,createdAt:candidate.observation.capturedAt};
- const amazonItem={...item,id,title:"Amazon 样例",source:{...publication.source,kind:"amazon_data"}};
+ function original(name:"P1"|"P2") {
+  const {selection,publication,job,observationUtf8}=fixture.publications[name];
+  const card=JSON.parse(observationUtf8);
+  const item={id:selection.itemId,batchId:id,title:card.title,source:publication.source,revision:selection.revision,createdAt:candidate.observation.capturedAt};
+  return {selection,card,item,observation:{...candidate.observation,site:"",asin:"",title:card.title,sourceUrl:card.sourceUrl,capturedAt:"",parserVersion:card.parserVersion,missing:card.missing,
+   shein:{market:card.market,nativeGoodsId:card.nativeGoodsId,price:card.price},query:{...job.query,asinCount:0,limit:0,fields:[]},
+   batchId:id,item,ref:{selection,source:publication.source,jobId:job.jobId,queryRef:job.queryRef,checksum:publication.rawReference.checksum,observationVersion:"1",observationEncodingVersion:"shein-us-observation-json-v1"}}};
+ }
+ const p1=original("P1"),p2=original("P2"),otherLink="33333333-3333-4333-8333-333333333333";
+ const {item,selection,card}=p1;
+ const amazonItem={...item,id,title:"Amazon 样例",source:{...item.source,kind:"amazon_data"}};
  expect(parseCollectionResponse("items",{items:[amazonItem,item],total:2})).toMatchObject({items:[{source:{kind:"amazon_data"}},{source:{kind:"shein_us_data"}}]});
  expect(parseCollectionResponse("batches",{items:[{id,name:"Amazon 数据",kind:"amazon_data",revision:1,count:1,createdAt:item.createdAt,supplyTransferSupported:true},{id:selection.itemId,name:"SHEIN 数据",kind:"shein_us_data",revision:1,count:1,createdAt:item.createdAt,supplyTransferSupported:false}],total:2})).not.toBeNull();
- const observation={...candidate.observation,site:"",asin:"",title:card.title,sourceUrl:card.sourceUrl,capturedAt:"",parserVersion:card.parserVersion,missing:card.missing,
-  shein:{market:card.market,nativeGoodsId:card.nativeGoodsId,price:card.price},query:{mode:"category",categoryRef:"1727",asinCount:0,limit:0,fields:[]},
-  batchId:id,item,ref:{selection,source:publication.source,jobId:job.jobId,queryRef:job.queryRef,checksum:publication.rawReference.checksum,observationVersion:"1",observationEncodingVersion:"shein-us-observation-json-v1"}};
+ const reason="仅绑定 P1 的人工理由";
+ const history={state:"APPROVED_FOR_TEST",reason,evidenceDigest:candidate.evidenceDigest,revision:1,at:item.createdAt};
+ const evidence=[{id,observation:p1.observation},{id:otherLink,observation:p2.observation}];
+ const first={...candidate,state:"APPROVED_FOR_TEST",observation:p1.observation,reason,history:[history],evidence};
+ const switched={...first,state:"TO_RESEARCH",reason:undefined,revision:3,selectedLinkId:otherLink,observation:p2.observation};
+ let response=researchPage.parse({items:[first],incomplete:false});
  mock.pickerItem=item;
- mock.read.mockResolvedValue(researchPage.parse({items:[{...candidate,observation}],incomplete:false}));
+ mock.read.mockImplementation(async(_scope,_project,_schema,_signal,options)=>{
+  if(options?.intent?.body.action==="select") response=researchPage.parse({items:[switched],incomplete:false});
+  return response;
+ });
  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);
  expect(await screen.findByText("SHEIN 美国站商品卡片")).toBeInTheDocument();
  expect(screen.getByText(/USD 38\.88/)).toBeInTheDocument();
@@ -45,6 +58,18 @@ it("shows the original SHEIN card as research evidence without offering assessme
  fireEvent.click(screen.getByRole("button",{name:"添加已有商品资料"}));
  fireEvent.click(screen.getByRole("button",{name:card.title}));
  await waitFor(()=>expect(mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent.body).toEqual({action:"link",selections:[selection]}));
+ fireEvent.click(await screen.findByText(/已收集的资料记录/));
+ fireEvent.click(screen.getByRole("button",{name:"使用这份资料"}));
+ expect(await screen.findByText(/USD 36\.50/)).toBeInTheDocument();
+ expect(mock.read.mock.calls.map(call=>call[4]?.intent?.body)).toContainEqual({action:"select",candidateId:id,expectedRevision:2,linkId:otherLink});
+ fireEvent.click(screen.getByText(/过往选择记录/));
+ expect(screen.getByText(reason)).toBeVisible();
+ response=researchPage.parse({items:[{...switched,evidence:[{id},evidence[1]],history:[{...history,reason:undefined,evidenceDigest:undefined}]}],incomplete:false});
+ fireEvent.click(screen.getByRole("button",{name:"刷新商品资料"}));
+ await screen.findByText(/USD 36\.50/);
+ expect(screen.getByText("这份资料暂时无法查看")).toBeInTheDocument();
+ expect(screen.queryByText(/USD 38\.88/)).not.toBeInTheDocument();
+ expect(screen.queryByText(reason)).not.toBeInTheDocument();
 });
 it("focuses the requested function while keeping selected candidates and avoiding commands between steps",async()=>{
  const scope={userId:"u",organizationId:"o"};
