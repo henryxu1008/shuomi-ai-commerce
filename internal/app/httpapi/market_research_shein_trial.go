@@ -40,6 +40,7 @@ func (d sheinTrialDependencies) complete() bool {
 
 type sheinTrialProjects interface {
 	Authorize(context.Context, collection.Scope, string, bool) error
+	AuthorizeDataMarket(context.Context, collection.Scope) error
 }
 
 type sheinTrialProjectKey struct{}
@@ -68,6 +69,9 @@ func (a projectSHEINTrialAuthority) AuthorizeSHEINUSTrial(ctx context.Context, p
 	}
 	approved, err := a.SHEINUSTrialAuthority.AuthorizeSHEINUSTrial(ctx, p, id, action)
 	if err != nil || approved.ProjectID != project {
+		return denied, dataacquisition.ErrForbidden
+	}
+	if (action == dataacquisition.SHEINUSTrialView || action == dataacquisition.SHEINUSTrialReconcile) && a.projects.AuthorizeDataMarket(ctx, p.Scope) != nil {
 		return denied, dataacquisition.ErrForbidden
 	}
 	return approved, nil

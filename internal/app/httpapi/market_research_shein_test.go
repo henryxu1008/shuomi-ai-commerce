@@ -106,6 +106,13 @@ func (p sheinResearchProject) AuthorizeAnalysis(ctx context.Context, scope colle
 	return p.access.AuthorizeAnalysis(ctx, scope, project, active)
 }
 
+func (p sheinResearchProject) AuthorizeDataMarket(_ context.Context, scope collection.Scope) error {
+	if scope != p.access.scope {
+		return research.ErrForbidden
+	}
+	return nil
+}
+
 func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

@@ -9,6 +9,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
+	"task-processor/internal/dataservice"
 	store "task-processor/internal/integration/persistence/product/research"
 	kernel "task-processor/internal/kernel/module"
 	"task-processor/internal/product/collection"
@@ -49,6 +50,17 @@ func (a researchProjects) Authorize(ctx context.Context, s collection.Scope, pro
 func (a researchProjects) AuthorizeAnalysis(ctx context.Context, s collection.Scope, project string, active bool) error {
 	return a.authorize(ctx, s, project, false, active)
 }
+
+// Account reconciliation needs fresh Market permission for the caller without
+// inheriting the original submitter's project or Collection authority.
+func (a researchProjects) AuthorizeDataMarket(ctx context.Context, s collection.Scope) error {
+	fresh, id, err := a.auth.fresh(ctx, pc.Scope{OrganizationID: s.OrganizationID, ActorID: s.ActorID})
+	if err != nil || id.EffectiveMemberID != s.MemberID || !authz.AllowedOrganization(fresh, a.auth.policy, id.UserID, id.TenantID, id.Roles, dataservice.PermissionMarket) {
+		return research.ErrForbidden
+	}
+	return nil
+}
+
 func (a researchProjects) authorize(ctx context.Context, s collection.Scope, project string, write, active bool) error {
 	scope := pc.Scope{OrganizationID: s.OrganizationID, ActorID: s.ActorID}
 	fresh, id, err := a.auth.fresh(ctx, scope)

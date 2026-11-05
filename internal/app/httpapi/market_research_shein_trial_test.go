@@ -59,10 +59,17 @@ func TestSHEINTrialRoutesRequireExplicitAdmission(t *testing.T) {
 	}
 }
 
-type sheinTrialProjectsFunc func(context.Context, collection.Scope, string, bool) error
+type sheinTrialTestProjects struct{ marketDenied map[collection.Scope]bool }
 
-func (f sheinTrialProjectsFunc) Authorize(ctx context.Context, s collection.Scope, project string, write bool) error {
-	return f(ctx, s, project, write)
+func (sheinTrialTestProjects) Authorize(context.Context, collection.Scope, string, bool) error {
+	return nil
+}
+
+func (a sheinTrialTestProjects) AuthorizeDataMarket(_ context.Context, s collection.Scope) error {
+	if a.marketDenied[s] {
+		return dataacquisition.ErrForbidden
+	}
+	return nil
 }
 
 type sheinTrialTestAuthority struct {
@@ -134,6 +141,8 @@ func verifySHEINTrialRecovery(t *testing.T, ctx context.Context, module *dataser
 		return p.Scope == a.Scope
 	}}
 	sends, lookups := 0, 0
+	projects := sheinTrialTestProjects{marketDenied: make(map[collection.Scope]bool)}
+	revokeDuringLookup := false
 	const requestID = "fixture-original-shein-request"
 	deps := sheinTrialDependencies{
 		authority: auth,
@@ -146,11 +155,13 @@ func verifySHEINTrialRecovery(t *testing.T, ctx context.Context, module *dataser
 		lookup: func(_ context.Context, _ dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest, original dataacquisition.SHEINUSTrialAttempt) (dataacquisition.SHEINUSTrialUsage, error) {
 			lookups++
 			require.Equal(t, requestID, original.RequestID)
+			if revokeDuringLookup {
+				projects.marketDenied[accountant] = true
+			}
 			credits := 7
 			return dataacquisition.SHEINUSTrialUsage{ApprovalID: a.ID, Binding: a.Binding(), RequestID: requestID, Credits: &credits}, nil
 		},
 	}
-	projects := sheinTrialProjectsFunc(func(context.Context, collection.Scope, string, bool) error { return nil })
 	server := sheinTrialTestHTTP(t, ctx, module, deps, projects, map[string]collection.Scope{"researcher": a.Scope, "accountant": accountant, "outsider": outsider})
 	path := sheinTrialTestPath(a.ProjectID, a.ID)
 	wrongProject := sheinTrialTestPath(uuid.NewString(), a.ID)
@@ -164,20 +175,29 @@ func verifySHEINTrialRecovery(t *testing.T, ctx context.Context, module *dataser
 	require.JSONEq(t, unknown, sheinTrialTestRequest(t, server, http.MethodGet, path, "researcher", "", http.StatusOK))
 	require.JSONEq(t, unknown, sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", "", http.StatusConflict))
 	require.Zero(t, lookups)
+	forbidden := `{"code":"FORBIDDEN"}`
+	projects.marketDenied[a.Scope] = true
+	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", "", http.StatusForbidden))
+	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodGet, path, "researcher", "", http.StatusForbidden))
+	delete(projects.marketDenied, a.Scope)
+	revokeDuringLookup = true
+	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodPost, path+"/reconcile", "accountant", "", http.StatusForbidden))
+	require.JSONEq(t, unknown, sheinTrialTestRequest(t, server, http.MethodGet, path, "researcher", "", http.StatusOK))
+	revokeDuringLookup = false
+	delete(projects.marketDenied, accountant)
 	access.denied = true
 	defer func() { access.denied = false }()
-	forbidden := `{"code":"FORBIDDEN"}`
 	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodGet, path, "researcher", "", http.StatusForbidden))
 	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodGet, path, "accountant", "", http.StatusForbidden))
 	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "accountant", "", http.StatusForbidden))
 	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodPost, wrongProject+"/reconcile", "accountant", "", http.StatusForbidden))
 	require.JSONEq(t, forbidden, sheinTrialTestRequest(t, server, http.MethodPost, path+"/reconcile", "outsider", "", http.StatusForbidden))
-	require.Zero(t, lookups)
+	require.Equal(t, 1, lookups)
 	settled := `{"approvalId":"` + a.ID + `","requestId":"` + requestID + `","credits":7,"reservedCredits":0,"state":"CONFIRMED"}`
 	require.JSONEq(t, settled, sheinTrialTestRequest(t, server, http.MethodPost, path+"/reconcile", "accountant", "", http.StatusOK))
 	require.JSONEq(t, settled, sheinTrialTestRequest(t, server, http.MethodPost, path+"/reconcile", "accountant", "", http.StatusOK))
 	require.Equal(t, 1, sends)
-	require.Equal(t, 1, lookups)
+	require.Equal(t, 2, lookups)
 }
 
 func verifySHEINTrialPublicationDenied(t *testing.T, ctx context.Context, module *dataservicesapp.Module, access *sheinResearchAccess, f sheinResearchPublication) {
