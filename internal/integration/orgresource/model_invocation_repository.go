@@ -264,10 +264,7 @@ func (r *GormModelInvocationRepository) finalize(ctx context.Context, fact aicap
 		if !noDispatch {
 			state = "committed"
 		}
-		result := struct {
-			State, Proof string
-			Points       int64
-		}{state, proof, actual}
+		result := modelPointFinalResult{State: state, Proof: proof, Points: actual}
 		payload, _ := json.Marshal(result)
 		if reserve.State == "processing" {
 			if !noDispatch {

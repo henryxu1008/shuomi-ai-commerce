@@ -224,6 +224,19 @@ func (r productAgentSourceGateway) ReadEffectiveSource(ctx context.Context, prin
 	} else {
 		var ok bool
 		binding, ok = ctx.Value(productAgentSourceBindingKey{}).(agent.Binding)
+		if ok && binding.ContextKind == titlePilotContext {
+			if published.Identity.TenantID != principal.TenantID || published.Identity.ProductKey != binding.ProductKey ||
+				published.PublicationID != binding.PublicationID || strconv.FormatUint(published.Version, 10) != binding.CatalogVersion {
+				return out, sourcing.ErrPublicationForbidden
+			}
+			publication, err := r.application.titlePilotPublicationForBinding(ctx, binding)
+			if err != nil || publication.Receipt.ActorID != principal.UserID || publication.Receipt.OrganizationID != principal.TenantID {
+				return out, sourcing.ErrPublicationForbidden
+			}
+			out.Requested = sourceevidenceinspect.CatalogReference{ProductKey: binding.ProductKey, Version: binding.CatalogVersion, PublicationID: binding.PublicationID}
+			out.Original = publication
+			return out, nil
+		}
 		if !ok || binding.ContextKind != "acquisition" && binding.ContextKind != "own_product" {
 			return out, sourcing.ErrPublicationForbidden
 		}

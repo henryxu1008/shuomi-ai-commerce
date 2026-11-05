@@ -163,6 +163,11 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 		p.AdapterPolicyVersion == aicapability.EinoClaudeTextPolicy) && !ReferenceMappingReady(p) {
 		return false
 	}
+	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
+		return operation == aicapability.OperationProductAgentDecision && p.ImagePromptTokenEstimate == 0 &&
+			p.MaximumPromptTokens == TitlePilotPromptTokens && p.MaximumCompletionTokens == TitlePilotCompletionTokens &&
+			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint)
+	}
 	if operation == aicapability.OperationProductImageAnalysis {
 		return aicapability.SingleImageProfileShape(p)
 	}
