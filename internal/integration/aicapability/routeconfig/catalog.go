@@ -27,6 +27,9 @@ type ImageAdmission struct {
 	Billing            aicapability.OfficialModelBilling `json:"billing"`
 }
 type Definition struct {
+	// Private management input: never browser-controlled or used to select a
+	// provider. It must match every existing endpoint digest on this connection.
+	ConnectionEndpoint string `json:"connectionEndpoint,omitempty"`
 	// Empty means the wire ID is already the manufacturer price ID. A
 	// different ID must be explicit; never strip a channel/vendor prefix.
 	ManufacturerModel    string                `json:"manufacturerModel,omitempty"`

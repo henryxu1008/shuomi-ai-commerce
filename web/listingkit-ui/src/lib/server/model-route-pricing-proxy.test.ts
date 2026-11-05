@@ -7,6 +7,35 @@ function request(body:unknown=input,extra:Record<string,string>={},path="/enterp
 const receipt=()=>({receipt:{id:"r1",scope:{organizationId:"org-a",capability:"ai.models.enterprise"},parent:"NONE",schemaVersion:1,payload:{bindingId:"",credentialVersion:"",rates:{},sharedModels:selection},digest:"digest",actorId:"maintainer",publishedAt:"2026-11-03T00:00:00Z",key:"original"}});
 beforeEach(()=>{vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","https://console.test");vi.stubEnv("LISTINGKIT_SERVICE_API_BASE","http://localhost:9000/api/v1")});
 afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs()});
+
+const credentialResult=()=>({receipt:{organizationId:"org-a",actorId:"maintainer",requestKey:"original",connectionId:"shared",expectedRevision:"0",action:"set-key",connection:{organizationId:"org-a",connectionId:"shared",provider:"openai",channel:"openai-direct",region:"global",account:"account",revision:"1",enabled:true,keyPresent:true,models:[]}}});
+it("forwards a bounded credential command through the original trusted BFF without echoing its Key",async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json(credentialResult()));vi.stubGlobal("fetch",fetch);
+ const body={action:"set-key",expectedRevision:"0",account:"account",apiKey:"synthetic-only-key"};
+ const result=await proxyModelRoutePricing(request(body,{},"/connections/shared/commands"),"token","maintainer");
+ expect(result.status).toBe(200);expect(await result.text()).not.toContain(body.apiKey);
+ expect(fetch).toHaveBeenCalledTimes(1);expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(body);
+ expect(new Headers(fetch.mock.calls[0][1].headers).get("Idempotency-Key")).toBe("original");
+});
+it("rejects credential identity injection and keeps malformed or mismatched post-send replies unknown",async()=>{
+ const body={action:"set-key",expectedRevision:"0",account:"account",apiKey:"synthetic-only-key"};
+ const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
+ for(const input of [{...body,writerDatabase:{}},{...body,organizationId:"org-b"},{...body,baseURL:"https://other.test"}])expect((await proxyModelRoutePricing(request(input,{},"/connections/shared/commands"),"token","maintainer")).status).toBe(400);
+ expect(fetch).not.toHaveBeenCalled();
+ for(const change of [(r:ReturnType<typeof credentialResult>)=>{r.receipt.actorId="other"},(r:ReturnType<typeof credentialResult>)=>{r.receipt.connectionId="other"},(r:ReturnType<typeof credentialResult>)=>{r.receipt.connection.account="different"}]){
+  const value=credentialResult();change(value);fetch.mockResolvedValue(Response.json(value));
+  expect(await(await proxyModelRoutePricing(request(body,{},"/connections/shared/commands"),"token","maintainer")).json()).toEqual({code:"OUTCOME_UNKNOWN"});
+ }
+ fetch.mockResolvedValue(Response.json({...credentialResult(),apiKey:body.apiKey}));
+ expect(await(await proxyModelRoutePricing(request(body,{},"/connections/shared/commands"),"token","maintainer")).json()).toEqual({code:"OUTCOME_UNKNOWN"});
+});
+it("reads an original credential receipt without retransmitting a secret and binds its target",async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json(credentialResult()));vi.stubGlobal("fetch",fetch);
+ const response=await proxyModelRoutePricing(request(undefined,{},"/connections/shared/receipts/original","GET"),"token","maintainer");
+ expect(response.status).toBe(200);expect(fetch.mock.calls[0][1].body).toBeUndefined();
+ const value=credentialResult();value.receipt.connection.organizationId="org-b";fetch.mockResolvedValue(Response.json(value));
+ expect((await proxyModelRoutePricing(request(undefined,{},"/connections/shared/receipts/original","GET"),"token","maintainer")).status).toBe(502);
+});
 it("retires both independent point tariffs and every old per-purpose write URL",async()=>{const fetch=vi.fn();vi.stubGlobal("fetch",fetch);for(const body of [{...input,pointsPerImage:"10"},{...input,inputPoints:"2"},{...input,selection:{...selection,price:{rate:1}}}])expect((await proxyModelRoutePricing(request(body),"token","maintainer")).status).toBe(400);expect((await proxyModelRoutePricing(request(input,{},"/image/imageagent.generation/publish"),"token","maintainer")).status).toBe(400);expect(fetch).not.toHaveBeenCalled()});
 it("rejects changed user, organization, cross-origin and duplicate JSON before forwarding",async()=>{const fetch=vi.fn();vi.stubGlobal("fetch",fetch);for(const extra of [{"X-Expected-User-ID":"other"},{"X-Expected-Organization-ID":"other"}] as Record<string,string>[])expect((await proxyModelRoutePricing(request(input,extra),"token","maintainer")).status).toBe(409);expect((await proxyModelRoutePricing(request(input,{Origin:"https://other.test"}),"token","maintainer")).status).toBe(403);const duplicate=new Request(request(),{body:JSON.stringify(input).replace('"expectedRevision":"NONE"','"expectedRevision":"NONE","expectedRevision":"NONE"')});expect((await proxyModelRoutePricing(duplicate,"token","maintainer")).status).toBe(400);expect(fetch).not.toHaveBeenCalled()});
 it("forwards the complete enterprise selection with its original key and verified organization",async()=>{const fetch=vi.fn().mockResolvedValue(Response.json(receipt()));vi.stubGlobal("fetch",fetch);const result=await proxyModelRoutePricing(request(),"token","maintainer");expect(result.status).toBe(200);expect(fetch.mock.calls[0][0]).toBe("http://localhost:9000/api/v1/model-route-pricing/enterprise/publish");const headers=new Headers(fetch.mock.calls[0][1].headers);expect(headers.get("Authorization")).toBe("Bearer token");expect(headers.get("Idempotency-Key")).toBe("original");expect(headers.get("X-Requested-Organization-ID")).toBe("org-a");expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(input)});

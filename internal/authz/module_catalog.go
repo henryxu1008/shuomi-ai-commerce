@@ -47,6 +47,7 @@ var enterpriseModules = []MenuModule{
 	{"fulfillment-execute", "订单管理", "履约平台执行", true, []string{PermissionWorkbenchStoreRead, "workbench.fulfillment.read", "workbench.fulfillment.execute"}},
 	{"plans", "套餐与权益", "套餐与权益（查看）", true, []string{PermissionWorkbenchCommercialRead}},
 	{"members", "我的账户", "成员与权限（查看）", true, []string{PermissionWorkbenchOrganizationMemberRead}},
+	{"ai-credentials", "我的账户", "渠道凭据管理", true, []string{PermissionWorkbenchCredentialsManage}},
 	{"source-accounts", "我的账户", "源账号", true, []string{PermissionWorkbenchSourceAccountRead, PermissionWorkbenchSourceAccountManage}},
 }
 

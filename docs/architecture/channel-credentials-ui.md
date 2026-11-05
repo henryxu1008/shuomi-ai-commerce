@@ -2,7 +2,9 @@
 
 日期：2026-11-05（Asia/Singapore）。执行载体：#134 / #128；当前唯一 Writer 仍为原统一模型/凭据负责人 `/root`，原独立工作区。
 
-**PRODUCT_DECISIONS_CONFIRMED / DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**。Design Basis: **Independent Architecture**，原因是本次把已有受限维护操作开放到经过企业授权的浏览器入口，新增凭据管理权限、秘密请求与应用装配边界。不是纯表单改动。
+**PRODUCT_DECISIONS_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTATION_AUTHORIZED**。Design Basis: **Independent Architecture**，原因是本次把已有受限维护操作开放到经过企业授权的浏览器入口，新增凭据管理权限、秘密请求与应用装配边界。不是纯表单改动。
+
+2026-11-05 实施准入：用户已授权原唯一 Writer 在原工作区与 PR #1096 按已复核设计先补离线/隔离回归，再最小实现权限、Key 管理接口与原页面接线、自检并沿既有 Codex 自动评审复核。D1–D3 冻结；设计提交 `38046a3` 已完成自动范围内评审、0 finding，后续 `a94c76489` 仅文档索引增量及 CI 成功。准入由当前协调方按上述证据登记，不伪称自动回执包含正式 APPROVED vote、运行或产品验收。下文的候选/未授权描述保留原设计阶段语境，当前以本段和 Issue 当前阶段为准；实施不授权真实操作、合并、部署或关单。
 
 2026-11-05 用户已明确回复 **“认可 D1–D3，继续仅设计”**。该确认只确定下述产品范围；不授权提交、推送、PR、评审、实现或真实 Key 操作。权限技术名称、HTTP 形状和装配仍是待适用架构复核的候选，不把产品认可写成 IMPLEMENTATION_READY。
 
@@ -30,14 +32,14 @@
 | `channelcredential.Command`、`channelcredentialstore.Store.Publish` 已有连接唯一键、固定元数据、CAS、同库回执事务与加密 | 继续唯一 owner/两张原表，不复制写入引擎；浏览器只是同一应用服务的新消费者 |
 | 原 CLI `product-agent-credential-provision` 的输入含私密 `writerDatabase`，校验绑定定义和受控 endpoint | 抽取/复用有效的连接准入与保存行为；**不能把该私密输入 DTO 整体开放成 HTTP API**。writer/保护材料只由服务器注入 |
 | 原模型页面 `usePublish` 用 `useResourcePending` 将完整 `input` 写入 sessionStorage | 复用页面、非秘密状态和原请求键模式；Key 命令必须有只含去密引用的 pending DTO，禁止直接复用完整请求持久化 |
-| 原 receipt 查询在存储内部随 Publish 校验完整请求 HMAC；尚无浏览器无需 Key 的原回执读取路径 | 给同一 owner 补受限的去密原回执读取；按当前企业+actor+requestKey 定位并核 connection，不要求浏览器保留或重传 Key；不回传 fingerprint/ciphertext |
+| Store 已有去密 Receipt 查询，Publish 内继续校验完整请求 HMAC；尚无浏览器原回执消费者 | 直接复用同一 owner 的 Receipt，只补应用/HTTP 的企业+actor+requestKey 定位及 connection 核验，不要求浏览器保留或重传 Key；不回传 fingerprint/ciphertext |
 | 现有 `workbench.agent.configure` 只授权企业选模型；原合同明确不授 Key 管理权 | 候选增加一个独立窄权限并接入现有角色/权限目录；不把原选模型权限或角色名称自动提升为 Key 管理权 |
 
 Legacy decision: **EXTRACT / RETIRE**。复用当前维护入口的合格校验/加密/事务/回执；退休的只是新 UI 中任何“模型同行存 Key、Image DB 复制 Key、每模型另录 Key”的方案，不恢复旧 `ai_client_credentials`。原受限 CLI 可作为同一 owner 的维护消费者保留，不能出现第二套事实或写入逻辑。
 
 ## 3. 已确认的产品决定（D1–D3，仅产品范围）
 
-**D1 — 谁能管理。** 已确认仅明确获得本企业「渠道凭据管理」权限的管理员可以操作。候选技术权限名 `workbench.ai.credentials.manage`，尚未注册或授予。沿已有有效企业、成员与角色授权链实施；只有模型选择权的成员不自动获得该权。平台价格维护身份不因维护价格而自动获本功能的跨企业权限。角色名叫 admin 也必须通过当前有效授权，不以原始角色名称放行。本任务不批量给保留角色/真实用户补权限；新权限的默认分配与现有角色管理目录须在实施准入时落清。
+**D1 — 谁能管理。** 已确认仅明确获得本企业「渠道凭据管理」权限的管理员可以操作。技术权限名 `workbench.ai.credentials.manage`；本轮只在现有权限/角色目录注册，不自动授予已有角色或真实用户。沿已有有效企业、成员与角色授权链实施；只有模型选择权的成员不自动获得该权。平台价格维护身份不因维护价格而自动获本功能的跨企业权限。角色名叫 admin 也必须通过当前有效授权，不以原始角色名称放行。现有自定义角色目录增加独立的渠道凭据管理模块，只有经现有明确分配流程获得它的本企业管理者可操作；不附带模型、价格或通用管理员写权限。
 
 **D2 — 秘密怎样显示与保存。** 已确认 Key 只输入、不回显、不导出，不显示尾号或普通 hash；页面只显示“未配置/已保存/已停用”、版本及去密回执。新录入和轮换均输入一份新 Key，显示保存结果不等于已验证该账号的模型访问资格。Key 不写浏览器持久存储，结果不明用原请求编号查回执。
 
@@ -71,7 +73,7 @@ Legacy decision: **EXTRACT / RETIRE**。复用当前维护入口的合格校验/
 
 路径候选：现有页面 → 原会话 BFF 的窄 DTO/同源门禁 → 当前 HTTP 模块的企业凭据子路径 → 当前 channelcredential 应用服务 → **原 Run DB 的 connections + receipts 同一事务**。
 
-服务器由可信 definitions 先产生当前企业可管理连接集合，逐项读原 metadata，不提供任意全表/跨企业查询。provider/channel/region/受控 origin 从可信定义解析；新输入账号标签只作为原有限元数据。提交前复用原 `ValidateChannelCredentialProvision` 的有效绑定/endpoint 行为，不能直接接受私密 provision DTO 的 writerDatabase、BaseURL 或组织身份。
+服务器由可信 definitions 先产生当前企业可管理连接集合，逐项读原 metadata，不提供任意全表/跨企业查询。provider/channel/region/受控 origin 从可信定义解析；文本定义只含摘要时由私密 `Definition.connectionEndpoint` 明确 URL，或使用同连接可信图片定义中的准确 endpoint，须匹配所有文本摘要/适配器及图片 endpoint，不能反推或猜测。新输入账号标签只作为原有限元数据。沿原 `ValidateChannelCredentialProvision` 的有效绑定/endpoint 不变量准入，不能直接接受私密 provision DTO 的 writerDatabase、BaseURL 或组织身份。
 
 复用 `title_credential_writer` 的原窄权限与保护服务；当前它只从 CLI 私密输入注入，未来需要服务器端受控的管理 writer 装配，**浏览器不提供 DSN/角色/保护 Key**。普通 `product_agent_runtime`、`model_route_config_writer` 不新增 ciphertext 或 Key 写权限；handler 只持有窄管理接口，不暴露 secret resolver。
 
@@ -79,7 +81,7 @@ Legacy decision: **EXTRACT / RETIRE**。复用当前维护入口的合格校验/
 
 不新增表、凭据副本、Key 同步或第二计费。CLI 与 UI 共用同一当前服务/存储协议；保护主密钥仍只由部署维护，网页不能读取或轮换它。
 
-## 7. Key 保护与有限 HTTP 合同（均未实现）
+## 7. Key 保护与有限 HTTP 合同（当前源码接线，真实环境未启用）
 
 | 候选入口 | 内容与边界 |
 | --- | --- |
@@ -87,7 +89,7 @@ Legacy decision: **EXTRACT / RETIRE**。复用当前维护入口的合格校验/
 | `POST /api/v1/model-route-pricing/connections/:id/commands` | `set-key` 或 `disable`、expectedRevision、原 Idempotency-Key；仅 set-key 输入 apiKey。actor/org、连接准入元数据和 writer 均由服务器确定 |
 | `GET /api/v1/model-route-pricing/connections/:id/receipts/:key` | 当前企业+actor+原 key，并核 connection 的去密回执；不要求再次输入 Key、不携带秘密 fingerprint |
 
-上述为拟议路径/形状，不是已存在 API。新 DTO 必须有界严格解析，复用当前 16 KiB 写入请求边界、Secret 4096 字节及原命令校验；未知/重复字段拒绝，固定 metadata 响应白名单。同源/CSRF 检查、受信后端 origin、无重定向/自动重发与现有超时继续复用；真实环境使用现有 HTTPS 身份入口。
+上述路径在同一原 HTTP/BFF 模块接线；`expectedRevision` 与回执版本使用十进制整数字符串，不经 JavaScript 浮点转换。DTO 有界严格解析，复用当前 16 KiB 写入请求边界、Secret 4096 字节及原命令校验；未知/重复字段拒绝，固定 metadata 响应白名单。同源/CSRF 检查、受信后端 origin、无重定向/自动重发与现有超时继续复用；真实环境使用现有 HTTPS 身份入口。本源码交付不代表保留实例已更新或获得真实保存授权。
 
 Key 只经受信 HTTPS 请求短暂进入 BFF/后端和当前保护服务；沿现有 AES-GCM，AAD 绑定企业/连接全身份/revision，HKDF/HMAC 继续原完整命令幂等。不新造加密算法，不把 Key/hash 放入 URL、日志、错误、分析事件、审计正文、快照、点数账本或回执。禁止响应回显、显示旧 Key、导出或让前端接收密文。停用所需的内部解密/重封装仍封闭在原 Store 内。
 
@@ -105,7 +107,7 @@ Key 只经受信 HTTPS 请求短暂进入 BFF/后端和当前保护服务；沿�
 
 ## 9. 最小未来验证与停止条件
 
-本轮只检查文档和实际源码依据，不运行测试或真实浏览器。未来另获实施授权及架构准入后，复用现有 Go/PostgreSQL/HTTP/BFF/Vitest：
+设计阶段只核文档和源码；当前已获实施授权，沿现有 Go/PostgreSQL/HTTP/BFF/Vitest 执行离线/隔离回归，不执行真实浏览器或业务操作：
 
 - 两企业同 connectionID、伪造 org/actor、缺独立权限、只有选模型权、撤权/企业切换、越界回执读取均拒绝；真实角色不在测试中改动。
 - 同连接多模型共享 Key；轮换/CAS/同 key 异秘密、A→B→A、停用及原门禁/UNKNOWN/费用恢复保持，原已有有效证据按未变代码复用。
@@ -113,10 +115,10 @@ Key 只经受信 HTTPS 请求短暂进入 BFF/后端和当前保护服务；沿�
 - trusted origin、严格请求/响应、原 DTO 大小、超时/断开、错误不回显；不调用真实 provider，不新增全量故障平台。
 - 管理态 AI 关闭、缺 writer/保护材料仍安全拒绝；普通 reader/writer 权限不扩大，保存不启用执行或扣点。
 
-新的权限/浏览器秘密边界须做适用架构复核；**现获准随 design-only PR 转 Ready 触发既有自动架构复核，当前尚未达到 IMPLEMENTATION_READY**。若确需改变唯一 owner、schema、旧恢复合同、预算/计费或供应商授权，停下报告，不在实现里临时加兼容、网关或通用安全平台。
+新的权限/浏览器秘密边界已在本轮适用架构复核中检查，**当前为 IMPLEMENTATION_READY，D1–D3 冻结，实施增量沿同一 PR 的既有 Codex 自动评审复核**。若确需改变唯一 owner、schema、旧恢复合同、预算/计费或供应商授权，停下报告，不在实现里临时加兼容、网关或通用安全平台。
 
 ## 10. 当前交付与后续授权
 
-当前交付为最小设计文档及现有 Issue 摘要；新授权仅允许把三份 Markdown 提交/推送到一个 design-only PR，核准确 HEAD CI，并用现有 Ready 自动评审完成一次范围内架构复核。缺少的真实 writer/保护材料/现场资格保持 UNKNOWN；运行、真实保存/恢复、模型调用、浏览器与产品验收 NOT_RUN。#47 UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT 保持。
+当前 Delivery Batch 包含上述冻结设计及已授权的最小权限、管理接口、原页面实现和必要隔离回归，始终维护同一 PR #1096，不另派 Writer/Reviewer。缺少的真实 writer/保护材料/现场资格保持 UNKNOWN；运行、真实保存/恢复、模型调用、浏览器与产品验收 NOT_RUN。#47 UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT 保持。
 
-D1–D3 产品决定已明确确认，继续 design-only；**提交/PR/准确 HEAD CI 和既有自动架构复核已获单独授权，实现仍未获授权**。架构达到 Ready 也不自动授权编码。后续真实 Key 录入、配置发布、部署/安装和真实调用不由本次授权覆盖。不重复请求相同产品决定，不自动推进实现或现场阶段。原共享凭据/多厂商与 #1075 的历史证据和当前实例保持，不把新 UI 写成已交付。
+D1–D3 产品决定已确认；**实施、必要自检、提交/推送、原 PR 维护及既有 Codex 自动评审现已获单独授权**，不把实施授权扩展为真实环境或产品验收。后续真实 Key 录入、配置发布、部署/安装和真实调用不由本次授权覆盖。不重复请求相同产品决定，不自动推进实现或现场阶段。原共享凭据/多厂商与 #1075 的历史证据和当前实例保持，不把新 UI 写成已交付。
