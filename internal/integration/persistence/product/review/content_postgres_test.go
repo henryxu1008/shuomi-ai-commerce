@@ -54,7 +54,7 @@ func contentPostgresFixture(t *testing.T) (*review.Service, *Repository, catalog
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "owner", Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)})
 	base, err := publisher.Publish(ctx, catalog.PublishRequest{Identity: catalog.SnapshotIdentity{TenantID: "org", ProductKey: "product"}, PublicationID: "source-publication", Snapshot: catalog.ProductSnapshot{
 		Title: "source title", Description: "source description", SellingPoints: []string{"source point"}, SEOKeywords: []string{"source keyword"}, Brand: "preserved brand",
-		Images: []catalog.Image{{URL: "https://fixture.invalid/source.png"}}, Variants: []catalog.Variant{{SKU: "preserved-sku", Stock: 7, Price: &catalog.Price{Currency: "CNY", Amount: 12.5}}}}})
+		Images: []catalog.Image{{URL: "https://fixture.invalid/source.png"}}, Variants: []catalog.Variant{{SKU: "preserved-sku", Stock: new(7), Price: &catalog.Price{Currency: "CNY", Amount: 12.5}}}}})
 	require.NoError(t, err)
 	source := &contentSourceFixture{value: sourcing.PersistedPublication{Snapshot: base.Snapshot, Receipt: sourcing.PublicationReceipt{OrganizationID: "org", ActorID: "owner", ProductKey: "product", CatalogVersion: base.Version, PublicationID: base.PublicationID, CatalogPublicationID: base.PublicationID},
 		Envelope: sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: sourcing.SourceTypeManualImport, SourcePlatform: "fixture", SourceID: "source", SourceVersion: "v1"}, RawReference: sourcing.RawSourceReference{ReferenceID: "source"}}}}

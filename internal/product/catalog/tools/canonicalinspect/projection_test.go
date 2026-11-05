@@ -78,7 +78,7 @@ func TestProjectionSchemaFixtureIncludesAllSnapshotShapes(t *testing.T) {
 		SellingPoints: []string{"point"}, SEOKeywords: []string{"keyword"},
 		Attributes:     []catalog.Attribute{{Name: "name", Value: "value", Trace: catalog.Trace{Confidence: .9, IsInferred: true, NeedsReview: true}}},
 		Specifications: &catalog.Specifications{Dimensions: &catalog.Dimensions{Length: 1, Width: 2, Height: 3, Unit: "cm"}, Weight: &catalog.Weight{Value: 1, Unit: "kg"}, Package: &catalog.PackageInfo{Quantity: 1}, Technical: map[string]string{"power": "10W"}},
-		Variants:       []catalog.Variant{{SourceID: "source", Title: "variant", SKU: "sku", Price: &catalog.Price{Currency: "USD", Amount: 1, CompareAt: 2, CostPrice: .5, WholesaleMin: 1}, Stock: 2, Barcode: "barcode", IsDefault: true}},
+		Variants:       []catalog.Variant{{SourceID: "source", Title: "variant", SKU: "sku", Price: &catalog.Price{Currency: "USD", Amount: 1, CompareAt: 2, CostPrice: .5, WholesaleMin: 1}, Stock: new(2), Barcode: "barcode", IsDefault: true}},
 		Images:         []catalog.Image{{URL: "https://img.example", Role: "main", Width: 100, Height: 100}},
 		Review:         &catalog.ReviewState{NeedsReview: false, Reasons: []string{}},
 		Sources:        []catalog.SourceRecord{{Type: "crawler", Detail: "detail", Platform: "1688", SourceID: "id", SourceVersion: "v1", ReferenceType: "url", URL: "https://source.example", SnapshotID: "snapshot", Checksum: "sum", CapturedAt: now, SourceRunID: "run", RequestID: "request", Notes: []string{"note"}}},

@@ -185,10 +185,13 @@ func PublicProjection(snapshot catalog.ProductSnapshot) (PublicProduct, error) {
 		p.Images = append(p.Images, image.URL)
 	}
 	for _, v := range snapshot.Variants {
-		if !text(v.SourceID, 0, 128) || !text(v.Title, 0, 2000) || !text(v.SKU, 0, 1000) || v.Stock < 0 || len(v.Images) > 40 {
+		if !text(v.SourceID, 0, 128) || !text(v.Title, 0, 2000) || !text(v.SKU, 0, 1000) || v.Stock != nil && *v.Stock < 0 || len(v.Images) > 40 {
 			return PublicProduct{}, ErrInvalid
 		}
-		item := PublicVariant{SourceID: v.SourceID, Title: v.Title, SKU: v.SKU, Stock: v.Stock}
+		item := PublicVariant{SourceID: v.SourceID, Title: v.Title, SKU: v.SKU}
+		if v.Stock != nil {
+			item.Stock = *v.Stock
+		}
 		if item.Attributes, err = publicAttributes(v.Attributes); err != nil {
 			return PublicProduct{}, err
 		}

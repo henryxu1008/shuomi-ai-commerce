@@ -16,7 +16,7 @@ const itemId="550e8400-e29b-41d4-a716-446655440002";
 beforeEach(()=>{state.mutate.mockReset();state.read.mockReset();state.item.mockReset();state.push.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"],pendingCollectionIntent:null,collectionIntentReady:true,pendingSupplyIntent:null,supplyIntentReady:true,registerOrganizationSwitchGuard:()=>()=>{},setPendingCollectionIntent:(value:CollectionIntent|null)=>{state.context.pendingCollectionIntent=value;return true}}});
 afterEach(cleanup);
 
-const savedDetail={item:{id:itemId,batchId:itemId,revision:3,createdAt:"2026-10-14T01:00:00Z",source:{kind:"own" as const,productKey:"own-product",publicationId:itemId,version:"5"}},product:{title:"已有商品",brand:"原品牌",description:"原描述",attributes:[{name:"材质",value:"棉"}],images:[{url:"https://images.example.org/public.png"}],variants:[{source_id:"stable-sku",title:"原SKU标题",sku:"RED",attributes:[{name:"颜色",value:"红色"}],price:{amount:0,currency:"CNY"},images:[{url:"https://images.example.org/red.png"},{url:"https://images.example.org/red-detail.png"}]}]}};
+const savedDetail={item:{id:itemId,batchId:itemId,revision:3,createdAt:"2026-10-14T01:00:00Z",source:{kind:"own" as const,productKey:"own-product",publicationId:itemId,version:"5"}},product:{title:"已有商品",brand:"原品牌",description:"原描述",attributes:[{name:"材质",value:"棉"}],images:[{url:"https://images.example.org/public.png"}],variants:[{source_id:"stable-sku",title:"原SKU标题",sku:"RED",attributes:[{name:"颜色",value:"红色"}],price:{amount:0,currency:"CNY"},stock:0,own_stock_declared:true,images:[{url:"https://images.example.org/red.png"},{url:"https://images.example.org/red-detail.png"}]}]}};
 it("prefills a saved product and appends with exact base while preserving SKU facts",async()=>{
  state.item.mockResolvedValue(savedDetail);state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:4,replayed:false});
  render(<OwnProductEditPage itemId={itemId}/>);
@@ -184,7 +184,7 @@ it("discards unsubmitted old identity input and prevents a foreign pending opera
  view.rerender(<OwnProductEntryPage/>);expect(screen.getByLabelText("商品名称")).toHaveValue("");expect(screen.getByRole("button",{name:"保存商品"})).toBeDisabled();expect(state.mutate).not.toHaveBeenCalled();
 });
 it("reads every own variant on the separate detail page, including zero values",async()=>{
- state.item.mockResolvedValue({item:{source:{kind:"own",version:"1",productKey:"own-fixture"}},product:{title:"商品",variants:[{source_id:"red",sku:"RED",attributes:[{name:"颜色",value:"红"}],price:{currency:"CNY",amount:0}},{source_id:"blue",sku:"BLUE",attributes:[{name:"颜色",value:"蓝"}],price:{currency:"CNY",amount:12},stock:9}]}});
+ state.item.mockResolvedValue({item:{source:{kind:"own",version:"1",productKey:"own-fixture"}},product:{title:"商品",variants:[{source_id:"red",sku:"RED",attributes:[{name:"颜色",value:"红"}],price:{currency:"CNY",amount:0},stock:0,own_stock_declared:true},{source_id:"blue",sku:"BLUE",attributes:[{name:"颜色",value:"蓝"}],price:{currency:"CNY",amount:12},stock:9}]}});
  render(<OwnProductDetailPage itemId={itemId}/>);const table=await screen.findByRole("table");expect(within(table).getByText("RED")).toBeVisible();expect(within(table).getByText("BLUE")).toBeVisible();expect(within(table).getByText("颜色：红")).toBeVisible();expect(within(table).getAllByText("0")).toHaveLength(2);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it("submits common attributes through the original product request and blocks duplicate names",async()=>{
