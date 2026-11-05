@@ -196,6 +196,10 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 	if errors.As(err, &notAccepted) {
 		body["messageAccepted"] = false
 	}
+	var createRejected *aiworkbench.ConversationNotAcceptedError
+	if (code == "NOT_FOUND" || code == "PROPOSAL_STALE") && errors.As(err, &createRejected) {
+		body["conversationAccepted"] = false
+	}
 	c.JSON(status, body)
 }
 

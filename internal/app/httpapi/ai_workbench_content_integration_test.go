@@ -270,6 +270,16 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, json.Unmarshal(call("POST", messagePath, messageKey, body, 200), &planned))
 	require.Equal(t, confirmed.Task.ID, planned.Proposal.ConfirmedTaskID)
 	require.EqualValues(t, 1, planningCalls.Load())
+	owner := aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}
+	storedTask, err := app.store.GetTask(ctx, owner, confirmed.Task.ID)
+	require.NoError(t, err)
+	runScope := agent.Scope{OrganizationID: owner.OrganizationID, ActorID: owner.ActorID}
+	native, nextNative, err := a.configuration.Recent(ctx, runScope, "member-B-admin", agentconfig.ContentAgentID, "", 20, a.store, func(agent.Binding) error { return nil })
+	require.NoError(t, err)
+	require.Empty(t, native, "scoped content is reachable through its exact Task, not a standalone run")
+	require.Empty(t, nextNative)
+	_, _, err = a.configuration.Recent(ctx, runScope, "member-B-admin", agentconfig.ContentAgentID, storedTask.ConfigurationSnapshotRef.ID, 20, a.store, func(agent.Binding) error { return nil })
+	require.ErrorIs(t, err, agentconfig.ErrInvalid)
 	var scopedPage struct {
 		Tasks      []workbenchTaskView
 		Incomplete bool
@@ -281,6 +291,11 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase+"?scopeKind=general", "", nil, 200), &scopedPage))
 	require.Empty(t, scopedPage.Tasks)
 	projectRevoked.Store(true)
+	originalCreate := call("POST", workbenchChatBase, createKey, createPayload, 200)
+	require.NotContains(t, string(originalCreate), "conversationAccepted")
+	require.NotContains(t, string(originalCreate), "Fixture project")
+	rejectedCreate := call("POST", workbenchChatBase, uuid.NewString(), createPayload, 404)
+	require.JSONEq(t, `{"code":"NOT_FOUND","conversationAccepted":false}`, string(rejectedCreate))
 	call("GET", workbenchTaskBase+"/"+confirmed.Task.ID, "", nil, 404)
 	rawHidden := call("GET", workbenchChatBase+"/"+created.Conversation.ID, "", nil, 200)
 	require.NotContains(t, string(rawHidden), "Fixture project")

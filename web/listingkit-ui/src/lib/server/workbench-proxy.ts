@@ -1201,6 +1201,9 @@ export async function buildWorkbenchBrowserResponse(
     if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)){
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
+    if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){
+      response=new NextResponse(JSON.stringify({...await response.json(),conversationAccepted:false}),{status:response.status,headers:response.headers});
+    }
     if (code === "ORGANIZATION_ACCESS_REVOKED" || code === "ORGANIZATION_ACCESS_DENIED") clearSelectionCookie(response);
     return response;
   }

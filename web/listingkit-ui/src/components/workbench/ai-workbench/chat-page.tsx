@@ -122,10 +122,10 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
       try { sessionStorage.removeItem(pendingCreateStorageKey(scope)); } catch { /* navigation still succeeds */ }
       router.push(`/workbench/ai/chat/${result.conversation.ID}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
     } catch (cause) { if (!controller.signal.aborted) {
-      if (cause instanceof AIWorkbenchError && cause.code === "PROPOSAL_STALE") {
+      if (cause instanceof AIWorkbenchError && cause.conversationAccepted === false && (cause.code === "NOT_FOUND" || cause.code === "PROPOSAL_STALE")) {
         setCreateIntent(undefined); setSelectedScope(undefined); setScopeGeneration(n=>n+1);
         try { sessionStorage.removeItem(createStorageKey); } catch { /* the retained intent was rejected */ }
-        setError("项目或店铺已变化。请核对并重新选择工作范围。");
+        setError("原范围已变化或不可读，请重新选择工作范围。");
       } else setError(errorText(cause));
     } }
     finally { if (!controller.signal.aborted) setCreating(false); abort.current = null; }

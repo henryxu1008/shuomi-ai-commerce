@@ -477,7 +477,7 @@ func (s *Store) CreateScoped(ctx context.Context, scope aiworkbench.Scope, key s
 			return e
 		}
 		if preflight != nil {
-			return preflight
+			return &aiworkbench.ConversationNotAcceptedError{Cause: preflight}
 		}
 		if input.Selection != nil && (fixed == nil || !fixed.Valid()) {
 			return aiworkbench.ErrInvalid

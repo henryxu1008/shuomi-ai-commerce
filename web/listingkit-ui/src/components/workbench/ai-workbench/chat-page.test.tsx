@@ -62,6 +62,31 @@ it("keeps new conversation creation separate from the history list", async () =>
   expect(fixture.request.mock.calls.at(-1)?.[0].body).toEqual({scopeSelection:{kind:"general"},scopeConfirmation});
 });
 
+it("unlocks selection after proof that an unavailable scope never created a conversation", async () => {
+  const post = vi.fn().mockRejectedValueOnce(new AIWorkbenchError("NOT_FOUND", undefined, false)).mockResolvedValue({conversation});
+  fixture.request.mockImplementation(async input => input.route === "scope-options" ? scopeOptions : post(input));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await selectGeneralScope();
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+  await waitFor(()=>expect(screen.getByLabelText("范围类型")).toBeEnabled());
+  await selectGeneralScope();
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  expect(post.mock.calls[1][0].key).not.toEqual(post.mock.calls[0][0].key);
+});
+
+it("keeps the exact create payload when the outcome is unknown", async () => {
+  const post = vi.fn().mockRejectedValueOnce(new AIWorkbenchError("OUTCOME_UNKNOWN")).mockResolvedValue({conversation});
+  fixture.request.mockImplementation(async input => input.route === "scope-options" ? scopeOptions : post(input));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await selectGeneralScope();
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  fireEvent.click(await screen.findByRole("button",{name:"核对原创建请求"}));
+  await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  expect(post.mock.calls[1][0]).toMatchObject({key:post.mock.calls[0][0].key,body:post.mock.calls[0][0].body});
+});
+
 it.each(["recent", "saved"] as const)("filters only loaded %s titles while retaining pagination and its scope", async mode => {
   const first = { ...conversation, Title: "中文内容整理", Favorite: mode === "saved" };
   const older = { ...first, ID: "d5d9d1ca-1db3-43af-9649-dcdf3663745b", Title: "English content" };
