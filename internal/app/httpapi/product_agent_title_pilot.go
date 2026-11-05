@@ -15,6 +15,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/product/review"
 	"task-processor/internal/product/sourcing"
@@ -129,6 +130,11 @@ func titlePilotQuoteCoversTariff(p aicapability.ModelProfile, prompt, cost int64
 }
 
 func (a *productAgentApplication) startApprovedTitlePilot(ctx context.Context) ([]agent.Record, error) {
+	if a.config.TitlePilotOperator != nil {
+		if _, err := a.preflightTitlePilot(ctx); err != nil {
+			return nil, err
+		}
+	}
 	plan, err := a.prepareTitlePilot(ctx, a.config.titlePilotApproval.batchID)
 	if err != nil {
 		return nil, err
@@ -138,30 +144,31 @@ func (a *productAgentApplication) startApprovedTitlePilot(ctx context.Context) (
 
 // prepareTitlePilot is internal composition only. It publishes exact frozen
 // evidence through SRC, then freezes both groups against the same receipts.
-func (a *productAgentApplication) prepareTitlePilot(ctx context.Context, batchID uuid.UUID) (*titlePilotPlan, error) {
+func (a *productAgentApplication) inspectTitlePilot(ctx context.Context, batchID uuid.UUID) (*titlePilotPlan, []titlePilotSample, error) {
 	approval := a.config.titlePilotApproval
 	if a.titlePilotPublisher == nil || a.titlePilotFixed == nil || batchID == uuid.Nil || batchID != approval.batchID {
-		return nil, agent.ErrUnavailable
+		return nil, nil, agent.ErrUnavailable
 	}
 	i, err := a.freshIdentity(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	identity := agent.ExecutionIdentity{OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID}
-	if identity != approval.identity {
-		return nil, review.ErrForbidden
+	if identity != approval.identity || !authz.AllowedOrganization(ctx, a.authorizer, i.UserID, i.TenantID, i.Roles, authz.PermissionProductSourcingWrite) {
+		return nil, nil, review.ErrForbidden
 	}
-	profile, err := a.selectTitleProfile(ctx, identity.OrganizationID)
-	if err != nil || !titlePilotProfileQualified(profile) {
-		return nil, agent.ErrUnavailable
+	if op := a.config.TitlePilotOperator; op != nil {
+		if err := op.VerifyIsolation(ctx); err != nil {
+			return nil, nil, agent.ErrUnavailable
+		}
 	}
-	digest, err := profile.Digest()
-	if err != nil || digest != approval.profileDigest {
-		return nil, agent.ErrUnavailable
+	profile, err := a.readTitlePilotProfile(ctx, approval)
+	if err != nil {
+		return nil, nil, err
 	}
 	samples, err := frozenTitlePilotSamples()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	plan := &titlePilotPlan{app: a, approval: approval, identity: identity, profile: profile}
 	scope := agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}
@@ -169,40 +176,102 @@ func (a *productAgentApplication) prepareTitlePilot(ctx context.Context, batchID
 	firstKey := titlePilotID("issue132-run", batchID.String(), first.PublicationID, "fixed")
 	if _, found, err := a.store.LookupContext(ctx, scope, titlePilotContext, first.PublicationID, firstKey); err != nil || found {
 		if err != nil {
-			return nil, errors.Join(errTitlePilotUnknown, err)
+			return nil, nil, errors.Join(errTitlePilotUnknown, err)
 		}
-		return nil, agent.ErrConflict
+		return nil, nil, agent.ErrConflict
 	}
-	ctx = authidentity.WithAuthenticatedIdentity(ctx, i)
-	for _, sample := range samples {
-		command := titlePilotPublication(identity, sample)
-		receipt, err := a.titlePilotPublisher.Publish(ctx, command)
+	return plan, samples, nil
+}
+
+func (a *productAgentApplication) readTitlePilotProfile(ctx context.Context, approval titlePilotApproval) (aicapability.ModelProfile, error) {
+	var profile aicapability.ModelProfile
+	if op := a.config.TitlePilotOperator; op != nil {
+		// The shared reader qualifies connection metadata and the published
+		// tariff. Only the existing execution path needs the Key.
+		policy, err := a.config.CurrentTextPolicies.ReadPolicy(ctx, governed.RouteKey{
+			OrganizationID: approval.identity.OrganizationID, Operation: aicapability.OperationProductAgentDecision,
+		})
+		profile = policy.ShapeProfile()
+		if err != nil || !op.matchesProfile(profile) {
+			return aicapability.ModelProfile{}, agent.ErrUnavailable
+		}
+	} else {
+		var err error
+		profile, err = a.selectTitleProfile(ctx, approval.identity.OrganizationID)
 		if err != nil {
+			return aicapability.ModelProfile{}, agent.ErrUnavailable
+		}
+	}
+	digest, err := profile.Digest()
+	if err != nil || digest != approval.profileDigest || !titlePilotProfileQualified(profile) {
+		return aicapability.ModelProfile{}, agent.ErrUnavailable
+	}
+	return profile, nil
+}
+
+func (a *productAgentApplication) prepareTitlePilot(ctx context.Context, batchID uuid.UUID) (*titlePilotPlan, error) {
+	plan, samples, err := a.inspectTitlePilot(ctx, batchID)
+	if err != nil {
+		return nil, err
+	}
+	if a.config.TitlePilotOperator != nil {
+		if _, err := a.titlePilotBudget(plan.profile); err != nil {
+			return nil, err
+		}
+	}
+	for _, sample := range samples {
+		command := titlePilotPublication(plan.identity, sample)
+		publishContext := ctx
+		if a.config.TitlePilotOperator != nil {
+			current, err := a.freshIdentity(ctx)
+			if err != nil || current.TenantID != plan.identity.OrganizationID || current.UserID != plan.identity.ActorID ||
+				current.EffectiveMemberID != plan.identity.MemberID {
+				return nil, review.ErrForbidden
+			}
+			publishContext = authidentity.WithAuthenticatedIdentity(ctx, current)
+		}
+		if err := a.authorizeTitlePilotEffect(ctx, plan); err != nil {
+			return nil, err
+		}
+		receipt, err := a.titlePilotPublisher.Publish(publishContext, command)
+		if err != nil {
+			original := err
 			receipt, err = a.titlePilotPublisher.Verify(ctx, command)
 			if err != nil {
-				return nil, err
+				if errors.Is(original, sourcing.ErrSourcePublicationOutcomeUnknown) {
+					return nil, errTitlePilotUnknown
+				}
+				return nil, original
 			}
 		}
-		binding := agent.Binding{ContextKind: titlePilotContext, ContextID: command.PublicationID, ProductKey: command.ProductKey,
-			CatalogVersion: strconv.FormatUint(receipt.CatalogVersion, 10), PublicationID: receipt.CatalogPublicationID, TargetPlatform: "shein"}
 		for _, group := range []string{"fixed", "agent"} {
-			limits := a.config.Limits
-			limits.Runtime = min(limits.Runtime, time.Minute)
-			fixed := group == "fixed"
-			limits.ModelCalls = min(limits.ModelCalls, titlePilotAgentCalls)
-			if fixed {
-				limits.ModelCalls = 1
-			}
-			limits.CostMicros = min(limits.CostMicros, int64(limits.ModelCalls)*titlePilotCallCost)
-			slot := titlePilotSlot{plan: plan, command: command, binding: binding, fixed: fixed, limits: limits,
-				key: titlePilotID("issue132-run", batchID.String(), command.PublicationID, group)}
-			if _, err := a.titlePilotPublicationForBinding(slot.context(ctx), binding); err != nil {
+			slot := a.titlePilotSlotFor(plan, command, receipt, group)
+			if _, err := a.titlePilotPublicationForBinding(slot.context(ctx), slot.binding); err != nil {
 				return nil, err
 			}
 			plan.slots = append(plan.slots, slot)
 		}
 	}
 	return plan, nil
+}
+
+func (a *productAgentApplication) titlePilotLimits(fixed bool) agent.Limits {
+	limits := a.config.Limits
+	limits.Runtime = min(limits.Runtime, time.Minute)
+	limits.ModelCalls = min(limits.ModelCalls, titlePilotAgentCalls)
+	if fixed {
+		limits.ModelCalls = 1
+	}
+	limits.CostMicros = min(limits.CostMicros, int64(limits.ModelCalls)*titlePilotCallCost)
+	return limits
+}
+
+func (a *productAgentApplication) titlePilotSlotFor(plan *titlePilotPlan, command sourcing.PublicationCommand, receipt sourcing.PublicationReceipt, group string) titlePilotSlot {
+	binding := agent.Binding{ContextKind: titlePilotContext, ContextID: command.PublicationID, ProductKey: command.ProductKey,
+		CatalogVersion: strconv.FormatUint(receipt.CatalogVersion, 10), PublicationID: receipt.CatalogPublicationID, TargetPlatform: "shein"}
+	fixed := group == "fixed"
+	return titlePilotSlot{plan: plan, command: command, binding: binding, fixed: fixed, limits: a.titlePilotLimits(fixed),
+		key: titlePilotID("issue132-run", plan.approval.batchID.String(), command.PublicationID, group)}
 }
 
 func (slot *titlePilotSlot) context(ctx context.Context) context.Context {
@@ -253,6 +322,9 @@ func (a *productAgentApplication) authorizeTitlePilotDispatch(ctx context.Contex
 		input.MemberID != slot.plan.identity.MemberID {
 		return review.ErrForbidden
 	}
+	if err := a.authorizeTitlePilotEffect(ctx, slot.plan); err != nil {
+		return err
+	}
 	scope, err := a.Authorize(ctx, slot.binding)
 	if err != nil {
 		return err
@@ -266,7 +338,7 @@ func (a *productAgentApplication) authorizeTitlePilotDispatch(ctx context.Contex
 	if err != nil || !titlePilotQuoteCoversTariff(input.Profile, quote.MaximumTokens-input.Profile.MaximumCompletionTokens, quote.MaximumCostMicros) {
 		return agent.ErrUnavailable
 	}
-	return nil
+	return a.authorizeTitlePilotEffect(ctx, slot.plan)
 }
 
 // runTitlePilot never advances from a replay, an uncertain commit, or an
@@ -293,6 +365,9 @@ func (a *productAgentApplication) runTitlePilot(ctx context.Context, plan *title
 	for index := range plan.slots {
 		slot := &plan.slots[index]
 		execution := slot.context(ctx)
+		if err := a.authorizeTitlePilotEffect(execution, plan); err != nil {
+			return completed, err
+		}
 		if _, err := a.Authorize(execution, slot.binding); err != nil {
 			return completed, err
 		}
@@ -304,9 +379,12 @@ func (a *productAgentApplication) runTitlePilot(ctx context.Context, plan *title
 		if slot.fixed {
 			runtime = a.titlePilotFixed
 		}
+		if err := a.authorizeTitlePilotEffect(execution, plan); err != nil {
+			return completed, err
+		}
 		record, err := runtime.StartFresh(execution, request)
 		if err != nil {
-			if errors.Is(err, agent.ErrConflict) {
+			if errors.Is(err, agent.ErrConflict) || errors.Is(err, errTitlePilotExpired) {
 				return completed, err
 			}
 			return completed, errors.Join(errTitlePilotUnknown, err)

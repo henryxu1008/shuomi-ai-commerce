@@ -954,6 +954,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, agentModule)
 		modelPointRecovery = agentModule.(productAgentModule).recoverPoints
 		productRuntime = agentModule.(productAgentModule).application
+		if op := productRuntime.config.TitlePilotOperator; op != nil {
+			handler, err := productRuntime.titlePilotOperatorHandler(ctx, *workbench.authDependencies)
+			if err != nil {
+				return nil, fmt.Errorf("build title pilot operator: %w", err)
+			}
+			op.Register(handler)
+		}
 	}
 	var diagnosisRuntime *shopDiagnosisApplication
 	if cockpitReads != nil {
