@@ -1,13 +1,13 @@
 # Shuomi Design System：资产与缺口基线
 
-关联 [#1092](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1092)。本报告是 Phase 0 的源码与控件级证据，并交付一个本地 Textarea 样式修正，不代表整个设计系统或两页业务试点已交付。
+关联 [#1092](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1092)。本报告记录 Phase 0 源码基线及现有表单控件的有限复用切片；两页受控前端试点另有记录，不代表整个设计系统或真实业务验收已完成。
 
 ## 依据和边界
 
 - 盘点基线：`d12b8c7633a8e3a6f02e4c19f4a29344b14c8d34`，2026-11-05。
 - 最新产品决定：Figma 仅用于业务流程参考，不再决定视觉、布局、导航层级、页面拆分、组件或响应式。规则更新由 [PR #1107](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1107) 单独负责；本报告不修改其文件。
 - 继续复用 Next.js / React / Tailwind / shadcn / Radix、现有 CSS Modules 和 `next-themes`。身份、企业、权限、业务事实、计费、幂等、恢复及外部副作用仍由原领域 owner 负责。
-- Design Basis: Reuse Existing Architecture，沿 Issue 已有分类及工作台主题合同。唯一生产改动是 Textarea 消费原 control-background/control-radius；原 props、事件、原生状态和消费者保持。主题 provider、导航、API、权限、状态机、持久化和外部副作用不变。本文、资产表本身是现状记录。
+- Design Basis: Reuse Existing Architecture，沿 Issue 已有分类及工作台主题合同。Textarea 消费原 control-background/control-radius；供应材料页的三个原生选择框复用现有 Select，保留原选项、value/onChange、禁用状态与调用；确认弹窗关闭后恢复原焦点。主题 provider、导航、API、权限、状态机、持久化和外部副作用不变。本文、资产表本身是现状记录。
 
 ## 方法与可追溯清单
 
@@ -66,12 +66,12 @@
 
 源码色值扫描是候选筛选，不能当作缺陷计数：`description-editor.css` 的 169 处色值涉及编辑器/正文内容语义；`console.css` 的 74 处和 `globals.css` 的 58 处主要是合法主题定义；营销样式不在工作台试点范围。商品原图、品牌图标、图表系列、用户保存的文字/高亮颜色不应机械替换为主题色。
 
-## 建议的两个页面试点
+## 两个实际页面的隔离试点
 
-1. 自有商品录入 `collections/own-product-entry-page.tsx`：已有 Textarea、Input、Select；核对多行商品描述、必填/错误、禁用、保存中与返回。后端提交和来源事实继续沿原 owner。
-2. 供应材料 `supply/materials-page.tsx`：已有 Textarea 与业务 command hook；核对长文本、只读资料、权限不足和恢复反馈。不得新增重试、上传或平台发送行为。
+1. 自有商品录入 `collections/own-product-entry-page.tsx`：继续复用完整页面与原 Input、Select、Textarea；真正受 Textarea 修正影响的是「图片链接」，描述仍为原 DescriptionEditor。核对图片链接多行输入、明暗/尺寸切换后保留、禁用及保存冲突后的原输入；后端提交和来源事实继续沿原 owner。
+2. 供应材料 `supply/materials-page.tsx`：将「本次用途、候选类目、本次模板」三个局部原生 select 改用现有 Select；「补充核对意见」只在 `interrupted && canResume` 的真实分支出现。核对该分支的长文本、禁用、原编号与结果不明恢复反馈。没有新增重试、上传或平台发送行为。
 
-两页只是待实施试点，**未访问真实企业数据，未做页面级用户验收**。Chat 属 #1087；研究/导航/企业 context 属 #1075；本批不改其文件和接口。
+使用实际 Next 生产产物、原页面、shell、provider、客户端 API 与 Zod 解析运行隔离浏览器检查；会话为任务独占的合成 Auth.js 会话，API 在浏览器边界返回经当前契约验证的合成数据，**不是实际 OIDC 登录或真实后端/企业数据验收**。试点细节与限制见[页面试点记录](shuomi-design-system-pilots.md)。Chat 属 #1087；研究/导航/企业 context 属 #1075；原负责人已确认两页与 Textarea 没有文件冲突，本批不改其持有文件和接口。
 
 ## 验证状态与下一步
 
