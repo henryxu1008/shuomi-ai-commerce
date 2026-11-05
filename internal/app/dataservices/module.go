@@ -38,6 +38,7 @@ type Dependencies struct {
 }
 type Module struct {
 	executionEnabled  bool
+	productDB         *gorm.DB
 	reader            *dataacquisition.Reader
 	keys              *dataservice.CredentialService
 	custom            *dataservice.CustomService
@@ -108,7 +109,7 @@ func NewModule(ctx context.Context, d Dependencies) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Module{executionEnabled: d.ExecutionEnabled, reader: reader, keys: keys, custom: custom, acquisition: acquisition, repo: repo, access: d.Access, live: d.Live, funding: d.Funding, provider: d.Provider, results: capturedResultReader{sr}, trustedProxyCIDRs: append([]string(nil), d.TrustedProxyCIDRs...)}, nil
+	return &Module{executionEnabled: d.ExecutionEnabled, productDB: d.ProductDB, reader: reader, keys: keys, custom: custom, acquisition: acquisition, repo: repo, access: d.Access, live: d.Live, funding: d.Funding, provider: d.Provider, results: capturedResultReader{sr}, trustedProxyCIDRs: append([]string(nil), d.TrustedProxyCIDRs...)}, nil
 }
 func (m *Module) Runner() *dataacquisition.Service { return m.acquisition }
 func (m *Module) ChargeOwner() orgresource.ConsumerChargeOwner {

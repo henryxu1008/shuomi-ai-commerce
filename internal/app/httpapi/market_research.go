@@ -22,14 +22,19 @@ func WithMarketResearch(db *gorm.DB) CurrentApplicationOption {
 }
 
 type researchModule struct {
-	handler *rh.Handler
-	service *research.Service
+	handler  *rh.Handler
+	service  *research.Service
+	projects researchProjects
+	trial    *marketResearchSHEINTrial
 }
 
 func (researchModule) Name() string                { return rh.ModuleName }
 func (researchModule) Enabled(*config.Config) bool { return true }
 func (m researchModule) Register(r *kernel.Registry) error {
 	r.AddRoutes(rh.Routes(m.handler)...)
+	if m.trial != nil {
+		r.AddRoutes(marketResearchSHEINTrialRoutes(m.trial)...)
+	}
 	return nil
 }
 
@@ -167,7 +172,8 @@ func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModu
 	if !ok {
 		return nil, research.ErrUnavailable
 	}
-	service := research.New(repo, researchProjects{project.handler.Service, auth}, researchSources{collections, data})
+	projects := researchProjects{project.handler.Service, auth}
+	service := research.New(repo, projects, researchSources{collections, data})
 	h := &rh.Handler{Service: service, Bind: func(ctx context.Context, header string) (context.Context, collection.Scope, error) {
 		ctx, err := (productReviewCapabilityBinder{}).Bind(ctx, header)
 		if err != nil {
@@ -179,7 +185,7 @@ func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModu
 		}
 		return ctx, collection.Scope{OrganizationID: id.TenantID, ActorID: id.UserID, MemberID: id.EffectiveMemberID}, nil
 	}}
-	return researchModule{handler: h, service: service}, nil
+	return researchModule{handler: h, service: service, projects: projects}, nil
 }
 
 // A saved Collection reference without a Data Services item is a different

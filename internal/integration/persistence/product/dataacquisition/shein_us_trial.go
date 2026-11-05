@@ -29,6 +29,17 @@ func InstallSHEINUSTrialSchema(ctx context.Context, db *sql.DB) error {
 	return err
 }
 
+// VerifySHEINUSTrialRuntimePermissions checks the installed trial ledger without DDL.
+func VerifySHEINUSTrialRuntimePermissions(ctx context.Context, db *sql.DB) error {
+	var allowed bool
+	if db == nil || db.QueryRowContext(ctx, `SELECT COALESCE(
+ has_table_privilege(rel, 'SELECT') AND has_table_privilege(rel, 'INSERT') AND has_table_privilege(rel, 'UPDATE'), false)
+ FROM to_regclass('data_acquisition_shein_us_trials') AS installed(rel)`).Scan(&allowed) != nil || !allowed {
+		return dataacquisition.ErrUnavailable
+	}
+	return nil
+}
+
 type SHEINUSTrialStore struct{ db *sql.DB }
 
 func NewSHEINUSTrialStore(db *sql.DB) (*SHEINUSTrialStore, error) {

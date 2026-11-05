@@ -174,6 +174,16 @@ func (s *SHEINUSTrial) visible(ctx context.Context, p Principal, a SHEINUSTrialA
 	return attempt, err
 }
 
+// View reads the original attempt without claiming a send or looking up usage.
+func (s *SHEINUSTrial) View(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {
+	a, err := s.authorize(ctx, p, id, SHEINUSTrialView)
+	if err != nil {
+		return SHEINUSTrialAttempt{}, err
+	}
+	attempt, err := s.store.Read(ctx, a)
+	return s.visible(ctx, p, a, SHEINUSTrialView, attempt, err)
+}
+
 func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {
 	ctx, cancel := context.WithTimeout(ctx, SHEINUSTrialTimeout)
 	defer cancel()

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -121,6 +122,7 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	for _, install := range []func(*gorm.DB) error{keystore.InstallSchema, keystore.InstallCustomSchema, catalogstore.AutoMigrate, sourcestore.InstallSchema, collectionstore.InstallSchema, jobstore.InstallSchema, researchstore.InstallSchema} {
 		require.NoError(t, install(db))
 	}
+	require.ErrorIs(t, jobstore.VerifySHEINUSTrialRuntimePermissions(ctx, pool), dataacquisition.ErrUnavailable)
 	require.NoError(t, jobstore.InstallSHEINUSTrialSchema(ctx, pool))
 	raw, err := os.ReadFile("../../../docs/architecture/evidence/shein-us-data-v1-p1-p2.json")
 	require.NoError(t, err)
@@ -154,15 +156,14 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	selected := make(map[string]research.Selection)
 	for _, name := range []string{"P1", "P2"} {
 		f := fixture.Publications[name]
-		source := publishSHEINResearchTrial(t, ctx, db, access, f)
-		require.Equal(t, f.Publication.Source.ProductKey, source.ProductKey)
-		batch, err := collection.NewPublicationBatch(scope, f.Job.JobID, source.Kind, "SHEIN · US")
+		publishSHEINResearchTrial(t, ctx, module, access, f)
+		batch, err := collection.NewPublicationBatch(scope, f.Job.JobID, collection.SourceSHEINUSData, "SHEIN · US")
 		require.NoError(t, err)
 		items, err := cr.ListItems(ctx, scope, batch.ID, collection.Query{Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, items.Items, 1)
 		item := items.Items[0]
-		require.Equal(t, source, item.Source)
+		require.Equal(t, f.Publication.Source.ProductKey, item.Source.ProductKey)
 		selection := research.Selection{ItemID: item.ID, Revision: item.Revision, PublicationID: item.Source.PublicationID, Version: item.Source.Version}
 		selected[name] = selection
 		linkKeys[name] = uuid.NewString()
@@ -276,6 +277,12 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 		}
 		return false
 	}(), "masking retains the original decision")
+	t.Run("trial entry recovery", func(t *testing.T) {
+		verifySHEINTrialRecovery(t, ctx, module, access)
+	})
+	t.Run("trial entry authorization lost after metering", func(t *testing.T) {
+		verifySHEINTrialPublicationDenied(t, ctx, module, access, fixture.Publications["P1"])
+	})
 	access.denied = true
 	_, err = reader.Observe(ctx, scope, p2)
 	require.ErrorIs(t, err, research.ErrForbidden)
@@ -311,7 +318,7 @@ func publishComparisonFixture(t *testing.T, ctx context.Context, db *gorm.DB, sc
 }
 
 // Use the two fixed fixture cards as synthetic responses to separate approved category trials.
-func publishSHEINResearchTrial(t *testing.T, ctx context.Context, db *gorm.DB, access *sheinResearchAccess, f sheinResearchPublication) collection.Source {
+func publishSHEINResearchTrial(t *testing.T, ctx context.Context, module *dataservicesapp.Module, access *sheinResearchAccess, f sheinResearchPublication) {
 	t.Helper()
 	var observation dataacquisition.SHEINUSObservation
 	require.NoError(t, json.Unmarshal([]byte(f.ObservationUTF8), &observation))
@@ -325,8 +332,9 @@ func publishSHEINResearchTrial(t *testing.T, ctx context.Context, db *gorm.DB, a
 		Amount: observation.Price.Amount, Currency: observation.Price.Currency, PromotionNote: "after coupon",
 	}
 	sends := 0
-	trial, err := dataservicesapp.NewSHEINUSPageTrial(ctx, db, access, sheinResearchTrialAuthority{approval},
-		func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, request dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
+	deps := sheinTrialDependencies{
+		authority: sheinResearchTrialAuthority{approval},
+		send: func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, request dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
 			sends++
 			require.Equal(t, "https://us.shein.com/Women-Dresses-c-1727.html", request.URL)
 			credits := 5
@@ -335,21 +343,16 @@ func publishSHEINResearchTrial(t *testing.T, ctx context.Context, db *gorm.DB, a
 				Cards:             []dataacquisition.SHEINUSTrialCard{card},
 			}, nil
 		},
-		func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest, dataacquisition.SHEINUSTrialAttempt) (dataacquisition.SHEINUSTrialUsage, error) {
+		lookup: func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest, dataacquisition.SHEINUSTrialAttempt) (dataacquisition.SHEINUSTrialUsage, error) {
 			return dataacquisition.SHEINUSTrialUsage{}, dataacquisition.ErrNotFound
 		},
-	)
-	require.NoError(t, err)
-	p := dataacquisition.Principal{Scope: f.Job.Scope}
-	attempt, sources, err := trial.Run(ctx, p, approval.ID)
-	require.NoError(t, err)
-	require.Equal(t, approval.ID, attempt.RequestID)
-	require.NotNil(t, attempt.Credits)
-	require.Equal(t, 5, *attempt.Credits)
-	require.Len(t, sources, 1)
-	_, replay, err := trial.Run(ctx, p, approval.ID)
-	require.NoError(t, err)
-	require.Equal(t, sources, replay)
+	}
+	server := sheinTrialTestHTTP(t, ctx, module, deps, sheinResearchProject{access}, map[string]collection.Scope{"researcher": f.Job.Scope})
+	path := sheinTrialTestPath(approval.ProjectID, approval.ID)
+	require.JSONEq(t, `{"code":"NOT_FOUND"}`, sheinTrialTestRequest(t, server, http.MethodGet, path, "researcher", "", http.StatusNotFound))
+	require.Zero(t, sends)
+	first := sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", "", http.StatusOK)
+	require.JSONEq(t, `{"approvalId":"`+approval.ID+`","requestId":"`+approval.ID+`","credits":5,"reservedCredits":0,"state":"CONFIRMED","publishedCount":1}`, first)
+	require.JSONEq(t, first, sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", "", http.StatusOK))
 	require.Equal(t, 1, sends)
-	return sources[0]
 }

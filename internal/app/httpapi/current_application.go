@@ -225,6 +225,8 @@ type currentApplicationOptions struct {
 	aiWorkbenches                int
 	marketResearchDB             *gorm.DB
 	marketResearchConfigs        int
+	sheinTrial                   *sheinTrialDependencies
+	sheinTrialConfigs            int
 	projectCenterDB              *gorm.DB
 	projectCenters               int
 }
@@ -662,6 +664,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	var researchData *dataservicesapp.Module
 	if supplied.marketResearchConfigs > 1 || supplied.marketResearchDB != nil && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs == 1 && (supplied.marketResearchDB == nil || supplied.projectCenterDB == nil || supplied.dataServices == nil || supplied.productCollections != 1) {
 		return nil, errors.New("market research requires current owners and one explicit pool")
+	}
+	if supplied.sheinTrialConfigs != 0 && (supplied.sheinTrialConfigs != 1 || supplied.sheinTrial == nil || !supplied.sheinTrial.complete() || supplied.marketResearchConfigs != 1) {
+		return nil, errors.New("SHEIN trial requires market research and one complete explicit composition")
 	}
 	if supplied.dataServices != nil {
 		module, charges, err := buildDataServices(ctx, supplied, *workbench.authDependencies, authorizer, cfg, storeCapabilities)
@@ -1233,8 +1238,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, e
 			}
-			modules = append(modules, researchMod)
-			researchRuntime, e = buildMarketResearchApplication(ctx, productRuntime, planCollections, researchMod.(researchModule).service, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
+			researchOwner := researchMod.(researchModule)
+			if supplied.sheinTrial != nil {
+				researchOwner.trial, e = composeMarketResearchSHEINTrial(ctx, researchData, *supplied.sheinTrial, researchOwner.projects, researchOwner.handler.Bind)
+				if e != nil {
+					return nil, fmt.Errorf("build SHEIN trial entry: %w", e)
+				}
+			}
+			modules = append(modules, researchOwner)
+			researchRuntime, e = buildMarketResearchApplication(ctx, productRuntime, planCollections, researchOwner.service, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
 			if e != nil {
 				return nil, fmt.Errorf("build current research analysis: %w", e)
 			}
@@ -1401,6 +1413,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AIWorkbench:          supplied.aiWorkbench != nil,
 		ProjectCenter:        supplied.projectCenterDB != nil,
 		MarketResearch:       supplied.marketResearchDB != nil,
+		SHEINTrial:           supplied.sheinTrial != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
 		ModelRoutePricing:    supplied.modelRoutePricing != nil,
 		MemberPoints:         includeMemberPoints,
@@ -1510,11 +1523,15 @@ type currentApplicationOptionalRoutes struct {
 	AIWorkbench          bool
 	ProjectCenter        bool
 	MarketResearch       bool
+	SHEINTrial           bool
 	MemberPoints         bool
 	MemberResources      bool
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if optional.SHEINTrial && !optional.MarketResearch {
+		return errors.New("SHEIN trial routes require market research")
+	}
 	if (optional.ContentTitleOnly || optional.ContentOnly) && !optional.ProductAgent {
 		return errors.New("title-only routes require the current product agent")
 	}
@@ -1799,6 +1816,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.MarketResearch {
 		for _, r := range append(rh.Routes(nil), marketResearchAnalysisRoutes(nil, nil)...) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.SHEINTrial {
+		for _, r := range marketResearchSHEINTrialRoutes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -2167,7 +2189,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			if !optional.MarketResearch {
 				return errors.New("market research not admitted")
 			}
-			if descriptor.Module == "market-research-agent" {
+			if descriptor.Module == sheinTrialModule {
+				if !optional.SHEINTrial {
+					return errors.New("SHEIN trial route not admitted")
+				}
+				if e := validateMarketResearchSHEINTrialDescriptor(descriptor); e != nil {
+					return e
+				}
+			} else if descriptor.Module == "market-research-agent" {
 				if e := validateMarketResearchAnalysisDescriptor(descriptor); e != nil {
 					return e
 				}
