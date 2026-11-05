@@ -10,6 +10,7 @@
 - `shein-us-one-page-trial-send.md` · [SHEIN 美国站一页试取单次发送](shein-us-one-page-trial-send.md) · #1074 的离线发送门禁、25 credits 上限与原单核账。
 - `zenrows-shein-us-trial-adapter.md` · [ZenRows 发送与原单用量查证](zenrows-shein-us-trial-adapter.md) · #1074 一页试取适配器设计。
 - `shein-us-page-publication.md` · [SHEIN 美国站一页响应到原版发布](shein-us-page-publication.md) · #1074 离线组合设计。
+- `shein-us-trial-entry.md` · [SHEIN 美国站单页取数入口](shein-us-trial-entry.md) · #1073 研究项目的默认关闭入口和原单恢复。
 
 <a id="foundation"></a>
 
