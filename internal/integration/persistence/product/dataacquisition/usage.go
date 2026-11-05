@@ -12,12 +12,12 @@ func (r *Repository) Usage(ctx context.Context, s collection.Scope) (dataacquisi
 	}
 	var usage dataacquisition.Usage
 	err := r.db.WithContext(ctx).Raw(`SELECT
- (SELECT count(*) FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND state='SAVED' AND saved_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS day_rows,
- (SELECT count(*)*5 FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND state='SAVED' AND charge_state='committed' AND saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_confirmed_fen,
- (SELECT count(*)*5 FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND state='SAVED' AND charge_state<>'committed' AND saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_pending_fen,
+ (SELECT count(*) FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND state='SAVED' AND saved_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS day_rows,
+ (SELECT count(*)*5 FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND state='SAVED' AND charge_state='committed' AND saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_confirmed_fen,
+ (SELECT count(*)*5 FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND state='SAVED' AND charge_state<>'committed' AND saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_pending_fen,
  count(*) FILTER (WHERE state IN ('SUCCEEDED','PARTIAL','FAILED','CANCELED')) AS finished_jobs,
  count(*) FILTER (WHERE state='SUCCEEDED') AS succeeded_jobs
- FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND created_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID).Scan(&usage).Error
+ FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND created_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID).Scan(&usage).Error
 	if err != nil {
 		return usage, err
 	}

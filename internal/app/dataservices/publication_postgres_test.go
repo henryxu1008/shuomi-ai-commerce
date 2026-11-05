@@ -60,21 +60,7 @@ func (authorizedFixture) CheckRead(context.Context, dataacquisition.Principal) e
 func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	c, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("publication621"), tcpostgres.WithUsername("test_owner"), tcpostgres.WithPassword("isolated-data621"), tcpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, c.Terminate(context.Background())) })
-	dsn, err := c.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-	require.NoError(t, err)
-	pool, err := db.DB()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	require.NoError(t, keystore.InstallSchema(db))
-	require.NoError(t, catalogstore.AutoMigrate(db))
-	require.NoError(t, sourcestore.InstallSchema(db))
-	require.NoError(t, collectionstore.InstallSchema(db))
-	require.NoError(t, jobstore.InstallSchema(db))
+	db := publicationTestDB(t, ctx)
 	live := authorizedFixture{}
 	publisher, err := NewProductPublisher(live)
 	require.NoError(t, err)
@@ -228,4 +214,24 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 		require.Equal(t, "platform-specialist", declared.Envelope.ProductCandidate.Attributes["data.operator"])
 		require.Equal(t, request.ID, declared.Envelope.ProductCandidate.Attributes["data.request"])
 	})
+}
+
+func publicationTestDB(t *testing.T, ctx context.Context) *gorm.DB {
+	t.Helper()
+	c, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("publication621"), tcpostgres.WithUsername("test_owner"), tcpostgres.WithPassword("isolated-data621"), tcpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, c.Terminate(context.Background())) })
+	dsn, err := c.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, pool.Close()) })
+	require.NoError(t, keystore.InstallSchema(db))
+	require.NoError(t, catalogstore.AutoMigrate(db))
+	require.NoError(t, sourcestore.InstallSchema(db))
+	require.NoError(t, collectionstore.InstallSchema(db))
+	require.NoError(t, jobstore.InstallSchema(db))
+	return db
 }

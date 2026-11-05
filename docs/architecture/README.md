@@ -4,6 +4,10 @@
 
 产品基线为 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。页面与交互见[产品 Authority](../product/final-ui-ia-authority.md)；领域事实和运行边界由下列合同负责。合同中的设计准入不代替源码完成、实例启用或真实用户验收。
 
+## 研究与商业评估规划
+
+- `research-commercial-assessment-v1.md` — [市场调研与商业选品 V1：独立架构提案](research-commercial-assessment-v1.md)；#1074 设计阶段，来源与产品决定待定，Admission NOT_READY，不授权生产代码或真实调用。
+
 <a id="foundation"></a>
 
 ## 系统边界与应用装配
