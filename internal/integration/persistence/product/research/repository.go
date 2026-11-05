@@ -151,6 +151,14 @@ func details(db *gorm.DB, s collection.Scope, p string, row candidateRow) (resea
 		if json.Unmarshal(c.DecisionJSON, &d) != nil {
 			return out, research.ErrUnavailable
 		}
+		if d.Reason != "" {
+			// A change to another link can retain the candidate's reason without owning it.
+			var intent research.Command
+			if json.Unmarshal(c.IntentJSON, &intent) != nil || intent.Action != "decide" ||
+				intent.CandidateID != row.ID || intent.Reason != d.Reason || intent.EvidenceDigest != d.Ref.Digest() {
+				d.Reason = ""
+			}
+		}
 		out.History = append(out.History, d)
 	}
 	return out, nil
@@ -313,7 +321,10 @@ func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key stri
 		if e := scoped(tx, s, p).Model(&candidateRow{}).Where("id=?", row.ID).Updates(map[string]any{"selected_link_id": row.SelectedLinkID, "state": row.State, "reason": row.Reason, "revision": row.Revision}).Error; e != nil {
 			return out, research.ErrUnavailable
 		}
-		decision = &research.Decision{State: row.State, Reason: row.Reason, EvidenceDigest: ref.Digest(), Ref: ref, Revision: row.Revision, At: now}
+		decision = &research.Decision{State: row.State, EvidenceDigest: ref.Digest(), Ref: ref, Revision: row.Revision, At: now}
+		if c.Action == "decide" {
+			decision.Reason = c.Reason
+		}
 		out.CandidateIDs = append(out.CandidateIDs, row.ID)
 		out.Revisions[row.ID] = row.Revision
 	}

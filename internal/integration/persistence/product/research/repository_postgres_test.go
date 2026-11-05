@@ -2,6 +2,7 @@ package researchpersistence
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -131,8 +132,9 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	require.NoError(t, err)
 	current = page.Items[0]
 	approve := research.Command{Action: "decide", CandidateID: current.ID, ExpectedRevision: current.Revision, EvidenceDigest: current.EvidenceDigest, State: "APPROVED_FOR_TEST", Reason: "check original samples"}
-	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), approve)
+	approved, err := svc.Execute(ctx, scope, project.id, uuid.NewString(), approve)
 	require.NoError(t, err)
+	approvedRevision := approved.Revisions[current.ID]
 	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), approve)
 	require.ErrorIs(t, err, research.ErrConflict)
 	// Conflicting concurrent decisions use CAS; exactly one consumes the revision.
@@ -185,6 +187,31 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	}
 	require.NotEmpty(t, next)
 	newObservation := sources.values[more.ItemID]
+	unlinkOtherKey := uuid.NewString()
+	unlinked, err := svc.Execute(ctx, scope, project.id, unlinkOtherKey, research.Command{Action: "unlink", CandidateID: current.ID, ExpectedRevision: current.Revision, LinkID: next})
+	require.NoError(t, err)
+	unlinkedRevision := unlinked.Revisions[current.ID]
+	unlinkRow, err := lookup(db.WithContext(ctx), scope, project.id, unlinkOtherKey)
+	require.NoError(t, err)
+	var unlinkHistory research.Decision
+	require.NoError(t, json.Unmarshal(unlinkRow.DecisionJSON, &unlinkHistory))
+	t.Run("unlink records no reason from a different observation", func(t *testing.T) {
+		require.Equal(t, newObservation.Ref, unlinkHistory.Ref)
+		require.Empty(t, unlinkHistory.Reason)
+	})
+	// Recreate the stored shape from before the fix to verify it is safe to read as-is.
+	unlinkHistory.Reason = approve.Reason
+	oldDecisionJSON, err := json.Marshal(unlinkHistory)
+	require.NoError(t, err)
+	update := db.WithContext(ctx).Exec("UPDATE research_commands SET decision_json=? WHERE organization_id=? AND actor_id=? AND project_id=? AND key=?", string(oldDecisionJSON), scope.OrganizationID, scope.ActorID, project.id, unlinkOtherKey)
+	require.NoError(t, update.Error)
+	require.EqualValues(t, 1, update.RowsAffected)
+	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), research.Command{Action: "link", Selections: []research.Selection{more}})
+	require.NoError(t, err)
+	page, err = svc.List(ctx, scope, project.id, "")
+	require.NoError(t, err)
+	current = page.Items[0]
+	require.Equal(t, approve.Reason, current.Reason)
 	for _, name := range []string{"original access revoked", "original checksum changed"} {
 		t.Run(name, func(t *testing.T) {
 			original := sources.values[originalItem]
@@ -210,10 +237,17 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 			require.Contains(t, view.Evidence, research.EvidenceView{ID: current.SelectedLinkID})
 			require.Contains(t, view.Evidence, research.EvidenceView{ID: next, Observation: &newObservation})
 			require.NotEmpty(t, view.History)
+			foundUnlink := false
 			for _, h := range view.History {
 				require.Empty(t, h.Reason)
-				require.Empty(t, h.EvidenceDigest)
+				if h.Revision == unlinkedRevision {
+					foundUnlink = true
+					require.Equal(t, newObservation.Ref.Digest(), h.EvidenceDigest)
+				} else {
+					require.Empty(t, h.EvidenceDigest)
+				}
 			}
+			require.True(t, foundUnlink)
 			stored, err := repo.Load(ctx, scope, project.id, current.ID)
 			require.NoError(t, err)
 			require.Equal(t, approve.Reason, stored.Reason)
@@ -227,9 +261,9 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	require.Equal(t, "TO_RESEARCH", current.State)
 	found := false
 	for _, h := range current.History {
-		if h.State == "APPROVED_FOR_TEST" {
+		if h.Revision == approvedRevision {
 			found = true
-			require.Equal(t, "check original samples", h.Reason)
+			require.Equal(t, approve.Reason, h.Reason)
 			require.NotEmpty(t, h.EvidenceDigest)
 		}
 	}
@@ -248,12 +282,12 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	require.Equal(t, more, current.Observation.Ref.Selection)
 	var oldDecisionMasked, newDecisionVisible bool
 	for _, h := range current.History {
-		switch h.State {
-		case "APPROVED_FOR_TEST":
+		switch {
+		case h.Revision == approvedRevision:
 			require.Empty(t, h.Reason)
 			require.Empty(t, h.EvidenceDigest)
 			oldDecisionMasked = true
-		case "REJECTED":
+		case h.State == "REJECTED":
 			require.Equal(t, newerReason, h.Reason)
 			require.Equal(t, current.EvidenceDigest, h.EvidenceDigest)
 			newDecisionVisible = true
