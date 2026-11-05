@@ -177,6 +177,12 @@ jobs:
       - name: Run backend tests
         run: go test ./... -count=1
 
+      # Temporary combination-verification branch only; do not merge this PR.
+      - name: Verify offline SHEIN research and declared stock combination
+        run: |
+          go test ./internal/app/dataservices -run '^(TestSHEINUSPublicationAndExactReadback|TestSHEINUSSinglePageTrial)$' -count=1 -v
+          go test -tags integration ./internal/app/httpapi -run '^(TestSHEINUSResearchConsumesExactPublishedCards|TestOfflineNormalSavedDiagnosticReportAndRevocation)$' -count=1 -v -timeout 10m
+
       - name: Verify RUN-1 effective PostgreSQL permission matrix
         run: go test -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationPermissionInventoryPostgres$' -count=1 -v
 
