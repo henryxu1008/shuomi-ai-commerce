@@ -18,4 +18,8 @@
 
 ## 实施准入与验证
 
+独立 R1 已核对设计 `c114f2f0d43740d85572059ddebe77d40ec47701`，结论 **IMPLEMENTATION_READY（仅离线）**。
+
+试取表的列级 INSERT/UPDATE 由窄检查核验。全量角色拒绝仍覆盖其他表，账本另查 `relacl`、`attacl` 以拒绝 PUBLIC、其他角色、可转授权和越界列。安装事务用显式 `data_services_runtime` 目录 subject 验证未提交的 DDL/ACL，不切换身份或建立运行连接。发送预算证明必须覆盖有界 `sendCtx` 的实际截止时点，短于该截止时拒绝发送。
+
 先经独立 Architecture Review 再实施。用现有隔离 Product PostgreSQL 验证旧形状拒绝、安装事务和精确列授权，以及新候选默认关闭时仍能验证精确 ACL、越权或缺项拒绝。用现有合成路由与 loopback TLS 验证固定批准、过期或撤权、错项目、错账号/密钥、重复发送门禁、原请求唯一核账及未知回执保留。实际账本安装、启用及真实试取均 `NOT_RUN`。
