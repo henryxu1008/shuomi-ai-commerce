@@ -420,7 +420,7 @@ func (r *repository) verifyLoaded(db *gorm.DB, publication sourcing.AtomicPublic
 		return sourcing.PublicationReceipt{}, sourcing.ErrSourcePublicationStateInvalid
 	}
 	normalizedEnvelope, err := sourcing.NormalizePublicationEnvelope(storedEnvelope)
-	if err != nil {
+	if err != nil || !sourcing.ValidOwnStockDeclarations(publication.Producer, normalizedEnvelope) {
 		return sourcing.PublicationReceipt{}, sourcing.ErrSourcePublicationStateInvalid
 	}
 	normalizedEnvelopeJSON, err := json.Marshal(normalizedEnvelope)
@@ -486,7 +486,7 @@ func validateAtomic(publication sourcing.AtomicPublication) error {
 		return sourcing.ErrInvalidSourcePublication
 	}
 	normalized, err := sourcing.NormalizePublicationEnvelope(publication.Envelope)
-	if err != nil {
+	if err != nil || !sourcing.ValidOwnStockDeclarations(publication.Producer, normalized) {
 		return sourcing.ErrInvalidSourcePublication
 	}
 	normalizedJSON, err := json.Marshal(normalized)

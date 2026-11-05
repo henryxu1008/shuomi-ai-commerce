@@ -20,7 +20,7 @@ type VariantFields={currency:string;amount:string;stock:string};
 function fields(detail:SupplySourceDetail,saved?:SupplyCompletionDraft):{attributes:CompletionStructured["attributes"];variants:VariantFields[]}{
  const stored=saved?.content.structured;
  if(stored)return {attributes:stored.attributes.map(a=>({...a})),variants:stored.variants.map(v=>({currency:v.price?.currency??"",amount:v.price?String(v.price.amount):"",stock:v.stock===null?"":String(v.stock)}))};
- return {attributes:(detail.product.attributes??[]).map(a=>({name:a.name??"",value:a.value??""})),variants:(detail.product.variants??[]).map(v=>({currency:v.price?.currency??"",amount:v.price?.amount===undefined?"":String(v.price.amount),stock:v.stock===undefined?(detail.source.source.kind==="own"?"0":""):String(v.stock)}))};
+ return {attributes:(detail.product.attributes??[]).map(a=>({name:a.name??"",value:a.value??""})),variants:(detail.product.variants??[]).map(v=>({currency:v.price?.currency??"",amount:v.price?.amount===undefined?"":String(v.price.amount),stock:v.stock===undefined?"":String(v.stock)}))};
 }
 
 export function CompletionStructuredPage(props:Props){

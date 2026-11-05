@@ -88,7 +88,7 @@ func TestToSnapshotPreservesTypedVariantCommerceFacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToSnapshot() error = %v", err)
 	}
-	if len(snapshot.Variants) != 1 || snapshot.Variants[0].Price == nil || snapshot.Variants[0].Price.Currency != "CNY" || snapshot.Variants[0].Price.Amount != 19.9 || snapshot.Variants[0].Stock != 20 {
+	if len(snapshot.Variants) != 1 || snapshot.Variants[0].Price == nil || snapshot.Variants[0].Price.Currency != "CNY" || snapshot.Variants[0].Price.Amount != 19.9 || snapshot.Variants[0].Stock == nil || *snapshot.Variants[0].Stock != 20 {
 		t.Fatalf("snapshot variant = %+v, want typed price and stock", snapshot.Variants)
 	}
 }

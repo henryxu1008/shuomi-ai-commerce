@@ -19,11 +19,14 @@ func buildSourceVariants(product *canonical.Product) []offlinepackage.Variant {
 		item := offlinepackage.Variant{
 			SKU:        variant.SKU,
 			Attributes: attributes,
-			Stock:      variant.Stock,
 			Barcode:    variant.Barcode,
 			IsDefault:  variant.IsDefault,
 			Dimensions: variant.Dimensions,
 			Weight:     variant.Weight,
+		}
+		if variant.Stock != nil {
+			item.Stock = *variant.Stock
+			item.OwnStockDeclared = variant.OwnStockDeclared && item.Stock >= 0
 		}
 		if variant.Price != nil {
 			item.Price = &publishing.Price{

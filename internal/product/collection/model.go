@@ -137,7 +137,16 @@ type Mutation struct {
 	SourceOperationID     string       `json:"sourceOperationId,omitempty"`
 	Product               *OwnProduct  `json:"product,omitempty"`
 	Products              []OwnProduct `json:"products,omitempty"`
+	stockFieldsVerified   bool
 }
+
+// WithVerifiedStockFields is set by the strict Collection ingress after
+// checking that each SKU declares its stock in the original request.
+func (m Mutation) WithVerifiedStockFields() Mutation {
+	m.stockFieldsVerified = true
+	return m
+}
+
 type Command struct {
 	// Only internal artwork adoption consumes this gate, after receipt lookup
 	// and before a new Product UoW write. It is never a transport parameter.

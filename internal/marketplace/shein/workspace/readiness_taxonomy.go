@@ -49,7 +49,7 @@ func BuildReadinessTaxonomy(key string, warningOnly bool) ReadinessTaxonomy {
 		taxonomy.RepairTarget = "image_review"
 		taxonomy.RepairRoute = "workspace.images"
 		taxonomy.Recoverable = true
-	case "variants":
+	case "variants", "sku_facts":
 		taxonomy.BlockerKey = "sku_invalid"
 		taxonomy.Domain = "sku"
 		taxonomy.RepairTarget = "sku_review"

@@ -304,7 +304,11 @@ func project(ref agent.SelectionProductRef, detail collection.ItemDetail) Produc
 		} else {
 			missing(prefix + ".price")
 		}
-		add(prefix+".stock", v.Stock, v.Stock > 0)
+		if v.Stock != nil {
+			add(prefix+".stock", *v.Stock, *v.Stock >= 0)
+		} else {
+			missing(prefix + ".stock")
+		}
 		if v.Trace.IsInferred || v.Trace.NeedsReview {
 			add(prefix+".uncertainty", true, true)
 		}
