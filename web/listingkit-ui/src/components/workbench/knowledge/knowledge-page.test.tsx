@@ -100,6 +100,33 @@ it.each(["listingkit_admin","platform_admin"])("retains management controls for 
  }));const unmount=mount(baseId);await screen.findByText("尚未上传资料");
  expect(screen.getByRole("button",{name:"编辑名称"})).toBeVisible();expect(screen.getByRole("button",{name:"停用知识库"})).toBeVisible();expect(screen.getByRole("button",{name:"上传资料"})).toBeVisible();expect(screen.getByLabelText("上传新资料")).toBeVisible();unmount();
 });
+it("shows original deletion when a disabled source finishes processing without a version bump", async () => {
+ vi.useFakeTimers();
+ let state = "PROCESSING";
+ const source = {
+  id: sourceId, knowledgeBaseId: baseId, name: "", state: "DISABLED", version: 2,
+  currentReadableRevision: null, createdBy: "reader", updatedBy: "reader", createdAt: timestamp, updatedAt: timestamp,
+ };
+ vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+  if (url === "/api/workbench/context") return Response.json(context);
+  if (url.endsWith("/sources")) return Response.json({ items: [{ ...source, latestRevision: { ...old, filename: "", state } }] });
+  if (url.endsWith("/original-file")) {
+   if (state === "PROCESSING") return Response.json({ code: "KNOWLEDGE_NOT_FOUND" }, { status: 404 });
+   return Response.json({ sourceId, sourceVersion: source.version, revisionId: oldId, revisionNumber: 1, bytes: old.sizeBytes, canDelete: true });
+  }
+  return Response.json(base);
+ }));
+ const unmount = mount(baseId);
+ await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+ expect(screen.getByRole("heading", { name: "已停用资料" })).toBeVisible();
+ expect(screen.queryByRole("button", { name: "永久删除原文件" })).not.toBeInTheDocument();
+
+ state = "AVAILABLE";
+ await act(async () => { await vi.advanceTimersByTimeAsync(5010); });
+ expect(screen.getByRole("button", { name: "永久删除原文件" })).toBeEnabled();
+ expect(screen.queryByRole("button", { name: "预览" })).not.toBeInTheDocument();
+ unmount();
+});
 it("shows processing replacements while previewing the prior readable revision",async()=>{
  const fetch=vi.fn(async(url:string)=>{
  if(url==="/api/workbench/context")return Response.json(context);
