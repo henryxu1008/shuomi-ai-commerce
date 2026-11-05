@@ -54,7 +54,7 @@ func (Validator) Validate(request contract.Request[*sheinpub.Package]) (contract
 
 // evaluatePackage is the single rule authority shared by the two input contracts.
 func evaluatePackage(pkg *sheinpub.Package, action contract.Action) ([]contract.Check, error) {
-	skuFacts := checkOriginalSKUFacts(pkg)
+	skuFacts := workspace.BuildOriginalSKUReadinessChecks(pkg)
 	// Reuse the current publishing preparation/validation predicates. The
 	// prepared copy must not affect the package facts used by readiness checks.
 	var payloadErr error

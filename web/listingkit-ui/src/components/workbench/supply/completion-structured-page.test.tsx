@@ -34,8 +34,8 @@ const save=()=>screen.getByRole("button",{name:"保存商品属性和 SKU"});
 it("reads exact saved empty/zero/null values and preserves all return context",async()=>{
  render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.queryByRole("textbox",{name:"属性名称 1"})).not.toBeInTheDocument();
- expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(null);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(null);
- expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 2"})).toHaveValue(0);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 2"})).toHaveValue(null);
+ expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(null);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(0);
+ expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 2"})).toHaveValue(null);
  expect(screen.getByRole("link",{name:"返回草稿"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}?preparation=${batch}&item=${batch}`);
  expect(screen.getByRole("link",{name:"返回商品"})).toHaveAttribute("href",`/workbench/data/mine/own/${batch}`);expect(screen.getByRole("link",{name:"返回待补全列表"})).toHaveAttribute("href",`/workbench/supply/mine/missing?preparation=${batch}`);
  fireEvent.click(save());await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content}}),expect.any(AbortSignal)));
@@ -43,7 +43,8 @@ it("reads exact saved empty/zero/null values and preserves all return context",a
 it("leaves unknown stock empty and prefills an explicit zero from the fixed source",async()=>{
  f.head.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));render(<CompletionStructuredPage {...props}/>);
  expect(await screen.findByRole("textbox",{name:"属性名称 1"})).toHaveValue("材质");expect(screen.getByText(/来源预填，尚未保存结构化候选资料/)).toBeVisible();
- expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(0);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(0);
+ expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(0);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(null);
+ expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 2"})).toHaveValue(0);
 });
 it("adds and clears candidate fields without changing SKU identity or the saved text",async()=>{
  render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});fireEvent.click(screen.getByRole("button",{name:"添加属性"}));

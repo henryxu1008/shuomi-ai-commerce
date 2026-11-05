@@ -1,4 +1,4 @@
-package validator
+package workspace
 
 import (
 	"fmt"
@@ -10,14 +10,13 @@ import (
 	shein "task-processor/internal/marketplace/shein/offlinepackage"
 	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"task-processor/internal/marketplace/shein/publishing"
-	"task-processor/internal/marketplace/shein/workspace"
 )
 
 const maxShownSKUs = 4
 
-// checkOriginalSKUFacts reads the immutable draft and its preview before
+// BuildOriginalSKUReadinessChecks reads the immutable draft and its preview before
 // submit preparation. Defaults cannot supply business evidence.
-func checkOriginalSKUFacts(pkg *shein.Package) []workspace.ReadinessCheckSpec {
+func BuildOriginalSKUReadinessChecks(pkg *shein.Package) []ReadinessCheckSpec {
 	var draft []shein.SKCRequestDraft
 	var preview []previewdata.SKC
 	if pkg.DraftPayload != nil {
@@ -92,7 +91,7 @@ func checkOriginalSKUFacts(pkg *shein.Package) []workspace.ReadinessCheckSpec {
 		}
 		message += summarizedSKUs(known, declared)
 	}
-	return []workspace.ReadinessCheckSpec{workspace.BuildSubmitReadinessCheck(
+	return []ReadinessCheckSpec{BuildSubmitReadinessCheck(
 		"sku_facts", "SKU 库存和包装", missing == 0, message, paths, "核对 SKU 库存及包装资料", false,
 	)}
 }
