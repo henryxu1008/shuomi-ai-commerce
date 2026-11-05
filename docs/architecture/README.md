@@ -10,6 +10,7 @@
 
 - `app-assembly-boundaries.md` — [App Assembly Boundaries](app-assembly-boundaries.md)
 - `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
+- `fallback-contract-consolidation.md` — [Fallback 合同收敛](fallback-contract-consolidation.md)
 - `httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](httpapi-assembly-boundaries.md)
 - `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
 - `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
