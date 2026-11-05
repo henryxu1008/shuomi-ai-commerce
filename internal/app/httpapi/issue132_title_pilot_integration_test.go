@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/authidentity"
@@ -104,7 +105,8 @@ func (r *titleRehearsal) runPilotOperator(t *testing.T, db *gorm.DB, app *produc
 		for _, table := range []string{"product_source_publications", "product_source_publication_receipts",
 			"product_snapshot_versions", "product_snapshot_heads", "product_agent_runs", "ai_invocations",
 			"saas_organization_resource_reservations", "saas_organization_resource_events",
-			"saas_organization_resource_buckets", "saas_member_ai_point_limits", "saas_member_ai_point_months"} {
+			"saas_organization_resource_buckets", "saas_member_ai_point_limits", "saas_member_ai_point_months",
+			"agent_configuration.start_snapshots", "agent_configuration.execution_mode_snapshots"} {
 			var fact string
 			require.NoError(t, db.Table(table).Select("count(*)::text || ':' || md5(coalesce(string_agg(xmin::text, ',' ORDER BY ctid), ''))").Scan(&fact).Error)
 			facts = append(facts, fact)
@@ -133,6 +135,42 @@ func (r *titleRehearsal) runPilotOperator(t *testing.T, db *gorm.DB, app *produc
 	require.NoError(t, err)
 	plan, samples, err := app.inspectTitlePilot(ctx, r.batchID)
 	require.NoError(t, err)
+	for _, scenario := range []struct {
+		name, code   string
+		drift, reset func(*testing.T)
+	}{
+		{"disabled-title-agent", "AGENT_NOT_ENABLED", func(t *testing.T) {
+			result := db.Exec("UPDATE agent_configuration.organization_agents SET activation = 'DISABLED' WHERE organization_id = 'B' AND agent_id = ?", app.definition.ID)
+			require.NoError(t, result.Error)
+			require.EqualValues(t, 1, result.RowsAffected)
+		}, func(t *testing.T) {
+			require.NoError(t, db.Exec("UPDATE agent_configuration.organization_agents SET activation = 'ENABLED' WHERE organization_id = 'B' AND agent_id = ?", app.definition.ID).Error)
+		}},
+		{"mode-revision-changed", "EXECUTION_MODE_CHANGED", func(t *testing.T) {
+			receipt, err := app.configuration.ExecuteMode(ctx, agentconfig.ModeCommand{
+				Identity: plan.identity, Subject: app.modeSubject(), Key: uuid.NewString(), Mode: agent.ModeReadOnly,
+			})
+			require.NoError(t, err)
+			require.Equal(t, "1", receipt.Revision)
+		}, func(t *testing.T) {
+			require.NoError(t, db.Exec("DELETE FROM agent_configuration.execution_modes WHERE organization_id = 'B' AND subject_kind = ? AND subject_id = ?", agentconfig.RegisteredAgentSubject, app.definition.ID).Error)
+		}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			scenario.drift(t)
+			t.Cleanup(func() { scenario.reset(t) })
+			before := fingerprint()
+			for _, request := range [][2]string{{"GET", "preflight"}, {"POST", "start"}} {
+				res := call(request[0], request[1], "admin")
+				require.NoError(t, res.err)
+				require.Equal(t, http.StatusConflict, res.status, "%s %s: %s", request[0], request[1], res.raw)
+				require.JSONEq(t, `{"status":"`+scenario.code+`"}`, string(res.raw))
+			}
+			require.Equal(t, before, fingerprint())
+			require.Empty(t, r.captured(t))
+			require.Zero(t, app.config.ChannelCredentials.(*titlePilotCountingCredential).reads.Load())
+		})
+	}
 	expired.Store(true)
 	require.Equal(t, http.StatusForbidden, call("POST", "start", "admin").status)
 	_, err = app.prepareTitlePilot(ctx, r.batchID)

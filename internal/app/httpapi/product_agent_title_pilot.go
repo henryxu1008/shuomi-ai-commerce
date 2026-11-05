@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -27,6 +28,7 @@ const (
 	titlePilotCallCost     = 180_000 // CNY micros
 	titlePilotBatchCost    = 38_000_000
 	titlePilotAgentCalls   = 6
+	titlePilotModeRevision = "0"
 	titlePilotManifestHash = "8a9d283f9b1fb12a4e2fe9eb9561bce9ec405298cf1999101970c7e2de1376ce"
 	titlePilotCasesHash    = "186d392b7cb083f18a2b6a8c5690ef8dd01ca53fe09c1faebbe184e3ded5332e"
 )
@@ -161,6 +163,9 @@ func (a *productAgentApplication) inspectTitlePilot(ctx context.Context, batchID
 		if err := op.VerifyIsolation(ctx); err != nil {
 			return nil, nil, agent.ErrUnavailable
 		}
+		if err := a.checkTitlePilotAgent(ctx, identity); err != nil {
+			return nil, nil, err
+		}
 	}
 	profile, err := a.readTitlePilotProfile(ctx, approval)
 	if err != nil {
@@ -181,6 +186,28 @@ func (a *productAgentApplication) inspectTitlePilot(ctx context.Context, batchID
 		return nil, nil, agent.ErrConflict
 	}
 	return plan, samples, nil
+}
+
+func (a *productAgentApplication) checkTitlePilotAgent(ctx context.Context, identity agent.ExecutionIdentity) error {
+	if a.configuration == nil {
+		return agent.ErrUnavailable
+	}
+	scope := agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}
+	configuration, err := a.configuration.ReadAgent(ctx, scope, a.definition.ID)
+	if errors.Is(err, agentconfig.ErrNotFound) || err == nil && configuration.Activation != "ENABLED" {
+		return agentconfig.ErrNotEnabled
+	}
+	if err != nil {
+		return err
+	}
+	mode, err := a.configuration.ReadExecutionMode(ctx, identity, a.modeSubject())
+	if err != nil {
+		return err
+	}
+	if mode.Revision != titlePilotModeRevision || mode.Mode != agent.ModeDefault {
+		return agentconfig.ErrChanged
+	}
+	return nil
 }
 
 func (a *productAgentApplication) readTitlePilotProfile(ctx context.Context, approval titlePilotApproval) (aicapability.ModelProfile, error) {
@@ -371,7 +398,7 @@ func (a *productAgentApplication) runTitlePilot(ctx context.Context, plan *title
 		if _, err := a.Authorize(execution, slot.binding); err != nil {
 			return completed, err
 		}
-		request, err := a.startRequestWithProfile(execution, slot.binding, slot.key, "", "", nil, plan.profile, "", "0")
+		request, err := a.startRequestWithProfile(execution, slot.binding, slot.key, "", "", nil, plan.profile, "", titlePilotModeRevision)
 		if err != nil {
 			return completed, err
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/authz"
 	"task-processor/internal/httproute"
@@ -295,6 +296,10 @@ func writeTitlePilotOperatorError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "CONFLICT"
 	case errors.Is(err, errTitlePilotFunds):
 		status, code = http.StatusConflict, "INSUFFICIENT_POINTS"
+	case errors.Is(err, agentconfig.ErrNotEnabled):
+		status, code = http.StatusConflict, "AGENT_NOT_ENABLED"
+	case errors.Is(err, agentconfig.ErrChanged):
+		status, code = http.StatusConflict, "EXECUTION_MODE_CHANGED"
 	case errors.Is(err, errTitlePilotStopped):
 		status, code = http.StatusConflict, "STOPPED"
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
