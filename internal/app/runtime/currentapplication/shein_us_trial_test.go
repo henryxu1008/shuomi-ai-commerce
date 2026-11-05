@@ -184,4 +184,7 @@ func TestSHEINTrialStrictPrivateFile(t *testing.T) {
 		_, err := readTrialFile[trialGateFile](files, "gate.json", 8192)
 		require.Error(t, err, body)
 	}
+	files := fstest.MapFS{"key.json": {Data: []byte("{\"secret\":\"\xff\"}")}}
+	_, err := readTrialFile[trialKeyFile](files, "key.json", trialKeyFileLimit)
+	require.Error(t, err)
 }

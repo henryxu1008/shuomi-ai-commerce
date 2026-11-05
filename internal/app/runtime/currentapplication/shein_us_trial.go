@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path"
 	"time"
+	"unicode/utf8"
 
 	strictjson "sigs.k8s.io/json"
 	"task-processor/internal/integration/acquisition/zenrows"
@@ -112,7 +113,7 @@ func readTrialFile[T any](files fs.FS, name string, limit int64) (T, error) {
 	}
 	defer file.Close()
 	body, err := io.ReadAll(io.LimitReader(file, limit+1))
-	if err != nil || int64(len(body)) > limit {
+	if err != nil || int64(len(body)) > limit || !utf8.Valid(body) {
 		return empty, dataacquisition.ErrUnavailable
 	}
 	strictErrors, err := strictjson.UnmarshalStrict(body, &value)
