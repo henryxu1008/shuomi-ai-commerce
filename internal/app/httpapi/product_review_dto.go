@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"task-processor/internal/agent"
 	"task-processor/internal/product/review"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
@@ -99,7 +100,7 @@ func marshalProductReviewProjection(view review.View, projection *productKnowled
 	unresolved := append([]string{}, view.Unresolved...)
 	dto := productReviewViewDTO{
 		Execution:      view.Execution,
-		PolicyAdoption: view.PolicyAdoption,
+		PolicyAdoption: publicReviewPolicy(view.PolicyAdoption),
 		Knowledge:      unavailableKnowledge(view.ContextProvenance),
 		SchemaVersion:  productReviewSchemaVersion,
 		Coverage:       productReviewCoverage,
@@ -122,7 +123,12 @@ func marshalProductReviewProjection(view review.View, projection *productKnowled
 	}
 	if view.Content != nil {
 		dto.SchemaVersion, dto.Coverage = productContentReviewSchemaVersion, productContentReviewCoverage
-		dto.Content, dto.Execution = view.Content, view.Execution
+		dto.Content = view.Content
+		if view.Execution != nil {
+			execution := *view.Execution
+			execution.WorkbenchContextRef = agent.WorkbenchContextRef{}
+			dto.Execution = &execution
+		}
 	}
 	if view.ContextProvenance != nil && projection != nil {
 		dto.Knowledge = projection
@@ -205,7 +211,17 @@ func parseProductReviewCollectionQuery(query url.Values) (review.PageRequest, er
 	return request, request.Validate()
 }
 
+func publicReviewPolicy(policy *review.PolicyProvenance) *review.PolicyProvenance {
+	if policy == nil {
+		return nil
+	}
+	view := *policy
+	view.Execution.WorkbenchContextRef = agent.WorkbenchContextRef{}
+	return &view
+}
+
 type productReviewCollectionItemDTO struct {
+	WorkbenchScoped  bool                             `json:"workbench_scoped,omitempty"`
 	Policy           string                           `json:"policy,omitempty"`
 	ContentSelection *reviewproposal.ContentSelection `json:"content_selection,omitempty"`
 	ProposalID       string                           `json:"proposal_id"`
@@ -230,6 +246,7 @@ func marshalProductReviewPage(page review.Page) ([]byte, error) {
 			return nil, err
 		}
 		items[index] = productReviewCollectionItemDTO{ProposalID: item.ID, ProductKey: item.ProductKey, BaseVersion: strconv.FormatUint(item.BaseVersion, 10), ProposalRevision: strconv.FormatUint(item.Revision, 10), State: item.State}
+		items[index].WorkbenchScoped = item.Execution != nil && !item.Execution.WorkbenchContextRef.Absent()
 		if !item.ContentSelection.Absent() {
 			selection := item.ContentSelection
 			items[index].ContentSelection = &selection

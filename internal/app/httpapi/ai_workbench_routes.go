@@ -228,6 +228,7 @@ func (b workbenchMessageBody) input() aiworkbench.MessageInput {
 }
 
 type workbenchProposalCard struct {
+	BusinessScope         *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	Kind                  string                     `json:"kind"`
 	TaskSelection         *aiworkbench.TaskSelection `json:"taskSelection,omitempty"`
 	ExecutionProfileReady bool                       `json:"executionProfileReady"`
@@ -298,6 +299,9 @@ func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench
 		card.MaximumCostMicros = cost
 		if a.agent.selectTitleProfile != nil && i.TenantID == p.Scope.OrganizationID && i.UserID == p.Scope.ActorID {
 			current, currentErr := a.agent.selectTitleProfile(ctx, p.Scope.OrganizationID)
+			if !p.WorkbenchContextRef.Absent() {
+				current = agentconfig.ScopedContentProfile(current)
+			}
 			card.ExecutionProfileReady = currentErr == nil && current.Validate() == nil && current == profile
 			card.TitleProfileReady = p.Kind == aiworkbench.TitleTaskKind && card.ExecutionProfileReady
 		}
@@ -324,12 +328,14 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 	}
 	specs := []routeSpec{
 		{"GET", workbenchSubjectBase + "/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
+		{"GET", workbenchChatBase + "/scopes", authz.PermissionWorkbenchChatRead, "scope-options", 15 * time.Second},
 		{"GET", workbenchChatBase, authz.PermissionWorkbenchChatRead, "list-conversations", 15 * time.Second},
 		{"POST", workbenchChatBase, authz.PermissionWorkbenchChatUse, "create", 15 * time.Second},
 		{"GET", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatRead, "get-conversation", 15 * time.Second},
 		{"PATCH", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatUse, "metadata", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/messages", authz.PermissionWorkbenchChatUse, "message", 2 * time.Minute},
 		{"POST", workbenchChatBase + "/:conversation_id/proposals/:proposal_id/confirm", authz.PermissionWorkbenchChatUse, "confirm", 2 * time.Minute},
+		{"GET", workbenchTaskBase + "/scopes", authz.PermissionWorkbenchTaskRead, "scope-options", 15 * time.Second},
 		{"GET", workbenchTaskBase, authz.PermissionWorkbenchTaskRead, "list-tasks", 15 * time.Second},
 		{"GET", workbenchTaskBase + "/:task_id", authz.PermissionWorkbenchTaskRead, "get-task", 15 * time.Second},
 		{"POST", workbenchTaskBase + "/:task_id/start", authz.PermissionWorkbenchAgentUse, "task-start", 2 * time.Minute},
@@ -363,6 +369,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 				switch spec.action {
 				case "subject-read":
 					a.readTaskSubject(c, ctx)
+				case "scope-options":
+					a.scopeOptions(c, ctx, scope)
 				case "list-conversations":
 					a.listConversations(c, ctx, scope)
 				case "create":

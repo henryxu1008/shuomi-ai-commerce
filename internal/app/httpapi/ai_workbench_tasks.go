@@ -11,12 +11,15 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/product/review"
 )
 
 type workbenchTaskView struct {
+	BusinessScope           *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
+	ScopeUnavailable        bool                       `json:"scopeUnavailable,omitempty"`
 	Kind                    string                     `json:"kind"`
 	TaskSelection           *aiworkbench.TaskSelection `json:"taskSelection,omitempty"`
 	ExecutionMode           agent.ExecutionMode        `json:"executionMode,omitempty"`
@@ -65,6 +68,9 @@ func (a *productAgentApplication) frozenTitleProfileReady(ctx context.Context, s
 		return false
 	}
 	current, err := a.selectTitleProfile(ctx, scope.OrganizationID)
+	if !request.WorkbenchContextRef.Absent() {
+		current = agentconfig.ScopedContentProfile(current)
+	}
 	return err == nil && current.Validate() == nil && current == snapshot.ExecutionModelProfile
 }
 
@@ -74,6 +80,17 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || identity.TenantID != scope.OrganizationID || identity.UserID != scope.ActorID || task.Scope != scope {
 		return workbenchTaskView{}, aiworkbench.ErrNotFound
+	}
+	if !task.WorkbenchContextRef.Absent() {
+		f, err := a.authorizedFrozenScope(ctx, scope, task.WorkbenchContextRef, false)
+		if err != nil {
+			return workbenchTaskView{ID: task.ID, ScopeUnavailable: true}, nil
+		}
+		scopeView, err := a.scopes.reader.View(ctx, scope, f.Scope)
+		if err != nil {
+			return workbenchTaskView{ID: task.ID, ScopeUnavailable: true}, nil
+		}
+		view.BusinessScope = &scopeView
 	}
 	if a.agent == nil || !a.agent.workbenchKind(task.Kind) {
 		return view, nil
@@ -102,7 +119,7 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 	}
 	if projection.Review.ID != "" {
 		view.ReviewID, view.ReviewState = projection.Review.ID, projection.Review.State
-		view.PolicyAdoption = projection.Review.PolicyAdoption
+		view.PolicyAdoption = publicReviewPolicy(projection.Review.PolicyAdoption)
 	}
 	view.ProjectionAvailable, view.State, view.Reason = true, projection.State, projection.Reason
 	frozen, freezeErr := a.agent.configuration.LoadSnapshot(ctx, agent.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, request.ConfigurationSnapshotRef)
@@ -163,7 +180,18 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 }
 
 func (a *aiWorkbenchApplication) listTasks(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
-	if len(c.Request.URL.Query()) > 2 || c.Query("after") != "" && !acquisitionHTTPUUID(c.Query("after")) {
+	query := c.Request.URL.Query()
+	for name, values := range query {
+		if len(values) != 1 || name != "limit" && name != "after" && name != "scopeKind" && name != "projectId" && name != "storeId" {
+			writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+			return
+		}
+	}
+	if query.Has("scopeKind") {
+		a.listScopedTasks(c, ctx, scope)
+		return
+	}
+	if len(query) > 2 || query.Has("projectId") || query.Has("storeId") || c.Query("after") != "" && !acquisitionHTTPUUID(c.Query("after")) {
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 		return
 	}
@@ -182,6 +210,10 @@ func (a *aiWorkbenchApplication) listTasks(c *gin.Context, ctx context.Context, 
 		view, err := a.taskView(ctx, scope, task, false)
 		if err != nil {
 			writeAIWorkbenchError(c, err)
+			return
+		}
+		if view.ScopeUnavailable {
+			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
 			return
 		}
 		views = append(views, view)
@@ -203,6 +235,10 @@ func (a *aiWorkbenchApplication) getTask(c *gin.Context, ctx context.Context, sc
 	view, err := a.taskView(ctx, scope, task, true)
 	if err != nil {
 		writeAIWorkbenchError(c, err)
+		return
+	}
+	if view.ScopeUnavailable {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
 		return
 	}
 	workbenchReply(c, http.StatusOK, gin.H{"task": view})
@@ -272,6 +308,10 @@ func (a *aiWorkbenchApplication) taskAction(c *gin.Context, ctx context.Context,
 				writeAIWorkbenchError(c, aiworkbench.ErrTaskOutcomeUnknown)
 				return
 			}
+			if view.ScopeUnavailable {
+				writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
+				return
+			}
 			workbenchReply(c, http.StatusOK, gin.H{"task": view, "replay": true})
 		case aiworkbench.TaskActionFailed:
 			if receipt.ErrorCode == "REVISION_MISMATCH" {
@@ -319,6 +359,10 @@ func (a *aiWorkbenchApplication) taskAction(c *gin.Context, ctx context.Context,
 		writeAIWorkbenchError(c, aiworkbench.ErrTaskOutcomeUnknown)
 		return
 	}
+	if view.ScopeUnavailable {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
+		return
+	}
 	workbenchReply(c, http.StatusOK, gin.H{"task": view, "replay": false})
 }
 
@@ -329,8 +373,13 @@ func (a *aiWorkbenchApplication) performTaskAction(ctx context.Context, scope ai
 	if a.agent == nil || !a.agent.workbenchKind(task.Kind) {
 		return false, aiworkbench.ErrUnavailable
 	}
+	if !task.WorkbenchContextRef.Absent() {
+		if _, err := a.authorizedFrozenScope(ctx, scope, task.WorkbenchContextRef, false); err != nil {
+			return false, err
+		}
+	}
 	if input.Action == aiworkbench.TaskActionStart {
-		return (workbenchExecution{agent: a.agent}).startTask(ctx, task)
+		return (workbenchExecution{agent: a.agent, workbench: a}).startTask(ctx, task)
 	}
 	var request agent.Request
 	if json.Unmarshal(task.ExecutionRequest, &request) != nil || request.Key != task.ExecutionRequestKey {

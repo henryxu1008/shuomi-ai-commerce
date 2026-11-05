@@ -1,8 +1,8 @@
 # AI 工作台：固定会话工作范围与任务筛选
 
-状态：**DESIGN_CANDIDATE（用户已确认） / NOT_IMPLEMENTATION_READY**。执行范围：[Issue #298](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298) 的 G298-C1/C2。Design Basis：**Independent Architecture**，因为新增了执行上下文的持久化、跨域权限读取和冻结请求的恢复约束。用户于 2026-11-05 回复“认可设计及上述边界（推荐）”，确认本候选、D4 及首期报告边界。尚未进行独立架构复核或实现。
+状态：**IMPLEMENTATION_READY**。独立准入针对准确设计提交 `6d0a58a187579ea674dc2c96d7465a1c2ee82d66`，见 [Codex 结论](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1098#issuecomment-6651117364)。执行范围：[Issue #298](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298) 的 G298-C1/C2。Design Basis：**Independent Architecture**，因为新增了执行上下文的持久化、跨域权限读取和冻结请求的恢复约束。用户于 2026-11-05 回复“认可设计及上述边界（推荐）”，确认本候选、D4 及首期报告边界。实施验证按下文 IT1–IT5。
 
-基线：main `05e5b14f7f0d3aa80cdccd8dc222d01916c019db`，tree `33095375daeffc73c02457c8521cf72fe5c0df8e`。原工作区的 `0d5fc5db7f4597651b9a9f7f7282700cd602a204` 与 main 同树。复用当前负责人，一个 Delivery Batch，后续最多一个主要 PR。本次授权只整理本地设计及其 Issue 索引，不创建 PR、不派工或评审。
+基线：main `05e5b14f7f0d3aa80cdccd8dc222d01916c019db`，tree `33095375daeffc73c02457c8521cf72fe5c0df8e`。原工作区的 `0d5fc5db7f4597651b9a9f7f7282700cd602a204` 与 main 同树。复用当前负责人，一个 Delivery Batch，后续最多一个主要 PR。实施、验证及评审记录见 [PR #1098](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1098)。
 
 ## 1. 用户结果与产品边界
 
@@ -14,7 +14,9 @@
 
 产品依据：[D1/D2 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298#issuecomment-6649958948)、[D3 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36#issuecomment-6649971251)、[最终 UI / IA](../product/final-ui-ia-authority.md)。沿现可见 Figma 的 [Chat 427:2467](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-2467)、[任务中心 427:3005](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-3005) 及原项目入口。本轮引用原已批准依据，没有重新读取或修改 Figma；新增选择、范围说明和筛选控件是待确认的局部候选，不冒称原稿已有。
 
-**Must：** 真实范围、确定的同键身份和输入、实时授权、原有界预算、唯一 Task/Run、原恢复、分页正确，以及未记录范围如实表达。**Should：** 复用原页面和控件，按一次有用的内容任务路径交付。**不做：** 通用上下文服务、项目自动编排/关联、所有来源统一分配范围、范围权限体系、第二账本/恢复器、旧库迁移或发布上架。无新 Accepted Risk。
+**Must：** 真实范围、确定的同键身份和输入、实时授权、原有界预算、唯一 Task/Run、原恢复、分页正确，以及未记录范围如实表达。**Should：** 复用原页面和控件，按一次有用的内容任务路径交付。原独立标题 Workbench 的已注册输入仍沿原合同。本批有范围的执行入口是内容 Workbench。
+
+**不做：** 通用上下文服务、项目自动编排/关联、所有来源统一分配范围、范围权限体系、第二账本/恢复器、旧库迁移或发布上架。无新 Accepted Risk。
 
 ## 2. 现状与最小改变
 
@@ -123,7 +125,7 @@ Project 目标原上限 4096 UTF-8 字节，标题及 Store 各字段沿原 owne
 
 ## 8. 最小实施义务与准入
 
-后续实施获授权后，复用原 HTTP/BFF、隔离 PostgreSQL、原合成 transport 和已有模型/Task/Review 回归。这里只列验证义务，**本轮均未运行**。
+实施复用原 HTTP/BFF、隔离 PostgreSQL、原合成 transport 和已有模型/Task/Review 回归。此处列验证义务，执行证据留在 PR。
 
 | 义务 | 风险匹配的证据 |
 | --- | --- |
@@ -135,4 +137,4 @@ Project 目标原上限 4096 UTF-8 字节，标题及 Store 各字段沿原 owne
 
 实施只动范围合同和必要直接消费点；不建新测试 runner、调度/审计平台或重复评审。按阶段使用原准确候选 CI 和既有证据，不把测试替身/CI写成真实产品验收。架构敏感边界是本批实际新增的固定/冻结上下文、权限、读回与分页；正式生产修改前仍须由适用独立复核确认达到 `IMPLEMENTATION_READY`。若发现不能在现 owner/原账本和现权限门禁内实现，或必须增加安装兼容、权限或恢复风险，先报告具体阻碍，不能在实现中临时发明合同。
 
-**用户已确认本候选、D4 和首期报告边界。** 有范围的提案首期只在原任务和审核入口查看，不作为报告来源；既有报告不变。D1/D2/D3 已有明确依据。确认仅覆盖设计，不授权实现、评审、提交/推送、开 PR、合并或关单。#298/#36 继续开放，G298-C1/C2 未实现。实例、数据、会话、真实 Key 和原 UNKNOWN/预留保留；不部署、不读改保留库、不安装或启停、不执行真实操作、不调用模型或业务平台、不发邮件短信。#47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT、#1075 原负责人继续。缺证据 UNKNOWN，本轮运行、真实保存/恢复、浏览器及产品验收 NOT_RUN。
+**用户已确认本候选、D4 和首期报告边界。** 有范围的提案首期只在原任务和审核入口查看，不作为报告来源；既有报告不变。D1/D2/D3 已有明确依据。实施范围为 G298-C1/C2，#298/#36 的整体交付和验收另行记录。实例、数据、会话、真实 Key 和原 UNKNOWN/预留保留；不部署、不读改保留库、不安装或启停、不执行真实操作、不调用模型或业务平台、不发邮件短信。#47 PostgreSQL UNKNOWN、#307 OPEN、#733 咨询 NOT_SENT、#1075 原负责人继续。缺证据 UNKNOWN，本轮运行、真实保存/恢复、浏览器及产品验收 NOT_RUN。

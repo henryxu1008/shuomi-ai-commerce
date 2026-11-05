@@ -247,6 +247,16 @@ func mutate(tx *gorm.DB, s pc.Scope, c pc.Command, now time.Time) (string, uint6
 	}
 	return r.ID, r.Revision + 1, scoped(tx.Model(&projectRow{}), s).Where("id=?", r.ID).Updates(changes).Error
 }
+
+// GetMetadata does not read attached references.
+func (s *Store) GetMetadata(ctx context.Context, scope pc.Scope, id string) (pc.Project, error) {
+	var row projectRow
+	if err := scoped(s.db.WithContext(ctx), scope).Where("id = ?", id).Take(&row).Error; err != nil {
+		return pc.Project{}, databaseError(err)
+	}
+	return project(row), nil
+}
+
 func (s *Store) Get(ctx context.Context, scope pc.Scope, id string) (pc.Project, []pc.Reference, error) {
 	var row projectRow
 	if e := scoped(s.db.WithContext(ctx), scope).Where("id=?", id).Take(&row).Error; e != nil {

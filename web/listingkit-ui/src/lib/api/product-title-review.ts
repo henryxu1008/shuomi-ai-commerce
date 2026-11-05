@@ -20,7 +20,7 @@ export const productTitleCursorSchema = z.string().min(1).max(256).regex(/^[A-Za
 const title = text.min(1).refine((v) => bytes(v) <= 4096 && v.trim() === v && !/\p{Cc}/u.test(v));
 const time = z.iso.datetime({ precision: undefined }).regex(/T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/).refine((v) => !v.startsWith("0001-"));
 const basis = { schema_version: z.literal(1), coverage: z.literal("product-title-proposals-only") };
-const item = z.strictObject({ proposal_id: productTitleIDSchema, product_key: productTitleKeySchema, base_version: version, proposal_revision: version, state: z.enum(["pending", "accepted"]) });
+const item = z.strictObject({ workbench_scoped:z.literal(true).optional(), proposal_id: productTitleIDSchema, product_key: productTitleKeySchema, base_version: version, proposal_revision: version, state: z.enum(["pending", "accepted"]) });
 const collection = z.strictObject({ ...basis, items: z.array(item).max(100), next_cursor: productTitleCursorSchema.nullable() })
   .refine((v) => new Set(v.items.map((i) => i.proposal_id)).size === v.items.length);
 const typedCollectionItem = z.discriminatedUnion("policy", [item.extend({policy:z.literal("title-review-v1")}),item.extend({policy:z.literal("product-content-review-v1"),content_selection:contentSelectionSchema})]);

@@ -339,10 +339,10 @@ const workbenchRouteAllowlist = [
     return routeDefinition(method, `collection-${name}`, `collection-${name}`, path => collectionPath(method, path) === name ? path.join("/") : null);
   }),
   ...([
-    ["GET","subject-read"], ["GET", "conversation-list"], ["POST", "conversation-create"],
+    ["GET","subject-read"], ["GET","scope-options"], ["GET", "conversation-list"], ["POST", "conversation-create"],
     ["GET", "conversation-read"], ["PATCH", "conversation-metadata"],
     ["POST", "message"], ["POST", "confirm"],
-    ["GET", "task-list"], ["GET", "task-read"],
+    ["GET", "task-list"], ["GET", "task-read"], ["GET", "task-scope-options"],
     ["POST", "task-start"], ["POST", "task-resume"], ["POST", "task-review"],
   ] as const).map(([method, name]) => routeDefinition(method, `ai-${name}`, `ai-${name}`,
     path => aiWorkbenchPath(method, path) === name ? path.join("/") : null)),
@@ -636,17 +636,21 @@ export async function buildWorkbenchUpstreamRequest(
       const action = route.requestContract.slice(3) as AIWorkbenchRoute;
       if (!authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER) !== authenticatedActorSubject)
         return protocolError(409, "IDENTITY_CONTEXT_CHANGED", "Identity context changed");
-      const listed = action === "conversation-list" || action === "conversation-read" || action === "task-list";
+      const scopeOptions = action === "scope-options" || action === "task-scope-options";
+      const listed = action === "conversation-list" || action === "conversation-read" || action === "task-list" || scopeOptions;
       if (listed) {
         if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
         const url = new URL(request.url);
         const allowed = action === "conversation-read" ? new Set(["limit", "before"])
-          : action === "conversation-list" ? new Set(["limit", "after", "saved", "archived"]) : new Set(["limit", "after"]);
+          : action === "conversation-list" ? new Set(["limit", "after", "saved", "archived"])
+          : scopeOptions ? new Set(["kind", "projectId", "storeId", "after"]) : new Set(["limit", "after", "scopeKind", "projectId", "storeId"]);
         const selected = new URLSearchParams();
         for (const [name, value] of url.searchParams) {
           if (!allowed.has(name) || selected.has(name) || !value ||
             (name === "limit" && (!/^[1-9][0-9]?$/.test(value) || Number(value) > 50)) ||
-            (name === "after" && !(action === "conversation-list" ? /^[A-Za-z0-9_-]{32}$/.test(value) : isAcquisitionUUID(value))) ||
+            (name === "after" && !(action === "conversation-list" ? /^[A-Za-z0-9_-]{32}$/.test(value) : scopeOptions || url.searchParams.has("scopeKind") ? /^[A-Za-z0-9_-]{1,512}$/.test(value) : isAcquisitionUUID(value))) ||
+            ((name === "kind" || name === "scopeKind") && !["all","general","project","store","unrecorded"].includes(value)) ||
+            ((name === "projectId" || name === "storeId") && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) ||
             ((name === "saved" || name === "archived") && value !== "true") ||
             (name === "before" && !/^[1-9][0-9]*$/.test(value))) return protocolError(400, "INVALID_REQUEST", "Query is invalid");
           selected.set(name, value);
@@ -1069,7 +1073,7 @@ export async function buildWorkbenchUpstreamRequest(
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
       route.requestContract === "collection-command" || route.requestContract === "collection-media-upload" ||
-      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read","ai-subject-read"].includes(route.requestContract)) ||
+      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read","ai-subject-read","ai-scope-options","ai-task-scope-options"].includes(route.requestContract)) ||
       (route.requestContract.startsWith("store-connection-") && route.requestContract !== "store-connection-read" && route.requestContract !== "store-connection-applications") ||
       route.requestContract.startsWith("store-service-") ||
       (route.requestContract.startsWith("product-agent-") && (analysisContract?request.method==="POST":route.requestContract!=="product-agent-read")) ||
