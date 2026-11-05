@@ -81,12 +81,11 @@ type SHEINUSObservation struct {
 }
 
 type SHEINUSPreparedRef struct {
-	JobID, ItemID, ReservationID, Checksum string
+	JobID, ItemID, Checksum string
 }
 
 func (r SHEINUSPreparedRef) Valid() bool {
-	return collection.ValidID(r.JobID) && collection.ValidID(r.ItemID) &&
-		collection.ValidID(r.ReservationID) && sheinChecksum.MatchString(r.Checksum)
+	return collection.ValidID(r.JobID) && collection.ValidID(r.ItemID) && sheinChecksum.MatchString(r.Checksum)
 }
 
 type SHEINUSCapture struct {

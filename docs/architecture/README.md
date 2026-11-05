@@ -7,6 +7,9 @@
 ## 研究与商业评估规划
 
 - `research-commercial-assessment-v1.md` — [市场调研与商业选品 V1：独立架构提案](research-commercial-assessment-v1.md)；#1074 设计阶段，来源与产品决定待定，Admission NOT_READY，不授权生产代码或真实调用。
+- `shein-us-one-page-trial-send.md` · [SHEIN 美国站一页试取单次发送](shein-us-one-page-trial-send.md) · #1074 的离线发送门禁、25 credits 上限与原单核账。
+- `zenrows-shein-us-trial-adapter.md` · [ZenRows 发送与原单用量查证](zenrows-shein-us-trial-adapter.md) · #1074 一页试取适配器设计。
+- `shein-us-page-publication.md` · [SHEIN 美国站一页响应到原版发布](shein-us-page-publication.md) · #1074 离线组合设计。
 
 <a id="foundation"></a>
 
