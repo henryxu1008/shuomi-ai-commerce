@@ -9,10 +9,11 @@
 | 添加自有商品 `/workbench/data/mine/own/new` | 原页面、Input/Select、图片链接 Textarea；Textarea 改为现有 control-background/control-radius | 商品描述仍为 DescriptionEditor；原创建、版本、图片与库存声明合同不变 |
 | 平台上架资料 `/workbench/supply/materials/[recordId]` | 本次用途、候选类目、本次模板三个局部原生 select 改用现有 Select；中断分支的补充意见采用同一 Textarea | 原 value/onChange、选项、禁用、配置/权限、原请求键和恢复路径不变 |
 | 平台资料确认弹窗 | 关闭时将焦点返回仍在页面中的原触发元素；复用现有 AccountDialog 的焦点恢复方式 | 取消不调用 prepare/start；确认和执行协议不变 |
+| 浅色辅助文字 / 选中导航 | 原 owner 交接后，仅按变量名调整 muted-foreground 与 sidebar-accent-foreground | 不改主按钮、焦点环、成功色、深色主题或导航结构 |
 
 Select 在本增量增加一个页面导入点。资产 CSV 保留盘点基线，不把原基线 37 个导入点误写成新扫描结果。没有新增组件库、主题 provider、全局变量、业务状态或外部调用。
 
-原 #1075 负责人已只读确认两个页面及 Textarea 没有文件冲突；product-collection/agent-configuration 合同按各自已有版本消费。本次不修改其 console.css、shell、导航、collection-page 或企业 context 文件。
+原 #1075 负责人已只读确认两个页面及 Textarea 没有文件冲突；product-collection/agent-configuration 合同按各自已有版本消费。其分支冻结后，另明确将两个浅色文字令牌交给 #1092。本次只在自己的分支按变量名修改这两项，不改原冻结分支，也不改 shell、导航结构、collection-page、企业 context 或 console.css 其他部分。
 
 ## 验证环境与证据范围
 
@@ -37,16 +38,24 @@ Select 在本增量增加一个页面导入点。资产 CSV 保留盘点基线�
 | denied / record error | 原禁用或错误提示正确；没有执行请求 |
 | read-only 原运行 | 建议可读，采用/保存动作不出现，没有执行请求 |
 
-截图及结构化结果在本次任务交付的 `issue1092-page-evidence` 中；结果包含三个相关生产源码文件的 SHA-256，便于与最终提交核对。临时浏览器与应用进程在检查完成后退出，没有作为用户试用实例交付。
+截图及结构化结果在本次任务交付的 `issue1092-page-evidence` 中；结果包含四个相关生产源码文件的 SHA-256，便于与最终提交核对。对比度修复前的证据单独保留。临时浏览器与应用进程在检查完成后退出，没有作为用户试用实例交付。
 
 ## 焦点缺陷与回归
 
 实际浏览器验证发现：确认窗卸载后焦点落回 body，未回到「准备平台资料」。随后新增原页面回归，先确认它在旧实现失败（RED），再在卸载时关闭 dialog 并恢复仍连接在文档中的原焦点（GREEN）。回归同时检查取消没有调用 prepare/start。没有为此建立新的弹窗或恢复框架。
 
-## 可访问性限制
+## 对比度修正与可访问性范围
 
-dark 主题两页的主场景 axe 未报告违规。light 仍有现有辅助文字对比度问题：自有商品页宽/窄分别 11/6 个节点，材料页宽/窄各 3 个节点。记录的是受测 DOM 节点，不是全站缺陷数量；主要组合为 muted-foreground `#617487` 在 background `#f4f7fb` 上的 4.48:1，低于 4.5:1。
+修复前，dark 主场景 axe 未报告违规，light 自有商品页宽/窄分别有 11/6 个对比度节点，材料页宽/窄各 3 个。记录的是受测 DOM 节点，不是全站缺陷数量。最小修正如下：
 
-该变量属于另一活跃分支持有的 console.css，本次未修改，也未把问题记成通过或已接受风险。两个页面的前端交互证据不能据此升级为整个 #1092 的 a11y PASS、产品验收通过或可上线。
+| 令牌 / 背景 | 原组合 | 当前组合 | 对比度约值 |
+| --- | --- | --- | --- |
+| muted-foreground / background | `#617487` / `#f4f7fb` | `#5f7184` / `#f4f7fb` | 4.48 → 4.67 |
+| muted-foreground / secondary | `#617487` / `#f1f5fa` | `#5f7184` / `#f1f5fa` | 4.40 → 4.59 |
+| sidebar-accent-foreground / sidebar-accent | `#087f6c` / `#e5f5f0` | `#077b68` / `#e5f5f0` | 4.37 → 4.61 |
+
+修正后重新运行实际页面的 20 项场景，全部通过；两页在 dark/light × 1440/390 的 8 个主场景 axe 均无违规。中断反馈字段的四个主题/屏宽组合、取消焦点以及冲突后名称、描述、两张图片和公共归属保留也均通过。真实后端和真实业务仍未执行。
+
+这只是已验证页面和状态的前端证据；全站组件、全部 hover/浮层/状态、真实业务与用户验收仍需后续范围，不能升级为整个 #1092 的 a11y PASS、产品验收通过或可上线。没有把未测试范围记成已接受风险。
 
 相关检查入口：`pnpm test -- src/components/workbench/collections/own-product-entry-page.test.tsx src/components/workbench/supply/materials-page.test.tsx src/components/ui/form-controls.test.tsx`，以及按既有前端流程运行 lint、typecheck 和 build。准确 HEAD、CI、独立评审和最后一次实际结果写在主要 Draft PR 中，不自动关闭父 Issue。

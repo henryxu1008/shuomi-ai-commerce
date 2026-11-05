@@ -13,7 +13,7 @@ Figma 只作业务流程参考；本表从当前代码读取。变量 owner：`s
 | 浮层 `popover` / `popover-foreground` | `#fff` / `#172b45` | `#142237` / `#edf5ff` | 挂到 body 的浮层仍用原主题 |
 | 主操作 `primary` / `primary-foreground` | `#087f6c` / `#fff` | `#42d2b0` / `#052b25` | Button，不用作所有正文颜色 |
 | 次级 `secondary` / `secondary-foreground` | `#f1f5fa` / `#172b45` | `#1c3047` / `#dce9f7` | 次级表面 / 控件 |
-| 辅助 `muted` / `muted-foreground` | `#f1f5fa` / `#617487` | `#1c3047` / `#b5c8da` | 辅助说明，保留正文层级 |
+| 辅助 `muted` / `muted-foreground` | `#f1f5fa` / `#5f7184` | `#1c3047` / `#b5c8da` | 辅助说明；浅色最小调色修正受测文字对比度 |
 | 强调 `accent` / `accent-foreground` | `#e5f5f0` / `#087f6c` | `#123b32` / `#42d2b0` | hover / 选中 |
 | 错误 `destructive` / `destructive-foreground` | `#c23d47` / `#fff` | `#f28d90` / `#26010b` | 危险操作与错误标识 |
 | 柔和错误 `destructive-muted` | `color-mix(destructive 12%, card)` | 同公式 | 错误表面；不是实心危险按钮 |
@@ -23,6 +23,7 @@ Figma 只作业务流程参考；本表从当前代码读取。变量 owner：`s
 | 边界 `border` / `input` | `#d8e4ee` | `#30465c` | 边框，不用 currentColor 代替默认值 |
 | 焦点 `ring` | `#087f6c` | `#42d2b0` | focus-visible；不得移除键盘焦点提示 |
 | 导航 `sidebar` / `sidebar-foreground` | `#fff` / `#496177` | `#142237` / `#b5c8da` | 由 shell 消费，业务页不重定义 |
+| 选中导航 `sidebar-accent` / `sidebar-accent-foreground` | `#e5f5f0` / `#077b68` | `#123b32` / `#42d2b0` | 浅色文字对比度约 4.61:1；不改变主按钮或其他绿色语义 |
 | 遮罩 `overlay` | `#0b142280` | `#0009` | 原生 dialog backdrop 等 |
 | 阴影 `shadow-color` | `#172b4518` | `#0004` | 使用现有 shadow 语义 |
 | 控件表面 `control-background` | `card` | `card` | Input/Select 与本地 Textarea 修正共同采用 |

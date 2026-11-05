@@ -7,7 +7,7 @@
 - 盘点基线：`d12b8c7633a8e3a6f02e4c19f4a29344b14c8d34`，2026-11-05。
 - 最新产品决定：Figma 仅用于业务流程参考，不再决定视觉、布局、导航层级、页面拆分、组件或响应式。规则更新由 [PR #1107](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1107) 单独负责；本报告不修改其文件。
 - 继续复用 Next.js / React / Tailwind / shadcn / Radix、现有 CSS Modules 和 `next-themes`。身份、企业、权限、业务事实、计费、幂等、恢复及外部副作用仍由原领域 owner 负责。
-- Design Basis: Reuse Existing Architecture，沿 Issue 已有分类及工作台主题合同。Textarea 消费原 control-background/control-radius；供应材料页的三个原生选择框复用现有 Select，保留原选项、value/onChange、禁用状态与调用；确认弹窗关闭后恢复原焦点。主题 provider、导航、API、权限、状态机、持久化和外部副作用不变。本文、资产表本身是现状记录。
+- Design Basis: Reuse Existing Architecture，沿 Issue 已有分类及工作台主题合同。Textarea 消费原 control-background/control-radius；供应材料页的三个原生选择框复用现有 Select，保留原选项、value/onChange、禁用状态与调用；确认弹窗关闭后恢复原焦点。经原 owner 交接后，只对两个浅色文字令牌做最小调色。主题 provider、导航结构、API、权限、状态机、持久化和外部副作用不变。本文、资产表本身是现状记录。
 
 ## 方法与可追溯清单
 
@@ -62,7 +62,7 @@
 | 5 | DataTable / VirtualList 没有生产消费者，表格筛选和批量操作仍在页面 | 仅在已选两页证明共同需求后采用现有 TanStack 封装；先比较原页合同 | 中；不批量新建高级表格、多选或日期范围组件 |
 | 6 | Toast 固定使用 16 处 palette 色工具类，但业务消费链不存在 | 记录未使用资产；当实际页面需要全局反馈时再核对语义与主题 | 低优先；不凭目录存在宣布业务问题已修复 |
 
-隔离浏览器另确认：浅色 `muted-foreground=#617487` 在 `background=#f4f7fb` 上的 14px 普通辅助文字对比度为 **4.48:1**，低于 4.5:1。此证据来自合成说明文字，不据此声称所有业务页均失败。变量位于 #1075 活跃分支持有的 `console.css`，本批未修改；由该主题 owner 协调最小调色后复核当前正文/辅助文字组合。
+隔离浏览器在旧候选确认：浅色 `muted-foreground=#617487` 在 `background=#f4f7fb` 上约 **4.48:1**，在 secondary 上约 **4.40:1**；选中导航 `#087f6c` 在 `#e5f5f0` 上约 **4.37:1**，均低于小字号的 4.5:1。随后原 #1075 owner 确认分支冻结、文件干净，将这两个浅色文字令牌交给 #1092。仅调整 muted-foreground 为 `#5f7184`、sidebar-accent-foreground 为 `#077b68`，对应约 **4.67 / 4.59 / 4.61:1**。未整文件替换品牌色，也未修改原 #1075 分支；两页实际复核及全站限制见试点记录。
 
 源码色值扫描是候选筛选，不能当作缺陷计数：`description-editor.css` 的 169 处色值涉及编辑器/正文内容语义；`console.css` 的 74 处和 `globals.css` 的 58 处主要是合法主题定义；营销样式不在工作台试点范围。商品原图、品牌图标、图表系列、用户保存的文字/高亮颜色不应机械替换为主题色。
 
@@ -76,6 +76,6 @@
 ## 验证状态与下一步
 
 - 基线已有基础 UI 测试：11 个文件、21 项通过。执行 `node node_modules/vitest/vitest.mjs run src/components/ui`；未改这些实现。
-- 控件对比为临时、合成检查：渲染基线快照与本地 Textarea 候选，消费实际 Tailwind/Console CSS；light/dark、1440/390 均无横向溢出，多行输入及 Tab 到只读字段通过。深色 axe 无 violation；浅色保留上述辅助色对比度问题，不记 a11y 全绿。截图只代表控件，不代表两页试点完成。
+- 首轮控件对比为临时、合成检查：渲染基线快照与 Textarea 候选，消费实际 Tailwind/Console CSS；light/dark、1440/390 均无横向溢出，多行输入及 Tab 到只读字段通过。首轮发现的浅色对比度问题与后续两个实际页面的修复复核分开记录；控件截图不冒充页面或全站验收。
 - 完整 `lint/typecheck/test/build` 结果与候选绑定后在交付记录维护；全站浮层、系统偏好、真实登录页面、真实业务、用户试用和部署均为 NOT_RUN。
 - 本资产清单与 Textarea 小修可交付审查。远端 Issue 接单/正文更新被自动审批拒绝，正文未变；本地准备继续沿 Issue 现有 Reuse 范围，远端记录和 Draft PR 发布另行处理，不合并、不关闭父 Issue。
