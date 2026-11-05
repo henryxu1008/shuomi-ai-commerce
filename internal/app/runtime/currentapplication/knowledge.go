@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 type KnowledgeStorageConfig struct {
@@ -20,14 +22,25 @@ type KnowledgeStorageConfig struct {
 }
 
 type KnowledgeConfig struct {
-	Enabled        bool                   `json:"enabled"`
-	Database       DatabaseConfig         `json:"database"`
-	Storage        KnowledgeStorageConfig `json:"storage"`
-	ParserEndpoint string                 `json:"parserEndpoint"`
+	Enabled          bool                             `json:"enabled"`
+	Database         DatabaseConfig                   `json:"database"`
+	Storage          KnowledgeStorageConfig           `json:"storage"`
+	ParserEndpoint   string                           `json:"parserEndpoint"`
+	OriginalDeletion *KnowledgeOriginalDeletionConfig `json:"originalDeletion,omitempty"`
+}
+
+type KnowledgeOriginalDeletionConfig struct {
+	Generation      string `json:"generation"`
+	AllowNew        bool   `json:"allowNew"`
+	AccessKeyID     string `json:"accessKeyId"`
+	SecretAccessKey string `json:"secretAccessKey"`
 }
 
 func (c *Config) validateKnowledge() error {
 	if c.Knowledge == nil || !c.Knowledge.Enabled {
+		if c.Knowledge != nil && c.Knowledge.OriginalDeletion != nil {
+			return errors.New("original deletion requires Knowledge")
+		}
 		return nil
 	}
 	k := c.Knowledge
@@ -39,6 +52,14 @@ func (c *Config) validateKnowledge() error {
 	}
 	if k.Storage.Region == "" || k.Storage.Bucket == "" || k.Storage.AccessKeyID == "" || k.Storage.SecretAccessKey == "" || k.Storage.Mode != "aws" && k.Storage.Mode != "cos" || k.Storage.Mode == "cos" && !k.Storage.COSImmutableNonVersionedBucketPolicy {
 		return errors.New("knowledge requires explicit private immutable object storage")
+	}
+	if d := k.OriginalDeletion; d != nil {
+		id, err := uuid.Parse(d.Generation)
+		if !c.StorageCapacity || k.Storage.CapacityIdentityProvider != "minio-deployment" || err != nil || id == uuid.Nil || id.String() != d.Generation ||
+			strings.TrimSpace(d.AccessKeyID) == "" || strings.TrimSpace(d.SecretAccessKey) == "" ||
+			strings.TrimSpace(d.AccessKeyID) == strings.TrimSpace(k.Storage.AccessKeyID) || strings.TrimSpace(d.SecretAccessKey) == strings.TrimSpace(k.Storage.SecretAccessKey) {
+			return errors.New("knowledge original deletion requires a durable generation, pinned metered MinIO and distinct deletion credentials")
+		}
 	}
 	if err := k.Storage.validateCapacityIdentity(); err != nil {
 		return err

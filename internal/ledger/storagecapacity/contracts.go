@@ -56,15 +56,19 @@ type Reservation struct {
 	State  string
 }
 type Object struct {
-	Namespace string
-	Key       string
-	SHA256    string
-	SizeBytes int64
-	Category  string
+	Namespace        string
+	Key              string
+	SHA256           string
+	SizeBytes        int64
+	Category         string
+	ExclusiveBinding bool
 }
 
 func (o Object) Validate() error {
 	if !ValidID(o.Namespace, 256) || !ValidID(o.Key, 1024) || !ValidDigest(o.SHA256) || o.SizeBytes < 1 {
+		return ErrInvalid
+	}
+	if o.ExclusiveBinding && o.Category != "knowledge_document" {
 		return ErrInvalid
 	}
 	switch o.Category {

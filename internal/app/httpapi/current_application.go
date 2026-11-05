@@ -677,6 +677,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if err != nil {
 			return nil, err
 		}
+		if supplied.knowledge.OriginalDeletionConfigured() {
+			handler.ConfigureOriginalDeletionAuthority(authorizeKnowledgeOriginalDelete(*workbench.authDependencies))
+		}
 		modules = append(modules, knowledgehttp.NewModule(handler))
 	}
 	var storeCatalogModule kernelmodule.Module

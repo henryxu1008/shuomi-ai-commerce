@@ -45,6 +45,10 @@ var runtimeColumns = map[string]struct{ insert, update string }{
 	"knowledge_ingest_operations":      {"organization_id,kind,key,actor_id,fingerprint,result,source_id,revision_id,created_at", ""},
 	"knowledge_context_bundles":        {"organization_id,id,actor_id,context_kind,context_id,request_key,fingerprint,selection,policy_version,base_id,base_fence_version,payload,digest,created_at", ""},
 	"knowledge_context_bundle_entries": {"organization_id,bundle_id,base_id,source_id,revision_id,citation_id,source_fence_version,content_digest", ""},
+	"knowledge_original_generation":    {"", ""},
+	"knowledge_original_uploads":       {"organization_id,revision_id,generation,state", "state,put_token,reservation_id"},
+	"knowledge_original_deletions":     {"organization_id,id,source_id,revision_id,namespace,object_key,sha256,reservation_id,source_version,revision_number,size_bytes,state,created_by,last_actor,created_at,updated_at", "state,present_digest,proof_digest,lease_owner,lease_until,released_at,last_actor,updated_at"},
+	"knowledge_original_delete_keys":   {"organization_id,key,operation_id", ""},
 	"knowledge_dispatch_permits":       {"organization_id,id,actor_id,invocation_id,bundle_id,digest,state,acquired_at,expires_at", "state"},
 }
 
@@ -55,7 +59,11 @@ func GrantRuntime(ctx context.Context, db *gorm.DB) error {
 		}
 	}
 	for table, columns := range runtimeColumns {
-		for _, statement := range []string{"GRANT SELECT ON public." + table + " TO knowledge_runtime", "GRANT INSERT (" + columns.insert + ") ON public." + table + " TO knowledge_runtime"} {
+		statements := []string{"GRANT SELECT ON public." + table + " TO knowledge_runtime"}
+		if columns.insert != "" {
+			statements = append(statements, "GRANT INSERT ("+columns.insert+") ON public."+table+" TO knowledge_runtime")
+		}
+		for _, statement := range statements {
 			if err := db.WithContext(ctx).Exec(statement).Error; err != nil {
 				return err
 			}
@@ -78,11 +86,23 @@ func VerifyRuntime(ctx context.Context, db *gorm.DB) error {
 		return errors.New("knowledge runtime privileges exceed owner boundary")
 	}
 	for table, columns := range runtimeColumns {
+		if strings.HasPrefix(table, "knowledge_original_") {
+			var installed bool
+			if err := db.WithContext(ctx).Raw("SELECT to_regclass(?) IS NOT NULL", "public."+table).Scan(&installed).Error; err != nil {
+				return err
+			}
+			if !installed {
+				continue
+			}
+		}
 		var allowed bool
 		if err := db.WithContext(ctx).Raw("SELECT has_table_privilege(current_user,?,'SELECT') AND NOT has_table_privilege(current_user,?,'DELETE,TRUNCATE,TRIGGER,REFERENCES')", "public."+table, "public."+table).Scan(&allowed).Error; err != nil || !allowed {
 			return errors.New("knowledge runtime table privileges invalid")
 		}
 		for _, column := range strings.Split(columns.insert, ",") {
+			if column == "" {
+				continue
+			}
 			if err := db.WithContext(ctx).Raw("SELECT has_column_privilege(current_user,?,?,'INSERT')", "public."+table, column).Scan(&allowed).Error; err != nil || !allowed {
 				return errors.New("knowledge runtime insert grants incomplete")
 			}
@@ -93,6 +113,11 @@ func VerifyRuntime(ctx context.Context, db *gorm.DB) error {
 		}
 		for _, column := range names {
 			want := strings.Contains(","+columns.update+",", ","+column+",")
+			if table == "knowledge_original_generation" {
+				if err := db.WithContext(ctx).Raw("SELECT has_column_privilege(current_user,?,?,'INSERT')", "public."+table, column).Scan(&allowed).Error; err != nil || allowed {
+					return errors.New("knowledge generation owner must be read-only to runtime")
+				}
+			}
 			if err := db.WithContext(ctx).Raw("SELECT has_column_privilege(current_user,?,?,'UPDATE')", "public."+table, column).Scan(&allowed).Error; err != nil || allowed != want {
 				return errors.New("knowledge runtime update grants invalid")
 			}

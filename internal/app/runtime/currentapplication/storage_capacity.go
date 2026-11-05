@@ -95,6 +95,23 @@ func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service
 		meter := &storagecapacity.Meter{Writer: repo, Namespace: ns}
 		service.ConfigureStorageCapacity(meter)
 		processor.ConfigureStorageCapacity(meter)
+		if d := c.Knowledge.OriginalDeletion; d != nil {
+			if err := store.VerifyStoredReleaseRuntime(ctx, db); err != nil {
+				return errors.New("knowledge release ledger schema is unavailable")
+			}
+			deleteClient := client
+			deleteClient.AccessKeyID, deleteClient.SecretAccessKey = d.AccessKeyID, d.SecretAccessKey
+			deleter, err := s3.NewKnowledgeOriginalDeleter(deleteClient, s.Bucket)
+			if err != nil {
+				return err
+			}
+			if err = deleter.VerifyNamespace(ctx, ns); err != nil {
+				return errors.New("knowledge original deletion namespace is not admitted")
+			}
+			if err = service.ConfigureOriginalDeletion(deleter, d.AllowNew); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

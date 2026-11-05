@@ -18,6 +18,12 @@ export const basesSchema = z.object({ items: z.array(baseSchema).max(100), pagin
 export const sourcesSchema = z.object({items:z.array(sourceSchema).max(100)}).strict();
 export const previewSchema = z.object({ revisionId: knowledgeId, text: z.string().min(1).max(2*1024*1024), warning: z.string().regex(/^[A-Z_]{1,64}$/).optional() }).strict();
 export const resultSchema = z.object({ knowledgeBase: baseSchema.optional(), source: sourceSchema.optional(), revision: revisionSchema.optional() }).strict().refine(result => !!result.knowledgeBase || !!result.source);
+export const originalFileSchema = z.object({
+ sourceId: knowledgeId, sourceVersion: version, revisionId: knowledgeId, revisionNumber: version,
+ bytes: z.number().int().positive().max(10*1024*1024), canDelete: z.boolean(),
+ operationId: knowledgeId.optional(), state: z.enum(["FENCED", "DELETE_DISPATCHED", "OBJECT_ABSENCE_PROVEN", "RELEASED"]).optional(),
+}).strict().refine(file => file.operationId ? !!file.state && !file.canDelete : !file.state);
+export type OriginalFile = z.infer<typeof originalFileSchema>;
 export type KnowledgeSource = z.infer<typeof sourceSchema>;
 export type KnowledgeScope = {userId:string;organizationId:string};
 export class KnowledgeError extends Error { constructor(public code:string, public status=500) {super(code)} }

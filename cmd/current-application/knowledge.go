@@ -18,6 +18,13 @@ func prepareKnowledge(ctx context.Context, db *gorm.DB, cfg *currentapplication.
 	if err != nil {
 		return nil, nil, err
 	}
+	generation := ""
+	if cfg.OriginalDeletion != nil {
+		generation = cfg.OriginalDeletion.Generation
+	}
+	if err = repo.ConfigureOriginalGeneration(ctx, generation); err != nil {
+		return nil, nil, err
+	}
 	c := cfg.Storage
 	client, err := s3.NewKnowledgeClient(s3.ClientConfig{Region: c.Region, Endpoint: c.Endpoint, AccessKeyID: c.AccessKeyID, SecretAccessKey: c.SecretAccessKey, UsePathStyle: true})
 	if err != nil {
