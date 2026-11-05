@@ -159,3 +159,25 @@ func TestChannelManagementSharedImageEndpointQualifiesTextRegardlessOfDefinition
 	_, e := channelManagementDefinitions([]qualified.Definition{text, image}, true)
 	require.Error(t, e, "an image definition cannot widen the text endpoint digest")
 }
+
+func TestClosedAIWithoutManagementProtectionRemainsReadOnly(t *testing.T) {
+	c, in := channelProvisionFixture()
+	c.ChannelCredentials.ManagementWriter = &in.WriterDatabase
+	c.ModelRoutePricing.Bindings[0].ReferenceVersion = "v1"
+	c.ModelRoutePricing.Bindings[0].ConnectionEndpoint = in.BaseURL
+	c.ChannelCredentials.ProtectionKey = ""
+	require.NoError(t, c.validateChannelCredentials(), "missing optional management protection must retain metadata-only startup")
+	require.False(t, c.channelManagementEnabled(), "the production writer-open branch must stay disabled")
+	c.ChannelCredentials.ProtectionKey = in.APIKey
+	c.ChannelCredentials.ProtectionKeyID = ""
+	require.NoError(t, c.validateChannelCredentials())
+	require.False(t, c.channelManagementEnabled(), "a partial protection configuration still cannot open a writer")
+	// No private reader is opened or decrypted merely to display metadata.
+	_, _, e := openChannelCredentials(context.Background(), c, func(context.Context, DatabaseConfig) (*gorm.DB, error) {
+		t.Fatal("execution reader must remain closed")
+		return nil, nil
+	})
+	require.NoError(t, e)
+	c.ProductAgent.Enabled = true
+	require.Error(t, c.validateChannelCredentials(), "actual execution still requires all original secret-reader/protection admission")
+}

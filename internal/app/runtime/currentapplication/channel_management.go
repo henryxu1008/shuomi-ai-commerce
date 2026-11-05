@@ -99,7 +99,7 @@ func prepareChannelManagement(ctx context.Context, c *Config, reader, writer *go
 	}
 	var publisher credential.ManagementWriter
 	if writer != nil {
-		if c == nil || c.ChannelCredentials == nil || c.ChannelCredentials.ManagementWriter == nil || writer == reader || channelstore.VerifyManagementWriter(ctx, writer) != nil {
+		if !c.channelManagementEnabled() || writer == reader || channelstore.VerifyManagementWriter(ctx, writer) != nil {
 			return nil, credential.ErrUnavailable
 		}
 		protection, e := c.ChannelCredentials.protection()

@@ -14,6 +14,11 @@ beforeEach(()=>{
  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
 });
 afterEach(()=>{cleanup();for(const c of clients)c.clear();clients.length=0;sessionStorage.clear();localStorage.clear();vi.unstubAllGlobals()});
+it("retains a readable connection list without exposing a Key form when management material is unavailable",async()=>{
+ const fetch=vi.fn(async()=>Response.json({organizationId:"org-a",canManage:false,connections:[connection]}));vi.stubGlobal("fetch",fetch);mount();
+ expect(await screen.findByText("凭据管理写入尚未配置，当前仅可查看连接状态。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"录入 Key"})).toBeDisabled();expect(screen.queryByLabelText("新的渠道 Key")).not.toBeInTheDocument();expect(fetch).toHaveBeenCalledTimes(1);
+});
 it("clears a submitted Key, retains only sanitized references after ACK loss and never infers success from current revision",async()=>{
  const user=userEvent.setup(),fetch=fixture();const view=mount();
  await user.click(await screen.findByRole("button",{name:"录入 Key"}));

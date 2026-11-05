@@ -879,7 +879,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		textReader = qualified.SharedTextReader{Service: read}
 		imageReader = read
 		var credentialWriter *gorm.DB
-		if cfg.ChannelCredentials != nil && cfg.ChannelCredentials.ManagementWriter != nil {
+		if cfg.channelManagementEnabled() {
 			if dependencies.OpenChannelCredentialWriter == nil {
 				return errors.New("channel management writer lifecycle unavailable")
 			}
