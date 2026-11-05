@@ -82,7 +82,7 @@ func New(config Config) (*Runtime, error) {
 		tools[def.Ref] = def
 	}
 	if config.SingleCallReadOnly {
-		if config.DomainProposalKind == "" || len(config.PreReadTools) < 1 || len(config.PreReadTools) > 2 {
+		if len(config.PreReadTools) < 1 || len(config.PreReadTools) > 2 {
 			return nil, agent.ErrInvalid
 		}
 		seen := map[commercetool.ToolRef]bool{}
@@ -124,16 +124,22 @@ func (r *Runtime) Resume(ctx context.Context, request agent.Request, revision ui
 // ClaimAttempt is true from the point Store.Claim is called, including an
 // ambiguous Claim error. It never infers a safe retry from a failed lookup.
 func (r *Runtime) StartWithClaimAttempt(ctx context.Context, request agent.Request) (agent.Record, bool, error) {
-	return r.runWithClaimAttempt(ctx, request, 0, "")
+	return r.runWithClaimAttempt(ctx, request, 0, "", false)
+}
+
+// StartFresh stops at an existing receipt instead of treating it as a new execution.
+func (r *Runtime) StartFresh(ctx context.Context, request agent.Request) (agent.Record, error) {
+	record, _, err := r.runWithClaimAttempt(ctx, request, 0, "", true)
+	return record, err
 }
 func (r *Runtime) ResumeWithClaimAttempt(ctx context.Context, request agent.Request, revision uint64, feedback string) (agent.Record, bool, error) {
 	if revision == 0 || len(feedback) > 8<<10 || !utf8.ValidString(feedback) {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
-	return r.runWithClaimAttempt(ctx, request, revision, feedback)
+	return r.runWithClaimAttempt(ctx, request, revision, feedback, false)
 }
 
-func (r *Runtime) runWithClaimAttempt(ctx context.Context, request agent.Request, expected uint64, feedback string) (agent.Record, bool, error) {
+func (r *Runtime) runWithClaimAttempt(ctx context.Context, request agent.Request, expected uint64, feedback string, freshOnly bool) (agent.Record, bool, error) {
 	if r != nil && r.config.SingleCallReadOnly && (expected != 0 || request.Limits.ModelCalls != 1) {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
@@ -169,6 +175,9 @@ func (r *Runtime) runWithClaimAttempt(ctx context.Context, request agent.Request
 		return agent.Record{}, true, agent.ErrConflict
 	}
 	if !acquired {
+		if freshOnly {
+			return record, true, agent.ErrConflict
+		}
 		return record, true, nil
 	}
 	if record.State.Phase != agent.Running || expected > 0 && len(record.Checkpoint) == 0 || len(record.Checkpoint) > agent.MaxStateBytes {

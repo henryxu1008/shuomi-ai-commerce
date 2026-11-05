@@ -70,6 +70,9 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 		return route.Profile, routeErr
 	}
 	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: routeResolver.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
+		if err := a.authorizeTitlePilotDispatch(ctx, in); err != nil {
+			return err
+		}
 		if supplyAgentContext(ctx) {
 			return a.authorizeSupplyModel(ctx, in.OrganizationID, in.ActorID, in.MemberID)
 		}
@@ -101,9 +104,18 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 	if err != nil {
 		return err
 	}
-	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: a, Authorizer: a, Store: guard})
+	runtimeConfig := einoruntime.Config{Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: a, Authorizer: a, Store: guard}
+	a.runtime, err = einoruntime.New(runtimeConfig)
 	if err != nil {
 		return err
+	}
+	if a.titlePilotPublisher != nil {
+		runtimeConfig.SingleCallReadOnly = true
+		runtimeConfig.PreReadTools = []commercetool.ToolRef{canonicalinspect.Definition().Ref}
+		a.titlePilotFixed, err = einoruntime.New(runtimeConfig)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
