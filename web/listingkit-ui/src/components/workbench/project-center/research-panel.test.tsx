@@ -306,7 +306,7 @@ it.each([403,503,504,"network"])("uses the actual Research response %s for an up
  const real=await vi.importActual<typeof import("@/lib/api/market-research")>("@/lib/api/market-research");
  vi.stubEnv("LISTINGKIT_SERVICE_API_BASE","http://127.0.0.1:9/api/v1");
  const upstream=vi.fn(async ()=>{
-  if(status==="network")throw new TypeError("network unavailable");
+  if(typeof status!=="number")throw new TypeError("network unavailable");
   const code=status===403?"PERMISSION_DENIED":status===503?"DEPENDENCY_UNAVAILABLE":"DEADLINE_EXCEEDED";
   return Response.json({code,message:"Synthetic backend error",requestId:"",fieldErrors:[]},{status});
  });
