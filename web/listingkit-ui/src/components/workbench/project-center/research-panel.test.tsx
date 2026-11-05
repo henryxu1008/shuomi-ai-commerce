@@ -265,3 +265,36 @@ it("keeps one candidate's assumptions out of another candidate", async () => {
  expect(screen.getAllByRole("form",{name:"经营假设和参考试算"})).toHaveLength(1);
  expect(screen.getByLabelText("假设售价（USD/件）")).toHaveValue("");
 });
+
+
+it.each(["AUTHENTICATION_REQUIRED","IDENTITY_CONTEXT_CHANGED","ORGANIZATION_CONTEXT_CHANGED","PERMISSION_DENIED","INVALID_UPSTREAM_RESPONSE"])(
+ "clears a private cost draft when the Research read returns %s",
+ async code=>{
+  mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false})
+   .mockRejectedValueOnce(new ResearchError(code));
+  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
+  const price=screen.getByLabelText("假设售价（USD/件）");
+  fireEvent.change(price,{target:{value:"30"}});
+  fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
+  expect(await screen.findByText(/原商品资料已变化或暂不可读/)).toBeVisible();
+  expect(price).toHaveValue("");
+  expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument();
+ },
+);
+
+
+it.each(["DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED"])(
+ "retains the draft for a temporary %s read failure",
+ async code=>{
+  mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false})
+   .mockRejectedValueOnce(new ResearchError(code));
+  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
+  const price=screen.getByLabelText("假设售价（USD/件）");
+  fireEvent.change(price,{target:{value:"30"}});
+  fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
+  expect(await screen.findByText(/已保留输入/)).toBeVisible();
+  expect(price).toHaveValue("30");
+ },
+);

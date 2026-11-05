@@ -43,7 +43,9 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
    const page=await researchRequest(scope,projectId,researchPage,signal,{after});
    return !signal.aborted&&!page.incomplete&&page.items.some(candidate=>costBinding(candidate)===binding);
   } catch (error) {
-   if(error instanceof ResearchError&&["FORBIDDEN","NOT_FOUND","PROJECT_ARCHIVED"].includes(error.code))return false;
+   // A malformed upstream denial can arrive as INVALID_UPSTREAM_RESPONSE.
+   // Only explicitly temporary reads may retain the previous private draft.
+   if(error instanceof ResearchError&&error.code!=="DEPENDENCY_UNAVAILABLE"&&error.code!=="DEADLINE_EXCEEDED")return false;
    throw error;
   }
  }
