@@ -46,8 +46,8 @@ func (a *fullImageApplication) outputRecoverySummary(ctx context.Context, p imag
 		if slot.Closure != nil || len(slot.Candidates) != 0 {
 			continue // Its original closure already accounts for these points.
 		}
-		_, definition, recoverable := imageagent.FindRecoverableEffect(p, slot.Slot.ID, slot.Attempt)
-		if !recoverable || definition.Recipe == nil {
+		definition, found := imageagent.FindOriginalSettlementSlot(p, slot.Slot.ID, slot.Attempt)
+		if !found || definition.Recipe == nil {
 			continue
 		}
 		id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(p.Run), PlanRevision: p.Plan.Revision, SlotID: definition.ID, Attempt: slot.Attempt}

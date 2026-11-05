@@ -13,7 +13,7 @@ func prepareSupplyMarket(ctx context.Context, cfg *currentapplication.SupplyMark
 	if e != nil {
 		return nil, e
 	}
-	uploader, e := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Bucket: c.Bucket, Endpoint: c.Endpoint, UsePathStyle: true, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
+	uploader, e := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Bucket: c.Bucket, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
 	if e != nil {
 		return nil, e
 	}
