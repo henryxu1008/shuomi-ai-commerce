@@ -66,7 +66,7 @@ export function ProductSelectionFlow({
     selectionIntentSchema,
     { storage: "local", maxLength: 16384 },
   );
-  const [selected, setSelected] = useState<CollectionItem[]>(initialItems),
+  const [selected, setSelected] = useState<CollectionItem[]>(() => initialItems.filter(item => item.source.kind !== "shein_us_data")),
     [goal, setGoal] = useState(
       "请根据真实事实，用中文比较商品并指出缺失信息。",
     ),
@@ -363,8 +363,9 @@ export function ProductSelectionFlow({
             scope={scope}
             kind="product"
             disabled={locked || selected.length >= 5}
+            isEligible={(item) => item.source.kind !== "shein_us_data"}
             onSelect={(item) => {
-              if (selected.some((i) => i.id === item.id)) return;
+              if (item.source.kind === "shein_us_data" || selected.some((i) => i.id === item.id)) return;
               setSelected([...selected, item]);
               setFacts(undefined);
             }}

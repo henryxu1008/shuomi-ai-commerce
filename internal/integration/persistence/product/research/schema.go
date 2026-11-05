@@ -14,10 +14,10 @@ func InstallSchema(db *gorm.DB) error {
 	}
 	return db.Exec(`CREATE TABLE IF NOT EXISTS research_opportunities (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, project_id uuid NOT NULL, id uuid NOT NULL,
- site varchar(4) NOT NULL, asin varchar(10) NOT NULL, selected_link_id uuid,
+ platform varchar(16) NOT NULL, market varchar(4) NOT NULL, native_product_id varchar(64) NOT NULL, selected_link_id uuid,
  state varchar(32) NOT NULL CHECK(state IN ('TO_RESEARCH','PENDING_CONFIRMATION','APPROVED_FOR_TEST','REJECTED')),
  reason text NOT NULL DEFAULT '' CHECK(octet_length(reason)<=4096), revision bigint NOT NULL CHECK(revision>0),
- PRIMARY KEY(organization_id,actor_id,project_id,id), CONSTRAINT research_opportunity_identity UNIQUE(organization_id,actor_id,project_id,site,asin));
+ PRIMARY KEY(organization_id,actor_id,project_id,id), CONSTRAINT research_opportunity_identity UNIQUE(organization_id,actor_id,project_id,platform,market,native_product_id));
  CREATE TABLE IF NOT EXISTS research_evidence_links (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, project_id uuid NOT NULL, id uuid NOT NULL,
  candidate_id uuid NOT NULL, reference_json jsonb NOT NULL CHECK(octet_length(reference_json::text)<=8192),
@@ -40,7 +40,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		return research.ErrUnavailable
 	}
 	for _, q := range []string{
-		"SELECT organization_id,actor_id,project_id,id,site,asin,selected_link_id,state,reason,revision FROM research_opportunities LIMIT 0",
+		"SELECT organization_id,actor_id,project_id,id,platform,market,native_product_id,selected_link_id,state,reason,revision FROM research_opportunities LIMIT 0",
 		"SELECT organization_id,actor_id,project_id,id,candidate_id,reference_json,removed,created_at FROM research_evidence_links LIMIT 0",
 		"SELECT organization_id,actor_id,project_id,key,input_hash,candidate_id,intent_json,receipt_json,decision_json,created_at FROM research_commands LIMIT 0",
 	} {
@@ -51,7 +51,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	var ready bool
 	if db.WithContext(ctx).Raw(`WITH expected(relation,kind,columns,reference,reference_columns) AS (VALUES
  ('research_opportunities','p',ARRAY['organization_id','actor_id','project_id','id'],NULL::text,NULL::text[]),
- ('research_opportunities','u',ARRAY['organization_id','actor_id','project_id','site','asin'],NULL,NULL),
+ ('research_opportunities','u',ARRAY['organization_id','actor_id','project_id','platform','market','native_product_id'],NULL,NULL),
  ('research_evidence_links','p',ARRAY['organization_id','actor_id','project_id','id'],NULL,NULL),
  ('research_commands','p',ARRAY['organization_id','actor_id','project_id','key'],NULL,NULL),
  ('research_evidence_links','f',ARRAY['organization_id','actor_id','project_id','candidate_id'],'research_opportunities',ARRAY['organization_id','actor_id','project_id','id'])

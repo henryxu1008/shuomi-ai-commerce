@@ -75,7 +75,8 @@ type researchSources struct {
 }
 
 func (a researchSources) Observe(ctx context.Context, scope collection.Scope, in research.Selection) (research.Observation, error) {
-	proof, err := a.collections.Select(ctx, collection.SelectionInput{ItemID: in.ItemID, ExpectedRevision: in.Revision, OriginalPublicationID: in.PublicationID, OriginalVersion: in.Version})
+	selection := collection.SelectionInput{ItemID: in.ItemID, ExpectedRevision: in.Revision, OriginalPublicationID: in.PublicationID, OriginalVersion: in.Version}
+	proof, err := a.collections.Select(ctx, selection)
 	if err != nil {
 		return research.Observation{}, research.ErrNotFound
 	}
@@ -84,23 +85,40 @@ func (a researchSources) Observe(ctx context.Context, scope collection.Scope, in
 		return research.Observation{}, research.ErrForbidden
 	}
 	detail, err := proof.Read(ctx)
-	if err != nil || detail.Item.ArchivedAt != nil || detail.Item.Source.Kind != "amazon_data" {
+	if err != nil || detail.Item.ArchivedAt != nil {
 		return research.Observation{}, research.ErrNotFound
 	}
-	original, err := a.data.Provenance(ctx, dataacquisition.Principal{Scope: scope}, detail.Item.Source)
+	principal := dataacquisition.Principal{Scope: scope}
+	var observation research.Observation
+	switch detail.Item.Source.Kind {
+	case "amazon_data":
+		observation, err = a.observeAmazon(ctx, principal, in, detail.Item)
+	case collection.SourceSHEINUSData:
+		observation, err = a.observeSHEINUS(ctx, principal, in, detail.Item)
+	default:
+		return research.Observation{}, research.ErrNotFound
+	}
 	if err != nil {
-		return research.Observation{}, researchProvenanceFailure(err)
+		return research.Observation{}, err
 	}
 	// Revalidate the member reference after provenance materialization.
-	if _, err = a.collections.Select(ctx, collection.SelectionInput{ItemID: in.ItemID, ExpectedRevision: in.Revision, OriginalPublicationID: in.PublicationID, OriginalVersion: in.Version}); err != nil {
+	if _, err = a.collections.Select(ctx, selection); err != nil {
 		return research.Observation{}, research.ErrNotFound
+	}
+	return observation, nil
+}
+
+func (a researchSources) observeAmazon(ctx context.Context, principal dataacquisition.Principal, in research.Selection, item collection.Item) (research.Observation, error) {
+	original, err := a.data.Provenance(ctx, principal, item.Source)
+	if err != nil {
+		return research.Observation{}, researchProvenanceFailure(err)
 	}
 	e := original.Evidence
 	site, err := dataacquisition.ResolveSite(e.Site)
 	if err != nil {
 		return research.Observation{}, research.ErrUnavailable
 	}
-	v := research.Observation{Query: research.QuerySummary{Mode: original.Query.Mode, Keyword: original.Query.Keyword, CategoryNode: original.Query.CategoryNode, ASINCount: len(original.Query.ASINs), Limit: original.Query.Limit, Fields: append([]string{}, original.Query.Fields...)}, Item: detail.Item, Ref: research.EvidenceRef{Selection: in, Source: original.Source, JobID: original.JobID, Checksum: original.Checksum}, BatchID: detail.Item.BatchID, Site: e.Site, ASIN: e.ASIN, Title: e.Title, SourceURL: "https://" + site.Domain + "/dp/" + e.ASIN, CapturedAt: e.CapturedAt, ParserVersion: e.ParserVersion, Currency: e.Currency, Missing: append([]string{}, e.Missing...)}
+	v := research.Observation{Query: research.QuerySummary{Mode: original.Query.Mode, Keyword: original.Query.Keyword, CategoryNode: original.Query.CategoryNode, ASINCount: len(original.Query.ASINs), Limit: original.Query.Limit, Fields: append([]string{}, original.Query.Fields...)}, Item: item, Ref: research.EvidenceRef{Selection: in, Source: original.Source, JobID: original.JobID, Checksum: original.Checksum}, BatchID: item.BatchID, Site: e.Site, ASIN: e.ASIN, Title: e.Title, SourceURL: "https://" + site.Domain + "/dp/" + e.ASIN, CapturedAt: e.CapturedAt, ParserVersion: e.ParserVersion, Currency: e.Currency, Missing: append([]string{}, e.Missing...)}
 	if e.Availability == "available" && e.Price > 0 {
 		price := e.Price
 		v.Price = &price
@@ -108,6 +126,32 @@ func (a researchSources) Observe(ctx context.Context, scope collection.Scope, in
 	}
 	return v, nil
 }
+
+func (a researchSources) observeSHEINUS(ctx context.Context, principal dataacquisition.Principal, in research.Selection, item collection.Item) (research.Observation, error) {
+	original, err := a.data.ReadSHEINUSProvenance(ctx, principal, item.Source)
+	if err != nil {
+		if errors.Is(err, dataacquisition.ErrConflict) {
+			return research.Observation{}, research.ErrConflict
+		}
+		return research.Observation{}, researchProvenanceFailure(err)
+	}
+	e := original.Observation
+	v := research.Observation{
+		Item: item, BatchID: item.BatchID, SourceURL: e.SourceURL, ParserVersion: e.ParserVersion, Missing: append([]string{}, e.Missing...),
+		Ref: research.EvidenceRef{Selection: in, Source: original.Source, JobID: original.JobID, Checksum: original.Checksum,
+			QueryRef: original.QueryRef, ObservationVersion: original.ObservationVersion, ObservationEncodingVersion: original.ObservationEncodingVersion},
+		Query: research.QuerySummary{Mode: original.QuerySummary.Mode, CategoryRef: original.QuerySummary.CategoryRef, Keyword: original.QuerySummary.Keyword, Fields: []string{}},
+		SHEIN: &research.SHEINCard{Market: e.Market, NativeGoodsID: e.NativeGoodsID, Price: (*research.SHEINCardPrice)(e.Price)},
+	}
+	if e.Title != nil {
+		v.Title = *e.Title
+	}
+	if e.CapturedAt != nil {
+		v.CapturedAt = *e.CapturedAt
+	}
+	return v, nil
+}
+
 func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModule, collections *collection.Service, data *dataservicesapp.Module) (kernel.Module, error) {
 	if db == nil || project.handler == nil || collections == nil || data == nil {
 		return nil, errors.New("market research requires current project, collection and data owners")

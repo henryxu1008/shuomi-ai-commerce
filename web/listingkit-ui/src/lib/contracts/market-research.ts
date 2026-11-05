@@ -6,7 +6,37 @@ const researchSelection=z.strictObject({itemId:collectionID,revision,publication
 export type ResearchSelection=z.infer<typeof researchSelection>;
 export const selectionOf=(item:CollectionItem):ResearchSelection=>({itemId:item.id,revision:item.revision,publicationId:item.source.publicationId,version:item.source.version});
 const source=collectionItemSchema.shape.source;
-const observation=z.strictObject({query:z.strictObject({mode:z.enum(["keyword","category","asin"]),keyword:text(800).optional(),categoryNode:text(20).optional(),asinCount:z.number().int().min(0).max(200),limit:z.number().int().min(1).max(200),fields:z.array(text(128)).max(32)}),item:collectionItemSchema,ref:z.strictObject({selection:researchSelection,source,jobId:collectionID,checksum:text(256).min(1)}),batchId:collectionID,site:text(4).min(1),asin:z.string().regex(/^[A-Z0-9]{10}$/),title:text(2000),sourceUrl:z.url().refine(v=>new URL(v).protocol==="https:"),capturedAt:z.iso.datetime({offset:true}),parserVersion:text(128),currency:text(16).optional(),price:z.number().finite().positive().optional(),priceBasis:text(64).optional(),missing:z.array(text(128)).max(256)}).refine(v=>v.item.id===v.ref.selection.itemId&&v.item.revision===v.ref.selection.revision&&v.item.source.publicationId===v.ref.selection.publicationId&&v.item.source.version===v.ref.selection.version&&v.item.source.kind==="amazon_data"&&v.batchId===v.item.batchId);
+const reference={selection:researchSelection,source,jobId:collectionID};
+const sharedObservation={item:collectionItemSchema,batchId:collectionID,title:text(2000),sourceUrl:z.url().refine(v=>new URL(v).protocol==="https:"),parserVersion:text(128),missing:z.array(text(128)).max(256)};
+const amazonObservation=z.strictObject({
+ ...sharedObservation,ref:z.strictObject({...reference,checksum:text(256).min(1)}),
+ query:z.strictObject({mode:z.enum(["keyword","category","asin"]),keyword:text(800).optional(),categoryNode:text(20).optional(),asinCount:z.number().int().min(0).max(200),limit:z.number().int().min(1).max(200),fields:z.array(text(128)).max(32)}),
+ site:text(4).min(1),asin:z.string().regex(/^[A-Z0-9]{10}$/),capturedAt:z.iso.datetime({offset:true}),currency:text(16).optional(),price:z.number().finite().positive().optional(),priceBasis:text(64).optional(),
+});
+const goodsId=z.string().regex(/^[1-9][0-9]{0,63}$/);
+const emptyQueryFields={asinCount:z.literal(0),limit:z.literal(0),fields:z.array(z.never()).length(0)};
+const sheinObservation=z.strictObject({
+ ...sharedObservation,
+ ref:z.strictObject({...reference,checksum:z.string().regex(/^sha256:[0-9a-f]{64}$/),queryRef:collectionID,observationVersion:z.literal("1"),observationEncodingVersion:z.literal("shein-us-observation-json-v1")}),
+ query:z.discriminatedUnion("mode",[z.strictObject({mode:z.literal("category"),categoryRef:goodsId,...emptyQueryFields}),z.strictObject({mode:z.literal("keyword"),keyword:text(800).min(1),...emptyQueryFields})]),
+ site:z.literal(""),asin:z.literal(""),capturedAt:z.union([z.literal(""),z.iso.date(),z.iso.datetime({offset:true})]),
+ shein:z.strictObject({market:z.literal("US"),nativeGoodsId:goodsId,price:z.strictObject({
+  amount:z.string().max(32).regex(/^(0|[1-9][0-9]*)(\.[0-9]+)?$/),currency:z.string().regex(/^[A-Z]{3}$/),basis:z.literal("listing_display"),promotionNote:text(512).nullable(),taxIncluded:z.boolean().nullable(),unit:text(128).nullable(),
+ }).nullable()}),
+}).refine(v=>{
+ try {
+  const url=new URL(v.sourceUrl);
+  return url.host==="us.shein.com"&&!url.username&&!url.password&&url.pathname.endsWith(`-p-${v.shein.nativeGoodsId}.html`);
+ } catch { return false; }
+});
+const observation=z.union([amazonObservation,sheinObservation]).refine(v=>{
+ const {item,ref}=v;
+ const kind="shein" in v?"shein_us_data":"amazon_data";
+ return item.id===ref.selection.itemId&&item.revision===ref.selection.revision&&item.batchId===v.batchId&&
+  item.source.kind===kind&&ref.source.kind===kind&&item.source.publicationId===ref.selection.publicationId&&
+  item.source.version===ref.selection.version&&item.source.productKey===ref.source.productKey&&
+  item.source.publicationId===ref.source.publicationId&&item.source.version===ref.source.version&&item.source.operationId===ref.source.operationId;
+});
 const researchState=z.enum(["TO_RESEARCH","PENDING_CONFIRMATION","APPROVED_FOR_TEST","REJECTED"]);
 const candidateSchema=z.strictObject({id:collectionID,state:researchState,reason:text(4096).optional(),revision,selectedLinkId:collectionID.optional(),evidenceDigest:digest.optional(),observation:observation.optional(),evidence:z.array(z.strictObject({id:collectionID,observation:observation.optional()})).max(21),history:z.array(z.strictObject({state:researchState,reason:text(4096).optional(),evidenceDigest:digest.optional(),revision,at:z.iso.datetime({offset:true})})).max(20)});
 export type ResearchCandidate=z.infer<typeof candidateSchema>;

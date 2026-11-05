@@ -1,22 +1,51 @@
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {render,screen,fireEvent,waitFor,cleanup} from "@testing-library/react";
+import {readFileSync} from "node:fs";
 import {ResearchPanel} from "./research-panel";
 import {ResearchError} from "@/lib/api/market-research";
-const mock=vi.hoisted(()=>({read:vi.fn(),context:{permissions:["workbench.collection.read","workbench.project.manage"],registerOrganizationSwitchGuard:()=>()=>{}}}));
+import {researchPage} from "@/lib/contracts/market-research";
+import {parseCollectionResponse,type CollectionItem} from "@/lib/contracts/product-collection";
+const mock=vi.hoisted(()=>({read:vi.fn(),pickerItem:undefined as CollectionItem|undefined,context:{permissions:["workbench.collection.read","workbench.project.manage"],registerOrganizationSwitchGuard:()=>()=>{}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>mock.context}));
 vi.mock("@/lib/api/market-research",async original=>({...await original<object>(),researchRequest:mock.read}));
-vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,isEligible}:{onSelect:(i:unknown)=>void;isEligible:(i:unknown)=>boolean})=>isEligible({source:{kind:"amazon_data"},id:"22222222-2222-4222-8222-222222222222"})?<button onClick={()=>onSelect({id:"22222222-2222-4222-8222-222222222222",revision:1,source:{kind:"amazon_data",publicationId:id,version:"1"}})}>核实插件来源</button>:<p>不支持来源已排除</p>}));
+vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,isEligible}:{onSelect:(i:unknown)=>void;isEligible:(i:unknown)=>boolean})=>{
+ const item=mock.pickerItem??{id:"22222222-2222-4222-8222-222222222222",revision:1,source:{kind:"amazon_data",publicationId:id,version:"1"}};
+ return isEligible(item)?<button onClick={()=>onSelect(item)}>{mock.pickerItem?.title??"核实插件来源"}</button>:<p>不支持来源已排除</p>;
+}}));
 vi.mock("./research-analysis-flow",async original=>({...await original<object>(),ResearchAnalysisFlow:()=> <h3>AI分析建议</h3>}));
 vi.mock("./research-comparison",()=>({ResearchComparison:()=>null}));
 const id="11111111-1111-4111-8111-111111111111";
 const candidate={id,revision:2,state:"TO_RESEARCH",selectedLinkId:id,evidenceDigest:"a".repeat(64),observation:{title:"真实保存商品",site:"us",asin:"B000123456",sourceUrl:"https://www.amazon.com/dp/B000123456",capturedAt:"2026-11-02T00:00:00Z",parserVersion:"amazon-v1",missing:["rating"],ref:{checksum:"original",selection:{itemId:id,revision:1,publicationId:id,version:"1"}},item:{id,revision:1,source:{kind:"amazon_data",version:"1",publicationId:id}}},evidence:[],history:[]};
-beforeEach(()=>{sessionStorage.clear();mock.read.mockReset().mockResolvedValue({items:[candidate],incomplete:false});});afterEach(cleanup);
+beforeEach(()=>{sessionStorage.clear();mock.pickerItem=undefined;mock.read.mockReset().mockResolvedValue({items:[candidate],incomplete:false});});afterEach(cleanup);
 it("places optional analysis before the independent human decision in selection review",async()=>{
  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
  const decision=await screen.findByRole("button",{name:"开始评估"});
  expect(screen.getByRole("heading",{name:"AI分析建议"}).compareDocumentPosition(decision)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 it("shows original missing facts without dispatching a command on open",async()=>{render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);expect(await screen.findByText("真实保存商品")).toBeInTheDocument();expect(screen.getByText(/rating/)).toBeInTheDocument();expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);});
+it("shows the original SHEIN card as research evidence without offering assessment", async () => {
+ const fixture=JSON.parse(readFileSync("../../docs/architecture/evidence/shein-us-data-v1-p1-p2.json", "utf8"));
+ const {selection,publication,job,observationUtf8}=fixture.publications.P1;
+ const card=JSON.parse(observationUtf8);
+ const item={id:selection.itemId,batchId:id,title:card.title,source:publication.source,revision:selection.revision,createdAt:candidate.observation.capturedAt};
+ const amazonItem={...item,id,title:"Amazon 样例",source:{...publication.source,kind:"amazon_data"}};
+ expect(parseCollectionResponse("items",{items:[amazonItem,item],total:2})).toMatchObject({items:[{source:{kind:"amazon_data"}},{source:{kind:"shein_us_data"}}]});
+ expect(parseCollectionResponse("batches",{items:[{id,name:"Amazon 数据",kind:"amazon_data",revision:1,count:1,createdAt:item.createdAt,supplyTransferSupported:true},{id:selection.itemId,name:"SHEIN 数据",kind:"shein_us_data",revision:1,count:1,createdAt:item.createdAt,supplyTransferSupported:false}],total:2})).not.toBeNull();
+ const observation={...candidate.observation,site:"",asin:"",title:card.title,sourceUrl:card.sourceUrl,capturedAt:"",parserVersion:card.parserVersion,missing:card.missing,
+  shein:{market:card.market,nativeGoodsId:card.nativeGoodsId,price:card.price},query:{mode:"category",categoryRef:"1727",asinCount:0,limit:0,fields:[]},
+  batchId:id,item,ref:{selection,source:publication.source,jobId:job.jobId,queryRef:job.queryRef,checksum:publication.rawReference.checksum,observationVersion:"1",observationEncodingVersion:"shein-us-observation-json-v1"}};
+ mock.pickerItem=item;
+ mock.read.mockResolvedValue(researchPage.parse({items:[{...candidate,observation}],incomplete:false}));
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);
+ expect(await screen.findByText("SHEIN 美国站商品卡片")).toBeInTheDocument();
+ expect(screen.getByText(/USD 38\.88/)).toBeInTheDocument();
+ expect(screen.getByRole("link",{name:/查看来源页面/})).toHaveAttribute("href",card.sourceUrl);
+ expect(screen.getByRole("checkbox")).toBeDisabled();
+ expect(screen.queryByRole("button",{name:"开始评估"})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"添加已有商品资料"}));
+ fireEvent.click(screen.getByRole("button",{name:card.title}));
+ await waitFor(()=>expect(mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent.body).toEqual({action:"link",selections:[selection]}));
+});
 it("focuses the requested function while keeping selected candidates and avoiding commands between steps",async()=>{
  const scope={userId:"u",organizationId:"o"};
  const view=render(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection" workflowStep="decisions"/>);

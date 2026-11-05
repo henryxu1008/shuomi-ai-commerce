@@ -27,10 +27,13 @@ type Selection struct {
 	Version       uint64 `json:"version,string"`
 }
 type EvidenceRef struct {
-	Selection Selection         `json:"selection"`
-	Source    collection.Source `json:"source"`
-	JobID     string            `json:"jobId"`
-	Checksum  string            `json:"checksum"`
+	Selection                  Selection         `json:"selection"`
+	Source                     collection.Source `json:"source"`
+	JobID                      string            `json:"jobId"`
+	Checksum                   string            `json:"checksum"`
+	QueryRef                   string            `json:"queryRef,omitempty"`
+	ObservationVersion         string            `json:"observationVersion,omitempty"`
+	ObservationEncodingVersion string            `json:"observationEncodingVersion,omitempty"`
 }
 
 func (r EvidenceRef) Digest() string { return collection.Digest(r) }
@@ -39,6 +42,7 @@ type QuerySummary struct {
 	Mode         string   `json:"mode"`
 	Keyword      string   `json:"keyword,omitempty"`
 	CategoryNode string   `json:"categoryNode,omitempty"`
+	CategoryRef  string   `json:"categoryRef,omitempty"`
 	ASINCount    int      `json:"asinCount"`
 	Limit        int      `json:"limit"`
 	Fields       []string `json:"fields"`
@@ -58,7 +62,40 @@ type Observation struct {
 	Price         *float64        `json:"price,omitempty"`
 	PriceBasis    string          `json:"priceBasis,omitempty"`
 	Missing       []string        `json:"missing"`
+	SHEIN         *SHEINCard      `json:"shein,omitempty"`
 }
+
+type SHEINCard struct {
+	Market        string          `json:"market"`
+	NativeGoodsID string          `json:"nativeGoodsId"`
+	Price         *SHEINCardPrice `json:"price"`
+}
+
+type SHEINCardPrice struct {
+	Amount        string  `json:"amount"`
+	Currency      string  `json:"currency"`
+	Basis         string  `json:"basis"`
+	PromotionNote *string `json:"promotionNote"`
+	TaxIncluded   *bool   `json:"taxIncluded"`
+	Unit          *string `json:"unit"`
+}
+
+type ProductIdentity struct{ Platform, Market, NativeProductID string }
+
+func (o Observation) Identity() ProductIdentity {
+	if o.SHEIN != nil {
+		return ProductIdentity{"shein", o.SHEIN.Market, o.SHEIN.NativeGoodsID}
+	}
+	return ProductIdentity{"amazon", o.Site, o.ASIN}
+}
+
+func (i ProductIdentity) CandidateID(scope collection.Scope, project string) string {
+	if i.Platform == "amazon" {
+		return collection.StableID(scope.OrganizationID, scope.ActorID, project, "opportunity", i.Market, i.NativeProductID)
+	}
+	return collection.StableID(scope.OrganizationID, scope.ActorID, project, "opportunity", i.Platform, i.Market, i.NativeProductID)
+}
+
 type Link struct {
 	ID      string
 	Ref     EvidenceRef
@@ -71,10 +108,10 @@ type Decision struct {
 	At                            time.Time
 }
 type Candidate struct {
-	ID, ProjectID, Site, ASIN, SelectedLinkID, State, Reason string
-	Revision                                                 int64
-	Links                                                    []Link
-	History                                                  []Decision
+	ID, ProjectID, SelectedLinkID, State, Reason string
+	Revision                                     int64
+	Links                                        []Link
+	History                                      []Decision
 }
 type EvidenceView struct {
 	ID          string       `json:"id"`

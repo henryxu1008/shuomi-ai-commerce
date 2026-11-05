@@ -22,10 +22,10 @@ func New(ctx context.Context, db *gorm.DB) (*Repository, error) {
 }
 
 type candidateRow struct {
-	OrganizationID, ActorID, ProjectID, ID, Site, ASIN string
-	SelectedLinkID                                     *string
-	State, Reason                                      string
-	Revision                                           int64
+	OrganizationID, ActorID, ProjectID, ID, Platform, Market, NativeProductID string
+	SelectedLinkID                                                            *string
+	State, Reason                                                             string
+	Revision                                                                  int64
 }
 
 func (candidateRow) TableName() string { return "research_opportunities" }
@@ -113,7 +113,7 @@ func (r *Repository) Load(ctx context.Context, s collection.Scope, p, id string)
 	return details(r.db.WithContext(ctx), s, p, row)
 }
 func details(db *gorm.DB, s collection.Scope, p string, row candidateRow) (research.Candidate, error) {
-	out := research.Candidate{ID: row.ID, ProjectID: p, Site: row.Site, ASIN: row.ASIN, State: row.State, Reason: row.Reason, Revision: row.Revision, Links: []research.Link{}, History: []research.Decision{}}
+	out := research.Candidate{ID: row.ID, ProjectID: p, State: row.State, Reason: row.Reason, Revision: row.Revision, Links: []research.Link{}, History: []research.Decision{}}
 	if row.SelectedLinkID != nil {
 		out.SelectedLinkID = *row.SelectedLinkID
 	}
@@ -218,11 +218,12 @@ func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key stri
 		}
 		observations = append([]research.Observation(nil), observations...)
 		sort.Slice(observations, func(i, j int) bool {
-			return collection.StableID(s.OrganizationID, s.ActorID, p, "opportunity", observations[i].Site, observations[i].ASIN) < collection.StableID(s.OrganizationID, s.ActorID, p, "opportunity", observations[j].Site, observations[j].ASIN)
+			return observations[i].Identity().CandidateID(s, p) < observations[j].Identity().CandidateID(s, p)
 		})
 		for _, v := range observations {
-			id := collection.StableID(s.OrganizationID, s.ActorID, p, "opportunity", v.Site, v.ASIN)
-			row := candidateRow{OrganizationID: s.OrganizationID, ActorID: s.ActorID, ProjectID: p, ID: id, Site: v.Site, ASIN: v.ASIN, State: "TO_RESEARCH", Revision: 1}
+			identity := v.Identity()
+			id := identity.CandidateID(s, p)
+			row := candidateRow{OrganizationID: s.OrganizationID, ActorID: s.ActorID, ProjectID: p, ID: id, Platform: identity.Platform, Market: identity.Market, NativeProductID: identity.NativeProductID, State: "TO_RESEARCH", Revision: 1}
 			if e := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; e != nil {
 				return out, research.ErrUnavailable
 			}

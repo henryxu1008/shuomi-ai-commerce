@@ -76,6 +76,9 @@ func (i Inspector) Prepare(ctx context.Context, contextID string, choices []coll
 		if detail.Item.ArchivedAt != nil {
 			return empty, Inspection{}, collection.ErrNotFound
 		}
+		if detail.Item.Source.Kind == collection.SourceSHEINUSData {
+			return empty, Inspection{}, agent.ErrInvalid
+		}
 		ref := agent.SelectionProductRef{ItemID: detail.Item.ID, ItemRevision: strconv.FormatInt(detail.Item.Revision, 10), ProductKey: detail.Item.Source.ProductKey, CatalogVersion: strconv.FormatUint(detail.Item.Source.Version, 10), PublicationID: detail.Item.Source.PublicationID}
 		if !ref.Valid() {
 			return empty, Inspection{}, agent.ErrInvalid
@@ -209,6 +212,9 @@ func (i Inspector) AuthorizeHistory(ctx context.Context, binding agent.Binding) 
 		}
 		if detail.Item.ArchivedAt != nil {
 			return collection.Scope{}, collection.ErrNotFound
+		}
+		if detail.Item.Source.Kind == collection.SourceSHEINUSData {
+			return collection.Scope{}, agent.ErrInvalid
 		}
 		if detail.Item.ID != ref.ItemID || detail.Item.Source.ProductKey != ref.ProductKey {
 			return collection.Scope{}, agent.ErrConflict

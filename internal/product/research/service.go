@@ -2,6 +2,7 @@ package research
 
 import (
 	"context"
+	"regexp"
 	"sort"
 	"strings"
 	"task-processor/internal/product/collection"
@@ -12,9 +13,25 @@ import (
 func ValidSelection(s Selection) bool {
 	return collection.ValidID(s.ItemID) && s.Revision > 0 && collection.ValidID(s.PublicationID) && s.Version > 0
 }
+
+var sheinGoodsID = regexp.MustCompile(`^[1-9][0-9]{0,63}$`)
+var sheinChecksum = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+
 func ValidObservation(v Observation, s Selection) bool {
 	r := v.Ref
-	return r.Selection == s && ValidSelection(s) && r.Source.Kind == "amazon_data" && r.Source.PublicationID == s.PublicationID && r.Source.OperationID == s.PublicationID && r.Source.Version == s.Version && r.Source.ProductKey != "" && collection.ValidID(r.JobID) && len(r.Checksum) > 0 && len(r.Checksum) <= 256 && len(v.Site) <= 4 && v.Site != "" && len(v.ASIN) == 10 && len(v.Title) <= 2000 && utf8.ValidString(v.Title)
+	if r.Selection != s || !ValidSelection(s) || r.Source.PublicationID != s.PublicationID || r.Source.OperationID != s.PublicationID || r.Source.Version != s.Version || r.Source.ProductKey == "" || !collection.ValidID(r.JobID) || len(v.Title) > 2000 || !utf8.ValidString(v.Title) {
+		return false
+	}
+	switch r.Source.Kind {
+	case "amazon_data":
+		return v.SHEIN == nil && len(r.Checksum) > 0 && len(r.Checksum) <= 256 && len(v.Site) <= 4 && v.Site != "" && len(v.ASIN) == 10
+	case collection.SourceSHEINUSData:
+		return v.SHEIN != nil && v.SHEIN.Market == "US" && sheinGoodsID.MatchString(v.SHEIN.NativeGoodsID) &&
+			sheinChecksum.MatchString(r.Checksum) && collection.ValidID(r.QueryRef) && r.ObservationVersion == "1" && r.ObservationEncodingVersion != "" &&
+			v.Item.ID == s.ItemID && v.Item.Revision == s.Revision && v.Item.Source == r.Source && v.Item.BatchID == v.BatchID && v.Site == "" && v.ASIN == ""
+	default:
+		return false
+	}
 }
 func Validate(c Command) error {
 	if !utf8.ValidString(c.Reason) || len(c.Reason) > 4096 || strings.ContainsRune(c.Reason, 0) {
@@ -123,6 +140,8 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 					validation = e
 				} else if !ValidObservation(v, bound.Selection) || v.Ref != *bound {
 					validation = ErrConflict
+				} else if c.Action != "select" && v.Ref.Source.Kind != "amazon_data" {
+					validation = ErrUnsupported
 				}
 			}
 		}
