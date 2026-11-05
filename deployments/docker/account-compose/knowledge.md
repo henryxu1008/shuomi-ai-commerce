@@ -62,7 +62,7 @@ Dockerfile 校验各架构已固定的官方 SHA256；首次构建需要访问 G
 - 后台每 5 秒最多领取 2 个立即可运行任务（合同上限 4），租约 30 秒、处理截止 20 秒、最多 3 次解析尝试。
   重启从数据库恢复；缺失对象标记 UPLOAD_INCOMPLETE，相同上传键与字节可恢复原 Revision。
 - 企业切换时清空旧企业数据、请求与预览。结果不确定的写操作先用原键收敛后才能切换企业。
-- 打开详情每 5 秒同步知识库与资料状态，其他管理员的改名/停用会反映在页面；停用后移除预览与管理控件。
+- 打开详情每 5 秒同步知识库与资料状态，其他管理员的改名/停用会反映在页面；停用后移除正文预览、替换等操作。启用原文件删除时，满足资格的已停用资料仍可显示原文件管理。
 
 停止/重启保留资料与凭据：
 
@@ -73,6 +73,19 @@ docker compose -f deployments/docker/account-compose/docker-compose.yml -f deplo
 
 保留项目须继续使用相同 overlay。现有未启用知识库的项目不能就地追加该 schema/凭据；请创建新的空项目。
 此启动命令不授权部署或改动现有共享实例。卷删除与停止是不同操作。
+
+## 原文件删除 V1 的启用条件
+
+默认关闭。仅在使用当前空安装 schema、已启用企业容量计量、已固定部署 ID 的专用非版本化 MinIO 实例中启用。
+当前 [#1103 架构](../../../docs/architecture/knowledge-original-file-deletion.md)定义资格、存储证明和续行合同。
+
+1. 由环境负责人核对桶及私有前缀无版本化、对象锁、保留、生命周期或复制路径。启用和未结操作期间固定原桶与部署身份，并限制同一前缀的写删身份。
+2. 停止旧 writer，撤销其写凭据，并用旧凭据确认 PUT 被拒绝。为支持当前协议的 writer 使用独立新凭据。为删除端创建单独身份并仅绑定 [V1 删除策略](knowledge-original-delete-policy.json)。
+3. 由 Knowledge schema owner 在空安装的 `public.knowledge_original_generation` 写入 `(singleton=true, generation=<新 UUID>)`。运行账户只读该记录。使用相同 UUID 配置服务私密配置中的 `knowledge.originalDeletion.generation`。把删除身份凭据放入该配置段的 `accessKeyId`、`secretAccessKey`，并设 `allowNew: true`。
+4. 关闭新增入口用 `allowNew: false`。保留原代际配置、支持该代际的 writer 和删除核验身份，以便核实已受理操作。需要停用且没有支持此合同的回滚镜像时，停止相关 writer，由当前协议修复前进。
+
+从「我的知识库」打开仍在使用的知识库，先停用测试资料，再从「原文件管理」永久删除。回执完成后从「资源与额度」查看用量。
+当前已安装环境的就地 schema 变更、凭据轮换和真实数据操作单独准入。
 
 ## 开发检查与验收边界
 

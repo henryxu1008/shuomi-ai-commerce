@@ -569,7 +569,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: &settings}
 	if rehearsal != nil {
 		if rehearsal.pilot {
-			configureTitlePilotFixture(&settings, rehearsal)
+			configureTitlePilotFixture(t, &settings, rehearsal)
 		} else {
 			settings.TextTransport = titleRehearsalLoopback(t, provider.URL)
 		}

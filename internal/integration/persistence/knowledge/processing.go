@@ -29,7 +29,13 @@ func (r *Repository) ClaimUpload(ctx context.Context, org, id, owner string) (re
 		if e := one(tx, "SELECT * FROM public.knowledge_revisions WHERE organization_id=? AND id=? FOR UPDATE", &rev, org, id); e != nil {
 			return e
 		}
+		if e := r.readOriginalRevision(tx, &rev); e != nil {
+			return e
+		}
 		revision = rev
+		if rev.OriginalDeletionFenced {
+			return nil
+		}
 		now, clockErr := databaseNow(tx)
 		if clockErr != nil {
 			return clockErr
@@ -92,6 +98,9 @@ func (r *Repository) ClaimProcessing(ctx context.Context, owner string, max int)
 				rev.Attempts++
 			}
 			if e := tx.Exec("UPDATE public.knowledge_revisions SET state=?,lease_owner=?,lease_until=?,attempts=?,updated_at=? WHERE organization_id=? AND id=?", rev.State, owner, until, rev.Attempts, now, rev.OrganizationID, rev.ID).Error; e != nil {
+				return e
+			}
+			if e := r.readOriginalRevision(tx, rev); e != nil {
 				return e
 			}
 			runnable = append(runnable, *rev)

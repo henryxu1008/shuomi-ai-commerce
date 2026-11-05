@@ -72,9 +72,9 @@ type ProductAgentDependencies struct {
 	Limits                   agent.Limits
 	// Code-owned transport injection for isolated protocol fixtures; never
 	// populated by the deployment manifest or browser input.
-	TextTransport     http.RoundTripper `json:"-"`
-	TextLogger        *logrus.Entry     `json:"-"`
-	titlePilotEnabled bool
+	TextTransport      http.RoundTripper `json:"-"`
+	TextLogger         *logrus.Entry     `json:"-"`
+	titlePilotApproval titlePilotApproval
 }
 
 type ProductAgentInvocationLedger interface {
@@ -280,8 +280,11 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if err != nil {
 		return nil, err
 	}
-	if cfg.titlePilotEnabled {
-		if cfg.TextTransport == nil || cfg.ContentOnly || cfg.ContentTitleOnly {
+	if cfg.titlePilotApproval != (titlePilotApproval{}) {
+		approval := cfg.titlePilotApproval
+		if cfg.TextTransport == nil || cfg.ContentOnly || cfg.ContentTitleOnly ||
+			!approval.valid() ||
+			!allowedOrganizations[approval.identity.OrganizationID] {
 			return nil, agent.ErrInvalid
 		}
 		a.titlePilotPublisher = sources

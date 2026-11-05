@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -19,7 +20,10 @@ import (
 	"task-processor/internal/ledger/storagecapacity"
 )
 
-type Handler struct{ service *knowledge.Service }
+type Handler struct {
+	service                 *knowledge.Service
+	authorizeOriginalDelete func(context.Context, knowledge.Scope) error
+}
 
 func NewHandler(service *knowledge.Service) (*Handler, error) {
 	if service == nil {
@@ -34,7 +38,7 @@ func failure(c *gin.Context, err error) {
 	}
 	status := http.StatusServiceUnavailable
 	code := knowledge.ErrUnavailable.Error()
-	for _, known := range []error{knowledge.ErrInvalid, knowledge.ErrNotFound, knowledge.ErrConflict, knowledge.ErrInactive, knowledge.ErrSourceLimit, knowledge.ErrRevisionBusy, knowledge.ErrNotReadable, knowledge.ErrIntegrity} {
+	for _, known := range []error{knowledge.ErrInvalid, knowledge.ErrNotFound, knowledge.ErrConflict, knowledge.ErrInactive, knowledge.ErrSourceLimit, knowledge.ErrRevisionBusy, knowledge.ErrNotReadable, knowledge.ErrIntegrity, knowledge.ErrForbidden} {
 		if errors.Is(err, known) {
 			code = known.Error()
 			switch known {
@@ -42,6 +46,8 @@ func failure(c *gin.Context, err error) {
 				status = 400
 			case knowledge.ErrNotFound:
 				status = 404
+			case knowledge.ErrForbidden:
+				status = 403
 			default:
 				status = 409
 			}

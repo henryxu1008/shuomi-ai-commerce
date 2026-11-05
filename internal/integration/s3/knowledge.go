@@ -20,6 +20,9 @@ func NewKnowledgeClient(cfg ClientConfig) (*awss3.Client, error) {
 	// signed request; operator-local HTTP must not use an environment proxy.
 	transport := awshttp.NewBuildableClient().GetTransport()
 	transport.Proxy = nil
+	// Prevent HTTP/2 stream replay from creating a second original PUT.
+	transport.Protocols = new(http.Protocols)
+	transport.Protocols.SetHTTP1(true)
 	cfg.HTTPClient = &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	return NewClient(cfg)
 }
@@ -35,6 +38,9 @@ func NewKnowledgeStore(uploader *Uploader) (*KnowledgeStore, error) {
 }
 func (s *KnowledgeStore) PutImmutable(ctx context.Context, o knowledge.Object) error {
 	return s.uploader.PutImmutable(ctx, ImmutableObjectPut{Key: o.Key, Data: o.Data, ContentType: o.ContentType, SHA256: o.SHA256, SizeBytes: o.SizeBytes})
+}
+func (s *KnowledgeStore) PutImmutableOnce(ctx context.Context, o knowledge.Object) error {
+	return s.uploader.putImmutable(ctx, ImmutableObjectPut{Key: o.Key, Data: o.Data, ContentType: o.ContentType, SHA256: o.SHA256, SizeBytes: o.SizeBytes}, true)
 }
 func (s *KnowledgeStore) Inspect(ctx context.Context, o knowledge.Object) (knowledge.Inspection, error) {
 	i, err := s.uploader.InspectObject(ctx, o.Key)

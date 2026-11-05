@@ -155,6 +155,7 @@
 
 - `agent-customization.md` — [智能体定制需求与人工进度 V1](agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
+- `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
 - `ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](ai-provider-contracts.md)
 - `commerce-tool-canonical-inspection.md` — [B0 Canonical Product Inspection Tool 设计](commerce-tool-canonical-inspection.md)
