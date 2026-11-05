@@ -127,6 +127,16 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 		return agent.Request{}, agent.ErrInvalid
 	}
 	request := agent.Request{Key: key, Binding: binding, GoalSummary: goalSummary, PolicyVersion: agentconfig.TitlePolicyVersion, PromptVersion: agentconfig.TitlePromptVersion, Limits: a.config.Limits}
+	if binding.ContextKind == titlePilotContext {
+		if _, err := a.Authorize(ctx, binding); err != nil {
+			return agent.Request{}, err
+		}
+		slot := ctx.Value(titlePilotSlotKey{}).(*titlePilotSlot)
+		if key != slot.key || expectedProfile != slot.plan.profile || baseID != "" || template != nil || method != nil || !workbench.Absent() || !selection.Absent() || len(manualOnly) != 0 || goalSummary != "" {
+			return agent.Request{}, agent.ErrInvalid
+		}
+		request.Limits = slot.limits
+	}
 	request.ManualReviewOnly = len(manualOnly) == 1 && manualOnly[0]
 	content := a.definition.ID == agentconfig.ContentAgentID
 	if !workbench.ValidOrAbsent() || !workbench.Absent() && (!content || method != nil) {

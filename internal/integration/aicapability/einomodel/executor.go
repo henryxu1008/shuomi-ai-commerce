@@ -204,6 +204,10 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
+	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
+		// Keep the actual SDK wire and framing within the amount quoted and reserved.
+		guardCfg.MaximumRequestBytes = min(guardCfg.MaximumRequestBytes, quote.MaximumTokens-p.MaximumCompletionTokens-128)
+	}
 	if input.Image != nil {
 		guardCfg.SingleImage = &SingleImageRequest{Image: *input.Image, System: input.System, Prompt: input.Prompt}
 	}

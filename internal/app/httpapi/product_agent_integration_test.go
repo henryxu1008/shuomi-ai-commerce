@@ -151,6 +151,10 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 }
 
 func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) {
+	testProductAgentOwnersWithTitleRehearsal(t, mode, nil, imageProvider...)
+}
+
+func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
 	zeroReferenceUsage := mode == "research zero"
 	if zeroReferenceUsage {
 		mode = "research"
@@ -182,8 +186,11 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 	if mode == "knowledge" || googleTitle {
 		kf = newConsumerKnowledgeFixture(t, f.owner)
 	}
-	acquisitionServer := f.server(t)
-	op := acquisitionHTTPCall(t, acquisitionServer, "POST", productAcquisitionBase, fixtureActor, "B", uuid.NewString(), `{"source":"https://detail.1688.com/offer/981645030344.html"}`, 200)
+	var op acquisitionResultDTO
+	if rehearsal == nil {
+		acquisitionServer := f.server(t)
+		op = acquisitionHTTPCall(t, acquisitionServer, "POST", productAcquisitionBase, fixtureActor, "B", uuid.NewString(), `{"source":"https://detail.1688.com/offer/981645030344.html"}`, 200)
+	}
 	require.NoError(t, reviewstore.InstallSchema(f.owner))
 	require.NoError(t, agentstore.InstallSchema(f.owner))
 	require.NoError(t, configstore.InstallSchema(f.owner))
@@ -196,6 +203,8 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 	require.NoError(t, configErr)
 	if !contentTitleOnly && !chatTasks {
 		require.NoError(t, assetstore.AutoMigrate(f.owner))
+	}
+	if !contentTitleOnly && !chatTasks && rehearsal == nil {
 		assets, err := assetstore.NewRepository(f.owner)
 		require.NoError(t, err)
 		version, err := strconv.ParseUint(op.CatalogVersion, 10, 64)
@@ -209,14 +218,22 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 	now := time.Now().UTC()
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: 10000000})
+	pointBudget := int64(10_000_000)
+	if rehearsal != nil && rehearsal.pilot {
+		pointBudget = 4_000_000_000
+	}
+	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: pointBudget})
 	require.NoError(t, err)
-	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)", "B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
+	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)", "B", "ai_point", pointBudget, 0, 0, 0, now, now).Error)
 	if mode == "no quota" {
 		require.NoError(t, f.owner.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 1 WHERE organization_id = 'B'").Error)
 	}
 	var calls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rehearsal != nil {
+			rehearsal.reply(w, r)
+			return
+		}
 		if mode == "research" || mode == "selection" {
 			raw, err := io.ReadAll(r.Body)
 			require.NoError(t, err)
@@ -510,6 +527,9 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 	if mode == "research" || mode == "selection" {
 		credential.Model, credential.APIStyle = "deepseek-v4.1-flash", "openai-compatible"
 	}
+	if rehearsal != nil && rehearsal.pilot {
+		credential.BaseURL, credential.Model, credential.APIStyle = governed.TitlePilotOpenAIEndpoint, aicapability.SingleImageMiniModel, "openai-compatible"
+	}
 	if googleTitle {
 		credential.BaseURL, credential.Model, credential.APIStyle = googleinteractions.Origin, googleinteractions.Model, "google-interactions"
 	}
@@ -547,6 +567,13 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 	// pre-Claim envelope rejection remains observable under the frozen profile.
 	settings := ProductAgentDependencies{ChannelCredentials: newHTTPChannelFixture(f.owner), Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: httpCredentialReference(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ConnectionID: "default", CredentialVersion: row.reference, ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
 	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: &settings}
+	if rehearsal != nil {
+		if rehearsal.pilot {
+			configureTitlePilotFixture(&settings, rehearsal)
+		} else {
+			settings.TextTransport = titleRehearsalLoopback(t, provider.URL)
+		}
+	}
 	if mode == "image analysis" {
 		configureImageAnalysisFixture(&settings, *row, &calls)
 		if len(imageProvider) > 0 {
@@ -672,6 +699,14 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if rehearsal != nil {
+		if rehearsal.pilot {
+			rehearsal.runPilot(t, f.owner, module.(productAgentModule).application)
+		} else {
+			rehearsal.run(t, f.owner, module.(productAgentModule).application)
+		}
+		return
+	}
 	if mode == "image analysis" {
 		expected := "31"
 		if len(imageProvider) > 0 {
