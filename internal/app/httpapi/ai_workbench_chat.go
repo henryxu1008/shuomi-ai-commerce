@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"task-processor/internal/aiworkbench"
+	"task-processor/internal/authidentity"
 )
 
 func (a *aiWorkbenchApplication) listConversations(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
@@ -36,6 +37,9 @@ func (a *aiWorkbenchApplication) listConversations(c *gin.Context, ctx context.C
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	for index, item := range items {
+		items[index], _ = a.authorizedConversation(ctx, scope, item)
+	}
 	workbenchReply(c, http.StatusOK, gin.H{"conversations": items, "next": next})
 }
 
@@ -50,17 +54,54 @@ func (a *aiWorkbenchApplication) createConversation(c *gin.Context, ctx context.
 		return
 	}
 	var body struct {
-		Favorite bool `json:"favorite"`
+		Favorite          bool                        `json:"favorite"`
+		ScopeSelection    *aiworkbench.ScopeSelection `json:"scopeSelection"`
+		ScopeConfirmation string                      `json:"scopeConfirmation"`
 	}
 	if err = workbenchJSON(c, &body); err != nil {
 		writeAIWorkbenchError(c, err)
 		return
 	}
-	conversation, replay, err := a.store.Create(ctx, scope, key, aiworkbench.CreateInput{Favorite: body.Favorite})
+	if a.agent != nil && !a.agent.workbenchKind(aiworkbench.ContentTaskKind) {
+		// The existing title-only Workbench has its own registered inputs.
+		// Workbench scope applies to the content consumer and metadata-only Chat.
+		if body.ScopeSelection != nil || body.ScopeConfirmation != "" {
+			writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+			return
+		}
+		conversation, replay, err := a.store.Create(ctx, scope, key, aiworkbench.CreateInput{Favorite: body.Favorite})
+		if err != nil {
+			writeAIWorkbenchError(c, err)
+			return
+		}
+		workbenchReply(c, http.StatusOK, gin.H{"conversation": conversation, "replay": replay})
+		return
+	}
+	if body.ScopeSelection == nil || !body.ScopeSelection.Valid() || len(body.ScopeConfirmation) != 64 {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	i, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
+	input := aiworkbench.CreateInput{Favorite: body.Favorite, Selection: body.ScopeSelection, ScopeConfirmation: body.ScopeConfirmation, MemberID: i.EffectiveMemberID}
+	if original, found, err := a.store.ReplayCreate(ctx, scope, key, input); found || err != nil {
+		if err != nil {
+			writeAIWorkbenchError(c, err)
+			return
+		}
+		original, _ = a.authorizedConversation(ctx, scope, original)
+		workbenchReply(c, http.StatusOK, gin.H{"conversation": original, "replay": true})
+		return
+	}
+	view, confirmation, preflight := a.scopes.reader.Preview(ctx, scope, *input.Selection)
+	if preflight == nil && confirmation != input.ScopeConfirmation {
+		preflight = aiworkbench.ErrProposalStale
+	}
+	conversation, replay, err := a.store.CreateScoped(ctx, scope, key, input, &view.Scope, preflight)
 	if err != nil {
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	conversation, _ = a.authorizedConversation(ctx, scope, conversation)
 	workbenchReply(c, http.StatusOK, gin.H{"conversation": conversation, "replay": replay})
 }
 
@@ -90,6 +131,10 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 	conversation, err := a.store.Get(ctx, scope, id)
 	if err != nil {
 		writeAIWorkbenchError(c, err)
+		return
+	}
+	if visible, ok := a.authorizedConversation(ctx, scope, conversation); !ok {
+		workbenchReply(c, http.StatusOK, gin.H{"conversation": visible, "messages": []any{}, "proposals": []any{}, "before": "", "scopeUnavailable": true})
 		return
 	}
 	messages, next, err := a.store.ListMessagesPage(ctx, scope, id, before, limit)
@@ -142,6 +187,13 @@ func (a *aiWorkbenchApplication) proposalReceiptCard(ctx context.Context, scope 
 		return workbenchProposalCard{}, aiworkbench.ErrNotFound
 	}
 	card := a.proposalCard(ctx, proposal)
+	if !proposal.WorkbenchContextRef.Absent() {
+		f, err := a.authorizedFrozenScope(ctx, scope, proposal.WorkbenchContextRef, false)
+		if err != nil {
+			return workbenchProposalCard{}, err
+		}
+		card.BusinessScope = &aiworkbench.ScopeView{Scope: f.Scope, ProjectName: f.ModelInput.ProjectTitle, StoreName: f.ModelInput.StoreName}
+	}
 	task, found, err := a.store.LookupProposalTask(ctx, scope, proposal.ConversationID, proposal.ID)
 	if err != nil || found && task.ProposalDigest != proposal.Digest {
 		return workbenchProposalCard{}, aiworkbench.ErrUnavailable
@@ -178,6 +230,7 @@ func (a *aiWorkbenchApplication) changeConversation(c *gin.Context, ctx context.
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	updated, _ = a.authorizedConversation(ctx, scope, updated)
 	workbenchReply(c, http.StatusOK, gin.H{"conversation": updated})
 }
 
@@ -201,6 +254,12 @@ func (a *aiWorkbenchApplication) postMessage(c *gin.Context, ctx context.Context
 	if err != nil {
 		writeAIWorkbenchError(c, err)
 		return
+	}
+	if command.FrozenScope != nil {
+		if _, scopeErr := a.authorizedFrozenScope(ctx, scope, command.ScopeRef(), false); scopeErr != nil {
+			workbenchReply(c, http.StatusAccepted, gin.H{"state": command.State, "scopeUnavailable": true})
+			return
+		}
 	}
 	response := gin.H{"state": command.State, "userMessageId": command.UserMessageID,
 		"sourceSequence": command.SourceSequence, "assistantMessageId": command.AssistantMessageID,
@@ -251,6 +310,10 @@ func (a *aiWorkbenchApplication) confirmProposal(c *gin.Context, ctx context.Con
 	view, viewErr := a.taskView(ctx, scope, task, false)
 	if viewErr != nil {
 		writeAIWorkbenchError(c, viewErr)
+		return
+	}
+	if view.ScopeUnavailable {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
 		return
 	}
 	if accessErr := (workbenchExecution{agent: a.agent}).AuthorizeReceipt(ctx, scope); accessErr != nil {

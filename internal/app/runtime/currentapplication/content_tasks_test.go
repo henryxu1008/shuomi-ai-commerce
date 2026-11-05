@@ -13,7 +13,7 @@ func contentTasksConfig(t *testing.T) *Config {
 	require.NoError(t, json.Unmarshal([]byte(`{"contentTitleOnly":false,"contentOnly":true}`), c.ProductAgent))
 	policy := c.ProductAgent.ContentTextPolicies["org"]
 	policy.Profile.ClientName = "chat"
-	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v2"
+	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
 	policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 	policy.Profile.MaximumCompletionTokens = 4096
 	policy.Profile.MaximumInputBytes = 128 << 10

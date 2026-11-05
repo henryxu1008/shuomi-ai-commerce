@@ -64,7 +64,7 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	}
 	promptVersion := "ai-workbench-chat-plan-v1"
 	if w.ContentTasks {
-		promptVersion = "ai-workbench-chat-plan-v2"
+		promptVersion = "ai-workbench-chat-plan-v3"
 		if len(w.AllowedOrganizationIDs) == 0 || len(w.AllowedOrganizationIDs) > 64 {
 			return errors.New("content tasks require organization admission")
 		}

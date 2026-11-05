@@ -34,7 +34,7 @@ func (a *productAgentApplication) checkManualReviewMode(ctx context.Context, ide
 }
 
 func agentExecutionProvenance(state agent.State) *review.ExecutionProvenance {
-	return &review.ExecutionProvenance{SkillVersionRef: state.Request.SkillVersionRef, ContentSelection: state.Request.ContentSelection, Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
+	return &review.ExecutionProvenance{WorkbenchContextRef: state.Request.WorkbenchContextRef, SkillVersionRef: state.Request.SkillVersionRef, ContentSelection: state.Request.ContentSelection, Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
 }
 func (a *productAgentApplication) titlePolicyScope(ctx context.Context) (review.CandidateExecutionScope, error) {
 	identity, err := a.currentModeIdentity(ctx)
@@ -48,6 +48,15 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 	identity, err := a.currentModeIdentity(ctx)
 	if err != nil {
 		return proof, err
+	}
+	if !provenance.WorkbenchContextRef.Absent() {
+		consumer := a
+		if a.content != nil {
+			consumer = a.content
+		}
+		if err := consumer.authorizeWorkbenchReview(ctx, provenance); err != nil {
+			return proof, err
+		}
 	}
 	if !human {
 		var roles []string
@@ -80,7 +89,7 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 	actionVersion := review.TitlePolicyAdoptionVersion
 	content := config.AgentID == agentconfig.ContentAgentID
 	if content {
-		if config.AgentVersion != agentconfig.ContentAgentVersion || config.Request.PolicyVersion != reviewproposal.ContentPolicyVersion || config.Request.ContentSelection != provenance.ContentSelection || !provenance.ContentSelection.Valid() {
+		if config.AgentVersion != agentconfig.ContentAgentVersion || config.Request.PolicyVersion != reviewproposal.ContentPolicyVersion || config.Request.WorkbenchContextRef != provenance.WorkbenchContextRef || config.Request.ContentSelection != provenance.ContentSelection || !provenance.ContentSelection.Valid() {
 			return proof, review.ErrConflict
 		}
 		actionVersion = review.ContentPolicyAdoptionVersion

@@ -66,7 +66,7 @@ func (p ExecutionProposal) MatchesRequest(r agent.Request) bool {
 		return false
 	}
 	if p.Kind == ContentTaskKind {
-		return r.Binding.ContextKind == p.ContextKind && r.ContentSelection == p.ContentSelection && r.Limits == p.ExecutionLimits && r.PolicyVersion == reviewproposal.ContentPolicyVersion && r.PromptVersion == agentconfig.ContentPromptVersion
+		return r.Binding.ContextKind == p.ContextKind && r.ContentSelection == p.ContentSelection && r.Limits == p.ExecutionLimits && r.PolicyVersion == reviewproposal.ContentPolicyVersion && agentconfig.ValidContentPrompt(r.PromptVersion, r.WorkbenchContextRef)
 	}
 	prompt := "product-title-agent-v1"
 	if !r.ContextSnapshotRef.Absent() {

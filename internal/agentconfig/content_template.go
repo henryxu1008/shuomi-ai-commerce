@@ -3,12 +3,13 @@ package agentconfig
 import reviewproposal "task-processor/internal/product/review/proposal"
 
 const (
-	ContentAgentID          = "product.content.agent"
-	ContentAgentVersion     = "v1.0.0"
-	ContentParameterSchema  = "content-config-v1"
-	ContentPromptVersion    = "product-content-agent-v1"
-	ContentActionVersion    = "product-content-action-v1"
-	MaxContentTemplateBytes = 4096
+	ContentAgentID             = "product.content.agent"
+	ContentAgentVersion        = "v1.0.0"
+	ContentParameterSchema     = "content-config-v1"
+	ContentPromptVersion       = "product-content-agent-v1"
+	ScopedContentPromptVersion = "product-content-scoped-agent-v1"
+	ContentActionVersion       = "product-content-action-v1"
+	MaxContentTemplateBytes    = 4096
 )
 
 // Template preferences are data; the execution confirmation freezes the actual

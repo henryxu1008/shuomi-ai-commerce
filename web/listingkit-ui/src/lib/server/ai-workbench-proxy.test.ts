@@ -8,7 +8,7 @@ describe("AI Workbench BFF boundary", () => {
   beforeEach(() => vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost"));
   it("allows a scoped Chat create and strips browser identity claims", async () => {
     const request = new Request("http://localhost/api/workbench/chat/conversations", {
-      method: "POST", headers: { ...scope, Origin: "http://localhost", "Content-Type": "application/json", "Idempotency-Key": id, "X-Tenant-ID": "victim" }, body: "{}",
+      method: "POST", headers: { ...scope, Origin: "http://localhost", "Content-Type": "application/json", "Idempotency-Key": id, "X-Tenant-ID": "victim" }, body: JSON.stringify({scopeSelection:{kind:"general"},scopeConfirmation:"a".repeat(64)}),
     });
     const mapped = await buildWorkbenchUpstreamRequest(request, ["chat", "conversations"], "server-token", "user-a");
     expect(mapped).not.toBeInstanceOf(Response);

@@ -66,7 +66,7 @@ func (s *Sources) Read(ctx context.Context, scope rc.Scope, kind, id string) (rc
 		if e != nil {
 			return rc.Snapshot{}, sourceError(e)
 		}
-		if v.ID != id || v.Owner != scope.ActorID {
+		if v.ID != id || v.Owner != scope.ActorID || v.Execution != nil && !v.Execution.WorkbenchContextRef.Absent() {
 			return rc.Snapshot{}, rc.ErrNotFound
 		}
 		if review.ValidateView(v) != nil {
