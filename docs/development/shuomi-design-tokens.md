@@ -51,3 +51,11 @@ Light 规则覆盖 Dark 默认；`:root:has(.console-theme)` 将工作台变量�
 品牌/平台图标、商品图片、图表系列和用户保存的富文本颜色是合法内容例外。图表、表格、编辑器的业务数据和持久化不属于设计系统。禁止将 UNKNOWN、denied、unavailable、read-only 或 disabled 统一涂成“成功”，也不让 UI 自行推导连接/授权/资源状态。
 
 当前参考只描述变量。主要正文/状态组合、focus、Portal、表单及响应式仍须在真实试点中验证；“明暗配对存在”不能替代对比度、键盘、读屏或用户验收。
+
+## 填充按钮的悬停配对
+
+Button 的 default/primary 和 destructive/danger 别名使用原填充色与 `foreground` 的 8% 混色作为悬停背景，文字仍读取原专用 foreground。透明度悬停会把浅色表面透进填充色，实际试点已复现小字对比度不足；该混色保留可见反馈，无新变量或主题 provider。
+
+全局主题的 `destructive-foreground` 分别为浅色 `#ffffff`、深色 `#26010b`；后者复用 Console 既有危险操作文字色。Console 自身的危险色配对不变。原 Button props、className 覆盖、原生 disabled、asChild、type 和事件保持。
+
+当前 Console/全局主题、四种填充别名、三种表面及明暗/宽窄屏的有界结果见[页面与状态试点](shuomi-design-system-pilots.md)，不代表所有自定义 className 或全站交互已验收。

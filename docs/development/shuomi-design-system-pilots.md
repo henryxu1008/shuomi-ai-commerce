@@ -59,3 +59,15 @@ Select 在本增量增加一个页面导入点。资产 CSV 保留盘点基线�
 这只是已验证页面和状态的前端证据；全站组件、全部 hover/浮层/状态、真实业务与用户验收仍需后续范围，不能升级为整个 #1092 的 a11y PASS、产品验收通过或可上线。没有把未测试范围记成已接受风险。
 
 相关检查入口：`pnpm test -- src/components/workbench/collections/own-product-entry-page.test.tsx src/components/workbench/supply/materials-page.test.tsx src/components/ui/form-controls.test.tsx`，以及按既有前端流程运行 lint、typecheck 和 build。准确 HEAD、CI、独立评审和最后一次实际结果写在主要 Draft PR 中，不自动关闭父 Issue。
+
+## 共享 Button 的悬停补充
+
+#1074 的实际新表单试点发现，浅色填充主按钮在悬停时白字与透色背景约为 4.11:1。独立使用本仓库 Button 源码和编译后的 CSS，复现了 default/primary 与 destructive/danger 的同类问题：Console 的 96 个状态样本中有 24 个浅色悬停不足 4.5:1。全局主题还存在危险按钮原有的前景配对不足，浅色正常态约 4.28:1、深色约 2.45:1。
+
+本增量只调整四种填充别名的悬停背景，并将全局危险按钮文字配对改为浅色白字、深色复用 Console 既有 `#26010b`。未增加 token、依赖、provider 或业务分支，Button 常态填充色、API、className 覆盖、键盘与原生禁用语义按原边界保留。
+
+组件检查以 Console/全局主题分别执行 dark/light × 1440/390 × background/card/secondary × 四别名 × normal/hover，共 192 个状态样本，全部达到 4.5:1；八个页面快照的 axe 均无违规，Tab 顺序及原生禁用通过。它是实际组件与编译 CSS 的隔离检查，不是业务或全站验收。原始失败、前景修正前的全局失败与修复后记录分别保留在任务目录 `issue1092-button-evidence`，记录源码和样式摘要。
+
+真实 Next 两页试点另在最终生产产物上重跑原 20 项受控场景，并在自有商品页的四个主题/宽度主场景加入「保存商品」实际悬停检查；全部通过，八个主场景 axe 无违规。表单内容、保存冲突、图片/显式库存零、取消焦点、补充意见及原键 UNKNOWN 路径保持。记录含六份生产源码摘要；两处全局前景值在 Console 仍有原配对覆盖。最终构建、准确提交与证据绑定写在 PR 中，不冒充未执行范围。
+
+本增量的 11 文件/21 项原 UI 测试及 Button 定向 lint 通过。临时组件脚本和真实页面脚本均使用合成资料；组件检查无业务 API，真实页面沿前述合成会话/拦截 API 边界。真实身份、后端、企业数据、全站组件与所有 hover/focus 状态仍未完成验收。
