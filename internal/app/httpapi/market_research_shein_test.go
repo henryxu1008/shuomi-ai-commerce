@@ -38,14 +38,29 @@ type sheinResearchPublication struct {
 	Job struct {
 		JobID string
 		Scope collection.Scope
-		dataacquisition.SHEINUSQuery
 	}
-	Item        struct{ ItemID string }
 	Publication struct {
-		Source       collection.Source
-		RawReference struct{ Checksum string }
+		Source collection.Source
 	}
 	ObservationUTF8 string
+}
+
+type sheinResearchTrialAuthority struct {
+	approval dataacquisition.SHEINUSTrialApproval
+}
+
+func (a sheinResearchTrialAuthority) AuthorizeSHEINUSTrial(_ context.Context, p dataacquisition.Principal, id string, _ dataacquisition.SHEINUSTrialAction) (dataacquisition.SHEINUSTrialApproval, error) {
+	if p.Scope != a.approval.Scope || id != a.approval.ID {
+		return dataacquisition.SHEINUSTrialApproval{}, dataacquisition.ErrForbidden
+	}
+	return a.approval, nil
+}
+
+func (a sheinResearchTrialAuthority) CheckSHEINUSTrialBudget(context.Context, dataacquisition.SHEINUSTrialApproval) (dataacquisition.SHEINUSTrialBudget, error) {
+	return dataacquisition.SHEINUSTrialBudget{
+		Binding: a.approval.Binding(), AvailableCredits: 25, MaximumRequestCredits: 25,
+		ZeroIncrementalCash: true, ExclusiveKeyWindow: true,
+	}, nil
 }
 
 type sheinResearchAccess struct {
@@ -106,6 +121,7 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	for _, install := range []func(*gorm.DB) error{keystore.InstallSchema, keystore.InstallCustomSchema, catalogstore.AutoMigrate, sourcestore.InstallSchema, collectionstore.InstallSchema, jobstore.InstallSchema, researchstore.InstallSchema} {
 		require.NoError(t, install(db))
 	}
+	require.NoError(t, jobstore.InstallSHEINUSTrialSchema(ctx, pool))
 	raw, err := os.ReadFile("../../../docs/architecture/evidence/shein-us-data-v1-p1-p2.json")
 	require.NoError(t, err)
 	var fixture struct {
@@ -123,12 +139,6 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, module.Runner())
 	require.Nil(t, module.ChargeOwner())
-	publisher, err := dataservicesapp.NewProductPublisher(access)
-	require.NoError(t, err)
-	jobs, err := jobstore.NewRepository(ctx, db, access, publisher, func(*gorm.DB) (dataacquisition.CapturedResultReader, error) {
-		return nil, dataacquisition.ErrUnavailable // Amazon execution/result routes do not participate.
-	})
-	require.NoError(t, err)
 	cr, err := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
 	require.NoError(t, err)
 	collections, err := collection.NewService(cr, access, access)
@@ -140,14 +150,12 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	require.NoError(t, err)
 	reader := researchSources{collections: collections, data: module}
 	svc := research.New(repo, sheinResearchProject{access}, reader)
-	p := dataacquisition.Principal{Scope: scope}
 	linkKeys := make(map[string]string)
 	selected := make(map[string]research.Selection)
 	for _, name := range []string{"P1", "P2"} {
 		f := fixture.Publications[name]
-		source, err := jobs.PublishSHEINUS(ctx, p, seedSHEINResearchPublication(t, db, f), dataservicesapp.NewSHEINUSPublisher(access))
-		require.NoError(t, err)
-		require.Equal(t, f.Publication.Source, source)
+		source := publishSHEINResearchTrial(t, ctx, db, access, f)
+		require.Equal(t, f.Publication.Source.ProductKey, source.ProductKey)
 		batch, err := collection.NewPublicationBatch(scope, f.Job.JobID, source.Kind, "SHEIN · US")
 		require.NoError(t, err)
 		items, err := cr.ListItems(ctx, scope, batch.ID, collection.Query{Limit: 10})
@@ -172,6 +180,7 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	require.True(t, replay.Replayed)
 	view := page.Items[0]
 	require.Equal(t, "38.88", view.Observation.SHEIN.Price.Amount)
+	require.Equal(t, "after coupon", *view.Observation.SHEIN.Price.PromotionNote)
 	require.Equal(t, "1727", view.Observation.Query.CategoryRef)
 	require.Empty(t, view.Observation.CapturedAt)
 	_, err = svc.Execute(ctx, scope, fixture.ProjectID, uuid.NewString(), research.Command{Action: "link", Selections: []research.Selection{selected["P2"]}})
@@ -224,11 +233,15 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, reason, page.Items[0].Reason)
 	require.Equal(t, reason, page.Items[0].History[0].Reason)
-	p1fixture := fixture.Publications["P1"]
-	require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE id=?", []byte(strings.Replace(p1fixture.ObservationUTF8, "38.88", "39.88", 1)), p1fixture.Item.ItemID).Error)
+	p1Job := fixture.Publications["P1"].Job.JobID
+	var original []byte
+	require.NoError(t, db.Raw("SELECT evidence_json FROM data_acquisition_items WHERE job_id=?", p1Job).Row().Scan(&original))
+	tampered := strings.Replace(string(original), "38.88", "39.88", 1)
+	require.NotEqual(t, string(original), tampered)
+	require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE job_id=?", []byte(tampered), p1Job).Error)
 	_, err = reader.Observe(ctx, scope, p1)
 	require.ErrorIs(t, err, research.ErrUnavailable)
-	require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE id=?", []byte(p1fixture.ObservationUTF8), p1fixture.Item.ItemID).Error)
+	require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE job_id=?", original, p1Job).Error)
 	require.NoError(t, db.Exec("UPDATE product_collection_items SET archived_at=now() WHERE id=?", p1.ItemID).Error)
 	page, err = svc.List(ctx, scope, fixture.ProjectID, "")
 	require.NoError(t, err)
@@ -297,21 +310,46 @@ func publishComparisonFixture(t *testing.T, ctx context.Context, db *gorm.DB, sc
 	return items.Items[0]
 }
 
-func seedSHEINResearchPublication(t *testing.T, db *gorm.DB, f sheinResearchPublication) dataacquisition.SHEINUSPreparedRef {
+// Use the two fixed fixture cards as synthetic responses to separate approved category trials.
+func publishSHEINResearchTrial(t *testing.T, ctx context.Context, db *gorm.DB, access *sheinResearchAccess, f sheinResearchPublication) collection.Source {
 	t.Helper()
-	q, err := json.Marshal(f.Job.SHEINUSQuery)
-	require.NoError(t, err)
 	var observation dataacquisition.SHEINUSObservation
 	require.NoError(t, json.Unmarshal([]byte(f.ObservationUTF8), &observation))
-	s := f.Job.Scope
-	reservation := uuid.NewString()
-	require.NoError(t, db.Exec(`INSERT INTO data_acquisition_jobs
-		(organization_id,actor_id,member_id,id,source_kind,command_key,input_hash,query_json,funding,state,quota_reserved,day_window,month_window,created_at,deadline)
-		VALUES (?,?,?,?,?,?,?,?,'member_allocated','RUNNING',0,CURRENT_DATE,CURRENT_DATE,now(),now()+interval '10 minutes')`,
-		s.OrganizationID, s.ActorID, s.MemberID, f.Job.JobID, collection.SourceSHEINUSData, f.Job.JobID, collection.Digest(f.Job.SHEINUSQuery), string(q)).Error)
-	require.NoError(t, db.Exec(`INSERT INTO data_acquisition_items
-		(organization_id,actor_id,job_id,id,source_kind,native_goods_id,state,intent_json,evidence_json,reservation_id,charge_state,created_at)
-		VALUES (?,?,?,?,?,?,'PREPARED_EVIDENCE','{}',?,?,'reserved',now())`,
-		s.OrganizationID, s.ActorID, f.Job.JobID, f.Item.ItemID, collection.SourceSHEINUSData, observation.NativeGoodsID, []byte(f.ObservationUTF8), reservation).Error)
-	return dataacquisition.SHEINUSPreparedRef{JobID: f.Job.JobID, ItemID: f.Item.ItemID, ReservationID: reservation, Checksum: f.Publication.RawReference.Checksum}
+	approval := dataacquisition.SHEINUSTrialApproval{
+		ID: f.Job.JobID, Scope: f.Job.Scope, ProjectID: access.project,
+		AccountRef: uuid.NewString(), KeyRef: uuid.NewString(), Funding: orgresource.FundingMember,
+		ExpiresAt: time.Now().Add(time.Minute),
+	}
+	card := dataacquisition.SHEINUSTrialCard{
+		Position: 1, GoodsID: observation.NativeGoodsID, Title: *observation.Title, URL: observation.SourceURL,
+		Amount: observation.Price.Amount, Currency: observation.Price.Currency, PromotionNote: "after coupon",
+	}
+	sends := 0
+	trial, err := dataservicesapp.NewSHEINUSPageTrial(ctx, db, access, sheinResearchTrialAuthority{approval},
+		func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, request dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
+			sends++
+			require.Equal(t, "https://us.shein.com/Women-Dresses-c-1727.html", request.URL)
+			credits := 5
+			return dataacquisition.SHEINUSTrialSubmission{
+				SHEINUSTrialUsage: dataacquisition.SHEINUSTrialUsage{ApprovalID: a.ID, Binding: a.Binding(), RequestID: a.ID, Credits: &credits},
+				Cards:             []dataacquisition.SHEINUSTrialCard{card},
+			}, nil
+		},
+		func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest, dataacquisition.SHEINUSTrialAttempt) (dataacquisition.SHEINUSTrialUsage, error) {
+			return dataacquisition.SHEINUSTrialUsage{}, dataacquisition.ErrNotFound
+		},
+	)
+	require.NoError(t, err)
+	p := dataacquisition.Principal{Scope: f.Job.Scope}
+	attempt, sources, err := trial.Run(ctx, p, approval.ID)
+	require.NoError(t, err)
+	require.Equal(t, approval.ID, attempt.RequestID)
+	require.NotNil(t, attempt.Credits)
+	require.Equal(t, 5, *attempt.Credits)
+	require.Len(t, sources, 1)
+	_, replay, err := trial.Run(ctx, p, approval.ID)
+	require.NoError(t, err)
+	require.Equal(t, sources, replay)
+	require.Equal(t, 1, sends)
+	return sources[0]
 }
