@@ -17,17 +17,55 @@ afterEach(() => {
 
 const origin = "https://127.0.0.37:47644";
 
-async function setup(env = "AUTH_URL") {
+async function setup(env = "AUTH_URL", secrets = {}) {
   vi.stubEnv("AUTH_URL", undefined);
   vi.stubEnv("NEXTAUTH_URL", undefined);
   vi.stubEnv(env, origin);
-  vi.stubEnv("AUTH_SECRET", "synthetic-test-secret-".repeat(3));
+  for (const [name, value] of Object.entries({
+    AUTH_SECRET: "synthetic-test-secret-".repeat(3),
+    NEXTAUTH_SECRET: undefined,
+    AUTH_SECRET_1: undefined,
+    AUTH_SECRET_2: undefined,
+    AUTH_SECRET_3: undefined,
+    ZITADEL_CLIENT_SECRET: "synthetic-client-secret",
+    ...secrets,
+  })) {
+    vi.stubEnv(name, value);
+  }
   vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", origin);
   vi.stubEnv("ZITADEL_ISSUER_URL", "https://issuer.example.invalid");
   vi.stubEnv("ZITADEL_CLIENT_ID", "fixture-client");
-  vi.stubEnv("ZITADEL_CLIENT_SECRET", "synthetic-client-secret");
   return (await import("@/auth")).handlers;
 }
+
+it.each([
+  ["OIDC client ID alone", { AUTH_SECRET: undefined, ZITADEL_CLIENT_SECRET: undefined }],
+  ["OIDC client secret", { AUTH_SECRET: undefined }],
+])("rejects session requests with %s", async (_label, secrets) => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const handlers = await setup("AUTH_URL", secrets);
+  const response = await handlers.GET(new NextRequest(`${origin}/api/auth/session`));
+  expect(response.status).toBe(500);
+  expect(response.headers.getSetCookie()).toEqual([]);
+});
+
+it.each(["AUTH_SECRET", "NEXTAUTH_SECRET"])(
+  "rejects whitespace-only %s before Auth.js reads the environment",
+  async (name) => {
+    await expect(setup("AUTH_URL", { AUTH_SECRET: undefined, [name]: "   " }))
+      .rejects.toThrow("Configure a nonblank AUTH_SECRET or NEXTAUTH_SECRET");
+  },
+);
+
+it("accepts the dedicated NextAuth secret alias", async () => {
+  const handlers = await setup("AUTH_URL", {
+    AUTH_SECRET: undefined,
+    NEXTAUTH_SECRET: "synthetic-dedicated-alias-secret-".repeat(3),
+  });
+  const response = await handlers.GET(new NextRequest(`${origin}/api/auth/providers`));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toHaveProperty("zitadel");
+});
 
 it.each(["AUTH_URL", "NEXTAUTH_URL"])(
   "preserves the configured loopback origin through Auth.js public handlers using %s",
