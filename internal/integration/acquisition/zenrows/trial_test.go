@@ -142,6 +142,9 @@ func TestFetchTrialPersistsOriginalUsageOverLocalTLS(t *testing.T) {
 			if tc.behavior == "timeout" {
 				a.ExpiresAt = time.Now().Add(2 * time.Second)
 			}
+			if tc.behavior == "disconnect" {
+				a.ExpiresAt = time.Now().Add(10 * time.Second)
+			}
 			proof := UsageEvidence{}
 			lookup, err := NewLookup(func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialAttempt) (UsageEvidence, error) {
 				return proof, nil
@@ -186,6 +189,22 @@ func TestFetchTrialPersistsOriginalUsageOverLocalTLS(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, requestID, settled.RequestID)
 				require.Equal(t, actual, *settled.Credits)
+				require.Zero(t, settled.ReservedCredits())
+			}
+			if tc.behavior == "disconnect" {
+				actual := 0
+				proof = UsageEvidence{
+					Binding: a.Binding(),
+					Window:  &AcceptanceWindow{ClaimedAt: attempt.ClaimedAt, SendBefore: a.ExpiresAt},
+					Records: []UsageRecord{{
+						AccountRef: a.AccountRef, KeyRef: a.KeyRef, URL: trialRequest.URL, RequestID: requestID,
+						AcceptedAt: attempt.ClaimedAt.Add(time.Millisecond), Final: true, Credits: &actual,
+					}},
+				}
+				settled, err := svc.Reconcile(ctx, p, a.ID)
+				require.NoError(t, err)
+				require.Equal(t, requestID, settled.RequestID)
+				require.Equal(t, 0, *settled.Credits)
 				require.Zero(t, settled.ReservedCredits())
 			}
 			require.EqualValues(t, 1, calls.Load())
@@ -291,6 +310,33 @@ func TestLookupEvidenceRequiresOneOriginalFinalRecord(t *testing.T) {
 		{"other account", testID, false, func(p *UsageEvidence) { p.Records[0].AccountRef = "wrong" }, false},
 		{"other key", "", true, func(p *UsageEvidence) { p.Records[0].KeyRef = "wrong" }, false},
 		{"wrong URL", "", true, func(p *UsageEvidence) { p.Records[0].URL += "?page=2" }, false},
+		{"after caller cutoff", "", true, func(p *UsageEvidence) {
+			p.Records[0].AcceptedAt = claimed.Add(11 * time.Second)
+		}, false},
+		{"unproven claim binding", "", true, func(p *UsageEvidence) {
+			p.Window.ClaimedAt = claimed.Add(-time.Second)
+		}, false},
+		{"asserted cutoff beyond maximum", "", true, func(p *UsageEvidence) {
+			p.Window.SendBefore = claimed.Add(dataacquisition.SHEINUSTrialTimeout + time.Second)
+		}, false},
+		{"competing record missing account", "", true, func(p *UsageEvidence) {
+			ambiguous := matched
+			ambiguous.AccountRef = ""
+			p.Records = append(p.Records, ambiguous)
+		}, false},
+		{"after maximum send duration before approval expiry", "", true, func(p *UsageEvidence) {
+			p.Records[0].AcceptedAt = claimed.Add(45 * time.Second)
+		}, false},
+		{"competing record missing key", "", true, func(p *UsageEvidence) {
+			ambiguous := matched
+			ambiguous.KeyRef = ""
+			p.Records = append(p.Records, ambiguous)
+		}, false},
+		{"competing record missing URL", "", true, func(p *UsageEvidence) {
+			ambiguous := matched
+			ambiguous.URL = ""
+			p.Records = append(p.Records, ambiguous)
+		}, false},
 		{"after window", "", true, func(p *UsageEvidence) { p.Records[0].AcceptedAt = a.ExpiresAt }, false},
 		{"unfinished", testID, false, func(p *UsageEvidence) { p.Records[0].Final = false }, false},
 		{"unknown credits", testID, false, func(p *UsageEvidence) { p.Records[0].Credits = nil }, false},
@@ -309,7 +355,10 @@ func TestLookupEvidenceRequiresOneOriginalFinalRecord(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			attempt := original
 			attempt.RequestID = tc.knownID
-			proof := UsageEvidence{Binding: a.Binding(), AcceptanceWindowVerified: tc.verified, Records: []UsageRecord{matched}}
+			proof := UsageEvidence{Binding: a.Binding(), Records: []UsageRecord{matched}}
+			if tc.verified {
+				proof.Window = &AcceptanceWindow{ClaimedAt: claimed, SendBefore: claimed.Add(10 * time.Second)}
+			}
 			if tc.alter != nil {
 				tc.alter(&proof)
 			}

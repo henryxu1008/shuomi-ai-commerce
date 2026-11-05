@@ -10,10 +10,10 @@ import (
 	"task-processor/internal/product/collection"
 )
 
-const (
-	sheinUSTrialCreditLimit = 25
-	sheinUSTrialTimeout     = 30 * time.Second
-)
+const sheinUSTrialCreditLimit = 25
+
+// SHEINUSTrialTimeout bounds the trial operation and its possible send window.
+const SHEINUSTrialTimeout = 30 * time.Second
 
 var sheinUSTrialRequestID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
@@ -170,7 +170,7 @@ func (s *SHEINUSTrial) visible(ctx context.Context, p Principal, a SHEINUSTrialA
 }
 
 func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {
-	ctx, cancel := context.WithTimeout(ctx, sheinUSTrialTimeout)
+	ctx, cancel := context.WithTimeout(ctx, SHEINUSTrialTimeout)
 	defer cancel()
 	a, err := s.authorize(ctx, p, id, SHEINUSTrialView)
 	if err != nil {
@@ -220,7 +220,7 @@ func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINU
 }
 
 func (s *SHEINUSTrial) Reconcile(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {
-	ctx, cancel := context.WithTimeout(ctx, sheinUSTrialTimeout)
+	ctx, cancel := context.WithTimeout(ctx, SHEINUSTrialTimeout)
 	defer cancel()
 	a, err := s.authorize(ctx, p, id, SHEINUSTrialReconcile)
 	if err != nil {

@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"task-processor/internal/product/dataacquisition"
 )
@@ -43,7 +42,7 @@ func NewFetch(resolve ResolveKey) (*Fetch, error) {
 				DisableKeepAlives:      true,
 				MaxResponseHeaderBytes: 64 << 10,
 			},
-			Timeout:       30 * time.Second,
+			Timeout:       dataacquisition.SHEINUSTrialTimeout,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
 	}, nil
