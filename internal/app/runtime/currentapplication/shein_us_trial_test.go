@@ -20,7 +20,7 @@ import (
 
 const trialTestID = "aaaaaaaa-0000-4000-8000-000000000001"
 
-func trialRuntimeTestConfig(t *testing.T) (*Config, Dependencies) {
+func trialRuntimeTestConfig(t *testing.T, resource *gorm.DB) (*Config, Dependencies) {
 	t.Helper()
 	cfg := dataServicesRuntimeConfig(t)
 	cfg.DataServices = &DataServicesConfig{Database: cfg.DataServices.Database}
@@ -31,7 +31,6 @@ func trialRuntimeTestConfig(t *testing.T) (*Config, Dependencies) {
 	project.User, project.Database = "ai_projects_runtime", "projects"
 	cfg.ProjectCenter = &ProjectCenterConfig{Database: project}
 	open := func(context.Context, DatabaseConfig) (*gorm.DB, error) { return &gorm.DB{}, nil }
-	resource := emptyStorageCommercialOwner(t)
 	deps := Dependencies{
 		IdentityPreflight:      func(context.Context, IdentityConfig) error { return nil },
 		OpenSourceAccount:      open,
@@ -46,7 +45,7 @@ func trialRuntimeTestConfig(t *testing.T) (*Config, Dependencies) {
 }
 
 func TestSHEINTrialRuntimeDefaultAndInvalidOptIn(t *testing.T) {
-	cfg, deps := trialRuntimeTestConfig(t)
+	cfg, deps := trialRuntimeTestConfig(t, emptyStorageCommercialOwner(t))
 	stop := errors.New("fixture reached application assembly")
 	deps.NewApplicationWithFeatures = func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *core.Config, _ *logrus.Logger) (*http.Server, error) {
 		require.Nil(t, f.SHEINUSTrial)
