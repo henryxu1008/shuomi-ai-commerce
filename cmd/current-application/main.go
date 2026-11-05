@@ -181,6 +181,16 @@ func execute() error {
 			if features.MarketResearchDB != nil {
 				options = append(options, httpapi.WithMarketResearch(features.MarketResearchDB))
 			}
+			if trial := features.SHEINUSTrial; trial != nil {
+				option, err := httpapi.WithSHEINUSTrial(httpapi.SHEINUSTrialInputs{
+					Approval: trial.Approval, Reconciler: trial.Reconciler, Access: trial.Access, Budget: trial.Budget,
+					ReadKey: trial.ReadKey, ReadUsage: trial.ReadUsage,
+				})
+				if err != nil {
+					return nil, err
+				}
+				options = append(options, option)
+			}
 			if features.ProjectCenterDB != nil {
 				options = append(options, httpapi.WithProjectCenter(features.ProjectCenterDB))
 			}

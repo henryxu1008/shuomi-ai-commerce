@@ -12,6 +12,7 @@
 - `shein-us-page-publication.md` · [SHEIN 美国站一页响应到原版发布](shein-us-page-publication.md) · #1074 离线组合设计。
 - `shein-us-trial-entry.md` · [SHEIN 美国站单页取数入口](shein-us-trial-entry.md) · #1073 研究项目的默认关闭入口和原单恢复。
 - `shein-us-trial-installation.md` · [SHEIN 单页试取账本与运行依赖准备](shein-us-trial-installation.md) · 原 Product 安装、最小授权与离线批准接线。
+- `shein-us-trial-runtime-wiring.md` · [SHEIN 美国站单页试取运行接线](shein-us-trial-runtime-wiring.md) · 私有批准与门禁、只读挂载、末次发送检查及原单核账。
 
 <a id="foundation"></a>
 

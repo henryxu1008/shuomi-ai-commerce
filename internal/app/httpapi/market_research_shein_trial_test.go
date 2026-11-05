@@ -140,15 +140,15 @@ func verifySHEINTrialRecovery(t *testing.T, ctx context.Context, module *dataser
 	revokeDuringLookup := false
 	canSend, shortBudget := false, true
 	const requestID = "fixture-original-shein-request"
-	deps, err := assembleSHEINTrialDependencies(sheinTrialInputs{
-		approval: a, reconciler: accountant,
-		access: func(_ context.Context, _ dataacquisition.Principal, _ dataacquisition.SHEINUSTrialApproval, action dataacquisition.SHEINUSTrialAction) error {
+	deps, err := assembleSHEINTrialDependencies(SHEINUSTrialInputs{
+		Approval: a, Reconciler: accountant,
+		Access: func(_ context.Context, _ dataacquisition.Principal, _ dataacquisition.SHEINUSTrialApproval, action dataacquisition.SHEINUSTrialAction) error {
 			if action == dataacquisition.SHEINUSTrialSend && !canSend {
 				return dataacquisition.ErrForbidden
 			}
 			return nil
 		},
-		budget: func(ctx context.Context, approval dataacquisition.SHEINUSTrialApproval) (dataacquisition.SHEINUSTrialBudgetEvidence, error) {
+		Budget: func(ctx context.Context, approval dataacquisition.SHEINUSTrialApproval) (dataacquisition.SHEINUSTrialBudgetEvidence, error) {
 			budget, err := (sheinResearchTrialAuthority{approval}).CheckSHEINUSTrialBudget(ctx, approval)
 			until := a.ExpiresAt
 			if shortBudget {
@@ -156,11 +156,11 @@ func verifySHEINTrialRecovery(t *testing.T, ctx context.Context, module *dataser
 			}
 			return dataacquisition.SHEINUSTrialBudgetEvidence{SHEINUSTrialBudget: budget, ValidUntil: until}, err
 		},
-		readKey: func(context.Context, string, string) (string, error) {
+		ReadKey: func(context.Context, string, string) (string, error) {
 			t.Fatal("the offline HTTP composition must not read the provider key")
 			return "", dataacquisition.ErrUnavailable
 		},
-		readUsage: func(_ context.Context, approved dataacquisition.SHEINUSTrialApproval, original dataacquisition.SHEINUSTrialAttempt) (zenrows.UsageEvidence, error) {
+		ReadUsage: func(_ context.Context, approved dataacquisition.SHEINUSTrialApproval, original dataacquisition.SHEINUSTrialAttempt) (zenrows.UsageEvidence, error) {
 			lookups++
 			require.Equal(t, a, approved)
 			require.Equal(t, requestID, original.RequestID)

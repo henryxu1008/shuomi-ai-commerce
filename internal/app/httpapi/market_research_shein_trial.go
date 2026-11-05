@@ -29,23 +29,31 @@ type sheinTrialDependencies struct {
 	lookup    dataacquisition.SHEINUSTrialLookup
 }
 
-type sheinTrialInputs struct {
-	approval   dataacquisition.SHEINUSTrialApproval
-	reconciler collection.Scope
-	access     dataacquisition.SHEINUSTrialAccessCheck
-	budget     dataacquisition.SHEINUSTrialBudgetReader
-	readKey    zenrows.ResolveKey
-	readUsage  zenrows.ReadUsageEvidence
+type SHEINUSTrialInputs struct {
+	Approval   dataacquisition.SHEINUSTrialApproval
+	Reconciler collection.Scope
+	Access     dataacquisition.SHEINUSTrialAccessCheck
+	Budget     dataacquisition.SHEINUSTrialBudgetReader
+	ReadKey    zenrows.ResolveKey
+	ReadUsage  zenrows.ReadUsageEvidence
 }
 
-// assembleSHEINTrialDependencies prepares the explicit internal composition.
-// It is disconnected from the serving runtime and consumes no credentials.
-func assembleSHEINTrialDependencies(in sheinTrialInputs) (sheinTrialDependencies, error) {
-	authority, err := dataacquisition.NewFixedSHEINUSTrialAuthority(in.approval, in.reconciler, in.access, in.budget)
+// WithSHEINUSTrial opts into the existing single-request Product composition.
+// Preparing the option does not resolve the provider credential.
+func WithSHEINUSTrial(in SHEINUSTrialInputs) (CurrentApplicationOption, error) {
+	d, err := assembleSHEINTrialDependencies(in)
+	if err != nil {
+		return nil, err
+	}
+	return withSHEINUSTrial(d), nil
+}
+
+func assembleSHEINTrialDependencies(in SHEINUSTrialInputs) (sheinTrialDependencies, error) {
+	authority, err := dataacquisition.NewFixedSHEINUSTrialAuthority(in.Approval, in.Reconciler, in.Access, in.Budget)
 	if err != nil {
 		return sheinTrialDependencies{}, err
 	}
-	key, err := zenrows.NewDedicatedKeyResolver(in.approval, in.readKey)
+	key, err := zenrows.NewDedicatedKeyResolver(in.Approval, in.ReadKey)
 	if err != nil {
 		return sheinTrialDependencies{}, err
 	}
@@ -53,15 +61,13 @@ func assembleSHEINTrialDependencies(in sheinTrialInputs) (sheinTrialDependencies
 	if err != nil {
 		return sheinTrialDependencies{}, err
 	}
-	lookup, err := zenrows.NewLookup(in.readUsage)
+	lookup, err := zenrows.NewLookup(in.ReadUsage)
 	if err != nil {
 		return sheinTrialDependencies{}, err
 	}
 	return sheinTrialDependencies{authority: authority, send: fetch.Send, lookup: lookup}, nil
 }
 
-// The offline entry is only assembled by an explicit in-package composition.
-// The application runtime and configuration do not opt in.
 func withSHEINUSTrial(d sheinTrialDependencies) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.sheinTrial = &d; o.sheinTrialConfigs++ }
 }
