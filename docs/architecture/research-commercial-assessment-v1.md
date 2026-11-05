@@ -1,6 +1,6 @@
 # 市场调研与商业选品 V1：独立架构提案
 
-日期：2026-11-05。Design Basis：**Independent Architecture（设计阶段）**。Admission：**NOT_READY**。产品与交互见[规划提案](../product/research-commercial-assessment-v1.md)。
+日期：2026-11-05。Design Basis：**Independent Architecture（设计阶段）**。Admission：**NOT_READY（完整商业评估）**。§5.4 商品卡片离线切片单列准入。产品与交互见[规划提案](../product/research-commercial-assessment-v1.md)。
 
 ## 1. Product Outcome、Authority 与范围
 
@@ -10,7 +10,7 @@
 
 适用依据：[父 #1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1074 原范围](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074)、[当前领域 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[Product/Figma Authority](../product/final-ui-ia-authority.md)、[项目中心](ai-workbench-project-center.md)、[来源流程](source-business-flow.md)和[当前商品对比](product-selection-comparison-agent.md)。
 
-Product/Figma Authority：既有 `31:463` 页面及产品提案 §3 的准确节点已只读核实存在、可见、非归档；新增 UI 仍为文字候选，未更新 Figma。#1075 中用户已确认的智能市场/我的智能体入口见其[固定版本 Authority](https://github.com/henryxu1008/shuomi-ai-commerce/blob/8d3b19df15eaf94c1030729006557496e0663f2a/docs/product/final-ui-ia-authority.md)。本设计不从 main 缺失的文档推导已有能力。
+Product/Figma Authority：既有 `31:463` 页面及产品提案 §3 的准确节点已只读核实存在、可见、非归档。§5.4 复用研究详情，后续新增 UI 仍为文字候选，未更新 Figma。#1075 中用户已确认的智能市场/我的智能体入口见其[固定版本 Authority](https://github.com/henryxu1008/shuomi-ai-commerce/blob/8d3b19df15eaf94c1030729006557496e0663f2a/docs/product/final-ui-ia-authority.md)。本设计不从 main 缺失的文档推导已有能力。
 
 Must（本提案的待批准实施范围）：来源/商品/市场/观察版本可追溯；自动取数路径不以人工找齐资料替代；org+actor 私有与原成员权限；事实/假设/未知区分；精确货源/规格/数量人工确认；确定性金额计算；不重复付费/发布/转入；AI 建议与人工决定分离；明确硬性要求不能被利润或总分抵消。
 
@@ -226,7 +226,7 @@ Research 保存的条件版本是本次评估的业务输入快照，来源事�
 
 ### 5.1 SHEIN 美国商品读取与归并合同
 
-本切片以 [#1075 的研究候选](https://github.com/henryxu1008/shuomi-ai-commerce/tree/8d3b19df15eaf94c1030729006557496e0663f2a) 为对齐基线。该版本的 Collection 已支持原版选择，Data Acquisition 的发布、回读和 Research 的 `Observation`、候选键、分析字段仍按 Amazon 定义。当前列表会在证据读取失败时遮蔽观察和摘要，但直接返回当前与历史理由。SHEIN 准入需要在原 owner 补来源类型、精确读口及证据投影，并检查现有 Amazon 路径的同类理由暴露。此处是 #1074 的设计合同，具体实现仍待准入。
+初始合同对齐使用 [#1075 的历史研究候选](https://github.com/henryxu1008/shuomi-ai-commerce/tree/8d3b19df15eaf94c1030729006557496e0663f2a) 为对齐基线。该版本的 Collection 已支持原版选择，Data Acquisition 的发布、回读和 Research 的 `Observation`、候选键、分析字段仍按 Amazon 定义。该历史版本在证据读取失败时遮蔽观察和摘要，仍直接返回当前与历史理由。§5.4 联调基线已包含对应修复。SHEIN 准入需要在原 owner 补来源类型、精确读口及证据投影，并检查现有 Amazon 路径的同类理由暴露。此处是 #1074 的设计合同，具体实现仍待准入。
 
 **输入和调用顺序。** 沿用 Research 的 `Sources.Observe(ctx, scope, Selection) (Observation, error)` 和 `link` 命令。返回值补入下表所列的 SHEIN 商品身份和证据字段，沿用 `EvidenceRef` 关联语义。客户端只提交 `itemId/revision/publicationId/version`，项目和用户权限按原入口核实。Collection 在实时企业、操作者、成员身份下执行 `Select`，返回仅本次请求可用的选择凭证和准确 Catalog 版本。按凭证内的来源类型路由到现有 dataacquisition owner 的内部 `ReadSHEINUSProvenance(ctx, principal, source)`。它接收服务端从选择凭证取得的准确 `Source`，返回原任务、原查询、保存观察、编码版本和摘要。本切片使用 `shein_us_data@v1` 作为内部发布者合同，Collection 来源类型为 `shein_us_data`。在已授权的原发布链路中由 Sourcing/Catalog/Collection 原 Product UoW 提供版本与条目，来源原任务条目 ID 作为 `operationId` 和 `publicationId`，由发布端签发。回读时核对发布者版本、同一私有范围内已保存的原任务条目、冻结查询引用、源商品、`productKey`、原发布和 Catalog 版本。读完重新核实原 Collection 选择及权限，沿现有 Project 授权与 Research 本地事务边界提交。未知来源类型拒绝。整个读取和关联路径无外部取数、AI 或计费副作用。
 
@@ -275,7 +275,7 @@ Research 在自己的事务内按候选键唯一归并，按完整 `EvidenceRef`
 #### 实施准入缺项
 
 - **来源侧本地实现。** #1074 按 §5.3 的首试范围和字段下限，补来源类型准入、原观察保存与发布的同事务约束和窄回读口的独立设计检查，明确 `IMPLEMENTATION_READY` 后才修改生产路径。正式实现须以精确版本、同 scope、摘要篡改及失败重试的测试验证此合同。
-- **消费联调。** #1075 需提供修复现有 Amazon 理由暴露且经验证的可消费 SHA。来源侧提供发布/回读实现 SHA。两边都准入后，用同一 JSON 夹具核对原版选择、同商品归并、逐证据遮蔽及项目撤权。当前 `8d3b19df` 只用来对齐既有接口。
+- **消费联调。** #1075 需提供修复现有 Amazon 理由暴露且经验证的可消费 SHA。来源侧提供发布/回读实现 SHA。两边都准入后，用同一 JSON 夹具核对原版选择、同商品归并、逐证据遮蔽及项目撤权。`8d3b19df` 为历史接口参考，§5.4 固定首试离线起点。
 - **真实来源开放。** 待核实美国站覆盖和实际字段质量、资料使用与保存许可、账户费用、页数与记录上限、预算和执行授权。详情、变体、评论按各自的字段和权限证据开放。公开卡片与合成记录的静态检查不能代替真实调用或业务验收。万邦量价和混批独立补证，不影响此交接件。
 
 ### 5.3 SHEIN 美国站商品卡片首试实施方案
@@ -301,18 +301,18 @@ Research 在自己的事务内按候选键唯一归并，按完整 `EvidenceRef`
 
 ### 5.4 首试离线开工评审依据
 
-**界面。** 沿 [当前 UI Authority](https://github.com/henryxu1008/shuomi-ai-commerce/blob/3e65ff9df8b03d12f053cd88ae2481b9226a6451/docs/product/market-research-selection-centers-v1.md) 复用「市场调研 → 研究详情」及 [Figma 12114:1646](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-1646) 的「取得或关联资料」与候选区域。源码入口为 `/workbench/data/research/{projectId}` 的 `ProjectPage → ResearchPanel`。保留「添加已有商品资料 → CollectionPicker → link → 当前项目的候选与资料来源详情」和原权限、按钮、导航。SHEIN 只增加该来源的选件资格、标题、原页面、展示价、时间及缺项的正确投影，不新增页面或采集入口。原候选评审、AI 选择和转入有各自准入，SHEIN 卡片本切片仅关联和查看证据。真实取数入口及其授权确认另行评审。Figma 只读核对，不改原型。
+**界面。** 沿 [当前 UI Authority](https://github.com/henryxu1008/shuomi-ai-commerce/blob/3e65ff9df8b03d12f053cd88ae2481b9226a6451/docs/product/market-research-selection-centers-v1.md) 复用「市场调研 → 研究详情」及 [Figma 12114:1646](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-1646) 的「取得或关联资料」与候选区域。源码入口为 `/workbench/data/research/{projectId}` 的 `ProjectPage → ResearchPanel`。保留「添加已有商品资料 → CollectionPicker → link → 当前项目的候选与资料来源详情」和原权限、按钮、导航。SHEIN 只增加该来源的选件资格、标题、原页面、展示价、时间及缺项的正确投影，不新增页面或采集入口。本切片允许 SHEIN 卡片关联、切换证据和查看。分析、评审与转入的选择集合仍限已准入的 Amazon 路径。UI 在相应动作排除 SHEIN，服务端在进入评审命令、AI 预算/调用或 Preparation 之前以来源和选中证据校验拒绝未准入的请求。通用列表的证据校验与动作准入分别处理。真实取数入口及其授权确认另行评审。Figma 只读核对，不改原型。
 
 **精确联调依赖。** #1075 Draft HEAD `3e65ff9df8b03d12f053cd88ae2481b9226a6451` 包含原证据不可读时的理由遮蔽，以及移除另一证据不转移人工理由的修复。其与本设计共用实际 main `05e5b14f7f0d3aa80cdccd8dc222d01916c019db`。该 HEAD 可固定为隔离离线联调的代码起点，结合 [P1/P2 JSON](evidence/shein-us-data-v1-p1-p2.json) 核对接口；源码合成检查只验证能组合，不代表已合入或 SHEIN 可运行。#1075 原负责人仍负责消费侧。合并/对外交付须按最终准确依赖版本和必需检查核对。
 
 | 既有路径的约束 | 离线实现边界 |
 | --- | --- |
-| dataacquisition 作业和条目当前使用 Amazon 查询与必填 ASIN，`SAVED` 要求原预留和终态证据；已有 `evidence_json bytea` 保存字节 | #1074 在原作业/条目 owner 内增加明确的来源类型和类型校验。作业固定来源、市场与查询；条目使用该来源的原商品 ID，唯一性仍按原私有作业与原商品校验。Amazon 入口保持原 ASIN 验证、调用和定价。SHEIN 复用保存字节、原发布、同 Product UoW 与授权 reader；不把 goods ID 写入 ASIN，也不放松 `SAVED` 的原预留和终态约束。P1/P2 仅在现有隔离测试的准备入口注入冻结任务、观察和合成预留证明，走真正的发布与回读，测试证明不得由运行时客户端传入或冒充真实费用。 |
-| Collection 发布批次、源类型校验和 Research 服务当前限制来源 | #1074 在既有发布事务内接 `dataservices.NewProductPublisher`、Sourcing 发布、Catalog 版本与 Collection `AppendDataPublication`，明确放行内部 `shein_us_data@v1`。读侧由 `ReadSHEINUSProvenance` 提供带权限的原版回读；按原发布验证字节和同一事务的条目。#1075 由 `market_research.go` 的现有 `Observe` 按凭证来源分发，继续校验原四元组及项目权。 |
+| dataacquisition 作业和条目当前使用 Amazon 查询与必填 ASIN，`SAVED` 要求原预留和终态证据；已有 `evidence_json bytea` 保存字节 | #1074 在原作业/条目 owner 内增加明确的来源类型和类型校验。作业固定来源、市场与查询；条目使用该来源的原商品 ID，唯一性仍按原私有作业与原商品校验。Amazon 入口保持原 ASIN 验证、调用和定价。SHEIN 复用保存字节、原发布、同 Product UoW 与授权 reader；不把 goods ID 写入 ASIN，也不放松 `SAVED` 的原预留和终态约束。SHEIN 在同一 owner 内使用来源明确的已准备观察发布入口，复用现有局部事务及中立的 Catalog/Collection 发布步骤。Amazon 原 worker、reader、quotaMove、ChargeIntent 和 ChargeProof 路径均按 Amazon 来源闭合，不消费 SHEIN 条目。P1/P2 的冻结任务、观察与合成预留绑定只由现有隔离 PostgreSQL 测试准备，保留预留及终态约束。SHEIN 生产执行装配不提供测试准备、真实预留或结算入口。 |
+| Collection 发布批次、源类型校验和 Research 服务当前限制来源 | #1074 在既有发布事务内接 `dataservices.NewProductPublisher`、Sourcing 发布、Catalog 版本与 Collection `AppendDataPublication`，明确放行内部 `shein_us_data@v1`。读侧由 `ReadSHEINUSProvenance` 提供带权限的原版回读；按原发布验证字节和同一事务的条目。原发布重放先核对完整绑定，核对通过才可返回已有 `SAVED` 回执，绑定变化返回冲突。#1075 由 `market_research.go` 的现有 `Observe` 按凭证来源分发，继续校验原四元组及项目权。 |
 | Research 持久化唯一键、UI 契约和选件器仍只认 `site/ASIN` 与 `amazon_data` | #1075 在同一候选 owner 的全新安装 schema 中表达平台、市场、原商品 ID 并保持范围内唯一，Amazon 仍用原身份和候选 ID 算法。SHEIN 使用 §5.1 的候选键。后端与前端以明确的来源类型分别校验两种证据，选件器只允许已获准且当前可读的来源。证据和理由遮蔽沿原引用。保留严格校验，未知类型拒绝。 |
 | 外部取数、资源预留和 UNKNOWN 恢复有独立运行准入 | 本切片只实现测试可注入的卡片发布、原版读取、候选关联和现有页投影。生产入口及工作流不启用 SHEIN 执行，不新增 fixture 导入、假收费路径或运行配置。正式来源须另行确定资源计价、预留/结算、超时核实及执行许可。 |
 
-**开工与验收边界。** 离线实现只在独立 worktree 和全新隔离 Product 测试库进行。#1074 以 P1/P2 先验证不可变字节、错版、错摘要、跨范围、失败重试及原发布与 Collection 同事务，再与 #1075 核对选择、归并、逐证据理由遮蔽和现有研究页展示。复用既有 Product PostgreSQL、HTTP 和研究页面测试入口，后端以原 owner 的 contract → implementation → injection → consumer 路径为准。缺失证据和错价不补造。现有权限、预算、会话和实例不参与测试。
+**开工与验收边界。** 离线实现只在独立 worktree 和全新隔离 Product 测试库进行。#1074 以 P1/P2 先验证不可变字节、错版、错摘要、跨范围、失败重试及原发布与 Collection 同事务，再与 #1075 核对选择、归并、逐证据理由遮蔽和现有研究页展示。复用既有 Product PostgreSQL、HTTP 和研究页面测试入口，后端以原 owner 的 contract → implementation → injection → consumer 路径为准。集成用例从实际发布回执取得 Collection 四元组，静态 JSON 中的 selection 只用于消费 stub。P2 由测试准备为已冻结观察，类目执行入口仍只接 1727。缺失证据和错价不补造。现有权限、预算、会话和实例不参与测试。此切片的独立开工结论以 [#1097 对应准确设计 HEAD 的评审记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1097) 为准，真实取数和完整商业评估分别准入。
 
 ## 6. 确定性单位经济模型
 
@@ -392,7 +392,7 @@ AI 只读取准确候选事实、趋势/评价证据、人工确认的匹配、�
 | 未决项 | 需要的具体答案 | 责任及影响层级 |
 | --- | --- | --- |
 | K1 产品范围/首试类目 | 商品卡片首试的范围、必需字段及用户结果见 §5.3。后续商业判断深度和各来源须按相应阶段确定 | 产品决定；卡片先验证原版交接，后续完整流程按原 Must 推进 |
-| K2 依赖 | #1075 原 owner 给出实际可消费版本及合入/组合依据。受影响路径的可消费版本须通过逐原证据遮蔽当前和历史理由的验证。SHEIN 关联在原 owner 补候选身份/唯一约束、发布与 Collection 来源准入、Research 验证与投影 | 研究、来源 owner。已知理由暴露阻塞消费受影响的实现及试用，独立的资料读取与归并设计可继续 |
+| K2 依赖 | 首试离线联调起点固定 §5.4 的 #1075 HEAD。上线组合须复核最终可消费版本与准确 CI。SHEIN 关联在原 owner 补候选身份/唯一约束、发布与 Collection 来源准入、Research 验证与投影 | 研究、来源 owner。历史理由暴露基线不可消费，§5.4 固定的版本已包含理由遮蔽和移除证据修复 |
 | K3 来源能力 | SHEIN 详情与评价、1688 搜索与详情按各来源核对。万邦的固定版本和规格/阶梯/MOQ 语义单独补证 | 数据来源 owner。万邦缺项影响该来源的自动报价、混批和依赖该报价的结论。候选评审与其他来源定稿可并行，真实取数按对应证据验收 |
 | K4 来源许可/预算 | 美国覆盖、资料使用/保存期限、价格/账户费用与各类上限。未知创建的原单核实方式 | 用户与来源 owner。各来源各自的真实执行边界，已有资料的设计走查可继续 |
 | K5 费用与计算口径 | 实际销售/履约模式、报价规则、来源、缺项及公式/舍入版本 | Product/Marketplace owner；影响确定性合同及完整商业评估 |
