@@ -66,6 +66,7 @@ export function OriginalFileRemoval({ scope, sourceId, onAuthorityError }: {
   const [confirmation, setConfirmation] = useState<OriginalFile | null>(null);
   const [intent, setIntent] = useState<Intent | null>(null);
   const [busy, setBusy] = useState(false);
+  const [readingAgain, setReadingAgain] = useState(false);
   const [notice, setNotice] = useState("");
   const title = useId();
   useEffect(() => () => request.current?.abort(), []);
@@ -121,6 +122,21 @@ export function OriginalFileRemoval({ scope, sourceId, onAuthorityError }: {
       request.current = null;
       if (!signal.aborted) setBusy(false);
     }
+  }
+
+  const readUnavailable = current.error instanceof KnowledgeError &&
+    current.error.status >= 500 && current.error.code !== "REQUEST_CANCELLED";
+  if (!intent && !file?.operationId && (readUnavailable || readingAgain)) {
+    return <section className="knowledge-original-panel" aria-labelledby={title}>
+      <h4 id={title}>原文件管理</h4>
+      <p role="status">{readingAgain ? "正在读取原文件状态…" : "暂时无法读取原文件状态。"}</p>
+      <div className="knowledge-original-actions">
+        <Button variant="outline" disabled={readingAgain} onClick={() => {
+          setReadingAgain(true);
+          void current.refetch().finally(() => setReadingAgain(false));
+        }}>重新读取原文件状态</Button>
+      </div>
+    </section>;
   }
 
   if (!file || (!file.canDelete && !file.operationId && !intent)) return null;

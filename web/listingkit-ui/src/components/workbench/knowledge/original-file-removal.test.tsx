@@ -26,6 +26,35 @@ function openPanel() {
   return onAuthorityError;
 }
 
+it.each([
+  { result: original, action: "永久删除原文件" },
+  { result: { ...receipt, state: "DELETE_DISPATCHED" }, action: "继续核实" },
+])("recovers the original-file read and shows $action after a temporary failure", async ({ result, action }) => {
+  const fetch = vi.fn<(path: string, init: RequestInit) => Promise<Response>>(async () => Response.json(result))
+    .mockResolvedValueOnce(Response.json({ code: "KNOWLEDGE_UNAVAILABLE" }, { status: 503 }));
+  vi.stubGlobal("fetch", fetch);
+  openPanel();
+
+  const retry = await screen.findByRole("button", { name: "重新读取原文件状态" });
+  expect(screen.queryByRole("button", { name: action })).not.toBeInTheDocument();
+  await userEvent.click(retry);
+  expect(await screen.findByRole("button", { name: action })).toBeEnabled();
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [path, init] of fetch.mock.calls) {
+    expect(path).toBe("/api/workbench/knowledge-sources/" + sourceId + "/original-file");
+    expect(init.method ?? "GET").toBe("GET");
+    expect(new Headers(init.headers).get("X-Expected-Organization-ID")).toBe(scope.organizationId);
+  }
+});
+
+it("keeps an original-file 404 hidden without a retry or delete action", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ code: "KNOWLEDGE_NOT_FOUND" }, { status: 404 })));
+  const onReadError = openPanel();
+  await waitFor(() => expect(onReadError).toHaveBeenCalledWith(expect.objectContaining({ status: 404 })));
+  expect(screen.queryByRole("button", { name: "重新读取原文件状态" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "永久删除原文件" })).not.toBeInTheDocument();
+});
+
 it("confirms the exact original, then resolves both pending states through the same operation", async () => {
   let state = "DELETE_DISPATCHED";
   let posted = false;
