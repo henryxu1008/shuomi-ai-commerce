@@ -55,14 +55,22 @@ export function SheinUSTrialPanel({ scope, projectId, canWrite }: { scope: Proje
     try {
       const result = await requestSheinTrial(scope, projectId, controller.signal, action, approval);
       if (controller.signal.aborted) return;
-      setState(result);
+      if (action === "view" && result.state === "CONFIRMED" && state?.state === "CONFIRMED" &&
+          state.publishedCount !== undefined && result.approvalId === state.approvalId &&
+          result.requestId === state.requestId && result.credits === state.credits) {
+        setState({ ...result, publishedCount: state.publishedCount });
+      } else setState(result);
       if (result.state === "NOT_STARTED" && result.approvalId === uncertainApproval)
         setMessage("还不能确认这次提交，请继续查看原单。");
       else setUncertainApproval("");
     } catch (error) {
       if (controller.signal.aborted) return;
       setState(null);
-      if (action === "submit" && error instanceof SheinTrialError && error.code === "OUTCOME_UNKNOWN") {
+      const code = error instanceof SheinTrialError ? error.code : "";
+      if (["AUTHENTICATION_REQUIRED", "FORBIDDEN", "IDENTITY_CONTEXT_CHANGED", "ORGANIZATION_CONTEXT_CHANGED"].includes(code)) {
+        setVisible(false);
+        setUncertainApproval("");
+      } else if (action === "submit" && code === "OUTCOME_UNKNOWN") {
         setUncertainApproval(approval ?? "");
         setMessage("还不能确认这次提交，请先查看原单。");
       } else {
