@@ -17,13 +17,14 @@ import (
 )
 
 type trialAuthority struct {
+	revoked  *dataacquisition.SHEINUSTrialAction
 	approval dataacquisition.SHEINUSTrialApproval
 	budget   dataacquisition.SHEINUSTrialBudget
 	denied   dataacquisition.SHEINUSTrialAction
 }
 
 func (a trialAuthority) AuthorizeSHEINUSTrial(_ context.Context, _ dataacquisition.Principal, _ string, action dataacquisition.SHEINUSTrialAction) (dataacquisition.SHEINUSTrialApproval, error) {
-	if a.denied == action {
+	if a.denied == action || (a.revoked != nil && *a.revoked == action) {
 		return dataacquisition.SHEINUSTrialApproval{}, dataacquisition.ErrForbidden
 	}
 	return a.approval, nil
@@ -169,7 +170,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 			require.True(t, ok)
 			require.True(t, deadline.Equal(a.ExpiresAt))
 			<-sendCtx.Done()
-			return receipt(a, requestID, nil), sendCtx.Err()
+			return receipt(a, requestID, &credits), nil
 		}
 		first, err := NewSHEINUSTrial(pool, a, timeout, noMatch)
 		require.NoError(t, err)
@@ -219,6 +220,51 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, accounted, replay)
 		require.Equal(t, 2, lookups)
+		require.Equal(t, 1, sends)
+	})
+
+	t.Run("revocation during send and reconciliation", func(t *testing.T) {
+		a := approval()
+		var revoked dataacquisition.SHEINUSTrialAction
+		a.revoked = &revoked
+		const requestID = "fixture-revoked-original"
+		var sends int
+		submit := func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialUsage, error) {
+			sends++
+			revoked = dataacquisition.SHEINUSTrialView
+			return receipt(a, requestID, &credits), nil
+		}
+		withdrawReconcile := true
+		actual := 5
+		lookup := func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest, original dataacquisition.SHEINUSTrialAttempt) (dataacquisition.SHEINUSTrialUsage, error) {
+			require.Equal(t, requestID, original.RequestID)
+			require.Equal(t, 25, original.ReservedCredits())
+			if withdrawReconcile {
+				revoked = dataacquisition.SHEINUSTrialReconcile
+			}
+			return receipt(a, requestID, &actual), nil
+		}
+		service, err := NewSHEINUSTrial(pool, a, submit, lookup)
+		require.NoError(t, err)
+		invisible, err := service.Send(ctx, p, a.approval.ID)
+		require.ErrorIs(t, err, dataacquisition.ErrForbidden)
+		require.Zero(t, invisible)
+
+		revoked = ""
+		invisible, err = service.Reconcile(ctx, p, a.approval.ID)
+		require.ErrorIs(t, err, dataacquisition.ErrForbidden)
+		require.Zero(t, invisible)
+
+		revoked = ""
+		pending, err := service.Send(ctx, p, a.approval.ID)
+		require.ErrorIs(t, err, dataacquisition.ErrUnknown)
+		require.Equal(t, 25, pending.ReservedCredits())
+		require.Equal(t, requestID, pending.RequestID)
+
+		withdrawReconcile = false
+		accounted, err := service.Reconcile(ctx, p, a.approval.ID)
+		require.NoError(t, err)
+		require.Equal(t, actual, *accounted.Credits)
 		require.Equal(t, 1, sends)
 	})
 

@@ -47,14 +47,11 @@ func (r *SHEINUSTrialStore) Read(ctx context.Context, a dataacquisition.SHEINUST
 }
 
 func (r *SHEINUSTrialStore) Claim(ctx context.Context, a dataacquisition.SHEINUSTrialApproval) (dataacquisition.SHEINUSTrialAttempt, bool, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.beginDurableWrite(ctx)
 	if err != nil {
-		return dataacquisition.SHEINUSTrialAttempt{}, false, dataacquisition.ErrUnknown
+		return dataacquisition.SHEINUSTrialAttempt{}, false, err
 	}
 	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, "SET LOCAL synchronous_commit = on"); err != nil {
-		return dataacquisition.SHEINUSTrialAttempt{}, false, dataacquisition.ErrUnknown
-	}
 	row := tx.QueryRowContext(ctx, `INSERT INTO data_acquisition_shein_us_trials(approval_id,binding,claimed_at)
  SELECT $1::uuid,$2::char(64),clock_timestamp() WHERE clock_timestamp() < $3::timestamptz
  ON CONFLICT(approval_id) DO NOTHING RETURNING `+sheinUSTrialFields, a.ID, a.Binding(), a.ExpiresAt)
@@ -76,7 +73,12 @@ func (r *SHEINUSTrialStore) Claim(ctx context.Context, a dataacquisition.SHEINUS
 }
 
 func (r *SHEINUSTrialStore) Record(ctx context.Context, u dataacquisition.SHEINUSTrialUsage) (dataacquisition.SHEINUSTrialAttempt, error) {
-	row := r.db.QueryRowContext(ctx, `UPDATE data_acquisition_shein_us_trials SET request_id=$3,credits=COALESCE(credits,$4)
+	tx, err := r.beginDurableWrite(ctx)
+	if err != nil {
+		return dataacquisition.SHEINUSTrialAttempt{}, err
+	}
+	defer tx.Rollback()
+	row := tx.QueryRowContext(ctx, `UPDATE data_acquisition_shein_us_trials SET request_id=$3,credits=COALESCE(credits,$4)
  WHERE approval_id=$1 AND binding=$2 AND (request_id IS NULL OR request_id=$3)
  AND (credits IS NULL OR $4::integer IS NULL OR credits=$4) RETURNING `+sheinUSTrialFields,
 		u.ApprovalID, u.Binding, u.RequestID, u.Credits)
@@ -84,7 +86,25 @@ func (r *SHEINUSTrialStore) Record(ctx context.Context, u dataacquisition.SHEINU
 	if errors.Is(err, dataacquisition.ErrNotFound) {
 		err = dataacquisition.ErrConflict
 	}
-	return attempt, err
+	if err != nil {
+		return dataacquisition.SHEINUSTrialAttempt{}, err
+	}
+	if tx.Commit() != nil {
+		return dataacquisition.SHEINUSTrialAttempt{}, dataacquisition.ErrUnknown
+	}
+	return attempt, nil
+}
+
+func (r *SHEINUSTrialStore) beginDurableWrite(ctx context.Context) (*sql.Tx, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, dataacquisition.ErrUnknown
+	}
+	if _, err = tx.ExecContext(ctx, "SET LOCAL synchronous_commit = on"); err != nil {
+		_ = tx.Rollback()
+		return nil, dataacquisition.ErrUnknown
+	}
+	return tx, nil
 }
 
 func readSHEINUSTrial(row *sql.Row) (dataacquisition.SHEINUSTrialAttempt, error) {

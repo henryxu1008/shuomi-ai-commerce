@@ -46,9 +46,10 @@ type SHEINUSTrialApproval struct {
 func (a SHEINUSTrialApproval) Binding() string {
 	a.ExpiresAt = a.ExpiresAt.UTC()
 	return collection.Digest(struct {
+		Contract string
 		Approval SHEINUSTrialApproval
 		Request  SHEINUSTrialRequest
-	}{a, sheinUSFirstPage()})
+	}{"shein-us-category-page@v1", a, sheinUSFirstPage()})
 }
 
 type SHEINUSTrialBudget struct {
@@ -58,7 +59,8 @@ type SHEINUSTrialBudget struct {
 }
 
 // The authority supplies the frozen approval, current project/source permissions
-// and account evidence. The key must be dedicated to this approval's time window.
+// and account evidence. The key must be dedicated to this approval's time window
+// with no other requests in flight.
 type SHEINUSTrialAuthority interface {
 	AuthorizeSHEINUSTrial(context.Context, Principal, string, SHEINUSTrialAction) (SHEINUSTrialApproval, error)
 	CheckSHEINUSTrialBudget(context.Context, SHEINUSTrialApproval) (SHEINUSTrialBudget, error)
@@ -114,14 +116,14 @@ func NewSHEINUSTrial(store SHEINUSTrialStore, authority SHEINUSTrialAuthority, s
 }
 
 func (s *SHEINUSTrial) authorize(ctx context.Context, p Principal, id string, action SHEINUSTrialAction) (SHEINUSTrialApproval, error) {
-	if p.Scope.Validate() != nil || p.CredentialID != "" || p.CredentialRevision != 0 || !collection.ValidID(id) {
+	if ctx.Err() != nil || p.Scope.Validate() != nil || p.CredentialID != "" || p.CredentialRevision != 0 || !collection.ValidID(id) {
 		return SHEINUSTrialApproval{}, ErrForbidden
 	}
 	a, err := s.authority.AuthorizeSHEINUSTrial(ctx, p, id, action)
 	if err != nil {
 		return SHEINUSTrialApproval{}, ErrForbidden
 	}
-	if a.ID != id || a.Scope.Validate() != nil || !collection.ValidID(a.ProjectID) ||
+	if ctx.Err() != nil || a.ID != id || a.Scope.Validate() != nil || !collection.ValidID(a.ProjectID) ||
 		!collection.ValidID(a.AccountRef) || !collection.ValidID(a.KeyRef) || a.ExpiresAt.IsZero() ||
 		a.Scope.OrganizationID != p.Scope.OrganizationID || (action != SHEINUSTrialReconcile && a.Scope != p.Scope) {
 		return SHEINUSTrialApproval{}, ErrForbidden
@@ -147,6 +149,18 @@ func (s *SHEINUSTrial) checkSend(ctx context.Context, p Principal, approved SHEI
 	return ctx.Err()
 }
 
+func (s *SHEINUSTrial) stillAuthorized(ctx context.Context, p Principal, a SHEINUSTrialApproval, action SHEINUSTrialAction) bool {
+	current, err := s.authorize(ctx, p, a.ID, action)
+	return err == nil && current.Binding() == a.Binding()
+}
+
+func (s *SHEINUSTrial) visible(ctx context.Context, p Principal, a SHEINUSTrialApproval, action SHEINUSTrialAction, attempt SHEINUSTrialAttempt, err error) (SHEINUSTrialAttempt, error) {
+	if !s.stillAuthorized(ctx, p, a, action) {
+		return SHEINUSTrialAttempt{}, ErrForbidden
+	}
+	return attempt, err
+}
+
 func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {
 	ctx, cancel := context.WithTimeout(ctx, sheinUSTrialTimeout)
 	defer cancel()
@@ -155,11 +169,12 @@ func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINU
 		return SHEINUSTrialAttempt{}, err
 	}
 	original, err := s.store.Read(ctx, a)
+	if err == nil {
+		attempt, outcomeErr := sheinUSTrialOutcome(original)
+		return s.visible(ctx, p, a, SHEINUSTrialView, attempt, outcomeErr)
+	}
 	if !errors.Is(err, ErrNotFound) {
-		if err != nil {
-			return original, err
-		}
-		return sheinUSTrialOutcome(original)
+		return SHEINUSTrialAttempt{}, err
 	}
 
 	sendCtx, cancelSend := context.WithDeadline(ctx, a.ExpiresAt)
@@ -169,23 +184,31 @@ func (s *SHEINUSTrial) Send(ctx context.Context, p Principal, id string) (SHEINU
 	}
 	original, won, err := s.store.Claim(sendCtx, a)
 	if err != nil {
-		return original, err
+		return SHEINUSTrialAttempt{}, err
 	}
 	if !won {
-		return sheinUSTrialOutcome(original)
+		attempt, outcomeErr := sheinUSTrialOutcome(original)
+		return s.visible(ctx, p, a, SHEINUSTrialView, attempt, outcomeErr)
 	}
 	if err := s.checkSend(sendCtx, p, a); err != nil {
-		return original, ErrUnknown
+		return s.visible(ctx, p, a, SHEINUSTrialView, original, ErrUnknown)
 	}
 	usage, err := s.submit(sendCtx, a, sheinUSFirstPage())
-	if err != nil {
-		usage.Credits = nil
-	}
+	late := sendCtx.Err() != nil
 
-	// A transport timeout must not discard an already received request ID.
+	// Keep the provider request ID after cancellation, without trusting a late
+	// or unauthorized result as final usage.
 	writeCtx, cancelWrite := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancelWrite()
-	return s.record(writeCtx, original, usage)
+	canView := s.stillAuthorized(writeCtx, p, a, SHEINUSTrialView)
+	if err != nil || late || !canView {
+		usage.Credits = nil
+	}
+	attempt, err := s.record(writeCtx, original, usage)
+	if !canView {
+		return SHEINUSTrialAttempt{}, ErrForbidden
+	}
+	return s.visible(writeCtx, p, a, SHEINUSTrialView, attempt, err)
 }
 
 func (s *SHEINUSTrial) Reconcile(ctx context.Context, p Principal, id string) (SHEINUSTrialAttempt, error) {
@@ -196,14 +219,21 @@ func (s *SHEINUSTrial) Reconcile(ctx context.Context, p Principal, id string) (S
 		return SHEINUSTrialAttempt{}, err
 	}
 	original, err := s.store.Read(ctx, a)
-	if err != nil || original.Credits != nil {
-		return original, err
+	if err != nil {
+		return SHEINUSTrialAttempt{}, err
+	}
+	if original.Credits != nil {
+		return s.visible(ctx, p, a, SHEINUSTrialReconcile, original, nil)
 	}
 	usage, err := s.lookup(ctx, a, sheinUSFirstPage(), original)
+	if !s.stillAuthorized(ctx, p, a, SHEINUSTrialReconcile) {
+		return SHEINUSTrialAttempt{}, ErrForbidden
+	}
 	if err != nil {
 		return original, ErrUnknown
 	}
-	return s.record(ctx, original, usage)
+	attempt, err := s.record(ctx, original, usage)
+	return s.visible(ctx, p, a, SHEINUSTrialReconcile, attempt, err)
 }
 
 func (s *SHEINUSTrial) record(ctx context.Context, original SHEINUSTrialAttempt, usage SHEINUSTrialUsage) (SHEINUSTrialAttempt, error) {
