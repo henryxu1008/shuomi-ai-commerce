@@ -161,7 +161,7 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 		return &v
 	}
 	for _, c := range rows {
-		v := CandidateView{ID: c.ID, State: c.State, Reason: c.Reason, Revision: c.Revision, SelectedLinkID: c.SelectedLinkID, Evidence: []EvidenceView{}, History: []DecisionView{}}
+		v := CandidateView{ID: c.ID, State: c.State, Revision: c.Revision, SelectedLinkID: c.SelectedLinkID, Evidence: []EvidenceView{}, History: []DecisionView{}}
 		for _, link := range c.Links {
 			if link.Removed {
 				continue
@@ -171,12 +171,14 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 			if link.ID == c.SelectedLinkID && observation != nil {
 				v.Observation = observation
 				v.EvidenceDigest = link.Ref.Digest()
+				v.Reason = c.Reason
 			}
 		}
 		for _, h := range c.History {
-			d := DecisionView{State: h.State, Reason: h.Reason, Revision: h.Revision, At: h.At}
+			d := DecisionView{State: h.State, Revision: h.Revision, At: h.At}
 			if read(h.Ref) != nil {
 				d.EvidenceDigest = h.EvidenceDigest
+				d.Reason = h.Reason
 			}
 			v.History = append(v.History, d)
 		}

@@ -33,9 +33,10 @@ func (p *projectFixture) Authorize(_ context.Context, s collection.Scope, id str
 }
 
 type sourceFixture struct {
-	failure error
-	values  map[string]research.Observation
-	denied  bool
+	failure    error
+	values     map[string]research.Observation
+	denied     bool
+	deniedItem string
 }
 
 func (p *projectFixture) AuthorizeAnalysis(ctx context.Context, s collection.Scope, id string, active bool) error {
@@ -46,7 +47,7 @@ func (s *sourceFixture) Observe(_ context.Context, _ collection.Scope, in resear
 	if s.failure != nil {
 		return research.Observation{}, s.failure
 	}
-	if s.denied {
+	if s.denied || s.deniedItem == in.ItemID {
 		return research.Observation{}, research.ErrForbidden
 	}
 	v, ok := s.values[in.ItemID]
@@ -174,6 +175,8 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	require.NoError(t, err)
 	current = page.Items[0]
 	require.Equal(t, "APPROVED_FOR_TEST", current.State, "new evidence cannot silently replace approved evidence")
+	require.Equal(t, approve.Reason, current.Reason)
+	originalItem := current.Observation.Ref.Selection.ItemID
 	var next string
 	for _, l := range current.Evidence {
 		if l.Observation != nil && l.Observation.Ref.Selection == more {
@@ -181,6 +184,41 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 		}
 	}
 	require.NotEmpty(t, next)
+	newObservation := sources.values[more.ItemID]
+	for _, name := range []string{"original access revoked", "original checksum changed"} {
+		t.Run(name, func(t *testing.T) {
+			original := sources.values[originalItem]
+			if name == "original access revoked" {
+				sources.deniedItem = originalItem
+			} else {
+				changed := original
+				changed.Ref.Checksum = "different-original-checksum"
+				sources.values[originalItem] = changed
+			}
+			defer func() {
+				sources.deniedItem = ""
+				sources.values[originalItem] = original
+			}()
+			masked, err := svc.List(ctx, scope, project.id, "")
+			require.NoError(t, err)
+			view := masked.Items[0]
+			require.Equal(t, current.ID, view.ID)
+			require.Equal(t, current.SelectedLinkID, view.SelectedLinkID)
+			require.Equal(t, current.State, view.State)
+			require.Nil(t, view.Observation)
+			require.Empty(t, view.Reason)
+			require.Contains(t, view.Evidence, research.EvidenceView{ID: current.SelectedLinkID})
+			require.Contains(t, view.Evidence, research.EvidenceView{ID: next, Observation: &newObservation})
+			require.NotEmpty(t, view.History)
+			for _, h := range view.History {
+				require.Empty(t, h.Reason)
+				require.Empty(t, h.EvidenceDigest)
+			}
+			stored, err := repo.Load(ctx, scope, project.id, current.ID)
+			require.NoError(t, err)
+			require.Equal(t, approve.Reason, stored.Reason)
+		})
+	}
 	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), research.Command{Action: "select", CandidateID: current.ID, ExpectedRevision: current.Revision, LinkID: next})
 	require.NoError(t, err)
 	page, err = svc.List(ctx, scope, project.id, "")
@@ -196,6 +234,34 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 		}
 	}
 	require.True(t, found)
+	started, err := svc.Execute(ctx, scope, project.id, uuid.NewString(), research.Command{Action: "review", CandidateID: current.ID, ExpectedRevision: current.Revision, EvidenceDigest: current.EvidenceDigest})
+	require.NoError(t, err)
+	const newerReason = "reviewed the newer samples"
+	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), research.Command{Action: "decide", CandidateID: current.ID, ExpectedRevision: started.Revisions[current.ID], EvidenceDigest: current.EvidenceDigest, State: "REJECTED", Reason: newerReason})
+	require.NoError(t, err)
+	sources.deniedItem = originalItem
+	page, err = svc.List(ctx, scope, project.id, "")
+	require.NoError(t, err)
+	current = page.Items[0]
+	require.Equal(t, newerReason, current.Reason)
+	require.NotNil(t, current.Observation)
+	require.Equal(t, more, current.Observation.Ref.Selection)
+	var oldDecisionMasked, newDecisionVisible bool
+	for _, h := range current.History {
+		switch h.State {
+		case "APPROVED_FOR_TEST":
+			require.Empty(t, h.Reason)
+			require.Empty(t, h.EvidenceDigest)
+			oldDecisionMasked = true
+		case "REJECTED":
+			require.Equal(t, newerReason, h.Reason)
+			require.Equal(t, current.EvidenceDigest, h.EvidenceDigest)
+			newDecisionVisible = true
+		}
+	}
+	require.True(t, oldDecisionMasked)
+	require.True(t, newDecisionVisible)
+	sources.deniedItem = ""
 	// Unlink removes only this relationship. A new explicit link can restore it.
 	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), research.Command{Action: "unlink", CandidateID: current.ID, ExpectedRevision: current.Revision, LinkID: current.SelectedLinkID})
 	require.NoError(t, err)
@@ -211,6 +277,7 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 		require.Nil(t, v.Observation)
 		require.Empty(t, v.EvidenceDigest)
 		for _, h := range v.History {
+			require.Empty(t, h.Reason)
 			require.Empty(t, h.EvidenceDigest)
 		}
 	}
