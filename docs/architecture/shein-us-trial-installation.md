@@ -16,6 +16,8 @@
 - ZenRows 专用 key 只由受控 transport 在发送前按原批准的账号和 key 引用解析。固定 resolver 拒绝其他账号、其他 key、过期或空/不合格值，不找主密钥或其他默认值。底层使用现有注入读取口；本轮只有合成值，不引入密钥表、凭据安装或实际私密文件。原请求核账复用 `zenrows.NewLookup`，只接受现有可信逐笔证据 reader，不调用真实账户、不添加私有 Activity Log HTTP 接口。原 ID、账号和可用的 key/目标字段须一致；无 ID 时须原占用与完整接受窗口及唯一终态。部分证据、过期窗口、错单或多个匹配均保留 UNKNOWN 和 25 预留，不补发。实际可信批准、实时证据和密钥来源接入仍需另行验证。
 - `httpapi` 只提供显式的内部装配构造，复用既有 Trial authority port、ZenRows Fetch、Lookup 和 Product ledger。构造本身不读取密钥或请求供应商，不挂到 `cmd/current-application`、配置或 LAC。只在合成环境主动装配。实际发送及发布的租户、项目、资料和资金权限仍在原动作重复检查，端口不接管授权或记账事实。所有错误使用既有固定响应，原密钥、URL 查询和证据正文不入业务日志。
 
+真实运行所需的私有输入、刷新和核账接线见[运行接线设计](shein-us-trial-runtime-wiring.md)。
+
 ## 实施准入与验证
 
 独立 R1 已核对设计 `c114f2f0d43740d85572059ddebe77d40ec47701`，结论 **IMPLEMENTATION_READY（仅离线）**。
