@@ -112,7 +112,7 @@ func (row jobRow) job() (dataacquisition.Job, error) {
 	return dataacquisition.Job{ID: row.ID, Scope: collection.Scope{OrganizationID: row.OrganizationID, ActorID: row.ActorID, MemberID: row.MemberID}, CredentialID: row.CredentialID, CommandKey: row.CommandKey, InputHash: row.InputHash, Query: q, Funding: orgresource.ResourceFunding(row.Funding), State: row.State, Reason: row.Reason, Discovered: row.Discovered, Canceled: row.Canceled, CreatedAt: row.CreatedAt, Deadline: row.Deadline}, nil
 }
 func readJob(db *gorm.DB, s collection.Scope, id string, lock bool) (jobRow, error) {
-	query := "SELECT " + jobColumns + " FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND id=?"
+	query := "SELECT " + jobColumns + " FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND id=? AND source_kind='amazon_data'"
 	if lock {
 		query += " FOR UPDATE"
 	}
@@ -161,7 +161,7 @@ func (row itemRow) intent() (orgresource.ConsumerChargeIntent, error) {
 	return intent, nil
 }
 func readItem(db *gorm.DB, job dataacquisition.Job, id string, lock bool) (itemRow, error) {
-	query := "SELECT " + itemColumns + " FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND job_id=? AND id=?"
+	query := "SELECT " + itemColumns + " FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND job_id=? AND id=? AND source_kind='amazon_data'"
 	if lock {
 		query += " FOR UPDATE"
 	}
@@ -177,7 +177,7 @@ func readItem(db *gorm.DB, job dataacquisition.Job, id string, lock bool) (itemR
 }
 func itemRows(db *gorm.DB, job dataacquisition.Job) ([]itemRow, error) {
 	var rows []itemRow
-	err := db.Raw("SELECT "+itemColumns+" FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND job_id=? ORDER BY id", job.Scope.OrganizationID, job.Scope.ActorID, job.ID).Scan(&rows).Error
+	err := db.Raw("SELECT "+itemColumns+" FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND job_id=? AND source_kind='amazon_data' ORDER BY id", job.Scope.OrganizationID, job.Scope.ActorID, job.ID).Scan(&rows).Error
 	return rows, err
 }
 func summarize(db *gorm.DB, row jobRow) (dataacquisition.Job, error) {
@@ -228,7 +228,7 @@ func (r *Repository) List(ctx context.Context, s collection.Scope, limit int) ([
 		return nil, dataacquisition.ErrInvalid
 	}
 	var rows []jobRow
-	if err := r.db.WithContext(ctx).Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? ORDER BY created_at DESC,id LIMIT ?", s.OrganizationID, s.ActorID, limit).Scan(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' ORDER BY created_at DESC,id LIMIT ?", s.OrganizationID, s.ActorID, limit).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	jobs := []dataacquisition.Job{}
@@ -381,7 +381,7 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 		}{q, p.Scope.MemberID, p.CredentialID, funding, key.Input.Permissions})
 		// Original command replay never reserves quota or another job.
 		var existing jobRow
-		found := tx.Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND command_key=?", p.Scope.OrganizationID, p.Scope.ActorID, command).Scan(&existing)
+		found := tx.Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND command_key=? AND source_kind='amazon_data'", p.Scope.OrganizationID, p.Scope.ActorID, command).Scan(&existing)
 		if found.Error != nil {
 			return found.Error
 		}
@@ -424,7 +424,7 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 		}
 		// Console requests do not have a key lock. Recheck after the organization
 		// admission lock to preserve the same command identity under concurrency.
-		found = tx.Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND command_key=?", p.Scope.OrganizationID, p.Scope.ActorID, command).Scan(&existing)
+		found = tx.Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND command_key=? AND source_kind='amazon_data'", p.Scope.OrganizationID, p.Scope.ActorID, command).Scan(&existing)
 		if found.Error != nil {
 			return found.Error
 		}
@@ -435,7 +435,7 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 			return readOriginal(existing)
 		}
 		var active int64
-		if err = tx.Raw("SELECT count(*) FROM data_acquisition_jobs WHERE organization_id=? AND state IN ('ADMITTED','RUNNING') AND NOT canceled AND deadline>now()", row.OrganizationID).Scan(&active).Error; err != nil {
+		if err = tx.Raw("SELECT count(*) FROM data_acquisition_jobs WHERE organization_id=? AND source_kind='amazon_data' AND state IN ('ADMITTED','RUNNING') AND NOT canceled AND deadline>now()", row.OrganizationID).Scan(&active).Error; err != nil {
 			return err
 		}
 		if active >= 8 {
@@ -937,7 +937,7 @@ func (r *Repository) original(ctx context.Context, id orgresource.ConsumerCharge
 		return dataacquisition.Job{}, itemRow{}, dataacquisition.ErrInvalid
 	}
 	var row itemRow
-	result := r.db.WithContext(ctx).Raw("SELECT "+itemColumns+" FROM data_acquisition_items WHERE organization_id=? AND id=?", id.OrganizationID, id.OperationID).Scan(&row)
+	result := r.db.WithContext(ctx).Raw("SELECT "+itemColumns+" FROM data_acquisition_items WHERE organization_id=? AND id=? AND source_kind='amazon_data'", id.OrganizationID, id.OperationID).Scan(&row)
 	if result.Error != nil {
 		return dataacquisition.Job{}, row, result.Error
 	}
@@ -945,7 +945,7 @@ func (r *Repository) original(ctx context.Context, id orgresource.ConsumerCharge
 		return dataacquisition.Job{}, row, dataacquisition.ErrNotFound
 	}
 	var member string
-	result = r.db.WithContext(ctx).Raw("SELECT member_id FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND id=?", row.OrganizationID, row.ActorID, row.JobID).Scan(&member)
+	result = r.db.WithContext(ctx).Raw("SELECT member_id FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND id=? AND source_kind='amazon_data'", row.OrganizationID, row.ActorID, row.JobID).Scan(&member)
 	if result.Error != nil {
 		return dataacquisition.Job{}, row, result.Error
 	}

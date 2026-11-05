@@ -44,7 +44,7 @@ type Module struct {
 	live              dataacquisition.LiveAccess
 	funding           FundingResolver
 	provider          RuntimeProvider
-	results           dataacquisition.CapturedResultReader
+	results           capturedResultReader
 	trustedProxyCIDRs []string
 }
 
