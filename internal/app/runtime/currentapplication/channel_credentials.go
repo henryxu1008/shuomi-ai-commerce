@@ -21,9 +21,10 @@ import (
 // ChannelCredentialsConfig is private deployment input. The metadata/config
 // lifecycle never needs to instantiate this secret reader or decrypt a Key.
 type ChannelCredentialsConfig struct {
-	Reader          DatabaseConfig `json:"reader"`
-	ProtectionKeyID string         `json:"protectionKeyId"`
-	ProtectionKey   string         `json:"protectionKey"`
+	Reader           DatabaseConfig  `json:"reader"`
+	ManagementWriter *DatabaseConfig `json:"managementWriter,omitempty"`
+	ProtectionKeyID  string          `json:"protectionKeyId"`
+	ProtectionKey    string          `json:"protectionKey"`
 }
 
 func (c *ChannelCredentialsConfig) protection() (*channelstore.Protection, error) {
@@ -149,6 +150,24 @@ func SaveChannelCredential(ctx context.Context, cfg *Config, input ChannelCreden
 }
 
 func (c *Config) validateChannelCredentials() error {
+	if c != nil && c.ChannelCredentials != nil && c.ChannelCredentials.ManagementWriter != nil {
+		w := c.ChannelCredentials.ManagementWriter
+		if c.ProductAgent == nil || c.ModelRoutePricing == nil || w.validate("channel management writer") != nil || w.User != "title_credential_writer" || w.MaxConnections > 2 || !sameDatabaseTarget(*w, c.ProductAgent.Database) {
+			return credential.ErrInvalid
+		}
+		if c.channelManagementEnabled() {
+			if _, e := c.ChannelCredentials.protection(); e != nil {
+				return e
+			}
+			defs, e := c.modelRouteDefinitions()
+			if e != nil {
+				return e
+			}
+			if _, e = channelManagementDefinitions(defs, true); e != nil {
+				return e
+			}
+		}
+	}
 	if c == nil || c.ChannelCredentials == nil || c.ProductAgent == nil || !c.needsChannelSecrets() {
 		return nil
 	}
@@ -160,6 +179,13 @@ func (c *Config) validateChannelCredentials() error {
 		return errors.New("channel credential protection unavailable")
 	}
 	return nil
+}
+
+// Missing optional management material leaves metadata readable. A supplied
+// but malformed configuration still fails validation; execution admission is
+// independently mandatory whenever an actual AI consumer is enabled.
+func (c *Config) channelManagementEnabled() bool {
+	return c != nil && c.ChannelCredentials != nil && c.ChannelCredentials.ManagementWriter != nil && c.ChannelCredentials.ProtectionKeyID != "" && c.ChannelCredentials.ProtectionKey != ""
 }
 
 func openChannelCredentials(ctx context.Context, c *Config, open func(context.Context, DatabaseConfig) (*gorm.DB, error)) (credential.SecretReader, *gorm.DB, error) {

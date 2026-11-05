@@ -9,6 +9,40 @@ import (
 
 const MetadataView = `CREATE VIEW public.ai_channel_credential_bindings AS SELECT organization_id,connection_id,provider,channel,account,region,base_url,revision,enabled,length(secret_ciphertext::text)>0 AS key_present FROM public.ai_channel_connections`
 
+// VerifyManagementWriter only inspects the already installed dedicated role.
+// Startup must never grant privileges or initialize/repair a retained database.
+func VerifyManagementWriter(ctx context.Context, db *gorm.DB) error {
+	if ctx == nil || ctx.Err() != nil || db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
+		return credential.ErrUnavailable
+	}
+	var allowed bool
+	e := db.WithContext(ctx).Raw(`SELECT current_user='title_credential_writer' AND rolcanlogin AND rolconnlimit<>0
+ AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls OR rolreplication)
+ AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=r.oid OR roleid=r.oid)
+ AND NOT has_schema_privilege(current_user,'public','CREATE')
+ AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND has_schema_privilege(current_user,n.oid,'CREATE'))
+ AND NOT has_database_privilege(current_user,current_database(),'CREATE,TEMP')
+ AND has_table_privilege(current_user,'public.ai_channel_connections','SELECT')
+ AND has_table_privilege(current_user,'public.ai_channel_connections','INSERT')
+ AND has_table_privilege(current_user,'public.ai_channel_connection_receipts','SELECT')
+ AND has_table_privilege(current_user,'public.ai_channel_connection_receipts','INSERT')
+ AND NOT has_table_privilege(current_user,'public.ai_channel_connections','SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION')
+ AND NOT has_table_privilege(current_user,'public.ai_channel_connection_receipts','SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION')
+ AND NOT has_table_privilege(current_user,'public.ai_channel_connections','UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES')
+ AND NOT has_table_privilege(current_user,'public.ai_channel_connection_receipts','UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES')
+ AND NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid='public.ai_channel_connections'::regclass AND a.attnum>0 AND NOT a.attisdropped
+ AND has_column_privilege(current_user,a.attrelid,a.attname,'UPDATE')<>(a.attname IN ('revision','enabled','protection_key_id','secret_ciphertext')))
+ AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p','v','m','f')
+ AND c.oid NOT IN ('public.ai_channel_connections'::regclass,'public.ai_channel_connection_receipts'::regclass)
+ AND has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
+ FROM pg_roles r WHERE rolname=current_user`).Scan(&allowed).Error
+	if e != nil || !allowed {
+		return credential.ErrUnavailable
+	}
+	return nil
+}
+
 // Qualify the exact projection rather than trusting a same-named view. Startup
 // never recreates it, imports the old table, or repairs a retained schema.
 func VerifyMetadataProjection(ctx context.Context, db *gorm.DB) error {

@@ -13,6 +13,20 @@ D1“缺输入细分时使用较高输入参考费率”已获用户认可、原
 
 ## 用户入口
 
+### 企业渠道 Key 管理（PR #1096）
+
+同一“模型与费率”页增加“渠道凭据”，可录入、轮换和停用本企业服务器已准入的连接。一份凭据供该连接列出的多个模型共用。只有单独获得 `workbench.ai.credentials.manage` 的企业管理者能进入；原模型配置、平台价格或 `admin` 角色名称不自动获得此权限。该权限通过现有企业自定义角色的“渠道凭据管理”模块明确授予，本交付不修改真实用户权限。
+
+Key 仅输入、不回显或导出，不进入浏览器持久存储。提交后清空输入；保存不明时用原请求编号“查询本次结果”，未找到回执不证明未提交，不自动重发。轮换影响同一连接全部模型；停用保留记录、历史回执、在途调用与 UNKNOWN/费用预留。重新启用须明确输入 Key。保存不选模型、不测试真实连接、不调用模型或扣点，也不代替厂商撤销旧 Key。
+
+服务器私密配置可选择 `channelCredentials.managementWriter`：仍使用同一 Run DB 的 `title_credential_writer`、独立连接池且 `maxConnections` 不超过 2，沿原保护材料和同一 credential Store/回执事务；不扩大普通 runtime、模型配置 writer 或执行 secret-reader 的权限。只验证已有 schema/角色，不安装或修复保留库、不改变集群角色连接限额。管理未配置时展示只读状态，不伪造可保存。
+
+文本 binding 若只有 endpoint 摘要，需在可信 `modelRoutePricing.bindings` 中明确 `connectionEndpoint`；同连接也可复用已有图片定义的准确 endpoint，但须匹配全部文本摘要、适配器及图片 endpoint，不能猜测或由网页提交。关闭 AI 时管理 writer 可独立装配，不打开执行 secret-reader 或创建 provider/worker。浏览器 API 只接受 action/expectedRevision、首次账号备注和待保存 Key，绝不接收 writerDatabase、企业身份或任意 URL。版本为精确十进制字符串。
+
+当前源码交付不代表任何保留实例已配置此入口；真实写入资格/保护材料保持 UNKNOWN，运行、真实保存/恢复、浏览器及产品验收 NOT_RUN。实际安装、服务器配置与真实 Key 操作须另行授权。
+
+### 企业模型与参考费率
+
 我的账户 → 企业空间 → 模型与费率（`/workbench/account/organization/model-route-pricing`）。企业拥有 `workbench.agent.configure` 的成员在同一处选择默认渠道和文本、图片生成、多模态理解三类共用模型，所有成员共用。保存时按类别/准确绑定版本校验完整选择快照，在原CAS事务一次保存；执行时只对实际消费类别fresh核资格和预算。未开放生图不阻止合法文字选择保存，也不因此获得执行资格；不创建第二current或pending平台。
 
 企业选择不包含费率或密钥。平台维护者在同一页面的“官网价格与汇率”维护原币价目、官网来源、核验及生效/失效时间、地区、服务类型及必要的图片尺寸/质量。非人民币价目使用已核验发布的 CFETS 中间价；人民币使用恒等汇率。价格由平台权限控制，发布还需要 `listingkit.admin.write`；企业配置权限不能写官网价格或汇率。
@@ -33,7 +47,7 @@ D1“缺输入细分时使用较高输入参考费率”已获用户认可、原
 
 沿原安装器明确安装原配置关系、去密 credential metadata view 和窄权限；运行只验证，不 DDL/seed/发布。可信 `bindings` 是准确厂商/协议/地区/服务类型/费用预算/原更小token、字节、期限的准入描述，含准确reference/credential/endpoint、策略适用证据版本及price ID，不能充当第二份用户收费价目。文本描述的 shape 准入不要求填一个伪造官网价格；正式执行的完整 profile 仍必须持有 use-time 官网价/FX。
 
-同一共享 reader 注入标题、内容、平台资料、选品、诊断、Chat 规划及图片 API/worker。各用途保留原 prompt/schema、调用次数和更小限制。图片密钥和副作用事实仍由原 Image owner 管理，共享配置只借其去密元数据，不能借文本密钥或扩大真实权限。
+同一共享 reader 注入标题、内容、平台资料、选品、诊断、Chat 规划及图片 API/worker。各用途保留原 prompt/schema、调用次数和更小限制。渠道 Key 统一由当前 Run DB credential owner 管理，图片侧沿窄读取接口使用同一连接；图片副作用事实仍由原 Image owner 管理，不另存 Key、不扩大真实权限。
 
 `imageAgent.generation` 仅包含 `enabled`、`unitVersion: ai-micropoint-v1` 和显式 `maximumMicropoints` 准入上限，不是价格。旧 `priceVersion`/`pointsPerImage` 不会产生可执行报价；API/worker 同一上限的一致性检查保留。缺共享current、适用参考价/FX、使用协议或该策略估算参数时拒绝新执行；响应缺该策略基础用量则UNKNOWN。原终态恢复不依赖新current，不将厂商完整硬界调查恢复为Flare前置。
 

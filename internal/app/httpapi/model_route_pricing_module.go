@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -25,8 +26,9 @@ const modelRouteBase = "/api/v1/model-route-pricing"
 var errModelRouteForbidden = errors.New("FORBIDDEN")
 
 type ModelRoutePricingDependencies struct {
-	Shared *d.SharedModelService
-	Prices *d.PlatformPricesService
+	Shared      *d.SharedModelService
+	Prices      *d.PlatformPricesService
+	Credentials *credential.Management
 }
 
 func WithModelRoutePricing(deps ModelRoutePricingDependencies) CurrentApplicationOption {
@@ -65,7 +67,7 @@ func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 		}
 		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET", Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
 	}
-	return out
+	return append(out, m.credentialRoutes()...)
 }
 func validateModelRouteDescriptor(descriptor httproute.Descriptor) error {
 	for _, r := range (modelRoutePricingModule{}).routes() {

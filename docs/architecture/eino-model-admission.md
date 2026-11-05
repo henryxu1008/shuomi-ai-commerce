@@ -1,5 +1,7 @@
 # Eino 多厂商模型按需接入：最小设计候选
 
+> 2026-11-05 阶段更新：用户已确认[独立 UI 合同](channel-credentials-ui.md)的 D1–D3，该边界已完成适用架构复核并单独获原唯一 Writer 实施授权；源码/离线隔离自检与既有 Codex 自动最终复核维护在 PR #1096。本文“没有企业网页自助 BYOK/仍走原维护入口”仅记录原多厂商阶段，当前允许受控企业 UI 增量；唯一凭据 owner、用途/预算和一套计费保持。不操作真实 Key，不迁移/合并/部署/关单或调用模型；运行与产品验收 NOT_RUN。
+
 状态：**IMPLEMENTATION_READY / FROZEN**（2026-11-04）；用户已授权同一Writer按冻结设计实施；范围内实现与离线/隔离自检已形成候选，IT1–IT6的准确HEAD、证据与自动最终评审状态维护在PR。准确设计HEAD及自动评审证据维护在PR #1093。
 Design Basis：**Independent Architecture**。本候选涉及模型用途/输入合同、新 provider 协议和计量准入，不能沿用 #1078/#1089 的 Ready 代替本次准入。
 Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / [#128](https://github.com/henryxu1008/shuomi-ai-commerce/issues/128)。

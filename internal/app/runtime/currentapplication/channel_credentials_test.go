@@ -96,3 +96,88 @@ func TestClosedAIManagementDoesNotOpenOrDecryptChannelSecrets(t *testing.T) {
 	c.ProductAgent.Enabled = true
 	require.Error(t, c.validateChannelCredentials(), "execution needs an admitted bounded reader and protection")
 }
+
+func TestChannelManagementWriterIsIndependentAndClosedAIStaysClosed(t *testing.T) {
+	c, in := channelProvisionFixture()
+	c.ChannelCredentials.ManagementWriter = &in.WriterDatabase
+	c.ModelRoutePricing.Bindings[0].ConnectionEndpoint = in.BaseURL
+	c.ModelRoutePricing.Bindings[0].ReferenceVersion = "v1"
+	require.NoError(t, c.validateChannelCredentials())
+	definitions, e := c.modelRouteDefinitions()
+	require.NoError(t, e)
+	connections, e := channelManagementDefinitions(definitions, true)
+	require.NoError(t, e)
+	require.Len(t, connections, 1)
+	require.Equal(t, in.BaseURL, connections[0].BaseURL)
+	calls := 0
+	_, _, e = openChannelCredentials(context.Background(), c, func(context.Context, DatabaseConfig) (*gorm.DB, error) { calls++; return nil, nil })
+	require.NoError(t, e)
+	require.Zero(t, calls, "management must not open the execution secret reader")
+	for _, change := range []func(*DatabaseConfig){func(w *DatabaseConfig) { w.User = "product_agent_runtime" }, func(w *DatabaseConfig) { w.Database = "another-db" }, func(w *DatabaseConfig) { w.MaxConnections = 3 }} {
+		bad := in.WriterDatabase
+		change(&bad)
+		c.ChannelCredentials.ManagementWriter = &bad
+		require.Error(t, c.validateChannelCredentials())
+	}
+	c.ChannelCredentials.ManagementWriter = &in.WriterDatabase
+	c.ChannelCredentials.ProtectionKey = "bad"
+	require.Error(t, c.validateChannelCredentials(), "management writer requires protection even with execution off")
+}
+
+func TestChannelManagementEndpointCannotBeGuessedOrSuppliedByTheBrowser(t *testing.T) {
+	c, in := channelProvisionFixture()
+	c.ModelRoutePricing.Bindings[0].ReferenceVersion = "v1"
+	defs, e := c.modelRouteDefinitions()
+	require.NoError(t, e)
+	_, e = channelManagementDefinitions(defs, true)
+	require.Error(t, e, "a digest is not a trusted endpoint URL")
+	c.ModelRoutePricing.Bindings[0].ConnectionEndpoint = "https://unadmitted.example.test/v1"
+	defs, e = c.modelRouteDefinitions()
+	require.NoError(t, e)
+	_, e = channelManagementDefinitions(defs, true)
+	require.Error(t, e)
+	c.ModelRoutePricing.Bindings[0].ConnectionEndpoint = in.BaseURL
+	defs, e = c.modelRouteDefinitions()
+	require.NoError(t, e)
+	_, e = channelManagementDefinitions(defs, true)
+	require.NoError(t, e)
+}
+
+func TestChannelManagementSharedImageEndpointQualifiesTextRegardlessOfDefinitionOrder(t *testing.T) {
+	c, in := channelProvisionFixture()
+	text := c.ModelRoutePricing.Bindings[0]
+	text.ReferenceVersion = "v1"
+	image := qualified.Definition{Scope: d.Scope{OrganizationID: "org", Capability: d.ImageCapability}, ConnectionID: text.ConnectionID, ConnectionProvider: text.ConnectionProvider, Channel: text.Channel, Region: text.Region, ReferenceVersion: "v1", Image: &qualified.ImageAdmission{ClientName: "image", Model: "fixture-image", Endpoint: in.BaseURL}}
+	for _, defs := range [][]qualified.Definition{{text, image}, {image, text}} {
+		connections, e := channelManagementDefinitions(defs, true)
+		require.NoError(t, e)
+		require.Len(t, connections, 1)
+		require.Len(t, connections[0].Models, 2)
+		require.Equal(t, in.BaseURL, connections[0].BaseURL)
+	}
+	image.Image.Endpoint = "https://not-admitted.example.test/v1"
+	_, e := channelManagementDefinitions([]qualified.Definition{text, image}, true)
+	require.Error(t, e, "an image definition cannot widen the text endpoint digest")
+}
+
+func TestClosedAIWithoutManagementProtectionRemainsReadOnly(t *testing.T) {
+	c, in := channelProvisionFixture()
+	c.ChannelCredentials.ManagementWriter = &in.WriterDatabase
+	c.ModelRoutePricing.Bindings[0].ReferenceVersion = "v1"
+	c.ModelRoutePricing.Bindings[0].ConnectionEndpoint = in.BaseURL
+	c.ChannelCredentials.ProtectionKey = ""
+	require.NoError(t, c.validateChannelCredentials(), "missing optional management protection must retain metadata-only startup")
+	require.False(t, c.channelManagementEnabled(), "the production writer-open branch must stay disabled")
+	c.ChannelCredentials.ProtectionKey = in.APIKey
+	c.ChannelCredentials.ProtectionKeyID = ""
+	require.NoError(t, c.validateChannelCredentials())
+	require.False(t, c.channelManagementEnabled(), "a partial protection configuration still cannot open a writer")
+	// No private reader is opened or decrypted merely to display metadata.
+	_, _, e := openChannelCredentials(context.Background(), c, func(context.Context, DatabaseConfig) (*gorm.DB, error) {
+		t.Fatal("execution reader must remain closed")
+		return nil, nil
+	})
+	require.NoError(t, e)
+	c.ProductAgent.Enabled = true
+	require.Error(t, c.validateChannelCredentials(), "actual execution still requires all original secret-reader/protection admission")
+}

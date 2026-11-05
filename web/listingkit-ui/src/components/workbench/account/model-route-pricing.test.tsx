@@ -9,6 +9,30 @@ const scope={userId:"maintainer",organizationId:"org-a"};
 const selection={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"openai-mini",version:"approved-default-v1"},image:{id:"openai-flare",version:"approved-default-v1"},multimodal:{id:"openai-mini",version:"approved-default-v1"}};
 const models=(ready=false)=>["text","image-generation","multimodal"].map(category=>({category,reference:category==="image-generation"?selection.image:selection.text,channel:"openai-direct",model:category==="image-generation"?"gpt-image-2.5-flare-2026-09-08":"gpt-5.4-mini-2026-03-17",ready,...ready?{}:{reason:category==="image-generation"?"PROTOCOL_AND_COST_BOUND_MISSING":"BINDING_NOT_ADMITTED"}}));
 const clients:QueryClient[]=[];
+
+it("opens the existing model settings entry for a credential-only manager without model configuration access",async()=>{
+ state.context.permissions=["workbench.ai.credentials.manage"];
+ const fetch=vi.fn(async()=>Response.json({organizationId:"org-a",canManage:true,connections:[]}));
+ vi.stubGlobal("fetch",fetch);
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);
+ render(<QueryClientProvider client={client}><ModelRoutePricingEntry scope={scope}/></QueryClientProvider>);
+ expect(await screen.findByRole("link",{name:"模型与费率"})).toBeVisible();
+ expect(fetch.mock.calls).toHaveLength(1);
+});
+
+it("opens only credential management for its independent grant and drops the secret dialog on revocation",async()=>{
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
+ Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+ state.context.permissions=["workbench.ai.credentials.manage"];
+ const fetch=vi.fn(async(url:string)=>{if(!url.endsWith("/connections"))throw new Error("unexpected model or price request");return Response.json({organizationId:"org-a",canManage:true,connections:[{organizationId:"org-a",connectionId:"shared",provider:"openai",channel:"openai-direct",region:"global",account:"",revision:"0",enabled:false,keyPresent:false,models:[]}]})});vi.stubGlobal("fetch",fetch);
+ const user=userEvent.setup(),client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);
+ const view=render(<QueryClientProvider client={client}><ModelRoutePricingPage expectedUserId="maintainer"/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"录入 Key"}));await user.type(screen.getByLabelText("新的渠道 Key"),"synthetic-not-sent");
+ expect(fetch.mock.calls.every(([url])=>String(url).endsWith("/connections"))).toBe(true);
+ state.context.permissions=[];view.rerender(<QueryClientProvider client={client}><ModelRoutePricingPage expectedUserId="maintainer"/></QueryClientProvider>);
+ expect(screen.queryByLabelText("新的渠道 Key")).not.toBeInTheDocument();expect(JSON.stringify({...sessionStorage})).not.toContain("synthetic-not-sent");
+ expect(screen.getByText("无模型配置权限或当前企业不可用")).toBeVisible();
+});
 function mount(page=false){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);return render(<QueryClientProvider client={client}>{page?<ModelRoutePricingPage expectedUserId="maintainer"/>:<EnterpriseModelEditor scope={scope}/>}</QueryClientProvider>)}
 function fixture(ready=false,publish?:(init:RequestInit)=>Promise<Response>){const fetch=vi.fn(async(url:string,init:RequestInit={})=>{if(url.endsWith("/options"))return Response.json({organizationId:"org-a",channels:["openai-direct"],models:models(ready)});if(url.endsWith("/history"))return Response.json({revisions:[],nextCursor:""});if(url.endsWith("/validate")){const input=JSON.parse(String(init.body));return Response.json({...input,preview:{ready,models:models(ready)}})}if(url.endsWith("/publish"))return publish?publish(init):Response.json({code:"NEEDS_CONFIGURATION"},{status:409});return Response.json({status:"UNCONFIGURED",revision:null,preview:null})});vi.stubGlobal("fetch",fetch);return fetch}
 afterEach(()=>{cleanup();for(const client of clients)client.clear();clients.length=0;sessionStorage.clear();vi.unstubAllGlobals();state.context.permissions=["workbench.agent.configure"]});

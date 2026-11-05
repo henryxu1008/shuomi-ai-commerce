@@ -60,6 +60,73 @@ func channelCommand(key string, expected int64) credential.Command {
 		Provider: "openai", Channel: "openai-direct", Account: "account-a", Region: "global", BaseURL: "https://api.openai.com/v1", Secret: "synthetic-key-a", Enabled: true}
 }
 
+func TestChannelManagementWriterAndReceiptUseOnlyOriginalIsolatedOwner(t *testing.T) {
+	db, _ := channelFixture(t)
+	// This DSN belongs exclusively to channelFixture's freshly created testcontainer.
+	u, e := url.Parse(db.Dialector.(*postgres.Dialector).Config.DSN)
+	require.NoError(t, e)
+	u.User = url.UserPassword("fixture1089", "synthetic1089")
+	root, e := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, e)
+	raw, e := root.DB()
+	require.NoError(t, e)
+	raw.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, raw.Close()) })
+	require.NoError(t, root.Exec(`CREATE ROLE title_credential_writer LOGIN CONNECTION LIMIT 2 PASSWORD 'synthetic-ui-writer' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ GRANT CONNECT ON DATABASE channel1089 TO title_credential_writer;
+ GRANT USAGE ON SCHEMA public TO title_credential_writer;
+ GRANT SELECT,INSERT ON public.ai_channel_connections TO title_credential_writer;
+ GRANT UPDATE(revision,enabled,protection_key_id,secret_ciphertext) ON public.ai_channel_connections TO title_credential_writer;
+ GRANT SELECT ON public.ai_channel_connection_receipts TO title_credential_writer`).Error)
+	u.User = url.UserPassword("title_credential_writer", "synthetic-ui-writer")
+	writer, e := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, e)
+	w, e := writer.DB()
+	require.NoError(t, e)
+	w.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, w.Close()) })
+	ctx := context.Background()
+	require.ErrorIs(t, VerifyManagementWriter(ctx, writer), credential.ErrUnavailable, "SELECT alone cannot qualify the original receipt INSERT path")
+	require.NoError(t, root.Exec(`GRANT INSERT ON public.ai_channel_connection_receipts TO title_credential_writer`).Error)
+	require.NoError(t, VerifyManagementWriter(ctx, writer))
+	require.NoError(t, root.Exec(`ALTER ROLE title_credential_writer CONNECTION LIMIT 4`).Error)
+	require.NoError(t, VerifyManagementWriter(ctx, writer), "the original role contract is preserved; the application pool is independently bounded")
+	protection, e := NewProtection("synthetic-ui", []byte(strings.Repeat("u", 32)))
+	require.NoError(t, e)
+	write, e := New(writer, protection)
+	require.NoError(t, e)
+	read, e := New(db, nil)
+	require.NoError(t, e)
+	manager, e := credential.NewManagement(read, write, []credential.ConnectionDefinition{{OrganizationID: "org-a", ConnectionID: "openai-account", Provider: "openai", Channel: "openai-direct", Region: "global", BaseURL: "https://api.openai.com/v1"}})
+	require.NoError(t, e)
+	input := credential.ManagementInput{Action: "set-key", Account: "account-a", APIKey: "synthetic-ui-key"}
+	first, e := manager.Publish(ctx, "org-a", "operator", "openai-account", "original", input)
+	require.NoError(t, e)
+	input.ExpectedRevision = 1
+	input.Account = ""
+	input.APIKey = "synthetic-ui-next"
+	commit := write.commitTransaction
+	write.commitTransaction = func(tx *gorm.DB) error {
+		require.NoError(t, tx.Commit().Error)
+		return errors.New("synthetic ACK loss")
+	}
+	_, e = manager.Publish(ctx, "org-a", "operator", "openai-account", "rotate", input)
+	require.ErrorIs(t, e, credential.ErrOutcomeUnknown)
+	write.commitTransaction = commit
+	receipt, e := manager.Receipt(ctx, "org-a", "operator", "openai-account", "rotate")
+	require.NoError(t, e)
+	require.EqualValues(t, 2, receipt.Connection.Revision)
+	_, e = manager.Receipt(ctx, "org-a", "operator", "another-connection", "rotate")
+	require.ErrorIs(t, e, credential.ErrNotFound)
+	_, e = manager.Publish(ctx, "org-a", "operator", "openai-account", "disable", credential.ManagementInput{Action: "disable", ExpectedRevision: 2})
+	require.NoError(t, e)
+	original, e := manager.Receipt(ctx, "org-a", "operator", "openai-account", "original")
+	require.NoError(t, e)
+	require.Equal(t, first, original, "current disable does not rewrite the original result")
+	require.NoError(t, root.Exec(`GRANT DELETE ON public.ai_channel_connections TO title_credential_writer`).Error)
+	require.ErrorIs(t, VerifyManagementWriter(ctx, writer), credential.ErrUnavailable, "the management port must reject excess authority")
+}
+
 func TestChannelSecretEncryptedAndTenantBound(t *testing.T) {
 	db, store := channelFixture(t)
 	ctx := context.Background()
