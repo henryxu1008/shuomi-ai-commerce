@@ -6,6 +6,7 @@
 
 ## 研究与商业评估规划
 
+- `research-supplier-review-v1.md` · [单候选人工核对已保存 1688 货源](research-supplier-review-v1.md) · #1074 独立设计候选，Admission NOT_READY。
 - `research-manual-cost-preview-v1.md` · [单候选人工费用参考试算](research-manual-cost-preview-v1.md) · #1074 独立设计候选。
 - `research-commercial-assessment-v1.md` — [市场调研与商业选品 V1：独立架构提案](research-commercial-assessment-v1.md)；#1074 设计阶段，来源与产品决定待定，Admission NOT_READY，不授权生产代码或真实调用。
 - `shein-us-one-page-trial-send.md` · [SHEIN 美国站一页试取单次发送](shein-us-one-page-trial-send.md) · #1074 的离线发送门禁、25 credits 上限与原单核账。
