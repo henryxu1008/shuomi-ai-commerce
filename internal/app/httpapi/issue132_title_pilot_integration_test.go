@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -31,11 +32,17 @@ func TestIssue132TitlePilotThroughOwners(t *testing.T) {
 	}
 	require.Contains(t, dsn, "dbname=issue132_rehearsal")
 	t.Setenv("ISSUE398_TEST_DSN", dsn)
-	testProductAgentOwnersWithTitleRehearsal(t, "", &titleRehearsal{pilot: true})
+	batch := uuid.MustParse("13200000-0000-4000-8000-000000000001")
+	if id := os.Getenv("ISSUE132_TEST_BATCH_ID"); id != "" {
+		var err error
+		batch, err = uuid.Parse(id)
+		require.NoError(t, err)
+	}
+	testProductAgentOwnersWithTitleRehearsal(t, "", &titleRehearsal{pilot: true, batchID: batch})
 }
 
-func configureTitlePilotFixture(settings *ProductAgentDependencies, rehearsal *titleRehearsal) {
-	settings.titlePilotEnabled = true
+func configureTitlePilotFixture(t *testing.T, settings *ProductAgentDependencies, rehearsal *titleRehearsal) {
+	t.Helper()
 	settings.TextTransport = acquisitionHTTPTransport(func(req *http.Request) (*http.Response, error) {
 		if req.URL.Scheme != "https" || req.URL.Host != "api.openai.com" || req.URL.Path != "/v1/chat/completions" {
 			return nil, errors.New("unexpected title pilot destination")
@@ -56,6 +63,12 @@ func configureTitlePilotFixture(settings *ProductAgentDependencies, rehearsal *t
 	tariff.Model, tariff.Channel = p.Profile.ModelID, "openai-direct"
 	tariff.Rates = aicapability.OfficialModelRates{InputText: 6_000_000, CachedInputText: 600_000, OutputText: 36_000_000}
 	settings.TextPolicies["B"] = p
+	digest, err := p.ShapeProfile().Digest()
+	require.NoError(t, err)
+	settings.titlePilotApproval = titlePilotApproval{
+		batchID: rehearsal.batchID, identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"},
+		profileDigest: digest,
+	}
 }
 
 func (r *titleRehearsal) runPilot(t *testing.T, db *gorm.DB, app *productAgentApplication) {
@@ -63,10 +76,37 @@ func (r *titleRehearsal) runPilot(t *testing.T, db *gorm.DB, app *productAgentAp
 	require.True(t, ok)
 	ctx, err := candidateReviewFixtureContext(context.Background(), titleVerifier{}, resolver, "admin", "B")
 	require.NoError(t, err)
-	batch := uuid.New()
+	batch := r.batchID
+	_, err = app.prepareTitlePilot(ctx, uuid.New())
+	require.ErrorIs(t, err, agent.ErrUnavailable, "a different batch ID must be rejected before any publication")
+	selector := app.selectTitleProfile
+	app.selectTitleProfile = func(ctx context.Context, org string) (aicapability.ModelProfile, error) {
+		profile, err := selector(ctx, org)
+		profile.OfficialTariff.FXVersion = "different-approval-version"
+		return profile, err
+	}
+	_, err = app.prepareTitlePilot(ctx, batch)
+	app.selectTitleProfile = selector
+	require.ErrorIs(t, err, agent.ErrUnavailable, "the approved batch cannot choose a different tariff or route")
 	plan, err := app.prepareTitlePilot(ctx, batch)
 	require.NoError(t, err)
 	require.Len(t, plan.slots, 60)
+	var costMicros int64
+	for _, slot := range plan.slots {
+		costMicros += slot.limits.CostMicros
+		require.Equal(t, time.Minute, slot.limits.Runtime)
+	}
+	require.EqualValues(t, 37_800_000, costMicros)
+	r.script()
+	overBudget := *plan
+	overBudget.slots = slices.Clone(plan.slots)
+	overBudget.slots[0].limits.CostMicros += titlePilotBatchCost - costMicros + 1
+	_, err = app.runTitlePilot(ctx, &overBudget)
+	require.ErrorIs(t, err, errTitlePilotStopped, "¥38 plus one micro must fail before any claim or send")
+	require.Empty(t, r.captured(t))
+	_, found, err := app.readTitlePilotRun(ctx, &plan.slots[0])
+	require.NoError(t, err)
+	require.False(t, found)
 	underquoted := plan.profile
 	underquoted.InputMicrosPerMillion = 1
 	require.False(t, titlePilotProfileQualified(underquoted), "runtime price must cover frozen tariff")
@@ -142,7 +182,7 @@ func (r *titleRehearsal) runPilot(t *testing.T, db *gorm.DB, app *productAgentAp
 	for range 2 {
 		go func() {
 			<-start
-			records, err := app.runTitlePilot(ctx, plan)
+			records, err := app.startApprovedTitlePilot(ctx)
 			out <- outcome{records, err}
 		}()
 	}
@@ -195,10 +235,40 @@ func (r *titleRehearsal) runPilot(t *testing.T, db *gorm.DB, app *productAgentAp
 	}
 	_, err = app.prepareTitlePilot(ctx, batch)
 	require.ErrorIs(t, err, agent.ErrConflict)
+	_, err = app.prepareTitlePilot(ctx, uuid.New())
+	require.ErrorIs(t, err, agent.ErrUnavailable)
+
+	// Each fault case simulates its own isolated admission. The batch ID of
+	// the running application cannot be changed by its caller.
+	prepareFaultCase := func(t *testing.T) *titlePilotPlan {
+		t.Helper()
+		prior := app.config.titlePilotApproval
+		app.config.titlePilotApproval.batchID = uuid.New()
+		t.Cleanup(func() { app.config.titlePilotApproval = prior })
+		fault, err := app.prepareTitlePilot(ctx, app.config.titlePilotApproval.batchID)
+		require.NoError(t, err)
+		return fault
+	}
+
+	t.Run("slot budget refuses before sending", func(t *testing.T) {
+		prior := app.config.Limits
+		app.config.Limits.CostMicros = 1
+		app.config.Limits.Runtime = 45 * time.Second
+		t.Cleanup(func() { app.config.Limits = prior })
+		plan := prepareFaultCase(t)
+		require.Equal(t, 45*time.Second, plan.slots[0].limits.Runtime)
+		r.script()
+		completed, err := app.runTitlePilot(ctx, plan)
+		require.ErrorIs(t, err, agent.ErrUnavailable, "the selected profile cannot fit the current slot budget")
+		require.Empty(t, completed)
+		require.Empty(t, r.captured(t))
+		_, found, err := app.readTitlePilotRun(ctx, &plan.slots[0])
+		require.NoError(t, err)
+		require.False(t, found)
+	})
 
 	t.Run("unknown usage halts all remaining slots", func(t *testing.T) {
-		plan, err := app.prepareTitlePilot(ctx, uuid.New())
-		require.NoError(t, err)
+		plan := prepareFaultCase(t)
 		require.Equal(t, publications[0], plan.slots[0].binding.PublicationID)
 		r.script(actions[:2]...)
 		r.unknownAt = 2
@@ -218,8 +288,7 @@ func (r *titleRehearsal) runPilot(t *testing.T, db *gorm.DB, app *productAgentAp
 		require.Len(t, r.captured(t), 2)
 	})
 	t.Run("terminal invocation without settlement halts the batch", func(t *testing.T) {
-		plan, err := app.prepareTitlePilot(ctx, uuid.New())
-		require.NoError(t, err)
+		plan := prepareFaultCase(t)
 		r.script(actions[:1]...)
 		app.config.Ledger.SetUsageSettler(titlePilotUnconfirmedSettler{app.points})
 		defer app.config.Ledger.SetUsageSettler(app.points)
@@ -234,8 +303,7 @@ func (r *titleRehearsal) runPilot(t *testing.T, db *gorm.DB, app *productAgentAp
 		require.Error(t, app.points.ConfirmModelInvocationSettlement(plan.slots[0].context(ctx), "B", fact.InvocationID, stored.State.RunID))
 	})
 	t.Run("run commit failure leaves an original receipt and stops", func(t *testing.T) {
-		plan, err := app.prepareTitlePilot(ctx, uuid.New())
-		require.NoError(t, err)
+		plan := prepareFaultCase(t)
 		require.NoError(t, db.Exec(`CREATE FUNCTION issue132_reject_run_commit() RETURNS trigger AS $$
 			BEGIN RAISE EXCEPTION 'synthetic run commit failure'; END; $$ LANGUAGE plpgsql`).Error)
 		require.NoError(t, db.Exec(`CREATE TRIGGER issue132_reject_run_commit BEFORE UPDATE ON product_agent_runs
@@ -265,7 +333,7 @@ func (r *titleRehearsal) runPilot(t *testing.T, db *gorm.DB, app *productAgentAp
 	var candidates int64
 	require.NoError(t, db.Table("product_title_proposals").Count(&candidates).Error)
 	require.Zero(t, candidates, "pilot stops at validation, without submitting review")
-	t.Log("verified 30 SRC/Catalog receipts, 60 original run slots, 123 synthetic sends and the unknown usage, settlement and run-commit boundaries")
+	t.Log("verified one approved batch, 30 SRC/Catalog receipts, 60 original run slots, ¥37.80 maximum, 123 synthetic sends and pre-send or unknown-cost stops")
 }
 
 func requireTitlePilotStopped(t *testing.T, db *gorm.DB, ctx context.Context, app *productAgentApplication, plan *titlePilotPlan, index int) agent.Record {
