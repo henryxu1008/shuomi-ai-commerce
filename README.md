@@ -113,7 +113,7 @@ pnpm build
 
 ## 参与开发
 
-先阅读 [AGENTS.md](./AGENTS.md) 和 [Issue 驱动开发规则](./docs/engineering/issue-driven-development.md)，核对执行 Issue 的范围、设计依据和当前负责人。产品导航与交互以[最终 Figma UI / IA Authority](./docs/product/final-ui-ia-authority.md)及已批准产品决定为准；领域合同从[架构索引](./docs/architecture/README.md)进入。
+先阅读 [AGENTS.md](./AGENTS.md) 和 [Issue 驱动开发规则](./docs/engineering/issue-driven-development.md)，核对执行 Issue 的范围、设计依据和当前负责人。产品业务流程可参考[业务流程参考与历史 Figma 决定](./docs/product/final-ui-ia-authority.md)，但 Figma **不再作为 UI/UX、菜单层级、布局或视觉验收标准**；具体遵循 [AGENTS.md](./AGENTS.md#figma-使用边界2026-11-05-用户最新决定) 中的最新用户决定和产品规范；领域合同从[架构索引](./docs/architecture/README.md)进入。
 
 新业务遵循[全新系统产品基线（PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08）](./docs/product/greenfield-no-legacy-migration.md)，按全新安装、空业务数据和当前模型设计。历史 profile 和 cutover gate 不是当前验收前置。
 
