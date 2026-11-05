@@ -3,12 +3,13 @@ package validator
 import (
 	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	contract "task-processor/internal/marketplace/validator"
 )
@@ -16,6 +17,19 @@ import (
 func diagnosticRequest(raw string) contract.BoundRequest[[]byte] {
 	now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
 	return contract.BoundRequest[[]byte]{Input: []byte(raw), Target: contract.Target{Marketplace: "shein"}, Action: contract.Publish, RuleVersion: DiagnosticRuleVersion, BindingVersion: BindingVersion, ReadAt: now, EvaluatedAt: now, Freshness: contract.ExternalFreshness{Status: contract.NotEvaluated}}
+}
+
+func TestDiagnosticReportsOriginalSKUStockAndPackagingGaps(t *testing.T) {
+	req := diagnosticRequest(`{"draft_payload":{"skc_list":[{"sku_list":[{"supplier_sku":"SKU-GAP","stock_info_list":[{"warehouse_code":"DEFAULT","inventory_num":0}]}]}]},"preview_payload":{"skc_list":[{"sku_list":[{"supplier_sku":"SKU-GAP","stock_count":0,"length":"2","height":"3","length_unit":"Inch"}]}]}}`)
+	req.Action = contract.SaveDraft
+	result, err := (DiagnosticValidator{}).Validate(req)
+	if err != nil || !result.ActionPolicy.ReadinessBlockersAllowed {
+		t.Fatalf("incomplete draft not diagnosable: %v", err)
+	}
+	raw, err := json.Marshal(result.OfflineChecks.Blockers)
+	if err != nil || !strings.Contains(string(raw), "SKU-GAP") || !strings.Contains(string(raw), "重量") || !strings.Contains(string(raw), "宽") || !strings.Contains(string(raw), "库存") {
+		t.Fatalf("specific SKU facts must be checked before preparation: %s (%v)", raw, err)
+	}
 }
 
 func TestMissingFinalDraftBlocksBothInputContractsAndActions(t *testing.T) {
@@ -56,19 +70,19 @@ func TestMissingFinalDraftBlocksBothInputContractsAndActions(t *testing.T) {
 	}
 }
 
-func TestCorrectedImageRuleVersionsRejectFormerRevisions(t *testing.T) {
-	if RuleVersion != "shein.offline_package.v1.2" || DiagnosticRuleVersion != "shein.offline_package.v2.2" || BindingVersion != "shein.persisted-input.go-json.v2" {
+func TestCurrentRuleVersionsRejectFormerEvaluators(t *testing.T) {
+	if RuleVersion != "shein.offline_package.v1.3" || DiagnosticRuleVersion != "shein.offline_package.v2.3" || BindingVersion != "shein.persisted-input.go-json.v2" {
 		t.Fatal("corrected rule versions or unchanged binding version drifted")
 	}
 	typedRequest := request(readyPackage())
-	typedRequest.RuleVersion = "shein.offline_package.v1"
+	typedRequest.RuleVersion = "shein.offline_package.v1.2"
 	_, err := (Validator{}).Validate(typedRequest)
 	var typedError *contract.Error
 	if !errors.As(err, &typedError) || typedError.Code != contract.UnsupportedVersion {
 		t.Fatalf("former typed revision accepted: %v", err)
 	}
 	boundRequest := diagnosticRequest(`{}`)
-	boundRequest.RuleVersion = "shein.offline_package.v2"
+	boundRequest.RuleVersion = PreviousDiagnosticRuleVersion
 	_, err = (DiagnosticValidator{}).Validate(boundRequest)
 	if !errors.As(err, &typedError) || typedError.Code != contract.UnsupportedVersion {
 		t.Fatalf("former persisted revision accepted: %v", err)
@@ -107,27 +121,79 @@ func containsDiagnosticConcern(values []string, want string) bool {
 	return false
 }
 
-func TestDiagnosticFixedEncodingVectors(t *testing.T) {
+func TestSavedV22DiagnosticFixedEncodingVectors(t *testing.T) {
 	for _, raw := range []string{`{}`, `{"review_notes":null}`, `{"review_notes":[]}`} {
-		got, err := (DiagnosticValidator{}).Validate(diagnosticRequest(raw))
+		req := diagnosticRequest(raw)
+		req.RuleVersion = PreviousDiagnosticRuleVersion
+		got, err := DiagnosticInputDigest(req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		const emptyDigest = "sha256:82ab67d23adad2d3eeb38dbb22309f364c630e765a75e21891a575fa46f546b3"
-		if got.Input.Digest != emptyDigest {
-			t.Errorf("empty canonical vector: %s", got.Input.Digest)
+		if got != emptyDigest {
+			t.Errorf("empty canonical vector: %s", got)
 		}
 	}
 	for _, raw := range []string{`{"preview_payload":{"spu_name":"sku"}}`, `{ "preview_payload": { "spu_name": "sku" } }`, `{"preview_payload":{"spu_name":"sku"},"review_notes":[]}`} {
-		got, err := (DiagnosticValidator{}).Validate(diagnosticRequest(raw))
+		req := diagnosticRequest(raw)
+		req.RuleVersion = PreviousDiagnosticRuleVersion
+		got, err := DiagnosticInputDigest(req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		const sdkDigest = "sha256:10e8edc0efe4eac90d9a60897672d6dd5285350e31c92753c07eaa2f304e7c0d"
-		if got.Input.Digest != sdkDigest {
-			t.Errorf("SDK canonical vector: %s", got.Input.Digest)
+		if got != sdkDigest {
+			t.Errorf("SDK canonical vector: %s", got)
 		}
 	}
+}
+
+func TestCurrentDiagnosticRejectsSavedDigestAndBindsStockEvidence(t *testing.T) {
+	const unmarked = `{"draft_payload":{"skc_list":[{"sku_list":[{"supplier_sku":"ZERO","stock_info_list":[{"warehouse_code":"DEFAULT"}]}]}]},"preview_payload":{"skc_list":[{"sku_list":[{"supplier_sku":"ZERO","stock_count":0,"stock_info_list":[{"merchant_warehouse_code":"DEFAULT","inventory_num":0}]}]}]}}`
+	marked := strings.Replace(unmarked, `"supplier_sku":"ZERO"`, `"supplier_sku":"ZERO","own_stock_declared":true`, 1)
+	request := diagnosticRequest(unmarked)
+	saved := request
+	saved.RuleVersion = PreviousDiagnosticRuleVersion
+	previous, err := DiagnosticInputDigest(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.ExpectedDigest = previous
+	_, err = (DiagnosticValidator{}).Validate(request)
+	var failure *contract.Error
+	if !errors.As(err, &failure) || failure.Code != contract.StaleInput {
+		t.Fatalf("expected old digest to be stale: %v", err)
+	}
+	request.ExpectedDigest = ""
+	original, err := (DiagnosticValidator{}).Validate(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Input = []byte(marked)
+	current, err := (DiagnosticValidator{}).Validate(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Input.Digest == original.Input.Digest || !strings.Contains(stockCheckMessage(current), "库存 0") || !strings.Contains(stockCheckMessage(original), "库存待补") {
+		t.Fatal("current binding or diagnosis failed to distinguish a zero declaration from a placeholder")
+	}
+	request.ExpectedDigest = current.Input.Digest
+	if _, err := (DiagnosticValidator{}).Validate(request); err != nil {
+		t.Fatal(err)
+	}
+	saved.Input = []byte(marked)
+	if _, err := DiagnosticInputDigest(saved); err == nil {
+		t.Fatal("historical version accepted new stock evidence")
+	}
+}
+
+func stockCheckMessage(result contract.DiagnosticResult) string {
+	for _, check := range result.OfflineChecks.Checks {
+		if check.Rule == "sku_facts" {
+			return check.Message
+		}
+	}
+	return ""
 }
 
 func TestDiagnosticReusesRulesAndEvidenceDoesNotChangeContent(t *testing.T) {

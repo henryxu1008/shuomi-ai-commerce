@@ -3,15 +3,15 @@
 package validator
 
 import (
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 	policy "task-processor/internal/marketplace/shein/publishing"
 	workspace "task-processor/internal/marketplace/shein/workspace"
 	contract "task-processor/internal/marketplace/validator"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 // RuleVersion pins this composition and the transitive existing rules it calls.
 // Changes to those rules require re-evaluating and bumping this version.
-const RuleVersion = "shein.offline_package.v1.2"
+const RuleVersion = "shein.offline_package.v1.3"
 
 type Validator struct{}
 
@@ -54,6 +54,7 @@ func (Validator) Validate(request contract.Request[*sheinpub.Package]) (contract
 
 // evaluatePackage is the single rule authority shared by the two input contracts.
 func evaluatePackage(pkg *sheinpub.Package, action contract.Action) ([]contract.Check, error) {
+	skuFacts := checkOriginalSKUFacts(pkg)
 	// Reuse the current publishing preparation/validation predicates. The
 	// prepared copy must not affect the package facts used by readiness checks.
 	var payloadErr error
@@ -76,6 +77,7 @@ func evaluatePackage(pkg *sheinpub.Package, action contract.Action) ([]contract.
 		SaleAttributeReady: validation.SaleAttributeReady, SaleAttributeMessage: validation.SaleAttributeMessage,
 	})
 	specs = append(specs, workspace.BuildSubmitPayloadReadinessChecks(pkg, string(action))...)
+	specs = append(specs, skuFacts...)
 	specs = append(specs, workspace.BuildSubmitPayloadValidationReadinessChecks(workspace.SubmitPayloadValidationReadinessInput{Ready: validation.SubmitPayloadReady, Message: validation.SubmitPayloadMessage})...)
 	// Keep existing blocking/warning classification authoritative, including the
 	// fact that optional/manual checks are not blockers.

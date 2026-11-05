@@ -42,13 +42,13 @@ save/recovery, browser and product acceptance remain NOT_RUN.
 
 The typed API and strict Snapshot checks remain unchanged. The opt-in SHEIN
 `DiagnosticValidator.Validate(BoundRequest[[]byte])` uses rule version
-`shein.offline_package.v2.2` and binding version `shein.persisted-input.go-json.v2`.
+`shein.offline_package.v2.3` and binding version `shein.persisted-input.go-json.v2`.
 It accepts persisted JSON, not an in-memory Package with private resolver state.
 Both versions call one shared evaluator; neither retries the other version.
 
 Issue #36 retires the missing-final-draft compatibility pass: `final_images` is
 blocking when the final image draft is absent, for both publish and save_draft.
-The typed rule revision is `shein.offline_package.v1.2`; the persisted revision
+The typed rule revision is `shein.offline_package.v1.3`; the persisted revision
 above binds the same correction into the content digest. Former rule revisions
 are unsupported. Issue #904 also removes three legacy Package JSON aliases and their normalization,
 and requires a canonical draft for SKU readiness; the binding version changes with

@@ -591,6 +591,14 @@
               {
                 "supplier_sku": "SKU-1",
                 "base_price": "22.50",
+                "stock_info_list": [{"warehouse_code":"DEFAULT"}],
+                "own_stock_declared": true,
+                "weight": 8,
+                "weight_unit": "g",
+                "length": "2",
+                "width": "3",
+                "height": "4",
+                "length_unit": "Inch",
                 "site_price_list": [
                   {
                     "sub_site": "us",
@@ -602,7 +610,22 @@
           }
         ]
       },
-      "preview_payload": {},
+      "preview_payload": {
+        "skc_list": [{
+          "image_info": {"image_info_list": [{"image_type":1,"image_url":"https://images.example.test/synthetic-main.jpg"}]},
+          "sku_list": [{
+            "supplier_sku": "SKU-1",
+            "stock_count": 0,
+            "stock_info_list": [{"inventory_num":0,"merchant_warehouse_code":"DEFAULT"}],
+            "weight": 8,
+            "weight_unit": "g",
+            "length": "2",
+            "width": "3",
+            "height": "4",
+            "length_unit": "Inch"
+          }]
+        }]
+      },
       "final_submission_draft": {
         "confirmed": true,
         "main_image_url": "https://images.example.test/synthetic-main.jpg",
@@ -673,6 +696,14 @@
               {
                 "supplier_sku": "SKU-1",
                 "base_price": "22.50",
+                "stock_info_list": [{"warehouse_code":"DEFAULT"}],
+                "own_stock_declared": true,
+                "weight": 8,
+                "weight_unit": "g",
+                "length": "2",
+                "width": "3",
+                "height": "4",
+                "length_unit": "Inch",
                 "site_price_list": [
                   {
                     "sub_site": "us",
@@ -684,7 +715,22 @@
           }
         ]
       },
-      "preview_payload": {},
+      "preview_payload": {
+        "skc_list": [{
+          "image_info": {"image_info_list": [{"image_type":1,"image_url":"https://images.example.test/synthetic-main.jpg"}]},
+          "sku_list": [{
+            "supplier_sku": "SKU-1",
+            "stock_count": 0,
+            "stock_info_list": [{"inventory_num":0,"merchant_warehouse_code":"DEFAULT"}],
+            "weight": 8,
+            "weight_unit": "g",
+            "length": "2",
+            "width": "3",
+            "height": "4",
+            "length_unit": "Inch"
+          }]
+        }]
+      },
       "final_submission_draft": {
         "confirmed": true,
         "main_image_url": "https://images.example.test/synthetic-main.jpg",
@@ -752,6 +798,14 @@
               {
                 "supplier_sku": "SKU-1",
                 "base_price": "22.50",
+                "stock_info_list": [{"warehouse_code":"DEFAULT"}],
+                "own_stock_declared": true,
+                "weight": 8,
+                "weight_unit": "g",
+                "length": "2",
+                "width": "3",
+                "height": "4",
+                "length_unit": "Inch",
                 "site_price_list": [
                   {
                     "sub_site": "us",
@@ -763,7 +817,22 @@
           }
         ]
       },
-      "preview_payload": {},
+      "preview_payload": {
+        "skc_list": [{
+          "image_info": {"image_info_list": [{"image_type":1,"image_url":"https://images.example.test/synthetic-main.jpg"}]},
+          "sku_list": [{
+            "supplier_sku": "SKU-1",
+            "stock_count": 0,
+            "stock_info_list": [{"inventory_num":0,"merchant_warehouse_code":"DEFAULT"}],
+            "weight": 8,
+            "weight_unit": "g",
+            "length": "2",
+            "width": "3",
+            "height": "4",
+            "length_unit": "Inch"
+          }]
+        }]
+      },
       "final_submission_draft": {
         "confirmed": false,
         "main_image_url": "https://images.example.test/synthetic-main.jpg",
@@ -799,7 +868,7 @@
     "layers": [
       "deterministic"
     ],
-    "basis": "#318 approved Go JSON binding; existing independent TestDiagnosticFixedEncodingVectors empty vector; valid field change rejects old expected",
+    "basis": "#318 approved Go JSON binding; current rule-bound empty vector; valid field change rejects the expected digest",
     "package": {},
     "reports": [
       {
@@ -819,7 +888,7 @@
       }
     ],
     "binding": {
-      "digest": "sha256:82ab67d23adad2d3eeb38dbb22309f364c630e765a75e21891a575fa46f546b3",
+      "digest": "sha256:d6f00583e7f99921e5bbbd3e6b6a2f29d8c777fd312619a3a1fc21b74e7c0556",
       "equivalent": {
         "review_notes": []
       },
@@ -841,7 +910,7 @@
         "external_package_freshness"
       ],
       "evidence": {
-        "subject_digest": "sha256:82ab67d23adad2d3eeb38dbb22309f364c630e765a75e21891a575fa46f546b3",
+        "subject_digest": "sha256:d6f00583e7f99921e5bbbd3e6b6a2f29d8c777fd312619a3a1fc21b74e7c0556",
         "policy_version": "synthetic-owner.v1",
         "source": "isolated-oracle",
         "observed_at": "2026-09-05T23:00:00Z",

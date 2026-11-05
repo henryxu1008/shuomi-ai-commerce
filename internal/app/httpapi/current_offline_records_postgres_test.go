@@ -34,6 +34,7 @@ import (
 	"task-processor/internal/marketplace/shein/draft"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	"task-processor/internal/product/collection"
+	collectionhttp "task-processor/internal/product/collection/httpapi"
 	rc "task-processor/internal/reportcenter"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/storecenter"
@@ -249,12 +250,48 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	realDeps := routeAuthDependencies{organizationResolver: offlineFixedResolver{identity}}
 	realCollections, e := buildProductCollectionService(ctx, f.db, realDeps, permissions, false, false, false, false, false, false, true)
 	require.NoError(t, e)
-	bound, e := (productReviewCapabilityBinder{}).Bind(authidentity.WithAuthenticatedIdentity(ctx, identity), "Bearer synthetic")
+	binder := productReviewCapabilityBinder{}
+	bound, e := binder.Bind(authidentity.WithAuthenticatedIdentity(ctx, identity), "Bearer synthetic")
 	require.NoError(t, e)
-	own, e := realCollections.Mutate(bound, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "Synthetic real Collection"}})
-	require.NoError(t, e)
+	collectionRouter := gin.New()
+	for _, route := range collectionhttp.Routes(realCollections, binder.Bind) {
+		collectionRouter.Handle(route.Method, route.Path, route.Handler)
+	}
+	ownKey := uuid.NewString()
+	ownBody := `{"action":"create_product","product":{"title":"Synthetic real Collection","images":[],"variants":[
+        {"sourceId":"zero","title":"Zero","sku":"ZERO","currency":"USD","price":0,"stock":0,"attributes":{}},
+        {"sourceId":"positive","title":"Positive","sku":"POSITIVE","currency":"USD","price":7,"stock":7,"attributes":{}}
+    ]}}`
+	createOwn := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", collectionhttp.BasePath+"/commands", strings.NewReader(body)).
+			WithContext(authidentity.WithAuthenticatedIdentity(ctx, identity))
+		req.Header.Set("Authorization", "Bearer synthetic")
+		req.Header.Set("Idempotency-Key", ownKey)
+		req.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		collectionRouter.ServeHTTP(response, req)
+		return response
+	}
+	require.Equal(t, 400, createOwn(strings.Replace(ownBody, `,"stock":0`, "", 1)).Code)
+	require.Equal(t, 400, createOwn(strings.Replace(ownBody, `"stock":0`, `"stock":null`, 1)).Code)
+	require.Equal(t, 400, createOwn(strings.Replace(ownBody, `"stock":0`, `"stock":0,"ownStockDeclared":true`, 1)).Code)
+	created := createOwn(ownBody)
+	require.Less(t, created.Code, 300, created.Body.String())
+	var own collection.Receipt
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &own))
+	replayed := createOwn(ownBody)
+	require.Less(t, replayed.Code, 300, replayed.Body.String())
+	var replay collection.Receipt
+	require.NoError(t, json.Unmarshal(replayed.Body.Bytes(), &replay))
+	require.Equal(t, own.ItemID, replay.ItemID)
 	detail, e := realCollections.ReadItem(bound, own.ItemID)
 	require.NoError(t, e)
+	require.Len(t, detail.Product.Variants, 2)
+	for i, want := range []int{0, 7} {
+		require.True(t, detail.Product.Variants[i].OwnStockDeclared)
+		require.NotNil(t, detail.Product.Variants[i].Stock)
+		require.Equal(t, want, *detail.Product.Variants[i].Stock)
+	}
 	prepareApprovedAssets(t, assetsOwner, "org-a", detail.Item.Source.ProductKey, detail.Item.Source.Version)
 	actual, e := buildOfflineRecords(ctx, f.db, assets, stores, realDeps, permissions, realCollections)
 	require.NoError(t, e)
@@ -280,6 +317,17 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	}
 	one := createActual()
 	require.Equal(t, 201, one.Code, one.Body.String())
+	var savedReceipt record.Receipt
+	require.NoError(t, json.Unmarshal(one.Body.Bytes(), &savedReceipt))
+	get := httptest.NewRequest("GET", offlineRecordsPath+"/"+savedReceipt.RecordID, nil).WithContext(ctx)
+	get.Header.Set("Authorization", "Bearer synthetic")
+	savedResponse := httptest.NewRecorder()
+	actualRouter.ServeHTTP(savedResponse, get)
+	require.Equal(t, 200, savedResponse.Code, savedResponse.Body.String())
+	require.Contains(t, savedResponse.Body.String(), "ZERO")
+	require.Contains(t, savedResponse.Body.String(), "库存 0")
+	require.Contains(t, savedResponse.Body.String(), "库存 7")
+	require.Contains(t, savedResponse.Body.String(), "重量待补")
 	// Merely raising the minimum pool size would still deadlock two transactions.
 	pool.SetMaxOpenConns(2)
 	results := make(chan *httptest.ResponseRecorder, 2)

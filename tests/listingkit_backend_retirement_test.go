@@ -1194,8 +1194,8 @@ func TestLegacySheinDraftAssemblyClosureIsRetired(t *testing.T) {
 		}
 	}
 	for path, versions := range map[string][]string{
-		"internal/marketplace/shein/validator/validator.go":  {`"shein.offline_package.v1.2"`},
-		"internal/marketplace/shein/validator/diagnostic.go": {`"shein.offline_package.v2.2"`, `"shein.persisted-input.go-json.v2"`},
+		"internal/marketplace/shein/validator/validator.go":  {`"shein.offline_package.v1.3"`},
+		"internal/marketplace/shein/validator/diagnostic.go": {`"shein.offline_package.v2.3"`, `"shein.persisted-input.go-json.v2"`},
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
 		if err != nil {
