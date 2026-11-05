@@ -83,6 +83,7 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	workbenchScopes         *aiWorkbenchApplication
 	ownProducts             ownProductReader
 	skills                  *skillstore.Store
 	materials               *listingMaterialsApplication

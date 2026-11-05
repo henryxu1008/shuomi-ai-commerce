@@ -37,6 +37,11 @@ func (a *aiWorkbenchApplication) notificationSources() []n.Source {
 		}
 		page := n.SourcePage{Items: []n.Item{}, Next: next}
 		for _, row := range rows {
+			if !row.WorkbenchContextRef.Absent() {
+				if _, err := a.authorizedFrozenScope(ctx, row.Scope, row.WorkbenchContextRef, false); err != nil {
+					return n.SourcePage{}, n.ErrUnavailable
+				}
+			}
 			projection, e := a.taskProjectionReader().Read(ctx, row.Scope, row)
 			if e != nil {
 				return n.SourcePage{}, n.ErrUnavailable
@@ -75,6 +80,11 @@ func (a *aiWorkbenchApplication) notificationSources() []n.Source {
 		page := n.SourcePage{Items: []n.Item{}, Next: next}
 		for _, row := range rows {
 			c := row.Command
+			if c.FrozenScope != nil {
+				if _, err := a.authorizedFrozenScope(ctx, c.Scope, c.ScopeRef(), false); err != nil {
+					return n.SourcePage{}, n.ErrUnavailable
+				}
+			}
 			if row.Archived || row.Confirmed {
 				continue
 			}

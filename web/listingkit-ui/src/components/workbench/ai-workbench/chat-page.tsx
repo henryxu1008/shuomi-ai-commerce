@@ -15,7 +15,8 @@ import { ConsolePage, ConsoleState, ConsoleToolbar } from "../console/console-pa
 import { ChatIntroduction, NewConversationIntroduction } from "./chat-introduction";
 import { requestAIWorkbench, type AIScope, AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
-import { aiMessageBody, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
+import { WorkScopePicker, scopeLabel, scopeSelection } from "./work-scope-picker";
+import { aiCreateBody, aiMessageBody, type WorkScopeOption, type WorkScopeSelection, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
 import {ChatTaskSelection} from "./chat-task-selection";
@@ -28,6 +29,7 @@ type MessageBody = ReturnType<typeof aiMessageBody.parse>;
 type PendingMessage = { key: string; body: MessageBody };
 type ConfirmationReceipt = { key: string; taskId?: string };
 const pendingMessageStorageKey = (scope: AIScope, id: string) => `ai-workbench:pending-message:${scope.userId}:${scope.organizationId}:${id}`;
+type PendingCreate = {key:string; body: {scopeSelection:WorkScopeSelection; scopeConfirmation:string} | {favorite?:boolean}};
 const pendingCreateStorageKey = (scope: AIScope) => `ai-workbench:pending-create:${scope.userId}:${scope.organizationId}`;
 const confirmStorageKey = (scope: AIScope, id: string) => `ai-workbench:confirm:${scope.userId}:${scope.organizationId}:${id}`;
 const stateText: Record<string, string> = {
@@ -74,7 +76,10 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const context = useWorkbenchContext();
   const search = useSearchParams();
   const selectedOperationId = search.get("operationId");
-  const [createKey, setCreateKey] = useState("");
+  const fixedScopeEnabled = context.aiWorkbenchExecutionKind !== "product.title.optimize";
+  const [createIntent, setCreateIntent] = useState<PendingCreate>();
+  const [selectedScope, setSelectedScope] = useState<WorkScopeOption>();
+  const [scopeGeneration, setScopeGeneration] = useState(0);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [titleFilter, setTitleFilter] = useState("");
@@ -83,7 +88,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const createStorageKey = pendingCreateStorageKey(scope);
   useEffect(() => {
     let active = true;
-    queueMicrotask(() => { if (active) { try { setCreateKey(sessionStorage.getItem(createStorageKey) ?? ""); } catch { /* storage may be unavailable */ } } });
+    queueMicrotask(() => { if (active) { try { const raw = sessionStorage.getItem(createStorageKey); if(raw) { const value = JSON.parse(raw) as PendingCreate; const body = aiCreateBody.safeParse(value.body); if (isAcquisitionUUID(value.key) && body.success) setCreateIntent({key:value.key, body:body.data}); } } catch { /* storage may be unavailable */ } } });
     return () => { active = false; };
   }, [createStorageKey]);
   useEffect(() => () => abort.current?.abort(), []);
@@ -101,23 +106,34 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   }, [conversations.data, mode]);
   const matching = visible.filter(item => (item.Title || "未命名会话").toLocaleLowerCase().includes(titleFilter.trim().toLocaleLowerCase()));
   async function create() {
-    const key = createKey || crypto.randomUUID();
-    setCreateKey(key); setCreating(true); setError("");
-    try { sessionStorage.setItem(pendingCreateStorageKey(scope), key); } catch { /* retain the in-memory key */ }
+    if (mode !== "new") {
+      router.push(`/workbench/ai/chat/new${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
+      return;
+    }
+    if (creating || fixedScopeEnabled && !createIntent && !selectedScope) return;
+    const intent = createIntent ?? {key:crypto.randomUUID(),body:selectedScope ? {scopeSelection:scopeSelection(selectedScope),scopeConfirmation:selectedScope.confirmation} : {}};
+    setCreateIntent(intent); setCreating(true); setError("");
+    try { sessionStorage.setItem(createStorageKey, JSON.stringify(intent)); } catch { /* retain the in-memory intent */ }
     const controller = new AbortController(); abort.current = controller;
     try {
-      const result = await requestAIWorkbench({ route: "conversation-create", method: "POST", path: "chat/conversations", scope, key, body: {}, signal: controller.signal });
+      const result = await requestAIWorkbench({ route: "conversation-create", method: "POST", path: "chat/conversations", scope, key: intent.key, body: intent.body, signal: controller.signal });
       if (controller.signal.aborted) return;
-      setCreateKey("");
+      setCreateIntent(undefined);
       try { sessionStorage.removeItem(pendingCreateStorageKey(scope)); } catch { /* navigation still succeeds */ }
       router.push(`/workbench/ai/chat/${result.conversation.ID}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
-    } catch (cause) { if (!controller.signal.aborted) setError(errorText(cause)); }
+    } catch (cause) { if (!controller.signal.aborted) {
+      if (cause instanceof AIWorkbenchError && cause.conversationAccepted === false && (cause.code === "NOT_FOUND" || cause.code === "PROPOSAL_STALE")) {
+        setCreateIntent(undefined); setSelectedScope(undefined); setScopeGeneration(n=>n+1);
+        try { sessionStorage.removeItem(createStorageKey); } catch { /* the retained intent was rejected */ }
+        setError("原范围已变化或不可读，请重新选择工作范围。");
+      } else setError(errorText(cause));
+    } }
     finally { if (!controller.signal.aborted) setCreating(false); abort.current = null; }
   }
   return <>
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
     {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
-      mode === "new" ? <NewConversationIntroduction createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "新建会话"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
+      mode === "new" ? <NewConversationIntroduction createAction={canUse ? <>{fixedScopeEnabled ? <WorkScopePicker key={scopeGeneration} scope={scope} authorizationKey={authorizationKey} disabled={creating || !!createIntent} selected={selectedScope} onSelect={setSelectedScope} /> : null}<Button onClick={create} disabled={creating || fixedScopeEnabled && !selectedScope && !createIntent}>{creating ? "正在创建…" : createIntent ? "核对原创建请求" : "新建会话"}</Button></> : <p>当前企业仅可查看已有会话。</p>} /> :
       <ConsoleToolbar><div className={styles.collectionToolbar}><label className={styles.searchField}>筛选已加载的会话标题<Input type="search" value={titleFilter} onChange={event => setTitleFilter(event.target.value)} placeholder="输入会话标题" aria-describedby="chat-filter-scope" /></label>
       {titleFilter ? <Button variant="ghost" onClick={() => setTitleFilter("")}>清空筛选</Button> : null}
       <div className={styles.toolbar}>{canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "新建会话"}</Button> : null}
@@ -227,6 +243,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     try {
       const result = await requestAIWorkbench({ route: "message", method: "POST", path: `chat/conversations/${id}/messages`, scope, key: saved.key, signal: controller.signal, body: saved.body });
       if (controller.signal.aborted) return;
+      if (result.scopeUnavailable) { setError("工作范围暂不可读。请核对当前权限。"); await detail.refetch(); return; }
       if (result.state === "COMPLETE" || result.state === "FAILED_BEFORE_DISPATCH" || result.state === "PLANNER_INVALID_OUTPUT" || result.state === "PLANNER_UNKNOWN") {
         setPendingMessage(null);
         try { sessionStorage.removeItem(pendingMessageStorageKey(scope, id)); } catch { /* terminal receipt is already displayed */ }
@@ -272,8 +289,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   }
   if (detail.isPending) return <ConsoleState kind="loading" title="正在读取会话" />;
   if (detail.isError || !current) return <ConsoleState kind="error" title="会话不可用">{errorText(detail.error)} <Button variant="outline" onClick={() => void detail.refetch()}>重试</Button></ConsoleState>;
+  if (newest?.scopeUnavailable) return <ConsoleState kind="unavailable" title="工作范围暂不可读"><Button variant="outline" onClick={()=>void detail.refetch()}>重新读取</Button></ConsoleState>;
   return <div className={styles.detail}>
-    <Card className={styles.conversationHeader}><div className={styles.conversationIdentity}><h2>{current.Title || "未命名会话"}</h2><div className={styles.tags}>{current.Favorite ? <Badge variant="neutral">已收藏</Badge> : null}{current.Archived ? <Badge variant="neutral">已归档</Badge> : null}<span>当前企业：{scope.organizationId}</span></div></div><div className={styles.toolbar}>
+    <Card className={styles.conversationHeader}><div className={styles.conversationIdentity}><h2>{current.Title || "未命名会话"}</h2><div className={styles.tags}>{current.Favorite ? <Badge variant="neutral">已收藏</Badge> : null}{current.Archived ? <Badge variant="neutral">已归档</Badge> : null}<span>当前企业：{scope.organizationId}</span><span>{current.businessScope?.kind === "general" ? "通用业务" : current.businessScope?.kind === "project" ? "项目工作范围" : current.businessScope?.kind === "store" ? "店铺工作范围" : "未记录工作范围"}</span></div></div><div className={styles.toolbar}>
       <Button asChild variant="ghost"><Link href="/workbench/ai/chat/recent" prefetch={false}>返回最近会话</Link></Button>
       {canUse && !editingTitle ? <Button variant="outline" disabled={pending} onClick={() => { setTitleDraft(current.Title); setEditingTitle(true); }}>修改标题</Button> : null}
       {canUse ? <Button variant="outline" disabled={pending} onClick={() => void change({ favorite: !current.Favorite })}>{current.Favorite ? "取消收藏" : "收藏"}</Button> : null}
@@ -311,7 +329,7 @@ function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confi
   const readiness=content?(execution.aiWorkbenchExecutionKind===proposal.kind?execution.aiWorkbenchExecutionReadiness:"UNAVAILABLE"):titleReadiness;
   const ready=content?proposal.executionProfileReady:proposal.titleProfileReady;
   return <Card className={styles.proposal}><div className={styles.proposalHead}><span>{confirmedTaskId?"已确认的执行方案":"待确认的执行方案"}</span><strong>{content?"商品内容建议":"标题建议"}</strong></div>
-    <p>{proposal.goalSummary}</p><dl><dt>企业</dt><dd>{scope.organizationId}</dd><dt>商品</dt><dd>{proposal.detailsAvailable ? proposal.productKey : "当前无权查看"}</dd>
+    <p>{proposal.goalSummary}</p><dl><dt>企业</dt><dd>{scope.organizationId}</dd>{proposal.businessScope ? <><dt>工作范围</dt><dd>{scopeLabel(proposal.businessScope)}</dd></> : null}<dt>商品</dt><dd>{proposal.detailsAvailable ? proposal.productKey : "当前无权查看"}</dd>
       {content?<><dt>任务对象</dt><dd>{proposal.taskSelection?`${proposal.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · ${proposal.taskSelection.subject.id} · 版本 ${proposal.taskSelection.subject.catalogVersion}`:"不可用"}</dd><dt>语言与字段</dt><dd>{proposal.taskSelection?contentSelectionLabel(proposal.taskSelection.parameters):"不可用"}</dd></>:<><dt>目标平台</dt><dd>{proposal.targetPlatform ?? "不可用"}</dd></>}<dt>模板</dt><dd>{proposal.templateId ? `${proposal.templateId} · 修订 ${proposal.templateRevision}` : "未选择"}</dd>
       <dt>知识库</dt><dd>{proposal.knowledgeBaseId || "未选择"}</dd><dt>执行模型</dt><dd>{proposal.providerId && proposal.modelId ? `${proposal.providerId} / ${proposal.modelId}` : "不可用"}</dd>
       <dt>{content?"任务执行上限":"单次模型上限"}</dt><dd>{proposal.maximumTokens !== undefined ? `${proposal.maximumTokens} tokens` : "不可用"}{proposal.maximumCostMicros !== undefined ? ` · ${proposal.maximumCostMicros} μ${proposal.currency ?? ""}` : ""}</dd>

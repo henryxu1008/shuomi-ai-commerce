@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS ai_workbench.conversations (
     id uuid PRIMARY KEY,
     organization_id text NOT NULL CHECK (octet_length(organization_id) BETWEEN 1 AND 128),
     owner_user_id text NOT NULL CHECK (octet_length(owner_user_id) BETWEEN 1 AND 128),
+    business_scope jsonb CONSTRAINT ai_workbench_fixed_scope CHECK (business_scope IS NULL OR (jsonb_typeof(business_scope) = 'object' AND octet_length(business_scope::text) <= 1024 AND business_scope->>'version' IS NOT DISTINCT FROM 'workbench-scope-v1' AND ((business_scope->>'kind' = 'general' AND NOT (business_scope ?| array['projectId','storeId'])) OR (business_scope->>'kind' = 'project' AND coalesce(business_scope->>'projectId','') <> '') OR (business_scope->>'kind' = 'store' AND NOT (business_scope ? 'projectId') AND coalesce(business_scope->>'storeId','') <> '')) IS TRUE)),
     title text NOT NULL DEFAULT '' CHECK (octet_length(title) <= 256),
     favorite boolean NOT NULL DEFAULT false,
     lifecycle text NOT NULL CHECK (lifecycle IN ('ACTIVE', 'ARCHIVED')),
@@ -65,6 +66,9 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
     planner_input_hash char(64),
     work_scope jsonb CHECK (work_scope IS NULL OR octet_length(work_scope::text) <= 1024),
     planner_model_profile jsonb,
+    frozen_scope jsonb,
+    scope_digest char(64),
+    CONSTRAINT ai_workbench_frozen_scope CHECK ((frozen_scope IS NULL AND scope_digest IS NULL) OR (operation = 'chat_message_plan' AND frozen_scope IS NOT NULL AND jsonb_typeof(frozen_scope) = 'object' AND octet_length(frozen_scope::text) <= 16384 AND scope_digest IS NOT NULL AND scope_digest ~ '^[a-f0-9]{64}$')),
     planner_started_at timestamptz,
     planner_deadline timestamptz,
     assistant_message_id uuid,
@@ -94,6 +98,7 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
 
 CREATE TABLE IF NOT EXISTS ai_workbench.execution_proposals (
     id uuid PRIMARY KEY,
+    workbench_context_ref jsonb CONSTRAINT ai_workbench_proposal_context CHECK (workbench_context_ref IS NULL OR (jsonb_typeof(workbench_context_ref) = 'object' AND octet_length(workbench_context_ref::text) <= 1024)),
     digest char(64) NOT NULL,
     organization_id text NOT NULL,
     owner_user_id text NOT NULL,

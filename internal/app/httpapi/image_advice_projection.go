@@ -72,5 +72,5 @@ func recordedImageAdvice(s agent.State, native bool) (*asset.ImageAdvice, error)
 }
 func currentAgentRequest(s agent.State) bool {
 	return agentconfig.CurrentTitleRequest(s.Request.PolicyVersion, s.Request.PromptVersion) ||
-		s.Request.PolicyVersion == proposal.ContentPolicyVersion && s.Request.PromptVersion == agentconfig.ContentPromptVersion
+		s.Request.PolicyVersion == proposal.ContentPolicyVersion && agentconfig.ValidContentPrompt(s.Request.PromptVersion, s.Request.WorkbenchContextRef)
 }

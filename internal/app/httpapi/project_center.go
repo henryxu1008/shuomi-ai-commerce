@@ -96,6 +96,9 @@ func (a *projectSources) Resolve(ctx context.Context, s pc.Scope, r pc.Reference
 		if e != nil {
 			return pc.ReferenceView{}, e
 		}
+		if _, visible := a.chat.authorizedConversation(ctx, aiworkbench.Scope{OrganizationID: s.OrganizationID, ActorID: s.ActorID}, item); !visible {
+			return pc.ReferenceView{}, pc.ErrNotFound
+		}
 		v.Title = item.Title
 		if v.Title == "" {
 			v.Title = "未命名会话"
@@ -111,6 +114,9 @@ func (a *projectSources) Resolve(ctx context.Context, s pc.Scope, r pc.Reference
 			return pc.ReferenceView{}, e
 		}
 		projection, e := a.chat.taskView(ctx, scope, item, false)
+		if projection.ScopeUnavailable {
+			return pc.ReferenceView{}, pc.ErrNotFound
+		}
 		if e != nil {
 			return pc.ReferenceView{}, e
 		}
@@ -178,6 +184,9 @@ func buildProjectCenter(ctx context.Context, db *gorm.DB, deps routeAuthDependen
 		if e != nil {
 			return nil, e
 		}
+	}
+	if chat != nil {
+		chat.attachProjectScopes(store)
 	}
 	service := &pc.Service{Store: store, Reader: sources, Authorize: sources.authorize}
 	h := &ph.Handler{Service: service, Bind: func(ctx context.Context, header string) (context.Context, pc.Scope, error) {

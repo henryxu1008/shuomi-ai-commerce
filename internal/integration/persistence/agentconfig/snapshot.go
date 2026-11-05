@@ -43,7 +43,7 @@ func validTextConfigurationRequest(id string, request agent.Request) bool {
 		return request.ContentSelection.Absent() && request.Binding.Valid() && (request.Binding.ContextKind == "listing-target-record" || request.Binding.ContextKind == agent.CandidateRulesContextKind) && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
 	}
 	if id == agentconfig.ContentAgentID {
-		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
+		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && agentconfig.ValidContentPrompt(request.PromptVersion, request.WorkbenchContextRef) && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
 	}
 	if id == agentconfig.TitleAgentID && !agentconfig.CurrentTitleRequest(request.PolicyVersion, request.PromptVersion) {
 		return false

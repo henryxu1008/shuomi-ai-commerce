@@ -1185,6 +1185,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 		projectChat = module.(aiWorkbenchModule).application
+		if supplied.storeCenterDB != nil {
+			stores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer})
+			if e != nil {
+				return nil, e
+			}
+			projectChat.attachStoreScopes(stores)
+		}
 		if workbench.handler != nil {
 			workbench.handler.SetAIWorkbenchAvailable(true)
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)

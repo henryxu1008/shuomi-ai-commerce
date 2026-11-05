@@ -22,8 +22,8 @@ export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAva
     if (mode === "detail") return { sources: [await reportRequest(scope, `/sources/TITLE_REVIEW/${detailID}`, reportSourceSchema, signal)], next: "" };
     let refs: { kind: "TITLE_REVIEW" | "SHEIN_RECORD"; id: string }[], next = "";
     if(mode==="offline"){const page=await offlineRequest(scope,`?limit=20${cursor?`&cursor=${cursor}`:""}`,offlineList,signal);refs=page.items.map(i=>({kind:"SHEIN_RECORD",id:i.record_id}));next=page.next_cursor??"";}
-    else if (mode === "review") { const page = await fetchProductTitleProposals({ ...scope, limit: 20, ...(cursor ? { cursor } : {}), signal }); refs = page.items.map(i => ({ kind: "TITLE_REVIEW", id: i.proposal_id })); next = page.next_cursor ?? ""; }
-    else { const page = await requestAIWorkbench({ scope, signal, method: "GET", route: "task-list", path: `tasks?limit=20${cursor ? `&after=${cursor}` : ""}` }); refs = [...new Set(page.tasks.flatMap(i => i.reviewId ? [i.reviewId] : []))].map(id => ({ kind: "TITLE_REVIEW", id })); next = page.next; }
+    else if (mode === "review") { const page = await fetchProductTitleProposals({ ...scope, limit: 20, ...(cursor ? { cursor } : {}), signal }); refs = page.items.filter(i=>!i.workbench_scoped).map(i => ({ kind: "TITLE_REVIEW", id: i.proposal_id })); next = page.next_cursor ?? ""; }
+    else { const page = await requestAIWorkbench({ scope, signal, method: "GET", route: "task-list", path: `tasks?limit=20${cursor ? `&after=${cursor}` : ""}` }); refs = [...new Set(page.tasks.flatMap(i => !i.businessScope && i.reviewId ? [i.reviewId] : []))].map(id => ({ kind: "TITLE_REVIEW", id })); next = page.next; }
     const sources: ReportSource[] = [];
     // Original admin lists can contain others' records. Only the private source
     // adapter's successful metadata response is admitted into this selector.

@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
+import { WorkScopePicker, scopeLabel } from "./work-scope-picker";
+import type { WorkScopeOption } from "@/lib/contracts/ai-workbench";
 import { requestAIWorkbench, type AIScope } from "@/lib/api/ai-workbench";
 import { fetchProductTitleProposals } from "@/lib/api/product-title-review-client";
 import { contentSelectionLabel } from "@/lib/contracts/content-selection";
@@ -29,22 +31,28 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   const context = useWorkbenchContext(), client = useQueryClient();
   const [selection, setSelection] = useState<Selection | undefined>(initialProposalId ? {kind:"review", id:initialProposalId} : undefined);
   const [search, setSearch] = useState("");
+  const [filterKind,setFilterKind] = useState<"all"|"general"|"project"|"store"|"unrecorded">("all");
+  const [filterScope,setFilterScope] = useState<WorkScopeOption>();
+  const filterReady = (filterKind !== "project" && filterKind !== "store") || !!filterScope;
+  const filterQuery = new URLSearchParams({scopeKind:filterKind});
+  if(filterKind==="project" && filterScope?.scope.projectId) filterQuery.set("projectId",filterScope.scope.projectId);
+  if(filterKind==="store" && filterScope?.scope.storeId) filterQuery.set("storeId",filterScope.scope.storeId);
   const [reviewRef, setReviewRef] = useState<string>();
   const [pausedOnly, setPausedOnly] = useState(false);
   const [reviewLocked, setReviewLocked] = useState(false);
   const [taskLocked, setTaskLocked] = useState(false);
   const locked = reviewLocked || taskLocked;
   const [generation, setGeneration] = useState(0);
-  const native=useNativeRuns(scope,authorizationKey,nativeRunsAvailable,generation);
+  const native=useNativeRuns(scope,authorizationKey,nativeRunsAvailable && (filterKind==="all"||filterKind==="unrecorded"),generation);
   const [reviewPosition, setReviewPosition] = useState({ cursors:[undefined] as (string | undefined)[], page:1 });
   const [accessError, setAccessError] = useState<unknown>();
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const listHeading = useRef<HTMLHeadingElement>(null);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
-  const showReviews = productReviewAvailable && (mode === "all" || mode === "pending");
+  const showReviews = (filterKind==="all"||filterKind==="unrecorded") && productReviewAvailable && (mode === "all" || mode === "pending");
   const tasks = useInfiniteQuery({
-    queryKey: ["ai-tasks", scope.userId, scope.organizationId, authorizationKey, mode, generation], enabled: tasksAvailable,
-    initialPageParam: "", queryFn: ({signal, pageParam}) => requestAIWorkbench({route:"task-list", method:"GET", path:`tasks?limit=50${pageParam ? `&after=${pageParam}` : ""}`, scope, signal}),
+    queryKey: ["ai-tasks", scope.userId, scope.organizationId, authorizationKey, mode, generation,filterQuery.toString()], enabled: tasksAvailable && filterReady,
+    initialPageParam: "", queryFn: ({signal, pageParam}) => requestAIWorkbench({route:"task-list", method:"GET", path:`tasks?limit=50&${filterQuery}${pageParam ? `&after=${pageParam}` : ""}`, scope, signal}),
     getNextPageParam: (last, _pages, lastParam) => last.next && last.next !== lastParam ? last.next : undefined,
     retry:false, staleTime:0, gcTime:0, refetchOnWindowFocus:false, refetchOnReconnect:false,
   });
@@ -57,12 +65,13 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     setAccessError(reviews.error); setReviewLocked(false);
     if (!taskLocked) setSelection(undefined);
   }
-  const page = Array.from(new Map(tasks.data?.pages.flatMap(part => part.tasks ?? []).map(item => [item.id, item]) ?? []).values());
+  const page = tasks.isError ? [] : Array.from(new Map(tasks.data?.pages.flatMap(part => part.tasks ?? []).map(item => [item.id, item]) ?? []).values());
+  const incomplete = tasks.data?.pages.some(page=>page.incomplete) ?? false;
   const matchesMode = (state?: string) => pausedOnly ? state === "PAUSED" : mode === "all" ||
     mode === "pending" && state === "WAITING_CONFIRMATION" || mode === "running" && state === "RUNNING" ||
     mode === "completed" && state === "COMPLETED" || mode === "errors" && (state === "ERROR" || state === "PAUSED");
   const taskRows: Row[] = page.filter(item => matchesMode(item.state)).map(item => ({
-    kind:"task",id:item.id,title:item.title,caption:item.productDetailsAvailable ? `${item.productKey ?? ""} · ${item.targetPlatform ?? ""}` : "商品详情暂不可用",
+    kind:"task",id:item.id,title:item.title,caption:item.businessScope ? scopeLabel(item.businessScope) : "未记录工作范围",
     summary:item.projectionAvailable ? reasonText[item.reason ?? ""] ?? item.goalSummary ?? "" : "状态暂不可用",
     state:item.state,available:item.projectionAvailable,
   }));
@@ -70,15 +79,15 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   const matchesSearch = (row: Row) => `${row.title} ${row.caption} ${row.summary}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
   const visibleTaskRows = taskRows.filter(matchesSearch);
   const linked = new Set(page.filter(item => visibleTaskRows.some(row => row.id === item.id)).map(item => item.reviewId).filter(Boolean));
-  const reviewRows: Row[] = !showReviews || accessError || reviews.isError || reviews.isFetching || pausedOnly ? [] : (reviews.data?.items ?? []).filter(item => !linked.has(item.proposal_id)).map(item => ({
+  const reviewRows: Row[] = !showReviews || accessError || reviews.isError || reviews.isFetching || pausedOnly ? [] : (reviews.data?.items ?? []).filter(item => !item.workbench_scoped && !linked.has(item.proposal_id)).map(item => ({
     kind:"review",id:item.proposal_id,title:"policy" in item && item.policy === "product-content-review-v1" ? "完善与本地化标准商品内容" : "调整标准商品标题",
-    caption:item.product_key,summary:`${item.state === "accepted" ? "已接受，待应用" : "提案待审核"} · 基线 ${item.base_version} · 提案修订 ${item.proposal_revision}${"content_selection" in item ? ` · ${contentSelectionLabel(item.content_selection)}` : ""}`,
+    caption:`${item.product_key} · 未记录工作范围`,summary:`${item.state === "accepted" ? "已接受，待应用" : "提案待审核"} · 基线 ${item.base_version} · 提案修订 ${item.proposal_revision}${"content_selection" in item ? ` · ${contentSelectionLabel(item.content_selection)}` : ""}`,
     state:"WAITING_CONFIRMATION",available:true,
   }));
-  const nativeRows:Row[]=native.items.filter(item=>matchesMode(item.state)).map(item=>({kind:"native",id:item.key,title:item.title,caption:item.caption,summary:item.summary,label:item.label,state:item.state,available:true}));
+  const nativeRows:Row[]=native.items.filter(item=>matchesMode(item.state)).map(item=>({kind:"native",id:item.key,title:item.title,caption:`${item.caption} · 未记录工作范围`,summary:item.summary,label:item.label,state:item.state,available:true}));
   const rows = [...visibleTaskRows, ...reviewRows.filter(matchesSearch),...nativeRows.filter(matchesSearch)];
   rows.sort((a,b) => Number(b.state === "WAITING_CONFIRMATION") - Number(a.state === "WAITING_CONFIRMATION"));
-  const searching = tasksAvailable && mode !== "all" && !tasks.isPending && !tasks.isFetching && !tasks.isError && taskRows.length === 0 && tasks.hasNextPage;
+  const searching = filterReady && !incomplete && tasksAvailable && mode !== "all" && !tasks.isPending && !tasks.isFetching && !tasks.isError && taskRows.length === 0 && tasks.hasNextPage;
   const fetchNextPage = tasks.fetchNextPage, loadedPages = tasks.data?.pages.length ?? 0;
   useEffect(() => { if (searching && !locked) void fetchNextPage(); }, [searching, locked, fetchNextPage, loadedPages]);
   const refetchReviews = reviews.refetch;
@@ -88,7 +97,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     void client.invalidateQueries({queryKey:["ai-tasks",scope.userId,scope.organizationId,authorizationKey]});
   }, [refetchReviews, client, scope.userId, scope.organizationId, authorizationKey]);
   // A partial Task projection cannot discard the Review owner's unknown intent.
-  const observeReview = useCallback((id?: string) => { if (id && !locked) setReviewRef(id); }, [locked]);
+  const observeReview = useCallback((id?: string) => { if (id && !locked) setReviewRef(id); }, [locked, setReviewRef]);
   function select(next?: Selection) {
     if (locked) return;
     if (next) detailHeading.current?.focus();
@@ -106,11 +115,11 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     userId={scope.userId} roles={context.roles} permissions={context.permissions} onLocked={setReviewLocked} interactionLocked={taskLocked}
     onDenied={error=>{setReviewLocked(false);setAccessError(error);if(!taskLocked)setSelection(undefined);}} onChanged={reviewChanged} />;
   const canChat = tasksAvailable && context.effectiveOrganization?.capabilities?.["workbench.chat.use"] === true && context.aiWorkbenchPlanningReadiness === "AVAILABLE";
-  const tasksReady = (!tasksAvailable || tasks.isSuccess && !tasks.isFetching && !tasks.isError && page.every(item=>item.projectionAvailable && item.state)) && native.ready && native.items.every(item=>item.state);
+  const tasksReady = !incomplete && (!tasksAvailable || tasks.isSuccess && !tasks.isFetching && !tasks.isError && page.every(item=>item.projectionAvailable && item.state)) && native.ready && native.items.every(item=>item.state);
   const reviewsReady = !showReviews || reviews.isSuccess && !reviews.isFetching && !reviews.isError && !accessError;
   const pendingTasks = page.filter(item=>item.state === "WAITING_CONFIRMATION");
   const pendingLinked = new Set(pendingTasks.map(item=>item.reviewId).filter(Boolean));
-  const pending = pendingTasks.length + native.items.filter(item=>item.state==="WAITING_CONFIRMATION").length + (showReviews ? (reviews.data?.items ?? []).filter(item=>!pendingLinked.has(item.proposal_id)).length : 0);
+  const pending = pendingTasks.length + native.items.filter(item=>item.state==="WAITING_CONFIRMATION").length + (showReviews ? (reviews.data?.items ?? []).filter(item=>!item.workbench_scoped && !pendingLinked.has(item.proposal_id)).length : 0);
   const metrics = [
     {label:"待你处理",state:"WAITING_CONFIRMATION",value:(tasksAvailable || nativeRunsAvailable || showReviews) && tasksReady && reviewsReady ? pending : undefined},
     {label:"执行中",state:"RUNNING",value:(tasksAvailable || nativeRunsAvailable) && tasksReady ? [...page,...native.items].filter(item=>item.state==="RUNNING").length : undefined},
@@ -133,11 +142,13 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
       {filters.filter(filter=>tasksAvailable || nativeRunsAvailable || filter.mode==="all" || filter.mode==="pending" && productReviewAvailable || filter.mode==="completed" && sheinRecordsAvailable).map(filter=><Link key={filter.mode} href={filter.href} aria-current={!pausedOnly && mode===filter.mode ? "page":undefined} aria-disabled={locked || undefined} tabIndex={locked ? -1 : undefined} prefetch={false} onClick={event=>{if(locked)event.preventDefault();}}>{filter.label}</Link>)}
       {tasksAvailable || nativeRunsAvailable ? <Button variant="outline" disabled={locked} aria-pressed={pausedOnly} onClick={()=>{select();setPausedOnly(value=>!value);}}>已暂停</Button> : null}
     </nav><Button variant="outline" disabled={locked} onClick={refresh}>刷新状态</Button></div>
+    {tasksAvailable ? <div><label>工作范围筛选 <select value={filterKind} disabled={locked} onChange={event=>{select();setFilterScope(undefined);setFilterKind(event.target.value as typeof filterKind);}}><option value="all">全部</option><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option><option value="unrecorded">未记录工作范围</option></select></label>
+      {filterKind==="project"||filterKind==="store" ? <WorkScopePicker key={filterKind} initialKind={filterKind} fixedKind scope={scope} authorizationKey={authorizationKey} disabled={locked} selected={filterScope} onSelect={value=>{select();setFilterScope(value);}}/> : null}</div> : null}
     <p className={layout.coverage}>搜索和数量仅覆盖已加载且可判断的记录；待确认事项优先显示。运行完成不代表建议已采用或商品已发布，接受建议后仍需单独确认应用。</p>
     {!available ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
     <div className={layout.columns}>
       <Card className={layout.list}><header className={layout.panelHeader}><h2 tabIndex={-1} ref={listHeading}>任务列表</h2><span>已显示 {rows.length} 项</span></header>
-        {tasksAvailable && tasks.isPending ? <ConsoleState kind="loading" title={mode==="all" ? "正在读取任务" : "正在查找符合筛选的任务"} /> : null}
+        {tasksAvailable && filterReady && tasks.isPending ? <ConsoleState kind="loading" title={mode==="all" ? "正在读取任务" : "正在查找符合筛选的任务"} /> : null}
         {tasksAvailable && tasks.isError ? <ConsoleState kind="error" title={tasks.data ? "部分任务读取失败" : "任务读取失败"}>{errorText(tasks.error)} <Button variant="outline" disabled={locked} onClick={()=>void(tasks.isFetchNextPageError ? tasks.fetchNextPage() : tasks.refetch())}>重试</Button></ConsoleState> : null}
         {showReviews && (reviews.isPending || reviews.isFetching) && !accessError ? <ConsoleState kind="loading" title="正在读取内容提案">正在校验当前授权范围。</ConsoleState> : null}
         {accessError || showReviews && reviews.isError ? <ReviewError error={accessError ?? reviews.error} recover={refresh} /> : null}
@@ -149,7 +160,8 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
           </button>
         </li>)}</ul>
         {searching || tasks.isFetchingNextPage ? <ConsoleState kind="loading" title="正在查找符合筛选的任务" /> : null}
-        {!rows.length && !searching && native.ready && (!tasksAvailable || !tasks.isPending && !tasks.isError) && (!showReviews || reviews.isSuccess && !reviews.isFetching) ? <ConsoleState kind="empty" title={search ? "已加载记录中没有匹配项" : "当前筛选无任务"}>任务沿原业务入口发起；已生成建议的运行保留在全部记录，待确认提案按原审核权限读取。</ConsoleState> : null}
+        {incomplete ? <ConsoleState kind="unavailable" title="部分任务暂不可读">请核对权限，或刷新当前范围。</ConsoleState> : null}
+        {filterReady && !incomplete && !rows.length && !searching && native.ready && (!tasksAvailable || !tasks.isPending && !tasks.isError) && (!showReviews || reviews.isSuccess && !reviews.isFetching) ? <ConsoleState kind="empty" title={search ? "已加载记录中没有匹配项" : "当前筛选无任务"}>任务沿原业务入口发起；已生成建议的运行保留在全部记录，待确认提案按原审核权限读取。</ConsoleState> : null}
         <NativeRunReadStatus runs={native} locked={locked}/>
         {tasksAvailable && tasks.hasNextPage && !searching ? <Button variant="outline" disabled={locked || tasks.isFetching} onClick={()=>void tasks.fetchNextPage()}>加载更早任务</Button> : null}
         {showReviews && !accessError ? <div className={styles.pagination}><span>第 {reviewPosition.page} 页</span>
