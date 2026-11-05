@@ -243,36 +243,40 @@ Research 在自己的事务内按候选键唯一归并，按完整 `EvidenceRef`
 
 **撤权与原版读取失败。** 项目权限失效时整次读取拒绝。项目仍可读时，逐条检查原版可见性与摘要，原版缺失、不可读、校验不一致或选择过期时隐藏该观察，不读取最新版或借用同候选另一来源。按用户在 #1075 反馈的决定，当前和历史人工理由分别按其原证据引用投影，原记录在 Research 保留。只隐去不可读证据、其摘要和绑定的理由，仍可读的其他证据和其理由照常显示。组合分析、测算或 AI 结果依赖任一不可读观察时整份隐藏。当前选中引用失效时保持其原绑定，等待人工另选。新关联遇到版本变化、来源缺失或摘要不匹配时沿原接口返回冲突或依赖不可用，拒绝读权的调用者不获知原记录是否存在。
 
-### 5.2 Collection 到 Research 的静态走查
+### 5.2 来源侧交接件与静态样例
 
-[ZenRows 文档](https://www.zenrows.com/scrape/shein)给出美国类目卡片商品 `568824474`、`USD 38.88` 和原链接，并注明示例日期 2026-10-20。该样例无变体、精确取得时间、计价单位或税费字段。以下 P1/P2 是合成的内部发布与选择，P1 只借用公开卡片的商品 ID 和价格，P2 的展示价 `36.50` 仅供对照。两个版本共享商品身份，绑定两份不同的保存观察。所有 UUID 和任务引用均为示意数据。
+版本为 `shein_us_data@v1`，只交接已保存的美国站商品卡片观察。本节定的是 #1074 来源与 #1075 消费之间的合同，现有来源负责人负责发布和回读，Research 负责消费。详情、变体和评论在来源字段证据齐备后另行准入。
 
-```json
-{
-  "platform": "shein",
-  "market": "US",
-  "nativeGoodsId": "568824474",
-  "sourceUrl": "https://us.shein.com/Halter-Cutout-Ribbed-Bodycon-Mini-Dress-Night-Out-Outfit-p-568824474.html",
-  "publicSampleDay": "2026-10-20",
-  "publicCategoryUrl": "https://us.shein.com/Women-Dresses-c-1727.html",
-  "publicCurrency": "USD",
-  "publicListingAmount": "38.88",
-  "syntheticPublications": {
-    "P1": {"itemId": "00000000-0000-4000-8000-000000000101", "revision": 1, "publicationId": "00000000-0000-4000-8000-000000000201", "version": "1", "jobId": "00000000-0000-4000-8000-000000000301", "queryRef": "00000000-0000-4000-8000-000000000401", "querySummary": {"categoryRef": "1727"}, "displayAmount": "38.88"},
-    "P2": {"itemId": "00000000-0000-4000-8000-000000000102", "revision": 1, "publicationId": "00000000-0000-4000-8000-000000000202", "version": "2", "jobId": "00000000-0000-4000-8000-000000000302", "queryRef": "00000000-0000-4000-8000-000000000402", "querySummary": {"keyword": "dress"}, "displayAmount": "36.50"}
-  }
-}
-```
+#### 发布字段
 
-| 步骤 | 按合同应得的结果 |
+| 位置 | 必填字段和约束 |
 | --- | --- |
-| 选中 P1 后关联，保存绑定 P1 的人工理由 | 1 个候选，1 条证据。理由绑定 P1 的引用摘要。展示原卡片价，税费和计价单位保持未知。 |
-| 选中 P2 再关联，重放原 P2 命令 | 仍为 1 个候选，2 条证据。回执重放不新增证据，当前选择和理由仍绑定 P1。另一项目关联同商品时生成独立候选。 |
-| P1 原版不可读，P2 可读 | 候选仍在。P1 观察、摘要、当前及历史的 P1 理由隐藏，P2 的合成卡片事实可读。任何绑定 P1 的 #1074 组合评估整份不可读。P1 理由仍保存在原记录。 |
-| 用户在 P2 可读时按原 `select → review → decide` 另选并确认，P1 仍不可读 | P2 理由可以展示，P1 理由继续隐藏。项目权限撤销时整体拒绝。 |
-| 选择版本不匹配、观察摘要不匹配或商品 ID 与 URL 冲突 | 拒绝新关联，保留原命令与已保存记录，无补抓和替代读取。 |
+| 冻结任务 | 原 `jobId`、`queryRef` 和私有 scope。目标市场和来源地区均为 `US`。查询摘要为 `{mode:"category",categoryRef}` 或 `{mode:"keyword",keyword}`，与冻结查询一致。 |
+| 发布绑定 | `producer={kind:"shein_us_data",version:"v1"}`，`Source={kind,operationId,publicationId,productKey,version}`。`operationId` 与 `publicationId` 同为来源任务条目 UUID，`version` 为 Catalog 分配的正整数，沿现有 JSON 十进制字符串表示。来源侧按 `"shein-" + StableID(orgId, actorId, "shein-product", "US", nativeGoodsId)` 构造 productKey，使同一私有范围的后续观察可发布成该商品的新 Catalog 版本。 |
+| Sourcing 封套 | `SourceIdentity` 使用 `SourceType="public_web"`、`SourcePlatform="shein"`、`SourceID="US:"+nativeGoodsId`、原商品 URL。沿用 `RawReference.ReferenceType="captured_evidence"`，`ReferenceID=operationId`。商品标题映射至 Catalog 商品候选，缺项按原来源契约表达。 |
+| 保存观察 | 必填 `platform="shein"`、`market="US"`、`nativeGoodsId`、`sourceUrl`、`jobId`、`queryRef`、`observationVersion`、`parserVersion`。原观察版本是来源任务条目内的正整数版本，JSON 表示为十进制字符串。本首版每个条目只保存一个原观察，版本为 `"1"`。P2 是另一个条目的原观察。 |
+| 卡片字段 | `title`、`capturedAt`、`variantId` 和 `price` 缺失时保留该字段且值为 `null`，`missing` 列出实际缺失字段的路径。原取得时间只能来自该观察，保留已知精度。列表样例为商品级，`variantId=null`。有可信价格时，`price={amount,currency,basis,promotionNote,taxIncluded,unit}`，金额用非负十进制字符串，币种为明确提供的 ISO 4217 代码，`basis="listing_display"`，其余三项缺失时为 `null`。缺少可信金额或币种时整个 `price=null`。 |
+| 校验绑定 | `observationEncodingVersion="shein-us-observation-json-v1"`，`observationVersion`、`jobId`、`queryRef` 和 `checksum` 绑定在原发布。现有 `RawReference.Checksum` 持有该 SHA-256，`RawReference.Metadata` 固定键 `jobId/queryRef/observationVersion/observationEncodingVersion` 绑定对应原记录。来源任务条目持有原观察字节。发布与原版本、任务条目及 Collection 引用沿同一 Product UoW 提交。 |
 
-P1/P2 用于走查同一候选的证据关联及逐条遮蔽。#1075 的 AI 分析仍要求 2–5 个不同候选，每个候选一条选中证据。静态走查只验证合同在合成输入下的一致性。正式实现所需的高风险边界复核、#1075 可消费版本、原来源保存及读许可、详情及变体真实字段等按 §10 跟进。万邦询证继续沿 §3.4，独立于本读取与归并合同。
+#### 原版回读与校验
+
+1. 来源侧在发布时用固定 v1 DTO 和现有 `encoding/json.Marshal` 编码一次，保存紧凑、无 BOM、无尾换行的 UTF-8 JSON 原字节。摘要为 `sha256:` 加 64 位小写十六进制，对整段保存字节计算，沿用 `RawSnapshotChecksum`。空白、字段顺序和转义都属于保存字节。回读直接取原字节复算，不能解析后重编码，不能以 Catalog 投影、供应商原始响应或 Research 的引用摘要代替。
+2. #1075 先按当前身份调用 Collection `Select`。服务端从选中凭证取准确 `Source`，传给 `ReadSHEINUSProvenance(ctx, principal, source)`。回读口先查实时读权，再用同一私有范围及 `publicationId` 找原发布与 `SAVED` 条目，逐项比对发布者版本、ProductKey、原条目 ID、Catalog 版本、任务/查询以及观察和编码版本。对原观察复算 SHA-256 并与发布绑定值比较后，才按 v1 解码，再核对商品身份、观察版本、任务及查询引用与原记录一致。成功返回 `SHEINUSProvenance{Source, JobID, QueryRef, QuerySummary, Observation, ObservationVersion, ObservationEncodingVersion, Checksum}`。来源及 Collection 按 §5.1 在返回或提交前复核读权及原选择。
+3. 拒绝读权时沿现有权限错误返回，外部结果不能探知记录存在性。原条目缺失时沿原接口返回不可读，选择版本变化沿 Collection 冲突边界处理。版本不支持、字节缺失、无效或摘要不符时视为依赖不可用，整条原观察不返回。禁止读最新版本、重采或重新发布来补足这次读取。发布重试沿用原 `publicationId` 和绑定。同 ID、同绑定取原回执，同 ID 换摘要或其他绑定值返回冲突。已成功发布但 Research 关联失败时，只重试关联。
+
+#### P1/P2 复用方法
+
+[独立 JSON 夹具](evidence/shein-us-data-v1-p1-p2.json) 包含 `selection`、模拟原任务、原发布绑定、逐条 `observationUtf8` 和消费者预期。消费侧 stub 用模拟原发布和任务组装回读结果，将 `observationUtf8` 解码为 `Observation`。解析外层 JSON 后，把 `observationUtf8` 字符串直接编码成 UTF-8 复算摘要。P1 借用 [ZenRows 公开卡片](https://www.zenrows.com/scrape/shein) 的商品 ID `568824474`、原链接和 `USD 38.88`。P2 的 `USD 36.50` 和全部内部记录均为合成。公开样例的文档日期不作为行级采集时间。
+
+- P1 和 P2 的原观察、发布及查询各自绑定。同一项目应得到同一个候选、两条证据。P2 重放不新增证据，且 P1 仍为已选证据。
+- P1 失去读权时仍展示可读 P2。P1 的事实、摘要、当前和历史理由，以及依赖它的组合结果按 §5.1 遮蔽，原记录保留。项目失去权限时整体拒绝。人工切换证据沿原 `select → review → decide`。
+- 静态负例修改 P1 保存字节中的金额，或把 P1 请求的 Catalog 版本替换为 P2 的版本。前者摘要不匹配，后者无法读到所请求的原发布。两者都不返 P2 作为替代。此样例验证一个候选的证据交接，#1075 原 AI 分析仍要求 2–5 个不同候选。
+
+#### 实施准入缺项
+
+- **来源侧本地实现。** #1074 需确定首试范围和字段下限，补来源类型准入、原观察保存与发布的同事务约束和窄回读口的独立设计检查，明确 `IMPLEMENTATION_READY` 后才修改生产路径。正式实现须以精确版本、同 scope、摘要篡改及失败重试的测试验证此合同。
+- **消费联调。** #1075 需提供修复现有 Amazon 理由暴露且经验证的可消费 SHA。来源侧提供发布/回读实现 SHA。两边都准入后，用同一 JSON 夹具核对原版选择、同商品归并、逐证据遮蔽及项目撤权。当前 `8d3b19df` 只用来对齐既有接口。
+- **真实来源开放。** 待核实美国站覆盖和实际字段质量、资料使用与保存许可、账户费用、页数与记录上限、预算和执行授权。详情、变体、评论按各自的字段和权限证据开放。公开卡片与合成记录的静态检查不能代替真实调用或业务验收。万邦量价和混批独立补证，不影响此交接件。
 
 ## 6. 确定性单位经济模型
 
