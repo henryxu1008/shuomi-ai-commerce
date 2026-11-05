@@ -26,7 +26,7 @@ func BuildOriginalSKUReadinessChecks(pkg *shein.Package) []ReadinessCheckSpec {
 		preview = pkg.PreviewPayload.SKCList
 	}
 	var gaps, known, paths []string
-	missing, declared := 0, 0
+	missing, declared, zero := 0, 0, 0
 	for skc := range max(len(draft), len(preview)) {
 		var rows []shein.SKUDraft
 		var previews []previewdata.SKU
@@ -60,6 +60,9 @@ func BuildOriginalSKUReadinessChecks(pkg *shein.Package) []ReadinessCheckSpec {
 					fields = append(fields, "库存声明与规格资料不一致")
 				default:
 					declared++
+					if source.StockCount == 0 {
+						zero++
+					}
 					if len(known) < maxShownSKUs {
 						known = append(known, fmt.Sprintf("%s 库存 %d", label, source.StockCount))
 					}
@@ -90,6 +93,9 @@ func BuildOriginalSKUReadinessChecks(pkg *shein.Package) []ReadinessCheckSpec {
 			message += "。"
 		}
 		message += summarizedSKUs(known, declared)
+		if declared > len(known) && zero > 0 {
+			message += fmt.Sprintf("，其中 %d 个 SKU 库存为 0", zero)
+		}
 	}
 	return []ReadinessCheckSpec{BuildSubmitReadinessCheck(
 		"sku_facts", "SKU 库存和包装", missing == 0, message, paths, "核对 SKU 库存及包装资料", false,

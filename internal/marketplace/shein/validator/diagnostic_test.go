@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -29,6 +31,36 @@ func TestDiagnosticReportsOriginalSKUStockAndPackagingGaps(t *testing.T) {
 	raw, err := json.Marshal(result.OfflineChecks.Blockers)
 	if err != nil || !strings.Contains(string(raw), "SKU-GAP") || !strings.Contains(string(raw), "重量") || !strings.Contains(string(raw), "宽") || !strings.Contains(string(raw), "库存") {
 		t.Fatalf("specific SKU facts must be checked before preparation: %s (%v)", raw, err)
+	}
+}
+
+func TestDiagnosticSummarizesZeroBeyondDisplayedSKUExamples(t *testing.T) {
+	pkg := readyPackage()
+	draft := &pkg.DraftPayload.SKCList[0]
+	preview := &pkg.PreviewPayload.SKCList[0]
+	zero, zeroPreview := draft.SKUList[0], preview.SKUS[0]
+	for i := 0; i < 4; i++ {
+		row, view := zero, zeroPreview
+		row.SupplierSKU = "POS-" + strconv.Itoa(i+1)
+		view.SupplierSKU = row.SupplierSKU
+		row.StockCount = 7
+		row.StockInfoList = slices.Clone(zero.StockInfoList)
+		row.StockInfoList[0].InventoryNum = 7
+		view.StockCount = new(7)
+		view.StockInfoList = slices.Clone(zeroPreview.StockInfoList)
+		view.StockInfoList[0].InventoryNum = 7
+		draft.SKUList = append(draft.SKUList, row)
+		preview.SKUS = append(preview.SKUS, view)
+	}
+	draft.SKUList[0], draft.SKUList[4] = draft.SKUList[4], draft.SKUList[0]
+	preview.SKUS[0], preview.SKUS[4] = preview.SKUS[4], preview.SKUS[0]
+	raw, err := json.Marshal(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := (DiagnosticValidator{}).Validate(diagnosticRequest(string(raw)))
+	if err != nil || !strings.Contains(stockCheckMessage(result), "其中 1 个 SKU 库存为 0") {
+		t.Fatalf("zero inventory disappeared when examples were capped: %s (%v)", stockCheckMessage(result), err)
 	}
 }
 
