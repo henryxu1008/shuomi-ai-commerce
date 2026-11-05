@@ -6,7 +6,7 @@
 
 ## 研究与商业评估规划
 
-- [市场调研与商业选品 V1：独立架构提案](research-commercial-assessment-v1.md) — #1074 设计阶段，来源与产品决定待定，Admission NOT_READY；不授权生产代码或真实调用。
+- `research-commercial-assessment-v1.md` — [市场调研与商业选品 V1：独立架构提案](research-commercial-assessment-v1.md)；#1074 设计阶段，来源与产品决定待定，Admission NOT_READY，不授权生产代码或真实调用。
 
 <a id="foundation"></a>
 
