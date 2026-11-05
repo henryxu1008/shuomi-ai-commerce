@@ -120,13 +120,15 @@ export function isZitadelAuthConfigured() {
 }
 
 export function getAuthJsSecret() {
-  return (
-    process.env.AUTH_SECRET?.trim() ||
-    process.env.NEXTAUTH_SECRET?.trim() ||
-    process.env.ZITADEL_CLIENT_SECRET?.trim() ||
-    process.env.ZITADEL_CLIENT_ID?.trim() ||
-    undefined
-  );
+  const authSecret = process.env.AUTH_SECRET;
+  const nextAuthSecret = process.env.NEXTAUTH_SECRET;
+  const secret = authSecret?.trim() || nextAuthSecret?.trim();
+
+  // An omitted config secret lets Auth.js read the untrimmed environment again.
+  if (!secret && (authSecret || nextAuthSecret)) {
+    throw new Error("Configure a nonblank AUTH_SECRET or NEXTAUTH_SECRET");
+  }
+  return secret || undefined;
 }
 
 function authCookieConfig(zitadel: ZitadelAuthOptions | undefined) {
