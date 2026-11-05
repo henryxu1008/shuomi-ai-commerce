@@ -15,6 +15,7 @@ import (
 
 	dataservicesapp "task-processor/internal/app/dataservices"
 	"task-processor/internal/httproute"
+	"task-processor/internal/integration/acquisition/zenrows"
 	kernel "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/product/collection"
@@ -134,33 +135,50 @@ func verifySHEINTrialRecovery(t *testing.T, ctx context.Context, module *dataser
 	a := newSHEINTrialTestApproval(access)
 	accountant := collection.Scope{OrganizationID: a.Scope.OrganizationID, ActorID: "fixture-accountant", MemberID: "fixture-accountant-member"}
 	outsider := collection.Scope{OrganizationID: "fixture-outsider", ActorID: accountant.ActorID, MemberID: accountant.MemberID}
-	auth := sheinTrialTestAuthority{sheinResearchTrialAuthority{a}, func(p dataacquisition.Principal, action dataacquisition.SHEINUSTrialAction) bool {
-		if action == dataacquisition.SHEINUSTrialReconcile {
-			return p.Scope == accountant || p.Scope == outsider
-		}
-		return p.Scope == a.Scope
-	}}
 	sends, lookups := 0, 0
 	projects := sheinTrialTestProjects{marketDenied: make(map[collection.Scope]bool)}
 	revokeDuringLookup := false
+	canSend, shortBudget := false, true
 	const requestID = "fixture-original-shein-request"
-	deps := sheinTrialDependencies{
-		authority: auth,
-		send: func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
-			sends++
-			return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: dataacquisition.SHEINUSTrialUsage{
-				ApprovalID: a.ID, Binding: a.Binding(), RequestID: requestID,
-			}}, dataacquisition.ErrUnknown
+	deps, err := assembleSHEINTrialDependencies(sheinTrialInputs{
+		approval: a, reconciler: accountant,
+		access: func(_ context.Context, _ dataacquisition.Principal, _ dataacquisition.SHEINUSTrialApproval, action dataacquisition.SHEINUSTrialAction) error {
+			if action == dataacquisition.SHEINUSTrialSend && !canSend {
+				return dataacquisition.ErrForbidden
+			}
+			return nil
 		},
-		lookup: func(_ context.Context, _ dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest, original dataacquisition.SHEINUSTrialAttempt) (dataacquisition.SHEINUSTrialUsage, error) {
+		budget: func(ctx context.Context, approval dataacquisition.SHEINUSTrialApproval) (dataacquisition.SHEINUSTrialBudgetEvidence, error) {
+			budget, err := (sheinResearchTrialAuthority{approval}).CheckSHEINUSTrialBudget(ctx, approval)
+			until := a.ExpiresAt
+			if shortBudget {
+				until = time.Now().Add(time.Second)
+			}
+			return dataacquisition.SHEINUSTrialBudgetEvidence{SHEINUSTrialBudget: budget, ValidUntil: until}, err
+		},
+		readKey: func(context.Context, string, string) (string, error) {
+			t.Fatal("the offline HTTP composition must not read the provider key")
+			return "", dataacquisition.ErrUnavailable
+		},
+		readUsage: func(_ context.Context, approved dataacquisition.SHEINUSTrialApproval, original dataacquisition.SHEINUSTrialAttempt) (zenrows.UsageEvidence, error) {
 			lookups++
+			require.Equal(t, a, approved)
 			require.Equal(t, requestID, original.RequestID)
 			if revokeDuringLookup {
 				projects.marketDenied[accountant] = true
 			}
 			credits := 7
-			return dataacquisition.SHEINUSTrialUsage{ApprovalID: a.ID, Binding: a.Binding(), RequestID: requestID, Credits: &credits}, nil
+			return zenrows.UsageEvidence{Binding: a.Binding(), Records: []zenrows.UsageRecord{
+				{AccountRef: a.AccountRef, KeyRef: a.KeyRef, RequestID: requestID, Credits: &credits, Final: true},
+			}}, nil
 		},
+	})
+	require.NoError(t, err)
+	deps.send = func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
+		sends++
+		return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: dataacquisition.SHEINUSTrialUsage{
+			ApprovalID: a.ID, Binding: a.Binding(), RequestID: requestID,
+		}}, dataacquisition.ErrUnknown
 	}
 	server := sheinTrialTestHTTP(t, ctx, module, deps, projects, map[string]collection.Scope{"researcher": a.Scope, "accountant": accountant, "outsider": outsider})
 	path := sheinTrialTestPath(a.ProjectID, a.ID)
@@ -169,7 +187,13 @@ func verifySHEINTrialRecovery(t *testing.T, ctx context.Context, module *dataser
 	sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "unrecognized", "", http.StatusForbidden)
 	sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit?url=x", "researcher", "", http.StatusBadRequest)
 	sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", `{"credits":1}`, http.StatusBadRequest)
+	sheinTrialTestRequest(t, server, http.MethodPost, sheinTrialTestPath(a.ProjectID, uuid.NewString())+"/submit", "researcher", "", http.StatusForbidden)
+	sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", "", http.StatusForbidden)
+	canSend = true
+	sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", "", http.StatusServiceUnavailable)
+	sheinTrialTestRequest(t, server, http.MethodGet, path, "researcher", "", http.StatusNotFound)
 	require.Zero(t, sends)
+	shortBudget = false
 	unknown := `{"approvalId":"` + a.ID + `","requestId":"` + requestID + `","credits":null,"reservedCredits":25,"state":"UNKNOWN"}`
 	require.JSONEq(t, unknown, sheinTrialTestRequest(t, server, http.MethodPost, path+"/submit", "researcher", "", http.StatusConflict))
 	require.JSONEq(t, unknown, sheinTrialTestRequest(t, server, http.MethodGet, path, "researcher", "", http.StatusOK))

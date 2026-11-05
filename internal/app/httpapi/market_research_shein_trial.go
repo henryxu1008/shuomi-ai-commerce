@@ -12,6 +12,7 @@ import (
 	dataservicesapp "task-processor/internal/app/dataservices"
 	"task-processor/internal/dataservice"
 	"task-processor/internal/httproute"
+	"task-processor/internal/integration/acquisition/zenrows"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 	rh "task-processor/internal/product/research/httpapi"
@@ -26,6 +27,37 @@ type sheinTrialDependencies struct {
 	authority dataacquisition.SHEINUSTrialAuthority
 	send      dataacquisition.SHEINUSTrialSender
 	lookup    dataacquisition.SHEINUSTrialLookup
+}
+
+type sheinTrialInputs struct {
+	approval   dataacquisition.SHEINUSTrialApproval
+	reconciler collection.Scope
+	access     dataacquisition.SHEINUSTrialAccessCheck
+	budget     dataacquisition.SHEINUSTrialBudgetReader
+	readKey    zenrows.ResolveKey
+	readUsage  zenrows.ReadUsageEvidence
+}
+
+// assembleSHEINTrialDependencies prepares the explicit internal composition.
+// It is disconnected from the serving runtime and consumes no credentials.
+func assembleSHEINTrialDependencies(in sheinTrialInputs) (sheinTrialDependencies, error) {
+	authority, err := dataacquisition.NewFixedSHEINUSTrialAuthority(in.approval, in.reconciler, in.access, in.budget)
+	if err != nil {
+		return sheinTrialDependencies{}, err
+	}
+	key, err := zenrows.NewDedicatedKeyResolver(in.approval, in.readKey)
+	if err != nil {
+		return sheinTrialDependencies{}, err
+	}
+	fetch, err := zenrows.NewFetch(key)
+	if err != nil {
+		return sheinTrialDependencies{}, err
+	}
+	lookup, err := zenrows.NewLookup(in.readUsage)
+	if err != nil {
+		return sheinTrialDependencies{}, err
+	}
+	return sheinTrialDependencies{authority: authority, send: fetch.Send, lookup: lookup}, nil
 }
 
 // The offline entry is only assembled by an explicit in-package composition.

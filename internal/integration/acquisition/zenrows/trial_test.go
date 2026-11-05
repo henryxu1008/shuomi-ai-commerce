@@ -222,12 +222,14 @@ func localFetch(t *testing.T, a dataacquisition.SHEINUSTrialApproval, reply http
 	server.EnableHTTP2 = true
 	server.StartTLS()
 	t.Cleanup(server.Close)
-	fetch, err := NewFetch(func(_ context.Context, accountRef, keyRef string) (string, error) {
+	resolve, err := NewDedicatedKeyResolver(a, func(_ context.Context, accountRef, keyRef string) (string, error) {
 		if accountRef != a.AccountRef || keyRef != a.KeyRef {
 			return "", errors.New("wrong key binding")
 		}
 		return testKey, nil
 	})
+	require.NoError(t, err)
+	fetch, err := NewFetch(resolve)
 	require.NoError(t, err)
 	transport := fetch.http.Transport.(*http.Transport)
 	require.Nil(t, transport.Proxy)
@@ -244,6 +246,32 @@ func localFetch(t *testing.T, a dataacquisition.SHEINUSTrialApproval, reply http
 		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
 	}
 	return fetch, calls, dials
+}
+
+func TestDedicatedKeyResolverRejectsAnotherReferenceAndExpiry(t *testing.T) {
+	a := approvalFixture()
+	reads := 0
+	read := func(context.Context, string, string) (string, error) {
+		reads++
+		return testKey, nil
+	}
+	resolve, err := NewDedicatedKeyResolver(a, read)
+	require.NoError(t, err)
+	_, err = resolve(context.Background(), "another-account", a.KeyRef)
+	require.ErrorIs(t, err, dataacquisition.ErrUnavailable)
+	_, err = resolve(context.Background(), a.AccountRef, "primary-key")
+	require.ErrorIs(t, err, dataacquisition.ErrUnavailable)
+	expired := a
+	expired.ExpiresAt = time.Now().Add(-time.Second)
+	stale, err := NewDedicatedKeyResolver(expired, read)
+	require.NoError(t, err)
+	_, err = stale(context.Background(), a.AccountRef, a.KeyRef)
+	require.ErrorIs(t, err, dataacquisition.ErrUnavailable)
+	require.Zero(t, reads)
+	key, err := resolve(context.Background(), a.AccountRef, a.KeyRef)
+	require.NoError(t, err)
+	require.Equal(t, testKey, key)
+	require.Equal(t, 1, reads)
 }
 
 func TestFetchRedactsKeyAndRejectsDifferentRequest(t *testing.T) {

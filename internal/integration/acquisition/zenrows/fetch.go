@@ -9,7 +9,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
+	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 )
 
@@ -20,6 +22,24 @@ const (
 
 // ResolveKey resolves the approved non-secret account and key references.
 type ResolveKey func(ctx context.Context, accountRef, keyRef string) (string, error)
+
+// NewDedicatedKeyResolver opens only the reference frozen in the approval.
+// Construction does not read the secret or dispatch a Fetch request.
+func NewDedicatedKeyResolver(a dataacquisition.SHEINUSTrialApproval, read ResolveKey) (ResolveKey, error) {
+	if read == nil || !collection.ValidID(a.AccountRef) || !collection.ValidID(a.KeyRef) || a.ExpiresAt.IsZero() {
+		return nil, dataacquisition.ErrUnavailable
+	}
+	return func(ctx context.Context, accountRef, keyRef string) (string, error) {
+		if ctx == nil || ctx.Err() != nil || accountRef != a.AccountRef || keyRef != a.KeyRef || !time.Now().Before(a.ExpiresAt) {
+			return "", dataacquisition.ErrUnavailable
+		}
+		key, err := read(ctx, a.AccountRef, a.KeyRef)
+		if err != nil || ctx.Err() != nil || !time.Now().Before(a.ExpiresAt) || len(key) == 0 || len(key) > 512 || strings.TrimSpace(key) != key || strings.ContainsAny(key, "\x00\r\n\t") {
+			return "", dataacquisition.ErrUnavailable
+		}
+		return key, nil
+	}, nil
+}
 
 type Fetch struct {
 	http    *http.Client
