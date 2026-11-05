@@ -70,7 +70,8 @@ type SHEINUSTrialBudget struct {
 }
 
 // The authority supplies the frozen approval, current project/source permissions
-// and account evidence. The key must be dedicated to this approval's time window
+// and account evidence. Send and publish must verify current execution and
+// funding access. The key must be dedicated to this approval's time window
 // with no other requests in flight.
 type SHEINUSTrialAuthority interface {
 	AuthorizeSHEINUSTrial(context.Context, Principal, string, SHEINUSTrialAction) (SHEINUSTrialApproval, error)

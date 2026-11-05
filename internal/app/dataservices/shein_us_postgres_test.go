@@ -226,7 +226,7 @@ func prepareSHEINUSFixture(t *testing.T, ctx context.Context, db *gorm.DB, repo 
 	}
 	pool, err := db.DB()
 	require.NoError(t, err)
-	svc, err := NewSHEINUSTrial(pool, trialAuthority{approval: a, budget: budget},
+	svc, err := NewSHEINUSTrial(pool, authorizedFixture{}, trialAuthority{approval: a, budget: budget},
 		func(context.Context, dataacquisition.SHEINUSTrialApproval, dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
 			credits := 5
 			return dataacquisition.SHEINUSTrialSubmission{

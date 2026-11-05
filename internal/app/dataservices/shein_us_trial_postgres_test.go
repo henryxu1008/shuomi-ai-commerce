@@ -73,9 +73,9 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: receipt(a, "fixture-request-25", &credits)}, nil
 	}
 
-	_, err = NewSHEINUSTrial(pool, a, nil, noMatch)
+	_, err = NewSHEINUSTrial(pool, authorizedFixture{}, a, nil, noMatch)
 	require.ErrorIs(t, err, dataacquisition.ErrUnavailable)
-	service, err := NewSHEINUSTrial(pool, a, sender, noMatch)
+	service, err := NewSHEINUSTrial(pool, authorizedFixture{}, a, sender, noMatch)
 	require.NoError(t, err)
 	_, err = service.Send(ctx, p, a.approval.ID)
 	require.ErrorIs(t, err, dataacquisition.ErrUnavailable, "an uninstalled trial store must fail closed")
@@ -99,7 +99,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				rejected := approval()
 				change(&rejected)
-				service, err := NewSHEINUSTrial(pool, rejected, sender, noMatch)
+				service, err := NewSHEINUSTrial(pool, authorizedFixture{}, rejected, sender, noMatch)
 				require.NoError(t, err)
 				_, err = service.Send(ctx, p, rejected.approval.ID)
 				require.Error(t, err)
@@ -140,7 +140,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		require.NoError(t, err)
 		require.NotSame(t, pool, newPool)
 		t.Cleanup(func() { require.NoError(t, newPool.Close()) })
-		fresh, err := NewSHEINUSTrial(newPool, a, sender, noMatch)
+		fresh, err := NewSHEINUSTrial(newPool, authorizedFixture{}, a, sender, noMatch)
 		require.NoError(t, err)
 		got, err := fresh.Send(ctx, p, a.approval.ID)
 		require.NoError(t, err)
@@ -152,7 +152,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		changed := a
 		changed.approval.ProjectID = uuid.NewString()
 		changed.budget.Binding = changed.approval.Binding()
-		conflicting, err := NewSHEINUSTrial(newPool, changed, sender, noMatch)
+		conflicting, err := NewSHEINUSTrial(newPool, authorizedFixture{}, changed, sender, noMatch)
 		require.NoError(t, err)
 		_, err = conflicting.Send(ctx, p, a.approval.ID)
 		require.ErrorIs(t, err, dataacquisition.ErrConflict)
@@ -173,7 +173,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 			<-sendCtx.Done()
 			return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: receipt(a, requestID, &credits)}, nil
 		}
-		first, err := NewSHEINUSTrial(pool, a, timeout, noMatch)
+		first, err := NewSHEINUSTrial(pool, authorizedFixture{}, a, timeout, noMatch)
 		require.NoError(t, err)
 		pending, err := first.Send(ctx, p, a.approval.ID)
 		require.ErrorIs(t, err, dataacquisition.ErrUnknown)
@@ -199,7 +199,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		require.NoError(t, err)
 		require.NotSame(t, pool, newPool)
 		t.Cleanup(func() { require.NoError(t, newPool.Close()) })
-		fresh, err := NewSHEINUSTrial(newPool, a, timeout, lookup)
+		fresh, err := NewSHEINUSTrial(newPool, authorizedFixture{}, a, timeout, lookup)
 		require.NoError(t, err)
 		_, err = fresh.Send(ctx, p, a.approval.ID)
 		require.ErrorIs(t, err, dataacquisition.ErrUnknown)
@@ -245,7 +245,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 			}
 			return receipt(a, requestID, &actual), nil
 		}
-		service, err := NewSHEINUSTrial(pool, a, submit, lookup)
+		service, err := NewSHEINUSTrial(pool, authorizedFixture{}, a, submit, lookup)
 		require.NoError(t, err)
 		invisible, err := service.Send(ctx, p, a.approval.ID)
 		require.ErrorIs(t, err, dataacquisition.ErrForbidden)
@@ -276,7 +276,7 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		_, won, err := store.Claim(ctx, a.approval)
 		require.NoError(t, err)
 		require.True(t, won)
-		fresh, err := NewSHEINUSTrial(pool, a, sender, noMatch)
+		fresh, err := NewSHEINUSTrial(pool, authorizedFixture{}, a, sender, noMatch)
 		require.NoError(t, err)
 		pending, err := fresh.Send(ctx, p, a.approval.ID)
 		require.ErrorIs(t, err, dataacquisition.ErrUnknown)
@@ -296,14 +296,14 @@ func TestSHEINUSSinglePageTrial(t *testing.T) {
 		over := func(_ context.Context, a dataacquisition.SHEINUSTrialApproval, _ dataacquisition.SHEINUSTrialRequest) (dataacquisition.SHEINUSTrialSubmission, error) {
 			return dataacquisition.SHEINUSTrialSubmission{SHEINUSTrialUsage: receipt(a, requestID, &actual)}, nil
 		}
-		first, err := NewSHEINUSTrial(pool, a, over, noMatch)
+		first, err := NewSHEINUSTrial(pool, authorizedFixture{}, a, over, noMatch)
 		require.NoError(t, err)
 		got, err := first.Send(ctx, p, a.approval.ID)
 		require.NoError(t, err)
 		require.True(t, got.OverLimit())
 		require.Equal(t, 26, *got.Credits)
 		second := approval()
-		another, err := NewSHEINUSTrial(pool, second, over, noMatch)
+		another, err := NewSHEINUSTrial(pool, authorizedFixture{}, second, over, noMatch)
 		require.NoError(t, err)
 		_, err = another.Send(ctx, p, second.approval.ID)
 		require.ErrorIs(t, err, dataacquisition.ErrConflict)

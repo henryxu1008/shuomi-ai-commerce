@@ -13,12 +13,15 @@ import (
 
 // NewSHEINUSTrial assembles the isolated one-page trial. Serving assemblies do
 // not register this constructor, a sender, or the trial schema.
-func NewSHEINUSTrial(db *sql.DB, authority dataacquisition.SHEINUSTrialAuthority, sender dataacquisition.SHEINUSTrialSender, lookup dataacquisition.SHEINUSTrialLookup) (*dataacquisition.SHEINUSTrial, error) {
+func NewSHEINUSTrial(db *sql.DB, live dataacquisition.LiveAccess, authority dataacquisition.SHEINUSTrialAuthority, sender dataacquisition.SHEINUSTrialSender, lookup dataacquisition.SHEINUSTrialLookup) (*dataacquisition.SHEINUSTrial, error) {
+	if live == nil || authority == nil {
+		return nil, dataacquisition.ErrUnavailable
+	}
 	store, err := jobstore.NewSHEINUSTrialStore(db)
 	if err != nil {
 		return nil, err
 	}
-	return dataacquisition.NewSHEINUSTrial(store, authority, sender, lookup)
+	return dataacquisition.NewSHEINUSTrial(store, sheinUSPageAuthority{SHEINUSTrialAuthority: authority, live: live}, sender, lookup)
 }
 
 // SHEINUSPageTrial is the internal composition for the isolated page trial.
@@ -50,7 +53,7 @@ func NewSHEINUSPageTrial(ctx context.Context, db *gorm.DB, live dataacquisition.
 	if err != nil {
 		return nil, dataacquisition.ErrUnavailable
 	}
-	runner, err := NewSHEINUSTrial(pool, sheinUSPageAuthority{SHEINUSTrialAuthority: authority, live: live}, sender, lookup)
+	runner, err := NewSHEINUSTrial(pool, live, authority, sender, lookup)
 	if err != nil {
 		return nil, err
 	}
