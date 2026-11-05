@@ -31,6 +31,8 @@ type ReleaseReceipt struct {
 }
 
 type StoredReleaser interface {
+	// CheckStoredReleasable reports missing facts as ErrNotFound and a
+	// present but ineligible target as ErrConflict.
 	CheckStoredReleasable(context.Context, StoredObjectTarget) error
 	ReleaseStored(context.Context, StoredDeletion) (ReleaseReceipt, error)
 }

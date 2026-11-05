@@ -24,7 +24,10 @@ func TestStoredKnowledgeReleaseIsBoundAndCannotBeReactivated(t *testing.T) {
 	require.NoError(t, err)
 	require.ErrorIs(t, repo.BindObjects(ctx, "org-a", other.ID, []storagecapacity.Object{object}), storagecapacity.ErrConflict)
 	require.NoError(t, repo.AbortUnstarted(ctx, "org-a", other.ID))
-	require.Error(t, repo.CheckStoredReleasable(ctx, target))
+	missing := target
+	missing.Object.Key += "-absent"
+	require.ErrorIs(t, repo.CheckStoredReleasable(ctx, missing), storagecapacity.ErrNotFound)
+	require.ErrorIs(t, repo.CheckStoredReleasable(ctx, target), storagecapacity.ErrConflict)
 	require.NoError(t, repo.ClaimDispatch(ctx, "org-a", write.ID))
 	require.NoError(t, repo.ConfirmStored(ctx, "org-a", write.ID, object.Namespace, object.Key, object.SHA256, object.SizeBytes))
 	require.NoError(t, repo.CheckStoredReleasable(ctx, target))

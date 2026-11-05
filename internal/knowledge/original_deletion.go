@@ -111,11 +111,23 @@ func (s *Service) OriginalFile(ctx context.Context, scope Scope, source string) 
 		return OriginalFile{}, ErrNotFound
 	}
 	v, err := s.original.repo.OriginalFile(ctx, scope, source)
-	if err == nil && v.CanDelete {
-		v.Target.Object.Namespace = s.capacity.Namespace
-		v.CanDelete = s.original.allowNew && s.original.ledger.CheckStoredReleasable(ctx, v.Target) == nil
+	if err != nil || !v.CanDelete {
+		return v, err
 	}
-	return v, err
+	if !s.original.allowNew {
+		v.CanDelete = false
+		return v, nil
+	}
+	v.Target.Object.Namespace = s.capacity.Namespace
+	switch err := s.original.ledger.CheckStoredReleasable(ctx, v.Target); {
+	case err == nil:
+		return v, nil
+	case errors.Is(err, storagecapacity.ErrNotFound), errors.Is(err, storagecapacity.ErrConflict):
+		v.CanDelete = false
+		return v, nil
+	default:
+		return OriginalFile{}, ErrUnavailable
+	}
 }
 
 func (s *Service) DeleteOriginal(ctx context.Context, scope Scope, source, revision, key string, version int64, authorize OriginalDeleteAuthorization) (OriginalFile, error) {

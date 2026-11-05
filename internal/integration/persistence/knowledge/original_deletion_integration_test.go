@@ -395,6 +395,27 @@ func TestOriginalDeletionDisposablePostgresMinIO(t *testing.T) {
 	view, err := service.OriginalFile(ctx, org, source.ID)
 	require.NoError(t, err)
 	require.True(t, view.CanDelete)
+
+	// Close only the fixture's separate capacity connection pool. The Knowledge
+	// owner and original capacity pool remain available.
+	disconnectedDB := originalFixtureDB(t, pg, "commercial_fixture")
+	disconnectedLedger, err := ledgerdb.New(disconnectedDB)
+	require.NoError(t, err)
+	disconnectedPool, err := disconnectedDB.DB()
+	require.NoError(t, err)
+	require.NoError(t, disconnectedPool.Close())
+	service.ConfigureStorageCapacity(&storagecapacity.Meter{Writer: disconnectedLedger, Namespace: ns})
+	require.NoError(t, service.ConfigureOriginalDeletion(deleter, true))
+	view, err = service.OriginalFile(ctx, org, source.ID)
+	require.ErrorIs(t, err, k.ErrUnavailable)
+	require.False(t, view.CanDelete)
+	service.ConfigureStorageCapacity(meter)
+	require.NoError(t, service.ConfigureOriginalDeletion(deleter, true))
+	view, err = service.OriginalFile(ctx, org, source.ID)
+	require.NoError(t, err)
+	require.True(t, view.CanDelete)
+	t.Log("a disconnected capacity pool returns unavailable and the original is eligible after reconnecting")
+
 	_, err = service.OriginalFile(ctx, other, source.ID)
 	require.ErrorIs(t, err, k.ErrNotFound)
 	_, err = writer.DeleteObject(ctx, &sdk.DeleteObjectInput{Bucket: aws.String(fixtureBucket), Key: aws.String(physical.Key)})

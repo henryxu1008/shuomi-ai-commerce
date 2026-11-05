@@ -3,6 +3,7 @@ package storagecapacitystore
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -47,7 +48,7 @@ func (r *Repository) CheckStoredReleasable(ctx context.Context, target storageca
 	if err := target.Validate(); err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var account accountRow
 		if err := tx.First(&account, "organization_id = ?", target.OrganizationID).Error; err != nil {
 			return err
@@ -61,6 +62,10 @@ func (r *Repository) CheckStoredReleasable(ctx context.Context, target storageca
 		}
 		return nil
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return storagecapacity.ErrNotFound
+	}
+	return err
 }
 
 func (r *Repository) ReleaseStored(ctx context.Context, proof storagecapacity.StoredDeletion) (receipt storagecapacity.ReleaseReceipt, err error) {
