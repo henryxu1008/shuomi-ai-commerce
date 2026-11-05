@@ -1,6 +1,6 @@
 # SHEIN 美国站单页试取运行接线
 
-[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。基线 `645eaa6cb24d4fde529e3547a2f0d6a6dbc1a3ea`。Design Basis 为 Independent Architecture，状态为待独立评审。范围承接[首试产品决定](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[取数入口](shein-us-trial-entry.md)、[单次发送](shein-us-one-page-trial-send.md)、[运行依赖](shein-us-trial-installation.md)和[原单凭证合同](zenrows-shein-us-trial-adapter.md)。
+[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。基线 `645eaa6cb24d4fde529e3547a2f0d6a6dbc1a3ea`。Design Basis 为 Independent Architecture，`98016c4a0b0416a40c3654b1272cce7efd481a51` 经两轮独立评审达到 `IMPLEMENTATION_READY`，首轮在 `77bb86e31` 发现的发送门禁和文件发布者信任两项阻碍均已关闭。范围承接[首试产品决定](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[取数入口](shein-us-trial-entry.md)、[单次发送](shein-us-one-page-trial-send.md)、[运行依赖](shein-us-trial-installation.md)和[原单凭证合同](zenrows-shein-us-trial-adapter.md)。
 
 一名获权成员使用一份批准单，把 SHEIN 美国站类目 `1727` 第一页的可核实商品卡关联到自己的私有研究项目。最多一次提交、并发一、按原顺序检查前 20 张、上限 25 credits 和新增现金 USD 0。继续复用现有 Collection 和 Research 的关联与回读界面。范围限设计及合成验证。两项 AI 操作各 ¥0.30 / 20 点，执行关闭。
 
@@ -28,4 +28,4 @@
 
 2026-11-05 在基线 `645eaa6cb` 上以 Go test overlay 验证临时私有目录、隔离 Product PostgreSQL、既有研究路由夹具和合成发送端。已知原 ID 和缺失原 ID 两组均通过。覆盖启动阶段延后读取凭据、无门禁和重复 JSON 字段拒绝、24 credits 及过短额度截止拒绝、专用引用与账户不匹配、重复提交只发送一次、错单或多条回执保留预留、撤权拒绝、补齐同一原单的 0 credits 后释放预留。核账时移除额度块仍可按有效账户授权处理原单。原 ID 缺失时保留预留且发送次数保持一次。实际 HTTP transport 复用同基线已通过的本地 TLS 合成测试。合成读取使用临时目录与 Windows 私有 ACL，目标部署挂载的行为仍待验证。
 
-正式接线前完成独立 Architecture Review，验证目标运行目录的私有挂载与刷新语义。首次真实执行还需核实书面许可、实际项目及人选、专用凭据和额度证据、逐笔凭证可得性、实际出口与单次请求授权。合成通过与真实执行分别记录。
+实施阶段验证 Linux 隔离容器中的只读挂载与刷新、启动装配、密钥读取后的末次发送门禁，以及 Product 原单核账。首次真实执行还需核实目标部署挂载、书面许可、实际项目及人选、专用凭据和额度证据、逐笔凭证可得性、实际出口与单次请求授权。合成通过与真实执行分别记录。
