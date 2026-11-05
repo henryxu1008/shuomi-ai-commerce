@@ -1,7 +1,7 @@
 import {z} from "zod";
 import {routeFact} from "./model-route-pricing";
 
-export const credentialRevision=z.string().regex(/^(0|[1-9][0-9]{0,18})$/).refine(v=>BigInt(v)<BigInt(2)**BigInt(63));
+const credentialRevision=z.string().regex(/^(0|[1-9][0-9]{0,18})$/).refine(v=>BigInt(v)<BigInt(2)**BigInt(63));
 const expectedRevision=credentialRevision.refine(v=>BigInt(v)<BigInt(2)**BigInt(62));
 const secret=z.string().min(1).max(4096).refine(v=>v.trim()===v&&new TextEncoder().encode(v).length<=4096);
 const account=z.string().min(1).max(128).regex(/^[^\x00-\x1f\x7f-\x9f]+$/).refine(v=>v.trim()===v&&new TextEncoder().encode(v).length<=128);
@@ -9,7 +9,7 @@ export const credentialInput=z.discriminatedUnion("action",[
  z.strictObject({action:z.literal("set-key"),expectedRevision,account:account.optional(),apiKey:secret}),
  z.strictObject({action:z.literal("disable"),expectedRevision}),
 ]);
-export const managedConnection=z.strictObject({
+const managedConnection=z.strictObject({
  organizationId:routeFact,connectionId:routeFact,provider:routeFact,channel:routeFact,region:routeFact,
  account:z.union([account,z.literal("")]),revision:credentialRevision,enabled:z.boolean(),keyPresent:z.boolean(),
  models:z.array(z.strictObject({id:routeFact,version:routeFact,model:routeFact,category:z.enum(["text","multimodal","image-generation"])})).max(128),

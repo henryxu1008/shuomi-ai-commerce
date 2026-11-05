@@ -11,7 +11,7 @@ export const routeFailure=(status:number,code:string)=>Response.json({code},{sta
 export async function proxyModelRoutePricing(request:Request,token:string,userId:string):Promise<Response>{
  if(!token||!userId)return routeFailure(401,"AUTHENTICATION_REQUIRED");
  if(request.headers.get("X-Expected-User-ID")!==userId)return routeFailure(409,"IDENTITY_CONTEXT_CHANGED");
- const url=new URL(request.url),path=url.pathname.slice("/api/model-route-pricing".length),parts=path.slice(1).split("/"),family=parts[0],op=parts[1]??"current",credentials=family==="connections",publish=op==="publish"||credentials&&parts[2]==="commands",write=request.method==="POST",platform=family==="platform-prices";
+ const url=new URL(request.url),path=url.pathname.slice("/api/model-route-pricing".length),parts=path.slice(1).split("/"),family=parts[0],op=parts[1]??"current",credentials=family==="connections",write=request.method==="POST",publish=write&&(credentials?parts[2]==="commands":op==="publish"),platform=family==="platform-prices";
  let output:z.ZodType;
  if(!path&&request.method==="GET")output=routeCapabilities;
  else if(credentials){
