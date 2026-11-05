@@ -4,6 +4,8 @@ import {readFileSync} from "node:fs";
 import {ResearchPanel} from "./research-panel";
 import {ResearchError} from "@/lib/api/market-research";
 import {researchPage} from "@/lib/contracts/market-research";
+import {proxyMarketResearch} from "@/lib/server/market-research-proxy";
+import {WORKBENCH_COOKIE_NAME} from "@/lib/server/workbench-proxy";
 import {parseCollectionResponse,type CollectionItem} from "@/lib/contracts/product-collection";
 const mock=vi.hoisted(()=>({read:vi.fn(),pickerItem:undefined as CollectionItem|undefined,context:{permissions:["workbench.collection.read","workbench.project.manage"],registerOrganizationSwitchGuard:()=>()=>{}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>mock.context}));
@@ -17,7 +19,7 @@ vi.mock("./research-comparison",()=>({ResearchComparison:()=>null}));
 const id="11111111-1111-4111-8111-111111111111";
 const candidate={id,revision:2,state:"TO_RESEARCH",selectedLinkId:id,evidenceDigest:"a".repeat(64),observation:{title:"真实保存商品",site:"us",asin:"B000123456",sourceUrl:"https://www.amazon.com/dp/B000123456",capturedAt:"2026-11-02T00:00:00Z",parserVersion:"amazon-v1",missing:["rating"],ref:{checksum:"original",selection:{itemId:id,revision:1,publicationId:id,version:"1"}},item:{id,revision:1,source:{kind:"amazon_data",version:"1",publicationId:id}}},evidence:[],history:[]};
 beforeEach(()=>{sessionStorage.clear();mock.pickerItem=undefined;mock.context.permissions=["workbench.collection.read","workbench.project.manage"];mock.read.mockReset().mockResolvedValue({items:[candidate],incomplete:false});});
-afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.unstubAllEnvs();});
 
 it.each([0,1])("preserves %i saved cards when viewing the original after one confirmed SHEIN submit", async (publishedCount) => {
  const receipt={approvalId:id,state:"CONFIRMED",requestId:"original-1",credits:5,reservedCredits:0};
@@ -298,3 +300,33 @@ it.each(["DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED"])(
   expect(price).toHaveValue("30");
  },
 );
+
+
+it.each([403,503,504,"network"])("uses the actual Research response %s for an upstream failure",async status=>{
+ const real=await vi.importActual<typeof import("@/lib/api/market-research")>("@/lib/api/market-research");
+ vi.stubEnv("LISTINGKIT_SERVICE_API_BASE","http://127.0.0.1:9/api/v1");
+ const upstream=vi.fn(async ()=>{
+  if(status==="network")throw new TypeError("network unavailable");
+  const code=status===403?"PERMISSION_DENIED":status===503?"DEPENDENCY_UNAVAILABLE":"DEADLINE_EXCEEDED";
+  return Response.json({code,message:"Synthetic backend error",requestId:"",fieldErrors:[]},{status});
+ });
+ const browser=vi.fn(async (url:string,init:RequestInit)=>{
+  if(status==="network")throw new TypeError("browser did not receive a response");
+  const headers=new Headers(init.headers);
+  headers.set("Cookie",WORKBENCH_COOKIE_NAME+"=o");
+  return proxyMarketResearch(new Request(new URL(url,window.location.origin),{...init,headers}),"fixture-only","u");
+ });
+ vi.stubGlobal("fetch",vi.fn((url:string,init:RequestInit)=>url.startsWith("/api/")?browser(url,init):upstream()));
+ mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false}).mockImplementationOnce(real.researchRequest);
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
+ const price=screen.getByLabelText("假设售价（USD/件）");
+ fireEvent.change(price,{target:{value:"30"}});
+ fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
+ expect(await screen.findByText(status===403?/原商品资料已变化或暂不可读/:/已保留输入/)).toBeVisible();
+ expect(price).toHaveValue(status===403?"":"30");
+ expect(browser).toHaveBeenCalledOnce();
+ expect(browser.mock.calls[0][1].method).toBe("GET");
+ expect(upstream).toHaveBeenCalledTimes(status==="network"?0:1);
+ expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument();
+});

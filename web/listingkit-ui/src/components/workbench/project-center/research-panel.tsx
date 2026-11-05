@@ -43,9 +43,13 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
    const page=await researchRequest(scope,projectId,researchPage,signal,{after});
    return !signal.aborted&&!page.incomplete&&page.items.some(candidate=>costBinding(candidate)===binding);
   } catch (error) {
-   // A malformed upstream denial can arrive as INVALID_UPSTREAM_RESPONSE.
-   // Only explicitly temporary reads may retain the previous private draft.
-   if(error instanceof ResearchError&&error.code!=="DEPENDENCY_UNAVAILABLE"&&error.code!=="DEADLINE_EXCEEDED")return false;
+   if(error instanceof ResearchError){
+    // The proxy can use the same error code for 403 and temporary 5xx failures.
+    const {code,status}=error;
+    const transient=code==="DEPENDENCY_UNAVAILABLE"||code==="DEADLINE_EXCEEDED"||
+     (code==="INVALID_UPSTREAM_RESPONSE"&&(status===502||status===503||status===504));
+    if((status!==undefined&&status<500)||!transient)return false;
+   }
    throw error;
   }
  }
