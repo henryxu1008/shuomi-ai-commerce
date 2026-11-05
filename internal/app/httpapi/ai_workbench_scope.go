@@ -19,7 +19,7 @@ import (
 
 type workbenchScopeSources struct {
 	reader      aiworkbench.ScopeReader
-	projectPage func(context.Context, aiworkbench.Scope, string) ([]pc.Project, string, error)
+	projectPage func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
 	storePage   func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
 }
 
@@ -72,16 +72,16 @@ func (a *aiWorkbenchApplication) attachProjectScopes(projects *ps.Store) {
 		}
 		return aiworkbench.ProjectScopeFacts{ID: p.ID, Title: p.Title, Goal: p.Goal, Revision: p.Revision, Archived: p.Archived, StoreID: p.StoreID}, nil
 	}
-	a.scopes.projectPage = func(ctx context.Context, owner aiworkbench.Scope, after string) ([]pc.Project, string, error) {
+	a.scopes.projectPage = func(ctx context.Context, owner aiworkbench.Scope, after string, includeArchived bool) ([]pc.Project, string, error) {
 		ctx, err := a.scopeIdentity(ctx, owner, pc.PermissionRead)
 		if err != nil {
 			return nil, "", err
 		}
-		return projects.List(ctx, pc.Scope{OrganizationID: owner.OrganizationID, ActorID: owner.ActorID}, pc.Query{Mode: "active", After: after})
+		return projects.ListWorkScopeOptions(ctx, pc.Scope{OrganizationID: owner.OrganizationID, ActorID: owner.ActorID}, after, includeArchived)
 	}
 }
 
-func (a *aiWorkbenchApplication) scopeOptions(c *gin.Context, ctx context.Context, owner aiworkbench.Scope) {
+func (a *aiWorkbenchApplication) scopeOptions(c *gin.Context, ctx context.Context, owner aiworkbench.Scope, forTasks bool) {
 	query := c.Request.URL.Query()
 	for k, values := range query {
 		if len(values) != 1 || k != "kind" && k != "after" && k != "projectId" && k != "storeId" {
@@ -96,8 +96,12 @@ func (a *aiWorkbenchApplication) scopeOptions(c *gin.Context, ctx context.Contex
 		Confirmation string `json:"confirmation"`
 	}
 	options := []option{}
+	read := a.scopes.reader.Preview
+	if forTasks {
+		read = a.scopes.reader.FilterOption
+	}
 	add := func(sel aiworkbench.ScopeSelection) error {
-		view, confirmation, err := a.scopes.reader.Preview(ctx, owner, sel)
+		view, confirmation, err := read(ctx, owner, sel)
 		if err == nil {
 			options = append(options, option{view, confirmation})
 		}
@@ -115,7 +119,7 @@ func (a *aiWorkbenchApplication) scopeOptions(c *gin.Context, ctx context.Contex
 			break
 		}
 		var rows []pc.Project
-		rows, next, err = a.scopes.projectPage(ctx, owner, after)
+		rows, next, err = a.scopes.projectPage(ctx, owner, after, forTasks)
 		for _, row := range rows {
 			incomplete = add(aiworkbench.ScopeSelection{Kind: kind, ProjectID: row.ID}) != nil || incomplete
 		}

@@ -294,7 +294,18 @@ func pageAfter(db *gorm.DB, after, column string) (*gorm.DB, error) {
 	return db.Where("("+column+",p.id) < (?,?)", c.Time, c.ID), nil
 }
 func (s *Store) List(ctx context.Context, scope pc.Scope, q pc.Query) ([]pc.Project, string, error) {
-	db := s.db.WithContext(ctx).Table("ai_workbench_projects.projects p").Where("p.organization_id=? AND p.actor_id=? AND p.archived=?", scope.OrganizationID, scope.ActorID, q.Mode == "archived")
+	return s.list(ctx, scope, q, false)
+}
+
+func (s *Store) ListWorkScopeOptions(ctx context.Context, scope pc.Scope, after string, includeArchived bool) ([]pc.Project, string, error) {
+	return s.list(ctx, scope, pc.Query{Mode: "active", After: after}, includeArchived)
+}
+
+func (s *Store) list(ctx context.Context, scope pc.Scope, q pc.Query, includeArchived bool) ([]pc.Project, string, error) {
+	db := s.db.WithContext(ctx).Table("ai_workbench_projects.projects p").Where("p.organization_id=? AND p.actor_id=?", scope.OrganizationID, scope.ActorID)
+	if !includeArchived {
+		db = db.Where("p.archived=?", q.Mode == "archived")
+	}
 	column := "p.updated_at"
 	if q.Mode == "recent" {
 		db = db.Joins("JOIN ai_workbench_projects.visits v ON v.project_id=p.id AND v.organization_id=p.organization_id AND v.actor_id=p.actor_id")

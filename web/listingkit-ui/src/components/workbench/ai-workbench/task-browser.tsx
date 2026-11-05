@@ -97,7 +97,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     void client.invalidateQueries({queryKey:["ai-tasks",scope.userId,scope.organizationId,authorizationKey]});
   }, [refetchReviews, client, scope.userId, scope.organizationId, authorizationKey]);
   // A partial Task projection cannot discard the Review owner's unknown intent.
-  const observeReview = useCallback((id?: string) => { if (id && !locked) setReviewRef(id); }, [locked]);
+  const observeReview = useCallback((id?: string) => { if (id && !locked) setReviewRef(id); }, [locked, setReviewRef]);
   function select(next?: Selection) {
     if (locked) return;
     if (next) detailHeading.current?.focus();

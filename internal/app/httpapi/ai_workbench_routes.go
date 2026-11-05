@@ -335,7 +335,7 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		{"PATCH", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatUse, "metadata", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/messages", authz.PermissionWorkbenchChatUse, "message", 2 * time.Minute},
 		{"POST", workbenchChatBase + "/:conversation_id/proposals/:proposal_id/confirm", authz.PermissionWorkbenchChatUse, "confirm", 2 * time.Minute},
-		{"GET", workbenchTaskBase + "/scopes", authz.PermissionWorkbenchTaskRead, "scope-options", 15 * time.Second},
+		{"GET", workbenchTaskBase + "/scopes", authz.PermissionWorkbenchTaskRead, "task-scope-options", 15 * time.Second},
 		{"GET", workbenchTaskBase, authz.PermissionWorkbenchTaskRead, "list-tasks", 15 * time.Second},
 		{"GET", workbenchTaskBase + "/:task_id", authz.PermissionWorkbenchTaskRead, "get-task", 15 * time.Second},
 		{"POST", workbenchTaskBase + "/:task_id/start", authz.PermissionWorkbenchAgentUse, "task-start", 2 * time.Minute},
@@ -369,8 +369,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 				switch spec.action {
 				case "subject-read":
 					a.readTaskSubject(c, ctx)
-				case "scope-options":
-					a.scopeOptions(c, ctx, scope)
+				case "scope-options", "task-scope-options":
+					a.scopeOptions(c, ctx, scope, spec.action == "task-scope-options")
 				case "list-conversations":
 					a.listConversations(c, ctx, scope)
 				case "create":

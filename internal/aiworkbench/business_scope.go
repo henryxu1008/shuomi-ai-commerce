@@ -152,6 +152,40 @@ func (r ScopeReader) Preview(ctx context.Context, owner Scope, selection ScopeSe
 	}{owner, view}), nil
 }
 
+// FilterOption observes only the selected resource's current read authority.
+// A project's current store binding cannot disqualify older scoped tasks.
+func (r ScopeReader) FilterOption(ctx context.Context, owner Scope, selection ScopeSelection) (ScopeView, string, error) {
+	if !selection.Valid() {
+		return ScopeView{}, "", ErrInvalid
+	}
+	fixed := BusinessScope{Version: BusinessScopeVersion, Kind: selection.Kind, ProjectID: selection.ProjectID, StoreID: selection.StoreID}
+	var view ScopeView
+	var err error
+	if selection.Kind == "project" {
+		if r.Project == nil {
+			return ScopeView{}, "", ErrUnavailable
+		}
+		project, e := r.Project(ctx, owner, selection.ProjectID)
+		if e != nil {
+			return ScopeView{}, "", e
+		}
+		if project.ID != selection.ProjectID || project.Title == "" {
+			return ScopeView{}, "", ErrUnavailable
+		}
+		view = ScopeView{Scope: fixed, ProjectName: project.Title}
+	} else {
+		view, err = r.View(ctx, owner, fixed)
+		if err != nil {
+			return ScopeView{}, "", err
+		}
+	}
+	return view, scopeDigest(struct {
+		Purpose string
+		Owner   Scope
+		View    ScopeView
+	}{"task-filter", owner, view}), nil
+}
+
 func (r ScopeReader) Freeze(ctx context.Context, owner Scope, conversation, member string, scope BusinessScope) (FrozenScope, error) {
 	f, err := r.read(ctx, owner, scope, false, true)
 	if err != nil {

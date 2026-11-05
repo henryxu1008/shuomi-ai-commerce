@@ -12,7 +12,7 @@ export type AITaskSubject=z.infer<typeof aiTaskSubject>;
 const timestamp = z.string().datetime({ offset: true });
 const scope = z.object({ OrganizationID: z.string(), ActorID: z.string() });
 const scopeId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
-export const workScopeSelection = z.discriminatedUnion("kind", [
+const workScopeSelection = z.discriminatedUnion("kind", [
   z.strictObject({kind:z.literal("general")}),
   z.strictObject({kind:z.literal("project"),projectId:scopeId}),
   z.strictObject({kind:z.literal("store"),storeId:scopeId}),

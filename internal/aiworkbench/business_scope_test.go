@@ -87,6 +87,30 @@ func TestIT3SendRequiresCurrentAuthorizedInputAndPreservesOriginal(t *testing.T)
 	require.NotEmpty(t, frozen.Digest())
 }
 
+func TestIT4ArchivedProjectRemainsAReadAuthorizedFilter(t *testing.T) {
+	ctx := context.Background()
+	owner := Scope{OrganizationID: "org", ActorID: "actor"}
+	reader := ScopeReader{
+		Project: func(_ context.Context, got Scope, id string) (ProjectScopeFacts, error) {
+			if got != owner || id != "project" {
+				return ProjectScopeFacts{}, ErrNotFound
+			}
+			return ProjectScopeFacts{ID: id, Title: "Archived project", StoreID: "current-private-shop", Revision: 5, Archived: true}, nil
+		},
+	}
+	selection := ScopeSelection{Kind: "project", ProjectID: "project"}
+	view, token, err := reader.FilterOption(ctx, owner, selection)
+	require.NoError(t, err)
+	require.Equal(t, "project", view.Scope.ProjectID)
+	require.Equal(t, "Archived project", view.ProjectName)
+	require.Empty(t, view.Scope.StoreID)
+	require.Len(t, token, 64)
+	_, _, err = reader.Preview(ctx, owner, selection)
+	require.ErrorIs(t, err, ErrProposalStale)
+	_, _, err = reader.FilterOption(ctx, Scope{OrganizationID: "org", ActorID: "other"}, selection)
+	require.ErrorIs(t, err, ErrNotFound)
+}
+
 func TestIT4ScopedCursorCannotCrossAccountOrQuery(t *testing.T) {
 	scope := Scope{OrganizationID: "org", ActorID: "actor"}
 	f := ScopeSelection{Kind: "store", StoreID: "shop"}
