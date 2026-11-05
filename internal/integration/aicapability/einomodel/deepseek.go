@@ -12,6 +12,8 @@ const DashScopeDeepSeekV41FlashNonThinkingPolicy = "dashscope-deepseek-v4.1-flas
 
 func validFixedAdapterPolicy(adapter AdapterKind, provider, modelID, policy string) bool {
 	switch policy {
+	case TitlePilotOpenAIAdapterPolicy:
+		return adapter == AdapterOpenAICompatible && provider == "openai" && modelID == aicapability.SingleImageMiniModel
 	case aicapability.EinoGeminiTextPolicy, aicapability.EinoGeminiImagePolicy:
 		return adapter == AdapterGoogleGenerateContent && provider == "google" && validGeminiModelID(modelID)
 	case aicapability.EinoQwenTextPolicy, aicapability.EinoQwenImagePolicy:

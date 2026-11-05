@@ -71,8 +71,9 @@ type ProductAgentDependencies struct {
 	Limits                   agent.Limits
 	// Code-owned transport injection for isolated protocol fixtures; never
 	// populated by the deployment manifest or browser input.
-	TextTransport http.RoundTripper `json:"-"`
-	TextLogger    *logrus.Entry     `json:"-"`
+	TextTransport     http.RoundTripper `json:"-"`
+	TextLogger        *logrus.Entry     `json:"-"`
+	titlePilotEnabled bool
 }
 
 type ProductAgentInvocationLedger interface {
@@ -96,6 +97,8 @@ type productAgentApplication struct {
 	definition              commercetool.AgentDefinition
 	context                 *knowledge.ContextService
 	runtime                 *einoruntime.Runtime
+	titlePilotFixed         *einoruntime.Runtime
+	titlePilotPublisher     *sourcing.InternalProducer
 	store                   *agentstore.Store
 	reviews                 *review.Service
 	policyAdoption          *review.PolicyAdoptionService
@@ -259,6 +262,12 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	sources, err := productsourcing.NewInternalProducer(productDB, &productReviewLiveOrganizationAccess{resolver: resolver, now: time.Now}, auth)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.titlePilotEnabled {
+		if cfg.TextTransport == nil || cfg.ContentOnly || cfg.ContentTitleOnly {
+			return nil, agent.ErrInvalid
+		}
+		a.titlePilotPublisher = sources
 	}
 	repo, err := reviewstore.NewRepository(productDB, func(tx *gorm.DB) (review.SourcePublicationReader, error) {
 		return productsourcing.NewTransactionReader(tx)
@@ -464,6 +473,10 @@ func (a *productAgentApplication) acquisitionSnapshot(ctx context.Context, i aut
 }
 
 func (a *productAgentApplication) Authorize(ctx context.Context, binding agent.Binding) (agent.Scope, error) {
+	if binding.ContextKind == titlePilotContext {
+		publication, err := a.titlePilotPublicationForBinding(ctx, binding)
+		return agent.Scope{OrganizationID: publication.Receipt.OrganizationID, ActorID: publication.Receipt.ActorID}, err
+	}
 	if binding.ContextKind == "collection" {
 		return a.authorizeSupplyBinding(ctx, binding)
 	}

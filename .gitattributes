@@ -1,4 +1,5 @@
 *.go text eol=lf
+internal/app/httpapi/testdata/issue132_title_pilot_v1/*.json text eol=lf
 deployments/docker/referrals-compose/*.sh text eol=lf
 deployments/docker/acquisition-compose/*.sh text eol=lf
 deployments/docker/account-compose/*.sh text eol=lf
