@@ -1613,14 +1613,19 @@ it("does not offer recovery of a proved unavailable paid original",async()=>{
 });
 
 
-it("restores a paid output whose original recoverable binding exists only in Run.Block",async()=>{
+it("shows a paid original without offering recovery when the effect owner is absent",async()=>{
  state=projection("blocked","44444444-4444-4444-8444-444444444444");
- Object.assign(state,{approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"10000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:false}]},recoverableEffects:null,block:{Code:"slot_provider_outcome_unknown",SlotID:"main"}});
- Object.assign(state.slots[0]!,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ const outputRecoverySummary={unitVersion:"ai-micropoint-v1",settledPoints:"10000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:false}]};
+ Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:"10000000",outputRecoverySummary,recoverableEffects:null,block:{Code:"slot_provider_outcome_unknown",SlotID:"main"}});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/images/runs")?Promise.resolve(Response.json({items:[{runId:templateId,contextKind:"acquisition",contextId:operation,status:"blocked",outputRecoverySummary,targetPlatform:"product",createdAt:now}],nextCursor:""})):real(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- expect(await screen.findByRole("heading",{name:"已生成，结果待恢复"})).toBeVisible();
- expect(screen.getByRole("button",{name:"恢复原结果"})).toBeEnabled();
+ expect(await screen.findByRole("heading",{name:"已生成，结果待核实"})).toBeVisible();
+ expect(screen.getByText(/已结算用量 10 点/)).toBeVisible();
+ expect(await screen.findByRole("option",{name:/已生成，已结算/})).toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"恢复原结果"})).toBeNull();
 });
 
 it("shows a released sibling separately from paid and genuinely UNKNOWN effects without unlocking the run",async()=>{

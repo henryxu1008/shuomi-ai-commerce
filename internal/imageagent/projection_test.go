@@ -10,6 +10,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRecoverableEffectRequiresCurrentOwner(t *testing.T) {
+	const code = SlotProviderOutcomeUnknownCode
+	slot := Slot{ID: "main", Status: SlotStatusBlocked}
+	projection := RunProjection{
+		Run:   Run{Block: &Block{SlotID: slot.ID, Code: code}},
+		Plan:  Plan{Slots: []Slot{slot}},
+		Slots: []SlotProjection{{Slot: slot, Attempt: 1, ErrorCode: code}},
+	}
+	_, _, ok := FindRecoverableEffect(projection, slot.ID, 1)
+	require.True(t, ok, "ordinary image plans still use the original block")
+
+	for _, tc := range []struct {
+		name    string
+		set     *ImageSetPlan
+		artwork *ArtworkPlan
+		effects []RecoverableEffect
+	}{
+		{name: "image set without owner", set: &ImageSetPlan{}},
+		{name: "artwork without owner", artwork: &ArtworkPlan{}},
+		{name: "owner only for another attempt", effects: []RecoverableEffect{{SlotID: slot.ID, Attempt: 2, Code: code}}},
+		{name: "invalid list", effects: []RecoverableEffect{{SlotID: slot.ID, Attempt: 1, Code: "invalid"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			candidate := projection
+			candidate.Plan.Set, candidate.Plan.Artwork = tc.set, tc.artwork
+			candidate.RecoverableEffects = tc.effects
+			_, _, found := FindRecoverableEffect(candidate, slot.ID, 1)
+			require.False(t, found)
+		})
+	}
+}
+
 func TestProjectionReadRejectsSizeSourceWithoutFrozenDimensions(t *testing.T) {
 	run := Run{ID: "run-dimensions", TenantID: "tenant-a", UserID: "user-a", ActivePlanRevision: 1}
 	main := Slot{ID: "main", Role: SlotRoleMain, IdempotencyKey: "main", SourceAssetIDs: []string{"source"}, Status: SlotStatusPending}
