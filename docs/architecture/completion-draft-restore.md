@@ -20,7 +20,7 @@ Owner 仍为 CompletionDraft immutable records/head/commands、Preparation 固�
 
 ## 恢复内容与显示
 
-- 历史详情保持只读；有 supply.read 和 supply.manage 的用户可进入 `/workbench/supply/mine/missing/:sourceId/history/:revision/restore`。SSR 复用能力开关、UUID、规范正整数 Rn 和严格 preparation/item query 校验。
+- 历史详情保持只读；有 supply.read 和 supply.manage 的用户可进入 `/workbench/listing/missing/:sourceId/history/:revision/restore`。SSR 复用能力开关、UUID、规范正整数 Rn 和严格 preparation/item query 校验。
 - 页面读取准确旧版、当前已保存 head 和固定 source。必须核对 sourceId、整个固定 source、draftId、准确旧 revision，以及导航 preparation/item 和 own 来源归属；任一不符、缺失或读取失败均不提供保存。
 - 页面显示固定来源 Vn、当前保存 Rm、选中旧版 Rn，以及标题/描述逐字段当前值和将保存值。只采用旧版的两个精确字符串，保留空串、空白和换行；不提供恢复页面内的二次编辑。
 - 仅允许 n < m；选中当前版本或两个字段均与当前相同，不追加冗余版本。相同内容提示无需恢复；普通编辑仍回原草稿。

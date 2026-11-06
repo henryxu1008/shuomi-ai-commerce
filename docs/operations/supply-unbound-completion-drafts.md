@@ -32,7 +32,7 @@ go run ./cmd/product-acquisition-init -config C:\private\completion-owner.json -
 
 ## 入口和使用
 
-`/workbench/supply/mine` 是独立首页。待适配 `/workbench/supply/mine/waiting` 中选择真实批次及来源，点击“创建 / 编辑待补全草稿”。完整 SupplyChain 开启时可从“保存未绑定草稿”进入同一原来源入口。待补全列表 `/workbench/supply/mine/missing` 显示真实草稿数量、原来源版本和保存版本。
+`/workbench/listing` 是独立首页。待适配 `/workbench/listing/waiting` 中选择真实批次及来源，点击“创建 / 编辑待补全草稿”。完整 SupplyChain 开启时可从“保存未绑定草稿”进入同一原来源入口。待补全列表 `/workbench/listing/missing` 显示真实草稿数量、原来源版本和保存版本。
 
 编辑器展示原始资料和独立候选标题、描述。空字段允许保存；候选标题最多 1024 UTF-8 字节，描述最多 32768 字节，完整请求最多 64KiB。列表复用 Supply 的 2MiB response budget，必要时提前分页，nextCursor 指向已返回的最后来源，不丢失后续记录。
 

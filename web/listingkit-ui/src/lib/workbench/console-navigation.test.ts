@@ -34,7 +34,7 @@ describe("Figma Console navigation contract", () => {
     const id="11111111-1111-4111-8111-111111111111";
     const confirmation=findConsoleRoute(`/workbench/data/mine/own/${id}/prepare`);
     expect(confirmation?.node.label).toBe("转入待补全");expect(confirmation?.trail.map(node=>node.label)).toContain("我的数据");
-    const draft=findConsoleRoute(`/workbench/supply/mine/missing/${id}`);
+    const draft=findConsoleRoute(`/workbench/listing/missing/${id}`);
     expect(draft?.node.label).toBe("待补全草稿");expect(draft?.trail.map(node=>node.label)).toContain("商品刊登");
   });
   it("keeps the two catalog entries under their Figma parent and real pages", () => {
@@ -156,10 +156,14 @@ describe("Figma Console navigation contract", () => {
     expect(consoleNavigation.map((item) => item.label)).toEqual(["运营驾驶舱", "AI工作台", "市场调研", "智能选品", "供应市场", "智能市场", "工具市场", "生态服务", "数据服务", "商品刊登", "店铺中心", "订单管理", "套餐与权益", "我的账户"]);
   });
   it("resolves listing stages as page routes without adding sidebar children", () => {
-    const parent = findConsoleRoute("/workbench/supply/mine")!;
+    const parent = findConsoleRoute("/workbench/listing")!;
     expect(parent.node.children).toBeUndefined();
+    const id="11111111-1111-4111-8111-111111111111";
+    expect(findConsoleRoute("/workbench/listing/materials/" + id)?.trail.map(node => node.label)).toEqual(["商品刊登", "平台上架资料"]);
+    expect(findConsoleRoute("/workbench/supply/mine")).toBeUndefined();
+    expect(findConsoleRoute("/workbench/supply/materials/" + id)).toBeUndefined();
     for (const [stage, label] of [["waiting","待上传"],["missing","待补全"],["review","待审核"],["uploaded","已上传"]]) {
-      expect(findConsoleRoute("/workbench/supply/mine/" + stage)?.trail.map(node => node.label)).toEqual(["商品刊登", label]);
+      expect(findConsoleRoute("/workbench/listing/" + stage)?.trail.map(node => node.label)).toEqual(["商品刊登", label]);
     }
   });
   it("maps exact descendants and internal diagnostics without inventing Store ownership", () => {

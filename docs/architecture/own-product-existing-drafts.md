@@ -34,7 +34,7 @@ read-only可查看列表/独立草稿，保存仍须原supply.manage；导航按
 
 商品详情增加已有待补全草稿区域：候选标题、来源Vn、保存Rn、保存时间、转入批次稳定ID及查看/继续编辑。模块未启用不展示；缺查看权限、读取失败、空结果、分页/刷新分别准确显示，加载不冒充真实数量。当前user/org/item变更remount并abort，迟到响应不能串scope。
 
-独立页沿 /workbench/supply/mine/missing/:sourceId。仅新增可选UUID query preparation、item；重复/非法/未知导航query拒绝，不接受完整return URL。商品入口携带每条实际PreparationID和itemID；列表入口至少携带选中PreparationID；单件转入成功入口由实际固定source生成相同上下文。query不作为数据或写权限，只在原ReadSource后核对：preparation匹配Source.PreparationID，item匹配Source.CollectionItemID且kind=own；错配不得预填或保存。
+独立页沿 /workbench/listing/missing/:sourceId。仅新增可选UUID query preparation、item；重复/非法/未知导航query拒绝，不接受完整return URL。商品入口携带每条实际PreparationID和itemID；列表入口至少携带选中PreparationID；单件转入成功入口由实际固定source生成相同上下文。query不作为数据或写权限，只在原ReadSource后核对：preparation匹配Source.PreparationID，item匹配Source.CollectionItemID且kind=own；错配不得预填或保存。
 
 返回商品资料使用固定本地路径 /workbench/data/mine/own/:item；返回待补全列表保留 ?preparation=:preparation。两种入口仍使用同一独立编辑器/实际保存回读。已有不带query的source入口及原missing?preparation=&source=入口继续用同一现有合同；这是当前公开入口的原语义，不引入legacy owner兼容或双读。
 

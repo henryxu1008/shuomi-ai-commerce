@@ -1,4 +1,4 @@
-import { listingHome } from "./supply-navigation";
+import { listingHome } from "./listing-navigation";
 import type { AIWorkbenchEntryCapabilities } from "./ai-workbench-entry";
 
 export type ConsolePrimaryCapabilities = AIWorkbenchEntryCapabilities & {

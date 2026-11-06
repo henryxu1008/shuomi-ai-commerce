@@ -25,7 +25,7 @@ export function SupplyOverview({marketAvailable,preparationAvailable}:{marketAva
   {title:"硕米自营",tone:"teal",label:"平台自营货源",description:"平台自有工厂与自营商品资源，开放后可直接挑选并转入待上传。",href:"/workbench/supply/official",available:marketAvailable},
   {title:"硕米优选",tone:"blue",label:"平台优选货源",description:"平台审核的优质供应商与商品资源，开放后可筛选商品并转入待上传。",href:"/workbench/supply/selected",available:marketAvailable},
   {title:"货盘集成",tone:"green",label:"官方接入货盘选品",description:"浏览硕米官方已接入的第三方货盘商品，按平台、站点、类目、成本和库存筛选，并转入待上传。",href:"/workbench/supply/catalogs",available:marketAvailable},
-  {title:"商品刊登",tone:"purple",label:"核心使用入口",description:"把已选商品和自有商品按目标店铺准备资料，处理补全和审核，查看上传结果。",href:"/workbench/supply/mine",available:preparationAvailable},
+  {title:"商品刊登",tone:"purple",label:"核心使用入口",description:"把已选商品和自有商品按目标店铺准备资料，处理补全和审核，查看上传结果。",href:"/workbench/listing",available:preparationAvailable},
   {title:"优选申请",tone:"pink",label:"可提交申请",description:"选择已转入待上传的自有商品，提交进入硕米优选的申请，并查看资料校验、平台审核与最终结果。",href:"/workbench/supply/applications",available:marketAvailable},
  ];
  return <ConsolePage className={styles.overview} title="让每一种货源，都能进入自己的供应链" description="浏览平台自营、优选货源和第三方货盘，将选中的商品转入待上传，继续准备店铺刊登。" breadcrumbs={[{label:"供应市场"}]}>

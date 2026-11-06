@@ -9,7 +9,7 @@ Refs #708；合同见[历史内容恢复](../architecture/completion-draft-resto
 3. 核对固定来源 Vn、当前已保存 Rm 和旧版 Rn 的标题/描述差异，点击“恢复为新版本”。页面不自动保存。
 4. 成功后显示实际保存的 Rk，可查看准确新版本，或返回最新草稿、保存历史、原商品和原转入批次。旧记录保持不变。
 
-也可从原供应链待补全列表进入。独立路由为 `/workbench/supply/mine/missing/:sourceId/history/:revision/restore`；仅允许原 `preparation` / `item` UUID 导航上下文，并与实际来源核对。选中当前版本、内容完全相同、读取失败或归属不符时不保存。
+也可从原供应链待补全列表进入。独立路由为 `/workbench/listing/missing/:sourceId/history/:revision/restore`；仅允许原 `preparation` / `item` UUID 导航上下文，并与实际来源核对。选中当前版本、内容完全相同、读取失败或归属不符时不保存。
 
 若其他窗口已保存新版本，页面提示当前版本变化。点击“重新读取当前版本”、重新核对差异，再次明确确认；不会自动覆盖。操作结果待核实时，保留原键，使用“核实原操作”；只有原请求尚未读到时才按原键、原载荷重试。返回或刷新仍沿既有浏览器待核实操作，不另建恢复命令。
 

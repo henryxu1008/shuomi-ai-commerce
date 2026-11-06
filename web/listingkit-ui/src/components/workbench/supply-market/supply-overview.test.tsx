@@ -1,7 +1,7 @@
 import {cleanup,render,screen,waitFor} from "@testing-library/react";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import SupplyPage from "@/app/workbench/supply/page";
+import ListingPage from "@/app/workbench/supply/page";
 
 const fixture=vi.hoisted(()=>({redirect:vi.fn(),read:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null}}));
 vi.mock("next/navigation",()=>({redirect:fixture.redirect}));
@@ -14,7 +14,7 @@ beforeEach(()=>{
  for(const flag of ["LISTINGKIT_PRODUCT_ACQUISITION_ENABLED","LISTINGKIT_SUPPLY_MARKET_ENABLED","LISTINGKIT_SUPPLY_CHAIN_ENABLED","LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","LISTINGKIT_ACQUISITION_PLANS_ENABLED"])vi.stubEnv(flag,"true");
 });
 afterEach(()=>{cleanup();vi.unstubAllEnvs()});
-function renderPage(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return {...render(<QueryClientProvider client={client}><SupplyPage/></QueryClientProvider>),client}}
+function renderPage(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return {...render(<QueryClientProvider client={client}><ListingPage/></QueryClientProvider>),client}}
 
 it("keeps Supply Market as its own Figma page instead of redirecting to capture",()=>{
  renderPage();
@@ -41,7 +41,7 @@ it("retains the introduction while disconnected cards expose no fake usable link
 it("hides the old enterprise summary as soon as an enterprise switch begins",async()=>{
  const view=renderPage();await waitFor(()=>expect(screen.getByLabelText("审核中数量")).toHaveTextContent("7"));
  fixture.context.isSwitching=true;
- view.rerender(<QueryClientProvider client={view.client}><SupplyPage/></QueryClientProvider>);
+ view.rerender(<QueryClientProvider client={view.client}><ListingPage/></QueryClientProvider>);
  expect(screen.getByLabelText("审核中数量")).toHaveTextContent("—");
  expect(screen.getByLabelText("已通过数量")).toHaveTextContent("—");
 });

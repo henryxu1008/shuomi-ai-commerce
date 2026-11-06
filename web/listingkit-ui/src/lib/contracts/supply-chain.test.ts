@@ -1,6 +1,6 @@
 import { expect,it } from "vitest";
 import { officialDraftInputSchema,supplyPath,operationInputSchema,operationSchema,parseSupplyResponse,uploadAttemptSchema } from "./supply-chain";
-import { initialSupplyDraft } from "@/components/workbench/supply/draft-fields";
+import { initialListingDraft } from "@/components/workbench/listing/draft-fields";
 import type { SupplySourceDetail } from "./supply-chain";
 
 it("admits plan-owned operation metadata only in the response contract",()=>{
@@ -22,7 +22,7 @@ it("admits not_sent only for the original TikTok step and rejects a foreign plat
  for(const platform of [undefined,"temu","walmart"]){expect(uploadAttemptSchema.safeParse({...view,platform}).success).toBe(false)}
 });
 it("allows one approved image to be assigned to every real SKU in a large batch",()=>{
- const draft=initialSupplyDraft({product:{}} as SupplySourceDetail);
+ const draft=initialListingDraft({product:{}} as SupplySourceDetail);
  draft.images=Array.from({length:205},(_,sku)=>({group:"sku" as const,skc:0,sku,asset_id:"approved-original",sort:1,type:1}));
  expect(officialDraftInputSchema.safeParse(draft).success).toBe(true);
 });

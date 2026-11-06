@@ -1,6 +1,6 @@
 // Console navigation and route breadcrumbs. A route is not a permission grant.
 import { researchWorkflows } from "./research-navigation";
-import { listingHome, listingStages } from "./supply-navigation";
+import { listingHome, listingStages } from "./listing-navigation";
 export type ConsoleNavNode = { label: string; href: string; availability: "connected" | "unavailable"; children?: readonly ConsoleNavNode[]; disclosureOnly?: boolean };
 const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow => ({
   label: workflow.label, href: workflow.root, availability: "unavailable",
@@ -100,8 +100,8 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node:ConsoleNavNode={label:"转入待补全",href:pathname,availability:parent.node.availability};
     return {node,trail:[...parent.trail,node]};
   }
-  if (/^\/workbench\/supply\/mine\/missing\/[0-9a-f-]{36}$/.test(pathname)) {
-    const parent=findConsoleRoute("/workbench/supply/mine/missing")!;
+  if (/^\/workbench\/listing\/missing\/[0-9a-f-]{36}$/.test(pathname)) {
+    const parent=findConsoleRoute("/workbench/listing/missing")!;
     const node:ConsoleNavNode={label:"待补全草稿",href:pathname,availability:parent.node.availability};
     return {node,trail:[...parent.trail,node]};
   }
@@ -170,8 +170,8 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node: ConsoleNavNode = { label: "采集结果", href: pathname, availability: "connected" };
     return { node, trail: [...parent.trail, node] };
   }
-  if (/^\/workbench\/supply\/materials\/[0-9a-f-]{36}$/.test(pathname)) {
-	const parent=findConsoleRoute("/workbench/supply/mine")!;
+  if (/^\/workbench\/listing\/materials\/[0-9a-f-]{36}$/.test(pathname)) {
+	const parent=findConsoleRoute("/workbench/listing")!;
 	const node:ConsoleNavNode={label:"平台上架资料",href:pathname,availability:"connected"};
 	return {node,trail:[...parent.trail,node]};
   }

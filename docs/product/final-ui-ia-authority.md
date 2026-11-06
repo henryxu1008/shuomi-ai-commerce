@@ -11,7 +11,7 @@
 
 ### 商品刊登独立一级入口（2026-11-06 用户决定）
 
-「商品刊登」替代原「我的供应链」导航，排在「店铺中心」前。默认打开待上传，待上传、待补全、待审核、已上传为页内页签。我的数据选择商品后可转入待上传。采购从「订单管理 → 采购与收货」进入。四阶段的现行业务合同沿 [原任务继续设计](../architecture/supply-four-step-continuation.md)，本次导航调整见 [#1125](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1125)。
+「商品刊登」替代原「我的供应链」导航，排在「店铺中心」前，页面地址为 `/workbench/listing`（[#1127](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1127)）。默认打开待上传，待上传、待补全、待审核、已上传为页内页签。我的数据选择商品后可转入待上传。采购从「订单管理 → 采购与收货」进入。四阶段的现行业务合同沿 [原任务继续设计](../architecture/supply-four-step-continuation.md)，本次导航调整见 [#1125](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1125)。
 
 ### 市场调研与智能选品以智能体交付（2026-11-03 用户决定）
 

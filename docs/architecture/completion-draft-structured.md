@@ -34,7 +34,7 @@ Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../product/completion-
 - 来源 >256 变体时明确超出结构化编辑预算；文字/历史仍可用。自有商品当前 UI 同为256变体上限。
 - 未保存结构化内容时编辑页可从**准确固定来源**预填，明确尚未保存。已保存结构化内容（含空属性、null价格/库存）准确读回，不能被来源原值或 `||` 覆盖；无法规范预填的来源值显示未填并由表单验证。
 
-调用链：`/workbench/supply/mine/missing/:sourceId/structure?preparation=...&item=...`→当前context/权限→原readSupplySource/readSupplyCompletionDraft→严格Zod+原useSupplyCommand/save-completion-draft/BFF→原Service+SourceSelector准确Catalog Vn及候选成员验证→原Product pool Save事务→原版本/命令回执。App/injection/路由/能力开关不另加owner。
+调用链：`/workbench/listing/missing/:sourceId/structure?preparation=...&item=...`→当前context/权限→原readSupplySource/readSupplyCompletionDraft→严格Zod+原useSupplyCommand/save-completion-draft/BFF→原Service+SourceSelector准确Catalog Vn及候选成员验证→原Product pool Save事务→原版本/命令回执。App/injection/路由/能力开关不另加owner。
 
 Save 在 mint Prepared 前复制完整输入并校验固定 snapshot；Prepared.Read 返回内容副本，避免新增数组/指针在 hash 与事务间被外部修改。内容 equality 比完整值，不能比指针地址；原内容/命令 hash 核对覆盖全部字段。
 
