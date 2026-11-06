@@ -23,10 +23,11 @@ it("shows actual saved drafts with unknown official fields and no fabricated AI 
  expect(screen.getByRole("link",{name:"待补全"})).toHaveAttribute("aria-current","page");
  expect(screen.getByRole("link",{name:"已上传"})).toHaveAttribute("href","/workbench/supply/mine/uploaded?preparation="+other);
 });
-it("keeps local source selection on the creation link when the full platform flow is enabled",async()=>{
+it("keeps local mode and the selected batch on both waiting entry links with full publishing enabled",async()=>{
  ready();render(<CompletionDraftsPage initialPreparation={other} fullAvailable/>);
  await screen.findByText("商品列表（共 1 个）");
  expect(screen.getByRole("link",{name:"从待上传创建草稿"})).toHaveAttribute("href",`/workbench/supply/mine/waiting?preparation=${other}&mode=local`);
+ expect(screen.getByRole("link",{name:"待上传"})).toHaveAttribute("href",`/workbench/supply/mine/waiting?preparation=${other}&mode=local`);
 });
 it("moves to the next real batch page after entering through an explicit preparation",async()=>{
  ready();const later="33333333-3333-4333-8333-333333333333";
