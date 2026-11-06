@@ -12,11 +12,19 @@ import {walmartTargetInputSchema,walmartCatalogSchema,inventorySchema,type Walma
 import {decodeWalmartDocument,type WalmartDraftInput} from "@/lib/contracts/walmart-model";
 import type {ListingCommandState} from "./use-listing-command";
 
-type Props={scope:SupplyScope;source:SupplySourceDetail;storeId:string;existing?:WalmartSupplyTarget;command:ListingCommandState;disabled:boolean;saved:number;completionAvailable?:boolean;publication?:SupplyPublication};
+type Props={scope:SupplyScope;source:SupplySourceDetail;storeId:string;existing?:WalmartSupplyTarget;command:ListingCommandState;disabled:boolean;saved:number;completionAvailable?:boolean;publication?:SupplyPublication;repairOnly?:boolean};
 const sourceKey=(v:NonNullable<SupplySourceDetail["product"]["variants"]>[number])=>v.source_id||v.sku||"";
-export function WalmartTargetEditor({scope,source,storeId,existing,command,disabled,saved,completionAvailable=false,publication}:Props){
+export function walmartRepairResults(publication?:SupplyPublication){
+ return (publication?.walmartResults??[]).filter(result=>!result.limited&&!result.observation.partial&&!!result.repairableSKUs?.length);
+}
+export function WalmartTargetEditor({scope,source,storeId,existing,command,disabled,saved,completionAvailable=false,publication,repairOnly=false}:Props){
  const version=existing?.effectiveVersion??source.source.source.version;
- const [draft,setDraft]=useState<WalmartDraftInput>(()=>existing?structuredClone(existing.input.walmart):{selection:{feedType:"MP_ITEM_MATCH",version:"",productType:""},skus:(source.product.variants??[]).map(v=>({sourceSKUKey:sourceKey(v),identifier:{productIdType:"GTIN",productId:v.barcode??""},condition:"",price:"",shippingWeight:""}))});
+ const [draft,setDraft]=useState<WalmartDraftInput>(()=>{
+  if(!existing)return {selection:{feedType:"MP_ITEM_MATCH",version:"",productType:""},skus:(source.product.variants??[]).map(v=>({sourceSKUKey:sourceKey(v),identifier:{productIdType:"GTIN",productId:v.barcode??""},condition:"",price:"",shippingWeight:""}))};
+  const draft=structuredClone(existing.input.walmart);
+  if(repairOnly){delete draft.repairFrom;delete draft.repairSKUs;}
+  return draft;
+ });
  const [attributeErrors,setAttributeErrors]=useState<Record<string,boolean>>({});
  const [catalog,setCatalog]=useState<z.infer<typeof walmartCatalogSchema>>();
  const [requirements,setRequirements]=useState<unknown>();const [busy,setBusy]=useState(false);const [error,setError]=useState("");
@@ -25,7 +33,9 @@ export function WalmartTargetEditor({scope,source,storeId,existing,command,disab
  const selection={itemId:source.source.id,originalPublicationId:source.source.source.publicationId,originalSnapshotVersion:source.source.source.version,effectiveCatalogVersion:version,targetPlatform:"walmart" as const,...(existing?.applyReceiptId?{applyReceiptId:existing.applyReceiptId}:{})};
  const base={sourceId:source.source.id,storeId,expectedRevision:existing?.revision??0,effectiveVersion:version,...(existing?.applyReceiptId?{applyReceiptId:existing.applyReceiptId}:{})};
  const locked=disabled||busy||command.busy||!!command.pending;
- const repairResults=(publication?.walmartResults??[]).filter(v=>(v.repairableSKUs?.length??0)>0);
+ const repairResults=walmartRepairResults(publication);
+ const eligibleSKUs=repairResults.find(result=>result.receiptId===draft.repairFrom)?.repairableSKUs;
+ const repairReady=!!draft.repairSKUs?.length&&draft.repairSKUs.every(sku=>eligibleSKUs?.includes(sku));
 
 
  useEffect(()=>{const c=new AbortController();let live=true;
@@ -41,11 +51,16 @@ export function WalmartTargetEditor({scope,source,storeId,existing,command,disab
   if("walmartCatalog" in result){setCatalog(result.walmartCatalog);setDraft(v=>({...v,selection:{...v.selection,version:result.walmartCatalog.version}}));setRequirements(undefined)}
   else{setRequirements(decodeWalmartDocument(result.walmart.schema))}
  }catch(e){setError(e instanceof SupplyAPIError?e.code:"未取得当前商家的完整官方规则，请刷新后重试。")}finally{setBusy(false)}}
- function save(){const checked=walmartTargetInputSchema.safeParse({...base,walmart:draft,...adopted?{completionDraft:adopted}:{}});if(!checked.success){setError("请补齐刊登方式、官方类目、逐 SKU 标识、价格和重量。");return}command.execute("save-target",checked.data)}
+ function save(){
+  if(repairOnly&&!repairReady)return;
+  const checked=walmartTargetInputSchema.safeParse({...base,walmart:draft,...adopted?{completionDraft:adopted}:{}});
+  if(!checked.success){setError("请补齐刊登方式、官方类目、逐 SKU 标识、价格和重量。");return}
+  command.execute("save-target",checked.data);
+ }
  function adopt(){if(!completion)return;setDraft(v=>({...v,skus:v.skus.map(s=>({...s,visible:{...s.visible,productName:completion.content.title,shortDescription:descriptionPlainText(completion.content.description,completion.content.descriptionFormat)}}))}));setAdopted({recordId:completion.id,revision:completion.revision})}
  return <div className="space-y-5"><DescriptionProjectionNote format={completion?.content.descriptionFormat??source.product.description_format}/>
   <p className="font-semibold">Walmart Marketplace · 美国站</p>
-  <p className="text-sm text-muted-foreground">先选择匹配已有目录或提交新商品，保存后检查逐 SKU 资料，再在供应链明确批准刊登。匹配失败后需重新选择并批准新商品资料。</p>
+  <p className="text-sm text-muted-foreground">{repairOnly?"选择已确认可修复的失败 SKU。保存会创建新的资料版本，原资料和回执仍可只读查看。":"先选择匹配已有目录或提交新商品，保存后检查逐 SKU 资料，再在供应链明确批准刊登。匹配失败后需重新选择并批准新商品资料。"}</p>
   {error?<p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm">{error}</p>:null}
   <label className="grid gap-1 text-sm">刊登方式<Select value={draft.selection.feedType} disabled={locked} onChange={e=>{setDraft(v=>({...v,selection:{feedType:e.target.value as WalmartDraftInput["selection"]["feedType"],version:"",productType:""},skus:v.skus.map(s=>({...s,visible:e.target.value==="MP_ITEM"?{productName:source.product.title??"",shortDescription:descriptionPlainText(source.product.description??"",source.product.description_format)}:undefined}))}));setCatalog(undefined);setRequirements(undefined);setAdopted(undefined);setAttributeErrors({})}}><option value="MP_ITEM_MATCH">匹配 Walmart 已有目录商品</option><option value="MP_ITEM">提交新商品资料（卖家配送）</option></Select></label>
   <Button variant="outline" disabled={locked} onClick={()=>void loadRules(true)}>读取当前可用类目</Button>
@@ -63,7 +78,7 @@ export function WalmartTargetEditor({scope,source,storeId,existing,command,disab
   {draft.selection.feedType==="MP_ITEM"?<details className="space-y-3 rounded-xl border p-3"><summary>批准原商品图片</summary>{source.images.map(image=><label key={image.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedImages.includes(image.id)} disabled={locked} onChange={e=>setSelectedImages(v=>e.target.checked?[...v,image.id]:v.filter(id=>id!==image.id))}/><span className="break-all">{image.url}</span></label>)}<Button disabled={locked||!selectedImages.length} onClick={()=>command.execute("approve",{selection,images:selectedImages.map((id,i)=>({id,role:i===0?"main":"gallery"})),approved:[]})}>批准所选图片</Button></details>:null}
   {existing?<section className="space-y-2 rounded-xl border p-3"><p className="text-sm">已保存目标版本 {existing.revision} · {existing.walmart.selection.feedType}</p>{existing.walmart.skus.map(s=><p key={s.sellerSKU} className="break-all text-xs">{s.sourceSKUKey} → {s.sellerSKU}</p>)}<p className="break-all text-xs">资料指纹：{existing.walmart.wireHash}</p><details><summary>查看已保存的准确刊登资料</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(decodeWalmartDocument(existing.walmart.payload),null,2)}</pre></details></section>:null}
   {repairResults.map(result=><section key={result.id} className="space-y-2 rounded-xl border p-3"><p className="text-sm">Feed {result.observation.feedId} 已确认以下 SKU 未接纳。修复后保存并明确批准所选失败项。</p>{result.repairableSKUs?.map(sku=><label key={sku} className="flex items-center gap-2 text-xs"><input type="checkbox" disabled={locked} checked={draft.repairFrom===result.receiptId&&!!draft.repairSKUs?.includes(sku)} onChange={e=>setDraft(v=>({...v,repairFrom:result.receiptId,repairSKUs:e.target.checked?[...(v.repairFrom===result.receiptId?v.repairSKUs??[]:[]).filter(s=>s!==sku),sku]:(v.repairSKUs??[]).filter(s=>s!==sku)}))}/>{sku}</label>)}</section>)}
-  <Button disabled={locked||Object.values(attributeErrors).some(Boolean)||!draft.skus.length||!draft.selection.version||draft.selection.feedType==="MP_ITEM"&&!draft.selection.productType} onClick={save}>校验并保存 Walmart 草稿</Button><p className="text-xs text-muted-foreground">保存只生成本地草稿，不会提交 Walmart。GTIN、品牌和合规资格必须真实，不会自动申请豁免。</p>
+  <Button disabled={locked||repairOnly&&!repairReady||Object.values(attributeErrors).some(Boolean)||!draft.skus.length||!draft.selection.version||draft.selection.feedType==="MP_ITEM"&&!draft.selection.productType} onClick={save}>校验并保存 Walmart 草稿</Button><p className="text-xs text-muted-foreground">保存只生成本地草稿，不会提交 Walmart。GTIN、品牌和合规资格必须真实，不会自动申请豁免。</p>
  </div>
 }
 function AttributeEditor({label,value,onChange,onInvalid}:{label:string;value:Record<string,unknown>;onInvalid:(invalid:boolean)=>void;onChange:(value:Record<string,z.infer<ReturnType<typeof z.json>>>)=>void}){
