@@ -245,25 +245,26 @@ type SKCRequestDraft struct {
 }
 
 type SKUDraft struct {
-	SupplierSKU    string                  `json:"supplier_sku,omitempty"`
-	Attributes     map[string]string       `json:"attributes,omitempty"`
-	Currency       string                  `json:"currency,omitempty"`
-	CostPrice      string                  `json:"cost_price,omitempty"`
-	BasePrice      string                  `json:"base_price,omitempty"`
-	StockCount     int                     `json:"stock_count,omitempty"`
-	Weight         float64                 `json:"weight,omitempty"`
-	WeightUnit     string                  `json:"weight_unit,omitempty"`
-	Length         string                  `json:"length,omitempty"`
-	Width          string                  `json:"width,omitempty"`
-	Height         string                  `json:"height,omitempty"`
-	LengthUnit     string                  `json:"length_unit,omitempty"`
-	MainImage      string                  `json:"main_image,omitempty"`
-	ImageInfo      *ImageDraft             `json:"image_info,omitempty"`
-	Barcode        string                  `json:"barcode,omitempty"`
-	IsDefault      bool                    `json:"is_default,omitempty"`
-	SaleAttributes []ResolvedSaleAttribute `json:"sale_attributes,omitempty"`
-	SitePriceList  []SitePrice             `json:"site_price_list,omitempty"`
-	StockInfoList  []StockInfo             `json:"stock_info_list,omitempty"`
+	SupplierSKU      string                  `json:"supplier_sku,omitempty"`
+	Attributes       map[string]string       `json:"attributes,omitempty"`
+	Currency         string                  `json:"currency,omitempty"`
+	CostPrice        string                  `json:"cost_price,omitempty"`
+	BasePrice        string                  `json:"base_price,omitempty"`
+	StockCount       int                     `json:"stock_count,omitempty"`
+	Weight           float64                 `json:"weight,omitempty"`
+	WeightUnit       string                  `json:"weight_unit,omitempty"`
+	Length           string                  `json:"length,omitempty"`
+	Width            string                  `json:"width,omitempty"`
+	Height           string                  `json:"height,omitempty"`
+	LengthUnit       string                  `json:"length_unit,omitempty"`
+	MainImage        string                  `json:"main_image,omitempty"`
+	ImageInfo        *ImageDraft             `json:"image_info,omitempty"`
+	Barcode          string                  `json:"barcode,omitempty"`
+	IsDefault        bool                    `json:"is_default,omitempty"`
+	SaleAttributes   []ResolvedSaleAttribute `json:"sale_attributes,omitempty"`
+	SitePriceList    []SitePrice             `json:"site_price_list,omitempty"`
+	StockInfoList    []StockInfo             `json:"stock_info_list,omitempty"`
+	OwnStockDeclared bool                    `json:"own_stock_declared,omitempty"`
 }
 
 type SKUPriceReview struct {

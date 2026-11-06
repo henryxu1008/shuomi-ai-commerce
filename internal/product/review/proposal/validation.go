@@ -341,6 +341,10 @@ func cloneVariants(items []catalog.Variant) []catalog.Variant {
 			price := *item.Price
 			out[i].Price = &price
 		}
+		if item.Stock != nil {
+			stock := *item.Stock
+			out[i].Stock = &stock
+		}
 		out[i].Images = cloneImages(item.Images)
 		out[i].Trace.Sources = append([]catalog.SourceRecord(nil), item.Trace.Sources...)
 	}
