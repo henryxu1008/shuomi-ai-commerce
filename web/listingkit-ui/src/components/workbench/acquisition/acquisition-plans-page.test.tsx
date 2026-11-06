@@ -1,15 +1,65 @@
-import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,it,expect,vi} from "vitest";
 import {AcquisitionPlansPage} from "./acquisition-plans-page";
+import {AcquisitionPage} from "./acquisition-page";
 import {AcquisitionAPIError} from "@/lib/api/product-acquisition";
-const calls=vi.hoisted(()=>({create:vi.fn(),advance:vi.fn(),read:vi.fn(),key:vi.fn(),rules:vi.fn(),mutate:vi.fn()}));
-vi.mock("@/lib/api/acquisition-plan",()=>({listAcquisitionPlans:async()=>({plans:[],canAutoTransfer:true}),listAcquisitionRules:calls.rules,createAcquisitionPlan:calls.create,advanceAcquisitionPlan:calls.advance,readAcquisitionPlan:calls.read,readAcquisitionPlanByKey:calls.key,mutateAcquisitionRule:calls.mutate}));
-beforeEach(()=>{sessionStorage.clear();vi.clearAllMocks();calls.rules.mockResolvedValue({rules:[]});HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")};});
+const calls=vi.hoisted(()=>({list:vi.fn(),create:vi.fn(),advance:vi.fn(),read:vi.fn(),key:vi.fn(),rules:vi.fn(),mutate:vi.fn()}));
+vi.mock("@/lib/api/acquisition-plan",()=>({listAcquisitionPlans:calls.list,listAcquisitionRules:calls.rules,createAcquisitionPlan:calls.create,advanceAcquisitionPlan:calls.advance,readAcquisitionPlan:calls.read,readAcquisitionPlanByKey:calls.key,mutateAcquisitionRule:calls.mutate}));
+vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({
+ user:{id:"actor"},
+ effectiveOrganization:{id:"org-A"},
+ acquisitionIntentReady:true,
+ registerOrganizationSwitchGuard:()=>()=>{},
+})}));
+vi.mock("next/navigation",()=>({useSearchParams:()=>new URLSearchParams()}));
+beforeEach(()=>{sessionStorage.clear();vi.clearAllMocks();calls.rules.mockResolvedValue({rules:[]});calls.list.mockResolvedValue({plans:[],canAutoTransfer:true});HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")};});
 afterEach(()=>vi.restoreAllMocks());
 afterEach(cleanup);
 const scope={userId:"actor",organizationId:"org-A"};
 async function start(){await userEvent.click(await screen.findByRole("button",{name:"1688在线采集"}));await userEvent.type(screen.getByLabelText("1688 商品链接"),"123");await userEvent.click(screen.getByRole("button",{name:"开始采集"}));}
+
+it("shows the 1688 plan list before the user opens the capture form", async () => {
+ render(<AcquisitionPage plansEnabled/>);
+ await screen.findByText("还没有采集计划。");
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+ const trigger=screen.getByRole("button",{name:"1688在线采集"});
+ await userEvent.click(trigger);
+ expect(screen.getByRole("dialog",{name:"1688在线采集"})).toBeVisible();
+ await userEvent.click(screen.getByRole("button",{name:"取消"}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(trigger).toBeEnabled();
+ expect(calls.create).not.toHaveBeenCalled();
+});
+it("opens plan results for review without advancing and filters failed items", async () => {
+ const id="11111111-1111-4111-8111-111111111111";
+ const operationId="22222222-2222-4222-8222-222222222222";
+ const source=(offer:number)=>`https://detail.1688.com/offer/${offer}.html`;
+ const plan={id,createdAt:"2026-10-11T00:00:00Z",input:{mode:"product",inputs:[source(123)]},discoveryIndex:1,state:"paused",revision:2,
+  items:[{source:source(123),state:"published",operationId,evaluation:{state:"not_matched",startingPrice:"12.50",minimumQuantity:"4"}},
+   {source:source(456),state:"failed",failureCode:"source_unavailable"},{source:source(789),state:"needs_verification"},{source:source(987),state:"pending"}],
+  discoveryFailures:[],preparationIds:[],truncated:false};
+ calls.list.mockResolvedValue({plans:[plan],canAutoTransfer:true});
+ calls.read.mockResolvedValue(plan);
+ render(<AcquisitionPlansPage scope={scope}/>);
+ const trigger=await screen.findByRole("button",{name:"查看结果"});
+ await userEvent.click(trigger);
+ const results=await screen.findByRole("region",{name:"采集结果"});
+ expect(within(results).getByRole("heading",{name:"采集结果"})).toHaveFocus();
+ expect(within(results).getByText("¥12.50")).toBeVisible();
+ expect(within(results).getByText("未通过规则，保留在我的数据")).toBeVisible();
+ expect(within(results).getByRole("link",{name:"查看商品"})).toHaveAttribute("href",`/workbench/supply/acquisition/operation/${operationId}`);
+ await userEvent.selectOptions(within(results).getByRole("combobox",{name:"按保存状态筛选"}),"failed");
+ expect(within(results).getByText("来源不可用或需要登录、验证。")).toBeVisible();
+ expect(within(results).queryByRole("link",{name:"查看商品"})).not.toBeInTheDocument();
+ await userEvent.click(within(results).getByRole("button",{name:"返回采集计划"}));
+ expect(screen.queryByRole("region",{name:"采集结果"})).not.toBeInTheDocument();
+ expect(trigger).toHaveFocus();
+ expect(calls.create).not.toHaveBeenCalled();
+ expect(calls.advance).not.toHaveBeenCalled();
+});
+
 it("keeps the selected content operation in published-plan and operation-recovery links", async () => {
  const operationId="22222222-2222-4222-8222-222222222222";
  const plan={id:"11111111-1111-4111-8111-111111111111",createdAt:"2026-10-11T00:00:00Z",input:{mode:"product",inputs:["https://detail.1688.com/offer/123.html"]},discoveryIndex:1,state:"completed",revision:1,items:[{source:"https://detail.1688.com/offer/123.html",state:"published",operationId}],discoveryFailures:[],preparationIds:[],truncated:false};

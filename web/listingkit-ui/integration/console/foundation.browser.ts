@@ -22,7 +22,7 @@ for (const width of [1440, 390]) {
     const businessRequests: string[] = [];
     page.on("request", (r) => { if (r.url().includes("/api/") && !r.url().includes("/context") && !r.url().includes("/auth")) businessRequests.push(r.url()); });
     await page.goto(`${fixture.origin}/workbench`);
-    await expect(page.getByRole("heading", { name: "经营全局，一屏掌握" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "运营驾驶舱" })).toBeVisible();
     await accessible(page);
     await page.mouse.move(0, 0);
     await page.screenshot({ path: info.outputPath(`overview-${width}.png`), fullPage: width === 390 });
