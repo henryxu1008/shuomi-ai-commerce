@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canonical1688Source, isAcquisitionUUID } from "./product-acquisition";
+import { canonical1688Source, isAcquisitionUUID, MAX_1688_ACQUISITION_VARIANTS } from "./product-acquisition";
 
 export const BROWSER_CAPTURE_MAX_BYTES = 2 * 1024 * 1024;
 export const BROWSER_CAPTURE_BASE = "/api/workbench/sourcing/1688/browser-captures";
@@ -22,7 +22,7 @@ const evidence = z.object({
   schemaVersion: z.literal(1), sourceURL: text, offerID: text,
   title: text.nullable(), description: text.nullable(),
   attributes: z.array(attribute).max(256),
-  variants: z.array(variant).max(256),
+  variants: z.array(variant).max(MAX_1688_ACQUISITION_VARIANTS),
   priceFacts: z.array(price).max(256),
   images: z.array(image).max(256),
   capturedAt: text.refine((v) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v))),
@@ -31,7 +31,7 @@ const evidence = z.object({
   missingFacts: z.array(z.object({ field: text, reason: text }).strict()).max(256),
 }).strict();
 // Transport only: Go owns canonicalization, digest and business mapping.
-const evidenceV2 = evidence.extend({schemaVersion:z.literal(2),parserVersion:z.literal("1688-browser-dom/v3"),variants:z.array(variant.extend({images:z.array(image).max(256)})).max(256)});
+const evidenceV2 = evidence.extend({schemaVersion:z.literal(2),parserVersion:z.literal("1688-browser-dom/v3"),variants:z.array(variant.extend({images:z.array(image).max(256)})).max(MAX_1688_ACQUISITION_VARIANTS)});
 export const browserCaptureSchema = z.discriminatedUnion("captureVersion",[z.object({ captureVersion: z.literal(1), evidence }).strict(),z.object({captureVersion:z.literal(2),evidence:evidenceV2}).strict()]).refine(({ evidence: e }) => {
   const source = canonical1688Source(e.sourceURL);
   const count = e.attributes.length + e.variants.length + e.variants.reduce((n, v) => n + v.attributes.length + ("images" in v ? v.images.length : 0), 0) + e.priceFacts.length + e.images.length + e.warnings.length + e.missingFacts.length;

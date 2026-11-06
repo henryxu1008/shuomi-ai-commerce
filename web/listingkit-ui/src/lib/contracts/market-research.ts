@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {MAX_1688_ACQUISITION_VARIANTS} from "./product-acquisition";
 import {collectionID,collectionVersion,collectionItemSchema,type CollectionItem} from "./product-collection";
 const revision=z.number().int().positive().max(Number.MAX_SAFE_INTEGER),digest=z.string().regex(/^[a-f0-9]{64}$/);
 const text=(max:number)=>z.string().refine(v=>!v.includes("\0")&&new TextEncoder().encode(v).length<=max);
@@ -65,7 +66,7 @@ const attributes=z.record(text(128),text(512));
 export const supplierReviewPreview=z.strictObject({
  revision,linkId:collectionID,evidenceDigest:digest,
  market:z.strictObject({asin:text(10).refine(v=>v.length===10),title:text(2000),attributes}),
- offer:z.strictObject({title:text(2000),attributes,variants:z.array(z.strictObject({id:skuId,label:text(512),attributes})).max(200)}),
+ offer:z.strictObject({title:text(2000),attributes,variants:z.array(z.strictObject({id:skuId,label:text(512),attributes})).max(MAX_1688_ACQUISITION_VARIANTS)}),
 });
 const supplierReviewDetail=z.strictObject({
  marketTitle:text(2000),asin:text(10).refine(v=>v.length===10),supplierTitle:text(2000),offerId:text(128),

@@ -1,6 +1,6 @@
 # 单候选人工核对已保存 1688 货源 · 独立架构设计
 
-状态：**Independent Architecture / NOT_READY**。本提交仅供独立设计评审。没有正式实现、DDL、启用或真实验收。沿 [#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074) 和 [Draft #1097](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1097)，基于已完成的人工试算 `0528a77fe105a4dd84c18250dae1ec9b143a8680` 与准确的 #1075 消费基线 `3484e73588ee67e99f8dd3a55b2ecb9cb1a42822`。原试算、SHEIN 只读与转入门禁沿用既有交付。
+设计准入：**Independent Architecture / IMPLEMENTATION_READY**。原送审版本为 NOT_READY；原独立 Reviewer 通过设计修订 `7e05cbd7449ad714bbb1a0bfe49a471a8cd82bcc`，结论记录于 #1074。后文保留原设计开工检查；本结论仅为实施准入。沿 [#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074) 和 [Draft #1097](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1097)，基于已完成的人工试算 `0528a77fe105a4dd84c18250dae1ec9b143a8680` 与准确的 #1075 消费基线 `3484e73588ee67e99f8dd3a55b2ecb9cb1a42822`。原试算、SHEIN 只读与转入门禁沿用既有交付。
 
 ## 1. 用户结果与范围
 
