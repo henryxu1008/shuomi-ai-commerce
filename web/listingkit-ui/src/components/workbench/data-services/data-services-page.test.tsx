@@ -1,7 +1,11 @@
 import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import DataMarketPage from "@/app/workbench/data/market/page";
+import AmazonAcquisitionPage from "@/app/workbench/supply/acquisition/amazon/page";
+import { saveDataIntent } from "@/lib/api/data-services";
 import { DataServicesPage, CustomDetails } from "./data-services-page";
 import { SpecialistPage } from "./specialist-page";
+vi.mock("next/server", () => ({ connection: vi.fn() }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => ({ user: { id: "user" }, effectiveOrganization: { id: "org" }, registerOrganizationSwitchGuard: () => () => { } }) }));
 vi.mock("@/components/workbench/collections/collection-page", () => ({ CollectionDialog: ({ title, children, onClose }: {
         title: string;
@@ -12,25 +16,43 @@ const options = { sites: [{ code: "us", domain: "www.amazon.com", name: "美国"
 const id = "a233d58b-1fd3-40d7-a983-d35bbec45313";
 const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B000123456"], limit: 1, fields: ["asin", "title"] }, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, confirmedFen: 0, pendingFen: 0, createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" };
 const json = (value: unknown, status = 200) => Response.json(value, { status });
-afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe("data service product paths", () => {
-    it("focuses the existing Amazon realtime card from the online acquisition link without submitting", async () => {
-        const originalURL = window.location.href;
-        window.history.replaceState(null, "", "/workbench/data/market#amazon-realtime-acquisition");
-        try {
-            const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));
-            vi.stubGlobal("fetch", requests);
-            render(<DataServicesPage mode="market"/>);
-            const start = screen.getByRole("button", { name: "配置实时抓取" });
-            await waitFor(() => expect(start).toBeEnabled());
-            const target = document.getElementById("amazon-realtime-acquisition");
-            expect(target).toContainElement(start);
-            expect(target).toHaveFocus();
-            expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-            expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
-        } finally {
-            window.history.replaceState(null, "", originalURL);
-        }
+    it("opens Amazon online acquisition with its own title, form and only acquisition reads", async () => {
+        vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "true");
+        const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));
+        vi.stubGlobal("fetch", requests);
+        render(await AmazonAcquisitionPage());
+        expect(screen.getByRole("heading", { name: "Amazon 在线采集", level: 1 })).toBeVisible();
+        expect(within(screen.getByRole("navigation", { name: "面包屑" })).getByText("在线采集")).toBeVisible();
+        const start = screen.getByRole("button", { name: "新建采集任务" });
+        await waitFor(() => expect(start).toBeEnabled());
+        expect(screen.getByRole("heading", { name: "采集记录" })).toBeVisible();
+        expect(screen.queryByRole("button", { name: "提交定制需求" })).not.toBeInTheDocument();
+        fireEvent.click(start);
+        const form = screen.getByRole("dialog", { name: "新建 Amazon 采集任务" });
+        expect(within(form).getByRole("combobox", { name: "Amazon 站点" })).toBeVisible();
+        expect(within(form).getByRole("button", { name: "确认并开始采集" })).toBeVisible();
+        expect(requests.mock.calls.map(([url]) => url.split("/").at(-1))).toEqual(["options", "jobs"]);
+        expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+    });
+    it("keeps the new route behind the data services flag and redirects the previous deep link", async () => {
+        vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "false");
+        await expect(AmazonAcquisitionPage()).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+        vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "true");
+        await expect(DataMarketPage({ searchParams: Promise.resolve({ focus: "amazon-realtime-acquisition" }) }))
+            .rejects.toMatchObject({ digest: expect.stringContaining("/workbench/supply/acquisition/amazon") });
+    });
+    it("keeps a pending customization request available on its own page", async () => {
+        const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));
+        vi.stubGlobal("fetch", requests);
+        expect(saveDataIntent({ userId: "user", organizationId: "org", key: id, specialist: false, path: "custom",
+            body: { name: "测试申请", purpose: "业务验证", format: "csv", query: job.query } })).toBe(true);
+        render(<DataServicesPage mode="amazon"/>);
+        expect(await screen.findByRole("link", { name: "前往核实原请求" })).toHaveAttribute("href", "/workbench/data/market");
+        expect(screen.getByRole("button", { name: "新建采集任务" })).toBeDisabled();
+        expect(screen.queryByRole("button", { name: "核实／继续原请求" })).not.toBeInTheDocument();
+        expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
     });
     it("explains missing data permissions and keeps all acquisition actions closed without creating a request", async () => {
         const requests = vi.fn(async () => json({ error: { code: "PERMISSION_DENIED" } }, 403));
@@ -40,7 +62,7 @@ describe("data service product paths", () => {
         expect(screen.getByText("请联系企业管理员核对“数据市场使用”和“商品资料查看”权限。")).toBeInTheDocument();
         expect(screen.getByText("当前身份没有抓取历史读取权限。")).toBeInTheDocument();
         expect(screen.getByText("当前身份没有定制历史读取权限。")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "配置实时抓取" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "新建采集任务" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "提交定制需求" })).toBeDisabled();
         expect(screen.queryByText("数据服务暂不可用，请稍后刷新。")).not.toBeInTheDocument();
         expect(requests.mock.calls).toHaveLength(3);
@@ -107,7 +129,7 @@ describe("data service product paths", () => {
             return json([]);
         }));
         render(<DataServicesPage mode="market"/>);
-        const start = screen.getByRole("button", { name: "配置实时抓取" });
+        const start = screen.getByRole("button", { name: "新建采集任务" });
         await waitFor(() => expect(start).toBeEnabled());
         expect(screen.getByRole("button", { name: "提交定制需求" })).toBeEnabled();
         const historyName = historyPath === "custom" ? "定制历史" : "抓取历史";
@@ -116,8 +138,8 @@ describe("data service product paths", () => {
         fireEvent.click(start);
         fireEvent.change(screen.getByLabelText(/ASIN 或当前站点/), { target: { value: "B000123456" } });
         fireEvent.change(screen.getByLabelText("最大数据条数"), { target: { value: "1" } });
-        fireEvent.click(screen.getByRole("button", { name: "确认并开始抓取" }));
-        const result = await screen.findByRole("dialog", { name: "抓取任务与结果" });
+        fireEvent.click(screen.getByRole("button", { name: "确认并开始采集" }));
+        const result = await screen.findByRole("dialog", { name: "采集任务与结果" });
         fireEvent.click(within(result).getByRole("button", { name: "关闭" }));
         const custom = screen.getByRole("button", { name: "提交定制需求" });
         await waitFor(() => expect(custom).toBeEnabled());
@@ -138,7 +160,7 @@ describe("data service product paths", () => {
         vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/options") ? json({ error: { code: "FORBIDDEN" } }, 403) : json([])));
         render(<DataServicesPage mode="market"/>);
         await screen.findByText("当前身份或权限已失效，请确认登录及企业。");
-        expect(screen.getByRole("button", { name: "配置实时抓取" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "新建采集任务" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "提交定制需求" })).toBeDisabled();
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -326,12 +348,12 @@ describe("data service product paths", () => {
             return json([]);
         }));
         render(<DataServicesPage mode="market"/>);
-        const start = await screen.findByRole("button", { name: /配置实时抓取/ });
+        const start = await screen.findByRole("button", { name: /新建采集任务/ });
         await waitFor(() => expect(start).toBeEnabled());
         fireEvent.click(start);
         fireEvent.change(screen.getByLabelText(/ASIN 或当前站点/), { target: { value: "B000123456" } });
         fireEvent.change(screen.getByLabelText("最大数据条数"), { target: { value: "1" } });
-        fireEvent.click(screen.getByRole("button", { name: "确认并开始抓取" }));
+        fireEvent.click(screen.getByRole("button", { name: "确认并开始采集" }));
         await screen.findByText(/结果待核实，请继续核实原请求/);
         fireEvent.change(screen.getByLabelText("最大数据条数"), { target: { value: "20" } });
         fireEvent.click(screen.getByRole("button", { name: "核实／继续原请求" }));

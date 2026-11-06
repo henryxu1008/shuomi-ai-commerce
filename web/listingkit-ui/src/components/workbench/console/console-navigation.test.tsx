@@ -249,7 +249,7 @@ it.each([
   const amazon = screen.queryByRole("link", { name: "Amazon 在线采集" });
   if (has1688) expect(a1688).toHaveAttribute("href", "/workbench/supply/acquisition");
   else expect(a1688).not.toBeInTheDocument();
-  if (hasAmazon) expect(amazon).toHaveAttribute("href", "/workbench/data/market#amazon-realtime-acquisition");
+  if (hasAmazon) expect(amazon).toHaveAttribute("href", "/workbench/supply/acquisition/amazon");
   else expect(amazon).not.toBeInTheDocument();
 });
 

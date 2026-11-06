@@ -2,14 +2,36 @@ import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,it,expect,vi} from "vitest";
 import {AcquisitionPlansPage} from "./acquisition-plans-page";
+import {AcquisitionPage} from "./acquisition-page";
 import {AcquisitionAPIError} from "@/lib/api/product-acquisition";
 const calls=vi.hoisted(()=>({create:vi.fn(),advance:vi.fn(),read:vi.fn(),key:vi.fn(),rules:vi.fn(),mutate:vi.fn()}));
 vi.mock("@/lib/api/acquisition-plan",()=>({listAcquisitionPlans:async()=>({plans:[],canAutoTransfer:true}),listAcquisitionRules:calls.rules,createAcquisitionPlan:calls.create,advanceAcquisitionPlan:calls.advance,readAcquisitionPlan:calls.read,readAcquisitionPlanByKey:calls.key,mutateAcquisitionRule:calls.mutate}));
+vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({
+ user:{id:"actor"},
+ effectiveOrganization:{id:"org-A"},
+ acquisitionIntentReady:true,
+ registerOrganizationSwitchGuard:()=>()=>{},
+})}));
+vi.mock("next/navigation",()=>({useSearchParams:()=>new URLSearchParams()}));
 beforeEach(()=>{sessionStorage.clear();vi.clearAllMocks();calls.rules.mockResolvedValue({rules:[]});HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")};});
 afterEach(()=>vi.restoreAllMocks());
 afterEach(cleanup);
 const scope={userId:"actor",organizationId:"org-A"};
 async function start(){await userEvent.click(await screen.findByRole("button",{name:"1688在线采集"}));await userEvent.type(screen.getByLabelText("1688 商品链接"),"123");await userEvent.click(screen.getByRole("button",{name:"开始采集"}));}
+
+it("shows the 1688 plan list before the user opens the capture form", async () => {
+ render(<AcquisitionPage plansEnabled/>);
+ await screen.findByText("还没有采集计划。");
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+ const trigger=screen.getByRole("button",{name:"1688在线采集"});
+ await userEvent.click(trigger);
+ expect(screen.getByRole("dialog",{name:"1688在线采集"})).toBeVisible();
+ await userEvent.click(screen.getByRole("button",{name:"取消"}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(trigger).toBeEnabled();
+ expect(calls.create).not.toHaveBeenCalled();
+});
 it("keeps the selected content operation in published-plan and operation-recovery links", async () => {
  const operationId="22222222-2222-4222-8222-222222222222";
  const plan={id:"11111111-1111-4111-8111-111111111111",createdAt:"2026-10-11T00:00:00Z",input:{mode:"product",inputs:["https://detail.1688.com/offer/123.html"]},discoveryIndex:1,state:"completed",revision:1,items:[{source:"https://detail.1688.com/offer/123.html",state:"published",operationId}],discoveryFailures:[],preparationIds:[],truncated:false};
