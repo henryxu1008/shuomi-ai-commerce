@@ -1,7 +1,9 @@
 import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import DataMarketPage from "@/app/workbench/data/market/page";
 import { DataServicesPage, CustomDetails } from "./data-services-page";
 import { SpecialistPage } from "./specialist-page";
+vi.mock("next/server", () => ({ connection: vi.fn() }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => ({ user: { id: "user" }, effectiveOrganization: { id: "org" }, registerOrganizationSwitchGuard: () => () => { } }) }));
 vi.mock("@/components/workbench/collections/collection-page", () => ({ CollectionDialog: ({ title, children, onClose }: {
         title: string;
@@ -15,21 +17,23 @@ const json = (value: unknown, status = 200) => Response.json(value, { status });
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 describe("data service product paths", () => {
     it("focuses the existing Amazon realtime card from the online acquisition link without submitting", async () => {
-        const originalURL = window.location.href;
-        window.history.replaceState(null, "", "/workbench/data/market#amazon-realtime-acquisition");
+        vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "true");
         try {
             const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));
             vi.stubGlobal("fetch", requests);
-            render(<DataServicesPage mode="market"/>);
+            const page = (focus?: string | string[]) => DataMarketPage({ searchParams: Promise.resolve({ focus }) });
+            const view = render(await page(["amazon-realtime-acquisition", "amazon-realtime-acquisition"]));
             const start = screen.getByRole("button", { name: "配置实时抓取" });
             await waitFor(() => expect(start).toBeEnabled());
             const target = document.getElementById("amazon-realtime-acquisition");
             expect(target).toContainElement(start);
+            expect(target).not.toHaveFocus();
+            view.rerender(await page("amazon-realtime-acquisition"));
             expect(target).toHaveFocus();
             expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
             expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
         } finally {
-            window.history.replaceState(null, "", originalURL);
+            vi.unstubAllEnvs();
         }
     });
     it("explains missing data permissions and keeps all acquisition actions closed without creating a request", async () => {
