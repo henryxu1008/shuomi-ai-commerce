@@ -24,7 +24,7 @@ it.each([
   [AgentsPage, "按岗位启用智能体，打造属于自己的AI电商团队"],
   [ToolsPage, "连接工具能力，让业务流程更高效"],
   [StorePage, "统一管理店铺、商品与订单，让经营链路更清晰"],
-  [WorkbenchPage, "经营全局，一屏掌握"],
+  [WorkbenchPage, "运营驾驶舱"],
   [AIPage, "AI工作台"],
 ])("retains the independent primary homepage", (Page, title) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
