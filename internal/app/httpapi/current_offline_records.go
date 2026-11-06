@@ -95,7 +95,7 @@ func buildOfflineRecords(ctx context.Context, products, assets, stores *gorm.DB,
 		return offlineRecordModule{}, err
 	}
 	app := &normalOfflineRecords{records: repository, collections: collections, stores: sheinRecordStoreReader{repository: storeRepo}, resolver: deps.organizationResolver, policy: policy}
-	app.create, err = record.NewService(record.ServiceDependencies{Products: source, Assets: inventory, Stores: app.stores, Records: repository, Builder: draft.Builder{}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: policy, Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion, CreationGuard: app.guard})
+	app.create, err = record.NewService(record.ServiceDependencies{Products: source, Assets: inventory, Stores: app.stores, Records: repository, Builder: draft.Builder{}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: policy, Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PreviousRuleRevision: sheinvalidator.PreviousDiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion, CreationGuard: app.guard})
 	if err != nil {
 		return offlineRecordModule{}, err
 	}

@@ -74,6 +74,7 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 		if err != nil {
 			return Receipt{}, err
 		}
+		declareVerifiedStock(&envelope, input.stockFieldsVerified)
 		command.Envelope = &envelope
 	case "import_products":
 		if !validName(input.Name) || len(input.Products) < 1 || len(input.Products) > 200 {
@@ -84,6 +85,7 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 			if err != nil {
 				return Receipt{}, err
 			}
+			declareVerifiedStock(&envelope, input.stockFieldsVerified)
 			command.Envelopes = append(command.Envelopes, envelope)
 		}
 	case "create_batch":
@@ -123,11 +125,20 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 		if err != nil {
 			return Receipt{}, err
 		}
+		declareVerifiedStock(&envelope, input.stockFieldsVerified)
 		command.Envelope = &envelope
 	default:
 		return Receipt{}, ErrInvalid
 	}
 	return s.store.Execute(ctx, command)
+}
+
+func declareVerifiedStock(envelope *sourcing.SourceEnvelope, verified bool) {
+	if verified {
+		for i := range envelope.ProductCandidate.Variants {
+			envelope.ProductCandidate.Variants[i].OwnStockDeclared = true
+		}
+	}
 }
 func validName(name string) bool {
 	return name != "" && name == strings.TrimSpace(name) && utf8.ValidString(name) && len([]byte(name)) <= 200 && !strings.ContainsAny(name, "\x00\r\n")
