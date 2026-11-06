@@ -17,7 +17,7 @@ func TestCurrentKnowledgeRouteAdmissionRequiresLiveReadAndExactSurface(t *testin
 	validate := func(routes []httproute.Descriptor, enabled bool) error {
 		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{Knowledge: enabled})
 	}
-	require.Len(t, routes, 11)
+	require.Len(t, routes, 14)
 	require.NoError(t, validate(base, false))
 	require.Error(t, validate(all, false))
 	require.Error(t, validate(base, true))

@@ -39,6 +39,9 @@ func Routes(h *Handler) []httproute.Descriptor {
 		{http.MethodGet, base + "/:knowledge_base_id/sources", read, h.ListSources}, {http.MethodPost, base + "/:knowledge_base_id/sources", manage, h.CreateSource},
 		{http.MethodGet, source, read, h.GetSource}, {http.MethodPost, source + "/revisions", manage, h.CreateRevision}, {http.MethodPost, source + "/disable", manage, h.DisableSource},
 		{http.MethodGet, source + "/revisions/:revision_id/preview", read, h.Preview},
+		{http.MethodGet, source + "/original-file", manage, h.OriginalFile},
+		{http.MethodPost, source + "/original-file/:original_id/delete", manage, h.DeleteOriginalFile},
+		{http.MethodPost, source + "/original-file/:original_id/continue", manage, h.ContinueOriginalDeletion},
 	} {
 		result = append(result, httproute.Descriptor{Method: r.method, Path: r.path, Module: ModuleName, Permission: r.permission, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 40 * time.Second, RejectUnreadRequestBody: r.method == http.MethodGet, Handler: httproute.WithRequestBodyReadTimeout(30*time.Second, r.handler)})
 	}

@@ -114,6 +114,10 @@ func isNilReflectValue(value reflect.Value) bool {
 // records application metadata as a fallback for S3-compatible endpoints that
 // do not expose a server checksum through HeadObject.
 func (u *Uploader) PutImmutable(ctx context.Context, object ImmutableObjectPut) error {
+	return u.putImmutable(ctx, object, false)
+}
+
+func (u *Uploader) putImmutable(ctx context.Context, object ImmutableObjectPut, singleAttempt bool) error {
 	if err := validateImmutableObjectIdentity(object); err != nil {
 		return err
 	}
@@ -143,6 +147,9 @@ func (u *Uploader) PutImmutable(ctx context.Context, object ImmutableObjectPut) 
 		}
 		input.ChecksumAlgorithm = types.ChecksumAlgorithmSha256
 		input.ChecksumSHA256 = aws.String(checksum)
+	}
+	if singleAttempt {
+		options = append(options, func(o *s3.Options) { o.Retryer = aws.NopRetryer{} })
 	}
 	_, err = u.s3Client.PutObject(ctx, input, options...)
 	if err != nil {
