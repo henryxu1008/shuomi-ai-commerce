@@ -227,22 +227,23 @@ func (a *marketResearchApplication) readRun(ctx context.Context, contextID, key 
 	return run, frozen, nil
 }
 func (a *marketResearchApplication) start(ctx context.Context, contextID, key string, ref agent.ConfigurationSnapshotRef) (agent.Record, bool, error) {
+	// Errors without an authoritative absence check cannot release the original key.
 	if !agentconfig.UUID(contextID) || !agentconfig.UUID(key) || ref.Absent() || !ref.ValidOrAbsent() {
-		return agent.Record{}, false, agent.ErrInvalid
+		return agent.Record{}, true, agent.ErrInvalid
 	}
 	id, e := a.currentIdentity(ctx)
 	if e != nil {
-		return agent.Record{}, false, e
+		return agent.Record{}, true, e
 	}
 	if a.configuration == nil || a.store == nil {
-		return agent.Record{}, false, agent.ErrUnavailable
+		return agent.Record{}, true, agent.ErrUnavailable
 	}
 	frozen, e := a.configuration.LoadSnapshot(ctx, agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, ref)
 	if e != nil {
-		return agent.Record{}, false, e
+		return agent.Record{}, true, e
 	}
 	if frozen.AgentID != agentconfig.ResearchAgentID || frozen.AgentVersion != agentconfig.ResearchAgentVersion || frozen.MemberID != id.MemberID || frozen.Request.Key != key || frozen.Request.Binding.ContextID != contextID {
-		return agent.Record{}, false, agent.ErrConflict
+		return agent.Record{}, true, agent.ErrConflict
 	}
 	prior, found, e := a.store.Lookup(ctx, frozen.Scope, frozen.Request.Binding, key)
 	if e != nil {
@@ -257,15 +258,27 @@ func (a *marketResearchApplication) start(ctx context.Context, contextID, key st
 	}
 	execution, e := a.currentExecutionIdentity(ctx)
 	if e != nil {
-		return agent.Record{}, false, e
+		return agent.Record{}, true, e
 	}
 	if execution != id || a.runtime == nil {
-		return agent.Record{}, false, agent.ErrUnavailable
+		return agent.Record{}, true, agent.ErrUnavailable
 	}
 	request := frozen.Request
 	request.ConfigurationSnapshotRef = ref
 	ctx = context.WithValue(ctx, researchExecutionContextKey{}, request)
-	return a.runtime.StartWithClaimAttempt(ctx, request)
+	run, attempted, e := a.runtime.StartWithClaimAttempt(ctx, request)
+	if e == nil || attempted || ctx.Err() != nil {
+		return run, true, e
+	}
+	// Claim checks the frozen revision under the same mode lock. Once it is
+	// stale, an older concurrent attempt must already be visible or cannot claim.
+	if _, modeErr := a.configuration.CheckModeSnapshot(ctx, id, request.ModeSnapshotRef); !errors.Is(modeErr, agentconfig.ErrChanged) {
+		return run, true, e
+	}
+	if _, found, lookupErr := a.store.Lookup(ctx, frozen.Scope, request.Binding, key); lookupErr != nil || found {
+		return run, true, e
+	}
+	return run, false, agentconfig.ErrChanged
 }
 func (a *marketResearchApplication) resume(ctx context.Context, contextID, key string, ref agent.ConfigurationSnapshotRef, revision uint64, feedback string) (agent.Record, bool, error) {
 	run, _, e := a.readRun(ctx, contextID, key)

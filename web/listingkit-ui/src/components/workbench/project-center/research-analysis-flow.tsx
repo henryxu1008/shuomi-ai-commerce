@@ -59,7 +59,10 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  if(flight.current||!active.current||!pending.ready||intent.projectId!==projectId||archived)return;
  if(intent.kind==="start"&&!pending.command&&(!preparedFactsMatch||!modeMatch)){setFailure(new Error("请重新核对本次准备的依据和权限版本。"));return;}
  flight.current=true;setBusy(true);setFailure(undefined);setAbsentKey(undefined);const abort=new AbortController();controller.current=abort;
- try{pending.persist(intent);
+ let freshStart=false;
+ try{
+ freshStart=intent.kind==="start"&&!pending.read();
+ pending.persist(intent);
  if(intent.kind==="prepare"){
  const prepared=await prepareResearch(scope,intent,abort.signal);if(prepared.contextId!==projectId||prepared.requestKey!==intent.key)throw new MarketAPIError("OUTCOME_UNKNOWN",502);
  if(active.current){preparation.persist({key:intent.key,projectId,input:intent.body,prepared});pending.clear(intent);setChosen(intent.key);}
@@ -67,7 +70,20 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  const result=await executeResearch(scope,intent,abort.signal);if(result.contextId!==projectId||result.requestKey!==intent.key)throw new MarketAPIError("OUTCOME_UNKNOWN",502);
  if(active.current){setChosen(intent.key);queries.setQueryData([...keys,"run",intent.key,evidenceReadKey],result);pending.clear(intent);void recent.refetch();}
  }
- }catch(e){if(active.current)setFailure(e);}finally{flight.current=false;if(active.current)setBusy(false);}
+ }catch(e){
+  if(!active.current)return;
+  if(freshStart&&e instanceof MarketAPIError&&e.status===409&&e.code==="CONFIGURATION_CHANGED"&&e.operationMayExist===false){
+   try{
+    const original=preparation.read();
+    if(original?.key===intent.key)preparation.clear(original);
+    pending.clear(intent);
+   }catch(storageError){setFailure(storageError);return;}
+   setChosen(undefined);
+   void queries.resetQueries({queryKey:[...keys,"facts"]});
+   void mode.refetch();
+   setFailure(new Error("本次分析尚未开始。请重新查看商品资料，并按当前分析设置重新准备。"));
+  }else setFailure(e);
+ }finally{flight.current=false;if(active.current)setBusy(false);}
  }
  async function verify(){const intent=pending.command;if(!intent||flight.current)return;flight.current=true;setBusy(true);setFailure(undefined);setAbsentKey(undefined);const abort=new AbortController();controller.current=abort;
  try{if(intent.kind==="prepare"){
@@ -94,7 +110,7 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  {!textReady?<p>AI 分析暂未开通。你仍可比较商品资料并记录选品决定。</p>:null}
  {catalog.error?<p role="status">暂时无法查看 AI 分析设置。</p>:null}
  <Button variant="ghost" disabled={busy} onClick={()=>{void catalog.refetch();void mode.refetch();}}>刷新分析设置</Button>
- {!saved&&!pending.command?<><label className={styles.goal}>这次想重点了解什么<Input aria-label="这次想重点了解什么" value={goal} disabled={locked} onChange={e=>setGoal(e.target.value)}/></label><Button disabled={locked||archived||!textReady||!mode.data||!!mode.error||!factsMatch||!goalCheck.success} onClick={()=>{if(!input.success||!goalCheck.success||!mode.data)return;const key=crypto.randomUUID();void send({kind:"prepare",projectId,key,body:{...input.data,requestKey:key,expectedModeRevision:mode.data.revision,goalSummary:goalCheck.data}});}}>准备AI分析</Button></>:null}
+ {!saved&&!pending.command?<><label className={styles.goal}>这次想重点了解什么<Input aria-label="这次想重点了解什么" value={goal} disabled={locked} onChange={e=>setGoal(e.target.value)}/></label><Button disabled={locked||archived||!textReady||!mode.data||mode.isFetching||!!mode.error||!factsMatch||!goalCheck.success} onClick={()=>{if(!input.success||!goalCheck.success||!mode.data)return;const key=crypto.randomUUID();void send({kind:"prepare",projectId,key,body:{...input.data,requestKey:key,expectedModeRevision:mode.data.revision,goalSummary:goalCheck.data}});}}>准备AI分析</Button></>:null}
  {saved&&!masked?<section className={styles.confirmation} aria-label="确认本次AI分析"><h4>确认本次AI分析</h4><p>{saved.input.goalSummary}</p><p>所选 {saved.input.candidates.length} 件商品 · 最多调用AI2次 · 处理用量上限 {saved.prepared.maximumTokens} tokens</p><p>本次费用估算上限 {(saved.prepared.maximumCostMicros/1e6).toFixed(6)} {saved.prepared.currency} · 每次AI处理费用估算上限 {(saved.prepared.maximumCallCostMicros/1e6).toFixed(6)} {saved.prepared.currency}</p>{saved.prepared.referencePriceVersion?<p>参考价版本：{saved.prepared.referencePriceVersion}。费用按此版本估算，不代表厂商最终账单。</p>:null}<p>本次操作确认方式：{mode.data?executionModeLabels[mode.data.mode]:"待核对"}。点击确认后才开始分析。</p>{!modeMatch?<p role="status">分析的操作设置尚未确认或已变化，请重新确认后再准备。</p>:null}{!preparedFactsMatch?<p>请重新查看本次选中的商品资料，确认与准备分析时一致。</p>:null}<div className={styles.actions}><Button disabled={locked||archived||!textReady||!modeMatch||!preparedFactsMatch||run.isFetching||!!run.data||!!run.error&&!noRun} onClick={()=>void send({kind:"start",projectId,key:saved.key,body:{configurationSnapshotRef:saved.prepared.configurationSnapshotRef}})}>确认生成AI建议</Button><Button variant="outline" disabled={!canClear} onClick={()=>{if(!saved||!canClear)return;preparation.clear(saved);setChosen(undefined);setFailure(undefined);}}>分析另一组商品</Button></div><small>更换商品只结束本页的待确认准备；已有分析记录和已发生的费用仍会保留。</small></section>:null}
  {masked?<p role="alert">本次分析使用的部分资料现在无法查看，比较结果和建议暂时不显示；已有操作记录仍会保留。</p>:null}
  {showRun?<section className={styles.result}><h4>{showRun.validated?"AI建议已生成":showRun.phase==="running"?"AI正在分析":"AI分析还未完成"}</h4><p>本次关注的问题：{showRun.goalSummary}</p>{showRun.stopReason?<p>停止原因：{showRun.stopReason}</p>:null}<p>{showRun.usageStatus==="unknown_reserved"?"这次分析的结果或费用还未确认，请查询操作结果。":`已记录处理用量 ${showRun.tokens} tokens · 费用估算 ${(showRun.costMicros/1e6).toFixed(6)} ${showRun.currency}`}</p>

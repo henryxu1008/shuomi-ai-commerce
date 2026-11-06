@@ -112,6 +112,44 @@ func (r *Repository) Load(ctx context.Context, s collection.Scope, p, id string)
 	}
 	return details(r.db.WithContext(ctx), s, p, row)
 }
+
+// ReadAnalysisEvidence uses one scoped read for candidate state and the exact
+// attached evidence, independent of the display window.
+func (r *Repository) ReadAnalysisEvidence(ctx context.Context, scope collection.Scope, project, candidate, link string) (research.AnalysisEvidence, error) {
+	var row struct {
+		Revision       int64
+		SelectedLinkID *string
+		ReferenceJSON  []byte
+	}
+	err := r.db.WithContext(ctx).Table("research_opportunities AS candidate").
+		Select("candidate.revision, candidate.selected_link_id, evidence.reference_json").
+		Joins(`LEFT JOIN research_evidence_links AS evidence ON
+			evidence.organization_id=candidate.organization_id AND evidence.actor_id=candidate.actor_id
+			AND evidence.project_id=candidate.project_id AND evidence.candidate_id=candidate.id
+			AND evidence.id=? AND evidence.removed=false`, link).
+		Where("candidate.organization_id=? AND candidate.actor_id=? AND candidate.project_id=? AND candidate.id=?",
+			scope.OrganizationID, scope.ActorID, project, candidate).
+		Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return research.AnalysisEvidence{}, research.ErrNotFound
+	}
+	if err != nil {
+		return research.AnalysisEvidence{}, research.ErrUnavailable
+	}
+	out := research.AnalysisEvidence{CandidateRevision: row.Revision}
+	if row.SelectedLinkID != nil {
+		out.SelectedLinkID = *row.SelectedLinkID
+	}
+	if row.ReferenceJSON != nil {
+		var ref research.EvidenceRef
+		if json.Unmarshal(row.ReferenceJSON, &ref) != nil {
+			return research.AnalysisEvidence{}, research.ErrUnavailable
+		}
+		out.Ref = &ref
+	}
+	return out, nil
+}
+
 func details(db *gorm.DB, s collection.Scope, p string, row candidateRow) (research.Candidate, error) {
 	out := research.Candidate{ID: row.ID, ProjectID: p, State: row.State, Reason: row.Reason, Revision: row.Revision, Links: []research.Link{}, History: []research.Decision{}}
 	if row.SelectedLinkID != nil {

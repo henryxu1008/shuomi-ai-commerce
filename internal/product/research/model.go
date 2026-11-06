@@ -167,6 +167,7 @@ type Repository interface {
 	Replay(context.Context, collection.Scope, string, string, Command) (Receipt, bool, error)
 	Lookup(context.Context, collection.Scope, string, string) (Receipt, error)
 	Load(context.Context, collection.Scope, string, string) (Candidate, error)
+	ReadAnalysisEvidence(context.Context, collection.Scope, string, string, string) (AnalysisEvidence, error)
 	List(context.Context, collection.Scope, string, string) ([]Candidate, string, error)
 	Commit(context.Context, collection.Scope, string, string, Command, []Observation, error) (Receipt, error)
 }

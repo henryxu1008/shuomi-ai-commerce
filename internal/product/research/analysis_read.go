@@ -18,6 +18,12 @@ type AnalysisObservation struct {
 	Observation Observation
 }
 
+type AnalysisEvidence struct {
+	CandidateRevision int64
+	SelectedLinkID    string
+	Ref               *EvidenceRef
+}
+
 // InspectSelection reads only exact selected observations, never a page or a
 // current Catalog substitute. No result is returned if any choice fails.
 func (s *Service) InspectSelection(ctx context.Context, scope collection.Scope, project string, choices []AnalysisChoice) ([]AnalysisObservation, error) {
@@ -46,24 +52,14 @@ func (s *Service) analysisSelection(ctx context.Context, scope collection.Scope,
 			return nil, ErrInvalid
 		}
 		seen[in.CandidateID] = true
-		c, err := s.Store.Load(ctx, scope, project, in.CandidateID)
+		evidence, err := s.Store.ReadAnalysisEvidence(ctx, scope, project, in.CandidateID, in.LinkID)
 		if err != nil {
 			return nil, err
 		}
-		if c.ProjectID != project {
-			return nil, ErrNotFound
-		}
-		if current && (c.Revision != in.ExpectedRevision || c.SelectedLinkID != in.LinkID) {
+		if current && (evidence.CandidateRevision != in.ExpectedRevision || evidence.SelectedLinkID != in.LinkID) {
 			return nil, ErrConflict
 		}
-		var ref *EvidenceRef
-		for _, link := range c.Links {
-			if link.ID == in.LinkID && !link.Removed {
-				r := link.Ref
-				ref = &r
-				break
-			}
-		}
+		ref := evidence.Ref
 		if ref == nil {
 			return nil, ErrNotFound
 		}

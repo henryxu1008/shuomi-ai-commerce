@@ -8,3 +8,15 @@ afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
 it("preserves original-operation uncertainty when sources are unreadable",async()=>{fetcher.mockResolvedValue(Response.json({code:"PERMISSION_DENIED",contextId:id,requestKey:id,operationMayExist:true},{status:403}));const r=await proxyMarketResearch(request(),"token","user-a");expect(r.status).toBe(403);expect(await r.json()).toEqual({code:"PERMISSION_DENIED",contextId:id,requestKey:id,operationMayExist:true});expect(fetcher.mock.calls[0][0]).toBe(`http://localhost:8080/api/v1/workbench/research/projects/${id}/analysis/prepare`);});
 it("rejects forged scope and mismatching prepare keys before dispatch",async()=>{for(const payload of [{...body,actorId:"other"},{...body,requestKey:other}])expect((await proxyMarketResearch(request("prepare",payload),"token","user-a")).status).toBe(400);expect(fetcher).not.toHaveBeenCalled();});
 it("does not accept another project's absence as permission to discard the original key",async()=>{fetcher.mockResolvedValue(Response.json({code:"NOT_FOUND",contextId:other,requestKey:id,operationMayExist:false},{status:404}));const r=await proxyMarketResearch(request("preparations/"+id,undefined,"GET"),"token","user-a");expect(r.status).toBe(502);expect(await r.json()).not.toMatchObject({operationMayExist:false});});
+it("preserves proof of a rejected start only for the requested original key",async()=>{
+ const start={configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:id,Digest:digest}};
+ const failure={code:"CONFIGURATION_CHANGED",contextId:id,requestKey:id,operationMayExist:false};
+ fetcher.mockResolvedValueOnce(Response.json(failure,{status:409}));
+ const rejected=await proxyMarketResearch(request("runs",start),"token","user-a");
+ expect(rejected.status).toBe(409);
+ expect(await rejected.json()).toEqual(failure);
+ fetcher.mockResolvedValueOnce(Response.json({...failure,requestKey:other},{status:409}));
+ const mismatched=await proxyMarketResearch(request("runs",start),"token","user-a");
+ expect(mismatched.status).toBe(502);
+ expect(await mismatched.json()).toEqual({code:"OUTCOME_UNKNOWN"});
+});
