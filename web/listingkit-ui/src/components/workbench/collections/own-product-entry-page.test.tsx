@@ -80,6 +80,13 @@ it("restores a pending creation after refresh without replacing its original SKU
  await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await userEvent.click(await screen.findByRole("button",{name:"重试原请求"}));
  await waitFor(()=>expect(state.mutate).toHaveBeenCalledWith(pending,expect.any(AbortSignal)));expect(state.mutate.mock.calls[0][0]).toBe(pending);
 });
+it("offers a fresh read after a restored creation definitively fails and clears its pending key",async()=>{
+ const product={title:"原新增包装",description:"",images:[],variants:[{sourceId:"red",title:"红",sku:"RED",attributes:{},currency:"CNY",price:0,stock:0,packaging:{weightGrams:125.5}}]};
+ const pending:CollectionIntent={userId:"actor-a",organizationId:"org-a",key:itemId,command:{action:"create_product",product}};
+ state.context.pendingCollectionIntent=pending;state.read.mockRejectedValueOnce(new CollectionAPIError("NOT_FOUND",404));state.mutate.mockRejectedValueOnce(new CollectionAPIError("INVALID_REQUEST",400));
+ render(<OwnProductEntryPage/>);await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await userEvent.click(await screen.findByRole("button",{name:"重试原请求"}));
+ expect(await screen.findByText("请检查填写内容。")).toBeInTheDocument();expect(state.context.pendingCollectionIntent).toBeNull();expect(screen.getByRole("button",{name:"重新读取最新资料"})).toBeInTheDocument();expect(screen.getByLabelText("含包装重量 g 1")).toBeDisabled();
+});
 it("hides the editable facts when a write is explicitly denied in the same scope",async()=>{
  state.item.mockResolvedValue(savedDetail);state.mutate.mockRejectedValue(new CollectionAPIError("PERMISSION_DENIED",403));
  render(<OwnProductEditPage itemId={itemId}/>);await screen.findByDisplayValue("已有商品");await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
