@@ -21,7 +21,7 @@ import styles from "./research-panel.module.css";
 import type {ResearchInspection} from "@/lib/contracts/research-analysis";
 import {readCollectionBatch} from "@/lib/api/product-collection";
 import {verifyResearchHandoff} from "@/lib/api/research-handoff";
-import {advanceHandoffRevision,candidateMatchesJob,handoffToken,type ResearchHandoff} from "@/lib/workbench/research-handoff";
+import {advanceHandoffRevision,candidateMatchesJob,handoffToken,researchHandoffAllowed,type ResearchHandoff} from "@/lib/workbench/research-handoff";
 import {researchHandoffScope,useResearchHandoff} from "./research-handoff-provider";
 import {ConfirmedOpportunity,ResearchOpportunity} from "./research-opportunity";
 function ResearchTransferButton({disabled,prepare}:{disabled:boolean;prepare:()=>Promise<string|undefined>}) {
@@ -75,7 +75,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  }
  async function startTransfer() {
   if (!active || !store || !active.job.batchId || active.transfer?.dispatched || transferFlight.current || !canWrite ||
-      !context.permissions.includes("workbench.supply.manage")) return;
+      !researchHandoffAllowed(context.permissions,true)) return;
   const controller=new AbortController();
   transferFlight.current=controller;
   setBusy(true);setError("");
@@ -143,9 +143,9 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  const target=(center:"research"|"selection")=>{const query=new URLSearchParams(returnQuery);query.delete("step");if(selected.length>=2){query.set("sample",JSON.stringify(analysisChoices(selected)));if(after)query.set("candidateAfter",after);}return (center==="research"?"/workbench/data/research/":"/workbench/supply/selection/")+projectId+(query.size?"?"+query:"");};
  return <section className={styles.panel+(view!=="embedded"?" "+styles.center:"")} aria-label="研究选品"><header className={styles.heading}><div><small>产品研究</small><h2>{view==="embedded"?"研究选品":view==="research"?"调研资料":"商品评估"}</h2><p>查看收集到的商品资料，比较重点商品，再记录选品理由。</p></div><div className={styles.actions}><Button variant="outline" disabled={busy} onClick={reload}>刷新商品资料</Button>{view!=="embedded" && !(view==="research" && bound)?<Button variant="outline" asChild><Link href={special?"/workbench/data/research/"+projectId:target(view==="research"?"selection":"research")} prefetch={false}>{view==="research"?"进入智能选品":"返回市场调研"}</Link></Button>:null}</div></header>
  {archived?<p role="status">项目已归档，研究记录只读。</p>:null}
- {view==="research" && store && scopeKey && canWrite && context.permissions.includes("workbench.data-market.use")?
+ {view==="research" && store && scopeKey && canWrite && researchHandoffAllowed(context.permissions)?
   <ResearchOpportunity scope={scope} scopeKey={scopeKey} projectId={projectId} store={store} draft={bound} selected={selected} after={after}
-   blocked={locked||!!error||incomplete} onJobChange={()=>{setChosen([]);setCompare(false);}}/>:null}
+   canStartQuery={context.permissions.includes("workbench.data-market.use")} blocked={locked||!!error||incomplete} onJobChange={()=>{setChosen([]);setCompare(false);}}/>:null}
  {active && opportunityInspection?<ConfirmedOpportunity draft={active} inspection={opportunityInspection}/>:null}
  {pending.error?<p role="alert">本次操作记录暂时无法读取，请检查浏览器设置后刷新。</p>:null}
  {pending.command?<Card className={styles.section}><p>上一次操作还没有确认结果。</p><div className={styles.actions}><Button disabled={busy} onClick={()=>void lookup()}>查询操作结果</Button>{absent&&canWrite?<Button variant="outline" disabled={busy} onClick={()=>void submit(pending.command!.body,pending.command)}>按原内容重试</Button>:null}</div></Card>:null}
@@ -183,7 +183,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  {special?<Card id="research-transfer" tabIndex={-1} className={styles.section}>
   <h3>转入待上传</h3>
   <p>仅转入本次确认的代表商品。请先批准本次选品，再核对这 1 件商品。若已在之前批准，可点「重新了解这件商品」重新评估。</p>
-  <ResearchTransferButton disabled={locked||incomplete||!!error||!context.permissions.includes("workbench.supply.manage")||
+  <ResearchTransferButton disabled={locked||incomplete||!!error||!researchHandoffAllowed(context.permissions,true)||
    !items.some(candidate=>candidate.id===active?.confirmed?.representative && candidate.state==="APPROVED_FOR_TEST" &&
     !!active && active.confirmed?.approvalRevision===candidate.revision && candidateMatchesJob(candidate,active.job) &&
     active.confirmed?.choices.some(choice=>choice.candidateId===candidate.id && choice.expectedRevision===String(candidate.revision)))}

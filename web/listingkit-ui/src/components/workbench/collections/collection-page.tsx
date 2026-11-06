@@ -2,6 +2,7 @@
 
 import {TransferSelection} from "./transfer-selection";
 import {ResearchCollectionTransfer} from "./research-collection-transfer";
+import {researchHandoffScope} from "../project-center/research-handoff-provider";
 import type {ResearchSelection} from "@/lib/contracts/market-research";
 import {OfflineDiagnosticPanel} from "../shein-diagnostic/offline-panel";
 import {DescriptionView} from "../description-view";
@@ -37,7 +38,7 @@ export function CollectionPage({offlineAvailable=false,agentAvailable=false,supp
   const scope = useMemo(() => userId && organizationId ? { userId, organizationId } : null, [userId, organizationId]);
   if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认当前企业" />;
   if (!scope || context.selectionRequired || context.error || context.blockingError) return <ConsoleState kind="error" title="请先确认登录身份与当前企业" />;
-  if (researchToken!==undefined) return <ResearchCollectionTransfer key={researchToken} scope={scope} token={researchToken} supplyAvailable={supplyAvailable}/>;
+  if (researchToken!==undefined) return <ResearchCollectionTransfer key={JSON.stringify([researchToken,researchHandoffScope(context)])} scope={scope} token={researchToken} supplyAvailable={supplyAvailable}/>;
   return <ScopedCollectionPage key={JSON.stringify([scope,context.effectiveMemberId,context.permissions,initialItemId,initialBatchId,initialTransferSelection])} scope={scope} offlineAvailable={offlineAvailable} agentAvailable={agentAvailable} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialTransferSelection={initialTransferSelection} initialItemId={initialItemId} initialView={initialView} />;
 }
 

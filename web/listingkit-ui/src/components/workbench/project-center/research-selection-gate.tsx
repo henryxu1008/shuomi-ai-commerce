@@ -6,7 +6,7 @@ import {useWorkbenchContext} from "@/components/providers/workbench-context-prov
 import type {ProjectScope} from "@/lib/api/project-center";
 import {verifyResearchHandoff} from "@/lib/api/research-handoff";
 import type {ResearchInspection} from "@/lib/contracts/research-analysis";
-import {handoffToken} from "@/lib/workbench/research-handoff";
+import {handoffToken,researchHandoffAllowed} from "@/lib/workbench/research-handoff";
 import {researchHandoffScope,useResearchHandoff} from "./research-handoff-provider";
 
 export function ResearchSelectionGate({scope,projectId,archived,token,children}:{
@@ -16,7 +16,7 @@ export function ResearchSelectionGate({scope,projectId,archived,token,children}:
   const {store,draft}=useResearchHandoff();
   const context=useWorkbenchContext();
   const scopeKey=researchHandoffScope(context);
-  const permitted=context.permissions.includes("workbench.project.manage") && context.permissions.includes("workbench.data-market.use");
+  const permitted=researchHandoffAllowed(context.permissions);
   const valid=!!draft?.confirmed && draft.scope===scopeKey && draft.projectId===projectId && handoffToken(draft)===token && !archived && permitted;
   const [checked,setChecked]=useState<{token:string; inspection:ResearchInspection}|null>(null);
   const [failed,setFailed]=useState("");

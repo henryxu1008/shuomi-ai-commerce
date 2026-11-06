@@ -61,6 +61,13 @@ export function createResearchHandoff() {
 export type ResearchHandoffStore = ReturnType<typeof createResearchHandoff>;
 export const researchScopeKey = (user:string, organization:string, member:string, permissions:string[]) =>
   JSON.stringify([user,organization,member,[...permissions].sort()]);
+export function researchHandoffAllowed(permissions:readonly string[], transfer=false) {
+  return permissions.includes("workbench.project.read") &&
+    permissions.includes("workbench.project.manage") &&
+    permissions.includes("workbench.collection.read") &&
+    (!transfer || permissions.includes("workbench.supply.manage"));
+}
+
 export const handoffToken = (draft:ResearchHandoff) => draft.id + "." + draft.generation;
 
 export function eligibleResearchJob(job:DataJob) {

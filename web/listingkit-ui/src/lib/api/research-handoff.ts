@@ -7,7 +7,7 @@ import {jobSchema} from "../contracts/data-services";
 import {researchPage} from "../contracts/market-research";
 import {project} from "../contracts/project-center";
 import {researchAnalysisInput,type ResearchInspection} from "../contracts/research-analysis";
-import {candidateMatchesJob,researchScopeKey,sameResearchJob,type ResearchHandoff} from "../workbench/research-handoff";
+import {candidateMatchesJob,researchHandoffAllowed,researchScopeKey,sameResearchJob,type ResearchHandoff} from "../workbench/research-handoff";
 import type {z} from "zod";
 
 type Input = z.infer<typeof researchAnalysisInput>;
@@ -43,11 +43,9 @@ export async function verifyResearchHandoff(scope:ProjectScope,draft:ResearchHan
   const context=await fetchWorkbenchContext(deadline);
   const organization=context.organizations.find(org=>org.id===context.effectiveOrganizationId);
   const permissions=organization?.permissions??[];
-  const required=["workbench.project.manage","workbench.collection.read","workbench.data-market.use"];
-  if (approved) required.push("workbench.supply.manage");
   if (context.selectionRequired || !organization || !context.effectiveMemberId ||
       researchScopeKey(context.user.id,organization.id,context.effectiveMemberId,permissions)!==draft.scope ||
-      !required.every(permission=>permissions.includes(permission))) throw new Error("Research authorization changed");
+      !researchHandoffAllowed(permissions,approved)) throw new Error("Research authorization changed");
   deadline.throwIfAborted();
   return {inspection,representative};
 }

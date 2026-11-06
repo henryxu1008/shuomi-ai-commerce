@@ -103,6 +103,7 @@
 - `completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](completion-draft-structured.md)
 - `market-research-selection.md` — [市场研究与选品：最小领域合同](market-research-selection.md)
 - `market-research-evidence-analysis-v1.md` — [两个中心 V1：研究证据分析合同增量](market-research-evidence-analysis-v1.md)
+- `amazon-opportunity-handoff-v1.md` — [Amazon 美国站调研机会与选品交接 V1](amazon-opportunity-handoff-v1.md)
 - `own-product-draft-entry.md` — [自有商品单件转入与独立待补全入口 v1](own-product-draft-entry.md)
 - `own-product-edit.md` — [自有商品版本更新与独立编辑页 v1](own-product-edit.md)
 - `own-product-entry.md` — [自有商品独立录入页与多变体 v1](own-product-entry.md)

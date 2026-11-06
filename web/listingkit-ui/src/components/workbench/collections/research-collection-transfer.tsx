@@ -8,7 +8,7 @@ import {verifyResearchHandoff} from "@/lib/api/research-handoff";
 import type {CollectionBatch} from "@/lib/contracts/product-collection";
 import {selectionOf} from "@/lib/contracts/market-research";
 import {transferReceiptSchema} from "@/lib/contracts/supply-chain";
-import {claimResearchTransfer,handoffToken,type ResearchTransferInput} from "@/lib/workbench/research-handoff";
+import {claimResearchTransfer,handoffToken,researchHandoffAllowed,type ResearchTransferInput} from "@/lib/workbench/research-handoff";
 import {ListingCommandFeedback} from "../listing/command-feedback";
 import {useListingCommand} from "../listing/use-listing-command";
 import {researchHandoffScope,useResearchHandoff} from "../project-center/research-handoff-provider";
@@ -22,17 +22,20 @@ export function ResearchCollectionTransfer({scope,token,supplyAvailable}:{
   const {store,draft}=useResearchHandoff();
   const scopeKey=researchHandoffScope(context);
   const active=draft?.scope===scopeKey && handoffToken(draft)===token && draft.confirmed && draft.transfer?draft:null;
-  const allowed=supplyAvailable && !!scopeKey && ["workbench.collection.read","workbench.project.manage","workbench.data-market.use","workbench.supply.manage"]
-    .every(permission=>context.permissions.includes(permission));
+  const allowed=supplyAvailable && !!scopeKey && researchHandoffAllowed(context.permissions,true);
   const [batch,setBatch]=useState<CollectionBatch|null>(null);
   const [error,setError]=useState("");
-  const [receipt,setReceipt]=useState<{id:string;count:number}|null>(null);
+  const [receipt,setReceipt]=useState<{id:string;count:number;scope:string;lookup:boolean}|null>(null);
+  const operation=useRef<{key:string;scope:string;lookup:boolean}|null>(null);
   const flight=useRef<AbortController|null>(null);
   useEffect(()=>()=>flight.current?.abort(),[token,scopeKey]);
   const supply=useListingCommand(scope,(value,intent)=>{
-    if (intent.route!=="transfer"||!intent.lookupOnly) return;
+    const original=operation.current;
+    if (!allowed || !original || original.key!==intent.key || original.scope!==scopeKey ||
+        intent.route!=="transfer" || !intent.lookupOnly ||
+        intent.userId!==scope.userId || intent.organizationId!==scope.organizationId) return;
     const {preparation}=transferReceiptSchema.parse(value);
-    setReceipt({id:preparation.id,count:preparation.count});
+    setReceipt({id:preparation.id,count:preparation.count,scope:original.scope,lookup:original.lookup});
   });
   const original=useMemo(()=>{
     const choice=active?.confirmed?.choices.find(candidate=>candidate.candidateId===active.confirmed?.representative);
@@ -77,7 +80,10 @@ export function ResearchCollectionTransfer({scope,token,supplyAvailable}:{
       await verifyResearchHandoff(scope,active,signal,true);
       signal.throwIfAborted();
       const key=claimResearchTransfer(store,active,input);
-      if (key) void supply.execute("transfer",input,key,true);
+      if (key) {
+        operation.current={key,scope:scopeKey,lookup:false};
+        void supply.execute("transfer",input,key,true);
+      }
     } catch {
       if (!controller.signal.aborted && store.getSnapshot()===active) {
         store.start(active.scope,active.projectId,active.job);
@@ -87,10 +93,16 @@ export function ResearchCollectionTransfer({scope,token,supplyAvailable}:{
       if (flight.current===controller) flight.current=null;
     }
   }
+  function verify() {
+    if (!allowed || !supply.pending || supply.foreign || supply.busy) return;
+    operation.current={key:supply.pending.key,scope:scopeKey,lookup:true};
+    supply.verify();
+  }
+  const visibleReceipt=allowed && receipt?.scope===scopeKey && (active || receipt.lookup)?receipt:null;
   return <ConsolePage title="核对研究商品" description="确认将本次批准的一件商品转入待上传。"
     breadcrumbs={[{label:"我的数据",href:"/workbench/data/mine"},{label:"核对研究商品"}]}>
-    <ListingCommandFeedback state={supply}/>
-    {receipt?<p role="status">已转入 {receipt.count} 件。<Link href={"/workbench/listing/waiting?preparation="+receipt.id}>查看待上传商品</Link></p>:
+    {allowed&&!supply.foreign?<ListingCommandFeedback state={{...supply,verify}}/>:null}
+    {visibleReceipt?<p role="status">已转入 {visibleReceipt.count} 件。<Link href={"/workbench/listing/waiting?preparation="+visibleReceipt.id}>查看待上传商品</Link></p>:
       !active || !allowed?<p role="alert">{error||"研究交接已失效。"} <Link prefetch={false} href={draft?.scope===scopeKey?
         "/workbench/data/research/"+draft.projectId:"/workbench/data/research"}>回市场调研重新确认</Link></p>:
       active.transfer?.dispatched?<p role="status">本次确认已使用。请按原操作核实结果。</p>:

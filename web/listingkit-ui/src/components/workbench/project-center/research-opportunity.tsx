@@ -25,9 +25,9 @@ function queryLabel(job:DataJob) {
   return "关键词 "+query.keyword+(query.categoryNode?" · 类目 "+query.categoryNode:"");
 }
 
-export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,selected,after,blocked,onJobChange}:{
+export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,selected,after,blocked,canStartQuery=false,onJobChange}:{
   scope:ProjectScope; scopeKey:string; projectId:string; store:ResearchHandoffStore; draft:ResearchHandoff|null;
-  selected:ResearchCandidate[]; after:string; blocked:boolean; onJobChange:()=>void;
+  selected:ResearchCandidate[]; after:string; blocked:boolean; canStartQuery?:boolean; onJobChange:()=>void;
 }) {
   const [jobs,setJobs]=useState<DataJob[]>([]);
   const [readStatus,setReadStatus]=useState<"loading"|"ready"|"error">("loading");
@@ -47,7 +47,7 @@ export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,select
     <h3>从已保存的样本整理选品方向</h3>
     <p>选择一批 Amazon 美国站关键词或类目查询的结果，再在下方勾选同批的 2–5 件原版商品。这里由你整理方向。</p>
     <div className="flex flex-wrap gap-2">
-      <Button asChild variant="outline"><Link href="/workbench/data/market" prefetch={false}>前往数据市场</Link></Button>
+      {canStartQuery?<Button asChild variant="outline"><Link href="/workbench/data/market" prefetch={false}>前往数据市场</Link></Button>:null}
       <Button variant="outline" onClick={()=>{setReadStatus("loading");setRefresh(value=>value+1);}}>刷新查询结果</Button>
     </div>
     {readStatus==="loading"?<p role="status">正在读取已保存的查询…</p>:readStatus==="error"?<p role="alert">暂时无法读取已保存的查询。</p>:null}

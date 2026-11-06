@@ -1,7 +1,11 @@
-import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render as renderWithProviders,screen,waitFor} from "@testing-library/react";
+import {AppRouterContext,type AppRouterInstance} from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import {useSyncExternalStore} from "react";
+import {useSyncExternalStore,type ReactElement} from "react";
 import {ResearchCollectionTransfer} from "./research-collection-transfer";
+import {CollectionPage} from "./collection-page";
+import {ResearchPanel} from "../project-center/research-panel";
+import {ResearchSelectionGate} from "../project-center/research-selection-gate";
 import {ResearchOpportunity} from "../project-center/research-opportunity";
 import {createResearchHandoff,handoffToken,researchScopeKey} from "@/lib/workbench/research-handoff";
 import {loadSupplyIntent,saveSupplyIntent} from "@/lib/api/supply-intent";
@@ -13,7 +17,13 @@ const f=vi.hoisted(()=>({
   batch:vi.fn(),item:vi.fn(),job:vi.fn(),project:vi.fn(),research:vi.fn(),inspect:vi.fn(),authority:vi.fn(),
   send:vi.fn(),recover:vi.fn(),push:vi.fn(),subscribe:()=>()=>{},
 }));
-vi.mock("next/navigation",()=>({useRouter:()=>({push:f.push})}));
+const router:AppRouterInstance={
+  back:vi.fn(),forward:vi.fn(),refresh:vi.fn(),push:f.push,
+  replace:vi.fn(),prefetch:vi.fn(),bfcacheId:"research-transfer-test",
+};
+function render(element:ReactElement) {
+  return renderWithProviders(element,{wrapper:({children})=><AppRouterContext.Provider value={router}>{children}</AppRouterContext.Provider>});
+}
 vi.mock("@/lib/api/product-collection",()=>({readCollectionBatch:f.batch,readCollectionItem:f.item}));
 vi.mock("@/lib/api/data-services",()=>({dataRequest:f.job}));
 vi.mock("@/lib/api/project-center",()=>({projectRequest:f.project}));
@@ -24,15 +34,18 @@ vi.mock("@/lib/api/supply-chain",async importOriginal=>({
   ...await importOriginal<typeof import("@/lib/api/supply-chain")>(),
   supplyCommand:f.send,readSupplyCommand:f.recover,
 }));
+vi.mock("../project-center/research-analysis-flow",async importOriginal=>({
+  ...await importOriginal<typeof import("../project-center/research-analysis-flow")>(),ResearchAnalysisFlow:()=>null,
+}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>context}));
 vi.mock("../project-center/research-handoff-provider",()=>({
-  researchHandoffScope:()=>scopeKey,
+  researchHandoffScope:()=>researchScopeKey(context.user.id,context.effectiveOrganization.id,context.effectiveMemberId,context.permissions),
   useResearchHandoff:()=>({store,draft:useSyncExternalStore(store.subscribe,store.getSnapshot,store.getSnapshot)}),
 }));
 
 const id=(n:number)=>"92000000-0000-4000-8000-"+String(n).padStart(12,"0");
 const scope={userId:"user",organizationId:"org"};
-const permissions=["workbench.project.manage","workbench.collection.read","workbench.data-market.use","workbench.supply.manage"];
+const permissions=["workbench.project.manage","workbench.project.read","workbench.collection.read","workbench.supply.manage"];
 const scopeKey=researchScopeKey(scope.userId,scope.organizationId,"member",permissions);
 const projectId=id(1),A=id(2),B=id(3),batchId=id(4),jobId=id(5),key=id(6);
 const query={site:"us",mode:"keyword",keyword:"under sink organizer",limit:5,fields:["attributes","price","currency"]} as const;
@@ -53,13 +66,14 @@ const candidates=choices.map((choice,index)=>({
   id:choice.candidateId,revision:1,selectedLinkId:choice.linkId,evidenceDigest:choice.evidenceDigest,evidence:[],history:[],
   state:index===0?"APPROVED_FOR_TEST":"TO_RESEARCH",
   observation:{site:"us",batchId,query:{...job.query,asinCount:0},
+    asin:rows[index].observation.asin,title:index===0?"Adjustable organizer":"Fixed organizer",missing:[],
     ref:{jobId,selection:{itemId:choice.selection.itemId,revision:2,publicationId:choice.selection.originalPublicationId,version:choice.selection.originalVersion}}},
 })) as unknown as ResearchCandidate[];
 const currentBatch={id:batchId,name:"Q1",revision:4,count:2,supplyTransferSupported:true};
 const originalItem={id:A,batchId,title:"Adjustable organizer",revision:2,source:{publicationId:A,version:"3"}};
 let store:ReturnType<typeof createResearchHandoff>;
 const context={
-  permissions, collectionIntentReady:true,pendingCollectionIntent:null,supplyIntentReady:true,
+  user:{id:scope.userId},effectiveOrganization:{id:scope.organizationId},effectiveMemberId:"member",permissions, collectionIntentReady:true,pendingCollectionIntent:null,supplyIntentReady:true,
   pendingSupplyIntent:null as SupplyIntent|null,registerOrganizationSwitchGuard:f.subscribe,
   setPendingSupplyIntent(intent:SupplyIntent|null) {
     if (!saveSupplyIntent(intent)) return false;
@@ -70,18 +84,20 @@ const context={
 
 beforeEach(()=>{
   vi.resetAllMocks();sessionStorage.clear();context.pendingSupplyIntent=null;store=createResearchHandoff();
+  context.user={id:scope.userId};context.effectiveOrganization={id:scope.organizationId};context.effectiveMemberId="member";context.permissions=permissions;
   f.batch.mockResolvedValue(currentBatch);f.item.mockResolvedValue({item:originalItem});
   f.job.mockImplementation((_scope,path:string)=>Promise.resolve(path==="amazon/jobs"?[job,nextJob]:job));
   f.project.mockResolvedValue({id:projectId,kind:"PRODUCT_RESEARCH",archived:false});
   f.research.mockResolvedValue({items:candidates,incomplete:false});
   f.inspect.mockResolvedValue(inspection);
-  f.authority.mockResolvedValue({user:{id:scope.userId},effectiveOrganizationId:scope.organizationId,effectiveMemberId:"member",
-    organizations:[{id:scope.organizationId,permissions}],selectionRequired:false});
+  f.authority.mockImplementation(async()=>({user:context.user,effectiveOrganizationId:context.effectiveOrganization.id,
+    effectiveMemberId:context.effectiveMemberId,organizations:[{id:context.effectiveOrganization.id,permissions:context.permissions}],selectionRequired:false}));
 });
 afterEach(cleanup);
 
 function approved() {
-  const draft=store.start(scopeKey,projectId,job);
+  const identity=researchScopeKey(context.user.id,context.effectiveOrganization.id,context.effectiveMemberId,context.permissions);
+  const draft=store.start(identity,projectId,job);
   const active={...draft,confirmed:{representative:A,approvalRevision:1,choices,after:"",confirmedAt:"2026-11-06T12:00:00Z",
     requirements:{use:"水槽下收纳",specs:[{factId:rows[0].facts[0].id,required:"可调宽",difference:"最小 40 cm"}],missing:"",targetPrice:""}},
     transfer:{key,revision:4}};
@@ -95,9 +111,13 @@ async function confirmButton() {
   return button;
 }
 
-it("W1 confirms human requirements from one exact batch and opens the same project",async()=>{
-  render(<ResearchOpportunity scope={scope} scopeKey={scopeKey} projectId={projectId} store={store}
-    draft={store.start(scopeKey,projectId,job)} selected={candidates} after="" blocked={false} onJobChange={()=>{}}/>);
+it("W1 lets an operator without collection execution access read a saved job and open the same project",async()=>{
+  const research=render(<ResearchPanel scope={scope} projectId={projectId} archived={false} view="research"/>);
+  const jobs=await screen.findByLabelText("本次查询");
+  await waitFor(()=>expect(jobs).toBeEnabled());
+  fireEvent.change(jobs,{target:{value:jobId}});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Adjustable organizer"}));
+  fireEvent.click(screen.getByRole("checkbox",{name:"Fixed organizer"}));
   const inspect=screen.getByRole("button",{name:"核对所选原件"});
   await waitFor(()=>expect(inspect).toBeEnabled());
   fireEvent.click(inspect);
@@ -112,6 +132,13 @@ it("W1 confirms human requirements from one exact batch and opens the same proje
   await waitFor(()=>expect(f.push).toHaveBeenCalledWith("/workbench/supply/selection/"+projectId+"?handoff="+handoffToken(store.getSnapshot()!)));
   expect(store.getSnapshot()?.confirmed).toMatchObject({representative:A,choices,
     requirements:{specs:[{factId:rows[0].facts[0].id,required:"可调宽",difference:"最小 40 cm"}]}});
+  expect(screen.queryByRole("link",{name:"前往数据市场"})).toBeNull();
+  expect(f.job.mock.calls.every(call=>call[3]===undefined)).toBe(true);
+  research.unmount();
+  render(<ResearchSelectionGate scope={scope} projectId={projectId} archived={false} token={handoffToken(store.getSnapshot()!)}>
+    {()=> <p>当前项目已接收选品方向</p>}
+  </ResearchSelectionGate>);
+  expect(await screen.findByText("当前项目已接收选品方向")).toBeVisible();
 });
 
 it("W1 sends only A after live validation, then keeps the original key lookup-only after lost response and refresh",async()=>{
@@ -153,6 +180,49 @@ it("consumes a successful handoff so reopening the same entry cannot create a se
   expect(screen.getByText(/本次确认已使用/)).toBeVisible();
   expect(screen.queryByRole("button",{name:/确认加入/})).toBeNull();
   expect(f.send).toHaveBeenCalledTimes(1);
+});
+
+const completed={preparation:{id:id(10),sourceBatchId:batchId,sourceRevision:4,name:"Q1",count:1,
+  revision:1,createdAt:"2026-11-06T12:00:00Z"},replayed:false};
+
+function switchContext(kind:"organization"|"member"|"permissions") {
+  if (kind==="organization") context.effectiveOrganization={id:"another-org"};
+  if (kind==="member") context.effectiveMemberId="another-member";
+  if (kind==="permissions") context.permissions=context.permissions.filter(permission=>permission!=="workbench.supply.manage");
+}
+
+it.each(["organization","member","permissions"] as const)("masks a successful transfer receipt when %s changes on the same route",async(kind)=>{
+  context.permissions=[...permissions,"workbench.data-market.use"];
+  const token=approved();
+  f.send.mockResolvedValue(completed);
+  const page=()=> <CollectionPage researchToken={token} supplyAvailable/>;
+  const view=render(page());
+  fireEvent.click(await confirmButton());
+  expect(await screen.findByRole("link",{name:"查看待上传商品"})).toHaveAttribute("href","/workbench/listing/waiting?preparation="+id(10));
+  switchContext(kind);
+  view.rerender(page());
+  expect(screen.queryByRole("link",{name:"查看待上传商品"})).toBeNull();
+  expect(screen.queryByText("已转入 1 件。")).toBeNull();
+  expect(screen.queryByRole("button",{name:/确认加入/})).toBeNull();
+});
+
+it("ignores a late lookup response from the previous member without resending the pending command",async()=>{
+  context.permissions=[...permissions,"workbench.data-market.use"];
+  const token=approved();
+  const intent={...scope,key,route:"transfer",lookupOnly:true,command:{batchId,expectedRevision:4,itemIds:[A]}} as const;
+  context.setPendingSupplyIntent(intent);
+  let complete!:()=>void;
+  f.recover.mockImplementation(()=>new Promise(resolve=>{complete=()=>resolve(completed);}));
+  const page=()=> <CollectionPage researchToken={token} supplyAvailable/>;
+  const view=render(page());
+  fireEvent.click(screen.getByRole("button",{name:"核实原操作"}));
+  await waitFor(()=>expect(f.recover).toHaveBeenCalledTimes(1));
+  switchContext("member");
+  view.rerender(page());
+  await act(async()=>complete());
+  expect(screen.queryByRole("link",{name:"查看待上传商品"})).toBeNull();
+  expect(loadSupplyIntent()).toEqual(intent);
+  expect(f.send).not.toHaveBeenCalled();
 });
 
 it.each(["query","permission","approval","original","missing-token"] as const)("W2 stops a stale transfer after %s changes",async(reason)=>{
