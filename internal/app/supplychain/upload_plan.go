@@ -114,6 +114,12 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 			facts.PublicationOutcome = "accepted"
 		}
 	}
+	if facts.Ready && facts.WalmartApproval != nil {
+		if observation := walmartRepairObservation(saved, publication); observation != nil {
+			facts.WalmartRepairObservationID = observation.ID
+			facts.PublicationSummary = append(facts.PublicationSummary, fmt.Sprintf("修复原 Walmart Feed %s · %d 个已选失败 SKU", observation.Observation.FeedID, len(saved.Walmart.SKUs)))
+		}
+	}
 
 	for _, ref := range []struct{ id, action string }{{item.AdaptOperationID, preparation.OperationAdapt}, {item.OptimizeOperationID, preparation.OperationOptimize}, {item.UploadOperationID, preparation.OperationUpload}} {
 		if ref.id == "" {
@@ -175,6 +181,32 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		facts.PublicationSummary = append(facts.PublicationSummary, "仅远端资产已保留，原刊登结果未确认；沿原操作核实，不重复创建")
 	}
 	return facts, nil
+}
+
+// Use the existing result owner's projection for preview only. Submission
+// still validates current evidence, SKU ownership and the approved draft at Acquire.
+func walmartRepairObservation(saved record.TargetRecord, publication PublicationView) *submission.WalmartResultRecord {
+	repairFrom := saved.Input.Walmart.RepairFrom
+	if repairFrom == "" || publication.Walmart == nil || publication.RecordID == "" || !submission.WalmartCompatibleBinding(saved.Merchant, publication.binding) {
+		return nil
+	}
+	for index := range publication.WalmartResults {
+		result := &publication.WalmartResults[index]
+		if result.ReceiptID != repairFrom || result.Limited || result.Observation.Partial {
+			continue
+		}
+		eligible := make(map[string]bool, len(result.RepairableSKUs))
+		for _, sku := range result.RepairableSKUs {
+			eligible[sku] = true
+		}
+		for _, sku := range saved.Walmart.SKUs {
+			if !eligible[sku.SellerSKU] {
+				return nil
+			}
+		}
+		return result
+	}
+	return nil
 }
 
 func uploadPlanReviewState(scope collection.Scope, id string, original, saved record.TargetRecord, v review.Record) (bool, bool, error) {

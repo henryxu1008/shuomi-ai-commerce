@@ -112,6 +112,7 @@ type UploadPlanFacts struct {
 	ManualTargetRequired        bool                   `json:"manualTargetRequired"`
 	ExistingPublicationRecordID string                 `json:"existingPublicationRecordId,omitempty"`
 	WalmartApproval             *WalmartUploadApproval `json:"walmartApproval,omitempty"`
+	WalmartRepairObservationID  string                 `json:"walmartRepairObservationId,omitempty"`
 	HasTarget                   bool                   `json:"hasTarget"`
 	Ready                       bool                   `json:"ready"`
 	Target                      TargetApproval         `json:"target"`
@@ -126,6 +127,10 @@ type UploadPlanFacts struct {
 
 func NextUploadPlanStep(in UploadPlanInput, item UploadPlanItem, facts UploadPlanFacts) string {
 	if facts.ExistingPublicationRecordID != "" && (!facts.HasTarget || facts.ExistingPublicationRecordID != facts.Target.RecordID) {
+		if facts.WalmartRepairObservationID != "" && in.PublicationMode == "platform" && in.TitleTemplateID == "" &&
+			item.AdaptOperationID == "" && item.OptimizeOperationID == "" && item.UploadOperationID == "" {
+			return OperationUpload
+		}
 		return "channel_exists"
 	}
 	if facts.PublicationOutcome == "failed" || facts.UploadResultOutcome == "failed" {
