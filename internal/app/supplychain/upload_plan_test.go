@@ -140,4 +140,82 @@ func TestUploadPlanContinuesOnlyAnEvidencedWalmartRepair(t *testing.T) {
 		require.Equal(t, "channel_exists", preparation.NextUploadPlanStep(plan.Input, item, facts))
 	}
 	require.Len(t, merchant.submitted, 1, "a plan preview does not send a Feed")
+
+	plan.Input.SourceIDs = []string{item.SourceID}
+	selected, err := reader.Application.Sources.Select(ctx, item.SourceID)
+	require.NoError(t, err)
+	key := uuid.NewString()
+	proof, err := submission.PrepareWalmartIntent(ctx, selected, records.saved, key)
+	require.NoError(t, err)
+	intent, err := uploader.dependencies.Intents.PrepareOfficial(ctx, proof)
+	require.NoError(t, err)
+	executionScope := submission.ExecutionScope{OrganizationID: scope.OrganizationID}
+	createdAt := time.Now().UTC().Truncate(time.Microsecond)
+	reservation, err := submission.NewExecutionReservation(submission.AcquireExecutionCommand{
+		Scope: executionScope, IntentKey: key, Target: intent.Target, Action: submission.WalmartSubmitAction,
+		Payload: draft.Payload, ClaimOwnerID: "test-worker", Lease: submission.ExecutionTimeout,
+	}, uuid.Must(uuid.NewV7()).String(), "synthetic-claim-token", createdAt)
+	require.NoError(t, err)
+	reservation.Attempt.FenceEpoch = 2
+	finishedAt := createdAt.Add(time.Millisecond)
+	evidence, err := submission.NewWalmartRejectionEvidence(intent, reservation.Attempt, finishedAt)
+	require.NoError(t, err)
+	rejected, err := submission.CompleteClaimedExecution(reservation.Attempt, evidence, finishedAt)
+	require.NoError(t, err)
+	reader.Application.Uploader = uploader
+	current := &walmartPlanAttemptFixture{scope: executionScope, attempt: rejected}
+	reader.WalmartAttempts = current
+	results.records = nil // The rejected attempt owns the selected SKU, so the accepted result no longer lists it.
+	facts, err = reader.ReadUploadPlanFacts(ctx, plan, item)
+	require.NoError(t, err)
+	require.Equal(t, preparation.OperationUpload, preparation.NextUploadPlanStep(plan.Input, item, facts))
+	require.Contains(t, facts.PublicationSummary, "Walmart 明确拒绝 · 原尝试 "+rejected.AttemptID+" · 同载荷重试")
+	require.Equal(t, draft.WireHash, facts.WalmartApproval.WireHash)
+	require.Equal(t, "channel_exists", preparation.NextUploadPlanStep(plan.Input, usedItem, facts))
+	wholeBatch := plan
+	wholeBatch.Input.SourceIDs = nil
+	batchFacts, err := reader.ReadUploadPlanFacts(ctx, wholeBatch, item)
+	require.NoError(t, err)
+	require.Equal(t, "channel_exists", preparation.NextUploadPlanStep(wholeBatch.Input, item, batchFacts), "retry requires explicit selection of one original item")
+	retryPreview := preparation.NewUploadPlanPreviewDigest(plan)
+	retryPreview.Add(preparation.UploadPlanItemView{Item: item, Facts: facts, Step: preparation.OperationUpload})
+	current.attempt.AttemptID = uuid.Must(uuid.NewV7()).String()
+	facts, err = reader.ReadUploadPlanFacts(ctx, plan, item)
+	require.NoError(t, err)
+	changedRetryPreview := preparation.NewUploadPlanPreviewDigest(plan)
+	changedRetryPreview.Add(preparation.UploadPlanItemView{Item: item, Facts: facts, Step: preparation.OperationUpload})
+	require.NotEqual(t, retryPreview.Sum(), changedRetryPreview.Sum(), "approval must bind the current rejection")
+	current.attempt = reservation.Attempt
+	current.attempt.Status = submission.ExecutionOutcomeUnknown
+	facts, err = reader.ReadUploadPlanFacts(ctx, plan, item)
+	require.NoError(t, err)
+	require.Equal(t, "channel_exists", preparation.NextUploadPlanStep(plan.Input, item, facts))
+	current.attempt = rejected
+	tampered := *rejected.Evidence
+	tampered.Fingerprint = collection.Digest("unbound response")
+	current.attempt.Evidence = &tampered
+	facts, err = reader.ReadUploadPlanFacts(ctx, plan, item)
+	require.NoError(t, err)
+	require.Equal(t, "channel_exists", preparation.NextUploadPlanStep(plan.Input, item, facts))
+	current.attempt = rejected
+	repair.SKUs[0].Price = "12"
+	changedDraft, err := walmart.BuildDraft(repair, merchant.rules, merchantKey, records.saved.Source.Source.ProductKey, []string{repair.SKUs[0].SourceSKUKey})
+	require.NoError(t, err)
+	records.saved.Walmart = &changedDraft
+	facts, err = reader.ReadUploadPlanFacts(ctx, plan, item)
+	require.NoError(t, err)
+	require.Equal(t, "channel_exists", preparation.NextUploadPlanStep(plan.Input, item, facts))
+	require.Len(t, merchant.submitted, 1, "reading a rejection and preparing a new approval never sends")
+}
+
+type walmartPlanAttemptFixture struct {
+	scope   submission.ExecutionScope
+	attempt submission.ExecutionAttempt
+}
+
+func (r *walmartPlanAttemptFixture) ReadWalmartAttempt(_ context.Context, scope submission.ExecutionScope, target submission.ExecutionTarget) (submission.ExecutionAttempt, error) {
+	if scope != r.scope || target != r.attempt.Target {
+		return submission.ExecutionAttempt{}, submission.ErrExecutionNotFound
+	}
+	return r.attempt, nil
 }

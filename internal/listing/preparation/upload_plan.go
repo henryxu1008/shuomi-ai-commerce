@@ -113,6 +113,7 @@ type UploadPlanFacts struct {
 	ExistingPublicationRecordID string                 `json:"existingPublicationRecordId,omitempty"`
 	WalmartApproval             *WalmartUploadApproval `json:"walmartApproval,omitempty"`
 	WalmartRepairObservationID  string                 `json:"walmartRepairObservationId,omitempty"`
+	WalmartRejectedAttemptID    string                 `json:"walmartRejectedAttemptId,omitempty"`
 	HasTarget                   bool                   `json:"hasTarget"`
 	Ready                       bool                   `json:"ready"`
 	Target                      TargetApproval         `json:"target"`
@@ -127,7 +128,7 @@ type UploadPlanFacts struct {
 
 func NextUploadPlanStep(in UploadPlanInput, item UploadPlanItem, facts UploadPlanFacts) string {
 	if facts.ExistingPublicationRecordID != "" && (!facts.HasTarget || facts.ExistingPublicationRecordID != facts.Target.RecordID) {
-		if facts.WalmartRepairObservationID != "" && in.PublicationMode == "platform" && in.TitleTemplateID == "" &&
+		if (facts.WalmartRepairObservationID != "" || facts.WalmartRejectedAttemptID != "") && in.PublicationMode == "platform" && in.TitleTemplateID == "" &&
 			item.AdaptOperationID == "" && item.OptimizeOperationID == "" && item.UploadOperationID == "" {
 			return OperationUpload
 		}
