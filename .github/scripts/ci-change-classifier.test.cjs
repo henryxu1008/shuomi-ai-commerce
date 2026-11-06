@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { classifyChangedPaths, formatOutputs } = require("./ci-change-classifier.cjs");
@@ -279,6 +280,42 @@ test("capture classification output reaches its isolated job and required gate",
   assert.match(required,/needs:[\s\S]*- capture-extension\b/);
   assert.match(required,/CAPTURE_EXTENSION_RESULT: \$\{\{ needs\.capture-extension\.result \}\}/);
   assert.match(required,/CAPTURE_EXTENSION_SELECTED: \$\{\{ needs\.changes\.outputs\.capture_extension \}\}/);
+});
+
+test("frontend uses the pinned browser image and rejects a Playwright version mismatch", (t) => {
+  const { workflow } = requiredGate();
+  const frontend = workflow.slice(workflow.indexOf("\n  frontend:\n"), workflow.indexOf("\n  capture-extension:\n"));
+  const image = frontend.match(/image: mcr\.microsoft\.com\/playwright:v([\d.]+)-noble@sha256:[0-9a-f]{64}\n/);
+  const ui = require("../../web/listingkit-ui/package.json");
+  assert.equal(image?.[1], ui.devDependencies["@playwright/test"]);
+  assert.doesNotMatch(frontend, /playwright install/);
+  for (const command of ["pnpm install --frozen-lockfile", "pnpm lint", "pnpm typecheck", "pnpm test", "pnpm test:e2e", "pnpm build"]) {
+    assert.ok(frontend.includes(`run: ${command}\n`), command);
+  }
+
+  const guard = frontend.match(/node <<'NODE'\n([\s\S]+?)\n {10}NODE\n/);
+  assert.ok(guard, "frontend must check the image before using Chromium");
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "ci-playwright-policy-"));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  const pkg = path.join(fixture, "node_modules", "@playwright", "test");
+  fs.mkdirSync(pkg, { recursive: true });
+  fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ version: image[1] }));
+  fs.writeFileSync(path.join(pkg, "index.js"), "exports.chromium = { executablePath: () => process.execPath };");
+  const marker = path.join(fixture, ".docker-info");
+  const runGuard = () => spawnSync(process.execPath, ["-"], {
+    cwd: fixture,
+    input: guard[1],
+    env: { ...process.env, NODE_VERSION: process.versions.node.split(".")[0], PLAYWRIGHT_BROWSERS_PATH: fixture },
+    encoding: "utf8",
+  });
+
+  fs.writeFileSync(marker, JSON.stringify({ driverVersion: image[1] }));
+  const matching = runGuard();
+  assert.equal(matching.status, 0, matching.stderr);
+  fs.writeFileSync(marker, JSON.stringify({ driverVersion: "0.0.0" }));
+  const mismatch = runGuard();
+  assert.equal(mismatch.status, 1, mismatch.stderr);
+  assert.match(mismatch.stderr, /Playwright image version 0\.0\.0/);
 });
 
 const bash = process.platform === "win32" ? "C:/Program Files/Git/bin/bash.exe" : "bash";
