@@ -117,14 +117,15 @@ type ProductCandidate struct {
 
 // ProductVariantCandidate carries neutral variant facts from the source.
 type ProductVariantCandidate struct {
-	SourceID   string
-	Title      string
-	SKU        string
-	Attributes map[string]string
-	Currency   string
-	Price      float64
-	Stock      int
-	Images     []AssetCandidate `json:",omitempty"`
+	SourceID         string
+	Title            string
+	SKU              string
+	Attributes       map[string]string
+	Currency         string
+	Price            float64
+	Stock            int
+	Images           []AssetCandidate `json:",omitempty"`
+	OwnStockDeclared bool             `json:",omitempty"`
 }
 
 // AssetCandidate carries neutral image/design facts from the source.

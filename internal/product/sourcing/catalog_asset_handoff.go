@@ -141,12 +141,16 @@ func snapshotVariants(envelope SourceEnvelope) []catalog.Variant {
 			}
 		}
 		variants[index] = catalog.Variant{
-			SourceID:   candidate.SourceID,
-			Title:      candidate.Title,
-			SKU:        candidate.SKU,
-			Attributes: snapshotAttributes(candidate.Attributes),
-			Price:      price,
-			Stock:      candidate.Stock,
+			SourceID:         candidate.SourceID,
+			Title:            candidate.Title,
+			SKU:              candidate.SKU,
+			Attributes:       snapshotAttributes(candidate.Attributes),
+			Price:            price,
+			OwnStockDeclared: candidate.OwnStockDeclared,
+		}
+		if candidate.Stock != 0 || candidate.OwnStockDeclared {
+			stock := candidate.Stock
+			variants[index].Stock = &stock
 		}
 		variantEnvelope := envelope
 		variantEnvelope.AssetCandidates = candidate.Images

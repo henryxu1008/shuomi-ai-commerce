@@ -10,7 +10,6 @@ import (
 const (
 	defaultSubmitSubSite       = "shein-us"
 	defaultSubmitSKCShelfWay   = 1
-	defaultSubmitInventory     = 1000
 	defaultSubmitWarehouseCode = "DEFAULT"
 )
 
@@ -87,7 +86,6 @@ func ensureSubmitSKUs(product *previewdata.Product, settings payloadDefaults) {
 					sku.PriceInfoList[priceIndex].SubSite = defaultSubmitSubSite
 				}
 			}
-			ensureSubmitDimensions(sku)
 		}
 	}
 }
@@ -95,15 +93,6 @@ func ensureSubmitSKUs(product *previewdata.Product, settings payloadDefaults) {
 // SubmitPreferredWarehouseCode returns the first configured warehouse code or the SHEIN default sentinel.
 func submitPreferredWarehouseCode(settings payloadDefaults) string {
 	return sheinmarketpub.SubmitPreferredWarehouseCode(settings.WarehouseCode)
-}
-
-// NormalizeSubmitWeight converts SKU weight to grams and clamps it to SHEIN submit bounds.
-func normalizeSubmitWeight(sku *previewdata.SKU) {
-	if sku == nil {
-		return
-	}
-	sku.Weight = sheinmarketpub.NormalizeSubmitWeightGrams(sku.Weight, sku.WeightUnit)
-	sku.WeightUnit = "g"
 }
 
 func submitDefaultSites(settings payloadDefaults) []previewdata.SiteInfo {
@@ -116,14 +105,12 @@ func submitDefaultSites(settings payloadDefaults) []previewdata.SiteInfo {
 
 func ensureSubmitStockInfo(sku *previewdata.SKU, preferredWarehouseCode string) {
 	if len(sku.StockInfoList) == 0 {
-		inventory := defaultSubmitInventory
-		if sku.StockCount != nil && *sku.StockCount > 0 {
-			inventory = *sku.StockCount
+		if sku.StockCount != nil {
+			sku.StockInfoList = []previewdata.StockInfo{{
+				InventoryNum:          *sku.StockCount,
+				MerchantWarehouseCode: preferredWarehouseCode,
+			}}
 		}
-		sku.StockInfoList = []previewdata.StockInfo{{
-			InventoryNum:          inventory,
-			MerchantWarehouseCode: preferredWarehouseCode,
-		}}
 		sku.StockCount = nil
 		return
 	}
@@ -132,9 +119,6 @@ func ensureSubmitStockInfo(sku *previewdata.SKU, preferredWarehouseCode string) 
 			strings.EqualFold(sku.StockInfoList[stockIndex].MerchantWarehouseCode, defaultSubmitWarehouseCode) ||
 			strings.EqualFold(sku.StockInfoList[stockIndex].MerchantWarehouseCode, "US") {
 			sku.StockInfoList[stockIndex].MerchantWarehouseCode = preferredWarehouseCode
-		}
-		if sku.StockInfoList[stockIndex].InventoryNum <= 0 {
-			sku.StockInfoList[stockIndex].InventoryNum = defaultSubmitInventory
 		}
 	}
 	sku.StockCount = nil
@@ -152,28 +136,6 @@ func ensureSubmitQuantityInfo(sku *previewdata.SKU) {
 		QuantityType: &quantityType,
 		QuantityUnit: &quantityUnit,
 	}
-}
-
-func ensureSubmitDimensions(sku *previewdata.SKU) {
-	if sku == nil {
-		return
-	}
-	if strings.TrimSpace(sku.LengthUnit) == "" {
-		sku.LengthUnit = "Inch"
-	}
-	if strings.TrimSpace(sku.Length) == "" {
-		sku.Length = "1"
-	}
-	if strings.TrimSpace(sku.Width) == "" {
-		sku.Width = "1"
-	}
-	if strings.TrimSpace(sku.Height) == "" {
-		sku.Height = "1"
-	}
-	if strings.TrimSpace(sku.WeightUnit) == "" {
-		sku.WeightUnit = "g"
-	}
-	normalizeSubmitWeight(sku)
 }
 
 func normalizeSubmitCollections(product *previewdata.Product) {

@@ -11,7 +11,7 @@ vi.mock("next/navigation",()=>({notFound:()=>{throw new Error("NOT_FOUND")}}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplySource:f.source,readSupplyCompletionDraft:f.head,supplyCommand:f.save,readSupplyCommand:f.verify}));
 const id="11111111-1111-4111-8111-111111111111",batch="22222222-2222-4222-8222-222222222222",other="33333333-3333-4333-8333-333333333333";
 const source={id,preparationId:batch,collectionItemId:batch,collectionRevision:1,source:{kind:"own",version:"1",productKey:"fixed",publicationId:batch}};
-const detail={source,images:[],product:{title:"来源标题",description:"来源描述",attributes:[{name:"材质",value:"棉"}],variants:[{sku:"",title:"第一款",price:{currency:"CNY",amount:0}},{sku:"",title:"第二款",price:{currency:"CNY",amount:10},stock:3}]}};
+const detail={source,images:[],product:{title:"来源标题",description:"来源描述",attributes:[{name:"材质",value:"棉"}],variants:[{sku:"",title:"第一款",price:{currency:"CNY",amount:0}},{sku:"",title:"第二款",price:{currency:"CNY",amount:10},stock:0,own_stock_declared:true}]}};
 const content={title:"已保存标题",description:"已保存描述",structured:{attributes:[],variants:[{sourceIndex:0,price:null,stock:0},{sourceIndex:1,price:{currency:"CNY",amount:10},stock:null}]}};
 const head={id,draftId:batch,revision:3,source,content,status:"pending_completion",createdAt:"2026-10-15T00:00:00Z"};
 const props={sourceId:id,preparationId:batch,itemId:batch};
@@ -34,15 +34,17 @@ const save=()=>screen.getByRole("button",{name:"保存商品属性和 SKU"});
 it("reads exact saved empty/zero/null values and preserves all return context",async()=>{
  render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.queryByRole("textbox",{name:"属性名称 1"})).not.toBeInTheDocument();
- expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(null);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(0);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 2"})).toHaveValue(null);
+ expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(null);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(0);
+ expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 2"})).toHaveValue(null);
  expect(screen.getByRole("link",{name:"返回草稿"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}?preparation=${batch}&item=${batch}`);
  expect(screen.getByRole("link",{name:"返回商品"})).toHaveAttribute("href",`/workbench/data/mine/own/${batch}`);expect(screen.getByRole("link",{name:"返回待补全列表"})).toHaveAttribute("href",`/workbench/supply/mine/missing?preparation=${batch}`);
  fireEvent.click(save());await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content}}),expect.any(AbortSignal)));
 });
-it("prefills only the fixed source as unsaved and keeps own zero stock explicit",async()=>{
+it("leaves unknown stock empty and prefills an explicit zero from the fixed source",async()=>{
  f.head.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));render(<CompletionStructuredPage {...props}/>);
  expect(await screen.findByRole("textbox",{name:"属性名称 1"})).toHaveValue("材质");expect(screen.getByText(/来源预填，尚未保存结构化候选资料/)).toBeVisible();
- expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(0);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(0);
+ expect(screen.getByRole("spinbutton",{name:"候选价格 SKU 1"})).toHaveValue(0);expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toHaveValue(null);
+ expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 2"})).toHaveValue(0);
 });
 it("adds and clears candidate fields without changing SKU identity or the saved text",async()=>{
  render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});fireEvent.click(screen.getByRole("button",{name:"添加属性"}));

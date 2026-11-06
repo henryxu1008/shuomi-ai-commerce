@@ -229,7 +229,6 @@ func buildSKUDraft(variant offlinepackage.Variant, mainImage string, siteList []
 	draft := offlinepackage.SKUDraft{
 		SupplierSKU: variant.SKU,
 		Attributes:  cloneSourceMap(variant.Attributes),
-		StockCount:  variant.Stock,
 		MainImage:   mainImage,
 		Barcode:     variant.Barcode,
 		IsDefault:   variant.IsDefault,
@@ -250,7 +249,11 @@ func buildSKUDraft(variant offlinepackage.Variant, mainImage string, siteList []
 		draft.Height = formatSourceFloat(variant.Dimensions.Height)
 		draft.LengthUnit = variant.Dimensions.Unit
 	}
-	draft.StockInfoList = []offlinepackage.StockInfo{{WarehouseCode: "DEFAULT", InventoryNum: variant.Stock}}
+	if variant.OwnStockDeclared {
+		draft.OwnStockDeclared = true
+		draft.StockCount = variant.Stock
+		draft.StockInfoList = []offlinepackage.StockInfo{{WarehouseCode: "DEFAULT", InventoryNum: variant.Stock}}
+	}
 	return draft
 }
 

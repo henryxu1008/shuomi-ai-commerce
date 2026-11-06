@@ -15,7 +15,7 @@ func TestContentPatchIsAtomicAndPreservesWholeOtherProduct(t *testing.T) {
 		SellingPoints: []string{"old point"}, SEOKeywords: []string{"old keyword"},
 		Attributes:     []catalog.Attribute{{Name: "material", Value: "steel"}},
 		Specifications: &catalog.Specifications{Technical: map[string]string{"grade": "304"}},
-		Variants:       []catalog.Variant{{SKU: "original-sku", Stock: 7, Price: &catalog.Price{Currency: "USD", Amount: 12.3}}},
+		Variants:       []catalog.Variant{{SKU: "original-sku", Stock: new(7), Price: &catalog.Price{Currency: "USD", Amount: 12.3}}},
 		Images:         []catalog.Image{{URL: "https://source.invalid/original.jpg"}},
 		Sources:        []catalog.SourceRecord{{SourceID: "source-1", Checksum: "source-checksum"}}}
 	before, err := json.Marshal(base)

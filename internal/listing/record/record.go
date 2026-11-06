@@ -141,17 +141,18 @@ type Builder interface {
 
 type ServiceDependencies struct {
 	// CreationGuard is supplied only by admitted normal composition. Isolated use cases retain their existing admission.
-	CreationGuard  func(context.Context, Actor, Input) error
-	Products       catalog.VersionedSnapshotReader
-	Assets         ApprovedAssetReader
-	Stores         StoreReferenceReader
-	Records        Store
-	Builder        Builder
-	Evaluator      DiagnosticEvaluator
-	Authorizer     Authorizer
-	Now            func() time.Time
-	RuleRevision   string
-	PolicyRevision string
+	CreationGuard        func(context.Context, Actor, Input) error
+	Products             catalog.VersionedSnapshotReader
+	Assets               ApprovedAssetReader
+	Stores               StoreReferenceReader
+	Records              Store
+	Builder              Builder
+	Evaluator            DiagnosticEvaluator
+	Authorizer           Authorizer
+	Now                  func() time.Time
+	RuleRevision         string
+	PreviousRuleRevision string
+	PolicyRevision       string
 }
 
 type Service struct{ dependencies ServiceDependencies }
@@ -275,6 +276,23 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 	inventoryHash := digest(inventoryBytes)
 	if err := ctx.Err(); err != nil {
 		return Receipt{}, err
+	}
+	if lookupErr == nil {
+		if existing.PolicyRevision != s.dependencies.PolicyRevision ||
+			(existing.RuleRevision != s.dependencies.RuleRevision && (s.dependencies.PreviousRuleRevision == "" || existing.RuleRevision != s.dependencies.PreviousRuleRevision)) {
+			return Receipt{}, ErrUnavailable
+		}
+		inputHash, err := canonicalInputHash(actor, input, productHash, inventoryHash, existing.RuleRevision, existing.PolicyRevision)
+		if err != nil {
+			return Receipt{}, ErrUnavailable
+		}
+		if existing.InputHash != inputHash || existing.ProductHash != productHash || existing.AssetInventoryHash != inventoryHash {
+			return Receipt{}, ErrConflict
+		}
+		if err := guard(ctx); err != nil {
+			return Receipt{}, err
+		}
+		return receiptFor(existing, actor, operation, inputHash)
 	}
 
 	payload, err := s.dependencies.Builder.Build(ctx, published.Snapshot, inventory, input)

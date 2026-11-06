@@ -254,6 +254,9 @@ func readPersistedPublication(ctx context.Context, authorizer PublicationAuthori
 	if err != nil {
 		return PersistedPublication{}, ErrSourcePublicationStateInvalid
 	}
+	if !ValidOwnStockDeclarations(persisted.Receipt.Producer, envelope) {
+		return PersistedPublication{}, ErrSourcePublicationStateInvalid
+	}
 	envelopeJSON, err := json.Marshal(envelope)
 	if err != nil {
 		return PersistedPublication{}, ErrSourcePublicationStateInvalid
@@ -334,6 +337,9 @@ func (p *InternalProducer) prepare(ctx context.Context, command PublicationComma
 	if err != nil {
 		return AtomicPublication{}, fmt.Errorf("%w: %v", ErrInvalidSourcePublication, err)
 	}
+	if !ValidOwnStockDeclarations(command.Producer, envelope) {
+		return AtomicPublication{}, ErrInvalidSourcePublication
+	}
 	snapshot, err := ToSnapshot(envelope)
 	if err != nil {
 		return AtomicPublication{}, fmt.Errorf("%w: %v", ErrInvalidSourcePublication, err)
@@ -383,6 +389,20 @@ func CanonicalPublicationInputHash(producer ProducerDescriptor, envelope SourceE
 	}
 	inputSum := sha256.Sum256(canonicalJSON)
 	return hex.EncodeToString(inputSum[:]), nil
+}
+
+// ValidOwnStockDeclarations binds the optional evidence to the admitted
+// Collection producer and to the original, bounded SKU quantity.
+func ValidOwnStockDeclarations(producer ProducerDescriptor, envelope SourceEnvelope) bool {
+	for _, variant := range envelope.ProductCandidate.Variants {
+		if variant.OwnStockDeclared && (producer != (ProducerDescriptor{Kind: "own_product", Version: "v1"}) ||
+			envelope.Identity.SourceType != "user_input" || envelope.Identity.SourcePlatform != "own_product" ||
+			envelope.RawReference.ReferenceType != "user_input" || envelope.RawReference.ReferenceID != envelope.Identity.SourceID ||
+			strings.TrimSpace(variant.SourceID) == "" || variant.Stock < 0 || int64(variant.Stock) > 9007199254740991) {
+			return false
+		}
+	}
+	return true
 }
 
 func cloneVersion(version *uint64) *uint64 {

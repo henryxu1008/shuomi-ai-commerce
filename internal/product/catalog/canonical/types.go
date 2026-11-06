@@ -35,16 +35,17 @@ type Image struct {
 }
 
 type Variant struct {
-	SKU        string               `json:"sku"`
-	Attributes map[string]Attribute `json:"attributes,omitempty"`
-	Price      *PriceInfo           `json:"price,omitempty"`
-	Stock      int                  `json:"stock,omitempty"`
-	Images     []Image              `json:"images,omitempty"`
-	Dimensions *Dimensions          `json:"dimensions,omitempty"`
-	Weight     *Weight              `json:"weight,omitempty"`
-	Barcode    string               `json:"barcode,omitempty"`
-	IsDefault  bool                 `json:"is_default,omitempty"`
-	Trace      FieldTrace           `json:"trace"`
+	SKU              string               `json:"sku"`
+	Attributes       map[string]Attribute `json:"attributes,omitempty"`
+	Price            *PriceInfo           `json:"price,omitempty"`
+	Stock            *int                 `json:"stock,omitempty"`
+	Images           []Image              `json:"images,omitempty"`
+	Dimensions       *Dimensions          `json:"dimensions,omitempty"`
+	Weight           *Weight              `json:"weight,omitempty"`
+	Barcode          string               `json:"barcode,omitempty"`
+	IsDefault        bool                 `json:"is_default,omitempty"`
+	Trace            FieldTrace           `json:"trace"`
+	OwnStockDeclared bool                 `json:"own_stock_declared,omitempty"`
 }
 
 type Product struct {

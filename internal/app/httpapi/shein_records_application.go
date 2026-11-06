@@ -42,7 +42,7 @@ func buildLocalTrialListingRoutes(currentProductDB *gorm.DB, authorizer *authz.L
 	service, err := record.NewService(record.ServiceDependencies{
 		Products: source, Assets: assets, Stores: sheinRecordStoreReader{repository: stores}, Records: repository,
 		Builder: draft.Builder{LogFor: logs}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: authorizer,
-		Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion,
+		Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PreviousRuleRevision: sheinvalidator.PreviousDiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion,
 	})
 	if err != nil {
 		return nil, nil, err

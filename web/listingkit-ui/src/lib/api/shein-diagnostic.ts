@@ -23,10 +23,11 @@ const freshness = z.union([
   z.strictObject({ status: z.literal("not_evaluated"), coverage: z.array(text).length(0) }),
   z.strictObject({ status: z.literal("valid"), coverage: z.array(text).length(1).refine((coverage) => coverage[0] === "external_package_freshness"), evidence }),
 ]);
+const currentRule = "shein.offline_package.v2.3";
 const diagnosticWire = z.strictObject({
   diagnostic_only: z.literal(true), scope: z.literal("shein.offline_package"),
   target: z.strictObject({ marketplace: z.literal("shein"), site: z.literal("") }),
-  action: sheinDiagnosticActionSchema, rule_version: z.literal("shein.offline_package.v2.2"),
+  action: sheinDiagnosticActionSchema, rule_version: z.enum([currentRule, "shein.offline_package.v2.2"]),
   input: z.strictObject({ actual_digest: sheinDigestSchema, binding_version: z.literal("shein.persisted-input.go-json.v2"), read_at: timestamp, evaluated_at: timestamp }),
   external_freshness: freshness, not_evaluated: z.array(text),
   not_evaluated_reasons: z.record(text, text).optional(),
@@ -65,7 +66,7 @@ function consistentDiagnostic(value:z.infer<typeof diagnosticWire>,exactApproved
     !value.not_evaluated.includes("external_package_freshness") &&
     value.not_evaluated_reasons?.external_package_freshness === undefined;
 }
-const diagnostic=diagnosticWire.refine(value=>consistentDiagnostic(value,false));
+const diagnostic=diagnosticWire.extend({rule_version:z.literal(currentRule)}).refine(value=>consistentDiagnostic(value,false));
 // Saved DRAFT-S1 already verified the exact ApprovedAsset inventory.
 export const savedSheinDiagnosticSchema=diagnosticWire.refine(value=>consistentDiagnostic(value,true));
 function comparableTimestamp(value: string) {
@@ -74,7 +75,7 @@ function comparableTimestamp(value: string) {
   const [seconds, fraction = ""] = value.slice(0, -1).split(".");
   return `${seconds}.${fraction.padEnd(9, "0")}`;
 }
-export type SheinDiagnostic = z.infer<typeof diagnostic>;
+export type SheinDiagnostic = z.infer<typeof diagnosticWire>;
 const failure = z.strictObject({
   error: z.enum(["invalid_request", "unsupported_action", "unsupported_target", "permission_denied", "not_found", "stale_input", "input_too_large", "invalid_input", "evaluation_failed", "unsupported_rule_version", "unavailable", "deadline_exceeded"]),
   freshness: z.strictObject({
