@@ -26,13 +26,32 @@ it("does not advertise or request oversized detail scopes and restores a valid s
   const href=screen.getByRole("link",{name:/查看真实经营明细/}).getAttribute("href")!;
   expect(new URL(href,"https://localhost").searchParams.getAll("storeId")).toEqual([stores[0].id]);
 });
-it("does not reinterpret partial manual totals as full profit, GMV or a health score", async () => {
+it("does not reinterpret partial manual totals as full profit or GMV", async () => {
   vi.mocked(cockpitRequest).mockImplementation(async (_scope, path) => path === "capabilities" ? capabilities : matrix);
   mount();
   await screen.findByText("待完整数据，未按部分录入推定完整利润");
   expect(screen.queryByText("¥200.00")).not.toBeInTheDocument();
-  expect(screen.getByText("评分规则暂未接入")).toBeVisible();
+  expect(screen.getByText("GMV 数据待接入")).toBeVisible();
   expect(vi.mocked(cockpitRequest).mock.calls.every(call => call[1] === "capabilities" || call[1].startsWith("stores?"))).toBe(true);
+});
+it("uses real enabled stores and only queries completed days when changing the period or refreshing", async () => {
+  const store = { id: "123e4567-e89b-42d3-a456-426614174000", name: "真实店铺", platform: "shein", region: "US", status: "active" };
+  vi.mocked(cockpitRequest).mockImplementation(async (_scope, path) => path === "capabilities" ? {
+    ...capabilities, stores: [store, { ...store, id: "123e4567-e89b-42d3-a456-426614174001", status: "disabled" }],
+  } : matrix);
+  mount();
+  await screen.findByRole("button", { name: "刷新" });
+  const active = screen.getByRole("heading", { name: "活跃店铺" });
+  expect(active.parentElement?.parentElement?.querySelector("strong")).toHaveTextContent("1");
+  expect(screen.getByRole("heading", { name: "跨境电商业务链路" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "执行状态分布" })).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "昨日" }));
+  await waitFor(() => expect(vi.mocked(cockpitRequest).mock.calls.at(-1)?.[1])
+    .toContain("startDate=2026-10-10&endDate=2026-10-10"));
+  const requests = vi.mocked(cockpitRequest).mock.calls.filter(call => call[1] === "capabilities").length;
+  await userEvent.click(screen.getByRole("button", { name: "刷新" }));
+  await waitFor(() => expect(vi.mocked(cockpitRequest).mock.calls.filter(call => call[1] === "capabilities")).toHaveLength(requests + 1));
+  expect(screen.getByRole("button", { name: "昨日" })).toHaveAttribute("aria-pressed", "true");
 });
 it("cancels the old scope and never displays its late profit after switching enterprise", async () => {
   let resolve!: (value: unknown) => void, oldSignal: AbortSignal | undefined;

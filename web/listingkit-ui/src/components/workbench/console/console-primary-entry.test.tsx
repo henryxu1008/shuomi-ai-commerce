@@ -65,7 +65,7 @@ it.each(['goals', 'stores', 'alerts', 'advice'])('keeps the cockpit homepage wit
   fixture.context.permissions = [`workbench.cockpit.${mode}.read`];
   render(<WorkbenchPage />);
   expect(fixture.redirect).not.toHaveBeenCalled();
-  expect(screen.getByRole('heading', { level: 1, name: '经营全局，一屏掌握' })).toBeVisible();
+  expect(screen.getByRole('heading', { level: 1, name: '运营驾驶舱' })).toBeVisible();
 });
 it('distinguishes missing permission from an unmounted module', () => {
   fixture.context.operationsCockpitAvailable = true;
