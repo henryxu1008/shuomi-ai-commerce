@@ -32,7 +32,7 @@ export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvaila
 
   const submittedIntent = context.pendingAcquisitionIntent;
   const sameIntentScope = submittedIntent?.userId === scope.userId && submittedIntent.organizationId === scope.organizationId;
-  if (plansEnabled && !operationId && !sameIntentScope) return <AcquisitionPlansPage key={`${scope.userId}:${scope.organizationId}`} scope={scope} initialOpen agentKind={agentKind} />;
+  if (plansEnabled && !operationId && !sameIntentScope) return <AcquisitionPlansPage key={`${scope.userId}:${scope.organizationId}`} scope={scope} agentKind={agentKind} />;
   // The shell preserves a submitted key through workbench navigation, but an
   // intent is rendered or replayed only after its verified scope is restored.
   return <ScopedAcquisitionPage key={`${scope.userId}:${scope.organizationId}:${operationId ?? ""}`} operationId={operationId} agentEnabled={agentEnabled} knowledgeAvailable={knowledgeAvailable} scope={scope} initialIntent={sameIntentScope ? submittedIntent : null} foreignIntent={!!submittedIntent && !sameIntentScope} onIntentChange={context.setPendingAcquisitionIntent} agentKind={agentKind} />;
