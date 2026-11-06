@@ -119,7 +119,16 @@ it.each(["prepare","regenerate"])("preserves restored %s bytes when the original
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
  const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},skill:{skillId:operation,version:2,digest:sha},text:{mode:"none"}}},null,2);
  localStorage.setItem(key,raw);const real=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ const modelResponseGate=Promise.withResolvers<void>();
+ let holdModel=false,modelReadStarted=false;
+ fetch.mockImplementation((url,init)=>{
+  if(holdModel&&String(url).endsWith("/model-options")){
+   modelReadStarted=true;
+   return modelResponseGate.promise.then(()=>real(url,init));
+  }
+  if(String(url).endsWith(`/${action}`))return Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}));
+  return real(url,init);
+ });
  const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));
  await screen.findByText(/审核译文已变化/);
@@ -127,15 +136,24 @@ it.each(["prepare","regenerate"])("preserves restored %s bytes when the original
  expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:")&&localStorage.getItem(k)===raw)).toBe(true);
  const sent=fetch.mock.calls.find(([url])=>String(url).endsWith(`/${action}`))!;
  expect(new Headers(sent[1]!.headers).get("Idempotency-Key")).toBe(templateId);expect(JSON.parse(String(sent[1]!.body))).toEqual(JSON.parse(raw).body);
- view.unmount();render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ view.unmount();
+ holdModel=action==="prepare";
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  const history=await screen.findByText("已核实的原请求");
- expect(history.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
  if(action==="prepare"){
+  await waitFor(()=>expect(modelReadStarted).toBe(true));
   fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
-  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
-  fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
-  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+  const prepareButton=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});
+  const textMode=screen.getByRole("combobox",{name:"图片文字方式"});
+  expect(prepareButton).toBeDisabled();
+  fireEvent.change(textMode,{target:{value:"none"}});
+  expect(textMode).toHaveValue("none");
+  expect(prepareButton).toBeDisabled();
+  await act(async()=>modelResponseGate.resolve());
+  await waitFor(()=>expect(prepareButton).toBeEnabled());
+  expect(textMode).toHaveValue("none");
  }
+ expect(history.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
  expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
 });
 
