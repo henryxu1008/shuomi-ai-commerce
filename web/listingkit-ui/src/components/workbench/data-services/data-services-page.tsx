@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CollectionDialog } from "@/components/workbench/collections/collection-page";
 import { dataRequest, DataAPIError, type DataScope } from "@/lib/api/data-services";
+import { amazonRealtimeAcquisitionAnchor } from "@/lib/workbench/console-navigation";
 import { CUSTOM_INPUT_BYTE_LIMITS, KEY_NAME_MAX_BYTES, dataTextBytes, optionsSchema, customSummarySchema, overviewSchema, jobSchema, keySchema, keyCreatedSchema, keyHistorySchema, resultPageSchema, customSchema, querySchema, keyLimitsSchema, type DataOptions, type DataQuery, type DataKey, type DataJob, type CustomRequest, type Overview } from "@/lib/contracts/data-services";
 import { useDataCommand } from "./use-data-command";
 import styles from "./data-services.module.css";
@@ -81,6 +82,12 @@ function Market({ scope }: {
     const { registerOrganizationSwitchGuard } = useWorkbenchContext();
     useEffect(() => registerOrganizationSwitchGuard(() => !command.pending && !command.busy), [registerOrganizationSwitchGuard, command.pending, command.busy]);
     useEffect(() => {
+        if (window.location.hash !== `#${amazonRealtimeAcquisitionAnchor}`) return;
+        const target = document.getElementById(amazonRealtimeAcquisitionAnchor);
+        target?.focus({ preventScroll: true });
+        target?.scrollIntoView?.({ block: "start" });
+    }, []);
+    useEffect(() => {
         const controller = new AbortController();
         dataRequest(scope, "options", optionsSchema, undefined, controller.signal).then(value => {
             if (!controller.signal.aborted)
@@ -143,7 +150,7 @@ function Market({ scope }: {
     <dl className={styles.platformFacts}>{[["当前选择", "Amazon"], ["数据类型", "产品数据"], ["获取方式", "实时抓取 / 数据集定制"], ["交付格式", "Excel / CSV / JSON"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
   </Card>
   <section className={styles.serviceArea}><div className={styles.sectionTitle}><h2>Amazon 产品数据获取方式</h2><p>当前已选择 Amazon，根据时效和交付要求选择不同服务。</p></div><div className={styles.services}>
-    <Card className={`${styles.card} ${styles.service}`}><div className={styles.serviceBadges}><span className={styles.badge}>01 · 实时获取</span><span className={styles.badge}>按成功数据计费</span></div><h3>实时数据抓取</h3><p>客户自主设置抓取条件，适合获取当前最新的 Amazon 产品数据。</p><ServiceBullets items={["选择站点、关键词、类目或 ASIN", "设置抓取数量和所需数据字段", "确认最大条数与预估费用", "成功结果自动保存到“我的数据”"]}/><div className={styles.serviceFooter}><p>按成功保存的数据条数计费</p><Button disabled={disabled || !options?.acquisitionReady} onClick={() => setDialog("realtime")}>配置实时抓取 <span aria-hidden="true">→</span></Button></div>{options && !options.acquisitionReady ? <p role="status" className="mt-3 text-xs text-muted-foreground">{options.unavailableReason}</p> : null}</Card>
+    <Card id={amazonRealtimeAcquisitionAnchor} tabIndex={-1} className={`${styles.card} ${styles.service}`}><div className={styles.serviceBadges}><span className={styles.badge}>01 · 实时获取</span><span className={styles.badge}>按成功数据计费</span></div><h3>实时数据抓取</h3><p>客户自主设置抓取条件，适合获取当前最新的 Amazon 产品数据。</p><ServiceBullets items={["选择站点、关键词、类目或 ASIN", "设置抓取数量和所需数据字段", "确认最大条数与预估费用", "成功结果自动保存到“我的数据”"]}/><div className={styles.serviceFooter}><p>按成功保存的数据条数计费</p><Button disabled={disabled || !options?.acquisitionReady} onClick={() => setDialog("realtime")}>配置实时抓取 <span aria-hidden="true">→</span></Button></div>{options && !options.acquisitionReady ? <p role="status" className="mt-3 text-xs text-muted-foreground">{options.unavailableReason}</p> : null}</Card>
     <Card className={`${styles.card} ${styles.service} ${styles.purple}`}><div className={styles.serviceBadges}><span className={`${styles.badge} ${styles.purpleBadge}`}>02 · 按需交付</span><span className={`${styles.badge} ${styles.purpleBadge}`}>根据需求单独报价</span></div><h3>数据集定制</h3><p>根据业务目标、字段范围和交付要求，制作专属 Amazon 产品数据集。</p><ServiceBullets purple items={["明确站点、类目、关键词与用途", "选择字段、数据规模和时间范围", "在系统中查看制作与交付进度", "专员评估需求、报价与交付周期"]}/><div className={styles.serviceFooter}><p>确认数据规格后提供报价</p><Button disabled={disabled || !options} onClick={() => setDialog("custom")}>提交定制需求 <span aria-hidden="true">→</span></Button></div></Card>
   </div></section>
   <Card className={`${styles.card} ${styles.process}`}><div className={styles.cardHeading}><h2>购买与交付流程</h2><p>所有成功交付的数据都会保存到“我的数据”。</p></div><ProcessRow label="实时抓取" steps={["配置抓取条件", "确认预估费用", "确认并开始抓取", "保存到我的数据"]}/><ProcessRow purple label="数据集定制" steps={["提交定制需求", "确认规格与报价", "数据制作与交付", "保存到我的数据"]}/></Card>
