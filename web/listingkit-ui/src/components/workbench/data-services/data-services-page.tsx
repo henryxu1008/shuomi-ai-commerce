@@ -5,6 +5,7 @@ import Image from "next/image";
 import { z } from "zod";
 import { Download } from "lucide-react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -172,7 +173,9 @@ function Market({ scope, amazonOnly }: {
   <Card className="gap-4 p-6"><div className="flex justify-between"><h2 className="font-semibold">{amazonOnly ? "采集记录" : "我的抓取与定制记录"}</h2><Button variant="ghost" size="sm" onClick={reload}>刷新</Button></div><p className="text-xs text-muted-foreground">{amazonOnly ? "展示最近 100 条 Amazon 采集任务。" : "展示最近 100 条抓取任务和定制申请。"}</p>
     {historyErrors.map(([label, code]) => code ? <p key={label} role="alert" className="text-sm text-warning-foreground">{code === "FORBIDDEN" || code === "PERMISSION_DENIED" ? `当前身份没有${label}读取权限。` : `${label}暂不可用，请稍后刷新。`}</p> : null)}
     {(jobs === null && !jobsError) || (!amazonOnly && customs === null && !customsError) ? <p role="status" className="text-sm text-muted-foreground">正在读取历史记录…</p> : null}
-    {emptyHistory ? <p className="py-5 text-center text-sm text-muted-foreground">暂无记录，提交后会在这里显示真实进度。</p> : <div className="grid gap-3 md:grid-cols-2">{jobs?.map(j => <button key={j.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={() => setJob(j)}><p className="font-medium">Amazon {j.query.site.toUpperCase()} · {j.query.mode}</p><p className="mt-1 text-sm text-muted-foreground">{stateNames[j.state]} · 已保存 {j.saved} 条 · {moment(j.createdAt)}</p></button>)}{customs?.map(c => <button key={c.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={async () => {
+    {emptyHistory ? <p className="py-5 text-center text-sm text-muted-foreground">暂无记录，提交后会在这里显示真实进度。</p> : <div className="grid gap-3 md:grid-cols-2">{jobs?.map(j => <button key={j.id} className="min-w-0 rounded-lg border p-4 text-left hover:bg-muted/50" onClick={() => setJob(j)}><p className="font-medium">Amazon {j.query.site.toUpperCase()} · {queryModeNames[j.query.mode]}</p>
+    {amazonQuerySource(j.query) ? <p className="mt-1 line-clamp-2 break-words text-sm">{amazonQuerySource(j.query)}</p> : null}
+    <p className="mt-1 text-sm text-muted-foreground">{stateNames[j.state]} · 已保存 {j.saved} 条 · {moment(j.createdAt)}</p></button>)}{customs?.map(c => <button key={c.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={async () => {
                     try {
                         setCustom(await dataRequest(scope, `custom/${c.id}`, customSchema));
                     }
@@ -259,6 +262,61 @@ function QueryForm({ options, custom = false, disabled, onSubmit }: {
 export function CustomDetails({ request: r }: {
     request: CustomRequest;
 }) { return <div className="space-y-4"><p className="text-sm">状态：<strong>{stateNames[r.state]}</strong> · 原申请 {r.id}</p><p className="text-sm text-muted-foreground">Amazon {r.input.query.site.toUpperCase()} · {r.input.query.mode} · 最多 {r.input.query.limit} 条 · {r.input.format}</p><dl className="grid gap-3 text-sm"><div><dt className="text-muted-foreground">用途与业务场景</dt><dd className="whitespace-pre-wrap break-words">{r.input.purpose}</dd></div>{r.input.query.keyword ? <div><dt className="text-muted-foreground">关键词</dt><dd className="whitespace-pre-wrap break-words">{r.input.query.keyword}</dd></div> : null}{r.input.query.categoryNode ? <div><dt className="text-muted-foreground">类目节点</dt><dd>{r.input.query.categoryNode}</dd></div> : null}{r.input.query.asins?.length ? <div><dt className="text-muted-foreground">ASIN</dt><dd className="whitespace-pre-wrap break-all">{r.input.query.asins.join("、")}</dd></div> : null}<div><dt className="text-muted-foreground">所需字段</dt><dd>{r.input.query.fields?.length ? r.input.query.fields.join("、") : "默认商品字段"}</dd></div>{r.input.timeRange ? <div><dt className="text-muted-foreground">时间范围</dt><dd className="whitespace-pre-wrap break-words">{r.input.timeRange}</dd></div> : null}{r.input.notes ? <div><dt className="text-muted-foreground">补充说明</dt><dd className="whitespace-pre-wrap break-words">{r.input.notes}</dd></div> : null}</dl>{r.spec ? <div className="space-y-2 rounded-lg bg-muted p-4 text-sm"><p>确认规格：{r.spec.description}</p><p>报价记录：{r.spec.quoteNote}</p><p>确认记录：{r.spec.confirmationNote}</p><p>规格版本 {r.specRevision} · {r.spec.format} · 最多 {r.spec.maximumRows} 条</p></div> : null}{r.batchId ? <div className="rounded-lg border border-success-foreground bg-success p-4 text-sm text-success-foreground">已交付 {r.deliveredRows} 条 · 批次 {r.batchId}<Button className="ml-3" size="sm" asChild><Link href={`/workbench/data/mine?batchId=${r.batchId}`}>在我的数据中查看</Link></Button></div> : null}<h3 className="font-semibold">进度记录</h3><ol className="space-y-3 border-l pl-4">{r.events.map(event => <li className="text-sm" key={event.revision}><p className="font-medium">{stateNames[event.state]} · {moment(event.at)}</p><p className="whitespace-pre-wrap text-muted-foreground">{event.note}</p></li>)}</ol>{r.nextEventBefore ? <p className="text-xs text-muted-foreground">当前展示最近 100 条进度记录。</p> : null}</div>; }
+type AmazonResultPage = z.infer<typeof resultPageSchema>;
+type AmazonResult = AmazonResultPage["items"][number];
+
+const resultFieldNames = {
+    asin: "ASIN", site: "站点", title: "标题", description: "商品描述", brand: "品牌",
+    images: "商品图片", price: "价格", currency: "币种", availability: "库存",
+    attributes: "属性", variants: "规格", rating: "评分", reviewCount: "评价数",
+    sourceUrl: "商品链接", capturedAt: "采集时间",
+} satisfies Record<NonNullable<AmazonResult["missing"]>[number], string>;
+const stockNames: Record<string, string> = { available: "可购买", unavailable: "不可购买", unknown: "未确认" };
+const queryModeNames = { asin: "按 ASIN", keyword: "按关键词", category: "按类目" };
+
+function amazonQuerySource(query: DataQuery) {
+    if (query.mode === "keyword") return query.keyword;
+    if (query.mode === "category") return query.categoryNode;
+    const asins = query.asins ?? [];
+    return asins.length > 1 ? `${asins[0]} 等 ${asins.length} 个输入` : asins[0];
+}
+
+function AmazonResultCard({ item }: { item: AmazonResult }) {
+    const data = item.data;
+    const title = typeof data?.title === "string" ? data.title.trim() : "";
+    const asin = typeof data?.asin === "string" ? data.asin : "";
+    const price = typeof data?.price === "number" && Number.isFinite(data.price) ? data.price : null;
+    const currency = typeof data?.currency === "string" ? data.currency : "";
+    const stock = typeof data?.availability === "string" ? stockNames[data.availability] : undefined;
+    const fields = [
+        { label: "ASIN", value: asin },
+        { label: "品牌", value: typeof data?.brand === "string" ? data.brand : "" },
+        { label: "价格", value: price !== null ? [price, currency].filter(value => value !== "").join(" ") : "" },
+        { label: "库存", value: stock },
+        { label: "评分", value: typeof data?.rating === "number" ? String(data.rating) : "" },
+        { label: "评价数", value: typeof data?.reviewCount === "number" ? String(data.reviewCount) : "" },
+    ].filter(field => field.value);
+    const variant = item.state === "SAVED" ? "success" : item.state === "FAILED" ? "danger" : "neutral";
+    return <article className="space-y-3 rounded-lg border border-border p-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+            <h3 className="min-w-0 break-words font-semibold">{title || asin || (item.state === "SAVED" ? "已保存商品" : "采集条目")}</h3>
+            <Badge variant={variant}>{stateNames[item.state]}</Badge>
+        </div>
+        {item.reason ? <p className="text-sm text-warning-foreground">{failureNames[item.reason] ?? "来源未完成"}</p> : null}
+        {fields.length ? <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            {fields.map(({ label, value }) => <div key={label} className="min-w-0">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="break-words">{value}</dd>
+            </div>)}
+        </dl> : null}
+        {item.missing?.length ? <p className="text-sm text-muted-foreground">本次未取得：{item.missing.map(field => resultFieldNames[field]).join("、")}</p> : null}
+        {data && Object.keys(data).length ? <details>
+            <summary className="w-fit cursor-pointer text-sm text-primary">查看原始字段</summary>
+            <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs">{JSON.stringify(data, null, 2)}</pre>
+        </details> : null}
+    </article>;
+}
+
 function JobDialog({ scope, job: initial, onClose, onCancel, disabled = false }: {
     scope: DataScope;
     job: DataJob;
@@ -266,20 +324,69 @@ function JobDialog({ scope, job: initial, onClose, onCancel, disabled = false }:
     onCancel?: (job: DataJob) => void;
     disabled?: boolean;
 }) {
-    const [job, setJob] = useState(initial), [page, setPage] = useState<z.infer<typeof resultPageSchema> | null>(null), [cursor, setCursor] = useState(""), [error, setError] = useState(""), [reload, setReload] = useState(0), [loading, setLoading] = useState(false);
+    const [cursors, setCursors] = useState([""]);
+    const [reload, setReload] = useState(0);
+    const cursor = cursors[cursors.length - 1]!;
+    const requestKey = `${initial.id}:${initial.state}:${initial.canceled}:${cursor}:${reload}`;
+    const [jobSnapshot, setJobSnapshot] = useState<{ initial: DataJob; job: DataJob } | null>(null);
+    const [result, setResult] = useState<{ key: string; page: AmazonResultPage } | { key: string; error: string } | null>(null);
+    const current = result?.key === requestKey ? result : null;
+    const job = jobSnapshot?.initial === initial ? jobSnapshot.job : initial;
+    const page = current && "page" in current ? current.page : null;
+    const error = current && "error" in current ? current.error : "";
+    const loading = current === null;
+
     useEffect(() => {
         const controller = new AbortController();
-        Promise.all([dataRequest(scope, `amazon/jobs/${initial.id}`, jobSchema, undefined, controller.signal), dataRequest(scope, `amazon/jobs/${initial.id}/results${cursor ? `?cursor=${cursor}` : ""}`, resultPageSchema, undefined, controller.signal)]).then(([j, p]) => { setJob(j); setPage(p); }).catch(e => {
-            if (!controller.signal.aborted)
-                setError(e instanceof DataAPIError ? e.code : "DATA_UNAVAILABLE");
-        }).finally(() => {
-            if (!controller.signal.aborted)
-                setLoading(false);
+        const jobRead = dataRequest(scope, `amazon/jobs/${initial.id}`, jobSchema, undefined, controller.signal).then(job => {
+            if (!controller.signal.aborted) setJobSnapshot({ initial, job });
+        });
+        Promise.all([
+            jobRead,
+            dataRequest(scope, `amazon/jobs/${initial.id}/results${cursor ? `?cursor=${cursor}` : ""}`, resultPageSchema, undefined, controller.signal),
+        ]).then(([, page]) => {
+            if (!controller.signal.aborted) setResult({ key: requestKey, page });
+        }).catch(e => {
+            if (!controller.signal.aborted) setResult({ key: requestKey, error: e instanceof DataAPIError ? e.code : "DATA_UNAVAILABLE" });
         });
         return () => controller.abort();
-    }, [scope, initial.id, initial.state, cursor, reload]);
-    return <CollectionDialog title="采集任务与结果" onClose={onClose}><DataNotice error={error}/><div className="grid gap-3 text-sm sm:grid-cols-3"><p>状态：{stateNames[job.state]}</p><p>已保存 {job.saved} · 失败 {job.failed} · 等待 {job.pending}</p><p>已确认 {money(job.confirmedFen)} · 待确认 {money(job.pendingFen)}</p></div>{job.reason ? <p className="text-sm text-warning-foreground">{failureNames[job.reason] ?? "本次任务未全部完成"}</p> : null}<p className="text-xs text-muted-foreground">任务 {job.id} · 截止 {moment(job.deadline)}</p><div className="flex flex-wrap gap-3"><Button variant="outline" disabled={loading} onClick={() => setReload(n => n + 1)}>刷新进度</Button>{onCancel && ["ADMITTED", "RUNNING"].includes(job.state) ? <Button variant="outline" disabled={disabled} onClick={() => onCancel(job)}>取消未保存项</Button> : null}{job.batchId ? <Button asChild><Link href={`/workbench/data/mine?batchId=${job.batchId}`}>查看我的数据批次</Link></Button> : null}{page?.items.some(i => i.state === "SAVED") ? <Button variant="outline" onClick={() => download(page.items.filter(i => i.state === "SAVED"), `amazon-${job.id}.json`)}><Download size={16}/>下载本页 JSON</Button> : null}</div>{loading ? <p role="status">正在读取结果…</p> : null}{page ? <div className="space-y-3">{page.items.map(item => <article className="rounded-lg border p-4" key={item.id}><p className="text-sm font-semibold">{stateNames[item.state]}{item.reason ? ` · ${failureNames[item.reason] ?? "来源未完成"}` : ""}</p>{item.data ? <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs">{JSON.stringify(item.data, null, 2)}</pre> : null}{item.missing?.length ? <p className="mt-2 text-xs text-warning-foreground">本次未取得：{item.missing.join("、")}</p> : null}</article>)}{!page.items.length ? <p className="text-sm text-muted-foreground">暂未形成结果，刷新以查看进度。</p> : null}<div className="flex gap-2">{cursor ? <Button variant="outline" onClick={() => setCursor("")}>返回首页</Button> : null}{page.nextCursor ? <Button variant="outline" onClick={() => setCursor(page.nextCursor!)}>下一页结果</Button> : null}</div></div> : null}</CollectionDialog>;
+    }, [scope, initial, cursor, requestKey]);
+
+    return <CollectionDialog title="采集任务与结果" onClose={onClose}>
+        <div className="space-y-2 rounded-lg bg-muted p-4 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+                <strong>Amazon {job.query.site.toUpperCase()} · {queryModeNames[job.query.mode]}</strong>
+                <Badge variant={job.state === "SUCCEEDED" ? "success" : "neutral"}>{stateNames[job.state]}</Badge>
+            </div>
+            {amazonQuerySource(job.query) ? <p className="line-clamp-2 break-words text-muted-foreground">{amazonQuerySource(job.query)}</p> : null}
+            <p>已保存 {job.saved} 条 · 失败 {job.failed} 条 · 等待 {job.pending} 条</p>
+            <p>已确认 {money(job.confirmedFen)} · 待确认 {money(job.pendingFen)}</p>
+            {job.reason ? <p className="text-warning-foreground">{failureNames[job.reason] ?? "本次任务未全部完成"}</p> : null}
+            <details className="text-xs text-muted-foreground">
+                <summary className="w-fit cursor-pointer">任务信息</summary>
+                <p className="mt-1 break-all">任务 {job.id} · 截止 {moment(job.deadline)}</p>
+            </details>
+        </div>
+        <div className="flex flex-wrap gap-2">
+            {job.batchId ? <Button asChild><Link href={`/workbench/data/mine?batchId=${job.batchId}`}>查看我的数据批次</Link></Button> : null}
+            <Button variant="outline" disabled={loading} onClick={() => setReload(n => n + 1)}>刷新进度</Button>
+            {page?.items.some(item => item.state === "SAVED") ? <Button variant="outline" onClick={() => download(page.items.filter(item => item.state === "SAVED"), `amazon-${job.id}.json`)}><Download size={16}/>下载本页 JSON</Button> : null}
+            {onCancel && ["ADMITTED", "RUNNING"].includes(job.state) ? <Button variant="ghost" disabled={disabled || loading} onClick={() => onCancel(job)}>取消未保存项</Button> : null}
+        </div>
+        <section className="space-y-3" aria-label="Amazon 商品结果" aria-busy={loading}>
+            <DataNotice error={error}/>
+            {loading ? <p role="status" className="text-sm text-muted-foreground">正在读取结果…</p> : null}
+            {page?.items.map(item => <AmazonResultCard key={item.id} item={item}/>)}
+            {page && !page.items.length ? <p className="text-sm text-muted-foreground">暂无结果，可刷新查看最新进度。</p> : null}
+        </section>
+        {cursor || page?.nextCursor ? <nav aria-label="结果分页" className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-sm text-muted-foreground">第 {cursors.length} 页</span>
+            {cursor ? <Button variant="outline" onClick={() => setCursors(values => values.slice(0, -1))}>上一页结果</Button> : null}
+            {page?.nextCursor ? <Button variant="outline" onClick={() => setCursors(values => [...values, page.nextCursor!])}>下一页结果</Button> : null}
+        </nav> : null}
+    </CollectionDialog>;
 }
+
 function APIManagement({ scope }: {
     scope: DataScope;
 }) {

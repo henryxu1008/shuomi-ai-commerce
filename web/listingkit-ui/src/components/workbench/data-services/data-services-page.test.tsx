@@ -36,6 +36,43 @@ describe("data service product paths", () => {
         expect(requests.mock.calls.map(([url]) => url.split("/").at(-1))).toEqual(["options", "jobs"]);
         expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
     });
+    it("shows readable Amazon results and distinguishes failed page reads from empty results", async () => {
+        const saved = { ...job, state: "PARTIAL", saved: 1, failed: 1, batchId: id };
+        let failNext = true;
+        const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => {
+            if (url.endsWith("/options")) return json(options);
+            if (url.endsWith("/jobs")) return json([saved]);
+            if (url.endsWith(`/jobs/${id}`)) return json(saved);
+            if (url.endsWith("/results")) return json({
+                items: [{ id, state: "SAVED", data: { asin: "B000123456", title: "折叠台灯", price: 18.5, currency: "USD", availability: "available" }, missing: ["rating"] }],
+                nextCursor: id,
+            });
+            return failNext ? json({ error: { code: "DATA_UNAVAILABLE" } }, 503) : json({
+                items: [{ id, state: "FAILED", reason: "provider_challenged" }],
+            });
+        });
+        vi.stubGlobal("fetch", requests);
+        render(<DataServicesPage mode="amazon"/>);
+        fireEvent.click(await screen.findByRole("button", { name: /Amazon US/ }));
+        const dialog = screen.getByRole("dialog", { name: "采集任务与结果" });
+        expect(await within(dialog).findByRole("heading", { name: "折叠台灯" })).toBeVisible();
+        expect(within(dialog).getByText("18.5 USD")).toBeVisible();
+        expect(within(dialog).getByText("可购买")).toBeVisible();
+        expect(within(dialog).getByText("本次未取得：评分")).toBeVisible();
+        expect(within(dialog).getByText("查看原始字段")).toBeVisible();
+        expect(within(dialog).getByRole("link", { name: "查看我的数据批次" })).toHaveAttribute("href", `/workbench/data/mine?batchId=${id}`);
+        fireEvent.click(within(dialog).getByRole("button", { name: "下一页结果" }));
+        await within(dialog).findByRole("alert");
+        expect(within(dialog).queryByRole("heading", { name: "折叠台灯" })).not.toBeInTheDocument();
+        expect(within(dialog).queryByText(/暂无结果/)).not.toBeInTheDocument();
+        failNext = false;
+        fireEvent.click(within(dialog).getByRole("button", { name: "刷新进度" }));
+        expect(await within(dialog).findByText("Amazon 页面要求验证，本次获取已停止。")).toBeVisible();
+        expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+        fireEvent.click(within(dialog).getByRole("button", { name: "上一页结果" }));
+        expect(await within(dialog).findByRole("heading", { name: "折叠台灯" })).toBeVisible();
+        expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+    });
     it("keeps the new route behind the data services flag and redirects the previous deep link", async () => {
         vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "false");
         await expect(AmazonAcquisitionPage()).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
@@ -302,8 +339,10 @@ describe("data service product paths", () => {
         }));
         render(<DataServicesPage mode="api"/>);
         fireEvent.click(await screen.findByRole("button", { name: "查看" }));
-        expect(await screen.findByText(`失败 · ${label}`)).toBeInTheDocument();
-        expect(screen.queryByText("失败 · 来源未完成")).not.toBeInTheDocument();
+        const result = await screen.findByRole("article");
+        expect(within(result).getByText("失败")).toBeVisible();
+        expect(within(result).getByText(label)).toBeVisible();
+        expect(within(result).queryByText("来源未完成")).not.toBeInTheDocument();
     });
     it("shows the original customization criteria for the customer and specialist", () => {
         render(<CustomDetails request={{ id, input: { name: "fixture", query: { site: "us", mode: "keyword", keyword: "cordless drill", categoryNode: "12345", asins: ["B000123456"], limit: 5, fields: ["title", "price"] }, purpose: "选品分析", timeRange: "最近三个月", format: "json", notes: "只需品牌官方店" }, state: "SUBMITTED", revision: 1, specRevision: 0, deliveredRows: 0, createdAt: "2026-10-10T00:00:00Z", events: [] }}/>);
