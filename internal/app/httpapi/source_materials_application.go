@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	supplyapp "task-processor/internal/app/supplychain"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	listingapp "task-processor/internal/app/listing"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
@@ -22,7 +22,7 @@ func WithSourceMaterials(db *gorm.DB) CurrentApplicationOption {
 }
 
 type sourceMaterialsModule struct {
-	app    *supplyapp.Application
+	app    *listingapp.Application
 	routes []httproute.Descriptor
 }
 
@@ -52,7 +52,7 @@ func composeSourceApprovals(db *gorm.DB, selections asset.SourceSelectionReader)
 	return assets, approvals, err
 }
 
-func buildSourceMaterialsModule(ctx context.Context, productDB, assetDB *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *supplyapp.Application) (sourceMaterialsModule, error) {
+func buildSourceMaterialsModule(ctx context.Context, productDB, assetDB *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *listingapp.Application) (sourceMaterialsModule, error) {
 	if err := assetstore.VerifySourceRuntimePermissions(ctx, assetDB); err != nil {
 		return sourceMaterialsModule{}, err
 	}
@@ -64,17 +64,17 @@ func buildSourceMaterialsModule(ctx context.Context, productDB, assetDB *gorm.DB
 		}
 		app = core.app
 		app.SourceMaterialsOnly = true
-		app.Products = supplyapp.EffectiveProductReader{}
+		app.Products = listingapp.EffectiveProductReader{}
 		var e error
-		app.Assets, app.Approvals, e = composeSourceApprovals(assetDB, supplyapp.SourceImageReader{Sources: app.Sources, Products: app.Products, Authorization: app.Authorization, OriginalOnly: true})
+		app.Assets, app.Approvals, e = composeSourceApprovals(assetDB, listingapp.SourceImageReader{Sources: app.Sources, Products: app.Products, Authorization: app.Authorization, OriginalOnly: true})
 		if e != nil {
 			return sourceMaterialsModule{}, e
 		}
 	}
 	bind := productReviewCapabilityBinder{now: time.Now}
-	routes := supplyhttp.SourceMaterialRoutes(app, bind.Bind)
+	routes := listinghttp.SourceMaterialRoutes(app, bind.Bind)
 	if full == nil {
-		routes = append(routes, supplyhttp.PreparationRoutes(app, bind.Bind)...)
+		routes = append(routes, listinghttp.PreparationRoutes(app, bind.Bind)...)
 	} else {
 		// Full Supply already owns both image routes and Preparation routes.
 		routes = routes[len(routes)-1:]

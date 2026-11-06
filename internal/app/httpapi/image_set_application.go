@@ -9,8 +9,8 @@ import (
 	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	imageapp "task-processor/internal/app/imageagent"
+	listingapp "task-processor/internal/app/listing"
 	appruntime "task-processor/internal/app/runtime"
-	supplyapp "task-processor/internal/app/supplychain"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
@@ -62,7 +62,7 @@ type fullImageApplication struct {
 	recent            imageagent.ImageSetRunReader
 	generationFacts   imageGenerationFactReader
 	gate              imageagent.TenantAllowlistStartGate
-	rules             supplyapp.ImageSetTargetRules
+	rules             listingapp.ImageSetTargetRules
 	manualAvailable   bool
 }
 
@@ -79,7 +79,7 @@ func (a *fullImageApplication) runs() imageRunHistory {
 type FullImageSetDependencies = appruntime.FullImageSetDependencies
 
 type imageMediaScopeAuthority struct {
-	current supplyapp.OrganizationExecutionAuthorizer
+	current listingapp.OrganizationExecutionAuthorizer
 }
 
 func (a imageMediaScopeAuthority) Authorize(ctx context.Context, permission string) (collection.Scope, error) {
@@ -110,7 +110,7 @@ func WithFullImageSet(db *gorm.DB, workflows imageagent.WorkflowClient, d FullIm
 // Source evidence uses its own live permission. Image write is separately
 // checked by the route and by the generation worker before every dispatch.
 type imageSourceScopeAuthority struct {
-	current supplyapp.OrganizationExecutionAuthorizer
+	current listingapp.OrganizationExecutionAuthorizer
 }
 
 func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, scope collection.Scope) error {
@@ -119,7 +119,7 @@ func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, 
 
 // The caller owns the API/worker, configuration, source, resource and Asset
 // pools. This assembly installs no schema and starts no provider or worker.
-func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.SharedCategoryReader, channelCredentials credential.SecretReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
+func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live listingapp.OrganizationExecutionAuthorizer, supply *listingModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.SharedCategoryReader, channelCredentials credential.SecretReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(mediaReaders) > 1 {
 		return nil, empty, imageagent.ErrValidation
@@ -182,23 +182,23 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		if err != nil {
 			return nil, empty, err
 		}
-		sources.Supply = supplyapp.ImageSetSources{ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
+		sources.Supply = listingapp.ImageSetSources{ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
 	}
 	if supply != nil {
 		if supply.app == nil {
 			return nil, empty, imageagent.ErrCommandBlocked
 		}
-		sources.Supply = supplyapp.ImageSetSources{ExecutionSources: supply.app.Sources, ExecutionAuthorization: live, Products: supply.app.Products}
+		sources.Supply = listingapp.ImageSetSources{ExecutionSources: supply.app.Sources, ExecutionAuthorization: live, Products: supply.app.Products}
 	}
 	readSources := sources
 	if genericSource != nil {
-		readSources.Supply = supplyapp.ImageSetSources{Permission: preparation.PermissionRead, ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
+		readSources.Supply = listingapp.ImageSetSources{Permission: preparation.PermissionRead, ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
 	}
 	sourceSelections := imageapp.ImageSetSourceSelectionReader{Sources: sources}
-	rules := supplyapp.ImageSetTargetRules{}
+	rules := listingapp.ImageSetTargetRules{}
 	if supply != nil {
-		readSources.Supply = supplyapp.ImageSetSources{Permission: preparation.PermissionRead, ExecutionSources: supply.app.Sources, ExecutionAuthorization: live, Products: supply.app.Products}
-		rules = supplyapp.ImageSetTargetRules{Records: supply.app.Records, Sources: sourceSelections, Rules: supply.app.Rules}
+		readSources.Supply = listingapp.ImageSetSources{Permission: preparation.PermissionRead, ExecutionSources: supply.app.Sources, ExecutionAuthorization: live, Products: supply.app.Products}
+		rules = listingapp.ImageSetTargetRules{Records: supply.app.Records, Sources: sourceSelections, Rules: supply.app.Rules}
 	}
 	contexts, err := imageapp.NewImageSetContextReader(sources, rules, newImageSetSourceByteReader(), productimage.MaxInlineArtifactBytes)
 	if err != nil {
@@ -273,8 +273,8 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 			return nil, err
 		}
 		candidates.WithImageMethods(methods)
-		images := supplyapp.NewPublicImageProbe()
-		targets := imageapp.ImageSetMaterialTargetResolver{ReadBytes: newImageSetSourceByteReader(), ReadGeneratedBytes: generatedMaterials.Read, Official: supplyapp.ImageSetAssetTargetResolver{Rules: rules, Images: images, ReadGeneratedBytes: generatedMaterials.Read}}
+		images := listingapp.NewPublicImageProbe()
+		targets := imageapp.ImageSetMaterialTargetResolver{ReadBytes: newImageSetSourceByteReader(), ReadGeneratedBytes: generatedMaterials.Read, Official: listingapp.ImageSetAssetTargetResolver{Rules: rules, Images: images, ReadGeneratedBytes: generatedMaterials.Read}}
 		service, err := asset.NewImageSetService(sourceSelections, assetRepository, inventories, approvals, candidates, targets)
 		if err != nil {
 			return nil, err
@@ -346,9 +346,9 @@ func artworkConfigurationReady(ctx context.Context, configurationDB, productDB *
 
 // Generic Acquisition consumes the existing Product/Review and live IAM ports
 // directly; official Store and Supply execution are separate optional consumers.
-func buildFullImageProducts(db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, cfg *config.Config) (imageapp.EffectiveImageProductReader, supplyapp.OrganizationExecutionAuthorizer, error) {
+func buildFullImageProducts(db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, cfg *config.Config) (imageapp.EffectiveImageProductReader, listingapp.OrganizationExecutionAuthorizer, error) {
 	var products imageapp.EffectiveImageProductReader
-	var authorization supplyapp.OrganizationExecutionAuthorizer
+	var authorization listingapp.OrganizationExecutionAuthorizer
 	resolver, ok := deps.organizationResolver.(*workbenchcontext.Resolver)
 	if !ok || resolver == nil || permissions == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
 		return products, authorization, imageagent.ErrCommandBlocked
@@ -362,11 +362,11 @@ func buildFullImageProducts(db *gorm.DB, deps routeAuthDependencies, permissions
 		return products, authorization, err
 	}
 	products = imageapp.EffectiveImageProductReader{Snapshots: snapshots, Applied: applied}
-	authorization = supplyapp.OrganizationExecutionAuthorizer{Client: zitadel.NewAuthorizationClient(cfg.ListingKit.Zitadel.AuthorizationAPIURL, &http.Client{Timeout: 5 * time.Second}), ServiceToken: func(context.Context) (string, error) { return cfg.ListingKit.Zitadel.TenantDirectoryToken, nil }, ProjectID: cfg.ListingKit.Zitadel.ProjectID, Permissions: permissions, OrganizationStatus: resolver.BusinessStatusChecker()}
+	authorization = listingapp.OrganizationExecutionAuthorizer{Client: zitadel.NewAuthorizationClient(cfg.ListingKit.Zitadel.AuthorizationAPIURL, &http.Client{Timeout: 5 * time.Second}), ServiceToken: func(context.Context) (string, error) { return cfg.ListingKit.Zitadel.TenantDirectoryToken, nil }, ProjectID: cfg.ListingKit.Zitadel.ProjectID, Permissions: permissions, OrganizationStatus: resolver.BusinessStatusChecker()}
 	return products, authorization, nil
 }
 
-func newFullImageWorkerAuthorizer(live supplyapp.OrganizationExecutionAuthorizer) imageagent.ExecutionAuthorizer {
+func newFullImageWorkerAuthorizer(live listingapp.OrganizationExecutionAuthorizer) imageagent.ExecutionAuthorizer {
 	// Activities validate the persisted Run subject before live authorization,
 	// then restore its context. They never inherit a browser request identity.
 	return imageworker.OrganizationExecutionAuthorizer{

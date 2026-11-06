@@ -32,7 +32,7 @@ func TestSetDispatchRequiresFreshOriginalSourceOwnerBeforeReadingProviderInput(t
 	require.Equal(t, 1, contexts.calls)
 	require.Equal(t, input.OrganizationIdentity, contexts.identity)
 	altered := *set
-	altered.Source.ContextKind = imageagent.ImageSourceSupply
+	altered.Source.ContextKind = imageagent.ImageSourceListing
 	input.ImageSet = &altered
 	require.ErrorIs(t, revalidateGenerationImageSet(context.Background(), repo, contexts, input), imageagent.ErrRevisionConflict)
 	require.Equal(t, 1, contexts.calls, "an altered source owner cannot reach source fetch")

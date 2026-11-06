@@ -140,7 +140,7 @@ func (r *Repository) Transfer(ctx context.Context, commit preparation.TransferCo
 	}
 	count, err := reader.VisitSelection(ctx, proof, func(item collection.Item) error {
 		// Admit only the source kinds covered by the current Preparation contract.
-		if !collection.SupplyTransferKind(item.Source.Kind) {
+		if !collection.ListingTransferKind(item.Source.Kind) {
 			return preparation.ErrInvalid
 		}
 		buffer = append(buffer, sourceRow{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ID: collection.StableID(row.ID, item.ID), PreparationID: row.ID, CollectionItemID: item.ID, CollectionRevision: item.Revision, ProductKey: item.Source.ProductKey, PublicationID: item.Source.PublicationID, OriginalVersion: item.Source.Version, SourceKind: item.Source.Kind, SourceOperationID: item.Source.OperationID})

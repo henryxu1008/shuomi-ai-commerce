@@ -11,7 +11,7 @@ import (
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/commercetool"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	record "task-processor/internal/listing/record/target"
@@ -81,7 +81,7 @@ func TestMaterialsQualifiedAutomaticSaveUsesNativeReceipt(t *testing.T) {
 
 func materialsFixturePointer[T any](v T) *T { return &v }
 
-type materialsQualifiedFixtureRules struct{ supplyAgentFixtureRules }
+type materialsQualifiedFixtureRules struct{ listingAgentFixtureRules }
 
 func (r materialsQualifiedFixtureRules) ReadTargetRules(context.Context, collection.Scope, string, goods.OfficialDraftInput) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
 	return r.merchant, goods.OfficialRuleSnapshot{ApplicationMode: sheinmodel.ModeSelfOperated, Warehouses: []sheinmodel.Warehouse{}, Categories: []sheinmodel.Category{{ID: 123, ProductTypeID: 456, Leaf: materialsFixturePointer(true)}}, Sites: []sheinmodel.MainSite{{ID: "shein", Sites: []sheinmodel.Site{{Abbreviation: "shein-us", Status: materialsFixturePointer(1), StoreType: materialsFixturePointer(2), Currency: "USD"}}}}, Fill: sheinmodel.FillStandards{DefaultLanguage: "en", DefaultTitleMaximum: materialsFixturePointer(150), SupplierCodeInSPU: materialsFixturePointer(false), Fields: []sheinmodel.FillRule{}, Pictures: []sheinmodel.PictureRule{{Field: "switch_spu_picture", Enabled: materialsFixturePointer(false)}, {Field: "sku_image_required", Enabled: materialsFixturePointer(false)}}}, Attributes: sheinmodel.AttributeTemplate{ProductTypeID: 456, MainAttributeStatus: materialsFixturePointer(1), Attributes: []sheinmodel.Attribute{{ID: 12, Name: "Default", Type: materialsFixturePointer(1), Show: materialsFixturePointer(1), MainLabel: materialsFixturePointer(1), Mode: materialsFixturePointer(2), Status: materialsFixturePointer(3), MaximumSelections: materialsFixturePointer(1), Options: []sheinmodel.AttributeOption{{ID: 34, Show: materialsFixturePointer(1), Name: "Default"}}}}}, Linked: []sheinmodel.LinkedRules{{GroupID: "product", Attributes: []sheinmodel.LinkedAttributeRule{}}, {GroupID: "sku-0-0", Attributes: []sheinmodel.LinkedAttributeRule{}}}, Brands: []sheinmodel.Brand{{Code: "fixture-brand", Name: "Fixture"}}}, nil
@@ -107,7 +107,7 @@ func installMaterialsQualifiedAssets(t *testing.T, f *acquisitionHTTPFixture, pr
 	require.NoError(t, err)
 }
 
-type materialsOwnerFixtureRules struct{ supplyAgentFixtureRules }
+type materialsOwnerFixtureRules struct{ listingAgentFixtureRules }
 
 func (r materialsOwnerFixtureRules) ReadTargetRules(context.Context, collection.Scope, string, goods.OfficialDraftInput) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
 	return r.merchant, goods.OfficialRuleSnapshot{ApplicationMode: sheinmodel.ModeSelfOperated, Brands: []sheinmodel.Brand{{Code: "fixture-brand", Name: "Disclosed fixture brand"}}}, nil
@@ -120,7 +120,7 @@ func (r materialsOwnerFixtureRules) ReadCandidateCategoryRules(_ context.Context
 	return r.merchant, goods.OfficialRuleSnapshot{Categories: []sheinmodel.Category{{ID: 123, ProductTypeID: 456, Leaf: materialsFixturePointer(true)}}, Fill: sheinmodel.FillStandards{Fields: []sheinmodel.FillRule{}}, Attributes: sheinmodel.AttributeTemplate{ProductTypeID: 456}}, nil
 }
 
-func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32, owner *gorm.DB) {
+func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentApplication, supply *listingapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32, owner *gorm.DB) {
 	t.Helper()
 	ctx := context.Background()
 	scope := agent.Scope{OrganizationID: "B", ActorID: "admin"}

@@ -16,7 +16,7 @@ func (r ImageSetSourceRouter) ReadImageSetSource(ctx context.Context, identity i
 	switch input.ContextKind {
 	case imageagent.ImageSourceAcquisition:
 		reader = r.Acquisition
-	case imageagent.ImageSourceSupply:
+	case imageagent.ImageSourceListing:
 		reader = r.Supply
 	default:
 		return imageagent.ImageSetPreparation{}, imageagent.ErrIdentityRequired

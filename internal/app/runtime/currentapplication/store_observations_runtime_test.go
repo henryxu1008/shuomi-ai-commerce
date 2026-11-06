@@ -45,8 +45,8 @@ func TestStoreObservationAndSupplyReuseOnlyExactTemporalTarget(t *testing.T) {
 			stop := errors.New("synthetic-construction-stop")
 			open := func(context.Context, DatabaseConfig) (*gorm.DB, error) { return &gorm.DB{}, nil }
 			err := Run(context.Background(), c, logrus.New(), Dependencies{
-				IdentityPreflight: func(context.Context, IdentityConfig) error { return nil }, OpenSourceAccount: open, OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return emptyStorageCommercialOwner(t), nil }, OpenProductAcquisition: open, OpenStoreCenter: open, OpenSupplyAssets: open, CloseDatabase: func(*gorm.DB) error { return nil },
-				DialSupplyWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
+				IdentityPreflight: func(context.Context, IdentityConfig) error { return nil }, OpenSourceAccount: open, OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return emptyStorageCommercialOwner(t), nil }, OpenProductAcquisition: open, OpenStoreCenter: open, OpenApprovedAssets: open, CloseDatabase: func(*gorm.DB) error { return nil },
+				DialProductWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
 					supplyDials++
 					return supply, func() error { closes++; return nil }, nil
 				},
@@ -56,7 +56,7 @@ func TestStoreObservationAndSupplyReuseOnlyExactTemporalTarget(t *testing.T) {
 					return observations, func() error { closes++; return nil }, nil
 				},
 				NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
-					require.Same(t, supply, f.SupplyWorkflow)
+					require.Same(t, supply, f.ListingWorkflow)
 					if same {
 						require.Same(t, supply, f.StoreObservationsWorkflow)
 					} else {
@@ -113,8 +113,8 @@ func TestStoreObservationProcessServesOnlyAfterWorkerAndPreservesPools(t *testin
 						require.Same(t, workflowClient, f.StoreObservationsWorkflow)
 						require.True(t, f.StoreObservationsPreparationOnly)
 						require.Nil(t, f.OfficialStoreApplications)
-						require.Nil(t, f.SupplyAssetDB)
-						require.Nil(t, f.SupplyWorkflow)
+						require.Nil(t, f.ApprovedAssetDB)
+						require.Nil(t, f.ListingWorkflow)
 						require.False(t, f.StoreObservationsLifecycle.Ready())
 						if stage == "construct-error" {
 							return nil, errors.New("synthetic-construct-error")

@@ -22,7 +22,7 @@ func validateAgentCustomizationPool(o currentApplicationOptions, source *gorm.DB
 	if o.agentCustomizations != 1 || o.agentCustomizationDB == nil {
 		return errors.New("agent customization requires one existing owner pool")
 	}
-	if o.supplyChain != nil && o.agentConfigurationDB == nil {
+	if o.listing != nil && o.agentConfigurationDB == nil {
 		return errors.New("private quality execution requires the agent configuration mode owner")
 	}
 	others := []*gorm.DB{source, o.commercialOwnerDB, o.moneyOwnerDB, o.referralDB, o.productAcquisitionDB, o.imageAgentDB, o.accountAuditImageDB, o.accountAuditProductDB, o.storeCenterDB, o.localTrialDB, o.agentConfigurationDB, o.notificationDB, o.projectCenterDB}
@@ -32,8 +32,8 @@ func validateAgentCustomizationPool(o currentApplicationOptions, source *gorm.DB
 	if o.ecoservices != nil {
 		others = append(others, o.ecoservices.DB)
 	}
-	if o.supplyChain != nil {
-		others = append(others, o.supplyChain.AssetDB)
+	if o.listing != nil {
+		others = append(others, o.listing.AssetDB)
 	}
 	if o.productAgent != nil {
 		others = append(others, o.productAgent.RunDB, o.productAgent.ReviewDB, o.productAgent.AssetDB)

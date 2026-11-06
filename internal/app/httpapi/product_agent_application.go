@@ -117,7 +117,7 @@ type productAgentApplication struct {
 	readiness               *readinessinspect.Invoker
 	points                  *orgresourceadapter.GormModelInvocationRepository
 	textAdmission           *governed.BoundedAdmission
-	supplyExecution         *supplyProductAgent
+	listingExecution        *listingProductAgent
 	executionSource         *sourcing.ExecutionPublicationGateway
 	executionReviews        *review.ExecutionCandidateService
 	executionReviewLookup   review.AppliedPublicationLookup
@@ -357,8 +357,8 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 }
 
 func (a *productAgentApplication) AuthorizeModelInvocation(ctx context.Context, fact aicapability.InvocationRecord) error {
-	if supplyAgentContext(ctx) {
-		return a.authorizeSupplyModel(ctx, fact.TenantID, fact.UserID, fact.MemberID)
+	if listingAgentContext(ctx) {
+		return a.authorizeListingModel(ctx, fact.TenantID, fact.UserID, fact.MemberID)
 	}
 	var i authidentity.AuthenticatedIdentity
 	var err error
@@ -509,7 +509,7 @@ func (a *productAgentApplication) Authorize(ctx context.Context, binding agent.B
 		return agent.Scope{OrganizationID: publication.Receipt.OrganizationID, ActorID: publication.Receipt.ActorID}, err
 	}
 	if binding.ContextKind == "collection" {
-		return a.authorizeSupplyBinding(ctx, binding)
+		return a.authorizeListingBinding(ctx, binding)
 	}
 	if binding.ContextKind != "acquisition" && binding.ContextKind != contentagent.OwnProductContext {
 		return agent.Scope{}, agent.ErrInvalid
@@ -533,7 +533,7 @@ func (a *productAgentApplication) Invoke(ctx context.Context, ref commercetool.T
 	if _, err := a.Authorize(ctx, b); err != nil {
 		return commercetool.Result{}, err
 	}
-	if !supplyAgentContext(ctx) {
+	if !listingAgentContext(ctx) {
 		i, err := a.freshIdentity(ctx)
 		if err != nil {
 			return commercetool.Result{}, err
@@ -585,8 +585,8 @@ func (a *productAgentApplication) Validate(ctx context.Context, request agent.Re
 	if _, err := a.Authorize(ctx, b); err != nil {
 		return agent.Validation{}, err
 	}
-	if supplyAgentContext(ctx) {
-		return a.validateSupplyCandidate(ctx, b, policy, candidate, history)
+	if listingAgentContext(ctx) {
+		return a.validateListingCandidate(ctx, b, policy, candidate, history)
 	}
 	i, err := a.freshIdentity(ctx)
 	if err != nil {

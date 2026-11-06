@@ -20,8 +20,8 @@ const (
 	PermissionWorkbenchTaskRead                 = "workbench.task.read"
 	PermissionWorkbenchCollectionRead           = "workbench.collection.read"
 	PermissionWorkbenchCollectionManage         = "workbench.collection.manage"
-	PermissionWorkbenchSupplyRead               = "workbench.supply.read"
-	PermissionWorkbenchSupplyManage             = "workbench.supply.manage"
+	PermissionWorkbenchListingRead              = "workbench.supply.read"
+	PermissionWorkbenchListingManage            = "workbench.supply.manage"
 	PermissionWorkbenchListingSubmit            = "workbench.listing.submit"
 	PermissionListingKitAdminRead               = "listingkit.admin.read"
 	PermissionListingKitAdminWrite              = "listingkit.admin.write"
@@ -73,7 +73,7 @@ var workbenchReportPermissions = []string{"workbench.report.read", "workbench.re
 
 var workbenchToolPermissions = []string{PermissionWorkbenchToolsRead, PermissionWorkbenchToolsManage, PermissionWorkbenchToolsCustomize}
 
-var workbenchSupplyPermissions = []string{PermissionWorkbenchCollectionRead, PermissionWorkbenchCollectionManage, PermissionWorkbenchSupplyRead, PermissionWorkbenchSupplyManage, PermissionWorkbenchListingSubmit}
+var workbenchListingPermissions = []string{PermissionWorkbenchCollectionRead, PermissionWorkbenchCollectionManage, PermissionWorkbenchListingRead, PermissionWorkbenchListingManage, PermissionWorkbenchListingSubmit}
 
 var workbenchSourceAccountPermissions = []string{
 	PermissionWorkbenchSourceAccountRead,
@@ -98,7 +98,7 @@ func WorkbenchPermissions() []string {
 	result = append(result, workbenchReportPermissions...)
 	result = append(result, supplyMarketPermissions...)
 	result = append(result, fulfillmentPermissions...)
-	for _, group := range [][]string{cockpitPermissions, []string{"workbench.project.read", "workbench.project.manage"}, workbenchToolPermissions, workbenchChatPermissions, workbenchKnowledgePermissions, workbenchEcoservicesPermissions, workbenchSupplyPermissions, workbenchStorePermissions, workbenchStoreObservationPermissions, workbenchSourceAccountPermissions, workbenchOrganizationMemberPermissions, workbenchCommercialPermissions} {
+	for _, group := range [][]string{cockpitPermissions, []string{"workbench.project.read", "workbench.project.manage"}, workbenchToolPermissions, workbenchChatPermissions, workbenchKnowledgePermissions, workbenchEcoservicesPermissions, workbenchListingPermissions, workbenchStorePermissions, workbenchStoreObservationPermissions, workbenchSourceAccountPermissions, workbenchOrganizationMemberPermissions, workbenchCommercialPermissions} {
 		result = append(result, group...)
 	}
 	return append(result, PermissionWorkbenchStoreBrowserUse, PermissionWorkbenchCredentialsManage)
@@ -311,13 +311,13 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 				return nil, err
 			}
 		}
-		for _, permission := range workbenchSupplyPermissions {
+		for _, permission := range workbenchListingPermissions {
 			if _, err := enforcer.AddPolicy(role, permission); err != nil {
 				return nil, err
 			}
 		}
 	}
-	for _, permission := range []string{PermissionWorkbenchCollectionRead, PermissionWorkbenchSupplyRead, PermissionWorkbenchStoreProductsRead, PermissionWorkbenchStoreOrdersRead} {
+	for _, permission := range []string{PermissionWorkbenchCollectionRead, PermissionWorkbenchListingRead, PermissionWorkbenchStoreProductsRead, PermissionWorkbenchStoreOrdersRead} {
 		if _, err := enforcer.AddPolicy("listingkit_viewer", permission); err != nil {
 			return nil, err
 		}
@@ -328,7 +328,7 @@ func NewListingKitAuthorizer(platformAdminUsers []string, platformAdminRoles []s
 				return nil, err
 			}
 		}
-		for _, permission := range workbenchSupplyPermissions {
+		for _, permission := range workbenchListingPermissions {
 			if _, err := enforcer.AddPolicy(userSubject(userID), permission); err != nil {
 				return nil, err
 			}

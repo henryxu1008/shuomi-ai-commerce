@@ -32,7 +32,7 @@ func TestReportCenterLifecycleIndependentSourcesAndCleanup(t *testing.T) {
 		}, CloseDatabase: func(db *gorm.DB) error { closed = append(closed, db); return nil }, NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *core.Config, _ *logrus.Logger) (*http.Server, error) {
 			require.Same(t, reports, f.ReportCenterDB)
 			require.Nil(t, f.ProductAgent)
-			require.Nil(t, f.SupplyAssetDB)
+			require.Nil(t, f.ApprovedAssetDB)
 			return nil, stop
 		}}
 		require.Error(t, Run(context.Background(), cfg, logrus.New(), deps))

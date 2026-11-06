@@ -14,7 +14,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authidentity"
 	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
@@ -520,7 +520,7 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 			local, err := ready.CreateForExecution(ctx, scope, uuid.NewString(), input)
 			require.NoError(t, err)
 			merchant := &uploadExecutionMerchant{binding: local.Record.Merchant, loseResponse: loseResponse}
-			uploader, err := supplyapp.NewUploadService(supplyapp.UploadDependencies{
+			uploader, err := listingapp.NewUploadService(listingapp.UploadDependencies{
 				Sources: selector, Products: record.OriginalTargetProduct{}, Assets: readyAssets{},
 				Rules: uploadExecutionRules{local.Record.Merchant, rules}, Records: repository, Authorization: execution,
 				Stores: uploadExecutionStore{merchant}, Images: uploadExecutionProbe{}, Kernel: kernel, Intents: official, Receipts: official,

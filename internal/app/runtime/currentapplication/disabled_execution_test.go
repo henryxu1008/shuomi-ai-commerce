@@ -58,7 +58,7 @@ func TestDisabledFullImageKeepsReadPoolsWithoutWorkerDependencies(t *testing.T) 
 				OpenCommercialOwner:    func(context.Context, DatabaseConfig) (*gorm.DB, error) { return points, nil },
 				OpenMoneyOwner:         func(context.Context, DatabaseConfig) (*gorm.DB, error) { return money, nil },
 				OpenImageAgent:         func(context.Context, DatabaseConfig) (*gorm.DB, error) { return images, nil },
-				OpenSupplyAssets:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
+				OpenApprovedAssets:     func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
 				// No worker config loader or Temporal dependency is supplied. The referenced
 				// private-worker.yaml does not exist and must never be read in this mode.
 				NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, c *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {

@@ -14,7 +14,7 @@ const navigationIcons: Record<string, LucideIcon> = {
   "/workbench/ai/chat": MessageSquare, "/workbench/ai/tasks": ListChecks,
   "/workbench/ai/projects": FolderKanban, "/workbench/ai/knowledge": BookOpen,
   "/workbench/agents/skills": Sparkles, "/workbench/ai/reports": FileChartColumn,
-  "/workbench/supply/acquisition": ScanLine, "/workbench/supply/official": Building2,
+  [onlineAcquisitionGroup]: ScanLine, "/workbench/supply/official": Building2,
   "/workbench/supply/selected": Star, "/workbench/supply/catalogs": Boxes,
   [listingHome]: GitBranch, "/workbench/supply/applications": ClipboardList,
   "/workbench/supply/operator": ClipboardCheck,
@@ -40,7 +40,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/
 import { useQuery } from "@tanstack/react-query";
 import { ecoPageSchema, ecoRequest } from "@/lib/api/ecoservices";
 import { listMarketRecords } from "@/lib/api/supply-market";
-import { consoleNavigation, findConsoleRoute, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
+import { acquisition1688Href, amazonRealtimeAcquisitionHref, consoleNavigation, findConsoleRoute, onlineAcquisitionGroup, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
 import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
 import { researchLocation, researchNavigationHref, researchWorkflows, type ResearchLocation } from "@/lib/workbench/research-navigation";
 
@@ -66,11 +66,10 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
     const kinds=query?.getAll("kind");if(kinds?.length===1&&(kinds[0]==="consumer_order"||kinds[0]==="platform_supply"))orderSelection.set("kind",kinds[0]);
   }
   const listingQuery=selection.size?`?${selection}`:"";
-  const navigation = productAcquisitionAvailable ? consoleNavigation : consoleNavigation.map(node => node.href === "/workbench/supply" ? { ...node, children: node.children?.filter(child => child.href !== "/workbench/supply/acquisition") } : node);
   const nativeAvailable=nativeRunsAvailable&&canDiscoverNativeRuns(cockpitPermissions);
   const independentTaskAvailable = nativeAvailable || productReviewAvailable || sheinRecordsAvailable;
   const entryCapabilities = { operationsCockpitAvailable, cockpitPermissions, productAcquisitionAvailable, supplyMarketAvailable, supplyChainAvailable, supplyPreparationAvailable, supplyCompletionDraftsAvailable, dataServicesAvailable, productCollectionsAvailable, toolMarketAvailable, ecoservicesAvailable, aiWorkbenchAvailable, projectCenterAvailable, knowledgeAvailable, reportCenterAvailable, productReviewAvailable, sheinRecordsAvailable };
-  const nodes = navigation.map(entry => {
+  const nodes = consoleNavigation.map(entry => {
     const connected = entry.href === "/workbench" && operationsCockpitAvailable || firstConnectedConsoleEntry(entry.href, entryCapabilities) !== null;
     const node = { ...entry, availability: connected ? "connected" as const : "unavailable" as const };
     if (researchWorkflows.some(workflow => workflow.root === node.href)) {
@@ -85,7 +84,18 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
  if(node.href === "/workbench/store-orders") return {...node,availability:storeOrdersAvailable||fulfillmentAvailable?"connected" as const:"unavailable" as const,children:node.children?.map(child=>({...child,availability:(child.href.endsWith("/records")?storeOrdersAvailable:fulfillmentAvailable)?"connected" as const:"unavailable" as const}))};
  if(node.href === "/workbench/store-center") return {...node,children:node.children?.map(child => child.href === "/workbench/store-products" ? {...child,availability:storeProductsAvailable ? "connected" as const:"unavailable" as const} : child.href === "/workbench/store-orders" ? {...child,availability:storeOrdersAvailable ? "connected" as const:"unavailable" as const} :child)};
     if(node.href==="/workbench/services"&&ecoservicesAvailable)return {...node,availability:"connected" as const,children:node.children?.map(child=>({...child,availability:"connected" as const}))};
-    if (node.href === "/workbench/supply") return { ...node, children: node.children?.map(child => ["/workbench/supply/official","/workbench/supply/selected","/workbench/supply/catalogs","/workbench/supply/applications"].includes(child.href) && supplyMarketAvailable ? {...child,availability:"connected" as const,children:child.children?.map(entry=>({...entry,availability:"connected" as const}))}:child) };
+    if (node.href === "/workbench/supply") return { ...node, children: node.children?.flatMap(child => {
+      if (child.href === onlineAcquisitionGroup) {
+        const children = child.children?.filter(platform =>
+          (platform.href === acquisition1688Href && productAcquisitionAvailable) ||
+          (platform.href === amazonRealtimeAcquisitionHref && dataServicesAvailable)
+        );
+        return children?.length ? [{ ...child, children }] : [];
+      }
+      return [supplyMarketAvailable && ["/workbench/supply/official", "/workbench/supply/selected", "/workbench/supply/catalogs", "/workbench/supply/applications"].includes(child.href)
+        ? { ...child, availability: "connected" as const, children: child.children?.map(entry => ({ ...entry, availability: "connected" as const })) }
+        : child];
+    }) };
     if (node.href === "/workbench/data") return { ...node, availability: dataServicesAvailable || productCollectionsAvailable ? "connected" as const : node.availability, children: node.children?.map(child => child.href === "/workbench/data/mine" && productCollectionsAvailable || ["/workbench/data/market", "/workbench/data/api"].includes(child.href) && dataServicesAvailable ? { ...child, availability: "connected" as const } : child) };
     if (node.href !== "/workbench/ai") return node;
     const children = (node.children ?? [])

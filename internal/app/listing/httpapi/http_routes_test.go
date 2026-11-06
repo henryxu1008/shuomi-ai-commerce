@@ -1,0 +1,121 @@
+package listinghttp
+
+import (
+	"context"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	listingapp "task-processor/internal/app/listing"
+	"task-processor/internal/listing/preparation"
+	"task-processor/internal/listing/submission"
+	"task-processor/internal/product/collection"
+	"testing"
+	"time"
+)
+
+func TestSheinRoutesBudgetsAndKernelErrors(t *testing.T) {
+	for _, r := range ListingRoutes(&listingapp.Application{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		if strings.Contains(r.Path, "/shein-publication/") || strings.Contains(r.Path, "/publications/") && strings.Contains(r.Path, "/status") {
+			require.Equal(t, 30*time.Second, r.RequestTimeout)
+		}
+	}
+	for _, tc := range []struct {
+		err    error
+		status int
+		code   string
+	}{
+		{submission.ErrExecutionInvalid, 400, "INVALID_REQUEST"},
+		{submission.ErrExecutionNotFound, 404, "NOT_FOUND"},
+		{submission.ErrExecutionIntentConflict, 409, "REVISION_CONFLICT"},
+		{submission.ErrExecutionTargetClaimed, 409, "NOT_READY"},
+		{submission.ErrExecutionTargetSucceeded, 409, "NOT_READY"},
+		{submission.ErrExecutionOutcomeUnknown, 409, "OUTCOME_UNKNOWN"},
+	} {
+		t.Run(tc.code+tc.err.Error(), func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			listingError(c, tc.err)
+			require.Equal(t, tc.status, w.Code)
+			require.Contains(t, w.Body.String(), tc.code)
+		})
+	}
+}
+
+func TestUploadPlanRoutesRequireFullSupplyAndOriginalPrivateBoundary(t *testing.T) {
+	found := 0
+	for _, route := range ListingRoutes(nil, nil) {
+		if !strings.Contains(route.Path, "/upload-plans") {
+			continue
+		}
+		found++
+		require.False(t, IsPreparationRoute(route.Method, route.Path))
+		require.False(t, IsPrivateDraftReadRoute(route.Method, route.Path))
+		if route.Method == http.MethodGet {
+			require.Equal(t, preparation.PermissionRead, route.Permission)
+		} else {
+			require.Equal(t, preparation.PermissionManage, route.Permission)
+		}
+	}
+	require.GreaterOrEqual(t, found, 7, "all durable create/read/preview/continue/original-key routes must be admitted together")
+}
+
+func TestSupplyOptimizationRequiresConfiguredAdmission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(gin.Recovery())
+	for _, route := range ListingRoutes(&listingapp.Application{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	id := "11111111-1111-4111-8111-111111111111"
+	request := httptest.NewRequest(http.MethodPost, ListingBasePath+"/operations", strings.NewReader(`{"preparationId":"`+id+`","expectedRevision":1,"action":"optimize","storeId":"`+id+`","titleTemplateId":"title-review-v1"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", id)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusConflict, response.Code)
+	require.Contains(t, response.Body.String(), "NOT_READY")
+}
+
+func TestSupplyRejectsMalformedQueryInsteadOfSilentlyDroppingIt(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.URL.RawQuery = "keyword=%ZZ"
+	_, err := listingQuery(request)
+	require.ErrorIs(t, err, preparation.ErrInvalid)
+}
+func TestSupplyEnsureRejectsChunkedBody(t *testing.T) {
+	router := gin.New()
+	for _, route := range ListingRoutes(&listingapp.Application{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	request := httptest.NewRequest(http.MethodPost, ListingBasePath+"/operations/11111111-1111-4111-8111-111111111111/ensure", strings.NewReader(`{"unexpected":true}`))
+	request.ContentLength = -1
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func TestOptimizationOptionsAcceptsBoundedCurrentPageQuery(t *testing.T) {
+	called := false
+	app := &listingapp.Application{OptimizationOptions: func(_ context.Context, q collection.Query) (listingapp.OptimizationOptions, error) {
+		called = true
+		require.Equal(t, 100, q.Limit)
+		return listingapp.OptimizationOptions{Titles: []listingapp.TitleOptimizationChoice{}}, nil
+	}}
+	router := gin.New()
+	for _, route := range ListingRoutes(app, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, ListingBasePath+"/optimization-options?limit=100", nil))
+	require.Equal(t, http.StatusOK, response.Code)
+	require.True(t, called)
+	for _, query := range []string{"limit=101", "limit=1&limit=2", "keyword=anything", "stage=ready"} {
+		called = false
+		response = httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, ListingBasePath+"/optimization-options?"+query, nil))
+		require.Equal(t, http.StatusBadRequest, response.Code)
+		require.False(t, called)
+	}
+}

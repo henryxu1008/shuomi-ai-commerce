@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	listingapp "task-processor/internal/app/listing"
 	storeapp "task-processor/internal/app/storecenter"
-	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/authz"
 	b "task-processor/internal/commercial/billing"
 	"task-processor/internal/core/config"
@@ -24,7 +24,7 @@ type combinationObjects struct{ e.PrivateObjectStore }
 type combinationProvider struct{ b.ServicePurchaseProvider }
 type combinationProtection struct{ b.ServicePayloadProtection }
 type combinationMerchantProtection struct{ e.MerchantProtection }
-type combinationSupplyStarter struct{ supplyapp.OperationStarter }
+type combinationSupplyStarter struct{ listingapp.OperationStarter }
 
 func TestCurrentApplicationEcoservicesAndSupplyAssetOwnersCannotAlias(t *testing.T) {
 	for _, alias := range []bool{false, true} {
@@ -51,11 +51,11 @@ func TestCurrentApplicationEcoservicesAndSupplyAssetOwnersCannotAlias(t *testing
 					return nil, nil
 				},
 			}
-			var worker supplyapp.OperationWorker
+			var worker listingapp.OperationWorker
 			_, err := buildCurrentApplication(context.Background(), source, cfg, logrus.New(), factories,
 				WithCommercialOwnerDatabase(commercial), WithMoneyOwnerDatabase(money), WithProductAcquisition(product), WithProductCollections(),
 				WithStoreCenter(store), WithStoreOfficialApplications(&storeapp.OfficialApplicationRegistry{}),
-				WithSupplyChain(SupplyChainDependencies{AssetDB: assets, Starter: &combinationSupplyStarter{}, Worker: &worker, NewWorker: func(*supplyapp.OperationActivities) (supplyapp.OperationWorker, error) { return nil, stop }}),
+				WithListing(ListingDependencies{AssetDB: assets, Starter: &combinationSupplyStarter{}, Worker: &worker, NewWorker: func(*listingapp.OperationActivities) (listingapp.OperationWorker, error) { return nil, stop }}),
 				WithEcoservices(EcoservicesDependencies{DB: eco, Objects: &combinationObjects{}, Channel: &combinationProvider{}, Protection: &combinationProtection{}, MerchantProtection: &combinationMerchantProtection{}}))
 			if alias {
 				if err == nil || !strings.Contains(err.Error(), "ecoservices requires its independent owner pool") || built != 0 {

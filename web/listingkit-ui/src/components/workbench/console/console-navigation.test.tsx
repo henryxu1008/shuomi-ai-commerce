@@ -233,12 +233,31 @@ it("shows only the configured Task Center branch without AI Workbench", async ()
   }
 });
 
-it("hides the acquisition entry unless the serving deployment enables it", async () => {
-  const view = render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" productAcquisitionAvailable={false} />);
-  expect(screen.queryByRole("link", { name: "1688采集" })).not.toBeInTheDocument();
-  view.rerender(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" productAcquisitionAvailable />);
+it.each([
+  [false, false], [true, false], [false, true], [true, true],
+])("shows online acquisition by deployment capability (1688: %s, Amazon: %s)", async (has1688, hasAmazon) => {
+  render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" productAcquisitionAvailable={has1688} dataServicesAvailable={hasAmazon} />);
   await userEvent.click(screen.getByRole("button", { name: "展开供应市场" }));
-  expect(screen.getByRole("link", { name: "1688采集" })).toBeVisible();
+  expect(screen.queryByRole("link", { name: "1688采集" })).not.toBeInTheDocument();
+  if (!has1688 && !hasAmazon) {
+    expect(screen.queryByRole("button", { name: "展开在线采集" })).not.toBeInTheDocument();
+    return;
+  }
+
+  await userEvent.click(screen.getByRole("button", { name: "展开在线采集" }));
+  const a1688 = screen.queryByRole("link", { name: "1688 在线采集" });
+  const amazon = screen.queryByRole("link", { name: "Amazon 在线采集" });
+  if (has1688) expect(a1688).toHaveAttribute("href", "/workbench/supply/acquisition");
+  else expect(a1688).not.toBeInTheDocument();
+  if (hasAmazon) expect(amazon).toHaveAttribute("href", "/workbench/supply/acquisition/amazon");
+  else expect(amazon).not.toBeInTheDocument();
+});
+
+it("keeps the 1688 entry selected on acquisition results", () => {
+  const pathname = "/workbench/supply/acquisition/operation/11111111-1111-4111-8111-111111111111";
+  render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" productAcquisitionAvailable />);
+  expect(screen.getByRole("link", { name: "1688 在线采集" })).toHaveAttribute("aria-current", "page");
+  expect(findConsoleRoute(pathname)?.trail.map(node => node.label)).toEqual(["供应市场", "在线采集", "1688 在线采集", "采集结果"]);
 });
 
 it("reveals the selected account page after navigation from another module", async () => {

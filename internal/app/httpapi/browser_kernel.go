@@ -38,8 +38,8 @@ func buildBrowserKernelModule(ctx context.Context, source *gorm.DB, o currentApp
 	if o.ecoservices != nil {
 		others = append(others, o.ecoservices.DB)
 	}
-	if o.supplyChain != nil {
-		others = append(others, o.supplyChain.AssetDB)
+	if o.listing != nil {
+		others = append(others, o.listing.AssetDB)
 	}
 	if o.toolMarket != nil {
 		others = append(others, o.toolMarket.DB)

@@ -489,7 +489,7 @@ func (cfg *Config) validate() error {
 	if err := cfg.validatePrivateDraftTrial(); err != nil {
 		return err
 	}
-	if err := cfg.validateSupplyChain(); err != nil {
+	if err := cfg.validateListing(); err != nil {
 		return err
 	}
 	if err := cfg.validateSourceMaterials(); err != nil {

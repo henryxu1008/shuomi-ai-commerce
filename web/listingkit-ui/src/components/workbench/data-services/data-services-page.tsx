@@ -12,6 +12,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CollectionDialog } from "@/components/workbench/collections/collection-page";
 import { dataRequest, DataAPIError, type DataScope } from "@/lib/api/data-services";
+import { amazonRealtimeAcquisitionAnchor, amazonRealtimeAcquisitionHref, findConsoleRoute } from "@/lib/workbench/console-navigation";
+import { ConsolePage } from "@/components/workbench/console/console-page";
 import { CUSTOM_INPUT_BYTE_LIMITS, KEY_NAME_MAX_BYTES, dataTextBytes, optionsSchema, customSummarySchema, overviewSchema, jobSchema, keySchema, keyCreatedSchema, keyHistorySchema, resultPageSchema, customSchema, querySchema, keyLimitsSchema, type DataOptions, type DataQuery, type DataKey, type DataJob, type CustomRequest, type Overview } from "@/lib/contracts/data-services";
 import { useDataCommand } from "./use-data-command";
 import styles from "./data-services.module.css";
@@ -43,7 +45,7 @@ export function DataNotice({ error }: {
 }) { return error ? <p role="alert" className="rounded-lg border border-warning-foreground bg-warning p-3 text-sm text-warning-foreground">{workbenchFailureNames[error] ?? failureNames[error] ?? "请求未完成，请刷新或核实原请求。"}</p> : null; }
 function download(value: unknown, name: string) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); }
 export function DataServicesPage({ mode }: {
-    mode: "market" | "api";
+    mode: "market" | "api" | "amazon";
 }) {
     const context = useWorkbenchContext();
     const userId = context.user?.id, organizationId = context.effectiveOrganization?.id;
@@ -52,7 +54,8 @@ export function DataServicesPage({ mode }: {
         return <p className="p-8" role="status">正在确认当前企业…</p>;
     if (!scope || context.selectionRequired || context.error || context.blockingError)
         return <p className="p-8" role="alert">请先确认登录身份与当前企业。</p>;
-    return mode === "market" ? <Market key={`${userId}:${organizationId}`} scope={scope}/> : <APIManagement key={`${userId}:${organizationId}`} scope={scope}/>;
+    const key = `${userId}:${organizationId}`;
+    return mode === "api" ? <APIManagement key={key} scope={scope}/> : <Market key={`${key}:${mode}`} scope={scope} amazonOnly={mode === "amazon"}/>;
 }
 function Frame({ title, subtitle, actions, children, className = "" }: {
     title: string;
@@ -72,8 +75,9 @@ function Recovery({ command, onRecovered }: {
                     onRecovered(value, path);
             }}>核实／继续原请求</Button></div> : null}</>;
 }
-function Market({ scope }: {
+function Market({ scope, amazonOnly }: {
     scope: DataScope;
+    amazonOnly: boolean;
 }) {
     const [options, setOptions] = useState<DataOptions | null>(null), [jobs, setJobs] = useState<DataJob[] | null>(null), [customs, setCustoms] = useState<z.infer<typeof customSummarySchema>[] | null>(null), [jobsError, setJobsError] = useState(""), [customsError, setCustomsError] = useState(""), [error, setError] = useState("");
     const [dialog, setDialog] = useState<"realtime" | "custom" | null>(null), [job, setJob] = useState<DataJob | null>(null), [custom, setCustom] = useState<CustomRequest | null>(null), [refresh, setRefresh] = useState(0);
@@ -100,17 +104,19 @@ function Market({ scope }: {
                 setJobsError(e instanceof DataAPIError ? e.code : "DATA_UNAVAILABLE");
             }
         });
-        dataRequest(scope, "custom", z.array(customSummarySchema).max(100), undefined, controller.signal).then(value => {
-            if (!controller.signal.aborted)
-                setCustoms(value);
-        }).catch(e => {
-            if (!controller.signal.aborted) {
-                setCustoms(null);
-                setCustomsError(e instanceof DataAPIError ? e.code : "DATA_UNAVAILABLE");
-            }
-        });
+        if (!amazonOnly) {
+            dataRequest(scope, "custom", z.array(customSummarySchema).max(100), undefined, controller.signal).then(value => {
+                if (!controller.signal.aborted)
+                    setCustoms(value);
+            }).catch(e => {
+                if (!controller.signal.aborted) {
+                    setCustoms(null);
+                    setCustomsError(e instanceof DataAPIError ? e.code : "DATA_UNAVAILABLE");
+                }
+            });
+        }
         return () => controller.abort();
-    }, [scope, refresh]);
+    }, [scope, refresh, amazonOnly]);
     const reload = () => {
         setOptions(null);
         setJobs(null);
@@ -134,23 +140,39 @@ function Market({ scope }: {
         setDialog(null);
         reload();
     };
-    const disabled = command.busy || !!command.pending;
-    return <Frame className={styles.market} title="数据市场" subtitle="汇集主流电商平台产品数据，当前提供 Amazon 实时抓取与数据集定制。" actions={<><Button variant="outline" asChild><Link href="/workbench/data/api">API管理</Link></Button><Button variant="outline" asChild><Link href="/workbench/data/mine">我的数据</Link></Button></>}>
-  <DataNotice error={error}/><Recovery command={command} onRecovered={received}/>
+    const pending = command.pending;
+    const disabled = command.busy || !!pending;
+    const otherPending = amazonOnly && pending && pending.path !== "amazon/jobs" && !pending.path.startsWith("amazon/jobs/");
+    const newJob = <Button disabled={disabled || !options?.acquisitionReady} onClick={() => setDialog("realtime")}>新建采集任务</Button>;
+    const myData = <Button variant="outline" asChild><Link href="/workbench/data/mine">我的数据</Link></Button>;
+    const unavailable = options && !options.acquisitionReady
+        ? <p role="status" className="mt-3 text-sm text-muted-foreground">{options.unavailableReason}</p>
+        : null;
+    const historyReady = jobs !== null && (amazonOnly || customs !== null);
+    const emptyHistory = historyReady && jobs.length === 0 && !customs?.length;
+    const historyErrors = amazonOnly ? [["采集记录", jobsError]] : [["抓取历史", jobsError], ["定制历史", customsError]];
+    const content = <>
+  <DataNotice error={error}/>
+  {otherPending ? <p role="status" className="text-sm">还有一项数据服务请求待核实。 <Link className="underline" href={pending.path === "custom" ? "/workbench/data/market" : "/workbench/data/api"}>前往核实原请求</Link></p>
+    : <Recovery command={command} onRecovered={received}/>}
+  {amazonOnly && !options && !error ? <p role="status" className="text-sm text-muted-foreground">正在读取采集配置…</p> : null}
+  {amazonOnly ? unavailable : null}
   {error === "PERMISSION_DENIED" ? <p role="status" className="text-sm text-muted-foreground">请联系企业管理员核对“数据市场使用”和“商品资料查看”权限。</p> : null}
+  {!amazonOnly ? <>
   <Card className={`${styles.card} ${styles.platform}`}>
     <div><span className={`${styles.badge} ${!options?.acquisitionReady ? styles.neutralBadge : ""}`}>{options ? options.acquisitionReady ? "已配置 1 个来源" : "实时抓取待配置" : error ? "配置未读取" : "正在读取配置"}</span><h2>选择数据来源</h2><p>当前可使用 Amazon 产品数据，其他电商平台暂未开放。</p><div className={styles.platformTags}><span>数据平台</span><span className={styles.badge}>Amazon · 当前选择</span><span className={`${styles.badge} ${styles.neutralBadge}`}>1688 · 未开放</span><span className={`${styles.badge} ${styles.neutralBadge}`}>更多平台 · 未开放</span></div></div>
     <dl className={styles.platformFacts}>{[["当前选择", "Amazon"], ["数据类型", "产品数据"], ["获取方式", "实时抓取 / 数据集定制"], ["交付格式", "Excel / CSV / JSON"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
   </Card>
   <section className={styles.serviceArea}><div className={styles.sectionTitle}><h2>Amazon 产品数据获取方式</h2><p>当前已选择 Amazon，根据时效和交付要求选择不同服务。</p></div><div className={styles.services}>
-    <Card className={`${styles.card} ${styles.service}`}><div className={styles.serviceBadges}><span className={styles.badge}>01 · 实时获取</span><span className={styles.badge}>按成功数据计费</span></div><h3>实时数据抓取</h3><p>客户自主设置抓取条件，适合获取当前最新的 Amazon 产品数据。</p><ServiceBullets items={["选择站点、关键词、类目或 ASIN", "设置抓取数量和所需数据字段", "确认最大条数与预估费用", "成功结果自动保存到“我的数据”"]}/><div className={styles.serviceFooter}><p>按成功保存的数据条数计费</p><Button disabled={disabled || !options?.acquisitionReady} onClick={() => setDialog("realtime")}>配置实时抓取 <span aria-hidden="true">→</span></Button></div>{options && !options.acquisitionReady ? <p role="status" className="mt-3 text-xs text-muted-foreground">{options.unavailableReason}</p> : null}</Card>
+    <Card id={amazonRealtimeAcquisitionAnchor} tabIndex={-1} className={`${styles.card} ${styles.service}`}><div className={styles.serviceBadges}><span className={styles.badge}>01 · 实时获取</span><span className={styles.badge}>按成功数据计费</span></div><h3>实时数据抓取</h3><p>客户自主设置抓取条件，适合获取当前最新的 Amazon 产品数据。</p><ServiceBullets items={["选择站点、关键词、类目或 ASIN", "设置抓取数量和所需数据字段", "确认最大条数与预估费用", "成功结果自动保存到“我的数据”"]}/><div className={styles.serviceFooter}><p>按成功保存的数据条数计费</p>{newJob}</div>{unavailable}</Card>
     <Card className={`${styles.card} ${styles.service} ${styles.purple}`}><div className={styles.serviceBadges}><span className={`${styles.badge} ${styles.purpleBadge}`}>02 · 按需交付</span><span className={`${styles.badge} ${styles.purpleBadge}`}>根据需求单独报价</span></div><h3>数据集定制</h3><p>根据业务目标、字段范围和交付要求，制作专属 Amazon 产品数据集。</p><ServiceBullets purple items={["明确站点、类目、关键词与用途", "选择字段、数据规模和时间范围", "在系统中查看制作与交付进度", "专员评估需求、报价与交付周期"]}/><div className={styles.serviceFooter}><p>确认数据规格后提供报价</p><Button disabled={disabled || !options} onClick={() => setDialog("custom")}>提交定制需求 <span aria-hidden="true">→</span></Button></div></Card>
   </div></section>
-  <Card className={`${styles.card} ${styles.process}`}><div className={styles.cardHeading}><h2>购买与交付流程</h2><p>所有成功交付的数据都会保存到“我的数据”。</p></div><ProcessRow label="实时抓取" steps={["配置抓取条件", "确认预估费用", "确认并开始抓取", "保存到我的数据"]}/><ProcessRow purple label="数据集定制" steps={["提交定制需求", "确认规格与报价", "数据制作与交付", "保存到我的数据"]}/></Card>
-  <Card className="gap-4 p-6"><div className="flex justify-between"><h2 className="font-semibold">我的抓取与定制记录</h2><Button variant="ghost" size="sm" onClick={reload}>刷新</Button></div><p className="text-xs text-muted-foreground">展示最近 100 条抓取任务和定制申请。</p>
-    {[["抓取历史", jobsError], ["定制历史", customsError]].map(([label, code]) => code ? <p key={label} role="alert" className="text-sm text-warning-foreground">{code === "FORBIDDEN" || code === "PERMISSION_DENIED" ? `当前身份没有${label}读取权限。` : `${label}暂不可用，请稍后刷新。`}</p> : null)}
-    {(jobs === null && !jobsError) || (customs === null && !customsError) ? <p role="status" className="text-sm text-muted-foreground">正在读取历史记录…</p> : null}
-    {jobs !== null && customs !== null && jobs.length === 0 && customs.length === 0 ? <p className="py-5 text-center text-sm text-muted-foreground">暂无记录，提交后会在这里显示真实进度。</p> : <div className="grid gap-3 md:grid-cols-2">{jobs?.map(j => <button key={j.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={() => setJob(j)}><p className="font-medium">Amazon {j.query.site.toUpperCase()} · {j.query.mode}</p><p className="mt-1 text-sm text-muted-foreground">{stateNames[j.state]} · 已保存 {j.saved} 条 · {moment(j.createdAt)}</p></button>)}{customs?.map(c => <button key={c.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={async () => {
+  <Card className={`${styles.card} ${styles.process}`}><div className={styles.cardHeading}><h2>购买与交付流程</h2><p>所有成功交付的数据都会保存到“我的数据”。</p></div><ProcessRow label="实时抓取" steps={["配置抓取条件", "确认预估费用", "确认并开始采集", "保存到我的数据"]}/><ProcessRow purple label="数据集定制" steps={["提交定制需求", "确认规格与报价", "数据制作与交付", "保存到我的数据"]}/></Card>
+  </> : null}
+  <Card className="gap-4 p-6"><div className="flex justify-between"><h2 className="font-semibold">{amazonOnly ? "采集记录" : "我的抓取与定制记录"}</h2><Button variant="ghost" size="sm" onClick={reload}>刷新</Button></div><p className="text-xs text-muted-foreground">{amazonOnly ? "展示最近 100 条 Amazon 采集任务。" : "展示最近 100 条抓取任务和定制申请。"}</p>
+    {historyErrors.map(([label, code]) => code ? <p key={label} role="alert" className="text-sm text-warning-foreground">{code === "FORBIDDEN" || code === "PERMISSION_DENIED" ? `当前身份没有${label}读取权限。` : `${label}暂不可用，请稍后刷新。`}</p> : null)}
+    {(jobs === null && !jobsError) || (!amazonOnly && customs === null && !customsError) ? <p role="status" className="text-sm text-muted-foreground">正在读取历史记录…</p> : null}
+    {emptyHistory ? <p className="py-5 text-center text-sm text-muted-foreground">暂无记录，提交后会在这里显示真实进度。</p> : <div className="grid gap-3 md:grid-cols-2">{jobs?.map(j => <button key={j.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={() => setJob(j)}><p className="font-medium">Amazon {j.query.site.toUpperCase()} · {j.query.mode}</p><p className="mt-1 text-sm text-muted-foreground">{stateNames[j.state]} · 已保存 {j.saved} 条 · {moment(j.createdAt)}</p></button>)}{customs?.map(c => <button key={c.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={async () => {
                     try {
                         setCustom(await dataRequest(scope, `custom/${c.id}`, customSchema));
                     }
@@ -158,7 +180,7 @@ function Market({ scope }: {
                         setError(e instanceof DataAPIError ? e.code : "DATA_UNAVAILABLE");
                     }
                 }}><p className="font-medium">{c.name}</p><p className="mt-1 text-sm text-muted-foreground">{stateNames[c.state]} · {moment(c.createdAt)}</p></button>)}</div>}</Card>
-  {dialog && options ? <CollectionDialog title={dialog === "realtime" ? "Amazon 实时抓取" : "提交数据集定制需求"} onClose={() => setDialog(null)}><QueryForm options={options} custom={dialog === "custom"} disabled={disabled} onSubmit={async (q, extra) => {
+  {dialog && options ? <CollectionDialog title={dialog === "realtime" ? "新建 Amazon 采集任务" : "提交数据集定制需求"} onClose={() => setDialog(null)}><QueryForm options={options} custom={dialog === "custom"} disabled={disabled} onSubmit={async (q, extra) => {
                 const path = dialog === "custom" ? "custom" : "amazon/jobs";
                 const value = await command.run(path, dialog === "custom" ? { ...extra, query: q } : { query: q, maximumRows: q.limit, maximumCostFen: q.limit * 5 });
                 if (value !== undefined)
@@ -179,7 +201,13 @@ function Market({ scope }: {
                     setError(e instanceof DataAPIError ? e.code : "DATA_UNAVAILABLE");
                 }
             }}>刷新进度</Button></CollectionDialog> : null}
- </Frame>;
+ </>;
+    return amazonOnly
+        ? <ConsolePage title="Amazon 在线采集" breadcrumbs={findConsoleRoute(amazonRealtimeAcquisitionHref)?.trail}
+            description="按 ASIN、商品链接、关键词或类目采集。成功保存的商品可在「我的数据」查看。"
+            actions={<>{newJob}{myData}</>}>{content}</ConsolePage>
+        : <Frame className={styles.market} title="数据市场" subtitle="汇集主流电商平台产品数据，当前提供 Amazon 在线采集与数据集定制。"
+            actions={<><Button variant="outline" asChild><Link href="/workbench/data/api">API管理</Link></Button>{myData}</>}>{content}</Frame>;
 }
 function ServiceBullets({ items, purple = false }: {
     items: string[];
@@ -225,7 +253,7 @@ function QueryForm({ options, custom = false, disabled, onSubmit }: {
   {mode === "asin" ? <Field title="ASIN 或当前站点 HTTPS 商品链接（每行一个）"><Textarea required rows={4} value={asins} onChange={e => setASINs(e.target.value)} placeholder="B0… 或 https://www.amazon…/dp/…"/></Field> : <div className="grid gap-4 sm:grid-cols-2">{mode === "keyword" ? <Field title="关键词"><Input required maxLength={200} value={keyword} onChange={e => setKeyword(e.target.value)}/></Field> : null}<Field title={mode === "category" ? "Amazon 原生类目节点 ID" : "类目节点 ID（可选）"}><Input required={mode === "category"} pattern="[0-9]{1,20}" maxLength={20} value={node} onChange={e => setNode(e.target.value)} placeholder="当前站点数字 browse node"/></Field></div>}
   <Field title="最大数据条数"><Input required type="number" min={1} max={200} step={1} value={limit} onChange={e => setLimit(e.target.value)}/></Field><fieldset className="rounded-lg border p-4"><legend className="px-2 text-sm font-medium">所需字段</legend><div className="grid gap-2 sm:grid-cols-3">{options.fields.map(f => <label key={f} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={fields.includes(f)} onChange={e => setFields(v => e.target.checked ? [...v, f] : v.filter(x => x !== f))}/>{f}</label>)}</div></fieldset>
   {custom ? <><Field title="用途与业务场景"><Textarea required aria-label="用途与业务场景" aria-describedby="custom-purpose-limit" aria-invalid={exceedsLimit("purpose")} maxLength={CUSTOM_INPUT_BYTE_LIMITS.purpose} value={purpose} onChange={e => setPurpose(e.target.value)}/>{lengthHint("purpose")}</Field><div className="grid gap-4 sm:grid-cols-2"><Field title="期望交付格式"><Select value={format} onChange={e => setFormat(e.target.value)}>{options.formats.map(f => <option key={f}>{f}</option>)}</Select></Field><Field title="时间范围／更新需求"><Input aria-label="时间范围／更新需求" aria-describedby="custom-timeRange-limit" aria-invalid={exceedsLimit("timeRange")} maxLength={CUSTOM_INPUT_BYTE_LIMITS.timeRange} value={timeRange} onChange={e => setTimeRange(e.target.value)}/>{lengthHint("timeRange")}</Field></div><Field title="其他说明"><Textarea aria-label="其他说明" aria-describedby="custom-notes-limit" aria-invalid={exceedsLimit("notes")} maxLength={CUSTOM_INPUT_BYTE_LIMITS.notes} value={notes} onChange={e => setNotes(e.target.value)}/>{lengthHint("notes")}</Field><p className="text-sm text-muted-foreground">规格与报价由专员线下确认。定制交付最多 200 条/批，不消费实时抓取的 DATA_ROW。</p></> : <p className="rounded-lg bg-muted p-4 text-sm">确认最多获取 {limit || "—"} 条，最多消费 {limit || "—"} 个 DATA_ROW（{money((Number(limit) || 0) * 5)}）。失败且未保存的条目不计费，已保存数据会保留。来源缺失字段会明确标记。</p>}
-  <DataNotice error={error}/><Button type="submit" disabled={disabled || customTooLong || (!custom && !options.acquisitionReady)}>{disabled ? "正在提交…" : custom ? "提交定制需求" : "确认并开始抓取"}</Button>
+  <DataNotice error={error}/><Button type="submit" disabled={disabled || customTooLong || (!custom && !options.acquisitionReady)}>{disabled ? "正在提交…" : custom ? "提交定制需求" : "确认并开始采集"}</Button>
  </form>;
 }
 export function CustomDetails({ request: r }: {
@@ -250,7 +278,7 @@ function JobDialog({ scope, job: initial, onClose, onCancel, disabled = false }:
         });
         return () => controller.abort();
     }, [scope, initial.id, initial.state, cursor, reload]);
-    return <CollectionDialog title="抓取任务与结果" onClose={onClose}><DataNotice error={error}/><div className="grid gap-3 text-sm sm:grid-cols-3"><p>状态：{stateNames[job.state]}</p><p>已保存 {job.saved} · 失败 {job.failed} · 等待 {job.pending}</p><p>已确认 {money(job.confirmedFen)} · 待确认 {money(job.pendingFen)}</p></div>{job.reason ? <p className="text-sm text-warning-foreground">{failureNames[job.reason] ?? "本次任务未全部完成"}</p> : null}<p className="text-xs text-muted-foreground">任务 {job.id} · 截止 {moment(job.deadline)}</p><div className="flex flex-wrap gap-3"><Button variant="outline" disabled={loading} onClick={() => setReload(n => n + 1)}>刷新进度</Button>{onCancel && ["ADMITTED", "RUNNING"].includes(job.state) ? <Button variant="outline" disabled={disabled} onClick={() => onCancel(job)}>取消未保存项</Button> : null}{job.batchId ? <Button asChild><Link href={`/workbench/data/mine?batchId=${job.batchId}`}>查看我的数据批次</Link></Button> : null}{page?.items.some(i => i.state === "SAVED") ? <Button variant="outline" onClick={() => download(page.items.filter(i => i.state === "SAVED"), `amazon-${job.id}.json`)}><Download size={16}/>下载本页 JSON</Button> : null}</div>{loading ? <p role="status">正在读取结果…</p> : null}{page ? <div className="space-y-3">{page.items.map(item => <article className="rounded-lg border p-4" key={item.id}><p className="text-sm font-semibold">{stateNames[item.state]}{item.reason ? ` · ${failureNames[item.reason] ?? "来源未完成"}` : ""}</p>{item.data ? <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs">{JSON.stringify(item.data, null, 2)}</pre> : null}{item.missing?.length ? <p className="mt-2 text-xs text-warning-foreground">本次未取得：{item.missing.join("、")}</p> : null}</article>)}{!page.items.length ? <p className="text-sm text-muted-foreground">暂未形成结果，刷新以查看进度。</p> : null}<div className="flex gap-2">{cursor ? <Button variant="outline" onClick={() => setCursor("")}>返回首页</Button> : null}{page.nextCursor ? <Button variant="outline" onClick={() => setCursor(page.nextCursor!)}>下一页结果</Button> : null}</div></div> : null}</CollectionDialog>;
+    return <CollectionDialog title="采集任务与结果" onClose={onClose}><DataNotice error={error}/><div className="grid gap-3 text-sm sm:grid-cols-3"><p>状态：{stateNames[job.state]}</p><p>已保存 {job.saved} · 失败 {job.failed} · 等待 {job.pending}</p><p>已确认 {money(job.confirmedFen)} · 待确认 {money(job.pendingFen)}</p></div>{job.reason ? <p className="text-sm text-warning-foreground">{failureNames[job.reason] ?? "本次任务未全部完成"}</p> : null}<p className="text-xs text-muted-foreground">任务 {job.id} · 截止 {moment(job.deadline)}</p><div className="flex flex-wrap gap-3"><Button variant="outline" disabled={loading} onClick={() => setReload(n => n + 1)}>刷新进度</Button>{onCancel && ["ADMITTED", "RUNNING"].includes(job.state) ? <Button variant="outline" disabled={disabled} onClick={() => onCancel(job)}>取消未保存项</Button> : null}{job.batchId ? <Button asChild><Link href={`/workbench/data/mine?batchId=${job.batchId}`}>查看我的数据批次</Link></Button> : null}{page?.items.some(i => i.state === "SAVED") ? <Button variant="outline" onClick={() => download(page.items.filter(i => i.state === "SAVED"), `amazon-${job.id}.json`)}><Download size={16}/>下载本页 JSON</Button> : null}</div>{loading ? <p role="status">正在读取结果…</p> : null}{page ? <div className="space-y-3">{page.items.map(item => <article className="rounded-lg border p-4" key={item.id}><p className="text-sm font-semibold">{stateNames[item.state]}{item.reason ? ` · ${failureNames[item.reason] ?? "来源未完成"}` : ""}</p>{item.data ? <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs">{JSON.stringify(item.data, null, 2)}</pre> : null}{item.missing?.length ? <p className="mt-2 text-xs text-warning-foreground">本次未取得：{item.missing.join("、")}</p> : null}</article>)}{!page.items.length ? <p className="text-sm text-muted-foreground">暂未形成结果，刷新以查看进度。</p> : null}<div className="flex gap-2">{cursor ? <Button variant="outline" onClick={() => setCursor("")}>返回首页</Button> : null}{page.nextCursor ? <Button variant="outline" onClick={() => setCursor(page.nextCursor!)}>下一页结果</Button> : null}</div></div> : null}</CollectionDialog>;
 }
 function APIManagement({ scope }: {
     scope: DataScope;

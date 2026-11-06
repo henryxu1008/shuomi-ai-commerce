@@ -30,7 +30,7 @@ func issue398CurrentLeafImporter(importer, target string) bool {
 		return false
 	}
 	switch importer {
-	case "task-processor/internal/integration/acquisition/a1688", "task-processor/internal/app/productsourcing", "task-processor/internal/app/supplychain", "task-processor/internal/integration/shein", "task-processor/internal/app/runtime/currentapplication", "task-processor/internal/app/pod", "task-processor/internal/integration/sds":
+	case "task-processor/internal/integration/acquisition/a1688", "task-processor/internal/app/productsourcing", "task-processor/internal/app/listing", "task-processor/internal/integration/shein", "task-processor/internal/app/runtime/currentapplication", "task-processor/internal/app/pod", "task-processor/internal/integration/sds":
 		return true
 	}
 	return false
@@ -46,12 +46,12 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		{"internal/app/productsourcing", issue398Database, map[string][]string{
 			"internal/app/productsourcing/acquisition_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
 			// #735: explicit nonempty owner maintenance; no serving or sibling admission.
-			"internal/app/productsourcing/supply_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
+			"internal/app/productsourcing/listing_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
 			// #1075: explicit SHEIN US trial ledger maintenance on the existing database.
 			"internal/app/productsourcing/shein_trial_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
 		}},
 		{"internal/integration/acquisition/a1688", issue398HTTP, map[string][]string{"internal/integration/acquisition/a1688/public.go": {"NewPublicImageHTTPClient"}}},
-		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableSupplyChain", "EnableSHEINUSTrialLedger"}}},
+		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableListing", "EnableSHEINUSTrialLedger"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
 		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
 		// #902/#903 frozen plugin design: only the free capture composition and
@@ -72,13 +72,13 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		}},
 		{"internal/app/runtime/currentapplication", issue398HTTP, map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"ValidatePublicHTTPSURL"}}},
 		// #31 frozen approved-image contract reuses only these current safe leaves.
-		{"internal/app/supplychain", issue398HTTP, map[string][]string{
-			"internal/app/supplychain/image_probe.go":      {"NewPublicImageHTTPClient", "ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
-			"internal/app/supplychain/temu_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
+		{"internal/app/listing", issue398HTTP, map[string][]string{
+			"internal/app/listing/image_probe.go":      {"NewPublicImageHTTPClient", "ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
+			"internal/app/listing/temu_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
 			// #669 reuses the same SSRF-safe leaves for an approved native image.
-			"internal/app/supplychain/tiktok_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
+			"internal/app/listing/tiktok_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
 			// #733 frozen Walmart image contract reuses only the same approved URL/byte validation leaves.
-			"internal/app/supplychain/walmart_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
+			"internal/app/listing/walmart_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
 		}},
 		{"internal/integration/shein", issue398HTTP, map[string][]string{"internal/integration/shein/official_goods.go": {"ValidatePublicHTTPSURL"}}},
 		// #622 frozen design reuses these current SSRF-safe and pure image leaves.
@@ -93,7 +93,7 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		// #916 reviewed fixed-publication quote read: exact constructor at the
 		// existing Collection composition only; no provider/charge/write admission.
 		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader", "NewOwnHistoryReader", "NewCollectionSourceQuoteReader"}}},
-		{"internal/app/httpapi/supply_chain_agents.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/supply_chain_agents.go": {"NewExecutionPublicationGateway", "NewTransactionReader"}}},
+		{"internal/app/httpapi/listing_agents.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/listing_agents.go": {"NewExecutionPublicationGateway", "NewTransactionReader"}}},
 		{"internal/app/runtime/currentapplication", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"SourceMediaStorage", "NewIsolatedTrialSourceMediaURLPolicy"}, "internal/app/runtime/currentapplication/runtime.go": {"SourceMediaStorage"}}},
 	}
 	var violations []string
@@ -207,11 +207,11 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"database sibling", "internal/app/productsourcing/other.go", issue398Database, "Close", false},
 		{"database nested", "internal/app/productsourcing/child/acquisition_initialization.go", issue398Database, "Close", false},
 		{"database target subpackage", "internal/app/productsourcing/acquisition_initialization.go", issue398Database + "/child", "Close", false},
-		{"supply maintenance open", "internal/app/productsourcing/supply_initialization.go", issue398Database, "OpenExistingWritableContext", true},
-		{"supply maintenance close", "internal/app/productsourcing/supply_initialization.go", issue398Database, "Close", true},
-		{"supply maintenance config", "internal/app/productsourcing/supply_initialization.go", issue398Database, "Config", true},
-		{"supply maintenance wrong API", "internal/app/productsourcing/supply_initialization.go", issue398Database, "OpenShared", false},
-		{"supply maintenance nested", "internal/app/productsourcing/child/supply_initialization.go", issue398Database, "Close", false},
+		{"supply maintenance open", "internal/app/productsourcing/listing_initialization.go", issue398Database, "OpenExistingWritableContext", true},
+		{"supply maintenance close", "internal/app/productsourcing/listing_initialization.go", issue398Database, "Close", true},
+		{"supply maintenance config", "internal/app/productsourcing/listing_initialization.go", issue398Database, "Config", true},
+		{"supply maintenance wrong API", "internal/app/productsourcing/listing_initialization.go", issue398Database, "OpenShared", false},
+		{"supply maintenance nested", "internal/app/productsourcing/child/listing_initialization.go", issue398Database, "Close", false},
 		{"SHEIN trial maintenance open", "internal/app/productsourcing/shein_trial_initialization.go", issue398Database, "OpenExistingWritableContext", true},
 		{"SHEIN trial maintenance close", "internal/app/productsourcing/shein_trial_initialization.go", issue398Database, "Close", true},
 		{"SHEIN trial maintenance config", "internal/app/productsourcing/shein_trial_initialization.go", issue398Database, "Config", true},
@@ -220,14 +220,14 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"source media validator", "internal/app/runtime/currentapplication/source_media_storage.go", issue398HTTP, "ValidatePublicHTTPSURL", true},
 		{"source media legacy provider", "internal/app/runtime/currentapplication/source_media_storage.go", issue398HTTP, "NewProductImageDownloader", false},
 		{"source media sibling", "internal/app/productsourcing/other.go", issue398HTTP, "ValidatePublicHTTPSURL", false},
-		{"probe current reader", "internal/app/supplychain/image_probe.go", issue398HTTP, "Download", true},
-		{"TEMU approved image reader", "internal/app/supplychain/temu_image_probe.go", issue398HTTP, "Download", true},
-		{"TEMU legacy downloader denied", "internal/app/supplychain/temu_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
-		{"TikTok approved image reader", "internal/app/supplychain/tiktok_image_probe.go", issue398HTTP, "Download", true},
-		{"TikTok legacy downloader denied", "internal/app/supplychain/tiktok_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
-		{"Walmart approved image reader", "internal/app/supplychain/walmart_image_probe.go", issue398HTTP, "Download", true},
-		{"Walmart legacy downloader denied", "internal/app/supplychain/walmart_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
-		{"probe sibling", "internal/app/supplychain/other.go", issue398HTTP, "Download", false},
+		{"probe current reader", "internal/app/listing/image_probe.go", issue398HTTP, "Download", true},
+		{"TEMU approved image reader", "internal/app/listing/temu_image_probe.go", issue398HTTP, "Download", true},
+		{"TEMU legacy downloader denied", "internal/app/listing/temu_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
+		{"TikTok approved image reader", "internal/app/listing/tiktok_image_probe.go", issue398HTTP, "Download", true},
+		{"TikTok legacy downloader denied", "internal/app/listing/tiktok_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
+		{"Walmart approved image reader", "internal/app/listing/walmart_image_probe.go", issue398HTTP, "Download", true},
+		{"Walmart legacy downloader denied", "internal/app/listing/walmart_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
+		{"probe sibling", "internal/app/listing/other.go", issue398HTTP, "Download", false},
 		{"POD exact image reader", "internal/app/pod/inputs.go", issue398HTTP, "Download", true},
 		{"POD legacy API denied", "internal/app/pod/inputs.go", issue398HTTP, "NewProductImageDownloader", false},
 		{"POD sibling denied", "internal/app/pod/other.go", issue398HTTP, "Download", false},
@@ -262,9 +262,9 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"plan initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableAcquisitionPlans", false},
 		{"completion feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableCompletionDrafts", true},
 		{"completion initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableCompletionDrafts", false},
-		{"supply feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableSupplyChain", true},
-		{"supply initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableSupplyChain", false},
-		{"serving cannot initialize supply", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableSupplyChain", false},
+		{"supply feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableListing", true},
+		{"supply initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableListing", false},
+		{"serving cannot initialize supply", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableListing", false},
 		{"SHEIN trial ledger initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", true},
 		{"SHEIN trial ledger initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},
 		{"serving cannot initialize SHEIN trial ledger", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},

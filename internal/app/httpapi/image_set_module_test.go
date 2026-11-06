@@ -166,7 +166,7 @@ func TestFullImageRunRequiresOriginalMemberAndExplicitSourceOwner(t *testing.T) 
 	identity := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
 	p := imageagent.RunProjection{Run: imageagent.Run{ScopeProtocol: imageagent.OrganizationScopeProtocol, ID: "run", TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "context"}, Plan: imageagent.Plan{Set: &imageagent.ImageSetPlan{Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, OperationID: "context"}}}}
 	require.NoError(t, validateFullImageRun(identity, imageagent.ImageSourceAcquisition, "context", "run", p))
-	require.Error(t, validateFullImageRun(identity, imageagent.ImageSourceSupply, "context", "run", p))
+	require.Error(t, validateFullImageRun(identity, imageagent.ImageSourceListing, "context", "run", p))
 	identity.EffectiveMemberID = "replacement"
 	require.Error(t, validateFullImageRun(identity, imageagent.ImageSourceAcquisition, "context", "run", p))
 }

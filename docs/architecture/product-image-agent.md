@@ -43,7 +43,7 @@
 
 | 当前代码 | 已有能力与本轮接缝 |
 | --- | --- |
-| `internal/app/supplychain/rules.go` / `RuleReader.ReadTargetRules` | 读取当前店铺应用绑定、末级类目、类目填写规范、商品类型属性及关联规则；图片 consumer 应复用这条授权读取路径，不增加另一套规则抓取服务。 |
+| `internal/app/listing/rules.go` / `RuleReader.ReadTargetRules` | 读取当前店铺应用绑定、末级类目、类目填写规范、商品类型属性及关联规则；图片 consumer 应复用这条授权读取路径，不增加另一套规则抓取服务。 |
 | `internal/integration/shein/official_goods.go` / `QueryProductFillStandards` | 官方只读查询携带 `category_id`；`picture_config_list` 返回该类目图片要求标志。它并未提供全部尺寸、背景、文字规则，不能把未知字段当不限。 |
 | `internal/marketplace/shein/goods/images.go` | 当前 Marketplace owner 验证 SPU/SKC/SKU/站点详情位置、主图/方图/附图需要与允许条件、顺序、数量及真实尺寸；尺寸/类型约束有当前发布合同代码。图片计划应复用并版本绑定这些约束，不在 ImageAgent 再抄一套常量。 |
 | `internal/marketplace/imagepolicy` / `internal/app/httpapi/image_agent_policy.go` | 内部质量阈值与场景默认策略；不是官方类目发布规则，存在该 profile 不代表该平台/类目已可发布。 |

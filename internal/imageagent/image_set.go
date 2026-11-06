@@ -18,11 +18,11 @@ type ImageSourceContextKind string
 
 const (
 	ImageSourceAcquisition ImageSourceContextKind = "acquisition"
-	ImageSourceSupply      ImageSourceContextKind = "supply"
+	ImageSourceListing     ImageSourceContextKind = "supply"
 )
 
 func (k ImageSourceContextKind) Valid() bool {
-	return k == ImageSourceAcquisition || k == ImageSourceSupply
+	return k == ImageSourceAcquisition || k == ImageSourceListing
 }
 
 type ImageSourceBinding struct {

@@ -425,7 +425,7 @@ tokenless窄执行入口，不能传递已清空组织scope的平台HTTP context
   server-only `sds.CredentialSource`、有界HTTP、精确OSSHosts allowlist、Starter及
   `ReceiveProduct`。当前组合根把`productsourcing.ReceivePOD`注入该有界port；正式feature
   不直接创建Source producer或扩大Collection scope。
-  `internal/app/supplychain.OrganizationExecutionAuthorizer.AuthorizePODDesign`复用当前live IAM，
+  `internal/app/listing.OrganizationExecutionAuthorizer.AuthorizePODDesign`复用当前live IAM，
   仅核对原成员Collection read/manage与supply-market.design，不接受任意permission。
   CredentialSource须为每个凭据revision返回已核对的实际merchant身份；不能把浏览器请求、
   客户body或只声明merchant的文件直接当作该证明。用户已授权将当前Edge登录态保存到

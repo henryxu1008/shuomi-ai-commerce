@@ -32,7 +32,7 @@ import (
 )
 
 const acquisitionImageSetBase = productAcquisitionBase + "/:operation_id/images"
-const supplyImageSetBase = "/api/v1/workbench/supply-preparations/sources/:source_id/images"
+const listingImageSetBase = "/api/v1/workbench/supply-preparations/sources/:source_id/images"
 
 type fullImageModule struct {
 	application *fullImageApplication
@@ -111,7 +111,7 @@ func (m fullImageModule) routes() []httproute.Descriptor {
 	for _, owner := range []struct {
 		base, param string
 		kind        imageagent.ImageSourceContextKind
-	}{{acquisitionImageSetBase, "operation_id", imageagent.ImageSourceAcquisition}, {supplyImageSetBase, "source_id", imageagent.ImageSourceSupply}} {
+	}{{acquisitionImageSetBase, "operation_id", imageagent.ImageSourceAcquisition}, {listingImageSetBase, "source_id", imageagent.ImageSourceListing}} {
 		for _, action := range []struct{ method, suffix, name string }{
 			{http.MethodGet, "/sources", "sources"}, {http.MethodPost, "/prepare", "prepare"},
 			{http.MethodGet, "/model-options", "model-options"},

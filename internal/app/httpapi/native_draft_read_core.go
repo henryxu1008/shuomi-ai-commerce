@@ -3,7 +3,7 @@ package httpapi
 import (
 	"context"
 	"gorm.io/gorm"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authz"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	prepstore "task-processor/internal/integration/persistence/listing/preparation"
@@ -17,7 +17,7 @@ import (
 )
 
 type nativeDraftReadCore struct {
-	app         *supplyapp.Application
+	app         *listingapp.Application
 	collections *collection.Service
 	repository  *prepstore.Repository
 }
@@ -51,7 +51,7 @@ func composePreparationCore(ctx context.Context, db *gorm.DB, deps routeAuthDepe
 	if err != nil {
 		return empty, err
 	}
-	return nativeDraftReadCore{app: &supplyapp.Application{Preparations: preps, Sources: sources, Authorization: auth}, collections: collections, repository: repo}, nil
+	return nativeDraftReadCore{app: &listingapp.Application{Preparations: preps, Sources: sources, Authorization: auth}, collections: collections, repository: repo}, nil
 }
 
 // Both serving modes consume the same native, live-authorized read owners.
@@ -104,6 +104,6 @@ func buildNativeDraftReadCore(ctx context.Context, db *gorm.DB, deps routeAuthDe
 	if err != nil {
 		return empty, err
 	}
-	app := &supplyapp.Application{Preparations: preps, Sources: sources, Records: records, Authorization: auth, Products: supplyapp.EffectiveProductReader{Reviews: reviews, Snapshots: snapshots}, StageProjection: supplyapp.ReviewProjection{Facts: repo, Reviews: reviews}, PublicationReceipts: receipts}
+	app := &listingapp.Application{Preparations: preps, Sources: sources, Records: records, Authorization: auth, Products: listingapp.EffectiveProductReader{Reviews: reviews, Snapshots: snapshots}, StageProjection: listingapp.ReviewProjection{Facts: repo, Reviews: reviews}, PublicationReceipts: receipts}
 	return nativeDraftReadCore{app, collections, repo}, nil
 }

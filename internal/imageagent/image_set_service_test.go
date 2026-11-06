@@ -110,7 +110,7 @@ func (q *setQuoteFixture) ReadImageGenerationQuote(_ context.Context, _ imageage
 func TestPrepareImageSetRejectsAnotherSourceOwner(t *testing.T) {
 	s, _, _, _, contexts, _, ctx, input := imageSetServiceFixture(t)
 	input.ContextKind = imageagent.ImageSourceAcquisition
-	contexts.preparation.Source.ContextKind = imageagent.ImageSourceSupply
+	contexts.preparation.Source.ContextKind = imageagent.ImageSourceListing
 	_, err := s.PrepareImageSet(ctx, input)
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 }

@@ -38,7 +38,7 @@ func main() {
 		} else if *sheinTrial {
 			err = productsourcing.EnableSHEINUSTrialLedger(ctx, *manifest, *featureDatabase)
 		} else if *supply {
-			err = productsourcing.EnableSupplyChain(ctx, *manifest, *featureDatabase)
+			err = productsourcing.EnableListing(ctx, *manifest, *featureDatabase)
 		} else if *completion {
 			err = productsourcing.EnableCompletionDrafts(ctx, *manifest, *featureDatabase)
 		} else {

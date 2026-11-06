@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
@@ -24,10 +24,10 @@ import (
 	"task-processor/internal/product/review"
 )
 
-const listingMaterialsBase = supplyhttp.SupplyBasePath + "/records/:record_id/materials-agent"
+const listingMaterialsBase = listinghttp.ListingBasePath + "/records/:record_id/materials-agent"
 
 func isListingMaterialsHTTPPath(path string) bool {
-	prefix := supplyhttp.SupplyBasePath + "/records/"
+	prefix := listinghttp.ListingBasePath + "/records/"
 	if !strings.HasPrefix(path, prefix) {
 		return false
 	}
