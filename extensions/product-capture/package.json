@@ -15,6 +15,17 @@
     "jsonc-parser": "3.3.1",
     "zod": "4.6.6"
   },
+  "overrides": {
+    "@eslint/config-array@0.23.5": {
+      "minimatch": "11.0.4"
+    },
+    "@typescript-eslint/typescript-estree@8.70.0": {
+      "minimatch": "11.0.4"
+    },
+    "eslint@10.10.0": {
+      "minimatch": "11.0.4"
+    }
+  },
   "devDependencies": {
     "@playwright/test": "1.62.1",
     "@types/chrome": "0.2.9",
