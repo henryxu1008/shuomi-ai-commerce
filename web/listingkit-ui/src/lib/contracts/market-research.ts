@@ -1,6 +1,6 @@
 import {z} from "zod";
 import {MAX_1688_ACQUISITION_VARIANTS} from "./product-acquisition";
-import {collectionID,collectionVersion,collectionItemSchema,type CollectionItem} from "./product-collection";
+import {collectionID,collectionVersion,isResearchFixtureProduct,collectionItemSchema,type CollectionItem} from "./product-collection";
 const revision=z.number().int().positive().max(Number.MAX_SAFE_INTEGER),digest=z.string().regex(/^[a-f0-9]{64}$/);
 const text=(max:number)=>z.string().refine(v=>!v.includes("\0")&&new TextEncoder().encode(v).length<=max);
 const researchSelection=z.strictObject({itemId:collectionID,revision,publicationId:collectionID,version:collectionVersion});
@@ -39,7 +39,7 @@ const fixtureObservation=amazonObservation.extend({
 const observation=z.union([amazonObservation,sheinObservation,fixtureObservation]).refine(v=>{
  const {item,ref}=v;
  const kind="shein" in v?"shein_us_data":"amazon_data";
- return ("fixtureVersion" in v)===item.source.productKey.startsWith("research-fixture-v1-")&&
+ return ("fixtureVersion" in v)===isResearchFixtureProduct(item.source.productKey)&&
   item.id===ref.selection.itemId&&item.revision===ref.selection.revision&&item.batchId===v.batchId&&
   item.source.kind===kind&&ref.source.kind===kind&&item.source.publicationId===ref.selection.publicationId&&
   item.source.version===ref.selection.version&&item.source.productKey===ref.source.productKey&&
@@ -48,7 +48,7 @@ const observation=z.union([amazonObservation,sheinObservation,fixtureObservation
 const fixtureOriginal=z.strictObject({id:text(32),referenceVersion:z.enum(["1","2","3"]),title:text(2000),site:z.enum(["us","1688"]),width:text(128),
  installation:text(128).optional(),pack:text(128).optional(),price:z.number().positive().optional(),currency:z.literal("USD").optional(),sku:text(128).optional()});
 const fixtureItem=z.strictObject({item:collectionItemSchema,original:fixtureOriginal,checksum:z.string().regex(/^sha256:[0-9a-f]{64}$/)})
- .refine(v=>v.item.source.productKey.startsWith("research-fixture-v1-"));
+ .refine(v=>isResearchFixtureProduct(v.item.source.productKey));
 const fixtureBatch=z.strictObject({id:collectionID,keyword:z.literal("under sink organizer"),amazon:z.tuple([fixtureItem,fixtureItem]),supplier:fixtureItem})
  .refine(({amazon:[a,b],supplier:s})=>a.item.batchId===b.item.batchId&&a.item.source.kind==="amazon_data"&&b.item.source.kind==="amazon_data"&&s.item.source.kind==="acquisition"&&
    a.original.id==="B000123456"&&a.original.referenceVersion==="3"&&b.original.id==="B000123457"&&b.original.referenceVersion==="1"&&s.original.id==="981645030344"&&s.original.referenceVersion==="2");
@@ -81,12 +81,13 @@ const supplierInput=z.strictObject({
 const attributes=z.record(text(128),text(512));
 export const supplierReviewPreview=z.strictObject({
  revision,linkId:collectionID,evidenceDigest:digest,
- market:z.strictObject({asin:text(10).refine(v=>v.length===10),title:text(2000),attributes}),
- offer:z.strictObject({title:text(2000),attributes,variants:z.array(z.strictObject({id:skuId,label:text(512),attributes})).max(MAX_1688_ACQUISITION_VARIANTS)}),
+ market:z.strictObject({asin:text(10).refine(v=>v.length===10),title:text(2000),attributes,fixtureVersion:collectionVersion.optional()}),
+ offer:z.strictObject({title:text(2000),attributes,fixtureVersion:collectionVersion.optional(),variants:z.array(z.strictObject({id:skuId,label:text(512),attributes})).max(MAX_1688_ACQUISITION_VARIANTS)}),
 });
 const supplierReviewDetail=z.strictObject({
  marketTitle:text(2000),asin:text(10).refine(v=>v.length===10),supplierTitle:text(2000),offerId:text(128),
  marketVersion:collectionVersion,supplierVersion:collectionVersion,skuId,skuLabel:text(512),quantity,
+ marketFixtureVersion:collectionVersion.optional(),supplierFixtureVersion:collectionVersion.optional(),
  unit:z.literal("piece"),status:supplierStatus,reason:text(2048),at:z.iso.datetime({offset:true}),
  comparisons:z.array(comparison.extend({marketValue:text(512).optional(),supplierValue:text(512).optional()})).min(1).max(5),
 });

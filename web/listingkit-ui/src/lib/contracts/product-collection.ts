@@ -19,6 +19,7 @@ export function parseSourcePriceFact(raw:string|undefined){
 }
 export type CollectionRoute = "batches" | "batch" | "items" | "own" | "detail" | "history" | "history-detail" | "operation" | "command" | "import-preview" | "import-template" | "media-upload" | "media-read";
 export const collectionID = z.string().refine(isAcquisitionUUID);
+export const isResearchFixtureProduct = (key: string) => key.startsWith("research-fixture-v1-");
 const bytes = (max: number) => z.string().refine(value => new TextEncoder().encode(value).length <= max && !value.includes("\0"));
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);

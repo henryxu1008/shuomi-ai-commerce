@@ -14,7 +14,12 @@ import { CollectionDialog } from "../collections/collection-page";
 import { ListingConfiguration, ListingConfigurationStep, ListingContinuationNotice } from "./listing-configuration";
 import { listSupplyPreparations, readSupplyPreparation, listSupplySources, readSupplySource, type SupplyScope } from "@/lib/api/supply-chain";
 import { preparationPageSchema, sourcePageSchema, sourceDetailSchema, type SupplyPreparation } from "@/lib/contracts/supply-chain";
+import { isResearchFixtureProduct } from "@/lib/contracts/product-collection";
 import { ConsolePage, ConsoleState } from "../console/console-page";
+
+function sourceLabel(productKey: string) {
+  return isResearchFixtureProduct(productKey) ? "合成原件" : productKey;
+}
 
 export function PreparationsPage({ initialPreparation,completionAvailable=false,sourceMaterialsAvailable=false }: { initialPreparation?: string;completionAvailable?:boolean;sourceMaterialsAvailable?:boolean }) {
   const context = useWorkbenchContext();
@@ -93,7 +98,26 @@ function ScopedPreparations({ scope, initialPreparation,completionAvailable,sour
     </CollectionDialog> : null}
     {error ? <ConsoleState kind="error" title="读取失败">请确认当前企业权限后重试。</ConsoleState> : selected ? loading ? <ConsoleState kind="loading" title="正在读取待上传商品" /> : <Card>
       <CardHeader className="p-4"><CardTitle><h2>原始商品资料</h2></CardTitle><CardDescription>{batch?.name || "所选批次"} · 当前显示 {sources.items.length} 件{sources.total !== undefined ? ` / 共 ${sources.total} 件` : ""}</CardDescription></CardHeader>
-      <CardContent className="space-y-3 p-4 pt-0">{!sources.items.length ? <p>暂无商品</p> : sources.items.map(source => <div className="flex flex-wrap items-center gap-3 border-b py-3" key={source.id}><span className="mr-auto">{source.source.productKey} · 来源版本 {source.source.version}</span><Button variant="outline" onClick={() => {setDetail(undefined);setDetailID(source.id);}}>查看资料</Button>{sourceMaterialsAvailable && context.permissions?.includes("workbench.supply.manage")?<Button variant="outline" onClick={()=>setMaterialsID(source.id)}>来源素材</Button>:null}{completionAvailable?<Button asChild variant="outline"><Link href={`/workbench/listing/missing?preparation=${source.preparationId}&source=${source.id}`}>创建 / 编辑待补全草稿</Link></Button>:null}</div>)}{sources.nextCursor ? <Button variant="outline" onClick={() => {setLoading(true);setError(false);setSourceAfter(sources.nextCursor);}}>下一页商品</Button> : null}{detail ? <section aria-label="商品资料"><h3>{detail.product.title || "未命名商品"}</h3><p>来源：{detail.source.source.productKey} · 版本 {detail.source.source.version}</p><Link href={`/workbench/data/mine?item=${detail.source.collectionItemId}`}>查看我的数据</Link></section> : null}</CardContent>
+      <CardContent className="space-y-3 p-4 pt-0">
+        {!sources.items.length ? <p>暂无商品</p> : sources.items.map(source => {
+          const synthetic = isResearchFixtureProduct(source.source.productKey);
+          return <div className="flex flex-wrap items-center gap-3 border-b py-3" key={source.id}>
+            <span className="mr-auto">{sourceLabel(source.source.productKey)} · 来源版本 {source.source.version}</span>
+            <Button variant="outline" onClick={() => {setDetail(undefined);setDetailID(source.id);}}>查看资料</Button>
+            {!synthetic && sourceMaterialsAvailable && context.permissions?.includes("workbench.supply.manage") &&
+              <Button variant="outline" onClick={()=>setMaterialsID(source.id)}>来源素材</Button>}
+            {!synthetic && completionAvailable && <Button asChild variant="outline">
+              <Link href={`/workbench/listing/missing?preparation=${source.preparationId}&source=${source.id}`}>创建 / 编辑待补全草稿</Link>
+            </Button>}
+          </div>;
+        })}
+        {sources.nextCursor && <Button variant="outline" onClick={() => {setLoading(true);setError(false);setSourceAfter(sources.nextCursor);}}>下一页商品</Button>}
+        {detail && <section aria-label="商品资料">
+          <h3>{detail.product.title || "未命名商品"}</h3>
+          <p>来源：{sourceLabel(detail.source.source.productKey)} · 版本 {detail.source.source.version}</p>
+          <Link href={`/workbench/data/mine?item=${detail.source.collectionItemId}`}>查看我的数据</Link>
+        </section>}
+      </CardContent>
     </Card> : null}
   </ConsolePage>;
 }

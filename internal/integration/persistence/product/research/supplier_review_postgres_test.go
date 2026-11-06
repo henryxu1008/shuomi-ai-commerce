@@ -57,6 +57,19 @@ func verifySupplierReview(t *testing.T, ctx context.Context, svc *research.Servi
 	svc.SupplierSources = source
 	svc.SupplierExpiry = func(ctx context.Context) time.Time { return time.Now().Add(5 * time.Second) }
 
+	realOffer := source.offer
+	mixed := cmd
+	mixedInput := *cmd.Supplier
+	mixedInput.Selection.PublicationID = collection.ResearchFixtureSupplierPublicationPrefix + uuid.NewString()
+	mixed.Supplier = &mixedInput
+	source.offer.Original.Source.ProductKey = collection.ResearchFixtureProductPrefix + uuid.NewString()
+	source.offer.Original.Source.PublicationID = mixedInput.Selection.PublicationID
+	_, err = svc.SupplierPreview(ctx, scope, project, current.ID, mixedInput.Selection)
+	require.ErrorIs(t, err, research.ErrUnsupported)
+	_, err = svc.Execute(ctx, scope, project, uuid.NewString(), mixed)
+	require.ErrorIs(t, err, research.ErrUnsupported)
+	source.offer = realOffer
+
 	preview, err := svc.SupplierPreview(ctx, scope, project, current.ID, sel)
 	require.NoError(t, err)
 	require.Equal(t, "blue", preview.Offer.Variants[0].ID)

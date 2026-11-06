@@ -37,19 +37,21 @@ type SupplierOriginal struct {
 }
 
 type SupplierMarket struct {
-	Ref        EvidenceRef       `json:"-"`
-	Revision   int64             `json:"-"`
-	ASIN       string            `json:"asin"`
-	Title      string            `json:"title"`
-	Attributes map[string]string `json:"attributes"`
+	Ref            EvidenceRef       `json:"-"`
+	Revision       int64             `json:"-"`
+	ASIN           string            `json:"asin"`
+	Title          string            `json:"title"`
+	Attributes     map[string]string `json:"attributes"`
+	FixtureVersion string            `json:"fixtureVersion,omitempty"`
 }
 
 type SupplierOffer struct {
-	Original   SupplierOriginal  `json:"-"`
-	Revision   int64             `json:"-"`
-	Title      string            `json:"title"`
-	Attributes map[string]string `json:"attributes"`
-	Variants   []SupplierVariant `json:"variants"`
+	Original       SupplierOriginal  `json:"-"`
+	Revision       int64             `json:"-"`
+	Title          string            `json:"title"`
+	Attributes     map[string]string `json:"attributes"`
+	Variants       []SupplierVariant `json:"variants"`
+	FixtureVersion string            `json:"fixtureVersion,omitempty"`
 }
 
 type SupplierVariant struct {
@@ -107,20 +109,22 @@ type SupplierReviewView struct {
 }
 
 type SupplierReviewDetail struct {
-	MarketTitle     string                   `json:"marketTitle"`
-	ASIN            string                   `json:"asin"`
-	SupplierTitle   string                   `json:"supplierTitle"`
-	OfferID         string                   `json:"offerId"`
-	MarketVersion   uint64                   `json:"marketVersion,string"`
-	SupplierVersion uint64                   `json:"supplierVersion,string"`
-	SKUID           string                   `json:"skuId"`
-	SKULabel        string                   `json:"skuLabel"`
-	Quantity        int                      `json:"quantity"`
-	Unit            string                   `json:"unit"`
-	Status          string                   `json:"status"`
-	Reason          string                   `json:"reason"`
-	At              time.Time                `json:"at"`
-	Comparisons     []SupplierComparisonView `json:"comparisons"`
+	MarketTitle            string                   `json:"marketTitle"`
+	ASIN                   string                   `json:"asin"`
+	SupplierTitle          string                   `json:"supplierTitle"`
+	OfferID                string                   `json:"offerId"`
+	MarketVersion          uint64                   `json:"marketVersion,string"`
+	SupplierVersion        uint64                   `json:"supplierVersion,string"`
+	MarketFixtureVersion   string                   `json:"marketFixtureVersion,omitempty"`
+	SupplierFixtureVersion string                   `json:"supplierFixtureVersion,omitempty"`
+	SKUID                  string                   `json:"skuId"`
+	SKULabel               string                   `json:"skuLabel"`
+	Quantity               int                      `json:"quantity"`
+	Unit                   string                   `json:"unit"`
+	Status                 string                   `json:"status"`
+	Reason                 string                   `json:"reason"`
+	At                     time.Time                `json:"at"`
+	Comparisons            []SupplierComparisonView `json:"comparisons"`
 }
 
 type SupplierComparisonView struct {
@@ -215,6 +219,9 @@ func (s *Service) SupplierPreview(ctx context.Context, scope collection.Scope, p
 	if err != nil {
 		return SupplierReviewPreview{}, err
 	}
+	if err = checkSupplierEvidencePair(market, offer); err != nil {
+		return SupplierReviewPreview{}, err
+	}
 	if err = s.authorize(ctx, scope, project, true); err != nil {
 		return SupplierReviewPreview{}, err
 	}
@@ -250,6 +257,9 @@ func (s *Service) prepareSupplier(ctx context.Context, scope collection.Scope, p
 	if err != nil {
 		return SupplierReviewProof{}, err
 	}
+	if err = checkSupplierEvidencePair(market, offer); err != nil {
+		return SupplierReviewProof{}, err
+	}
 	if _, _, ok := reviewComparisons(market, offer, *cmd.Supplier); !ok {
 		return SupplierReviewProof{}, ErrInvalid
 	}
@@ -263,6 +273,13 @@ func (s *Service) prepareSupplier(ctx context.Context, scope collection.Scope, p
 		Expires: expires,
 		Record:  SupplierReviewRecord{MemberID: scope.MemberID, LinkID: link.ID, EvidenceDigest: link.Ref.Digest(), Market: link.Ref, Offer: offer.Original, MarketRevision: market.Revision, Input: *cmd.Supplier},
 	}, nil
+}
+
+func checkSupplierEvidencePair(market SupplierMarket, offer SupplierOffer) error {
+	if collection.IsResearchFixtureProduct(market.Ref.Source.ProductKey) != collection.IsResearchFixtureProduct(offer.Original.Source.ProductKey) {
+		return ErrUnsupported
+	}
+	return nil
 }
 
 func reviewComparisons(market SupplierMarket, offer SupplierOffer, in SupplierInput) (SupplierVariant, []SupplierComparisonView, bool) {
@@ -359,7 +376,7 @@ func (s *Service) readSupplierDetail(ctx context.Context, scope collection.Scope
 		return nil
 	}
 	offer, err := s.SupplierSources.ReadSupplierOffer(ctx, scope, project, record.Input.Selection, &record.Offer)
-	if err != nil || offer.Original != record.Offer {
+	if err != nil || offer.Original != record.Offer || checkSupplierEvidencePair(market, offer) != nil {
 		return nil
 	}
 	variant, compared, ok := reviewComparisons(market, offer, record.Input)
@@ -373,6 +390,7 @@ func (s *Service) readSupplierDetail(ctx context.Context, scope collection.Scope
 	return &SupplierReviewDetail{
 		MarketTitle: market.Title, ASIN: market.ASIN, SupplierTitle: offer.Title, OfferID: offer.Original.OfferID,
 		MarketVersion: ref.Selection.Version, SupplierVersion: offer.Original.Source.Version, SKUID: variant.ID, SKULabel: variant.Label,
+		MarketFixtureVersion: market.FixtureVersion, SupplierFixtureVersion: offer.FixtureVersion,
 		Quantity: record.Input.Quantity, Unit: record.Input.Unit, Status: record.Input.Status, Reason: record.Input.Reason, At: row.At, Comparisons: compared,
 	}
 }

@@ -168,7 +168,7 @@ func (a researchSources) fixtureMarket(ctx context.Context, scope collection.Sco
 		return research.SupplierMarket{}, research.ErrConflict
 	}
 	o := entry.Original
-	return research.SupplierMarket{Ref: ref, Revision: item.Revision, ASIN: o.ID, Title: o.Title,
+	return research.SupplierMarket{Ref: ref, Revision: item.Revision, ASIN: o.ID, Title: o.Title, FixtureVersion: o.ReferenceVersion,
 		Attributes: map[string]string{"width": o.Width, "installation": o.Installation, "pack": o.Pack}}, nil
 }
 
@@ -193,6 +193,6 @@ func (a researchSources) fixtureOffer(ctx context.Context, scope collection.Scop
 		return research.SupplierOffer{}, research.ErrConflict
 	}
 	attrs := map[string]string{"width": o.Width}
-	return research.SupplierOffer{Original: original, Revision: item.Revision, Title: o.Title, Attributes: attrs,
+	return research.SupplierOffer{Original: original, Revision: item.Revision, Title: o.Title, Attributes: attrs, FixtureVersion: o.ReferenceVersion,
 		Variants: []research.SupplierVariant{{ID: o.SKU, Label: o.SKU, Attributes: attrs}}}, nil
 }
