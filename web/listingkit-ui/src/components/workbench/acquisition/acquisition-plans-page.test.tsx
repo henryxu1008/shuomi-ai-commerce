@@ -23,6 +23,8 @@ it("shows the 1688 plan list before the user opens the capture form", async () =
  render(<AcquisitionPage plansEnabled/>);
  await screen.findByText("还没有采集计划。");
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(screen.queryByRole("heading",{name:"找回单商品采集结果"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("textbox",{name:"操作 ID"})).not.toBeInTheDocument();
 
  const trigger=screen.getByRole("button",{name:"1688在线采集"});
  await userEvent.click(trigger);
@@ -60,15 +62,14 @@ it("opens plan results for review without advancing and filters failed items", a
  expect(calls.advance).not.toHaveBeenCalled();
 });
 
-it("keeps the selected content operation in published-plan and operation-recovery links", async () => {
+it("keeps the selected content operation in the published-plan link", async () => {
  const operationId="22222222-2222-4222-8222-222222222222";
  const plan={id:"11111111-1111-4111-8111-111111111111",createdAt:"2026-10-11T00:00:00Z",input:{mode:"product",inputs:["https://detail.1688.com/offer/123.html"]},discoveryIndex:1,state:"completed",revision:1,items:[{source:"https://detail.1688.com/offer/123.html",state:"published",operationId}],discoveryFailures:[],preparationIds:[],truncated:false};
  calls.create.mockResolvedValue(plan);
  render(<AcquisitionPlansPage scope={scope} agentKind="content"/>);
  await start();
  expect(await screen.findByRole("link",{name:"查看商品"})).toHaveAttribute("href",`/workbench/supply/acquisition/operation/${operationId}?agent_kind=content`);
- await userEvent.type(screen.getByLabelText("操作 ID"),operationId);
- expect(screen.getByRole("link",{name:"读取"})).toHaveAttribute("href",`/workbench/supply/acquisition/operation/${operationId}?agent_kind=content`);
+
 });
 it("shows a definite source conflict and stops offering to continue its frozen transfer",async()=>{
  const plan={id:"11111111-1111-4111-8111-111111111111",createdAt:"2026-10-11T00:00:00Z",input:{mode:"product",inputs:["https://detail.1688.com/offer/123.html"]},discoveryIndex:1,state:"pending",revision:1,items:[],discoveryFailures:[],preparationIds:[],truncated:false};
