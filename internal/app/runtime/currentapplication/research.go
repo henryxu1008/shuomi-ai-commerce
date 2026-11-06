@@ -3,7 +3,8 @@ package currentapplication
 import "errors"
 
 type ResearchConfig struct {
-	Database DatabaseConfig `json:"database"`
+	SupplierReview bool           `json:"supplierReview,omitempty"`
+	Database       DatabaseConfig `json:"database"`
 }
 
 func (c *Config) validateResearch() error {

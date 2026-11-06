@@ -180,6 +180,9 @@ func execute() error {
 			}
 			if features.MarketResearchDB != nil {
 				options = append(options, httpapi.WithMarketResearch(features.MarketResearchDB))
+				if features.MarketResearchSupplierReview {
+					options = append(options, httpapi.WithMarketResearchSupplierReview())
+				}
 			}
 			if trial := features.SHEINUSTrial; trial != nil {
 				option, err := httpapi.WithSHEINUSTrial(httpapi.SHEINUSTrialInputs{

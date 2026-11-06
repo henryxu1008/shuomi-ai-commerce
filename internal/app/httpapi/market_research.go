@@ -22,6 +22,10 @@ func WithMarketResearch(db *gorm.DB) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.marketResearchDB = db; o.marketResearchConfigs++ }
 }
 
+func WithMarketResearchSupplierReview() CurrentApplicationOption {
+	return func(o *currentApplicationOptions) { o.marketResearchSupplierReview = true }
+}
+
 type researchModule struct {
 	handler  *rh.Handler
 	service  *research.Service
@@ -169,7 +173,7 @@ func (a researchSources) observeSHEINUS(ctx context.Context, principal dataacqui
 	return v, nil
 }
 
-func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModule, collections *collection.Service, data *dataservicesapp.Module) (kernel.Module, error) {
+func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModule, collections *collection.Service, data *dataservicesapp.Module, supplierReview bool) (kernel.Module, error) {
 	if db == nil || project.handler == nil || collections == nil || data == nil {
 		return nil, errors.New("market research requires current project, collection and data owners")
 	}
@@ -185,7 +189,12 @@ func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModu
 		return nil, research.ErrUnavailable
 	}
 	projects := researchProjects{project.handler.Service, auth}
-	service := research.New(repo, projects, researchSources{collections, data})
+	sources := researchSources{collections, data}
+	service := research.New(repo, projects, sources)
+	if supplierReview && store.VerifySupplierReviewSchema(ctx, db) == nil {
+		service.SupplierSources = sources
+		service.SupplierExpiry = supplierEvidenceExpiry
+	}
 	h := &rh.Handler{Service: service, Bind: func(ctx context.Context, header string) (context.Context, collection.Scope, error) {
 		ctx, err := (productReviewCapabilityBinder{}).Bind(ctx, header)
 		if err != nil {

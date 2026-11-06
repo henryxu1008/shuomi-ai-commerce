@@ -34,6 +34,17 @@ func ValidObservation(v Observation, s Selection) bool {
 	}
 }
 func Validate(c Command) error {
+	if c.Action == RecordSupplierReview {
+		if !collection.ValidID(c.CandidateID) || c.ExpectedRevision < 1 || len(c.Selections) != 0 ||
+			!collection.ValidID(c.LinkID) || !supplierDigest.MatchString(c.EvidenceDigest) ||
+			c.State != "" || c.Reason != "" || !validSupplierInput(c.Supplier) {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if c.Supplier != nil {
+		return ErrInvalid
+	}
 	if !utf8.ValidString(c.Reason) || len(c.Reason) > 4096 || strings.ContainsRune(c.Reason, 0) {
 		return ErrInvalid
 	}
@@ -96,10 +107,17 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 	if !collection.ValidID(key) || Validate(c) != nil {
 		return Receipt{}, ErrInvalid
 	}
+	if c.Action == RecordSupplierReview && !s.SupplierReviewsEnabled() {
+		return Receipt{}, ErrUnsupported
+	}
 	c.Selections = append([]Selection(nil), c.Selections...)
 	sort.Slice(c.Selections, func(i, j int) bool { return c.Selections[i].ItemID < c.Selections[j].ItemID })
 	if out, found, err := s.Store.Replay(ctx, scope, project, key, c); err != nil || found {
 		return out, err
+	}
+	if c.Action == RecordSupplierReview {
+		proof, validation := s.prepareSupplier(ctx, scope, project, c)
+		return s.Store.(SupplierReviewStore).CommitSupplier(ctx, scope, project, key, c, proof, validation)
 	}
 	var validation error
 	observations := []Observation{}
@@ -181,6 +199,7 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 	}
 	for _, c := range rows {
 		v := CandidateView{ID: c.ID, State: c.State, Revision: c.Revision, SelectedLinkID: c.SelectedLinkID, Evidence: []EvidenceView{}, History: []DecisionView{}}
+		v.SupplierReview = s.SupplierReviewsEnabled() && c.Identity.Platform == "amazon" && c.Identity.Market == "us"
 		for _, link := range c.Links {
 			if link.Removed {
 				continue

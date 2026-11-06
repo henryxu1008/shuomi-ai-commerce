@@ -22,6 +22,12 @@ func TestResearchRouteAdmissionRequiresCapabilityAndExactNativeBoundary(t *testi
 	require.Error(t, validate(routes, false))
 	require.Error(t, validate(base, true))
 	require.NoError(t, validate(routes, true))
+	supplier := rh.Routes(nil)[0]
+	supplier.Path = rh.SupplierReviewPath
+	withSupplier := append(append([]httproute.Descriptor(nil), routes...), supplier)
+	require.Error(t, validate(withSupplier, true), "supplier review must remain closed without its own capability")
+	enabled := currentApplicationOptionalRoutes{MarketResearch: true, SupplierReview: true}
+	require.NoError(t, validateCurrentApplicationRoutesInternal(withSupplier, false, false, false, false, false, false, false, enabled))
 	for _, mutate := range []func(*httproute.Descriptor){func(d *httproute.Descriptor) { d.Permission = "workbench.project.read" }, func(d *httproute.Descriptor) { d.AuthPolicy = httproute.AuthPolicyPublic }, func(d *httproute.Descriptor) {
 		d.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyCachedRead
 	}} {

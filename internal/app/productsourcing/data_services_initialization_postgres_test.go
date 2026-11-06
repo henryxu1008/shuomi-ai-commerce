@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
+	researchstore "task-processor/internal/integration/persistence/product/research"
 	"testing"
 	"time"
 )
@@ -43,11 +44,11 @@ func verifyDataServicesFreshInstaller(t *testing.T, supplyMarket bool) {
 		return db
 	}
 	owner := open(dsn, 2)
-	require.NoError(t, owner.Exec(`CREATE ROLE source_acquisition_runtime LOGIN PASSWORD 'runtime-fixture'; CREATE ROLE data_services_runtime LOGIN PASSWORD 'runtime-fixture'`).Error)
+	require.NoError(t, owner.Exec(`CREATE ROLE source_acquisition_runtime LOGIN PASSWORD 'runtime-fixture'; CREATE ROLE data_services_runtime LOGIN PASSWORD 'runtime-fixture'; CREATE ROLE product_research_runtime LOGIN PASSWORD 'runtime-fixture'`).Error)
 	port, err := container.MappedPort(ctx, "5432/tcp")
 	require.NoError(t, err)
 	path := filepath.Join(t.TempDir(), "install.json")
-	manifest := map[string]any{"schemaVersion": 1, "collections": true, "dataServices": true, "supplyMarket": supplyMarket, "database": map[string]any{"host": "127.0.0.1", "port": int(port.Num()), "database": "product_acquisition", "user": "test_owner", "password": "isolated-test-only"}}
+	manifest := map[string]any{"schemaVersion": 1, "collections": true, "dataServices": true, "supplyMarket": supplyMarket, "researchSupplierReview": supplyMarket, "database": map[string]any{"host": "127.0.0.1", "port": int(port.Num()), "database": "product_acquisition", "user": "test_owner", "password": "isolated-test-only"}}
 	raw, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, raw, 0600))
@@ -63,6 +64,30 @@ func verifyDataServicesFreshInstaller(t *testing.T, supplyMarket bool) {
 	require.NoError(t, acquisitionstore.VerifyDataServicesRuntimePermissions(ctx, data))
 	if !supplyMarket {
 		verifySHEINLedgerInstallation(t, ctx, path, owner, data)
+		var installed bool
+		require.NoError(t, owner.Raw("SELECT to_regclass('public.research_supplier_reviews') IS NOT NULL").Scan(&installed).Error)
+		require.False(t, installed)
+		manifest["researchSupplierReview"] = true
+		raw, err := json.Marshal(manifest)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, raw, 0600))
+		require.Error(t, InitializeAcquisitionDatabase(ctx, path, "product_acquisition"))
+		require.NoError(t, owner.Raw("SELECT to_regclass('public.research_supplier_reviews') IS NOT NULL").Scan(&installed).Error)
+		require.False(t, installed, "existing Product database cannot be upgraded")
+	} else {
+		researchURL := *address
+		researchURL.User = url.UserPassword(researchstore.RuntimeRole, "runtime-fixture")
+		researchDB := open(researchURL.String(), 4)
+		require.NoError(t, researchstore.VerifyRuntimePermissions(ctx, researchDB))
+		require.NoError(t, researchstore.VerifySupplierReviewSchema(ctx, researchDB))
+		require.Error(t, researchDB.Exec("DELETE FROM public.research_supplier_reviews").Error)
+		require.Error(t, researchDB.Exec("UPDATE public.research_supplier_reviews SET record_json=record_json").Error)
+		require.Error(t, source.Exec("SELECT record_json FROM public.research_supplier_reviews").Error)
+		require.Error(t, data.Exec("SELECT record_json FROM public.research_supplier_reviews").Error)
+		require.NoError(t, owner.Exec("GRANT SELECT ON public.research_supplier_reviews TO PUBLIC").Error)
+		require.Error(t, researchstore.VerifyRuntimePermissions(ctx, researchDB), "unrelated roles cannot receive supplier evidence")
+		require.NoError(t, owner.Exec("REVOKE SELECT ON public.research_supplier_reviews FROM PUBLIC").Error)
+		require.NoError(t, researchstore.VerifyRuntimePermissions(ctx, researchDB))
 	}
 	require.Error(t, source.Exec("SELECT id FROM data_service_credentials LIMIT 0").Error)
 	require.Error(t, data.Exec("SELECT operation_id FROM product_acquisition_operations LIMIT 0").Error)

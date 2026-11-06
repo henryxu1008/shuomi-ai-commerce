@@ -224,6 +224,7 @@ type currentApplicationOptions struct {
 	aiWorkbench                  *AIWorkbenchDependencies
 	aiWorkbenches                int
 	marketResearchDB             *gorm.DB
+	marketResearchSupplierReview bool
 	marketResearchConfigs        int
 	sheinTrial                   *sheinTrialDependencies
 	sheinTrialConfigs            int
@@ -662,7 +663,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, officialModule)
 	}
 	var researchData *dataservicesapp.Module
-	if supplied.marketResearchConfigs > 1 || supplied.marketResearchDB != nil && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs == 1 && (supplied.marketResearchDB == nil || supplied.projectCenterDB == nil || supplied.dataServices == nil || supplied.productCollections != 1) {
+	if supplied.marketResearchSupplierReview && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs > 1 || supplied.marketResearchDB != nil && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs == 1 && (supplied.marketResearchDB == nil || supplied.projectCenterDB == nil || supplied.dataServices == nil || supplied.productCollections != 1) {
 		return nil, errors.New("market research requires current owners and one explicit pool")
 	}
 	if supplied.sheinTrialConfigs != 0 && (supplied.sheinTrialConfigs != 1 || supplied.sheinTrial == nil || !supplied.sheinTrial.complete() || supplied.marketResearchConfigs != 1) {
@@ -984,6 +985,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, shopDiagnosisModule{app: diagnosisRuntime})
 	}
 	var researchRuntime *marketResearchApplication
+	var supplierReviewReady bool
 	var selectionRuntime *productSelectionApplication
 	if planCollections != nil {
 		var e error
@@ -1237,11 +1239,12 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e := verifySameProductDatabase(ctx, supplied.productAcquisitionDB, supplied.marketResearchDB); e != nil {
 				return nil, e
 			}
-			researchMod, e := composeMarketResearch(ctx, supplied.marketResearchDB, module.(projectModule), planCollections, researchData)
+			researchMod, e := composeMarketResearch(ctx, supplied.marketResearchDB, module.(projectModule), planCollections, researchData, supplied.marketResearchSupplierReview)
 			if e != nil {
 				return nil, e
 			}
 			researchOwner := researchMod.(researchModule)
+			supplierReviewReady = researchOwner.service.SupplierReviewsEnabled()
 			if supplied.sheinTrial != nil {
 				researchOwner.trial, e = composeMarketResearchSHEINTrial(ctx, researchData, *supplied.sheinTrial, researchOwner.projects, researchOwner.handler.Bind)
 				if e != nil {
@@ -1416,6 +1419,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AIWorkbench:          supplied.aiWorkbench != nil,
 		ProjectCenter:        supplied.projectCenterDB != nil,
 		MarketResearch:       supplied.marketResearchDB != nil,
+		SupplierReview:       supplierReviewReady,
 		SHEINTrial:           supplied.sheinTrial != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
 		ModelRoutePricing:    supplied.modelRoutePricing != nil,
@@ -1526,6 +1530,7 @@ type currentApplicationOptionalRoutes struct {
 	AIWorkbench          bool
 	ProjectCenter        bool
 	MarketResearch       bool
+	SupplierReview       bool
 	SHEINTrial           bool
 	MemberPoints         bool
 	MemberResources      bool
@@ -1821,6 +1826,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range append(rh.Routes(nil), marketResearchAnalysisRoutes(nil, nil)...) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
+	}
+	if optional.SupplierReview {
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: rh.SupplierReviewPath})
 	}
 	if optional.SHEINTrial {
 		for _, r := range marketResearchSHEINTrialRoutes(nil) {
@@ -2191,6 +2199,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if strings.HasPrefix(descriptor.Path, rh.Base) {
 			if !optional.MarketResearch {
 				return errors.New("market research not admitted")
+			}
+			if descriptor.Path == rh.SupplierReviewPath && !optional.SupplierReview {
+				return errors.New("research supplier review route not admitted")
 			}
 			if descriptor.Module == sheinTrialModule {
 				if !optional.SHEINTrial {

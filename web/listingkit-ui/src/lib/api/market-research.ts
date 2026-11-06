@@ -1,10 +1,18 @@
 import {z} from "zod";
-import {researchEndpoint,researchReceipt,type researchIntent} from "@/lib/contracts/market-research";
+import {researchEndpoint,researchReceipt,type researchIntent,type ResearchSelection} from "@/lib/contracts/market-research";
 import {readBoundedStrictJSON} from "./strict-json-response";
 import type {ProjectScope} from "./project-center";
 export class ResearchError extends Error{constructor(public code:string, public readonly status?:number){super(code);}}
-export async function researchRequest<T>(scope:ProjectScope,projectId:string,schema:z.ZodType<T>,signal:AbortSignal,options:{after?:string;intent?:z.infer<typeof researchIntent>;lookup?:string}={}):Promise<T>{
- const {intent,lookup,after}=options;const url="/api/workbench/research/projects/"+projectId+(intent?"/commands":lookup?"/commands/"+lookup:after?"?after="+after:"");
+export async function researchRequest<T>(scope:ProjectScope,projectId:string,schema:z.ZodType<T>,signal:AbortSignal,options:{after?:string;intent?:z.infer<typeof researchIntent>;lookup?:string;supplier?:{candidate:string;selection?:ResearchSelection;before?:number}}={}):Promise<T>{
+  const {intent,lookup,after,supplier}=options;
+ let tail=intent?"/commands":lookup?"/commands/"+lookup:after?"?after="+after:"";
+ if(supplier){
+  const query=new URLSearchParams();
+  if(supplier.selection)for(const [key,value] of Object.entries(supplier.selection))query.set(key,String(value));
+  if(supplier.before)query.set("before",String(supplier.before));
+  tail="/candidates/"+supplier.candidate+"/supplier-review"+(query.size?"?"+query:"");
+ }
+ const url="/api/workbench/research/projects/"+projectId+tail;
  if(!researchEndpoint(new URL(url,window.location.origin),intent?"POST":"GET"))throw new ResearchError("INVALID_REQUEST");
  const headers:Record<string,string>={Accept:"application/json","X-Expected-User-ID":scope.userId,"X-Expected-Organization-ID":scope.organizationId};if(intent){headers["Content-Type"]="application/json";headers["Idempotency-Key"]=intent.key;}
  let responseStatus:number|undefined;

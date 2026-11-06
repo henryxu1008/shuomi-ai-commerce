@@ -13,6 +13,7 @@ import {ResearchAnalysisFlow,analysisChoices} from "./research-analysis-flow";
 import {researchAnalysisInput} from "@/lib/contracts/research-analysis";
 import {ResearchComparison} from "./research-comparison";
 import {SheinUSTrialPanel} from "./shein-us-trial-panel";
+import {ResearchSupplierReview} from "./research-supplier-review";
 import {ResearchCostPreview} from "./research-cost-preview";
 import {researchStep} from "@/lib/workbench/research-navigation";
 import styles from "./research-panel.module.css";
@@ -23,6 +24,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  const canWrite=!archived&&context.permissions.includes("workbench.project.manage")&&canRead;
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["research",projectId],researchIntent,{maxLength:65536});
  const [items,setItems]=useState<ResearchCandidate[]>([]),[after,setAfter]=useState(initialAfter),[next,setNext]=useState(""),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true),[incomplete,setIncomplete]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false),[picker,setPicker]=useState(false),[unsupported,setUnsupported]=useState<string[]>([]),[chosen,setChosen]=useState<string[]>([]),[compare,setCompare]=useState(false),[absent,setAbsent]=useState(false);
+  const [openedSupplier,setOpenedSupplier]=useState("");
  const [openedCost,setOpenedCost]=useState<string|null>(null),[loadedCostPage,setLoadedCostPage]=useState("");
  const costPageKey=JSON.stringify([scope.userId,scope.organizationId,projectId,after,refresh,canRead,canWrite,archived]);
  const lifetime=useRef<AbortController|null>(null),flight=useRef(false),handoff=useRef(false);
@@ -88,6 +90,11 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
     return <article key={v.id+":"+v.revision} className={styles.candidate}>
      <div className={styles.heading}><h4>{v.observation?.title||"这份资料暂时无法查看"}</h4><span className={styles.badge}>{states[v.state]}</span></div>
      {v.reason?<p>当前理由：{v.reason}</p>:null}
+          {v.supplierReview&&canRead&&<div className="grid min-w-0 gap-3">
+      <div><Button type="button" variant="secondary" aria-expanded={openedSupplier===v.id} onClick={()=>setOpenedSupplier(openedSupplier===v.id?"":v.id)}>{openedSupplier===v.id?"收起货源核对":"核对已保存货源"}</Button></div>
+      {openedSupplier===v.id&&<ResearchSupplierReview key={JSON.stringify([scope,projectId,v.id,v.revision,canWrite,context.permissions])}
+       scope={scope} projectId={projectId} candidateId={v.id} canWrite={canWrite} onSaved={reload}/>}
+     </div>}
      {previewKey&&<div className="grid min-w-0 gap-3">
       <div><Button variant="secondary" aria-expanded={open} onClick={()=>setOpenedCost(open?null:previewKey)}>{open?"收起参考试算":"填写经营假设"}</Button></div>
       {open&&binding&&<ResearchCostPreview key={previewKey} verifyEvidence={signal=>verifyCostEvidence(binding,signal)}/>}

@@ -21,6 +21,20 @@ const candidate={id,revision:2,state:"TO_RESEARCH",selectedLinkId:id,evidenceDig
 beforeEach(()=>{sessionStorage.clear();mock.pickerItem=undefined;mock.context.permissions=["workbench.collection.read","workbench.project.manage"];mock.read.mockReset().mockResolvedValue({items:[candidate],incomplete:false});});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.unstubAllEnvs();});
 
+it("keeps the original human decision available while a supplier request is unresolved", async () => {
+ const scope={userId:"researcher",organizationId:"organization"};
+ const key="33333333-3333-4333-8333-333333333333";
+ sessionStorage.setItem("resource.pending:"+JSON.stringify([scope.userId,scope.organizationId,"research-supplier-review",id,id]),JSON.stringify({key}));
+ mock.read.mockImplementation(async (_scope,_project,_schema,_signal,options)=>{
+  if(options?.supplier)return {items:[]};
+  return {items:[{...candidate,supplierReview:true}],incomplete:false};
+ });
+ render(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核对已保存货源"}));
+ expect(await screen.findByRole("button",{name:"查询货源核对原请求"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"开始评估"})).toBeEnabled();
+});
+
 it.each([0,1])("preserves %i saved cards when viewing the original after one confirmed SHEIN submit", async (publishedCount) => {
  const receipt={approvalId:id,state:"CONFIRMED",requestId:"original-1",credits:5,reservedCredits:0};
  const fetcher=vi.fn().mockResolvedValueOnce(Response.json({approvalId:id,state:"NOT_STARTED"}))

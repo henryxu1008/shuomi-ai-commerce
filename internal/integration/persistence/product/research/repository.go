@@ -113,7 +113,7 @@ func (r *Repository) Load(ctx context.Context, s collection.Scope, p, id string)
 	return details(r.db.WithContext(ctx), s, p, row)
 }
 func details(db *gorm.DB, s collection.Scope, p string, row candidateRow) (research.Candidate, error) {
-	out := research.Candidate{ID: row.ID, ProjectID: p, State: row.State, Reason: row.Reason, Revision: row.Revision, Links: []research.Link{}, History: []research.Decision{}}
+	out := research.Candidate{ID: row.ID, ProjectID: p, Identity: research.ProductIdentity{Platform: row.Platform, Market: row.Market, NativeProductID: row.NativeProductID}, State: row.State, Reason: row.Reason, Revision: row.Revision, Links: []research.Link{}, History: []research.Decision{}}
 	if row.SelectedLinkID != nil {
 		out.SelectedLinkID = *row.SelectedLinkID
 	}
@@ -188,6 +188,10 @@ func (r *Repository) List(ctx context.Context, s collection.Scope, p, after stri
 	return out, next, nil
 }
 func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key string, c research.Command, observations []research.Observation, validation error) (research.Receipt, error) {
+	return r.commit(ctx, s, p, key, c, observations, validation, nil)
+}
+
+func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key string, c research.Command, observations []research.Observation, validation error, supplier *research.SupplierReviewProof) (research.Receipt, error) {
 	tx := r.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return research.Receipt{}, research.ErrUnavailable
@@ -312,6 +316,11 @@ func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key stri
 			}
 			row.State = c.State
 			row.Reason = c.Reason
+		case research.RecordSupplierReview:
+			if supplier == nil || row.Platform != "amazon" || row.Market != "us" ||
+				linkID != c.LinkID || ref.Source.Kind != "amazon_data" || !time.Now().Before(supplier.Expires) {
+				return out, research.ErrConflict
+			}
 		case "reset":
 			row.State = "TO_RESEARCH"
 			row.Reason = ""
@@ -319,10 +328,18 @@ func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key stri
 			return out, research.ErrInvalid
 		}
 		row.Revision++
-		if e := scoped(tx, s, p).Model(&candidateRow{}).Where("id=?", row.ID).Updates(map[string]any{"selected_link_id": row.SelectedLinkID, "state": row.State, "reason": row.Reason, "revision": row.Revision}).Error; e != nil {
+		updates := map[string]any{"revision": row.Revision}
+		if supplier == nil {
+			updates["selected_link_id"] = row.SelectedLinkID
+			updates["state"] = row.State
+			updates["reason"] = row.Reason
+		}
+		if e := scoped(tx, s, p).Model(&candidateRow{}).Where("id=?", row.ID).Updates(updates).Error; e != nil {
 			return out, research.ErrUnavailable
 		}
-		decision = &research.Decision{State: row.State, EvidenceDigest: ref.Digest(), Ref: ref, Revision: row.Revision, At: now}
+		if supplier == nil {
+			decision = &research.Decision{State: row.State, EvidenceDigest: ref.Digest(), Ref: ref, Revision: row.Revision, At: now}
+		}
 		if c.Action == "decide" {
 			decision.Reason = c.Reason
 		}
@@ -330,6 +347,9 @@ func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key stri
 		out.Revisions[row.ID] = row.Revision
 	}
 	raw, _ := json.Marshal(c)
+	if supplier != nil {
+		raw, _ = json.Marshal(research.Command{Action: c.Action, CandidateID: c.CandidateID, ExpectedRevision: c.ExpectedRevision})
+	}
 	receiptJSON, _ := json.Marshal(out)
 	command := commandRow{OrganizationID: s.OrganizationID, ActorID: s.ActorID, ProjectID: p, Key: key, InputHash: collection.Digest(c), IntentJSON: raw, ReceiptJSON: receiptJSON, CreatedAt: now}
 	if c.CandidateID != "" {
@@ -340,6 +360,11 @@ func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key stri
 	}
 	if e := tx.Create(&command).Error; e != nil {
 		return research.Receipt{}, research.ErrUnavailable
+	}
+	if supplier != nil {
+		if err := insertSupplierReview(tx, s, p, key, c, out.Revisions[c.CandidateID], now, *supplier); err != nil {
+			return research.Receipt{}, err
+		}
 	}
 	if tx.Commit().Error != nil {
 		return research.Receipt{}, research.ErrUnknown

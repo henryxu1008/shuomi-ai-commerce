@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	strict "sigs.k8s.io/json"
+	"strconv"
 	"strings"
 	"task-processor/internal/httproute"
 	"task-processor/internal/product/collection"
@@ -19,6 +20,7 @@ import (
 
 const Base = "/api/v1/workbench/research/projects"
 const ModuleName = "market-research"
+const SupplierReviewPath = Base + "/:project_id/candidates/:candidate/supplier-review"
 
 type Handler struct {
 	Service *research.Service
@@ -27,8 +29,16 @@ type Handler struct {
 type route struct{ method, path string }
 
 func Routes(h *Handler) []httproute.Descriptor {
+	return researchRoutes(h, h != nil && h.Service != nil && h.Service.SupplierReviewsEnabled())
+}
+
+func researchRoutes(h *Handler, supplier bool) []httproute.Descriptor {
 	out := []httproute.Descriptor{}
-	for _, spec := range []route{{"GET", Base + "/:project_id"}, {"POST", Base + "/:project_id/commands"}, {"GET", Base + "/:project_id/commands/:key"}} {
+	specs := []route{{"GET", Base + "/:project_id"}, {"POST", Base + "/:project_id/commands"}, {"GET", Base + "/:project_id/commands/:key"}}
+	if supplier {
+		specs = append(specs, route{"GET", SupplierReviewPath})
+	}
+	for _, spec := range specs {
 		permission := "workbench.project.read"
 		if spec.method == "POST" {
 			permission = "workbench.project.manage"
@@ -44,7 +54,7 @@ func Routes(h *Handler) []httproute.Descriptor {
 	return out
 }
 func ValidateDescriptor(d httproute.Descriptor) error {
-	for _, e := range Routes(nil) {
+	for _, e := range researchRoutes(nil, true) {
 		if d.Method == e.Method && d.Path == e.Path && d.Module == e.Module && d.Permission == e.Permission && d.AuthPolicy == e.AuthPolicy && d.OrganizationAccessPolicy == e.OrganizationAccessPolicy && d.OrganizationTargetResolver == nil && d.RequestTimeout == e.RequestTimeout && d.RejectUnreadRequestBody == e.RejectUnreadRequestBody && d.Handler != nil {
 			return nil
 		}
@@ -108,7 +118,9 @@ func (h *Handler) serve(c *gin.Context) {
 			failure(c, research.ErrInvalid)
 			return
 		}
-		if key := c.Param("key"); key != "" {
+		if candidate := c.Param("candidate"); candidate != "" {
+			value, err = h.supplierRead(ctx, scope, project, candidate, c.Request.URL.RawQuery)
+		} else if key := c.Param("key"); key != "" {
 			if c.Request.URL.RawQuery != "" {
 				failure(c, research.ErrInvalid)
 				return
@@ -140,4 +152,31 @@ func (h *Handler) serve(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "private, no-store")
 	c.Data(200, "application/json", raw)
+}
+
+func (h *Handler) supplierRead(ctx context.Context, scope collection.Scope, project, candidate, raw string) (any, error) {
+	q, err := url.ParseQuery(raw)
+	if err != nil || len(raw) > 1024 {
+		return nil, research.ErrInvalid
+	}
+	if len(q) == 0 && raw == "" {
+		return h.Service.SupplierReviews(ctx, scope, project, candidate, 0)
+	}
+	if len(q) == 1 && len(q["before"]) == 1 {
+		before, err := strconv.ParseInt(q.Get("before"), 10, 64)
+		if err != nil || before <= 0 || strconv.FormatInt(before, 10) != q.Get("before") {
+			return nil, research.ErrInvalid
+		}
+		return h.Service.SupplierReviews(ctx, scope, project, candidate, before)
+	}
+	if len(q) != 4 || len(q["itemId"]) != 1 || len(q["revision"]) != 1 || len(q["publicationId"]) != 1 || len(q["version"]) != 1 {
+		return nil, research.ErrInvalid
+	}
+	revision, revErr := strconv.ParseInt(q.Get("revision"), 10, 64)
+	version, verErr := strconv.ParseUint(q.Get("version"), 10, 63)
+	if revErr != nil || verErr != nil || strconv.FormatInt(revision, 10) != q.Get("revision") || strconv.FormatUint(version, 10) != q.Get("version") {
+		return nil, research.ErrInvalid
+	}
+	in := research.Selection{ItemID: q.Get("itemId"), Revision: revision, PublicationID: q.Get("publicationId"), Version: version}
+	return h.Service.SupplierPreview(ctx, scope, project, candidate, in)
 }
