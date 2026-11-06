@@ -6,7 +6,7 @@ Refs #694；[既有合同澄清](../architecture/own-product-draft-entry.md)。�
 
 1. 正常登录并确认当前企业，进入 `/workbench/data/mine?view=own`，打开已有自有商品。
 2. 点击“创建待补全草稿”，进入 `/workbench/data/mine/own/<itemId>/prepare`。页面读取当前所属批次版本后再读取展示资料，确认来源版本与图片、属性、SKU。
-3. 点击“确认转入并填写草稿”。原Transfer只选择该item，成功后进入 `/workbench/supply/mine/missing/<sourceId>`。
+3. 点击“确认转入并填写草稿”。原Transfer只选择该item，成功后进入 `/workbench/listing/missing/<sourceId>`。
 4. 页面明确“尚未保存”；候选标题/描述与固定原资料分开。填写后点击“保存待补全草稿”，显示实际保存Rn，刷新或重新进入继续编辑。
 5. 待补全列表的“查看 / 编辑”使用同一独立页。当前已存在 `missing?preparation=<id>&source=<id>` 入口也展示同一独立内容，不使用弹窗。
 

@@ -34,7 +34,7 @@ const navigationIcons: Record<string, LucideIcon> = {
 };
 import {useSearchParams} from "next/navigation";
 import {collectionID} from "@/lib/contracts/product-collection";
-import {listingHome} from "@/lib/workbench/supply-navigation";
+import {listingHome} from "@/lib/workbench/listing-navigation";
 import { useId, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
@@ -65,7 +65,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
     for(const key of ["storeId","sourceId"]){const values=query?.getAll(key);if(values?.length===1&&fulfillmentID.safeParse(values[0]).success)orderSelection.set(key,values[0]);}
     const kinds=query?.getAll("kind");if(kinds?.length===1&&(kinds[0]==="consumer_order"||kinds[0]==="platform_supply"))orderSelection.set("kind",kinds[0]);
   }
-  const supplyQuery=selection.size?`?${selection}`:"";
+  const listingQuery=selection.size?`?${selection}`:"";
   const navigation = productAcquisitionAvailable ? consoleNavigation : consoleNavigation.map(node => node.href === "/workbench/supply" ? { ...node, children: node.children?.filter(child => child.href !== "/workbench/supply/acquisition") } : node);
   const nativeAvailable=nativeRunsAvailable&&canDiscoverNativeRuns(cockpitPermissions);
   const independentTaskAvailable = nativeAvailable || productReviewAvailable || sheinRecordsAvailable;
@@ -96,7 +96,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
       } : child.href === "/workbench/ai/knowledge" ? { ...child, availability: "connected" as const, children:child.children?.map(entry => ({...entry, availability:entry.href === "/workbench/ai/knowledge/official" || knowledgeAvailable ? "connected" as const : "unavailable" as const})) } : child);
     return { ...node, availability: connected ? "connected" as const : "unavailable" as const, children };
   });
-  return <nav aria-label={ariaLabel} className="console-nav"><ul>{nodes.map(node => supplyMarketAvailable && userId && node.href==="/workbench/supply" ? <MarketBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId}/> : ecoservicesAvailable && userId && node.href === "/workbench/services" ? <EcoservicesBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId} /> : <NavBranch key={`${node.href==="/workbench/store-orders"?orderPath:researchPath}:${node.href}`} node={node} pathname={node.href==="/workbench/store-orders"?orderPath:researchPath} research={research} trail={trail} depth={1} onNavigate={onNavigate} supplyQuery={supplyQuery} orderQuery={node.href==="/workbench/store-orders"?orderSelection.toString():""} />)}</ul></nav>;
+  return <nav aria-label={ariaLabel} className="console-nav"><ul>{nodes.map(node => supplyMarketAvailable && userId && node.href==="/workbench/supply" ? <MarketBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId}/> : ecoservicesAvailable && userId && node.href === "/workbench/services" ? <EcoservicesBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId} /> : <NavBranch key={`${node.href==="/workbench/store-orders"?orderPath:researchPath}:${node.href}`} node={node} pathname={node.href==="/workbench/store-orders"?orderPath:researchPath} research={research} trail={trail} depth={1} onNavigate={onNavigate} listingQuery={listingQuery} orderQuery={node.href==="/workbench/store-orders"?orderSelection.toString():""} />)}</ul></nav>;
 }
 function MarketBranch({node,pathname,trail,onNavigate,userId}:{node:ConsoleNavNode;pathname:string;trail:readonly string[];onNavigate?:()=>void;userId:string}){
  const authorized=useQuery({queryKey:["supply-market",userId,"","records",true,"selected",false,undefined],queryFn:({signal})=>listMarketRecords({userId,organizationId:""},{kind:"selected",ended:false},true,signal),retry:false});
@@ -119,12 +119,12 @@ function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node
   return <NavBranch node={branch} pathname={pathname} trail={currentTrail} depth={1} onNavigate={onNavigate} />;
 }
 
-function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "", orderQuery = "", research }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; depth: number; onNavigate?: () => void; supplyQuery?:string; orderQuery?:string; research?:ResearchLocation }) {
+function NavBranch({ node, pathname, trail, depth, onNavigate, listingQuery = "", orderQuery = "", research }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; depth: number; onNavigate?: () => void; listingQuery?:string; orderQuery?:string; research?:ResearchLocation }) {
   const orderParameters=new URLSearchParams(node.href.split("?")[1]);
   if(node.href.startsWith("/workbench/store-orders/fulfill?"))for(const [key,value] of new URLSearchParams(orderQuery))orderParameters.set(key,value);
   const originalHref=node.href.startsWith("/workbench/store-orders/fulfill?")
     ? `/workbench/store-orders/fulfill?${orderParameters}`
-    : node.href===listingHome&&supplyQuery ? node.href+supplyQuery : node.href;
+    : node.href===listingHome&&listingQuery ? node.href+listingQuery : node.href;
   const href = researchNavigationHref(originalHref, research);
   const active = trail.includes(node.href) || pathname === node.href;
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
@@ -138,7 +138,7 @@ function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "",
       </Link>}
       {node.children && !node.disclosureOnly ? <button type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}><ChevronDown className="console-nav-chevron" size={16} aria-hidden="true" /></button> : null}
     </div>
-    <AnimatePresence initial={false}>{node.children && expanded ? <NavigationChildren key={id} id={id}>{node.children.map((child) => <NavBranch key={child.href} node={child} pathname={pathname} trail={trail} depth={depth + 1} onNavigate={onNavigate} supplyQuery={supplyQuery} orderQuery={orderQuery} research={research} />)}</NavigationChildren> : null}</AnimatePresence>
+    <AnimatePresence initial={false}>{node.children && expanded ? <NavigationChildren key={id} id={id}>{node.children.map((child) => <NavBranch key={child.href} node={child} pathname={pathname} trail={trail} depth={depth + 1} onNavigate={onNavigate} listingQuery={listingQuery} orderQuery={orderQuery} research={research} />)}</NavigationChildren> : null}</AnimatePresence>
   </li>;
 }
 

@@ -39,5 +39,5 @@ it("bounds revisions and navigation while retaining the three return contexts",(
  expect(completionHistoryNavigation({preparation:other,item:other,from:"1",to:"2"},"compare")).toEqual({preparationId:other,itemId:other,from:1,to:2});
  for(const query of [{from:"2",to:"1"},{from:"1",to:"1"},{from:["1","2"],to:"3"},{from:"01",to:"3"},{from:"1",to:"9007199254740992"},{from:"1",to:"2",returnUrl:"https://other"}])expect(completionHistoryNavigation(query,"compare")).toBeNull();
  expect(completionHistoryNavigation({from:"1"},"history")).toBeNull();
- expect(completionHistoryHref(id,other,other,{from:1,to:2})).toBe(`/workbench/supply/mine/missing/${id}/history/compare?preparation=${other}&item=${other}&from=1&to=2`);
+ expect(completionHistoryHref(id,other,other,{from:1,to:2})).toBe(`/workbench/listing/missing/${id}/history/compare?preparation=${other}&item=${other}&from=1&to=2`);
 });

@@ -18,8 +18,8 @@ import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@
 import { CollectionAPIError, readCollectionBatch, listCollectionBatches, listCollectionItems, listOwnProducts, readCollectionItem, type CollectionScope, type CollectionIntent } from "@/lib/api/product-collection";
 import { collectionID, type CollectionBatch, type CollectionItem, type CollectionDetail, type CollectionCommand } from "@/lib/contracts/product-collection";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
-import { useSupplyCommand } from "../supply/use-supply-command";
-import { SupplyCommandFeedback } from "../supply/command-feedback";
+import { useListingCommand } from "../listing/use-listing-command";
+import { ListingCommandFeedback } from "../listing/command-feedback";
 import { transferReceiptSchema } from "@/lib/contracts/supply-chain";
 import { ExcelImportForm } from "./excel-import-form";
 import { useCollectionCommand } from "./use-collection-command";
@@ -72,7 +72,7 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
   const commandAbort = useRef<AbortController | null>(null);
   const canManage = context.permissions.includes("workbench.collection.manage");
   const foreignPending = !!pending && (pending.userId !== scope.userId || pending.organizationId !== scope.organizationId);
-  const supply=useSupplyCommand(scope,(result,intent)=>{
+  const supply=useListingCommand(scope,(result,intent)=>{
     if(intent.route!=="transfer"){setNotice("已核实原供应链操作");return;}
     const receipt=transferReceiptSchema.parse(result);setTransferred(receipt.preparation.id);setDialog(null);setNotice(`已转入待上传，共 ${receipt.preparation.count} 件商品。`);
   });
@@ -150,8 +150,8 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
       <Button variant="outline" disabled={!canManage} onClick={() => { setName(""); setDialog("manage"); }}>管理批次</Button>
       {tab === "own" ? <><Button variant="outline" disabled={writeBlocked} onClick={()=>setDialog("import")}>Excel 导入</Button><Button asChild disabled={writeBlocked}><Link href="/workbench/data/mine/own/new" prefetch={false} aria-disabled={writeBlocked} onClick={event=>{if(writeBlocked)event.preventDefault()}}>添加自有商品</Link></Button></> : null}
     </Card>
-    {supplyAvailable ? <SupplyCommandFeedback state={supply} /> : null}
-    {transferred ? <Button asChild variant="outline" className="mb-4"><Link href={`/workbench/supply/mine/waiting?preparation=${transferred}`}>查看待上传</Link></Button> : null}
+    {supplyAvailable ? <ListingCommandFeedback state={supply} /> : null}
+    {transferred ? <Button asChild variant="outline" className="mb-4"><Link href={`/workbench/listing/waiting?preparation=${transferred}`}>查看待上传</Link></Button> : null}
     {foreignPending ? <ConsoleState kind="unavailable" title="原身份下有待核实的操作">请回到原身份与企业后核实，操作键：{pending?.key}</ConsoleState> : pending ? <Card className="mb-4 space-y-3 border-border bg-muted p-4"><h2 className="font-semibold">结果待核实</h2><p className="break-all text-sm">操作键：{pending.key}</p><div className="flex gap-2"><Button disabled={busy} onClick={() => void command(pending.command, pending, true)}>核实原操作</Button>{error === "NOT_FOUND" ? <Button disabled={busy} variant="outline" onClick={() => void command(pending.command, pending)}>重试原请求</Button> : null}</div></Card> : null}
     {error && error !== "OUTCOME_UNKNOWN" ? <p role="alert" className="mb-4 text-sm text-destructive">{failureText[error] ?? "暂时无法完成请求，请刷新或核实原操作。"}</p> : null}
     {notice ? <p role="status" className="mb-4 break-all text-sm text-success-foreground">{notice}</p> : null}

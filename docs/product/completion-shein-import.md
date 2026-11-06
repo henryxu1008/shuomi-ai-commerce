@@ -31,7 +31,7 @@ UI authority 继承 [当前 UI/IA](final-ui-ia-authority.md)、Figma `tg48P46SSX
 
 ## 使用入口与交接
 
-供应市场 → 我的供应链 → 待补全 → 已保存草稿 → “SHEIN 带入预览（已保存 Rn）”；或已保存且未被编辑的 SHEIN 平台资料 → “SHEIN 带入预览”。地址为 `/workbench/supply/mine/missing/{sourceId}/shein`，严格 ID query 保留 preparation/item/revision/target 上下文。候选有未保存的编辑时，入口明确采用已保存 Rn。
+供应市场 → 我的供应链 → 待补全 → 已保存草稿 → “SHEIN 带入预览（已保存 Rn）”；或已保存且未被编辑的 SHEIN 平台资料 → “SHEIN 带入预览”。地址为 `/workbench/listing/missing/{sourceId}/shein`，严格 ID query 保留 preparation/item/revision/target 上下文。候选有未保存的编辑时，入口明确采用已保存 Rn。
 
 选择店铺及映射 → 预览带入结果 → 检查覆盖前后值 → 确认保存为新平台草稿版本。冲突时重新读取目标并重新预览；结果待核实保留原操作键，沿“核实原操作”处理。本轮没有部署或真实平台操作。
 

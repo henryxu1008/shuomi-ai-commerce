@@ -85,7 +85,7 @@ Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)�
 - Source 预览要求 ReportRead 和 source read；新保存要求 ReportManage 和 source read。Report 的 live 身份不得被静态执行scope代替。读不到、无权限、缺owner与超限分别沿原错误策略处理，不伪造空报告。
 - 原来源页面上的候选“保存报告”入口只携带 kind/id 到现有报告页，不发送保存、Apply或上传；报告页重新读取服务器生成的完整ref，再由用户显式保存。不追加手抄UUID、CLI或人工验收流程。
 - 复用报告页预览/保存状态；新增类型筛选/名称与 same-origin source 参数白名单。query key、source item key 与 pending intent 都含 kind/id/version 和当前 user/org/权限上下文，类型碰巧同 ID 不复用旧预览或命令。
-- “打开原来源”必须进入 Supply owner 的精确已保存版本读取，不能沿旧 `/workbench/shein-records/:id/diagnostic`，也不能改读当前 head。现有 Supply 通用详情以 source/store 为上下文，若缺少 record-only 深链，最小补齐是在现有 Supply 资料页面增加受限 record locator（候选 `/workbench/supply/mine/adapted?record=<UUID>`）：通过原 `GET .../records/:record_id` 授权后展示原保存记录，不自动执行规则/模型/平台或写操作。这是必要 consumer 接线，不新建工作台/事实owner；不能以一个泛列表链接冒称精确溯源。
+- “打开原来源”必须进入 Supply owner 的精确已保存版本读取，不能沿旧 `/workbench/shein-records/:id/diagnostic`，也不能改读当前 head。现有 Supply 通用详情以 source/store 为上下文，若缺少 record-only 深链，最小补齐是在现有 Supply 资料页面增加受限 record locator（候选 `/workbench/listing/adapted?record=<UUID>`）：通过原 `GET .../records/:record_id` 授权后展示原保存记录，不自动执行规则/模型/平台或写操作。这是必要 consumer 接线，不新建工作台/事实owner；不能以一个泛列表链接冒称精确溯源。
 - 历史报告 Read/List/Favorite/Download 不重新读源；来源撤权/删除不让报告成为访问源的通行证，当前 report membership/本人权限仍在每次请求校验。原设计允许保留已获授权导出的历史快照，此边界不扩大。
 
 ## 5. Report schema 与启用边界

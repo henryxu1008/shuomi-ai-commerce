@@ -80,6 +80,6 @@ export function PrivateDraftForm({scope,id,canUse,saved,offlineTrial=false}:{sco
       <p>本次权限：{mode.data?`${executionModeLabels[mode.data.mode]} · 模式版本 ${mode.data.revision}；本能力只保存诊断报告。`:"正在读取，暂不能开始检查。"}</p>
       <Button type="button" disabled={!record||!mode.data} onClick={()=>record&&mode.data&&void execute({deliveryId:id,key:crypto.randomUUID(),input:{recordId:record.id,expectedRevision:record.revision,expectedModeRevision:mode.data.revision}})}>{busy?"正在检查并保存…":"检查并保存报告"}</Button>
     </fieldset>
-    {!offlineTrial?<Link href={prep&&store?`/workbench/supply/mine?preparation=${prep}&store=${store}`:"/workbench/supply/mine"}>前往商品刊登补全资料 →</Link>:null}
+    {!offlineTrial?<Link href={prep&&store?`/workbench/listing?preparation=${prep}&store=${store}`:"/workbench/listing"}>前往商品刊登补全资料 →</Link>:null}
   </Card>;
 }

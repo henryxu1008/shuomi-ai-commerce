@@ -1,14 +1,14 @@
 import {beforeEach,expect,it,vi} from "vitest";
 import {buildWorkbenchUpstreamRequest,buildWorkbenchBrowserResponse} from "./workbench-proxy";
 import {materialsRunSchema} from "../contracts/supply-chain";
-import {initialSupplyDraft} from "../../components/workbench/supply/draft-fields";
+import {initialListingDraft} from "../../components/workbench/listing/draft-fields";
 const record="550e8400-e29b-41d4-a716-446655440000",key="550e8400-e29b-41d4-a716-446655440001";
 const ref={Kind:"agent-configuration-v1",ID:key,Digest:"a".repeat(64)};
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));
 it("reads owner-valid material attributes through the proposal and saved draft",()=>{
  const attributes=Array.from({length:1000},(_,index)=>({attribute_id:index+1,attribute_value_id:1}));
- const draft=initialSupplyDraft({product:{}} as Parameters<typeof initialSupplyDraft>[0]);
+ const draft=initialListingDraft({product:{}} as Parameters<typeof initialListingDraft>[0]);
  draft.product.product_attribute_list=attributes;
  const input={sourceId:record,storeId:record,expectedRevision:0,effectiveVersion:"1",draft};
  const result={runId:key,requestKey:key,recordId:record,phase:"human_review_required",revision:"2",configurationSnapshotRef:ref,modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:key,Digest:"b".repeat(64)},executionMode:"default",modeRevision:"1",before:input,after:input,proposal:{attributes,evidenceIds:["observed"]},candidateHash:"c".repeat(64),unresolved:[],canRequestAdoption:true,steps:[],tokens:30,estimatedCostMicros:20,currency:"CNY",usageStatus:"observed"};

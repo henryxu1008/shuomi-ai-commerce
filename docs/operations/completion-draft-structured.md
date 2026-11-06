@@ -6,7 +6,7 @@ Refs #718。范围与权限见 [产品决定](../product/completion-draft-struct
 
 启用原 ProductCollections / supplyCompletionDrafts 的当前应用，正常登录并选择企业，从已有待补全草稿选择“编辑商品属性和 SKU”。独立路由：
 
-`/workbench/supply/mine/missing/<sourceId>/structure?preparation=<preparationId>&item=<ownItemId>`
+`/workbench/listing/missing/<sourceId>/structure?preparation=<preparationId>&item=<ownItemId>`
 
 需要原供应链查看权限；保存仍需管理权限和实时成员授权。来源及导航必须匹配。返回草稿、商品、批次和保存历史均使用页面实际读取的固定来源。
 

@@ -13,8 +13,8 @@ import {listSupplySources,type SupplyIntent} from "@/lib/api/supply-chain";
 import {completionDraftHref} from "@/lib/contracts/completion-draft-navigation";
 import {transferInputSchema,transferReceiptSchema,type SupplyPreparation} from "@/lib/contracts/supply-chain";
 import type {CollectionDetail} from "@/lib/contracts/product-collection";
-import {useSupplyCommand} from "../supply/use-supply-command";
-import {SupplyCommandFeedback} from "../supply/command-feedback";
+import {useListingCommand} from "../listing/use-listing-command";
+import {ListingCommandFeedback} from "../listing/command-feedback";
 import {skillLaunchHref,skillLaunchMatches,type SkillLaunchInput,type SkillLaunch} from "@/lib/contracts/skill-launch";
 import {SkillLaunchError,SkillLaunchSummary,useLaunchVersion} from "../skills/skill-launch";
 
@@ -56,7 +56,7 @@ function ScopedPrepare({scope,itemId,launch}:{scope:CollectionScope;itemId:strin
   }catch{if(alive.current&&!controller.signal.aborted)setOpenError(true)}
   finally{if(alive.current&&!controller.signal.aborted)setOpening(false)}
  }
- const command=useSupplyCommand(scope,(result,intent)=>{
+ const command=useListingCommand(scope,(result,intent)=>{
   if(!selectedItem(intent,itemId))return;
   const receipt=transferReceiptSchema.safeParse(result),input=transferInputSchema.parse(intent.command);
   if(!receipt.success||receipt.data.preparation.count!==1||receipt.data.preparation.sourceBatchId!==input.batchId||receipt.data.preparation.sourceRevision!==input.expectedRevision){setOpenError(true);return}
@@ -79,12 +79,12 @@ function ScopedPrepare({scope,itemId,launch}:{scope:CollectionScope;itemId:strin
  },[scope,itemId,reload]);
  function refresh(){setBasis(undefined);setLoading(true);setLoadError(false);setSubmitted(false);setReload(value=>value+1)}
  const blocked=loading||loadError||!basis||submitted||!!completed||!!command.pending||command.busy||opening||!command.ready||!version.ready;
- const waiting=completed?"/workbench/supply/mine/waiting?"+new URLSearchParams({preparation:completed.preparation.id,mode:"local"}):"";
+ const waiting=completed?"/workbench/listing/waiting?"+new URLSearchParams({preparation:completed.preparation.id,mode:"local"}):"";
  return <ConsolePage title={launch?"确认商品图片来源":"转入并填写待补全草稿"} description={launch?"确认单件固定来源后，直接选择已有原图。此步骤不生成图片。":"确认这一件商品及其原始版本，转入后填写独立候选资料。"} breadcrumbs={[{label:"我的数据",href:library},{label:"自有商品资料",href:"/workbench/data/mine/own/"+itemId},{label:"转入待补全"}]} actions={<Button asChild variant="outline"><Link href={"/workbench/data/mine/own/"+itemId}>返回商品资料</Link></Button>}>
   {launch?<SkillLaunchSummary launch={launch} version={version.version}/>:null}
   {version.error?<p role="alert" className="my-4 text-sm text-destructive">{version.error}</p>:launch&&!version.ready?<p role="status">正在核实准确技能版本…</p>:null}
   {otherPending?<ConsoleState kind="unavailable" title="请先完成已有供应链操作">当前原操作属于另一件商品或业务，请从原入口核实。</ConsoleState>:<>
-   <SupplyCommandFeedback state={{...command,error:submitted||command.pending?command.error:null}}/>
+   <ListingCommandFeedback state={{...command,error:submitted||command.pending?command.error:null}}/>
    <Card className="mb-6 space-y-3 border-border p-5"><h2 className="font-semibold">确认单件来源</h2><p className="text-sm text-muted-foreground">只转入当前商品。原始版本固定保存，之后编辑自有商品不会改变这份来源。{launch?"转入后直接选择原图，无需填写标题或描述草稿。":"转入后还需填写并保存候选标题和描述。"}</p>
     {basis?<><p className="font-medium">{basis.detail.product.title}</p><p className="text-sm">确认来源版本 <strong>{basis.detail.item.source.version}</strong> · 1 件商品 · 未绑定店铺</p></>:null}
     {completed?<div className="space-y-3"><p role="status">已转入 1 件商品，待补全草稿尚未保存。</p>{opening?<p role="status">正在读取已固定来源…</p>:null}{openError?<p role="alert">已转入来源暂时无法读取，请重读原结果。</p>:null}<Button disabled={opening} onClick={()=>void openCompleted(completed)}>重新读取已转入来源</Button><Button asChild variant="outline"><Link href={waiting}>查看已转入商品</Link></Button></div>:<div className="flex flex-wrap gap-3"><Button disabled={blocked} onClick={()=>{if(!basis)return;setSubmitted(true);void command.execute("transfer",{batchId:basis.batch.id,expectedRevision:basis.batch.revision,itemIds:[itemId]})}}>{launch?"确认转入并选择原图":"确认转入并填写草稿"}</Button><Button variant="outline" disabled={command.busy||!!command.pending||loading} onClick={refresh}>重新读取商品</Button></div>}

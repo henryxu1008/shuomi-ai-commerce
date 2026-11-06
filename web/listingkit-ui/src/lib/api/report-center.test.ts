@@ -13,7 +13,7 @@ it("keeps native saved material separate from the old diagnostic and recovers it
   const ref = { kind: "SHEIN_TARGET_RECORD" as const, id: intent.source.id, version: `sha256:${"b".repeat(64)}` };
   expect(sourceRef.safeParse(ref).success).toBe(true);
   expect(sourceRef.safeParse({ ...ref, version: "1:pending" }).success).toBe(false);
-  expect(sourceHref(ref)).toBe(`/workbench/supply/mine/ready?record=${ref.id}`);
+  expect(sourceHref(ref)).toBe(`/workbench/listing/ready?record=${ref.id}`);
   expect(sourceHref({ ...ref, kind: "SHEIN_RECORD" })).toBe(`/workbench/shein-records/${ref.id}/diagnostic`);
   expect(reportEndpoint(new URL(`https://app.test/api/report-center/reports/sources/${ref.kind}/${ref.id}`), "GET")).not.toBeNull();
   writeReportIntent(scope, { ...intent, source: ref });
