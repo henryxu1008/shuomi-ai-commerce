@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import {useEffect,useRef,useState,type ReactNode} from "react";
+import {useEffect,useRef,useState,type ReactNode,type Ref} from "react";
 import {z} from "zod";
+import {Badge} from "@/components/ui/badge";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Select} from "@/components/ui/select";
+import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from "@/components/ui/table";
 import {Textarea} from "@/components/ui/textarea";
 import {ConsolePage} from "../console/console-page";
 import {findConsoleRoute} from "@/lib/workbench/console-navigation";
 import {AcquisitionAPIError,type AcquisitionContext} from "@/lib/api/product-acquisition";
 import * as api from "@/lib/api/acquisition-plan";
 import {createPlanSchema,ruleMutationSchema,acquisitionRuleSchema,type AcquisitionPlan,type CreatePlan,type RuleTemplate,type RuleMutation} from "@/lib/contracts/acquisition-plan";
-import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
+import {canonical1688Source,isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 import {productAgentOperationHref} from "@/lib/contracts/product-agent";
 import styles from "./acquisition-plans.module.css";
 
@@ -27,6 +29,9 @@ type PendingPlan=z.infer<typeof pendingPlanSchema>;
 function loadPending(scope:AcquisitionContext):PendingPlan|null{
  try{const raw=sessionStorage.getItem(storage(scope,"create"));const parsed=pendingPlanSchema.safeParse(raw?JSON.parse(raw):null);return parsed.success?parsed.data:null;}catch{return null;}
 }
+const planStateLabels: Record<AcquisitionPlan["state"], string> = {
+ pending: "待继续", paused: "已暂停", transfer_pending: "待转入", completed: "已完成",
+};
 const storageFailure="无法保存原请求，未提交操作。请恢复浏览器存储后重试；已有原请求请先核实。";
 function persist(scope:AcquisitionContext,kind:string,value:unknown):boolean{
  try{
@@ -44,6 +49,20 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
  const [plans,setPlans]=useState<AcquisitionPlan[]>([]),[rules,setRules]=useState<RuleTemplate[]>([]);
  const [open,setOpen]=useState(false),[ruleOpen,setRuleOpen]=useState(false),[loading,setLoading]=useState(true),[canTransfer,setCanTransfer]=useState(false);
  const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[pending,setPending]=useState<PendingPlan|null>(()=>loadPending(scope)),[activePlan,setActivePlan]=useState<AcquisitionPlan|null>(null),[operationID,setOperationID]=useState("");
+ const planHeading = useRef<HTMLHeadingElement>(null);
+ const resultHeading = useRef<HTMLHeadingElement>(null);
+ const activePlanId = activePlan?.id;
+ useEffect(() => {
+  if (activePlanId) resultHeading.current?.focus();
+ }, [activePlanId]);
+
+ function closeResults() {
+  if (!activePlanId) return;
+  setActivePlan(null);
+  const trigger = document.getElementById(`plan-results-${activePlanId}`);
+  (trigger instanceof HTMLButtonElement && !trigger.disabled ? trigger : planHeading.current)?.focus();
+ }
+
  const alive=useRef(true),controller=useRef<AbortController|null>(null),running=useRef(false);
  useEffect(()=>{
   alive.current=true;const abort=new AbortController();controller.current=abort;
@@ -52,13 +71,17 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
   }).catch(e=>{if(alive.current&&!abort.signal.aborted){setError(failureText(e));setLoading(false);}});
   return ()=>{alive.current=false;running.current=false;controller.current?.abort();};
  },[scope]);
- const remember=(p:AcquisitionPlan)=>{if(!alive.current)return;setActivePlan(p);setPlans(values=>[p,...values.filter(v=>v.id!==p.id)]);};
+ const remember=(p:AcquisitionPlan,select=true)=>{
+  if(!alive.current)return;
+  setActivePlan(active=>select||active?.id===p.id?p:active);
+  setPlans(values=>values.some(value=>value.id===p.id)?values.map(value=>value.id===p.id?p:value):[p,...values]);
+ };
  async function advance(p:AcquisitionPlan,abort:AbortController){
   running.current=true;
   for(let step=0;step<422&&running.current&&!abort.signal.aborted&&alive.current;step++){
    if(p.state==="completed"||p.failureCode==="transfer_source_conflict")break;
    p=await api.advanceAcquisitionPlan(scope,p,abort.signal);
-   if(abort.signal.aborted||!alive.current)break;remember(p);
+   if(abort.signal.aborted||!alive.current)break;remember(p,false);
    if(p.state==="paused"||p.failureCode)break;
   }
   running.current=false;
@@ -83,7 +106,9 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
   finally{if(alive.current)setBusy(false);}
  }
  async function inspect(id:string,resume=false){
-  if(busy)return;const abort=new AbortController();controller.current=abort;setBusy(true);setError(null);
+  if(busy)return;
+  if(id===activePlanId)resultHeading.current?.focus();
+  const abort=new AbortController();controller.current=abort;setBusy(true);setError(null);
   try{const p=await api.readAcquisitionPlan(scope,id,abort.signal);if(!alive.current||abort.signal.aborted)return;remember(p);if(resume)await advance(p,abort);}
   catch(e){if(alive.current&&!abort.signal.aborted)setError(failureText(e));}
   finally{if(alive.current){setBusy(false);running.current=false;}}
@@ -92,22 +117,128 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
  return <ConsolePage title="1688在线采集" breadcrumbs={findConsoleRoute("/workbench/supply/acquisition")?.trail} description="采集成功的商品保存到我的数据，按需转入待上传。" actions={<Button disabled={loading||busy||!!pending} onClick={()=>{setError(null);setOpen(true);}}>1688在线采集</Button>}>
   {error&&!open&&!ruleOpen?<p role="alert" className={styles.feedback}>{error}</p>:null}
   {pending?<Card className="mb-4 space-y-3 p-5"><h2>创建结果待核实</h2><p className="text-sm text-muted-foreground">原请求标识：{pending.key}。读取不会开始采集。</p><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={()=>void recoverCreation()}>读取原计划</Button><Button variant="outline" disabled={busy} onClick={()=>void recoverCreation(true)}>使用原请求确认创建</Button></div></Card>:null}
-  <Card className="space-y-4 p-5"><div className="flex items-center justify-between"><h2 className="font-semibold">采集计划</h2>{busy?<Button variant="outline" onClick={pause}>暂停</Button>:null}</div>
+  <Card className="space-y-4 p-5"><div className="flex items-center justify-between"><h2 ref={planHeading} tabIndex={-1} className="font-semibold">采集计划</h2>{busy?<Button variant="outline" onClick={pause}>暂停</Button>:null}</div>
    <p className="text-sm text-muted-foreground">每计划最多 20 行输入、200 个去重商品；只读当前页可见商品。离开页面会暂停发出新请求。</p>
-   {loading?<p role="status">正在读取采集计划…</p>:plans.length===0?<p>还没有采集计划。</p>:<div className={styles.planList}>{plans.map(p=><div key={p.id}><span>{p.input.mode==="product"?"指定商品":p.input.mode==="page"?"按页采集":"按关键词"} · {new Date(p.createdAt).toLocaleString("zh-CN")}</span><span>{p.items.filter(i=>i.state==="published").length}/{p.items.length} 已保存 · {p.state==="completed"?"已完成":p.state==="paused"?"已暂停":p.state==="transfer_pending"?"待转入":"待继续"}</span><Button variant="outline" size="sm" disabled={busy} onClick={()=>void inspect(p.id)}>查看</Button>{p.state!=="completed"?<Button size="sm" disabled={busy||p.failureCode==="transfer_source_conflict"} onClick={()=>void inspect(p.id,true)}>继续原计划</Button>:null}</div>)}</div>}
+   {loading ? <p role="status">正在读取采集计划…</p> : plans.length === 0 ? <p>还没有采集计划。</p> : (
+    <div className={styles.planList}>{plans.map(plan => {
+     const input = plan.input.inputs[0] ?? "";
+     const source = canonical1688Source(input);
+     const summary = plan.input.mode === "product" && source ? `商品 ${offerId(source)}` : input;
+     const selected = plan.id === activePlanId;
+     return <div key={plan.id}>
+      <div className="min-w-0 flex-1 basis-52">
+       <p className="font-medium">{modes.find(mode => mode.id === plan.input.mode)?.label} · {new Date(plan.createdAt).toLocaleString("zh-CN")}</p>
+       <p className="truncate text-xs text-muted-foreground" title={input}>
+        {summary}{plan.input.inputs.length > 1 ? ` 等 ${plan.input.inputs.length} 个输入` : ""}
+       </p>
+      </div>
+      <span>{plan.items.filter(item => item.state === "published").length}/{plan.items.length} 已保存 · {planStateLabels[plan.state]}</span>
+      <Button id={`plan-results-${plan.id}`} variant="outline" size="sm" disabled={busy} aria-expanded={selected}
+       aria-controls={selected ? "acquisition-plan-result-panel" : undefined} onClick={() => void inspect(plan.id)}>查看结果</Button>
+      {plan.state !== "completed" ? <Button size="sm" disabled={busy || plan.failureCode === "transfer_source_conflict"}
+       onClick={() => void inspect(plan.id, true)}>继续原计划</Button> : null}
+     </div>;
+    })}</div>
+   )}
    {cursor?<Button variant="outline" disabled={busy} onClick={()=>void more()}>更多计划</Button>:null}
   </Card>
-  {activePlan?<Card className="mt-4 space-y-3 p-5"><h2 className="font-semibold">当前计划</h2><p className="break-all text-xs text-muted-foreground">{activePlan.id}</p><p>已读取 {activePlan.discoveryIndex}/{activePlan.input.inputs.length} 个输入 · 已保存 {activePlan.items.filter(i=>i.state==="published").length} 个商品 · 失败 {activePlan.items.filter(i=>i.state==="failed").length} 个</p>
-   {activePlan.truncated?<p role="status">结果达到读取或商品数量上限，已截断；本计划不代表整页全部商品。</p>:null}
-   {activePlan.failureCode?<p role="status">{messages[activePlan.failureCode]??activePlan.failureCode}</p>:null}
-   {activePlan.discoveryFailures.map(f=><p key={f.inputIndex}>第 {f.inputIndex+1} 行：公开来源不可用，未开始商品采集。</p>)}
-   {activePlan.preparationIds.map((id,index)=><Button key={id} asChild variant="outline"><Link href={`/workbench/listing/waiting?preparation=${id}`}>查看待上传 {index+1}</Link></Button>)}
-   <div className={styles.itemList}>{activePlan.items.map(i=><div key={i.source}><span className="break-all">{i.source}</span><span>{i.state==="published"?"已保存":i.state==="failed"?"来源失败":i.state==="needs_verification"?"结果待核实":"待采集"}{i.evaluation?` · ${i.evaluation.state==="matched"?"规则通过":i.evaluation.state==="not_matched"?"未通过规则，保留在我的数据":"规则事实不足，保留在我的数据"}`:""}</span>{i.failureCode?<span>{messages[i.failureCode]??i.failureCode}</span>:null}{i.operationId&&i.state==="published"?<Link href={productAgentOperationHref(i.operationId,agentKind)}>查看商品</Link>:null}</div>)}</div>
-  </Card>:null}
+  {activePlan ? <PlanResults key={activePlan.id} plan={activePlan} agentKind={agentKind} heading={resultHeading} onClose={closeResults} /> : null}
   <Card className="mt-4 space-y-3 p-5"><h2 className="font-semibold">找回单商品采集结果</h2><p className="text-sm text-muted-foreground">已有操作 ID 可直接读取原结果。</p><div className="flex max-w-xl gap-2"><Input aria-label="操作 ID" value={operationID} onChange={e=>setOperationID(e.target.value)}/><Button asChild variant="outline" disabled={!isAcquisitionUUID(operationID)}><Link aria-disabled={!isAcquisitionUUID(operationID)} href={isAcquisitionUUID(operationID)?productAgentOperationHref(operationID,agentKind):"#"}>读取</Link></Button></div></Card>
   {open?<CaptureDialog closeLocked={busy} rules={rules} canTransfer={canTransfer} disabled={busy||loading||!!pending} error={error} onClose={()=>{if(!busy)setOpen(false);}} onRules={()=>setRuleOpen(true)} onSubmit={input=>void submit(input)}/>:null}
   {ruleOpen?<RuleDialog scope={scope} rules={rules} onRules={setRules} onClose={()=>setRuleOpen(false)}/>:null}
  </ConsolePage>;
+}
+
+function offerId(source: string) {
+ return source.slice(source.lastIndexOf("/") + 1).replace(/\.html$/, "");
+}
+
+type PlanItem = AcquisitionPlan["items"][number];
+const resultStates = {
+ published: { label: "已保存", variant: "success" },
+ failed: { label: "采集失败", variant: "danger" },
+ needs_verification: { label: "待核实", variant: "warning" },
+ pending: { label: "待采集", variant: "neutral" },
+} as const;
+const planItemStates = Object.keys(resultStates) as PlanItem["state"][];
+const ruleReasons: Record<string,string> = {
+ price_below_minimum: "公开起售价低于规则下限",
+ price_above_maximum: "公开起售价高于规则上限",
+ moq_above_maximum: "起订量超过规则上限",
+ source_facts_invalid: "来源事实无效",
+ source_price_unavailable: "未取得可用于判断的公开价格",
+};
+const ruleResults = {
+ matched: "通过规则",
+ not_matched: "未通过规则，保留在我的数据",
+ unknown: "规则事实不足，保留在我的数据",
+} as const;
+
+function PlanResults({plan, agentKind, heading, onClose}: {
+ plan: AcquisitionPlan;
+ agentKind?: string | null;
+ heading: Ref<HTMLHeadingElement>;
+ onClose: () => void;
+}) {
+ const [filter, setFilter] = useState<PlanItem["state"] | "all">("all");
+ const counts = { published: 0, failed: 0, needs_verification: 0, pending: 0 };
+ for (const item of plan.items) counts[item.state]++;
+ const items = filter === "all" ? plan.items : plan.items.filter(item => item.state === filter);
+
+ return <Card id="acquisition-plan-result-panel" role="region" aria-labelledby="acquisition-plan-results" className="mt-4 space-y-4 p-5">
+  <div className="flex flex-wrap items-start justify-between gap-3">
+   <div>
+    <h2 ref={heading} tabIndex={-1} id="acquisition-plan-results" className="text-lg font-semibold">采集结果</h2>
+    <p className="mt-1 text-sm text-muted-foreground">已读取 {plan.discoveryIndex} / {plan.input.inputs.length} 个输入 · {new Date(plan.createdAt).toLocaleString("zh-CN")}</p>
+   </div>
+   <Button variant="outline" onClick={onClose}>返回采集计划</Button>
+  </div>
+  <div className="flex flex-wrap gap-2">
+   {planItemStates.map(state => <Badge key={state} variant={resultStates[state].variant}>{resultStates[state].label} {counts[state]}</Badge>)}
+  </div>
+  <details className="text-xs text-muted-foreground">
+   <summary className="w-fit cursor-pointer">计划信息</summary>
+   <p className="mt-1 break-all">计划 ID {plan.id}</p>
+  </details>
+  {plan.truncated ? <p role="status" className="text-sm text-warning-foreground">结果达到读取或商品数量上限，已截断；本计划不代表整页全部商品。</p> : null}
+  {plan.failureCode ? <p role="status" className="text-sm text-warning-foreground">{messages[plan.failureCode] ?? plan.failureCode}</p> : null}
+  {plan.discoveryFailures.length ? <ul className="list-disc space-y-1 pl-5 text-sm text-warning-foreground">
+   {plan.discoveryFailures.map(failure => <li key={failure.inputIndex}>第 {failure.inputIndex + 1} 行：公开来源不可用，未开始商品采集。</li>)}
+  </ul> : null}
+  {plan.preparationIds.length ? <div className="flex flex-wrap gap-2">
+   {plan.preparationIds.map((id,index) => <Button key={id} asChild variant="outline"><Link href={`/workbench/listing/waiting?preparation=${id}`}>查看待上传 {index + 1}</Link></Button>)}
+  </div> : null}
+  {plan.items.length ? <label className="block max-w-56 space-y-1 text-sm">
+   <span>按保存状态筛选</span>
+   <Select value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
+    <option value="all">全部商品（{plan.items.length}）</option>
+    {planItemStates.map(state => <option key={state} value={state}>{resultStates[state].label}（{counts[state]}）</option>)}
+   </Select>
+  </label> : null}
+  {items.length ? <Table aria-label="1688 商品结果">
+   <TableHeader className="bg-muted"><TableRow>
+    <TableHead scope="col">1688 商品</TableHead><TableHead scope="col">保存状态</TableHead>
+    <TableHead scope="col">公开起售价 / 起订量</TableHead><TableHead scope="col">规则结果</TableHead><TableHead scope="col">操作</TableHead>
+   </TableRow></TableHeader>
+   <TableBody>{items.map(item => <TableRow key={item.source}>
+    <TableCell><a href={item.source} target="_blank" rel="noreferrer" className="font-medium text-primary underline-offset-4 hover:underline">商品 {offerId(item.source)}</a></TableCell>
+    <TableCell>
+     <Badge variant={resultStates[item.state].variant}>{resultStates[item.state].label}</Badge>
+     {item.failureCode ? <p className="mt-1 min-w-32 text-xs text-muted-foreground">{messages[item.failureCode] ?? item.failureCode}</p> : null}
+    </TableCell>
+    <TableCell>
+     <p>{item.evaluation?.startingPrice ? `¥${item.evaluation.startingPrice}` : "起售价未记录"}</p>
+     <p className="text-xs text-muted-foreground">{item.evaluation?.minimumQuantity ? `起订量 ${item.evaluation.minimumQuantity}` : "起订量未记录"}</p>
+    </TableCell>
+    <TableCell className="min-w-32 text-sm">
+     {item.evaluation ? ruleResults[item.evaluation.state] : "尚无规则结果"}
+     {item.evaluation?.reason ? <p className="mt-1 text-xs text-muted-foreground">{ruleReasons[item.evaluation.reason] ?? messages[item.evaluation.reason] ?? item.evaluation.reason}</p> : null}
+    </TableCell>
+    <TableCell>{item.state === "published" && item.operationId ?
+     <Button asChild variant="outline" size="sm"><Link href={productAgentOperationHref(item.operationId, agentKind)} prefetch={false}>查看商品</Link></Button> : null}</TableCell>
+   </TableRow>)}</TableBody>
+  </Table> : <p className="text-sm text-muted-foreground">{plan.items.length ? "当前筛选没有商品。" : "此计划暂无商品结果。"}</p>}
+ </Card>;
 }
 
 function NativeDialog({title,className,onClose,children}:{title:string;className:string;onClose:()=>void;children:ReactNode}){
