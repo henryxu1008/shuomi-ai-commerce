@@ -48,7 +48,7 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
  const [cursor,setCursor]=useState<string>();
  const [plans,setPlans]=useState<AcquisitionPlan[]>([]),[rules,setRules]=useState<RuleTemplate[]>([]);
  const [open,setOpen]=useState(false),[ruleOpen,setRuleOpen]=useState(false),[loading,setLoading]=useState(true),[canTransfer,setCanTransfer]=useState(false);
- const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[pending,setPending]=useState<PendingPlan|null>(()=>loadPending(scope)),[activePlan,setActivePlan]=useState<AcquisitionPlan|null>(null),[operationID,setOperationID]=useState("");
+ const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[pending,setPending]=useState<PendingPlan|null>(()=>loadPending(scope)),[activePlan,setActivePlan]=useState<AcquisitionPlan|null>(null);
  const planHeading = useRef<HTMLHeadingElement>(null);
  const resultHeading = useRef<HTMLHeadingElement>(null);
  const activePlanId = activePlan?.id;
@@ -143,7 +143,6 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
    {cursor?<Button variant="outline" disabled={busy} onClick={()=>void more()}>更多计划</Button>:null}
   </Card>
   {activePlan ? <PlanResults key={activePlan.id} plan={activePlan} agentKind={agentKind} heading={resultHeading} onClose={closeResults} /> : null}
-  <Card className="mt-4 space-y-3 p-5"><h2 className="font-semibold">找回单商品采集结果</h2><p className="text-sm text-muted-foreground">已有操作 ID 可直接读取原结果。</p><div className="flex max-w-xl gap-2"><Input aria-label="操作 ID" value={operationID} onChange={e=>setOperationID(e.target.value)}/><Button asChild variant="outline" disabled={!isAcquisitionUUID(operationID)}><Link aria-disabled={!isAcquisitionUUID(operationID)} href={isAcquisitionUUID(operationID)?productAgentOperationHref(operationID,agentKind):"#"}>读取</Link></Button></div></Card>
   {open?<CaptureDialog closeLocked={busy} rules={rules} canTransfer={canTransfer} disabled={busy||loading||!!pending} error={error} onClose={()=>{if(!busy)setOpen(false);}} onRules={()=>setRuleOpen(true)} onSubmit={input=>void submit(input)}/>:null}
   {ruleOpen?<RuleDialog scope={scope} rules={rules} onRules={setRules} onClose={()=>setRuleOpen(false)}/>:null}
  </ConsolePage>;
