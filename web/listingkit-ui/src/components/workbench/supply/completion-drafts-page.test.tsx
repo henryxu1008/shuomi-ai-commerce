@@ -20,6 +20,8 @@ it("shows actual saved drafts with unknown official fields and no fabricated AI 
  ready();render(<CompletionDraftsPage initialPreparation={other}/>);
  expect(await screen.findByText("商品列表（共 1 个）")).toBeVisible();expect(screen.getByText("候选 R1")).toBeVisible();expect(screen.getByText("未绑定店铺，平台规则待配置")).toBeVisible();
  expect(screen.queryByRole("button",{name:/AI补全|批量确认/})).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"待补全"})).toHaveAttribute("aria-current","page");
+ expect(screen.getByRole("link",{name:"已上传"})).toHaveAttribute("href","/workbench/supply/mine/uploaded?preparation="+other);
 });
 it("keeps local source selection on the creation link when the full platform flow is enabled",async()=>{
  ready();render(<CompletionDraftsPage initialPreparation={other} fullAvailable/>);

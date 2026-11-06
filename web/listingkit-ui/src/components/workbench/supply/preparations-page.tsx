@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ListingStageTabs } from "./listing-stage-tabs";
 import {SourceMaterialsPanel} from "./source-materials-panel";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
@@ -56,7 +57,8 @@ function ScopedPreparations({ scope, initialPreparation,completionAvailable,sour
     if (detailID) void readSupplySource(scope, detailID, controller.signal).then(value => { if (alive) setDetail(value); }).catch(() => { if (alive) setError(true); });
     return () => { alive = false; controller.abort(); };
   }, [scope, detailID]);
-  return <ConsolePage className="space-y-3" title="待上传" description="配置一次上传任务，资料缺失先补全；审核及应用后，明确继续原任务。" breadcrumbs={[{ label: "供应市场" }, { label: "我的供应链" }, { label: "待上传" }]} actions={<Button variant="outline" disabled={loading} onClick={() => {setLoading(true);setError(false);setDetail(undefined);setDetailID("");setReload(value => value + 1);}}>刷新</Button>}>
+  return <ConsolePage className="space-y-3" title="商品刊登" description="配置一次上传任务，资料缺失先补全；审核及应用后，明确继续原任务。" actions={<Button variant="outline" disabled={loading} onClick={() => {setLoading(true);setError(false);setDetail(undefined);setDetailID("");setReload(value => value + 1);}}>刷新</Button>}>
+    <ListingStageTabs current="waiting" context={{preparation:selected,mode:completionAvailable?"local":undefined}}/>
     {sourceMaterialsAvailable && pendingSource?.targetPlatform==="product" && pendingSource.itemId ? <Button variant="outline" onClick={()=>setMaterialsID(pendingSource.itemId!)}>返回来源素材并核实</Button>:null}
     {materialsID && sourceMaterialsAvailable ? <SourceMaterialsPanel scope={scope} sourceId={materialsID} onClose={()=>setMaterialsID("")}/>:null}
     <SupplyConfiguration>

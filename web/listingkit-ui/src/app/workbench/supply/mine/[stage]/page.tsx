@@ -1,6 +1,8 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { PreparationsPage } from "@/components/workbench/supply/preparations-page";
+import { ListingStageTabs } from "@/components/workbench/supply/listing-stage-tabs";
+import { listingHome } from "@/lib/workbench/supply-navigation";
 import { SupplyPage } from "@/components/workbench/supply/supply-page";
 import { CompletionDraftsPage } from "@/components/workbench/supply/completion-drafts-page";
 import { stageSchema } from "@/lib/contracts/supply-chain";
@@ -15,11 +17,19 @@ export default async function Page({params,searchParams}:{params:Promise<{stage:
  const preparation=process.env.LISTINGKIT_ACQUISITION_PLANS_ENABLED==="true";
  const completion=process.env.LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED==="true";
  const stage=stageSchema.safeParse((await params).stage);if(!stage.success)notFound();
+ const query=await searchParams;
  if(process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED!=="true"||!full&&(!(preparation||completion)||stage.data!=="waiting")&&(!completion||stage.data!=="missing")){
-  const route=findConsoleRoute(`/workbench/supply/mine/${stage.data}`)??findConsoleRoute("/workbench/supply/mine")!;
-  return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="按目标平台整理商品并完成发布。"><ConsoleState kind="unavailable" title="平台处理尚未配置">此阶段需要正式官方应用、SHEIN 渠道及供应链运行配置。已保存的商品和待上传批次仍保留在原入口。</ConsoleState></ConsolePage>;
+  const route=findConsoleRoute(listingHome+"/"+stage.data)??findConsoleRoute(listingHome)!;
+  const context=Object.fromEntries(["preparation","store","operation","plan"].flatMap(key=>{
+   const value=query[key];
+   return typeof value==="string"&&isAcquisitionUUID(value)?[[key,value]]:[];
+  }));
+  return <ConsolePage title="商品刊登" breadcrumbs={route.trail} description="按目标店铺整理商品资料并查看上传结果。">
+    <ListingStageTabs current={stage.data} context={context}/>
+    <ConsoleState kind="unavailable" title="平台处理尚未配置">此阶段需要正式官方应用、SHEIN 渠道及供应链运行配置。已保存的商品和待上传批次仍保留在原入口。</ConsoleState>
+  </ConsolePage>;
  }
- const query=await searchParams;const read=(name:string)=>{const value=query[name];if(value===undefined)return undefined;if(typeof value!=="string"||!isAcquisitionUUID(value))notFound();return value};
+ const read=(name:string)=>{const value=query[name];if(value===undefined)return undefined;if(typeof value!=="string"||!isAcquisitionUUID(value))notFound();return value};
  const record=read("record");
  if(record){
   if(stage.data!=="ready"||Object.keys(query).some(key=>key!=="record"))notFound();

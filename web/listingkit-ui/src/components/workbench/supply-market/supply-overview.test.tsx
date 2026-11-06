@@ -21,7 +21,7 @@ it("keeps Supply Market as its own Figma page instead of redirecting to capture"
  expect(fixture.redirect).not.toHaveBeenCalled();
  expect(screen.getByRole("heading",{level:1,name:"让每一种货源，都能进入自己的供应链"})).toBeVisible();
  expect(screen.getByRole("list",{name:"从货源到店铺"}).children).toHaveLength(4);
- for(const title of ["硕米自营","硕米优选","货盘集成","我的供应链","优选申请"])expect(screen.getByRole("heading",{level:2,name:title})).toBeVisible();
+ for(const title of ["硕米自营","硕米优选","货盘集成","商品刊登","优选申请"])expect(screen.getByRole("heading",{level:2,name:title})).toBeVisible();
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it("uses only exact current summary facts and leaves unavailable counts as dashes",async()=>{
@@ -48,6 +48,6 @@ it("hides the old enterprise summary as soon as an enterprise switch begins",asy
 it("retains the existing Collections prerequisite for the Preparation link",()=>{
  vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","false");
  renderPage();
- expect(screen.queryByRole("link",{name:"进入功能：我的供应链"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:"进入功能：商品刊登"})).not.toBeInTheDocument();
  expect(screen.getByRole("link",{name:"进入功能：货盘集成"})).toBeVisible();
 });

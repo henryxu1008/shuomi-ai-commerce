@@ -74,12 +74,12 @@ export function PrivateDraftForm({scope,id,canUse,saved,offlineTrial=false}:{sco
       <div className={styles.actions}>{storePage>1?<Button type="button" variant="outline" onClick={()=>setStorePage(v=>v-1)}>上一页店铺</Button>:null}{storePage*20<storeTotal?<Button type="button" variant="outline" onClick={()=>setStorePage(v=>v+1)}>下一页店铺</Button>:null}</div>
       <label>草稿阶段<Select value={stage} onChange={e=>{setStage(e.target.value as "missing"|"ready");setAfter(undefined)}}><option value="missing">待补全</option><option value="ready">已适配</option></Select></label>
       <label>平台草稿<Select value={record?.id??""} disabled={!prep||!store||loading} onChange={e=>{const record=rows.find(v=>v.id===e.target.value);setSelected(record?{key,record}:undefined)}}><option value="">{loading?"正在读取草稿…":"请选择草稿"}</option>{rows.map(v=><option key={v.id} value={v.id}>{v.result.product.multi_language_name_list[0]?.name||v.source.source.productKey} · 草稿 v{v.revision}</option>)}</Select></label>
-      {prep&&store&&!loading&&choices.key===key&&!choices.error&&!rows.length?<p>当前阶段没有可选草稿。请先在我的供应链保存平台资料。</p>:null}
+      {prep&&store&&!loading&&choices.key===key&&!choices.error&&!rows.length?<p>当前阶段没有可选草稿。请先在商品刊登保存平台资料。</p>:null}
       <div className={styles.actions}>{choices.key===key&&choices.next?<Button type="button" variant="outline" onClick={()=>setAfter(choices.next)}>更多草稿</Button>:null}{after?<Button type="button" variant="outline" onClick={()=>setAfter(undefined)}>草稿首页</Button>:null}<Button type="button" variant="outline" onClick={()=>setReload(v=>v+1)}>刷新草稿</Button></div>
       {record?<p>将检查草稿 v{record.revision}，保存时间 {new Date(record.createdAt).toLocaleString("zh-CN")}。报告与这个版本绑定。</p>:null}
       <p>本次权限：{mode.data?`${executionModeLabels[mode.data.mode]} · 模式版本 ${mode.data.revision}；本能力只保存诊断报告。`:"正在读取，暂不能开始检查。"}</p>
       <Button type="button" disabled={!record||!mode.data} onClick={()=>record&&mode.data&&void execute({deliveryId:id,key:crypto.randomUUID(),input:{recordId:record.id,expectedRevision:record.revision,expectedModeRevision:mode.data.revision}})}>{busy?"正在检查并保存…":"检查并保存报告"}</Button>
     </fieldset>
-    {!offlineTrial?<Link href={prep&&store?`/workbench/supply/mine?preparation=${prep}&store=${store}`:"/workbench/supply/mine"}>前往我的供应链补全资料 →</Link>:null}
+    {!offlineTrial?<Link href={prep&&store?`/workbench/supply/mine?preparation=${prep}&store=${store}`:"/workbench/supply/mine"}>前往商品刊登补全资料 →</Link>:null}
   </Card>;
 }

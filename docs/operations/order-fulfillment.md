@@ -86,7 +86,7 @@ ERP secret 文件必须满足当前私有文件 ACL 检查；固定 HTTPS、正�
 ## 用户操作路径
 
 1. 用当前硕米登录和企业选择进入 Console；成员需要 `workbench.store.read` 及相应 `workbench.fulfillment.read/purchase/stock/address/execute`。成员权限页通过现有模块授权分别配置 `fulfillment-purchase`、`fulfillment-stock`、`fulfillment-address`、`fulfillment-execute`；原 `store-orders` 仅带履约读取，不自动获得这四类用途。只读观察权限不自动授予采购、库存、地址或平台执行权；每次请求重新检查当前成员、企业、店铺连接和用途。
-2. 独立一级“订单管理”页的“进入订单履约”，目标 `/workbench/store-orders/fulfill`；采购入口为“供应市场 → 我的供应链 → 采购管理”，目标 `/workbench/supply/mine/procurement`。两个入口关联同一原单与原生单据；工作页按原单关联、采购与收货、库存与装箱、平台发货、交接与物流分步。只有当前后端返回可用且当前权限允许才显示入口。
+2. 独立一级“订单管理”页的“进入订单履约”，目标 `/workbench/store-orders/fulfill`；采购入口为“订单管理 → 采购与收货”，目标 `/workbench/store-orders/fulfill?step=purchase`。各步骤关联同一原单与原生单据；工作页按原单关联、采购与收货、库存与装箱、平台发货、交接与物流分步。只有当前后端返回可用且当前权限允许才显示入口。
 3. 选当前授权店铺和消费者/平台备货原单号。核对真实原行、市场、平台状态和原时限；读取、列表和刷新不接受订单、不采购、不发货。
 4. 显式逐行关联原 SKU 与 ERP 商品/库存单位，建立原生 SO 需求。已有需求通过原平台身份找回；不另建重复需求。
 5. 有现货则预留。缺货时生成内部 PO，在供应商平台人工下单/付款，登记外部单号。分批收货分别填合格、拒收隔离、报告短缺；合格 PR 通过 ERP 原生收货来源 SRE 绑定原需求，拒收只进入隔离仓。短缺是本次交付报告，不当成已收货或自动取消剩余。与供应商确认不再交付后，填原因、确认关闭内部剩余采购；不自动取消外部订单。

@@ -26,7 +26,7 @@ collector 使用仓库已有 Playwright Go 与固定模块所需的 Chromium 版
 
 前端只有 `LISTINGKIT_ACQUISITION_PLANS_ENABLED=true` 才开放计划界面；后端
 `acquisitionPlans=true` 必须与 Collections、schema、权限和 collector 配置同时满足。
-Preparation-only 开放“我的供应链 / 待适配”和来源查看，完整执行能力仍单独准入。
+Preparation-only 开放「商品刊登 → 待上传」和来源查看，完整执行能力仍单独准入。
 
 入口：`/workbench/supply/acquisition`。指定商品支持多行 offer ID 或公开商品链接；
 按页接受公开搜索结果或店铺商品列表，按关键词读取公开搜索结果。最多 20 行、

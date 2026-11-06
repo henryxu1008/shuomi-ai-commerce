@@ -1,3 +1,4 @@
+import { listingHome } from "./supply-navigation";
 import type { AIWorkbenchEntryCapabilities } from "./ai-workbench-entry";
 
 export type ConsolePrimaryCapabilities = AIWorkbenchEntryCapabilities & {
@@ -27,6 +28,8 @@ export function firstConnectedConsoleEntry(pathname: string, capabilities: Conso
     case "/workbench/services": return capabilities.ecoservicesAvailable ? "/workbench/services" : null;
     case "/workbench/data":
       return "/workbench/data";
+    case listingHome:
+      return capabilities.supplyChainAvailable || capabilities.supplyPreparationAvailable || capabilities.supplyCompletionDraftsAvailable ? pathname : null;
     case "/workbench/store-center": return "/workbench/store-center";
     case "/workbench/plans": return "/workbench/plans";
     case "/workbench/account": return "/workbench/account";

@@ -77,7 +77,7 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
    {restoredRequestEnded?<p role="status" className="text-sm text-muted-foreground">原请求未保存。重新读取最新资料后才能继续编辑，避免用旧内容覆盖新版本。</p>:null}
    {edit&&(commands.error==="REVISION_CONFLICT"||restoredRequestEnded)?<Button type="button" variant="outline" onClick={()=>{if(window.confirm("重新读取会放弃当前未保存的修改，确定读取最新资料吗？"))window.location.reload()}}>重新读取最新资料</Button>:null}
    {edit?<Card className="space-y-2 border-border bg-muted/40 p-4"><p className="text-sm font-medium">基于资料版本 {frozen?.expectedSourceVersion??edit.detail.item.source.version}</p><p className="text-sm text-muted-foreground">保存会追加新版本，已有草稿继续使用它们选定的资料。{frozen?"正在显示待核实请求的原始内容。":""}</p></Card>:null}
-   {context.pendingSupplyIntent?<p className="text-sm text-muted-foreground">有待核实的供应链操作，请先返回“我的供应链”处理后再保存商品。</p>:null}
+   {context.pendingSupplyIntent?<p className="text-sm text-muted-foreground">有待核实的供应链操作，请先返回“商品刊登”处理后再保存商品。</p>:null}
    {!context.permissions.includes("workbench.collection.manage")?<p role="alert" className="text-sm text-destructive">当前没有添加自有商品的权限。</p>:null}
    <fieldset disabled={disabled} className="min-w-0 space-y-6 disabled:opacity-70">
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(300px,2fr)]">

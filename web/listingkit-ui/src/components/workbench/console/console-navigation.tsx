@@ -16,7 +16,7 @@ const navigationIcons: Record<string, LucideIcon> = {
   "/workbench/agents/skills": Sparkles, "/workbench/ai/reports": FileChartColumn,
   "/workbench/supply/acquisition": ScanLine, "/workbench/supply/official": Building2,
   "/workbench/supply/selected": Star, "/workbench/supply/catalogs": Boxes,
-  "/workbench/supply/mine": GitBranch, "/workbench/supply/applications": ClipboardList,
+  [listingHome]: GitBranch, "/workbench/supply/applications": ClipboardList,
   "/workbench/supply/operator": ClipboardCheck,
   "/workbench/agents/market": Bot, "/workbench/agents/mine": BotMessageSquare,
   "/workbench/agents/custom": Settings2,
@@ -34,8 +34,7 @@ const navigationIcons: Record<string, LucideIcon> = {
 };
 import {useSearchParams} from "next/navigation";
 import {collectionID} from "@/lib/contracts/product-collection";
-import {supplyStageHref} from "@/lib/workbench/supply-navigation";
-import {stageSchema} from "@/lib/contracts/supply-chain";
+import {listingHome} from "@/lib/workbench/supply-navigation";
 import { useId, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
@@ -49,11 +48,13 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
   const query=useSearchParams(), selection=new URLSearchParams();
   const research = researchLocation(pathname, new URLSearchParams(query?.toString()));
   const researchPath = research?.step ? `${research.workflow.root}?step=${research.step.id}` : pathname;
-  const trail = findConsoleRoute(researchPath)?.trail ?? [];
-  if(pathname.startsWith("/workbench/supply/mine")){
-    for(const key of ["preparation","store","operation","plan"]){const value=query?.get(key);if(value&&collectionID.safeParse(value).success)selection.set(key,value);}
-    if(query?.get("mode")==="local"||pathname.startsWith("/workbench/supply/mine/missing")&&query?.get("mode")!=="platform"&&!query?.get("plan"))selection.set("mode","local");
-    else if(supplyChainAvailable)selection.set("mode","platform");
+  const inListing = pathname === listingHome || pathname.startsWith(listingHome + "/");
+  const trail = findConsoleRoute(researchPath)?.trail.map(node=>node.href) ?? (inListing ? [listingHome] : []);
+  if(inListing){
+    for(const key of ["preparation","store","operation","plan"]){
+      const values=query?.getAll(key);
+      if(values?.length===1 && collectionID.safeParse(values[0]).success)selection.set(key,values[0]);
+    }
   }
   const orderSteps=["source","purchase","stock","platform","logistics"];
   const requestedStep=query?.getAll("step");
@@ -84,7 +85,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
  if(node.href === "/workbench/store-orders") return {...node,availability:storeOrdersAvailable||fulfillmentAvailable?"connected" as const:"unavailable" as const,children:node.children?.map(child=>({...child,availability:(child.href.endsWith("/records")?storeOrdersAvailable:fulfillmentAvailable)?"connected" as const:"unavailable" as const}))};
  if(node.href === "/workbench/store-center") return {...node,children:node.children?.map(child => child.href === "/workbench/store-products" ? {...child,availability:storeProductsAvailable ? "connected" as const:"unavailable" as const} : child.href === "/workbench/store-orders" ? {...child,availability:storeOrdersAvailable ? "connected" as const:"unavailable" as const} :child)};
     if(node.href==="/workbench/services"&&ecoservicesAvailable)return {...node,availability:"connected" as const,children:node.children?.map(child=>({...child,availability:"connected" as const}))};
-    if (node.href === "/workbench/supply") return { ...node, children: node.children?.map(child => child.href === "/workbench/supply/mine" ? { ...child, availability: "connected" as const, children: child.children?.map(stage=>({...stage,availability:supplyChainAvailable || supplyPreparationAvailable && stage.href==="/workbench/supply/mine/waiting" || supplyCompletionDraftsAvailable && stage.href==="/workbench/supply/mine/missing" ? "connected" as const : "unavailable" as const})) } : ["/workbench/supply/official","/workbench/supply/selected","/workbench/supply/catalogs","/workbench/supply/applications"].includes(child.href) && supplyMarketAvailable ? {...child,availability:"connected" as const,children:child.children?.map(entry=>({...entry,availability:"connected" as const}))}:child) };
+    if (node.href === "/workbench/supply") return { ...node, children: node.children?.map(child => ["/workbench/supply/official","/workbench/supply/selected","/workbench/supply/catalogs","/workbench/supply/applications"].includes(child.href) && supplyMarketAvailable ? {...child,availability:"connected" as const,children:child.children?.map(entry=>({...entry,availability:"connected" as const}))}:child) };
     if (node.href === "/workbench/data") return { ...node, availability: dataServicesAvailable || productCollectionsAvailable ? "connected" as const : node.availability, children: node.children?.map(child => child.href === "/workbench/data/mine" && productCollectionsAvailable || ["/workbench/data/market", "/workbench/data/api"].includes(child.href) && dataServicesAvailable ? { ...child, availability: "connected" as const } : child) };
     if (node.href !== "/workbench/ai") return node;
     const children = (node.children ?? [])
@@ -95,13 +96,13 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
       } : child.href === "/workbench/ai/knowledge" ? { ...child, availability: "connected" as const, children:child.children?.map(entry => ({...entry, availability:entry.href === "/workbench/ai/knowledge/official" || knowledgeAvailable ? "connected" as const : "unavailable" as const})) } : child);
     return { ...node, availability: connected ? "connected" as const : "unavailable" as const, children };
   });
-  return <nav aria-label={ariaLabel} className="console-nav"><ul>{nodes.map(node => supplyMarketAvailable && userId && node.href==="/workbench/supply" ? <MarketBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail.map(item=>item.href)} onNavigate={onNavigate} userId={userId} supplyQuery={supplyQuery}/> : ecoservicesAvailable && userId && node.href === "/workbench/services" ? <EcoservicesBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail.map(item => item.href)} onNavigate={onNavigate} userId={userId} /> : <NavBranch key={`${node.href==="/workbench/store-orders"?orderPath:researchPath}:${node.href}`} node={node} pathname={node.href==="/workbench/store-orders"?orderPath:researchPath} research={research} trail={trail.map((item) => item.href)} depth={1} onNavigate={onNavigate} supplyQuery={supplyQuery} orderQuery={node.href==="/workbench/store-orders"?orderSelection.toString():""} />)}</ul></nav>;
+  return <nav aria-label={ariaLabel} className="console-nav"><ul>{nodes.map(node => supplyMarketAvailable && userId && node.href==="/workbench/supply" ? <MarketBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId}/> : ecoservicesAvailable && userId && node.href === "/workbench/services" ? <EcoservicesBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId} /> : <NavBranch key={`${node.href==="/workbench/store-orders"?orderPath:researchPath}:${node.href}`} node={node} pathname={node.href==="/workbench/store-orders"?orderPath:researchPath} research={research} trail={trail} depth={1} onNavigate={onNavigate} supplyQuery={supplyQuery} orderQuery={node.href==="/workbench/store-orders"?orderSelection.toString():""} />)}</ul></nav>;
 }
-function MarketBranch({node,pathname,trail,onNavigate,userId,supplyQuery}:{node:ConsoleNavNode;pathname:string;trail:readonly string[];onNavigate?:()=>void;userId:string;supplyQuery:string}){
+function MarketBranch({node,pathname,trail,onNavigate,userId}:{node:ConsoleNavNode;pathname:string;trail:readonly string[];onNavigate?:()=>void;userId:string}){
  const authorized=useQuery({queryKey:["supply-market",userId,"","records",true,"selected",false,undefined],queryFn:({signal})=>listMarketRecords({userId,organizationId:""},{kind:"selected",ended:false},true,signal),retry:false});
  const branch=authorized.isSuccess&&!authorized.isError ? {...node,children:[...(node.children??[]),{label:"发布管理/处理申请",href:"/workbench/supply/operator",availability:"connected" as const}]}:node;
  const currentTrail=pathname==="/workbench/supply/operator" || pathname.startsWith("/workbench/supply/operator/") ? [...trail,node.href,"/workbench/supply/operator"]:trail;
- return <NavBranch node={branch} pathname={pathname} trail={currentTrail} depth={1} onNavigate={onNavigate} supplyQuery={supplyQuery}/>;
+ return <NavBranch node={branch} pathname={pathname} trail={currentTrail} depth={1} onNavigate={onNavigate}/>;
 }
 
 function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; onNavigate?: () => void; userId: string }) {
@@ -119,12 +120,11 @@ function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node
 }
 
 function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "", orderQuery = "", research }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; depth: number; onNavigate?: () => void; supplyQuery?:string; orderQuery?:string; research?:ResearchLocation }) {
-  const supplyStage=node.href.startsWith("/workbench/supply/mine/")?stageSchema.safeParse(node.href.split("/").at(-1)):null;
-  const selection=new URLSearchParams(supplyQuery);
-  const parentSelection=new URLSearchParams(selection);parentSelection.delete("mode");
   const orderParameters=new URLSearchParams(node.href.split("?")[1]);
   if(node.href.startsWith("/workbench/store-orders/fulfill?"))for(const [key,value] of new URLSearchParams(orderQuery))orderParameters.set(key,value);
-  const originalHref=node.href.startsWith("/workbench/store-orders/fulfill?")?`/workbench/store-orders/fulfill?${orderParameters}`:supplyStage?.success?supplyStageHref(supplyStage.data,{preparation:selection.get("preparation")??undefined,store:selection.get("store")??undefined,operation:selection.get("operation")??undefined,plan:selection.get("plan")??undefined,mode:selection.get("mode")==="platform"?"platform":selection.get("mode")==="local"?"local":undefined}):node.href==="/workbench/supply/mine"&&parentSelection.size?`${node.href}?${parentSelection}`:node.href;
+  const originalHref=node.href.startsWith("/workbench/store-orders/fulfill?")
+    ? `/workbench/store-orders/fulfill?${orderParameters}`
+    : node.href===listingHome&&supplyQuery ? node.href+supplyQuery : node.href;
   const href = researchNavigationHref(originalHref, research);
   const active = trail.includes(node.href) || pathname === node.href;
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
