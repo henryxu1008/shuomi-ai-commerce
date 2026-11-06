@@ -140,6 +140,13 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, original.Source, item.Source)
 	require.Equal(t, destination.BatchID, item.BatchID)
+	bound, err := repository.ReadResearchEvidenceItem(ctx, scope, item.ID)
+	require.NoError(t, err)
+	require.Equal(t, item, bound)
+	otherMember := scope
+	otherMember.MemberID = "rotated-member"
+	_, err = repository.ReadResearchEvidenceItem(ctx, otherMember, item.ID)
+	require.ErrorIs(t, err, collection.ErrNotFound)
 	_, err = repository.Execute(ctx, testCommand(scope, uuid.NewString(), collection.Mutation{Action: "archive_item", ItemID: original.ID, ExpectedRevision: 1}))
 	require.ErrorIs(t, err, collection.ErrConflict)
 	_, err = repository.Execute(ctx, testCommand(scope, uuid.NewString(), collection.Mutation{Action: "archive_item", ItemID: original.ID, ExpectedRevision: 2}))

@@ -110,6 +110,7 @@ type Decision struct {
 type Candidate struct {
 	ID, ProjectID, SelectedLinkID, State, Reason string
 	Revision                                     int64
+	Identity                                     ProductIdentity
 	Links                                        []Link
 	History                                      []Decision
 }
@@ -133,6 +134,7 @@ type CandidateView struct {
 	EvidenceDigest string         `json:"evidenceDigest,omitempty"`
 	Observation    *Observation   `json:"observation,omitempty"`
 	Evidence       []EvidenceView `json:"evidence"`
+	SupplierReview bool           `json:"supplierReview,omitempty"`
 	History        []DecisionView `json:"history"`
 }
 type Page struct {
@@ -141,14 +143,15 @@ type Page struct {
 	Incomplete bool            `json:"incomplete"`
 }
 type Command struct {
-	Action           string      `json:"action"`
-	Selections       []Selection `json:"selections,omitempty"`
-	CandidateID      string      `json:"candidateId,omitempty"`
-	ExpectedRevision int64       `json:"expectedRevision,omitempty"`
-	LinkID           string      `json:"linkId,omitempty"`
-	EvidenceDigest   string      `json:"evidenceDigest,omitempty"`
-	State            string      `json:"state,omitempty"`
-	Reason           string      `json:"reason,omitempty"`
+	Action           string         `json:"action"`
+	Supplier         *SupplierInput `json:"supplier,omitempty"`
+	Selections       []Selection    `json:"selections,omitempty"`
+	CandidateID      string         `json:"candidateId,omitempty"`
+	ExpectedRevision int64          `json:"expectedRevision,omitempty"`
+	LinkID           string         `json:"linkId,omitempty"`
+	EvidenceDigest   string         `json:"evidenceDigest,omitempty"`
+	State            string         `json:"state,omitempty"`
+	Reason           string         `json:"reason,omitempty"`
 }
 type Receipt struct {
 	Key          string           `json:"key"`
@@ -172,11 +175,13 @@ type Repository interface {
 	Commit(context.Context, collection.Scope, string, string, Command, []Observation, error) (Receipt, error)
 }
 type Service struct {
-	Store    Repository
-	Projects Projects
-	Sources  Sources
+	Store           Repository
+	Projects        Projects
+	Sources         Sources
+	SupplierSources SupplierSources
+	SupplierExpiry  func(context.Context) time.Time
 }
 
 func New(store Repository, projects Projects, sources Sources) *Service {
-	return &Service{store, projects, sources}
+	return &Service{Store: store, Projects: projects, Sources: sources}
 }

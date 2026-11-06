@@ -59,8 +59,28 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 			}
 		}
 	}
+	var supplierPresent bool
+	if db.WithContext(ctx).Raw("SELECT to_regclass(?) IS NOT NULL", supplierTable).Scan(&supplierPresent).Error != nil {
+		return research.ErrUnavailable
+	}
+	if supplierPresent {
+		if VerifySupplierReviewSchema(ctx, db) != nil {
+			return research.ErrUnavailable
+		}
+		if db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,?,'SELECT')
+ AND has_table_privilege(current_user,?,'INSERT')
+ AND NOT has_table_privilege(current_user,?,'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ AND NOT has_any_column_privilege(current_user,?,'UPDATE,REFERENCES,SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION')
+ AND NOT EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) acl
+    WHERE c.oid=to_regclass(?) AND acl.grantee NOT IN (c.relowner,(SELECT oid FROM pg_roles WHERE rolname=current_user)))
+ AND NOT EXISTS(SELECT 1 FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
+    CROSS JOIN LATERAL aclexplode(a.attacl) acl
+    WHERE a.attrelid=to_regclass(?) AND acl.grantee<>c.relowner)`, supplierTable, supplierTable, supplierTable, supplierTable, supplierTable, supplierTable).Scan(&safe).Error != nil || !safe {
+			return research.ErrUnavailable
+		}
+	}
 	var unsafe bool
-	if db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relname NOT IN ('research_opportunities','research_evidence_links','research_commands') AND c.relkind IN ('r','p','v','m','f') AND (has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))`).Scan(&unsafe).Error != nil || unsafe {
+	if db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relname NOT IN ('research_opportunities','research_evidence_links','research_commands') AND NOT (? AND c.oid=to_regclass(?)) AND c.relkind IN ('r','p','v','m','f') AND (has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))`, supplierPresent, supplierTable).Scan(&unsafe).Error != nil || unsafe {
 		return research.ErrUnavailable
 	}
 	return nil

@@ -13,6 +13,8 @@ import {ResearchAnalysisFlow,analysisChoices} from "./research-analysis-flow";
 import {researchAnalysisInput} from "@/lib/contracts/research-analysis";
 import {ResearchComparison} from "./research-comparison";
 import {SheinUSTrialPanel} from "./shein-us-trial-panel";
+import {ResearchSupplierReview} from "./research-supplier-review";
+import {ResearchCostPreview} from "./research-cost-preview";
 import {researchStep} from "@/lib/workbench/research-navigation";
 import styles from "./research-panel.module.css";
 const states:Record<string,string>={TO_RESEARCH:"待研究",PENDING_CONFIRMATION:"待人工确认",APPROVED_FOR_TEST:"批准测试",REJECTED:"已否决"};
@@ -22,18 +24,37 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  const canWrite=!archived&&context.permissions.includes("workbench.project.manage")&&canRead;
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["research",projectId],researchIntent,{maxLength:65536});
  const [items,setItems]=useState<ResearchCandidate[]>([]),[after,setAfter]=useState(initialAfter),[next,setNext]=useState(""),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true),[incomplete,setIncomplete]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false),[picker,setPicker]=useState(false),[unsupported,setUnsupported]=useState<string[]>([]),[chosen,setChosen]=useState<string[]>([]),[compare,setCompare]=useState(false),[absent,setAbsent]=useState(false);
+  const [openedSupplier,setOpenedSupplier]=useState("");
+ const [openedCost,setOpenedCost]=useState<string|null>(null),[loadedCostPage,setLoadedCostPage]=useState("");
+ const costPageKey=JSON.stringify([scope.userId,scope.organizationId,projectId,after,refresh,canRead,canWrite,archived]);
  const lifetime=useRef<AbortController|null>(null),flight=useRef(false),handoff=useRef(false);
  const section=view==="embedded"?undefined:researchStep(view,workflowStep)?.section;
  useEffect(()=>{if(loading||!section)return;const target=document.getElementById(section);target?.focus({preventScroll:true});target?.scrollIntoView?.({block:"start"});},[loading,section]);
  useEffect(()=>{const controller=new AbortController();lifetime.current=controller;return()=>controller.abort();},[]);
  const register=context.registerOrganizationSwitchGuard;
  useEffect(()=>register(()=>!flight.current&&!pending.command&&!pending.error),[register,pending.command,pending.error]);
- useEffect(()=>{const controller=new AbortController();void Promise.resolve().then(async()=>{if(controller.signal.aborted)return;setLoading(true);setItems([]);setCompare(false);setError("");if(!canRead){setLoading(false);return;}try{const page=await researchRequest(scope,projectId,researchPage,controller.signal,{after});if(!controller.signal.aborted){setItems(page.items);setNext(page.nextCursor??"");setIncomplete(page.incomplete);
+ useEffect(()=>{const controller=new AbortController();void Promise.resolve().then(async()=>{if(controller.signal.aborted)return;setLoading(true);setItems([]);setCompare(false);setError("");if(!canRead){setLoading(false);return;}try{const page=await researchRequest(scope,projectId,researchPage,controller.signal,{after});if(!controller.signal.aborted){setItems(page.items);setNext(page.nextCursor??"");setIncomplete(page.incomplete);setLoadedCostPage(costPageKey);
  if(!handoff.current&&sample){handoff.current=true;try{if(sample.length>16384)throw Error();const input=researchAnalysisInput.parse({candidates:JSON.parse(sample)}),current=analysisChoices(page.items.filter(v=>v.observation&&!("shein" in v.observation)));const matching=input.candidates.filter(choice=>current.some(c=>JSON.stringify(c)===JSON.stringify(choice)));if(matching.length!==input.candidates.length){setChosen([]);setError("所选商品资料已更新或暂时无法查看，请重新选择。");}else setChosen(matching.map(c=>c.candidateId));}catch{setChosen([]);setError("之前选择的商品暂时无法确认，请重新选择。");}}
  else setChosen(old=>old.filter(id=>page.items.some(c=>c.id===id&&c.observation)));
-}}catch(e){if(!controller.signal.aborted)setError(message(e));}finally{if(!controller.signal.aborted)setLoading(false);}});return()=>controller.abort();},[scope,projectId,after,refresh,canRead,sample]);
+}}catch(e){if(!controller.signal.aborted)setError(message(e));}finally{if(!controller.signal.aborted)setLoading(false);}});return()=>controller.abort();},[scope,projectId,after,refresh,canRead,sample,costPageKey]);
  const reload=()=>setRefresh(v=>v+1);
  const locked=busy||loading||!!pending.command||!pending.ready||pending.error||!canWrite;
+ const canPreview=!locked&&!error&&!incomplete&&loadedCostPage===costPageKey;
+ async function verifyCostEvidence(binding:string,signal:AbortSignal){
+  try {
+   const page=await researchRequest(scope,projectId,researchPage,signal,{after});
+   return !signal.aborted&&!page.incomplete&&page.items.some(candidate=>costBinding(candidate)===binding);
+  } catch (error) {
+   if(error instanceof ResearchError){
+    // The proxy can use the same error code for 403 and temporary 5xx failures.
+    const {code,status}=error;
+    const transient=code==="DEPENDENCY_UNAVAILABLE"||code==="DEADLINE_EXCEEDED"||
+     (code==="INVALID_UPSTREAM_RESPONSE"&&(status===502||status===503||status===504));
+    if((status!==undefined&&status<500)||!transient)return false;
+   }
+   throw error;
+  }
+ }
  async function submit(body:ResearchCommand,original=pending.command){
   const controller=lifetime.current;if(!controller||controller.signal.aborted||flight.current)return;
   const intent=original??{key:crypto.randomUUID(),body};
@@ -60,9 +81,37 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  <div className={styles.grid}>{items.map(v=><CandidateCard view={view} key={v.id+":"+v.revision} value={v} checked={selected.some(c=>c.id===v.id)} toggle={()=>{setCompare(false);setChosen(old=>old.includes(v.id)?old.filter(id=>id!==v.id):old.length<5?[...old,v.id]:old);}} disabled={locked} canWrite={canWrite} chooseDisabled={!v.observation||"shein" in v.observation||busy||!!pending.command||(!chosen.includes(v.id)&&chosen.length>=5)} command={body=>void submit(body,null)}/>)}</div>
  <div className={styles.actions}>{after?<Button variant="outline" onClick={()=>{setChosen([]);setAfter("");}}>返回第一页商品</Button>:null}{next?<Button variant="outline" onClick={()=>{setChosen([]);setAfter(next);}}>下一页商品</Button>:null}</div></Card>
  {view==="embedded"?<Card className={styles.section}><h3>重点商品比较</h3><p>选择2–5件商品，比较价格和特点。需要 AI 建议时，先确认分析设置和费用；现有资料不能代表整个市场。</p><Button disabled={selected.length<2||selected.length>5||busy||loading} onClick={()=>setCompare(true)}>比较所选商品</Button>{compare&&selected.length>=2?<ResearchComparison key={JSON.stringify(selected.map(v=>v.evidenceDigest))} scope={scope} items={selected.map(v=>v.observation!.item)}/>:null}</Card>:<ResearchAnalysisFlow scope={scope} projectId={projectId} selected={selected} archived={archived} view={view} evidenceReadKey={JSON.stringify([refresh,after])} evidenceReadable={canRead&&!loading&&!error&&!incomplete}/>}
- {view==="selection"?<Card id="research-decisions" tabIndex={-1} className={styles.section}><h3>评估与选品决定</h3><p>先查看商品资料，再逐件记录选择理由。AI 建议仅供参考，暂未开通 AI 也可继续作决定。</p><div className={styles.grid}>{items.map(v=><article key={v.id+":"+v.revision} className={styles.candidate}><div className={styles.heading}><h4>{v.observation?.title||"这份资料暂时无法查看"}</h4><span className={styles.badge}>{states[v.state]}</span></div>{v.reason?<p>当前理由：{v.reason}</p>:null}<CandidateDecision value={v} canWrite={canWrite} disabled={locked} command={body=>void submit(body,null)}/></article>)}</div></Card>:null}
+ {view==="selection"?<Card id="research-decisions" tabIndex={-1} className={styles.section}>
+   <h3>评估与选品决定</h3><p>先查看商品资料，再逐件记录选择理由。AI 建议仅供参考，暂未开通 AI 也可继续作决定。</p>
+   <div className={styles.grid}>{items.map(v=>{
+    const binding=canPreview?costBinding(v):null;
+    const previewKey=binding?JSON.stringify([costPageKey,binding]):null;
+    const open=previewKey!==null&&openedCost===previewKey;
+    return <article key={v.id+":"+v.revision} className={styles.candidate}>
+     <div className={styles.heading}><h4>{v.observation?.title||"这份资料暂时无法查看"}</h4><span className={styles.badge}>{states[v.state]}</span></div>
+     {v.reason?<p>当前理由：{v.reason}</p>:null}
+          {v.supplierReview&&canRead&&<div className="grid min-w-0 gap-3">
+      <div><Button type="button" variant="secondary" aria-expanded={openedSupplier===v.id} onClick={()=>setOpenedSupplier(openedSupplier===v.id?"":v.id)}>{openedSupplier===v.id?"收起货源核对":"核对已保存货源"}</Button></div>
+      {openedSupplier===v.id&&<ResearchSupplierReview key={JSON.stringify([scope,projectId,v.id,v.revision,canWrite,context.permissions])}
+       scope={scope} projectId={projectId} candidateId={v.id} canWrite={canWrite} onSaved={reload}/>}
+     </div>}
+     {previewKey&&<div className="grid min-w-0 gap-3">
+      <div><Button variant="secondary" aria-expanded={open} onClick={()=>setOpenedCost(open?null:previewKey)}>{open?"收起参考试算":"填写经营假设"}</Button></div>
+      {open&&binding&&<ResearchCostPreview key={previewKey} verifyEvidence={signal=>verifyCostEvidence(binding,signal)}/>}
+     </div>}
+     <CandidateDecision value={v} canWrite={canWrite} disabled={locked} command={body=>void submit(body,null)}/>
+    </article>;
+   })}</div>
+ </Card>:null}
  {view!=="research"?<Card id="research-transfer" tabIndex={-1} className={styles.section}><h3>转入我的供应链</h3><p>勾选已批准测试的商品，再到“我的数据”核对。分批收集的资料需要分别确认；批准测试不代表已采购、已上架或已完成合规检查。</p>{groups.size===0?<p>请先选择已批准测试、且资料可以查看的商品。</p>:<div className={styles.actions}>{[...groups].map(([batch,values],i)=><Button key={batch} variant="outline" asChild><Link prefetch={false} href={"/workbench/data/mine?"+new URLSearchParams({batchId:batch,transfer:JSON.stringify(values.map(v=>v.observation!.ref.selection))})}>批次 {i+1} · 核对 {values.length} 件商品</Link></Button>)}</div>}<p className={styles.muted}>是否转入成功，请到“我的供应链”查看处理结果。</p></Card>:null}
  </section>;
+}
+function costBinding(candidate:ResearchCandidate):string|null{
+ const observation=candidate.observation;
+ if(!observation||"shein" in observation||observation.item.source.kind!=="amazon_data"||
+    observation.site.toLowerCase()!=="us"||!candidate.selectedLinkId||!candidate.evidenceDigest)return null;
+ const {itemId,revision,publicationId,version}=observation.ref.selection;
+ return JSON.stringify([candidate.id,candidate.revision,candidate.selectedLinkId,candidate.evidenceDigest,itemId,revision,publicationId,version]);
 }
 function message(e:unknown){return e instanceof ResearchError?failures[e.code]??"服务暂不可用，请重新读取。":"服务暂不可用，请重新读取。";}
 function CandidateCard({value:v,checked,toggle,disabled,chooseDisabled,canWrite,command,view}:{view:"embedded"|"research"|"selection";value:ResearchCandidate;checked:boolean;toggle:()=>void;disabled:boolean;chooseDisabled:boolean;canWrite:boolean;command:(body:ResearchCommand)=>void}){

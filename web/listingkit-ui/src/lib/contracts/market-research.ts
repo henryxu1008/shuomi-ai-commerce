@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {MAX_1688_ACQUISITION_VARIANTS} from "./product-acquisition";
 import {collectionID,collectionVersion,collectionItemSchema,type CollectionItem} from "./product-collection";
 const revision=z.number().int().positive().max(Number.MAX_SAFE_INTEGER),digest=z.string().regex(/^[a-f0-9]{64}$/);
 const text=(max:number)=>z.string().refine(v=>!v.includes("\0")&&new TextEncoder().encode(v).length<=max);
@@ -40,20 +41,66 @@ const observation=z.union([amazonObservation,sheinObservation]).refine(v=>{
   item.source.publicationId===ref.source.publicationId&&item.source.version===ref.source.version&&item.source.operationId===ref.source.operationId;
 });
 const researchState=z.enum(["TO_RESEARCH","PENDING_CONFIRMATION","APPROVED_FOR_TEST","REJECTED"]);
-const candidateSchema=z.strictObject({id:collectionID,state:researchState,reason:text(4096).optional(),revision,selectedLinkId:collectionID.optional(),evidenceDigest:digest.optional(),observation:observation.optional(),evidence:z.array(z.strictObject({id:collectionID,observation:observation.optional()})).max(21),history:z.array(z.strictObject({state:researchState,reason:text(4096).optional(),evidenceDigest:digest.optional(),revision,at:z.iso.datetime({offset:true})})).max(20)});
+const candidateSchema=z.strictObject({id:collectionID,supplierReview:z.literal(true).optional(),state:researchState,reason:text(4096).optional(),revision,selectedLinkId:collectionID.optional(),evidenceDigest:digest.optional(),observation:observation.optional(),evidence:z.array(z.strictObject({id:collectionID,observation:observation.optional()})).max(21),history:z.array(z.strictObject({state:researchState,reason:text(4096).optional(),evidenceDigest:digest.optional(),revision,at:z.iso.datetime({offset:true})})).max(20)});
 export type ResearchCandidate=z.infer<typeof candidateSchema>;
 export const researchPage=z.strictObject({items:z.array(candidateSchema).max(50),nextCursor:collectionID.optional(),incomplete:z.boolean()});
 const change={candidateId:collectionID,expectedRevision:revision};
+const comparison=z.strictObject({
+ marketKey:text(128).refine(v=>!!v.trim()),
+ supplierKey:text(128).refine(v=>!!v.trim()),
+ supplierLevel:z.enum(["sku","product"]),
+ result:z.enum(["SAME","DIFFERENT","PENDING"]),
+});
+const supplierStatus=z.enum(["CONFIRMED","PENDING_REVIEW"]);
+const skuId=text(128).refine(v=>!!v.trim());
+const quantity=z.number().int().min(1).max(1_000_000);
+const supplierPublicationPrefix="source-run:acquisition:";
+const supplierSelection=researchSelection.extend({
+ publicationId:z.string().refine(value=>value.startsWith(supplierPublicationPrefix)&&collectionID.safeParse(value.slice(supplierPublicationPrefix.length)).success),
+});
+const supplierInput=z.strictObject({
+ selection:supplierSelection,skuId,quantity,unit:z.literal("piece"),status:supplierStatus,
+ reason:text(2048).refine(v=>!!v.trim()),comparisons:z.array(comparison).min(1).max(5),
+}).refine(v=>v.status==="PENDING_REVIEW"||v.comparisons.every(c=>c.result!=="PENDING"));
+const attributes=z.record(text(128),text(512));
+export const supplierReviewPreview=z.strictObject({
+ revision,linkId:collectionID,evidenceDigest:digest,
+ market:z.strictObject({asin:text(10).refine(v=>v.length===10),title:text(2000),attributes}),
+ offer:z.strictObject({title:text(2000),attributes,variants:z.array(z.strictObject({id:skuId,label:text(512),attributes})).max(MAX_1688_ACQUISITION_VARIANTS)}),
+});
+const supplierReviewDetail=z.strictObject({
+ marketTitle:text(2000),asin:text(10).refine(v=>v.length===10),supplierTitle:text(2000),offerId:text(128),
+ marketVersion:collectionVersion,supplierVersion:collectionVersion,skuId,skuLabel:text(512),quantity,
+ unit:z.literal("piece"),status:supplierStatus,reason:text(2048),at:z.iso.datetime({offset:true}),
+ comparisons:z.array(comparison.extend({marketValue:text(512).optional(),supplierValue:text(512).optional()})).min(1).max(5),
+});
+export const supplierReviewPage=z.strictObject({items:z.array(z.strictObject({current:z.boolean(),detail:supplierReviewDetail.optional()})).max(5),nextBefore:revision.optional()});
+export const supplierReviewPending=z.strictObject({key:collectionID});
 const researchCommand=z.discriminatedUnion("action",[
  z.strictObject({action:z.literal("link"),selections:z.array(researchSelection).min(1).max(200).refine(v=>new Set(v.map(s=>s.itemId)).size===v.length)}),
  z.strictObject({action:z.literal("select"),...change,linkId:collectionID}),z.strictObject({action:z.literal("unlink"),...change,linkId:collectionID}),
  z.strictObject({action:z.literal("review"),...change,evidenceDigest:digest}),z.strictObject({action:z.literal("reset"),...change,evidenceDigest:digest}),
- z.strictObject({action:z.literal("decide"),...change,evidenceDigest:digest,state:z.enum(["APPROVED_FOR_TEST","REJECTED"]),reason:text(4096).refine(v=>!!v.trim())})]);
+  z.strictObject({action:z.literal("decide"),...change,evidenceDigest:digest,state:z.enum(["APPROVED_FOR_TEST","REJECTED"]),reason:text(4096).refine(v=>!!v.trim())}),
+ z.strictObject({action:z.literal("record_supplier_review"),...change,linkId:collectionID,evidenceDigest:digest,supplier:supplierInput}),
+]);
 export type ResearchCommand=z.infer<typeof researchCommand>;
 export const researchIntent=z.strictObject({key:collectionID,body:researchCommand});
 export const researchReceipt=z.strictObject({key:collectionID,revisions:z.record(collectionID,revision).refine(v=>Object.keys(v).length<=200),candidateIds:z.array(collectionID).max(200),replayed:z.boolean()});
 export const researchTransfer=z.array(researchSelection).min(1).max(5).refine(v=>new Set(v.map(s=>s.itemId)).size===v.length);
 export function researchEndpoint(url:URL,method:string){
+ const supplierPath=url.pathname.match(/^\/api\/workbench\/research\/projects\/([^/]+)\/candidates\/([^/]+)\/supplier-review$/);
+ if(supplierPath){
+  if(method!=="GET"||url.hash||!collectionID.safeParse(supplierPath[1]).success||!collectionID.safeParse(supplierPath[2]).success)return null;
+  const keys=[...url.searchParams.keys()];
+  const path="/"+supplierPath[1]+"/candidates/"+supplierPath[2]+"/supplier-review";
+  const positive=(value:string|null)=>!!value&&/^[1-9][0-9]*$/.test(value)&&Number.isSafeInteger(Number(value));
+  if(!keys.length||keys.length===1&&keys[0]==="before"&&positive(url.searchParams.get("before"))){
+   return {path,input:undefined,output:supplierReviewPage,expected:false};
+  }
+  if(keys.length!==4||new Set(keys).size!==4||!positive(url.searchParams.get("revision"))||
+   !supplierSelection.safeParse({itemId:url.searchParams.get("itemId"),revision:Number(url.searchParams.get("revision")),publicationId:url.searchParams.get("publicationId"),version:url.searchParams.get("version")}).success)return null;
+  return {path,input:undefined,output:supplierReviewPreview,expected:false};
+ }
  const match=url.pathname.match(/^\/api\/workbench\/research\/projects\/([0-9a-f-]{36})(?:\/commands(?:\/([0-9a-f-]{36}))?)?$/i);
  if(!match||!collectionID.safeParse(match[1]).success||url.hash)return null;
  const path="/"+match[1]+(url.pathname.includes("/commands")?"/commands"+(match[2]?"/"+match[2]:""):"");

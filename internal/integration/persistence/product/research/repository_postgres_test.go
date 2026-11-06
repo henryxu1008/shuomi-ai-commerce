@@ -77,6 +77,7 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	require.NoError(t, db.Exec(`ALTER TABLE research_opportunities ADD UNIQUE(organization_id,actor_id,project_id,platform,market,native_product_id)`).Error)
 	require.NoError(t, db.Exec(`CREATE ROLE product_research_runtime LOGIN PASSWORD 'isolated-research-role'; CREATE TABLE foreign_owner(id integer); REVOKE CREATE ON SCHEMA public FROM PUBLIC`).Error)
 	require.NoError(t, GrantRuntime(db))
+	require.NoError(t, InstallSupplierReviewSchema(db))
 	runtimeURL, e := url.Parse(dsn)
 	require.NoError(t, e)
 	runtimeURL.User = url.UserPassword(RuntimeRole, "isolated-research-role")
@@ -125,6 +126,12 @@ func TestResearchPersistsExactEvidenceDecisionsReplayAndRevocation(t *testing.T)
 	require.Len(t, page.Items, 2)
 	current := page.Items[0]
 	require.NotNil(t, current.Observation)
+	t.Run("saved supplier review", func(t *testing.T) {
+		verifySupplierReview(t, ctx, svc, scope, project.id, current)
+	})
+	page, err = svc.List(ctx, scope, project.id, "")
+	require.NoError(t, err)
+	current = page.Items[0]
 	review := research.Command{Action: "review", CandidateID: current.ID, ExpectedRevision: current.Revision, EvidenceDigest: current.EvidenceDigest}
 	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), review)
 	require.NoError(t, err)
