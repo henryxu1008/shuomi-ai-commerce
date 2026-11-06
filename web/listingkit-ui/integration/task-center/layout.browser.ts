@@ -18,7 +18,7 @@ async function payload(response: Response) {
 async function openCompleted(page: Page, width = 1440) {
   await page.setViewportSize({ width, height: 900 });
   await page.goto(`${fixture.origin}/workbench`);
-  await expect(page.getByRole("heading", { name: "经营全局，一屏掌握" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "运营驾驶舱" })).toBeVisible();
   if (width === 390) await page.getByRole("button", { name: "打开工作台导航" }).click();
   const nav = page.getByRole("navigation", { name: width === 390 ? "移动工作台导航" : "工作台导航", exact: true });
   await nav.getByRole("button", { name: "展开AI工作台", exact: true }).click();
