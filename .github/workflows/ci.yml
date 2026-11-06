@@ -220,6 +220,9 @@ jobs:
     needs: changes
     if: ${{ github.event_name == 'push' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:c091b21d9fae78c76e85cd4356431e9b018402f172a214fc7d7a5e9a7e29d8ac
+      options: --user 1001
     defaults:
       run:
         working-directory: web/listingkit-ui
@@ -243,6 +246,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify preinstalled Playwright Chromium
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const { version } = require("@playwright/test/package.json");
+
+          if (process.versions.node.split(".")[0] !== process.env.NODE_VERSION) {
+            throw new Error(`Expected Node ${process.env.NODE_VERSION}, got ${process.version}`);
+          }
+          const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+          if (!browsersPath) throw new Error("The Playwright image must set PLAYWRIGHT_BROWSERS_PATH");
+          // The official Playwright image records its package version here.
+          const image = JSON.parse(fs.readFileSync(path.join(browsersPath, ".docker-info"), "utf8"));
+          if (image.driverVersion !== version) {
+            throw new Error(`Playwright image version ${image.driverVersion} does not match installed version ${version}`);
+          }
+          const { chromium } = require("@playwright/test");
+          fs.accessSync(chromium.executablePath(), fs.constants.X_OK);
+          console.log(`Verified Playwright ${version} with ${process.version} and ${chromium.executablePath()}`);
+          NODE
+
       - name: Run lint
         run: pnpm lint
 
@@ -251,9 +276,6 @@ jobs:
 
       - name: Run tests
         run: pnpm test
-
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run browser and accessibility tests
         run: pnpm test:e2e
