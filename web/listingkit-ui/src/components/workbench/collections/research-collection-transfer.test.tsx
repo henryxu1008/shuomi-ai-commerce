@@ -72,7 +72,7 @@ const candidates=choices.map((choice,index)=>({
     ref:{jobId,selection:{itemId:choice.selection.itemId,revision:2,publicationId:choice.selection.originalPublicationId,version:choice.selection.originalVersion}}},
 })) as unknown as ResearchCandidate[];
 const currentBatch={id:batchId,name:"Q1",revision:4,count:2,supplyTransferSupported:true};
-const originalItem={id:A,batchId,title:"Adjustable organizer",revision:2,source:{publicationId:A,version:"3"}};
+const originalItem={id:A,batchId,title:"Adjustable organizer",revision:2,source:{productKey:A,publicationId:A,version:"3"}};
 let store:ReturnType<typeof createResearchHandoff>;
 const context={
   user:{id:scope.userId},effectiveOrganization:{id:scope.organizationId},effectiveMemberId:"member",permissions, collectionIntentReady:true,pendingCollectionIntent:null,supplyIntentReady:true,
@@ -87,7 +87,7 @@ const context={
 beforeEach(()=>{
   vi.resetAllMocks();sessionStorage.clear();context.pendingSupplyIntent=null;store=createResearchHandoff();
   context.user={id:scope.userId};context.effectiveOrganization={id:scope.organizationId};context.effectiveMemberId="member";context.permissions=permissions;
-  f.batch.mockResolvedValue(currentBatch);f.item.mockResolvedValue({item:originalItem});
+  f.batch.mockResolvedValue(currentBatch);f.item.mockResolvedValue({item:originalItem,product:{title:originalItem.title}});
   f.job.mockImplementation((_scope,path:string)=>Promise.resolve(path==="amazon/jobs"?[job,nextJob]:job));
   f.project.mockResolvedValue({id:projectId,kind:"PRODUCT_RESEARCH",archived:false});
   f.research.mockResolvedValue({items:candidates,incomplete:false});
