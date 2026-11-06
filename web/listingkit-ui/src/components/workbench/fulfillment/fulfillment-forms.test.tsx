@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { expect, it, onTestFinished, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MappingForm } from "./fulfillment-forms";
@@ -7,6 +7,12 @@ import type {
   FulfillmentSource,
 } from "@/lib/api/fulfillment";
 it("preserves explicit SKU and UOM selections across catalog pages without supplying a browser quantity", async () => {
+  // Keep the form's local minimum date aligned with the delivery-date fixture.
+  vi.useFakeTimers({ now: new Date(2026, 10, 5, 12), toFake: ["Date"] });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
   const source: FulfillmentSource = {
     source: {
       kind: "platform_supply",
