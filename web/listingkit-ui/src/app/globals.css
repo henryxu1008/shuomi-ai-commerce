@@ -17,7 +17,7 @@
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
   --destructive: #e11d48;
-  --destructive-foreground: #fff1f2;
+  --destructive-foreground: #ffffff;
   --success: #dcfce7;
   --success-foreground: #15803d;
   --warning: #fef3c7;
@@ -53,7 +53,7 @@
   --accent: #27272a;
   --accent-foreground: #f4f4f5;
   --destructive: #fb7185;
-  --destructive-foreground: #fff1f2;
+  --destructive-foreground: #26010b;
   --success: #052e16;
   --success-foreground: #86efac;
   --warning: #451a03;

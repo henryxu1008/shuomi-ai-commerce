@@ -26,6 +26,14 @@ beforeEach(()=>{
 });
 afterEach(()=>cleanup());
 async function generate(){fireEvent.click(await screen.findByRole("button",{name:"准备平台资料"}));await screen.findByRole("heading",{name:"确认准备平台资料"});fireEvent.click(screen.getByRole("button",{name:"确认生成建议"}));}
+it("restores keyboard focus after cancelling the original confirmation without executing",async()=>{
+ render(<MaterialsPage recordId={id}/>);
+ const trigger=await screen.findByRole("button",{name:"准备平台资料"});
+ await waitFor(()=>expect(trigger).toBeEnabled());trigger.focus();fireEvent.click(trigger);
+ const cancel=await screen.findByRole("button",{name:"取消"});cancel.focus();fireEvent.click(cancel);
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(trigger).toHaveFocus();
+ expect(f.prepare).not.toHaveBeenCalled();expect(f.start).not.toHaveBeenCalled();
+});
 it("shows the exact proposal as unsaved until the original Target receipt is confirmed",async()=>{
  f.adopt.mockResolvedValue({record:{...base,id:key,revision:2,input:run().after},replayed:false});
  render(<MaterialsPage recordId={id}/>);await generate();await screen.findByText("建议差异 · 尚未保存");
