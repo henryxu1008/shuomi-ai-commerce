@@ -1,4 +1,6 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render as renderWithProviders, screen, waitFor } from "@testing-library/react";
+import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CollectionAPIError, type CollectionIntent } from "@/lib/api/product-collection";
@@ -6,7 +8,15 @@ import { CollectionPage } from "./collection-page";
 import { SupplyAPIError,type SupplyIntent } from "@/lib/api/supply-chain";
 
 const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, list: vi.fn(), items: vi.fn(), mutate: vi.fn(), read: vi.fn(),readItem:vi.fn(),supplyWrite:vi.fn(),supplyRead:vi.fn(),replace:vi.fn() }));
-vi.mock("next/navigation",()=>({useRouter:()=>({replace:state.replace})}));
+const router: AppRouterInstance = {
+  back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), push: vi.fn(),
+  replace: state.replace, prefetch: vi.fn(), bfcacheId: "collection-test",
+};
+function render(element: ReactElement) {
+  return renderWithProviders(element, {
+    wrapper: ({ children }) => <AppRouterContext.Provider value={router}>{children}</AppRouterContext.Provider>,
+  });
+}
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => state.context }));
 vi.mock("@/lib/api/product-collection", async original => ({ ...await original<object>(), listCollectionBatches: state.list, listCollectionItems:state.items, listOwnProducts:state.items, mutateCollection: state.mutate, readCollectionOperation: state.read,readCollectionItem:state.readItem }));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),supplyCommand:state.supplyWrite,readSupplyCommand:state.supplyRead}));

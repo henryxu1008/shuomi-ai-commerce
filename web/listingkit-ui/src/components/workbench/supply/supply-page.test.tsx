@@ -2,9 +2,11 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SupplyPage } from "./supply-page";
+import { CompletionDraftsPage } from "./completion-drafts-page";
 import StagePage from "@/app/workbench/supply/mine/[stage]/page";
 vi.mock("next/server",()=>({connection:vi.fn()}));
-const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),preparations:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn()}));
+const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),preparations:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),push:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn()}));
+vi.mock("next/navigation",()=>({useRouter:()=>({push:state.push})}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyPreparations:state.preparations,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record,listUploadPlans:state.plans,readUploadPlan:state.plan,previewUploadPlan:state.preview}));
 vi.mock("./temu-target-editor",()=>({TemuTargetEditor:({existing}:{existing?:{temu:{mode:string}}})=><p>TEMU 原生资料 {existing?.temu.mode}</p>}));
@@ -48,6 +50,15 @@ it.each([["missing","待补全"],["uploaded","已上传"]] as const)("keeps plat
  expect(url.pathname).toBe(`/workbench/supply/mine/${stage}`);
  const page=await StagePage({params:Promise.resolve({stage}),searchParams:Promise.resolve(Object.fromEntries(url.searchParams))});
  expect(page.type).toBe(SupplyPage);expect(page.props).toMatchObject({initialStage:stage,initialPreparation:prep,initialStore:store});
+});
+it("opens existing unbound drafts from the listing tabs before a store is selected",async()=>{
+ render(<SupplyPage initialPreparation={prep} initialStage="waiting" completionAvailable/>);
+ await screen.findByText("完整批次 205 件");
+ const link=screen.getByRole("link",{name:"待补全"});
+ const url=new URL(link.getAttribute("href")!,"https://test.invalid");
+ const page=await StagePage({params:Promise.resolve({stage:"missing"}),searchParams:Promise.resolve(Object.fromEntries(url.searchParams))});
+ expect(page.type).toBe(CompletionDraftsPage);
+ expect(page.props).toMatchObject({initialPreparation:prep,fullAvailable:true});
 });
 it("disables selected Walmart automatic adaptation and preserves manual editing",async()=>{
  state.stores.mockResolvedValue({items:[{id:store,name:"Walmart",platform:"walmart",recordStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
