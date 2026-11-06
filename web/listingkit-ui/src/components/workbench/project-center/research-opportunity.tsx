@@ -8,48 +8,76 @@ import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {dataRequest} from "@/lib/api/data-services";
+import {researchRequest} from "@/lib/api/market-research";
 import {readCollectionBatch} from "@/lib/api/product-collection";
 import type {ProjectScope} from "@/lib/api/project-center";
 import {verifyResearchHandoff} from "@/lib/api/research-handoff";
-import {jobSchema,type DataJob} from "@/lib/contracts/data-services";
-import type {ResearchCandidate} from "@/lib/contracts/market-research";
+import {jobSchema} from "@/lib/contracts/data-services";
+import {researchFixtureStatus,type ResearchCandidate} from "@/lib/contracts/market-research";
 import {researchAnalysisInput,type ResearchInspection} from "@/lib/contracts/research-analysis";
-import {candidateMatchesJob,eligibleResearchJob,handoffToken,opportunityPriceRange,specificationFacts,type ProductRequirements,type ResearchHandoff,type ResearchHandoffStore} from "@/lib/workbench/research-handoff";
+import {candidateMatchesJob,eligibleResearchJob,handoffToken,opportunityPriceRange,researchFixtureJob,specificationFacts,type ProductRequirements,type ResearchHandoff,type ResearchHandoffStore,type ResearchJob} from "@/lib/workbench/research-handoff";
 import {analysisChoices} from "./research-analysis-flow";
 
 const emptyRequirements:ProductRequirements={use:"",specs:[],targetPrice:"",missing:""};
 
-function queryLabel(job:DataJob) {
+function queryLabel(job:ResearchJob) {
   const query=job.query;
   if (query.mode==="category") return "类目 "+query.categoryNode;
   return "关键词 "+query.keyword+(query.categoryNode?" · 类目 "+query.categoryNode:"");
 }
 
-export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,selected,after,blocked,canStartQuery=false,onJobChange}:{
+export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,selected,after,blocked,canStartQuery=false,showResearchFixture=false,onJobChange}:{
   scope:ProjectScope; scopeKey:string; projectId:string; store:ResearchHandoffStore; draft:ResearchHandoff|null;
-  selected:ResearchCandidate[]; after:string; blocked:boolean; canStartQuery?:boolean; onJobChange:()=>void;
+  selected:ResearchCandidate[]; after:string; blocked:boolean; canStartQuery?:boolean; showResearchFixture?:boolean; onJobChange:()=>void;
 }) {
-  const [jobs,setJobs]=useState<DataJob[]>([]);
+  const [jobs,setJobs]=useState<ResearchJob[]>([]);
+  const [canImport,setCanImport]=useState(false);
+  const [importing,setImporting]=useState(false);
+  const [importError,setImportError]=useState("");
+  const importRequest=useRef<AbortController|null>(null);
   const [readStatus,setReadStatus]=useState<"loading"|"ready"|"error">("loading");
   const [refresh,setRefresh]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();
-    dataRequest(scope,"amazon/jobs",z.array(jobSchema).max(100),undefined,controller.signal)
-      .then(value=>{
+    const fixture=showResearchFixture?researchRequest(scope,projectId,researchFixtureStatus,controller.signal,{fixture:"read"}):Promise.resolve(null);
+    Promise.all([dataRequest(scope,"amazon/jobs",z.array(jobSchema).max(100),undefined,controller.signal),fixture])
+      .then(([value,fixtureStatus])=>{
         if (controller.signal.aborted) return;
-        setJobs(value.filter(eligibleResearchJob));
+        const available:ResearchJob[]=value.filter(eligibleResearchJob);
+        if(fixtureStatus?.ready)available.unshift(researchFixtureJob(fixtureStatus.batch));
+        setCanImport(fixtureStatus?.ready===false);
+        setJobs(available);
         setReadStatus("ready");
       }).catch(()=>{if (!controller.signal.aborted) setReadStatus("error");});
     return ()=>controller.abort();
-  },[scope,refresh]);
+  },[scope,projectId,refresh,showResearchFixture]);
+  useEffect(()=>()=>importRequest.current?.abort(),[]);
+  async function importFixture(){
+    if(importRequest.current||blocked)return;
+    const controller=new AbortController();
+    importRequest.current=controller;
+    setImporting(true);
+    setImportError("");
+    try{
+      await researchRequest(scope,projectId,researchFixtureStatus,controller.signal,{fixture:"import"});
+      if(!controller.signal.aborted)setRefresh(value=>value+1);
+    }catch{
+      if(!controller.signal.aborted)setImportError("暂时无法确认导入结果，请刷新查看。");
+    }finally{
+      importRequest.current=null;
+      if(!controller.signal.aborted)setImporting(false);
+    }
+  }
   const current=draft?.projectId===projectId && draft.scope===scopeKey?draft:null;
   return <Card className="space-y-3">
     <h3>从已保存的样本整理选品方向</h3>
     <p>选择一批 Amazon 美国站关键词或类目查询的结果，再在下方勾选同批的 2–5 件原版商品。这里由你整理方向。</p>
     <div className="flex flex-wrap gap-2">
       {canStartQuery?<Button asChild variant="outline"><Link href="/workbench/data/market" prefetch={false}>前往数据市场</Link></Button>:null}
+      {canImport?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture()}>导入合成验收资料</Button>:null}
       <Button variant="outline" onClick={()=>{setReadStatus("loading");setRefresh(value=>value+1);}}>刷新查询结果</Button>
     </div>
+    {importError?<p role="alert">{importError}</p>:null}
     {readStatus==="loading"?<p role="status">正在读取已保存的查询…</p>:readStatus==="error"?<p role="alert">暂时无法读取已保存的查询。</p>:null}
     <label className="grid gap-1">本次查询
       <select className="rounded border bg-background p-2" disabled={readStatus!=="ready" || blocked}
@@ -60,7 +88,7 @@ export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,select
           onJobChange();
         }}>
         <option value="">选择已保存的查询</option>
-        {jobs.map(job=><option key={job.id} value={job.id}>{queryLabel(job)} · {new Date(job.createdAt).toLocaleString()} · {job.saved} 件</option>)}
+        {jobs.map(job=><option key={job.id} value={job.id}>{job.state==="IMPORTED"?"合成样本 · ":""}{queryLabel(job)} · {job.state==="IMPORTED"?"已导入":new Date(job.createdAt).toLocaleString()} · {job.saved} 件</option>)}
       </select>
     </label>
     {readStatus==="ready" && !jobs.length?<p>暂无可用的已保存样本。</p>:null}
@@ -145,7 +173,7 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
         if (draft.confirmed) store.start(draft.scope,draft.projectId,draft.job);
         setRepresentative(event.target.value);
       }}><option value="">请选择</option>{inspection.candidates.map(row=><option key={row.research.CandidateID} value={row.research.CandidateID}>{row.observation.asin}</option>)}</select></label>
-      <p>{range?("样本展示价 "+range.currency+" "+range.minimum.toFixed(2)+"–"+range.maximum.toFixed(2)):"需要两件具有同类规格和可比售价的样本，才可继续。"}</p>
+      <p>{range?((draft.job.state==="IMPORTED"?"合成样本价 ":"样本展示价 ")+range.currency+" "+range.minimum.toFixed(2)+"–"+range.maximum.toFixed(2)):"需要两件具有同类规格和可比售价的样本，才可继续。"}</p>
       <label className="grid gap-1">商品用途<Input maxLength={200} value={requirements.use} onChange={event=>edit({...requirements,use:event.target.value})}/></label>
       {requirements.specs.map((spec,index)=>{
         const change=(next:typeof spec)=>edit({...requirements,specs:requirements.specs.map((item,i)=>i===index?next:item)});
@@ -177,15 +205,15 @@ export function ConfirmedOpportunity({draft,inspection}:{draft:ResearchHandoff;i
   const missing=[...new Set(inspection.candidates.flatMap(row=>row.missing))];
   return <Card className="space-y-3">
     <h3>已确认的商品要求</h3>
-    <p>Amazon 美国站 · {queryLabel(draft.job)} · {requirements.use}</p>
-    {range?<p>样本展示价 {range.currency} {range.minimum.toFixed(2)}–{range.maximum.toFixed(2)}</p>:null}
+    <p>{draft.job.state==="IMPORTED"?"合成样本 · ":""}Amazon 美国站 · {queryLabel(draft.job)} · {requirements.use}</p>
+    {range?<p>{draft.job.state==="IMPORTED"?"合成样本价":"样本展示价"} {range.currency} {range.minimum.toFixed(2)}–{range.maximum.toFixed(2)}</p>:null}
     {requirements.targetPrice?<p>人工目标售价 USD {requirements.targetPrice}</p>:null}
     <ul>{requirements.specs.map((spec,index)=>{
       const fact=evidence.find(item=>item.sourceKey===spec.sourceKey);
       return <li key={index}>{spec.required}{spec.difference?" · 可接受："+spec.difference:""}
         {fact?" · 依据 "+fact.asin+" "+fact.name+"："+fact.value:""}</li>;
     })}</ul>
-    <p>原版证据 {inspection.candidates.map(row=>row.observation.asin+" v"+row.ref.CatalogVersion).join("、")}</p>
+    <p>原版证据 {inspection.candidates.map(row=>row.observation.asin+(row.observation.fixtureVersion?" 合成参考 v"+row.observation.fixtureVersion+" · 本地 v":" v")+row.ref.CatalogVersion).join("、")}</p>
     {missing.length>0?<p>样本缺项：{missing.join("、")}</p>:null}
     {requirements.missing?<p>待核实：{requirements.missing}</p>:null}
   </Card>;

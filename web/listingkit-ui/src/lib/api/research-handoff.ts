@@ -4,10 +4,10 @@ import {projectRequest,type ProjectScope} from "./project-center";
 import {inspectResearch} from "./research-analysis";
 import {fetchWorkbenchContext} from "./workbench-context";
 import {jobSchema} from "../contracts/data-services";
-import {researchPage} from "../contracts/market-research";
+import {researchFixtureStatus,researchPage} from "../contracts/market-research";
 import {project} from "../contracts/project-center";
 import {researchAnalysisInput,type ResearchInspection} from "../contracts/research-analysis";
-import {candidateMatchesJob,researchHandoffAllowed,researchScopeKey,sameResearchJob,specificationFacts,type ResearchHandoff} from "../workbench/research-handoff";
+import {candidateMatchesJob,researchFixtureJob,researchHandoffAllowed,researchScopeKey,sameResearchJob,specificationFacts,type ResearchHandoff} from "../workbench/research-handoff";
 import type {z} from "zod";
 
 type Input = z.infer<typeof researchAnalysisInput>;
@@ -25,9 +25,15 @@ export async function verifyResearchHandoff(scope:ProjectScope,draft:ResearchHan
   if (!confirmed) throw new Error("No confirmed research");
   const input=researchAnalysisInput.parse({candidates:confirmed.choices});
   const deadline=AbortSignal.any([signal,AbortSignal.timeout(10_000)]);
+  const jobRequest=draft.job.state==="IMPORTED"
+    ? researchRequest(scope,draft.projectId,researchFixtureStatus,deadline,{fixture:"read"}).then(result=>{
+      if(!result.ready)throw new Error("Synthetic research samples unavailable");
+      return researchFixtureJob(result.batch);
+    })
+    : dataRequest(scope,"amazon/jobs/"+draft.job.id,jobSchema,undefined,deadline);
   const [currentProject,job,page,inspection]=await Promise.all([
     projectRequest(scope,"/"+draft.projectId,project,deadline),
-    dataRequest(scope,"amazon/jobs/"+draft.job.id,jobSchema,undefined,deadline),
+    jobRequest,
     researchRequest(scope,draft.projectId,researchPage,deadline,{after:confirmed.after}),
     inspectResearch(scope,draft.projectId,input,deadline),
   ]);

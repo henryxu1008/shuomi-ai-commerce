@@ -44,7 +44,7 @@ func (p *projectFixture) AuthorizeAnalysis(ctx context.Context, s collection.Sco
 	return p.Authorize(ctx, s, id, active)
 }
 
-func (s *sourceFixture) Observe(_ context.Context, _ collection.Scope, in research.Selection) (research.Observation, error) {
+func (s *sourceFixture) Observe(_ context.Context, _ collection.Scope, _ string, in research.Selection) (research.Observation, error) {
 	if s.failure != nil {
 		return research.Observation{}, s.failure
 	}

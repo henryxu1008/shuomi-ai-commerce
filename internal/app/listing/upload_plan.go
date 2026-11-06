@@ -72,6 +72,9 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 	if scope != plan.Owner || source.PreparationID != plan.Input.PreparationID || source.Source.Version != item.SourceVersion {
 		return facts, record.ErrConflict
 	}
+	if collection.IsResearchFixtureProduct(source.Source.ProductKey) {
+		return facts, preparation.ErrForbidden
+	}
 	saved, err := a.Records.ReadTargetHead(ctx, scope, record.TargetIdentity(scope, item.SourceID, plan.Input.StoreID))
 	if err != nil && !errors.Is(err, record.ErrNotFound) {
 		return facts, err

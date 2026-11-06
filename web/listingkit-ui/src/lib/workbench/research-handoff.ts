@@ -1,11 +1,17 @@
 import type {z} from "zod";
 import type {DataJob} from "../contracts/data-services";
-import type {ResearchCandidate} from "../contracts/market-research";
+import type {ResearchCandidate,ResearchFixtureBatch} from "../contracts/market-research";
 import type {ResearchInspection, researchAnalysisInput} from "../contracts/research-analysis";
 
 type Choice = z.infer<typeof researchAnalysisInput>["candidates"][number];
 type Evidence = ResearchInspection["candidates"][number];
 type Query = NonNullable<ResearchCandidate["observation"]>["query"];
+export type ResearchJob = DataJob | Pick<DataJob,"id"|"batchId"|"query"|"saved"> & {state:"IMPORTED"};
+
+export function researchFixtureJob(batch:ResearchFixtureBatch):ResearchJob {
+  return {id:batch.id,batchId:batch.amazon[0].item.batchId,saved:2,state:"IMPORTED",
+    query:{site:"us",mode:"keyword",keyword:batch.keyword,limit:5,fields:["attributes","price","currency"]}};
+}
 
 export type ProductRequirements = {
   use: string;
@@ -18,7 +24,7 @@ export type ResearchHandoff = {
   generation: number;
   scope: string;
   projectId: string;
-  job: DataJob;
+  job: ResearchJob;
   confirmed?: {
     requirements: ProductRequirements;
     choices: Choice[];
@@ -46,7 +52,7 @@ export function createResearchHandoff() {
     },
     getSnapshot:()=>current,
     clear() { if (current) set(null); },
-    start(scope:string, projectId:string, job:DataJob) {
+    start(scope:string, projectId:string, job:ResearchJob) {
       const next = {id:crypto.randomUUID(),generation:++generation,scope,projectId,job};
       set(next);
       return next;
@@ -70,25 +76,25 @@ export function researchHandoffAllowed(permissions:readonly string[], transfer=f
 
 export const handoffToken = (draft:ResearchHandoff) => draft.id + "." + draft.generation;
 
-export function eligibleResearchJob(job:DataJob) {
+export function eligibleResearchJob(job:ResearchJob) {
   const {query}=job;
-  return job.saved>0 && !!job.batchId && ["SUCCEEDED","PARTIAL","CANCELED"].includes(job.state) &&
+  return job.saved>0 && !!job.batchId && ["SUCCEEDED","PARTIAL","CANCELED","IMPORTED"].includes(job.state) &&
     query.site==="us" && (query.mode==="keyword" && !!query.keyword || query.mode==="category" && !!query.categoryNode);
 }
-export function sameResearchJob(original:DataJob, current:DataJob) {
+export function sameResearchJob(original:ResearchJob, current:ResearchJob) {
   return eligibleResearchJob(current) && current.id===original.id && current.batchId===original.batchId &&
-    current.saved===original.saved && sameQuery(original.query,current.query);
+    (current.state==="IMPORTED")===(original.state==="IMPORTED") && current.saved===original.saved && sameQuery(original.query,current.query);
 }
 function sameQuery(a:DataJob["query"],b:Pick<DataJob["query"],"mode"|"keyword"|"categoryNode"|"limit">&{fields?:readonly string[]}) {
   return a.mode===b.mode && a.keyword===b.keyword && a.categoryNode===b.categoryNode && a.limit===b.limit &&
     JSON.stringify([...(a.fields??[])].sort())===JSON.stringify([...(b.fields??[])].sort());
 }
-export function draftMatchesJob(job:DataJob, query:Query, jobId:string, batchId:string) {
+export function draftMatchesJob(job:ResearchJob, query:Query, jobId:string, batchId:string) {
   return eligibleResearchJob(job) && job.id===jobId && job.batchId===batchId && query.asinCount===0 && sameQuery(job.query,query);
 }
-export function candidateMatchesJob(candidate:ResearchCandidate, job:DataJob) {
+export function candidateMatchesJob(candidate:ResearchCandidate, job:ResearchJob) {
   const o=candidate.observation;
-  return !!o && !("shein" in o) && o.site==="us" && draftMatchesJob(job,o.query,o.ref.jobId,o.batchId);
+  return !!o && !("shein" in o) && o.site==="us" && ("fixtureVersion" in o)===(job.state==="IMPORTED") && draftMatchesJob(job,o.query,o.ref.jobId,o.batchId);
 }
 
 export function specificationFacts(row:Evidence) {
@@ -109,7 +115,7 @@ export function opportunityPriceRange(rows:Evidence[], representative:string) {
   const main=rows.find(row=>row.research.CandidateID===representative);
   if (!main) return null;
   const {price,currency,priceBasis}=main.observation;
-  if (!price || currency!=="USD" || priceBasis!=="displayed_listing_offer") return null;
+  if (!price || currency!=="USD" || (priceBasis!=="displayed_listing_offer" && priceBasis!=="synthetic_listing_offer")) return null;
   const specNames=new Set(specificationFacts(main).map(spec=>spec.name.trim().toLowerCase()));
   const comparable=rows.filter(row=>row.observation.currency===currency &&
     row.observation.priceBasis===priceBasis && !!row.observation.price &&

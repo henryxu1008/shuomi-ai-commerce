@@ -69,7 +69,7 @@ func (s *Service) analysisSelection(ctx context.Context, scope collection.Scope,
 		if ref.Source.Kind != "amazon_data" {
 			return nil, ErrUnsupported
 		}
-		v, err := s.Sources.Observe(ctx, scope, in.Selection)
+		v, err := s.Sources.Observe(ctx, scope, project, in.Selection)
 		if err != nil {
 			return nil, err
 		}

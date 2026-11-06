@@ -233,4 +233,37 @@ func TestPostgresUploadPlanWholeSelectionAtomicContinueAndReplay(t *testing.T) {
 		require.Zero(t, total)
 	})
 
+	t.Run("synthetic evidence cannot start direct or planned execution", func(t *testing.T) {
+		product := "research-fixture-v1-" + uuid.NewString()
+		require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: scope.OrganizationID, ProductKey: product, Version: 1, PublicationID: uuid.NewString(), PayloadHash: collection.Digest(product), SnapshotJSON: []byte(`{"title":"合成原件"}`)}).Error)
+		require.NoError(t, db.Model(&sourceRow{}).Where("id=?", selected).Update("product_key", product).Error)
+
+		operations, err := NewOperationRepository(ctx, db)
+		require.NoError(t, err)
+
+		for _, ids := range [][]string{nil, {selected}} {
+			input := config.Operation(preparation.OperationAdapt)
+			input.SourceIDs = ids
+			key := uuid.NewString()
+			err = db.WithContext(actor).Transaction(func(tx *gorm.DB) error {
+				_, err := prepareOperationTx(actor, tx, scope, key, input)
+				return err
+			})
+			require.ErrorIs(t, err, preparation.ErrForbidden)
+			_, err = operations.FindOperation(actor, scope, key, collection.Digest(input))
+			require.ErrorIs(t, err, preparation.ErrNotFound)
+		}
+
+		subset := config
+		subset.SourceIDs = []string{selected}
+		plan, err := service.Create(actor, uuid.NewString(), subset)
+		require.NoError(t, err)
+		v, err := service.Preview(actor, plan.Plan.ID, preparation.UploadPlanContinueInput{ExpectedRevision: 1})
+		require.NoError(t, err)
+		_, err = service.Continue(actor, plan.Plan.ID, uuid.NewString(), preparation.UploadPlanContinueInput{ExpectedRevision: 1, PreviewHash: v.Hash})
+		require.ErrorIs(t, err, preparation.ErrForbidden)
+		stored, err := service.Read(actor, plan.Plan.ID)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, stored.Revision)
+	})
 }

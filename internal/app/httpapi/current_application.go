@@ -224,6 +224,7 @@ type currentApplicationOptions struct {
 	aiWorkbench                  *AIWorkbenchDependencies
 	aiWorkbenches                int
 	marketResearchDB             *gorm.DB
+	researchFixture              *ResearchFixtureBinding
 	marketResearchSupplierReview bool
 	marketResearchConfigs        int
 	sheinTrial                   *sheinTrialDependencies
@@ -668,6 +669,12 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.sheinTrialConfigs != 0 && (supplied.sheinTrialConfigs != 1 || supplied.sheinTrial == nil || !supplied.sheinTrial.complete() || supplied.marketResearchConfigs != 1) {
 		return nil, errors.New("SHEIN trial requires market research and one complete explicit composition")
+	}
+	if supplied.researchFixture != nil && (supplied.marketResearchConfigs != 1 || !supplied.marketResearchSupplierReview ||
+		supplied.productAcquisitionDB == nil || supplied.dataServices == nil || supplied.dataServices.ExecutionEnabled ||
+		supplied.sheinTrial != nil || supplied.listings != 0 || supplied.officialStoreApplications != nil ||
+		supplied.productAgent != nil) {
+		return nil, errors.New("local synthetic fixture requires a closed research-only composition")
 	}
 	if supplied.dataServices != nil {
 		module, charges, err := buildDataServices(ctx, supplied, *workbench.authDependencies, authorizer, cfg, storeCapabilities)
@@ -1251,6 +1258,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				return nil, e
 			}
 			researchOwner := researchMod.(researchModule)
+			if supplied.researchFixture != nil {
+				if e := researchOwner.enableFixture(ctx, supplied.productAcquisitionDB, *supplied.researchFixture); e != nil {
+					return nil, e
+				}
+			}
 			supplierReviewReady = researchOwner.service.SupplierReviewsEnabled()
 			if supplied.sheinTrial != nil {
 				researchOwner.trial, e = composeMarketResearchSHEINTrial(ctx, researchData, *supplied.sheinTrial, researchOwner.projects, researchOwner.handler.Bind)
@@ -1426,6 +1438,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AIWorkbench:          supplied.aiWorkbench != nil,
 		ProjectCenter:        supplied.projectCenterDB != nil,
 		MarketResearch:       supplied.marketResearchDB != nil,
+		ResearchFixture:      supplied.researchFixture != nil,
 		SupplierReview:       supplierReviewReady,
 		SHEINTrial:           supplied.sheinTrial != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
@@ -1537,6 +1550,7 @@ type currentApplicationOptionalRoutes struct {
 	AIWorkbench          bool
 	ProjectCenter        bool
 	MarketResearch       bool
+	ResearchFixture      bool
 	SupplierReview       bool
 	SHEINTrial           bool
 	MemberPoints         bool
@@ -1836,6 +1850,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.SupplierReview {
 		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: rh.SupplierReviewPath})
+	}
+	if optional.ResearchFixture {
+		for _, r := range marketResearchFixtureRoutes(researchModule{}) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
 	}
 	if optional.SHEINTrial {
 		for _, r := range marketResearchSHEINTrialRoutes(nil) {
@@ -2210,7 +2229,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			if descriptor.Path == rh.SupplierReviewPath && !optional.SupplierReview {
 				return errors.New("research supplier review route not admitted")
 			}
-			if descriptor.Module == sheinTrialModule {
+			if descriptor.Path == researchFixturePath {
+				if !optional.ResearchFixture || !validMarketResearchFixtureDescriptor(descriptor) {
+					return errors.New("local research fixture route not admitted")
+				}
+			} else if descriptor.Module == sheinTrialModule {
 				if !optional.SHEINTrial {
 					return errors.New("SHEIN trial route not admitted")
 				}

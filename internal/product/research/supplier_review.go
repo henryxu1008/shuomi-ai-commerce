@@ -59,8 +59,8 @@ type SupplierVariant struct {
 }
 
 type SupplierSources interface {
-	ReadSupplierMarket(context.Context, collection.Scope, EvidenceRef) (SupplierMarket, error)
-	ReadSupplierOffer(context.Context, collection.Scope, Selection, *SupplierOriginal) (SupplierOffer, error)
+	ReadSupplierMarket(context.Context, collection.Scope, string, EvidenceRef) (SupplierMarket, error)
+	ReadSupplierOffer(context.Context, collection.Scope, string, Selection, *SupplierOriginal) (SupplierOffer, error)
 }
 
 type SupplierReviewRecord struct {
@@ -137,7 +137,8 @@ func supplierText(value string, limit int) bool {
 
 func ValidSupplierSelection(in Selection) bool {
 	operation, ok := strings.CutPrefix(in.PublicationID, "source-run:acquisition:")
-	return ok && collection.ValidID(operation) && collection.ValidID(in.ItemID) && in.Revision > 0 &&
+	_, fixture := collection.ResearchFixtureSupplierOperation(in.PublicationID)
+	return (fixture || ok && collection.ValidID(operation)) && collection.ValidID(in.ItemID) && in.Revision > 0 &&
 		in.Version > 0 && in.Version <= math.MaxInt64
 }
 
@@ -177,8 +178,8 @@ func supplierLink(c Candidate) (Link, error) {
 	return Link{}, ErrConflict
 }
 
-func (s *Service) supplierMarket(ctx context.Context, scope collection.Scope, c Candidate, ref EvidenceRef) (SupplierMarket, error) {
-	market, err := s.SupplierSources.ReadSupplierMarket(ctx, scope, ref)
+func (s *Service) supplierMarket(ctx context.Context, scope collection.Scope, project string, c Candidate, ref EvidenceRef) (SupplierMarket, error) {
+	market, err := s.SupplierSources.ReadSupplierMarket(ctx, scope, project, ref)
 	if err != nil {
 		return SupplierMarket{}, err
 	}
@@ -206,11 +207,11 @@ func (s *Service) SupplierPreview(ctx context.Context, scope collection.Scope, p
 	if err != nil {
 		return SupplierReviewPreview{}, err
 	}
-	market, err := s.supplierMarket(ctx, scope, c, link.Ref)
+	market, err := s.supplierMarket(ctx, scope, project, c, link.Ref)
 	if err != nil {
 		return SupplierReviewPreview{}, err
 	}
-	offer, err := s.SupplierSources.ReadSupplierOffer(ctx, scope, in, nil)
+	offer, err := s.SupplierSources.ReadSupplierOffer(ctx, scope, project, in, nil)
 	if err != nil {
 		return SupplierReviewPreview{}, err
 	}
@@ -241,11 +242,11 @@ func (s *Service) prepareSupplier(ctx context.Context, scope collection.Scope, p
 	}
 	ctx, cancel := context.WithDeadline(ctx, expires)
 	defer cancel()
-	market, err := s.supplierMarket(ctx, scope, c, link.Ref)
+	market, err := s.supplierMarket(ctx, scope, project, c, link.Ref)
 	if err != nil {
 		return SupplierReviewProof{}, err
 	}
-	offer, err := s.SupplierSources.ReadSupplierOffer(ctx, scope, cmd.Supplier.Selection, nil)
+	offer, err := s.SupplierSources.ReadSupplierOffer(ctx, scope, project, cmd.Supplier.Selection, nil)
 	if err != nil {
 		return SupplierReviewProof{}, err
 	}
@@ -353,11 +354,11 @@ func (s *Service) readSupplierDetail(ctx context.Context, scope collection.Scope
 	if err != nil || ref != record.Market || ref.Digest() != record.EvidenceDigest {
 		return nil
 	}
-	market, err := s.supplierMarket(ctx, scope, c, ref)
+	market, err := s.supplierMarket(ctx, scope, project, c, ref)
 	if err != nil {
 		return nil
 	}
-	offer, err := s.SupplierSources.ReadSupplierOffer(ctx, scope, record.Input.Selection, &record.Offer)
+	offer, err := s.SupplierSources.ReadSupplierOffer(ctx, scope, project, record.Input.Selection, &record.Offer)
 	if err != nil || offer.Original != record.Offer {
 		return nil
 	}

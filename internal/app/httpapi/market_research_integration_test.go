@@ -63,7 +63,7 @@ type analysisSourcesFixture struct {
 	denied       bool
 }
 
-func (s *analysisSourcesFixture) Observe(_ context.Context, _ collection.Scope, in research.Selection) (research.Observation, error) {
+func (s *analysisSourcesFixture) Observe(_ context.Context, _ collection.Scope, _ string, in research.Selection) (research.Observation, error) {
 	if s.denied {
 		return research.Observation{}, research.ErrForbidden
 	}

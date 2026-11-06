@@ -21,14 +21,14 @@ type supplierSourceFixture struct {
 	marketDenied, offerDenied bool
 }
 
-func (s *supplierSourceFixture) ReadSupplierMarket(_ context.Context, _ collection.Scope, ref research.EvidenceRef) (research.SupplierMarket, error) {
+func (s *supplierSourceFixture) ReadSupplierMarket(_ context.Context, _ collection.Scope, _ string, ref research.EvidenceRef) (research.SupplierMarket, error) {
 	if s.marketDenied || ref != s.amazon.Ref {
 		return research.SupplierMarket{}, research.ErrForbidden
 	}
 	return s.amazon, nil
 }
 
-func (s *supplierSourceFixture) ReadSupplierOffer(_ context.Context, _ collection.Scope, in research.Selection, original *research.SupplierOriginal) (research.SupplierOffer, error) {
+func (s *supplierSourceFixture) ReadSupplierOffer(_ context.Context, _ collection.Scope, _ string, in research.Selection, original *research.SupplierOriginal) (research.SupplierOffer, error) {
 	if s.offerDenied {
 		return research.SupplierOffer{}, research.ErrForbidden
 	}

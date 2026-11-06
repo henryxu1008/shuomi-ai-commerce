@@ -48,21 +48,22 @@ type QuerySummary struct {
 	Fields       []string `json:"fields"`
 }
 type Observation struct {
-	Query         QuerySummary    `json:"query"`
-	Item          collection.Item `json:"item"`
-	Ref           EvidenceRef     `json:"ref"`
-	BatchID       string          `json:"batchId"`
-	Site          string          `json:"site"`
-	ASIN          string          `json:"asin"`
-	Title         string          `json:"title"`
-	SourceURL     string          `json:"sourceUrl"`
-	CapturedAt    string          `json:"capturedAt"`
-	ParserVersion string          `json:"parserVersion"`
-	Currency      string          `json:"currency,omitempty"`
-	Price         *float64        `json:"price,omitempty"`
-	PriceBasis    string          `json:"priceBasis,omitempty"`
-	Missing       []string        `json:"missing"`
-	SHEIN         *SHEINCard      `json:"shein,omitempty"`
+	Query          QuerySummary    `json:"query"`
+	Item           collection.Item `json:"item"`
+	Ref            EvidenceRef     `json:"ref"`
+	BatchID        string          `json:"batchId"`
+	Site           string          `json:"site"`
+	ASIN           string          `json:"asin"`
+	Title          string          `json:"title"`
+	SourceURL      string          `json:"sourceUrl"`
+	CapturedAt     string          `json:"capturedAt"`
+	ParserVersion  string          `json:"parserVersion"`
+	Currency       string          `json:"currency,omitempty"`
+	Price          *float64        `json:"price,omitempty"`
+	PriceBasis     string          `json:"priceBasis,omitempty"`
+	FixtureVersion string          `json:"fixtureVersion,omitempty"`
+	Missing        []string        `json:"missing"`
+	SHEIN          *SHEINCard      `json:"shein,omitempty"`
 }
 
 type SHEINCard struct {
@@ -164,7 +165,7 @@ type Projects interface {
 	AuthorizeAnalysis(context.Context, collection.Scope, string, bool) error
 }
 type Sources interface {
-	Observe(context.Context, collection.Scope, Selection) (Observation, error)
+	Observe(context.Context, collection.Scope, string, Selection) (Observation, error)
 }
 type Repository interface {
 	Replay(context.Context, collection.Scope, string, string, Command) (Receipt, bool, error)

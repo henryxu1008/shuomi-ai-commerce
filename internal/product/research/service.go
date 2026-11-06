@@ -123,7 +123,7 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 	observations := []Observation{}
 	if c.Action == "link" {
 		for _, in := range c.Selections {
-			v, err := s.Sources.Observe(ctx, scope, in)
+			v, err := s.Sources.Observe(ctx, scope, project, in)
 			if err != nil {
 				validation = err
 				break
@@ -153,7 +153,7 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 			if bound == nil {
 				validation = ErrConflict
 			} else {
-				v, e := s.Sources.Observe(ctx, scope, bound.Selection)
+				v, e := s.Sources.Observe(ctx, scope, project, bound.Selection)
 				if e != nil {
 					validation = e
 				} else if !ValidObservation(v, bound.Selection) || v.Ref != *bound {
@@ -186,7 +186,7 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 		if v, ok := cache[digest]; ok {
 			return v
 		}
-		v, e := s.Sources.Observe(sourceCtx, scope, ref.Selection)
+		v, e := s.Sources.Observe(sourceCtx, scope, project, ref.Selection)
 		if e != nil || !ValidObservation(v, ref.Selection) || v.Ref != ref {
 			cache[digest] = nil
 			if sourceCtx.Err() != nil {
