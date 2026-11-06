@@ -23,6 +23,25 @@ type WalmartSKUState struct {
 }
 
 func (WalmartSKUState) TableName() string { return "listing_walmart_sku_bindings" }
+
+func (r *Repository) ReadWalmartAttempt(ctx context.Context, scope submission.ExecutionScope, target submission.ExecutionTarget) (submission.ExecutionAttempt, error) {
+	if r == nil || r.db == nil || ctx == nil || scope.OrganizationID == "" || target.Platform != "walmart" || !collection.ValidID(target.StoreID) {
+		return submission.ExecutionAttempt{}, submission.ErrExecutionInvalid
+	}
+	fence, found, err := r.findTarget(ctx, r.db, scope.OrganizationID, target, false)
+	if err != nil {
+		return submission.ExecutionAttempt{}, err
+	}
+	if !found {
+		return submission.ExecutionAttempt{}, submission.ErrExecutionNotFound
+	}
+	attempt, err := r.Get(ctx, scope, fence.CurrentAttemptID)
+	if err != nil || attempt.Target != target || attempt.FenceEpoch != fence.Epoch || string(attempt.Status) != fence.CurrentStatus {
+		return submission.ExecutionAttempt{}, submission.ErrExecutionUnavailable
+	}
+	return attempt, nil
+}
+
 func readWalmartIntentForAttempt(ctx context.Context, tx *gorm.DB, a submission.ExecutionAttempt) (submission.OfficialIntent, error) {
 	var row struct {
 		ActorID, MemberID, RecordID, Kind, InputHash, BodyHash string

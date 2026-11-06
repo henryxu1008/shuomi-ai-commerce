@@ -224,12 +224,19 @@ func TestPostgresWalmartFeedAdmissionAndPartialRepairAreAtomic(t *testing.T) {
 	require.EqualValues(t, 3, occupied)
 
 	t.Run("rejected repair retains its owner and admits only the approved payload", func(t *testing.T) {
+		attempts, err := effectsstore.NewOfficialEffectsRepository(db)
+		require.NoError(t, err)
 		claim := submission.ExecutionClaim{Scope: repair.Scope, AttemptID: next.Attempt.AttemptID, FenceEpoch: next.Attempt.FenceEpoch, OwnerID: next.Permit.ClaimOwnerID, Token: next.Permit.ClaimToken}
 		evidence, err := submission.NewWalmartRejectionEvidence(repairIntent, next.Attempt, time.Now())
 		require.NoError(t, err)
 		failed, err := kernel.Complete(ctx, claim, evidence)
 		require.NoError(t, err)
 		require.Equal(t, submission.ExecutionFailedDefinitive, failed.Status)
+		current, err := attempts.ReadWalmartAttempt(ctx, repair.Scope, repair.Target)
+		require.NoError(t, err)
+		require.Equal(t, failed, current)
+		_, err = attempts.ReadWalmartAttempt(ctx, submission.ExecutionScope{OrganizationID: "other-org"}, repair.Target)
+		require.ErrorIs(t, err, submission.ErrExecutionNotFound)
 		replayed, err := kernel.Acquire(ctx, repair)
 		require.NoError(t, err)
 		require.Nil(t, replayed.Permit)
@@ -246,6 +253,10 @@ func TestPostgresWalmartFeedAdmissionAndPartialRepairAreAtomic(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, next.Permit, "an explicit same-payload repair rechecks the original accepted evidence")
 		require.Greater(t, next.Attempt.FenceEpoch, failed.FenceEpoch)
+		current, err = attempts.ReadWalmartAttempt(ctx, repair.Scope, repair.Target)
+		require.NoError(t, err)
+		require.Equal(t, next.Attempt.AttemptID, current.AttemptID)
+		require.Equal(t, submission.ExecutionClaimed, current.Status)
 	})
 
 	repairCompletion, e := submission.NewWalmartCompletion(scope, *saved, repairIntent, next.Attempt, submission.ExecutionClaim{Scope: repair.Scope, AttemptID: next.Attempt.AttemptID, FenceEpoch: next.Attempt.FenceEpoch, OwnerID: next.Permit.ClaimOwnerID, Token: next.Permit.ClaimToken}, marketplace.AcceptedFeed{FeedID: "feed-b-repair", CorrelationID: submission.WalmartCorrelationID(repairIntent)})

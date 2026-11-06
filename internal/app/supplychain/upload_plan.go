@@ -17,8 +17,11 @@ import (
 // Projection/authorization adapter; sequencing and durable commands remain in
 // preparation, while this adapter reads facts from the current owners.
 type UploadPlanInputs struct {
-	Application *Application
-	Operations  preparation.UploadPlanOperationReader
+	Application     *Application
+	Operations      preparation.UploadPlanOperationReader
+	WalmartAttempts interface {
+		ReadWalmartAttempt(context.Context, submission.ExecutionScope, submission.ExecutionTarget) (submission.ExecutionAttempt, error)
+	}
 }
 
 func (r UploadPlanInputs) ReadUploadPlanBinding(ctx context.Context, scope collection.Scope, in preparation.UploadPlanInput) (string, error) {
@@ -114,6 +117,21 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 			facts.PublicationOutcome = "accepted"
 		}
 	}
+	if facts.Ready && facts.WalmartApproval != nil && saved.Input.Walmart.RepairFrom != "" && publication.Walmart != nil && publication.RecordID != "" && submission.WalmartCompatibleBinding(saved.Merchant, publication.binding) {
+		if observation := walmartRepairObservation(saved, publication); observation != nil {
+			facts.WalmartRepairObservationID = observation.ID
+			facts.PublicationSummary = append(facts.PublicationSummary, fmt.Sprintf("修复原 Walmart Feed %s · %d 个已选失败 SKU", observation.Observation.FeedID, len(saved.Walmart.SKUs)))
+		} else if len(plan.Input.SourceIDs) == 1 && plan.Input.SourceIDs[0] == item.SourceID && item.UploadOperationID == "" {
+			id, e := r.walmartRejectedRepair(ctx, selected, scope, saved)
+			if e != nil {
+				return facts, e
+			}
+			if id != "" {
+				facts.WalmartRejectedAttemptID = id
+				facts.PublicationSummary = append(facts.PublicationSummary, "Walmart 明确拒绝 · 原尝试 "+id+" · 同载荷重试")
+			}
+		}
+	}
 
 	for _, ref := range []struct{ id, action string }{{item.AdaptOperationID, preparation.OperationAdapt}, {item.OptimizeOperationID, preparation.OperationOptimize}, {item.UploadOperationID, preparation.OperationUpload}} {
 		if ref.id == "" {
@@ -175,6 +193,66 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		facts.PublicationSummary = append(facts.PublicationSummary, "仅远端资产已保留，原刊登结果未确认；沿原操作核实，不重复创建")
 	}
 	return facts, nil
+}
+
+// Use the existing result owner's projection for preview only. Submission
+// still validates current evidence, SKU ownership and the approved draft at Acquire.
+func walmartRepairObservation(saved record.TargetRecord, publication PublicationView) *submission.WalmartResultRecord {
+	repairFrom := saved.Input.Walmart.RepairFrom
+	for index := range publication.WalmartResults {
+		result := &publication.WalmartResults[index]
+		if result.ReceiptID != repairFrom || result.Limited || result.Observation.Partial {
+			continue
+		}
+		eligible := make(map[string]bool, len(result.RepairableSKUs))
+		for _, sku := range result.RepairableSKUs {
+			eligible[sku] = true
+		}
+		for _, sku := range saved.Walmart.SKUs {
+			if !eligible[sku.SellerSKU] {
+				return nil
+			}
+		}
+		return result
+	}
+	return nil
+}
+
+// The preview is only a read of the current rejection. Continue binds it to
+// the preview hash; the original Submission acquire still owns send admission.
+func (r UploadPlanInputs) walmartRejectedRepair(ctx context.Context, selected preparation.AuthorizedSource, scope collection.Scope, saved record.TargetRecord) (string, error) {
+	if r.WalmartAttempts == nil || r.Application.Uploader == nil {
+		return "", record.ErrUnavailable
+	}
+	subject, err := submission.WalmartSubjectID(saved.Source.Source.ProductKey, saved.Merchant.SupplierIdentityHash)
+	if err != nil {
+		return "", err
+	}
+	target := submission.ExecutionTarget{Platform: "walmart", StoreID: saved.Merchant.StoreID, SubjectID: subject}
+	attempt, err := r.WalmartAttempts.ReadWalmartAttempt(ctx, submission.ExecutionScope{OrganizationID: scope.OrganizationID}, target)
+	if errors.Is(err, submission.ErrExecutionNotFound) {
+		return "", nil
+	}
+	if err != nil || attempt.Status != submission.ExecutionFailedDefinitive {
+		return "", err
+	}
+	rejected, err := r.Application.Uploader.dependencies.Intents.ReadOfficialIntent(ctx, scope, attempt.IntentKey)
+	if errors.Is(err, submission.ErrExecutionNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	// Use the old key solely to reconstruct the comparison in memory.
+	proof, err := submission.PrepareWalmartIntent(ctx, selected, saved, rejected.Key)
+	if err != nil {
+		return "", err
+	}
+	candidate, err := proof.Read(ctx)
+	if err != nil || !submission.WalmartRejectedRepairMatches(candidate, rejected, attempt) {
+		return "", err
+	}
+	return attempt.AttemptID, nil
 }
 
 func uploadPlanReviewState(scope collection.Scope, id string, original, saved record.TargetRecord, v review.Record) (bool, bool, error) {
