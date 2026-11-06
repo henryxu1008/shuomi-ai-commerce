@@ -225,7 +225,15 @@ func execute() error {
 			if features.ProductAgent != nil && features.ProductAgent.Enabled {
 				p := features.ProductAgent
 				ledger := aistore.NewGormInvocationRecorder(features.ProductAgentDB)
-				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, ResearchTextPolicies: p.ResearchTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
+				var operator *httpapi.TitlePilotOperator
+				if t := features.TitlePilot; t != nil {
+					operator = &httpapi.TitlePilotOperator{Host: t.Address(), BatchID: t.BatchID, OrganizationID: t.OrganizationID,
+						ActorID: t.ActorID, MemberID: t.MemberID, SamplesDigest: t.SamplesDigest, ProfileDigest: t.ProfileDigest,
+						CredentialRevision: t.CredentialRevision, PriceVersion: t.PriceVersion, FXVersion: t.FXVersion,
+						ExecutionApprovalID: t.ExecutionApprovalID, NotBefore: t.NotBefore, NotAfter: t.NotAfter, Register: features.RegisterTitlePilotOperator,
+						VerifyIsolation: features.VerifyTitlePilotIsolation}
+				}
+				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{TitlePilotOperator: operator, ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, ResearchTextPolicies: p.ResearchTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
 			}
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
 				options = append(options, httpapi.WithAIWorkbench(httpapi.AIWorkbenchDependencies{DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}))

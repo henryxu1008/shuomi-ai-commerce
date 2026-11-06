@@ -37,11 +37,11 @@ import (
 	"task-processor/internal/listing/readiness"
 	"task-processor/internal/listing/record"
 	"task-processor/internal/marketplace/shein/draft"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	contract "task-processor/internal/marketplace/validator"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 type liveProvider struct {
@@ -218,7 +218,7 @@ func TestReadinessAdmissionGapExactProductAssetsRemainMarketplaceBlocked(t *test
 			Title: "Stainless steel bottle", Description: "Reusable stainless steel water bottle.",
 			CategoryPath: []string{"Home", "Drinkware"},
 			Attributes:   []catalog.Attribute{{Name: "Material", Value: "Stainless steel"}},
-			Variants:     []catalog.Variant{{SKU: "bottle-1", Stock: 10, Price: &catalog.Price{Currency: "USD", Amount: 20}}},
+			Variants:     []catalog.Variant{{SKU: "bottle-1", Stock: new(10), Price: &catalog.Price{Currency: "USD", Amount: 20}}},
 		},
 	})
 	require.NoError(t, err)

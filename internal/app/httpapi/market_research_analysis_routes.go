@@ -172,7 +172,8 @@ func marketResearchAnalysisRoutes(app researchHTTPService, bind func(context.Con
 					out, e = researchPreparationDTO(snapshot)
 				}
 			case "start":
-				run, _, e = app.start(ctx, contextID, key, start.ConfigurationSnapshotRef)
+				run, mayExist, e = app.start(ctx, contextID, key, start.ConfigurationSnapshotRef)
+				mayExist = mayExist || e == nil
 			case "read":
 				run, snapshot, e = app.readRun(ctx, contextID, key)
 			case "resume":

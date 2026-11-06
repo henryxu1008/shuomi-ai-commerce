@@ -8,12 +8,12 @@ import (
 
 	"task-processor/internal/listing/record"
 	"task-processor/internal/marketplace/shein/draft"
+	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	contract "task-processor/internal/marketplace/validator"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/sourcing"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
 
 	"github.com/stretchr/testify/require"
 )
@@ -175,7 +175,7 @@ func assertSharedReport(t *testing.T, m sharedManifest, want sharedReport, got c
 		for _, check := range got.OfflineChecks.Checks {
 			rules = append(rules, check.Rule)
 		}
-		require.ElementsMatch(t, []string{"category", "category_review", "attributes", "attribute_review", "sale_attributes", "request_draft", "preview_product", "images", "final_images", "variant_image_coverage", "variants", "pricing", "final_review", "manual_notes", "source_facts"}, rules, "complete synthetic rule inventory")
+		require.ElementsMatch(t, []string{"category", "category_review", "attributes", "attribute_review", "sale_attributes", "request_draft", "preview_product", "images", "final_images", "variant_image_coverage", "sku_facts", "variants", "pricing", "final_review", "manual_notes", "source_facts"}, rules, "complete synthetic rule inventory")
 		require.ElementsMatch(t, expectedBlockers, blockers)
 		require.ElementsMatch(t, want.Warnings, warnings)
 	} else {

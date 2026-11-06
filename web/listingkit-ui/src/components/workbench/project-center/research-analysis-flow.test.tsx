@@ -48,6 +48,43 @@ it("releases a rejected preparation only after original-key lookup proves no rec
  expect(await screen.findByRole("button",{name:"准备AI分析"})).toBeDisabled();mock.prepare.mockImplementation(async(_s,next)=>({...prepared,requestKey:next.key}));
  await prepare();await screen.findByRole("heading",{name:"确认本次AI分析"});expect(mock.prepare.mock.calls[1][1].key).not.toBe(intent.key);expect(mock.execute).not.toHaveBeenCalled();
 });
+it("releases only a fresh start whose original response proves it did not claim a run",async()=>{
+ let revision="0";
+ mock.config.mockImplementation(async(_scope,path)=>path.startsWith("execution-modes")?{mode:"default",revision}:{agent:{activation:"ENABLED"},canUse:true,canReadRuns:true,capabilities:[{id:"text.generate",readiness:"AVAILABLE"}]});
+ mock.execute.mockImplementationOnce(async()=>{
+  revision="1";
+  throw new MarketAPIError("CONFIGURATION_CHANGED",409,false);
+ });
+ open();await prepare();
+ await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"查看所选商品比较"})).toBeEnabled());
+ expect(screen.queryByRole("button",{name:"按原内容重试分析"})).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"查看所选商品比较"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"准备AI分析"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"准备AI分析"}));
+ await waitFor(()=>expect(mock.prepare).toHaveBeenCalledTimes(2));
+ expect(mock.prepare.mock.calls[0][1].key).not.toBe(mock.prepare.mock.calls[1][1].key);
+ expect(mock.prepare.mock.calls[1][1].body.expectedModeRevision).toBe("1");
+ expect(mock.execute).toHaveBeenCalledOnce();
+});
+
+it("keeps an earlier uncertain start when its same-key retry is rejected before claim",async()=>{
+ mock.execute.mockRejectedValueOnce(new MarketAPIError("OUTCOME_UNKNOWN",503));
+ mock.execute.mockRejectedValueOnce(new MarketAPIError("CONFIGURATION_CHANGED",409,false));
+ open();await prepare();
+ await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));
+ const retry=await screen.findByRole("button",{name:"按原内容重试分析"});
+ await waitFor(()=>expect(retry).toBeEnabled());
+ fireEvent.click(retry);
+ await waitFor(()=>expect(mock.execute).toHaveBeenCalledTimes(2));
+ expect(mock.execute.mock.calls[1][1].key).toBe(mock.execute.mock.calls[0][1].key);
+ expect(screen.getByRole("button",{name:"查看所选商品比较"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"查询本次分析结果"})).toBeVisible();
+ expect(mock.prepare).toHaveBeenCalledOnce();
+});
+
 it("masks cached cross-candidate output immediately after a history authorization failure",async()=>{
  open();await prepare();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));await screen.findByText("Saved advisory overview");mock.run.mockRejectedValue(new MarketAPIError("PERMISSION_DENIED",403,true));
  await act(async()=>{await queries.invalidateQueries({predicate:q=>q.queryKey.includes("run")});});

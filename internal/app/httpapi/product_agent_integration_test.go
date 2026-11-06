@@ -700,7 +700,9 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
 	if rehearsal != nil {
-		if rehearsal.pilot {
+		if rehearsal.operator {
+			rehearsal.runPilotOperator(t, f.owner, module.(productAgentModule).application, deps)
+		} else if rehearsal.pilot {
 			rehearsal.runPilot(t, f.owner, module.(productAgentModule).application)
 		} else {
 			rehearsal.run(t, f.owner, module.(productAgentModule).application)

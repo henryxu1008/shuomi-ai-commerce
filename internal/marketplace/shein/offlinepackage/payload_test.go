@@ -236,8 +236,8 @@ func TestPrepareProductForValidationPreservesIdentityAndNormalizesTransport(t *t
 			t.Fatalf("normalization = %+v", product)
 		}
 		sku := product.SKCList[0].SKUS[0]
-		if sku.SupplierSKU != "sku" || sku.WeightUnit != "g" || sku.LengthUnit != "Inch" {
-			t.Fatalf("SKU transport defaults = %+v", sku)
+		if sku.SupplierSKU != "sku" || sku.Weight != 0 || sku.WeightUnit != "" || sku.LengthUnit != "" || len(sku.StockInfoList) != 0 {
+			t.Fatalf("SKU normalization changed original facts = %+v", sku)
 		}
 		if strings.TrimSpace(product.SupplierCode) != product.SupplierCode {
 			t.Fatal("supplier code is not normalized")
@@ -269,7 +269,7 @@ func TestEnsureSubmitSitesNormalizesUSDefaults(t *testing.T) {
 	}
 }
 
-func TestEnsureSubmitSKUsNormalizesStockQuantityDimensionsAndPriceSite(t *testing.T) {
+func TestEnsureSubmitSKUsPreservesMeasurementsAndShapesSubmitFields(t *testing.T) {
 	t.Parallel()
 
 	stockCount := 7
@@ -316,32 +316,16 @@ func TestEnsureSubmitSKUsNormalizesStockQuantityDimensionsAndPriceSite(t *testin
 	if sku.PackageType != 3 || sku.StopPurchase != 1 {
 		t.Fatalf("package/stop = %d/%d, want 3/1", sku.PackageType, sku.StopPurchase)
 	}
-	if sku.LengthUnit != "Inch" || sku.Length != "1" || sku.Width != "1" || sku.Height != "1" {
-		t.Fatalf("dimensions = %q/%q/%q/%q, want Inch/1/1/1", sku.LengthUnit, sku.Length, sku.Width, sku.Height)
+	if sku.LengthUnit != "" || sku.Length != "" || sku.Width != "" || sku.Height != "" {
+		t.Fatalf("dimensions = %q/%q/%q/%q, want absent", sku.LengthUnit, sku.Length, sku.Width, sku.Height)
 	}
-	if sku.WeightUnit != "g" || sku.Weight != 453.59 {
-		t.Fatalf("weight = %.2f %s, want 453.59 g", sku.Weight, sku.WeightUnit)
+	if sku.WeightUnit != "lb" || sku.Weight != 1 {
+		t.Fatalf("weight = %.2f %s, want 1 lb", sku.Weight, sku.WeightUnit)
 	}
 	if len(sku.PriceInfoList) != 1 || sku.PriceInfoList[0].SubSite != "shein-us" {
 		t.Fatalf("price site = %+v, want shein-us", sku.PriceInfoList)
 	}
 	if sku.CompetingCostPriceImages == nil || sku.SaleAttributeList == nil {
 		t.Fatalf("normalized slices should be non-nil: %+v", sku)
-	}
-}
-
-func TestNormalizeSubmitWeightClampsAndConvertsUnits(t *testing.T) {
-	t.Parallel()
-
-	sku := &previewdata.SKU{Weight: 2, WeightUnit: "kg"}
-	normalizeSubmitWeight(sku)
-	if sku.Weight != 2000 || sku.WeightUnit != "g" {
-		t.Fatalf("weight = %.2f %s, want 2000 g", sku.Weight, sku.WeightUnit)
-	}
-
-	sku = &previewdata.SKU{Weight: 0, WeightUnit: "g"}
-	normalizeSubmitWeight(sku)
-	if sku.Weight != 0.01 || sku.WeightUnit != "g" {
-		t.Fatalf("min weight = %.2f %s, want %.2f g", sku.Weight, sku.WeightUnit, 0.01)
 	}
 }

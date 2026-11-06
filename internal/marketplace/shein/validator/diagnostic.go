@@ -10,7 +10,8 @@ import (
 	contract "task-processor/internal/marketplace/validator"
 )
 
-const DiagnosticRuleVersion = "shein.offline_package.v2.2"
+const DiagnosticRuleVersion = "shein.offline_package.v2.3"
+const PreviousDiagnosticRuleVersion = "shein.offline_package.v2.2"
 const BindingVersion = "shein.persisted-input.go-json.v2"
 const MaxDiagnosticBytes = 2 << 20
 
@@ -42,6 +43,9 @@ func (ExactApprovedAssetValidator) Validate(request contract.BoundRequest[[]byte
 // Callers own access checks, evidence acquisition and cancellation before/after
 // this bounded synchronous computation. This method has no clock or I/O.
 func (DiagnosticValidator) Validate(request contract.BoundRequest[[]byte]) (contract.DiagnosticResult, error) {
+	if request.RuleVersion != DiagnosticRuleVersion {
+		return contract.DiagnosticResult{}, &contract.Error{Code: contract.UnsupportedVersion, Field: "version", Message: "unsupported rule or binding version"}
+	}
 	pkg, subject, err := bindDiagnosticInput(request)
 	if err != nil {
 		return contract.DiagnosticResult{}, err
@@ -90,12 +94,21 @@ func bindDiagnosticInput(request contract.BoundRequest[[]byte]) (*sheinpub.Packa
 	if request.Action != contract.SaveDraft && request.Action != contract.Publish {
 		return nil, "", &contract.Error{Code: contract.UnsupportedAction, Field: "action", Message: "explicit save_draft or publish is required"}
 	}
-	if request.RuleVersion != DiagnosticRuleVersion || request.BindingVersion != BindingVersion {
+	if (request.RuleVersion != DiagnosticRuleVersion && request.RuleVersion != PreviousDiagnosticRuleVersion) || request.BindingVersion != BindingVersion {
 		return nil, "", &contract.Error{Code: contract.UnsupportedVersion, Field: "version", Message: "unsupported rule or binding version"}
 	}
 	pkg, err := sheinpub.DecodePersistedPackageStrict(request.Input)
 	if err != nil {
 		return nil, "", &contract.Error{Code: contract.InvalidInput, Field: "input", Message: "invalid bounded persisted package"}
+	}
+	if request.RuleVersion == PreviousDiagnosticRuleVersion && pkg.DraftPayload != nil {
+		for _, skc := range pkg.DraftPayload.SKCList {
+			for _, sku := range skc.SKUList {
+				if sku.OwnStockDeclared {
+					return nil, "", &contract.Error{Code: contract.InvalidInput, Field: "input", Message: "stock evidence is unavailable under the saved rule version"}
+				}
+			}
+		}
 	}
 	encoded, err := json.Marshal(struct {
 		BindingVersion string            `json:"binding_version"`
@@ -104,7 +117,7 @@ func bindDiagnosticInput(request contract.BoundRequest[[]byte]) (*sheinpub.Packa
 		Action         contract.Action   `json:"action"`
 		RuleVersion    string            `json:"rule_version"`
 		Package        *sheinpub.Package `json:"package"`
-	}{BindingVersion, request.Target.Marketplace, request.Target.Site, request.Action, DiagnosticRuleVersion, pkg})
+	}{BindingVersion, request.Target.Marketplace, request.Target.Site, request.Action, request.RuleVersion, pkg})
 	if err != nil || len(encoded) > sheinpub.MaxPersistedPackageBytes {
 		return nil, "", &contract.Error{Code: contract.EvaluationFailed, Field: "input", Message: "normalized input encoding failed or exceeds size limit"}
 	}

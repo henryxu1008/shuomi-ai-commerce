@@ -2,7 +2,9 @@ package reportcenterapp
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/authidentity"
@@ -130,6 +132,20 @@ func TestRecordSourceUsesSavedDiagnosticFromActualCreation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, digest, nextDigest, "read time must not re-diagnose the saved result")
 	original := r.Clone()
+	r.RuleRevision = sheinvalidator.PreviousDiagnosticRuleVersion
+	diagnostic.RuleVersion = r.RuleRevision
+	diagnostic.Input.Digest, err = sheinvalidator.DiagnosticInputDigest(validator.BoundRequest[[]byte]{
+		Input: r.Payload, Target: diagnostic.Target, Action: diagnostic.Action, RuleVersion: r.RuleRevision, BindingVersion: r.PolicyRevision,
+	})
+	require.NoError(t, err)
+	r.Diagnostic, err = json.Marshal(diagnostic)
+	require.NoError(t, err)
+	r.DiagnosticHash = fmt.Sprintf("sha256:%x", sha256.Sum256(r.Diagnostic))
+	historic, err := s.Read(ctx, scope, "SHEIN_RECORD", r.ID)
+	require.NoError(t, err)
+	historicBody, _, err := historic.Bytes()
+	require.NoError(t, err)
+	require.Contains(t, string(historicBody), sheinvalidator.PreviousDiagnosticRuleVersion)
 	for _, mutate := range []func(){
 		func() { r.Payload = append(r.Payload, ' ') },
 		func() { r.Input.Action = validator.Publish },

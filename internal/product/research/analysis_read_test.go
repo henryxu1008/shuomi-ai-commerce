@@ -27,6 +27,21 @@ func (r *analysisRepository) Load(_ context.Context, s collection.Scope, project
 	return v, nil
 }
 
+func (r *analysisRepository) ReadAnalysisEvidence(ctx context.Context, scope collection.Scope, project, candidate, link string) (AnalysisEvidence, error) {
+	row, err := r.Load(ctx, scope, project, candidate)
+	if err != nil {
+		return AnalysisEvidence{}, err
+	}
+	out := AnalysisEvidence{CandidateRevision: row.Revision, SelectedLinkID: row.SelectedLinkID}
+	for _, evidence := range row.Links {
+		if evidence.ID == link && !evidence.Removed {
+			out.Ref = &evidence.Ref
+			break
+		}
+	}
+	return out, nil
+}
+
 type analysisProjects struct{ archived, denied bool }
 
 func (p *analysisProjects) Authorize(context.Context, collection.Scope, string, bool) error {

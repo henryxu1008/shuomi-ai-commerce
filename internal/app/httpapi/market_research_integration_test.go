@@ -19,6 +19,7 @@ import (
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	"task-processor/internal/commercetool"
 	prepstore "task-processor/internal/integration/persistence/listing/preparation"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
@@ -214,6 +215,32 @@ func testResearchHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, pare
 	require.Contains(t, string(recent), result.RunID)
 	require.NotContains(t, string(recent), "Sample")
 	require.NotContains(t, string(recent), "evidenceDigest")
+	t.Run("stale mode was rejected before claiming a run", func(t *testing.T) {
+		// Keep the prepared snapshot fixed, then advance the authoritative mode.
+		staleKey := uuid.NewString()
+		stale := prepare
+		stale.RequestKey = staleKey
+		staleSnapshot, err := a.prepare(actor, stale)
+		require.NoError(t, err)
+		staleRef := agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: staleSnapshot.ID, Digest: staleSnapshot.Digest}
+		identity := agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID}
+		subject := agentconfig.ResolvedModeSubject{
+			Subject:    agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: agentconfig.ResearchAgentID},
+			Definition: commercetool.AgentRef{ID: agentconfig.ResearchAgentID, Version: agentconfig.ResearchAgentVersion},
+		}
+		_, err = a.configuration.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: identity, Subject: subject, Key: uuid.NewString(), Mode: agent.ModeReadOnly})
+		require.NoError(t, err)
+		status, body, err := acquisitionHTTPRequest(server, "POST", base+"/runs", "admin", "B", staleKey, string(mustSelectionJSON(t, materialsStartBody{ConfigurationSnapshotRef: staleRef})))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, status, string(body))
+		require.JSONEq(t, fmt.Sprintf(`{"code":"%s","contextId":"%s","requestKey":"%s","operationMayExist":false}`, agentconfig.ErrChanged, project, staleKey), string(body))
+		_, found, err := a.store.LookupContext(ctx, staleSnapshot.Scope, agent.ResearchSelectionContextKind, project, staleKey)
+		require.NoError(t, err)
+		require.False(t, found)
+		require.JSONEq(t, string(raw), string(call("POST", base+"/runs", key, start, http.StatusOK)))
+		require.EqualValues(t, 2, calls.Load())
+	})
+
 	// A later human decision changes the candidate revision but not the saved AI observation.
 	c := page.Items[0]
 	_, e = service.Execute(actor, scope, project, uuid.NewString(), research.Command{Action: "review", CandidateID: c.ID, ExpectedRevision: c.Revision, EvidenceDigest: c.EvidenceDigest})
@@ -260,6 +287,55 @@ func testResearchHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, pare
 	require.JSONEq(t, string(raw), string(call("GET", base+"/runs/"+key, "", nil, http.StatusOK)))
 	require.JSONEq(t, string(prepared), string(call("POST", base+"/prepare", key, prepare, http.StatusOK)))
 	call("POST", base+"/inspect", "", in, http.StatusConflict)
+
+	t.Run("attached original outside the recent link window", func(t *testing.T) {
+		old := provenance.observations[c.Observation.Ref.Selection.ItemID]
+		newSelections := make([]research.Selection, 0, 21)
+		for range 21 {
+			sample := old
+			sample.Ref.Selection.ItemID = uuid.NewString()
+			sample.Ref.Selection.PublicationID = uuid.NewString()
+			sample.Ref.Source.PublicationID = sample.Ref.Selection.PublicationID
+			sample.Ref.Source.OperationID = sample.Ref.Selection.PublicationID
+			provenance.observations[sample.Ref.Selection.ItemID] = sample
+			newSelections = append(newSelections, sample.Ref.Selection)
+		}
+		_, err := service.Execute(actor, scope, project, uuid.NewString(), research.Command{Action: "link", Selections: newSelections})
+		require.NoError(t, err)
+		candidate, err := researchRepo.Load(actor, scope, project, c.ID)
+		require.NoError(t, err)
+		require.Len(t, candidate.Links, 21)
+		require.Equal(t, c.SelectedLinkID, candidate.SelectedLinkID)
+		_, err = service.Execute(actor, scope, project, uuid.NewString(), research.Command{
+			Action: "select", CandidateID: c.ID, ExpectedRevision: candidate.Revision, LinkID: candidate.Links[0].ID,
+		})
+		require.NoError(t, err)
+		candidate, err = researchRepo.Load(actor, scope, project, c.ID)
+		require.NoError(t, err)
+		require.Len(t, candidate.Links, 20)
+		for _, link := range candidate.Links {
+			require.NotEqual(t, c.SelectedLinkID, link.ID)
+		}
+		status, history, err := acquisitionHTTPRequest(server, "GET", base+"/runs/"+key, "admin", "B", "", "")
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status, string(history))
+		require.JSONEq(t, string(raw), string(history))
+		require.Contains(t, string(call("GET", base+"/runs", "", nil, http.StatusOK)), result.RunID)
+		foreign := scope
+		foreign.OrganizationID = "another-org"
+		_, err = researchRepo.ReadAnalysisEvidence(actor, foreign, project, c.ID, c.SelectedLinkID)
+		require.ErrorIs(t, err, research.ErrNotFound)
+		_, err = researchRepo.ReadAnalysisEvidence(actor, scope, uuid.NewString(), c.ID, c.SelectedLinkID)
+		require.ErrorIs(t, err, research.ErrNotFound)
+		for _, other := range page.Items {
+			if other.ID != c.ID {
+				evidence, err := researchRepo.ReadAnalysisEvidence(actor, scope, project, other.ID, c.SelectedLinkID)
+				require.NoError(t, err)
+				require.Nil(t, evidence.Ref)
+			}
+		}
+	})
+
 	provenance.denied = true
 	for _, path := range []string{"/preparations/" + key, "/runs/" + key} {
 		masked := call("GET", base+path, "", nil, http.StatusForbidden)
@@ -271,6 +347,16 @@ func testResearchHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, pare
 	require.Contains(t, string(masked), `"operationMayExist":true`)
 	hidden := call("GET", base+"/runs", "", nil, http.StatusOK)
 	require.NotContains(t, string(hidden), result.RunID)
+	provenance.denied = false
+	candidate, e := researchRepo.Load(actor, scope, project, c.ID)
+	require.NoError(t, e)
+	_, e = service.Execute(actor, scope, project, uuid.NewString(), research.Command{
+		Action: "unlink", CandidateID: c.ID, ExpectedRevision: candidate.Revision, LinkID: c.SelectedLinkID,
+	})
+	require.NoError(t, e)
+	unlinked := call("GET", base+"/runs/"+key, "", nil, http.StatusForbidden)
+	require.NotContains(t, string(unlinked), "inspection")
+	require.NotContains(t, string(call("GET", base+"/runs", "", nil, http.StatusOK)), result.RunID)
 	require.EqualValues(t, 2, calls.Load())
 	// This is the same original frozen configuration, not a new history owner.
 	frozen, e := a.configuration.LoadSnapshot(ctx, agent.Scope{OrganizationID: "B", ActorID: "admin"}, dto.ConfigurationSnapshotRef)

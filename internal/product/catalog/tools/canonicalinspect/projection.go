@@ -80,6 +80,7 @@ func removeSourceMetadata(snapshot *catalog.ProductSnapshot) {
 	}
 	for variantIndex := range snapshot.Variants {
 		variant := &snapshot.Variants[variantIndex]
+		variant.OwnStockDeclared = false // Publication evidence stays with the stored snapshot.
 		clearTrace(&variant.Trace)
 		for attributeIndex := range variant.Attributes {
 			clearTrace(&variant.Attributes[attributeIndex].Trace)
