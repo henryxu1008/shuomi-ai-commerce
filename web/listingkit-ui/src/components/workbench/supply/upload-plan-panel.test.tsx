@@ -24,3 +24,24 @@ it("invalidates the preview after a save or Apply instead of sending its stale a
  await waitFor(()=>expect(props.onLoaded).toHaveBeenCalled());await userEvent.click(screen.getByRole("button",{name:"检查进度并继续"}));await screen.findByRole("dialog");
  view.rerender(<UploadPlanPanel {...props} reload={1}/>);await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());expect(execute).not.toHaveBeenCalled();
 });
+
+it("shows the original Walmart rejection and wire hash before confirming a new command", async () => {
+ const {execute, props} = setup();
+ const rejectedAttempt = "33333333-3333-4333-8333-333333333333";
+ const wireHash = "c".repeat(64);
+ const retryPlan = {...plan, count:1, input:{...plan.input, sourceIds:[source]}};
+ const rejection = `Walmart 明确拒绝 · 原尝试 ${rejectedAttempt} · 同载荷重试`;
+ f.read.mockResolvedValue(retryPlan);
+ f.preview.mockResolvedValue({plan:retryPlan, count:1, actionable:1, counts:{upload:1}, hash:"d".repeat(64), items:[{
+  item:{sourceId:source}, step:"upload", facts:{hasTarget:true,target:{recordId:source,revision:2},publicationSummary:[`Walmart · MP_ITEM_MATCH · 1 SKU · ${wireHash}`,rejection]},
+ }]});
+ render(<UploadPlanPanel {...props}/>);
+ const inspect = screen.getByRole("button",{name:"检查进度并继续"});
+ await waitFor(()=>expect(inspect).toBeEnabled());
+ await userEvent.click(inspect);
+ expect(await screen.findByText(rejection)).toBeInTheDocument();
+ expect(screen.getByText(new RegExp(wireHash))).toBeInTheDocument();
+ expect(execute).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole("button",{name:"确认继续 1 件"}));
+ expect(execute).toHaveBeenCalledExactlyOnceWith("continue-upload-plan",{planId:id,expectedRevision:3,previewHash:"d".repeat(64)});
+});
