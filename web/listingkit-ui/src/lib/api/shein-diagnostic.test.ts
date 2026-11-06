@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseSheinDiagnostic, parseSheinDiagnosticFailure } from "./shein-diagnostic";
+import { parseSheinDiagnostic, parseSheinDiagnosticFailure, savedSheinDiagnosticSchema } from "./shein-diagnostic";
 
 const blocker = { rule: "fixture", code: "missing_asset", category: "asset", status: "blocking" };
 export const diagnosticFixture = () => ({
   diagnostic_only: true, scope: "shein.offline_package",
   target: { marketplace: "shein", site: "" }, action: "publish",
-  rule_version: "shein.offline_package.v2.2",
+  rule_version: "shein.offline_package.v2.3",
   input: { actual_digest: `sha256:${"a".repeat(64)}`, binding_version: "shein.persisted-input.go-json.v2", read_at: "2026-09-06T01:02:03.123456789Z", evaluated_at: "2026-09-06T01:02:04Z" },
   external_freshness: { status: "not_evaluated", coverage: [] },
   not_evaluated: ["external_package_freshness", "online_template_freshness", "store_authorization", "cookie", "pod", "human_review", "approved_asset_provenance_and_consent", "submission_gate"],
@@ -15,9 +15,14 @@ export const diagnosticFixture = () => ({
 });
 
 describe("Shein diagnostic wire contract", () => {
-  it("accepts corrected image rules and rejects the former rule revision", () => {
+  it("uses the current rule for evaluation and preserves the previous saved rule", () => {
     const value = diagnosticFixture();
-    expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2.2" })).not.toBeNull();
+    expect(parseSheinDiagnostic(value)).not.toBeNull();
+    expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2.2" })).toBeNull();
+    const saved = { ...value, not_evaluated: value.not_evaluated.filter(scope => scope !== "approved_asset_provenance_and_consent") };
+    expect(savedSheinDiagnosticSchema.safeParse(saved).success).toBe(true);
+    expect(savedSheinDiagnosticSchema.safeParse({ ...saved, rule_version: "shein.offline_package.v2.2" }).success).toBe(true);
+    expect(savedSheinDiagnosticSchema.safeParse({ ...saved, rule_version: "shein.offline_package.v2.1" }).success).toBe(false);
     expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2" })).toBeNull();
     expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2.1" })).toBeNull();
     expect(parseSheinDiagnostic({ ...value, input: { ...value.input, binding_version: "shein.persisted-input.go-json.v1" } })).toBeNull();

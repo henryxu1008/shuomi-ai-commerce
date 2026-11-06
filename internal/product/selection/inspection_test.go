@@ -68,7 +68,7 @@ func inspectionFixture(t *testing.T) (Inspector, context.Context, []collection.S
 		id := uuid.NewString()
 		item := collection.Item{ID: id, Revision: 1, Source: collection.Source{ProductKey: key, Version: 1, PublicationID: "publication-" + key, Kind: "own"}}
 		store.items[id] = item
-		products[key] = catalog.ProductSnapshot{Title: key, Variants: []catalog.Variant{{SKU: "sku", Price: &catalog.Price{Amount: 12, Currency: "CNY"}, Stock: 0}}}
+		products[key] = catalog.ProductSnapshot{Title: key, Variants: []catalog.Variant{{SKU: "sku", Price: &catalog.Price{Amount: 12, Currency: "CNY"}}}}
 		choices = append(choices, collection.SelectionInput{ItemID: id, ExpectedRevision: 1, OriginalPublicationID: item.Source.PublicationID, OriginalVersion: 1})
 	}
 	service, err := collection.NewService(store, inspectionAuth{}, inspectionSources{})
@@ -192,7 +192,7 @@ func TestFiveLegalRichProductsKeepWholeFactsWithinAggregateBudget(t *testing.T) 
 		for j := 0; j < 6; j++ {
 			sku := "sku-" + strconv.Itoa(j)
 			own.Variants = append(own.Variants, collection.OwnVariant{SourceID: sku, SKU: sku, Attributes: map[string]string{"material": strings.Repeat("m", 400)}, Price: 10, Currency: "CNY", Stock: 2})
-			snapshot.Variants = append(snapshot.Variants, catalog.Variant{SKU: sku, Attributes: []catalog.Attribute{{Name: "material", Value: strings.Repeat("m", 400)}}, Price: &catalog.Price{Amount: 10, Currency: "CNY"}, Stock: 2})
+			snapshot.Variants = append(snapshot.Variants, catalog.Variant{SKU: sku, Attributes: []catalog.Attribute{{Name: "material", Value: strings.Repeat("m", 400)}}, Price: &catalog.Price{Amount: 10, Currency: "CNY"}, Stock: new(2)})
 		}
 		_, err := collection.OwnEnvelope(uuid.NewString(), own)
 		require.NoError(t, err, "the entire source product is valid under current owner constraints")

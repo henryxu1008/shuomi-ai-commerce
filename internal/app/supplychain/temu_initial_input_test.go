@@ -9,7 +9,7 @@ import (
 )
 
 func TestNativeAdaptationKeepsPriceQuantityUnitsCategoryAndConsentMissing(t *testing.T) {
-	source := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{ProductKey: "product-a"}, Snapshot: catalog.ProductSnapshot{Title: "Saved title", Description: "Saved description", Variants: []catalog.Variant{{SourceID: "variant-a", SKU: "source-sku", Stock: 50}}}}
+	source := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{ProductKey: "product-a"}, Snapshot: catalog.ProductSnapshot{Title: "Saved title", Description: "Saved description", Variants: []catalog.Variant{{SourceID: "variant-a", SKU: "source-sku", Stock: new(50)}}}}
 	for _, mode := range []storecenter.OfficialMerchantMode{storecenter.MerchantLocal, storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged} {
 		binding := storecenter.ProductMerchantBinding{MerchantMode: mode, SupplierIdentityHash: "original-merchant"}
 		input := initialTemuInput(source, binding)

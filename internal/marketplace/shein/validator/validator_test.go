@@ -29,9 +29,14 @@ func readyPackage() *sheinpub.Package {
 		AttributeResolution:     &sheinpub.AttributeResolution{Status: "resolved", ResolvedCount: 1},
 		ResolvedAttributes:      []sheinpub.ResolvedAttribute{{Name: "material", AttributeID: 7001}},
 		SaleAttributeResolution: &sheinpub.SaleAttributeResolution{Status: "resolved", PrimaryAttributeID: 1001184},
-		DraftPayload:            &sheinpub.RequestDraft{ImageInfo: &sheinpub.ImageDraft{MainImage: "https://example.test/main.jpg"}, SKCList: []sheinpub.SKCRequestDraft{{SupplierCode: "SKC-1", SaleAttribute: &sheinpub.ResolvedSaleAttribute{AttributeID: 1001184, AttributeValueID: &valueID}, SKUList: []sheinpub.SKUDraft{{SupplierSKU: "SKU-1", BasePrice: "22.50", SitePriceList: []sheinpub.SitePrice{{SubSite: "us", BasePrice: "22.50"}}}}}}},
-		PreviewPayload:          &previewdata.Product{},
-		FinalSubmissionDraft:    &sheinpub.FinalDraft{Confirmed: true, MainImageURL: "https://example.test/main.jpg", SubmitMode: "publish", FinalImageOrder: []string{"https://example.test/main.jpg"}},
+		DraftPayload:            &sheinpub.RequestDraft{ImageInfo: &sheinpub.ImageDraft{MainImage: "https://example.test/main.jpg"}, SKCList: []sheinpub.SKCRequestDraft{{SupplierCode: "SKC-1", SaleAttribute: &sheinpub.ResolvedSaleAttribute{AttributeID: 1001184, AttributeValueID: &valueID}, SKUList: []sheinpub.SKUDraft{{SupplierSKU: "SKU-1", BasePrice: "22.50", OwnStockDeclared: true, StockInfoList: []sheinpub.StockInfo{{WarehouseCode: "DEFAULT"}}, Weight: 8, WeightUnit: "g", Length: "2", Width: "3", Height: "4", LengthUnit: "Inch", SitePriceList: []sheinpub.SitePrice{{SubSite: "us", BasePrice: "22.50"}}}}}}},
+		PreviewPayload: &previewdata.Product{SKCList: []previewdata.SKC{{
+			ImageInfo: previewdata.ImageInfo{ImageInfoList: []previewdata.ImageDetail{{ImageType: 1, ImageURL: "https://example.test/main.jpg"}}},
+			SKUS: []previewdata.SKU{{
+				SupplierSKU: "SKU-1", StockCount: new(0), StockInfoList: []previewdata.StockInfo{{MerchantWarehouseCode: "DEFAULT"}},
+				Weight: 8, WeightUnit: "g", Length: "2", Width: "3", Height: "4", LengthUnit: "Inch",
+			}}}}},
+		FinalSubmissionDraft: &sheinpub.FinalDraft{Confirmed: true, MainImageURL: "https://example.test/main.jpg", SubmitMode: "publish", FinalImageOrder: []string{"https://example.test/main.jpg"}},
 	}
 }
 

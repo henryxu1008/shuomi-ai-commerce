@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"task-processor/internal/dataservice"
+	"task-processor/internal/integration/acquisition/customdata"
 	keystore "task-processor/internal/integration/persistence/dataservice"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
@@ -119,8 +120,17 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 		require.NoError(t, err)
 		request, err = service.Change(ctx, request.ID, uuid.NewString(), request.Revision, dataservice.CustomPatch{State: "PREPARING", Note: "preparing"})
 		require.NoError(t, err)
-		_, err = service.Deliver(ctx, request.ID, uuid.NewString(), request.Revision, request.SpecRevision, []collection.OwnProduct{{Title: "declared fixture", Attributes: map[string]string{"asin": "B000123456"}}})
+		rows, err := customdata.ParseDelivery(ctx, "json", []byte(`[{"title":"declared fixture","images":[],"attributes":{"asin":"B000123456"},"variants":[
+            {"sourceId":"omitted","title":"Omitted","sku":"OMITTED","currency":"USD","price":0,"attributes":{}},
+            {"sourceId":"null","title":"Null","sku":"NULL","currency":"USD","price":0,"stock":null,"attributes":{}}
+        ]}]`))
 		require.NoError(t, err)
+		command := uuid.NewString()
+		delivered, err := service.Deliver(ctx, request.ID, command, request.Revision, request.SpecRevision, rows)
+		require.NoError(t, err)
+		replay, err := service.Deliver(ctx, request.ID, command, request.Revision, request.SpecRevision, rows)
+		require.NoError(t, err)
+		require.Equal(t, delivered, replay)
 		var publication string
 		require.NoError(t, db.Raw("SELECT publication_id FROM product_source_publications WHERE producer_kind='custom_dataset'").Scan(&publication).Error)
 		declared, err := sourceReader.Read(ctx, scope.OrganizationID, publication)
@@ -131,5 +141,10 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 		require.Equal(t, "creator", declared.Receipt.ActorID)
 		require.Equal(t, "platform-specialist", declared.Envelope.ProductCandidate.Attributes["data.operator"])
 		require.Equal(t, request.ID, declared.Envelope.ProductCandidate.Attributes["data.request"])
+		require.Len(t, declared.Snapshot.Variants, 2)
+		for _, variant := range declared.Snapshot.Variants {
+			require.False(t, variant.OwnStockDeclared)
+			require.Nil(t, variant.Stock)
+		}
 	})
 }

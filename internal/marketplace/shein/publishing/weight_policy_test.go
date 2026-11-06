@@ -2,54 +2,29 @@ package publishing
 
 import "testing"
 
-func TestNormalizeSubmitWeightGramsConvertsRoundsAndClamps(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
+func TestSKUWeightRequiresKnownUnitAndRespectsSubmitBounds(t *testing.T) {
+	for _, test := range []struct {
 		value float64
 		unit  string
 		want  float64
+		valid bool
 	}{
-		"kilograms": {
-			value: 2,
-			unit:  "kg",
-			want:  2000,
-		},
-		"pounds rounded": {
-			value: 1,
-			unit:  "lb",
-			want:  453.59,
-		},
-		"milligrams clamp to min": {
-			value: 1,
-			unit:  "mg",
-			want:  minSubmitWeightGrams,
-		},
-		"zero clamp to min": {
-			value: 0,
-			unit:  "g",
-			want:  minSubmitWeightGrams,
-		},
-		"max clamp": {
-			value: 60000000,
-			unit:  "g",
-			want:  maxSubmitWeightGrams,
-		},
-		"unknown unit treated as grams": {
-			value: 3.456,
-			unit:  "stone",
-			want:  3.46,
-		},
+		{1, "g", 1, true},
+		{1, "kilograms", 1000, true},
+		{1, " LB ", 453.59237, true},
+		{1, "oz", 28.349523125, true},
+		{1, "milligrams", 0.001, false},
+		{100000, "kg", 100000000, false},
+		{0, "g", 0, false},
+	} {
+		got, known := SKUWeightGrams(test.value, test.unit)
+		if !known || got != test.want || ValidSKUWeightGrams(got) != test.valid {
+			t.Errorf("%v %q produced %v g, known=%v", test.value, test.unit, got, known)
+		}
 	}
-
-	for name, tt := range tests {
-		tt := tt
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := NormalizeSubmitWeightGrams(tt.value, tt.unit); got != tt.want {
-				t.Fatalf("NormalizeSubmitWeightGrams(%v, %q) = %v, want %v", tt.value, tt.unit, got, tt.want)
-			}
-		})
+	for _, unit := range []string{"", "ml", "unknown"} {
+		if _, known := SKUWeightGrams(1, unit); known {
+			t.Errorf("accepted %q", unit)
+		}
 	}
 }

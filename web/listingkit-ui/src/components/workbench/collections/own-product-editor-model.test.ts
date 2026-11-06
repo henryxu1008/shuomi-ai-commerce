@@ -4,7 +4,7 @@ import {hydrateOwnProduct} from "./own-product-editor-model";
 import {prepareOwnProduct} from "./own-product-model";
 
 const a="https://images.example.org/public.png",b="https://images.example.org/sku.png",c="https://images.example.org/sku-detail.png";
-export const savedProduct={item:{source:{kind:"own"}},product:{title:"原名",description:"原描述",brand:"原品牌",attributes:[{name:"材质",value:"棉"}],images:[{url:a}],variants:[{source_id:"stable-id",title:"自定义SKU名",sku:"SKU",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:0},images:[{url:b},{url:c}]}]}} as CollectionDetail;
+export const savedProduct={item:{source:{kind:"own"}},product:{title:"原名",description:"原描述",brand:"原品牌",attributes:[{name:"材质",value:"棉"}],images:[{url:a}],variants:[{source_id:"stable-id",title:"自定义SKU名",sku:"SKU",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:0},stock:0,own_stock_declared:true,images:[{url:b},{url:c}]}]}} as CollectionDetail;
 it("hydrates a single attributed SKU without promoting variant images or regenerating combinations",()=>{
  const form=hydrateOwnProduct(savedProduct);
  expect(form.mode).toBe("multiple");expect(form.images).toEqual([a]);expect(form.rows).toHaveLength(1);
@@ -12,6 +12,14 @@ it("hydrates a single attributed SKU without promoting variant images or regener
  expect(output.variants?.[0]).toEqual({sourceId:"stable-id",title:"自定义SKU名",sku:"SKU",attributes:{颜色:"红色"},currency:"CNY",price:0,stock:0,images:[b,c]});
  expect(prepareOwnProduct({...form,title:"改商品名",rows:form.rows}).variants?.[0].title).toBe("自定义SKU名");
  expect(prepareOwnProduct({...form,rows:form.rows.map(row=>({...row,image:a}))}).variants?.[0].images).toEqual([a]);
+});
+it("requires explicit stock on edit when saved stock lacks an operator declaration",()=>{
+ for(const stock of [undefined,7]){
+  const variant={...savedProduct.product.variants![0],stock,own_stock_declared:undefined};
+  const form=hydrateOwnProduct({...savedProduct,product:{...savedProduct.product,variants:[variant]}});
+  expect(form.rows[0].stock).toBe("");
+  expect(()=>prepareOwnProduct(form)).toThrow();
+ }
 });
 it("rejects missing identity/price and unsupported current facts rather than overwriting them",()=>{
  expect(()=>hydrateOwnProduct({...savedProduct,product:{...savedProduct.product,variants:[{sku:"SKU"}]}})).toThrow();

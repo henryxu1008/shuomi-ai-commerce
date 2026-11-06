@@ -7,6 +7,16 @@
 - 发现现有架构设计问题时及时说明，不要忽略。
 - 优先复用仓库已有能力和成熟开源实现，避免重复建设。
 
+## Figma 使用边界（2026-11-05 用户最新决定）
+
+**Figma 只用于理解和核对业务流程，不再作为 UI/UX、信息架构或视觉实现的权威标准。** 本决定取代仓库内此前“最终 Figma UI / IA Authority”“完全对齐 Figma 页面”“以 Figma 导航层级/布局/组件/样式验收”等冲突要求；旧文档、Issue、PR 中的历史原型节点保留为流程溯源，不自动构成新的 UI 约束。
+
+- **可以参考**：业务场景、用户任务、操作步骤、条件分支、状态流转、流程衔接及必要的业务信息；必须与用户最新明确决定、已批准领域合同和当前真实能力核对，原型示例数据不是真实事实。
+- **不得照搬或作为验收依据**：Figma 的布局、菜单层级、页面拆分、组件、字号、配色、Logo 排列、宽屏/移动端尺寸、交互控件形式、原型连线和逐像素截图。原型中的菜单或画板不等于必须存在的产品功能。
+- **UI/UX 重新设计**：依据当前产品目标、用户使用路径、可用性、统一设计系统、响应式与无障碍原则，优先复用仓库现有成熟组件。导航和页面组织由实际业务与用户体验决定，不能仅因 Figma 节点存在而增加入口或强制三级/四级菜单。
+- **权威顺序**：用户最新明确产品决定 > 当前已批准业务/领域合同及安全权限不变量 > 当前 Issue 的有效范围；Figma 仅是辅助流程材料。涉及流程冲突时先确认最新决定和事实 owner，不自行把 Figma 设计示例提升为需求。
+- **交付验收**：验证真实业务路径可完成、导航可达且可返回、状态/权限/错误反馈正确、不同屏宽可用、视觉一致；不要求与 Figma 画面相同。不得把原型点击或截图通过等同于真实运行验收。
+
 ## 产品先行与工程投入
 
 **先交付真实用户能使用的核心产品，工程化做到当前阶段够用，再由实际使用、规模、风险和维护成本触发完善。** 本原则适用于规划者、项目经理、实现者和 Reviewer，不是取消安全底线或绕过现有准入与合并规则。
@@ -69,7 +79,7 @@
 
 1. **Independent Architecture**
    - 必须有独立架构文档；
-   - 文档必须引用适用的产品决定；涉及 UI / IA / 页面命名 / 交互时必须引用当前 Figma Product Authority；
+   - 文档必须引用适用的产品决定；涉及 UI / IA / 页面命名 / 交互时遵循上文最新 Figma 使用边界及当前产品决定；
    - 必须完成适用的独立 Architecture Review；
    - 只有显式达到 **`IMPLEMENTATION_READY`** 后，Writer 才能修改正式生产业务路径。
 
@@ -85,7 +95,7 @@
    - 新的跨系统安全边界；
    - 下方架构敏感阈值表命中且现有批准架构不足以直接覆盖。
 
-   独立架构文档至少明确：Product Outcome / Scope / Out of Scope、Product/Figma Authority、domain/fact owner、contract → implementation → injection → consumer、状态与持久化边界、权限/租户边界、幂等与 retry/UNKNOWN/recovery、外部副作用、Legacy decision、验证与验收方法。
+   独立架构文档至少明确：Product Outcome / Scope / Out of Scope、Product Decision / Business Flow Reference、domain/fact owner、contract → implementation → injection → consumer、状态与持久化边界、权限/租户边界、幂等与 retry/UNKNOWN/recovery、外部副作用、Legacy decision、验证与验收方法。
 
 2. **Reuse Existing Architecture**
    - 适用于单域、有界、完全复用当前已批准架构/合同的功能；
@@ -103,7 +113,7 @@
 执行 Issue 只有在以下条件满足后才能标为 `Ready` 并派 Writer 修改生产代码：
 
 - 用户结果、Scope / Out of Scope 已明确；
-- 涉及产品 UI 时，适用 Figma / Product Authority 已明确；
+- 涉及产品 UI 时，适用产品决定与业务流程依据已明确，Figma 不作为 UI/UX 验收标准；
 - Design Basis 分类和引用已完整；
 - Independent Architecture 已完成适用 Architecture Review，并明确为 `IMPLEMENTATION_READY`；
 - 依赖、owner 和正式开工条件已满足。

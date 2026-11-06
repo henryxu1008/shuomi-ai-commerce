@@ -95,7 +95,11 @@ func toSKUs(items []offlinepackage.SKUDraft) []previewdata.SKU {
 	}
 	result := make([]previewdata.SKU, 0, len(items))
 	for _, item := range items {
-		stockCount := item.StockCount
+		var stockCount *int
+		if item.OwnStockDeclared {
+			count := item.StockCount
+			stockCount = &count
+		}
 		result = append(result, previewdata.SKU{
 			SaleAttributeList: toSaleAttributes(item.SaleAttributes),
 			CostInfo:          &previewdata.CostInfo{CostPrice: item.CostPrice, Currency: item.Currency},
@@ -105,7 +109,7 @@ func toSKUs(items []offlinepackage.SKUDraft) []previewdata.SKU {
 			LengthUnit:        item.LengthUnit,
 			Weight:            item.Weight,
 			WeightUnit:        item.WeightUnit,
-			StockCount:        &stockCount,
+			StockCount:        stockCount,
 			SupplierSKU:       item.SupplierSKU,
 			StopPurchase:      0,
 			MallState:         1,
