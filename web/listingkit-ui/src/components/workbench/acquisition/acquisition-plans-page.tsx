@@ -39,10 +39,10 @@ function persist(scope:AcquisitionContext,kind:string,value:unknown):boolean{
  }catch{return false;}
 }
 
-export function AcquisitionPlansPage({scope,initialOpen=false,agentKind}:{scope:AcquisitionContext;initialOpen?:boolean;agentKind?:string|null}){
+export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext;agentKind?:string|null}){
  const [cursor,setCursor]=useState<string>();
  const [plans,setPlans]=useState<AcquisitionPlan[]>([]),[rules,setRules]=useState<RuleTemplate[]>([]);
- const [open,setOpen]=useState(initialOpen),[ruleOpen,setRuleOpen]=useState(false),[loading,setLoading]=useState(true),[canTransfer,setCanTransfer]=useState(false);
+ const [open,setOpen]=useState(false),[ruleOpen,setRuleOpen]=useState(false),[loading,setLoading]=useState(true),[canTransfer,setCanTransfer]=useState(false);
  const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),[pending,setPending]=useState<PendingPlan|null>(()=>loadPending(scope)),[activePlan,setActivePlan]=useState<AcquisitionPlan|null>(null),[operationID,setOperationID]=useState("");
  const alive=useRef(true),controller=useRef<AbortController|null>(null),running=useRef(false);
  useEffect(()=>{
