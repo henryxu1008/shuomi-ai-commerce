@@ -348,6 +348,7 @@ func TestCollectionPublicationUsesOneActualSourceCatalogTransaction(t *testing.T
 		_, err = drafts.Read(acquisitionIdentity(scope.OrganizationID, "other-actor"), fixed.ID)
 		require.Error(t, err)
 	})
+	t.Run("SKU packaging HTTP Source history and offline diagnosis", func(t *testing.T) { testOwnSKUPackagingHTTPChain(t, runtimeDB) })
 	require.NoError(t, db.Exec("DROP TABLE product_collection_operations,product_collection_items,product_collection_batches").Error)
 	_, err = captures.Capture(actor, uuid.NewString(), body)
 	require.Error(t, err)
