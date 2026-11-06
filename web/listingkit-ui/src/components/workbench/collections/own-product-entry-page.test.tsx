@@ -63,6 +63,20 @@ it("prefills a saved product and appends with exact base while preserving SKU fa
  expect(state.mutate.mock.calls[0][0].command.product.images).toEqual(["https://images.example.org/public.png"]);
  await waitFor(()=>expect(state.push).toHaveBeenCalledWith(`/workbench/data/mine/own/${itemId}`));expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
+it("restores an interrupted revision's packaging from its original complete intent",async()=>{
+ const product={title:"原待核实包装",description:"",images:[],variants:[{sourceId:"red",title:"红",sku:"RED",attributes:{},currency:"CNY",price:0,stock:0,packaging:{weightGrams:125.5,lengthCm:10}}]};
+ const pending:CollectionIntent={userId:"actor-a",organizationId:"org-a",key:itemId,command:{action:"revise_product",itemId,expectedRevision:1,expectedSourceVersion:"1",expectedPublicationId:itemId,product}};
+ state.context.pendingCollectionIntent=pending;state.item.mockResolvedValue(savedDetail);state.read.mockRejectedValueOnce(new CollectionAPIError("NOT_FOUND",404));state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:2,replayed:true});
+ render(<OwnProductEditPage itemId={itemId}/>);
+ expect(await screen.findByLabelText("含包装重量 g 1")).toHaveValue(125.5);expect(screen.getByLabelText("含包装重量 g 1")).toBeDisabled();expect(screen.getByLabelText("含包装宽 cm 1")).toHaveValue(null);
+ await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await userEvent.click(await screen.findByRole("button",{name:"重试原请求"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledWith(pending,expect.any(AbortSignal)));expect(state.mutate.mock.calls[0][0]).toBe(pending);
+});
+it("hides the editable facts when a write is explicitly denied in the same scope",async()=>{
+ state.item.mockResolvedValue(savedDetail);state.mutate.mockRejectedValue(new CollectionAPIError("PERMISSION_DENIED",403));
+ render(<OwnProductEditPage itemId={itemId}/>);await screen.findByDisplayValue("已有商品");await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
+ await screen.findByText("当前权限不足。");expect(screen.queryByDisplayValue("已有商品")).not.toBeInTheDocument();expect(screen.queryByLabelText("含包装重量 g 1")).not.toBeInTheDocument();expect(state.push).not.toHaveBeenCalled();
+});
 it("shows a read error instead of a blank editable form for another source",async()=>{
  state.item.mockResolvedValue({...savedDetail,item:{...savedDetail.item,source:{...savedDetail.item.source,kind:"acquisition"}}});
  render(<OwnProductEditPage itemId={itemId}/>);

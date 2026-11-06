@@ -8,7 +8,7 @@ import {readCollectionItem,CollectionAPIError,type CollectionScope} from "@/lib/
 import type {CollectionDetail} from "@/lib/contracts/product-collection";
 import {Button} from "@/components/ui/button";
 import {ConsolePage,ConsoleState} from "../console/console-page";
-import {OwnProductForm} from "./own-product-entry-page";
+import {OwnProductForm,OwnProductRecovery} from "./own-product-entry-page";
 import {hydrateOwnProduct,type OwnProductFormState} from "./own-product-editor-model";
 import {collectionFailureText,useCollectionCommand} from "./use-collection-command";
 import {CollectionCommandFeedback} from "./collection-command-feedback";
@@ -18,6 +18,8 @@ export function OwnProductEditPage({itemId}:{itemId:string}){
  const scope=useMemo(()=>userId&&organizationId?{userId,organizationId}:null,[userId,organizationId]);
  if(context.isLoading||context.isSwitching)return <ConsoleState kind="loading" title="正在确认当前企业"/>;
  if(!scope||context.selectionRequired||context.error||context.blockingError)return <ConsoleState kind="error" title="请先确认登录身份与当前企业"/>;
+ if(!context.permissions.includes("workbench.collection.read"))return <ConsoleState kind="error" title="当前没有读取自有商品的权限"/>;
+ if(!context.permissions.includes("workbench.collection.manage"))return <OwnProductRecovery key={`${scope.userId}:${scope.organizationId}`} scope={scope}/>;
  return <ScopedEditor key={`${scope.userId}:${scope.organizationId}:${itemId}`} scope={scope} itemId={itemId}/>;
 }
 function ScopedEditor({scope,itemId}:{scope:CollectionScope;itemId:string}){

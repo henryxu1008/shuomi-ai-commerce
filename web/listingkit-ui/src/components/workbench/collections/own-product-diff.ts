@@ -1,5 +1,6 @@
 import {descriptionFormatLabel} from "@/lib/contracts/product-description";
 import type {CollectionDetail} from "@/lib/contracts/product-collection";
+import {packagingFields} from "./own-product-packaging";
 type Product=CollectionDetail["product"];
 type Field={label:string;value:string;images?:boolean};
 export type OwnDiffRow={key:string;label:string;before:string;after:string;status:"added"|"removed"|"changed";images?:boolean};
@@ -15,6 +16,7 @@ function fields(product:Product){
   if(!variant.source_id||ids.has(variant.source_id))throw new Error("变体身份不完整或重复，无法准确对比");ids.add(variant.source_id);
   const key=["sku",variant.source_id],label=`SKU ${variant.sku||variant.source_id}`;
   put([...key,"变体"],label,variant.sku||variant.source_id);
+  for(const field of packagingFields){const value=variant.packaging?.[field.key];put([...key,"packaging",field.key],`${label} · ${field.label} ${field.unit}`,value===undefined?"未知":String(value))}
   for(const [name,value] of [["SKU名称",variant.title??""],["SKU编码",variant.sku??""],["币种",variant.price?.currency??"未填写"],["价格",variant.price?.amount===undefined?"未填写":String(variant.price.amount)],["库存",variant.stock===undefined?"未填写":String(variant.stock)]] as const)put([...key,name],`${label} · ${name}`,value);
   attrs([...key,"attributes"],`${label} · 销售规格`,variant.attributes);put([...key,"images"],`${label} · 图片`,(variant.images??[]).map(image=>image.url).join("\n"),true);
  }

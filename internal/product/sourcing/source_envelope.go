@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"strings"
 	"time"
+
+	"task-processor/internal/product/catalog"
 )
 
 // SourceEnvelope is the neutral handoff shape from source adapters into product,
@@ -34,6 +36,7 @@ func (e SourceEnvelope) Normalize() SourceEnvelope {
 		for i := range e.ProductCandidate.Variants {
 			variants[i] = e.ProductCandidate.Variants[i]
 			variants[i].Attributes = cloneSourceMetadata(e.ProductCandidate.Variants[i].Attributes)
+			variants[i].Packaging = catalog.CloneSKUPackaging(e.ProductCandidate.Variants[i].Packaging)
 			variants[i].Images = append([]AssetCandidate(nil), e.ProductCandidate.Variants[i].Images...)
 		}
 		e.ProductCandidate.Variants = variants
@@ -126,6 +129,7 @@ type ProductVariantCandidate struct {
 	Stock            int
 	Images           []AssetCandidate `json:",omitempty"`
 	OwnStockDeclared bool             `json:",omitempty"`
+	Packaging        *catalog.SKUPackaging `json:",omitempty"`
 }
 
 // AssetCandidate carries neutral image/design facts from the source.

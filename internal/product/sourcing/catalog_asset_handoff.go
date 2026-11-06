@@ -147,6 +147,7 @@ func snapshotVariants(envelope SourceEnvelope) []catalog.Variant {
 			Attributes:       snapshotAttributes(candidate.Attributes),
 			Price:            price,
 			OwnStockDeclared: candidate.OwnStockDeclared,
+			Packaging:        catalog.CloneSKUPackaging(candidate.Packaging),
 		}
 		if candidate.Stock != 0 || candidate.OwnStockDeclared {
 			stock := candidate.Stock

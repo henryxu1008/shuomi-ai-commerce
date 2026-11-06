@@ -29,6 +29,8 @@ it("hydrates exact packaging independently from sales dimensions and includes it
  expect(form.specs.map(spec=>spec.name)).toEqual(["颜色"]);
  const product=prepareOwnProduct(form);
  expect(product.variants?.[0]).toMatchObject({sourceId:"red",stock:0,packaging:{weightGrams:125.5,lengthCm:10}});
+ const cleared=prepareOwnProduct({...form,rows:form.rows.map(row=>({...row,packaging:{weightGrams:"",lengthCm:""}}))});
+ expect(cleared.variants?.[0]).not.toHaveProperty("packaging");expect(cleared.variants?.[0].stock).toBe(0);
  const id="550e8400-e29b-41d4-a716-446655440002";
  const pending=collectionCommandSchema.parse({action:"revise_product",itemId:id,expectedRevision:1,expectedSourceVersion:"1",expectedPublicationId:id,product});
  expect(JSON.parse(JSON.stringify(pending)).product.variants[0].packaging).toEqual({weightGrams:125.5,lengthCm:10});

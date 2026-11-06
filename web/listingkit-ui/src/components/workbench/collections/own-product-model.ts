@@ -1,9 +1,10 @@
 import {descriptionReferences} from "@/lib/contracts/product-description";
 import {ownProductSchema} from "@/lib/contracts/product-collection";
+import {packagingFields,type PackagingField} from "./own-product-packaging";
 
 export type Specification={id:string;name:string;values:string};
 export type ProductAttributeRow={id:string;name:string;value:string};
-export type VariantRow={id:string;attributes:Record<string,string>;sku:string;currency:string;price:string;stock:string;image:string;title?:string;originalImages?:string[];existing?:boolean};
+export type VariantRow={id:string;attributes:Record<string,string>;sku:string;currency:string;price:string;stock:string;image:string;title?:string;originalImages?:string[];existing?:boolean;packaging?:Partial<Record<PackagingField,string>>};
 export function newVariantRow(attributes:Record<string,string>={}):VariantRow{return {id:crypto.randomUUID(),attributes,sku:"",currency:"",price:"",stock:"",image:""}}
 const comboKey=(attributes:Record<string,string>)=>JSON.stringify(Object.entries(attributes).sort(([a],[b])=>a.localeCompare(b)));
 function parseSpecifications(specs:Specification[]){
@@ -43,13 +44,14 @@ export function prepareOwnProduct(input:{title:string;brand:string;description:s
  if(mode==="multiple"&&!rows.length)throw new Error("请生成至少一个变体。");
  const single=rows[0];
  const emptySingle=!single||!single.existing&&!Object.keys(single.attributes).length&&
-  ![single.sku,single.currency,single.price,single.stock,single.image,single.title??""].some(value=>value.trim());
+  ![single.sku,single.currency,single.price,single.stock,single.image,single.title??"",...Object.values(single.packaging??{})].some(value=>value?.trim());
  const active=mode==="single"&&emptySingle?undefined:rows;
  const variants=active?.map((row,index)=>{
   if(!row.sku.trim()&&!row.existing||!row.price.trim()||!row.stock.trim()||!row.currency.trim())throw new Error(`第 ${index+1} 个变体：请填写SKU、币种、价格和库存。`);
   if(row.image&&!images.includes(row.image)&&!input.imagePool?.includes(row.image)&&!row.originalImages?.includes(row.image))throw new Error(`第 ${index+1} 个变体的图片已从商品图片中移除，请重新选择。`);
   const skuImages=variantImages(row);
-  return {sourceId:row.id,title:row.title??(Object.values(row.attributes).join(" / ")||title),sku:row.existing?row.sku:row.sku.trim(),attributes:row.attributes,currency:row.currency.trim(),price:Number(row.price),stock:Number(row.stock),...(skuImages.length?{images:skuImages}:{})};
+  const packaging=Object.fromEntries(packagingFields.flatMap(field=>{const text=row.packaging?.[field.key]?.trim();if(!text)return [];const value=Number(text);if(!Number.isFinite(value)||value<=0||value>Number.MAX_SAFE_INTEGER)throw new Error(`第 ${index+1} 个变体：${field.label}请填写有效正数（${field.unit}），未知请留空。`);return [[field.key,value]]}));
+  return {sourceId:row.id,title:row.title??(Object.values(row.attributes).join(" / ")||title),sku:row.existing?row.sku:row.sku.trim(),attributes:row.attributes,currency:row.currency.trim(),price:Number(row.price),stock:Number(row.stock),...(skuImages.length?{images:skuImages}:{}),...(Object.keys(packaging).length?{packaging}:{})};
  });
  const attributes=prepareProductAttributes(input.attributes??[]);
  const allowed=[...images,...(variants??[]).flatMap(v=>v.images??[])];
