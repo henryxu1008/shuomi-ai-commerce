@@ -92,10 +92,47 @@ func VerifyDataServicesRuntimePermissions(ctx context.Context, db *gorm.DB) erro
 	if maximum < 1 || maximum > 4 {
 		return dataservice.ErrUnavailable
 	}
-	var user string
-	var required, forbidden bool
-	query := strings.Replace(runtimePermissionQuery, admittedPrivileges, dataServicesPrivileges, 1)
-	if err := pool.QueryRowContext(ctx, query).Scan(&user, &required, &forbidden); err != nil || user != DataServicesRuntimeRole || !required || forbidden {
+	return verifyDataServicesPermissions(ctx, db, false, false)
+}
+
+// VerifyDataServicesOwnerPermissions checks the fixed runtime role from the
+// existing Product owner transaction, including uncommitted optional DDL/ACL.
+func VerifyDataServicesOwnerPermissions(ctx context.Context, db *gorm.DB, requireTrial bool) error {
+	return verifyDataServicesPermissions(ctx, db, true, requireTrial)
+}
+
+func verifyDataServicesPermissions(ctx context.Context, db *gorm.DB, asOwner, requireTrial bool) error {
+	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
+		return dataservice.ErrUnavailable
+	}
+	var trial struct{ Present, Granted bool }
+	if db.WithContext(ctx).Raw(sheinTrialRoleAccess, DataServicesRuntimeRole).Scan(&trial).Error != nil || requireTrial && !trial.Granted {
+		return dataservice.ErrUnavailable
+	}
+	if trial.Present {
+		if err := verifySHEINTrialLedgerACL(ctx, db, trial.Granted); err != nil {
+			return err
+		}
+	}
+	privileges := dataServicesPrivileges
+	query := runtimePermissionQuery
+	if trial.Granted {
+		privileges = strings.TrimSuffix(privileges, ")") + sheinTrialAdmittedPrivileges
+		// Exact column grants are checked above. Keep the same complete
+		// forbidden-object scan for this table and every other relation.
+		query = strings.Replace(query, requiredTablePrivilege, "(table_name<>'data_acquisition_shein_us_trials' OR privilege='SELECT') AND "+requiredTablePrivilege, 1)
+	}
+	query = strings.Replace(query, admittedPrivileges, privileges, 1)
+	if asOwner {
+		query = strings.Replace(query, currentRuntimeSubject, "(SELECT '"+DataServicesRuntimeRole+"'::text AS runtime_role)", 1)
+	}
+	var facts struct {
+		RoleName            string
+		RequiredPrivileges  bool
+		ForbiddenPrivileges bool
+	}
+	if err := db.WithContext(ctx).Raw(query).Scan(&facts).Error; err != nil || !facts.RequiredPrivileges || facts.ForbiddenPrivileges ||
+		facts.RoleName == "" || (facts.RoleName == DataServicesRuntimeRole) == asOwner {
 		return dataservice.ErrUnavailable
 	}
 	return verifyDataServicesSchema(ctx, db)

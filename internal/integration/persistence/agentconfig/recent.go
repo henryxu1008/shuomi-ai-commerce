@@ -23,8 +23,10 @@ type RecentRun struct {
 	StartedAt       time.Time             `json:"startedAt"`
 }
 
-func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error) ([]RecentRun, string, error) {
-	return s.recent(ctx, scope, memberID, id, after, size, runs, authorize, nil)
+type RecentContext struct{ Kind, ID string }
+
+func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error, contexts ...RecentContext) ([]RecentRun, string, error) {
+	return s.recent(ctx, scope, memberID, id, after, size, runs, authorize, nil, contexts...)
 }
 
 // Same original Run/snapshot history, narrowed before pagination to this
@@ -40,8 +42,14 @@ func (s *Store) RecentImageAnalysis(ctx context.Context, scope agent.Scope, memb
 // them at the owner query and at its cursor anchor before paging native runs.
 const nativeRunSnapshot = "convert_from(%spayload,'UTF8')::jsonb #> '{Request,WorkbenchContextRef}' IS NULL"
 
-func (s *Store) recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error, sourceContext []string) ([]RecentRun, string, error) {
+func (s *Store) recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error, sourceContext []string, contexts ...RecentContext) ([]RecentRun, string, error) {
 	if !scopeOK(scope) || !agent.ValidID(memberID) || size < 1 || size > 20 || (after != "" && !agentconfig.UUID(after)) || runs == nil || authorize == nil {
+		return nil, "", agentconfig.ErrInvalid
+	}
+	if len(contexts) > 1 || id == agentconfig.ResearchAgentID && (len(contexts) != 1 || size > 10 || contexts[0].Kind != agent.ResearchSelectionContextKind || !agentconfig.UUID(contexts[0].ID)) {
+		return nil, "", agentconfig.ErrInvalid
+	}
+	if len(contexts) == 1 && (!agent.ValidID(contexts[0].Kind) || !agentconfig.UUID(contexts[0].ID)) {
 		return nil, "", agentconfig.ErrInvalid
 	}
 	if len(sourceContext) != 0 && (len(sourceContext) != 2 || !agent.ValidID(sourceContext[0]) || !agent.ValidID(sourceContext[1])) {
@@ -52,12 +60,21 @@ func (s *Store) recent(ctx context.Context, scope agent.Scope, memberID, id, aft
 	// a new membership cannot receive old run metadata or old-member cursors.
 	q = q.Where("convert_from(s.payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID).
 		Where(fmt.Sprintf(nativeRunSnapshot, "s."))
+	if len(contexts) == 1 {
+		q = q.Where("s.context_kind=? AND s.context_id=?", contexts[0].Kind, contexts[0].ID)
+	}
 	if len(sourceContext) == 2 {
 		q = q.Where("s.context_kind=? AND s.context_id=?", sourceContext[0], sourceContext[1]).Where("convert_from(s.payload,'UTF8')::jsonb -> 'ImageAnalysis' IS NOT NULL")
 	}
 	if after != "" {
 		var anchor snapshotRow
-		if e := s.db.WithContext(ctx).Where("id=? AND organization_id=? AND actor_id=? AND agent_id=?", after, scope.OrganizationID, scope.ActorID, id).Where("convert_from(payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID).Where(fmt.Sprintf(nativeRunSnapshot, "")).Take(&anchor).Error; e != nil {
+		anchorQuery := s.db.WithContext(ctx).Where("id=? AND organization_id=? AND actor_id=? AND agent_id=?", after, scope.OrganizationID, scope.ActorID, id).
+			Where("convert_from(payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID).
+			Where(fmt.Sprintf(nativeRunSnapshot, ""))
+		if len(contexts) == 1 {
+			anchorQuery = anchorQuery.Where("context_kind=? AND context_id=?", contexts[0].Kind, contexts[0].ID)
+		}
+		if e := anchorQuery.Take(&anchor).Error; e != nil {
 			return nil, "", agentconfig.ErrInvalid
 		}
 		if len(sourceContext) == 2 && (anchor.ContextKind != sourceContext[0] || anchor.ContextID != sourceContext[1]) {

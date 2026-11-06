@@ -133,7 +133,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: selectioninspect.AgentDefinition(), Tools: []commercetool.Definition{selectioninspect.Definition()}, Model: changingModel, Gateway: a, DomainProposalKind: agentconfig.SelectionProposalKind, DomainValidator: selection.Validator{Reader: a.inspector, Configuration: a.configuration}, Authorizer: a, Store: guard})
 	require.NoError(t, err)
 	routes := productSelectionRoutes(a, a.bindRequest)
-	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a, nil)
+	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a, nil, nil)
 	require.NoError(t, err)
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, configurationModule.Register(registry))
@@ -187,13 +187,19 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 		invalid.GoalSummary = goal
 		call("POST", productSelectionBase+"/prepare", key, invalid, http.StatusBadRequest)
 	}
+	parent.config.Limits.ModelCalls = 6 // other consumers may have a wider runtime ceiling
 	raw = call("POST", productSelectionBase+"/prepare", key, preparation, http.StatusOK)
 	require.Equal(t, raw, call("POST", productSelectionBase+"/prepare", key, preparation, http.StatusOK), "uncertain preparation recovers its exact original committed receipt")
 	require.Zero(t, calls.Load(), "preparation recovery never starts a paid run")
 	var prepared struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
+		ReferencePriceVersion    string                         `json:"referencePriceVersion"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &prepared))
+	require.NotEmpty(t, prepared.ReferencePriceVersion)
+	frozenSelection, err := a.configuration.LoadSnapshot(ctx, scope, prepared.ConfigurationSnapshotRef)
+	require.NoError(t, err)
+	require.Equal(t, 2, frozenSelection.Request.Limits.ModelCalls, "a wider shared runtime ceiling must not increase the approved two-call operation")
 	path := productSelectionBase + "/contexts/" + in.ContextID + "/runs/" + key
 	body := struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
@@ -201,6 +207,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	raw = call("POST", productSelectionBase+"/contexts/"+in.ContextID+"/runs", key, body, http.StatusOK)
 	var result selectionRunDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
+	require.Equal(t, prepared.ReferencePriceVersion, result.ReferencePriceVersion)
 	require.True(t, result.Validated, string(raw))
 	require.True(t, changingModel.mutated, "the product revision changes after the last governed dispatch and before graph validation")
 	require.Equal(t, agent.ModeReadOnly, result.ExecutionMode)

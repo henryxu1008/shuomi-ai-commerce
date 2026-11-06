@@ -9,6 +9,7 @@ const names: Record<string, string> = {
   "image.generate": "图片生成",
   "product.source-evidence": "采集证据读取",
   "listing.materials.inspect": "草稿、店铺规则与已批准资产读取",
+  "product.research.inspect": "研究事实读取",
   "product.selection.inspect": "候选商品事实读取与对比",
   "shop.operations-diagnosis.inspect": "店铺经营事实读取与诊断",
   "knowledge.context": "企业知识引用",

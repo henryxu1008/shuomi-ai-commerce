@@ -63,7 +63,11 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 		writeFullImageError(c, imageagent.ErrIdentityRequired, false)
 		return
 	}
-	if a == nil || a.service == nil || a.artwork == nil || m.bind == nil {
+	if a == nil || a.runs() == nil || !a.executionDisabled && a.artwork == nil || m.bind == nil {
+		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+		return
+	}
+	if a.executionDisabled && c.Request.Method != http.MethodGet {
 		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
 		return
 	}
@@ -88,7 +92,7 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 			return
 		}
 		var prepared imageagent.PreparedArtwork
-		prepared, err = a.service.GetPreparedArtworkByKey(ctx, c.Param("context_id"), c.Param("request_id"))
+		prepared, err = a.runs().GetPreparedArtworkByKey(ctx, c.Param("context_id"), c.Param("request_id"))
 		p = prepared.Projection
 	} else if action == "prepare" {
 		var body artworkPrepareBody
@@ -108,7 +112,7 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 			return
 		}
 		var prepared imageagent.PreparedArtwork
-		prepared, err = a.service.GetPreparedArtwork(ctx, runID)
+		prepared, err = a.runs().GetPreparedArtwork(ctx, runID)
 		p = prepared.Projection
 		if err == nil {
 			err = validateArtworkHTTPRun(id.TenantID, id.UserID, id.EffectiveMemberID, runID, p)
@@ -156,7 +160,7 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 					}
 				}
 				if err == nil && action != "confirm" {
-					prepared, err = a.service.GetPreparedArtwork(ctx, runID)
+					prepared, err = a.runs().GetPreparedArtwork(ctx, runID)
 					p = prepared.Projection
 				}
 			}
@@ -191,7 +195,7 @@ func (a *fullImageApplication) artworkResponse(ctx context.Context, p imageagent
 		return nil, err
 	}
 	mode, modeErr := a.configuration.CheckArtworkExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: p.Run.TenantID, ActorID: p.Run.UserID, MemberID: p.Run.MemberID}, art.Configuration, art.ModeSnapshotRef)
-	allowed := modeErr == nil && mode.Mode != agent.ModeReadOnly
+	allowed := !a.executionDisabled && modeErr == nil && mode.Mode != agent.ModeReadOnly
 	candidates := []gin.H{}
 	settled := int64(0)
 	for _, slot := range p.Slots {

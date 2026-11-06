@@ -49,6 +49,11 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 			return nil, invalid
 		}
 		p := c.ProductAgent
+		if !p.Enabled && p.hasPolicies() {
+			if err := p.validatePolicyMetadata(); err != nil {
+				return nil, err
+			}
+		}
 		add := func(op aicapability.Operation, policies map[string]governed.RoutePolicy) {
 			for org, policy := range policies {
 				copy := policy
@@ -65,6 +70,9 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		if c.ProductCollections {
 			add(aicapability.OperationProductSelectionDecision, p.SelectionTextPolicies)
+			if c.MarketResearch != nil {
+				add(aicapability.OperationProductResearchDecision, p.ResearchTextPolicies)
+			}
 		}
 		if c.StoreCenter != nil && c.StoreCenter.Enabled && c.StoreCenter.OperationsCockpit {
 			add(aicapability.OperationShopDiagnosisDecision, p.DiagnosisTextPolicies)
@@ -158,7 +166,7 @@ func prepareSharedModelServices(ctx context.Context, reader, writer *gorm.DB, de
 }
 
 func (c *Config) modelRouteCostCeiling(capability string) int64 {
-	if capability == string(aicapability.OperationProductSelectionDecision) || capability == string(aicapability.OperationShopDiagnosisDecision) {
+	if capability == string(aicapability.OperationProductResearchDecision) || capability == string(aicapability.OperationProductSelectionDecision) || capability == string(aicapability.OperationShopDiagnosisDecision) {
 		return c.ProductAgent.CostMicros / 2
 	}
 	return c.ProductAgent.CostMicros

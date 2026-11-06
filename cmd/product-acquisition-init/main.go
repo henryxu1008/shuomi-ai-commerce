@@ -16,13 +16,14 @@ func main() {
 	feature := flag.Bool("enable-acquisition-plans", false, "explicitly add current acquisition-plan and preparation tables; preserve existing Product facts")
 	completion := flag.Bool("enable-completion-drafts", false, "explicitly add unbound completion drafts and minimum grants; preserve existing Product facts")
 	supply := flag.Bool("enable-supply-chain", false, "explicitly add current supply tables and exact grants to a confirmed nonempty Product database")
+	sheinTrial := flag.Bool("enable-shein-us-trial", false, "explicitly add only the SHEIN trial ledger and exact grants to the confirmed current Product database")
 	featureDatabase := flag.String("confirm-database", "", "exact existing dedicated Product database name for feature initialization")
 	flag.Parse()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	var err error
 	features := 0
-	for _, enabled := range []bool{*feature, *completion, *supply} {
+	for _, enabled := range []bool{*feature, *completion, *supply, *sheinTrial} {
 		if enabled {
 			features++
 		}
@@ -34,6 +35,8 @@ func main() {
 	} else if features == 1 {
 		if *confirmed != "" {
 			err = fmt.Errorf("empty-database confirmation cannot be combined with feature initialization")
+		} else if *sheinTrial {
+			err = productsourcing.EnableSHEINUSTrialLedger(ctx, *manifest, *featureDatabase)
 		} else if *supply {
 			err = productsourcing.EnableSupplyChain(ctx, *manifest, *featureDatabase)
 		} else if *completion {

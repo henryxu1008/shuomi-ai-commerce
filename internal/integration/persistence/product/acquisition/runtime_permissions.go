@@ -195,6 +195,7 @@ const admittedPrivileges = `(VALUES
  ('product_snapshot_heads','SELECT'),('product_snapshot_heads','INSERT'),('product_snapshot_heads','UPDATE'))`
 
 const currentRuntimeSubject = `(SELECT current_user::text AS runtime_role)`
+const requiredTablePrivilege = `NOT has_table_privilege(subject.runtime_role,format('public.%I',table_name),privilege)`
 
 const runtimePermissionQuery = `WITH admitted(table_name,privilege) AS ` + admittedPrivileges + `
  SELECT current_user::text AS role_name,
@@ -205,7 +206,7 @@ const runtimePermissionQuery = `WITH admitted(table_name,privilege) AS ` + admit
  AND has_schema_privilege(subject.runtime_role,'public','USAGE')
  AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=subject.runtime_role AND rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
- AND NOT EXISTS(SELECT 1 FROM admitted WHERE NOT has_table_privilege(subject.runtime_role,format('public.%I',table_name),privilege))
+ AND NOT EXISTS(SELECT 1 FROM admitted WHERE ` + requiredTablePrivilege + `)
  AS required_privileges,
  has_database_privilege(subject.runtime_role,current_database(),'CREATE')
  OR has_database_privilege(subject.runtime_role,current_database(),'TEMPORARY')

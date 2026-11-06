@@ -100,7 +100,12 @@ func testWorkbenchTitlePolicyRecovery(t *testing.T, value, operationID string, c
 	}
 	wire, err := json.Marshal(request)
 	require.NoError(t, err)
-	task := aiworkbench.BusinessTask{Scope: aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, OperationID: operationID, TargetPlatform: "shein", ExecutionRequestKey: request.Key, ConfigurationSnapshotRef: request.ConfigurationSnapshotRef, ContextSnapshotRef: request.ContextSnapshotRef, ExecutionRequest: wire}
+	task := aiworkbench.BusinessTask{
+		Scope: aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, Kind: aiworkbench.TitleTaskKind,
+		OperationID: operationID, TargetPlatform: "shein", GoalSummary: request.GoalSummary,
+		ExecutionRequestKey: request.Key, ConfigurationSnapshotRef: request.ConfigurationSnapshotRef,
+		ContextSnapshotRef: request.ContextSnapshotRef, ExecutionRequest: wire,
+	}
 	crossedOwner, err := (workbenchExecution{agent: a}).startTask(ctx, task)
 	require.ErrorIs(t, err, agentconfig.ErrUnavailable, "existing run must retry unfinished adoption rather than report success")
 	require.True(t, crossedOwner, "post-processing failure cannot be reported as a pre-owner rejection")

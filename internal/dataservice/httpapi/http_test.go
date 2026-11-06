@@ -1,13 +1,40 @@
 package dataservicehttpapi
 
 import (
+	"context"
 	"crypto/tls"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"strings"
 	"task-processor/internal/dataservice"
+	"task-processor/internal/product/collection"
 	"testing"
 )
+
+type closedExecutionAccess struct{ dataservice.Access }
+
+func (closedExecutionAccess) Resolve(context.Context, string) (collection.Scope, error) {
+	return collection.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}, nil
+}
+
+func TestDisabledExecutionRejectsCaptureAndCancelBeforeAnyExecutionPort(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	for _, route := range BuildRoutes(Dependencies{Access: closedExecutionAccess{}}) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	for _, path := range []string{ConsoleBase + "/amazon/jobs", ConsoleBase + "/amazon/jobs/" + uuid.NewString() + "/cancel"} {
+		request := httptest.NewRequest("POST", path, strings.NewReader(`{}`))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", uuid.NewString())
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		require.Equal(t, 503, response.Code, path)
+		require.Contains(t, response.Body.String(), "DATA_UNAVAILABLE")
+	}
+}
 
 func TestTransportRejectsAmbiguousBodyAndUnauthorizedProxy(t *testing.T) {
 	for _, body := range []string{`{"maximumRows":1,"maximumRows":2}`, `{"Query":{}}`, `{"actorId":"other"}`, `{"query":{},"maximumRows":1,"maximumCostFen":5,"extra":true}`} {
