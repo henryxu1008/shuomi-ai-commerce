@@ -1,7 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ListingPage } from "./listing-page";
+import ListingEntry from "@/app/workbench/listing/page";
+import ListingStage from "@/app/workbench/listing/[stage]/page";
+vi.mock("next/server",()=>({connection:vi.fn()}));
 const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),preparations:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyPreparations:state.preparations,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record,listUploadPlans:state.plans,readUploadPlan:state.plan,previewUploadPlan:state.preview,supplyInventory:vi.fn().mockResolvedValue({assets:[]})}));
@@ -63,7 +66,8 @@ it("disables selected Walmart automatic adaptation and preserves manual editing"
  expect(screen.getByRole("button",{name:"预览所选 1 件"})).toBeEnabled();
  expect(screen.getByRole("button",{name:"查看 / 补全"})).toBeEnabled();expect(state.write).not.toHaveBeenCalled();
 });
-it("saves a server-confirmed Walmart repair and dispatches only after explicit plan approval", async () => {
+it("reaches Walmart repair from the listing menu and dispatches only after explicit plan approval", async () => {
+ vi.stubEnv("LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED","false");
  const receipt = "44444444-4444-4444-8444-444444444444";
  const repairRecord = "55555555-5555-4555-8555-555555555555";
  const planId = "66666666-6666-4666-8666-666666666666";
@@ -72,17 +76,24 @@ it("saves a server-confirmed Walmart repair and dispatches only after explicit p
   skus: [{sourceSKUKey: "source-sku", identifier: {productIdType: "GTIN", productId: "12345678901234"}, condition: "New", price: "12.50", shippingWeight: "1"}],
  };
  state.stores.mockResolvedValue({items:[{id:store,name:"Walmart",platform:"walmart",recordStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
- state.stages.mockResolvedValue({items:[{sourceId:source,stage:"uploaded"}],total:1,batchTotal:1,counts:{all:1,waiting:0,missing:0,ready:0,review:0,uploaded:1}});
+ let repaired=false;
+ state.stages.mockImplementation(async (_scope,_preparation,_store,stage) => {
+  const present=repaired?stage==="waiting":stage==="uploaded";
+  return {items:present?[{sourceId:source,stage:repaired?"ready":"uploaded"}]:[],total:present?1:0,batchTotal:1,counts:{all:1,waiting:0,missing:0,ready:repaired?1:0,review:0,uploaded:repaired?0:1}};
+ });
  state.detail.mockResolvedValue({source:{id:source,source:{kind:"own",productKey:"product",version:"1"}},product:{title:"Walmart 商品",variants:[{source_id:"source-sku",sku:"sku",barcode:"12345678901234"}]},images:[]});
  const original = {id:source,revision:1,input:{walmart:walmartDraft},walmart:{selection:walmartDraft.selection,skus:[{sourceSKUKey:"source-sku",sellerSKU:"seller-failed"}],wireHash:"c".repeat(64),payload:btoa("{}")}};
  state.target.mockResolvedValue(original);
- state.publication.mockResolvedValue({sourceId:source,storeId:store,receiptId:receipt,recordId:source,walmart:{feedId:"feed-1"},walmartResults:[{id:receipt,receiptId:receipt,repairableSKUs:["seller-failed"],observation:{feedId:"feed-1",observedAt:"2026-10-30T00:00:00Z",feedStatus:"PROCESSED",items:[{sku:"seller-failed",ingestionStatus:"DATA_ERROR"}]}}]});
+ const result={id:receipt,receiptId:receipt,repairableSKUs:["seller-failed"],observation:{feedId:"feed-1",observedAt:"2026-10-30T00:00:00Z",feedStatus:"PROCESSED",items:[{sku:"seller-failed",ingestionStatus:"DATA_ERROR"}]}};
+ const publication={sourceId:source,storeId:store,receiptId:receipt,recordId:source,walmart:{feedId:"feed-1"},walmartResults:[result]};
+ state.publication.mockResolvedValue({...publication,walmartResults:[{...result,observation:{...result.observation,partial:true}}]});
  const plan = {id:planId,revision:1,count:1,storeBindingHash:"b".repeat(64),createdAt:"2026-10-30T00:00:00Z",input:{preparationId:prep,expectedRevision:1,storeId:store,sourceIds:[source],rule:"standard",publicationMode:"platform"}};
  const previewHash = "a".repeat(64);
  state.plan.mockResolvedValue(plan);
  state.preview.mockResolvedValue({plan,items:[{item:{sourceId:source},step:"upload",facts:{hasTarget:true,target:{recordId:repairRecord,revision:2},publicationSummary:["修复原 Walmart Feed feed-1"]}}],count:1,actionable:1,counts:{upload:1},hash:previewHash});
  state.write.mockImplementation(async intent => {
   if (intent.route === "save-target") {
+   repaired=true;
    const saved = {...original,id:repairRecord,revision:2,input:{walmart:intent.command.walmart}};
    state.target.mockResolvedValue(saved);
    return {record:saved};
@@ -92,14 +103,45 @@ it("saves a server-confirmed Walmart repair and dispatches only after explicit p
  });
  state.operation.mockResolvedValue({id:source,input:{action:"upload",preparationId:prep,storeId:store},status:"pending",completed:0,count:1});
  state.items.mockResolvedValue({items:[]});
- render(<ListingPage initialPreparation={prep} initialStore={store} initialStage="all"/>);
+ const context = {preparation:prep,store};
+ const waiting = `/workbench/listing/waiting?${new URLSearchParams(context)}`;
+ await expect(ListingEntry({searchParams:Promise.resolve(context)})).rejects.toMatchObject({digest:expect.stringContaining(`;${waiting};`)});
+ const view=render(null);
+ async function navigate(href:string){
+  const url=new URL(href,"https://test.invalid");
+  await act(async()=>{
+   view.rerender(await ListingStage({params:Promise.resolve({stage:url.pathname.split("/").at(-1)!}),searchParams:Promise.resolve(Object.fromEntries(url.searchParams))}));
+  });
+ }
+ await navigate(waiting);
+ const uploadedHref=screen.getByRole("link",{name:/^已上传/}).getAttribute("href")!;
+ await navigate(uploadedHref);
+ await screen.findByText("Walmart 已受理 Feed：feed-1");
+ expect(screen.queryByRole("button",{name:"查看 / 补全"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:/预览.*上传/})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"修复失败 SKU"})).not.toBeInTheDocument();
+ state.publication.mockResolvedValue(publication);
+ await userEvent.click(screen.getByRole("button",{name:"刷新"}));
+ await screen.findByRole("button",{name:"修复失败 SKU"});
+ const operatorPermissions=state.context.permissions;
+ state.context.permissions=["workbench.supply.read","workbench.store.read"];
+ await navigate(uploadedHref);
+ expect(screen.queryByRole("button",{name:"修复失败 SKU"})).not.toBeInTheDocument();
+ state.context.permissions=operatorPermissions;
+ await navigate(uploadedHref);
  await userEvent.click(await screen.findByRole("button",{name:"修复失败 SKU"}));
+ expect(screen.getByRole("button",{name:"校验并保存 Walmart 草稿"})).toBeDisabled();
  await userEvent.click(screen.getByRole("checkbox",{name:/seller-failed/}));
  await userEvent.clear(screen.getByLabelText("首次报价（USD）"));
  await userEvent.type(screen.getByLabelText("首次报价（USD）"),"13.00");
  await userEvent.click(screen.getByRole("button",{name:"校验并保存 Walmart 草稿"}));
  await waitFor(()=>expect(state.write).toHaveBeenCalledTimes(1));
  expect(state.write.mock.lastCall?.[0]).toMatchObject({route:"save-target",command:{sourceId:source,storeId:store,expectedRevision:1,walmart:{repairFrom:receipt,repairSKUs:["seller-failed"]}}});
+ const handoff=await screen.findByRole("link",{name:"去待上传核对修复版"});
+ expect(handoff).toHaveAttribute("href",waiting);
+ expect(state.write).toHaveBeenCalledTimes(1);
+ await navigate(handoff.getAttribute("href")!);
+ expect(await screen.findByText("Walmart 已受理 Feed：feed-1")).toBeInTheDocument();
  await userEvent.click(await screen.findByRole("checkbox",{name:"选择 Walmart 商品"}));
  await userEvent.click(screen.getByRole("button",{name:"预览所选 1 件"}));
  const confirm = await screen.findByRole("button",{name:"确认继续 1 件"});
