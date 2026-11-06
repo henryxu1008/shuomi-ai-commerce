@@ -28,9 +28,9 @@ const version = collectionVersion;
 const name = bytes(200).refine(value => value.length > 0 && value.trim() === value && !/[\r\n]/.test(value));
 const httpsURL = bytes(2048).refine(value => { try { const url = new URL(value); return url.protocol === "https:" && url.hostname !== "" && !url.username && !url.password && !url.hash; } catch { return false; } });
 const attributes = z.record(bytes(200), bytes(8192)).refine(value => Object.keys(value).length <= 256);
-const packageMeasurement=z.number().finite().positive().max(Number.MAX_SAFE_INTEGER).nullish().transform(value=>value??undefined);
-export const skuPackagingSchema=z.strictObject({weightGrams:packageMeasurement,lengthCm:packageMeasurement,widthCm:packageMeasurement,heightCm:packageMeasurement});
-const optionalPackaging=skuPackagingSchema.nullish().transform(value=>value??undefined);
+const packageMeasurement=z.number().finite().positive().max(Number.MAX_SAFE_INTEGER).nullish().transform(value=>value??undefined).optional();
+const skuPackagingSchema=z.strictObject({weightGrams:packageMeasurement,lengthCm:packageMeasurement,widthCm:packageMeasurement,heightCm:packageMeasurement});
+const optionalPackaging=skuPackagingSchema.nullish().transform(value=>value??undefined).optional();
 const ownVariant = z.strictObject({
   sourceId: bytes(128).refine(v=>v.trim().length>0), title: bytes(2000), sku: bytes(200), attributes,
   currency: z.string().regex(/^[A-Z]{3}$/), price: z.number().finite().nonnegative(), stock: count.optional(), images: z.array(httpsURL).max(40).optional(),

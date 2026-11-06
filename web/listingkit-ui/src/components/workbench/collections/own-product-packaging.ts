@@ -4,4 +4,3 @@ export const packagingFields=[
  {key:"widthCm",label:"含包装宽",unit:"cm"},
  {key:"heightCm",label:"含包装高",unit:"cm"},
 ] as const;
-export type PackagingField=typeof packagingFields[number]["key"];

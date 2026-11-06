@@ -1,6 +1,7 @@
 import {descriptionReferences} from "@/lib/contracts/product-description";
 import {ownProductSchema} from "@/lib/contracts/product-collection";
-import {packagingFields,type PackagingField} from "./own-product-packaging";
+import {packagingFields} from "./own-product-packaging";
+type PackagingField=typeof packagingFields[number]["key"];
 
 export type Specification={id:string;name:string;values:string};
 export type ProductAttributeRow={id:string;name:string;value:string};
