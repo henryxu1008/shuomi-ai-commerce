@@ -6,7 +6,7 @@
 
 验收企业 A 的调研人员在同一个研究项目里，从 Amazon 美国站关键词或类目的一批已保存样本挑选可比较的证据，写下一个商品方向并明确确认。随后进入智能选品，按该方向人工核对已收藏的 1688 货源、试算，再决定是否只批准并转入一件。首试的机会来自人工判断，界面标为「人工整理」。本轮范围到选品交接，下游沿用现有操作；自动机会发现、自动找货、持久化交接、跨人接续和商品发布均在范围外。
 
-- 产品依据为用户确认的 W1–W4 验收清单 `C:/Users/Henry/code/task-processor/docs/engineering/issue1070-first-trial-walkthrough.md`，SHA-256 `7C867FD36B246968E4BECD920F367E0928151FB4B911D53CAB331D9AD7C32318`。页面复用当前市场调研与智能选品的项目页，IA 依据固定源码中的 `docs/product/final-ui-ia-authority.md`。
+- 本设计依据用户授权的 #1070 最小离线实施范围。W1–W4 清单将用户指定的场景和检查项落实为合成验证用例，清单位于 `C:/Users/Henry/code/task-processor/docs/engineering/issue1070-first-trial-walkthrough.md`，SHA-256 `7C867FD36B246968E4BECD920F367E0928151FB4B911D53CAB331D9AD7C32318`，文件摘要用于固定技术验证输入。市场调研和智能选品两个智能体的完整业务验收标准仍待用户确认，实际业务验收仍待用户或指定验证者执行。页面复用当前市场调研与智能选品的项目页，IA 依据固定源码中的 `docs/product/final-ui-ia-authority.md`。
 - 设计源码固定为 `7e2c00961bb05f28d19bf5a0fb1fbb28187c2a12`。`e2cab17d40a7fd664853cb2106065d21c2983703` 是原链路的合成验收基线。当前源码把最后一步标为「转入待上传」，目标仍由原 Preparation 回执定位。新交接的运行验证为 `NOT_RUN`。
 
 ## 从查询到交接
