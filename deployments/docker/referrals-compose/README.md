@@ -68,6 +68,14 @@ mounted read-only. The initializer's provider probe creates, reads, and deletes 
 temporary human user through the v2 user API under that limited PAT; it stops
 instead of escalating to an owner role if any of those operations is denied.
 
+OpenTofu package/first root provider preparation runs before `.terraform-started`.
+Preparation failure before that marker permits rerunning the same Compose command
+with the original project and volumes after connectivity recovers. The later
+provider probe remains inside the started boundary because main apply has already
+run. Any apply/output/probe failure keeps the original refusal to retry; never
+remove a marker to force replay or repair an earlier incomplete project. See the
+[preflight boundary](../../../docs/architecture/compose-tofu-preflight.md).
+
 `referral-schema-init` remains the greenfield installer: it does not migrate or
 repair a populated referral schema. The one-shot initializer records an
 incomplete marker before its first mutation. If it fails, do not retry against

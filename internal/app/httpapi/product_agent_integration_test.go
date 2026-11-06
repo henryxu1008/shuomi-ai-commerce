@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"task-processor/internal/commercetool"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
+	"task-processor/internal/product/research/analysis"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/shopdiagnosis"
@@ -24,7 +27,6 @@ import (
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/googleinteractions"
-	"task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	agentstore "task-processor/internal/integration/persistence/agent"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
@@ -148,7 +150,15 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 	}
 }
 
-func testProductAgentOwners(t *testing.T, mode string) {
+func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) {
+	testProductAgentOwnersWithTitleRehearsal(t, mode, nil, imageProvider...)
+}
+
+func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
+	zeroReferenceUsage := mode == "research zero"
+	if zeroReferenceUsage {
+		mode = "research"
+	}
 	frozenTitleOnly := mode == "content flow frozen-title-only"
 	frozenReviewTitleOnly := mode == "content flow frozen-review-title-only"
 	frozenExistingReviewTitleOnly := mode == "content flow frozen-existing-review-title-only"
@@ -171,13 +181,16 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		fixtureActor = "admin"
 	}
 	googleTitle := mode == "google knowledge"
-	canonicalMode := mode == "observed canonical" || mode == "configuration" || mode == "knowledge" || googleTitle || strings.HasPrefix(mode, "supply ") || strings.HasPrefix(mode, "permission ")
+	canonicalMode := mode == "observed canonical" || mode == "image advice" || strings.HasPrefix(mode, "title historical ") || mode == "configuration" || mode == "knowledge" || googleTitle || strings.HasPrefix(mode, "supply ") || strings.HasPrefix(mode, "permission ")
 	var kf *consumerKnowledgeFixture
 	if mode == "knowledge" || googleTitle {
 		kf = newConsumerKnowledgeFixture(t, f.owner)
 	}
-	acquisitionServer := f.server(t)
-	op := acquisitionHTTPCall(t, acquisitionServer, "POST", productAcquisitionBase, fixtureActor, "B", uuid.NewString(), `{"source":"https://detail.1688.com/offer/981645030344.html"}`, 200)
+	var op acquisitionResultDTO
+	if rehearsal == nil {
+		acquisitionServer := f.server(t)
+		op = acquisitionHTTPCall(t, acquisitionServer, "POST", productAcquisitionBase, fixtureActor, "B", uuid.NewString(), `{"source":"https://detail.1688.com/offer/981645030344.html"}`, 200)
+	}
 	require.NoError(t, reviewstore.InstallSchema(f.owner))
 	require.NoError(t, agentstore.InstallSchema(f.owner))
 	require.NoError(t, configstore.InstallSchema(f.owner))
@@ -190,6 +203,8 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.NoError(t, configErr)
 	if !contentTitleOnly && !chatTasks {
 		require.NoError(t, assetstore.AutoMigrate(f.owner))
+	}
+	if !contentTitleOnly && !chatTasks && rehearsal == nil {
 		assets, err := assetstore.NewRepository(f.owner)
 		require.NoError(t, err)
 		version, err := strconv.ParseUint(op.CatalogVersion, 10, 64)
@@ -198,19 +213,36 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 	}
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(f.owner))
-	require.NoError(t, f.owner.AutoMigrate(&openai.AIClientCredential{}))
+	require.NoError(t, installHTTPChannelFixture(f.owner))
 	require.NoError(t, resourceadapter.AutoMigrate(f.owner))
 	now := time.Now().UTC()
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: 10000000})
+	pointBudget := int64(10_000_000)
+	if rehearsal != nil && rehearsal.pilot {
+		pointBudget = 4_000_000_000
+	}
+	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: pointBudget})
 	require.NoError(t, err)
-	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)", "B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
+	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)", "B", "ai_point", pointBudget, 0, 0, 0, now, now).Error)
 	if mode == "no quota" {
 		require.NoError(t, f.owner.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 1 WHERE organization_id = 'B'").Error)
 	}
 	var calls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rehearsal != nil {
+			rehearsal.reply(w, r)
+			return
+		}
+		if mode == "research" || mode == "selection" {
+			raw, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			var request map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(raw, &request))
+			require.Equal(t, "false", string(request["enable_thinking"]))
+			require.JSONEq(t, `"deepseek-v4.1-flash"`, string(request["model"]))
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+		}
 		if withSkill {
 			raw, e := io.ReadAll(r.Body)
 			require.NoError(t, e)
@@ -280,6 +312,35 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.DiagnosisProposalKind, Payload: mustSelectionJSON(t, proposal)}})
 			require.NoError(t, err)
 			content = string(action)
+		case mode == "research" && step == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.research.inspect","Version":"v1.0.0"}}`
+		case mode == "research":
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var disclosure analysis.Inspection
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct{ Output json.RawMessage }
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, observed := range prompt.Input.History {
+						if got, err := analysis.ParseInspection(observed.Output); err == nil {
+							disclosure = got
+						}
+					}
+				}
+			}
+			require.Len(t, disclosure.Candidates, 2, "proposal must cite the actual tool disclosure")
+			proposal := analysis.Proposal{Overview: "核对所选观察并补充缺项", OverviewEvidenceIDs: []string{disclosure.Candidates[0].Facts[0].ID}, RecommendedCandidateID: disclosure.Candidates[0].Research.CandidateID, Assessments: []analysis.Assessment{{CandidateID: disclosure.Candidates[0].Research.CandidateID, Recommendation: "RESEARCH_MORE", Advice: "核对完整成本后再决定", EvidenceIDs: []string{disclosure.Candidates[0].Facts[0].ID}}}}
+			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.ResearchProposalKind, Payload: mustSelectionJSON(t, proposal)}})
+			require.NoError(t, err)
+			content = string(action)
 		case mode == "selection" && step == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.selection.inspect","Version":"v1.0.0"}}`
 		case mode == "selection":
@@ -309,8 +370,36 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.SelectionProposalKind, Payload: mustSelectionJSON(t, proposal)}})
 			require.NoError(t, err)
 			content = string(action)
+		case strings.HasPrefix(mode, "supply materials") && strings.Contains(mode, "candidate-rules") && step%2 == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.rules.query","Version":"v1.0.0"}}`
+		case strings.HasPrefix(mode, "supply materials") && strings.Contains(mode, "candidate-rules"):
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var observed materials.CandidateRulesDisclosure
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input        struct{ History []agent.Observation }
+					AllowedTools []commercetool.ToolRef
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) != nil || len(prompt.Input.History) == 0 {
+					continue
+				}
+				require.Equal(t, []commercetool.ToolRef{materials.RulesToolRef()}, prompt.AllowedTools)
+				for _, o := range prompt.Input.History {
+					if d, e := materials.ParseCandidateRulesDisclosure(o.Output); e == nil {
+						observed = d
+					}
+				}
+			}
+			require.NotEmpty(t, observed.EvidenceID)
+			payload := materials.DomainResult{Purpose: materials.CategoryRulesPurpose, Explanation: &materials.RuleExplanation{SchemaVersion: materials.RuleExplanationSchema, Summary: "该候选类目基础模板可核对，具体属性关联条件仍未评价。", References: []materials.RuleExplanationRef{{EvidenceID: observed.EvidenceID, CallID: observed.Evidence.CallID, RuleDigest: observed.Evidence.RuleDigest}}, Unknowns: []string{"未检查实际图片或完整刊登条件"}}}
+			content = string(mustMaterialsJSON(t, agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.MaterialsProposalKind, Payload: mustMaterialsJSON(t, payload)}}))
 		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
-			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v1.0.0"}}`
+			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v3.0.0"}}`
 		case strings.HasPrefix(mode, "supply materials"):
 			var wire struct {
 				Messages []struct {
@@ -338,7 +427,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 				}
 			}
 			require.NotEmpty(t, evidence, "proposal cites the actual bounded disclosure")
-			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}`
+			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v2","Payload":{"purpose":"materials-edit","proposal":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}}`
 			if strings.Contains(mode, "receipt collision") {
 				var action map[string]any
 				require.NoError(t, json.Unmarshal([]byte(content), &action))
@@ -352,7 +441,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 				content = string(encoded)
 			}
 			if strings.Contains(mode, " qualified") {
-				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}`
+				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v2","Payload":{"purpose":"materials-edit","proposal":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}}`
 			}
 		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && (step-1)%3 == 0:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
@@ -377,6 +466,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Guessed title","EvidenceIDs":["981645030344"]}]}}`
 		case cycle == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.asset.inspect","Version":"v1.0.0"}}`
+			if mode == "image advice" {
+				content = `{"Kind":"tool","Tool":{"ID":"product.image.analyze","Version":"v1.0.0"}}`
+			}
 		case cycle == 2 && canonicalMode:
 			if kf == nil && step <= 4 {
 				wire, readErr := io.ReadAll(r.Body)
@@ -419,16 +511,44 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+		if mode == "research" || mode == "selection" {
+			usage := `{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}`
+			if zeroReferenceUsage {
+				usage = `{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}`
+			}
+			_, _ = w.Write([]byte(`{"id":"offline-deepseek","model":"deepseek-v4.1-flash","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":` + usage + `}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
-	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
-	credential := openai.AIClientCredential{TenantID: "B", ClientName: "default", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
+	credentials := newHTTPChannelFixture(f.owner)
+	credential := httpModelFixture{TenantID: "B", ClientName: "default", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
+	if mode == "research" || mode == "selection" {
+		credential.Model, credential.APIStyle = "deepseek-v4.1-flash", "openai-compatible"
+	}
+	if rehearsal != nil && rehearsal.pilot {
+		credential.BaseURL, credential.Model, credential.APIStyle = governed.TitlePilotOpenAIEndpoint, aicapability.SingleImageMiniModel, "openai-compatible"
+	}
 	if googleTitle {
 		credential.BaseURL, credential.Model, credential.APIStyle = googleinteractions.Origin, googleinteractions.Model, "google-interactions"
 	}
-	require.NoError(t, credentials.SaveCredential(context.Background(), credential))
-	row, err := credentials.GetCredential(context.Background(), "B", "", "default")
+	if mode == "image analysis" {
+		credential.BaseURL, credential.Model, credential.APIStyle = "https://api.openai.com/v1", aicapability.SingleImageMiniModel, "openai-compatible"
+		if len(imageProvider) > 0 {
+			credential.Model = "synthetic-eino-" + imageProvider[0]
+			switch imageProvider[0] {
+			case "gemini":
+				credential.BaseURL, credential.APIStyle = "https://generativelanguage.googleapis.com", "google-generate-content"
+			case "qwen":
+				credential.BaseURL, credential.APIStyle = "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-compatible"
+			default:
+				t.Fatal("unsupported synthetic image provider")
+			}
+		}
+	}
+	require.NoError(t, credentials.seed(context.Background(), credential))
+	row, err := credentials.record(context.Background(), "B", "", "default")
 	require.NoError(t, err)
 	require.NotNil(t, row)
 	ledger := aistore.NewGormInvocationRecorder(f.owner)
@@ -445,7 +565,21 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	deps.authorizer = auth
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
-	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
+	settings := ProductAgentDependencies{ChannelCredentials: newHTTPChannelFixture(f.owner), Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: httpCredentialReference(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ConnectionID: "default", CredentialVersion: row.reference, ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
+	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: &settings}
+	if rehearsal != nil {
+		if rehearsal.pilot {
+			configureTitlePilotFixture(t, &settings, rehearsal)
+		} else {
+			settings.TextTransport = titleRehearsalLoopback(t, provider.URL)
+		}
+	}
+	if mode == "image analysis" {
+		configureImageAnalysisFixture(&settings, *row, &calls)
+		if len(imageProvider) > 0 {
+			configureEinoImageAnalysisFixture(&settings, *row, &calls, imageProvider[0])
+		}
+	}
 	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
@@ -474,6 +608,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		settings.TextPolicies = nil
 	}
 
+	if mode == "research" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ResearchPromptVersion, agentconfig.ResearchActionVersion
+		settings.ResearchTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+		settings.TextPolicies = nil
+	}
 	if mode == "selection" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
@@ -487,6 +627,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		p := settings.TextPolicies["B"]
 		p.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(googleinteractions.Origin)
 		p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+		p.Profile.OfficialTariff.Model = p.Profile.ModelID
 		p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 		settings.TextPolicies["B"] = p
 		settings.TextTransport = isolatedGoogleTitleTransport(t, provider.URL)
@@ -497,11 +638,32 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.Ledger = agentReserveHook{ProductAgentInvocationLedger: settings.Ledger, afterReserve: func() { f.grants.revoked.Store(true) }}
 	}
+	if mode == "research" || mode == "selection" {
+		policies := settings.SelectionTextPolicies
+		if mode == "research" {
+			policies = settings.ResearchTextPolicies
+		}
+		p := policies["B"]
+		p.Profile.ProviderID, p.Profile.ModelID, p.Profile.AdapterPolicyVersion = "DASHSCOPE", "deepseek-v4.1-flash", governed.DashScopeDeepSeekV41FlashNonThinkingPolicy
+		p.Profile.OfficialTariff.Model, p.Profile.OfficialTariff.UsageVersion = p.Profile.ModelID, aicapability.ReferenceTextTotalsV1
+		p.Profile.MaximumPromptTokens, p.Profile.MaximumCompletionTokens = 32000, 4000
+		p.Profile.InputMicrosPerMillion, p.Profile.OutputMicrosPerMillion = 2000000, 8000000
+		p.Profile.OfficialTariff.Rates = aicapability.OfficialModelRates{InputText: 2000000, OutputText: 8000000}
+		policies["B"] = p
+		settings.CurrentTextPolicies = configuredSelectionSharedReader(t, &settings, f.owner)
+		retail, err := p.Profile.OfficialTariff.ReserveTextMicropoints(32000, 4000)
+		require.NoError(t, err)
+		require.EqualValues(t, 19200000, 2*retail)
+		require.LessOrEqual(t, 2*retail, int64(20000000), "two-call retail reservation stays below the approved 20 points")
+		cost, err := p.Profile.MaximumCost()
+		require.NoError(t, err)
+		require.LessOrEqual(t, 2*cost, int64(300000), "channel cost remains separately bounded by CNY 0.30")
+	}
 	var reviewIAM *contentReviewIAM
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
-	if mode == "selection" || mode == "diagnosis" {
+	if mode == "research" || mode == "selection" || mode == "diagnosis" {
 		for _, limits := range [][2]int{{3, 2}, {4, 1}} {
 			invalid := settings
 			invalid.Limits.Steps, invalid.Limits.ModelCalls = limits[0], limits[1]
@@ -511,6 +673,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
 		profile := settings.SelectionTextPolicies["B"].ShapeProfile()
+		if mode == "research" {
+			profile = settings.ResearchTextPolicies["B"].ShapeProfile()
+		}
 		if mode == "diagnosis" {
 			profile = settings.DiagnosisTextPolicies["B"].ShapeProfile()
 		}
@@ -534,6 +699,24 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if rehearsal != nil {
+		if rehearsal.operator {
+			rehearsal.runPilotOperator(t, f.owner, module.(productAgentModule).application, deps)
+		} else if rehearsal.pilot {
+			rehearsal.runPilot(t, f.owner, module.(productAgentModule).application)
+		} else {
+			rehearsal.run(t, f.owner, module.(productAgentModule).application)
+		}
+		return
+	}
+	if mode == "image analysis" {
+		expected := "31"
+		if len(imageProvider) > 0 {
+			expected = "40"
+		}
+		testImageAnalysisHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, op.OperationID, &calls, expected)
+		return
+	}
 	if contentTitleOnly {
 		parent := module.(productAgentModule).application
 		require.Nil(t, parent.model)
@@ -546,8 +729,14 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		testDiagnosisHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
 		return
 	}
+	if mode == "research" {
+		testResearchHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductResearchDecision, zeroReferenceUsage)
+		return
+	}
 	if mode == "selection" {
 		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductSelectionDecision, zeroReferenceUsage)
 		return
 	}
 	if chatTasks {
@@ -1008,6 +1197,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		wrongProfile, profileErr := module.(productAgentModule).application.selectTitleProfile(context.Background(), "B")
 		require.NoError(t, profileErr)
 		wrongProfile.ModelID = "another-title-model"
+		wrongProfile.OfficialTariff.Model = wrongProfile.ModelID
 		require.NoError(t, wrongProfile.Validate())
 		bound := agent.Binding{ContextKind: "acquisition", ContextID: op.OperationID, ProductKey: op.ProductKey,
 			CatalogVersion: op.CatalogVersion, PublicationID: op.PublicationID, TargetPlatform: "shein"}
@@ -1025,8 +1215,8 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 		// The committed run is an immutable receipt. A route or credential change
 		// cannot turn an exact same-key retry into a new model selection.
-		require.NoError(t, f.owner.Model(&openai.AIClientCredential{}).
-			Where("tenant_id = ? AND user_id = ? AND client_name = ?", "B", "", "default").
+		require.NoError(t, f.owner.Model(&channelstore.ConnectionRow{}).
+			Where("organization_id = ? AND connection_id = ?", "B", "default").
 			Update("enabled", false).Error)
 		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 		require.NoError(t, err)
@@ -1113,6 +1303,14 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	require.Equal(t, agent.HumanReviewRequired, result.Phase, string(raw))
 	require.True(t, result.CanSubmitReview)
+	if mode == "image advice" {
+		require.NotNil(t, result.ImageAdvice, "the actual audited Tool output must reach the fixed HTTP consumer")
+		require.NoError(t, result.ImageAdvice.Verify())
+		require.Equal(t, result.ProductKey, result.ImageAdvice.Binding.ProductKey)
+		require.Equal(t, "product.image.analyze", result.ImageAdvice.Evidence.ToolID)
+		require.Nil(t, result.ImageAdvice.Binding.Target, "generic facts do not acquire a Store or official-rule authority")
+		require.NotEmpty(t, result.ImageAdvice.Facts)
+	}
 	if googleTitle {
 		require.EqualValues(t, 136, result.Tokens)
 	} else {
@@ -1150,6 +1348,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.NoError(t, err)
 	require.NotEqual(t, 200, code, string(raw))
 	require.EqualValues(t, 4, calls.Load())
+	if mode == "title historical pending" {
+		testTitlePreviousRegistrationReadOnly(t, module.(productAgentModule).application, f.owner, server, key, path, startBody, "", &calls)
+		return
+	}
 	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 	require.NoError(t, err)
 	if mode == "configuration" {
@@ -1167,6 +1369,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	view := titleCall(t, server, "GET", titleBasePath+"/"+link.ProposalID, "admin", "B", "", "", 200)
 	require.Equal(t, "pending", view.State)
 	require.Equal(t, "Reviewed bottle title", view.Title)
+	if mode == "title historical committed" {
+		testTitlePreviousRegistrationReadOnly(t, module.(productAgentModule).application, f.owner, server, key, path, startBody, view.ID, &calls)
+		return
+	}
 	if kf != nil {
 		code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "")
 		require.NoError(t, err)

@@ -132,7 +132,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	collectionAuth, err := collection.NewContextAuthorizer(live, permissions)
 	require.NoError(t, err)
 	require.NoError(t, collectionstore.InstallSchema(f.owner))
-	for _, install := range []func(*gorm.DB) error{prepstore.InstallSchema, recordstore.InstallSchema, prepstore.InstallOperationSchema, submissionstore.InstallSchema, officialstore.InstallOfficialSchema} {
+	for _, install := range []func(*gorm.DB) error{prepstore.InstallSchema, recordstore.InstallSchema, prepstore.InstallOperationSchema, prepstore.InstallUploadPlanSchema, submissionstore.InstallSchema, officialstore.InstallOfficialSchema} {
 		require.NoError(t, install(f.owner))
 	}
 	collectionRepo, err := collectionstore.NewRepository(ctx, f.owner, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
@@ -213,7 +213,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	app.Execution.Repository = operationsRepo
 	if strings.HasPrefix(mode, "supply materials") {
 		app.Targets, app.Assets = targets, assets
-		testMaterialsNativeOwners(t, strings.TrimPrefix(mode, "supply materials "), a, app, target, actor, deps, calls)
+		testMaterialsNativeOwners(t, strings.TrimPrefix(mode, "supply materials "), a, app, target, actor, deps, calls, f.owner)
 		return
 	}
 	var draftBefore d.DraftSnapshot

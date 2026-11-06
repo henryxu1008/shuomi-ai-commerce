@@ -78,7 +78,7 @@ func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorize
 	require.NotNil(t, dependencies.ArtifactStore)
 	require.NotNil(t, dependencies.PublisherV3)
 	require.NoError(t, closeFn())
-	cfg.ImageAgent.Generation = config.ImageAgentGenerationConfig{PriceVersion: "test-only-v1", PointsPerImage: 17}
+	cfg.ImageAgent.Generation = config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}
 	dependencies, closeFn, err = resolveImageAgentTemporalDependenciesForMode("config/worker.yaml", logrus.New(), imageagenttemporal.WorkerWireModeOrganization, resolver)
 	require.NoError(t, err)
 	require.NotNil(t, dependencies.GenerationRecovery)

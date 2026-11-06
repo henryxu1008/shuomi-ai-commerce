@@ -28,7 +28,16 @@ func (s *Service) NotificationFacts(ctx context.Context, after string, limit int
 	if !ok {
 		return nil, "", ErrUnavailable
 	}
-	return reader.ListNotificationRecords(ctx, scope, after, limit)
+	rows, next, err := reader.ListNotificationRecords(ctx, scope, after, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	for _, row := range rows {
+		if err := s.authorizeWorkbench(ctx, row.Execution); err != nil {
+			return nil, "", ErrUnavailable
+		}
+	}
+	return rows, next, nil
 }
 func (s *Service) NotificationFact(ctx context.Context, id string) (Record, error) {
 	scope, e := s.authorize(ctx, false, false)
@@ -38,7 +47,14 @@ func (s *Service) NotificationFact(ctx context.Context, id string) (Record, erro
 	if !validID(id) {
 		return Record{}, ErrInvalid
 	}
-	return s.store.Read(ctx, scope, id)
+	row, err := s.store.Read(ctx, scope, id)
+	if err != nil {
+		return Record{}, err
+	}
+	if err := s.authorizeWorkbench(ctx, row.Execution); err != nil {
+		return Record{}, err
+	}
+	return row, nil
 }
 
 type TaskStateMetadata struct {

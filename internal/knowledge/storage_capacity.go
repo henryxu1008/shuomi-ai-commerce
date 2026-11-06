@@ -12,7 +12,7 @@ func (s *Service) StorageCapacityConfigured() bool {
 	return s != nil && s.capacity != nil && s.capacity.Writer != nil && storagecapacity.ValidID(s.capacity.Namespace, 256)
 }
 func capacityObject(r Revision) storagecapacity.Object {
-	return storagecapacity.Object{Key: r.ObjectKey, SHA256: r.SHA256, SizeBytes: r.SizeBytes, Category: "knowledge_document"}
+	return storagecapacity.Object{Key: r.ObjectKey, SHA256: r.SHA256, SizeBytes: r.SizeBytes, Category: "knowledge_document", ExclusiveBinding: r.OriginalGeneration != ""}
 }
 func confirmCapacity(ctx context.Context, m *storagecapacity.Meter, r Revision) error {
 	if m == nil {

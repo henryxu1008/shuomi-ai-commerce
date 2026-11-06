@@ -129,6 +129,8 @@ const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparati
  ('listing_target_record_commands','SELECT'),('listing_target_record_commands','INSERT'),
  ('listing_preparation_operations','SELECT'),('listing_preparation_operations','INSERT'),('listing_preparation_operations','UPDATE'),
  ('listing_preparation_operation_items','SELECT'),('listing_preparation_operation_items','INSERT'),('listing_preparation_operation_items','UPDATE'),
+ ('listing_preparation_upload_plans','SELECT'),('listing_preparation_upload_plans','INSERT'),('listing_preparation_upload_plans','UPDATE'),
+ ('listing_preparation_upload_plan_items','SELECT'),('listing_preparation_upload_plan_items','INSERT'),('listing_preparation_upload_plan_items','UPDATE'),
  ('listing_submission_execution_attempts','SELECT'),('listing_submission_execution_attempts','INSERT'),('listing_submission_execution_attempts','UPDATE'),
  ('listing_submission_target_fences','SELECT'),('listing_submission_target_fences','INSERT'),('listing_submission_target_fences','UPDATE'),
  ('listing_submission_official_intents','SELECT'),('listing_submission_official_intents','INSERT'),
@@ -193,6 +195,7 @@ const admittedPrivileges = `(VALUES
  ('product_snapshot_heads','SELECT'),('product_snapshot_heads','INSERT'),('product_snapshot_heads','UPDATE'))`
 
 const currentRuntimeSubject = `(SELECT current_user::text AS runtime_role)`
+const requiredTablePrivilege = `NOT has_table_privilege(subject.runtime_role,format('public.%I',table_name),privilege)`
 
 const runtimePermissionQuery = `WITH admitted(table_name,privilege) AS ` + admittedPrivileges + `
  SELECT current_user::text AS role_name,
@@ -203,7 +206,7 @@ const runtimePermissionQuery = `WITH admitted(table_name,privilege) AS ` + admit
  AND has_schema_privilege(subject.runtime_role,'public','USAGE')
  AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=subject.runtime_role AND rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
- AND NOT EXISTS(SELECT 1 FROM admitted WHERE NOT has_table_privilege(subject.runtime_role,format('public.%I',table_name),privilege))
+ AND NOT EXISTS(SELECT 1 FROM admitted WHERE ` + requiredTablePrivilege + `)
  AS required_privileges,
  has_database_privilege(subject.runtime_role,current_database(),'CREATE')
  OR has_database_privilege(subject.runtime_role,current_database(),'TEMPORARY')
@@ -402,6 +405,9 @@ func verifyRuntimeSchema(ctx context.Context, db *gorm.DB, capability RuntimeCap
 			return err
 		}
 		if err := preparationstore.VerifyOperationSchema(ctx, db); err != nil {
+			return err
+		}
+		if err := preparationstore.VerifyUploadPlanSchema(ctx, db); err != nil {
 			return err
 		}
 		if err := recordstore.VerifySchema(ctx, db); err != nil {

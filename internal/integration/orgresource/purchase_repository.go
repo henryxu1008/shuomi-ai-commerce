@@ -37,9 +37,13 @@ func validPurchasedResourceType(resourceType orgresource.ResourceType) bool {
 }
 
 func (repository *GormRepository) ReplayPurchasedResourceGrant(ctx context.Context, replay orgresource.PurchasedResourceGrantReplay) (orgresource.PurchasedResourceGrantResult, bool, error) {
+	expected, unit, err := orgresource.PurchasedLedgerQuantity(replay.ResourceType, replay.Quantity)
+	if err != nil || replay.LedgerQuantity != expected || replay.UnitVersion != unit {
+		return orgresource.PurchasedResourceGrantResult{}, false, orgresource.ErrAIPointUnitVersion
+	}
 	var result orgresource.PurchasedResourceGrantResult
 	var found bool
-	err := repository.runner.runRead(ctx, func(readContext context.Context) error {
+	err = repository.runner.runRead(ctx, func(readContext context.Context) error {
 		var readErr error
 		result, found, readErr = repository.replayPurchasedGrantOnce(readContext, repository.db, replay)
 		return readErr
@@ -92,11 +96,15 @@ func (repository *GormRepository) purchasedGrantResultFromOperation(ctx context.
 	if err := json.Unmarshal([]byte(operation.ImmutableResult), &snapshot); err != nil {
 		return orgresource.PurchasedResourceGrantResult{}, false, fmt.Errorf("decode purchased grant snapshot: %w", err)
 	}
+	quantity, unit, quantityErr := orgresource.PurchasedLedgerQuantity(snapshot.ResourceType, mustSourceQuantity(snapshot.Quantity))
+	if quantityErr != nil || snapshot.UnitVersion != unit || snapshot.LedgerQuantity != strconv.FormatInt(quantity, 10) || snapshot.OrganizationID != organizationID || snapshot.OperationID != operationID {
+		return orgresource.PurchasedResourceGrantResult{}, false, orgresource.ErrAIPointUnitVersion
+	}
 	return orgresource.PurchasedResourceGrantResult{Snapshot: snapshot, Replayed: true}, true, nil
 }
 
 func (repository *GormRepository) ExecutePurchasedResourceGrant(ctx context.Context, input orgresource.PurchasedResourceGrantExecution) (orgresource.PurchasedResourceGrantResult, error) {
-	replay := orgresource.PurchasedResourceGrantReplay{OrganizationID: input.OrganizationID, OperationID: input.OperationID, CommercialOrderID: input.CommercialOrderID, CommercialOrderItemID: input.CommercialOrderItemID, ResourceType: input.ResourceType, Quantity: input.Quantity, SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, RequestFingerprint: input.RequestFingerprint}
+	replay := orgresource.PurchasedResourceGrantReplay{LedgerQuantity: input.LedgerQuantity, UnitVersion: input.UnitVersion, OrganizationID: input.OrganizationID, OperationID: input.OperationID, CommercialOrderID: input.CommercialOrderID, CommercialOrderItemID: input.CommercialOrderItemID, ResourceType: input.ResourceType, Quantity: input.Quantity, SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, RequestFingerprint: input.RequestFingerprint}
 	if result, found, err := repository.ReplayPurchasedResourceGrant(ctx, replay); err != nil || found {
 		return result, err
 	}
@@ -110,7 +118,7 @@ func (repository *GormRepository) ExecutePurchasedResourceGrant(ctx context.Cont
 			return nil
 		}
 		var bucket organizationResourceBucketRow
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&organizationResourceBucketRow{OrganizationID: input.OrganizationID, ResourceType: string(input.ResourceType)}).Error; err != nil {
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit(string(input.ResourceType)), OrganizationID: input.OrganizationID, ResourceType: string(input.ResourceType)}).Error; err != nil {
 			return err
 		}
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND resource_type = ?", input.OrganizationID, input.ResourceType).Take(&bucket).Error; err != nil {
@@ -122,13 +130,13 @@ func (repository *GormRepository) ExecutePurchasedResourceGrant(ctx context.Cont
 			committed = result
 			return nil
 		}
-		credit, err := applyPositiveCredit(transactionContext, tx, input.OrganizationID, string(input.ResourceType), input.Quantity, bucket.Available, time.Now().UTC())
+		credit, err := applyPositiveCredit(transactionContext, tx, input.OrganizationID, string(input.ResourceType), input.LedgerQuantity, bucket.Available, time.Now().UTC())
 		if err != nil {
 			return err
 		}
 		now := time.Now().UTC()
 		eventID := uuid.NewString()
-		snapshot := orgresource.PurchasedResourceGrantSnapshot{OperationID: input.OperationID, OrganizationID: input.OrganizationID, CommercialOrderID: input.CommercialOrderID, CommercialOrderItemID: input.CommercialOrderItemID, ResourceType: input.ResourceType, Quantity: strconv.FormatInt(input.Quantity, 10), BalanceAfter: strconv.FormatInt(credit.availableAfter, 10), SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, EventID: eventID}
+		snapshot := orgresource.PurchasedResourceGrantSnapshot{UnitVersion: input.UnitVersion, LedgerQuantity: strconv.FormatInt(input.LedgerQuantity, 10), OperationID: input.OperationID, OrganizationID: input.OrganizationID, CommercialOrderID: input.CommercialOrderID, CommercialOrderItemID: input.CommercialOrderItemID, ResourceType: input.ResourceType, Quantity: strconv.FormatInt(input.Quantity, 10), BalanceAfter: strconv.FormatInt(credit.availableAfter, 10), SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, EventID: eventID}
 		encoded, err := json.Marshal(snapshot)
 		if err != nil {
 			return err
@@ -136,13 +144,13 @@ func (repository *GormRepository) ExecutePurchasedResourceGrant(ctx context.Cont
 		if err := tx.Create(&organizationResourceOperationRow{OrganizationID: input.OrganizationID, OperationID: input.OperationID, OperationType: input.OperationType, RequestFingerprint: input.RequestFingerprint, State: "succeeded", ImmutableResult: string(encoded), CompletedAt: &now}).Error; err != nil {
 			return err
 		}
-		if err := tx.Create(&organizationResourceSourceClaimRow{SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, ResourceType: string(input.ResourceType), OrganizationID: input.OrganizationID, OperationID: input.OperationID, RequestFingerprint: input.RequestFingerprint}).Error; err != nil {
+		if err := tx.Create(&organizationResourceSourceClaimRow{QuantityUnit: resourceQuantityUnit(string(input.ResourceType)), SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, ResourceType: string(input.ResourceType), OrganizationID: input.OrganizationID, OperationID: input.OperationID, RequestFingerprint: input.RequestFingerprint}).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(&organizationResourceBucketRow{}).Where("organization_id = ? AND resource_type = ?", input.OrganizationID, input.ResourceType).Updates(map[string]any{"available": credit.availableAfter, "updated_at": now}).Error; err != nil {
 			return err
 		}
-		if err := tx.Create(&organizationResourceEventRow{EventID: eventID, OrganizationID: input.OrganizationID, OperationID: input.OperationID, ResourceType: string(input.ResourceType), Quantity: input.Quantity, AvailableDelta: credit.net, Reason: input.OperationType, SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, BalanceAfter: credit.availableAfter, AvailableAfter: credit.availableAfter, AllocatedAfter: bucket.Allocated, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: credit.gross, DebtRepaid: credit.debtRepaid, NetCredit: credit.net, CreatedAt: now}).Error; err != nil {
+		if err := tx.Create(&organizationResourceEventRow{QuantityUnit: resourceQuantityUnit(string(input.ResourceType)), EventID: eventID, OrganizationID: input.OrganizationID, OperationID: input.OperationID, ResourceType: string(input.ResourceType), Quantity: input.LedgerQuantity, AvailableDelta: credit.net, Reason: input.OperationType, SourceType: input.SourceType, SourceIdentity: input.SourceIdentity, BalanceAfter: credit.availableAfter, AvailableAfter: credit.availableAfter, AllocatedAfter: bucket.Allocated, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: credit.gross, DebtRepaid: credit.debtRepaid, NetCredit: credit.net, CreatedAt: now}).Error; err != nil {
 			return err
 		}
 		payload, _ := json.Marshal(snapshot)
@@ -160,4 +168,12 @@ func (repository *GormRepository) ExecutePurchasedResourceGrant(ctx context.Cont
 		return result, nil
 	}
 	return orgresource.PurchasedResourceGrantResult{}, err
+}
+
+func mustSourceQuantity(value string) int64 {
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || strconv.FormatInt(n, 10) != value {
+		return -1
+	}
+	return n
 }

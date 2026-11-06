@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"task-processor/internal/listing/materials"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/marketplace/shein/goods"
+	model "task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -31,6 +33,51 @@ func (r *reader) ReadMaterialsInspection(_ context.Context, b agent.Binding) (ma
 		return materials.Inspection{}, materials.ErrInspectionChanged
 	}
 	return r.value, nil
+}
+
+func (r *reader) ReadCandidateRules(context.Context, agent.Binding) (materials.CandidateRulesDisclosure, error) {
+	return materials.CandidateRulesDisclosure{}, materials.ErrInspectionChanged
+}
+
+type queryReader struct {
+	*reader
+	query      materials.CandidateRulesDisclosure
+	queryCalls int
+}
+
+func (r *queryReader) ReadCandidateRules(_ context.Context, b agent.Binding) (materials.CandidateRulesDisclosure, error) {
+	r.queryCalls++
+	if b != r.query.Binding {
+		return materials.CandidateRulesDisclosure{}, materials.ErrInspectionChanged
+	}
+	return r.query, nil
+}
+
+func TestCandidateRulesToolUsesOriginalRegistryAuditAndPurposeIsolation(t *testing.T) {
+	_, r, f, a := inspector(t)
+	base := r.value.Base
+	base.ID, base.Input.StoreID = uuid.NewString(), uuid.NewString()
+	base.Merchant.StoreID = base.Input.StoreID
+	leaf := true
+	q, err := materials.NewCandidateRulesDisclosure(base, r.value.Product, "123", goods.OfficialRuleSnapshot{Categories: []model.Category{{ID: 123, ProductTypeID: 456, Leaf: &leaf}}, Attributes: model.AttributeTemplate{ProductTypeID: 456}}, time.Now().UTC())
+	require.NoError(t, err)
+	qr := &queryReader{reader: r, query: q}
+	i, err := NewInvoker(qr, f, AgentDefinition(), commercetool.InvocationDependencies{Authorizer: authorize{}, Recorder: a, Tracer: otel.Tracer("candidate-test"), Now: time.Now, AuditTimeout: time.Second})
+	require.NoError(t, err)
+	meta := commercetool.CallMetadata{CallID: "query-call", AgentID: materials.AgentID, AgentVersion: materials.AgentVersion, AgentRunID: "run", BusinessTaskID: q.Binding.ContextID}
+	result, err := i.Invoke(context.Background(), materials.RulesToolRef(), meta, q.Binding)
+	require.NoError(t, err, "new rule read must traverse the actual Registry and record audit")
+	require.Equal(t, commercetool.AuditStatusRecorded, result.AuditStatus)
+	require.Equal(t, 1, qr.queryCalls)
+	disclosed, err := materials.ParseCandidateRulesDisclosure(result.Output)
+	require.NoError(t, err)
+	require.Equal(t, meta.CallID, disclosed.Evidence.CallID)
+	require.Empty(t, result.AIInvocationID)
+	_, err = i.Invoke(context.Background(), materials.InspectToolRef(), meta, q.Binding)
+	require.Error(t, err, "query binding cannot invoke the writable-material inspection path")
+	f.organization = "other-org"
+	_, err = i.Invoke(context.Background(), materials.RulesToolRef(), meta, q.Binding)
+	require.Equal(t, commercetool.ErrorPermissionDenied, commercetool.CodeOf(err))
 }
 
 type fresh struct {
@@ -68,7 +115,7 @@ func inspector(t *testing.T) (*Invoker, *reader, *fresh, *audit) {
 	base := record.TargetRecord{ID: "record", TargetID: "target", Revision: 1, EffectiveVersion: 1, ProductHash: collection.Digest(product.Snapshot), RulesHash: collection.Digest(rules), InventoryHash: collection.Digest(inventory), Merchant: storecenter.ProductMerchantBinding{OrganizationID: "org", StoreID: "store", Site: "shein-us"}, Input: record.TargetInput{SourceID: "source", StoreID: "store", EffectiveVersion: 1}}
 	base.Source.ID = "source"
 	base.Source.Source = collection.Source{ProductKey: "product", PublicationID: "publication", Version: 1}
-	i, err := materials.NewInspection(base, product, rules, inventory)
+	i, err := materials.NewInspection(base, product, rules, inventory, time.Now().UTC(), time.Now().UTC())
 	require.NoError(t, err, "%v", errors.Unwrap(err))
 	r, f, a := &reader{value: i}, &fresh{organization: "org"}, &audit{}
 	invoker, err := NewInvoker(r, f, AgentDefinition(), commercetool.InvocationDependencies{Authorizer: authorize{}, Recorder: a, Tracer: otel.Tracer("materials-test"), Now: time.Now, AuditTimeout: time.Second})

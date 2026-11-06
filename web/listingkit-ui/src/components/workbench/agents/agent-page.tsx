@@ -6,6 +6,7 @@ import { AgentMarket } from "./agent-market";
 import { AgentMine } from "./agent-mine";
 import { AgentCapabilityPanel } from "./agent-capability-panel";
 import {ProductSelectionFlow} from "./product-selection-flow";
+import {SelectionOperationLinks} from "./selection-operation-links";
 import {PODArtworkFlow} from "./pod-artwork-flow";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -162,14 +163,14 @@ function ScopedPage({
     `${agentId}/templates?pageSize=100${templateAfter ? "&cursor=" + templateAfter : ""}`,
     templatesPageSchema,
     nonce,
-    !!detail && detail.agent.activation !== "NOT_ENABLED" && !["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId),
+    !!detail && detail.agent.activation !== "NOT_ENABLED" && !["product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId),
   );
   const recent = useRead(
     scope,
     `${agentId}/recent-runs?pageSize=20${recentAfter ? "&cursor=" + recentAfter : ""}`,
     recentRunsSchema,
     nonce,
-    !!detail?.canReadRuns && agentId!=="pod.design.agent" && !["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId),
+    !!detail?.canReadRuns && agentId!=="pod.design.agent" && !["product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId),
   );
   const defaultRef = detail?.agent.defaultTemplate;
   const defaultTemplate = useRead(
@@ -322,9 +323,10 @@ function ScopedPage({
                 <Link href="/workbench/agents/mine/product.title.agent">标题优化配置与历史</Link>
                 <Link href="/workbench/agents/mine/product.content.agent">内容本地化配置与历史</Link>
               </nav> : null}
+              {["product.research.agent", "product.selection.agent"].includes(agentId) ? <SelectionOperationLinks className={styles.actions}/> : null}
             </div>
             <div className={styles.actions}>
-              {detail.canUse && !["pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
+              {detail.canUse && !["pod.design.agent","product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
                 <Link href={agentId==="product.content.agent"?"/workbench/data/mine?view=own":"/workbench/supply/acquisition"}>
                   选择商品并进入使用 →
                 </Link>
@@ -383,7 +385,7 @@ function ScopedPage({
                 )}
               </div>
               {!defaultRef ? (
-                <p>{["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?"分析使用本次明确目标，不使用内容、刊登或图片模板。":"暂无默认模板；执行时仍可显式选择平台和是否引用知识。"}</p>
+                <p>{["product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?"分析使用本次明确目标，不使用内容、刊登或图片模板。":"暂无默认模板；执行时仍可显式选择平台和是否引用知识。"}</p>
               ) : defaultTemplate.error ? (
                 <p role="alert">
                   默认模板当前不可用。执行前须明确选择其他模板或不使用模板。
@@ -414,12 +416,13 @@ function ScopedPage({
             </div>
           </div>
             {agentId==="shop.operations-diagnosis.agent"&&<ShopDiagnosisFlow scope={scope} entry={detail} nonce={nonce}/>}
-            {agentId==="product.selection.agent"&&<ProductSelectionFlow scope={scope} entry={detail} nonce={nonce}/>}
+            {agentId==="product.research.agent"&&<Card className={styles.panel}><h2>在研究项目内使用</h2><p>选择同一项目的2–5件商品资料，核对事实后准备预算，历史按项目查看。查看已有资料与历史继续使用原业务权限；AI建议还需启用本项操作并确认模型与预算。</p><Button asChild><Link href="/workbench/supply/selection?step=analysis" prefetch={false}>打开项目资料分析</Link></Button></Card>}
+ {agentId==="product.selection.agent"&&<ProductSelectionFlow scope={scope} entry={detail} nonce={nonce}/>}
             {agentId==="pod.design.agent"&&<PODArtworkFlow scope={scope} entry={detail} templates={templates.data?.items.filter(t=>t.agentId==="pod.design.agent")??[]} nonce={nonce} podAvailable={podAvailable}/>}
           <Card className={styles.panel}>
             <div className={styles.cardActions}>
-              <h2>{["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?"本次分析参数":"版本化模板"}</h2>
-              {detail.canConfigure && !["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
+              <h2>{["product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?"本次分析参数":"版本化模板"}</h2>
+              {detail.canConfigure && !["product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
                 <Button
                   disabled={
                     mutationDisabled ||
@@ -431,7 +434,7 @@ function ScopedPage({
                 </Button>
               )}
             </div>
-            {["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?<p>商品、店铺与本次分析目标在相应操作面板选择，第一版不开放命名模板。</p>:templates.error ? (
+            {["product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?<p>商品、店铺与本次分析目标在相应操作面板选择，第一版不开放命名模板。</p>:templates.error ? (
               <p role="alert">{configurationError(templates.error)}</p>
             ) : templates.data?.items.length ? (
               <div className={styles.templateList}>
@@ -596,7 +599,7 @@ function ScopedPage({
               </section>
             )}
           </Card>
-          {!["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)&&<Card className={styles.panel}>
+          {!["product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)&&<Card className={styles.panel}>
             <h2>本人最近发起的任务</h2>
             <p>
               仅展示当前企业中你有商品访问权限的任务；采用方式以本次冻结权限为准。

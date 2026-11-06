@@ -3,10 +3,11 @@
 Refs #335 / #47 / #44. This is the first bounded repository regression slice,
 not production source collection, remote publishing, human approval or Agent eval.
 
-`manifest.json` identifies dataset `product-shein-shared`, version `1.0.2`, the
-SHA-256 of the **exact UTF-8 bytes of cases.json including its final LF**, fixed
-semantic time, rule and binding versions. Local attributes pin JSON to LF on
-Windows and Linux. The digest excludes the manifest itself and this README.
+`manifest.json` identifies dataset `product-shein-shared` at version `1.0.3`
+with rule version `shein.offline_package.v2.3`. It records the SHA-256 of the
+**exact UTF-8 bytes of cases.json including its final LF**, fixed semantic time,
+and binding version. Local attributes pin JSON to LF on Windows and Linux.
+The digest excludes the manifest itself and this README.
 The loader verifies bytes, unique stable IDs, count and pinned version before
 either consumer runs. There is no golden-update or accept-all command.
 
@@ -44,7 +45,7 @@ input-binding design. Existing independent evidence:
   final-confirmation action differences; complete Package is explicitly synthetic.
 - `internal/marketplace/shein/validator/diagnostic_test.go`:
   `TestDiagnosticFixedEncodingVectors` supplies the already-reviewed empty vector.
-- `docs/superpowers/specs/2026-09-05-shein-offline-validation-input-binding-design.md`
+- `docs/architecture/shein-offline-validation-input-binding.md`
   section 3 and current `internal/marketplace/validator/diagnostic.go`: content
   binding, expiry equality, unknown coverage, zero report on error.
 
@@ -62,9 +63,10 @@ text or every downstream rule. All returned blocker/warning entries must also
 exist in checks and retain category/paths/guidance. Both actions must retain
 unknown freshness and the exact eight unassessed scopes. Draft's policy never
 removes mandatory blockers. A ready offline result is never submission authority.
-Complete synthetic cases also require the exact 15-rule checklist, so dropping
-a successful check cannot produce a false pass. The loader rejects empty outcome
-branches, missing inputs, duplicate/unknown actions/layers and incomplete PG cases.
+Complete synthetic cases also require the exact 16-rule checklist, including
+`sku_facts`, so dropping a successful check cannot produce a false pass.
+The loader rejects empty outcome branches, missing inputs, duplicate/unknown
+actions/layers and incomplete PG cases.
 
 When changing data/expected, explain the changed contract and case IDs, obtain
 independent review, bump the dataset version, update the exact cases hash and

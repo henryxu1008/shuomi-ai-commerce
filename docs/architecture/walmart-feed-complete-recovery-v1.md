@@ -4,7 +4,7 @@ Refs #733。2026-11-01，调查基线 `c0210ff34f44c371b5a1993aed89f439cfbdc1ff`
 
 - Design Basis: **Independent Architecture / DESIGN_ONLY / DESIGN_CANDIDATE / NOT_READY**。
 - 本次只交付设计与 Draft PR；暂不实现、不新增评审派工。本文不是 `IMPLEMENTATION_READY`，不授权修改生产路径、schema、状态、修复资格或保留环境。
-- 当前唯一 Writer、原工作区及一个主要 PR 保持不变。原 [Feed 恢复合同](walmart-feed-recovery-v1.md) 的 `IMPLEMENTATION_READY / FROZEN` 只覆盖 #1028 已批准的明确拒绝重试和有界续读，不自动覆盖本候选。
+- 当前唯一 Writer、原工作区及一个主要 PR 保持不变。原 [Feed 恢复合同](walmart-feed-recovery.md) 的 `IMPLEMENTATION_READY / FROZEN` 只覆盖 #1028 已批准的明确拒绝重试和有界续读，不自动覆盖本候选。
 - 2026-11-06 用户选择按单响应最多 **1000 条**继续设计，适用范围为 MP_ITEM 和 MP_ITEM_MATCH 的原 accepted Feed。实际请求条数取原批准载荷中的准确 SKU 数，见 §4.4。
 - **来源依赖仍未满足。** 官方资料的 50/1000 上限冲突继续记录。1000 是已选设计参数，适用上限、完整性、截断和跨请求一致性仍为 **UNKNOWN**。完整恢复未完成，#733 保持开放，咨询为 **NOT_SENT**。
 
@@ -23,11 +23,11 @@ Refs #733。2026-11-01，调查基线 `c0210ff34f44c371b5a1993aed89f439cfbdc1ff`
 
 Out of Scope：实现、真实平台查询或发送、自动重试/轮询、旧 UNKNOWN 判定或账务释放、其他 Feed 类型、手工导入/勾选通过、新菜单/工作台、通用快照/对账/恢复框架、第二事实 owner、保留库迁移。
 
-Threat Model 沿用 [Walmart US V1](walmart-us-v1.md) 与原恢复合同：本系统的并发、重放、响应/commit 丢失及授权/来源漂移；不承诺自动对账商家其他系统的操作。没有新增 Accepted Risk。
+Threat Model 沿用 [Walmart US V1](walmart-us.md) 与原恢复合同：本系统的并发、重放、响应/commit 丢失及授权/来源漂移；不承诺自动对账商家其他系统的操作。没有新增 Accepted Risk。
 
 ## 2. 产品与技术依据及真实缺口
 
-复用原 Walmart 文档 §2 的当前 Product / Figma Authority（最终 UI/IA，Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`）和供应链资料页的原结果入口。本候选不新增页面、不声称执行了视觉验收。采用[全新系统基线](../product/greenfield-no-legacy-migration.md)，不新增历史兼容或迁移义务。
+复用原 Walmart 文档 §2 的供应链资料页结果入口。Figma `tg48P46SSXl6TBy9lZwg63` / `31:463` 作为[业务流程参考](../product/final-ui-ia-authority.md)。本候选不新增页面、不声称执行了视觉验收。采用[全新系统基线](../product/greenfield-no-legacy-migration.md)，不新增历史兼容或迁移义务。
 
 2026-11-01 只读官方文档，未调用业务平台：
 

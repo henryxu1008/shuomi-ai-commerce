@@ -1,7 +1,5 @@
 package config
 
-import "strings"
-
 // ImageAgentConfig owns the durable runtime settings consumed by ImageAgent.
 type ImageAgentConfig struct {
 	Generation    ImageAgentGenerationConfig    `mapstructure:"generation" yaml:"generation"`
@@ -9,15 +7,16 @@ type ImageAgentConfig struct {
 	ArtifactStore ImageAgentArtifactStoreConfig `mapstructure:"artifactStore" yaml:"artifactStore"`
 }
 
-// ImageAgentGenerationConfig is a server-owned price, never a sample balance
-// or provider token conversion. Absent configuration keeps generation closed.
+// Generation contains only an explicit admission ceiling, never a customer price.
+// Every charge comes from the shared official tariff and the original ledger.
 type ImageAgentGenerationConfig struct {
-	PriceVersion   string `mapstructure:"priceVersion" yaml:"priceVersion" json:"priceVersion"`
-	PointsPerImage int64  `mapstructure:"pointsPerImage" yaml:"pointsPerImage" json:"pointsPerImage"`
+	Enabled            bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+	UnitVersion        string `mapstructure:"unitVersion" yaml:"unitVersion" json:"unitVersion"`
+	MaximumMicropoints int64  `mapstructure:"maximumMicropoints" yaml:"maximumMicropoints" json:"maximumMicropoints,string"`
 }
 
 func (c ImageAgentGenerationConfig) Configured() bool {
-	return c.PointsPerImage > 0 && c.PriceVersion != "" && len(c.PriceVersion) <= 192 && strings.TrimSpace(c.PriceVersion) == c.PriceVersion && !strings.ContainsAny(c.PriceVersion, "\r\n\x00")
+	return c.Enabled && c.UnitVersion == "ai-micropoint-v1" && c.MaximumMicropoints > 0
 }
 
 // ImageAgentAdmissionConfig is the explicit tenant boundary for provider work.

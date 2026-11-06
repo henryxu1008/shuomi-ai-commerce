@@ -253,7 +253,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 	require.ErrorIs(t, capturedResultReader{store}.Verify(ctx, scope, *savedItems[0].Source, bad), dataacquisition.ErrUnavailable)
 	t.Run("bounded console and DataKey routes use original owner", func(t *testing.T) {
 		require.NoError(t, keystore.InstallCustomSchema(productDB))
-		module, err := NewModule(ctx, Dependencies{ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture, Funding: fixture, Provider: fixture, Starter: fixture, Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
+		module, err := NewModule(ctx, Dependencies{ExecutionEnabled: true, ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture, Funding: fixture, Provider: fixture, Starter: fixture, Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
 			return orgresource.NewConsumerChargeService(resourceRepo, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerAmazonData: owner})
 		}})
 		require.NoError(t, err)
@@ -574,6 +574,111 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		require.Contains(t, w.Body.String(), "HTTP fixture")
 		readBalance()
 		require.Equal(t, int64(2), bucket.Consumed, "custom delivery does not consume DATA_ROW")
+	})
+	t.Run("disabled execution keeps guarded history without restoring work", func(t *testing.T) {
+		module, err := NewModule(ctx, Dependencies{ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture})
+		require.NoError(t, err)
+		require.Nil(t, module.Runner())
+		require.Nil(t, module.ChargeOwner())
+		opts := module.options(ctx)
+		require.False(t, opts.AcquisitionReady)
+		require.Empty(t, opts.Sites)
+		require.Contains(t, opts.UnavailableReason, "已关闭")
+		created, err := module.keys.Create(ctx, uuid.NewString(), dataservice.KeyInput{Name: "closed history", ExpiresAt: time.Now().UTC().Add(time.Hour), DailyRows: 5, MonthlyCostFen: 25, Permissions: []string{dataservice.PermissionAcquire, dataservice.PermissionResult}})
+		require.NoError(t, err)
+		keyHeader := "DataKey " + created.Key.ID + "." + created.Secret
+		router := gin.New()
+		for _, route := range module.BuildRoutes() {
+			router.Handle(route.Method, route.Path, route.Handler)
+		}
+		enabledModule, err := NewModule(ctx, Dependencies{ExecutionEnabled: true, ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture, Funding: fixture, Provider: fixture, Starter: fixture, Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
+			return orgresource.NewConsumerChargeService(resourceRepo, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerAmazonData: owner})
+		}})
+		require.NoError(t, err)
+		enabledRouter := gin.New()
+		for _, route := range enabledModule.BuildRoutes() {
+			enabledRouter.Handle(route.Method, route.Path, route.Handler)
+		}
+		sendTo := func(target *gin.Engine, method, path, header string) *httptest.ResponseRecorder {
+			request := httptest.NewRequest(method, path, strings.NewReader(func() string {
+				if method == "POST" {
+					return `{}`
+				}
+				return ""
+			}()))
+			request.TLS = &tls.ConnectionState{}
+			request.RemoteAddr = "198.51.100.2:4567"
+			request.Header.Set("Content-Type", "application/json")
+			if method == "POST" {
+				request.Header.Set("Idempotency-Key", uuid.NewString())
+			}
+			if header != "" {
+				request.Header.Set("Authorization", header)
+			}
+			response := httptest.NewRecorder()
+			target.ServeHTTP(response, request)
+			return response
+		}
+		send := func(method, path, header string) *httptest.ResponseRecorder {
+			return sendTo(router, method, path, header)
+		}
+		pool, err := productDB.DB()
+		require.NoError(t, err)
+		pool.SetMaxOpenConns(1)
+		t.Cleanup(func() { pool.SetMaxOpenConns(0) })
+		readBalance()
+		beforeBalance := bucket
+		starts, fetches, checks := fixture.starts, fixture.fetches, fixture.executionChecks
+		for _, state := range []string{"ADMITTED", "RUNNING"} {
+			principal := dataacquisition.Principal{Scope: scope, CredentialID: created.Key.ID, CredentialRevision: created.Key.Revision}
+			original, err := repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise)
+			require.NoError(t, err)
+			if state == "RUNNING" {
+				original, err = repo.Discover(ctx, original, q.ASINs)
+				require.NoError(t, err)
+			}
+			checks = fixture.executionChecks // Fixture admission/discovery is setup, not a read effect.
+			for _, path := range []string{APIBase + "/by-command/" + original.CommandKey, APIBase + "/" + original.ID, APIBase + "/" + original.ID + "/results", ConsoleBase + "/amazon/jobs/" + original.ID} {
+				response := send("GET", path, func() string {
+					if strings.HasPrefix(path, APIBase) {
+						return keyHeader
+					}
+					return ""
+				}())
+				require.Equal(t, 200, response.Code, response.Body.String())
+			}
+			require.Equal(t, 503, send("POST", ConsoleBase+"/amazon/jobs/"+original.ID+"/cancel", "").Code)
+			unchanged, err := repo.Read(ctx, scope, original.ID)
+			require.NoError(t, err)
+			require.Equal(t, state, unchanged.State)
+			require.Equal(t, starts, fixture.starts, "closed GET and cancellation must not EnsureExecution")
+			for _, path := range []string{APIBase + "/by-command/" + original.CommandKey, APIBase + "/" + original.ID, APIBase + "/" + original.ID + "/results"} {
+				response := sendTo(enabledRouter, "GET", path, keyHeader)
+				require.Equal(t, 200, response.Code, response.Body.String())
+				starts++
+				require.Equal(t, starts, fixture.starts, "enabled GET must retain original in-guard recovery")
+			}
+		}
+		var jobsBefore, jobsAfter int64
+		require.NoError(t, productDB.Raw("SELECT count(*) FROM data_acquisition_jobs").Scan(&jobsBefore).Error)
+		require.Equal(t, 503, send("POST", ConsoleBase+"/amazon/jobs", "").Code)
+		require.Equal(t, 503, send("POST", APIBase, keyHeader).Code)
+		require.NoError(t, productDB.Raw("SELECT count(*) FROM data_acquisition_jobs").Scan(&jobsAfter).Error)
+		require.Equal(t, jobsBefore, jobsAfter)
+		response := send("GET", ConsoleBase+"/amazon/jobs/"+job.ID+"/results", "")
+		require.Equal(t, 200, response.Code)
+		require.Contains(t, response.Body.String(), "controlled fixture")
+		provenance, err := module.Provenance(ctx, dataacquisition.Principal{Scope: scope}, *savedItems[0].Source)
+		require.NoError(t, err)
+		require.Equal(t, "controlled fixture", provenance.Evidence.Title)
+		require.Equal(t, starts, fixture.starts)
+		require.Equal(t, fetches, fixture.fetches)
+		require.Equal(t, checks, fixture.executionChecks)
+		readBalance()
+		require.Equal(t, beforeBalance, bucket)
+		_, err = module.keys.Change(ctx, created.Key.ID, uuid.NewString(), created.Key.Revision, dataservice.KeyPatch{State: "REVOKED"})
+		require.NoError(t, err)
+		require.Equal(t, 403, send("GET", APIBase+"/"+job.ID, keyHeader).Code)
 	})
 	for _, tc := range []struct {
 		name   string

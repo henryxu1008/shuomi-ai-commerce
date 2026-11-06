@@ -41,7 +41,7 @@ func TestSettleSuccessfulInvocationIgnoresFailedOrUnknownUsage(t *testing.T) {
 }
 
 func TestObservedFailedNativeOutputSettlesActualTokensWithoutChangingOrdinaryFailure(t *testing.T) {
-	for _, operation := range []Operation{OperationProductAgentDecision, OperationProductContentDecision, OperationListingMaterialsDecision, OperationProductSelectionDecision, OperationShopDiagnosisDecision, OperationAIWorkbenchChatPlan} {
+	for _, operation := range []Operation{OperationProductAgentDecision, OperationProductContentDecision, OperationListingMaterialsDecision, OperationProductResearchDecision, OperationProductSelectionDecision, OperationShopDiagnosisDecision, OperationAIWorkbenchChatPlan} {
 		t.Run(string(operation), func(t *testing.T) {
 			settler := &recordingUsageSettler{}
 			record := InvocationRecord{InvocationID: "native-1", TenantID: "org-1", UserID: "actor-1", MemberID: "member-1", Operation: operation, PromptTokens: 7, CompletionTokens: 5, TotalTokens: 12, UsageKnown: true, Outcome: InvocationUsageObservedFailed, FinishedAt: time.Now().UTC()}

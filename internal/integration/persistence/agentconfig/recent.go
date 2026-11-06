@@ -3,6 +3,7 @@ package agentconfigpersistence
 import (
 	"context"
 	"errors"
+	"fmt"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	runstore "task-processor/internal/integration/persistence/agent"
@@ -22,18 +23,68 @@ type RecentRun struct {
 	StartedAt       time.Time             `json:"startedAt"`
 }
 
-func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error) ([]RecentRun, string, error) {
+type RecentContext struct{ Kind, ID string }
+
+func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error, contexts ...RecentContext) ([]RecentRun, string, error) {
+	return s.recent(ctx, scope, memberID, id, after, size, runs, authorize, nil, contexts...)
+}
+
+// Same original Run/snapshot history, narrowed before pagination to this
+// finite readonly consumer and source. Other image-agent runs cannot leak in.
+func (s *Store) RecentImageAnalysis(ctx context.Context, scope agent.Scope, memberID, kind, contextID, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error) ([]RecentRun, string, error) {
+	if (kind != "acquisition" && kind != "collection" && kind != "own_product") || !agentconfig.UUID(contextID) {
+		return nil, "", agentconfig.ErrInvalid
+	}
+	return s.recent(ctx, scope, memberID, agentconfig.ImageAgentID, after, size, runs, authorize, []string{kind, contextID})
+}
+
+// Workbench-scoped runs are disclosed through their original Task. Exclude
+// them at the owner query and at its cursor anchor before paging native runs.
+const nativeRunSnapshot = "convert_from(%spayload,'UTF8')::jsonb #> '{Request,WorkbenchContextRef}' IS NULL"
+
+func (s *Store) recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error, sourceContext []string, contexts ...RecentContext) ([]RecentRun, string, error) {
 	if !scopeOK(scope) || !agent.ValidID(memberID) || size < 1 || size > 20 || (after != "" && !agentconfig.UUID(after)) || runs == nil || authorize == nil {
+		return nil, "", agentconfig.ErrInvalid
+	}
+	if len(contexts) > 1 || id == agentconfig.ResearchAgentID && (len(contexts) != 1 || size > 10 || contexts[0].Kind != agent.ResearchSelectionContextKind || !agentconfig.UUID(contexts[0].ID)) {
+		return nil, "", agentconfig.ErrInvalid
+	}
+	if len(contexts) == 1 && (!agent.ValidID(contexts[0].Kind) || !agentconfig.UUID(contexts[0].ID)) {
+		return nil, "", agentconfig.ErrInvalid
+	}
+	if len(sourceContext) != 0 && (len(sourceContext) != 2 || !agent.ValidID(sourceContext[0]) || !agent.ValidID(sourceContext[1])) {
 		return nil, "", agentconfig.ErrInvalid
 	}
 	q := s.db.WithContext(ctx).Table("agent_configuration.start_snapshots AS s").Select("s.*").Joins("JOIN product_agent_runs r ON r.org=s.organization_id AND r.actor=s.actor_id AND r.context_kind=s.context_kind AND r.context_id=s.context_id AND r.request_key=s.request_key").Where("s.organization_id=? AND s.actor_id=? AND s.agent_id=?", scope.OrganizationID, scope.ActorID, id)
 	// The original snapshot already owns the member. Filter before pagination so
 	// a new membership cannot receive old run metadata or old-member cursors.
-	q = q.Where("convert_from(s.payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID)
+	q = q.Where("convert_from(s.payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID).
+		Where(fmt.Sprintf(nativeRunSnapshot, "s."))
+	if len(contexts) == 1 {
+		q = q.Where("s.context_kind=? AND s.context_id=?", contexts[0].Kind, contexts[0].ID)
+	}
+	if len(sourceContext) == 2 {
+		q = q.Where("s.context_kind=? AND s.context_id=?", sourceContext[0], sourceContext[1]).Where("convert_from(s.payload,'UTF8')::jsonb -> 'ImageAnalysis' IS NOT NULL")
+	}
 	if after != "" {
 		var anchor snapshotRow
-		if e := s.db.WithContext(ctx).Where("id=? AND organization_id=? AND actor_id=? AND agent_id=?", after, scope.OrganizationID, scope.ActorID, id).Where("convert_from(payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID).Take(&anchor).Error; e != nil {
+		anchorQuery := s.db.WithContext(ctx).Where("id=? AND organization_id=? AND actor_id=? AND agent_id=?", after, scope.OrganizationID, scope.ActorID, id).
+			Where("convert_from(payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID).
+			Where(fmt.Sprintf(nativeRunSnapshot, ""))
+		if len(contexts) == 1 {
+			anchorQuery = anchorQuery.Where("context_kind=? AND context_id=?", contexts[0].Kind, contexts[0].ID)
+		}
+		if e := anchorQuery.Take(&anchor).Error; e != nil {
 			return nil, "", agentconfig.ErrInvalid
+		}
+		if len(sourceContext) == 2 && (anchor.ContextKind != sourceContext[0] || anchor.ContextID != sourceContext[1]) {
+			return nil, "", agentconfig.ErrInvalid
+		}
+		if len(sourceContext) == 2 {
+			v, e := snapshotView(anchor)
+			if e != nil || v.ImageAnalysis == nil {
+				return nil, "", agentconfig.ErrInvalid
+			}
 		}
 		q = q.Where("(s.created_at,s.id) < (?,?)", anchor.CreatedAt, anchor.ID)
 	}
@@ -68,7 +119,7 @@ func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, aft
 		if !found {
 			continue
 		}
-		if r.State.Request.ConfigurationSnapshotRef.ID != snap.ID || r.State.Request.ConfigurationSnapshotRef.Digest != snap.Digest || r.State.Request.SkillVersionRef != snap.Request.SkillVersionRef {
+		if r.State.Request.ConfigurationSnapshotRef.ID != snap.ID || r.State.Request.ConfigurationSnapshotRef.Digest != snap.Digest || r.State.Request.SkillVersionRef != snap.Request.SkillVersionRef || !r.State.Request.WorkbenchContextRef.Absent() {
 			return nil, "", agentconfig.ErrUnavailable
 		}
 		out = append(out, RecentRun{ContextKind: snap.Request.Binding.ContextKind, SkillVersionRef: r.State.Request.SkillVersionRef, RunID: r.State.RunID, OperationID: snap.Request.Binding.ContextID, RequestKey: snap.Request.Key, ProductKey: snap.Request.Binding.ProductKey, TargetPlatform: snap.Request.Binding.TargetPlatform, Phase: r.State.Phase, Revision: decimal(int64(r.State.Revision)), StartedAt: r.State.StartedAt})

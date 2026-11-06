@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -34,6 +35,7 @@ import (
 	"task-processor/internal/marketplace/shein/draft"
 	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	"task-processor/internal/product/collection"
+	collectionhttp "task-processor/internal/product/collection/httpapi"
 	rc "task-processor/internal/reportcenter"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/storecenter"
@@ -249,12 +251,48 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	realDeps := routeAuthDependencies{organizationResolver: offlineFixedResolver{identity}}
 	realCollections, e := buildProductCollectionService(ctx, f.db, realDeps, permissions, false, false, false, false, false, false, true)
 	require.NoError(t, e)
-	bound, e := (productReviewCapabilityBinder{}).Bind(authidentity.WithAuthenticatedIdentity(ctx, identity), "Bearer synthetic")
+	binder := productReviewCapabilityBinder{}
+	bound, e := binder.Bind(authidentity.WithAuthenticatedIdentity(ctx, identity), "Bearer synthetic")
 	require.NoError(t, e)
-	own, e := realCollections.Mutate(bound, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "Synthetic real Collection"}})
-	require.NoError(t, e)
+	collectionRouter := gin.New()
+	for _, route := range collectionhttp.Routes(realCollections, binder.Bind) {
+		collectionRouter.Handle(route.Method, route.Path, route.Handler)
+	}
+	ownKey := uuid.NewString()
+	ownBody := `{"action":"create_product","product":{"title":"Synthetic real Collection","images":[],"variants":[
+        {"sourceId":"zero","title":"Zero","sku":"ZERO","currency":"USD","price":0,"stock":0,"attributes":{}},
+        {"sourceId":"positive","title":"Positive","sku":"POSITIVE","currency":"USD","price":7,"stock":7,"attributes":{}}
+    ]}}`
+	sendCollection := func(key, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", collectionhttp.BasePath+"/commands", strings.NewReader(body)).
+			WithContext(authidentity.WithAuthenticatedIdentity(ctx, identity))
+		req.Header.Set("Authorization", "Bearer synthetic")
+		req.Header.Set("Idempotency-Key", key)
+		req.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		collectionRouter.ServeHTTP(response, req)
+		return response
+	}
+	require.Equal(t, 400, sendCollection(ownKey, strings.Replace(ownBody, `,"stock":0`, "", 1)).Code)
+	require.Equal(t, 400, sendCollection(ownKey, strings.Replace(ownBody, `"stock":0`, `"stock":null`, 1)).Code)
+	require.Equal(t, 400, sendCollection(ownKey, strings.Replace(ownBody, `"stock":0`, `"stock":0,"ownStockDeclared":true`, 1)).Code)
+	created := sendCollection(ownKey, ownBody)
+	require.Less(t, created.Code, 300, created.Body.String())
+	var own collection.Receipt
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &own))
+	replayed := sendCollection(ownKey, ownBody)
+	require.Less(t, replayed.Code, 300, replayed.Body.String())
+	var replay collection.Receipt
+	require.NoError(t, json.Unmarshal(replayed.Body.Bytes(), &replay))
+	require.Equal(t, own.ItemID, replay.ItemID)
 	detail, e := realCollections.ReadItem(bound, own.ItemID)
 	require.NoError(t, e)
+	require.Len(t, detail.Product.Variants, 2)
+	for i, want := range []int{0, 7} {
+		require.True(t, detail.Product.Variants[i].OwnStockDeclared)
+		require.NotNil(t, detail.Product.Variants[i].Stock)
+		require.Equal(t, want, *detail.Product.Variants[i].Stock)
+	}
 	prepareApprovedAssets(t, assetsOwner, "org-a", detail.Item.Source.ProductKey, detail.Item.Source.Version)
 	actual, e := buildOfflineRecords(ctx, f.db, assets, stores, realDeps, permissions, realCollections)
 	require.NoError(t, e)
@@ -280,6 +318,17 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	}
 	one := createActual()
 	require.Equal(t, 201, one.Code, one.Body.String())
+	var savedReceipt record.Receipt
+	require.NoError(t, json.Unmarshal(one.Body.Bytes(), &savedReceipt))
+	get := httptest.NewRequest("GET", offlineRecordsPath+"/"+savedReceipt.RecordID, nil).WithContext(ctx)
+	get.Header.Set("Authorization", "Bearer synthetic")
+	savedResponse := httptest.NewRecorder()
+	actualRouter.ServeHTTP(savedResponse, get)
+	require.Equal(t, 200, savedResponse.Code, savedResponse.Body.String())
+	require.Contains(t, savedResponse.Body.String(), "ZERO")
+	require.Contains(t, savedResponse.Body.String(), "库存 0")
+	require.Contains(t, savedResponse.Body.String(), "库存 7")
+	require.Contains(t, savedResponse.Body.String(), "重量待补")
 	// Merely raising the minimum pool size would still deadlock two transactions.
 	pool.SetMaxOpenConns(2)
 	results := make(chan *httptest.ResponseRecorder, 2)
@@ -293,6 +342,45 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	for result := range results {
 		require.Equal(t, 201, result.Code, result.Body.String())
 	}
+	workbook := excelize.NewFile()
+	defer workbook.Close()
+	require.NoError(t, workbook.SetSheetRow("Sheet1", "A1", &collection.ImportHeaders))
+	require.NoError(t, workbook.SetSheetRow("Sheet1", "A2", &[]any{"Imported", "", "", "", "IMPORTED", "USD", 0, 0}))
+	sheet, e := workbook.WriteToBuffer()
+	require.NoError(t, e)
+	imported, e := realCollections.PreviewImport(bound, sheet.Bytes())
+	require.NoError(t, e)
+	importBody, e := json.Marshal(collection.Mutation{Action: "import_products", Name: "Stock import", Products: imported.Products})
+	require.NoError(t, e)
+	importResponse := sendCollection(uuid.NewString(), string(importBody))
+	require.Equal(t, 200, importResponse.Code, importResponse.Body.String())
+	var importReceipt collection.Receipt
+	require.NoError(t, json.Unmarshal(importResponse.Body.Bytes(), &importReceipt))
+	page, e := realCollections.ListItems(bound, importReceipt.BatchID, collection.Query{Limit: 10})
+	require.NoError(t, e)
+	require.Len(t, page.Items, 1)
+	importedItem, e := realCollections.ReadItem(bound, page.Items[0].ID)
+	require.NoError(t, e)
+	require.True(t, importedItem.Product.Variants[0].OwnStockDeclared)
+	require.Equal(t, new(0), importedItem.Product.Variants[0].Stock)
+
+	revision := imported.Products[0]
+	revision.Variants[0].Stock = 7
+	revisionBody, e := json.Marshal(collection.Mutation{
+		Action: "revise_product", ItemID: importedItem.Item.ID, ExpectedRevision: importedItem.Item.Revision,
+		ExpectedSourceVersion: importedItem.Item.Source.Version, ExpectedPublicationID: importedItem.Item.Source.PublicationID, Product: &revision,
+	})
+	require.NoError(t, e)
+	revisionResponse := sendCollection(uuid.NewString(), string(revisionBody))
+	require.Equal(t, 200, revisionResponse.Code, revisionResponse.Body.String())
+	revisedItem, e := realCollections.ReadItem(bound, importedItem.Item.ID)
+	require.NoError(t, e)
+	require.True(t, revisedItem.Product.Variants[0].OwnStockDeclared)
+	require.Equal(t, new(7), revisedItem.Product.Variants[0].Stock)
+	originalVersion, e := realCollections.ReadOwnVersion(bound, importedItem.Item.ID, importedItem.Item.Source.Version)
+	require.NoError(t, e)
+	require.Equal(t, new(0), originalVersion.Product.Variants[0].Stock)
+
 	// Original size and FK/schema admission are checked before listen.
 	require.NoError(t, f.owner.Exec("ALTER TABLE listing_shein_record_operations DROP CONSTRAINT listing_shein_record_operations_record_fk").Error)
 	require.Error(t, recordstore.VerifySchema(ctx, f.db))

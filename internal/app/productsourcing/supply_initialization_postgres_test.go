@@ -72,6 +72,8 @@ func TestSupplyInitializationAdmitsExactProductPermissions(t *testing.T) {
 	require.NoError(t, InstallAcquisitionSchema(owner))
 	require.NoError(t, collectionstore.InstallSchema(owner))
 	require.NoError(t, InstallSupplyChainSchema(owner))
+	require.True(t, owner.Migrator().HasTable("listing_preparation_upload_plans"), "the explicit owner installer must install the current plan contract")
+	require.True(t, owner.Migrator().HasTable("listing_preparation_upload_plan_items"))
 	require.NoError(t, owner.Exec(`CREATE ROLE source_acquisition_runtime LOGIN PASSWORD 'isolated_supply' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`).Error)
 	capabilities := acquisitionstore.RuntimeCapabilities{Collections: true, SupplyChain: true}
 	require.NoError(t, acquisitionstore.GrantRuntimePermissions(ctx, owner, capabilities))

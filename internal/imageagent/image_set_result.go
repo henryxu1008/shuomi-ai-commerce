@@ -68,6 +68,9 @@ func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []Reco
 			return "", ErrRevisionConflict
 		}
 		closure := actual.Closure
+		if !closure.Valid(actual.Attempt) {
+			return "", ErrRevisionConflict
+		}
 		points := int64(0)
 		if artwork {
 			points = plan.Artwork.Quote.Points
@@ -76,7 +79,7 @@ func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []Reco
 		}
 		switch closure.Kind {
 		case "settled":
-			if !agentconfig.ImageDigest(closure.IntentID) || !agentconfig.ImageDigest(closure.Fingerprint) || !agentconfig.ImageDigest(closure.SettlementProofDigest) || closure.Points != points || actual.Attempt <= 0 {
+			if !agentconfig.ImageDigest(closure.IntentID) || !agentconfig.ImageDigest(closure.Fingerprint) || !agentconfig.ImageDigest(closure.SettlementProofDigest) || closure.Points < 0 || closure.Points > points || actual.Attempt <= 0 {
 				return "", ErrRevisionConflict
 			}
 		case "no_generation":
@@ -97,7 +100,7 @@ func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []Reco
 			}
 			candidate := actual.Candidates[0]
 			proof := candidate.GenerationProof
-			if ValidateProvenanceAssetID(candidate.AssetID) != nil || seen[candidate.AssetID] || candidate.Width <= 0 || candidate.Height <= 0 || proof == nil || proof.IntentID != closure.IntentID || proof.Fingerprint != closure.Fingerprint || proof.SettlementProofDigest != closure.SettlementProofDigest || proof.Points != closure.Points {
+			if ValidateProvenanceAssetID(candidate.AssetID) != nil || seen[candidate.AssetID] || candidate.Width <= 0 || candidate.Height <= 0 || proof == nil || proof.UnitVersion != closure.UnitVersion || proof.IntentID != closure.IntentID || proof.Fingerprint != closure.Fingerprint || proof.SettlementProofDigest != closure.SettlementProofDigest || proof.Points != closure.Points {
 				return "", ErrRevisionConflict
 			}
 			if artwork {

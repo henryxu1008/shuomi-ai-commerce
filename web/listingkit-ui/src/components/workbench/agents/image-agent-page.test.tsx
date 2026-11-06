@@ -14,6 +14,14 @@ const detail={agent:{agentId:id,activation:"ENABLED",revision:"1",activationEpoc
 beforeEach(()=>{localStorage.clear();configurationContext.guards.clear();});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();localStorage.clear();});
 
+it("uses the saved-product entry from image configuration without starting acquisition or generation",async()=>{
+ const fetch=vi.fn(async(_url:unknown,_init?:RequestInit)=>{void _url;void _init;return Response.json({...detail,canUse:true})});
+ vi.stubGlobal("fetch",fetch);
+ render(<ImageAgentPage scope={{organizationId:"org-a",userId:"actor"}} organization="企业A"/>);
+ expect(await screen.findByRole("link",{name:"选择已有商品处理图片 →"})).toHaveAttribute("href","/workbench/data/mine?view=own");
+ expect(fetch.mock.calls.every(([,init])=>!init||!["POST","PUT","DELETE"].includes(init.method??"GET"))).toBe(true);
+});
+
 it.each([["通用商品主图","carousel","product_identity"],["通用使用场景","carousel","usage_scene"],["通用卖点详情","detail","key_benefits"]])("saves %s only after explicit confirmation without changing the enterprise default",async(name,group,purpose)=>{
   const retainedDefault={templateId:"45a227bb-b572-4138-8e2a-5f1a0be98617",revision:"7"};
   const read={...detail,agent:{...detail.agent,defaultTemplate:retainedDefault}};

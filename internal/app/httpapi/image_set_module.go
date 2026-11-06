@@ -150,7 +150,11 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		writeFullImageError(c, imageagent.ErrIdentityRequired, false)
 		return
 	}
-	if a == nil || a.service == nil || m.bind == nil {
+	if a == nil || a.runs() == nil || m.bind == nil {
+		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+		return
+	}
+	if a.executionDisabled && (action == "model-options" || c.Request.Method != http.MethodGet && action != "requirements") {
 		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
 		return
 	}
@@ -226,7 +230,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		if !emptyAcquisitionImageBody(c) {
 			return
 		}
-		p, e := a.service.GetPreparedImageSet(ctx, kind, contextID, c.Param("request_id"))
+		p, e := a.runs().GetPreparedImageSet(ctx, kind, contextID, c.Param("request_id"))
 		if e == nil {
 			e = validateFullImageRun(identity, kind, contextID, p.Run.ID, p)
 		}
@@ -259,7 +263,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 				return
 			}
 		}
-		items, next, e := a.readRecent(ctx, contextID, query.Get("cursor"), 20)
+		items, next, unavailable, e := a.readRecent(ctx, contextID, query.Get("cursor"), 20)
 		if e != nil {
 			writeFullImageError(c, e, false)
 			return
@@ -270,7 +274,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 				visible = append(visible, item)
 			}
 		}
-		c.JSON(http.StatusOK, gin.H{"items": visible, "nextCursor": next})
+		c.JSON(http.StatusOK, gin.H{"items": visible, "nextCursor": next, "unavailableCount": unavailable})
 		return
 	}
 	if action == "sources" {
@@ -331,7 +335,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		}
 		input := imageagent.PrepareImageSetInput{Route: body.Route, Text: body.Text, ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
 		if action == "regenerate" {
-			p, e := a.service.Get(ctx, c.Param("run_id"))
+			p, e := a.runs().Get(ctx, c.Param("run_id"))
 			if e == nil {
 				e = validateFullImageRun(identity, kind, contextID, c.Param("run_id"), p)
 			}
@@ -346,7 +350,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			// A frozen preparation is a readback, not a new Skill selection.
 			// Its stored publisher/policy determines the original input hash;
 			// PrepareImageSet still checks every submitted input and live source.
-			prior, readErr := a.service.GetPreparedImageSet(ctx, kind, contextID, keys[0])
+			prior, readErr := a.runs().GetPreparedImageSet(ctx, kind, contextID, keys[0])
 			if readErr == nil {
 				if prior.Plan.Set == nil || prior.Plan.Set.Method == nil {
 					writeFullImageError(c, imageagent.ErrRevisionConflict, false)
@@ -395,7 +399,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		writeFullImageError(c, imageagent.ErrValidation, false)
 		return
 	}
-	p, err := a.service.Get(ctx, runID)
+	p, err := a.runs().Get(ctx, runID)
 	if err == nil {
 		err = validateFullImageRun(identity, kind, contextID, runID, p)
 	}
@@ -557,31 +561,31 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 	c.JSON(http.StatusAccepted, gin.H{"runId": runID, "status": "accepted"})
 }
 
-func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]fullImageRecentRun, string, error) {
+func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]fullImageRecentRun, string, int, error) {
 	id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || a == nil || a.recent == nil {
-		return nil, "", imageagent.ErrIdentityRequired
+		return nil, "", 0, imageagent.ErrIdentityRequired
 	}
 	if size < 1 || size > 40 {
-		return nil, "", imageagent.ErrValidation
+		return nil, "", 0, imageagent.ErrValidation
 	}
 	exec := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.EffectiveMemberID, BusinessTaskID: contextID}
-	items, next, err := a.recent.ListImageSets(ctx, exec, contextID, cursor, size)
+	items, next, unavailable, err := a.recent.ListImageSets(ctx, exec, contextID, cursor, size)
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
-	if len(items) > size {
-		return nil, "", imageagent.ErrValidation
+	if unavailable < 0 || len(items)+unavailable > size {
+		return nil, "", 0, imageagent.ErrValidation
 	}
 	inputs := make([]imageagent.PrepareImageSetInput, len(items))
 	projections := make([]imageagent.RunProjection, len(items))
 	for index, item := range items {
-		p, e := a.service.Get(ctx, item.RunID)
+		p, e := a.runs().Get(ctx, item.RunID)
 		if e != nil {
-			return nil, "", e
+			return nil, "", 0, e
 		}
 		if e = validateFullImageRun(id, item.ContextKind, item.ContextID, item.RunID, p); e != nil {
-			return nil, "", e
+			return nil, "", 0, e
 		}
 		source := p.Plan.Set.Source
 		inputs[index] = imageagent.PrepareImageSetInput{ContextKind: item.ContextKind, ContextID: item.ContextID, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, Target: imageagent.ImageTargetSelection{Platform: p.Plan.Set.Target.Platform}}
@@ -609,29 +613,29 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 		})
 	}
 	if err := group.Wait(); err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 	result := make([]fullImageRecentRun, 0, len(items))
 	for index, item := range items {
 		if visible[index] {
 			release, err := a.releaseSummary(ctx, projections[index])
 			if err != nil {
-				return nil, "", err
+				return nil, "", 0, err
 			}
 			var paid *fullImageOutputRecoverySummary
 			if release == nil {
 				paid, err = a.outputRecoverySummary(ctx, projections[index])
 				if err != nil {
-					return nil, "", err
+					return nil, "", 0, err
 				}
 			}
 			result = append(result, fullImageRecentRun{ImageSetRunSummary: item, ReleaseSummary: release, OutputRecoverySummary: paid})
 		}
 	}
-	return result, next, nil
+	return result, next, unavailable, nil
 }
 
 func fullImageSelection(p imageagent.RunProjection, body fullImageSelectionBody) (asset.ImageSetCommand, error) {
@@ -683,14 +687,18 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		if slot.Closure != nil {
 			settled += slot.Closure.Points
 		}
-		slots = append(slots, gin.H{"slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": definition.Recipe, "candidates": candidates, "closure": slot.Closure})
+		referencePriceVersion := ""
+		if definition.Recipe != nil {
+			referencePriceVersion = definition.Recipe.Quote.Billing.OfficialTariff.ReferencePriceVersion()
+		}
+		slots = append(slots, gin.H{"referencePriceVersion": referencePriceVersion, "slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": definition.Recipe, "candidates": candidates, "closure": slot.Closure})
 	}
 	closed := false
 	if p.Run.ImageAdmission != nil && p.PendingCommand == nil && imageagent.ImageSetClosedRunStatus(p.Run.Status) {
 		_, e := imageagent.ImageSetClosedEffectsDigest(p.Plan, p.Slots, p.RecoverableEffects)
 		closed = e == nil
 	}
-	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "points": prepared.Points, "settledPoints": settled, "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed, "block": p.Run.Block}
+	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "unitVersion": "ai-micropoint-v1", "points": strconv.FormatInt(prepared.Points, 10), "settledPoints": strconv.FormatInt(settled, 10), "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed, "block": p.Run.Block}
 	candidateDigest, candidateErr := imageagent.ImageSetCandidateResultDigest(p)
 	response["candidateSelectionAvailable"] = candidateErr == nil
 	if candidateErr == nil {
@@ -722,6 +730,9 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 			response["modeUnavailableReason"] = "EXECUTION_MODE_UNAVAILABLE"
 		}
 	}
+	if a.executionDisabled {
+		response["generationAllowed"], response["modeUnavailableReason"] = false, "EXECUTION_DISABLED"
+	}
 	if response["generationAllowed"] != true {
 		response["approvalAvailable"], response["regenerationAvailable"], response["candidateSelectionAvailable"] = false, false, false
 	}
@@ -745,7 +756,7 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 			return nil, imageagent.ErrRevisionConflict
 		}
 		response["outputRecoverySummary"] = paid
-		response["settledPoints"] = settled + paid.SettledPoints
+		response["settledPoints"] = strconv.FormatInt(settled+paid.SettledPoints, 10)
 	}
 	return response, nil
 }

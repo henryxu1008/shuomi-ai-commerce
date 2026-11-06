@@ -76,13 +76,19 @@ func buildLocalPackage(product *canonical.Product, country, language string, log
 			pkg.Metadata["title_skc_base"] = base
 		}
 	}
+	for _, variant := range variants {
+		if variant.Weight == nil || variant.Dimensions == nil {
+			pkg.ReviewNotes = append(pkg.ReviewNotes, "部分 SKU 缺少来源包装重量或尺寸，请核对原商品规格")
+			break
+		}
+	}
 	attachSourceFactReviewMetadata(pkg, product)
 	normalizeLocalCopy(pkg, product, language)
 	groups := buildLocalVariantGroups(variants, images)
 	pkg.SkcList = buildSKCs(groups)
 	supplierCode := firstSupplierCode(pkg.SkcList)
 	pkg.DraftPayload.SupplierCode = supplierCode
-	pkg.DraftPayload.SKCList = buildRequestSKCs(groups, images, siteList, product)
+	pkg.DraftPayload.SKCList = buildRequestSKCs(groups, images, siteList)
 	sanitizeLocalDraft(pkg, sheinmarketpub.DisplayTextCleanupInput{Words: sheinmarketpub.DefaultDisplayTextWords()})
 	pkg.PreviewPayload = buildLocalPreview(pkg)
 	log.WithFields(logrus.Fields{
@@ -182,7 +188,7 @@ func buildSKCs(groups []variantGroup) []offlinepackage.SKCPackage {
 	return result
 }
 
-func buildRequestSKCs(groups []variantGroup, images *offlinepackage.ImageSet, siteList []offlinepackage.Site, canonical *canonical.Product) []offlinepackage.SKCRequestDraft {
+func buildRequestSKCs(groups []variantGroup, images *offlinepackage.ImageSet, siteList []offlinepackage.Site) []offlinepackage.SKCRequestDraft {
 	if len(groups) == 0 {
 		return nil
 	}
@@ -198,7 +204,7 @@ func buildRequestSKCs(groups []variantGroup, images *offlinepackage.ImageSet, si
 	for idx, group := range groups {
 		skus := make([]offlinepackage.SKUDraft, 0, len(group.skus))
 		for _, variant := range group.skus {
-			skus = append(skus, buildSKUDraft(variant, canonical, firstNonEmpty(variant.Image, group.mainImageURL, imageMain), siteList))
+			skus = append(skus, buildSKUDraft(variant, firstNonEmpty(variant.Image, group.mainImageURL, imageMain), siteList))
 		}
 		result = append(result, offlinepackage.SKCRequestDraft{
 			SkcName:      group.skcName,
@@ -219,11 +225,10 @@ func buildRequestSKCs(groups []variantGroup, images *offlinepackage.ImageSet, si
 	return result
 }
 
-func buildSKUDraft(variant offlinepackage.Variant, canonical *canonical.Product, mainImage string, siteList []offlinepackage.Site) offlinepackage.SKUDraft {
+func buildSKUDraft(variant offlinepackage.Variant, mainImage string, siteList []offlinepackage.Site) offlinepackage.SKUDraft {
 	draft := offlinepackage.SKUDraft{
 		SupplierSKU: variant.SKU,
 		Attributes:  cloneSourceMap(variant.Attributes),
-		StockCount:  variant.Stock,
 		MainImage:   mainImage,
 		Barcode:     variant.Barcode,
 		IsDefault:   variant.IsDefault,
@@ -237,22 +242,18 @@ func buildSKUDraft(variant offlinepackage.Variant, canonical *canonical.Product,
 	if variant.Weight != nil {
 		draft.Weight = variant.Weight.Value
 		draft.WeightUnit = variant.Weight.Unit
-	} else if canonical != nil && canonical.Specifications != nil && canonical.Specifications.Weight != nil {
-		draft.Weight = canonical.Specifications.Weight.Value
-		draft.WeightUnit = canonical.Specifications.Weight.Unit
 	}
 	if variant.Dimensions != nil {
 		draft.Length = formatSourceFloat(variant.Dimensions.Length)
 		draft.Width = formatSourceFloat(variant.Dimensions.Width)
 		draft.Height = formatSourceFloat(variant.Dimensions.Height)
 		draft.LengthUnit = variant.Dimensions.Unit
-	} else if canonical != nil && canonical.Specifications != nil && canonical.Specifications.Dimensions != nil {
-		draft.Length = formatSourceFloat(canonical.Specifications.Dimensions.Length)
-		draft.Width = formatSourceFloat(canonical.Specifications.Dimensions.Width)
-		draft.Height = formatSourceFloat(canonical.Specifications.Dimensions.Height)
-		draft.LengthUnit = canonical.Specifications.Dimensions.Unit
 	}
-	draft.StockInfoList = []offlinepackage.StockInfo{{WarehouseCode: "DEFAULT", InventoryNum: variant.Stock}}
+	if variant.OwnStockDeclared {
+		draft.OwnStockDeclared = true
+		draft.StockCount = variant.Stock
+		draft.StockInfoList = []offlinepackage.StockInfo{{WarehouseCode: "DEFAULT", InventoryNum: variant.Stock}}
+	}
 	return draft
 }
 

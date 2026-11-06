@@ -6,6 +6,7 @@ type Capability string
 const (
 	CapabilityProductEnrichText       Capability = "productenrich.text_understanding"
 	CapabilityAIWorkbenchChatPlanning Capability = "aiworkbench.chat_planning"
+	CapabilityProductImageAnalysis    Capability = "product.image.analysis"
 )
 
 type Operation string
@@ -14,7 +15,9 @@ const (
 	OperationProductAgentDecision     Operation = "product_agent_decision"
 	OperationProductContentDecision   Operation = "product.content.decision"
 	OperationListingMaterialsDecision Operation = "listing.materials.decision"
+	OperationProductResearchDecision  Operation = "product.research.decision"
 	OperationProductSelectionDecision Operation = "product.selection.decision"
 	OperationShopDiagnosisDecision    Operation = "shop.operations-diagnosis.decision"
+	OperationProductImageAnalysis     Operation = "product.image.analysis"
 	OperationAIWorkbenchChatPlan      Operation = "aiworkbench_chat_plan"
 )

@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"task-processor/internal/authruntime/zitadel"
 	coreconfig "task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	topupconfig "task-processor/internal/integration/wallettopup/config"
@@ -34,6 +35,10 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	MarketResearch                       *ResearchConfig                           `json:"marketResearch,omitempty"`
+	SheinUSTrialInputDir                 *string                                   `json:"sheinUSTrialInputDir,omitempty"`
+	TitlePilot                           *TitlePilotConfig                         `json:"titlePilot,omitempty"`
+	ChannelCredentials                   *ChannelCredentialsConfig                 `json:"channelCredentials,omitempty"`
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
 	Fulfillment                          *FulfillmentConfig                        `json:"fulfillment,omitempty"`
 	BrowserKernel                        *BrowserKernelConfig                      `json:"browserKernel,omitempty"`
@@ -313,6 +318,9 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 }
 
 func (cfg *Config) validate() error {
+	if err := cfg.validateChannelCredentials(); err != nil {
+		return err
+	}
 	if _, err := cfg.modelRouteDefinitions(); err != nil {
 		return err
 	}
@@ -326,6 +334,12 @@ func (cfg *Config) validate() error {
 		return err
 	}
 	if err := cfg.validateAgentCustomization(); err != nil {
+		return err
+	}
+	if err := cfg.validateResearch(); err != nil {
+		return err
+	}
+	if err := cfg.validateSHEINUSTrial(); err != nil {
 		return err
 	}
 	if err := cfg.validateProjectCenter(); err != nil {
@@ -388,15 +402,19 @@ func (cfg *Config) validate() error {
 	if cfg.Listen.Host != "127.0.0.1" || cfg.Listen.Port < 1 || cfg.Listen.Port > 65535 {
 		return errors.New("current application listener must use 127.0.0.1 and a valid explicit port")
 	}
-	issuer, err := validateLoopbackURL("issuerURL", cfg.Identity.IssuerURL)
+	issuer, err := validateIdentityURL("issuerURL", cfg.Identity.IssuerURL)
 	if err != nil {
 		return err
 	}
-	authorization, err := validateLoopbackURL("authorizationAPIURL", cfg.Identity.AuthorizationAPIURL)
+	authorization, err := validateIdentityURL("authorizationAPIURL", cfg.Identity.AuthorizationAPIURL)
 	if err != nil {
 		return err
 	}
-	if !strings.EqualFold(issuer.Scheme, authorization.Scheme) || !strings.EqualFold(issuer.Host, authorization.Host) {
+	if issuer.Port() == "" || authorization.Port() == "" {
+		if cfg.Identity.IssuerURL != cfg.Identity.AuthorizationAPIURL {
+			return errors.New("public identity issuer and authorization API must equal the same canonical HTTPS origin")
+		}
+	} else if !strings.EqualFold(issuer.Scheme, authorization.Scheme) || !strings.EqualFold(issuer.Host, authorization.Host) {
 		return errors.New("identity issuer and authorization API must have the same loopback origin")
 	}
 	for name, value := range map[string]string{
@@ -518,7 +536,7 @@ func (cfg *Config) validate() error {
 	}
 	if image := cfg.ImageAgent; image != nil {
 		if image.WorkerConfigFile != "" {
-			if !filepath.IsAbs(image.WorkerConfigFile) || !boundedValue(image.WorkerConfigFile, 4096) || cfg.ProductAgent == nil || !image.Generation.Configured() || cfg.Identity.TenantDirectoryToken == "" {
+			if !filepath.IsAbs(image.WorkerConfigFile) || !boundedValue(image.WorkerConfigFile, 4096) || cfg.ProductAgent == nil || image.Generation.Enabled && !image.Generation.Configured() || cfg.Identity.TenantDirectoryToken == "" {
 				return errors.New("full image agent requires a private worker config, enterprise configuration, current membership and a points price")
 			}
 			if err := image.AssetDatabase.validate("imageAgent.assetDatabase"); err != nil {
@@ -537,7 +555,9 @@ func (cfg *Config) validate() error {
 				return errors.New("full image and title must use the current canonical Asset owner")
 			}
 		}
-		if image.Generation != (coreconfig.ImageAgentGenerationConfig{}) && (!image.Generation.Configured() || cfg.CommercialOwnerDatabase == nil) {
+		generation := image.Generation
+		generation.Enabled = true // validate declared metadata independently of execution
+		if image.Generation != (coreconfig.ImageAgentGenerationConfig{}) && (!generation.Configured() || cfg.CommercialOwnerDatabase == nil) {
 			return errors.New("image generation requires an explicit versioned points price and commercial owner database")
 		}
 		if cfg.ProductAcquisitionDatabase == nil {
@@ -609,6 +629,9 @@ func (cfg *Config) validate() error {
 			return err
 		}
 	}
+	if err := cfg.validateTitlePilot(); err != nil {
+		return err
+	}
 	if cfg.AIWorkbench != nil {
 		if err := cfg.AIWorkbench.validate(cfg); err != nil {
 			return err
@@ -659,6 +682,15 @@ func validatePlatformAdminAllowlist(name string, values []string) error {
 		seen[value] = struct{}{}
 	}
 	return nil
+}
+
+// Public identity is pinned by the private operator manifest, never request input.
+// Local deployments retain their explicit-port loopback contract.
+func validateIdentityURL(name, raw string) (*url.URL, error) {
+	if zitadel.IsCanonicalPublicIdentityOrigin(raw) {
+		return url.Parse(raw)
+	}
+	return validateLoopbackURL(name, raw)
 }
 
 func validateLoopbackURL(name, raw string) (*url.URL, error) {

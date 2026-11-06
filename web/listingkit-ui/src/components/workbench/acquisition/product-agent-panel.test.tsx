@@ -103,7 +103,7 @@ it.each(["CONFIGURATION_CHANGED", "TEMPLATE_ARCHIVED", "AGENT_NOT_ENABLED", "AGE
 });
 
 it.each(["CONFIGURATION_CHANGED", "AGENT_DEFINITION_UNAVAILABLE"])("preserves an interrupted run after %s on Resume", async code => {
-    fixture.request.mockResolvedValueOnce({runId:op,requestKey:op,operationId:op,productKey:"product",catalogVersion:"1",targetPlatform:"shein",phase:"interrupted",revision:"2",canSubmitReview:false,candidate:{Changes:[]},confidence:[],unresolved:[],steps:[],tokens:0,estimatedCostMicros:0,currency:"CNY",usageStatus:"observed"}).mockRejectedValueOnce(new ProductAgentError(code));
+    fixture.request.mockResolvedValueOnce({runId:op,requestKey:op,operationId:op,productKey:"product",catalogVersion:"1",targetPlatform:"shein",phase:"interrupted",revision:"2",canResume:true,canSubmitReview:false,candidate:{Changes:[]},confidence:[],unresolved:[],steps:[],tokens:0,estimatedCostMicros:0,currency:"CNY",usageStatus:"observed"}).mockRejectedValueOnce(new ProductAgentError(code));
     render(<ProductAgentPanel {...props}/>);
     fireEvent.change(screen.getByLabelText("素材查询平台"), { target: { value: "shein" } });
     fireEvent.click(screen.getByText("生成标题建议"));fireEvent.click(screen.getByText("确认生成"));

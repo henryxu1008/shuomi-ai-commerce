@@ -2,6 +2,8 @@
 set -eu
 # Keep this entrypoint materialized as LF on existing Windows worktrees.
 . /usr/local/lib/account-compose/commercial-database-name.sh
+. /usr/local/lib/account-compose/deployment-origins.sh
+account_resolve_origins
 
 state=/state
 trusted_ca=/trusted-ca
@@ -36,6 +38,10 @@ marker="$state/.bootstrap-complete"
 case "${ACCOUNT_DATA_SERVICES_ENABLED:-}" in ''|1) ;; *) echo 'invalid data services opt-in' >&2; exit 1 ;; esac
 case "${ACCOUNT_KNOWLEDGE_ENABLED:-}" in ''|1) ;; *) echo 'invalid knowledge opt-in' >&2; exit 1 ;; esac
 case "${ACCOUNT_NATIVE_MODULES_ENABLED:-}" in ''|1) ;; *) echo 'invalid native modules opt-in' >&2; exit 1 ;; esac
+case "${ACCOUNT_STORAGE_CAPACITY_ENABLED:-}" in ''|1) ;; *) echo 'invalid storage capacity opt-in' >&2; exit 1 ;; esac
+if [ "${ACCOUNT_STORAGE_CAPACITY_ENABLED:-}" = 1 ]; then
+  test "${ACCOUNT_NATIVE_MODULES_ENABLED:-}" = 1 && test "${ACCOUNT_KNOWLEDGE_ENABLED:-}" = 1 || { echo 'storage capacity requires the unified modules and knowledge overlays' >&2; exit 1; }
+fi
 if [ "${ACCOUNT_NATIVE_MODULES_ENABLED:-}" = 1 ]; then
   test "${ACCOUNT_DATA_SERVICES_ENABLED:-}" = 1 && test "${ACCOUNT_KNOWLEDGE_ENABLED:-}" = 1 || { echo 'native modules require the data services and knowledge overlays' >&2; exit 1; }
 fi
@@ -49,6 +55,12 @@ case "${ACCOUNT_ISSUE36_LOCAL_TRIAL:-}" in
 esac
 
 if [ -f "$marker" ]; then
+  if [ "${ACCOUNT_STORAGE_CAPACITY_ENABLED:-}" = 1 ]; then
+    test -f "$state/.storage-capacity-enabled" || { echo 'storage capacity requires a new empty project' >&2; exit 1; }
+  else
+    test ! -f "$state/.storage-capacity-enabled" || { echo 'retained storage capacity requires its original overlays' >&2; exit 1; }
+  fi
+  account_pin_origins "$state" retained
   if [ "${ACCOUNT_NATIVE_MODULES_ENABLED:-}" = 1 ]; then
     test -f "$state/.native-modules-enabled" || { echo 'native modules require a new empty project' >&2; exit 1; }
   else
@@ -187,6 +199,7 @@ chmod 600 "$tofu_inputs/insufficient-password.tmp"
 mv "$tofu_inputs/insufficient-password.tmp" "$tofu_inputs/insufficient-password"
 
 identity_db_password=$(cat "$identity_db_secret/identity-db-password")
+account_pin_origins "$state" fresh
 cat > "$zitadel_api_secrets/runtime-config.yaml.tmp" <<EOF
 Database:
   postgres:
@@ -215,5 +228,6 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 365 -sha256 -subj '/CN=Task Proc
 openssl req -newkey rsa:2048 -nodes -sha256 -config "$work/openssl.cnf" -keyout "$traefik_tls/localhost.key" -out "$work/localhost.csr"
 openssl x509 -req -days 365 -sha256 -CA "$trusted_ca/root-ca.pem" -CAkey "$work/root-ca.key" -CAcreateserial -in "$work/localhost.csr" -out "$traefik_tls/localhost.crt" -extensions req_extensions -extfile "$work/openssl.cnf"
 chmod 600 "$trusted_ca/root-ca.pem" "$traefik_tls/localhost.key" "$traefik_tls/localhost.crt"
+if [ "${ACCOUNT_STORAGE_CAPACITY_ENABLED:-}" = 1 ]; then touch "$state/.storage-capacity-enabled"; chmod 600 "$state/.storage-capacity-enabled"; fi
 touch "$marker"
 chmod 600 "$marker"

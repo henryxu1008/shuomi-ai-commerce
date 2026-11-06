@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
@@ -26,13 +27,13 @@ func (f inspectionFixture) ReadMaterialsInspection(context.Context, agent.Bindin
 func materialInspection(t *testing.T) Inspection {
 	t.Helper()
 	product := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: "org", ProductKey: "product"}, Version: 1, PublicationID: "publication", Snapshot: catalog.ProductSnapshot{Title: "Actual product", Brand: "Actual brand"}}
-	inventory := asset.ApprovedAssetInventory{Scope: asset.InventoryScope{TenantID: "org", ProductKey: "product", TargetPlatform: "shein", SourceSnapshotVersion: 1}, Assets: []asset.ApprovedAsset{{ID: "approved", URL: "https://example.test/approved.png"}}}
+	inventory := asset.ApprovedAssetInventory{Scope: asset.InventoryScope{TenantID: "org", ProductKey: "product", TargetPlatform: "shein", SourceSnapshotVersion: 1}, Assets: []asset.ApprovedAsset{{ID: "approved", RunID: "run", PlanRevision: 1, SlotID: "main", Attempt: 1, Role: asset.RoleMain, URL: "https://example.test/approved.png"}}}
 	leaf, show := true, 1
 	rules := goods.OfficialRuleSnapshot{Categories: []model.Category{{ID: 12, Leaf: &leaf}, {ID: 13, Leaf: &leaf}, {ID: 14}}, Brands: []model.Brand{{Code: "known-brand", Name: "Actual brand"}}, Attributes: model.AttributeTemplate{Attributes: []model.Attribute{{ID: 5, Show: &show, Options: []model.AttributeOption{{ID: 8, Show: &show}}}}}}
 	base := record.TargetRecord{ID: "record", TargetID: "target", Revision: 1, EffectiveVersion: 1, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: collection.Digest(rules), Merchant: storecenter.ProductMerchantBinding{OrganizationID: "org", StoreID: "store", Site: "shein-us"}, Input: record.TargetInput{SourceID: "source", StoreID: "store", EffectiveVersion: 1, Draft: goods.OfficialDraftInput{Product: model.PublishProduct{CategoryID: 12, SKCs: []model.ProductSKC{{SKUs: []model.ProductSKU{{SupplierSKU: "sku"}}}}}}}}
 	base.Source.ID = "source"
 	base.Source.Source = collection.Source{ProductKey: "product", PublicationID: "publication", Version: 1}
-	value, err := NewInspection(base, product, rules, inventory)
+	value, err := NewInspection(base, product, rules, inventory, time.Now().UTC(), time.Now().UTC())
 	require.NoError(t, err)
 	return value
 }
@@ -48,7 +49,11 @@ func observedInspection(t *testing.T, value Inspection) []agent.Observation {
 
 func proposalFor(t *testing.T, value Inspection, fields string) agent.DomainProposal {
 	t.Helper()
-	return agent.DomainProposal{Kind: ProposalKind, Payload: json.RawMessage(`{` + fields + `,"evidenceIds":["` + value.EvidenceID + `"]}`)}
+	return agent.DomainProposal{Kind: ProposalKind, Payload: json.RawMessage(`{"purpose":"materials-edit","proposal":{` + fields + `,"evidenceIds":["` + value.EvidenceID + `"]}}`)}
+}
+
+func materialTestRequest(i Inspection) agent.Request {
+	return agent.Request{Binding: i.Binding, PolicyVersion: PolicyVersion, PromptVersion: PromptVersion}
 }
 
 func TestMaterialsValidatorRequiresActuallyDisclosedExactEvidence(t *testing.T) {
@@ -94,12 +99,12 @@ func TestMaterialPreviewRejectsInventedRulesAssetsAndNonleafCategory(t *testing.
 		`"attributes":[{"attribute_id":5,"custom_attribute_value":"invented"}]`,
 		`"images":[{"group":"spu","skc":0,"sku":0,"asset_id":"unapproved","sort":1,"type":1}]`,
 	} {
-		p, err := ParseProposal(proposalFor(t, value, fields).Payload)
+		p, err := ParseRequestProposal(agent.Request{Binding: value.Binding, PolicyVersion: PolicyVersion, PromptVersion: PromptVersion}, proposalFor(t, value, fields))
 		require.NoError(t, err)
 		_, err = Preview(value, p)
 		require.ErrorIs(t, err, ErrInvalidProposal, fields)
 	}
-	p, err := ParseProposal(proposalFor(t, value, `"categoryId":13`).Payload)
+	p, err := ParseRequestProposal(agent.Request{Binding: value.Binding, PolicyVersion: PolicyVersion, PromptVersion: PromptVersion}, proposalFor(t, value, `"categoryId":13`))
 	require.NoError(t, err)
 	preview, err := Preview(value, p)
 	require.NoError(t, err)
@@ -112,12 +117,12 @@ func TestMaterialPreviewRejectsInventedRulesAssetsAndNonleafCategory(t *testing.
 func TestMaterialsInspectionRejectsDriftAndOversizedDisclosure(t *testing.T) {
 	value := materialInspection(t)
 	value.Inventory.Assets = nil
-	_, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
+	_, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory, time.Now().UTC(), time.Now().UTC())
 	require.ErrorIs(t, err, ErrInspectionChanged)
 	value = materialInspection(t)
 	value.Product.Snapshot.Description = string(make([]byte, MaxInspectionBytes))
 	value.Base.ProductHash = collection.Digest(value.Product.Snapshot)
-	_, err = NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
+	_, err = NewInspection(value.Base, value.Product, value.Rules, value.Inventory, time.Now().UTC(), time.Now().UTC())
 	require.ErrorIs(t, err, ErrInspectionTooLarge)
 }
 
@@ -125,7 +130,7 @@ func TestMaterialImagesKeepTheirApprovedOfficialPlacement(t *testing.T) {
 	value := materialInspection(t)
 	value.Inventory.Assets[0].OfficialPlacement = &asset.ImageOfficialPlacement{Group: "skc", SKC: 0, SKU: 0, Type: 1, Sort: 1, Site: "shein-us"}
 	value.Base.InventoryHash = collection.Digest(value.Inventory)
-	value, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
+	value, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory, time.Now().UTC(), time.Now().UTC())
 	require.NoError(t, err)
 	original := goods.OfficialImageSlot{Group: "skc", SKC: 0, SKU: 0, AssetID: "approved", Type: 1, Sort: 1}
 	for _, change := range []func(*goods.OfficialImageSlot){

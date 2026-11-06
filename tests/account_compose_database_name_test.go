@@ -78,7 +78,12 @@ func runAccountComposeDatabaseNameValidation(t *testing.T, sh, installer, name s
 		t.Fatal(err)
 	}
 	scriptPath := filepath.Join(root, installer)
+	originValidator, err := filepath.Abs(filepath.Join(source, "deployment-origins.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	contents := strings.NewReplacer(
+		". /usr/local/lib/account-compose/deployment-origins.sh", ". "+shellQuote(originValidator),
 		"state=/state", "state="+shellQuote(filepath.Join(root, "state")),
 		". /usr/local/lib/account-compose/commercial-database-name.sh", ". "+shellQuote(validator),
 	).Replace(string(script))
@@ -87,6 +92,7 @@ func runAccountComposeDatabaseNameValidation(t *testing.T, sh, installer, name s
 	}
 	cmd := exec.Command(sh, scriptPath)
 	cmd.Env = append(os.Environ(),
+		"ACCOUNT_PUBLIC_TRIAL=", "ACCOUNT_PUBLIC_APPLICATION_ORIGIN=", "ACCOUNT_PUBLIC_IDENTITY_ORIGIN=",
 		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"ACCOUNT_COMMERCIAL_DATABASE="+name,
 		"ACCOUNT_NATIVE_MODULES_ENABLED=1", "ACCOUNT_DATA_SERVICES_ENABLED=1", "ACCOUNT_KNOWLEDGE_ENABLED=1",

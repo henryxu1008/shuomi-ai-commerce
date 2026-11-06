@@ -30,10 +30,14 @@ func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service
 	if db == nil || c.MoneyOwnerDatabase == nil || c.CommercialOwnerDatabase == nil {
 		return errors.New("enterprise storage requires commercial and money owners")
 	}
-	if c.ImageAgent != nil && (imageWorker == nil || !imageWorker.StorageCapacity) {
-		return errors.New("storage capacity requires the metered organization image worker")
-	}
-	if c.ImageAgent != nil {
+	// Full-image history stays mounted when generation is closed, but Run does
+	// not load or start its worker. Only an executing image path requires that
+	// worker's meter; the application capacity owner and other writers below
+	// must still be verified in either mode.
+	if c.ImageAgent != nil && (c.ImageAgent.WorkerConfigFile == "" || c.ImageAgent.Generation.Enabled) {
+		if imageWorker == nil || !imageWorker.StorageCapacity {
+			return errors.New("storage capacity requires the metered organization image worker")
+		}
 		owner := imageWorker.CommercialOwnerDatabase
 		if owner == nil || !sameDatabaseTarget(*c.CommercialOwnerDatabase, DatabaseConfig{Host: owner.Host, Port: owner.Port, Database: owner.Database}) {
 			return errors.New("storage capacity requires the same commercial owner for application and image worker")
@@ -95,6 +99,23 @@ func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service
 		meter := &storagecapacity.Meter{Writer: repo, Namespace: ns}
 		service.ConfigureStorageCapacity(meter)
 		processor.ConfigureStorageCapacity(meter)
+		if d := c.Knowledge.OriginalDeletion; d != nil {
+			if err := store.VerifyStoredReleaseRuntime(ctx, db); err != nil {
+				return errors.New("knowledge release ledger schema is unavailable")
+			}
+			deleteClient := client
+			deleteClient.AccessKeyID, deleteClient.SecretAccessKey = d.AccessKeyID, d.SecretAccessKey
+			deleter, err := s3.NewKnowledgeOriginalDeleter(deleteClient, s.Bucket)
+			if err != nil {
+				return err
+			}
+			if err = deleter.VerifyNamespace(ctx, ns); err != nil {
+				return errors.New("knowledge original deletion namespace is not admitted")
+			}
+			if err = service.ConfigureOriginalDeletion(deleter, d.AllowNew); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

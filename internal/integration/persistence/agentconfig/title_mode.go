@@ -16,6 +16,9 @@ func (s *Store) CheckRegisteredTextExecutionMode(ctx context.Context, identity a
 	if snapshot.MemberID != identity.MemberID || snapshot.Request.ModeSnapshotRef != ref {
 		return agentconfig.ModeSnapshot{}, agentconfig.ErrConflict
 	}
+	if snapshot.AgentID == agentconfig.MaterialsAgentID && !validMaterialsTextConfiguration(snapshot.AgentID, snapshot.AgentVersion, snapshot.KnowledgeBaseID, snapshot.ExecutionModelProfile) {
+		return agentconfig.ModeSnapshot{}, agentconfig.ErrConflict
+	}
 	mode, err := s.CheckModeSnapshot(ctx, identity, ref)
 	if err != nil {
 		return agentconfig.ModeSnapshot{}, err

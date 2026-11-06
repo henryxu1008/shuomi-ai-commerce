@@ -1,4 +1,4 @@
-2026-11-01 局部后续设计：用户针对已有合成试用数据，明确选择先设计并评审当前 Store 的模块安装支持。新增显式安装入口的范围与准入见 [`store-observations-current-store-install.md`](store-observations-current-store-install.md)。下文原 fresh/preparation 入口的空店铺约束保持，不能直接删 guard；新设计获准前不得执行非空安装。历史正文保留。
+2026-11-01 局部后续设计：用户针对已有合成试用数据，明确选择先设计并评审当前 Store 的模块安装支持。新增显式安装入口的范围与准入见 [`store-observations-installation.md`](store-observations-installation.md)。下文原 fresh/preparation 入口的空店铺约束保持，不能直接删 guard；新设计获准前不得执行非空安装。历史正文保留。
 
 # Store observations internal preparation runtime
 
@@ -8,7 +8,7 @@ Status: IMPLEMENTATION_READY (2026-10-11). Design Basis: Independent Architectur
 
 The user explicitly requested: complete internal wiring, especially the Store sync module and background worker, while model/payment/SHEIN accounts will be supplied later; preserve existing data. A retained local installation can prepare the real observation repository, current HTTP consumers and Temporal worker without platform credentials. The user sees that internal wiring is ready and SHEIN configuration is pending; no fake products, orders, successful syncs or usable platform actions.
 
-Reuse the frozen [Store observations v1](store-center-platform-observations-v1.md), [integration handoff](../engineering/store-observations-integration-handoff.md), [Store current application](store-center-current-application-v1.md), and current [Figma Product Authority](../product/final-ui-ia-authority.md): tg48P46SSXl6TBy9lZwg63 / 31:463, products 429:5323 and orders 429:5863. No new page/layout or business workflow. This explicit stage only replaces the startup dependency on an already configured official application; full-mode authorization, service/connection qualification and official provider contracts remain frozen.
+Reuse the frozen [Store observations v1](store-center-platform-observations.md), [integration handoff](../engineering/store-observations-integration-handoff.md), [Store current application](store-center-application.md), and current [Figma Product Authority](../product/final-ui-ia-authority.md): tg48P46SSXl6TBy9lZwg63 / 31:463, products 429:5323 and orders 429:5863. No new page/layout or business workflow. This explicit stage only replaces the startup dependency on an already configured official application; full-mode authorization, service/connection qualification and official provider contracts remain frozen.
 
 Scope: opt-in preparationOnly Store observation configuration; existing module/worker lifecycle; accurate pending configuration capability/UI; existing schema-owner command and final Compose layer. Out of scope: model invocation, payments, real SHEIN access, platform writes, automatic sync, new permissions/owner/tables/state machine, legacy migration, acceptance tooling, production deployment and Issue closure.
 

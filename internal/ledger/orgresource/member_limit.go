@@ -15,6 +15,7 @@ var (
 
 // A limit constrains use of the enterprise bucket; it is not another balance.
 type MemberLimitSnapshot struct {
+	UnitVersion    string
 	OrganizationID string
 	MemberID       string
 	MonthlyLimit   int64
@@ -24,6 +25,7 @@ type MemberLimitSnapshot struct {
 	Consumed       int64
 }
 type SetMemberLimitExecution struct {
+	UnitVersion     string
 	OrganizationID  string
 	MemberID        string
 	OperationID     string
@@ -61,7 +63,11 @@ func (s *MemberLimitService) SetMonthlyLimit(ctx context.Context, principal Prin
 	if err := s.authorizer.AuthorizeMemberLimitWrite(ctx, principal, input.OrganizationID, input.MemberID); err != nil {
 		return MemberLimitSnapshot{}, err
 	}
-	return s.repository.SetMonthlyLimit(ctx, input)
+	snapshot, err := s.repository.SetMonthlyLimit(ctx, input)
+	if err == nil && snapshot.UnitVersion != AIPointQuantityUnitV1 {
+		return MemberLimitSnapshot{}, ErrAIPointUnitVersion
+	}
+	return snapshot, err
 }
 func (s *MemberLimitService) ReadMonthlyLimit(ctx context.Context, principal Principal, org, member string) (MemberLimitSnapshot, error) {
 	if !validLimitIdentity(org) || !validLimitIdentity(member) || principal.Kind != PrincipalTenantHuman {
@@ -70,10 +76,14 @@ func (s *MemberLimitService) ReadMonthlyLimit(ctx context.Context, principal Pri
 	if err := s.authorizer.AuthorizeMemberLimitRead(ctx, principal, org, member); err != nil {
 		return MemberLimitSnapshot{}, err
 	}
-	return s.repository.ReadMonthlyLimit(ctx, org, member)
+	snapshot, err := s.repository.ReadMonthlyLimit(ctx, org, member)
+	if err == nil && snapshot.UnitVersion != AIPointQuantityUnitV1 {
+		return MemberLimitSnapshot{}, ErrAIPointUnitVersion
+	}
+	return snapshot, err
 }
 func ValidMemberLimitCommand(input SetMemberLimitExecution) bool {
-	return validLimitIdentity(input.OrganizationID) && validLimitIdentity(input.MemberID) && validLimitIdentity(input.OperationID) && validLimitIdentity(input.ActorID) && input.ExpectedVersion >= 0 && input.Target >= 0
+	return input.UnitVersion == AIPointQuantityUnitV1 && validLimitIdentity(input.OrganizationID) && validLimitIdentity(input.MemberID) && validLimitIdentity(input.OperationID) && validLimitIdentity(input.ActorID) && input.ExpectedVersion >= 0 && input.Target >= 0
 }
 func validLimitIdentity(s string) bool { return s != "" && strings.TrimSpace(s) == s && len(s) <= 128 }
 func AIPointMonthStart(now time.Time) time.Time {

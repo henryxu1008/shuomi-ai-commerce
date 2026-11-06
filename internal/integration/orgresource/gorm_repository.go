@@ -79,7 +79,7 @@ func (repository *GormRepository) ExecuteWelcomeGrant(ctx context.Context, input
 			return nil
 		}
 
-		bucket := organizationResourceBucketRow{OrganizationID: input.OrganizationID, ResourceType: string(input.ResourceType)}
+		bucket := organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit(string(input.ResourceType)), OrganizationID: input.OrganizationID, ResourceType: string(input.ResourceType)}
 		if createErr := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&bucket).Error; createErr != nil {
 			return createErr
 		}
@@ -132,7 +132,7 @@ func (repository *GormRepository) ExecuteWelcomeGrant(ctx context.Context, input
 		if createErr := tx.Create(&operation).Error; createErr != nil {
 			return createErr
 		}
-		claim := organizationResourceSourceClaimRow{
+		claim := organizationResourceSourceClaimRow{QuantityUnit: resourceQuantityUnit(string(input.ResourceType)),
 			SourceType:         input.SourceType,
 			SourceIdentity:     input.SourceIdentity,
 			ResourceType:       string(input.ResourceType),
@@ -148,7 +148,7 @@ func (repository *GormRepository) ExecuteWelcomeGrant(ctx context.Context, input
 			Updates(map[string]any{"available": balanceAfter, "updated_at": now}).Error; updateErr != nil {
 			return updateErr
 		}
-		event := organizationResourceEventRow{
+		event := organizationResourceEventRow{QuantityUnit: resourceQuantityUnit(string(input.ResourceType)),
 			EventID:        eventID,
 			OrganizationID: input.OrganizationID,
 			OperationID:    input.OperationID,

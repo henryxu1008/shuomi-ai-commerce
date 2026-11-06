@@ -375,8 +375,7 @@ func buildImageAgentImmutableObjects(cfg *config.Config) (objectstore.ImmutableO
 		return nil, fmt.Errorf("build durable image artifact S3 client: %w", err)
 	}
 	uploader, err := s3integration.NewUploaderWithOptions(client, s3integration.UploaderOptions{
-		Bucket: s3Config.Bucket, PublicBase: storeConfig.PublicBase, Endpoint: s3Config.Endpoint,
-		UsePathStyle: s3Config.UsePathStyle, ArtifactCapabilities: capabilities,
+		Bucket: s3Config.Bucket, PublicBase: storeConfig.PublicBase, ArtifactCapabilities: capabilities,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build durable image artifact S3 uploader: %w", err)

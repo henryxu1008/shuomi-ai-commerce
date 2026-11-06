@@ -20,8 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"task-processor/internal/agent"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
+	governed "task-processor/internal/integration/aicapability/einomodel"
 	openai "task-processor/internal/integration/openai"
 	"task-processor/internal/integration/skillimage"
 	"task-processor/internal/skill"
@@ -69,8 +71,8 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	dispatches, observed, downloads := 0, 0, 0
 	expectedObservations := 1
 	expectedPrompt := "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): Product. Product type: . Visual task: product_identity; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image."
-	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: model, BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
-	factory := generationProviderFactory{logger: logrus.NewEntry(logger), resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
+	resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: model, BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
+	factory := generationProviderFactory{logger: logrus.NewEntry(logger), credentials: resolver, current: syntheticFactoryCurrent(resolver, 1), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
 		dispatches++
 		require.Equal(t, "/api/v1/services/aigc/multimodal-generation/generation", r.URL.Path)
 		var payload map[string]any
@@ -88,7 +90,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 		require.Equal(t, expectedObservations, observed, "durable success precedes output materialization")
 		return pngBytes.Bytes(), nil
 	}}
-	prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
+	prepared, err := factory.prepare(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
 		observed++
 		require.Equal(t, "qwen-receipt", proof.ResponseID)
 		require.False(t, proof.UsageKnown)
@@ -103,7 +105,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	input.AssetCatalog.ProductContext = input.ProductContext
 	input.SourceReferences = [][]byte{pngBytes.Bytes()}
 	input.ImageSet = &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceSupply, ProductID: "product-1", OperationID: "source-1", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 1}
-	input.Slot.Recipe = &imageagent.ImageSlotRecipe{Purpose: "product_identity", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "carousel", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): Product. Product type: . Visual task: product_identity; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(pngBytes.Bytes())), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: prepared.Metadata.Provider, Model: prepared.Metadata.Model, Protocol: prepared.Metadata.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: prepared.Metadata.PriceVersion, Points: prepared.Metadata.Points, RouteReference: prepared.Metadata.RouteReference, CredentialReference: prepared.Metadata.CredentialReference, ConfigurationVersion: prepared.Metadata.ConfigurationVersion}}
+	input.Slot.Recipe = &imageagent.ImageSlotRecipe{Purpose: "product_identity", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "carousel", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): Product. Product type: . Visual task: product_identity; direction: . Background: white. Target text language: en. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(pngBytes.Bytes())), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Billing: prepared.Metadata.Billing, Provider: prepared.Metadata.Provider, Model: prepared.Metadata.Model, Protocol: prepared.Metadata.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: prepared.Metadata.PriceVersion, Points: prepared.Metadata.Points, RouteReference: prepared.Metadata.RouteReference, CredentialReference: prepared.Metadata.CredentialReference, ConfigurationVersion: prepared.Metadata.ConfigurationVersion}}
 	input.ImageSet.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: input.ImageSet, Slots: []imageagent.Slot{input.Slot}})
 	require.NoError(t, err)
 	quote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
@@ -143,13 +145,13 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	require.Equal(t, 1, dispatches)
 	require.Equal(t, 1, observed)
 	require.Equal(t, 1, downloads)
-	require.NoError(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
-	resolver.resolved.Config.Model = "qwen-image-3.0"
+	require.NoError(t, factory.revalidate(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, prepared.Metadata))
+	factory.current.(*sharedImageFixture).q.Image.Model = "qwen-image-3.0"
 	if model == "qwen-image-3.0" {
-		resolver.resolved.Config.Model = "qwen-image-3.0-pro"
+		factory.current.(*sharedImageFixture).q.Image.Model = "qwen-image-3.0-pro"
 	}
-	require.ErrorIs(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata), imageagent.ErrRevisionConflict)
-	resolver.resolved.Config.Model = model
+	require.Error(t, factory.revalidate(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, prepared.Metadata), "drift must fail before dispatch rather than borrow the old binding")
+	factory.current.(*sharedImageFixture).q.Image.Model = model
 	packages, err := skill.OfficialPackages()
 	require.NoError(t, err)
 	imageMethods := 0
@@ -191,14 +193,30 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 		})
 	}
 	require.Equal(t, 3, imageMethods)
-	resolver.resolved.Config.Model = "qwen-mt-image-2.0"
-	require.Error(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
+	factory.current.(*sharedImageFixture).q.Image.Model = "qwen-mt-image-2.0"
+	require.Error(t, factory.revalidate(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, prepared.Metadata))
 }
 
-type generationConfigTestResolver struct{ resolved *openai.ResolvedClientConfig }
+type generationConfigTestResolver struct{ resolved *generationFixtureConfig }
 
-func (r *generationConfigTestResolver) ResolveClientConfig(context.Context, string) (*openai.ResolvedClientConfig, error) {
-	return r.resolved, nil
+func (r *generationConfigTestResolver) metadata(org string) credential.Metadata {
+	cfg := r.resolved.Config
+	provider := "grsai"
+	if cfg.APIStyle == "dashscope" {
+		provider = "bailian"
+	}
+	if cfg.APIStyle == "openai" {
+		provider = "openai"
+	}
+	sum := sha256.Sum256([]byte(r.resolved.CacheKey))
+	return credential.Metadata{OrganizationID: org, ConnectionID: "synthetic-connection", Provider: provider, Channel: "synthetic-channel", Account: "synthetic", Region: "synthetic", BaseURL: cfg.BaseURL, Revision: 1, Enabled: true, KeyPresent: cfg.APIKey != "", Reference: "channel-credential-v1:" + hex.EncodeToString(sum[:]), EndpointDigest: governed.EndpointIdentityDigest(cfg.BaseURL)}
+}
+func (r *generationConfigTestResolver) Resolve(_ context.Context, org, id, ref string) (credential.Secret, error) {
+	m := r.metadata(org)
+	if id != m.ConnectionID || ref != m.Reference {
+		return credential.Secret{}, credential.ErrChanged
+	}
+	return credential.Secret{Metadata: m, APIKey: r.resolved.Config.APIKey}, nil
 }
 
 func TestGenerationProviderFactoryUsesPinnedGRSAIProtocol(t *testing.T) {
@@ -220,13 +238,13 @@ func TestGenerationProviderFactoryUsesPinnedGRSAIProtocol(t *testing.T) {
 				_, _ = w.Write([]byte(`{"id":"response-1","status":"succeeded","results":[{"url":"https://output.example/image.png"}]}`))
 			}))
 			defer server.Close()
-			resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Second}}}
-			factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "test-price", PointsPerImage: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
+			resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Second}}}
+			factory := generationProviderFactory{credentials: resolver, current: syntheticFactoryCurrent(resolver, 17), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
 				downloads++
 				require.Equal(t, 1, observed)
 				return pngBytes.Bytes(), nil
 			}}
-			prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
+			prepared, err := factory.prepare(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
 				observed++
 				require.Equal(t, "response-1", proof.ResponseID)
 				require.False(t, proof.UsageKnown)
@@ -246,9 +264,9 @@ func TestGenerationProviderFactoryUsesPinnedGRSAIProtocol(t *testing.T) {
 			require.Len(t, result.Assets, 1)
 			require.Equal(t, 1, dispatches)
 			require.Equal(t, 1, downloads)
-			require.NoError(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
+			require.NoError(t, factory.revalidate(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, prepared.Metadata))
 			resolver.resolved.CacheKey = "db:1:2:image_gpt_image_2"
-			require.ErrorIs(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata), imageagent.ErrRevisionConflict)
+			require.Error(t, factory.revalidate(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, prepared.Metadata), "drift must fail before dispatch rather than borrow the old binding")
 			require.Equal(t, 1, dispatches, "route checks never submit")
 		})
 	}
@@ -258,14 +276,14 @@ func TestGenerationProviderFactoryMissingPriceOrWrongRouteCannotBecomeAvailable(
 	for _, mode := range []string{"no_price", "empty_version", "negative_price", "wrong_model", "wrong_style", "no_credential", "plain_http", "query_secret", "wrong_path", "unbounded_timeout"} {
 		t.Run(mode, func(t *testing.T) {
 			cfg := &openai.ClientConfig{APIKey: "controlled-only", Model: "gpt-image-2.5", APIStyle: "grsai", BaseURL: "https://provider.example/v1", Timeout: time.Minute}
-			price := config.ImageAgentGenerationConfig{PriceVersion: "p1", PointsPerImage: 17}
+			price := config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}
 			switch mode {
 			case "no_price":
-				price.PointsPerImage = 0
+				price.MaximumMicropoints = 0
 			case "empty_version":
-				price.PriceVersion = ""
+				price.UnitVersion = ""
 			case "negative_price":
-				price.PointsPerImage = -1
+				price.MaximumMicropoints = -1
 			case "wrong_model":
 				cfg.Model = "nano-banana-fast"
 			case "wrong_style":
@@ -281,11 +299,16 @@ func TestGenerationProviderFactoryMissingPriceOrWrongRouteCannotBecomeAvailable(
 			case "unbounded_timeout":
 				cfg.Timeout = 0
 			}
-			factory := generationProviderFactory{resolver: &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{Config: cfg, CacheKey: "db:1:1:profile"}}, price: price, profile: synchronousEditProfile{}}
-			_, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(context.Context, imageagent.GenerationSuccess) error { return nil })
+			factory := generationProviderFactory{credentials: &generationConfigTestResolver{resolved: &generationFixtureConfig{Config: cfg, CacheKey: "db:1:1:profile"}}, price: price, profile: synchronousEditProfile{}}
+			_, err := factory.prepare(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, func(context.Context, imageagent.GenerationSuccess) error { return nil })
 			require.ErrorIs(t, err, imageagent.ErrBudgetQuoteUnavailable)
 			require.NotContains(t, err.Error(), "must-not-log")
 			require.NotContains(t, err.Error(), "controlled-only")
 		})
 	}
+}
+
+type generationFixtureConfig struct {
+	CacheKey string
+	Config   *openai.ClientConfig
 }

@@ -122,6 +122,27 @@ func mustMaterialsJSON(t *testing.T, v any) []byte {
 	return b
 }
 
+func TestMaterialsPrepareAcceptsOnlyCanonicalCandidateCategory(t *testing.T) {
+	f := &materialsHTTPFixture{}
+	r := materialsHTTPHarness(f, false)
+	path := strings.Replace(listingMaterialsBase, ":record_id", materialsTestRecord, 1) + "/prepare"
+	send := func(category string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", path, strings.NewReader(`{"requestKey":"`+materialsTestKey+`","expectedModeRevision":"0","candidateCategoryId":`+category+`}`))
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(w, req)
+		return w
+	}
+	w := send(`"123"`)
+	require.Equal(t, 200, w.Code, w.Body.String())
+	require.Equal(t, 1, f.calls)
+	for _, value := range []string{`""`, `"01"`, `"0"`, `"-1"`, `"9223372036854775808"`, `null`, `123`} {
+		w = send(value)
+		require.Equal(t, 400, w.Code, value+" "+w.Body.String())
+	}
+	require.Equal(t, 1, f.calls, "invalid selectors cannot reach configuration/claim")
+}
+
 func TestMaterialsRouteAdmissionRequiresNormalSupplyAndAgent(t *testing.T) {
 	routes := listingMaterialsRoutes(nil, nil)
 	require.Len(t, routes, 6)

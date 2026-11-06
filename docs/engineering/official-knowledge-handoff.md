@@ -1,6 +1,6 @@
 # 官方知识库首版交接
 
-当前源码增量执行 #884 / PR #887，依据[产品内依据V2冻结设计](../architecture/official-knowledge-provenance-v2.md)和用户「官方知识库不要使用github地址」决定。原 #632 / PR #633 的阅读范围、owner和权限沿用，外部来源URL合同已退出。
+当前源码增量执行 #884 / PR #887，依据[产品内依据V2冻结设计](../architecture/official-knowledge-provenance.md)和用户「官方知识库不要使用github地址」决定。原 #632 / PR #633 的阅读范围、owner和权限沿用，外部来源URL合同已退出。
 
 **V2尚未安装到保留实例。** 本轮仅实现、隔离检查与PR交付；下方2026-10-11的实例权限/交接只描述历史v1，不能授权本轮部署或证明当前实例已切换。
 

@@ -63,12 +63,10 @@ func TestTitleAdapterUsesFrozenProfileAndSharedEinoExecutor(t *testing.T) {
 	}))
 	defer server.Close()
 	endpointHash := sha256.Sum256([]byte(server.URL))
-	profile := aicapability.ModelProfile{ClientName: "title", ProviderID: "synthetic", AdapterKind: "openai-compatible",
+	profile := aicapability.ModelProfile{ConnectionID: "fixture-connection", ClientName: "title", ProviderID: "synthetic", AdapterKind: "openai-compatible",
 		ModelID: "synthetic-title", EndpointIdentityDigest: hex.EncodeToString(endpointHash[:]), CredentialVersion: "v1",
 		RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "prompt-v1",
-		OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1",
-		PointTariff: aicapability.ModelPointTariff{PriceVersion: "points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000},
-		Currency:    "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000,
+		OutputSchemaVersion: "schema-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "cost-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "points-v1", FXVersion: "fixture-fx-identity", Currency: "USD", CNYMicrosPerCurrencyUnit: 1000000, Model: "synthetic-title", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}}, Currency: "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000,
 		MaximumPromptTokens: 8192, MaximumCompletionTokens: 64, MaximumInputBytes: 16 << 10,
 		MaximumOutputBytes: 16 << 10, DeadlineBound: 5 * time.Second}
 	identity := authidentity.AuthenticatedIdentity{TenantID: "org-1", EffectiveOrganizationID: "org-1",
@@ -77,8 +75,8 @@ func TestTitleAdapterUsesFrozenProfileAndSharedEinoExecutor(t *testing.T) {
 	ref := agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: fmt.Sprintf("%064x", 1)}
 	binding := agent.Binding{ContextKind: "acquisition", ContextID: "op-1", ProductKey: "product-1", CatalogVersion: "1", PublicationID: "publication-1", TargetPlatform: "shein"}
 	modeRef := agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: fmt.Sprintf("%064x", 2)}
-	snapshot := agentconfig.Snapshot{MemberID: identity.EffectiveMemberID, AgentID: "product.title.agent", AgentVersion: "v1.0.0", ExecutionModelProfile: profile,
-		Request: agent.Request{ModeSnapshotRef: modeRef, Binding: binding, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1",
+	snapshot := agentconfig.Snapshot{MemberID: identity.EffectiveMemberID, AgentID: agentconfig.TitleAgentID, AgentVersion: agentconfig.TitleAgentVersion, ExecutionModelProfile: profile,
+		Request: agent.Request{ModeSnapshotRef: modeRef, Binding: binding, PolicyVersion: agentconfig.TitlePolicyVersion, PromptVersion: agentconfig.TitlePromptVersion,
 			Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 10000, CostMicros: 10000, Currency: "USD", Runtime: time.Minute}}}
 	ledger := &testLedger{}
 	executor := &governed.Executor{Ledger: ledger, Admission: governed.NewBoundedAdmission(),
@@ -93,7 +91,7 @@ func TestTitleAdapterUsesFrozenProfileAndSharedEinoExecutor(t *testing.T) {
 		func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
 	require.NoError(t, err)
 	input := agent.ModelInput{ModeSnapshotRef: modeRef, ConfigurationSnapshotRef: ref, Binding: binding, PolicyVersion: "title-review-v1",
-		PromptVersion: "product-title-agent-v1", AgentRunID: uuid.NewString(), AgentID: "product.title.agent", AgentVersion: "v1.0.0"}
+		PromptVersion: agentconfig.TitlePromptVersion, AgentRunID: uuid.NewString(), AgentID: agentconfig.TitleAgentID, AgentVersion: agentconfig.TitleAgentVersion}
 	t.Run("live execution identity without manufacturing a JWT identity", func(t *testing.T) {
 		bounded, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

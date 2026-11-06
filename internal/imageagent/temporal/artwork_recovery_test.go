@@ -35,12 +35,12 @@ func (r *artworkRecoveryReceipts) PublishArtwork(context.Context, imageagent.Pub
 func artworkRecoveryFixture(t *testing.T) (*Activities, imageagent.ExecutionIdentity, PersistRunStateActivityInput, *artworkRecoveryReceipts, *approvalRecoveryAuthorization) {
 	t.Helper()
 	hash := strings.Repeat("a", 64)
-	quote := imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "1"}
+	quote := imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "1"}
 	art := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创狐狸", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create original fox artwork", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: hash}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12, Quote: quote, QuoteDigest: imageagent.ArtworkQuoteDigest(quote)}
 	plan := imageagent.Plan{Revision: 1, CreatedBy: "actor", IdempotencyKey: "plan", Artwork: art, Slots: []imageagent.Slot{{ID: "artwork", Role: imageagent.SlotRoleMain, Brief: art.Theme, IdempotencyKey: "slot", Status: imageagent.SlotStatusPending}}}
 	now := time.Now().UTC()
 	run := imageagent.Run{ID: uuid.NewString(), TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "creative", ScopeProtocol: imageagent.OrganizationScopeProtocol, TargetPlatform: "sds", Mode: imageagent.RunModeManual, IdempotencyKey: "prepare", Status: imageagent.RunStatusAwaitingFinalApproval, CurrentNode: "approve_results", Version: 1, ActivePlanRevision: 1, StartedAt: now, MaxConcurrentSlots: 1}
-	limits := agentconfig.ImageRunLimits{Images: 1, Points: 12, ElapsedSeconds: 300}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 12, ElapsedSeconds: 300}
 	run.Budget = imageagent.ImageSetBudget(limits)
 	digest, err := imageagent.ArtworkPlanDigest(plan)
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func artworkRecoveryFixture(t *testing.T) (*Activities, imageagent.ExecutionIden
 	owner, err := imageagent.ArtifactOwnerKey(run.UserID)
 	require.NoError(t, err)
 	provenance := &imageagent.ArtworkProvenance{Protocol: imageagent.ArtworkSchema, TenantID: run.TenantID, OwnerUserID: run.UserID, RunID: run.ID, SlotID: "artwork", PlanRevision: 1, Attempt: 1, InputDigest: hash, IntentID: hash, Fingerprint: hash}
-	slot := imageagent.SlotProjection{Slot: plan.Slots[0], Attempt: 1, Closure: &imageagent.ImageSlotClosure{Kind: "settled", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}, Candidates: []imageagent.AssetCandidate{{AssetID: "artwork-asset", Width: 1024, Height: 1024, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/public/org/" + owner + "/" + run.ID + "/1/artwork/1/0-" + hash + ".png", SHA256: hash}, Artwork: provenance, Operations: []string{"generate_artwork"}, GenerationProof: &imageagent.ImageGenerationProof{IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}}}}
+	slot := imageagent.SlotProjection{Slot: plan.Slots[0], Attempt: 1, Closure: &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "settled", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}, Candidates: []imageagent.AssetCandidate{{AssetID: "artwork-asset", Width: 1024, Height: 1024, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/public/org/" + owner + "/" + run.ID + "/1/artwork/1/0-" + hash + ".png", SHA256: hash}, Artwork: provenance, Operations: []string{"generate_artwork"}, GenerationProof: &imageagent.ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}}}}
 	slot.Slot.Status = imageagent.SlotStatusAccepted
 	result, err := imageagent.ArtworkResultDigest(plan, []imageagent.SlotProjection{slot}, nil)
 	require.NoError(t, err)

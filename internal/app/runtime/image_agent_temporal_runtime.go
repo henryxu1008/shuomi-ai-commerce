@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	"time"
 
@@ -29,7 +30,8 @@ const (
 
 // FullImageSetDependencies keeps the SDK client at the runtime assembly boundary.
 type FullImageSetDependencies struct {
-	CurrentImagePolicies d.CurrentReader
+	ChannelCredentials   channelcredential.SecretReader
+	CurrentImagePolicies d.SharedCategoryReader
 	AssetDB              *gorm.DB
 	WorkerDB             *gorm.DB
 	WorkerConfig         *config.Config

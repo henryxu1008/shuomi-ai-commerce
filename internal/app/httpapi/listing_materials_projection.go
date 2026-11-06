@@ -11,32 +11,39 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/listing/materials"
 	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/product/asset"
 )
 
 type materialsRunDTO struct {
-	RunID                    string                         `json:"runId"`
-	RequestKey               string                         `json:"requestKey"`
-	RecordID                 string                         `json:"recordId"`
-	Phase                    agent.Phase                    `json:"phase"`
-	Revision                 string                         `json:"revision"`
-	StopReason               agent.StopReason               `json:"stopReason,omitempty"`
-	ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
-	ModeSnapshotRef          agent.ModeSnapshotRef          `json:"modeSnapshotRef"`
-	ExecutionMode            agent.ExecutionMode            `json:"executionMode"`
-	ModeRevision             string                         `json:"modeRevision"`
-	TemplateSelection        *agentconfig.TemplateRef       `json:"templateSelection,omitempty"`
-	Proposal                 *materials.Proposal            `json:"proposal,omitempty"`
-	CandidateHash            string                         `json:"candidateHash,omitempty"`
-	Before                   record.TargetInput             `json:"before"`
-	After                    *record.TargetInput            `json:"after,omitempty"`
-	Unresolved               []string                       `json:"unresolved"`
-	CanRequestAdoption       bool                           `json:"canRequestAdoption"`
-	Adoption                 *record.TargetReceipt          `json:"adoption,omitempty"`
-	Steps                    []productAgentStepDTO          `json:"steps"`
-	Tokens                   int64                          `json:"tokens"`
-	EstimatedCostMicros      int64                          `json:"estimatedCostMicros"`
-	Currency                 string                         `json:"currency"`
-	UsageStatus              string                         `json:"usageStatus"`
+	CandidateCategoryID      string                              `json:"candidateCategoryId,omitempty"`
+	Purpose                  string                              `json:"purpose"`
+	QueryRules               *materials.CandidateRulesDisclosure `json:"queryRules,omitempty"`
+	RuleExplanation          *materials.RuleExplanation          `json:"ruleExplanation,omitempty"`
+	RunID                    string                              `json:"runId"`
+	RequestKey               string                              `json:"requestKey"`
+	RecordID                 string                              `json:"recordId"`
+	Phase                    agent.Phase                         `json:"phase"`
+	Revision                 string                              `json:"revision"`
+	StopReason               agent.StopReason                    `json:"stopReason,omitempty"`
+	ConfigurationSnapshotRef agent.ConfigurationSnapshotRef      `json:"configurationSnapshotRef"`
+	ModeSnapshotRef          agent.ModeSnapshotRef               `json:"modeSnapshotRef"`
+	ExecutionMode            agent.ExecutionMode                 `json:"executionMode"`
+	ModeRevision             string                              `json:"modeRevision"`
+	TemplateSelection        *agentconfig.TemplateRef            `json:"templateSelection,omitempty"`
+	Proposal                 *materials.Proposal                 `json:"proposal,omitempty"`
+	CandidateHash            string                              `json:"candidateHash,omitempty"`
+	Before                   record.TargetInput                  `json:"before,omitzero"`
+	After                    *record.TargetInput                 `json:"after,omitempty"`
+	Unresolved               []string                            `json:"unresolved"`
+	ImageAdvice              *asset.ImageAdvice                  `json:"imageAdvice,omitempty"`
+	CanResume                bool                                `json:"canResume"`
+	CanRequestAdoption       bool                                `json:"canRequestAdoption"`
+	Adoption                 *record.TargetReceipt               `json:"adoption,omitempty"`
+	Steps                    []productAgentStepDTO               `json:"steps"`
+	Tokens                   int64                               `json:"tokens"`
+	EstimatedCostMicros      int64                               `json:"estimatedCostMicros"`
+	Currency                 string                              `json:"currency"`
+	UsageStatus              string                              `json:"usageStatus"`
 }
 
 // Historical projection uses the original immutable base and snapshots. It
@@ -47,7 +54,7 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 	if err != nil {
 		return materialsRunDTO{}, err
 	}
-	if binding != s.Request.Binding || s.Scope != (agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}) {
+	if !materialsBindingMatchesReadBase(binding, s.Request.Binding, base) || s.Scope != (agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}) {
 		return materialsRunDTO{}, agentconfig.ErrForbidden
 	}
 	if snapshot.ID == "" {
@@ -56,7 +63,7 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 			return materialsRunDTO{}, err
 		}
 	}
-	if snapshot.AgentID != materials.AgentID || snapshot.MemberID != id.MemberID {
+	if snapshot.AgentID != materials.AgentID || !agentconfig.MaterialsStoredVersion(snapshot.AgentVersion, s.Request.PolicyVersion, s.Request.PromptVersion) || snapshot.MemberID != id.MemberID {
 		return materialsRunDTO{}, agentconfig.ErrConflict
 	}
 	mode, err := a.parent.configuration.LoadModeSnapshot(ctx, id, s.Request.ModeSnapshotRef)
@@ -64,15 +71,28 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 		return materialsRunDTO{}, err
 	}
 	out := materialsRunDTO{RunID: s.RunID, RequestKey: s.Request.Key, RecordID: recordID, Phase: s.Phase, Revision: strconv.FormatUint(s.Revision, 10), StopReason: s.StopReason, ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef, ModeSnapshotRef: mode.Ref(), ExecutionMode: mode.Mode, ModeRevision: mode.Revision, TemplateSelection: snapshot.Template, Before: base.Input, Unresolved: append([]string{}, s.Unresolved...), Steps: []productAgentStepDTO{}, Tokens: s.Usage.Tokens, EstimatedCostMicros: s.Usage.CostMicros, Currency: s.Request.Limits.Currency, UsageStatus: "observed"}
+	out.Purpose = materials.MaterialsEditPurpose
 	out.Unresolved = materialsRunDiagnostics(s)
+	out.ImageAdvice, err = recordedImageAdvice(s, true)
+	if err != nil {
+		return materialsRunDTO{}, err
+	}
+	out.CanResume = s.Phase == agent.Interrupted && s.Request.PolicyVersion == materials.PolicyVersion && s.Request.PromptVersion == materials.PromptVersion
 	if s.PendingInvocationID != "" || s.Phase == agent.Running || s.StopReason == agent.StopUsageUnknown || s.StopReason == agent.StopModelUnknown {
 		out.UsageStatus = "unknown_reserved"
 	}
 	for _, step := range s.History {
 		out.Steps = append(out.Steps, productAgentStepDTO{Step: step.Step, Tool: step.Tool.ID, CallID: step.CallID, InvocationID: step.InvocationID, AuditStatus: string(step.AuditStatus)})
 	}
-	if materialsRunReviewable(s) {
-		proposal, e := materials.ParseProposal(s.DomainProposal.Payload)
+	if s.Request.Binding.ContextKind == agent.CandidateRulesContextKind {
+		out.Purpose, out.Before = materials.CategoryRulesPurpose, record.TargetInput{}
+		out.CandidateCategoryID = s.Request.Binding.CandidateRules.CandidateCategoryID
+		out.ImageAdvice = nil
+		out.QueryRules, out.RuleExplanation, err = recordedCandidateRules(s)
+		return out, err
+	}
+	if materialsHistoricalReviewable(s) {
+		proposal, e := materials.ParseRequestProposal(s.Request, *s.DomainProposal)
 		if e != nil {
 			return out, e
 		}
@@ -81,7 +101,7 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 			return out, e
 		}
 		out.Proposal, out.After, out.CandidateHash = &proposal, &after, s.Validation.CandidateHash
-		out.CanRequestAdoption = mode.Mode != agent.ModeReadOnly
+		out.CanRequestAdoption = materialsRunReviewable(s) && mode.Mode != agent.ModeReadOnly
 		receipt, e := a.supply.Targets.ReadCommand(ctx, materialsAdoptionKey(s))
 		if e == nil {
 			out.CanRequestAdoption = false

@@ -38,6 +38,28 @@ it("preserves the idempotency command on an ambiguous upstream mutation",async()
  const response=await proxyKnowledge(new Request("http://localhost:3000/api/workbench/knowledge-bases",{method:"POST",headers:{...headers,"Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify({name:"Brand"})}),"server-token","actor");
  expect((await response.json()).code).toBe("OUTCOME_UNKNOWN");expect(new Headers(fetch.mock.calls[0][1].headers).get("Idempotency-Key")).toBe(id);
 });
+it("admits only the confirmed original and binds continuation to the returned operation", async () => {
+ configure();
+ const revision = "d6c33a5b-95dd-4a3c-a420-652ec52b5f08";
+ const operation = "f5dd72eb-e639-436e-b057-38c713d12ce9";
+ const file = { sourceId:id, revisionId:revision, sourceVersion:3, revisionNumber:1, bytes:35, canDelete:false, operationId:operation, state:"DELETE_DISPATCHED" };
+ const upstream = vi.fn(async () => Response.json(file,{status:202}));
+ vi.stubGlobal("fetch",upstream);
+ const path="http://localhost:3000/api/workbench/knowledge-sources/"+id+"/original-file/";
+ const send=(suffix:string, extra:Record<string,string>, body?:string) => proxyKnowledge(new Request(path+suffix,{method:"POST",headers:{...headers,...extra},body}),"server-token","actor");
+ expect((await send(revision+"/delete",{"Idempotency-Key":id})).status).toBe(400);
+ expect((await send(operation+"/continue",{"Idempotency-Key":id})).status).toBe(400);
+ expect((await send(revision+"/delete",{"Idempotency-Key":id,"If-Match":'"3"'},"{}")).status).toBe(400);
+ expect(upstream).not.toHaveBeenCalled();
+ expect((await send(revision+"/delete",{"Idempotency-Key":id,"If-Match":'"3"'})).status).toBe(202);
+ expect((await send(operation+"/continue",{"Idempotency-Key":operation})).status).toBe(202);
+ upstream.mockResolvedValueOnce(Response.json({...file,operationId:revision},{status:202}));
+ const wrong = await send(operation+"/continue",{"Idempotency-Key":operation});
+ expect(wrong.status).toBe(502);
+ expect((await wrong.json()).code).toBe("OUTCOME_UNKNOWN");
+ upstream.mockResolvedValueOnce(Response.json({...file,objectKey:"private"},{status:202}));
+ expect((await send(operation+"/continue",{"Idempotency-Key":operation})).status).toBe(502);
+});
 it("treats post-admission database 503 as unknown so retry retains the original operation",async()=>{
  configure();const fetch=vi.fn().mockResolvedValue(Response.json({code:"KNOWLEDGE_UNAVAILABLE",message:"知识库请求未完成",requestId:"",fieldErrors:[]},{status:503}));vi.stubGlobal("fetch",fetch);
  const request=new Request("http://localhost:3000/api/workbench/knowledge-bases",{method:"POST",headers:{...headers,"Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify({name:"Brand"})});

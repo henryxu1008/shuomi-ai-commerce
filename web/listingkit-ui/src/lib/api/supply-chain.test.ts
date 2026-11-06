@@ -91,3 +91,14 @@ it("reads original UNKNOWN history with confirmed provider facts and rejects suc
  fetcher.mockImplementation(()=>Promise.resolve(reply({items:[{...item,resultReference:"not-an-attempt"}],total:1})));
  await expect(listSupplyOperationItems({userId:"actor",organizationId:"org"},id,{limit:100})).rejects.toMatchObject({code:"DEPENDENCY_UNAVAILABLE"});
 });
+
+it("recovers a plan continuation by its original read key without another start or platform command",async()=>{
+ const pending:SupplyIntent={...intent,route:"continue-upload-plan",command:{planId:other,expectedRevision:2,previewHash:"a".repeat(64)}};
+ const fetcher=vi.fn().mockImplementation(async()=>reply({planId:other,operationIds:[id],replayed:false}));vi.stubGlobal("fetch",fetcher);
+ await supplyCommand(pending);await readSupplyCommand(pending);
+ expect(fetcher.mock.calls[0][0]).toMatch(new RegExp(`upload-plans/${other}/continue$`));
+ expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({expectedRevision:2,previewHash:"a".repeat(64)});
+ expect(fetcher.mock.calls[0][1].headers.get("Idempotency-Key")).toBe(id);
+ expect(fetcher.mock.calls[1][0]).toMatch(new RegExp(`upload-plans/${other}/commands/${id}$`));expect(fetcher.mock.calls[1][1].method).toBe("GET");
+ fetcher.mockResolvedValue(reply({planId:id,operationIds:[id],replayed:true}));await expect(readSupplyCommand(pending)).rejects.toMatchObject({code:"DEPENDENCY_UNAVAILABLE"});
+});

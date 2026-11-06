@@ -46,22 +46,9 @@ Fill this section for architecture-sensitive, security-sensitive, or product-con
 - [ ] Findings identify the affected Must and blocking level; two normal architecture review rounds do not waive later real Must defects.
 - [ ] If the design is `IMPLEMENTATION_READY`, non-blocking findings did not create another versioned design document.
 
-# Legacy Hard-Cut
+# Current Architecture
 
-Fill this section whenever the PR touches an area recorded in `docs/refactoring/legacy-register.md`, root `internal/listingkit`, `internal/compatibility/*`, `internal/tenantbridge`, or an already-retired package/abstraction. Otherwise write `N/A`.
-
-```text
-Legacy decision: EXTRACT | RETIRE
-Reusable behavior:
-Current owner:
-Cutover/deletion condition:
-```
-
-- [ ] This PR does not add a third “compatibility” decision.
-- [ ] New code does not add a consumer of `internal/compatibility/*` or `internal/tenantbridge`.
-- [ ] Reusable behavior is extracted to the current owner instead of wrapped through the legacy owner.
-- [ ] No new legacy fallback, permanent dual-read, dual-write, bidirectional sync, or second business fact/state owner was introduced.
-- [ ] Old tests were preserved only when they still assert a current business/security/authorization/idempotency/platform/deterministic behavior.
+Use the current [domain boundary](https://github.com/henryxu1008/shuomi-ai-commerce/blob/main/docs/architecture/project-boundaries.md) and [greenfield baseline](https://github.com/henryxu1008/shuomi-ai-commerce/blob/main/docs/product/greenfield-no-legacy-migration.md). Reuse existing owners and keep authorization, canonical facts, transactions, idempotency and external-effect recovery intact. Pure documentation changes may state N/A; do not reconstruct a completed retirement project.
 
 # Validation
 
@@ -125,8 +112,7 @@ Use this checklist for architecture-sensitive changes, especially changes touchi
 Relevant docs when needed:
 
 - `AGENTS.md`
-- `docs/refactoring/legacy-hard-cut-policy.md`
-- `docs/refactoring/legacy-register.md`
+- `docs/product/greenfield-no-legacy-migration.md`
 - `docs/architecture/project-target-architecture.md`
 - `docs/architecture/project-boundaries.md`
 - `docs/architecture/architecture-review-checklist.md`

@@ -1,16 +1,54 @@
 # Deterministic Validator Contract — Issue #34, slice A
 
+## Native official draft diagnostics (Issue #34 / PR #1064)
+
+Native SHEIN material consumers use `goods.AssessOfficial`, which invokes the
+existing `BuildOfficial` once. Its native result remains the save/upload rule
+result. Its opt-in `Diagnostic` projects that same assessment through
+`shein/validator.ProjectOfficialDiagnostic`; projection failure grants no
+permission and is not a new gate on commands that require no public report.
+The pure adapter imports no goods, Product, Store, database or runtime owners.
+Caller-loaded source/Target, exact Product/Apply and merchant facts are checked
+JSON digests; the goods owner binds actual rules, inventory, full native draft
+and image/proof observations. Digests are content identities, never authority.
+
+The separate native scope is `shein.official_draft`, rule version
+`shein.official_draft.v1`, binding `shein.official-input.go-json.v1`, site
+`shein-us`, with explicit preview/save_draft/publish actions. The fixed envelope
+order is binding_version, marketplace, site, action, rule_version,
+context_digest, product_reference_digest, merchant_digest, rules_digest,
+inventory_digest, draft_digest, image_observations_digest,
+proof_observations_digest. The one aggregate build check and each actual native
+issue preserve findings without inventing per-rule passes or guidance.
+External freshness stays not_evaluated with no coverage or evidence; explicit
+ordered read/evaluation times do not enter the digest. No typed Snapshot TTL,
+Package codec/version or business permission changes.
+
+`listing.materials.inspect@v2.0.0` retains saved issues and adds the required
+computedDiagnostic of the base. Its stable `listing-evidence-v2:` identity
+includes the exact Tool and all disclosed semantics, excluding only its own ID
+and read/evaluation times. Domain validation checks recorded exact Tool output
+against fresh owner facts and independently applies/revalidates candidates;
+the original runtime CandidateHash binds each proposal. No extra Tool/model
+call or larger budget. Agent/policy/prompt v2 admit new execution only. Under
+the user-approved D1, finite exact v1 histories and committed receipts remain
+read-only; pending v1 proposals/runs cannot resume or newly adopt. See
+`docs/architecture/shein-native-validator-contract.md` for the approved scope.
+
+Implementation/CI/review evidence is maintained in PR #1064. Runtime, real
+save/recovery, browser and product acceptance remain NOT_RUN.
+
 ## Content-bound diagnostics (Issue #318)
 
 The typed API and strict Snapshot checks remain unchanged. The opt-in SHEIN
 `DiagnosticValidator.Validate(BoundRequest[[]byte])` uses rule version
-`shein.offline_package.v2.2` and binding version `shein.persisted-input.go-json.v2`.
+`shein.offline_package.v2.3` and binding version `shein.persisted-input.go-json.v2`.
 It accepts persisted JSON, not an in-memory Package with private resolver state.
 Both versions call one shared evaluator; neither retries the other version.
 
 Issue #36 retires the missing-final-draft compatibility pass: `final_images` is
 blocking when the final image draft is absent, for both publish and save_draft.
-The typed rule revision is `shein.offline_package.v1.2`; the persisted revision
+The typed rule revision is `shein.offline_package.v1.3`; the persisted revision
 above binds the same correction into the content digest. Former rule revisions
 are unsupported. Issue #904 also removes three legacy Package JSON aliases and their normalization,
 and requires a canonical draft for SKU readiness; the binding version changes with

@@ -25,7 +25,7 @@ func imageStartFixture(t *testing.T, store *Store) agentconfig.ImageStartCommand
 	create.Input = agentconfig.TemplateInput{Name: "图片模板", TargetPlatform: "product", Image: &parameters}
 	receipt, err := store.Execute(context.Background(), create)
 	require.NoError(t, err)
-	return agentconfig.ImageStartCommand{ExpectedModeRevision: "0", Scope: scope, MemberID: "image-member", RequestKey: uuid.NewString(), ContextID: "source-operation", RunID: uuid.NewString(), TargetPlatform: "product", SourceDigest: digest([]byte("source-v1")), InputDigest: digest([]byte("input-v1")), Template: &agentconfig.TemplateRef{TemplateID: receipt.TemplateID, Revision: "1"}, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 1000, ElapsedSeconds: 300}}
+	return agentconfig.ImageStartCommand{ExpectedModeRevision: "0", Scope: scope, MemberID: "image-member", RequestKey: uuid.NewString(), ContextID: "source-operation", RunID: uuid.NewString(), TargetPlatform: "product", SourceDigest: digest([]byte("source-v1")), InputDigest: digest([]byte("input-v1")), Template: &agentconfig.TemplateRef{TemplateID: receipt.TemplateID, Revision: "1"}, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 1000, ElapsedSeconds: 300}}
 }
 
 func TestImageAdmissionIsWriteOnceAndOrdersDisable(t *testing.T) {
@@ -34,7 +34,7 @@ func TestImageAdmissionIsWriteOnceAndOrdersDisable(t *testing.T) {
 	start := imageStartFixture(t, store)
 	snapshot, err := store.PrepareImageConfiguration(ctx, start)
 	require.NoError(t, err)
-	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{Images: 2, Points: 30, ElapsedSeconds: 180}}
+	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 2, Points: 30, ElapsedSeconds: 180}}
 	original, err := store.AdmitImageRun(ctx, admission, start.HardLimits)
 	require.NoError(t, err)
 	require.Equal(t, 180*time.Second, original.Deadline.Sub(original.AdmittedAt))
@@ -42,7 +42,7 @@ func TestImageAdmissionIsWriteOnceAndOrdersDisable(t *testing.T) {
 	disable.AgentID = agentconfig.ImageAgentID
 	_, err = store.Execute(ctx, disable)
 	require.NoError(t, err)
-	replay, err := store.AdmitImageRun(ctx, admission, agentconfig.ImageRunLimits{Images: 1, Points: 1, ElapsedSeconds: 1})
+	replay, err := store.AdmitImageRun(ctx, admission, agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 1, ElapsedSeconds: 1})
 	require.NoError(t, err, "original admitted work retains its budget and deadline after disable or ceiling drift")
 	require.Equal(t, original, replay)
 	loaded, err := store.LoadImageConfiguration(ctx, start.Scope, snapshot.Ref())
@@ -68,7 +68,7 @@ func TestImageDisableBeforeAdmissionRejectsAndRetainsPreparedSnapshot(t *testing
 	disable.AgentID = agentconfig.ImageAgentID
 	_, err = store.Execute(ctx, disable)
 	require.NoError(t, err)
-	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{Images: 2, Points: 30, ElapsedSeconds: 180}}
+	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 2, Points: 30, ElapsedSeconds: 180}}
 	_, err = store.AdmitImageRun(ctx, admission, start.HardLimits)
 	require.ErrorIs(t, err, agentconfig.ErrNotEnabled)
 	replay, err := store.PrepareImageConfiguration(ctx, start)
@@ -85,7 +85,7 @@ func TestConcurrentImageAdmissionAndDisableShareOneCommitBoundary(t *testing.T) 
 	start := imageStartFixture(t, store)
 	snapshot, err := store.PrepareImageConfiguration(ctx, start)
 	require.NoError(t, err)
-	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{Images: 2, Points: 30, ElapsedSeconds: 180}}
+	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 2, Points: 30, ElapsedSeconds: 180}}
 	disable := command(start.Scope, "disable", 1)
 	disable.AgentID = agentconfig.ImageAgentID
 	const count = 12

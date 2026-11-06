@@ -217,7 +217,12 @@ func runAccountComposeRetainedStateBackfill(t *testing.T, sh string, state map[s
 	if err != nil {
 		t.Fatal(err)
 	}
+	originValidator, err := filepath.Abs(filepath.Join("..", "deployments", "docker", "account-compose", "deployment-origins.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	replacer := strings.NewReplacer(
+		". /usr/local/lib/account-compose/deployment-origins.sh", ". "+shellQuote(originValidator),
 		"state=/state", "state="+shellQuote(stateDir),
 		"terraform_source=/terraform-source", "terraform_source="+shellQuote(filepath.Join(root, "terraform-source")),
 		"trusted_ca=/private/ca", "trusted_ca="+shellQuote(trustedCA),
@@ -231,6 +236,7 @@ func runAccountComposeRetainedStateBackfill(t *testing.T, sh string, state map[s
 	}
 	cmd := exec.Command(sh, scriptPath)
 	cmd.Env = append(os.Environ(),
+		"ACCOUNT_PUBLIC_TRIAL=", "ACCOUNT_PUBLIC_APPLICATION_ORIGIN=", "ACCOUNT_PUBLIC_IDENTITY_ORIGIN=",
 		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"BOOTSTRAP_PAT_FILE="+filepath.Join(patDir, "iam-owner.pat"),
 		"ACCOUNT_IDENTITY_PORT=8443",

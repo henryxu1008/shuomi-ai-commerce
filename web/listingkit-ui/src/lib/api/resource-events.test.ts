@@ -5,6 +5,7 @@ const row = {
   event_id: "event-1",
   operation_id: "operation-1",
   resource_type: "ai_point",
+ unit_version:"ai-micropoint-v1",
   quantity: "7",
   available_delta: "23",
   allocated_delta: "0",

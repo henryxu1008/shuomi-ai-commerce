@@ -33,7 +33,7 @@ func TestArtworkSnapshotAdmissionAndModesAreSeparateFromProductImages(t *testing
 			configuredMode, err := repo.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: identity, Subject: subject, Key: uuid.NewString(), Mode: mode})
 			require.NoError(t, err)
 			intent := digest([]byte("creative input"))
-			start := agentconfig.ArtworkStartCommand{ExpectedModeRevision: configuredMode.Revision, Scope: scope, MemberID: identity.MemberID, RequestKey: uuid.NewString(), ContextID: "creative-context", RunID: uuid.NewString(), TargetPlatform: "sds", SourceDigest: intent, InputDigest: intent, Template: &agentconfig.TemplateRef{TemplateID: receipt.TemplateID, Revision: "1"}, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: 100, ElapsedSeconds: 300}}
+			start := agentconfig.ArtworkStartCommand{ExpectedModeRevision: configuredMode.Revision, Scope: scope, MemberID: identity.MemberID, RequestKey: uuid.NewString(), ContextID: "creative-context", RunID: uuid.NewString(), TargetPlatform: "sds", SourceDigest: intent, InputDigest: intent, Template: &agentconfig.TemplateRef{TemplateID: receipt.TemplateID, Revision: "1"}, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 100, ElapsedSeconds: 300}}
 			snapshot, err := repo.PrepareArtworkConfiguration(ctx, start)
 			require.NoError(t, err)
 			require.Equal(t, parameters, snapshot.ArtworkParameters)
@@ -45,7 +45,7 @@ func TestArtworkSnapshotAdmissionAndModesAreSeparateFromProductImages(t *testing
 			checked, err := repo.CheckArtworkExecutionMode(ctx, identity, snapshot.Ref(), snapshot.ModeSnapshotRef)
 			require.NoError(t, err)
 			require.Equal(t, mode, checked.Mode)
-			admission := agentconfig.ArtworkRunAdmissionCommand{Scope: scope, Snapshot: snapshot.Ref(), MemberID: identity.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: intent, InputDigest: intent, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{Images: 1, Points: 30, ElapsedSeconds: 180}}
+			admission := agentconfig.ArtworkRunAdmissionCommand{Scope: scope, Snapshot: snapshot.Ref(), MemberID: identity.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: intent, InputDigest: intent, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 30, ElapsedSeconds: 180}}
 			original, err := repo.AdmitArtworkRun(ctx, admission, start.HardLimits)
 			if mode == agent.ModeReadOnly {
 				require.ErrorIs(t, err, agentconfig.ErrForbidden)
@@ -58,7 +58,7 @@ func TestArtworkSnapshotAdmissionAndModesAreSeparateFromProductImages(t *testing
 			require.NoError(t, err)
 			_, err = repo.CheckArtworkExecutionMode(ctx, identity, snapshot.Ref(), snapshot.ModeSnapshotRef)
 			require.ErrorIs(t, err, agentconfig.ErrChanged)
-			replay, err := repo.AdmitArtworkRun(ctx, admission, agentconfig.ImageRunLimits{Images: 1, Points: 1, ElapsedSeconds: 1})
+			replay, err := repo.AdmitArtworkRun(ctx, admission, agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 1, ElapsedSeconds: 1})
 			require.NoError(t, err)
 			require.Equal(t, original, replay, "the original receipt is readable after disable; it is not a fresh dispatch permit")
 			admission.ConfirmActionID = uuid.NewString()

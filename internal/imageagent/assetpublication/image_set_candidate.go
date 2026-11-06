@@ -133,7 +133,7 @@ func (r *ImageSetCandidateReader) ReadImageSetCandidate(ctx context.Context, sou
 			return bad()
 		}
 		candidate := slot.Candidates[0]
-		proof := &imageagent.ImageGenerationProof{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: fact.Intent.Points}
+		proof := &imageagent.ImageGenerationProof{UnitVersion: fact.Settlement.UnitVersion, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: fact.Settlement.Points}
 		if candidate.AssetID != choice.AssetID || candidate.SourceAssetID != execution.Slot.SourceAssetIDs[0] || candidate.Width != 1024 || candidate.Height != 1024 || !reflect.DeepEqual(candidate.Operations, []string{"render_source_edit"}) || !reflect.DeepEqual(candidate.GenerationProof, proof) {
 			return bad()
 		}

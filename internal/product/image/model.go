@@ -54,16 +54,17 @@ type UsageQuoteRequest struct {
 }
 
 type UsageQuote struct {
-	Operation            string
-	Provider             string
-	RouteReference       string
-	Model                string
-	CredentialReference  string
-	ConfigurationVersion string
-	PricingVersion       string
-	Fingerprint          string
-	MaximumOutputs       int64
-	MaximumModelCalls    int64
+	ReferencePriceVersion string `json:",omitempty"`
+	Operation             string
+	Provider              string
+	RouteReference        string
+	Model                 string
+	CredentialReference   string
+	ConfigurationVersion  string
+	PricingVersion        string
+	Fingerprint           string
+	MaximumOutputs        int64
+	MaximumModelCalls     int64
 	// MaximumTokens is a provider-specific conservative upper bound for one
 	// invocation. It is not observed usage.
 	MaximumTokens       int64

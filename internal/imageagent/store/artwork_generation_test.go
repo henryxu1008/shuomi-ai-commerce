@@ -34,7 +34,7 @@ func (p *artworkGenerationProvider) GenerateQuotedSlot(ctx context.Context, inpu
 	if p.result == "unknown" {
 		return imageagent.SlotGeneratedOutput{}, errors.New("controlled lost response")
 	}
-	if err := p.observer(ctx, imageagent.GenerationSuccess{ResponseID: "artwork-response", ResultDigest: strings.Repeat("c", 64), ResultURL: "https://example.test/generated.png"}); err != nil {
+	if err := p.observer(ctx, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "artwork-response", ResultDigest: strings.Repeat("c", 64), ResultURL: "https://example.test/generated.png"}); err != nil {
 		return imageagent.SlotGeneratedOutput{}, err
 	}
 	if p.result == "download_failure" {
@@ -50,7 +50,7 @@ func TestArtworkGenerationUsesOriginalEconomicsWithoutReadingAnOriginal(t *testi
 			ctx := context.Background()
 			catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{})
 			require.NoError(t, err)
-			a := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创森林动物", Requirements: "独立图案", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create original forest animal artwork.", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: "00000000-0000-4000-8000-000000000001", Digest: strings.Repeat("a", 64)}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: "00000000-0000-4000-8000-000000000002", Digest: strings.Repeat("b", 64)}, ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("c", 64), InputDigest: strings.Repeat("d", 64), MaxPoints: 12, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}}
+			a := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创森林动物", Requirements: "独立图案", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create original forest animal artwork.", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: "00000000-0000-4000-8000-000000000001", Digest: strings.Repeat("a", 64)}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: "00000000-0000-4000-8000-000000000002", Digest: strings.Repeat("b", 64)}, ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("c", 64), InputDigest: strings.Repeat("d", 64), MaxPoints: 12, Quote: imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}}
 			a.QuoteDigest = imageagent.ArtworkQuoteDigest(a.Quote)
 			run := *manualRun("run-artwork", original.Identity.TenantID)
 			run.BusinessTaskID = "artwork-context-1"
@@ -81,7 +81,7 @@ func TestArtworkGenerationUsesOriginalEconomicsWithoutReadingAnOriginal(t *testi
 				return nil, errors.New("no original exists")
 			}, PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 				provider.observer = observe
-				return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
+				return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
 			}, RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
 				return nil
 			}})

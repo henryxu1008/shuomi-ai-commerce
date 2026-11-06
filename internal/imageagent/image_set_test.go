@@ -36,10 +36,12 @@ func TestExistingImageSetPlanRetainsItsExactDigestWithoutModeRef(t *testing.T) {
 func setPlanFixture(t *testing.T) Plan {
 	t.Helper()
 	hash := strings.Repeat("a", 64)
-	raw := `{"Revision":1,"IdempotencyKey":"set-plan","SourceAssetIDs":["source-1"],"CreatedBy":"actor","Set":{"Schema":"product-image-set-v1","Source":{"ContextKind":"acquisition","ProductID":"product-1","OperationID":"source-operation","OriginalPublicationID":"source-product","OriginalVersion":1,"EffectiveVersion":1,"CatalogHash":"catalog-v2:HASH"},"Target":{"Platform":"product"},"Configuration":{"Kind":"agent-configuration-v1","ID":"9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9","Digest":"HASH"},"ConfigurationEpoch":"1","ParametersDigest":"HASH","InputDigest":"HASH","QuoteDigest":"HASH","MaxPoints":20},"Slots":[{"ID":"overview","Role":"detail","SourceAssetIDs":["source-1"],"IdempotencyKey":"overview-1","Status":"pending","Recipe":{"Purpose":"product_overview","Background":"白色","Language":"zh","Placement":{"Group":"detail","Order":1},"PromptVersion":"product-image-set-v1","Prompt":"根据原始商品图片表现商品全貌，不编造事实","References":[{"AssetID":"source-1","SHA256":"HASH","MediaType":"image/png","Bytes":10,"Width":1024,"Height":1024}],"Quote":{"Provider":"grsai","Model":"gpt-image-2.5","Protocol":"grsai-json-sync-v1","Resolution":"1024x1024","Quality":"auto","PriceVersion":"price-1","Points":20,"RouteReference":"route-1","CredentialReference":"credential-1","ConfigurationVersion":"config-1"}}}]} `
+	raw := `{"Revision":1,"IdempotencyKey":"set-plan","SourceAssetIDs":["source-1"],"CreatedBy":"actor","Set":{"Schema":"product-image-set-v1","Source":{"ContextKind":"acquisition","ProductID":"product-1","OperationID":"source-operation","OriginalPublicationID":"source-product","OriginalVersion":1,"EffectiveVersion":1,"CatalogHash":"catalog-v2:HASH"},"Target":{"Platform":"product"},"Configuration":{"Kind":"agent-configuration-v1","ID":"9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9","Digest":"HASH"},"ConfigurationEpoch":"1","ParametersDigest":"HASH","InputDigest":"HASH","QuoteDigest":"HASH","MaxPoints":"20"},"Slots":[{"ID":"overview","Role":"detail","SourceAssetIDs":["source-1"],"IdempotencyKey":"overview-1","Status":"pending","Recipe":{"Purpose":"product_overview","Background":"白色","Language":"zh","Placement":{"Group":"detail","Order":1},"PromptVersion":"product-image-set-v1","Prompt":"根据原始商品图片表现商品全貌，不编造事实","References":[{"AssetID":"source-1","SHA256":"HASH","MediaType":"image/png","Bytes":10,"Width":1024,"Height":1024}],"Quote":{"Provider":"grsai","Model":"gpt-image-2.5","Protocol":"grsai-json-sync-v1","Resolution":"1024x1024","Quality":"auto","PriceVersion":"price-1","Points":"20","RouteReference":"route-1","CredentialReference":"credential-1","ConfigurationVersion":"config-1"}}}]} `
 	var plan Plan
 	require.NoError(t, json.Unmarshal([]byte(strings.ReplaceAll(raw, "HASH", hash)), &plan))
 	if plan.Set != nil {
+		q := &plan.Slots[0].Recipe.Quote
+		q.Billing = syntheticImageBilling(q.Model, q.PriceVersion, q.Points)
 		plan.Set.Text = &ImageTextBinding{PolicyVersion: ImageTextPolicyVersion, Mode: "none", Language: "zh"}
 		plan.Slots[0].Recipe.Prompt = imageTextPrompt(ProductContextRef{}, plan.Slots[0].Brief, plan.Slots[0].Recipe)
 		var err error
@@ -114,13 +116,13 @@ func setResultFixture(t *testing.T) (Plan, []SlotProjection) {
 	plan.Set.QuoteDigest, err = ImageSetQuoteDigest(plan)
 	require.NoError(t, err)
 	hash := strings.Repeat("a", 64)
-	proof := &ImageGenerationProof{IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 20}
+	proof := &ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 20}
 	accepted := plan.Slots[0]
 	accepted.Status = SlotStatusAccepted
 	failed.Status = SlotStatusBlocked
 	return plan, []SlotProjection{
-		{Slot: accepted, Attempt: 1, Closure: &ImageSlotClosure{Kind: "settled", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 20}, Candidates: []AssetCandidate{{AssetID: "candidate-1", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}, DurableAsset: DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/run-1/1/overview/1/0-" + hash + ".png", SHA256: hash}, GenerationProof: proof}}},
-		{Slot: failed, ErrorCode: "budget_exceeded", Closure: &ImageSlotClosure{Kind: "not_dispatched"}},
+		{Slot: accepted, Attempt: 1, Closure: &ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "settled", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 20}, Candidates: []AssetCandidate{{AssetID: "candidate-1", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}, DurableAsset: DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/run-1/1/overview/1/0-" + hash + ".png", SHA256: hash}, GenerationProof: proof}}},
+		{Slot: failed, ErrorCode: "budget_exceeded", Closure: &ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}},
 	}
 }
 
@@ -158,7 +160,7 @@ func TestAllKnownFailedEffectsCanRegenerateButCannotApproveResults(t *testing.T)
 	slots[0].Candidates = nil
 	slots[0].Attempt = 0
 	slots[0].ErrorCode = "budget_exceeded"
-	slots[0].Closure = &ImageSlotClosure{Kind: "not_dispatched"}
+	slots[0].Closure = &ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}
 	closed, err := ImageSetClosedEffectsDigest(plan, slots, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, closed)

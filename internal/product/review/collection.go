@@ -27,6 +27,7 @@ func (r PageRequest) Validate() error {
 }
 
 type CollectionItem struct {
+	Execution        *ExecutionProvenance
 	ContentSelection reviewproposal.ContentSelection
 	ID               string
 	ProductKey       string
@@ -57,7 +58,34 @@ func (s *Service) List(ctx context.Context, request PageRequest) (Page, error) {
 	if err != nil {
 		return Page{}, mapSourceReadError(err)
 	}
-	return s.store.List(ctx, scope, request)
+	page, err := s.store.List(ctx, scope, request)
+	if err != nil {
+		return Page{}, err
+	}
+	if request.Cursor != nil {
+		anchor, e := s.store.Read(ctx, scope, request.Cursor.ID)
+		if e != nil || s.authorizeWorkbench(ctx, anchor.Execution) != nil {
+			return Page{}, ErrInvalid
+		}
+	}
+	kept := page.Items[:0]
+	for _, item := range page.Items {
+		if s.authorizeWorkbench(ctx, item.Execution) != nil {
+			continue
+		}
+		kept = append(kept, item)
+	}
+	if len(kept) == 0 && len(page.Items) != 0 {
+		return Page{}, ErrUnavailable
+	}
+	if len(kept) != len(page.Items) && page.NextCursor != nil {
+		if len(kept) == 0 {
+			return Page{}, ErrUnavailable
+		}
+		page.NextCursor = &PageCursor{ID: kept[len(kept)-1].ID}
+	}
+	page.Items = kept
+	return page, nil
 }
 
 // CollectionItemForPersistence projects a validated bounded persistence row.
@@ -68,7 +96,7 @@ func CollectionItemForPersistence(record Record) (CollectionItem, error) {
 	if record.State != "pending" && record.State != "accepted" {
 		return CollectionItem{}, ErrUnavailable
 	}
-	item := CollectionItem{ID: record.ID, ProductKey: record.Input.ProductKey, BaseVersion: record.Input.BaseVersion, Revision: record.Revision, State: record.State}
+	item := CollectionItem{ID: record.ID, Execution: record.Execution, ProductKey: record.Input.ProductKey, BaseVersion: record.Input.BaseVersion, Revision: record.Revision, State: record.State}
 	if record.Content != nil {
 		item.ContentSelection = record.Content.Selection
 	}

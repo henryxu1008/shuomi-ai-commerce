@@ -9,13 +9,54 @@
 
 状态：IMPLEMENTATION_READY（第一轮独立边界检查）；具体实现义务见下文。
 本文不是运行时实现、产品验收或上线批准。
+
+2026-11-03 [企业统一模型配置与官方价折算候选](enterprise-shared-model-configuration.md)
+要求各用途读取企业共享类别配置，同时保留自身 prompt/schema/预算和原唯一执行/UNKNOWN owner。
+选择/计价/资源精度合同仍 NOT_IMPLEMENTATION_READY；本文 Ready 不覆盖新共享配置、
+带图输入、跨用途协议或新价格/数量单位，现运行不因该候选被迁移或跨版本接续。
 用户在 2026-09-26 批准先收敛 #131 与实际接入依赖，再交付 #132。
 Issue/主要 PR 记录当前进度、准确代码版本、检查结果与批准；本文件只维护合同。
 
 2026-09-30 用户为 #573 明确要求标题执行采用 OpenAI 兼容接口且不锁定单一供应商。
 下文 §8.3–§8.5 的 GRSAI 单供应商措辞是此前已批准实现的历史边界，不能再作为
-后续标题执行的产品要求；新的[供应商可替换合同候选](product-agent-text-provider-neutral-v1.md)
+后续标题执行的产品要求；新的[供应商可替换合同候选](product-agent-text-provider-neutral.md)
 正在独立评审。候选达到 `IMPLEMENTATION_READY` 前，不以本决定直接放开正式调用。
+
+2026-11-02 用户接受 [#134 C1 路径 A](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6572790358)：
+现有受治理 Model Decision 直接返回 typed 文本 Candidate，固定领域 Validator 重验后
+交原 Review/采用路径，不再额外要求独立 Commerce propose Tool。只读事实工具继续原
+Registry/allowlist，模型调用仍真实计量；原字段/权限、实际观察、预算、唯一 dispatch、
+UNKNOWN 和采用门禁不变，不增加调用或放开 metered Tool。旧 C1 独立 Tool 要求由此
+产品决定替代，不写成该工具已实现；C2/C3 按下方当前阶段范围、完整集合及原质量/产品验收要求判断。
+本文原 `IMPLEMENTATION_READY` 属既有冻结范围，不表示本次归并获新独立评审或新运行授权。
+
+### C2-1 / C3-1 当前阶段范围（2026-11-02）
+
+用户选择 [C2-1 本阶段、C2-2 后续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6575806435)
+和 [C3-1 本阶段、C3-2 后续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6575617237)。
+前者复用现素材选择/摆放，补有依据的图片事实/规则检查及非执行性建议；
+后者沿现平台资料流程读取当前 saved Target 的类目/属性规则，换类目先人工确认并保存新记录。
+C2-2 额外视觉模型继续 DEFERRED / NOT_IMPLEMENTED；C3-2 独立查询已完成自身 R1 并获后续实现授权，证据见 #1077。
+两者都不是 #1076 本阶段 Must 或 E2 前置，也不是已实现或风险接受；其他未被替代的 Must 保持。
+
+C2-2 后续已开始[单图视觉分析候选](product-image-visual-analysis.md)，D1–D3 已单独产品认可，
+具体模型/图像计量/费率仍缺失，尚未实施或独立准入。
+候选复用现 Run/config/Model/ledger，保持事实 Tool 无模型调用；新的图片输入、计量与结果合同
+不能从文本 Quote、C1 路径决定或既有 Ready 推定。分析用途与当前生图许可/标题采用分开，
+尚不改变任何现运行的版本、恢复或执行资格；DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY。
+
+[图片事实/建议设计](product-image-facts-advice.md) 是新增公共 Tool/结果合同的独立冻结基线，
+已由准确设计 HEAD 的 R1 达到 IMPLEMENTATION_READY，后续实现授权及准确交付证据见 #1076。通用与原生消费者保持合法 Binding，
+不自动把图片 Tool 加给 contentagent 或所有 Agent；不改 Action/Gateway 自由参数、模型预算、
+原状态/CAS/UNKNOWN 恢复机制和正式采用副作用。D2 涉及版本执行资格及旧版 resume/adopt，
+是单列且已获产品认可的合同变化，不能以“无新状态机”视作原恢复合同完全不变；
+新版本与历史效力由独立冻结设计规定，不从本文旧 Ready 推导准入。
+新增建议不触发 Prepare/Run/生成/保存/批准；E2 一致离线组合与最终复核在 #1076 维护，本文不签发完成或产品通过。
+
+后续 [C3-2 独立冻结设计](listing-candidate-category-rules.md)：沿原 SHEIN 资料 Agent，
+以 server 强类型 Binding 固定用户选择的一个候选类目，查询规则并返回只读解释。
+Action 不增加模型自由参数；查询结果不能进入普通材料采用路径。规则覆盖 D2、版本执行资格 D3 已单独获产品认可，
+已由自身 R1 达 IMPLEMENTATION_READY，按单独授权在 #1077 实现；不继承本文或 #1076 的 Ready，不提高原预算。
 
 ## 1. 用户结果与阶段边界
 
@@ -44,14 +85,14 @@ Must：真实调用上下文、fresh 授权、精确商品版本、有限执行/
 | --- | --- | --- |
 | [Commerce Tool](../../internal/commercetool/invocation_contracts.go) / [Registry](../../internal/commercetool/registry.go) | AgentDefinition、精确 ToolRef、allowlist、审计、trace、错误分类 | 真实 AgentRun/step 调用者与注入；不重建 Registry |
 | [canonicalinspect](../../internal/product/catalog/tools/canonicalinspect/definition.go)、[sourceevidenceinspect](../../internal/product/sourcing/tools/sourceevidenceinspect/definition.go)、[assetinspect](../../internal/product/asset/tools/assetinspect/definition.go)、[readinessinspect](../../internal/listing/readiness/tools/readinessinspect/definition.go) | 精确版本下事实、来源、安全素材投影与输入诊断；已有 fresh org 组合 | 没有生产 Agent 调用方；source-evidence 不返回原始文本/任意 URL；不能当模型已获得完整来源正文 |
-| [AI Capability](../../internal/aicapability/invocation.go) / [路由](../../internal/aicapability/routing.go) | 当前组织策略、路由、调用记录与 usage/cost unknown 语义 | 文本决策/提案调用尚无经本批确认的受治理执行入口；ImageAgent Review 证据不能代替文本链 |
+| [AI Capability](../../internal/aicapability/invocation.go) / [路由](https://github.com/henryxu1008/shuomi-ai-commerce/blob/63118885b4c3b5137078871588af86e9a7b1160b/internal/aicapability/routing.go) | 当前组织策略、路由、调用记录与 usage/cost unknown 语义 | 文本决策/提案调用尚无经本批确认的受治理执行入口；ImageAgent Review 证据不能代替文本链 |
 | [旧文本传输（历史）](https://github.com/qq550723504/shuomi-ai-commerce/blob/ac54a11fed2ffdb72b3a5e8e2bd5c3575500830b/internal/integration/openai/text_completion.go) | #953 已退休的内部传输证据；当前文本执行沿既有受治理 Executor/Eino owner | 历史接口不再是入口；真实 token/cost 上界、额度/dispatch ledger 与 Agent 调用方仍须组合 |
 | [Agent PostgreSQL Store](../../internal/integration/persistence/agent/store.go) | 同一行原子保存 run/control/checkpoint；唯一运行身份、revision CAS 和重启后禁止 Running 自动重放 | 显式空安装 schema 接口；HTTP/worker composition 尚未挂载，不能绕过 fresh 授权 |
 | [旧 ProductEnrichmentAdapter（历史）](https://github.com/qq550723504/shuomi-ai-commerce/blob/ac54a11fed2ffdb72b3a5e8e2bd5c3575500830b/internal/integration/openai/product_enrichment_adapter.go) | #953 整链退休，不再注入 TextInvoker 或旧生成器 | 历史 TextInvoker 不能充当 Agent 模型门禁；当前 AI 执行保留原治理与账本边界 |
 | [Review Proposal](../../internal/product/review/proposal/candidate.go) | 当前 Candidate、字段/证据/策略纯校验；ValidateCandidate 仅校验现成候选，旧 Proposer 已退休 | Agent 组合仍需读取授权后的 exact base/source 与冻结策略；不能用模型提供的快照、质量或历史报告代替 |
 | [Readiness Executor](../../internal/listing/readiness/tools/readinessinspect/executor.go) | 已保存 Product 版本与 ApprovedAsset 的输入检查 | 不接收 proposed patch；不能用原版本 ready 证明补丁有效，且 marketplace rules 仍 not_evaluated |
-| [Product Review](../../internal/product/review/service.go)、[现有 UI](../engineering/product-title-review-ui.md) | 标题 pending/accept/edit/reject、精确版本、显式 Apply、原子 Catalog 发布/receipt；内部 CreateFromCandidate 可接收现成候选并按同一规则重验 | 当前 Agent 可选组合已接入该内部入口和四个审核端点；关闭时不挂载。旧 Create/固定生成 POST 已退休 |
-| [采集入口](../engineering/src2b-public-acquisition.md) / [当前 ImageAgent 绑定](../../internal/app/httpapi/imageagent_acquisition_catalog.go) | 真实 acquisition operation 与 Catalog 发布回执绑定，可作为首个 UI 消费场景 | 新诊断操作必须读取授权后的已发布 operation，不接入旧 ListingTask 或伪造 BusinessTask |
+| [Product Review](../../internal/product/review/service.go)、[现有 UI](../operations/product-agent-trial.md) | 标题 pending/accept/edit/reject、精确版本、显式 Apply、原子 Catalog 发布/receipt；内部 CreateFromCandidate 可接收现成候选并按同一规则重验 | 当前 Agent 可选组合已接入该内部入口和四个审核端点；关闭时不挂载。旧 Create/固定生成 POST 已退休 |
+| [采集入口](../engineering/1688-public-acquisition.md) / [当前 ImageAgent 绑定](../../internal/app/httpapi/imageagent_acquisition_catalog.go) | 真实 acquisition operation 与 Catalog 发布回执绑定，可作为首个 UI 消费场景 | 新诊断操作必须读取授权后的已发布 operation，不接入旧 ListingTask 或伪造 BusinessTask |
 
 这些是接线前必须补齐的接口，不是为理论场景扩建通用平台的依据。
 
@@ -113,6 +154,11 @@ confidence 必须标出来源/是否已知；不把 reviewproposal.Quality 或�
 结果默认 `HumanReviewRequired=true`，不提供 Agent 可设的 approved/applied/publish-ready。
 校验报告绑定 exact base + candidate hash + rule/policy version；candidate 修改使原校验失效。
 禁止 raw provider body、secret、任意外链、隐藏推理内容进入 trace/UI。
+
+C2-1 候选的 image-advice-v1 是带准确观察依据的只读检查/建议结果，不加入
+ProposedProductPatch/Candidate.Changes 或新增可执行 DomainProposalKind。
+已有原生图片选择/摆放仍用原 materials.Proposal.Images，经原固定 Validator/Target owner 重验；
+通用建议不能交标题 Review 保存。结构化结果/消费者和新版本按独立设计冻结，当前尚未实现。
 
 ## 4. 状态、预算与恢复
 
@@ -224,7 +270,8 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 1. 本合同及真实缺口做一次独立边界检查。只对新状态/恢复、身份和有费用调用边界审查。
 2. #131 在同一主要 PR 落最小合同/单框架适配，fake model/tool 验证完整循环与全部预算停止。
    此时不开放 HTTP、数据库初始化或真实 provider；恢复/幂等使用测试替身不能宣称持久化完成。
-3. #130/#134 的当前消费者增量：受治理文本调用；复用 review/proposal 纯校验；受控 propose 工具。
+3. #130/#134 的当前消费者增量：受治理文本调用返回 typed Candidate，复用
+   review/proposal 纯校验；C1 按上述产品决定不再额外要求独立 propose Tool。
    在原 owner 内补齐，不把图像、平台工具全集作为标题首片的前置，也不撤销父 Issue 原目标。
 4. #132 接入既有采集结果页和 Product Review，补齐当前组织 runtime 组装与持久执行合同；
    只在现有准入、隔离验证和明确真实调用授权满足后开放。用户能看到入口和不确定项，
@@ -233,7 +280,9 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 | 缺口 | 责任 / 解除条件 | 阻塞层级 |
 | --- | --- | --- |
 | 文本模型治理、可观测预算与未知结果防重复 | #130 / AI Capability：当前文本调用有真实 adapter、前置边界、调用结果/用量与不重放证据 | 真实模型接线；不阻塞 #131 fake 合同实现 |
-| proposed patch 校验及窄 propose tool | #134 / review/proposal：无模型副作用的相同规则校验与精确证据绑定 | 补全/repair 功能实现与该功能合并 |
+| C1 文本候选及 proposed patch 校验 | #134 / 现 governed Model Decision → contentagent / Review/proposal：typed Candidate、相同纯规则与准确已观察证据绑定；不额外注册独立 propose Tool | 原补全/repair 与 Review 交接验收；不推定其它最小工具集合完成 |
+| C2-1 图片事实检查/非执行性建议、C3-1 当前资料规则 | #134 / [冻结设计](product-image-facts-advice.md)：Asset/Marketplace 原 owner、薄 read/compute Tool 与既有结果页，保留原权限/证据/预算；D2 已产品认可、R1 IMPLEMENTATION_READY | #1076 实现、自检、E2 离线组合与最终工程复核；C2-2 延期、C3-2 后续独立设计不作该阶段 Must；运行/产品 NOT_RUN |
+| C3-2 候选类目查询与解释 | #134 / [独立冻结设计](listing-candidate-category-rules.md)：server 选择绑定、原规则 owner、新准确 Tool/领域结果与只读消费者；D2/D3 已产品认可、R1 IMPLEMENTATION_READY | #1077 维护实现、IT1/IT2、CI 与独立最终复核；不把普通 inspect 或 #1076 证据外推为新用途完成 |
 | Agent 结果进入既有审核 | #132 消费 #36 / review：幂等接收可信内部结果、fresh 授权、校验、原 UoW；未修改部分复用现有测试 | 人工审核闭环；不阻塞只读工具 |
 | 当前调用上下文与运行状态持久化 | #131/#132：真实 operation 绑定、run 唯一性、checkpoint revision、restart/unknown 证据 | HTTP/worker 开放；禁止假 task ID 或伪持久化 |
 | 同样本的 Agent/fixed 对照 | #132 消费 #47：复用已有核心样本，补必要标注与实际测量 | PoC 结论/下一阶段；不是只读工具已合入证据 |
@@ -281,7 +330,11 @@ Store 必须原子 claim/CAS 保存控制字段与 checkpoint，GovernedModel �
 上界/usage 并阻止重复 dispatch；本包不提供可误用作生产持久化的内存实现，也不自动
 提供模型客户端。当前 gateway 只接纳 unmetered read/compute 工具；AI propose 工具
 缺少逐调用计量桥接时拒绝注册，不能把只有 AIInvocationID 的 Result 当费用事实。
-fake model 返回的候选可用于完整运行合同验证，不代表 #134 propose 工具已完成。
+C1 文本提案按当前产品决定通过原 GovernedModel Decision 及原 model 预算/计量路径，
+不经过 tool-result 分支，也不解除上述构造/结果门禁。当冻结 ModelCalls==2 时仍先读
+canonical 再 propose/interrupt；最多两次 repair 不表示可突破 ModelCalls 或费用上限。
+fake model 返回的候选可用于运行合同验证，不代表真实模型遵从/效果、其它 propose Tool
+或 #134/#128 完整集合与产品验收已完成；不得制造未发生的 ToolRef/调用审计。
 
 运行必要的本地合同验证：
 

@@ -20,28 +20,15 @@ func imageAgentDurableAssetPublicURLResolver(cfg *config.Config) imageagent.Dura
 	if !store.Enabled || !strings.EqualFold(strings.TrimSpace(store.Provider), "s3") || strings.TrimSpace(store.PublicBase) == "" || strings.TrimSpace(store.S3.Bucket) == "" {
 		return nil
 	}
-	return imageAgentObjectURLResolver{
-		bucket: store.S3.Bucket, publicBase: store.PublicBase,
-		endpoint: store.S3.Endpoint, usePathStyle: store.S3.UsePathStyle,
-	}
+	return imageAgentObjectURLResolver{publicBase: store.PublicBase}
 }
 
 type imageAgentObjectURLResolver struct {
-	bucket       string
-	publicBase   string
-	endpoint     string
-	usePathStyle bool
+	publicBase string
 }
 
 func (r imageAgentObjectURLResolver) PublicURL(key string) string {
-	fallbackBase := s3integration.BuildS3PublicBase(r.endpoint, r.bucket, r.usePathStyle)
-	fallbackURL := ""
-	if fallbackBase != "" {
-		fallbackURL = strings.TrimRight(fallbackBase, "/") + "/" + strings.TrimLeft(strings.TrimSpace(key), "/")
-	} else {
-		fallbackURL = fmt.Sprintf("https://%s.s3.amazonaws.com/%s", strings.TrimSpace(r.bucket), strings.TrimLeft(strings.TrimSpace(key), "/"))
-	}
-	return s3integration.ResolveObjectURL(r.publicBase, key, fallbackURL)
+	return s3integration.ResolveObjectURL(r.publicBase, key)
 }
 
 func newImageSetSourceByteReader() imageapp.SourceByteReader {

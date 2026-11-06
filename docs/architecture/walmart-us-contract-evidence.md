@@ -1,6 +1,6 @@
 # Walmart 美国站官方合同证据与边界
 
-Refs [#733](https://github.com/qq550723504/task-processor/issues/733)；[首期设计](walmart-us-v1.md)。核对日期：2026-10-16，Asia/Singapore。来源为官方公开开发者文档/API reference、实际服务商表单和 Figma 只读 metadata；未使用凭据、登录商家、调用业务 API 或提交申请。协议样例不是实际应用或平台验收证据。
+Refs [#733](https://github.com/qq550723504/task-processor/issues/733)；[首期设计](walmart-us.md)。核对日期：2026-10-16，Asia/Singapore。来源为官方公开开发者文档/API reference、实际服务商表单和 Figma 只读 metadata；未使用凭据、登录商家、调用业务 API 或提交申请。协议样例不是实际应用或平台验收证据。
 
 ## 1. 已确认的官方依据
 

@@ -7,6 +7,16 @@
 - 发现现有架构设计问题时及时说明，不要忽略。
 - 优先复用仓库已有能力和成熟开源实现，避免重复建设。
 
+## Figma 使用边界（2026-11-05 用户最新决定）
+
+**Figma 只用于理解和核对业务流程，不再作为 UI/UX、信息架构或视觉实现的权威标准。** 本决定取代仓库内此前“最终 Figma UI / IA Authority”“完全对齐 Figma 页面”“以 Figma 导航层级/布局/组件/样式验收”等冲突要求；旧文档、Issue、PR 中的历史原型节点保留为流程溯源，不自动构成新的 UI 约束。
+
+- **可以参考**：业务场景、用户任务、操作步骤、条件分支、状态流转、流程衔接及必要的业务信息；必须与用户最新明确决定、已批准领域合同和当前真实能力核对，原型示例数据不是真实事实。
+- **不得照搬或作为验收依据**：Figma 的布局、菜单层级、页面拆分、组件、字号、配色、Logo 排列、宽屏/移动端尺寸、交互控件形式、原型连线和逐像素截图。原型中的菜单或画板不等于必须存在的产品功能。
+- **UI/UX 重新设计**：依据当前产品目标、用户使用路径、可用性、统一设计系统、响应式与无障碍原则，优先复用仓库现有成熟组件。导航和页面组织由实际业务与用户体验决定，不能仅因 Figma 节点存在而增加入口或强制三级/四级菜单。
+- **权威顺序**：用户最新明确产品决定 > 当前已批准业务/领域合同及安全权限不变量 > 当前 Issue 的有效范围；Figma 仅是辅助流程材料。涉及流程冲突时先确认最新决定和事实 owner，不自行把 Figma 设计示例提升为需求。
+- **交付验收**：验证真实业务路径可完成、导航可达且可返回、状态/权限/错误反馈正确、不同屏宽可用、视觉一致；不要求与 Figma 画面相同。不得把原型点击或截图通过等同于真实运行验收。
+
 ## 产品先行与工程投入
 
 **先交付真实用户能使用的核心产品，工程化做到当前阶段够用，再由实际使用、规模、风险和维护成本触发完善。** 本原则适用于规划者、项目经理、实现者和 Reviewer，不是取消安全底线或绕过现有准入与合并规则。
@@ -38,46 +48,26 @@
 - 用户可以授予**有边界的合并窗口授权**：在产品逻辑 diff、权限、安全、持久化和副作用边界不变的前提下，后续若仅发生 merge-main、依赖同步、文档或元数据变化，独立 Reviewer 只需确认组合无新问题且必需 CI 通过，无需再次请求同一产品决定。实际 GitHub merge 仍必须使用最终准确 HEAD/expected-head 语义，不得管理员绕过、强推或修改保护规则。任何产品逻辑、权限、安全、持久化或副作用变化都会使该窗口授权失效。
 - 汇报以“用户现在能完成什么、入口在哪里、具体阻碍是什么、需要什么产品决定”为主。测试数量、代码行数、PR 数量和报告数量只作为辅助证据，不能替代产品进展。
 
-## Legacy Hard-Cut
+## 当前架构与能力复用
 
-仓库对旧代码采用 `Hard-Cut + Selective Extraction`，详细规则见：
+新代码落在[当前领域 owner](docs/architecture/project-boundaries.md)，复用合格的现有行为和成熟组件。旧代码退休工程已经完成，退休矩阵、登记、阶段报告及其正文冻结不再是开发前置。
 
-- `docs/refactoring/legacy-hard-cut-policy.md`
-- `docs/refactoring/legacy-register.md`
-
-当前 Legacy 只有两种合法处理结果：
-
-- `EXTRACT`：仍然正确、可复用的行为抽取到当前架构的正确 owner；新代码不得继续依赖旧 owner。
-- `RETIRE`：属于旧设计的代码/测试/DTO/Workflow/Task/Workspace/状态机不兼容、不扩展，完成切换后删除或停止使用。
-
-**当前没有 Legacy Compatibility 类别。**
-
-遇到旧代码时：
-
-1. 先判断它是否仍是当前 Product/Architecture requirement；不是则 `RETIRE`。
-2. 若行为仍有价值，优先把行为抽取到当前 Domain/Capability owner，而不是 Wrap 旧 Service。
-3. 不得为了“保持旧代码可用”在新架构内部增加 fallback、双读、双写、双向同步或第二套事实源。
-4. 旧测试不是 Architecture Authority；只保留仍然有效的业务、安全、权限、幂等、平台或确定性行为，旧实现细节测试应删除/改写。
-5. ProductEnrich/ProductImage 旧 task/queue/worker/API、Task-first Product 模型、旧 Listing Workspace/Task Dashboard、平台独立 Workbench 等已 hard-cut 的设计不得通过兼容层重新进入新代码。
-6. 新的 Product/Agent/Tool/Marketplace/Console 代码不得直接依赖已登记为 `RETIRE` 的 legacy abstraction。
-7. 如果未来发现具体、当前的外部可观察契约或持久化运行态似乎要求兼容，必须停下来报告用户；当前没有可执行的 legacy migration/compatibility Exception，只有用户新的明确产品决定可以改变本禁令，Reviewer 或 Agent 无权自行放行。不得自行增加“临时”兼容路径。
-
-PR 触碰 Legacy 时必须说明：
-
-```text
-Legacy decision: EXTRACT | RETIRE
-Reusable behavior:
-Current owner:
-Cutover/deletion condition:
-```
-
-“继续兼容旧内部设计”不是当前允许的默认决策。
+- 一个业务事实由一个当前 owner 负责；不得引入旧 Service 包装、fallback、双读双写或第二事实源来承接旧设计。
+- 测试和源码本身不是新增产品需求的授权；仍有效的业务、安全、权限、事务、幂等和恢复行为继续验证。
+- 发现现有实现不符合当前合同，按明确范围修复并检查同根因路径，不恢复已退出的兼容或迁移方案。
+- 当前运行合同和源码/依赖禁入规则继续有效。涉及实际资源或外部契约时提供具体当前证据，不从退休记录推导操作权限。
 
 ## 全新系统产品基线
 
 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](docs/product/greenfield-no-legacy-migration.md) 适用于后续全部业务任务：按全新安装、空业务数据、当前模型和当前产品需求设计。不得新增旧数据迁移、旧 ID 映射、旧 Service 包装、compatibility adapter、fallback、双读/双写/同步、tenantbridge consumer 或第二事实源。历史 A/B1/B2、#364/PR #366 与旧 C/D 仅是历史证据，不构成实现前置或迁移授权。
 
 现有合格能力和成熟开源组件仍可按当前 owner 复用；发现旧代码只作 `EXTRACT | RETIRE`。若主张存在外部可观察兼容义务，先提供具体当前证据并报告用户；只有用户新的明确产品决定可以改变本禁令，Reviewer 或 Agent 无权自行放行。不得以旧 Issue、PR、设计、测试或代码默认推定。该产品决定不授权真实环境的数据访问、迁移、删除或清理。
+
+### Agent 的当前文档依据
+
+按用户2026-11-02决定，项目作为全新系统开发，当前没有旧系统兼容、迁移或历史业务承接义务。Agent 以当前产品决定、已批准领域合同和当前执行 Issue 为开发依据，不默认读取历史归档，不从旧计划、旧测试或既有实现恢复已撤销需求；详细规则见[全新系统开发基线](docs/product/greenfield-no-legacy-migration.md#agent-开发依据2026-11-02-用户决定)。
+
+工作树不保留归档、退休过程目录或另一个历史目录来维持旧阶段准入。历史原件仅作固定版本追溯；对旧材料的文本、历史计数、版式和正文冻结检查不作为正常开发前置。现行授权、租户、安全、事务、幂等、资源与恢复合同及其行为测试继续有效。
 
 ## Architecture First 开工准入
 
@@ -89,7 +79,7 @@ Cutover/deletion condition:
 
 1. **Independent Architecture**
    - 必须有独立架构文档；
-   - 文档必须引用适用的产品决定；涉及 UI / IA / 页面命名 / 交互时必须引用当前 Figma Product Authority；
+   - 文档必须引用适用的产品决定；涉及 UI / IA / 页面命名 / 交互时遵循上文最新 Figma 使用边界及当前产品决定；
    - 必须完成适用的独立 Architecture Review；
    - 只有显式达到 **`IMPLEMENTATION_READY`** 后，Writer 才能修改正式生产业务路径。
 
@@ -105,7 +95,7 @@ Cutover/deletion condition:
    - 新的跨系统安全边界；
    - 下方架构敏感阈值表命中且现有批准架构不足以直接覆盖。
 
-   独立架构文档至少明确：Product Outcome / Scope / Out of Scope、Product/Figma Authority、domain/fact owner、contract → implementation → injection → consumer、状态与持久化边界、权限/租户边界、幂等与 retry/UNKNOWN/recovery、外部副作用、Legacy decision、验证与验收方法。
+   独立架构文档至少明确：Product Outcome / Scope / Out of Scope、Product Decision / Business Flow Reference、domain/fact owner、contract → implementation → injection → consumer、状态与持久化边界、权限/租户边界、幂等与 retry/UNKNOWN/recovery、外部副作用、Legacy decision、验证与验收方法。
 
 2. **Reuse Existing Architecture**
    - 适用于单域、有界、完全复用当前已批准架构/合同的功能；
@@ -123,7 +113,7 @@ Cutover/deletion condition:
 执行 Issue 只有在以下条件满足后才能标为 `Ready` 并派 Writer 修改生产代码：
 
 - 用户结果、Scope / Out of Scope 已明确；
-- 涉及产品 UI 时，适用 Figma / Product Authority 已明确；
+- 涉及产品 UI 时，适用产品决定与业务流程依据已明确，Figma 不作为 UI/UX 验收标准；
 - Design Basis 分类和引用已完整；
 - Independent Architecture 已完成适用 Architecture Review，并明确为 `IMPLEMENTATION_READY`；
 - 依赖、owner 和正式开工条件已满足。
@@ -226,7 +216,7 @@ Action:
 
 ## 实施与验证
 
-- ListingKit 本地镜像构建使用 `scripts/build-listingkit-images.ps1`，显式选择 Git 版本；具体入口与限制见 [镜像构建说明](docs/operations/listingkit-image-build.md)。后端与 UI 均从仓库标准 Dockerfile 的干净运行基础组装，不以当前/上一版应用发布镜像为 `FROM` 基底，不把一次性运行镜像压平作为后续版本的构建链。浏览器依赖和应用产物分层，后端只保留规范路径的一份程序。
+- ListingKit 本地镜像构建使用 `scripts/build-listingkit-images.ps1`，显式选择 Git 版本；具体入口与限制见 [镜像构建说明](docs/operations/application-image-build.md)。后端与 UI 均从仓库标准 Dockerfile 的干净运行基础组装，不以当前/上一版应用发布镜像为 `FROM` 基底，不把一次性运行镜像压平作为后续版本的构建链。浏览器依赖和应用产物分层，后端只保留规范路径的一份程序。
 - 构建、推送和部署分别遵守当前授权；构建成功不授权变更保留实例、执行初始化、删除卷或通用 prune。已有生产发布退休/NOT_READY 门禁不得因新增本机构建入口而解除。
 
 - 业务规则与缺陷修复使用 TDD：先写能捕获目标缺陷的测试并确认失败，再写最小实现；纯文档、文案和不涉及业务行为的有界修改只做适用检查，不为形式制造 RED 或测试框架。

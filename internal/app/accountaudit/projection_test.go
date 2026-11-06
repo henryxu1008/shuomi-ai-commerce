@@ -409,8 +409,8 @@ func TestProjectionEmitsCursorWhenMergedPageTruncatesWithoutSourceCursor(t *test
 		{OrganizationID: "B", AccountID: "0198d4f0-0000-7000-8000-000000000002", ActorSubject: "actor", Kind: registry.OperationDisable, Version: 3, OccurredAt: now.Add(-time.Microsecond)},
 	}}}
 	resources := &additionalHistoryStub{page: AdditionalAuditPage{Items: []AdditionalAuditEvent{
-		{EventType: "account_member_ai_point_limit.changed", ObjectType: "member_ai_point_limit", ObjectReference: "m-1", Actor: "actor", Operation: "set_member_ai_point_limit", Version: 1, Key: "1", RelationReference: "op-1", Time: now.Add(-2 * time.Microsecond), Resource: &ResourceDetail{Type: "ai_point", Quantity: "1000"}},
-		{EventType: "account_member_ai_point_limit.changed", ObjectType: "member_ai_point_limit", ObjectReference: "m-2", Actor: "actor", Operation: "set_member_ai_point_limit", Version: 2, Key: "2", RelationReference: "op-2", Time: now.Add(-3 * time.Microsecond), Resource: &ResourceDetail{Type: "ai_point", Quantity: "0"}},
+		{EventType: "account_member_ai_point_limit.changed", ObjectType: "member_ai_point_limit", ObjectReference: "m-1", Actor: "actor", Operation: "set_member_ai_point_limit", Version: 1, Key: "1", RelationReference: "op-1", Time: now.Add(-2 * time.Microsecond), Resource: &ResourceDetail{UnitVersion: "ai-micropoint-v1", Type: "ai_point", Quantity: "1000"}},
+		{EventType: "account_member_ai_point_limit.changed", ObjectType: "member_ai_point_limit", ObjectReference: "m-2", Actor: "actor", Operation: "set_member_ai_point_limit", Version: 2, Key: "2", RelationReference: "op-2", Time: now.Add(-3 * time.Microsecond), Resource: &ResourceDetail{UnitVersion: "ai-micropoint-v1", Type: "ai_point", Quantity: "0"}},
 	}}}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{UserID: "u1", TenantID: "B", EffectiveOrganizationID: "B", TokenExpiresAt: now.Add(time.Hour)})
 	query, err := NewCurrentAuditSources(history, nil, nil, nil, nil, resources)

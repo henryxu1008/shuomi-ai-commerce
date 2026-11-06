@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 	"testing"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/googleinteractions"
-	"task-processor/internal/integration/openai"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	agentstore "task-processor/internal/integration/persistence/agent"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
@@ -150,14 +150,14 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		ActionID: "approved-for-shein", Assets: []productasset.ApprovedAsset{{ID: "approved-shein-main", RunID: "image-run", PlanRevision: 1, SlotID: "main", Attempt: 1, Role: productasset.RoleMain, URL: "https://cdn.example.test/shein.png"}}})
 	require.NoError(t, err)
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(f.owner))
-	require.NoError(t, f.owner.AutoMigrate(&openai.AIClientCredential{}))
+	require.NoError(t, installHTTPChannelFixture(f.owner))
 	require.NoError(t, resourceadapter.AutoMigrate(f.owner))
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member-B-admin", ActorID: "admin", OperationID: "point-limit", Target: 10000000})
+	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-admin", ActorID: "admin", OperationID: "point-limit", Target: 10000000})
 	require.NoError(t, err)
 	now := time.Now().UTC()
-	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
+	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)",
 		"B", "ai_point", 10000000, 0, 0, 0, now, now).Error)
 	const approvedGoal = "突出有证据支持的卖点"
 	var plannerCalls, titleCalls atomic.Int32
@@ -223,33 +223,34 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		}
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"isolated-workbench","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}`))
+		_, _ = w.Write([]byte(`{"id":"isolated-workbench","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
-	credentials := openai.NewOrganizationOnlyCredentialResolver(f.owner)
-	titleCredential := openai.AIClientCredential{TenantID: "B", ClientName: "title", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "title-fixture", APIStyle: "openai", Enabled: true, TimeoutSecond: 3}
+	credentials := newHTTPChannelFixture(f.owner)
+	titleCredential := httpModelFixture{TenantID: "B", ClientName: "title", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "title-fixture", APIStyle: "openai", Enabled: true, TimeoutSecond: 3}
 	if googleTitle {
 		titleCredential.BaseURL, titleCredential.Model, titleCredential.APIStyle = googleinteractions.Origin, googleinteractions.Model, "google-interactions"
 	}
-	for _, row := range []openai.AIClientCredential{
+	for _, row := range []httpModelFixture{
 		titleCredential,
 		{TenantID: "B", ClientName: "chat", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "chat-fixture", APIStyle: "openai", Enabled: true, TimeoutSecond: 3},
 	} {
-		require.NoError(t, credentials.SaveCredential(context.Background(), row))
+		require.NoError(t, credentials.seed(context.Background(), row))
 	}
-	titleRow, err := credentials.GetCredential(context.Background(), "B", "", "title")
+	titleRow, err := credentials.record(context.Background(), "B", "", "title")
 	require.NoError(t, err)
-	chatRow, err := credentials.GetCredential(context.Background(), "B", "", "chat")
+	chatRow, err := credentials.record(context.Background(), "B", "", "chat")
 	require.NoError(t, err)
 	profile := func(client, model, prompt, output string) aicapability.ModelProfile {
 		return aicapability.ModelProfile{ClientName: client, ProviderID: "openai-compatible", AdapterKind: "openai-compatible", ModelID: model,
 			RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: prompt, OutputSchemaVersion: output,
-			UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000},
-			Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192,
+			UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: model, Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192,
 			MaximumInputBytes: 1 << 20, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}
 	}
-	policy := func(row *openai.AIClientCredential, p aicapability.ModelProfile) governed.RoutePolicy {
-		return governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(row.BaseURL)}
+	policy := func(row *httpModelFixture, p aicapability.ModelProfile) governed.RoutePolicy {
+		p.ConnectionID = row.ClientName
+		p.CredentialVersion = row.reference
+		return governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: httpCredentialReference(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(row.BaseURL)}
 	}
 	ledger := aistore.NewGormInvocationRecorder(f.owner)
 	claimLedger := &rollbackWorkbenchClaim{ProductAgentInvocationLedger: ledger}
@@ -260,7 +261,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	auth, err := authz.NewListingKitAuthorizer([]string{"admin"}, nil)
 	require.NoError(t, err)
 	deps.authorizer = auth
-	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner,
+	settings := ProductAgentDependencies{ChannelCredentials: newHTTPChannelFixture(f.owner), Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner,
 		ReviewDB: f.owner, Ledger: claimLedger, TextPolicies: map[string]governed.RoutePolicy{"B": policy(titleRow, profile("title", "title-fixture", "product-title-agent-v1", "product-title-action-v1"))},
 		Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
 	if kf != nil {
@@ -269,6 +270,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	if googleTitle {
 		p := settings.TextPolicies["B"]
 		p.Profile.ProviderID, p.Profile.AdapterKind, p.Profile.ModelID = "google", "google-interactions", googleinteractions.Model
+		p.Profile.OfficialTariff.Model = p.Profile.ModelID
 		p.Profile.AdapterPolicyVersion, p.Profile.UsageMappingVersion = googleinteractions.AdapterPolicyVersion, googleinteractions.UsageMappingVersion
 		p.Profile.MaximumInputBytes = 128 << 10
 		settings.TextPolicies["B"] = p
@@ -539,8 +541,8 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 
 	// A lost response must replay the frozen receipt even when the planner
 	// route becomes unavailable before the retry. No mutable route read wins.
-	changedRoute := f.owner.Model(&openai.AIClientCredential{}).
-		Where("tenant_id = ? AND user_id = ? AND client_name = ?", "B", "", "chat").
+	changedRoute := f.owner.Model(&channelstore.ConnectionRow{}).
+		Where("organization_id = ? AND connection_id = ?", "B", "chat").
 		Update("enabled", false)
 	require.NoError(t, changedRoute.Error)
 	require.EqualValues(t, 1, changedRoute.RowsAffected)
@@ -548,8 +550,8 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.EqualValues(t, 3, plannerCalls.Load())
-	require.NoError(t, f.owner.Model(&openai.AIClientCredential{}).
-		Where("tenant_id = ? AND user_id = ? AND client_name = ?", "B", "", "chat").
+	require.NoError(t, f.owner.Model(&channelstore.ConnectionRow{}).
+		Where("organization_id = ? AND connection_id = ?", "B", "chat").
 		Update("enabled", true).Error)
 	confirmKey := uuid.NewString()
 	confirmPath := workbenchChatBase + "/" + created.Conversation.ID + "/proposals/" + planned.ProposalID + "/confirm"
@@ -765,7 +767,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	taskGrants.viewer.Store(true)
 	readAsViewer("COMPLETED")
 	require.Equal(t, titleBefore, titleCalls.Load())
-	currentChat, err := credentials.GetCredential(context.Background(), "B", "", "chat")
+	currentChat, err := credentials.record(context.Background(), "B", "", "chat")
 	require.NoError(t, err)
 	readyModule, err := buildAIWorkbenchModule(context.Background(), AIWorkbenchDependencies{DB: workbenchDB,
 		PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy(currentChat, profile("chat", "chat-fixture", "ai-workbench-chat-plan-v1", "ai-workbench-plan-decision-v1"))}}, agentModule.(productAgentModule).application)
@@ -821,7 +823,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	taskGrants.viewer.Store(false)
 	disabledTitle := *titleRow
 	disabledTitle.Enabled = false
-	require.NoError(t, credentials.SaveCredential(context.Background(), disabledTitle))
+	require.NoError(t, credentials.seed(context.Background(), disabledTitle))
 	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
@@ -870,19 +872,19 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	// must still be rejected by the final guarded transport handoff.
 	invalidPlanner.Store(false)
 	disabledTitle.Enabled = true
-	require.NoError(t, credentials.SaveCredential(context.Background(), disabledTitle))
+	require.NoError(t, credentials.seed(context.Background(), disabledTitle))
 	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.Contains(t, string(raw), `"canStart":false`, "credential rotation cannot revive a frozen Task")
-	currentTitle, err := credentials.GetCredential(context.Background(), "B", "", "title")
+	currentTitle, err := credentials.record(context.Background(), "B", "", "title")
 	require.NoError(t, err)
 	var rotated atomic.Bool
 	rotatingSettings := settings
 	rotatingSettings.TextPolicies = map[string]governed.RoutePolicy{"B": policy(currentTitle, profile("title", "title-fixture", "product-title-agent-v1", "product-title-action-v1"))}
 	rotatingSettings.Ledger = agentReserveHook{ProductAgentInvocationLedger: ledger, afterReserve: func() {
-		result := f.owner.Model(&openai.AIClientCredential{}).
-			Where("tenant_id = ? AND user_id = ? AND client_name = ?", "B", "", "title").Update("enabled", false)
+		result := f.owner.Model(&channelstore.ConnectionRow{}).
+			Where("organization_id = ? AND connection_id = ?", "B", "title").Update("enabled", false)
 		if result.Error != nil || result.RowsAffected != 1 {
 			t.Errorf("synthetic title rotation failed: %v rows=%d", result.Error, result.RowsAffected)
 		}

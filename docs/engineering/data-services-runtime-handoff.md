@@ -1,6 +1,6 @@
 # Data Services v1 runtime handoff
 
-执行 [#621](https://github.com/qq550723504/task-processor/issues/621)，主要 [PR #623](https://github.com/qq550723504/task-processor/pull/623)；设计依据为 [冻结架构](../architecture/data-services-v1.md)。本文件交接已实现消费者，不新增产品要求或运行授权。公共导航、原生权限目录、installer、composition、worker 与运行实例由 **#619** 唯一写入；本 PR 不改共享启动路径。
+执行 [#621](https://github.com/qq550723504/task-processor/issues/621)，主要 [PR #623](https://github.com/qq550723504/task-processor/pull/623)；设计依据为 [冻结架构](../architecture/data-services.md)。本文件交接已实现消费者，不新增产品要求或运行授权。公共导航、原生权限目录、installer、composition、worker 与运行实例由 **#619** 唯一写入；本 PR 不改共享启动路径。
 
 ## 用户入口与操作
 
@@ -69,7 +69,7 @@ feature-local `internal/dataservice/httpapi` 负责框架 adapter，app module �
 
 ## 浏览器、Temporal 与 Resource 恢复
 
-#619 的正常接线使用 [原生 Data Services Compose profile](../../deployments/docker/account-compose/DATA_SERVICES.md)，显式安装于新空 Product 库；`data_services_runtime` 与原 `source_acquisition_runtime` 使用同一物理库、不同受限 pool，原 pool 不增权。用户已决定本轮沿正式 IAM、不新增本地企业业务停用；[授权窄补充](../architecture/data-services-native-authorization.md) 独立准入后修复原 mandatory checker 的组合假定，不使用假 checker。既有运行实例和数据保留；实际运行证据写 #619/PR，不由此设计说明代签。
+#619 的正常接线使用 [原生 Data Services Compose profile](../../deployments/docker/account-compose/data-services.md)，显式安装于新空 Product 库；`data_services_runtime` 与原 `source_acquisition_runtime` 使用同一物理库、不同受限 pool，原 pool 不增权。用户已决定本轮沿正式 IAM、不新增本地企业业务停用；[授权窄补充](../architecture/data-services-native-authorization.md) 独立准入后修复原 mandatory checker 的组合假定，不使用假 checker。既有运行实例和数据保留；实际运行证据写 #619/PR，不由此设计说明代签。
 
 Amazon 复用现有 Playwright Go SDK，先安装匹配 SDK 的 driver 与 Chromium，再显式配置路径。`DriverDirectory` 下必须有 `node`（Windows `node.exe`）及 `package/cli.js`；另提供真实 browser executable。`PLAYWRIGHT_NODEJS_PATH` / `PLAYWRIGHT_CLI_PATH` 如果存在必须等于这两个明确路径，否则 fail closed。serving 不下载安装，也不清空进程全局环境。
 

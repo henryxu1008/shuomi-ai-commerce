@@ -14,6 +14,7 @@ func TestGenerationRejectionSettlesOriginalReservationOnceAndRetainsFence(t *tes
 	// Use the exact admitted route and keep original economic identity.
 	intent.Provider = "bailian"
 	intent.Model = "qwen-image-3.0-pro"
+	intent.Billing = syntheticImageBilling(intent.Model, intent.PriceVersion, intent.Points)
 	intent.Protocol = "dashscope-image-sync-v1"
 	fact, err := owner.PrepareGenerationIntent(context.Background(), intent)
 	require.NoError(t, err)
@@ -81,7 +82,7 @@ func TestGenerationRejectionSettlesOriginalReservationOnceAndRetainsFence(t *tes
 	changed.Digest = strings.Repeat("b", 64)
 	_, err = owner.RecordGenerationRejection(context.Background(), intent, changed)
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
-	_, err = owner.RecordGenerationSuccess(context.Background(), intent, imageagent.GenerationSuccess{ResponseID: "late", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
+	_, err = owner.RecordGenerationSuccess(context.Background(), intent, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "late", ResultDigest: strings.Repeat("c", 64), ResultUnavailable: "invalid_result"})
 	require.Error(t, err)
 	effect, err := owner.GetSlotExternalEffectV3(context.Background(), intent.Identity)
 	require.NoError(t, err)

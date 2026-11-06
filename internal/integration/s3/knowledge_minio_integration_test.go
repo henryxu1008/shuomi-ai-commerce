@@ -15,6 +15,7 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	madmin "github.com/minio/madmin-go/v3"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	dockernetwork "github.com/moby/moby/api/types/network"
 	dockerclient "github.com/moby/moby/client"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -28,7 +29,15 @@ import (
 // Reuse the shipped storage bootstrap and IAM policy, with synthetic test-only
 // credentials. This verifies the actual runtime user, never the root user.
 func knowledgeMinIORuntimeFixture(t *testing.T, capacity bool) (context.Context, ClientConfig) {
+	return minIORuntimeFixture(t, capacity, "knowledge")
+}
+
+func minIORuntimeFixture(t *testing.T, capacity bool, module string) (context.Context, ClientConfig) {
 	t.Helper()
+	portNumber, rootSecret, runtimeSecret, policyPath := "9000", "/private", "/private", "/init/policy.json"
+	if module == "ecoservices" {
+		portNumber, rootSecret, runtimeSecret, policyPath = "9101", "/ecoservices-private", "/object-runtime", "/init/ecoservices-storage-policy.json"
+	}
 	ctx := context.Background()
 	root, err := filepath.Abs("../../..")
 	if err != nil {
@@ -37,6 +46,16 @@ func knowledgeMinIORuntimeFixture(t *testing.T, capacity bool) (context.Context,
 	build := func(target string) tc.FromDockerfile {
 		return tc.FromDockerfile{Context: filepath.Join(root, "deployments/docker/account-compose"), Dockerfile: "Dockerfile.knowledge-storage", BuildOptionsModifier: func(options *dockerclient.ImageBuildOptions) { options.Target = target }}
 	}
+	// Optional images built from this same shipped Dockerfile avoid downloading
+	// release binaries again in Docker's legacy testcontainers builder.
+	imageSource := func(target string) (string, tc.FromDockerfile) {
+		if image := os.Getenv("MINIO_TEST_" + strings.ToUpper(target) + "_IMAGE"); image != "" {
+			return image, tc.FromDockerfile{}
+		}
+		return "", build(target)
+	}
+	serverImage, serverBuild := imageSource("server")
+	clientImage, clientBuild := imageSource("client")
 	var networkOptions []network.NetworkCustomizer
 	if subnet := os.Getenv("MINIO_TEST_SUBNET"); subnet != "" {
 		// Optional caller-checked test subnet when Docker's automatic pools are
@@ -51,9 +70,9 @@ func knowledgeMinIORuntimeFixture(t *testing.T, capacity bool) (context.Context,
 	}
 	t.Cleanup(func() { _ = net.Remove(context.Background()) })
 	server, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{ContainerRequest: tc.ContainerRequest{
-		FromDockerfile: build("server"),
-		Env:            map[string]string{"MINIO_ROOT_USER": "knowledge_local_root", "MINIO_ROOT_PASSWORD": "isolated-minio-root-password"},
-		Cmd:            []string{"server", "/data", "--address", ":9000"}, ExposedPorts: []string{"9000/tcp"}, Networks: []string{net.Name}, NetworkAliases: map[string][]string{net.Name: {"knowledge-objects"}},
+		Image: serverImage, FromDockerfile: serverBuild,
+		Env: map[string]string{"MINIO_ROOT_USER": module + "_local_root", "MINIO_ROOT_PASSWORD": "isolated-minio-root-password"},
+		Cmd: []string{"server", "/data", "--address", ":" + portNumber}, ExposedPorts: []string{portNumber + "/tcp"}, Networks: []string{net.Name}, NetworkAliases: map[string][]string{net.Name: {"knowledge-objects"}},
 		WaitingFor: wait.ForHTTP("/minio/health/live").WithStartupTimeout(60 * time.Second),
 	}, Started: true})
 	if err != nil {
@@ -61,21 +80,32 @@ func knowledgeMinIORuntimeFixture(t *testing.T, capacity bool) (context.Context,
 	}
 	t.Cleanup(func() { _ = server.Terminate(context.Background()) })
 	files := []tc.ContainerFile{
-		{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/knowledge-storage-init.sh"), ContainerFilePath: "/init/knowledge-storage-init.sh", FileMode: 0600},
-		{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/knowledge-storage-policy.json"), ContainerFilePath: "/init/policy.json", FileMode: 0600},
-		{Reader: strings.NewReader("isolated-minio-root-password"), ContainerFilePath: "/private/root-password", FileMode: 0600},
-		{Reader: strings.NewReader("knowledge-runtime-test"), ContainerFilePath: "/private/access-key", FileMode: 0600},
-		{Reader: strings.NewReader("isolated-minio-runtime-password"), ContainerFilePath: "/private/secret-key", FileMode: 0600},
+		{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/"+module+"-storage-init.sh"), ContainerFilePath: "/init/storage-init.sh", FileMode: 0600},
+		{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/"+module+"-storage-policy.json"), ContainerFilePath: policyPath, FileMode: 0600},
+		{Reader: strings.NewReader("isolated-minio-root-password"), ContainerFilePath: rootSecret + "/root-password", FileMode: 0600},
+		{Reader: strings.NewReader("knowledge-runtime-test"), ContainerFilePath: runtimeSecret + "/access-key", FileMode: 0600},
+		{Reader: strings.NewReader("isolated-minio-runtime-password"), ContainerFilePath: runtimeSecret + "/secret-key", FileMode: 0600},
 	}
-	entrypoint := []string{"/bin/sh", "/init/knowledge-storage-init.sh"}
+	entrypoint := []string{"/bin/sh", "/init/storage-init.sh"}
+	setupEnv := map[string]string{}
 	if capacity {
-		files = append(files, tc.ContainerFile{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/knowledge-capacity-read-policy.json"), ContainerFilePath: "/init/capacity-policy.json", FileMode: 0600})
-		entrypoint = []string{"/bin/sh", "-ec", `/bin/sh /init/knowledge-storage-init.sh; export MC_CONFIG_DIR=/tmp/knowledge-mc; mc admin policy create local knowledge-capacity-read /init/capacity-policy.json; mc admin policy attach local knowledge-capacity-read --user knowledge-runtime-test`}
+		files = append(files,
+			tc.ContainerFile{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/"+module+"-capacity-read-policy.json"), ContainerFilePath: "/init/capacity-policy.json", FileMode: 0600},
+			tc.ContainerFile{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/capacity-storage-init.sh"), ContainerFilePath: "/init/capacity-storage-init.sh", FileMode: 0600})
+		setupEnv["ACCOUNT_STORAGE_CAPACITY_ENABLED"] = "1"
+		entrypoint = []string{"/bin/sh", "-ec", `mkdir -p /capacity-identity; exec /bin/sh /init/storage-init.sh`}
 	}
-	setup, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{ContainerRequest: tc.ContainerRequest{
-		FromDockerfile: build("client"),
-		Entrypoint:     entrypoint, Files: files, Networks: []string{net.Name}, WaitingFor: wait.ForExit().WithExitTimeout(30 * time.Second),
-	}, Started: true})
+	setupRequest := tc.ContainerRequest{
+		Image: clientImage, FromDockerfile: clientBuild,
+		Entrypoint: entrypoint, Env: setupEnv, Files: files, Networks: []string{net.Name}, WaitingFor: wait.ForExit().WithExitTimeout(30 * time.Second),
+	}
+	if module == "ecoservices" {
+		setupRequest.Networks = nil
+		setupRequest.HostConfigModifier = func(cfg *dockercontainer.HostConfig) {
+			cfg.NetworkMode = dockercontainer.NetworkMode("container:" + server.GetContainerID())
+		}
+	}
+	setup, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{ContainerRequest: setupRequest, Started: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +118,7 @@ func knowledgeMinIORuntimeFixture(t *testing.T, capacity bool) (context.Context,
 	if host == "localhost" {
 		host = "127.0.0.1"
 	}
-	port, _ := server.MappedPort(ctx, "9000/tcp")
+	port, _ := server.MappedPort(ctx, portNumber+"/tcp")
 	return ctx, ClientConfig{Region: "us-east-1", Endpoint: "http://" + host + ":" + port.Port(), AccessKeyID: "knowledge-runtime-test", SecretAccessKey: "isolated-minio-runtime-password", UsePathStyle: true}
 }
 
@@ -167,5 +197,23 @@ func TestLocalMinIOCapacityUsesNarrowRuntimeAndRealDeployment(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ns, again)
 	_, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{Bucket: aws.String("knowledge"), Key: aws.String(object.Key)})
+	require.Error(t, err)
+}
+
+func TestEcoservicesMinIOCapacityDeploymentWiring(t *testing.T) {
+	ctx, cfg := minIORuntimeFixture(t, true, "ecoservices")
+	admin, err := madmin.NewWithOptions(strings.TrimPrefix(cfg.Endpoint, "http://"), &madmin.Options{Creds: credentials.NewStaticV4("ecoservices_local_root", "isolated-minio-root-password", ""), Secure: false})
+	require.NoError(t, err)
+	info, err := admin.ServerInfo(ctx)
+	require.NoError(t, err)
+	cfg.CapacityIdentityProvider, cfg.CapacityMinIODeploymentID = MinIOCapacityIdentityProvider, info.DeploymentID
+	_, err = ResolveCapacityNamespace(ctx, cfg, "ecoservices", "aws")
+	require.NoError(t, err)
+	require.NoError(t, VerifyEmptyCapacityPrefix(ctx, cfg, "ecoservices", "ecoservices/files/", "aws"))
+	client, err := NewKnowledgeClient(cfg)
+	require.NoError(t, err)
+	_, err = client.ListObjectsV2(ctx, &awss3.ListObjectsV2Input{Bucket: aws.String("ecoservices"), Prefix: aws.String("outside/")})
+	require.Error(t, err)
+	_, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{Bucket: aws.String("ecoservices"), Key: aws.String("ecoservices/files/example")})
 	require.Error(t, err)
 }

@@ -10,6 +10,7 @@ import (
 )
 
 type DataServicesConfig struct {
+	ExecutionEnabled  bool           `json:"executionEnabled"`
 	Database          DatabaseConfig `json:"database"`
 	TemporalAddress   string         `json:"temporalAddress"`
 	TemporalNamespace string         `json:"temporalNamespace"`
@@ -32,6 +33,9 @@ func (c *Config) validateDataServices() error {
 	}
 	if d.Database.User != "data_services_runtime" || d.Database.MaxConnections > 4 || !sameDatabaseTarget(d.Database, *c.ProductAcquisitionDatabase) {
 		return errors.New("data services require their bounded role in the same physical Product database")
+	}
+	if !d.ExecutionEnabled && d.BrowserExecutable == "" && d.DriverDirectory == "" && d.TemporalAddress == "" && d.TemporalNamespace == "" && len(d.EnabledSites) == 0 {
+		return datahttp.ValidateProxyCIDRs(d.TrustedProxyCIDRs)
 	}
 	for _, path := range []string{d.BrowserExecutable, d.DriverDirectory} {
 		if !filepath.IsAbs(path) || !boundedValue(path, 4096) {

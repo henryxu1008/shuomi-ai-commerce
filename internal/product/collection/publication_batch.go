@@ -5,7 +5,7 @@ package collection
 type PublicationBatch struct{ ID, Name, Kind, OperationID string }
 
 func NewPublicationBatch(scope Scope, operation, kind, name string) (PublicationBatch, error) {
-	if scope.Validate() != nil || !ValidID(operation) || !validName(name) || (kind != "amazon_data" && kind != "custom_dataset") {
+	if scope.Validate() != nil || !ValidID(operation) || !validName(name) || (kind != "amazon_data" && kind != "custom_dataset" && kind != SourceSHEINUSData) {
 		return PublicationBatch{}, ErrInvalid
 	}
 	return PublicationBatch{ID: StableID(scope.OrganizationID, scope.ActorID, "data-batch", kind, operation), Name: name, Kind: kind, OperationID: operation}, nil

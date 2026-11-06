@@ -47,9 +47,11 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			"internal/app/productsourcing/acquisition_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
 			// #735: explicit nonempty owner maintenance; no serving or sibling admission.
 			"internal/app/productsourcing/supply_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
+			// #1075: explicit SHEIN US trial ledger maintenance on the existing database.
+			"internal/app/productsourcing/shein_trial_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
 		}},
 		{"internal/integration/acquisition/a1688", issue398HTTP, map[string][]string{"internal/integration/acquisition/a1688/public.go": {"NewPublicImageHTTPClient"}}},
-		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableSupplyChain"}}},
+		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableSupplyChain", "EnableSHEINUSTrialLedger"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
 		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
 		// #902/#903 frozen plugin design: only the free capture composition and
@@ -64,9 +66,9 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		}},
 		{"internal/app/runtime/currentapplication", issue605SourceStorage, map[string][]string{
 			"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
-			// #659 frozen capacity design: exact startup identity/empty-prefix proof,
-			// without admission for upload/delete APIs or sibling files.
-			"internal/app/runtime/currentapplication/storage_capacity.go": {"ResolveCapacityNamespace", "ResolveSourceMediaCapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig"},
+			// #659 admits namespace verification. #1103 admits only construction of the
+			// Knowledge deletion adapter in this composition file.
+			"internal/app/runtime/currentapplication/storage_capacity.go": {"ResolveCapacityNamespace", "ResolveSourceMediaCapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig", "NewKnowledgeOriginalDeleter"},
 		}},
 		{"internal/app/runtime/currentapplication", issue398HTTP, map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"ValidatePublicHTTPSURL"}}},
 		// #31 frozen approved-image contract reuses only these current safe leaves.
@@ -210,6 +212,11 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"supply maintenance config", "internal/app/productsourcing/supply_initialization.go", issue398Database, "Config", true},
 		{"supply maintenance wrong API", "internal/app/productsourcing/supply_initialization.go", issue398Database, "OpenShared", false},
 		{"supply maintenance nested", "internal/app/productsourcing/child/supply_initialization.go", issue398Database, "Close", false},
+		{"SHEIN trial maintenance open", "internal/app/productsourcing/shein_trial_initialization.go", issue398Database, "OpenExistingWritableContext", true},
+		{"SHEIN trial maintenance close", "internal/app/productsourcing/shein_trial_initialization.go", issue398Database, "Close", true},
+		{"SHEIN trial maintenance config", "internal/app/productsourcing/shein_trial_initialization.go", issue398Database, "Config", true},
+		{"SHEIN trial maintenance wrong API", "internal/app/productsourcing/shein_trial_initialization.go", issue398Database, "OpenShared", false},
+		{"SHEIN trial maintenance nested", "internal/app/productsourcing/child/shein_trial_initialization.go", issue398Database, "OpenExistingWritableContext", false},
 		{"source media validator", "internal/app/runtime/currentapplication/source_media_storage.go", issue398HTTP, "ValidatePublicHTTPSURL", true},
 		{"source media legacy provider", "internal/app/runtime/currentapplication/source_media_storage.go", issue398HTTP, "NewProductImageDownloader", false},
 		{"source media sibling", "internal/app/productsourcing/other.go", issue398HTTP, "ValidatePublicHTTPSURL", false},
@@ -235,6 +242,8 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"capacity exact empty admission", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", true},
 		{"capacity SDK config", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "ClientConfig", true},
 		{"capacity cannot upload", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "Upload", false},
+		{"capacity exact Knowledge deletion constructor", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "NewKnowledgeOriginalDeleter", true},
+		{"source media cannot construct the Knowledge deleter", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "NewKnowledgeOriginalDeleter", false},
 		{"capacity old accountless identity denied", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "CapacityNamespace", false},
 		{"capacity sibling denied", "internal/app/runtime/currentapplication/other.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
 		{"source media cannot consume capacity admission", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
@@ -256,6 +265,9 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"supply feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableSupplyChain", true},
 		{"supply initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableSupplyChain", false},
 		{"serving cannot initialize supply", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableSupplyChain", false},
+		{"SHEIN trial ledger initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", true},
+		{"SHEIN trial ledger initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},
+		{"serving cannot initialize SHEIN trial ledger", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},
 		{"plan exact constructor", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionPlanService", true},
 		{"plan cannot open database", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
 		{"initializer target subpackage", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing/httpapi", "InitializeAcquisitionDatabase", false},

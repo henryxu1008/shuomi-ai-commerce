@@ -92,7 +92,7 @@ func TestAccountAuditSummaryCommittedOwnersPostgres(t *testing.T) {
 	require.NoError(t, err)
 	limits, err := resourceadapter.NewGormMemberLimitRepository(owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member", ActorID: "u1", OperationID: "limit-summary", Target: 1000})
+	_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member", ActorID: "u1", OperationID: "limit-summary", Target: 1000})
 	require.NoError(t, err)
 
 	// Existing resource runtime role/grants, installed only in this temporary DB.

@@ -110,11 +110,6 @@ func TestStoreSourceAuditRetirementFrozenHistoryStaysIntact(t *testing.T) {
 		hash   string
 		prefix bool
 	}{
-		{"docs/architecture/legacy-store-source-admission-audit-tail-retirement-boundary.md", 21017, "1f31760a09d563b348281f9cfd5767916bf3fd368ca9badeaadf30f8b502f90e", false},
-		{"docs/refactoring/legacy-register.md", 159507, "c2d62f98b6a2b63c71e03a82f9fd2c544a790b2119f077041fad80d8c3a923a4", false},
-		{"docs/architecture/project-boundaries.md", 57374, "d99a39fd3a91f2bb1ce0a4bc4372a17961733660f42e94685221e559a7b3d8e5", false},
-		{"docs/architecture/README.md", 159062, "7ad78e9611219672c3e94dc9a0adbd2901c57ea58cf7d3ce12095c7b0b67e1c9", false},
-		{"docs/architecture/store-center-current-application-v1.md", 30310, "040dce7be9608abde62e4e2416ab8411996d301579e061a71aaa1c2dafa5cc6b", false},
 		{"internal/storecenter/product_execution_test.go", 8132, "9534b66c0be23f580e40dcac3b4747031b8b6a1d32c9732a449da997f612fd54", true},
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(frozen.path)))

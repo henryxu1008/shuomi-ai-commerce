@@ -67,7 +67,13 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		route, err := routes.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationProductContentDecision})
 		return route.Profile, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: routes.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
+	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: func(ctx context.Context, input aicapability.TextInputIdentity) (governed.QualifiedRoute, error) {
+		route, err := routes.Resolve(ctx, input)
+		if err == nil && input.Profile.PromptVersion == agentconfig.ScopedContentPromptVersion {
+			route.Profile = agentconfig.ScopedContentProfile(route.Profile)
+		}
+		return route, err
+	}, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
 		if supplyAgentContext(ctx) {
 			return a.authorizeSupplyModel(ctx, input.OrganizationID, input.ActorID, input.MemberID)
 		}
@@ -93,7 +99,9 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 			return nil, err
 		}
 	}
+	model.WithWorkbenchContext(a.readContentWorkbenchContext)
 	a.model = model
+	a.reviews.WithWorkbenchAccess(a.authorizeWorkbenchReview)
 	a.policyAdoption, err = review.NewPolicyAdoptionService(reader, source, repository, a.authorizer, a.titlePolicyScope, a.resolveTitlePolicy)
 	if err != nil {
 		return nil, err

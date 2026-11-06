@@ -13,6 +13,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	"task-processor/internal/aicapability/channelcredential"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
@@ -32,6 +33,7 @@ import (
 	skillstore "task-processor/internal/integration/persistence/skill"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
+	"task-processor/internal/product/asset"
 	"task-processor/internal/product/asset/tools/assetinspect"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
@@ -50,6 +52,7 @@ import (
 // and the manager are caller-owned. Construction never installs schema, creates
 // entitlements, calls the model or edits a Product.
 type ProductAgentDependencies struct {
+	ChannelCredentials       channelcredential.SecretReader
 	CurrentTextPolicies      governed.RoutePolicyReader
 	Knowledge                *knowledge.Service
 	RunDB, AssetDB, ReviewDB *gorm.DB
@@ -59,7 +62,9 @@ type ProductAgentDependencies struct {
 	ContentTextPolicies      map[string]governed.RoutePolicy
 	MaterialsTextPolicies    map[string]governed.RoutePolicy
 	DiagnosisTextPolicies    map[string]governed.RoutePolicy
+	ResearchTextPolicies     map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
+	ImageAnalysisPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
 	ContentOnly              bool
 	ContentTitleOnly         bool
@@ -67,8 +72,10 @@ type ProductAgentDependencies struct {
 	Limits                   agent.Limits
 	// Code-owned transport injection for isolated protocol fixtures; never
 	// populated by the deployment manifest or browser input.
-	TextTransport http.RoundTripper `json:"-"`
-	TextLogger    *logrus.Entry     `json:"-"`
+	TextTransport      http.RoundTripper   `json:"-"`
+	TextLogger         *logrus.Entry       `json:"-"`
+	TitlePilotOperator *TitlePilotOperator `json:"-"`
+	titlePilotApproval titlePilotApproval
 }
 
 type ProductAgentInvocationLedger interface {
@@ -78,6 +85,7 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	workbenchScopes         *aiWorkbenchApplication
 	ownProducts             ownProductReader
 	skills                  *skillstore.Store
 	materials               *listingMaterialsApplication
@@ -91,6 +99,8 @@ type productAgentApplication struct {
 	definition              commercetool.AgentDefinition
 	context                 *knowledge.ContextService
 	runtime                 *einoruntime.Runtime
+	titlePilotFixed         *einoruntime.Runtime
+	titlePilotPublisher     *sourcing.InternalProducer
 	store                   *agentstore.Store
 	reviews                 *review.Service
 	policyAdoption          *review.PolicyAdoptionService
@@ -103,6 +113,7 @@ type productAgentApplication struct {
 	canonical               *canonicalinspect.Invoker
 	sources                 *sourceevidenceinspect.Invoker
 	assets                  *assetinspect.Invoker
+	imageAdvice             *assetinspect.Invoker
 	readiness               *readinessinspect.Invoker
 	points                  *orgresourceadapter.GormModelInvocationRepository
 	textAdmission           *governed.BoundedAdmission
@@ -119,7 +130,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if cfg.ContentTitleOnly && cfg.ContentOnly {
 		return nil, agent.ErrUnavailable
 	}
-	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
+	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.ResearchTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0 || len(cfg.ImageAnalysisPolicies) != 0) {
 		return nil, agent.ErrUnavailable
 	}
 	allowedOrganizations := make(map[string]bool, len(cfg.AllowedOrganizationIDs))
@@ -132,31 +143,42 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	for organizationID, policy := range cfg.TextPolicies {
 		profile := policy.ShapeProfile()
 		costMicros, err := profile.MaximumCost()
-		if !allowedOrganizations[organizationID] || !governed.ValidRouteProfile(profile, aicapability.OperationProductAgentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || costMicros > cfg.Limits.CostMicros {
+		if !allowedOrganizations[organizationID] || !governed.ValidRouteShape(profile, aicapability.OperationProductAgentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || costMicros > cfg.Limits.CostMicros {
 			return nil, agent.ErrUnavailable
 		}
 	}
 	for organizationID, policy := range cfg.ContentTextPolicies {
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductContentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+		if !allowedOrganizations[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationProductContentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
 			return nil, agent.ErrUnavailable
 		}
 	}
 	for org, policy := range cfg.MaterialsTextPolicies {
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationListingMaterialsDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationListingMaterialsDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
 			return nil, agent.ErrUnavailable
 		}
 	}
+	for org, policy := range cfg.ResearchTextPolicies {
+		if cfg.Limits.Steps < 4 || cfg.Limits.ModelCalls < 2 {
+			return nil, agent.ErrUnavailable
+		}
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.ResearchPromptVersion || profile.OutputSchemaVersion != agentconfig.ResearchActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationProductResearchDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+			return nil, agent.ErrUnavailable
+		}
+	}
+
 	for org, policy := range cfg.SelectionTextPolicies {
 		if cfg.Limits.Steps < 4 || cfg.Limits.ModelCalls < 2 {
 			return nil, agent.ErrUnavailable
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationProductSelectionDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
 			return nil, agent.ErrUnavailable
 		}
 	}
@@ -167,12 +189,17 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationShopDiagnosisDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
 			return nil, agent.ErrUnavailable
 		}
 	}
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
+	}
+	for org, policy := range cfg.ImageAnalysisPolicies {
+		if !allowedOrganizations[org] || !agentconfig.ImageAnalysisProfileAdmissible(policy.ShapeProfile(), cfg.Limits) {
+			return nil, agent.ErrUnavailable
+		}
 	}
 	if err := aistore.VerifyModelPointInvocationSchema(ctx, cfg.RunDB); err != nil {
 		return nil, err
@@ -186,7 +213,21 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		return nil, agent.ErrUnavailable
 	}
 	a := &productAgentApplication{receipts: receipts, resolver: resolver, authorizer: auth, config: cfg}
+	if cfg.TitlePilotOperator != nil {
+		op := *cfg.TitlePilotOperator
+		a.config.TitlePilotOperator = &op
+		if !op.valid() || cfg.titlePilotApproval != (titlePilotApproval{}) || cfg.CurrentTextPolicies == nil ||
+			len(cfg.AllowedOrganizationIDs) != 1 || cfg.AllowedOrganizationIDs[0] != op.OrganizationID {
+			return nil, agent.ErrInvalid
+		}
+		cfg.titlePilotApproval = op.approval()
+		a.config.titlePilotApproval = cfg.titlePilotApproval
+	}
 	a.config.AllowedOrganizationIDs = append([]string(nil), cfg.AllowedOrganizationIDs...)
+	a.config.ImageAnalysisPolicies = make(map[string]governed.RoutePolicy, len(cfg.ImageAnalysisPolicies))
+	for org, policy := range cfg.ImageAnalysisPolicies {
+		a.config.ImageAnalysisPolicies[org] = policy
+	}
 	a.config.TextPolicies = make(map[string]governed.RoutePolicy, len(cfg.TextPolicies))
 	for organizationID, policy := range cfg.TextPolicies {
 		a.config.TextPolicies[organizationID] = policy
@@ -199,6 +240,11 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	for org, policy := range cfg.MaterialsTextPolicies {
 		a.config.MaterialsTextPolicies[org] = policy
 	}
+	a.config.ResearchTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.ResearchTextPolicies))
+	for org, policy := range cfg.ResearchTextPolicies {
+		a.config.ResearchTextPolicies[org] = policy
+	}
+
 	a.config.SelectionTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.SelectionTextPolicies))
 	for org, policy := range cfg.SelectionTextPolicies {
 		a.config.SelectionTextPolicies[org] = policy
@@ -244,6 +290,15 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	sources, err := productsourcing.NewInternalProducer(productDB, &productReviewLiveOrganizationAccess{resolver: resolver, now: time.Now}, auth)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.titlePilotApproval != (titlePilotApproval{}) {
+		approval := cfg.titlePilotApproval
+		if (cfg.TextTransport == nil && cfg.TitlePilotOperator == nil) || cfg.ContentOnly || cfg.ContentTitleOnly ||
+			!approval.valid() ||
+			!allowedOrganizations[approval.identity.OrganizationID] {
+			return nil, agent.ErrInvalid
+		}
+		a.titlePilotPublisher = sources
 	}
 	repo, err := reviewstore.NewRepository(productDB, func(tx *gorm.DB) (review.SourcePublicationReader, error) {
 		return productsourcing.NewTransactionReader(tx)
@@ -449,6 +504,10 @@ func (a *productAgentApplication) acquisitionSnapshot(ctx context.Context, i aut
 }
 
 func (a *productAgentApplication) Authorize(ctx context.Context, binding agent.Binding) (agent.Scope, error) {
+	if binding.ContextKind == titlePilotContext {
+		publication, err := a.titlePilotPublicationForBinding(ctx, binding)
+		return agent.Scope{OrganizationID: publication.Receipt.OrganizationID, ActorID: publication.Receipt.ActorID}, err
+	}
 	if binding.ContextKind == "collection" {
 		return a.authorizeSupplyBinding(ctx, binding)
 	}
@@ -491,6 +550,19 @@ func (a *productAgentApplication) Invoke(ctx context.Context, ref commercetool.T
 		return a.sources.Invoke(ctx, meta, sourceevidenceinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion})
 	case assetinspect.Definition().Ref:
 		return a.assets.Invoke(ctx, meta, assetinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion, TargetPlatform: b.TargetPlatform})
+	case assetinspect.ImageAdviceDefinition().Ref:
+		if a.imageAdvice == nil {
+			return commercetool.Result{}, agent.ErrUnavailable
+		}
+		result, err := a.imageAdvice.Invoke(ctx, meta, assetinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion, TargetPlatform: b.TargetPlatform})
+		if err != nil {
+			return result, err
+		}
+		advice, err := asset.DecodeImageAdvice(result.Output)
+		if err != nil || advice.Binding.PublicationID != b.PublicationID || advice.Binding.ProductKey != b.ProductKey || advice.Binding.CatalogVersion != b.CatalogVersion || advice.Binding.TargetPlatform != b.TargetPlatform {
+			return commercetool.Result{}, agent.ErrConflict
+		}
+		return result, nil
 	case readinessinspect.Definition().Ref:
 		return a.readiness.Invoke(ctx, meta, readinessinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion, TargetPlatform: b.TargetPlatform})
 	default:

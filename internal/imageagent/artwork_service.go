@@ -22,7 +22,7 @@ type PreparedArtwork struct {
 	Projection              RunProjection
 	PlanDigest, QuoteDigest string
 	Images                  int
-	Points                  int64
+	Points                  int64 "json:\",string\""
 }
 type ArtworkDependencies struct {
 	Configuration agentconfig.ArtworkConfigurationRepository
@@ -63,21 +63,13 @@ func preparedArtwork(p RunProjection) (PreparedArtwork, error) {
 	return PreparedArtwork{Projection: p, PlanDigest: digest, QuoteDigest: p.Plan.Artwork.QuoteDigest, Images: 1, Points: p.Plan.Artwork.MaxPoints}, nil
 }
 func (s *Service) GetPreparedArtwork(ctx context.Context, runID string) (PreparedArtwork, error) {
-	id, err := s.executionIdentity(ctx)
-	if err != nil {
+	if _, err := s.executionIdentity(ctx); err != nil {
 		return PreparedArtwork{}, err
 	}
-	if !s.organizationScope || s.artworks == nil || !agentconfig.UUID(runID) {
+	if !s.organizationScope || s.artworks == nil {
 		return PreparedArtwork{}, ErrValidation
 	}
-	p, err := s.repository.GetProjection(ctx, RunScope{TenantID: id.TenantID, OwnerUserID: id.UserID, RunID: runID})
-	if err != nil {
-		return PreparedArtwork{}, err
-	}
-	if _, err = s.identityForRun(id, p.Run); err != nil {
-		return PreparedArtwork{}, err
-	}
-	return preparedArtwork(p)
+	return (&RunReader{repository: s.repository}).GetPreparedArtwork(ctx, runID)
 }
 
 func (s *Service) PrepareArtwork(ctx context.Context, input PrepareArtworkInput) (PreparedArtwork, error) {
@@ -129,7 +121,7 @@ func (s *Service) PrepareArtwork(ctx context.Context, input PrepareArtworkInput)
 	if err = ValidateArtworkPlan(plan); err != nil {
 		return PreparedArtwork{}, err
 	}
-	limits := agentconfig.ImageRunLimits{Images: 1, Points: quote.Points, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: quote.Points, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
 	if !limits.Within(snapshot.HardLimits) || !limits.Within(s.artworks.HardLimits) {
 		return PreparedArtwork{}, ErrCommandBlocked
 	}
@@ -179,7 +171,7 @@ func (s *Service) ConfirmArtwork(ctx context.Context, input ConfirmArtworkInput)
 		return p, ErrCommandBlocked
 	}
 	a := p.Plan.Artwork
-	cmd := agentconfig.ArtworkRunAdmissionCommand{Scope: agent.Scope{OrganizationID: id.TenantID, ActorID: id.UserID}, Snapshot: a.Configuration, MemberID: id.MemberID, RunID: p.Run.ID, ConfirmActionID: input.ActionID, SourceDigest: a.InputDigest, InputDigest: a.InputDigest, PlanDigest: digest, QuoteDigest: a.QuoteDigest, Limits: agentconfig.ImageRunLimits{Images: 1, Points: a.MaxPoints, ElapsedSeconds: int64(p.Run.Budget.MaxElapsed / time.Second)}}
+	cmd := agentconfig.ArtworkRunAdmissionCommand{Scope: agent.Scope{OrganizationID: id.TenantID, ActorID: id.UserID}, Snapshot: a.Configuration, MemberID: id.MemberID, RunID: p.Run.ID, ConfirmActionID: input.ActionID, SourceDigest: a.InputDigest, InputDigest: a.InputDigest, PlanDigest: digest, QuoteDigest: a.QuoteDigest, Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: a.MaxPoints, ElapsedSeconds: int64(p.Run.Budget.MaxElapsed / time.Second)}}
 	receipt, err := s.artworks.Configuration.ReadArtworkRunAdmission(ctx, cmd.Scope, cmd.Snapshot)
 	if errors.Is(err, agentconfig.ErrNotFound) {
 		if !s.tenantStartAllowed(ctx, id.TenantID) {
@@ -247,17 +239,11 @@ func ValidateVisualAdmission(run Run, plan Plan) error {
 }
 
 func (s *Service) GetPreparedArtworkByKey(ctx context.Context, contextID, requestID string) (PreparedArtwork, error) {
-	id, err := s.executionIdentity(ctx)
-	if err != nil {
+	if _, err := s.executionIdentity(ctx); err != nil {
 		return PreparedArtwork{}, err
 	}
-	if !canonicalImageValue(contextID) || len(contextID) > 64 || !agentconfig.UUID(requestID) {
+	if !s.organizationScope || s.artworks == nil {
 		return PreparedArtwork{}, ErrValidation
 	}
-	runID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(ArtworkSchema+":"+id.TenantID+":"+id.UserID+":"+contextID+":"+requestID)).String()
-	prepared, err := s.GetPreparedArtwork(ctx, runID)
-	if err == nil && (prepared.Projection.Run.BusinessTaskID != contextID || prepared.Projection.Run.IdempotencyKey != requestID) {
-		return PreparedArtwork{}, ErrRevisionConflict
-	}
-	return prepared, err
+	return (&RunReader{repository: s.repository}).GetPreparedArtworkByKey(ctx, contextID, requestID)
 }

@@ -1,6 +1,6 @@
 # 来源素材与资料检查
 
-Refs #30 / #307 / PR #859。批准依据：[完整来源闭环 §1–§7](../architecture/source-business-closure-v1.md)、[Product Authority](../product/final-ui-ia-authority.md)。这是当前能力的可选装配说明，不是内部试用的新前置，也不改变 RUN-1 的验收范围。
+Refs #30 / #307 / PR #859。批准依据：[完整来源闭环 §1–§7](../architecture/source-business-flow.md)、[Product Authority](../product/final-ui-ia-authority.md)。这是当前能力的可选装配说明，不是内部试用的新前置，也不改变 RUN-1 的验收范围。
 
 ## 启用与存储
 

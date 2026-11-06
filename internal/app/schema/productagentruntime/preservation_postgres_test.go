@@ -63,10 +63,10 @@ func TestPrepareRunPreservesChatSkillAndSharedLedger(t *testing.T) {
 		require.Equal(t, aclBefore, acl)
 	}
 	// A complete repeat must not rewrite even target table/column ACL.
-	before = retainedSnapshot(t, f.db, []string{"public.product_agent_runs", "public.product_agent_tool_calls", "public.ai_client_credentials", "public.ai_invocations"})
+	before = retainedSnapshot(t, f.db, []string{"public.product_agent_runs", "public.product_agent_tool_calls", "public.ai_channel_connections", "public.ai_invocations"})
 	_, err = PrepareRun(context.Background(), f.db)
 	require.NoError(t, err)
-	require.Equal(t, before, retainedSnapshot(t, f.db, []string{"public.product_agent_runs", "public.product_agent_tool_calls", "public.ai_client_credentials", "public.ai_invocations"}))
+	require.Equal(t, before, retainedSnapshot(t, f.db, []string{"public.product_agent_runs", "public.product_agent_tool_calls", "public.ai_channel_connections", "public.ai_invocations"}))
 	for _, test := range []struct{ grant, revoke string }{
 		{"GRANT SELECT ON ai_workbench.conversations TO product_agent_runtime", "REVOKE SELECT ON ai_workbench.conversations FROM product_agent_runtime"},
 		{"GRANT SELECT ON ai_workbench.conversations TO PUBLIC", "REVOKE SELECT ON ai_workbench.conversations FROM PUBLIC"},
@@ -98,9 +98,9 @@ func TestPrepareRunRefusesWrongOwnerWeakenedConstraintAndPermissions(t *testing.
 					"table-update":      "GRANT UPDATE ON public.product_agent_runs TO product_agent_runtime",
 					"column-update":     "GRANT UPDATE(actor) ON public.product_agent_runs TO product_agent_runtime",
 					"grant-option":      "GRANT SELECT ON public.product_agent_runs TO product_agent_runtime WITH GRANT OPTION",
-					"sequence":          "GRANT SELECT ON SEQUENCE public.ai_client_credentials_id_seq TO title_credential_writer",
+					"sequence":          "CREATE SEQUENCE public.unapproved_secret_seq; GRANT SELECT ON SEQUENCE public.unapproved_secret_seq TO title_credential_writer",
 					"missing-grant":     "REVOKE UPDATE(phase) ON public.product_agent_runs FROM product_agent_runtime",
-					"index-include":     "DROP INDEX public.idx_ai_client_credential_scope; CREATE UNIQUE INDEX idx_ai_client_credential_scope ON public.ai_client_credentials(tenant_id,user_id,client_name) INCLUDE(api_key)",
+					"index-include":     "ALTER TABLE public.ai_channel_connections DROP CONSTRAINT ai_channel_connections_pkey; CREATE UNIQUE INDEX fake_channel_scope ON public.ai_channel_connections(organization_id,connection_id) INCLUDE(secret_ciphertext)",
 					"connection-option": "GRANT CONNECT ON DATABASE " + quote(f.name) + " TO product_agent_runtime WITH GRANT OPTION",
 					"schema-option":     "GRANT USAGE ON SCHEMA public TO title_credential_writer WITH GRANT OPTION",
 				}[test]

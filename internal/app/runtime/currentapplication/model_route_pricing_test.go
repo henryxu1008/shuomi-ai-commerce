@@ -1,7 +1,6 @@
 package currentapplication
 
 import (
-	"context"
 	"slices"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
@@ -13,44 +12,49 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestModelRouteWriterCapacityAggregatesClusterRoleAcrossDatabases(t *testing.T) {
-	text := &DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "model_route_config_writer", Database: "product_agent", MaxConnections: 2}
-	image := *text
-	image.Database = "image_agent"
-	m := &ModelRoutePricingConfig{TextWriter: text, ImageWriter: &image}
-	require.Equal(t, 4, m.writerConnections(*text))
-	require.Equal(t, 4, m.writerConnections(image))
-	image.Port = 5433
-	require.Equal(t, 2, m.writerConnections(*text), "different explicit endpoints keep independent budgets")
-	require.Equal(t, 2, m.writerConnections(image))
-	m.ImageWriter = nil
-	require.Equal(t, 2, m.writerConnections(*text))
-	m.TextWriter = nil
-	require.Zero(t, m.writerConnections(*text))
+func TestModelRouteWriterUsesOneOriginalOwnerPool(t *testing.T) {
+	owner := &DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "model_route_config_writer", Database: "product_agent", MaxConnections: 2}
+	m := &ModelRoutePricingConfig{Writer: owner}
+	require.Equal(t, 2, m.writerConnections(*owner))
+	other := *owner
+	other.Port++
+	require.Zero(t, m.writerConnections(other))
+	m.Writer = nil
+	require.Zero(t, m.writerConnections(*owner))
 }
 
-func TestManagedCandidateUsesExistingPrivateProvisionOwner(t *testing.T) {
-	c, in := contentProvisionFixture()
-	c.ProductAgent.Enabled = true
+func TestModelRouteEnrichesSameAnchorOnceWithoutWideningConsumer(t *testing.T) {
+	c := agentRuntimeConfig()
 	writer := c.ProductAgent.Database
-	writer.User = "model_route_config_writer"
-	writer.MaxConnections = 2
-	admitted := c.ProductAgent.ContentTextPolicies["org"]
-	admitted.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(in.BaseURL)
-	c.ProductAgent.ContentTextPolicies["org"] = admitted
-	candidate := c.ProductAgent.ContentTextPolicies["org"]
-	candidate.Profile.ClientName = "content-candidate"
-	in.ClientName = "content-candidate"
-	c.ModelRoutePricing = &ModelRoutePricingConfig{TextWriter: &writer, Bindings: []qualified.Definition{{Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductContentDecision)}, Text: &candidate}}}
-	_, err := c.modelRouteDefinitions()
-	require.NoError(t, err)
-	require.NoError(t, ValidateTitleCredentialProvision(c, in))
-	result, e := SaveTitleCredential(context.Background(), c, in, contentProvisionDB(t))
-	require.NoError(t, e)
-	require.NotEmpty(t, result.CredentialVersion)
-	in.ClientName = "unadmitted"
-	require.Error(t, ValidateTitleCredentialProvision(c, in))
+	writer.User, writer.MaxConnections = "model_route_config_writer", 2
+	p := c.ProductAgent.TextPolicies["org"]
+	def := qualified.Definition{Scope: d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &p, Manufacturer: "deepseek", Region: "cn-beijing", ServiceType: "standard-sync", Channel: "bailian-beijing", PriceID: "synthetic-price", ReferenceVersion: "synthetic-reference", BoundEvidenceVersion: "synthetic-bound"}
+	c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer, Bindings: []qualified.Definition{def}}
+	defs, err := c.modelRouteDefinitions()
+	require.NoError(t, err, "same admitted (scope,id) enriches the anchor instead of duplicating it")
+	require.Len(t, defs, 1)
+	require.Equal(t, def.ReferenceVersion, defs[0].ReferenceVersion)
+	require.Equal(t, p.ShapeProfile(), defs[0].Text.ShapeProfile())
+	c.ModelRoutePricing.Bindings = append(c.ModelRoutePricing.Bindings, def)
+	_, err = c.modelRouteDefinitions()
+	require.Error(t, err, "two explicit definitions still conflict")
+	c.ModelRoutePricing.Bindings = []qualified.Definition{def}
+	wider := p
+	wider.Profile.MaximumPromptTokens++
+	c.ModelRoutePricing.Bindings[0].Text = &wider
+	_, err = c.modelRouteDefinitions()
+	require.Error(t, err, "enrichment must not raise the original token bound")
 }
+
+func TestManagedCandidateProvisionUsesExplicitSharedConnection(t *testing.T) {
+	c, in := channelProvisionFixture()
+	_, e := c.modelRouteDefinitions()
+	require.NoError(t, e)
+	require.NoError(t, ValidateChannelCredentialProvision(c, in))
+	in.ConnectionID = "unadmitted"
+	require.Error(t, ValidateChannelCredentialProvision(c, in))
+}
+
 func TestManagedSelectionKeepsExistingHalfRunCostCeiling(t *testing.T) {
 	c := agentRuntimeConfig()
 	c.ProductCollections = true
@@ -60,7 +64,7 @@ func TestManagedSelectionKeepsExistingHalfRunCostCeiling(t *testing.T) {
 	p := c.ProductAgent.TextPolicies["org"]
 	p.Profile.ClientName = "selection"
 	c.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": p}
-	c.ModelRoutePricing = &ModelRoutePricingConfig{TextWriter: &writer}
+	c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer}
 	defs, e := c.modelRouteDefinitions()
 	require.NoError(t, e)
 	found := false
@@ -71,6 +75,40 @@ func TestManagedSelectionKeepsExistingHalfRunCostCeiling(t *testing.T) {
 		}
 	}
 	require.True(t, found)
+}
+
+func TestResearchAdmissionDescriptorUsesSharedPriceAtExecution(t *testing.T) {
+	c := agentRuntimeConfig()
+	c.ProductCollections = true
+	c.MarketResearch = &ResearchConfig{}
+	p := c.ProductAgent.TextPolicies["org"]
+	p.Profile.PromptVersion, p.Profile.OutputSchemaVersion = agentconfig.ResearchPromptVersion, agentconfig.ResearchActionVersion
+	p.Profile.OfficialTariff = aicapability.OfficialModelTariff{}
+	c.ProductAgent.TextPolicies = nil
+	c.ProductAgent.ResearchTextPolicies = map[string]governed.RoutePolicy{"org": p}
+	require.NoError(t, c.ProductAgent.validate(c), "private descriptors declare bounds; the shared owner supplies execution prices")
+	writer := c.ProductAgent.Database
+	writer.User, writer.MaxConnections = "model_route_config_writer", 2
+	c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer}
+	defs, err := c.modelRouteDefinitions()
+	require.NoError(t, err)
+	require.Len(t, defs, 1)
+	require.Equal(t, string(aicapability.OperationProductResearchDecision), defs[0].Scope.Capability)
+	require.Equal(t, c.ProductAgent.CostMicros/2, defs[0].MaximumCostMicros)
+	require.False(t, defs[0].Text.Profile.OfficialTariff.Valid(), "an admission descriptor cannot become a serving price")
+
+	for _, field := range []string{"tokens", "cost"} {
+		invalid := *c.ProductAgent
+		cost, err := p.ShapeProfile().MaximumCost()
+		require.NoError(t, err)
+		invalid.Tokens, invalid.CostMicros = 2*(p.Profile.MaximumPromptTokens+p.Profile.MaximumCompletionTokens), 2*cost
+		if field == "tokens" {
+			invalid.Tokens--
+		} else {
+			invalid.CostMicros--
+		}
+		require.Error(t, invalid.validate(c), "the existing two-call bound remains required: %s", field)
+	}
 }
 
 func TestModelRoutePricingAdmitsOnlyAssembledConsumers(t *testing.T) {
@@ -103,7 +141,7 @@ func TestModelRoutePricingAdmitsOnlyAssembledConsumers(t *testing.T) {
 				c := agentRuntimeConfig()
 				writer := c.ProductAgent.Database
 				writer.User, writer.MaxConnections = "model_route_config_writer", 2
-				c.ModelRoutePricing = &ModelRoutePricingConfig{TextWriter: &writer}
+				c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer}
 				policy := c.ProductAgent.TextPolicies["org"]
 				policy.Profile.ClientName = tc.name
 				policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = tc.prompt, tc.schema
@@ -140,7 +178,7 @@ func TestModelRoutePricingRequiresSameOwnerAndBoundedWriter(t *testing.T) {
 	writer := c.ProductAgent.Database
 	writer.User = "model_route_config_writer"
 	writer.MaxConnections = 2
-	c.ModelRoutePricing = &ModelRoutePricingConfig{TextWriter: &writer}
+	c.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer}
 	defs, e := c.modelRouteDefinitions()
 	require.NoError(t, e)
 	require.NotEmpty(t, defs)
@@ -149,11 +187,11 @@ func TestModelRoutePricingRequiresSameOwnerAndBoundedWriter(t *testing.T) {
 	for _, change := range []func(*DatabaseConfig){func(v *DatabaseConfig) { v.Database = "other" }, func(v *DatabaseConfig) { v.User = c.ProductAgent.Database.User }, func(v *DatabaseConfig) { v.MaxConnections = 9 }} {
 		bad := writer
 		change(&bad)
-		c.ModelRoutePricing.TextWriter = &bad
+		c.ModelRoutePricing.Writer = &bad
 		_, e = c.modelRouteDefinitions()
 		require.Error(t, e)
 	}
-	c.ModelRoutePricing.TextWriter = &writer
+	c.ModelRoutePricing.Writer = &writer
 	def := defs[0]
 	p := *def.Text
 	p.Profile.ClientName = "other-binding"

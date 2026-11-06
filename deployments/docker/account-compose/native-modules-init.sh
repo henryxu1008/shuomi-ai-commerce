@@ -1,6 +1,8 @@
 #!/bin/sh
 # Consume existing owner installers once, after the base/Product fresh install.
 set -eu
+. /usr/local/lib/account-compose/deployment-origins.sh
+account_resolve_origins
 umask 077
 test "${ACCOUNT_NATIVE_MODULES_ENABLED:-}" = 1
 case "${ACCOUNT_APPLICATION_PORT:-}" in ''|*[!0-9]*) echo 'application port required' >&2; exit 1 ;; esac
@@ -72,7 +74,7 @@ store-center-schema-init -config "$work/store-owner.json" --operations-cockpit
 openssl rand -hex 24 | tr -d '\n' > /qualification-storage-secret/root-password
 openssl rand -hex 16 | tr -d '\n' > /runtime/qualification-access-key
 openssl rand -hex 24 | tr -d '\n' > /runtime/qualification-secret-key
-jq --arg appURL "https://localhost:$ACCOUNT_APPLICATION_PORT/capture/1688" --rawfile nc /state/notification_center-runtime-password --rawfile ac /state/agent_customization-runtime-password --rawfile pc /state/ai_projects-runtime-password --rawfile rc /state/reports-runtime-password --rawfile tc /state/tool_market-runtime-password --rawfile pr /state/product-runtime-password --rawfile token /base/membership-read.pat --rawfile ak /runtime/qualification-access-key --rawfile sk /runtime/qualification-secret-key '
+jq --arg appURL "${account_public_app:-https://localhost:$ACCOUNT_APPLICATION_PORT}/capture/1688" --rawfile nc /state/notification_center-runtime-password --rawfile ac /state/agent_customization-runtime-password --rawfile pc /state/ai_projects-runtime-password --rawfile rc /state/reports-runtime-password --rawfile tc /state/tool_market-runtime-password --rawfile pr /state/product-runtime-password --rawfile token /base/membership-read.pat --rawfile ak /runtime/qualification-access-key --rawfile sk /runtime/qualification-secret-key '
  def db($name;$role;$password): {host:"127.0.0.1",port:5433,user:$role,password:($password|rtrimstr("\n")),database:$name,maxConnections:4};
  .notificationCenterDatabase=db("notification_center";"notification_center_runtime";$nc) |
  .agentCustomizationDatabase=db("agent_customization";"agent_customization_runtime";$ac) |

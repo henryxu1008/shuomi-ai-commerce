@@ -1,5 +1,7 @@
 package imageagent
 
+import "task-processor/internal/aicapability"
+
 // Only complete, explicitly admitted routes may enter an immutable quote or intent.
 func validGenerationRoute(provider, model, protocol string) bool {
 	return GenerationRouteQuality(provider, model, protocol) != ""
@@ -9,6 +11,9 @@ func validGenerationRoute(provider, model, protocol string) bool {
 // The existing quote and intent fields freeze this value without changing
 // historical metadata serialization or allowing a client-selected quality.
 func GenerationRouteQuality(provider, model, protocol string) string {
+	if provider == "openai" && model == aicapability.FlareImageModel && protocol == aicapability.FlareImageProtocol {
+		return "auto"
+	}
 	if provider == "grsai" && protocol == "grsai-json-sync-v1" {
 		switch model {
 		case "gpt-image-2-vip":
@@ -28,6 +33,44 @@ func validateGenerationRouteInput(m GenerationProviderMetadata, input SlotExecut
 		if err := ValidateImageMethodDispatch(input.ImageSet.Method); err != nil {
 			return err
 		}
+	}
+	if m.Provider == "openai" && m.Model == aicapability.FlareImageModel && m.Protocol == aicapability.FlareImageProtocol {
+		e := m.Billing.ReferenceEstimate
+		if e.Validate() != nil || !m.Billing.OfficialTariff.IsReferenceImageEstimate() {
+			return ErrBudgetQuoteUnavailable
+		}
+		prompt := ""
+		if input.Artwork != nil {
+			prompt = input.Artwork.Prompt
+		} else if input.Slot.Recipe != nil {
+			prompt = input.Slot.Recipe.Prompt
+			if input.ImageMethodText != "" {
+				var err error
+				prompt, err = ComposeImageMethodPrompt(prompt, input.ImageMethodText)
+				if err != nil {
+					return err
+				}
+			}
+			refs := input.Slot.Recipe.References
+			if len(refs) < 1 || len(refs) > e.MaximumReferenceImages {
+				return ErrValidation
+			}
+			var bytes, pixels int64
+			for _, ref := range refs {
+				if ref.Bytes <= 0 || ref.Bytes > e.MaximumReferenceBytes || ref.Width < 1 || ref.Width > 8192 || ref.Height < 1 || ref.Height > 8192 {
+					return ErrValidation
+				}
+				bytes += ref.Bytes
+				pixels += int64(ref.Width) * int64(ref.Height)
+				if bytes > e.MaximumReferenceBytes || pixels > e.MaximumReferencePixels {
+					return ErrValidation
+				}
+			}
+		}
+		if len(prompt) > e.MaximumPromptBytes {
+			return ErrValidation
+		}
+		return nil
 	}
 	if m.Provider != "bailian" {
 		return nil

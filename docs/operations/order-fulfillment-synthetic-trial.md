@@ -88,7 +88,7 @@
 
 ### 在本试用的当前 Store 安装订单观察模块
 
-2026-11-01 用户选择保留已保存的合成案例，先设计并独立评审安装支持，再开发。依据为 [当前 Store 观察模块安装设计](../architecture/store-observations-current-store-install.md)。这只授权新试用 `ordertrial-20261101-01`，不授权更改 `task-processor-unified-20261010`、`orderfit-20261031` 或其他实例。
+2026-11-01 用户选择保留已保存的合成案例，先设计并独立评审安装支持，再开发。依据为 [当前 Store 观察模块安装设计](../architecture/store-observations-installation.md)。这只授权新试用 `ordertrial-20261101-01`，不授权更改 `task-processor-unified-20261010`、`orderfit-20261031` 或其他实例。
 
 独立 schema owner 先私密备份本试用 Store，保留原配置/镜像和原事实、public schema/ACL/Goose history 快照；使用准确 Git 版本的标准 `Dockerfile.account-compose` 的 `schema-init` target。命令为 `store-center-schema-init --observations-current-store --confirm-database store_center --config <本试用私密owner配置绝对路径>`。命令同时检查配置数据库和真实连接目标，只安装既有四表及原 grants；不运行基础迁移、不修改已保存店铺或履约数据，也不自动发布运行配置。原 `--observations-only` 继续要求空店铺库，不能删 guard 或重 seed。
 

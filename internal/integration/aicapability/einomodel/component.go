@@ -20,19 +20,25 @@ import (
 	"time"
 
 	claude "github.com/cloudwego/eino-ext/components/model/claude"
+	gemini "github.com/cloudwego/eino-ext/components/model/gemini"
 	openaimodel "github.com/cloudwego/eino-ext/components/model/openai"
+	qwen "github.com/cloudwego/eino-ext/components/model/qwen"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/genai"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/integration/googleinteractions"
 )
 
 type AdapterKind string
 
 const (
-	AdapterOpenAICompatible   AdapterKind = "openai-compatible"
-	AdapterClaudeNative       AdapterKind = "claude-native"
-	AdapterGoogleInteractions AdapterKind = "google-interactions"
+	AdapterOpenAICompatible      AdapterKind = "openai-compatible"
+	AdapterClaudeNative          AdapterKind = "claude-native"
+	AdapterGoogleInteractions    AdapterKind = "google-interactions"
+	AdapterGoogleGenerateContent AdapterKind = "google-generate-content"
+	AdapterQwenCompatible        AdapterKind = "qwen-compatible"
 )
 
 var (
@@ -49,6 +55,7 @@ var (
 )
 
 type ComponentConfig struct {
+	ThinkingMode         string
 	Adapter              AdapterKind
 	ProviderID           string
 	AdapterPolicyVersion string
@@ -66,17 +73,46 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 		!ValidAdapterEndpoint(cfg.Adapter, cfg.Endpoint) || cfg.Adapter != guard.cfg.Adapter ||
 		cfg.ProviderID != guard.cfg.ProviderID || cfg.AdapterPolicyVersion != guard.cfg.AdapterPolicyVersion ||
 		cfg.Endpoint != guard.cfg.Endpoint || cfg.ModelID != guard.cfg.ModelID ||
-		cfg.MaximumOutputTokens != guard.cfg.MaximumOutputTokens {
+		cfg.MaximumOutputTokens != guard.cfg.MaximumOutputTokens || cfg.ThinkingMode != guard.cfg.ThinkingMode {
 		return nil, ErrInvalid
 	}
 	maxTokens := cfg.MaximumOutputTokens
 	switch cfg.Adapter {
+	case AdapterGoogleGenerateContent:
+		thinking := geminiThinkingConfig(cfg.ThinkingMode)
+		if thinking == nil {
+			return nil, ErrInvalid
+		}
+		attempts := int32(1)
+		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: cfg.APIKey, Backend: genai.BackendGeminiAPI, HTTPClient: guard.Client,
+			HTTPOptions: genai.HTTPOptions{BaseURL: cfg.Endpoint, APIVersion: "v1beta", RetryOptions: &genai.HTTPRetryOptions{Attempts: &attempts}}})
+		if err != nil {
+			return nil, ErrInvalid
+		}
+		return gemini.NewChatModel(ctx, &gemini.Config{Client: client, Model: cfg.ModelID, MaxTokens: &maxTokens,
+			ThinkingConfig:     thinking,
+			ResponseModalities: []gemini.GeminiResponseModality{gemini.GeminiResponseModalityText}})
+	case AdapterQwenCompatible:
+		thinking := false
+		return qwen.NewChatModel(ctx, &qwen.ChatModelConfig{APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
+			MaxTokens: &maxTokens, HTTPClient: guard.Client, EnableThinking: &thinking})
 	case AdapterGoogleInteractions:
 		if cfg.ModelID != googleinteractions.Model {
 			return nil, ErrInvalid
 		}
 		return &googleComponent{config: cfg, guard: guard}, nil
 	case AdapterOpenAICompatible:
+		if cfg.AdapterPolicyVersion == aicapability.EinoOpenAIImagePolicy {
+			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
+				MaxTokens: &maxTokens, HTTPClient: guard.Client, ExtraFields: map[string]any{"n": 1, "store": false}})
+		}
+		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy || cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
+			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{
+				APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
+				MaxCompletionTokens: &maxTokens, ReasoningEffort: openaimodel.ReasoningEffortLevel("none"),
+				HTTPClient: guard.Client, ExtraFields: map[string]any{"n": 1, "store": false, "service_tier": "default"},
+			})
+		}
 		var extra map[string]any
 		if cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
 			extra = map[string]any{"enable_thinking": false}
@@ -97,10 +133,16 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 }
 
 type GuardConfig struct {
-	Logger               *logrus.Entry `json:"-"`
+	ThinkingMode string
+	// Exact canonical identity is supplied only by the qualified frozen
+	// manufacturer/wire binding; a response cannot introduce a new alias.
+	ResponseModelID      string
+	SingleImage          *SingleImageRequest `json:"-"`
+	Logger               *logrus.Entry       `json:"-"`
 	Adapter              AdapterKind
 	ProviderID           string
 	AdapterPolicyVersion string
+	BillingUsageVersion  string
 	Endpoint             string
 	ModelID              string
 	MaximumOutputTokens  int
@@ -110,6 +152,7 @@ type GuardConfig struct {
 }
 
 type ObservedUsage struct {
+	BillableUsage    *aicapability.BillableModelUsage
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
@@ -162,6 +205,10 @@ func validEndpoint(raw string) bool {
 func ValidEndpoint(raw string) bool { return validEndpoint(raw) }
 
 func ValidAdapterEndpoint(adapter AdapterKind, raw string) bool {
+	if adapter == AdapterGoogleGenerateContent {
+		u, err := url.Parse(raw)
+		return err == nil && validEndpoint(raw) && (u.Path == "" || u.Path == "/")
+	}
 	if adapter == AdapterGoogleInteractions {
 		return googleinteractions.ValidEndpoint(raw)
 	}
@@ -172,7 +219,8 @@ func ValidAdapterEndpoint(adapter AdapterKind, raw string) bool {
 // follows a redirect, or Generate is called twice, only one underlying model
 // RoundTrip can occur. finalGate runs at the actual HTTP handoff.
 func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(context.Context) error) (*GuardedClient, error) {
-	if (cfg.Adapter != AdapterOpenAICompatible && cfg.Adapter != AdapterClaudeNative && cfg.Adapter != AdapterGoogleInteractions) ||
+	if (cfg.Adapter != AdapterOpenAICompatible && cfg.Adapter != AdapterClaudeNative && cfg.Adapter != AdapterGoogleInteractions &&
+		cfg.Adapter != AdapterGoogleGenerateContent && cfg.Adapter != AdapterQwenCompatible) ||
 		!ValidAdapterEndpoint(cfg.Adapter, cfg.Endpoint) || cfg.ModelID == "" || cfg.MaximumOutputTokens < 1 ||
 		cfg.MaximumOutputTokens > 65536 || cfg.MaximumRequestBytes < 1 ||
 		cfg.MaximumRequestBytes > 1<<20 || cfg.MaximumResponseBytes < 1 ||
@@ -181,6 +229,26 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 		return nil, ErrInvalid
 	}
 	if !validFixedAdapterPolicy(cfg.Adapter, cfg.ProviderID, cfg.ModelID, cfg.AdapterPolicyVersion) {
+		return nil, ErrInvalid
+	}
+	if cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy &&
+		(cfg.Endpoint != TitlePilotOpenAIEndpoint || cfg.MaximumOutputTokens != TitlePilotCompletionTokens) {
+		return nil, ErrInvalid
+	}
+	if cfg.Adapter == AdapterGoogleGenerateContent {
+		if !aicapability.ValidGeminiThinkingMode(cfg.ThinkingMode) {
+			return nil, ErrInvalid
+		}
+	} else if cfg.ThinkingMode != "" {
+		return nil, ErrInvalid
+	}
+	if aicapability.SingleImagePurpose(cfg.AdapterPolicyVersion) {
+		if !validSingleImageRequest(cfg) {
+			return nil, ErrInvalid
+		}
+		frozen := *cfg.SingleImage
+		cfg.SingleImage = &frozen
+	} else if cfg.SingleImage != nil {
 		return nil, ErrInvalid
 	}
 	if cfg.Adapter == AdapterGoogleInteractions && (cfg.ModelID != googleinteractions.Model || cfg.MaximumRequestBytes > 128<<10 || cfg.MaximumResponseBytes > 256<<10) {
@@ -235,7 +303,11 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.URL.Scheme != g.endpoint.Scheme || !strings.EqualFold(req.URL.Host, g.endpoint.Host) ||
 		!strings.HasPrefix(req.URL.EscapedPath(), strings.TrimSuffix(g.endpoint.EscapedPath(), "/")+"/") ||
 		req.URL.RawQuery != "" || req.URL.Fragment != "" || req.Body == nil ||
-		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" {
+		g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy && req.URL.EscapedPath() != "/v1/chat/completions" ||
+		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" ||
+		g.cfg.Adapter == AdapterGoogleGenerateContent && req.URL.EscapedPath() != "/v1beta/models/"+g.cfg.ModelID+":generateContent" ||
+		g.cfg.SingleImage != nil && g.cfg.Adapter != AdapterGoogleGenerateContent &&
+			req.URL.EscapedPath() != strings.TrimSuffix(g.endpoint.EscapedPath(), "/")+"/chat/completions" {
 		return nil, ErrNotDispatched
 	}
 	diagnostic := g.diagnosticsFor(req.Context())
@@ -296,6 +368,21 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	diagnostic.emit(req.Context(), "response", "response_received")
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
+		if g.cfg.Adapter == AdapterOpenAICompatible && g.cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1 {
+			usage = observeReferenceTextUsage(raw)
+		}
+		if g.cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1 &&
+			(g.cfg.Adapter == AdapterQwenCompatible || g.cfg.Adapter == AdapterGoogleGenerateContent || g.cfg.Adapter == AdapterClaudeNative ||
+				g.cfg.AdapterPolicyVersion == aicapability.EinoOpenAIImagePolicy) {
+			usage = observeNativeReferenceUsage(raw, g.cfg)
+		}
+		if g.cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
+			usage = observeDeepSeekUsage(raw)
+		}
+		if (g.cfg.SingleImage != nil || g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy) &&
+			(usage.BillableUsage == nil || g.cfg.BillingUsageVersion != aicapability.ReferenceTextTotalsV1 && !validStrictOpenAIResponseUsage(raw, g.cfg.ModelID)) {
+			usage = ObservedUsage{}
+		}
 		var providerID string
 		if g.cfg.Adapter == AdapterGoogleInteractions {
 			parsed := googleinteractions.Observe(raw, g.cfg.MaximumOutputTokens)
@@ -313,6 +400,18 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func validWire(raw []byte, cfg GuardConfig) bool {
+	if cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
+		return validTitlePilotWire(raw, cfg.ModelID)
+	}
+	if cfg.Adapter == AdapterGoogleGenerateContent {
+		return validGeminiWire(raw, cfg)
+	}
+	if cfg.Adapter == AdapterQwenCompatible || cfg.AdapterPolicyVersion == aicapability.EinoOpenAIImagePolicy {
+		return validPurposeChatWire(raw, cfg)
+	}
+	if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
+		return validSingleImageWire(raw, cfg)
+	}
 	var envelope map[string]json.RawMessage
 	if json.Unmarshal(raw, &envelope) != nil || envelope == nil {
 		return false
@@ -386,7 +485,11 @@ func observeUsage(raw []byte, adapter AdapterKind) ObservedUsage {
 		if p < 0 || c < 0 || t <= 0 || p+c != t {
 			return ObservedUsage{}
 		}
-		return ObservedUsage{PromptTokens: p, CompletionTokens: c, TotalTokens: t, Known: true}
+		observed := ObservedUsage{PromptTokens: p, CompletionTokens: c, TotalTokens: t, Known: true}
+		if billable, err := ObserveOfficialOpenAITextUsage(raw); err == nil {
+			observed.BillableUsage = &billable
+		}
+		return observed
 	}
 	var result struct {
 		Usage *struct {
@@ -424,8 +527,12 @@ func GenerateText(ctx context.Context, component model.BaseChatModel, system, pr
 	if ctx == nil || component == nil || guard == nil || system == "" || prompt == "" {
 		return TextOutput{}, ErrInvalid
 	}
+	return generateMessages(ctx, component, []*schema.Message{schema.SystemMessage(system), schema.UserMessage(prompt)}, guard)
+}
+
+func generateMessages(ctx context.Context, component model.BaseChatModel, messages []*schema.Message, guard *GuardedClient) (TextOutput, error) {
 	diagnostic := guard.diagnosticsFor(ctx)
-	message, err := component.Generate(ctx, []*schema.Message{schema.SystemMessage(system), schema.UserMessage(prompt)})
+	message, err := component.Generate(ctx, messages)
 	usage := guard.Usage()
 	diagnostic.set("usage_known", usage.Known)
 	if err != nil {
@@ -449,10 +556,10 @@ func GenerateText(ctx context.Context, component model.BaseChatModel, system, pr
 		message.ResponseMeta.Usage.CompletionTokens != usage.CompletionTokens ||
 		message.ResponseMeta.Usage.TotalTokens != usage.TotalTokens ||
 		len(message.ToolCalls) != 0 || message.ToolCallID != "" ||
-		len(message.MultiContent) != 0 || len(message.AssistantGenMultiContent) != 0 ||
+		!validComponentTextParts(message, guard.cfg.Adapter) ||
 		message.ReasoningContent != "" || !safeComponentMetadata(message.Extra) ||
 		message.Content == "" || len(message.Content) > 16384 ||
-		(output.FinishReason != "stop" && output.FinishReason != "end_turn") {
+		(output.FinishReason != "stop" && output.FinishReason != "end_turn" && !(guard.cfg.Adapter == AdapterGoogleGenerateContent && output.FinishReason == "STOP")) {
 		diagnostic.emit(ctx, "output_validation", "rejected")
 		return output, ErrInvalid
 	}

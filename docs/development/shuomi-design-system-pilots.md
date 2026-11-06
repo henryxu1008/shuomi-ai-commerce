@@ -1,0 +1,75 @@
+# Design System：两个现有页面的隔离试点
+
+关联 [#1092](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1092) 与[资产基线](shuomi-design-system-baseline.md)。本次复用真实业务页面，验证其前端表示与交互；没有复制页面或建立另一套运行状态。
+
+## 变更和复用
+
+| 页面 / 入口 | 本次采用 | 原业务边界 |
+| --- | --- | --- |
+| 添加自有商品 `/workbench/data/mine/own/new` | 原页面、Input/Select、图片链接 Textarea；Textarea 改为现有 control-background/control-radius | 商品描述仍为 DescriptionEditor；原创建、版本、图片与库存声明合同不变 |
+| 平台上架资料 `/workbench/supply/materials/[recordId]` | 本次用途、候选类目、本次模板三个局部原生 select 改用现有 Select；中断分支的补充意见采用同一 Textarea | 原 value/onChange、选项、禁用、配置/权限、原请求键和恢复路径不变 |
+| 平台资料确认弹窗 | 关闭时将焦点返回仍在页面中的原触发元素；复用现有 AccountDialog 的焦点恢复方式 | 取消不调用 prepare/start；确认和执行协议不变 |
+| 浅色辅助文字 / 选中导航 | 原 owner 交接后，仅按变量名调整 muted-foreground 与 sidebar-accent-foreground | 不改主按钮、焦点环、成功色、深色主题或导航结构 |
+
+Select 在本增量增加一个页面导入点。资产 CSV 保留盘点基线，不把原基线 37 个导入点误写成新扫描结果。没有新增组件库、主题 provider、全局变量、业务状态或外部调用。
+
+原 #1075 负责人已只读确认两个页面及 Textarea 没有文件冲突；product-collection/agent-configuration 合同按各自已有版本消费。其分支冻结后，另明确将两个浅色文字令牌交给 #1092。本次只在自己的分支按变量名修改这两项，不改原冻结分支，也不改 shell、导航结构、collection-page、企业 context 或 console.css 其他部分。
+
+## 验证环境与证据范围
+
+运行当前仓库的正式 Next 生产构建和真实页面、ApplicationFrame、shell、next-themes、WorkbenchContextProvider、客户端 API 及 Zod 响应解析。使用任务独占的回环端口与临时浏览器上下文，Auth.js 会话由独立临时测试 secret 生成；不读取已有 cookie、账号、企业数据或凭据。
+
+浏览器在 `/api/` 边界返回合成契约响应。商品、类目、店铺和运行数据都明确为合成；上下文、原草稿、规则、配置和运行响应按当前 schema 验证。外部浏览器请求被拦截；后端配置指向未提供服务的回环地址。没有启动真实模型、供应商、平台提交、计费、数据写入或部署。
+
+因此证据属于**真实前端产物 + 合成会话/API 的受控页面试点**。实际 OIDC 登录、Go/数据库领域授权与事务、真实企业使用、平台/模型调用、保留实例更新及用户验收仍为 NOT_RUN。现有 CI 的通用浏览器检查不冒充本地两页试点。
+
+## 检查场景
+
+| 场景 | 核对内容 |
+| --- | --- |
+| 两页 dark/light × 1440/390 | 页面可用、没有文档级横向溢出；输入与选择在主题、尺寸切换后保留；宽表格仍在原局部滚动容器中 |
+| 自有商品图片链接 | 原 Textarea 的多行链接保留，添加后进入原图片池；没有把商品描述改成 Textarea |
+| 自有商品保存冲突 | 仅一次合成保存 POST；原名称、富文本和图片保留；请求中明确库存 0 保留为 0 |
+| 材料类目 / 模板 | 原用途切换与候选类目选择保持；规则查询仍使用原只读语义的 POST，不算作模型执行 |
+| 材料确认取消 | Esc 和取消按钮关闭原生 dialog，焦点返回原操作；没有 prepare/start 请求 |
+| 中断补充意见 dark/light × 1440/390 | 实际 `interrupted && canResume` 分支，原多行意见保留、控件表面一致、键盘能聚焦 |
+| 继续结果不明 | 原键只发送一次合成 resume POST；原意见保留并锁定，不自动换键或重发 |
+| loading / context error | 使用原工作台加载和重载入口；没有执行请求 |
+| denied / record error | 原禁用或错误提示正确；没有执行请求 |
+| read-only 原运行 | 建议可读，采用/保存动作不出现，没有执行请求 |
+
+截图及结构化结果在本次任务交付的 `issue1092-page-evidence` 中；结果包含四个相关生产源码文件的 SHA-256，便于与最终提交核对。对比度修复前的证据单独保留。临时浏览器与应用进程在检查完成后退出，没有作为用户试用实例交付。
+
+## 焦点缺陷与回归
+
+实际浏览器验证发现：确认窗卸载后焦点落回 body，未回到「准备平台资料」。随后新增原页面回归，先确认它在旧实现失败（RED），再在卸载时关闭 dialog 并恢复仍连接在文档中的原焦点（GREEN）。回归同时检查取消没有调用 prepare/start。没有为此建立新的弹窗或恢复框架。
+
+## 对比度修正与可访问性范围
+
+修复前，dark 主场景 axe 未报告违规，light 自有商品页宽/窄分别有 11/6 个对比度节点，材料页宽/窄各 3 个。记录的是受测 DOM 节点，不是全站缺陷数量。最小修正如下：
+
+| 令牌 / 背景 | 原组合 | 当前组合 | 对比度约值 |
+| --- | --- | --- | --- |
+| muted-foreground / background | `#617487` / `#f4f7fb` | `#5f7184` / `#f4f7fb` | 4.48 → 4.67 |
+| muted-foreground / secondary | `#617487` / `#f1f5fa` | `#5f7184` / `#f1f5fa` | 4.40 → 4.59 |
+| sidebar-accent-foreground / sidebar-accent | `#087f6c` / `#e5f5f0` | `#077b68` / `#e5f5f0` | 4.37 → 4.61 |
+
+修正后重新运行实际页面的 20 项场景，全部通过；两页在 dark/light × 1440/390 的 8 个主场景 axe 均无违规。中断反馈字段的四个主题/屏宽组合、取消焦点以及冲突后名称、描述、两张图片和公共归属保留也均通过。真实后端和真实业务仍未执行。
+
+这只是已验证页面和状态的前端证据；全站组件、全部 hover/浮层/状态、真实业务与用户验收仍需后续范围，不能升级为整个 #1092 的 a11y PASS、产品验收通过或可上线。没有把未测试范围记成已接受风险。
+
+相关检查入口：`pnpm test -- src/components/workbench/collections/own-product-entry-page.test.tsx src/components/workbench/supply/materials-page.test.tsx src/components/ui/form-controls.test.tsx`，以及按既有前端流程运行 lint、typecheck 和 build。准确 HEAD、CI、独立评审和最后一次实际结果写在主要 Draft PR 中，不自动关闭父 Issue。
+
+## 共享 Button 的悬停补充
+
+#1074 的实际新表单试点发现，浅色填充主按钮在悬停时白字与透色背景约为 4.11:1。独立使用本仓库 Button 源码和编译后的 CSS，复现了 default/primary 与 destructive/danger 的同类问题：Console 的 96 个状态样本中有 24 个浅色悬停不足 4.5:1。全局主题还存在危险按钮原有的前景配对不足，浅色正常态约 4.28:1、深色约 2.45:1。
+
+本增量只调整四种填充别名的悬停背景，并将全局危险按钮文字配对改为浅色白字、深色复用 Console 既有 `#26010b`。未增加 token、依赖、provider 或业务分支，Button 常态填充色、API、className 覆盖、键盘与原生禁用语义按原边界保留。
+
+最后一次独立复核还发现：先前与正文 foreground 混色时，全局深色主色与正文色过近，12 组 default/primary 悬停的 8 位 sRGB 背景与常态完全相同。先前矩阵只验证了对比度，未捕获这个反馈缺口。新背景差异断言在已保存的该提交实测记录上复现 12 项失败；最终使用 8% 中性黑色仅加深填充背景，并同时断言实际背景变化和对比度。该中性色用于状态加深，不替代品牌/危险语义色；失败记录与旧提交结果继续保留。
+
+组件检查以 Console/全局主题分别执行 dark/light × 1440/390 × background/card/secondary × 四别名 × normal/hover，共 192 个状态样本，全部达到 4.5:1，96 对 normal/hover 的实际背景均有变化；八个页面快照的 axe 均无违规，Tab 顺序及原生禁用通过。它是实际组件与编译 CSS 的隔离检查，不是业务或全站验收。原始失败、前景修正前的全局失败、悬停反馈失败与修复后记录分别保留在任务目录 `issue1092-button-evidence`，记录源码和样式摘要。
+
+真实 Next 两页试点另在最终生产产物上重跑原 20 项受控场景，并在自有商品页的四个主题/宽度主场景加入「保存商品」实际悬停检查；全部通过，八个主场景 axe 无违规。表单内容、保存冲突、图片/显式库存零、取消焦点、补充意见及原键 UNKNOWN 路径保持。记录含六份生产源码摘要；两处全局前景值在 Console 仍有原配对覆盖。最终构建、准确提交与证据绑定写在 PR 中，不冒充未执行范围。
+
+本增量的 11 文件/21 项原 UI 测试及 Button 定向 lint 通过。临时组件脚本和真实页面脚本均使用合成资料；组件检查无业务 API，真实页面沿前述合成会话/拦截 API 边界。真实身份、后端、企业数据、全站组件与所有 hover/focus 状态仍未完成验收。

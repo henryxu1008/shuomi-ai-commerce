@@ -57,7 +57,7 @@ func (p ExecutionProposal) ValidCapability() bool {
 	case ContentTaskKind:
 		return p.Selection().Valid() && p.TargetPlatform == "product" && p.AgentID == agentconfig.ContentAgentID && p.AgentVersion == agentconfig.ContentAgentVersion && p.ExecutionLimits.Valid()
 	case TitleTaskKind:
-		return p.AgentID == "product.title.agent" && p.AgentVersion == "v1.0.0" && p.ContextKind == "" && p.ContentSelection.Absent() && p.ExecutionLimits == (agent.Limits{}) && (p.TargetPlatform == "shein" || p.TargetPlatform == "temu" || p.TargetPlatform == "amazon")
+		return p.AgentID == agentconfig.TitleAgentID && (p.AgentVersion == "v1.0.0" || p.AgentVersion == agentconfig.TitleAgentVersion) && p.ContextKind == "" && p.ContentSelection.Absent() && p.ExecutionLimits == (agent.Limits{}) && (p.TargetPlatform == "shein" || p.TargetPlatform == "temu" || p.TargetPlatform == "amazon")
 	}
 	return false
 }
@@ -66,11 +66,17 @@ func (p ExecutionProposal) MatchesRequest(r agent.Request) bool {
 		return false
 	}
 	if p.Kind == ContentTaskKind {
-		return r.Binding.ContextKind == p.ContextKind && r.ContentSelection == p.ContentSelection && r.Limits == p.ExecutionLimits && r.PolicyVersion == reviewproposal.ContentPolicyVersion && r.PromptVersion == agentconfig.ContentPromptVersion
+		return r.Binding.ContextKind == p.ContextKind && r.ContentSelection == p.ContentSelection && r.Limits == p.ExecutionLimits && r.PolicyVersion == reviewproposal.ContentPolicyVersion && agentconfig.ValidContentPrompt(r.PromptVersion, r.WorkbenchContextRef)
 	}
 	prompt := "product-title-agent-v1"
 	if !r.ContextSnapshotRef.Absent() {
 		prompt = "product-title-agent-knowledge-v1"
+	}
+	if p.AgentVersion == agentconfig.TitleAgentVersion {
+		prompt = agentconfig.TitlePromptVersion
+		if !r.ContextSnapshotRef.Absent() {
+			prompt = agentconfig.TitleKnowledgePromptVersion
+		}
 	}
 	return r.Binding.ContextKind == "acquisition" && r.ContentSelection.Absent() && r.PolicyVersion == "title-review-v1" && r.PromptVersion == prompt
 }

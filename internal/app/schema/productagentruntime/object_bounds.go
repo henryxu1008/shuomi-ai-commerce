@@ -42,9 +42,6 @@ func verifyObjectBounds(db *gorm.DB, role string) error {
 	}
 	for _, p := range rows {
 		if p.Sequence {
-			if !p.Grantable && role == "title_credential_writer" && p.Object == "public.ai_client_credentials_id_seq" && p.Privilege == "USAGE" {
-				continue
-			}
 		} else if grant, ok := allowed[p.Object]; ok && !p.Grantable && grant.Allows(p.Privilege, p.ColumnName) {
 			continue
 		}
@@ -56,7 +53,7 @@ func verifyObjectBounds(db *gorm.DB, role string) error {
 func ownerGrantBounds(db *gorm.DB, role string) (map[string]configstore.RuntimeTableGrant, error) {
 	var targets []tableGrant
 	switch role {
-	case "product_agent_runtime", "title_credential_writer":
+	case "product_agent_runtime", "title_credential_writer", "ai_channel_secret_reader":
 		ledger, err := invocationContract(db)
 		if err != nil {
 			return nil, err

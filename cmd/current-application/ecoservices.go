@@ -15,7 +15,7 @@ func prepareEcoservices(ctx context.Context, db *gorm.DB, cfg *currentapplicatio
 	if err != nil {
 		return nil, err
 	}
-	uploader, err := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Bucket: c.Bucket, Endpoint: c.Endpoint, UsePathStyle: true, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
+	uploader, err := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Bucket: c.Bucket, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
 	if err != nil {
 		return nil, err
 	}

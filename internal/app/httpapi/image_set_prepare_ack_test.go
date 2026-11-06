@@ -52,7 +52,7 @@ func (imageSetPrepareACKContexts) RevalidateImageSet(context.Context, imageagent
 type imageSetPrepareACKQuote struct{}
 
 func (imageSetPrepareACKQuote) ReadImageGenerationQuote(context.Context, imageagent.ExecutionIdentity, *imageagent.ImageRouteSelection) (imageagent.ImageGenerationQuote, error) {
-	return imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 3, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}, nil
+	return imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price", 3), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 3, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}, nil
 }
 
 type imageSetPrepareACKRepository struct {
@@ -74,7 +74,7 @@ func TestFullImageCommittedPreparationRetainsOriginalKeyWhenResponseReadFails(t 
 			require.NoError(t, err)
 			contexts := imageSetPrepareACKContexts{preparation: imageagent.ImageSetPreparation{Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: sourceID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: catalog.Manifest.Hash}, Target: imageagent.ImageTarget{Platform: "product"}, Catalog: catalog, Observations: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: strings.Repeat("c", 64), Bytes: 10, Width: 1024, Height: 1024, MediaType: "image/png"}}}}
 			repository := &imageSetPrepareACKRepository{Repository: imagestore.NewMemoryRepository()}
-			service, err := imageagent.NewService(repository, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: imageSetPrepareACKConfiguration{}, Contexts: contexts, Quotes: imageSetPrepareACKQuote{}, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 100, ElapsedSeconds: 3600}}))
+			service, err := imageagent.NewService(repository, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: imageSetPrepareACKConfiguration{}, Contexts: contexts, Quotes: imageSetPrepareACKQuote{}, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 100, ElapsedSeconds: 3600}}))
 			require.NoError(t, err)
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)

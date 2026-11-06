@@ -21,7 +21,7 @@ type positiveCreditAllocation struct {
 // applyPositiveCredit is the single transaction-bound path for value flowing
 // back into available. Callers must already hold the matching bucket lock.
 func applyPositiveCredit(ctx context.Context, tx *gorm.DB, organizationID, resourceType string, gross, availableBefore int64, now time.Time) (positiveCreditAllocation, error) {
-	debt := organizationResourceDebtRow{OrganizationID: organizationID, ResourceType: resourceType}
+	debt := organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit(resourceType), OrganizationID: organizationID, ResourceType: resourceType}
 	if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&debt).Error; err != nil {
 		return positiveCreditAllocation{}, err
 	}

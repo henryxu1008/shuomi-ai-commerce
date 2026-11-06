@@ -87,3 +87,36 @@ CREATE TABLE public.knowledge_dispatch_permits (
 );
 CREATE INDEX knowledge_permits_expiry ON public.knowledge_dispatch_permits(expires_at) WHERE state='ACTIVE';
 CREATE INDEX knowledge_permits_bundle ON public.knowledge_dispatch_permits(organization_id,bundle_id,state,expires_at);
+
+CREATE TABLE public.knowledge_original_generation (
+ singleton boolean PRIMARY KEY CHECK (singleton), generation uuid NOT NULL UNIQUE
+);
+CREATE TABLE public.knowledge_original_uploads (
+ organization_id varchar(128) NOT NULL, revision_id uuid NOT NULL, generation uuid NOT NULL,
+ state varchar(16) NOT NULL CHECK (state IN ('READY','IN_FLIGHT','CONFIRMED','INELIGIBLE')),
+ put_token varchar(36) NOT NULL DEFAULT '', reservation_id varchar(36) NOT NULL DEFAULT '',
+ PRIMARY KEY (organization_id,revision_id),
+ FOREIGN KEY (organization_id,revision_id) REFERENCES public.knowledge_revisions(organization_id,id),
+ FOREIGN KEY (generation) REFERENCES public.knowledge_original_generation(generation)
+);
+CREATE TABLE public.knowledge_original_deletions (
+ organization_id varchar(128) NOT NULL, id uuid NOT NULL, source_id uuid NOT NULL, revision_id uuid NOT NULL,
+ namespace varchar(256) NOT NULL, object_key varchar(512) NOT NULL, sha256 char(64) NOT NULL, reservation_id varchar(36) NOT NULL,
+ source_version bigint NOT NULL CHECK (source_version>0), revision_number bigint NOT NULL CHECK (revision_number>0),
+ size_bytes bigint NOT NULL CHECK (size_bytes BETWEEN 1 AND 10485760),
+ state varchar(32) NOT NULL CHECK (state IN ('FENCED','DELETE_DISPATCHED','OBJECT_ABSENCE_PROVEN','RELEASED')),
+ present_digest varchar(64) NOT NULL DEFAULT '', proof_digest varchar(64) NOT NULL DEFAULT '',
+ lease_owner varchar(36) NOT NULL DEFAULT '', lease_until timestamptz, released_at timestamptz,
+ created_by varchar(256) NOT NULL, last_actor varchar(256) NOT NULL,
+ created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
+ PRIMARY KEY (organization_id,id), UNIQUE (organization_id,source_id), UNIQUE (organization_id,revision_id),
+ FOREIGN KEY (organization_id,source_id,revision_id) REFERENCES public.knowledge_revisions(organization_id,source_id,id),
+ CHECK ((state='FENCED' AND present_digest='') OR (state<>'FENCED' AND present_digest ~ '^[0-9a-f]{64}$')),
+ CHECK ((state IN ('FENCED','DELETE_DISPATCHED') AND proof_digest='') OR (state IN ('OBJECT_ABSENCE_PROVEN','RELEASED') AND proof_digest ~ '^[0-9a-f]{64}$')),
+ CHECK ((state='RELEASED')=(released_at IS NOT NULL))
+);
+CREATE TABLE public.knowledge_original_delete_keys (
+ organization_id varchar(128) NOT NULL, key uuid NOT NULL, operation_id uuid NOT NULL,
+ PRIMARY KEY (organization_id,key),
+ FOREIGN KEY (organization_id,operation_id) REFERENCES public.knowledge_original_deletions(organization_id,id)
+);

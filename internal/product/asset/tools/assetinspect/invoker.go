@@ -22,7 +22,10 @@ func (d freshPrincipalDelegate) ResolvePrincipal(ctx context.Context) (commercet
 	return d.fresh.ResolveFreshPrincipal(ctx)
 }
 
-type Invoker struct{ tools *commercetool.BoundToolSet }
+type Invoker struct {
+	tools      *commercetool.BoundToolSet
+	definition commercetool.Definition
+}
 
 // NewInvoker assembles only this tool. Consumers must inject the existing
 // persistence adapters bounded by MaxCatalogSnapshotBytes/MaxInventoryBytes.
@@ -35,7 +38,13 @@ func NewInvoker(snapshots catalog.VersionedSnapshotReader, assets asset.Approved
 	if err != nil {
 		return nil, err
 	}
-	definition := Definition()
+	return bindInvoker(executor, Definition(), fresh, agent, deps)
+}
+
+func bindInvoker(executor commercetool.Executor, definition commercetool.Definition, fresh FreshPrincipalResolver, agent commercetool.AgentDefinition, deps commercetool.InvocationDependencies) (*Invoker, error) {
+	if nilPort(fresh) {
+		return nil, commercetool.NewError(commercetool.ErrorIdentityIntegrity, "fresh principal resolver is required", nil)
+	}
 	allowed := 0
 	for _, ref := range agent.AllowedTools {
 		if ref == definition.Ref {
@@ -55,7 +64,7 @@ func NewInvoker(snapshots catalog.VersionedSnapshotReader, assets asset.Approved
 	if err != nil {
 		return nil, err
 	}
-	return &Invoker{tools: bound}, nil
+	return &Invoker{tools: bound, definition: definition}, nil
 }
 
 func (i *Invoker) Invoke(ctx context.Context, metadata commercetool.CallMetadata, input Input) (commercetool.Result, error) {
@@ -64,13 +73,13 @@ func (i *Invoker) Invoke(ctx context.Context, metadata commercetool.CallMetadata
 	}
 	// Registry starts its executor timeout after principal preflight. Bound
 	// the entire call here so fresh authorization shares the same budget.
-	ctx, cancel := context.WithTimeout(ctx, Definition().Timeout.Duration)
+	ctx, cancel := context.WithTimeout(ctx, i.definition.Timeout.Duration)
 	defer cancel()
 	raw, err := json.Marshal(input)
 	if err != nil {
 		return commercetool.Result{}, commercetool.NewError(commercetool.ErrorInvalidInput, "asset inspection input is invalid", err)
 	}
-	result, err := i.tools.Invoke(ctx, commercetool.Call{Tool: Definition().Ref, Metadata: metadata, Arguments: raw})
+	result, err := i.tools.Invoke(ctx, commercetool.Call{Tool: i.definition.Ref, Metadata: metadata, Arguments: raw})
 	if ctx.Err() != nil {
 		result.Output = nil
 		return result, mapReadError(ctx.Err())

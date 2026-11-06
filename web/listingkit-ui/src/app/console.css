@@ -50,11 +50,11 @@
   --popover: #fff; --popover-foreground: #172b45;
   --primary: #087f6c; --primary-foreground: #fff;
   --secondary: #f1f5fa; --secondary-foreground: #172b45;
-  --muted: #f1f5fa; --muted-foreground: #617487;
+  --muted: #f1f5fa; --muted-foreground: #5f7184;
   --accent: #e5f5f0; --accent-foreground: #087f6c;
   --border: #d8e4ee; --input: #d8e4ee; --ring: #087f6c;
   --sidebar: #fff; --sidebar-foreground: #496177;
-  --sidebar-accent: #e5f5f0; --sidebar-accent-foreground: #087f6c;
+  --sidebar-accent: #e5f5f0; --sidebar-accent-foreground: #077b68;
   --sidebar-border: #d8e4ee; --sidebar-ring: #087f6c;
   --destructive: #c23d47; --destructive-foreground: #fff;
   --success: #e5f5f0; --success-foreground: #087f6c;
@@ -92,6 +92,8 @@
 .console-nav-level-2 > .console-nav-row { min-height: 36px; border-radius: 7px; }
 .console-nav-level-2 > .console-nav-row > button { display: grid; place-items: center; min-height: 36px; }
 .console-nav-level-2 > .console-nav-row > a { padding: 8px 12px; font-size: var(--label-text-size); gap: 8px; }
+.console-nav-row > button.console-nav-group { display: flex; width: auto; flex: 1; min-width: 0; gap: 8px; padding: 8px 12px; text-align: left; }
+.console-nav-group > .console-nav-chevron { margin-left: auto; flex-shrink: 0; }
 .console-nav-level-2 > ul { margin: 4px 0 4px 20px; padding-left: 18px; border-left: 1px solid var(--border); }
 .console-nav-level-3 .console-nav-row { min-height: 32px; border-radius: 6px; }
 .console-nav-level-3 .console-nav-row > a { padding: 7px 8px; font-size: var(--label-text-size); gap: 6px; }

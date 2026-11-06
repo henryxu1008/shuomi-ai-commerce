@@ -1,7 +1,7 @@
 # 供应市场 v1 正常程序接线
 
 Issue #622 / PR #625。设计依据为已冻结的
-[供应市场 v1](../architecture/supply-market-v1.md)。本接线使用现有
+[供应市场 v1](../architecture/supply-market.md)。本接线使用现有
 `cmd/current-application`，Product/Collection、Asset、Submission 和 Temporal owner。
 
 ## 新安装与配置

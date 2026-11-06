@@ -43,6 +43,24 @@ func TestSheinRoutesBudgetsAndKernelErrors(t *testing.T) {
 	}
 }
 
+func TestUploadPlanRoutesRequireFullSupplyAndOriginalPrivateBoundary(t *testing.T) {
+	found := 0
+	for _, route := range SupplyRoutes(nil, nil) {
+		if !strings.Contains(route.Path, "/upload-plans") {
+			continue
+		}
+		found++
+		require.False(t, IsPreparationRoute(route.Method, route.Path))
+		require.False(t, IsPrivateDraftReadRoute(route.Method, route.Path))
+		if route.Method == http.MethodGet {
+			require.Equal(t, preparation.PermissionRead, route.Permission)
+		} else {
+			require.Equal(t, preparation.PermissionManage, route.Permission)
+		}
+	}
+	require.GreaterOrEqual(t, found, 7, "all durable create/read/preview/continue/original-key routes must be admitted together")
+}
+
 func TestSupplyOptimizationRequiresConfiguredAdmission(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

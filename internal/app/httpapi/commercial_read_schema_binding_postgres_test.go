@@ -60,9 +60,9 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		org      string
 		quantity int64
 	}{{"org-B", 17}, {"org-A", 31}} {
-		require.NoError(t, owner.Exec(`INSERT INTO public.saas_organization_resource_buckets(organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?, 'ai_point', ?,0,2,7,?,?)`, seed.org, seed.quantity, now, now).Error)
+		require.NoError(t, owner.Exec("INSERT INTO public.saas_organization_resource_buckets(quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?, 'ai_point', ?,0,2,7,?,?)", seed.org, seed.quantity, now, now).Error)
 	}
-	require.NoError(t, owner.Exec(`INSERT INTO public.saas_organization_resource_debts(organization_id,resource_type,amount,created_at,updated_at) VALUES ('org-B','ai_point',0,?,?)`, now, now).Error)
+	require.NoError(t, owner.Exec("INSERT INTO public.saas_organization_resource_debts(quantity_unit,organization_id,resource_type,amount,created_at,updated_at) VALUES ('ai-micropoint-v1','org-B','ai_point',0,?,?)", now, now).Error)
 	repo, err := storecenter.NewGormStoreRepository(owner)
 	require.NoError(t, err)
 	for _, org := range []string{"org-B", "org-A"} {
@@ -121,9 +121,9 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		require.Equal(t, "available", result.Stores.State)
 		require.Equal(t, "org-B", result.Resources.Value.OrganizationID)
 		require.Len(t, result.Resources.Value.Resources, 3)
-		require.Equal(t, "17", *result.Resources.Value.Resources[1].Available)
-		require.Equal(t, "2", *result.Resources.Value.Resources[1].Reserved)
-		require.Equal(t, "7", *result.Resources.Value.Resources[1].Consumed)
+		require.Equal(t, "0.000017", *result.Resources.Value.Resources[1].Available)
+		require.Equal(t, "0.000002", *result.Resources.Value.Resources[1].Reserved)
+		require.Equal(t, "0.000007", *result.Resources.Value.Resources[1].Consumed)
 		require.Equal(t, int64(1), result.Stores.Value.Records)
 	}
 	t.Run("default_public", func(t *testing.T) { assertPublic(t, read(build(t, db), ctx)) })
@@ -244,8 +244,8 @@ func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {
 		out = httptest.NewRecorder()
 		handler.ServeHTTP(out, req.WithContext(authidentity.WithAuthenticatedIdentity(ctx, other)))
 		require.Equal(t, 200, out.Code)
-		require.Contains(t, out.Body.String(), `"available":"31"`)
-		require.NotContains(t, out.Body.String(), `"available":"17"`)
+		require.Contains(t, out.Body.String(), `"available":"0.000031"`)
+		require.NotContains(t, out.Body.String(), `"available":"0.000017"`)
 	})
 	t.Run("cancellation_and_timeout", func(t *testing.T) {
 		assertUnavailable := func(response *httptest.ResponseRecorder) {

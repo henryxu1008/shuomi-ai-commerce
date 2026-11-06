@@ -27,6 +27,7 @@ import (
 	confighttp "task-processor/internal/agentconfig/httpapi"
 	customhttp "task-processor/internal/agentcustomization/httpapi"
 	ph "task-processor/internal/aiworkbench/projectcenter/httpapi"
+	dataservicesapp "task-processor/internal/app/dataservices"
 	registration "task-processor/internal/app/referralregistration"
 	appruntime "task-processor/internal/app/runtime"
 	storeapp "task-processor/internal/app/storecenter"
@@ -61,6 +62,7 @@ import (
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
+	rh "task-processor/internal/product/research/httpapi"
 	"task-processor/internal/product/sourcing"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/skill"
@@ -221,6 +223,11 @@ type currentApplicationOptions struct {
 	productAgents                int
 	aiWorkbench                  *AIWorkbenchDependencies
 	aiWorkbenches                int
+	marketResearchDB             *gorm.DB
+	marketResearchSupplierReview bool
+	marketResearchConfigs        int
+	sheinTrial                   *sheinTrialDependencies
+	sheinTrialConfigs            int
 	projectCenterDB              *gorm.DB
 	projectCenters               int
 }
@@ -536,10 +543,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.productAcquisitionDB != nil && (supplied.productAcquisitionDB == sourceAccountDB) {
 		return nil, errors.New("product acquisition requires an independent pool")
 	}
-	if supplied.imageAgents > 0 && (supplied.imageAgentDB == nil || supplied.imageAgentWorkflows == nil || supplied.productAcquisitionDB == nil || supplied.imageAgentDB == sourceAccountDB || supplied.imageAgentDB == supplied.productAcquisitionDB || supplied.imageAgentDB == supplied.commercialOwnerDB || supplied.imageAgentDB == supplied.referralDB) {
+	if supplied.imageAgents > 0 && (supplied.imageAgentDB == nil || (supplied.fullImages == nil || cfg.ImageAgent.Generation.Enabled) && supplied.imageAgentWorkflows == nil || supplied.productAcquisitionDB == nil || supplied.imageAgentDB == sourceAccountDB || supplied.imageAgentDB == supplied.productAcquisitionDB || supplied.imageAgentDB == supplied.commercialOwnerDB || supplied.imageAgentDB == supplied.referralDB) {
 		return nil, errors.New("acquisition image agent requires its owner pool, organization workflow, and product acquisition pool")
 	}
-	if d := supplied.fullImages; d != nil && (d.AssetDB == nil || d.AssetDB == supplied.imageAgentDB || d.AssetDB == d.WorkerDB || d.AssetDB == supplied.productAcquisitionDB || d.AssetDB == sourceAccountDB || d.AssetDB == supplied.commercialOwnerDB || d.WorkerDB == nil || d.WorkerDB == supplied.imageAgentDB || d.WorkerConfig == nil || d.Client == nil || d.Worker == nil || supplied.agentConfigurationDB == nil || supplied.commercialOwnerDB == nil || factories.buildAcquisitionImage != nil || supplied.supplyChain != nil && supplied.supplyChain.AssetDB != d.AssetDB) {
+	if d := supplied.fullImages; d != nil && (d.AssetDB == nil || d.AssetDB == supplied.imageAgentDB || d.AssetDB == d.WorkerDB || d.AssetDB == supplied.productAcquisitionDB || d.AssetDB == sourceAccountDB || d.AssetDB == supplied.commercialOwnerDB || cfg.ImageAgent.Generation.Enabled && (d.WorkerDB == nil || d.WorkerDB == supplied.imageAgentDB || d.WorkerConfig == nil || d.Client == nil || d.Worker == nil) || supplied.agentConfigurationDB == nil || supplied.commercialOwnerDB == nil || factories.buildAcquisitionImage != nil || supplied.supplyChain != nil && supplied.supplyChain.AssetDB != d.AssetDB) {
 		return nil, errors.New("full image application requires all current owner ports and an explicit worker")
 	}
 	if supplied.referralDB != nil && (supplied.referralDB == sourceAccountDB || supplied.referralDB == supplied.productAcquisitionDB) {
@@ -655,11 +662,19 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, officialModule)
 	}
+	var researchData *dataservicesapp.Module
+	if supplied.marketResearchSupplierReview && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs > 1 || supplied.marketResearchDB != nil && supplied.marketResearchConfigs != 1 || supplied.marketResearchConfigs == 1 && (supplied.marketResearchDB == nil || supplied.projectCenterDB == nil || supplied.dataServices == nil || supplied.productCollections != 1) {
+		return nil, errors.New("market research requires current owners and one explicit pool")
+	}
+	if supplied.sheinTrialConfigs != 0 && (supplied.sheinTrialConfigs != 1 || supplied.sheinTrial == nil || !supplied.sheinTrial.complete() || supplied.marketResearchConfigs != 1) {
+		return nil, errors.New("SHEIN trial requires market research and one complete explicit composition")
+	}
 	if supplied.dataServices != nil {
 		module, charges, err := buildDataServices(ctx, supplied, *workbench.authDependencies, authorizer, cfg, storeCapabilities)
 		if err != nil {
 			return nil, fmt.Errorf("build current data services: %w", err)
 		}
+		researchData = module.owner
 		consumerCharges = charges
 		modules = append(modules, module)
 	}
@@ -676,6 +691,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		handler, err := knowledgehttp.NewHandler(supplied.knowledge)
 		if err != nil {
 			return nil, err
+		}
+		if supplied.knowledge.OriginalDeletionConfigured() {
+			handler.ConfigureOriginalDeletionAuthority(authorizeKnowledgeOriginalDelete(*workbench.authDependencies))
 		}
 		modules = append(modules, knowledgehttp.NewModule(handler))
 	}
@@ -908,18 +926,21 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	var supplyRuntime *supplyChainModule
 	var imageRuntime *fullImageApplication
+	var imageAnalysisRuntime *imageAnalysisApplication
 	var marketRuntime *supplyMarketModule
 	if supplied.pod != nil && supplied.fullImages != nil {
 		guard, err := buildArtworkOriginGuard(supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.agentConfigurationDB)
 		if err != nil {
 			return nil, err
 		}
-		materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig)
-		if err != nil {
-			return nil, err
+		guard.URLs = imageAgentDurableAssetPublicURLResolver(cfg)
+		if cfg.ImageAgent.Generation.Enabled {
+			materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig)
+			if err != nil {
+				return nil, err
+			}
+			guard.ReadGeneratedBytes = materials.Read
 		}
-		guard.URLs = imageAgentDurableAssetPublicURLResolver(supplied.fullImages.WorkerConfig)
-		guard.ReadGeneratedBytes = materials.Read
 		supplied.pod.GeneratedArtworkBytes = guard.ReadArtworkSourceBytes
 		supplied.pod.ArtworkOriginGuard = guard
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
@@ -953,6 +974,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, agentModule)
 		modelPointRecovery = agentModule.(productAgentModule).recoverPoints
 		productRuntime = agentModule.(productAgentModule).application
+		if op := productRuntime.config.TitlePilotOperator; op != nil {
+			handler, err := productRuntime.titlePilotOperatorHandler(ctx, *workbench.authDependencies)
+			if err != nil {
+				return nil, fmt.Errorf("build title pilot operator: %w", err)
+			}
+			op.Register(handler)
+		}
 	}
 	var diagnosisRuntime *shopDiagnosisApplication
 	if cockpitReads != nil {
@@ -963,6 +991,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, shopDiagnosisModule{app: diagnosisRuntime})
 	}
+	var researchRuntime *marketResearchApplication
+	var supplierReviewReady bool
 	var selectionRuntime *productSelectionApplication
 	if planCollections != nil {
 		var e error
@@ -1082,7 +1112,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.agentConfigurationDB != nil {
 		if supplied.fullImages != nil {
-			if supplied.fullImages.Worker == nil || supplied.fullImages.Client == nil {
+			if cfg.ImageAgent.Generation.Enabled && (supplied.fullImages.Worker == nil || supplied.fullImages.Client == nil) {
 				return nil, imageagent.ErrCommandBlocked
 			}
 			products, live, e := buildFullImageProducts(supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg)
@@ -1101,23 +1131,38 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if productRuntime != nil && productRuntime.content != nil {
 				confirmedCopy = imageTextReviewReader{content: productRuntime.content}
 			}
-			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, supplied.fullImages.CurrentImagePolicies, confirmedCopy, sourceMedia)
+			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, supplied.fullImages.CurrentImagePolicies, supplied.fullImages.ChannelCredentials, confirmedCopy, sourceMedia)
 			if e != nil {
 				return nil, fmt.Errorf("build full image application: %w", e)
 			}
-			worker, e := appruntime.NewOrganizationImageSetWorker(supplied.fullImages.Client, dependencies)
-			if e != nil {
-				return nil, e
+			if cfg.ImageAgent.Generation.Enabled {
+				worker, e := appruntime.NewOrganizationImageSetWorker(supplied.fullImages.Client, dependencies)
+				if e != nil {
+					return nil, e
+				}
+				*supplied.fullImages.Worker = worker
 			}
-			*supplied.fullImages.Worker = worker
+
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, imageRuntime)
-		if e != nil {
-			return nil, fmt.Errorf("build current agent configuration: %w", e)
+		var analysisSupply *supplyapp.Application
+		if completionRuntime != nil {
+			analysisSupply = completionRuntime.app
+		} else if sourceMaterialsRuntime != nil {
+			analysisSupply = sourceMaterialsRuntime.app
+		} else if supplyRuntime != nil {
+			analysisSupply = supplyRuntime.app
 		}
-		modules = append(modules, m)
+		analysis, e := buildImageAnalysisApplication(productRuntime, analysisSupply, cfg, supplied.collectionSourceMedia)
+		if e != nil {
+			return nil, fmt.Errorf("build image analysis: %w", e)
+		}
+		if analysis != nil {
+			configureImageAnalysisOrigin(analysis, supplied.productAcquisitionDB, supplied.imageAgentDB, cfg)
+			imageAnalysisRuntime = analysis
+			modules = append(modules, imageAnalysisModule{app: analysis})
+		}
 	}
 	if supplied.agentConfigurationDB != nil {
 		access, e := skillauth.New(workbench.authDependencies.organizationResolver, authorizer)
@@ -1157,6 +1202,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 		projectChat = module.(aiWorkbenchModule).application
+		if supplied.storeCenterDB != nil {
+			stores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer})
+			if e != nil {
+				return nil, e
+			}
+			projectChat.attachStoreScopes(stores)
+		}
 		if workbench.handler != nil {
 			workbench.handler.SetAIWorkbenchAvailable(true)
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)
@@ -1187,10 +1239,46 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, e
 		}
 		modules = append(modules, module)
+		if supplied.marketResearchDB != nil {
+			if supplied.marketResearchDB == supplied.projectCenterDB || supplied.marketResearchDB == supplied.productAcquisitionDB || supplied.marketResearchDB == supplied.dataServices.ProductDB {
+				return nil, errors.New("research requires its own restricted pool")
+			}
+			if e := verifySameProductDatabase(ctx, supplied.productAcquisitionDB, supplied.marketResearchDB); e != nil {
+				return nil, e
+			}
+			researchMod, e := composeMarketResearch(ctx, supplied.marketResearchDB, module.(projectModule), planCollections, researchData, supplied.marketResearchSupplierReview)
+			if e != nil {
+				return nil, e
+			}
+			researchOwner := researchMod.(researchModule)
+			supplierReviewReady = researchOwner.service.SupplierReviewsEnabled()
+			if supplied.sheinTrial != nil {
+				researchOwner.trial, e = composeMarketResearchSHEINTrial(ctx, researchData, *supplied.sheinTrial, researchOwner.projects, researchOwner.handler.Bind)
+				if e != nil {
+					return nil, fmt.Errorf("build SHEIN trial entry: %w", e)
+				}
+			}
+			modules = append(modules, researchOwner)
+			researchRuntime, e = buildMarketResearchApplication(ctx, productRuntime, planCollections, researchOwner.service, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
+			if e != nil {
+				return nil, fmt.Errorf("build current research analysis: %w", e)
+			}
+			modules = append(modules, marketResearchAnalysisModule{app: researchRuntime})
+		}
+
 		if workbench.handler != nil {
 			workbench.handler.SetProjectCenterAvailable(true)
+			workbench.handler.SetMarketResearchAvailable(supplied.marketResearchDB != nil)
 		}
 	}
+	if supplied.agentConfigurationDB != nil {
+		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, researchRuntime, imageRuntime)
+		if e != nil {
+			return nil, fmt.Errorf("build current agent configuration: %w", e)
+		}
+		modules = append(modules, m)
+	}
+
 	if supplied.amazonBrowserCaptures > 1 || supplied.amazonBrowserCaptures > 0 && (supplied.productAcquisitionDB == nil || supplied.productCollections != 1) {
 		return nil, errors.New("amazon capture requires Product pool and Collection capability")
 	}
@@ -1331,11 +1419,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		OfficialKnowledge:    cfg.Workbench.Enabled,
 		AcquisitionImage:     factories.buildAcquisitionImage != nil,
 		FullImageSet:         imageRuntime != nil,
+		ImageAnalysis:        imageAnalysisRuntime != nil,
 		ProductAgent:         supplied.productAgent != nil,
 		ContentTitleOnly:     supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
 		ContentOnly:          supplied.productAgent != nil && supplied.productAgent.ContentOnly,
 		AIWorkbench:          supplied.aiWorkbench != nil,
 		ProjectCenter:        supplied.projectCenterDB != nil,
+		MarketResearch:       supplied.marketResearchDB != nil,
+		SupplierReview:       supplierReviewReady,
+		SHEINTrial:           supplied.sheinTrial != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
 		ModelRoutePricing:    supplied.modelRoutePricing != nil,
 		MemberPoints:         includeMemberPoints,
@@ -1438,16 +1530,23 @@ type currentApplicationOptionalRoutes struct {
 	SubjectVerification  bool
 	AcquisitionImage     bool
 	FullImageSet         bool
+	ImageAnalysis        bool
 	ProductAgent         bool
 	ContentTitleOnly     bool
 	ContentOnly          bool
 	AIWorkbench          bool
 	ProjectCenter        bool
+	MarketResearch       bool
+	SupplierReview       bool
+	SHEINTrial           bool
 	MemberPoints         bool
 	MemberResources      bool
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if optional.SHEINTrial && !optional.MarketResearch {
+		return errors.New("SHEIN trial routes require market research")
+	}
 	if (optional.ContentTitleOnly || optional.ContentOnly) && !optional.ProductAgent {
 		return errors.New("title-only routes require the current product agent")
 	}
@@ -1694,6 +1793,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
 		}
 	}
+	if optional.ImageAnalysis {
+		for _, route := range imageAnalysisRoutes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
+		}
+	}
 	if optional.SubjectVerification {
 		for _, route := range (verificationhttp.PersonalHandler{}).Routes() {
 			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
@@ -1722,6 +1826,19 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		for _, r := range productReviewRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.MarketResearch {
+		for _, r := range append(rh.Routes(nil), marketResearchAnalysisRoutes(nil, nil)...) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.SupplierReview {
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: rh.SupplierReviewPath})
+	}
+	if optional.SHEINTrial {
+		for _, r := range marketResearchSHEINTrialRoutes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1769,6 +1886,18 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	includeCommercialBilling := false
 	for _, descriptor := range routes {
+		// Analysis lives below existing image/source paths but has its own
+		// exact readonly-Run boundary, not the generation permission/worker.
+		analysis, e := validateImageAnalysisRouteDescriptor(descriptor)
+		if e != nil {
+			return e
+		}
+		if analysis {
+			if !optional.ImageAnalysis {
+				return errors.New("image analysis application not admitted")
+			}
+			continue
+		}
 		if strings.HasPrefix(descriptor.Path, shopDiagnosisBase+"/") {
 			if !optional.ShopDiagnosis || !optional.OperationsCockpit || !optional.StoreCenter {
 				return errors.New("shop diagnosis requires native cockpit and stores")
@@ -2074,6 +2203,28 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase) || strings.HasPrefix(descriptor.Path, ownContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
 			return errors.New("product agent loses fresh permission boundary")
 		}
+		if strings.HasPrefix(descriptor.Path, rh.Base) {
+			if !optional.MarketResearch {
+				return errors.New("market research not admitted")
+			}
+			if descriptor.Path == rh.SupplierReviewPath && !optional.SupplierReview {
+				return errors.New("research supplier review route not admitted")
+			}
+			if descriptor.Module == sheinTrialModule {
+				if !optional.SHEINTrial {
+					return errors.New("SHEIN trial route not admitted")
+				}
+				if e := validateMarketResearchSHEINTrialDescriptor(descriptor); e != nil {
+					return e
+				}
+			} else if descriptor.Module == "market-research-agent" {
+				if e := validateMarketResearchAnalysisDescriptor(descriptor); e != nil {
+					return e
+				}
+			} else if e := rh.ValidateDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, ph.Base) {
 			if !optional.ProjectCenter {
 				return errors.New("project center not admitted")
@@ -2197,7 +2348,7 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isResearchAnalysisRunHTTPPath(request.URL.Path) || isImageAnalysisConfirmHTTPPath(request.URL.Path) || isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
 			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {

@@ -173,7 +173,11 @@ func listingMaterialsRoutes(app listingMaterialsHTTPService, bind func(context.C
 			case "prepare":
 				snapshot, err = app.prepare(ctx, recordID, prepare)
 				if err == nil {
-					out = gin.H{"recordId": recordID, "requestKey": key, "configurationSnapshotRef": agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}, "modeSnapshotRef": snapshot.Request.ModeSnapshotRef, "modeRevision": snapshot.ExpectedModeRevision, "templateSelection": snapshot.Template}
+					prepared := gin.H{"recordId": recordID, "requestKey": key, "configurationSnapshotRef": agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}, "modeSnapshotRef": snapshot.Request.ModeSnapshotRef, "modeRevision": snapshot.ExpectedModeRevision, "templateSelection": snapshot.Template, "purpose": materials.MaterialsEditPurpose}
+					if snapshot.Request.Binding.ContextKind == agent.CandidateRulesContextKind {
+						prepared["purpose"], prepared["candidateCategoryId"] = materials.CategoryRulesPurpose, snapshot.Request.Binding.CandidateRules.CandidateCategoryID
+					}
+					out = prepared
 				}
 			case "start":
 				run, runMayExist, err = app.start(ctx, recordID, key, start.ConfigurationSnapshotRef)

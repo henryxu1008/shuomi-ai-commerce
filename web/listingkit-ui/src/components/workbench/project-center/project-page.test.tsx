@@ -2,15 +2,17 @@ import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/reac
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {ProjectPage} from "./project-page";
 import {ProjectError} from "@/lib/api/project-center";
-const f=vi.hoisted(()=>({request:vi.fn(),overview:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null}}));
+const f=vi.hoisted(()=>({request:vi.fn(),research:vi.fn(),overview:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null,registerOrganizationSwitchGuard:()=>()=>{}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
 vi.mock("@/lib/api/project-center",async original=>({...await original<typeof import("@/lib/api/project-center")>(),projectRequest:f.request,projectOverviewRequest:f.overview}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:f.push})}));
+vi.mock("@/lib/api/market-research",async original=>({...await original<object>(),researchRequest:f.research}));
+vi.mock("./research-analysis-flow",async original=>({...await original<object>(),ResearchAnalysisFlow:()=>null}));
 const id="550e8400-e29b-41d4-a716-446655440000";
 const storageKey='project-center:intent:["user-a","org-a"]';
 const p={id,title:"原企业项目",goal:"长期目标",kind:"OTHER",dueDate:"",revision:1,archived:false,createdAt:"2026-10-09T00:00:00Z",updatedAt:"2026-10-09T00:00:00Z",storeScope:false,references:[],taskTotal:0,taskCompleted:0,taskPending:0,taskSummaryAvailable:true};
 const metrics={activeProjects:35,todayUpdatedProjects:4,storeProjects:20,generalProjects:15,waitingTasks:2,timeZone:"Asia/Singapore",today:"2026-10-11",stores:[{id:"store-a",name:"授权一号店"}],storesAvailable:true};
-beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a"};f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
+beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a"};f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.research.mockReset().mockResolvedValue({items:[],incomplete:false});f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
 afterEach(()=>{cleanup();sessionStorage.clear();});
 it("shows full private metrics, scopes store filters and clears them on reset",async()=>{
  render(<ProjectPage/>);await screen.findByText("35");expect(screen.getByText("店铺 20 · 非店铺 15")).toBeVisible();expect(screen.getByRole("heading",{name:"进行中项目",level:1})).toBeVisible();
@@ -65,4 +67,54 @@ it("keeps an unknown create key through permission denial and later authenticati
  let view=render(<ProjectPage/>);await screen.findByRole("button",{name:"重试原操作"});fireEvent.click(screen.getByRole("button",{name:"重试原操作"}));await screen.findByText("当前权限不可用，请重新确认企业。");expect(JSON.parse(sessionStorage.getItem(storageKey)!).key).toBe(id);view.unmount();
  f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>{if(command)throw new ProjectError("AUTHENTICATION_REQUIRED");return {projects:[],next:""};});view=render(<ProjectPage/>);await screen.findByRole("button",{name:"重试原操作"});fireEvent.click(screen.getByRole("button",{name:"重试原操作"}));await waitFor(()=>expect(screen.getByRole("button",{name:"重试原操作"})).toBeEnabled());expect(sessionStorage.getItem(storageKey)).not.toBeNull();view.unmount();
  f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>command?{id,revision:1,replayed:true}:{projects:[],next:""});render(<ProjectPage/>);await screen.findByRole("button",{name:"重试原操作"});fireEvent.click(screen.getByRole("button",{name:"重试原操作"}));await waitFor(()=>expect(sessionStorage.getItem(storageKey)).toBeNull());expect(f.push).toHaveBeenCalledWith("/workbench/ai/projects/"+id);expect(f.request.mock.calls.filter(c=>c[4]).every(c=>c[4].key===id)).toBe(true);
+});
+
+it("reuses project creation for research centers with a fixed research kind and no global metrics",async()=>{
+ Object.assign(f.context,{marketResearchAvailable:true});
+ render(<ProjectPage center="research"/>);
+ await screen.findByRole("heading",{name:"市场调研",level:1});
+ await waitFor(()=>expect(new URLSearchParams(f.request.mock.lastCall![1].slice(1)).get("kind")).toBe("PRODUCT_RESEARCH"));
+ expect(f.overview).not.toHaveBeenCalled();expect(screen.queryByText("35")).toBeNull();
+ fireEvent.click(await screen.findByRole("button",{name:"＋ 新建调研项目"}));
+ fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"美国站收纳研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对美国站收纳盒的保存样本"}});
+ fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
+ await waitFor(()=>expect(f.request.mock.calls.some(c=>c[4]?.body?.kind==="PRODUCT_RESEARCH")).toBe(true));
+});
+
+it("asks for a project before a workflow function and preserves its step through selection and creation",async()=>{
+ Object.assign(f.context,{marketResearchAvailable:true});
+ f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>command?{id,revision:1,replayed:false}:{projects:[{...p,kind:"PRODUCT_RESEARCH"}],next:""});
+ render(<ProjectPage center="research" workflowStep="sources" initialSearch="收纳"/>);
+ await screen.findByText("当前步骤：收集与整理资料。选择或新建调研项目后继续。");
+ const href=new URL((await screen.findByRole("link",{name:"查看调研"})).getAttribute("href")!,"https://test.invalid");
+ expect(href.pathname).toBe("/workbench/data/research/"+id);
+ expect(Object.fromEntries(href.searchParams)).toEqual({mode:"active",search:"收纳",step:"sources"});
+ expect(new URL(screen.getByRole("link",{name:"已归档"}).getAttribute("href")!,"https://test.invalid").searchParams.get("step")).toBe("sources");
+ fireEvent.click(screen.getByRole("button",{name:"＋ 新建调研项目"}));
+ fireEvent.change(screen.getByLabelText("项目名称"),{target:{value:"新研究"}});fireEvent.change(screen.getByLabelText("项目目标"),{target:{value:"核对资料"}});
+ fireEvent.submit(screen.getByLabelText("项目名称").closest("form")!);
+ await waitFor(()=>expect(f.push).toHaveBeenCalled());
+ const created=new URL(f.push.mock.lastCall![0],"https://test.invalid");
+ expect(created.pathname).toBe(href.pathname);expect(Object.fromEntries(created.searchParams)).toEqual(Object.fromEntries(href.searchParams));
+});
+
+it("keeps the live project panel, selected candidates and draft reasons when only the workflow step changes",async()=>{
+ Object.assign(f.context,{marketResearchAvailable:true,permissions:["workbench.project.read","workbench.project.manage","workbench.collection.read"]});
+ let projectReads=0;
+ f.request.mockImplementation(async(_scope,path,_schema,_signal,command)=>{
+  if(command)return {id,revision:1,replayed:false};
+  if(path==="/"+id){projectReads++;return projectReads===1?{...p,kind:"PRODUCT_RESEARCH"}:new Promise(()=>{});}
+  return {projects:[],next:""};
+ });
+ f.research.mockResolvedValue({items:[{id,revision:1,state:"PENDING_CONFIRMATION",selectedLinkId:id,evidenceDigest:"a".repeat(64),observation:{title:"已保存候选",site:"us",asin:"B000123456",sourceUrl:"https://www.amazon.com/dp/B000123456",capturedAt:p.createdAt,parserVersion:"amazon-v1",missing:[],ref:{checksum:"original",selection:{itemId:id,revision:1,publicationId:id,version:"1"}},item:{id,revision:1,source:{kind:"amazon_data",version:"1",publicationId:id}}},evidence:[],history:[]}],incomplete:false});
+ const view=render(<ProjectPage center="selection" projectId={id} workflowStep="decisions"/>);
+ fireEvent.click(await screen.findByRole("checkbox"));
+ fireEvent.change(screen.getByLabelText("选择理由"),{target:{value:"仍在核对成本"}});
+ await waitFor(()=>expect(f.request.mock.calls.filter(c=>c[4]?.path.endsWith("/visit"))).toHaveLength(1));
+ view.rerender(<ProjectPage center="selection" projectId={id} workflowStep="transfer"/>);
+ await waitFor(()=>expect(document.getElementById("research-transfer")).toHaveFocus());
+ expect(screen.getByRole("checkbox")).toBeChecked();expect(screen.getByLabelText("选择理由")).toHaveValue("仍在核对成本");
+ expect(projectReads).toBe(1);expect(f.research).toHaveBeenCalledTimes(1);
+ expect(f.request.mock.calls.filter(c=>c[4]?.path.endsWith("/visit"))).toHaveLength(1);
+ expect(f.research.mock.calls.every(c=>!c[4]?.intent)).toBe(true);
 });

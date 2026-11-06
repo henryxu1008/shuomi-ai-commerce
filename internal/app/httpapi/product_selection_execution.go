@@ -29,14 +29,22 @@ func (in selectionInput) inputs() ([]collection.SelectionInput, error) {
 	}
 	choices := make([]collection.SelectionInput, 0, len(in.Candidates))
 	for _, c := range in.Candidates {
-		revision, e := strconv.ParseInt(c.ExpectedRevision, 10, 64)
-		version, ve := strconv.ParseUint(c.OriginalVersion, 10, 63)
-		if !agentconfig.UUID(c.ItemID) || e != nil || revision < 1 || strconv.FormatInt(revision, 10) != c.ExpectedRevision || ve != nil || version < 1 || strconv.FormatUint(version, 10) != c.OriginalVersion || !agent.ValidID(c.OriginalPublicationID) {
-			return nil, agent.ErrInvalid
+		p, e := c.input()
+		if e != nil {
+			return nil, e
 		}
-		choices = append(choices, collection.SelectionInput{ItemID: c.ItemID, ExpectedRevision: revision, OriginalPublicationID: c.OriginalPublicationID, OriginalVersion: version})
+		choices = append(choices, p)
 	}
 	return choices, nil
+}
+
+func (c selectionChoice) input() (collection.SelectionInput, error) {
+	revision, e := strconv.ParseInt(c.ExpectedRevision, 10, 64)
+	version, ve := strconv.ParseUint(c.OriginalVersion, 10, 63)
+	if !agentconfig.UUID(c.ItemID) || e != nil || revision < 1 || strconv.FormatInt(revision, 10) != c.ExpectedRevision || ve != nil || version < 1 || strconv.FormatUint(version, 10) != c.OriginalVersion || !agent.ValidID(c.OriginalPublicationID) {
+		return collection.SelectionInput{}, agent.ErrInvalid
+	}
+	return collection.SelectionInput{ItemID: c.ItemID, ExpectedRevision: revision, OriginalPublicationID: c.OriginalPublicationID, OriginalVersion: version}, nil
 }
 
 type selectionPrepareInput struct {
@@ -79,7 +87,11 @@ func (a *productSelectionApplication) prepare(ctx context.Context, in selectionP
 	if e != nil {
 		return agentconfig.Snapshot{}, agent.ErrUnavailable
 	}
-	request := agent.Request{Key: in.RequestKey, Binding: binding, GoalSummary: in.GoalSummary, PolicyVersion: agentconfig.SelectionPolicyVersion, PromptVersion: agentconfig.SelectionPromptVersion, Limits: a.parent.config.Limits}
+	limits := a.parent.config.Limits
+	if limits.ModelCalls > 2 {
+		limits.ModelCalls = 2
+	}
+	request := agent.Request{Key: in.RequestKey, Binding: binding, GoalSummary: in.GoalSummary, PolicyVersion: agentconfig.SelectionPolicyVersion, PromptVersion: agentconfig.SelectionPromptVersion, Limits: limits}
 	return a.configuration.Prepare(ctx, agentconfig.StartCommand{Scope: agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, MemberID: id.MemberID, ExpectedModeRevision: in.ExpectedModeRevision, AgentID: agentconfig.SelectionAgentID, AgentVersion: agentconfig.SelectionAgentVersion, Request: request, ExecutionModelProfile: profile})
 }
 func (a *productSelectionApplication) readRun(ctx context.Context, contextID, key string) (agent.Record, agentconfig.Snapshot, error) {
@@ -203,6 +215,7 @@ type selectionRunDTO struct {
 	CostMicros               int64                          `json:"costMicros"`
 	Currency                 string                         `json:"currency"`
 	UsageStatus              string                         `json:"usageStatus"`
+	ReferencePriceVersion    string                         `json:"referencePriceVersion,omitempty"`
 }
 
 func (a *productSelectionApplication) projectRun(ctx context.Context, run agent.Record, frozen agentconfig.Snapshot) (selectionRunDTO, error) {
@@ -219,6 +232,7 @@ func (a *productSelectionApplication) projectRun(ctx context.Context, run agent.
 		return selectionRunDTO{}, agentconfig.ErrForbidden
 	}
 	out := selectionRunDTO{RunID: s.RunID, ContextID: s.Request.Binding.ContextID, RequestKey: s.Request.Key, Phase: s.Phase, Revision: strconv.FormatUint(s.Revision, 10), StopReason: s.StopReason, ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef, ModeSnapshotRef: mode.Ref(), ExecutionMode: mode.Mode, ModeRevision: mode.Revision, GoalSummary: s.Request.GoalSummary, Unresolved: append([]string{}, s.Unresolved...), Tokens: s.Usage.Tokens, CostMicros: s.Usage.CostMicros, Currency: s.Request.Limits.Currency, UsageStatus: "observed"}
+	out.ReferencePriceVersion = frozen.ExecutionModelProfile.OfficialTariff.ReferencePriceVersion()
 	if s.Validation != nil {
 		out.Unresolved = append(out.Unresolved, s.Validation.Unresolved...)
 	}

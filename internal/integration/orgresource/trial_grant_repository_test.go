@@ -33,17 +33,17 @@ func trialRepositoryService(t *testing.T, db *gorm.DB) (*orgresource.TrialAIGran
 func TestTrialAIGrantPreservesDebtReservationAndImmutableReplay(t *testing.T) {
 	db := openSQLiteStore(t)
 	require.NoError(t, AutoMigrate(db))
-	require.NoError(t, db.Create(&organizationResourceBucketRow{OrganizationID: "trial-org", ResourceType: "ai_point", Available: 50, Reserved: 30, Consumed: 20}).Error)
-	require.NoError(t, db.Create(&organizationResourceDebtRow{OrganizationID: "trial-org", ResourceType: "ai_point", Amount: 250}).Error)
+	require.NoError(t, db.Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "trial-org", ResourceType: "ai_point", Available: 50, Reserved: 30, Consumed: 20}).Error)
+	require.NoError(t, db.Create(&organizationResourceDebtRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "trial-org", ResourceType: "ai_point", Amount: 250}).Error)
 	service, repository, input, auth := trialRepositoryService(t, db)
 	first, err := service.Grant(context.Background(), input)
 	require.NoError(t, err)
 	require.False(t, first.Replayed)
 	require.Equal(t, "10000", first.Snapshot.Quantity)
 	require.Equal(t, "250", first.Snapshot.DebtRepaid)
-	require.Equal(t, "9750", first.Snapshot.NetCredit)
-	require.Equal(t, "9800", first.Snapshot.BalanceAfter)
-	assertBucket(t, db, "trial-org", orgresource.ResourceAIPoint, 9800, 30, 20)
+	require.Equal(t, "9999999750", first.Snapshot.NetCredit)
+	require.Equal(t, "9999999800", first.Snapshot.BalanceAfter)
+	assertBucket(t, db, "trial-org", orgresource.ResourceAIPoint, 9999999800, 30, 20)
 	assertDebt(t, db, "trial-org", orgresource.ResourceAIPoint, 0)
 	for _, operation := range []string{input.OperationID, "another-operation"} {
 		input.OperationID = operation
@@ -92,6 +92,6 @@ func TestTrialAIGrantLostCommitReplyReadsOriginalReceipt(t *testing.T) {
 	result, err := service.Grant(context.Background(), input)
 	require.NoError(t, err)
 	require.True(t, result.Replayed)
-	require.Equal(t, "10000", result.Snapshot.BalanceAfter)
+	require.Equal(t, "10000000000", result.Snapshot.BalanceAfter)
 	assertTableCount(t, db, "saas_organization_resource_events", 1)
 }

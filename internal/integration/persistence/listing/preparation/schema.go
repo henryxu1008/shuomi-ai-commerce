@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS listing_preparation_sources (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
  id uuid NOT NULL, preparation_id uuid NOT NULL, collection_item_id uuid NOT NULL, collection_revision bigint NOT NULL CHECK(collection_revision>0),
  product_key varchar(128) NOT NULL, publication_id varchar(128) NOT NULL, original_version bigint NOT NULL CHECK(original_version>0),
- source_kind varchar(32) NOT NULL CHECK(source_kind IN ('acquisition','own','market','sds_finished')), source_operation_id varchar(128) NOT NULL,
+ source_kind varchar(32) NOT NULL CHECK(source_kind IN ('acquisition','own','market','sds_finished','amazon_data')), source_operation_id varchar(128) NOT NULL,
  PRIMARY KEY(organization_id,actor_id,id), UNIQUE(organization_id,actor_id,preparation_id,collection_item_id),
  FOREIGN KEY(organization_id,actor_id,preparation_id) REFERENCES listing_preparations(organization_id,actor_id,id),
  FOREIGN KEY(organization_id,actor_id,collection_item_id) REFERENCES product_collection_items(organization_id,actor_id,id),
@@ -68,6 +68,8 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
  AND position('''own''' IN pg_get_constraintdef(c.oid))>0
  AND position('''market''' IN pg_get_constraintdef(c.oid))>0
  AND position('''sds_finished''' IN pg_get_constraintdef(c.oid))>0
+ AND position('''amazon_data''' IN pg_get_constraintdef(c.oid))>0
+ AND position('''custom_dataset''' IN pg_get_constraintdef(c.oid))=0
  AND position('''sds_template''' IN pg_get_constraintdef(c.oid))=0)`).Scan(&ready).Error
 	if err != nil || !ready {
 		return preparation.ErrUnavailable

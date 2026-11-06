@@ -1,5 +1,7 @@
 "use client";
 
+import {TransferSelection} from "./transfer-selection";
+import type {ResearchSelection} from "@/lib/contracts/market-research";
 import {OfflineDiagnosticPanel} from "../shein-diagnostic/offline-panel";
 import {DescriptionView} from "../description-view";
 import {SourceQuotes,VariantSourcePrice} from "./source-quotes";
@@ -13,7 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
-import { CollectionAPIError, listCollectionBatches, listCollectionItems, listOwnProducts, readCollectionItem, type CollectionScope, type CollectionIntent } from "@/lib/api/product-collection";
+import { CollectionAPIError, readCollectionBatch, listCollectionBatches, listCollectionItems, listOwnProducts, readCollectionItem, type CollectionScope, type CollectionIntent } from "@/lib/api/product-collection";
 import { collectionID, type CollectionBatch, type CollectionItem, type CollectionDetail, type CollectionCommand } from "@/lib/contracts/product-collection";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { useSupplyCommand } from "../supply/use-supply-command";
@@ -24,20 +26,20 @@ import { useCollectionCommand } from "./use-collection-command";
 import { cn } from "@/lib/utils/cn";
 import { ConsolePage, ConsoleState } from "../console/console-page";
 
-const kindLabels = { acquisition: "在线采集", own: "自有商品", manual: "手动分组", market: "供应市场", sds_template: "SDS 模板（未定制）", sds_finished: "SDS 定制成品", amazon_data: "Amazon数据", custom_dataset: "定制数据集" };
+const kindLabels = { acquisition: "在线采集", own: "自有商品", manual: "手动分组", market: "供应市场", sds_template: "SDS 模板（未定制）", sds_finished: "SDS 定制成品", amazon_data: "Amazon数据", custom_dataset: "定制数据集", shein_us_data: "SHEIN 美国站卡片" };
 const failureText: Record<string, string> = { OUTCOME_UNKNOWN: "结果待核实", INTENT_STORAGE_UNAVAILABLE: "无法保存原请求，请恢复浏览器存储后重试。", REVISION_CONFLICT: "资料已发生变化，请刷新后重试。", PERMISSION_DENIED: "当前权限不足。", NOT_FOUND: "未找到当前身份下的记录。", ORGANIZATION_CONTEXT_CHANGED: "企业上下文已变化。", IDENTITY_CONTEXT_CHANGED: "登录身份已变化。", INVALID_REQUEST: "请检查填写内容。" };
 
-export function CollectionPage({offlineAvailable=false,agentAvailable=false,supplyAvailable=false,initialBatchId,initialItemId,initialView="batches"}:{offlineAvailable?:boolean;agentAvailable?:boolean;supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string;initialView?:"batches"|"own"}) {
+export function CollectionPage({offlineAvailable=false,agentAvailable=false,supplyAvailable=false,initialBatchId,initialItemId,initialTransferSelection,initialView="batches"}:{offlineAvailable?:boolean;agentAvailable?:boolean;supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string;initialTransferSelection?:ResearchSelection[];initialView?:"batches"|"own"}) {
   const context = useWorkbenchContext();
   const userId = context.user?.id;
   const organizationId = context.effectiveOrganization?.id;
   const scope = useMemo(() => userId && organizationId ? { userId, organizationId } : null, [userId, organizationId]);
   if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认当前企业" />;
   if (!scope || context.selectionRequired || context.error || context.blockingError) return <ConsoleState kind="error" title="请先确认登录身份与当前企业" />;
-  return <ScopedCollectionPage key={`${scope.userId}:${scope.organizationId}:${initialItemId??""}`} scope={scope} offlineAvailable={offlineAvailable} agentAvailable={agentAvailable} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialItemId={initialItemId} initialView={initialView} />;
+  return <ScopedCollectionPage key={JSON.stringify([scope,context.effectiveMemberId,context.permissions,initialItemId,initialBatchId,initialTransferSelection])} scope={scope} offlineAvailable={offlineAvailable} agentAvailable={agentAvailable} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialTransferSelection={initialTransferSelection} initialItemId={initialItemId} initialView={initialView} />;
 }
 
-function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvailable,initialBatchId,initialItemId,initialView }: { scope: CollectionScope;offlineAvailable:boolean;agentAvailable:boolean;supplyAvailable:boolean;initialBatchId?:string;initialItemId?:string;initialView:"batches"|"own" }) {
+function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvailable,initialBatchId,initialItemId,initialTransferSelection,initialView }: { scope: CollectionScope;offlineAvailable:boolean;agentAvailable:boolean;supplyAvailable:boolean;initialBatchId?:string;initialItemId?:string;initialTransferSelection?:ResearchSelection[];initialView:"batches"|"own" }) {
   const context = useWorkbenchContext();
   const {replace}=useRouter();
   const [tab, setTab] = useState<"batches" | "own">(initialView);
@@ -107,6 +109,7 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
     return ()=>{current=false;controller.abort();};
   },[scope,initialItemId,replace]);
 
+  useEffect(()=>{if(!initialTransferSelection||!initialBatchId||!supplyAvailable)return;const controller=new AbortController();void readCollectionBatch(scope,initialBatchId,controller.signal).then(batch=>{if(!controller.signal.aborted){if(!batch.supplyTransferSupported||batch.archivedAt){setError("INVALID_REQUEST");return;}setSelectedBatch(batch);setDialog("transfer");}}).catch(()=>{if(!controller.signal.aborted)setError("NOT_FOUND");});return()=>controller.abort();},[scope,initialBatchId,initialTransferSelection,supplyAvailable]);
   function refresh() { setLoading(true); setReload(value => value + 1); }
   function changeView(nextTab: "batches" | "own", selected: string | null = null) { setTab(nextTab); setBatchId(selected); setAfter(undefined); setKeyword(""); setSearch(""); refresh(); setItems([]); setError(null); }
   async function command(input:CollectionCommand,original?:CollectionIntent,verify=false){
@@ -131,7 +134,7 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
   }
   const displayingItems = tab === "own" || !!batchId;
   return <ConsolePage title="我的数据" breadcrumbs={findConsoleRoute("/workbench/data/mine")?.trail}>
-    <div className="mb-5 rounded-xl border border-border bg-muted px-5 py-3 text-sm text-muted-foreground">原始商品数据 <span aria-hidden="true">→</span> 转入待适配 <span aria-hidden="true">→</span> 整理商品资料 <span aria-hidden="true">→</span> 上架其他平台</div>
+    <div className="mb-5 rounded-xl border border-border bg-muted px-5 py-3 text-sm text-muted-foreground">原始商品数据 <span aria-hidden="true">→</span> 转入待上传 <span aria-hidden="true">→</span> 整理商品资料 <span aria-hidden="true">→</span> 上架其他平台</div>
     <div className="mb-5 flex gap-7 border-b border-border text-sm" role="tablist" aria-label="我的数据分类">
       <button role="tab" aria-selected={tab === "batches"} className={`border-b-2 px-1 pb-3 ${tab === "batches" ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground"}`} onClick={() => changeView("batches")}>采集批次</button>
       <button role="tab" aria-selected={tab === "own"} className={`border-b-2 px-1 pb-3 ${tab === "own" ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground"}`} onClick={() => changeView("own")}>自有商品库</button>
@@ -165,7 +168,7 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
       {dialog === "archive-batch" && selectedBatch ? <><p>归档“{selectedBatch.name}”后将从列表隐藏，原始资料和发布记录保留。</p>{selectedBatch.kind === "amazon_data" ? <p>若此批次来自服务端抓取，归档不会取消原任务，后续结果仍会保存；需要停止时请取消原任务。</p> : null}<Button disabled={writeBlocked} onClick={() => void command({ action: "archive_batch", batchId: selectedBatch.id, expectedRevision: selectedBatch.revision })}>确认归档</Button></> : null}
       {dialog === "archive-item" && selectedItem ? <><p>归档此商品后将从列表隐藏，原始资料和发布记录保留。</p><Button disabled={writeBlocked} onClick={() => void command({ action: "archive_item", itemId: selectedItem.id, expectedRevision: selectedItem.revision })}>确认归档</Button></> : null}
       {dialog === "move" && selectedItem ? <form className="space-y-4" onSubmit={event => { event.preventDefault(); void command({ action: "move_item", itemId: selectedItem.id, targetBatchId: targetBatch, expectedRevision: selectedItem.revision }); }}><label className="grid gap-2">目标批次<Select value={targetBatch} onChange={event => setTargetBatch(event.target.value)}><option value="">选择批次</option>{batches.filter(batch => batch.id !== selectedItem.batchId).map(batch => <option key={batch.id} value={batch.id}>{batch.name}</option>)}</Select></label><div className="flex gap-2">{moveAfter ? <Button type="button" variant="outline" disabled={writeBlocked} onClick={() => void showMove(selectedItem)}>返回首页批次</Button> : null}{moveNext ? <Button type="button" variant="outline" disabled={writeBlocked} onClick={() => void showMove(selectedItem,moveNext)}>下一页批次</Button> : null}</div>{busy ? <p role="status">正在读取目标批次…</p> : null}<p className="text-sm text-muted-foreground">移动只改变分组，原始资料保留。</p><Button type="submit" disabled={writeBlocked || !targetBatch}>确认移动</Button></form> : null}
-      {dialog === "transfer" && selectedBatch ? <><p>将“{selectedBatch.name}”的全部 {selectedBatch.count} 件商品加入我的供应链。</p><p className="text-sm text-muted-foreground">确认后保存当前批次的原始资料，后续可选择店铺并完成适配。</p><Button disabled={transferBlocked} onClick={()=>supply.execute("transfer",{batchId:selectedBatch.id,expectedRevision:selectedBatch.revision})}>确认加入</Button></> : null}
+      {dialog === "transfer" && selectedBatch ? <TransferSelection scope={scope} batch={selectedBatch} blocked={transferBlocked} initialSelections={initialTransferSelection} submit={input=>void supply.execute("transfer",input)}/> : null}
       {dialog === "import" ? <ExcelImportForm scope={scope} disabled={writeBlocked} onSubmit={input=>void command(input)}/> : null}
       {dialog === "detail" ? detail ? <><ProductFacts detail={detail} />{offlineAvailable?<OfflineDiagnosticPanel item={detail.item}/>:null}<ContentAgentEntry source={detail.item.source} enabled={agentAvailable && context.permissions.includes("workbench.agent.use") && context.permissions.includes("local_agent.write")} /></> : detailFailure ? <p role="alert">{failureText[detailFailure]??"商品资料暂时无法读取，请关闭后重试。"}</p> : <p role="status">正在读取原始资料…</p> : null}
     </CollectionDialog> : null}

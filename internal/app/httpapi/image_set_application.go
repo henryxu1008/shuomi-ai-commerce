@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"task-processor/internal/agentconfig"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	imageapp "task-processor/internal/app/imageagent"
 	appruntime "task-processor/internal/app/runtime"
@@ -36,24 +37,43 @@ import (
 	"gorm.io/gorm"
 )
 
+type imageRunHistory interface {
+	Get(context.Context, string) (imageagent.RunProjection, error)
+	GetPreparedImageSet(context.Context, imageagent.ImageSourceContextKind, string, string) (imageagent.RunProjection, error)
+	GetPreparedArtwork(context.Context, string) (imageagent.PreparedArtwork, error)
+	GetPreparedArtworkByKey(context.Context, string, string) (imageagent.PreparedArtwork, error)
+}
+
 type fullImageApplication struct {
-	skills          *skillstore.Store
-	artwork         imageagent.ArtworkPublisher
-	service         *imageagent.Service
-	readSources     imageapp.ImageSetSourceReader
-	contexts        *imageapp.ImageSetContextReader
-	quotes          imageagent.ImageSetQuoteReader
-	selections      *asset.ImageSetService
-	inventories     asset.ImageSetInventoryReader
-	approvals       asset.ApprovalCommitReader
-	publicURLs      imageagent.DurableAssetPublicURLResolver
-	trial           *imageagent.IsolatedTrialGeneratedURLPolicy
-	configuration   *configstore.Store
-	recent          imageagent.ImageSetRunReader
-	generationFacts imageGenerationFactReader
-	gate            imageagent.TenantAllowlistStartGate
-	rules           supplyapp.ImageSetTargetRules
-	manualAvailable bool
+	history           imageRunHistory
+	executionDisabled bool
+	skills            *skillstore.Store
+	artwork           imageagent.ArtworkPublisher
+	service           *imageagent.Service
+	readSources       imageapp.ImageSetSourceReader
+	contexts          *imageapp.ImageSetContextReader
+	quotes            imageagent.ImageSetQuoteReader
+	selections        *asset.ImageSetService
+	inventories       asset.ImageSetInventoryReader
+	approvals         asset.ApprovalCommitReader
+	publicURLs        imageagent.DurableAssetPublicURLResolver
+	trial             *imageagent.IsolatedTrialGeneratedURLPolicy
+	configuration     *configstore.Store
+	recent            imageagent.ImageSetRunReader
+	generationFacts   imageGenerationFactReader
+	gate              imageagent.TenantAllowlistStartGate
+	rules             supplyapp.ImageSetTargetRules
+	manualAvailable   bool
+}
+
+func (a *fullImageApplication) runs() imageRunHistory {
+	if a.history != nil {
+		return a.history
+	}
+	if a.service != nil {
+		return a.service
+	}
+	return nil
 }
 
 type FullImageSetDependencies = appruntime.FullImageSetDependencies
@@ -99,16 +119,20 @@ func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, 
 
 // The caller owns the API/worker, configuration, source, resource and Asset
 // pools. This assembly installs no schema and starts no provider or worker.
-func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.CurrentReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
+func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.SharedCategoryReader, channelCredentials credential.SecretReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(mediaReaders) > 1 {
 		return nil, empty, imageagent.ErrValidation
 	}
 	var manual asset.ManualImageReader
-	if ctx == nil || productDB == nil || imageDB == nil || workerDB == nil || workerDB == imageDB || configurationDB == nil || resourceDB == nil || assetDB == nil || assetDB == imageDB || assetDB == workerDB || workflows == nil || products.Snapshots == nil || products.Applied == nil || live.Permissions == nil || current == nil || workerConfig == nil || !current.ImageAgent.Generation.Configured() || workerConfig.ImageAgent.Generation != current.ImageAgent.Generation || !reflect.DeepEqual(workerConfig.ImageAgent.Admission, current.ImageAgent.Admission) || workerConfig.ImageAgent.ArtifactStore.PublicBase != current.ImageAgent.ArtifactStore.PublicBase || workerConfig.ImageAgent.ArtifactStore.S3.Bucket != current.ImageAgent.ArtifactStore.S3.Bucket {
+	if ctx == nil || productDB == nil || imageDB == nil || configurationDB == nil || resourceDB == nil || assetDB == nil || assetDB == imageDB || assetDB == workerDB || products.Snapshots == nil || products.Applied == nil || live.Permissions == nil || current == nil {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
-	if current.ImageAgent.Generation.PointsPerImage > math.MaxInt64/32 {
+	executing := current.ImageAgent.Generation.Enabled
+	if executing && (workerDB == nil || workerDB == imageDB || workflows == nil || workerConfig == nil || !current.ImageAgent.Generation.Configured() || workerConfig.ImageAgent.Generation != current.ImageAgent.Generation || !reflect.DeepEqual(workerConfig.ImageAgent.Admission, current.ImageAgent.Admission) || workerConfig.ImageAgent.ArtifactStore.PublicBase != current.ImageAgent.ArtifactStore.PublicBase || workerConfig.ImageAgent.ArtifactStore.S3.Bucket != current.ImageAgent.ArtifactStore.S3.Bucket) {
+		return nil, empty, imageagent.ErrCommandBlocked
+	}
+	if executing && current.ImageAgent.Generation.MaximumMicropoints > math.MaxInt64/32 {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
 	startup, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -116,8 +140,10 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err := imagestore.VerifyOrganizationRuntimePermissions(startup, imageDB); err != nil {
 		return nil, empty, err
 	}
-	if err := imagestore.VerifyOrganizationWorkerRuntimePermissions(startup, workerDB); err != nil {
-		return nil, empty, err
+	if executing {
+		if err := imagestore.VerifyOrganizationWorkerRuntimePermissions(startup, workerDB); err != nil {
+			return nil, empty, err
+		}
 	}
 	if err := assetstore.VerifySourceRuntimePermissions(startup, assetDB); err != nil {
 		return nil, empty, err
@@ -178,10 +204,6 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation, currentPolicies)
-	if err != nil {
-		return nil, empty, err
-	}
 	publicURLs := imageAgentDurableAssetPublicURLResolver(current)
 	if publicURLs == nil {
 		return nil, empty, imageagent.ErrCommandBlocked
@@ -193,7 +215,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 			return nil, empty, err
 		}
 	}
-	apiRepository, workerRepository := imagestore.NewOrganizationRepository(imageDB), imagestore.NewOrganizationRepository(workerDB)
+	apiRepository := imagestore.NewOrganizationRepository(imageDB)
 	recent, ok := apiRepository.(imageagent.ImageSetRunReader)
 	if !ok {
 		return nil, empty, imageagent.ErrCommandBlocked
@@ -211,6 +233,25 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return nil, empty, asset.ErrRepositoryUnavailable
 	}
 	approvals, err := assetstore.NewBoundedApprovalCommitReader(assetDB, 2<<20)
+	if err != nil {
+		return nil, empty, err
+	}
+	history, err := imageagent.NewRunReader(apiRepository)
+	if err != nil {
+		return nil, empty, err
+	}
+	if !executing {
+		var artwork imageagent.ArtworkPublisher
+		if artworkConfigurationReady(startup, configurationDB, productDB, collectionsEnabled) {
+			artwork, err = buildPODArtworkPublisher(startup, productDB, apiRepository, publicURLs, configuration, imageMediaScopeAuthority{current: live}, trial)
+			if err != nil {
+				return nil, empty, err
+			}
+		}
+		return &fullImageApplication{history: history, executionDisabled: true, skills: skills, artwork: artwork, readSources: readSources, contexts: contexts, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, rules: rules, manualAvailable: manual != nil}, empty, nil
+	}
+	workerRepository := imagestore.NewOrganizationRepository(workerDB)
+	quotes, err := imageworker.NewImageGenerationQuoteReader(current.ImageAgent.Generation, currentPolicies)
 	if err != nil {
 		return nil, empty, err
 	}
@@ -256,7 +297,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
+	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled && channelCredentials != nil, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
 	var artwork imageagent.ArtworkPublisher
 	var artworkConfiguration agentconfig.ArtworkConfigurationRepository
 	if artworkConfigurationReady(startup, configurationDB, productDB, collectionsEnabled) {
@@ -267,16 +308,16 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		artworkConfiguration = artworkAdmissionConfiguration{ArtworkConfigurationRepository: configuration, authorize: live.AuthorizeExecution}
 	}
 	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration, artworkConfiguration: artworkConfiguration}
-	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}})}
+	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 32 * current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}})}
 	options = append(options, imageagent.WithImageMethodContext(methods))
 	if artworkConfiguration != nil {
-		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: artworkConfiguration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
+		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: artworkConfiguration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}}))
 	}
 	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, options...)
 	if err != nil {
 		return nil, empty, err
 	}
-	dependencies, err := imageworker.NewManagedImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger, currentPolicies, methods)
+	dependencies, err := imageworker.NewManagedImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger, currentPolicies, channelCredentials, methods)
 	if err != nil {
 		return nil, empty, err
 	}
@@ -284,7 +325,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if artwork != nil {
 		dependencies.ArtworkPublisher = artwork
 	}
-	return &fullImageApplication{skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+	return &fullImageApplication{history: history, skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
 }
 
 type imagePreparationProductReader struct {

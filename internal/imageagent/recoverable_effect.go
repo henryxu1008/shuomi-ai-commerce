@@ -42,6 +42,17 @@ func NormalizeRecoverableEffects(effects []RecoverableEffect) ([]RecoverableEffe
 }
 
 func FindRecoverableEffect(projection RunProjection, slotID string, attempt int) (RecoverableEffect, Slot, bool) {
+	return findRecoverableEffect(projection, slotID, attempt, projection.Plan.Set == nil && projection.Plan.Artwork == nil)
+}
+
+// FindOriginalSettlementSlot identifies a slot for a read of its original
+// generation and settlement facts. It does not authorize a recovery command.
+func FindOriginalSettlementSlot(projection RunProjection, slotID string, attempt int) (Slot, bool) {
+	_, slot, found := findRecoverableEffect(projection, slotID, attempt, true)
+	return slot, found
+}
+
+func findRecoverableEffect(projection RunProjection, slotID string, attempt int, allowOriginalBlock bool) (RecoverableEffect, Slot, bool) {
 	slotID = strings.TrimSpace(slotID)
 	if slotID == "" || attempt <= 0 {
 		return RecoverableEffect{}, Slot{}, false
@@ -50,25 +61,24 @@ func FindRecoverableEffect(projection RunProjection, slotID string, attempt int)
 	if !hasPlanSlot {
 		return RecoverableEffect{}, Slot{}, false
 	}
-	if normalized, err := NormalizeRecoverableEffects(projection.RecoverableEffects); err == nil {
-		for _, effect := range normalized {
-			if effect.SlotID != slotID || effect.Attempt != attempt {
-				continue
-			}
-			if slotProjectionMatchesRecoverableEffect(projection.Slots, effect) {
-				return effect, planSlot, true
-			}
-			return RecoverableEffect{}, Slot{}, false
+	effects, err := NormalizeRecoverableEffects(projection.RecoverableEffects)
+	if err != nil {
+		return RecoverableEffect{}, Slot{}, false
+	}
+	for _, effect := range effects {
+		if effect.SlotID == slotID && effect.Attempt == attempt && slotProjectionMatchesRecoverableEffect(projection.Slots, effect) {
+			return effect, planSlot, true
 		}
 	}
-	if projection.Run.Block == nil || strings.TrimSpace(projection.Run.Block.SlotID) != slotID || !IsRecoverableEffectBlockCode(projection.Run.Block.Code) {
+	block := projection.Run.Block
+	if !allowOriginalBlock || len(effects) != 0 || block == nil || strings.TrimSpace(block.SlotID) != slotID || !IsRecoverableEffectBlockCode(block.Code) {
 		return RecoverableEffect{}, Slot{}, false
 	}
-	fallback := RecoverableEffect{SlotID: slotID, Attempt: attempt, Code: strings.TrimSpace(projection.Run.Block.Code)}
-	if !slotProjectionMatchesRecoverableEffect(projection.Slots, fallback) {
+	original := RecoverableEffect{SlotID: slotID, Attempt: attempt, Code: strings.TrimSpace(block.Code)}
+	if !slotProjectionMatchesRecoverableEffect(projection.Slots, original) {
 		return RecoverableEffect{}, Slot{}, false
 	}
-	return fallback, planSlot, true
+	return original, planSlot, true
 }
 
 func recoverableEffectKey(slotID string, attempt int) string {

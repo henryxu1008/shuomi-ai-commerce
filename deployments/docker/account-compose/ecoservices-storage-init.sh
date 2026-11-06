@@ -8,4 +8,7 @@ mc anonymous set none local/ecoservices >/dev/null
 mc admin policy create local ecoservices-runtime /init/ecoservices-storage-policy.json >/dev/null
 mc admin user add local "$(cat /object-runtime/access-key)" "$(cat /object-runtime/secret-key)" >/dev/null
 mc admin policy attach local ecoservices-runtime --user "$(cat /object-runtime/access-key)" >/dev/null
+if test "${ACCOUNT_STORAGE_CAPACITY_ENABLED:-}" = 1; then
+ /bin/sh /init/capacity-storage-init.sh ecoservices
+fi
 echo 'Private ecosystem qualification object storage ready'

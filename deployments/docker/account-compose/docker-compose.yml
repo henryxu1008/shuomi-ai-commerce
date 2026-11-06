@@ -174,7 +174,7 @@ services:
       BOOTSTRAP_PAT_FILE: /zitadel/iac/iam-owner.pat
       ACCOUNT_IDENTITY_PORT: "${ACCOUNT_IDENTITY_PORT}"
       ACCOUNT_APPLICATION_PORT: "${ACCOUNT_APPLICATION_PORT}"
-    volumes: [tofu-state:/state, trusted-ca:/private/ca:ro, tofu-inputs:/tofu-inputs:ro, zitadel-iac-pat:/zitadel/iac:ro, runtime-secrets:/runtime, frontend-secrets:/frontend, ./terraform:/terraform-source:ro, ./tofu-init.sh:/usr/local/bin/account-tofu-init:ro]
+    volumes: [tofu-state:/state, trusted-ca:/private/ca:ro, tofu-inputs:/tofu-inputs:ro, zitadel-iac-pat:/zitadel/iac:ro, runtime-secrets:/runtime, frontend-secrets:/frontend, ./terraform:/terraform-source:ro, ./tofu-init.sh:/usr/local/bin/account-tofu-init:ro, ./deployment-origins.sh:/usr/local/lib/account-compose/deployment-origins.sh:ro]
     depends_on: { traefik: { condition: service_started } }
 
   schema-init:

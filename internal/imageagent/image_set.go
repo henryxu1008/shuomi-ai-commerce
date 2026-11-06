@@ -52,7 +52,7 @@ type ImageSetPlan struct {
 	Target                                                         ImageTarget
 	Configuration                                                  agent.ConfigurationSnapshotRef
 	ConfigurationEpoch, ParametersDigest, InputDigest, QuoteDigest string
-	MaxPoints                                                      int64
+	MaxPoints                                                      int64                 "json:\",string\""
 	Regeneration                                                   *ImageSetRegeneration `json:",omitempty"`
 }
 
@@ -95,9 +95,10 @@ type ImageSourceObservation struct {
 }
 
 type ImageGenerationQuote struct {
+	Billing                                                   ImageBilling
 	Provider, Model, Protocol, Resolution, Quality            string
 	PriceVersion                                              string
-	Points                                                    int64
+	Points                                                    int64 "json:\",string\""
 	RouteReference, CredentialReference, ConfigurationVersion string
 }
 
@@ -114,20 +115,22 @@ type ImageSlotRecipe struct {
 }
 
 type ImageGenerationProof struct {
+	UnitVersion                                  string
 	IntentID, Fingerprint, SettlementProofDigest string
-	Points                                       int64
+	Points                                       int64 "json:\",string\""
 }
 
 // A closure references the existing generation/resource owners. It is not a
 // second settlement record and must be resolved by the worker/candidate reader.
 type ImageSlotClosure struct {
+	UnitVersion                                  string
 	Kind                                         string
 	IntentID, Fingerprint, SettlementProofDigest string
-	Points                                       int64
+	Points                                       int64 "json:\",string\""
 }
 
 func (q ImageGenerationQuote) Valid() bool {
-	return validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == GenerationRouteQuality(q.Provider, q.Model, q.Protocol) && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
+	return validImageBilling(q.Billing, q.Model, q.PriceVersion, q.Points) && validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == GenerationRouteQuality(q.Provider, q.Model, q.Protocol) && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
 }
 
 func canonicalImageValue(value string) bool {

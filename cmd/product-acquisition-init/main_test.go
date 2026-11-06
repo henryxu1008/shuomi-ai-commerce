@@ -31,6 +31,8 @@ func TestSupplyFeatureCommandRequiresExplicitExclusiveConfirmation(t *testing.T)
 		{"empty database mode", []string{"--enable-supply-chain", "--confirm-empty-database", "retained_product"}, "cannot be combined"},
 		{"completion mode", []string{"--enable-supply-chain", "--enable-completion-drafts"}, "mutually exclusive"},
 		{"plan mode", []string{"--enable-supply-chain", "--enable-acquisition-plans"}, "mutually exclusive"},
+		{"trial mixed mode", []string{"--enable-shein-us-trial", "--enable-supply-chain"}, "mutually exclusive"},
+		{"trial requires exact Product name", []string{"--enable-shein-us-trial", "--confirm-database", "wrong_product"}, "SHEIN trial ledger initialization refused"},
 		{"positional input", []string{"--enable-supply-chain", "retained_product"}, "unexpected positional arguments"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

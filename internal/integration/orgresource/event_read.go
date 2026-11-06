@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -78,8 +77,8 @@ func (r *GormRepository) ListEvents(ctx context.Context, query orgresource.Event
 		page.NextCursor = &cursor
 	}
 	for _, row := range rows {
-		format := func(value int64) string { return strconv.FormatInt(value, 10) }
-		page.Items = append(page.Items, orgresource.EventView{EventID: row.EventID, OperationID: row.OperationID, ResourceType: orgresource.ResourceType(row.ResourceType), Quantity: format(row.Quantity), AvailableDelta: format(row.AvailableDelta), AllocatedDelta: format(row.AllocatedDelta), ReservedDelta: format(row.ReservedDelta), ConsumedDelta: format(row.ConsumedDelta), AvailableAfter: format(row.AvailableAfter), AllocatedAfter: format(row.AllocatedAfter), ReservedAfter: format(row.ReservedAfter), ConsumedAfter: format(row.ConsumedAfter), Reason: row.Reason, SourceType: row.SourceType, SourceIdentity: row.SourceIdentity, OccurredAt: row.CreatedAt.UTC()})
+		format := func(value int64) string { return formatResourceQuantity(row.ResourceType, value) }
+		page.Items = append(page.Items, orgresource.EventView{UnitVersion: row.QuantityUnit, EventID: row.EventID, OperationID: row.OperationID, ResourceType: orgresource.ResourceType(row.ResourceType), Quantity: format(row.Quantity), AvailableDelta: format(row.AvailableDelta), AllocatedDelta: format(row.AllocatedDelta), ReservedDelta: format(row.ReservedDelta), ConsumedDelta: format(row.ConsumedDelta), AvailableAfter: format(row.AvailableAfter), AllocatedAfter: format(row.AllocatedAfter), ReservedAfter: format(row.ReservedAfter), ConsumedAfter: format(row.ConsumedAfter), Reason: row.Reason, SourceType: row.SourceType, SourceIdentity: row.SourceIdentity, OccurredAt: row.CreatedAt.UTC()})
 	}
 	return page, nil
 }

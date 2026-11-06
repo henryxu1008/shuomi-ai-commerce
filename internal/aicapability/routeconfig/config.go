@@ -44,18 +44,15 @@ func (s Scope) Valid() bool {
 		return false
 	}
 	switch aicapability.Operation(s.Capability) {
-	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan:
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationProductImageAnalysis:
 		return true
 	}
-	return s.Capability == ImageCapability
+	return s.Capability == ImageCapability || s.Capability == SharedModelCapability || s.Capability == PlatformPricesCapability && s.OrganizationID == PlatformPricesOrganization
 }
 
 type Rates struct {
-	InputCost      string `json:"inputCost,omitempty"`
-	OutputCost     string `json:"outputCost,omitempty"`
-	InputPoints    string `json:"inputPoints,omitempty"`
-	OutputPoints   string `json:"outputPoints,omitempty"`
-	PointsPerImage string `json:"pointsPerImage,omitempty"`
+	InputCost  string `json:"inputCost,omitempty"`
+	OutputCost string `json:"outputCost,omitempty"`
 }
 
 // Decimal strings avoid JSON floating point and JavaScript integer truncation.
@@ -88,14 +85,10 @@ func ParseRate(s string, scale int) (int64, error) {
 func FormatCost(v int64) string { return fmt.Sprintf("%d.%06d", v/1000000, v%1000000) }
 func normalize(r Rates, image bool) (Rates, error) {
 	if image {
-		if r.InputCost != "" || r.OutputCost != "" || r.InputPoints != "" || r.OutputPoints != "" {
+		if r != (Rates{}) {
 			return Rates{}, ErrInvalid
 		}
-		v, e := ParseRate(r.PointsPerImage, 0)
-		return Rates{PointsPerImage: strconv.FormatInt(v, 10)}, e
-	}
-	if r.PointsPerImage != "" {
-		return Rates{}, ErrInvalid
+		return Rates{}, nil
 	}
 	in, e := ParseRate(r.InputCost, 6)
 	if e != nil {
@@ -105,29 +98,25 @@ func normalize(r Rates, image bool) (Rates, error) {
 	if e != nil {
 		return Rates{}, e
 	}
-	ip, e := ParseRate(r.InputPoints, 0)
-	if e != nil {
-		return Rates{}, e
-	}
-	op, e := ParseRate(r.OutputPoints, 0)
-	if e != nil {
-		return Rates{}, e
-	}
-	return Rates{InputCost: FormatCost(in), OutputCost: FormatCost(out), InputPoints: strconv.FormatInt(ip, 10), OutputPoints: strconv.FormatInt(op, 10)}, nil
+	// Customer charges are frozen by the server's official tariff. These
+	// existing channel-cost bounds cannot define a second retail point price.
+	return Rates{InputCost: FormatCost(in), OutputCost: FormatCost(out)}, nil
 }
 
 type ImageProfile struct {
-	Provider             string `json:"provider"`
-	Model                string `json:"model"`
-	Protocol             string `json:"protocol"`
-	EndpointDigest       string `json:"endpointDigest"`
-	CredentialReference  string `json:"credentialReference"`
-	ConfigurationVersion string `json:"configurationVersion"`
-	PriceVersion         string `json:"priceVersion"`
-	Points               int64  `json:"points"`
+	ConnectionID         string                            `json:"connectionId"`
+	DeadlineSeconds      int64                             `json:"deadlineSeconds"`
+	Provider             string                            `json:"provider"`
+	Model                string                            `json:"model"`
+	Protocol             string                            `json:"protocol"`
+	EndpointDigest       string                            `json:"endpointDigest"`
+	CredentialReference  string                            `json:"credentialReference"`
+	ConfigurationVersion string                            `json:"configurationVersion"`
+	PriceVersion         string                            `json:"priceVersion"`
+	Points               int64                             `json:"points,string"`
+	Billing              aicapability.OfficialModelBilling `json:"billing"`
 }
 type Binding struct {
-	MaximumImagePoints      int64                      `json:"maximumPointsPerImage,omitempty"`
 	ID                      string                     `json:"id"`
 	CredentialVersion       string                     `json:"credentialVersion"`
 	Provider                string                     `json:"provider"`
@@ -145,10 +134,10 @@ type Binding struct {
 	Image                   *ImageProfile              `json:"-"`
 }
 type Credential struct {
-	OrganizationID, ClientName, Model, APIStyle, Version, EndpointDigest, Reference string
-	TimeoutSeconds                                                                  int
-	Enabled, KeyPresent                                                             bool
+	OrganizationID, ConnectionID, Provider, Channel, Region, EndpointDigest, Reference string
+	Enabled, KeyPresent                                                                bool
 }
+
 type CredentialReader interface {
 	Credential(context.Context, string, string) (Credential, error)
 }
@@ -158,9 +147,12 @@ type CredentialReader interface {
 type Catalog interface {
 	Scopes(string) []Scope
 	Candidates(Scope) []string
+	CredentialID(Scope, string) (string, error)
 	Qualify(Scope, string, Credential) (Binding, error)
 }
 type Payload struct {
+	PlatformPrices    *PlatformPricesSnapshot    `json:"platformPrices,omitempty"`
+	SharedModels      *SharedModelSelection      `json:"sharedModels,omitempty"`
 	Optional          bool                       `json:"optional,omitempty"`
 	BindingID         string                     `json:"bindingId"`
 	CredentialVersion string                     `json:"credentialVersion"`
@@ -182,11 +174,8 @@ func Freeze(b Binding, r Rates, revision string) (Payload, error) {
 		t := *b.Text
 		t.RoutingPolicyVersion = revision
 		t.CostPricingVersion = revision
-		t.PointTariff.PriceVersion = revision
 		t.InputMicrosPerMillion, _ = ParseRate(rates.InputCost, 6)
 		t.OutputMicrosPerMillion, _ = ParseRate(rates.OutputCost, 6)
-		t.PointTariff.InputPointsPerMillionTokens, _ = ParseRate(rates.InputPoints, 0)
-		t.PointTariff.OutputPointsPerMillionTokens, _ = ParseRate(rates.OutputPoints, 0)
 		cost, err := t.MaximumCost()
 		if t.Validate() != nil || err != nil || b.MaximumCostMicros <= 0 || cost > b.MaximumCostMicros {
 			return Payload{}, ErrInvalid
@@ -194,11 +183,12 @@ func Freeze(b Binding, r Rates, revision string) (Payload, error) {
 		p.Text = &t
 	} else {
 		i := *b.Image
-		i.Points, _ = ParseRate(rates.PointsPerImage, 0)
-		if b.MaximumImagePoints <= 0 || i.Points > b.MaximumImagePoints {
-			return Payload{}, ErrInvalid
+		maximum, err := i.Billing.ReservationMicropoints(i.Model)
+		if err != nil {
+			return Payload{}, ErrNeedsConfiguration
 		}
-		i.PriceVersion = revision
+		i.Points = maximum
+		i.PriceVersion = i.Billing.OfficialTariff.PriceVersion
 		i.ConfigurationVersion = revision
 		p.Image = &i
 	}
@@ -274,7 +264,11 @@ func (s *Service) binding(ctx context.Context, scope Scope, id, version string, 
 	if !allowed {
 		return Binding{}, ErrNeedsConfiguration
 	}
-	c, e := reader.Credential(ctx, scope.OrganizationID, id)
+	connection, e := s.Catalog.CredentialID(scope, id)
+	if e != nil {
+		return Binding{}, e
+	}
+	c, e := reader.Credential(ctx, scope.OrganizationID, connection)
 	if e != nil {
 		return Binding{}, e
 	}
@@ -290,7 +284,11 @@ func (s *Service) Bindings(ctx context.Context, scope Scope) ([]Binding, error) 
 	}
 	out := []Binding{}
 	for _, id := range s.Catalog.Candidates(scope) {
-		c, e := s.Repository.Credential(ctx, scope.OrganizationID, id)
+		connection, e := s.Catalog.CredentialID(scope, id)
+		if e != nil {
+			return nil, e
+		}
+		c, e := s.Repository.Credential(ctx, scope.OrganizationID, connection)
 		if e != nil {
 			return nil, e
 		}

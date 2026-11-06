@@ -34,11 +34,17 @@ type sharedRegressionGrants struct{ diagnosticGrants }
 func (g *sharedRegressionGrants) Load(ctx context.Context, source workbenchcontext.GrantSource, request workbenchcontext.GrantRequest) (workbenchcontext.GrantResult, error) {
 	if request.Subject == "switcher" {
 		return workbenchcontext.GrantResult{Source: source, Grants: []authidentity.OrganizationGrant{
-			{OrganizationID: "200", ProjectID: "project", Roles: []string{"listingkit_operator"}},
-			{OrganizationID: "300", ProjectID: "project", Roles: []string{"listingkit_operator"}},
+			{OrganizationID: "200", ProjectID: "project", Roles: []string{"listingkit_admin"}},
+			{OrganizationID: "300", ProjectID: "project", Roles: []string{"listingkit_admin"}},
 		}}, nil
 	}
-	return g.diagnosticGrants.Load(ctx, source, request)
+	result, err := g.diagnosticGrants.Load(ctx, source, request)
+	if request.Subject == "operator" {
+		for i := range result.Grants {
+			result.Grants[i].Roles = []string{"listingkit_admin"}
+		}
+	}
+	return result, err
 }
 
 func sharedRegressionApplication(t *testing.T, db *gorm.DB, g *sharedRegressionGrants) (*httptest.Server, record.Reader) {
@@ -126,7 +132,10 @@ func TestSharedRegressionPostgres(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, uuid.Nil, id)
 			require.Equal(t, receipt.RecordID, id.String())
-			stored, err := reader.ReadOfflinePackage(context.Background(), recordActor("operator", "listingkit_operator"), receipt.RecordID)
+			// The repository still supports owner-scoped reads for a non-admin
+			// actor. The scoped HTTP gate no longer admits the operator role.
+			owner := recordActor("operator", "listingkit_operator")
+			stored, err := reader.ReadOfflinePackage(context.Background(), owner, receipt.RecordID)
 			require.NoError(t, err)
 			require.Equal(t, receipt.RecordID, stored.ID)
 			require.Equal(t, "200", stored.OrganizationID)
@@ -141,6 +150,11 @@ func TestSharedRegressionPostgres(t *testing.T) {
 			require.Equal(t, durable, stored.Payload)
 
 			before := diagnosticBusinessState(t, db) // Setup writes intentionally precede the read-only window.
+			nonOwner := owner
+			nonOwner.UserID = "other"
+			_, err = reader.ReadOfflinePackage(context.Background(), nonOwner, receipt.RecordID)
+			require.ErrorIs(t, err, record.ErrNotFound)
+
 			first := map[contract.Action]contract.DiagnosticResult{}
 			for _, want := range c.Reports {
 				start := time.Now().UTC()
@@ -170,7 +184,7 @@ func TestSharedRegressionPostgres(t *testing.T) {
 				require.Equal(t, previous.Input.Digest, again.Input.Digest)
 				require.Equal(t, previous.OfflineChecks, again.OfflineChecks)
 			}
-			again, err := reader.ReadOfflinePackage(context.Background(), recordActor("operator", "listingkit_operator"), receipt.RecordID)
+			again, err := reader.ReadOfflinePackage(context.Background(), owner, receipt.RecordID)
 			require.NoError(t, err)
 			require.False(t, again.ReadAt.Before(stored.ReadAt))
 			// Compare every durable identity, receipt linkage, option, payload and creation timestamp.
@@ -193,7 +207,7 @@ func TestSharedRegressionPostgres(t *testing.T) {
 				status    int
 			}{
 				{"operator", "200", 200}, {"readonly", "200", 200}, {"admin", "200", 200},
-				{"other", "200", 404}, {"foreign-admin", "100", 404}, {"operator", "100", 403},
+				{"foreign-admin", "100", 404}, {"operator", "100", 403},
 				{"viewer", "200", 403}, {"store", "200", 403}, {"no-grant", "200", 403}, {"", "200", 401},
 			} {
 				status, raw = diagnosticGet(t, server, receipt.RecordID, "action=publish", access.user, access.org)
@@ -250,7 +264,7 @@ func assertSharedOrganizationSwitch(t *testing.T, db *gorm.DB, server *httptest.
 		var receipt record.Receipt
 		sharedDecode(t, raw, &receipt)
 		ids[org] = receipt.RecordID
-		stored, err := reader.ReadOfflinePackage(context.Background(), record.Actor{OrganizationID: org, UserID: "switcher", Roles: []string{"listingkit_operator"}}, receipt.RecordID)
+		stored, err := reader.ReadOfflinePackage(context.Background(), record.Actor{OrganizationID: org, UserID: "switcher", Roles: []string{"listingkit_admin"}}, receipt.RecordID)
 		require.NoError(t, err)
 		require.Equal(t, org, stored.OrganizationID)
 		require.Equal(t, "switcher", stored.OwnerUserID)

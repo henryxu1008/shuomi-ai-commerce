@@ -1,0 +1,38 @@
+# New empty unified project: base + knowledge + data-services + modules + E.
+# Keep this layer on every restart. No retained installation upgrade.
+services:
+ bootstrap:
+  environment: {ACCOUNT_STORAGE_CAPACITY_ENABLED: "1"}
+ knowledge-storage-init:
+  environment: {ACCOUNT_STORAGE_CAPACITY_ENABLED: "1"}
+  volumes:
+   - ./capacity-storage-init.sh:/init/capacity-storage-init.sh:ro
+   - ./knowledge-capacity-read-policy.json:/init/capacity-policy.json:ro
+   - knowledge-capacity-identity:/capacity-identity
+ ecoservices-storage-init:
+  environment: {ACCOUNT_STORAGE_CAPACITY_ENABLED: "1"}
+  volumes:
+   - ./capacity-storage-init.sh:/init/capacity-storage-init.sh:ro
+   - ./ecoservices-capacity-read-policy.json:/init/capacity-policy.json:ro
+   - ecoservices-capacity-identity:/capacity-identity
+ storage-capacity-init:
+  build: {context: ../../..,dockerfile: deployments/docker/Dockerfile.account-compose,target: schema-init}
+  network_mode: none
+  entrypoint: [/usr/local/bin/storage-capacity-init]
+  volumes:
+   - ecoservices-runtime:/base:ro
+   - knowledge-capacity-identity:/knowledge-identity:ro
+   - ecoservices-capacity-identity:/ecoservices-identity:ro
+   - storage-capacity-runtime:/runtime
+  depends_on:
+   knowledge-storage-init: {condition: service_completed_successfully}
+   ecoservices-storage-init: {condition: service_completed_successfully}
+ current-application:
+  command: [-config,/private/storage-capacity/current-application.json]
+  volumes: [storage-capacity-runtime:/private/storage-capacity:ro]
+  depends_on:
+   storage-capacity-init: {condition: service_completed_successfully}
+volumes:
+ knowledge-capacity-identity: {name: "${COMPOSE_PROJECT_NAME}-knowledge-capacity-identity"}
+ ecoservices-capacity-identity: {name: "${COMPOSE_PROJECT_NAME}-ecoservices-capacity-identity"}
+ storage-capacity-runtime: {name: "${COMPOSE_PROJECT_NAME}-storage-capacity-runtime"}

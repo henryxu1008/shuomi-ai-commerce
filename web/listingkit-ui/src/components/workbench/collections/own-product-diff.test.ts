@@ -10,7 +10,7 @@ it("matches renamed SKUs by stable identity and preserves zero and image order",
  expect(rows.some(row=>row.label.includes("商品属性"))).toBe(false);
  expect(rows.find(row=>row.label.includes("公共图片"))).toMatchObject({status:"changed"});
  expect(rows.find(row=>row.key===JSON.stringify(["sku","red","价格"]))).toMatchObject({before:"0",after:"5",status:"changed"});
- expect(rows.find(row=>row.key===JSON.stringify(["sku","red","库存"]))).toBeUndefined();
+ expect(rows.find(row=>row.key===JSON.stringify(["sku","red","库存"]))).toMatchObject({before:"未填写",after:"0",status:"changed"});
  expect(rows.some(row=>row.status==="added"&&row.label.includes("ADDED"))).toBe(true);
  expect(rows.some(row=>row.status==="removed"&&row.label.includes("REMOVED"))).toBe(true);
 });

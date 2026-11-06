@@ -138,12 +138,7 @@ func removeWordFromText(text, word string) string {
 	pattern := `(?i)\b` + flexibleWord + `\b`
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		// 正则编译失败时降级为大小写不敏感的简单替换
-		re2, err2 := regexp.Compile(`(?i)` + regexp.QuoteMeta(word))
-		if err2 != nil {
-			return strings.ReplaceAll(text, word, "")
-		}
-		return re2.ReplaceAllString(text, "")
+		return text
 	}
 	return re.ReplaceAllString(text, "")
 }
