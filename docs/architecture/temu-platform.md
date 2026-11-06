@@ -139,7 +139,7 @@ Store DB：现有 Store record、connection、attempt、credential protection �
 
 Product DB：TargetRecord、official intent、执行 reservation/fence、official receipt 与 qualified resolution 继续用原同库 UoW。新增 TEMU tagged body 没有第二表系或不同队列 owner。不可变 intent 仅引用/摘要 canonical facts；不复制可更新 Product。原 finalize 必须同时保存必要远端标识与 outcome，否则不投影已上传。
 
-Asset DB：ApprovedAsset、批准 receipt/current inventory head 仍由原 Asset owner 的独立 `SupplyChainDependencies.AssetDB` 保存；不复制到 Product DB、不增加 Product serving 角色的 Asset 表权限。当前分库接线依据为 `internal/app/httpapi/supply_chain_application.go` 的独立 AssetDB reader/approval 构造与 productDB official/kernel 构造。
+Asset DB：ApprovedAsset、批准 receipt/current inventory head 仍由原 Asset owner 的独立 `ListingDependencies.AssetDB` 保存；不复制到 Product DB、不增加 Product serving 角色的 Asset 表权限。当前分库接线依据为 `internal/app/httpapi/listing_application.go` 的独立 AssetDB reader/approval 构造与 productDB official/kernel 构造。
 
 只读远端商品观察保留 org/store/official merchant/connection revision、sync owner、observedAt、原文状态/远端标识/必要详情。沿现有观察 owner 的事务和 bounded pagination；增加明确 TEMU product variant，不能写入 shein_observations 模式专用 JSON 伪装 SHEIN，不重构无关订单/物流。sync 状态与 Submission 状态不是同一事实。
 
@@ -176,7 +176,7 @@ PA list.get 支持 skcExtCode 并返回 productId/SKC/SKU 编号、外部编号�
 
 本土 publish.status.get 要求已知 goodsIdList，不能解决创建响应丢失且无 goodsId。列表 outGoodsSnList 能检索外部编号，但 externalGoodsId → outGoodsSn 尚未有明确官方映射依据；未证实前不得以此自动 adopt。正常成功后的 goodsId 可用于状态回读；无法 qualified 核实时保留原 UNKNOWN，不新增人工流程平台。
 
-当前用户输入 SHEIN SPU 的核实入口（internal/app/supplychain/upload_resolution.go）仍由服务器重新查询官方资料、核对原 intent/record/merchant/完整 correlation，再生成短期 OfficialResolution proof。不是用户声明成功即可裁定；通用内核的 EvidenceManualResolution 也不证明已有可直接开放的 TEMU 人工裁定路径。TEMU 仅在本批 typed variant 具有同等 qualified 官方证据时复用该核实流程；输入远端 ID 只是查询线索，截图、口头结论、相似标题与未证明的字段映射都不能解除 fence。现有证据不足时持续 UNKNOWN，不提供直接“标为成功/失败/重试”的 TEMU 入口。
+当前用户输入 SHEIN SPU 的核实入口（internal/app/listing/upload_resolution.go）仍由服务器重新查询官方资料、核对原 intent/record/merchant/完整 correlation，再生成短期 OfficialResolution proof。不是用户声明成功即可裁定；通用内核的 EvidenceManualResolution 也不证明已有可直接开放的 TEMU 人工裁定路径。TEMU 仅在本批 typed variant 具有同等 qualified 官方证据时复用该核实流程；输入远端 ID 只是查询线索，截图、口头结论、相似标题与未证明的字段映射都不能解除 fence。现有证据不足时持续 UNKNOWN，不提供直接“标为成功/失败/重试”的 TEMU 入口。
 
 查不到、权限丢失、未进入在售列表、重复匹配均不是未发生操作的证据。恢复只做原只读核实/原 UoW resolution，不能创建新 intent、重上传图片或重新发送货品。原始 code/token/签名字符串不进入 receipt。
 

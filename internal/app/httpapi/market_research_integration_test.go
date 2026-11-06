@@ -15,8 +15,8 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/app/productsourcing"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
@@ -157,7 +157,7 @@ func testResearchHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, pare
 	require.NoError(t, prepstore.InstallSchema(f.owner))
 	core, e := composePreparationCore(ctx, f.owner, deps, permissions, collections)
 	require.NoError(t, e)
-	routes = append(routes, supplyhttp.PreparationRoutes(core.app, (productReviewCapabilityBinder{}).Bind)...)
+	routes = append(routes, listinghttp.PreparationRoutes(core.app, (productReviewCapabilityBinder{}).Bind)...)
 	app := buildCurrentApplicationHTTPServer(routes, deps)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
@@ -267,16 +267,16 @@ func testResearchHTTPThroughOwners(t *testing.T, f *acquisitionHTTPFixture, pare
 	require.NotNil(t, chosen.Observation)
 	currentBatch, e := collections.ReadBatch(actor, chosen.Observation.BatchID)
 	require.NoError(t, e)
-	require.True(t, currentBatch.SupplyTransferSupported)
+	require.True(t, currentBatch.ListingTransferSupported)
 	transferInput := collection.BatchSelectionInput{BatchID: currentBatch.ID, ExpectedRevision: currentBatch.Revision, ItemIDs: []string{chosen.Observation.Ref.Selection.ItemID}}
 	transferKey := uuid.NewString()
 	var transferred, replay preparation.TransferReceipt
-	require.NoError(t, json.Unmarshal(call("POST", supplyhttp.SupplyBasePath+"/transfer", transferKey, transferInput, http.StatusOK), &transferred))
-	require.NoError(t, json.Unmarshal(call("POST", supplyhttp.SupplyBasePath+"/transfer", transferKey, transferInput, http.StatusOK), &replay))
+	require.NoError(t, json.Unmarshal(call("POST", listinghttp.ListingBasePath+"/transfer", transferKey, transferInput, http.StatusOK), &transferred))
+	require.NoError(t, json.Unmarshal(call("POST", listinghttp.ListingBasePath+"/transfer", transferKey, transferInput, http.StatusOK), &replay))
 	require.True(t, replay.Replayed)
 	require.Equal(t, transferred.Preparation.ID, replay.Preparation.ID)
 	var preparedSources collection.Page[preparation.SourceItem]
-	require.NoError(t, json.Unmarshal(call("GET", supplyhttp.SupplyBasePath+"/"+transferred.Preparation.ID+"/sources", "", nil, http.StatusOK), &preparedSources))
+	require.NoError(t, json.Unmarshal(call("GET", listinghttp.ListingBasePath+"/"+transferred.Preparation.ID+"/sources", "", nil, http.StatusOK), &preparedSources))
 	require.Len(t, preparedSources.Items, 1)
 	require.Equal(t, chosen.Observation.Item.Source, preparedSources.Items[0].Source)
 	require.Equal(t, transferInput.ItemIDs[0], preparedSources.Items[0].CollectionItemID)

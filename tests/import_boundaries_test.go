@@ -2206,7 +2206,7 @@ func businessHTTPPackages(root string) map[string]struct{} {
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "toolmarket", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #621 admits only Data Service's feature-local adapter, not its domain or DI.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "dataservice", "httpapi"))+string(os.PathSeparator)] = struct{}{}
-	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "app", "supplychain", "httpapi"))+string(os.PathSeparator)] = struct{}{}
+	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "app", "listing", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #614 admits only the observations feature-local HTTP adapter.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "app", "storeobservations", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "product", "collection", "httpapi"))+string(os.PathSeparator)] = struct{}{}
@@ -3791,7 +3791,7 @@ func TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree(t
 	for _, tc := range []struct {
 		path string
 		want bool
-	}{{"authz/httpapi/route_authorization.go", true}, {"authz/authorization.go", false}, {"authz/httpapi_extra/other.go", false}, {"app/supplychain/httpapi/http_routes.go", true}, {"app/supplychain/operations.go", false}, {"app/supplychain/httpapi_extra/other.go", false}, {"product/collection/httpapi/handler.go", true}, {"product/collection/service.go", false}, {"product/collection/httpapi_extra/other.go", false}} {
+	}{{"authz/httpapi/route_authorization.go", true}, {"authz/authorization.go", false}, {"authz/httpapi_extra/other.go", false}, {"app/listing/httpapi/http_routes.go", true}, {"app/listing/operations.go", false}, {"app/listing/httpapi_extra/other.go", false}, {"product/collection/httpapi/handler.go", true}, {"product/collection/service.go", false}, {"product/collection/httpapi_extra/other.go", false}} {
 		if pathAllowed(filepath.Join(root, filepath.FromSlash(tc.path)), allowed) != tc.want {
 			t.Errorf("registration %s", tc.path)
 		}

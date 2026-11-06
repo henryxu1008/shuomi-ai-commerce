@@ -159,7 +159,7 @@ func amazonCaptureRoutes(service amazonCaptureService, bind func(context.Context
 			}
 			c.JSON(http.StatusOK, result)
 		}
-		permission, policy := authz.PermissionWorkbenchSupplyRead, httproute.OrganizationAccessPolicyCachedRead
+		permission, policy := authz.PermissionWorkbenchListingRead, httproute.OrganizationAccessPolicyCachedRead
 		if spec.action == "capture" {
 			permission, policy = authz.PermissionProductSourcingWrite, httproute.OrganizationAccessPolicyLiveWrite
 		}

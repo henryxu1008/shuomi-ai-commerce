@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/httproute"
 	record "task-processor/internal/listing/record/target"
 )
@@ -174,10 +174,10 @@ func TestMaterialsRouteAdmissionRequiresNormalSupplyAndAgent(t *testing.T) {
 func materialsApplicationTestRoutes(flags currentApplicationOptionalRoutes) []httproute.Descriptor {
 	routes := agentAndPointRoutes(flags.ProductAgent, false)
 	if flags.SupplyChain {
-		routes = append(routes, supplyhttp.SupplyRoutes(nil, nil)...)
+		routes = append(routes, listinghttp.ListingRoutes(nil, nil)...)
 	}
 	if flags.PrivateDraftTrial {
-		routes = append(routes, supplyhttp.PrivateDraftReadRoutes(nil, nil)...)
+		routes = append(routes, listinghttp.PrivateDraftReadRoutes(nil, nil)...)
 	}
 	if flags.SupplyChain && flags.ProductAgent {
 		routes = append(routes, listingMaterialsRoutes(nil, nil)...)

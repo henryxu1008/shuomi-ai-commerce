@@ -52,7 +52,7 @@ func (a amazonContextAuthority) Authorize(ctx context.Context, write bool) (coll
 	if err != nil {
 		return collection.Scope{}, err
 	}
-	allowed, err := authz.AuthorizeOrganization(ctx, a.permissions, scope.ActorID, scope.OrganizationID, roles, authz.PermissionWorkbenchSupplyRead)
+	allowed, err := authz.AuthorizeOrganization(ctx, a.permissions, scope.ActorID, scope.OrganizationID, roles, authz.PermissionWorkbenchListingRead)
 	if err != nil || !allowed {
 		return collection.Scope{}, sourcing.ErrPublicationForbidden
 	}

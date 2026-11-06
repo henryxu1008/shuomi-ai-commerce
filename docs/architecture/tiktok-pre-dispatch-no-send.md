@@ -25,10 +25,10 @@
 基于 PR #1031 设计前的生产代码核对：
 
 - [ExecutionKernel.Acquire](../../internal/listing/submission/execution_kernel_service.go) 提交 `claimed` 后直接把 `SendPermit` 交给调用者；[Kernel 状态合同](../../internal/listing/submission/execution_kernel.go)只允许 provider 结果终结已取得的 claim。
-- [TikTok stage](../../internal/app/supplychain/tiktok_upload.go)在取得 permit 后还会复核来源/资产/规则、取得授权 merchant、读取并核对图片字节、解析载荷；这些步骤未调用 mutation 也可能失败。当前统一记 UNKNOWN，target fence 不能再取得。
+- [TikTok stage](../../internal/app/listing/tiktok_upload.go)在取得 permit 后还会复核来源/资产/规则、取得授权 merchant、读取并核对图片字节、解析载荷；这些步骤未调用 mutation 也可能失败。当前统一记 UNKNOWN，target fence 不能再取得。
 - 直接增加 `Abort(claim)` 不足：若原调用者仍持有可用 permit，数据库释放后它可能迟到发送，与新尝试重复。没有结果/没有 request ID/进程已经消失都不是 no-send 证明。
 - 图片和 global-create 当前子键绑定 record/target，却不绑定外层 item command。若仅把失败写成永久 `not_sent`，即使外层换键也仍会回放同一子键，重试路径不能完成。
-- [Operation consumer](../../internal/app/supplychain/operations.go)遇到普通依赖错误会重试原 durable command；no-send 必须作为确定终结结果进入原 item receipt，不能只返回一个触发通用重试的 error。
+- [Operation consumer](../../internal/app/listing/operations.go)遇到普通依赖错误会重试原 durable command；no-send 必须作为确定终结结果进入原 item receipt，不能只返回一个触发通用重试的 error。
 
 因此最小改动同时需要：**一次性发送门禁、同库终止事实、明确新命令的子键与消费规则**。这是恢复合同改变，不能把它当作普通条件判断补丁。
 

@@ -10,9 +10,9 @@ import (
 	"task-processor/internal/agentconfig"
 	fulfillmentapp "task-processor/internal/app/fulfillment"
 	fulfillmentmodule "task-processor/internal/app/httpapi/fulfillment"
+	listingapp "task-processor/internal/app/listing"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	podhttp "task-processor/internal/app/pod/httpapi"
-	supplyapp "task-processor/internal/app/supplychain"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/pkg/appenv"
@@ -208,9 +208,9 @@ type currentApplicationOptions struct {
 	acquisitionPlans             int
 	sourceMaterials              int
 	sourceMaterialDB             *gorm.DB
-	supplyCompletionDrafts       int
-	supplyChains                 int
-	supplyChain                  *SupplyChainDependencies
+	listingCompletionDrafts      int
+	listings                     int
+	listing                      *ListingDependencies
 	supplyMarkets                int
 	supplyMarket                 *SupplyMarketDependencies
 	pods                         int
@@ -232,13 +232,13 @@ type currentApplicationOptions struct {
 	projectCenters               int
 }
 
-func (o currentApplicationOptions) supplyRouteFeatures() (full, trial bool) {
-	return o.supplyChains > 0, o.privateDraftTrials > 0
+func (o currentApplicationOptions) listingRouteFeatures() (full, trial bool) {
+	return o.listings > 0, o.privateDraftTrials > 0
 }
 
-func (o currentApplicationOptions) installSupplyWorker(module *supplyChainModule) {
-	if o.supplyChains > 0 && module != nil {
-		*o.supplyChain.Worker = module.worker
+func (o currentApplicationOptions) installListingWorker(module *listingModule) {
+	if o.listings > 0 && module != nil {
+		*o.listing.Worker = module.worker
 	}
 }
 
@@ -450,16 +450,16 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.acquisitionPlans > 1 || supplied.acquisitionPlans > 0 && (supplied.productCollections != 1 || supplied.productAcquisitions != 1 || supplied.productAcquisitionDB == nil || cfg.BrowserCollector.Endpoint == "" || cfg.BrowserCollector.Credential == "" || supplied.privateDraftTrials > 0) {
 		return nil, errors.New("acquisition plans require current Product Collections and public collector")
 	}
-	if supplied.supplyCompletionDrafts > 1 || supplied.supplyCompletionDrafts > 0 && (supplied.productCollections != 1 || supplied.productAcquisitions != 1 || supplied.productAcquisitionDB == nil || supplied.privateDraftTrials > 0 || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
+	if supplied.listingCompletionDrafts > 1 || supplied.listingCompletionDrafts > 0 && (supplied.productCollections != 1 || supplied.productAcquisitions != 1 || supplied.productAcquisitionDB == nil || supplied.privateDraftTrials > 0 || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
 		return nil, errors.New("completion drafts require current Product Collections and live authorization")
 	}
-	if supplied.privateDraftTrials > 1 || supplied.privateDraftTrials > 0 && (supplied.privateDraftTrial == nil || supplied.privateDraftTrial.Scope.Validate() != nil || !collection.ValidID(supplied.privateDraftTrial.StoreID) || supplied.supplyMarkets > 0 || supplied.pods > 0 || supplied.supplyChains > 0 || supplied.localTrials > 0 || supplied.officialStoreApplications != nil || supplied.productAgents > 0 || supplied.imageAgents > 0 || supplied.agentCustomizations != 1 || supplied.productCollections != 1 || supplied.storeCenters != 1 || supplied.productAcquisitionDB == nil) {
+	if supplied.privateDraftTrials > 1 || supplied.privateDraftTrials > 0 && (supplied.privateDraftTrial == nil || supplied.privateDraftTrial.Scope.Validate() != nil || !collection.ValidID(supplied.privateDraftTrial.StoreID) || supplied.supplyMarkets > 0 || supplied.pods > 0 || supplied.listings > 0 || supplied.localTrials > 0 || supplied.officialStoreApplications != nil || supplied.productAgents > 0 || supplied.imageAgents > 0 || supplied.agentCustomizations != 1 || supplied.productCollections != 1 || supplied.storeCenters != 1 || supplied.productAcquisitionDB == nil) {
 		return nil, errors.New("private draft trial assembly not admitted")
 	}
-	if supplied.sourceMaterials > 1 || supplied.sourceMaterials > 0 && (supplied.sourceMaterialDB == nil || supplied.sourceMaterialDB == supplied.productAcquisitionDB || supplied.productCollections != 1 || supplied.acquisitionPlans != 1 || supplied.privateDraftTrials > 0 || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" || supplied.supplyChain != nil && supplied.supplyChain.AssetDB != supplied.sourceMaterialDB) {
+	if supplied.sourceMaterials > 1 || supplied.sourceMaterials > 0 && (supplied.sourceMaterialDB == nil || supplied.sourceMaterialDB == supplied.productAcquisitionDB || supplied.productCollections != 1 || supplied.acquisitionPlans != 1 || supplied.privateDraftTrials > 0 || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" || supplied.listing != nil && supplied.listing.AssetDB != supplied.sourceMaterialDB) {
 		return nil, errors.New("source materials require one current Preparation and independent canonical Asset owner")
 	}
-	if supplied.supplyChains > 1 || supplied.supplyChains > 0 && (supplied.supplyChain == nil || supplied.supplyChain.AssetDB == nil || supplied.supplyChain.Starter == nil || supplied.supplyChain.NewWorker == nil || supplied.supplyChain.Worker == nil || supplied.productCollections != 1 || supplied.productAcquisitionDB == nil || supplied.storeCenters != 1 || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
+	if supplied.listings > 1 || supplied.listings > 0 && (supplied.listing == nil || supplied.listing.AssetDB == nil || supplied.listing.Starter == nil || supplied.listing.NewWorker == nil || supplied.listing.Worker == nil || supplied.productCollections != 1 || supplied.productAcquisitionDB == nil || supplied.storeCenters != 1 || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
 		return nil, errors.New("supply chain requires current Product, Store, Asset and workflow owners")
 	}
 	if supplied.localTrials > 0 {
@@ -498,7 +498,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		return nil, errors.New("tool market dependencies unavailable or supplied more than once")
 	}
 	if supplied.ecoservices != nil {
-		if supplied.supplyChain != nil && supplied.ecoservices.DB == supplied.supplyChain.AssetDB {
+		if supplied.listing != nil && supplied.ecoservices.DB == supplied.listing.AssetDB {
 			return nil, errors.New("ecoservices requires its independent owner pool")
 		}
 		for _, existing := range []*gorm.DB{sourceAccountDB, supplied.commercialOwnerDB, supplied.moneyOwnerDB, supplied.referralDB, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.storeCenterDB, supplied.localTrialDB, supplied.agentConfigurationDB, supplied.notificationDB} {
@@ -546,7 +546,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.imageAgents > 0 && (supplied.imageAgentDB == nil || (supplied.fullImages == nil || cfg.ImageAgent.Generation.Enabled) && supplied.imageAgentWorkflows == nil || supplied.productAcquisitionDB == nil || supplied.imageAgentDB == sourceAccountDB || supplied.imageAgentDB == supplied.productAcquisitionDB || supplied.imageAgentDB == supplied.commercialOwnerDB || supplied.imageAgentDB == supplied.referralDB) {
 		return nil, errors.New("acquisition image agent requires its owner pool, organization workflow, and product acquisition pool")
 	}
-	if d := supplied.fullImages; d != nil && (d.AssetDB == nil || d.AssetDB == supplied.imageAgentDB || d.AssetDB == d.WorkerDB || d.AssetDB == supplied.productAcquisitionDB || d.AssetDB == sourceAccountDB || d.AssetDB == supplied.commercialOwnerDB || cfg.ImageAgent.Generation.Enabled && (d.WorkerDB == nil || d.WorkerDB == supplied.imageAgentDB || d.WorkerConfig == nil || d.Client == nil || d.Worker == nil) || supplied.agentConfigurationDB == nil || supplied.commercialOwnerDB == nil || factories.buildAcquisitionImage != nil || supplied.supplyChain != nil && supplied.supplyChain.AssetDB != d.AssetDB) {
+	if d := supplied.fullImages; d != nil && (d.AssetDB == nil || d.AssetDB == supplied.imageAgentDB || d.AssetDB == d.WorkerDB || d.AssetDB == supplied.productAcquisitionDB || d.AssetDB == sourceAccountDB || d.AssetDB == supplied.commercialOwnerDB || cfg.ImageAgent.Generation.Enabled && (d.WorkerDB == nil || d.WorkerDB == supplied.imageAgentDB || d.WorkerConfig == nil || d.Client == nil || d.Worker == nil) || supplied.agentConfigurationDB == nil || supplied.commercialOwnerDB == nil || factories.buildAcquisitionImage != nil || supplied.listing != nil && supplied.listing.AssetDB != d.AssetDB) {
 		return nil, errors.New("full image application requires all current owner ports and an explicit worker")
 	}
 	if supplied.referralDB != nil && (supplied.referralDB == sourceAccountDB || supplied.referralDB == supplied.productAcquisitionDB) {
@@ -595,7 +595,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if err != nil {
 				return nil, err
 			}
-			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
+			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		}
 	}
 	if supplied.browserCaptures > 1 {
@@ -610,7 +610,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		browserDB := supplied.productAcquisitionDB
 		factories.buildBrowserCapture = func(authorizer *authz.ListingKitAuthorizer, dependencies routeAuthDependencies) (kernelmodule.Module, error) {
-			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
+			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		}
 	}
 	if supplied.imageAgents > 0 && supplied.fullImages == nil {
@@ -897,7 +897,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			}
 			supplied.collectionSourceMedia.Capacity = &storagecapacity.Meter{Writer: capacity, Namespace: ns}
 		}
-		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
+		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if err != nil {
 			return nil, fmt.Errorf("build current product collections: %w", err)
 		}
@@ -924,7 +924,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 	}
-	var supplyRuntime *supplyChainModule
+	var supplyRuntime *listingModule
 	var imageRuntime *fullImageApplication
 	var imageAnalysisRuntime *imageAnalysisApplication
 	var marketRuntime *supplyMarketModule
@@ -946,7 +946,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
 	}
 	if supplied.supplyMarket != nil {
-		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
+		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply market: %w", e)
 		}
@@ -1002,15 +1002,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, productSelectionModule{app: selectionRuntime})
 	}
-	if supplied.supplyChain != nil {
-		module, e := buildSupplyChainModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.supplyChain, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0)
+	if supplied.listing != nil {
+		module, e := buildListingModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.listing, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply chain: %w", e)
 		}
 		modules = append(modules, module)
 		supplyRuntime = &module
 	}
-	if supplied.supplyChain != nil && productRuntime != nil {
+	if supplied.listing != nil && productRuntime != nil {
 		materials, e := buildListingMaterialsApplication(ctx, productRuntime, supplyRuntime.app)
 		if e != nil {
 			return nil, fmt.Errorf("build current listing materials agent: %w", e)
@@ -1029,7 +1029,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	var sourceMaterialsRuntime *sourceMaterialsModule
 	if supplied.sourceMaterials > 0 {
-		var full *supplyapp.Application
+		var full *listingapp.Application
 		if supplyRuntime != nil {
 			full = supplyRuntime.app
 		}
@@ -1041,8 +1041,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		sourceMaterialsRuntime = &module
 	}
 	var completionRuntime *completionDraftModule
-	if supplied.supplyCompletionDrafts > 0 {
-		var full *supplyapp.Application
+	if supplied.listingCompletionDrafts > 0 {
+		var full *listingapp.Application
 		if supplyRuntime != nil {
 			full = supplyRuntime.app
 		} else if sourceMaterialsRuntime != nil {
@@ -1063,7 +1063,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if !ok {
 			return nil, sourcing.ErrAcquisitionUnavailable
 		}
-		var full *supplyapp.Application
+		var full *listingapp.Application
 		if supplyRuntime != nil {
 			full = supplyRuntime.app
 		} else if completionRuntime != nil {
@@ -1087,7 +1087,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, module)
 	}
 	if supplied.reportCenterDB != nil {
-		var targetReader *supplyapp.Application
+		var targetReader *listingapp.Application
 		if supplied.sheinTargetReportSources > 0 && supplyRuntime != nil {
 			targetReader = supplyRuntime.app
 		}
@@ -1146,7 +1146,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-		var analysisSupply *supplyapp.Application
+		var analysisSupply *listingapp.Application
 		if completionRuntime != nil {
 			analysisSupply = completionRuntime.app
 		} else if sourceMaterialsRuntime != nil {
@@ -1283,7 +1283,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		return nil, errors.New("amazon capture requires Product pool and Collection capability")
 	}
 	if supplied.amazonBrowserCaptures == 1 {
-		capabilities, _, err := collectionAcquisitionOptions([]bool{true, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0, supplied.offlineRecords > 0})
+		capabilities, _, err := collectionAcquisitionOptions([]bool{true, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0})
 		if err != nil {
 			return nil, err
 		}
@@ -1386,7 +1386,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if err != nil {
 		return nil, err
 	}
-	fullSupply, privateDraftTrial := supplied.supplyRouteFeatures()
+	fullListing, privateDraftTrial := supplied.listingRouteFeatures()
 	routeFeatures := currentApplicationOptionalRoutes{
 		StorageCapacity:      cfg.StorageCapacity,
 		AmazonBrowserCapture: supplied.amazonBrowserCaptures == 1,
@@ -1398,10 +1398,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		ToolMarket:           supplied.toolMarket != nil,
 		DataServices:         supplied.dataServices != nil,
 		Ecoservices:          supplied.ecoservices != nil,
-		SupplyChain:          fullSupply,
+		SupplyChain:          fullListing,
 		SourceMaterials:      supplied.sourceMaterials > 0,
 		AcquisitionPlans:     supplied.acquisitionPlans > 0,
-		CompletionDrafts:     supplied.supplyCompletionDrafts > 0,
+		CompletionDrafts:     supplied.listingCompletionDrafts > 0,
 		SupplyMarket:         supplied.supplyMarkets > 0,
 		POD:                  supplied.pods > 0,
 		Collections:          supplied.productCollections > 0,
@@ -1451,7 +1451,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		startCommercialRecoveryLoop(runtimeContext, server, ecoservicesRecovery, 15*time.Second, "ecoservices original commands", logger)
 	}
-	supplied.installSupplyWorker(supplyRuntime)
+	supplied.installListingWorker(supplyRuntime)
 	if marketRuntime != nil && supplied.pod != nil {
 		*supplied.pod.Worker = marketRuntime.worker
 	}
@@ -1608,12 +1608,12 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 	}
 	if optional.PrivateDraftTrial {
-		for _, r := range supplyhttp.PrivateDraftReadRoutes(nil, nil) {
+		for _, r := range listinghttp.PrivateDraftReadRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
 	if optional.SupplyChain {
-		for _, r := range supplyhttp.SupplyRoutes(nil, nil) {
+		for _, r := range listinghttp.ListingRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1621,7 +1621,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if !optional.Collections || !optional.AcquisitionPlans || optional.PrivateDraftTrial {
 			return errors.New("source materials require normal current Preparation")
 		}
-		for _, r := range supplyhttp.SourceMaterialRoutes(nil, nil) {
+		for _, r := range listinghttp.SourceMaterialRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1634,11 +1634,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if !optional.Collections || optional.PrivateDraftTrial {
 			return errors.New("completion drafts require current collections and exclude synthetic trial")
 		}
-		for _, r := range supplyhttp.CompletionDraftRoutes(nil, nil) {
+		for _, r := range listinghttp.CompletionDraftRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 		if !optional.SupplyChain && !optional.AcquisitionPlans {
-			for _, r := range supplyhttp.PreparationRoutes(nil, nil) {
+			for _, r := range listinghttp.PreparationRoutes(nil, nil) {
 				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 			}
 		}
@@ -1648,7 +1648,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 		if !optional.SupplyChain {
-			for _, r := range supplyhttp.PreparationRoutes(nil, nil) {
+			for _, r := range listinghttp.PreparationRoutes(nil, nil) {
 				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 			}
 		}
@@ -1984,7 +1984,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return err
 			}
 		}
-		if (descriptor.Path == supplyhttp.SupplyBasePath || strings.HasPrefix(descriptor.Path, supplyhttp.SupplyBasePath+"/")) && !strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
+		if (descriptor.Path == listinghttp.ListingBasePath || strings.HasPrefix(descriptor.Path, listinghttp.ListingBasePath+"/")) && !strings.HasPrefix(descriptor.Path, listingImageSetBase) {
 			if strings.HasPrefix(descriptor.Path, listingMaterialsBase+"/") {
 				if !optional.SupplyChain || !optional.ProductAgent || optional.PrivateDraftTrial {
 					return errors.New("listing materials requires normal supply and product agent owners")
@@ -1994,19 +1994,19 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				}
 				continue
 			}
-			if supplyhttp.IsCompletionDraftRoute(descriptor.Method, descriptor.Path) {
+			if listinghttp.IsCompletionDraftRoute(descriptor.Method, descriptor.Path) {
 				if !optional.CompletionDrafts {
 					return errors.New("completion drafts not admitted")
 				}
-				if e := supplyhttp.ValidateCompletionDraftDescriptor(descriptor); e != nil {
+				if e := listinghttp.ValidateCompletionDraftDescriptor(descriptor); e != nil {
 					return e
 				}
 				continue
 			}
-			if !optional.SupplyChain && !(optional.SourceMaterials && supplyhttp.IsSourceMaterialRoute(descriptor.Method, descriptor.Path)) && (!(optional.AcquisitionPlans || optional.CompletionDrafts) || !supplyhttp.IsPreparationRoute(descriptor.Method, descriptor.Path)) && (!optional.PrivateDraftTrial || !supplyhttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) {
+			if !optional.SupplyChain && !(optional.SourceMaterials && listinghttp.IsSourceMaterialRoute(descriptor.Method, descriptor.Path)) && (!(optional.AcquisitionPlans || optional.CompletionDrafts) || !listinghttp.IsPreparationRoute(descriptor.Method, descriptor.Path)) && (!optional.PrivateDraftTrial || !listinghttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) {
 				return errors.New("supply chain feature not admitted")
 			}
-			if e := validateSupplyDescriptor(descriptor); e != nil {
+			if e := validateListingDescriptor(descriptor); e != nil {
 				return e
 			}
 		}
@@ -2096,11 +2096,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("POD artwork route loses exact live permission boundary")
 			}
 		}
-		if strings.HasPrefix(descriptor.Path, acquisitionImageSetBase) || strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
+		if strings.HasPrefix(descriptor.Path, acquisitionImageSetBase) || strings.HasPrefix(descriptor.Path, listingImageSetBase) {
 			if !optional.FullImageSet {
 				return errors.New("full image application not admitted")
 			}
-			readPermission := descriptor.Method == http.MethodGet || descriptor.Method == http.MethodPost && (descriptor.Path == acquisitionImageSetBase+"/requirements" || descriptor.Path == supplyImageSetBase+"/requirements")
+			readPermission := descriptor.Method == http.MethodGet || descriptor.Method == http.MethodPost && (descriptor.Path == acquisitionImageSetBase+"/requirements" || descriptor.Path == listingImageSetBase+"/requirements")
 			if descriptor.Module != "product-image-set" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.RequestTimeout != 30*time.Second || descriptor.Permission != map[bool]string{true: authz.PermissionImageAgentRead, false: authz.PermissionImageAgentWrite}[readPermission] {
 				return errors.New("full image route loses live permission boundary")
 			}

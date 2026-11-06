@@ -60,8 +60,8 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 	}
 	if !human {
 		var roles []string
-		if supplyAgentContext(ctx) {
-			current, e := a.supplyExecution.current(ctx)
+		if listingAgentContext(ctx) {
+			current, e := a.listingExecution.current(ctx)
 			if e != nil {
 				return proof, e
 			}
@@ -168,7 +168,7 @@ func (a *productAgentApplication) finishTitleCandidate(ctx context.Context, run 
 	}
 	var view review.View
 	policy := a.policyAdoption
-	if supplyAgentContext(ctx) {
+	if listingAgentContext(ctx) {
 		view, err = a.executionReviews.CreateFromCandidate(ctx, "agent:"+run.State.RunID, input)
 		policy = a.executionPolicyAdoption
 	} else {
@@ -195,7 +195,7 @@ func (a *productAgentApplication) finishTitleCandidate(ctx context.Context, run 
 }
 
 func (a *productAgentApplication) currentModeIdentity(ctx context.Context) (agent.ExecutionIdentity, error) {
-	if supplyAgentContext(ctx) {
+	if listingAgentContext(ctx) {
 		return a.resolveExecutionIdentity(ctx)
 	}
 	current, err := a.freshIdentity(ctx)

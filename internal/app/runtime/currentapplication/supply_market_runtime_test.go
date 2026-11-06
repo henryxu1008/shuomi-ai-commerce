@@ -65,14 +65,14 @@ func TestPODRuntimeAssemblyFailureClosesCanonicalPools(t *testing.T) {
 				OpenSourceAccount:      func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
 				OpenProductAcquisition: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return product, nil },
 				OpenCommercialOwner:    func(context.Context, DatabaseConfig) (*gorm.DB, error) { return owner, nil },
-				OpenSupplyAssets:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
+				OpenApprovedAssets:     func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
 				OpenAgentCustomization: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
 				OpenReportCenter:       func(context.Context, DatabaseConfig) (*gorm.DB, error) { return assets, nil },
 				NewMarketStorage: func(context.Context, *SupplyMarketConfig) (supplymarket.PrivateFileStorage, error) {
 					return marketTestStorage{}, nil
 				},
 				PreparePOD: func(context.Context, *PODConfig) (sds.CredentialSource, error) { return podTestCredentials{}, nil },
-				DialSupplyWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
+				DialProductWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
 					return workflow, func() error { closed++; return nil }, nil
 				},
 				CloseDatabase: func(db *gorm.DB) error { pools = append(pools, db); return nil },

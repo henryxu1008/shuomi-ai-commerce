@@ -2,7 +2,7 @@ package podapp
 
 import (
 	"context"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authidentity"
 	podstore "task-processor/internal/integration/persistence/product/pod"
 	"task-processor/internal/integration/sds"
@@ -299,7 +299,7 @@ func (s *Service) Artwork(ctx context.Context, id string) (ArtworkChoice, error)
 		return ArtworkChoice{}, e
 	}
 	choice := ArtworkChoice{Item: input, Selection: asset.SourceSelectionRequest{ItemID: id, OriginalPublicationID: input.Source.PublicationID, OriginalSnapshotVersion: input.Source.Version, EffectiveCatalogVersion: input.Source.Version, TargetPlatform: "sds"}, Images: []ArtworkOption{}}
-	images := supplyapp.SourceImages(original)
+	images := listingapp.SourceImages(original)
 	if len(images) > 256 {
 		return choice, pod.ErrUnavailable
 	}

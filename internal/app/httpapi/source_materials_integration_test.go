@@ -16,7 +16,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	prepstore "task-processor/internal/integration/persistence/listing/preparation"
@@ -187,9 +187,9 @@ func TestSourceMaterialsMountedClosureUsesOriginalSourceAndIndependentAssetOwner
 		require.NotEmpty(t, detail.Product.Sources)
 	}
 	var transfer preparation.TransferReceipt
-	require.NoError(t, json.Unmarshal(call("POST", supplyhttp.SupplyBasePath+"/transfer", "operator", "B", uuid.NewString(), collection.BatchSelectionInput{BatchID: item.BatchID, ExpectedRevision: item.Revision, ItemIDs: []string{item.ID}}, 200), &transfer))
+	require.NoError(t, json.Unmarshal(call("POST", listinghttp.ListingBasePath+"/transfer", "operator", "B", uuid.NewString(), collection.BatchSelectionInput{BatchID: item.BatchID, ExpectedRevision: item.Revision, ItemIDs: []string{item.ID}}, 200), &transfer))
 	var sources collection.Page[preparation.SourceItem]
-	require.NoError(t, json.Unmarshal(call("GET", supplyhttp.SupplyBasePath+"/"+transfer.Preparation.ID+"/sources", "operator", "B", "", nil, 200), &sources))
+	require.NoError(t, json.Unmarshal(call("GET", listinghttp.ListingBasePath+"/"+transfer.Preparation.ID+"/sources", "operator", "B", "", nil, 200), &sources))
 	require.Len(t, sources.Items, 1)
 	id := sources.Items[0].ID
 	var detail struct {
@@ -197,9 +197,9 @@ func TestSourceMaterialsMountedClosureUsesOriginalSourceAndIndependentAssetOwner
 			ID string `json:"id"`
 		} `json:"images"`
 	}
-	require.NoError(t, json.Unmarshal(call("GET", supplyhttp.SupplyBasePath+"/sources/"+id, "operator", "B", "", nil, 200), &detail))
+	require.NoError(t, json.Unmarshal(call("GET", listinghttp.ListingBasePath+"/sources/"+id, "operator", "B", "", nil, 200), &detail))
 	require.NotEmpty(t, detail.Images)
-	path := supplyhttp.SupplyBasePath + "/sources/" + id + "/product-inputs"
+	path := listinghttp.ListingBasePath + "/sources/" + id + "/product-inputs"
 	var before struct {
 		Inputs readinessinspect.Output `json:"inputs"`
 	}
@@ -210,7 +210,7 @@ func TestSourceMaterialsMountedClosureUsesOriginalSourceAndIndependentAssetOwner
 	selection := sourceMaterialSelectionWire{SourceSelectionRequest: asset.SourceSelectionRequest{ItemID: id, OriginalPublicationID: saved.PublicationID, TargetPlatform: "product"}, OriginalSnapshotVersion: saved.CatalogVersion, EffectiveCatalogVersion: saved.CatalogVersion}
 	command := sourceMaterialApprovalWire{SourceApprovalCommand: asset.SourceApprovalCommand{Images: []asset.SourceImageChoice{{ID: detail.Images[0].ID, Role: asset.RoleMain}}, Approved: []asset.ApprovedImageChoice{}}, Selection: selection}
 	key := uuid.NewString()
-	first := call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", key, command, 200)
+	first := call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", key, command, 200)
 	commits, err := assetstore.NewBoundedApprovalCommitReader(assets, 2<<20)
 	require.NoError(t, err)
 	stored, err := commits.ReadApprovalCommit(ctx, "B", key)
@@ -220,7 +220,7 @@ func TestSourceMaterialsMountedClosureUsesOriginalSourceAndIndependentAssetOwner
 	server = open() // original action replays across HTTP application restart.
 	var receipt, replay asset.ApprovalReceipt
 	require.NoError(t, json.Unmarshal(first, &receipt))
-	require.NoError(t, json.Unmarshal(call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", key, command, 200), &replay))
+	require.NoError(t, json.Unmarshal(call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", key, command, 200), &replay))
 	require.Equal(t, receipt, replay)
 	var after struct {
 		Inputs readinessinspect.Output `json:"inputs"`
@@ -235,21 +235,21 @@ func TestSourceMaterialsMountedClosureUsesOriginalSourceAndIndependentAssetOwner
 		require.Contains(t, after.Inputs.Reasons, "source_review_required")
 	}
 	command.Images[0].Role = asset.RoleGallery
-	call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", key, command, 409)
-	call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 200)
+	call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", key, command, 409)
+	call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 200)
 	command.Images[0].Role = asset.RoleMain
-	call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", key, command, 200)
+	call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", key, command, 200)
 	var current struct {
 		Assets []asset.ApprovedAsset `json:"assets"`
 	}
-	require.NoError(t, json.Unmarshal(call("POST", supplyhttp.SupplyBasePath+"/images/inventory", "operator", "B", "", selection, 200), &current))
+	require.NoError(t, json.Unmarshal(call("POST", listinghttp.ListingBasePath+"/images/inventory", "operator", "B", "", selection, 200), &current))
 	require.Len(t, current.Assets, 1)
 	require.Equal(t, asset.RoleGallery, current.Assets[0].Role, "old action replay must not rewind the later inventory head")
 	command.Approved = []asset.ApprovedImageChoice{{ActionID: "other", AssetID: "borrowed"}}
-	call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 400)
+	call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 400)
 	command.Approved = nil
 	command.Selection.EffectiveCatalogVersion = "2"
-	call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 409)
+	call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 409)
 	command.Selection.EffectiveCatalogVersion = selection.EffectiveCatalogVersion
 	for _, actorOrg := range [][2]string{{"operator2", "B"}, {"operator", "A"}} {
 		call("GET", path, actorOrg[0], actorOrg[1], "", nil, 404)
@@ -260,10 +260,10 @@ func TestSourceMaterialsMountedClosureUsesOriginalSourceAndIndependentAssetOwner
 	call("GET", path, "operator", "B", "", map[string]string{"productKey": saved.ProductKey}, 400)
 	for _, target := range []string{"shein", "temu"} {
 		command.Selection.TargetPlatform = target
-		call("POST", supplyhttp.SupplyBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 409)
+		call("POST", listinghttp.ListingBasePath+"/images/approve", "operator", "B", uuid.NewString(), command, 409)
 	}
 	for _, endpoint := range []string{"targets", "operations", "uploads/resolve"} {
-		call("POST", supplyhttp.SupplyBasePath+"/"+endpoint, "operator", "B", uuid.NewString(), map[string]string{}, 404)
+		call("POST", listinghttp.ListingBasePath+"/"+endpoint, "operator", "B", uuid.NewString(), map[string]string{}, 404)
 	}
 	f.grants.failed.Store(true)
 	call("GET", path, "operator", "B", "", nil, 503)

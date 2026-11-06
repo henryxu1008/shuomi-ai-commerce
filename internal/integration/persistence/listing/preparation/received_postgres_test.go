@@ -63,13 +63,13 @@ func TestPostgresTransferReceivedProductsRetainsKindsAndRejectsBlankTemplates(t 
 			for _, candidate := range visible.Items {
 				if candidate.ID == batch {
 					found = true
-					require.Equal(t, collection.SupplyTransferKind(kind), candidate.SupplyTransferSupported, kind)
+					require.Equal(t, collection.ListingTransferKind(kind), candidate.ListingTransferSupported, kind)
 				}
 			}
 			require.True(t, found)
 			input := preparation.TransferInput{BatchID: batch, ExpectedRevision: 1}
 			r, e := service.Transfer(actor, key, input)
-			if !collection.SupplyTransferKind(kind) {
+			if !collection.ListingTransferKind(kind) {
 				require.ErrorIs(t, e, preparation.ErrInvalid)
 				var n int64
 				require.NoError(t, db.Table("listing_preparations").Where("command_key=?", key).Count(&n).Error)

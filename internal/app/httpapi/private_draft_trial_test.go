@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/stretchr/testify/require"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	podhttp "task-processor/internal/app/pod/httpapi"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	"task-processor/internal/httproute"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
@@ -23,15 +23,15 @@ func TestPrivateDraftTrialOnlyAdmitsSelectionReads(t *testing.T) {
 	}
 	var supplied currentApplicationOptions
 	WithPrivateDraftTrial(PrivateDraftTrialDependencies{})(&supplied)
-	fullSupply, trial := supplied.supplyRouteFeatures()
-	reads := supplyhttp.PrivateDraftReadRoutes(nil, nil)
+	fullListing, trial := supplied.listingRouteFeatures()
+	reads := listinghttp.PrivateDraftReadRoutes(nil, nil)
 	require.Len(t, reads, 7)
 	check := func(routes []httproute.Descriptor) error {
-		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{PrivateDraftTrial: trial, SupplyChain: fullSupply})
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{PrivateDraftTrial: trial, SupplyChain: fullListing})
 	}
 	require.NoError(t, check(append(append([]httproute.Descriptor{}, base...), reads...)))
-	for _, r := range supplyhttp.SupplyRoutes(nil, nil) {
-		if !supplyhttp.IsPrivateDraftReadRoute(r.Method, r.Path) {
+	for _, r := range listinghttp.ListingRoutes(nil, nil) {
+		if !listinghttp.IsPrivateDraftReadRoute(r.Method, r.Path) {
 			require.Error(t, check(append(append([]httproute.Descriptor{}, base...), r)))
 		}
 	}
@@ -45,7 +45,7 @@ func TestPrivateDraftTrialOnlyAdmitsSelectionReads(t *testing.T) {
 func TestPrivateDraftTrialDoesNotInstallExecutionWorker(t *testing.T) {
 	var supplied currentApplicationOptions
 	WithPrivateDraftTrial(PrivateDraftTrialDependencies{})(&supplied)
-	require.NotPanics(t, func() { supplied.installSupplyWorker(&supplyChainModule{}) })
+	require.NotPanics(t, func() { supplied.installListingWorker(&listingModule{}) })
 }
 
 func TestPrivateDraftTrialDoesNotAdmitMarketPODServices(t *testing.T) {
@@ -54,7 +54,7 @@ func TestPrivateDraftTrialDoesNotAdmitMarketPODServices(t *testing.T) {
 		base = append(base, httproute.Descriptor{Method: r.Method, Path: r.Path})
 	}
 	for _, pod := range []bool{false, true} {
-		routes := append(append([]httproute.Descriptor{}, base...), supplyhttp.PrivateDraftReadRoutes(nil, nil)...)
+		routes := append(append([]httproute.Descriptor{}, base...), listinghttp.PrivateDraftReadRoutes(nil, nil)...)
 		routes = append(routes, markethttp.Routes(nil, nil, nil)...)
 		if pod {
 			routes = append(routes, podhttp.Routes(nil, nil)...)

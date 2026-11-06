@@ -74,8 +74,8 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		}
 		return route, err
 	}, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
-		if supplyAgentContext(ctx) {
-			return a.authorizeSupplyModel(ctx, input.OrganizationID, input.ActorID, input.MemberID)
+		if listingAgentContext(ctx) {
+			return a.authorizeListingModel(ctx, input.OrganizationID, input.ActorID, input.MemberID)
 		}
 		identity, err := a.freshIdentity(ctx)
 		if err != nil || identity.TenantID != input.OrganizationID || identity.UserID != input.ActorID || identity.EffectiveMemberID != input.MemberID {
@@ -123,7 +123,7 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		}
 	}
 	validator := contentagent.Validator{Authorization: a, Configuration: a.configuration, Identity: a.currentModeIdentity, Observed: contentCandidateEvidenceObserved, Review: func(ctx context.Context, input review.ContentValidationInput) (reviewproposal.Proposal, error) {
-		if supplyAgentContext(ctx) {
+		if listingAgentContext(ctx) {
 			if a.executionReviews == nil {
 				return reviewproposal.Proposal{}, agent.ErrUnavailable
 			}

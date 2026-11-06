@@ -330,7 +330,7 @@ Reuse Existing Architecture / Ready。Figma 待审核 frame 2738:359 的批量�
 
 ### 当前 adapter 落点修正（独立检查 IMPLEMENTATION_READY，2026-10-09）
 
-当前 official UoW 位于 `internal/integration/persistence/listing/official`，复用纯 Submission persistence 的 transaction finalizer，原表、锁身份、Product DB 事务与唯一 UNKNOWN owner 不变。Preparation/Target persistence 只准入对应领域端口；官方 SHEIN transport 仅三个 official 文件消费确定性 goods/model。Supply HTTP 在 `internal/app/supplychain/httpapi`，Temporal workflow/starter/worker factory 在 `internal/app/runtime/supplychain`，HTTP 只注入无 SDK 的 starter/lifecycle/factory。
+当前 official UoW 位于 `internal/integration/persistence/listing/official`，复用纯 Submission persistence 的 transaction finalizer，原表、锁身份、Product DB 事务与唯一 UNKNOWN owner 不变。Preparation/Target persistence 只准入对应领域端口；官方 SHEIN transport 仅三个 official 文件消费确定性 goods/model。Supply HTTP 在 `internal/app/listing/httpapi`，Temporal workflow/starter/worker factory 在 `internal/app/runtime/listingoperation`，HTTP 只注入无 SDK 的 starter/lifecycle/factory。
 
 Legacy decision: EXTRACT。Reusable behavior: 现有 httpimage public HTTPS/SSRF/content helper；Current owner: 已登记 CURRENT leaf；Cutover/deletion condition: 旧 ProductImage adapter 无新增调用，保留原 legacy ceiling=8。新增精确 consumer 文件/API 使用 Issue398 现有全源码准入模式；不开放目录、ProductImage provider 或 sibling API。独立检查分类为 IMPLEMENTATION_TEST，必需 guard 不放宽。来源存储实际 constructor 绑定当前 logger，不以库存登记替代真实接线。
 

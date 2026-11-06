@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 	"task-processor/internal/agentconfig"
+	listingapp "task-processor/internal/app/listing"
 	podapp "task-processor/internal/app/pod"
 	podhttp "task-processor/internal/app/pod/httpapi"
 	"task-processor/internal/app/productsourcing"
-	supplyapp "task-processor/internal/app/supplychain"
 	marketapp "task-processor/internal/app/supplymarket"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
@@ -69,16 +69,16 @@ func (s supplyMarketModule) Register(r *kernelmodule.Registry) error {
 	return nil
 }
 
-func buildSupplyMarketModule(ctx context.Context, db *gorm.DB, d SupplyMarketDependencies, p *PODDependencies, deps routeAuthDependencies, a *authz.ListingKitAuthorizer, cfg *config.Config, supplyChain ...bool) (supplyMarketModule, error) {
+func buildSupplyMarketModule(ctx context.Context, db *gorm.DB, d SupplyMarketDependencies, p *PODDependencies, deps routeAuthDependencies, a *authz.ListingKitAuthorizer, cfg *config.Config, listing ...bool) (supplyMarketModule, error) {
 	var empty supplyMarketModule
 	resolver, ok := deps.organizationResolver.(*workbenchcontext.Resolver)
 	if !ok || resolver == nil || db == nil || d.Storage == nil || a == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
 		return empty, supplymarket.ErrUnavailable
 	}
-	if len(supplyChain) > 5 {
+	if len(listing) > 5 {
 		return empty, supplymarket.ErrUnavailable
 	}
-	collections, e := buildProductCollectionService(ctx, db, deps, a, len(supplyChain) >= 1 && supplyChain[0], true, p != nil, len(supplyChain) >= 2 && supplyChain[1], len(supplyChain) >= 3 && supplyChain[2], len(supplyChain) >= 4 && supplyChain[3], len(supplyChain) >= 5 && supplyChain[4])
+	collections, e := buildProductCollectionService(ctx, db, deps, a, len(listing) >= 1 && listing[0], true, p != nil, len(listing) >= 2 && listing[1], len(listing) >= 3 && listing[2], len(listing) >= 4 && listing[3], len(listing) >= 5 && listing[4])
 	if e != nil {
 		return empty, e
 	}
@@ -86,7 +86,7 @@ func buildSupplyMarketModule(ctx context.Context, db *gorm.DB, d SupplyMarketDep
 	if e != nil {
 		return empty, e
 	}
-	original := supplyapp.OrganizationExecutionAuthorizer{Client: zitadel.NewAuthorizationClient(cfg.ListingKit.Zitadel.AuthorizationAPIURL, &http.Client{Timeout: 5 * time.Second}), ServiceToken: func(context.Context) (string, error) { return cfg.ListingKit.Zitadel.TenantDirectoryToken, nil }, ProjectID: cfg.ListingKit.Zitadel.ProjectID, Permissions: a, OrganizationStatus: resolver.BusinessStatusChecker()}
+	original := listingapp.OrganizationExecutionAuthorizer{Client: zitadel.NewAuthorizationClient(cfg.ListingKit.Zitadel.AuthorizationAPIURL, &http.Client{Timeout: 5 * time.Second}), ServiceToken: func(context.Context) (string, error) { return cfg.ListingKit.Zitadel.TenantDirectoryToken, nil }, ProjectID: cfg.ListingKit.Zitadel.ProjectID, Permissions: a, OrganizationStatus: resolver.BusinessStatusChecker()}
 	app, e := marketapp.NewApplication(ctx, marketapp.Dependencies{ProductDB: db, Authorization: auth, OriginalAuthorization: original, Collections: collections, PrivateStorage: d.Storage, Receiver: func(tx *gorm.DB) (marketstore.Receiver, error) { return productsourcing.NewMarketReceiver(tx, auth) }})
 	if e != nil {
 		return empty, e

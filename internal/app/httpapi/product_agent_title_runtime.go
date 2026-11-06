@@ -73,8 +73,8 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 		if err := a.authorizeTitlePilotDispatch(ctx, in); err != nil {
 			return err
 		}
-		if supplyAgentContext(ctx) {
-			return a.authorizeSupplyModel(ctx, in.OrganizationID, in.ActorID, in.MemberID)
+		if listingAgentContext(ctx) {
+			return a.authorizeListingModel(ctx, in.OrganizationID, in.ActorID, in.MemberID)
 		}
 		i, e := a.freshIdentity(ctx)
 		if e != nil || i.TenantID != in.OrganizationID || i.UserID != in.ActorID || i.EffectiveMemberID != in.MemberID {

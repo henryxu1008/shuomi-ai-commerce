@@ -4,8 +4,8 @@ import (
 	"context"
 	"gorm.io/gorm"
 	"strings"
-	supplyapp "task-processor/internal/app/supplychain"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	listingapp "task-processor/internal/app/listing"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/listing/preparation"
@@ -80,7 +80,7 @@ func (s privateDraftTrialStore) ReadTargetMerchant(ctx context.Context, scope co
 	}
 	return merchant.Binding(), nil
 }
-func (s privateDraftTrialStore) RulesMerchant(ctx context.Context, scope collection.Scope, id string, expected *storecenter.ProductMerchantBinding) (supplyapp.RulesMerchant, error) {
+func (s privateDraftTrialStore) RulesMerchant(ctx context.Context, scope collection.Scope, id string, expected *storecenter.ProductMerchantBinding) (listingapp.RulesMerchant, error) {
 	if scope != s.scope || id != s.storeID {
 		return nil, record.ErrForbidden
 	}
@@ -107,8 +107,8 @@ func (s privateDraftTrialStore) validateRecord(ctx context.Context, scope collec
 	}
 	return nil
 }
-func buildPrivateDraftTrialModule(ctx context.Context, productDB, storeDB *gorm.DB, d PrivateDraftTrialDependencies, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, cfg *config.Config) (supplyChainModule, error) {
-	var empty supplyChainModule
+func buildPrivateDraftTrialModule(ctx context.Context, productDB, storeDB *gorm.DB, d PrivateDraftTrialDependencies, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, cfg *config.Config) (listingModule, error) {
+	var empty listingModule
 	if d.Scope.Validate() != nil || !collection.ValidID(d.StoreID) || storeDB == nil || cfg == nil {
 		return empty, preparation.ErrUnavailable
 	}
@@ -127,5 +127,5 @@ func buildPrivateDraftTrialModule(ctx context.Context, productDB, storeDB *gorm.
 	core.app.TargetMerchants = rules
 	core.app.ValidateDraftRead = rules.validateRecord
 	binder := productReviewCapabilityBinder{now: time.Now}
-	return supplyChainModule{app: core.app, routes: supplyhttp.PrivateDraftReadRoutes(core.app, binder.Bind)}, nil
+	return listingModule{app: core.app, routes: listinghttp.PrivateDraftReadRoutes(core.app, binder.Bind)}, nil
 }
