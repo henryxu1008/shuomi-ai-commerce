@@ -80,6 +80,9 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 		if e != nil || i.TenantID != in.OrganizationID || i.UserID != in.ActorID || i.EffectiveMemberID != in.MemberID {
 			return review.ErrForbidden
 		}
+		if slot, ok := ctx.Value(titlePilotSlotKey{}).(*titlePilotSlot); ok && slot != nil {
+			return a.authorizeTitlePilotEffect(ctx, slot.plan)
+		}
 		return nil
 	}}
 	model, err := texteino.NewAgentTextModel(executor, a.configuration, a.selectTitleProfile,
@@ -105,6 +108,9 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 		return err
 	}
 	runtimeConfig := einoruntime.Config{Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: a, Authorizer: a, Store: guard}
+	if a.config.TitlePilotOperator != nil {
+		runtimeConfig.Store = titlePilotClaimGate{Store: guard, app: a}
+	}
 	a.runtime, err = einoruntime.New(runtimeConfig)
 	if err != nil {
 		return err
@@ -119,4 +125,23 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 	}
 
 	return nil
+}
+
+// Ordinary runs and the final CAS still use the existing Run Store.
+type titlePilotClaimGate struct {
+	agent.Store
+	app *productAgentApplication
+}
+
+func (g titlePilotClaimGate) Claim(ctx context.Context, record agent.Record, expected uint64) (agent.Record, bool, error) {
+	if record.State.Request.Binding.ContextKind == titlePilotContext {
+		slot, ok := ctx.Value(titlePilotSlotKey{}).(*titlePilotSlot)
+		if !ok || slot == nil || slot.binding != record.State.Request.Binding || slot.key != record.State.Request.Key || expected != 0 {
+			return agent.Record{}, false, review.ErrForbidden
+		}
+		if err := g.app.authorizeTitlePilotEffect(ctx, slot.plan); err != nil {
+			return agent.Record{}, false, err
+		}
+	}
+	return g.Store.Claim(ctx, record, expected)
 }

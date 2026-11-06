@@ -71,8 +71,9 @@ type ProductAgentDependencies struct {
 	Limits                   agent.Limits
 	// Code-owned transport injection for isolated protocol fixtures; never
 	// populated by the deployment manifest or browser input.
-	TextTransport      http.RoundTripper `json:"-"`
-	TextLogger         *logrus.Entry     `json:"-"`
+	TextTransport      http.RoundTripper   `json:"-"`
+	TextLogger         *logrus.Entry       `json:"-"`
+	TitlePilotOperator *TitlePilotOperator `json:"-"`
 	titlePilotApproval titlePilotApproval
 }
 
@@ -200,6 +201,16 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		return nil, agent.ErrUnavailable
 	}
 	a := &productAgentApplication{receipts: receipts, resolver: resolver, authorizer: auth, config: cfg}
+	if cfg.TitlePilotOperator != nil {
+		op := *cfg.TitlePilotOperator
+		a.config.TitlePilotOperator = &op
+		if !op.valid() || cfg.titlePilotApproval != (titlePilotApproval{}) || cfg.CurrentTextPolicies == nil ||
+			len(cfg.AllowedOrganizationIDs) != 1 || cfg.AllowedOrganizationIDs[0] != op.OrganizationID {
+			return nil, agent.ErrInvalid
+		}
+		cfg.titlePilotApproval = op.approval()
+		a.config.titlePilotApproval = cfg.titlePilotApproval
+	}
 	a.config.AllowedOrganizationIDs = append([]string(nil), cfg.AllowedOrganizationIDs...)
 	a.config.ImageAnalysisPolicies = make(map[string]governed.RoutePolicy, len(cfg.ImageAnalysisPolicies))
 	for org, policy := range cfg.ImageAnalysisPolicies {
@@ -265,7 +276,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	}
 	if cfg.titlePilotApproval != (titlePilotApproval{}) {
 		approval := cfg.titlePilotApproval
-		if cfg.TextTransport == nil || cfg.ContentOnly || cfg.ContentTitleOnly ||
+		if (cfg.TextTransport == nil && cfg.TitlePilotOperator == nil) || cfg.ContentOnly || cfg.ContentTitleOnly ||
 			!approval.valid() ||
 			!allowedOrganizations[approval.identity.OrganizationID] {
 			return nil, agent.ErrInvalid
