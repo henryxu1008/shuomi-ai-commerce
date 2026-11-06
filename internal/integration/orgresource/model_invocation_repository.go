@@ -34,9 +34,9 @@ type GormModelInvocationRepository struct {
 	now        func() time.Time
 }
 type modelPointReceipt struct {
-	ReservationID, MemberID, Fingerprint, PriceVersion string
-	Quantity, LimitVersion                             int64
-	Month                                              time.Time
+	ReservationID, MemberID, Fingerprint, PriceVersion, UnitVersion string
+	Quantity, LimitVersion                                          int64
+	Month                                                           time.Time
 }
 
 func NewGormModelInvocationRepository(db *gorm.DB, config TransactionConfig, owner ModelInvocationFactReader, auth ModelInvocationAuthorizer) (*GormModelInvocationRepository, error) {
@@ -53,6 +53,7 @@ func modelPointHash(value any) string {
 }
 func modelPointKey(kind, id string) string { return "model-point-" + kind + ":" + modelPointHash(id) }
 func modelPointFingerprint(fact aicapability.InvocationRecord) string {
+	fact.BillableUsage = nil
 	fact.StartedAt = fact.StartedAt.UTC().Truncate(time.Microsecond)
 	fact.FinishedAt = time.Time{}
 	fact.LatencyMilliseconds = 0
@@ -68,10 +69,10 @@ func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id st
 	if err != nil {
 		return fact, err
 	}
-	if fact.TenantID != org || fact.InvocationID != id || modelPointBusinessScope(fact) == "" || fact.MemberID == "" || fact.UserID == "" || fact.InputHash == "" || fact.StartedAt.IsZero() || !fact.PointTariff.Valid() || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.MaximumPromptTokens > math.MaxInt64-fact.MaximumCompletionTokens {
+	if fact.TenantID != org || fact.InvocationID != id || modelPointBusinessScope(fact) == "" || fact.MemberID == "" || fact.UserID == "" || fact.InputHash == "" || fact.StartedAt.IsZero() || !fact.OfficialTariff.Valid() || !fact.OfficialTariff.MatchesWireModel(fact.ModelID) || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.MaximumPromptTokens > math.MaxInt64-fact.MaximumCompletionTokens {
 		return fact, orgresource.ErrInvalidOwnerProof
 	}
-	if _, err := fact.PointTariff.Points(fact.MaximumPromptTokens, fact.MaximumCompletionTokens); err != nil {
+	if _, err := fact.OfficialTariff.ReserveTextMicropoints(fact.MaximumPromptTokens, fact.MaximumCompletionTokens); err != nil {
 		return fact, orgresource.ErrInvalidOwnerProof
 	}
 	return fact, nil
@@ -79,7 +80,11 @@ func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id st
 
 func modelPointBusinessScope(fact aicapability.InvocationRecord) string {
 	switch fact.Operation {
-	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
+	case aicapability.OperationProductImageAnalysis:
+		if fact.AgentRunID != "" && fact.Capability == aicapability.CapabilityProductImageAnalysis {
+			return fact.AgentRunID
+		}
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		if fact.AgentRunID != "" {
 			return fact.AgentRunID
 		}
@@ -103,7 +108,7 @@ func (r *GormModelInvocationRepository) ReserveAIInvocationUsage(ctx context.Con
 		return err
 	}
 	fingerprint := modelPointFingerprint(fact)
-	quantity, _ := fact.PointTariff.Points(fact.MaximumPromptTokens, fact.MaximumCompletionTokens)
+	quantity, _ := fact.OfficialTariff.ReserveTextMicropoints(fact.MaximumPromptTokens, fact.MaximumCompletionTokens)
 	return r.runner.run(ctx, func(tx *gorm.DB) error {
 		op, err := lockFixedResourceOperation(tx, org, modelPointKey("reserve", id), "model_point_reserve", fingerprint)
 		if err != nil {
@@ -156,8 +161,8 @@ func (r *GormModelInvocationRepository) ReserveAIInvocationUsage(ctx context.Con
 		if bucket.Reserved > math.MaxInt64-quantity {
 			return orgresource.ErrInvalidInput
 		}
-		receipt := modelPointReceipt{ReservationID: uuid.NewString(), MemberID: member, Fingerprint: fingerprint, PriceVersion: fact.PointTariff.PriceVersion, Quantity: quantity, LimitVersion: limit.Version, Month: month}
-		row := organizationResourceReservationRow{OrganizationID: org, ReservationID: receipt.ReservationID, OperationID: op.OperationID, OwnerType: modelPointOwner, OwnerAttemptID: id, BusinessScope: modelPointBusinessScope(fact), ResourceType: string(orgresource.ResourceAIPoint), ReservationPurpose: modelPointOwner, Quantity: quantity, State: string(orgresource.ReservationReserved), RequestFingerprint: fingerprint, MemberID: member, MemberMonthStart: &month, MemberLimitVersion: limit.Version, PriceVersion: receipt.PriceVersion, NextCheckAt: &now, ChargeActorID: fact.UserID, CreatedAt: now}
+		receipt := modelPointReceipt{UnitVersion: fact.OfficialTariff.UnitVersion, ReservationID: uuid.NewString(), MemberID: member, Fingerprint: fingerprint, PriceVersion: fact.OfficialTariff.PriceVersion, Quantity: quantity, LimitVersion: limit.Version, Month: month}
+		row := organizationResourceReservationRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceAIPoint)), OrganizationID: org, ReservationID: receipt.ReservationID, OperationID: op.OperationID, OwnerType: modelPointOwner, OwnerAttemptID: id, BusinessScope: modelPointBusinessScope(fact), ResourceType: string(orgresource.ResourceAIPoint), ReservationPurpose: modelPointOwner, Quantity: quantity, State: string(orgresource.ReservationReserved), RequestFingerprint: fingerprint, MemberID: member, MemberMonthStart: &month, MemberLimitVersion: limit.Version, PriceVersion: receipt.PriceVersion, NextCheckAt: &now, ChargeActorID: fact.UserID, CreatedAt: now}
 		if err := tx.Omit("Events").Create(&row).Error; err != nil {
 			return err
 		}
@@ -180,7 +185,7 @@ func (r *GormModelInvocationRepository) ReserveAIInvocationUsage(ctx context.Con
 
 func matchesModelPointReceipt(fact aicapability.InvocationRecord, fingerprint string, quantity int64, receipt modelPointReceipt, row organizationResourceReservationRow) bool {
 	month := orgresource.AIPointMonthStart(fact.StartedAt)
-	return receipt.ReservationID != "" && receipt.MemberID == fact.MemberID && receipt.Fingerprint == fingerprint && receipt.PriceVersion == fact.PointTariff.PriceVersion && receipt.Quantity == quantity && receipt.LimitVersion > 0 && receipt.Month.Equal(month) && row.OrganizationID == fact.TenantID && row.OwnerType == modelPointOwner && row.OwnerAttemptID == fact.InvocationID && row.BusinessScope == modelPointBusinessScope(fact) && row.ResourceType == string(orgresource.ResourceAIPoint) && row.ReservationPurpose == modelPointOwner && row.Quantity == quantity && row.RequestFingerprint == fingerprint && row.MemberID == receipt.MemberID && row.MemberMonthStart != nil && row.MemberMonthStart.Equal(month) && row.MemberLimitVersion == receipt.LimitVersion && row.PriceVersion == receipt.PriceVersion && row.ChargeActorID == fact.UserID
+	return receipt.UnitVersion == fact.OfficialTariff.UnitVersion && row.QuantityUnit == receipt.UnitVersion && receipt.ReservationID != "" && receipt.MemberID == fact.MemberID && receipt.Fingerprint == fingerprint && receipt.PriceVersion == fact.OfficialTariff.PriceVersion && receipt.Quantity == quantity && receipt.LimitVersion > 0 && receipt.Month.Equal(month) && row.OrganizationID == fact.TenantID && row.OwnerType == modelPointOwner && row.OwnerAttemptID == fact.InvocationID && row.BusinessScope == modelPointBusinessScope(fact) && row.ResourceType == string(orgresource.ResourceAIPoint) && row.ReservationPurpose == modelPointOwner && row.Quantity == quantity && row.RequestFingerprint == fingerprint && row.MemberID == receipt.MemberID && row.MemberMonthStart != nil && row.MemberMonthStart.Equal(month) && row.MemberLimitVersion == receipt.LimitVersion && row.PriceVersion == receipt.PriceVersion && row.ChargeActorID == fact.UserID
 }
 
 func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error) {
@@ -193,10 +198,15 @@ func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error)
 	if (fact.Outcome != aicapability.InvocationSucceeded && fact.Outcome != aicapability.InvocationUsageObservedFailed) || !fact.UsageKnown {
 		return 0, false, orgresource.ErrOwnerNotTerminal
 	}
-	if fact.PromptTokens < 0 || fact.CompletionTokens < 0 || fact.TotalTokens <= 0 || int64(fact.PromptTokens) > fact.MaximumPromptTokens || int64(fact.CompletionTokens) > fact.MaximumCompletionTokens || int64(fact.TotalTokens) != int64(fact.PromptTokens)+int64(fact.CompletionTokens) {
+	if fact.PromptTokens < 0 || fact.CompletionTokens < 0 || fact.TotalTokens <= 0 && !fact.HasZeroReferenceUsage() || int64(fact.PromptTokens) > fact.MaximumPromptTokens || int64(fact.CompletionTokens) > fact.MaximumCompletionTokens || int64(fact.TotalTokens) != int64(fact.PromptTokens)+int64(fact.CompletionTokens) {
 		return 0, false, orgresource.ErrInvalidOwnerProof
 	}
-	points, err := fact.PointTariff.Points(int64(fact.PromptTokens), int64(fact.CompletionTokens))
+	if fact.BillableUsage == nil || fact.BillableUsage.Validate() != nil ||
+		fact.BillableUsage.InputText+fact.BillableUsage.InputImage != int64(fact.PromptTokens) ||
+		fact.BillableUsage.OutputText+fact.BillableUsage.OutputImage != int64(fact.CompletionTokens) {
+		return 0, false, orgresource.ErrInvalidOwnerProof
+	}
+	points, err := fact.OfficialTariff.SettlementMicropoints(*fact.BillableUsage)
 	return points, false, err
 }
 func (r *GormModelInvocationRepository) SettleAIInvocationUsage(ctx context.Context, org, member, id string, total int64, at time.Time) error {
@@ -228,7 +238,7 @@ func (r *GormModelInvocationRepository) finalize(ctx context.Context, fact aicap
 	if err != nil {
 		return err
 	}
-	quantity, _ := fact.PointTariff.Points(fact.MaximumPromptTokens, fact.MaximumCompletionTokens)
+	quantity, _ := fact.OfficialTariff.ReserveTextMicropoints(fact.MaximumPromptTokens, fact.MaximumCompletionTokens)
 	fingerprint := modelPointFingerprint(fact)
 	fact.StartedAt = fact.StartedAt.UTC().Truncate(time.Microsecond)
 	fact.FinishedAt = fact.FinishedAt.UTC().Truncate(time.Microsecond)
@@ -254,10 +264,7 @@ func (r *GormModelInvocationRepository) finalize(ctx context.Context, fact aicap
 		if !noDispatch {
 			state = "committed"
 		}
-		result := struct {
-			State, Proof string
-			Points       int64
-		}{state, proof, actual}
+		result := modelPointFinalResult{State: state, Proof: proof, Points: actual}
 		payload, _ := json.Marshal(result)
 		if reserve.State == "processing" {
 			if !noDispatch {
@@ -321,7 +328,7 @@ func (r *GormModelInvocationRepository) finalize(ctx context.Context, fact aicap
 	})
 }
 func writeModelPointEvent(tx *gorm.DB, row organizationResourceReservationRow, bucket organizationResourceBucketRow, op, reason string, available, reserved, consumed int64, credit positiveCreditAllocation, payload string, now time.Time) error {
-	if err := tx.Create(&organizationResourceEventRow{EventID: uuid.NewString(), OrganizationID: row.OrganizationID, OperationID: op, ReservationID: &row.ReservationID, ResourceType: row.ResourceType, Quantity: row.Quantity, AvailableDelta: available, ReservedDelta: reserved, ConsumedDelta: consumed, Reason: reason, SourceType: modelPointOwner, SourceIdentity: row.OwnerAttemptID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, AllocatedAfter: bucket.Allocated, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: credit.gross, DebtRepaid: credit.debtRepaid, NetCredit: credit.net, CreatedAt: now}).Error; err != nil {
+	if err := tx.Create(&organizationResourceEventRow{QuantityUnit: resourceQuantityUnit(row.ResourceType), EventID: uuid.NewString(), OrganizationID: row.OrganizationID, OperationID: op, ReservationID: &row.ReservationID, ResourceType: row.ResourceType, Quantity: row.Quantity, AvailableDelta: available, ReservedDelta: reserved, ConsumedDelta: consumed, Reason: reason, SourceType: modelPointOwner, SourceIdentity: row.OwnerAttemptID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, AllocatedAfter: bucket.Allocated, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: credit.gross, DebtRepaid: credit.debtRepaid, NetCredit: credit.net, CreatedAt: now}).Error; err != nil {
 		return err
 	}
 	return tx.Create(&organizationResourceAuditLogRow{OrganizationID: row.OrganizationID, OperationID: op, Action: reason, ActorID: row.ChargeActorID, Payload: payload, CreatedAt: now}).Error

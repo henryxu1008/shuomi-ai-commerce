@@ -18,7 +18,7 @@ func TestCompletionDraftProductCapabilityIsExplicitAndIndependentOfStoreAndColle
 	require.False(t, c.AcquisitionPlans)
 	_, _, err = collectionAcquisitionOptions([]bool{false, false, false, false, false, false, true})
 	require.ErrorIs(t, err, sourcing.ErrAcquisitionUnavailable)
-	_, _, err = collectionAcquisitionOptions([]bool{true, false, false, false, false, false, true, true})
+	_, _, err = collectionAcquisitionOptions([]bool{true, false, false, false, false, false, true, true, true})
 	require.ErrorIs(t, err, sourcing.ErrAcquisitionUnavailable)
 }
 

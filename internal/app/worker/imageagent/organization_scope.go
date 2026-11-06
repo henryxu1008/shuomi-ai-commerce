@@ -2,11 +2,11 @@ package imageagentworker
 
 import (
 	"context"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/authidentity"
 	zitadel "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
 	"task-processor/internal/imageagent"
-	openai "task-processor/internal/integration/openai"
 	"task-processor/internal/shared/aiidentity"
 	"task-processor/internal/workbenchcontext"
 )
@@ -63,16 +63,14 @@ var _ imageagent.ExecutionAuthorizer = OrganizationExecutionAuthorizer{}
 // resolver consumes only its existing shared identity contract and never
 // imports application authentication policy.
 type organizationCredentialAdmission struct {
-	resolver openai.ClientConfigResolver
+	resolver credential.SecretReader
 }
 
-func (r organizationCredentialAdmission) ResolveClientConfig(ctx context.Context, name string) (*openai.ResolvedClientConfig, error) {
+func (r organizationCredentialAdmission) Resolve(ctx context.Context, organizationID, connectionID, reference string) (credential.Secret, error) {
 	identity := aiidentity.FromContext(ctx)
 	verified, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	if !ok || verified.EffectiveOrganizationID == "" || verified.EffectiveOrganizationID != identity.TenantID || verified.TenantID != identity.TenantID || verified.UserID != identity.UserID || r.resolver == nil {
-		return nil, openai.ErrClientConfigurationUnavailable
+	if !ok || verified.EffectiveOrganizationID == "" || verified.EffectiveOrganizationID != identity.TenantID || verified.TenantID != identity.TenantID || verified.UserID != identity.UserID || organizationID != identity.TenantID || r.resolver == nil {
+		return credential.Secret{}, credential.ErrUnavailable
 	}
-	resolved, err := r.resolver.ResolveClientConfig(ctx, name)
-
-	return resolved, err
+	return r.resolver.Resolve(ctx, organizationID, connectionID, reference)
 }

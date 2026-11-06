@@ -43,10 +43,10 @@ func TestSetWorkflowOffersKnownPartialResultsOnlyAfterEveryEffectCloses(t *testi
 	plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(plan)
 	require.NoError(t, err)
 	hash := strings.Repeat("a", 64)
-	proof := &imageagent.ImageGenerationProof{IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}
+	proof := &imageagent.ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}
 	results := []SlotWorkflowResult{
-		{Execution: imageagent.SlotExecutionResult{SlotID: plan.Slots[0].ID, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "generated", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/run-1/1/overview/1/0-" + hash + ".png", SHA256: hash}, GenerationProof: proof}}}, Status: imageagent.SlotStatusAccepted, Closure: &imageagent.ImageSlotClosure{Kind: "settled", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}},
-		{Execution: imageagent.SlotExecutionResult{SlotID: second.ID}, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.BudgetElapsedCode, Closure: &imageagent.ImageSlotClosure{Kind: "not_dispatched"}},
+		{Execution: imageagent.SlotExecutionResult{SlotID: plan.Slots[0].ID, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "generated", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}, DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/run-1/1/overview/1/0-" + hash + ".png", SHA256: hash}, GenerationProof: proof}}}, Status: imageagent.SlotStatusAccepted, Closure: &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "settled", IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, Points: 12}},
+		{Execution: imageagent.SlotExecutionResult{SlotID: second.ID}, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.BudgetElapsedCode, Closure: &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}},
 	}
 
 	projection := summarizeCurrentResults(plan, results)
@@ -109,8 +109,8 @@ func TestSetRecoveryCompletionCannotDiscardSettlementEvidence(t *testing.T) {
 	state := workflowUpdateState{input: &input, results: &results, projection: &projection}
 	signal := EffectRecoveryCompletedSignal{RunID: "run", PlanRevision: 1, SlotID: "detail", Attempt: 1, Result: EffectRecoveryResult{Outcome: EffectRecoveryOutcomePublished, EffectPhase: imageagent.SlotEffectV3PublicationComplete, Published: imageagent.SlotEffectV3PublishedResult{SlotID: "detail", Attempt: 1, Candidates: []imageagent.SlotEffectV3AssetCandidate{{AssetID: "candidate", SourceAssetID: "source", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: "image-agent/public/tenant-a/run-1/1/detail/1/0-" + v3SHA256 + ".png", SHA256: v3SHA256}, Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}}}}}}
 	require.False(t, state.applyEffectRecoveryCompleted(signal), "a set recovery signal needs the original generation and settlement references")
-	signal.Result.Closure = &imageagent.ImageSlotClosure{Kind: "settled", IntentID: v3SHA256, Fingerprint: v3SHA256, SettlementProofDigest: v3SHA256, Points: 12}
-	signal.Result.GenerationProof = &imageagent.ImageGenerationProof{IntentID: v3SHA256, Fingerprint: v3SHA256, SettlementProofDigest: v3SHA256, Points: 13}
+	signal.Result.Closure = &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "settled", IntentID: v3SHA256, Fingerprint: v3SHA256, SettlementProofDigest: v3SHA256, Points: 12}
+	signal.Result.GenerationProof = &imageagent.ImageGenerationProof{UnitVersion: "ai-micropoint-v1", IntentID: v3SHA256, Fingerprint: v3SHA256, SettlementProofDigest: v3SHA256, Points: 13}
 	require.False(t, state.applyEffectRecoveryCompleted(signal), "recovery must preserve the exact original point quote")
 	signal.Result.GenerationProof.Points = 12
 	require.True(t, state.applyEffectRecoveryCompleted(signal))

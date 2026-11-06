@@ -1,15 +1,16 @@
-import { z } from "zod";
+import {z} from "zod";
+import {aiPointUnit,displayPoints,parseDisplayPoints} from "../contracts/ai-points";
 import { readBoundedStrictJSON } from "./strict-json-response";
 import { accountErrorCode } from "./account";
 
 const id = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
 const integer = z.string().regex(/^(0|[1-9][0-9]*)$/).refine(v => { try { return BigInt(v) <= BigInt("9223372036854775807"); } catch { return false; } });
 const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-01T00:00:00Z$/).refine(v => Number.isFinite(Date.parse(v)));
-const limit = z.object({ organizationId: id, memberId: id, configured: z.boolean(), monthlyLimit: integer, reserved: integer, consumed: integer, remaining: integer, version: integer, monthStart: month, monthEnd: month }).strict().refine(v => {
+const limit = z.object({ unitVersion:aiPointUnit,organizationId: id, memberId: id, configured: z.boolean(), monthlyLimit: displayPoints, reserved: displayPoints, consumed: displayPoints, remaining: displayPoints, version: integer, monthStart: month, monthEnd: month }).strict().refine(v => {
   try {
   const start = new Date(v.monthStart); start.setUTCMonth(start.getUTCMonth() + 1);
   if (start.toISOString().replace(".000Z", "Z") !== v.monthEnd) return false;
-  if (BigInt(v.monthlyLimit) !== BigInt(v.reserved) + BigInt(v.consumed) + BigInt(v.remaining)) return false;
+  if (parseDisplayPoints(v.monthlyLimit) !== parseDisplayPoints(v.reserved) + parseDisplayPoints(v.consumed) + parseDisplayPoints(v.remaining)) return false;
   return v.configured ? BigInt(v.version) > 0 : [v.monthlyLimit, v.reserved, v.consumed, v.remaining, v.version].every(x => x === "0");
   } catch { return false; }
 });
@@ -59,6 +60,6 @@ export async function getMemberAIPointLimits(scope: MemberPointScope, signal?: A
   return parseMemberAIPointLimits(await request(scope, "/api/account/member-ai-point-limits", { method: "GET", signal }), scope.expectedOrganizationId);
 }
 export async function setMemberAIPointLimit(scope: MemberPointScope, memberId: string, target: string, expectedVersion: string, key: string, signal?: AbortSignal): Promise<MemberAIPointLimit> {
-  if (!id.safeParse(memberId).success || !id.safeParse(key).success || !integer.safeParse(target).success || !integer.safeParse(expectedVersion).success) throw new MemberPointLimitError(400, "INVALID_REQUEST");
+  if (!id.safeParse(memberId).success || !id.safeParse(key).success || !displayPoints.safeParse(target).success || !integer.safeParse(expectedVersion).success) throw new MemberPointLimitError(400, "INVALID_REQUEST");
   return parseMemberAIPointLimit(await request(scope, `/api/account/member-ai-point-limits/${memberId}`, { method: "PUT", signal, headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: JSON.stringify({ target, expectedVersion }) }), scope.expectedOrganizationId, memberId);
 }

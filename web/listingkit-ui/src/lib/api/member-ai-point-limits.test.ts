@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { getMemberAIPointLimits, setMemberAIPointLimit } from "./member-ai-point-limits";
 
 const scope = { expectedUserId: "actor-1", expectedOrganizationId: "org-1" };
-const limit = { organizationId: "org-1", memberId: "member-1", configured: true, monthlyLimit: "25", reserved: "2", consumed: "3", remaining: "20", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" };
+const limit = { organizationId: "org-1", memberId: "member-1", unitVersion:"ai-micropoint-v1",configured: true, monthlyLimit: "25", reserved: "2", consumed: "3", remaining: "20", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" };
 const member = { ...limit, displayName: "Member", loginName: "member@example.test", roles: ["listingkit_operator"] };
 const snapshot = { schemaVersion: "member-ai-point-monthly-limit-v1", organizationId: "org-1", resourceType: "ai_point", timezone: "UTC", members: [member] };
 afterEach(() => vi.unstubAllGlobals());

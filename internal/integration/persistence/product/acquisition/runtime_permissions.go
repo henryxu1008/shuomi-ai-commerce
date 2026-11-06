@@ -26,6 +26,7 @@ const planPrivileges = `,('product_acquisition_plans','SELECT'),('product_acquis
  ('product_acquisition_rule_commands','SELECT'),('product_acquisition_rule_commands','INSERT')`
 
 type RuntimeCapabilities struct {
+	OfflineRecords   bool
 	CompletionDrafts bool
 	AcquisitionPlans bool
 	Collections      bool
@@ -103,6 +104,9 @@ func runtimePermissionsFor(capability RuntimeCapabilities) string {
 	if capability.ImageSets && !capability.SupplyChain && !capability.SupplyMarket {
 		admitted += ",('product_title_proposals','SELECT')"
 	}
+	if capability.OfflineRecords {
+		admitted += `,('listing_shein_records','SELECT'),('listing_shein_records','INSERT'),('listing_shein_record_operations','SELECT'),('listing_shein_record_operations','INSERT')`
+	}
 	admitted += ")"
 	return strings.Replace(runtimePermissionQuery, admittedPrivileges, admitted, 1)
 }
@@ -125,6 +129,8 @@ const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparati
  ('listing_target_record_commands','SELECT'),('listing_target_record_commands','INSERT'),
  ('listing_preparation_operations','SELECT'),('listing_preparation_operations','INSERT'),('listing_preparation_operations','UPDATE'),
  ('listing_preparation_operation_items','SELECT'),('listing_preparation_operation_items','INSERT'),('listing_preparation_operation_items','UPDATE'),
+ ('listing_preparation_upload_plans','SELECT'),('listing_preparation_upload_plans','INSERT'),('listing_preparation_upload_plans','UPDATE'),
+ ('listing_preparation_upload_plan_items','SELECT'),('listing_preparation_upload_plan_items','INSERT'),('listing_preparation_upload_plan_items','UPDATE'),
  ('listing_submission_execution_attempts','SELECT'),('listing_submission_execution_attempts','INSERT'),('listing_submission_execution_attempts','UPDATE'),
  ('listing_submission_target_fences','SELECT'),('listing_submission_target_fences','INSERT'),('listing_submission_target_fences','UPDATE'),
  ('listing_submission_official_intents','SELECT'),('listing_submission_official_intents','INSERT'),
@@ -189,6 +195,7 @@ const admittedPrivileges = `(VALUES
  ('product_snapshot_heads','SELECT'),('product_snapshot_heads','INSERT'),('product_snapshot_heads','UPDATE'))`
 
 const currentRuntimeSubject = `(SELECT current_user::text AS runtime_role)`
+const requiredTablePrivilege = `NOT has_table_privilege(subject.runtime_role,format('public.%I',table_name),privilege)`
 
 const runtimePermissionQuery = `WITH admitted(table_name,privilege) AS ` + admittedPrivileges + `
  SELECT current_user::text AS role_name,
@@ -199,7 +206,7 @@ const runtimePermissionQuery = `WITH admitted(table_name,privilege) AS ` + admit
  AND has_schema_privilege(subject.runtime_role,'public','USAGE')
  AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=subject.runtime_role AND rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
- AND NOT EXISTS(SELECT 1 FROM admitted WHERE NOT has_table_privilege(subject.runtime_role,format('public.%I',table_name),privilege))
+ AND NOT EXISTS(SELECT 1 FROM admitted WHERE ` + requiredTablePrivilege + `)
  AS required_privileges,
  has_database_privilege(subject.runtime_role,current_database(),'CREATE')
  OR has_database_privilege(subject.runtime_role,current_database(),'TEMPORARY')
@@ -319,6 +326,9 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 		if images && !supply && !market {
 			statements = append(statements, "GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
 		}
+		if len(capabilities) == 1 && capabilities[0].OfflineRecords {
+			statements = append(statements, "GRANT SELECT,INSERT ON public.listing_shein_records,public.listing_shein_record_operations TO source_acquisition_runtime")
+		}
 		for _, statement := range statements {
 			if err := tx.Exec(statement).Error; err != nil {
 				return sourcing.ErrAcquisitionUnavailable
@@ -351,7 +361,7 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 	if len(capabilities) == 1 {
 		capability = capabilities[0]
 	}
-	if (capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans || capability.CompletionDrafts) && !capability.Collections || capability.POD && !capability.SupplyMarket {
+	if (capability.OfflineRecords || capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans || capability.CompletionDrafts) && !capability.Collections || capability.POD && !capability.SupplyMarket {
 		return sourcing.ErrAcquisitionUnavailable
 	}
 	var required, forbidden bool
@@ -395,6 +405,9 @@ func verifyRuntimeSchema(ctx context.Context, db *gorm.DB, capability RuntimeCap
 			return err
 		}
 		if err := preparationstore.VerifyOperationSchema(ctx, db); err != nil {
+			return err
+		}
+		if err := preparationstore.VerifyUploadPlanSchema(ctx, db); err != nil {
 			return err
 		}
 		if err := recordstore.VerifySchema(ctx, db); err != nil {

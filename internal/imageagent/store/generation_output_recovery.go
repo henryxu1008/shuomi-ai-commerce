@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strings"
+	"task-processor/internal/aicapability"
 	"time"
 
 	"gorm.io/gorm"
@@ -143,10 +144,19 @@ func (r *gormRepository) RecoverGenerationStaging(ctx context.Context, reservati
 			}
 			current.BudgetStatus = imageagent.SlotBudgetReserved
 			receipt := imageagent.SlotUsageReceipt{Actual: current.Quote.Maximum, CostBasis: imageagent.UsageCostUnavailable}
+			receipt, err = fact.ProjectReferenceImageCost(receipt)
+			if err != nil {
+				return err
+			}
 			if fact.Success.RequestID != "" {
 				receipt.ProviderRequestIDs = []string{fact.Success.RequestID}
 			}
-			if current.Quote.Maximum.Images != 1 || current.Quote.Maximum.ModelCalls != 1 || current.Quote.Maximum.CostMicros != 0 {
+			expectedCost := int64(0)
+			if intent.Billing.OfficialTariff.IsReferenceImageEstimate() {
+				expectedCost = aicapability.ReferenceImageCNYMicros(intent.Points)
+				receipt.ProviderRequestIDs = []string{fact.Success.ResultDigest}
+			}
+			if current.Quote.Maximum.Images != 1 || current.Quote.Maximum.ModelCalls != 1 || current.Quote.Maximum.CostMicros != expectedCost {
 				return imageagent.ErrRevisionConflict
 			}
 			decision, err := effectpolicy.SettleProvider(current, reservation, receipt, accounting, time.Now().UTC())

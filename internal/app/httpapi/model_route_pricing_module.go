@@ -2,15 +2,16 @@ package httpapi
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
+	"github.com/gin-gonic/gin"
 	"io"
 	"mime"
 	"net/url"
+	strict "sigs.k8s.io/json"
 	"strconv"
 	"strings"
+	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -18,16 +19,17 @@ import (
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	strict "sigs.k8s.io/json"
 )
 
 const modelRouteBase = "/api/v1/model-route-pricing"
 
 var errModelRouteForbidden = errors.New("FORBIDDEN")
 
-type ModelRoutePricingDependencies struct{ Text, Image *d.Service }
+type ModelRoutePricingDependencies struct {
+	Shared      *d.SharedModelService
+	Prices      *d.PlatformPricesService
+	Credentials *credential.Management
+}
 
 func WithModelRoutePricing(deps ModelRoutePricingDependencies) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.modelRoutePricing = &deps }
@@ -45,30 +47,52 @@ func (m modelRoutePricingModule) Register(r *kernelmodule.Registry) error {
 	return nil
 }
 func (m modelRoutePricingModule) routes() []httproute.Descriptor {
-	specs := []struct{ method, path, op string }{{"GET", "", "capabilities"}, {"GET", "/:family/:capability", "current"}, {"GET", "/:family/:capability/bindings", "bindings"}, {"GET", "/:family/:capability/options", "options"}, {"GET", "/:family/:capability/history", "history"}, {"GET", "/:family/:capability/receipts/:key", "receipt"}, {"POST", "/:family/:capability/validate", "validate"}, {"POST", "/:family/:capability/publish", "publish"}}
-	out := []httproute.Descriptor{}
-	for _, s := range specs {
-		out = append(out, httproute.Descriptor{Method: s.method, Path: modelRouteBase + s.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: authz.PermissionListingKitPlatformAdm, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: s.method == "GET", Handler: func(c *gin.Context) { m.serve(c, s.op) }})
+	specs := []struct{ method, path, op string }{{"GET", "", "capabilities"}}
+	for _, family := range []string{"enterprise", "platform-prices"} {
+		specs = append(specs, struct{ method, path, op string }{"GET", "/" + family, "current"})
+		for _, op := range []string{"history", "receipts/:key"} {
+			specs = append(specs, struct{ method, path, op string }{"GET", "/" + family + "/" + op, strings.Split(op, "/")[0]})
+		}
+		for _, op := range []string{"validate", "publish"} {
+			specs = append(specs, struct{ method, path, op string }{"POST", "/" + family + "/" + op, op})
+		}
 	}
-	return out
+	specs = append(specs, struct{ method, path, op string }{"GET", "/enterprise/options", "options"})
+	out := []httproute.Descriptor{}
+	for _, spec := range specs {
+		permission := authz.PermissionWorkbenchAgentConfigure
+		platform := strings.HasPrefix(spec.path, "/platform-prices")
+		if platform {
+			permission = authz.PermissionListingKitPlatformAdm
+		}
+		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET", Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
+	}
+	return append(out, m.credentialRoutes()...)
 }
-func validateModelRouteDescriptor(d httproute.Descriptor) error {
+func validateModelRouteDescriptor(descriptor httproute.Descriptor) error {
 	for _, r := range (modelRoutePricingModule{}).routes() {
-		if d.Method == r.Method && d.Path == r.Path && d.Module == r.Module && d.AuthPolicy == r.AuthPolicy && d.OrganizationAccessPolicy == r.OrganizationAccessPolicy && d.Permission == r.Permission && d.RequestTimeout == r.RequestTimeout && d.RejectUnreadRequestBody == r.RejectUnreadRequestBody && d.OrganizationTargetResolver == nil && d.Handler != nil {
+		if descriptor.Method == r.Method && descriptor.Path == r.Path && descriptor.Module == r.Module && descriptor.AuthPolicy == r.AuthPolicy && descriptor.OrganizationAccessPolicy == r.OrganizationAccessPolicy && descriptor.Permission == r.Permission && descriptor.RequestTimeout == r.RequestTimeout && descriptor.RejectUnreadRequestBody == r.RejectUnreadRequestBody && descriptor.OrganizationTargetResolver == nil && descriptor.Handler != nil {
 			return nil
 		}
 	}
-	return errors.New("model route pricing loses current organization/platform permission boundary")
+	return errors.New("model configuration loses organization/permission boundary")
 }
-func modelRouteIdentity(ctx context.Context, a *authz.ListingKitAuthorizer, write bool) (string, string, error) {
+func sharedModelIdentity(ctx context.Context, a *authz.ListingKitAuthorizer, platform, write bool) (string, string, error) {
 	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	if !ok || ctx.Err() != nil || !d.ValidFact(i.UserID, 128) || !d.ValidFact(i.EffectiveOrganizationID, 128) || !d.ValidFact(i.EffectiveMemberID, 128) || i.TenantID != i.EffectiveOrganizationID || !time.Now().Before(i.TokenExpiresAt) || !authz.AllowedOrganization(ctx, a, i.UserID, i.EffectiveOrganizationID, i.Roles, authz.PermissionListingKitPlatformAdm) {
+	permission := authz.PermissionWorkbenchAgentConfigure
+	if platform {
+		permission = authz.PermissionListingKitPlatformAdm
+	}
+	if !ok || ctx.Err() != nil || !d.ValidFact(i.UserID, 128) || !d.ValidFact(i.EffectiveOrganizationID, 128) || !d.ValidFact(i.EffectiveMemberID, 128) || i.TenantID != i.EffectiveOrganizationID || !time.Now().Before(i.TokenExpiresAt) || !authz.AllowedOrganization(ctx, a, i.UserID, i.EffectiveOrganizationID, i.Roles, permission) {
 		return "", "", errModelRouteForbidden
 	}
-	if write && !authz.AllowedOrganization(ctx, a, i.UserID, i.EffectiveOrganizationID, i.Roles, authz.PermissionListingKitAdminWrite) {
+	if platform && write && !authz.AllowedOrganization(ctx, a, i.UserID, i.EffectiveOrganizationID, i.Roles, authz.PermissionListingKitAdminWrite) {
 		return "", "", errModelRouteForbidden
 	}
 	return i.UserID, i.EffectiveOrganizationID, nil
+}
+func modelRouteIdentity(ctx context.Context, a *authz.ListingKitAuthorizer, write bool) (string, string, error) {
+	return sharedModelIdentity(ctx, a, true, write)
 }
 func modelRouteFailure(c *gin.Context, e error) {
 	status, code := 503, "UNAVAILABLE"
@@ -89,112 +113,124 @@ func modelRouteFailure(c *gin.Context, e error) {
 	c.Header("Cache-Control", "no-store")
 	c.AbortWithStatusJSON(status, gin.H{"code": code})
 }
-func modelRouteBody(c *gin.Context) (d.Input, error) {
-	var in d.Input
-	media, _, e := mime.ParseMediaType(c.GetHeader("Content-Type"))
-	if e != nil || media != "application/json" || c.GetHeader("Content-Encoding") != "" {
-		return in, d.ErrInvalid
+
+func modelRouteDecode(c *gin.Context, target any) error {
+	media, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
+	if err != nil || media != "application/json" || c.GetHeader("Content-Encoding") != "" {
+		return d.ErrInvalid
 	}
-	raw, e := io.ReadAll(io.LimitReader(c.Request.Body, (16<<10)+1))
-	if e != nil || len(raw) > 16<<10 || !strings.HasPrefix(strings.TrimSpace(string(raw)), "{") {
-		return in, d.ErrInvalid
+	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, (16<<10)+1))
+	if err != nil || len(raw) > 16<<10 || !strings.HasPrefix(strings.TrimSpace(string(raw)), "{") {
+		return d.ErrInvalid
 	}
-	violations, e := strict.UnmarshalStrict(raw, &in)
-	if e != nil || len(violations) > 0 {
-		return in, d.ErrInvalid
+	violations, err := strict.UnmarshalStrict(raw, target)
+	if err != nil || len(violations) > 0 {
+		return d.ErrInvalid
 	}
-	return in, nil
+	return nil
 }
-func (m modelRoutePricingModule) serve(c *gin.Context, op string) {
+func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool) {
 	c.Header("Cache-Control", "no-store")
-	actor, org, e := modelRouteIdentity(c.Request.Context(), m.authorizer, op == "publish")
-	if e != nil {
-		modelRouteFailure(c, e)
+	ctx := c.Request.Context()
+	actor, org, err := sharedModelIdentity(ctx, m.authorizer, platform, op == "publish")
+	if err != nil {
+		modelRouteFailure(c, err)
 		return
 	}
-	q, e := url.ParseQuery(c.Request.URL.RawQuery)
-	if e != nil || c.Request.URL.ForceQuery || len(c.Request.URL.RawQuery) > 512 {
+	query, err := url.ParseQuery(c.Request.URL.RawQuery)
+	if err != nil || c.Request.URL.ForceQuery || len(c.Request.URL.RawQuery) > 512 {
 		modelRouteFailure(c, d.ErrInvalid)
 		return
 	}
-	for k, v := range q {
-		if op != "history" || (k != "cursor" && k != "limit") || len(v) != 1 {
+	for key, values := range query {
+		if op != "history" || (key != "limit" && key != "cursor") || len(values) != 1 {
 			modelRouteFailure(c, d.ErrInvalid)
 			return
 		}
 	}
 	if op == "capabilities" {
-		rows := []gin.H{}
-		for family, s := range map[string]*d.Service{"text": m.services.Text, "image": m.services.Image} {
-			if s != nil {
-				for _, sc := range s.Catalog.Scopes(org) {
-					rows = append(rows, gin.H{"family": family, "capability": sc.Capability})
-				}
-			}
-		}
-		c.JSON(200, gin.H{"organizationId": org, "capabilities": rows})
+		c.JSON(200, gin.H{"organizationId": org, "unitVersion": aicapability.AIPointMicrounitV1, "available": m.services.Shared != nil, "canMaintainPrices": authz.AllowedOrganization(ctx, m.authorizer, actor, org, authidentityRoles(ctx), authz.PermissionListingKitPlatformAdm)})
 		return
 	}
-	s := m.services.Text
-	if c.Param("family") == "image" {
-		s = m.services.Image
-	} else if c.Param("family") != "text" {
-		modelRouteFailure(c, d.ErrInvalid)
-		return
-	}
-	scope := d.Scope{OrganizationID: org, Capability: c.Param("capability")}
-	supported := false
-	if s != nil && s.Catalog != nil {
-		for _, v := range s.Catalog.Scopes(org) {
-			supported = supported || v == scope
+	scope := d.Scope{OrganizationID: org, Capability: d.SharedModelCapability}
+	var repo d.Repository
+	if platform {
+		if m.services.Prices != nil {
+			repo = m.services.Prices.Repository
 		}
+		scope = d.PlatformPricesScope()
+	} else if m.services.Shared != nil {
+		repo = m.services.Shared.Repository
 	}
-	if !supported || (scope.Capability == d.ImageCapability) != (c.Param("family") == "image") {
+	if repo == nil {
 		modelRouteFailure(c, d.ErrUnavailable)
 		return
 	}
-	ctx := c.Request.Context()
 	switch op {
 	case "current":
-		r, e := s.Current(ctx, scope)
+		var revision d.Revision
+		var preview *d.SharedModelPreview
+		if platform {
+			revision, err = m.services.Prices.Current(ctx)
+		} else {
+			var value d.SharedModelPreview
+			revision, value, err = m.services.Shared.Current(ctx, org)
+			if err == nil {
+				preview = &value
+			}
+		}
 		status := "READY"
-		if errors.Is(e, d.ErrNotFound) {
+		if errors.Is(err, d.ErrNotFound) {
 			status = "UNCONFIGURED"
-		} else if errors.Is(e, d.ErrNeedsConfiguration) {
-			status = "NEEDS_CONFIGURATION"
-		} else if e != nil {
-			modelRouteFailure(c, e)
+		} else if err != nil {
+			modelRouteFailure(c, err)
 			return
+		}
+		if preview != nil && !preview.Ready {
+			status = "NEEDS_CONFIGURATION"
 		}
 		var current *d.Revision
-		if r.ID != "" {
-			current = &r
+		if revision.ID != "" {
+			current = &revision
 		}
-		c.JSON(200, gin.H{"status": status, "revision": current})
-	case "bindings":
-		v, e := s.Bindings(ctx, scope)
-		if e != nil {
-			modelRouteFailure(c, e)
-			return
-		}
-		c.JSON(200, gin.H{"bindings": v})
+		c.JSON(200, gin.H{"status": status, "revision": current, "preview": publicSharedPreview(preview)})
 	case "options":
-		v, e := s.PublishedOptions(ctx, scope)
+		options, ok := m.services.Shared.Catalog.(d.SharedModelOptions)
+		if !ok {
+			modelRouteFailure(c, d.ErrUnavailable)
+			return
+		}
+		rows, e := options.Options(ctx, org)
 		if e != nil {
 			modelRouteFailure(c, e)
 			return
 		}
-		c.JSON(200, gin.H{"revisions": v})
+		channels := []string{"openai-direct"}
+		for _, row := range rows {
+			found := false
+			for _, channel := range channels {
+				found = found || row.Channel == channel
+			}
+			if !found {
+				channels = append(channels, row.Channel)
+			}
+		}
+		c.JSON(200, gin.H{"organizationId": org, "channels": channels, "models": rows})
 	case "history":
 		limit := 20
-		if q.Has("limit") {
-			limit, e = strconv.Atoi(q.Get("limit"))
-			if e != nil || strconv.Itoa(limit) != q.Get("limit") {
+		if query.Has("limit") {
+			limit, err = strconv.Atoi(query.Get("limit"))
+			if err != nil || strconv.Itoa(limit) != query.Get("limit") || limit < 1 || limit > 50 {
 				modelRouteFailure(c, d.ErrInvalid)
 				return
 			}
 		}
-		rows, e := s.Repository.History(ctx, scope, q.Get("cursor"), limit)
+		cursor := query.Get("cursor")
+		if cursor != "" && !d.ValidFact(cursor, 128) {
+			modelRouteFailure(c, d.ErrInvalid)
+			return
+		}
+		rows, e := repo.History(ctx, scope, cursor, limit)
 		if e != nil {
 			modelRouteFailure(c, e)
 			return
@@ -204,33 +240,66 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string) {
 			next = rows[len(rows)-1].ID
 		}
 		c.JSON(200, gin.H{"revisions": rows, "nextCursor": next})
-	case "receipt":
+	case "receipts":
 		key := c.Param("key")
 		if !d.ValidFact(key, 128) {
 			modelRouteFailure(c, d.ErrInvalid)
 			return
 		}
-		r, e := s.Repository.Receipt(ctx, scope, key)
+		r, e := repo.Receipt(ctx, scope, key)
 		if e != nil {
 			modelRouteFailure(c, e)
 			return
 		}
 		c.JSON(200, gin.H{"receipt": r})
 	case "validate", "publish":
-		in, e := modelRouteBody(c)
-		if e != nil {
-			modelRouteFailure(c, e)
+		var input d.SharedModelInput
+		var priceInput d.PlatformPricesInput
+		var target any = &input
+		if platform {
+			target = &priceInput
+		}
+		if err = modelRouteDecode(c, target); err != nil {
+			modelRouteFailure(c, err)
+			return
+		}
+		expected := input.ExpectedRevision
+		if platform {
+			expected = priceInput.ExpectedRevision
+		}
+		if !d.ValidFact(expected, 128) {
+			modelRouteFailure(c, d.ErrInvalid)
 			return
 		}
 		if op == "validate" {
-			p, e := s.Validate(ctx, scope, in)
+			current, e := repo.Current(ctx, scope)
+			if e != nil && !errors.Is(e, d.ErrNotFound) {
+				modelRouteFailure(c, e)
+				return
+			}
+			id := current.ID
+			if id == "" {
+				id = d.NoRevision
+			}
+			if expected != id {
+				modelRouteFailure(c, d.ErrConflict)
+				return
+			}
+			if platform {
+				snapshot, e := d.FreezePlatformPrices(priceInput, "preview", nil, time.Now().UTC())
+				if e != nil {
+					modelRouteFailure(c, e)
+					return
+				}
+				c.JSON(200, gin.H{"expectedRevision": expected, "snapshot": snapshot})
+				return
+			}
+			preview, e := m.services.Shared.Preview(ctx, org, input.Selection)
 			if e != nil {
 				modelRouteFailure(c, e)
 				return
 			}
-			raw, _ := json.Marshal(p)
-			digest := sha256.Sum256(raw)
-			c.JSON(200, gin.H{"payload": p, "expectedRevision": in.ExpectedRevision, "digest": hex.EncodeToString(digest[:])})
+			c.JSON(200, gin.H{"expectedRevision": expected, "selection": input.Selection, "preview": publicSharedPreview(&preview)})
 			return
 		}
 		keys := c.Request.Header.Values("Idempotency-Key")
@@ -238,11 +307,36 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string) {
 			modelRouteFailure(c, d.ErrInvalid)
 			return
 		}
-		r, e := s.Publish(ctx, scope, actor, keys[0], in)
-		if e != nil {
-			modelRouteFailure(c, e)
+		var revision d.Revision
+		if platform {
+			revision, err = m.services.Prices.Publish(ctx, actor, keys[0], priceInput)
+		} else {
+			revision, err = m.services.Shared.Publish(ctx, org, actor, keys[0], input)
+		}
+		if err != nil {
+			modelRouteFailure(c, err)
 			return
 		}
-		c.JSON(200, gin.H{"receipt": r})
+		c.JSON(200, gin.H{"receipt": revision})
 	}
+}
+func authidentityRoles(ctx context.Context) []string {
+	i, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
+	return i.Roles
+}
+
+func publicSharedPreview(preview *d.SharedModelPreview) any {
+	if preview == nil {
+		return nil
+	}
+	models := make([]d.ModelOption, 0, len(preview.Models))
+	for _, q := range preview.Models {
+		option := d.ModelOption{Category: q.Category, Reference: q.Reference, Channel: q.Channel, Model: q.Model, Ready: q.Ready, Reason: q.Reason}
+		if q.Price.Validate() == nil {
+			price := q.Price
+			option.Price = &price
+		}
+		models = append(models, option)
+	}
+	return gin.H{"ready": preview.Ready, "models": models}
 }

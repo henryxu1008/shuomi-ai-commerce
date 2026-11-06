@@ -27,6 +27,7 @@ type Scope struct {
 }
 
 type Conversation struct {
+	BusinessScope    *BusinessScope `json:"businessScope,omitempty"`
 	ID               string
 	Scope            Scope
 	Title            string
@@ -39,7 +40,10 @@ type Conversation struct {
 }
 
 type CreateInput struct {
-	Favorite bool
+	MemberID          string
+	Selection         *ScopeSelection
+	ScopeConfirmation string
+	Favorite          bool
 }
 
 type MetadataChange struct {
@@ -92,6 +96,7 @@ func (m MessageInput) WorkScope() WorkScope {
 }
 
 type PreparedPlan struct {
+	FrozenScope  *FrozenScope
 	MemberID     string
 	InputHash    string
 	ModelProfile []byte
@@ -121,6 +126,8 @@ const (
 )
 
 type PlanningCommand struct {
+	FrozenScope         *FrozenScope
+	ScopeDigest         string
 	Scope               Scope
 	IdempotencyKey      string
 	Operation           string
@@ -154,6 +161,7 @@ type PlanTerminal struct {
 // suggestion. The planning model supplies only GoalSummary; all remaining
 // facts come from freshly authorized Product, AgentConfig and Knowledge owners.
 type ExecutionProposal struct {
+	WorkbenchContextRef        agent.WorkbenchContextRef `json:",omitzero"`
 	ContextKind                string
 	ContentSelection           reviewproposal.ContentSelection
 	ExecutionLimits            agent.Limits
@@ -187,6 +195,7 @@ type ExecutionProposal struct {
 // BusinessTask is the durable confirmed intent and exact Agent handoff. Its
 // visible state is projected from Agent and Review owners, not stored here.
 type BusinessTask struct {
+	WorkbenchContextRef      agent.WorkbenchContextRef
 	ID                       string
 	Scope                    Scope
 	ConversationID           string

@@ -89,8 +89,8 @@ func (r *GormImageGenerationRepository) ReserveImageGeneration(ctx context.Conte
 		if bucket.Reserved > math.MaxInt64-intent.Points {
 			return orgresource.ErrInvalidInput
 		}
-		receipt = imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: id.TenantID, MemberID: intent.MemberID, OperationID: op.OperationID, ReservationID: uuid.NewString(), ResourceType: string(orgresource.ResourceAIPoint), Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart}
-		reservation := organizationResourceReservationRow{OrganizationID: id.TenantID, ReservationID: receipt.ReservationID, OperationID: op.OperationID, OwnerType: "image_generation_v1", OwnerAttemptID: fact.IntentID, BusinessScope: id.RunID, ResourceType: string(orgresource.ResourceAIPoint), ReservationPurpose: "single_source_edit", Quantity: intent.Points, State: string(orgresource.ReservationReserved), RequestFingerprint: fact.Fingerprint, MemberID: intent.MemberID, MemberMonthStart: &intent.MonthStart, MemberLimitVersion: intent.LimitVersion, PriceVersion: intent.PriceVersion}
+		receipt = imageagent.GenerationReservationReceipt{UnitVersion: fact.Intent.Billing.OfficialTariff.UnitVersion, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: id.TenantID, MemberID: intent.MemberID, OperationID: op.OperationID, ReservationID: uuid.NewString(), ResourceType: string(orgresource.ResourceAIPoint), Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart}
+		reservation := organizationResourceReservationRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceAIPoint)), OrganizationID: id.TenantID, ReservationID: receipt.ReservationID, OperationID: op.OperationID, OwnerType: "image_generation_v1", OwnerAttemptID: fact.IntentID, BusinessScope: id.RunID, ResourceType: string(orgresource.ResourceAIPoint), ReservationPurpose: "single_source_edit", Quantity: intent.Points, State: string(orgresource.ReservationReserved), RequestFingerprint: fact.Fingerprint, MemberID: intent.MemberID, MemberMonthStart: &intent.MonthStart, MemberLimitVersion: intent.LimitVersion, PriceVersion: intent.PriceVersion}
 		if err := tx.Omit("Events").Create(&reservation).Error; err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ func (r *GormImageGenerationRepository) ReserveImageGeneration(ctx context.Conte
 		if err := completeImageOperation(tx, op, string(payload), now); err != nil {
 			return err
 		}
-		if err := tx.Create(&organizationResourceEventRow{EventID: uuid.NewString(), OrganizationID: id.TenantID, OperationID: op.OperationID, ReservationID: &receipt.ReservationID, ResourceType: string(orgresource.ResourceAIPoint), Quantity: intent.Points, AvailableDelta: -intent.Points, ReservedDelta: intent.Points, Reason: orgresource.OperationReserve, SourceType: "image_generation_v1", SourceIdentity: fact.IntentID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed}).Error; err != nil {
+		if err := tx.Create(&organizationResourceEventRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceAIPoint)), EventID: uuid.NewString(), OrganizationID: id.TenantID, OperationID: op.OperationID, ReservationID: &receipt.ReservationID, ResourceType: string(orgresource.ResourceAIPoint), Quantity: intent.Points, AvailableDelta: -intent.Points, ReservedDelta: intent.Points, Reason: orgresource.OperationReserve, SourceType: "image_generation_v1", SourceIdentity: fact.IntentID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed}).Error; err != nil {
 			return err
 		}
 		return tx.Create(&organizationResourceAuditLogRow{OrganizationID: id.TenantID, OperationID: op.OperationID, Action: "image_generation_reserve", ActorID: id.OwnerUserID, Payload: string(payload)}).Error
@@ -129,6 +129,13 @@ func (r *GormImageGenerationRepository) FinalizeImageGeneration(ctx context.Cont
 	if fact.State != imageagent.GenerationSucceeded && fact.State != imageagent.GenerationNoEffect {
 		return imageagent.GenerationSettlementReceipt{}, orgresource.ErrOwnerNotTerminal
 	}
+	actual := int64(0)
+	if fact.State == imageagent.GenerationSucceeded {
+		actual, err = fact.Intent.Billing.ActualMicropoints(fact.Intent.Model, fact.Success.BillableUsage)
+		if err != nil {
+			return imageagent.GenerationSettlementReceipt{}, orgresource.ErrOwnerNotTerminal
+		}
+	}
 	proof := fact.TerminalProofDigest()
 	var result imageagent.GenerationSettlementReceipt
 	err = r.runner.run(ctx, func(tx *gorm.DB) error {
@@ -147,7 +154,7 @@ func (r *GormImageGenerationRepository) FinalizeImageGeneration(ctx context.Cont
 			return orgresource.ErrIdempotencyKeyConflict
 		}
 		now := r.now().UTC()
-		result = imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: finalOp.OperationID, ProofDigest: proof, Points: fact.Intent.Points}
+		result = imageagent.GenerationSettlementReceipt{UnitVersion: fact.Intent.Billing.OfficialTariff.UnitVersion, ReservedMicropoints: fact.Intent.Points, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: finalOp.OperationID, ProofDigest: proof, Points: actual}
 		if reserveOp.State == "processing" {
 			if fact.State != imageagent.GenerationNoEffect {
 				return orgresource.ErrInvalidOwnerProof
@@ -190,18 +197,18 @@ func (r *GormImageGenerationRepository) FinalizeImageGeneration(ctx context.Cont
 			if bucket.Reserved < reservation.Quantity {
 				return orgresource.ErrInvalidOwnerProof
 			}
-			decision := orgresource.SettlementRelease
+			decision := imageSettlementRelease
 			result.State = "released"
 			if fact.State == imageagent.GenerationSucceeded {
-				decision = orgresource.SettlementCommit
+				decision = imageSettlementCommit
 				result.State = "committed"
-				if counter.Consumed > math.MaxInt64-reservation.Quantity {
+				if counter.Consumed > math.MaxInt64-actual {
 					return orgresource.ErrInvalidInput
 				}
-				counter.Consumed += reservation.Quantity
+				counter.Consumed += actual
 			}
-			// Reuse the canonical debt-first release/commit arithmetic.
-			settlement, err := (&GormReservationRepository{}).calculateSettlement(tx.Statement.Context, tx, reservation, bucket, decision)
+			// Settle through the current persistence owner in this transaction.
+			settlement, err := calculateImageGenerationSettlement(tx.Statement.Context, tx, reservation, bucket, decision, actual)
 			if err != nil {
 				return err
 			}
@@ -220,10 +227,10 @@ func (r *GormImageGenerationRepository) FinalizeImageGeneration(ctx context.Cont
 			}
 			result.ReservationID = reservation.ReservationID
 			consumedDelta := int64(0)
-			if decision == orgresource.SettlementCommit {
-				consumedDelta = reservation.Quantity
+			if decision == imageSettlementCommit {
+				consumedDelta = actual
 			}
-			if err := tx.Create(&organizationResourceEventRow{EventID: uuid.NewString(), OrganizationID: id.TenantID, OperationID: finalOp.OperationID, ReservationID: &result.ReservationID, ResourceType: string(orgresource.ResourceAIPoint), Quantity: reservation.Quantity, AvailableDelta: settlement.netCredit, ReservedDelta: -reservation.Quantity, ConsumedDelta: consumedDelta, Reason: string(decision), SourceType: "image_generation_v1", SourceIdentity: fact.IntentID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: settlement.grossCredit, DebtRepaid: settlement.debtRepaid, NetCredit: settlement.netCredit}).Error; err != nil {
+			if err := tx.Create(&organizationResourceEventRow{QuantityUnit: resourceQuantityUnit(string(orgresource.ResourceAIPoint)), EventID: uuid.NewString(), OrganizationID: id.TenantID, OperationID: finalOp.OperationID, ReservationID: &result.ReservationID, ResourceType: string(orgresource.ResourceAIPoint), Quantity: reservation.Quantity, AvailableDelta: settlement.netCredit, ReservedDelta: -reservation.Quantity, ConsumedDelta: consumedDelta, Reason: string(decision), SourceType: "image_generation_v1", SourceIdentity: fact.IntentID, BalanceAfter: bucket.Available, AvailableAfter: bucket.Available, ReservedAfter: bucket.Reserved, ConsumedAfter: bucket.Consumed, GrossCredit: settlement.grossCredit, DebtRepaid: settlement.debtRepaid, NetCredit: settlement.netCredit}).Error; err != nil {
 				return err
 			}
 		}
@@ -271,5 +278,5 @@ func saveImageBucket(tx *gorm.DB, bucket organizationResourceBucketRow, now time
 }
 func matchesImageReservation(f imageagent.GenerationFact, r organizationResourceReservationRow) bool {
 	i := f.Intent
-	return r.OwnerType == "image_generation_v1" && r.OwnerAttemptID == f.IntentID && r.OperationID == "image-reserve:"+f.IntentID && r.OrganizationID == i.Identity.TenantID && r.BusinessScope == i.Identity.RunID && r.ResourceType == string(orgresource.ResourceAIPoint) && r.ReservationPurpose == "single_source_edit" && r.Quantity == i.Points && r.RequestFingerprint == f.Fingerprint && r.MemberID == i.MemberID && r.MemberMonthStart != nil && r.MemberMonthStart.Equal(i.MonthStart) && r.MemberLimitVersion == i.LimitVersion && r.PriceVersion == i.PriceVersion
+	return r.QuantityUnit == f.Intent.Billing.OfficialTariff.UnitVersion && r.OwnerType == "image_generation_v1" && r.OwnerAttemptID == f.IntentID && r.OperationID == "image-reserve:"+f.IntentID && r.OrganizationID == i.Identity.TenantID && r.BusinessScope == i.Identity.RunID && r.ResourceType == string(orgresource.ResourceAIPoint) && r.ReservationPurpose == "single_source_edit" && r.Quantity == i.Points && r.RequestFingerprint == f.Fingerprint && r.MemberID == i.MemberID && r.MemberMonthStart != nil && r.MemberMonthStart.Equal(i.MonthStart) && r.MemberLimitVersion == i.LimitVersion && r.PriceVersion == i.PriceVersion
 }

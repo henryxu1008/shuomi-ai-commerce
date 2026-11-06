@@ -239,7 +239,7 @@ func readMutation(request *http.Request) (string, collection.Mutation, error) {
 	if err != nil || len(strict) > 0 || !ownVariantNumbersDeclared(raw) || !revisionVersionDeclared(raw, input) {
 		return "", input, collection.ErrInvalid
 	}
-	return keys[0], input, nil
+	return keys[0], input.WithVerifiedStockFields(), nil
 }
 func writeError(c *gin.Context, err error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"

@@ -40,6 +40,7 @@ import { hasTrustedSameOriginRecovery, hasTrustedSameOriginWrite } from "@/lib/s
 import { ACQUISITION_BODY_MAX_BYTES, ACQUISITION_RESPONSE_MAX_BYTES, acquisitionRequestSchema, acquisitionProductSchema, acquisitionResultSchema, acquisitionErrorStatuses, isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { mainImageAcceptedSchema, mainImageApprovalRequestSchema, mainImageCandidatesSchema, mainImageResultSchema, mainImageStartRequestSchema } from "@/lib/contracts/acquisition-main-image";
 import {imageSetRoutes,imageSetMethods,imageSetPath,imageSetRequestSchema,imageSetResponseSchema,imageSetSuccessStatus,imageSetErrorStatuses,imageSetResponseBinding,imageSetResponseBindingSchema,imageSetResponseMatches,type ImageSetRoute} from "@/lib/contracts/product-image-set";
+import {analysisRoutes,analysisMethods,analysisPath,analysisRequestSchema,analysisResponseSchema,analysisBinding,analysisBindingSchema,analysisMatches,type AnalysisRoute} from "@/lib/contracts/product-image-analysis";
 
 export const WORKBENCH_COOKIE_NAME = "shuomi_effective_organization";
 const EXPECTED_ORGANIZATION_ID_HEADER = "X-Expected-Organization-ID";
@@ -61,6 +62,7 @@ export type WorkbenchResponseContract =
   | `supply-${SupplyRoute}`
   | `ai-${AIWorkbenchRoute}`
   | "product-agent-result"
+  | `product-agent-image-analysis-${AnalysisRoute}`
   | "product-agent-source"
   | "product-agent-content-result"
   | "product-agent-review"
@@ -91,6 +93,7 @@ type WorkbenchRequestContract =
   | `supply-${SupplyRoute}`
   | `ai-${AIWorkbenchRoute}`
   | "product-agent-start"
+  | `product-agent-image-analysis-${AnalysisRoute}`
   | "product-agent-read"
   | "product-agent-resume"
   | "product-agent-review"
@@ -329,16 +332,17 @@ const sourceAccountErrorStatuses: Readonly<Record<string, number>> = {
 
 const workbenchRouteAllowlist = [
   ...imageSetRoutes.map(action=>routeDefinition(imageSetMethods[action],`image-set-${action}`,`image-set-${action}`,path=>imageSetPath(path,action))),
+  ...analysisRoutes.map(action=>routeDefinition(analysisMethods[action],`product-agent-image-analysis-${action}`,`product-agent-image-analysis-${action}`,path=>analysisPath(path,action))),
   ...supplyRouteMethods.map(([method,name])=>routeDefinition(method,`supply-${name}`,`supply-${name}`,path=>supplyPath(method,path)===name?path.join("/"):null)),
   ...(["batches", "batch", "items", "own", "detail", "history", "history-detail", "operation", "command", "import-preview", "import-template", "media-upload", "media-read"] as const).map(name => {
     const method = name === "command" || name === "import-preview" || name === "media-upload" ? "POST" : "GET";
     return routeDefinition(method, `collection-${name}`, `collection-${name}`, path => collectionPath(method, path) === name ? path.join("/") : null);
   }),
   ...([
-    ["GET","subject-read"], ["GET", "conversation-list"], ["POST", "conversation-create"],
+    ["GET","subject-read"], ["GET","scope-options"], ["GET", "conversation-list"], ["POST", "conversation-create"],
     ["GET", "conversation-read"], ["PATCH", "conversation-metadata"],
     ["POST", "message"], ["POST", "confirm"],
-    ["GET", "task-list"], ["GET", "task-read"],
+    ["GET", "task-list"], ["GET", "task-read"], ["GET", "task-scope-options"],
     ["POST", "task-start"], ["POST", "task-resume"], ["POST", "task-review"],
   ] as const).map(([method, name]) => routeDefinition(method, `ai-${name}`, `ai-${name}`,
     path => aiWorkbenchPath(method, path) === name ? path.join("/") : null)),
@@ -452,6 +456,7 @@ export async function buildWorkbenchUpstreamRequest(
   const collectionContract = route.requestContract.startsWith("collection-");
   const supplyContract = route.requestContract.startsWith("supply-");
   const imageSetContract = route.requestContract.startsWith("image-set-");
+  const analysisContract = route.requestContract.startsWith("product-agent-image-analysis-");
   if (
     (supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
       route.requestContract.startsWith("source-account-") ||
@@ -514,7 +519,24 @@ export async function buildWorkbenchUpstreamRequest(
       headers.set("X-Requested-Organization-ID", selectedOrganization);
     }
 
-    if (imageSetContract) {
+    if (analysisContract) {
+      const action=route.requestContract.slice("product-agent-image-analysis-".length) as AnalysisRoute,url=new URL(request.url);
+      if(!authenticatedActorSubject||request.headers.get(EXPECTED_USER_ID_HEADER)!==authenticatedActorSubject)return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
+      if(analysisMethods[action]==="GET"){
+        if(!(await requestHasNoBody(request))||request.headers.has("Idempotency-Key"))return protocolError(400,"INVALID_REQUEST","Analysis read invalid");
+        for(const key of url.searchParams.keys())if(action!=="recent"||key!=="cursor"||url.searchParams.getAll(key).length!==1||!isAcquisitionUUID(url.searchParams.get(key)??""))return protocolError(400,"INVALID_REQUEST","Analysis query invalid");
+        query=url.search;
+      }else{
+        const boundary=validateSourceMutationBoundary(request,authenticatedActorSubject);if(boundary)return boundary;
+        if(url.search||request.headers.get("content-type")!=="application/json"||request.headers.has("content-encoding"))return protocolError(400,"INVALID_REQUEST","Analysis body invalid");
+        const raw=await readRequestBody(request,8192,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
+        const parsed=parseJSONBody(raw),checked=analysisRequestSchema(action).safeParse(parsed?.payload);
+        if(!parsed||!checked.success)return protocolError(400,"INVALID_REQUEST","Analysis body invalid");
+        if(action==="prepare"){const key=request.headers.get("Idempotency-Key")??"";if(!isAcquisitionUUID(key))return protocolError(400,"INVALID_REQUEST","Analysis key invalid");headers.set("Idempotency-Key",key)}
+        else if(request.headers.has("Idempotency-Key"))return protocolError(400,"INVALID_REQUEST","Unexpected analysis key");
+        body=JSON.stringify(checked.data);headers.set("Content-Type","application/json");
+      }
+    } else if (imageSetContract) {
       const action=route.requestContract.slice(10) as ImageSetRoute;
       const url=new URL(request.url);
       if(!authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER)!==authenticatedActorSubject)return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
@@ -553,11 +575,11 @@ export async function buildWorkbenchUpstreamRequest(
         body=JSON.stringify(checked.data);headers.set("Content-Type","application/json");if(key)headers.set("Idempotency-Key",key);
       }else{
         if(request.headers.has("Idempotency-Key") || ((action==="item-completion-drafts"||action.startsWith("completion-history"))&&request.headers.has("content-encoding")) || !(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body or command key is not allowed");
-        const allowed=action==="completion-history"?new Set(["before","limit"]):["item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind"]:action==="operations"?["storeId"]:action==="optimization-options"?[]:["keyword"]]):new Set<string>();
+        const allowed=action==="completion-history"?new Set(["before","limit"]):["upload-plans","item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind","planId"]:action==="operations"?["storeId"]:action==="optimization-options"||action==="upload-plans"?[]:["keyword"]]):new Set<string>();
         if(/%(?![0-9A-Fa-f]{2})/.test(url.search)||(action==="operations"||action==="stages")&&!isAcquisitionUUID(url.searchParams.get("storeId")??"")||action==="stages"&&!["all","waiting","missing","ready","review","uploaded"].includes(url.searchParams.get("stage")??""))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         for(const key of url.searchParams.keys()){
           const values=url.searchParams.getAll(key);if(!allowed.has(key)||values.length!==1||!values[0])return protocolError(400,"INVALID_REQUEST","Supply query invalid");
-          const value=values[0];if(key==="before"&&completionRevision(value)===null||key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
+          const value=values[0];if(key==="before"&&completionRevision(value)===null||key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId"||key==="planId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         }
         query=url.search;
       }
@@ -614,17 +636,21 @@ export async function buildWorkbenchUpstreamRequest(
       const action = route.requestContract.slice(3) as AIWorkbenchRoute;
       if (!authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER) !== authenticatedActorSubject)
         return protocolError(409, "IDENTITY_CONTEXT_CHANGED", "Identity context changed");
-      const listed = action === "conversation-list" || action === "conversation-read" || action === "task-list";
+      const scopeOptions = action === "scope-options" || action === "task-scope-options";
+      const listed = action === "conversation-list" || action === "conversation-read" || action === "task-list" || scopeOptions;
       if (listed) {
         if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
         const url = new URL(request.url);
         const allowed = action === "conversation-read" ? new Set(["limit", "before"])
-          : action === "conversation-list" ? new Set(["limit", "after", "saved", "archived"]) : new Set(["limit", "after"]);
+          : action === "conversation-list" ? new Set(["limit", "after", "saved", "archived"])
+          : scopeOptions ? new Set(["kind", "projectId", "storeId", "after"]) : new Set(["limit", "after", "scopeKind", "projectId", "storeId"]);
         const selected = new URLSearchParams();
         for (const [name, value] of url.searchParams) {
           if (!allowed.has(name) || selected.has(name) || !value ||
             (name === "limit" && (!/^[1-9][0-9]?$/.test(value) || Number(value) > 50)) ||
-            (name === "after" && !(action === "conversation-list" ? /^[A-Za-z0-9_-]{32}$/.test(value) : isAcquisitionUUID(value))) ||
+            (name === "after" && !(action === "conversation-list" ? /^[A-Za-z0-9_-]{32}$/.test(value) : scopeOptions || url.searchParams.has("scopeKind") ? /^[A-Za-z0-9_-]{1,512}$/.test(value) : isAcquisitionUUID(value))) ||
+            ((name === "kind" || name === "scopeKind") && !["all","general","project","store","unrecorded"].includes(value)) ||
+            ((name === "projectId" || name === "storeId") && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) ||
             ((name === "saved" || name === "archived") && value !== "true") ||
             (name === "before" && !/^[1-9][0-9]*$/.test(value))) return protocolError(400, "INVALID_REQUEST", "Query is invalid");
           selected.set(name, value);
@@ -1017,11 +1043,12 @@ export async function buildWorkbenchUpstreamRequest(
       cache: "no-store",
     },
     responseContract: route.responseContract,
-    expectedStoreId:route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+    expectedStoreId:analysisContract?JSON.stringify(analysisBinding(path,headers.get("Idempotency-Key")??undefined)):route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
       route.requestContract.startsWith("supply-shein-")&&route.requestContract!=="supply-shein-completion-preview"&&typeof body==="string"?JSON.stringify({...JSON.parse(body),key:headers.get("Idempotency-Key")??JSON.parse(body).key}):
       route.requestContract==="supply-shein-completion-preview"&&typeof body==="string"?body:
       route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
+      ["supply-cancel-upload-plan","supply-upload-plan","supply-upload-plan-preview","supply-continue-upload-plan","supply-upload-plan-command"].includes(route.requestContract)?path[2]:
       route.requestContract==="supply-completion-history"?`${path[2]}:${new URL(request.url).searchParams.get("before")??0}:${new URL(request.url).searchParams.get("limit")??20}`:
       route.requestContract==="supply-completion-history-detail"?`${path[2]}:${path[5]}`:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :
@@ -1046,10 +1073,10 @@ export async function buildWorkbenchUpstreamRequest(
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
       route.requestContract === "collection-command" || route.requestContract === "collection-media-upload" ||
-      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read","ai-subject-read"].includes(route.requestContract)) ||
+      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read","ai-subject-read","ai-scope-options","ai-task-scope-options"].includes(route.requestContract)) ||
       (route.requestContract.startsWith("store-connection-") && route.requestContract !== "store-connection-read" && route.requestContract !== "store-connection-applications") ||
       route.requestContract.startsWith("store-service-") ||
-      (route.requestContract.startsWith("product-agent-") && route.requestContract!=="product-agent-read") ||
+      (route.requestContract.startsWith("product-agent-") && (analysisContract?request.method==="POST":route.requestContract!=="product-agent-read")) ||
       route.requestContract === "browser-capture-create" ||
       route.requestContract === "browser-capture-verify" ||
       route.requestContract === "browser-capture-by-key" ||
@@ -1174,12 +1201,22 @@ export async function buildWorkbenchBrowserResponse(
     if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)){
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
+    if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){
+      response=new NextResponse(JSON.stringify({...await response.json(),conversationAccepted:false}),{status:response.status,headers:response.headers});
+    }
     if (code === "ORGANIZATION_ACCESS_REVOKED" || code === "ORGANIZATION_ACCESS_DENIED") clearSelectionCookie(response);
     return response;
   }
   if(agentContract) {
     const invalid=()=>protocolError(options.sourceMutation?503:502,options.sourceMutation?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE","Agent response unavailable",options.requestId??"");
     if(upstream.ok) {
+      if(contract.startsWith("product-agent-image-analysis-")){
+        const action=contract.slice("product-agent-image-analysis-".length) as AnalysisRoute,checked=analysisResponseSchema(action).safeParse(payload);
+        let binding:unknown;try{binding=JSON.parse(expectedStoreId??"")}catch{return invalid()}
+        const expected=analysisBindingSchema.safeParse(binding);
+        if(upstream.status!==200||!checked.success||!expected.success||!analysisMatches(checked.data,expected.data))return invalid();
+        return new NextResponse(JSON.stringify(checked.data),{status:200,headers:safeJSONHeaders()});
+      }
       const checked=(contract==="product-agent-source"?ownContentSourceSchema:contract==="product-agent-review"?agentReviewLinkSchema:contract==="product-agent-content-result"?contentAgentResultSchema:agentResultSchema).safeParse(payload);
       if(upstream.status!==200 || !checked.success || (expectedStoreId!==undefined && !("requestKey" in checked.data && checked.data.requestKey===expectedStoreId)))return invalid();
       return new NextResponse(JSON.stringify(checked.data),{status:200,headers:safeJSONHeaders()});

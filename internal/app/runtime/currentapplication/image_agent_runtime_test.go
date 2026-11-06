@@ -62,7 +62,7 @@ func fullImageGenericRuntimeConfig(t *testing.T) *Config {
 	cfg.ProductAgent = &ProductAgentConfig{Database: DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "product_agent_runtime", Password: "fixture", Database: "product_agent", MaxConnections: 4}}
 	cfg.ImageAgent = &ImageAgentConfig{
 		WorkerConfigFile: filepath.Join(t.TempDir(), "private-worker.yaml"),
-		Generation:       coreconfig.ImageAgentGenerationConfig{PriceVersion: "isolated-price", PointsPerImage: 12},
+		Generation:       coreconfig.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12},
 		Database:         DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "image_agent_runtime", Password: "fixture", Database: "image_agent", MaxConnections: 4},
 		TemporalAddress:  "127.0.0.1:7233", TemporalNamespace: "default", AllowedOrganizationIDs: []string{"org-a"},
 		PublicBase: "https://images.example.test", Bucket: "image-agent-assets",
@@ -219,13 +219,13 @@ func TestCurrentImageAgentRequiresExplicitOwnedRuntimeAndNeverFallsBack(t *testi
 	require.Equal(t, []string{"org-a"}, core.ImageAgent.Admission.AllowedTenantIDs)
 	require.Equal(t, "https://images.example.test", core.ImageAgent.ArtifactStore.PublicBase)
 	require.Equal(t, coreconfig.ImageAgentGenerationConfig{}, core.ImageAgent.Generation, "no default price opens generation")
-	cfg.ImageAgent.Generation = coreconfig.ImageAgentGenerationConfig{PriceVersion: "price-2026-09", PointsPerImage: 12}
+	cfg.ImageAgent.Generation = coreconfig.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 12}
 	cfg.CommercialOwnerDatabase = nil
 	require.Error(t, cfg.validate(), "price without the explicit resource owner must not open generation")
 	cfg.CommercialOwnerDatabase = &DatabaseConfig{Host: "127.0.0.1", Port: 5434, User: "commercial_owner_runtime", Password: "fixture-password", Database: "commercial_owner", MaxConnections: 4}
 	require.NoError(t, cfg.validate())
 	require.Equal(t, cfg.ImageAgent.Generation, cfg.CoreConfig().ImageAgent.Generation)
-	for _, price := range []coreconfig.ImageAgentGenerationConfig{{PriceVersion: "version"}, {PointsPerImage: 12}, {PriceVersion: " version ", PointsPerImage: 12}, {PriceVersion: "bad\nversion", PointsPerImage: 12}} {
+	for _, price := range []coreconfig.ImageAgentGenerationConfig{{Enabled: true}, {MaximumMicropoints: 12}, {Enabled: true, UnitVersion: "old", MaximumMicropoints: 12}} {
 		cfg.ImageAgent.Generation = price
 		require.Error(t, cfg.validate())
 	}

@@ -16,4 +16,4 @@ Local adaptations:
 - Adapt React 19 refs with Floating UI useMergeRefs and media-query subscription with useSyncExternalStore; derive query/active-link UI state without effect cascades. No lint/CI rules are disabled.
 - Link UI uses existing HTTPS-only descriptionURL and read-only checks; Chinese accessible labels and heading/list labels.
 
-Design: docs/architecture/rich-description-simple-editor-images-v1.md. Content, authorization, uploads and recovery remain in existing owners, outside this UI library.
+Design: docs/architecture/rich-description-simple-editor-images.md. Content, authorization, uploads and recovery remain in existing owners, outside this UI library.

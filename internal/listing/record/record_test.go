@@ -244,8 +244,8 @@ func TestCreateReplayReturnsPersistedRecordAndChangedInputConflicts(t *testing.T
 	second, err := service.Create(fixtureContext(), "op", fixtureInput)
 	require.NoError(t, err)
 	require.Equal(t, first, second)
-	require.Equal(t, 2, builder.calls)
-	require.Equal(t, 2, evaluator.calls)
+	require.Equal(t, 1, builder.calls)
+	require.Equal(t, 1, evaluator.calls)
 	require.Equal(t, 1, records.writes)
 
 	changed := fixtureInput
@@ -274,6 +274,42 @@ func TestCreateSameOperationConflictsWhenBoundProductOrAssetFactDrifts(t *testin
 			require.Equal(t, 1, records.writes)
 		})
 	}
+}
+
+func TestCreateReturnsOriginalReceiptAcrossRuleUpgrade(t *testing.T) {
+	source, assets, stores := &sourceFixture{}, &assetFixture{}, &storeReferenceFixture{}
+	records, builder, evaluator := &storeFixture{}, &builderFixture{}, &evaluatorFixture{}
+	service, err := fixtureService(source, assets, stores, records, builder, evaluator, authFixture{write: true})
+	require.NoError(t, err)
+	original, err := service.Create(fixtureContext(), "upgrade-replay", fixtureInput)
+	require.NoError(t, err)
+	service.dependencies.PreviousRuleRevision = service.dependencies.RuleRevision
+	service.dependencies.RuleRevision = "shein.offline_package.next"
+	evaluator.fail = errors.New("a committed operation must not be re-evaluated")
+	actual, err := service.Create(fixtureContext(), "upgrade-replay", fixtureInput)
+	require.NoError(t, err)
+	require.Equal(t, original, actual)
+	require.Equal(t, 1, records.writes)
+	require.Equal(t, 1, evaluator.calls)
+	require.Equal(t, 1, builder.calls)
+
+	source.title = "changed exact source"
+	_, err = service.Create(fixtureContext(), "upgrade-replay", fixtureInput)
+	require.ErrorIs(t, err, ErrConflict)
+	source.title = ""
+	guardCalls := 0
+	service.dependencies.CreationGuard = func(context.Context, Actor, Input) error {
+		guardCalls++
+		if guardCalls == 2 {
+			return ErrForbidden
+		}
+		return nil
+	}
+	_, err = service.Create(fixtureContext(), "upgrade-replay", fixtureInput)
+	require.ErrorIs(t, err, ErrForbidden)
+	require.Equal(t, 2, guardCalls)
+	require.Equal(t, 1, records.writes)
+	require.Equal(t, 1, evaluator.calls)
 }
 
 func TestCreateBoundsProductAssetInventoryAndGeneratedPackageIndependently(t *testing.T) {
@@ -346,4 +382,17 @@ func TestCanonicalInputHashBindsRuleAndPolicyRevisions(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, old, current)
 	}
+}
+
+func TestCreateGuardRejectsBeforeDomainReads(t *testing.T) {
+	source, assets, stores := &sourceFixture{}, &assetFixture{}, &storeReferenceFixture{}
+	records := &storeFixture{}
+	svc, err := NewService(ServiceDependencies{Products: source, Assets: assets, Stores: stores, Records: records, Builder: &builderFixture{}, Evaluator: &evaluatorFixture{}, Authorizer: authFixture{write: true}, Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion, CreationGuard: func(context.Context, Actor, Input) error { return ErrForbidden }})
+	require.NoError(t, err)
+	_, err = svc.Create(fixtureContext(), "guard-rejected", fixtureInput)
+	require.ErrorIs(t, err, ErrForbidden)
+	require.Zero(t, source.calls)
+	require.Zero(t, assets.calls)
+	require.Zero(t, stores.calls)
+	require.Zero(t, records.writes)
 }

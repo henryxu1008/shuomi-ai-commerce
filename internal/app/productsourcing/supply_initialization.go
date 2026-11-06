@@ -26,6 +26,7 @@ var supplyFeatureReviewTables = []string{"product_title_proposals", "product_tit
 func supplyFeatureNewTables() []string {
 	tables := append([]string{}, recordstore.Tables...)
 	tables = append(tables, prepstore.OperationTables...)
+	tables = append(tables, prepstore.UploadPlanTables...)
 	tables = append(tables, submissionstore.AttemptTable, submissionstore.TargetFenceTable)
 	tables = append(tables, officialstore.OfficialTables...)
 	return tables
@@ -41,7 +42,7 @@ func EnableSupplyChain(ctx context.Context, manifest, confirmedDatabase string) 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, refused)
-	if err != nil || !cfg.Collections || !cfg.CompletionDrafts || !cfg.SupplyChain || cfg.AcquisitionPlans || cfg.ImageSets || cfg.SupplyMarket || cfg.POD || cfg.DataServices {
+	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.CompletionDrafts || !cfg.SupplyChain || cfg.AcquisitionPlans || cfg.ImageSets || cfg.SupplyMarket || cfg.POD || cfg.DataServices {
 		return refused
 	}
 	d := cfg.Database

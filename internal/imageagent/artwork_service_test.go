@@ -44,7 +44,7 @@ func TestArtworkPreparationHasNoOriginalAndConfirmationRestoresOneAdmission(t *t
 	config := &artworkConfigurationFixture{setConfigurationFixture: setConfigurationFixture{enabled: true}}
 	workflows := &recordingWorkflowClient{}
 	repo := store.NewMemoryRepository()
-	service, err := imageagent.NewService(repo, workflows, staticCatalogResolver{}, imageagent.WithOrganizationScope(), imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: config, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: 100, ElapsedSeconds: 300}}))
+	service, err := imageagent.NewService(repo, workflows, staticCatalogResolver{}, imageagent.WithOrganizationScope(), imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: config, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 100, ElapsedSeconds: 300}}))
 	require.NoError(t, err)
 	input := imageagent.PrepareArtworkInput{RequestID: uuid.NewString(), ContextID: "creative", ExpectedModeRevision: "0", Theme: "原创森林动物", Requirements: "不含商品照片和文字"}
 	prepared, err := service.PrepareArtwork(ctx, input)
@@ -86,7 +86,7 @@ func TestCancelPreparedArtworkUsesOnlyTheOriginalRepository(t *testing.T) {
 	configuration := &artworkConfigurationFixture{setConfigurationFixture: setConfigurationFixture{enabled: true}}
 	workflows := &recordingWorkflowClient{}
 	repository := store.NewMemoryRepository()
-	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{}, imageagent.WithOrganizationScope(), imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: 100, ElapsedSeconds: 300}}))
+	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{}, imageagent.WithOrganizationScope(), imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 100, ElapsedSeconds: 300}}))
 	require.NoError(t, err)
 	prepared, err := service.PrepareArtwork(ctx, imageagent.PrepareArtworkInput{RequestID: uuid.NewString(), ContextID: "cancel-original", ExpectedModeRevision: "0", Theme: "待取消图案"})
 	require.NoError(t, err)

@@ -6,15 +6,16 @@ import (
 )
 
 type Variant struct {
-	SKU        string                `json:"sku,omitempty"`
-	Attributes map[string]string     `json:"attributes,omitempty"`
-	Price      *publishing.Price     `json:"price,omitempty"`
-	Stock      int                   `json:"stock,omitempty"`
-	Image      string                `json:"image,omitempty"`
-	Dimensions *canonical.Dimensions `json:"dimensions,omitempty"`
-	Weight     *canonical.Weight     `json:"weight,omitempty"`
-	Barcode    string                `json:"barcode,omitempty"`
-	IsDefault  bool                  `json:"is_default,omitempty"`
+	SKU              string                `json:"sku,omitempty"`
+	Attributes       map[string]string     `json:"attributes,omitempty"`
+	Price            *publishing.Price     `json:"price,omitempty"`
+	Stock            int                   `json:"stock,omitempty"`
+	OwnStockDeclared bool                  `json:"-"`
+	Image            string                `json:"image,omitempty"`
+	Dimensions       *canonical.Dimensions `json:"dimensions,omitempty"`
+	Weight           *canonical.Weight     `json:"weight,omitempty"`
+	Barcode          string                `json:"barcode,omitempty"`
+	IsDefault        bool                  `json:"is_default,omitempty"`
 }
 
 type ImageSet struct {

@@ -15,6 +15,8 @@ require (
 	github.com/casbin/casbin/v2 v2.128.0
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/cloudwego/eino v0.9.21
+	github.com/cloudwego/eino-ext/components/model/gemini v0.1.36
+	github.com/cloudwego/eino-ext/components/model/qwen v0.1.9
 	github.com/disintegration/imaging v1.6.2
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.10.1
@@ -69,10 +71,12 @@ require (
 )
 
 require (
+	cloud.google.com/go v0.116.0 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect

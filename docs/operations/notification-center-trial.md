@@ -1,6 +1,6 @@
 # 通知中心使用与启动说明
 
-Refs #608、PR #609。设计依据为 [通知中心 v1](../architecture/notification-center-v1.md)，入口为当前 Console 的 `/workbench/notifications` 和右上角通知按钮。
+Refs #608、PR #609。设计依据为 [通知中心 v1](../architecture/notification-center.md)，入口为当前 Console 的 `/workbench/notifications` 和右上角通知按钮。
 
 通知中心展示当前账号有权读取的官方消息和业务事实。通知已读只保存阅读收据；待确认方案、人工 Review、资源欠量、支付核实等仍由原业务页面处理。它不执行模型、支付、平台发布、邀请重发或业务恢复。
 

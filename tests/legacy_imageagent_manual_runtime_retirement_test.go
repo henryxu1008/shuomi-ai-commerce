@@ -437,7 +437,7 @@ func TestLegacyImageAgentGenericExecutionClosureIsRetired(t *testing.T) {
 		"internal/imageagent/acquisition_main.go":                            {"ValidateAcquisitionMainPlan"},
 		"internal/app/worker/imageagent/source_main_executor.go":             {"SourceMainExecutor"},
 		"internal/integration/openai/source_image_adapter.go":                {"SourceImageAdapter"},
-		"internal/integration/openai/credential_config.go":                   {"ClientConfig", "ResolvedClientConfig"},
+		"internal/integration/openai/credential_config.go":                   {"ClientConfig"},
 		"internal/product/image/source_white_background.go":                  {"SourceWhiteBackgroundRequest"},
 		"internal/product/image/policy_scene_defaults.go":                    {"PolicySceneDefaults"},
 		"internal/imageagent/assetpublication/acquisition_main_publisher.go": {"AcquisitionMainPublisher", "PublishAcquisitionMain"},

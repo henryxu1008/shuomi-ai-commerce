@@ -17,10 +17,10 @@ func paidImageOutputFixture(t *testing.T) (imageagent.RunProjection, imageagent.
 	require.NoError(t, err)
 	f, _, err = f.BeginDispatch()
 	require.NoError(t, err)
-	f, err = f.RecordSuccess(imageagent.GenerationSuccess{ResponseID: "original-response", ResultDigest: released.Intent.SourceDigest}.WithResultLocator("https://output.example/original.png", ""))
+	f, err = f.RecordSuccess(imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "original-response", ResultDigest: released.Intent.SourceDigest}.WithResultLocator("https://output.example/original.png", ""))
 	require.NoError(t, err)
 	r := released.Settlement
-	r.State, r.ProofDigest = "committed", f.TerminalProofDigest()
+	r.State, r.ProofDigest, r.Points = "committed", f.TerminalProofDigest(), f.Intent.Points
 	f, err = f.BindSettlement(r)
 	require.NoError(t, err)
 	return p, f
@@ -49,7 +49,7 @@ func TestPaidOriginalOutputSummaryRejectsUnprovedAndMismatchedFacts(t *testing.T
 			p, fact := paidImageOutputFixture(t)
 			switch scenario {
 			case "unknown":
-				fact.State, fact.Success, fact.Settlement = imageagent.GenerationUnknown, imageagent.GenerationSuccess{}, imageagent.GenerationSettlementReceipt{}
+				fact.State, fact.Success, fact.Settlement = imageagent.GenerationUnknown, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200}, imageagent.GenerationSettlementReceipt{}
 			case "unsettled":
 				fact.Settlement = imageagent.GenerationSettlementReceipt{}
 			case "wrong_member":
@@ -167,7 +167,7 @@ func TestOriginalOutputSummaryDistinguishesReleasedAndUnknownSiblings(t *testing
 				if name == "released" {
 					fact, err = fact.RecordNoGeneration()
 					require.NoError(t, err)
-					fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: reservation.ReservationID, State: "released", ProofDigest: fact.TerminalProofDigest(), Points: 1})
+					fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: 1, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: reservation.ReservationID, State: "released", ProofDigest: fact.TerminalProofDigest(), Points: 0})
 				} else {
 					fact, _, err = fact.BeginDispatch()
 					require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestOriginalOutputSummaryDistinguishesReleasedAndUnknownSiblings(t *testing
 			data, err := json.Marshal(summary)
 			require.NoError(t, err)
 			require.NoError(t, json.Unmarshal(data, &wire))
-			require.Equal(t, []any{map[string]any{"slotId": "released", "attempt": float64(1), "points": float64(1)}}, wire["releasedSlots"])
+			require.Equal(t, []any{map[string]any{"slotId": "released", "attempt": float64(1), "points": "1"}}, wire["releasedSlots"])
 			require.EqualValues(t, map[bool]int{true: 1, false: 0}[includePaid], summary.SettledPoints)
 			release, err := a.releaseSummary(context.Background(), p)
 			require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestOriginalOutputSummaryDoesNotInferReleasedSlots(t *testing.T) {
 			case "corrupt":
 				fact.Settlement.ProofDigest = "corrupt"
 			case "closed":
-				p.Slots[0].Closure = &imageagent.ImageSlotClosure{Kind: "settled", Points: 0}
+				p.Slots[0].Closure = &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "settled", Points: 0}
 			}
 			a := &fullImageApplication{generationFacts: imageReleaseFactReader(func(context.Context, imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
 				return fact, nil

@@ -59,7 +59,7 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 		// be finishing. Only an explicit original pre-dispatch outcome qualifies.
 		if result.Slot.Status == imageagent.SlotStatusBlocked && input.Result.EffectPhase == imageagent.SlotEffectV3ProviderNotDispatched && terminalEffectPhaseForErrorCode(result.ErrorCode) == imageagent.SlotEffectV3ProviderNotDispatched && (errors.Is(effectErr, imageagent.ErrRunNotFound) || effect.Phase == imageagent.SlotEffectV3ProviderNotDispatched) {
 			result.Attempt = 0
-			result.Closure = &imageagent.ImageSlotClosure{Kind: "not_dispatched"}
+			result.Closure = &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}
 			return result, nil
 		}
 		if result.Slot.Status == imageagent.SlotStatusAccepted {
@@ -145,7 +145,7 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 		return result, imageagent.ErrRevisionConflict
 	}
 	result.Closure = closure
-	candidate.GenerationProof = &imageagent.ImageGenerationProof{IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}
+	candidate.GenerationProof = &imageagent.ImageGenerationProof{UnitVersion: closure.UnitVersion, IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}
 	return result, nil
 }
 

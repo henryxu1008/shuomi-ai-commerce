@@ -14,6 +14,19 @@ const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B0
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 describe("data service product paths", () => {
+    it("explains missing data permissions and keeps all acquisition actions closed without creating a request", async () => {
+        const requests = vi.fn(async () => json({ error: { code: "PERMISSION_DENIED" } }, 403));
+        vi.stubGlobal("fetch", requests);
+        render(<DataServicesPage mode="market"/>);
+        await screen.findByText("当前企业未授予此操作所需的权限。");
+        expect(screen.getByText("请联系企业管理员核对“数据市场使用”和“商品资料查看”权限。")).toBeInTheDocument();
+        expect(screen.getByText("当前身份没有抓取历史读取权限。")).toBeInTheDocument();
+        expect(screen.getByText("当前身份没有定制历史读取权限。")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "配置实时抓取" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "提交定制需求" })).toBeDisabled();
+        expect(screen.queryByText("数据服务暂不可用，请稍后刷新。")).not.toBeInTheDocument();
+        expect(requests.mock.calls).toHaveLength(3);
+    });
     it.each([
         [79, 0, 100, false], [60, 20, 100, true], [80, 0, 100, true], [0, 80, 100, true], [90, 10, 100, true],
         [60, 20, 101, false], [0, 8, 10, true],

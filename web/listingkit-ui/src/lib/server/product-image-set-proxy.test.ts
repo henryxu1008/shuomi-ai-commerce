@@ -5,7 +5,7 @@ const path=["sourcing","1688","acquisitions",context,"images"];
 const expected=JSON.stringify({kind:"acquisition",contextId:context,runId:run});
 it("binds member model choices to the source context and rejects leaked maintenance fields",async()=>{
  const read=await buildWorkbenchUpstreamRequest(request("GET","/model-options"),[...path,"model-options"],"token","actor");expect(read).not.toBeInstanceOf(Response);
- const option={route:{BindingID:"image-vip",RevisionID:"route-vip"},model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:1};
+ const option={unitVersion:"ai-micropoint-v1",route:{BindingID:"image-vip",RevisionID:"route-vip"},model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:"1000000"};
  const payload={contextKind:"acquisition",contextId:context,options:[option]};const binding=JSON.stringify({kind:"acquisition",contextId:context});
  expect((await buildWorkbenchBrowserResponse(Response.json(payload),"image-set-model-options",binding)).status).toBe(200);
  expect((await buildWorkbenchBrowserResponse(Response.json({...payload,contextId:run}),"image-set-model-options",binding)).status).toBe(502);

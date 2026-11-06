@@ -86,9 +86,10 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, won)
 			facts := repo.(imageagent.GenerationFactRepository)
-			intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: run.MemberID, CatalogHash: catalog.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "p1", RouteReference: "r1", CredentialReference: "c1", ConfigurationVersion: "v1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(time.Now())}
+			intent := imageagent.GenerationIntent{Billing: syntheticImageBilling("gpt-image-2.5", "price1", 12), Identity: reservation.Identity, MemberID: run.MemberID, CatalogHash: catalog.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "p1", RouteReference: "r1", CredentialReference: "c1", ConfigurationVersion: "v1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(time.Now())}
 			if entry == "recover_vip_exhausted" {
 				intent.Model, intent.Quality = "gpt-image-2-vip", "medium"
+				intent.Billing = syntheticImageBilling(intent.Model, intent.PriceVersion, intent.Points)
 			}
 			_, err = facts.PrepareGenerationIntent(ctx, intent)
 			require.NoError(t, err)
@@ -97,14 +98,14 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			require.NoError(t, resourceadapter.AutoMigrate(commercial))
 			sqlCommercial, _ := commercial.DB()
 			t.Cleanup(func() { _ = sqlCommercial.Close() })
-			require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,reserved,consumed,created_at,updated_at) VALUES (?, 'ai_point', 100, 0, 0, ?, ?)", run.TenantID, time.Now(), time.Now()).Error)
+			require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?, 'ai_point', 100, 0, 0, ?, ?)", run.TenantID, time.Now(), time.Now()).Error)
 			limits, err := resourceadapter.NewGormMemberLimitRepository(commercial, resourceadapter.TransactionConfig{})
 			require.NoError(t, err)
 			limit := int64(20)
 			if entry == "recover_vip_exhausted" {
 				limit = 12
 			}
-			_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: run.TenantID, MemberID: run.MemberID, ActorID: "admin", OperationID: "limit", Target: limit})
+			_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: run.TenantID, MemberID: run.MemberID, ActorID: "admin", OperationID: "limit", Target: limit})
 			require.NoError(t, err)
 			resources, err := resourceadapter.NewGormImageGenerationRepository(commercial, resourceadapter.TransactionConfig{}, facts, generationOutputResourceAuth{})
 			require.NoError(t, err)
@@ -129,7 +130,7 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			client := grsai.NewClient(grsai.Config{Model: intent.Model, SubmitURL: server.URL, HTTPClient: server.Client()})
 			if entry != "unknown" {
 				_, err = client.EditImageOnce(ctx, &ai.ImageEditRequest{Model: intent.Model, Quality: intent.Quality, Prompt: "white", Image: tinyPNGBytes(t), ImageContentType: "image/png", N: 1}, func(ctx context.Context, o grsai.GenerationObservation) error {
-					_, err := facts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: o.ResponseID, RequestID: o.RequestID, ResultDigest: o.ResultDigest}.WithResultLocator(o.ResultURL, o.ResultUnavailable))
+					_, err := facts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: o.ResponseID, RequestID: o.RequestID, ResultDigest: o.ResultDigest}.WithResultLocator(o.ResultURL, o.ResultUnavailable))
 					return err
 				})
 				require.NoError(t, err)

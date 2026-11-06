@@ -37,7 +37,7 @@ func TestAccountAuditHTTPReadsNativeMemberResourceFactsWithFreshAuthorization(t 
 	require.NoError(t, err)
 	limits, err := resourceadapter.NewGormMemberLimitRepository(db, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member", ActorID: "safe-actor", OperationID: "limit key", Target: 1000})
+	_, err = limits.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member", ActorID: "safe-actor", OperationID: "limit key", Target: 1000})
 	require.NoError(t, err)
 	reader, err := resourceadapter.NewGormRepository(db, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
@@ -56,7 +56,7 @@ func TestAccountAuditHTTPReadsNativeMemberResourceFactsWithFreshAuthorization(t 
 		server.Handler.ServeHTTP(w, r)
 		return w
 	}
-	for operation, quantity := range map[string]string{"allocate_member_resource": "10", "reclaim_member_resource": "3", "set_member_ai_point_limit": "1000"} {
+	for operation, quantity := range map[string]string{"allocate_member_resource": "10", "reclaim_member_resource": "3", "set_member_ai_point_limit": "0.001"} {
 		w := get("B", "?actor=safe-actor&operation="+operation)
 		require.Equal(t, 200, w.Code, w.Body.String())
 		var page accountaudit.Page

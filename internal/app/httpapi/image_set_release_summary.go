@@ -11,7 +11,8 @@ import (
 // This is a read DTO, not a replacement workflow or accounting state. The
 // original projection and generation/resource receipts remain authoritative.
 type fullImageReleaseSummary struct {
-	ReleasedPoints int64 `json:"releasedPoints"`
+	UnitVersion    string `json:"unitVersion"`
+	ReleasedPoints int64  "json:\"releasedPoints,string\""
 }
 
 type fullImageRecentRun struct {
@@ -60,20 +61,20 @@ func (a *fullImageApplication) releaseSummary(ctx context.Context, p imageagent.
 			return nil, imageagent.ErrRevisionConflict
 		}
 		intent, quote := fact.Intent, definition.Recipe.Quote
-		if intent.Provider != quote.Provider || intent.Model != quote.Model || intent.Protocol != quote.Protocol || intent.Resolution != quote.Resolution || intent.Quality != quote.Quality ||
+		if intent.Billing != quote.Billing || intent.Provider != quote.Provider || intent.Model != quote.Model || intent.Protocol != quote.Protocol || intent.Resolution != quote.Resolution || intent.Quality != quote.Quality ||
 			intent.PriceVersion != quote.PriceVersion || intent.Points != quote.Points || intent.RouteReference != quote.RouteReference || intent.CredentialReference != quote.CredentialReference || intent.ConfigurationVersion != quote.ConfigurationVersion || intent.PromptVersion != definition.Recipe.PromptVersion {
 			return nil, imageagent.ErrRevisionConflict
 		}
 		if fact.State != imageagent.GenerationNoEffect || fact.Settlement.State != "released" || fact.Settlement.ReservationID == "" {
 			return nil, nil
 		}
-		if released > math.MaxInt64-fact.Settlement.Points {
+		if released > math.MaxInt64-fact.Settlement.ReservedMicropoints {
 			return nil, imageagent.ErrValidation
 		}
-		released += fact.Settlement.Points
+		released += fact.Settlement.ReservedMicropoints
 	}
 	if released != p.Plan.Set.MaxPoints {
 		return nil, imageagent.ErrRevisionConflict
 	}
-	return &fullImageReleaseSummary{ReleasedPoints: released}, nil
+	return &fullImageReleaseSummary{UnitVersion: "ai-micropoint-v1", ReleasedPoints: released}, nil
 }

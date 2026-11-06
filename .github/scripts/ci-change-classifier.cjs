@@ -6,7 +6,7 @@ function normalizePath(value) {
   if (typeof value !== "string") {
     throw new TypeError("path must be a string");
   }
-  return value.trim().replaceAll("\\", "/").replace(/^\.\//, "").toLowerCase();
+  return value.replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
 function matchesPrefix(path, prefix) {
@@ -17,15 +17,17 @@ function classifyChangedPaths(paths, { full = false } = {}) {
   if (!Array.isArray(paths)) {
     throw new TypeError("paths must be an array");
   }
-  if (full) {
-    return {
-      backend: true,
-      frontend: true,
-      code_health: true,
-      release_authority: true,
-      capture_extension: true,
-      isolated_runtime: true,
-    };
+  const fullSelection = {
+    backend: true,
+    frontend: true,
+    code_health: true,
+    release_authority: true,
+    capture_extension: true,
+    isolated_runtime: true,
+  };
+  if (full) return fullSelection;
+  if (paths.length === 0) {
+    throw new Error("PR classification requires changed paths");
   }
 
   const result = {
@@ -39,22 +41,26 @@ function classifyChangedPaths(paths, { full = false } = {}) {
 
   for (const raw of paths) {
     const path = normalizePath(raw);
-    if (!path) continue;
+    if (!path) throw new Error("empty changed path");
 
-    const architectureAuthority =
-      path === "agents.md" ||
-      path === ".golangci.yml" ||
-      matchesPrefix(path, "docs/architecture") ||
-      matchesPrefix(path, "docs/refactoring") ||
-      matchesPrefix(path, "docs/product") ||
-      matchesPrefix(path, "policy");
+    if (path === ".github/workflows/ci.yml" ||
+        path === ".github/scripts/ci-change-classifier.cjs" ||
+        path === ".github/scripts/ci-change-classifier.test.cjs") {
+      return fullSelection;
+    }
+
+    // Architecture Contract Guards run for every PR and cover the document contracts.
+    const repositoryMarkdown =
+      path === "AGENTS.md" ||
+      path === "README.md" ||
+      (matchesPrefix(path, "docs") && path.endsWith(".md"));
 
     const backendSource =
       path === "go.mod" ||
       path === "go.sum" ||
       path === "go.work" ||
       path === "go.work.sum" ||
-      path === "makefile" ||
+      path === "Makefile" ||
       matchesPrefix(path, "cmd") ||
       matchesPrefix(path, "config") ||
       matchesPrefix(path, "hack/debug") ||
@@ -63,25 +69,29 @@ function classifyChangedPaths(paths, { full = false } = {}) {
       matchesPrefix(path, "scripts") ||
       matchesPrefix(path, "tests") ||
       matchesPrefix(path, "tools") ||
-      path === "deployments/docker/dockerfile.product-listing-api";
+      path === "deployments/docker/Dockerfile.product-listing-api";
 
     // Go-owned contract tests validate workflow and rollout-manifest semantics that
     // the release-policy shell checks intentionally do not duplicate.
     const backendContract =
+      path === ".golangci.yml" ||
+      matchesPrefix(path, "policy") ||
       matchesPrefix(path, ".github/workflows") ||
       matchesPrefix(path, "deployments/kubernetes/listingkit-workbench");
 
-    const backend = architectureAuthority || backendSource || backendContract;
+    const backend = backendSource || backendContract;
 
     const frontend =
       matchesPrefix(path, "web/listingkit-ui") ||
-      path === "deployments/docker/dockerfile.listingkit-ui";
+      path === "deployments/docker/Dockerfile.listingkit-ui";
 
     const codeHealth =
       backendSource ||
       frontend ||
       path === ".golangci.yml" ||
-      path === "docs/refactoring/code-health-decisions.md";
+      path === "docs/refactoring/code-health-decisions.md" ||
+      path === "docs/engineering/code-health-decisions.md" ||
+      path === "docs/engineering/code-health-rules.md";
 
     const releaseAuthority =
       matchesPrefix(path, ".github/workflows") ||
@@ -90,22 +100,23 @@ function classifyChangedPaths(paths, { full = false } = {}) {
       matchesPrefix(path, "deployments/kubernetes/listingkit-workbench") ||
       matchesPrefix(path, "policy/listingkit-release-authority");
 
+    const captureExtension = matchesPrefix(path, "extensions/product-capture");
+    const isolatedRuntime =
+      matchesPrefix(path, "scripts/issue357") ||
+      path === "scripts/issue357-runtime.mjs" ||
+      path === "web/listingkit-ui/scripts/current-application-final-acceptance.mjs";
+
+    if (!repositoryMarkdown && !backend && !frontend && !codeHealth &&
+        !releaseAuthority && !captureExtension && !isolatedRuntime) {
+      return fullSelection;
+    }
+
     result.backend ||= backend;
     result.frontend ||= frontend;
     result.code_health ||= codeHealth;
     result.release_authority ||= releaseAuthority;
-    result.capture_extension ||=
-      matchesPrefix(path, "extensions/product-capture") ||
-      path === ".github/workflows/ci.yml" ||
-      path === ".github/scripts/ci-change-classifier.cjs" ||
-      path === ".github/scripts/ci-change-classifier.test.cjs";
-    result.isolated_runtime ||=
-      matchesPrefix(path, "scripts/issue357") ||
-      path === "scripts/issue357-runtime.mjs" ||
-      path === "web/listingkit-ui/scripts/current-application-final-acceptance.mjs" ||
-      path === ".github/workflows/ci.yml" ||
-      path === ".github/scripts/ci-change-classifier.cjs" ||
-      path === ".github/scripts/ci-change-classifier.test.cjs";
+    result.capture_extension ||= captureExtension;
+    result.isolated_runtime ||= isolatedRuntime;
   }
 
   return result;

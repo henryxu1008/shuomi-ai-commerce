@@ -4,7 +4,7 @@
 [最终 UI / IA Authority](../../docs/product/final-ui-ia-authority.md) 为准。
 当前事实、授权和副作用由各领域 owner 管理，前端不建立第二事实源。
 
-产品品类为 **AI Commerce Agent Platform**。品牌名称依据 [#884](https://github.com/qq550723504/shuomi-ai-commerce/issues/884)；工程旧称 `task-processor`，实际目录与包名保持现状，见[品牌与仓库更名清单](../../docs/development/branding-and-repository-rename.md)。本次文档命名不改变页面文字、路由或 Figma 交互。
+产品品类为 **AI Commerce Agent Platform**。品牌名称依据 [#884](https://github.com/qq550723504/shuomi-ai-commerce/issues/884)；工程旧称 `task-processor`，实际目录与包名保持现状，见[当前源码地图](../../docs/development/repository-structure.md)。本次文档命名不改变页面文字、路由或 Figma 交互。
 
 ## 启动
 
@@ -37,20 +37,9 @@ pnpm build
 
 Figma 中的页面和菜单不表示所有底层能力已经开放；各能力继续遵循现有部署开关、授权与当前 owner 的真实状态。
 
-## 旧投影退休
+## 身份与领域边界
 
-Issue #664 物理移除 `/listing-kits/**` 的 Task-first、Workspace、平台孤岛和独立后台页面，
-以及专属组件、hooks、Task client/DTO/generated contracts、旧默认导航壳和
-`/api/listing-kits/**` Task BFF/mock。旧登录页专属的 `/api/shein-login/**`、
-`/api/sds-login/**` BFF 一并退出。旧 URL 不转发、不映射旧 Task、不返回兼容成功。
-
-当前应用、Console、Auth.js/ZITADEL、通用 UI 组件和当前领域路径继续复用。
-SDS 只读 BFF 共用的身份/header 转发行为由 `src/lib/server/upstream-identity.ts`
-承接；当前来源/图片/Review/Store 的事实与执行 owner 未改变。
-后端 root ListingKit、数字租户桥接和其它旧命令仍由 #29/#301/#529 的原范围处理。
-
-这是源码交付说明，不表示保留实例已更新、真实 provider 已验证或用户/生产验收已通过。
-详细决定见 [Legacy Register](../../docs/refactoring/legacy-register.md)。
+当前 Console 只消费领域 API；页面导航不产生商品事实或平台执行权限。SDS 只读 BFF 的可信身份/header 转发由 `src/lib/server/upstream-identity.ts` 负责。Auth.js / ZITADEL 和各领域继续核对当前 actor、企业与有效权限。
 
 ## 开发检查
 

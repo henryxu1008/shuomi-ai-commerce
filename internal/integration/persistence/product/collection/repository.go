@@ -390,7 +390,7 @@ func likeKeyword(keyword string) string {
 
 // Eligibility is a read projection of current active items, including sources
 // moved into another batch. No separate readiness fact or Supply write is owned here.
-const batchReadColumns = "b.id,b.name,b.kind,b.revision,b.created_at,b.archived_at,(SELECT count(*) FROM product_collection_items i WHERE i.organization_id=b.organization_id AND i.actor_id=b.actor_id AND i.batch_id=b.id AND i.archived_at IS NULL) AS count,NOT EXISTS(SELECT 1 FROM product_collection_items i WHERE i.organization_id=b.organization_id AND i.actor_id=b.actor_id AND i.batch_id=b.id AND i.archived_at IS NULL AND i.source_kind NOT IN ('acquisition','own','market','sds_finished')) AS supply_transfer_supported"
+const batchReadColumns = "b.id,b.name,b.kind,b.revision,b.created_at,b.archived_at,(SELECT count(*) FROM product_collection_items i WHERE i.organization_id=b.organization_id AND i.actor_id=b.actor_id AND i.batch_id=b.id AND i.archived_at IS NULL) AS count,NOT EXISTS(SELECT 1 FROM product_collection_items i WHERE i.organization_id=b.organization_id AND i.actor_id=b.actor_id AND i.batch_id=b.id AND i.archived_at IS NULL AND i.source_kind NOT IN ('acquisition','own','market','sds_finished','amazon_data')) AS supply_transfer_supported"
 
 func (r *Repository) ListBatches(ctx context.Context, scope collection.Scope, query collection.Query) (collection.Page[collection.Batch], error) {
 	var page collection.Page[collection.Batch]
@@ -451,6 +451,23 @@ func (r *Repository) ListItems(ctx context.Context, scope collection.Scope, batc
 func (r *Repository) ReadItem(ctx context.Context, scope collection.Scope, id string) (collection.Item, error) {
 	var row itemRow
 	result := r.db.WithContext(ctx).Raw("SELECT "+itemColumns+" FROM product_collection_items WHERE organization_id=? AND actor_id=? AND id=? AND archived_at IS NULL", scope.OrganizationID, scope.ActorID, id).Scan(&row)
+	if result.Error != nil {
+		return collection.Item{}, result.Error
+	}
+	if result.RowsAffected != 1 {
+		return collection.Item{}, collection.ErrNotFound
+	}
+	return row.item(), nil
+}
+
+func (r *Repository) ReadResearchEvidenceItem(ctx context.Context, scope collection.Scope, id string) (collection.Item, error) {
+	var row itemRow
+	result := r.db.WithContext(ctx).Raw(`SELECT i.id,i.batch_id,i.product_key,i.publication_id,i.original_version,
+ i.source_kind,i.source_operation_id,i.revision,i.created_at,i.archived_at
+ FROM product_collection_items i JOIN product_collection_batches b
+ ON b.organization_id=i.organization_id AND b.actor_id=i.actor_id AND b.id=i.batch_id
+ WHERE i.organization_id=? AND i.actor_id=? AND i.member_id=? AND i.id=? AND i.archived_at IS NULL AND b.archived_at IS NULL
+ AND b.member_id=i.member_id`, scope.OrganizationID, scope.ActorID, scope.MemberID, id).Scan(&row)
 	if result.Error != nil {
 		return collection.Item{}, result.Error
 	}

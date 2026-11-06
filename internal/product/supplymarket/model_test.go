@@ -48,7 +48,7 @@ func TestConnectionConfirmationDoesNotPublishProduct(t *testing.T) {
 }
 
 func TestPublicProjectionCannotDiscloseSourceTracesOrPrivateURL(t *testing.T) {
-	snapshot := catalog.ProductSnapshot{Title: "own item", Description: "public description", Sources: []catalog.SourceRecord{{URL: "https://private.example/token", Notes: []string{"PRIVATE_EVIDENCE"}}}, Attributes: []catalog.Attribute{{Name: "material", Value: "cotton", Trace: catalog.Trace{Sources: []catalog.SourceRecord{{Detail: "PRIVATE_TRACE"}}}}}, Images: []catalog.Image{{URL: "https://cdn.example/art.png", Trace: catalog.Trace{Sources: []catalog.SourceRecord{{Notes: []string{"PRIVATE_IMAGE_TRACE"}}}}}}, Variants: []catalog.Variant{{SourceID: "sku-1", Title: "blue", SKU: "SKU-1", Price: &catalog.Price{Currency: "CNY", Amount: 7, CostPrice: 123}, Stock: 10}}}
+	snapshot := catalog.ProductSnapshot{Title: "own item", Description: "public description", Sources: []catalog.SourceRecord{{URL: "https://private.example/token", Notes: []string{"PRIVATE_EVIDENCE"}}}, Attributes: []catalog.Attribute{{Name: "material", Value: "cotton", Trace: catalog.Trace{Sources: []catalog.SourceRecord{{Detail: "PRIVATE_TRACE"}}}}}, Images: []catalog.Image{{URL: "https://cdn.example/art.png", Trace: catalog.Trace{Sources: []catalog.SourceRecord{{Notes: []string{"PRIVATE_IMAGE_TRACE"}}}}}}, Variants: []catalog.Variant{{SourceID: "sku-1", Title: "blue", SKU: "SKU-1", Price: &catalog.Price{Currency: "CNY", Amount: 7, CostPrice: 123}, Stock: new(10)}}}
 	projection, err := PublicProjection(snapshot)
 	if err != nil {
 		t.Fatal(err)

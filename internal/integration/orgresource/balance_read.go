@@ -3,7 +3,6 @@ package orgresourceadapter
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +20,7 @@ func (r *GormRepository) ReadBalances(ctx context.Context, organization string) 
 	var rows []struct {
 		ResourceType                             orgresource.ResourceType
 		BucketOrganization                       *string
+		BucketUnit, DebtUnit                     *string
 		Available, Allocated, Reserved, Consumed *int64
 		DebtOrganization                         *string
 		Amount                                   *int64
@@ -33,7 +33,7 @@ func (r *GormRepository) ReadBalances(ctx context.Context, organization string) 
 	err := r.db.WithContext(ctx).Raw(`
  WITH resource_types(resource_type) AS (VALUES ('store_renewal_period'),('ai_point'),('data_row'))
  SELECT t.resource_type, b.organization_id AS bucket_organization,
- b.available, b.allocated, b.reserved, b.consumed, b.updated_at,
+ b.available, b.allocated, b.reserved, b.consumed, b.updated_at, b.quantity_unit AS bucket_unit, d.quantity_unit AS debt_unit,
  d.organization_id AS debt_organization, d.amount
  FROM resource_types t
  LEFT JOIN `+buckets+` b ON b.organization_id = ? AND b.resource_type = t.resource_type
@@ -60,12 +60,15 @@ func (r *GormRepository) ReadBalances(ctx context.Context, organization string) 
 		if _, exists := indexed[row.ResourceType]; exists {
 			return orgresource.Balances{}, orgresource.ErrBalanceUnavailable
 		}
-		balance := orgresource.Balance{ResourceType: row.ResourceType, Unit: unit, State: "not_recorded"}
+		balance := orgresource.Balance{UnitVersion: resourceQuantityUnit(string(row.ResourceType)), ResourceType: row.ResourceType, Unit: unit, State: "not_recorded"}
 		if row.BucketOrganization == nil {
 			if row.DebtOrganization != nil {
 				return orgresource.Balances{}, orgresource.ErrBalanceUnavailable
 			}
 		} else {
+			if row.BucketUnit == nil || validResourceQuantityUnit(string(row.ResourceType), *row.BucketUnit) != nil || row.DebtOrganization != nil && (row.DebtUnit == nil || validResourceQuantityUnit(string(row.ResourceType), *row.DebtUnit) != nil) {
+				return orgresource.Balances{}, orgresource.ErrAIPointUnitVersion
+			}
 			if row.Allocated == nil || *row.Allocated < 0 || (row.ResourceType == orgresource.ResourceAIPoint && *row.Allocated != 0) {
 				return orgresource.Balances{}, orgresource.ErrBalanceUnavailable
 			}
@@ -82,11 +85,11 @@ func (r *GormRepository) ReadBalances(ctx context.Context, organization string) 
 			if debt > 0 && *row.Available > 0 {
 				return orgresource.Balances{}, orgresource.ErrBalanceUnavailable
 			}
-			available, reserved, consumed, amount := strconv.FormatInt(*row.Available, 10), strconv.FormatInt(*row.Reserved, 10), strconv.FormatInt(*row.Consumed, 10), strconv.FormatInt(debt, 10)
+			available, reserved, consumed, amount := formatResourceQuantity(string(row.ResourceType), *row.Available), formatResourceQuantity(string(row.ResourceType), *row.Reserved), formatResourceQuantity(string(row.ResourceType), *row.Consumed), formatResourceQuantity(string(row.ResourceType), debt)
 			updated := row.UpdatedAt.UTC()
 			balance.State = "recorded"
 			balance.Available = &available
-			allocated := strconv.FormatInt(*row.Allocated, 10)
+			allocated := formatResourceQuantity(string(row.ResourceType), *row.Allocated)
 			balance.Allocated = &allocated
 			balance.Reserved = &reserved
 			balance.Consumed = &consumed

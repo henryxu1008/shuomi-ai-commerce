@@ -3,9 +3,18 @@ package zitadel
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var publicIdentityOriginPattern = regexp.MustCompile(`^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
+
+// IsCanonicalPublicIdentityOrigin admits only a bounded HTTPS DNS origin from
+// private operator configuration. It does not grant request-selected authority.
+func IsCanonicalPublicIdentityOrigin(raw string) bool {
+	return len(raw) <= 261 && publicIdentityOriginPattern.MatchString(raw)
+}
 
 type Config struct {
 	IssuerURL    string

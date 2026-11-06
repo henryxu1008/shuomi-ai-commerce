@@ -1,4 +1,5 @@
 "use client";
+import {ImageAdvicePanel} from "./image-advice-panel";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -193,11 +194,12 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
    {result.stopReason && <p>{reasons[result.stopReason] ?? "本次运行已停止"}</p>}
    {result.candidate.Changes?.map((change, index) => <div key={index}><p>{change.Field}：{change.Value}</p><p className="text-sm">证据：{change.EvidenceIDs?.join("、") || "未提供"}</p></div>)}
    <KnowledgeCitations knowledge={result.knowledge&&(!knowledgeReadable||result.knowledgeGeneration!==generation)?{status:"unavailable",originAgentRunId:result.knowledge.originAgentRunId,citations:[]}:result.knowledge}/>
+   {!("contentSelection" in result)&&<ImageAdvicePanel advice={result.imageAdvice}/>}
    {result.confidence?.map(value => <p key={value.Field}>模型自报置信度（供参考）：{value.Field} {value.Known ? `${Math.round(value.Value * 100)}%` : "未知"}</p>)}
    {result.unresolved?.length ? <ul>{result.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul> : null}
    <p className="text-sm">{result.usageStatus === "observed" ? `已观测 ${result.tokens} tokens，预算估价 ${(result.estimatedCostMicros / 1000000).toFixed(4)} ${result.currency}` : "用量尚未确认，显示的预留不能当作实际账单。"}</p>
    <details><summary>查看调用记录</summary><ol>{result.steps.map(step => <li key={step.step}>{step.step}：{step.tool || "文本模型"} · {step.callId}</li>)}</ol></details>
-   {result.phase === "interrupted" && <><label htmlFor="agent-feedback">补充说明</label><Input id="agent-feedback" value={feedback} onChange={e => setFeedback(e.target.value)} disabled={busy}/><Button disabled={busy || !feedback.trim()} onClick={() => void execute("resume")}>继续本次诊断</Button></>}
+   {result.phase === "interrupted" && result.canResume===true && <><label htmlFor="agent-feedback">补充说明</label><Input id="agent-feedback" value={feedback} onChange={e => setFeedback(e.target.value)} disabled={busy}/><Button disabled={busy || !feedback.trim()} onClick={() => void execute("resume")}>继续本次诊断</Button></>}
    {result.canSubmitReview && !proposal && <Button disabled={busy} onClick={() => void execute("review")}>{result.executionMode==="read_only"?"保存内容建议":"提交人工审核"}</Button>}
   </div>}
   {proposal && <Button asChild variant="outline"><Link href={`/workbench/ai/tasks/pending/other?proposal_id=${proposal}`}>{content?"打开内容建议":"打开标题审核"}</Link></Button>}

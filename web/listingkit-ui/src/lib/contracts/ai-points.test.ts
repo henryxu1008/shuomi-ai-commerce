@@ -1,0 +1,4 @@
+import {expect,it} from "vitest";
+import {formatMicropoints,parseDisplayPoints,micropoints,displayPoints,sumMicropoints} from "./ai-points";
+it("round trips exact points without JavaScript Number arithmetic",()=>{for(const [raw,text]of[["0","0"],["1","0.000001"],["1000000","1"],["9007199254740993","9007199254.740993"],["9223372036854775807","9223372036854.775807"]]){expect(formatMicropoints(raw)).toBe(text);expect(parseDisplayPoints(text)).toBe(BigInt(raw))}expect(sumMicropoints(["9007199254740993","1"])).toBe(BigInt("9007199254740994"))});
+it("rejects excess precision, exponents, negative values, missing units and int64 overflow",()=>{for(const value of ["1e3","-1","01","1.0000001","9223372036854.775808"]){expect(displayPoints.safeParse(value).success).toBe(false)}for(const value of [1,9007199254740993,"9223372036854775808"]){expect(micropoints.safeParse(value).success).toBe(false)}});

@@ -256,45 +256,62 @@ func TestFullImageCatalogVersionsRemainExactAcrossHTTP(t *testing.T) {
 	}
 }
 func TestFullImageHTTPReadsOriginalApprovalWithoutASecondMutation(t *testing.T) {
-	const sourceID = "d1abe8da-b381-4924-8d15-d79bdbfacf70"
-	const runID = "30d26689-30b6-4358-b0f5-c310d7ab2e58"
-	const actionID = "b912e7d4-df80-44a5-8510-3cdf91d5b8dd"
-	binding := imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: sourceID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 2, ApplyReceiptID: actionID}
-	projection := imageagent.RunProjection{Run: imageagent.Run{ID: runID, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: sourceID, ScopeProtocol: imageagent.OrganizationScopeProtocol}, Plan: imageagent.Plan{Set: &imageagent.ImageSetPlan{Source: binding, Target: imageagent.ImageTarget{Platform: "product"}}}}
-	service, err := imageagent.NewService(imageSetHTTPRepository{projection: projection}, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope())
-	require.NoError(t, err)
-	sources := &imageSetHTTPSource{binding: binding}
-	approvals := &acquisitionImageApprovalReaderSpy{commit: asset.ApprovalCommit{TenantID: "org", ProductKey: "product", TargetPlatform: "product", ActionID: actionID, SourceSnapshotVersion: 2, ImageSet: &asset.ImageSetSelection{Digest: strings.Repeat("a", 64), Source: asset.SourceSelectionRequest{ContextKind: "acquisition", ItemID: sourceID, OriginalPublicationID: "publication", OriginalSnapshotVersion: 1, EffectiveCatalogVersion: 2, ApplyReceiptID: actionID, TargetPlatform: "product"}}, Assets: []asset.ApprovedAsset{{ID: "selected", Role: asset.RoleMain, URL: "https://images.test/1.png"}}}}
-	module := fullImageModule{application: &fullImageApplication{service: service, readSources: sources, approvals: approvals}, bind: func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }}
-	router := gin.New()
-	for _, route := range module.routes() {
-		router.Handle(route.Method, route.Path, route.Handler)
+	for _, disabled := range []bool{false, true} {
+		mode := "enabled"
+		if disabled {
+			mode = "disabled"
+		}
+		t.Run(mode, func(t *testing.T) {
+
+			const sourceID = "d1abe8da-b381-4924-8d15-d79bdbfacf70"
+			const runID = "30d26689-30b6-4358-b0f5-c310d7ab2e58"
+			const actionID = "b912e7d4-df80-44a5-8510-3cdf91d5b8dd"
+			binding := imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: sourceID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 2, ApplyReceiptID: actionID}
+			projection := imageagent.RunProjection{Run: imageagent.Run{ID: runID, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: sourceID, ScopeProtocol: imageagent.OrganizationScopeProtocol}, Plan: imageagent.Plan{Set: &imageagent.ImageSetPlan{Source: binding, Target: imageagent.ImageTarget{Platform: "product"}}}}
+			service, err := imageagent.NewService(imageSetHTTPRepository{projection: projection}, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope())
+			require.NoError(t, err)
+			sources := &imageSetHTTPSource{binding: binding}
+			approvals := &acquisitionImageApprovalReaderSpy{commit: asset.ApprovalCommit{TenantID: "org", ProductKey: "product", TargetPlatform: "product", ActionID: actionID, SourceSnapshotVersion: 2, ImageSet: &asset.ImageSetSelection{Digest: strings.Repeat("a", 64), Source: asset.SourceSelectionRequest{ContextKind: "acquisition", ItemID: sourceID, OriginalPublicationID: "publication", OriginalSnapshotVersion: 1, EffectiveCatalogVersion: 2, ApplyReceiptID: actionID, TargetPlatform: "product"}}, Assets: []asset.ApprovedAsset{{ID: "selected", Role: asset.RoleMain, URL: "https://images.test/1.png"}}}}
+			application := &fullImageApplication{service: service, readSources: sources, approvals: approvals}
+			if disabled {
+				application.history, err = imageagent.NewRunReader(imageSetHTTPRepository{projection: projection})
+				require.NoError(t, err)
+				application.service, application.executionDisabled = nil, true
+			}
+			module := fullImageModule{application: application, bind: func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }}
+			router := gin.New()
+			for _, route := range module.routes() {
+				router.Handle(route.Method, route.Path, route.Handler)
+			}
+			id := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
+			call := func(identity authidentity.AuthenticatedIdentity) *httptest.ResponseRecorder {
+				r := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/sourcing/1688/acquisitions/"+sourceID+"/images/runs/"+runID+"/approvals/"+actionID, nil)
+				r = r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), identity))
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, r)
+				return w
+			}
+			w := call(id)
+			require.Equal(t, 200, w.Code, w.Body.String())
+			require.Contains(t, w.Body.String(), actionID)
+			require.Equal(t, 1, approvals.calls)
+			approvals.commit.ImageSet.Source.ApplyReceiptID = "other"
+			w = call(id)
+			require.Equal(t, 409, w.Code)
+			approvals.commit.ImageSet.Source.ApplyReceiptID = actionID
+			changed := id
+			changed.EffectiveMemberID = "replacement"
+			w = call(changed)
+			require.Equal(t, 403, w.Code)
+			changed = id
+			changed.EffectiveOrganizationID = "other"
+			w = call(changed)
+			require.Equal(t, 403, w.Code)
+
+		})
 	}
-	id := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
-	call := func(identity authidentity.AuthenticatedIdentity) *httptest.ResponseRecorder {
-		r := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/sourcing/1688/acquisitions/"+sourceID+"/images/runs/"+runID+"/approvals/"+actionID, nil)
-		r = r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), identity))
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, r)
-		return w
-	}
-	w := call(id)
-	require.Equal(t, 200, w.Code, w.Body.String())
-	require.Contains(t, w.Body.String(), actionID)
-	require.Equal(t, 1, approvals.calls)
-	approvals.commit.ImageSet.Source.ApplyReceiptID = "other"
-	w = call(id)
-	require.Equal(t, 409, w.Code)
-	approvals.commit.ImageSet.Source.ApplyReceiptID = actionID
-	changed := id
-	changed.EffectiveMemberID = "replacement"
-	w = call(changed)
-	require.Equal(t, 403, w.Code)
-	changed = id
-	changed.EffectiveOrganizationID = "other"
-	w = call(changed)
-	require.Equal(t, 403, w.Code)
 }
+
 func TestFullImageRoutesHaveExactLiveOrganizationAdmission(t *testing.T) {
 	routes := []httproute.Descriptor{}
 	for _, r := range currentWorkbenchApplicationRoutes {
@@ -317,7 +334,7 @@ func TestFullImageRestartRejectsChangedPlanSourceAndMemberBeforeWorkflowStart(t 
 	const runID = "30d26689-30b6-4358-b0f5-c310d7ab2e58"
 	hash := strings.Repeat("a", 64)
 	binding := imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: sourceID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}
-	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "original-plan", SourceAssetIDs: []string{"source-1"}, CreatedBy: "actor", Set: &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: binding, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: sourceID, Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 20}, Slots: []imageagent.Slot{{ID: "overview", Role: imageagent.SlotRoleDetail, Status: imageagent.SlotStatusPending, IdempotencyKey: "original-overview", SourceAssetIDs: []string{"source-1"}, Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Use the original product image", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hash, MediaType: "image/png", Bytes: 10, Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 20, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}}}}
+	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "original-plan", SourceAssetIDs: []string{"source-1"}, CreatedBy: "actor", Set: &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: binding, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: sourceID, Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 20}, Slots: []imageagent.Slot{{ID: "overview", Role: imageagent.SlotRoleDetail, Status: imageagent.SlotStatusPending, IdempotencyKey: "original-overview", SourceAssetIDs: []string{"source-1"}, Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Use the original product image", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hash, MediaType: "image/png", Bytes: 10, Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price", 20), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 20, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}}}}
 	var err error
 	plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(plan)
 	require.NoError(t, err)

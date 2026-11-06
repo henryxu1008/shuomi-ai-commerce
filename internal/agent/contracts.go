@@ -60,9 +60,21 @@ type Binding struct {
 	ProductKey, CatalogVersion, PublicationID, TargetPlatform string
 	Selection                                                 [MaxSelectionProducts]SelectionProductRef `json:",omitzero"`
 	StoreDiagnosis                                            StoreDiagnosisRef                         `json:",omitzero"`
+	ResearchSelection                                         ResearchSelectionRef                      `json:",omitzero"`
+	CandidateRules                                            CandidateRulesRef                         `json:",omitzero"`
 }
 
 func (b Binding) Valid() bool {
+	if b.ContextKind != CandidateRulesContextKind && b.CandidateRules != (CandidateRulesRef{}) || b.ContextKind != ResearchSelectionContextKind && b.ResearchSelection != (ResearchSelectionRef{}) {
+		return false
+	}
+	if b.ContextKind == CandidateRulesContextKind {
+		return b.validCandidateRules()
+	}
+	if b.ContextKind == ResearchSelectionContextKind {
+		return b.validResearchSelection()
+	}
+
 	if b.ContextKind == StoreDiagnosisContextKind {
 		return b.validStoreDiagnosis()
 	}
@@ -91,6 +103,7 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
+	WorkbenchContextRef          WorkbenchContextRef             `json:",omitzero"`
 	ManualReviewOnly             bool                            `json:",omitempty"`
 	SkillVersionRef              SkillVersionRef                 `json:",omitzero"`
 	ContentSelection             reviewproposal.ContentSelection `json:",omitzero"`
@@ -192,6 +205,7 @@ var ErrModelNotDispatched = errors.New("model was not dispatched; reservation re
 var ErrModelInvalidOutput = errors.New("model returned invalid output with observed usage")
 
 type ModelInput struct {
+	WorkbenchContextRef                        WorkbenchContextRef             `json:",omitzero"`
 	SkillVersionRef                            SkillVersionRef                 `json:",omitzero"`
 	ContentSelection                           reviewproposal.ContentSelection `json:",omitzero"`
 	ModeSnapshotRef                            ModeSnapshotRef                 `json:",omitzero"`
@@ -211,6 +225,7 @@ type ModelInput struct {
 // validation. The caller owns isolation/cloning and all authorization.
 func (s State) ModelInput(definition commercetool.AgentDefinition) ModelInput {
 	return ModelInput{
+		WorkbenchContextRef:      s.Request.WorkbenchContextRef,
 		SkillVersionRef:          s.Request.SkillVersionRef,
 		ContentSelection:         s.Request.ContentSelection,
 		ModeSnapshotRef:          s.Request.ModeSnapshotRef,

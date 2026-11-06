@@ -8,13 +8,37 @@ vi.mock("@/lib/api/product-image-set",async original=>({...await original<typeof
 const scope={userId:"actor",organizationId:"org"};
 const ids=Array.from({length:7},(_,i)=>"22222222-2222-4222-8222-"+String(i+1).padStart(12,"0"));
 function item(index:number,status="blocked",released=false){
- return {runId:ids[index],contextKind:"supply",contextId:"11111111-1111-4111-8111-111111111111",status,targetPlatform:"product",createdAt:"2026-10-18T08:00:00Z",...released?{releaseSummary:{releasedPoints:1}}:{}};
+ return {runId:ids[index],contextKind:"supply",contextId:"11111111-1111-4111-8111-111111111111",status,targetPlatform:"product",createdAt:"2026-10-18T08:00:00Z",...released?{releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"1000000"}}:{}};
 }
 let fetch:ReturnType<typeof vi.fn<(input:unknown,init?:RequestInit)=>Promise<Response>>>;
 beforeEach(()=>{
  fetch=vi.fn();vi.stubGlobal("fetch",fetch);
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals()});
+
+it("shows partial availability without hiding valid tasks or calling the page empty",async()=>{
+ fetch.mockResolvedValue(Response.json({items:[item(0,"completed")],nextCursor:"next",unavailableCount:19}));
+ render(<RecentImageSets scope={scope} nonce={0}/>);
+ expect(await screen.findByText(/本页有 19 个原任务/)).toHaveTextContent("记录已保留");
+ expect(screen.getByText("已保存素材 · 供应链商品 · 通用素材")).toBeVisible();
+ expect(screen.getByRole("button",{name:"查看原任务"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"下一页"})).toBeEnabled();
+ expect(screen.queryByText(/还没有图片任务/)).toBeNull();
+ expect(screen.queryByRole("alert")).toBeNull();
+ expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("keeps an unavailable-only page distinct from an empty history and clears its count on pagination",async()=>{
+ fetch.mockImplementation(async input=>Response.json(String(input).includes("&cursor=next")?{items:[],nextCursor:"",unavailableCount:0}:{items:[],nextCursor:"next",unavailableCount:20}));
+ render(<RecentImageSets scope={scope} nonce={0}/>);
+ expect(await screen.findByText(/本页有 20 个原任务/)).toBeVisible();
+ expect(screen.queryByText(/还没有图片任务/)).toBeNull();
+ expect(screen.queryByRole("button",{name:"查看原任务"})).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"下一页"}));
+ expect(await screen.findByText(/还没有图片任务/)).toBeVisible();
+ expect(screen.queryByText(/本页有/)).toBeNull();
+ expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
 
 it("shows all four proved releases while preserving original run IDs and read-only entry points",async()=>{
  const payload={items:ids.slice(0,4).map((_,index)=>item(index,index%2?"failed":"blocked",true)),nextCursor:""};
@@ -58,7 +82,7 @@ it("uses each page's released summary without carrying it into an UNKNOWN page",
 });
 
 it("rejects a malformed release summary instead of presenting it as released",async()=>{
- const invalid={items:[{...item(0),releaseSummary:{releasedPoints:0}}],nextCursor:""};
+ const invalid={items:[{...item(0),releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"0"}}],nextCursor:""};
  expect(imageSetRecentSchema.safeParse(invalid).success).toBe(false);
  fetch.mockResolvedValue(Response.json(invalid));
  render(<RecentImageSets scope={scope} nonce={0}/>);
@@ -87,17 +111,17 @@ it("refreshes the current page from the server after a verified save without cha
 });
 
 
-it("shows charged original output awaiting recovery without changing genuine UNKNOWN",async()=>{
- fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{settledPoints:1,slots:[{slotId:"detail",attempt:1,points:1,unavailable:false}]}},item(1)],nextCursor:""}));
+it("shows proved settlement without inferring recovery authority",async()=>{
+ fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"1000000",slots:[{slotId:"detail",attempt:1,points:"1000000",unavailable:false}]}},item(1)],nextCursor:""}));
  render(<RecentImageSets scope={scope} nonce={0}/>);
- expect(await screen.findByText("已生成，结果待恢复 · 供应链商品 · 通用素材")).toBeVisible();
+ expect(await screen.findByText("已生成，已结算 · 供应链商品 · 通用素材")).toBeVisible();
  expect(screen.getByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
  expect(fetch).toHaveBeenCalledTimes(1);
 });
 
 it("does not call a partially released run paid or wholly released",async()=>{
- fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{settledPoints:0,slots:[],releasedSlots:[{slotId:"detail",attempt:1,points:1}]}}],nextCursor:""}));
+ fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"0",slots:[],releasedSlots:[{slotId:"detail",attempt:1,points:"1000000"}]}}],nextCursor:""}));
  render(<RecentImageSets scope={scope} nonce={0}/>);
  expect(await screen.findByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
- expect(screen.queryByText(/已扣点|未生成，点数已释放|已生成，结果待恢复/)).toBeNull();
+ expect(screen.queryByText(/已扣点|未生成，点数已释放|已生成，已结算/)).toBeNull();
 });

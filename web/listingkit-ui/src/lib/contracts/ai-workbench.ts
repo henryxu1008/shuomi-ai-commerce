@@ -11,7 +11,19 @@ export const aiTaskSelection = z.strictObject({subject:aiTaskSubject,capability:
 export type AITaskSubject=z.infer<typeof aiTaskSubject>;
 const timestamp = z.string().datetime({ offset: true });
 const scope = z.object({ OrganizationID: z.string(), ActorID: z.string() });
+const scopeId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+const workScopeSelection = z.discriminatedUnion("kind", [
+  z.strictObject({kind:z.literal("general")}),
+  z.strictObject({kind:z.literal("project"),projectId:scopeId}),
+  z.strictObject({kind:z.literal("store"),storeId:scopeId}),
+]);
+export type WorkScopeSelection = z.infer<typeof workScopeSelection>;
+const fixedScope = z.strictObject({version:z.literal("workbench-scope-v1"),kind:z.enum(["general","project","store"]),projectId:scopeId.optional(),storeId:scopeId.optional()});
+const scopeView = z.object({scope:fixedScope,projectName:z.string().optional(),storeName:z.string().optional()});
+const scopeOption = scopeView.extend({confirmation:z.string().regex(/^[a-f0-9]{64}$/)});
+export type WorkScopeOption = z.infer<typeof scopeOption>;
 const conversation = z.object({
+  businessScope:fixedScope.optional(),
   ID: id, Scope: scope, Title: z.string(), Favorite: z.boolean(), Archived: z.boolean(),
   MetadataRevision: z.number().int().positive(), NextSequence: z.number().int().positive(),
   CreatedAt: timestamp, UpdatedAt: timestamp,
@@ -21,6 +33,7 @@ const message = z.object({
   Author: z.enum(["USER", "ASSISTANT"]), Content: z.string(), CreatedAt: timestamp,
 });
 const proposal = z.object({
+ businessScope:scopeView.optional(),
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),executionProfileReady:z.boolean().optional(),maximumSteps:z.number().int().positive().optional(),maximumModelCalls:z.number().int().positive().optional(),maximumRuntimeSeconds:z.number().int().positive().optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeUnavailableReason:z.string().optional(),
   id, confirmedTaskId: id.optional(), digest: z.string().length(64), sourceSequence: z.number().int().positive(),
@@ -32,6 +45,7 @@ const proposal = z.object({
   humanReviewRequired: z.literal(true), detailsAvailable: z.boolean(), titleProfileReady: z.boolean(), executionAuthorized: z.boolean(),
 });
 const task = z.object({
+ businessScope:scopeView.optional(),scopeUnavailable:z.boolean().optional(),
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),policyAdoption:z.union([titlePolicyAdoptionSchema,contentPolicyAdoptionSchema]).optional(),
   id, conversationId: id, proposalId: id, title: z.string(), goalSummary: z.string(), createdAt: timestamp,
@@ -51,7 +65,8 @@ const task = z.object({
  if(content&&value.taskSelection){const {subject,parameters}=value.taskSelection,binding=proof.execution.binding;
  if(subject.kind!==binding.ContextKind||subject.id!==binding.ContextID||subject.catalogVersion!==binding.CatalogVersion||subject.publicationId!==binding.PublicationID||!sameContentSelection(parameters,proof.execution.ContentSelection))context.addIssue({code:"custom",message:"Policy proof must match frozen content intent"});}
 });
-export const aiCreateBody = z.strictObject({ favorite: z.boolean().optional() });
+const scopedCreateBody = z.strictObject({ favorite: z.boolean().optional(), scopeSelection:workScopeSelection,scopeConfirmation:z.string().regex(/^[a-f0-9]{64}$/) });
+export const aiCreateBody = z.union([scopedCreateBody,z.strictObject({favorite:z.boolean().optional()})]);
 const aiTitleMessageBody = z.strictObject({
   content: z.string().min(1).refine(v => new TextEncoder().encode(v).length <= 8192), operationId: id,
   targetPlatform: z.enum(["shein", "temu", "amazon"]), templateId: id.optional(),
@@ -66,18 +81,20 @@ export type AIConversation = z.infer<typeof conversation>;
 export type AIProposal = z.infer<typeof proposal>;
 
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
-  "subject-read" | "message" | "confirm" | "task-list" | "task-read" | "task-start" | "task-resume" | "task-review";
+  "scope-options" | "task-scope-options" | "subject-read" | "message" | "confirm" | "task-list" | "task-read" | "task-start" | "task-resume" | "task-review";
 
 export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRoute | null {
   if(method==="GET"&&path.length===4&&path[0]==="chat"&&path[1]==="subjects"&&["own_product","acquisition"].includes(path[2]??"")&&isAcquisitionUUID(path[3]??""))return "subject-read";
   if (path[0] === "chat" && path[1] === "conversations") {
     if (path.length === 2) return method === "GET" ? "conversation-list" : method === "POST" ? "conversation-create" : null;
+    if (path.length === 3 && path[2] === "scopes" && method === "GET") return "scope-options";
     if (!isAcquisitionUUID(path[2] ?? "")) return null;
     if (path.length === 3) return method === "GET" ? "conversation-read" : method === "PATCH" ? "conversation-metadata" : null;
     if (path.length === 4 && path[3] === "messages" && method === "POST") return "message";
     if (path.length === 6 && path[3] === "proposals" && isAcquisitionUUID(path[4] ?? "") && path[5] === "confirm" && method === "POST") return "confirm";
   }
   if (path[0] === "tasks") {
+    if (path.length === 2 && path[1] === "scopes" && method === "GET") return "task-scope-options";
     if (path.length === 1 && method === "GET") return "task-list";
     if (!isAcquisitionUUID(path[1] ?? "")) return null;
     if (path.length === 2 && method === "GET") return "task-read";
@@ -91,15 +108,17 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
 }
 
 export const aiResponseSchemas = {
+ "scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),
+ "task-scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),
  "subject-read":z.strictObject({subject:aiTaskSubject,productKey:z.string().min(1).max(128)}),
     "conversation-list": z.object({ conversations: z.array(conversation), next: z.string() }),
     "conversation-create": z.object({ conversation, replay: z.boolean() }),
-    "conversation-read": z.object({ conversation, messages: z.array(message), proposals: z.array(proposal), before: z.string() }),
+    "conversation-read": z.object({ conversation, messages: z.array(message), proposals: z.array(proposal), before: z.string(),scopeUnavailable:z.boolean().optional() }),
     "conversation-metadata": z.object({ conversation }),
     message: z.object({ state: z.enum(["READY_TO_DISPATCH", "COMPLETE", "FAILED_BEFORE_DISPATCH", "PLANNER_INVALID_OUTPUT", "PLANNER_UNKNOWN"]),
-      userMessageId: id, sourceSequence: z.number().int().positive(), assistantMessageId: z.string(), proposalId: z.string(), proposal: proposal.optional() }),
+      userMessageId: id.optional(), sourceSequence: z.number().int().positive().optional(), assistantMessageId: z.string().optional(), proposalId: z.string().optional(), proposal: proposal.optional(),scopeUnavailable:z.boolean().optional() }),
     confirm: z.object({ task, replay: z.boolean() }),
-    "task-list": z.object({ tasks: z.array(task), next: z.string() }),
+    "task-list": z.object({ tasks: z.array(task), next: z.string(), incomplete:z.boolean().optional() }),
     "task-read": z.object({ task }),
     "task-start": z.object({ task, replay: z.boolean() }),
     "task-resume": z.object({ task, replay: z.boolean() }),

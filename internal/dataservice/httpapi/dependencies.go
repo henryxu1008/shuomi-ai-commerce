@@ -16,13 +16,20 @@ type ReadRepository interface {
 	List(context.Context, collection.Scope, int) ([]dataacquisition.Job, error)
 	Cancel(context.Context, collection.Scope, string, string) (dataacquisition.Job, error)
 }
+type AcquisitionReader interface {
+	Read(context.Context, dataacquisition.Principal, string) (dataacquisition.Job, error)
+	Results(context.Context, dataacquisition.Principal, string, string, int, dataacquisition.CapturedResultReader) (dataacquisition.ResultPage, error)
+}
+
 type Dependencies struct {
-	Keys        *dataservice.CredentialService
-	Custom      *dataservice.CustomService
-	Acquisition *dataacquisition.Service
-	Access      dataservice.Access
-	Live        dataacquisition.LiveAccess
-	Funding     interface {
+	ExecutionEnabled bool
+	Reader           AcquisitionReader
+	Keys             *dataservice.CredentialService
+	Custom           *dataservice.CustomService
+	Acquisition      *dataacquisition.Service
+	Access           dataservice.Access
+	Live             dataacquisition.LiveAccess
+	Funding          interface {
 		Funding(context.Context, collection.Scope) (orgresource.ResourceFunding, error)
 	}
 	Provider interface {

@@ -2,6 +2,7 @@ package imageagentworker
 
 import (
 	"context"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	appruntime "task-processor/internal/app/runtime"
 	"task-processor/internal/core/config"
@@ -14,22 +15,22 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourceDB *gorm.DB, authorizer imageagent.ExecutionAuthorizer, contexts imageagent.ImageSetContextReader, publisher imageagent.ApprovedImageSetPublisher, approvals productasset.ApprovalCommitReader, logger *logrus.Logger, current d.CurrentReader, methods ...imageagent.ImageMethodContext) (appruntime.ImageAgentTemporalDependencies, error) {
+func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourceDB *gorm.DB, authorizer imageagent.ExecutionAuthorizer, contexts imageagent.ImageSetContextReader, publisher imageagent.ApprovedImageSetPublisher, approvals productasset.ApprovalCommitReader, logger *logrus.Logger, current d.SharedCategoryReader, credentials credential.SecretReader, methods ...imageagent.ImageMethodContext) (appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(methods) > 1 || cfg == nil || imageDB == nil || resourceDB == nil || authorizer == nil || contexts == nil || publisher == nil || approvals == nil || !cfg.ImageAgent.Generation.Configured() {
 		return empty, imageagent.ErrValidation
 	}
 	repository := imagestore.NewOrganizationRepository(imageDB)
-	executor, recovery, err := buildOrganizationGenerationWithCurrent(cfg.ImageAgent.Generation, imageDB, resourceDB, repository, authorizer, logger, current, contexts)
+	artifacts, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming)
+	if err != nil {
+		return empty, err
+	}
+	executor, recovery, err := buildOrganizationGenerationWithCurrent(cfg.ImageAgent.Generation, imageDB, resourceDB, repository, authorizer, logger, current, credentials, artifacts, contexts)
 	if err != nil {
 		return empty, err
 	}
 	if len(methods) == 1 {
 		executor.WithImageMethodContext(methods[0])
-	}
-	artifacts, err := buildImageAgentDurableArtifactStore(cfg, defaultImageAgentArtifactTiming)
-	if err != nil {
-		return empty, err
 	}
 	if err = configureStorageCapacity(cfg, resourceDB, repository, artifacts, executor, recovery); err != nil {
 		return empty, err

@@ -1,0 +1,12 @@
+{
+ "doctype":"DocType",
+ "name":"Commerce Fulfillment Effect",
+ "module":"Commerce Fulfillment",
+ "engine":"InnoDB",
+ "istable":1,
+ "fields":[
+  {"fieldname":"effect_key","fieldtype":"Data","label":"Original platform goods effect","unique":1},
+  {"fieldname":"source_line","fieldtype":"Data","label":"Original platform line"}
+ ],
+ "field_order":["effect_key","source_line"]
+}

@@ -1,6 +1,18 @@
 # 浏览器内核目录源码交接
 
-Issue #1013。设计与精确 HTTP DTO 见 [发行目录 V1](../architecture/browser-kernel-release-catalog-v1.md)。当前交付为源码/Draft PR；未启用任何现有实例，也未发行、下载或安装真实内核。普通用户使用桌面版本选择器；本后端不提供另一套管理页面。
+Issue #1013。设计与精确 HTTP DTO 见 [发行目录 V1](../architecture/browser-kernel-release-catalog.md)。普通用户使用桌面版本选择器；#1056 在 Web 工作台补充平台维护页面，后端继续提供同一发行 API。源码交付或构建成功不表示已更新任何现有实例或完成真实发行。
+
+## 工作台维护入口
+
+已登录且持有既有全局 `listingkit.platform_admin` 权限的维护者，从「我的账户 → 企业空间 → 内核发行管理」进入 `/workbench/account/organization/kernel-releases`，查询指定 OS、arch 和客户端版本的兼容目录。列表按 `nextCursor` 翻页，包括本页为空但仍有下一页的情况。登记表单位于其 `/new` 子页面，与列表分开。
+
+浏览器只调用同源 `/api/account/kernel-releases` BFF。BFF 沿用服务端 Auth.js 会话和当前 Workbench authorizer 权限，不接受浏览器提供的 bearer、角色或企业权限替代；发布仍由原 platform handler 再次校验。BFF 不转发企业选择、用户声明或 Cookie 到发行 owner，不开放新的公共 platform 写接口。下载 URL 只作为已授权维护者的固定元数据，不在此下载或运行制品。
+
+登记先校验固定九字段、编号及读回客户端版本，保留原编号和载荷，再调用原 PUT。只有同一编号的 artifact 读回与全部固定元数据一致且推荐为 false 时，页面显示「已登记并读回确认」。服务端明确拒绝或确认尚未发送时保留可编辑输入；发送后结果不确定、响应丢失、读回失败或不匹配时保留待核实请求，不会自动重发、换编号或把查询不到当作未写入。待核实期间可以显式查询本次登记，不能创建另一条记录。这个非凭据请求快照按用户保留在当前标签页 sessionStorage 中；重开同一页面仍需先核实。
+
+部署前核实 Web 服务到同一后端的既有 `LISTINGKIT_SERVICE_API_BASE` 接线、kernel 模块和现有管理员权限。最小候选是更新 Web UI（页面与同源 BFF）；若现有 ingress 未转发该 BFF 路径，应由部署 owner 核实并单独批准必要接线，不泛转发 `/api/v1/platform/*`。本源码任务不执行部署、权限变更或真实目录写入。登录或管理员权限不足时按原身份流程处理，不通过改角色完成验收。
+
+原 PUT 合同还允许同编号的幂等响应为 `state=withdrawn`。仅当严格响应中的编号匹配本次请求时，页面将其作为明确的非成功终态：解除该请求的 pending、显示原编号及已撤回状态，允许显式登记另一条，不再查询必定不可见的 artifact，也不显示成功。编号不匹配、响应结构无效或网络结果未知时仍保留原 pending。
 
 ## 接线与默认行为
 
@@ -96,7 +108,7 @@ Data Services/公开资产/CRL 路由。发现新增键冲突、未知最终挂�
 | 项目与责任 | 切换前必须具备的证据 / 单独授权 | 可逆范围与停止条件 |
 | --- | --- | --- |
 | 部署 owner：目标 | 确认 A 的原项目、原镜像、最终 overlay/mount/command 与所有卷；另行批准受影响服务及精确操作 | 保留项目名、端口、网络、身份、数据和全部卷；B 与真实客户端不操作。没有准确目标则停止 |
-| 构建 owner：来源 | 从批准的固定源码提交复用 [现有构建工具](listingkit-image-build.md) 产生新 commit/tree/image-ID 收据；确认包含 kernel HTTP/runtime/schema 源码及所需 serving target | 构建与部署分别授权；不得把旧 revision 标签或容器 label 冲突猜成真实二进制来源。来源不完整标 `UNPROVEN` |
+| 构建 owner：来源 | 从批准的固定源码提交复用 [现有构建工具](application-image-build.md) 产生新 commit/tree/image-ID 收据；确认包含 kernel HTTP/runtime/schema 源码及所需 serving target | 构建与部署分别授权；不得把旧 revision 标签或容器 label 冲突猜成真实二进制来源。来源不完整标 `UNPROVEN` |
 | 数据库 owner：独立库/角色/schema | 先确认当前 schema 现状、备份与恢复责任；单独批准独立 `browser_kernel` 库、既有受限 runtime role 和适用 fresh-init。没有批准不建库/授权/迁移 | 不共享其他 owner 的库/pool；不自动执行初始化。旧镜像与目标 schema 的兼容性未知时停止升级及镜像回退 |
 | 配置 owner：模块与 origins | 在保留其他模块的前提下，单独批准 manifest `browserKernel`、独立池 1..4、最小权限/schema 校验及真实资产的精确 HTTPS origins | 原私有 manifest 的安全恢复副本由 owner 保管；不得提交连接串/秘密，不替换为 B 配置。缺模块/配置 fail closed |
 | 部署 owner：路由信任 | 审查最终 dynamic 副本中仅新增本 fragment 三个键；确认 pinned v3 规则、原 Web/身份/TLS/Store 路由及原 Authorization 保持 | 只删除两个新增 router 与其新增 service 即可恢复原路由图；保留所有原键。单独批准最终文件加载，不能只改基础文件 |

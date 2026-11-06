@@ -38,3 +38,25 @@ func TestVerifyIdentityProviderRejectsUnavailableOrForeignDiscovery(t *testing.T
 		t.Fatal("unavailable provider was accepted")
 	}
 }
+
+func TestVerifyIdentityProviderRejectsForeignEndpointWithCorrectIssuer(t *testing.T) {
+	var origin string
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write([]byte(`{"issuer":"` + origin + `","authorization_endpoint":"` + origin + `/authorize","token_endpoint":"https://foreign.example.com/token","userinfo_endpoint":"` + origin + `/userinfo","introspection_endpoint":"` + origin + `/introspect"}`))
+	}))
+	defer server.Close()
+	origin = server.URL
+	if err := VerifyIdentityProvider(context.Background(), IdentityConfig{IssuerURL: origin, AuthorizationAPIURL: origin}); err == nil {
+		t.Fatal("foreign token endpoint with correct issuer was accepted")
+	}
+}
+
+func TestVerifyIdentityProviderRejectsUntrustedTLS(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		t.Error("discovery must not be reached without trusting this server certificate")
+	}))
+	defer server.Close()
+	if err := VerifyIdentityProvider(context.Background(), IdentityConfig{IssuerURL: server.URL, AuthorizationAPIURL: server.URL}); err == nil {
+		t.Fatal("untrusted identity TLS certificate was accepted")
+	}
+}

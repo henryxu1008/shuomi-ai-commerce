@@ -3,6 +3,7 @@ package imageagent
 import (
 	"context"
 	"regexp"
+	"task-processor/internal/aicapability"
 )
 
 // GenerationRejection is bounded evidence from an admitted adapter, never an
@@ -30,6 +31,10 @@ func (p GenerationRejection) ValidateFor(f GenerationFact) error {
 		if f.Intent.InputProtocol != ImageSetSchema || p.RequestID != "" || p.HTTPStatus != 0 || p.ProviderCode != "" {
 			return ErrValidation
 		}
+	case "openai_flare_preflight":
+		if f.Intent.Provider != "openai" || f.Intent.Model != aicapability.FlareImageModel || f.Intent.Protocol != aicapability.FlareImageProtocol || p.RequestID != "" || p.HTTPStatus != 0 || p.ProviderCode != "" {
+			return ErrValidation
+		}
 	default:
 		return ErrValidation
 	}
@@ -49,7 +54,7 @@ func (f GenerationFact) RecordRejection(proof GenerationRejection) (GenerationFa
 	if f.State != GenerationDispatchStarted && f.State != GenerationUnknown && f.State != GenerationNoEffect {
 		return f, ErrRevisionConflict
 	}
-	if f.Success != (GenerationSuccess{}) {
+	if f.Success != (GenerationSuccess{}) || f.ObservedOverage != (GenerationSuccess{}) {
 		return f, ErrRevisionConflict
 	}
 	f.State = GenerationNoEffect

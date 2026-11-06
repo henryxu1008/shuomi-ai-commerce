@@ -1,0 +1,8 @@
+# Append after both storage-capacity and Chat; preserve the final Chat manifest.
+services:
+ storage-capacity-init:
+  volumes: [chat-runtime:/base:ro]
+  depends_on:
+   chat-init: {condition: service_completed_successfully}
+ current-application:
+  command: [-config,/private/storage-capacity/current-application.json]

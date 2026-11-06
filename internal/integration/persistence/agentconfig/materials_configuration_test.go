@@ -22,6 +22,43 @@ func priorMaterialsSchema(t *testing.T, db *gorm.DB) {
  ADD CONSTRAINT template_revisions_check `+contentParametersDDL).Error)
 }
 
+func TestMaterialsStoredFormatsDoNotBroadenNewExecution(t *testing.T) {
+	v := agentconfig.Snapshot{AgentID: agentconfig.MaterialsAgentID, AgentVersion: "v1.0.0", Request: agent.Request{Binding: agent.Binding{ContextKind: "listing-target-record", ContextID: "record", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"}, PolicyVersion: "listing-materials-policy-v1", PromptVersion: "listing-materials-prompt-v1"}, ExecutionModelProfile: aicapability.ModelProfile{PromptVersion: "listing-materials-prompt-v1", OutputSchemaVersion: agentconfig.MaterialsActionVersion}}
+	v.ExecutionModelProfile.OutputSchemaVersion = "listing-materials-action-v1"
+	require.True(t, validStoredTextConfiguration(v))
+	require.False(t, validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile))
+	require.False(t, validTextConfigurationRequest(v.AgentID, v.Request))
+	for _, mutate := range []func(*agentconfig.Snapshot){
+		func(s *agentconfig.Snapshot) { s.AgentVersion = "v3.0.0" },
+		func(s *agentconfig.Snapshot) { s.AgentVersion = agentconfig.MaterialsAgentVersion },
+		func(s *agentconfig.Snapshot) { s.Request.PromptVersion = agentconfig.MaterialsPromptVersion },
+		func(s *agentconfig.Snapshot) {
+			s.ExecutionModelProfile.PromptVersion = agentconfig.MaterialsPromptVersion
+		},
+		func(s *agentconfig.Snapshot) { s.KnowledgeBaseID = "unexpected" },
+		func(s *agentconfig.Snapshot) { s.Request.Binding.TargetPlatform = "walmart" },
+	} {
+		s := v
+		mutate(&s)
+		require.False(t, validStoredTextConfiguration(s))
+	}
+	v.AgentVersion = agentconfig.MaterialsAgentVersion
+	v.Request.PolicyVersion, v.Request.PromptVersion = agentconfig.MaterialsPolicyVersion, agentconfig.MaterialsPromptVersion
+	v.ExecutionModelProfile.PromptVersion = agentconfig.MaterialsPromptVersion
+	v.ExecutionModelProfile.OutputSchemaVersion = agentconfig.MaterialsActionVersion
+	require.True(t, validStoredTextConfiguration(v))
+	require.True(t, validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile))
+	require.True(t, validTextConfigurationRequest(v.AgentID, v.Request))
+}
+
+func TestMaterialsV3StoredProfileKeepsOriginalActionSchema(t *testing.T) {
+	v := agentconfig.Snapshot{AgentID: agentconfig.MaterialsAgentID, AgentVersion: "v3.0.0", Request: agent.Request{Binding: agent.Binding{ContextKind: "listing-target-record", ContextID: "record", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"}, PolicyVersion: "listing-materials-policy-v3", PromptVersion: "listing-materials-prompt-v3"}, ExecutionModelProfile: aicapability.ModelProfile{PromptVersion: "listing-materials-prompt-v3", OutputSchemaVersion: "listing-materials-action-v1"}}
+	require.True(t, validStoredTextConfiguration(v))
+	require.False(t, validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, "", v.ExecutionModelProfile))
+	v.ExecutionModelProfile.OutputSchemaVersion = agentconfig.MaterialsActionVersion
+	require.False(t, validStoredTextConfiguration(v), "v3 history must not accept the v4 output schema")
+}
+
 func materialsRuntimeRole(t *testing.T, db *gorm.DB) string {
 	t.Helper()
 	role := "materials_runtime_" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -85,7 +122,7 @@ func TestMaterialsConfigurationStoresExactTemplateAndFrozenModeBinding(t *testin
 	require.NoError(t, err)
 	require.Equal(t, agentconfig.MaterialsParameterSchema, template.SchemaVersion)
 	require.Equal(t, create.Input, template.TemplateInput)
-	profile := aicapability.ModelProfile{ClientName: "materials", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model", EndpointIdentityDigest: "endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "routing", AdapterPolicyVersion: "adapter", PromptVersion: agentconfig.MaterialsPromptVersion, OutputSchemaVersion: agentconfig.MaterialsActionVersion, UsageMappingVersion: "usage", CostPricingVersion: "cost", PointTariff: aicapability.ModelPointTariff{PriceVersion: "points", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000}, Currency: "CNY", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, MaximumPromptTokens: 1000, MaximumCompletionTokens: 100, MaximumInputBytes: 4096, MaximumOutputBytes: 4096, DeadlineBound: time.Minute}
+	profile := aicapability.ModelProfile{ClientName: "materials", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model", EndpointIdentityDigest: "endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "routing", AdapterPolicyVersion: "adapter", PromptVersion: agentconfig.MaterialsPromptVersion, OutputSchemaVersion: agentconfig.MaterialsActionVersion, UsageMappingVersion: "usage", CostPricingVersion: "cost", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "points", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}}, Currency: "CNY", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, MaximumPromptTokens: 1000, MaximumCompletionTokens: 100, MaximumInputBytes: 4096, MaximumOutputBytes: 4096, DeadlineBound: time.Minute}
 	c := agentconfig.StartCommand{Scope: scope, MemberID: "member", ExpectedModeRevision: "0", AgentID: agentconfig.MaterialsAgentID, AgentVersion: agentconfig.MaterialsAgentVersion, Template: &agentconfig.TemplateRef{TemplateID: r.TemplateID, Revision: "1"}, ExecutionModelProfile: profile, Request: agent.Request{Key: uuid.NewString(), Binding: agent.Binding{ContextKind: "listing-target-record", ContextID: uuid.NewString(), ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"}, PolicyVersion: agentconfig.MaterialsPolicyVersion, PromptVersion: agentconfig.MaterialsPromptVersion, Limits: agent.Limits{Steps: 6, ModelCalls: 3, Tokens: 2000, CostMicros: 2000, Currency: "CNY", Runtime: time.Minute}}}
 	frozen, err := store.Prepare(ctx, c)
 	require.NoError(t, err)

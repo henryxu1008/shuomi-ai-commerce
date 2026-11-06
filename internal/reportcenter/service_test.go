@@ -3,6 +3,7 @@ package reportcenter
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -101,5 +102,35 @@ func TestSnapshotRejectsInvalidOrOversizedContent(t *testing.T) {
 	s.Ref.Version = "01:accepted"
 	if _, _, e := s.Bytes(); e == nil {
 		t.Fatal("noncanonical accepted")
+	}
+}
+
+func TestTargetSourceIdentityAndOriginalCommandRecovery(t *testing.T) {
+	ref := SourceRef{"SHEIN_TARGET_RECORD", sourceID, "sha256:" + strings.Repeat("a", 64)}
+	if !ref.Valid() || !(Filter{View: "all", Kind: ref.Kind, Limit: 20}).Valid() {
+		t.Fatal("native saved material must have its own admitted source kind")
+	}
+	for _, version := range []string{"1:accepted", strings.Repeat("a", 64), "sha256:" + strings.Repeat("A", 64)} {
+		bad := ref
+		bad.Version = version
+		if bad.Valid() {
+			t.Fatalf("noncanonical target source version accepted: %s", version)
+		}
+	}
+	r := &repoFake{replay: true, fingerprint: Fingerprint("save", ref)}
+	s := Service{Repository: r, Authorize: func(c context.Context, _ Scope, _ bool) (context.Context, error) { return c, nil }}
+	// A committed command remains recoverable when the source opt-in is off.
+	got, err := s.Save(context.Background(), scope, commandID, ref)
+	if err != nil || !got.Replayed || r.calls != 0 {
+		t.Fatalf("original target command not recovered without a source: %+v %v", got, err)
+	}
+	legacy := ref
+	legacy.Kind = "SHEIN_RECORD"
+	if _, err = s.Save(context.Background(), scope, commandID, legacy); !errors.Is(err, ErrConflict) {
+		t.Fatalf("same UUID in a different owner must not replay: %v", err)
+	}
+	r.replay = false
+	if _, err = s.Save(context.Background(), scope, commandID, ref); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("new capture without the native source must stay unavailable: %v", err)
 	}
 }

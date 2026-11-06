@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"time"
 
 	"task-processor/internal/app/runtime/currentapplication"
@@ -14,7 +16,7 @@ import (
 
 func main() {
 	manifestPath := flag.String("config", "", "absolute private current-application manifest path")
-	inputPath := flag.String("input", "", "absolute private credential input path (consumer: title, planning, content, materials, selection, diagnosis; admitted binding only)")
+	inputPath := flag.String("input", "", "absolute private channel credential input path (declared organization connection only)")
 	flag.Parse()
 	if *manifestPath == "" || *inputPath == "" {
 		fmt.Fprintln(os.Stderr, "-config and -input are required")
@@ -31,8 +33,8 @@ func run(manifestPath, inputPath string) error {
 	if err != nil {
 		return fmt.Errorf("private current-application manifest is invalid")
 	}
-	input, err := currentapplication.LoadTitleCredentialProvision(inputPath)
-	if err != nil || currentapplication.ValidateTitleCredentialProvision(cfg, input) != nil {
+	input, err := currentapplication.LoadChannelCredentialProvision(inputPath)
+	if err != nil || currentapplication.ValidateChannelCredentialProvision(cfg, input) != nil {
 		return fmt.Errorf("private credential input or target is invalid")
 	}
 	writer := input.WriterDatabase
@@ -44,7 +46,10 @@ func run(manifestPath, inputPath string) error {
 		return fmt.Errorf("credential writer database is unavailable")
 	}
 	defer platformdatabase.Close(db)
-	result, err := currentapplication.SaveTitleCredential(ctx, cfg, input, db)
+	result, err := currentapplication.SaveChannelCredential(ctx, cfg, input, db)
+	if errors.Is(err, credential.ErrOutcomeUnknown) {
+		return fmt.Errorf("credential commit outcome UNKNOWN; retry only the identical requestKey and payload")
+	}
 	if err != nil {
 		return fmt.Errorf("credential provision failed")
 	}

@@ -2210,6 +2210,8 @@ func businessHTTPPackages(root string) map[string]struct{} {
 	// #614 admits only the observations feature-local HTTP adapter.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "app", "storeobservations", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "product", "collection", "httpapi"))+string(os.PathSeparator)] = struct{}{}
+	// #1071 admits only the frozen research HTTP adapter; its domain stays framework-free.
+	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "product", "research", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #624 admits only Project Center's HTTP adapter; its domain stays framework-free.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "aiworkbench", "projectcenter", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #627 admits only the frozen Cockpit HTTP adapter; calculations stay framework-free.

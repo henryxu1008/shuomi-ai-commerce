@@ -64,16 +64,17 @@ type Image struct {
 }
 
 type Variant struct {
-	SourceID   string      `json:"source_id,omitempty"`
-	Title      string      `json:"title,omitempty"`
-	SKU        string      `json:"sku,omitempty"`
-	Attributes []Attribute `json:"attributes,omitempty"`
-	Price      *Price      `json:"price,omitempty"`
-	Stock      int         `json:"stock,omitempty"`
-	Images     []Image     `json:"images,omitempty"`
-	Barcode    string      `json:"barcode,omitempty"`
-	IsDefault  bool        `json:"is_default,omitempty"`
-	Trace      Trace       `json:"trace,omitempty"`
+	SourceID         string      `json:"source_id,omitempty"`
+	Title            string      `json:"title,omitempty"`
+	SKU              string      `json:"sku,omitempty"`
+	Attributes       []Attribute `json:"attributes,omitempty"`
+	Price            *Price      `json:"price,omitempty"`
+	Stock            *int        `json:"stock,omitempty"`
+	Images           []Image     `json:"images,omitempty"`
+	Barcode          string      `json:"barcode,omitempty"`
+	IsDefault        bool        `json:"is_default,omitempty"`
+	Trace            Trace       `json:"trace,omitempty"`
+	OwnStockDeclared bool        `json:"own_stock_declared,omitempty"`
 }
 
 func (v *Variant) UnmarshalJSON(data []byte) error {

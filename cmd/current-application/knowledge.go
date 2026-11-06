@@ -18,12 +18,19 @@ func prepareKnowledge(ctx context.Context, db *gorm.DB, cfg *currentapplication.
 	if err != nil {
 		return nil, nil, err
 	}
+	generation := ""
+	if cfg.OriginalDeletion != nil {
+		generation = cfg.OriginalDeletion.Generation
+	}
+	if err = repo.ConfigureOriginalGeneration(ctx, generation); err != nil {
+		return nil, nil, err
+	}
 	c := cfg.Storage
 	client, err := s3.NewKnowledgeClient(s3.ClientConfig{Region: c.Region, Endpoint: c.Endpoint, AccessKeyID: c.AccessKeyID, SecretAccessKey: c.SecretAccessKey, UsePathStyle: true})
 	if err != nil {
 		return nil, nil, err
 	}
-	uploader, err := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Bucket: c.Bucket, Endpoint: c.Endpoint, UsePathStyle: true, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
+	uploader, err := s3.NewUploaderWithOptions(client, s3.UploaderOptions{Bucket: c.Bucket, ArtifactCapabilities: s3.ArtifactStorageCapabilities{Mode: s3.ArtifactStorageMode(c.Mode), COSImmutableNonVersionedBucketPolicy: c.COSImmutableNonVersionedBucketPolicy}})
 	if err != nil {
 		return nil, nil, err
 	}

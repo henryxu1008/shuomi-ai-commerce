@@ -6,6 +6,7 @@ import (
 
 	"golang.org/x/time/rate"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 // BoundedAdmission preserves the current text client's per-credential limits
@@ -18,7 +19,7 @@ type BoundedAdmission struct {
 
 type admissionKey struct {
 	organizationID string
-	clientName     string
+	connectionID   string
 }
 
 type routeBudget struct {
@@ -34,10 +35,11 @@ func NewBoundedAdmission() *BoundedAdmission {
 // the active text client's 10 concurrent calls, 5 calls/second and burst 15.
 // The caller holds the returned slot through the one provider attempt.
 func (a *BoundedAdmission) Acquire(ctx context.Context, input aicapability.TextInputIdentity) (func(), error) {
-	if a == nil || ctx == nil || ctx.Err() != nil || input.OrganizationID == "" || input.Profile.ClientName == "" {
+	if a == nil || ctx == nil || ctx.Err() != nil || input.OrganizationID == "" || input.Profile.ClientName == "" ||
+		!credential.ValidID(input.Profile.ConnectionID) {
 		return nil, ErrNotDispatched
 	}
-	key := admissionKey{organizationID: input.OrganizationID, clientName: input.Profile.ClientName}
+	key := admissionKey{organizationID: input.OrganizationID, connectionID: input.Profile.ConnectionID}
 	a.mu.Lock()
 	budget := a.routes[key]
 	if budget == nil {

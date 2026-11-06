@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	sigjson "sigs.k8s.io/json"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
@@ -34,6 +35,7 @@ const (
 type Store struct{ db *gorm.DB }
 
 type conversationRow struct {
+	BusinessScope    *aiworkbench.BusinessScope `gorm:"serializer:json;type:jsonb"`
 	ID               string
 	OrganizationID   string
 	OwnerUserID      string
@@ -73,6 +75,8 @@ type messageRow struct {
 func (messageRow) TableName() string { return "ai_workbench.messages" }
 
 type commandRow struct {
+	FrozenScopeJSON     json.RawMessage `gorm:"column:frozen_scope;type:jsonb"`
+	ScopeDigest         *string
 	OrganizationID      string
 	ActorID             string
 	IdempotencyKey      string
@@ -100,6 +104,7 @@ type commandRow struct {
 func (commandRow) TableName() string { return "ai_workbench.commands" }
 
 type proposalRow struct {
+	WorkbenchContextRef   *agent.WorkbenchContextRef       `gorm:"serializer:json;type:jsonb" json:",omitempty"`
 	ContextKind           *string                          `json:",omitempty"`
 	ContentSelection      *reviewproposal.ContentSelection `gorm:"serializer:json;type:jsonb" json:",omitempty"`
 	ExecutionLimits       *agent.Limits                    `gorm:"serializer:json;type:jsonb" json:",omitempty"`
@@ -199,6 +204,9 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		}
 	}
 
+	if err := verifyBusinessScopeSchema(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -246,9 +254,10 @@ func missing(err error) error {
 }
 func conversation(row conversationRow) aiworkbench.Conversation {
 	return aiworkbench.Conversation{
-		ID:    row.ID,
-		Scope: aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.OwnerUserID},
-		Title: row.Title, Favorite: row.Favorite, Archived: row.Lifecycle == "ARCHIVED",
+		BusinessScope: row.BusinessScope,
+		ID:            row.ID,
+		Scope:         aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.OwnerUserID},
+		Title:         row.Title, Favorite: row.Favorite, Archived: row.Lifecycle == "ARCHIVED",
 		MetadataRevision: row.MetadataRevision, NextSequence: row.NextSequence,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
@@ -260,6 +269,17 @@ func command(row commandRow) aiworkbench.PlanningCommand {
 		ConversationID: row.ConversationID, RequestFingerprint: row.RequestFingerprint,
 		State: aiworkbench.PlanningState(row.State), ModelProfile: append([]byte(nil), row.PlannerModelProfile...),
 		StartedAt: time.Time{}, CommittedAt: row.CommittedAt,
+	}
+	if len(row.FrozenScopeJSON) != 0 {
+		var f aiworkbench.FrozenScope
+		violations, err := sigjson.UnmarshalStrict(row.FrozenScopeJSON, &f)
+		if err != nil || len(violations) != 0 {
+			f = aiworkbench.FrozenScope{}
+		}
+		result.FrozenScope = &f
+	}
+	if row.ScopeDigest != nil {
+		result.ScopeDigest = *row.ScopeDigest
 	}
 	if row.UserMessageID != nil {
 		result.UserMessageID = *row.UserMessageID
@@ -313,6 +333,9 @@ func proposal(row proposalRow) aiworkbench.ExecutionProposal {
 		TemplateID:           row.TemplateID, TemplateRevision: row.TemplateRevision,
 		KnowledgeBaseID: row.KnowledgeBaseID, KnowledgeRevisionSetDigest: row.KnowledgeRevisionSetDigest,
 		ExecutionModelProfile: append([]byte(nil), row.ExecutionModelProfile...), CreatedAt: row.CreatedAt.UTC()}
+	if row.WorkbenchContextRef != nil {
+		result.WorkbenchContextRef = *row.WorkbenchContextRef
+	}
 	if row.ContextKind != nil {
 		result.ContextKind = *row.ContextKind
 	}
@@ -425,16 +448,19 @@ func (s *Store) lookupConversation(tx *gorm.DB, scope aiworkbench.Scope, id stri
 }
 
 func (s *Store) Create(ctx context.Context, scope aiworkbench.Scope, key string, input aiworkbench.CreateInput) (aiworkbench.Conversation, bool, error) {
+	return s.CreateScoped(ctx, scope, key, input, nil, nil)
+}
+
+// CreateScoped takes already authorized facts or a preflight error. The exact
+// durable receipt wins over either when the same key committed concurrently.
+func (s *Store) CreateScoped(ctx context.Context, scope aiworkbench.Scope, key string, input aiworkbench.CreateInput, fixed *aiworkbench.BusinessScope, preflight error) (aiworkbench.Conversation, bool, error) {
 	if s == nil || s.db == nil {
 		return aiworkbench.Conversation{}, false, aiworkbench.ErrUnavailable
 	}
 	if !validScope(scope) || !validKey(key) {
 		return aiworkbench.Conversation{}, false, aiworkbench.ErrInvalid
 	}
-	fingerprint := digest(struct {
-		Operation string
-		Favorite  bool
-	}{createOperation, input.Favorite})
+	fingerprint := createFingerprint(input)
 	var result aiworkbench.Conversation
 	var replay bool
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -446,18 +472,18 @@ func (s *Store) Create(ctx context.Context, scope aiworkbench.Scope, key string,
 			return err
 		}
 		if found {
-			if existing.Operation != createOperation || existing.RequestFingerprint != fingerprint {
-				return aiworkbench.ErrIdempotencyConflict
-			}
-			current, err := s.lookupConversation(tx, scope, existing.ConversationID, false)
-			if err != nil {
-				return err
-			}
-			result, replay = conversation(current), true
-			return nil
+			current, e := s.createdReceipt(tx, scope, existing, fingerprint)
+			result, replay = current, true
+			return e
+		}
+		if preflight != nil {
+			return &aiworkbench.ConversationNotAcceptedError{Cause: preflight}
+		}
+		if input.Selection != nil && (fixed == nil || !fixed.Valid()) {
+			return aiworkbench.ErrInvalid
 		}
 		now := time.Now().UTC().Truncate(time.Microsecond)
-		row := conversationRow{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID,
+		row := conversationRow{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID, BusinessScope: fixed,
 			Favorite: input.Favorite, Lifecycle: "ACTIVE", MetadataRevision: 1, NextSequence: 1, CreatedAt: now, UpdatedAt: now}
 		if err := tx.Create(&row).Error; err != nil {
 			return err
@@ -465,6 +491,9 @@ func (s *Store) Create(ctx context.Context, scope aiworkbench.Scope, key string,
 		receipt := commandRow{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, IdempotencyKey: key,
 			Operation: createOperation, RequestFingerprint: fingerprint, ConversationID: row.ID,
 			State: string(aiworkbench.PlanningComplete), CreatedAt: now, CommittedAt: &now}
+		if input.MemberID != "" {
+			receipt.MemberID = &input.MemberID
+		}
 		if err := tx.Create(&receipt).Error; err != nil {
 			return err
 		}
@@ -472,12 +501,22 @@ func (s *Store) Create(ctx context.Context, scope aiworkbench.Scope, key string,
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, aiworkbench.ErrIdempotencyConflict) || errors.Is(err, aiworkbench.ErrNotFound) {
+		if preflight != nil && errors.Is(err, preflight) || errors.Is(err, aiworkbench.ErrInvalid) || errors.Is(err, aiworkbench.ErrIdempotencyConflict) || errors.Is(err, aiworkbench.ErrNotFound) {
 			return aiworkbench.Conversation{}, false, err
 		}
 		return aiworkbench.Conversation{}, false, unavailable(err)
 	}
 	return result, replay, nil
+}
+
+func createFingerprint(input aiworkbench.CreateInput) string {
+	return digest(struct {
+		Operation         string
+		Favorite          bool
+		Selection         *aiworkbench.ScopeSelection `json:",omitempty"`
+		ScopeConfirmation string                      `json:",omitempty"`
+		MemberID          string                      `json:",omitempty"`
+	}{createOperation, input.Favorite, input.Selection, input.ScopeConfirmation, input.MemberID})
 }
 
 func (s *Store) Get(ctx context.Context, scope aiworkbench.Scope, id string) (aiworkbench.Conversation, error) {
@@ -703,6 +742,23 @@ func (s *Store) AppendUser(ctx context.Context, scope aiworkbench.Scope, convers
 		if err != nil {
 			return &aiworkbench.MessageNotAcceptedError{Cause: err}
 		}
+		var scopeHash *string
+		var scopeJSON json.RawMessage
+		if row.BusinessScope != nil {
+			f := prepared.FrozenScope
+			if f == nil || f.Validate() != nil || f.Owner != scope || f.ConversationID != row.ID ||
+				f.Scope != *row.BusinessScope || f.MemberID != prepared.MemberID {
+				return aiworkbench.ErrInvalid
+			}
+			scopeJSON, err = json.Marshal(f)
+			if err != nil {
+				return aiworkbench.ErrInvalid
+			}
+			value := f.Digest()
+			scopeHash = &value
+		} else if prepared.FrozenScope != nil {
+			return aiworkbench.ErrInvalid
+		}
 		if !validName(prepared.MemberID) ||
 			!prepared.Unavailable && (!validDigest(prepared.InputHash) || !json.Valid(prepared.ModelProfile) || prepared.Deadline.IsZero()) {
 			return aiworkbench.ErrInvalid
@@ -736,7 +792,7 @@ func (s *Store) AppendUser(ctx context.Context, scope aiworkbench.Scope, convers
 			Operation: messageOperation, RequestFingerprint: fingerprint, ConversationID: conversationID,
 			State: state, UserMessageID: &messageID, SourceSequence: &sourceSequence,
 			PlannerInvocationID: &invocationID, MemberID: &prepared.MemberID, PlannerInputHash: inputHash,
-			WorkScopeJSON: workScope, PlannerModelProfile: profile,
+			WorkScopeJSON: workScope, PlannerModelProfile: profile, FrozenScopeJSON: scopeJSON, ScopeDigest: scopeHash,
 			PlannerStartedAt: startedAt, PlannerDeadline: deadline, CreatedAt: now}
 		if err := tx.Create(&receipt).Error; err != nil {
 			return err
@@ -849,6 +905,15 @@ func (s *Store) CompletePlan(ctx context.Context, scope aiworkbench.Scope, key s
 				TemplateID:           p.TemplateID, TemplateRevision: p.TemplateRevision, KnowledgeBaseID: p.KnowledgeBaseID,
 				KnowledgeRevisionSetDigest: p.KnowledgeRevisionSetDigest,
 				ExecutionModelProfile:      append([]byte(nil), p.ExecutionModelProfile...), CreatedAt: now}
+			if len(receipt.FrozenScopeJSON) != 0 {
+				ref := command(receipt).ScopeRef()
+				if !ref.Valid() || p.WorkbenchContextRef != ref {
+					return aiworkbench.ErrInvalid
+				}
+				proposed.WorkbenchContextRef = &ref
+			} else if !p.WorkbenchContextRef.Absent() {
+				return aiworkbench.ErrInvalid
+			}
 			if p.Kind == aiworkbench.ContentTaskKind {
 				proposed.ContextKind = &p.ContextKind
 				proposed.ContentSelection = &p.ContentSelection

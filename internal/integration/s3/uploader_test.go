@@ -102,19 +102,21 @@ func TestUploaderResolvedURLPrefersPublicBase(t *testing.T) {
 	}
 }
 
-func TestUploaderResolvedURLSupportsPathStyleEndpoint(t *testing.T) {
+func TestUploaderPublicURLRequiresExplicitBaseAndObjectKey(t *testing.T) {
 	t.Parallel()
 
 	uploader := mustNewUploader(t, &fakeS3API{}, UploaderOptions{
-		Bucket:       "listingkit-assets",
-		Endpoint:     "http://127.0.0.1:9100",
-		UsePathStyle: true,
+		Bucket: "listingkit-assets",
 	})
 
-	got := uploader.resolveObjectURL("20260419/example.jpg")
-	want := "http://127.0.0.1:9100/listingkit-assets/20260419/example.jpg"
-	if got != want {
-		t.Fatalf("resolveObjectURL() = %q, want %q", got, want)
+	if got := uploader.PublicURL("20260419/example.jpg"); got != "" {
+		t.Errorf("PublicURL without explicit base = %q, want empty", got)
+	}
+	uploader = mustNewUploader(t, &fakeS3API{}, UploaderOptions{
+		Bucket: "listingkit-assets", PublicBase: "https://assets.example.test/base/",
+	})
+	if got := uploader.PublicURL(" / "); got != "" {
+		t.Errorf("PublicURL without object key = %q, want empty", got)
 	}
 }
 

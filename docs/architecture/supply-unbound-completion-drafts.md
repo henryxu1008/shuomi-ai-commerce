@@ -1,6 +1,6 @@
 # Supply 未绑定店铺待补全草稿
 
-当前字段扩展见 [结构化候选合同](completion-draft-structured-v1.md)，达到其增量准入后实施；原owner/事务/权限是复用基线。
+当前字段扩展见 [结构化候选合同](completion-draft-structured.md)，达到其增量准入后实施；原owner/事务/权限是复用基线。
 
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-12 独立高风险边界检查通过。
@@ -9,7 +9,7 @@ Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-12 独立高风险�
 
 依据 [PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12](../product/supply-unbound-completion-drafts.md)，#605 当前阶段允许真实保存未绑定店铺的候选标题和描述。当前 Figma 文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463`，待补全 `2667:1948` 的 2026-10-12 design context + screenshot 是页面依据；待适配沿用 `3507:1965` / `3507:3143`。
 
-本设计只新增当前 Listing 内的 CompletionDraft，不把正式 `TargetRecord.store_id` 改为可空。原 [我的供应链 SHEIN v1](my-supply-chain-shein-v1.md) 的正式商户、来源、资产、规则、上传和 UNKNOWN 边界不变。此前缺 SHEIN 时停止在 Preparation 的阶段决定由本产品决定替代；独立只读合成试用设计不用于正式业务。
+本设计只新增当前 Listing 内的 CompletionDraft，不把正式 `TargetRecord.store_id` 改为可空。原 [我的供应链 SHEIN v1](my-supply-chain-shein.md) 的正式商户、来源、资产、规则、上传和 UNKNOWN 边界不变。此前缺 SHEIN 时停止在 Preparation 的阶段决定由本产品决定替代；独立只读合成试用设计不用于正式业务。
 
 用户路径：已保存来源 → 原 Transfer 固定 PreparationSource → 查看原资料 → 编辑候选标题/描述 → 保存不可变草稿版本 → 刷新读取 → 后续选择真实店铺，显式带入保存内容，再走原 TargetEditor / Target.Create / Submit。
 

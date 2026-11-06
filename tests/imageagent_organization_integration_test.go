@@ -26,6 +26,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"task-processor/internal/ai"
+	d "task-processor/internal/aicapability/routeconfig"
 	aistore "task-processor/internal/aicapability/store"
 	policyassembly "task-processor/internal/app/imageagentpolicy"
 	imageworker "task-processor/internal/app/worker/imageagent"
@@ -200,7 +201,6 @@ func newScope339Fixture(t *testing.T) *scope339Fixture {
 	})
 	require.NoError(t, imagestore.AutoMigrateOrganizationScope(db))
 	require.NoError(t, catalogstore.AutoMigrate(db))
-	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(db))
 	f := &scope339Fixture{db: db, iam: &scope339IAM{}, temporal: &scope339TemporalServer{}, catalogs: map[string]imageagent.AssetCatalog{}}
 	upstream := httptest.NewServer(f.iam)
@@ -563,13 +563,8 @@ func TestOrganizationScopeInitializationFailureAndStartResponseLoss(t *testing.T
 }
 
 func TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver(t *testing.T) {
-	f := newScope339Fixture(t)
 	var calls atomic.Int32
-	provider := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
-	defer provider.Close()
-	credentials := openai.NewGormCredentialResolver(f.db)
-	require.NoError(t, credentials.SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "B", ClientName: "image_gpt_image_2", APIKey: "synthetic-B", BaseURL: provider.URL, APIStyle: "grsai", Model: "gpt-image-2-vip", Enabled: true, TimeoutSecond: 1}))
-	reader, err := imageworker.NewImageGenerationQuoteReader(f.db, config.ImageAgentGenerationConfig{PriceVersion: "fixture-price", PointsPerImage: 1})
+	reader, err := imageworker.NewImageGenerationQuoteReader(config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 1}, scope339UnavailableQuoteCatalog{calls: &calls})
 	require.NoError(t, err)
 	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "B", UserID: "actor", MemberID: "member-B", RunID: "run339", BusinessTaskID: "catalog-input"}
 	for _, verified := range []authidentity.AuthenticatedIdentity{{}, {TenantID: "A", UserID: "actor", HomeOrganizationID: "A"}, {TenantID: "B", UserID: "other", EffectiveOrganizationID: "B"}, {TenantID: "C", UserID: "actor", EffectiveOrganizationID: "C"}} {
@@ -579,8 +574,15 @@ func TestOrganizationCredentialAdmissionChecksVerifiedScopeBeforeResolver(t *tes
 	}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "B", UserID: "actor", HomeOrganizationID: "A", EffectiveOrganizationID: "B", EffectiveMemberID: "member-B"})
 	_, err = reader.ReadImageGenerationQuote(ctx, identity, nil)
-	require.NoError(t, err)
-	require.Zero(t, calls.Load())
+	require.ErrorIs(t, err, imageagent.ErrBudgetQuoteUnavailable, "a verified identity cannot substitute the shared enterprise reader")
+	require.EqualValues(t, 1, calls.Load(), "only the correctly verified identity may reach metadata qualification")
+}
+
+type scope339UnavailableQuoteCatalog struct{ calls *atomic.Int32 }
+
+func (c scope339UnavailableQuoteCatalog) ReadCategory(context.Context, string, d.ModelCategory) (d.ModelQualification, string, error) {
+	c.calls.Add(1)
+	return d.ModelQualification{}, "", d.ErrNeedsConfiguration
 }
 
 func (f *scope339Fixture) verifyRecoveryCommand(t *testing.T) {

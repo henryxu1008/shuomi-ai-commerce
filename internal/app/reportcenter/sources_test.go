@@ -3,15 +3,18 @@ package reportcenterapp
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"strings"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/listing/record"
+	sheindraft "task-processor/internal/marketplace/shein/draft"
+	sheinvalidator "task-processor/internal/marketplace/shein/validator"
 	validator "task-processor/internal/marketplace/validator"
+	productasset "task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/review"
 	rc "task-processor/internal/reportcenter"
 	"testing"
@@ -55,7 +58,7 @@ func TestSourceAuthorizationUsesTheVerifiedUserSubject(t *testing.T) {
 
 func TestReviewSourceCapturesApplyAtSameRevisionAndEmptyBefore(t *testing.T) {
 	scope := rc.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
-	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{UserID: scope.ActorID, TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, TokenExpiresAt: time.Now().Add(time.Hour)})
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{UserID: scope.ActorID, TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, Roles: []string{"member"}, TokenExpiresAt: time.Now().Add(time.Hour)})
 	id := uuid.NewString()
 	view := review.View{ID: id, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: "product-a", BaseVersion: 1}, Before: "", Title: "suggested title", Policy: "title-review-v1", State: "accepted", Revision: 2}
 	require.NoError(t, review.ValidateView(view))
@@ -75,32 +78,86 @@ func TestReviewSourceCapturesApplyAtSameRevisionAndEmptyBefore(t *testing.T) {
 	require.Len(t, applied.Content.Sections, 2)
 }
 
-func TestRecordSourceUsesSavedDiagnosticWithoutReadingPayloadOrCurrentTime(t *testing.T) {
+// Real domain creation, not equal fabricated package/diagnostic digests.
+type offlineRecordFixture struct {
+	saved record.Record
+	at    time.Time
+}
+
+func (f *offlineRecordFixture) GetSnapshot(_ context.Context, id catalog.SnapshotIdentity, version uint64) (catalog.PublishedSnapshot, error) {
+	return catalog.PublishedSnapshot{Identity: id, Version: version, Snapshot: catalog.ProductSnapshot{Title: "Synthetic offline bottle"}}, nil
+}
+func (f *offlineRecordFixture) GetApprovedInventory(_ context.Context, scope productasset.InventoryScope) (productasset.ApprovedAssetInventory, error) {
+	return productasset.ApprovedAssetInventory{Scope: scope, Assets: []productasset.ApprovedAsset{{ID: "approved-main", RunID: "synthetic-run", PlanRevision: 1, SlotID: "main", Attempt: 1, Role: productasset.RoleMain, URL: "https://controlled.invalid/main.jpg"}}}, nil
+}
+func (f *offlineRecordFixture) GetStoreReference(_ context.Context, org, id string) (record.StoreReference, error) {
+	return record.StoreReference{OrganizationID: org, StoreID: id, Platform: "shein"}, nil
+}
+func (f *offlineRecordFixture) FindOperation(context.Context, record.Actor, string) (record.Record, error) {
+	return record.Record{}, record.ErrNotFound
+}
+func (f *offlineRecordFixture) Insert(_ context.Context, p record.Prepared) (record.Record, error) {
+	f.saved = p.Record()
+	f.saved.CreatedAt = f.at
+	return f.saved.Clone(), nil
+}
+func (allowPolicy) IsTenantAdmin(string, []string) bool { return false }
+func TestRecordSourceUsesSavedDiagnosticFromActualCreation(t *testing.T) {
 	scope := rc.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
-	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{UserID: scope.ActorID, TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, TokenExpiresAt: time.Now().Add(time.Hour)})
 	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
-	// record.Reader returns canonical digests with the algorithm prefix.
-	hash := "sha256:" + strings.Repeat("a", 64)
-	diagnostic := validator.DiagnosticResult{DiagnosticOnly: true, Scope: "offline", Target: validator.Target{Marketplace: "shein"}, Action: validator.SaveDraft, RuleVersion: "rules-v1", Input: validator.BoundInput{Digest: hash, BindingVersion: "policy-v1", ReadAt: at, EvaluatedAt: at}, Freshness: validator.ExternalFreshness{Status: validator.NotEvaluated}, OfflineChecks: validator.OfflineChecks{Status: validator.Blocked, Checks: []validator.Check{{Code: "ASSET_MISSING", Status: validator.CheckBlocking, Message: "缺少图片"}}}, NotEvaluated: []string{"platform_submission"}}
-	raw, _ := json.Marshal(diagnostic)
-	sum := sha256.Sum256(raw)
-	r := record.Record{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID, Input: record.Input{ProductKey: "product-a", SnapshotVersion: 1, StoreID: uuid.NewString(), Country: "US", Language: "en", Action: validator.SaveDraft}, InputHash: hash, PackageHash: hash, DiagnosticHash: "sha256:" + hex.EncodeToString(sum[:]), RuleRevision: "rules-v1", PolicyRevision: "policy-v1", DiagnosticStatus: validator.Blocked, Diagnostic: raw, CreatedAt: at, Payload: []byte("secret complete payload must not be copied")}
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{UserID: scope.ActorID, TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, Roles: []string{"member"}, TokenExpiresAt: time.Now().Add(time.Hour)})
+	f := &offlineRecordFixture{at: at}
+	service, err := record.NewService(record.ServiceDependencies{Products: f, Assets: f, Stores: f, Records: f, Builder: sheindraft.Builder{}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: allowPolicy(true), Now: func() time.Time { return at }, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, "offline-source", record.Input{ProductKey: "product-a", SnapshotVersion: 1, StoreID: uuid.NewString(), Country: "US", Language: "en", Action: validator.SaveDraft})
+	require.NoError(t, err)
+	r := f.saved.Clone()
+	var diagnostic validator.DiagnosticResult
+	require.NoError(t, json.Unmarshal(r.Diagnostic, &diagnostic))
+	require.NotEqual(t, r.PackageHash, diagnostic.Input.Digest)
 	s := Sources{Policy: allowPolicy(true), Records: recordFunc(func(context.Context, record.Actor, string) (record.Record, error) {
 		r.ReadAt = time.Now()
-		return r, nil
+		return r.Clone(), nil
 	})}
-	first, e := s.Read(ctx, scope, "SHEIN_RECORD", r.ID)
-	require.NoError(t, e)
-	body, digest, e := first.Bytes()
-	require.NoError(t, e)
-	require.NotContains(t, string(body), "secret complete payload")
-	require.Contains(t, string(body), "ASSET_MISSING")
+	first, err := s.Read(ctx, scope, "SHEIN_RECORD", r.ID)
+	require.NoError(t, err)
+	body, digest, err := first.Bytes()
+	require.NoError(t, err)
+	require.NotContains(t, string(body), "https://controlled.invalid/main.jpg", "full package must not leak into display snapshot")
 	require.Contains(t, string(body), "not_evaluated")
-	second, e := s.Read(ctx, scope, "SHEIN_RECORD", r.ID)
-	require.NoError(t, e)
-	_, nextDigest, e := second.Bytes()
-	require.NoError(t, e)
-	require.Equal(t, digest, nextDigest)
+	require.Equal(t, r.InputHash, first.Ref.Version)
+	second, err := s.Read(ctx, scope, "SHEIN_RECORD", r.ID)
+	require.NoError(t, err)
+	_, nextDigest, err := second.Bytes()
+	require.NoError(t, err)
+	require.Equal(t, digest, nextDigest, "read time must not re-diagnose the saved result")
+	original := r.Clone()
+	r.RuleRevision = sheinvalidator.PreviousDiagnosticRuleVersion
+	diagnostic.RuleVersion = r.RuleRevision
+	diagnostic.Input.Digest, err = sheinvalidator.DiagnosticInputDigest(validator.BoundRequest[[]byte]{
+		Input: r.Payload, Target: diagnostic.Target, Action: diagnostic.Action, RuleVersion: r.RuleRevision, BindingVersion: r.PolicyRevision,
+	})
+	require.NoError(t, err)
+	r.Diagnostic, err = json.Marshal(diagnostic)
+	require.NoError(t, err)
+	r.DiagnosticHash = fmt.Sprintf("sha256:%x", sha256.Sum256(r.Diagnostic))
+	historic, err := s.Read(ctx, scope, "SHEIN_RECORD", r.ID)
+	require.NoError(t, err)
+	historicBody, _, err := historic.Bytes()
+	require.NoError(t, err)
+	require.Contains(t, string(historicBody), sheinvalidator.PreviousDiagnosticRuleVersion)
+	for _, mutate := range []func(){
+		func() { r.Payload = append(r.Payload, ' ') },
+		func() { r.Input.Action = validator.Publish },
+		func() { r.PolicyRevision = "unsupported" },
+		func() { r.RuleRevision = "unsupported" },
+		func() { r.Diagnostic = append(r.Diagnostic, ' ') },
+	} {
+		r = original.Clone()
+		mutate()
+		_, err = s.Read(ctx, scope, "SHEIN_RECORD", r.ID)
+		require.ErrorIs(t, err, rc.ErrUnavailable)
+	}
 }
 func TestSourcesNeverInheritAdminOwnershipBypass(t *testing.T) {
 	scope := rc.Scope{OrganizationID: "org-a", ActorID: "actor-a"}

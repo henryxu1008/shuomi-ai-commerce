@@ -1,6 +1,7 @@
 package supplychainapp
 
 type TitleOptimizationChoice struct {
+	UnitVersion       string `json:"unitVersion"`
 	AgentID           string `json:"agentId"`
 	ModeRevision      string `json:"modeRevision"`
 	ExecutionMode     string `json:"executionMode"`
@@ -9,7 +10,7 @@ type TitleOptimizationChoice struct {
 	Name              string `json:"name"`
 	QuoteHash         string `json:"quoteHash"`
 	MaximumCostMicros int64  `json:"maximumCostMicros"`
-	MaximumPoints     int64  `json:"maximumPoints"`
+	MaximumPoints     int64  `json:"maximumPoints,string"`
 	PriceVersion      string `json:"priceVersion"`
 	Currency          string `json:"currency"`
 }

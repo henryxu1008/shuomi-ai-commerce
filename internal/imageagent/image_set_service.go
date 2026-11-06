@@ -70,11 +70,13 @@ type ImageSetQuoteReader interface {
 
 // Member-facing projection excludes endpoints and credential references.
 type ImageGenerationOption struct {
-	Route      *ImageRouteSelection `json:"route,omitempty"`
-	Model      string               `json:"model"`
-	Quality    string               `json:"quality"`
-	Resolution string               `json:"resolution"`
-	Points     int64                `json:"points"`
+	ReferencePriceVersion string               `json:"referencePriceVersion,omitempty"`
+	UnitVersion           string               `json:"unitVersion"`
+	Route                 *ImageRouteSelection `json:"route,omitempty"`
+	Model                 string               `json:"model"`
+	Quality               string               `json:"quality"`
+	Resolution            string               `json:"resolution"`
+	Points                int64                "json:\"points,string\""
 }
 type ImageGenerationOptionsReader interface {
 	ReadImageGenerationOptions(context.Context, ExecutionIdentity) ([]ImageGenerationOption, error)
@@ -106,7 +108,7 @@ type PreparedImageSet struct {
 	Projection              RunProjection
 	PlanDigest, QuoteDigest string
 	Images                  int
-	Points                  int64
+	Points                  int64 "json:\",string\""
 }
 
 type ConfirmImagePlanInput struct {
@@ -119,15 +121,13 @@ func imageSetRunID(identity ExecutionIdentity, input PrepareImageSetInput) strin
 }
 
 func (s *Service) GetPreparedImageSet(ctx context.Context, kind ImageSourceContextKind, contextID, requestID string) (RunProjection, error) {
-	identity, err := s.executionIdentity(ctx)
-	if err != nil {
+	if _, err := s.executionIdentity(ctx); err != nil {
 		return RunProjection{}, err
 	}
-	if !s.organizationScope || !kind.Valid() || !agentconfig.UUID(contextID) || !agentconfig.UUID(requestID) {
+	if !s.organizationScope {
 		return RunProjection{}, ErrValidation
 	}
-	identity.BusinessTaskID = contextID
-	return s.Get(ctx, imageSetRunID(identity, PrepareImageSetInput{ContextKind: kind, ContextID: contextID, RequestID: requestID}))
+	return (&RunReader{repository: s.repository}).GetPreparedImageSet(ctx, kind, contextID, requestID)
 }
 
 func validPrepareImageSetInput(input PrepareImageSetInput) bool {
@@ -244,6 +244,14 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
+	resolved.Catalog, err = NormalizeAssetCatalog(resolved.Catalog)
+	if err != nil {
+		return PreparedImageSet{}, err
+	}
+	product := resolved.Catalog.ProductContext
+	if product.ProductID == "" || product.ProductID != resolved.Source.ProductID || product.SourceSnapshotVersion == 0 || product.SourceSnapshotVersion != resolved.Source.EffectiveVersion {
+		return PreparedImageSet{}, ErrRevisionConflict
+	}
 	var method *ImageMethodBinding
 	var methodText string
 	if input.Method != nil {
@@ -257,11 +265,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		defer release()
 		methodText = text
 	}
-	resolved.Catalog, err = NormalizeAssetCatalog(resolved.Catalog)
-	if err != nil {
-		return PreparedImageSet{}, err
-	}
-	if resolved.Source.ContextKind != input.ContextKind || resolved.Source.OperationID != input.ContextID || resolved.Source.ProductID != resolved.Catalog.ProductContext.ProductID || resolved.Source.CatalogHash != resolved.Catalog.Manifest.Hash || resolved.Target.Platform != input.Target.Platform || resolved.Target.StoreID != input.Target.StoreID || resolved.Target.Site != input.Target.Site || resolved.Target.CategoryID != input.Target.CategoryID || resolved.Target.RecordID != input.Target.RecordID {
+	if resolved.Source.ContextKind != input.ContextKind || resolved.Source.OperationID != input.ContextID || resolved.Source.CatalogHash != resolved.Catalog.Manifest.Hash || resolved.Target.Platform != input.Target.Platform || resolved.Target.StoreID != input.Target.StoreID || resolved.Target.Site != input.Target.Site || resolved.Target.CategoryID != input.Target.CategoryID || resolved.Target.RecordID != input.Target.RecordID {
 		return PreparedImageSet{}, ErrRevisionConflict
 	}
 	if resolved.Source.ApplyReceiptID != input.ApplyReceiptID || input.EffectiveCatalogVersion > 0 && resolved.Source.EffectiveVersion != input.EffectiveCatalogVersion || input.EffectiveCatalogVersion == 0 && resolved.Source.EffectiveVersion != resolved.Source.OriginalVersion {
@@ -345,7 +349,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if encodeErr != nil || len(encodedPlan) > 2<<20 {
 		return PreparedImageSet{}, ErrValidation
 	}
-	limits := agentconfig.ImageRunLimits{Images: len(plan.Slots), Points: plan.Set.MaxPoints, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: len(plan.Slots), Points: plan.Set.MaxPoints, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
 	if !limits.Within(snapshot.HardLimits) || !limits.Within(s.imageSets.HardLimits) {
 		return PreparedImageSet{}, ErrCommandBlocked
 	}
@@ -556,7 +560,7 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 	if current.Run.Status != RunStatusAwaitingPlanApproval {
 		return RunProjection{}, ErrCommandBlocked
 	}
-	limits := agentconfig.ImageRunLimits{Images: len(current.Plan.Slots), Points: current.Plan.Set.MaxPoints, ElapsedSeconds: int64(current.Run.Budget.MaxElapsed / time.Second)}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: len(current.Plan.Slots), Points: current.Plan.Set.MaxPoints, ElapsedSeconds: int64(current.Run.Budget.MaxElapsed / time.Second)}
 	command := agentconfig.ImageRunAdmissionCommand{Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, Snapshot: current.Plan.Set.Configuration, MemberID: identity.MemberID, RunID: input.RunID, ConfirmActionID: input.ActionID, SourceDigest: ImageSetSourceDigest(current.Plan.Set.Source, current.Plan), InputDigest: current.Plan.Set.InputDigest, PlanDigest: input.PlanDigest, QuoteDigest: input.QuoteDigest, Limits: limits}
 	receipt, err := s.imageSets.Configuration.ReadImageRunAdmission(ctx, command.Scope, command.Snapshot)
 	if errors.Is(err, agentconfig.ErrNotFound) {

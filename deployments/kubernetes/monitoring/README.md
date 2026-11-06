@@ -11,7 +11,7 @@
 
 ## 访问与凭证
 
-旧 TaskEvent/数字刊登专属监控源已按 [#839 完整闭包](../../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)退休，不恢复旧兼容观察窗口。此源码交付不创建公网 Grafana 或 Alertmanager Ingress。安装后仅通过已获授权的内部访问方式或临时 `kubectl -n monitoring port-forward service/monitoring-grafana 3000:80` 访问 Grafana。管理员凭证只保留在 Kubernetes Secret 中，不在 Git、终端记录或发布证据中输出。
+旧 TaskEvent/数字刊登专属监控源已按 [当前系统边界](../../../docs/architecture/project-boundaries.md)退休，不恢复旧兼容观察窗口。此源码交付不创建公网 Grafana 或 Alertmanager Ingress。安装后仅通过已获授权的内部访问方式或临时 `kubectl -n monitoring port-forward service/monitoring-grafana 3000:80` 访问 Grafana。管理员凭证只保留在 Kubernetes Secret 中，不在 Git、终端记录或发布证据中输出。
 
 ## 当前部署清单
 

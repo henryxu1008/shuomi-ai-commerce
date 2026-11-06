@@ -7,6 +7,7 @@ import { stageSchema } from "@/lib/contracts/supply-chain";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { ConsolePage, ConsoleState } from "@/components/workbench/console/console-page";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
+import { isReportSheinTargetAvailable } from "@/lib/server/report-center-availability";
 export default async function Page({params,searchParams}:{params:Promise<{stage:string}>;searchParams:Promise<Record<string,string|string[]|undefined>>}){
  await connection();
  const full=process.env.LISTINGKIT_SUPPLY_CHAIN_ENABLED==="true";
@@ -16,11 +17,16 @@ export default async function Page({params,searchParams}:{params:Promise<{stage:
  const stage=stageSchema.safeParse((await params).stage);if(!stage.success)notFound();
  if(process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED!=="true"||!full&&(!(preparation||completion)||stage.data!=="waiting")&&(!completion||stage.data!=="missing")){
   const route=findConsoleRoute(`/workbench/supply/mine/${stage.data}`)??findConsoleRoute("/workbench/supply/mine")!;
-  return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="按目标平台整理商品并完成发布。"><ConsoleState kind="unavailable" title="平台处理尚未配置">此阶段需要正式官方应用、SHEIN 渠道及供应链运行配置。已保存的商品和待适配批次仍保留在原入口。</ConsoleState></ConsolePage>;
+  return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="按目标平台整理商品并完成发布。"><ConsoleState kind="unavailable" title="平台处理尚未配置">此阶段需要正式官方应用、SHEIN 渠道及供应链运行配置。已保存的商品和待上传批次仍保留在原入口。</ConsoleState></ConsolePage>;
  }
  const query=await searchParams;const read=(name:string)=>{const value=query[name];if(value===undefined)return undefined;if(typeof value!=="string"||!isAcquisitionUUID(value))notFound();return value};
+ const record=read("record");
+ if(record){
+  if(stage.data!=="ready"||Object.keys(query).some(key=>key!=="record"))notFound();
+  return <SupplyPage initialStage={stage.data} initialRecord={record} reportSourcesAvailable={isReportSheinTargetAvailable()}/>;
+ }
  if(query.mode!==undefined&&(query.mode!=="platform"||stage.data!=="missing"||!full)&&(query.mode!=="local"||stage.data!=="waiting"||!completion))notFound();
- if(completion&&stage.data==="missing"&&query.mode!=="platform")return <CompletionDraftsPage initialPreparation={read("preparation")} initialSource={read("source")} fullAvailable={full}/>;
+ if(completion&&stage.data==="missing"&&query.mode!=="platform"&&!query.plan)return <CompletionDraftsPage initialPreparation={read("preparation")} initialSource={read("source")} fullAvailable={full}/>;
  if(!full||completion&&stage.data==="waiting"&&query.mode==="local")return <PreparationsPage initialPreparation={read("preparation")} completionAvailable={completion} sourceMaterialsAvailable={sourceMaterials}/>;
- return <SupplyPage initialStage={stage.data} initialPreparation={read("preparation")} initialStore={read("store")} initialOperation={read("operation")} completionAvailable={completion} sourceMaterialsAvailable={sourceMaterials} materialsAvailable={full&&process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED==="true"}/>;
+ return <SupplyPage initialStage={stage.data} initialPreparation={read("preparation")} initialStore={read("store")} initialOperation={read("operation")} initialPlan={read("plan")} completionAvailable={completion} sourceMaterialsAvailable={sourceMaterials} materialsAvailable={full&&process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED==="true"}/>;
 }

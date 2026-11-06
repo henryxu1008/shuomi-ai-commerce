@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	strict "sigs.k8s.io/json"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
@@ -15,6 +16,13 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if id == agentconfig.ImageAgentID {
+		return agentconfig.ImageAnalysisBinding(request.Binding) && request.ContentSelection.Absent() && request.SkillVersionRef.Absent() &&
+			request.ValidContentSelection() && request.PolicyVersion == agentconfig.ImageAnalysisPolicyVersion && request.PromptVersion == agentconfig.ImageAnalysisPromptVersion
+	}
+	if id != agentconfig.MaterialsAgentID && (request.Binding.ContextKind == agent.CandidateRulesContextKind || request.Binding.CandidateRules != (agent.CandidateRulesRef{})) {
+		return false
+	}
 	if !request.SkillVersionRef.ValidOrAbsent() || !request.SkillVersionRef.Absent() && (id != agentconfig.ContentAgentID || !request.ContentSelection.TitleOnly()) {
 		return false
 	}
@@ -22,22 +30,40 @@ func validTextConfigurationRequest(id string, request agent.Request) bool {
 		return request.Binding.ContextKind == agent.StoreDiagnosisContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.DiagnosisPolicyVersion && request.PromptVersion == agentconfig.DiagnosisPromptVersion
 	}
 
+	if id == agentconfig.ResearchAgentID {
+		return request.Binding.ContextKind == agent.ResearchSelectionContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.ResearchPolicyVersion && request.PromptVersion == agentconfig.ResearchPromptVersion
+	}
 	if id == agentconfig.SelectionAgentID {
 		return request.Binding.ContextKind == agent.SelectionContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.SelectionPolicyVersion && request.PromptVersion == agentconfig.SelectionPromptVersion
 	}
-	if request.Binding.ContextKind == agent.StoreDiagnosisContextKind || request.Binding.StoreDiagnosis != (agent.StoreDiagnosisRef{}) || request.Binding.ContextKind == agent.SelectionContextKind || request.Binding.Selection != ([agent.MaxSelectionProducts]agent.SelectionProductRef{}) {
+	if request.Binding.ContextKind == agent.ResearchSelectionContextKind || request.Binding.ResearchSelection != (agent.ResearchSelectionRef{}) || request.Binding.ContextKind == agent.StoreDiagnosisContextKind || request.Binding.StoreDiagnosis != (agent.StoreDiagnosisRef{}) || request.Binding.ContextKind == agent.SelectionContextKind || request.Binding.Selection != ([agent.MaxSelectionProducts]agent.SelectionProductRef{}) {
 		return false
 	}
 	if id == agentconfig.MaterialsAgentID {
-		return request.ContentSelection.Absent() && request.Binding.ContextKind == "listing-target-record" && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
+		return request.ContentSelection.Absent() && request.Binding.Valid() && (request.Binding.ContextKind == "listing-target-record" || request.Binding.ContextKind == agent.CandidateRulesContextKind) && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
 	}
 	if id == agentconfig.ContentAgentID {
-		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
+		return request.ContentSelection.Valid() && request.PolicyVersion == reviewproposal.ContentPolicyVersion && agentconfig.ValidContentPrompt(request.PromptVersion, request.WorkbenchContextRef) && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
+	}
+	if id == agentconfig.TitleAgentID && !agentconfig.CurrentTitleRequest(request.PolicyVersion, request.PromptVersion) {
+		return false
 	}
 	return request.ContentSelection.Absent() && request.ValidContentSelection() && agentconfig.Platform(request.Binding.TargetPlatform)
 }
 
-func snapshotQuery(db *gorm.DB, s agent.Scope, r agent.Request) *gorm.DB {
+func snapshotQuery(db *gorm.DB, s agent.Scope, r agent.Request, agentID string) *gorm.DB {
+	if agentID == agentconfig.MaterialsAgentID || agentID == agentconfig.ImageAgentID && r.PolicyVersion == agentconfig.ImageAnalysisPolicyVersion {
+		// Prepare holds this Agent's existing row lock. Purpose and base are
+		// immutable intent in the fingerprint, not alternate command namespaces.
+		query := db.Where("organization_id=? AND actor_id=? AND agent_id=? AND request_key=?", s.OrganizationID, s.ActorID, agentID, r.Key)
+		if agentID == agentconfig.ImageAgentID {
+			// Only this finite parent-image snapshot class represents analysis.
+			// Query all its source contexts together, never namespace by the new
+			// context supplied on retry. Generation retains its separate class.
+			query = query.Where("context_kind IN ?", []string{"acquisition", "own_product", "collection"})
+		}
+		return query
+	}
 	return db.Where("organization_id=? AND actor_id=? AND context_kind=? AND context_id=? AND request_key=?", s.OrganizationID, s.ActorID, r.Binding.ContextKind, r.Binding.ContextID, r.Key)
 }
 func snapshotView(row snapshotRow) (agentconfig.Snapshot, error) {
@@ -45,25 +71,76 @@ func snapshotView(row snapshotRow) (agentconfig.Snapshot, error) {
 	if len(row.Payload) > 8192 || digest(row.Payload) != row.Digest || json.Unmarshal(row.Payload, &v) != nil {
 		return v, agentconfig.ErrUnavailable
 	}
-	if v.ID != row.ID || v.Scope.OrganizationID != row.OrganizationID || v.Scope.ActorID != row.ActorID || v.AgentID != row.AgentID || v.AgentVersion != row.AgentVersion || v.Epoch != decimal(row.ActivationEpoch) || v.AgentRevision != decimal(row.AgentRevision) || v.Request.Binding.ContextKind != row.ContextKind || v.Request.Binding.ContextID != row.ContextID || v.Request.Key != row.RequestKey || !validTextConfigurationRequest(v.AgentID, v.Request) || !v.Request.Limits.Valid() || !agent.ValidGoalSummary(v.Request.GoalSummary) || v.ExecutionModelProfile.Validate() != nil || !validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile) {
+	if v.ImageAnalysis != nil {
+		violations, err := strict.UnmarshalStrict(row.Payload, &v, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
+		if err != nil || len(violations) != 0 {
+			return v, agentconfig.ErrUnavailable
+		}
+	}
+	if v.ID != row.ID || v.Scope.OrganizationID != row.OrganizationID || v.Scope.ActorID != row.ActorID || v.AgentID != row.AgentID || v.AgentVersion != row.AgentVersion || v.Epoch != decimal(row.ActivationEpoch) || v.AgentRevision != decimal(row.AgentRevision) || v.Request.Binding.ContextKind != row.ContextKind || v.Request.Binding.ContextID != row.ContextID || v.Request.Key != row.RequestKey || !validStoredTextConfiguration(v) || !v.Request.Limits.Valid() || !agent.ValidGoalSummary(v.Request.GoalSummary) || v.ExecutionModelProfile.Validate() != nil {
 		return v, agentconfig.ErrUnavailable
 	}
 	v.Digest = row.Digest
 	return v, nil
 }
+
+// Only the storage reader accepts the finite historical material tuples. The
+// normalized copy reuses existing structural checks, never leaves this helper
+// and cannot become an executable request or rewrite a stored snapshot.
+func validStoredTextConfiguration(v agentconfig.Snapshot) bool {
+	if v.ImageAnalysis != nil {
+		return v.ImageAnalysis.Valid(agentconfig.StartCommand{Scope: v.Scope, MemberID: v.MemberID, ExpectedModeRevision: v.ExpectedModeRevision, AgentID: v.AgentID, AgentVersion: v.AgentVersion, KnowledgeBaseID: v.KnowledgeBaseID, Template: v.Template, Request: v.Request, ExecutionModelProfile: v.ExecutionModelProfile})
+	}
+	if v.AgentID == agentconfig.ImageAgentID {
+		return false
+	}
+	if v.AgentID == agentconfig.TitleAgentID {
+		if !agentconfig.StoredTitleVersion(v.AgentVersion, v.Request.PolicyVersion, v.Request.PromptVersion) {
+			return false
+		}
+		request := v.Request
+		request.PromptVersion = agentconfig.TitlePromptVersion
+		return validTextConfigurationRequest(v.AgentID, request)
+	}
+	if v.AgentID != agentconfig.MaterialsAgentID {
+		return validTextConfigurationRequest(v.AgentID, v.Request) && validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile)
+	}
+	if !agentconfig.MaterialsStoredVersion(v.AgentVersion, v.Request.PolicyVersion, v.Request.PromptVersion) || v.KnowledgeBaseID != "" || v.ExecutionModelProfile.PromptVersion != v.Request.PromptVersion || v.ExecutionModelProfile.OutputSchemaVersion != agentconfig.MaterialsStoredActionVersion(v.Request.PolicyVersion, v.Request.PromptVersion) {
+		return false
+	}
+	if v.AgentVersion != agentconfig.MaterialsAgentVersion && v.Request.Binding.ContextKind != "listing-target-record" {
+		return false
+	}
+	request := v.Request
+	request.PolicyVersion, request.PromptVersion = agentconfig.MaterialsPolicyVersion, agentconfig.MaterialsPromptVersion
+	return validTextConfigurationRequest(v.AgentID, request)
+}
 func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentconfig.Snapshot, error) {
+	if c.ImageAnalysis != nil {
+		frozen := *c.ImageAnalysis
+		c.ImageAnalysis = &frozen
+		if !frozen.Valid(c) {
+			return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+		}
+	}
+	if c.AgentID == agentconfig.TitleAgentID && c.AgentVersion != agentconfig.TitleAgentVersion {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
 	identity := agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}
 	modeRevision, modeErr := agentconfig.ParseModeRevision(c.ExpectedModeRevision)
 	if !identity.Valid() || modeErr != nil || !c.Request.ModeSnapshotRef.Absent() {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
-	if c.AgentID == agentconfig.ImageAgentID {
+	if c.AgentID == agentconfig.ImageAgentID && c.ImageAnalysis == nil {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
 	if c.AgentID == agentconfig.DiagnosisAgentID && (c.AgentVersion != agentconfig.DiagnosisAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validDiagnosisTextProfile(c.ExecutionModelProfile)) {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
 
+	if c.AgentID == agentconfig.ResearchAgentID && (c.Request.Limits.ModelCalls != 2 || c.AgentVersion != agentconfig.ResearchAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validResearchTextProfile(c.ExecutionModelProfile)) {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
 	if c.AgentID == agentconfig.SelectionAgentID && (c.AgentVersion != agentconfig.SelectionAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validSelectionTextProfile(c.ExecutionModelProfile)) {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
@@ -100,17 +177,24 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		KnowledgeBaseID                string
 		ExecutionModelProfile          aicapability.ModelProfile
 		MemberID, ExpectedModeRevision string
-		ContentSelection               reviewproposal.ContentSelection `json:",omitzero"`
-		SkillVersionRef                agent.SkillVersionRef           `json:",omitzero"`
-	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision, c.Request.ContentSelection, c.Request.SkillVersionRef})
+		ContentSelection               reviewproposal.ContentSelection         `json:",omitzero"`
+		SkillVersionRef                agent.SkillVersionRef                   `json:",omitzero"`
+		ImageAnalysis                  *agentconfig.ImageAnalysisConfiguration `json:",omitempty"`
+	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision, c.Request.ContentSelection, c.Request.SkillVersionRef, c.ImageAnalysis})
 	if e != nil {
 		return agentconfig.Snapshot{}, e
 	}
 	var result agentconfig.Snapshot
 	e = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		a, ae := findAgent(tx, c.Scope.OrganizationID, c.AgentID, true)
+		var a agentRow
+		var ae error
+		if c.ImageAnalysis != nil {
+			a, ae = lockVisualConfigurationAgent(tx, c.Scope.OrganizationID, productImageProfile)
+		} else {
+			a, ae = findAgent(tx, c.Scope.OrganizationID, c.AgentID, true)
+		}
 		var old snapshotRow
-		e := snapshotQuery(tx, c.Scope, c.Request).Take(&old).Error
+		e := snapshotQuery(tx, c.Scope, c.Request, c.AgentID).Take(&old).Error
 		if e == nil {
 			if old.Fingerprint != fp {
 				return agentconfig.ErrConflict
@@ -151,7 +235,7 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		}
 		request := c.Request
 		request.ModeSnapshotRef = mode.Ref()
-		result = agentconfig.Snapshot{ID: uuid.NewString(), Scope: c.Scope, MemberID: c.MemberID, ExpectedModeRevision: c.ExpectedModeRevision, AgentID: c.AgentID, AgentVersion: c.AgentVersion, KnowledgeBaseID: c.KnowledgeBaseID, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), Template: c.Template, Request: request, ExecutionModelProfile: c.ExecutionModelProfile}
+		result = agentconfig.Snapshot{ID: uuid.NewString(), Scope: c.Scope, MemberID: c.MemberID, ExpectedModeRevision: c.ExpectedModeRevision, AgentID: c.AgentID, AgentVersion: c.AgentVersion, KnowledgeBaseID: c.KnowledgeBaseID, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), Template: c.Template, Request: request, ExecutionModelProfile: c.ExecutionModelProfile, ImageAnalysis: c.ImageAnalysis}
 		raw, e := json.Marshal(result)
 		if e != nil || len(raw) > 8192 {
 			return agentconfig.ErrInvalid
@@ -176,6 +260,9 @@ func validMaterialsTextConfiguration(id, version, knowledge string, profile aica
 		return version == agentconfig.DiagnosisAgentVersion && knowledge == "" && validDiagnosisTextProfile(profile)
 	}
 
+	if id == agentconfig.ResearchAgentID {
+		return version == agentconfig.ResearchAgentVersion && knowledge == "" && validResearchTextProfile(profile)
+	}
 	if id == agentconfig.SelectionAgentID {
 		return version == agentconfig.SelectionAgentVersion && knowledge == "" && validSelectionTextProfile(profile)
 	}
@@ -214,17 +301,19 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		GoalSummary      string
 		Template         *agentconfig.TemplateRef
 		Base             string
-		ContentSelection reviewproposal.ContentSelection `json:",omitzero"`
-		SkillVersionRef  agent.SkillVersionRef           `json:",omitzero"`
-	}{snap.Request.Binding, snap.Request.GoalSummary, snap.Template, snap.KnowledgeBaseID, snap.Request.ContentSelection, snap.Request.SkillVersionRef})
+		ContentSelection reviewproposal.ContentSelection         `json:",omitzero"`
+		SkillVersionRef  agent.SkillVersionRef                   `json:",omitzero"`
+		ImageAnalysis    *agentconfig.ImageAnalysisConfiguration `json:",omitempty"`
+	}{snap.Request.Binding, snap.Request.GoalSummary, snap.Template, snap.KnowledgeBaseID, snap.Request.ContentSelection, snap.Request.SkillVersionRef, snap.ImageAnalysis})
 	b, _ := hash(struct {
 		Binding          agent.Binding
 		GoalSummary      string
 		Template         *agentconfig.TemplateRef
 		Base             string
-		ContentSelection reviewproposal.ContentSelection `json:",omitzero"`
-		SkillVersionRef  agent.SkillVersionRef           `json:",omitzero"`
-	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.Request.ContentSelection, c.Request.SkillVersionRef})
+		ContentSelection reviewproposal.ContentSelection         `json:",omitzero"`
+		SkillVersionRef  agent.SkillVersionRef                   `json:",omitzero"`
+		ImageAnalysis    *agentconfig.ImageAnalysisConfiguration `json:",omitempty"`
+	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.Request.ContentSelection, c.Request.SkillVersionRef, c.ImageAnalysis})
 	if a != b || snap.AgentID != c.AgentID || snap.AgentVersion != c.AgentVersion || snap.Request.Key != c.Request.Key || snap.MemberID != c.MemberID || snap.ExpectedModeRevision != c.ExpectedModeRevision || !snap.Request.ModeSnapshotRef.Valid() {
 		return snap, agentconfig.ErrConflict
 	}
@@ -233,4 +322,8 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 
 func validDiagnosisTextProfile(p aicapability.ModelProfile) bool {
 	return p.PromptVersion == agentconfig.DiagnosisPromptVersion && p.OutputSchemaVersion == agentconfig.DiagnosisActionVersion
+}
+
+func validResearchTextProfile(p aicapability.ModelProfile) bool {
+	return p.PromptVersion == agentconfig.ResearchPromptVersion && p.OutputSchemaVersion == agentconfig.ResearchActionVersion
 }

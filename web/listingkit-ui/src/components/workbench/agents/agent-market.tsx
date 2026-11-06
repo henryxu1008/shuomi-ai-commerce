@@ -9,7 +9,8 @@ import type { CatalogEntry } from "@/lib/contracts/agent-configuration";
 import { ConsoleState } from "../console/console-page";
 import styles from "./agent-market.module.css";
 
-import { agentCategories as categories, agentGroups as groups, type AgentCategory as Category } from "./agent-responsibilities";
+import { agentCategories as categories, agentGroups as groups, groupActivation, type AgentCategory as Category } from "./agent-responsibilities";
+import { SelectionOperationLinks } from "./selection-operation-links";
 
 export function AgentMarket({ entries }: { entries: readonly CatalogEntry[] }) {
   const [category, setCategory] = useState<Category>("全部");
@@ -34,8 +35,7 @@ export function AgentMarket({ entries }: { entries: readonly CatalogEntry[] }) {
       {cards.length ? <div className={styles.grid}>
         {cards.map(card => {
           const enabled = card.operations.filter(entry => entry.agent.activation === "ENABLED").length;
-          const status = enabled === card.agentIds.length ? "已启用" : enabled ? "部分已启用"
-            : card.operations.every(entry => entry.agent.activation === "DISABLED") ? "已停用" : "尚未启用";
+          const status = groupActivation({agentIds:card.agentIds,entries:card.operations}).label;
           const target = card.operations.find(entry => entry.canConfigure) ?? card.operations[0];
           const href = enabled ? "/workbench/agents/mine" : "/workbench/agents/mine/" + target.agent.agentId;
           const action = enabled ? "前往我的智能体" : target.canConfigure ? "前往启用" : "查看智能体";
@@ -50,7 +50,7 @@ export function AgentMarket({ entries }: { entries: readonly CatalogEntry[] }) {
             </div>
             <div className={styles.actions}>
               <span className={styles.activation} data-enabled={enabled > 0}>{status}</span>
-              <Link href={href} prefetch={false} className={styles.action}>{action}</Link>
+              {card.id === "product-selection" ? <SelectionOperationLinks className={styles.operationLinks} configuration={false} agentIds={card.operations.map(entry=>entry.agent.agentId)}/> : <Link href={href} prefetch={false} className={styles.action}>{action}</Link>}
             </div>
           </Card>;
         })}

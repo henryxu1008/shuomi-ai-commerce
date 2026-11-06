@@ -25,8 +25,9 @@ type Input struct {
 }
 
 type Executor struct {
-	snapshots catalog.VersionedSnapshotReader
-	assets    asset.ApprovedInventoryReader
+	snapshots   catalog.VersionedSnapshotReader
+	assets      asset.ApprovedInventoryReader
+	imageAdvice bool
 }
 
 func NewExecutor(snapshots catalog.VersionedSnapshotReader, assets asset.ApprovedInventoryReader) (*Executor, error) {
@@ -70,13 +71,23 @@ func (e *Executor) Execute(ctx context.Context, envelope commercetool.ExecutionE
 		return commercetool.ExecutionResult{}, mapReadError(err)
 	}
 	inventory, err := e.assets.GetApprovedInventory(ctx, scope)
+	ready := true
+	if e.imageAdvice && errors.Is(err, asset.ErrApprovedAssetsNotReady) {
+		ready = false
+		inventory, err = asset.ApprovedAssetInventory{Scope: scope, Assets: []asset.ApprovedAsset{}}, nil
+	}
 	if err != nil {
 		return commercetool.ExecutionResult{}, mapReadError(err)
 	}
 	if err := ctx.Err(); err != nil {
 		return commercetool.ExecutionResult{}, mapReadError(err)
 	}
-	output, err := project(published, inventory, scope)
+	var output json.RawMessage
+	if e.imageAdvice {
+		output, err = projectImageAdvice(published, inventory, ready, envelope)
+	} else {
+		output, err = project(published, inventory, scope)
+	}
 	if err != nil {
 		return commercetool.ExecutionResult{}, mapReadError(err)
 	}
@@ -93,7 +104,7 @@ func mapReadError(err error) error {
 		code = commercetool.ErrorDeadlineExceeded
 	case errors.Is(err, catalog.ErrSnapshotNotReady), errors.Is(err, asset.ErrApprovedAssetsNotReady), errors.Is(err, errMissingFacts):
 		code = commercetool.ErrorNotFound
-	case errors.Is(err, catalog.ErrSnapshotTooLarge), errors.Is(err, asset.ErrInventoryTooLarge), errors.Is(err, errProjectionTooLarge):
+	case errors.Is(err, catalog.ErrSnapshotTooLarge), errors.Is(err, asset.ErrInventoryTooLarge), errors.Is(err, errProjectionTooLarge), errors.Is(err, asset.ErrImageAdvice):
 		code = commercetool.ErrorFailedPrecondition
 	case errors.Is(err, catalog.ErrRepositoryUnavailable), errors.Is(err, asset.ErrRepositoryUnavailable):
 		code = commercetool.ErrorDependencyUnavailable

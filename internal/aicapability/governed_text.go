@@ -2,6 +2,7 @@ package aicapability
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,27 +19,30 @@ var ErrTextEnvelope = errors.New("invalid governed text envelope")
 // ModelProfile is a non-secret, immutable use-time snapshot of the approved
 // organization route and all limits that affect dispatch or settlement.
 type ModelProfile struct {
-	ClientName              string
-	ProviderID              string
-	AdapterKind             string
-	ModelID                 string
-	EndpointIdentityDigest  string
-	CredentialVersion       string
-	RoutingPolicyVersion    string
-	AdapterPolicyVersion    string
-	PromptVersion           string
-	OutputSchemaVersion     string
-	UsageMappingVersion     string
-	CostPricingVersion      string
-	PointTariff             ModelPointTariff
-	Currency                string
-	InputMicrosPerMillion   int64
-	OutputMicrosPerMillion  int64
-	MaximumPromptTokens     int64
-	MaximumCompletionTokens int64
-	MaximumInputBytes       int
-	MaximumOutputBytes      int
-	DeadlineBound           time.Duration
+	ThinkingMode             string `json:",omitempty"`
+	ImagePromptTokenEstimate int64  `json:",omitempty"`
+	ClientName               string
+	ConnectionID             string `json:",omitempty"`
+	ProviderID               string
+	AdapterKind              string
+	ModelID                  string
+	EndpointIdentityDigest   string
+	CredentialVersion        string
+	RoutingPolicyVersion     string
+	AdapterPolicyVersion     string
+	PromptVersion            string
+	OutputSchemaVersion      string
+	UsageMappingVersion      string
+	CostPricingVersion       string
+	OfficialTariff           OfficialModelTariff
+	Currency                 string
+	InputMicrosPerMillion    int64
+	OutputMicrosPerMillion   int64
+	MaximumPromptTokens      int64
+	MaximumCompletionTokens  int64
+	MaximumInputBytes        int
+	MaximumOutputBytes       int
+	DeadlineBound            time.Duration
 }
 
 func validTextFact(value string, max int) bool {
@@ -54,7 +58,10 @@ func validTextFact(value string, max int) bool {
 	return true
 }
 
-func (p ModelProfile) Validate() error {
+// ValidateShape checks a trusted admission descriptor without treating a
+// deployment file as a second source of customer prices. It cannot authorize
+// execution: Validate still requires the use-time published official tariff.
+func (p ModelProfile) ValidateShape() error {
 	for _, value := range []string{
 		p.ClientName, p.ProviderID, p.ModelID, p.EndpointIdentityDigest,
 		p.CredentialVersion, p.RoutingPolicyVersion, p.AdapterPolicyVersion,
@@ -64,10 +71,18 @@ func (p ModelProfile) Validate() error {
 			return ErrTextProfile
 		}
 	}
-	if p.AdapterKind != "openai-compatible" && p.AdapterKind != "claude-native" && p.AdapterKind != "google-interactions" {
+	if p.AdapterKind != "openai-compatible" && p.AdapterKind != "claude-native" && p.AdapterKind != "google-interactions" &&
+		p.AdapterKind != "google-generate-content" && p.AdapterKind != "qwen-compatible" {
 		return ErrTextProfile
 	}
-	if len(p.Currency) != 3 || !p.PointTariff.Valid() ||
+	if p.AdapterKind == "google-generate-content" {
+		if !ValidGeminiThinkingMode(p.ThinkingMode) {
+			return ErrTextProfile
+		}
+	} else if p.ThinkingMode != "" {
+		return ErrTextProfile
+	}
+	if p.ImagePromptTokenEstimate < 0 || p.ImagePromptTokenEstimate > p.MaximumPromptTokens || len(p.Currency) != 3 ||
 		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 ||
 		p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 ||
 		p.MaximumPromptTokens < 1 || p.MaximumPromptTokens > 1048576 ||
@@ -77,10 +92,17 @@ func (p ModelProfile) Validate() error {
 		p.DeadlineBound <= 0 || p.DeadlineBound > 2*time.Minute {
 		return ErrTextProfile
 	}
-	if _, err := p.PointTariff.Points(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
+	if _, err := p.MaximumCost(); err != nil {
 		return ErrTextProfile
 	}
-	if _, err := p.MaximumCost(); err != nil {
+	return nil
+}
+
+func (p ModelProfile) Validate() error {
+	if p.ValidateShape() != nil || !p.OfficialTariff.Valid() || !p.OfficialTariff.MatchesWireModel(p.ModelID) {
+		return ErrTextProfile
+	}
+	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
 		return ErrTextProfile
 	}
 	return nil
@@ -132,6 +154,9 @@ type TextInputIdentity struct {
 	System         string
 	Prompt         string
 	Profile        ModelProfile
+	Image          *SingleImageInput `json:",omitempty"`
+	// Transient authorized content is never part of JSON, logs or snapshots.
+	ImageContent []byte `json:"-"`
 }
 
 type TextQuote struct {
@@ -150,9 +175,16 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	}
 	if !validTextFact(input.OrganizationID, 128) ||
 		!validTextFact(input.ActorID, 128) || !validTextFact(input.MemberID, 128) ||
-		(input.Operation != OperationAIWorkbenchChatPlan && input.Operation != OperationProductAgentDecision && input.Operation != OperationProductContentDecision && input.Operation != OperationListingMaterialsDecision && input.Operation != OperationProductSelectionDecision && input.Operation != OperationShopDiagnosisDecision) ||
+		(input.Operation != OperationAIWorkbenchChatPlan && input.Operation != OperationProductAgentDecision && input.Operation != OperationProductContentDecision && input.Operation != OperationListingMaterialsDecision && input.Operation != OperationProductResearchDecision && input.Operation != OperationProductSelectionDecision && input.Operation != OperationShopDiagnosisDecision && input.Operation != OperationProductImageAnalysis) ||
 		input.System == "" || input.Prompt == "" ||
 		!utf8.ValidString(input.System) || !utf8.ValidString(input.Prompt) {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	if input.Image != nil {
+		if input.Operation != OperationProductImageAnalysis || !input.Image.Valid() || !SingleImageProfile(input.Profile) {
+			return TextQuote{}, ErrTextEnvelope
+		}
+	} else if input.Operation == OperationProductImageAnalysis || len(input.ImageContent) != 0 {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	if input.Operation == OperationAIWorkbenchChatPlan {
@@ -173,15 +205,23 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 		ProfileDigest  string
 		System         string
 		Prompt         string
+		Image          *SingleImageInput `json:",omitempty"`
 	}{input.OrganizationID, input.ActorID, input.MemberID, input.Operation,
-		input.AgentRunID, input.BusinessTaskID, profileDigest, input.System, input.Prompt}
+		input.AgentRunID, input.BusinessTaskID, profileDigest, input.System, input.Prompt, input.Image}
 	wire, err := json.Marshal(envelope)
-	if err != nil || len(wire)+1024 > input.Profile.MaximumInputBytes ||
-		int64(len(wire)+1024) > input.Profile.MaximumPromptTokens {
+	if err != nil {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	promptBound := int64(len(wire) + 1024)
+	wireBound := len(wire) + 1024
+	if input.Image != nil {
+		promptBound += SingleImagePromptEstimate(input.Profile)
+		wireBound += base64.StdEncoding.EncodedLen(input.Image.ByteLength) + len("data:"+input.Image.MediaType+";base64,")
+	}
+	if wireBound > input.Profile.MaximumInputBytes || promptBound > input.Profile.MaximumPromptTokens {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	sum := sha256.Sum256(wire)
-	promptBound := int64(len(wire) + 1024)
 	cost, err := input.Profile.CostFor(promptBound, input.Profile.MaximumCompletionTokens)
 	if err != nil {
 		return TextQuote{}, err

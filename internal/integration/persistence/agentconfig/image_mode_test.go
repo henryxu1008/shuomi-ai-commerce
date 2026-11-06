@@ -22,7 +22,7 @@ func TestReadonlyImageModeBlocksGenerationAdmission(t *testing.T) {
 	snapshot, err := repo.PrepareImageConfiguration(ctx, start)
 	require.NoError(t, err)
 	require.True(t, snapshot.ModeSnapshotRef.Valid())
-	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{Images: 2, Points: 30, ElapsedSeconds: 180}}
+	admission := agentconfig.ImageRunAdmissionCommand{Scope: start.Scope, Snapshot: snapshot.Ref(), MemberID: start.MemberID, RunID: start.RunID, ConfirmActionID: uuid.NewString(), SourceDigest: start.SourceDigest, InputDigest: start.InputDigest, PlanDigest: digest([]byte("plan")), QuoteDigest: digest([]byte("quote")), Limits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 2, Points: 30, ElapsedSeconds: 180}}
 	_, err = repo.AdmitImageRun(ctx, admission, start.HardLimits)
 	require.ErrorIs(t, err, agentconfig.ErrForbidden)
 	_, err = repo.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: identity, Subject: subject, Key: uuid.NewString(), ExpectedRevision: 1, Mode: agent.ModeFullAccess})

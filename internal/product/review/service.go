@@ -24,6 +24,7 @@ type Service struct {
 	executionResolver func(context.Context) (CandidateExecutionScope, error)
 	executionPolicy   ExecutionPolicyResolver
 	executionGate     ExecutionGate
+	workbenchAccess   func(context.Context, ExecutionProvenance) error
 }
 
 // NewCandidateService composes current candidate intake and human review.
@@ -264,6 +265,9 @@ func (s *Service) Get(ctx context.Context, id string) (View, error) {
 	if err != nil {
 		return View{}, err
 	}
+	if err := s.authorizeWorkbench(ctx, r.Execution); err != nil {
+		return View{}, err
+	}
 	return r.View(), nil
 }
 
@@ -329,6 +333,9 @@ func (s *Service) findAgentReview(ctx context.Context, scope Scope, runID string
 	record, err := s.store.Read(ctx, scope, id)
 	if err != nil || record.Owner != scope.Actor {
 		return Record{}, false, ErrUnavailable
+	}
+	if err := s.authorizeWorkbench(ctx, record.Execution); err != nil {
+		return Record{}, false, err
 	}
 	return record, true, nil
 }
@@ -404,7 +411,13 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 		}
 	}
 	if v, found, e := s.store.Preflight(ctx, op); e != nil || found {
-		return v, e
+		if e == nil {
+			e = s.authorizeWorkbench(ctx, v.Execution)
+		}
+		if e != nil {
+			return View{}, e
+		}
+		return v, nil
 	}
 	var gated *ExecutionProvenance
 	if s.executionGate != nil {
@@ -424,11 +437,20 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 	}
 	return s.store.Run(ctx, op, func(tx Tx) (View, error) {
 		if v, found, e := tx.Replay(); e != nil || found {
-			return v, e
+			if e == nil {
+				e = s.authorizeWorkbench(ctx, v.Execution)
+			}
+			if e != nil {
+				return View{}, e
+			}
+			return v, nil
 		}
 		r, e := tx.Load(id)
 		if e != nil {
 			return View{}, e
+		}
+		if err := s.authorizeWorkbench(ctx, r.Execution); err != nil {
+			return View{}, err
 		}
 		if s.executionGate != nil && !sameExecution(gated, r.Execution) {
 			return View{}, ErrConflict

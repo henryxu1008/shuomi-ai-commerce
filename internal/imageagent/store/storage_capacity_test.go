@@ -36,7 +36,7 @@ func TestGenerationStorageCapacityPrecedesPaidDispatchAndPreservesUnknown(t *tes
 				return []byte("exact-source-bytes"), nil
 			}, PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 				provider.observer = observer
-				return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: "price-1", Points: 12}}, nil
+				return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: "price-1", Points: 12}}, nil
 			}, RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
 				return nil
 			}})
@@ -109,7 +109,7 @@ func TestGenerationRecoveryClosesOnlyInvalidSettledOutputCapacity(t *testing.T) 
 			_, won, err := owner.BeginGenerationDispatch(ctx, intent)
 			require.NoError(t, err)
 			require.True(t, won)
-			success := imageagent.GenerationSuccess{ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultURL: "https://images.example.test/image.png"}
+			success := imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response-1", ResultDigest: strings.Repeat("c", 64), ResultURL: "https://images.example.test/image.png"}
 			if invalid {
 				success.ResultURL = ""
 				success.ResultUnavailable = "invalid_result"

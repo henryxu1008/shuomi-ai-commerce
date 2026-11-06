@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseSchema,basesSchema,sourceSchema,sourcesSchema,previewSchema,resultSchema,knowledgeId } from "@/lib/api/knowledge";
+import { baseSchema,basesSchema,sourceSchema,sourcesSchema,previewSchema,resultSchema,knowledgeId,originalFileSchema } from "@/lib/api/knowledge";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
 import { officialListSchema, officialArticleSchema, officialArticleID, officialRevision } from "@/lib/api/official-knowledge";
 import { hasTrustedSameOriginWrite } from "./same-origin-write";
@@ -23,11 +23,16 @@ function endpoint(url:URL,method:string) {
  else if(root==="knowledge-sources" && knowledgeId.safeParse(id).success && parts.length===2 && method==="GET") schema=sourceSchema;
  else if(root==="knowledge-sources" && knowledgeId.safeParse(id).success && parts.length===3 && ["disable","revisions"].includes(action) && method==="POST") {schema=resultSchema;upload=action==="revisions";cas=true;}
  else if(root==="knowledge-sources" && knowledgeId.safeParse(id).success && parts.length===5 && action==="revisions" && knowledgeId.safeParse(revision).success && preview==="preview" && method==="GET") schema=previewSchema;
+ else if(root==="knowledge-sources" && knowledgeId.safeParse(id).success && action==="original-file") {
+   if(parts.length===3 && method==="GET") schema=originalFileSchema;
+   else if(parts.length===5 && method==="POST" && knowledgeId.safeParse(revision).success && (preview==="delete" || preview==="continue")) {schema=originalFileSchema;cas=preview==="delete";}
+   else return null;
+ }
  else return null;
  if(url.search && !(root==="knowledge-bases" && parts.length===1 && method==="GET")) return null;
  if(url.search.length>256) return null;
  for(const [key,value] of url.searchParams) {if(!["page","pageSize"].includes(key) || url.searchParams.getAll(key).length!==1 || !/^[1-9][0-9]*$/.test(value) || Number(value)>(key==="page"?100000:100)) return null;}
- return {path:parts.join("/"),schema,upload,json,cas,mutation,official,id,revision};
+ return {path:parts.join("/"),schema,upload,json,cas,mutation,official,id,revision,action:preview};
 }
 async function boundedBytes(request:Request,signal:AbortSignal):Promise<Uint8Array> {
  const reader=request.body?.getReader(); if(!reader) throw new Error("missing body");
@@ -57,6 +62,7 @@ export async function proxyKnowledge(request:Request,token:string,userId:string)
  let body:string|ArrayBuffer|undefined;
  if(route.mutation){
  const key=request.headers.get("Idempotency-Key");if(!knowledgeId.safeParse(key).success)return knowledgeFailure(400,"KNOWLEDGE_INVALID_REQUEST");headers.set("Idempotency-Key",key!);
+ if(route.schema===originalFileSchema && route.action==="continue" && key!==route.revision)return knowledgeFailure(400,"KNOWLEDGE_INVALID_REQUEST");
  if(route.cas){const cas=request.headers.get("If-Match");if(!cas || !/^"[1-9][0-9]*"$/.test(cas)||Number(cas.slice(1,-1))>Number.MAX_SAFE_INTEGER)return knowledgeFailure(400,"KNOWLEDGE_INVALID_REQUEST");headers.set("If-Match",cas);}
  }
  if(route.json){
@@ -78,6 +84,10 @@ export async function proxyKnowledge(request:Request,token:string,userId:string)
  }
  const parsed=route.schema.safeParse(payload);if(!parsed.success)throw new Error("invalid response");
  if(route.schema===officialArticleSchema) {const article=officialArticleSchema.parse(parsed.data);if(article.id!==route.id || article.revision!==route.revision)throw new Error("wrong official version");}
+ if(route.schema===originalFileSchema) {
+   const file=originalFileSchema.parse(parsed.data);
+   if(file.sourceId!==route.id || route.mutation && !file.operationId || route.action==="delete" && file.revisionId!==route.revision || route.action==="continue" && file.operationId!==route.revision) throw new Error("wrong original file");
+ }
  return Response.json(parsed.data,{status:response.status,headers:safeHeaders});
  }catch{return knowledgeFailure(controller.signal.aborted?504:dispatched?502:400,dispatched&&route.mutation?"OUTCOME_UNKNOWN":dispatched?"KNOWLEDGE_UNAVAILABLE":"KNOWLEDGE_INVALID_REQUEST");}
  finally{clearTimeout(timer);request.signal.removeEventListener("abort",abort);}

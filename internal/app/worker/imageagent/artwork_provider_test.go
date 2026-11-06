@@ -43,20 +43,20 @@ func TestArtworkProviderProducesActualNewPixelsAfterDurableObservation(t *testin
 				_, _ = w.Write([]byte(`{"id":"artwork-response","status":"succeeded","results":[{"url":"https://output.example/artwork.png"}]}`))
 			}))
 			defer server.Close()
-			resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Second}}}
-			factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "test-price", PointsPerImage: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
+			resolver := &generationConfigTestResolver{resolved: &generationFixtureConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Second}}}
+			factory := generationProviderFactory{credentials: resolver, current: syntheticFactoryCurrent(resolver, 17), price: config.ImageAgentGenerationConfig{Enabled: true, UnitVersion: "ai-micropoint-v1", MaximumMicropoints: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
 				downloads++
 				require.Equal(t, 1, observations, "provider outcome must be persisted before downloading pixels")
 				return pixels.Bytes(), nil
 			}}
-			prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
+			prepared, err := factory.prepare(syntheticGenerationContext(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
 				observations++
 				require.Equal(t, "artwork-response", proof.ResponseID)
 				return nil
 			})
 			require.NoError(t, err)
 			m := prepared.Metadata
-			a := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创森林动物", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create an original forest animal print.", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: "00000000-0000-4000-8000-000000000001", Digest: strings.Repeat("a", 64)}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: "00000000-0000-4000-8000-000000000002", Digest: strings.Repeat("b", 64)}, ConfigurationEpoch: "1", InputDigest: strings.Repeat("c", 64), ParametersDigest: strings.Repeat("d", 64), MaxPoints: m.Points, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: route.model, Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: route.quality, Points: m.Points, PriceVersion: m.PriceVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion}}
+			a := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创森林动物", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create an original forest animal print.", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: "00000000-0000-4000-8000-000000000001", Digest: strings.Repeat("a", 64)}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: "00000000-0000-4000-8000-000000000002", Digest: strings.Repeat("b", 64)}, ConfigurationEpoch: "1", InputDigest: strings.Repeat("c", 64), ParametersDigest: strings.Repeat("d", 64), MaxPoints: m.Points, Quote: imageagent.ImageGenerationQuote{Billing: m.Billing, Provider: "grsai", Model: route.model, Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: route.quality, Points: m.Points, PriceVersion: m.PriceVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion}}
 			a.QuoteDigest = imageagent.ArtworkQuoteDigest(a.Quote)
 			catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{})
 			require.NoError(t, err)

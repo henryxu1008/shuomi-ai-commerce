@@ -25,7 +25,7 @@ type Validator struct {
 
 func (v Validator) Validate(ctx context.Context, request agent.Request, candidate reviewproposal.Candidate, history []agent.Observation) (agent.Validation, error) {
 	result := agent.Validation{PolicyVersion: reviewproposal.ContentPolicyVersion}
-	if ctx == nil || !request.ContentSelection.Valid() || request.PolicyVersion != reviewproposal.ContentPolicyVersion || request.PromptVersion != agentconfig.ContentPromptVersion || !request.Binding.Valid() || request.ConfigurationSnapshotRef.Absent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() || !request.ModeSnapshotRef.Valid() || !agent.ValidGoalSummary(request.GoalSummary) {
+	if ctx == nil || !request.ContentSelection.Valid() || request.PolicyVersion != reviewproposal.ContentPolicyVersion || !agentconfig.ValidContentPrompt(request.PromptVersion, request.WorkbenchContextRef) || !request.Binding.Valid() || request.ConfigurationSnapshotRef.Absent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() || !request.ModeSnapshotRef.Valid() || !agent.ValidGoalSummary(request.GoalSummary) {
 		return result, agent.ErrInvalid
 	}
 	if v.Authorization == nil || v.Configuration == nil || v.Identity == nil || v.Review == nil || v.Observed == nil {

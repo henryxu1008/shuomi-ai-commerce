@@ -175,7 +175,18 @@ jobs:
           docker info --format '{{json .RegistryConfig.Mirrors}}'
 
       - name: Run backend tests
-        run: go test ./... -count=1
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            go test ./... -count=1
+            exit 0
+          fi
+
+          # The PR architecture job already runs this entire subtree.
+          packages=$(go list ./... | grep -vE '^task-processor/tests(/|$)')
+          mapfile -t backend_packages <<< "$packages"
+          go test -count=1 "${backend_packages[@]}"
 
       - name: Verify RUN-1 effective PostgreSQL permission matrix
         run: go test -tags integration ./internal/app/httpapi -run '^TestCurrentApplicationPermissionInventoryPostgres$' -count=1 -v
@@ -209,6 +220,9 @@ jobs:
     needs: changes
     if: ${{ github.event_name == 'push' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:c091b21d9fae78c76e85cd4356431e9b018402f172a214fc7d7a5e9a7e29d8ac
+      options: --user 1001
     defaults:
       run:
         working-directory: web/listingkit-ui
@@ -232,6 +246,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify preinstalled Playwright Chromium
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const { version } = require("@playwright/test/package.json");
+
+          if (process.versions.node.split(".")[0] !== process.env.NODE_VERSION) {
+            throw new Error(`Expected Node ${process.env.NODE_VERSION}, got ${process.version}`);
+          }
+          const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+          if (!browsersPath) throw new Error("The Playwright image must set PLAYWRIGHT_BROWSERS_PATH");
+          // The official Playwright image records its package version here.
+          const image = JSON.parse(fs.readFileSync(path.join(browsersPath, ".docker-info"), "utf8"));
+          if (image.driverVersion !== version) {
+            throw new Error(`Playwright image version ${image.driverVersion} does not match installed version ${version}`);
+          }
+          const { chromium } = require("@playwright/test");
+          fs.accessSync(chromium.executablePath(), fs.constants.X_OK);
+          console.log(`Verified Playwright ${version} with ${process.version} and ${chromium.executablePath()}`);
+          NODE
+
       - name: Run lint
         run: pnpm lint
 
@@ -240,9 +276,6 @@ jobs:
 
       - name: Run tests
         run: pnpm test
-
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run browser and accessibility tests
         run: pnpm test:e2e
@@ -357,24 +390,46 @@ jobs:
           ISOLATED_RUNTIME_RESULT: ${{ needs.isolated-runtime-contracts.result }}
           ISOLATED_RUNTIME_SELECTED: ${{ needs.changes.outputs.isolated_runtime }}
           RELEASE_RESULT: ${{ needs.release-authority.result }}
+          RELEASE_SELECTED: ${{ needs.changes.outputs.release_authority }}
           BACKEND_RESULT: ${{ needs.backend.result }}
+          BACKEND_SELECTED: ${{ needs.changes.outputs.backend }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
+          FRONTEND_SELECTED: ${{ needs.changes.outputs.frontend }}
           CAPTURE_EXTENSION_RESULT: ${{ needs.capture-extension.result }}
           CAPTURE_EXTENSION_SELECTED: ${{ needs.changes.outputs.capture_extension }}
           CI_EVENT: ${{ github.event_name }}
           CODE_HEALTH_RESULT: ${{ needs.code-health.result }}
+          CODE_HEALTH_SELECTED: ${{ needs.changes.outputs.code_health }}
         run: |
           set -euo pipefail
 
           require_success() {
             local name="$1"
             local result="$2"
-            case "$result" in
-              success|skipped)
-                printf '%-24s %s\n' "$name" "$result"
-                ;;
+            if [[ "$result" != "success" ]]; then
+              printf '%-24s expected success, got %s\n' "$name" "$result" >&2
+              return 1
+            fi
+            printf '%-24s success\n' "$name"
+          }
+
+          allow_skip() {
+            if [[ "$2" == "skipped" ]]; then
+              printf '%-24s skipped (not applicable)\n' "$1"
+            else
+              require_success "$1" "$2"
+            fi
+          }
+
+          require_classified() {
+            local name="$1"
+            local selected="$2"
+            local result="$3"
+            case "$CI_EVENT:$selected" in
+              push:true|pull_request:true) require_success "$name" "$result" ;;
+              pull_request:false) allow_skip "$name" "$result" ;;
               *)
-                printf '%-24s %s\n' "$name" "$result" >&2
+                printf '%-24s invalid applicability for %s: %s\n' "$name" "$CI_EVENT" "$selected" >&2
                 return 1
                 ;;
             esac
@@ -382,43 +437,25 @@ jobs:
 
           require_success "change classification" "$CHANGES_RESULT"
           require_success "development admission tests" "$DEVELOPMENT_ADMISSION_TEST_RESULT"
-          require_success "architecture contracts" "$ARCHITECTURE_CONTRACT_RESULT"
           if [[ "$CI_EVENT" == "pull_request" ]]; then
-            case "$ISOLATED_RUNTIME_SELECTED" in
-              true)
-                if [[ "$ISOLATED_RUNTIME_RESULT" != "success" ]]; then
-                  printf 'required isolated runtime result: %s\n' "$ISOLATED_RUNTIME_RESULT" >&2
-                  exit 1
-                fi
-                printf 'isolated runtime contracts success\n'
-                ;;
-              false)
-                require_success "isolated runtime contracts" "$ISOLATED_RUNTIME_RESULT"
-                ;;
-              *)
-                echo "isolated runtime applicability is unknown" >&2
-                exit 1
-                ;;
-            esac
-          else
-            require_success "isolated runtime contracts" "$ISOLATED_RUNTIME_RESULT"
-          fi
-          require_success "release authority" "$RELEASE_RESULT"
-          require_success "backend" "$BACKEND_RESULT"
-          require_success "frontend" "$FRONTEND_RESULT"
-          if [[ "$CI_EVENT" == "push" || "$CAPTURE_EXTENSION_SELECTED" == "true" ]]; then
-            if [[ "$CAPTURE_EXTENSION_RESULT" != "success" ]]; then
-              printf 'required capture extension result: %s\n' "$CAPTURE_EXTENSION_RESULT" >&2
+            require_success "architecture contracts" "$ARCHITECTURE_CONTRACT_RESULT"
+            require_classified "isolated runtime contracts" "$ISOLATED_RUNTIME_SELECTED" "$ISOLATED_RUNTIME_RESULT"
+          elif [[ "$CI_EVENT" == "push" ]]; then
+            if [[ "$ISOLATED_RUNTIME_SELECTED" != "true" ]]; then
+              echo "push classification must select the full matrix" >&2
               exit 1
             fi
-            printf 'capture extension        success\n'
-          elif [[ "$CI_EVENT" == "pull_request" && "$CAPTURE_EXTENSION_SELECTED" == "false" ]]; then
-            require_success "capture extension" "$CAPTURE_EXTENSION_RESULT"
+            allow_skip "architecture contracts" "$ARCHITECTURE_CONTRACT_RESULT"
+            allow_skip "isolated runtime contracts" "$ISOLATED_RUNTIME_RESULT"
           else
-            echo "capture extension applicability is unknown" >&2
+            echo "unsupported CI event: $CI_EVENT" >&2
             exit 1
           fi
-          require_success "code health" "$CODE_HEALTH_RESULT"
+          require_classified "release authority" "$RELEASE_SELECTED" "$RELEASE_RESULT"
+          require_classified "backend" "$BACKEND_SELECTED" "$BACKEND_RESULT"
+          require_classified "frontend" "$FRONTEND_SELECTED" "$FRONTEND_RESULT"
+          require_classified "capture extension" "$CAPTURE_EXTENSION_SELECTED" "$CAPTURE_EXTENSION_RESULT"
+          require_classified "code health" "$CODE_HEALTH_SELECTED" "$CODE_HEALTH_RESULT"
 
   notify:
     name: WeCom Notification

@@ -39,6 +39,15 @@ type CapturedResultReader interface {
 }
 
 func (s *Service) Results(ctx context.Context, p Principal, id, cursor string, limit int, reader CapturedResultReader) (ResultPage, error) {
+	r := Reader{repo: s.repo, live: s.live}
+	return r.resultsWith(ctx, p, id, cursor, limit, reader, s.read)
+}
+
+func (s *Reader) Results(ctx context.Context, p Principal, id, cursor string, limit int, reader CapturedResultReader) (ResultPage, error) {
+	return s.resultsWith(ctx, p, id, cursor, limit, reader, s.read)
+}
+
+func (s *Reader) resultsWith(ctx context.Context, p Principal, id, cursor string, limit int, reader CapturedResultReader, read jobRead) (ResultPage, error) {
 	if reader == nil || p.Scope.Validate() != nil || !collection.ValidID(id) || (cursor != "" && !collection.ValidID(cursor)) || limit < 1 || limit > 100 {
 		return ResultPage{}, ErrInvalid
 	}
@@ -46,7 +55,7 @@ func (s *Service) Results(ctx context.Context, p Principal, id, cursor string, l
 		var page ResultPage
 		err := s.repo.WithResultRead(ctx, p, func(ctx context.Context, repo ResultReadRepository, reader CapturedResultReader) error {
 			var err error
-			page, err = s.results(ctx, p, id, cursor, limit, repo, reader)
+			page, err = s.results(ctx, p, id, cursor, limit, repo, reader, read)
 			return err
 		})
 		if err != nil {
@@ -54,10 +63,10 @@ func (s *Service) Results(ctx context.Context, p Principal, id, cursor string, l
 		}
 		return page, nil
 	}
-	return s.results(ctx, p, id, cursor, limit, s.repo, reader)
+	return s.results(ctx, p, id, cursor, limit, s.repo, reader, read)
 }
-func (s *Service) results(ctx context.Context, p Principal, id, cursor string, limit int, repo ResultReadRepository, reader CapturedResultReader) (ResultPage, error) {
-	job, err := s.read(ctx, p, id, repo)
+func (s *Reader) results(ctx context.Context, p Principal, id, cursor string, limit int, repo ResultReadRepository, reader CapturedResultReader, read jobRead) (ResultPage, error) {
+	job, err := read(ctx, p, id, repo)
 	if err != nil {
 		return ResultPage{}, err
 	}

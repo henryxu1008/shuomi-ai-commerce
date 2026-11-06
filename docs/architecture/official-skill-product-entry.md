@@ -8,7 +8,7 @@ Issue #774 当前用户授权：六个官方技能的准确版本页可直接选
 
 ## 复用依据和调用路径
 
-引用 official-skills-and-image-method-v1.md、image-skill-visual-brief-v2.md、skill-capability-v1.md、product-content-localization-v1.md、product-image-agent-v1.md、own-product-entry-v1.md 及现有单件转入/CompletionDraft 合同。
+引用 official-skills-and-image-method-v1.md、image-skill-visual-brief-v2.md、skill-capability.md、product-content-localization.md、product-image-agent.md、own-product-entry.md 及现有单件转入/CompletionDraft 合同。
 
 - 官方准确版本详情 → 选择已有商品（原 listOwnProducts，搜索/分页）→ 标题原 OwnProductOptimizePage → ProductAgentPanel → TitleAgentConfirmation/SkillPicker → 原内容运行、Review 和 Catalog 独立采用。
 - 图片选择商品 → 原 OwnProductPreparePage 的显式单件 transfer → 原 listSupplySources 精确回执读回 → 专注原图的页面（原 readSupplySource 校验 item/preparation/kind）→ 同一个 ProductImageSetPanel kind=supply/contextId=sourceId。不新增 Collection 图片上下文，不要求保存标题描述草稿，不绕过原图来源规则。

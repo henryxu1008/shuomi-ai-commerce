@@ -190,7 +190,7 @@ func TestCommercialHTTPPostgresBFFClientZeroWrites(t *testing.T) {
 		org      string
 		quantity int64
 	}{{"org-B", 9007199254740993}, {"org-C", 2}} {
-		require.NoError(t, db.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?, 'ai_point', ?,0,0,0,?,?)", seed.org, seed.quantity, now, now).Error)
+		require.NoError(t, db.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?, 'ai_point', ?,0,0,0,?,?)", seed.org, seed.quantity, now, now).Error)
 	}
 	// This role cannot perform any business write, even if the GET accidentally
 	// invokes a mutation. Only the fixture setup connection has write authority.

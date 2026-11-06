@@ -32,8 +32,8 @@ func (s pointHistoryStub) ListImagePointDebits(_ context.Context, org, actor str
 func TestImagePointAuditMergesAcrossPagesAndBindsActorAndOrganization(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	points := pointHistoryStub{items: []orgresource.ImagePointDebit{
-		{OrganizationID: "B", EventID: "point-3", ActorID: "actor", MemberID: "member", RunID: "run-1", IntentID: "intent-1", PriceVersion: "price-1", Points: 9007199254740993, CreatedAt: now},
-		{OrganizationID: "B", EventID: "point-1", ActorID: "other", MemberID: "member", RunID: "run-2", IntentID: "intent-2", PriceVersion: "price-1", Points: 12, CreatedAt: now.Add(-2 * time.Second)},
+		{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", EventID: "point-3", ActorID: "actor", MemberID: "member", RunID: "run-1", IntentID: "intent-1", PriceVersion: "price-1", Points: 9007199254740993, CreatedAt: now},
+		{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", EventID: "point-1", ActorID: "other", MemberID: "member", RunID: "run-2", IntentID: "intent-2", PriceVersion: "price-1", Points: 12, CreatedAt: now.Add(-2 * time.Second)},
 	}}
 	usage := &usageHistoryStub{events: []UsageAuditEvent{{OrganizationID: "B", EventID: "token-2", MemberID: "member", InvocationID: "inv-1", Quantity: 7, Time: now.Add(-time.Second)}}}
 	query, err := NewCurrentAuditSources(&historyStub{}, nil, nil, usage, points, nil)
@@ -47,7 +47,7 @@ func TestImagePointAuditMergesAcrossPagesAndBindsActorAndOrganization(t *testing
 		require.Equal(t, expected, page.Items[0].Relation.Reference)
 		if i == 0 {
 			require.Equal(t, "actor", page.Items[0].Actor)
-			require.Equal(t, "9007199254740993", page.Items[0].Points.Quantity)
+			require.Equal(t, "9007199254.740993", page.Items[0].Points.Quantity)
 			require.Equal(t, "price-1", page.Items[0].Points.PriceVersion)
 			require.Nil(t, page.Items[0].Usage)
 			require.NotNil(t, page.NextCursor)

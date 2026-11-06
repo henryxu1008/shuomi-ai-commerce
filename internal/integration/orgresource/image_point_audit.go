@@ -15,10 +15,10 @@ func (r *GormRepository) ListImagePointDebits(ctx context.Context, organization,
 		return orgresource.ImagePointAuditPage{}, orgresource.ErrInvalidInput
 	}
 	query := r.db.WithContext(ctx).Table("saas_organization_resource_events AS e").
-		Select("e.organization_id, e.event_id, a.actor_id, r.member_id, r.business_scope AS run_id, e.source_identity AS intent_id, r.price_version, e.quantity AS points, e.created_at").
+		Select("e.quantity_unit AS unit_version, e.organization_id, e.event_id, a.actor_id, r.member_id, r.business_scope AS run_id, e.source_identity AS intent_id, r.price_version, e.consumed_delta AS points, e.created_at").
 		Joins("JOIN saas_organization_resource_reservations AS r ON r.organization_id = e.organization_id AND r.reservation_id = e.reservation_id AND r.settlement_operation_id = e.operation_id AND r.owner_attempt_id = e.source_identity AND r.resource_type = e.resource_type AND r.quantity = e.quantity").
 		Joins("JOIN saas_organization_resource_audit_logs AS a ON a.organization_id = e.organization_id AND a.operation_id = e.operation_id AND a.action = ?", "image_generation_finalize:committed").
-		Where("e.organization_id = ? AND e.resource_type = ? AND e.source_type = ? AND e.consumed_delta = e.quantity AND e.reason = ? AND r.owner_type = ? AND r.state = ?", organization, "ai_point", "image_generation_v1", "commit", "image_generation_v1", "committed")
+		Where("e.organization_id = ? AND e.resource_type = ? AND e.source_type = ? AND e.quantity_unit = 'ai-micropoint-v1' AND r.quantity_unit = e.quantity_unit AND e.reason = ? AND r.owner_type = ? AND r.state = ?", organization, "ai_point", "image_generation_v1", "commit", "image_generation_v1", "committed")
 	if actor != "" {
 		query = query.Where("a.actor_id = ?", actor)
 	}

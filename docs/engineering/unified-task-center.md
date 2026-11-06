@@ -4,9 +4,9 @@
 
 使用者从 AI 工作台 → 任务中心进入 `/workbench/ai/tasks`，在同一页搜索已加载记录、切换状态、选择左侧任务并在右侧查看详情。标题及商品内容建议归入待确认流程；原 Product Review 决策组件直接嵌入详情，不再增加 AI 工作台二级“标题审核”入口。只有审核服务已配置而 Chat 未启用的应用，也直接读取原审核集合，不需要启用模型。
 
-后续用户明确要求任务不限定采集商品或标题优化。现复用原智能体目录及最近运行接口，独立于 Chat 规划准入汇总有权限的现有内容、图片、上架资料、选品、经营诊断与 POD 运行。来源、任务对象与任务目标分开；细节见先于实现提交的 [原生运行投影设计](../architecture/task-center-native-run-projection-v1.md)。本续作不开放新的执行能力或更改 Chat 发起合同。
+后续用户明确要求任务不限定采集商品或标题优化。现复用原智能体目录及最近运行接口，独立于 Chat 规划准入汇总有权限的现有内容、图片、上架资料、选品、经营诊断与 POD 运行。来源、任务对象与任务目标分开；细节见先于实现提交的 [原生运行投影设计](../architecture/task-center-native-run-projection.md)。本续作不开放新的执行能力或更改 Chat 发起合同。
 
-Design Basis: **Reuse Existing Architecture / IMPLEMENTATION_READY**。用户于 2026-10-18 批准本轮范围，当前执行依据为 [#798](https://github.com/qq550723504/task-processor/issues/798)。复用 [最终 UI/IA](../product/final-ui-ia-authority.md)、[BusinessTask §9/10/14/15](../architecture/ai-workbench-chat-business-task-v1.md)、[原审核合同](product-title-review-ui.md) 及 [独立入口装配](../architecture/issue-36-local-trial-runtime.md)。没有新增权限、事实 owner、状态机、schema、计费或恢复协议。
+Design Basis: **Reuse Existing Architecture / IMPLEMENTATION_READY**。用户于 2026-10-18 批准本轮范围，当前执行依据为 [#798](https://github.com/qq550723504/task-processor/issues/798)。复用 [最终 UI/IA](../product/final-ui-ia-authority.md)、[BusinessTask §9/10/14/15](../architecture/ai-workbench-chat-business-task.md)、[原审核合同](../operations/product-agent-trial.md) 及 [独立入口装配](../architecture/product-workbench-trial-runtime.md)。没有新增权限、事实 owner、状态机、schema、计费或恢复协议。
 
 ## Figma 与实现映射
 

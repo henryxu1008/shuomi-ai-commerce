@@ -14,12 +14,13 @@ export async function proxyProjectCenter(
   request: Request,
   token: string,
   userId: string,
+  options?: {endpoint:(url:URL,method:string)=>{path:string;input:z.ZodType|undefined;output:z.ZodType;expected:boolean}|null;base:string;inputBytes:number;outputBytes:number},
 ): Promise<Response> {
   if (!token || !userId) return projectFailure(401, "AUTHENTICATION_REQUIRED");
   if (request.headers.get("X-Expected-User-ID") !== userId)
     return projectFailure(409, "IDENTITY_CONTEXT_CHANGED");
   const url = new URL(request.url),
-    route = projectEndpoint(url, request.method);
+    route = (options?.endpoint ?? projectEndpoint)(url, request.method);
   if (
     !route ||
     request.url.endsWith("?") ||
@@ -75,7 +76,7 @@ export async function proxyProjectCenter(
             "Content-Type": request.headers.get("Content-Type") ?? "",
           },
         }),
-        16384,
+        options?.inputBytes ?? 16384,
         controller.signal,
       );
       const parsed = route.input!.safeParse(payload);
@@ -103,7 +104,7 @@ export async function proxyProjectCenter(
     controller.signal.throwIfAborted();
     dispatched = true;
     const response = await fetch(
-      origin + "/api/v1/workbench/projects" + route.path + url.search,
+      origin + "/api/v1/workbench/" + (options?.base ?? "projects") + route.path + url.search,
       {
         method: request.method,
         headers,
@@ -115,7 +116,7 @@ export async function proxyProjectCenter(
     );
     const payload = await readBoundedStrictJSON(
       response,
-      256 << 10,
+      options?.outputBytes ?? (256 << 10),
       controller.signal,
     );
     controller.signal.throwIfAborted();
@@ -139,6 +140,8 @@ export async function proxyProjectCenter(
     const v=parsed.data as {id?:string};
     const entity=route.path.split("/")[1];
     if(entity && entity!=="templates" && v.id && v.id!==entity)throw new Error();
+    const receipt=parsed.data as {key?:string};
+    if(options?.base==="research/projects" && receipt.key && receipt.key!==(write?request.headers.get("Idempotency-Key"):route.path.split("/").at(-1)))throw new Error();
     return Response.json(parsed.data, { status: 200, headers: safe });
   } catch {
     return projectFailure(

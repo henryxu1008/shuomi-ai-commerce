@@ -38,6 +38,7 @@ const workbenchContextSchema = z
     aiWorkbenchAvailable: z.boolean().optional(),
     storageCapacityAvailable: z.boolean().optional(),
  projectCenterAvailable:z.boolean().optional(),
+ marketResearchAvailable:z.boolean().optional(),
     storeObservationsAvailable: z.boolean().optional(),
     operationsCockpitAvailable: z.boolean().optional(),
     aiWorkbenchPlanningReadiness: z.enum(["AVAILABLE", "NEEDS_CONFIGURATION", "UNAVAILABLE"]).optional(),

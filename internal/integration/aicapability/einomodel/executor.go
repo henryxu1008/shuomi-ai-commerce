@@ -73,13 +73,16 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 	if e == nil || e.Ledger == nil || e.Admission == nil || e.Resolve == nil || e.Authorize == nil || !dispatchContextActive(ctx) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
-	if err := e.Authorize(ctx, input); err != nil {
+	if err := e.Authorize(ctx, admissionMetadata(input)); err != nil {
 		return QualifiedRoute{}, errors.Join(ErrNotDispatched, err)
 	}
 	if !ValidRouteProfile(input.Profile, input.Operation) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
-	route, err := e.Resolve(ctx, input)
+	if input.Profile.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy && !input.Profile.OfficialTariff.IsReferenceEstimate() {
+		return QualifiedRoute{}, ErrNotDispatched
+	}
+	route, err := e.Resolve(ctx, admissionMetadata(input))
 	if err != nil || !sameRoute(route, QualifiedRoute{Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
@@ -87,10 +90,24 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 }
 
 func capabilityFor(operation aicapability.Operation) aicapability.Capability {
+	if operation == aicapability.OperationProductImageAnalysis {
+		return aicapability.CapabilityProductImageAnalysis
+	}
 	if operation == aicapability.OperationAIWorkbenchChatPlan {
 		return aicapability.CapabilityAIWorkbenchChatPlanning
 	}
 	return aicapability.CapabilityProductEnrichText
+}
+
+// Credential/permission readers need finite identity, never the image buffer or
+// a mutable alias to the quote's content description.
+func admissionMetadata(input aicapability.TextInputIdentity) aicapability.TextInputIdentity {
+	input.ImageContent = nil
+	if input.Image != nil {
+		image := *input.Image
+		input.Image = &image
+	}
+	return input
 }
 
 func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuote, now time.Time) aicapability.InvocationRecord {
@@ -100,10 +117,10 @@ func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuo
 		InvocationID: input.InvocationID, AgentRunID: input.AgentRunID, BusinessTaskID: input.BusinessTaskID,
 		TenantID: input.OrganizationID, UserID: input.ActorID, MemberID: input.MemberID,
 		Capability: capabilityFor(input.Operation), Operation: input.Operation,
-		ProviderID: p.ProviderID, ModelID: p.ModelID, CredentialReference: p.ClientName,
+		ProviderID: p.ProviderID, ModelID: p.ModelID, CredentialReference: p.CredentialVersion,
 		ConfigurationVersion: p.CredentialVersion, PolicyVersion: p.CostPricingVersion,
 		PromptKey: p.OutputSchemaVersion, PromptVersion: p.PromptVersion, PromptHash: hex.EncodeToString(prompt[:]),
-		InputHash: quote.InputHash, PointTariff: p.PointTariff,
+		InputHash: quote.InputHash, OfficialTariff: p.OfficialTariff,
 		MaximumPromptTokens: quote.MaximumTokens - p.MaximumCompletionTokens, MaximumCompletionTokens: p.MaximumCompletionTokens,
 		StartedAt: now, Attempt: 1, Outcome: aicapability.InvocationDispatched, Currency: p.Currency,
 	}
@@ -135,6 +152,16 @@ func (e *Executor) Generate(ctx context.Context, input aicapability.TextInputIde
 // at the final transport handoff. cleanup runs after every model outcome.
 func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.TextInputIdentity, expected aicapability.TextQuote,
 	validate func(string) error, beforeSend func(context.Context) (func(), error)) (TextOutput, error) {
+	if input.Image != nil {
+		frozen := *input.Image
+		input.Image = &frozen
+		input.ImageContent = append([]byte(nil), input.ImageContent...)
+		if !validSingleImageContent(frozen, input.ImageContent) {
+			return TextOutput{}, ErrNotDispatched
+		}
+	} else if len(input.ImageContent) != 0 {
+		return TextOutput{}, ErrNotDispatched
+	}
 	quote, err := aicapability.QuoteText(input)
 	if err != nil || quote != expected || input.InvocationID == "" || ctx == nil {
 		return TextOutput{}, ErrNotDispatched
@@ -173,9 +200,17 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 	}()
 	guardCfg := GuardConfig{Logger: logger, Adapter: AdapterKind(p.AdapterKind), Endpoint: route.Endpoint, ModelID: p.ModelID,
-		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
+		ResponseModelID: p.OfficialTariff.Model, ThinkingMode: p.ThinkingMode,
+		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
+	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
+		// Keep the actual SDK wire and framing within the amount quoted and reserved.
+		guardCfg.MaximumRequestBytes = min(guardCfg.MaximumRequestBytes, quote.MaximumTokens-p.MaximumCompletionTokens-128)
+	}
+	if input.Image != nil {
+		guardCfg.SingleImage = &SingleImageRequest{Image: *input.Image, System: input.System, Prompt: input.Prompt}
+	}
 	guard, err := NewGuardedClient(guardCfg, e.BaseTransport, func(gateCtx context.Context) error {
 		// The SDK may construct its own request context. The frozen caller bound
 		// remains authoritative at the actual guarded network handoff.
@@ -203,7 +238,8 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		return TextOutput{}, ErrNotDispatched
 	}
 	component, err := NewComponent(ctx, ComponentConfig{Adapter: guardCfg.Adapter, Endpoint: route.Endpoint,
-		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
+		ThinkingMode: p.ThinkingMode,
+		ProviderID:   p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
 		APIKey: route.APIKey, ModelID: p.ModelID, MaximumOutputTokens: guardCfg.MaximumOutputTokens}, guard)
 	if err != nil {
 		diagnostic.emit(ctx, "component", "rejected_before_claim")
@@ -240,7 +276,11 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	if admissionErr == nil {
 		func() {
 			defer release()
-			output, generationErr = GenerateText(ctx, component, input.System, input.Prompt, guard)
+			if input.Image != nil {
+				output, generationErr = generateSingleImage(ctx, component, input, guard)
+			} else {
+				output, generationErr = GenerateText(ctx, component, input.System, input.Prompt, guard)
+			}
 		}()
 	}
 	if admissionErr != nil || guard.NetworkSends() == 0 {
@@ -254,7 +294,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 	}
-	if !output.Usage.Known || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
+	if !output.Usage.Known || (input.Image != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || p.OfficialTariff.IsReferenceEstimate()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||
 		errors.Is(generationErr, ErrOutcomeUnknown) || errors.Is(generationErr, ErrUsageUnknown) {
 		category := "outcome_or_usage_unknown"
@@ -264,10 +304,19 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		diagnostic.emit(ctx, "usage", category)
 		return TextOutput{}, ErrOutcomeUnknown
 	}
+	if p.OfficialTariff.IsReferenceEstimate() {
+		if _, err := p.OfficialTariff.SettlementMicropoints(*output.Usage.BillableUsage); err != nil {
+			return TextOutput{}, ErrOutcomeUnknown
+		}
+	}
 	record.FinishedAt = time.Now().UTC()
 	record.ProviderRequestID = googleinteractions.SafeRequestID(output.ProviderRequestID)
 	record.LatencyMilliseconds = record.FinishedAt.Sub(now).Milliseconds()
 	record.PromptTokens, record.CompletionTokens, record.TotalTokens = output.Usage.PromptTokens, output.Usage.CompletionTokens, output.Usage.TotalTokens
+	if output.Usage.BillableUsage != nil {
+		billable := *output.Usage.BillableUsage
+		record.BillableUsage = &billable
+	}
 	record.UsageKnown, record.EstimatedCostKnown = true, true
 	record.EstimatedCostMicros, err = p.CostFor(int64(record.PromptTokens), int64(record.CompletionTokens))
 	if err != nil {

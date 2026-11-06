@@ -38,14 +38,18 @@ type reservationRow struct {
 func (reservationRow) TableName() string { return "storage_capacity_reservations" }
 
 type objectRow struct {
-	Identity       string `gorm:"primaryKey;size:64"`
-	OrganizationID string `gorm:"size:128;index"`
-	Namespace      string `gorm:"size:256"`
-	Key            string `gorm:"size:1024"`
-	SHA256         string `gorm:"size:64"`
-	SizeBytes      int64
-	Category       string `gorm:"size:32"`
-	Stored         bool
+	Identity           string `gorm:"primaryKey;size:64"`
+	OrganizationID     string `gorm:"size:128;index"`
+	Namespace          string `gorm:"size:256"`
+	Key                string `gorm:"size:1024"`
+	SHA256             string `gorm:"size:64"`
+	SizeBytes          int64
+	Category           string `gorm:"size:32"`
+	Stored             bool
+	ExclusiveBinding   bool   `gorm:"not null;default:false"`
+	ReleaseOperationID string `gorm:"size:256;not null;default:''"`
+	ReleaseProofDigest string `gorm:"size:64;not null;default:''"`
+	ReleasedAt         *time.Time
 }
 
 func (objectRow) TableName() string { return "storage_capacity_objects" }
@@ -169,7 +173,7 @@ func (r *Repository) FindObjectWrite(ctx context.Context, org, owner string, o s
 	if e := r.db.WithContext(ctx).First(&object, "identity = ? AND organization_id = ?", objectIdentity(o.Namespace, o.Key), org).Error; e != nil {
 		return storagecapacity.Reservation{}, storagecapacity.ErrNotFound
 	}
-	if object.Namespace != o.Namespace || object.Key != o.Key || object.SHA256 != o.SHA256 || object.SizeBytes != o.SizeBytes || object.Category != o.Category {
+	if !sameObject(object, o) || object.ReleaseOperationID != "" {
 		return storagecapacity.Reservation{}, storagecapacity.ErrConflict
 	}
 	var rows []reservationRow
@@ -258,7 +262,7 @@ func (r *Repository) BindObjects(ctx context.Context, org, id string, objects []
 			identity := objectIdentity(o.Namespace, o.Key)
 			var existing objectRow
 			e = tx.First(&existing, "identity = ?", identity).Error
-			if e == nil && (existing.OrganizationID != org || existing.Namespace != o.Namespace || existing.Key != o.Key || existing.SHA256 != o.SHA256 || existing.SizeBytes != o.SizeBytes || existing.Category != o.Category) {
+			if e == nil && (existing.OrganizationID != org || !sameObject(existing, o) || existing.ReleaseOperationID != "") {
 				return storagecapacity.ErrConflict
 			}
 			if e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {
@@ -269,7 +273,10 @@ func (r *Repository) BindObjects(ctx context.Context, org, id string, objects []
 			if be == nil {
 				continue
 			}
-			if row.State == "CLOSED" {
+			if row.State == "CLOSED" || e == nil && existing.ExclusiveBinding {
+				return storagecapacity.ErrConflict
+			}
+			if o.ExclusiveBinding && (row.Owner != "knowledge" || row.MaxObjects != 1 || row.MaxBytes != o.SizeBytes) {
 				return storagecapacity.ErrConflict
 			}
 			if !errors.Is(be, gorm.ErrRecordNotFound) {
@@ -280,7 +287,12 @@ func (r *Repository) BindObjects(ctx context.Context, org, id string, objects []
 			}
 			total += o.SizeBytes
 			if errors.Is(e, gorm.ErrRecordNotFound) {
-				if e = tx.Create(&objectRow{Identity: identity, OrganizationID: org, Namespace: o.Namespace, Key: o.Key, SHA256: o.SHA256, SizeBytes: o.SizeBytes, Category: o.Category}).Error; e != nil {
+				object := objectRow{Identity: identity, OrganizationID: org, Namespace: o.Namespace, Key: o.Key, SHA256: o.SHA256, SizeBytes: o.SizeBytes, Category: o.Category, ExclusiveBinding: o.ExclusiveBinding}
+				columns := []string{"Identity", "OrganizationID", "Namespace", "Key", "SHA256", "SizeBytes", "Category", "Stored"}
+				if o.ExclusiveBinding {
+					columns = append(columns, "ExclusiveBinding")
+				}
+				if e = tx.Select(columns).Create(&object).Error; e != nil {
 					return e
 				}
 			}
@@ -298,6 +310,17 @@ func (r *Repository) ClaimDispatch(ctx context.Context, org, id string) error {
 		row, e := findReservation(tx, org, id)
 		if e != nil {
 			return e
+		}
+		if row.Owner == "knowledge" {
+			var objects []objectRow
+			if err := tx.Model(&objectRow{}).Select("storage_capacity_objects.*").Joins("JOIN storage_capacity_bindings b ON b.object_identity=storage_capacity_objects.identity").Where("b.reservation_id=?", id).Find(&objects).Error; err != nil {
+				return err
+			}
+			for _, object := range objects {
+				if object.ReleaseOperationID != "" {
+					return storagecapacity.ErrConflict
+				}
+			}
 		}
 		if row.State == "DISPATCHED" || row.State == "CLOSED" {
 			return nil
@@ -340,7 +363,7 @@ func (r *Repository) ConfirmStored(ctx context.Context, org, id, namespace, key,
 		if e = tx.First(&o, "identity = ? AND organization_id = ?", identity, org).Error; e != nil {
 			return storagecapacity.ErrNotFound
 		}
-		if o.Namespace != namespace || o.Key != key || o.SHA256 != hash || o.SizeBytes != size {
+		if o.ReleaseOperationID != "" || o.Namespace != namespace || o.Key != key || o.SHA256 != hash || o.SizeBytes != size {
 			return storagecapacity.ErrConflict
 		}
 		var b bindingRow
@@ -355,8 +378,7 @@ func (r *Repository) ConfirmStored(ctx context.Context, org, id, namespace, key,
 		}
 		if !o.Stored {
 			a.Occupied += size
-			o.Stored = true
-			if e = tx.Save(&o).Error; e != nil {
+			if e = tx.Model(&o).Update("stored", true).Error; e != nil {
 				return e
 			}
 		}

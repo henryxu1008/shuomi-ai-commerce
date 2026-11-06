@@ -90,7 +90,7 @@ func TestIssue388Chain1AcceptanceAssemblyContract(t *testing.T) {
 	require.Contains(t, compose, "CHAIN1_TEMPORAL_PORT:-17333")
 	require.NotContains(t, strings.ToLower(compose), "zitadel")
 
-	documentation := read("docs/development/chain1-local-product-acceptance.md")
+	documentation := read("docs/development/local-product-acceptance.md")
 	for _, required := range []string{"PASS", "FAIL", "SKIP", "NOT_RUN", "controlled external", "real PostgreSQL", "real Temporal"} {
 		require.Contains(t, documentation, required)
 	}

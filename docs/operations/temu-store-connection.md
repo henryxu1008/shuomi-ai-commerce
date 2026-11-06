@@ -1,12 +1,12 @@
 # TEMU 店铺连接配置与交接
 
 执行 [#31](https://github.com/qq550723504/task-processor/issues/31)，依据已冻结的
-[TEMU 架构](../architecture/temu-platform-v1.md) 与
+[TEMU 架构](../architecture/temu-platform.md) 与
 [官方接口证据](../architecture/temu-official-contract-evidence.md)。本页说明候选代码中的店铺连接、商品资料、提交恢复和只读同步。主 Draft PR #655 尚未合并，未更新保留实例；真实商家接口及用户验收 NOT_RUN。
 
 ## 配置
 
-沿用 [Current Application 启动与 Store 权限配置](member-resources-v1.md)。只在全新安装的测试实例中
+沿用 [Current Application 启动与 Store 权限配置](member-resources.md)。只在全新安装的测试实例中
 初始化当前 Store schema；已有实例不会被自动迁移，不能用本切片覆盖保留的试用数据库。
 私有 manifest 的 `storeCenter.officialApplications` 可配置以下条目：
 

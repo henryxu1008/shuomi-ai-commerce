@@ -1,0 +1,117 @@
+.panel {
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+.panel h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.panel h3 {
+  font-weight: 600;
+}
+.panel p {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.panel form {
+  display: grid;
+  gap: 1rem;
+}
+.panel label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.tableWrap {
+  max-width: 100%;
+  overflow: auto;
+}
+.tableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+.tableWrap th,
+.tableWrap td {
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tableWrap th {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.tableWrap small {
+  display: block;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.subpanel {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+.stack {
+  display: grid;
+  gap: 1.2rem;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+.facts dt {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+.facts dd {
+  overflow-wrap: anywhere;
+}
+.notice {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+}
+.private {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+@media (max-width: 600px) {
+  .panel {
+    padding: 0.9rem;
+  }
+  .fields {
+    grid-template-columns: 1fr;
+  }
+  .tableWrap th,
+  .tableWrap td {
+    padding: 0.5rem;
+  }
+}

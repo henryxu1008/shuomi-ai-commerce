@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const ACQUISITION_BODY_MAX_BYTES = 8192;
+export const MAX_1688_ACQUISITION_VARIANTS = 256;
 export const ACQUISITION_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
 export const ACQUISITION_BASE = "/api/workbench/sourcing/1688/acquisitions";
 
@@ -51,7 +52,7 @@ export const acquisitionProductSchema = z.object({
   schemaVersion: z.literal(1), operationId: uuid,
   productKey: z.string().regex(/^crawler:1688:[1-9][0-9]{0,19}$/), publicationId: z.string().max(128), catalogVersion: version,
   title: bounded.optional(), sources: z.array(sourceSchema).max(4096), images: z.array(imageSchema).max(4096), specifications: z.array(specificationSchema).max(4096),
-  variants:z.array(z.object({sourceId:bounded.optional(),sku:bounded.optional(),title:bounded.optional(),attributes:z.array(specificationSchema).max(256),images:z.array(imageSchema).max(256)}).strict()).max(256).optional(),
+  variants:z.array(z.object({sourceId:bounded.optional(),sku:bounded.optional(),title:bounded.optional(),attributes:z.array(specificationSchema).max(256),images:z.array(imageSchema).max(256)}).strict()).max(MAX_1688_ACQUISITION_VARIANTS).optional(),
   warnings: z.array(z.object({ code: bounded, field: bounded, count: count.optional() }).strict()).max(256),
   missingFacts: z.array(z.object({ field: bounded, reason: bounded, count: count.optional() }).strict()).max(256),
 }).strict().superRefine((value, ctx) => {

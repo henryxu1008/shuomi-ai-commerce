@@ -1,22 +1,53 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import styles from "../data-services/data-services-overview.module.css";
 import homeStyles from "./primary-introduction.module.css";
 
 const introductions = {
-  supply: {
-    label: "我的供应链", title: "统一管理商品，按目标平台完成发布",
-    subtitle: "所有来源商品先进入「我的数据」统一管理，再选择批次进入发布流程。",
+  research: {
+    label: "市场调研", title: "先了解市场，再决定做什么商品",
+    subtitle: "明确想进入的市场和想研究的商品，收集竞品资料，比较价格与特点，把值得继续评估的商品交给智能选品。",
     entries: [
-      ["01 · 数据管理", "我的数据", "所有来源商品先进入「我的数据」，统一管理商品、来源与批次。", "下一步：选择批次 → 转入「待适配」", "商品批次管理", "/workbench/data/mine"],
-      ["02 · 平台处理", "适配与补全", "转入「待适配」后，按目标平台要求检查商品；缺少必填内容时进入「待补全」。", "流程：待适配 → 待补全（按需）→ 已适配", "查看待适配商品", "/workbench/supply/mine/waiting"],
-      ["03 · 发布与复用", "上传到平台", "进入「已适配」后，可直接上传；也可先用已准入智能体优化，审核后再上传。", "最终：已上传 → 可继续发布到其他平台", "完成商品发布", "/workbench/supply/mine/ready"],
+      ["01 · 定方向", "调研项目", "说清楚想在哪个市场卖什么商品，以及这次要了解的问题，把相关资料放在一起。", "例如：这类商品卖多少钱，有哪些主要竞品？", "开始调研", "/workbench/data/research?step=projects"],
+      ["02 · 找资料", "收集竞品资料", "围绕调研目标收集商品资料，并添加到对应项目，方便后续一起查看和比较。", "收集前先确认资料来源、数量和费用", "收集与整理资料", "/workbench/data/research?step=sources"],
+      ["03 · 看差异", "比较重点商品", "选择2–5件重点商品，比较价格、规格和已有信息，记下还需要了解的问题。", "不同币种的价格分开查看，缺少的信息不作推测", "查看商品比较", "/workbench/data/research?step=summary"],
     ],
-    flowTitle: "完整流程", flowSubtitle: "我的数据 → 待适配 → 待补全（按需）→ 已适配",
-    steps: [["我的数据", "统一管理商品与批次，选择批次进入下一步"], ["待适配", "按目标平台要求检查商品，判断资料是否完整"], ["待补全（按需）", "只有缺少平台必填内容时进入，补全后继续"], ["已适配", "商品已满足发布要求，可以选择发布方式"]],
+    flowTitle: "市场调研业务流程", flowSubtitle: "明确方向 → 收集资料 → 比较商品 → 确定下一步",
+    steps: [["明确调研问题", "确定想进入的市场、商品类别和重点问题。"], ["收集竞品资料", "按调研目标收集资料，整理到同一个项目。"], ["比较价格和特点", "查看2–5件重点商品的价格、规格和信息差异。"], ["整理重点商品", "留下值得继续评估的商品和待了解的问题，再进入智能选品。"]],
     notes: [
-      ["路径 A 直接上传", "已适配 → 开始上传 → 已上传", "商品内容已经合适时，直接上传到目标平台，不经过待审核。", "上传和同步需要正式平台渠道配置"],
-      ["路径 B 智能体优化", "已适配 → 智能体优化 → 待审核 → 已上传", "需要优化标题或图片时，选择已准入的智能体，先优化并审核，再上传。", "模型执行与预算按当前企业配置开放"],
+      ["下一步", "先看清情况，再作选品决定", "调研帮助你整理竞品、价格和商品信息；智能选品继续比较重点商品，记录选择理由。没有可靠资料的销量、需求或利润不作推测。", "调研项目 → 重点商品 → 选品决定"],
+      ["资料来源", "按当前可用渠道收集资料", "市场调研围绕市场和商品展开。当前系统已接通 Amazon 商品资料，其他平台资料暂不能直接添加到本流程。", "已接通 Amazon · 其他资料来源尚未开放"],
+    ],
+  },
+  selection: {
+    label: "智能选品", title: "把重点商品比清楚，再决定下一步",
+    subtitle: "接着调研项目继续比较商品，需要时参考 AI 建议，写清选择或放弃的理由，再把选中的商品送入后续准备。",
+    entries: [
+      ["01 · 选重点", "商品比较", "从调研项目中选择2–5件重点商品，看看价格、规格和已有信息有哪些差别。", "先看已有资料，再判断还需要了解什么", "挑选重点商品", "/workbench/supply/selection?step=candidates"],
+      ["02 · 作决定", "分析与选品决定", "需要时参考 AI 分析，再由你决定哪些商品值得测试，并记录选择或放弃的理由。", "暂未开通 AI 分析时，也可直接比较商品并作决定", "查看分析与评估", "/workbench/supply/selection?step=analysis"],
+      ["03 · 继续准备", "后续商品准备", "确认要继续的商品，到资料清单核对后送入“待上传”，继续准备销售所需内容。", "资料分批收集时，分别核对商品和处理结果", "确认商品并转入", "/workbench/supply/selection?step=transfer"],
+    ],
+    flowTitle: "智能选品业务流程", flowSubtitle: "挑选商品 → 参考建议 → 记录理由 → 继续准备",
+    steps: [["挑出重点商品", "从调研项目中选择要重点比较的商品。"], ["比较并参考建议", "查看价格和特点；需要 AI 建议时先确认分析内容与费用。"], ["记录选品决定", "写清选择或放弃的理由，决定是否继续测试。"], ["交给后续商品准备", "核对选中的商品，确认后进入“待上传”。"]],
+    notes: [
+      ["由你决定", "AI 给建议，负责人作决定", "AI 分析可以不用。你仍可根据已收集的资料比较商品，并记录自己的选择；AI 建议不会自动替你批准商品。", "分析建议供参考 · 选品决定由你确认"],
+      ["后续流程", "选中商品后，还要准备销售资料", "在“我的数据”核对商品，再送入“待上传”。后续还要按销售平台要求完善资料、确认发布。", "选中或转入商品，不代表已采购、付款或上架"],
+    ],
+  },
+  supply: {
+    label:"我的供应链",title:"四步配置，按目标店铺完成上传",
+    subtitle:"商品统一保存在我的数据，上传计划保留目标店铺、规则和处理进度。",
+    entries:[
+      ["01 · 商品来源","我的数据","管理商品与批次，选择需要上传的商品。","下一步：加入我的供应链","选择商品","/workbench/data/mine"],
+      ["02 · 上传配置","待上传","选择商品、目标店铺、规则与智能体，核对后确认提交。","按需进入待补全或待审核","配置上传计划","/workbench/supply/mine/waiting"],
+      ["03 · 原计划继续","处理与结果","补全保存、审核应用后，核对原计划并继续上传。","已上传保留原资料与回执","查看上传结果","/workbench/supply/mine/uploaded"],
+    ],
+    flowTitle:"四步上传配置",flowSubtitle:"待上传 · 待补全 · 待审核 · 已上传",
+    steps:[["选择商品","整批或所选商品，固定来源范围"],["选择目标店铺","核对平台、站点与实际经营模式"],["配置规则与智能体","标准规则与已准入智能体按需使用"],["确认提交","核对准确资料、方式与预算后继续"]],
+    notes:[
+      ["待补全","保存后继续原计划","缺少必填内容时补全商品资料。保存完成后，检查原计划并确认继续。","保存不会自动提交平台"],
+      ["待审核","审核应用后继续上传","智能体建议沿原审核与应用流程处理。应用完成后，重新核对原计划。","拒绝或结果待核实的原操作不会自动重发"],
     ],
   },
   agents: {
@@ -67,13 +98,34 @@ const introductions = {
       ["权限与计费", "了解授权要求与服务费用", "工具权限、额度与费用以服务规则为准。", "定制服务需评估报价；实际交付及开放另行核实。"],
     ],
   },
+  orders: {
+    label: "订单管理", title: "统一管理订单、采购与发货，让履约流程更清晰",
+    subtitle: "围绕原订单核对需求、采购收货、库存装箱和发货交接，让每一步都有原单据可查。",
+    entries: [
+      ["原单处理", "订单处理", "查看原单商品、数量与时限，关联内部履约需求，按当前条件继续办理。", "", "查看订单与需求", "/workbench/store-orders/fulfill?step=source"],
+      ["采购交付", "采购与收货", "按订单需求生成采购单，登记外部单号，跟进分批到货与合格实收。", "", "进入采购与收货", "/workbench/supply/mine/procurement"],
+      ["仓库履约", "装箱与发货", "核对可用库存和预留，准备包裹，再逐笔确认平台发货操作。", "", "进入装箱与发货", "/workbench/store-orders/fulfill?step=stock"],
+      ["物流核对", "交接与物流", "记录实际交接，分别查看平台回执、发货进度与物流结果。", "", "查看交接与物流", "/workbench/store-orders/fulfill?step=logistics"],
+    ],
+    entryLabels: [["原单核对", "履约需求"], ["内部采购", "分批收货"], ["库存预留", "包裹装箱"], ["实际交接", "平台回执"]],
+    flowTitle: "订单业务如何流转", flowSubtitle: "从原单关联到采购、发货与交接，按业务步骤持续衔接",
+    steps: [["核对原单与需求", "确认原单类型、商品数量和时限，关联履约需求。"], ["采购并登记收货", "按缺货需求采购，分批登记合格实收、拒收和短缺。"], ["预留库存并装箱", "核对可用数量，按原需求准备包裹与装箱单。"], ["核对并确认发货", "检查发货资料和原操作内容，单独确认平台操作。"], ["记录交接与物流", "记录实际交接，跟进物流及平台实收、入库差异。"]],
+    notes: [
+      ["业务协同", "订单、采购与仓库如何协同", "采购围绕原需求补货，仓库按合格收货预留库存，装箱后核对发货和实际交接。", "订单需求 · 采购收货 · 发货交接"],
+      ["使用边界", "平台状态与实际交接分别核对", "内部移交不代表平台签收；供应商下单和付款仍在供应商平台完成。", "案例仅供合成试用 · 真实平台发货待联调"],
+    ],
+    notePoints: [
+      [["订单处理", "原单与内部履约需求"], ["采购与收货", "采购单、实收与交付进度"], ["发货与物流", "包裹、回执与实际交接"]],
+      [["平台订单", "状态、时限与收货观察"], ["企业库存", "以实际收货和交接为准"], ["操作确认", "逐笔核对平台操作内容"]],
+    ],
+  },
   stores: {
     label: "店铺中心", title: "统一管理店铺、商品与订单，让经营链路更清晰",
     subtitle: "店铺中心负责维护店铺授权、查看商品与订单；经营分析和AI执行分别进入对应业务模块。",
     entries: [
       ["01 · 店铺资产", "我的店铺", "管理店铺授权、经营站点、店铺服务和连接状态。", "适合：绑定、授权和维护店铺", "管理我的店铺", "/workbench/stores"],
       ["02 · 商品资产", "店铺商品", "查看平台商品详情、刊登状态、库存信息和最近同步结果。", "适合：查看店铺内的商品资产", "查看店铺商品", "/workbench/store-products"],
-      ["03 · 交易履约", "订单履约", "同步并查看订单详情、物流、包裹和异常；发货与售后到平台处理。", "适合：查看订单与物流履约", "查看订单履约", "/workbench/store-orders"],
+      ["03 · 平台记录", "平台订单记录", "同步并查看订单详情、物流、包裹和异常。", "适合：查看原平台订单与物流记录", "查看平台订单记录", "/workbench/store-orders/records"],
     ],
     flowTitle: "店铺业务如何流转", flowSubtitle: "从绑定店铺到查看订单履约，只需四步",
     steps: [["绑定并授权店铺", "完成平台、站点和店铺信息配置"], ["同步店铺商品", "拉取在线商品、刊登与库存状态"], ["同步并查看订单", "统一查看订单详情、物流和异常"], ["到平台处理履约", "发货、售后与退款在平台完成"]],
@@ -84,23 +136,26 @@ const introductions = {
   },
 };
 
-export function PrimaryIntroduction({ kind, available = [true, true, true], entryHrefs, notice }: { kind: keyof typeof introductions; available?: readonly boolean[]; entryHrefs?: readonly string[]; notice?: string }) {
+export function PrimaryIntroduction({ kind, available = introductions[kind].entries.map(() => true), entryHrefs, notice, actions, children }: { kind: keyof typeof introductions; available?: readonly boolean[]; entryHrefs?: readonly string[]; notice?: string; actions?: ReactNode; children?: ReactNode }) {
   const data = introductions[kind], id = `primary-${kind}`;
-  const isSkills = kind === "skills", compact = kind === "tools" || isSkills;
-  return <section className={`${styles.page} ${homeStyles.page} ${kind === "tools" ? homeStyles.tools : ""} ${isSkills ? homeStyles.skills : ""}`} aria-labelledby={id}>
-    <header className={styles.header}><p className={styles.eyebrow}>{data.label}</p><h1 id={id}>{data.title}</h1><p className={styles.subtitle}>{data.subtitle}</p></header>
+  const isSkills = kind === "skills", isOrders = kind === "orders", compact = kind === "tools" || isSkills;
+  const entryTones = isOrders ? ["blue", "teal", "purple", "amber"] : ["teal", "blue", "purple"];
+  const stepTones = isOrders ? ["blue", "teal", "purple", "amber", "blue"] : ["teal", "blue", "green", "purple"];
+  return <section className={`${styles.page} ${homeStyles.page} ${kind === "tools" ? homeStyles.tools : ""} ${isSkills ? homeStyles.skills : ""} ${isOrders ? homeStyles.orders : ""}`} aria-labelledby={id}>
+    <header className={styles.header}><p className={styles.eyebrow}>{data.label}</p><h1 id={id}>{data.title}</h1><p className={styles.subtitle}>{data.subtitle}</p>{actions ? <div className={homeStyles.headerActions}>{actions}</div> : null}</header>
     {notice ? <p role="status" className={styles.subtitle}>{notice}</p> : null}
-    <div className={`${styles.entries} ${compact ? homeStyles.entries : ""}`}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
-      const content = <>{isSkills ? <><div className={homeStyles.entryHeading}><span className={homeStyles.entryNumber} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><h2>{title}</h2></div><span className={`${styles.badge} ${homeStyles.skillBadge}`}>{badge}</span></> : kind === "tools" ? <div className={homeStyles.entryHeading}><span className={styles.badge}>{badge}</span><h2>{title}</h2></div> : <><span className={styles.badge}>{badge}</span><h2>{title}</h2></>}<p className={styles.description}>{description}</p>{audience ? <p className={styles.audience}>{audience}</p> : null}<span className={styles.action}>{available[index] ? `${action}${compact ? "" : " →"}` : "暂未启用"}</span></>;
-      return available[index] ? <Link key={href} href={entryHrefs?.[index] ?? href} prefetch={false} className={styles.entry} data-tone={["teal", "blue", "purple"][index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={["teal", "blue", "purple"][index]} data-state="unavailable">{content}</Card>;
+    <div className={`${styles.entries} ${compact ? homeStyles.entries : ""} ${isOrders ? homeStyles.orderEntries : ""}`}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
+      const content = <>{isOrders ? <div className={homeStyles.orderEntryHeading}><h2>{title}</h2><span className={styles.badge}>{badge}</span></div> : isSkills ? <><div className={homeStyles.entryHeading}><span className={homeStyles.entryNumber} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><h2>{title}</h2></div><span className={`${styles.badge} ${homeStyles.skillBadge}`}>{badge}</span></> : kind === "tools" ? <div className={homeStyles.entryHeading}><span className={styles.badge}>{badge}</span><h2>{title}</h2></div> : <><span className={styles.badge}>{badge}</span><h2>{title}</h2></>}<p className={styles.description}>{description}</p>{audience ? <p className={styles.audience}>{audience}</p> : null}{"entryLabels" in data ? <div className={homeStyles.entryLabels}>{data.entryLabels[index].map(label => <span key={label}>{label}</span>)}</div> : null}<span className={styles.action}>{available[index] ? `${action}${compact || isOrders ? "" : " →"}` : "暂未启用"}</span></>;
+      return available[index] ? <Link key={href} href={entryHrefs?.[index] ?? href} prefetch={false} className={styles.entry} data-tone={entryTones[index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={entryTones[index]} data-state="unavailable">{content}</Card>;
     })}</div>
     {"features" in data ? <section className={homeStyles.features} aria-labelledby={`${id}-features`}>
       <div className={homeStyles.featureHeading}><h2 id={`${id}-features`}>{data.featuresTitle}</h2><p>{data.featuresSubtitle}</p></div>
       <Card className={homeStyles.featurePanel}>{data.features.map(([title, description]) => <div key={title}><h3>{title}</h3><p>{description}</p></div>)}</Card>
     </section> : null}
     <section className={styles.flow} aria-labelledby={`${id}-flow`}><div className={styles.flowHeading}><h2 id={`${id}-flow`}>{data.flowTitle}</h2><p>{data.flowSubtitle}</p></div>
-      <ol className={`${styles.steps} ${compact ? homeStyles.steps : ""}`}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={["teal", "blue", "green", "purple"][index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
+      <ol className={`${styles.steps} ${compact ? homeStyles.steps : ""} ${isOrders ? homeStyles.orderSteps : ""}`}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={stepTones[index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
     </section>
-    <div className={`${styles.notes} ${compact ? homeStyles.notes : ""}`}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 && !isSkills ? styles.dataFlow : ""}`} data-tone={index === 0 ? "teal" : "purple"}>{!isSkills ? <p className={styles.noteLabel}>{label}</p> : null}<h2>{title}</h2><p className={styles.description}>{description}</p>{footer ? <p className={styles.noteFooter}>{footer}</p> : null}</Card>)}</div>
+    {children}
+    <div className={`${styles.notes} ${compact ? homeStyles.notes : ""} ${isOrders ? homeStyles.orderNotes : ""}`}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 && !isSkills ? styles.dataFlow : ""}`} data-tone={isOrders ? index === 0 ? "blue" : "teal" : index === 0 ? "teal" : "purple"}>{isOrders && "notePoints" in data ? <><div className={homeStyles.orderNoteCopy}><p className={styles.noteLabel}>{label}</p><h2>{title}</h2><p className={styles.description}>{description}</p><p className={styles.noteFooter}>{footer}</p></div><ul className={homeStyles.orderNotePoints}>{data.notePoints[index].map(([heading, detail]) => <li key={heading}><strong>{heading}</strong><span>{detail}</span></li>)}</ul></> : <>{!isSkills ? <p className={styles.noteLabel}>{label}</p> : null}<h2>{title}</h2><p className={styles.description}>{description}</p>{footer ? <p className={styles.noteFooter}>{footer}</p> : null}</>}</Card>)}</div>
   </section>;
 }

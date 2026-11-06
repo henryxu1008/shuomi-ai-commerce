@@ -15,10 +15,11 @@ func testQwenRouteIsBoundAcrossQuoteAndIntent(t *testing.T, model string) {
 	i := generationTestIntent()
 	i.Provider = "bailian"
 	i.Model = model
+	i.Billing = syntheticImageBilling(i.Model, i.PriceVersion, i.Points)
 	i.Protocol = "dashscope-image-sync-v1"
 	_, err := NewGenerationFact(i)
 	require.NoError(t, err)
-	q := ImageGenerationQuote{Provider: i.Provider, Model: i.Model, Protocol: i.Protocol, Resolution: i.Resolution, Quality: i.Quality, PriceVersion: i.PriceVersion, Points: i.Points, RouteReference: i.RouteReference, CredentialReference: i.CredentialReference, ConfigurationVersion: i.ConfigurationVersion}
+	q := ImageGenerationQuote{Billing: syntheticImageBilling(i.Model, i.PriceVersion, i.Points), Provider: i.Provider, Model: i.Model, Protocol: i.Protocol, Resolution: i.Resolution, Quality: i.Quality, PriceVersion: i.PriceVersion, Points: i.Points, RouteReference: i.RouteReference, CredentialReference: i.CredentialReference, ConfigurationVersion: i.ConfigurationVersion}
 	require.True(t, q.Valid())
 	for _, field := range []string{"provider", "model", "protocol"} {
 		wrong := i

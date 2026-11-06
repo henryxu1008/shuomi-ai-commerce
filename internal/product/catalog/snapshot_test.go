@@ -2,8 +2,22 @@ package catalog
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
+
+func TestVariantStockJSONDistinguishesDeclaredZeroFromMissing(t *testing.T) {
+	var variants []Variant
+	if err := json.Unmarshal([]byte(`[{"sku":"zero","stock":0},{"sku":"unknown"},{"sku":"seven","stock":7}]`), &variants); err != nil {
+		t.Fatal(err)
+	}
+	for i, expected := range []string{`"stock":0`, "", `"stock":7`} {
+		raw, err := json.Marshal(variants[i])
+		if err != nil || expected == "" && strings.Contains(string(raw), `"stock"`) || expected != "" && !strings.Contains(string(raw), expected) {
+			t.Fatalf("variant %d lost stock presence: %s (%v)", i, raw, err)
+		}
+	}
+}
 
 func TestProductSnapshotUnmarshalAcceptsKeyedAttributes(t *testing.T) {
 	t.Parallel()

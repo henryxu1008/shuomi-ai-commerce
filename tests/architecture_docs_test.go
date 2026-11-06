@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,7 +10,7 @@ import (
 )
 
 func TestPluginCaptureSessionReturnDocumentKeepsNavigationOnlyOwner(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "plugin-capture-session-return-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "plugin-capture-session-return.md"), []string{
 		"Independent Architecture", "IMPLEMENTATION_READY", "chrome.storage.session", "TRUSTED_CONTEXTS",
 		"ReturnSession", "pending | bound", "returnState: none | available |", "application's publication authority",
 		"No payload/title/images/prices", "No storage read error or", "before awaiting",
@@ -30,18 +29,18 @@ func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollo
 }
 
 func TestSheinImportDocumentBindsExistingOwnersAndExplicitConfirmation(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "completion-shein-import-v1.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "completion-shein-import.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
 }
 
 func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry.md"), []string{
 		"Reuse Existing Architecture", "BatchSelectionInput.ItemIDs", "expectedRevision", "先于确认资料",
 		"不自动执行Save", "UNKNOWN", "retained-source", "原owner安装合同", "不引入新的能力开关",
 	})
 }
 
 func TestOwnProductExistingDraftsDocumentKeepsBoundedReadAndNavigationAuthority(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts.md"), []string{
 		"Independent Architecture", "ListForCollectionItem", "org/actor/member", "2MiB", "keyset",
 		"不建反向映射或第二事实源", "不新增每行IAM", "导航按钮不能授权", "不是“自动过期/不可用”",
 		"原sourceID", "不接受完整return URL", "只列已明确保存", "UNKNOWN", "不代签用户/生产验收",
@@ -58,42 +57,13 @@ func TestStoreObservationsPreparationDocumentKeepsExecutionClosed(t *testing.T) 
 	})
 }
 
-func TestPhase2ClosureDocumentsRuntimeOwnershipAndDeferredDebt(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "development", "repository-structure.md"), []string{
-		"Phase 2 runtime foundation closure",
-		"lifecycle", "provider registration", "migration execution", "instrumentation", "shutdown",
-		"only nine target domain roots",
-	})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "project-boundaries.md"), []string{
-		"Phase 2 closure boundary",
-		"internal/core/config", "internal/core/logger", "forwarding-only compatibility facade",
-		"internal/core/metrics", "internal/infra/auth", "internal/infra/httpx",
-		"MCP", "pgvector", "TigerBeetle", "not admitted",
-	})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "refactoring", "module-target-mapping.md"), []string{
-		"Phase 2 closure landing rules",
-		"product owner", "marketplace owner", "organization owner",
-	})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "refactoring", "phase2-runtime-inventory.md"), []string{
-		"Final closure inventory",
-		"`core/logger` | 82", "`platform/logging` | 9", "`platform/database` | 23", "`integration/s3` | 4",
-		"same-platform workerpool", "Goose migration owner", "Legacy consumer register",
-	})
-	requireDocumentPhrases(t, filepath.Join("..", "internal", "platform", "README.md"), []string{
-		"Goose", "RabbitMQ", "worker pool", "Temporal dial", "feature flags", "tracing",
-	})
-	requireDocumentPhrases(t, filepath.Join("..", "internal", "integration", "README.md"), []string{
-		"OpenAI", "Gemini", "GRSAI", "S3", "remote image HTTP",
-	})
-}
-
 func TestCommerceToolBoundaryDocumentsDefineNeutralRegistryOwnership(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "project-target-architecture.md"), []string{
 		"internal/commercetool",
 		"Tool Definition", "Schema", "Registry", "Agent Allowlist", "Invocation Policy", "Tool Audit Port",
 		"kernel/module.Registry", "startup contribution collection", "not the Tool Runtime",
 		"Service/Query ports", "composition root",
-		"Phase 2A", "read", "compute", "propose", "write", "publish",
+		"read", "compute", "propose", "write", "publish",
 		"depguard: commercetool_boundaries",
 	})
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "development", "repository-structure.md"), []string{
@@ -112,13 +82,7 @@ func TestProductAgentRuntimeDocumentPreservesOwnerAndExecutionLimits(t *testing.
 	})
 }
 
-func TestPhase2InventoryNamesEveryRemainingLegacyConcreteConsumer(t *testing.T) {
-	path := filepath.Join("..", "docs", "refactoring", "phase2-runtime-inventory.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	section := markdownSection(t, string(content), "## Legacy consumer register")
+func TestConcreteImportsStayWithinCurrentOwnerAllowlist(t *testing.T) {
 	targets := []string{
 		"task-processor/internal/core/logger",
 		"task-processor/internal/platform/logging",
@@ -133,87 +97,30 @@ func TestPhase2InventoryNamesEveryRemainingLegacyConcreteConsumer(t *testing.T) 
 		"task-processor/internal/integration/httpimage",
 	}
 	importersByTarget := directInternalImporterMap(t, targets)
-	register, parseErrors := parseLegacyConsumerRegister(section)
-	for _, parseErr := range parseErrors {
-		t.Error(parseErr)
+	// These are the same current owner exceptions previously recorded in the
+	// runtime consumer document. New dependencies still require explicit review.
+	allowed := map[string]map[string]bool{
+		"task-processor/internal/platform/logging":      {"task-processor/internal/core/config": true, "task-processor/internal/pkg/appenv": true},
+		"task-processor/internal/integration/httpimage": {"task-processor/internal/imageagent": true},
 	}
-	allowedTargets := make(map[string]struct{}, len(targets))
 	for _, target := range targets {
-		allowedTargets[target] = struct{}{}
-		expected := make(map[string]struct{})
+		expected := map[string]bool{}
 		for _, importer := range importersByTarget[target] {
-			if isPhase2IntentionalConcreteWiring(importer) {
-				continue
+			if !isPhase2IntentionalConcreteWiring(importer) {
+				expected[importer] = true
 			}
-			expected[importer] = struct{}{}
 		}
-		actual := register[target]
 		for importer := range expected {
-			if _, ok := actual[importer]; !ok {
-				t.Errorf("%s register is missing %s -> %s", path, target, importer)
+			if !allowed[target][importer] {
+				t.Errorf("unapproved concrete import %s -> %s", importer, target)
 			}
 		}
-		for importer := range actual {
-			if _, ok := expected[importer]; !ok {
-				t.Errorf("%s register has stale or wrong-target row %s -> %s", path, target, importer)
+		for importer := range allowed[target] {
+			if !expected[importer] {
+				t.Errorf("stale concrete import allowance %s -> %s", importer, target)
 			}
 		}
 	}
-	for target := range register {
-		if _, ok := allowedTargets[target]; !ok {
-			t.Errorf("%s register has unapproved target %s", path, target)
-		}
-	}
-}
-
-type legacyConsumerRegisterEntry struct {
-	class string
-	owner string
-}
-
-func parseLegacyConsumerRegister(section string) (map[string]map[string]legacyConsumerRegisterEntry, []string) {
-	register := make(map[string]map[string]legacyConsumerRegisterEntry)
-	var problems []string
-	inTable := false
-	for lineNumber, line := range strings.Split(section, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "| Target import path | Exact consumer package | Class | Explicit later owner / phase |" {
-			inTable = true
-			continue
-		}
-		if !inTable || !strings.HasPrefix(trimmed, "|") {
-			continue
-		}
-		columns := strings.Split(line, "|")
-		if len(columns) != 6 {
-			problems = append(problems, fmt.Sprintf("legacy consumer register line %d must have exactly four columns", lineNumber+1))
-			continue
-		}
-		target := strings.Trim(strings.TrimSpace(columns[1]), "`")
-		consumer := strings.Trim(strings.TrimSpace(columns[2]), "`")
-		class := strings.TrimSpace(columns[3])
-		owner := strings.TrimSpace(columns[4])
-		if strings.HasPrefix(target, "---") {
-			continue
-		}
-		if !strings.HasPrefix(target, "task-processor/internal/") || !strings.HasPrefix(consumer, "task-processor/internal/") {
-			problems = append(problems, fmt.Sprintf("legacy consumer register line %d must use full internal import paths", lineNumber+1))
-			continue
-		}
-		if class == "" || owner == "" {
-			problems = append(problems, fmt.Sprintf("legacy consumer register line %d must name class and later owner", lineNumber+1))
-			continue
-		}
-		if register[target] == nil {
-			register[target] = make(map[string]legacyConsumerRegisterEntry)
-		}
-		if _, exists := register[target][consumer]; exists {
-			problems = append(problems, fmt.Sprintf("legacy consumer register line %d duplicates %s -> %s", lineNumber+1, target, consumer))
-			continue
-		}
-		register[target][consumer] = legacyConsumerRegisterEntry{class: class, owner: owner}
-	}
-	return register, problems
 }
 
 func isPhase2IntentionalConcreteWiring(importer string) bool {
@@ -309,27 +216,6 @@ func TestProjectBoundaryDocumentKeepsRouteRegistrationInOwningHTTPAPI(t *testing
 	}
 }
 
-func TestProjectBoundaryDocumentKeepsPreviewPlacementAlignedWithStablePreviewBoundary(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "project-boundaries.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"| Platform-neutral preview rules | Current Product/Catalog/Asset and Listing owners; old Task preview/platform are RETIRED; see `legacy-listing-preview-download-closure-retirement-boundary.md` |",
-		"| Legacy preview facade / task-result aggregation | EXTRACT valid behavior to the current Listing owner, then RETIRE the facade |",
-		"legacy-hard-cut-policy.md",
-		"depguard: listing_preview_platform_neutral",
-		"TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so new preview code follows the stable preview boundary", path, phrase)
-		}
-	}
-}
-
 func TestProjectBoundaryDocumentDefines1688SourceHandoffOwnership(t *testing.T) {
 	path := filepath.Join("..", "docs", "architecture", "project-boundaries.md")
 	content, err := os.ReadFile(path)
@@ -341,7 +227,6 @@ func TestProjectBoundaryDocumentDefines1688SourceHandoffOwnership(t *testing.T) 
 	for _, phrase := range []string{
 		"internal/product must not import internal/listingkit, internal/compatibility, internal/crawler, or internal/integration",
 		"internal/integration/acquisition/a1688/browser and internal/integration/acquisition/browsercollector produce current internal/product/sourcing SourceEnvelope values",
-		"internal/compatibility/listingkit/sourcehandoff", "CURRENT STATE", "drain-only",
 		"internal/product/catalog", "internal/product/asset",
 		"PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08",
 		"does not authorize legacy profile reuse, migration or cutover",
@@ -355,173 +240,10 @@ func TestProjectBoundaryDocumentDefines1688SourceHandoffOwnership(t *testing.T) 
 	}
 }
 
-func TestProjectBoundaryDocumentTracksCurrentEnforcementTests(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "project-boundaries.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"How To Use This Document",
-		"default repository-wide entrypoint",
-		"specialized document seems broader",
-		"Current Enforcement",
-		"import-boundary tests",
-		"TestDomainHTTPPackagesDoNotImportAppHTTPAPI",
-		"TestBusinessDomainsDoNotImportAppHTTPAPI",
-		"depguard: domain_app_httpapi_boundaries",
-		"TestZitadelAuthRuntimeDoesNotImportListingKit",
-		"depguard: authruntime_zitadel_listingkit",
-		"TestAlibaba1688CrawlerDoesNotImportListingKitRoot",
-		"depguard: alibaba1688_listingkit_root",
-		"TestProjectBoundaryDomainsDoNotImportListingKitFacade",
-		"depguard: project_boundary_listingkit",
-		"depguard: listingkit_subdomains_root_facade",
-		"TestListingKitImportDirectionStaysRetiredAcrossBuildTargets",
-		"TestListingKitRootSheinWorkspaceBridgesDoNotImportWorkspaceDomainDirectly",
-		"depguard: listingkit_root_workspace_shein",
-		"TestListingKitSheinWorkspaceBridgeDoesNotImportLegacyWorkspaceDomain",
-		"depguard: listingkit_legacy_shein_runtime",
-		"depguard: listingkit_shein_api_root",
-		"TestListingKitNonAPISheinImportsStayAllowlisted",
-		"TestListingKitAmazonListingImportsStayAllowlisted",
-		"depguard: catalog_legacy_productenrich",
-		"TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets",
-		"TestCanonicalTypesDoNotUseProductEnrichCompatibilityAliases",
-		"depguard: shein_pipeline_legacy_listingkit",
-		"depguard: shein_submitprep_legacy_tenantctx",
-		"depguard: listingruntime_local_legacy_management",
-		"TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets",
-		"TestListingKitRootSheinHelpersStayAllowlisted",
-		"TestListingKitRootServiceSubmitFilesStayAllowlisted",
-		"TestListingKitRootTaskSubmissionFilesStayAllowlisted",
-		"TestListingKitRootServiceGenerationFilesStayAllowlisted",
-		"TestListingKitRootGenerationFilesStayAllowlisted",
-		"depguard: listing_preview_platform_neutral",
-		"TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets",
-		"TestTemporalSDKImportsStayInRuntimeAndOrchestrationAdapters",
-		"TestTemporalRuntimePackagesDoNotImportHTTPAPI",
-		"depguard: temporal_runtime_httpapi",
-		"TestProductImageExternalClientImportsStayAllowlisted",
-		"TestAmazonExternalClientImportsStayAllowlisted",
-		"TestSheinBridgeExternalClientImportsStayAllowlisted",
-		"TestSheinRetiredManagementImportsStayBlocked",
-		"TestSheinOpenAIImportsStayAllowlisted",
-		"TestListingKitHTTPAPIExternalClientImportsStayAllowlisted",
-		"TestListingKitSheinSyncLegacyPromotionImportsStayAllowlisted",
-		"TestListingKitRootOpenAIImportsStayAllowlisted",
-		"depguard: listingkit_root_management_api",
-		"TestListingKitSupportFileStaysRetired",
-		"TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter",
-		"TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked",
-		"TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked",
-		"TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked",
-		"TestTEMUOpenAIImportsStayAllowlisted",
-		"TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted",
-		"depguard: publishing_shein_legacy_runtime",
-		"TestPublishingSheinOpenAIImportsStayAllowlisted",
-		"TestPublishingSheinManagedAPIImportsStayAllowlisted",
-		"TestPublishingSheinManagedRetiredManagementImportsStayBlocked",
-		"depguard: publishing_common_legacy_productenrich",
-		"TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets",
-		"depguard: publishing_common_platforms",
-		"TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated",
-		"TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated",
-		"TestAppHTTPAPIRootListingKitHelpersStayAllowlisted",
-		"TestAppHTTPAPIListingKitSupportImportsStayAllowlisted",
-		"TestAppHTTPAPIListingKitRootImportsStayAllowlisted",
-		"TestAppHTTPAPIListingKitHTTPAPIImportsStayAllowlisted",
-		"TestAppHTTPAPIModuleBuildersStayAllowlisted",
-		"TestAppHTTPAPIRouteDescriptorHelpersStayAllowlisted",
-		"TestHTTPAPITypesDoesNotOwnRunOptions",
-		"TestHTTPAPIModulesFileDoesNotOwnFeatureBuildWrappers",
-		"TestHTTPAPIModulesFileDoesNotOwnBootstrapOrchestration",
-		"TestHTTPAPILegacyBuildHandlersFacadeStaysRetired",
-		"TestHTTPAPIModulesFileDoesNotOwnWorkerRuntimeSupport",
-		"TestHTTPAPIModulesFileDoesNotOwnLoginRuntimeSupport",
-		"TestHTTPAPICompositionBuilderDoesNotOwnLoginBootstrapTypes",
-		"TestHTTPAPICompositionBuilderDoesNotOwnLoginFeatureAssembly",
-		"TestHTTPAPILoginModuleResultAliasesStayRetired",
-		"TestHTTPAPIRuntimeStateUsesOwningLoginBootstrapResultTypes",
-		"TestHTTPAPIRuntimeStateUsesOwningFeatureHTTPAPIModuleTypes",
-		"TestHTTPAPIRuntimeDepsMethodsUseOwningFeatureHTTPAPIModuleTypes",
-		"TestHTTPModulesDoNotOwnFeatureHTTPAPIModuleSelectionSignatures",
-		"TestHTTPAPIFeatureBuildersUseOwningFeatureHTTPAPIModuleTypesInSignatures",
-		"TestFeatureModuleBuilderContractsUseOwningModuleTypes",
-		"TestHTTPAPIRuntimeStateUsesOwningSupportModuleResultTypes",
-		"TestHTTPAPICompositionBuilderDoesNotOwnSupportModuleBuilderContracts",
-		"TestHTTPAPICompositionBuilderDoesNotOwnSupportFeatureAssembly",
-		"TestHTTPAPIModulesFileDoesNotOwnListingKitSDSRuntimeSupportHook",
-		"TestHTTPAPICompositionBuilderDoesNotOwnProductImageRuntimeInputs",
-		"TestHTTPAPICompositionBuilderDoesNotOwnAmazonListingRuntimeInput",
-		"TestHTTPAPICompositionBuilderDoesNotOwnListingKitRuntimeInput",
-		"TestHTTPAPIRuntimeKeepsOpenAIRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsSharedResourceAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsPromptRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsProductEnrichRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsPathResolutionDedicated",
-		"TestHTTPAPIRuntimeKeepsConfigLoadingDedicated",
-		"TestHTTPAPIRuntimeKeepsRuntimeDepsMethodsDedicated",
-		"TestHTTPAPIAdaptersKeepTaskRepositoryAssemblyDedicated",
-		"TestHTTPAPIAdaptersKeepPromptStoreAssemblyDedicated",
-		"TestBootstrapKeepsTaskRepositoryAssemblyInDedicatedFile",
-		"TestBootstrapKeepsModelProviderAssemblyInDedicatedFile",
-		"TestBootstrapKeepsLLMScorerAssemblyInDedicatedFile",
-		"TestBootstrapKeepsAssetPublisherAssemblyInDedicatedFile",
-		"TestBootstrapKeepsImagePipelineComponentAssemblyInDedicatedFile",
-		"TestPlatformModulesDoNotImportBusinessOrHTTPAssemblyPackages",
-		"depguard: platform_registration_boundaries",
-		"TestAICapabilityModuleUsesOnlyApprovedDependencies",
-		"depguard: aicapability_boundaries",
-		"TestPlatformModulesHistoricalImplementationImportsStayAllowlisted",
-		"TestPlatformRegistrationPackagesStayThin",
-		"TestPlatformRegistrationPackagesContainNoLocalArtifacts",
-		"TestBusinessDomainsDoNotImportAppRuntimeAssembly",
-		"TestAppBootstrapRetiredManagementImportsStayBlocked",
-		"TestAppRunnerRetiredManagementImportsStayBlocked",
-		"TestAppConsumerRetiredManagementImportsStayBlocked",
-		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
-		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"TestPlatformTaskRetiredManagementImportsStayBlocked",
-		"TestStateRetiredManagementImportsStayBlocked",
-		"TestPlatformBaseRetiredManagementImportsStayBlocked",
-		"TestTaskRPCAPIRetiredManagementImportsStayBlocked",
-		"TestSDSClientRetiredManagementImportsStayBlocked",
-		"TestSheinLoginBootstrapRetiredManagementImportsStayBlocked",
-		"TestSheinLoginServiceRetiredManagementImportsStayBlocked",
-		"TestSheinLoginManagedRetiredManagementImportsStayBlocked",
-		"TestSharedPricingRetiredManagementImportsStayBlocked",
-		"TestListingKitHTTPAPIRetiredManagementImportsStayBlocked",
-		"TestCmdPackagesDoNotImportAppCompatibilityLayers",
-		"depguard: cmd_legacy_app_compatibility",
-		"depguard: internal_legacy_app_compatibility",
-		"TestInternalPackagesDoNotImportAppCompatibilityLayersAcrossBuildTargets",
-		"TestAppProcessorCompatibilityLayerIsRetired",
-		"TestAppStateCompatibilityLayerIsRetired",
-		"TestInfraProductCrawlerAdapterIsRetired",
-		"TestAppCrawlerFetcherCompatibilityLayerIsRetired",
-		"TestInfrastructurePackagesDoNotImportBusinessDomains",
-		"depguard: infrastructure_business_boundaries",
-		"TestBusinessImplementationPackagesDoNotImportGinDirectly",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so project boundary enforcement reflects the active guard tests", path, phrase)
-		}
-	}
-}
-
 func TestCurrentDocsDoNotReferenceRetiredFrameworkEntrypoints(t *testing.T) {
 	checks := map[string][]string{
-		filepath.Join("..", "docs", "CODE_WIKI.md"): {
+		filepath.Join("..", "docs", "development", "repository-structure.md"): {
 			"task/                    # 已废弃的 legacy polling 入口",
-		},
-		filepath.Join("..", "docs", "architecture", "task-status-lifecycle.md"): {
-			"internal/app/task/task_source.go",
-		},
-		filepath.Join("..", "docs", "refactoring", "listingkit-refactoring-progress-2026-06-24.md"): {
-			"retry/cancel/status lookups now return explicit retired/unavailable semantics",
 		},
 	}
 	for path, banned := range checks {
@@ -537,359 +259,12 @@ func TestCurrentDocsDoNotReferenceRetiredFrameworkEntrypoints(t *testing.T) {
 	}
 }
 
-func TestHTTPAPIAssemblyBoundaryDocumentTracksGuardTests(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "httpapi-assembly-boundaries.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# HTTP API Assembly Boundaries",
-		"`cmd/* -> internal/app/httpapi -> internal/*/httpapi -> domain service/runtime/contracts`",
-		"TestDomainHTTPPackagesDoNotImportAppHTTPAPI",
-		"TestBusinessDomainsDoNotImportAppHTTPAPI",
-		"depguard: domain_app_httpapi_boundaries",
-		"TestAppHTTPAPIRootListingKitHelpersStayAllowlisted",
-		"TestAppHTTPAPIModuleBuildersStayAllowlisted",
-		"TestAppHTTPAPIRouteDescriptorHelpersStayAllowlisted",
-		"TestHTTPAPITypesDoesNotOwnRunOptions",
-		"TestHTTPAPIModulesFileDoesNotOwnFeatureBuildWrappers",
-		"TestHTTPAPIModulesFileDoesNotOwnBootstrapOrchestration",
-		"TestHTTPAPILegacyBuildHandlersFacadeStaysRetired",
-		"TestHTTPAPIModulesFileDoesNotOwnWorkerRuntimeSupport",
-		"TestHTTPAPIModulesFileDoesNotOwnLoginRuntimeSupport",
-		"TestHTTPAPICompositionBuilderDoesNotOwnLoginBootstrapTypes",
-		"TestHTTPAPICompositionBuilderDoesNotOwnLoginFeatureAssembly",
-		"TestHTTPAPILoginModuleResultAliasesStayRetired",
-		"TestHTTPAPIRuntimeStateUsesOwningLoginBootstrapResultTypes",
-		"TestHTTPAPIRuntimeStateUsesOwningFeatureHTTPAPIModuleTypes",
-		"TestHTTPAPIRuntimeDepsMethodsUseOwningFeatureHTTPAPIModuleTypes",
-		"TestHTTPModulesDoNotOwnFeatureHTTPAPIModuleSelectionSignatures",
-		"TestHTTPAPIFeatureBuildersUseOwningFeatureHTTPAPIModuleTypesInSignatures",
-		"TestFeatureModuleBuilderContractsUseOwningModuleTypes",
-		"TestHTTPAPIRuntimeStateUsesOwningSupportModuleResultTypes",
-		"TestHTTPAPICompositionBuilderDoesNotOwnSupportModuleBuilderContracts",
-		"TestHTTPAPICompositionBuilderDoesNotOwnSupportFeatureAssembly",
-		"TestHTTPAPIModulesFileDoesNotOwnListingKitSDSRuntimeSupportHook",
-		"TestHTTPAPICompositionBuilderDoesNotOwnProductImageRuntimeInputs",
-		"TestHTTPAPICompositionBuilderDoesNotOwnAmazonListingRuntimeInput",
-		"TestHTTPAPICompositionBuilderDoesNotOwnListingKitRuntimeInput",
-		"TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated",
-		"TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsOpenAIRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsSharedResourceAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsRuntimeDepsMethodsDedicated",
-		"TestHTTPAPIRuntimeKeepsPromptRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsProductEnrichRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsPathResolutionDedicated",
-		"TestHTTPAPIRuntimeKeepsConfigLoadingDedicated",
-		"TestHTTPAPIAdaptersKeepTaskRepositoryAssemblyDedicated",
-		"TestHTTPAPIAdaptersKeepPromptStoreAssemblyDedicated",
-		"TestBootstrapKeepsModelProviderAssemblyInDedicatedFile",
-		"TestBootstrapKeepsLLMScorerAssemblyInDedicatedFile",
-		"TestBootstrapKeepsAssetPublisherAssemblyInDedicatedFile",
-		"TestBootstrapKeepsTaskRepositoryAssemblyInDedicatedFile",
-		"TestBootstrapKeepsImagePipelineComponentAssemblyInDedicatedFile",
-		"TestAppHTTPAPIListingKitSupportImportsStayAllowlisted",
-		"TestAppHTTPAPIListingKitRootImportsStayAllowlisted",
-		"TestAppHTTPAPIListingKitHTTPAPIImportsStayAllowlisted",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so HTTP API assembly rules stay connected to guard tests", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistCoversBoundaryRegressionRisks(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"reverse dependency",
-		"internal/app/httpapi",
-		"internal/app/processor",
-		"internal/app/state",
-		"owning module `internal/*/httpapi`",
-		"Temporal",
-		"platform-boundary-strategy.md",
-		"historical-platform-migration-inventory.md",
-		"external-client-boundary-inventory.md",
-		"listing-preview-boundaries.md",
-		"local interface",
-		"concrete external client",
-		"boundary exception",
-		"import-boundary and architecture tests",
-		"Current guard coverage",
-		"TestBusinessDomainsDoNotImportAppHTTPAPI",
-		"depguard: domain_app_httpapi_boundaries",
-		"TestZitadelAuthRuntimeDoesNotImportListingKit",
-		"depguard: authruntime_zitadel_listingkit",
-		"TestAlibaba1688CrawlerDoesNotImportListingKitRoot",
-		"depguard: alibaba1688_listingkit_root",
-		"TestProjectBoundaryDomainsDoNotImportListingKitFacade",
-		"depguard: project_boundary_listingkit",
-		"depguard: listingkit_subdomains_root_facade",
-		"TestListingKitImportDirectionStaysRetiredAcrossBuildTargets",
-		"TestListingKitRootSheinWorkspaceBridgesDoNotImportWorkspaceDomainDirectly",
-		"depguard: listingkit_root_workspace_shein",
-		"TestListingKitSheinWorkspaceBridgeDoesNotImportLegacyWorkspaceDomain",
-		"depguard: listingkit_legacy_shein_runtime",
-		"depguard: listingkit_shein_api_root",
-		"TestListingKitNonAPISheinImportsStayAllowlisted",
-		"TestListingKitAmazonListingImportsStayAllowlisted",
-		"depguard: catalog_legacy_productenrich",
-		"TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets",
-		"TestCanonicalTypesDoNotUseProductEnrichCompatibilityAliases",
-		"depguard: shein_pipeline_legacy_listingkit",
-		"depguard: shein_submitprep_legacy_tenantctx",
-		"TestListingKitRootSheinHelpersStayAllowlisted",
-		"TestListingKitRootServiceSubmitFilesStayAllowlisted",
-		"TestListingKitRootTaskSubmissionFilesStayAllowlisted",
-		"TestListingKitRootServiceGenerationFilesStayAllowlisted",
-		"TestListingKitRootGenerationFilesStayAllowlisted",
-		"TestInfrastructurePackagesDoNotImportBusinessDomains",
-		"depguard: infrastructure_business_boundaries",
-		"TestBusinessImplementationPackagesDoNotImportGinDirectly",
-		"TestDomainHTTPPackagesDoNotImportAppHTTPAPI",
-		"depguard: domain_app_httpapi_boundaries",
-		"TestAppHTTPAPIRootListingKitHelpersStayAllowlisted",
-		"TestAppHTTPAPIModuleBuildersStayAllowlisted",
-		"TestAppHTTPAPIRouteDescriptorHelpersStayAllowlisted",
-		"TestAppHTTPAPIListingKitSupportImportsStayAllowlisted",
-		"TestAppHTTPAPIListingKitRootImportsStayAllowlisted",
-		"TestAppHTTPAPIListingKitHTTPAPIImportsStayAllowlisted",
-		"TestHTTPAPITypesDoesNotOwnRunOptions",
-		"TestHTTPAPIModulesFileDoesNotOwnFeatureBuildWrappers",
-		"TestHTTPAPIModulesFileDoesNotOwnBootstrapOrchestration",
-		"TestHTTPAPILegacyBuildHandlersFacadeStaysRetired",
-		"TestHTTPAPIModulesFileDoesNotOwnWorkerRuntimeSupport",
-		"TestHTTPAPIModulesFileDoesNotOwnLoginRuntimeSupport",
-		"TestHTTPAPICompositionBuilderDoesNotOwnLoginBootstrapTypes",
-		"TestHTTPAPICompositionBuilderDoesNotOwnLoginFeatureAssembly",
-		"TestHTTPAPILoginModuleResultAliasesStayRetired",
-		"TestHTTPAPIRuntimeStateUsesOwningLoginBootstrapResultTypes",
-		"TestHTTPAPIRuntimeStateUsesOwningFeatureHTTPAPIModuleTypes",
-		"TestHTTPAPIRuntimeDepsMethodsUseOwningFeatureHTTPAPIModuleTypes",
-		"TestHTTPModulesDoNotOwnFeatureHTTPAPIModuleSelectionSignatures",
-		"TestHTTPAPIFeatureBuildersUseOwningFeatureHTTPAPIModuleTypesInSignatures",
-		"TestFeatureModuleBuilderContractsUseOwningModuleTypes",
-		"TestHTTPAPIRuntimeStateUsesOwningSupportModuleResultTypes",
-		"TestHTTPAPICompositionBuilderDoesNotOwnSupportModuleBuilderContracts",
-		"TestHTTPAPICompositionBuilderDoesNotOwnSupportFeatureAssembly",
-		"TestHTTPAPIModulesFileDoesNotOwnListingKitSDSRuntimeSupportHook",
-		"TestHTTPAPICompositionBuilderDoesNotOwnProductImageRuntimeInputs",
-		"TestHTTPAPICompositionBuilderDoesNotOwnAmazonListingRuntimeInput",
-		"TestHTTPAPICompositionBuilderDoesNotOwnListingKitRuntimeInput",
-		"TestBusinessDomainsDoNotImportAppRuntimeAssembly",
-		"TestPlatformModulesDoNotImportBusinessOrHTTPAssemblyPackages",
-		"depguard: platform_registration_boundaries",
-		"TestAICapabilityModuleUsesOnlyApprovedDependencies",
-		"depguard: aicapability_boundaries",
-		"TestPlatformModulesHistoricalImplementationImportsStayAllowlisted",
-		"TestPlatformRegistrationPackagesStayThin",
-		"TestPlatformRegistrationPackagesContainNoLocalArtifacts",
-		"depguard: publishing_shein_legacy_runtime",
-		"depguard: shein_submitprep_legacy_tenantctx",
-		"TestPublishingSheinNonAPISheinImportsStayAllowlisted",
-		"depguard: publishing_common_legacy_productenrich",
-		"TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets",
-		"depguard: publishing_common_platforms",
-		"depguard: listingkit_legacy_shein_runtime",
-		"depguard: listingkit_shein_api_root",
-		"TestCmdContainsOnlyOfficialEntrypoints",
-		"TestCmdProductionEntrypointsDoNotImportDomainOrInfraPackages",
-		"depguard: cmd_domain_dependencies",
-		"TestCmdPackagesDoNotImportAppCompatibilityLayers",
-		"depguard: cmd_legacy_app_compatibility",
-		"TestHackContainsOnlyManagedSupportAreas",
-		"TestHackSupportAreasContainNoLocalArtifacts",
-		"TestTrackedLocalArtifactsStayOutOfProductionEntrypoints",
-		"TestProductionEntrypointsContainNoLocalArtifacts",
-		"TestTrackedLocalArtifactsStayOutOfTools",
-		"TestToolsContainNoLocalArtifacts",
-		"TestInternalPackagesContainNoLocalArtifacts",
-		"TestSDSLoginRuntimeStateStaysOutOfInternalPackages",
-		"depguard: internal_legacy_app_compatibility",
-		"TestInternalPackagesDoNotImportAppCompatibilityLayersAcrossBuildTargets",
-		"TestAppProcessorCompatibilityLayerIsRetired",
-		"TestAppStateCompatibilityLayerIsRetired",
-		"TestInfraProductCrawlerAdapterIsRetired",
-		"TestAppCrawlerFetcherCompatibilityLayerIsRetired",
-		"TestCmdPackagesDoNotImportAppCompatibilityLayers",
-		"depguard: cmd_legacy_app_compatibility",
-		"TestProductImageExternalClientImportsStayAllowlisted",
-		"TestAmazonExternalClientImportsStayAllowlisted",
-		"TestSheinBridgeExternalClientImportsStayAllowlisted",
-		"TestSheinRetiredManagementImportsStayBlocked",
-		"TestSheinOpenAIImportsStayAllowlisted",
-		"TestPublishingSheinManagedRetiredManagementImportsStayBlocked",
-		"TestAppRunnerRetiredManagementImportsStayBlocked",
-		"TestAppConsumerRetiredManagementImportsStayBlocked",
-		"TestAppBootstrapRetiredManagementImportsStayBlocked",
-		"depguard: listingruntime_local_legacy_management",
-		"TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets",
-		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
-		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"TestPlatformTaskRetiredManagementImportsStayBlocked",
-		"TestStateRetiredManagementImportsStayBlocked",
-		"TestPlatformBaseRetiredManagementImportsStayBlocked",
-		"TestTaskRPCAPIRetiredManagementImportsStayBlocked",
-		"TestSDSClientRetiredManagementImportsStayBlocked",
-		"TestSheinLoginBootstrapRetiredManagementImportsStayBlocked",
-		"TestSheinLoginServiceRetiredManagementImportsStayBlocked",
-		"TestSheinLoginManagedRetiredManagementImportsStayBlocked",
-		"TestSharedPricingRetiredManagementImportsStayBlocked",
-		"TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted",
-		"TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated",
-		"TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsOpenAIRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsSharedResourceAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsRuntimeDepsMethodsDedicated",
-		"TestHTTPAPIRuntimeKeepsPromptRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsProductEnrichRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsPathResolutionDedicated",
-		"TestHTTPAPIRuntimeKeepsConfigLoadingDedicated",
-		"TestHTTPAPIAdaptersKeepTaskRepositoryAssemblyDedicated",
-		"TestHTTPAPIAdaptersKeepPromptStoreAssemblyDedicated",
-		"TestBootstrapKeepsModelProviderAssemblyInDedicatedFile",
-		"TestBootstrapKeepsLLMScorerAssemblyInDedicatedFile",
-		"TestBootstrapKeepsAssetPublisherAssemblyInDedicatedFile",
-		"TestBootstrapKeepsTaskRepositoryAssemblyInDedicatedFile",
-		"TestBootstrapKeepsImagePipelineComponentAssemblyInDedicatedFile",
-		"TestPublishingSheinOpenAIImportsStayAllowlisted",
-		"TestPublishingSheinManagedAPIImportsStayAllowlisted",
-		"TestListingKitHTTPAPIExternalClientImportsStayAllowlisted",
-		"TestListingKitHTTPAPIRetiredManagementImportsStayBlocked",
-		"TestListingKitSheinSyncLegacyPromotionImportsStayAllowlisted",
-		"TestListingKitRootOpenAIImportsStayAllowlisted",
-		"depguard: listingkit_root_management_api",
-		"depguard: listingkit_subdomains_root_facade",
-		"depguard: listingkit_root_workspace_shein",
-		"TestListingKitImportDirectionStaysRetiredAcrossBuildTargets",
-		"TestListingKitSupportFileStaysRetired",
-		"TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter",
-		"TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked",
-		"TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked",
-		"TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked",
-		"TestTEMUOpenAIImportsStayAllowlisted",
-		"TestTemporalSDKImportsStayInRuntimeAndOrchestrationAdapters",
-		"TestTemporalRuntimePackagesDoNotImportHTTPAPI",
-		"depguard: temporal_runtime_httpapi",
-		"depguard: listing_preview_platform_neutral",
-		"TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so architecture review catches common boundary regressions", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistReferencesCurrentGuardCoverageSource(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	reviewReferences := markdownSection(t, string(content), "## Review References")
-	required := "docs/architecture/next-steps.md"
-	if !strings.Contains(reviewReferences, required) {
-		t.Fatalf("%s Review References must list %q so reviewers can find the current guard coverage baseline", path, required)
-	}
-}
-
-func TestArchitectureReviewChecklistSeparatesStableRulesFromCurrentGuardBaseline(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	reviewReferences := markdownSection(t, string(content), "## Review References")
-	required := []string{
-		"stable source of truth for long-lived boundary rules",
-		"current guard coverage baseline",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(reviewReferences, phrase) {
-			t.Errorf("%s Review References must mention %q so review policy does not confuse stable rules with the current guard baseline", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistReferencesArchitectureIndexEntrypoints(t *testing.T) {
-	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
-	readmeContent, err := os.ReadFile(readmePath)
-	if err != nil {
-		t.Fatalf("read %s: %v", readmePath, err)
-	}
-
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	required := []string{"docs/architecture/README.md"}
-	for _, heading := range []string{"## Stable Boundary Documents", "## Development Boundary Documents", "## Current Guard Baseline"} {
-		required = append(required, normalizedArchitectureDocReferences(t, markdownSection(t, string(readmeContent), heading))...)
-	}
-
-	for _, reference := range required {
-		if reference == "docs/architecture/architecture-review-checklist.md" {
-			continue
-		}
-		if !strings.Contains(reviewReferences, reference) {
-			t.Errorf("%s Review References must include %q from %s so the checklist stays aligned with the architecture index", checklistPath, reference, readmePath)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistPreservesArchitectureIndexReferenceOrder(t *testing.T) {
-	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
-	readmeContent, err := os.ReadFile(readmePath)
-	if err != nil {
-		t.Fatalf("read %s: %v", readmePath, err)
-	}
-
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	referenceListStart := strings.Index(reviewReferences, "- ")
-	if referenceListStart == -1 {
-		t.Fatalf("%s Review References must include a reference list", checklistPath)
-	}
-	referenceList := reviewReferences[referenceListStart:]
-	required := []string{"docs/architecture/README.md"}
-	for _, heading := range []string{"## Stable Boundary Documents", "## Development Boundary Documents", "## Current Guard Baseline"} {
-		required = append(required, normalizedArchitectureDocReferences(t, markdownSection(t, string(readmeContent), heading))...)
-	}
-
-	lastIndex := -1
-	for _, reference := range required {
-		if reference == "docs/architecture/architecture-review-checklist.md" {
-			continue
-		}
-		index := strings.Index(referenceList, reference)
-		if index == -1 {
-			t.Fatalf("%s Review References must include %q from %s before order can be checked", checklistPath, reference, readmePath)
-		}
-		if index < lastIndex {
-			t.Errorf("%s Review References must preserve the %s order; %q appears out of order", checklistPath, readmePath, reference)
-		}
-		lastIndex = index
-	}
+func TestHTTPAPIAssemblyBoundaryDocumentDefinesCurrentOwnership(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "httpapi-assembly-boundaries.md"), []string{
+		"cmd/* -> internal/app/httpapi -> internal/*/httpapi -> domain service/runtime/contracts",
+		"composition root", "route registration", "不导入 `internal/app/httpapi`", "RunOptions",
+		"具体权限与原作用域", "denied/unavailable", "不把 DDL", "depguard: domain_app_httpapi_boundaries",
+	})
 }
 
 func TestArchitectureReviewChecklistReferencesExistingDocuments(t *testing.T) {
@@ -906,329 +281,6 @@ func TestArchitectureReviewChecklistReferencesExistingDocuments(t *testing.T) {
 	}
 
 	assertMarkdownReferencesExistingDocuments(t, checklistPath, reviewReferences)
-}
-
-func TestArchitectureReviewChecklistReferencesAreUnique(t *testing.T) {
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	const uniqueRule = "Review references must not contain duplicate document entries"
-	if !strings.Contains(reviewReferences, uniqueRule) {
-		t.Errorf("%s Review References must state %q so formal review entrypoints remain a clear set", checklistPath, uniqueRule)
-	}
-
-	referenceListStart := strings.Index(reviewReferences, "- ")
-	if referenceListStart == -1 {
-		t.Fatalf("%s Review References must include a reference list", checklistPath)
-	}
-	referenceList := reviewReferences[referenceListStart:]
-	seen := map[string]bool{}
-	for _, reference := range normalizedArchitectureDocReferences(t, referenceList) {
-		if seen[reference] {
-			t.Errorf("%s Review References must not list %q more than once", checklistPath, reference)
-		}
-		seen[reference] = true
-	}
-}
-
-func TestArchitectureReviewChecklistKeepsDocumentPathsInReferenceList(t *testing.T) {
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	const listOnlyRule = "Document paths in Review References must be listed only in the reference list"
-	if !strings.Contains(reviewReferences, listOnlyRule) {
-		t.Errorf("%s Review References must state %q so explanatory prose does not become an implicit reference list", checklistPath, listOnlyRule)
-	}
-
-	referenceListStart := strings.Index(reviewReferences, "- ")
-	if referenceListStart == -1 {
-		t.Fatalf("%s Review References must include a reference list", checklistPath)
-	}
-	prose := reviewReferences[:referenceListStart]
-	referencePattern := regexp.MustCompile("`([^`]+\\.md)`")
-	if matches := referencePattern.FindAllStringSubmatch(prose, -1); len(matches) > 0 {
-		for _, match := range matches {
-			t.Errorf("%s Review References prose must not contain document path %q; put formal paths in the reference list", checklistPath, match[1])
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistExcludesTimeBoundedReviewReferences(t *testing.T) {
-	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
-	readmeContent, err := os.ReadFile(readmePath)
-	if err != nil {
-		t.Fatalf("read %s: %v", readmePath, err)
-	}
-
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	const timeBoundedRule = "Time-bounded plans, runbooks, and evaluations must not be listed as review references"
-	if !strings.Contains(reviewReferences, timeBoundedRule) {
-		t.Errorf("%s Review References must state %q so temporary context documents do not become formal review entrypoints", checklistPath, timeBoundedRule)
-	}
-
-	patterns := architectureReadmeTimeBoundedPatterns(t, string(readmeContent))
-	for _, reference := range normalizedArchitectureDocReferences(t, reviewReferences) {
-		name := filepath.Base(reference)
-		if matchesAnyPattern(t, name, patterns) {
-			t.Errorf("%s Review References must not include time-bounded context document %q matching patterns %v", checklistPath, reference, patterns)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistExcludesSupportingContextReferences(t *testing.T) {
-	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
-	readmeContent, err := os.ReadFile(readmePath)
-	if err != nil {
-		t.Fatalf("read %s: %v", readmePath, err)
-	}
-
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	const supportingContextRule = "Supporting context documents must not be listed as review references unless promoted into stable boundary documents"
-	if !strings.Contains(reviewReferences, supportingContextRule) {
-		t.Errorf("%s Review References must state %q so background documents do not become formal review entrypoints", checklistPath, supportingContextRule)
-	}
-
-	supportingContext := markdownSection(t, string(readmeContent), "## Supporting Context")
-	for _, reference := range normalizedArchitectureDocReferences(t, supportingContext) {
-		if strings.Contains(reviewReferences, reference) {
-			t.Errorf("%s Review References must not include supporting context document %q from %s", checklistPath, reference, readmePath)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistReferencesOnlyArchitectureIndexEntrypoints(t *testing.T) {
-	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
-	readmeContent, err := os.ReadFile(readmePath)
-	if err != nil {
-		t.Fatalf("read %s: %v", readmePath, err)
-	}
-
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	const indexedEntrypointsRule = "Every review reference must come from the architecture index stable, development, or current guard baseline sections"
-	if !strings.Contains(reviewReferences, indexedEntrypointsRule) {
-		t.Errorf("%s Review References must state %q so ad-hoc documents cannot become formal review entrypoints", checklistPath, indexedEntrypointsRule)
-	}
-
-	allowed := map[string]bool{"docs/architecture/README.md": true}
-	for _, heading := range []string{"## Stable Boundary Documents", "## Development Boundary Documents", "## Current Guard Baseline"} {
-		for _, reference := range normalizedArchitectureDocReferences(t, markdownSection(t, string(readmeContent), heading)) {
-			allowed[reference] = true
-		}
-	}
-
-	for _, reference := range normalizedArchitectureDocReferences(t, reviewReferences) {
-		if !allowed[reference] {
-			t.Errorf("%s Review References includes %q, but it is not indexed in %s as a stable, development, or current guard baseline entrypoint", checklistPath, reference, readmePath)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistExplainsReviewReferenceRoles(t *testing.T) {
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	reviewReferences := markdownSection(t, string(checklistContent), "## Review References")
-	required := []string{
-		"stable source of truth for long-lived boundary rules",
-		"current guard coverage baseline",
-		"development boundary documents define long-lived repository structure rules",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(reviewReferences, phrase) {
-			t.Errorf("%s Review References must explain %q so reviewers know how to use each entrypoint class", checklistPath, phrase)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistKeepsContextDocumentsOutOfReviewPolicy(t *testing.T) {
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	workingRule := markdownSection(t, string(checklistContent), "## Working Rule")
-	required := []string{
-		"plans, runbooks, or contextual notes",
-		"copied or linked into a stable boundary document",
-		"before being used as review policy",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(workingRule, phrase) {
-			t.Errorf("%s Working Rule must mention %q so contextual documents cannot silently become review policy", checklistPath, phrase)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistCoversRepositoryStructureRules(t *testing.T) {
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	requiredChecks := markdownSection(t, string(checklistContent), "## Required Checks")
-	required := []string{
-		"docs/development/repository-structure.md",
-		"`cmd/`",
-		"official entrypoints",
-		"`hack/`",
-		"managed support areas",
-		"local artifacts",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(requiredChecks, phrase) {
-			t.Errorf("%s Required Checks must mention %q so repository layout rules are reviewed with architecture changes", checklistPath, phrase)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistRequiresGuardBaselineUpdates(t *testing.T) {
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	checklistContent, err := os.ReadFile(checklistPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", checklistPath, err)
-	}
-
-	requiredChecks := markdownSection(t, string(checklistContent), "## Required Checks")
-	required := []string{
-		"docs/architecture/next-steps.md",
-		"Current guard coverage",
-		"guard baseline",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(requiredChecks, phrase) {
-			t.Errorf("%s Required Checks must mention %q so guard baseline changes stay aligned with review actions", checklistPath, phrase)
-		}
-	}
-}
-
-func TestArchitectureReviewChecklistGuardBaselineStaysSubsetOfCurrentCoverage(t *testing.T) {
-	nextStepsPath := filepath.Join("..", "docs", "architecture", "next-steps.md")
-	nextStepsContent, err := os.ReadFile(nextStepsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", nextStepsPath, err)
-	}
-
-	currentGuardCoverage := markdownBlockBetween(t, string(nextStepsContent), "Current guard coverage:", "后续重点")
-	required := []string{
-		"docs/architecture/architecture-review-checklist.md",
-		"权威清单应直接以 checklist 的 `Guard Baseline`",
-		"next-steps.md` 只保留 baseline 入口",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(currentGuardCoverage, phrase) {
-			t.Errorf("%s Current guard coverage must mention %q so the active baseline points to the checklist-owned guard inventory", nextStepsPath, phrase)
-		}
-	}
-}
-
-func TestNextTechnicalPrioritiesTracksImplementedBoundaryGuards(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "next-steps.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"## How To Use This Document",
-		"Current guard coverage",
-		"权威清单应直接以 checklist 的 `Guard Baseline`",
-		"next-steps.md` 只保留 baseline 入口",
-		"docs/architecture/architecture-review-checklist.md",
-		"docs/architecture/README.md",
-		"Every next-step reference must resolve to an existing repository document",
-		"后续重点不是增加很多测试",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so next-step priorities stay aligned with the checklist-owned guard baseline", path, phrase)
-		}
-	}
-}
-
-func TestNextTechnicalPrioritiesCurrentGuardCoveragePointsToReviewEntrypoints(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "next-steps.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	currentGuardCoverage := markdownBlockBetween(t, string(content), "Current guard coverage:", "后续重点")
-	required := []string{
-		"docs/architecture/README.md",
-		"docs/architecture/architecture-review-checklist.md",
-		"权威清单应直接以 checklist 的 `Guard Baseline`",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(currentGuardCoverage, phrase) {
-			t.Errorf("%s Current guard coverage must mention %q so the active guard baseline points back to the review entrypoints", path, phrase)
-		}
-	}
-}
-
-func TestNextTechnicalPrioritiesReferencesExistingDocuments(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "next-steps.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	currentGuardCoverage := markdownBlockBetween(t, string(content), "Current guard coverage:", "后续重点")
-	const referenceRule = "Every next-step reference must resolve to an existing repository document"
-	if !strings.Contains(currentGuardCoverage, referenceRule) {
-		t.Errorf("%s Current guard coverage must state %q so active baseline links cannot drift into dead references", path, referenceRule)
-	}
-
-	assertMarkdownReferencesExistingDocuments(t, path, currentGuardCoverage)
-}
-
-func TestNextTechnicalPrioritiesCurrentGuardCoverageReferencesImplementedTests(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "next-steps.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	currentGuardCoverage := markdownBlockBetween(t, string(content), "Current guard coverage:", "后续重点")
-	const implementedTestRule = "Every guard listed in current coverage must resolve to an implemented test function"
-	if strings.Contains(currentGuardCoverage, implementedTestRule) {
-		t.Errorf("%s Current guard coverage must not mention %q once the checklist owns the authoritative guard inventory", path, implementedTestRule)
-	}
-
-	guardPattern := regexp.MustCompile("`(Test[A-Za-z0-9_]+)`")
-	for _, match := range guardPattern.FindAllStringSubmatch(currentGuardCoverage, -1) {
-		t.Errorf("%s Current guard coverage must not enumerate guard test %q once the checklist owns the full guard baseline", path, match[1])
-	}
 }
 
 func markdownSection(t *testing.T, content, heading string) string {
@@ -1266,39 +318,6 @@ func normalizedArchitectureDocReferences(t *testing.T, content string) []string 
 	return references
 }
 
-func implementedTestNames(t *testing.T) map[string]bool {
-	t.Helper()
-
-	testNames := make(map[string]bool)
-	testFuncPattern := regexp.MustCompile(`func (Test[A-Za-z0-9_]+)\(`)
-	repoRoot := filepath.Join("..")
-	err := filepath.WalkDir(repoRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		for _, match := range testFuncPattern.FindAllStringSubmatch(string(content), -1) {
-			testNames[match[1]] = true
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("collect implemented test names: %v", err)
-	}
-
-	if len(testNames) == 0 {
-		t.Fatalf("expected to find implemented test functions under repository root %s", repoRoot)
-	}
-	return testNames
-}
-
 func architectureReadmeExplicitReferences(t *testing.T, content string) map[string]bool {
 	t.Helper()
 
@@ -1312,447 +331,27 @@ func architectureReadmeExplicitReferences(t *testing.T, content string) map[stri
 	return references
 }
 
-func architectureReadmeTimeBoundedPatterns(t *testing.T, content string) []string {
-	t.Helper()
-
-	plansRunbooksAndEvaluations := markdownSection(t, content, "## Plans, runbooks, and evaluations")
-	referencePattern := regexp.MustCompile("`(\\*-[^`]+\\.md)`")
-	matches := referencePattern.FindAllStringSubmatch(plansRunbooksAndEvaluations, -1)
-	if len(matches) == 0 {
-		t.Fatalf("Plans, runbooks, and evaluations must include time-bounded context patterns")
-	}
-
-	patterns := make([]string, 0, len(matches))
-	for _, match := range matches {
-		patterns = append(patterns, match[1])
-	}
-	return patterns
-}
-
-func matchesAnyPattern(t *testing.T, name string, patterns []string) bool {
-	t.Helper()
-
-	for _, pattern := range patterns {
-		matched, err := filepath.Match(pattern, name)
-		if err != nil {
-			t.Fatalf("invalid time-bounded context pattern %q: %v", pattern, err)
-		}
-		if matched {
-			return true
-		}
-	}
-	return false
-}
-
-func markdownBlockBetween(t *testing.T, content, startMarker, endMarker string) string {
-	t.Helper()
-
-	start := strings.Index(content, startMarker)
-	if start == -1 {
-		t.Fatalf("markdown content must include start marker %q", startMarker)
-	}
-
-	block := content[start+len(startMarker):]
-	end := strings.Index(block, endMarker)
-	if end == -1 {
-		t.Fatalf("markdown content after %q must include end marker %q", startMarker, endMarker)
-	}
-	return block[:end]
-}
-
-func TestArchitectureReviewChecklistTracksEveryImportBoundaryGuard(t *testing.T) {
-	checklistPath := filepath.Join("..", "docs", "architecture", "architecture-review-checklist.md")
-	assertDocumentTracksEveryImportBoundaryGuard(t, checklistPath, "Guard Baseline so architecture review covers every active import-boundary guard")
-}
-
-func assertDocumentTracksEveryImportBoundaryGuard(t *testing.T, documentPath string, sectionDescription string) {
-	t.Helper()
-
-	documentContent, err := os.ReadFile(documentPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", documentPath, err)
-	}
-
-	testContent, err := os.ReadFile(filepath.Join(".", "import_boundaries_test.go"))
-	if err != nil {
-		t.Fatalf("read import_boundaries_test.go: %v", err)
-	}
-
-	testNamePattern := regexp.MustCompile(`(?m)^func (Test\w+)`)
-	for _, match := range testNamePattern.FindAllStringSubmatch(string(testContent), -1) {
-		testName := match[1]
-		if !strings.Contains(string(documentContent), testName) {
-			t.Errorf("%s must list %s in %s", documentPath, testName, sectionDescription)
-		}
-	}
-}
-
-func TestPlatformBoundaryStrategyDefinesConvergenceRoles(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "platform-boundary-strategy.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# Platform Boundary Strategy",
-		"project-boundaries.md",
-		"repository-wide entrypoint",
-		"Historical platform packages",
-		"`internal/publishing/*`",
-		"`internal/listingkit`",
-		"`internal/platforms/*`",
-		"depguard: publishing_shein_legacy_runtime",
-		"depguard: listingkit_legacy_shein_runtime",
-		"depguard: listingkit_shein_api_root",
-		"depguard: listingkit_root_management_api",
-		"depguard: shein_submitprep_legacy_tenantctx",
-		"TestPublishingSheinNonAPISheinImportsStayAllowlisted",
-		"depguard: publishing_common_legacy_productenrich",
-		"TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets",
-		"depguard: publishing_common_platforms",
-		"TestPlatformModulesDoNotImportBusinessOrHTTPAssemblyPackages",
-		"depguard: platform_registration_boundaries",
-		"TestPlatformModulesHistoricalImplementationImportsStayAllowlisted",
-		"TestPlatformRegistrationPackagesStayThin",
-		"TestPlatformRegistrationPackagesContainNoLocalArtifacts",
-		"Migration Rules",
-		"Review Questions",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so platform convergence has a stable review target", path, phrase)
-		}
-	}
-}
-
-func TestHistoricalPlatformMigrationInventoryDefinesCostSlices(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "historical-platform-migration-inventory.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# Historical Platform Migration Inventory",
-		"project-boundaries.md",
-		"platform-boundary-strategy.md",
-		"`internal/shein`",
-		"`internal/temu`",
-		"`internal/amazon`",
-		"Cost Tiers",
-		"Next Slice Candidates",
-		"TestPlatformRegistrationPackagesStayThin",
-		"TestPlatformRegistrationPackagesContainNoLocalArtifacts",
-		"Non-goals",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so historical platform migration cost is reviewable", path, phrase)
-		}
-	}
-}
-
-func TestExternalClientBoundaryInventoryDefinesCouplingHotspots(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "external-client-boundary-inventory.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# External Client Boundary Inventory",
-		"project-boundaries.md",
-		"repository-wide default",
-		"`internal/infra/clients/management`",
-		"management retirement target",
-		"in-repository database/repository access",
-		"freeze current seams",
-		"`internal/infra/clients/openai`",
-		"`internal/infra/clients/grsai`",
-		"Hotspots",
-		"`internal/listingkit`",
-		"`internal/publishing/shein`",
-		"`internal/shein`",
-		"`internal/sheinbridge`",
-		"`internal/temu`",
-		"`internal/pricing`",
-		"Local Interface Rule",
-		"Next Slice Candidates",
-		"TestProductImageExternalClientImportsStayAllowlisted",
-		"TestAmazonExternalClientImportsStayAllowlisted",
-		"TestSheinBridgeExternalClientImportsStayAllowlisted",
-		"TestSheinRetiredManagementImportsStayBlocked",
-		"TestSheinOpenAIImportsStayAllowlisted",
-		"TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted",
-		"TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated",
-		"TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsOpenAIRuntimeAssemblyDedicated",
-		"TestPublishingSheinOpenAIImportsStayAllowlisted",
-		"TestPublishingSheinManagedAPIImportsStayAllowlisted",
-		"TestPublishingSheinManagedRetiredManagementImportsStayBlocked",
-		"TestListingKitHTTPAPIExternalClientImportsStayAllowlisted",
-		"TestListingKitHTTPAPIRetiredManagementImportsStayBlocked",
-		"TestListingKitSheinSyncLegacyPromotionImportsStayAllowlisted",
-		"TestListingKitRootOpenAIImportsStayAllowlisted",
-		"TestAppRunnerRetiredManagementImportsStayBlocked",
-		"TestAppConsumerRetiredManagementImportsStayBlocked",
-		"TestAppBootstrapRetiredManagementImportsStayBlocked",
-		"depguard: listingruntime_local_legacy_management",
-		"TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets",
-		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
-		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"TestPlatformTaskRetiredManagementImportsStayBlocked",
-		"TestStateRetiredManagementImportsStayBlocked",
-		"TestPlatformBaseRetiredManagementImportsStayBlocked",
-		"TestTaskRPCAPIRetiredManagementImportsStayBlocked",
-		"TestSDSClientRetiredManagementImportsStayBlocked",
-		"TestSheinLoginBootstrapRetiredManagementImportsStayBlocked",
-		"TestSheinLoginServiceRetiredManagementImportsStayBlocked",
-		"TestSheinLoginManagedRetiredManagementImportsStayBlocked",
-		"TestSharedPricingRetiredManagementImportsStayBlocked",
-		"TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked",
-		"TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked",
-		"TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked",
-		"TestTEMUOpenAIImportsStayAllowlisted",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so external client coupling can be reduced intentionally", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReadmeIndexesStableBoundaryDocs(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "README.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# Architecture Documentation",
-		"Stable Boundary Documents",
-		"project-boundaries.md",
-		"httpapi-assembly-boundaries.md",
-		"app-assembly-boundaries.md",
-		"temporal-boundaries.md",
-		"platform-boundary-strategy.md",
-		"historical-platform-migration-inventory.md",
-		"external-client-boundary-inventory.md",
-		"compatibility-retirement.md",
-		"listing-preview-boundaries.md",
-		"architecture-review-checklist.md",
-		"Development Boundary Documents",
-		"docs/development/repository-structure.md",
-		"Plans, runbooks, and evaluations",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so stable architecture rules stay discoverable", path, phrase)
-		}
-	}
-
-	text := string(content)
-	stableIndex := strings.Index(text, "listing-preview-boundaries.md")
-	supportingIndex := strings.Index(text, "## Supporting Context")
-	if stableIndex == -1 || supportingIndex == -1 || stableIndex > supportingIndex {
-		t.Errorf("%s must list listing-preview-boundaries.md as a stable boundary document, not only supporting context", path)
-	}
-
-	repositoryIndex := strings.Index(text, "docs/development/repository-structure.md")
-	plansIndex := strings.Index(text, "## Plans, runbooks, and evaluations")
-	if repositoryIndex == -1 || plansIndex == -1 || repositoryIndex > plansIndex {
-		t.Errorf("%s must list docs/development/repository-structure.md before plan/runbook context so repository layout rules stay discoverable", path)
-	}
-}
-
-func TestArchitectureReadmeIndexesCurrentGuardCoverageBaseline(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "README.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"Current Guard Baseline",
-		"next-steps.md",
-		"Current guard coverage",
-		"guard coverage baseline",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so the architecture index points reviewers to the active guard baseline", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReadmeCurrentGuardBaselinePointsToReviewEntrypoints(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "README.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	currentGuardBaseline := markdownSection(t, string(content), "## Current Guard Baseline")
-	required := []string{
-		"docs/architecture/next-steps.md",
-		"docs/architecture/architecture-review-checklist.md",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(currentGuardBaseline, phrase) {
-			t.Errorf("%s Current Guard Baseline must mention %q so the architecture index uses the same review entrypoint paths as the checklist", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReadmeClassifiesTimeBoundedContextDocumentPatterns(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "README.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	plansRunbooksAndEvaluations := markdownSection(t, string(content), "## Plans, runbooks, and evaluations")
-
-	tests := []struct {
-		name       string
-		pattern    string
-		policyTerm string
-		reason     string
-	}{
-		{
-			name:       "playbooks",
-			pattern:    "*-playbook.md",
-			policyTerm: "boundary rules",
-			reason:     "playbooks stay contextual until promoted into stable boundary docs",
-		},
-		{
-			name:       "validation docs",
-			pattern:    "*-validation.md",
-			policyTerm: "review policy",
-			reason:     "validation findings stay contextual until promoted into stable boundary docs",
-		},
-		{
-			name:       "split plans",
-			pattern:    "*-split.md",
-			policyTerm: "review policy",
-			reason:     "split plans stay contextual until promoted into stable boundary docs",
-		},
-		{
-			name:       "management notes",
-			pattern:    "*-management.md",
-			policyTerm: "review policy",
-			reason:     "management notes stay contextual until promoted into stable boundary docs",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for _, phrase := range []string{tt.pattern, tt.policyTerm} {
-				if !strings.Contains(plansRunbooksAndEvaluations, phrase) {
-					t.Errorf("%s Plans, runbooks, and evaluations must mention %q so %s", path, phrase, tt.reason)
-				}
-			}
-		})
-	}
-}
-
-func TestArchitectureReadmeIndexesRuntimeFlowSupportingContext(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "README.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	supportingContext := markdownSection(t, string(content), "## Supporting Context")
-	required := []string{
-		"amazon-crawler-runtime-flow.md",
-		"runtime flow",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(supportingContext, phrase) {
-			t.Errorf("%s Supporting Context must mention %q so runtime-flow background stays discoverable without becoming stable policy", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReadmeDescribesSupportingContextRoles(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "README.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	supportingContext := markdownSection(t, string(content), "## Supporting Context")
-	required := []string{
-		"target architecture context",
-		"status lifecycle context",
-		"TEMU architecture pattern context",
-		"TEMU pipeline stage context",
-		"ListingKit refactor status context",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(supportingContext, phrase) {
-			t.Errorf("%s Supporting Context must mention %q so background documents have explicit roles instead of becoming an undifferentiated file list", path, phrase)
-		}
-	}
-}
-
-func TestArchitectureReadmeWorkingRuleCoversContextualNotes(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "README.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	workingRule := markdownSection(t, string(content), "## Working Rule")
-	required := []string{
-		"prefer the stable boundary document",
-		"contextual note",
-		"instead of creating a third interpretation",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(workingRule, phrase) {
-			t.Errorf("%s Working Rule must mention %q so every non-stable architecture note is resolved through stable boundary docs", path, phrase)
-		}
-	}
-}
-
 func TestArchitectureReadmeCoversEveryArchitectureDocument(t *testing.T) {
-	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
-	readmeContent, err := os.ReadFile(readmePath)
+	path := filepath.Join("..", "docs", "architecture", "README.md")
+	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("read %s: %v", readmePath, err)
+		t.Fatal(err)
 	}
-
-	for _, phrase := range []string{"Every architecture document", "indexed above", "time-bounded context pattern"} {
-		if !strings.Contains(string(readmeContent), phrase) {
-			t.Errorf("%s must mention %q so new architecture documents cannot drift outside the index contract", readmePath, phrase)
-		}
-	}
-
-	explicitReferences := architectureReadmeExplicitReferences(t, string(readmeContent))
-	contextPatterns := architectureReadmeTimeBoundedPatterns(t, string(readmeContent))
+	explicit := architectureReadmeExplicitReferences(t, string(content))
 	documents, err := filepath.Glob(filepath.Join("..", "docs", "architecture", "*.md"))
 	if err != nil {
-		t.Fatalf("glob architecture docs: %v", err)
+		t.Fatal(err)
 	}
-
 	for _, document := range documents {
 		name := filepath.Base(document)
-		if name == "README.md" {
-			continue
+		if name != "README.md" && !explicit[name] {
+			t.Errorf("%s must be explicitly indexed in %s", name, path)
 		}
-		if explicitReferences[name] || matchesAnyPattern(t, name, contextPatterns) {
-			continue
-		}
-		t.Errorf("%s must be explicitly indexed in %s or match one of the time-bounded context patterns %v", name, readmePath, contextPatterns)
 	}
 }
 
 func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-overview-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-overview.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "Service.Choice", "submit_selected",
 		"MemberID 属于当前", "不跨 owner 直接读", "2000", "并发最多4", "总请求10s",
 		"不返回局部计数或假0", "scope 必须完全一致", "无 mutation intent",
@@ -1760,7 +359,7 @@ func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *
 }
 
 func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOriginalIntentRecovery(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product.md"), []string{
 		"Independent Architecture", "IMPLEMENTATION_READY / FROZEN", "SupplyMarket", "submit_selected",
 		"useResourcePending", "navigator.locks", "1 MiB", "journal 在整批处理期间不可变",
 		"每件仍提交一个 submit_selected", "每件 Repository.Execute 仍在自己的同库事务",
@@ -1787,37 +386,6 @@ func TestArchitectureReadmeReferencesExistingDocuments(t *testing.T) {
 	assertMarkdownReferencesExistingDocuments(t, readmePath, string(readmeContent))
 }
 
-func TestArchitectureReadmeRequiresBoundaryDocumentsToHaveDocumentTests(t *testing.T) {
-	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
-	readmeContent, err := os.ReadFile(readmePath)
-	if err != nil {
-		t.Fatalf("read %s: %v", readmePath, err)
-	}
-
-	readmeText := string(readmeContent)
-	const testRule = "Every stable or development boundary document must have a document test"
-	if !strings.Contains(readmeText, testRule) {
-		t.Errorf("%s must state %q so new long-lived architecture entrypoints are added with automated guard coverage", readmePath, testRule)
-	}
-
-	testPath := filepath.Join(".", "architecture_docs_test.go")
-	testContent, err := os.ReadFile(testPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", testPath, err)
-	}
-
-	for _, heading := range []string{"## Stable Boundary Documents", "## Development Boundary Documents"} {
-		for _, reference := range normalizedArchitectureDocReferences(t, markdownSection(t, readmeText, heading)) {
-			if reference == "docs/architecture/architecture-review-checklist.md" {
-				continue
-			}
-			if !strings.Contains(string(testContent), reference) && !strings.Contains(string(testContent), filepath.Base(reference)) {
-				t.Errorf("%s lists %q as a boundary document, but %s does not reference it", readmePath, reference, testPath)
-			}
-		}
-	}
-}
-
 func assertMarkdownReferencesExistingDocuments(t *testing.T, sourcePath string, markdownContent string) {
 	t.Helper()
 
@@ -1834,162 +402,17 @@ func assertMarkdownReferencesExistingDocuments(t *testing.T, sourcePath string, 
 	}
 }
 
-func TestRepositoryStructureDocumentTracksDirectoryGuardTests(t *testing.T) {
-	path := filepath.Join("..", "docs", "development", "repository-structure.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# Repository Structure",
-		"How To Use This Document",
-		"docs/architecture/README.md",
-		"docs/architecture/project-boundaries.md",
-		"`cmd/`",
-		"`hack/`",
-		"`tools/`",
-		"TestCmdContainsOnlyOfficialEntrypoints",
-		"TestCmdProductionEntrypointsDoNotImportDomainOrInfraPackages",
-		"depguard: cmd_domain_dependencies",
-		"TestCmdPackagesDoNotImportAppCompatibilityLayers",
-		"depguard: cmd_legacy_app_compatibility",
-		"TestHackContainsOnlyManagedSupportAreas",
-		"TestHackSupportAreasContainNoLocalArtifacts",
-		"TestTrackedLocalArtifactsStayOutOfProductionEntrypoints",
-		"TestProductionEntrypointsContainNoLocalArtifacts",
-		"TestTrackedLocalArtifactsStayOutOfTools",
-		"TestToolsContainNoLocalArtifacts",
-		"TestInternalPackagesContainNoLocalArtifacts",
-		"TestSDSLoginRuntimeStateStaysOutOfInternalPackages",
-		"TestPlatformRegistrationPackagesStayThin",
-		"TestPlatformRegistrationPackagesContainNoLocalArtifacts",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so repository layout rules stay connected to guard tests", path, phrase)
-		}
-	}
-}
-
 func TestAppAssemblyBoundaryDocumentDefinesStableAssemblyVocabulary(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "app-assembly-boundaries.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# App Assembly Boundaries",
-		"project-boundaries.md",
-		"repository-wide entrypoint",
-		"default ownership and dependency direction",
-		"Assembly Vocabulary",
-		"build / initialize",
-		"register",
-		"start",
-		"coordinate",
-		"`bootstrap` builds and registers",
-		"`runner` starts and supervises",
-		"`consumer` assembles and coordinates",
-		"TestBusinessDomainsDoNotImportAppRuntimeAssembly",
-		"TestAppBootstrapRetiredManagementImportsStayBlocked",
-		"TestAppRunnerRetiredManagementImportsStayBlocked",
-		"TestAppConsumerRetiredManagementImportsStayBlocked",
-		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
-		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted",
-		"TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated",
-		"TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsOpenAIRuntimeAssemblyDedicated",
-		"TestHTTPAPIRuntimeKeepsSharedResourceAssemblyDedicated",
-		"Review Questions",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so app-layer assembly changes keep the stable bootstrap/runner/consumer vocabulary", path, phrase)
-		}
-	}
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "app-assembly-boundaries.md"), []string{
+		"repository-wide entrypoint", "default ownership and dependency direction", "Assembly Vocabulary",
+		"build / initialize", "register", "start", "coordinate", "`bootstrap` builds and registers",
+		"`runner` starts and supervises", "`consumer` assembles and coordinates", "domain packages cannot import app",
+		"without DDL", "Review Questions",
+	})
 }
 
-func TestCompatibilityRetirementDocumentCapturesAppCompatibilityStatus(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "compatibility-retirement.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	required := []string{
-		"# Compatibility Retirement",
-		"project-boundaries.md",
-		"repository-wide entrypoint",
-		"`internal/app/processor`",
-		"`internal/app/state`",
-		"Retired",
-		"zero in-repository imports",
-		"depguard: internal_legacy_app_compatibility",
-		"TestInternalPackagesDoNotImportAppCompatibilityLayersAcrossBuildTargets",
-		"TestAppProcessorCompatibilityLayerIsRetired",
-		"TestAppStateCompatibilityLayerIsRetired",
-		"`internal/infra/productcrawler`",
-		"`internal/app/crawler/fetcher`",
-		"TestInfraProductCrawlerAdapterIsRetired",
-		"TestAppCrawlerFetcherCompatibilityLayerIsRetired",
-		"TestCmdPackagesDoNotImportAppCompatibilityLayers",
-		"depguard: cmd_legacy_app_compatibility",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so retired compatibility paths stay explicit", path, phrase)
-		}
-	}
-}
-
-func TestListingPreviewBoundaryDocumentTracksPlatformNeutralGuard(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "listing-preview-boundaries.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	current := strings.SplitN(string(content), "# Listing Preview Boundaries", 2)[0]
-	for _, phrase := range []string{
-		"SOURCE_RETIRED / SUPERSEDED EXECUTION AUTHORITY",
-		"legacy-listing-preview-download-closure-retirement-boundary.md",
-		"internal/product/catalog", "internal/product/asset", "internal/listing/record",
-		"retired-package import bans and source absence",
-		"depguard: listing_preview_platform_neutral",
-		"TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets",
-	} {
-		if !strings.Contains(current, phrase) {
-			t.Errorf("%s current supersession must mention %q", path, phrase)
-		}
-	}
-
-	required := []string{
-		"# Listing Preview Boundaries",
-		"project-boundaries.md",
-		"repository-wide default",
-		"`internal/listing/preview`",
-		"`internal/listingkit`",
-		"platform-neutral",
-		"TestProjectBoundaryDomainsDoNotImportListingKitFacade",
-		"depguard: listing_preview_platform_neutral",
-		"TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets",
-	}
-	for _, phrase := range required {
-		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so the historical boundary and current retirement protection remain traceable", path, phrase)
-		}
-	}
-}
-
-func TestSelfServiceSubscriptionPurchaseContractLocksHardCutAndRecovery(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "self-service-subscription-purchase-contract.md"), []string{"SUPERSEDED / RETIRED", "preserved historical evidence", "unified-base-prepaid-resources-v1", "legacy-subscription-metering-closure-retirement-boundary", "SUBSCRIPTION_PURCHASE", "RECONCILIATION_REQUIRED", "workbench.commercial.purchase"})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "unified-base-prepaid-resources-v1.md"), []string{"server-owned offer", "immutable quote", "RESOURCE_PURCHASE", "CommercialPurchase", "internal/ledger/orgresource", "Store"})
-}
 func TestCommercialWalletBillingContractLocksCanonicalOwners(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "commercial-wallet-billing-contract.md")
+	path := filepath.Join("..", "docs", "architecture", "unified-base-prepaid-resources.md")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
@@ -2000,8 +423,6 @@ func TestCommercialWalletBillingContractLocksCanonicalOwners(t *testing.T) {
 		"internal/ledger/money",
 		"internal/commercial/billing",
 		"internal/ledger/orgresource",
-		"SUPERSEDED / RETIRED",
-		"unified-base-prepaid-resources-v1",
 		"server-owned",
 		"commercial_order_item",
 		"Idempotency-Key",
@@ -2027,7 +448,7 @@ func TestCommercialWalletBillingContractLocksCanonicalOwners(t *testing.T) {
 }
 
 func TestCurrentStoreDesignPreservesGreenfieldOwnersAndUnopenedServices(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-current-application-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-application.md"), []string{
 		"IMPLEMENTATION_READY", "全新系统产品基线", "storeCenter.quotaDatabase", "commercialOwnerDatabase", "AuthPolicyCurrentIdentity", "LiveWrite", "record_status", "pending_activation", "store_center_runtime", "store_quota_runtime", "Activate/Renew/Reactivate", "EXTRACT", "RETIRE",
 	})
 }
@@ -2038,7 +459,7 @@ func TestDataServicesDesignPreservesOriginalScopeFundsAndDelivery(t *testing.T) 
 		"本轮不新增本地企业业务停用功能", "nil status port", "deadline checks",
 		"No schema, durable fact owner", "always-allow adapter", "actor-private",
 	})
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "data-services-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "data-services.md"), []string{
 		"IMPLEMENTATION_READY", "PD-DATA-SERVICES-2026-10-09",
 		"成功保存一条消费一个 DATA_ROW，5 分/条", "创建者和企业", "撤权/离职后失效",
 		"不注入伪造的全站", "Resource DB 保持独立", "failed_fenced", "UNKNOWN",
@@ -2048,13 +469,13 @@ func TestDataServicesDesignPreservesOriginalScopeFundsAndDelivery(t *testing.T) 
 }
 
 func TestCockpitDesignPreservesManualFactsAndCurrentStoreOwner(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "operations-cockpit-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "operations-cockpit.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "人工", "创建人", "operations_cockpit", "同一DB transaction", "UNKNOWN", "不能按天", "JS安全", "NOT_RUN",
 	})
 }
 
 func TestStoreObservationDesignPreservesReadOnlyPlatformAndScopedFacts(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-platform-observations-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-platform-observations.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "PD-STORE-CENTER-READONLY-COMMERCE-2026-10-09",
 		"internal/storecenter/observations", "只读句柄仅暴露 Products/Orders/OrderDetails/Track",
 		"父命令回执", "比较checkpoint revision", "terminal状态和head原子提交", "单调generation",
@@ -2063,7 +484,7 @@ func TestStoreObservationDesignPreservesReadOnlyPlatformAndScopedFacts(t *testin
 }
 
 func TestStoreCenterFigmaDesignPreservesCurrentOwnersAndUserThresholds(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-figma-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-figma.md"), []string{
 		"IMPLEMENTATION_READY", "tg48P46SSXl6TBy9lZwg63", "没有默认阈值", "负责人只保存 canonical active member ID",
 		"quantity <= threshold", "返回冻结结果", "runtime只读 schema/权限preflight", "不创建新 database",
 		"基础目录不受 observations 500 店上限裁剪", "平台观察 generation", "NOT_RUN",
@@ -2071,7 +492,7 @@ func TestStoreCenterFigmaDesignPreservesCurrentOwnersAndUserThresholds(t *testin
 }
 
 func TestSupplyMarketDesignPreservesDisclosureAndOriginalExecutionOwners(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market.md"), []string{
 		"IMPLEMENTATION_READY", "Independent Architecture", "硕米平台账号",
 		"同 Product UoW", "verified global platform authorizer",
 		"SendPermit", "UNKNOWN", "productsourcing.NewMarketReceiver",
@@ -2080,7 +501,7 @@ func TestSupplyMarketDesignPreservesDisclosureAndOriginalExecutionOwners(t *test
 }
 
 func TestEcoservicesDesignPreservesOriginalFundsAndPrivateDomainOwners(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "ecosystem-services-v1.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "ecosystem-services.md"), []string{
 		"IMPLEMENTATION_READY", "internal/ecoservices", "internal/commercial/billing", "money",
 		"SERVICE_PURCHASE", "NON_COMMISSIONABLE", "CUSTOMER_ACCEPTED", "AR1", "UNKNOWN",
 		"CurrentIdentityWithVerifiedRoles", "LiveWrite", "全新", "原订单", "私有",

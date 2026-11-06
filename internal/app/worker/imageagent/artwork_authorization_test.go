@@ -41,10 +41,10 @@ type unusedArtworkResources struct{ imageagent.GenerationResources }
 func admittedWorkerArtwork(t *testing.T) (generationProjectionReader, imageagent.SlotExecutionInput) {
 	t.Helper()
 	id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member", RunID: uuid.NewString(), BusinessTaskID: uuid.NewString()}
-	quote := imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}
+	quote := imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price", RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}
 	art := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创动物", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create original artwork", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("a", 64)}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("b", 64)}, ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("c", 64), InputDigest: strings.Repeat("d", 64), Quote: quote, MaxPoints: 12, QuoteDigest: imageagent.ArtworkQuoteDigest(quote)}
 	plan := imageagent.Plan{Revision: 1, Artwork: art, IdempotencyKey: uuid.NewString(), CreatedBy: id.UserID, Slots: []imageagent.Slot{{ID: "artwork", Role: imageagent.SlotRoleMain, Brief: art.Theme, IdempotencyKey: "artwork", Status: imageagent.SlotStatusPending}}}
-	limits := agentconfig.ImageRunLimits{Images: 1, Points: 12, ElapsedSeconds: 300}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 12, ElapsedSeconds: 300}
 	digest, err := imageagent.ArtworkPlanDigest(plan)
 	require.NoError(t, err)
 	now := time.Now().UTC()

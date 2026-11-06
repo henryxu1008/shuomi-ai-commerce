@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/integration/openai"
 )
 
 func TestPrepareRejectsEffectiveReadOnlyRuntimeLoginWithoutRepair(t *testing.T) {
@@ -39,12 +38,12 @@ func TestPrepareRejectsEffectiveReadOnlyRuntimeLoginWithoutRepair(t *testing.T) 
 				case "product_agent_runtime":
 					writeErr = runtime.Exec("INSERT INTO public.product_agent_runs VALUES('run','org','actor','acquisition','context','request',?,1,'running',?)", strings.Repeat("a", 64), []byte(`{}`)).Error
 				case "title_credential_writer":
-					writeErr = openai.NewGormCredentialResolver(runtime).SaveCredential(context.Background(), openai.AIClientCredential{TenantID: "org", ClientName: "content", APIKey: "synthetic-only", BaseURL: "https://example.test/v1", Model: "synthetic", Enabled: true})
+					writeErr = runtime.Exec("INSERT INTO public.ai_channel_connections VALUES('org','channel','provider','channel','account','global','https://example.test/v1',1,true,'key-id','ciphertext')").Error
 				default:
 					writeErr = runtime.Exec("INSERT INTO public.product_title_proposals VALUES('org','proposal','actor','pending',?)", []byte(`{"State":"pending"}`)).Error
 				}
 				require.ErrorContains(t, writeErr, "read-only")
-				tables := []string{"public.preserved_fact", "public.product_agent_runs", "public.product_agent_tool_calls", "public.ai_client_credentials", "public.ai_invocations"}
+				tables := []string{"public.preserved_fact", "public.product_agent_runs", "public.product_agent_tool_calls", "public.ai_channel_connections", "public.ai_invocations"}
 				if target == "review" {
 					tables = []string{"public.preserved_fact", "public.product_title_proposals", "public.product_title_operations", "public.product_snapshot_versions", "public.product_snapshot_heads", "public.product_source_publications", "public.product_source_publication_receipts"}
 				}

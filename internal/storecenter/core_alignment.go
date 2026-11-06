@@ -30,6 +30,12 @@ AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('store_observati
 	if err != nil || !admitted {
 		return errors.New("retained Store database, original owner or declared object boundary mismatch")
 	}
+	return verifyStoreMaintenancePermissions(ctx, q, capabilities)
+}
+
+// Shared catalog checks target the fixed serving role without SET ROLE or its
+// credential. The caller separately pins its own admitted object boundary.
+func verifyStoreMaintenancePermissions(ctx context.Context, q coreSchemaQueryer, capabilities RuntimeCapabilities) error {
 	query := strings.Replace(storeRuntimePermissionQuery, coreRuntimeSubject, "(SELECT 'store_center_runtime'::text AS runtime_role) subject", 1)
 	var role string
 	var required, forbidden bool
@@ -40,7 +46,7 @@ AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('store_observati
 		return errors.New("retained Store runtime privileges mismatch")
 	}
 	var grantable bool
-	err = q.QueryRowContext(ctx, `WITH grantees(oid) AS (SELECT oid FROM pg_roles WHERE rolname='store_center_runtime' UNION ALL SELECT 0::oid), effective_acl AS (
+	err := q.QueryRowContext(ctx, `WITH grantees(oid) AS (SELECT oid FROM pg_roles WHERE rolname='store_center_runtime' UNION ALL SELECT 0::oid), effective_acl AS (
  SELECT p.* FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) p WHERE d.datname=current_database()
  UNION ALL SELECT p.* FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) p WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'
  UNION ALL SELECT p.* FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(c.relacl) p WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'

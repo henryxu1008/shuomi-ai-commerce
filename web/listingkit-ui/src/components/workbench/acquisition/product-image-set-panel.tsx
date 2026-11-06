@@ -1,5 +1,6 @@
 "use client";
 
+import {formatMicropoints} from "@/lib/contracts/ai-points";
 import Image from "next/image";
 import Link from "next/link";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
@@ -26,6 +27,7 @@ import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetR
 
 import {ImagePlanRoutePicker} from "./image-plan-route-picker";
 import {ImageTextCopy,imageTextLanguageNames} from "./image-text-copy";
+import {ProductImageAnalysisPanel} from "./product-image-analysis-panel";
 
 type Props={translationItemId?:string;kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare["target"];effectiveVersion?:string;applyReceiptId?:string;onSaved?:()=>void;initialRunId?:string;initialSkill?:SkillSelection};
 type Intent={action:ImageSetRoute;runId?:string;requestKey?:string;body:unknown};
@@ -40,8 +42,7 @@ export function ProductImageSetPanel(props:Props){
  const context=useWorkbenchContext(),userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  if(!userId||!organizationId||context.isSwitching||context.isLoading||context.error||context.blockingError||context.selectionRequired)return null;
  const permissions=context.permissions??[];
- if(!permissions.includes("listingkit.image_agent.read"))return null;
- return <ScopedImageSetPanel key={`${userId}:${organizationId}:${props.kind}:${props.contextId}:${permissions.join(",")}`} {...props} scope={{userId,organizationId,kind:props.kind,contextId:props.contextId}}/>;
+ return <div className="space-y-4"><ProductImageAnalysisPanel kind={props.kind} contextId={props.contextId}/>{permissions.includes("listingkit.image_agent.read")&&<ScopedImageSetPanel key={`${userId}:${organizationId}:${props.kind}:${props.contextId}:${permissions.join(",")}`} {...props} scope={{userId,organizationId,kind:props.kind,contextId:props.contextId}}/>}</div>;
 }
 
 function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSaved,initialRunId,initialSkill,translationItemId}:Props&{scope:ImageSetScope}){
@@ -69,6 +70,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const [priorRuns,setPriorRuns]=useState<ImageSetRun[]>([]);
  const [recent,setRecent]=useState<z.infer<typeof imageSetRecentSchema>["items"]>([]),[inventory,setInventory]=useState<ImageSetInventory>();
  const [recentCursor,setRecentCursor]=useState("");
+ const [recentUnavailable,setRecentUnavailable]=useState(0);
  const [requirements,setRequirements]=useState<ImageSetRequirements>(),[platform,setPlatform]=useState<"product"|"shein">("product");
  const [restoredTarget,setRestoredTarget]=useState<ImageSetPrepare["target"]>();
  const editorTarget=restoredTarget??target;
@@ -98,6 +100,10 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const locked=busy||!!intent||mediaBlocked;
  const unresolvedRun=!run?.releaseSummary&&(!!run?.pendingCommand||!!run?.recoverableEffects?.length||!!run?.outputRecoverySummary);
  const releasedIntent=!!intent&&imageIntentTargetsReleasedRun(intent,run);
+ const executionDisabled=run?.modeUnavailableReason==="EXECUTION_DISABLED";
+ const readOnlyIntent=releasedIntent||executionDisabled;
+ // Execution availability is global to the runtime, even when the selected run differs.
+ const canReplayIntent=!!intent&&!readOnlyIntent&&(!intent.runId||intent.action==="regenerate"||!!run);
  useEffect(()=>context.registerOrganizationSwitchGuard(()=>!flight.current),[context]);
  useEffect(()=>{active.current=true;return()=>{active.current=false;abort.current?.abort()}},[]);
  const fail=useCallback((value:unknown)=>{setError(value instanceof ImageSetError?value.code:value instanceof Error?value.message:"IMAGE_UNAVAILABLE")},[]);
@@ -169,18 +175,17 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    try{
     setRetainedRequests(readRetainedImageRequests(storageKey));
     const saved=localStorage.getItem(storageKey+":intent");
-    if(saved){
-     const parsed=parseImageIntent(saved);
-     if(parsed){savedIntentRaw.current=saved;setIntent(parsed)}
-     else localStorage.removeItem(storageKey+":intent");
-    }
+    const restoredIntent=saved?parseImageIntent(saved):undefined;
+    if(restoredIntent){savedIntentRaw.current=saved;setIntent(restoredIntent)}
+    else if(saved)localStorage.removeItem(storageKey+":intent");
     const agent=await configurationRequest(stableScope,"product.image.agent",catalogEntrySchema,{signal:controller.signal});if(controller.signal.aborted)return;setEntry(agent);
     if(!agent.canReadRuns)return;
     const query=new URLSearchParams();if(effectiveVersion)query.set("effectiveCatalogVersion",effectiveVersion);if(applyReceiptId)query.set("applyReceiptId",applyReceiptId);
     let source:z.infer<typeof imageSetSourcesSchema>|undefined;setSources(undefined);
     try{source=await imageSetRequest(stableScope,"sources",imageSetSourcesSchema,{query:query.toString(),signal:controller.signal});if(controller.signal.aborted)return;setSources(source)}catch(e){if(controller.signal.aborted)return;fail(e)}
     // Recover the known run before optional template or recent-run discovery.
-    const id=initialRunId??localStorage.getItem(storageKey+":run");
+    const savedRunId=restoredIntent?.action==="regenerate"?undefined:restoredIntent?.runId;
+    const id=initialRunId??localStorage.getItem(storageKey+":run")??savedRunId;
     if(id){try{await readRun(id,controller.signal)}catch(e){if(!controller.signal.aborted)fail(e)}}
     if(controller.signal.aborted)return;
     const defaultRef=agent.agent.defaultTemplate;
@@ -209,7 +214,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
      if(!templateEdited.current){installTemplate(pinned,source?.evidence);if(hasInitialSkill&&!id&&!saved)setTemplateNotice("已保留企业默认模板的准确版本、任务和数量；可以为本次计划显式改选，默认配置不会改变。")}
     }catch(e){if(!controller.signal.aborted)fail(e)}}
     if(controller.signal.aborted)return;
-    const pageRuns=await imageSetRequest(stableScope,"recent",imageSetRecentSchema,{signal:controller.signal});if(controller.signal.aborted)return;setRecent(pageRuns.items);setRecentCursor(pageRuns.nextCursor);
+    const pageRuns=await imageSetRequest(stableScope,"recent",imageSetRecentSchema,{signal:controller.signal});if(controller.signal.aborted)return;setRecent(pageRuns.items);setRecentCursor(pageRuns.nextCursor);setRecentUnavailable(pageRuns.unavailableCount??0);
    }catch(e){if(!controller.signal.aborted)fail(e)}finally{if(!controller.signal.aborted)setLoading(false)}
   })();return()=>controller.abort();
  },[stableScope,storageKey,effectiveVersion,applyReceiptId,initialRunId,initialPreset,hasInitialSkill,readRun,fail]);
@@ -221,7 +226,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  },[run,locked,running,readRun,fail]);
  function acceptPreparation(p:ImageSetRun){remember(p);clearIntent();setInventory(undefined);setSelected([]);setPreview(null);setRegenerate([])}
  async function send(command:Intent,replay=false){
-  if(flight.current||!active.current)return;
+  if(flight.current||!active.current||executionDisabled)return;
+  if(command.runId&&command.action!=="regenerate"&&!run)return;
   const controller=new AbortController();abort.current=controller;flight.current=true;setBusy(true);setError("");setMessage("");
   try{
    const raw=replay&&savedIntentRaw.current?savedIntentRaw.current:JSON.stringify(command);localStorage.setItem(storageKey+":intent",raw);savedIntentRaw.current=raw;setIntent(command);
@@ -267,7 +273,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     const cancellationClosed=intent.action==="cancel"&&p.planRevision===body.planRevision&&["cancelled","completed","failed"].includes(p.status);
     const pendingObserved=(intent.action==="resume"||intent.action==="cancel")&&p.pendingCommand?.ActionID===body.actionId;
     if(recovered||confirmed||restarted||cancellationClosed||pendingObserved||intent.action==="resume"&&p.status==="cancelled")clearIntent();
-    else setMessage(intent.action==="confirm"?"读取任务状态不能确认工作流已启动，请继续原确认；请求编号、计划和点数均沿用原值。":"原操作尚未得到明确回执，请继续核实同一编号。");
+    else setMessage(intent.action==="confirm"&&p.modeUnavailableReason!=="EXECUTION_DISABLED"?"读取任务状态不能确认工作流已启动，请继续原确认；请求编号、计划和点数均沿用原值。":"原操作尚未得到明确回执，请继续核实同一编号。");
    }
   }catch(e){if(!controller.signal.aborted)fail(e)}finally{flight.current=false;if(!controller.signal.aborted)setBusy(false)}
  }
@@ -332,11 +338,11 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    const page=await imageSetRequest(stableScope,"recent",imageSetRecentSchema,{query:new URLSearchParams({cursor:recentCursor}).toString(),signal:controller.signal});
    if(!controller.signal.aborted&&active.current){
     setRecent(old=>{const merged=new Map(old.map(item=>[item.runId,item]));for(const item of page.items){if(!merged.has(item.runId))merged.set(item.runId,item)}return [...merged.values()]});
-    setRecentCursor(page.nextCursor);
+    setRecentCursor(page.nextCursor);setRecentUnavailable(old=>old+(page.unavailableCount??0));
    }
   }catch(e){if(!controller.signal.aborted&&active.current)fail(e)}finally{flight.current=false;if(!controller.signal.aborted&&active.current)setBusy(false)}
  }
- const available=entry?.agent.activation==="ENABLED"&&entry.canUse&&entry.capabilities.some(c=>c.id==="image.generate"&&c.readiness==="AVAILABLE");
+ const available=!executionDisabled&&entry?.agent.activation==="ENABLED"&&entry.canUse&&entry.capabilities.some(c=>c.id==="image.generate"&&c.readiness==="AVAILABLE");
  const allTasks=template?[...template.image.carousel.map(t=>({...t,group:"carousel" as const})),...template.image.detail.map(t=>({...t,group:"detail" as const}))]:[];
  const preparePositionsReady=currentOfficialPositions(tasks.map(id=>positions[id]),requirements),regeneratePositionsReady=currentOfficialPositions(regenerate.map(id=>positions[id]),requirements);
  const positionHint="请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。";
@@ -348,8 +354,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  return <Card className="space-y-5 p-6">
   <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">商品图片智能体</h2><p className="mt-1 text-sm text-muted-foreground">整套主图与详情图 · 真实素材 · 逐图人工审核</p></div><Button asChild variant="outline" size="sm"><Link href="/workbench/agents/mine/product.image.agent">配置与模板</Link></Button></div>
   {error?<p role="alert" className="rounded-lg bg-warning p-3 text-sm">{reasons[error]??error}</p>:null}{message?<p role="status" className="text-sm text-success-foreground">{message}</p>:null}
-  {loading?<p className="text-sm text-muted-foreground">正在读取企业配置与真实商品素材…</p>:!available?<p className="text-sm text-muted-foreground">{entry?.agent.activation==="DISABLED"?"智能体已停用，已有任务仍可核实与审核。":entry?.capabilities.find(c=>c.id==="image.generate")?.reason||"当前完整图片流程不可用。"}</p>:null}
-  {intent?<div className={releasedIntent?"rounded-lg border border-border bg-muted p-4 text-sm":"rounded-lg border border-warning-foreground bg-warning p-4 text-sm"}><p>保留原请求：{intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}</p><p className="mt-1 text-xs">{releasedIntent?"该任务未生成，点数已释放。原请求和编号保留，仅支持只读核实。":"继续操作沿用原编号与参数；暂未找到不能视为未执行。"}</p><Button className="mt-3" variant="outline" disabled={busy} onClick={()=>void verify()}>核实原请求</Button>{!releasedIntent&&intent.action==="confirm"&&run&&run.runId===intent.runId&&(!run.confirmationActionId||run.confirmationActionId===(intent.body as {actionId:string}).actionId)&&run.status!=="completed"&&run.status!=="cancelled"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原确认</Button>:null}{!releasedIntent&&intent.action!=="confirm"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原操作</Button>:null}</div>:null}
+  {loading?<p className="text-sm text-muted-foreground">正在读取企业配置与真实商品素材…</p>:!available&&!executionDisabled?<p className="text-sm text-muted-foreground">{entry?.agent.activation==="DISABLED"?"智能体已停用，已有任务仍可核实与审核。":entry?.capabilities.find(c=>c.id==="image.generate")?.reason||"当前完整图片流程不可用。"}</p>:null}
+  {intent?<div className={readOnlyIntent?"rounded-lg border border-border bg-muted p-4 text-sm":"rounded-lg border border-warning-foreground bg-warning p-4 text-sm"}><p>保留原请求：{intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}</p><p className="mt-1 text-xs">{releasedIntent?"该任务未生成，点数已释放。原请求和编号保留，仅支持只读核实。":executionDisabled?"原请求和编号保留，仅支持只读核实。":"继续操作沿用原编号与参数；暂未找到不能视为未执行。"}</p><Button className="mt-3" variant="outline" disabled={busy} onClick={()=>void verify()}>核实原请求</Button>{canReplayIntent&&intent.action==="confirm"&&run&&run.runId===intent.runId&&(!run.confirmationActionId||run.confirmationActionId===(intent.body as {actionId:string}).actionId)&&run.status!=="completed"&&run.status!=="cancelled"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原确认</Button>:null}{canReplayIntent&&intent.action!=="confirm"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原操作</Button>:null}</div>:null}
   {!loading&&sources&&retainedRequests.length?<section className="space-y-2 rounded-lg border border-border p-4 text-sm">
    <h3 className="font-semibold">已核实的原请求</h3>
    <p>{intent?"原请求与编号已保留。请先核实当前待处理请求。":"原请求与编号已保留，可切换任务或准备新计划。"}</p>
@@ -372,25 +378,36 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     return <div key={task.id} className="space-y-2"><label className="flex items-start gap-2 text-sm"><input type="checkbox" disabled={locked||!!missing} checked={tasks.includes(task.id)} onChange={e=>{if(needsPreparationReview)setTextDraft(undefined);setTasks(old=>e.target.checked?[...old,task.id]:old.filter(id=>id!==task.id))}}/><span>{labels.get(task.purpose)??task.brief??"自定义任务"}{missing?<small className="block text-warning-foreground">缺少真实依据，请补充商品资料或取消该项</small>:null}</span></label>{platform==="shein"&&tasks.includes(task.id)?<OfficialPosition value={positions[task.id]} requirements={requirements} disabled={locked} generated onChange={value=>setPositions(old=>({...old,[task.id]:value}))}/>:null}</div>
    })}</section>)}</div><p className="text-xs text-muted-foreground">背景：{template.image.background} · 文字：{template.image.language} · {template.image.shareOriginals?"两组共用原始素材，分别生成与计费":"两组分别选择原始素材，分别生成与计费"}</p>{template.image.shareOriginals?originalChoices("共用原始素材",shared,setShared):<div className="grid gap-4 md:grid-cols-2">{originalChoices("主图素材",carousel,setCarousel)}{originalChoices("详情素材",detail,setDetail)}</div>}<Button disabled={locked||correctingRegeneration||!canPrepare||!textSelection} onClick={()=>newPreparation()}>准备整套图片计划（{tasks.length} 项）</Button></>:<p className="text-sm">请在智能体配置中创建图片模板并设为默认，或选择已有模板。</p>}
   </>:null}
-  {recent.length?<label className="block space-y-2 text-sm">本商品最近任务<Select disabled={locked} value={run?.runId??""} onChange={e=>{if(e.target.value){setPreview(null);setSelected([]);void readRun(e.target.value).catch(fail)}}}><option value="">选择原任务</option>{recent.map(item=><option key={item.runId} value={item.runId}>{imageResultLabel(item.runId===run?.runId?run:item)} · {new Date(item.createdAt).toLocaleString()}</option>)}</Select></label>:null}
+  {recentUnavailable?<p role="status">已读取页中有 {recentUnavailable} 个原任务无法读取，记录已保留。</p>:null}
+   {recent.length?<label className="block space-y-2 text-sm">本商品最近任务<Select disabled={locked} value={run?.runId??""} onChange={e=>{if(e.target.value){setPreview(null);setSelected([]);void readRun(e.target.value).catch(fail)}}}><option value="">选择原任务</option>{recent.map(item=><option key={item.runId} value={item.runId}>{imageResultLabel(item.runId===run?.runId?run:item)} · {new Date(item.createdAt).toLocaleString()}</option>)}</Select></label>:null}
   {recentCursor?<Button variant="outline" disabled={locked} onClick={()=>void loadMoreRuns()}>加载更多图片任务</Button>:null}
-  {run?<section className="space-y-4 border-t border-border pt-5">{run.releaseSummary?<ReleasedImageResult run={run} scope={stableScope} busy={busy} onRefresh={()=>void readRun(run.runId).catch(fail)}/>:<><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{imageResultLabel(run)}</h3><p className="text-xs text-muted-foreground">任务 {run.runId} · {run.slots.filter(s=>s.status==="accepted").length}/{run.images} 张{run.outputRecoverySummary?.slots.length?"候选可查看":"已生成"} · {run.outputRecoverySummary?"已结算用量":"已确认用量"} {run.settledPoints} 点</p></div><Button variant="outline" disabled={busy} onClick={()=>void readRun(run.runId).catch(fail)}>刷新原任务</Button></div>
+  {run?<section className="space-y-4 border-t border-border pt-5">{run.releaseSummary?<ReleasedImageResult run={run} scope={stableScope} busy={busy} onRefresh={()=>void readRun(run.runId).catch(fail)}/>:<><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{imageResultLabel(run)}</h3><p className="text-xs text-muted-foreground">任务 {run.runId} · {run.slots.filter(s=>s.status==="accepted").length}/{run.images} 张{run.outputRecoverySummary?.slots.length?"候选可查看":"已生成"} · {run.outputRecoverySummary?"已结算用量":"已确认用量"} {formatMicropoints(run.settledPoints)} 点</p></div><Button variant="outline" disabled={busy} onClick={()=>void readRun(run.runId).catch(fail)}>刷新原任务</Button></div>
    {run.executionMode?<p className="text-sm">本次权限：{executionModeLabels[run.executionMode]} · 模式版本 {run.modeRevision}</p>:<p className="text-sm text-warning-foreground">本次权限模式不可用，只能查看原记录。</p>}
    {run.plan.Method?<ImageMethodSummary scope={stableScope} method={run.plan.Method} refresh={run}/>:<p className="text-sm text-muted-foreground">计划使用的方法：不使用技能</p>}
    <section aria-label="已固定的图片文案" className="space-y-2 rounded-lg bg-success p-4 text-sm"><h4 className="font-semibold">目标语言：{imageTextLanguageNames[run.plan.Text.Language]??run.plan.Text.Language}（{run.plan.Text.Language}）</h4>{run.plan.Text.Mode==="reviewed"&&run.plan.Text.Copy?<><ul>{run.plan.Text.Copy.Lines.map((line,index)=><li key={index} className="break-words">{line}</li>)}</ul><p className="text-muted-foreground">审核 {run.plan.Text.Copy.Review.proposalId} · 修订 {run.plan.Text.Copy.Review.revision} · 适用任务：{run.plan.Text.TaskIDs?.join("、")}</p></>:<p>本次已选择不加文字。</p>}<p className="text-muted-foreground">语言和文案随原计划固定，恢复任务不会重新翻译。生成结果仍须人工检查，不合格图片不采用。</p></section>
+   {executionDisabled?<p className="text-sm">图片执行已关闭，可查看原任务和结算记录。</p>:null}
    {run.modeUnavailableReason==="EXECUTION_MODE_CHANGED"?<p className="text-sm text-warning-foreground">权限配置已变化，本次运行不能获得新权限；请保留原请求，重新确认新运行。</p>:null}
    {run.executionMode==="read_only"?<p className="text-sm">只读模式不能生成图片或保存正式素材。</p>:null}
    {run.policyAdoption?<p className="text-sm">正式素材已按完全访问策略采用，未经逐项人工审阅。{run.status!=="completed"?"原工作流状态仍在核实，请沿用原操作编号。":""}</p>:null}
-   {run.status==="awaiting_plan_approval"?<div className="space-y-3 rounded-xl bg-success p-4"><p>图片模型：{run.slots[0]?.recipe.Quote.Model??"原计划冻结模型"} · {run.slots[0]?.recipe.Quote.Quality??"原计划质量"} · {run.slots[0]?.recipe.Quote.Resolution??"1024x1024"}{run.plan.Route?` · 可选版本 ${run.plan.Route.RevisionID}`:" · 企业默认版本"}。修改模型需重新准备计划。</p><p>本次生成 {run.images} 张，点数上限 <strong className="text-warning-foreground">{run.points}</strong> 点。主图与详情图分别调用模型；原图及正式素材复用不调用模型。</p>{routeRejectedPlan?<p role="status">该计划模型版本已被明确拒绝，请重新准备计划；原计划和确认请求已保留。</p>:null}<Button disabled={locked||routeRejectedPlan||!available||!run.generationAllowed} onClick={()=>void send({action:"confirm",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision,planDigest:run.planDigest,quoteDigest:run.quoteDigest}})}>确认点数并生成</Button></div>:null}
+   {run.slots.some(slot=>slot.referencePriceVersion)?<p className="text-xs text-muted-foreground">本计划含图片参考估算（版本 {Array.from(new Set(run.slots.map(slot=>slot.referencePriceVersion).filter(Boolean))).join("、")}）：预留按估算参数，结算按原用量与冻结参考价；缺输入细分时按较高输入参考费率估算。缺基础用量或超出预留保持待核实，不自动补扣或重试。</p>:null}
+   {!executionDisabled&&run.status==="awaiting_plan_approval"?<div className="space-y-3 rounded-xl bg-success p-4"><p>图片模型：{run.slots[0]?.recipe.Quote.Model??"原计划冻结模型"} · {run.slots[0]?.recipe.Quote.Quality??"原计划质量"} · {run.slots[0]?.recipe.Quote.Resolution??"1024x1024"}{run.plan.Route?` · 可选版本 ${run.plan.Route.RevisionID}`:" · 企业默认版本"}。修改模型需重新准备计划。</p><p>本次生成 {run.images} 张，点数上限 <strong className="text-warning-foreground">{formatMicropoints(run.points)}</strong> 点。主图与详情图分别调用模型；原图及正式素材复用不调用模型。</p>{routeRejectedPlan?<p role="status">该计划模型版本已被明确拒绝，请重新准备计划；原计划和确认请求已保留。</p>:null}<Button disabled={locked||routeRejectedPlan||!available||!run.generationAllowed} onClick={()=>void send({action:"confirm",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision,planDigest:run.planDigest,quoteDigest:run.quoteDigest}})}>确认点数并生成</Button></div>:null}
    {run.block&&!run.outputRecoverySummary?<p className="text-sm text-warning-foreground">任务暂时停止：{run.block.Code}</p>:null}
    <div className="grid gap-4 md:grid-cols-2">{run.slots.map(slot=><article key={slot.slotId} className="space-y-3 rounded-xl border border-border p-4"><div className="flex justify-between gap-3"><h4 className="font-medium">{imageSlotLabel(slot)}</h4><span className="text-xs text-muted-foreground">{paidOutputLabel(run,slot.slotId,slot.attempt)??stateNames[slot.status]??slot.status}</span></div><div className="grid grid-cols-2 gap-3"><div><p className="mb-2 text-xs text-muted-foreground">原始素材</p>{slot.recipe.References.map((ref,index)=>{const image=run.originals.find(a=>a.ID===ref.AssetID);return image?<ImageSetPhoto key={ref.AssetID} photo={{url:image.DisplayURL,label:`原图 ${index+1}`,width:image.Width,height:image.Height}} alt="本图使用的原始素材" className="h-32 w-full object-contain" onPreview={setPhoto}/>:null})}</div><div><p className="mb-2 text-xs text-muted-foreground">生成结果</p>{slot.candidates.map(candidate=>{const choice:ImageSetChoice={kind:"generated",run_id:run.runId,plan_revision:run.planRevision,slot_id:slot.slotId,attempt:slot.attempt,result_digest:run.resultDigest,asset_id:candidate.assetId,presentation:{group:slot.recipe.Placement.Group,order:1},...slot.recipe.OfficialPlacement?{official_placement:toPosition(slot.recipe.OfficialPlacement)}:{}};const view={key:`generated:${run.runId}:${candidate.assetId}`,url:candidate.url,label:imageSlotLabel(slot),choice};return <div key={candidate.assetId}><ImageSetPhoto photo={{url:candidate.url,label:`${view.label} · 生成结果`,width:candidate.width,height:candidate.height}} alt="生成结果" className="h-32 w-full object-contain" onPreview={setPhoto}/><Button size="sm" variant="outline" className="mt-2" disabled={locked||!run.approvalAvailable} onClick={()=>choose(view)}>{selected.some(v=>v.key===view.key)?"取消采用":"选择采用"}</Button></div>})}{!slot.candidates.length?<p className="flex h-32 items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">{paidOutputLabel(run,slot.slotId,slot.attempt)||slot.errorCode||stateNames[slot.status]||slot.status}</p>:null}</div></div>{run.regenerationAvailable?<label className="flex items-center gap-2 text-xs"><input type="checkbox" disabled={locked} checked={regenerate.includes(slot.slotId)} onChange={e=>{setRegenerationTextDraft(undefined);setRegenerate(old=>e.target.checked?[...old,slot.slotId]:old.filter(id=>id!==slot.slotId))}}/>重新生成此项，另行确认点数</label>:null}{official&&regenerate.includes(slot.slotId)?<div className="space-y-2"><OfficialPosition value={positions[slot.slotId]} requirements={requirements} disabled={locked||!requirements} generated onChange={position=>setPositions(old=>({...old,[slot.slotId]:position}))}/>{!currentOfficialPosition(positions[slot.slotId],requirements)?<p className="text-sm text-warning-foreground">请按当前规则确认此项的图片位置与类型。</p>:null}</div>:null}</article>)}</div>
    {priorRuns.length?<section className="space-y-3 rounded-xl border border-border p-4"><h4 className="font-medium">原任务成功结果</h4><p className="text-xs text-muted-foreground">可与本次重生成结果一起明确选择，保留原结果身份，不再次生成或扣点。</p><div className="grid gap-3 sm:grid-cols-2">{priorRuns.flatMap(parent=>parent.slots.flatMap(slot=>slot.status==="accepted"?slot.candidates.map(candidate=>{const view=priorChoice(parent,slot,candidate);return <article key={view.key} className="space-y-2"><p className="text-sm">{view.label}</p><p className="text-xs text-muted-foreground">任务 {parent.runId}</p><ImageSetPhoto photo={{url:view.url,label:view.label,width:candidate.width,height:candidate.height}} alt={view.label} className="h-32 w-full object-contain" onPreview={setPhoto}/><Button size="sm" variant="outline" disabled={locked||!run.approvalAvailable||!parent.candidateSelectionAvailable} onClick={()=>choose(view)}>{selected.some(v=>v.key===view.key)?"取消采用原任务结果":"采用原任务结果"}</Button></article>}):[]))}</div>{priorRuns.at(-1)?.plan.Regeneration&&!priorRuns.some(p=>p.runId===priorRuns.at(-1)?.plan.Regeneration?.RunID)?<Button size="sm" variant="outline" disabled={locked} onClick={()=>void readEarlierParent()}>读取更早的原任务结果</Button>:null}</section>:null}
-   {run.outputRecoverySummary?<>{run.outputRecoverySummary.slots.length?<p role="status" className="rounded-lg bg-accent p-4 text-sm">原生成已成功，已结算 {run.outputRecoverySummary.settledPoints} 点。{run.outputRecoverySummary.slots.every(p=>p.unavailable)?"原结果已证明不可用；保留结算和失败证据，不重新生成。":"候选图尚未恢复；恢复只读取原结果，不调用模型、不重复扣费。"}</p>:null}<details className="rounded-lg border border-border p-4 text-sm"><summary>原始失败记录与结算依据</summary><p className="mt-2 break-all">原始状态：{run.status} · 原始代码：{run.block?.Code??"无"}</p>{run.outputRecoverySummary.slots.map(p=><p key={p.slotId}>{p.slotId} · 原尝试 {p.attempt} · 已结算 {p.points} 点 · {p.unavailable?"原结果不可用":"原结果待恢复"}</p>)}{run.outputRecoverySummary.releasedSlots?.map(p=><p key={p.slotId}>{p.slotId} · 原尝试 {p.attempt} · 未生成，点数已释放 {p.points} 点</p>)}<p>原回执、结算和审计证据保留，原请求未重新生成。</p></details></>:null}
-   {imageRecoveryEffects(run).map(effect=>{const paid=run.outputRecoverySummary?.slots.find(p=>p.slotId===effect.SlotID&&p.attempt===effect.Attempt);const released=run.outputRecoverySummary?.releasedSlots?.find(p=>p.slotId===effect.SlotID&&p.attempt===effect.Attempt);return <div key={`${effect.SlotID}:${effect.Attempt}`} className="rounded-lg bg-warning p-3 text-sm">{effect.SlotID}：{released?`未生成，点数已释放 ${released.points} 点。`:paid?(paid.unavailable?"已扣点，原结果不可用。":`已生成，已结算 ${paid.points} 点；原结果待恢复。`):"原调用待核实，点数预留保留。"}{!released&&!paid?.unavailable?<Button className="ml-3" variant="outline" size="sm" disabled={locked||run.status==="failed"} onClick={()=>void send({action:"recover",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision,slotId:effect.SlotID,attempt:effect.Attempt}})}>{paid?"恢复原结果":"核实原调用"}</Button>:null}</div>})}
-   {run.pendingCommand?<Button variant="outline" disabled={locked} onClick={()=>void send({action:"resume",runId:run.runId,body:{actionId:run.pendingCommand!.ActionID}})}>继续核实原保存操作</Button>:null}
-   {run.status==="failed"&&run.generationAdmitted&&!run.regenerationAvailable&&!run.pendingCommand?<div className="rounded-lg bg-warning p-3 text-sm"><p>工作流未完成。恢复沿用原任务、点数预算和期限；原调用未明时先核实，超期后不派发新图片。</p><Button className="mt-2" variant="outline" disabled={locked} onClick={()=>void send({action:"restart",runId:run.runId,body:{planRevision:run.planRevision,planDigest:run.planDigest,quoteDigest:run.quoteDigest}})}>恢复原失败任务</Button></div>:null}
+   {run.outputRecoverySummary?<>{run.outputRecoverySummary.slots.length?<p role="status" className="rounded-lg bg-accent p-4 text-sm">原生成已成功，已结算 {formatMicropoints(run.outputRecoverySummary.settledPoints)} 点。{run.outputRecoverySummary.slots.every(p=>p.unavailable)?"原结果已证明不可用；保留结算和失败证据，不重新生成。":hasRecoverablePaidOutput(run)?"候选图尚未恢复；恢复只读取原结果，不调用模型、不重复扣费。":"原结果结算已确认，当前没有可执行的恢复操作。"}</p>:null}<details className="rounded-lg border border-border p-4 text-sm"><summary>原始失败记录与结算依据</summary><p className="mt-2 break-all">原始状态：{run.status} · 原始代码：{run.block?.Code??"无"}</p>{run.outputRecoverySummary.slots.map(p=><p key={p.slotId}>{p.slotId} · 原尝试 {p.attempt} · 已结算 {formatMicropoints(p.points)} 点 · {p.unavailable?"原结果不可用":executionDisabled?"当前仅可查看原记录":hasRecoveryEffect(run,p.slotId,p.attempt)?"原结果待恢复":"原结果待核实"}</p>)}{run.outputRecoverySummary.releasedSlots?.map(p=><p key={p.slotId}>{p.slotId} · 原尝试 {p.attempt} · 未生成，点数已释放 {formatMicropoints(p.points)} 点</p>)}<p>原回执、结算和审计证据保留，原请求未重新生成。</p></details></>:null}
+   {(run.recoverableEffects??[]).map(effect=>{
+    const paid=run.outputRecoverySummary?.slots.find(p=>p.slotId===effect.SlotID&&p.attempt===effect.Attempt);
+    const released=run.outputRecoverySummary?.releasedSlots?.find(p=>p.slotId===effect.SlotID&&p.attempt===effect.Attempt);
+    const recoveryOffered=!executionDisabled&&!released&&!paid?.unavailable;
+    return <div key={`${effect.SlotID}:${effect.Attempt}`} className="rounded-lg bg-warning p-3 text-sm">
+     {effect.SlotID}：{released?`未生成，点数已释放 ${formatMicropoints(released.points)} 点。`:paid?(paid.unavailable?"已结算，原结果不可用。":`已生成，已结算 ${formatMicropoints(paid.points)} 点。${executionDisabled?"":"原结果待恢复。"}`):"原调用待核实，点数预留保留。"}
+     {recoveryOffered?<Button className="ml-3" variant="outline" size="sm" disabled={locked||run.status==="failed"} onClick={()=>void send({action:"recover",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision,slotId:effect.SlotID,attempt:effect.Attempt}})}>{paid?"恢复原结果":"核实原调用"}</Button>:null}
+    </div>;
+   })}
+   {!executionDisabled&&run.pendingCommand?<Button variant="outline" disabled={locked} onClick={()=>void send({action:"resume",runId:run.runId,body:{actionId:run.pendingCommand!.ActionID}})}>继续核实原保存操作</Button>:null}
+   {!executionDisabled&&run.status==="failed"&&run.generationAdmitted&&!run.regenerationAvailable&&!run.pendingCommand?<div className="rounded-lg bg-warning p-3 text-sm"><p>工作流未完成。恢复沿用原任务、点数预算和期限；原调用未明时先核实，超期后不派发新图片。</p><Button className="mt-2" variant="outline" disabled={locked} onClick={()=>void send({action:"restart",runId:run.runId,body:{planRevision:run.planRevision,planDigest:run.planDigest,quoteDigest:run.quoteDigest}})}>恢复原失败任务</Button></div>:null}
    {run.regenerationAvailable?<div><p className="mb-2 text-xs text-muted-foreground">{runTemplate?`重新生成沿用原任务模板 ${runTemplate.name} v${runTemplate.version} 和原始素材，另行确认点数。`:"原任务模板尚不可读取，暂不能重新生成。"}</p>{correctingRegeneration&&runTemplate&&runSources?<section aria-label="重新生成文案纠正" className="mb-4 space-y-3"><p className="text-sm text-warning-foreground">原审核译文已被明确拒绝。请按原任务模板和来源重新读取并确认文案，或明确选择不加文字；原计划、准确技能和原请求保留。取消重新生成勾选后可准备整套新计划。</p><ImageTextCopy key={regenerationTextKey} scope={scope} source={run.plan.Source} language={runTemplate.image.language} templateKey={`${runTemplate.templateId}:${runTemplate.version}`} taskIds={regenerate} taskLabels={Object.fromEntries([...runTemplate.image.carousel,...runTemplate.image.detail].map(t=>[t.id,labels.get(t.purpose)??t.brief??t.id]))} ownItemId={translationItemId} initialMode="reviewed" disabled={locked} onChange={value=>setRegenerationTextDraft({key:regenerationTextKey,value})}/></section>:null}{official&&requirements&&regenerate.length>0&&!regeneratePositionsReady?<p className="mb-2 text-sm text-warning-foreground">{positionHint}</p>:null}<Button variant="outline" disabled={locked||!canRegenerate} onClick={()=>newPreparation(run)}>准备所选 {regenerate.length} 项的新计划</Button></div>:null}
-   {run.status!=="completed"&&run.status!=="cancelled"&&run.status!=="failed"&&!run.pendingCommand?<Button variant="ghost" disabled={locked} onClick={()=>void send({action:"cancel",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision}})}>取消剩余工作</Button>:null}
+   {!executionDisabled&&run.status!=="completed"&&run.status!=="cancelled"&&run.status!=="failed"&&!run.pendingCommand?<Button variant="ghost" disabled={locked} onClick={()=>void send({action:"cancel",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision}})}>取消剩余工作</Button>:null}
    {run.approvalAvailable&&inventory?<section className="space-y-4"><h3 className="font-semibold">选择本次完整正式素材集合</h3><p className="text-sm text-muted-foreground">仅保存下面明确采用的图片，按组内顺序保存。未选择的结果保留在原任务中。</p><div className="flex flex-wrap gap-2">{runSources?.originals.map((image,i)=><Button key={image.id} variant="outline" size="sm" disabled={locked} onClick={()=>choose({key:`source:${image.id}`,url:image.displayUrl,label:`原图 ${i+1}`,choice:{kind:"source",source_id:image.id,presentation:{group:"carousel",order:1}}})}>选择原图 {i+1}</Button>)}</div>{([inventory.target,inventory.generic] as const).map((pool,poolIndex)=>pool?.assets.length?<div key={poolIndex} className="space-y-2"><p className="text-xs text-muted-foreground">{poolIndex?"已批准的通用素材（采用到当前平台）":"当前正式素材"}</p><div className="flex flex-wrap gap-2">{pool.assets.map((image,i)=><Button key={image.id} variant="outline" size="sm" disabled={locked} onClick={()=>choose({key:`approved:${pool.approval_action_id}:${image.id}`,url:image.url,label:`${poolIndex?"通用":"正式"}素材 ${i+1}`,choice:{kind:"approved",approval_action_id:pool.approval_action_id,asset_id:image.id,...poolIndex?{generic_head:pool.head}:{},presentation:image.presentation??{group:"carousel",order:1},...image.official_placement?{official_placement:image.official_placement}:{}}})}>采用素材 {i+1}</Button>)}</div></div>:null)}
     {runSources?.manualReplacementAvailable?<div className="space-y-2"><h4 className="text-sm font-medium">人工文件替换</h4><SourceImageUploader scope={stableScope} disabled={busy||!!intent} onBlocked={blockMedia} onImage={()=>undefined} onMedia={image=>{if(busy||intent)return;setPreview(null);const view:ChoiceView={key:`manual:${image.hash}`,url:image.url,label:"人工上传图片",choice:{kind:"manual",manual_media:{hash:image.hash,bytes:image.bytes},presentation:{group:"carousel",order:1}}};setSelected(old=>old.some(v=>v.key===view.key)?old:old.length<40?[...old,view]:old)}}/><p className="text-xs text-muted-foreground">上传后的图片仍需加入完整选择并人工批准，替换不会调用生成模型。</p></div>:null}<ol className="space-y-3">{selected.map((item,index)=><li key={item.key} className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-[80px_1fr]"><ImageSetPhoto photo={{url:item.url,label:`拟采用：${item.label}`}} alt={`拟采用：${item.label}`} className="h-20 w-20 object-contain" onPreview={setPhoto}/><div className="space-y-2"><p className="text-sm">{index+1}. {item.label}</p><div className="flex flex-wrap gap-2"><Select aria-label={`${item.label} 素材组`} disabled={locked} value={item.choice.presentation.group} onChange={e=>updateChoice(index,c=>{c.presentation.group=e.target.value as "carousel"|"detail"})}><option value="carousel">主图 / 轮播</option><option value="detail">详情图</option></Select><Button size="sm" variant="ghost" disabled={locked||index===0} onClick={()=>{setPreview(null);setSelected(old=>{const next=[...old];[next[index-1],next[index]]=[next[index]!,next[index-1]!];return next})}}>上移</Button><Button size="sm" variant="ghost" disabled={locked||index===selected.length-1} onClick={()=>{setPreview(null);setSelected(old=>{const next=[...old];[next[index+1],next[index]]=[next[index]!,next[index+1]!];return next})}}>下移</Button><Button size="sm" variant="ghost" disabled={locked} onClick={()=>choose(item)}>移除</Button></div>{official?<OfficialPosition value={item.choice.official_placement?fromPosition(item.choice.official_placement):undefined} requirements={requirements} generated={false} disabled={locked} onChange={value=>updateChoice(index,c=>{c.official_placement=toPosition(value)})}/>:null}</div></li>)}</ol><Button variant="outline" disabled={locked||!selected.length||!selectedPositionsReady} onClick={()=>void previewSelection()}>预览完整选择</Button>{preview?<div className="rounded-xl bg-success p-4 text-sm"><p>将按以上顺序保存 {preview.command.choices.length} 张图片，更新当前正式素材集合。</p><Button className="mt-3" disabled={locked} onClick={()=>void send({action:"approve",runId:run.runId,body:{...preview.command,selectionDigest:preview.digest}})}>人工批准并保存素材</Button></div>:null}
    </section>:null}
@@ -408,16 +425,34 @@ function ImageSetPhoto({photo,alt,className,onPreview}:{photo:PhotoView;alt:stri
  return <div className="space-y-2"><Image src={photo.url} width={photo.width||1024} height={photo.height||1024} unoptimized alt={alt} className={className}/><Button type="button" size="sm" variant="outline" aria-label={`查看${photo.label}大图`} onClick={()=>onPreview(photo)}>查看大图</Button></div>;
 }
 
-function imageResultLabel(run:Pick<ImageSetRun,"status"|"releaseSummary"|"outputRecoverySummary">){return run.outputRecoverySummary?.slots.length?(run.outputRecoverySummary.slots.every(p=>p.unavailable)?"已扣点，原结果不可用":"已生成，结果待恢复"):run.releaseSummary?"未生成，点数已释放":stateNames[run.status]??run.status}
+type ImageResultState = Pick<ImageSetRun, "status" | "releaseSummary" | "outputRecoverySummary" | "modeUnavailableReason"> & Partial<Pick<ImageSetRun, "recoverableEffects">>;
 
-// Paid summary identities are already bound by the original recovery owner,
-// including valid old projections whose effect is stored only in Run.Block.
-function imageRecoveryEffects(run:ImageSetRun){
- const existing=run.recoverableEffects??[];
- return [...existing,...[...(run.outputRecoverySummary?.slots??[]),...(run.outputRecoverySummary?.releasedSlots??[])].filter(p=>!existing.some(e=>e.SlotID===p.slotId&&e.Attempt===p.attempt)).map(p=>({SlotID:p.slotId,Attempt:p.attempt,Code:run.block?.Code??"slot_provider_outcome_unknown"}))];
+function imageResultLabel(run: ImageResultState) {
+ const paid = run.outputRecoverySummary?.slots;
+ if (paid?.length) {
+  if (paid.every(slot => slot.unavailable)) return "已结算，原结果不可用";
+  if (run.modeUnavailableReason === "EXECUTION_DISABLED" || run.recoverableEffects === undefined) return "已生成，已结算";
+  return hasRecoverablePaidOutput(run) ? "已生成，结果待恢复" : "已生成，结果待核实";
+ }
+ return run.releaseSummary ? "未生成，点数已释放" : stateNames[run.status] ?? run.status;
 }
 
-function paidOutputLabel(run:ImageSetRun,slotId:string,attempt:number){if(run.outputRecoverySummary?.releasedSlots?.some(p=>p.slotId===slotId&&p.attempt===attempt))return "未生成，点数已释放";const paid=run.outputRecoverySummary?.slots.find(p=>p.slotId===slotId&&p.attempt===attempt);return paid?(paid.unavailable?"已扣点，原结果不可用":"已生成，结果待恢复"):undefined}
+function hasRecoveryEffect(run: Pick<ImageResultState, "recoverableEffects">, slotId: string, attempt: number) {
+ return !!run.recoverableEffects?.some(effect => effect.SlotID === slotId && effect.Attempt === attempt);
+}
+
+function hasRecoverablePaidOutput(run: Pick<ImageResultState, "outputRecoverySummary" | "recoverableEffects" | "modeUnavailableReason">) {
+ return run.modeUnavailableReason !== "EXECUTION_DISABLED" && !!run.outputRecoverySummary?.slots.some(slot => !slot.unavailable && hasRecoveryEffect(run, slot.slotId, slot.attempt));
+}
+
+function paidOutputLabel(run: ImageSetRun, slotId: string, attempt: number) {
+ if (run.outputRecoverySummary?.releasedSlots?.some(slot => slot.slotId === slotId && slot.attempt === attempt)) return "未生成，点数已释放";
+ const paid = run.outputRecoverySummary?.slots.find(slot => slot.slotId === slotId && slot.attempt === attempt);
+ if (!paid) return undefined;
+ if (paid.unavailable) return "已结算，原结果不可用";
+ if (run.modeUnavailableReason === "EXECUTION_DISABLED") return "已生成，已结算";
+ return hasRecoveryEffect(run, slotId, attempt) ? "已生成，结果待恢复" : "已生成，结果待核实";
+}
 
 function imageIntentTargetsReleasedRun(intent:Intent,run:ImageSetRun|undefined){return !!run?.releaseSummary&&intent.runId===run.runId&&intent.action!=="regenerate"&&intent.action!=="prepare"}
 
@@ -443,8 +478,8 @@ function ReleasedImageResult({run,scope,busy,onRefresh}:{run:ImageSetRun;scope:I
  return <>
   <div className="space-y-3 rounded-lg bg-accent p-4 text-sm">
    <h3 className="text-xl font-semibold text-primary">未生成，点数已释放</h3>
-   <p>本次未生成图片，原预留 {run.releaseSummary!.releasedPoints} 点已释放。</p>
-   <p className="break-all text-xs text-muted-foreground">任务 {run.runId} · 已确认用量 {run.settledPoints} 点</p>
+   <p>本次未生成图片，原预留 {formatMicropoints(run.releaseSummary!.releasedPoints)} 点已释放。</p>
+   <p className="break-all text-xs text-muted-foreground">任务 {run.runId} · 已确认用量 {formatMicropoints(run.settledPoints)} 点</p>
    <p className="text-muted-foreground">原商品与素材保持不变，本次没有重新发起生成。</p>
    <Button size="sm" disabled={busy} onClick={onRefresh}>刷新原任务</Button>
   </div>

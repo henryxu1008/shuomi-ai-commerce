@@ -6,7 +6,7 @@ Status: IMPLEMENTATION_READY. Independent review /root/architecture_review bound
 
 2026-10-10 用户明确同意：没有 SHEIN 应用和连接店铺时，先在当前独立本机实例完成“选择实际保存的平台草稿 → 检查 → 保存报告 → 刷新读回”。这是明确标记的离线试用；测试店铺、测试规则和报告不得呈现为真实平台连接、最新官方规则或上传许可。原本地依赖准备已完成，旧“等待实际凭据才能开展完整浏览器路径”由本阶段决定替代。真实平台接入及用户验收仍 NOT_RUN。
 
-沿用 `private-agent-delivery-v1.md` 2.0.0 产品/权限/报告合同、`my-supply-chain-shein-v1.md` 的 native TargetRecord owner，以及 `final-ui-ia-authority.md` / Figma tg48P46SSXl6TBy9lZwg63 My Agents 4703:429。没有新增菜单、页面、人工审核步骤。现有私有详情增加离线说明；持久化报告记录测试规则来源，历史读回也显示说明。
+沿用 `private-agent-delivery.md` 2.0.0 产品/权限/报告合同、`my-supply-chain-shein.md` 的 native TargetRecord owner，以及 `final-ui-ia-authority.md` / Figma tg48P46SSXl6TBy9lZwg63 My Agents 4703:429。没有新增菜单、页面、人工审核步骤。现有私有详情增加离线说明；持久化报告记录测试规则来源，历史读回也显示说明。
 
 Must：正常身份登录、当前企业和 actor/source 授权；限定指定测试 scope；原生不可变 TargetRecord 和保存时 goods 校验；精确 record/revision 幂等、真实 customization 报告保存/刷新/保留停启；明确测试来源。零模型、计费、发布或远端调用。
 

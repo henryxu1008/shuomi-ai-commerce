@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // The original acquisition/supply fixtures create a fresh synthetic database.
@@ -31,6 +32,34 @@ import (
 func TestMaterialsHTTPRunAndNativeDraftUseFourExistingModes(t *testing.T) {
 	for _, mode := range []string{"default", "read_only", "auto_approve", "full_access"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "supply materials "+mode) })
+	}
+}
+
+func TestCandidateRulesHTTPUsesExistingOwnersInFourModes(t *testing.T) {
+	for _, mode := range []string{"default", "read_only", "auto_approve", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "supply materials "+mode+" candidate-rules") })
+	}
+}
+
+func TestCandidateRulesPreparedReceiptSurvivesPreclaimDisable(t *testing.T) {
+	testProductAgentOwners(t, "supply materials default candidate-rules preclaim")
+}
+
+func TestMaterialsV1HistoryAndCommittedReceiptAreReadOnlyAfterV2Cutover(t *testing.T) {
+	for _, state := range []string{"pending", "committed", "unknown"} {
+		t.Run(state, func(t *testing.T) { testProductAgentOwners(t, "supply materials default historical-v1-"+state) })
+	}
+}
+
+func TestMaterialsV2HistoryAndCommittedReceiptAreReadOnlyAfterV3Cutover(t *testing.T) {
+	for _, state := range []string{"pending", "committed", "unknown"} {
+		t.Run(state, func(t *testing.T) { testProductAgentOwners(t, "supply materials default historical-v2-"+state) })
+	}
+}
+
+func TestMaterialsV3HistoryAndCommittedReceiptAreReadOnlyAfterV4Cutover(t *testing.T) {
+	for _, state := range []string{"pending", "committed", "unknown"} {
+		t.Run(state, func(t *testing.T) { testProductAgentOwners(t, "supply materials default historical-v3-"+state) })
 	}
 }
 
@@ -84,7 +113,14 @@ func (r materialsOwnerFixtureRules) ReadTargetRules(context.Context, collection.
 	return r.merchant, goods.OfficialRuleSnapshot{ApplicationMode: sheinmodel.ModeSelfOperated, Brands: []sheinmodel.Brand{{Code: "fixture-brand", Name: "Disclosed fixture brand"}}}, nil
 }
 
-func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32) {
+func (r materialsOwnerFixtureRules) ReadCandidateCategoryRules(_ context.Context, _ collection.Scope, _ string, id int64) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
+	if id != 123 {
+		return r.merchant, goods.OfficialRuleSnapshot{}, record.ErrInvalid
+	}
+	return r.merchant, goods.OfficialRuleSnapshot{Categories: []sheinmodel.Category{{ID: 123, ProductTypeID: 456, Leaf: materialsFixturePointer(true)}}, Fill: sheinmodel.FillStandards{Fields: []sheinmodel.FillRule{}}, Attributes: sheinmodel.AttributeTemplate{ProductTypeID: 456}}, nil
+}
+
+func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32, owner *gorm.DB) {
 	t.Helper()
 	ctx := context.Background()
 	scope := agent.Scope{OrganizationID: "B", ActorID: "admin"}
@@ -104,6 +140,8 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	defer server.Close()
 	key := uuid.NewString()
 	path := strings.Replace(listingMaterialsBase, ":record_id", base.Record.ID, 1)
+	_, inspectionErr := supply.InspectMaterialsRecord(actor, base.Record.ID)
+	require.NoError(t, inspectionErr, "current native owner must disclose exact facts before prepare")
 	call := func(method, path, key string, body any, want int) []byte {
 		t.Helper()
 		text := ""
@@ -114,6 +152,10 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 		require.NoError(t, e)
 		require.Equal(t, want, code, string(raw))
 		return raw
+	}
+	if strings.Contains(value, "candidate-rules") {
+		testCandidateRulesNativeOwners(t, value, a, parent, supply, base, actor, deps, calls, materialsPrepareInput{RequestKey: key, ExpectedModeRevision: mode.Revision, GoalSummary: "解释用户选择的候选类目", Template: &agentconfig.TemplateRef{TemplateID: template.TemplateID, Revision: "1"}, CandidateCategoryID: "123"}, path, call)
+		return
 	}
 	raw := call("POST", path+"/prepare", "", materialsPrepareInput{RequestKey: key, ExpectedModeRevision: mode.Revision, GoalSummary: "核对品牌资料", Template: &agentconfig.TemplateRef{TemplateID: template.TemplateID, Revision: "1"}}, 200)
 	var prepared struct {
@@ -132,6 +174,15 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	require.Equal(t, agent.ExecutionMode(strings.Fields(value)[0]), result.ExecutionMode)
 	require.NotNil(t, result.Proposal)
 	require.NotNil(t, result.After)
+	require.NotNil(t, result.ImageAdvice, "current inspect output must reach the actual fixed result consumer")
+	require.NoError(t, result.ImageAdvice.Verify())
+	require.Equal(t, base.Record.ID, result.ImageAdvice.Binding.Target.RecordID)
+	require.Equal(t, base.Record.Input.Draft.Product.CategoryID, result.ImageAdvice.Binding.Target.CategoryID)
+	require.Equal(t, collection.Digest(frozen.Request.Binding), collection.Digest(agent.Binding{ContextKind: "listing-target-record", ContextID: result.ImageAdvice.Binding.Target.RecordID, ProductKey: result.ImageAdvice.Binding.ProductKey, CatalogVersion: result.ImageAdvice.Binding.CatalogVersion, PublicationID: result.ImageAdvice.Binding.PublicationID, TargetPlatform: result.ImageAdvice.Binding.TargetPlatform}))
+	if strings.Contains(value, "historical-v1-") || strings.Contains(value, "historical-v2-") || strings.Contains(value, "historical-v3-") {
+		testMaterialsV1ReadOnlyHTTP(t, value, parent, supply, base, actor, calls, owner, frozen, call, path)
+		return
+	}
 	if strings.Contains(value, " qualified") {
 		require.True(t, base.Record.Result.ReadyForUpload, "fixture must satisfy actual official builder, not a mocked readiness flag")
 		require.NotNil(t, result.Adoption, "qualified automatic mode must save through original Target; unresolved=%v", result.Unresolved)

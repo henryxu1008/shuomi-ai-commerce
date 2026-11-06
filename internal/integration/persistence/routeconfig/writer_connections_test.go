@@ -75,7 +75,7 @@ func TestSharedWriterConnectionsAcrossOwnerDatabases(t *testing.T) {
 	require.NoError(t, e)
 	require.NoError(t, VerifyWriter(ctx, writer, true), "raising capacity retains exact writer privileges")
 	var secret string
-	require.Error(t, writer.Raw("SELECT api_key FROM public.ai_client_credentials LIMIT 1").Scan(&secret).Error)
+	require.Error(t, writer.Raw("SELECT secret_ciphertext FROM public.ai_channel_connections LIMIT 1").Scan(&secret).Error)
 	// The ordinary schema install/omitted capacity argument must not lower 4.
 	require.NoError(t, InstallSchema(ctx, db))
 	require.NoError(t, ConfigureWriterConnections(ctx, db, 0))

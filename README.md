@@ -7,7 +7,7 @@
 
 硕米智能引擎面向跨境电商卖家与运营团队，将商品采集、资料管理、AI 内容与图片处理、平台适配和店铺运营连接起来。目标是让团队围绕一个商品或业务目标协作，减少重复录入和多工具切换，并在关键操作前检查结果、作出确认。
 
-[产品与设计](./docs/product/final-ui-ia-authority.md) · [本地环境](./deployments/docker/account-compose/README.md) · [前端开发](./web/listingkit-ui/README.md) · [采集插件](./extensions/product-capture/README.md) · [架构文档](./docs/architecture/README.md)
+[文档导航](./docs/README.md) · [产品与设计](./docs/product/final-ui-ia-authority.md) · [本地环境](./deployments/docker/account-compose/README.md) · [前端开发](./web/listingkit-ui/README.md) · [采集插件](./extensions/product-capture/README.md) · [架构文档](./docs/architecture/README.md)
 
 ## 围绕商品完成工作
 
@@ -36,9 +36,9 @@ AI 负责理解需求和生成候选；权限、商品事实、价格与平台�
 项目持续开发中，按具体业务路径交付。**设计目标、代码实现、实例开放和用户验收分别确认。** 未配置的模型、店铺连接、支付渠道或可选模块会限制对应功能；菜单、容器健康或 CI 通过不代表完整业务路径已验收。
 
 - **已有实例**：使用该实例交付的应用地址与账号，登录后进入 `/workbench`；使用范围以该实例说明为准。
-- **新建本地环境**：从 [Account Compose](./deployments/docker/account-compose/README.md#start) 开始，按说明准备独立项目、端口、本地 TLS 和私密登录资料。需要组合更多已接入模块时，阅读[统一本地应用说明](./deployments/docker/account-compose/MODULES.md)及其中的配置要求。
+- **新建本地环境**：从 [Account Compose](./deployments/docker/account-compose/README.md#start) 开始，按说明准备独立项目、端口、本地 TLS 和私密登录资料。需要组合更多已接入模块时，阅读[统一本地应用说明](./deployments/docker/account-compose/modules.md)及其中的配置要求。
 - **浏览器采集**：参照[插件说明](./extensions/product-capture/README.md)构建与目标应用地址匹配的包。Chrome / Edge 使用同一扩展源码，采集结果在应用内确认保存。
-- **开发与交付进度**：查看[当前工作排序 #137](https://github.com/qq550723504/shuomi-ai-commerce/issues/137)及对应 Issue / PR；历史运行记录按其日期和版本阅读。
+- **开发与交付进度**：查看[当前工作排序 #137](https://github.com/qq550723504/shuomi-ai-commerce/issues/137)及对应 Issue / PR；准确范围和验证结果在对应任务中维护。
 
 新建环境使用全新空业务库。已有实例的重启、升级和插件更新应沿用原配置、安装身份与数据；新安装步骤不用于直接升级已有实例。
 
@@ -57,7 +57,7 @@ cd shuomi-ai-commerce
 go mod download
 ```
 
-仓库与产品已更名，Go 模块仍是 `task-processor`，前端目录仍是 `web/listingkit-ui`。这些是当前真实工程标识，详见[品牌与仓库更名说明](./docs/development/branding-and-repository-rename.md)。
+仓库与产品已更名，Go 模块仍是 `task-processor`，前端目录仍是 `web/listingkit-ui`。这些是当前真实工程标识，详见[当前源码地图](docs/development/repository-structure.md)。
 
 ### 启动后端
 
@@ -109,12 +109,12 @@ pnpm build
 | [`deployments/docker/account-compose`](./deployments/docker/account-compose) | 本地环境与可选模块装配 |
 | [`docs`](./docs) | 产品、架构、开发与运行文档 |
 
-更多 owner、运行入口与目录职责见[仓库结构说明](./docs/development/repository-structure.md#current-owner-landing)。
+更多 owner、运行入口与目录职责见[仓库结构说明](./docs/development/repository-structure.md#current-entrypoint-map)。
 
 ## 参与开发
 
-先阅读 [AGENTS.md](./AGENTS.md) 和 [Issue 驱动开发规则](./docs/engineering/issue-driven-development.md)，核对执行 Issue 的范围、设计依据和当前负责人。产品导航与交互以[最终 Figma UI / IA Authority](./docs/product/final-ui-ia-authority.md)及已批准产品决定为准；领域合同从[架构索引](./docs/architecture/README.md)进入。
+先阅读 [AGENTS.md](./AGENTS.md) 和 [Issue 驱动开发规则](./docs/engineering/issue-driven-development.md)，核对执行 Issue 的范围、设计依据和当前负责人。产品业务流程可参考[业务流程参考与历史 Figma 决定](./docs/product/final-ui-ia-authority.md)，但 Figma **不再作为 UI/UX、菜单层级、布局或视觉验收标准**；具体遵循 [AGENTS.md](./AGENTS.md#figma-使用边界2026-11-05-用户最新决定) 中的最新用户决定和产品规范；领域合同从[架构索引](./docs/architecture/README.md)进入。
 
 新业务遵循[全新系统产品基线（PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08）](./docs/product/greenfield-no-legacy-migration.md)，按全新安装、空业务数据和当前模型设计。历史 profile 和 cutover gate 不是当前验收前置。
 
-旧 ListingKit 产品与混合架构按 [Hard-Cut Policy](./docs/refactoring/legacy-hard-cut-policy.md) 和 [Legacy Register](./docs/refactoring/legacy-register.md)执行 `EXTRACT | RETIRE`；仍有价值的行为归入当前 owner，不新增旧 Service 包装、兼容 fallback 或双读双写。现有前端目录名不改变这一边界。合并、部署和真实环境操作遵循各任务的明确授权。
+复用符合当前职责的现有能力与成熟组件；当前 owner、权限、事务和恢复要求继续有效。不新增旧 Service 包装、兼容 fallback 或双读双写。合并、部署和真实环境操作遵循各任务的明确授权。

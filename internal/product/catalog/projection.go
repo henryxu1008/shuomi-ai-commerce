@@ -44,15 +44,20 @@ func canonicalVariantsFromSnapshot(variants []Variant) []canonical.Variant {
 	}
 	result := make([]canonical.Variant, 0, len(variants))
 	for _, variant := range variants {
+		var stock *int
+		if variant.Stock != nil {
+			stock = new(*variant.Stock)
+		}
 		result = append(result, canonical.Variant{
-			SKU:        variant.SKU,
-			Attributes: canonicalAttributesFromSnapshot(variant.Attributes),
-			Price:      canonicalPriceFromSnapshot(variant.Price),
-			Stock:      variant.Stock,
-			Images:     canonicalImagesFromSnapshot(variant.Images),
-			Barcode:    variant.Barcode,
-			IsDefault:  variant.IsDefault,
-			Trace:      canonicalTraceFromSnapshot(variant.Trace),
+			SKU:              variant.SKU,
+			Stock:            stock,
+			Attributes:       canonicalAttributesFromSnapshot(variant.Attributes),
+			Price:            canonicalPriceFromSnapshot(variant.Price),
+			OwnStockDeclared: variant.OwnStockDeclared,
+			Images:           canonicalImagesFromSnapshot(variant.Images),
+			Barcode:          variant.Barcode,
+			IsDefault:        variant.IsDefault,
+			Trace:            canonicalTraceFromSnapshot(variant.Trace),
 		})
 	}
 	return result

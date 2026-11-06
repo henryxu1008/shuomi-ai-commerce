@@ -16,6 +16,12 @@ vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,disabled}:{
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: fixture.push }), useSearchParams: () => fixture.search }));
 
 const conversationId = "550e8400-e29b-41d4-a716-446655440000";
+const scopeConfirmation = "a".repeat(64);
+const scopeOptions = {options:[{scope:{version:"workbench-scope-v1",kind:"general"},confirmation:scopeConfirmation}],next:"",incomplete:false};
+async function selectGeneralScope() {
+  await waitFor(() => expect((screen.getByLabelText("工作范围") as HTMLSelectElement).options.length).toBe(2));
+  fireEvent.change(screen.getByLabelText("工作范围"), {target:{value:scopeConfirmation}});
+}
 const operationId = "11111111-1111-4111-8111-111111111111";
 const conversation = { ID: conversationId, Scope: { OrganizationID: "org-a", ActorID: "user-a" }, Title: "", Favorite: false,
   Archived: false, MetadataRevision: 1, NextSequence: 1, CreatedAt: "2026-10-03T00:00:00Z", UpdatedAt: "2026-10-03T00:00:00Z" };
@@ -38,6 +44,69 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); client.clear(); sessionStorage.clear(); });
+it("keeps new conversation creation separate from the history list", async () => {
+  fixture.request.mockImplementation(async ({ route }) => {
+    if (route === "conversation-list") return { conversations: [{ ...conversation, Title: "已有讨论" }], next: "" };
+    if (route === "scope-options") return scopeOptions;
+    if (route === "conversation-create") return { conversation };
+    throw new AIWorkbenchError("INVALID_REQUEST");
+  });
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  expect(screen.getByRole("heading", { name: "有什么想交给硕米？" })).toBeVisible();
+  expect(screen.queryByRole("region", { name: "会话列表" })).toBeNull();
+  await selectGeneralScope();
+  expect(fixture.request.mock.calls.every(([input])=>input.route === "scope-options")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "新建会话" }));
+  await waitFor(() => expect(fixture.push).toHaveBeenCalled());
+  expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
+  expect(fixture.request.mock.calls.at(-1)?.[0].body).toEqual({scopeSelection:{kind:"general"},scopeConfirmation});
+});
+
+it("unlocks selection after proof that an unavailable scope never created a conversation", async () => {
+  const post = vi.fn().mockRejectedValueOnce(new AIWorkbenchError("NOT_FOUND", undefined, false)).mockResolvedValue({conversation});
+  fixture.request.mockImplementation(async input => input.route === "scope-options" ? scopeOptions : post(input));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await selectGeneralScope();
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+  await waitFor(()=>expect(screen.getByLabelText("范围类型")).toBeEnabled());
+  await selectGeneralScope();
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  expect(post.mock.calls[1][0].key).not.toEqual(post.mock.calls[0][0].key);
+});
+
+it("keeps the exact create payload when the outcome is unknown", async () => {
+  const post = vi.fn().mockRejectedValueOnce(new AIWorkbenchError("OUTCOME_UNKNOWN")).mockResolvedValue({conversation});
+  fixture.request.mockImplementation(async input => input.route === "scope-options" ? scopeOptions : post(input));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await selectGeneralScope();
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  fireEvent.click(await screen.findByRole("button",{name:"核对原创建请求"}));
+  await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  expect(post.mock.calls[1][0]).toMatchObject({key:post.mock.calls[0][0].key,body:post.mock.calls[0][0].body});
+});
+
+it.each(["recent", "saved"] as const)("filters only loaded %s titles while retaining pagination and its scope", async mode => {
+  const first = { ...conversation, Title: "中文内容整理", Favorite: mode === "saved" };
+  const older = { ...first, ID: "d5d9d1ca-1db3-43af-9649-dcdf3663745b", Title: "English content" };
+  fixture.request.mockImplementation(async ({ path }) => path.includes("after=older")
+    ? { conversations: [older], next: "" } : { conversations: [first], next: "older" });
+  render(<QueryClientProvider client={client}><ChatPage mode={mode} /></QueryClientProvider>);
+  await screen.findByRole("link", { name: /中文内容整理/ });
+  fireEvent.change(screen.getByRole("searchbox", { name: "筛选已加载的会话标题" }), { target: { value: " ENGLISH " } });
+  expect(screen.queryByRole("link", { name: /中文内容整理/ })).toBeNull();
+  expect(screen.getByText("已加载的会话中没有匹配标题")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "加载更早会话" }));
+  expect(await screen.findByRole("link", { name: /English content/ })).toBeVisible();
+  expect(fixture.request.mock.calls.filter(([input]) => input.route === "conversation-list")).toHaveLength(2);
+  expect(fixture.request.mock.calls.at(-1)![0]).toMatchObject({ scope: { userId: "user-a", organizationId: "org-a" } });
+  if (mode === "saved") expect(fixture.request.mock.calls.at(-1)![0].path).toContain("saved=true");
+  fireEvent.click(screen.getByRole("button", { name: "清空筛选" }));
+  expect(screen.getByRole("link", { name: /中文内容整理/ })).toBeVisible();
+  expect(screen.getByRole("link", { name: /English content/ })).toBeVisible();
+});
+
 it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected %s message for correction with a new key",async(code)=>{
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code,false)});
  const view=render(tree());await screen.findByText("开始讨论");
@@ -49,6 +118,18 @@ it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected 
  fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修正需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
  expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0].key).not.toBe(first.key);
+});
+it("keeps optional settings expanded when the last field is cleared", async () => {
+  render(tree());
+  await screen.findByText("开始讨论");
+  const summary = screen.getByText("模板与知识库（可选）");
+  const disclosure = summary.closest("details")!;
+  fireEvent.click(summary);
+  await waitFor(() => expect(disclosure).toHaveAttribute("open"));
+  fireEvent.change(screen.getByLabelText("知识库 ID（可选）"), { target: { value: operationId } });
+  fireEvent.change(screen.getByLabelText("知识库 ID（可选）"), { target: { value: "" } });
+  expect(disclosure).toHaveAttribute("open");
+  expect(screen.getByLabelText("知识库 ID（可选）")).toBeVisible();
 });
 it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("retains the original intent for %s without owner rejection evidence",async(code)=>{
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code)});
@@ -83,10 +164,12 @@ it.each(["AVAILABLE", "UNAVAILABLE"])("creates a real conversation with planning
   fixture.search = new URLSearchParams(`operationId=${operationId}`);
   fixture.request.mockImplementation(async ({ route }) => {
     if (route === "conversation-list") return { conversations: [], next: "" };
+    if (route === "scope-options") return scopeOptions;
     if (route === "conversation-create") return { conversation };
     throw new AIWorkbenchError("INVALID_REQUEST");
   });
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await selectGeneralScope();
   fireEvent.click(await screen.findByRole("button", { name: "新建会话" }));
   await waitFor(() => expect(fixture.push).toHaveBeenCalledWith(`/workbench/ai/chat/${conversationId}?operationId=${operationId}`));
   fixture.search = new URLSearchParams();

@@ -19,6 +19,7 @@ import (
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/knowledge"
+	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/contentagent"
 	"task-processor/internal/product/review"
@@ -136,6 +137,8 @@ type productAgentResultDTO struct {
 	Currency              string                          `json:"currency"`
 	UsageStatus           string                          `json:"usageStatus"`
 	CanSubmitReview       bool                            `json:"canSubmitReview"`
+	CanResume             bool                            `json:"canResume"`
+	ImageAdvice           *asset.ImageAdvice              `json:"imageAdvice,omitempty"`
 }
 
 func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
@@ -263,6 +266,7 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 					existing, found, err = a.store.Lookup(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, binding, key)
 					if err == nil && found {
 						runMayExist = true
+						record = existing
 						binding = existing.State.Request.Binding
 						if binding.TargetPlatform != body.TargetPlatform {
 							err = agent.ErrConflict
@@ -278,7 +282,13 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 					} else {
 						request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
 					}
-					if err == nil {
+					if err == nil && !content && !agentconfig.CurrentTitleRequest(request.PolicyVersion, request.PromptVersion) {
+						// D2 permits original receipt replay only. Never hand an old
+						// request to the current runtime or reconstruct its result.
+						if !runMayExist || record.State.Request != request {
+							err = agent.ErrConflict
+						}
+					} else if err == nil {
 						var attempted bool
 						record, attempted, err = a.runtime.StartWithClaimAttempt(ctx, request)
 						runMayExist = runMayExist || attempted
@@ -302,7 +312,14 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				if err == nil && content != (record.State.Request.PolicyVersion == reviewproposal.ContentPolicyVersion) {
 					err = agent.ErrConflict
 				}
+				if err == nil && !record.State.Request.WorkbenchContextRef.Absent() {
+					err = agent.ErrUnavailable // Scoped results and actions use their original Task and Review.
+				}
 				if err == nil && spec.action == "resume" {
+					if !currentAgentRequest(record.State) {
+						writeProductAgentRunError(c, agent.ErrConflict, true)
+						return
+					}
 					if err = a.checkContentTitleSelection(record.State.Request.ContentSelection); err != nil {
 						writeProductAgentRunError(c, err, true)
 						return
@@ -320,6 +337,24 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				return
 			}
 			if spec.action == "review" {
+				if !content && !agentconfig.CurrentTitleRequest(record.State.Request.PolicyVersion, record.State.Request.PromptVersion) {
+					if !agentRunHistoricallyReviewable(record.State) {
+						writeProductAgentError(c, agent.ErrConflict)
+						return
+					}
+					view, found, lookupErr := a.reviews.FindAgentReview(ctx, record.State.RunID)
+					if lookupErr != nil {
+						writeProductAgentError(c, lookupErr)
+						return
+					}
+					if !found {
+						writeProductAgentError(c, agent.ErrConflict)
+						return
+					}
+					c.Header("Cache-Control", "no-store")
+					c.JSON(http.StatusOK, gin.H{"proposalId": view.ID, "requestKey": key, "operationId": operationID})
+					return
+				}
 				if !agentRunReviewable(record.State) {
 					writeProductAgentError(c, agent.ErrConflict)
 					return
@@ -362,6 +397,11 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				}
 			}
 			state := record.State
+			imageAdvice, adviceErr := recordedImageAdvice(state, false)
+			if adviceErr != nil {
+				writeProductAgentError(c, adviceErr)
+				return
+			}
 			provenance, provenanceErr := agentContextProvenance(state)
 			if provenanceErr != nil {
 				writeProductAgentError(c, provenanceErr)
@@ -369,6 +409,8 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 			}
 			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state) && a.checkContentTitleSelection(state.Request.ContentSelection) == nil}
 			result.ContentSelection = state.Request.ContentSelection
+			result.ImageAdvice = imageAdvice
+			result.CanResume = state.Phase == agent.Interrupted && currentAgentRequest(state)
 			if own {
 				result.ContextKind = contentagent.OwnProductContext
 			}
@@ -429,6 +471,18 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 }
 
 func agentRunReviewable(s agent.State) bool {
+	if s.Request.PolicyVersion != reviewproposal.ContentPolicyVersion && !agentconfig.CurrentTitleRequest(s.Request.PolicyVersion, s.Request.PromptVersion) {
+		return false
+	}
+	return agentRunHistoricallyReviewable(s)
+}
+
+func agentRunHistoricallyReviewable(s agent.State) bool {
+	if s.Request.PolicyVersion != reviewproposal.ContentPolicyVersion &&
+		!agentconfig.StoredTitleVersion("v1.0.0", s.Request.PolicyVersion, s.Request.PromptVersion) &&
+		!agentconfig.StoredTitleVersion(agentconfig.TitleAgentVersion, s.Request.PolicyVersion, s.Request.PromptVersion) {
+		return false
+	}
 	if !agent.ValidContextCitations(s.Request.ContextSnapshotRef, s.ContextCitationRefs) || s.Phase != agent.HumanReviewRequired || s.Validation == nil || !s.Validation.Valid || s.StopReason != "" {
 		return false
 	}

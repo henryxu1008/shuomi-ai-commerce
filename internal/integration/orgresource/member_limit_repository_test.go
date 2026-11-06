@@ -13,7 +13,7 @@ func TestMemberLimitSnapshotCanonicalizesDatabaseMonthToUTC(t *testing.T) {
 	month := time.Date(2026, 10, 1, 0, 0, 0, 0, time.FixedZone("UTC", 0))
 	wanted := orgresource.AIPointMonthStart(month)
 	require.False(t, month == wanted, "database UTC location differs from time.UTC")
-	read := limitSnapshot(memberAIPointLimitRow{OrganizationID: "org-1", MemberID: "member-1", MonthlyLimit: 120, Version: 1}, memberAIPointMonthRow{MonthStart: month, Reserved: 3, Consumed: 6})
+	read := limitSnapshot(memberAIPointLimitRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org-1", MemberID: "member-1", MonthlyLimit: 120, Version: 1}, memberAIPointMonthRow{MonthStart: month, Reserved: 3, Consumed: 6})
 	require.True(t, read.MonthStart == wanted, "the generation contract requires the canonical UTC month")
 	require.EqualValues(t, 120, read.MonthlyLimit)
 	require.EqualValues(t, 3, read.Reserved)
@@ -27,7 +27,7 @@ func TestMemberAIPointLimitOriginalOperationSurvivesMonthRollover(t *testing.T) 
 	require.NoError(t, err)
 	now := time.Date(2026, 9, 30, 23, 59, 0, 0, time.UTC)
 	repository.now = func() time.Time { return now }
-	input := orgresource.SetMemberLimitExecution{OrganizationID: "org-1", MemberID: "member-1", ActorID: "admin-1", OperationID: "limit-1", Target: 20}
+	input := orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "org-1", MemberID: "member-1", ActorID: "admin-1", OperationID: "limit-1", Target: 20}
 	first, err := repository.SetMonthlyLimit(context.Background(), input)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, first.Version)

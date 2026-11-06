@@ -63,7 +63,11 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 		writeFullImageError(c, imageagent.ErrIdentityRequired, false)
 		return
 	}
-	if a == nil || a.service == nil || a.artwork == nil || m.bind == nil {
+	if a == nil || a.runs() == nil || !a.executionDisabled && a.artwork == nil || m.bind == nil {
+		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+		return
+	}
+	if a.executionDisabled && c.Request.Method != http.MethodGet {
 		writeFullImageError(c, imageagent.ErrCommandBlocked, false)
 		return
 	}
@@ -88,7 +92,7 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 			return
 		}
 		var prepared imageagent.PreparedArtwork
-		prepared, err = a.service.GetPreparedArtworkByKey(ctx, c.Param("context_id"), c.Param("request_id"))
+		prepared, err = a.runs().GetPreparedArtworkByKey(ctx, c.Param("context_id"), c.Param("request_id"))
 		p = prepared.Projection
 	} else if action == "prepare" {
 		var body artworkPrepareBody
@@ -108,7 +112,7 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 			return
 		}
 		var prepared imageagent.PreparedArtwork
-		prepared, err = a.service.GetPreparedArtwork(ctx, runID)
+		prepared, err = a.runs().GetPreparedArtwork(ctx, runID)
 		p = prepared.Projection
 		if err == nil {
 			err = validateArtworkHTTPRun(id.TenantID, id.UserID, id.EffectiveMemberID, runID, p)
@@ -156,7 +160,7 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 					}
 				}
 				if err == nil && action != "confirm" {
-					prepared, err = a.service.GetPreparedArtwork(ctx, runID)
+					prepared, err = a.runs().GetPreparedArtwork(ctx, runID)
 					p = prepared.Projection
 				}
 			}
@@ -191,7 +195,7 @@ func (a *fullImageApplication) artworkResponse(ctx context.Context, p imageagent
 		return nil, err
 	}
 	mode, modeErr := a.configuration.CheckArtworkExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: p.Run.TenantID, ActorID: p.Run.UserID, MemberID: p.Run.MemberID}, art.Configuration, art.ModeSnapshotRef)
-	allowed := modeErr == nil && mode.Mode != agent.ModeReadOnly
+	allowed := !a.executionDisabled && modeErr == nil && mode.Mode != agent.ModeReadOnly
 	candidates := []gin.H{}
 	settled := int64(0)
 	for _, slot := range p.Slots {
@@ -233,7 +237,7 @@ func (a *fullImageApplication) artworkResponse(ctx context.Context, p imageagent
 	if p.Run.ImageAdmission != nil {
 		confirmation = p.Run.ImageAdmission.Command.ConfirmActionID
 	}
-	return gin.H{"runId": p.Run.ID, "requestKey": p.Run.IdempotencyKey, "contextId": p.Run.BusinessTaskID, "theme": art.Theme, "requirements": art.Requirements, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": digest, "quoteDigest": art.QuoteDigest, "points": art.MaxPoints, "settledPoints": settled, "candidates": candidates, "resultDigest": p.ResultDigest, "confirmationActionId": confirmation, "generationAdmitted": p.Run.ImageAdmission != nil, "generationAllowed": allowed, "saveAvailable": allowed && p.PendingCommand == nil && closedErr == nil && result == p.ResultDigest && p.Run.Status == imageagent.RunStatusAwaitingFinalApproval, "saved": saved, "mode": frozen.Mode, "modeRevision": frozen.Revision, "template": snapshot.Template, "block": block, "pendingCommand": pending, "recoverableEffects": p.RecoverableEffects}, nil
+	return gin.H{"referencePriceVersion": art.Quote.Billing.OfficialTariff.ReferencePriceVersion(), "runId": p.Run.ID, "requestKey": p.Run.IdempotencyKey, "contextId": p.Run.BusinessTaskID, "theme": art.Theme, "requirements": art.Requirements, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": digest, "quoteDigest": art.QuoteDigest, "unitVersion": "ai-micropoint-v1", "points": strconv.FormatInt(art.MaxPoints, 10), "settledPoints": strconv.FormatInt(settled, 10), "candidates": candidates, "resultDigest": p.ResultDigest, "confirmationActionId": confirmation, "generationAdmitted": p.Run.ImageAdmission != nil, "generationAllowed": allowed, "saveAvailable": allowed && p.PendingCommand == nil && closedErr == nil && result == p.ResultDigest && p.Run.Status == imageagent.RunStatusAwaitingFinalApproval, "saved": saved, "mode": frozen.Mode, "modeRevision": frozen.Revision, "template": snapshot.Template, "block": block, "pendingCommand": pending, "recoverableEffects": p.RecoverableEffects}, nil
 }
 
 func validateArtworkCommandBody(action string, b artworkCommandBody) error {

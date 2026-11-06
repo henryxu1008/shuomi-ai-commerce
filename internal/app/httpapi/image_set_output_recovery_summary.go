@@ -11,7 +11,8 @@ import (
 // This read DTO describes proved original outcomes; it never grants dispatch or
 // changes the historical workflow state, failure, or Commercial receipt.
 type fullImageOutputRecoverySummary struct {
-	SettledPoints int64                         `json:"settledPoints"`
+	UnitVersion   string                        `json:"unitVersion"`
+	SettledPoints int64                         "json:\"settledPoints,string\""
 	Slots         []fullImagePaidOutputSlot     `json:"slots"`
 	ReleasedSlots []fullImageReleasedOutputSlot `json:"releasedSlots,omitempty"`
 }
@@ -19,13 +20,13 @@ type fullImageOutputRecoverySummary struct {
 type fullImageReleasedOutputSlot struct {
 	SlotID  string `json:"slotId"`
 	Attempt int    `json:"attempt"`
-	Points  int64  `json:"points"`
+	Points  int64  "json:\"points,string\""
 }
 
 type fullImagePaidOutputSlot struct {
 	SlotID      string `json:"slotId"`
 	Attempt     int    `json:"attempt"`
-	Points      int64  `json:"points"`
+	Points      int64  "json:\"points,string\""
 	Unavailable bool   `json:"unavailable"`
 }
 
@@ -34,7 +35,7 @@ func (a *fullImageApplication) outputRecoverySummary(ctx context.Context, p imag
 		(p.Run.Status != imageagent.RunStatusBlocked && p.Run.Status != imageagent.RunStatusFailed) {
 		return nil, nil
 	}
-	result := &fullImageOutputRecoverySummary{Slots: []fullImagePaidOutputSlot{}}
+	result := &fullImageOutputRecoverySummary{UnitVersion: "ai-micropoint-v1", Slots: []fullImagePaidOutputSlot{}}
 	var releasedPoints int64
 	seen := map[string]bool{}
 	for _, slot := range p.Slots {
@@ -45,8 +46,8 @@ func (a *fullImageApplication) outputRecoverySummary(ctx context.Context, p imag
 		if slot.Closure != nil || len(slot.Candidates) != 0 {
 			continue // Its original closure already accounts for these points.
 		}
-		_, definition, recoverable := imageagent.FindRecoverableEffect(p, slot.Slot.ID, slot.Attempt)
-		if !recoverable || definition.Recipe == nil {
+		definition, found := imageagent.FindOriginalSettlementSlot(p, slot.Slot.ID, slot.Attempt)
+		if !found || definition.Recipe == nil {
 			continue
 		}
 		id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(p.Run), PlanRevision: p.Plan.Revision, SlotID: definition.ID, Attempt: slot.Attempt}
@@ -61,17 +62,17 @@ func (a *fullImageApplication) outputRecoverySummary(ctx context.Context, p imag
 			return nil, imageagent.ErrRevisionConflict
 		}
 		intent, quote := fact.Intent, definition.Recipe.Quote
-		if intent.Provider != quote.Provider || intent.Model != quote.Model || intent.Protocol != quote.Protocol || intent.Resolution != quote.Resolution || intent.Quality != quote.Quality ||
+		if intent.Billing != quote.Billing || intent.Provider != quote.Provider || intent.Model != quote.Model || intent.Protocol != quote.Protocol || intent.Resolution != quote.Resolution || intent.Quality != quote.Quality ||
 			intent.PriceVersion != quote.PriceVersion || intent.Points != quote.Points || intent.RouteReference != quote.RouteReference || intent.CredentialReference != quote.CredentialReference || intent.ConfigurationVersion != quote.ConfigurationVersion || intent.PromptVersion != definition.Recipe.PromptVersion ||
 			(p.AssetCatalog.Manifest.Hash != "" && intent.CatalogHash != p.AssetCatalog.Manifest.Hash) {
 			return nil, imageagent.ErrRevisionConflict
 		}
 		if fact.State == imageagent.GenerationNoEffect && fact.Settlement.State == "released" && fact.Settlement.ReservationID != "" {
-			if releasedPoints > math.MaxInt64-fact.Settlement.Points {
+			if releasedPoints > math.MaxInt64-fact.Settlement.ReservedMicropoints {
 				return nil, imageagent.ErrValidation
 			}
-			releasedPoints += fact.Settlement.Points
-			result.ReleasedSlots = append(result.ReleasedSlots, fullImageReleasedOutputSlot{SlotID: definition.ID, Attempt: slot.Attempt, Points: fact.Settlement.Points})
+			releasedPoints += fact.Settlement.ReservedMicropoints
+			result.ReleasedSlots = append(result.ReleasedSlots, fullImageReleasedOutputSlot{SlotID: definition.ID, Attempt: slot.Attempt, Points: fact.Settlement.ReservedMicropoints})
 			continue
 		}
 		if fact.State != imageagent.GenerationSucceeded || fact.Settlement.State != "committed" || fact.Settlement.ReservationID == "" {

@@ -4,15 +4,15 @@ This is the local account environment for **Shuomi AI Commerce** (AI Commerce
 Agent Platform). The engineering name `task-processor` remains in project names,
 paths and commands. Keep the original project name when operating an existing
 environment; changing it selects different Compose resources. See the
-[branding and repository rename inventory](../../../docs/development/branding-and-repository-rename.md).
+[branding and repository rename inventory](../../../docs/development/repository-structure.md).
 
-For local image updates, use the [source-based image build entry](../../../docs/operations/listingkit-image-build.md).
+For local image updates, use the [source-based image build entry](../../../docs/operations/application-image-build.md).
 It builds the backend/UI from the selected Git commit and clean runtime bases;
 do not inherit a previous application release image. Building does not deploy or
 change this environment, its configuration, or its data.
 
 Optional ZITADEL/Tencent SMS delivery configuration and the remaining local
-provider connection prerequisite are documented in [SMS.md](SMS.md).
+provider connection prerequisite are documented in [sms.md](sms.md).
 
 ## Local Login HTTP header budget (#539)
 
@@ -35,10 +35,12 @@ pwsh -NoProfile -File scripts/tests/account-compose-login-header-test.ps1
 ```
 
 The opt-in Data Market / API Management profile and admitted native authorization
-are documented in [DATA_SERVICES.md](DATA_SERVICES.md). The unified new-empty
+are documented in [data-services.md](data-services.md). The unified new-empty
 program combining the completed native modules is documented in
-[MODULES.md](MODULES.md), including exact-origin plugin packaging, retained
+[modules.md](modules.md), including exact-origin plugin packaging, retained
 restart commands and the remaining external configuration requirements.
+The recommended new unified entrypoint includes [enterprise storage capacity](storage-capacity.md),
+with automatic original-MinIO identity and narrow-policy installation.
 
 ## Enterprise custom roles and members (#598)
 
@@ -116,7 +118,7 @@ If a creation or settings response is lost, reopen in the same browser tab and
 confirm/retry the retained original request. Do not clear that tab's storage while
 the result is unconfirmed. A version conflict requires reading current facts and
 confirming the draft again. Real SHEIN operations and user acceptance are separate
-from local development checks. See the [admitted design](../../../docs/architecture/store-center-figma-v1.md).
+from local development checks. See the [admitted design](../../../docs/architecture/store-center-figma.md).
 
 The current entries are `/workbench/account`, `/workbench/plans/options`,
 `/workbench/plans/entitlements`, `/workbench/plans/usage`, and `/workbench/stores`.
@@ -501,6 +503,15 @@ used by the pinned `postgres:17.2-alpine` image's initialization hook. The
 root schema-install containers can read them, but serving containers receive
 only their existing private runtime manifests. An unreadable or malformed
 credential aborts initialization before a passwordless role can be created.
+
+The OpenTofu initializer prepares packages and the first root provider install
+before recording `.terraform-started`. If that preparation fails, restore
+connectivity and rerun the same Compose command with the same project, options
+and volumes. Once the started marker exists, an apply or output may already
+have changed native identity facts: the existing refusal to retry still applies.
+Do not remove markers to force a retry. Existing failed projects with a started
+marker are not repaired by this change. See the
+[preflight boundary](../../../docs/architecture/compose-tofu-preflight.md).
 
 Use a **new project name and empty volumes** for this layout. It is not an
 upgrade/migration command for retained multi-instance projects. Their containers,

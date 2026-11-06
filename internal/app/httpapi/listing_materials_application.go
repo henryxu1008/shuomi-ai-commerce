@@ -107,7 +107,7 @@ func buildListingMaterialsApplication(ctx context.Context, parent *productAgentA
 	if err != nil {
 		return nil, err
 	}
-	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: definition, Tools: []commercetool.Definition{materialsinspect.Definition()}, Model: a.model, Gateway: a, DomainProposalKind: materials.ProposalKind, DomainValidator: materials.Validator{Reader: supply}, Authorizer: a, Store: guard})
+	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: definition, Tools: []commercetool.Definition{materialsinspect.Definition(), materialsinspect.RulesDefinition()}, Model: a.model, Gateway: a, DomainProposalKind: materials.ProposalKind, DomainValidator: materials.Validator{Reader: supply}, Authorizer: a, Store: guard})
 	return a, err
 }
 
@@ -145,6 +145,16 @@ func (a *listingMaterialsApplication) Authorize(ctx context.Context, binding age
 	id, err := a.currentIdentity(ctx)
 	if err != nil {
 		return agent.Scope{}, err
+	}
+	if binding.ContextKind == agent.CandidateRulesContextKind {
+		value, err := a.supply.ReadCandidateRules(ctx, binding)
+		if err != nil {
+			return agent.Scope{}, err
+		}
+		if value.OrganizationID != id.OrganizationID {
+			return agent.Scope{}, preparation.ErrForbidden
+		}
+		return agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, nil
 	}
 	i, err := a.supply.ReadMaterialsInspection(ctx, binding)
 	if err != nil {
@@ -185,7 +195,26 @@ func (a *listingMaterialsApplication) readBase(ctx context.Context, recordID str
 }
 
 func materialsRunReviewable(s agent.State) bool {
-	return s.Phase == agent.HumanReviewRequired && s.StopReason == "" && s.RejectedPayload == nil && s.Request.Binding.ContextKind == "listing-target-record" && s.Request.Binding.TargetPlatform == "shein" && s.Request.PolicyVersion == materials.PolicyVersion && s.Request.PromptVersion == materials.PromptVersion && s.DomainProposal != nil && s.DomainProposal.Kind == materials.ProposalKind && s.Validation != nil && s.Validation.Valid && s.Validation.PolicyVersion == materials.PolicyVersion && s.Validation.CandidateHash == collection.Digest(s.DomainProposal) && len(s.Candidate.Changes) == 0 && len(s.Candidate.Warnings) == 0 && len(s.Candidate.Rejections) == 0
+	return materialsHistoricalReviewable(s) && s.Request.PolicyVersion == materials.PolicyVersion && s.Request.PromptVersion == materials.PromptVersion
+}
+
+// History/committed receipts retain their exact original candidate and policy.
+// This wider read predicate must not authorize a new resume or adoption.
+func materialsHistoricalReviewable(s agent.State) bool {
+	known := agentconfig.MaterialsStoredRequest(s.Request.PolicyVersion, s.Request.PromptVersion)
+	expectedKind := agentconfig.MaterialsStoredProposalKind(s.Request.PolicyVersion, s.Request.PromptVersion)
+	if !known || s.Phase != agent.HumanReviewRequired || s.StopReason != "" || s.RejectedPayload != nil || !s.Request.Binding.Valid() || s.Request.Binding.ContextKind != "listing-target-record" || s.Request.Binding.TargetPlatform != "shein" || s.DomainProposal == nil || s.DomainProposal.Kind != expectedKind || s.Validation == nil || !s.Validation.Valid || s.Validation.PolicyVersion != s.Request.PolicyVersion || s.Validation.CandidateHash != collection.Digest(s.DomainProposal) || len(s.Candidate.Changes) != 0 || len(s.Candidate.Warnings) != 0 || len(s.Candidate.Rejections) != 0 {
+		return false
+	}
+	_, err := materials.ParseRequestProposal(s.Request, *s.DomainProposal)
+	return err == nil
+}
+
+func materialsBindingMatchesReadBase(base, stored agent.Binding, record record.TargetRecord) bool {
+	if stored.ContextKind == agent.CandidateRulesContextKind {
+		return materials.CandidateBaseBinding(stored) == base && materials.CandidateRulesMatchesBase(stored, record)
+	}
+	return base == stored
 }
 
 func materialsAdoptionKey(s agent.State) string {

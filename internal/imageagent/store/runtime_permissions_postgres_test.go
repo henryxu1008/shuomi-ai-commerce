@@ -19,9 +19,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
-	"task-processor/internal/integration/openai"
 	assetpersistence "task-processor/internal/integration/persistence/product/asset"
-	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 func imageRuntimePermissionTestDSN(t *testing.T) string {
@@ -83,12 +81,11 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role))
 	require.Error(t, verifyOrganizationRuntimePermissions(ctx, owner, role))
-	require.NoError(t, owner.AutoMigrate(&openai.AIClientCredential{}))
-	require.NoError(t, routeconfigstore.InstallSchema(ctx, owner))
-	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options", "ai_client_credential_bindings"} {
+	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options"} {
 		t.Run("unneeded_managed_read_"+relation, func(t *testing.T) {
+			require.NoError(t, owner.Exec("CREATE TABLE "+relation+"(value text)").Error)
 			require.NoError(t, owner.Exec("GRANT SELECT ON "+relation+" TO "+role).Error)
-			require.Error(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role), "only the worker pool reads managed image routes")
+			require.Error(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role), "Image pools do not own the Run configuration")
 			require.NoError(t, owner.Exec("REVOKE SELECT ON "+relation+" FROM "+role).Error)
 			require.NoError(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role))
 		})
@@ -102,7 +99,7 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	run.ActivePlanRevision = 1
 	run.Version = 1
 	plan := imageSetPlanForStore(t)
-	limits := agentconfig.ImageRunLimits{Images: 1, Points: 20, ElapsedSeconds: 300}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 20, ElapsedSeconds: 300}
 	run.Budget = imageagent.ImageSetBudget(limits)
 	scope := imageagent.ScopeForRun(*run)
 	repository := NewOrganizationRepository(runtimeDB)
@@ -156,18 +153,18 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, won)
 	quote := plan.Slots[0].Recipe.Quote
-	intent := imageagent.GenerationIntent{Identity: identity, MemberID: run.MemberID, CatalogHash: current.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(plan.Slots[0].Recipe.References), PromptVersion: imageagent.ImageSetSchema, InputProtocol: imageagent.ImageSetSchema, InputDigest: imageagent.ImageGenerationInputDigestFromFingerprint(reservation.InputFingerprint), RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+	intent := imageagent.GenerationIntent{Billing: syntheticImageBilling(quote.Model, quote.PriceVersion, quote.Points), Identity: identity, MemberID: run.MemberID, CatalogHash: current.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(plan.Slots[0].Recipe.References), PromptVersion: imageagent.ImageSetSchema, InputProtocol: imageagent.ImageSetSchema, InputDigest: imageagent.ImageGenerationInputDigestFromFingerprint(reservation.InputFingerprint), RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
 	ownerFacts := ownerRepository.(imageagent.GenerationFactRepository)
 	originalFact, err := ownerFacts.PrepareGenerationIntent(ctx, intent)
 	require.NoError(t, err)
-	originalFact, err = ownerFacts.BindGenerationReservation(ctx, intent, imageagent.GenerationReservationReceipt{IntentID: originalFact.IntentID, Fingerprint: originalFact.Fingerprint, OrganizationID: scope.TenantID, MemberID: run.MemberID, OperationID: "image-reserve:" + originalFact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
+	originalFact, err = ownerFacts.BindGenerationReservation(ctx, intent, imageagent.GenerationReservationReceipt{UnitVersion: "ai-micropoint-v1", IntentID: originalFact.IntentID, Fingerprint: originalFact.Fingerprint, OrganizationID: scope.TenantID, MemberID: run.MemberID, OperationID: "image-reserve:" + originalFact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
 	require.NoError(t, err)
 	_, won, err = ownerFacts.BeginGenerationDispatch(ctx, intent)
 	require.NoError(t, err)
 	require.True(t, won)
-	originalFact, err = ownerFacts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: "response", RequestID: "request", ResultDigest: strings.Repeat("d", 64), ResultURL: "https://output.example.org/result.png"})
+	originalFact, err = ownerFacts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{BillableUsage: syntheticImageUsage(100, 100), UsageKnown: true, InputTokens: 100, OutputTokens: 100, TotalTokens: 200, ResponseID: "response", RequestID: "request", ResultDigest: strings.Repeat("d", 64), ResultURL: "https://output.example.org/result.png"})
 	require.NoError(t, err)
-	originalFact, err = ownerFacts.BindGenerationSettlement(ctx, intent, imageagent.GenerationSettlementReceipt{IntentID: originalFact.IntentID, Fingerprint: originalFact.Fingerprint, OperationID: "image-finalize:" + originalFact.IntentID, ReservationID: "reservation", State: "committed", Points: intent.Points, ProofDigest: originalFact.TerminalProofDigest()})
+	originalFact, err = ownerFacts.BindGenerationSettlement(ctx, intent, imageagent.GenerationSettlementReceipt{UnitVersion: "ai-micropoint-v1", ReservedMicropoints: intent.Points, IntentID: originalFact.IntentID, Fingerprint: originalFact.Fingerprint, OperationID: "image-finalize:" + originalFact.IntentID, ReservationID: "reservation", State: "committed", Points: intent.Points, ProofDigest: originalFact.TerminalProofDigest()})
 	require.NoError(t, err)
 	apiFact, err := repository.(imageagent.GenerationFactRepository).ReadGenerationFact(ctx, identity)
 	require.NoError(t, err, "candidate preview must read the original settled generation fact through the admitted API role")

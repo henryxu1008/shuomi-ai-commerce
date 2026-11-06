@@ -381,7 +381,7 @@ func readyTaskFixture(t *testing.T, store *Store, scope aiworkbench.Scope) (aiwo
 func preparedTaskFixture(t *testing.T, p aiworkbench.ExecutionProposal, key string) aiworkbench.PreparedTask {
 	t.Helper()
 	ref := agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: uuid.NewString(), Digest: fmt.Sprintf("%064x", 99)}
-	request := agent.Request{Key: key,
+	request := agent.Request{Key: key, WorkbenchContextRef: p.WorkbenchContextRef,
 		Binding: agent.Binding{ContextKind: "acquisition", ContextID: p.OperationID, ProductKey: p.ProductKey,
 			CatalogVersion: p.CatalogVersion, PublicationID: p.PublicationID, TargetPlatform: p.TargetPlatform},
 		ConfigurationSnapshotRef: ref, GoalSummary: p.GoalSummary, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1",

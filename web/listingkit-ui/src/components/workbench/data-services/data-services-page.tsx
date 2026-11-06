@@ -16,6 +16,17 @@ import { CUSTOM_INPUT_BYTE_LIMITS, KEY_NAME_MAX_BYTES, dataTextBytes, optionsSch
 import { useDataCommand } from "./use-data-command";
 import styles from "./data-services.module.css";
 export const stateNames: Record<string, string> = { ADMITTED: "已提交", RUNNING: "抓取中", SUCCEEDED: "已完成", PARTIAL: "部分完成", FAILED: "失败", CANCELED: "已取消", ACTIVE: "启用", DISABLED: "禁用", REVOKED: "已撤销", SUBMITTED: "已提交", EVALUATING: "需求评估", SPEC_CONFIRMED: "规格已确认", PREPARING: "数据制作中", DELIVERED: "已交付", CLOSED: "已关闭", SAVED: "已保存", PREPARED: "等待抓取", FETCHING: "抓取中", PREPARED_EVIDENCE: "等待保存" };
+const workbenchFailureNames: Record<string, string> = {
+    AUTHENTICATION_REQUIRED: "请先登录。",
+    PERMISSION_DENIED: "当前企业未授予此操作所需的权限。",
+    ORGANIZATION_ACCESS_DENIED: "当前身份不能访问所选企业，请返回工作台确认企业。",
+    ORGANIZATION_ACCESS_REVOKED: "当前企业访问权限已撤销，请返回工作台确认企业。",
+    ORGANIZATION_SUSPENDED: "当前企业已暂停使用，请联系企业管理员。",
+    ORGANIZATION_SELECTION_REQUIRED: "请先返回工作台选择当前企业。",
+    DEPENDENCY_UNAVAILABLE: "登录或企业授权服务暂不可用，请稍后刷新。",
+    DEADLINE_EXCEEDED: "数据服务请求超时，请稍后刷新或核实原请求。",
+    INVALID_UPSTREAM_RESPONSE: "数据服务返回了无效响应，请稍后刷新。",
+};
 const failureNames: Record<string, string> = { DATA_UNKNOWN: "结果待核实，请继续核实原请求。", DATA_UNAVAILABLE: "数据服务暂不可用，请稍后刷新。", FORBIDDEN: "当前身份或权限已失效，请确认登录及企业。", DATA_CONFLICT: "资料或额度已发生变化，请刷新后确认。", DATA_NOT_FOUND: "未找到当前身份下的记录。", INVALID_DATA_REQUEST: "请检查输入、格式、条数和额度。", ORGANIZATION_CONTEXT_CHANGED: "当前企业已变化，请重新进入页面。", IDENTITY_CONTEXT_CHANGED: "登录身份已变化，请重新进入页面。", PENDING_COMMAND: "请先核实上一次请求。", INTENT_STORAGE_UNAVAILABLE: "无法保存原请求，请恢复浏览器存储后再提交。", AUTHENTICATION_REQUIRED: "请先登录。", access_revoked: "权限已撤销", deadline: "任务已到截止时间", resource_unavailable: "数据条数资源不足", provider_failed: "来源页面未能取得有效数据", provider_rejected: "来源页面未能取得有效数据", provider_challenged: "Amazon 页面要求验证，本次获取已停止。", provider_unsupported: "Amazon 页面结构暂不支持，本次获取已停止。", canceled: "已取消", discovery_failed: "未能完成来源搜索" };
 const money = (fen: number) => `¥${(fen / 100).toFixed(2)}`;
 export const moment = (value: string) => new Date(value).toLocaleString("zh-CN");
@@ -29,7 +40,7 @@ export function ByteLimitHint({ id, value, maximum }: { id: string; value: strin
 }
 export function DataNotice({ error }: {
     error: string;
-}) { return error ? <p role="alert" className="rounded-lg border border-warning-foreground bg-warning p-3 text-sm text-warning-foreground">{failureNames[error] ?? "请求未完成，请刷新或核实原请求。"}</p> : null; }
+}) { return error ? <p role="alert" className="rounded-lg border border-warning-foreground bg-warning p-3 text-sm text-warning-foreground">{workbenchFailureNames[error] ?? failureNames[error] ?? "请求未完成，请刷新或核实原请求。"}</p> : null; }
 function download(value: unknown, name: string) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); }
 export function DataServicesPage({ mode }: {
     mode: "market" | "api";
@@ -126,6 +137,7 @@ function Market({ scope }: {
     const disabled = command.busy || !!command.pending;
     return <Frame className={styles.market} title="数据市场" subtitle="汇集主流电商平台产品数据，当前提供 Amazon 实时抓取与数据集定制。" actions={<><Button variant="outline" asChild><Link href="/workbench/data/api">API管理</Link></Button><Button variant="outline" asChild><Link href="/workbench/data/mine">我的数据</Link></Button></>}>
   <DataNotice error={error}/><Recovery command={command} onRecovered={received}/>
+  {error === "PERMISSION_DENIED" ? <p role="status" className="text-sm text-muted-foreground">请联系企业管理员核对“数据市场使用”和“商品资料查看”权限。</p> : null}
   <Card className={`${styles.card} ${styles.platform}`}>
     <div><span className={`${styles.badge} ${!options?.acquisitionReady ? styles.neutralBadge : ""}`}>{options ? options.acquisitionReady ? "已配置 1 个来源" : "实时抓取待配置" : error ? "配置未读取" : "正在读取配置"}</span><h2>选择数据来源</h2><p>当前可使用 Amazon 产品数据，其他电商平台暂未开放。</p><div className={styles.platformTags}><span>数据平台</span><span className={styles.badge}>Amazon · 当前选择</span><span className={`${styles.badge} ${styles.neutralBadge}`}>1688 · 未开放</span><span className={`${styles.badge} ${styles.neutralBadge}`}>更多平台 · 未开放</span></div></div>
     <dl className={styles.platformFacts}>{[["当前选择", "Amazon"], ["数据类型", "产品数据"], ["获取方式", "实时抓取 / 数据集定制"], ["交付格式", "Excel / CSV / JSON"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
@@ -136,7 +148,7 @@ function Market({ scope }: {
   </div></section>
   <Card className={`${styles.card} ${styles.process}`}><div className={styles.cardHeading}><h2>购买与交付流程</h2><p>所有成功交付的数据都会保存到“我的数据”。</p></div><ProcessRow label="实时抓取" steps={["配置抓取条件", "确认预估费用", "确认并开始抓取", "保存到我的数据"]}/><ProcessRow purple label="数据集定制" steps={["提交定制需求", "确认规格与报价", "数据制作与交付", "保存到我的数据"]}/></Card>
   <Card className="gap-4 p-6"><div className="flex justify-between"><h2 className="font-semibold">我的抓取与定制记录</h2><Button variant="ghost" size="sm" onClick={reload}>刷新</Button></div><p className="text-xs text-muted-foreground">展示最近 100 条抓取任务和定制申请。</p>
-    {[["抓取历史", jobsError], ["定制历史", customsError]].map(([label, code]) => code ? <p key={label} role="alert" className="text-sm text-warning-foreground">{code === "FORBIDDEN" ? `当前身份没有${label}读取权限。` : `${label}暂不可用，请稍后刷新。`}</p> : null)}
+    {[["抓取历史", jobsError], ["定制历史", customsError]].map(([label, code]) => code ? <p key={label} role="alert" className="text-sm text-warning-foreground">{code === "FORBIDDEN" || code === "PERMISSION_DENIED" ? `当前身份没有${label}读取权限。` : `${label}暂不可用，请稍后刷新。`}</p> : null)}
     {(jobs === null && !jobsError) || (customs === null && !customsError) ? <p role="status" className="text-sm text-muted-foreground">正在读取历史记录…</p> : null}
     {jobs !== null && customs !== null && jobs.length === 0 && customs.length === 0 ? <p className="py-5 text-center text-sm text-muted-foreground">暂无记录，提交后会在这里显示真实进度。</p> : <div className="grid gap-3 md:grid-cols-2">{jobs?.map(j => <button key={j.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={() => setJob(j)}><p className="font-medium">Amazon {j.query.site.toUpperCase()} · {j.query.mode}</p><p className="mt-1 text-sm text-muted-foreground">{stateNames[j.state]} · 已保存 {j.saved} 条 · {moment(j.createdAt)}</p></button>)}{customs?.map(c => <button key={c.id} className="rounded-lg border p-4 text-left hover:bg-muted/50" onClick={async () => {
                     try {

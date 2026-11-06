@@ -62,7 +62,8 @@ func buildProductSelectionApplication(ctx context.Context, parent *productAgentA
 			}
 		}
 	}
-	if parent == nil || len(parent.config.SelectionTextPolicies) == 0 {
+	// An authoritative current reader does not require a second static policy.
+	if parent == nil || (parent.config.CurrentTextPolicies == nil && len(parent.config.SelectionTextPolicies) == 0) {
 		return a, nil
 	}
 	policies := map[governed.RouteKey]governed.RoutePolicy{}

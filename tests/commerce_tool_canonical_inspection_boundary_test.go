@@ -86,7 +86,7 @@ func TestCommerceToolCanonicalInspectionGovernanceIsRecorded(t *testing.T) {
 	for _, rule := range []string{"canonical_inspection_tool_boundaries", "listing_task_canonical_subject_boundaries", "commercetoolauth_boundaries"} {
 		require.Contains(t, string(config), rule)
 	}
-	for _, text := range []string{"product.canonical.inspect", "internal/listing/record", "ProductSnapshot", "Phase 2B"} {
+	for _, text := range []string{"product.canonical.inspect", "internal/listing/record", "ProductSnapshot"} {
 		require.Contains(t, string(architecture), text)
 		require.Contains(t, string(structure), text)
 	}

@@ -6,7 +6,7 @@ Status: **IMPLEMENTATION_READY**。关联 #955。用户要求先评审，再开�
 
 在原 Amazon 单商品和同族采集的确认页、已保存规格资料中，分别查看该规格的新品和二手来源报价；网页明确给出二手成色时显示成色。每个状态只收集页面明确归属、无歧义的当前报价，不遍历其他卖家。参考报价不是本店售价或库存。原 1688 路径和服务端采集不扩展。
 
-依据：用户 2026-10-28 的决定；[已有接收与原键合同](plugin-capture-ingestion-v1.md)、[来源报价展示](plugin-capture-source-quotes-v1.md)、[同族采集](plugin-capture-amazon-variants-v1.md)、[产品与 Figma 权威](../product/final-ui-ia-authority.md)。当前 #955 有真实页面和 v10 收发证据。Product/Figma 沿现有确认和原始资料入口，不新增导航。
+依据：用户 2026-10-28 的决定；[已有接收与原键合同](plugin-capture-ingestion.md)、[来源报价展示](plugin-capture-source-quotes.md)、[同族采集](plugin-capture-amazon-variants.md)、[产品与 Figma 权威](../product/final-ui-ia-authority.md)。当前 #955 有真实页面和 v10 收发证据。Product/Figma 沿现有确认和原始资料入口，不新增导航。
 
 ## 事实、归属及未决合同
 

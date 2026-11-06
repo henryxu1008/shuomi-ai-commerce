@@ -35,7 +35,7 @@ function genericEntry(index:number,{hasDefault=false,failDefault=false,pending=f
  return {selection,exact,storage,raw};
 }
 function projection(status="awaiting_plan_approval",confirmationActionId=""){
- return {executionModeAvailable:true,generationAllowed:true,executionMode:"default",modeRevision:"0",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},runId,status,template:{templateId,revision:"1"},confirmationActionId,generationAdmitted:!!confirmationActionId,planRevision:1,planDigest:sha,quoteDigest:digest,images:2,points:20,settledPoints:status==="awaiting_plan_approval"?0:20,resultDigest:status==="awaiting_plan_approval"?"":sha,approvalAvailable:status==="awaiting_final_approval",candidateSelectionAvailable:["awaiting_final_approval","completed","failed","blocked","cancelled"].includes(status),regenerationAvailable:status==="awaiting_final_approval",plan:{Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"none",Language:"en"},Source:source,Target:{Platform:"product",StoreID:"",Site:"",CategoryID:0}},slots:["main","detail"].map((slotId,i)=>({slotId,status:status==="awaiting_plan_approval"?"pending":"accepted",attempt:status==="awaiting_plan_approval"?0:1,errorCode:"",recipe:{Purpose:i?"detail_closeup":"product_identity",Background:"white",Language:"en",Placement:{Group:i?"detail":"carousel",Order:1},References:[{AssetID:"original"}],Quote:{Points:10}},candidates:status==="awaiting_plan_approval"?[]:[{assetId:`generated-${i}`,url:`https://images.test/generated-${i}.png`,width:1024,height:1024}],closure:status==="awaiting_plan_approval"?null:{Kind:"generated",Points:10}})),originals:[{ID:"original",DisplayURL:"https://images.test/original.png",Width:1024,Height:1024}],recoverableEffects:null,pendingCommand:null,block:null};
+ return {unitVersion:"ai-micropoint-v1",executionModeAvailable:true,generationAllowed:true,executionMode:"default",modeRevision:"0",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},runId,status,template:{templateId,revision:"1"},confirmationActionId,generationAdmitted:!!confirmationActionId,planRevision:1,planDigest:sha,quoteDigest:digest,images:2,points:"20000000",settledPoints:status==="awaiting_plan_approval"?"0":"20000000",resultDigest:status==="awaiting_plan_approval"?"":sha,approvalAvailable:status==="awaiting_final_approval",candidateSelectionAvailable:["awaiting_final_approval","completed","failed","blocked","cancelled"].includes(status),regenerationAvailable:status==="awaiting_final_approval",plan:{Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"none",Language:"en"},Source:source,Target:{Platform:"product",StoreID:"",Site:"",CategoryID:0}},slots:["main","detail"].map((slotId,i)=>({slotId,status:status==="awaiting_plan_approval"?"pending":"accepted",attempt:status==="awaiting_plan_approval"?0:1,errorCode:"",recipe:{Purpose:i?"detail_closeup":"product_identity",Background:"white",Language:"en",Placement:{Group:i?"detail":"carousel",Order:1},References:[{AssetID:"original"}],Quote:{Points:"10000000"}},candidates:status==="awaiting_plan_approval"?[]:[{assetId:`generated-${i}`,url:`https://images.test/generated-${i}.png`,width:1024,height:1024}],closure:status==="awaiting_plan_approval"?null:{UnitVersion:"ai-micropoint-v1",Kind:"generated",Points:"10000000"}})),originals:[{ID:"original",DisplayURL:"https://images.test/original.png",Width:1024,Height:1024}],recoverableEffects:null,pendingCommand:null,block:null};
 }
 let state:ReturnType<typeof projection>,approved:boolean,fetch:ReturnType<typeof vi.fn<(input:unknown,init?:RequestInit)=>Promise<Response>>>;
 beforeEach(()=>{
@@ -50,6 +50,7 @@ beforeEach(()=>{
   if(url.includes("/agents/"))return Response.json(url.includes("/revisions/")?template:url.includes("/templates")?{items:[template],nextCursor:""}:entry);
   const parsed=new URL(url,"http://localhost");
   if(parsed.pathname.endsWith("/images/sources"))return Response.json({contextKind:"acquisition",contextId:operation,source:{...source,EffectiveVersion:parsed.searchParams.get("effectiveCatalogVersion")??source.EffectiveVersion,...parsed.searchParams.get("applyReceiptId")?{ApplyReceiptID:parsed.searchParams.get("applyReceiptId")}:{}},manualReplacementAvailable:false,originals:[{id:"original",displayUrl:"https://images.test/original.png",width:1024,height:1024}],evidence:{}});
+  if(url.endsWith("/model-options"))return Response.json({contextKind:url.includes("/supply-preparations/")?"supply":"acquisition",contextId:operation,options:[{unitVersion:"ai-micropoint-v1",model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:"10000000"}]});
   if(url.endsWith("/images/runs"))return Response.json({items:[],nextCursor:""});
   if(url.endsWith("/prepare"))return Response.json(state,{status:201});
   if(url.includes("/by-key/"))return Response.json(state);
@@ -62,99 +63,36 @@ beforeEach(()=>{
  });vi.stubGlobal("fetch",fetch);
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.unstubAllGlobals();localStorage.clear()});
+
+it("reports unavailable original tasks while leaving their data and generation untouched",async()=>{
+ const base=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>String(input).endsWith("/images/runs")?Promise.resolve(Response.json({items:[],nextCursor:"",unavailableCount:2})):base(input,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByText(/已读取页中有 2 个原任务/)).toHaveTextContent("记录已保留");
+ expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
 async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
 
-it("sends the exact VIP selection in a new plan and retains it with the original unknown request",async()=>{
- const original=fetch.getMockImplementation()!,route={BindingID:"image-vip",RevisionID:"route-vip"};
- fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"OUTCOME_UNKNOWN"},{status:503})):original(url,init));
+// Legacy decision: RETIRE per-plan optional/VIP model selection. Enterprise
+// model selection is the only current owner; original-key recovery tests below
+// remain in place for unchanged request/receipt and uncertain-result behavior.
+it("prepares with the enterprise model and exposes no per-plan model selector",async()=>{
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- await screen.findByRole("option",{name:"GPT Image VIP · 2 点/张"});
- fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:JSON.stringify(route)}});
- await prepare();await screen.findByRole("button",{name:"核实原请求"});
- const sent=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
- expect(JSON.parse(String(sent[1]!.body)).route).toEqual(route);
- expect(JSON.parse(localStorage.getItem(`product-image-set:actor:org:acquisition:${operation}:intent`)!).body.route).toEqual(route);
- expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
- expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/prepare"))).toHaveLength(1);
+ expect(await screen.findByLabelText("企业图片模型")).toHaveAttribute("readonly");
+ await screen.findByText(/每张预留上界 10 点/);expect(screen.queryByRole("combobox",{name:"本次计划使用的图片模型"})).toBeNull();
+ await prepare();const sent=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;expect(JSON.parse(String(sent[1]!.body)).route).toBeUndefined();
 });
-
-it("disables preparing a new plan until a restored unavailable VIP is explicitly reselected",async()=>{
- const route={BindingID:"image-vip",RevisionID:"route-old"};Object.assign(state.plan,{Route:route});localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
- const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1}]})):original(url,init));
- render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
- await screen.findByText(/原选版本不可用或尚未核实/);
- expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
- fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:"default"}});
- await waitFor(()=>expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled());
+it("blocks new preparation when the shared enterprise image model is unavailable",async()=>{
+ const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({code:"IMAGE_UNAVAILABLE"},{status:503})):original(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ await screen.findByText(/企业图片模型读取失败/);expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/prepare"))).toBe(false);
 });
-
-it("keeps model switching and new preparation locked while the original run has unresolved effects",async()=>{
- state=projection("blocked");Object.assign(state,{recoverableEffects:[{SlotID:"main",Attempt:1,Code:"provider_outcome_unknown"}]});localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
- render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
- expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
- expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
- expect(screen.getByRole("button",{name:"核实原调用"})).toBeEnabled();
-});
-
-it.each(["prepare","regenerate"])("restores the exact pending VIP for %s and archives a definite route refusal before unlocking",async action=>{
- const key=`product-image-set:actor:org:acquisition:${operation}:intent`,route={BindingID:"image-vip",RevisionID:"route-vip"};
- const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{route,text:{mode:"none"},expectedModeRevision:"0",target:{Platform:"product"}}},null,2);localStorage.setItem(key,raw);
- const nextRoute={...route,RevisionID:"route-new"};let reads=0,finishRead!:(value:Response)=>void;
- const refreshed=new Promise<Response>(resolve=>{finishRead=resolve});
- const options=(selected:typeof route)=>({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route:selected,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]});
- const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?(++reads===1?Promise.resolve(Response.json(options(route))):refreshed):String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409})):original(url,init));
- render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- const picker=await screen.findByRole("combobox",{name:"本次计划使用的图片模型"});expect(picker).toHaveValue(JSON.stringify(route));expect(picker).toBeDisabled();
- await screen.findByText(/gpt-image-2-vip · medium · 原始输出/);
- fireEvent.click(screen.getByRole("button",{name:"继续原操作"}));
- await screen.findByText(/所选图片模型版本已不可用/);
- await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
- expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
- expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeEnabled();
- expect(screen.queryByRole("button",{name:"继续原操作"})).toBeNull();
- expect(fetch.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
- await waitFor(()=>expect(reads).toBe(2));
- fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
- const prepareButton=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});
- expect(prepareButton).toBeDisabled();
- fireEvent.click(prepareButton);expect(fetch.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
- await act(async()=>finishRead(Response.json(options(nextRoute))));
- await screen.findByRole("option",{name:/原选版本 route-vip/});expect(prepareButton).toBeDisabled();
- fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:JSON.stringify(nextRoute)}});
- await waitFor(()=>expect(prepareButton).toBeEnabled());
- expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
-});
-
-it.each(["fresh","restored","sources-unavailable"])("retains a %s refused confirmation and keeps that immutable plan disabled after refresh",async scenario=>{
- const route={BindingID:"image-vip",RevisionID:"route-old"},nextRoute={...route,RevisionID:"route-new"};Object.assign(state.plan,{Route:route});
- const key=`product-image-set:actor:org:acquisition:${operation}:intent`;localStorage.setItem(key.replace(/:intent$/,":run"),runId);
- if(scenario==="restored")localStorage.setItem(key,JSON.stringify({action:"confirm",runId,body:{actionId:operation,planRevision:1,planDigest:sha,quoteDigest:digest}},null,2));
- let reads=0,raw="",sourcesUnavailable=false;const original=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>sourcesUnavailable&&String(url).endsWith("/sources")?Promise.resolve(Response.json({code:"IMAGE_UNAVAILABLE"},{status:503})):String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route:++reads===1?route:nextRoute,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith("/confirm")?(raw=localStorage.getItem(key)!,Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409}))):original(url,init));
- const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- await screen.findByText(/gpt-image-2-vip · medium · 原始输出/);
- fireEvent.click(screen.getByRole("button",{name:scenario==="restored"?"继续原确认":"确认点数并生成"}));
- await screen.findByText(/所选图片模型版本已不可用/);
- await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
- expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
- await waitFor(()=>expect(reads).toBe(2));
- const picker=screen.getByRole("combobox",{name:"本次计划使用的图片模型"});expect(picker).toHaveValue(JSON.stringify(route));
- expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
- fireEvent.change(picker,{target:{value:JSON.stringify(nextRoute)}});
- fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
- await waitFor(()=>expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled());
- expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
- view.unmount();sourcesUnavailable=scenario==="sources-unavailable";render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- await screen.findByRole("button",{name:"确认点数并生成"});
- if(!sourcesUnavailable)await screen.findByRole("option",{name:/原选版本 route-old/});
- expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
- expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/confirm"))).toHaveLength(1);
- expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
+it("retains an original pending model binding without offering a new model override",async()=>{
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,raw=JSON.stringify({action:"prepare",requestKey:templateId,body:{route:{BindingID:"image-vip",RevisionID:"original"},text:{mode:"none"},expectedModeRevision:"0",target:{Platform:"product"}}});localStorage.setItem(key,raw);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await screen.findByText(/原计划绑定 image-vip/);expect(screen.getByRole("button",{name:"新计划使用企业模型"})).toBeDisabled();expect(localStorage.getItem(key)).toBe(raw);expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/prepare"))).toBe(false);
 });
 
 it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
@@ -372,7 +310,7 @@ it("labels custom results by their image group and order while preserving exact 
 
 it("shows a fully released no-generation result while retaining the original failure without recovery actions",async()=>{
  state=projection("blocked",templateId);
- Object.assign(state,{settledPoints:0,resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,releaseSummary:{releasedPoints:20},block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ Object.assign(state,{unitVersion:"ai-micropoint-v1",settledPoints:"0",resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"20000000"},block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
  state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
  const real=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>String(url).endsWith("/images/runs")?Promise.resolve(Response.json({items:[{runId,contextKind:"acquisition",contextId:operation,status:"blocked",targetPlatform:"product",createdAt:now}],nextCursor:""})):real(url,init));
@@ -395,17 +333,17 @@ it("shows a fully released no-generation result while retaining the original fai
 
 it.each(["unknown","partial","unsettled","executing"])("does not accept a contradictory release summary for %s",scenario=>{
  const original=projection("blocked",templateId);
- const released={...original,settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},slots:original.slots.map(slot=>({...slot,status:"blocked",candidates:[] as typeof slot.candidates,closure:null,errorCode:"slot_provider_outcome_unknown"}))};
- if(scenario==="unknown")released.releaseSummary.releasedPoints=0;
+ const released={...original,settledPoints:"0",resultDigest:"",releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"20000000"},slots:original.slots.map(slot=>({...slot,status:"blocked",candidates:[] as typeof slot.candidates,closure:null,errorCode:"slot_provider_outcome_unknown"}))};
+ if(scenario==="unknown")released.releaseSummary.releasedPoints="0";
  if(scenario==="partial")released.slots[0]={...original.slots[0],closure:null};
- if(scenario==="unsettled")released.settledPoints=10;
+ if(scenario==="unsettled")released.settledPoints="10000000";
  if(scenario==="executing")released.status="executing";
  expect(imageSetRunSchema.safeParse(released).success).toBe(false);
 });
 
 it.each(["recover","cancel","restart","confirm","resume"] as const)("archives the settled %s request and unlocks task switching and a new plan after GET verification",async action=>{
  state=projection("blocked",templateId);
- Object.assign(state,{settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ Object.assign(state,{unitVersion:"ai-micropoint-v1",settledPoints:"0",resultDigest:"",releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"20000000"},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
  state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
  const body=action==="restart"?{planRevision:1,planDigest:sha,quoteDigest:digest}:action==="recover"?{actionId:templateId,planRevision:1,slotId:"main",attempt:1}:action==="confirm"?{actionId:templateId,planRevision:1,planDigest:sha,quoteDigest:digest}:action==="cancel"?{actionId:templateId,planRevision:1}:{actionId:templateId};
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`,saved=JSON.stringify({action,runId,body});
@@ -438,7 +376,7 @@ it.each(["recover","cancel","restart","confirm","resume"] as const)("archives th
 
 it.each(["another_run","new_regeneration"])("does not suppress an independent pending %s because the selected run was released",async scenario=>{
  state=projection("blocked",templateId);
- Object.assign(state,{settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false});
+ Object.assign(state,{unitVersion:"ai-micropoint-v1",settledPoints:"0",resultDigest:"",releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"20000000"},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false});
  state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null}));
  const intent=scenario==="another_run"?{action:"cancel",runId:operation,body:{actionId:templateId,planRevision:1}}:{action:"regenerate",runId,requestKey:operation,body:{expectedModeRevision:"0",target:{Platform:"product"}}};
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`,saved=JSON.stringify(intent);
@@ -452,7 +390,7 @@ it.each(["another_run","new_regeneration"])("does not suppress an independent pe
 
 function savedReleasedRequest(){
  const released=projection("blocked",templateId);
- Object.assign(released,{settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ Object.assign(released,{unitVersion:"ai-micropoint-v1",settledPoints:"0",resultDigest:"",releaseSummary:{unitVersion:"ai-micropoint-v1",releasedPoints:"20000000"},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
  released.slots=released.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
  state=released;
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
@@ -1420,7 +1358,7 @@ it(`can replay an unresolved ${action} with its original key and frozen body aft
 }
 
 it("clears lost recovery intent only when its exact original effect has a known closed result",async()=>{
- state=projection("awaiting_final_approval",templateId);state.slots[0].closure={Kind:"settled",Points:10};
+ state=projection("awaiting_final_approval",templateId);state.slots[0].closure={UnitVersion:"ai-micropoint-v1",Kind:"settled",Points:"10000000"};
  const body={actionId:operation,planRevision:1,slotId:"main",attempt:1};
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:intent`,JSON.stringify({action:"recover",runId,body}));
@@ -1434,7 +1372,7 @@ it("clears lost recovery intent only when its exact original effect has a known 
 for(const mismatch of ["unknown","attempt","revision","closure"]){
 it(`keeps a recovery intent with ${mismatch} unresolved and replays its exact action`,async()=>{
  const body={actionId:operation,planRevision:1,slotId:"main",attempt:1};
- state=projection("blocked",templateId);state.slots[0].closure={Kind:"settled",Points:10};
+ state=projection("blocked",templateId);state.slots[0].closure={UnitVersion:"ai-micropoint-v1",Kind:"settled",Points:"10000000"};
  const raw={...state,recoverableEffects:mismatch==="unknown"?[{SlotID:"main",Attempt:1,Code:"provider_outcome_unknown"}]:null};
  if(mismatch==="attempt")raw.slots[0].attempt=2;
  if(mismatch==="revision")raw.planRevision=2;
@@ -1648,9 +1586,10 @@ it(`retains an unresolved cancel intent for ${mismatch} without another mutation
 }
 
 
-it("restores a paid original through the existing recovery command and keeps unknown siblings",async()=>{
+it.each([false, true])("restores a paid original and keeps unknown siblings when new generation is blocked: %s",async modeChanged=>{
  state=projection("blocked","44444444-4444-4444-8444-444444444444");
- Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:10,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}],block:{Code:"slot_provider_outcome_unknown"}});
+ Object.assign(state,{unitVersion:"ai-micropoint-v1",resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:"10000000",outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"10000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:false}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}],block:{Code:"slot_provider_outcome_unknown"}});
+ if(modeChanged)Object.assign(state,{generationAllowed:false,modeUnavailableReason:"EXECUTION_MODE_CHANGED"});
  for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
@@ -1664,32 +1603,109 @@ it("restores a paid original through the existing recovery command and keeps unk
  expect(fetch.mock.calls.some(([u])=>/\/(prepare|confirm|regenerate|approve)$/.test(String(u)))).toBe(false);
 });
 
+it.each([false, true])("keeps closed image recovery read-only with a saved request: %s", async savedRequest => {
+ state = projection("blocked", operation);
+ Object.assign(state, {
+  generationAllowed: false,
+  modeUnavailableReason: "EXECUTION_DISABLED",
+  resultDigest: "",
+  approvalAvailable: false,
+  candidateSelectionAvailable: false,
+  regenerationAvailable: false,
+  settledPoints: "10000000",
+  outputRecoverySummary: {
+   unitVersion: "ai-micropoint-v1",
+   settledPoints: "10000000",
+   slots: [{slotId: "main", attempt: 1, points: "10000000", unavailable: false}],
+  },
+  recoverableEffects: [
+   {SlotID: "main", Attempt: 1, Code: "slot_provider_outcome_unknown"},
+   {SlotID: "detail", Attempt: 1, Code: "slot_provider_outcome_unknown"},
+  ],
+ });
+ for (const slot of state.slots) Object.assign(slot, {status: "blocked", candidates: [], closure: null});
+ const key = `product-image-set:actor:org:acquisition:${operation}`;
+ const original = JSON.stringify({action: "recover", runId, body: {actionId: operation, planRevision: 1, slotId: "main", attempt: 1}});
+ localStorage.setItem(key + ":run", runId);
+ if (savedRequest) localStorage.setItem(key + ":intent", original);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByText(/已结算用量 10 点/)).toBeVisible();
+ expect(screen.queryByRole("button", {name: "恢复原结果"})).toBeNull();
+ expect(screen.queryByRole("button", {name: "核实原调用"})).toBeNull();
+ expect(screen.queryByRole("button", {name: "继续原操作"})).toBeNull();
+ expect(screen.queryByRole("button", {name: "取消剩余工作"})).toBeNull();
+ expect(screen.getByRole("heading", {name: "已生成，已结算"})).toBeVisible();
+ expect(screen.getByText(/图片执行已关闭，可查看原任务和结算记录/)).toBeVisible();
+ if (savedRequest) {
+  fireEvent.click(screen.getByRole("button", {name: "核实原请求"}));
+  await screen.findByText("原操作尚未得到明确回执，请继续核实同一编号。");
+  expect(localStorage.getItem(key + ":intent")).toBe(original);
+ }
+ expect(fetch.mock.calls.some(([url, init]) => String(url).endsWith("/recover") && init?.method === "POST")).toBe(false);
+});
+
+it.each([true, false])("waits for the saved task before allowing replay when history is readable: %s", async readable => {
+ state = projection("failed", operation);
+ Object.assign(state, {
+  generationAllowed: false,
+  modeUnavailableReason: "EXECUTION_DISABLED",
+  approvalAvailable: false,
+  candidateSelectionAvailable: false,
+  regenerationAvailable: false,
+ });
+ const key = `product-image-set:actor:org:acquisition:${operation}`;
+ const original = JSON.stringify({action: "resume", runId, body: {actionId: operation}});
+ localStorage.setItem(key + ":run", runId);
+ localStorage.setItem(key + ":intent", original);
+ let finishRead!: (response: Response) => void;
+ const history = new Promise<Response>(resolve => { finishRead = resolve; });
+ const real = fetch.getMockImplementation()!;
+ fetch.mockImplementation((url, init) => String(url).endsWith(`/runs/${runId}`) ? history : real(url, init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("button", {name: "核实原请求"})).toBeEnabled();
+ await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).endsWith(`/runs/${runId}`))).toBe(true));
+ expect(screen.queryByRole("button", {name: "继续原操作"})).toBeNull();
+
+ await act(async () => finishRead(readable ? Response.json(state) : Response.json({code: "IMAGE_UNAVAILABLE"}, {status: 503})));
+ if (readable) await screen.findByText("图片执行已关闭，可查看原任务和结算记录。");
+ else await screen.findByRole("alert");
+ expect(screen.queryByRole("button", {name: "继续原操作"})).toBeNull();
+ expect(screen.getByRole("button", {name: "核实原请求"})).toBeEnabled();
+ expect(localStorage.getItem(key + ":intent")).toBe(original);
+ expect(fetch.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+});
+
 it("does not offer recovery of a proved unavailable paid original",async()=>{
  state=projection("blocked","44444444-4444-4444-8444-444444444444");
- Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:20,outputRecoverySummary:{settledPoints:20,slots:[{slotId:"main",attempt:1,points:10,unavailable:true},{slotId:"detail",attempt:1,points:10,unavailable:true}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ Object.assign(state,{unitVersion:"ai-micropoint-v1",resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:"20000000",outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"20000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:true},{slotId:"detail",attempt:1,points:"10000000",unavailable:true}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
  for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- expect(await screen.findByRole("heading",{name:"已扣点，原结果不可用"})).toBeVisible();
+ expect(await screen.findByRole("heading",{name:"已结算，原结果不可用"})).toBeVisible();
  expect(screen.queryByRole("button",{name:"恢复原结果"})).toBeNull();
 });
 
 
-it("restores a paid output whose original recoverable binding exists only in Run.Block",async()=>{
+it("shows a paid original without offering recovery when the effect owner is absent",async()=>{
  state=projection("blocked","44444444-4444-4444-8444-444444444444");
- Object.assign(state,{approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}]},recoverableEffects:null,block:{Code:"slot_provider_outcome_unknown",SlotID:"main"}});
- Object.assign(state.slots[0]!,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ const outputRecoverySummary={unitVersion:"ai-micropoint-v1",settledPoints:"10000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:false}]};
+ Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:"10000000",outputRecoverySummary,recoverableEffects:null,block:{Code:"slot_provider_outcome_unknown",SlotID:"main"}});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/images/runs")?Promise.resolve(Response.json({items:[{runId:templateId,contextKind:"acquisition",contextId:operation,status:"blocked",outputRecoverySummary,targetPlatform:"product",createdAt:now}],nextCursor:""})):real(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- expect(await screen.findByRole("heading",{name:"已生成，结果待恢复"})).toBeVisible();
- expect(screen.getByRole("button",{name:"恢复原结果"})).toBeEnabled();
+ expect(await screen.findByRole("heading",{name:"已生成，结果待核实"})).toBeVisible();
+ expect(screen.getByText(/已结算用量 10 点/)).toBeVisible();
+ expect(await screen.findByRole("option",{name:/已生成，已结算/})).toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"恢复原结果"})).toBeNull();
 });
 
 it("shows a released sibling separately from paid and genuinely UNKNOWN effects without unlocking the run",async()=>{
  state=projection("blocked","44444444-4444-4444-8444-444444444444");
  const unknown={...state.slots[1],slotId:"unknown"};
  state.slots.push(unknown);
- Object.assign(state,{images:3,points:30,settledPoints:10,resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}],releasedSlots:[{slotId:"detail",attempt:1,points:10}]},recoverableEffects:state.slots.map(s=>({SlotID:s.slotId,Attempt:1,Code:"slot_provider_outcome_unknown"})),block:{Code:"slot_provider_outcome_unknown"}});
+ Object.assign(state,{unitVersion:"ai-micropoint-v1",images:3,points:"30000000",settledPoints:"10000000",resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"10000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:false}],releasedSlots:[{slotId:"detail",attempt:1,points:"10000000"}]},recoverableEffects:state.slots.map(s=>({SlotID:s.slotId,Attempt:1,Code:"slot_provider_outcome_unknown"})),block:{Code:"slot_provider_outcome_unknown"}});
  for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
@@ -1698,18 +1714,25 @@ it("shows a released sibling separately from paid and genuinely UNKNOWN effects 
  expect(screen.getByText(/unknown：原调用待核实，点数预留保留/)).toBeVisible();
  expect(screen.getAllByRole("button",{name:"核实原调用"})).toHaveLength(1);
  expect(screen.getAllByRole("button",{name:"恢复原结果"})).toHaveLength(1);
- expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
+ expect(screen.getByLabelText("企业图片模型")).toHaveAttribute("readonly");
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 
 it.each(["attempt","points","duplicate","closed"])("rejects an unbound released summary for %s",scenario=>{
  const state=projection("blocked",templateId);
  for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
- const released={slotId:"detail",attempt:1,points:10};
- const payload={...state,settledPoints:10,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}],releasedSlots:[released]}};
+ const released={slotId:"detail",attempt:1,points:"10000000"};
+ const payload={...state,settledPoints:"10000000",outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"10000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:false}],releasedSlots:[released]}};
  if(scenario==="attempt")released.attempt=2;
- if(scenario==="points")released.points=11;
+ if(scenario==="points")released.points="11000000";
  if(scenario==="duplicate")released.slotId="main";
- if(scenario==="closed")Object.assign(payload.slots[1],{closure:{Kind:"settled",Points:0}});
+ if(scenario==="closed")Object.assign(payload.slots[1],{closure:{UnitVersion:"ai-micropoint-v1",Kind:"settled",Points:"0"}});
  expect(imageSetRunSchema.safeParse(payload).success).toBe(false);
+});
+
+it("accepts a proved zero-micropoint settlement without treating it as UNKNOWN or a full-reserve charge",()=>{
+ const payload={...projection("blocked",templateId),settledPoints:"0",resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"0",slots:[{slotId:"main",attempt:1,points:"0",unavailable:true}]},slots:projection("blocked",templateId).slots.map(slot=>({...slot,status:"blocked",closure:null,candidates:[],errorCode:"original_output_unavailable"}))};
+ expect(imageSetRunSchema.safeParse(payload).success).toBe(true);
+ expect(imageSetRunSchema.safeParse({...payload,unitVersion:undefined}).success).toBe(false);
+ expect(imageSetRunSchema.safeParse({...payload,outputRecoverySummary:{...payload.outputRecoverySummary,settledPoints:"1"}}).success).toBe(false);
 });

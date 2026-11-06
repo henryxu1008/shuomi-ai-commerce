@@ -89,7 +89,21 @@ type Receipt struct {
 
 // Prepared can only be populated by the admitted creation use case. There is
 // no exported arbitrary-payload constructor or mutable persistence record.
-type Prepared struct{ record Record }
+type Prepared struct {
+	record Record
+	guard  func(context.Context) error
+}
+
+// Revalidate is a transient use-case proof, never supplied by HTTP or persisted.
+func (p Prepared) Revalidate(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if p.guard != nil {
+		return p.guard(ctx)
+	}
+	return nil
+}
 
 func (p Prepared) Record() Record { return p.record.Clone() }
 
@@ -126,16 +140,19 @@ type Builder interface {
 }
 
 type ServiceDependencies struct {
-	Products       catalog.VersionedSnapshotReader
-	Assets         ApprovedAssetReader
-	Stores         StoreReferenceReader
-	Records        Store
-	Builder        Builder
-	Evaluator      DiagnosticEvaluator
-	Authorizer     Authorizer
-	Now            func() time.Time
-	RuleRevision   string
-	PolicyRevision string
+	// CreationGuard is supplied only by admitted normal composition. Isolated use cases retain their existing admission.
+	CreationGuard        func(context.Context, Actor, Input) error
+	Products             catalog.VersionedSnapshotReader
+	Assets               ApprovedAssetReader
+	Stores               StoreReferenceReader
+	Records              Store
+	Builder              Builder
+	Evaluator            DiagnosticEvaluator
+	Authorizer           Authorizer
+	Now                  func() time.Time
+	RuleRevision         string
+	PreviousRuleRevision string
+	PolicyRevision       string
 }
 
 type Service struct{ dependencies ServiceDependencies }
@@ -165,6 +182,21 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 	}
 	if input.Validate() != nil || ValidateOperationID(operation) != nil {
 		return Receipt{}, ErrInvalid
+	}
+	guard := func(check context.Context) error {
+		if err := check.Err(); err != nil {
+			return err
+		}
+		if !s.dependencies.Now().Before(identity.TokenExpiresAt) {
+			return ErrForbidden
+		}
+		if s.dependencies.CreationGuard != nil {
+			return s.dependencies.CreationGuard(check, actor, input)
+		}
+		return nil
+	}
+	if err := guard(ctx); err != nil {
+		return Receipt{}, err
 	}
 	existing, lookupErr := s.dependencies.Records.FindOperation(ctx, actor, operation)
 	if lookupErr == nil && (existing.OwnerUserID != actor.UserID || existing.Input != input) {
@@ -245,6 +277,23 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 	if err := ctx.Err(); err != nil {
 		return Receipt{}, err
 	}
+	if lookupErr == nil {
+		if existing.PolicyRevision != s.dependencies.PolicyRevision ||
+			(existing.RuleRevision != s.dependencies.RuleRevision && (s.dependencies.PreviousRuleRevision == "" || existing.RuleRevision != s.dependencies.PreviousRuleRevision)) {
+			return Receipt{}, ErrUnavailable
+		}
+		inputHash, err := canonicalInputHash(actor, input, productHash, inventoryHash, existing.RuleRevision, existing.PolicyRevision)
+		if err != nil {
+			return Receipt{}, ErrUnavailable
+		}
+		if existing.InputHash != inputHash || existing.ProductHash != productHash || existing.AssetInventoryHash != inventoryHash {
+			return Receipt{}, ErrConflict
+		}
+		if err := guard(ctx); err != nil {
+			return Receipt{}, err
+		}
+		return receiptFor(existing, actor, operation, inputHash)
+	}
 
 	payload, err := s.dependencies.Builder.Build(ctx, published.Snapshot, inventory, input)
 	if err != nil {
@@ -284,7 +333,7 @@ func (s *Service) Create(ctx context.Context, operation string, input Input) (Re
 		return Receipt{}, err
 	}
 
-	created, err := s.dependencies.Records.Insert(ctx, Prepared{record: Record{
+	created, err := s.dependencies.Records.Insert(ctx, Prepared{guard: guard, record: Record{
 		ID: uuid.NewString(), OrganizationID: actor.OrganizationID, OwnerUserID: actor.UserID, OperationID: operation,
 		Input: input, InputHash: inputHash, ProductHash: productHash,
 		AssetInventoryVersion: input.SnapshotVersion, AssetInventoryHash: inventoryHash,

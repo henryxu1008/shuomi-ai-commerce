@@ -35,11 +35,21 @@ func TestCoreAlignmentCommandIsExplicitAndExclusive(t *testing.T) {
 		{"retained cockpit without alignment", []string{"--retained-operations-cockpit"}, "require --align-core-contract"},
 		{"retained with browser mode", []string{"--browser-workbench", "--retained-operations-cockpit"}, "require --align-core-contract"},
 		{"explicit retained capabilities", []string{"--align-core-contract", "--retained-observations", "--retained-operations-cockpit", "--confirm-database", "retained_store", "--config", filepath.Join(t.TempDir(), "missing.json")}, "core contract alignment refused"},
+		{"current observations require confirmation", []string{"--observations-current-store"}, "exact database confirmation"},
+		{"current observations empty confirmation", []string{"--observations-current-store", "--confirm-database="}, "exact database confirmation"},
+		{"current observations explicit mode", []string{"--observations-current-store", "--confirm-database", "trial_store", "--config", filepath.Join(t.TempDir(), "missing.json")}, "current Store observation installation refused"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			output, err := exec.CommandContext(ctx, binary, tc.args...).CombinedOutput()
 			require.Error(t, err)
 			require.Contains(t, string(output), tc.want)
+		})
+	}
+	for _, mode := range []string{"--observations", "--observations-only", "--observations-grants-only", "--observations-verify", "--operations-cockpit", "--tiktok-shop", "--walmart-us", "--align-core-contract", "--browser-workbench"} {
+		t.Run("current observations with "+mode, func(t *testing.T) {
+			output, err := exec.CommandContext(ctx, binary, "--observations-current-store", "--confirm-database", "trial_store", mode).CombinedOutput()
+			require.Error(t, err)
+			require.Contains(t, string(output), "cannot be combined")
 		})
 	}
 	for _, mode := range []string{"--observations", "--observations-only", "--observations-grants-only", "--observations-verify", "--operations-cockpit", "--tiktok-shop", "--walmart-us"} {

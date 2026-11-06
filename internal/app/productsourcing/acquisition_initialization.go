@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	offlinestore "task-processor/internal/app/listingrecordstore"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
 	podstore "task-processor/internal/integration/persistence/product/pod"
+	researchstore "task-processor/internal/integration/persistence/product/research"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	marketstore "task-processor/internal/integration/persistence/product/supplymarket"
 	platformdatabase "task-processor/internal/platform/database"
@@ -32,6 +34,7 @@ import (
 var acquisitionInitName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,62}$`)
 
 type acquisitionInitManifest struct {
+	OfflineRecords   bool `json:"sheinOfflineRecords,omitempty"`
 	SchemaVersion    int  `json:"schemaVersion"`
 	Collections      bool `json:"collections,omitempty"`
 	AcquisitionPlans bool `json:"acquisitionPlans,omitempty"`
@@ -40,6 +43,7 @@ type acquisitionInitManifest struct {
 	ImageSets        bool `json:"imageSets,omitempty"`
 	SupplyMarket     bool `json:"supplyMarket,omitempty"`
 	POD              bool `json:"pod,omitempty"`
+	SupplierReview   bool `json:"researchSupplierReview,omitempty"`
 	DataServices     bool `json:"dataServices,omitempty"`
 	Database         struct {
 		Host     string `json:"host"`
@@ -73,11 +77,16 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 			return err
 		}
 		var empty bool
-		if err := tx.Raw(`SELECT current_schema()='public' AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p','v','m','f','S'))`).Scan(&empty).Error; err != nil || !empty {
+		if err := tx.Raw(`SELECT current_database()=? AND current_schema()='public' AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p','v','m','f','S'))`, confirmedDatabase).Scan(&empty).Error; err != nil || !empty {
 			return unavailable
 		}
 		if err := InstallAcquisitionSchema(tx); err != nil {
 			return err
+		}
+		if cfg.OfflineRecords {
+			if err := offlinestore.InstallSchema(tx); err != nil {
+				return err
+			}
 		}
 		if cfg.Collections {
 			if err := collectionstore.InstallSchema(tx); err != nil {
@@ -140,7 +149,23 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 				return err
 			}
 		}
-		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, CompletionDrafts: cfg.CompletionDrafts, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
+		if cfg.SupplierReview {
+			for _, install := range []func(*gorm.DB) error{researchstore.InstallSchema, researchstore.GrantRuntime, researchstore.InstallSupplierReviewSchema} {
+				if err := install(tx); err != nil {
+					return err
+				}
+			}
+			// Product's restricted database revokes PUBLIC CONNECT. The Research
+			// serving role gets connection access only on this fresh installation.
+			database := "\"" + confirmedDatabase + "\""
+			if err := tx.Exec("REVOKE ALL PRIVILEGES ON DATABASE " + database + " FROM " + researchstore.RuntimeRole).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("GRANT CONNECT ON DATABASE " + database + " TO " + researchstore.RuntimeRole).Error; err != nil {
+				return err
+			}
+		}
+		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{OfflineRecords: cfg.OfflineRecords, Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, CompletionDrafts: cfg.CompletionDrafts, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
 	})
 	if err != nil {
 		return unavailable
@@ -167,7 +192,7 @@ func InstallSupplyChainSchema(db *gorm.DB) error {
 // nonempty feature entry. Both entries reuse exactly these owner installers;
 // shared Review readiness/installation is handled separately by each caller.
 func installSupplyExecutionSchema(db *gorm.DB) error {
-	for _, install := range []func(*gorm.DB) error{recordstore.InstallSchema, preparationstore.InstallOperationSchema, submissionstore.InstallSchema, officialstore.InstallOfficialSchema} {
+	for _, install := range []func(*gorm.DB) error{recordstore.InstallSchema, preparationstore.InstallOperationSchema, preparationstore.InstallUploadPlanSchema, submissionstore.InstallSchema, officialstore.InstallOfficialSchema} {
 		if err := install(db); err != nil {
 			return err
 		}
@@ -195,7 +220,7 @@ func readAcquisitionInitManifest(manifest, confirmedDatabase string, unavailable
 	var cfg acquisitionInitManifest
 	strict, err := sigjson.UnmarshalStrict(raw, &cfg, sigjson.DisallowUnknownFields, sigjson.DisallowDuplicateFields)
 	d := cfg.Database
-	if (cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans || cfg.CompletionDrafts) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
+	if cfg.SupplierReview && (!cfg.Collections || !cfg.DataServices) || (cfg.OfflineRecords || cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans || cfg.CompletionDrafts) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
 		return acquisitionInitManifest{}, unavailable
 	}
 	if err != nil || len(strict) > 0 || cfg.SchemaVersion != 1 || d.Host != "127.0.0.1" || d.Port < 1 || d.Port > 65535 || !acquisitionInitName.MatchString(d.User) || !acquisitionInitName.MatchString(d.Database) || confirmedDatabase != d.Database || d.User == acquisitionstore.RuntimeRole || d.Database == "postgres" || d.Database == "template0" || d.Database == "template1" || len(d.Password) < 1 || len(d.Password) > 1024 || strings.ContainsAny(d.Password, " ='\\\t\r\n\v\f\x00") {
@@ -212,7 +237,7 @@ func EnableAcquisitionPlans(ctx context.Context, manifest, confirmedDatabase str
 		return unavailable
 	}
 	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, unavailable)
-	if err != nil || !cfg.Collections || !cfg.AcquisitionPlans {
+	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.AcquisitionPlans {
 		return unavailable
 	}
 	d := cfg.Database
@@ -249,7 +274,7 @@ func EnableCompletionDrafts(ctx context.Context, manifest, confirmedDatabase str
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, unavailable)
-	if err != nil || !cfg.Collections || !cfg.CompletionDrafts {
+	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.CompletionDrafts {
 		return unavailable
 	}
 	d := cfg.Database

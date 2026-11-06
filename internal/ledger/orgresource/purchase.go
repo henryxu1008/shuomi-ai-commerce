@@ -37,6 +37,8 @@ type PurchasedResourceGrantInput struct {
 }
 
 type PurchasedResourceGrantReplay struct {
+	LedgerQuantity        int64
+	UnitVersion           string
 	OrganizationID        string
 	OperationID           string
 	CommercialOrderID     string
@@ -49,6 +51,8 @@ type PurchasedResourceGrantReplay struct {
 }
 
 type PurchasedResourceGrantExecution struct {
+	LedgerQuantity        int64
+	UnitVersion           string
 	OrganizationID        string
 	OperationID           string
 	OperationType         string
@@ -63,6 +67,8 @@ type PurchasedResourceGrantExecution struct {
 }
 
 type PurchasedResourceGrantSnapshot struct {
+	LedgerQuantity        string       `json:"ledger_quantity"`
+	UnitVersion           string       `json:"unit_version"`
 	OperationID           string       `json:"operation_id"`
 	OrganizationID        string       `json:"organization_id"`
 	CommercialOrderID     string       `json:"commercial_order_id"`
@@ -131,12 +137,17 @@ func (service *PurchasedResourceGrantService) GrantPurchasedResource(ctx context
 		SourceIdentity:        purchasedGrantSourceIdentity(input.OrganizationID, input.CommercialOrderID, input.CommercialOrderItemID),
 		ActorID:               input.Principal.ID,
 	}
+	execution.LedgerQuantity, execution.UnitVersion, err = PurchasedLedgerQuantity(input.ResourceType, input.Quantity)
+	if err != nil {
+		return PurchasedResourceGrantResult{}, err
+	}
 	execution.RequestFingerprint, err = fingerprintPurchasedResourceGrant(execution)
 	if err != nil {
 		return PurchasedResourceGrantResult{}, err
 	}
 
 	replay := PurchasedResourceGrantReplay{
+		LedgerQuantity: execution.LedgerQuantity, UnitVersion: execution.UnitVersion,
 		OrganizationID:        execution.OrganizationID,
 		OperationID:           execution.OperationID,
 		CommercialOrderID:     execution.CommercialOrderID,
@@ -207,6 +218,8 @@ func purchasedGrantSourceIdentity(organizationID, orderID, orderItemID string) s
 
 func fingerprintPurchasedResourceGrant(input PurchasedResourceGrantExecution) (string, error) {
 	payload := struct {
+		LedgerQuantity        int64        `json:"ledger_quantity"`
+		UnitVersion           string       `json:"unit_version"`
 		OperationType         string       `json:"operation_type"`
 		OrganizationID        string       `json:"organization_id"`
 		CommercialOrderID     string       `json:"commercial_order_id"`
@@ -216,6 +229,7 @@ func fingerprintPurchasedResourceGrant(input PurchasedResourceGrantExecution) (s
 		SourceType            string       `json:"source_type"`
 		SourceIdentity        string       `json:"source_identity"`
 	}{
+		input.LedgerQuantity, input.UnitVersion,
 		input.OperationType,
 		input.OrganizationID,
 		input.CommercialOrderID,
@@ -231,4 +245,13 @@ func fingerprintPurchasedResourceGrant(input PurchasedResourceGrantExecution) (s
 	}
 	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+func validResourceType(resourceType ResourceType) bool {
+	switch resourceType {
+	case ResourceStoreRenewalPeriod, ResourceAIPoint, ResourceDataRow:
+		return true
+	default:
+		return false
+	}
 }
