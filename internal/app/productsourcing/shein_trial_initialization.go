@@ -32,7 +32,7 @@ func EnableSHEINUSTrialLedger(ctx context.Context, manifest, confirmedDatabase s
 	defer platformdatabase.Close(db)
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(current_database()||':source-acquisition-init',0))").Error != nil ||
-			verifySupplyTableOwner(tx, jobstore.Tables) != nil || acquisitionstore.VerifyDataServicesOwnerPermissions(ctx, tx, false) != nil {
+			verifyListingTableOwner(tx, jobstore.Tables) != nil || acquisitionstore.VerifyDataServicesOwnerPermissions(ctx, tx, false) != nil {
 			return refused
 		}
 		var exactTarget bool

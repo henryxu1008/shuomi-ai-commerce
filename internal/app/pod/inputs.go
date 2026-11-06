@@ -8,7 +8,7 @@ import (
 	"image"
 	"net/http"
 	"reflect"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/integration/httpimage"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
@@ -124,7 +124,7 @@ func (r OriginalInputs) ReadSourceSelection(ctx context.Context, in asset.Source
 			generated = true
 		}
 	}
-	return asset.SourceSelection{GeneratedArtwork: generated, TenantID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ItemID: d.Item.ID, ProductKey: d.Item.Source.ProductKey, OriginalPublicationID: in.OriginalPublicationID, OriginalSnapshotVersion: in.OriginalSnapshotVersion, EffectiveCatalogVersion: in.EffectiveCatalogVersion, TargetPlatform: "sds", Images: supplyapp.SourceImages(original)}, nil
+	return asset.SourceSelection{GeneratedArtwork: generated, TenantID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ItemID: d.Item.ID, ProductKey: d.Item.Source.ProductKey, OriginalPublicationID: in.OriginalPublicationID, OriginalSnapshotVersion: in.OriginalSnapshotVersion, EffectiveCatalogVersion: in.EffectiveCatalogVersion, TargetPlatform: "sds", Images: listingapp.SourceImages(original)}, nil
 }
 func (r OriginalInputs) approved(ctx context.Context, scope collection.Scope, ref pod.ArtworkReference) (asset.ApprovedAsset, error) {
 	commit, e := r.Approvals.ReadApprovalCommit(ctx, scope.OrganizationID, ref.ActionID)

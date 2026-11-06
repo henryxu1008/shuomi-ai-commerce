@@ -94,7 +94,7 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 			}
 		}
 		if cfg.SupplyChain {
-			if err := InstallSupplyChainSchema(tx); err != nil {
+			if err := InstallListingSchema(tx); err != nil {
 				return err
 			}
 		}
@@ -173,7 +173,7 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 	return nil
 }
 
-func InstallSupplyChainSchema(db *gorm.DB) error {
+func InstallListingSchema(db *gorm.DB) error {
 	if db == nil || db.Dialector.Name() != "postgres" {
 		return errors.New("supply requires existing Product PostgreSQL owner")
 	}
@@ -181,7 +181,7 @@ func InstallSupplyChainSchema(db *gorm.DB) error {
 		if err := preparationstore.InstallSchema(tx); err != nil {
 			return err
 		}
-		if err := installSupplyExecutionSchema(tx); err != nil {
+		if err := installListingExecutionSchema(tx); err != nil {
 			return err
 		}
 		return reviewstore.InstallSchema(tx)
@@ -191,7 +191,7 @@ func InstallSupplyChainSchema(db *gorm.DB) error {
 // Existing Preparation facts are verified, never installed again, by the
 // nonempty feature entry. Both entries reuse exactly these owner installers;
 // shared Review readiness/installation is handled separately by each caller.
-func installSupplyExecutionSchema(db *gorm.DB) error {
+func installListingExecutionSchema(db *gorm.DB) error {
 	for _, install := range []func(*gorm.DB) error{recordstore.InstallSchema, preparationstore.InstallOperationSchema, preparationstore.InstallUploadPlanSchema, submissionstore.InstallSchema, officialstore.InstallOfficialSchema} {
 		if err := install(db); err != nil {
 			return err

@@ -70,7 +70,7 @@ func TestSourceMaterialsRuntimeOpensOneAssetPoolWithoutWorkflow(t *testing.T) {
 				OpenSourceAccount:      func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
 				OpenCommercialOwner:    func(context.Context, DatabaseConfig) (*gorm.DB, error) { return commercial, nil },
 				OpenProductAcquisition: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return product, nil },
-				OpenSupplyAssets: func(_ context.Context, d DatabaseConfig) (*gorm.DB, error) {
+				OpenApprovedAssets: func(_ context.Context, d DatabaseConfig) (*gorm.DB, error) {
 					opens++
 					require.Equal(t, cfg.SourceMaterials.AssetDatabase, d)
 					return assets, nil
@@ -79,8 +79,8 @@ func TestSourceMaterialsRuntimeOpensOneAssetPoolWithoutWorkflow(t *testing.T) {
 				NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
 					assembled = true
 					require.True(t, f.SourceMaterials)
-					require.Same(t, assets, f.SupplyAssetDB)
-					require.Nil(t, f.SupplyWorkflow)
+					require.Same(t, assets, f.ApprovedAssetDB)
+					require.Nil(t, f.ListingWorkflow)
 					return nil, stop
 				},
 				CloseDatabase: func(db *gorm.DB) error { closed[db]++; return nil },

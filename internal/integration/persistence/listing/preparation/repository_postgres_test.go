@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"sync"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authidentity"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
@@ -44,10 +44,10 @@ type operationUploadConsumer struct {
 	calls         int
 }
 
-func (u *operationUploadConsumer) Upload(_ context.Context, scope collection.Scope, key, recordID string) (supplyapp.UploadResult, error) {
+func (u *operationUploadConsumer) Upload(_ context.Context, scope collection.Scope, key, recordID string) (listingapp.UploadResult, error) {
 	u.scope, u.key, u.recordID = scope, key, recordID
 	u.calls++
-	return supplyapp.UploadResult{RecordID: recordID, AttemptID: uuid.NewString(), Status: submission.ExecutionSucceeded}, nil
+	return listingapp.UploadResult{RecordID: recordID, AttemptID: uuid.NewString(), Status: submission.ExecutionSucceeded}, nil
 }
 
 func (a *operationExecutionAuth) AuthorizeOperationExecution(ctx context.Context, op preparation.Operation) error {
@@ -188,14 +188,14 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 		require.Equal(t, recordID, item.RecordID, site)
 		require.EqualValues(t, 3, item.RecordRevision, site)
 		consumer := &operationUploadConsumer{}
-		activities := supplyapp.OperationActivities{Operations: opService, Repository: operations, Uploader: consumer}
-		finished, err := activities.Process(actor, supplyapp.OperationExecution{OrganizationID: scope.OrganizationID, OperationID: upload.Operation.ID}, item.SourceID)
+		activities := listingapp.OperationActivities{Operations: opService, Repository: operations, Uploader: consumer}
+		finished, err := activities.Process(actor, listingapp.OperationExecution{OrganizationID: scope.OrganizationID, OperationID: upload.Operation.ID}, item.SourceID)
 		require.NoError(t, err)
 		require.Equal(t, preparation.ItemSucceeded, finished.Status, site)
 		require.Equal(t, scope, consumer.scope)
 		require.Equal(t, recordID, consumer.recordID, site)
 		require.Equal(t, preparation.ItemCommandID(upload.Operation.ID, item.SourceID, preparation.OperationUpload), consumer.key)
-		_, err = activities.Process(actor, supplyapp.OperationExecution{OrganizationID: scope.OrganizationID, OperationID: upload.Operation.ID}, item.SourceID)
+		_, err = activities.Process(actor, listingapp.OperationExecution{OrganizationID: scope.OrganizationID, OperationID: upload.Operation.ID}, item.SourceID)
 		require.NoError(t, err)
 		require.Equal(t, 1, consumer.calls, "worker redelivery must consume durable terminal item")
 	}

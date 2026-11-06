@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	app "task-processor/internal/app/supplychain"
+	app "task-processor/internal/app/listing"
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/product/asset"

@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/listing/materials"
 	record "task-processor/internal/listing/record/target"
 )
 
-func testCandidateRulesNativeOwners(t *testing.T, value string, a *listingMaterialsApplication, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32, input materialsPrepareInput, path string, call func(string, string, string, any, int) []byte) {
+func testCandidateRulesNativeOwners(t *testing.T, value string, a *listingMaterialsApplication, parent *productAgentApplication, supply *listingapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32, input materialsPrepareInput, path string, call func(string, string, string, any, int) []byte) {
 	t.Helper()
 	scope := agent.Scope{OrganizationID: "B", ActorID: "admin"}
 	prepared := call("POST", path+"/prepare", "", input, 200)

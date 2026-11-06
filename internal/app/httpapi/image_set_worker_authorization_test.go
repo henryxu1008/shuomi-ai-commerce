@@ -11,7 +11,7 @@ import (
 	"time"
 
 	imageapp "task-processor/internal/app/imageagent"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
@@ -44,7 +44,7 @@ type fullImageWorkerPublisher struct {
 }
 type fullImageWorkerSourceProbe struct {
 	imageagent.BudgetedStagedSlotExecutor
-	live  supplyapp.OrganizationExecutionAuthorizer
+	live  listingapp.OrganizationExecutionAuthorizer
 	calls int
 }
 
@@ -78,7 +78,7 @@ func TestFullImageTemporalV3AuthorizesDurableSubjectAndOriginalSourceWithoutBrow
 	defer server.Close()
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	live := supplyapp.OrganizationExecutionAuthorizer{Client: zitadel.NewAuthorizationClient(server.URL, server.Client()), ServiceToken: func(context.Context) (string, error) { return "controlled-service-token", nil }, ProjectID: "project", Permissions: permissions}
+	live := listingapp.OrganizationExecutionAuthorizer{Client: zitadel.NewAuthorizationClient(server.URL, server.Client()), ServiceToken: func(context.Context) (string, error) { return "controlled-service-token", nil }, ProjectID: "project", Permissions: permissions}
 	id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run", TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "source"}
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{ProductContext: imageagent.ProductContextRef{ProductID: "product"}, Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://images.example.org/source.png"}}})
 	require.NoError(t, err)

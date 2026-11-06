@@ -123,24 +123,24 @@ func TestFullImageGenericRuntimeOpensOnlyItsNarrowAssetPool(t *testing.T) {
 				DialImageSetWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
 					return workflow, func() error { workflowClosed = true; return nil }, nil
 				},
-				OpenSupplyAssets: func(_ context.Context, got DatabaseConfig) (*gorm.DB, error) {
+				OpenApprovedAssets: func(_ context.Context, got DatabaseConfig) (*gorm.DB, error) {
 					assetOpens++
 					require.Equal(t, cfg.ImageAgent.AssetDatabase, got)
 					return assets, nil
 				},
-				DialSupplyWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
+				DialProductWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
 					supplyDials++
 					return workflow, func() error { supplyClosed = true; return nil }, nil
 				},
 				NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
 					require.Same(t, assets, f.ImageSetAssetDB)
 					if platform {
-						require.Same(t, assets, f.SupplyAssetDB)
-						require.Same(t, workflow, f.SupplyWorkflow)
+						require.Same(t, assets, f.ApprovedAssetDB)
+						require.Same(t, workflow, f.ListingWorkflow)
 						require.NotNil(t, f.OfficialStoreApplications)
 					} else {
-						require.Nil(t, f.SupplyAssetDB)
-						require.Nil(t, f.SupplyWorkflow)
+						require.Nil(t, f.ApprovedAssetDB)
+						require.Nil(t, f.ListingWorkflow)
 						require.Nil(t, f.OfficialStoreApplications)
 					}
 					require.Same(t, workerDB, f.ImageSetWorkerDB)

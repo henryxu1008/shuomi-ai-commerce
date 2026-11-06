@@ -22,7 +22,7 @@ func (f *routedSourceFixture) ReadImageSetSource(context.Context, imageagent.Exe
 }
 func TestImageSetSourceRouterNeverTriesAnotherOwnerAfterDenial(t *testing.T) {
 	a := &routedSourceFixture{kind: imageagent.ImageSourceAcquisition, denied: true}
-	s := &routedSourceFixture{kind: imageagent.ImageSourceSupply}
+	s := &routedSourceFixture{kind: imageagent.ImageSourceListing}
 	r := ImageSetSourceRouter{Acquisition: a, Supply: s}
 	_, err := r.ReadImageSetSource(context.Background(), imageagent.ExecutionIdentity{}, imageagent.PrepareImageSetInput{ContextKind: imageagent.ImageSourceAcquisition})
 	require.Error(t, err)
@@ -31,10 +31,10 @@ func TestImageSetSourceRouterNeverTriesAnotherOwnerAfterDenial(t *testing.T) {
 	_, err = r.ReadImageSetSource(context.Background(), imageagent.ExecutionIdentity{}, imageagent.PrepareImageSetInput{ContextKind: "unknown"})
 	require.Error(t, err)
 	require.Zero(t, s.calls)
-	_, err = r.ReadImageSetSource(context.Background(), imageagent.ExecutionIdentity{}, imageagent.PrepareImageSetInput{ContextKind: imageagent.ImageSourceSupply})
+	_, err = r.ReadImageSetSource(context.Background(), imageagent.ExecutionIdentity{}, imageagent.PrepareImageSetInput{ContextKind: imageagent.ImageSourceListing})
 	require.NoError(t, err)
 	require.Equal(t, 1, s.calls)
 	s.kind = imageagent.ImageSourceAcquisition
-	_, err = r.ReadImageSetSource(context.Background(), imageagent.ExecutionIdentity{}, imageagent.PrepareImageSetInput{ContextKind: imageagent.ImageSourceSupply})
+	_, err = r.ReadImageSetSource(context.Background(), imageagent.ExecutionIdentity{}, imageagent.PrepareImageSetInput{ContextKind: imageagent.ImageSourceListing})
 	require.Error(t, err, "the selected owner must attest the same explicit context")
 }

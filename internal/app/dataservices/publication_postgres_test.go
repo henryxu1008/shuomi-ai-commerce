@@ -166,7 +166,7 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 		require.Len(t, members.Items, 1)
 		current, err := cr.ReadBatch(ctx, scope, batch.ID)
 		require.NoError(t, err)
-		require.True(t, current.SupplyTransferSupported, "Amazon evidence must be formally admitted to original transfer")
+		require.True(t, current.ListingTransferSupported, "Amazon evidence must be formally admitted to original transfer")
 		pr, err := preparationstore.NewRepository(ctx, db)
 		require.NoError(t, err)
 		ps, err := preparation.NewService(pr, cs, auth)

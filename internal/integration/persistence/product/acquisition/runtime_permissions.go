@@ -281,7 +281,7 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 				"GRANT SELECT,INSERT ON public.product_collection_operations TO source_acquisition_runtime")
 		}
 		if supply {
-			statements = append(statements, preparationRuntimeGrant, supplyRecordRuntimeGrant, supplyExecutionRuntimeGrant, supplyReviewRuntimeGrant)
+			statements = append(statements, preparationRuntimeGrant, listingRecordRuntimeGrant, listingExecutionRuntimeGrant, listingReviewRuntimeGrant)
 		}
 		if plans {
 			if _, err := planstore.NewRepository(ctx, tx); err != nil {

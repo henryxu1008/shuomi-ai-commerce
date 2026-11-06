@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"github.com/stretchr/testify/require"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/httproute"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
 	"task-processor/internal/product/sourcing"
@@ -30,14 +30,14 @@ func TestCompletionDraftRoutesAdmitOnlyNativeReadsAndSaveWithOriginalPreparation
 		}
 		routes = append(routes, collectionhttp.Routes(nil, nil)...)
 		if combination.full {
-			routes = append(routes, supplyhttp.SupplyRoutes(nil, nil)...)
+			routes = append(routes, listinghttp.ListingRoutes(nil, nil)...)
 		} else {
-			routes = append(routes, supplyhttp.PreparationRoutes(nil, nil)...)
+			routes = append(routes, listinghttp.PreparationRoutes(nil, nil)...)
 		}
 		if combination.plans {
 			routes = append(routes, acquisitionPlanRoutes(nil, nil)...)
 		}
-		drafts := supplyhttp.CompletionDraftRoutes(nil, nil)
+		drafts := listinghttp.CompletionDraftRoutes(nil, nil)
 		routes = append(routes, drafts...)
 		features := currentApplicationOptionalRoutes{Collections: true, CompletionDrafts: true, AcquisitionPlans: combination.plans, SupplyChain: combination.full}
 		require.NoError(t, validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, features))
@@ -45,7 +45,7 @@ func TestCompletionDraftRoutesAdmitOnlyNativeReadsAndSaveWithOriginalPreparation
 		require.Error(t, validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, features))
 		for _, r := range drafts {
 			r.Permission = "workbench.collection.read"
-			require.Error(t, supplyhttp.ValidateCompletionDraftDescriptor(r))
+			require.Error(t, listinghttp.ValidateCompletionDraftDescriptor(r))
 		}
 	}
 }

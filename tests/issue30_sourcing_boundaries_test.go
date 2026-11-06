@@ -31,7 +31,7 @@ func TestIssue30InternalProducerIsOnlyWiredByAdmittedProductReview(t *testing.T)
 	allowed := map[string]struct{}{
 		filepath.Join("..", "internal", "app", "httpapi", "collection_source_media.go"):                    {},
 		filepath.Join("..", "internal", "app", "httpapi", "product_collection_application.go"):             {},
-		filepath.Join("..", "internal", "app", "httpapi", "supply_chain_agents.go"):                        {},
+		filepath.Join("..", "internal", "app", "httpapi", "listing_agents.go"):                             {},
 		filepath.Join("..", "internal", "app", "httpapi", "supply_market_application.go"):                  {},
 		filepath.Join("..", "internal", "app", "runtime", "currentapplication", "source_media_storage.go"): {},
 		filepath.Join("..", "internal", "app", "runtime", "currentapplication", "runtime.go"):              {},

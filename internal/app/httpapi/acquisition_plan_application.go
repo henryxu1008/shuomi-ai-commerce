@@ -12,9 +12,9 @@ import (
 	"net/url"
 	sigjson "sigs.k8s.io/json"
 	"strings"
+	listingapp "task-processor/internal/app/listing"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/app/productsourcing"
-	supplyapp "task-processor/internal/app/supplychain"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	"task-processor/internal/authz"
 	"task-processor/internal/httproute"
 	planstore "task-processor/internal/integration/persistence/product/acquisitionplan"
@@ -33,7 +33,7 @@ func WithAcquisitionPlans() CurrentApplicationOption {
 }
 
 // Extend the current producer module, reusing the selected Preparation owner.
-func composeAcquisitionPlans(ctx context.Context, module productAcquisitionModule, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *supplyapp.Application) (productAcquisitionModule, error) {
+func composeAcquisitionPlans(ctx context.Context, module productAcquisitionModule, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *listingapp.Application) (productAcquisitionModule, error) {
 	if module.service == nil || collections == nil {
 		return module, sourcing.ErrAcquisitionUnavailable
 	}
@@ -70,7 +70,7 @@ func composeAcquisitionPlans(ctx context.Context, module productAcquisitionModul
 	bind := productReviewCapabilityBinder{now: time.Now}
 	module.routes = append(module.routes, acquisitionPlanRoutes(service, bind.Bind)...)
 	if full == nil {
-		module.routes = append(module.routes, supplyhttp.PreparationRoutes(app, bind.Bind)...)
+		module.routes = append(module.routes, listinghttp.PreparationRoutes(app, bind.Bind)...)
 	}
 	return module, nil
 }

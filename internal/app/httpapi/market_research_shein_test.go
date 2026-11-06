@@ -224,7 +224,7 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 		{ItemID: amazon.ID, ExpectedRevision: amazon.Revision, OriginalPublicationID: amazon.Source.PublicationID, OriginalVersion: amazon.Source.Version},
 	})
 	require.ErrorIs(t, err, agent.ErrInvalid)
-	require.False(t, collection.SupplyTransferKind(collection.SourceSHEINUSData))
+	require.False(t, collection.ListingTransferKind(collection.SourceSHEINUSData))
 
 	// A synthetic preexisting decision verifies masking without opening a SHEIN review path.
 	reason := "reason bound to the original P1"

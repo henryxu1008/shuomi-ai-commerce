@@ -36,7 +36,7 @@ func TestNotificationModuleRejectsSupplyAssetPoolBeforeSchemaAccess(t *testing.T
 	db := &gorm.DB{Config: &gorm.Config{Dialector: sqlite.Open(":memory:")}}
 	_, err := buildNotificationModule(context.Background(), db, &config.Config{}, nil, nil, currentApplicationOptions{
 		notifications: 1,
-		supplyChain:   &SupplyChainDependencies{AssetDB: db},
+		listing:       &ListingDependencies{AssetDB: db},
 	})
 	require.ErrorContains(t, err, "notification center cannot share an owner pool")
 }

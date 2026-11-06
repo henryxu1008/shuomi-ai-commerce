@@ -15,7 +15,7 @@ func TestNotificationAndSupplyAssetRequireSeparateDatabaseOwners(t *testing.T) {
 	require.NoError(t, cfg.validate())
 	cfg.NotificationCenterDatabase.Database = cfg.SupplyChain.AssetDatabase.Database
 	require.ErrorContains(t, cfg.validate(), "notification center requires a dedicated database")
-	require.ErrorContains(t, cfg.validateSupplyChain(), "supply assets require their independently owned database")
+	require.ErrorContains(t, cfg.validateListing(), "supply assets require their independently owned database")
 }
 
 func TestNotificationDatabaseRequiresIndependentBoundedRuntimeRole(t *testing.T) {

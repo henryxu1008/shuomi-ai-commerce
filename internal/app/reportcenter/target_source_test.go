@@ -25,9 +25,9 @@ func (f targetReadFunc) ReadRecord(ctx context.Context, id string) (target.Targe
 	return f(ctx, id)
 }
 
-type supplyReadPolicy struct{}
+type listingReadPolicy struct{}
 
-func (supplyReadPolicy) Authorize(_ string, _ []string, permission string) bool {
+func (listingReadPolicy) Authorize(_ string, _ []string, permission string) bool {
 	return permission == preparation.PermissionRead
 }
 
@@ -52,7 +52,7 @@ func TestNativeTargetReportCapturesExactHistoricalWhitelist(t *testing.T) {
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), identity)
 	r := nativeTargetFixture(scope)
 	calls := 0
-	s := Sources{Policy: supplyReadPolicy{}, TargetRecords: targetReadFunc(func(got context.Context, id string) (target.TargetRecord, error) {
+	s := Sources{Policy: listingReadPolicy{}, TargetRecords: targetReadFunc(func(got context.Context, id string) (target.TargetRecord, error) {
 		calls++
 		current, _ := authidentity.AuthenticatedIdentityFromContext(got)
 		require.Equal(t, identity, current)

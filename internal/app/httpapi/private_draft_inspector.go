@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strconv"
 	d "task-processor/internal/agentcustomization"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
@@ -13,15 +13,15 @@ import (
 	"task-processor/internal/storecenter"
 )
 
-type supplyDraftInspector struct{ app *supplyapp.Application }
+type listingDraftInspector struct{ app *listingapp.Application }
 
-func privateDraftInspector(module *supplyChainModule) d.DraftInspector {
+func privateDraftInspector(module *listingModule) d.DraftInspector {
 	if module == nil || module.app == nil {
 		return nil
 	}
-	return supplyDraftInspector{module.app}
+	return listingDraftInspector{module.app}
 }
-func (r supplyDraftInspector) Inspect(ctx context.Context, scope d.Scope, selection d.DraftSelection, head bool) (d.DraftSnapshot, error) {
+func (r listingDraftInspector) Inspect(ctx context.Context, scope d.Scope, selection d.DraftSelection, head bool) (d.DraftSnapshot, error) {
 	var out d.DraftSnapshot
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || scope.Platform || identity.UserID != scope.ActorID || identity.EffectiveOrganizationID != scope.OrganizationID || identity.TenantID != scope.OrganizationID {

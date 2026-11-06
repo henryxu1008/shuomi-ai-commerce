@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	imageapp "task-processor/internal/app/imageagent"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -30,7 +30,7 @@ import (
 
 type imageAnalysisApplication struct {
 	parent    *productAgentApplication
-	supply    *supplyapp.Application
+	supply    *listingapp.Application
 	assets    asset.ApprovedInventoryReader
 	sources   *imageapp.AnalysisSources
 	materials imageapp.AnalysisMaterialReader
@@ -40,7 +40,7 @@ type imageAnalysisApplication struct {
 	limits    agent.Limits
 }
 
-func buildImageAnalysisApplication(parent *productAgentApplication, supply *supplyapp.Application, cfg *config.Config, media *collectionSourceMediaDependencies) (*imageAnalysisApplication, error) {
+func buildImageAnalysisApplication(parent *productAgentApplication, supply *listingapp.Application, cfg *config.Config, media *collectionSourceMediaDependencies) (*imageAnalysisApplication, error) {
 	if parent == nil || parent.config.ContentOnly || parent.config.ContentTitleOnly || parent.config.AssetDB == nil {
 		return nil, nil
 	}

@@ -3,8 +3,8 @@ package httpapi
 import (
 	"context"
 	"gorm.io/gorm"
-	supplyapp "task-processor/internal/app/supplychain"
-	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	listingapp "task-processor/internal/app/listing"
+	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
@@ -15,12 +15,12 @@ import (
 	"time"
 )
 
-func WithSupplyCompletionDrafts() CurrentApplicationOption {
-	return func(o *currentApplicationOptions) { o.supplyCompletionDrafts++ }
+func WithListingCompletionDrafts() CurrentApplicationOption {
+	return func(o *currentApplicationOptions) { o.listingCompletionDrafts++ }
 }
 
 type completionDraftModule struct {
-	app    *supplyapp.Application
+	app    *listingapp.Application
 	routes []httproute.Descriptor
 }
 
@@ -30,7 +30,7 @@ func (m completionDraftModule) Register(r *kernelmodule.Registry) error {
 	r.AddRoutes(m.routes...)
 	return nil
 }
-func composeCompletionDrafts(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *supplyapp.Application) (completionDraftModule, error) {
+func composeCompletionDrafts(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *listingapp.Application) (completionDraftModule, error) {
 	var empty completionDraftModule
 	app := full
 	if app == nil {
@@ -49,9 +49,9 @@ func composeCompletionDrafts(ctx context.Context, db *gorm.DB, deps routeAuthDep
 		return empty, err
 	}
 	bind := productReviewCapabilityBinder{now: time.Now}
-	routes := supplyhttp.CompletionDraftRoutes(service, bind.Bind)
+	routes := listinghttp.CompletionDraftRoutes(service, bind.Bind)
 	if full == nil {
-		routes = append(routes, supplyhttp.PreparationRoutes(app, bind.Bind)...)
+		routes = append(routes, listinghttp.PreparationRoutes(app, bind.Bind)...)
 	}
 	return completionDraftModule{app, routes}, nil
 }

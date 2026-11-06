@@ -12,9 +12,9 @@ import (
 	podapp "task-processor/internal/app/pod"
 	dataservicesruntime "task-processor/internal/app/runtime/dataservices"
 	fulfillmentruntime "task-processor/internal/app/runtime/fulfillment"
+	listingoperation "task-processor/internal/app/runtime/listingoperation"
 	podruntime "task-processor/internal/app/runtime/pod"
 	observationruntime "task-processor/internal/app/runtime/storeobservations"
-	supplyruntime "task-processor/internal/app/runtime/supplychain"
 	"task-processor/internal/integration/sds"
 	"task-processor/internal/product/collection"
 	"time"
@@ -132,10 +132,10 @@ func execute() error {
 			}
 			return current, func() error { current.Close(); return nil }, nil
 		},
-		OpenSupplyAssets: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
+		OpenApprovedAssets: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
-		DialSupplyWorkflow:            dialCurrentWorkflow,
+		DialProductWorkflow:           dialCurrentWorkflow,
 		DialStoreObservationsWorkflow: dialCurrentWorkflow,
 		OpenAccountAuditUsage: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingReadOnlyContext(ctx, databaseConfig(cfg))
@@ -201,7 +201,7 @@ func execute() error {
 				options = append(options, httpapi.WithReportCenter(features.ReportCenterDB))
 			}
 			if features.SheinOfflineRecords {
-				options = append(options, httpapi.WithSheinOfflineRecords(features.SupplyAssetDB))
+				options = append(options, httpapi.WithSheinOfflineRecords(features.ApprovedAssetDB))
 			}
 			if features.SheinTargetReportSources {
 				options = append(options, httpapi.WithSheinTargetReportSources())
@@ -291,13 +291,13 @@ func execute() error {
 				options = append(options, httpapi.WithProductCollections())
 			}
 			if features.SourceMaterials {
-				options = append(options, httpapi.WithSourceMaterials(features.SupplyAssetDB))
+				options = append(options, httpapi.WithSourceMaterials(features.ApprovedAssetDB))
 			}
 			if features.AcquisitionPlans {
 				options = append(options, httpapi.WithAcquisitionPlans())
 			}
 			if features.SupplyCompletionDrafts {
-				options = append(options, httpapi.WithSupplyCompletionDrafts())
+				options = append(options, httpapi.WithListingCompletionDrafts())
 			}
 			if features.SourceMediaStorage != nil {
 				options = append(options, httpapi.WithCollectionSourceMedia(features.SourceMediaStorage))
@@ -305,8 +305,8 @@ func execute() error {
 			if t := features.PrivateDraftTrial; t != nil {
 				options = append(options, httpapi.WithPrivateDraftTrial(httpapi.PrivateDraftTrialDependencies{Scope: collection.Scope{OrganizationID: t.OrganizationID, ActorID: t.ActorID, MemberID: t.MemberID}, StoreID: t.StoreID}))
 			}
-			if features.SupplyWorkflow != nil {
-				options = append(options, httpapi.WithSupplyChain(httpapi.SupplyChainDependencies{AssetDB: features.SupplyAssetDB, Starter: supplyruntime.TemporalOperationStarter{Client: features.SupplyWorkflow}, NewWorker: supplyruntime.WorkerFactory(features.SupplyWorkflow), Worker: features.SupplyWorker}))
+			if features.ListingWorkflow != nil {
+				options = append(options, httpapi.WithListing(httpapi.ListingDependencies{AssetDB: features.ApprovedAssetDB, Starter: listingoperation.TemporalOperationStarter{Client: features.ListingWorkflow}, NewWorker: listingoperation.WorkerFactory(features.ListingWorkflow), Worker: features.ListingWorker}))
 			}
 			if features.MarketStorage != nil {
 				options = append(options, httpapi.WithSupplyMarket(httpapi.SupplyMarketDependencies{Storage: features.MarketStorage}))

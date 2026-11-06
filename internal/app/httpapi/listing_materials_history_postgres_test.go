@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/listing/materials"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/product/collection"
@@ -20,7 +20,7 @@ import (
 
 // Seed finite historical envelopes only in the existing task-owned fixture DB.
 // This is historical test data, never a production migration or old executor.
-func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgentApplication, supply *supplyapp.Application, base record.TargetReceipt, actor context.Context, calls *atomic.Int32, db *gorm.DB, snapshot agentconfig.Snapshot, call func(string, string, string, any, int) []byte, path string) {
+func testMaterialsV1ReadOnlyHTTP(t *testing.T, value string, parent *productAgentApplication, supply *listingapp.Application, base record.TargetReceipt, actor context.Context, calls *atomic.Int32, db *gorm.DB, snapshot agentconfig.Snapshot, call func(string, string, string, any, int) []byte, path string) {
 	t.Helper()
 	ctx := context.Background()
 	run, found, err := parent.store.Lookup(ctx, snapshot.Scope, snapshot.Request.Binding, snapshot.Request.Key)

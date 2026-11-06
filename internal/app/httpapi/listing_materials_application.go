@@ -8,7 +8,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
-	supplyapp "task-processor/internal/app/supplychain"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/commercetool"
 	einoruntime "task-processor/internal/integration/agent/eino"
@@ -27,7 +27,7 @@ import (
 
 type listingMaterialsApplication struct {
 	parent  *productAgentApplication
-	supply  *supplyapp.Application
+	supply  *listingapp.Application
 	model   *texteino.AgentTextModel
 	runtime *einoruntime.Runtime
 	gateway *materialsinspect.Invoker
@@ -36,7 +36,7 @@ type listingMaterialsApplication struct {
 
 // Runs/configuration/ledger are the injected original owners. Missing model or
 // installed configuration disables execution while historical reads remain.
-func buildListingMaterialsApplication(ctx context.Context, parent *productAgentApplication, supply *supplyapp.Application) (*listingMaterialsApplication, error) {
+func buildListingMaterialsApplication(ctx context.Context, parent *productAgentApplication, supply *listingapp.Application) (*listingMaterialsApplication, error) {
 	if parent == nil || parent.configuration == nil || parent.store == nil || supply == nil || supply.Targets == nil {
 		return nil, agent.ErrUnavailable
 	}

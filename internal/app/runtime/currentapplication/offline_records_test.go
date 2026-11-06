@@ -46,7 +46,7 @@ func TestOfflineRecordsRuntimeUsesOneAssetPoolWithoutAgentOrWorkflow(t *testing.
 	closed := map[*gorm.DB]int{}
 	err := Run(context.Background(), cfg, logrus.New(), Dependencies{
 		IdentityPreflight: func(context.Context, IdentityConfig) error { return nil }, OpenSourceAccount: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
-		OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return commercial, nil }, OpenProductAcquisition: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return products, nil }, OpenStoreCenter: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return stores, nil }, OpenReportCenter: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return reports, nil }, OpenSupplyAssets: func(_ context.Context, d DatabaseConfig) (*gorm.DB, error) {
+		OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return commercial, nil }, OpenProductAcquisition: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return products, nil }, OpenStoreCenter: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return stores, nil }, OpenReportCenter: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return reports, nil }, OpenApprovedAssets: func(_ context.Context, d DatabaseConfig) (*gorm.DB, error) {
 			opened++
 			require.Equal(t, cfg.SheinOfflineRecords.AssetDatabase, d)
 			return assets, nil
@@ -54,8 +54,8 @@ func TestOfflineRecordsRuntimeUsesOneAssetPoolWithoutAgentOrWorkflow(t *testing.
 		NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
 			assembled = true
 			require.True(t, f.SheinOfflineRecords)
-			require.Same(t, assets, f.SupplyAssetDB)
-			require.Nil(t, f.SupplyWorkflow)
+			require.Same(t, assets, f.ApprovedAssetDB)
+			require.Nil(t, f.ListingWorkflow)
 			require.Nil(t, f.ProductAgent)
 			return nil, stop
 		},

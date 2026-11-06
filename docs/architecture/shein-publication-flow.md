@@ -87,13 +87,13 @@ Store 的当前经营模式与原回执模式不一致时，保留原事实并�
 | 审核/模式/库存解释 | `internal/marketplace/shein` | 纯规则 DTO/validator；官方文档规则替换冲突的旧规则 |
 | 签名 HTTP / 原始响应 | `internal/integration/shein` | 沿 OfficialClient 窄 adapter 新增四接口；秘密留在 Store 执行边界 |
 | intent/attempt/permit/UNKNOWN/fence | Listing Submission + official persistence | 新增 shelf_on kind 与窄 PrepareShelfIntent；沿原 Kernel，不增加第二执行状态机 |
-| 页面组合和投影 | `internal/app/supplychain`、Console/BFF | 当前详情的状态读取/确认入口，原上传阶段不重写 |
+| 页面组合和投影 | `internal/app/listing`、Console/BFF | 当前详情的状态读取/确认入口，原上传阶段不重写 |
 
 现有 `supplychain/upload.go` 成功文案是「已上传，等待平台审核」，但现有 publication status 分派没有 SHEIN 完整回读。现有 official kind 只准 publish/image/global_create；新上架不能伪装成 publish 或另建旧 Service。
 
 **必须修正的合同缺口**：`OfficialRepository.PrepareOfficial` 会核对当前 TargetRecord head。原商品上架应绑定原成功上传 receipt 对应不可变 record，即使本地后来有新草稿也不应被替换或被 head 校验误阻止。因此新设同 owner 的 `PrepareShelfIntent(originalReceiptID, remoteSKC, site, expectedObservationDigest, confirmation)` 窄入口，只读取并验证原成功事实；原 create 准备入口的 head 不变量继续保留。
 
-合同 → 实现 → 注入 → 消费：Console/BFF 的当前 Supply 详情 → App Supply 用例 → Store Access(状态读取/上架) + 原回执读取 Port → SHEIN 纯 policy → Integration 官方 adapter → Submission Kernel/official repository；由现有 `internal/app/httpapi/supply_chain_application.go` composition 注入，不能仅写 adapter 未接 consumer。
+合同 → 实现 → 注入 → 消费：Console/BFF 的当前 Supply 详情 → App Supply 用例 → Store Access(状态读取/上架) + 原回执读取 Port → SHEIN 纯 policy → Integration 官方 adapter → Submission Kernel/official repository；由现有 `internal/app/httpapi/listing_application.go` composition 注入，不能仅写 adapter 未接 consumer。
 
 读接口返回三个独立 observation：原版本 audit、当前 SHEIN US shelf/SKU、qualified stock；各有 source、observedAt、complete/error。查询不修改原上传 receipt 或 execution 状态。共享店铺同步缓存不能代替本次原回执的精确查询，也不能消费 Supply 的 UNKNOWN fence。
 
@@ -103,7 +103,7 @@ Store 的当前经营模式与原回执模式不一致时，保留原事实并�
 
 状态读取要求既有当前店铺读权限和对应官方服务；上架要求既有当前店铺提交权限、有效服务/连接、可用官方 scope。延续现有短时 MerchantHandle 与 mutationSent one-call 约束；准备、获取 permit 后发送前都验证当前授权。等待确认期间撤权/换店/换应用/模式变化，确认失效，无发送。上架作用于相同商家身份，不允许因重新连接同一商家绕过目标 fence。
 
-Store 执行目的明确区分拟新增的 `product_status`（既有读权限，CanWrite=false）和 `product_shelf_on`（既有提交/写权限，CanWrite=true）。`internal/app/supplychain/authorization.go` 当前以非 Rules 目的推导 CanWrite，实施必须改为显式目的枚举映射，未知目的拒绝；不能将新增只读目的误变写权。read adapter 的 POST 查询仍属读操作，不消费 mutation permit；只有固定上架方法消费唯一 mutationSent。
+Store 执行目的明确区分拟新增的 `product_status`（既有读权限，CanWrite=false）和 `product_shelf_on`（既有提交/写权限，CanWrite=true）。`internal/app/listing/authorization.go` 当前以非 Rules 目的推导 CanWrite，实施必须改为显式目的枚举映射，未知目的拒绝；不能将新增只读目的误变写权。read adapter 的 POST 查询仍属读操作，不消费 mutation permit；只有固定上架方法消费唯一 mutationSent。
 
 确认摘要显示企业、店铺、模式、美国站、SKC、原 SPU/version、原计划和动作；token 绑定这些事实及预检摘要，5 分钟有效。服务器消费 token 时再次读取审计和在架状态；相关业务事实变化要求重新查询确认。摘要只包含精确身份、原计划、审核版本/结果、在架状态，不包含每次变化的 observedAt/traceId，避免重复只读查询误令确认失效。原计划未来定时、审核未通过/缺失、当前在架、权限未知都不能获得发送准入。读到已在架时直接展示当前事实并不创建发送。
 

@@ -38,7 +38,7 @@ func (*serviceFixture) ReadBatch(_ context.Context, id string) (collection.Batch
 	if !collection.ValidID(id) {
 		return collection.Batch{}, collection.ErrInvalid
 	}
-	return collection.Batch{ID: id, Name: "自有商品库", Kind: "own", Revision: 3, Count: 2, SupplyTransferSupported: true, CreatedAt: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)}, nil
+	return collection.Batch{ID: id, Name: "自有商品库", Kind: "own", Revision: 3, Count: 2, ListingTransferSupported: true, CreatedAt: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)}, nil
 }
 
 func TestCollectionBatchReadExposesExistingOwnerRevisionAndRejectsMutationInputs(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"gorm.io/gorm"
+	listingapp "task-processor/internal/app/listing"
 	reportapp "task-processor/internal/app/reportcenter"
-	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
@@ -23,10 +23,10 @@ func WithSheinTargetReportSources() CurrentApplicationOption {
 }
 
 func validateReportCenterPool(o currentApplicationOptions, source *gorm.DB) error {
-	if o.offlineRecords > 0 && (o.offlineRecords != 1 || o.offlineRecordAssets == nil || o.productCollections != 1 || o.productAcquisitionDB == nil || o.storeCenters != 1 || o.storeCenterDB == nil || o.reportCenters != 1 || o.localTrials > 0 || o.privateDraftTrials > 0 || o.offlineRecordAssets == source || o.offlineRecordAssets == o.productAcquisitionDB || o.offlineRecordAssets == o.storeCenterDB || o.offlineRecordAssets == o.reportCenterDB || o.supplyChain != nil && o.supplyChain.AssetDB != o.offlineRecordAssets || o.sourceMaterials > 0 && o.sourceMaterialDB != o.offlineRecordAssets) {
+	if o.offlineRecords > 0 && (o.offlineRecords != 1 || o.offlineRecordAssets == nil || o.productCollections != 1 || o.productAcquisitionDB == nil || o.storeCenters != 1 || o.storeCenterDB == nil || o.reportCenters != 1 || o.localTrials > 0 || o.privateDraftTrials > 0 || o.offlineRecordAssets == source || o.offlineRecordAssets == o.productAcquisitionDB || o.offlineRecordAssets == o.storeCenterDB || o.offlineRecordAssets == o.reportCenterDB || o.listing != nil && o.listing.AssetDB != o.offlineRecordAssets || o.sourceMaterials > 0 && o.sourceMaterialDB != o.offlineRecordAssets) {
 		return errors.New("offline SHEIN records require normal independent owners")
 	}
-	if o.sheinTargetReportSources > 0 && (o.sheinTargetReportSources != 1 || o.reportCenters != 1 || o.supplyChain == nil || o.privateDraftTrial != nil) {
+	if o.sheinTargetReportSources > 0 && (o.sheinTargetReportSources != 1 || o.reportCenters != 1 || o.listing == nil || o.privateDraftTrial != nil) {
 		return errors.New("SHEIN report sources require one Report owner and normal full Supply")
 	}
 	if o.reportCenters == 0 {
@@ -42,8 +42,8 @@ func validateReportCenterPool(o currentApplicationOptions, source *gorm.DB) erro
 	if o.ecoservices != nil {
 		others = append(others, o.ecoservices.DB)
 	}
-	if o.supplyChain != nil {
-		others = append(others, o.supplyChain.AssetDB)
+	if o.listing != nil {
+		others = append(others, o.listing.AssetDB)
 	}
 	if o.pod != nil {
 		others = append(others, o.pod.AssetDB)
@@ -76,7 +76,7 @@ func (m reportCenterModule) Register(r *kernelmodule.Registry) error {
 
 // These are the already mounted current-request readers. Missing owners disable
 // only new capture; reading saved reports never depends on an Agent or model.
-func buildReportCenter(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, policy *authz.ListingKitAuthorizer, product *productAgentApplication, supply *supplyapp.Application, offline ...record.Reader) (kernelmodule.Module, error) {
+func buildReportCenter(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, policy *authz.ListingKitAuthorizer, product *productAgentApplication, supply *listingapp.Application, offline ...record.Reader) (kernelmodule.Module, error) {
 	var reviews reportapp.ReviewReader
 	if product != nil {
 		reviews = product.reviews

@@ -27,7 +27,7 @@ func TestStoreObservationRolesAndScopedModules(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, allowed, permission)
 	}
-	for _, permission := range []string{"workbench.store.products.read", PermissionWorkbenchSupplyRead, PermissionWorkbenchListingSubmit, PermissionWorkbenchStoreUpdate, PermissionWorkbenchStoreLifecycle, PermissionWorkbenchStoreDelete} {
+	for _, permission := range []string{"workbench.store.products.read", PermissionWorkbenchListingRead, PermissionWorkbenchListingSubmit, PermissionWorkbenchStoreUpdate, PermissionWorkbenchStoreLifecycle, PermissionWorkbenchStoreDelete} {
 		allowed, err := a.AuthorizeScoped(context.Background(), "member", "org-a", []string{key}, permission)
 		require.NoError(t, err)
 		require.False(t, allowed, permission)

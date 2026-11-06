@@ -39,7 +39,7 @@ Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)�
 | `internal/app/httpapi/current_report_center.go::buildReportCenter` | 正常装配仅注入可选 Review reader；明确不能把当前 TargetRecord 替换为旧 offline Record | 仅从已创建的正常 `supplyRuntime.app` 注入当前只读端口，不另建 app/worker，不挂隔离试用装配 |
 | `internal/app/reportcenter/sources.go::Sources.Read` | `SHEIN_RECORD` 绑定 `record.Reader.ReadOfflinePackage`、旧 InputHash 与保存时 DiagnosticResult | 原类型/含义保留；当前来源用独立种类，不按 UUID 猜 owner、不 fallback |
 | `internal/listing/record/target/target.go::TargetRecord` | 每个保存版本有独立 ID、TargetID/Revision、原来源/effective version、Product/Inventory/Rules hash、Merchant、Input/Result 和 CreatedAt；没有旧 offline InputHash/Diagnostic | 用原不可变资料和原已保存 Issues/ReadyForUpload，不伪造诊断或当前平台结果 |
-| `internal/app/supplychain/application.go::ReadRecord` | 原 preparation read 授权、精确 ID、原 source 访问与可选原消费者检查 | 复用正常只读方法；不把 ReportManage 当成 Supply/source 权限 |
+| `internal/app/listing/application.go::ReadRecord` | 原 preparation read 授权、精确 ID、原 source 访问与可选原消费者检查 | 复用正常只读方法；不把 ReportManage 当成 Supply/source 权限 |
 | `internal/integration/persistence/listing/record/repository.go::readRecord` | SQL 限 organization/actor/member/id，验证原 body hash；保存追加记录、更新另一个 head | 精确 record ID 读取，不用当前 head 静默替换旧版本；Report 不直接读 Product SQL |
 | `internal/reportcenter/service.go::Save` | 先按 scope/key/fingerprint 找回原命令；新命令才读源/比完整 ref；Report 事务重验报告权限后保存快照/收藏初值/回执 | 复用，不建立跨库事务、新重试 owner 或补偿流程 |
 | `internal/integration/persistence/reportcenter/schema.sql` | `kind varchar(20)` 的 CHECK 只允许 TITLE_REVIEW/SHEIN_RECORD | 第三种类需要明确 schema 准入；不是只给 UI 开按钮 |

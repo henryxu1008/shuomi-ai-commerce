@@ -1028,7 +1028,7 @@ func TestCurrentSMSWebhookDoesNotRelaxProtectedImageRoutes(t *testing.T) {
 		},
 		{
 			Method: http.MethodGet,
-			Path:   supplyImageSetBase,
+			Path:   listingImageSetBase,
 			Module: "product-image-set", AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
 			OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: authz.PermissionImageAgentRead, RequestTimeout: 30 * time.Second,
 			Handler: func(c *gin.Context) {
@@ -1044,7 +1044,7 @@ func TestCurrentSMSWebhookDoesNotRelaxProtectedImageRoutes(t *testing.T) {
 	require.True(t, webhookCalled)
 
 	listingKitResponse := httptest.NewRecorder()
-	server.Handler.ServeHTTP(listingKitResponse, httptest.NewRequest(http.MethodGet, strings.ReplaceAll(supplyImageSetBase, ":source_id", "fixture"), nil))
+	server.Handler.ServeHTTP(listingKitResponse, httptest.NewRequest(http.MethodGet, strings.ReplaceAll(listingImageSetBase, ":source_id", "fixture"), nil))
 	require.Equal(t, http.StatusUnauthorized, listingKitResponse.Code)
 	require.False(t, listingKitCalled)
 }
